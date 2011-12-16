@@ -32,7 +32,7 @@
 -export([format/1,    format/2,
          replace/1,   replace/2,
          generate/1,  generate/4,  generate/0,
-         standards/1, standards/0]).
+         examples/1, examples/0]).
 
 -export([dict/0]).  %% fake dictionary module
 
@@ -328,13 +328,13 @@
                           "@codecs mymod "
                               "Origin-Host Origin-Realm\n&"}]}]).
 
-%% Standard dictionaries.
--define(STANDARDS, [rfc4004_mip,
-                    rfc4005_nas,
-                    rfc4006_cc,
-                    rfc4072_eap,
-                    rfc4590_digest,
-                    rfc4740_sip]).
+%% Standard dictionaries in examples/dict.
+-define(EXAMPLES, [rfc4004_mip,
+                   rfc4005_nas,
+                   rfc4006_cc,
+                   rfc4072_eap,
+                   rfc4590_digest,
+                   rfc4740_sip]).
 
 %% ===========================================================================
 
@@ -345,7 +345,7 @@ all() ->
     [format,
      replace,
      generate,
-     standards].
+     examples].
 
 %% Error handling testcases will make an erroneous dictionary out of
 %% the base dictionary and check that the expected error results.
@@ -432,18 +432,18 @@ generate(Mods, Bin, N, Mode) ->
         andalso ({ok, _} = compile:file(File ++ ".erl", [return_errors])).
 
 %% ===========================================================================
-%% standards/1
+%% examples/1
 %%
 %% Compile dictionaries extracted from various standards.
 
-standards() ->
-    [{timetrap, {seconds, 3*length(?STANDARDS)}}].
+examples() ->
+    [{timetrap, {seconds, 3*length(?EXAMPLES)}}].
 
-standards(Config) ->
-    Data = proplists:get_value(data_dir, Config),
-    [D || D <- ?STANDARDS, _ <- [standards(?S(D), Data)]].
+examples(_Config) ->
+    Dir = filename:join([code:lib_dir(diameter, examples), "dict"]),
+    [D || D <- ?EXAMPLES, _ <- [examples(?S(D), Dir)]].
 
-standards(Dict, Dir) ->
+examples(Dict, Dir) ->
     {Name, Pre} = make_name(Dict),
     ok = diameter_make:codec(filename:join([Dir, Dict ++ ".dia"]),
                              [{name, Name},
