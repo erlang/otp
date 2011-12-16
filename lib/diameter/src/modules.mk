@@ -88,11 +88,11 @@ BINS = \
 
 # Released files relative to ../examples.
 EXAMPLES = \
-	GNUmakefile \
-	peer.erl \
-	client.erl \
-	client_cb.erl \
-	server.erl \
-	server_cb.erl \
-	relay.erl \
-	relay_cb.erl
+	code/GNUmakefile \
+	code/peer.erl \
+	code/client.erl \
+	code/client_cb.erl \
+	code/server.erl \
+	code/server_cb.erl \
+	code/relay.erl \
+	code/relay_cb.erl

@@ -112,7 +112,7 @@ cast(Name) ->
                   {'Auth-Application-Id', 0},
                   {'Re-Auth-Request-Type', 1}],
     diameter:call(Name, ?APP_ALIAS, RAR, [detach]).
-    
+
 cast() ->
     cast(?SVC_NAME).
 

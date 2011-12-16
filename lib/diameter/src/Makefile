@@ -88,6 +88,9 @@ TARGET_FILES = \
 # Subdirectories of src to release modules into.
 TARGET_DIRS = $(sort $(dir $(TARGET_MODULES)))
 
+# Ditto for examples.
+EXAMPLE_DIRS = $(sort $(dir $(EXAMPLES)))
+
 APP_FILE   = diameter.app
 APP_SRC    = $(APP_FILE).src
 APP_TARGET = $(EBIN)/$(APP_FILE)
@@ -169,6 +172,8 @@ info:
 	@echo
 	@$(call list,EXAMPLES)
 	@echo
+	@$(call list,EXAMPLE_DIRS)
+	@echo
 	@$(call list,BINS)
 	@echo ========================================
 
@@ -189,22 +194,30 @@ endif
 # Can't $(INSTALL_DIR) more than one directory at a time on Solaris.
 
 release_spec: opt
-	for d in bin ebin examples include src/dict $(TARGET_DIRS:%/=src/%); do \
+	for d in bin ebin include src/dict; do \
 	    $(INSTALL_DIR) $(RELSYSDIR)/$$d; \
 	done
 	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) $(RELSYSDIR)/bin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(EXAMPLES:%=../examples/%) $(RELSYSDIR)/examples
 	$(INSTALL_DATA) $(EXTERNAL_HRLS:%=../include/%) $(DICT_HRLS) \
 	                $(RELSYSDIR)/include
 	$(INSTALL_DATA) $(DICTS:%=dict/%.dia) $(RELSYSDIR)/src/dict
 	$(MAKE) $(TARGET_DIRS:%/=release_src_%)
+	$(MAKE) $(EXAMPLE_DIRS:%/=release_examples_%)
 
 $(TARGET_DIRS:%/=release_src_%): release_src_%:
+	$(INSTALL_DIR) $(RELSYSDIR)/src/$*
 	$(INSTALL_DATA) $(filter $*/%, $(TARGET_MODULES:%=%.erl) \
 	                               $(INTERNAL_HRLS)) \
 	                $(filter $*/%, compiler/$(DICT_YRL).yrl) \
 	                $(RELSYSDIR)/src/$*
+
+$(EXAMPLE_DIRS:%/=release_examples_%): release_examples_%:
+	$(INSTALL_DIR) $(RELSYSDIR)/examples/$*
+	$(INSTALL_DATA) $(patsubst, %, \
+	                            ../examples/%, \
+	                            $(filter $*/%, $(EXAMPLES))) \
+	                $(RELSYSDIR)/examples/$*
 
 release_docs_spec:
 
