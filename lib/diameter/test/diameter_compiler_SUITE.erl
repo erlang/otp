@@ -330,7 +330,8 @@
 
 %% Standard dictionaries.
 -define(STANDARDS, [rfc4005_nas,
-                    rfc4006_cc]).
+                    rfc4006_cc,
+                    rfc4072_eap]).
 
 %% ===========================================================================
 
@@ -444,7 +445,9 @@ standards(Dict, Dir) ->
                              [{name, Dict} | opts(Dict)]),
     {ok, _, _} = compile:file(Dict ++ ".erl", [return]).
 
-opts("rfc4006_cc") ->
+opts(M)
+  when M == "rfc4006_cc";
+       M == "rfc4072_eap" ->
     [{inherits, "diameter_gen_nas_rfc4005/rfc4005_nas"}];
 opts(_) ->
     [].
