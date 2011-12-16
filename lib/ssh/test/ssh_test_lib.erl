@@ -139,12 +139,18 @@ reply(TestCase, Result) ->
 receive_exec_result(Msg) ->
     test_server:format("Expect data! ~p", [Msg]),
     receive
+	{ssh_cm,_,{data,_,1, Data}} ->
+	    test_server:format("StdErr: ~p~n", [Data]),
+	    receive_exec_result(Msg);
 	Msg ->
 	    test_server:format("1: Collected data ~p", [Msg]),
 	    expected;
 	Other ->
+	    test_server:format("Other ~p", [Other]),
 	    {unexpected_msg, Other}
     end.
+
+
 receive_exec_end(ConnectionRef, ChannelId) ->
     Eof = {ssh_cm, ConnectionRef, {eof, ChannelId}},
     ExitStatus = {ssh_cm, ConnectionRef, {exit_status, ChannelId, 0}},
