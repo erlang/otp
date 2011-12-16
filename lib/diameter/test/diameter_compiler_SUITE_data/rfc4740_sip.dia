@@ -22,11 +22,9 @@
 ;;
 
 @id 6
-@name   diameter_gen_sip_rfc4740
-@prefix diameter_sip
 
-@inherits diameter_gen_base_rfc3588
-@inherits diameter_gen_digest_rfc4590
+@inherits rfc3588_base
+@inherits rfc4590_digest
 
 ;; ===========================================================================
 

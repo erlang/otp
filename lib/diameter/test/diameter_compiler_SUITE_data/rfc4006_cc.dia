@@ -22,12 +22,9 @@
 ;;
 
 @id 4
-@name   diameter_gen_cc_rfc4006
-@prefix diameter_cc
 
-@inherits diameter_gen_base_rfc3588
-
-@inherits diameter_gen_nas_rfc4005 Filter-Id
+@inherits rfc3588_base
+@inherits rfc4005_nas  Filter-Id
 
 ;; ===========================================================================
 

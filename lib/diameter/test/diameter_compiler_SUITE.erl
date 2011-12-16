@@ -444,18 +444,30 @@ standards(Config) ->
     [D || D <- ?STANDARDS, _ <- [standards(?S(D), Data)]].
 
 standards(Dict, Dir) ->
+    {Name, Pre} = make_name(Dict),
     ok = diameter_make:codec(filename:join([Dir, Dict ++ ".dia"]),
-                             [{name, Dict} | opts(Dict)]),
-    {ok, _, _} = compile:file(Dict ++ ".erl", [return]).
+                             [{name, Name},
+                              {prefix, Pre},
+                              inherits("rfc3588_base")
+                              | opts(Dict)]),
+    {ok, _, _} = compile:file(Name ++ ".erl", [return]).
 
 opts(M)
   when M == "rfc4006_cc";
        M == "rfc4072_eap" ->
-    [{inherits, "diameter_gen_nas_rfc4005/rfc4005_nas"}];
+    [inherits("rfc4005_nas")];
 opts("rfc4740_sip") ->
-    [{inherits, "diameter_gen_digest_rfc4590/rfc4590_digest"}];
+    [inherits("rfc4590_digest")];
 opts(_) ->
     [].
+
+inherits(File) ->
+    {Name, _} = make_name(File),
+    {inherits, File ++ "/" ++ Name}.
+
+make_name(File) ->
+    {R, [$_|N]} = lists:splitwith(fun(C) -> C /= $_ end, File),
+    {string:join(["diameter_gen", N, R], "_"), "diameter_" ++ N}.
 
 %% ===========================================================================
 

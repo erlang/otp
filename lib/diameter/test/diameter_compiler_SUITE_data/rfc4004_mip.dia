@@ -29,10 +29,8 @@
 ;;
 
 @id 2
-@name   diameter_gen_mip_rfc4004
-@prefix diameter_mip
 
-@inherits diameter_gen_base_rfc3588
+@inherits rfc3588_base
 
 ;; ===========================================================================
 

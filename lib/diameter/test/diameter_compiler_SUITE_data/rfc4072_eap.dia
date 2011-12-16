@@ -29,11 +29,9 @@
 ;;
 
 @id 5
-@name   diameter_gen_eap_rfc4072
-@prefix diameter_eap
 
-@inherits diameter_gen_base_rfc3588
-@inherits diameter_gen_nas_rfc4005
+@inherits rfc3588_base
+@inherits rfc4005_nas
 
 ;; ===========================================================================
 

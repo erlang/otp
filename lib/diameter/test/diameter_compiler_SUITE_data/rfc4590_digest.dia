@@ -21,8 +21,6 @@
 ;; RFC 4590, RADIUS Extension for Digest Authentication
 ;;
 
-@name diameter_gen_digest_rfc4590
-
 @avp_types
 
    Digest-Response          103  OctetString  -
