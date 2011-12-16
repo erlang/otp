@@ -92,6 +92,8 @@
 -export([bytes/2, iterate/3]).
 
 
+%% System probe functions that might be handy to check from the shell
+-export([unix_free/1, memsize/0, bsd_memsize/1, win_memsize/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -3340,10 +3342,16 @@ large_write(Config) when is_list(Config) ->
 			"_large_write").
 
 do_large_write(Name) ->
-    case erlang:system_info(wordsize) of
-	4 ->
+    Memsize = memsize(),
+    io:format("Memsize = ~w Bytes~n", [Memsize]),
+    case {erlang:system_info(wordsize),Memsize} of
+	{4,_} ->
 	    {skip,"Needs a 64-bit emulator"};
-	8 ->
+	{8,N} when N < 6 bsl 30 ->
+	    {skip,
+	     "This machine has < 6 GB  memory: "
+	     ++integer_to_list(N)};
+	{8,_} ->
 	    Size = 4*1024*1024*1024+1,
 	    Bin = <<0:Size/unit:8>>,
 	    ok = file:write_file(Name, Bin),
@@ -3989,3 +3997,62 @@ unix_free(Path) ->
     RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
     {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
     list_to_integer(Avail).
+
+memsize() ->
+    case os:type() of
+	{unix,openbsd} ->
+	    bsd_memsize("hw.physmem");
+	{unix,freebsd} ->
+	    bsd_memsize("hw.physmem");
+	{unix,darwin} ->
+	    bsd_memsize("hw.memsize");
+	{unix,linux} ->
+	    Meminfo = os:cmd("cat /proc/meminfo"),
+	    Re = "^MemTotal:\\s+(\\d+)\\s+kB\$",
+	    ReOpts = [multiline,{capture,all_but_first,list}],
+	    case re:run(Meminfo, Re, ReOpts) of
+		{match,[Str]} ->
+		    list_to_integer(Str) bsl 10;
+		nomatch ->
+		    0
+	    end;
+	{win32,_} ->
+	    win_memsize(os:cmd("mem.exe"));
+	_ ->
+	    0
+    end.
+
+bsd_memsize(MIB) ->
+    Reply = os:cmd(["sysctl ",MIB]),
+    try strip_prefix(MIB, Reply) of
+	Str ->
+	    Re = "^\\s*(?::|=)\\s*(\\d+)",
+	    ReOpts =  [{capture,all_but_first,list}],
+	    case re:run(Str, Re, ReOpts) of
+		{match,[SizeStr]} ->
+		    list_to_integer(SizeStr);
+		nomatch ->
+		    0
+	    end
+    catch
+	error:_ ->
+	    0
+    end.
+
+win_memsize(Mem) ->
+    Lines = re:split(Mem, "\\R+", [trim,{return,list}]),
+    {ok,RE} = re:compile("^\\s*(\\d+)"),
+    REOpts = [{capture,all_but_first,list}],
+    Numbers =
+	[case re:run(Line, RE, REOpts) of
+	     nomatch ->
+		 0;
+	     {match,[Digits]} ->
+		 list_to_integer(Digits)
+	 end || Line <- Lines],
+    lists:foldl(fun erlang:max/2, 0, Numbers).
+
+strip_prefix([X|Prefix], [X|List]) ->
+    strip_prefix(Prefix, List);
+strip_prefix([], List) ->
+    List.
