@@ -176,7 +176,7 @@ static void encode_column_dyn(db_column column, int column_nr,
 static void encode_data_type(SQLSMALLINT sql_type, SQLINTEGER size,
 			     SQLSMALLINT decimal_digits, db_state *state);
 static Boolean decode_params(db_state *state, byte *buffer, int *index, param_array **params,
-			  int i, int j);
+			     int i, int j, int num_param_values);
 
 /*------------- Erlang port communication functions ----------------------*/
 
@@ -212,6 +212,7 @@ static db_column * alloc_column_buffer(int n);
 static void free_column_buffer(db_column **columns, int n);
 static void free_params(param_array **params, int cols);
 static void clean_state(db_state *state);
+static SQLLEN* alloc_strlen_indptr(int n, int val);
 
 /* ------------- Init/map/bind/retrive functions -------------------------*/
 
@@ -1157,7 +1158,7 @@ static db_result_msg encode_out_params(db_state *state,
                     break;
                 case SQL_C_BIT:
                     ei_x_encode_atom(&dynamic_buffer(state),
-                                     ((Boolean*)values)[j]==TRUE?"true":"false");
+                                     ((byte*)values)[j]==TRUE?"true":"false");
                     break;
                 default:
                     ei_x_encode_atom(&dynamic_buffer(state), "error");
@@ -1579,16 +1580,30 @@ static void encode_data_type(SQLSMALLINT sql_type, SQLINTEGER size,
 }
 
 static Boolean decode_params(db_state *state, byte *buffer, int *index, param_array **params,
-			  int i, int j)
+			     int i, int j, int num_param_values)
 {
     int erl_type, size;
     long bin_size, l64;
     long val;
     param_array* param;
     TIMESTAMP_STRUCT* ts;
+    char atomarray[MAXATOMLEN+1];
     
     ei_get_type(buffer, index, &erl_type, &size);
     param = &(*params)[i];
+
+    if(erl_type == ERL_ATOM_EXT) {
+	ei_decode_atom(buffer, index, atomarray);
+	if(strncmp(atomarray, "null", 4) == 0 ) {
+	    param->offset += param->type.len;
+
+	    if(!param->type.strlen_or_indptr_array)
+		param->type.strlen_or_indptr_array = alloc_strlen_indptr(num_param_values, param->type.len);
+
+	    param->type.strlen_or_indptr_array[j] = SQL_NULL_DATA;
+	    return TRUE;
+	}
+    }
 
     switch (param->type.c) {
     case SQL_C_CHAR:
@@ -1596,20 +1611,17 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 		    ei_decode_binary(buffer, index,
 				     &(param->values.string[param->offset]), &bin_size);
 		    param->offset += param->type.len;
-		    param->type.strlen_or_indptr_array[j] = SQL_NTS;
 	    } else {
 		    if(erl_type != ERL_STRING_EXT) {
 			    return FALSE;
 		    }
 		    ei_decode_string(buffer, index, &(param->values.string[param->offset]));
 		    param->offset += param->type.len;
-		    param->type.strlen_or_indptr_array[j] = SQL_NTS;
 	    }
 	    break;
     case SQL_C_WCHAR:
 	    ei_decode_binary(buffer, index, &(param->values.string[param->offset]), &bin_size);
 	    param->offset += param->type.len;
-	    param->type.strlen_or_indptr_array[j] = SQL_NTS;
 	    break;
     case SQL_C_TYPE_TIMESTAMP:
 	    ts = (TIMESTAMP_STRUCT*) param->values.string;
@@ -1661,9 +1673,13 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 	if((erl_type != ERL_ATOM_EXT)) {
 		return FALSE;
 	}
-	ei_decode_boolean(buffer, index, &(param->values.bool[j]));
+	if (strncmp((char*)atomarray,"true",4) == 0)
+	    param->values.bool[j] = TRUE;
+	else if (strncmp((char*)atomarray,"false",5) == 0)
+	    param->values.bool[j] = FALSE;
+	else
+	    return -1;
 	break;
-	
     default:
 	    return FALSE;
     }
@@ -2014,6 +2030,18 @@ static void clean_state(db_state *state)
     nr_of_columns(state) = 0;
 }
  
+/* Allocates and fill with default value StrLen_or_IndPtr array */
+static SQLLEN* alloc_strlen_indptr(int n, int val)
+{
+    int i;
+    SQLLEN* arr = (SQLLEN*)safe_malloc(n * sizeof(SQLLEN));
+
+    for( i=0; i < n; ++i )
+	arr[i] = val;
+
+    return arr;
+}
+
 /* ------------- Init/map/bind/retrive functions  ------------------------*/
 
 /* Prepare the state for a connection */
@@ -2118,7 +2146,7 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 		(double *)safe_malloc(num_param_values * params->type.len);
 	} else if(params->type.c == SQL_C_CHAR) {
 	    params->type.strlen_or_indptr_array
-		= (SQLLEN*)safe_malloc(num_param_values * sizeof(SQLINTEGER));
+		= alloc_strlen_indptr(num_param_values, SQL_NTS);
 	    params->values.string =
 		(byte *)safe_malloc(num_param_values *
 				    sizeof(byte)* params->type.len);
@@ -2136,8 +2164,8 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	 params->type.len = length+1;
 	 params->type.c = SQL_C_CHAR;
 	 params->type.col_size = (SQLUINTEGER)length;
-	 params->type.strlen_or_indptr_array =
-	     (SQLLEN*)safe_malloc(num_param_values * sizeof(SQLINTEGER));
+	 params->type.strlen_or_indptr_array
+	     = alloc_strlen_indptr(num_param_values, SQL_NTS);
 	 params->values.string =
 	    (byte *)safe_malloc(num_param_values *
 				sizeof(byte)* params->type.len);
@@ -2159,8 +2187,8 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
 	params->type.len = (length+1)*sizeof(SQLWCHAR);
         params->type.c = SQL_C_WCHAR;
         params->type.col_size = (SQLUINTEGER)length;
-        params->type.strlen_or_indptr_array =
-          (SQLLEN*)safe_malloc(num_param_values * sizeof(SQLINTEGER));
+	params->type.strlen_or_indptr_array
+	    = alloc_strlen_indptr(num_param_values, SQL_NTS);
         params->values.string =
           (byte *)safe_malloc(num_param_values * sizeof(byte) * params->type.len);
 	
@@ -2201,10 +2229,10 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
     case USER_BOOLEAN:
 	params->type.sql = SQL_BIT;
 	params->type.c = SQL_C_BIT;
-	params->type.len = sizeof(Boolean);
+	params->type.len = sizeof(byte);
 	params->type.col_size = params->type.len;
 	params->values.bool =
-	    (Boolean *)safe_malloc(num_param_values * params->type.len);
+		(byte *)safe_malloc(num_param_values * params->type.len);
 	break;
     }
     params->offset = 0;
@@ -2411,7 +2439,7 @@ static param_array * bind_parameter_arrays(byte *buffer, int *index,
 	}
   
 	for (j = 0; j < num_param_values; j++) {
-	    if(!decode_params(state, buffer, index, &params, i, j)) {
+	    if(!decode_params(state, buffer, index, &params, i, j, num_param_values)) {
 		/* An input parameter was not of the expected type */  
 		free_params(&params, i);
 		return params;
