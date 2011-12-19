@@ -245,31 +245,31 @@ init_per_testcase(Case, Timeout, Config) ->
 	      "~n~n*** INIT ~w:~w[~w] ***"
 	      "~n~n", [?MODULE, Case, Timeout]),
 
-    io:format("init_per_testcase(~w) -> entry with"
-	      "~n   Timeout: ~p"
-	      "~n   Config:  ~p"
-	      "~n"
-	      "~nwhen"
-	      "~n"
-	      "~n   OS Type:            ~p"
-	      "~n   OS version:         ~p"
-	      "~n   Sys Arch:           ~p"
-	      "~n   CPU Topology:       ~p"
-	      "~n   Num logical procs:  ~p"
-	      "~n   SMP support:        ~p"
-	      "~n   Num schedulers:     ~p"
-	      "~n   Scheduler bindings: ~p"
-	      "~n   Wordsize:           ~p"
-	      "~n~n", [Case, Timeout, Config, 
-		       os:type(), os:version(), 
-		       erlang:system_info(system_architecture),
-		       erlang:system_info(cpu_topology),
-		       erlang:system_info(logical_processors),
-		       erlang:system_info(smp_support),
-		       erlang:system_info(schedulers),
-		       erlang:system_info(scheduler_bindings),
-		       erlang:system_info(wordsize)]),
-
+    tsp("init_per_testcase(~w) -> entry with"
+	"~n   Timeout: ~p"
+	"~n   Config:  ~p"
+	"~n"
+	"~nwhen"
+	"~n"
+	"~n   OS Type:            ~p"
+	"~n   OS version:         ~p"
+	"~n   Sys Arch:           ~p"
+	"~n   CPU Topology:       ~p"
+	"~n   Num logical procs:  ~p"
+	"~n   SMP support:        ~p"
+	"~n   Num schedulers:     ~p"
+	"~n   Scheduler bindings: ~p"
+	"~n   Wordsize:           ~p"
+	"~n~n", [Case, Timeout, Config, 
+		 os:type(), os:version(), 
+		 erlang:system_info(system_architecture),
+		 erlang:system_info(cpu_topology),
+		 erlang:system_info(logical_processors),
+		 erlang:system_info(smp_support),
+		 erlang:system_info(schedulers),
+		 erlang:system_info(scheduler_bindings),
+		 erlang:system_info(wordsize)]),
+    
     PrivDir = ?config(priv_dir, Config),
     application:stop(inets),
     Dog         = test_server:timetrap(inets_test_lib:minutes(Timeout)),
@@ -1169,9 +1169,20 @@ ssl_get(SslTag, Config) when is_list(Config) ->
 		"~n   URL:        ~p"
 		"~n   SslTag:     ~p"
 		"~n   SSLOptions: ~p", [URL, SslTag, SSLOptions]),
-	    {ok, {{_,200, _}, [_ | _], Body = [_ | _]}} =
-		httpc:request(get, {URL, []}, [{ssl, SSLConfig}], []),
-	    inets_test_lib:check_body(Body);
+	    case httpc:request(get, {URL, []}, [{ssl, SSLConfig}], []) of
+		{ok, {{_,200, _}, [_ | _], Body = [_ | _]}} ->
+		    inets_test_lib:check_body(Body),
+		    ok;
+		{ok, {StatusLine, Headers, _Body}} ->
+		    tsp("ssl_get -> unexpected result: "
+			"~n   StatusLine: ~p"
+			"~n   Headers:    ~p", [StatusLine, Headers]),
+		    tsf({unexpected_response, StatusLine, Headers});
+		{error, Reason} ->
+		    tsp("ssl_get -> request failed: "
+			"~n   Reason: ~p", [Reason]),
+		    tsf({request_failed, Reason})
+	    end;
 	 {ok, _} ->
 	    {skip, "local http-server not started"}; 
 	 _ ->
