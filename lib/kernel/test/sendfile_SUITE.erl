@@ -38,20 +38,25 @@ all() ->
     ].
 
 init_per_suite(Config) ->
-    Priv = ?config(priv_dir, Config),
-    SFilename = filename:join(Priv, "sendfile_small.html"),
-    {ok, DS} = file:open(SFilename,[write,raw]),
-    file:write(DS,"yo baby yo"),
-    file:sync(DS),
-    file:close(DS),
-    BFilename = filename:join(Priv, "sendfile_big.html"),
-    {ok, DB} = file:open(BFilename,[write,raw]),
-    [file:write(DB,[<<0:(10*8*1024*1024)>>]) || _I <- lists:seq(1,51)],
-    file:sync(DB),
-    file:close(DB),
-    [{small_file, SFilename},
-     {file_opts,[raw,binary]},
-     {big_file, BFilename}|Config].
+    case {os:type(),os:version()} of
+	{{unix,sunos}, {5,8,_}} ->
+	    {skip, "Solaris 8 not supported for now"};
+	_ ->
+	    Priv = ?config(priv_dir, Config),
+	    SFilename = filename:join(Priv, "sendfile_small.html"),
+	    {ok, DS} = file:open(SFilename,[write,raw]),
+	    file:write(DS,"yo baby yo"),
+	    file:sync(DS),
+	    file:close(DS),
+	    BFilename = filename:join(Priv, "sendfile_big.html"),
+	    {ok, DB} = file:open(BFilename,[write,raw]),
+	    [file:write(DB,[<<0:(10*8*1024*1024)>>]) || _I <- lists:seq(1,51)],
+	    file:sync(DB),
+	    file:close(DB),
+	    [{small_file, SFilename},
+	     {file_opts,[raw,binary]},
+	     {big_file, BFilename}|Config]
+    end.
 
 end_per_suite(Config) ->
     file:delete(proplists:get_value(big_file, Config)).
