@@ -881,7 +881,6 @@ translate_language_element(Atom) ->
     end.
 
 old_bool_test(atom,1) -> is_atom;
-old_bool_test(constant,1) -> is_constant;
 old_bool_test(float,1) -> is_float;
 old_bool_test(integer,1) -> is_integer;
 old_bool_test(list,1) -> is_list;
@@ -896,7 +895,6 @@ old_bool_test(record,2) -> is_record;
 old_bool_test(_,_) -> undefined.
 
 bool_test(is_atom,1) -> true;
-bool_test(is_constant,1) -> true;
 bool_test(is_float,1) -> true;
 bool_test(is_integer,1) -> true;
 bool_test(is_list,1) -> true;
