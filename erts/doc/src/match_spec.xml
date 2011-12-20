@@ -75,7 +75,7 @@
       <item>MatchCondition ::= { GuardFunction } | 
        { GuardFunction, ConditionExpression, ... }
       </item>
-      <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> | <c><![CDATA[is_constant]]></c> |
+      <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> |
       <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> | <c><![CDATA[is_list]]></c> |
       <c><![CDATA[is_number]]></c> | <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
       <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> | <c><![CDATA[is_binary]]></c> |
@@ -133,7 +133,7 @@
       <item>MatchCondition ::= { GuardFunction } |
        { GuardFunction, ConditionExpression, ... }
       </item>
-      <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> | <c><![CDATA[is_constant]]></c> |
+      <item>BoolFunction ::= <c><![CDATA[is_atom]]></c> |
       <c><![CDATA[is_float]]></c> | <c><![CDATA[is_integer]]></c> | <c><![CDATA[is_list]]></c> |
       <c><![CDATA[is_number]]></c> | <c><![CDATA[is_pid]]></c> | <c><![CDATA[is_port]]></c> |
       <c><![CDATA[is_reference]]></c> | <c><![CDATA[is_tuple]]></c> | <c><![CDATA[is_binary]]></c> |
@@ -172,7 +172,7 @@
       <title>Functions allowed in all types of match specifications</title>
       <p>The different functions allowed in <c><![CDATA[match_spec]]></c> work like this:
         </p>
-      <p><em>is_atom, is_constant, is_float, is_integer, is_list, is_number, is_pid, is_port, is_reference, is_tuple, is_binary, is_function: </em> Like the corresponding guard tests in
+      <p><em>is_atom, is_float, is_integer, is_list, is_number, is_pid, is_port, is_reference, is_tuple, is_binary, is_function: </em> Like the corresponding guard tests in
         Erlang, return <c><![CDATA[true]]></c> or <c><![CDATA[false]]></c>.
         </p>
       <p><em>is_record: </em>Takes an additional parameter, which SHALL
