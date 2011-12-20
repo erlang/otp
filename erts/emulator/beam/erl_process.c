@@ -7980,15 +7980,6 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 	    if (rlnk)
 		erts_destroy_link(rlnk);
 	    erts_deref_dist_entry(dep);
-	} else {
-#ifndef ERTS_SMP
-	    /* XXX Is this possible? Shouldn't this link
-	       previously have been removed if the node
-	       had previously been disconnected. */
-	    ASSERT(0);
-#endif
-	    /* This is possible when smp support has been enabled,
-	       and dist port and process exits simultaneously. */
 	}
 	break;
 	
