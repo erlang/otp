@@ -629,10 +629,6 @@ insert(Tbl, Rec) ->
     ets:insert(Tbl, Rec),
     Rec.
 
-monitor(Pid) ->
-    erlang:monitor(process, Pid),
-    Pid.
-
 %% Using the process dictionary for the callback state was initially
 %% just a way to make what was horrendous trace (big state record and
 %% much else everywhere) somewhat more readable. There's not as much
@@ -814,10 +810,10 @@ start(Ref, Type, Opts, #state{peerT = PeerT,
                               service = Svc})
   when Type == connect;
        Type == accept ->
-    Pid = monitor(s(Type, Ref, {ConnT,
-                                Opts,
-                                SvcName,
-                                merge_service(Opts, Svc)})),
+    Pid = s(Type, Ref, {ConnT,
+                        Opts,
+                        SvcName,
+                        merge_service(Opts, Svc)}),
     insert(PeerT, #peer{pid = Pid,
                         type = Type,
                         ref = Ref,
@@ -830,7 +826,13 @@ start(Ref, Type, Opts, #state{peerT = PeerT,
 %% callbacks.
 
 s(Type, Ref, T) ->
-    diameter_watchdog:start({Type, Ref}, T).
+    case diameter_watchdog:start({Type, Ref}, T) of
+        {_MRef, Pid} ->
+            Pid;
+        Pid when is_pid(Pid) ->  %% from old code
+            erlang:monitor(process, Pid),
+            Pid
+    end.
 
 %% merge_service/2
 
