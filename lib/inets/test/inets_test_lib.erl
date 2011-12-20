@@ -34,7 +34,8 @@
 -export([tsp/1, tsp/2, tsf/1]).
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
--export([oscmd/1, has_ipv6_support/1]).
+-export([oscmd/1, has_ipv6_support/0, has_ipv6_support/1, print_system_info/1]).
+-export([run_on_os/2, run_on_windows/1]).
 -export([ensure_started/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1, skip/3, fail/3]).
 -export([flush/0]).
@@ -42,31 +43,35 @@
 
 %% -- Misc os command and stuff
 
+has_ipv6_support() ->
+    tsp("has_ipv6_support -> no ipv6_hosts config"),
+    {ok, Hostname} = inet:gethostname(),
+    case inet:getaddrs(Hostname, inet6) of
+	{ok, [Addr|_]} when is_tuple(Addr) andalso 
+			    (element(1, Addr) =/= 0) ->
+	    %% We actually need to test that the addr can be used, 
+	    %% this is done by attempting to create a (tcp) 
+	    %% listen socket
+	    tsp("has_ipv6_support -> check Addr: ~p", [Addr]),
+	    case (catch gen_tcp:listen(0, [inet6, {ip, Addr}])) of
+		{ok, LSock} ->
+		    tsp("has_ipv6_support -> we are ipv6 host"),
+		    gen_tcp:close(LSock),
+		    {ok, Addr};
+		_ ->
+		    undefined
+	    end;
+	_ ->
+	    undefined
+    end.
+    
 has_ipv6_support(Config) ->
     case lists:keysearch(ipv6_hosts, 1, Config) of
 	false ->
 	    %% Do a basic check to se if 
 	    %% our own host has a working IPv6 address...
-	    tsp("has_ipv6_support -> no ipv6_hosts config"),
-	    {ok, Hostname} = inet:gethostname(),
-	    case inet:getaddrs(Hostname, inet6) of
-		{ok, [Addr|_]} when is_tuple(Addr) andalso 
-				    (element(1, Addr) =/= 0) ->
-		    %% We actually need to test that the addr can be used, 
-		    %% this is done by attempting to create a (tcp) 
-		    %% listen socket
-		    tsp("has_ipv6_support -> check Addr: ~p", [Addr]),
-		    case (catch gen_tcp:listen(0, [inet6, {ip, Addr}])) of
-			{ok, LSock} ->
-			    tsp("has_ipv6_support -> we are ipv6 host"),
-			    gen_tcp:close(LSock),
-			    {ok, Addr};
-			_ ->
-			    undefined
-		    end;
-		_ ->
-		    undefined
-	    end;
+	    has_ipv6_support();
+
 	{value, {_, Hosts}} when is_list(Hosts) ->
 	    %% Check if our host is in the list of *known* IPv6 hosts
 	    tsp("has_ipv6_support -> Hosts: ~p", [Hosts]),
@@ -88,6 +93,49 @@ has_ipv6_support(Config) ->
 oscmd(Cmd) ->
   string:strip(os:cmd(Cmd), right, $\n).
 
+
+print_system_info([]) ->
+    do_print_system_info("System Info");
+print_system_info(Prefix) when is_list(Prefix) ->
+    NewPrefix = lists:flatten(io_lib:format("~s: System Info", [Prefix])), 
+    do_print_system_info(NewPrefix).
+
+do_print_system_info(Prefix) ->
+    tsp("~s => "
+	"~n"
+	"~n   OS Type:            ~p"
+	"~n   OS version:         ~p"
+	"~n   Sys Arch:           ~p"
+	"~n   CPU Topology:       ~p"
+	"~n   Num logical procs:  ~p"
+	"~n   SMP support:        ~p"
+	"~n   Num schedulers:     ~p"
+	"~n   Scheduler bindings: ~p"
+	"~n   Wordsize:           ~p"
+	"~n~n", [Prefix, 
+		 os:type(), os:version(), 
+		 erlang:system_info(system_architecture),
+		 erlang:system_info(cpu_topology),
+		 erlang:system_info(logical_processors),
+		 erlang:system_info(smp_support),
+		 erlang:system_info(schedulers),
+		 erlang:system_info(scheduler_bindings),
+		 erlang:system_info(wordsize)]),
+    ok.
+    
+    
+run_on_windows(Fun) ->
+    run_on_os(windows, Fun).
+
+run_on_os(windows, Fun) ->
+    case os:type() of
+	{win32, _} ->
+	    Fun();
+	_ ->
+	    ok
+    end.
+	    
+    
 %% -- Misc node operation wrapper functions --
 
 start_node(Name) ->
@@ -414,36 +462,64 @@ connect(ip_comm, Host, Port, Opts) ->
 	"~n   Host: ~p"
 	"~n   Port: ~p"
 	"~n   Opts: ~p", [Host, Port, Opts]),
-    case gen_tcp:connect(Host,Port, Opts) of
-	{ok, Socket} ->
-	    tsp("connect success"),
-	    {ok, Socket};
-	{error, nxdomain} ->
-	    tsp("connect error nxdomain when opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-	{error, eafnosupport}  ->
-	    tsp("connect error eafnosupport when opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-	{error, econnreset} ->
-	    tsp("connect error econnreset when opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-	{error, enetunreach}  ->
-	    tsp("connect error eafnosupport when opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-	{error, {enfile,_}} ->
-	    tsp("connect error enfile when opts: ~p", [Opts]),
-	    {error, enfile};
-	Error ->
-	    tsp("Unexpected error: "
-		"~n   Error: ~p"
-		"~nwhen"
-		"~n   Host:  ~p"
-		"~n   Port:  ~p"
-		"~n   Opts:  ~p"
-		"~n", [Error, Host, Port, Opts]),
-	    Error
-    end.
+    
+    %% We check for precence of inet6fb4. 
+    %% If found, we shall try inet6 and if that does not work
+    %% try inet (regardless of error reason)
+    case lists:delete(inet6fb4, Opts) of
+	Opts ->
+	    %% Nope, run as usual, where we use error reason 
+	    %% to detect if we are on IPv6 or not...
+	    case gen_tcp:connect(Host,Port, Opts) of
+		{ok, Socket} ->
+		    tsp("connect success"),
+		    {ok, Socket};
+		{error, nxdomain} ->
+		    tsp("connect error nxdomain when opts: ~p", [Opts]),
+		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
+		{error, eafnosupport}  ->
+		    tsp("connect error eafnosupport when opts: ~p", [Opts]),
+		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
+		{error, econnreset} ->
+		    tsp("connect error econnreset when opts: ~p", [Opts]),
+		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
+		{error, enetunreach}  ->
+		    tsp("connect error eafnosupport when opts: ~p", [Opts]),
+		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
+		{error, {enfile,_}} ->
+		    tsp("connect error enfile when opts: ~p", [Opts]),
+		    {error, enfile};
+		Error ->
+		    tsp("connect(ip_conn) -> Unexpected error: "
+			"~n   Error: ~p"
+			"~nwhen"
+			"~n   Host:  ~p"
+			"~n   Port:  ~p"
+			"~n   Opts:  ~p"
+			"~n", [Error, Host, Port, Opts]),
+		    Error
+	    end;
 
+	Opts2 ->
+	    %% Yep, so try first with inet6 and if that fails inet
+	    case gen_tcp:connect(Host, Port, [inet6|Opts2]) of
+		{ok, Socket} ->
+		    tsp("connect success"),
+		    {ok, Socket};
+		{error, Reason_inet6} ->
+		    tsp("inet6 connect failed: ~p", [Reason_inet6]),
+		    case gen_tcp:connect(Host, Port, [inet|Opts2]) of
+			{ok, Socket} ->
+			    tsp("connect success"),
+			    {ok, Socket};
+			{error, Reason_inet} ->
+			    tsp("inet connect also failed: ~p", [Reason_inet]),
+			    {error, {connect_failure, [{inet6, Reason_inet6}, 
+						       {inet,  Reason_inet}]}}
+		    end
+	    end
+    end.
+			
 
 send(ssl, Socket, Data) ->
     ssl:send(Socket, Data);
