@@ -39,14 +39,25 @@
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 alias(Type, Port, Host, Node) ->
-%%     io:format(user, "~w:alias -> entry with"
+    %%     io:format(user, "~w:alias -> entry with"
 %% 	      "~n   Type:       ~p"
 %% 	      "~n   Port:       ~p"
 %% 	      "~n   Host:       ~p"
 %% 	      "~n   Node:       ~p"
 %% 	      "~n", [?MODULE, Type, Port, Host, Node]),    
+
+    %% This is very crude, but...
+    io:format(user, 
+	      "alias -> Has IPv6 support: ~p", 
+	      [inets_test_lib:has_ipv6_support()]),
+    Opts = case os:type() of
+	       {win32, _} ->
+		   [inet6fb4];
+	       _ ->
+		   []
+	   end,
     
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /pics/icon.sheet.gif "
  				       "HTTP/1.0\r\n\r\n",
  				       [{statuscode, 200},
@@ -55,7 +66,7 @@ alias(Type, Port, Host, Node) ->
  					{header, "Date"},
  				        {version, "HTTP/1.0"}]),
     
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET / HTTP/1.0\r\n\r\n",
  				       [{statuscode, 200},
  					{header, "Content-Type","text/html"},
@@ -63,7 +74,7 @@ alias(Type, Port, Host, Node) ->
  					{header, "Date"},
  				        {version, "HTTP/1.0"}]),
 
-     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /misc/ HTTP/1.0\r\n\r\n",
  				       [{statuscode, 200},
  					{header, "Content-Type","text/html"},
@@ -71,8 +82,8 @@ alias(Type, Port, Host, Node) ->
  					{header, "Date"},
  				        {version, "HTTP/1.0"}]),
 
-     %% Check redirection if trailing slash is missing.
-     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
+    %% Check redirection if trailing slash is missing.
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /misc HTTP/1.0\r\n\r\n",
  				       [{statuscode, 301},
  					{header, "Location"},
