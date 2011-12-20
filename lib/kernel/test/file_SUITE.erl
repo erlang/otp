@@ -3295,7 +3295,7 @@ large_file(Config) when is_list(Config) ->
 			"_large_file").
 
 do_large_file(Name) ->
-    ?line Watchdog = ?t:timetrap(?t:minutes(5)),
+    ?line Watchdog = ?t:timetrap(?t:minutes(20)),
 
     ?line S = "1234567890",
     L = length(S),
