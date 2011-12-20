@@ -27,8 +27,6 @@
 -export([suite/0,
          all/0,
          groups/0,
-         init_per_group/2,
-         end_per_group/2,
          init_per_testcase/2,
          end_per_testcase/2]).
 
@@ -93,30 +91,26 @@
 -define(cea,            #diameter_base_CEA).
 -define(answer_message, #'diameter_base_answer-message').
 
+-define(fail(T), erlang:error({T, process_info(self(), messages)})).
+
+-define(TIMEOUT, 2000).
+
 %% ===========================================================================
 
 suite() ->
     [{timetrap, {seconds, 10}}].
 
-all() ->
-    [start, start_services, add_listeners
-     | [{group, N} || {N, _, _} <- groups()]]
-        ++ [remove_listeners, stop_services, stop].
+all() -> [start,
+          start_services,
+          add_listeners,
+          {group, all},
+          {group, all, [parallel]},
+          remove_listeners,
+          stop_services,
+          stop].
 
 groups() ->
-    Ts = testcases(),
-    [{grp(P), P, Ts} || P <- [[], [parallel]]].
-
-grp([]) ->
-    sequential;
-grp([parallel = P]) ->
-    P.
-
-init_per_group(_Name, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
+    [{all, [], lists:flatmap(fun tc/1, tc())}].
 
 %% Generate a unique hostname for each testcase so that watchdogs
 %% don't prevent a connection from being brought up immediately.
@@ -137,9 +131,6 @@ end_per_testcase(Name, Config) ->
     ok = diameter:remove_transport(?CLIENT, CRef).
 
 %% Testcases all come in two flavours, client and server.
-testcases() ->
-    lists:flatmap(fun tc/1, tc()).
-
 tc(Name) ->
     [?A([C,$_|?L(Name)]) || C <- "cs"].
 
@@ -270,8 +261,8 @@ s_client_reject(Config) ->
                            ?packet{}}}
                     = Info ->
             Info
-    after 2000 ->
-            fail({LRef, OH})
+    after ?TIMEOUT ->
+            ?fail({LRef, OH})
     end.
 
 c_client_reject(Config) ->
@@ -307,12 +298,12 @@ server_closed(Config, F, RC) ->
                                = Reason,
                                {listen, _}}} ->
             Reason
-    after 2000 ->
-            fail({LRef, OH})
+    after ?TIMEOUT ->
+            ?fail({LRef, OH})
     end.
 
 %% server_reject/3
-    
+
 server_reject(Config, F, RC) ->
     true = diameter:subscribe(?SERVER),
     OH = host(Config),
@@ -328,8 +319,8 @@ server_reject(Config, F, RC) ->
                                = Reason,
                                {listen, _}}} ->
             Reason
-    after 2000 ->
-            fail({LRef, OH})
+    after ?TIMEOUT ->
+            ?fail({LRef, OH})
     end.
 
 %% cliient_closed/4
@@ -345,13 +336,13 @@ client_closed(Config, Host, F, RC) ->
 
 %% client_recv/1
 
-client_recv(CRef) ->    
+client_recv(CRef) ->
     receive
         ?event{service = ?CLIENT,
                info = {closed, CRef, Reason, {connect, _}}} ->
             Reason
-    after 2000 ->
-            fail(CRef)
+    after ?TIMEOUT ->
+            ?fail(CRef)
     end.
 
 %% server_capx/3
@@ -372,9 +363,6 @@ client_capx(_, ?caps{origin_host = {[_,$_|"client_reject." ++ _], _}}) ->
     discard.
 
 %% ===========================================================================
-
-fail(T) ->
-    erlang:error({T, process_info(self(), messages)}).
 
 host(Config) ->
     {_, H} = lists:keyfind(host, 1, Config),

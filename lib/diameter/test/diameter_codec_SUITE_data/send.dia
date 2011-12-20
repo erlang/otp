@@ -1,0 +1,56 @@
+;;
+;; %CopyrightBegin%
+;;
+;; Copyright Ericsson AB 2010-2011. All Rights Reserved.
+;;
+;; The contents of this file are subject to the Erlang Public License,
+;; Version 1.1, (the "License"); you may not use this file except in
+;; compliance with the License. You should have received a copy of the
+;; Erlang Public License along with this software. If not, it can be
+;; retrieved online at http://www.erlang.org/.
+;;
+;; Software distributed under the License is distributed on an "AS IS"
+;; basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+;; the License for the specific language governing rights and limitations
+;; under the License.
+;;
+;; %CopyrightEnd%
+;;
+
+@id 17
+@name   diameter_test_send
+@prefix send
+
+@inherits diameter_gen_base_rfc3588
+
+    Origin-Host
+    Origin-Realm
+    Result-Code
+
+@inherits diameter_test_avps
+
+@messages
+
+      AR ::= < Diameter Header: 123, REQ >
+              { Origin-Host }
+              { Origin-Realm }
+              [ XXX ]
+              [ YYY ]
+
+      AA ::= < Diameter Header: 123 >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+            * [ AVP ]
+
+      BR ::= < Diameter Header: 124, REQ >
+              { Origin-Host }
+              { Origin-Realm }
+              [ XXX ]
+              [ YYY ]
+
+      BA ::= < Diameter Header: 124 >
+              { Result-Code }
+              { Origin-Host }
+              { Origin-Realm }
+            * [ AVP ]

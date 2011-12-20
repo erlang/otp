@@ -29,9 +29,10 @@
          end_per_suite/1]).
 
 %% testcases
--export([format/1,  format/2,
-         replace/1, replace/2,
-         generate/1, generate/4, generate/0]).
+-export([format/1,    format/2,
+         replace/1,   replace/2,
+         generate/1,  generate/4,  generate/0,
+         examples/1, examples/0]).
 
 -export([dict/0]).  %% fake dictionary module
 
@@ -327,6 +328,14 @@
                           "@codecs mymod "
                               "Origin-Host Origin-Realm\n&"}]}]).
 
+%% Standard dictionaries in examples/dict.
+-define(EXAMPLES, [rfc4004_mip,
+                   rfc4005_nas,
+                   rfc4006_cc,
+                   rfc4072_eap,
+                   rfc4590_digest,
+                   rfc4740_sip]).
+
 %% ===========================================================================
 
 suite() ->
@@ -335,7 +344,8 @@ suite() ->
 all() ->
     [format,
      replace,
-     generate].
+     generate,
+     examples].
 
 %% Error handling testcases will make an erroneous dictionary out of
 %% the base dictionary and check that the expected error results.
@@ -349,8 +359,6 @@ end_per_suite(_Config) ->
     ok.
 
 %% ===========================================================================
-%% testcases
-
 %% format/1
 %%
 %% Ensure that parse o format is the identity map.
@@ -367,6 +375,7 @@ format(Mods, Bin) ->
     {ok, D} = diameter_dict_util:parse(diameter_dict_util:format(Dict), []),
     {Dict, Dict} = {Dict, D}.
 
+%% ===========================================================================
 %% replace/1
 %%
 %% Ensure the expected success/error when parsing a morphed common
@@ -393,12 +402,13 @@ replace({E, Mods}, Bin) ->
 re({RE, Repl}, Bin) ->
     re:replace(Bin, RE, Repl, [multiline]).
 
+%% ===========================================================================
 %% generate/1
 %%
 %% Ensure success when generating code and compiling.
 
 generate() ->
-    [{timetrap, {seconds, length(?REPLACE)}}].
+    [{timetrap, {seconds, 2*length(?REPLACE)}}].
 
 generate(Config) ->
     Bin = proplists:get_value(base, Config),
@@ -420,6 +430,44 @@ generate(Mods, Bin, N, Mode) ->
                                                 Mode)},
     Mode == erl
         andalso ({ok, _} = compile:file(File ++ ".erl", [return_errors])).
+
+%% ===========================================================================
+%% examples/1
+%%
+%% Compile dictionaries extracted from various standards.
+
+examples() ->
+    [{timetrap, {seconds, 3*length(?EXAMPLES)}}].
+
+examples(_Config) ->
+    Dir = filename:join([code:lib_dir(diameter, examples), "dict"]),
+    [D || D <- ?EXAMPLES, _ <- [examples(?S(D), Dir)]].
+
+examples(Dict, Dir) ->
+    {Name, Pre} = make_name(Dict),
+    ok = diameter_make:codec(filename:join([Dir, Dict ++ ".dia"]),
+                             [{name, Name},
+                              {prefix, Pre},
+                              inherits("rfc3588_base")
+                              | opts(Dict)]),
+    {ok, _, _} = compile:file(Name ++ ".erl", [return]).
+
+opts(M)
+  when M == "rfc4006_cc";
+       M == "rfc4072_eap" ->
+    [inherits("rfc4005_nas")];
+opts("rfc4740_sip") ->
+    [inherits("rfc4590_digest")];
+opts(_) ->
+    [].
+
+inherits(File) ->
+    {Name, _} = make_name(File),
+    {inherits, File ++ "/" ++ Name}.
+
+make_name(File) ->
+    {R, [$_|N]} = lists:splitwith(fun(C) -> C /= $_ end, File),
+    {string:join(["diameter_gen", N, R], "_"), "diameter_" ++ N}.
 
 %% ===========================================================================
 

@@ -33,6 +33,7 @@ MODULES = \
 	diameter_sync_SUITE \
 	diameter_stats_SUITE \
 	diameter_watchdog_SUITE \
+	diameter_gen_sctp_SUITE \
 	diameter_transport_SUITE \
 	diameter_capx_SUITE \
 	diameter_traffic_SUITE \
@@ -42,3 +43,9 @@ MODULES = \
 
 HRL_FILES = \
 	diameter_ct.hrl
+
+DATA = \
+	diameter_codec_SUITE_data/avps.dia \
+	diameter_codec_SUITE_data/send.dia \
+	diameter_codec_SUITE_data/recv.dia \
+	diameter_codec_SUITE_data/diameter_test_unknown.erl

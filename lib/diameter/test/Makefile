@@ -50,6 +50,8 @@ TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 SUITE_MODULES = $(filter diameter_%_SUITE, $(MODULES))
 SUITES        = $(SUITE_MODULES:diameter_%_SUITE=%)
 
+DATA_DIRS = $(sort $(dir $(DATA)))
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -121,12 +123,12 @@ help:
 # diameter_ct:run/1 itself can't tell (it seems). The absolute -pa is
 # because ct will change directories.
 $(SUITES): log opt
-	$(ERL) -noshell \
+	$(ERL) -noinput \
 	       -pa $(realpath ../ebin) \
 	       -sname diameter_test_$@ \
 	       -s diameter_ct run diameter_$@_SUITE \
 	       -s init stop \
-	| awk '1{rc=0} {print} / FAILED /{rc=1} END{exit rc}'
+	| awk '{print} / FAILED /{rc=1} END{exit rc}' rc=0
 # Shorter in sed but requires a GNU extension (ie. Q).
 
 log:
@@ -147,9 +149,7 @@ else
 include $(ERL_TOP)/make/otp_release_targets.mk
 endif
 
-release_spec: 
-
-release_docs_spec:
+release_spec release_docs_spec:
 
 release_tests_spec:
 	$(INSTALL_DIR)  $(RELSYSDIR)
@@ -157,12 +157,18 @@ release_tests_spec:
 	                $(COVER_SPEC_FILE) \
 	                $(HRL_FILES) \
 	                $(RELSYSDIR)
+	$(MAKE) $(DATA_DIRS:%/=release_data_%)
 	$(MAKE) $(ERL_FILES:%=/%)
+
+$(DATA_DIRS:%/=release_data_%): release_data_%:
+	$(INSTALL_DIR) $(RELSYSDIR)/$*
+	$(INSTALL_DATA) $(filter $*/%, $(DATA)) $(RELSYSDIR)/$*
 
 force:
 
 .PHONY: release_spec release_docs_spec release_test_specs
 .PHONY: force
+.PHONY: $(DATA_DIRS:%/=release_data_%)
 
 # Can't just make $(ERL_FILES:%=/%) phony since then implicit rule
 # searching is skipped.

@@ -27,8 +27,6 @@
 -export([suite/0,
          all/0,
          groups/0,
-         init_per_group/2,
-         end_per_group/2,
          init_per_suite/1,
          end_per_suite/1]).
 
@@ -92,22 +90,19 @@ suite() ->
     [{timetrap, {minutes, 2}}].
 
 all() ->
-    [start | tc()] ++ [{group, all}, stop].
+    [start,
+     {group, all},
+     {group, all, [parallel]},
+     stop].
 
 groups() ->
-    [{all, [parallel], tc()}].
+    [{all, [], tc()}].
 
 tc() ->
     [tcp_accept,
      tcp_connect,
      sctp_accept,
      sctp_connect].
-
-init_per_group(_, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
 
 init_per_suite(Config) ->
     [{sctp, have_sctp()} | Config].
@@ -175,15 +170,12 @@ connect(Prot) ->
 %% have_sctp/0
 
 have_sctp() ->
-    try gen_sctp:open() of
+    case gen_sctp:open() of
         {ok, Sock} ->
             gen_sctp:close(Sock),
             true;
         {error, E} when E == eprotonosupport;
                         E == esocktnosupport -> %% fail on any other reason
-            false
-    catch
-        error: badarg ->
             false
     end.
 
@@ -220,7 +212,7 @@ init(gen_connect, {Prot, Ref}) ->
     [PortNr] = ?util:lport(Prot, Ref, 20),
 
     %% Connect, send a message and receive it back.
-    {ok, Sock} = gen_connect(Prot, PortNr, Ref),
+    {ok, Sock} = gen_connect(Prot, PortNr),
     Bin = make_msg(),
     ok = gen_send(Prot, Sock, Bin),
     Bin = gen_recv(Prot, Sock);
@@ -359,20 +351,7 @@ tmod(tcp) ->
 
 %% ===========================================================================
 
-%% gen_connect/3
-
-gen_connect(Prot, PortNr, Ref) ->
-    Pid = sync(connect, Ref),
-
-    %% Stagger connect attempts to avoid the situation that no
-    %% transport process is accepting yet.
-    receive after 250 -> ok end,
-
-    try
-        gen_connect(Prot, PortNr)
-    after
-        Pid ! Ref
-    end.
+%% gen_connect/2
 
 gen_connect(sctp = P, PortNr) ->
     {ok, Sock} = Ok = gen_sctp:open([{ip, ?ADDR}, {port, 0} | ?SCTP_OPTS]),

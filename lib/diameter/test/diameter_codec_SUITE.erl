@@ -35,7 +35,8 @@
 %% testcases
 -export([base/1,
          gen/1,
-         lib/1]).
+         lib/1,
+         unknown/1]).
 
 -include("diameter_ct.hrl").
 
@@ -47,7 +48,7 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [base, gen, lib].
+    [base, gen, lib, unknown].
 
 init_per_testcase(gen, Config) ->
     [{application, ?APP, App}] = diameter_util:consult(?APP, app),
@@ -74,3 +75,26 @@ gen([{dicts, Ms} | _]) ->
 
 lib(_Config) ->
     diameter_codec_test:lib().
+
+%% Have a separate AVP dictionary just to exercise more code.
+unknown(Config) ->
+    Priv = proplists:get_value(priv_dir, Config),
+    Data = proplists:get_value(data_dir, Config),
+    ok = make(Data, "recv.dia"),
+    ok = make(Data, "avps.dia"),
+    {ok, _, _} = compile("diameter_test_avps.erl"),
+    ok = make(Data, "send.dia"),
+    {ok, _, _} = compile("diameter_test_send.erl"),
+    {ok, _, _} = compile("diameter_test_recv.erl"),
+    {ok, _, _} = compile(filename:join([Data, "diameter_test_unknown.erl"]),
+                         [{i, Priv}]),
+    diameter_test_unknown:run().
+
+make(Dir, File) ->
+    diameter_make:codec(filename:join([Dir, File])).
+
+compile(File) ->
+    compile(File, []).
+
+compile(File, Opts) ->
+    compile:file(File, [return | Opts]).

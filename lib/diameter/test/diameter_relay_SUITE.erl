@@ -35,9 +35,7 @@
 
 -export([suite/0,
          all/0,
-         groups/0,
-         init_per_group/2,
-         end_per_group/2]).
+         groups/0]).
 
 %% testcases
 -export([start/1,
@@ -117,21 +115,17 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [start, start_services, connect]
-        ++ tc()
-        ++ [{group, all},
-            disconnect,
-            stop_services,
-            stop].
+    [start,
+     start_services,
+     connect,
+     {group, all},
+     {group, all, [parallel]},
+     disconnect,
+     stop_services,
+     stop].
 
 groups() ->
-    [{all, [parallel], tc()}].
-
-init_per_group(_, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
+    [{all, [], tc()}].
 
 %% Traffic cases run when services are started and connections
 %% established.
@@ -248,7 +242,7 @@ call(Server) ->
 
 call(Req, Opts) ->
     diameter:call(?CLIENT, ?APP_ALIAS, Req, Opts).
-    
+
 set([H|T], Vs) ->
     [H | Vs ++ T].
 
