@@ -306,11 +306,8 @@ watchdog(Type, Ref, TPid, Wd) ->
     Opts = [{transport_module, ?MODULE},
             {transport_config, TPid},
             {watchdog_timer, Wd}],
-    monitor(diameter_watchdog:start({Type, Ref},
-                                    {false, Opts, false, ?SERVICE})).
-
-monitor(Pid) ->
-    erlang:monitor(process, Pid),
+    {_MRef, Pid} = diameter_watchdog:start({Type, Ref},
+                                           {false, Opts, false, ?SERVICE}),
     Pid.
 
 %% ===========================================================================
@@ -349,6 +346,10 @@ init(Type, ParentPid, undefined, N) ->
 init(_, _, TPid, _) ->
     monitor(TPid),
     3.
+
+monitor(Pid) ->
+    erlang:monitor(process, Pid),
+    Pid.
 
 %% Generate a unique hostname for the faked peer.
 hostname() ->

@@ -59,10 +59,19 @@
          message_data}).   %% term passed into diameter_service with message
 
 %% start/2
+%%
+%% Start a monitor before the watchdog is allowed to proceed to ensure
+%% that a failed capabilities exchange produces the desired exit
+%% reason.
 
 start({_,_} = Type, T) ->
-    {ok, Pid} = diameter_watchdog_sup:start_child({Type, self(), T}),
-    Pid.
+    Ref = make_ref(),
+    {ok, Pid} = diameter_watchdog_sup:start_child({Ref, {Type, self(), T}}),
+    try
+        {erlang:monitor(process, Pid), Pid}
+    after
+        Pid ! Ref
+    end.
 
 start_link(T) ->
     {ok, _} = proc_lib:start_link(?MODULE,
@@ -80,14 +89,29 @@ init(T) ->
     proc_lib:init_ack({ok, self()}),
     gen_server:enter_loop(?MODULE, [], i(T)).
 
-i({T, Pid, {ConnT, Opts, SvcName, #diameter_service{applications = Apps,
-                                                    capabilities = Caps}
-                                  = Svc}}) ->
-    {M,S,U} = now(),
-    random:seed(M,S,U),
+i({Ref, {_, Pid, _} = T}) ->
+    MRef = erlang:monitor(process, Pid),
+    receive
+        Ref ->
+            make_state(T);
+        {'DOWN', MRef, process, _, _} = D ->
+            exit({shutdown, D})
+    end;
+
+i({_, Pid, _} = T) ->  %% from old code
+    erlang:monitor(process, Pid),
+    make_state(T).
+
+make_state({T, Pid, {ConnT,
+                     Opts,
+                     SvcName,
+                     #diameter_service{applications = Apps,
+                                       capabilities = Caps}
+                     = Svc}}) ->
+    random:seed(now()),
     putr(restart, {T, Opts, Svc}),  %% save seeing it in trace
     putr(dwr, dwr(Caps)),           %%
-    #watchdog{parent = monitor(Pid),
+    #watchdog{parent = Pid,
               transport = monitor(diameter_peer_fsm:start(T, Opts, Svc)),
               tw = proplists:get_value(watchdog_timer,
                                        Opts,

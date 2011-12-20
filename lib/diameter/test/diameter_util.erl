@@ -212,7 +212,7 @@ read_priv(Config, Name) ->
 read(Path) ->
     {ok, Bin} = file:read_file(Path),
     binary_to_term(Bin).
-    
+
 %% map_priv/3
 %%
 %% Modify a term in a file and return both old and new values.

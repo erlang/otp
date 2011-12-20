@@ -36,8 +36,6 @@
 -export([suite/0,
          all/0,
          groups/0,
-         init_per_group/2,
-         end_per_group/2,
          init_per_suite/1,
          end_per_suite/1]).
 
@@ -136,20 +134,16 @@ all() ->
      start_diameter,
      make_certs,
      start_services,
-     add_transports]
-        ++ [{group, N} || {N, _, _} <- groups()]
-        ++ [remove_transports, stop_services, stop_diameter, stop_ssl].
+     add_transports,
+     {group, all},
+     {group, all, [parallel]},
+     remove_transports,
+     stop_services,
+     stop_diameter,
+     stop_ssl].
 
 groups() ->
-    Ts = tc(),
-    [{all, [], Ts},
-     {p, [parallel], Ts}].
-
-init_per_group(_, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
+    [{all, [], tc()}].
 
 %% Shouldn't really have to know about crypto here but 'ok' from
 %% ssl:start() isn't enough to guarantee that TLS is available.

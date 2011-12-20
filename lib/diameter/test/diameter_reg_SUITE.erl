@@ -26,8 +26,6 @@
 -export([suite/0,
          all/0,
          groups/0,
-         init_per_group/2,
-         end_per_group/2,
          init_per_suite/1,
          end_per_suite/1]).
 
@@ -48,10 +46,11 @@ suite() ->
     [{timetrap, {seconds, 10}}].
 
 all() ->
-    [{group, all} | tc()].
+    [{group, all},
+     {group, all, [parallel]}].
 
 groups() ->
-    [{all, [parallel], tc()}].
+    [{all, [], tc()}].
 
 tc() ->
     [add,
@@ -60,12 +59,6 @@ tc() ->
      repl,
      terms,
      pids].
-
-init_per_group(_, Config) ->
-    Config.
-
-end_per_group(_, _) ->
-    ok.
 
 init_per_suite(Config) ->
     ok = diameter:start(),
