@@ -629,6 +629,8 @@ asm_passes() ->
       [{unless,no_postopt,
 	[{pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
+	 {unless,no_except,{pass,beam_except}},
+	 {iff,dexcept,{listing,"except"}},
 	 {unless,no_bopt,{pass,beam_bool}},
 	 {iff,dbool,{listing,"bool"}},
 	 {unless,no_topt,{pass,beam_type}},
