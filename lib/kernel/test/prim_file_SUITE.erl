@@ -1343,10 +1343,15 @@ do_large_write(Name) ->
     Chunk = <<0:ChunkSize/unit:8>>,
     Data = zip_data(lists:duplicate(Chunks, Chunk), Interleave),
     Size = Chunks * ChunkSize + Chunks,	% 4 G + 32
-    ok = prim_file:write_file(Name, Data),
-    {ok,#file_info{size=Size}} = file:read_file_info(Name),
-    {ok,Fd} = prim_file:open(Name, [read]),
-    check_large_write(Dog, Fd, ChunkSize, 0, Interleave).
+    Wordsize = erlang:system_info(wordsize),
+    case prim_file:write_file(Name, Data) of
+	ok when Wordsize =:= 8 ->
+	    {ok,#file_info{size=Size}} = file:read_file_info(Name),
+	    {ok,Fd} = prim_file:open(Name, [read]),
+	    check_large_write(Dog, Fd, ChunkSize, 0, Interleave);
+	{error,einval} when Wordsize =:= 4 ->
+	    ok
+    end.
 
 check_large_write(Dog, Fd, ChunkSize, Pos, [X|Interleave]) ->
     Pos1 = Pos + ChunkSize,
