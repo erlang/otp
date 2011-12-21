@@ -34,8 +34,10 @@
 
 %% API tests
 -export([ sup_start_normal/1, sup_start_ignore_init/1, 
-	  sup_start_ignore_child/1, sup_start_error_return/1,
-	  sup_start_fail/1, sup_stop_infinity/1,
+	  sup_start_ignore_child/1, sup_start_ignore_temporary_child/1,
+	  sup_start_ignore_temporary_child_start_child/1,
+	  sup_start_ignore_temporary_child_start_child_simple/1,
+	  sup_start_error_return/1, sup_start_fail/1, sup_stop_infinity/1,
 	  sup_stop_timeout/1, sup_stop_brutal_kill/1, child_adm/1,
 	  child_adm_simple/1, child_specs/1, extra_return/1]).
 
@@ -85,8 +87,10 @@ all() ->
 groups() -> 
     [{sup_start, [],
       [sup_start_normal, sup_start_ignore_init,
-       sup_start_ignore_child, sup_start_error_return,
-       sup_start_fail]},
+       sup_start_ignore_child, sup_start_ignore_temporary_child,
+       sup_start_ignore_temporary_child_start_child,
+       sup_start_ignore_temporary_child_start_child_simple,
+       sup_start_error_return, sup_start_fail]},
      {sup_stop, [],
       [sup_stop_infinity, sup_stop_timeout,
        sup_stop_brutal_kill]},
@@ -189,6 +193,59 @@ sup_start_ignore_child(Config) when is_list(Config) ->
     [{child2, CPid2, worker, []},{child1, undefined, worker, []}]
 	= supervisor:which_children(sup_test),
     [2,1,0,2] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+%% Tests what happens if child's init-callback returns ignore for a
+%% temporary child when ChildSpec is returned directly from supervisor
+%% init callback.
+%% Child spec shall NOT be saved!!!
+sup_start_ignore_temporary_child(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = {child1, {supervisor_1, start_child, [ignore]},
+	      temporary, 1000, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, temporary,
+	      1000, worker, []},
+    {ok, _Pid}  = start_link({ok, {{one_for_one, 2, 3600}, [Child1,Child2]}}),
+
+    [{child2, CPid2, worker, []}] = supervisor:which_children(sup_test),
+    true = is_pid(CPid2),
+    [1,1,0,1] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+%% Tests what happens if child's init-callback returns ignore for a
+%% temporary child when child is started with start_child/2.
+%% Child spec shall NOT be saved!!!
+sup_start_ignore_temporary_child_start_child(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, _Pid}  = start_link({ok, {{one_for_one, 2, 3600}, []}}),
+    Child1 = {child1, {supervisor_1, start_child, [ignore]},
+	      temporary, 1000, worker, []},
+    Child2 = {child2, {supervisor_1, start_child, []}, temporary,
+	      1000, worker, []},
+
+    {ok, undefined} = supervisor:start_child(sup_test, Child1),
+    {ok, CPid2} = supervisor:start_child(sup_test, Child2),
+
+    [{child2, CPid2, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+%% Tests what happens if child's init-callback returns ignore for a
+%% temporary child when child is started with start_child/2, and the
+%% supervisor is simple_one_for_one.
+%% Child spec shall NOT be saved!!!
+sup_start_ignore_temporary_child_start_child_simple(Config)
+  when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = {child1, {supervisor_1, start_child, [ignore]},
+	      temporary, 1000, worker, []},
+    {ok, _Pid}  = start_link({ok, {{simple_one_for_one, 2, 3600}, [Child1]}}),
+
+    {ok, undefined} = supervisor:start_child(sup_test, []),
+    {ok, CPid2} = supervisor:start_child(sup_test, []),
+
+    [{undefined, CPid2, worker, []}] = supervisor:which_children(sup_test),
+    [1,1,0,1] = get_child_counts(sup_test).
 
 %%-------------------------------------------------------------------------
 %% Tests what happens if init-callback returns a invalid value.
