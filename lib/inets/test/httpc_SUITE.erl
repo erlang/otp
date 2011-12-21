@@ -156,6 +156,9 @@ groups() ->
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+
+    ?PRINT_SYSTEM_INFO([]),
+
     PrivDir = ?config(priv_dir, Config),
     DataDir = ?config(data_dir, Config),
     ServerRoot = filename:join(PrivDir, "server_root"),
@@ -179,8 +182,8 @@ init_per_suite(Config) ->
     {ok, FileInfo} = file:read_file_info(Cgi),
     ok = file:write_file_info(Cgi, FileInfo#file_info{mode = 8#00755}),
 
-    [{server_root,      ServerRoot}, 
-     {has_ipv6_support, inets_test_lib:has_ipv6_support()}, 
+    [{has_ipv6_support, inets_test_lib:has_ipv6_support()}, 
+     {server_root,      ServerRoot}, 
      {doc_root,         DocRoot},
      {local_port,       ?IP_PORT}, 
      {local_ssl_port,   ?SSL_PORT} | Config].
@@ -198,6 +201,7 @@ end_per_suite(Config) ->
     application:stop(inets),
     application:stop(ssl),
     ok.
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(Case, Config) -> Config
@@ -246,8 +250,6 @@ init_per_testcase(Case, Timeout, Config) ->
 	      "~n~n*** INIT ~w:~w[~w] ***"
 	      "~n~n", [?MODULE, Case, Timeout]),
 
-    ?PRINT_SYSTEM_INFO("init_per_testcase"),
-    
     PrivDir = ?config(priv_dir, Config),
     application:stop(inets),
     Dog         = test_server:timetrap(inets_test_lib:minutes(Timeout)),

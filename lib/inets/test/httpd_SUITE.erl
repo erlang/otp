@@ -314,6 +314,8 @@ init_per_suite(Config) ->
 	      "~n   Config: ~p"
 	      "~n", [Config]),
 
+    ?PRINT_SYSTEM_INFO([]),
+
     PrivDir = ?config(priv_dir, Config),
     SuiteTopDir = filename:join(PrivDir, ?MODULE),
     case file:make_dir(SuiteTopDir) of
