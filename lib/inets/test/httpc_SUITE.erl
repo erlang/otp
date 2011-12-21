@@ -179,10 +179,11 @@ init_per_suite(Config) ->
     {ok, FileInfo} = file:read_file_info(Cgi),
     ok = file:write_file_info(Cgi, FileInfo#file_info{mode = 8#00755}),
 
-    [{server_root,    ServerRoot}, 
-     {doc_root,       DocRoot},
-     {local_port,     ?IP_PORT}, 
-     {local_ssl_port, ?SSL_PORT} | Config].
+    [{server_root,      ServerRoot}, 
+     {has_ipv6_support, inets_test_lib:has_ipv6_support()}, 
+     {doc_root,         DocRoot},
+     {local_port,       ?IP_PORT}, 
+     {local_ssl_port,   ?SSL_PORT} | Config].
 
 
 %%--------------------------------------------------------------------
