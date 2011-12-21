@@ -44,7 +44,7 @@ all() ->
      trycatch_4, opt_crash, otp_5404, otp_5436, otp_5481,
      otp_5553, otp_5632, otp_5714, otp_5872, otp_6121,
      otp_6121a, otp_6121b, otp_7202, otp_7345, on_load,
-     string_table,otp_8949_a,otp_8949_a].
+     string_table,otp_8949_a,otp_8949_a,split_cases].
 
 groups() -> 
     [{vsn, [], [vsn_1, vsn_2, vsn_3]}].
@@ -657,5 +657,19 @@ otp_8949_b(A, B) ->
 	    id(Var)
     end.
     
+split_cases(_) ->
+    dummy1 = do_split_cases(x),
+    {'EXIT',{{badmatch,b},_}} = (catch do_split_cases(y)),
+    ok.
+
+do_split_cases(A) ->
+    case A of
+        x ->
+	    Z = dummy1;
+        _ ->
+	    Z = dummy2,
+	    a=b
+    end,
+    Z.
 
 id(I) -> I.
