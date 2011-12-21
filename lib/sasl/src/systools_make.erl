@@ -1682,6 +1682,7 @@ add_system_files(Tar, RelName, Release, Path1) ->
 	false ->
 	    ignore;
 	Relup ->
+	    check_relup(Relup),
 	    add_to_tar(Tar, Relup, filename:join(RelVsnDir, "relup"))
     end,
 
@@ -1689,6 +1690,7 @@ add_system_files(Tar, RelName, Release, Path1) ->
 	false ->
 	    ignore;
 	Sys ->
+	    check_sys_config(Sys),
 	    add_to_tar(Tar, Sys, filename:join(RelVsnDir, "sys.config"))
     end,
     
@@ -1704,6 +1706,44 @@ lookup_file(Name, [Dir|Path]) ->
     end;
 lookup_file(_Name, []) ->
     false.
+
+%% Check that relup can be parsed and has expected format
+check_relup(File) ->
+    case file:consult(File) of
+	{ok,[{Vsn,UpFrom,DownTo}]} when is_list(Vsn), is_integer(hd(Vsn)),
+					is_list(UpFrom), is_list(DownTo) ->
+	    ok;
+	{ok,_} ->
+	    throw({error,{tar_error,{add,"relup",[invalid_format]}}});
+	Other ->
+	    throw({error,{tar_error,{add,"relup",[Other]}}})
+    end.
+
+%% Check that sys.config can be parsed and has expected format
+check_sys_config(File) ->
+    case file:consult(File) of
+	{ok,[SysConfig]} ->
+	    case lists:all(fun({App,KeyVals}) when is_atom(App),
+						   is_list(KeyVals)->
+				   true;
+			      (OtherConfig) when is_list(OtherConfig),
+						 is_integer(hd(OtherConfig)) ->
+				   true;
+			      (_) ->
+				   false
+			   end,
+			   SysConfig) of
+		true ->
+		    ok;
+		false ->
+		    throw({error,{tar_error,
+				  {add,"sys.config",[invalid_format]}}})
+	    end;
+	{ok,_} ->
+	    throw({error,{tar_error,{add,"sys.config",[invalid_format]}}});
+	Other ->
+	    throw({error,{tar_error,{add,"sys.config",[Other]}}})
+    end.
 
 %%______________________________________________________________________
 %% Add either a application located under a variable dir or all other

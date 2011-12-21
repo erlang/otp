@@ -46,9 +46,11 @@
 	 included_script/1, included_override_script/1,
 	 included_fail_script/1, included_bug_script/1, exref_script/1,
 	 otp_3065_circular_dependenies/1]).
--export([tar_options/1, normal_tar/1, no_mod_vsn_tar/1, variable_tar/1,
-	 src_tests_tar/1, var_tar/1,
-	 exref_tar/1, link_tar/1, otp_9507_path_ebin/1]).
+-export([tar_options/1, normal_tar/1, no_mod_vsn_tar/1, system_files_tar/1,
+	 system_files_tar/2, invalid_system_files_tar/1,
+	 invalid_system_files_tar/2, variable_tar/1,
+	 src_tests_tar/1, var_tar/1, exref_tar/1, link_tar/1,
+	 otp_9507_path_ebin/1]).
 -export([normal_relup/1, restart_relup/1, abnormal_relup/1, no_sasl_relup/1,
 	 no_appup_relup/1, bad_appup_relup/1, app_start_type_relup/1,
 	 regexp_relup/1]).
@@ -80,7 +82,8 @@ groups() ->
        included_fail_script, included_bug_script, exref_script,
        otp_3065_circular_dependenies]},
      {tar, [],
-      [tar_options, normal_tar, no_mod_vsn_tar, variable_tar,
+      [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
+       invalid_system_files_tar, variable_tar,
        src_tests_tar, var_tar, exref_tar, link_tar, otp_9507_path_ebin]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
@@ -146,7 +149,10 @@ init_per_testcase(_Case, Config) ->
     Dog = test_server:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(Case, Config) ->
+    try apply(?MODULE,Case,[cleanup,Config])
+    catch error:undef -> ok
+    end,
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     case {?config(path,Config),?config(cwd,Config)} of
@@ -763,6 +769,102 @@ no_mod_vsn_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(OldDir),
     ok.
+
+
+%% make_tar: Check that relup or sys.config are included if they exist
+system_files_tar(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    %% Add dummy relup and sys.config
+    ok = file:write_file("sys.config","[].\n"),
+    ok = file:write_file("relup","{\"LATEST\",[],[]}.\n"),
+
+    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+    ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
+    {ok, _, _} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+    ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
+
+    ok = file:set_cwd(OldDir),
+
+    ok.
+
+system_files_tar(cleanup,Config) ->
+    Dir = ?privdir,
+    file:delete(filename:join(Dir,"sys.config")),
+    file:delete(filename:join(Dir,"relup")),
+    ok.
+
+
+%% make_tar: Check that make_tar fails if relup or sys.config exist
+%% but do not have valid content
+invalid_system_files_tar(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, _} = systools:make_script(LatestName, [silent, {path, P}]),
+
+    %% Add dummy relup and sys.config - faulty sys.config
+    ok = file:write_file("sys.config","[]\n"), %!!! syntax error - missing '.'
+    ok = file:write_file("relup","{\"LATEST\",[],[]}.\n"),
+
+    error = systools:make_tar(LatestName, [{path, P}]),
+    {error,_,{tar_error,{add,"sys.config",[{error,_}]}}} =
+	systools:make_tar(LatestName, [{path, P}, silent]),
+
+    %% Add dummy relup and sys.config - faulty sys.config
+    ok = file:write_file("sys.config","[x,y].\n"), %!!! faulty format
+    ok = file:write_file("relup","{\"LATEST\",[],[]}.\n"),
+
+    error = systools:make_tar(LatestName, [{path, P}]),
+    {error,_,{tar_error,{add,"sys.config",[invalid_format]}}} =
+	systools:make_tar(LatestName, [{path, P}, silent]),
+
+    %% Add dummy relup and sys.config - faulty relup
+    ok = file:write_file("sys.config","[]\n"),
+    ok = file:write_file("relup","{\"LATEST\"\n"), %!!! syntax error - truncated
+
+    error = systools:make_tar(LatestName, [{path, P}]),
+    {error,_,{tar_error,{add,"relup",[{error,_}]}}} =
+	systools:make_tar(LatestName, [{path, P}, silent]),
+
+    %% Add dummy relup and sys.config - faulty relup
+    ok = file:write_file("sys.config","[]\n"),
+    ok = file:write_file("relup","[].\n"), %!!! faulty format
+
+    error = systools:make_tar(LatestName, [{path, P}]),
+    {error,_,{tar_error,{add,"relup",[invalid_format]}}} =
+	systools:make_tar(LatestName, [{path, P}, silent]),
+
+    ok = file:set_cwd(OldDir),
+
+    ok.
+
+invalid_system_files_tar(cleanup,Config) ->
+    Dir = ?privdir,
+    file:delete(filename:join(Dir,"sys.config")),
+    file:delete(filename:join(Dir,"relup")),
+    ok.
+
 
 %% make_tar: Use variable and create separate tar (included in generated tar).
 variable_tar(Config) when is_list(Config) ->
