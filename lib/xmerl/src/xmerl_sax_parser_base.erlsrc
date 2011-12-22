@@ -762,7 +762,7 @@ parse_attributes(?STRING_UNBOUND_REST(C, Rest), State, {Tag, AttList, NsList}) -
 		    end
 	    end;
 	false ->
-	    ?fatal_error(State,  "Invalid start character in attribute name: " ++ C)
+	    ?fatal_error(State,  "Invalid start character in attribute name: " ++ [C])
     end;
 parse_attributes(Bytes, State, CurrentTag) ->
     unicode_incomplete_check([Bytes, State, CurrentTag, fun parse_attributes/3],
@@ -2057,14 +2057,18 @@ parse_element_content(Bytes, State) ->
 parse_element_content_1(?STRING_EMPTY, State, Acc) ->
         cf(?STRING_EMPTY, State, Acc, fun parse_element_content_1/3);
 parse_element_content_1(?STRING_REST(">", Rest), State, Acc) ->
-    {lists:reverse(Acc), Rest, State};
+    {lists:reverse(delete_leading_whitespace(Acc)), Rest, State};
 parse_element_content_1(?STRING_UNBOUND_REST(C, Rest), State, Acc) ->
     parse_element_content_1(Rest, State, [C|Acc]);
 parse_element_content_1(Bytes, State, Acc) ->
     unicode_incomplete_check([Bytes, State, Acc, fun parse_element_content_1/3], 
 			     undefined).
 
-
+delete_leading_whitespace([C |Acc]) when ?is_whitespace(C)->
+    delete_leading_whitespace(Acc);
+delete_leading_whitespace(Acc) ->
+    Acc.
+								   
 %%----------------------------------------------------------------------
 %% Function  : parse_att_list_decl(Rest, State) -> Result
 %% Parameters: Rest = string() | binary()
