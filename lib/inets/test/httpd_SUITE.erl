@@ -327,10 +327,11 @@ init_per_suite(Config) ->
             throw({error, {failed_creating_suite_top_dir, Error}})
     end,
 
-    [{suite_top_dir, SuiteTopDir},
-     {node,          node()},
-     {host,          inets_test_lib:hostname()},
-     {address,       getaddr()} | Config].
+    [{has_ipv6_support, inets_test_lib:has_ipv6_support()}, 
+     {suite_top_dir,    SuiteTopDir},
+     {node,             node()},
+     {host,             inets_test_lib:hostname()},
+     {address,          getaddr()} | Config].
 
 
 %%--------------------------------------------------------------------
@@ -365,10 +366,9 @@ init_per_testcase(Case, Config) ->
 
 init_per_testcase2(Case, Config) ->
 
-    io:format(user, "~w:init_per_testcase2(~w) -> entry with"
-	      "~n   Config: ~p"
-	      "~n", [?MODULE, Case, Config]),
-
+    tsp("init_per_testcase2(~w) -> entry with"
+	"~n   Config: ~p", [Case, Config]),
+    
     IpNormal    = integer_to_list(?IP_PORT)    ++ ".conf",
     IpHtaccess  = integer_to_list(?IP_PORT)   ++ "htaccess.conf",
     SslNormal   = integer_to_list(?SSL_PORT)  ++ ".conf",
@@ -377,39 +377,33 @@ init_per_testcase2(Case, Config) ->
     DataDir     = ?config(data_dir, Config),
     SuiteTopDir = ?config(suite_top_dir, Config),
 
-    io:format(user, "~w:init_per_testcase2(~w) -> "
-	      "~n   SuiteDir: ~p"
-	      "~n   DataDir: ~p"
-	      "~n", [?MODULE, Case, SuiteTopDir, DataDir]),
+    tsp("init_per_testcase2(~w) -> "
+	"~n   SuiteDir: ~p"
+	"~n   DataDir:  ~p", [Case, SuiteTopDir, DataDir]),
     
     TcTopDir = filename:join(SuiteTopDir, Case),
     ?line ok = file:make_dir(TcTopDir),
 
-    io:format(user, "~w:init_per_testcase2(~w) -> "
-	      "~n   TcTopDir: ~p"
-	      "~n", [?MODULE, Case, TcTopDir]),
+    tsp("init_per_testcase2(~w) -> "
+	"~n   TcTopDir: ~p", [Case, TcTopDir]),
 
     DataSrc    = filename:join([DataDir, "server_root"]),
     ServerRoot = filename:join([TcTopDir, "server_root"]),
     
-    io:format(user, "~w:init_per_testcase2(~w) -> "
-	      "~n   DataSrc: ~p"
-	      "~n   ServerRoot: ~p"
-	      "~n", [?MODULE, Case, DataSrc, ServerRoot]),
+    tsp("init_per_testcase2(~w) -> "
+	"~n   DataSrc:    ~p"
+	"~n   ServerRoot: ~p", [Case, DataSrc, ServerRoot]),
 
     ok = file:make_dir(ServerRoot),
     ok = file:make_dir(filename:join([TcTopDir, "logs"])),
 
     NewConfig = [{tc_top_dir, TcTopDir}, {server_root, ServerRoot} | Config],
 
-    io:format(user, "~w:init_per_testcase2(~w) -> "
-	      "copy DataSrc to ServerRoot~n", 
-	      [?MODULE, Case]),
+    tsp("init_per_testcase2(~w) -> copy DataSrc to ServerRoot", [Case]),
 
     inets_test_lib:copy_dirs(DataSrc, ServerRoot),
 
-    io:format(user, "~w:init_per_testcase2(~w) -> fix cgi~n", 
-	      [?MODULE, Case]),
+    tsp("init_per_testcase2(~w) -> fix cgi", [Case]),
     EnvCGI =  filename:join([ServerRoot, "cgi-bin", "printenv.sh"]),
     {ok, FileInfo} = file:read_file_info(EnvCGI),
     ok = file:write_file_info(EnvCGI, 
@@ -429,16 +423,14 @@ init_per_testcase2(Case, Config) ->
 			      FileInfo1#file_info{mode = 8#00755}),
     
     %% To be used by IP test cases
-    io:format(user, "~w:init_per_testcase2(~w) -> ip testcase setups~n", 
-	      [?MODULE, Case]),
+    tsp("init_per_testcase2(~w) -> ip testcase setups", [Case]),
     create_config([{port, ?IP_PORT}, {sock_type, ip_comm} | NewConfig], 
 		  normal_access, IpNormal), 
     create_config([{port, ?IP_PORT}, {sock_type, ip_comm} | NewConfig], 
     		  mod_htaccess, IpHtaccess), 
 
     %% To be used by SSL test cases
-    io:format(user, "~w:init_per_testcase2(~w) -> ssl testcase setups~n", 
-	      [?MODULE, Case]),
+    tsp("init_per_testcase2(~w) -> ssl testcase setups", [Case]),
     SocketType = 
 	case atom_to_list(Case) of
 	    [X, $s, $s, $l | _] ->
@@ -462,8 +454,7 @@ init_per_testcase2(Case, Config) ->
     %% when you run the whole test suite due  to shortcomings
     %% of the test server.
 
-    io:format(user, "~w:init_per_testcase2(~w) -> "
-	      "maybe generate IPv6 config file(s)", [?MODULE, Case]),
+    tsp("init_per_testcase2(~w) -> maybe generate IPv6 config file(s)", [Case]),
     NewConfig2 = 
 	case atom_to_list(Case) of
 	    "ipv6_" ++ _ ->
@@ -504,15 +495,15 @@ init_per_testcase2(Case, Config) ->
 		NewConfig
 	end,
 
-    io:format(user, "~w:init_per_testcase2(~w) -> done~n", 
-	      [?MODULE, Case]),
+    tsp("init_per_testcase2(~w) -> done when"
+	"~n   NewConfig2: ~p", [Case, NewConfig2]),
 
     NewConfig2.
 
 
 init_per_testcase3(Case, Config) ->
-    io:format(user, "~w:init_per_testcase3(~w) -> entry with"
-	      "~n   Config: ~p", [?MODULE, Case, Config]),
+    tsp("init_per_testcase3(~w) -> entry with"
+	"~n   Config: ~p", [Case, Config]),
 
     
 %%     %% Create a new fresh node to be used by the server in this test-case
@@ -534,12 +525,10 @@ init_per_testcase3(Case, Config) ->
     %% Set trace level
     case lists:reverse(atom_to_list(Case)) of
 	"tset_emit" ++ _Rest -> % test-cases ending with time_test
-	    io:format(user, "~w:init_per_testcase3(~w) -> disabling trace", 
-		      [?MODULE, Case]),
+	    tsp("init_per_testcase3(~w) -> disabling trace", [Case]),
 	    inets:disable_trace();
 	_ ->
-	    io:format(user, "~w:init_per_testcase3(~w) -> enabling trace", 
-		      [?MODULE, Case]),
+	    tsp("init_per_testcase3(~w) -> enabling trace", [Case]),
 	    %% TraceLevel = 70, 
 	    TraceLevel = max, 
 	    TraceDest  = io, 
@@ -547,8 +536,7 @@ init_per_testcase3(Case, Config) ->
     end,
 	    
     %% Start initialization
-    io:format(user, "~w:init_per_testcase3(~w) -> start init", 
-	      [?MODULE, Case]),
+    tsp("init_per_testcase3(~w) -> start init", [Case]),
     
 
     Dog = test_server:timetrap(inets_test_lib:minutes(10)),
@@ -629,26 +617,32 @@ init_per_testcase3(Case, Config) ->
 		end
 	end,
 
-    case CaseRest of
-	{skip, _} = Skip ->
-	    Skip;
-	"mod_auth_" ++ _ ->
-	    start_mnesia(?config(node, Config)),
-	    [{watchdog, Dog} | NewConfig];
-	"mod_htaccess" ->
-	    ServerRoot = ?config(server_root, Config), 
-	    Path = filename:join([ServerRoot, "htdocs"]),
-	    catch remove_htaccess(Path),
-	    create_htaccess_data(Path, ?config(address, Config)),
-	    [{watchdog, Dog} | NewConfig];
-	"range" ->
-	    ServerRoot = ?config(server_root, Config), 
-	    Path = filename:join([ServerRoot, "htdocs"]),
-	    create_range_data(Path),
-	    [{watchdog, Dog} | NewConfig];
-	_ ->
-	    [{watchdog, Dog} | NewConfig]
-    end.
+    InitRes = 
+	case CaseRest of
+	    {skip, _} = Skip ->
+		Skip;
+	    "mod_auth_" ++ _ ->
+		start_mnesia(?config(node, Config)),
+		[{watchdog, Dog} | NewConfig];
+	    "mod_htaccess" ->
+		ServerRoot = ?config(server_root, Config), 
+		Path = filename:join([ServerRoot, "htdocs"]),
+		catch remove_htaccess(Path),
+		create_htaccess_data(Path, ?config(address, Config)),
+		[{watchdog, Dog} | NewConfig];
+	    "range" ->
+		ServerRoot = ?config(server_root, Config), 
+		Path = filename:join([ServerRoot, "htdocs"]),
+		create_range_data(Path),
+		[{watchdog, Dog} | NewConfig];
+	    _ ->
+		[{watchdog, Dog} | NewConfig]
+	end,
+    
+    tsp("init_per_testcase3(~w) -> done when"
+	"~n   InitRes: ~p", [Case, InitRes]),
+
+    InitRes.
 
 
 %%--------------------------------------------------------------------
@@ -666,16 +660,14 @@ end_per_testcase(Case, Config) ->
     ok.
 
 end_per_testcase2(Case, Config) ->
-    io:format(user, "~w:end_per_testcase2(~w) -> entry with"
-	      "~n   Config: ~p~n", 
-	      [?MODULE, Case, Config]),
+    tsp("end_per_testcase2(~w) -> entry with"
+	"~n   Config: ~p", [Case, Config]),
     application:unset_env(inets, services),
     application:stop(inets),
     application:stop(ssl),     
     application:stop(crypto), % used by the new ssl (essl test cases)  
     cleanup_mnesia(),
-    io:format(user, "~w:end_per_testcase2(~w) -> done~n", 
-	      [?MODULE, Case]),
+    tsp("end_per_testcase2(~w) -> done", [Case]),
     ok.
 
 

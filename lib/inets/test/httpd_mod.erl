@@ -47,16 +47,15 @@ alias(Type, Port, Host, Node) ->
 %% 	      "~n", [?MODULE, Type, Port, Host, Node]),    
 
     %% This is very crude, but...
-    io:format(user, 
-	      "alias -> Has IPv6 support: ~p", 
-	      [inets_test_lib:has_ipv6_support()]),
+    tsp("alias -> Has IPv6 support: ~p", [inets_test_lib:has_ipv6_support()]),
     Opts = case os:type() of
 	       {win32, _} ->
 		   [inet6fb4];
 	       _ ->
 		   []
 	   end,
-    
+    tsp("alias -> Opts: ~p", [Opts]),
+
     ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /pics/icon.sheet.gif "
  				       "HTTP/1.0\r\n\r\n",
@@ -1043,9 +1042,10 @@ check_lists_members1(L1,L2) ->
 
 
 %% tsp(F) ->
-%%     tsp(F, []).
-%% tsp(F, A) ->
-%%     test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+%%     inets_test_lib:tsp(F).
+tsp(F, A) ->
+    inets_test_lib:tsp(F, A).
+
 
 tsf(Reason) ->
     test_server:fail(Reason).

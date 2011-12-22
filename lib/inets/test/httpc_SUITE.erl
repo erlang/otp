@@ -362,9 +362,15 @@ init_per_testcase(Case, Timeout, Config) ->
 
 	    _ -> 
 		%% Try inet6fb4 on windows...
+		tsp("init_per_testcase -> allways try IPv6 on windows"),
 		?RUN_ON_WINDOWS(
 		   fun() -> 
-			   httpc:set_options([{ipfamily, inet6fb4}])
+			   tsp("init_per_testcase:set_options_fun -> "
+			       "set-option ipfamily to inet6fb4"),
+			   Res = httpc:set_options([{ipfamily, inet6fb4}]),
+ 			   tsp("init_per_testcase:set_options_fun -> "
+			       "~n   Res: ~p", [Res]),
+			   Res
 		   end),
 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
@@ -471,22 +477,32 @@ http_head(doc) ->
 http_head(suite) ->
     [];
 http_head(Config) when is_list(Config) ->
-    case ?config(local_server, Config) of 
-	ok ->
-	    Port = ?config(local_port, Config),
-	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	    case httpc:request(head, {URL, []}, [], []) of
-		{ok, {{_,200,_}, [_ | _], []}} ->
-		    ok;
-		{ok, WrongReply} ->
-		    tsf({wrong_reply, WrongReply});
-		Error ->
-		    tsf({failed, Error})
-	    end;
-	  _ ->
-	      {skip, "Failed to start local http-server"}
-      end.  
+    tsp("http_head -> entry with"
+	"~n   Config: ~p", [Config]),
+    Method   = head, 
+    Port     = ?config(local_port, Config),
+    URL      = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+    Request  = {URL, []}, 
+    HttpOpts = [], 
+    Opts     = [], 
+    VerifyResult = 
+	fun({ok, {{_,200,_}, [_ | _], []}}) ->
+		ok;
+	   ({ok, UnexpectedReply}) ->
+		tsp("http_head:verify_fun -> Unexpected Reply: "
+		    "~n   ~p", [UnexpectedReply]),
+		tsf({unexpected_reply, UnexpectedReply});
+	   ({error, Reason} = Error) ->
+		tsp("http_head:verify_fun -> Error reply: "
+		    "~n   Reason: ~p", [Reason]),
+		tsf({bad_reply, Error})
+	end,
+    simple_request_and_verify(Config, 
+			      Method, Request, HttpOpts, Opts, VerifyResult).
+
+
 %%-------------------------------------------------------------------------
+
 http_get(doc) ->
     ["Test http get request against local server"];
 http_get(suite) ->
@@ -503,7 +519,8 @@ http_get(Config) when is_list(Config) ->
 	    Request      = {URL, []}, 
 	    Timeout      = timer:seconds(1), 
 	    ConnTimeout  = Timeout + timer:seconds(1), 
-	    HttpOptions1 = [{timeout, Timeout}, {connect_timeout, ConnTimeout}], 
+	    HttpOptions1 = [{timeout,         Timeout}, 
+			    {connect_timeout, ConnTimeout}], 
 	    Options1     = [], 
 	    Body = 
 		case httpc:request(Method, Request, HttpOptions1, Options1) of
@@ -535,10 +552,11 @@ http_get(Config) when is_list(Config) ->
     end.  
 
 %%-------------------------------------------------------------------------
+
 http_post(doc) ->
-    ["Test http post request against local server. We do in this case"
-    " only care about the client side of the the post. The server"
-    " script will not actually use the post data."];
+    ["Test http post request against local server. We do in this case "
+     "only care about the client side of the the post. The server "
+     "script will not actually use the post data."];
 http_post(suite) ->
     [];
 http_post(Config) when is_list(Config) ->
@@ -3839,6 +3857,34 @@ pick_header(Headers, Name) ->
 	    Val
     end.
 
+
+%% -------------------------------------------------------------------------
+
+simple_request_and_verify(Config, 
+			  Method, Request, HttpOpts, Opts, VerifyResult) 
+  when (is_list(Config) andalso 
+	is_atom(Method) andalso 
+	is_list(HttpOpts) andalso 
+	is_list(Opts) andalso 
+	is_function(VerifyResult, 1)) ->
+    tsp("request_and_verify -> entry with"
+	"~n   Method:   ~p"
+	"~n   Request:  ~p"
+	"~n   HttpOpts: ~p"
+	"~n   Opts:     ~p", [Method, Request, HttpOpts, Opts]),
+    case ?config(local_server, Config) of
+	ok ->
+	    tsp("request_and_verify -> local-server running"),
+	    Result = (catch httpc:request(Method, Request, HttpOpts, Opts)),
+	    VerifyResult(Result);
+	_ ->
+	    tsp("request_and_verify -> local-server *not* running - skip"),
+	    hard_skip("Local http-server not running")
+    end.
+
+
+
+
 not_implemented_yet() ->
     exit(not_implemented_yet).
 
@@ -3890,6 +3936,8 @@ dummy_ssl_server_hang_loop(_) ->
 	    ok
     end.
 
+hard_skip(Reason) ->
+    throw(skip(Reason)).
 
 skip(Reason) ->
     {skip, Reason}.

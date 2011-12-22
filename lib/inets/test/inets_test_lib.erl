@@ -306,20 +306,49 @@ copy_files(FromDir, ToDir) ->
 
 
 copy_dirs(FromDirRoot, ToDirRoot) ->
-    {ok, Files} = file:list_dir(FromDirRoot),
-    lists:foreach(
-      fun(FileOrDir) -> 
-	      %% Check if it's a directory or a file
-	      case filelib:is_dir(filename:join(FromDirRoot, FileOrDir)) of
-		  true ->
-		      FromDir = filename:join([FromDirRoot, FileOrDir]),
-		      ToDir   = filename:join([ToDirRoot, FileOrDir]),
-		      ok      = file:make_dir(ToDir),
-		      copy_dirs(FromDir, ToDir);
-		  false ->
-		      copy_file(FileOrDir, FromDirRoot, ToDirRoot)
-	      end
-      end, Files).
+    case file:list_dir(FromDirRoot) of
+	{ok, Files}  ->
+	    lists:foreach(
+	      fun(FileOrDir) -> 
+		      %% Check if it's a directory or a file
+		      case filelib:is_dir(filename:join(FromDirRoot, 
+							FileOrDir)) of
+			  true ->
+			      FromDir = filename:join([FromDirRoot, FileOrDir]),
+			      ToDir   = filename:join([ToDirRoot, FileOrDir]),
+			      case file:make_dir(ToDir) of
+				  ok ->
+				      copy_dirs(FromDir, ToDir);
+				  {error, Reason} ->
+				      tsp("<ERROR> Failed creating directory: "
+					  "~n   ToDir:  ~p"
+					  "~n   Reason: ~p"
+					  "~nwhen"
+					  "~n   ToDirRoot:           ~p"
+					  "~n   ToDirRoot file info: ~p", 
+					  [ToDir, 
+					   Reason, 
+					   ToDirRoot, 
+					   file:read_file_info(ToDirRoot)]),
+				      tsf({failed_copy_dir, ToDir, Reason})
+			      end;
+			  false ->
+			      copy_file(FileOrDir, FromDirRoot, ToDirRoot)
+		      end
+	      end, Files);
+	{error, Reason} ->
+	    tsp("<ERROR> Failed get directory file list: "
+		"~n   FromDirRoot: ~p"
+		"~n   Reason:      ~p"
+		"~nwhen"
+		"~n   FromDirRoot file info: ~p", 
+		[FromDirRoot, 
+		 Reason, 
+		 file:read_file_info(FromDirRoot)]),
+	    tsf({failed_list_dir, FromDirRoot, Reason})
+    end.
+	    
+		
 
 del_dirs(Dir) ->
     case file:list_dir(Dir) of
