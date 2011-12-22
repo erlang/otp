@@ -424,12 +424,7 @@ t_has_opaque_subtype(T) ->
 -spec t_opaque_structure(erl_type()) -> erl_type().
 
 t_opaque_structure(?opaque(Elements)) ->
-  case ordsets:size(Elements) of
-    1 ->
-      [#opaque{struct = Struct}] = ordsets:to_list(Elements),
-      Struct;
-    _ -> throw({error, "Unexpected multiple opaque types"})
-  end.
+  t_sup([Struct || #opaque{struct = Struct} <- ordsets:to_list(Elements)]).
 
 -spec t_opaque_module(erl_type()) -> module().
 
