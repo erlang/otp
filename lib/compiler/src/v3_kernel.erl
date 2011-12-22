@@ -88,8 +88,6 @@
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
 
--define(EXPENSIVE_BINARY_LIMIT, 256).
-
 %% These are not defined in v3_kernel.hrl.
 get_kanno(Kthing) -> element(2, Kthing).
 set_kanno(Kthing, Anno) -> setelement(2, Kthing, Anno).
