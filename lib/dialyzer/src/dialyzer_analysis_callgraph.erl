@@ -348,12 +348,9 @@ compile_common(File, AbstrCode, CompOpts, Callgraph, CServer, UseContracts) ->
 
 store_core(Mod, Core, NoWarn, Callgraph, CServer) ->
   Exp = get_exports_from_core(Core),
-  OldExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
-  NewExpTypes = get_exported_types_from_core(Core),
-  MergedExpTypes = sets:union(NewExpTypes, OldExpTypes),
+  ExpTypes = get_exported_types_from_core(Core),
   CServer1 = dialyzer_codeserver:insert_exports(Exp, CServer),
-  CServer2 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
-                                                            CServer1),
+  CServer2 = dialyzer_codeserver:insert_temp_exported_types(ExpTypes, CServer1),
   {LabeledCore, CServer3} = label_core(Core, CServer2),
   store_code_and_build_callgraph(Mod, LabeledCore, Callgraph, CServer3, NoWarn).
 

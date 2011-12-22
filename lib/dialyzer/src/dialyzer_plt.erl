@@ -138,12 +138,7 @@ insert_contract_list(#plt{contracts = Contracts} = PLT, List) ->
 -spec insert_callbacks(plt(), dialyzer_codeserver:codeserver()) -> plt().
 
 insert_callbacks(#plt{callbacks = Callbacks} = Plt, Codeserver) ->
-  FunPreferNew = fun(_Key, _Val1, Val2) -> Val2 end,
-  FunDictMerger =
-    fun(_Key, Value, AccIn) -> dict:merge(FunPreferNew, Value, AccIn) end,
-  MergedCallbacks = dict:fold(FunDictMerger, dict:new(),
-			      dialyzer_codeserver:get_callbacks(Codeserver)),
-  List = dict:to_list(MergedCallbacks),
+  List = dialyzer_codeserver:get_callbacks(Codeserver),
   Plt#plt{callbacks = table_insert_list(Callbacks, List)}.
 
 -spec lookup_contract(plt(), mfa_patt()) -> 'none' | {'value', #contract{}}.
