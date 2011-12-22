@@ -1854,18 +1854,24 @@
 
     <xsl:choose>
       <xsl:when test="string-length($filepart) > 0">
-        <xsl:variable name="modulepart"><xsl:value-of select="substring-before($filepart, ':')"/></xsl:variable>
+        <!-- "Filepart#Linkpart" (or "Filepart#") -->
+        <xsl:variable name="app_part"><xsl:value-of select="substring-before($filepart, ':')"/></xsl:variable>
         <xsl:choose>
-          <xsl:when test="string-length($modulepart) > 0">
-            <xsl:variable name="filepart1"><xsl:value-of select="substring-after($filepart, ':')"/></xsl:variable>
-            <span class="bold_code"><a href="javascript:erlhref('{$topdocdir}/../','{$modulepart}','{$filepart1}.html#{$linkpart}');"><xsl:apply-templates/></a></span>
+          <xsl:when test="string-length($app_part) > 0">
+            <!-- "AppPart:ModPart#Linkpart" -->
+            <xsl:variable name="mod_part"><xsl:value-of select="substring-after($filepart, ':')"/></xsl:variable>
+            <span class="bold_code"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html#{$linkpart}');"><xsl:apply-templates/></a></span>
           </xsl:when>
           <xsl:otherwise>
+            <!-- "Filepart#Linkpart (there is no ':' in Filepart) -->
+            <xsl:variable name="minus_prefix"
+                          select="substring-before($linkpart, '-')"/>
             <xsl:choose>
-              <!-- Dialyzer seealso (the application is unknown) -->
-              <xsl:when test="string-length($specs_file) > 0
+              <xsl:when test="$minus_prefix = 'type'
+                              and string-length($specs_file) > 0
                               and count($i/specs/module[@name=$filepart]) = 0">
-                <!-- Deemed to slow; use key() instead
+                <!-- Dialyzer seealso (the application is unknown) -->
+                <!-- Following code deemed too slow; use key() instead
 		<xsl:variable name="app"
                               select="$m2a/mod2app/module[@name=$filepart]"/>
                 -->
@@ -1877,41 +1883,45 @@
 		      <span class="bold_code"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$filepart}.html#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
 		    </xsl:when>
 		    <xsl:otherwise>
-		      <!-- Unknown application; no link -->
-		      <xsl:value-of select="$this"/>
+		      <!-- Unknown application -->
+		      <xsl:message terminate="yes">
+			Error <xsl:value-of select="$filepart"/>: cannot find module exporting type
+		      </xsl:message>
 		    </xsl:otherwise>
 		  </xsl:choose>
                 </xsl:for-each>
               </xsl:when>
               <xsl:when test="string-length($linkpart) > 0">
+                <!-- Still Filepart#Linkpart (there is no ':' in Filepart -->
                 <span class="bold_code"><a href="{$filepart}.html#{$linkpart}"><xsl:apply-templates/></a></span>
               </xsl:when>
               <xsl:otherwise>
+                <!-- "Filepart#" (there is no ':' in Filepart -->
                 <span class="bold_code"><a href="{$filepart}.html"><xsl:apply-templates/></a></span>
               </xsl:otherwise>
             </xsl:choose>
           </xsl:otherwise>
         </xsl:choose>
+      </xsl:when> <!-- string-length($filepart) > 0 -->
+      <xsl:when test="string-length($linkpart) > 0">
+	<!-- "#Linkpart" -->
+	<span class="bold_code"><a href="#{$linkpart}"><xsl:apply-templates/></a></span>
       </xsl:when>
       <xsl:otherwise>
-        <xsl:choose>
-          <xsl:when test="string-length($linkpart) > 0">
-            <span class="bold_code"><a href="#{$linkpart}"><xsl:apply-templates/></a></span>
-          </xsl:when>
-          <xsl:otherwise>
-            <xsl:variable name="modulepart"><xsl:value-of select="substring-before(@marker, ':')"/></xsl:variable>
+	<!-- "AppPart:Mod" or "Mod" (there is no '#') -->
+	<xsl:variable name="app_part"><xsl:value-of select="substring-before(@marker, ':')"/></xsl:variable>
 
-            <xsl:choose>
-              <xsl:when test="string-length($modulepart) > 0">
-                <xsl:variable name="filepart1"><xsl:value-of select="substring-after(@marker, ':')"/></xsl:variable>
-                <span class="bold_code"><a href="javascript:erlhref('{$topdocdir}/../','{$modulepart}','{$filepart1}.html');"><xsl:apply-templates/></a></span>
-              </xsl:when>
-              <xsl:otherwise>
-                <span class="bold_code"><a href="{@marker}.html"><xsl:apply-templates/></a></span>
-              </xsl:otherwise>
-            </xsl:choose>
-          </xsl:otherwise>
-        </xsl:choose>
+	<xsl:choose>
+	  <xsl:when test="string-length($app_part) > 0">
+	    <!-- "App:Mod" -->
+	    <xsl:variable name="mod_part"><xsl:value-of select="substring-after(@marker, ':')"/></xsl:variable>
+	    <span class="bold_code"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html');"><xsl:apply-templates/></a></span>
+	  </xsl:when>
+	  <xsl:otherwise>
+	    <!-- "Mod" -->
+	    <span class="bold_code"><a href="{@marker}.html"><xsl:apply-templates/></a></span>
+	  </xsl:otherwise>
+	</xsl:choose>
       </xsl:otherwise>
     </xsl:choose>
 
