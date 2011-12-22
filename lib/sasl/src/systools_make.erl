@@ -463,30 +463,35 @@ check_appl(Appl) ->
 		end,
 		Appl) of
 	[] ->
-	    {ok,Ws} = mandatory_applications(Appl),
-	    {split_app_incl(Appl),Ws};
+	    {ApplsNoIncls,Incls} = split_app_incl(Appl),
+	    {ok,Ws} = mandatory_applications(ApplsNoIncls,undefined,
+					     undefined,undefined),
+	    {{ApplsNoIncls,Incls},Ws};
 	Illegal ->
 	    throw({error, {illegal_applications,Illegal}})
     end.
 
-mandatory_applications(Appl) ->
-    AppNames = map(fun(AppT) -> element(1, AppT) end,
-		   Appl),
-    Mand = mandatory_applications(),
-    case filter(fun(X) -> member(X, AppNames) end, Mand) of
-	Mand ->
-	    case member(sasl,AppNames) of
-		true ->
-		    {ok,[]};
-		_ ->
-		    {ok, [{warning,missing_sasl}]}
-	    end;
-	_ ->
-	    throw({error, {missing_mandatory_app, Mand}})
-    end.
+mandatory_applications([{kernel,_,Type}|Apps],undefined,Stdlib,Sasl) ->
+    mandatory_applications(Apps,Type,Stdlib,Sasl);
+mandatory_applications([{stdlib,_,Type}|Apps],Kernel,undefined,Sasl) ->
+    mandatory_applications(Apps,Kernel,Type,Sasl);
+mandatory_applications([{sasl,_,Type}|Apps],Kernel,Stdlib,undefined) ->
+    mandatory_applications(Apps,Kernel,Stdlib,Type);
+mandatory_applications([_|Apps],Kernel,Stdlib,Sasl) ->
+    mandatory_applications(Apps,Kernel,Stdlib,Sasl);
+mandatory_applications([],Type,_,_) when Type=/=permanent ->
+    error_mandatory_application(kernel,Type);
+mandatory_applications([],_,Type,_) when Type=/=permanent ->
+    error_mandatory_application(sasl,Type);
+mandatory_applications([],_,_,undefined) ->
+    {ok, [{warning,missing_sasl}]};
+mandatory_applications([],_,_,_) ->
+    {ok,[]}.
 
-mandatory_applications() ->
-    [kernel, stdlib].
+error_mandatory_application(App,undefined) ->
+    throw({error, {missing_mandatory_app, App}});
+error_mandatory_application(App,Type) ->
+    throw({error, {mandatory_app, App, Type}}).
 
 split_app_incl(Appl) -> split_app_incl(Appl, [], []).
 
@@ -1677,6 +1682,7 @@ add_system_files(Tar, RelName, Release, Path1) ->
 	false ->
 	    ignore;
 	Relup ->
+	    check_relup(Relup),
 	    add_to_tar(Tar, Relup, filename:join(RelVsnDir, "relup"))
     end,
 
@@ -1684,6 +1690,7 @@ add_system_files(Tar, RelName, Release, Path1) ->
 	false ->
 	    ignore;
 	Sys ->
+	    check_sys_config(Sys),
 	    add_to_tar(Tar, Sys, filename:join(RelVsnDir, "sys.config"))
     end,
     
@@ -1699,6 +1706,44 @@ lookup_file(Name, [Dir|Path]) ->
     end;
 lookup_file(_Name, []) ->
     false.
+
+%% Check that relup can be parsed and has expected format
+check_relup(File) ->
+    case file:consult(File) of
+	{ok,[{Vsn,UpFrom,DownTo}]} when is_list(Vsn), is_integer(hd(Vsn)),
+					is_list(UpFrom), is_list(DownTo) ->
+	    ok;
+	{ok,_} ->
+	    throw({error,{tar_error,{add,"relup",[invalid_format]}}});
+	Other ->
+	    throw({error,{tar_error,{add,"relup",[Other]}}})
+    end.
+
+%% Check that sys.config can be parsed and has expected format
+check_sys_config(File) ->
+    case file:consult(File) of
+	{ok,[SysConfig]} ->
+	    case lists:all(fun({App,KeyVals}) when is_atom(App),
+						   is_list(KeyVals)->
+				   true;
+			      (OtherConfig) when is_list(OtherConfig),
+						 is_integer(hd(OtherConfig)) ->
+				   true;
+			      (_) ->
+				   false
+			   end,
+			   SysConfig) of
+		true ->
+		    ok;
+		false ->
+		    throw({error,{tar_error,
+				  {add,"sys.config",[invalid_format]}}})
+	    end;
+	{ok,_} ->
+	    throw({error,{tar_error,{add,"sys.config",[invalid_format]}}});
+	Other ->
+	    throw({error,{tar_error,{add,"sys.config",[Other]}}})
+    end.
 
 %%______________________________________________________________________
 %% Add either a application located under a variable dir or all other
@@ -2187,9 +2232,12 @@ format_error({missing_parameter,Par}) ->
 format_error({illegal_applications,Names}) ->
     io_lib:format("Illegal applications in the release file: ~p~n",
 		  [Names]);
-format_error({missing_mandatory_app,Names}) ->
-    io_lib:format("Mandatory applications (~p) must be specified in the release file~n",
-		  [Names]);
+format_error({missing_mandatory_app,Name}) ->
+    io_lib:format("Mandatory application ~p must be specified in the release file~n",
+		  [Name]);
+format_error({mandatory_app,Name,Type}) ->
+    io_lib:format("Mandatory application ~p must be of type 'permanent' in the release file. Is '~p'.~n",
+		  [Name,Type]);
 format_error({duplicate_register,Dups}) ->
     io_lib:format("Duplicated register names: ~n~s",
 		  [map(fun({{Reg,App1,_,_},{Reg,App2,_,_}}) ->

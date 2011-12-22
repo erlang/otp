@@ -127,25 +127,18 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
         <p><c>StartFunc</c> defines the function call used to start
           the child process. It should be a module-function-arguments
           tuple <c>{M,F,A}</c> used as <c>apply(M,F,A)</c>.</p>
-        <p>          <br></br>
-</p>
         <p>The start function <em>must create and link to</em> the child
           process, and should return <c>{ok,Child}</c> or
           <c>{ok,Child,Info}</c> where <c>Child</c> is the pid of
           the child process and <c>Info</c> an arbitrary term which is
           ignored by the supervisor.</p>
-        <p>          <br></br>
-</p>
         <p>The start function can also return <c>ignore</c> if the child
           process for some reason cannot be started, in which case
-          the child specification will be kept by the supervisor but
-          the non-existing child process will be ignored.</p>
-        <p>          <br></br>
-</p>
+          the child specification will be kept by the supervisor
+	  (unless it is a temporary child) but the non-existing child
+	  process will be ignored.</p>
         <p>If something goes wrong, the function may also return an
           error tuple <c>{error,Error}</c>.</p>
-        <p>          <br></br>
-</p>
         <p>Note that the <c>start_link</c> functions of the different
           behaviour modules fulfill the above requirements.</p>
       </item>
