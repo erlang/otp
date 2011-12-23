@@ -177,26 +177,26 @@ analysis_start(Parent, Analysis) ->
 
 analyze_callgraph(Callgraph, State) ->
   Codeserver = State#analysis_state.codeserver,
-  Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
   Parent = State#analysis_state.parent,
-  case State#analysis_state.analysis_type of
-    plt_build ->
-      Callgraph1 = dialyzer_callgraph:finalize(Callgraph),
-      NewPlt = dialyzer_succ_typings:analyze_callgraph(Callgraph1, Plt, 
-						       Codeserver, Parent),
-      dialyzer_callgraph:delete(Callgraph1),
-      State#analysis_state{plt = NewPlt};
-    succ_typings ->
-      NoWarn = State#analysis_state.no_warn_unused,
-      DocPlt = State#analysis_state.doc_plt,
-      Callgraph1 = dialyzer_callgraph:finalize(Callgraph),
-      {Warnings, NewPlt, NewDocPlt} = 
-	dialyzer_succ_typings:get_warnings(Callgraph1, Plt, DocPlt,
-					   Codeserver, NoWarn, Parent),
-      dialyzer_callgraph:delete(Callgraph1),
-      send_warnings(State#analysis_state.parent, Warnings),
-      State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}
-  end.
+  DocPlt = State#analysis_state.doc_plt,
+  Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
+  Callgraph1 = dialyzer_callgraph:finalize(Callgraph),
+  {NewPlt, NewDocPlt} =
+    case State#analysis_state.analysis_type of
+      plt_build ->
+	{dialyzer_succ_typings:analyze_callgraph(Callgraph1, Plt,
+						 Codeserver, Parent),
+	 DocPlt};
+      succ_typings ->
+	NoWarn = State#analysis_state.no_warn_unused,
+	{Warnings, NewPlt0, NewDocPlt0} =
+	  dialyzer_succ_typings:get_warnings(Callgraph1, Plt, DocPlt,
+					     Codeserver, NoWarn, Parent),
+	send_warnings(State#analysis_state.parent, Warnings),
+	{NewPlt0, NewDocPlt0}
+    end,
+  dialyzer_callgraph:delete(Callgraph1),
+  State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}.
 
 %%--------------------------------------------------------------------
 %% Build the callgraph and fill the codeserver.
