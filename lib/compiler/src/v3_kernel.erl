@@ -1391,15 +1391,9 @@ arg_val(Arg) ->
 	#k_int{val=I} -> I;
 	#k_float{val=F} -> F;
 	#k_atom{val=A} -> A;
-	#k_nil{} -> 0;
-	#k_cons{} -> 2; 
 	#k_tuple{es=Es} -> length(Es);
 	#k_bin_seg{size=S,unit=U,type=T,flags=Fs} ->
-	    {set_kanno(S, []),U,T,Fs};
-	#k_bin_int{} ->
-	    0;
-	#k_bin_end{} -> 0;
-	#k_binary{} -> 0
+	    {set_kanno(S, []),U,T,Fs}
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]
