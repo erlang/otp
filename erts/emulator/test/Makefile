@@ -88,6 +88,7 @@ MODULES= \
 	send_term_SUITE \
 	sensitive_SUITE \
 	signal_SUITE \
+	smoke_test_SUITE \
 	statistics_SUITE \
 	system_info_SUITE \
 	system_profile_SUITE \
