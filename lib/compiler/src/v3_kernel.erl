@@ -1546,11 +1546,12 @@ uguard_expr(#k_match{anno=A,vars=Vs,body=B0}, Rs, St0) ->
     {B1,Bu,St1} = umatch(B0, Br, St0),
     {#k_guard_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
 		    vars=Vs,body=B1,ret=Rs},Bu,St1};
-uguard_expr(Lit, Rs, St) ->
+uguard_expr(Lit, Rs0, St0) ->
     %% Transform literals to puts here.
     Used = lit_vars(Lit),
+    {Rs,St1} = ensure_return_vars(Rs0, St0),
     {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
-	    arg=Lit,ret=Rs},Used,St}.
+	    arg=Lit,ret=Rs},Used,St1}.
 
 %% uexpr(Expr, Break, State) -> {Expr,[UsedVar],State}.
 %%  Tag an expression with its used variables.
@@ -1670,12 +1671,13 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
  		  #k_int{val=Index},#k_int{val=Uniq}|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
-uexpr(Lit, {break,Rs}, St) ->
+uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
     Used = lit_vars(Lit),
+    {Rs,St1} = ensure_return_vars(Rs0, St0),
     {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
-	    arg=Lit,ret=Rs},Used,St}.
+	    arg=Lit,ret=Rs},Used,St1}.
 
 add_local_function(_, #kern{funs=ignore}=St) -> St;
 add_local_function(F, #kern{funs=Funs}=St) -> St#kern{funs=[F|Funs]}.
@@ -1731,6 +1733,11 @@ bif_returns(#k_internal{name=N,arity=Ar}, Rs, St0) ->
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,{N,Ar,Rs}]),
     {Ns,St1} = new_vars(bif_vals(N, Ar) - length(Rs), St0),
     {Rs ++ Ns,St1}.
+
+%% ensure_return_vars([Ret], State) -> {[Ret],State}.
+
+ensure_return_vars([], St) -> new_vars(1, St);
+ensure_return_vars([_]=Rs, St) -> {Rs,St}.
 
 %% umatch(Match, Break, State) -> {Match,[UsedVar],State}.
 %%  Tag a match expression with its used variables.
