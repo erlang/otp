@@ -2065,32 +2065,7 @@ opt_case_in_let_2(V, Arg0,
 		   (_) -> false end, Es),	%Only variables in tuple
     false = core_lib:is_var_used(V, B),		%Built tuple must not be used.
     Arg1 = tuple_to_values(Arg0, length(Es)),	%Might fail.
-    #c_let{vars=Es,arg=Arg1,body=B};
-opt_case_in_let_2(_, Arg, Cs) ->
-    %% simplify_bool_case(Case0) -> Case
-    %%  Remove unecessary cases like
-    %%
-    %%     case BoolExpr of
-    %%       true -> true;
-    %%       false -> false;
-    %%       ....
-    %%     end
-    %%
-    %%  where BoolExpr is an expression that can only return true
-    %%  or false (or throw an exception).
-
-    true = is_bool_case(Cs) andalso is_bool_expr(Arg),
-    Arg.
-
-is_bool_case([A,B|_]) ->
-    (is_bool_clause(true, A) andalso is_bool_clause(false, B))
-	orelse (is_bool_clause(false, A) andalso is_bool_clause(true, B)).
-
-is_bool_clause(Bool, #c_clause{pats=[#c_literal{val=Bool}],
-			       guard=#c_literal{val=true},
-			       body=#c_literal{val=Bool}}) ->
-    true;
-is_bool_clause(_, _) -> false.
+    #c_let{vars=Es,arg=Arg1,body=B}.
 
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
