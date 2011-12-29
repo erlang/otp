@@ -608,7 +608,6 @@ is_atomic(#k_int{}) -> true;
 is_atomic(#k_float{}) -> true;
 is_atomic(#k_atom{}) -> true;
 %%is_atomic(#k_char{}) -> true;			%No characters
-%%is_atomic(#k_string{}) -> true;
 is_atomic(#k_nil{}) -> true;
 is_atomic(#k_var{}) -> true;
 is_atomic(_) -> false.
@@ -1825,7 +1824,6 @@ lit_list_vars(Ps) ->
 
 pat_vars(#k_var{name=N}) -> {[],[N]};
 %%pat_vars(#k_char{}) -> {[],[]};
-%%pat_vars(#k_string{}) -> {[],[]};
 pat_vars(#k_literal{}) -> {[],[]};
 pat_vars(#k_int{}) -> {[],[]};
 pat_vars(#k_float{}) -> {[],[]};

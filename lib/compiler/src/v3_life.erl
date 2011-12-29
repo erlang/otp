@@ -373,7 +373,6 @@ atomic(#k_int{val=I}) -> {integer,I};
 atomic(#k_float{val=F}) -> {float,F};
 atomic(#k_atom{val=N}) -> {atom,N};
 %%atomic(#k_char{val=C}) -> {char,C};
-%%atomic(#k_string{val=S}) -> {string,S};
 atomic(#k_nil{}) -> nil.
 
 atomic_list(Ks) -> [atomic(K) || K <- Ks].
