@@ -150,14 +150,26 @@ guard(Expr, Sub) ->
 opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
     Body = opt_guard_try(Body0),
     case {Arg,Body} of
-	{#c_call{},#c_literal{val=false}} ->
-	    %% We have sequence consisting of a call (evaluted
-	    %% for a possible exception only), followed by 'false'.
-	    %% Since the sequence is inside a try block that will
+	{#c_call{module=#c_literal{val=Mod},
+		 name=#c_literal{val=Name},
+		 args=Args},#c_literal{val=false}} ->
+	    %% We have sequence consisting of a call (evaluated
+	    %% for a possible exception and/or side effect only),
+	    %% followed by 'false'.
+	    %%   Since the sequence is inside a try block that will
 	    %% default to 'false' if any exception occurs, not
 	    %% evalutating the call will not change the behaviour
-	    %% of the guard.
-	    Body;
+	    %% provided that the call has no side effects.
+	    case erl_bifs:is_pure(Mod, Name, length(Args)) of
+		false ->
+		    %% Not a pure BIF (meaning that this is not
+		    %% a guard and that we must keep the call).
+		    Seq#c_seq{body=Body};
+		true ->
+		    %% The BIF has no side effects, so it can
+		    %% be safely removed.
+		    Body
+	    end;
 	{_,_} ->
 	    Seq#c_seq{body=Body}
     end;
