@@ -470,9 +470,12 @@ compile_compiler(Files, OutDir, Version, InlineOpts) ->
 	    {d,'COMPILER_VSN',"\""++Version++"\""},
 	    nowarn_shadow_vars,
 	    {i,filename:join(code:lib_dir(stdlib), "include")}|InlineOpts],
-    lists:foreach(fun(File) ->
-			  {ok,_} = compile:file(File, Opts)
-		  end, Files).
+    test_lib:p_run(fun(File) ->
+			   case compile:file(File, Opts) of
+			       {ok,_} -> ok;
+			       _ -> error
+			   end
+		   end, Files).
 
 compiler_src() ->
     filelib:wildcard(filename:join([code:lib_dir(compiler), "src", "*.erl"])).
