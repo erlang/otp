@@ -17,11 +17,11 @@
 %% %CopyrightEnd%
 {"%VSN%",
  %% Up from - max two major revisions back
- [{<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R15
-  {<<"1\\.17(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R14
-  {<<"1\\.16(\\.[0-9]+)*">>,[restart_new_emulator]}],%% R13
+ [{<<"1\\.19(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R16
+  {<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R15
+  {<<"1\\.17(\\.[0-9]+)*">>,[restart_new_emulator]}],%% R14
  %% Down to - max two major revisions back
- [{<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R15
-  {<<"1\\.17(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R14
-  {<<"1\\.16(\\.[0-9]+)*">>,[restart_new_emulator]}] %% R13
+ [{<<"1\\.19(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R16
+  {<<"1\\.18(\\.[0-9]+)*">>,[restart_new_emulator]}, %% R15
+  {<<"1\\.17(\\.[0-9]+)*">>,[restart_new_emulator]}] %% R14
 }.
