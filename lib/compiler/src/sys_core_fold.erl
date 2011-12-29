@@ -1747,35 +1747,25 @@ opt_bool_clauses([_|_], _, _) ->
 %%     end.			       NewVar ->
 %%                                        erlang:error(badarg)
 %%                                  end.
-%%
-%%  We add the extra match-all clause at the end only if Expr is
-%%  not guaranteed to evaluate to a boolean.
 
 opt_bool_not(#c_case{arg=Arg,clauses=Cs0}=Case0) ->
     case Arg of
 	#c_call{anno=Anno,module=#c_literal{val=erlang},
  		name=#c_literal{val='not'},
  		args=[Expr]} ->
-	    Cs = opt_bool_not(Anno, Expr, Cs0),
+	    Cs = [opt_bool_not_invert(C) || C <- Cs0] ++
+		 [#c_clause{anno=[compiler_generated],
+			    pats=[#c_var{name=cor_variable}],
+			    guard=#c_literal{val=true},
+			    body=#c_call{anno=Anno,
+					 module=#c_literal{val=erlang},
+					 name=#c_literal{val=error},
+					 args=[#c_literal{val=badarg}]}}],
 	    Case = Case0#c_case{arg=Expr,clauses=Cs},
 	    opt_bool_not(Case);
 	_ ->
 	    opt_bool_case_redundant(Case0)
     end.
-
-opt_bool_not(Anno, Expr, Cs) ->
-    Tail = case is_bool_expr(Expr) of
-	       false ->
-		   [#c_clause{anno=[compiler_generated],
-			      pats=[#c_var{name=cor_variable}],
-			      guard=#c_literal{val=true},
-			      body=#c_call{anno=Anno,
-					   module=#c_literal{val=erlang},
-					   name=#c_literal{val=error},
-					   args=[#c_literal{val=badarg}]}}];
-	       true -> []
-	   end,
-    [opt_bool_not_invert(C) || C <- Cs] ++ Tail.
 
 opt_bool_not_invert(#c_clause{pats=[#c_literal{val=Bool}]}=C) ->
     C#c_clause{pats=[#c_literal{val=not Bool}]}.
