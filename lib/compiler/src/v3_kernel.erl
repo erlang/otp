@@ -1373,7 +1373,6 @@ arg_con(Arg) ->
 	#k_tuple{} -> k_tuple;
 	#k_binary{} -> k_binary;
 	#k_bin_end{} -> k_bin_end;
-	#k_bin_int{} -> k_bin_int;
 	#k_bin_seg{} -> k_bin_seg;
 	#k_var{} -> k_var
     end.
