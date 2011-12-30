@@ -77,7 +77,14 @@ get_data_dir(Config) ->
 %%  Will fail the test case if there were any errors.
 
 p_run(Test, List) ->
-    N = erlang:system_info(schedulers) + 1,
+    N = case ?t:is_cover() of
+	    false ->
+		erlang:system_info(schedulers);
+	    true ->
+		%% Cover is running. Using more than one process
+		%% will probably only slow down compilation.
+		1
+	end,
     p_run_loop(Test, List, N, [], 0, 0).
 
 p_run_loop(_, [], _, [], Errors, Ws) ->
