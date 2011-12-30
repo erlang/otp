@@ -123,34 +123,53 @@ ethr_ts_event *ethr_get_tse__(void)
 
 #if defined(ETHR_PPC_RUNTIME_CONF__)
 
-static volatile int lwsync_caused_sigill;
+#include <sys/wait.h>
 
 static void
 handle_lwsync_sigill(int signum)
 {
-    lwsync_caused_sigill = 1;
+    _exit(1);
 }
 
 static int
 ppc_init__(void)
 {
-    struct sigaction act, oact;
-    lwsync_caused_sigill = 0;
+    int pid;
 
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = 0;
-    act.sa_handler = handle_lwsync_sigill;
-    if (sigaction(SIGILL, &act, &oact) != 0)
-	return errno;
+    /* If anything what so ever failes we assume no lwsync for safety */
+    ethr_runtime__.conf.have_lwsync = 0;
 
-    __asm__ __volatile__ ("lwsync\n\t" : : : "memory");
+    /*
+     * We perform the lwsync test (which might cause an illegal
+     * instruction signal) in a separate process in order to be
+     * completely certain that we do not mess up our own state.
+     */
+    pid = fork();
+    if (pid == 0) {
+	struct sigaction act, oact;
 
-    act.sa_flags = 0;
-    act.sa_handler = SIG_DFL;
-    if (sigaction(SIGILL, &act, &oact) != 0)
-	return errno;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = SA_RESETHAND;
+	act.sa_handler = handle_lwsync_sigill;
+	if (sigaction(SIGILL, &act, &oact) != 0)
+	    _exit(2);
 
-    ethr_runtime__.conf.have_lwsync = (int) !lwsync_caused_sigill;
+	__asm__ __volatile__ ("lwsync\n\t" : : : "memory");
+
+	_exit(0);
+    }
+
+    if (pid != -1) {
+	while (1) {
+	    int status, res;
+	    res = waitpid(pid, &status, 0);
+	    if (res == pid) {
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 0)
+		    ethr_runtime__.conf.have_lwsync = 1;
+		break;
+	    }
+	}
+    }
     return 0;
 }
 
