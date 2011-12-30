@@ -1112,7 +1112,6 @@ select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
     end,
     select_assert_match_possible(Bits, Val, Fl),
     P = #k_bin_int{anno=A,size=Sz,unit=U,flags=Fl,val=Val,next=N},
-    select_assert_match_possible(Bits, Val, Fl),
     case member(native, Fl) of
 	true -> throw(not_possible);
 	false -> ok
@@ -1254,8 +1253,6 @@ match_clause([U|Us], [C|_]=Cs0, Def, St0) ->
 
 sub_size_var(#k_bin_seg{size=#k_var{name=Name}=Kvar}=BinSeg, [#iclause{isub=Sub}|_]) ->
     BinSeg#k_bin_seg{size=Kvar#k_var{name=get_vsub(Name, Sub)}};
-sub_size_var(#k_bin_int{size=#k_var{name=Name}=Kvar}=BinSeg, [#iclause{isub=Sub}|_]) ->
-    BinSeg#k_bin_int{size=Kvar#k_var{name=get_vsub(Name, Sub)}};
 sub_size_var(K, _) -> K.
 
 get_con([C|_]) -> arg_arg(clause_arg(C)).	%Get the constructor
