@@ -118,7 +118,6 @@ copy_anno(Kdst, Ksrc) ->
 	       funs=[],				%Fun functions
 	       free=[],				%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
-	       lit,			        %Constant pool for literals.
 	       guard_refc=0}).			%> 0 means in guard
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -127,7 +126,7 @@ copy_anno(Kdst, Ksrc) ->
 module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    St0 = #kern{lit=dict:new()},
+    St0 = #kern{},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
 		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
@@ -248,26 +247,20 @@ expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
     expr(Fun, Sub, St);
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
-expr(#c_literal{}=Lit, Sub, St) ->
-    Core = handle_literal(Lit),
-    expr(Core, Sub, St);
-expr(#k_literal{val=Val0}=Klit, _Sub, #kern{lit=Literals0}=St) ->
-    %% Share identical literals to save some space and time during compilation.
-    case dict:find(Val0, Literals0) of
-	{ok,Val} ->
-	    {Klit#k_literal{val=Val},[],St};
-	error ->
-	    Literals = dict:store(Val0, Val0, Literals0),
-	    {Klit,[],St#kern{lit=Literals}}
-    end;
-expr(#k_nil{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_int{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_float{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_atom{}=V, _Sub, St) ->
-    {V,[],St};
+expr(#c_literal{anno=A,val=V}, _Sub, St) ->
+    Klit = case V of
+	       [] ->
+		   #k_nil{anno=A};
+	       V when is_integer(V) ->
+		   #k_int{anno=A,val=V};
+	       V when is_float(V) ->
+		   #k_float{anno=A,val=V};
+	       V when is_atom(V) ->
+		   #k_atom{anno=A,val=V};
+	       _ ->
+		   #k_literal{anno=A,val=V}
+	   end,
+    {Klit,[],St};
 expr(#c_cons{anno=A,hd=Ch,tl=Ct}, Sub, St0) ->
     %% Do cons in two steps, first the expressions left to right, then
     %% any remaining literals right to left.
@@ -1844,34 +1837,6 @@ pat_list_vars(Ps) ->
 		  {Used,New} = pat_vars(P),
 		  {union(Used0, Used),union(New0, New)} end,
 	  {[],[]}, Ps).
-
-%% handle_literal(Literal, Anno) -> Kernel
-%%  Examine the literal. Complex (heap-based) literals such as lists,
-%%  tuples, and binaries should be kept as literals and put into the constant pool.
-%%
-%%  (If necessary, this function could be extended to go through the literal
-%%  and convert huge binary literals to bit syntax expressions. We don't do that
-%%  because v3_core does not produce huge binary literals, and the optimizations in
-%%  sys_core_fold don't do much optimizations of binaries. IF THAT CHANGE IS MADE,
-%%  ALSO CHANGE sys_core_dsetel.)
-
-handle_literal(#c_literal{anno=A,val=V}) ->
-    case V of
-	[_|_] ->
-	    #k_literal{anno=A,val=V};
-	[] ->
-	    #k_nil{anno=A};
-	V when is_tuple(V) ->
-	    #k_literal{anno=A,val=V};
-	V when is_bitstring(V) ->
-	    #k_literal{anno=A,val=V};
-	V when is_integer(V) ->
-	    #k_int{anno=A,val=V};
-	V when is_float(V) ->
-	    #k_float{anno=A,val=V};
-	V when is_atom(V) ->
-	    #k_atom{anno=A,val=V}
-    end.
 
 make_list(Es) ->
     foldr(fun(E, Acc) ->
