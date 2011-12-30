@@ -1412,9 +1412,10 @@ ubody(#ivalues{anno=A,args=As}, return, St) ->
     {#k_return{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
-    if St#kern.guard_refc > 0 ->
+    case is_in_guard(St) of
+	true ->
 	    {#k_guard_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
-       true ->
+	false ->
 	    {#k_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St}
     end;
 ubody(#ivalues{anno=A,args=As}, {guard_break,_Vbs}, St) ->
@@ -1584,10 +1585,11 @@ uexpr(#k_match{anno=A,vars=Vs0,body=B0}, Br, St0) ->
     Vs = handle_reuse_annos(Vs0, St0),
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
-    if St0#kern.guard_refc > 0 ->
+    case is_in_guard(St1) of
+	true ->
 	    {#k_guard_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
 			    vars=Vs,body=B1,ret=Rs},Bu,St1};
-       true ->
+	false ->
 	    {#k_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
 		      vars=Vs,body=B1,ret=Rs},Bu,St1}
     end;
@@ -1851,6 +1853,11 @@ make_list(Es) ->
 integers(N, M) when N =< M ->
     [N|integers(N + 1, M)];
 integers(_, _) -> [].
+
+%% is_in_guard(State) -> true|false.
+
+is_in_guard(#kern{guard_refc=Refc}) ->
+    Refc > 0.
 
 %%%
 %%% Handling of errors and warnings.
