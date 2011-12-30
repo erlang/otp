@@ -2589,14 +2589,14 @@ bsm_maybe_ctx_to_binary(V, B) ->
 		   body=B}
     end.
 
-previous_ctx_to_binary(V, #c_seq{arg=#c_primop{name=Name,args=As}}) ->
-    case {Name,As} of
-	{#c_literal{val=bs_context_to_binary},[#c_var{name=V}]} ->
+previous_ctx_to_binary(V, Core) ->
+    case Core of
+	#c_seq{arg=#c_primop{name=#c_literal{val=bs_context_to_binary},
+			     args=[#c_var{name=V}]}} ->
 	    true;
-	{_,_} ->
+	_ ->
 	    false
-    end;
-previous_ctx_to_binary(_, _) -> false.
+    end.
 
 %% bsm_leftmost(Cs) -> none | ArgumentNumber
 %%  Find the leftmost argument that does binary matching. Return
