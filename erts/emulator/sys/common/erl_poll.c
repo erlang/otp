@@ -1949,7 +1949,7 @@ check_fd_events(ErtsPollSet ps, SysTimeval *tv, int max_res)
 	     */
 	    struct dvpoll poll_res;
 	    int nfds = (int) erts_smp_atomic_read_nob(&ps->no_of_user_fds);
-#ifdef ERTS_SMP
+#if ERTS_POLL_USE_WAKEUP_PIPE
 	    nfds++; /* Wakeup pipe */
 #endif
 	    if (timeout > INT_MAX)
@@ -2487,7 +2487,7 @@ ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet ps, ErtsPollInfo *pip)
     pip->memory_size = size;
 
     pip->poll_set_size = (int) erts_smp_atomic_read_nob(&ps->no_of_user_fds);
-#ifdef ERTS_SMP
+#if ERTS_POLL_USE_WAKEUP_PIPE
     pip->poll_set_size++; /* Wakeup pipe */
 #endif
 

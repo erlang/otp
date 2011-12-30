@@ -30,6 +30,35 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A feature test for the <c>lwsync</c> instruction
+	    performed on PowerPC hardware at runtime system startup
+	    got into an eternal loop if the instruction was not
+	    supported. This bug was introduced in erts-5.9/OTP-R15B.</p>
+          <p>
+	    Own Id: OTP-9843</p>
+        </item>
+        <item>
+          <p>
+	    I/O events could potentially be delayed for ever when
+	    enabling kernel-poll on a non-SMP runtime system
+	    executing on Solaris. When also combined with
+	    async-threads the runtime system hung before completing
+	    the boot phase. This bug was introduced in
+	    erts-5.9/OTP-R15B.</p>
+          <p>
+	    Own Id: OTP-9844</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
