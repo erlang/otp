@@ -1418,9 +1418,6 @@ ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
 	false ->
 	    {#k_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St}
     end;
-ubody(#ivalues{anno=A,args=As}, {guard_break,_Vbs}, St) ->
-    Au = lit_list_vars(As),
-    {#k_guard_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
@@ -1437,12 +1434,7 @@ ubody(E, {break,_Rs} = Break, St0) ->
 	false ->
 	    {Ea,Pa,St1} = force_atomic(E, St0),
 	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), Break, St1)
-    end;
-ubody(E, {guard_break,_Rs} = GuardBreak, St0) ->
-    %%ok = io:fwrite("ubody ~w:~p~n", [?LINE,{E,Br}]),
-    %% Exiting expressions need no trailing break.
-    {Ea,Pa,St1} = force_atomic(E, St0),
-    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), GuardBreak, St1).
+    end.
 
 iletrec_funs(#iletrec{defs=Fs}, St0) ->
     %% Use union of all free variables.
@@ -1494,66 +1486,21 @@ is_enter_expr(#k_receive{}) -> true;
 is_enter_expr(#k_receive_next{}) -> true;
 is_enter_expr(_) -> false.
 
-%% uguard(Expr, State) -> {Expr,[UsedVar],State}.
-%%  Tag the guard sequence with its used variables.
-
-uguard(#k_try{anno=A,arg=B0,vars=[#k_var{name=X}],body=#k_var{name=X},
-	      handler=#k_atom{val=false}}=Try, St0) ->
-    {B1,Bu,St1} = uguard(B0, St0),
-    {Try#k_try{anno=#k{us=Bu,ns=[],a=A},arg=B1},Bu,St1};
-uguard(T, St) ->
-    %%ok = io:fwrite("~w: ~p~n", [?LINE,T]),
-    uguard_test(T, St).
-
-%% uguard_test(Expr, State) -> {Test,[UsedVar],State}.
-%%  At this stage tests are just expressions which don't return any
-%%  values.
-
-uguard_test(T, St) -> uguard_expr(T, [], St).
-
-uguard_expr(#iset{anno=A,vars=Vs,arg=E0,body=B0}, Rs, St0) ->
-    Ns = lit_list_vars(Vs),
-    {E1,Eu,St1} = uguard_expr(E0, Vs, St0),
-    {B1,Bu,St2} = uguard_expr(B0, Rs, St1),
-    Used = union(Eu, subtract(Bu, Ns)),
-    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
-uguard_expr(#k_try{anno=A,arg=B0,vars=[#k_var{name=X}],body=#k_var{name=X},
-		   handler=#k_atom{val=false}}=Try, Rs, St0) ->
-    {B1,Bu,St1} = uguard_expr(B0, Rs, St0),
-    {Try#k_try{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},arg=B1,ret=Rs},
-     Bu,St1};
-uguard_expr(#k_test{anno=A,op=Op,args=As}=Test, Rs, St) ->
-    [] = Rs,					%Sanity check
-    Used = union(op_vars(Op), lit_list_vars(As)),
-    {Test#k_test{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A}},
-     Used,St};
-uguard_expr(#k_bif{anno=A,op=Op,args=As}=Bif, Rs, St0) ->
-    Used = union(op_vars(Op), lit_list_vars(As)),
-    {Brs,St1} = bif_returns(Op, Rs, St0),
-    {Bif#k_bif{anno=#k{us=Used,ns=lit_list_vars(Brs),a=A},ret=Brs},
-     Used,St1};
-uguard_expr(#ivalues{anno=A,args=As}, Rs, St) ->
-    Sets = foldr2(fun (V, Arg, Rhs) ->
-			  #iset{anno=A,vars=[V],arg=Arg,body=Rhs}
-		  end, #k_atom{val=true}, Rs, As),
-    uguard_expr(Sets, [], St);
-uguard_expr(#k_match{anno=A,vars=Vs,body=B0}, Rs, St0) ->
-    %% Experimental support for andalso/orelse in guards.
-    Br = {guard_break,Rs},
-    {B1,Bu,St1} = umatch(B0, Br, St0),
-    {#k_guard_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
-		    vars=Vs,body=B1,ret=Rs},Bu,St1};
-uguard_expr(Lit, Rs0, St0) ->
-    %% Transform literals to puts here.
-    Used = lit_vars(Lit),
-    {Rs,St1} = ensure_return_vars(Rs0, St0),
-    {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
-	    arg=Lit,ret=Rs},Used,St1}.
-
 %% uexpr(Expr, Break, State) -> {Expr,[UsedVar],State}.
 %%  Tag an expression with its used variables.
 %%  Break = return | {break,[RetVar]}.
 
+uexpr(#k_test{anno=A,op=Op,args=As}=Test, {break,Rs}, St) ->
+    [] = Rs,					%Sanity check
+    Used = union(op_vars(Op), lit_list_vars(As)),
+    {Test#k_test{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A}},
+     Used,St};
+uexpr(#iset{anno=A,vars=Vs,arg=E0,body=B0}, {break,_}=Br, St0) ->
+    Ns = lit_list_vars(Vs),
+    {E1,Eu,St1} = uexpr(E0, {break,Vs}, St0),
+    {B1,Bu,St2} = uexpr(B0, Br, St1),
+    Used = union(Eu, subtract(Bu, Ns)),
+    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
 uexpr(#k_call{anno=A,op=#k_local{name=F,arity=Ar}=Op,args=As0}=Call, Br, St) ->
     Free = get_free(F, Ar, St),
     As1 = As0 ++ Free,				%Add free variables LAST!
@@ -1606,24 +1553,27 @@ uexpr(#k_receive_accept{anno=A}, _, St) ->
     {#k_receive_accept{anno=#k{us=[],ns=[],a=A}},[],St};
 uexpr(#k_receive_next{anno=A}, _, St) ->
     {#k_receive_next{anno=#k{us=[],ns=[],a=A}},[],St};
-uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
-      {break,Rs0}, St0) ->
-    {Avs,St1} = new_vars(length(Vs), St0),	%Need dummy names here
-    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),	%Must break to clean up here!
-    {B1,Bu,St3} = ubody(B0, {break,Rs0}, St2),
-    {H1,Hu,St4} = ubody(H0, {break,Rs0}, St3),
-    %% Guarantee ONE return variable.
-    NumNew = if
-		 Rs0 =:= [] -> 1;
-		 true -> 0
-	     end,
-    {Ns,St5} = new_vars(NumNew, St4),
-    Rs1 = Rs0 ++ Ns,
-    Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
-		  subtract(Hu, lit_list_vars(Evs))]),
-    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs1),a=A},
-	    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs1},
-     Used,St5};
+uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0}=Try,
+      {break,Rs0}=Br, St0) ->
+    case is_in_guard(St0) of
+	true ->
+	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
+	    #k_atom{val=false} = H0,		%Assertion.
+	    {A1,Bu,St1} = uexpr(A0, Br, St0),
+	    {Try#k_try{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
+		       arg=A1,ret=Rs0},Bu,St1};
+	false ->
+	    {Avs,St1} = new_vars(length(Vs), St0),
+	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
+	    {B1,Bu,St3} = ubody(B0, Br, St2),
+	    {H1,Hu,St4} = ubody(H0, Br, St3),
+	    {Rs1,St5} = ensure_return_vars(Rs0, St4),
+	    Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
+			  subtract(Hu, lit_list_vars(Evs))]),
+	    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs1),a=A},
+		    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs1},
+	     Used,St5}
+    end;
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       return, St0) ->
     {Avs,St1} = new_vars(length(Vs), St0),	%Need dummy names here
@@ -1769,7 +1719,8 @@ umatch(#k_guard{anno=A,clauses=Gs0}, Br, St0) ->
     {#k_guard{anno=#k{us=Gus,ns=[],a=A},clauses=Gs1},Gus,St1};
 umatch(#k_guard_clause{anno=A,guard=G0,body=B0}, Br, St0) ->
     %%ok = io:fwrite("~w: ~p~n", [?LINE,G0]),
-    {G1,Gu,St1} = uguard(G0, St0#kern{guard_refc=St0#kern.guard_refc+1}),
+    {G1,Gu,St1} = uexpr(G0, {break,[]},
+			St0#kern{guard_refc=St0#kern.guard_refc+1}),
     %%ok = io:fwrite("~w: ~p~n", [?LINE,G1]),
     {B1,Bu,St2} = umatch(B0, Br, St1#kern{guard_refc=St1#kern.guard_refc-1}),
     Used = union(Gu, Bu),
