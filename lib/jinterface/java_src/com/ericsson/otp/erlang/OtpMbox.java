@@ -31,7 +31,7 @@ package com.ericsson.otp.erlang;
  * the recipient of the message. When sending messages to other mailboxes, the
  * recipient can only respond if the sender includes the pid as part of the
  * message contents. The sender can determine his own pid by calling
- * {@link #self self()}.
+ * {@link #self() self()}.
  * </p>
  * 
  * <p>

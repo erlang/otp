@@ -332,7 +332,7 @@ restart_new_emulator
     <p>An info report will be written when the upgrade is
       completed. To programatically find out if the upgrade is
       complete,
-      call <seealso marker="release_handler#which_release/0">
+      call <seealso marker="release_handler#which_releases/0">
       release_handler:which_releases</seealso> and check if the
       expected release has status <c>current</c>.</p>
     <p>The new release must still be made permanent after the upgrade
