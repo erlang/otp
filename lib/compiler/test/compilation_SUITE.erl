@@ -427,9 +427,9 @@ self_compile_1(Config, Prefix, Opts) ->
     %% Compile the compiler again using the newly compiled compiler.
     %% (In another node because reloading the compiler would disturb cover.)
     CompilerB = Prefix++"compiler_b",
-    ?line CompB = make_compiler_dir(Priv, Prefix++"compiler_b"),
+    CompB = make_compiler_dir(Priv, CompilerB),
     ?line VsnB = VsnA ++ ".0",
-    ?line self_compile_node(CompilerB, CompA, CompB, VsnB, Opts),
+    self_compile_node(CompA, CompB, VsnB, Opts),
 
     %% Compare compiler directories.
     ?line compare_compilers(CompA, CompB),
@@ -438,21 +438,26 @@ self_compile_1(Config, Prefix, Opts) ->
     ?line CompilerC = Prefix++"compiler_c",
     ?line CompC = make_compiler_dir(Priv, CompilerC),
     ?line VsnC = VsnB ++ ".0",
-    ?line self_compile_node(CompilerC, CompB, CompC, VsnC, Opts),
+    self_compile_node(CompB, CompC, VsnC, Opts),
     ?line compare_compilers(CompB, CompC),
 
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
-self_compile_node(NodeName0, CompilerDir, OutDir, Version, Opts) ->
-    ?line NodeName = list_to_atom(NodeName0),
-    ?line Dog = test_server:timetrap(test_server:minutes(10)),
+self_compile_node(CompilerDir, OutDir, Version, Opts) ->
+    ?line Dog = test_server:timetrap(test_server:minutes(15)),
     ?line Pa = "-pa " ++ filename:dirname(code:which(?MODULE)) ++
 	" -pa " ++ CompilerDir,
-    ?line {ok,Node} = start_node(NodeName, Pa),
     ?line Files = compiler_src(),
-    ?line ok = rpc:call(Node, ?MODULE, compile_compiler, [Files,OutDir,Version,Opts]),
-    ?line test_server:stop_node(Node),
+
+    %% We don't want the cover server started on the other node,
+    %% because it will load the same cover-compiled code as on this
+    %% node. Use a shielded node to prevent the cover server from
+    %% being started.
+    ?t:run_on_shielded_node(
+       fun() ->
+	       compile_compiler(Files, OutDir, Version, Opts)
+       end, Pa),
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
