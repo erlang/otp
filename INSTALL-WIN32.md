@@ -600,32 +600,36 @@ OpenSSL. Well' here's the list:
     Windows command prompt (it should be on the same drive as where
     you are going to install it if everything is to work smothly).
 
-      `C:\> cd <some dir>`
+        C:\> cd <some dir>
 
     Add ActiveState (or some other windows perl, not cygwins) to your PATH:
 
-      `C:\...\> set PATH=C:\Perl\bin;%PATH%`
+        C:\...\> set PATH=C:\Perl\bin;%PATH%
+
+    Or if you installed the 64bit perl:
+    
+        C:\...\> set PATH=C:\Perl64\bin;%PATH%
 
     Configure OpenSSL for 32 bit:
 
-      `C:\...\> perl Configure VC-WIN32 --prefix=/OpenSSL`
+        C:\...\> perl Configure VC-WIN32 --prefix=/OpenSSL
 
     Or for 64 bit:
 
-      `C:\...\> perl Configure VC-WIN64A --prefix=/OpenSSL-Win64`
+        C:\...\> perl Configure VC-WIN64A --prefix=/OpenSSL-Win64
 
     Do some setup (for 32 bit):
 
-      `C:\...\> ms\do_win32`
+        C:\...\> ms\do_ms
 
     The same for 64 bit:
 
-      `C:\...\> ms\do_win64a`
+        C:\...\> ms\do_win64a
 
     Then build static libraries and install:
 
-      `C:\...\> nmake -f ms\nt.mak`
-      `C:\...\> nmake -f ms\nt.mak install`
+        C:\...\> nmake -f ms\nt.mak
+        C:\...\> nmake -f ms\nt.mak install
 
     That's it - you now have your perfectly consistent static build of
     openssl. If you want to get rid of any possibly patented
@@ -644,19 +648,21 @@ OpenSSL. Well' here's the list:
     edit:  `C:\cygwin\opt\local\pgm\wxMSW-2.8.11\include\wx\msw\setup.h`
     enable `wxUSE_GLCANVAS`, `wxUSE_POSTSCRIPT` and `wxUSE_GRAPHICS_CONTEXT`
 
-    build: From a command prompt with the VC tools available (usually started from a
-           shortcut installed by the SDK/Visual Studio):
+    build: From a command prompt with the VC tools available (See the
+    instructions for OpenSSL build above for help on starting the
+    proper command prompt in RELEASE mode):
 	   
-	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw`
-	   `nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
-	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc`
-	   `nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
+        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw
+        C:\...\> nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
+        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc
+        C:\...\> nmake BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
     
     Or - if building a 64bit version:
-	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw`
-	   `nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
-	   `cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc`
-	   `nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc`
+
+        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\build\msw
+        C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
+        C:\...\> cd C:\cygwin\opt\local\pgm\wxMSW-2.8.11\contrib\build\stc
+        C:\...\> nmake TARGET_CPU=amd64 BUILD=release SHARED=0 UNICODE=1 USE_OPENGL=1 USE_GDIPLUS=1 DIR_SUFFIX_CPU= -f makefile.vc
     	   
 *   The Erlang source distribution (from <http://www.erlang.org/download.html>).
     The same as for Unix platforms. Preferably use tar from within Cygwin to
