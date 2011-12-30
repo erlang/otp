@@ -30,7 +30,6 @@ MODULES= \
 	misc_SUITE \
 	num_bif_SUITE \
 	pmod_SUITE \
-	parteval_SUITE \
 	receive_SUITE \
 	record_SUITE \
 	trycatch_SUITE \
