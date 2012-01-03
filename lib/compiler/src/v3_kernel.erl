@@ -926,9 +926,11 @@ maybe_add_warning([C|_], MatchAnno, St) ->
 maybe_add_warning([], _MatchAnno, St) -> St;
 maybe_add_warning(fail, _MatchAnno, St) -> St;
 maybe_add_warning(Ke, MatchAnno, St) ->
-    case get_kanno(Ke) of
-	[compiler_generated|_] -> St;
-	Anno ->
+    case is_compiler_generated(Ke) of
+	true ->
+	    St;
+	false ->
+	    Anno = get_kanno(Ke),
 	    Line = get_line(Anno),
 	    MatchLine = get_line(MatchAnno),
 	    Warn = case MatchLine of
@@ -1830,7 +1832,10 @@ format_error(bad_call) ->
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
     St#kern{ws=[{File,[{?MODULE,Term}]}|Ws]};
-add_warning(Line, Term, Anno, #kern{ws=Ws}=St) when Line >= 0 ->
+add_warning(Line, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
-    St#kern{ws=[{File,[{Line,?MODULE,Term}]}|Ws]};
-add_warning(_, _, _, St) -> St.
+    St#kern{ws=[{File,[{Line,?MODULE,Term}]}|Ws]}.
+
+is_compiler_generated(Ke) ->
+    Anno = get_kanno(Ke),
+    member(compiler_generated, Anno).

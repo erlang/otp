@@ -2054,7 +2054,7 @@ line_1(_, 0) ->
     %% Missing line number or line number 0.
     {line,[]};
 line_1(Name, Line) ->
-    {line,[{location,Name,abs(Line)}]}.
+    {line,[{location,Name,Line}]}.
 
 find_loc([Line|T], File, _) when is_integer(Line) ->
     find_loc(T, File, Line);

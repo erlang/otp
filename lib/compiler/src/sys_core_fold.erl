@@ -2741,22 +2741,20 @@ add_bin_opt_info(Core, Term) ->
     end.
 
 add_warning(Core, Term) ->
-    Anno = core_lib:get_anno(Core),
-    case lists:member(compiler_generated, Anno) of
-	true -> ok;
+    case is_compiler_generated(Core) of
+	true ->
+	    ok;
 	false ->
-	    case get_line(Anno) of
-		Line when Line >= 0 ->		%Must be positive.
-                    File = get_file(Anno),
-		    Key = {?MODULE,warnings},
-		    case get(Key) of
-			[{File,[{Line,?MODULE,Term}]}|_] ->
-			    ok;			%We already have 
+	    Anno = core_lib:get_anno(Core),
+	    Line = get_line(Anno),
+	    File = get_file(Anno),
+	    Key = {?MODULE,warnings},
+	    case get(Key) of
+		[{File,[{Line,?MODULE,Term}]}|_] ->
+		    ok;				%We already have
 						%an identical warning.
-			Ws ->
-			    put(Key, [{File,[{Line,?MODULE,Term}]}|Ws])
-		    end;
-		_ -> ok				%Compiler-generated code.
+		Ws ->
+		    put(Key, [{File,[{Line,?MODULE,Term}]}|Ws])
 	    end
     end.
 
@@ -2770,14 +2768,7 @@ get_file([]) -> "no_file". % should not happen
 
 is_compiler_generated(Core) ->
     Anno = core_lib:get_anno(Core),
-    case lists:member(compiler_generated, Anno) of
-	true -> true;
-	false ->
-	    case get_line(Anno) of
-		Line when Line >= 0 -> false;
-		_ -> true
-	    end
-    end.
+    member(compiler_generated, Anno).
 
 get_warnings() ->
     ordsets:from_list((erase({?MODULE,warnings}))).
