@@ -352,7 +352,10 @@ int main(int argc, char **argv)
      * to trigger the version handshaking between to_erl and run_erl
      * at the start of every new to_erl-session.
      */
-    write(wfd, "\022", 1);
+
+    if (write(wfd, "\022", 1) < 0) {
+	fprintf(stderr, "Error in writing ^R to FIFO.\n");
+    }
 
     /*
      * read and write
@@ -412,7 +415,7 @@ int main(int argc, char **argv)
 
 	if (len) {
 #ifdef DEBUG
-	    write(1, buf, len);
+	    if(write(1, buf, len));
 #endif
 	    if (write_all(wfd, buf, len) != len) {
 		fprintf(stderr, "Error in writing to FIFO.\n");
