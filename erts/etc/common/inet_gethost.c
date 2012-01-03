@@ -1141,14 +1141,12 @@ static Worker *pick_worker(void)
 static Worker *pick_worker_greedy(AddrByte *domainbuff)
 {
     int i;
-    int ql = 0;
     int found = -1;
     for (i=0; i < num_busy_workers; ++i) {
 	if (domaineq(busy_workers[i].domain, domainbuff)) {
 	    if ((found < 0) || (busy_workers[i].que_size < 
 				busy_workers[found].que_size)) {
 		found = i;
-		ql = busy_workers[i].que_size;
 	    }
 	}
     }
