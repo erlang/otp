@@ -149,7 +149,7 @@ static int pdigit(const char** fmt, ei_x_buff* x)
 {
     const char* start = *fmt;
     char c;
-    int len, dotp=0;
+    int dotp=0;
     double d;
     long l;
 
@@ -166,7 +166,6 @@ static int pdigit(const char** fmt, ei_x_buff* x)
 	    break;
     } 
     --(*fmt);
-    len = *fmt - start;
     if (dotp) {
 	sscanf(start, "%lf", &d);
 	return ei_x_encode_double(x, d);
