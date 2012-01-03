@@ -1224,7 +1224,7 @@ print_main_footer(em_state *state)
 
     switch (state->info.stop_reason) {
     case EMTP_STOP:
-	p += sprintf(p, stop_str);
+	p += sprintf(p, "%s", stop_str);
 	break;
     case EMTP_EXIT:
 	p += sprintf(p, exit_str, state->info.exit_status);
@@ -2339,7 +2339,7 @@ usage(char *sw, char *error)
     if (error)
 	exit(1);
     else {
-	char *help_str =
+	fprintf(filep, 
 	    "\n"
 	    "  []        - switch is allowed any number of times\n"
 	    "  {}        - switch is allowed at most one time\n"
@@ -2370,8 +2370,7 @@ usage(char *sw, char *error)
 	    "  " SW_CHAR "o        - display operation count values\n"
 	    "  " SW_CHAR "p <P>    - set listen port to <P>\n"
 	    "  " SW_CHAR "t        - display info about total values\n"
-	    "  " SW_CHAR "v        - verbose output\n";
-	fprintf(filep, help_str);
+	    "  " SW_CHAR "v        - verbose output\n");
 	exit(0);
     }
 
