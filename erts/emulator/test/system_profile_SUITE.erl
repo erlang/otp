@@ -27,6 +27,7 @@
 	system_profile_on_and_off/1,
 	runnable_procs/1,
 	runnable_ports/1,
+	dont_profile_profiler/1,
 	scheduler/1
         ]).
 
@@ -51,7 +52,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [system_profile_on_and_off, runnable_procs,
-     runnable_ports, scheduler].
+     runnable_ports, scheduler, dont_profile_profiler].
 
 groups() -> 
     [].
@@ -167,6 +168,29 @@ scheduler(Config) when is_list(Config) ->
 	    ok = check_block_system(Nodes),
 	    ok = check_multi_scheduling_block(Nodes)
     end.
+
+% the profiler pid should not be profiled
+dont_profile_profiler(suite) ->
+    [];
+dont_profile_profiler(doc) ->
+    ["Ensure system profiler process is not profiled."];
+dont_profile_profiler(Config) when is_list(Config) ->
+    Pid = start_profiler_process(),
+
+    Nodes = 10,
+    Laps = 10,
+    Master = ring(Nodes),
+    undefined = erlang:system_profile(Pid, [runnable_procs]),
+    % loop a message
+    ok = ring_message(Master, message, Laps),
+    erlang:system_profile(undefined, []),
+    kill_em_all = kill_ring(Master),
+    Events = get_profiler_events(),
+    false  = has_profiler_pid_event(Events, Pid),
+
+    exit(Pid,kill),
+    ok.
+
 
 %%% Check scheduler profiling
 
@@ -446,6 +470,12 @@ has_runnable_event(Events) ->
 	    	_ -> false
 	    end
         end, Events).
+
+has_profiler_pid_event([], _) -> false;
+has_profiler_pid_event([{profile, Pid, _Activity, _MFA, _TS}|Events], Pid) -> true;
+has_profiler_pid_event([_|Events], Pid) ->
+    has_profiler_pid_event(Events, Pid).
+
 
 wait(Time) -> receive after Time -> ok end.
 
