@@ -174,8 +174,13 @@ static inline unsigned char *bytearray_lvalue(Eterm bin, Eterm idx)
 {
     Sint i;
     unsigned char *bytes;
+#ifndef DEBUG
+    ERTS_DECLARE_DUMMY(Uint bitoffs);
+    ERTS_DECLARE_DUMMY(Uint bitsize);
+#else
     Uint bitoffs;
     Uint bitsize;
+#endif
 
     if (is_not_binary(bin) ||
 	is_not_small(idx) ||
@@ -235,9 +240,15 @@ BIF_RETTYPE hipe_bifs_bitarray_2(BIF_ALIST_2)
 BIF_RETTYPE hipe_bifs_bitarray_update_3(BIF_ALIST_3)
 {
     unsigned char *bytes, bytemask;
-    Uint bitoffs, bitsize;
     Uint bitnr, bytenr;
     int set;
+#ifndef DEBUG
+    ERTS_DECLARE_DUMMY(Uint bitoffs);
+    ERTS_DECLARE_DUMMY(Uint bitsize);
+#else
+    Uint bitoffs;
+    Uint bitsize;
+#endif
 
     if (is_not_binary(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
@@ -267,8 +278,15 @@ BIF_RETTYPE hipe_bifs_bitarray_update_3(BIF_ALIST_3)
 BIF_RETTYPE hipe_bifs_bitarray_sub_2(BIF_ALIST_2)
 {
     unsigned char *bytes, bytemask;
-    Uint bitoffs, bitsize;
     Uint bitnr, bytenr;
+#ifndef DEBUG
+    ERTS_DECLARE_DUMMY(Uint bitoffs);
+    ERTS_DECLARE_DUMMY(Uint bitsize);
+#else
+    Uint bitoffs;
+    Uint bitsize;
+#endif
+
 
     if (is_not_binary(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
@@ -397,10 +415,15 @@ BIF_RETTYPE hipe_bifs_enter_code_2(BIF_ALIST_2)
     Uint nrbytes;
     void *bytes;
     void *address;
-    Uint bitoffs;
-    Uint bitsize;
     Eterm trampolines;
     Eterm *hp;
+#ifndef DEBUG
+    ERTS_DECLARE_DUMMY(Uint bitoffs);
+    ERTS_DECLARE_DUMMY(Uint bitsize);
+#else
+    Uint bitoffs;
+    Uint bitsize;
+#endif
 
     if (is_not_binary(BIF_ARG_1))
 	BIF_ERROR(BIF_P, BADARG);
