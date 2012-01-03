@@ -909,9 +909,8 @@ match_guard_1([#iclause{anno=A,osub=Osub,guard=G,body=B}|Cs0], Def0, St0) ->
 	true ->
 	    %% The true clause body becomes the default.
 	    {Kb,Pb,St1} = body(B, Osub, St0),
-	    Line = get_line(A),
-	    St2 = maybe_add_warning(Cs0, Line, St1),
-	    St = maybe_add_warning(Def0, Line, St2),
+	    St2 = maybe_add_warning(Cs0, A, St1),
+	    St = maybe_add_warning(Def0, A, St2),
 	    {[],pre_seq(Pb, Kb),St};
 	false ->
 	    {Kg,St1} = guard(G, Osub, St0),
@@ -922,15 +921,16 @@ match_guard_1([#iclause{anno=A,osub=Osub,guard=G,body=B}|Cs0], Def0, St0) ->
     end;
 match_guard_1([], Def, St) -> {[],Def,St}. 
 
-maybe_add_warning([C|_], Line, St) ->
-    maybe_add_warning(C, Line, St);
-maybe_add_warning([], _Line, St) -> St;
-maybe_add_warning(fail, _Line, St) -> St;
-maybe_add_warning(Ke, MatchLine, St) ->
+maybe_add_warning([C|_], MatchAnno, St) ->
+    maybe_add_warning(C, MatchAnno, St);
+maybe_add_warning([], _MatchAnno, St) -> St;
+maybe_add_warning(fail, _MatchAnno, St) -> St;
+maybe_add_warning(Ke, MatchAnno, St) ->
     case get_kanno(Ke) of
 	[compiler_generated|_] -> St;
 	Anno ->
 	    Line = get_line(Anno),
+	    MatchLine = get_line(MatchAnno),
 	    Warn = case MatchLine of
 		       none -> nomatch_shadow;
 		       _ -> {nomatch_shadow,MatchLine}
