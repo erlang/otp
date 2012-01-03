@@ -27,6 +27,7 @@
 all() ->
     [t_sendfile_small
      ,t_sendfile_big
+     ,t_sendfile_many_small
      ,t_sendfile_partial
      ,t_sendfile_offset
      ,t_sendfile_sendafter
@@ -95,6 +96,23 @@ t_sendfile_small(Config) when is_list(Config) ->
 	   end,
 
     ok = sendfile_send(Send).
+
+t_sendfile_many_small(Config) when is_list(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+    FileOpts = proplists:get_value(file_opts, Config, []),
+
+    Send = fun(Sock) ->
+		   {Size,_} = sendfile_file_info(Filename),
+		   N = 10000,
+		   {ok,D} = file:open(Filename,[read|FileOpts]),
+		   [begin
+			{ok,Size} = file:sendfile(D,Sock,0,0,[])
+		    end || _I <- lists:seq(1,N)],
+		   file:close(D),
+		   Size*N
+	   end,
+
+    ok = sendfile_send({127,0,0,1}, Send, 0).
 
 t_sendfile_big(Config) when is_list(Config) ->
     Filename = proplists:get_value(big_file, Config),
