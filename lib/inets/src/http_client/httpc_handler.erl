@@ -1403,7 +1403,9 @@ try_to_enable_pipeline_or_keep_alive(
     end.
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
-	       #state{timers = Timers, profile_name = ProfileName} = State) -> 
+	       #state{session      = Session, 
+		      timers       = Timers, 
+		      profile_name = ProfileName} = State) -> 
     ?hcrt("answer request", [{request, Request}, {msg, Msg}]),
     httpc_response:send(From, Msg),
     RequestTimers = Timers#timers.request_timers,
@@ -1412,12 +1414,22 @@ answer_request(#request{id = RequestId, from = From} = Request, Msg,
     Timer = {RequestId, TimerRef},
     cancel_timer(TimerRef, {timeout, Request#request.id}),
     httpc_manager:request_done(RequestId, ProfileName),
-
+    NewSession = maybe_make_session_available(ProfileName, Session), 
+    Timers2 = Timers#timers{request_timers = lists:delete(Timer, 
+							  RequestTimers)}, 
     State#state{request = Request#request{from = answer_sent},
-		timers = 
-		Timers#timers{request_timers =
-			      lists:delete(Timer, RequestTimers)}}.
+		session = NewSession, 
+		timers  = Timers2}.
 
+maybe_make_session_available(ProfileName, 
+			     #session{id        = SessionId, 
+				      available = false} = Session) ->
+    httpc_manager:update_session(ProfileName, SessionId, 
+				 #session.available, true),
+    Session#session{available = true};
+maybe_make_session_available(_ProfileName, Session) ->
+    Session.
+    
 cancel_timers(#timers{request_timers = ReqTmrs, queue_timer = QTmr}) ->
     cancel_timer(QTmr, timeout_queue),
     CancelTimer = fun({_, Timer}) -> cancel_timer(Timer, timeout) end, 

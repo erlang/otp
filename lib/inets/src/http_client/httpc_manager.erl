@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,6 +34,7 @@
 	 retry_request/2, 
 	 redirect_request/2,
 	 insert_session/2, 
+	 update_session/4, 
 	 delete_session/2, 
 	 set_options/2, 
 	 store_cookies/3,
@@ -190,6 +191,29 @@ insert_session(Session, ProfileName) ->
     SessionDbName = session_db_name(ProfileName), 
     ?hcrt("insert session", [{session, Session}, {profile, ProfileName}]),
     ets:insert(SessionDbName, Session).
+
+
+%%--------------------------------------------------------------------
+%% Function: update_session(ProfileName, SessionId, Pos, Value) -> _
+%%	Session - #session{}
+%%      ProfileName - atom()
+%%
+%% Description: Update, only one field (Pos) of the session record
+%%              identified by the SessionId, the session information 
+%%              of the httpc manager table <ProfileName>_session_db. 
+%%              Intended to be called by the httpc request handler process.
+%%--------------------------------------------------------------------
+
+update_session(ProfileName, SessionId, Pos, Value) ->
+    SessionDbName = session_db_name(ProfileName), 
+    ?hcrt("insert session", 
+	  [{id,      SessionId}, 
+	   {pos,     Pos}, 
+	   {value,   Value}, 
+	   {profile, ProfileName}]),
+    ets:update_element(SessionDbName, SessionId, {Pos, Value}).
+
+
 
 
 %%--------------------------------------------------------------------
@@ -679,6 +703,7 @@ select_session(Method, HostPort, Scheme, SessionType,
 			       scheme       = Scheme,
 			       queue_length = '$2',
 			       type         = SessionType,
+			       available    = true, 
 			       _            = '_'},
 	    %% {'_', {HostPort, '$1'}, false, Scheme, '_', '$2', SessionTyp}, 
 	    Candidates = ets:match(SessionDb, Pattern), 
@@ -716,7 +741,7 @@ pipeline_or_keep_alive(Request, HandlerPid, State) ->
 	    ets:insert(State#state.handler_db, {Request#request.id,
 						HandlerPid,
 						Request#request.from});
-	_  -> %timeout pipelining failed
+	_  -> % timeout pipelining failed
 	    start_handler(Request, State)
     end.
 
