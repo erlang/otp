@@ -303,7 +303,7 @@ read_case_data(Port, TestCase) ->
 	      {Port, {data, {eol, [?PID_MARKER | PidStr]}}} ->
 		  ?line ?t:format("Port program pid: ~s~n", [PidStr]),
 		  ?line CaseProc = self(),
-		  ?line list_to_integer(PidStr), % Sanity check
+		  ?line _ = list_to_integer(PidStr), % Sanity check
 		  spawn_opt(fun () ->
 				    port_prog_killer(CaseProc, PidStr)
 			    end,
