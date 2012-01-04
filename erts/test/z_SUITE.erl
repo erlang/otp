@@ -236,8 +236,8 @@ format_core(#core_search_conf{file = false}, Core, Ignore) ->
 	      [Ignore, Core] ++ mod_time_list(Core));
 format_core(#core_search_conf{file = File}, Core, Ignore) ->
     FRes = str_strip(os:cmd(File ++ " " ++ Core)),
-    case catch regexp:match(FRes, Core) of
-	{match, _, _} ->
+    case catch re:run(FRes, Core, [caseless,{capture,none}]) of
+	match ->
 	    io:format("  ~s~s " ++ time_fstr() ++ "~n",
 		      [Ignore, FRes] ++ mod_time_list(Core));
 	_ ->
