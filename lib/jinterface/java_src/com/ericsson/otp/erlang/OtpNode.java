@@ -182,7 +182,7 @@ public class OtpNode extends OtpLocalNode {
      * Create an unnamed {@link OtpMbox mailbox} that can be used to send and
      * receive messages with other, similar mailboxes and with Erlang processes.
      * Messages can be sent to this mailbox by using its associated
-     * {@link OtpMbox#self pid}.
+     * {@link OtpMbox#self() pid}.
      * 
      * @return a mailbox.
      */
@@ -248,7 +248,7 @@ public class OtpNode extends OtpLocalNode {
      * Create an named mailbox that can be used to send and receive messages
      * with other, similar mailboxes and with Erlang processes. Messages can be
      * sent to this mailbox by using its registered name or the associated
-     * {@link OtpMbox#self pid}.
+     * {@link OtpMbox#self() pid}.
      * 
      * @param name
      *            a name to register for this mailbox. The name must be unique

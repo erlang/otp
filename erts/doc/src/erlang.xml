@@ -3909,7 +3909,7 @@ os_prompt%</pre>
           <item>
             <p>Return the current call stack back-trace (<em>stacktrace</em>)
               of the process. The stack has the same format as returned by
-	      <seealso marker="#get_stacktrace/1">erlang:get_stacktrace/0</seealso>.
+	      <seealso marker="#get_stacktrace/0">erlang:get_stacktrace/0</seealso>.
 	    </p>
           </item>
           <tag><c>{dictionary, Dictionary}</c></tag>

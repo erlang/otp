@@ -70,7 +70,7 @@
       <desc>
         <p>Either <c>standard_io</c>, <c>standard_error</c>, a
           registered name, or a pid handling IO protocols (returned from
-            <seealso marker="file#open/2">file:open/2</seealso>).</p>
+            <seealso marker="kernel:file#open/2">file:open/2</seealso>).</p>
       </desc>
     </datatype>
     <datatype>
