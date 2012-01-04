@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -818,6 +818,11 @@ erts_smp_xports_unlock(Port *prt)
 #define SET_VEC(iov, bv, bin, ptr, len, vlen) do {	\
    (iov)->iov_base = (ptr);				\
    (iov)->iov_len = (len);				\
+   if (sizeof((iov)->iov_len) < sizeof(len)				\
+       /* Check if (len) overflowed (iov)->iov_len */			\
+       && ((len) >> (sizeof((iov)->iov_len)*CHAR_BIT)) != 0) {		\
+       goto L_overflow;							\
+   }									\
    *(bv)++ = (bin);					\
    (iov)++;						\
    (vlen)++;						\
@@ -1146,11 +1151,21 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 	ivp[0].iov_len = 0;
 	bvp[0] = NULL;
 	ev.vsize = io_list_to_vec(list, ivp+1, bvp+1, cbin, blimit);
+	if (ev.vsize < 0) {
+	    if (ivp != iv) {
+		erts_free(ERTS_ALC_T_TMP, (void *) ivp);
+	    }
+	    if (bvp != bv) {
+		erts_free(ERTS_ALC_T_TMP, (void *) bvp);
+	    }
+	    driver_free_binary(cbin);
+	    goto bad_value;
+	}
 	ev.vsize++;
 #if 0
 	/* This assertion may say something useful, but it can
 	   be falsified during the emulator test suites. */
-	ASSERT((ev.vsize >= 0) && (ev.vsize == vsize));
+	ASSERT(ev.vsize == vsize);
 #endif
 	ev.size = size;  /* total size */
 	ev.iov = ivp;
