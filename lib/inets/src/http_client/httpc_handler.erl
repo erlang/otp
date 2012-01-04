@@ -1181,7 +1181,7 @@ handle_pipeline(#state{status       = pipeline,
 
     case queue:out(State#state.pipeline) of
 	{empty, _} ->
-	    ?hcrd("epmty pipeline queue", []),
+	    ?hcrd("pipeline queue empty", []),
 	    
 	    %% The server may choose too teminate an idle pipeline
 	    %% in this case we want to receive the close message
@@ -1191,9 +1191,10 @@ handle_pipeline(#state{status       = pipeline,
 
 	    %% If a pipeline that has been idle for some time is not
 	    %% closed by the server, the client may want to close it.
-	    NewState   = activate_queue_timeout(TimeOut, State),
-	    NewSession = Session#session{queue_length = 0},
-	    httpc_manager:insert_session(NewSession, ProfileName),
+	    NewState = activate_queue_timeout(TimeOut, State),
+	    httpc_manager:update_session(ProfileName, 
+					 Session#session.id, 
+					 #session.queue_length, 0), 
 	    %% Note mfa will be initilized when a new request 
 	    %% arrives.
 	    {noreply, 
@@ -1203,6 +1204,7 @@ handle_pipeline(#state{status       = pipeline,
 			    headers     = undefined,
 			    body        = undefined}};
 	{{value, NextRequest}, Pipeline} ->    
+	    ?hcrd("pipeline queue non-empty", []),
 	    case lists:member(NextRequest#request.id, 
 			      State#state.canceled) of		
 		true ->
@@ -1257,7 +1259,7 @@ handle_keep_alive_queue(
 
     case queue:out(State#state.keep_alive) of
 	{empty, _} ->
-	    ?hcrd("empty keep_alive queue", []),
+	    ?hcrd("keep_alive queue empty", []),
 	    %% The server may choose too terminate an idle keep_alive session
 	    %% in this case we want to receive the close message
 	    %% at once and not when trying to send the next
@@ -1266,8 +1268,9 @@ handle_keep_alive_queue(
 	    %% If a keep_alive session has been idle for some time is not
 	    %% closed by the server, the client may want to close it.
 	    NewState = activate_queue_timeout(TimeOut, State),
-	    NewSession = Session#session{queue_length = 0},
-	    httpc_manager:insert_session(NewSession, ProfileName),
+	    httpc_manager:update_session(ProfileName, 
+					 Session#session.id, 
+					 #session.queue_length, 0),
 	    %% Note mfa will be initilized when a new request 
 	    %% arrives.
 	    {noreply, 
@@ -1279,6 +1282,7 @@ handle_keep_alive_queue(
 			   } 
 	    };
 	{{value, NextRequest}, KeepAlive} ->    
+	    ?hcrd("keep_alive queue non-empty", []),
 	    case lists:member(NextRequest#request.id, 
 			      State#state.canceled) of		
 		true ->

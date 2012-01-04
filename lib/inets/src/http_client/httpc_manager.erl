@@ -206,7 +206,7 @@ insert_session(Session, ProfileName) ->
 
 update_session(ProfileName, SessionId, Pos, Value) ->
     SessionDbName = session_db_name(ProfileName), 
-    ?hcrt("insert session", 
+    ?hcrt("update session", 
 	  [{id,      SessionId}, 
 	   {pos,     Pos}, 
 	   {value,   Value}, 
