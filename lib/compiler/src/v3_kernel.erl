@@ -1537,10 +1537,11 @@ uguard_expr(#k_test{anno=A,op=Op,args=As}=Test, Rs, St) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
     {Test#k_test{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A}},
      Used,St};
-uguard_expr(#k_bif{anno=A,op=Op,args=As}=Bif, Rs, St) ->
+uguard_expr(#k_bif{anno=A,op=Op,args=As}=Bif, Rs, St0) ->
     Used = union(op_vars(Op), lit_list_vars(As)),
-    {Bif#k_bif{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},ret=Rs},
-     Used,St};
+    {Brs,St1} = bif_returns(Op, Rs, St0),
+    {Bif#k_bif{anno=#k{us=Used,ns=lit_list_vars(Brs),a=A},ret=Brs},
+     Used,St1};
 uguard_expr(#ivalues{anno=A,args=As}, Rs, St) ->
     Sets = foldr2(fun (V, Arg, Rhs) ->
 			  #iset{anno=A,vars=[V],arg=Arg,body=Rhs}
