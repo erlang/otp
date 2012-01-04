@@ -3436,17 +3436,11 @@ obsolete_guard({call,Line,{atom,Lr,F},As}, St0) ->
 	false ->
 	    deprecated_function(Line, erlang, F, As, St0);
 	true ->
-	    St1 = case F of
-		      constant ->
-			  deprecated_function(Lr, erlang, is_constant, As, St0);
-		      _ ->
-			  St0
-		  end,
-	    case is_warn_enabled(obsolete_guard, St1) of
+	    case is_warn_enabled(obsolete_guard, St0) of
 		true ->
-		    add_warning(Lr,{obsolete_guard, {F, Arity}}, St1);
+		    add_warning(Lr,{obsolete_guard, {F, Arity}}, St0);
 		false ->
-		    St1
+		    St0
 	    end
     end;
 obsolete_guard(_G, St) ->
