@@ -53,7 +53,6 @@
 
 %% Main codegen structure.
 -record(cg, {lcount=1,				%Label counter
-	     finfo,				%Function info label
 	     bfail,				%Fail label for BIFs
 	     break,				%Break label
 	     recv,				%Receive label
@@ -126,7 +125,6 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
 			 stk=[]}, 0, Vdb),
     {B,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
 			  St3#cg{bfail=0,
-				 finfo=Fi,
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
     {Name,Arity} = NameArity,
@@ -147,8 +145,6 @@ cg({match,M,Rs}, Le, Vdb, Bef, St) ->
     match_cg(M, Rs, Le, Vdb, Bef, St);
 cg({guard_match,M,Rs}, Le, Vdb, Bef, St) ->
     guard_match_cg(M, Rs, Le, Vdb, Bef, St);
-cg({match_fail,F}, Le, Vdb, Bef, St) ->
-    match_fail_cg(F, Le, Vdb, Bef, St);
 cg({call,Func,As,Rs}, Le, Vdb, Bef, St) ->
     call_cg(Func, As, Rs, Le, Vdb, Bef, St);
 cg({enter,Func,As}, Le, Vdb, Bef, St) ->
@@ -293,39 +289,6 @@ match_cg({block,Es}, Le, _Fail, Bef, St) ->
     %% Must clear registers and stack of dead variables.
     Int = clear_dead(Bef, Le#l.i, Le#l.vdb),
     block_cg(Es, Le, Int, St).
-
-%% match_fail_cg(FailReason, Le, Vdb, StackReg, State) ->
-%%	{[Ainstr],StackReg,State}.
-%%  Generate code for the match_fail "call".  N.B. there is no generic
-%%  case for when the fail value has been created elsewhere.
-
-match_fail_cg({function_clause,As}, Le, Vdb, Bef, St) ->
-    %% Must have the args in {x,0}, {x,1},...
-    {Sis,Int} = cg_setup_call(As, Bef, Le#l.i, Vdb),
-    {Sis ++ [{jump,{f,St#cg.finfo}}],
-     Int#sr{reg=clear_regs(Int#sr.reg)},St};
-match_fail_cg({badmatch,Term}, Le, Vdb, Bef, St) ->
-    R = cg_reg_arg(Term, Bef),
-    Int0 = clear_dead(Bef, Le#l.i, Vdb),
-    {Sis,Int} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis ++ [line(Le),{badmatch,R}],
-     Int#sr{reg=clear_regs(Int0#sr.reg)},St};
-match_fail_cg({case_clause,Reason}, Le, Vdb, Bef, St) ->
-    R = cg_reg_arg(Reason, Bef),
-    Int0 = clear_dead(Bef, Le#l.i, Vdb),
-    {Sis,Int} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis++[line(Le),{case_end,R}],
-     Int#sr{reg=clear_regs(Bef#sr.reg)},St};
-match_fail_cg(if_clause, Le, Vdb, Bef, St) ->
-    Int0 = clear_dead(Bef, Le#l.i, Vdb),
-    {Sis,Int1} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis++[line(Le),if_end],Int1#sr{reg=clear_regs(Int1#sr.reg)},St};
-match_fail_cg({try_clause,Reason}, Le, Vdb, Bef, St) ->
-    R = cg_reg_arg(Reason, Bef),
-    Int0 = clear_dead(Bef, Le#l.i, Vdb),
-    {Sis,Int} = adjust_stack(Int0, Le#l.i, Le#l.i+1, Vdb),
-    {Sis ++ [line(Le),{try_case_end,R}],
-     Int#sr{reg=clear_regs(Int0#sr.reg)},St}.
 
 %% bsm_rename_ctx([Clause], Var) -> [Clause]
 %%  We know from an annotation that the register for a binary can
