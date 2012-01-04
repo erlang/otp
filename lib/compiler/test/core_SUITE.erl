@@ -21,7 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 dehydrated_itracer/1,nested_tries/1]).
+	 dehydrated_itracer/1,nested_tries/1,
+	 make_effect_seq/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -41,7 +42,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [dehydrated_itracer, nested_tries].
+    [dehydrated_itracer,nested_tries,make_effect_seq].
 
 groups() -> 
     [].
@@ -61,6 +62,7 @@ end_per_group(_GroupName, Config) ->
 
 ?comp(dehydrated_itracer).
 ?comp(nested_tries).
+?comp(make_effect_seq).
 
 try_it(Mod, Conf) ->
     ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
