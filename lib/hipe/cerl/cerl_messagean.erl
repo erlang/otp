@@ -1083,7 +1083,6 @@ is_imm_op(erlang, is_alive, 0) -> true;
 is_imm_op(erlang, is_atom, 1) -> true;
 is_imm_op(erlang, is_binary, 1) -> true;
 is_imm_op(erlang, is_builtin, 3) -> true;
-is_imm_op(erlang, is_constant, 1) -> true;
 is_imm_op(erlang, is_float, 1) -> true;
 is_imm_op(erlang, is_function, 1) -> true;
 is_imm_op(erlang, is_integer, 1) -> true;

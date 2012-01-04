@@ -392,7 +392,6 @@ call_to_primop(erlang, '=<', 2) -> {yes, ?PRIMOP_LE};
 call_to_primop(erlang, '>=', 2) -> {yes, ?PRIMOP_GE};
 call_to_primop(erlang, is_atom, 1) -> {yes, ?PRIMOP_IS_ATOM};
 call_to_primop(erlang, is_binary, 1) -> {yes, ?PRIMOP_IS_BINARY};
-call_to_primop(erlang, is_constant, 1) -> {yes, ?PRIMOP_IS_CONSTANT};
 call_to_primop(erlang, is_float, 1) -> {yes, ?PRIMOP_IS_FLOAT};
 call_to_primop(erlang, is_function, 1) -> {yes, ?PRIMOP_IS_FUNCTION};
 call_to_primop(erlang, is_integer, 1) -> {yes, ?PRIMOP_IS_INTEGER};
