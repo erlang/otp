@@ -83,6 +83,7 @@
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
 		keymember/3,keyfind/3]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
+-import(cerl, [c_tuple/1]).
 
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
@@ -422,10 +423,11 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
     end;
 expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St0) ->
     Cargs = translate_match_fail(Cargs0, Sub, A, St0),
-    %% This special case will disappear.
     {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
     Ar = length(Cargs),
-    Call = #k_call{anno=A,op=#k_internal{name=match_fail,arity=Ar},args=Kargs},
+    Call = #k_call{anno=A,op=#k_remote{mod=#k_atom{val=erlang},
+				       name=#k_atom{val=error},
+				       arity=Ar},args=Kargs},
     {Call,Ap,St};
 expr(#c_primop{anno=A,name=#c_literal{val=N},args=Cargs}, Sub, St0) ->
     {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
@@ -455,14 +457,14 @@ expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
 translate_match_fail(Args, Sub, Anno, St) ->
     case Args of
 	[#c_tuple{es=[#c_literal{val=function_clause}|As]}] ->
-	    translate_match_fail_1(Anno, Args, As, Sub, St);
+	    translate_match_fail_1(Anno, As, Sub, St);
 	[#c_literal{val=Tuple}] when is_tuple(Tuple) ->
 	    %% The inliner may have created a literal out of
 	    %% the original #c_tuple{}.
 	    case tuple_to_list(Tuple) of
 		[function_clause|As0] ->
 		    As = [#c_literal{val=E} || E <- As0],
-		    translate_match_fail_1(Anno, Args, As, Sub, St);
+		    translate_match_fail_1(Anno, As, Sub, St);
 		_ ->
 		    Args
 	    end;
@@ -471,7 +473,7 @@ translate_match_fail(Args, Sub, Anno, St) ->
 	    Args
     end.
 
-translate_match_fail_1(Anno, Args, As, Sub, #kern{ff=FF}) ->
+translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
     AnnoFunc = case keyfind(function_name, 1, Anno) of
 		   false ->
 		       none;			%Force rewrite.
@@ -481,10 +483,10 @@ translate_match_fail_1(Anno, Args, As, Sub, #kern{ff=FF}) ->
     case {AnnoFunc,FF} of
 	{Same,Same} ->
 	    %% Still in the correct function.
-	    Args;
+	    translate_fc(As);
 	{{F,_},F} ->
 	    %% Still in the correct function.
-	    Args;
+	    translate_fc(As);
 	_ ->
 	    %% Wrong function or no function_name annotation.
 	    %%
@@ -493,8 +495,11 @@ translate_match_fail_1(Anno, Args, As, Sub, #kern{ff=FF}) ->
 	    %% the current function). match_fail(function_clause) will
 	    %% only work at the top level of the function it was originally
 	    %% defined in, so we will need to rewrite it to a case_clause.
-	    [#c_tuple{es=[#c_literal{val=case_clause},#c_tuple{es=As}]}]
+	    [c_tuple([#c_literal{val=case_clause},c_tuple(As)])]
     end.
+
+translate_fc(Args) ->
+    [#c_literal{val=function_clause},make_list(Args)].
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
 %%  Classify the call.
@@ -1494,7 +1499,6 @@ iletrec_funs_gen(Fs, FreeVs, St) ->
 %% is_exit_expr(Kexpr) -> boolean().
 %%  Test whether Kexpr always exits and never returns.
 
-is_exit_expr(#k_call{op=#k_internal{name=match_fail,arity=1}}) -> true;
 is_exit_expr(#k_receive_next{}) -> true;
 is_exit_expr(_) -> false.
 

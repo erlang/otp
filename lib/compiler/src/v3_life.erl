@@ -89,19 +89,8 @@ function(#k_fdef{anno=#k{a=Anno},func=F,arity=Ar,vars=Vs,body=Kb}) ->
     end.
 
 %% body(Kbody, I, Vdb) -> {[Expr],MaxI,Vdb}.
-%%  Handle a body, need special cases for transforming match_fails.
-%%  We KNOW that they only occur last in a body.
+%%  Handle a body.
 
-body(#k_seq{arg=#k_put{anno=Pa,arg=Arg,ret=[R]},
-	    body=#k_enter{anno=Ea,op=#k_internal{name=match_fail,arity=1},
-			  args=[R]}},
-      I, Vdb0) ->
-    Vdb1 = use_vars(Pa#k.us, I, Vdb0),		%All used here
-    {[match_fail(Arg, I, Pa#k.a ++ Ea#k.a)],I,Vdb1};
-body(#k_enter{anno=Ea,op=#k_internal{name=match_fail,arity=1},args=[Arg]},
-      I, Vdb0) ->
-    Vdb1 = use_vars(Ea#k.us, I, Vdb0),
-    {[match_fail(Arg, I, Ea#k.a)],I,Vdb1};
 body(#k_seq{arg=Ke,body=Kb}, I, Vdb0) ->
     %%ok = io:fwrite("life ~w:~p~n", [?LINE,{Ke,I,Vdb0}]),
     A = get_kanno(Ke),
@@ -352,25 +341,6 @@ guard_clause(#k_guard_clause{anno=A,guard=Kg,body=Kb}, Ls, I, Ctxt, Vdb0) ->
     #l{ke={guard_clause,G,B},
        i=I,vdb=use_vars((get_kanno(Kg))#k.us, I+2, Vdb1),
        a=A#k.a}.
-
-%% match_fail(FailValue, I, Anno) -> Expr.
-%%  Generate the correct match_fail instruction.  N.B. there is no
-%%  generic case for when the fail value has been created elsewhere.
-
-match_fail(#k_literal{anno=Anno,val={Atom,Val}}, I, A) when is_atom(Atom) ->
-    match_fail(#k_tuple{anno=Anno,es=[#k_atom{val=Atom},#k_literal{val=Val}]}, I, A);
-match_fail(#k_literal{anno=Anno,val={Atom}}, I, A) when is_atom(Atom) ->
-    match_fail(#k_tuple{anno=Anno,es=[#k_atom{val=Atom}]}, I, A);
-match_fail(#k_tuple{es=[#k_atom{val=function_clause}|As]}, I, A) ->
-    #l{ke={match_fail,{function_clause,literal_list(As, [])}},i=I,a=A};
-match_fail(#k_tuple{es=[#k_atom{val=badmatch},Val]}, I, A) ->
-    #l{ke={match_fail,{badmatch,literal(Val, [])}},i=I,a=A};
-match_fail(#k_tuple{es=[#k_atom{val=case_clause},Val]}, I, A) ->
-    #l{ke={match_fail,{case_clause,literal(Val, [])}},i=I,a=A};
-match_fail(#k_atom{val=if_clause}, I, A) ->
-    #l{ke={match_fail,if_clause},i=I,a=A};
-match_fail(#k_tuple{es=[#k_atom{val=try_clause},Val]}, I, A) ->
-    #l{ke={match_fail,{try_clause,literal(Val, [])}},i=I,a=A}.
 
 %% type(Ktype) -> Type.
 
