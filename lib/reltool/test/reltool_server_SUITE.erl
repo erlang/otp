@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
 
 -compile(export_all).
 
+-include_lib("reltool/src/reltool.hrl").
 -include("reltool_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
@@ -51,10 +52,12 @@ end_per_testcase(Func,Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start_server, set_config, create_release,
+    [start_server, set_config, get_config, create_release,
      create_script, create_target, create_embedded,
      create_standalone, create_old_target,
-     otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod].
+     otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod,
+     get_apps, set_app_and_undo, set_apps_and_undo,
+     load_config_and_undo, reset_config_and_undo, save_config].
 
 groups() -> 
     [].
@@ -110,6 +113,83 @@ set_config(_Config) ->
 
     ?m(ok, reltool:stop(Pid)),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Check that get_config returns the expected derivates and defaults
+%% as specified
+get_config(_Config) ->
+    Sys = {sys,[{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+    ?m({ok, Sys}, reltool:get_config(Pid,false,false)),
+
+    ?msym({ok,{sys,[{incl_cond, exclude},
+		    {erts,[]},
+		    {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+		    {app,sasl,[{incl_cond,include},{mod,_,[]}|_]},
+		    {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}},
+	  reltool:get_config(Pid,false,true)),
+
+    ?msym({ok,{sys,[{root_dir,_},
+		    {lib_dirs,_},
+		    {mod_cond,all},
+		    {incl_cond,exclude},
+		    {app,kernel,[{incl_cond,include},{vsn,undefined}]},
+		    {app,sasl,[{incl_cond,include},{vsn,undefined}]},
+		    {app,stdlib,[{incl_cond,include},{vsn,undefined}]},
+		    {boot_rel,"start_clean"},
+		    {rel,"start_clean","1.0",[]},
+		    {rel,"start_sasl","1.0",[sasl]},
+		    {emu_name,"beam"},
+		    {relocatable,true},
+		    {profile,development},
+		    {incl_sys_filters,[".*"]},
+		    {excl_sys_filters,[]},
+		    {incl_app_filters,[".*"]},
+		    {excl_app_filters,[]},
+		    {incl_archive_filters,[".*"]},
+		    {excl_archive_filters,["^include$","^priv$"]},
+		    {archive_opts,[]},
+		    {rel_app_type,permanent},
+		    {app_file,keep},
+		    {debug_info,keep}]}},
+	  reltool:get_config(Pid,true,false)),
+
+    KVsn = latest(kernel),
+    StdVsn = latest(stdlib),
+
+    ?msym({ok,{sys,[{root_dir,_},
+		    {lib_dirs,_},
+		    {mod_cond,all},
+		    {incl_cond,exclude},
+		    {erts,[]},
+		    {app,kernel,[{incl_cond,include},{vsn,KVsn},{mod,_,[]}|_]},
+		    {app,sasl,[{incl_cond,include},{vsn,_},{mod,_,[]}|_]},
+		    {app,stdlib,[{incl_cond,include},{vsn,StdVsn},{mod,_,[]}|_]},
+		    {boot_rel,"start_clean"},
+		    {rel,"start_clean","1.0",[]},
+		    {rel,"start_sasl","1.0",[sasl]},
+		    {emu_name,"beam"},
+		    {relocatable,true},
+		    {profile,development},
+		    {incl_sys_filters,[".*"]},
+		    {excl_sys_filters,[]},
+		    {incl_app_filters,[".*"]},
+		    {excl_app_filters,[]},
+		    {incl_archive_filters,[".*"]},
+		    {excl_archive_filters,["^include$","^priv$"]},
+		    {archive_opts,[]},
+		    {rel_app_type,permanent},
+		    {app_file,keep},
+		    {debug_info,keep}]}},
+	  reltool:get_config(Pid,true,true)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OTP-9135, test that app_file option can be set to all | keep | strip
@@ -389,7 +469,7 @@ otp_9229_exclude_app(Config) ->
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclApp}])]),
-    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclApp}]),
+    ?m({ok,["Module mylib exists in applications x and y. Using module from application x."]}, reltool:get_status([{config, ExclApp}])),
     ?m(ok, reltool:create_target([{config, ExclApp}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
@@ -436,7 +516,7 @@ otp_9229_exclude_mod(Config) ->
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclMod}])]),
-    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclMod}]),
+    ?m({ok,["Module mylib exists in applications x and y. Using module from application x."]}, reltool:get_status([{config, ExclMod}])),
     ?m(ok, reltool:create_target([{config, ExclMod}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
@@ -466,7 +546,296 @@ otp_9229_exclude_mod(Config) ->
     ok.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test the interface used by the GUI:
+%%  get_app
+%%  get_apps
+%%  set_app
+%%  set_apps
+%%  load_config
+%%  reset_config
+%%
+%% Also, for each operation which manipulates the config test
+%% undo_config - that it is properly undone, and that warnings are
+%% re-displayed.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_apps(_Config) ->
+    Sys = {sys,[{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,derived}]},
+		{app,runtime_tools,[{incl_cond,exclude}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
 
+    {ok,Sasl} = ?msym({ok,#app{name=sasl}}, reltool_server:get_app(Pid,sasl)),
+    {ok,[#app{name=kernel},
+	 #app{name=sasl}=Sasl,
+	 #app{name=stdlib}] = White} =
+	?msym({ok,_}, reltool_server:get_apps(Pid,whitelist)),
+    {ok,[#app{name=runtime_tools}] = Black} =
+	?msym({ok,_}, reltool_server:get_apps(Pid,blacklist)),
+
+    {ok,Derived} = ?msym({ok,_}, reltool_server:get_apps(Pid,derived)),
+    true = lists:keymember(tools,#app.name,Derived),
+
+    {ok,Source} = ?msym({ok,_}, reltool_server:get_apps(Pid,source)),
+    true = lists:keymember(common_test,#app.name,Source),
+
+    %% Check that the four lists are disjoint
+    Number = length(White) + length(Black) + length(Derived) + length(Source),
+    WN = lists:usort([N || #app{name=N} <- White]),
+    BN = lists:usort([N || #app{name=N} <- Black]),
+    DN = lists:usort([N || #app{name=N} <- Derived]),
+    SN = lists:usort([N || #app{name=N} <- Source]),
+    AllN = lists:umerge([WN,BN,DN,SN]),
+    ?m(Number,length(AllN)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
+
+set_app_and_undo(Config) ->
+    Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		{incl_cond, exclude},
+		{app,a,[{incl_cond,include}]},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+
+    %% Exclude one module with set_app
+    {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    Mods = Tools#app.mods,
+    Cover = lists:keyfind(cover,#mod.name,Mods),
+    ExclCover = Cover#mod{incl_cond=exclude},
+    Tools1 = Tools#app{mods = lists:keyreplace(cover,#mod.name,Mods,ExclCover)},
+    {ok,ToolsNoCover,[]} = ?msym({ok,_,[]}, reltool_server:set_app(Pid,Tools1)),
+    ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
+    %%! warning can come twice here... :(
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,[]}, reltool:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+set_apps_and_undo(Config) ->
+    Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+
+    %% Exclude one application with set_apps
+    {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ExclTools = Tools#app{incl_cond=exclude},
+    ?m({ok,[]}, reltool_server:set_apps(Pid,[ExclTools])),
+    {ok,NoTools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(false, NoTools#app.is_pre_included),
+    ?m(false, NoTools#app.is_included),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
+    %%! warning can come twice here... :(
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,NoTools}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,[]}, reltool:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+load_config_and_undo(Config) ->
+    Sys1 = {sys,[{incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    ?m({ok, Sys1}, reltool:get_config(Pid)),
+
+    %% Check that tools is included
+    {ok,Tools1} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(true, Tools1#app.is_pre_included),
+    ?m(true, Tools1#app.is_included),
+
+    %% Exclude one application with set_apps
+    Sys2 = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,derived}]},
+		 {app,a,[{incl_cond,include}]}]},
+    ?msym({ok,["a: Cannot parse app file"++_]},
+	  reltool_server:load_config(Pid,Sys2)),
+
+    %% Check that tools is included (since it is used by sasl) but not
+    %% pre-included (neither included or excluded => undefined)
+    {ok,Tools2} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(undefined, Tools2#app.is_pre_included),
+    ?m(true, Tools2#app.is_included),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,[]}, reltool:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+reset_config_and_undo(Config) ->
+    Sys1 = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		 {incl_cond, exclude},
+		 {app,a,[{incl_cond,include}]},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    ?m({ok, Sys1}, reltool:get_config(Pid)),
+
+    %% Check that tools is included
+    {ok,Tools1} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(true, Tools1#app.is_pre_included),
+    ?m(true, Tools1#app.is_included),
+
+    %% Exclude one application with set_apps
+    Sys2 = {sys,[{incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,exclude}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys2)),
+
+    %% Check that tools is excluded
+    {ok,Tools2} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(false, Tools2#app.is_pre_included),
+    ?m(false, Tools2#app.is_included),
+
+    %% Reset
+    %%! warning can come twice here... :(
+    ?msym({ok,["a: Cannot parse app file"++_|_]},
+	  reltool_server:reset_config(Pid)),
+    ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,[]}, reltool:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+save_config(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    Sys = {sys,[{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+
+    Simple = filename:join(PrivDir,"save_simple.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,Simple,false,false)),
+    ?m({ok,[Sys]}, file:consult(Simple)),
+
+    Derivates = filename:join(PrivDir,"save_derivates.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,Derivates,false,true)),
+    ?msym({ok,[{sys,[{incl_cond, exclude},
+		     {erts,[]},
+		     {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+		     {app,sasl,[{incl_cond,include},{mod,_,[]}|_]},
+		     {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}]},
+	  file:consult(Derivates)),
+
+    Defaults = filename:join(PrivDir,"save_defaults.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,Defaults,true,false)),
+    ?msym({ok,[{sys,[{root_dir,_},
+		     {lib_dirs,_},
+		     {mod_cond,all},
+		     {incl_cond,exclude},
+		     {app,kernel,[{incl_cond,include},{vsn,undefined}]},
+		     {app,sasl,[{incl_cond,include},{vsn,undefined}]},
+		     {app,stdlib,[{incl_cond,include},{vsn,undefined}]},
+		     {boot_rel,"start_clean"},
+		     {rel,"start_clean","1.0",[]},
+		     {rel,"start_sasl","1.0",[sasl]},
+		     {emu_name,"beam"},
+		     {relocatable,true},
+		     {profile,development},
+		     {incl_sys_filters,[".*"]},
+		     {excl_sys_filters,[]},
+		     {incl_app_filters,[".*"]},
+		     {excl_app_filters,[]},
+		     {incl_archive_filters,[".*"]},
+		     {excl_archive_filters,["^include$","^priv$"]},
+		     {archive_opts,[]},
+		     {rel_app_type,permanent},
+		     {app_file,keep},
+		     {debug_info,keep}]}]},
+	  file:consult(Defaults)),
+
+    KVsn = latest(kernel),
+    StdVsn = latest(stdlib),
+
+    All = filename:join(PrivDir,"save_all.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,All,true,true)),
+    ?msym({ok,[{sys,[{root_dir,_},
+		     {lib_dirs,_},
+		     {mod_cond,all},
+		     {incl_cond,exclude},
+		     {erts,[]},
+		     {app,kernel,[{incl_cond,include},{vsn,KVsn},{mod,_,[]}|_]},
+		     {app,sasl,[{incl_cond,include},{vsn,_},{mod,_,[]}|_]},
+		     {app,stdlib,[{incl_cond,include},{vsn,StdVsn},{mod,_,[]}|_]},
+		     {boot_rel,"start_clean"},
+		     {rel,"start_clean","1.0",[]},
+		     {rel,"start_sasl","1.0",[sasl]},
+		     {emu_name,"beam"},
+		     {relocatable,true},
+		     {profile,development},
+		     {incl_sys_filters,[".*"]},
+		     {excl_sys_filters,[]},
+		     {incl_app_filters,[".*"]},
+		     {excl_app_filters,[]},
+		     {incl_archive_filters,[".*"]},
+		     {excl_archive_filters,["^include$","^priv$"]},
+		     {archive_opts,[]},
+		     {rel_app_type,permanent},
+		     {app_file,keep},
+		     {debug_info,keep}]}]},
+	  file:consult(All)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -477,6 +846,18 @@ erl_libs() ->
         false  -> [];
         LibStr -> string:tokens(LibStr, ":;")
     end.
+
+datadir(Config) ->
+    %% Removes the trailing slash...
+    filename:nativename(?config(data_dir,Config)).
+
+latest(App) ->
+    AppStr = atom_to_list(App),
+    AppDirs = filelib:wildcard(filename:join(code:lib_dir(),AppStr++"-*")),
+    [LatestAppDir|_] = lists:reverse(AppDirs),
+    [_,Vsn] = string:tokens(filename:basename(LatestAppDir),"-"),
+    Vsn.
+
 
 diff_script(Script, Script) ->
     equal;

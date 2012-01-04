@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -254,7 +254,7 @@ loop(#state{common = C, sys = Sys} = S) ->
             {S2, Status} = parse_options(S#state.options),
             S3 = shrink_sys(S2),
             {S4, Status2} = refresh(S3, true, Status),
-            {S5, Status3} = analyse(S4#state{old_sys = S4#state.sys}, Status2),
+            {S5, Status3} = analyse(S4#state{old_sys = S#state.sys}, Status2),
             S6 =
                 case Status3 of
                     {ok, _Warnings} ->
@@ -266,11 +266,11 @@ loop(#state{common = C, sys = Sys} = S) ->
             reltool_utils:reply(ReplyTo, Ref, Status3),
             ?MODULE:loop(S6);
         {call, ReplyTo, Ref, undo_config} ->
-            reltool_utils:reply(ReplyTo, Ref, ok),
             S2 = S#state{sys = S#state.old_sys,
                          old_sys = S#state.sys,
                          status = S#state.old_status,
                          old_status = S#state.status},
+            reltool_utils:reply(ReplyTo, Ref, ok),
             ?MODULE:loop(S2);
         {call, ReplyTo, Ref, {get_rel, RelName}} ->
             Sys = S#state.sys,
@@ -319,19 +319,21 @@ loop(#state{common = C, sys = Sys} = S) ->
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {set_app, App}} ->
             {S2, Status} = do_set_app(S, App, {ok, []}),
-            {S3, Status2} = analyse(S2, Status),
-            case Status2 of
-                {ok, Warnings} ->
-                    App2 = ?KEYSEARCH(App#app.name,
-                                      #app.name,
-                                      (S3#state.sys)#sys.apps),
-                    reltool_utils:reply(ReplyTo, Ref, {ok, App2, Warnings}),
-                    ?MODULE:loop(S3);
-                {error, Reason} ->
-		    %% Keep old state
-                    reltool_utils:reply(ReplyTo, Ref, {error, Reason}),
-                    ?MODULE:loop(S)
-            end;
+            {S3, Status2} = analyse(S2#state{old_sys=S#state.sys}, Status),
+	    {S4, Reply} =
+		case Status2 of
+		    {ok, Warnings} ->
+			App2 = ?KEYSEARCH(App#app.name,
+					  #app.name,
+					  (S3#state.sys)#sys.apps),
+			{S3#state{status=Status2, old_status=S#state.status},
+			 {ok, App2, Warnings}};
+		    {error, _} ->
+			%% Keep old state
+			{S, Status2}
+		end,
+	    reltool_utils:reply(ReplyTo, Ref, Reply),
+	    ?MODULE:loop(S4);
         {call, ReplyTo, Ref, {get_apps, Kind}} ->
             AppNames =
                 case Kind of
@@ -361,9 +363,17 @@ loop(#state{common = C, sys = Sys} = S) ->
 		lists:foldl(fun(A, {X, Y}) -> do_set_app(X, A, Y) end,
 			    {S, {ok, []}},
 			    Apps),
-            {S3, Status2} = analyse(S2, Status),
+            {S3, Status2} = analyse(S2#state{old_sys = S#state.sys}, Status),
+	    S4 =
+		case Status2 of
+		    {ok, _Warnings} ->
+			S3#state{status=Status2, old_status=S#state.status};
+		    {error, _} ->
+			%% Keep old state
+			S
+		end,
             reltool_utils:reply(ReplyTo, Ref, Status2),
-            ?MODULE:loop(S3);
+	    ?MODULE:loop(S4);
         {call, ReplyTo, Ref, get_sys} ->
             reltool_utils:reply(ReplyTo, Ref, {ok, Sys#sys{apps = undefined}}),
             ?MODULE:loop(S);
@@ -374,19 +384,16 @@ loop(#state{common = C, sys = Sys} = S) ->
                 (Sys2#sys.lib_dirs =/= Sys#sys.lib_dirs) orelse
                 (Sys2#sys.escripts =/= Sys#sys.escripts),
             {S3, Status} = refresh(S2, Force, {ok, []}),
-	    {S4, Status2} =
-		analyse(S3#state{old_sys = S#state.sys}, Status),
-	    {S5, Status3} =
+	    {S4, Status2} = analyse(S3#state{old_sys = S#state.sys}, Status),
+	    S5 =
 		case Status2 of
 		    {ok, _Warnings} -> % BUGBUG: handle warnings
-			{S4#state{status = Status2,
-				  old_status = S#state.status},
-			 Status2};
+			S4#state{status = Status2, old_status = S#state.status};
 		    {error, _} ->
 			%% Keep old state
-			{S, Status2}
+			S
 		end,
-            reltool_utils:reply(ReplyTo, Ref, Status3),
+            reltool_utils:reply(ReplyTo, Ref, Status2),
             ?MODULE:loop(S5);
         {call, ReplyTo, Ref, get_status} ->
             reltool_utils:reply(ReplyTo, Ref, S#state.status),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -199,8 +199,8 @@
           used_by_mods    :: [mod_name()],
           uses_apps       :: [app_name()],
           used_by_apps    :: [app_name()],
-          is_pre_included :: boolean(),
-          is_included     :: boolean(),
+          is_pre_included :: boolean() | undefined,
+          is_included     :: boolean() | undefined,
           rels            :: [rel_name()]
 	}).
 
