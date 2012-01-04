@@ -80,7 +80,7 @@ end_per_group(_GroupName, Config) ->
 %%-----------------------------------------------------------------
 init_per_suite(Config) ->
     if
-        list(Config) ->
+        is_list(Config) ->
             Config;
         true ->
             exit("Config not a list")

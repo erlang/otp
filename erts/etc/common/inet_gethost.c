@@ -1141,14 +1141,12 @@ static Worker *pick_worker(void)
 static Worker *pick_worker_greedy(AddrByte *domainbuff)
 {
     int i;
-    int ql = 0;
     int found = -1;
     for (i=0; i < num_busy_workers; ++i) {
 	if (domaineq(busy_workers[i].domain, domainbuff)) {
 	    if ((found < 0) || (busy_workers[i].que_size < 
 				busy_workers[found].que_size)) {
 		found = i;
-		ql = busy_workers[i].que_size;
 	    }
 	}
     }
@@ -1945,12 +1943,14 @@ static int worker_loop(void)
 	}
 	m = NULL;
 #else
-	write(1, reply, data_size); /* No signals expected */
+	/* expect no signals */
+	if (write(1, reply, data_size) < 0)
+	    goto fail;
 #endif
     } /* for (;;) */
 
-#ifdef WIN32
  fail:
+#ifdef WIN32
     if (m != NULL) {
 	FREE(m);
     }
@@ -1959,8 +1959,8 @@ static int worker_loop(void)
     if (reply) {
 	FREE(reply);
     }
-    return 1;
 #endif
+    return 1;
 }
 
 static int map_netdb_error(int netdb_code)
@@ -2561,7 +2561,8 @@ static void debugf(char *format, ...)
 	WriteFile(debug_console_allocated,buff,strlen(buff),&res,NULL);
     }
 #else
-    write(2,buff,strlen(buff));
+    /* suppress warning with 'if' */
+    if(write(2,buff,strlen(buff)));
 #endif
     va_end(ap);
 }
@@ -2583,7 +2584,8 @@ static void warning(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    write(2,buff,strlen(buff));
+    /* suppress warning with 'if' */
+    if(write(2,buff,strlen(buff)));
 #endif
     va_end(ap);
 }
@@ -2605,7 +2607,8 @@ static void fatal(char *format, ...)
 	WriteFile(GetStdHandle(STD_ERROR_HANDLE),buff,strlen(buff),&res,NULL);
     }
 #else
-    write(2,buff,strlen(buff));
+    /* suppress warning with 'if' */
+    if(write(2,buff,strlen(buff)));
 #endif
     va_end(ap);
 #ifndef WIN32

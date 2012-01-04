@@ -209,7 +209,7 @@ check_illegal_tcp_options([binary |T], IllegalOpts) ->
     check_illegal_tcp_options(T,[binary |IllegalOpts]);
 check_illegal_tcp_options([{reuseaddr, V} |T], IllegalOpts) ->
     check_illegal_tcp_options(T,[{reuseaddr, V} |IllegalOpts]);
-check_illegal_tcp_options([H|T], IllegalOpts) ->
+check_illegal_tcp_options([_H|T], IllegalOpts) ->
     check_illegal_tcp_options(T, IllegalOpts).
 
 %%----------------------------------------------------------------------

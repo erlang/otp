@@ -580,7 +580,7 @@ int per_insert_bits_as_bits(int desired_no, int no_bytes,
 	unsigned char **input_ptr, unsigned char **output_ptr, int *unused) {
     unsigned char *in_ptr = *input_ptr;
     unsigned char val;
-    int no_bits, ret, ret2;
+    int no_bits, ret;
 
     if (desired_no == (no_bytes * 8)) {
 	if (per_insert_octets_unaligned(no_bytes, &in_ptr, output_ptr, *unused)
@@ -606,8 +606,7 @@ int per_insert_bits_as_bits(int desired_no, int no_bytes,
 		== ASN1_ERROR
 		)
 	    return ASN1_ERROR;
-	ret2 = per_pad_bits(desired_no - (no_bytes * 8), output_ptr, unused);
-	/*     printf("ret2 = %d\n\r",ret2); */
+	per_pad_bits(desired_no - (no_bytes * 8), output_ptr, unused);
 	ret = CEIL(desired_no,8);
 	/*     printf("ret = %d\n\r",ret); */
     }
