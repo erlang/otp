@@ -22,7 +22,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1,
-	 make_effect_seq/1,eval_is_boolean/1]).
+	 make_effect_seq/1,eval_is_boolean/1,
+	 unsafe_case/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -43,7 +44,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     test_lib:recompile(?MODULE),
     [dehydrated_itracer,nested_tries,make_effect_seq,
-     eval_is_boolean].
+     eval_is_boolean,unsafe_case].
 
 groups() -> 
     [].
@@ -65,19 +66,14 @@ end_per_group(_GroupName, Config) ->
 ?comp(nested_tries).
 ?comp(make_effect_seq).
 ?comp(eval_is_boolean).
+?comp(unsafe_case).
 
 try_it(Mod, Conf) ->
-    ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
-    ?line Out = ?config(priv_dir,Conf),
-    ?line io:format("Compiling: ~s\n", [Src]),
-    ?line CompRc0 = compile:file(Src, [from_core,{outdir,Out},report,time]),
-    ?line io:format("Result: ~p\n",[CompRc0]),
-    ?line {ok,Mod} = CompRc0,
+    Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
+    compile_and_load(Src, []),
+    compile_and_load(Src, [no_copt]).
 
-    ?line {module,Mod} = code:load_abs(filename:join(Out, Mod)),
-    ?line ok = Mod:Mod(),
-    ok.
-
-
-
-
+compile_and_load(Src, Opts) ->
+    {ok,Mod,Bin} = compile:file(Src, [from_core,report,time,binary|Opts]),
+    {module,Mod} = code:load_binary(Mod, Mod, Bin),
+    ok = Mod:Mod().
