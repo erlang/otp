@@ -23,7 +23,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1,
 	 make_effect_seq/1,eval_is_boolean/1,
-	 unsafe_case/1,nomatch_shadow/1]).
+	 unsafe_case/1,nomatch_shadow/1,reversed_annos/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -44,7 +44,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     test_lib:recompile(?MODULE),
     [dehydrated_itracer,nested_tries,make_effect_seq,
-     eval_is_boolean,unsafe_case,nomatch_shadow].
+     eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos].
 
 groups() -> 
     [].
@@ -68,6 +68,7 @@ end_per_group(_GroupName, Config) ->
 ?comp(eval_is_boolean).
 ?comp(unsafe_case).
 ?comp(nomatch_shadow).
+?comp(reversed_annos).
 
 try_it(Mod, Conf) ->
     Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
