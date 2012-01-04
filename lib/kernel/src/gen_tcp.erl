@@ -194,7 +194,7 @@ listen(Port, Opts) ->
 -spec accept(ListenSocket) -> {ok, Socket} | {error, Reason} when
       ListenSocket :: socket(),
       Socket :: socket(),
-      Reason :: closed | timeout | inet:posix().
+      Reason :: closed | timeout | system_limit | inet:posix().
 
 accept(S) ->
     case inet_db:lookup_socket(S) of
