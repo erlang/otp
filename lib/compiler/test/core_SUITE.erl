@@ -22,7 +22,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 dehydrated_itracer/1,nested_tries/1,
-	 make_effect_seq/1]).
+	 make_effect_seq/1,eval_is_boolean/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -42,7 +42,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [dehydrated_itracer,nested_tries,make_effect_seq].
+    [dehydrated_itracer,nested_tries,make_effect_seq,
+     eval_is_boolean].
 
 groups() -> 
     [].
@@ -63,6 +64,7 @@ end_per_group(_GroupName, Config) ->
 ?comp(dehydrated_itracer).
 ?comp(nested_tries).
 ?comp(make_effect_seq).
+?comp(eval_is_boolean).
 
 try_it(Mod, Conf) ->
     ?line Src = filename:join(?config(data_dir, Conf), atom_to_list(Mod)),
