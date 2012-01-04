@@ -27,6 +27,7 @@
 	system_profile_on_and_off/1,
 	runnable_procs/1,
 	runnable_ports/1,
+	dont_profile_profiler/1,
 	scheduler/1
         ]).
 
@@ -40,7 +41,7 @@
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=?t:timetrap(?default_timeout),
+    Dog=?t:timetrap(?default_timeout),
     [{watchdog, Dog}|Config].
 end_per_testcase(_Case, Config) ->
     Dog=?config(watchdog, Config),
@@ -51,7 +52,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [system_profile_on_and_off, runnable_procs,
-     runnable_ports, scheduler].
+     runnable_ports, scheduler, dont_profile_profiler].
 
 groups() -> 
     [].
@@ -77,31 +78,31 @@ system_profile_on_and_off(suite) ->
 system_profile_on_and_off(doc) ->
     ["Tests switching system_profiling on and off."];
 system_profile_on_and_off(Config) when is_list(Config) ->
-    ?line Pid = start_profiler_process(),
+    Pid = start_profiler_process(),
     
     % Test runnable_ports on and off
-    ?line undefined = erlang:system_profile(Pid, [runnable_ports]),
-    ?line {Pid, [runnable_ports]} = erlang:system_profile(),
-    ?line {Pid, [runnable_ports]} = erlang:system_profile(undefined, []),
+    undefined = erlang:system_profile(Pid, [runnable_ports]),
+    {Pid, [runnable_ports]} = erlang:system_profile(),
+    {Pid, [runnable_ports]} = erlang:system_profile(undefined, []),
 
     % Test runnable_procs on and off
-    ?line undefined = erlang:system_profile(Pid, [runnable_procs]),
-    ?line {Pid, [runnable_procs]} = erlang:system_profile(),
-    ?line {Pid, [runnable_procs]} = erlang:system_profile(undefined, []),
+    undefined = erlang:system_profile(Pid, [runnable_procs]),
+    {Pid, [runnable_procs]} = erlang:system_profile(),
+    {Pid, [runnable_procs]} = erlang:system_profile(undefined, []),
 
     % Test scheduler on and off
-    ?line undefined = erlang:system_profile(Pid, [scheduler]),
-    ?line {Pid, [scheduler]} = erlang:system_profile(),
-    ?line {Pid, [scheduler]} = erlang:system_profile(undefined, []),
+    undefined = erlang:system_profile(Pid, [scheduler]),
+    {Pid, [scheduler]} = erlang:system_profile(),
+    {Pid, [scheduler]} = erlang:system_profile(undefined, []),
 
     % Test combined runnable_ports, runnable_procs, scheduler; on and off
-    ?line undefined = erlang:system_profile(Pid, [scheduler, runnable_procs, runnable_ports]),
-    ?line {Pid, [scheduler,runnable_procs,runnable_ports]} = erlang:system_profile(),
-    ?line {Pid, [scheduler,runnable_procs,runnable_ports]} = erlang:system_profile(undefined, []),
+    undefined = erlang:system_profile(Pid, [scheduler, runnable_procs, runnable_ports]),
+    {Pid, [scheduler,runnable_procs,runnable_ports]} = erlang:system_profile(),
+    {Pid, [scheduler,runnable_procs,runnable_ports]} = erlang:system_profile(undefined, []),
 
     % Test turned off and kill process
-    ?line undefined = erlang:system_profile(),
-    ?line exit(Pid,kill),
+    undefined = erlang:system_profile(),
+    exit(Pid,kill),
     ok.
 
 %% Test runnable_procs
@@ -111,25 +112,25 @@ runnable_procs(suite) ->
 runnable_procs(doc) ->
     ["Tests system_profiling with runnable_procs."];
 runnable_procs(Config) when is_list(Config) ->
-    ?line Pid = start_profiler_process(),
+    Pid = start_profiler_process(),
     % start a ring of processes
     % FIXME: Set #laps and #nodes in config file
     Nodes = 10,
     Laps = 10,
-    ?line Master = ring(Nodes),
-    ?line undefined = erlang:system_profile(Pid, [runnable_procs]),
+    Master = ring(Nodes),
+    undefined = erlang:system_profile(Pid, [runnable_procs]),
     % loop a message
-    ?line ok = ring_message(Master, message, Laps),
-    ?line Events = get_profiler_events(),
-    ?line kill_em_all = kill_ring(Master),
-    ?line erlang:system_profile(undefined, []),
+    ok = ring_message(Master, message, Laps),
+    Events = get_profiler_events(),
+    kill_em_all = kill_ring(Master),
+    erlang:system_profile(undefined, []),
     put(master, Master),
     put(laps, Laps),
-    ?line true = has_runnable_event(Events),
+    true = has_runnable_event(Events),
     Pids = sort_events_by_pid(Events),
-    ?line ok = check_events(Pids),
+    ok = check_events(Pids),
     erase(),
-    ?line exit(Pid,kill),
+    exit(Pid,kill),
     ok.
 
 runnable_ports(suite) ->
@@ -137,21 +138,21 @@ runnable_ports(suite) ->
 runnable_ports(doc) ->
     ["Tests system_profiling with runnable_port."];
 runnable_ports(Config) when is_list(Config) ->
-    ?line Pid = start_profiler_process(),
-    ?line undefined = erlang:system_profile(Pid, [runnable_ports]),
-    ?line EchoPid = echo(Config),
+    Pid = start_profiler_process(),
+    undefined = erlang:system_profile(Pid, [runnable_ports]),
+    EchoPid = echo(Config),
     % FIXME: Set config to number_of_echos
     Laps = 10,
     put(laps, Laps),
-    ?line ok = echo_message(EchoPid, Laps, message),
-    ?line Events = get_profiler_events(),
-    ?line kill_em_all = kill_echo(EchoPid),
-    ?line erlang:system_profile(undefined, []),
-    ?line true = has_runnable_event(Events),
+    ok = echo_message(EchoPid, Laps, message),
+    Events = get_profiler_events(),
+    kill_em_all = kill_echo(EchoPid),
+    erlang:system_profile(undefined, []),
+    true = has_runnable_event(Events),
     Pids = sort_events_by_pid(Events),
-    ?line ok = check_events(Pids),
+    ok = check_events(Pids),
     erase(),
-    ?line exit(Pid,kill),
+    exit(Pid,kill),
     ok.
 
 scheduler(suite) ->
@@ -160,46 +161,68 @@ scheduler(doc) ->
     ["Tests system_profiling with scheduler."];
 scheduler(Config) when is_list(Config) ->
     case {erlang:system_info(smp_support), erlang:system_info(schedulers_online)} of
-	{false,_} -> ?line {skipped, "No need for scheduler test when smp support is disabled."};
-	{_,    1} -> ?line {skipped, "No need for scheduler test when only one scheduler online."};
+	{false,_} -> {skipped, "No need for scheduler test when smp support is disabled."};
+	{_,    1} -> {skipped, "No need for scheduler test when only one scheduler online."};
 	_ ->
 	    Nodes = 10,
-	    ?line ok = check_block_system(Nodes),
-	    ?line ok = check_multi_scheduling_block(Nodes),
-	    ok
+	    ok = check_block_system(Nodes),
+	    ok = check_multi_scheduling_block(Nodes)
     end.
+
+% the profiler pid should not be profiled
+dont_profile_profiler(suite) ->
+    [];
+dont_profile_profiler(doc) ->
+    ["Ensure system profiler process is not profiled."];
+dont_profile_profiler(Config) when is_list(Config) ->
+    Pid = start_profiler_process(),
+
+    Nodes = 10,
+    Laps = 10,
+    Master = ring(Nodes),
+    undefined = erlang:system_profile(Pid, [runnable_procs]),
+    % loop a message
+    ok = ring_message(Master, message, Laps),
+    erlang:system_profile(undefined, []),
+    kill_em_all = kill_ring(Master),
+    Events = get_profiler_events(),
+    false  = has_profiler_pid_event(Events, Pid),
+
+    exit(Pid,kill),
+    ok.
+
 
 %%% Check scheduler profiling
 
 check_multi_scheduling_block(Nodes) ->
-    ?line Pid = start_profiler_process(),
-    ?line undefined = erlang:system_profile(Pid, [scheduler]),
-    ?line {ok, Supervisor} = start_load(Nodes),
-    ?line erlang:system_flag(multi_scheduling, block),
-    ?line erlang:system_flag(multi_scheduling, unblock),
-    ?line {Pid, [scheduler]} = erlang:system_profile(undefined, []),
-    ?line Events = get_profiler_events(),
-    ?line true = has_scheduler_event(Events),
+    Pid = start_profiler_process(),
+    undefined = erlang:system_profile(Pid, [scheduler]),
+    {ok, Supervisor} = start_load(Nodes),
+    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, unblock),
+    {Pid, [scheduler]} = erlang:system_profile(undefined, []),
+    Events = get_profiler_events(),
+    true = has_scheduler_event(Events),
     stop_load(Supervisor),
-    ?line exit(Pid,kill),
+    exit(Pid,kill),
     erase(),
     ok.
 
 check_block_system(Nodes) ->
-    ?line Dummy = spawn(?MODULE, profiler_process, [[]]),
-    ?line Pid = start_profiler_process(),
-    ?line undefined = erlang:system_profile(Pid, [scheduler]),
-    ?line {ok, Supervisor} = start_load(Nodes),
+    Dummy = spawn(?MODULE, profiler_process, [[]]),
+    Pid = start_profiler_process(),
+    undefined = erlang:system_profile(Pid, [scheduler]),
+    {ok, Supervisor} = start_load(Nodes),
     % FIXME: remove wait !!
     wait(300),
-    ?line undefined = erlang:system_monitor(Dummy, [busy_port]),
-    ?line {Dummy, [busy_port]} = erlang:system_monitor(undefined, []),
-    ?line {Pid, [scheduler]} = erlang:system_profile(undefined, []),
-    ?line Events = get_profiler_events(),
-    ?line true = has_scheduler_event(Events),
+    undefined = erlang:system_monitor(Dummy, [busy_port]),
+    {Dummy, [busy_port]} = erlang:system_monitor(undefined, []),
+    {Pid, [scheduler]} = erlang:system_profile(undefined, []),
+    Events = get_profiler_events(),
+    true = has_scheduler_event(Events),
     stop_load(Supervisor),
-    ?line exit(Pid,kill),
-    ?line exit(Dummy,kill),
+    exit(Pid,kill),
+    exit(Dummy,kill),
     erase(),
     ok.
 
@@ -211,17 +234,17 @@ check_events([Pid | Pids]) ->
     Laps = get(laps),
     CheckPids = get(pids),
     {Events, N} = get_pid_events(Pid),
-    ?line ok = check_event_flow(Events),
-    ?line ok = check_event_ts(Events),
+    ok = check_event_flow(Events),
+    ok = check_event_ts(Events),
     IsMember = lists:member(Pid, CheckPids),
     case Pid of
     	Master ->
 	    io:format("Expected ~p and got ~p profile events from ~p: ok~n", [Laps*2+2, N, Pid]),
-	    ?line N = Laps*2 + 2,
+	    N = Laps*2 + 2,
     	    check_events(Pids);
 	Pid when IsMember == true ->
 	    io:format("Expected ~p and got ~p profile events from ~p: ok~n", [Laps*2, N, Pid]),
-	    ?line N = Laps*2,
+	    N = Laps*2,
     	    check_events(Pids);
 	Pid ->
 	    check_events(Pids)
@@ -447,6 +470,12 @@ has_runnable_event(Events) ->
 	    	_ -> false
 	    end
         end, Events).
+
+has_profiler_pid_event([], _) -> false;
+has_profiler_pid_event([{profile, Pid, _Activity, _MFA, _TS}|Events], Pid) -> true;
+has_profiler_pid_event([_|Events], Pid) ->
+    has_profiler_pid_event(Events, Pid).
+
 
 wait(Time) -> receive after Time -> ok end.
 
