@@ -731,7 +731,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     int reds = ERTS_PORT_REDS_EXECUTE;
     erts_aint_t io_tasks_executed = 0;
     int fpe_was_unmasked;
-    ErtsPortTaskExeBlockData blk_data = {runq, NULL};
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
 
@@ -965,8 +964,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 #endif
 
  done:
-    blk_data.resp = &res;
-
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
 
     ERTS_PORT_REDUCTIONS_EXECUTED(runq, reds);

@@ -212,11 +212,11 @@ static TraceIpData *lookup_data_by_port(int portno);
 static int set_nonblocking(SOCKET sock);
 static TraceIpMessage *make_buffer(int datasiz, unsigned char op, 
 				   unsigned number);
-static void enque_message(TraceIpData *data, unsigned char *buff, int bufflen,
+static void enque_message(TraceIpData *data, char *buff, int bufflen,
 			  int byteswritten);
 static void clean_que(TraceIpData *data);
 static void close_client(TraceIpData *data);
-static int trywrite(TraceIpData *data, unsigned char *buff, int bufflen);
+static int trywrite(TraceIpData *data, char *buff, int bufflen);
 static SOCKET my_accept(SOCKET sock);
 static void close_unlink_port(TraceIpData *data);
 enum MySelectOp { SELECT_ON, SELECT_OFF, SELECT_CLOSE };
@@ -518,7 +518,7 @@ static void trace_ip_ready_output(ErlDrvData handle, ErlDrvEvent fd)
     tim = data->que[data->questart];
     towrite = tim->siz - tim->written;
     while((res = write_until_done(data->fd, 
-				  tim->bin + tim->written, towrite)) 
+				  (char *)tim->bin + tim->written, towrite))
 	  == towrite) {
 	driver_free(tim);
 	data->que[data->questart] = NULL;
@@ -561,7 +561,7 @@ static ErlDrvSSizeT trace_ip_control(ErlDrvData handle,
 	TraceIpData *data = (TraceIpData *) handle;
 	ErlDrvBinary *b = my_alloc_binary(3);
 	b->orig_bytes[0] = '\0'; /* OK */
-	put_be16(data->listen_portno, &(b->orig_bytes[1]));
+	put_be16(data->listen_portno, (unsigned char *)&(b->orig_bytes[1]));
 	*res = void_ptr = b;
 	return 0;
     } 
@@ -696,7 +696,7 @@ static TraceIpMessage *make_buffer(int datasiz, unsigned char op,
 ** Add message to que, discarding in a politically correct way...
 ** The FLAG_DROP_OLDEST is currently ingored...
 */
-static void enque_message(TraceIpData *data, unsigned char *buff, int bufflen,
+static void enque_message(TraceIpData *data, char *buff, int bufflen,
 			  int byteswritten)
 {
     int diff = data->questop - data->questart;
@@ -763,13 +763,13 @@ static void close_client(TraceIpData *data)
 ** Try to write a message from erlang directly (only called when que is empty 
 ** and client is connected)
 */
-static int trywrite(TraceIpData *data, unsigned char *buff, int bufflen)
+static int trywrite(TraceIpData *data, char *buff, int bufflen)
 {
-    unsigned char op[5];
+    char op[5];
     int res;
 
     op[0] = OP_BINARY;
-    put_be32(bufflen, op + 1);
+    put_be32(bufflen, (unsigned char *)op + 1);
 
     if ((res = write_until_done(data->fd, op, 5)) < 0) {
 	close_client(data);
@@ -793,7 +793,11 @@ static int trywrite(TraceIpData *data, unsigned char *buff, int bufflen)
 static SOCKET my_accept(SOCKET sock)
 {
     struct sockaddr_in sin;
-    int sin_size = sizeof(sin);
+#ifdef HAVE_SOCKLEN_T
+    socklen_t sin_size = sizeof(sin);
+#else
+    int sin_size = (int) sizeof(sin);
+#endif
 
     return accept(sock, (struct sockaddr *) &sin, &sin_size);
 }

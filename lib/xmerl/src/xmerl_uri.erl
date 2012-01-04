@@ -358,7 +358,7 @@ scan_host(C0) ->
 %% 							  Hex3=<?HEX;
 %% 							  Hex4=<?HEX ->
 %% 	    {C1,lists:reverse(lists:append(IPv6address))};
-	{C1,Hostname,[A|_HostF]} -> 
+	{C1,Hostname,[_A|_HostF]} -> 
 	    {C1,lists:reverse(lists:append(Hostname))}
 %%	_ ->
 %%	    {error,no_host}

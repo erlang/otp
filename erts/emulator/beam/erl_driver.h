@@ -371,11 +371,17 @@ typedef struct erl_drv_entry {
 #ifndef ERL_DRIVER_TYPES_ONLY
 
 #if defined(VXWORKS)
-#  define DRIVER_INIT(DRIVER_NAME) ErlDrvEntry* DRIVER_NAME  ## _init(void)
+#  define DRIVER_INIT(DRIVER_NAME) \
+    ErlDrvEntry* DRIVER_NAME  ## _init(void); \
+    ErlDrvEntry* DRIVER_NAME  ## _init(void)
 #elif defined(__WIN32__)
-#  define DRIVER_INIT(DRIVER_NAME) __declspec(dllexport) ErlDrvEntry* driver_init(void)
+#  define DRIVER_INIT(DRIVER_NAME) \
+    __declspec(dllexport) ErlDrvEntry* driver_init(void); \
+    __declspec(dllexport) ErlDrvEntry* driver_init(void)
 #else 
-#  define DRIVER_INIT(DRIVER_NAME) ErlDrvEntry* driver_init(void)
+#  define DRIVER_INIT(DRIVER_NAME) \
+    ErlDrvEntry* driver_init(void); \
+    ErlDrvEntry* driver_init(void)
 #endif
 
 /*

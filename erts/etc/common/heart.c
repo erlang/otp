@@ -685,14 +685,16 @@ do_terminate(reason)
 	  print_error("Would reboot. Terminating.");
 	else {
 	  kill_old_erlang();
-	  system(command);
+	  /* suppress gcc warning with 'if' */
+	  if(system(command));
 	  print_error("Executed \"%s\". Terminating.",command);
 	}
 	free_env_val(command);
       }
       else {
 	kill_old_erlang();
-	system((char*)&cmd[0]);
+	/* suppress gcc warning with 'if' */
+	if(system((char*)&cmd[0]));
 	print_error("Executed \"%s\". Terminating.",cmd);
       }
     }
