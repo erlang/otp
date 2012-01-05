@@ -173,7 +173,7 @@ maybe_utc(Time) ->
     maybe_utc(Time, UTC).
 
 maybe_utc(Time, true) -> {utc, Time};
-maybe_utc(Time, _) -> calendar:universal_time_to_local_time(Time).
+maybe_utc(Time, _) -> {local, calendar:universal_time_to_local_time(Time)}.
 
 format(IOMod, String)       -> format(IOMod, String, []).
 format(io_lib, String, Args) -> io_lib:format(String, Args);
@@ -229,7 +229,7 @@ write_time(Time) -> write_time(Time, "ERROR REPORT").
 write_time({utc,{{Y,Mo,D},{H,Mi,S}}},Type) ->
     io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s UTC ===~n",
 		  [Type,D,month(Mo),Y,t(H),t(Mi),t(S)]);
-write_time({{Y,Mo,D},{H,Mi,S}},Type) ->
+write_time({local, {{Y,Mo,D},{H,Mi,S}}},Type) ->
     io_lib:format("~n=~s==== ~p-~s-~p::~s:~s:~s ===~n",
 		  [Type,D,month(Mo),Y,t(H),t(Mi),t(S)]).
 
