@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -112,16 +112,36 @@
 	}
        ).               
 
+
 -record(session,
 	{
-	  id,           % {{Host, Port}, HandlerPid}
-	  client_close, % true | false
-	  scheme,       % http (HTTP/TCP) | https (HTTP/SSL/TCP)
-	  socket,       % Open socket, used by connection
-	  socket_type,  % socket-type, used by connection
-	  queue_length = 1, % Current length of pipeline or keep-alive queue  
-	  type          % pipeline | keep_alive (wait for response before sending new request) 
+	  %% {{Host, Port}, HandlerPid}
+	  id, 
+
+	  %% true | false
+	  client_close, 
+
+	  %% http (HTTP/TCP) | https (HTTP/SSL/TCP)
+	  scheme, 
+
+	  %% Open socket, used by connection
+	  socket, 
+	  
+	  %% socket-type, used by connection
+	  socket_type,
+
+	  %% Current length of pipeline or keep-alive queue  
+	  queue_length = 1, 
+
+	  %% pipeline | keep_alive (wait for response before sending new request) 
+	  type, 
+
+	  %% true | false
+	  %% This will be true, when a response has been received for 
+	  %% the first request. See type above.
+	  available = false
 	 }).
+
 
 -record(http_cookie,
 	{

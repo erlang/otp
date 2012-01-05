@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,6 +34,7 @@
 	 retry_request/2, 
 	 redirect_request/2,
 	 insert_session/2, 
+	 update_session/4, 
 	 delete_session/2, 
 	 set_options/2, 
 	 store_cookies/3,
@@ -190,6 +191,27 @@ insert_session(Session, ProfileName) ->
     SessionDbName = session_db_name(ProfileName), 
     ?hcrt("insert session", [{session, Session}, {profile, ProfileName}]),
     ets:insert(SessionDbName, Session).
+
+
+%%--------------------------------------------------------------------
+%% Function: update_session(ProfileName, SessionId, Pos, Value) -> _
+%%	Session - #session{}
+%%      ProfileName - atom()
+%%
+%% Description: Update, only one field (Pos) of the session record
+%%              identified by the SessionId, the session information 
+%%              of the httpc manager table <ProfileName>_session_db. 
+%%              Intended to be called by the httpc request handler process.
+%%--------------------------------------------------------------------
+
+update_session(ProfileName, SessionId, Pos, Value) ->
+    SessionDbName = session_db_name(ProfileName), 
+    ?hcrt("update session", 
+	  [{id,      SessionId}, 
+	   {pos,     Pos}, 
+	   {value,   Value}, 
+	   {profile, ProfileName}]),
+    ets:update_element(SessionDbName, SessionId, {Pos, Value}).
 
 
 %%--------------------------------------------------------------------
@@ -548,8 +570,69 @@ terminate(_, State) ->
 %% Func: code_change(_OldVsn, State, Extra) -> {ok, NewState}
 %% Purpose: Convert process state when code is changed
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
+code_change(_, 
+	    #state{session_db = SessionDB} = State, 
+	    upgrade_from_pre_5_7_3) ->
+    Upgrade = 
+	fun({session, 
+	     Id, ClientClose, Scheme, Socket, SocketType, QueueLen, Type}) ->
+		{ok, #session{id           = Id, 
+			      client_close = ClientClose, 
+			      scheme       = Scheme, 
+			      socket       = Socket, 
+			      socket_type  = SocketType,
+			      queue_length = QueueLen, 
+			      type         = Type}};
+	   (_) -> % Already upgraded (by handler)
+		ignore
+	end,
+    (catch update_session_table(SessionDB, Upgrade)),
+    {ok, State};
+
+code_change(_, 
+	    #state{session_db = SessionDB} = State, 
+	    downgrade_to_pre_5_7_3) ->
+    Downgrade = 
+	fun(#session{id           = Id, 
+		     client_close = ClientClose, 
+		     scheme       = Scheme, 
+		     socket       = Socket, 
+		     socket_type  = SocketType,
+		     queue_length = QueueLen, 
+		     type         = Type}) ->
+		{ok, {session, 
+		      Id, ClientClose, Scheme, Socket, SocketType, 
+		      QueueLen, Type}};
+	   (_) -> % Already downgraded (by handler)
+		ignore
+	end,
+    (catch update_session_table(SessionDB, Downgrade)),
+    {ok, State};
+
+code_change(_, State, _) ->
     {ok, State}.
+
+%% This function is to catch everything that calls through the cracks...
+update_session_table(SessionDB, Transform) ->
+    ets:safe_fixtable(SessionDB, true),
+    update_session_table(SessionDB, ets:first(SessionDB), Transform),
+    ets:safe_fixtable(SessionDB, false).
+
+update_session_table(_SessionDB, '$end_of_table', _Transform) ->
+    ok;
+update_session_table(SessionDB, Key, Transform) ->
+    case ets:lookup(SessionDB, Key) of
+	[OldSession] ->
+	    case Transform(OldSession) of
+		{ok, NewSession} -> 
+		    ets:insert(SessionDB, NewSession);
+		ignore ->
+		    ok
+	    end;
+	_ ->
+	    ok
+    end,
+    update_session_table(SessionDB, ets:next(SessionDB, Key), Transform).
 
 
 %%--------------------------------------------------------------------
@@ -679,6 +762,7 @@ select_session(Method, HostPort, Scheme, SessionType,
 			       scheme       = Scheme,
 			       queue_length = '$2',
 			       type         = SessionType,
+			       available    = true, 
 			       _            = '_'},
 	    %% {'_', {HostPort, '$1'}, false, Scheme, '_', '$2', SessionTyp}, 
 	    Candidates = ets:match(SessionDb, Pattern), 
@@ -716,7 +800,7 @@ pipeline_or_keep_alive(Request, HandlerPid, State) ->
 	    ets:insert(State#state.handler_db, {Request#request.id,
 						HandlerPid,
 						Request#request.from});
-	_  -> %timeout pipelining failed
+	_  -> % timeout pipelining failed
 	    start_handler(Request, State)
     end.
 
