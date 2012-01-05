@@ -6102,7 +6102,7 @@ implicit_fun_name(Node) ->
 			       set_pos(integer(Arity), Pos)));
 	{'fun', _Pos, {function, Module, Atom, Arity}} ->
 	    %% New in R15: fun M:F/A.
-	    %% XXX: Perhaps set position for this aswell?
+	    %% XXX: Perhaps set position for this as well?
 	    module_qualifier(Module, arity_qualifier(Atom, Arity));
 	Node1 ->
 	    data(Node1)
