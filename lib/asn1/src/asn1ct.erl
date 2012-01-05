@@ -30,7 +30,7 @@
 %% Application internal exports
 -export([compile_asn/3,compile_asn1/3,compile_py/3,compile/3,
 	 value/1,vsn/0,
-	 create_ets_table/2,get_name_of_def/1,get_pos_of_def/1]).
+	 get_name_of_def/1,get_pos_of_def/1]).
 -export([read_config_data/1,get_gen_state_field/1,get_gen_state/0,
 	 partial_inc_dec_toptype/1,save_gen_state/1,update_gen_state/2,
 	 get_tobe_refed_func/1,reset_gen_state/0,is_function_generated/1,
@@ -126,13 +126,13 @@ compile1(File,Options) when is_list(Options) ->
     DbFile = outfile(Base,"asn1db",Options),
     Includes = [I || {i,I} <- Options],
     EncodingRule = get_rule(Options),
-    create_ets_table(asn1_functab,[named_table]),
+    asn1ct_table:new(asn1_functab, [named_table]),
     Continue1 = scan(File,Options),
     Continue2 = parse(Continue1,File,Options),
     Continue3 = check(Continue2,File,OutFile,Includes,EncodingRule,
 		      DbFile,Options,[]),
     Continue4 = generate(Continue3,OutFile,EncodingRule,Options),
-    delete_tables([asn1_functab]),
+    asn1ct_table:delete(asn1_functab),
     Ret = compile_erl(Continue4,OutFile,Options),
     case inline(is_inline(Options),
 		inline_output(Options,filename:rootname(File)),
@@ -194,7 +194,7 @@ compile_set(SetBase,Files,Options)
     DbFile = outfile(SetBase,"asn1db",Options),
     Includes = [I || {i,I} <- Options],
     EncodingRule = get_rule(Options),
-    create_ets_table(asn1_functab,[named_table]),
+    asn1ct_table:new(asn1_functab, [named_table]),
     ScanRes = scan_set(Files,Options),
     ParseRes = parse_set(ScanRes,Options),
     Result = 
@@ -219,7 +219,7 @@ compile_set(SetBase,Files,Options)
 		{error,{'unexpected error in scan/parse phase',
 			lists:map(fun(X)->element(3,X) end,Other)}}
 	end,
-    delete_tables([asn1_functab]),
+    asn1ct_table:delete(asn1_functab),
     Result.
 
 check_set(ParseRes,SetBase,OutFile,Includes,EncRule,DbFile,
@@ -231,7 +231,7 @@ check_set(ParseRes,SetBase,OutFile,Includes,EncRule,DbFile,
 		      Options,InputModules),
     Continue2 = generate(Continue1,OutFile,EncRule,Options),
 
-    delete_tables([renamed_defs,original_imports,automatic_tags]),
+    asn1ct_table:delete([renamed_defs, original_imports, automatic_tags]),
 
     Ret = compile_erl(Continue2,OutFile,Options),
     case inline(is_inline(Options),
@@ -252,12 +252,11 @@ check_set(ParseRes,SetBase,OutFile,Includes,EncRule,DbFile,
 merge_modules(ParseRes,CommonName) ->
     ModuleList = lists:map(fun(X)->element(2,X) end,ParseRes),
     NewModuleList = remove_name_collisions(ModuleList),
-    case ets:info(renamed_defs,size) of
-	0 -> ets:delete(renamed_defs);
-	_ -> ok
+    case asn1ct_table:size(renamed_defs) of
+        0 -> asn1ct_table:delete(renamed_defs);
+        _ -> ok
     end,
     save_imports(NewModuleList),
-%    io:format("~p~n~p~n~p~n~n",[ets:lookup(original_imports,'M1'),ets:lookup(original_imports,'M2'),ets:tab2list(original_imports)]),
     TypeOrVal = lists:append(lists:map(fun(X)->X#module.typeorval end,
 				       NewModuleList)),
     InputMNameList = lists:map(fun(X)->X#module.name end,
@@ -277,7 +276,7 @@ merge_modules(ParseRes,CommonName) ->
 
 %% causes an exit if duplicate definition names exist in a module
 remove_name_collisions(Modules) ->
-    create_ets_table(renamed_defs,[named_table]),
+    asn1ct_table:new(renamed_defs, [named_table]),
     %% Name duplicates in the same module is not allowed.
     lists:foreach(fun exit_if_nameduplicate/1,Modules),
     %% Then remove duplicates in different modules and return the
@@ -309,7 +308,8 @@ remove_name_collisions2(ModName,[T|Ts],Ms,Acc) ->
 	    %% rename T
 	    NewT = set_name_of_def(ModName,Name,T), %rename def
 	    warn_renamed_def(ModName,get_name_of_def(NewT),Name),
-	    ets:insert(renamed_defs,{get_name_of_def(NewT),Name,ModName}),
+	    asn1ct_table:insert(renamed_defs,
+	                        {get_name_of_def(NewT), Name, ModName}),
 	    remove_name_collisions2(ModName,Ts,NewMs,[NewT|Acc]);
 	{NewMs,?dupl_equaldefs} -> % name duplicates, but identical defs
 	    %% keep name of T
@@ -333,8 +333,8 @@ discover_dupl_in_mods(Name,Def,[M=#module{name=N,typeorval=TorV}|Ms],
 			  %% rename def
 			  NewT=set_name_of_def(N,Name,T),
 			  warn_renamed_def(N,get_name_of_def(NewT),Name),
-			  ets:insert(renamed_defs,{get_name_of_def(NewT),
-						   Name,N}),
+			  asn1ct_table:insert(renamed_defs,
+						          {get_name_of_def(NewT), Name, N}),
 			  {NewT,?dupl_uniquedefs bor RenamedOrDupl};
 		      {Name,equal} ->
 			  %% delete def
@@ -489,8 +489,9 @@ save_imports(ModuleList)->
 	[] ->
 	    ok;
 	ImportsList2 ->
-	    create_ets_table(original_imports,[named_table]),
-	    lists:foreach(fun(X) -> ets:insert(original_imports,X) end,ImportsList2)
+	    asn1ct_table:new(original_imports, [named_table]),
+	    lists:foreach(fun(X) -> asn1ct_table:insert(original_imports, X) end,
+                      ImportsList2)
     end.
 				    
 	    
@@ -566,7 +567,7 @@ check_tagdefault(ModList) ->
     case have_same_tagdefault(ModList) of
 	{true,TagDefault}  -> TagDefault;
 	{false,TagDefault} ->
-	    create_ets_table(automatic_tags,[named_table]),
+        asn1ct_table:new(automatic_tags, [named_table]),
 	    save_automatic_tagged_types(ModList),
 	    TagDefault
     end.
@@ -593,7 +594,7 @@ save_automatic_tagged_types([#module{tagdefault='AUTOMATIC',
 				     typeorval=TorV}|Ms]) ->
     Fun =
 	fun(T) ->
-		ets:insert(automatic_tags,{get_name_of_def(T)})
+		asn1ct_table:insert(automatic_tags, {get_name_of_def(T)})
 	end,
     lists:foreach(Fun,TorV),
     save_automatic_tagged_types(Ms);
@@ -832,7 +833,7 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
 	_ -> ok
     end,
     put(encoding_options,Options),
-    create_ets_table(check_functions,[named_table]),
+    asn1ct_table:new(check_functions, [named_table]),
 
     %% create decoding function names and taglists for partial decode
     %% For the time being leave errors unnoticed !!!!!!!!!
@@ -864,7 +865,7 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
     erase(encoding_options),
     erase(tlv_format), % used in ber_bin, optimize
     erase(class_default_type),% used in ber_bin, optimize
-    ets:delete(check_functions),
+    asn1ct_table:delete(check_functions),
     case Result of 
 	{error,_} ->
 	    {false,Result};
@@ -1489,38 +1490,6 @@ print_listing([],_) ->
     ok.
 
 
-%% functions to administer ets tables
-
-%% Always creates a new table
-create_ets_table(Name,Options) when is_atom(Name) ->
-    case ets:info(Name) of
-	undefined ->
-	    ets:new(Name,Options);
-	_  ->
-	    ets:delete(Name),
-	    ets:new(Name,Options)
-    end.
-
-%% Creates a new ets table only if no table exists
-create_if_no_table(Name,Options) ->
-    case ets:info(Name) of
-	undefined ->
-	    %% create a new table
-	    create_ets_table(Name,Options);
-	_ -> ok
-    end.
-    
-
-delete_tables([Table|Ts]) ->
-    case ets:info(Table) of
-	undefined -> ok;
-	_ -> ets:delete(Table)
-    end,
-    delete_tables(Ts);
-delete_tables([]) ->
-    ok.
-
-
 specialized_decode_prepare(Erule,M,TsAndVs,Options) ->
     case lists:member(asn1config,Options) of
 	true ->
@@ -2066,14 +2035,14 @@ get_config_info(CfgList,InfoType) ->
 %% Before saving anything check if a table exists
 %% The record gen_state is saved with the key {asn1_config,gen_state}
 save_config(Key,Info) ->
-    create_if_no_table(asn1_general,[named_table]),
-    ets:insert(asn1_general,{{asn1_config,Key},Info}).
+    asn1ct_table:new_reuse(asn1_general, [named_table]),
+    asn1ct_table:insert(asn1_general, {{asn1_config, Key}, Info}).
 
 read_config_data(Key) ->
-    case ets:info(asn1_general) of
-	undefined -> undefined;
-	_ ->
-	    case ets:lookup(asn1_general,{asn1_config,Key}) of
+    case asn1ct_table:exists(asn1_general) of
+	false -> undefined;
+	true ->
+	    case asn1ct_table:lookup(asn1_general,{asn1_config,Key}) of
 		[{_,Data}] -> Data;
 		Err -> % Err is [] when nothing was saved in the ets table
 %%		    io:format("strange data from config file ~w~n",[Err]),

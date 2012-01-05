@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -94,8 +94,8 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     _Perror = checkp(S,ParameterizedTypes,[]), % must do this before the templates are used
     
     %% table to save instances of parameterized objects,object sets
-    asn1ct:create_ets_table(parameterized_objects,[named_table]),
-    asn1ct:create_ets_table(inlined_objects,[named_table]),
+    asn1ct_table:new(parameterized_objects, [named_table]),
+    asn1ct_table:new(inlined_objects, [named_table]),
 
 
     Terror = checkt(S,Types,[]),
@@ -144,17 +144,17 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
 				   NewObjectSets,
 				   [],[],[]),
     ?dbg("checko finished with errors:~n~p~n~n",[Oerror]),
-    InlinedObjTuples = ets:tab2list(inlined_objects),
+    InlinedObjTuples = asn1ct_table:to_list(inlined_objects),
     InlinedObjects = lists:map(Element2,InlinedObjTuples),
-    ets:delete(inlined_objects),
-    ParameterizedElems = ets:tab2list(parameterized_objects),
+    asn1ct_table:delete(inlined_objects),
+    ParameterizedElems = asn1ct_table:to_list(parameterized_objects),
     ParObjectSets = lists:filter(fun({_OSName,objectset,_}) -> true;
 				    (_)-> false end,ParameterizedElems),
     ParObjectSetNames = lists:map(Element1,ParObjectSets),
     ParTypes = lists:filter(fun({_TypeName,type,_}) -> true;
 			       (_) -> false end, ParameterizedElems),
     ParTypesNames = lists:map(Element1,ParTypes),
-    ets:delete(parameterized_objects),
+    asn1ct_table:delete(parameterized_objects),
     put(asn1_reference,undefined),
 
     Exporterror = check_exports(S,S#state.module),
@@ -5116,16 +5116,16 @@ renamed_reference(S,#'Externaltypereference'{type=Name,module=Module}) ->
 renamed_reference(S,Name,Module) ->
     %% first check if there is a renamed type in this module
     %% second check if any type was imported with this name
-    case ets:info(renamed_defs) of
-	undefined -> undefined;
-	_ ->
-	    case ets:match(renamed_defs,{'$1',Name,Module}) of
+    case asn1ct_table:exists(renamed_defs) of
+	false -> undefined;
+	true ->
+	    case asn1ct_table:match(renamed_defs, {'$1',Name,Module}) of
 		[] -> 
-		    case ets:info(original_imports) of
-			undefined ->
+		    case asn1ct_table:exists(original_imports) of
+			false ->
 			    undefined;
-			_  ->
-			    case ets:match(original_imports,{Module,'$1'}) of
+			true  ->
+			    case asn1ct_table:match(original_imports, {Module,'$1'}) of
 				[] ->
 				    undefined;
 				[[ImportsList]] ->
@@ -6005,17 +6005,12 @@ tag_nums_root2([],Ext,Root2) ->
     [0,Ext,Root2].
     
 is_automatic_tagged_in_multi_file(Name) ->
-    case ets:info(automatic_tags) of
-	undefined ->
+    case asn1ct_table:exists(automatic_tags) of
+	false ->
 	    %% this case when not multifile compilation
 	    false;
-	_ ->
-%	    case ets:member(automatic_tags,Name) of
-	    case ets:lookup(automatic_tags,Name) of
-% 		true ->
-% 		     true;
-% 		_ ->
-% 		    false
+	true ->
+	    case asn1ct_table:lookup(automatic_tags, Name) of
 		[] -> false;
 		_ -> true
 	    end

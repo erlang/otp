@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1834,7 +1834,7 @@ mk_object_val(Val, Ack, Len) ->
     mk_object_val(Val bsr 7, [((Val band 127) bor 128) | Ack], Len + 1). 
 
 add_func(F={_Func,_Arity}) ->
-    ets:insert(asn1_functab,{F}).
+    asn1ct_table:insert(asn1_functab, {F}).
 
 %% For BER the ExtensionAdditionGroup notation has no impact on the encoding/decoding
 %% and therefore we only filter away the ExtensionAdditionGroup start and end markers
