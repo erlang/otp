@@ -214,8 +214,6 @@ update_session(ProfileName, SessionId, Pos, Value) ->
     ets:update_element(SessionDbName, SessionId, {Pos, Value}).
 
 
-
-
 %%--------------------------------------------------------------------
 %% Function: delete_session(SessionId, ProfileName) -> _
 %%	SessionId -  {{Host, Port}, HandlerPid}
@@ -572,8 +570,69 @@ terminate(_, State) ->
 %% Func: code_change(_OldVsn, State, Extra) -> {ok, NewState}
 %% Purpose: Convert process state when code is changed
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
+code_change(_, 
+	    #state{session_db = SessionDB} = State, 
+	    upgrade_from_pre_5_7_3) ->
+    Upgrade = 
+	fun({session, 
+	     Id, ClientClose, Scheme, Socket, SocketType, QueueLen, Type}) ->
+		{ok, #session{id           = Id, 
+			      client_close = ClientClose, 
+			      scheme       = Scheme, 
+			      socket       = Socket, 
+			      socket_type  = SocketType,
+			      queue_length = QueueLen, 
+			      type         = Type}};
+	   (_) -> % Already upgraded (by handler)
+		ignore
+	end,
+    (catch update_session_table(SessionDB, Upgrade)),
+    {ok, State};
+
+code_change(_, 
+	    #state{session_db = SessionDB} = State, 
+	    downgrade_to_pre_5_7_3) ->
+    Downgrade = 
+	fun(#session{id           = Id, 
+		     client_close = ClientClose, 
+		     scheme       = Scheme, 
+		     socket       = Socket, 
+		     socket_type  = SocketType,
+		     queue_length = QueueLen, 
+		     type         = Type}) ->
+		{ok, {session, 
+		      Id, ClientClose, Scheme, Socket, SocketType, 
+		      QueueLen, Type}};
+	   (_) -> % Already downgraded (by handler)
+		ignore
+	end,
+    (catch update_session_table(SessionDB, Downgrade)),
+    {ok, State};
+
+code_change(_, State, _) ->
     {ok, State}.
+
+%% This function is to catch everything that calls through the cracks...
+update_session_table(SessionDB, Transform) ->
+    ets:safe_fixtable(SessionDB, true),
+    update_session_table(SessionDB, ets:first(SessionDB), Transform),
+    ets:safe_fixtable(SessionDB, false).
+
+update_session_table(_SessionDB, '$end_of_table', _Transform) ->
+    ok;
+update_session_table(SessionDB, Key, Transform) ->
+    case ets:lookup(SessionDB, Key) of
+	[OldSession] ->
+	    case Transform(OldSession) of
+		{ok, NewSession} -> 
+		    ets:insert(SessionDB, NewSession);
+		ignore ->
+		    ok
+	    end;
+	_ ->
+	    ok
+    end,
+    update_session_table(SessionDB, ets:next(SessionDB, Key), Transform).
 
 
 %%--------------------------------------------------------------------

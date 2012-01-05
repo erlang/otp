@@ -20,8 +20,10 @@
  [
   {"5.7.2",
    [
-    {update, httpc_handler, soft,    soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,    soft_purge, soft_purge, [httpc_handler]}
+    {update, httpc_handler, {advanced, upgrade_from_pre_4_7_3}, 
+     soft_purge, soft_purge, []}, 
+    {update, httpc_manager, {advanced, upgrade_from_pre_4_7_3}, 
+     soft_purge, soft_purge, [httpc_handler]}
    ]
   }, 
   {"5.7.1",
@@ -33,8 +35,10 @@
     {load_module, httpd_request,  soft_purge, soft_purge, []}, 
     {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
     {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]},
-    {update, httpc_handler, soft,    soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,    soft_purge, soft_purge, [httpc_handler]}
+    {update, httpc_handler, {advanced, upgrade_from_pre_4_7_3}, 
+     soft_purge, soft_purge, []}, 
+    {update, httpc_manager, {advanced, upgrade_from_pre_4_7_3}, 
+     soft_purge, soft_purge, [httpc_handler]}
    ]
   }, 
   {"5.7", 
@@ -47,53 +51,20 @@
     {load_module, http_util,      soft_purge, soft_purge, []}, 
     {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
     {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]},
-    {update, httpc_handler, soft,    soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,    soft_purge, soft_purge, [httpc_handler]}
+    {update, httpc_handler, {advanced, upgrade_from_pre_4_7_3}, 
+     soft_purge, soft_purge, []}, 
+    {update, httpc_manager, {advanced, upgrade_from_pre_4_7_3}, 
+     soft_purge, soft_purge, [httpc_handler]}
    ]
-  }, 
-  {"5.6", 
-   [
-    {load_module, http_uri,          soft_purge, soft_purge, []},
-    {load_module, httpd_util,        soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_file,        soft_purge, soft_purge, []}, 
-    {load_module, httpd_request,     soft_purge, soft_purge, []}, 
-    {load_module, httpc,             soft_purge, soft_purge, [httpc_manager]}, 
-    {load_module, http_transport,    soft_purge, soft_purge, [http_transport]},
-    {load_module, httpc_cookie,      soft_purge, soft_purge, [http_util]}, 
-    {load_module, http_util,         soft_purge, soft_purge, []}, 
-    {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
-    {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]}, 
-    {update, httpc_handler, soft,    soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,    soft_purge, soft_purge, [httpc_handler]}, 
-    {update, ftp, soft, soft_purge,  soft_purge, []}
-   ]
-  }, 
-  {"5.5.2", 
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.5.1", 
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.5",
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.4",
-   [
-    {restart_application, inets}
-   ]
-  } 
+  }
  ],
  [
   {"5.7.2",
    [
-    {update, httpc_handler, soft,    soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,    soft_purge, soft_purge, [httpc_handler]}
+    {update, httpc_handler, {advanced, downgrade_to_pre_4_7_3}, 
+     soft_purge, soft_purge, []}, 
+    {update, httpc_manager, {advanced, downgrade_to_pre_4_7_3}, 
+     soft_purge, soft_purge, [httpc_handler]}
    ]
   }, 
   {"5.7.1",
@@ -105,8 +76,10 @@
     {load_module, httpd_request,  soft_purge, soft_purge, []}, 
     {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
     {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]},
-    {update, httpc_handler, soft,    soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,    soft_purge, soft_purge, [httpc_handler]}
+    {update, httpc_handler, {advanced, downgrade_to_pre_4_7_3}, 
+     soft_purge, soft_purge, []}, 
+    {update, httpc_manager, {advanced, downgrade_to_pre_4_7_3}, 
+     soft_purge, soft_purge, [httpc_handler]}
    ]
   }, 
   {"5.7", 
@@ -119,46 +92,11 @@
     {load_module, http_util,      soft_purge, soft_purge, []}, 
     {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
     {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]},
-    {update, httpc_handler, soft,    soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,    soft_purge, soft_purge, [httpc_handler]}
+    {update, httpc_handler, {advanced, downgrade_to_pre_4_7_3}, 
+     soft_purge, soft_purge, []}, 
+    {update, httpc_manager, {advanced, downgrade_to_pre_4_7_3}, 
+     soft_purge, soft_purge, [httpc_handler]}
    ]
-  }, 
-  {"5.6", 
-   [
-    {load_module, http_uri,         soft_purge, soft_purge, []},
-    {load_module, httpd_util,       soft_purge, soft_purge, [http_util]},
-    {load_module, httpd_file,       soft_purge, soft_purge, []}, 
-    {load_module, httpd_request,    soft_purge, soft_purge, []}, 
-    {load_module, httpc,            soft_purge, soft_purge, [httpc_manager]}, 
-    {load_module, http_transport,   soft_purge, soft_purge, [http_transport]},
-    {load_module, httpc_cookie,     soft_purge, soft_purge, [http_util]}, 
-    {load_module, http_util,        soft_purge, soft_purge, []}, 
-    {load_module, mod_responsecontrol, soft_purge, soft_purge, []},
-    {load_module, httpd_response, soft_purge, soft_purge, [mod_responsecontrol]}, 
-    {update, httpc_handler, soft,   soft_purge, soft_purge, []}, 
-    {update, httpc_manager, soft,   soft_purge, soft_purge, [httpc_handler]}, 
-    {update, ftp, soft, soft_purge, soft_purge, []}
-   ]
-  }, 
-  {"5.5.2",
-   [
-    {restart_application, inets}
-   ]
-  },
-  {"5.5.1", 
-   [
-    {restart_application, inets}
-   ]
-  }, 
-  {"5.5",
-   [
-    {restart_application, inets}
-   ]
-  },     
-  {"5.4",
-   [
-    {restart_application, inets}
-   ]
-  }     
+  }
  ]
 }.
