@@ -3523,10 +3523,7 @@ qualified_name_segments(Node) ->
 %% @see is_form/1
 %% @see rule/2
 
--record(function, {
-	name :: atom(),
-	clauses :: list()
-    }).
+-record(function, {name, clauses}).
 %% XXX: This one is problematic because there is a tuple with the same
 %%      tag and size that comes from 'erl_parse'
 %% -record(function, {name :: syntaxTree(), clauses :: [syntaxTree()]}).
@@ -6103,7 +6100,7 @@ implicit_fun_name(Node) ->
 			     arity_qualifier(
 			       set_pos(atom(Atom), Pos),
 			       set_pos(integer(Arity), Pos)));
-	{'fun', _Pos, {function, Module, Atom, Arity}} ->
+	{'fun', Pos, {function, Module, Atom, Arity}} ->
 	    %% New in R15: fun M:F/A.
 	    module_qualifier(Module, arity_qualifier(Atom, Arity));
 	Node1 ->
