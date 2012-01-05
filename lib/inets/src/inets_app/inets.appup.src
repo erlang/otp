@@ -18,8 +18,14 @@
 
 {"%VSN%",
  [
+  {"5.7.2",
+   [
+    {load_module, ftp, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.7.1",
    [
+    {load_module, ftp,            soft_purge, soft_purge, []},
     {load_module, http_uri,       soft_purge, soft_purge, []},
     {load_module, http_util,      soft_purge, soft_purge, []},
     {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
@@ -31,6 +37,7 @@
   }, 
   {"5.7", 
    [
+    {load_module, ftp,            soft_purge, soft_purge, []},
     {load_module, http_uri,       soft_purge, soft_purge, []},
     {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
     {load_module, httpd_file,     soft_purge, soft_purge, []}, 
@@ -43,6 +50,7 @@
   }, 
   {"5.6", 
    [
+    {load_module, ftp,               soft_purge, soft_purge, []},
     {load_module, http_uri,          soft_purge, soft_purge, []},
     {load_module, httpd_util,        soft_purge, soft_purge, [http_util]},
     {load_module, httpd_file,        soft_purge, soft_purge, []}, 
@@ -80,8 +88,14 @@
   } 
  ],
  [
+  {"5.7.2",
+   [
+    {load_module, ftp, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.7.1",
    [
+    {load_module, ftp,            soft_purge, soft_purge, []},
     {load_module, http_uri,       soft_purge, soft_purge, []},
     {load_module, http_util,      soft_purge, soft_purge, []},
     {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
@@ -92,7 +106,8 @@
    ]
   }, 
   {"5.7", 
-   [
+   [ 
+    {load_module, ftp,            soft_purge, soft_purge, []},
     {load_module, http_uri,       soft_purge, soft_purge, []},
     {load_module, httpd_util,     soft_purge, soft_purge, [http_util]},
     {load_module, httpd_file,     soft_purge, soft_purge, []}, 
@@ -105,6 +120,7 @@
   }, 
   {"5.6", 
    [
+    {load_module, ftp,              soft_purge, soft_purge, []},
     {load_module, http_uri,         soft_purge, soft_purge, []},
     {load_module, httpd_util,       soft_purge, soft_purge, [http_util]},
     {load_module, httpd_file,       soft_purge, soft_purge, []}, 
