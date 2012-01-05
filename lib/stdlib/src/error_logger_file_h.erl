@@ -104,7 +104,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% ------------------------------------------------------
 
 tag_event(Event) ->    
-    {erlang:localtime(), Event}.
+    {erlang:universaltime(), Event}.
 
 write_events(Fd, Events) -> write_events1(Fd, lists:reverse(Events)).
 
@@ -169,23 +169,18 @@ write_event(_, _) ->
 
 maybe_utc(Time) ->
     UTC = case application:get_env(sasl, utc_log) of
-              {ok, Val} ->
-                  Val;
+              {ok, Val} -> Val;
               undefined ->
                   %% Backwards compatible:
                   case application:get_env(stdlib, utc_log) of
-                      {ok, Val} ->
-                          Val;
-                      undefined ->
-                          false
+                      {ok, Val} -> Val;
+                      undefined -> false
                   end
           end,
-    if
-        UTC =:= true ->
-            {utc, calendar:local_time_to_universal_time(Time)};
-        true -> 
-            Time
-    end.
+    maybe_utc(Time, UTC).
+
+maybe_utc(Time, true) -> {utc, Time};
+maybe_utc(Time, _) -> calendar:universal_time_to_local_time(Time).
 
 format_report(Rep) when is_list(Rep) ->
     case string_p(Rep) of

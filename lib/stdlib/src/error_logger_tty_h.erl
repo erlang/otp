@@ -97,7 +97,7 @@ set_group_leader() ->
     end.
 
 tag_event(Event) ->    
-    {erlang:localtime(), Event}.
+    {erlang:universaltime(), Event}.
 
 write_events(Events,IOMod) -> write_events1(lists:reverse(Events),IOMod).
 
@@ -162,23 +162,18 @@ write_event({_Time, _Error},_IOMod) ->
 
 maybe_utc(Time) ->
     UTC = case application:get_env(sasl, utc_log) of
-              {ok, Val} ->
-                  Val;
+              {ok, Val} -> Val;
               undefined ->
                   %% Backwards compatible:
                   case application:get_env(stdlib, utc_log) of
-                      {ok, Val} ->
-                          Val;
-                      undefined ->
-                          false
+                      {ok, Val} -> Val;
+                      undefined -> false
                   end
           end,
-    if
-        UTC =:= true ->
-            {utc, calendar:local_time_to_universal_time(Time)};
-        true -> 
-            Time
-    end.
+    maybe_utc(Time, UTC).
+
+maybe_utc(Time, true) -> {utc, Time};
+maybe_utc(Time, _) -> calendar:universal_time_to_local_time(Time).
 
 format(IOMod, String)       -> format(IOMod, String, []).
 format(io_lib, String, Args) -> io_lib:format(String, Args);
