@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -94,23 +94,28 @@ compile(File,Options) when is_list(Options) ->
     Options1 = optimize_ber_bin(Options),
     Options2 = includes(File,Options1),
     Includes=[I||{i,I}<-Options2],
-    case (catch input_file_type(File,Includes)) of
-	{single_file,SuffixedFile} -> %% "e.g. "/tmp/File.asn"
- 	    (catch compile1(SuffixedFile,Options2));
-	{multiple_files_file,SetBase,FileName} ->
-	    FileList = get_file_list(FileName,Includes),
-%%	    io:format("FileList: ~p~n",[FileList]),
-	    case FileList of
-		L when is_list(L) ->
-		    (catch compile_set(SetBase,FileList,Options2));
-		Err ->
-		    Err
-	    end;
-	Err = {input_file_error,_Reason} ->
-	    {error,Err};
-	Err2 -> Err2
-    end.
+    Parent = self(),
+    Pid = spawn_link(fun() ->
+                         compile_proc(File, Includes, Options2, Parent)
+                     end),
+    receive {Pid, Result} -> Result end.
 
+compile_proc(File, Includes, Options, Parent) ->
+    Result = case (catch input_file_type(File, Includes)) of
+                 {single_file, SuffixedFile} -> %% "e.g. "/tmp/File.asn"
+                     (catch compile1(SuffixedFile, Options));
+                 {multiple_files_file, SetBase, FileName} ->
+                     case get_file_list(FileName, Includes) of
+                         FileList when is_list(FileList) ->
+                             (catch compile_set(SetBase, FileList, Options));
+                         Err ->
+                             Err
+                     end;
+                 Err = {input_file_error, _Reason} ->
+                     {error, Err};
+                 Err2 -> Err2
+             end,
+    Parent ! {self(), Result}.
 
 compile1(File,Options) when is_list(Options) ->
     verbose("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,File],Options),
