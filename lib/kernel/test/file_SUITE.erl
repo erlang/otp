@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,7 +93,7 @@
 
 
 %% System probe functions that might be handy to check from the shell
--export([unix_free/1, memsize/0, bsd_memsize/1, win_memsize/1]).
+-export([unix_free/1, memsize/0, bsd_memsize/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -4018,7 +4018,7 @@ memsize() ->
 		    0
 	    end;
 	{win32,_} ->
-	    win_memsize(os:cmd("mem.exe"));
+	    enough; % atom() > integer(); assume (64-bit) windows have enough
 	_ ->
 	    0
     end.
@@ -4039,19 +4039,6 @@ bsd_memsize(MIB) ->
 	error:_ ->
 	    0
     end.
-
-win_memsize(Mem) ->
-    Lines = re:split(Mem, "\\R+", [trim,{return,list}]),
-    {ok,RE} = re:compile("^\\s*(\\d+)"),
-    REOpts = [{capture,all_but_first,list}],
-    Numbers =
-	[case re:run(Line, RE, REOpts) of
-	     nomatch ->
-		 0;
-	     {match,[Digits]} ->
-		 list_to_integer(Digits)
-	 end || Line <- Lines],
-    lists:foldl(fun erlang:max/2, 0, Numbers).
 
 strip_prefix([X|Prefix], [X|List]) ->
     strip_prefix(Prefix, List);
