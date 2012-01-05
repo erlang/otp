@@ -29,7 +29,8 @@
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, package_forms/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
-	 missing_testheap/1, cover/1, env/1, core/1, asm/1]).
+	 missing_testheap/1, cover/1, env/1, core/1, asm/1,
+	 sys_pre_attributes/1]).
 
 -export([init/3]).
 
@@ -45,7 +46,8 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, package_forms, encrypted_abstr,
      {group, bad_record_use}, strict_record,
-     missing_testheap, cover, env, core, asm].
+     missing_testheap, cover, env, core, asm,
+     sys_pre_attributes].
 
 groups() -> 
     [{bad_record_use, [],
@@ -784,6 +786,37 @@ do_asm(Beam, Outdir) ->
 		      [M,Class,Error,erlang:get_stacktrace()]),
 	    error
     end.
+
+sys_pre_attributes(Config) ->
+    DataDir = ?config(data_dir, Config),
+    File = filename:join(DataDir, "attributes.erl"),
+    Mod = attributes,
+    CommonOpts = [binary,report,verbose,
+		  {parse_transform,sys_pre_attributes}],
+    PreOpts = [{attribute,delete,deleted}],
+    PostOpts = [{attribute,insert,inserted,"value"}],
+    PrePostOpts = [{attribute,replace,replaced,42},
+		   {attribute,replace,replace_nonexisting,new}],
+    {ok,Mod,Code} = compile:file(File, PrePostOpts ++ PreOpts ++
+				     PostOpts ++ CommonOpts),
+    code:load_binary(Mod, File, Code),
+    Attr = Mod:module_info(attributes),
+    io:format("~p", [Attr]),
+    {inserted,"value"} = lists:keyfind(inserted, 1, Attr),
+    {replaced,[42]} = lists:keyfind(replaced, 1, Attr),
+    {replace_nonexisting,[new]} = lists:keyfind(replace_nonexisting, 1, Attr),
+    false = lists:keymember(deleted, 1, Attr),
+
+    %% Cover more code.
+    {ok,Mod,_} = compile:file(File, PostOpts ++ CommonOpts),
+    {ok,Mod,_} = compile:file(File, CommonOpts -- [verbose]),
+    {ok,Mod,_} = compile:file(File, PreOpts ++ CommonOpts),
+    {ok,Mod,_} = compile:file(File,
+			      [{attribute,replace,replaced,42}|CommonOpts]),
+    {ok,Mod,Code} = compile:file(File, PrePostOpts ++ PreOpts ++
+				     PostOpts ++ CommonOpts --
+				     [report,verbose]),
+    ok.
 
 %%%
 %%% Utilities.
