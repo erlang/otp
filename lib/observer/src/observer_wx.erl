@@ -55,6 +55,7 @@
 	 sys_panel,
 	 trace_panel,
 	 app_panel,
+	 perf_panel,
 	 active_tab,
 	 node,
 	 nodes
@@ -129,6 +130,10 @@ setup(#state{frame = Frame} = State) ->
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
+    %% Perf Viewer Panel
+    PerfPanel = observer_perf_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, PerfPanel, "Load Charts", []),
+
     %% App Viewer Panel
     AppPanel = observer_app_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
@@ -160,6 +165,7 @@ setup(#state{frame = Frame} = State) ->
 			   tv_panel  = TVPanel,
 			   trace_panel = TracePanel,
 			   app_panel = AppPanel,
+			   perf_panel = PerfPanel,
 			   active_tab = SysPid,
 			   node  = node(),
 			   nodes = Nodes
@@ -404,12 +410,15 @@ check_page_title(Notebook) ->
     wxNotebook:getPageText(Notebook, Selection).
 
 get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
-		      tv_panel=Tv, trace_panel=Trace, app_panel=App}) ->
+		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
+		      perf_panel=Perf
+		     }) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
 		"System" -> Sys;
 		"Table Viewer" -> Tv;
 		?TRACE_STR -> Trace;
+		"Load Charts" -> Perf;
 		"Applications" -> App
 	    end,
     wx_object:get_pid(Panel).
