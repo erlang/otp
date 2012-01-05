@@ -33,6 +33,121 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21.5</title>
+    <p>Version 4.21.5 supports code replacement in runtime from/to
+      version 4.21.4, 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1 and 4.20. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Removed (more) use of old style tuple funs. </p>
+          <p>Own Id: OTP-9779</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p> 
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Version 4.20 introduced a change that broke trap 
+	  sending from subagents. Due to a bug in the test code, 
+	  this was not discovered, until that bug was fixed. </p>
+          <p>Own Id: OTP-9745</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[compiler] foo bar. </p>
+          <p>Own Id: OTP-9718</p>
+        </item>
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 4.21.5 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.21.4</title>
+    <p>This version has never been released for R14B.</p>
+    <p>Version 4.21.4 supports code replacement in runtime from/to
+      version 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[compiler] Improved version info printout from the 
+          <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
+          <p>Own Id: OTP-9618</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Removed use of old style tuple funs. </p>
+          <p>Own Id: OTP-9779</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>foo. </p>
+          <p>Own Id: OTP-9718</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 4.21.4 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.21.3</title>
     <p>Version 4.21.3 supports code replacement in runtime from/to
       version 4.21.2, 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
