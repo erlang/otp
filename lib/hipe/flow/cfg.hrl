@@ -36,9 +36,8 @@
                    is_closure    :: boolean(),
                    closure_arity :: arity(),
                    is_leaf       :: boolean(),
-		   params        :: any(),    %% any() since type information is missing?
-		   info = []     :: list()    %% this field seems not needed; take out??
-	       }).
+                   params,     % :: list()
+                   info = []}).  %% this field seems not needed; take out??
 
 %%
 %% Data is a triple with a dict of constants, a list of labels and an integer
