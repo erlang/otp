@@ -90,7 +90,7 @@
     <p>As you can understand from the illustration above, Common Test requires
       that a test case generates a runtime error to indicate failure (e.g.
       by causing a bad match error or by calling <c>exit/1</c>, preferrably
-      through the <c>ct:fail/1/2</c> help function). A succesful execution is
+      through the <c>ct:fail/1,2</c> help function). A succesful execution is
       indicated by means of a normal return from the test case function.
     </p>
     </section>
@@ -197,7 +197,7 @@
     <pre>
       1> ct:run_test([{suite, "check_log_SUITE"}]).</pre>
     <p>
-      The result from running our test is printed in log files on HTML format
+      The result from running our test is printed in log files in HTML format
       (stored in unique log directories on different level). This illustration
       shows the log file structure:
     </p>
