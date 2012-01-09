@@ -57,7 +57,8 @@ all() ->
      create_standalone, create_old_target,
      otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod,
      get_apps, set_app_and_undo, set_apps_and_undo,
-     load_config_and_undo, reset_config_and_undo, save_config].
+     load_config_and_undo, reset_config_and_undo, save_config,
+     dependencies].
 
 groups() -> 
     [].
@@ -837,6 +838,143 @@ save_config(Config) ->
     ?m(ok, reltool:stop(Pid)),
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test calculation of dependencies
+%% The following test applications are used
+%%
+%% x-1.0: x1.erl   x2.erl   x3.erl
+%%                   \        /         (x2 calls y1, x3 calls y2)
+%% y-1.0:          y1.erl   y2.erl
+%%                    \                 (y1 calls z1)
+%% z-1.0            z1.erl
+%%
+%% Test includes x and derives y and z.
+%%
+dependencies(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+
+    %% Default: all modules included => y and z are included (derived)
+    Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,x,[{incl_cond,include}]},
+		{app,y,[{incl_cond,derived}]},
+		{app,z,[{incl_cond,derived}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der} = ?msym({ok,_},
+		      reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[z]},
+	   #app{name=z}],
+	  rm_missing_app(Der)),
+    ?msym({ok,[]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding x2 => y still included since y2 is used by x3
+    %%                 z still included since z1 is used by y1
+    Sys2 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include},{mod,x2,[{incl_cond,exclude}]}]},
+		 {app,y,[{incl_cond,derived}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys2)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der2} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[z]},
+	   #app{name=z}],
+	  rm_missing_app(Der2)),
+    ?msym({ok,[]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding x3 => y still included since y1 is used by x2
+    %%                 z still included since z1 is used by y1
+    Sys3 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include},{mod,x3,[{incl_cond,exclude}]}]},
+		 {app,y,[{incl_cond,derived}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys3)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der3} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[z]},
+	   #app{name=z}],
+	  rm_missing_app(Der3)),
+    ?msym({ok,[]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding x2 and x3 => y and z excluded
+    Sys4 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include},
+			 {mod,x2,[{incl_cond,exclude}]},
+			 {mod,x3,[{incl_cond,exclude}]}]},
+		 {app,y,[{incl_cond,derived}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys4)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der4} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([], rm_missing_app(Der4)),
+    ?msym({ok,[#app{name=y},
+	       #app{name=z}]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding y1 => y still included since y2 is used by x3
+    %%                 z excluded since not used by any other than y1
+    Sys5 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include}]},
+		 {app,y,[{incl_cond,derived},
+			 {mod,y1,[{incl_cond,exclude}]}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys5)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der5} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[]}], rm_missing_app(Der5)),
+    ?msym({ok,[#app{name=z}]},
+	  reltool_server:get_apps(Pid,source)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Library functions
@@ -858,6 +996,8 @@ latest(App) ->
     [_,Vsn] = string:tokens(filename:basename(LatestAppDir),"-"),
     Vsn.
 
+rm_missing_app(Apps) ->
+    lists:keydelete(?MISSING_APP_NAME,#app.name,Apps).
 
 diff_script(Script, Script) ->
     equal;
