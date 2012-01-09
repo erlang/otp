@@ -266,9 +266,24 @@ dump_table(true) ->
 dump_table(_) ->
     ok.
 
+
+%% We should really make an effort to serialize the dumping
+%% to ensure that several processes that dump at-the-same-time
+%% do not trash each others dumps.
+%% <SUGGESTION>
+%% Send the request to the master agent, which, if there is no
+%% dumper already running, spawns a (temporary) dumper process. 
+%% If there is already a running dumper process, instead increment
+%% the dump_request counter.
+%% When the dumper process exits, the master agent checks the 
+%% the dump_request counter, and if that is greated than zero,
+%% create another dumper process and resets the counter.
+%% In this way the dumping is serializede, but the master-agent
+%% process is not burdened by the dumping.
+%% </SUGGESTION>
 dump_table() ->
     [{_, FName}] = ets:lookup(snmp_agent_table, snmpa_vacm_file),
-    TmpName = FName ++ ".tmp",
+    TmpName = unique(FName), 
     case ets:tab2file(snmpa_vacm, TmpName) of
 	ok ->
 	    case file:rename(TmpName, FName) of
@@ -281,6 +296,32 @@ dump_table() ->
 	{error, Reason} ->
 	    user_err("Warning: could not save vacm db ~p (~p)",
 		     [FName, Reason])
+    end.
+
+%% This little thing is an attempt to create a "unique" filename
+%% in order to minimize the risk of two processes at the same 
+%% time dumping the table.
+unique(Pre) ->
+    {A, B, C} = os:timestamp(),
+    {D, _}    = erlang:statistics(reductions),
+    {E, _}    = erlang:statistics(runtime),
+    {F, _}    = erlang:statistics(wall_clock),
+    {G, H, _} = erlang:statistics(garbage_collection),
+    Data = [A, B, C, D, E, F, G, H],
+    unique(Pre, Data, 0).
+
+unique(Pre, [], Unique) ->
+    PidPart = unique_pid(), 
+    lists:flatten(io_lib:format("~s.~s~w.tmp", [Pre, PidPart, Unique]));
+unique(Pre, [H|T], Unique) ->
+    unique(Pre, T, Unique bxor H).
+
+unique_pid() ->
+    case string:tokens(pid_to_list(self()), [$<,$.,$>]) of
+	[A, B, C] ->
+	    A ++ B ++ C ++ ".";
+	_ ->
+	    ""
     end.
 
 
