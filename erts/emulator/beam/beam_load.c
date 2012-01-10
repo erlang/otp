@@ -2437,6 +2437,9 @@ load_code(LoaderState* stp)
 	case op_int_code_end:
 	    stp->code_buffer_size = code_buffer_size;
 	    stp->ci = ci;
+	    stp->function = THE_NON_VALUE;
+	    stp->genop = NULL;
+	    stp->specific_op = -1;
 	    return 1;
 	}
 
