@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,8 @@
 
 -record(state,
 	{
+	  offset = 0.0,
+	  active = false,
 	  parent,
 	  windows,
 	  data = {0, queue:new()},
@@ -77,9 +79,7 @@ init([Notebook, Parent]) ->
     % wxPanel:connect(DrawingArea, size, [{skip, true}]),
 
     DefFont  = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    Cols = [{220, 50, 50}, {220, 50, 220}, {50, 50, 220},
-	    {50, 220, 220}, {50, 220, 50}, {220, 220, 50}],
-    Pens = [wxPen:new(Col) || Col <- Cols],
+    Pens = [wxPen:new(Col, [{width, 2}]) || Col <- tuple_to_list(colors())],
     %%  GC = wxGraphicsContext:create(DrawingArea),
     %%  _Font = wxGraphicsContext:createFont(GC, DefFont),
     {Panel, #state{parent=Parent,
@@ -97,11 +97,6 @@ init([Notebook, Parent]) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% handle_event(#wx{id=Id, event=_Sz=#wxSize{size=Size}},
-%% 	     State=#state{}) ->
-%%     %% Id =:= ?DRAWAREA andalso setup_scrollbar(Size,AppWin,App),
-%%     {noreply, State};
-
 handle_event(#wx{event=#wxCommand{type=command_menu_selected}},
 	     State = #state{}) ->
     {noreply, State};
@@ -111,12 +106,12 @@ handle_event(Event, _State) ->
 
 %%%%%%%%%%
 handle_sync_event(#wx{id=Id, event = #wxPaint{}},_,
-		  #state{paint=Paint, windows=Windows, data=Data}) ->
+		  #state{offset=Offset, paint=Paint, windows=Windows, data=Data}) ->
     %% PaintDC must be created in a callback to work on windows.
     Panel = element(Id, Windows),
     DC = wxPaintDC:new(Panel),
     %% Nothing is drawn until wxPaintDC is destroyed.
-    try draw(Id, DC, Panel, Paint, Data)
+    try draw(Offset, Id, DC, Panel, Paint, Data)
     catch _:Err ->
 	    io:format("Crash ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
@@ -129,25 +124,44 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 %%%%%%%%%%
-handle_info(Stats = {stats, 1, _, _, _}, State = #state{panel=Panel, data=Data}) ->
+handle_info(Stats = {stats, 1, _, _, _},
+	    State = #state{panel=Panel, data=Data, active=Active}) ->
+    if Active ->
+	    wxWindow:refresh(Panel),
+	    Freq = 6,
+	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, 1, Freq});
+       true -> ignore
+    end,
+    {noreply, State#state{offset=0.0, data = add_data(Stats, Data)}};
+
+handle_info({refresh, Seq, Freq}, State = #state{panel=Panel, offset=Prev}) ->
     wxWindow:refresh(Panel),
-    {noreply, State#state{data = add_data(Stats, Data)}};
+    Next = Seq+1,
+    if Seq > 1, Prev =:= 0.0 ->
+	    %% We didn't have time to handle the refresh
+	    {noreply, State};
+       Next < Freq ->
+	    erlang:send_after(trunc(1000 / Freq), self(), {refresh, Next, Freq}),
+	    {noreply, State#state{offset=Seq/Freq}};
+       true ->
+	    {noreply, State#state{offset=Seq/Freq}}
+    end;
 
 handle_info({active, Node}, State = #state{parent=Parent, appmon=Old}) ->
     create_menus(Parent, []),
     try
 	Node = node(Old),
-	{noreply, State}
+	{noreply, State#state{active=true}}
     catch _:_ ->
 	    catch Old ! exit,
 	    Me = self(),
 	    Pid = spawn_link(Node, fun() -> fetch_stats(Me) end),
-	    {noreply, State#state{appmon=Pid, data={0, queue:new()}}}
+	    {noreply, State#state{active=true, appmon=Pid, data={0, queue:new()}}}
     end;
 
 handle_info(not_active, State = #state{appmon=_Pid}) ->
     %% Pid ! exit,
-    {noreply, State};
+    {noreply, State#state{active=false}};
 
 handle_info(_Event, State) ->
     io:format("~p:~p: ~p~n",[?MODULE,?LINE,_Event]),
@@ -169,11 +183,11 @@ fetch_stats(Parent) ->
     receive
 	exit -> normal
     after 1000 ->
-	    M = Parent ! {stats, 1,
-			  erlang:statistics(run_queues),
-			  erlang:statistics(io),
-			  erlang:memory()},
-	    %% io:format("IO ~p~n",[element(4,M)]),
+	    _M = Parent ! {stats, 1,
+			   erlang:statistics(run_queues),
+			   erlang:statistics(io),
+			   erlang:memory()},
+	    %% io:format("IO ~p~n",[element(4,_M)]),
 	    fetch_stats(Parent)
     end.
 
@@ -193,8 +207,11 @@ collect_data(?RQ_W, {N, Q}) ->
     Data = [RQ || {stats, _Ver, RQ, _IO, _Mem} <- queue:to_list(Q)],
     {N, lmax(Data), Data};
 collect_data(?MEM_W, {N, Q}) ->
-    Data = [{Mem} || {stats, _Ver, _RQ, _IO, Mem} <- queue:to_list(Q)],
-    {N, {bytes, lmax(Data)}, Data};
+    MemT = mem_types(),
+    Data = [list_to_tuple([Value || {Type,Value} <- MemInfo,
+				    lists:member(Type, MemT)])
+	    || {stats, _Ver, _RQ, _IO, MemInfo} <- queue:to_list(Q)],
+    {N, lmax(Data), Data};
 collect_data(?IO_W, {N, Q}) ->
     case queue:to_list(Q) of
 	[] ->  {0, 0, []};
@@ -204,56 +221,61 @@ collect_data(?IO_W, {N, Q}) ->
 		lists:foldl(fun({stats, _, _, {{_,In}, {_,Out}}, _}, [PIn,Pout|Acc]) ->
 				    [In,Out,{In-PIn,Out-Pout}|Acc]
 			    end, [In0,Out0], Data0),
-	    {N, {bytes, lmax(Data)}, lists:reverse([First|Data])}
+	    {N, lmax(Data), lists:reverse([First|Data])}
     end.
+
+mem_types() ->
+    [total, processes, system, atom, binary, code, ets].
 
 lmax([]) -> 0;
 lmax(List) ->
     lists:max([lists:max(tuple_to_list(T)) || T <- List]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-draw(Id, DC, Panel, Paint=#paint{pens=Pens}, Data) ->
+draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens}, Data) ->
     {Len, Max, Hs} = collect_data(Id, Data),
+    NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
     Size = wxWindow:getClientSize(Panel),
-    {X0,Y0,WS,HS} = draw_borders(Id, DC, Size, Max, Paint),
-    Start = max(61-Len, 0)*WS+X0,
+    {X0,Y0,WS,HS} = draw_borders(Id, NoGraphs, DC, Size, Max, Paint),
+    Start = max(61-Len, 0)*WS+X0 - Offset*WS,
     case Hs of
 	[] -> ignore;
 	_ ->
 	    Draw = fun(N) ->
-			   Lines = make_lines(Hs, Start, N, Y0, WS, HS),
-			   wxDC:setPen(DC, element(1+(N rem size(Pens)), Pens)),
+			   Lines = make_lines(Hs, Start, N, X0, Y0, WS, HS),
+			   wxDC:setPen(DC, element(1+ (N-1 rem tuple_size(Pens)) , Pens)),
 			   wxDC:drawLines(DC, Lines),
 			   N+1
 		   end,
-	    [Draw(I) || I <- lists:seq(1,tuple_size(hd(Hs)))]
+	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)]
     end,
     ok.
 
-make_lines(Ds = [Data|_], PX, N, PY, WS, HS) ->
+make_lines(Ds = [Data|_], PX, N, MinX, MaxY, WS, HS) ->
     Y = element(N,Data),
-    make_lines(Ds, PX, N, PY, WS, HS, Y, []).
+    make_lines(Ds, PX, N, MinX, MaxY, WS, HS, Y, []).
 
-make_lines([D1 | Ds = [D2|Rest]], PX, N, PY, WS, HS, Y0, Acc0) ->
+make_lines([D1 | Ds = [D2|Rest]], PX, N, MinX, MaxY, WS, HS, Y0, Acc0) ->
     Y1 = element(N,D1),
     Y2 = element(N,D2),
     Y3 = case Rest of
 	     [D3|_] -> element(N,D3);
 	     [] -> Y2
 	 end,
-    Acc = make_splines(Y0,Y1,Y2,Y3,PX,PY,WS,HS,[{round(PX),PY-round(Y1*HS)}|Acc0]),
-    make_lines(Ds, PX+WS, N, PY, WS, HS, Y1, Acc);
-make_lines([D1],  PX, N, PY, _WS, HS, _Y0, Acc) ->
+    This = {max(MinX, round(PX)),MaxY-round(Y1*HS)},
+    Acc = make_splines(Y0,Y1,Y2,Y3,PX,MinX,MaxY,WS,HS,[This|Acc0]),
+    make_lines(Ds, PX+WS, N, MinX, MaxY, WS, HS, Y1, Acc);
+make_lines([D1],  PX, N, _MinX, MaxY, _WS, HS, _Y0, Acc) ->
     Y1 = element(N,D1),
-    [{round(PX),PY-round(Y1*HS)}|Acc].
+    [{round(PX),MaxY-round(Y1*HS)}|Acc].
 
-make_splines(_Y0,Y1,Y2,_Y3, _PX,_PY, _WS,HS, Acc)
+make_splines(_Y0,Y1,Y2,_Y3, _PX, _MinX,_MaxY, _WS,HS, Acc)
   when (abs(Y1-Y2) * HS) < 3.0  ->
     Acc;
-make_splines(_Y0,_Y1,_Y2,_Y3, _PX,_PY, WS,_HS, Acc)
+make_splines(_Y0,_Y1,_Y2,_Y3, _PX, _MinX,_MaxY, WS,_HS, Acc)
   when WS < 3.0 ->
     Acc;
-make_splines(Y00,Y10,Y20,Y30,PX,PY,WS,HS,Acc) ->
+make_splines(Y00,Y10,Y20,Y30,PX,MinX,MaxY,WS,HS,Acc) ->
     Y1 = Y10*HS,
     Y2 = Y20*HS,
     Steps = round(min(abs(Y1-Y2), WS)),
@@ -262,26 +284,22 @@ make_splines(Y00,Y10,Y20,Y30,PX,PY,WS,HS,Acc) ->
 	    Y3 = Y30*HS,
 	    Tan = spline_tan(Y0,Y1,Y2,Y3),
 	    Delta = 1/Steps,
-	    splines(Steps-1, 0.0, Delta, Tan, Y1,Y2, PX, PY, Delta*WS, Acc);
+	    splines(Steps-1, 0.0, Delta, Tan, Y1,Y2, PX, MinX,MaxY, Delta*WS, Acc);
        true ->
 	    Acc
     end.
 
-spline_tan(Y0, Y1, Y2, Y3) ->
-    S = 1.0,
-    C = 0.5,
-    %% Calc tangent values
-    M1 = S*C*(Y2-Y0),
-    M2 = S*C*(Y3-Y1),
-    {M1,M2}.
-
-splines(N, XD, XD0, Tan, Y1,Y2, PX, PY, WS, Acc) when N > 0 ->
+splines(N, XD, XD0, Tan, Y1,Y2, PX0, MinX,MaxY, WS, Acc) when N > 0 ->
+    PX = PX0+WS,
     Delta = XD+XD0,
-    Y = spline(Delta, Tan, Y1,Y2),
-    X = PX+WS,
-    %% io:format("Y1:~p Y(~p):~p Y2:~p~n",[round(Y1),round(X),round(Y),round(Y2)]),
-    splines(N-1, Delta, XD0, Tan, Y1, Y2, X, PY, WS, [{round(X),PY-round(Y)}|Acc]);
-splines(_N, _XD, _XD0, _Tan, _Y1,_Y2, _PX, _PY, _WS, Acc) -> Acc.
+    if PX < MinX ->
+	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, MinX,MaxY, WS, Acc);
+       true ->
+	    Y = max(0,round(spline(Delta, Tan, Y1,Y2))),
+	    %% io:format("Y1:~p Y(~p):~p Y2:~p~n",[round(Y1),round(X),round(Y),round(Y2)]),
+	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, MinX,MaxY, WS, [{round(PX), MaxY-Y}|Acc])
+    end;
+splines(_N, _XD, _XD0, _Tan, _Y1,_Y2, _PX, _MinX,_MaxY, _WS, Acc) -> Acc.
 
 spline(T, {M1, M2}, Y1, Y2) ->
     %% Hermite Basis Funcs
@@ -293,15 +311,25 @@ spline(T, {M1, M2}, Y1, Y2) ->
     %% Result
     M1*H3 + Y1*H1 + Y2*H2 + M2*H4.
 
+spline_tan(Y0, Y1, Y2, Y3) ->
+    S = 1.0,
+    C = 0.5,
+    %% Calc tangent values
+    M1 = S*C*(Y2-Y0),
+    M2 = S*C*(Y3-Y1),
+    {M1,M2}.
+
 -define(BW, 5).
 -define(BH, 5).
 
-draw_borders(Type, DC, {W,H}, Max0, #paint{pen=Pen, font=Font}) ->
+draw_borders(Type, NoGraphs, DC, {W,H}, Max0,
+	     #paint{pen=Pen, font=Font}) ->
     Max = calc_max(Max0),
     wxDC:setPen(DC, Pen),
     wxDC:setFont(DC, Font),
-    Str1 = observer_lib:to_str(Max),
-    Str2 = observer_lib:to_str(div2(Max)),
+    {Unit, MaxUnit} = bytes(Type, Max),
+    Str1 = observer_lib:to_str(MaxUnit),
+    Str2 = observer_lib:to_str(MaxUnit div 2),
     Str3 = observer_lib:to_str(0),
     {TW,TH} = wxDC:getTextExtent(DC, Str1),
 
@@ -320,8 +348,8 @@ draw_borders(Type, DC, {W,H}, Max0, #paint{pen=Pen, font=Font}) ->
 
     case Type of
 	?RQ_W ->  wxDC:drawText(DC, "CPU History - Run queue length", {TopTextX,?BH});
-	?MEM_W -> wxDC:drawText(DC, "Memory Usage", {TopTextX,?BH});
-	?IO_W ->  wxDC:drawText(DC, "IO Usage", {TopTextX,?BH})
+	?MEM_W -> wxDC:drawText(DC, "Memory Usage " ++ Unit, {TopTextX,?BH});
+	?IO_W ->  wxDC:drawText(DC, "IO Usage " ++ Unit, {TopTextX,?BH})
     end,
 
     Align = fun(Str, Y) ->
@@ -338,21 +366,46 @@ draw_borders(Type, DC, {W,H}, Max0, #paint{pen=Pen, font=Font}) ->
 		       Pos + 10*ScaleW
 	       end,
     lists:foldl(DrawSecs, 0, lists:seq(60,0, -10)),
-    case Type of
-	?RQ_W ->  wxDC:drawText(DC, "Scheduler", {?BW, BottomTextY});
-	?MEM_W -> wxDC:drawText(DC, "Memory",  {?BW, BottomTextY});
-	?IO_W ->  wxDC:drawText(DC, "Input Output",  {?BW, BottomTextY})
-    end,
 
     wxDC:drawLines(DC, [{GraphX0, GraphY0}, {GraphX0, GraphY1},
 			{GraphX1, GraphY1}, {GraphX1, GraphY0}, {GraphX0, GraphY0}]),
-    {GraphX0, GraphY1, ScaleW, ScaleH}.
+
+    {SpaceW, _} = wxDC:getTextExtent(DC, " "),
+    Text = fun(X,Y, Str, PenId) ->
+		   if PenId == 0 ->
+			   wxDC:setTextForeground(DC, {0,0,0});
+		      PenId > 0 ->
+			   wxDC:setTextForeground(DC, element(PenId, colors()))
+		   end,
+		   wxDC:drawText(DC, Str, {X, Y}),
+		   {StrW, _} = wxDC:getTextExtent(DC, Str),
+		   StrW + X + SpaceW
+	   end,
+    case Type of
+	?RQ_W ->
+	    TN0 = Text(?BW, BottomTextY, "Scheduler: ", 0),
+	    lists:foldl(fun(Id, Pos0) ->
+				Text(Pos0, BottomTextY, integer_to_list(Id), Id)
+			end, TN0, lists:seq(1, NoGraphs));
+	?MEM_W ->
+	    lists:foldl(fun(MType, {PenId, Pos0}) ->
+				Str = uppercase(atom_to_list(MType)),
+				Pos = Text(Pos0, BottomTextY, Str, PenId),
+				{PenId+1, Pos}
+			end, {1, ?BW}, mem_types());
+	?IO_W ->
+	    TN0 = Text(?BW, BottomTextY, "Input", 1),
+	    Text(TN0, BottomTextY, "Output", 2)
+    end,
+    {GraphX0+1, GraphY1, ScaleW, ScaleH}.
 
 div2({Type, Int}) -> {Type, Int div 2};
 div2(Int) -> Int div 2.
 
+uppercase([C|Rest]) ->
+    [C-$a+$A|Rest].
+
 calc_max(Max) when Max < 10 -> 10;
-calc_max({Type, Max}) -> {Type,calc_max1(Max)};
 calc_max(Max) -> calc_max1(Max).
 
 calc_max1(Max) ->
@@ -363,8 +416,27 @@ calc_max1(Max) ->
 	    10*calc_max1(X)
     end.
 
+bytes(?RQ_W, Val) -> {"", Val};
+bytes(_, B) ->
+    KB = B div 1024,
+    MB = KB div 1024,
+    GB = MB div 1024,
+    if
+	GB > 10 -> {"(GB)", GB};
+	MB > 10 -> {"(MB)", MB};
+	KB >  0 -> {"(KB)", KB};
+	true    -> {"(B)", B}
+    end.
+
 calc_scale(H, {_Type, Max}) -> calc_scale(H,Max);
 calc_scale(Height, Max) when Height > Max ->
     Height / Max;
 calc_scale(Height, Max) ->
     Height / Max.
+
+colors() ->
+    {{220, 50, 50}, {50, 220, 50}, {50, 50, 220},
+     {220, 220, 50}, {50, 220, 220}, {220, 50, 220},
+     {220, 100, 100}, {220, 100, 220},
+     {100, 220, 220}, {100, 220, 100}
+    }.
