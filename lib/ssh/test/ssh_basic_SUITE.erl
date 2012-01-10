@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,9 +41,21 @@
 init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
-	    Dir = ?config(priv_dir, Config),
-	    {ok, _} =  ssh_test_lib:get_id_keys(Dir),
-	    ssh_test_lib:make_dsa_files(Config),
+	    DataDir = ?config(data_dir, Config),
+	    UserDir = ?config(priv_dir, Config),
+	    ssh_test_lib:copyfile(DataDir, UserDir, "id_rsa"), 
+	    ssh_test_lib:copyfile(DataDir, UserDir, "id_dsa"),
+	    RSAFile = filename:join(DataDir, "id_rsa.pub"),
+	    DSAFile = filename:join(DataDir, "id_dsa.pub"),
+	    {ok, Ssh1} = file:read_file(RSAFile),
+	    {ok, Ssh2} = file:read_file(DSAFile),
+	    [{RSA, _}] = public_key:ssh_decode(Ssh1,public_key), 
+	    [{DSA, _}] = public_key:ssh_decode(Ssh2,public_key), 
+	    AuthKeys = public_key:ssh_encode([{RSA, [{comment, "Test"}]}, 
+					      {DSA,[{comment, "Test"}]}], auth_keys),
+	    AuthKeysFile = filename:join(UserDir, "authorized_keys"),
+	    file:write_file(AuthKeysFile, AuthKeys),
+	    %%ssh_test_lib:make_dsa_files(Config),
 	    Config;
 	_Else ->
 	    {skip, "Crypto could not be started!"}
@@ -56,9 +68,7 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(Config) ->
-    Dir = ?config(priv_dir, Config),
     crypto:stop(),
-    ssh_test_lib:remove_id_keys(Dir),
     ok.
 
 %%--------------------------------------------------------------------
@@ -75,7 +85,6 @@ end_per_suite(Config) ->
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-    ssh_test_lib:known_hosts(backup),
     ssh:start(),
     Config.
 
@@ -87,9 +96,16 @@ init_per_testcase(_TestCase, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(_TestCase, _Config) ->
+
+end_per_testcase(TestCase, Config) when TestCase == server_password_option;
+					TestCase == server_userpassword_option ->
+    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    file:del_dir(UserDir),
+    end_per_testcase(Config);
+end_per_testcase(_TestCase, Config) ->
+    end_per_testcase(Config).
+end_per_testcase(Config) ->    
     ssh:stop(),
-    ssh_test_lib:known_hosts(restore),
     ok.
 
 %%--------------------------------------------------------------------
@@ -101,9 +117,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
 all() -> 
-    [exec, exec_compressed, shell, daemon_already_started,
-     server_password_option, server_userpassword_option,
-     known_hosts].
+    [exec, exec_compressed, shell, daemon_already_started, 
+     server_password_option, server_userpassword_option, known_hosts].
 
 groups() -> 
     [].
@@ -136,10 +151,14 @@ exec(suite) ->
 exec(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
 					  {user_interaction, false}]),
     {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
@@ -178,12 +197,15 @@ exec_compressed(suite) ->
 exec_compressed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    UserDir = ?config(priv_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					     {compression, zlib},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
     ConnectionRef =
 	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
 					  {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     success = ssh_connection:exec(ConnectionRef, ChannelId,
@@ -209,12 +231,14 @@ shell(suite) ->
 shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
-    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    UserDir = ?config(priv_dir, Config),
+
+    {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
     test_server:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(Port, IO),
+    Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
     receive
 	ErlShellStart ->
 	    test_server:format("Erlang shell start: ~p~n", [ErlShellStart])
@@ -291,8 +315,9 @@ server_password_option(doc) ->
 server_password_option(suite) ->
     [];
 server_password_option(Config) when is_list(Config) ->
-    UserDir = ?config(data_dir, Config), % to make sure we don't use
-    SysDir = ?config(data_dir, Config),	 % public-key-auth
+    UserDir = filename:join(?config(priv_dir, Config), nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),	 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {password, "morot"}]),
 
@@ -321,8 +346,9 @@ server_userpassword_option(doc) ->
 server_userpassword_option(suite) ->
     [];
 server_userpassword_option(Config) when is_list(Config) ->
-    UserDir = ?config(data_dir, Config),  % to make sure we don't use
-    SysDir = ?config(data_dir, Config),	  % public-key-auth
+    UserDir = filename:join(?config(priv_dir, Config), nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+    SysDir = ?config(data_dir, Config),	  
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
 					     {user_passwords, [{"vego", "morot"}]}]),
 
@@ -361,10 +387,10 @@ known_hosts(doc) ->
 known_hosts(suite) ->
     [];
 known_hosts(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
+    DataDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
-
-    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    
+    {Pid, Host, Port} = ssh_test_lib:daemon([{user_dir, UserDir},{system_dir, DataDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     KnownHosts = filename:join(UserDir, "known_hosts"),

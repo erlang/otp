@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,7 +53,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case {catch ssh:stop(),catch crypto:start()} of
+    case {catch crypto:start(),catch ssh:start()} of
 	{ok,ok} ->
 	    ssh_test_lib:make_dsa_files(Config),
 	    Config;

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -351,7 +351,9 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
 	    ok = ssh:close(ConnectionRef),
 	    ok = file:delete(filename:join(UserDir, "id_rsa"));
 	{error, enoent} ->
-	    {skip, "no ~/.ssh/id_rsa"}
+	    {skip, "no ~/.ssh/id_rsa"};
+       	{error, Reason} ->
+	    {skip, Reason}
     end.
 
 %%--------------------------------------------------------------------
@@ -377,7 +379,9 @@ erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
 	    ok = ssh:close(ConnectionRef),
 	    ok = file:delete(filename:join(UserDir, "id_dsa"));
 	{error, enoent} ->
-	    {skip, "no ~/.ssh/id_dsa"}
+	    {skip, "no ~/.ssh/id_dsa"};
+	{error, Reason} ->
+	    {skip, Reason}
     end.
 
 %%--------------------------------------------------------------------

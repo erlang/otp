@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,15 +68,11 @@ daemon(Host, Port, Options) ->
 	    Error
     end.
 
+start_shell(Port, IOServer, UserDir) ->
+    spawn_link(?MODULE, init_shell, [Port, IOServer, [{user_dir, UserDir}]]).
 
-
-
-start_shell(Port, IOServer) ->
-    spawn_link(?MODULE, init_shell, [Port, IOServer]).
-
-init_shell(Port, IOServer) ->
+init_shell(Port, IOServer, UserDir) ->
     Host = hostname(),
-    UserDir = get_user_dir(),
     Options = [{user_interaction, false}, {silently_accept_hosts,
 					   true}] ++ UserDir,
     group_leader(IOServer, self()),
@@ -204,9 +200,16 @@ remove_id_keys(Dir) ->
     file:delete(filename:join(Dir, "id_rsa")),
     file:delete(filename:join(Dir, "id_dsa")).
 
-copyfile(SrcDir, DstDir, Fn) ->
-    file:copy(filename:join(SrcDir, Fn),
-	      filename:join(DstDir, Fn)).
+copyfile(SrcDir, DstDir, FileName) ->
+    Dest = filename:join(DstDir, FileName),
+    Result = file:copy(filename:join(SrcDir, FileName), Dest),
+    {ok, Pem} = file:read_file(Dest),
+    case public_key:pem_decode(Pem) of
+	[{_,_, not_encrypted}] ->
+	    Result;
+	_ ->
+	   {error, "Has pass phrase can not be used by automated test case"} 
+    end.
 
 failfun(_User, {authmethod,none}) ->
     ok;
@@ -227,16 +230,6 @@ known_hosts(BR) ->
 	    file:delete(KnownHosts),
 	    file:rename(B, KnownHosts)
     end.
-
-
-get_user_dir() ->
-    case os:type() of
-	{win32, _} ->
-	    [{user_dir, filename:join([os:getenv("HOME"), ".ssh"])}];
-	_ ->
-	    []
-    end.
-
 
 make_dsa_cert_files(Config) ->    
     make_dsa_cert_files("", Config).
