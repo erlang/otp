@@ -359,8 +359,17 @@ store_core(Mod, Core, NoWarn, Callgraph, CServer) ->
   store_code_and_build_callgraph(Mod, LabeledCore, Callgraph, CServer3, NoWarn).
 
 abs_get_nowarn(Abs, M) ->
-  [{M, F, A}
-   || {attribute, _, compile, {nowarn_unused_function, {F, A}}} <- Abs].
+  Opts = lists:flatten([C || {attribute, _, compile, C} <- Abs]),
+  Warn = erl_lint:bool_option(warn_unused_function, nowarn_unused_function,
+                              true, Opts),
+  case Warn of
+    false ->
+      [{M, F, A} || {function, _, F, A, _} <- Abs]; % all functions
+    true ->
+      [{M, F, A} ||
+        {nowarn_unused_function, FAs} <- Opts,
+        {F, A} <- lists:flatten([FAs])]
+  end.
 
 get_exported_types_from_core(Core) ->
   Attrs = cerl:module_attrs(Core),
