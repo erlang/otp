@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,8 +66,8 @@
 
 -record(queue, {oid, tid, op, pid, lucky}).
 
-%% mnesia_held_locks: contain       {Oid, Op, Tid} entries  (bag)
--define(match_oid_held_locks(Oid),  {Oid, '_', '_'}).
+%% mnesia_held_locks: contain       {{Oid,Tid}, Op} entries
+-define(match_oid_held_locks(Oid),  {{Oid, '_'}, '_'}).
 %% mnesia_tid_locks: contain        {Tid, Oid, Op} entries  (bag)
 -define(match_oid_tid_locks(Tid),   {Tid, '_', '_'}).
 %% mnesia_sticky_locks: contain     {Oid, Node} entries and {Tab, Node} entries (set)
@@ -83,7 +83,7 @@ start() ->
 init(Parent) ->
     register(?MODULE, self()),
     process_flag(trap_exit, true),
-    ?ets_new_table(mnesia_held_locks, [bag, private, named_table]),
+    ?ets_new_table(mnesia_held_locks, [ordered_set, private, named_table]),
     ?ets_new_table(mnesia_tid_locks, [bag, private, named_table]),
     ?ets_new_table(mnesia_sticky_locks, [set, private, named_table]),
     ?ets_new_table(mnesia_lock_queue, [bag, private, named_table, {keypos, 2}]),
@@ -237,7 +237,7 @@ loop(State) ->
 
 set_lock(Tid, Oid, Op) ->
     ?dbg("Granted ~p ~p ~p~n", [Tid,Oid,Op]),
-    ?ets_insert(mnesia_held_locks, {Oid, Op, Tid}),
+    ?ets_insert(mnesia_held_locks, {{Oid, Tid}, Op}),
     ?ets_insert(mnesia_tid_locks, {Tid, Oid, Op}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -321,19 +321,19 @@ grant_lock(Tid, write, Lock, Oid) ->
 can_lock(Tid, read, {Tab, Key}, AlreadyQ) when Key /= ?ALL ->
     %% The key is bound, no need for the other BIF
     Oid = {Tab, Key},
-    ObjLocks = ?ets_match_object(mnesia_held_locks, {Oid, write, '_'}),
-    TabLocks = ?ets_match_object(mnesia_held_locks, {{Tab, ?ALL}, write, '_'}),
+    ObjLocks = ?ets_match_object(mnesia_held_locks, {{Oid, '_'}, write}),
+    TabLocks = ?ets_match_object(mnesia_held_locks, {{{Tab, ?ALL}, '_'}, write}),
     check_lock(Tid, Oid, ObjLocks, TabLocks, yes, AlreadyQ, read);
 
 can_lock(Tid, read, Oid, AlreadyQ) -> % Whole tab
     Tab = element(1, Oid),
-    ObjLocks = ?ets_match_object(mnesia_held_locks, {{Tab, '_'}, write, '_'}),
+    ObjLocks = ?ets_match_object(mnesia_held_locks, {{{Tab, '_'}, '_'}, write}),
     check_lock(Tid, Oid, ObjLocks, [], yes, AlreadyQ, read);
 
 can_lock(Tid, write, {Tab, Key}, AlreadyQ) when Key /= ?ALL ->
     Oid = {Tab, Key},
-    ObjLocks = ?ets_lookup(mnesia_held_locks, Oid),
-    TabLocks = ?ets_lookup(mnesia_held_locks, {Tab, ?ALL}),
+    ObjLocks = ?ets_match_object(mnesia_held_locks, ?match_oid_held_locks(Oid)),
+    TabLocks = ?ets_match_object(mnesia_held_locks, ?match_oid_held_locks({Tab, ?ALL})),
     check_lock(Tid, Oid, ObjLocks, TabLocks, yes, AlreadyQ, write);
 
 can_lock(Tid, write, Oid, AlreadyQ) -> % Whole tab
@@ -342,31 +342,28 @@ can_lock(Tid, write, Oid, AlreadyQ) -> % Whole tab
     check_lock(Tid, Oid, ObjLocks, [], yes, AlreadyQ, write).
 
 %% Check held locks for conflicting locks
-check_lock(Tid, Oid, [Lock | Locks], TabLocks, X, AlreadyQ, Type) ->
-    case element(3, Lock) of
-	Tid ->
-	    check_lock(Tid, Oid, Locks, TabLocks, X, AlreadyQ, Type);
-	WaitForTid ->
-	    Queue = allowed_to_be_queued(WaitForTid,Tid),
-	    if Queue == true ->
-		    check_lock(Tid, Oid, Locks, TabLocks, {queue, WaitForTid}, AlreadyQ, Type);
-	       Tid#tid.pid == WaitForTid#tid.pid ->
-		    dbg_out("Spurious lock conflict ~w ~w: ~w -> ~w~n",
-			    [Oid, Lock, Tid, WaitForTid]),
-		    %% Test..
-		    {Tab, _Key} = Oid,
-		    HaveQ = (ets:lookup(mnesia_lock_queue, Oid) /= [])
-			orelse (ets:lookup(mnesia_lock_queue,{Tab,?ALL}) /= []),
-		    if
-			HaveQ ->
-			    {no, WaitForTid};
-			true ->
-			    check_lock(Tid,Oid,Locks,TabLocks,{queue,WaitForTid},AlreadyQ,Type)
-		    end;
-		    %%{no, WaitForTid};  Safe solution
-	       true ->
-		    {no, WaitForTid}
-	    end
+check_lock(Tid, Oid, [{{_,Tid}, _} | Locks], TabLocks, X, AlreadyQ, Type) ->
+    check_lock(Tid, Oid, Locks, TabLocks, X, AlreadyQ, Type);
+check_lock(Tid, Oid, [Lock = {{_,WaitForTid}, _} | Locks], TabLocks, _X, AlreadyQ, Type) ->
+    Queue = allowed_to_be_queued(WaitForTid,Tid),
+    if Queue == true ->
+	    check_lock(Tid, Oid, Locks, TabLocks, {queue, WaitForTid}, AlreadyQ, Type);
+       Tid#tid.pid == WaitForTid#tid.pid ->
+	    dbg_out("Spurious lock conflict ~w ~w: ~w -> ~w~n",
+		    [Oid, Lock, Tid, WaitForTid]),
+	    %% Test..
+	    {Tab, _Key} = Oid,
+	    HaveQ = (ets:lookup(mnesia_lock_queue, Oid) /= [])
+		orelse (ets:lookup(mnesia_lock_queue,{Tab,?ALL}) /= []),
+	    if
+		HaveQ ->
+		    {no, WaitForTid};
+		true ->
+		    check_lock(Tid,Oid,Locks,TabLocks,{queue,WaitForTid},AlreadyQ,Type)
+	    end;
+       %%{no, WaitForTid};  Safe solution
+       true ->
+	    {no, WaitForTid}
     end;
 
 check_lock(_, _, [], [], X, {queue, bad_luck}, _) ->
@@ -523,9 +520,9 @@ release_lock({Tid, Oid, {queued, _}}) ->
 release_lock({Tid, Oid, Op}) ->
     if
 	Op == write ->
-	    ?ets_delete(mnesia_held_locks, Oid);
+	    ?ets_delete(mnesia_held_locks, {Oid, Tid});
 	Op == read ->
-	    ets:delete_object(mnesia_held_locks, {Oid, Op, Tid})
+	    ets:delete_object(mnesia_held_locks, {{Oid, Tid}, Op})
     end.
 
 rearrange_queue([{_Tid, {Tab, Key}, _} | Locks]) ->
@@ -1116,7 +1113,8 @@ rec_requests([], _Oid, _Store) ->
 
 get_held_locks() ->
     ?MODULE ! {get_table, self(), mnesia_held_locks},
-    receive {mnesia_held_locks, Locks} -> Locks  end.
+    Locks = receive {mnesia_held_locks, Ls} -> Ls  end,
+    [{Oid, Op, Tid} || {{Oid, Tid}, Op} <- Locks].
 
 get_lock_queue() ->
     ?MODULE ! {get_table, self(), mnesia_lock_queue},
