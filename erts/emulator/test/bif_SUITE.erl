@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 display/1, display_huge/0,
-	 types/1,
+	 erl_bif_types/1,specs/1,improper_bif_stubs/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
 	 atom_to_binary/1,min_max/1]).
@@ -33,7 +33,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [types, t_list_to_existing_atom, os_env, otp_7526,
+    [erl_bif_types, specs, improper_bif_stubs,
+     t_list_to_existing_atom, os_env, otp_7526,
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
      min_max].
@@ -86,33 +87,28 @@ deeep(N,Acc) ->
 deeep(N) ->
     deeep(N,[hello]).
 
-
-types(Config) when is_list(Config) ->
+erl_bif_types(Config) when is_list(Config) ->
     c:l(erl_bif_types),
     case erlang:function_exported(erl_bif_types, module_info, 0) of
 	false ->
 	    %% Fail cleanly.
 	    ?line ?t:fail("erl_bif_types not compiled");
 	true ->
-	    types_1()
+	    erl_bif_types_1()
     end.
 
-types_1() ->
-    ?line List0 = erlang:system_info(snifs),
+erl_bif_types_1() ->
+    List0 = erlang:system_info(snifs),
 
     %% Ignore missing type information for hipe BIFs.
-    ?line List = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
+    List = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
 
-    case [MFA || MFA <- List, not known_types(MFA)] of
-	[] ->
-	    types_2(List);
-	BadTypes ->
-	    io:put_chars("No type information:\n"),
-	    io:format("~p\n", [lists:sort(BadTypes)]),
-	    ?line ?t:fail({length(BadTypes),bifs_without_types})
-    end.
+    KnownTypes = [MFA || MFA <- List, known_types(MFA)],
+    io:format("There are ~p BIFs with type information in erl_bif_types.",
+	      [length(KnownTypes)]),
+    erl_bif_types_2(KnownTypes).
 
-types_2(List) ->
+erl_bif_types_2(List) ->
     BadArity = [MFA || {M,F,A}=MFA <- List,
 		       begin
 			   Types = erl_bif_types:arg_types(M, F, A),
@@ -120,14 +116,14 @@ types_2(List) ->
 		       end],
     case BadArity of
 	[] ->
-	    types_3(List);
+	    erl_bif_types_3(List);
 	[_|_] ->
 	    io:put_chars("Bifs with bad arity\n"),
 	    io:format("~p\n", [BadArity]),
 	    ?line ?t:fail({length(BadArity),bad_arity})
     end.
 
-types_3(List) ->
+erl_bif_types_3(List) ->
     BadSmokeTest = [MFA || {M,F,A}=MFA <- List,
 			   begin
 			       try erl_bif_types:type(M, F, A) of
@@ -153,6 +149,89 @@ types_3(List) ->
 
 known_types({M,F,A}) ->
     erl_bif_types:is_known(M, F, A).
+
+specs(_) ->
+    List0 = erlang:system_info(snifs),
+
+    %% Ignore missing type information for hipe BIFs.
+    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
+
+    %% Ignore all operators.
+    List = [MFA || MFA <- List1, not is_operator(MFA)],
+
+    %% Extract specs from the abstract code for all BIFs.
+    Path = get_code_path(),
+    BifRel = sofs:relation(List, [{m,f,a}]),
+    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
+    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    Specs0 = [extract_specs(Mod, Abstr) ||
+		 {Mod,Abstr} <- AbstrByModule],
+    Specs = lists:append(Specs0),
+    BifSet = sofs:set(List, [function]),
+    SpecRel0 = sofs:relation(Specs, [{function,spec}]),
+    SpecRel = sofs:restriction(SpecRel0, BifSet),
+
+    %% Find BIFs without specs.
+    NoSpecs0 = sofs:difference(BifSet, sofs:domain(SpecRel)),
+    NoSpecs = sofs:to_external(NoSpecs0),
+    case NoSpecs of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars("The following BIFs don't have specs:\n"),
+	    [print_mfa(MFA) || MFA <- NoSpecs],
+	    ?t:fail()
+    end.
+
+is_operator({erlang,F,A}) ->
+    erl_internal:arith_op(F, A) orelse
+	erl_internal:bool_op(F, A) orelse
+	erl_internal:comp_op(F, A) orelse
+	erl_internal:list_op(F, A) orelse
+	erl_internal:send_op(F, A);
+is_operator(_) -> false.
+    
+extract_specs(M, Abstr) ->
+    [{make_mfa(M, Name),Spec} || {attribute,_,spec,{Name,Spec}} <- Abstr].
+
+make_mfa(M, {F,A}) -> {M,F,A};
+make_mfa(M, {M,_,_}=MFA) -> MFA.
+
+improper_bif_stubs(_) ->
+    Bifs0 = erlang:system_info(snifs),
+    Bifs = [MFA || {M,_,_}=MFA <- Bifs0, M =/= hipe_bifs],
+    Path = get_code_path(),
+    BifRel = sofs:relation(Bifs, [{m,f,a}]),
+    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
+    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    Funcs0 = [extract_functions(Mod, Abstr) ||
+		 {Mod,Abstr} <- AbstrByModule],
+    Funcs = lists:append(Funcs0),
+    BifSet = sofs:set(Bifs, [function]),
+    FuncRel0 = sofs:relation(Funcs, [{function,code}]),
+    FuncRel = sofs:restriction(FuncRel0, BifSet),
+    [check_stub(MFA, Body) || {MFA,Body} <- sofs:to_external(FuncRel)],
+    ok.
+
+extract_functions(M, Abstr) ->
+    [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
+
+check_stub({erlang,apply,3}, _) ->
+    ok;
+check_stub({_,F,A}, B) ->
+    try
+	[{clause,_,Args,[],Body}] = B,
+	A = length(Args),
+	[{call,_,{remote,_,{atom,_,erlang},{atom,_,nif_error}},[_]}] = Body
+    catch
+	_:_ ->
+	    io:put_chars("Invalid body for the following BIF stub:\n"),
+	    Func = {function,0,F,A,B},
+	    io:put_chars(erl_pp:function(Func)),
+	    io:nl(),
+	    io:put_chars("The body should be: erlang:nif_error(undef)"),
+	    ?t:fail()
+    end.
 
 t_list_to_existing_atom(Config) when is_list(Config) ->
     ?line all = list_to_existing_atom("all"),
@@ -442,3 +521,30 @@ min_max(Config) when is_list(Config) ->
     
 id(I) -> I.
 
+%% Get code path, including the path for the erts application.
+get_code_path() ->
+    case code:lib_dir(erts) of
+	{error,bad_name} ->
+	    Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
+	    [Erts|code:get_path()];
+	_ ->
+	    code:get_path()
+    end.
+
+which(Mod, Path) ->
+    which_1(atom_to_list(Mod) ++ ".beam", Path).
+
+which_1(Base, [D|Ds]) ->
+    Path = filename:join(D, Base),
+    case filelib:is_regular(Path) of
+	true -> Path;
+	false -> which_1(Base, Ds)
+    end.
+print_mfa({M,F,A}) ->
+    io:format("~p:~p/~p", [M,F,A]).
+
+extract_abstract(Mod, Path) ->
+    Beam = which(Mod, Path),
+    {ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
+	beam_lib:chunks(Beam, [abstract_code]),
+    {Mod,Abstr}.
