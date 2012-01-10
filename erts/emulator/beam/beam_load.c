@@ -507,6 +507,7 @@ static int verify_chunks(LoaderState* stp);
 static int load_atom_table(LoaderState* stp);
 static int load_import_table(LoaderState* stp);
 static int read_export_table(LoaderState* stp);
+static int is_bif(Eterm mod, Eterm func, unsigned arity);
 static int read_lambda_table(LoaderState* stp);
 static int read_literal_table(LoaderState* stp);
 static int read_line_table(LoaderState* stp);
@@ -1313,6 +1314,7 @@ static int
 read_export_table(LoaderState* stp)
 {
     int i;
+    BeamInstr* address;
 
     GetInt(stp, 4, stp->num_exps);
     if (stp->num_exps > stp->num_functions) {
@@ -1328,7 +1330,6 @@ read_export_table(LoaderState* stp)
 	Uint value;
 	Eterm func;
 	Uint arity;
-	Export* e;
 
 	GetInt(stp, 4, n);
 	GetAtom(stp, n, func);
@@ -1346,26 +1347,60 @@ read_export_table(LoaderState* stp)
 	if (value == 0) {
 	    LoadError2(stp, "export table entry %d: label %d not resolved", i, n);
 	}
-	stp->export[i].address = stp->code + value;
+	stp->export[i].address = address = stp->code + value;
 
 	/*
-	 * Check that we are not redefining a BIF (except erlang:apply/3).
+	 * Find out if there is a BIF with the same name.
 	 */
-	if ((e = erts_find_export_entry(stp->module, func, arity)) != NULL) {
-	    if (e->code[3] == (BeamInstr) em_apply_bif) {
-		if (stp->module != am_erlang ||
-		    func != am_apply ||
-		    arity != 3) {
-		    LoadError2(stp, "exported function %T/%d redefines BIF",
-			       func, arity);
-		}
-	    }
+
+	if (!is_bif(stp->module, func, arity)) {
+	    continue;
 	}
+
+	/*
+	 * This is a stub for a BIF.
+	 *
+	 * It should not be exported, and the information in its
+	 * func_info instruction should be invalidated so that it
+	 * can be filtered out by module_info(functions) and by
+	 * any other functions that walk through all local functions.
+	 */
+
+	if (stp->labels[n].patches) {
+	    LoadError3(stp, "there are local calls to the stub for "
+		       "the BIF %T:%T/%d",
+		       stp->module, func, arity);
+	}
+	stp->export[i].address = NULL;
+	address[-1] = 0;
+	address[-2] = NIL;
+	address[-3] = NIL;
     }
     return 1;
 
  load_error:
     return 0;
+}
+
+
+static int
+is_bif(Eterm mod, Eterm func, unsigned arity)
+{
+    Export* e = erts_find_export_entry(mod, func, arity);
+    if (e == NULL) {
+	return 0;
+    }
+    if (e->code[3] != (BeamInstr) em_apply_bif) {
+	return 0;
+    }
+    if (mod == am_erlang && func == am_apply && arity == 3) {
+	/*
+	 * erlang:apply/3 is a special case -- it is implemented
+	 * as an instruction and it is OK to redefine it.
+	 */
+	return 0;
+    }
+    return 1;
 }
 
 static int
@@ -4255,17 +4290,24 @@ final_touch(LoaderState* stp)
      */
 
     for (i = 0; i < stp->num_exps; i++) {
-	Export* ep = erts_export_put(stp->module, stp->export[i].function,
-				     stp->export[i].arity);
+	Export* ep;
+	BeamInstr* address = stp->export[i].address;
+
+	if (address == NULL) {
+	    /* Skip stub for a BIF */
+	    continue;
+	}
+	ep = erts_export_put(stp->module, stp->export[i].function,
+			     stp->export[i].arity);
 	if (!on_load) {
-	    ep->address = stp->export[i].address;
+	    ep->address = address;
 	} else {
 	    /*
 	     * Don't make any of the exported functions
 	     * callable yet.
 	     */
 	    ep->address = ep->code+3;
-	    ep->code[4] = (BeamInstr) stp->export[i].address;
+	    ep->code[4] = (BeamInstr) address;
 	}
     }
 
@@ -5037,7 +5079,9 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     BeamInstr* code;
     int i;
     Uint num_functions;
+    Uint need;
     Eterm* hp;
+    Eterm* hp_end;
     Eterm result = NIL;
 
     if (is_not_atom(mod)) {
@@ -5050,19 +5094,28 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     }
     code = modp->code;
     num_functions = code[MI_NUM_FUNCTIONS];
-    hp = HAlloc(p, 5*num_functions);
+    need = 5*num_functions;
+    hp = HAlloc(p, need);
+    hp_end = hp + need;
     for (i = num_functions-1; i >= 0 ; i--) {
 	BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
 	Eterm name = (Eterm) func_info[3];
 	int arity = (int) func_info[4];
 	Eterm tuple;
 
-	ASSERT(is_atom(name));
-	tuple = TUPLE2(hp, name, make_small(arity));
-	hp += 3;
-	result = CONS(hp, tuple, result);
-	hp += 2;
+	/*
+	 * If the function name is [], this entry is a stub for
+	 * a BIF that should be ignored.
+	 */
+	ASSERT(is_atom(name) || is_nil(name));
+	if (is_atom(name)) {
+	    tuple = TUPLE2(hp, name, make_small(arity));
+	    hp += 3;
+	    result = CONS(hp, tuple, result);
+	    hp += 2;
+	}
     }
+    HRelease(p, hp_end, hp);
     return result;
 }
 
@@ -5610,11 +5663,20 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
 {
     int i;
     int n = stp->num_exps;
+    Eterm mod = fp[2];
     Eterm function = fp[3];
     int arity = fp[4];
 #ifdef HIPE
     Lambda* lp;
 #endif
+
+    if (is_bif(mod, function, arity)) {
+	fp[1] = 0;
+	fp[2] = 0;
+	fp[3] = 0;
+	fp[4] = 0;
+	return;
+    }
 
     /*
      * Test if the function should be exported.
@@ -5622,7 +5684,7 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
 
     for (i = 0; i < n; i++) {
 	if (stp->export[i].function == function && stp->export[i].arity == arity) {
-	    Export* ep = erts_export_put(fp[2], function, arity);
+	    Export* ep = erts_export_put(mod, function, arity);
 	    ep->address = fp+5;
 	    return;
 	}
