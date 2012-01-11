@@ -385,7 +385,7 @@ ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
 all:
 	@echo '*** Omitted build of emulator with smp support'
 else
-all: generate $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
+all: $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -467,48 +467,41 @@ release_docs_spec:
 
 _create_dirs := $(shell mkdir -p $(CREATE_DIRS))
 
-.PHONY : generate
-
-GENERATE=	$(TTF_DIR)/beam_opcodes.h \
-		$(TARGET)/erl_bif_table.c \
-		$(TARGET)/erl_version.h \
-		$(TTF_DIR)/driver_tab.c \
-		$(TTF_DIR)/erl_alloc_types.h
-
-ifeq ($(TARGET),win32)
-GENERATE +=	$(TARGET)/beams.rc
-else
-GENERATE +=	$(TARGET)/preload.c
-endif
+GENERATE =
+HIPE_ASM =
 
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 else
 ifdef HIPE_ENABLED
-GENERATE +=	$(TTF_DIR)/hipe_x86_asm.h \
+HIPE_ASM +=	$(TTF_DIR)/hipe_x86_asm.h \
 		$(TTF_DIR)/hipe_amd64_asm.h \
 		$(TTF_DIR)/hipe_sparc_asm.h \
 		$(TTF_DIR)/hipe_ppc_asm.h \
-		$(TTF_DIR)/hipe_arm_asm.h \
+		$(TTF_DIR)/hipe_arm_asm.h
+
+GENERATE +=	$(HIPE_ASM) \
 		$(TTF_DIR)/hipe_literals.h \
 		$(BINDIR)/hipe_mkliterals$(TF_MARKER)
 endif
 endif
 
-ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
-GENERATE=
-endif
-
-generate: $(GENERATE)
-
 ifdef HIPE_ENABLED
 OPCODE_TABLES += hipe/hipe_ops.tab
 endif
 
-$(TTF_DIR)/beam_opcodes.h $(TTF_DIR)/beam_opcodes.c: $(OPCODE_TABLES) utils/beam_makeops
+$(TTF_DIR)/beam_cold.h \
+$(TTF_DIR)/beam_hot.h \
+$(TTF_DIR)/beam_opcodes.c \
+$(TTF_DIR)/beam_opcodes.h \
+$(TTF_DIR)/beam_pred_funcs.h \
+$(TTF_DIR)/beam_tr_funcs.h \
+	: $(TTF_DIR)/OPCODES-GENERATED
+$(TTF_DIR)/OPCODES-GENERATED: $(OPCODE_TABLES) utils/beam_makeops
 	LANG=C $(PERL) utils/beam_makeops \
 		-wordsize @EXTERNAL_WORD_SIZE@ \
 		-outdir $(TTF_DIR) \
-		-emulator $(OPCODE_TABLES)
+		-emulator $(OPCODE_TABLES) && echo $? >$(TTF_DIR)/OPCODES-GENERATED
+GENERATE += $(TTF_DIR)/OPCODES-GENERATED
 
 # bif and atom table
 ATOMS=	beam/atom.names
@@ -528,25 +521,32 @@ BIFS += hipe/hipe_perfctr.tab
 endif
 endif
 
-TABLES=	$(TARGET)/erl_bif_table.c $(TARGET)/erl_bif_table.h	\
-	$(TARGET)/erl_bif_wrap.c $(TARGET)/erl_bif_list.h	\
-	$(TARGET)/erl_atom_table.c $(TARGET)/erl_atom_table.h   \
-	$(TARGET)/erl_pbifs.c
-
-$(TABLES): $(ATOMS) $(BIFS) utils/make_tables
+$(TARGET)/erl_bif_table.c \
+$(TARGET)/erl_bif_table.h \
+$(TARGET)/erl_bif_wrap.c \
+$(TARGET)/erl_bif_list.h \
+$(TARGET)/erl_atom_table.c \
+$(TARGET)/erl_atom_table.h \
+$(TARGET)/erl_pbifs.c \
+	: $(TARGET)/TABLES-GENERATED
+$(TARGET)/TABLES-GENERATED: $(ATOMS) $(BIFS) utils/make_tables
 	LANG=C $(PERL) utils/make_tables -src $(TARGET) -include $(TARGET)\
-		$(ATOMS) $(BIFS)
+		$(ATOMS) $(BIFS) && echo $? >$(TARGET)/TABLES-GENERATED
+GENERATE += $(TARGET)/TABLES-GENERATED
 
 $(TTF_DIR)/erl_alloc_types.h: beam/erl_alloc.types utils/make_alloc_types
 	LANG=C $(PERL) utils/make_alloc_types -src $< -dst $@ $(ENABLE_ALLOC_TYPE_VARS)
+GENERATE += $(TTF_DIR)/erl_alloc_types.h
 
 # version include file
 $(TARGET)/erl_version.h: ../vsn.mk
 	LANG=C $(PERL) utils/make_version -o $@ $(SYSTEM_VSN) $(VSN)$(SERIALNO) $(TARGET)
+GENERATE += $(TARGET)/erl_version.h
 
 # driver table
 $(TTF_DIR)/driver_tab.c: Makefile.in
 	LANG=C $(PERL) utils/make_driver_tab -o $@ $(DRV_OBJS)
+GENERATE += $(TTF_DIR)/driver_tab.c
 
 # Preloaded code.
 # 
@@ -562,6 +562,7 @@ $(TARGET)/beams.rc: $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam
 	LANG=C $(PERL) utils/make_preload $(MAKE_PRELOAD_EXTRA) -rc $^ > $@
+GENERATE += $(TARGET)/beams.rc
 else
 $(TARGET)/preload.c: $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
@@ -572,6 +573,17 @@ $(TARGET)/preload.c: $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam
 	LANG=C $(PERL) utils/make_preload -old $^ > $@
+GENERATE += $(TARGET)/preload.c
+endif
+
+.PHONY : generate
+ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
+generate:
+	@echo '*** Omitted generate for emulator with smp support'
+else
+generate: $(TTF_DIR)/GENERATED
+$(TTF_DIR)/GENERATED: $(GENERATE)
+	echo $? >$(TTF_DIR)/GENERATED
 endif
 
 # ----------------------------------------------------------------------
@@ -650,7 +662,7 @@ endif
 #
 CS_SRC = sys/$(ERLANG_OSTYPE)/erl_child_setup.c
 
-$(BINDIR)/$(CS_EXECUTABLE): $(CS_SRC) $(ERTS_LIB)
+$(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(CS_SRC) $(ERTS_LIB)
 	$(CS_PURIFY) $(CC) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
                $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_SRC) $(CS_LIBS)
 
@@ -828,6 +840,9 @@ BASE_OBJS = $(RUN_OBJS) $(EMU_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS)
 
 OBJS =	$(BASE_OBJS) $(DRV_OBJS)
 
+$(INIT_OBJS): $(TTF_DIR)/GENERATED
+$(OBJS): $(TTF_DIR)/GENERATED
+
 ########################################
 # HiPE section
 
@@ -851,30 +866,49 @@ $(OBJDIR)/%.o: hipe/%.c
 $(BINDIR)/hipe_mkliterals$(TF_MARKER):	$(OBJDIR)/hipe_mkliterals.o
 	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $<
 
-$(OBJDIR)/hipe_mkliterals.o:	$(TTF_DIR)/hipe_x86_asm.h $(TTF_DIR)/hipe_ppc_asm.h $(TTF_DIR)/beam_opcodes.h
+$(OBJDIR)/hipe_mkliterals.o:	$(HIPE_ASM) $(TTF_DIR)/erl_alloc_types.h \
+	$(TTF_DIR)/OPCODES-GENERATED $(TARGET)/TABLES-GENERATED
 
 $(TTF_DIR)/hipe_literals.h:	$(BINDIR)/hipe_mkliterals$(TF_MARKER)
 	$(BINDIR)/hipe_mkliterals$(TF_MARKER) -c > $@
 
-$(OBJDIR)/hipe_x86_glue.o:	hipe/hipe_x86_glue.S $(TTF_DIR)/hipe_x86_asm.h $(TTF_DIR)/hipe_literals.h hipe/hipe_mode_switch.h
-$(TTF_DIR)/hipe_x86_bifs.S:	hipe/hipe_x86_bifs.m4 hipe/hipe_x86_asm.m4 hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
-$(OBJDIR)/hipe_x86_bifs.o:	$(TTF_DIR)/hipe_x86_bifs.S $(TTF_DIR)/hipe_literals.h
+$(OBJDIR)/hipe_x86_glue.o:	hipe/hipe_x86_glue.S \
+	$(TTF_DIR)/hipe_x86_asm.h $(TTF_DIR)/hipe_literals.h \
+	hipe/hipe_mode_switch.h
+$(TTF_DIR)/hipe_x86_bifs.S:	hipe/hipe_x86_bifs.m4 hipe/hipe_x86_asm.m4 \
+	hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
+$(OBJDIR)/hipe_x86_bifs.o:	$(TTF_DIR)/hipe_x86_bifs.S \
+	$(TTF_DIR)/hipe_literals.h
 
-$(OBJDIR)/hipe_amd64_glue.o:	hipe/hipe_amd64_glue.S $(TTF_DIR)/hipe_amd64_asm.h $(TTF_DIR)/hipe_literals.h hipe/hipe_mode_switch.h
-$(TTF_DIR)/hipe_amd64_bifs.S:	hipe/hipe_amd64_bifs.m4 hipe/hipe_amd64_asm.m4 hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
-$(OBJDIR)/hipe_amd64_bifs.o:	$(TTF_DIR)/hipe_amd64_bifs.S $(TTF_DIR)/hipe_literals.h
+$(OBJDIR)/hipe_amd64_glue.o:	hipe/hipe_amd64_glue.S \
+	$(TTF_DIR)/hipe_amd64_asm.h $(TTF_DIR)/hipe_literals.h \
+	hipe/hipe_mode_switch.h
+$(TTF_DIR)/hipe_amd64_bifs.S:	hipe/hipe_amd64_bifs.m4 hipe/hipe_amd64_asm.m4 \
+	hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
+$(OBJDIR)/hipe_amd64_bifs.o:	$(TTF_DIR)/hipe_amd64_bifs.S \
+	$(TTF_DIR)/hipe_literals.h
 
-$(OBJDIR)/hipe_sparc_glue.o:	hipe/hipe_sparc_glue.S $(TTF_DIR)/hipe_sparc_asm.h hipe/hipe_mode_switch.h $(TTF_DIR)/hipe_literals.h
-$(TTF_DIR)/hipe_sparc_bifs.S:	hipe/hipe_sparc_bifs.m4 hipe/hipe_sparc_asm.m4 hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
-$(OBJDIR)/hipe_sparc_bifs.o:	$(TTF_DIR)/hipe_sparc_bifs.S $(TTF_DIR)/hipe_literals.h
+$(OBJDIR)/hipe_sparc_glue.o:	hipe/hipe_sparc_glue.S \
+	$(TTF_DIR)/hipe_sparc_asm.h hipe/hipe_mode_switch.h \
+	$(TTF_DIR)/hipe_literals.h
+$(TTF_DIR)/hipe_sparc_bifs.S:	hipe/hipe_sparc_bifs.m4 hipe/hipe_sparc_asm.m4 \
+	hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
+$(OBJDIR)/hipe_sparc_bifs.o:	$(TTF_DIR)/hipe_sparc_bifs.S \
+	$(TTF_DIR)/hipe_literals.h
 
-$(OBJDIR)/hipe_ppc_glue.o:	hipe/hipe_ppc_glue.S $(TTF_DIR)/hipe_ppc_asm.h hipe/hipe_mode_switch.h $(TTF_DIR)/hipe_literals.h
-$(TTF_DIR)/hipe_ppc_bifs.S:	hipe/hipe_ppc_bifs.m4 hipe/hipe_ppc_asm.m4 hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
-$(OBJDIR)/hipe_ppc_bifs.o:	$(TTF_DIR)/hipe_ppc_bifs.S $(TTF_DIR)/hipe_literals.h
+$(OBJDIR)/hipe_ppc_glue.o:	hipe/hipe_ppc_glue.S $(TTF_DIR)/hipe_ppc_asm.h \
+	hipe/hipe_mode_switch.h $(TTF_DIR)/hipe_literals.h
+$(TTF_DIR)/hipe_ppc_bifs.S:	hipe/hipe_ppc_bifs.m4 hipe/hipe_ppc_asm.m4 \
+	hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
+$(OBJDIR)/hipe_ppc_bifs.o:	$(TTF_DIR)/hipe_ppc_bifs.S \
+	$(TTF_DIR)/hipe_literals.h
 
-$(OBJDIR)/hipe_arm_glue.o:	hipe/hipe_arm_glue.S $(TTF_DIR)/hipe_arm_asm.h hipe/hipe_mode_switch.h $(TTF_DIR)/hipe_literals.h
-$(TTF_DIR)/hipe_arm_bifs.S:	hipe/hipe_arm_bifs.m4 hipe/hipe_arm_asm.m4 hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
-$(OBJDIR)/hipe_arm_bifs.o:	$(TTF_DIR)/hipe_arm_bifs.S $(TTF_DIR)/hipe_literals.h
+$(OBJDIR)/hipe_arm_glue.o:	hipe/hipe_arm_glue.S $(TTF_DIR)/hipe_arm_asm.h \
+	hipe/hipe_mode_switch.h $(TTF_DIR)/hipe_literals.h
+$(TTF_DIR)/hipe_arm_bifs.S:	hipe/hipe_arm_bifs.m4 hipe/hipe_arm_asm.m4 \
+	hipe/hipe_bif_list.m4 $(TARGET)/erl_bif_list.h hipe/hipe_gbif_list.h
+$(OBJDIR)/hipe_arm_bifs.o:	$(TTF_DIR)/hipe_arm_bifs.S \
+	$(TTF_DIR)/hipe_literals.h
 
 # end of HiPE section
 ########################################
