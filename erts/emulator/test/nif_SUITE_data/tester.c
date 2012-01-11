@@ -61,6 +61,7 @@ static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 static ERL_NIF_TERM run(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     testcase_run(NULL);
+    testcase_cleanup(NULL);
     return enif_make_atom(env, "ok");
 }
 

@@ -859,7 +859,13 @@ resource_holder(Pid,Reply,List) ->
 
 
 threading(doc) -> ["Test the threading API functions (reuse tests from driver API)"];
-threading(Config) when is_list(Config) ->    
+threading(Config) when is_list(Config) ->
+    case erlang:system_info(threads) of
+    	true -> threading_do(Config);
+	false -> {skipped,"No thread support"}
+    end.
+
+threading_do(Config) ->
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "tester"),
     ?line {ok,tester,ModBin} = compile:file(File, [binary,return_errors]),
