@@ -317,12 +317,8 @@ LIBSCTP = @LIBSCTP@
 ORG_THR_LIBS=@EMU_THR_LIBS@
 THR_LIB_NAME=@EMU_THR_LIB_NAME@
 
-ifneq ($(strip $(THR_LIB_NAME)),)
-DEPLIBS +=	$(ERL_TOP)/erts/lib/internal/$(TARGET)/$(LIB_PREFIX)erts_internal_r$(TYPEMARKER)$(LIB_SUFFIX) \
-		$(ERL_TOP)/erts/lib/internal/$(TARGET)/$(LIB_PREFIX)ethread$(TYPEMARKER)$(LIB_SUFFIX)
-else
-DEPLIBS +=	$(ERL_TOP)/erts/lib/internal/$(TARGET)/$(LIB_PREFIX)erts_internal$(TYPEMARKER)$(LIB_SUFFIX)
-endif
+ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
+DEPLIBS += $(ERTS_LIB)
 
 THR_LIBS=$(subst -l$(THR_LIB_NAME),-l$(THR_LIB_NAME)$(TYPEMARKER), \
 	   $(subst -lerts_internal_r,-lerts_internal_r$(TYPEMARKER),$(ORG_THR_LIBS)))
@@ -389,7 +385,7 @@ ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
 all:
 	@echo '*** Omitted build of emulator with smp support'
 else
-all: generate erts_lib $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
+all: generate $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -405,7 +401,7 @@ endif
 include zlib/zlib.mk
 include pcre/pcre.mk
 
-erts_lib:
+$(ERTS_LIB):
 	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
 
 clean:
@@ -422,6 +418,7 @@ ifndef Z_LIB
 	$(RM) -rf $(ZLIB_OBJDIR)
 endif
 	rm -f $(OBJS) $(OBJDIR)/libepcre.a
+	cd $(ERL_TOP)/erts/lib_src && $(MAKE) clean
 
 .PHONY: all clean
 
@@ -653,7 +650,7 @@ endif
 #
 CS_SRC = sys/$(ERLANG_OSTYPE)/erl_child_setup.c
 
-$(BINDIR)/$(CS_EXECUTABLE): $(CS_SRC)
+$(BINDIR)/$(CS_EXECUTABLE): $(CS_SRC) $(ERTS_LIB)
 	$(CS_PURIFY) $(CC) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
                $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_SRC) $(CS_LIBS)
 
