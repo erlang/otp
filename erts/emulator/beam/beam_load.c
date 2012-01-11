@@ -1409,9 +1409,12 @@ read_lambda_table(LoaderState* stp)
     int i;
 
     GetInt(stp, 4, stp->num_lambdas);
-    stp->lambdas_allocated = stp->num_lambdas;
-    stp->lambdas = (Lambda *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
-					 stp->num_lambdas * sizeof(Lambda));
+    if (stp->num_lambdas > stp->lambdas_allocated) {
+	ASSERT(stp->lambdas == stp->def_lambdas);
+	stp->lambdas_allocated = stp->num_lambdas;
+	stp->lambdas = (Lambda *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+					     stp->num_lambdas * sizeof(Lambda));
+    }
     for (i = 0; i < stp->num_lambdas; i++) {
 	Uint n;
 	Uint32 Index;
