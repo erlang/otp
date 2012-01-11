@@ -972,9 +972,9 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 
     erts_total_code_size += size;
     modp = erts_put_module(module);
-    modp->code = code;
-    modp->code_length = size;
-    modp->catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
+    modp->curr.code = code;
+    modp->curr.code_length = size;
+    modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
 
     /*
      * Update address table (used for finding a function from a PC value).
@@ -4283,7 +4283,7 @@ final_touch(LoaderState* stp)
 	index = next;
     }
     modp = erts_put_module(stp->module);
-    modp->catches = catches;
+    modp->curr.catches = catches;
 
     /*
      * Export functions.
@@ -5092,7 +5092,7 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     if (modp == NULL) {
 	return THE_NON_VALUE;
     }
-    code = modp->code;
+    code = modp->curr.code;
     num_functions = code[MI_NUM_FUNCTIONS];
     need = 5*num_functions;
     hp = HAlloc(p, need);
@@ -5147,7 +5147,7 @@ native_addresses(Process* p, Eterm mod)
 	return THE_NON_VALUE;
     }
 
-    code = modp->code;
+    code = modp->curr.code;
     num_functions = code[MI_NUM_FUNCTIONS];
     need = (6+BIG_UINT_HEAP_SIZE)*num_functions;
     hp = HAlloc(p, need);
@@ -5246,7 +5246,7 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
     if (modp == NULL) {
 	return THE_NON_VALUE;
     }
-    code = modp->code;
+    code = modp->curr.code;
     ext = (byte *) code[MI_ATTR_PTR];
     if (ext != NULL) {
 	hp = HAlloc(p, code[MI_ATTR_SIZE_ON_HEAP]);
@@ -5286,7 +5286,7 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
     if (modp == NULL) {
 	return THE_NON_VALUE;
     }
-    code = modp->code;
+    code = modp->curr.code;
     ext = (byte *) code[MI_COMPILE_PTR];
     if (ext != NULL) {
 	hp = HAlloc(p, code[MI_COMPILE_SIZE_ON_HEAP]);

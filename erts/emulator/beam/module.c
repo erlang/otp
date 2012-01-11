@@ -61,13 +61,13 @@ static Module* module_alloc(Module* tmpl)
     Module* obj = (Module*) erts_alloc(ERTS_ALC_T_MODULE, sizeof(Module));
 
     obj->module = tmpl->module;
-    obj->code = 0;
-    obj->old_code = 0;
-    obj->code_length = 0;
-    obj->old_code_length = 0;
+    obj->curr.code = 0;
+    obj->old.code = 0;
+    obj->curr.code_length = 0;
+    obj->old.code_length = 0;
     obj->slot.index = -1;
-    obj->nif = NULL;
-    obj->old_nif = NULL;
+    obj->curr.nif = NULL;
+    obj->old.nif = NULL;
     return obj;
 }
 

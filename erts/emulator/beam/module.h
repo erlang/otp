@@ -24,18 +24,19 @@
 #include "index.h"
 #endif
 
+struct erl_module_instance {
+    BeamInstr* code;
+    int code_length;		/* Length of loaded code in bytes. */
+    unsigned catches;
+    struct erl_module_nif* nif;
+};
 
 typedef struct erl_module {
     IndexSlot slot;		/* Must be located at top of struct! */
     int module;			/* Atom index for module (not tagged). */
 
-    BeamInstr* code;
-    BeamInstr* old_code;
-    int code_length;		/* Length of loaded code in bytes. */
-    int old_code_length;	/* Length of old loaded code in bytes */
-    unsigned catches, old_catches;
-    struct erl_module_nif* nif;
-    struct erl_module_nif* old_nif;
+    struct erl_module_instance curr;
+    struct erl_module_instance old;
 } Module; 
 
 Module* erts_get_module(Eterm mod);

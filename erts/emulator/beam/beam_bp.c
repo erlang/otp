@@ -480,7 +480,7 @@ erts_find_local_func(Eterm mfa[3]) {
 
     if ((modp = erts_get_module(mfa[0])) == NULL)
 	return NULL;
-    if ((code_base = (BeamInstr **) modp->code) == NULL)
+    if ((code_base = (BeamInstr **) modp->curr.code) == NULL)
 	return NULL;
     n = (BeamInstr) code_base[MI_NUM_FUNCTIONS];
     for (i = 0; i < n; ++i) {
@@ -884,7 +884,7 @@ static int set_module_break(Module *modp, Eterm mfa[3], int specified,
 
     ASSERT(break_op);
     ASSERT(modp);
-    code_base = (BeamInstr **) modp->code;
+    code_base = (BeamInstr **) modp->curr.code;
     if (code_base == NULL) {
 	return 0;
     }
@@ -914,10 +914,10 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
     Uint ix = 0;
     
     if (bif == BREAK_IS_ERL) {
-	code_base = (BeamInstr **)modp->code;
+	code_base = (BeamInstr **)modp->curr.code;
 	ASSERT(code_base);
 	ASSERT(code_base <= (BeamInstr **)pc);
-	ASSERT((BeamInstr **)pc < code_base + (modp->code_length/sizeof(BeamInstr *)));
+	ASSERT((BeamInstr **)pc < code_base + (modp->curr.code_length/sizeof(BeamInstr *)));
     } else {
 	ASSERT(*pc == (BeamInstr) em_apply_bif);
 	ASSERT(modp == NULL);
@@ -1137,7 +1137,7 @@ static int clear_module_break(Module *m, Eterm mfa[3], int specified,
     BeamInstr n;
     
     ASSERT(m);
-    code_base = (BeamInstr **) m->code;
+    code_base = (BeamInstr **) m->curr.code;
     if (code_base == NULL) {
 	return 0;
     }
@@ -1161,10 +1161,10 @@ static int clear_function_break(Module *m, BeamInstr *pc, int bif, BeamInstr bre
     BeamInstr **code_base = NULL;
 
     if (bif == BREAK_IS_ERL) {
-	code_base = (BeamInstr **)m->code;
+	code_base = (BeamInstr **)m->curr.code;
 	ASSERT(code_base);
 	ASSERT(code_base <= (BeamInstr **)pc);
-	ASSERT((BeamInstr **)pc < code_base + (m->code_length/sizeof(BeamInstr *)));
+	ASSERT((BeamInstr **)pc < code_base + (m->curr.code_length/sizeof(BeamInstr *)));
     } else {
 	ASSERT(*pc == (BeamInstr) em_apply_bif);
 	ASSERT(m == NULL);

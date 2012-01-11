@@ -383,11 +383,11 @@ loaded(int to, void *to_arg)
      */
     for (i = 0; i < module_code_size(); i++) {
 	if (module_code(i) != NULL &&
-	    ((module_code(i)->code_length != 0) ||
-	     (module_code(i)->old_code_length != 0))) {
-	    cur += module_code(i)->code_length;
-	    if (module_code(i)->old_code_length != 0) {
-		old += module_code(i)->old_code_length;
+	    ((module_code(i)->curr.code_length != 0) ||
+	     (module_code(i)->old.code_length != 0))) {
+	    cur += module_code(i)->curr.code_length;
+	    if (module_code(i)->old.code_length != 0) {
+		old += module_code(i)->old.code_length;
 	    }
 	}
     }
@@ -404,15 +404,15 @@ loaded(int to, void *to_arg)
 	     * Interactive dump; keep it brief.
 	     */
 	    if (module_code(i) != NULL &&
-	    ((module_code(i)->code_length != 0) ||
-	     (module_code(i)->old_code_length != 0))) {
+	    ((module_code(i)->curr.code_length != 0) ||
+	     (module_code(i)->old.code_length != 0))) {
 		erts_print(to, to_arg, "%T", make_atom(module_code(i)->module));
-		cur += module_code(i)->code_length;
-		erts_print(to, to_arg, " %d", module_code(i)->code_length );
-		if (module_code(i)->old_code_length != 0) {
+		cur += module_code(i)->curr.code_length;
+		erts_print(to, to_arg, " %d", module_code(i)->curr.code_length );
+		if (module_code(i)->old.code_length != 0) {
 		    erts_print(to, to_arg, " (%d old)",
-			       module_code(i)->old_code_length );
-		    old += module_code(i)->old_code_length;
+			       module_code(i)->old.code_length );
+		    old += module_code(i)->old.code_length;
 		}
 		erts_print(to, to_arg, "\n");
 	    }
@@ -421,14 +421,14 @@ loaded(int to, void *to_arg)
 	     * To crash dump; make it parseable.
 	     */
 	    if (module_code(i) != NULL &&
-		((module_code(i)->code_length != 0) ||
-		 (module_code(i)->old_code_length != 0))) {
+		((module_code(i)->curr.code_length != 0) ||
+		 (module_code(i)->old.code_length != 0))) {
 		erts_print(to, to_arg, "=mod:");
 		erts_print(to, to_arg, "%T", make_atom(module_code(i)->module));
 		erts_print(to, to_arg, "\n");
 		erts_print(to, to_arg, "Current size: %d\n",
-			   module_code(i)->code_length);
-		code = module_code(i)->code;
+			   module_code(i)->curr.code_length);
+		code = module_code(i)->curr.code;
 		if (code != NULL && code[MI_ATTR_PTR]) {
 		    erts_print(to, to_arg, "Current attributes: ");
 		    dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
@@ -440,9 +440,9 @@ loaded(int to, void *to_arg)
 				    code[MI_COMPILE_SIZE]);
 		}
 
-		if (module_code(i)->old_code_length != 0) {
-		    erts_print(to, to_arg, "Old size: %d\n", module_code(i)->old_code_length);
-		    code = module_code(i)->old_code;
+		if (module_code(i)->old.code_length != 0) {
+		    erts_print(to, to_arg, "Old size: %d\n", module_code(i)->old.code_length);
+		    code = module_code(i)->old.code;
 		    if (code[MI_ATTR_PTR]) {
 			erts_print(to, to_arg, "Old attributes: ");
 			dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
