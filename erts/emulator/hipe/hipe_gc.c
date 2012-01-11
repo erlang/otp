@@ -46,9 +46,14 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
     char *src, *oh;
     Uint src_size, oh_size;
 
+    if (!p->hipe.nstack) {
+	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
+	return n_htop;
+    }
     if (!nstack_walk_init_check(p))
 	return n_htop;
 
+    ASSERT(p->hipe.nsp && p->hipe.nstend);
     nsp = nstack_walk_nsp_begin(p);
     nsp_end = p->hipe.nstgraylim;
     if (nsp_end)
@@ -136,9 +141,14 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
     char *heap;
     Uint heap_size, mature_size;
 
+    if (!p->hipe.nstack) {
+	ASSERT(!p->hipe.nsp && !p->hipe.nstend);
+	return;
+    }
     if (!nstack_walk_init_check(p))
 	return;
 
+    ASSERT(p->hipe.nsp && p->hipe.nstend);
     nsp = nstack_walk_nsp_begin(p);
     nsp_end = p->hipe.nstgraylim;
     if (nsp_end) {
