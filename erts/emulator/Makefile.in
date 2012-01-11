@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2011. All Rights Reserved.
+# Copyright Ericsson AB 1996-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -28,21 +28,26 @@ Z_LIB=@Z_LIB@
 NO_INLINE_FUNCTIONS=false
 OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab beam/ops.tab
 
+DEBUG_CFLAGS = @DEBUG_CFLAGS@
+CONFIGURE_CFLAGS = @CFLAGS@
+
 #
 # Run this make file with TYPE set to the type of emulator you want.
 # Different versions of the emulator for different uses. The default
 # is "debug". For a normal version use "opt".
 #
+DEFS=@DEFS@
 THR_DEFS=@EMU_THR_DEFS@
 M4FLAGS=
 CREATE_DIRS=
 
 LDFLAGS=@LDFLAGS@
+ARFLAGS=rc
 
 ifeq ($(TYPE),debug)
 PURIFY =
 TYPEMARKER = .debug
-TYPE_FLAGS = @DEBUG_CFLAGS@ -DDEBUG
+TYPE_FLAGS = $(DEBUG_CFLAGS) -DDEBUG
 ENABLE_ALLOC_TYPE_VARS += debug
 ifeq ($(TARGET),win32)
 TYPE_FLAGS += -DNO_JUMP_TABLE
@@ -53,7 +58,7 @@ else
 ifeq ($(TYPE),purify)
 PURIFY = purify $(PURIFY_BUILD_OPTIONS)
 TYPEMARKER = .purify
-TYPE_FLAGS = @DEBUG_CFLAGS@ -DPURIFY -DNO_JUMP_TABLE -DERTS_MSEG_FAKE_SEGMENTS
+TYPE_FLAGS = $(DEBUG_CFLAGS) -DPURIFY -DNO_JUMP_TABLE -DERTS_MSEG_FAKE_SEGMENTS
 ENABLE_ALLOC_TYPE_VARS += purify
 else
 
@@ -67,14 +72,14 @@ else
 ifeq ($(TYPE),purecov)
 PURIFY = purecov --follow-child-processes=yes $(PURECOV_BUILD_OPTIONS)
 TYPEMARKER = .purecov
-TYPE_FLAGS = @DEBUG_CFLAGS@ -DPURECOV -DNO_JUMP_TABLE
+TYPE_FLAGS = $(DEBUG_CFLAGS) -DPURECOV -DNO_JUMP_TABLE
 ENABLE_ALLOC_TYPE_VARS += purecov
 else
 
 ifeq ($(TYPE),gcov)
 PURIFY = 
 TYPEMARKER = .gcov
-TYPE_FLAGS = @DEBUG_CFLAGS@ -DERTS_GCOV -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
+TYPE_FLAGS = $(DEBUG_CFLAGS) -DERTS_GCOV -DNO_JUMP_TABLE -fprofile-arcs -ftest-coverage -O0 -DERTS_CAN_INLINE=0 -DERTS_INLINE=
 ifneq ($(findstring solaris,$(TARGET)),solaris)
 LIBS += -lgcov
 endif
@@ -84,7 +89,7 @@ else
 ifeq ($(TYPE),valgrind)
 PURIFY = 
 TYPEMARKER = .valgrind
-TYPE_FLAGS = @DEBUG_CFLAGS@ -DVALGRIND -DNO_JUMP_TABLE -DERTS_MSEG_FAKE_SEGMENTS
+TYPE_FLAGS = $(DEBUG_CFLAGS) -DVALGRIND -DNO_JUMP_TABLE -DERTS_MSEG_FAKE_SEGMENTS
 ENABLE_ALLOC_TYPE_VARS += valgrind
 else
 
@@ -187,7 +192,7 @@ else
 EMU_CC  = @EMU_CC@
 endif
 WFLAGS  = @WFLAGS@
-CFLAGS  = @STATIC_CFLAGS@ $(TYPE_FLAGS) $(FLAVOR_FLAGS) @DEFS@ $(WFLAGS) $(THR_DEFS) $(ARCHCFLAGS)
+CFLAGS  = @STATIC_CFLAGS@ $(TYPE_FLAGS) $(FLAVOR_FLAGS) $(DEFS) $(WFLAGS) $(THR_DEFS) $(ARCHCFLAGS)
 HCC     = @HCC@
 LD      = @LD@
 DEXPORT = @DEXPORT@
@@ -263,30 +268,29 @@ CS_PURIFY =
 CS_TYPE_FLAGS = $(subst QUANTIFY,FAKE_QUANTIFY, \
 		$(subst PURIFY,FAKE_PURIFY, $(TYPE_FLAGS)))
 endif
-CS_CFLAGS_ = $(CS_TYPE_FLAGS) @DEFS@ $(WFLAGS) 
+CS_CFLAGS_ = $(CS_TYPE_FLAGS) $(DEFS) $(WFLAGS)
 ifeq ($(GCC),yes)
 CS_CFLAGS = $(subst -O2, $(GEN_OPT_FLGS) $(UNROLL_FLG), $(CS_CFLAGS_))
 else
 CS_CFLAGS = $(CS_CFLAGS_)
 endif
 CS_LDFLAGS = $(LDFLAGS)
-CS_LIBS = -L../lib/internal/$(TARGET) -lerts_internal @ERTS_INTERNAL_X_LIBS@
+CS_LIBS = -L../lib/internal/$(TARGET) -lerts_internal$(TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
 
 LIBS	+= @TERMCAP_LIB@ -L../lib/internal/$(TARGET) @ERTS_INTERNAL_X_LIBS@
 
 ifdef Z_LIB
 # Use shared zlib library
 LIBS += $(Z_LIB)
+DEPLIBS =
 else
+DEPLIBS=$(ZLIB_LIBRARY)
 ifeq ($(TARGET),win32)
-LIBS    += -L$(ERL_TOP)/erts/emulator/zlib/obj/$(TARGET)/$(TYPE) -lz
-DEPLIBS = $(ERL_TOP)/erts/emulator/zlib/obj/$(TARGET)/$(TYPE)/z.lib
+LIBS    += -L$(ZLIB_OBJDIR) -lz
 else
 # Build on darwin fails if -lz is used
-LIBS += $(ERL_TOP)/erts/emulator/zlib/obj/$(TARGET)/$(TYPE)/libz.a
-DEPLIBS = $(ERL_TOP)/erts/emulator/zlib/obj/$(TARGET)/$(TYPE)/libz.a
+LIBS += $(ZLIB_LIBRARY)
 endif
-
 endif
 
 ifeq ($(TARGET),win32)
@@ -354,8 +358,7 @@ OBJDIR = obj/$(TTF_DIR)
 
 CREATE_DIRS += $(OBJDIR) \
 	pcre/obj/$(TARGET)/$(TYPE) \
-	zlib/obj/$(TARGET)/$(TYPE)
-
+	$(ZLIB_OBJDIR)
 
 BINDIR = $(ERL_TOP)/bin/$(TARGET)
 
@@ -386,7 +389,7 @@ ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
 all:
 	@echo '*** Omitted build of emulator with smp support'
 else
-all: generate erts_lib zlib $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
+all: generate erts_lib $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -399,15 +402,7 @@ endif
 endif
 endif
 
-ifdef Z_LIB
-zlib:
-	@echo 'Skip zlib directory, use shared library'
-else
-zlib:
-	@set -e ; cd zlib && $(MAKE) TYPE=$(TYPE) $(TYPE)
-endif
-
-
+include zlib/zlib.mk
 include pcre/pcre.mk
 
 erts_lib:
@@ -423,10 +418,12 @@ endif
 	$(RM) -f $(BINDIR)/beam $(BINDIR)/beam.*
 	$(RM) -rf $(BINDIR)/child_setup $(BINDIR)/child_setup.*
 	$(RM) -f $(BINDIR)/hipe_mkliterals $(BINDIR)/hipe_mkliterals.*
-	@set -e ; cd zlib && $(MAKE) clean
+ifndef Z_LIB
+	$(RM) -rf $(ZLIB_OBJDIR)
+endif
 	rm -f $(OBJS) $(OBJDIR)/libepcre.a
 
-.PHONY: all zlib clean
+.PHONY: all clean
 
 docs:
 
@@ -945,6 +942,7 @@ $(TARGET)/Makefile: Makefile.in
 
 #SED_REPL_WIN_DRIVE=s|\([ 	]\)\([A-Za-z]\):|\1/cygdrive/\2|g;s|^\([A-Za-z]\):|/cygdrive/\1|g
 SED_REPL_O=s|^\([^:]*:\)|$$(OBJDIR)/\1|g
+SED_REPL_O_ZLIB=s|^\([^:]*:\)|$$(ZLIB_OBJDIR)/\1|g
 SED_REPL_TTF_DIR=s|$(TTF_DIR)/|$$(TTF_DIR)/|g
 SED_REPL_ERL_TOP=s|\([ 	]\)$(ERL_TOP)/|\1$$(ERL_TOP)/|g;s|^$(ERL_TOP)/|$$(ERL_TOP)/|g
 SED_REPL_POLL=s|$$(OBJDIR)/erl_poll.o|$$(OBJDIR)/erl_poll.kp.o $$(OBJDIR)/erl_poll.nkp.o|g
@@ -964,6 +962,7 @@ SED_SUFFIX=
 endif
 
 SED_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_O);$(SED_REPL_TTF_DIR);$(SED_REPL_ERL_TOP)$(SED_SUFFIX)'
+SED_DEPEND_ZLIB=sed '$(SED_PREFIX)$(SED_REPL_O_ZLIB)'
 
 ifdef HIPE_ENABLED
 HIPE_SRC=$(wildcard hipe/*.c)
@@ -1019,11 +1018,10 @@ depend:
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) \
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
+	$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) \
+		| $(SED_DEPEND_ZLIB) >> $(TARGET)/depend.mk
 ifdef HIPE_ENABLED
 	$(DEP_CC) $(DEP_FLAGS) $(HIPE_SRC) \
 		| $(SED_DEPEND) >> $(TARGET)/depend.mk
 endif
 -include $(TARGET)/depend.mk
-
-
-
