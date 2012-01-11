@@ -55,7 +55,6 @@ init_per_suite(Config) ->
 					      {DSA,[{comment, "Test"}]}], auth_keys),
 	    AuthKeysFile = filename:join(UserDir, "authorized_keys"),
 	    file:write_file(AuthKeysFile, AuthKeys),
-	    %%ssh_test_lib:make_dsa_files(Config),
 	    Config;
 	_Else ->
 	    {skip, "Crypto could not be started!"}
