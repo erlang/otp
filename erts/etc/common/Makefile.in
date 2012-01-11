@@ -286,6 +286,7 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/vxcall.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/werl.o
+	rm -f $(TEXTFILES)
 	rm -f *~ core
 
 #

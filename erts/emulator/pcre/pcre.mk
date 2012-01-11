@@ -41,7 +41,7 @@ pcre_xclass.o
 
 PCRE_OBJS = $(PCRE_O:%=$(PCRE_OBJDIR)/%)
 
-GENINC = pcre/pcre_exec_loop_break_cases.inc
+PCRE_GENINC = $(ERL_TOP)/erts/emulator/pcre/pcre_exec_loop_break_cases.inc
 
 PCRE_OBJDIR = $(ERL_TOP)/erts/emulator/pcre/obj/$(TARGET)/$(TYPE)
 
@@ -59,12 +59,12 @@ endif
 $(PCRE_OBJDIR)/%.o: pcre/%.c
 	$(CC) -c $(PCRE_CFLAGS) -o $@ $<
 
-$(GENINC): pcre/pcre_exec.c
+$(PCRE_GENINC): pcre/pcre_exec.c
 	for x in `grep -n COST_CHK pcre/pcre_exec.c | grep -v 'COST_CHK(N)' | awk -F: '{print $$1}'`; \
 	do \
 		N=`expr $$x + 100`; \
 		echo "case $$N: goto L_LOOP_COUNT_$${x};"; \
-	done > $(GENINC)
+	done > $(PCRE_GENINC)
 
 # Dependencies.
 
@@ -77,7 +77,7 @@ $(PCRE_OBJDIR)/pcre_config.o: pcre/pcre_config.c pcre/pcre_internal.h \
 $(PCRE_OBJDIR)/pcre_dfa_exec.o: pcre/pcre_dfa_exec.c pcre/pcre_internal.h \
   pcre/local_config.h pcre/pcre.h pcre/ucp.h
 $(PCRE_OBJDIR)/pcre_exec.o: pcre/pcre_exec.c pcre/pcre_internal.h \
-  pcre/local_config.h pcre/pcre.h pcre/ucp.h $(GENINC)
+  pcre/local_config.h pcre/pcre.h pcre/ucp.h $(PCRE_GENINC)
 $(PCRE_OBJDIR)/pcre_fullinfo.o: pcre/pcre_fullinfo.c pcre/pcre_internal.h \
   pcre/local_config.h pcre/pcre.h pcre/ucp.h
 $(PCRE_OBJDIR)/pcre_get.o: pcre/pcre_get.c pcre/pcre_internal.h \

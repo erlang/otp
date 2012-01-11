@@ -317,7 +317,8 @@ LIBSCTP = @LIBSCTP@
 ORG_THR_LIBS=@EMU_THR_LIBS@
 THR_LIB_NAME=@EMU_THR_LIB_NAME@
 
-ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
+ERTS_LIB_DIR = $(ERL_TOP)/erts/lib_src
+ERTS_LIB = $(ERTS_LIB_DIR)/obj/$(TARGET)/$(TYPE)/MADE
 DEPLIBS += $(ERTS_LIB)
 
 THR_LIBS=$(subst -l$(THR_LIB_NAME),-l$(THR_LIB_NAME)$(TYPEMARKER), \
@@ -402,23 +403,17 @@ include zlib/zlib.mk
 include pcre/pcre.mk
 
 $(ERTS_LIB):
-	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
+	cd $(ERTS_LIB_DIR) && $(MAKE) $(TYPE)
 
 clean:
-ifeq ($(TARGET),win32)
-	$(RM) -f $(TARGET)/beams.rc
-endif
-	$(RM) -f $(TARGET)/*.c $(TARGET)/*.h $(TARGET)/depend.mk
-	$(RM) -f $(TARGET)/*/*/*.c $(TARGET)/*/*/*.h $(TARGET)/*/*/*.S
-	$(RM) -f $(ERL_TOP)/erts/emulator/obj/$(TARGET)/*/*/*.o
-	$(RM) -f $(BINDIR)/beam $(BINDIR)/beam.*
-	$(RM) -rf $(BINDIR)/child_setup $(BINDIR)/child_setup.*
-	$(RM) -f $(BINDIR)/hipe_mkliterals $(BINDIR)/hipe_mkliterals.*
-ifndef Z_LIB
-	$(RM) -rf $(ZLIB_OBJDIR)
-endif
-	rm -f $(OBJS) $(OBJDIR)/libepcre.a
-	cd $(ERL_TOP)/erts/lib_src && $(MAKE) clean
+	$(RM) -f $(GENERATE)
+	$(RM) -rf $(TARGET)/*.c $(TARGET)/*.h $(TARGET)/*-GENERATED
+	$(RM) -rf $(TARGET)/*/*
+	$(RM) -rf obj/$(TARGET)
+	$(RM) -rf pcre/obj/$(TARGET) $(PCRE_GENINC)
+	$(RM) -rf zlib/obj/$(TARGET)
+	$(RM) -rf bin/$(TARGET)
+	cd $(ERTS_LIB_DIR) && $(MAKE) clean
 
 .PHONY: all clean
 
@@ -955,13 +950,6 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 
 endif
 
-#
-# Create directories
-#
-
-$(CREATE_DIRS):
-	$(MKDIR) -p $@
-
 # ----------------------------------------------------------------------
 # Dependencies
 #
@@ -1038,21 +1026,29 @@ DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLA
 SYS_SRC=$(ALL_SYS_SRC)
 endif
 
-depend:
+depend: $(TTF_DIR)/depend.mk
+$(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED
 	$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) \
-		| $(SED_DEPEND) > $(TARGET)/depend.mk
+		| $(SED_DEPEND) > $(TTF_DIR)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) \
-		| $(SED_DEPEND) >> $(TARGET)/depend.mk
+		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) -I../etc/$(ERLANG_OSTYPE) $(DRV_OSTYPE_SRC) \
-		| $(SED_DEPEND) >> $(TARGET)/depend.mk
+		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) $(SYS_SRC) \
-		| $(SED_DEPEND) >> $(TARGET)/depend.mk
+		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) $(TARGET_SRC) \
-		| $(SED_DEPEND) >> $(TARGET)/depend.mk
+		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) $(ZLIB_SRC) \
-		| $(SED_DEPEND_ZLIB) >> $(TARGET)/depend.mk
+		| $(SED_DEPEND_ZLIB) >> $(TTF_DIR)/depend.mk
 ifdef HIPE_ENABLED
 	$(DEP_CC) $(DEP_FLAGS) $(HIPE_SRC) \
-		| $(SED_DEPEND) >> $(TARGET)/depend.mk
+		| $(SED_DEPEND) >> $(TTF_DIR)/depend.mk
 endif
--include $(TARGET)/depend.mk
+	cd $(ERTS_LIB_DIR) && $(MAKE) depend
+endif
+
+ifneq ($(MAKECMDGOALS),clean)
+ifneq ($(MAKECMDGOALS),generate)
+-include $(TTF_DIR)/depend.mk
+endif
+endif

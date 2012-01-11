@@ -514,8 +514,6 @@ clean:
 	$(RM) -rf ../lib/internal/$(TARGET)/*
 	$(RM) -rf ../lib/$(TARGET)/*
 	$(RM) -rf obj/$(TARGET)/*
-	$(RM) -f $(TARGET)/depend.mk
-	$(RM) -f $(OBJ_DIR)/erts_lib
 
 #
 # Make dependencies
@@ -557,10 +555,11 @@ SED_MDd_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MDd_O);$(SED_REPL_TT_DIR);$(SED_REPL
 SED_MT_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MT_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
 SED_MTd_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MTd_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
 
-DEPEND_MK=$(TARGET)/depend.mk
+DEPEND_MK=$(OBJ_DIR)/depend.mk
 
 .PHONY: depend
-depend:
+depend: $(DEPEND_MK)
+$(DEPEND_MK):
 	@echo "Generating dependency file $(DEPEND_MK)..."
 	@echo "# Generated dependency rules" > $(DEPEND_MK);
 	@echo "# " >> $(DEPEND_MK);
@@ -633,6 +632,8 @@ endif
 endif
 	@echo "# EOF" >> $(DEPEND_MK);
 
+ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPEND_MK)
+endif
 
 # eof
