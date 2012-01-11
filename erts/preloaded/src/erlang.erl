@@ -43,6 +43,9 @@
 -export([memory/0, memory/1]).
 -export([alloc_info/1, alloc_sizes/1]).
 
+-export([gather_sched_wall_time_result/1,
+	 await_sched_wall_time_modifications/2]).
+
 -deprecated([hash/2]).
 
 % Get rid of autoimports of spawn to avoid clashes with ourselves.
@@ -1201,4 +1204,35 @@ receive_allocator(Ref, N, Acc) ->
     receive
 	{Ref, _, InfoList} ->
 	    receive_allocator(Ref, N-1, insert_info(InfoList, Acc))
+    end.
+
+-spec await_sched_wall_time_modifications(Ref, Result) -> boolean() when
+      Ref :: reference(),
+      Result :: boolean().
+
+await_sched_wall_time_modifications(Ref, Result) ->
+    sched_wall_time(Ref, erlang:system_info(schedulers)),
+    Result.
+
+-spec gather_sched_wall_time_result(Ref) -> [{pos_integer(),
+					      non_neg_integer(),
+					      non_neg_integer()}] when
+      Ref :: reference().
+
+gather_sched_wall_time_result(Ref) when is_reference(Ref) ->
+    sched_wall_time(Ref, erlang:system_info(schedulers), []).
+
+sched_wall_time(_Ref, 0) ->
+    ok;
+sched_wall_time(Ref, N) ->
+    receive Ref -> sched_wall_time(Ref, N-1) end.
+
+sched_wall_time(_Ref, 0, Acc) ->
+    Acc;
+sched_wall_time(Ref, N, undefined) ->
+    receive {Ref, _} -> sched_wall_time(Ref, N-1, undefined) end;
+sched_wall_time(Ref, N, Acc) ->
+    receive
+	{Ref, undefined} -> sched_wall_time(Ref, N-1, undefined);
+	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.

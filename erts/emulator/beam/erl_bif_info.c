@@ -57,6 +57,8 @@
 static Export* alloc_info_trap = NULL;
 static Export* alloc_sizes_trap = NULL;
 
+static Export *gather_sched_wall_time_res_trap;
+
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 /* Keep erts_system_version as a global variable for easy access from a core */
@@ -3180,7 +3182,12 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
     Eterm res;
     Eterm* hp;
 
-    if (BIF_ARG_1 == am_context_switches) {
+    if (BIF_ARG_1 == am_scheduler_wall_time) {
+	res = erts_sched_wall_time_request(BIF_P, 0, 0);
+	if (is_non_value(res))
+	    BIF_RET(am_undefined);
+	BIF_TRAP1(gather_sched_wall_time_res_trap, BIF_P, res);
+    } else if (BIF_ARG_1 == am_context_switches) {
 	Eterm cs = erts_make_integer(erts_get_total_context_switches(), BIF_P);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, cs, SMALL_ZERO);
@@ -4160,6 +4167,8 @@ erts_bif_info_init(void)
 
     alloc_info_trap = erts_export_put(am_erlang, am_alloc_info, 1);
     alloc_sizes_trap = erts_export_put(am_erlang, am_alloc_sizes, 1);
+    gather_sched_wall_time_res_trap
+	= erts_export_put(am_erlang, am_gather_sched_wall_time_result, 1);
     process_info_init();
     os_info_init();
 }

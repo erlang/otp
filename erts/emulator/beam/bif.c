@@ -43,6 +43,9 @@ static Export* set_cpu_topology_trap = NULL;
 static Export* await_proc_exit_trap = NULL;
 Export* erts_format_cpu_topology_trap = NULL;
 
+static Export *await_sched_wall_time_mod_trap;
+static erts_smp_atomic32_t sched_wall_time;
+
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 /*
@@ -4160,6 +4163,18 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
 	BIF_RET(am_true);
+    } else if (BIF_ARG_1 == am_scheduler_wall_time) {
+	if (BIF_ARG_2 == am_true || BIF_ARG_2 == am_false) {
+	    erts_aint32_t new = BIF_ARG_2 == am_true ? 1 : 0;
+	    erts_aint32_t old = erts_smp_atomic32_xchg_nob(&sched_wall_time,
+							   new);
+	    Eterm ref = erts_sched_wall_time_request(BIF_P, 1, new);
+	    ASSERT(is_value(ref));
+	    BIF_TRAP2(await_sched_wall_time_mod_trap,
+		      BIF_P,
+		      ref,
+		      old ? am_true : am_false);
+	}
     } else if (ERTS_IS_ATOM_STR("scheduling_statistics", BIF_ARG_1)) {
 	int what;
 	if (ERTS_IS_ATOM_STR("disable", BIF_ARG_2))
@@ -4457,6 +4472,9 @@ void erts_init_bif(void)
 						    am_format_cpu_topology,
 						    1);
     await_proc_exit_trap = erts_export_put(am_erlang,am_await_proc_exit,3);
+    await_sched_wall_time_mod_trap
+	= erts_export_put(am_erlang, am_await_sched_wall_time_modifications, 2);
+    erts_smp_atomic32_init_nob(&sched_wall_time, 0);
 }
 
 #ifdef HARDDEBUG

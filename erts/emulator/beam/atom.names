@@ -95,6 +95,7 @@ atom atom
 atom atom_used
 atom attributes
 atom await_proc_exit
+atom await_sched_wall_time_modifications
 atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
@@ -239,6 +240,7 @@ atom generational
 atom get_seq_token
 atom get_tcw
 atom getenv
+atom gather_sched_wall_time_result
 atom getting_linked
 atom getting_unlinked
 atom global
@@ -554,6 +556,7 @@ atom waiting
 atom wall_clock
 atom warning
 atom warning_msg
+atom scheduler_wall_time
 atom wordsize
 atom write_concurrency
 atom xor
