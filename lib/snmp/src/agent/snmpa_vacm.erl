@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -267,71 +267,45 @@ dump_table(_) ->
     ok.
 
 
-%% We should really make an effort to serialize the dumping
-%% to ensure that several processes that dump at-the-same-time
-%% do not trash each others dumps.
-%% <SUGGESTION>
-%% Send the request to the master agent, which, if there is no
-%% dumper already running, spawns a (temporary) dumper process. 
-%% If there is already a running dumper process, instead increment
-%% the dump_request counter.
-%% When the dumper process exits, the master agent checks the 
-%% the dump_request counter, and if that is greater than zero,
-%% create another dumper process and resets the counter.
-%% In this way the dumping is serialized, but the master-agent
-%% process is not burdend by the dumping.
-%% </SUGGESTION>
 dump_table() ->
-    %% The dumper fun is executed in a specially started process, 
-    %% that does that one thing and then exits.
-    %% Also, to prevent the system to run "wild" (keep calling 
-    %% dump function before they are done), the agents serialize 
-    %% function return when that dump is done!
-    Dumper = 
-	fun() ->
-		[{_, FName}] = ets:lookup(snmp_agent_table, snmpa_vacm_file),
-		%% TmpName = FName ++ ".tmp",
-		TmpName = unique_name(FName), 
-		case ets:tab2file(snmpa_vacm, TmpName) of
-		    ok ->
-			case file:rename(TmpName, FName) of
-			    ok ->
-				ok;
-			    Else -> % What is this? Undocumented return code...
-				user_err("Warning: could not move VACM db ~p"
-					 " (~p)", [FName, Else])
-			end;
-		    {error, Reason} ->
-			user_err("Warning: could not save vacm db ~p (~p)",
-				 [FName, Reason])
-		end
-	end,
-    snmpa_agent:serialize(snmpa_vacm_dump_request, Dumper).
-
+    [{_, FName}] = ets:lookup(snmp_agent_table, snmpa_vacm_file),
+    TmpName = unique_table_name(FName), 
+    case ets:tab2file(snmpa_vacm, TmpName) of
+	ok ->
+	    case file:rename(TmpName, FName) of
+		ok ->
+		    ok;
+		Else -> % What is this? Undocumented return code...
+		    user_err("Warning: could not move VACM db ~p"
+			     " (~p)", [FName, Else])
+	    end;
+	{error, Reason} ->
+	    user_err("Warning: could not save vacm db ~p (~p)",
+		     [FName, Reason])
+    end.
 
 %% This little thing is an attempt to create a "unique" filename
 %% in order to minimize the risk of two processes at the same 
 %% time dumping the table.
-%% The serialization handled by the agent does this much better,
-%% but this also gives us a "timestamp" which could be usefull for 
-%% debugging reasons.
-unique_name(Pre) ->
-    unique_name(Pre, os:timestamp()).
+unique_table_name(Pre) ->
+    %% We want something that is guaranteed to be unique, 
+    %% therefor we use erlang:now() instead of os:timestamp()
+    unique_table_name(Pre, erlang:now()).
 
-unique_name(Pre, {_A, _B, C} = Timestamp) ->
-    {Date, Time}     = calendar:now_to_datetime(Timestamp),
+unique_table_name(Pre, {_A, _B, C} = Now) ->
+    {Date, Time}     = calendar:now_to_datetime(Now),
     {YYYY, MM, DD}   = Date,
     {Hour, Min, Sec} = Time,
     FormatDate =
         io_lib:format("~.4w~.2.0w~.2.0w_~.2.0w~.2.0w~.2.0w_~w",
                       [YYYY, MM, DD, Hour, Min, Sec, round(C/1000)]), 
-    unique_name2(Pre, FormatDate).
+    unique_table_name2(Pre, FormatDate).
 
-unique_name2(Pre, FormatedDate) ->
-    PidPart = unique_pid(), 
+unique_table_name2(Pre, FormatedDate) ->
+    PidPart = unique_table_name_pid(), 
     lists:flatten(io_lib:format("~s.~s~s.tmp", [Pre, PidPart, FormatedDate])).
 
-unique_pid() ->
+unique_table_name_pid() ->
     case string:tokens(pid_to_list(self()), [$<,$.,$>]) of
 	[A, B, C] ->
 	    A ++ B ++ C ++ ".";

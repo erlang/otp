@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -203,18 +203,16 @@ init_sec2group_table([Row | T]) ->
     init_sec2group_table(T);
 init_sec2group_table([]) -> true.
 
-init_access_table([{GN, Prefix, Model, Level, Row} | T]) ->
-%%     ?vtrace("init access table: "
-%%  	    "~n   GN:     ~p"
-%%  	    "~n   Prefix: ~p"
-%%  	    "~n   Model:  ~p"
-%%  	    "~n   Level:  ~p"
-%%  	    "~n   Row:    ~p",[GN, Prefix, Model, Level, Row]),    
-    Key = [length(GN) | GN] ++ [length(Prefix) | Prefix] ++ [Model, Level],
-    snmpa_vacm:insert([{Key, Row}], false),
-    init_access_table(T);
-init_access_table([]) ->
-    snmpa_vacm:dump_table().
+make_access_key(GN, Prefix, Model, Level) ->
+    [length(GN) | GN] ++ [length(Prefix) | Prefix] ++ [Model, Level].
+
+make_access_entry({GN, Prefix, Model, Level, Row}) ->
+    Key = make_access_key(GN, Prefix, Model, Level),
+    {Key, Row}.
+       
+init_access_table(TableData) ->
+    TableData2 = [make_access_entry(E) || E <- TableData],
+    snmpa_vacm:insert(TableData2, true).
 
 init_view_table([Row | T]) ->
 %%     ?vtrace("init view table: "
@@ -276,10 +274,7 @@ add_access(GroupName, Prefix, SecModel, SecLevel, Match, RV, WV, NV) ->
 	      Match, RV, WV, NV},
     case (catch check_vacm(Access)) of
 	{ok, {vacmAccess, {GN, Pref, SM, SL, Row}}} ->
-	    Key1 = [length(GN) | GN],
-	    Key2 = [length(Pref) | Pref],
-	    Key3 = [SM, SL],
-	    Key  = Key1 ++ Key2 ++ Key3, 
+	    Key = make_access_key(GN, Pref, SM, SL),
 	    snmpa_vacm:insert([{Key, Row}], false),
             snmpa_agent:invalidate_ca_cache(),
 	    {ok, Key};
