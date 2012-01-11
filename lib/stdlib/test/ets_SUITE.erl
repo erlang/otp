@@ -74,7 +74,7 @@
 -export([bad_table/1, types/1]).
 -export([otp_9423/1]).
 
--export([init_per_testcase/2]).
+-export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
 -export([random_test/0]).
 
@@ -2385,6 +2385,8 @@ setopts_do(Opts) ->
     ?line {'EXIT',{badarg,_}} = (catch ets:setopts(T,{protection,private,false})),
     ?line {'EXIT',{badarg,_}} = (catch ets:setopts(T,protection)),
     ?line ets:delete(T),
+    unlink(Heir),
+    exit(Heir, bang),
     ok.
 
 bad_table(doc) -> ["All kinds of operations with bad table argument"];
@@ -5645,7 +5647,8 @@ spawn_logger(Procs) ->
 					      true -> exit(Proc, kill);
 					      _ -> ok
 					  end,
-					  erlang:display(process_info(Proc)),
+					  erlang:display({"Waiting for 'DOWN' from", Proc,
+							  process_info(Proc), pid_status(Proc)}),
 					  receive
 					      {'DOWN', Mon, _, _, _} ->
 						  ok
@@ -5655,6 +5658,15 @@ spawn_logger(Procs) ->
 	    From ! test_procs_synced,
 	    spawn_logger([From])
     end.
+
+pid_status(Pid) ->
+    try
+	erts_debug:get_internal_state({process_status, Pid})
+    catch
+	error:undef ->
+	    erts_debug:set_internal_state(available_internal_state, true),
+	    pid_status(Pid)
+    end. 
 
 start_spawn_logger() ->
     case whereis(ets_test_spawn_logger) of
