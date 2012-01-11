@@ -6194,6 +6194,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    type    = SCTP_DEFAULT_SEND_PARAM;
 	    arg_ptr = (char*) (&arg.sri);
 	    arg_sz  = sizeof  ( arg.sri);
+	    VALGRIND_MAKE_MEM_DEFINED(arg_ptr, arg_sz); /*suppress "uninitialised bytes"*/
 	    break;
 	}
 	case SCTP_OPT_EVENTS:
@@ -10299,7 +10300,6 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	cmsg.hdr.cmsg_level = IPPROTO_SCTP;
 	cmsg.hdr.cmsg_type  = SCTP_SNDRCV;
 	cmsg.hdr.cmsg_len   = CMSG_LEN(sizeof(*sri));
-	VALGRIND_MAKE_MEM_DEFINED(&cmsg, (char*)sri - (char*)&cmsg); /*suppress padding as "uninitialised bytes"*/
 	
 	data_len = (buf + len) - ptr;
 	/* The whole msg. 
@@ -10313,6 +10313,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, ErlDrvSizeT len)
 	mhdr.msg_iovlen         = 1;
 	mhdr.msg_control        = cmsg.ancd;    /* For ancilary data  */
 	mhdr.msg_controllen     = cmsg.hdr.cmsg_len;
+	VALGRIND_MAKE_MEM_DEFINED(mhdr.msg_control, mhdr.msg_controllen); /*suppress "uninitialised bytes"*/
 	mhdr.msg_flags          = 0;            /* Not used with "sendmsg"   */
 	
 	/* Now do the actual sending. NB: "flags" in "sendmsg" itself are NOT

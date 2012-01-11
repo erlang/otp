@@ -426,7 +426,7 @@ endif
 	@set -e ; cd zlib && $(MAKE) clean
 	rm -f $(OBJS) $(OBJDIR)/libepcre.a
 
-.PHONY: all zlib clean
+.PHONY: all zlib clean valgrind
 
 docs:
 
