@@ -79,21 +79,18 @@ beam_files(Config) when is_list(Config) ->
     %% a grammatical error in the output of the io:format/2 call below. ;-)
     ?line [_,_|_] = Fs = filelib:wildcard(Wc),
     ?line io:format("~p files\n", [length(Fs)]),
-    beam_files_1(Fs, 0).
+    test_lib:p_run(fun do_beam_file/1, Fs).
 
-beam_files_1([F|Fs], Errors) ->
-    ?line case beam_validator:file(F) of
-	      ok ->
-		  beam_files_1(Fs, Errors);
-	      {error,Es} ->
-		  io:format("File:  ~s", [F]),
-		  io:format("Error: ~p\n", [Es]),
-		  beam_files_1(Fs, Errors+1)
-	  end;
-beam_files_1([], 0) -> ok;
-beam_files_1([], Errors) ->
-    ?line io:format("~p error(s)", [Errors]),
-    ?line ?t:fail().
+
+do_beam_file(F) ->
+    case beam_validator:file(F) of
+	ok ->
+	    ok;
+	{error,Es} ->
+	    io:format("File:  ~s", [F]),
+	    io:format("Error: ~p\n", [Es]),
+	    error
+    end.
 
 compiler_bug(Config) when is_list(Config) ->
     %% Check that the compiler returns an error if we try to

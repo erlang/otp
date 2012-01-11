@@ -1,0 +1,28 @@
+module 'nomatch_shadow' ['nomatch_shadow'/0]
+    attributes []
+'nomatch_shadow'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      apply 't'/1
+		  (42)
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'nomatch_shadow',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'t'/1 =
+    fun (_cor0) ->
+	case _cor0 of
+	  <42> when 'true' ->
+	      'ok'
+	  <42> when 'true' ->
+	      'ok'
+	  ( <_cor1> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_cor1})
+		  -| [{'function_name',{'t',1}}] )
+	    -| ['compiler_generated'] )
+	end
+end

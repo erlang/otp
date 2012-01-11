@@ -1,0 +1,25 @@
+module 'unsafe_case' ['unsafe_case'/0]
+    attributes []
+'unsafe_case'/0 =
+    fun () ->
+	case apply 't'/1
+		 (42) of
+	  <{'ok',42}> when 'true' ->
+	      'ok'
+	  ( <_cor0> when 'true' ->
+		primop 'match_fail'
+		    ({'badmatch',_cor0})
+	    -| ['compiler_generated'] )
+	end
+'t'/1 =
+    fun (_cor0) ->
+	case _cor0 of
+	  <X>
+	      when call 'erlang':'>'
+		    (_cor0,
+		     0) ->
+	      {'ok',X}
+	  %% The default case is intentionally missing
+	  %% to cover v3_kernel:build_match/2.
+	end
+end
