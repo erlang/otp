@@ -342,6 +342,10 @@ partitioned_bs_match(Config) when is_list(Config) ->
 
     ?line fc(partitioned_bs_match_2, [4,<<0:17>>],
 	     catch partitioned_bs_match_2(4, <<0:17>>)),
+
+    anything = partitioned_bs_match_3(anything, <<42>>),
+    ok = partitioned_bs_match_3(1, 2),
+
     ok.
 
 partitioned_bs_match(_, <<42:8,T/binary>>) ->
@@ -355,6 +359,9 @@ partitioned_bs_match_2(1, <<B:8,T/binary>>) ->
     {B,T};
 partitioned_bs_match_2(Len, <<_:8,T/binary>>) ->
     {Len,T}.
+
+partitioned_bs_match_3(Var, <<_>>) -> Var;
+partitioned_bs_match_3(1, 2) -> ok.
 
 function_clause(Config) when is_list(Config)  ->
     ?line ok = function_clause_1(<<0,7,0,7,42>>),

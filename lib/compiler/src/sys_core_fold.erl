@@ -2641,9 +2641,9 @@ bsm_leftmost_2([_|Ps], Cs, N, Pos) ->
 bsm_leftmost_2([], Cs, _, Pos) ->
     bsm_leftmost_1(Cs, Pos).
 
-%% bsm_notempty(Cs, Pos) -> true|false
+%% bsm_nonempty(Cs, Pos) -> true|false
 %%  Check if at least one of the clauses matches a non-empty
-%%  binary in the given argumet position.
+%%  binary in the given argument position.
 %%
 bsm_nonempty([#c_clause{pats=Ps}|Cs], Pos) ->
     case nth(Pos, Ps) of
@@ -2704,7 +2704,7 @@ bsm_ensure_no_partition_2([P|_], 1, _, Vstate, State) ->
 	    %%
 	    %% But if the clauses can't be freely rearranged, as in
 	    %%
-	    %% b(Var, <<>>) -> ...
+	    %% b(Var, <<X>>) -> ...
 	    %% b(1, 2) -> ...
 	    %%
 	    %% we do have a problem.

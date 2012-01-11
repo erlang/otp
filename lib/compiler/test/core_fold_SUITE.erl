@@ -214,6 +214,7 @@ coverage(Config) when is_list(Config) ->
 	(catch cover_will_match_list_type({a,b,c,d})),
     ?line a = cover_remove_non_vars_alias({a,b,c}),
     ?line error = cover_will_match_lit_list(),
+    {ok,[a]} = cover_is_safe_bool_expr(a),
 
     %% Make sure that we don't attempt to make literals
     %% out of pids. (Putting a pid into a #c_literal{}
@@ -247,6 +248,19 @@ cover_will_match_lit_list() ->
 	    ok;
 	_ ->
 	    error
+    end.
+
+cover_is_safe_bool_expr(X) ->
+    %% Use a try...catch that looks like a try...catch in a guard.
+    try
+	%% let V = [X] in {ok,V}
+	%%    is_safe_simple([X]) ==> true
+	%%    is_safe_bool_expr([X]) ==> false
+	V = [X],
+	{ok,V}
+    catch
+	_:_ ->
+	    false
     end.
 
 id(I) -> I.
