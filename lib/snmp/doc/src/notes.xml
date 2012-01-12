@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,22 +55,26 @@
 
     <section>
       <title>Fixed Bugs and Malfunctions</title>
-      <p>-</p> 
-
 <!--
+      <p>-</p> 
+-->
+
       <list type="bulleted">
         <item>
-          <p>[agent] Version 4.20 introduced a change that broke trap 
-	  sending from subagents. Due to a bug in the test code, 
-	  this was not discovered, until that bug was fixed. </p>
-          <p>Own Id: OTP-9745</p>
+          <p>[agent] Repeated vacm table dumping fails due to file name 
+	  conflict. When dumping the vacm table to disk, a temoporary 
+	  file with a fixed name was used. If the table dumping 
+	  (snmpa_vacm:dump_table/0) was initiated from several different 
+	  processes in rapid succesion, the dumping could fail because the 
+	  different processes was simultaniously trying to write to the 
+	  same file. This problem has been eliminated by creating a unique 
+	  name for the temporary file. </p>
+          <p>Own Id: OTP-9851</p>
+          <p>Aux Id: Seq 11980</p>
         </item>
 
       </list>
--->
-
     </section>
-
 
     <section>
       <title>Incompatibilities</title>
@@ -79,9 +83,10 @@
 <!--
       <list type="bulleted">
         <item>
-          <p>[compiler] foo bar. </p>
+          <p>foo. </p>
           <p>Own Id: OTP-9718</p>
         </item>
+
       </list>
 -->
 
@@ -1762,211 +1767,6 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
       <p>-</p>
     </section>
   </section> <!-- 4.12 -->
-
-  <section>
-    <title>SNMP Development Toolkit 4.11.2</title>
-    <p>Version 4.11.2 supports code replacement in runtime from/to
-      version 4.11.1 and 4.11. </p>
-
-    <section>
-      <title>Improvements and new features</title>
-      <p>-</p> 
-      <!-- 
-      <list type="bulleted">
-        <item>
-	  <p>Added utility functions for transforming DateAndTime
-            as [int()] to strings; 
-            <seealso marker="snmp#dat2s">date_and_time_to_string/2</seealso>
-            and  
-            <seealso marker="snmp#dat2s2">date_and_time_to_string2/1</seealso>. </p>
-          <p>Also added new validation function 
-            <seealso marker="snmp#vdat">validate_date_and_time/2</seealso>. </p>
-	  <p>Own Id: OTP-7412</p>
-	  <p>Aux Id: Seq 10987</p>
-        </item>
-      </list>
-      -->
-    </section>
-
-    <section>
-      <title>Reported Fixed Bugs and Malfunctions</title>
-      <!-- 
-      <p>-</p>
-      -->
-      <list type="bulleted">
-        <item>
-          <p>[manager] Erroneous engine-id check when receiving version 3 
-            informs. </p>
-          <p>Own Id: OTP-7570</p>
-	  <p>Aux Id: Seq 11060</p>
-        </item>
-
-        <item>
-	  <p>Receiving an snmp message with a very large version
-            number could cause the erlang node to run out of
-            memory and consequently crash. </p>
-          <p>The standard specifies the snmp version as an
-            (unlimited) INTEGER, but today only
-            0 (version 1), 1 (version 2) and 3 (version 3) is
-            actually used. So, when decoding a message, a limit
-            has been put on the snmp version integer in order
-            to not allow this kind of a problem. </p>
-	  <p>Own Id: OTP-7575</p>
-	  <p>Aux Id: Seq 11064</p>
-        </item>
-
-      </list>
-    </section>
-
-    <section>
-      <title>Incompatibilities</title>
-      <p>-</p>
-    </section>
-  </section> <!-- 4.11.2 -->
-
-
-  <section>
-    <title>SNMP Development Toolkit 4.11.1</title>
-    <p>Version 4.11.1 supports code replacement in runtime from/to
-      version 4.11.</p>
-
-    <section>
-      <title>Improvements and new features</title>
-      <!-- 
-      <p>-</p> 
-      -->
-      <list type="bulleted">
-        <item>
-          <p>[compiler] The MIB compiler did not retrieve the REFERENCE part
-            of a SNMP MIB definition. </p>
-          <p>This problem has been partly solved. For SNMP tables, 
-            the assocList field of the tables mib-entry record now contains 
-            this info (as <c>{reference, string()}</c>), <em>if</em> the 
-            MIB was compiled with the compiler option <em>+reference</em>. </p>
-          <p>This solution is temporary, until such time as a permanent
-            solution (and probably not backward compatible) is devised, which
-            retrieves and stores all REFERENCE part(s) of a MIB. </p>
-          <p>See the 
-            <seealso marker="snmpc#compiler_opts">compiler options</seealso> 
-            for more info. </p> 
-
-          <p>Serge Aleynikov</p>
-          <p>Own Id: OTP-7426</p>
-        </item>
-
-        <item>
-	  <p>Added utility functions for transforming DateAndTime
-            as [int()] to strings; 
-            <seealso marker="snmp#dat2s">date_and_time_to_string/2</seealso>
-            and  
-            <seealso marker="snmp#dat2s2">date_and_time_to_string2/1</seealso>. </p>
-          <p>Also added new validation function 
-            <seealso marker="snmp#vdat">validate_date_and_time/2</seealso>. </p>
-	  <p>Own Id: OTP-7412</p>
-	  <p>Aux Id: Seq 10987</p>
-        </item>
-
-      </list>
-
-    </section>
-
-    <section>
-      <title>Reported Fixed Bugs and Malfunctions</title>
-      <!-- 
-      <p>-</p>
-      -->
-      <list type="bulleted">
-        <item>
-          <p>[manager] Encryption error when attempting to send
-            version 3 inform-requests. </p>
-          <p>Own Id: OTP-7432</p>
-	  <p>Aux Id: Seq 10966</p>
-        </item>
-
-      </list>
-    </section>
-
-    <section>
-      <title>Incompatibilities</title>
-      <p>-</p>
-    </section>
-  </section> <!-- 4.11.1 -->
-
-  <section>
-    <title>SNMP Development Toolkit 4.11</title>
-    <p>Version 4.11 supports code replacement in runtime from/to
-      version 4.10.3, 4.10.2, 4.10.1 and 4.10.</p>
-
-    <section>
-      <title>Improvements and new features</title>
-      <!-- 
-      <p>-</p> 
-      -->
-      <list type="bulleted">
-        <item>
-          <p>[agent] Performance improvements in the case when an SNMP 
-            manager performs an snmpwalk. </p>
-          <p>Martin Bj&ouml;rklund</p>
-          <p>Own Id: OTP-7201</p>
-        </item>
-
-        <item>
-          <p>The API for sending inform(s) has been improved. Also
-            the documentation has been corrected and updated. See 
-            <seealso marker="snmpa#send_notification">snmpa:send_notification</seealso> and 
-            <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
-            for more info.</p>
-          <p>Own Id: OTP-7287</p>
-          <p>Aux Id: Seq 10926</p>
-        </item>
-
-        <item>
-	  <p>[agent] Performance of the internal database (local-db) 
-           has been improved.</p>
-	  <p>Own Id: OTP-7319</p>
-	  <p>Aux Id: Seq 10942</p>
-        </item>
-
-        <item>
-	  <p>[agent] Added utility functions,
-            <seealso marker="snmpa#restart_worker">snmpa:restart_worker/0,1</seealso> and 
-            <seealso marker="snmpa#restart_set_worker">snmpa:restart_set_worker/0,1</seealso>, 
-            for restarting the agent worker processes (in case the agent is
-            multi-threaded).</p>
-	  <p>Own Id: OTP-7369</p>
-        </item>
-
-        <item>
-	  <p>Add utility function to 
-            <seealso marker="snmp#read_mib">read</seealso> 
-            a compiled mib. </p>
-	  <p>Own Id: OTP-7371</p>
-        </item>
-
-      </list>
-    </section>
-
-    <section>
-      <title>Reported Fixed Bugs and Malfunctions</title>
-      <!-- 
-      <p>-</p>
-      -->
-      <list type="bulleted">
-        <item>
-          <p>[manager] Encryption error when attempting to send
-            version 3 inform-requests. </p>
-          <p>Own Id: OTP-7377</p>
-	  <p>Aux Id: Seq 10966</p>
-        </item>
-
-      </list>
-    </section>
-
-    <section>
-      <title>Incompatibilities</title>
-      <p>-</p>
-    </section>
-  </section> <!-- 4.11 -->
 
   <!-- section>
     <title>Release notes history</title>
