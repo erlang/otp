@@ -156,11 +156,11 @@ static ErlDrvSysInfo sys_info;
  * DARWIN. The testcase t_sendfile_crashduring reproduces
  * this error when using +A 10.
  */
-#if !defined(DARWIN)
-#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
-#else
+#if defined(__APPLE__) && defined(__MACH__)
 #define USE_THRDS_FOR_SENDFILE 0
-#endif /* !DARWIN */
+#else
+#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
+#endif /* defined(__APPLE__) && defined(__MACH__) */
 
 
 
