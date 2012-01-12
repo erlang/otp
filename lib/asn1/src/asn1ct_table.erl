@@ -21,7 +21,9 @@
 
 %% Table abstraction module for ASN.1 compiler
 
+-export([new/1]).
 -export([new/2]).
+-export([new_reuse/1]).
 -export([new_reuse/2]).
 -export([exists/1]).
 -export([size/1]).
@@ -33,32 +35,42 @@
 
 
 %% Always creates a new table
+new(Table) -> new(Table, []).
 new(Table, Options) ->
-    case ets:info(Table) of
-        undefined ->
-            ets:new(Table, Options);
-        _  ->
-            delete(Table),
-            ets:new(Table, Options)
-    end.
+    TableId = case get(Table) of
+                undefined ->
+                    ets:new(Table, Options);
+                _  ->
+                    delete(Table),
+                    ets:new(Table, Options)
+              end,
+    put(Table, TableId).
 
+%% Only create it if it doesn't exist yet
+new_reuse(Table) -> new_reuse(Table, []).
 new_reuse(Table, Options) ->
     not exists(Table) andalso new(Table, Options).
 
-exists(Table) -> ets:info(Table) =/= undefined.
+exists(Table) -> get(Table) =/= undefined.
 
-size(Table) -> ets:info(Table, size).
+size(Table) -> ets:info(get(Table), size).
 
-insert(Table, Tuple) -> ets:insert(Table, Tuple).
+insert(Table, Tuple) -> ets:insert(get(Table), Tuple).
 
-lookup(Table, Key) -> ets:lookup(Table, Key).
+lookup(Table, Key) -> ets:lookup(get(Table), Key).
 
-match(Table, MatchSpec) -> ets:match(Table, MatchSpec).
+match(Table, MatchSpec) -> ets:match(get(Table), MatchSpec).
 
-to_list(Table) -> ets:tab2list(Table).
+to_list(Table) -> ets:tab2list(get(Table)).
 
 delete(Tables) when is_list(Tables) ->
     [delete(T) || T <- Tables],
     true;
 delete(Table) when is_atom(Table) ->
-    exists(Table) andalso ets:delete(Table).
+    case get(Table) of
+        undefined ->
+            true;
+        TableId ->
+            ets:delete(TableId),
+            erase(Table)
+    end.

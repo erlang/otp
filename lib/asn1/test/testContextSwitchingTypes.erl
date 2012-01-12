@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 -module(testContextSwitchingTypes).
 
 -export([compile/3]).
--export([test/0]).
+-export([test/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -34,14 +34,15 @@ compile(Config,Rules,Options) ->
 			      [Rules,{outdir,OutDir}]++Options).
 
 
-test() ->
+test(Config) ->
     ?line ValT = 'ContextSwitchingTypes':'val1-T'(),
     ?line {ok,Bytes1} =
 	asn1_wrapper:encode('ContextSwitchingTypes','T',ValT),
     ?line {ok,Result1} = 
 	asn1_wrapper:decode('ContextSwitchingTypes','T',Bytes1),
     ?line ok = check_EXTERNAL(Result1),
-    ?line {ok,ValT2} = asn1ct:value('ContextSwitchingTypes','T'),
+    ?line {ok,ValT2} = asn1ct:value('ContextSwitchingTypes','T',
+                                    [{i, ?config(priv_dir, Config)}]),
     ?line {ok,Bytes1_2} =
 	asn1_wrapper:encode('ContextSwitchingTypes','T',ValT2),
     ?line {ok,Result1_2} = 

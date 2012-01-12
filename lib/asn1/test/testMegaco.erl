@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -123,9 +123,11 @@ compile(Config,Erule,Options) ->
 
 
 main(no_module,_) -> ok;
-main('OLD-MEDIA-GATEWAY-CONTROL',_) ->
+main('OLD-MEDIA-GATEWAY-CONTROL',Config) ->
 %    Msg = msg11(),
-    {ok,Msg} = asn1ct:value('OLD-MEDIA-GATEWAY-CONTROL','MegacoMessage'),
+    OutDir = ?config(priv_dir, Config),
+    {ok,Msg} = asn1ct:value('OLD-MEDIA-GATEWAY-CONTROL','MegacoMessage',
+                            [{i, OutDir}]),
     ?line {ok,Bytes} = asn1_wrapper:encode('OLD-MEDIA-GATEWAY-CONTROL',
 					   'MegacoMessage',Msg),
     ?line {ok,Msg} = asn1_wrapper:decode('OLD-MEDIA-GATEWAY-CONTROL',

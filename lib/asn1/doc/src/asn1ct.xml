@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,15 +44,15 @@
   </description>
   <funcs>
     <func>
-      <name>compile(Asn1module) -> ok | {error,Reason}</name>
-      <name>compile(Asn1module , Options) -> ok | {error,Reason}</name>
+      <name>compile(Asn1module) -> ok | {error, Reason}</name>
+      <name>compile(Asn1module, Options) -> ok | {error, Reason}</name>
       <fsummary>Compile an ASN.1 module and generate encode/decode functions according to the encoding rules BER or PER.</fsummary>
       <type>
         <v>Asn1module = atom() | string()</v>
         <v>Options = [Option| OldOption]</v>
-        <v>Option = ber_bin | per_bin | uper_bin | der | compact_bit_string | 
-	noobj | {n2n,EnumTypeName} |{outdir,Dir} | {i,IncludeDir} | optimize | 
-	nif | asn1config | undec_rest | {inline,OutputName} | inline |
+        <v>Option = ber_bin | per_bin | uper_bin | der | compact_bit_string |
+	noobj | {n2n, EnumTypeName} |{outdir, Dir} | {i, IncludeDir} | optimize |
+	nif | asn1config | undec_rest | {inline, OutputName} | inline |
 	{macro_name_prefix, Prefix} | {record_name_prefix, Prefix} | verbose | warnings_as_errors</v>
         <v>OldOption = ber | per</v> 
         <v>Reason = term()</v>
@@ -158,7 +158,7 @@ File3.asn        </pre>
               of the BIT STRING type in Erlang. The notation: 
 	    </p>
             <pre>
-BitString = {Unused,Binary},
+BitString = {Unused, Binary},
 Unused = integer(),
 Binary = binary()            
 	    </pre>
@@ -172,7 +172,7 @@ Binary = binary()
 		</seealso>.
 	    </p>
 	  </item>
-          <tag><c>{n2n,EnumTypeName}</c></tag>
+          <tag><c>{n2n, EnumTypeName}</c></tag>
           <item>
             <p>
 	      Tells the compiler to generate functions for conversion between
@@ -190,17 +190,17 @@ Binary = binary()
               <c>.erl</c> file. If this option is omitted the generated Erlang module
               will be compiled.</p>
           </item>
-          <tag><c>{i,IncludeDir}</c></tag>
+          <tag><c>{i, IncludeDir}</c></tag>
           <item>
             <p>Adds <c>IncludeDir</c> to the search-path for
               <c>.asn1db</c> and asn1 source files. The compiler tries
               to open a <c>.asn1db</c> file when a module imports
               definitions from another ASN.1 module. If no
               <c>.asn1db</c> file is found the asn1 source file is
-              parsed.  Several <c>{i,IncludeDir}</c> can be given.
+              parsed.  Several <c>{i, IncludeDir}</c> can be given.
               </p>
           </item>
-          <tag><c>{outdir,Dir}</c></tag>
+          <tag><c>{outdir, Dir}</c></tag>
           <item>
             <p>Specifies the directory <c>Dir</c> where all generated files 
               shall be placed. If omitted the files are placed in the 
@@ -251,11 +251,11 @@ Binary = binary()
               also have some following bytes. Now it is possible to get
               those following bytes returned together with the decoded
               value. If an asn1 spec is compiled with this option a tuple
-              <c>{ok,Value,Rest}</c> is returned. <c>Rest</c> may be a
+              <c>{ok, Value, Rest}</c> is returned. <c>Rest</c> may be a
               list or a binary. Earlier versions of the compiler ignored
               those following bytes.</p>
           </item>
-          <tag><c>{inline,OutputName}</c></tag>
+          <tag><c>{inline, OutputName}</c></tag>
           <item>
             <p>Compiling with this option gives one output module
               containing all asn1 run-time functionality. The asn1 specs
@@ -267,7 +267,7 @@ Binary = binary()
               by the <c>igor</c> module of <c>syntax_tools</c>. By default
               the functions generated from the first asn1 spec in the
               <c>.set.asn</c> are exported, unless a
-              <c>{export,[atom()]}</c> or <c>{export_all,true}</c> option
+              <c>{export, [atom()]}</c> or <c>{export_all, true}</c> option
               are provided. The list of atoms are names of chosen asn1
               specs from the <c>.set.asn</c> file. </p>
 	      <p>When used together with <c>nif</c> for <c>ber_bin</c>, the
@@ -278,7 +278,7 @@ Binary = binary()
           <tag><c>inline</c></tag>
           <item>
             <p>It is also possible to use the sole argument <c>inline</c>.
-              It is as <c>{inline,OutputName}</c>, but the output file gets the
+              It is as <c>{inline, OutputName}</c>, but the output file gets the
               default name of the source <c>.set.asn</c> file.</p>
           </item>
           <tag><c>{macro_name_prefix, Prefix}</c></tag>
@@ -322,7 +322,7 @@ Binary = binary()
       </desc>
     </func>
     <func>
-      <name>encode(Module,Type,Value)-> {ok,Bytes} | {error,Reason}</name>
+      <name>encode(Module, Type, Value)-> {ok, Bytes} | {error, Reason}</name>
       <fsummary>Encode an ASN.1 value.</fsummary>
       <type>
         <v>Module = Type = atom()</v>
@@ -337,13 +337,13 @@ Binary = binary()
           encode function only performs rudimentary tests that the input 
           <c>Value</c>
           is a correct instance of <c>Type</c>. The length of strings is for example
-          not always checked. Returns <c>{ok,Bytes}</c> if successful or 
-          <c>{error,Reason}</c> if an error occurred.
+          not always checked. Returns <c>{ok, Bytes}</c> if successful or
+          <c>{error, Reason}</c> if an error occurred.
           </p>
       </desc>
     </func>
     <func>
-      <name>decode(Module,Type,Bytes) -> {ok,Value}|{error,Reason}</name>
+      <name>decode(Module, Type, Bytes) -> {ok, Value} | {error, Reason}</name>
       <fsummary>Decode from Bytes into an ASN.1 value.</fsummary>
       <type>
         <v>Module = Type = atom()</v>
@@ -352,11 +352,11 @@ Binary = binary()
       </type>
       <desc>
         <p>Decodes <c>Type</c> from <c>Module</c> from the list of bytes 
-          <c>Bytes</c>. Returns <c>{ok,Value}</c> if successful.</p>
+          <c>Bytes</c>. Returns <c>{ok, Value}</c> if successful.</p>
       </desc>
     </func>
     <func>
-      <name>value(Module ,Type) -> {ok,Value} | {error,Reason}</name>
+      <name>value(Module, Type) -> {ok, Value} | {error, Reason}</name>
       <fsummary>Create an ASN.1 value for test purposes.</fsummary>
       <type>
         <v>Module = Type = atom()</v>
@@ -371,26 +371,48 @@ Binary = binary()
       </desc>
     </func>
     <func>
-      <name>test(Module) -> ok | {error,Reason}</name>
-      <name>test(Module,Type) -> ok | {error,Reason}</name>
-      <name>test(Module,Type,Value) -> ok | {error,Reason}</name>
-      <fsummary>Perform a test of encode and decode for types in an  ASN.1 module.</fsummary>
+      <name>test(Module) -> ok | {error, Reason}</name>
+      <name>test(Module, Type | Options) -> ok | {error, Reason}</name>
+      <name>test(Module, Type, Value | Options) -> ok | {error, Reason}</name>
+      <fsummary>Perform a test of encode and decode for types in an ASN.1 module.</fsummary>
+      <type>
+        <v>Module = Type = atom()</v>
+        <v>Value = term()</v>
+        <v>Options = [{i, IncludeDir}]</v>
+        <v>Reason = term()</v>
+      </type>
       <desc>
-        <p>Performs a test of encode and decode of all types in <c>Module</c>. 
+        <p>Performs a test of encode and decode of types in <c>Module</c>.
           The generated functions are called by this function.
           This function is useful during test to secure that the generated
-          encode and decode functions and the general runtime support work 
-          as expected.          <br></br>
-<c>test/1</c> iterates over all types in <c>Module</c>.          <br></br>
-<c>test/2</c> tests type <c>Type</c> with a random value.          <br></br>
-<c><![CDATA[test/3 tests type <c>Type]]></c> with <c>Value</c>.          <br></br>
+          encode and decode functions and the general runtime support work
+          as expected.</p>
 
-          Schematically the following happens for each type in the module.</p>
-        <p></p>
+        <list type="bulleted">
+          <item>
+            <p><c>test/1</c> iterates over all types in <c>Module</c>.</p>
+          </item>
+          <item>
+            <p><c>test/2</c> tests type <c>Type</c> with a random value.</p>
+          </item>
+          <item>
+            <p><c>test/3</c> tests type <c>Type</c> with <c>Value</c>.</p>
+          </item>
+        </list>
+
+        <p>Schematically the following happens for each type in the module:
         <code type="none">
-{ok,Value} = asn1ct:value(Module,Type),
-{ok,Bytes} = asn1ct:encode(Module,Type,Value),
-{ok,Value} = asn1ct:decode(Module,Type,Bytes).         </code>
+{ok, Value} = asn1ct:value(Module, Type),
+{ok, Bytes} = asn1ct:encode(Module, Type, Value),
+{ok, Value} = asn1ct:decode(Module, Type, Bytes).</code></p>
+
+        <p>The <c>test</c> functions utilizes the <c>*.asn1db</c> files
+          for all included modules. If they are located in a different
+          directory than the current working directory, use the include
+          option to add paths. This is only needed when automatically
+          generating values. For static values using <c>Value</c> no
+          options are needed.</p>
+
       </desc>
     </func>
   </funcs>

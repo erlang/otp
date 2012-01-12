@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 %%
 -module(test_undecoded_rest).
 
--export([compile/3,test/1]).
+-export([compile/3,test/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -35,8 +35,9 @@ compile(Config,Rules,Opt) ->
     ?line ok = asn1ct:compile(DataDir ++ "P-Record",[Rules,{outdir,OutDir}]++Opt).
 
 
-test(Opt) ->
-    ?line {ok,Msg} = asn1ct:value('P-Record','PersonnelRecord'),
+test(Opt, Config) ->
+    ?line {ok,Msg} = asn1ct:value('P-Record','PersonnelRecord',
+                                  [{i, ?config(priv_dir, Config)}]),
     ?line {ok,Bytes} = asn1_wrapper:encode('P-Record','PersonnelRecord',Msg),
     Bytes2 =
 	fun(B) when is_list(B) ->

@@ -1,3 +1,4 @@
+%% vim: tabstop=8:shiftwidth=4
 %%
 %% %CopyrightBegin%
 %%
@@ -94,8 +95,8 @@ check(S,{Types,Values,ParameterizedTypes,Classes,Objects,ObjectSets}) ->
     _Perror = checkp(S,ParameterizedTypes,[]), % must do this before the templates are used
     
     %% table to save instances of parameterized objects,object sets
-    asn1ct_table:new(parameterized_objects, [named_table]),
-    asn1ct_table:new(inlined_objects, [named_table]),
+    asn1ct_table:new(parameterized_objects),
+    asn1ct_table:new(inlined_objects),
 
 
     Terror = checkt(S,Types,[]),
@@ -4923,12 +4924,7 @@ get_referenced(S,Emod,Ename,Pos) ->
 	    %% May be an imported entity in module Emod or Emod may not exist
 	    case asn1_db:dbget(Emod,'MODULE') of
 		undefined ->
-		    case parse_and_save(S,Emod) of
-			ok ->
-			    get_referenced(S,Emod,Ename,Pos);
-			_ ->
-			    throw({error,{asn1,{module_not_found,Emod}}})
-		    end;
+		    throw({error,{asn1,{module_not_found,Emod}}});
 		_ ->
 		    NewS = update_state(S,Emod),
 		    get_imported(NewS,Ename,Emod,Pos)
@@ -4970,13 +4966,7 @@ get_imported(S,Name,Module,Pos) ->
 	    parse_and_save(S,Imodule),
 	    case asn1_db:dbget(Imodule,'MODULE') of
 		undefined ->
-		    case parse_and_save(S,Imodule) of
-			ok ->
-			    %% check with cover
-			    get_referenced(S,Module,Name,Pos);
-			_ ->
-			    throw({error,{asn1,{module_not_found,Imodule}}})
-		    end;
+		    throw({error,{asn1,{module_not_found,Imodule}}});
 		Im when is_record(Im,module) ->
 		    case is_exported(Im,Name) of
 			false ->

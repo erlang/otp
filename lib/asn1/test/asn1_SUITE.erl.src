@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1469,21 +1469,21 @@ per(Config) ->
 
 per1([M|T],DataDir,OutDir) ->
     ?line ok = asn1ct:compile(DataDir ++ M,[?PER,{outdir,OutDir}]),
-    ?line ok = asn1ct:test(list_to_atom(M)),
+    ?line ok = asn1ct:test(list_to_atom(M), [{i, OutDir}]),
     per1(T,DataDir,OutDir);
 per1([],_,_) ->
     ok.
 
 per1_bit_opt([M|T],DataDir,OutDir) ->
     ?line ok = asn1ct:compile(DataDir ++ M,[?PER,optimize,{outdir,OutDir}]),
-    ?line ok = asn1ct:test(list_to_atom(M)),
+    ?line ok = asn1ct:test(list_to_atom(M), [{i, OutDir}]),
     per1_bit_opt(T,DataDir,OutDir);
 per1_bit_opt([],_,_) ->
     ok.
 
 per1_opt([M|T],DataDir,OutDir) ->
     ?line ok = asn1ct:compile(DataDir ++ M,[?PER,optimized,{outdir,OutDir}]),
-    ?line ok = asn1ct:test(list_to_atom(M)),
+    ?line ok = asn1ct:test(list_to_atom(M), [{i, OutDir}]),
     per1_opt(T,DataDir,OutDir);
 per1_opt([],_,_) ->
     ok.
@@ -1546,7 +1546,7 @@ ber_other(Config) ->
 
 ber1([M|T],DataDir,OutDir) ->
     ?line ok = asn1ct:compile(DataDir ++ M,[?BER,{outdir,OutDir}]),
-    ?line ok = asn1ct:test(list_to_atom(M)),
+    ?line ok = asn1ct:test(list_to_atom(M), [{i, OutDir}]),
     ber1(T,DataDir,OutDir);
 ber1([],_,_) ->
     ok.
@@ -1948,22 +1948,22 @@ testContextSwitchingTypes(Config) ->
     ?line true = code:add_patha(?config(priv_dir,Config)),
 
     ?line testContextSwitchingTypes:compile(Config,?BER,[]),
-    ?line testContextSwitchingTypes:test(),
+    ?line testContextSwitchingTypes:test(Config),
 
     ?line ?ber_driver(?BER,testContextSwitchingTypes:compile(Config,?BER,[driver])),
-    ?line ?ber_driver(?BER,testContextSwitchingTypes:test()),
+    ?line ?ber_driver(?BER,testContextSwitchingTypes:test(Config)),
 
     ?line testContextSwitchingTypes:compile(Config,?PER,[]),
-    ?line testContextSwitchingTypes:test(),
+    ?line testContextSwitchingTypes:test(Config),
 
     ?line ?per_bit_opt(testContextSwitchingTypes:compile(Config,?PER,[optimize])),
-    ?line ?per_bit_opt(testContextSwitchingTypes:test()),
+    ?line ?per_bit_opt(testContextSwitchingTypes:test(Config)),
 
     ?line ?uper_bin(testContextSwitchingTypes:compile(Config,uper_bin,[])),
-    ?line ?uper_bin(testContextSwitchingTypes:test()),
+    ?line ?uper_bin(testContextSwitchingTypes:test(Config)),
 
     ?line testContextSwitchingTypes:compile(Config,?PER,[optimize]),
-    ?line testContextSwitchingTypes:test().
+    ?line testContextSwitchingTypes:test(Config).
 
 testTypeValueNotation(suite) -> [];
 testTypeValueNotation(Config) ->
@@ -2181,22 +2181,22 @@ test_undecoded_rest(suite) -> [];
 test_undecoded_rest(Config) ->
 
     ?line ok = test_undecoded_rest:compile(Config,?BER,[]),
-    ?line ok = test_undecoded_rest:test([]),
+    ?line ok = test_undecoded_rest:test([], Config),
 
     ?line ok = test_undecoded_rest:compile(Config,?BER,[undec_rest]),
-    ?line ok = test_undecoded_rest:test(undec_rest),
+    ?line ok = test_undecoded_rest:test(undec_rest, Config),
 
     ?line ok = test_undecoded_rest:compile(Config,?PER,[]),
-    ?line ok = test_undecoded_rest:test([]),
+    ?line ok = test_undecoded_rest:test([], Config),
 
     ?line ?per_bit_opt(ok = test_undecoded_rest:compile(Config,?PER,[optimize,undec_rest])),
-    ?line ?per_bit_opt(ok = test_undecoded_rest:test(undec_rest)),
+    ?line ?per_bit_opt(ok = test_undecoded_rest:test(undec_rest, Config)),
 
     ?line ?uper_bin(ok = test_undecoded_rest:compile(Config,uper_bin,[undec_rest])),
-    ?line ?uper_bin(ok = test_undecoded_rest:test(undec_rest)),
+    ?line ?uper_bin(ok = test_undecoded_rest:test(undec_rest, Config)),
 
     ?line ok = test_undecoded_rest:compile(Config,?PER,[undec_rest]),
-    ?line ok = test_undecoded_rest:test(undec_rest).
+    ?line ok = test_undecoded_rest:test(undec_rest, Config).
 
 test_inline(suite) -> [];
 test_inline(Config) ->
@@ -2205,7 +2205,7 @@ test_inline(Config) ->
           {skip,"Not runnable when cover compiled"};
        _  ->
           ?line ok=test_inline:compile(Config,?BER,[]),
-          ?line test_inline:main(?BER),
+          ?line test_inline:main(Config, ?BER),
     	  ?line test_inline:inline1(Config,?BER,[]),
      	  ?line test_inline:performance2()
     end.
