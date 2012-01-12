@@ -475,7 +475,8 @@ typedef struct LoaderState {
   } while (0)
 
 
-static void free_state(LoaderState* stp);
+static void free_loader_state(Binary* magic);
+static void loader_state_dtor(Binary* magic);
 static Eterm insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			     Eterm group_leader, Eterm module,
 			     BeamInstr* code, Uint size);
@@ -568,16 +569,16 @@ erts_preload_module(Process *c_p,
 		 byte* code,	/* Points to the code to load */
 		 Uint size)	/* Size of code to load. */
 {
-    LoaderState* stp = erts_alloc_loader_state();
+    Binary* magic = erts_alloc_loader_state();
     Eterm retval;
 
     ASSERT(!erts_initialized);
-    retval = erts_prepare_loading(stp, c_p, group_leader, modp,
+    retval = erts_prepare_loading(magic, c_p, group_leader, modp,
 				  code, size);
     if (retval != NIL) {
 	return retval;
     }
-    return erts_finish_loading(stp, c_p, c_p_locks, modp);
+    return erts_finish_loading(magic, c_p, c_p_locks, modp);
 }
 /* #define LOAD_MEMORY_HARD_DEBUG 1*/
 
@@ -593,11 +594,13 @@ extern void check_allocated_block(Uint type, void *blk);
 #endif
 
 Eterm
-erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
+erts_prepare_loading(Binary* magic, Process *c_p, Eterm group_leader,
 		     Eterm* modp, byte* code, Uint unloaded_size)
 {
     Eterm retval = am_badfile;
+    LoaderState* stp;
 
+    stp = ERTS_MAGIC_BIN_DATA(magic);
     stp->module = *modp;
     stp->group_leader = group_leader;
 
@@ -736,16 +739,17 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
 
  load_error:
     if (retval != NIL) {
-	free_state(stp);
+	free_loader_state(magic);
     }
     return retval;
 }
 
 Eterm
-erts_finish_loading(LoaderState* stp, Process* c_p,
+erts_finish_loading(Binary* magic, Process* c_p,
 		    ErtsProcLocks c_p_locks, Eterm* modp)
 {
     Eterm retval;
+    LoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
 
     /*
      * No other process may run since we will update the export
@@ -798,16 +802,20 @@ erts_finish_loading(LoaderState* stp, Process* c_p,
     }
 
  load_error:
-    free_state(stp);
+    free_loader_state(magic);
     return retval;
 }
 
-LoaderState*
+Binary*
 erts_alloc_loader_state(void)
 {
     LoaderState* stp;
+    Binary* magic;
 
-    stp = erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(LoaderState));
+    magic = erts_create_magic_binary(sizeof(LoaderState),
+				     loader_state_dtor);
+    erts_refc_inc(&magic->refc, 1);
+    stp = ERTS_MAGIC_BIN_DATA(magic);
     stp->bin = NULL;
     stp->function = THE_NON_VALUE; /* Function not known yet */
     stp->arity = 0;
@@ -836,76 +844,102 @@ erts_alloc_loader_state(void)
     stp->line_instr = 0;
     stp->func_line = 0;
     stp->fname = 0;
-    return stp;
+    return magic;
 }
 
 static void
-free_state(LoaderState* stp)
+free_loader_state(Binary* magic)
 {
+    loader_state_dtor(magic);
+    if (erts_refc_dectest(&magic->refc, 0) == 0) {
+	erts_bin_free(magic);
+    }
+}
+
+/*
+ * This destructor function can safely be called multiple times.
+ */
+static void
+loader_state_dtor(Binary* magic)
+{
+    LoaderState* stp = ERTS_MAGIC_BIN_DATA(magic);
+
     if (stp->bin != 0) {
 	driver_free_binary(stp->bin);
+	stp->bin = 0;
     }
     if (stp->code != 0) {
 	erts_free(ERTS_ALC_T_CODE, stp->code);
+	stp->code = 0;
     }
-    if (stp->labels != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->labels);
+    if (stp->labels != 0) {
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->labels);
+	stp->labels = 0;
     }
-    if (stp->atom != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->atom);
+    if (stp->atom != 0) {
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->atom);
+	stp->atom = 0;
     }
-    if (stp->import != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->import);
+    if (stp->import != 0) {
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->import);
+	stp->import = 0;
     }
-    if (stp->export != NULL) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->export);
+    if (stp->export != 0) {
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->export);
+	stp->export = 0;
     }
     if (stp->lambdas != stp->def_lambdas) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->lambdas);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->lambdas);
+	stp->lambdas = stp->def_lambdas;
     }
-    if (stp->literals != NULL) {
+    if (stp->literals != 0) {
 	int i;
 	for (i = 0; i < stp->num_literals; i++) {
-	    if (stp->literals[i].heap != NULL) {
-		erts_free(ERTS_ALC_T_LOADER_TMP,
+	    if (stp->literals[i].heap != 0) {
+		erts_free(ERTS_ALC_T_PREPARED_CODE,
 			  (void *) stp->literals[i].heap);
+		stp->literals[i].heap = 0;
 	    }
 	}
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->literals);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->literals);
+	stp->literals = 0;
     }
-    while (stp->literal_patches != NULL) {
+    while (stp->literal_patches != 0) {
 	LiteralPatch* next = stp->literal_patches->next;
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->literal_patches);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->literal_patches);
 	stp->literal_patches = next;
     }
-    while (stp->string_patches != NULL) {
+    while (stp->string_patches != 0) {
 	StringPatch* next = stp->string_patches->next;
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->string_patches);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, (void *) stp->string_patches);
 	stp->string_patches = next;
-    }
-    while (stp->genop_blocks) {
-	GenOpBlock* next = stp->genop_blocks->next;
-	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->genop_blocks);
-	stp->genop_blocks = next;
     }
 
     if (stp->line_item != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, stp->line_item);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, stp->line_item);
+	stp->line_item = 0;
     }
 
     if (stp->line_instr != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, stp->line_instr);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, stp->line_instr);
+	stp->line_instr = 0;
     }
 
     if (stp->func_line != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, stp->func_line);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, stp->func_line);
+	stp->func_line = 0;
     }
 
     if (stp->fname != 0) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, stp->fname);
+	erts_free(ERTS_ALC_T_PREPARED_CODE, stp->fname);
+	stp->fname = 0;
     }
 
-    erts_free(ERTS_ALC_T_LOADER_TMP, stp);
+    /*
+     * The following data items should have been freed earlier.
+     */
+
+    ASSERT(stp->genop_blocks == 0);
 }
 
 static Eterm
@@ -1162,7 +1196,7 @@ load_atom_table(LoaderState* stp)
 
     GetInt(stp, 4, stp->num_atoms);
     stp->num_atoms++;
-    stp->atom = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+    stp->atom = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 			   stp->num_atoms*sizeof(Eterm));
 
     /*
@@ -1207,7 +1241,7 @@ load_import_table(LoaderState* stp)
     int i;
 
     GetInt(stp, 4, stp->num_imports);
-    stp->import = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+    stp->import = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 			     stp->num_imports * sizeof(ImportEntry));
     for (i = 0; i < stp->num_imports; i++) {
 	int n;
@@ -1266,7 +1300,7 @@ read_export_table(LoaderState* stp)
 		   stp->num_exps, stp->num_functions);
     }
     stp->export
-	= (ExportEntry *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+	= (ExportEntry *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 				     (stp->num_exps * sizeof(ExportEntry)));
 
     for (i = 0; i < stp->num_exps; i++) {
@@ -1356,7 +1390,7 @@ read_lambda_table(LoaderState* stp)
     if (stp->num_lambdas > stp->lambdas_allocated) {
 	ASSERT(stp->lambdas == stp->def_lambdas);
 	stp->lambdas_allocated = stp->num_lambdas;
-	stp->lambdas = (Lambda *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+	stp->lambdas = (Lambda *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 					     stp->num_lambdas * sizeof(Lambda));
     }
     for (i = 0; i < stp->num_lambdas; i++) {
@@ -1408,7 +1442,7 @@ read_literal_table(LoaderState* stp)
     stp->file_p = uncompressed;
     stp->file_left = (unsigned) uncompressed_sz;
     GetInt(stp, 4, stp->num_literals);
-    stp->literals = (Literal *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+    stp->literals = (Literal *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 					   stp->num_literals * sizeof(Literal));
     stp->allocated_literals = stp->num_literals;
 
@@ -1428,7 +1462,7 @@ read_literal_table(LoaderState* stp)
 	if ((heap_size = erts_decode_ext_size(p, sz)) < 0) {
 	    LoadError1(stp, "literal %d: bad external format", i);
 	}
-	hp = stp->literals[i].heap = erts_alloc(ERTS_ALC_T_LOADER_TMP,
+	hp = stp->literals[i].heap = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 						heap_size*sizeof(Eterm));
 	stp->literals[i].off_heap.first = 0;
 	stp->literals[i].off_heap.overhead = 0;
@@ -1500,7 +1534,7 @@ read_line_table(LoaderState* stp)
      */
 
     num_line_items++;
-    lp = (BeamInstr *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+    lp = (BeamInstr *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 				  num_line_items * sizeof(BeamInstr));
     stp->line_item = lp;
     stp->num_line_items = num_line_items;
@@ -1556,7 +1590,7 @@ read_line_table(LoaderState* stp)
      */
 
     if (stp->num_fnames != 0) {
-	stp->fname = (Eterm *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+	stp->fname = (Eterm *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 					      stp->num_fnames *
 					      sizeof(Eterm));
 	for (i = 0; i < stp->num_fnames; i++) {
@@ -1572,11 +1606,11 @@ read_line_table(LoaderState* stp)
     /*
      * Allocate the arrays to be filled while code is being loaded.
      */
-    stp->line_instr = (LineInstr *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+    stp->line_instr = (LineInstr *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 					       stp->num_line_instrs *
 					       sizeof(LineInstr));
     stp->current_li = 0;
-    stp->func_line = (int *)  erts_alloc(ERTS_ALC_T_LOADER_TMP,
+    stp->func_line = (int *)  erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 					 stp->num_functions *
 					 sizeof(int));
 
@@ -1639,7 +1673,7 @@ read_code_header(LoaderState* stp)
      * Initialize label table.
      */
 
-    stp->labels = (Label *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+    stp->labels = (Label *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 				       stp->num_labels * sizeof(Label));
     for (i = 0; i < stp->num_labels; i++) {
 	stp->labels[i].value = 0;
@@ -1693,6 +1727,7 @@ load_code(LoaderState* stp)
     GenOp* last_op = NULL;
     GenOp** last_op_next = NULL;
     int arity;
+    int retval = 1;
 
     /*
      * The size of the loaded func_info instruction is needed
@@ -2422,7 +2457,8 @@ load_code(LoaderState* stp)
 	    stp->function = THE_NON_VALUE;
 	    stp->genop = NULL;
 	    stp->specific_op = -1;
-	    return 1;
+	    retval = 1;
+	    goto cleanup;
 	}
 
 	/*
@@ -2436,9 +2472,20 @@ load_code(LoaderState* stp)
 	}
     }
     
-
  load_error:
-    return 0;
+    retval = 0;
+
+ cleanup:
+    /*
+     * Clean up everything that is not needed any longer.
+     */
+
+    while (stp->genop_blocks) {
+	GenOpBlock* next = stp->genop_blocks->next;
+	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) stp->genop_blocks);
+	stp->genop_blocks = next;
+    }
+    return retval;
 }
 
 
@@ -4898,7 +4945,7 @@ new_label(LoaderState* stp)
     int num = stp->num_labels;
 
     stp->num_labels++;
-    stp->labels = (Label *) erts_realloc(ERTS_ALC_T_LOADER_TMP,
+    stp->labels = (Label *) erts_realloc(ERTS_ALC_T_PREPARED_CODE,
 					 (void *) stp->labels,
 					 stp->num_labels * sizeof(Label));
     stp->labels[num].value = 0;
@@ -4909,7 +4956,8 @@ new_label(LoaderState* stp)
 static void
 new_literal_patch(LoaderState* stp, int pos)
 {
-    LiteralPatch* p = erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(LiteralPatch));
+    LiteralPatch* p = erts_alloc(ERTS_ALC_T_PREPARED_CODE,
+				 sizeof(LiteralPatch));
     p->pos = pos;
     p->next = stp->literal_patches;
     stp->literal_patches = p;
@@ -4918,7 +4966,7 @@ new_literal_patch(LoaderState* stp, int pos)
 static void
 new_string_patch(LoaderState* stp, int pos)
 {
-    StringPatch* p = erts_alloc(ERTS_ALC_T_LOADER_TMP, sizeof(StringPatch));
+    StringPatch* p = erts_alloc(ERTS_ALC_T_PREPARED_CODE, sizeof(StringPatch));
     p->pos = pos;
     p->next = stp->string_patches;
     stp->string_patches = p;
@@ -4936,14 +4984,14 @@ new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size)
 	ASSERT(stp->num_literals == 0);
 	stp->allocated_literals = 8;
 	need = stp->allocated_literals * sizeof(Literal);
-	stp->literals = (Literal *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+	stp->literals = (Literal *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 					       need);
     } else if (stp->allocated_literals <= stp->num_literals) {
 	Uint need;
 
 	stp->allocated_literals *= 2;
 	need = stp->allocated_literals * sizeof(Literal);
-	stp->literals = (Literal *) erts_realloc(ERTS_ALC_T_LOADER_TMP,
+	stp->literals = (Literal *) erts_realloc(ERTS_ALC_T_PREPARED_CODE,
 						 (void *) stp->literals,
 						 need);
     }
@@ -4952,7 +5000,7 @@ new_literal(LoaderState* stp, Eterm** hpp, Uint heap_size)
     lit = stp->literals + stp->num_literals;
     lit->offset = 0;
     lit->heap_size = heap_size;
-    lit->heap = erts_alloc(ERTS_ALC_T_LOADER_TMP, heap_size*sizeof(Eterm));
+    lit->heap = erts_alloc(ERTS_ALC_T_PREPARED_CODE, heap_size*sizeof(Eterm));
     lit->term = make_boxed(lit->heap);
     lit->off_heap.first = 0;
     lit->off_heap.overhead = 0;
@@ -5329,6 +5377,7 @@ code_get_chunk_2(BIF_ALIST_2)
     Process* p = BIF_P;
     Eterm Bin = BIF_ARG_1;
     Eterm Chunk = BIF_ARG_2;
+    Binary* magic = 0;
     LoaderState* stp;
     Uint chunk = 0;
     ErlSubBin* sb;
@@ -5341,12 +5390,13 @@ code_get_chunk_2(BIF_ALIST_2)
     Eterm real_bin;
     byte* temp_alloc = NULL;
 
-    stp = erts_alloc_loader_state();
+    magic = erts_alloc_loader_state();
+    stp = ERTS_MAGIC_BIN_DATA(magic);
     if ((start = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
     error:
 	erts_free_aligned_binary_bytes(temp_alloc);
-	if (stp) {
-	    free_state(stp);
+	if (magic) {
+	    free_loader_state(magic);
 	}
 	BIF_ERROR(p, BADARG);
     }
@@ -5391,7 +5441,7 @@ code_get_chunk_2(BIF_ALIST_2)
 
  done:
     erts_free_aligned_binary_bytes(temp_alloc);
-    free_state(stp);
+    free_loader_state(magic);
     return res;
 }
 
@@ -5404,14 +5454,16 @@ code_module_md5_1(BIF_ALIST_1)
 {
     Process* p = BIF_P;
     Eterm Bin = BIF_ARG_1;
+    Binary* magic;
     LoaderState* stp;
     byte* bytes;
     byte* temp_alloc = NULL;
     Eterm res;
 
-    stp = erts_alloc_loader_state();
+    magic = erts_alloc_loader_state();
+    stp = ERTS_MAGIC_BIN_DATA(magic);
     if ((bytes = erts_get_aligned_binary_bytes(Bin, &temp_alloc)) == NULL) {
-	free_state(stp);
+	free_loader_state(magic);
 	BIF_ERROR(p, BADARG);
     }
     stp->module = THE_NON_VALUE; /* Suppress diagnostiscs */
@@ -5425,7 +5477,7 @@ code_module_md5_1(BIF_ALIST_1)
 
  done:
     erts_free_aligned_binary_bytes(temp_alloc);
-    free_state(stp);
+    free_loader_state(magic);
     return res;
 }
 
@@ -5481,7 +5533,7 @@ stub_read_export_table(LoaderState* stp)
 		   stp->num_exps, stp->num_functions);
     }
     stp->export
-	= (ExportEntry *) erts_alloc(ERTS_ALC_T_LOADER_TMP,
+	= (ExportEntry *) erts_alloc(ERTS_ALC_T_PREPARED_CODE,
 				     stp->num_exps * sizeof(ExportEntry));
 
     for (i = 0; i < stp->num_exps; i++) {
@@ -5708,6 +5760,7 @@ patch_funentries(Eterm Patchlist)
 Eterm
 erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 {
+    Binary* magic;
     LoaderState* stp;
     BeamInstr Funcs;
     BeamInstr Patchlist;
@@ -5729,7 +5782,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Must initialize stp->lambdas here because the error handling code
      * at label 'error' uses it.
      */
-    stp = erts_alloc_loader_state();
+    magic = erts_alloc_loader_state();
+    stp = ERTS_MAGIC_BIN_DATA(magic);
 
     if (is_not_atom(Mod)) {
 	goto error;
@@ -5916,13 +5970,13 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
     if (patch_funentries(Patchlist)) {
 	erts_free_aligned_binary_bytes(temp_alloc);
-	free_state(stp);
+	free_loader_state(magic);
 	return Mod;
     }
 
  error:
     erts_free_aligned_binary_bytes(temp_alloc);
-    free_state(stp);
+    free_loader_state(magic);
     BIF_ERROR(p, BADARG);
 }
 

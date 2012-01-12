@@ -53,7 +53,7 @@ load_module_2(BIF_ALIST_2)
     byte*    code;
     Eterm res;
     byte* temp_alloc = NULL;
-    struct LoaderState* stp;
+    Binary* magic;
     int is_blocking = 0;
 
     if (is_not_atom(BIF_ARG_1)) {
@@ -69,9 +69,9 @@ load_module_2(BIF_ALIST_2)
     /*
      * Read the BEAM file and prepare the module for loading.
      */
-    stp = erts_alloc_loader_state();
+    magic = erts_alloc_loader_state();
     sz = binary_size(BIF_ARG_2);
-    reason = erts_prepare_loading(stp, BIF_P, BIF_P->group_leader,
+    reason = erts_prepare_loading(magic, BIF_P, BIF_P->group_leader,
 				  &BIF_ARG_1, code, sz);
     erts_free_aligned_binary_bytes(temp_alloc);
     if (reason != NIL) {
@@ -101,7 +101,7 @@ load_module_2(BIF_ALIST_2)
 	    erts_clear_module_break(modp);
 	    ASSERT(modp->curr.num_breakpoints == 0);
 	}
-	reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
+	reason = erts_finish_loading(magic, BIF_P, 0, &BIF_ARG_1);
 	break;
     }
 
