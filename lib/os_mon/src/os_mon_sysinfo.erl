@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -108,9 +108,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%----------------------------------------------------------------------
 
 start_portprogram() ->
-    Command =
-	filename:join([code:priv_dir(os_mon),"bin","win32sysinfo.exe"]),
-    Port = open_port({spawn,Command}, [{packet,1}]),
+    Port = os_mon:open_port("win32sysinfo.exe", [{packet,1}]),
     receive
 	{Port, {data, [?OK]}} ->
 	    Port;
