@@ -847,6 +847,27 @@ erts_alloc_loader_state(void)
     return magic;
 }
 
+/*
+ * Return the module name (a tagged atom) for the prepared code
+ * in the magic binary, or NIL if the binary does not contain
+ * prepared code.
+ */
+int
+erts_module_for_prepared_code(Binary* magic)
+{
+    LoaderState* stp;
+
+    if (ERTS_MAGIC_BIN_DESTRUCTOR(magic) != loader_state_dtor) {
+	return NIL;
+    }
+    stp = ERTS_MAGIC_BIN_DATA(magic);
+    if (stp->code != 0) {
+	return stp->module;
+    } else {
+	return NIL;
+    }
+}
+
 static void
 free_loader_state(Binary* magic)
 {

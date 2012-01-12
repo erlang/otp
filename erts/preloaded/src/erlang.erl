@@ -82,7 +82,7 @@
 -export([delete_module/1, demonitor/1, demonitor/2, display/1]).
 -export([display_nl/0, display_string/1, dist_exit/3, erase/0, erase/1]).
 -export([error/1, error/2, exit/1, exit/2, external_size/1]).
--export([external_size/2, finish_after_on_load/2, float/1]).
+-export([external_size/2, finish_after_on_load/2, finish_loading/1, float/1]).
 -export([float_to_list/1, fun_info/2, fun_to_list/1, function_exported/3]).
 -export([garbage_collect/0, garbage_collect/1]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
@@ -101,7 +101,8 @@
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
 -export([port_connect/2, port_control/3, port_get_data/1]).
 -export([port_set_data/2, port_to_list/1, ports/0]).
--export([posixtime_to_universaltime/1, pre_loaded/0, process_display/2]).
+-export([posixtime_to_universaltime/1, pre_loaded/0, prepare_loading/2]).
+-export([process_display/2]).
 -export([process_flag/3, process_info/1, processes/0, purge_module/1]).
 -export([put/2, raise/3, read_timer/1, ref_to_list/1, register/2]).
 -export([registered/0, resume_process/1, round/1, self/0, send_after/3]).
@@ -627,6 +628,15 @@ external_size(_Term) ->
 external_size(_Term, _Options) ->
     erlang:nif_error(undefined).
 
+%% finish_loading/2
+-spec erlang:finish_loading(PreparedCodeBinaries) -> ok | Error when
+      PreparedCodeBinaries :: [PreparedCodeBinary],
+      PreparedCodeBinary :: binary(),
+      ModuleList :: [module()],
+      Error :: {not_purged,ModuleList} | {on_load,ModuleList}.
+finish_loading(_List) ->
+    erlang:nif_error(undefined).
+
 %% finish_after_on_load/2
 -spec erlang:finish_after_on_load(P1, P2) -> true when
       P1 :: atom(),
@@ -1078,6 +1088,15 @@ ports() ->
 -spec erlang:posixtime_to_universaltime(P1) -> {calendar:date(), calendar:time()} when
       P1 :: integer().
 posixtime_to_universaltime(_P1) ->
+    erlang:nif_error(undefined).
+
+%% prepare_loading/2
+-spec erlang:prepare_loading(Module, Code) -> PreparedCode | {error, Reason} when
+      Module :: module(),
+      Code :: binary(),
+      PreparedCode :: binary(),
+      Reason :: bad_file.
+prepare_loading(_Module, _Code) ->
     erlang:nif_error(undefined).
 
 %% pre_loaded/0
@@ -1547,8 +1566,18 @@ is_tuple(_Term) ->
       Module :: module(),
       Binary :: binary(),
       Reason :: badfile | not_purged | on_load.
-load_module(_Module,_Binary) ->
-    erlang:nif_error(undefined).
+load_module(Mod, Code) ->
+    case erlang:prepare_loading(Mod, Code) of
+	{error,_}=Error ->
+	    Error;
+	Bin when erlang:is_binary(Bin) ->
+	    case erlang:finish_loading([Bin]) of
+		ok ->
+		    {module,Mod};
+		{Error,[Mod]} ->
+		    {error,Error}
+	    end
+    end.
 
 -spec erlang:load_nif(Path, LoadInfo) ->  ok | Error when
       Path :: string(),

@@ -142,8 +142,6 @@ bif erlang:list_to_pid/1
 bif 'erl.lang.proc':string_to_pid/1	ebif_string_to_pid_1 list_to_pid_1
 bif erlang:list_to_tuple/1
 bif 'erl.lang.tuple':from_list/1	ebif_list_to_tuple_1
-bif erlang:load_module/2
-bif 'erl.system.code':load/2		ebif_load_module_2
 bif erlang:loaded/0
 bif 'erl.system.code':loaded/0		ebif_loaded_0
 bif erlang:localtime/0
@@ -812,6 +810,13 @@ bif erlang:check_old_code/1
 #
 bif erlang:universaltime_to_posixtime/1
 bif erlang:posixtime_to_universaltime/1
+
+#
+# New in R16B.
+#
+bif erlang:prepare_loading/2
+bif erlang:finish_loading/1
+
 #
 # Obsolete
 #
