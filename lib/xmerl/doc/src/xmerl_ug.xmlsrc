@@ -36,9 +36,9 @@
       <title>Features</title>
       <p>The <em>xmerl</em> XML parser is able to parse XML documents
         according to the XML 1.0 standard. As default it performs
-        well-formed parsing,(syntax checks and checks of well-formed
+        well-formed parsing, (syntax checks and checks of well-formed
         constraints). Optionally one can also use xmerl as a validating
-        parser,(validate according to referenced DTD and validating
+        parser, (validate according to referenced DTD and validating
         constraints). By means of for example the xmerl_xs module it is
         possible to transform the parsed result to other formats,
         e.g. text, HTML, XML etc.</p>
