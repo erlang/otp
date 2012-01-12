@@ -531,23 +531,16 @@ release_locks([]) ->
 release_lock({Tid, Oid, {queued, _}}) ->
     ?ets_match_delete(mnesia_lock_queue, #queue{oid=Oid, tid = Tid, op = '_',
 						pid = '_', lucky = '_'});
-release_lock({Tid, Oid, Op}) ->
+release_lock({_Tid, Oid, write}) ->
+    ?ets_delete(mnesia_held_locks, Oid);
+release_lock({Tid, Oid, read}) ->
     case ?ets_lookup(mnesia_held_locks, Oid) of
-	[] -> ok;
 	[{Oid, Prev, Locks0}] ->
-	    Locks = remove_tid(Locks0, Tid, []),
-	    if Locks =:= [] ->
-		    ?ets_delete(mnesia_held_locks, Oid);
-	       Op =:= read ->
-		    ?ets_insert(mnesia_held_locks, {Oid, Prev, Locks});
-	       true ->
-		    case lists:any(fun({TOp, _}) -> TOp =:= write end, Locks) of
-			true ->
-			    ?ets_insert(mnesia_held_locks, {Oid, write, Locks});
-			false ->
-			    ?ets_insert(mnesia_held_locks, {Oid, read, Locks})
-		    end
-	    end
+	    case remove_tid(Locks0, Tid, []) of
+		[] -> ?ets_delete(mnesia_held_locks, Oid);
+		Locks -> ?ets_insert(mnesia_held_locks, {Oid, Prev, Locks})
+	    end;
+	[] -> ok
     end.
 
 remove_tid([{_Op, Tid}|Ls], Tid, Acc) ->
