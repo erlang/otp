@@ -324,7 +324,7 @@ create_target(_Config) ->
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Config}])]),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
     
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -357,7 +357,7 @@ create_embedded(_Config) ->
     TargetDir = filename:join([?WORK_DIR, "target_embedded"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -387,7 +387,7 @@ create_standalone(_Config) ->
     TargetDir = filename:join([?WORK_DIR, "target_standalone"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
 
     BinDir = filename:join([TargetDir, "bin"]),
     Erl = filename:join([BinDir, "erl"]),
@@ -431,10 +431,10 @@ create_old_target(_Config) ->
     TargetDir = filename:join([?WORK_DIR, "target_old_style"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
     
     %% io:format("Will fail on Windows (should patch erl.ini)\n", []),
-    ?m(ok, reltool:install(RelName2, TargetDir)),
+    ok = ?m(ok, reltool:install(RelName2, TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -471,7 +471,7 @@ otp_9229_exclude_app(Config) ->
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclApp}])]),
     ?m({ok,["Module mylib exists in applications x and y. Using module from application x."]}, reltool:get_status([{config, ExclApp}])),
-    ?m(ok, reltool:create_target([{config, ExclApp}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, ExclApp}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -518,7 +518,7 @@ otp_9229_exclude_mod(Config) ->
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclMod}])]),
     ?m({ok,["Module mylib exists in applications x and y. Using module from application x."]}, reltool:get_status([{config, ExclMod}])),
-    ?m(ok, reltool:create_target([{config, ExclMod}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, ExclMod}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
