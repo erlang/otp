@@ -31,9 +31,9 @@
 /*
 ** Export entry
 */
+
 typedef struct export
 {
-    IndexSlot slot; /* MUST BE LOCATED AT TOP OF STRUCT!!! */
     void* address;		/* Pointer to code for function. */
     struct binary* match_prog_set; /* Match program for tracing. */
 

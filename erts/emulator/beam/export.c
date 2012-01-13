@@ -47,6 +47,20 @@ static erts_smp_rwmtx_t export_table_lock; /* Locks the secondary export table. 
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_call_traced_function;
 
+struct export_entry
+{
+    IndexSlot slot; /* MUST BE LOCATED AT TOP OF STRUCT!!! */
+    Export* ep;
+};
+
+/* Helper struct that brings things together in one allocation
+*/
+struct export_blob
+{
+    Export exp;
+    struct export_entry entry;
+};
+
 void
 export_info(int to, void *to_arg)
 {
@@ -65,45 +79,54 @@ export_info(int to, void *to_arg)
 
 
 static HashValue
-export_hash(Export* x)
+export_hash(struct export_entry* ee)
 {
+    Export* x = ee->ep;
     return EXPORT_HASH(x->code[0], x->code[1], x->code[2]);
 }
 
 static int
-export_cmp(Export* tmpl, Export* obj)
+export_cmp(struct export_entry* tmpl_e, struct export_entry* obj_e)
 {
+    Export* tmpl = tmpl_e->ep;
+    Export* obj = obj_e->ep;
     return !(tmpl->code[0] == obj->code[0] &&
 	     tmpl->code[1] == obj->code[1] &&
 	     tmpl->code[2] == obj->code[2]);
 }
 
 
-static Export*
-export_alloc(Export* tmpl)
+static struct export_entry*
+export_alloc(struct export_entry* tmpl_e)
 {
-    Export* obj = (Export*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(Export));
+
+    Export* tmpl = tmpl_e->ep;
+    struct export_blob* blob =
+	(struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
+    Export* obj = &blob->exp;
     
     obj->fake_op_func_info_for_hipe[0] = 0;
     obj->fake_op_func_info_for_hipe[1] = 0;
     obj->code[0] = tmpl->code[0];
     obj->code[1] = tmpl->code[1];
     obj->code[2] = tmpl->code[2];
-    obj->slot.index = -1;
+    blob->entry.slot.index = -1;
     obj->address = obj->code+3;
     obj->code[3] = (BeamInstr) em_call_error_handler;
     obj->code[4] = 0;
     obj->match_prog_set = NULL;
-    return obj;
+
+    blob->entry.ep = &blob->exp;
+    return &blob->entry;
 }
 
-
+/*SVERK
 static void 
-export_free(Export* obj)
+export_free(struct export_entry* obj)
 {
     erts_free(ERTS_ALC_T_EXPORT,  (void*) obj);
 }
-
+*/
 
 void
 init_export_table(void)
@@ -118,7 +141,7 @@ init_export_table(void)
     f.hash = (H_FUN) export_hash;
     f.cmp  = (HCMP_FUN) export_cmp;
     f.alloc = (HALLOC_FUN) export_alloc;
-    f.free = (HFREE_FUN) export_free;
+    f.free = (HFREE_FUN) NULL; /*SVERK export_free;*/
 
     erts_index_init(ERTS_ALC_T_EXPORT_TABLE, &export_table, "export_list",
 		    EXPORT_INITIAL_SIZE, EXPORT_LIMIT, f);
@@ -154,13 +177,23 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a)
      */
 	
     while (b != (HashBucket*) 0) {
-	Export* ep = (Export *) b;
+	Export* ep = ((struct export_entry*) b)->ep;
 	if (ep->code[0] == m && ep->code[1] == f && ep->code[2] == a) {
-	    break;
+	    return ep;
 	}
 	b = b->next;
     }
-    return (Export*)b;
+    return NULL;
+}
+
+static struct export_entry* init_template(struct export_blob* blob,
+					  Eterm m, Eterm f, unsigned a)
+{
+    blob->entry.ep = &blob->exp;
+    blob->exp.code[0] = m;
+    blob->exp.code[1] = f;
+    blob->exp.code[2] = a;
+    return &blob->entry;
 }
 
 
@@ -178,19 +211,15 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a)
 Export*
 erts_find_function(Eterm m, Eterm f, unsigned int a)
 {
-    Export e;
-    Export* ep;
+    struct export_blob blob;
+    struct export_entry* ee;
 
-    e.code[0] = m;
-    e.code[1] = f;
-    e.code[2] = a;
-
-    ep = hash_get(&export_table.htable, (void*) &e);
-    if (ep != NULL && ep->address == ep->code+3 &&
-	ep->code[3] != (BeamInstr) em_call_traced_function) {
-	ep = NULL;
+    ee = hash_get(&export_table.htable, init_template(&blob, m, f, a));
+    if (ee == NULL || (ee->ep->address == ee->ep->code+3 &&
+		       ee->ep->code[3] != (BeamInstr) em_call_traced_function)) {
+	return NULL;
     }
-    return ep;
+    return ee->ep;
 }
 
 /*
@@ -205,18 +234,15 @@ erts_find_function(Eterm m, Eterm f, unsigned int a)
 Export*
 erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 {
-    Export e;
+    struct export_blob blob;
     int ix;
 
     ERTS_SMP_LC_ASSERT(erts_initialized == 0
 		       || erts_smp_thr_progress_is_blocking());
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
-    e.code[0] = mod;
-    e.code[1] = func;
-    e.code[2] = arity;
-    ix = index_put(&export_table, (void*) &e);
-    return (Export*) erts_index_lookup(&export_table, ix);
+    ix = index_put(&export_table, init_template(&blob, mod, func, arity));
+    return ((struct export_entry*) erts_index_lookup(&export_table, ix))->ep;
 }
 
 /*
@@ -232,24 +258,24 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 Export*
 erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 {
-    Export e;
+    struct export_blob blob;
     Export* ep;
     
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
     
-    e.code[0] = mod;
-    e.code[1] = func;
-    e.code[2] = arity;
     ep = erts_find_export_entry(mod, func, arity);
     if (ep == 0) {
+	struct export_entry* entry;
 	/*
 	 * The code is not loaded (yet). Put the export in the secondary
 	 * export table, to avoid having to lock the main export table.
 	 */
 	export_write_lock();
-	ep = (Export *) hash_put(&secondary_export_table, (void*) &e);
+	entry = (struct export_entry *) hash_put(&secondary_export_table,
+						 init_template(&blob, mod, func, arity));
 	export_write_unlock();
+	ep = entry->ep;
     }
     return ep;
 }
@@ -281,7 +307,7 @@ erts_export_consolidate(void)
 
 Export *export_list(int i)
 {
-    return (Export*) erts_index_lookup(&export_table, i);
+    return ((struct export_entry*) erts_index_lookup(&export_table, i))->ep;
 }
 
 int export_list_size(void)
@@ -296,5 +322,9 @@ int export_table_sz(void)
 
 Export *export_get(Export *e)
 {
-    return hash_get(&export_table.htable, e);
+    struct export_entry ee;
+    struct export_entry* entry;
+    ee.ep = e;
+    entry = (struct export_entry*)hash_get(&export_table.htable, &ee);
+    return entry ? entry->ep : NULL;
 }
