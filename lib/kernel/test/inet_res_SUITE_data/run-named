@@ -2,7 +2,7 @@
 ##
 ## %CopyrightBegin%
 ## 
-## Copyright Ericsson AB 2009-2011. All Rights Reserved.
+## Copyright Ericsson AB 2009-2012. All Rights Reserved.
 ## 
 ## The contents of this file are subject to the Erlang Public License,
 ## Version 1.1, (the "License"); you may not use this file except in
@@ -159,17 +159,17 @@ echo "Command: $NAMED $NAMED_FG -c $CONF_FILE"
 $NAMED $NAMED_FG -c "$CONF_FILE" >"$LOG_FILE" 2>&1 </dev/null &
 NAMED_PID=$!
 echo "Pid: $NAMED_PID"
-trap "kill -TERM $NAMED_PID >/dev/null 2>&1; wait $NAMED_PID >/dev/null 2>&1" \
+trap "kill $NAMED_PID >/dev/null 2>&1; wait $NAMED_PID >/dev/null 2>&1" \
     0 1 2 3 15
 
 sleep 5 # Give name server time to load its zone files
 
-if ps p $NAMED_PID; then
+if ps -p $NAMED_PID >/dev/null 2>&1 || ps p $NAMED_PID >/dev/null 2>&1; then
     echo "Running: Enter \`\`quit'' to terminate nameserver[$NAMED_PID]..."
     while read LINE; do
 	test :"$LINE" = :'quit' && break
     done
+    echo "Closing: Terminating nameserver..."
 else
-    wait $NAMED_PID; error "$NAMED failed to start"
+    error "$NAMED failed to start"
 fi
-echo "Closing: Terminating nameserver..."
