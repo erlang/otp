@@ -157,12 +157,12 @@ info(Pid) ->
 %%              memory in vain.)
 %%--------------------------------------------------------------------
 %% Request should not be streamed
-stream(BodyPart, Request = #request{stream = none}, _) ->
+stream(BodyPart, #request{stream = none} = Request, _) ->
     ?hcrt("stream - none", []),
     {BodyPart, Request};
 
 %% Stream to caller
-stream(BodyPart, Request = #request{stream = Self}, Code) 
+stream(BodyPart, #request{stream = Self} = Request, Code) 
   when ((Code =:= 200) orelse  (Code =:= 206)) andalso 
        ((Self =:= self) orelse (Self =:= {self, once})) ->
     ?hcrt("stream - self", [{stream, Self}, {code, Code}]),
@@ -170,17 +170,10 @@ stream(BodyPart, Request = #request{stream = Self}, Code)
 			{Request#request.id, stream, BodyPart}),
     {<<>>, Request};
 
-stream(BodyPart, Request = #request{stream = Self}, 404) 
-  when (Self =:= self) orelse (Self =:= {self, once}) ->
-    ?hcrt("stream - self with 404", [{stream, Self}]),
-    httpc_response:send(Request#request.from, 
-			{Request#request.id, stream, BodyPart}),
-    {<<>>, Request};
-
 %% Stream to file
 %% This has been moved to start_stream/3
 %% We keep this for backward compatibillity...
-stream(BodyPart, Request = #request{stream = Filename}, Code)
+stream(BodyPart, #request{stream = Filename} = Request, Code)
   when ((Code =:= 200) orelse (Code =:= 206)) andalso is_list(Filename) -> 
     ?hcrt("stream - filename", [{stream, Filename}, {code, Code}]),
     case file:open(Filename, [write, raw, append, delayed_write]) of
@@ -192,7 +185,7 @@ stream(BodyPart, Request = #request{stream = Filename}, Code)
     end;
 
 %% Stream to file
-stream(BodyPart, Request = #request{stream = Fd}, Code)  
+stream(BodyPart, #request{stream = Fd} = Request, Code)  
   when ((Code =:= 200) orelse (Code =:= 206)) -> 
     ?hcrt("stream to file", [{stream, Fd}, {code, Code}]),
     case file:write(Fd, BodyPart) of

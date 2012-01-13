@@ -69,6 +69,14 @@
           <p>Own Id: OTP-9847</p>
         </item>
 
+        <item>
+          <p>[httpc] The client incorrectly streams 404 responses. 
+	  The documentation specifies that only 200 and 206 responses 
+	  shall be streamed. </p>
+	  <p>Shane Evens</p>
+          <p>Own Id: OTP-9860</p>
+        </item>
+
       </list>
     </section>
   
