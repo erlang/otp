@@ -26,6 +26,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	mt \
 	mnesia_SUITE \
+	mnesia_bench_SUITE \
 	mnesia_test_lib \
 	mnesia_install_test \
 	mnesia_registry_test \
@@ -117,7 +118,7 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)"
-	$(INSTALL_DATA) mnesia.spec mnesia.cover $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) mnesia.spec mnesia_bench.spec mnesia.cover $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_SCRIPT) mt $(INSTALL_PROGS) "$(RELSYSDIR)"
 #	chmod -R u+w "$(RELSYSDIR)"
 #	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
