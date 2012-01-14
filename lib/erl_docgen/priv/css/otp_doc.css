@@ -1,6 +1,5 @@
-
-
-body          { 
+/* standard OTP style sheet */
+body {
   background: white;
   font-family: Verdana, Arial, Helvetica, sans-serif;
   margin: 0;
@@ -10,7 +9,6 @@ body          {
   height: 100%;
   max-height: 100%;
 }
-
 
 th            { font-family: Verdana, Arial, Helvetica, sans-serif }
 td            { font-family: Verdana, Arial, Helvetica, sans-serif }
@@ -33,8 +31,7 @@ a:visited      { color: blue; text-decoration: none }
   background-color: #fff;
 }
 
-
-#leftnav  {
+#leftnav {
   position: fixed;
   float: left;
   top: 0;
@@ -47,8 +44,7 @@ a:visited      { color: blue; text-decoration: none }
   border-right: 1px solid red;
 }
 
-
-#content   {
+#content {
   margin-left: 240px; /* set left value to WidthOfFrameDiv */
 }
 
@@ -56,7 +52,6 @@ a:visited      { color: blue; text-decoration: none }
 {
   padding-top: 50px; /* Magins for inner DIV inside each DIV (to provide padding) */
 }
-
 
 .innertube 
 {
@@ -66,16 +61,15 @@ a:visited      { color: blue; text-decoration: none }
 .footer 
 {
   margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
-
 }
-span.bold_code        { font-family: courier;font-weight: bold}
-span.code        { font-family: courier;font-weight: normal}
+
+span.bold_code   { font-family: Courier, monospace; font-weight: bold }
+span.code        { font-family: Courier, monospace; font-weight: normal }
 
 .note, .warning {
   border: solid black 1px;
   margin: 1em 3em;
 }
-
 .note .label {
   background: #30d42a;
   color: white;
@@ -102,16 +96,15 @@ span.code        { font-family: courier;font-weight: normal}
   font-size: 90%;
   padding: 5px 10px;
 }
-
-.example     { 
+.example {
   background-color:#eeeeff;
   padding: 0px 10px;
-} 
+}
 
-pre          { font-family: courier; font-weight: normal }
+pre          { font-family: Courier, monospace; font-weight: normal }
 
 .REFBODY     { margin-left: 13mm }
 
 .REFTYPES    { margin-left: 8mm }
 
-footer       {  }
+footer       { }
