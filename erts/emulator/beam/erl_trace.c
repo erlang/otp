@@ -2923,7 +2923,7 @@ profile_runnable_port(Port *p, Eterm status) {
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE
 #else
-    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, NIL, NIL, msg, bp);
+    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->id, NIL, msg, bp);
 #endif
     erts_smp_mtx_unlock(&smq_mtx);
 }
@@ -2976,7 +2976,7 @@ profile_runnable_proc(Process *p, Eterm status){
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE
 #else
-    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, NIL, NIL, msg, bp);
+    enqueue_sys_msg_unlocked(SYS_MSG_TYPE_SYSPROF, p->id, NIL, msg, bp);
 #endif
     erts_smp_mtx_unlock(&smq_mtx);
 }
