@@ -1818,7 +1818,7 @@ do_test_cases(TopCase, SkipCases, Config, TimetrapSpec) ->
 %% Creates the log directories, the major log file and the html log file.
 %% The log files are initialized with some header information.
 %%
-%% The name of the log directory will be <Name>.LOGS/run.<Date>/ where
+%% The name of the log directory will be <Name>.logs/run.<Date>/ where
 %% Name is the test suite name and Date is the current date and time.
 
 start_log_file() ->
