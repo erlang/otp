@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,13 +48,14 @@ init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
 	    DataDir = ?config(data_dir, Config),
+	    UserDir = ?config(priv_dir, Config),
 	    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
 	    c:c(FileAlt),
 	    FileName = filename:join(DataDir, "test.txt"),
 	    {ok, FileInfo} = file:read_file_info(FileName),
 	    ok = file:write_file_info(FileName,
 				      FileInfo#file_info{mode = 8#400}),
-	    ssh_test_lib:make_dsa_files(Config),
+	    ssh_test_lib:setup_dsa(DataDir, UserDir),
 	    Config;
 	_Else ->
 	    {skip,"Could not start ssh!"}
@@ -66,7 +67,9 @@ init_per_suite(Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    UserDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(UserDir),
     crypto:stop(),
     ok.
 
@@ -85,7 +88,7 @@ end_per_suite(_Config) ->
 %%--------------------------------------------------------------------
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
-    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
 
     Options =
 	case atom_to_list(TestCase) of
@@ -95,8 +98,7 @@ init_per_testcase(TestCase, Config) ->
 					       ssh_sftpd_file_alt}]),
 		[{user_passwords,[{?USER, ?PASSWD}]},
 		 {pwdfun, fun(_,_) -> true end},
-		 {system_dir, DataDir},
-		 {user_dir, DataDir},
+		 {system_dir, PrivDir},
 		 {subsystems, [Spec]}];
 	    "root_dir" ->
 		Privdir = ?config(priv_dir, Config),
@@ -105,23 +107,20 @@ init_per_testcase(TestCase, Config) ->
 		Spec = ssh_sftpd:subsystem_spec([{root,Root}]),
 		[{user_passwords,[{?USER, ?PASSWD}]},
 		 {pwdfun, fun(_,_) -> true end},
-		 {system_dir, DataDir},
-		 {user_dir, DataDir},
+		 {system_dir, PrivDir},
 		 {subsystems, [Spec]}];
 	    "list_dir_limited" ->
 		Spec =
 		    ssh_sftpd:subsystem_spec([{max_files,1}]),
 		[{user_passwords,[{?USER, ?PASSWD}]},
 		 {pwdfun, fun(_,_) -> true end},
-		 {system_dir, DataDir},
-		 {user_dir, DataDir},
+		 {system_dir, PrivDir},
 		 {subsystems, [Spec]}];
 
 	    _ ->
 		[{user_passwords,[{?USER, ?PASSWD}]},
 		 {pwdfun, fun(_,_) -> true end},
-		 {user_dir, DataDir},
-		 {system_dir, DataDir}]
+		 {system_dir, PrivDir}]
 	end,
 
     {Sftpd, Host, _Port} = ssh_test_lib:daemon(any, ?SSHD_PORT, Options),
@@ -131,8 +130,7 @@ init_per_testcase(TestCase, Config) ->
 			       [{silently_accept_hosts, true},
 				{user, ?USER}, {password, ?PASSWD}, 
 				{pwdfun, fun(_,_) -> true end},
-				{system_dir, DataDir},
-				{user_dir, DataDir},
+				{user_dir, PrivDir},
 				{timeout, 30000}]),
     TmpConfig = lists:keydelete(sftp, 1, Config),
     NewConfig = lists:keydelete(sftpd, 1, TmpConfig),
