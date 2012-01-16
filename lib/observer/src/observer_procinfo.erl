@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -124,9 +124,14 @@ code_change(_, _, State) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init_process_page(Panel, Pid) ->
-    Fields = process_info_fields(Pid),
-    {FPanel, _, UpFields} = observer_lib:display_info(Panel, Fields),
-    {FPanel, fun() -> observer_lib:update_info(UpFields, process_info_fields(Pid)) end}.
+    Fields0 = process_info_fields(Pid),
+    {FPanel, _, UpFields} = observer_lib:display_info(Panel, Fields0),
+    {FPanel, fun() -> case process_info_fields(Pid) of
+			  Fields when is_list(Fields) ->
+			      observer_lib:update_info(UpFields, Fields);
+			  _ -> ok
+		      end
+	     end}.
 
 init_text_page(Parent) ->
     Style = ?wxTE_MULTILINE bor ?wxTE_RICH2 bor ?wxTE_READONLY,
@@ -144,16 +149,20 @@ init_message_page(Parent, Pid) ->
 		      Number+1}
 	     end,
     Update = fun() ->
-		     {messages,RawMessages} =
-			 observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, messages]),
-		     {Messages,_} = lists:mapfoldl(Format, 1, RawMessages),
-		     Last = wxTextCtrl:getLastPosition(Text),
-		     wxTextCtrl:remove(Text, 0, Last),
-		     case Messages =:= [] of
-			 true ->
-			     wxTextCtrl:writeText(Text, "No messages");
-			 false ->
-			     wxTextCtrl:writeText(Text, Messages)
+		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
+					      [Pid, messages])
+		     of
+			 {messages,RawMessages} ->
+			     {Messages,_} = lists:mapfoldl(Format, 1, RawMessages),
+			     Last = wxTextCtrl:getLastPosition(Text),
+			     wxTextCtrl:remove(Text, 0, Last),
+			     case Messages =:= [] of
+				 true ->
+				     wxTextCtrl:writeText(Text, "No messages");
+				 false ->
+				     wxTextCtrl:writeText(Text, Messages)
+			     end;
+			 _ -> ok
 		     end
 	     end,
     Update(),
@@ -162,12 +171,15 @@ init_message_page(Parent, Pid) ->
 init_dict_page(Parent, Pid) ->
     Text = init_text_page(Parent),
     Update = fun() ->
-		     {dictionary,RawDict} =
-			 observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary]),
-		     Dict = [io_lib:format("~-20.w ~p~n", [K, V]) || {K, V} <- RawDict],
-		     Last = wxTextCtrl:getLastPosition(Text),
-		     wxTextCtrl:remove(Text, 0, Last),
-		     wxTextCtrl:writeText(Text, Dict)
+		     case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, dictionary])
+		     of
+			 {dictionary,RawDict} ->
+			     Dict = [io_lib:format("~-20.w ~p~n", [K, V]) || {K, V} <- RawDict],
+			     Last = wxTextCtrl:getLastPosition(Text),
+			     wxTextCtrl:remove(Text, 0, Last),
+			     wxTextCtrl:writeText(Text, Dict);
+			 _ -> ok
+		     end
 	     end,
     Update(),
     {Text, Update}.
@@ -183,24 +195,29 @@ init_stack_page(Parent, Pid) ->
     wxListCtrl:setColumnWidth(LCtrl, 1, 300),
     wxListItem:destroy(Li),
     Update = fun() ->
-		     {current_stacktrace,RawBt} =
-			 observer_wx:try_rpc(node(Pid), erlang, process_info,
-					     [Pid, current_stacktrace]),
-		     wxListCtrl:deleteAllItems(LCtrl),
-		     wx:foldl(fun({M, F, A, Info}, Row) ->
-				      _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
-				      ?EVEN(Row) andalso
-					  wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
-				      wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str({M,F,A})),
-				      FileLine = case Info of
-						     [{file,File},{line,Line}] ->
-							 io_lib:format("~s:~w", [File,Line]);
-						     _ ->
-							 []
-						 end,
-				      wxListCtrl:setItem(LCtrl, Row, 1, FileLine),
-				      Row+1
-			      end, 0, RawBt)
+		     case observer_wx:try_rpc(node(Pid), erlang, process_info,
+					      [Pid, current_stacktrace])
+		     of
+			 {current_stacktrace,RawBt} ->
+			     observer_wx:try_rpc(node(Pid), erlang, process_info,
+						 [Pid, current_stacktrace]),
+			     wxListCtrl:deleteAllItems(LCtrl),
+			     wx:foldl(fun({M, F, A, Info}, Row) ->
+					      _Item = wxListCtrl:insertItem(LCtrl, Row, ""),
+					      ?EVEN(Row) andalso
+						  wxListCtrl:setItemBackgroundColour(LCtrl, Row, ?BG_EVEN),
+					      wxListCtrl:setItem(LCtrl, Row, 0, observer_lib:to_str({M,F,A})),
+					      FileLine = case Info of
+							     [{file,File},{line,Line}] ->
+								 io_lib:format("~s:~w", [File,Line]);
+							     _ ->
+								 []
+							 end,
+					      wxListCtrl:setItem(LCtrl, Row, 1, FileLine),
+					      Row+1
+				      end, 0, RawBt);
+			 _ -> ok
+		     end
 	     end,
     Resize = fun(#wx{event=#wxSize{size={W,_}}},Ev) ->
 		     wxEvent:skip(Ev),
@@ -216,7 +233,6 @@ create_menus(MenuBar) ->
     observer_lib:create_menus(Menus, MenuBar, new_window).
 
 process_info_fields(Pid) ->
-    RawInfo = observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, item_list()]),
     Struct = [{"Overview",
 	       [{"Initial Call",     initial_call},
 		{"Current Function", current_function},
@@ -246,7 +262,12 @@ process_info_fields(Pid) ->
 		{"GC Min Heap Size", {bytes, get_gc_info(min_heap_size)}},
 		{"GC FullSweep After", get_gc_info(fullsweep_after)}
 	       ]}],
-    observer_lib:fill_info(Struct, RawInfo).
+    case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, item_list()]) of
+	RawInfo when is_list(RawInfo) ->
+	    observer_lib:fill_info(Struct, RawInfo);
+	_ ->
+	    ok
+    end.
 
 item_list() ->
     [ %% backtrace,
