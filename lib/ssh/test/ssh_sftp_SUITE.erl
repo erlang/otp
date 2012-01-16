@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,6 @@ init_per_suite(Config) ->
 	{ok,ok} ->
 	    Dir = ?config(priv_dir, Config),
 	    {ok, _} = ssh_test_lib:get_id_keys(Dir),
-	    ssh_test_lib:make_dsa_files(Config),
 	    Config;
 	{ok,_} ->
 	    {skip,"Could not start ssh!"};
@@ -94,13 +93,14 @@ init_per_testcase(_Case, Config) ->
     SysDir =  ?config(data_dir, Config),
     Host = ssh_test_lib:hostname(),
 
+    %% Run test against openssh server if available
     Sftp = case (catch ssh_sftp:start_channel(Host,
 					      [{user_dir, Dir},
 					       {user_interaction, false},
 					       {silently_accept_hosts, true}])) of
 	       {ok, ChannelPid, Connection} ->
 		   {ChannelPid, Connection};
-	       _Error ->
+	       _Error -> %% Start own sftp server
 		   {_Sftpd, _Host, _Port} = 
 		       ssh_test_lib:daemon(Host, ?SFPD_PORT,
 					   [{system_dir, SysDir},

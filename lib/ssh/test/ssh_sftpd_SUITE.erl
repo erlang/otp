@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,16 +53,15 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case {catch ssh:stop(),catch crypto:start()} of
-	{ok,ok} ->
-	    ssh_test_lib:make_dsa_files(Config),
+    case (catch crypto:start()) of
+	ok ->
+	    ssh:start(),
+	    DataDir = ?config(data_dir, Config),
+	    UserDir = ?config(priv_dir, Config),
+	    ssh_test_lib:setup_dsa(UserDir, DataDir),
 	    Config;
-	{ok,_} ->
-	    {skip,"Could not start ssh!"};
-	{_,ok} ->
-	    {skip,"Could not start crypto!"};
-	{_,_} ->
-	    {skip,"Could not start crypto and ssh!"}
+	_ ->
+	    {skip,"Could not start ssh!"}
     end.
 
 %%--------------------------------------------------------------------
@@ -71,7 +70,10 @@ init_per_suite(Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    UserDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(UserDir),
+    ssh:stop(),
     crypto:stop(),
     ok.
 

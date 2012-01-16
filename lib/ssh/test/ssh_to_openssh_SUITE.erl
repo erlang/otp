@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,8 +42,12 @@
 init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
-	    ssh_test_lib:make_dsa_files(Config),
-	    Config;
+	    case gen_tcp:connect("localhost", 22, []) of
+		{error,econnrefused} ->
+		    {skip,"No openssh deamon"};
+		_ ->
+		    Config
+	    end;
 	_Else ->
 	    {skip,"Could not start crypto!"}
     end.
@@ -100,26 +104,43 @@ all() ->
 	false -> 
 	    {skip, "openSSH not installed on host"};
 	_ ->
-	    [erlang_shell_client_openssh_server,
-	     erlang_client_openssh_server_exec,
-	     erlang_client_openssh_server_exec_compressed,
-	     erlang_server_openssh_client_exec,
-	     erlang_server_openssh_client_exec_compressed,
-	     erlang_client_openssh_server_setenv,
-	     erlang_client_openssh_server_publickey_rsa,
-	     erlang_client_openssh_server_publickey_dsa,
-	     erlang_server_openssh_client_pulic_key_dsa,
-	     erlang_client_openssh_server_password]
+	    [{group, erlang_client},
+	     {group, erlang_server}
+	     ]
     end.
 
 groups() -> 
-    [].
+    [{erlang_client, [], [erlang_shell_client_openssh_server,
+			  erlang_client_openssh_server_exec,
+			  erlang_client_openssh_server_exec_compressed,
+			  erlang_client_openssh_server_setenv,
+			  erlang_client_openssh_server_publickey_rsa,
+			  erlang_client_openssh_server_publickey_dsa,
+			  erlang_client_openssh_server_password]},
+     {erlang_server, [], [erlang_server_openssh_client_exec,
+			  erlang_server_openssh_client_exec_compressed,
+			  erlang_server_openssh_client_pulic_key_dsa,
+			  erlang_client_openssh_server_password]}
+    ].
 
-init_per_group(_GroupName, Config) ->
-	Config.
+init_per_group(erlang_server, Config) ->
+    DataDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, UserDir),
+    Config;
+init_per_group(_, Config) ->
+    Dir = ?config(priv_dir, Config),
+    {ok, _} = ssh_test_lib:get_id_keys(Dir),
+    Config.
 
-end_per_group(_GroupName, Config) ->
-	Config.
+end_per_group(erlang_server, Config) ->
+    UserDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(UserDir),
+    Config;
+end_per_group(_, Config) ->
+    Dir = ?config(priv_dir, Config),
+    ssh_test_lib:remove_id_keys(Dir),
+    Config.
 
 %% TEST cases starts here.
 %%--------------------------------------------------------------------
@@ -131,8 +152,9 @@ erlang_shell_client_openssh_server(suite) ->
 
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
+    UserDir = ?config(priv_dir, Config),
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
+    Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO, UserDir),
     IO ! {input, self(), "echo Hej\n"},
     receive_hej(),
     IO ! {input, self(), "exit\n"},
@@ -228,7 +250,7 @@ erlang_server_openssh_client_exec(suite) ->
     [];
 
 erlang_server_openssh_client_exec(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = ?config(priv_dir, Config),
     
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
@@ -257,7 +279,7 @@ erlang_server_openssh_client_exec_compressed(suite) ->
     [];
 
 erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = ?config(priv_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {compression, zlib},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
@@ -346,7 +368,9 @@ erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
 	    ok = ssh:close(ConnectionRef),
 	    ok = file:delete(filename:join(UserDir, "id_rsa"));
 	{error, enoent} ->
-	    {skip, "no ~/.ssh/id_rsa"}
+	    {skip, "no ~/.ssh/id_rsa"};
+       	{error, Reason} ->
+	    {skip, Reason}
     end.
 
 %%--------------------------------------------------------------------
@@ -372,7 +396,9 @@ erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
 	    ok = ssh:close(ConnectionRef),
 	    ok = file:delete(filename:join(UserDir, "id_dsa"));
 	{error, enoent} ->
-	    {skip, "no ~/.ssh/id_dsa"}
+	    {skip, "no ~/.ssh/id_dsa"};
+	{error, Reason} ->
+	    {skip, Reason}
     end.
 
 %%--------------------------------------------------------------------
@@ -383,7 +409,7 @@ erlang_server_openssh_client_pulic_key_dsa(suite) ->
     [];
 
 erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = ?config(priv_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {public_key_alg, ssh_dsa},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
