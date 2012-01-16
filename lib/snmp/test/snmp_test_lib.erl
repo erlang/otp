@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,7 +37,7 @@
 -export([watchdog/3, watchdog_start/1, watchdog_start/2, watchdog_stop/1]).
 -export([del_dir/1]).
 -export([cover/1]).
--export([p/2, print/5]).
+-export([p/2, print/5, formated_timestamp/0]).
 
 
 %% ----------------------------------------------------------------------
@@ -521,15 +521,18 @@ p(F, A) when is_list(F) andalso is_list(A) ->
 
 print(Prefix, Module, Line, Format, Args) ->
     io:format("*** [~s] ~s ~p ~p ~p:~p *** " ++ Format ++ "~n", 
-	      [format_timestamp(now()), 
+	      [formated_timestamp(), 
 	       Prefix, node(), self(), Module, Line|Args]).
+
+formated_timestamp() ->
+    format_timestamp(os:timestamp()).
 
 format_timestamp({_N1, _N2, N3} = Now) ->
     {Date, Time}   = calendar:now_to_datetime(Now),
     {YYYY,MM,DD}   = Date,
     {Hour,Min,Sec} = Time,
     FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
+        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w ~w",
                       [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
     lists:flatten(FormatDate).
 

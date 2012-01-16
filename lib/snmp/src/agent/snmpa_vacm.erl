@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -266,9 +266,10 @@ dump_table(true) ->
 dump_table(_) ->
     ok.
 
+
 dump_table() ->
     [{_, FName}] = ets:lookup(snmp_agent_table, snmpa_vacm_file),
-    TmpName = FName ++ ".tmp",
+    TmpName = unique_table_name(FName), 
     case ets:tab2file(snmpa_vacm, TmpName) of
 	ok ->
 	    case file:rename(TmpName, FName) of
@@ -281,6 +282,35 @@ dump_table() ->
 	{error, Reason} ->
 	    user_err("Warning: could not save vacm db ~p (~p)",
 		     [FName, Reason])
+    end.
+
+%% This little thing is an attempt to create a "unique" filename
+%% in order to minimize the risk of two processes at the same 
+%% time dumping the table.
+unique_table_name(Pre) ->
+    %% We want something that is guaranteed to be unique, 
+    %% therefor we use erlang:now() instead of os:timestamp()
+    unique_table_name(Pre, erlang:now()).
+
+unique_table_name(Pre, {_A, _B, C} = Now) ->
+    {Date, Time}     = calendar:now_to_datetime(Now),
+    {YYYY, MM, DD}   = Date,
+    {Hour, Min, Sec} = Time,
+    FormatDate =
+        io_lib:format("~.4w~.2.0w~.2.0w_~.2.0w~.2.0w~.2.0w_~w",
+                      [YYYY, MM, DD, Hour, Min, Sec, round(C/1000)]), 
+    unique_table_name2(Pre, FormatDate).
+
+unique_table_name2(Pre, FormatedDate) ->
+    PidPart = unique_table_name_pid(), 
+    lists:flatten(io_lib:format("~s.~s~s.tmp", [Pre, PidPart, FormatedDate])).
+
+unique_table_name_pid() ->
+    case string:tokens(pid_to_list(self()), [$<,$.,$>]) of
+	[A, B, C] ->
+	    A ++ B ++ C ++ ".";
+	_ ->
+	    ""
     end.
 
 
