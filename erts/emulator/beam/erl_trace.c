@@ -544,7 +544,7 @@ send_to_port(Process *c_p, Eterm message,
  */
 
 static void 
-profile_send(Eterm message) {
+profile_send(Eterm from, Eterm message) {
     Uint sz = 0;
     ErlHeapFragment *bp = NULL;
     Uint *hp = NULL;
@@ -553,6 +553,9 @@ profile_send(Eterm message) {
     ErlOffHeap *off_heap = NULL;
 
     Eterm profiler = erts_get_system_profile();
+
+    /* do not profile profiler pid */
+    if (from == profiler) return;
 
     if (is_internal_port(profiler)) {
     	Port *profiler_port = NULL;
@@ -2617,7 +2620,7 @@ profile_scheduler(Eterm scheduler_id, Eterm state) {
 		 make_small(active_sched), timestamp); hp += 7;
 
 #ifndef ERTS_SMP
-    profile_send(msg);
+    profile_send(NIL, msg);
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE
 #else
@@ -2652,7 +2655,7 @@ profile_scheduler_q(Eterm scheduler_id, Eterm state, Eterm no_schedulers, Uint M
     timestamp = TUPLE3(hp, make_small(Ms), make_small(s), make_small(us)); hp += 4;
     msg = TUPLE6(hp, am_profile, am_scheduler, scheduler_id, state, no_schedulers, timestamp); hp += 7;
 #ifndef ERTS_SMP
-    profile_send(msg);
+    profile_send(NIL, msg);
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE
 #else
@@ -2919,7 +2922,7 @@ profile_runnable_port(Port *p, Eterm status) {
     msg = TUPLE5(hp, am_profile, p->id, status, count, timestamp); hp += 6;
 
 #ifndef ERTS_SMP
-    profile_send(msg);
+    profile_send(p->id, msg);
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE
 #else
@@ -2972,7 +2975,7 @@ profile_runnable_proc(Process *p, Eterm status){
     timestamp = TUPLE3(hp, make_small(Ms), make_small(s), make_small(us)); hp += 4;
     msg = TUPLE5(hp, am_profile, p->id, status, where, timestamp); hp += 6;
 #ifndef ERTS_SMP
-    profile_send(msg);
+    profile_send(p->id, msg);
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE
 #else
