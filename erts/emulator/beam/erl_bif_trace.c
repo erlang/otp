@@ -333,7 +333,8 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 
     matches = erts_set_trace_pattern(mfa, specified, 
 				     match_prog_set, match_prog_set,
-				     on, flags, meta_tracer_pid);
+				     on, flags, meta_tracer_pid,
+				     erts_active_code_ix());
     MatchSetUnref(match_prog_set);
 
  done:
@@ -1331,7 +1332,8 @@ int
 erts_set_trace_pattern(Eterm* mfa, int specified, 
 		       Binary* match_prog_set, Binary *meta_match_prog_set,
 		       int on, struct trace_pattern_flags flags,
-		       Eterm meta_tracer_pid)
+		       Eterm meta_tracer_pid,
+		       ErtsCodeIndex code_ix)
 {
     int matches = 0;
     int i;
@@ -1340,8 +1342,8 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
      * First work on normal functions (not real BIFs).
      */
     
-    for (i = 0; i < export_list_size(); i++) {
-	Export* ep = export_list(i);
+    for (i = 0; i < export_list_size(code_ix); i++) {
+	Export* ep = export_list(i, code_ix);
 	int j;
 	
 	if (ExportIsBuiltIn(ep)) {

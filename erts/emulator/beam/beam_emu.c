@@ -5742,7 +5742,8 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     /*
      * Search for the error_handler module.
      */
-    ep = erts_find_function(erts_proc_get_error_handler(p), func, 3);
+    ep = erts_find_function(erts_proc_get_error_handler(p), func, 3,
+			    erts_active_code_ix());
     if (ep == NULL) {		/* No error handler */
 	p->current = fi;
 	p->freason = EXC_UNDEF;
@@ -5786,7 +5787,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
      * there is no error handler module.
      */
 
-    if ((ep = erts_find_export_entry(erts_proc_get_error_handler(p),
+    if ((ep = erts_active_export_entry(erts_proc_get_error_handler(p),
 				     am_undefined_function, 3)) == NULL) {
 	return NULL;
     } else {
@@ -5893,7 +5894,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
      * Note: All BIFs have export entries; thus, no special case is needed.
      */
 
-    if ((ep = erts_find_export_entry(module, function, arity)) == NULL) {
+    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) goto error;
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
@@ -5941,7 +5942,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
      * Note: All BIFs have export entries; thus, no special case is needed.
      */
 
-    if ((ep = erts_find_export_entry(module, function, arity)) == NULL) {
+    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL)
 	    goto error;
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
@@ -6118,7 +6119,7 @@ call_fun(Process* p,		/* Current process. */
 		Export* ep;
 		Module* modp;
 		Eterm module;
-
+		ErtsCodeIndex code_ix = erts_active_code_ix();
 
 		/*
 		 * No arity. There is no module loaded that defines the fun,
@@ -6143,7 +6144,7 @@ call_fun(Process* p,		/* Current process. */
 		 */
 
 		ep = erts_find_function(erts_proc_get_error_handler(p),
-					am_undefined_lambda, 3);
+					am_undefined_lambda, 3, code_ix);
 		if (ep == NULL) {	/* No error handler */
 		    p->current = NULL;
 		    p->freason = EXC_UNDEF;
@@ -6215,8 +6216,8 @@ call_fun(Process* p,		/* Current process. */
 	    erts_send_warning_to_logger(p->group_leader, dsbufp);
 	}
 
-	if ((ep = erts_find_export_entry(module, function, arity)) == NULL) {
-	    ep = erts_find_export_entry(erts_proc_get_error_handler(p),
+	if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
+	    ep = erts_active_export_entry(erts_proc_get_error_handler(p),
 					am_undefined_function, 3);
 	    if (ep == NULL) {
 		p->freason = EXC_UNDEF;

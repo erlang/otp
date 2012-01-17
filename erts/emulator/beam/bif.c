@@ -3709,7 +3709,8 @@ BIF_RETTYPE function_exported_3(BIF_ALIST_3)
 	is_not_small(BIF_ARG_3)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (erts_find_function(BIF_ARG_1, BIF_ARG_2, signed_val(BIF_ARG_3)) == NULL) {
+    if (erts_find_function(BIF_ARG_1, BIF_ARG_2, signed_val(BIF_ARG_3),
+			   erts_active_code_ix()) == NULL) {
 	BIF_RET(am_false);
     }
     BIF_RET(am_true);

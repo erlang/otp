@@ -1591,7 +1591,7 @@ BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2)
 	f = tp[2];
 	if (is_not_atom(m) || is_not_atom(f))
 	    goto badfun;
-	if (!erts_find_export_entry(m, f, BIF_ARG_2))
+	if (!erts_active_export_entry(m, f, BIF_ARG_2)) /*SVERK active? */
 	    goto badfun;
     } else
 	goto badfun;

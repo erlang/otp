@@ -353,7 +353,8 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     Eterm env;
     
     start_mod = am_atom_put(modname, sys_strlen(modname));
-    if (erts_find_function(start_mod, am_start, 2) == NULL) {
+    if (erts_find_function(start_mod, am_start, 2,
+			   erts_active_code_ix()) == NULL) {
 	erl_exit(5, "No function %s:start/2\n", modname);
     }
 

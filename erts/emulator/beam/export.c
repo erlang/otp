@@ -32,7 +32,13 @@
 
 #define EXPORT_HASH(m,f,a) ((m)*(f)+(a))
 
-static IndexTable export_table;	/* Not locked. */
+#ifdef DEBUG
+#  define IF_DEBUG(x) x
+#else
+#  define IF_DEBUG(x)
+#endif
+
+static IndexTable export_tables[ERTS_NUM_CODE_IX];  /* Active not locked */
 static Hash secondary_export_table; /* Locked. */
 
 #include "erl_smp.h"
@@ -58,8 +64,18 @@ struct export_entry
 struct export_blob
 {
     Export exp;
-    struct export_entry entry;
+    unsigned top_ix;  /*SVERK atomic? */
+    struct export_entry entryv[ERTS_NUM_CODE_IX];
 };
+
+/* Helper struct only used as template
+*/
+struct export_templ
+{
+    struct export_entry entry;
+    Export exp;
+};
+
 
 void
 export_info(int to, void *to_arg)
@@ -69,7 +85,7 @@ export_info(int to, void *to_arg)
     if (lock)
 	export_read_lock();
 #endif
-    index_info(to, to_arg, &export_table);
+    index_info(to, to_arg, &export_tables[erts_active_code_ix()]);
     hash_info(to, to_arg, &secondary_export_table);
 #ifdef ERTS_SMP
     if (lock)
@@ -104,20 +120,24 @@ export_alloc(struct export_entry* tmpl_e)
     struct export_blob* blob =
 	(struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
     Export* obj = &blob->exp;
-    
+    int i;
+
     obj->fake_op_func_info_for_hipe[0] = 0;
     obj->fake_op_func_info_for_hipe[1] = 0;
     obj->code[0] = tmpl->code[0];
     obj->code[1] = tmpl->code[1];
     obj->code[2] = tmpl->code[2];
-    blob->entry.slot.index = -1;
     obj->address = obj->code+3;
     obj->code[3] = (BeamInstr) em_call_error_handler;
     obj->code[4] = 0;
     obj->match_prog_set = NULL;
 
-    blob->entry.ep = &blob->exp;
-    return &blob->entry;
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	blob->entryv[i].slot.index = -1;
+	blob->entryv[i].ep = &blob->exp;
+    }
+    blob->top_ix = 0;
+    return &blob->entryv[blob->top_ix];
 }
 
 /*SVERK
@@ -133,6 +153,7 @@ init_export_table(void)
 {
     HashFunctions f;
     erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    int i;
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
@@ -143,8 +164,10 @@ init_export_table(void)
     f.alloc = (HALLOC_FUN) export_alloc;
     f.free = (HFREE_FUN) NULL; /*SVERK export_free;*/
 
-    erts_index_init(ERTS_ALC_T_EXPORT_TABLE, &export_table, "export_list",
-		    EXPORT_INITIAL_SIZE, EXPORT_LIMIT, f);
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	erts_index_init(ERTS_ALC_T_EXPORT_TABLE, &export_tables[i], "export_list",
+			EXPORT_INITIAL_SIZE, EXPORT_LIMIT, f);
+    }
     hash_init(ERTS_ALC_T_EXPORT_TABLE, &secondary_export_table,
 	      "secondary_export_table", 50, f);
 }
@@ -163,14 +186,22 @@ init_export_table(void)
  */
 
 Export*
-erts_find_export_entry(Eterm m, Eterm f, unsigned int a)
+erts_active_export_entry(Eterm m, Eterm f, unsigned int a)
+{
+    return erts_find_export_entry(m, f, a, erts_active_code_ix());
+}
+
+
+Export*
+erts_find_export_entry(Eterm m, Eterm f, unsigned int a,
+		       ErtsCodeIndex code_ix)
 {
     HashValue hval = EXPORT_HASH((BeamInstr) m, (BeamInstr) f, (BeamInstr) a);
     int ix;
     HashBucket* b;
 
-    ix = hval % export_table.htable.size;
-    b = export_table.htable.bucket[ix];
+    ix = hval % export_tables[code_ix].htable.size;
+    b = export_tables[code_ix].htable.bucket[ix];
 
     /*
      * Note: We have inlined the code from hash.c for speed.
@@ -186,14 +217,15 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a)
     return NULL;
 }
 
-static struct export_entry* init_template(struct export_blob* blob,
+static struct export_entry* init_template(struct export_templ* templ,
 					  Eterm m, Eterm f, unsigned a)
 {
-    blob->entry.ep = &blob->exp;
-    blob->exp.code[0] = m;
-    blob->exp.code[1] = f;
-    blob->exp.code[2] = a;
-    return &blob->entry;
+    templ->entry.ep = &templ->exp;
+    templ->entry.slot.index = -1;
+    templ->exp.code[0] = m;
+    templ->exp.code[1] = f;
+    templ->exp.code[2] = a;
+    return &templ->entry;
 }
 
 
@@ -209,12 +241,12 @@ static struct export_entry* init_template(struct export_blob* blob,
  */
 
 Export*
-erts_find_function(Eterm m, Eterm f, unsigned int a)
+erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
 {
-    struct export_blob blob;
+    struct export_templ templ;
     struct export_entry* ee;
 
-    ee = hash_get(&export_table.htable, init_template(&blob, m, f, a));
+    ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
     if (ee == NULL || (ee->ep->address == ee->ep->code+3 &&
 		       ee->ep->code[3] != (BeamInstr) em_call_traced_function)) {
 	return NULL;
@@ -234,15 +266,14 @@ erts_find_function(Eterm m, Eterm f, unsigned int a)
 Export*
 erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 {
-    struct export_blob blob;
+    ErtsCodeIndex code_ix = erts_loader_code_ix();
+    struct export_templ templ;
     int ix;
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0
-		       || erts_smp_thr_progress_is_blocking());
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
-    ix = index_put(&export_table, init_template(&blob, mod, func, arity));
-    return ((struct export_entry*) erts_index_lookup(&export_table, ix))->ep;
+    ix = index_put(&export_tables[code_ix], init_template(&templ, mod, func, arity));
+    return ((struct export_entry*) erts_index_lookup(&export_tables[code_ix], ix))->ep;
 }
 
 /*
@@ -258,14 +289,14 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 Export*
 erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 {
-    struct export_blob blob;
     Export* ep;
     
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
     
-    ep = erts_find_export_entry(mod, func, arity);
+    ep = erts_active_export_entry(mod, func, arity);
     if (ep == 0) {
+	struct export_templ templ;
 	struct export_entry* entry;
 	/*
 	 * The code is not loaded (yet). Put the export in the secondary
@@ -273,7 +304,7 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 	 */
 	export_write_lock();
 	entry = (struct export_entry *) hash_put(&secondary_export_table,
-						 init_template(&blob, mod, func, arity));
+						 init_template(&templ, mod, func, arity));
 	export_write_unlock();
 	ep = entry->ep;
     }
@@ -286,38 +317,44 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
  * export table into the primary.
  */
 void
-erts_export_consolidate(void)
+erts_export_consolidate(ErtsCodeIndex code_ix)
 {
 #ifdef DEBUG
     HashInfo hi;
 #endif
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0
+    /*SVERK: Not sure if this is the way to go.
+             Maye we should always merge into loader ix,
+             or can loader table act as secondary_export_table?*/
+
+    ERTS_SMP_LC_ASSERT((erts_is_code_ix_locked()
+			&& code_ix == erts_loader_code_ix())
+		       || erts_initialized == 0
 		       || erts_smp_thr_progress_is_blocking());
 
     export_write_lock();
-    erts_index_merge(&secondary_export_table, &export_table);
-    erts_hash_merge(&secondary_export_table, &export_table.htable);
+    erts_index_merge(&secondary_export_table, &export_tables[code_ix]);
+    erts_hash_merge(&secondary_export_table, &export_tables[code_ix].htable);
     export_write_unlock();
 #ifdef DEBUG
-    hash_get_info(&hi, &export_table.htable);
-    ASSERT(export_table.entries == hi.objs);
+    hash_get_info(&hi, &export_tables[code_ix].htable);
+    ASSERT(export_tables[code_ix].entries == hi.objs);
 #endif
 }
 
-Export *export_list(int i)
+Export *export_list(int i, ErtsCodeIndex code_ix)
 {
-    return ((struct export_entry*) erts_index_lookup(&export_table, i))->ep;
+    return ((struct export_entry*) erts_index_lookup(&export_tables[code_ix], i))->ep;
 }
 
-int export_list_size(void)
+int export_list_size(ErtsCodeIndex code_ix)
 {
-    return export_table.entries;
+    return export_tables[code_ix].entries;
 }
 
 int export_table_sz(void)
 {
-    return index_table_sz(&export_table);
+    return index_table_sz(&export_tables[erts_active_code_ix()]);
 }
 
 Export *export_get(Export *e)
@@ -325,6 +362,65 @@ Export *export_get(Export *e)
     struct export_entry ee;
     struct export_entry* entry;
     ee.ep = e;
-    entry = (struct export_entry*)hash_get(&export_table.htable, &ee);
+    entry = (struct export_entry*)hash_get(&export_tables[erts_active_code_ix()].htable, &ee);
     return entry ? entry->ep : NULL;
+}
+
+static struct export_entry*
+export_dummy_alloc(struct export_entry* entry)
+{
+    return entry;
+}
+
+static struct export_blob* entry_to_blob(struct export_entry* ee)
+{
+    return (struct export_blob*)
+        ((char*)ee->ep - offsetof(struct export_blob,exp));
+}
+
+IF_DEBUG(static ErtsCodeIndex debug_start_load_ix = 0;)
+
+void export_start_load(void)
+{
+    ErtsCodeIndex dst_ix = erts_loader_code_ix();
+    ErtsCodeIndex src_ix = erts_active_code_ix();
+    IndexTable* dst = &export_tables[dst_ix];
+    IndexTable* src = &export_tables[src_ix];
+    int i;
+
+    ASSERT(dst_ix != src_ix);
+    ASSERT(debug_start_load_ix == -1);
+
+    /* Trick hash_put (called by index_put below)
+     * to insert an already allocated entry. */
+    dst->htable.fun.alloc = (HALLOC_FUN) &export_dummy_alloc;
+
+    for (i = dst->entries; i < src->entries; i++) {
+	struct export_entry* src_entry;
+	struct export_entry* dst_entry;
+	struct export_blob* blob;
+
+	src_entry = (struct export_entry*) erts_index_lookup(src, i);
+	blob = entry_to_blob(src_entry);
+	dst_entry = &blob->entryv[++blob->top_ix];
+	ASSERT(blob->top_ix < ERTS_NUM_CODE_IX);
+	ASSERT(dst_entry->ep == &blob->exp);
+	ASSERT(dst_entry->slot.index == -1);
+	index_put(dst, dst_entry);
+    }
+
+    dst->htable.fun.alloc = (HALLOC_FUN) &export_alloc; /* restore */
+
+    /*SVERK Remember dst->entries in order to purge on abort */
+
+    IF_DEBUG(debug_start_load_ix = dst_ix);
+}
+
+void export_end_load(int commit)
+{
+    ASSERT(debug_start_load_ix == erts_loader_code_ix());
+
+    /*SVERK Purge if abort */
+
+    IF_DEBUG(debug_start_load_ix = -1);
 }

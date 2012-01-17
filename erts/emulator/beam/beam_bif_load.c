@@ -35,7 +35,7 @@
 #include "erl_nif.h"
 #include "erl_thr_progress.h"
 
-static void set_default_trace_pattern(Eterm module);
+static void set_default_trace_pattern(Eterm module, ErtsCodeIndex);
 static Eterm check_process_code(Process* rp, Module* modp);
 static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
 static void delete_export_references(Eterm module);
@@ -90,10 +90,15 @@ load_module_2(BIF_ALIST_2)
 
     reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
     if (reason != NIL) {
-	erts_abort_loader_code_ix();
+	if (reason == am_on_load) {
+	    erts_commit_loader_code_ix();
+	}
+	else {
+	    erts_abort_loader_code_ix();
+	}
 	res = TUPLE2(hp, am_error, reason);
     } else {
-	set_default_trace_pattern(BIF_ARG_1);
+	set_default_trace_pattern(BIF_ARG_1, erts_loader_code_ix());
 	erts_commit_loader_code_ix();
 	res = TUPLE2(hp, am_module, BIF_ARG_1);
     }
@@ -114,7 +119,7 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    erts_export_consolidate();
+    erts_export_consolidate(erts_active_code_ix());
     purge_res = purge_module(atom_val(BIF_ARG_1));
 
     erts_smp_thr_progress_unblock();
@@ -148,7 +153,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    erts_export_consolidate();
+    erts_export_consolidate(erts_active_code_ix());
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
     erts_smp_thr_progress_unblock();
@@ -331,8 +336,10 @@ BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 
 BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 {
+    ErtsCodeIndex code_ix;
     Module* modp = erts_get_module(BIF_ARG_1);
     Eterm on_load;
+    code_ix = erts_active_code_ix();
 
     if (!modp || modp->curr.code == 0) {
     error:
@@ -354,8 +361,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	/*
 	 * The on_load function succeded. Fix up export entries.
 	 */
-	for (i = 0; i < export_list_size(); i++) {
-	    Export *ep = export_list(i);
+	for (i = 0; i < export_list_size(code_ix); i++) {
+	    Export *ep = export_list(i,code_ix);
 	    if (ep != NULL &&
 		ep->code[0] == BIF_ARG_1 &&
 		ep->code[4] != 0) {
@@ -364,7 +371,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    }
 	}
 	modp->curr.code[MI_ON_LOAD_FUNCTION_PTR] = 0;
-	set_default_trace_pattern(BIF_ARG_1);
+	set_default_trace_pattern(BIF_ARG_1, erts_active_code_ix ());
     } else if (BIF_ARG_2 == am_false) {
 	BeamInstr* code;
 	BeamInstr* end;
@@ -392,7 +399,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 }
 
 static void
-set_default_trace_pattern(Eterm module)
+set_default_trace_pattern(Eterm module, ErtsCodeIndex code_ix)
 {
     int trace_pattern_is_on;
     Binary *match_spec;
@@ -412,7 +419,8 @@ set_default_trace_pattern(Eterm module)
 				      match_spec,
 				      meta_match_spec,
 				      1, trace_pattern_flags,
-				      meta_tracer_pid);
+				      meta_tracer_pid,
+				      code_ix);
     }
 }
 
@@ -763,12 +771,13 @@ delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
 static void
 delete_export_references(Eterm module)
 {
+    ErtsCodeIndex code_ix = erts_loader_code_ix();
     int i;
 
     ASSERT(is_atom(module));
 
-    for (i = 0; i < export_list_size(); i++) {
-	Export *ep = export_list(i);
+    for (i = 0; i < export_list_size(code_ix); i++) {
+	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->code[0] == module)) {
 	    if (ep->address == ep->code+3 &&
 		(ep->code[3] == (BeamInstr) em_apply_bif)) {

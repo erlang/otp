@@ -207,6 +207,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	    BIF_RET(am_false);
 	}
     } else if (is_tuple(addr)) {
+	ErtsCodeIndex code_ix;
 	Module* modp;
 	Eterm mod;
 	Eterm name;
@@ -231,8 +232,8 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	 * Try the export entry first to allow disassembly of special functions
 	 * such as erts_debug:apply/4.  Then search for it in the module.
 	 */
-
-	if ((ep = erts_find_function(mod, name, arity)) != NULL) {
+	code_ix = erts_active_code_ix();
+	if ((ep = erts_find_function(mod, name, arity, code_ix)) != NULL) {
 	    /* XXX: add "&& ep->address != ep->code+3" condition?
 	     * Consider a traced function.
 	     * Its ep will have ep->address == ep->code+3.

@@ -2562,7 +2562,7 @@ dec_term_atom_common:
 		    goto error;
 		}
 		if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
-		    if (!erts_find_export_entry(mod, name, arity))
+		    if (!erts_active_export_entry(mod, name, arity))
 			goto error;
                 }
 		*objp = make_export(hp);

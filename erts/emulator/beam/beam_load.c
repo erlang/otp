@@ -812,7 +812,7 @@ erts_finish_loading(LoaderState* stp, Process* c_p,
      * exported and imported functions.  This can't fail.
      */
     
-    erts_export_consolidate();
+    erts_export_consolidate(erts_loader_code_ix());
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
     final_touch(stp);
 
@@ -1294,7 +1294,7 @@ load_import_table(LoaderState* stp)
 	 * If the export entry refers to a BIF, get the pointer to
 	 * the BIF function.
 	 */
-	if ((e = erts_find_export_entry(mod, func, arity)) != NULL) {
+	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) { /*SVERK does it matter which one we use? */
 	    if (e->code[3] == (BeamInstr) em_apply_bif) {
 		stp->import[i].bf = (BifFunction) e->code[4];
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
@@ -1386,7 +1386,7 @@ read_export_table(LoaderState* stp)
 static int
 is_bif(Eterm mod, Eterm func, unsigned arity)
 {
-    Export* e = erts_find_export_entry(mod, func, arity);
+    Export* e = erts_active_export_entry(mod, func, arity);
     if (e == NULL) {
 	return 0;
     }
@@ -5190,13 +5190,15 @@ exported_from_module(Process* p, /* Process whose heap to use. */
     Eterm* hp = NULL;
     Eterm* hend = NULL;
     Eterm result = NIL;
+    ErtsCodeIndex code_ix;
 
     if (is_not_atom(mod)) {
 	return THE_NON_VALUE;
     }
 
-    for (i = 0; i < export_list_size(); i++) {
-	Export* ep = export_list(i);
+    code_ix = erts_active_code_ix();
+    for (i = 0; i < export_list_size(code_ix); i++) {
+	Export* ep = export_list(i,code_ix);
 	
 	if (ep->code[0] == mod) {
 	    Eterm tuple;
@@ -6144,6 +6146,7 @@ void erts_unlock_code_ix(void)
 void erts_start_loader_code_ix(void)
 {
     beam_catches_start_load();
+    export_start_load();
     /*SVERK and more to come I guess...
 	:
      */
@@ -6154,6 +6157,7 @@ void erts_start_loader_code_ix(void)
 void erts_commit_loader_code_ix(void)
 {
     beam_catches_end_load(1);
+    export_end_load(1);
     {
 	ErtsCodeIndex ix = erts_loader_code_ix();
 	erts_smp_atomic32_set_nob(&the_active_code_index, ix);
@@ -6166,6 +6170,7 @@ void erts_commit_loader_code_ix(void)
 void erts_abort_loader_code_ix(void)
 {
     beam_catches_end_load(0);
+    export_end_load(0);
     CIX_TRACE("abort");
 }
 
