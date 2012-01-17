@@ -6101,3 +6101,95 @@ static int safe_mul(UWord a, UWord b, UWord* resp)
 	return (res / b) == a;
     }
 }
+
+
+/*SVERK Do these deserve a file of their own maybe? */
+
+static erts_smp_atomic32_t the_active_code_index;
+static erts_smp_atomic32_t the_loader_code_index;
+
+#ifdef DEBUG
+# define CIX_TRACE(text) erts_fprintf(stderr, "CIX_TRACE: " text " act=%u load=%u\r\n", erts_active_code_ix(), erts_loader_code_ix())
+#else
+# define CIX_TRACE(text)
+#endif
+
+void erts_code_ix_init(void)
+{
+    erts_smp_atomic32_init_nob(&the_active_code_index, 0);
+    erts_smp_atomic32_init_nob(&the_loader_code_index, 0);
+    CIX_TRACE("init");
+}
+ErtsCodeIndex erts_active_code_ix(void)
+{
+    return erts_smp_atomic32_read_nob(&the_active_code_index);
+}
+ErtsCodeIndex erts_loader_code_ix(void)
+{
+    return erts_smp_atomic32_read_nob(&the_loader_code_index);
+}
+
+/* Lock code_ix (enqueue and suspend until we get it)
+*/
+void erts_lock_code_ix(void)
+{
+}
+
+/* Unlock code_ix (resume first waiter)
+*/
+void erts_unlock_code_ix(void)
+{
+}
+
+void erts_start_loader_code_ix(void)
+{
+    beam_catches_start_load();
+    /*SVERK and more to come I guess...
+	:
+     */
+    CIX_TRACE("start");
+}
+
+
+void erts_commit_loader_code_ix(void)
+{
+    beam_catches_end_load(1);
+    {
+	ErtsCodeIndex ix = erts_loader_code_ix();
+	erts_smp_atomic32_set_nob(&the_active_code_index, ix);
+	ix = (ix + 1) % ERTS_NUM_CODE_IX;
+	erts_smp_atomic32_set_nob(&the_loader_code_index, ix);
+    }
+    CIX_TRACE("commit");
+}
+
+void erts_abort_loader_code_ix(void)
+{
+    beam_catches_end_load(0);
+    CIX_TRACE("abort");
+}
+
+/*SVERK old_code lock should maybe be part of module.c */
+void erts_rwlock_old_code(void)
+{
+}
+void erts_rwunlock_old_code(void)
+{
+}
+void erts_rlock_old_code(void)
+{
+}
+void erts_runlock_old_code(void)
+{
+}
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+int erts_is_old_code_rlocked(void)
+{
+    return 1;
+}
+int erts_is_code_ix_locked(void)
+{
+    return 1;
+}
+#endif

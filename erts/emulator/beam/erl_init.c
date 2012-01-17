@@ -236,7 +236,7 @@ void erl_error(char *fmt, va_list args)
 static int early_init(int *argc, char **argv);
 
 void
-erts_short_init(void)
+erts_short_init_SVERK_SAYS_NOT_USED(void)
 {
     int ncpu = early_init(NULL, NULL);
     erl_init(ncpu);
@@ -264,6 +264,7 @@ erl_init(int ncpu)
     erts_init_trace();
     erts_init_binary();
     erts_init_bits();
+    erts_code_ix_init();
     erts_init_fun_table();
     init_atom_table();
     init_export_table();
@@ -1471,6 +1472,7 @@ erl_start(int argc, char **argv)
 
     init_shared_memory(boot_argc, boot_argv);
     load_preloaded();
+    erts_commit_loader_code_ix();
 
     erts_initialized = 1;
 

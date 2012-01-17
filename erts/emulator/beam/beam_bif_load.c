@@ -86,11 +86,15 @@ load_module_2(BIF_ALIST_2)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
+    erts_start_loader_code_ix();
+
     reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
     if (reason != NIL) {
+	erts_abort_loader_code_ix();
 	res = TUPLE2(hp, am_error, reason);
     } else {
 	set_default_trace_pattern(BIF_ARG_1);
+	erts_commit_loader_code_ix();
 	res = TUPLE2(hp, am_module, BIF_ARG_1);
     }
 
@@ -374,7 +378,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	code = modp->curr.code;
 	end = (BeamInstr *)((char *)code + modp->curr.code_length);
 	erts_cleanup_funs_on_purge(code, end);
-	beam_catches_delmod(modp->curr.catches, code, modp->curr.code_length);
+	beam_catches_delmod(modp->curr.catches, code, modp->curr.code_length,
+			    erts_active_code_ix());
 	erts_free(ERTS_ALC_T_CODE, (void *) code);
 	modp->curr.code = NULL;
 	modp->curr.code_length = 0;
@@ -667,7 +672,8 @@ purge_module(int module)
     code = modp->old.code;
     end = (BeamInstr *)((char *)code + modp->old.code_length);
     erts_cleanup_funs_on_purge(code, end);
-    beam_catches_delmod(modp->old.catches, code, modp->old.code_length);
+    beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
+			erts_active_code_ix());
     decrement_refc(code);
     erts_free(ERTS_ALC_T_CODE, (void *) code);
     modp->old.code = NULL;

@@ -20,12 +20,17 @@
 #ifndef __BEAM_CATCHES_H
 #define __BEAM_CATCHES_H
 
+#include "global.h"  /*SVERK the code_ix stuff */
+
 #define BEAM_CATCHES_NIL	(-1)
 
 void beam_catches_init(void);
+void beam_catches_start_load(void);
+void beam_catches_end_load(int commit);
 unsigned beam_catches_cons(BeamInstr* cp, unsigned cdr);
 BeamInstr *beam_catches_car(unsigned i);
-void beam_catches_delmod(unsigned head, BeamInstr* code, unsigned code_bytes);
+void beam_catches_delmod(unsigned head, BeamInstr* code, unsigned code_bytes,
+			 ErtsCodeIndex);
 
 #define catch_pc(x)	beam_catches_car(catch_val((x)))
 

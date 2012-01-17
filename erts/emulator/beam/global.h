@@ -28,6 +28,50 @@
 #include "hash.h"
 #include "index.h"
 #include "atom.h"
+
+/*SVERK maybe put this is some other header, must be before module.h and export.h */
+#define ERTS_NUM_CODE_IX 3
+typedef unsigned ErtsCodeIndex;
+
+void erts_code_ix_init(void);
+ErtsCodeIndex erts_active_code_ix(void);
+ErtsCodeIndex erts_loader_code_ix(void);
+
+/* Lock code_ix (enqueue and suspend until we get it)
+*/
+void erts_lock_code_ix(void);
+
+/*SVERK
+    erts_lock_code_ix();
+    wait for thread progress
+	   (we don't want any retarded threads with pointers to inactive Module)
+    Copy active -> loader
+	rlock old_code while copying Modules
+    Update loader
+    wait for thread progress
+	   (we need a membarrier for everybody to "see" the new code)
+    Set loader as new active
+    erts_unlock_code_ix();
+}*/
+
+
+/* Unlock code_ix (resume first waiter)
+*/
+void erts_unlock_code_ix(void);
+void erts_start_loader_code_ix(void);
+void erts_commit_loader_code_ix(void);
+void erts_abort_loader_code_ix(void);
+
+void erts_rwlock_old_code(void);
+void erts_rwunlock_old_code(void);
+void erts_rlock_old_code(void);
+void erts_runlock_old_code(void);
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+int erts_is_old_code_rlocked(void);
+int erts_is_code_ix_locked(void);
+#endif
+
 #include "export.h"
 #include "module.h"
 #include "register.h"
