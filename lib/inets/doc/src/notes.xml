@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2011</year>
+      <year>2002</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -32,6 +32,57 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.7.3</title>
+    <section><title>Improvements and New Features</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[httpc|httpd] Added support for IPv6 with ssl. </p>
+	  <p>Own Id: OTP-5566</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[ftp] Fails to open IPv6 connection due to badly formatted
+          IPv6 address in EPRT command. The address part of the command
+	  incorrectly contained decimal elements instead of hexadecimal. </p>
+          <p>Own Id: OTP-9827</p>
+          <p>Aux Id: Seq 11970 </p>
+        </item>
+
+        <item>
+          <p>[httpc] Bad Keep Alive Mode. When selecting a session, 
+	  the "state" of the session (specifically if the server has 
+	  responded) was not taken into account. </p>
+          <p>Own Id: OTP-9847</p>
+        </item>
+
+        <item>
+          <p>[httpc] The client incorrectly streams 404 responses. 
+	  The documentation specifies that only 200 and 206 responses 
+	  shall be streamed. </p>
+	  <p>Shane Evens</p>
+          <p>Own Id: OTP-9860</p>
+        </item>
+
+      </list>
+    </section>
+  
+  </section> <!-- 5.7.3 -->
+
+
   <section><title>Inets 5.7.2</title>
     <section><title>Improvements and New Features</title>
     <p>-</p>
