@@ -152,6 +152,15 @@ endif
 
 TF_MARKER=$(TYPEMARKER)$(FLAVOR_MARKER)
 
+ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
+VOID_EMULATOR = '*** SMP emulator disabled by configure'
+else
+ifeq ($(TYPE)-@HAVE_VALGRIND@,valgrind-no)
+VOID_EMULATOR = '*** valgrind emulator disabled by configure'
+else
+VOID_EMULATOR =
+endif
+endif
 
 OPSYS=@OPSYS@
 sol2CFLAGS=
@@ -378,13 +387,10 @@ else
 UNIX_ONLY_BUILDS =
 endif
 
-ifeq ($(TYPE)-@HAVE_VALGRIND@,valgrind-no)
+.PHONY: all
+ifdef VOID_EMULATOR
 all:
-	@echo '*** valgrind not found by configure'
-else
-ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
-all:
-	@echo '*** Omitted build of emulator with smp support'
+	@echo $(VOID_EMULATOR)' - omitted target all'
 else
 all: $(BINDIR)/$(EMULATOR_EXECUTABLE) $(UNIX_ONLY_BUILDS)
 ifeq ($(OMIT_OMIT_FP),yes)
@@ -397,7 +403,6 @@ ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 endif
 endif
-endif
 
 include zlib/zlib.mk
 include pcre/pcre.mk
@@ -405,6 +410,7 @@ include pcre/pcre.mk
 $(ERTS_LIB):
 	cd $(ERTS_LIB_DIR) && $(MAKE) $(TYPE)
 
+.PHONY: clean
 clean:
 	$(RM) -f $(GENERATE)
 	$(RM) -rf $(TARGET)/*.c $(TARGET)/*.h $(TARGET)/*-GENERATED
@@ -415,8 +421,7 @@ clean:
 	$(RM) -rf bin/$(TARGET)
 	cd $(ERTS_LIB_DIR) && $(MAKE) clean
 
-.PHONY: all clean
-
+.PHONY: docs
 docs:
 
 # ----------------------------------------------------------------------
@@ -429,13 +434,11 @@ ifeq ($(TARGET),win32)
 RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_win_dyn_driver.h
 endif
 
-ifeq ($(TYPE)-@HAVE_VALGRIND@,valgrind-no)
+
+.PHONY: release_spec
+ifdef VOID_EMULATOR
 release_spec:
-	@echo '*** valgrind not found by configure'
-else
-ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
-release_spec:
-	@echo '*** No emulator with smp support to install'
+	@echo $(VOID_EMULATOR)' - omitted target release_spec (install)'
 else
 release_spec: all
 	$(INSTALL_DIR) $(RELSYSDIR)
@@ -452,8 +455,8 @@ ifeq ($(ERLANG_OSTYPE), unix)
 	$(INSTALL_PROGRAM) $(BINDIR)/$(CS_EXECUTABLE) $(RELSYSDIR)/bin
 endif
 endif
-endif
 
+.PHONY: release_docs_spec
 release_docs_spec:
 
 # ----------------------------------------------------------------------
@@ -572,9 +575,9 @@ GENERATE += $(TARGET)/preload.c
 endif
 
 .PHONY : generate
-ifeq ($(FLAVOR)-@ERTS_BUILD_SMP_EMU@,smp-no)
+ifdef VOID_EMULATOR
 generate:
-	@echo '*** Omitted generate for emulator with smp support'
+	@echo $(VOID_EMULATOR)' - omitted target generate'
 else
 generate: $(TTF_DIR)/GENERATED
 $(TTF_DIR)/GENERATED: $(GENERATE)
@@ -1026,6 +1029,11 @@ DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLA
 SYS_SRC=$(ALL_SYS_SRC)
 endif
 
+.PHONY: depend
+ifdef VOID_EMULATOR
+depend:
+	@echo $(VOID_EMULATOR)' - omitted target depend'
+else
 depend: $(TTF_DIR)/depend.mk
 $(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED
 	$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) \
@@ -1049,6 +1057,8 @@ endif
 
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),generate)
+ifndef VOID_EMULATOR
 -include $(TTF_DIR)/depend.mk
+endif
 endif
 endif
