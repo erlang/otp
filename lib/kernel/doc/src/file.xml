@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -412,7 +412,7 @@
       </desc>
     </func>
     <func>
-      <name>file_info(Filename) -> {ok, FileInfo} | {error, Reason}</name>
+      <name name="file_info" arity="1"/>
       <fsummary>Get information about a file (deprecated)</fsummary>
       <desc>
         <p>This function is obsolete. Use <c>read_file_info/1,2</c>
@@ -598,7 +598,7 @@
       </desc>
     </func>
     <func>
-      <name>native_name_encoding() -> latin1 | utf8</name>
+      <name name="native_name_encoding" arity="0"/>
       <fsummary>Return the VM's configured filename encoding.</fsummary>
       <desc>
         <p>This function returns the configured default file name encoding to use for raw file names. Generally an application supplying file names raw (as binaries), should obey the character encoding returned by this function.</p>

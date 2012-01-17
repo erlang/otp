@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -49,7 +49,6 @@
 		    t_boolean/0,
 		    t_byte/0,
 		    t_char/0,
-		    t_charlist/0,
 		    t_cons/0,
 		    t_cons/2,
 		    t_cons_hd/1,
@@ -120,8 +119,6 @@
 		    t_subtract/2,
 		    t_sup/1,
 		    t_sup/2,
-		    t_tid/0,
-		    t_timeout/0,
 		    t_tuple/0,
 		    t_tuple/1,
 		    t_tuple_args/1,
@@ -146,100 +143,6 @@ type(M, F, A) ->
 
 -spec type(atom(), atom(), arity(), [erl_types:erl_type()]) -> erl_types:erl_type().
 
-%%-- binary -------------------------------------------------------------------
-type(binary, at, 2, Xs) ->
-  strict(arg_types(binary, at, 2), Xs, fun(_) -> t_integer() end);
-type(binary, bin_to_list, Arity, Xs) when 1 =< Arity, Arity =< 3 ->
-  strict(arg_types(binary, bin_to_list, Arity), Xs,
-	 fun(_) -> t_list(t_integer()) end);
-type(binary, compile_pattern, 1, Xs) ->
-  strict(arg_types(binary, compile_pattern, 1), Xs,
-	 fun(_) -> t_binary_compiled_pattern() end);
-type(binary, copy, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
-  strict(arg_types(binary, copy, Arity), Xs,
-	 fun(_) -> t_binary() end);
-type(binary, decode_unsigned, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
-  strict(arg_types(binary, decode_unsigned, Arity), Xs,
-	 fun(_) -> t_non_neg_integer() end);
-type(binary, encode_unsigned, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
-  strict(arg_types(binary, encode_unsigned, Arity), Xs,
-	 fun(_) -> t_binary() end);
-type(binary, first, 1, Xs) ->
-  strict(arg_types(binary, first, 1), Xs, fun(_) -> t_non_neg_integer() end);
-type(binary, last, 1, Xs) ->
-  strict(arg_types(binary, last, 1), Xs, fun(_) -> t_non_neg_integer() end);
-type(binary, list_to_bin, 1, Xs) ->
-  type(erlang, list_to_binary, 1, Xs);
-type(binary, longest_common_prefix, 1, Xs) ->
-  strict(arg_types(binary, longest_common_prefix, 1), Xs,
-	 fun(_) -> t_integer() end);
-type(binary, longest_common_suffix, 1, Xs) ->
-  strict(arg_types(binary, longest_common_suffix, 1), Xs,
-	 fun(_) -> t_integer() end);
-type(binary, match, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
-  strict(arg_types(binary, match, Arity), Xs,
-	 fun(_) ->
-	     t_sup(t_atom('nomatch'), t_binary_canonical_part())
-	 end);
-type(binary, matches, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
-  strict(arg_types(binary, matches, Arity), Xs,
-	 fun(_) -> t_list(t_binary_canonical_part()) end);
-type(binary, part, 2, Xs) ->
-  type(erlang, binary_part, 2, Xs);
-type(binary, part, 3, Xs) ->
-  type(erlang, binary_part, 3, Xs);
-type(binary, referenced_byte_size, 1, Xs) ->
-  strict(arg_types(binary, referenced_byte_size, 1), Xs,
-	 fun(_) -> t_non_neg_integer() end);
-%%-- code ---------------------------------------------------------------------
-type(code, get_chunk, 2, Xs) ->
-  strict(arg_types(code, get_chunk, 2), Xs,
-	 fun (_) -> t_sup(t_binary(), t_atom('undefined')) end);
-type(code, is_module_native, 1, Xs) ->
-  strict(arg_types(code, is_module_native, 1), Xs,
-	 fun (_) -> t_sup(t_boolean(), t_atom('undefined')) end);
-type(code, module_md5, 1, Xs) ->
-  strict(arg_types(code, module_md5, 1), Xs,
-	 fun (_) -> t_sup(t_binary(), t_atom('undefined')) end);
-type(code, make_stub_module, 3, Xs) ->
-  strict(arg_types(code, make_stub_module, 3), Xs, fun ([Mod,_,_]) -> Mod end);
-type(code, rehash, 0, _) ->
-  t_atom('ok');
-%%-- erl_ddll -----------------------------------------------------------------
-type(erl_ddll, demonitor, 1, Xs) ->
-  type(erlang, demonitor, 1, Xs);
-type(erl_ddll, format_error_int, 1, Xs) ->
-  strict(arg_types(erl_ddll, format_error_int, 1), Xs,
-	 fun (_) -> t_string() end);
-type(erl_ddll, info, 2, Xs) ->
-  strict(arg_types(erl_ddll, info, 2), Xs, fun (_) -> t_atom() end);
-type(erl_ddll, loaded_drivers, 0, _) ->
-  t_tuple([t_atom('ok'), t_list(t_string())]);
-type(erl_ddll, monitor, 2, Xs) -> % return type is the same, though args are not
-  type(erlang, monitor, 2, Xs);
-type(erl_ddll, try_load, 3, Xs) ->
-  strict(arg_types(erl_ddll, try_load, 3), Xs,
-	 fun (_) ->
-	     t_sup([t_tuple([t_atom('ok'), t_atom('already_loaded')]),
-		    t_tuple([t_atom('ok'), t_atom('loaded')]),
-		    t_tuple([t_atom('ok'),
-			     t_atom('pending_driver'), t_reference()]),
-		    t_tuple([t_atom('error'), t_atom('inconsistent')]),
-		    t_tuple([t_atom('error'), t_atom('permanent')])])
-	 end);
-type(erl_ddll, try_unload, 2, Xs) ->
-  strict(arg_types(erl_ddll, try_unload, 2), Xs,
-	 fun (_) ->
-	     t_sup([t_tuple([t_atom('ok'), t_atom('pending_process')]),
-		    t_tuple([t_atom('ok'), t_atom('unloaded')]),
-		    t_tuple([t_atom('ok'), t_atom('pending_driver')]),
-		    t_tuple([t_atom('ok'),
-			     t_atom('pending_driver'), t_reference()]),
-		    t_tuple([t_atom('error'), t_atom('permanent')]),
-		    t_tuple([t_atom('error'), t_atom('not_loaded')]),
-		    t_tuple([t_atom('error'),
-			     t_atom('not_loaded_by_this_process')])])
-	 end);
 %%-- erlang -------------------------------------------------------------------
 type(erlang, halt, 0, _) -> t_none();
 type(erlang, halt, 1, _) -> t_none();
@@ -1731,250 +1634,9 @@ type(erlang, whereis, 1, Xs) ->
   strict(arg_types(erlang, whereis, 1), Xs,
 	 fun (_) -> t_sup([t_pid(), t_port(), t_atom('undefined')]) end);
 type(erlang, yield, 0, _) -> t_atom('true');
-%%-- erl_prim_loader ----------------------------------------------------------
-type(erl_prim_loader, get_file, 1, Xs) ->
-  strict(arg_types(erl_prim_loader, get_file, 1), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_binary(), t_string()]),
-		   t_atom('error'))
-	 end);
-type(erl_prim_loader, get_path, 0, _) ->
-  t_tuple([t_atom('ok'), t_list(t_string())]);
-type(erl_prim_loader, set_path, 1, Xs) ->
-  strict(arg_types(erl_prim_loader, set_path, 1), Xs,
-	 fun (_) -> t_atom('ok') end);
-%%-- error_logger -------------------------------------------------------------
-type(error_logger, warning_map, 0, _) ->
-  t_sup([t_atom('info'), t_atom('warning'), t_atom('error')]);
-%%-- erts_debug ---------------------------------------------------------------
-type(erts_debug, breakpoint, 2, Xs) ->
-  strict(arg_types(erts_debug, breakpoint, 2), Xs, fun (_) -> t_fixnum() end);
-type(erts_debug, disassemble, 1, Xs) ->
-  strict(arg_types(erts_debug, disassemble, 1), Xs,
-	 fun (_) -> t_sup([t_atom('false'),
-			   t_atom('undef'),
-			   t_tuple([t_integer(), t_binary(), t_mfa()])]) end);
-type(erts_debug, display, 1, _) ->
-  t_string();
-type(erts_debug, dist_ext_to_term, 2, Xs) ->
-  strict(arg_types(erts_debug, dist_ext_to_term, 2), Xs,
-	 fun (_) -> t_any() end);
-type(erts_debug, dump_monitors, 1, Xs) ->
-  strict(arg_types(erts_debug, dump_monitors, 1), Xs,
-	 fun(_) -> t_atom('true') end);
-type(erts_debug, dump_links, 1, Xs) ->
-  strict(arg_types(erts_debug, dump_links, 1), Xs,
-	 fun(_) -> t_atom('true') end);
-type(erts_debug, flat_size, 1, Xs) ->
-  strict(arg_types(erts_debug, flat_size, 1), Xs, fun (_) -> t_integer() end);
-type(erts_debug, get_internal_state, 1, _) ->
-  t_any();
-type(erts_debug, instructions, 0, _) ->
-  t_list(t_list(t_byte()));
-type(erts_debug, lock_counters, 1, Xs) ->
-  strict(arg_types(erts_debug, lock_counters, 1), Xs,
-	 fun ([Arg]) ->
-	     case t_is_atom(Arg) of
-	       true ->
-		 case t_atom_vals(Arg) of
-		   ['enabled'] -> t_boolean();
-		   ['info'] -> t_any();
-		   ['clear'] -> t_atom(ok);
-		   _ -> t_sup([t_boolean(), t_any(), t_atom('ok')])
-		 end;
-	       false ->
-		 case t_is_tuple(Arg) of
-		   true -> t_boolean();
-		   false -> t_sup([t_boolean(), t_any(), t_atom('ok')])
-		 end
-	     end
-	 end);
-type(erts_debug, same, 2, Xs) ->
-  strict(arg_types(erts_debug, same, 2), Xs, fun (_) -> t_boolean() end);
-type(erts_debug, set_internal_state, 2, _) ->
-  t_any();
 %%-- ets ----------------------------------------------------------------------
-type(ets, all, 0, _) ->
-  t_list(t_tab());
-type(ets, delete, 1, Xs) ->
-  strict(arg_types(ets, delete, 1), Xs, fun (_) -> t_atom('true') end);
-type(ets, delete, 2, Xs) ->
-  strict(arg_types(ets, delete, 2), Xs, fun (_) -> t_atom('true') end);
-type(ets, delete_all_objects, 1, Xs) ->
-  strict(arg_types(ets, delete_all_objects, 1), Xs,
-	 fun (_) -> t_atom('true') end);
-type(ets, delete_object, 2, Xs) ->
-  strict(arg_types(ets, delete_object, 2), Xs, fun (_) -> t_atom('true') end);
-type(ets, first, 1, Xs) ->
-  strict(arg_types(ets, first, 1), Xs, fun (_) -> t_any() end);
-type(ets, give_away, 3, Xs) ->
-  strict(arg_types(ets, give_away, 3), Xs, fun (_) -> t_atom('true') end);
-type(ets, info, 1, Xs) ->
-  strict(arg_types(ets, info, 1), Xs,
-	 fun (_) ->
-	     t_sup(t_list(t_tuple([t_ets_info_items(), t_any()])),
-		   t_atom('undefined'))
-	 end);
-type(ets, info, 2, Xs) ->
-  strict(arg_types(ets, info, 2), Xs, fun (_) -> t_any() end);
-type(ets, insert, 2, Xs) ->
-  strict(arg_types(ets, insert, 2), Xs, fun (_) -> t_atom('true') end);
-type(ets, insert_new, 2, Xs) ->
-  strict(arg_types(ets, insert_new, 2), Xs, fun (_) -> t_boolean() end);
-type(ets, is_compiled_ms, 1, Xs) ->
-  strict(arg_types(ets, is_compiled_ms, 1), Xs, fun (_) -> t_boolean() end);
-type(ets, last, 1, Xs) ->
-  type(ets, first, 1, Xs);
-type(ets, lookup, 2, Xs) ->
-  strict(arg_types(ets, lookup, 2), Xs, fun (_) -> t_list(t_tuple()) end);
-type(ets, lookup_element, 3, Xs) ->
-  strict(arg_types(ets, lookup_element, 3), Xs, fun (_) -> t_any() end);
-type(ets, match, 1, Xs) ->
-  strict(arg_types(ets, match, 1), Xs, fun (_) -> t_matchres() end);
-type(ets, match, 2, Xs) ->
-  strict(arg_types(ets, match, 2), Xs, fun (_) -> t_list() end);
-type(ets, match, 3, Xs) ->
-  strict(arg_types(ets, match, 3), Xs, fun (_) -> t_matchres() end);
-type(ets, match_object, 1, Xs) -> type(ets, match, 1, Xs);
-type(ets, match_object, 2, Xs) -> type(ets, match, 2, Xs);
-type(ets, match_object, 3, Xs) -> type(ets, match, 3, Xs);
-type(ets, match_spec_compile, 1, Xs) ->
-  strict(arg_types(ets, match_spec_compile, 1), Xs, fun (_) -> t_any() end);
-type(ets, match_spec_run_r, 3, Xs) ->
-  strict(arg_types(ets, match_spec_run_r, 3), Xs, fun (_) -> t_list() end);
-type(ets, member, 2, Xs) ->
-  strict(arg_types(ets, member, 2), Xs, fun (_) -> t_boolean() end);
-type(ets, new, 2, Xs) ->
-  strict(arg_types(ets, new, 2), Xs, fun (_) -> t_tab() end);
-type(ets, next, 2, Xs) ->
-  strict(arg_types(ets, next, 2), Xs,
-	 %% t_any below stands for:  term() | '$end_of_table'
-	 fun (_) -> t_any() end);
-type(ets, prev, 2, Xs) -> type(ets, next, 2, Xs);
 type(ets, rename, 2, Xs) ->
   strict(arg_types(ets, rename, 2), Xs, fun ([_, Name]) -> Name end);
-type(ets, safe_fixtable, 2, Xs) ->
-  strict(arg_types(ets, safe_fixtable, 2), Xs, fun (_) -> t_atom('true') end);
-type(ets, select, 1, Xs) ->
-  strict(arg_types(ets, select, 1), Xs, fun (_) -> t_matchres() end);
-type(ets, select, 2, Xs) ->
-  strict(arg_types(ets, select, 2), Xs, fun (_) -> t_list() end);
-type(ets, select, 3, Xs) ->
-  strict(arg_types(ets, select, 3), Xs, fun (_) -> t_matchres() end);
-type(ets, select_count, 2, Xs) ->
-  strict(arg_types(ets, select_count, 2), Xs,
-	 fun (_) -> t_non_neg_fixnum() end);
-type(ets, select_delete, 2, Xs) ->
-  strict(arg_types(ets, select_delete, 2), Xs,
-	 fun (_) -> t_non_neg_fixnum() end);
-type(ets, select_reverse, 1, Xs) -> type(ets, select, 1, Xs);
-type(ets, select_reverse, 2, Xs) -> type(ets, select, 2, Xs);
-type(ets, select_reverse, 3, Xs) -> type(ets, select, 3, Xs);
-type(ets, setopts, 2, Xs) ->
-  strict(arg_types(ets, setopts, 2), Xs, fun (_) -> t_atom('true') end);
-type(ets, slot, 2, Xs) ->
-  strict(arg_types(ets, slot, 2), Xs,
-	 fun (_) -> t_sup(t_list(t_tuple()), t_atom('$end_of_table')) end);
-type(ets, update_counter, 3, Xs) ->
-  strict(arg_types(ets, update_counter, 3), Xs,
-	 fun ([_, _, Op]) ->
-	     case t_is_integer(Op) of
-	       true -> t_integer();
-	       false ->
-		 case t_is_tuple(Op) of
-		   true -> t_integer();
-		   false ->
-		     case t_is_list(Op) of
-		       true -> t_list(t_integer());
-		       false ->
-			 case t_is_nil(Op) of
-			   true -> t_nil();
-			   false -> t_sup([t_integer(), t_list(t_integer())])
-			 end
-		     end
-		 end
-	     end
-	 end);
-type(ets, update_element, 3, Xs) ->
-  strict(arg_types(ets, update_element, 3), Xs, fun (_) -> t_boolean() end);
-%%-- file ---------------------------------------------------------------------
-type(file, native_name_encoding, 0, _) ->
-  t_file_encoding();
-%%-- prim_file ----------------------------------------------------------------
-type(prim_file, internal_name2native, 1, Xs) ->
-  strict(arg_types(prim_file, internal_name2native, 1), Xs,  
-	 fun (_) -> t_binary() end);
-type(prim_file, internal_native2name, 1, Xs) ->
-  strict(arg_types(prim_file, internal_native2name, 1), Xs,  
-	 fun (_) -> t_prim_file_name() end);
-type(prim_file, internal_normalize_utf8, 1, Xs) ->
-  strict(arg_types(prim_file, internal_normalize_utf8, 1), Xs,  
-	 fun (_) -> t_unicode_string() end);
-%%-- gen_tcp ------------------------------------------------------------------
-%% NOTE: All type information for this module added to avoid loss of precision
-type(gen_tcp, accept, 1, Xs) ->
-  strict(arg_types(gen_tcp, accept, 1), Xs, fun (_) -> t_gen_tcp_accept() end);
-type(gen_tcp, accept, 2, Xs) ->
-  strict(arg_types(gen_tcp, accept, 2), Xs, fun (_) -> t_gen_tcp_accept() end);
-type(gen_tcp, connect, 3, Xs) ->
-  strict(arg_types(gen_tcp, connect, 3), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_socket()]),
-		   t_tuple([t_atom('error'), t_inet_posix_error()]))
-	 end);
-type(gen_tcp, connect, 4, Xs) ->
-  strict(arg_types(gen_tcp, connect, 4), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_socket()]),
-		   t_tuple([t_atom('error'), t_inet_posix_error()]))
-	 end);
-type(gen_tcp, listen, 2, Xs) ->
-  strict(arg_types(gen_tcp, listen, 2), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_socket()]),
-		   t_tuple([t_atom('error'), t_inet_posix_error()]))
-	 end);
-type(gen_tcp, recv, 2, Xs) ->
-  strict(arg_types(gen_tcp, recv, 2), Xs, fun (_) -> t_gen_tcp_recv() end);
-type(gen_tcp, recv, 3, Xs) ->
-  strict(arg_types(gen_tcp, recv, 3), Xs, fun (_) -> t_gen_tcp_recv() end);
-type(gen_tcp, send, 2, Xs) ->
-  strict(arg_types(gen_tcp, send, 2), Xs,
-	 fun (_) ->
-	     t_sup(t_atom('ok'),
-		   t_tuple([t_atom('error'), t_inet_posix_error()]))
-	 end);
-type(gen_tcp, shutdown, 2, Xs) ->
-  strict(arg_types(gen_tcp, shutdown, 2), Xs,
-	 fun (_) ->
-	     t_sup(t_atom('ok'),
-		   t_tuple([t_atom('error'), t_inet_posix_error()]))
-	 end);
-%%-- gen_udp ------------------------------------------------------------------
-%% NOTE: All type information for this module added to avoid loss of precision
-type(gen_udp, open, 1, Xs) ->
-  strict(arg_types(gen_udp, open, 1), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_socket()]),
-		   t_tuple([t_atom('error'), t_inet_posix_error()]))
-	 end);
-type(gen_udp, open, 2, Xs) ->
-  strict(arg_types(gen_udp, open, 2), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_socket()]),
-		   t_tuple([t_atom('error'), t_inet_posix_error()]))
-	 end);
-type(gen_udp, recv, 2, Xs) ->
-  strict(arg_types(gen_udp, recv, 2), Xs, fun (_) -> t_gen_udp_recv() end);
-type(gen_udp, recv, 3, Xs) ->
-  strict(arg_types(gen_udp, recv, 3), Xs, fun (_) -> t_gen_udp_recv() end);
-type(gen_udp, send, 4, Xs) ->
-  strict(arg_types(gen_udp, send, 4), Xs,
-	 fun (_) ->
-	     t_sup(t_atom('ok'),
-		   t_tuple([t_atom('error'), t_sup(t_atom('not_owner'),
-						   t_inet_posix_error())]))
-	 end);
 %%-- hipe_bifs ----------------------------------------------------------------
 type(hipe_bifs, add_ref, 2, Xs) ->
   strict(arg_types(hipe_bifs, add_ref, 2), Xs, fun (_) -> t_nil() end);
@@ -2097,26 +1759,6 @@ type(hipe_bifs, write_u32, 2, Xs) ->
   strict(arg_types(hipe_bifs, write_u32, 2), Xs, fun (_) -> t_nil() end);
 type(hipe_bifs, write_u64, 2, Xs) ->
   strict(arg_types(hipe_bifs, write_u64, 2), Xs, fun (_) -> t_nil() end);
-%%-- io -----------------------------------------------------------------------
-type(io, format, 1, Xs) ->
-  strict(arg_types(io, format, 1), Xs, fun (_) -> t_atom('ok') end);
-type(io, format, 2, Xs) ->
-  strict(arg_types(io, format, 2), Xs, fun (_) -> t_atom('ok') end);
-type(io, format, 3, Xs) ->
-  strict(arg_types(io, format, 3), Xs, fun (_) -> t_atom('ok') end);
-type(io, fwrite, 1, Xs) -> type(io, format, 1, Xs); % same
-type(io, fwrite, 2, Xs) -> type(io, format, 2, Xs); % same
-type(io, fwrite, 3, Xs) -> type(io, format, 3, Xs); % same
-type(io, put_chars, 1, Xs) ->
-  strict(arg_types(io, put_chars, 1), Xs, fun (_) -> t_atom('ok') end);
-type(io, put_chars, 2, Xs) ->
-  strict(arg_types(io, put_chars, 2), Xs, fun (_) -> t_atom('ok') end);
-%%-- io_lib -------------------------------------------------------------------
-type(io_lib, format, 2, Xs) ->
-  strict(arg_types(io_lib, format, 2), Xs,
-	 %% t_list() because the character list might be arbitrarily nested
-	 fun (_) -> t_list(t_sup(t_char(), t_list())) end);
-type(io_lib, fwrite, 2, Xs) -> type(io_lib, format, 2, Xs); % same
 %%-- lists --------------------------------------------------------------------
 type(lists, all, 2, Xs) ->
   strict(arg_types(lists, all, 2), Xs, 
@@ -2524,10 +2166,6 @@ type(lists, reverse, 1, Xs) ->
   strict(arg_types(lists, reverse, 1), Xs, fun ([X]) -> X end);
 type(lists, reverse, 2, Xs) ->
   type(erlang, '++', 2, Xs);    % reverse-onto is just like append
-type(lists, seq, 2, Xs) ->
-  strict(arg_types(lists, seq, 2), Xs, fun (_) -> t_list(t_integer()) end);
-type(lists, seq, 3, Xs) ->
-  strict(arg_types(lists, seq, 3), Xs, fun (_) -> t_list(t_integer()) end);
 type(lists, sort, 1, Xs) ->
   strict(arg_types(lists, sort, 1), Xs, fun ([X]) -> X end);
 type(lists, sort, 2, Xs) ->
@@ -2634,95 +2272,7 @@ type(lists, zipwith, 3, Xs) ->
 type(lists, zipwith3, 4, Xs) ->
   strict(arg_types(lists, zipwith3, 4), Xs,
 	 fun ([F,_As,_Bs,_Cs]) -> t_sup(t_list(t_fun_range(F)), t_nil()) end);
-%%-- math ---------------------------------------------------------------------
-type(math, acos, 1, Xs) ->
-  strict(arg_types(math, acos, 1), Xs, fun (_) -> t_float() end);
-type(math, acosh, 1, Xs) ->
-  strict(arg_types(math, acosh, 1), Xs, fun (_) -> t_float() end);
-type(math, asin, 1, Xs) ->
-  strict(arg_types(math, asin, 1), Xs, fun (_) -> t_float() end);
-type(math, asinh, 1, Xs) ->
-  strict(arg_types(math, asinh, 1), Xs, fun (_) -> t_float() end);
-type(math, atan, 1, Xs) ->
-  strict(arg_types(math, atan, 1), Xs, fun (_) -> t_float() end);
-type(math, atan2, 2, Xs) ->
-  strict(arg_types(math, atan2, 2), Xs, fun (_) -> t_float() end);
-type(math, atanh, 1, Xs) ->
-  strict(arg_types(math, atanh, 1), Xs, fun (_) -> t_float() end);
-type(math, cos, 1, Xs) ->
-  strict(arg_types(math, cos, 1), Xs, fun (_) -> t_float() end);
-type(math, cosh, 1, Xs) ->
-  strict(arg_types(math, cosh, 1), Xs, fun (_) -> t_float() end);
-type(math, erf, 1, Xs) ->
-  strict(arg_types(math, erf, 1), Xs, fun (_) -> t_float() end);
-type(math, erfc, 1, Xs) ->
-  strict(arg_types(math, erfc, 1), Xs, fun (_) -> t_float() end);
-type(math, exp, 1, Xs) ->
-  strict(arg_types(math, exp, 1), Xs, fun (_) -> t_float() end);
-type(math, log, 1, Xs) ->
-  strict(arg_types(math, log, 1), Xs, fun (_) -> t_float() end);
-type(math, log10, 1, Xs) ->
-  strict(arg_types(math, log10, 1), Xs, fun (_) -> t_float() end);
-type(math, pi, 0, _) -> t_float();
-type(math, pow, 2, Xs) ->
-  strict(arg_types(math, pow, 2), Xs, fun (_) -> t_float() end);
-type(math, sin, 1, Xs) ->
-  strict(arg_types(math, sin, 1), Xs, fun (_) -> t_float() end);
-type(math, sinh, 1, Xs) ->
-  strict(arg_types(math, sinh, 1), Xs, fun (_) -> t_float() end);
-type(math, sqrt, 1, Xs) ->
-  strict(arg_types(math, sqrt, 1), Xs, fun (_) -> t_float() end);
-type(math, tan, 1, Xs) ->
-  strict(arg_types(math, tan, 1), Xs, fun (_) -> t_float() end);
-type(math, tanh, 1, Xs) ->
-  strict(arg_types(math, tanh, 1), Xs, fun (_) -> t_float() end);
-%%-- net_kernel ---------------------------------------------------------------
-type(net_kernel, dflag_unicode_io, 1, Xs) ->
-  strict(arg_types(net_kernel, dflag_unicode_io, 1), Xs, 
-	 fun (_) -> t_boolean() end); 
-%%-- ordsets ------------------------------------------------------------------
-type(ordsets, filter, 2, Xs) ->
-  type(lists, filter, 2, Xs);
-type(ordsets, fold, 3, Xs) ->
-  type(lists, foldl, 3, Xs);
-%%-- os -----------------------------------------------------------------------
-type(os, getenv, 0, _) -> t_list(t_string());
-type(os, getenv, 1, Xs) ->
-  strict(arg_types(os, getenv, 1), Xs,
-	 fun (_) -> t_sup(t_string(), t_atom('false')) end);
-type(os, getpid, 0, _) -> t_string();
-type(os, putenv, 2, Xs) ->
-  strict(arg_types(os, putenv, 2), Xs, fun (_) -> t_atom('true') end);
-type(os, timestamp, 0, _) ->
-  t_timestamp();
-%%-- re -----------------------------------------------------------------------
-type(re, compile, 1, Xs) ->
-  strict(arg_types(re, compile, 1), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_re_MP()]),
-		   t_tuple([t_atom('error'), t_re_ErrorSpec()]))
-	 end);
-type(re, compile, 2, Xs) ->
-  strict(arg_types(re, compile, 2), Xs,
-	 fun (_) ->
-	     t_sup(t_tuple([t_atom('ok'), t_re_MP()]),
-		   t_tuple([t_atom('error'), t_re_ErrorSpec()]))
-	 end);
-type(re, run, 2, Xs) ->
-  strict(arg_types(re, run, 2), Xs,
-	 fun (_) ->
-	     t_sup([t_tuple([t_atom('match'), t_re_Captured()]),
-		    t_atom('nomatch'),
-		    t_tuple([t_atom('error'), t_re_ErrorSpec()])])
-	 end);
-type(re, run, 3, Xs) ->
-  strict(arg_types(re, run, 3), Xs,
-	 fun (_) ->
-	     t_sup([t_tuple([t_atom('match'), t_re_Captured()]),
-		    t_atom('match'),
-		    t_atom('nomatch'),
-		    t_tuple([t_atom('error'), t_re_ErrorSpec()])])
-	 end);
+
 %%-- string -------------------------------------------------------------------
 type(string, chars, 2, Xs) ->  % NOTE: added to avoid loss of information
   strict(arg_types(string, chars, 2), Xs, fun (_) -> t_string() end);
@@ -2741,41 +2291,6 @@ type(string, chars, 3, Xs) ->  % NOTE: added to avoid loss of information
 		 end
 	     end
 	 end);
-type(string, concat, 2, Xs) -> % NOTE: added to avoid loss of information
-  strict(arg_types(string, concat, 2), Xs, fun (_) -> t_string() end);
-type(string, equal, 2, Xs) ->  % NOTE: added to avoid loss of information
-  strict(arg_types(string, equal, 2), Xs, fun (_) -> t_boolean() end);
-type(string, to_float, 1, Xs) ->
-  strict(arg_types(string, to_float, 1), Xs,
-	 fun (_) -> t_sup(t_tuple([t_float(), t_string()]),
-			  t_tuple([t_atom('error'),
-				   t_sup(t_atom('no_float'),
-					 t_atom('not_a_list'))]))
-	 end);
-type(string, to_integer, 1, Xs) ->
-  strict(arg_types(string, to_integer, 1), Xs,
-	 fun (_) -> t_sup(t_tuple([t_integer(), t_string()]),
-			  t_tuple([t_atom('error'),
-				   t_sup(t_atom('no_integer'),
-					 t_atom('not_a_list'))]))
-	 end);
-%%-- unicode ------------------------------------------------------------------
-type(unicode, characters_to_binary, 2, Xs) ->
-  strict(arg_types(unicode, characters_to_binary, 2), Xs,
-	 fun (_) -> 
-	     t_sup([t_binary(),
-		    t_tuple([t_atom('error'), t_binary(), t_ML()]),
-		    t_tuple([t_atom('incomplete'), t_binary(), t_ML()])])
-		    end);
-type(unicode, characters_to_list, 2, Xs) ->
-  strict(arg_types(unicode, characters_to_list, 2), Xs,
-	 fun (_) ->
-	     t_sup([t_string(),
-		    t_tuple([t_atom('error'), t_string(), t_ML()]),
-		    t_tuple([t_atom('incomplete'), t_string(), t_ML()])])
-	 end);
-type(unicode, bin_is_7bit, 1, Xs) ->
-  strict(arg_types(unicode, bin_is_7bit, 1), Xs, fun (_) -> t_boolean() end);
 
 %%-----------------------------------------------------------------------------
 type(M, F, A, Xs) when is_atom(M), is_atom(F),
@@ -3230,107 +2745,6 @@ key_comparisons_fail(X0, KeyPos, TupleList) ->
 
 -spec arg_types(atom(), atom(), arity()) -> [erl_types:erl_type()] | 'unknown'.
 
-%%------- binary --------------------------------------------------------------
-arg_types(binary, at, 2) ->
-  [t_binary(), t_non_neg_integer()];
-arg_types(binary, bin_to_list, 1) ->
-  [t_binary()];
-arg_types(binary, bin_to_list, 2) ->
-  [t_binary(), t_binary_part()];
-arg_types(binary, bin_to_list, 3) ->
-  [t_binary(), t_integer(), t_non_neg_integer()];
-arg_types(binary, compile_pattern, 1) ->
-  [t_sup(t_binary(), t_list(t_binary()))];
-arg_types(binary, copy, 1) ->
-  [t_binary()];
-arg_types(binary, copy, 2) ->
-  [t_binary(), t_non_neg_integer()];
-arg_types(binary, decode_unsigned, 1) ->
-  [t_binary()];
-arg_types(binary, decode_unsigned, 2) ->
-  [t_binary(), t_endian()];
-arg_types(binary, encode_unsigned, 1) ->
-  [t_non_neg_integer()];
-arg_types(binary, encode_unsigned, 2) ->
-  [t_non_neg_integer(), t_endian()];
-arg_types(binary, first, 1) ->
-  [t_binary()];
-arg_types(binary, last, 1) ->
-  [t_binary()];
-arg_types(binary, list_to_bin, 1) ->
-  arg_types(erlang, list_to_binary, 1);
-arg_types(binary, longest_common_prefix, 1) ->
-  [t_list(t_binary())];
-arg_types(binary, longest_common_suffix, 1) ->
-  [t_list(t_binary())];
-arg_types(binary, match, 2) ->
-  [t_binary(), t_binary_pattern()];
-arg_types(binary, match, 3) ->
-  [t_binary(), t_binary_pattern(), t_binary_options()];
-arg_types(binary, matches, 2) ->
-  [t_binary(), t_binary_pattern()];
-arg_types(binary, matches, 3) ->
-  [t_binary(), t_binary_pattern(), t_binary_options()];
-arg_types(binary, part, 2) ->
-  arg_types(erlang, binary_part, 2);
-arg_types(binary, part, 3) ->
-  arg_types(erlang, binary_part, 3);
-arg_types(binary, referenced_byte_size, 1) ->
-  [t_binary()];
-%%------- code ----------------------------------------------------------------
-arg_types(code, get_chunk, 2) ->
-  [t_binary(), t_string()];
-arg_types(code, is_module_native, 1) ->
-  [t_atom()];
-arg_types(code, module_md5, 1) ->
-  [t_binary()];
-arg_types(code, make_stub_module, 3) ->
-  [t_atom(), t_binary(), t_tuple([t_list(), t_list()])];
-arg_types(code, rehash, 0) ->
-  [];
-%%------- erl_ddll ------------------------------------------------------------
-arg_types(erl_ddll, demonitor, 1) ->
-  arg_types(erlang, demonitor, 1);
-arg_types(erl_ddll, format_error_int, 1) ->
-  [t_sup([t_atom('inconsistent'),
-	  t_atom('linked_in_driver'),
-	  t_atom('permanent'),
-	  t_atom('not_loaded'),
-	  t_atom('not_loaded_by_this_process'),
-	  t_atom('not_pending'),
-	  t_atom('already_loaded'),
-	  t_atom('unloading')])];
-arg_types(erl_ddll, info, 2) ->
-  [t_sup([t_atom(), t_string()]),
-   t_sup([t_atom('awaiting_load'),
-	  t_atom('awaiting_unload'),
-	  t_atom('driver_options'),
-	  t_atom('linked_in_driver'),
-	  t_atom('permanent'),
-	  t_atom('port_count'),
-	  t_atom('processes')])];
-arg_types(erl_ddll, loaded_drivers, 0) ->
-  [];
-arg_types(erl_ddll, monitor, 2) ->
-  [t_atom('driver'),
-   t_tuple([t_atom(), t_sup([t_atom('loaded'), t_atom('unloaded')])])];
-arg_types(erl_ddll, try_load, 3) ->
-  [t_sup([t_atom(), t_string(), t_nonempty_list(t_sup([t_atom(), t_string()]))]),
-   t_sup([t_atom(), t_string()]),
-   t_list(t_sup([t_tuple([t_atom('driver_options'),
-			  t_list(t_atom('kill_ports'))]),
-		 t_tuple([t_atom('monitor'),
-			  t_sup([t_atom('pending_driver'),
-				 t_atom('pending')])]),
-		 t_tuple([t_atom('reload'),
-			  t_sup([t_atom('pending_driver'),
-				 t_atom('pending')])])]))];
-arg_types(erl_ddll, try_unload, 2) ->
-  [t_sup([t_atom(), t_string(), t_nonempty_list(t_sup([t_atom(), t_string()]))]),
-   t_list(t_sup([t_atom('kill_ports'),
-		 t_tuple([t_atom('monitor'),
-			  t_sup([t_atom('pending_driver'),
-				 t_atom('pending')])])]))];
 %%------- erlang --------------------------------------------------------------
 arg_types(erlang, '!', 2) ->
   Pid = t_sup([t_pid(), t_port(), t_atom(),
@@ -3960,177 +3374,9 @@ arg_types(erlang, whereis, 1) ->
   [t_atom()];
 arg_types(erlang, yield, 0) ->
   [];
-%%------- erl_prim_loader -----------------------------------------------------
-arg_types(erl_prim_loader, get_file, 1) ->
-  [t_sup(t_atom(), t_string())];
-arg_types(erl_prim_loader, get_path, 0) ->
-  [];
-arg_types(erl_prim_loader, set_path, 1) ->
-  [t_list(t_string())];
-%%------- error_logger --------------------------------------------------------
-arg_types(error_logger, warning_map, 0) ->
-  [];
-%%------- erts_debug ----------------------------------------------------------
-arg_types(erts_debug, breakpoint, 2) ->
-  [t_tuple([t_atom(), t_atom(), t_sup(t_integer(), t_atom('_'))]), t_boolean()];
-arg_types(erts_debug, disassemble, 1) ->
-  [t_sup(t_mfa(), t_integer())];
-arg_types(erts_debug, display, 1) ->
-  [t_any()];
-arg_types(erts_debug, dist_ext_to_term, 2) ->
-  [t_tuple(), t_binary()];
-arg_types(erts_debug, dump_monitors, 1) ->
-  [t_sup([t_pid(),t_atom()])];
-arg_types(erts_debug, dump_links, 1) ->
-  [t_sup([t_pid(),t_atom(),t_port()])];
-arg_types(erts_debug, flat_size, 1) ->
-  [t_any()];
-arg_types(erts_debug, get_internal_state, 1) ->
-  [t_any()];
-arg_types(erts_debug, instructions, 0) ->
-  [];
-arg_types(erts_debug, lock_counters, 1) ->
-  [t_sup([t_atom(enabled),
-	  t_atom(info),
-	  t_atom(clear),
-	  t_tuple([t_atom(copy_save), t_boolean()]),
-	  t_tuple([t_atom(process_locks), t_boolean()])])];
-arg_types(erts_debug, same, 2) ->
-  [t_any(), t_any()];
-arg_types(erts_debug, set_internal_state, 2) ->
-  [t_any(), t_any()];
 %%------- ets -----------------------------------------------------------------
-arg_types(ets, all, 0) ->
-  [];
-arg_types(ets, delete, 1) ->
-  [t_tab()];
-arg_types(ets, delete, 2) ->
-  [t_tab(), t_any()];
-arg_types(ets, delete_all_objects, 1) ->
-  [t_tab()];
-arg_types(ets, delete_object, 2) ->
-  [t_tab(), t_tuple()];
-arg_types(ets, first, 1) ->
-  [t_tab()];
-arg_types(ets, give_away, 3) ->
-  [t_tab(), t_pid(), t_any()];
-arg_types(ets, info, 1) ->
-  [t_tab()];
-arg_types(ets, info, 2) ->
-  [t_tab(), t_ets_info_items()];
-arg_types(ets, insert, 2) ->
-  [t_tab(), t_sup(t_tuple(), t_list(t_tuple()))];
-arg_types(ets, insert_new, 2) ->
-  [t_tab(), t_sup(t_tuple(), t_list(t_tuple()))];
-arg_types(ets, is_compiled_ms, 1) ->
-  [t_any()];
-arg_types(ets, last, 1) ->
-  arg_types(ets, first, 1);
-arg_types(ets, lookup, 2) ->
-  [t_tab(), t_any()];
-arg_types(ets, lookup_element, 3) ->
-  [t_tab(), t_any(), t_pos_fixnum()];
-arg_types(ets, match, 1) ->
-  [t_any()];
-arg_types(ets, match, 2) ->
-  [t_tab(), t_match_pattern()];
-arg_types(ets, match, 3) ->
-  [t_tab(), t_match_pattern(), t_pos_fixnum()];
-arg_types(ets, match_object, 1) ->
-  arg_types(ets, match, 1);
-arg_types(ets, match_object, 2) ->
-  arg_types(ets, match, 2);
-arg_types(ets, match_object, 3) ->
-  arg_types(ets, match, 3);
-arg_types(ets, match_spec_compile, 1) ->
-  [t_matchspecs()];
-arg_types(ets, match_spec_run_r, 3) ->
-  [t_list(t_tuple()),t_matchspecs(), t_list()];
-arg_types(ets, member, 2) ->
-  [t_tab(), t_any()];
-arg_types(ets, new, 2) ->
-  [t_atom(), t_ets_new_options()];
-arg_types(ets, next, 2) ->
-  [t_tab(), t_any()];
-arg_types(ets, prev, 2) ->
-  [t_tab(), t_any()];
 arg_types(ets, rename, 2) ->
   [t_atom(), t_atom()];
-arg_types(ets, safe_fixtable, 2) ->
-  [t_tab(), t_boolean()];
-arg_types(ets, select, 1) ->
-  [t_any()];
-arg_types(ets, select, 2) ->
-  [t_tab(), t_matchspecs()];
-arg_types(ets, select, 3) ->
-  [t_tab(), t_matchspecs(), t_pos_fixnum()];
-arg_types(ets, select_count, 2) ->
-  [t_tab(), t_matchspecs()];
-arg_types(ets, select_delete, 2) ->
-  [t_tab(), t_matchspecs()];
-arg_types(ets, select_reverse, 1) ->
-  arg_types(ets, select, 1);
-arg_types(ets, select_reverse, 2) ->
-  arg_types(ets, select, 2);
-arg_types(ets, select_reverse, 3) ->
-  arg_types(ets, select, 3);
-arg_types(ets, slot, 2) ->
-  [t_tab(), t_non_neg_fixnum()]; % 2nd arg can be 0
-arg_types(ets, setopts, 2) ->
-  Opt = t_sup([t_tuple([t_atom('heir'), t_pid(), t_any()]),
-	       t_tuple([t_atom('heir'), t_atom('none')]),
-	       t_tuple([t_atom('protection'),
-			t_sup([t_atom('protected'),
-			       t_atom('private'),
-			       t_atom('public')])])]),
-  [t_tab(), t_sup(Opt, t_list(Opt))];
-arg_types(ets, update_counter, 3) ->
-  Int = t_integer(),
-  UpdateOp = t_sup(t_tuple([Int, Int]), t_tuple([Int, Int, Int, Int])),
-  [t_tab(), t_any(), t_sup([UpdateOp, t_list(UpdateOp), Int])];
-arg_types(ets, update_element, 3) ->
-  PosValue = t_tuple([t_integer(), t_any()]),
-  [t_tab(), t_any(), t_sup(PosValue, t_list(PosValue))];
-%%------- file ----------------------------------------------------------------
-arg_types(file, native_name_encoding, 0) ->
-  [];
-%%-- prim_file ----------------------------------------------------------------
-arg_types(prim_file, internal_name2native, 1) ->
-  [t_prim_file_name()];
-arg_types(prim_file, internal_native2name, 1) ->
-  [t_binary()];
-arg_types(prim_file, internal_normalize_utf8, 1) ->
-  [t_binary()];
-%%------- gen_tcp -------------------------------------------------------------
-arg_types(gen_tcp, accept, 1) ->
-  [t_socket()];
-arg_types(gen_tcp, accept, 2) ->
-  [t_socket(), t_timeout()];
-arg_types(gen_tcp, connect, 3) ->
-  [t_gen_tcp_address(), t_gen_tcp_port(), t_list(t_gen_tcp_connect_option())];
-arg_types(gen_tcp, connect, 4) ->
-  arg_types(gen_tcp, connect, 3) ++ [t_timeout()];
-arg_types(gen_tcp, listen, 2) ->
-  [t_gen_tcp_port(), t_list(t_gen_tcp_listen_option())];
-arg_types(gen_tcp, recv, 2) ->
-  [t_socket(), t_non_neg_integer()];
-arg_types(gen_tcp, recv, 3) ->
-  arg_types(gen_tcp, recv, 2) ++ [t_timeout()];
-arg_types(gen_tcp, send, 2) ->
-  [t_socket(), t_packet()];
-arg_types(gen_tcp, shutdown, 2) ->
-  [t_socket(), t_sup([t_atom('read'), t_atom('write'), t_atom('read_write')])];
-%%------- gen_udp -------------------------------------------------------------
-arg_types(gen_udp, open, 1) ->
-  [t_gen_tcp_port()];
-arg_types(gen_udp, open, 2) ->
-  [t_gen_tcp_port(), t_list(t_gen_udp_connect_option())];
-arg_types(gen_udp, recv, 2) ->
-  arg_types(gen_tcp, recv, 2);
-arg_types(gen_udp, recv, 3) ->
-  arg_types(gen_tcp, recv, 3);
-arg_types(gen_udp, send, 4) ->
-  [t_socket(), t_gen_tcp_address(), t_gen_tcp_port(), t_packet()];
 %%------- hipe_bifs -----------------------------------------------------------
 arg_types(hipe_bifs, add_ref, 2) ->
   [t_mfa(), t_tuple([t_mfa(),
@@ -4228,28 +3474,6 @@ arg_types(hipe_bifs, write_u32, 2) ->
   [t_integer(), t_integer()];
 arg_types(hipe_bifs, write_u64, 2) ->
   [t_integer(), t_integer()];
-%%------- io ------------------------------------------------------------------
-arg_types(io, format, 1) ->
-  [t_io_format_string()];
-arg_types(io, format, 2) ->
-  [t_io_format_string(), t_list()];
-arg_types(io, format, 3) ->
-  [t_io_device(), t_io_format_string(), t_list()];
-arg_types(io, fwrite, 1) ->
-  arg_types(io, format, 1);
-arg_types(io, fwrite, 2) ->
-  arg_types(io, format, 2);
-arg_types(io, fwrite, 3) ->
-  arg_types(io, format, 3);
-arg_types(io, put_chars, 1) ->
-  [t_iodata()];
-arg_types(io, put_chars, 2) ->
-  [t_io_device(), t_iodata()];
-%%------- io_lib --------------------------------------------------------------
-arg_types(io_lib, format, 2) ->
-  arg_types(io, format, 2);
-arg_types(io_lib, fwrite, 2) ->
-  arg_types(io_lib, format, 2);
 %%------- lists ---------------------------------------------------------------
 arg_types(lists, all, 2) ->
   [t_fun([t_any()], t_boolean()), t_list()];
@@ -4321,10 +3545,6 @@ arg_types(lists, reverse, 1) ->
   [t_list()];
 arg_types(lists, reverse, 2) ->
   [t_list(), t_any()];
-arg_types(lists, seq, 2) ->
-  [t_integer(), t_integer()];
-arg_types(lists, seq, 3) ->
-  [t_integer(), t_integer(), t_integer()];
 arg_types(lists, sort, 1) ->
   [t_list()];
 arg_types(lists, sort, 2) ->
@@ -4353,97 +3573,12 @@ arg_types(lists, zipwith, 3) ->
   [t_fun([t_any(), t_any()], t_any()), t_list(), t_list()];
 arg_types(lists, zipwith3, 4) ->
   [t_fun([t_any(), t_any(), t_any()], t_any()), t_list(), t_list(), t_list()];
-%%------- math ----------------------------------------------------------------
-arg_types(math, acos, 1) ->
-  [t_number()];
-arg_types(math, acosh, 1) ->
-  [t_number()];
-arg_types(math, asin, 1) ->
-  [t_number()];
-arg_types(math, asinh, 1) ->
-  [t_number()];
-arg_types(math, atan, 1) ->
-  [t_number()];
-arg_types(math, atan2, 2) ->
-  [t_number(), t_number()];
-arg_types(math, atanh, 1) ->
-  [t_number()];
-arg_types(math, cos, 1) ->
-  [t_number()];
-arg_types(math, cosh, 1) ->
-  [t_number()];
-arg_types(math, erf, 1) ->
-  [t_number()];
-arg_types(math, erfc, 1) ->
-  [t_number()];
-arg_types(math, exp, 1) ->
-  [t_number()];
-arg_types(math, log, 1) ->
-  [t_number()];
-arg_types(math, log10, 1) ->
-  [t_number()];
-arg_types(math, pi, 0) ->
-  [];
-arg_types(math, pow, 2) ->
-  [t_number(), t_number()];
-arg_types(math, sin, 1) ->
-  [t_number()];
-arg_types(math, sinh, 1) ->
-  [t_number()];
-arg_types(math, sqrt, 1) ->
-  [t_number()];
-arg_types(math, tan, 1) ->
-  [t_number()];
-arg_types(math, tanh, 1) ->
-  [t_number()];
-%%-- net_kernel ---------------------------------------------------------------
-arg_types(net_kernel, dflag_unicode_io, 1) ->
-  [t_pid()];
-%%------- ordsets -------------------------------------------------------------
-arg_types(ordsets, filter, 2) ->
-  arg_types(lists, filter, 2);
-arg_types(ordsets, fold, 3) ->
-  arg_types(lists, foldl, 3);
-%%------- os ------------------------------------------------------------------
-arg_types(os, getenv, 0) ->
-  [];
-arg_types(os, getenv, 1) ->
-  [t_string()];
-arg_types(os, getpid, 0) ->
-  [];
-arg_types(os, putenv, 2) ->
-  [t_string(), t_string()];
-arg_types(os, timestamp, 0) ->
-  [];
-%%-- re -----------------------------------------------------------------------
-arg_types(re, compile, 1) ->
-  [t_iodata()];
-arg_types(re, compile, 2) ->
-  [t_sup(t_iodata(), t_charlist()), t_list(t_re_compile_option())];
-arg_types(re, run, 2) ->
-  [t_sup(t_iodata(), t_charlist()), t_re_RE()];
-arg_types(re, run, 3) ->
-  [t_sup(t_iodata(), t_charlist()), t_re_RE(), t_list(t_re_run_option())];
+
 %%------- string --------------------------------------------------------------
 arg_types(string, chars, 2) ->
   [t_char(), t_non_neg_integer()];
 arg_types(string, chars, 3) ->
   [t_char(), t_non_neg_integer(), t_any()];
-arg_types(string, concat, 2) ->
-  [t_string(), t_string()];
-arg_types(string, equal, 2) ->
-  [t_string(), t_string()];
-arg_types(string, to_float, 1) ->
-  [t_string()];
-arg_types(string, to_integer, 1) ->
-  [t_string()];
-%%------- unicode -------------------------------------------------------------
-arg_types(unicode, characters_to_binary, 2) ->
-  [t_ML(), t_encoding()];
-arg_types(unicode, characters_to_list, 2) ->
-  [t_ML(), t_encoding()];
-arg_types(unicode, bin_is_7bit, 1) ->
-  [t_binary()];
 %%-----------------------------------------------------------------------------
 arg_types(M, F, A) when is_atom(M), is_atom(F),
 			is_integer(A), 0 =< A, A =< 255 ->
@@ -4501,18 +3636,6 @@ check_fun_application(Fun, Args) ->
       error
   end.
 
-
-%% =====================================================================
-%% These are basic types that should probably be moved to erl_types
-%% =====================================================================
-
-t_socket() -> t_port(). % alias
-
-t_ip_address() ->
-  T_int16 = t_from_range(0,  16#FFFF),
-  t_sup(t_tuple([t_byte(), t_byte(), t_byte(), t_byte()]),
-	t_tuple([T_int16, T_int16, T_int16, T_int16,
-		 T_int16, T_int16, T_int16, T_int16])).
 
 %% =====================================================================
 %% Some basic types used in various parts of the system
@@ -4593,27 +3716,6 @@ t_HttpFieldAtom() ->
 
 t_HttpString() ->
   t_sup(t_string(), t_binary()).
-
-%% =====================================================================
-%% These are used for the built-in functions of 'binary'
-%% =====================================================================
-
-t_binary_part() ->
-  t_tuple([t_non_neg_integer(), t_integer()]).
-
-t_binary_canonical_part() ->
-  t_tuple([t_non_neg_integer(), t_non_neg_integer()]).
-
-t_binary_pattern() ->
-  t_sup([t_binary(),
-	 t_list(t_binary()),
-	 t_binary_compiled_pattern()]).
-
-t_binary_compiled_pattern() ->
-  t_tuple([t_sup(t_atom('bm'), t_atom('ac')), t_binary()]).
-
-t_binary_options() ->
-  t_list(t_tuple([t_atom('scope'), t_binary_part()])).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'code'
@@ -4822,126 +3924,6 @@ t_system_profile_return() ->
 	t_tuple([t_sup(t_pid(), t_port()), t_system_profile_options()])).
 
 %% =====================================================================
-%% These are used for the built-in functions of 'ets'
-%% =====================================================================
-
-t_tab() ->
-  t_sup(t_tid(), t_atom()).
-
-t_match_pattern() ->
-  t_sup(t_atom(), t_tuple()).
-
-t_matchspecs() ->
-  t_list(t_tuple([t_match_pattern(), t_list(), t_list()])).
-
-t_matchres() ->
-  t_sup(t_tuple([t_list(), t_any()]), t_atom('$end_of_table')).
-
-%% From the 'ets' documentation
-%%-----------------------------
-%%   Option = Type | Access | named_table | {keypos,Pos}
-%%          | {heir,pid(),HeirData} | {heir,none} | Tweaks
-%%     Type = set | ordered_set | bag | duplicate_bag
-%%   Access = public | protected | private
-%%   Tweaks = {write_concurrency,boolean()}
-%%          | {read_concurrency,boolean()} | compressed
-%%      Pos = integer()
-%% HeirData = term()
-t_ets_new_options() ->
-  t_list(t_sup([t_atom('set'),
-		t_atom('ordered_set'),
-		t_atom('bag'),
-		t_atom('duplicate_bag'),
-		t_atom('public'),
-		t_atom('protected'),
-		t_atom('private'),
-		t_atom('named_table'),
-		t_tuple([t_atom('keypos'), t_integer()]),
-		t_tuple([t_atom('heir'), t_pid(), t_any()]),
-		t_tuple([t_atom('heir'), t_atom('none')]),
-		t_tuple([t_atom('write_concurrency'), t_boolean()]),
-		t_tuple([t_atom('read_concurrency'), t_boolean()]),
-		t_atom('compressed')])).
-
-t_ets_info_items() ->
-  t_sup([t_atom('fixed'),
-	 t_atom('safe_fixed'),
-	 t_atom('keypos'),
-	 t_atom('memory'),
-	 t_atom('name'),
-	 t_atom('named_table'),
-	 t_atom('node'),
-	 t_atom('owner'),
-	 t_atom('protection'),
-	 t_atom('size'),
-	 t_atom('compressed'),
-	 t_atom('heir'),
-	 t_atom('stats'),
-	 t_atom('type')]).
-
-%% =====================================================================
-%% These are used for the built-in functions of 'gen_tcp'
-%% =====================================================================
-
-t_gen_tcp_accept() ->
-  t_sup(t_tuple([t_atom('ok'), t_socket()]),
-	t_tuple([t_atom('error'), t_sup([t_atom('closed'),
-					 t_atom('timeout'),
-					 t_inet_posix_error()])])).
-
-t_gen_tcp_address() ->
-  t_sup([t_string(), t_atom(), t_ip_address()]).
-
-t_gen_tcp_port() ->
-  t_from_range(0, 16#FFFF).
-
-t_gen_tcp_connect_option() ->
-  t_sup([t_atom('list'),
-	 t_atom('binary'),
-	 t_tuple([t_atom('ip'), t_ip_address()]),
-	 t_tuple([t_atom('port'), t_gen_tcp_port()]),
-	 t_tuple([t_atom('fd'), t_integer()]),
-	 t_atom('inet6'),
-	 t_atom('inet'),
-	 t_inet_setoption()]).
-
-t_gen_tcp_listen_option() ->
-  t_sup([t_atom('list'),
-	 t_atom('binary'),
-	 t_tuple([t_atom('backlog'), t_non_neg_integer()]),
-	 t_tuple([t_atom('ip'), t_ip_address()]),
-	 t_tuple([t_atom('fd'), t_integer()]),
-	 t_atom('inet6'),
-	 t_atom('inet'),
-	 t_inet_setoption()]).
-
-t_gen_tcp_recv() ->
-  t_sup(t_tuple([t_atom('ok'), t_packet()]),
-	t_tuple([t_atom('error'), t_sup([t_atom('closed'),
-					 t_inet_posix_error()])])).
-
-%% =====================================================================
-%% These are used for the built-in functions of 'gen_udp'
-%% =====================================================================
-
-t_gen_udp_connect_option() ->
-  t_sup([t_atom('list'),
-	 t_atom('binary'),
-	 t_tuple([t_atom('ip'), t_ip_address()]),
-	 t_tuple([t_atom('fd'), t_integer()]),
-	 t_atom('inet6'),
-	 t_atom('inet'),
-	 t_inet_setoption()]).
-
-t_gen_udp_recv() ->
-  t_sup(t_tuple([t_atom('ok'),
-		 t_tuple([t_ip_address(),
-			  t_gen_tcp_port(),
-			  t_packet()])]),
-	t_tuple([t_atom('error'),
-		 t_sup(t_atom('not_owner'), t_inet_posix_error())])).
-
-%% =====================================================================
 %% These are used for the built-in functions of 'hipe_bifs'
 %% =====================================================================
 
@@ -4976,31 +3958,6 @@ t_insn_type() ->
 %% These are used for the built-in functions of 'inet'
 %% =====================================================================
 
-t_inet_setoption() ->
-  t_sup([%% first the 2-tuple options
-	 t_tuple([t_atom('active'), t_sup(t_boolean(), t_atom('once'))]),
-	 t_tuple([t_atom('broadcast'), t_boolean()]),
-	 t_tuple([t_atom('delay_send'), t_boolean()]),
-	 t_tuple([t_atom('dontroute'), t_boolean()]),
-	 t_tuple([t_atom('exit_on_close'), t_boolean()]),
-	 t_tuple([t_atom('header'), t_non_neg_integer()]),
-	 t_tuple([t_atom('keepalive'), t_boolean()]),
-	 t_tuple([t_atom('nodelay'), t_boolean()]),
-	 t_tuple([t_atom('packet'), t_inet_setoption_packettype()]),
-	 t_tuple([t_atom('packet_size'), t_non_neg_integer()]),
-	 t_tuple([t_atom('read_packets'), t_non_neg_integer()]),
-	 t_tuple([t_atom('recbuf'), t_non_neg_integer()]),
-	 t_tuple([t_atom('reuseaddr'), t_boolean()]),
-	 t_tuple([t_atom('send_timeout'), t_non_neg_integer()]),
-	 t_tuple([t_atom('sndbuf'), t_non_neg_integer()]),
-	 t_tuple([t_atom('priority'), t_non_neg_integer()]),
-	 t_tuple([t_atom('tos'), t_non_neg_integer()]),
-	 %% and a 4-tuple option
-	 t_tuple([t_atom('raw'),
-		  t_non_neg_integer(),	% protocol level
-		  t_non_neg_integer(),	% option number
-		  t_binary()])]).	% actual option value
-
 t_inet_setoption_packettype() ->
   t_sup([t_atom('raw'),
 	 t_integers([0,1,2,4]),
@@ -5009,90 +3966,9 @@ t_inet_setoption_packettype() ->
 	 t_atom('http'),
 	 t_atom('http_bin')]).	%% but t_atom('httph') is not needed
 
-t_inet_posix_error() ->
-  t_atom().  %% XXX: Very underspecified
-
-%% =====================================================================
-%% These are used for the built-in functions of 'io'
-%% =====================================================================
-
-t_io_device() ->
-  t_sup(t_atom(), t_pid()).
-
-%% The documentation in R11B-4 reads
-%%	Format ::= atom() | string() | binary()
-%% but the Format can also be a (deep) list, hence the type below
-t_io_format_string() ->
-  t_sup([t_atom(), t_list(), t_binary()]).
-
-%% =====================================================================
-%% These are used for the built-in functions of 're'; the functions
-%% whose last name component starts with a capital letter are types
-%% =====================================================================
-
-t_re_MP() ->  %% it's supposed to be an opaque data type
-  t_tuple([t_atom('re_pattern'), t_integer(), t_integer(), t_binary()]).
-
-t_re_RE() ->
-  t_sup([t_re_MP(), t_iodata(), t_charlist()]).
-
-t_re_compile_option() ->
-  t_sup([t_atoms(['unicode', 'anchored', 'caseless', 'dollar_endonly',
-		  'dotall', 'extended', 'firstline', 'multiline',
-		  'no_auto_capture', 'dupnames', 'ungreedy']),
-	 t_tuple([t_atom('newline'), t_re_NLSpec()]),
-	 t_atoms(['bsr_anycrlf', 'bsr_unicode'])]).
-
-t_re_run_option() ->
-  t_sup([t_atoms(['anchored', 'global', 'notbol', 'noteol', 'notempty']),
-	 t_tuple([t_atom('offset'), t_integer()]),
-	 t_tuple([t_atom('newline'), t_re_NLSpec()]),
-	 t_tuple([t_atom('capture'), t_re_ValueSpec()]),
-	 t_tuple([t_atom('capture'), t_re_ValueSpec(), t_re_Type()]),
-	 t_re_compile_option()]).
-
-t_re_ErrorSpec() ->
-  t_tuple([t_string(), t_non_neg_integer()]).
-
-t_re_Type() ->
-  t_atoms(['index', 'list', 'binary']).
-
-t_re_NLSpec() ->
-  t_atoms(['cr', 'crlf', 'lf', 'anycrlf', 'any']).
-
-t_re_ValueSpec() ->
-  t_sup(t_atoms(['all', 'all_but_first', 'first', 'none']), t_re_ValueList()).
-
-t_re_ValueList() ->
-  t_list(t_sup([t_integer(), t_string(), t_atom()])).
-
-t_re_Captured() ->
-  t_list(t_sup(t_re_CapturedData(), t_list(t_re_CapturedData()))).
-
-t_re_CapturedData() ->
-  t_sup([t_tuple([t_integer(), t_integer()]), t_string(), t_binary()]).
-
-%% =====================================================================
-%% These are used for the built-in functions of 'prim_file'
-%% =====================================================================
-
-t_prim_file_name() ->
-   t_sup(t_unicode_string(), t_binary()).
-
 %% =====================================================================
 %% These are used for the built-in functions of 'unicode'
 %% =====================================================================
-
-t_ML() ->     % a binary or a possibly deep list of integers or binaries
-  t_sup(t_list(t_sup([t_integer(), t_binary(), t_list()])), t_binary()).
-
-t_encoding() ->
-  t_sup([t_atoms(['latin1', 'unicode', 'utf8', 'utf16', 'utf32']),
-	 t_tuple([t_atom('utf16'), t_endian()]),
-	 t_tuple([t_atom('utf32'), t_endian()])]).
-
-t_file_encoding() ->
-  t_atoms(['latin1', 'utf8']).
 
 t_encoding_a2b() -> % for the 2nd arg of atom_to_binary/2 and binary_to_atom/2
   t_atoms(['latin1', 'unicode', 'utf8']).

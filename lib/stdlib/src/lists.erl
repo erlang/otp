@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,15 +33,61 @@
 	 keysort/2, keymerge/3, rkeymerge/3, rukeymerge/3, 
 	 ukeysort/2, ukeymerge/3, keymap/3]).
 
-%% Bifs: member/2, reverse/2
-%% Bifs: keymember/3, keysearch/3, keyfind/3
-
 -export([merge/3, rmerge/3, sort/2, umerge/3, rumerge/3, usort/2]).
 
 -export([all/2,any/2,map/2,flatmap/2,foldl/3,foldr/3,filter/2,
 	 partition/2,zf/2,
 	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,splitwith/2,
 	 split/2]).
+
+%%% BIFs
+-export([keyfind/3, keymember/3, keysearch/3, member/2, reverse/2]).
+
+-spec keyfind(Key, N, TupleList) -> Tuple | false when
+      Key :: term(),
+      N :: pos_integer(),
+      TupleList :: [Tuple],
+      Tuple :: tuple().
+
+keyfind(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec keymember(Key, N, TupleList) -> boolean() when
+      Key :: term(),
+      N :: pos_integer(),
+      TupleList :: [Tuple],
+      Tuple :: tuple().
+
+keymember(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec keysearch(Key, N, TupleList) -> {value, Tuple} | false when
+      Key :: term(),
+      N :: pos_integer(),
+      TupleList :: [Tuple],
+      Tuple :: tuple().
+
+keysearch(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec member(Elem, List) -> boolean() when
+      Elem :: T,
+      List :: [T],
+      T :: term().
+
+member(_, _) ->
+    erlang:nif_error(undef).
+
+-spec reverse(List1, Tail) -> List2 when
+      List1 :: [T],
+      Tail :: term(),
+      List2 :: [T],
+      T :: term().
+
+reverse(_, _) ->
+    erlang:nif_error(undef).
+
+%%% End of BIFs
 
 %% member(X, L) -> (true | false)
 %%  test if X is a member of the list L
@@ -84,7 +130,7 @@ append([]) -> [].
 
 subtract(L1, L2) -> L1 -- L2.
 
-%% reverse(L) reverse all elements in the list L. Is now a BIF!
+%% reverse(L) reverse all elements in the list L. reverse/2 is now a BIF!
 
 -spec reverse(List1) -> List2 when
       List1 :: [T],
@@ -581,6 +627,7 @@ flatlength([_|T], L) ->
 flatlength([], L) -> L.
 
 %% keymember(Key, Index, [Tuple]) Now a BIF!
+%% keyfind(Key, Index, [Tuple]) A BIF!
 %% keysearch(Key, Index, [Tuple]) Now a BIF!
 %% keydelete(Key, Index, [Tuple])
 %% keyreplace(Key, Index, [Tuple], NewTuple)

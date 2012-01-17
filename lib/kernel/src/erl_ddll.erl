@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,9 +30,99 @@
 %%----------------------------------------------------------------------------
 
 -type path()   :: string() | atom().
--type driver() :: string() | atom().
+-type driver() :: iolist() | atom().
 
 %%----------------------------------------------------------------------------
+%%% BIFs
+
+-export([demonitor/1, info/2, format_error_int/1, monitor/2,
+         try_load/3, try_unload/2, loaded_drivers/0]).
+
+-spec demonitor(MonitorRef) -> ok when
+      MonitorRef :: reference().
+
+demonitor(_) ->
+    erlang:nif_error(undef).
+
+-spec info(Name, Tag) -> Value when
+      Name :: driver(),
+      Tag :: processes | driver_options | port_count | linked_in_driver
+           | permanent | awaiting_load | awaiting_unload,
+      Value :: term().
+
+info(_, _) ->
+    erlang:nif_error(undef).
+
+-spec format_error_int(ErrSpec) -> string() when
+      ErrSpec :: inconsisten | linked_in_driver | permanent
+               | not_loaded | not_loaded_by_this_process | not_pending
+               | already_loaded | unloading.
+
+format_error_int(_) ->
+    erlang:nif_error(undef).
+
+-spec monitor(Tag, Item) -> MonitorRef when
+      Tag :: driver,
+      Item :: {Name, When},
+      Name :: driver(),
+      When :: loaded | unloaded | unloaded_only,
+      MonitorRef :: reference().
+
+monitor(_, _) ->
+    erlang:nif_error(undef).
+
+-spec try_load(Path, Name, OptionList) ->
+                      {ok,Status} |
+                      {ok, PendingStatus, Ref} |
+                      {error, ErrorDesc} when
+      Path :: path(),
+      Name :: driver(),
+      OptionList :: [Option],
+      Option :: {driver_options, DriverOptionList}
+              | {monitor, MonitorOption}
+              | {reload, ReloadOption},
+      DriverOptionList :: [DriverOption],
+      DriverOption :: kill_ports,
+      MonitorOption :: pending_driver | pending,
+      ReloadOption :: pending_driver | pending,
+      Status :: loaded | already_loaded | PendingStatus,
+      PendingStatus :: pending_driver | pending_process,
+      Ref :: reference(),
+      ErrorDesc :: ErrorAtom | OpaqueError,
+      ErrorAtom :: linked_in_driver | inconsistent | permanent
+                 | not_loaded_by_this_process | not_loaded
+                 |  pending_reload | pending_process,
+      OpaqueError :: term().
+
+try_load(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec try_unload(Name, OptionList) ->
+                        {ok, Status} |
+                        {ok, PendingStatus, Ref} |
+                        {error, ErrorAtom} when
+      Name :: driver(),
+      OptionList :: [Option],
+      Option :: {monitor, MonitorOption} | kill_ports,
+      MonitorOption :: pending_driver | pending,
+      Status :: unloaded | PendingStatus,
+      PendingStatus :: pending_driver | pending_process,
+      Ref :: reference(),
+      ErrorAtom :: linked_in_driver | not_loaded |
+                   not_loaded_by_this_process | permanent.
+
+try_unload(_, _) ->
+    erlang:nif_error(undef).
+
+-spec loaded_drivers() -> {ok, Drivers} when
+      Drivers :: [Driver],
+      Driver :: string().
+
+loaded_drivers() ->
+    erlang:nif_error(undef).
+
+%%% End of BIFs
+
 
 -spec start() -> {'error', {'already_started', 'undefined'}}.
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -248,18 +248,13 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keyfind(Key, N, TupleList) -> Tuple | false</name>
+      <name name="keyfind" arity="3"/>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <fsummary>Search for an element in a list of tuples</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList = [Tuple]</v>
-        <v>Tuple = tuple()</v>
-      </type>
       <desc>
-        <p>Searches the list of tuples <c>TupleList</c> for a
-          tuple whose <c>N</c>th element compares equal to <c>Key</c>.
-          Returns <c>Tuple</c> if such a tuple is found,
+        <p>Searches the list of tuples <c><anno>TupleList</anno></c> for a
+          tuple whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>.
+          Returns <c><anno>Tuple</anno></c> if such a tuple is found,
           otherwise <c>false</c>.</p>
       </desc>
     </func>
@@ -281,17 +276,12 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keymember(Key, N, TupleList) -> boolean()</name>
+      <name name="keymember" arity="3"/>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <fsummary>Test for membership of a list of tuples</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList = [Tuple]</v>
-        <v>&nbsp;Tuple = tuple()</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if there is a tuple in <c>TupleList</c>
-          whose <c>N</c>th element compares equal to <c>Key</c>, otherwise
+        <p>Returns <c>true</c> if there is a tuple in <c><anno>TupleList</anno></c>
+          whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>, otherwise
           <c>false</c>.</p>
       </desc>
     </func>
@@ -321,18 +311,13 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keysearch(Key, N, TupleList) -> {value, Tuple} | false</name>
+      <name name="keysearch" arity="3"/>
+      <type_desc variable="N">1..tuple_size(<anno>Tuple</anno>)</type_desc>
       <fsummary>Search for an element in a list of tuples</fsummary>
-      <type>
-        <v>Key = term()</v>
-        <v>N = 1..tuple_size(Tuple)</v>
-        <v>TupleList = [Tuple]</v>
-        <v>Tuple = tuple()</v>
-      </type>
       <desc>
-        <p>Searches the list of tuples <c>TupleList</c> for a
-          tuple whose <c>N</c>th element compares equal to <c>Key</c>.
-          Returns <c>{value, Tuple}</c> if such a tuple is found,
+        <p>Searches the list of tuples <c><anno>TupleList</anno></c> for a
+          tuple whose <c><anno>N</anno></c>th element compares equal to <c><anno>Key</anno></c>.
+          Returns <c>{value, <anno>Tuple</anno>}</c> if such a tuple is found,
           otherwise <c>false</c>.</p>
       <note><p>This function is retained for backward compatibility.
       The function <c>lists:keyfind/3</c> (introduced in R13A)
@@ -425,15 +410,11 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>member(Elem, List) -> boolean()</name>
+      <name name="member" arity="2"/>
       <fsummary>Test for membership of a list</fsummary>
-      <type>
-        <v>Elem = term()</v>
-        <v>List = [term()]</v>
-      </type>
       <desc>
-        <p>Returns <c>true</c> if <c>Elem</c> matches some element of
-          <c>List</c>, otherwise <c>false</c>.</p>
+        <p>Returns <c>true</c> if <c><anno>Elem</anno></c> matches some element of
+          <c><anno>List</anno></c>, otherwise <c>false</c>.</p>
       </desc>
     </func>
     <func>
@@ -562,14 +543,11 @@ c</pre>
       </desc>
     </func>
     <func>
-      <name>reverse(List1, Tail) -> List2</name>
+      <name name="reverse" arity="2"/>
       <fsummary>Reverse a list appending a tail</fsummary>
-      <type>
-        <v>List1 = Tail = List2 = [term()]</v>
-      </type>
       <desc>
-        <p>Returns a list with the elements in <c>List1</c>
-          in reverse order, with the tail <c>Tail</c> appended. For
+        <p>Returns a list with the elements in <c><anno>List1</anno></c>
+          in reverse order, with the tail <c><anno>Tail</anno></c> appended. For
           example:</p>
         <pre>
 > <input>lists:reverse([1, 2, 3, 4], [a, b, c]).</input>

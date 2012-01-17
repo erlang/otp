@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,46 +70,6 @@
 
 -include_lib("kernel/include/file.hrl").
 
-%% User interface.
-%%
-%% objfile_extension()		 -> ".beam"
-%% get_path()			 -> [Dir]
-%% set_path([Dir])		 -> true | {error, bad_directory | bad_path}
-%% add_path(Dir)		 -> true | {error, bad_directory}
-%% add_patha(Dir)		 -> true | {error, bad_directory}
-%% add_pathz(Dir)		 -> true | {error, bad_directory}
-%% add_paths([Dir])              -> ok
-%% add_pathsa([Dir])             -> ok
-%% add_pathsz([Dir])             -> ok
-%% del_path(Dir)		 -> boolean() | {error, bad_name}
-%% replace_path(Name, Dir)       -> true | {error, bad_directory | bad_name
-%%                                                 | {badarg,_}}
-%% load_file(Module)		 -> {module, Module} | {error, What :: atom()}
-%% load_abs(File)		 -> {module, Module} | {error, What :: atom()}
-%% load_abs(File, Module)	 -> {module, Module} | {error, What :: atom()}
-%% load_binary(Module, File, Bin)-> {module, Module} | {error, What :: atom()}
-%% ensure_loaded(Module)         -> {module, Module} | {error, What :: atom()}
-%% delete(Module)                -> boolean()
-%% purge(Module)                 -> boolean()  kills all procs running old code
-%% soft_purge(Module)            -> boolean()
-%% is_loaded(Module)	         -> {file, loaded_filename()} | false
-%% all_loaded()		         -> [{Module, loaded_filename()}]
-%% get_object_code(Module)       -> {Module, Bin, Filename} | error
-%% stop()                        -> no_return()
-%% root_dir()                    -> Dir
-%% compiler_dir()                -> Dir
-%% lib_dir()                     -> Dir
-%% lib_dir(Application)          -> Dir | {error, bad_name}
-%% priv_dir(Application)         -> Dir | {error, bad_name}
-%% stick_dir(Dir)                -> ok | error
-%% unstick_dir(Dir)              -> ok | error
-%% stick_mod(Module)             -> true
-%% unstick_mod(Module)           -> true
-%% is_sticky(Module)             -> boolean()
-%% which(Module)                 -> Filename | loaded_ret_atoms() | non_existing
-%% set_primary_archive((FileName, Bin, FileInfo) -> ok | {error, Reason}
-%% clash()                       -> ok         prints out number of clashes
-
 %%----------------------------------------------------------------------------
 %% Some types for basic exported functions of this module
 %%----------------------------------------------------------------------------
@@ -124,6 +84,39 @@
                   | {'module', Module :: module()}.
 -type loaded_ret_atoms() :: 'cover_compiled' | 'preloaded'.
 -type loaded_filename() :: (Filename :: file:filename()) | loaded_ret_atoms().
+
+%%% BIFs
+
+-export([get_chunk/2, is_module_native/1, make_stub_module/3, module_md5/1]).
+
+-spec get_chunk(Bin, Chunk) ->
+                       binary() | undefined when
+      Bin :: binary(),
+      Chunk :: string().
+
+get_chunk(_, _) ->
+    erlang:nif_error(undef).
+
+-spec is_module_native(Module) -> true | false | undefined when
+      Module :: module().
+
+is_module_native(_) ->
+    erlang:nif_error(undef).
+
+-spec make_stub_module(Module, Beam, Info) -> Module when
+      Module :: module(),
+      Beam :: binary(),
+      Info :: {list(), list()}.
+
+make_stub_module(_, _, _) ->
+    erlang:nif_error(undef).
+
+-spec module_md5(binary()) -> binary() | undefined.
+
+module_md5(_) ->
+    erlang:nif_error(undef).
+
+%%% End of BIFs
 
 %%----------------------------------------------------------------------------
 %% User interface

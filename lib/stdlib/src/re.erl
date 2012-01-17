@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,11 +30,65 @@
                         | {newline, nl_spec()}| bsr_anycrlf
                         | bsr_unicode.
 
-%% Emulator builtins in this module:
-%% re:compile/1
-%% re:compile/2
-%% re:run/2
-%% re:run/3
+%%% BIFs
+
+-export([compile/1, compile/2, run/2, run/3]).
+
+-spec compile(Regexp) -> {ok, MP} | {error, ErrSpec} when
+      Regexp :: iodata(),
+      MP :: mp(),
+      ErrSpec :: {ErrString :: string(), Position :: non_neg_integer()}.
+
+compile(_) ->
+    erlang:nif_error(undef).
+
+-spec compile(Regexp, Options) -> {ok, MP} | {error, ErrSpec} when
+      Regexp :: iodata() | unicode:charlist(),
+      Options :: [Option],
+      Option :: compile_option(),
+      MP :: mp(),
+      ErrSpec :: {ErrString :: string(), Position :: non_neg_integer()}.
+
+compile(_, _) ->
+    erlang:nif_error(undef).
+
+-spec run(Subject, RE) -> {match, Captured} | nomatch when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata(),
+      Captured :: [CaptureData],
+      CaptureData :: {integer(), integer()}.
+
+run(_, _) ->
+    erlang:nif_error(undef).
+
+-spec run(Subject, RE, Options) -> {match, Captured} |
+                                   match |
+                                   nomatch when
+      Subject :: iodata() | unicode:charlist(),
+      RE :: mp() | iodata() | unicode:charlist(),
+      Options :: [Option],
+      Option :: anchored | global | notbol | noteol | notempty
+              | {offset, non_neg_integer()} |
+                {newline, NLSpec :: nl_spec()} |
+                bsr_anycrlf | bsr_unicode | {capture, ValueSpec} |
+                {capture, ValueSpec, Type} | CompileOpt,
+      Type :: index | list | binary,
+      ValueSpec :: all | all_but_first | first | none | ValueList,
+      ValueList :: [ValueID],
+      ValueID :: integer() | string() | atom(),
+      CompileOpt :: compile_option(),
+      Captured :: [CaptureData] | [[CaptureData]],
+      CaptureData :: {integer(), integer()}
+                   | ListConversionData
+                   | binary(),
+      ListConversionData :: string()
+                          | {error, string(), binary()}
+                          | {incomplete, string(), binary()}.
+
+run(_, _, _) ->
+    erlang:nif_error(undef).
+
+%%% End of BIFs
 
 -spec split(Subject, RE) -> SplitList when
       Subject :: iodata() | unicode:charlist(),

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -73,7 +73,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
-      <name>getenv() -> [string()]</name>
+      <name name="getenv" arity="0"/>
       <fsummary>List all environment variables</fsummary>
       <desc>
         <p>Returns a list of all environment variables.
@@ -83,55 +83,41 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       </desc>
     </func>
     <func>
-      <name>getenv(VarName) -> Value | false</name>
+      <name name="getenv" arity="1"/>
       <fsummary>Get the value of an environment variable</fsummary>
-      <type>
-        <v>VarName = string() </v>
-        <v>Value = string()</v>
-      </type>
       <desc>
-        <p>Returns the <c>Value</c> of the environment variable
-          <c>VarName</c>, or <c>false</c> if the environment variable
+        <p>Returns the <c><anno>Value</anno></c> of the environment variable
+          <c><anno>VarName</anno></c>, or <c>false</c> if the environment variable
           is undefined.</p>
       </desc>
     </func>
     <func>
-      <name>getpid() -> Value </name>
+      <name name="getpid" arity="0"/>
       <fsummary>Return the process identifier of the emulator process</fsummary>
-      <type>
-        <v>Value = string()</v>
-      </type>
       <desc>
         <p>Returns the process identifier of the current Erlang emulator
           in the format most commonly used by the operating system
-          environment. <c>Value</c> is returned as a string containing
+          environment. <c><anno>Value</anno></c> is returned as a string containing
           the (usually) numerical identifier for a process. On Unix,
           this is typically the return value of the <c>getpid()</c>
-          system call. On VxWorks, <c>Value</c> contains the task id
+          system call. On VxWorks, <c><anno>Value</anno></c> contains the task id
           (decimal notation) of the Erlang task. On Windows,
           the process id as returned by the <c>GetCurrentProcessId()</c>
           system call is used.</p>
       </desc>
     </func>
     <func>
-      <name>putenv(VarName, Value) -> true</name>
+      <name name="putenv" arity="2"/>
       <fsummary>Set a new value for an environment variable</fsummary>
-      <type>
-        <v>VarName = string() </v>
-        <v>Value = string()</v>
-      </type>
       <desc>
-        <p>Sets a new <c>Value</c> for the environment variable
-          <c>VarName</c>.</p>
+        <p>Sets a new <c><anno>Value</anno></c> for the environment variable
+          <c><anno>VarName</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>timestamp() -> Timestamp</name>
+      <name name="timestamp" arity="0"/>
+      <type_desc variable="Timestamp">Timestamp = {MegaSecs, Secs, MicroSecs}</type_desc>
       <fsummary>Returna a timestamp from the OS in the erlang:now/0 format</fsummary>
-      <type>
-        <v>Timestamp = {MegaSecs, Secs, MicroSecs} = <seealso marker="erts:erlang#type-timestamp">erlang:timestamp()</seealso></v>
-        <v>MegaSecs = Secs = MicroSecs = integer() >= 0</v>
-      </type>
       <desc>
       <p>Returns a tuple in the same format as <seealso marker="erts:erlang#now/0">erlang:now/0</seealso>. The difference is that this function returns what the operating system thinks (a.k.a. the wall clock time) without any attempts at time correction. The result of two different calls to this function is <em>not</em> guaranteed to be different.</p>
       <p>The most obvious use for this function is logging. The tuple can be used together with the function <seealso marker="stdlib:calendar#now_to_universal_time/1">calendar:now_to_universal_time/1</seealso> 

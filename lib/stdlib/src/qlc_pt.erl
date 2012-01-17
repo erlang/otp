@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2186,7 +2186,7 @@ try_ms(E, P, Fltr, State) ->
             {function,L,foo,0,[{clause,L,[],[],[MS0]}]} = lists:last(X),
             MS = erl_parse:normalise(var2const(MS0)),
             XMS = ets:match_spec_compile(MS),
-            true = is_binary(XMS),
+            true = ets:is_compiled_ms(XMS),
             {ok, MS, MS0} 
         end of
         {'EXIT', _Reason} ->

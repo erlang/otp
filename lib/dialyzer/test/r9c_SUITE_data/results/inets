@@ -30,11 +30,11 @@ httpd_sup.erl:92: The variable Else can never match since previous clauses compl
 mod_auth.erl:559: The pattern {'error', Reason} can never match the type {_,integer(),maybe_improper_list(),_}
 mod_auth_dets.erl:120: The call lists:foreach(fun((_) -> 'true' | {'error','no_such_group' | 'no_such_group_member'}),{'ok',[any()]}) will never return since it differs in the 2nd argument from the success typing arguments: (fun((_) -> any()),[any()])
 mod_auth_plain.erl:100: The variable _ can never match since previous clauses completely covered the type {'ok',[any()]}
-mod_auth_plain.erl:159: The variable _ can never match since previous clauses completely covered the type [any()]
-mod_auth_plain.erl:83: The variable O can never match since previous clauses completely covered the type [any()]
+mod_auth_plain.erl:159: The variable _ can never match since previous clauses completely covered the type [[any()]]
+mod_auth_plain.erl:83: The variable O can never match since previous clauses completely covered the type [[any()]]
 mod_cgi.erl:372: The pattern {'http_response', NewAccResponse} can never match the type 'ok'
 mod_dir.erl:101: The call lists:flatten(nonempty_improper_list(atom() | [any()] | char(),atom())) will never return since it differs in the 1st argument from the success typing arguments: ([any()])
-mod_dir.erl:72: The pattern {'error', Reason} can never match the type {'ok',[[[any()] | char()],...]}
+mod_dir.erl:72: The pattern {'error', Reason} can never match the type {'ok',[[[any()] | non_neg_integer()],...]}
 mod_get.erl:135: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
 mod_head.erl:80: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
 mod_htaccess.erl:460: The pattern {'error', BadData} can never match the type {'ok',_}
@@ -46,9 +46,9 @@ mod_include.erl:692: The pattern <{'read', Reason}, Info, Path> can never match 
 mod_include.erl:706: The pattern <{'enfile', _}, _Info, Path> can never match the type <atom(),#mod{},atom() | binary() | [atom() | [any()] | char()]>
 mod_include.erl:716: Function read_error/3 will never be called
 mod_include.erl:719: Function read_error/4 will never be called
-mod_security_server.erl:386: The variable O can never match since previous clauses completely covered the type [any()]
-mod_security_server.erl:433: The variable Other can never match since previous clauses completely covered the type [any()]
-mod_security_server.erl:585: The variable _ can never match since previous clauses completely covered the type [any()]
-mod_security_server.erl:608: The variable _ can never match since previous clauses completely covered the type [any()]
-mod_security_server.erl:641: The variable _ can never match since previous clauses completely covered the type [any()]
+mod_security_server.erl:386: The variable O can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:433: The variable Other can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:585: The variable _ can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:608: The variable _ can never match since previous clauses completely covered the type [tuple()]
+mod_security_server.erl:641: The variable _ can never match since previous clauses completely covered the type [tuple()]
 uri.erl:146: The pattern {'error', Error} can never match since previous clauses completely covered the type {_,{[],[]}}

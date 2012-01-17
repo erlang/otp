@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,6 +23,42 @@
 -export([type/0, version/0, cmd/1, find_executable/1, find_executable/2]).
 
 -include("file.hrl").
+
+%%% BIFs
+
+-export([getenv/0, getenv/1, getpid/0, putenv/2, timestamp/0]).
+
+-spec getenv() -> [string()].
+
+getenv() -> erlang:nif_error(undef).
+
+-spec getenv(VarName) -> Value | false when
+      VarName :: string(),
+      Value :: string().
+
+getenv(_) ->
+    erlang:nif_error(undef).
+
+-spec getpid() -> Value when
+      Value :: string().
+
+getpid() ->
+    erlang:nif_error(undef).
+
+-spec putenv(VarName, Value) -> true when
+      VarName :: string(),
+      Value :: string().
+
+putenv(_, _) ->
+    erlang:nif_error(undef).
+
+-spec timestamp() -> Timestamp when
+      Timestamp :: erlang:timestamp().
+
+timestamp() ->
+    erlang:nif_error(undef).
+
+%%% End of BIFs
 
 -spec type() -> vxworks | {Osfamily, Osname} when
       Osfamily :: unix | win32,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,13 +17,6 @@
 %% %CopyrightEnd%
 %%
 -module(unicode).
-
-%% Implemented in the emulator:
-%% characters_to_binary/2 (will trap to characters_to_binary_int/2
-%%                         if InEncoding is not {latin1 | unicode | utf8})
-%% characters_to_list/2   (will trap to characters_to_list_int/2 if 
-%%                         InEncoding is not {latin1 | unicode | utf8})
-%%
 
 -export([characters_to_list/1, characters_to_list_int/2,
 	 characters_to_binary/1, characters_to_binary_int/2,
@@ -51,6 +44,45 @@
 -type latin1_chardata() :: latin1_charlist() | latin1_binary().
 -type latin1_charlist() :: [latin1_char() | latin1_binary()
                             | latin1_charlist()].
+
+%%% BIFs
+%%%
+%%% characters_to_binary/2 (will trap to characters_to_binary_int/2
+%%%                         if InEncoding is not {latin1 | unicode | utf8})
+%%% characters_to_list/2   (will trap to characters_to_list_int/2 if
+%%%                         InEncoding is not {latin1 | unicode | utf8})
+
+-export([bin_is_7bit/1, characters_to_binary/2, characters_to_list/2]).
+
+-spec bin_is_7bit(Binary) -> boolean() when
+      Binary :: binary().
+
+bin_is_7bit(_) ->
+    erlang:nif_error(undef).
+
+-spec characters_to_binary(Data, InEncoding) -> Result when
+      Data :: latin1_chardata() | chardata() | external_chardata(),
+      InEncoding :: encoding(),
+      Result :: binary()
+              | {error, binary(), RestData}
+              | {incomplete, binary(), binary()},
+      RestData :: latin1_chardata() | chardata() | external_chardata().
+
+characters_to_binary(_, _) ->
+    erlang:nif_error(undef).
+
+-spec characters_to_list(Data,  InEncoding) -> Result when
+      Data :: latin1_chardata() | chardata() | external_chardata(),
+      InEncoding :: encoding(),
+      Result :: list()
+              | {error, list(), RestData}
+              | {incomplete, list(), binary()},
+      RestData :: latin1_chardata() | chardata() | external_chardata().
+
+characters_to_list(_, _) ->
+    erlang:nif_error(undef).
+
+%%% End of BIFs
 
 -spec characters_to_list(Data) -> Result when
       Data :: latin1_chardata() | chardata() | external_chardata(),

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -182,11 +182,8 @@
   </datatypes>
   <funcs>
     <func>
-      <name>demonitor(MonitorRef) -> ok</name>
+      <name name="demonitor" arity="1"/>
       <fsummary>Remove a monitor for a driver</fsummary>
-      <type>
-        <v>MonitorRef = reference()</v>
-      </type>
       <desc>
         <p>Removes a driver monitor in much the same way as 
           <seealso marker="erts:erlang#erlang:demonitor/1">erlang:demonitor/1</seealso> does with process
@@ -232,24 +229,19 @@
       </desc>
     </func>
     <func>
-      <name>info(Name, Tag) -> Value</name>
+      <name name="info" arity="2"/>
       <fsummary>Retrieve specific information about one driver</fsummary>
-      <type>
-        <v>Name = string() | atom()</v>
-        <v>Tag = processes | driver_options | port_count | linked_in_driver | permanent | awaiting_load | awaiting_unload</v>
-        <v>Value = term()</v>
-      </type>
       <desc>
         <p>This function returns specific information about one aspect
-          of a driver. The <c>Tag</c> parameter specifies which aspect
-          to get information about. The <c>Value</c> return differs
+          of a driver. The <c><anno>Tag</anno></c> parameter specifies which aspect
+          to get information about. The <c><anno>Value</anno></c> return differs
           between different tags:</p>
         <taglist>
           <tag><em>processes</em></tag>
           <item>
             <p>Return all processes containing <seealso marker="#users">users</seealso> of the specific drivers
-              as a list of tuples <c>{pid(),int()}</c>, where the
-              <c>int()</c> denotes the number of users in the process
+              as a list of tuples <c>{pid(),integer() >= 0}</c>, where the
+              <c>integer()</c> denotes the number of users in the process
               <c>pid()</c>.</p>
           </item>
           <tag><em>driver_options</em></tag>
@@ -261,16 +253,16 @@
           </item>
           <tag><em>port_count</em></tag>
           <item>
-            <p>Return the number of ports (an <c>int()</c>) using the driver.</p>
+            <p>Return the number of ports (an <c>integer >= 0()</c>) using the driver.</p>
           </item>
           <tag><em>linked_in_driver</em></tag>
           <item>
-            <p>Return a <c>bool()</c>, being <c>true</c> if the driver is a
+            <p>Return a <c>boolean()</c>, being <c>true</c> if the driver is a
               statically linked in one and <c>false</c> otherwise.</p>
           </item>
           <tag><em>permanent</em></tag>
           <item>
-            <p>Return a <c>bool()</c>, being <c>true</c> if the driver has made
+            <p>Return a <c>boolean()</c>, being <c>true</c> if the driver has made
               itself permanent (and is <em>not</em> a statically
               linked in driver). <c>false</c> otherwise.</p>
           </item>
@@ -278,14 +270,14 @@
           <item>
             <p>Return a list of all processes having monitors for
               <c>loading</c> active, each process returned as
-              <c>{pid(),int()}</c>, where the <c>int()</c> is the
+              <c>{pid(),integer() >= 0}</c>, where the <c>integer()</c> is the
               number of monitors held by the process <c>pid()</c>.</p>
           </item>
           <tag><em>awaiting_unload</em></tag>
           <item>
             <p>Return a list of all processes having monitors for
               <c>unloading</c> active, each process returned as
-              <c>{pid(),int()}</c>, where the <c>int()</c> is the
+              <c>{pid(),integer() >= 0}</c>, where the <c>integer()</c> is the
               number of monitors held by the process <c>pid()</c>.</p>
           </item>
         </taglist>
@@ -377,41 +369,34 @@
       </desc>
     </func>
     <func>
-      <name>monitor(Tag, Item) -> MonitorRef</name>
+      <name name="monitor" arity="2"/>
       <fsummary>Create a monitor for a driver</fsummary>
-      <type>
-        <v>Tag = driver </v>
-        <v>Item = {Name, When}</v>
-        <v>Name = atom() | string()</v>
-        <v>When = loaded | unloaded | unloaded_only</v>
-        <v>MonitorRef = reference()</v>
-      </type>
       <desc>
         <p>This function creates a driver monitor and works in many
           ways as the function <seealso marker="erts:erlang#erlang:monitor/2">erlang:monitor/2</seealso>,
           does for processes. When a driver changes state, the monitor
           results in a monitor-message being sent to the calling
-          process. The <c>MonitorRef</c> returned by this function is
+          process. The <c><anno>MonitorRef</anno></c> returned by this function is
           included in the message sent.</p>
         <p>As with process monitors, each driver monitor set will only
           generate <em>one single message</em>. The monitor is
           "destroyed" after the message is sent and there is then no
           need to call <seealso marker="#demonitor/1">demonitor/1</seealso>.</p>
-        <p>The <c>MonitorRef</c> can also be used in subsequent calls
+        <p>The <c><anno>MonitorRef</anno></c> can also be used in subsequent calls
           to <seealso marker="#demonitor/1">demonitor/1</seealso> to
           remove a monitor.</p>
         <p>The function accepts the following parameters:</p>
         <taglist>
-          <tag><em>Tag</em></tag>
+          <tag><em><anno>Tag</anno></em></tag>
           <item>
             <p>The monitor tag is always <c>driver</c> as this function
               can only be used to create driver monitors. In the future,
               driver monitors will be integrated with process monitors,
               why this parameter has to be given for consistence.</p>
           </item>
-          <tag><em>Item</em></tag>
+          <tag><em><anno>Item</anno></em></tag>
           <item>
-            <p>The <c>Item</c> parameter specifies which driver one
+            <p>The <c><anno>Item</anno></c> parameter specifies which driver one
               wants to monitor (the name of the driver) as well as
               which state change one wants to monitor. The parameter
               is a tuple of arity two whose first element is the
@@ -588,22 +573,8 @@
       </desc>
     </func>
     <func>
-      <name>try_load(Path, Name, OptionList) -> {ok,Status} | {ok, PendingStatus, Ref} | {error, ErrorDesc}</name>
+      <name name="try_load" arity="3"/>
       <fsummary>Load a driver</fsummary>
-      <type>
-        <v>Path = Name = string() | atom()</v>
-        <v>OptionList = [ Option ]</v>
-        <v>Option = {driver_options, DriverOptionList} | {monitor, MonitorOption} | {reload, ReloadOption}</v>
-        <v>DriverOptionList = [ DriverOption ]</v>
-        <v>DriverOption = kill_ports</v>
-        <v>MonitorOption = pending_driver | pending</v>
-        <v>ReloadOption = pending_driver | pending</v>
-        <v>Status = loaded | already_loaded | PendingStatus </v>
-        <v>PendingStatus = pending_driver | pending_process</v>
-        <v>Ref = reference()</v>
-        <v>ErrorDesc = ErrorAtom | OpaqueError</v>
-        <v>ErrorAtom = linked_in_driver | inconsistent | permanent | not_loaded_by_this_process | not_loaded |  pending_reload | pending_process</v>
-      </type>
       <desc>
         <p>This function provides more control than the
           <c>load/2</c>/<c>reload/2</c> and
@@ -655,65 +626,65 @@
         <p>When the function returns <c>{ok, pending_driver}</c> or
           <c>{ok, pending_process}</c>, one might want to get information
           about when the driver is <em>actually</em> loaded. This can
-          be achieved by using the <c>{monitor, PendingOption}</c> option.</p>
+          be achieved by using the <c>{monitor, <anno>MonitorOption</anno>}</c> option.</p>
         <p>When monitoring is requested, and a corresponding <c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c> would be
-          returned, the function will instead return a tuple <c>{ok, PendingStatus, reference()}</c> and the process will, at a later
+          returned, the function will instead return a tuple <c>{ok, <anno>PendingStatus</anno>, reference()}</c> and the process will, at a later
           time when the driver actually gets loaded, get a monitor
           message. The monitor message one can expect is described in
           the <seealso marker="#monitor/2">monitor/2</seealso>
           function description. </p>
         <note>
           <p>Note that in case of loading, monitoring can
-            <em>not</em> only get triggered by using the <c>{reload, ReloadOption}</c> option, but also in special cases where
+            <em>not</em> only get triggered by using the <c>{reload, <anno>ReloadOption</anno>}</c> option, but also in special cases where
             the load-error is transient, why <c>{monitor, pending_driver}</c> should be used under basically
             <em>all</em> real world circumstances!</p>
         </note>
         <p>The function accepts the following parameters:</p>
         <taglist>
-          <tag><em>Path</em></tag>
+          <tag><em><anno>Path</anno></em></tag>
           <item>
             <p>The filesystem path to the directory where the driver
               object file is situated. The filename of the object file
               (minus extension) must correspond to the driver name
               (used in the name parameter) and the driver must
               identify itself with the very same name. The
-              <c>Path</c> might be provided as an <em>io_list</em>,
-              meaning it can be a list of other io_lists, characters
+              <c><anno>Path</anno></c> might be provided as an <em>iolist()</em>,
+              meaning it can be a list of other <c>iolist()</c>s, characters
               (eight bit integers) or binaries, all to be flattened
               into a sequence of characters.</p>
-            <p>The (possibly flattened) <c>Path</c> parameter must be
+            <p>The (possibly flattened) <c><anno>Path</anno></c> parameter must be
               consistent throughout the system, a driver should, by
               all <seealso marker="#users">users</seealso>, be loaded
-              using the same <em>literal</em><c>Path</c>. The
+              using the same <em>literal</em><c><anno>Path</anno></c>. The
               exception is when <em>reloading</em> is requested, in
-              which case the <c>Path</c> may be specified
+              which case the <c><anno>Path</anno></c> may be specified
               differently. Note that all <seealso marker="#users">users</seealso> trying to load the
-              driver at a later time will need to use the <em>new</em><c>Path</c> if the <c>Path</c> is changed using a
+              driver at a later time will need to use the <em>new</em><c><anno>Path</anno></c> if the <c><anno>Path</anno></c> is changed using a
               <c>reload</c> option. This is yet another reason
               to have <em>only one loader</em> of a driver one wants to
               upgrade in a running system!  </p>
           </item>
-          <tag><em>Name</em></tag>
+          <tag><em><anno>Name</anno></em></tag>
           <item>
             <p>The name parameter is the name of the driver to be used
               in subsequent calls to <seealso marker="erts:erlang#open_port/2">open_port</seealso>. The
-              name can be specified either as an <c>io_list()</c> or
+              name can be specified either as an <c>iolist()</c> or
               as an <c>atom()</c>. The name given when loading is used
               to find the actual object file (with the
-              help of the <c>Path</c> and the system implied
+              help of the <c><anno>Path</anno></c> and the system implied
               extension suffix, i.e. <c>.so</c>). The name by which
               the driver identifies itself must also be consistent
-              with this <c>Name</c> parameter, much as a beam-file's
+              with this <c><anno>Name</anno></c> parameter, much as a beam-file's
               module name much correspond to its filename.</p>
           </item>
-          <tag><em>OptionList</em></tag>
+          <tag><em><anno>OptionList</anno></em></tag>
           <item>
             <p>A number of options can be specified to control the
               loading operation. The options are given as a list of
               two-tuples, the tuples having the following values and
               meanings:</p>
             <taglist>
-              <tag><em>{driver_options, DriverOptionsList}</em></tag>
+              <tag><em>{driver_options, <anno>DriverOptionList</anno>}</em></tag>
               <item>
                 <p>This option is to provide options that will change
                   its general behavior and will "stick" to the driver
@@ -729,14 +700,14 @@
                   when the last <seealso marker="#users">user</seealso> calls <seealso marker="#try_unload/2">try_unload/2</seealso>, or
                   the last process having loaded the driver exits.</p>
               </item>
-              <tag><em>{monitor, MonitorOption}</em></tag>
+              <tag><em>{monitor, <anno>MonitorOption</anno>}</em></tag>
               <item>
-                <p>A <c>MonitorOption</c> tells <c>try_load/3</c> to
+                <p>A <c><anno>MonitorOption</anno></c> tells <c>try_load/3</c> to
                   trigger a driver monitor under certain
                   conditions. When the monitor is triggered, the
-                  function will return a three-tuple <c>{ok, PendingStatus, reference()}</c>, where the <c>reference()</c> is
+                  function will return a three-tuple <c>{ok, <anno>PendingStatus</anno>, reference()}</c>, where the <c>reference()</c> is
                   the monitor ref for the driver monitor.</p>
-                <p>Only one <c>MonitorOption</c> can be specified and
+                <p>Only one <c><anno>MonitorOption</anno></c> can be specified and
                   it is either the atom <c>pending</c>, which means
                   that a monitor should be created whenever a load
                   operation is delayed, and the atom
@@ -747,7 +718,7 @@
                   is present for completeness, it is very well defined
                   which reload-options might give rise to which
                   delays. It might, however, be a good idea to use the
-                  same <c>MonitorOption</c> as the <c>ReloadOption</c>
+                  same <c><anno>MonitorOption</anno></c> as the <c><anno>ReloadOption</anno></c>
                   if present.</p>
                 <p>If reloading is not requested, it might still be
                   useful to specify the <c>monitor</c> option, as
@@ -760,12 +731,12 @@
                   <c>{monitor, pending_driver}</c> in production
                   code (see the monitor discussion above). </p>
               </item>
-              <tag><em>{reload,RealoadOption}</em></tag>
+              <tag><em>{reload,<anno>ReloadOption</anno>}</em></tag>
               <item>
                 <p>This option is used when one wants to
                   <em>reload</em> a driver from disk, most often in a
                   code upgrade scenario. Having a <c>reload</c> option
-                  also implies that the <c>Path</c> parameter need
+                  also implies that the <c><anno>Path</anno></c> parameter need
                   <em>not</em> be consistent with earlier loads of
                   the driver.</p>
                 <p>To reload a driver, the process needs to have previously
@@ -814,9 +785,9 @@
           <tag><em>{error,inconsistent}</em></tag>
           <item>
             <p>The driver has already been loaded with either other
-              <c>DriverOptions</c> or a different <em>literal</em><c>Path</c> argument.</p>
+              <c><anno>DriverOptionList</anno></c> or a different <em>literal</em><c>Path</c> argument.</p>
             <p>This can happen even if a <c>reload</c> option is given,
-              if the <c>DriverOptions</c> differ from the current.</p>
+              if the <c>DriverOptionList</c> differ from the current.</p>
           </item>
           <tag><em>{error, permanent}</em></tag>
           <item>
@@ -830,19 +801,19 @@
           </item>
           <tag><em>{error, pending_reload}</em></tag>
           <item>
-            <p>Driver reload is already requested by another <seealso marker="#users">user</seealso> when the <c>{reload, ReloadOption}</c> option was given.</p>
+            <p>Driver reload is already requested by another <seealso marker="#users">user</seealso> when the <c>{reload, <anno>ReloadOption</anno>}</c> option was given.</p>
           </item>
           <tag><em>{error, not_loaded_by_this_process}</em></tag>
           <item>
             <p>Appears when the <c>reload</c> option is given. The
-              driver <c>Name</c> is present in the system, but there is no
+              driver <c><anno>Name</anno></c> is present in the system, but there is no
               <seealso marker="#users">user</seealso> of it in this
               process.</p>
           </item>
           <tag><em>{error, not_loaded}</em></tag>
           <item>
             <p>Appears when the <c>reload</c> option is given. The
-              driver <c>Name</c> is not in the system. Only drivers
+              driver <c><anno>Name</anno></c> is not in the system. Only drivers
               loaded by this process can be reloaded.</p>
           </item>
         </taglist>
@@ -856,18 +827,8 @@
       </desc>
     </func>
     <func>
-      <name>try_unload(Name, OptionList) -> {ok,Status} | {ok, PendingStatus, Ref} | {error, ErrorAtom}</name>
+      <name name="try_unload" arity="2"/>
       <fsummary>Unload a driver</fsummary>
-      <type>
-        <v>Name = string() | atom()</v>
-        <v>OptionList = [ Option ]</v>
-        <v>Option = {monitor, MonitorOption} | kill_ports</v>
-        <v>MonitorOption = pending_driver | pending</v>
-        <v>Status = unloaded | PendingStatus </v>
-        <v>PendingStatus = pending_driver | pending_process</v>
-        <v>Ref = reference()</v>
-        <v>ErrorAtom = linked_in_driver | not_loaded |  not_loaded_by_this_process | permanent</v>
-      </type>
       <desc>
         <p>This is the low level function to unload (or decrement
           reference counts of) a driver. It can be used to force port
@@ -948,15 +909,15 @@
         </taglist>
         <p>The function accepts the following parameters:</p>
         <taglist>
-          <tag><em>Name</em></tag>
+          <tag><em><anno>Name</anno></em></tag>
           <item>
             <p>The name parameter is the name of the driver to be
               unloaded. The name can be specified either as an
-              <c>io_list()</c> or as an <c>atom()</c>. </p>
+              <c>iolist()</c> or as an <c>atom()</c>. </p>
           </item>
-          <tag><em>OptionList</em></tag>
+          <tag><em><anno>OptionList</anno></em></tag>
           <item>
-            <p>The <c>OptionList</c> argument can be used to specify
+            <p>The <c><anno>OptionList</anno></c> argument can be used to specify
               certain behavior regarding ports as well as triggering
               monitors under certain conditions:</p>
             <taglist>
@@ -972,10 +933,10 @@
                   unloads, one should use the driver option
                   <c>kill_ports</c> when loading the driver instead.</p>
               </item>
-              <tag><em>{monitor, MonitorOption}</em></tag>
+              <tag><em>{monitor, <anno>MonitorOption</anno>}</em></tag>
               <item>
                 <p>This option creates a driver monitor if the condition
-                  given in <c>MonitorOptions</c> is true. The valid
+                  given in <c><anno>MonitorOption</anno></c> is true. The valid
                   options are:</p>
                 <taglist>
                   <tag><em>pending_driver</em></tag>
@@ -989,7 +950,7 @@
                       <c>{ok, pending_driver}</c> or <c>{ok, pending_process}</c>.</p>
                   </item>
                 </taglist>
-                <p>The <c>pending_driver</c> <c>MonitorOption</c> is by far
+                <p>The <c>pending_driver</c> <c><anno>MonitorOption</anno></c> is by far
                   the most useful and it has to be used to ensure that the
                   driver has really been unloaded and the ports closed
                   whenever the <c>kill_ports</c> option is used or the
@@ -1016,11 +977,11 @@
           </item>
           <tag><em>{error, not_loaded}</em></tag>
           <item>
-            <p>The driver <c>Name</c> is not present in the system.</p>
+            <p>The driver <c><anno>Name</anno></c> is not present in the system.</p>
           </item>
           <tag><em>{error, not_loaded_by_this_process}</em></tag>
           <item>
-            <p>The driver <c>Name</c> is present in the system, but
+            <p>The driver <c><anno>Name</anno></c> is present in the system, but
               there is no <seealso marker="#users">user</seealso> of
               it in this process. </p>
             <p>As a special case, drivers can be unloaded from
@@ -1088,12 +1049,8 @@
       </desc>
     </func>
     <func>
-      <name>loaded_drivers() -> {ok, Drivers}</name>
+      <name name="loaded_drivers" arity="0"/>
       <fsummary>List loaded drivers</fsummary>
-      <type>
-        <v>Drivers = [Driver]</v>
-        <v>Driver = string()</v>
-      </type>
       <desc>
         <p>Returns a list of all the available drivers, both
           (statically) linked-in and dynamically loaded ones.</p>
