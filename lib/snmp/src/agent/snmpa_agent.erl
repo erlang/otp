@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -934,6 +934,7 @@ handle_info({'EXIT', Pid, Reason}, S) ->
 	    end,
 	    {noreply, S}
     end;
+
 handle_info({'DOWN', Ref, process, Pid, {mibs_cache_reply, Reply}}, 
 	    #state{mibs_cache_request = {Pid, Ref, From}} = S) ->
     ?vlog("reply from the mibs cache request handler (~p): ~n~p", 
@@ -1283,27 +1284,27 @@ handle_call({me_of, Oid}, _From, S) ->
     {reply, Reply, S};
 
 handle_call(get_log_type, _From, S) ->
-    ?vlog("get_log_type", []),
+    ?vlog("handle_call(get_log_type) -> entry with", []),
     Reply = handle_get_log_type(S), 
     {reply, Reply, S};
     
 handle_call({set_log_type, NewType}, _From, S) ->
-    ?vlog("set_log_type -> "
+    ?vlog("handle_call(set_log_type) -> entry with"
 	  "~n   NewType: ~p", [NewType]),
     Reply = handle_set_log_type(S, NewType), 
     {reply, Reply, S};
     
 handle_call(get_request_limit, _From, S) ->
-    ?vlog("get_request_limit", []),
+    ?vlog("handle_call(get_request_limit) -> entry with", []),
     Reply = handle_get_request_limit(S), 
     {reply, Reply, S};
     
 handle_call({set_request_limit, NewLimit}, _From, S) ->
-    ?vlog("set_request_limit -> "
+    ?vlog("handle_call(set_request_limit) -> entry with"
 	  "~n   NewLimit: ~p", [NewLimit]),
     Reply = handle_set_request_limit(S, NewLimit), 
     {reply, Reply, S};
-    
+
 handle_call(stop, _From, S) ->
     {stop, normal, ok, S};
 
@@ -3859,6 +3860,7 @@ mapfoldl(F, Eas, Accu0, [Hd|Tail]) ->
     {Accu2,[R|Rs]};
 mapfoldl(_F, _Eas, Accu, []) -> {Accu,[]}.
 
+
 %%-----------------------------------------------------------------
 %% Runtime debugging of the agent.
 %%-----------------------------------------------------------------
@@ -3983,7 +3985,7 @@ handle_set_request_limit(_, _) ->
     {error, not_supported}.
 
 
-agent_info(#state{worker = W, set_worker = SW}) ->	 
+agent_info(#state{worker = W, set_worker = SW}) -> 
     case (catch get_agent_info(W, SW)) of
 	Info when is_list(Info) ->
 	    Info;
