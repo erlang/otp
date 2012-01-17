@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,7 +34,71 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.21.5</title>
+    <p>Version 4.21.5 supports code replacement in runtime from/to
+      version 4.21.4, 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1 and 4.20. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Removed (more) use of old style tuple funs. </p>
+          <p>Own Id: OTP-9783</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p> 
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Repeated vacm table dumping fails due to file name 
+	  conflict. When dumping the vacm table to disk, a temoporary 
+	  file with a fixed name was used. If the table dumping 
+	  (snmpa_vacm:dump_table/0) was initiated from several different 
+	  processes in rapid succesion, the dumping could fail because the 
+	  different processes was simultaniously trying to write to the 
+	  same file. This problem has been eliminated by creating a unique 
+	  name for the temporary file. </p>
+          <p>Own Id: OTP-9851</p>
+          <p>Aux Id: Seq 11980</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>foo. </p>
+          <p>Own Id: OTP-9718</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 4.21.5 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.21.4</title>
+    <p>This version has never been released for R14B.</p>
     <p>Version 4.21.4 supports code replacement in runtime from/to
       version 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1, 4.20 and 4.19. </p>
 
@@ -46,7 +110,7 @@
       <list type="bulleted">
         <item>
           <p>[compiler] Improved version info printout from the 
-	  <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
+          <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
           <p>Own Id: OTP-9618</p>
         </item>
 
@@ -70,7 +134,6 @@
       </list>
     </section>
 
-
     <section>
       <title>Incompatibilities</title>
       <p>-</p>
@@ -78,7 +141,7 @@
 <!--
       <list type="bulleted">
         <item>
-	  <p>foo. </p>
+          <p>foo. </p>
           <p>Own Id: OTP-9718</p>
         </item>
 
@@ -988,7 +1051,6 @@ snmp_view_basec_acm_mib:vacmAccessTable(set, RowIndex, Cols).
     </section>
 
   </section> <!-- 4.15 -->
-
 
   <!-- section>
     <title>Release notes history</title>

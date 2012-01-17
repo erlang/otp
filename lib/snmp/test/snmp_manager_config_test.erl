@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2726,14 +2726,7 @@ p(F, A) ->
 
 p(TName, F, A) ->
     io:format("*** [~s] ***"
-              " ~w -> " ++ F ++ "~n", [format_timestamp(now()),TName|A]).
+              " ~w -> " ++ F ++ "~n", [formated_timestamp(),TName|A]).
 
-format_timestamp({_N1, _N2, N3}   = Now) ->
-    {Date, Time}   = calendar:now_to_datetime(Now),
-    {YYYY,MM,DD}   = Date,
-    {Hour,Min,Sec} = Time,
-    FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
-                      [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
-    lists:flatten(FormatDate).
-
+formated_timestamp() ->
+    snmp_test_lib:formated_timestamp().
