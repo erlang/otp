@@ -2631,7 +2631,24 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(A,B,C).
              ">>,
 	   [warn_unused_import],
-	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}}
+	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}},
+	  %% Don't accept call to a guard BIF if there is a local definition
+	  %% or an import with the same name.
+	  {clash21,
+           <<"-export([is_list/1]).
+              -import(x, [is_tuple/1]).
+              x(T) when is_tuple(T) -> ok;
+              x(T) when is_list(T) -> ok.
+              y(T) when is_tuple(T) =:= true -> ok;
+              y(T) when is_list(T) =:= true -> ok.
+              is_list(_) ->
+                ok.
+             ">>,
+	   [{no_auto_import,[{is_tuple,1}]}],
+	   {errors,[{3,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
+		    {4,erl_lint,{illegal_guard_local_call,{is_list,1}}},
+		    {5,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
+		    {6,erl_lint,{illegal_guard_local_call,{is_list,1}}}],[]}}
 	 ],
 
     ?line [] = run(Config, Ts),

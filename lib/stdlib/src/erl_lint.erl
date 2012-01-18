@@ -1804,12 +1804,19 @@ guard_test(G, Vt, St0) ->
 %% Specially handle record type test here.
 guard_test2({call,Line,{atom,Lr,record},[E,A]}, Vt, St0) ->
     gexpr({call,Line,{atom,Lr,is_record},[E,A]}, Vt, St0);
-guard_test2({call,_Line,{atom,_La,F},As}=G, Vt, St0) ->
+guard_test2({call,Line,{atom,_La,F},As}=G, Vt, St0) ->
     {Asvt,St1} = gexpr_list(As, Vt, St0),       %Always check this.
     A = length(As),
     case erl_internal:type_test(F, A) of
-        true when F =/= is_record -> {Asvt,St1};
-        _ -> gexpr(G, Vt, St0)
+        true when F =/= is_record ->
+	    case no_guard_bif_clash(St1, {F,A}) of
+		false ->
+		    {Asvt,add_error(Line, {illegal_guard_local_call,{F,A}}, St1)};
+		true ->
+		    {Asvt,St1}
+	    end;
+	_ ->
+	    gexpr(G, Vt, St0)
     end;
 guard_test2(G, Vt, St) ->
     %% Everything else is a guard expression.
