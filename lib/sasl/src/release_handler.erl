@@ -1572,7 +1572,7 @@ memlib(_Lib, []) -> false.
 			 
 %% recursively remove file or directory
 remove_file(File) ->
-    case file:read_file_info(File) of
+    case file:read_link_info(File) of
 	{ok, Info} when Info#file_info.type==directory ->
 	    case file:list_dir(File) of
 		{ok, Files} ->

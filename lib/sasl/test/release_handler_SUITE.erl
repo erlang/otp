@@ -59,7 +59,7 @@ win32_cases() ->
 cases() ->
     [otp_2740, otp_2760, otp_5761, otp_9402, otp_9417,
      otp_9395_check_old_code, otp_9395_check_and_purge,
-     otp_9395_update_many_mods, otp_9395_rm_many_mods,
+     otp_9395_update_many_mods, otp_9395_rm_many_mods, otp_9864,
      instructions, eval_appup, eval_appup_with_restart,
      supervisor_which_children_timeout,
      release_handler_which_releases, install_release_syntax_check,
@@ -1204,6 +1204,60 @@ otp_9395_rm_many_mods(Conf) when is_list(Conf) ->
 
 otp_9395_rm_many_mods(cleanup,_Conf) ->
     stop_node(node_name(otp_9395_rm_many_mods)).
+
+otp_9864(Conf) ->
+    %% Set some paths
+    PrivDir = priv_dir(Conf),
+    Dir = filename:join(PrivDir,"otp_9864"),
+    RelDir = filename:join(?config(data_dir, Conf), "app1_app2"),
+    LibDir1 = filename:join(RelDir, "lib1"),
+    LibDir2 = filename:join(RelDir, "lib2"),
+
+    %% Create the releases
+    Rel1 = create_and_install_fake_first_release(Dir,
+						 [{app1,"1.0",LibDir1},
+						  {app2,"1.0",LibDir1}]),
+    Rel2 = create_fake_upgrade_release(Dir,
+				       "2",
+				       [{app1,"2.0",LibDir2},
+					{app2,"1.0",LibDir2}],
+				       {[Rel1],[Rel1],[LibDir1]}),
+    Rel1Dir = filename:dirname(Rel1),
+    Rel2Dir = filename:dirname(Rel2),
+
+    %% Start a slave node
+    {ok, Node} = t_start_node(otp_9864, Rel1, filename:join(Rel1Dir,"sys.config")),
+    
+    %% Unpack rel2 (make sure it does not work if an AppDir is bad)
+    LibDir3 = filename:join(RelDir, "lib3"),
+    {error, {no_such_directory, _}} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{app1,"2.0",LibDir2}, {app2,"1.0",LibDir3}]]),
+    {ok, RelVsn2} =
+	rpc:call(Node, release_handler, set_unpacked,
+		 [Rel2++".rel", [{app1,"2.0",LibDir2}, {app2,"1.0",LibDir2}]]),
+    ok = rpc:call(Node, release_handler, install_file,
+			[RelVsn2, filename:join(Rel2Dir, "relup")]),
+    ok = rpc:call(Node, release_handler, install_file,
+			[RelVsn2, filename:join(Rel2Dir, "start.boot")]),
+    ok = rpc:call(Node, release_handler, install_file,
+			[RelVsn2, filename:join(Rel2Dir, "sys.config")]),
+
+    %% Install RelVsn2 without {update_paths, true} option
+    {ok, RelVsn1, []} =
+	rpc:call(Node, release_handler, install_release, [RelVsn2]),
+
+    %% Install RelVsn1 again
+    {ok, RelVsn1, []} =
+	rpc:call(Node, release_handler, install_release, [RelVsn1]),
+
+    TempRel2Dir = filename:join(Dir,"releases/2"),
+    file:make_symlink(TempRel2Dir, filename:join(TempRel2Dir, "foo_symlink_dir")),
+
+    %% This will fail if symlinks are not handled
+    ok = rpc:call(Node, release_handler, remove_release, [RelVsn2]),
+
+    ok.
 
 
 upgrade_supervisor(Conf) when is_list(Conf) ->
