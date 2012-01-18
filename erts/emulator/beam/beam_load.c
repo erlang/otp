@@ -4303,13 +4303,13 @@ final_touch(LoaderState* stp)
 	ep = erts_export_put(stp->module, stp->export[i].function,
 			     stp->export[i].arity);
 	if (!on_load) {
-	    ep->address = address;
+	    ep->addressv[erts_loader_code_ix()] = address;
 	} else {
 	    /*
 	     * Don't make any of the exported functions
 	     * callable yet.
 	     */
-	    ep->address = ep->code+3;
+	    ep->addressv[erts_loader_code_ix()] = ep->code+3;
 	    ep->code[4] = (BeamInstr) address;
 	}
     }
@@ -5203,7 +5203,7 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 	if (ep->code[0] == mod) {
 	    Eterm tuple;
 	    
-	    if (ep->address == ep->code+3 &&
+	    if (ep->addressv[code_ix] == ep->code+3 &&
 		ep->code[3] == (BeamInstr) em_call_error_handler) {
 		/* There is a call to the function, but it does not exist. */ 
 		continue;
@@ -5692,7 +5692,7 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
     for (i = 0; i < n; i++) {
 	if (stp->export[i].function == function && stp->export[i].arity == arity) {
 	    Export* ep = erts_export_put(mod, function, arity);
-	    ep->address = fp+5;
+	    ep->addressv[erts_loader_code_ix()] = fp+5;
 	    return;
 	}
     }

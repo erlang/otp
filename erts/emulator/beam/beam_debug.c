@@ -242,7 +242,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    code_ptr = ((BeamInstr *) ep->address) - 5;
+	    code_ptr = ((BeamInstr *) ep->addressv[code_ix]) - 5;
 	    funcinfo = code_ptr+2;
 	} else if (modp == NULL || (code_base = modp->curr.code) == NULL) {
 	    BIF_RET(am_undef);

@@ -366,7 +366,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    if (ep != NULL &&
 		ep->code[0] == BIF_ARG_1 &&
 		ep->code[4] != 0) {
-		ep->address = (void *) ep->code[4];
+		ep->addressv[code_ix] = (void *) ep->code[4];
 		ep->code[4] = 0;
 	    }
 	}
@@ -779,11 +779,11 @@ delete_export_references(Eterm module)
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->code[0] == module)) {
-	    if (ep->address == ep->code+3 &&
+	    if (ep->addressv[code_ix] == ep->code+3 &&
 		(ep->code[3] == (BeamInstr) em_apply_bif)) {
 		continue;
 	    }
-	    ep->address = ep->code+3;
+	    ep->addressv[code_ix] = ep->code+3;
 	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
 	    MatchSetUnref(ep->match_prog_set);

@@ -36,7 +36,7 @@
 
 typedef struct export
 {
-    void* address;		/* Pointer to code for function. */
+    void* addressv[ERTS_NUM_CODE_IX];  /* Pointer to code for function. */
     struct binary* match_prog_set; /* Match program for tracing. */
 
     BeamInstr fake_op_func_info_for_hipe[2]; /* MUST be just before code[] */
@@ -78,7 +78,7 @@ void export_end_load(int commit);
 
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
-(((EntryPtr)->address == (EntryPtr)->code + 3) && 	\
+(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code + 3) && \
  ((EntryPtr)->code[3] == (BeamInstr) em_apply_bif))
 
 #endif

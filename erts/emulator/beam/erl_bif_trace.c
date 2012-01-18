@@ -60,8 +60,8 @@ static Eterm trace_info_pid(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_func(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_on_load(Process* p, Eterm key);
 
-static int setup_func_trace(Export* ep, void* match_prog);
-static int reset_func_trace(Export* ep);
+static int setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex);
+static int reset_func_trace(Export* ep, ErtsCodeIndex);
 static void reset_bif_trace(int bif_index);
 static void setup_bif_trace(int bif_index);
 static void set_trace_bif(int bif_index, void* match_prog);
@@ -991,7 +991,7 @@ static int function_is_traced(Process *p,
     e.code[1] = mfa[1];
     e.code[2] = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
-	if (ep->address == ep->code+3 &&
+	if (ep->addressv[erts_active_code_ix()] == ep->code+3 &&
 	    ep->code[3] != (BeamInstr) em_call_error_handler) {
 	    if (ep->code[3] == (BeamInstr) em_call_traced_function) {
 		*ms = ep->match_prog_set;
@@ -1357,11 +1357,11 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	if (j == specified) {
 	    if (on) {
 		if (! flags.breakpoint)
-		    matches += setup_func_trace(ep, match_prog_set);
+		    matches += setup_func_trace(ep, match_prog_set, code_ix);
 		else
-		    reset_func_trace(ep);
+		    reset_func_trace(ep, code_ix);
 	    } else if (! flags.breakpoint) {
-		matches += reset_func_trace(ep);
+		matches += reset_func_trace(ep, code_ix);
 	    }
 	}
     }
@@ -1524,9 +1524,9 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
  */
 
 static int
-setup_func_trace(Export* ep, void* match_prog)
+setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex code_ix)
 {
-    if (ep->address == ep->code+3) {
+    if (ep->addressv[code_ix] == ep->code+3) {
 	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
 	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
@@ -1545,13 +1545,13 @@ setup_func_trace(Export* ep, void* match_prog)
     /*
      * Currently no trace support for native code.
      */
-    if (erts_is_native_break(ep->address)) {
+    if (erts_is_native_break(ep->addressv[code_ix])) {
 	return 0;
     }
     
     ep->code[3] = (BeamInstr) em_call_traced_function;
-    ep->code[4] = (BeamInstr) ep->address;
-    ep->address = ep->code+3;
+    ep->code[4] = (BeamInstr) ep->addressv[code_ix];
+    ep->addressv[code_ix] = ep->code+3;
     ep->match_prog_set = match_prog;
     MatchSetRef(ep->match_prog_set);
     return 1;
@@ -1586,13 +1586,13 @@ static void set_trace_bif(int bif_index, void* match_prog) {
  */
 
 static int
-reset_func_trace(Export* ep)
+reset_func_trace(Export* ep, ErtsCodeIndex code_ix)
 {
-    if (ep->address == ep->code+3) {
+    if (ep->addressv[code_ix] == ep->code+3) {
 	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
 	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
-	    ep->address = (Uint *) ep->code[4];
+	    ep->addressv[code_ix] = (Uint *) ep->code[4];
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;
 	    return 1;
@@ -1607,7 +1607,7 @@ reset_func_trace(Export* ep)
     /*
      * Currently no trace support for native code.
      */
-    if (erts_is_native_break(ep->address)) {
+    if (erts_is_native_break(ep->addressv[code_ix])) {
 	return 0;
     }
     

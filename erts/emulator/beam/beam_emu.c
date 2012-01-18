@@ -541,7 +541,7 @@ extern int count_instructions;
   do {								\
      if (FCALLS > 0) {						\
         Eterm* dis_next;					\
-        SET_I(((Export *) Arg(0))->address);			\
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
         dis_next = (Eterm *) *I;				\
         FCALLS--;						\
         CHECK_ARGS(I);						\
@@ -550,7 +550,7 @@ extern int count_instructions;
 		&& FCALLS > neg_o_reds) {			\
         goto save_calls1;					\
      } else {							\
-        SET_I(((Export *) Arg(0))->address);			\
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
         CHECK_ARGS(I);						\
 	goto context_switch;					\
      }								\
@@ -5065,7 +5065,7 @@ void process_main(void)
 
 	save_calls(c_p, (Export *) Arg(0));
 
-	SET_I(((Export *) Arg(0))->address);
+	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 
 	dis_next = (Eterm *) *I;
 	FCALLS--;
@@ -5773,7 +5773,7 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     reg[0] = fi[0];
     reg[1] = fi[1];
     reg[2] = args;
-    return ep->address;
+    return ep->addressv[erts_active_code_ix()];
 }
 
 
@@ -5900,7 +5900,7 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	save_calls(p, ep);
     }
 
-    return ep->address;
+    return ep->addressv[erts_active_code_ix()];
 }
 
 static BeamInstr*
@@ -5949,7 +5949,7 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
 	save_calls(p, ep);
     }
 
-    return ep->address;
+    return ep->addressv[erts_active_code_ix()];
 }
 
 int
@@ -6154,7 +6154,7 @@ call_fun(Process* p,		/* Current process. */
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-		return ep->address;
+		return ep->addressv[erts_active_code_ix()];
 	    }
 	}
     } else if (is_export_header(hdr)) {
@@ -6165,7 +6165,7 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = (int) ep->code[2];
 
 	if (arity == actual_arity) {
-	    return ep->address;
+	    return ep->addressv[erts_active_code_ix()];
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.
@@ -6240,7 +6240,7 @@ call_fun(Process* p,		/* Current process. */
 	    reg[1] = function;
 	    reg[2] = args;
 	}
-	return ep->address;
+	return ep->addressv[erts_active_code_ix()];
     } else {
     badfun:
 	p->current = NULL;
@@ -6345,7 +6345,8 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     if ((ep = export_get(&e)) == NULL) {
 	return 0;
     }
-    return ep->address == ep->code+3 && (ep->code[3] == (BeamInstr) em_apply_bif);
+    return ep->addressv[erts_active_code_ix()] == ep->code+3
+	&& (ep->code[3] == (BeamInstr) em_apply_bif);
 }
 
 

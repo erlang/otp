@@ -4438,8 +4438,11 @@ Export bif_return_trap_export;
 void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
 			   Eterm (*bif)(BIF_ALIST_0))
 {
+    int i;
     sys_memset((void *) ep, 0, sizeof(Export));
-    ep->address = &ep->code[3];
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	ep->addressv[i] = &ep->code[3];
+    }
     ep->code[0] = m;
     ep->code[1] = f;
     ep->code[2] = a;

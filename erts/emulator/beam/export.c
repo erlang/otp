@@ -127,12 +127,13 @@ export_alloc(struct export_entry* tmpl_e)
     obj->code[0] = tmpl->code[0];
     obj->code[1] = tmpl->code[1];
     obj->code[2] = tmpl->code[2];
-    obj->address = obj->code+3;
     obj->code[3] = (BeamInstr) em_call_error_handler;
     obj->code[4] = 0;
     obj->match_prog_set = NULL;
 
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	obj->addressv[i] = obj->code+3;
+
 	blob->entryv[i].slot.index = -1;
 	blob->entryv[i].ep = &blob->exp;
     }
@@ -191,6 +192,9 @@ erts_active_export_entry(Eterm m, Eterm f, unsigned int a)
     return erts_find_export_entry(m, f, a, erts_active_code_ix());
 }
 
+static void sverk_break(void)
+{
+}
 
 Export*
 erts_find_export_entry(Eterm m, Eterm f, unsigned int a,
@@ -199,6 +203,10 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a,
     HashValue hval = EXPORT_HASH((BeamInstr) m, (BeamInstr) f, (BeamInstr) a);
     int ix;
     HashBucket* b;
+
+    if (ERTS_IS_ATOM_STR("gen_event",m) && ERTS_IS_ATOM_STR("add_handler",f)) {
+	sverk_break();
+    }
 
     ix = hval % export_tables[code_ix].htable.size;
     b = export_tables[code_ix].htable.bucket[ix];
@@ -246,8 +254,12 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
     struct export_templ templ;
     struct export_entry* ee;
 
+    if (ERTS_IS_ATOM_STR("gen_event",m) && ERTS_IS_ATOM_STR("add_handler",f)) {
+	sverk_break();
+    }
+
     ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
-    if (ee == NULL || (ee->ep->address == ee->ep->code+3 &&
+    if (ee == NULL || (ee->ep->addressv[code_ix] == ee->ep->code+3 &&
 		       ee->ep->code[3] != (BeamInstr) em_call_traced_function)) {
 	return NULL;
     }
@@ -269,6 +281,10 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
     ErtsCodeIndex code_ix = erts_loader_code_ix();
     struct export_templ templ;
     int ix;
+
+    if (ERTS_IS_ATOM_STR("gen_event",mod) && ERTS_IS_ATOM_STR("add_handler",func)) {
+	sverk_break();
+    }
 
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
@@ -361,6 +377,10 @@ Export *export_get(Export *e)
 {
     struct export_entry ee;
     struct export_entry* entry;
+
+    if (ERTS_IS_ATOM_STR("gen_event",e->code[0]) && ERTS_IS_ATOM_STR("add_handler",e->code[1])) {
+	sverk_break();
+    }
     ee.ep = e;
     entry = (struct export_entry*)hash_get(&export_tables[erts_active_code_ix()].htable, &ee);
     return entry ? entry->ep : NULL;
@@ -386,23 +406,36 @@ void export_start_load(void)
     ErtsCodeIndex src_ix = erts_active_code_ix();
     IndexTable* dst = &export_tables[dst_ix];
     IndexTable* src = &export_tables[src_ix];
+    struct export_entry* src_entry;
+    struct export_entry* dst_entry;
+    struct export_blob* blob;
     int i;
 
     ASSERT(dst_ix != src_ix);
+    ASSERT(dst->entries <= src->entries);
     ASSERT(debug_start_load_ix == -1);
 
-    /* Trick hash_put (called by index_put below)
-     * to insert an already allocated entry. */
+    /*
+     * Make sure our existing entries are up to date
+     */
+    for (i = 0; i < dst->entries; i++) {
+	src_entry = (struct export_entry*) erts_index_lookup(src, i);
+	blob = entry_to_blob(src_entry);
+	blob->exp.addressv[dst_ix] = blob->exp.addressv[src_ix];
+    }
+
+    /*
+     * Insert all new entries from active table
+     */
+
+    /* Trick hash_put (called by index_put) to insert existing entries. */
     dst->htable.fun.alloc = (HALLOC_FUN) &export_dummy_alloc;
 
     for (i = dst->entries; i < src->entries; i++) {
-	struct export_entry* src_entry;
-	struct export_entry* dst_entry;
-	struct export_blob* blob;
-
 	src_entry = (struct export_entry*) erts_index_lookup(src, i);
 	blob = entry_to_blob(src_entry);
 	dst_entry = &blob->entryv[++blob->top_ix];
+	blob->exp.addressv[dst_ix] = blob->exp.addressv[src_ix];
 	ASSERT(blob->top_ix < ERTS_NUM_CODE_IX);
 	ASSERT(dst_entry->ep == &blob->exp);
 	ASSERT(dst_entry->slot.index == -1);
