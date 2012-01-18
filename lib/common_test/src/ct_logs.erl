@@ -1665,10 +1665,6 @@ make_all_suites_index(When) when is_atom(When) ->
     notify_and_lock_file(AbsIndexName),
     LogDirs = filelib:wildcard(logdir_prefix()++".*/*"++?logdir_ext),
     Sorted = sort_logdirs(LogDirs, []),
-
-    %%! --- Tue Jan 17 16:30:44 2012 --- peppe was here!
-    io:format(user, "~nLOGDIRS = ~p~nSORTED: ~p~n~n", [LogDirs,Sorted]),
-
     Result = make_all_suites_index1(When, AbsIndexName, Sorted),
     notify_and_unlock_file(AbsIndexName),
     Result;
@@ -1690,10 +1686,6 @@ make_all_suites_index(NewTestData = {_TestName,DirName}) ->
 		_           -> "..."
 	    end,
     notify_and_lock_file(AbsIndexName),
-
-    %%! --- Mon Jan 16 23:37:33 2012 --- peppe was here!
-    io:format(user, "ALL SUITES CACHED: ~p, ~p, ~p~n", [AbsIndexName,NewTestData,LogDirData]),
-
     Result =
 	case catch make_all_suites_ix_cached(AbsIndexName,
 					     NewTestData,
@@ -1781,10 +1773,6 @@ make_all_suites_index1(When, AbsIndexName, AllLogDirs) ->
     end.
 
 make_all_suites_index2(IndexName, AllTestLogDirs) ->
-
-%%! --- Mon Jan 16 23:40:08 2012 --- peppe was here!
-    io:format(user, "ALL SUITES (~p): ~p~n", [IndexName,AllTestLogDirs]),
-
     {ok,Index0,_Totals,CacheData} =
 	make_all_suites_index3(AllTestLogDirs,
 			       all_suites_index_header(),

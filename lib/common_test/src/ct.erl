@@ -64,7 +64,7 @@
 	 print/1, print/2, print/3,
 	 pal/1, pal/2, pal/3,
 	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
-	 fail/1, fail/2, comment/1, comment/2,
+	 fail/1, fail/2, comment/1, comment/2, make_priv_dir/0,
 	 testcases/2, userdata/2, userdata/3,
 	 timetrap/1, get_timetrap_info/0, sleep/1]).
 
@@ -673,6 +673,15 @@ send_html_comment(Comment) ->
     ct_util:set_testdata({comment,Html}),
     test_server:comment(Html).
 
+%%%-----------------------------------------------------------------
+%%% @spec make_priv_dir() -> ok | {error,Reason}
+%%%      Reason = term()
+%%% @doc If the test has been started with the unique_priv_dir 
+%%% option set to manual, in order for the test case to use the
+%%% private directory, it must first create it by calling
+%%% this function.
+make_priv_dir() ->
+    test_server:make_priv_dir().
 
 %%%-----------------------------------------------------------------
 %%% @spec get_target_name(Handle) -> {ok,TargetName} | {error,Reason}
