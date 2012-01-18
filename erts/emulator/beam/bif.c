@@ -4434,6 +4434,18 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 
 Export bif_return_trap_export;
 
+void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
+			   Eterm (*bif)(BIF_ALIST_0))
+{
+    sys_memset((void *) ep, 0, sizeof(Export));
+    ep->address = &ep->code[3];
+    ep->code[0] = m;
+    ep->code[1] = f;
+    ep->code[2] = a;
+    ep->code[3] = (BeamInstr) em_apply_bif;
+    ep->code[4] = (BeamInstr) bif;
+}
+
 void erts_init_bif(void)
 {
     reference0 = 0;
@@ -4449,17 +4461,13 @@ void erts_init_bif(void)
      * yield the calling process traps to. The only thing it does:
      * return the value passed as argument.
      */
-    sys_memset((void *) &bif_return_trap_export, 0, sizeof(Export));
-    bif_return_trap_export.address = &bif_return_trap_export.code[3];
-    bif_return_trap_export.code[0] = am_erlang;
-    bif_return_trap_export.code[1] = am_bif_return_trap;
+    erts_init_trap_export(&bif_return_trap_export, am_erlang, am_bif_return_trap,
 #ifdef DEBUG
-    bif_return_trap_export.code[2] = 2;
+		     2
 #else
-    bif_return_trap_export.code[2] = 1;
+		     1
 #endif
-    bif_return_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    bif_return_trap_export.code[4] = (BeamInstr) &bif_return_trap;
+		     , &bif_return_trap);
 
     flush_monitor_message_trap = erts_export_put(am_erlang,
 						 am_flush_monitor_message,

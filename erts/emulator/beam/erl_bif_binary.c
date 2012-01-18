@@ -72,52 +72,29 @@ binary_matches(Process *p, Eterm arg1, Eterm arg2, Eterm arg3);
 
 void erts_init_bif_binary(void)
 {
-    sys_memset((void *) &binary_match_trap_export, 0, sizeof(Export));
-    binary_match_trap_export.address = &binary_match_trap_export.code[3];
-    binary_match_trap_export.code[0] = am_erlang;
-    binary_match_trap_export.code[1] = am_binary_match_trap;
-    binary_match_trap_export.code[2] = 3;
-    binary_match_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    binary_match_trap_export.code[4] = (BeamInstr) &binary_match_trap;
+    erts_init_trap_export(&binary_match_trap_export,
+			  am_erlang, am_binary_match_trap, 3,
+			  &binary_match_trap);
 
-    sys_memset((void *) &binary_matches_trap_export, 0, sizeof(Export));
-    binary_matches_trap_export.address = &binary_matches_trap_export.code[3];
-    binary_matches_trap_export.code[0] = am_erlang;
-    binary_matches_trap_export.code[1] = am_binary_matches_trap;
-    binary_matches_trap_export.code[2] = 3;
-    binary_matches_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    binary_matches_trap_export.code[4] = (BeamInstr) &binary_matches_trap;
+    erts_init_trap_export(&binary_matches_trap_export,
+			  am_erlang, am_binary_matches_trap, 3,
+			  &binary_matches_trap);
 
-    sys_memset((void *) &binary_longest_prefix_trap_export, 0, sizeof(Export));
-    binary_longest_prefix_trap_export.address = &binary_longest_prefix_trap_export.code[3];
-    binary_longest_prefix_trap_export.code[0] = am_erlang;
-    binary_longest_prefix_trap_export.code[1] = am_binary_longest_prefix_trap;
-    binary_longest_prefix_trap_export.code[2] = 3;
-    binary_longest_prefix_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    binary_longest_prefix_trap_export.code[4] = (BeamInstr) &binary_longest_prefix_trap;
+    erts_init_trap_export(&binary_longest_prefix_trap_export,
+			  am_erlang, am_binary_longest_prefix_trap, 3,
+			  &binary_longest_prefix_trap);
 
-    sys_memset((void *) &binary_longest_suffix_trap_export, 0, sizeof(Export));
-    binary_longest_suffix_trap_export.address = &binary_longest_suffix_trap_export.code[3];
-    binary_longest_suffix_trap_export.code[0] = am_erlang;
-    binary_longest_suffix_trap_export.code[1] = am_binary_longest_suffix_trap;
-    binary_longest_suffix_trap_export.code[2] = 3;
-    binary_longest_suffix_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    binary_longest_suffix_trap_export.code[4] = (BeamInstr) &binary_longest_suffix_trap;
+    erts_init_trap_export(&binary_longest_suffix_trap_export,
+			  am_erlang, am_binary_longest_suffix_trap, 3,
+			  &binary_longest_suffix_trap);
 
-    sys_memset((void *) &binary_bin_to_list_trap_export, 0, sizeof(Export));
-    binary_bin_to_list_trap_export.address = &binary_bin_to_list_trap_export.code[3];
-    binary_bin_to_list_trap_export.code[0] = am_erlang;
-    binary_bin_to_list_trap_export.code[1] = am_binary_bin_to_list_trap;
-    binary_bin_to_list_trap_export.code[2] = 3;
-    binary_bin_to_list_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    binary_bin_to_list_trap_export.code[4] = (BeamInstr) &binary_bin_to_list_trap;
-    sys_memset((void *) &binary_copy_trap_export, 0, sizeof(Export));
-    binary_copy_trap_export.address = &binary_copy_trap_export.code[3];
-    binary_copy_trap_export.code[0] = am_erlang;
-    binary_copy_trap_export.code[1] = am_binary_copy_trap;
-    binary_copy_trap_export.code[2] = 2;
-    binary_copy_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    binary_copy_trap_export.code[4] = (BeamInstr) &binary_copy_trap;
+    erts_init_trap_export(&binary_bin_to_list_trap_export,
+			  am_erlang, am_binary_bin_to_list_trap, 3,
+			  &binary_bin_to_list_trap);
+
+    erts_init_trap_export(&binary_copy_trap_export,
+			  am_erlang, am_binary_copy_trap, 2,
+			  &binary_copy_trap);
 
     max_loop_limit = 0;
     return;

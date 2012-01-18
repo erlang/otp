@@ -2816,7 +2816,6 @@ void init_db(void)
 {
     DbTable init_tb;
     int i;
-    extern BeamInstr* em_apply_bif;
     Eterm *hp;
     unsigned bits;
     size_t size;
@@ -2949,49 +2948,24 @@ void init_db(void)
     }
 
     /* Non visual BIF to trap to. */
-    memset(&ets_select_delete_continue_exp, 0, sizeof(Export));
-    ets_select_delete_continue_exp.address = 
-	&ets_select_delete_continue_exp.code[3];
-    ets_select_delete_continue_exp.code[0] = am_ets;
-    ets_select_delete_continue_exp.code[1] = am_atom_put("delete_trap",11);
-    ets_select_delete_continue_exp.code[2] = 1;
-    ets_select_delete_continue_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    ets_select_delete_continue_exp.code[4] = 
-	(BeamInstr) &ets_select_delete_1;
+    erts_init_trap_export(&ets_select_delete_continue_exp,
+			  am_ets, am_atom_put("delete_trap",11), 1,
+			  &ets_select_delete_1);
 
     /* Non visual BIF to trap to. */
-    memset(&ets_select_count_continue_exp, 0, sizeof(Export));
-    ets_select_count_continue_exp.address = 
-	&ets_select_count_continue_exp.code[3];
-    ets_select_count_continue_exp.code[0] = am_ets;
-    ets_select_count_continue_exp.code[1] = am_atom_put("count_trap",11);
-    ets_select_count_continue_exp.code[2] = 1;
-    ets_select_count_continue_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    ets_select_count_continue_exp.code[4] = 
-	(BeamInstr) &ets_select_count_1;
+    erts_init_trap_export(&ets_select_count_continue_exp,
+			  am_ets, am_atom_put("count_trap",11), 1,
+			  &ets_select_count_1);
 
     /* Non visual BIF to trap to. */
-    memset(&ets_select_continue_exp, 0, sizeof(Export));
-    ets_select_continue_exp.address = 
-	&ets_select_continue_exp.code[3];
-    ets_select_continue_exp.code[0] = am_ets;
-    ets_select_continue_exp.code[1] = am_atom_put("select_trap",11);
-    ets_select_continue_exp.code[2] = 1;
-    ets_select_continue_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    ets_select_continue_exp.code[4] = 
-	(BeamInstr) &ets_select_trap_1;
+    erts_init_trap_export(&ets_select_continue_exp,
+			  am_ets, am_atom_put("select_trap",11), 1,
+			  &ets_select_trap_1);
 
     /* Non visual BIF to trap to. */
-    memset(&ets_delete_continue_exp, 0, sizeof(Export));
-    ets_delete_continue_exp.address = &ets_delete_continue_exp.code[3];
-    ets_delete_continue_exp.code[0] = am_ets;
-    ets_delete_continue_exp.code[1] = am_atom_put("delete_trap",11);
-    ets_delete_continue_exp.code[2] = 1;
-    ets_delete_continue_exp.code[3] = (BeamInstr) em_apply_bif;
-    ets_delete_continue_exp.code[4] = (BeamInstr) &ets_delete_trap;
+    erts_init_trap_export(&ets_delete_continue_exp,
+			  am_ets, am_atom_put("delete_trap",11), 1,
+			  &ets_delete_trap);
 
     hp = ms_delete_all_buff;
     ms_delete_all = CONS(hp, am_true, NIL);

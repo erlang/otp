@@ -9599,13 +9599,8 @@ init_processes_bif(void)
 				+ 1);
 
     /* processes_trap/2 is a hidden BIF that the processes/0 BIF traps to. */
-    sys_memset((void *) &processes_trap_export, 0, sizeof(Export));
-    processes_trap_export.address = &processes_trap_export.code[3];
-    processes_trap_export.code[0] = am_erlang;
-    processes_trap_export.code[1] = am_processes_trap;
-    processes_trap_export.code[2] = 2;
-    processes_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    processes_trap_export.code[4] = (BeamInstr) &processes_trap;
+    erts_init_trap_export(&processes_trap_export, am_erlang, am_processes_trap, 2,
+			  &processes_trap);
 
 #if ERTS_PROCESSES_BIF_DEBUGLEVEL >= ERTS_PROCS_DBGLVL_CHK_TERM_PROC_LIST
     erts_get_emu_time(&debug_tv_start);

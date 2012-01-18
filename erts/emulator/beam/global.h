@@ -847,6 +847,8 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm,
 				Eterm);
+void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
+			   Eterm (*bif)(Process*,Eterm*));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
 
