@@ -52,6 +52,10 @@
 	  list_dir_limit/1]).
 
 -export([advise/1]).
+-export([large_write/1]).
+
+%% System probe functions that might be handy to check from the shell
+-export([unix_free/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -83,7 +87,7 @@ groups() ->
        cur_dir_1a, cur_dir_1b]},
      {files, [],
       [{group, open}, {group, pos}, {group, file_info},
-       truncate, sync, datasync, advise]},
+       truncate, sync, datasync, advise, large_write]},
      {open, [],
       [open1, modes, close, access, read_write, pread_write,
        append, exclusive]},
@@ -290,6 +294,7 @@ make_del_dir(Config, Handle, Suffix) ->
 	%% Don't worry ;-) the parent directory should never be empty, right?
 	?line case ?PRIM_FILE_call(del_dir, Handle, [".."]) of
 		  {error, eexist} -> ok;
+		  {error, eacces} -> ok;	%OpenBSD
 		  {error, einval} -> ok		%FreeBSD
 	      end,
 	?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
@@ -1322,6 +1327,41 @@ advise(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+large_write(Config) when is_list(Config) ->
+    run_large_file_test(Config,
+			fun(Name) -> do_large_write(Name) end,
+			"_large_write").
+
+do_large_write(Name) ->
+    Dog = test_server:timetrap(test_server:minutes(60)),
+    ChunkSize = (256 bsl 20) + 1,	% 256 M + 1
+    Chunks = 16,			% times 16 -> 4 G + 16
+    Base = 100,
+    Interleave = lists:seq(Base+1, Base+Chunks),
+    Chunk = <<0:ChunkSize/unit:8>>,
+    Data = zip_data(lists:duplicate(Chunks, Chunk), Interleave),
+    Size = Chunks * ChunkSize + Chunks,	% 4 G + 32
+    Wordsize = erlang:system_info(wordsize),
+    case prim_file:write_file(Name, Data) of
+	ok when Wordsize =:= 8 ->
+	    {ok,#file_info{size=Size}} = file:read_file_info(Name),
+	    {ok,Fd} = prim_file:open(Name, [read]),
+	    check_large_write(Dog, Fd, ChunkSize, 0, Interleave);
+	{error,einval} when Wordsize =:= 4 ->
+	    ok
+    end.
+
+check_large_write(Dog, Fd, ChunkSize, Pos, [X|Interleave]) ->
+    Pos1 = Pos + ChunkSize,
+    {ok,Pos1} = prim_file:position(Fd, {cur,ChunkSize}),
+    {ok,[X]} = prim_file:read(Fd, 1),
+    check_large_write(Dog, Fd, ChunkSize, Pos1+1, Interleave);
+check_large_write(Dog, Fd, _, _, []) ->
+    eof = prim_file:read(Fd, 1),
+    test_server:timetrap_cancel(Dog),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -2044,3 +2084,70 @@ list_dir_limit_cleanup(Dir, Handle, N, Cnt) ->
     ?PRIM_FILE:delete(Handle, filename:join(Dir, Name)),
     list_dir_limit_cleanup(Dir, Handle, N, Cnt+1).
 
+%%%
+%%% Support for testing large files.
+%%%
+
+run_large_file_test(Config, Run, Name) ->
+    case {os:type(),os:version()} of
+	{{win32,nt},_} ->
+	    do_run_large_file_test(Config, Run, Name);
+	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
+	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
+	{{unix,_},_} ->
+	    N = unix_free(?config(priv_dir, Config)),
+	    io:format("Free disk: ~w KByte~n", [N]),
+	    if N < 5 bsl 20 ->
+		    %% Less than 5 GByte free
+		    {skip,"Less than 5 GByte free disk"};
+	       true ->
+		    do_run_large_file_test(Config, Run, Name)
+	    end;
+	_ -> 
+	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
+    end.
+
+
+do_run_large_file_test(Config, Run, Name0) ->
+    Name = filename:join(?config(priv_dir, Config),
+			 ?MODULE_STRING ++ Name0),
+    
+    %% Set up a process that will delete this file.
+    Tester = self(),
+    Deleter = 
+	spawn(
+	  fun() ->
+		  Mref = erlang:monitor(process, Tester),
+		  receive
+		      {'DOWN',Mref,_,_,_} -> ok;
+		      {Tester,done} -> ok
+		  end,
+		  prim_file:delete(Name)
+	  end),
+    
+    %% Run the test case.
+    Res = Run(Name),
+
+    %% Delete file and finish deleter process.
+    Mref = erlang:monitor(process, Deleter),
+    Deleter ! {Tester,done},
+    receive {'DOWN',Mref,_,_,_} -> ok end,
+
+    Res.
+
+unix_free(Path) ->
+    Cmd = ["df -k '",Path,"'"],
+    DF0 = os:cmd(Cmd),
+    io:format("$ ~s~n~s", [Cmd,DF0]),
+    Lines = re:split(DF0, "\n", [trim,{return,list}]),
+    Last = lists:last(Lines),
+    RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
+    {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
+    list_to_integer(Avail).
+
+zip_data([A|As], [B|Bs]) ->
+    [[A,B]|zip_data(As, Bs)];
+zip_data([], Bs) ->
+    Bs;
+zip_data(As, []) ->
+    As.

@@ -1004,13 +1004,11 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 				      * opened */
 	     int fd,                 /* File descriptor to write to */
 	     SysIOVec* iov,          /* Vector of buffer structs.
-				      * The structs are unchanged 
-				      * after the call */
-	     int iovcnt,             /* Number of structs in vector */
-	     size_t size)            /* Number of bytes to write */
+				      * The structs may be changed i.e.
+				      * due to incomplete writes */
+	     int iovcnt)             /* Number of structs in vector */
 {
     int cnt = 0;                     /* Buffers so far written */
-    int p = 0;                       /* Position in next buffer */
 
     ASSERT(iovcnt >= 0);
     
@@ -1021,66 +1019,47 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 #endif
 
     while (cnt < iovcnt) {
+	if ((! iov[cnt].iov_base) || (iov[cnt].iov_len <= 0)) {
+	    /* Empty buffer - skip */
+	    cnt++;
+	} else { /* Non-empty buffer */
+	    ssize_t w;                   /* Bytes written in this call */
 #ifdef HAVE_WRITEV
-	int w;                       /* Bytes written in this call */
-	int b = iovcnt - cnt;        /* Buffers to write */
-	if (b > MAXIOV)
-	    b = MAXIOV;
-	if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
-	    if (b == 1) {
-		/* Degenerated io vector */
-		do {
-		    w = write(fd, iov[cnt].iov_base + p, iov[cnt].iov_len - p);
-		} while (w < 0 && errno == EINTR);
-	    } else {
-		/* Non-empty vector first.
-		 * Adjust pos in first buffer in case of 
-		 * previous incomplete writev */
-		iov[cnt].iov_base += p;
-		iov[cnt].iov_len  -= p;
+	    int b = iovcnt - cnt;        /* Buffers to write */
+	    /* Use as many buffers as MAXIOV allows */
+	    if (b > MAXIOV)
+		b = MAXIOV;
+	    if (b > 1) {
 		do {
 		    w = writev(fd, &iov[cnt], b);
 		} while (w < 0 && errno == EINTR);
-		iov[cnt].iov_base -= p;
-		iov[cnt].iov_len  += p;
+	    } else
+		/* Degenerated io vector - use regular write */
+#endif
+		{
+		    do {
+			w = write(fd, iov[cnt].iov_base, iov[cnt].iov_len);
+		    } while (w < 0 && errno == EINTR);
+		    ASSERT(w <= iov[cnt].iov_len);
+		}
+	    if (w < 0) return check_error(-1, errInfo);
+	    /* Move forward to next buffer to write */
+	    for (; cnt < iovcnt && w > 0; cnt++) {
+		if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
+		    if (w < iov[cnt].iov_len) {
+			/* Adjust the buffer for next write */
+			iov[cnt].iov_len -= w;
+			iov[cnt].iov_base += w;
+			w = 0;
+			break;
+		    } else {
+			w -= iov[cnt].iov_len;
+		    }
+		}
 	    }
-	    if (w < 0)
-		return check_error(-1, errInfo);
-	} else {
-	    /* Empty vector first - skip */
-	    cnt++;
-	    continue;
-	}
-	ASSERT(w >= 0);
-	/* Move forward to next vector to write */
-	for (; cnt < iovcnt; cnt++) {
-	    if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
-		if (w < iov[cnt].iov_len)
-		    break;
-		else
-		    w -= iov[cnt].iov_len;
-	    }
-	}
-	ASSERT(w >= 0);
-	p = w > 0 ? w : 0; /* Skip p bytes next writev */
-#else /* #ifdef HAVE_WRITEV */
-	if (iov[cnt].iov_base && iov[cnt].iov_len > 0) {
-	    /* Non-empty vector */
-	    int w;                   /* Bytes written in this call */
-	    while (p < iov[cnt].iov_len) {
-		do {
-		    w = write(fd, iov[cnt].iov_base + p, iov[cnt].iov_len - p);
-		} while (w < 0 && errno == EINTR);
-		if (w < 0)
-		    return check_error(-1, errInfo);
-		p += w;
-	    }
-	}
-	cnt++;
-	p = 0;
-#endif /* #ifdef HAVE_WRITEV */
+	    ASSERT(w == 0);
+	} /* else Non-empty buffer */
     } /* while (cnt< iovcnt) */
-    size = 0; /* Avoid compiler warning */
     return 1;
 }
 
