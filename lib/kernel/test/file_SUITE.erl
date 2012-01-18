@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,7 +78,7 @@
 
 -export([altname/1]).
 
--export([large_file/1]).
+-export([large_file/1, large_write/1]).
 
 -export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
 
@@ -92,6 +92,8 @@
 -export([bytes/2, iterate/3]).
 
 
+%% System probe functions that might be handy to check from the shell
+-export([unix_free/1, memsize/0, bsd_memsize/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -106,7 +108,7 @@ all() ->
      {group, compression}, {group, links}, copy,
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, pid2name, interleaved_read_write, otp_5814,
-     large_file, read_line_1, read_line_2, read_line_3,
+     large_file, large_write, read_line_1, read_line_2, read_line_3,
      read_line_4, standard_io].
 
 groups() -> 
@@ -394,6 +396,7 @@ make_del_dir(Config) when is_list(Config) ->
 	%% Don't worry ;-) the parent directory should never be empty, right?
 	?line case ?FILE_MODULE:del_dir('..') of
 		  {error, eexist} -> ok;
+		  {error, eacces} -> ok;		%OpenBSD
 		  {error, einval} -> ok			%FreeBSD
 	      end,
 	?line {error, enoent} = ?FILE_MODULE:del_dir(""),
@@ -3287,50 +3290,13 @@ large_file(suite) ->
 large_file(doc) ->
     ["Tests positioning in large files (> 4G)"];
 large_file(Config) when is_list(Config) ->
-    case {os:type(),os:version()} of
-	{{win32,nt},_} ->
-	    do_large_file(Config);
-	{{unix,sunos},{A,B,C}}
-	when A == 5, B == 5, C >= 1;   A == 5, B >= 6;   A >= 6 ->
-	    do_large_file(Config);
-	{{unix,Unix},_} when Unix =/= sunos ->
-	    N = unix_free(Config),
-	    io:format("Free: ~w KByte~n", [N]),
-	    if N < 5 * (1 bsl 20) ->
-		    %% Less than 5 GByte free
-		    {skipped,"Less than 5 GByte free"};
-	       true ->
-		    do_large_file(Config)
-	    end;
-	_ -> 
-	    {skipped,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
-    end.
+    run_large_file_test(Config,
+			fun(Name) -> do_large_file(Name) end,
+			"_large_file").
 
-unix_free(Config) ->
-    Cmd = ["df -k '",?config(priv_dir, Config),"'"],
-    DF0 = os:cmd(Cmd),
-    io:format("$ ~s~n~s", [Cmd,DF0]),
-    [$\n|DF1] = lists:dropwhile(fun ($\n) -> false; (_) -> true end, DF0),
-    {ok,[N],_} = io_lib:fread(" ~*s ~d", DF1),
-    N.
+do_large_file(Name) ->
+    ?line Watchdog = ?t:timetrap(?t:minutes(20)),
 
-do_large_file(Config) ->
-    ?line Watchdog = ?t:timetrap(?t:minutes(5)),
-    %%
-    ?line Name = filename:join(?config(priv_dir, Config),
-			       ?MODULE_STRING ++ "_large_file"),
-    ?line Tester = self(),
-    Deleter = 
-	spawn(
-	  fun() ->
-		  Mref = erlang:monitor(process, Tester),
-		  receive
-		      {'DOWN',Mref,_,_,_} -> ok;
-		      {Tester,done} -> ok
-		  end,
-		  ?FILE_MODULE:delete(Name)
-	  end),
-    %%
     ?line S = "1234567890",
     L = length(S),
     R = lists:reverse(S),
@@ -3366,12 +3332,33 @@ do_large_file(Config) ->
     ?line {ok,R}   = ?FILE_MODULE:read(F1, L+1),
     ?line ok       = ?FILE_MODULE:close(F1),
     %%
-    ?line Mref = erlang:monitor(process, Deleter),
-    ?line Deleter ! {Tester,done},
-    ?line receive {'DOWN',Mref,_,_,_} -> ok end,
-    %%
     ?line ?t:timetrap_cancel(Watchdog),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+large_write(Config) when is_list(Config) ->
+    run_large_file_test(Config,
+			fun(Name) -> do_large_write(Name) end,
+			"_large_write").
+
+do_large_write(Name) ->
+    Memsize = memsize(),
+    io:format("Memsize = ~w Bytes~n", [Memsize]),
+    case {erlang:system_info(wordsize),Memsize} of
+	{4,_} ->
+	    {skip,"Needs a 64-bit emulator"};
+	{8,N} when N < 6 bsl 30 ->
+	    {skip,
+	     "This machine has < 6 GB  memory: "
+	     ++integer_to_list(N)};
+	{8,_} ->
+	    Size = 4*1024*1024*1024+1,
+	    Bin = <<0:Size/unit:8>>,
+	    ok = file:write_file(Name, Bin),
+	    {ok,#file_info{size=Size}} = file:read_file_info(Name),
+	    ok
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -3950,3 +3937,110 @@ flush(Msgs) ->
     after 0 ->
 	    lists:reverse(Msgs)
     end.
+
+%%%
+%%% Support for testing large files.
+%%%
+
+run_large_file_test(Config, Run, Name) ->
+    case {os:type(),os:version()} of
+	{{win32,nt},_} ->
+	    do_run_large_file_test(Config, Run, Name);
+	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
+	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
+	{{unix,_},_} ->
+	    N = unix_free(?config(priv_dir, Config)),
+	    io:format("Free disk: ~w KByte~n", [N]),
+	    if N < 5 * (1 bsl 20) ->
+		    %% Less than 5 GByte free
+		    {skip,"Less than 5 GByte free"};
+	       true ->
+		    do_run_large_file_test(Config, Run, Name)
+	    end;
+	_ -> 
+	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"}
+    end.
+
+
+do_run_large_file_test(Config, Run, Name0) ->
+    Name = filename:join(?config(priv_dir, Config),
+			 ?MODULE_STRING ++ Name0),
+    
+    %% Set up a process that will delete this file.
+    Tester = self(),
+    Deleter = 
+	spawn(
+	  fun() ->
+		  Mref = erlang:monitor(process, Tester),
+		  receive
+		      {'DOWN',Mref,_,_,_} -> ok;
+		      {Tester,done} -> ok
+		  end,
+		  ?FILE_MODULE:delete(Name)
+	  end),
+    
+    %% Run the test case.
+    Res = Run(Name),
+
+    %% Delete file and finish deleter process.
+    Mref = erlang:monitor(process, Deleter),
+    Deleter ! {Tester,done},
+    receive {'DOWN',Mref,_,_,_} -> ok end,
+
+    Res.
+
+unix_free(Path) ->
+    Cmd = ["df -k '",Path,"'"],
+    DF0 = os:cmd(Cmd),
+    io:format("$ ~s~n~s", [Cmd,DF0]),
+    Lines = re:split(DF0, "\n", [trim,{return,list}]),
+    Last = lists:last(Lines),
+    RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
+    {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
+    list_to_integer(Avail).
+
+memsize() ->
+    case os:type() of
+	{unix,openbsd} ->
+	    bsd_memsize("hw.physmem");
+	{unix,freebsd} ->
+	    bsd_memsize("hw.physmem");
+	{unix,darwin} ->
+	    bsd_memsize("hw.memsize");
+	{unix,linux} ->
+	    Meminfo = os:cmd("cat /proc/meminfo"),
+	    Re = "^MemTotal:\\s+(\\d+)\\s+kB\$",
+	    ReOpts = [multiline,{capture,all_but_first,list}],
+	    case re:run(Meminfo, Re, ReOpts) of
+		{match,[Str]} ->
+		    list_to_integer(Str) bsl 10;
+		nomatch ->
+		    0
+	    end;
+	{win32,_} ->
+	    enough; % atom() > integer(); assume (64-bit) windows have enough
+	_ ->
+	    0
+    end.
+
+bsd_memsize(MIB) ->
+    Reply = os:cmd(["sysctl ",MIB]),
+    try strip_prefix(MIB, Reply) of
+	Str ->
+	    Re = "^\\s*(?::|=)\\s*(\\d+)",
+	    ReOpts =  [{capture,all_but_first,list}],
+	    case re:run(Str, Re, ReOpts) of
+		{match,[SizeStr]} ->
+		    list_to_integer(SizeStr);
+		nomatch ->
+		    0
+	    end
+    catch
+	error:_ ->
+	    0
+    end.
+
+strip_prefix([X|Prefix], [X|List]) ->
+    strip_prefix(Prefix, List);
+strip_prefix([], List) ->
+    List.

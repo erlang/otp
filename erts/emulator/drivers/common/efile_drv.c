@@ -1385,7 +1385,11 @@ static void invoke_writev(void *data) {
 	size = d->c.writev.size;
     }
 
-    /* Copy the io vector to avoid locking the port que while writing */
+    /* Copy the io vector to avoid locking the port que while writing,
+     * also, both we and efile_writev might/will change the SysIOVec
+     * when segmenting or due to partial write and we do not want to
+     * tamper with the actual queue that we get from driver_peekq
+     */
     MUTEX_LOCK(d->c.writev.q_mtx); /* Lock before accessing the port queue */
     iov0 = driver_peekq(d->c.writev.port, &iovlen);
 
@@ -1424,7 +1428,7 @@ static void invoke_writev(void *data) {
 	} else {
 	    d->result_ok = efile_writev(&d->errInfo, 
 					d->flags, (int) d->fd,
-					iov, iovcnt, size);
+					iov, iovcnt);
 	}
     } else if (iovlen == 0) {
 	d->result_ok = 1;

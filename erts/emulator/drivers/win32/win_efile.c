@@ -1115,8 +1115,7 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 	     SysIOVec* iov,          /* Vector of buffer structs.
 				      * The structs are unchanged 
 				      * after the call */
-	     int iovcnt,             /* Number of structs in vector */
-	     size_t size)            /* Number of bytes to write */
+	     int iovcnt)             /* Number of structs in vector */
 {
     int cnt;                         /* Buffers so far written */
     OVERLAPPED overlapped;
