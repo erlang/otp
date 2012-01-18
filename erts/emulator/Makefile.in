@@ -704,7 +704,8 @@ EMU_OBJS = \
 	$(OBJDIR)/beam_emu.o		$(OBJDIR)/beam_opcodes.o \
 	$(OBJDIR)/beam_load.o		$(OBJDIR)/beam_bif_load.o \
 	$(OBJDIR)/beam_debug.o		$(OBJDIR)/beam_bp.o \
-	$(OBJDIR)/beam_catches.o
+	$(OBJDIR)/beam_catches.o \
+	$(OBJDIR)/beam_ranges.o
 
 RUN_OBJS = \
 	$(OBJDIR)/erl_pbifs.o		$(OBJDIR)/benchmark.o \

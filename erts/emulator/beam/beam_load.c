@@ -352,27 +352,6 @@ typedef struct LoaderState {
     int loc_size;		/* Size of location info in bytes (2/4) */
 } LoaderState;
 
-/*
- * Layout of the line table.
- */
-
-#define MI_LINE_FNAME_PTR 0
-#define MI_LINE_LOC_TAB 1
-#define MI_LINE_LOC_SIZE 2
-#define MI_LINE_FUNC_TAB 3
-
-#define LINE_INVALID_LOCATION (0)
-
-/*
- * Macros for manipulating locations.
- */
-
-#define IS_VALID_LOCATION(File, Line) \
-    ((unsigned) (File) < 255 && (unsigned) (Line) < ((1 << 24) - 1))
-#define MAKE_LOCATION(File, Line) (((File) << 24) | (Line))
-#define LOC_FILE(Loc) ((Loc) >> 24)
-#define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
-
 #define GetTagAndValue(Stp, Tag, Val)					\
    do {									\
       BeamInstr __w;							\
@@ -549,21 +528,8 @@ static Eterm native_addresses(Process* p, Eterm mod);
 int patch_funentries(Eterm Patchlist);
 int patch(Eterm Addresses, Uint fe);
 static int safe_mul(UWord a, UWord b, UWord* resp);
-static void lookup_loc(FunctionInfo* fi, BeamInstr* pc,
-		       BeamInstr* modp, int idx);
-
 
 static int must_swap_floats;
-
-/*
- * The following variables keep a sorted list of address ranges for
- * each module.  It allows us to quickly find a function given an
- * instruction pointer.
- */
-Range* modules = NULL;	    /* Sorted lists of module addresses. */
-int num_loaded_modules;	    /* Number of loaded modules. */
-int allocated_modules;	    /* Number of slots allocated. */
-Range* mid_module = NULL;   /* Cached search start point */
 
 Uint erts_total_code_size;
 /**********************************************************************/
@@ -580,11 +546,7 @@ void init_load(void)
     f.fd = 1.0;
     must_swap_floats = (f.fw[0] == 0);
 
-    allocated_modules = 128;
-    modules = (Range *) erts_alloc(ERTS_ALC_T_MODULE_REFS,
-				   allocated_modules*sizeof(Range));
-    mid_module = modules;
-    num_loaded_modules = 0;
+    erts_init_ranges();
 }
 
 static void
@@ -955,7 +917,6 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 {
     Module* modp;
     Eterm retval;
-    int i;
 
     if ((retval = beam_make_current_old(c_p, c_p_locks, module)) != NIL) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
@@ -977,25 +938,10 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
     modp->curr.catches = BEAM_CATCHES_NIL; /* Will be filled in later. */
 
     /*
-     * Update address table (used for finding a function from a PC value).
+     * Update ranges (used for finding a function from a PC value).
      */
 
-    if (num_loaded_modules == allocated_modules) {
-	allocated_modules *= 2;
-	modules = (Range *) erts_realloc(ERTS_ALC_T_MODULE_REFS,
-					 (void *) modules,
-					 allocated_modules * sizeof(Range));
-    }
-    for (i = num_loaded_modules; i > 0; i--) {
-	if (code > modules[i-1].start) {
-	    break;
-	}
-	modules[i] = modules[i-1];
-    }
-    modules[i].start = code;
-    modules[i].end = (BeamInstr *) (((byte *)code) + size);
-    num_loaded_modules++;
-    mid_module = &modules[num_loaded_modules/2];
+    erts_update_ranges(code, size);
     return NIL;
 }
 
@@ -5303,113 +5249,6 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
         HRelease(p,end,hp);
     }
     return result;
-}
-
-/*
- * Find a function from the given pc and fill information in
- * the FunctionInfo struct. If the full_info is non-zero, fill
- * in all available information (including location in the
- * source code). If no function is found, the 'current' field
- * will be set to NULL.
- */
-
-void
-erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
-{
-    Range* low = modules;
-    Range* high = low + num_loaded_modules;
-    Range* mid = mid_module;
-
-    fi->current = NULL;
-    fi->needed = 5;
-    fi->loc = LINE_INVALID_LOCATION;
-    while (low < high) {
-	if (pc < mid->start) {
-	    high = mid;
-	} else if (pc > mid->end) {
-	    low = mid + 1;
-	} else {
-	    BeamInstr** low1 = (BeamInstr **) (mid->start + MI_FUNCTIONS);
-	    BeamInstr** high1 = low1 + mid->start[MI_NUM_FUNCTIONS];
-	    BeamInstr** mid1;
-
-	    while (low1 < high1) {
-		mid1 = low1 + (high1-low1) / 2;
-		if (pc < mid1[0]) {
-		    high1 = mid1;
-		} else if (pc < mid1[1]) {
-		    mid_module = mid;
-		    fi->current = mid1[0]+2;
-		    if (full_info) {
-			BeamInstr** fp = (BeamInstr **) (mid->start +
-							 MI_FUNCTIONS);
-			int idx = mid1 - fp;
-			lookup_loc(fi, pc, mid->start, idx);
-		    }
-		    return;
-		} else {
-		    low1 = mid1 + 1;
-		}
-	    }
-	    return;
-	}
-	mid = low + (high-low) / 2;
-    }
-}
-
-static void
-lookup_loc(FunctionInfo* fi, BeamInstr* orig_pc, BeamInstr* modp, int idx)
-{
-    Eterm* line = (Eterm *) modp[MI_LINE_TABLE];
-    Eterm* low;
-    Eterm* high;
-    Eterm* mid;
-    Eterm pc;
-
-    if (line == 0) {
-	return;
-    }
-
-    pc = (Eterm) (BeamInstr) orig_pc;
-    fi->fname_ptr = (Eterm *) (BeamInstr) line[MI_LINE_FNAME_PTR];
-    low = (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB+idx];
-    high = (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB+idx+1];
-    while (high > low) {
-	mid = low + (high-low) / 2;
-	if (pc < mid[0]) {
-	    high = mid;
-	} else if (pc < mid[1]) {
-	    int file;
-	    int index = mid - (Eterm *) (BeamInstr) line[MI_LINE_FUNC_TAB];
-
-	    if (line[MI_LINE_LOC_SIZE] == 2) {
-		Uint16* loc_table =
-		    (Uint16 *) (BeamInstr) line[MI_LINE_LOC_TAB];
-		fi->loc = loc_table[index];
-	    } else {
-		Uint32* loc_table =
-		    (Uint32 *) (BeamInstr) line[MI_LINE_LOC_TAB];
-		ASSERT(line[MI_LINE_LOC_SIZE] == 4);
-		fi->loc = loc_table[index];
-	    }
-	    if (fi->loc == LINE_INVALID_LOCATION) {
-		return;
-	    }
-	    fi->needed += 3+2+3+2;
-	    file = LOC_FILE(fi->loc);
-	    if (file == 0) {
-		/* Special case: Module name with ".erl" appended */
-		Atom* mod_atom = atom_tab(atom_val(fi->current[0]));
-		fi->needed += 2*(mod_atom->len+4);
-	    } else {
-		Atom* ap = atom_tab(atom_val((fi->fname_ptr)[file-1]));
-		fi->needed += 2*ap->len;
-	    }
-	    return;
-	} else {
-	    low = mid + 1;
-	}
-    }
 }
 
 /*

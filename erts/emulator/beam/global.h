@@ -884,11 +884,17 @@ void init_load(void);
 BeamInstr* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
-void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
 void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
+
+/* beam_ranges.c */
+void erts_init_ranges(void);
+void erts_update_ranges(BeamInstr* code, Uint size);
+void erts_remove_from_ranges(BeamInstr* code);
+Uint erts_ranges_sz(void);
+void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
 
 /* break.c */
 void init_break_handler(void);

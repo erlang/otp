@@ -61,11 +61,6 @@ typedef struct {
  * instruction pointer.
  */
 
-extern Range* modules;
-extern int num_loaded_modules;
-extern int allocated_modules;
-extern Range* mid_module;
-
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
 /*
@@ -126,4 +121,26 @@ extern Uint erts_total_code_size;
  */
 
 #define MI_FUNCTIONS         13
+
+/*
+ * Layout of the line table.
+ */
+
+#define MI_LINE_FNAME_PTR 0
+#define MI_LINE_LOC_TAB 1
+#define MI_LINE_LOC_SIZE 2
+#define MI_LINE_FUNC_TAB 3
+
+#define LINE_INVALID_LOCATION (0)
+
+/*
+ * Macros for manipulating locations.
+ */
+
+#define IS_VALID_LOCATION(File, Line) \
+    ((unsigned) (File) < 255 && (unsigned) (Line) < ((1 << 24) - 1))
+#define MAKE_LOCATION(File, Line) (((File) << 24) | (Line))
+#define LOC_FILE(Loc) ((Loc) >> 24)
+#define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
+
 #endif /* _BEAM_LOAD_H */

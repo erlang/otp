@@ -44,7 +44,6 @@ static void decrement_refc(BeamInstr* code);
 static int is_native(BeamInstr* code);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
-static void remove_from_address_table(BeamInstr* code);
 
 Eterm
 load_module_2(BIF_ALIST_2)
@@ -449,7 +448,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp->curr.code = NULL;
 	modp->curr.code_length = 0;
 	modp->curr.catches = BEAM_CATCHES_NIL;
-	remove_from_address_table(code);
+	erts_remove_from_ranges(code);
     }
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -754,7 +753,7 @@ purge_module(int module)
 	    modp->old.code = NULL;
 	    modp->old.code_length = 0;
 	    modp->old.catches = BEAM_CATCHES_NIL;
-	    remove_from_address_table(code);
+	    erts_remove_from_ranges(code);
 	    ret = 0;
 	}
 	erts_rwunlock_old_code(code_ix);
@@ -778,25 +777,6 @@ decrement_refc(BeamInstr* code)
 	}
 	oh = oh->next;
     }
-}
-
-static void
-remove_from_address_table(BeamInstr* code)
-{
-    int i;
-
-    for (i = 0; i < num_loaded_modules; i++) {
-	if (modules[i].start == code) {
-	    num_loaded_modules--;
-	    while (i < num_loaded_modules) {
-		modules[i] = modules[i+1];
-		i++;
-	    }
-	    mid_module = &modules[num_loaded_modules/2];
-	    return;
-	}
-    }
-    ASSERT(0);			/* Not found? */
 }
 
 
