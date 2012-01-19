@@ -86,6 +86,7 @@ load_module_2(BIF_ALIST_2)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
+    erts_lock_code_ix();
     erts_start_loader_code_ix();
 
     reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
@@ -102,6 +103,8 @@ load_module_2(BIF_ALIST_2)
 	erts_commit_loader_code_ix();
 	res = TUPLE2(hp, am_module, BIF_ARG_1);
     }
+
+    erts_unlock_code_ix();
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -160,7 +163,19 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     erts_smp_thr_progress_block();
 
     erts_export_consolidate(erts_active_code_ix());
+
+    erts_lock_code_ix();
+    erts_start_loader_code_ix();
+
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+
+    if (res == BIF_ARG_1) {
+	erts_commit_loader_code_ix();
+    }
+    else {
+	erts_abort_loader_code_ix();
+    }
+    erts_unlock_code_ix();
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -259,7 +274,9 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    code_ix = erts_active_code_ix();
+    erts_lock_code_ix();
+    erts_start_loader_code_ix();
+    code_ix = erts_loader_code_ix();
     {
 	Module *modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {
@@ -278,6 +295,14 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	    res = am_true;
 	}
     }
+
+    if (res == am_true) {
+	erts_commit_loader_code_ix();
+    }
+    else {
+	erts_abort_loader_code_ix();
+    }
+    erts_unlock_code_ix();
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -368,6 +393,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     ErtsCodeIndex code_ix;
     Module* modp;
     Eterm on_load;
+
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
@@ -384,6 +410,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
+
+    /*SVERK What if code_ix is not active any more */
 
     if (BIF_ARG_2 == am_true) {
 	int i;
@@ -828,6 +856,7 @@ delete_export_references(Eterm module)
 		continue;
 	    }
 	    ep->addressv[code_ix] = ep->code+3;
+	    ASSERT(ep->code[3] != (BeamInstr) em_call_traced_function); /*SVERK What to do now? */
 	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
 	    MatchSetUnref(ep->match_prog_set);
