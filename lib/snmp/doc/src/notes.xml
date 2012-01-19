@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -31,6 +31,63 @@
     <rev></rev>
     <file>notes.xml</file>
   </header>
+
+  <section>
+    <title>SNMP Development Toolkit 4.17.3</title>
+
+    <p>Version 4.17.3 supports code replacement in runtime from/to
+      version 4.17.2, 4.17.1, 4.17, 4.16.2, 4.16.1 and 4.16.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!--
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Mib server cache gclimit update function incorrectly calls 
+	  age update function. 
+	  The gclimit update function, 
+	  <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1</seealso>, 
+	  <em>incorrectly</em> called the age update function, 
+	  <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/2</seealso>. </p>
+	  <p>Johan Claesson</p>
+          <p>Own Id: OTP-9868</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+      <!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Originating discovery problems. </p>
+          <p>Invalid state variable update during second stage of
+            discovery causes master agent crash. </p>
+          <p>Also the net_if process failed to activate socket
+            ({active, once}) after first discovery response was sent. </p>
+          <p>Own Id: OTP-8044</p>
+          <p>Aux Id: Seq 11295</p>
+        </item>
+
+      </list>
+      -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.17.3 -->
+
 
   <section>
     <title>SNMP Development Toolkit 4.17.2</title>

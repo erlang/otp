@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -363,7 +363,7 @@ update_mibs_cache_age(Agent, Age) ->
 
 
 update_mibs_cache_gclimit(GcLimit) ->
-    update_mibs_cache_age(snmp_master_agent, GcLimit).
+    update_mibs_cache_gclimit(snmp_master_agent, GcLimit).
 
 update_mibs_cache_gclimit(Agent, GcLimit) ->
     snmpa_agent:update_mibs_cache_gclimit(Agent, GcLimit).

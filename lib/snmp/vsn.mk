@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+# Copyright Ericsson AB 1997-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -17,11 +17,13 @@
 #
 # %CopyrightEnd%
 
-SNMP_VSN = 4.17.2
+SNMP_VSN = 4.17.3
 PRE_VSN  =
 APP_VSN  = "snmp-$(SNMP_VSN)$(PRE_VSN)"
 
-TICKETS = OTP-9236
+TICKETS = OTP-9868
+
+TICKETS_4_17_2 = OTP-9236
 
 TICKETS_4_17_1 = OTP-8761
 
