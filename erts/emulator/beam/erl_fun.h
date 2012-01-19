@@ -79,8 +79,6 @@ ErlFunEntry* erts_get_fun_entry(Eterm mod, int uniq, int index);
 
 ErlFunEntry* erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 				byte* uniq, int index, int arity);
-ErlFunEntry* erts_get_fun_entry2(Eterm mod, int old_uniq, int old_index,
-				byte* uniq, int index, int arity);
 
 void erts_erase_fun_entry(ErlFunEntry* fe);
 #ifndef HYBRID /* FIND ME! */
