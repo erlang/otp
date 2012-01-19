@@ -753,7 +753,7 @@ erts_finish_loading(LoaderState* stp, Process* c_p,
      * table which is not protected by any locks.
      */
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0 ||
+    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_is_code_ix_locked() ||
 		       erts_smp_thr_progress_is_blocking());
 
     /*
@@ -5949,6 +5949,9 @@ static int safe_mul(UWord a, UWord b, UWord* resp)
 static erts_smp_atomic32_t the_active_code_index;
 static erts_smp_atomic32_t the_loader_code_index;
 
+static erts_smp_mtx_t sverk_code_ix_lock; /*SVERK FIXME */
+static erts_smp_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
+
 #ifdef DEBUG
 # define CIX_TRACE(text) erts_fprintf(stderr, "CIX_TRACE: " text " act=%u load=%u\r\n", erts_active_code_ix(), erts_loader_code_ix())
 #else
@@ -5957,8 +5960,14 @@ static erts_smp_atomic32_t the_loader_code_index;
 
 void erts_code_ix_init(void)
 {
+    int i;
+
     erts_smp_atomic32_init_nob(&the_active_code_index, 0);
     erts_smp_atomic32_init_nob(&the_loader_code_index, 0);
+    erts_smp_mtx_init_x(&sverk_code_ix_lock, "sverk_code_ix_lock", NIL); /*SVERK FIXME */
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	erts_smp_rwmtx_init_x(&the_old_code_rwlocks[i], "old_code", make_small(i));
+    }
     CIX_TRACE("init");
 }
 ErtsCodeIndex erts_active_code_ix(void)
@@ -5974,13 +5983,22 @@ ErtsCodeIndex erts_loader_code_ix(void)
 */
 void erts_lock_code_ix(void)
 {
+    erts_smp_mtx_lock(&sverk_code_ix_lock); /*SVERK FIXME */
 }
 
 /* Unlock code_ix (resume first waiter)
 */
 void erts_unlock_code_ix(void)
 {
+    erts_smp_mtx_unlock(&sverk_code_ix_lock); /*SVERK FIXME */
 }
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+int erts_is_code_ix_locked(void)
+{
+    return erts_smp_lc_mtx_is_locked(&sverk_code_ix_lock);
+}
+#endif
 
 void erts_start_loader_code_ix(void)
 {
@@ -6020,24 +6038,25 @@ void erts_abort_loader_code_ix(void)
 /*SVERK old_code lock should maybe be part of module.c */
 void erts_rwlock_old_code(ErtsCodeIndex code_ix)
 {
+    erts_smp_rwmtx_rwlock(&the_old_code_rwlocks[code_ix]);
 }
 void erts_rwunlock_old_code(ErtsCodeIndex code_ix)
 {
+    erts_smp_rwmtx_rwunlock(&the_old_code_rwlocks[code_ix]);
 }
 void erts_rlock_old_code(ErtsCodeIndex code_ix)
 {
+    erts_smp_rwmtx_rlock(&the_old_code_rwlocks[code_ix]);
 }
 void erts_runlock_old_code(ErtsCodeIndex code_ix)
 {
+    erts_smp_rwmtx_runlock(&the_old_code_rwlocks[code_ix]);
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-int erts_is_old_code_rlocked(void)
+int erts_is_old_code_rlocked(ErtsCodeIndex code_ix)
 {
-    return 1;
-}
-int erts_is_code_ix_locked(void)
-{
-    return 1;
+    return erts_smp_lc_rwmtx_is_rlocked(&the_old_code_rwlocks[code_ix]);
 }
 #endif
+

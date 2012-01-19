@@ -48,6 +48,7 @@ void erts_lock_code_ix(void);
 /* Unlock code_ix (resume first waiter)
 */
 void erts_unlock_code_ix(void);
+
 void erts_start_loader_code_ix(void);
 void erts_commit_loader_code_ix(void);
 void erts_abort_loader_code_ix(void);
@@ -58,7 +59,7 @@ void erts_rlock_old_code(ErtsCodeIndex);
 void erts_runlock_old_code(ErtsCodeIndex);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-int erts_is_old_code_rlocked(void);
+int erts_is_old_code_rlocked(ErtsCodeIndex);
 int erts_is_code_ix_locked(void);
 #endif
 

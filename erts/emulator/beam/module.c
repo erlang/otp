@@ -127,6 +127,7 @@ erts_put_module(Eterm mod)
 
     ASSERT(is_atom(mod));
     ERTS_SMP_LC_ASSERT(erts_initialized == 0
+		       || erts_is_code_ix_locked()
 		       || erts_smp_thr_progress_is_blocking());
 
     mod_tab = &module_tables[erts_loader_code_ix()];

@@ -79,11 +79,11 @@ load_module_2(BIF_ALIST_2)
 	BIF_RET(res);
     }
 
-    /*
+    /*SVERK
      * Stop all other processes and finish the loading of the module.
-     */
+     *
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    erts_smp_thr_progress_block();*/
 
     erts_lock_code_ix();
     erts_start_loader_code_ix();
@@ -105,8 +105,9 @@ load_module_2(BIF_ALIST_2)
 
     erts_unlock_code_ix();
 
+    /*SVERK
     erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
     BIF_RET(res);
 }
 
@@ -118,14 +119,17 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
+    /*SVERK
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    erts_export_consolidate(erts_active_code_ix());
+    erts_export_consolidate(erts_active_code_ix());*/
+
     purge_res = purge_module(atom_val(BIF_ARG_1));
 
+    /*SVERK
     erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
 
     if (purge_res < 0) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -158,13 +162,16 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 {
     Eterm res;
 
+    /*SVERK
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    erts_export_consolidate(erts_active_code_ix());
+    erts_export_consolidate(erts_active_code_ix());*/
 
     erts_lock_code_ix();
     erts_start_loader_code_ix();
+
+    erts_export_consolidate(erts_loader_code_ix());
 
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
@@ -176,8 +183,9 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     }
     erts_unlock_code_ix();
 
+    /*SVERK
     erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
     return res;
 }
 
@@ -221,13 +229,13 @@ check_process_code_2(BIF_ALIST_2)
 	modp = erts_get_module(BIF_ARG_2, code_ix);
 	if (modp == NULL) {		/* Doesn't exist. */
 	    return am_false;
-	} else {
-	    erts_rlock_old_code(code_ix);
-	    if (modp->old.code == NULL) { /* No old code. */
-		erts_runlock_old_code(code_ix);
-		return am_false;
-	    }
 	}
+	erts_rlock_old_code(code_ix);
+	if (modp->old.code == NULL) { /* No old code. */
+	    erts_runlock_old_code(code_ix);
+	    return am_false;
+	}
+	erts_runlock_old_code(code_ix);
 	
 #ifdef ERTS_SMP
 	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
@@ -242,7 +250,13 @@ check_process_code_2(BIF_ALIST_2)
 	    ERTS_BIF_YIELD2(bif_export[BIF_check_process_code_2], BIF_P,
 			    BIF_ARG_1, BIF_ARG_2);
 	}
-	res = check_process_code(rp, modp);
+	erts_rlock_old_code(code_ix);
+	if (modp->old.code != NULL) { /* must check again */
+	    res = check_process_code(rp, modp);
+	}
+	else {
+	    res = am_false;
+	}
 	erts_runlock_old_code(code_ix);
 #ifdef ERTS_SMP
 	if (BIF_P != rp) {
@@ -270,12 +284,14 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     if (is_not_atom(BIF_ARG_1))
 	goto badarg;
 
+    /*SVERK
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    erts_smp_thr_progress_block();*/
 
     erts_lock_code_ix();
     erts_start_loader_code_ix();
     code_ix = erts_loader_code_ix();
+    erts_export_consolidate(code_ix);
     {
 	Module *modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {
@@ -303,8 +319,9 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     }
     erts_unlock_code_ix();
 
+    /*SVERK
     erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
 
     if (res == am_badarg) {
     badarg:
@@ -410,7 +427,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    /*SVERK What if code_ix is not active any more */
+    /*SVERK Use code_ix switch instead */
 
     if (BIF_ARG_2 == am_true) {
 	int i;
@@ -495,8 +512,6 @@ check_process_code(Process* rp, Module* modp)
 #endif
 
 #define INSIDE(a) (start <= (a) && (a) < end)
-
-    ERTS_SMP_LC_ASSERT(erts_is_old_code_rlocked());
 
     /*
      * Pick up limits for the module.
@@ -787,19 +802,19 @@ decrement_refc(BeamInstr* code)
 static void 
 delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
 {
-#ifdef ERTS_ENABLE_LOCK_CHECK
-#ifdef ERTS_SMP
-    if (c_p && c_p_locks)
-	erts_proc_lc_chk_only_proc_main(c_p);
-    else
-#endif
-	erts_lc_check_exact(NULL, 0);
-#endif
-
     /*
      * Clear breakpoints if any
      */
     if (modp->curr.code != NULL && modp->curr.code[MI_NUM_BREAKPOINTS] > 0) {
+	ASSERT(!"SVERK What to do here");
+#ifdef ERTS_ENABLE_LOCK_CHECK
+#ifdef ERTS_SMP
+	if (c_p && c_p_locks)
+	    erts_proc_lc_chk_only_proc_main(c_p);
+	else
+#endif
+	    erts_lc_check_exact(NULL, 0);
+#endif
 	if (c_p && c_p_locks)
 	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 	erts_smp_thr_progress_block();
