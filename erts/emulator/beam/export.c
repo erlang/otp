@@ -141,13 +141,11 @@ export_alloc(struct export_entry* tmpl_e)
     return &blob->entryv[blob->top_ix];
 }
 
-/*SVERK
 static void 
 export_free(struct export_entry* obj)
 {
     erts_free(ERTS_ALC_T_EXPORT,  (void*) obj);
 }
-*/
 
 void
 init_export_table(void)
@@ -163,7 +161,7 @@ init_export_table(void)
     f.hash = (H_FUN) export_hash;
     f.cmp  = (HCMP_FUN) export_cmp;
     f.alloc = (HALLOC_FUN) export_alloc;
-    f.free = (HFREE_FUN) NULL; /*SVERK export_free;*/
+    f.free = (HFREE_FUN) export_free;
 
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
 	erts_index_init(ERTS_ALC_T_EXPORT_TABLE, &export_tables[i], "export_list",
@@ -396,6 +394,8 @@ static struct export_blob* entry_to_blob(struct export_entry* ee)
 
 IF_DEBUG(static ErtsCodeIndex debug_start_load_ix = 0;)
 
+static int entries_at_start_load = 0;
+
 void export_start_load(void)
 {
     ErtsCodeIndex dst_ix = erts_loader_code_ix();
@@ -440,7 +440,7 @@ void export_start_load(void)
 
     dst->htable.fun.alloc = (HALLOC_FUN) &export_alloc; /* restore */
 
-    /*SVERK Remember dst->entries in order to purge on abort */
+    entries_at_start_load = dst->entries;
 
     IF_DEBUG(debug_start_load_ix = dst_ix);
 }
@@ -449,7 +449,12 @@ void export_end_load(int commit)
 {
     ASSERT(debug_start_load_ix == erts_loader_code_ix());
 
-    /*SVERK Purge if abort */
+    if (!commit) { /* abort */
+	IndexTable* tab = &export_tables[erts_loader_code_ix()];
+
+	ASSERT(entries_at_start_load <= tab->entries);
+	index_erase_latest_from(tab, entries_at_start_load);
+    }
 
     IF_DEBUG(debug_start_load_ix = -1);
 }

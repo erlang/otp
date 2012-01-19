@@ -58,6 +58,8 @@ int index_get(IndexTable*, void*);
 int index_put(IndexTable*, void*);
 void erts_index_merge(Hash*, IndexTable*);
 
+/* Erase all entries with index 'ix' and higher
+*/
 void index_erase_latest_from(IndexTable*, Uint ix);
 
 ERTS_GLB_INLINE IndexSlot* erts_index_lookup(IndexTable*, Uint);
