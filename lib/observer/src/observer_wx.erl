@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -328,8 +328,9 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
-handle_info({'EXIT', _Pid, _Reason}, State) ->
-    io:format("Child crashed exiting:  ~p ~p~n", [_Pid,_Reason]),
+handle_info({'EXIT', Pid, _Reason}, State) ->
+    io:format("Child (~s) crashed exiting:  ~p ~p~n",
+	      [pid2panel(Pid, State), Pid,_Reason]),
     {stop, normal, State};
 
 handle_info(_Info, State) ->
@@ -351,6 +352,7 @@ try_rpc(Node, Mod, Func, Args) ->
 	    error_logger:error_report([{node, Node},
 				       {call, {Mod, Func, Args}},
 				       {reason, {badrpc, Reason}}]),
+	    observer ! {nodedown, Node},
 	    error({badrpc, Reason});
 	Res ->
 	    Res
@@ -422,6 +424,20 @@ get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
 		"Applications" -> App
 	    end,
     wx_object:get_pid(Panel).
+
+pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
+		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
+		      perf_panel=Perf}) ->
+    case Pid of
+	Pro -> "Processes";
+	Sys -> "System";
+	Tv -> "Table Viewer" ;
+	Trace -> ?TRACE_STR;
+	Perf -> "Load Charts";
+	App -> "Applications";
+	_ -> "unknown"
+    end.
+
 
 create_connect_dialog(ping, #state{frame = Frame}) ->
     Dialog = wxTextEntryDialog:new(Frame, "Connect to node"),
