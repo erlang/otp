@@ -377,17 +377,22 @@ loaded(int to, void *to_arg)
     int old = 0;
     int cur = 0;
     BeamInstr* code;
+    Module* modp;
+    ErtsCodeIndex code_ix;
+
+    code_ix = erts_active_code_ix();
+    erts_rlock_old_code(code_ix);
 
     /*
      * Calculate and print totals.
      */
-    for (i = 0; i < module_code_size(); i++) {
-	if (module_code(i) != NULL &&
-	    ((module_code(i)->curr.code_length != 0) ||
-	     (module_code(i)->old.code_length != 0))) {
-	    cur += module_code(i)->curr.code_length;
-	    if (module_code(i)->old.code_length != 0) {
-		old += module_code(i)->old.code_length;
+    for (i = 0; i < module_code_size(code_ix); i++) {
+	if ((modp = module_code(i, code_ix)) != NULL &&
+	    ((modp->curr.code_length != 0) ||
+	     (modp->old.code_length != 0))) {
+	    cur += modp->curr.code_length;
+	    if (modp->old.code_length != 0) {
+		old += modp->old.code_length;
 	    }
 	}
     }
@@ -398,21 +403,22 @@ loaded(int to, void *to_arg)
      * Print one line per module.
      */
 
-    for (i = 0; i < module_code_size(); i++) {
+    for (i = 0; i < module_code_size(code_ix); i++) {
+	modp = module_code(i, code_ix);
 	if (!ERTS_IS_CRASH_DUMPING) {
 	    /*
 	     * Interactive dump; keep it brief.
 	     */
-	    if (module_code(i) != NULL &&
-	    ((module_code(i)->curr.code_length != 0) ||
-	     (module_code(i)->old.code_length != 0))) {
-		erts_print(to, to_arg, "%T", make_atom(module_code(i)->module));
-		cur += module_code(i)->curr.code_length;
-		erts_print(to, to_arg, " %d", module_code(i)->curr.code_length );
-		if (module_code(i)->old.code_length != 0) {
+	    if (modp != NULL &&
+	    ((modp->curr.code_length != 0) ||
+	     (modp->old.code_length != 0))) {
+		erts_print(to, to_arg, "%T", make_atom(modp->module));
+		cur += modp->curr.code_length;
+		erts_print(to, to_arg, " %d", modp->curr.code_length );
+		if (modp->old.code_length != 0) {
 		    erts_print(to, to_arg, " (%d old)",
-			       module_code(i)->old.code_length );
-		    old += module_code(i)->old.code_length;
+			       modp->old.code_length );
+		    old += modp->old.code_length;
 		}
 		erts_print(to, to_arg, "\n");
 	    }
@@ -420,15 +426,15 @@ loaded(int to, void *to_arg)
 	    /*
 	     * To crash dump; make it parseable.
 	     */
-	    if (module_code(i) != NULL &&
-		((module_code(i)->curr.code_length != 0) ||
-		 (module_code(i)->old.code_length != 0))) {
+	    if (modp != NULL &&
+		((modp->curr.code_length != 0) ||
+		 (modp->old.code_length != 0))) {
 		erts_print(to, to_arg, "=mod:");
-		erts_print(to, to_arg, "%T", make_atom(module_code(i)->module));
+		erts_print(to, to_arg, "%T", make_atom(modp->module));
 		erts_print(to, to_arg, "\n");
 		erts_print(to, to_arg, "Current size: %d\n",
-			   module_code(i)->curr.code_length);
-		code = module_code(i)->curr.code;
+			   modp->curr.code_length);
+		code = modp->curr.code;
 		if (code != NULL && code[MI_ATTR_PTR]) {
 		    erts_print(to, to_arg, "Current attributes: ");
 		    dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
@@ -440,9 +446,9 @@ loaded(int to, void *to_arg)
 				    code[MI_COMPILE_SIZE]);
 		}
 
-		if (module_code(i)->old.code_length != 0) {
-		    erts_print(to, to_arg, "Old size: %d\n", module_code(i)->old.code_length);
-		    code = module_code(i)->old.code;
+		if (modp->old.code_length != 0) {
+		    erts_print(to, to_arg, "Old size: %d\n", modp->old.code_length);
+		    code = modp->old.code;
 		    if (code[MI_ATTR_PTR]) {
 			erts_print(to, to_arg, "Old attributes: ");
 			dump_attributes(to, to_arg, (byte *) code[MI_ATTR_PTR],
@@ -457,6 +463,7 @@ loaded(int to, void *to_arg)
 	    }
 	}
     }
+    erts_runlock_old_code(code_ix);
 }
 
 

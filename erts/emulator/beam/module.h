@@ -39,14 +39,16 @@ typedef struct erl_module {
     struct erl_module_instance old;
 } Module; 
 
-Module* erts_get_module(Eterm mod);
+Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
 Module* erts_put_module(Eterm mod);
 
 void init_module_table(void);
+void module_start_load(void);
+void module_end_load(int commit);
 void module_info(int, void *);
 
-Module *module_code(int);
-int module_code_size(void);
+Module *module_code(int, ErtsCodeIndex);
+int module_code_size(ErtsCodeIndex);
 int module_table_sz(void);
 
 #endif

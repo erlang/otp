@@ -478,7 +478,7 @@ erts_find_local_func(Eterm mfa[3]) {
     BeamInstr* code_ptr;
     Uint i,n;
 
-    if ((modp = erts_get_module(mfa[0])) == NULL)
+    if ((modp = erts_get_module(mfa[0], erts_active_code_ix())) == NULL)
 	return NULL;
     if ((code_base = (BeamInstr **) modp->curr.code) == NULL)
 	return NULL;
@@ -850,12 +850,13 @@ static int set_break(Eterm mfa[3], int specified,
 {
     Module *modp;
     int num_processed = 0;
+    ErtsCodeIndex code_ix = erts_active_code_ix();
     if (!specified) {
 	/* Find and process all modules in the system... */
 	int current;
-	int last = module_code_size();
+	int last = module_code_size(code_ix);
 	for (current = 0; current < last; current++) {
-	    modp = module_code(current);
+	    modp = module_code(current, code_ix);
 	    ASSERT(modp != NULL);
 	    num_processed += 
 		set_module_break(modp, mfa, specified, 
@@ -864,7 +865,7 @@ static int set_break(Eterm mfa[3], int specified,
 	}
     } else {
 	/* Process a single module */
-	if ((modp = erts_get_module(mfa[0])) != NULL) {
+	if ((modp = erts_get_module(mfa[0], code_ix)) != NULL) {
 	    num_processed += 
 		set_module_break(modp, mfa, specified, 
 				 match_spec, break_op, count_op, 
@@ -1105,22 +1106,23 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 
 static int clear_break(Eterm mfa[3], int specified, BeamInstr break_op)
 {
+    ErtsCodeIndex code_ix = erts_active_code_ix();
     int num_processed = 0;
     Module *modp;
 
     if (!specified) {
 	/* Iterate over all modules */
 	int current;
-	int last = module_code_size();
+	int last = module_code_size(code_ix);
 
 	for (current = 0; current < last; current++) {
-	    modp = module_code(current);
+	    modp = module_code(current, code_ix);
 	    ASSERT(modp != NULL);
 	    num_processed += clear_module_break(modp, mfa, specified, break_op);
 	}
     } else {
 	/* Process a single module */
-	if ((modp = erts_get_module(mfa[0])) != NULL) {
+	if ((modp = erts_get_module(mfa[0], code_ix)) != NULL) {
 	    num_processed += 
 		clear_module_break(modp, mfa, specified, break_op);
 	}	

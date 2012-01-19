@@ -254,10 +254,6 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
     struct export_templ templ;
     struct export_entry* ee;
 
-    if (ERTS_IS_ATOM_STR("gen_event",m) && ERTS_IS_ATOM_STR("add_handler",f)) {
-	sverk_break();
-    }
-
     ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
     if (ee == NULL || (ee->ep->addressv[code_ix] == ee->ep->code+3 &&
 		       ee->ep->code[3] != (BeamInstr) em_call_traced_function)) {

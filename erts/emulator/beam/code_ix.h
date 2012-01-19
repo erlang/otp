@@ -52,10 +52,10 @@ void erts_start_loader_code_ix(void);
 void erts_commit_loader_code_ix(void);
 void erts_abort_loader_code_ix(void);
 
-void erts_rwlock_old_code(void);
-void erts_rwunlock_old_code(void);
-void erts_rlock_old_code(void);
-void erts_runlock_old_code(void);
+void erts_rwlock_old_code(ErtsCodeIndex);
+void erts_rwunlock_old_code(ErtsCodeIndex);
+void erts_rlock_old_code(ErtsCodeIndex);
+void erts_runlock_old_code(ErtsCodeIndex);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 int erts_is_old_code_rlocked(void);

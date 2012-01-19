@@ -135,3 +135,18 @@ void erts_index_merge(Hash* src, IndexTable* dst)
 	}
     }
 }
+
+void index_erase_latest_from(IndexTable* t, Uint from_ix)
+{
+    if(from_ix < (Uint)t->entries) {
+	int ix;
+	for (ix = from_ix; ix < t->entries; ix++)  {
+	    IndexSlot* obj = t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK];
+	    hash_erase(&t->htable, obj);
+	}
+	t->entries = from_ix;
+    }
+    else {
+	ASSERT(from_ix == t->entries);
+    }
+}

@@ -6127,9 +6127,9 @@ call_fun(Process* p,		/* Current process. */
 		 * representation (the module has never been loaded),
 		 * or the module defining the fun has been unloaded.
 		 */
-
 		module = fe->module;
-		if ((modp = erts_get_module(module)) != NULL && modp->curr.code != NULL) {
+		if ((modp = erts_get_module(module, code_ix)) != NULL
+		    && modp->curr.code != NULL) {
 		    /*
 		     * There is a module loaded, but obviously the fun is not
 		     * defined in it. We must not call the error_handler

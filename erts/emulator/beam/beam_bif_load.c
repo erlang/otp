@@ -134,16 +134,22 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 {
     Module* modp;
+    Eterm res;
+    ErtsCodeIndex code_ix;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((modp = erts_get_module(BIF_ARG_1)) == NULL) {
+    code_ix = erts_active_code_ix();
+    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL) {
 	return am_undefined;
     }
-    return ((modp->curr.code && is_native(modp->curr.code)) ||
+    erts_rlock_old_code(code_ix);
+    res = ((modp->curr.code && is_native(modp->curr.code)) ||
 	    (modp->old.code != 0 && is_native(modp->old.code))) ?
 		am_true : am_false;
+    erts_runlock_old_code(code_ix);
+    return res;
 }
 
 BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
@@ -164,18 +170,23 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 BIF_RETTYPE
 check_old_code_1(BIF_ALIST_1)
 {
+    ErtsCodeIndex code_ix;
     Module* modp;
+    Eterm res = am_false;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    modp = erts_get_module(BIF_ARG_1);
-    if (modp == NULL) {		/* Doesn't exist. */
-	BIF_RET(am_false);
-    } else if (modp->old.code == NULL) { /* No old code. */
-	BIF_RET(am_false);
+    code_ix = erts_active_code_ix();
+    modp = erts_get_module(BIF_ARG_1, code_ix);
+    if (modp != NULL) {
+	erts_rlock_old_code(code_ix);
+	if (modp->old.code != NULL) {
+	    res = am_true;
+	}
+	erts_runlock_old_code(code_ix);
     }
-    BIF_RET(am_true);
+    BIF_RET(res);
 }
 
 Eterm
@@ -189,13 +200,19 @@ check_process_code_2(BIF_ALIST_2)
     }
     if (is_internal_pid(BIF_ARG_1)) {
 	Eterm res;
+	ErtsCodeIndex code_ix;
 	if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
 	    goto error;
-	modp = erts_get_module(BIF_ARG_2);
+	code_ix = erts_active_code_ix();
+	modp = erts_get_module(BIF_ARG_2, code_ix);
 	if (modp == NULL) {		/* Doesn't exist. */
 	    return am_false;
-	} else if (modp->old.code == NULL) { /* No old code. */
-	    return am_false;
+	} else {
+	    erts_rlock_old_code(code_ix);
+	    if (modp->old.code == NULL) { /* No old code. */
+		erts_runlock_old_code(code_ix);
+		return am_false;
+	    }
 	}
 	
 #ifdef ERTS_SMP
@@ -212,6 +229,7 @@ check_process_code_2(BIF_ALIST_2)
 			    BIF_ARG_1, BIF_ARG_2);
 	}
 	res = check_process_code(rp, modp);
+	erts_runlock_old_code(code_ix);
 #ifdef ERTS_SMP
 	if (BIF_P != rp) {
 	    erts_resume(rp, ERTS_PROC_LOCK_MAIN);
@@ -232,6 +250,7 @@ check_process_code_2(BIF_ALIST_2)
 
 BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 {
+    ErtsCodeIndex code_ix;
     int res;
 
     if (is_not_atom(BIF_ARG_1))
@@ -240,8 +259,9 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
+    code_ix = erts_active_code_ix();
     {
-	Module *modp = erts_get_module(BIF_ARG_1);
+	Module *modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {
 	    res = am_undefined;
 	}
@@ -272,16 +292,20 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 BIF_RETTYPE module_loaded_1(BIF_ALIST_1)
 {
     Module* modp;
+    ErtsCodeIndex code_ix;
+    Eterm res = am_false;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((modp = erts_get_module(BIF_ARG_1)) == NULL ||
-	modp->curr.code == NULL ||
-	modp->curr.code[MI_ON_LOAD_FUNCTION_PTR] != 0) {
-	BIF_RET(am_false);
+    code_ix = erts_active_code_ix();
+    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) != NULL) {
+	if (modp->curr.code != NULL
+	    && modp->curr.code[MI_ON_LOAD_FUNCTION_PTR] == 0) {
+	    res = am_true;
+	}
     }
-    BIF_RET(am_true);
+    BIF_RET(res);
 }
 
 BIF_RETTYPE pre_loaded_0(BIF_ALIST_0)
@@ -291,27 +315,28 @@ BIF_RETTYPE pre_loaded_0(BIF_ALIST_0)
 
 BIF_RETTYPE loaded_0(BIF_ALIST_0)
 {
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    Module* modp;
     Eterm previous = NIL;
     Eterm* hp;
     int i;
     int j = 0;
-    
-    for (i = 0; i < module_code_size(); i++) {
-	if (module_code(i) != NULL &&
-	    ((module_code(i)->curr.code_length != 0) ||
-	     (module_code(i)->old.code_length != 0))) {
+
+    for (i = 0; i < module_code_size(code_ix); i++) {
+	if ((modp = module_code(i, code_ix)) != NULL &&
+	    ((modp->curr.code_length != 0) ||
+	     (modp->old.code_length != 0))) {
 	    j++;
 	}
     }
     if (j > 0) {
 	hp = HAlloc(BIF_P, j*2);
 
-	for (i = 0; i < module_code_size(); i++) {
-	    if (module_code(i) != NULL &&
-		((module_code(i)->curr.code_length != 0) ||
-		 (module_code(i)->old.code_length != 0))) {
-		previous = CONS(hp, make_atom(module_code(i)->module), 
-				previous);
+	for (i = 0; i < module_code_size(code_ix); i++) {
+	    if ((modp=module_code(i,code_ix)) != NULL &&
+		((modp->curr.code_length != 0) ||
+		 (modp->old.code_length != 0))) {
+		previous = CONS(hp, make_atom(modp->module), previous);
 		hp += 2;
 	    }
 	}
@@ -321,25 +346,30 @@ BIF_RETTYPE loaded_0(BIF_ALIST_0)
 
 BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
-    Module* modp = erts_get_module(BIF_ARG_1);
-    Eterm on_load;
+    ErtsCodeIndex code_ix = erts_active_code_ix();  /*SVERK ?? on_load ?? */
+    Module* modp = erts_get_module(BIF_ARG_1, code_ix);
+    Eterm on_load = 0;
 
-    if (!modp || modp->curr.code == 0) {
-    error:
+    if (modp) {
+	if (modp->curr.code) {
+	    on_load = modp->curr.code[MI_ON_LOAD_FUNCTION_PTR];
+	}
+    }
+    if (on_load) {
+	BIF_TRAP_CODE_PTR_0(BIF_P, on_load);
+    }
+    else {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((on_load = modp->curr.code[MI_ON_LOAD_FUNCTION_PTR]) == 0) {
-	goto error;
-    }
-    BIF_TRAP_CODE_PTR_0(BIF_P, on_load);
 }
 
 BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 {
     ErtsCodeIndex code_ix;
-    Module* modp = erts_get_module(BIF_ARG_1);
+    Module* modp;
     Eterm on_load;
     code_ix = erts_active_code_ix();
+    modp = erts_get_module(BIF_ARG_1, code_ix);
 
     if (!modp || modp->curr.code == 0) {
     error:
@@ -438,6 +468,8 @@ check_process_code(Process* rp, Module* modp)
 #endif
 
 #define INSIDE(a) (start <= (a) && (a) < end)
+
+    ERTS_SMP_LC_ASSERT(erts_is_old_code_rlocked());
 
     /*
      * Pick up limits for the module.
@@ -645,50 +677,62 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 static int
 purge_module(int module)
 {
+    ErtsCodeIndex code_ix;
     BeamInstr* code;
     BeamInstr* end;
     Module* modp;
+    int ret;
+
+    erts_lock_code_ix();
+    code_ix = erts_active_code_ix();
 
     /*
      * Correct module?
      */
 
-    if ((modp = erts_get_module(make_atom(module))) == NULL) {
-	return -2;
+    if ((modp = erts_get_module(make_atom(module), code_ix)) == NULL) {
+	ret = -2;
     }
+    else {
+	erts_rwlock_old_code(code_ix);
 
-    /*
-     * Any code to purge?
-     */
-    if (modp->old.code == 0) {
-	return -1;
+	/*
+	 * Any code to purge?
+	 */
+	if (modp->old.code == 0) {
+	    ret = -1;
+	}
+	else {
+	    /*
+	     * Unload any NIF library
+	     */
+	    if (modp->old.nif != NULL) {
+		erts_unload_nif(modp->old.nif);
+		modp->old.nif = NULL;
+	    }
+
+	    /*
+	     * Remove the old code.
+	     */
+	    ASSERT(erts_total_code_size >= modp->old.code_length);
+	    erts_total_code_size -= modp->old.code_length;
+	    code = modp->old.code;
+	    end = (BeamInstr *)((char *)code + modp->old.code_length);
+	    erts_cleanup_funs_on_purge(code, end);
+	    beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
+				code_ix);
+	    decrement_refc(code);
+	    erts_free(ERTS_ALC_T_CODE, (void *) code);
+	    modp->old.code = NULL;
+	    modp->old.code_length = 0;
+	    modp->old.catches = BEAM_CATCHES_NIL;
+	    remove_from_address_table(code);
+	    ret = 0;
+	}
+	erts_rwunlock_old_code(code_ix);
     }
-
-    /*
-     * Unload any NIF library
-     */
-    if (modp->old.nif != NULL) {
-	erts_unload_nif(modp->old.nif);
-	modp->old.nif = NULL;
-    }
-
-    /*
-     * Remove the old code.
-     */
-    ASSERT(erts_total_code_size >= modp->old.code_length);
-    erts_total_code_size -= modp->old.code_length;
-    code = modp->old.code;
-    end = (BeamInstr *)((char *)code + modp->old.code_length);
-    erts_cleanup_funs_on_purge(code, end);
-    beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
-			erts_active_code_ix());
-    decrement_refc(code);
-    erts_free(ERTS_ALC_T_CODE, (void *) code);
-    modp->old.code = NULL;
-    modp->old.code_length = 0;
-    modp->old.catches = BEAM_CATCHES_NIL;
-    remove_from_address_table(code);
-    return 0;
+    erts_unlock_code_ix();
+    return ret;
 }
 
 static void

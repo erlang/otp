@@ -609,7 +609,7 @@ static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
     Uint *code_base;
     int i, n;
 
-    modp = erts_get_module(mod);
+    modp = erts_get_module(mod, erts_active_code_ix()); /*SVERK ?? */
     if (modp == NULL || (code_base = modp->curr.code) == NULL)
 	return NULL;
     n = code_base[MI_NUM_FUNCTIONS];

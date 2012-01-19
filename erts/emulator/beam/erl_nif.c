@@ -1534,7 +1534,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(caller != NULL);
     mod_atom = caller[0];
     ASSERT(is_atom(mod_atom));
-    mod=erts_get_module(mod_atom);
+    mod=erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(mod != NULL);
 
     if (!in_area(caller, mod->curr.code, mod->curr.code_length)) {

@@ -58,6 +58,8 @@ int index_get(IndexTable*, void*);
 int index_put(IndexTable*, void*);
 void erts_index_merge(Hash*, IndexTable*);
 
+void index_erase_latest_from(IndexTable*, Uint ix);
+
 ERTS_GLB_INLINE IndexSlot* erts_index_lookup(IndexTable*, Uint);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF

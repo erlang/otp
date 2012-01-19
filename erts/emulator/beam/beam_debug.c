@@ -226,13 +226,13 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	    goto error;
 	}
 	arity = signed_val(tp[3]);
-	modp = erts_get_module(mod);
+	code_ix = erts_active_code_ix();
+	modp = erts_get_module(mod, code_ix);
 
 	/*
 	 * Try the export entry first to allow disassembly of special functions
 	 * such as erts_debug:apply/4.  Then search for it in the module.
 	 */
-	code_ix = erts_active_code_ix();
 	if ((ep = erts_find_function(mod, name, arity, code_ix)) != NULL) {
 	    /* XXX: add "&& ep->address != ep->code+3" condition?
 	     * Consider a traced function.

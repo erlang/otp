@@ -5027,7 +5027,7 @@ erts_module_info_0(Process* p, Eterm module)
 	return THE_NON_VALUE;
     }
 
-    if (erts_get_module(module) == NULL) {
+    if (erts_get_module(module, erts_active_code_ix()) == NULL) {
 	return THE_NON_VALUE;
     }
 
@@ -5091,7 +5091,7 @@ functions_in_module(Process* p, /* Process whose heap to use. */
 	return THE_NON_VALUE;
     }
 
-    modp = erts_get_module(mod);
+    modp = erts_get_module(mod, erts_active_code_ix());
     if (modp == NULL) {
 	return THE_NON_VALUE;
     }
@@ -5145,7 +5145,7 @@ native_addresses(Process* p, Eterm mod)
 	return THE_NON_VALUE;
     }
 
-    modp = erts_get_module(mod);
+    modp = erts_get_module(mod, erts_active_code_ix());
     if (modp == NULL) {
 	return THE_NON_VALUE;
     }
@@ -5247,7 +5247,7 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
 	return THE_NON_VALUE;
     }
 
-    modp = erts_get_module(mod);
+    modp = erts_get_module(mod, erts_active_code_ix());
     if (modp == NULL) {
 	return THE_NON_VALUE;
     }
@@ -5287,7 +5287,7 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
 	return THE_NON_VALUE;
     }
 
-    modp = erts_get_module(mod);
+    modp = erts_get_module(mod, erts_active_code_ix());
     if (modp == NULL) {
 	return THE_NON_VALUE;
     }
@@ -6147,6 +6147,7 @@ void erts_start_loader_code_ix(void)
 {
     beam_catches_start_load();
     export_start_load();
+    module_start_load();
     /*SVERK and more to come I guess...
 	:
      */
@@ -6158,8 +6159,10 @@ void erts_commit_loader_code_ix(void)
 {
     beam_catches_end_load(1);
     export_end_load(1);
+    module_end_load(1);
     {
-	ErtsCodeIndex ix = erts_loader_code_ix();
+	ErtsCodeIndex ix;
+	ix = erts_loader_code_ix();
 	erts_smp_atomic32_set_nob(&the_active_code_index, ix);
 	ix = (ix + 1) % ERTS_NUM_CODE_IX;
 	erts_smp_atomic32_set_nob(&the_loader_code_index, ix);
@@ -6171,20 +6174,21 @@ void erts_abort_loader_code_ix(void)
 {
     beam_catches_end_load(0);
     export_end_load(0);
+    module_end_load(0);
     CIX_TRACE("abort");
 }
 
 /*SVERK old_code lock should maybe be part of module.c */
-void erts_rwlock_old_code(void)
+void erts_rwlock_old_code(ErtsCodeIndex code_ix)
 {
 }
-void erts_rwunlock_old_code(void)
+void erts_rwunlock_old_code(ErtsCodeIndex code_ix)
 {
 }
-void erts_rlock_old_code(void)
+void erts_rlock_old_code(ErtsCodeIndex code_ix)
 {
 }
-void erts_runlock_old_code(void)
+void erts_runlock_old_code(ErtsCodeIndex code_ix)
 {
 }
 
