@@ -891,9 +891,11 @@ Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
 
 /* beam_ranges.c */
 void erts_init_ranges(void);
+void erts_start_load_ranges(void);
+void erts_end_load_ranges(int commit);
 void erts_update_ranges(BeamInstr* code, Uint size);
 void erts_remove_from_ranges(BeamInstr* code);
-Uint erts_ranges_sz(void);
+UWord erts_ranges_sz(void);
 void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
 
 /* break.c */

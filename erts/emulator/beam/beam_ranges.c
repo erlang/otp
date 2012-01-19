@@ -26,6 +26,7 @@
 #include "global.h"
 #include "beam_load.h"
 
+static Range* find_range(BeamInstr* pc);
 static void lookup_loc(FunctionInfo* fi, BeamInstr* pc,
 		       BeamInstr* modp, int idx);
 
@@ -34,67 +35,175 @@ static void lookup_loc(FunctionInfo* fi, BeamInstr* pc,
  * each module.  It allows us to quickly find a function given an
  * instruction pointer.
  */
-static Range* modules = NULL;  /* Sorted lists of module addresses. */
-static int num_loaded_modules; /* Number of loaded modules. */
-static int allocated_modules;  /* Number of slots allocated. */
-static Range* mid_module = NULL; /* Cached search start point */
+struct ranges {
+    Range* modules;	       /* Sorted lists of module addresses. */
+    Sint n;		       /* Number of range entries. */
+    Sint allocated;	       /* Number of allocated entries. */
+    erts_smp_atomic_t mid;     /* Cached search start point */
+};
+static struct ranges r[ERTS_NUM_CODE_IX];
+static erts_smp_atomic_t mem_used;
+
+#ifdef HARD_DEBUG
+static void check_consistency(struct ranges* p)
+{
+    int i;
+
+    ASSERT(p->n <= p->allocated);
+    ASSERT((Uint)(p->mid - p->modules) < p->n ||
+	   (p->mid == p->modules && p->n == 0));
+    for (i = 0; i < p->n; i++) {
+	ASSERT(p->modules[i].start <= p->modules[i].end);
+	ASSERT(!i || p->modules[i-1].end < p->modules[i].start);
+    }
+}
+#  define CHECK(r) check_consistency(r)
+#else
+#  define CHECK(r)
+#endif /* HARD_DEBUG */
+
 
 void
 erts_init_ranges(void)
 {
-    allocated_modules = 128;
-    modules = (Range *) erts_alloc(ERTS_ALC_T_MODULE_REFS,
-				   allocated_modules*sizeof(Range));
-    mid_module = modules;
-    num_loaded_modules = 0;
+    Sint i;
+
+    erts_smp_atomic_init_nob(&mem_used, 0);
+    for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
+	r[i].modules = 0;
+	r[i].n = 0;
+	r[i].allocated = 0;
+	erts_smp_atomic_init_nob(&r[i].mid, 0);
+    }
+}
+
+void
+erts_start_load_ranges(void)
+{
+    ErtsCodeIndex dst = erts_loader_code_ix();
+
+    if (r[dst].modules) {
+	erts_smp_atomic_add_nob(&mem_used, -r[dst].allocated);
+	erts_free(ERTS_ALC_T_MODULE_REFS, r[dst].modules);
+	r[dst].modules = NULL;
+    }
+}
+
+void
+erts_end_load_ranges(int commit)
+{
+    ErtsCodeIndex dst = erts_loader_code_ix();
+
+    if (commit && r[dst].modules == NULL) {
+	Sint i;
+	Sint n;
+
+	/* No modules added, just clone src and remove purged code. */
+	ErtsCodeIndex src = erts_active_code_ix();
+
+	erts_smp_atomic_add_nob(&mem_used, r[src].n);
+	r[dst].modules = erts_alloc(ERTS_ALC_T_MODULE_REFS,
+				    r[src].n * sizeof(Range));
+	r[dst].allocated = r[src].n;
+	n = 0;
+	for (i = 0; i < r[src].n; i++) {
+	    Range* rp = r[src].modules+i;
+	    if (rp->start < rp->end) {
+		/* Only insert a module that has not been purged. */
+		r[dst].modules[n] = *rp;
+		n++;
+	    }
+	}
+	r[dst].n = n;
+	erts_smp_atomic_set_nob(&r[dst].mid,
+				(erts_aint_t) (r[dst].modules + n / 2));
+    }
 }
 
 void
 erts_update_ranges(BeamInstr* code, Uint size)
 {
-    int i;
+    ErtsCodeIndex dst = erts_loader_code_ix();
+    ErtsCodeIndex src = erts_active_code_ix();
+    Sint i;
+    Sint n;
+    Sint need;
 
-    if (num_loaded_modules == allocated_modules) {
-	allocated_modules *= 2;
-	modules = (Range *) erts_realloc(ERTS_ALC_T_MODULE_REFS,
-					 (void *) modules,
-					 allocated_modules * sizeof(Range));
+    if (src == dst) {
+	ASSERT(!erts_initialized);
+
+	/*
+	 * During start-up of system, the indices are the same.
+	 * Handle this by faking a source area.
+	 */
+	src = (src+1) % ERTS_NUM_CODE_IX;
+	if (r[src].modules) {
+	    erts_smp_atomic_add_nob(&mem_used, -r[src].allocated);
+	    erts_free(ERTS_ALC_T_MODULE_REFS, r[src].modules);
+	}
+	r[src] = r[dst];
+	r[dst].modules = 0;
     }
-    for (i = num_loaded_modules; i > 0; i--) {
-	if (code > modules[i-1].start) {
+
+    CHECK(&r[src]);
+
+    ASSERT(r[dst].modules == NULL);
+    need = r[dst].allocated = r[src].n + 1;
+    erts_smp_atomic_add_nob(&mem_used, need);
+    r[dst].modules = (Range *) erts_alloc(ERTS_ALC_T_MODULE_REFS,
+					  need * sizeof(Range));
+    n = 0;
+    for (i = 0; i < r[src].n; i++) {
+	Range* rp = r[src].modules+i;
+	if (code < rp->start) {
+	    r[dst].modules[n].start = code;
+	    r[dst].modules[n].end = (BeamInstr *) (((byte *)code) + size);
+	    n++;
 	    break;
 	}
-	modules[i] = modules[i-1];
+	if (rp->start < rp->end) {
+	    /* Only insert a module that has not been purged. */
+	    r[dst].modules[n] = *rp;
+	    n++;
+	}
     }
-    modules[i].start = code;
-    modules[i].end = (BeamInstr *) (((byte *)code) + size);
-    num_loaded_modules++;
-    mid_module = &modules[num_loaded_modules/2];
+
+    while (i < r[src].n) {
+	Range* rp = r[src].modules+i;
+	if (rp->start < rp->end) {
+	    /* Only insert a module that has not been purged. */
+	    r[dst].modules[n] = *rp;
+	    n++;
+	}
+	i++;
+    }
+
+    if (n == 0 || code > r[dst].modules[n-1].start) {
+	r[dst].modules[n].start = code;
+	r[dst].modules[n].end = (BeamInstr *) (((byte *)code) + size);
+	n++;
+    }
+
+    ASSERT(n <= r[src].n+1);
+    r[dst].n = n;
+    erts_smp_atomic_set_nob(&r[dst].mid,
+			    (erts_aint_t) (r[dst].modules + n / 2));
+
+    CHECK(&r[dst]);
+    CHECK(&r[src]);
 }
 
 void
 erts_remove_from_ranges(BeamInstr* code)
 {
-    int i;
-
-    for (i = 0; i < num_loaded_modules; i++) {
-	if (modules[i].start == code) {
-	    num_loaded_modules--;
-	    while (i < num_loaded_modules) {
-		modules[i] = modules[i+1];
-		i++;
-	    }
-	    mid_module = &modules[num_loaded_modules/2];
-	    return;
-	}
-    }
-    ASSERT(0);			/* Not found? */
+    Range* rp = find_range(code);
+    rp->end = rp->start;
 }
 
-Uint
+UWord
 erts_ranges_sz(void)
 {
-    return allocated_modules*sizeof(Range);
+    return erts_smp_atomic_read_nob(&mem_used) * sizeof(Range);
 }
 
 /*
@@ -108,45 +217,61 @@ erts_ranges_sz(void)
 void
 erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info)
 {
-    Range* low = modules;
-    Range* high = low + num_loaded_modules;
-    Range* mid = mid_module;
+    BeamInstr** low;
+    BeamInstr** high;
+    BeamInstr** mid;
+    Range* rp;
 
     fi->current = NULL;
     fi->needed = 5;
     fi->loc = LINE_INVALID_LOCATION;
+    rp = find_range(pc);
+    if (rp == 0) {
+	return;
+    }
+
+    low = (BeamInstr **) (rp->start + MI_FUNCTIONS);
+    high = low + rp->start[MI_NUM_FUNCTIONS];
+    while (low < high) {
+	mid = low + (high-low) / 2;
+	if (pc < mid[0]) {
+	    high = mid;
+	} else if (pc < mid[1]) {
+	    fi->current = mid[0]+2;
+	    if (full_info) {
+		BeamInstr** fp = (BeamInstr **) (rp->start +
+						 MI_FUNCTIONS);
+		int idx = mid - fp;
+		lookup_loc(fi, pc, rp->start, idx);
+	    }
+	    return;
+	} else {
+	    low = mid + 1;
+	}
+    }
+}
+
+static Range*
+find_range(BeamInstr* pc)
+{
+    ErtsCodeIndex active = erts_active_code_ix();
+    Range* low = r[active].modules;
+    Range* high = low + r[active].n;
+    Range* mid = (Range *) erts_smp_atomic_read_nob(&r[active].mid);
+
+    CHECK(&r[active]);
     while (low < high) {
 	if (pc < mid->start) {
 	    high = mid;
 	} else if (pc > mid->end) {
 	    low = mid + 1;
 	} else {
-	    BeamInstr** low1 = (BeamInstr **) (mid->start + MI_FUNCTIONS);
-	    BeamInstr** high1 = low1 + mid->start[MI_NUM_FUNCTIONS];
-	    BeamInstr** mid1;
-
-	    while (low1 < high1) {
-		mid1 = low1 + (high1-low1) / 2;
-		if (pc < mid1[0]) {
-		    high1 = mid1;
-		} else if (pc < mid1[1]) {
-		    mid_module = mid;
-		    fi->current = mid1[0]+2;
-		    if (full_info) {
-			BeamInstr** fp = (BeamInstr **) (mid->start +
-							 MI_FUNCTIONS);
-			int idx = mid1 - fp;
-			lookup_loc(fi, pc, mid->start, idx);
-		    }
-		    return;
-		} else {
-		    low1 = mid1 + 1;
-		}
-	    }
-	    return;
+	    erts_smp_atomic_set_nob(&r[active].mid, (erts_aint_t) mid);
+	    return mid;
 	}
 	mid = low + (high-low) / 2;
     }
+    return 0;
 }
 
 static void

@@ -5987,9 +5987,7 @@ void erts_start_loader_code_ix(void)
     beam_catches_start_load();
     export_start_load();
     module_start_load();
-    /*SVERK and more to come I guess...
-	:
-     */
+    erts_start_load_ranges();
     CIX_TRACE("start");
 }
 
@@ -5999,6 +5997,7 @@ void erts_commit_loader_code_ix(void)
     beam_catches_end_load(1);
     export_end_load(1);
     module_end_load(1);
+    erts_end_load_ranges(1);
     {
 	ErtsCodeIndex ix;
 	ix = erts_loader_code_ix();
@@ -6014,6 +6013,7 @@ void erts_abort_loader_code_ix(void)
     beam_catches_end_load(0);
     export_end_load(0);
     module_end_load(0);
+    erts_end_load_ranges(0);
     CIX_TRACE("abort");
 }
 
