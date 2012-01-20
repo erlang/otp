@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -55,6 +55,17 @@
 	  <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>. 
 	  </p>
 	  <p>Own Id: OTP-9700</p>
+        </item>
+
+        <item>
+          <p>[agent] Mib server cache gclimit update function incorrectly calls 
+	  age update function. 
+	  The gclimit update function, 
+	  <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1</seealso>, 
+	  <em>incorrectly</em> called the age update function, 
+	  <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/2</seealso>. </p>
+	  <p>Johan Claesson</p>
+          <p>Own Id: OTP-9868</p>
         </item>
 
       </list>

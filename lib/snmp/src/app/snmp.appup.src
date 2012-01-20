@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
  [
   {"4.17.2",
    [
+    {load_module, snmpa, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, [snmpa_mib_lib]}, 
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
@@ -34,24 +35,24 @@
   },
   {"4.17.1",
    [
+    {load_module, snmpa, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, [snmpa_mib_lib]}, 
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
     {load_module, snmpa_vacm, soft_purge, soft_purge, []}, 
     {update,      snmpa_supervisor, soft, soft_purge, soft_purge, []}, 
     {update,      snmpa_agent, soft, soft_purge, soft_purge, []}, 
-
     {load_module, snmpm, soft_purge, soft_purge, [snmpm_server]},
     {update,      snmpm_server, soft, soft_purge, soft_purge, []}
    ]
   },
   {"4.17", 
    [
+    {load_module, snmpa, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, [snmpa_mib_lib]}, 
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
     {load_module, snmpa_vacm, soft_purge, soft_purge, []}, 
-
     {load_module, snmpa_net_if, soft_purge, soft_purge, []}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmpm_server]},
     {update,      snmpm_server, soft, soft_purge, soft_purge, []}, 
@@ -136,6 +137,7 @@
  [
   {"4.17.2",
    [
+    {load_module, snmpa, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, [snmpa_mib_lib]}, 
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
@@ -146,26 +148,26 @@
   },
   {"4.17.1",
    [
+    {load_module, snmpa, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, [snmpa_mib_lib]}, 
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
     {load_module, snmpa_vacm, soft_purge, soft_purge, []}, 
     {update,      snmpa_supervisor, soft, soft_purge, soft_purge, []}, 
     {update,      snmpa_agent, soft, soft_purge, soft_purge, []}, 
-
     {load_module, snmpm, soft_purge, soft_purge, [snmpm_server]},
     {update,      snmpm_server, soft, soft_purge, soft_purge, []}
    ]
   },
   {"4.17", 
    [
+    {load_module, snmpa, soft_purge, soft_purge, []}, 
     {load_module, snmp_target_mib, soft_purge, soft_purge, [snmpa_mib_lib]}, 
     {load_module, snmpa_mib_lib, soft_purge, soft_purge, []}, 
     {load_module, snmpa_trap, soft_purge, soft_purge, []}, 
     {load_module, snmpa_vacm, soft_purge, soft_purge, []}, 
     {update,      snmpa_supervisor, soft, soft_purge, soft_purge, []}, 
     {update,      snmpa_agent, soft, soft_purge, soft_purge, []}, 
-
     {load_module, snmpa_net_if, soft_purge, soft_purge, []}, 
     {load_module, snmpm, soft_purge, soft_purge, [snmpm_server]},
     {update,      snmpm_server, soft, soft_purge, soft_purge, []}
