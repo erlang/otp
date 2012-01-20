@@ -774,7 +774,6 @@ erts_finish_loading(LoaderState* stp, Process* c_p,
      * exported and imported functions.  This can't fail.
      */
     
-    erts_export_consolidate(erts_loader_code_ix());
     CHKBLK(ERTS_ALC_T_CODE,stp->code);
     final_touch(stp);
 

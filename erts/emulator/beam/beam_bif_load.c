@@ -171,8 +171,6 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     erts_lock_code_ix();
     erts_start_loader_code_ix();
 
-    erts_export_consolidate(erts_loader_code_ix());
-
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
     if (res == BIF_ARG_1) {
@@ -291,7 +289,6 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     erts_lock_code_ix();
     erts_start_loader_code_ix();
     code_ix = erts_loader_code_ix();
-    erts_export_consolidate(code_ix);
     {
 	Module *modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {

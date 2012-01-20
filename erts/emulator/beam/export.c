@@ -292,7 +292,7 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
  * be called).
  *
  * Stub export entries will be placed in the secondary export table.
- * erts_export_consolidate() will move all stub export entries into the
+ * export_start_load() will move all stub export entries into the
  * main export table (will be done the next time code is loaded).
  */
 
@@ -322,33 +322,25 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 }
 
 /*
- * To be called before loading code (with other threads blocked).
- * This function will move all export entries from the secondary
- * export table into the primary.
+ * Move all export entries from the secondary export table into the primary.
  */
-void
-erts_export_consolidate(ErtsCodeIndex code_ix)
+static void merge_secondary_table(IndexTable* dst)
 {
-#ifdef DEBUG
-    HashInfo hi;
-#endif
-
-    /*SVERK: Not sure if this is the way to go.
-             Maye we should always merge into loader ix,
-             or can loader table act as secondary_export_table?*/
-
-    ERTS_SMP_LC_ASSERT((erts_is_code_ix_locked()
-			&& code_ix == erts_loader_code_ix())
-		       || erts_initialized == 0
-		       || erts_smp_thr_progress_is_blocking());
+    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
+		/*SVERK	&& code_ix == erts_loader_code_ix()));
+	               || erts_initialized == 0
+		       || erts_smp_thr_progress_is_blocking());*/
 
     export_write_lock();
-    erts_index_merge(&secondary_export_table, &export_tables[code_ix]);
-    erts_hash_merge(&secondary_export_table, &export_tables[code_ix].htable);
+    erts_index_merge(&secondary_export_table, dst);
+    erts_hash_merge(&secondary_export_table, &dst->htable);
     export_write_unlock();
 #ifdef DEBUG
-    hash_get_info(&hi, &export_tables[code_ix].htable);
-    ASSERT(export_tables[code_ix].entries == hi.objs);
+    {
+	HashInfo hi;
+	hash_get_info(&hi, &dst->htable);
+	ASSERT(dst->entries == hi.objs);
+    }
 #endif
 }
 
@@ -439,6 +431,8 @@ void export_start_load(void)
     }
 
     dst->htable.fun.alloc = (HALLOC_FUN) &export_alloc; /* restore */
+
+    merge_secondary_table(dst);
 
     entries_at_start_load = dst->entries;
 

@@ -67,7 +67,6 @@ Export* erts_export_put(Eterm mod, Eterm func, unsigned int arity);
 
 
 Export* erts_export_get_or_make_stub(Eterm, Eterm, unsigned);
-void erts_export_consolidate(ErtsCodeIndex);
 
 Export *export_list(int,ErtsCodeIndex);
 int export_list_size(ErtsCodeIndex);
