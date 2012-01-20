@@ -80,14 +80,18 @@
 %% API
 %%------------------------------------------------------------------
 verify_request(SocketType, Host, Port, Node, RequestStr, Options) ->
-    verify_request(SocketType, Host, Port, Node, RequestStr, Options, 30000).
+    verify_request(SocketType, Host, Port, Node, RequestStr, 
+		   Options, 30000).
 verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options) 
   when is_list(TranspOpts) ->
-    verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, 30000);
+    verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, 
+		   Options, 30000);
 verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut) 
   when (is_integer(TimeOut) orelse (TimeOut =:= infinity)) ->
-    verify_request(SocketType, Host, Port, [], Node, RequestStr, Options, TimeOut).
-verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, TimeOut) ->
+    verify_request(SocketType, Host, Port, [], Node, RequestStr, 
+		   Options, TimeOut).
+verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, 
+	       Options, TimeOut) ->
     tsp("verify_request -> entry with"
 	"~n   SocketType: ~p"
 	"~n   Host:       ~p"
@@ -259,10 +263,10 @@ validate(RequestStr, #state{status_line = {Version, StatusCode, _},
 			    headers     = Headers, 
 			    body        = Body}, Options, N, P) ->
     
-    %% tsp("validate -> entry with"
-    %% 	"~n   StatusCode: ~p"
-    %% 	"~n   Headers:    ~p"
-    %% 	"~n   Body:       ~p", [StatusCode, Headers, Body]),
+    tsp("validate -> entry with"
+     	"~n   StatusCode: ~p"
+	"~n   Headers:    ~p"
+	"~n   Body:       ~p", [StatusCode, Headers, Body]),
 
     check_version(Version, Options),
     case lists:keysearch(statuscode, 1, Options) of
@@ -320,9 +324,9 @@ do_validate(Header, [{header, HeaderField}|Rest], N, P) ->
 	{value, {LowerHeaderField, _Value}} ->
 	    ok;
 	false ->
-	    test_server:fail({missing_header_field, LowerHeaderField, Header});
+	    tsf({missing_header_field, LowerHeaderField, Header});
 	_ ->
-	    test_server:fail({missing_header_field, LowerHeaderField, Header})
+	    tsf({missing_header_field, LowerHeaderField, Header})
     end,
     do_validate(Header, Rest, N, P);
 do_validate(Header, [{header, HeaderField, Value}|Rest],N,P) ->
@@ -331,18 +335,15 @@ do_validate(Header, [{header, HeaderField, Value}|Rest],N,P) ->
 	{value, {LowerHeaderField, Value}} ->
 	    ok;
 	false ->
-	    test_server:fail({wrong_header_field_value, LowerHeaderField, 
-			      Header});
+	    tsf({wrong_header_field_value, LowerHeaderField, Header});
 	_ ->
-	    test_server:fail({wrong_header_field_value, LowerHeaderField, 
-			      Header})
+	    tsf({wrong_header_field_value, LowerHeaderField, Header})
     end,
     do_validate(Header, Rest, N, P);
 do_validate(Header,[{no_last_modified, HeaderField}|Rest],N,P) ->
     case lists:keysearch(HeaderField,1,Header) of
 	{value,_} ->
-	    test_server:fail({wrong_header_field_value, HeaderField, 
-			      Header});
+	    tsf({wrong_header_field_value, HeaderField, Header});
 	_ ->
 	    ok
     end,
