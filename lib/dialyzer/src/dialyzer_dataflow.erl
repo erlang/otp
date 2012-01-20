@@ -67,7 +67,6 @@
 
 %%-define(DEBUG, true).
 %%-define(DEBUG_PP, true).
-%%-define(DEBUG_TIME, true).
 %%-define(DOT, true).
 
 -ifdef(DEBUG).
@@ -76,9 +75,6 @@
 -else.
 -define(debug(S_, L_), ok).
 -endif.
-
-%%-define(debug1(S_, L_), io:format(S_, L_)).
-%%-define(debug1(S_, L_), ok).
 
 %%--------------------------------------------------------------------
 
@@ -2913,7 +2909,7 @@ state__warning_mode(#state{warning_mode = WM}) ->
 
 state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
                                races = Races} = State) ->
-  ?debug("Starting warning pass\n", []),
+  ?debug("==========\nStarting warning pass\n==========\n", []),
   Funs = dict:fetch_keys(TreeMap),
   State#state{work = init_work([top|Funs--[top]]),
 	      fun_tab = FunTab, warning_mode = true,
