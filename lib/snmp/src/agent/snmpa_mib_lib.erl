@@ -60,23 +60,23 @@ table_del_row({Tab, Db} = TabDb, Key) ->
 get_table(NameDb, FOI) ->
     (catch get_table(NameDb, FOI, [], [])).
 
-get_table(NameDb, FOI, Oid, Acc) ->
-    case table_next(NameDb, Oid) of
+get_table(NameDb, FOI, Key, Acc) ->
+    case table_next(NameDb, Key) of
         endOfTable ->
             ?vdebug("end of table",[]),
             {ok, lists:reverse(Acc)};
-        Oid ->
+        Key ->
             %% Crap, circular ref
-            ?vinfo("cyclic reference: ~w -> ~w", [Oid,Oid]),
-            throw({error, {cyclic_db_reference, Oid, Acc}});
-        NextOid ->
-            ?vtrace("get row for oid ~w", [NextOid]),
-            case table_get_row(NameDb, NextOid, FOI) of
+            ?vinfo("cyclic reference: ~w -> ~w", [Key, Key]),
+            throw({error, {cyclic_db_reference, Key, Acc}});
+        NextKey ->
+            ?vtrace("get row for key ~w", [NextKey]),
+            case table_get_row(NameDb, NextKey, FOI) of
                 undefined -> 
-		    throw({error, {invalid_rowindex, NextOid, Acc}});
+		    throw({error, {invalid_rowindex, NextKey, Acc}});
                 Row ->
                     ?vtrace("row: ~w", [Row]),
-		    get_table(NameDb, FOI, NextOid, [{NextOid, Row}|Acc])
+		    get_table(NameDb, FOI, NextKey, [{NextKey, Row}|Acc])
             end
     end.
     
