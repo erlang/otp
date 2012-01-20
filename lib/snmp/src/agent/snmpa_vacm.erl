@@ -62,6 +62,13 @@ get_mib_view(ViewType, SecModel, SecName, SecLevel, ContextName) ->
 
 %% Follows the procedure in rfc2275
 auth(ViewType, SecModel, SecName, SecLevel, ContextName) ->
+    ?vtrace("auth -> entry with"
+	    "~n   ViewType:    ~p"
+	    "~n   SecModel:    ~p"
+	    "~n   SecName:     ~p"
+	    "~n   SecLevel:    ~p"
+	    "~n   ContextName: ~p", 
+	    [ViewType, SecModel, SecName, SecLevel, ContextName]),
     % 3.2.1 - Check that the context is known to us
     ?vdebug("check that the context (~p) is known to us",[ContextName]),
     case snmp_view_based_acm_mib:vacmContextTable(get, ContextName,
@@ -74,7 +81,7 @@ auth(ViewType, SecModel, SecName, SecLevel, ContextName) ->
     end,
     % 3.2.2 - Check that the SecModel and SecName is valid
     ?vdebug("check that SecModel (~p) and SecName (~p) is valid",
-	    [SecModel,SecName]),
+	    [SecModel, SecName]),
     GroupName = 
 	case snmp_view_based_acm_mib:get(vacmSecurityToGroupTable, 
 					 [SecModel, length(SecName) | SecName],
@@ -111,6 +118,8 @@ check_auth(Res)                 -> {ok, Res}.
 %% key in the table >= ViewIndex.
 %%-----------------------------------------------------------------
 get_mib_view(ViewName) ->
+    ?vtrace("get_mib_view -> entry with"
+	    "~n   ViewName: ~p", [ViewName]),
     ViewKey = [length(ViewName) | ViewName],
     case snmp_view_based_acm_mib:table_next(vacmViewTreeFamilyTable,
 					    ViewKey) of
@@ -202,6 +211,13 @@ backup(BackupDir) ->
 
 %% Ret: {ok, ViewName} | {error, Reason}
 get_view_name(ViewType, GroupName, ContextName, SecModel, SecLevel) ->
+    ?vtrace("get_view_name -> entry with"
+	    "~n   ViewType:    ~p"
+	    "~n   GroupName:   ~p"
+	    "~n   ContextName: ~p"
+	    "~n   SecModel:    ~p"
+	    "~n   SecLevel:    ~p", 
+	    [ViewType, GroupName, ContextName, SecModel, SecLevel]),
     GroupKey = [length(GroupName) | GroupName],
     case get_access_row(GroupKey, ContextName, SecModel, SecLevel) of
 	undefined ->
