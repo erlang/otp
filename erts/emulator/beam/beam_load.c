@@ -558,7 +558,7 @@ define_file(LoaderState* stp, char* name, int idx)
 }
 
 Eterm
-erts_load_module(Process *c_p,
+erts_preload_module(Process *c_p,
 		 ErtsProcLocks c_p_locks,
 		 Eterm group_leader, /* Group leader or NIL if none. */
 		 Eterm* modp,	/*
@@ -571,6 +571,7 @@ erts_load_module(Process *c_p,
     LoaderState* stp = erts_alloc_loader_state();
     Eterm retval;
 
+    ASSERT(!erts_initialized);
     retval = erts_prepare_loading(stp, c_p, group_leader, modp,
 				  code, size);
     if (retval != NIL) {

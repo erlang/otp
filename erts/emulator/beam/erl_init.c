@@ -453,7 +453,7 @@ load_preloaded(void)
 	if ((code = sys_preload_begin(&preload_p[i])) == 0)
 	    erl_exit(1, "Failed to find preloaded code for module %s\n", 
 		     name);
-	res = erts_load_module(NULL, 0, NIL, &module_name, code, length);
+	res = erts_preload_module(NULL, 0, NIL, &module_name, code, length);
 	sys_preload_end(&preload_p[i]);
 	if (res != NIL)
 	    erl_exit(1,"Failed loading preloaded module %s (%T)\n",
