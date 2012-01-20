@@ -266,12 +266,30 @@ loop(#state{common = C, sys = Sys} = S) ->
             reltool_utils:reply(ReplyTo, Ref, Status3),
             ?MODULE:loop(S6);
         {call, ReplyTo, Ref, undo_config} ->
-            S2 = S#state{sys = S#state.old_sys,
-                         old_sys = S#state.sys,
-                         status = S#state.old_status,
-                         old_status = S#state.status},
-            reltool_utils:reply(ReplyTo, Ref, ok),
-            ?MODULE:loop(S2);
+	    OldSys = S#state.old_sys,
+            S2 = S#state{sys = OldSys,
+                         old_sys = Sys},
+	    %%! Possibly skip old_status here, since we do all job again!
+	    %%! If so, consider if it is correct to use Force or not -
+	    %%! since warnings from refresh_app will not re-appear here
+	    %%! in undo if Force==false.
+            Force =
+                (OldSys#sys.root_dir =/= Sys#sys.root_dir) orelse
+                (OldSys#sys.lib_dirs =/= Sys#sys.lib_dirs) orelse
+                (OldSys#sys.escripts =/= Sys#sys.escripts),
+
+            {S3, Status} = refresh(S2, Force, S#state.old_status),
+	    {S4, Status2} = analyse(S3, Status),
+	    S5 =
+		case Status2 of
+		    {ok, _Warnings} -> % BUGBUG: handle warnings
+			S4#state{status = Status2, old_status = S#state.status};
+		    {error, _} ->
+			%% Keep old state
+			S
+		end,
+            reltool_utils:reply(ReplyTo, Ref, Status2),
+            ?MODULE:loop(S5);
         {call, ReplyTo, Ref, {get_rel, RelName}} ->
             Sys = S#state.sys,
             Reply =

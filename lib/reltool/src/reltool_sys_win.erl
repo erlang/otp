@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1290,7 +1290,15 @@ reset_config(#state{status_bar = Bar} = S) ->
 
 undo_config(#state{status_bar = Bar} = S) ->
     wxStatusBar:setStatusText(Bar, "Processing libraries..."),
-    ok = reltool_server:undo_config(S#state.server_pid),
+    case reltool_server:undo_config(S#state.server_pid) of
+	{ok, []} ->
+	    ok;
+	{ok, Warnings} ->
+	    Msg = lists:flatten([[W, $\n] || W <- Warnings]),
+	    display_message(Msg, ?wxICON_WARNING);
+	{error, Reason} ->
+	    display_message(Reason, ?wxICON_ERROR)
+    end,
     refresh(S).
 
 load_config(#state{status_bar = Bar, config_file = OldFile} = S) ->
@@ -1444,8 +1452,17 @@ undo_dialog(S, Warnings) ->
         ?wxID_OK ->
             true;
         ?wxID_CANCEL  ->
-            reltool_server:undo_config(S#state.server_pid),
-            false
+	    case reltool_server:undo_config(S#state.server_pid) of
+		{ok, _} ->
+		    false;
+		{error, Reason} ->
+		    Msg = "FATAL - undo failed:\n\n" ++
+			Reason ++
+			"\n\nTerminating...",
+		    display_message(Msg, ?wxICON_ERROR),
+		    io:format("~p(~p): <ERROR> ~s\n", [?MODULE, ?LINE, Reason]),
+		    exit(Reason)
+	    end
     end.
 
 display_message(Message, Icon) ->

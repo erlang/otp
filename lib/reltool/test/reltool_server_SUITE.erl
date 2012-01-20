@@ -56,7 +56,7 @@ all() ->
      create_script, create_target, create_embedded,
      create_standalone, create_old_target,
      otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod,
-     get_apps, set_app_and_undo, set_apps_and_undo,
+     get_apps, get_mod, set_app_and_undo, set_apps_and_undo,
      load_config_and_undo, reset_config_and_undo, save_config,
      dependencies].
 
@@ -595,6 +595,29 @@ get_apps(_Config) ->
 
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_mod(_Config) ->
+    Sys = {sys,[{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,derived}]},
+		{app,runtime_tools,[{incl_cond,exclude}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    %% Read app and get a module from the #app record
+    {ok,Tools} = ?msym({ok,#app{name=tools}}, reltool_server:get_app(Pid,tools)),
+    Cover = lists:keyfind(cover,#mod.name,Tools#app.mods),
+
+    %% get_mod - and check that it is equal to the one in #app.mods
+    ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 set_app_and_undo(Config) ->
     Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
 		{incl_cond, exclude},
@@ -606,25 +629,32 @@ set_app_and_undo(Config) ->
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
     ?m({ok, Sys}, reltool:get_config(Pid)),
 
-    %% Exclude one module with set_app
+    %% Get app and mod
     {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
-    Mods = Tools#app.mods,
-    Cover = lists:keyfind(cover,#mod.name,Mods),
+    {ok,Cover} = ?msym({ok,#mod{name=cover, is_included=true}},
+		       reltool_server:get_mod(Pid,cover)),
+
+    %% Exclude one module with set_app
     ExclCover = Cover#mod{incl_cond=exclude},
+    Mods = Tools#app.mods,
     Tools1 = Tools#app{mods = lists:keyreplace(cover,#mod.name,Mods,ExclCover)},
     {ok,ToolsNoCover,[]} = ?msym({ok,_,[]}, reltool_server:set_app(Pid,Tools1)),
+
+    %% Check that the module is no longer included
     ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
+    {ok,NoIncludeCover} = ?msym({ok,#mod{name=cover, is_included=false}},
+				reltool_server:get_mod(Pid,cover)),
 
     %% Undo
-    ?m(ok, reltool_server:undo_config(Pid)),
-    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
     %%! warning can come twice here... :(
-    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:undo_config(Pid)),
+    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
 
     %% Undo again, to check that it toggles
-    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,[]}, reltool_server:undo_config(Pid)),
     ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
-    ?m({ok,[]}, reltool:get_status(Pid)),
+    ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -641,24 +671,34 @@ set_apps_and_undo(Config) ->
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
     ?m({ok, Sys}, reltool:get_config(Pid)),
 
-    %% Exclude one application with set_apps
+    %% Get app and mod
     {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(true, Tools#app.is_pre_included),
+    ?m(true, Tools#app.is_included),
+    {ok,Cover} = ?msym({ok,#mod{name=cover, is_included=true}},
+		       reltool_server:get_mod(Pid,cover)),
+
+    %% Exclude one application with set_apps
     ExclTools = Tools#app{incl_cond=exclude},
     ?m({ok,[]}, reltool_server:set_apps(Pid,[ExclTools])),
+
+    %% Check that the app and its modules (one of them) are no longer included
     {ok,NoTools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
     ?m(false, NoTools#app.is_pre_included),
     ?m(false, NoTools#app.is_included),
+    {ok,NoIncludeCover} = ?msym({ok,#mod{name=cover, is_included=false}},
+				reltool_server:get_mod(Pid,cover)),
 
     %% Undo
-    ?m(ok, reltool_server:undo_config(Pid)),
-    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
     %%! warning can come twice here... :(
-    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:undo_config(Pid)),
+    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
 
     %% Undo again, to check that it toggles
-    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,[]}, reltool_server:undo_config(Pid)),
     ?m({ok,NoTools}, reltool_server:get_app(Pid,tools)),
-    ?m({ok,[]}, reltool:get_status(Pid)),
+    ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -674,12 +714,16 @@ load_config_and_undo(Config) ->
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
     ?m({ok, Sys1}, reltool:get_config(Pid)),
 
-    %% Check that tools is included
+    %% Get app and mod
     {ok,Tools1} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
     ?m(true, Tools1#app.is_pre_included),
     ?m(true, Tools1#app.is_included),
+    {ok,Cover1} = ?msym({ok,#mod{name=cover,
+				 is_included=true,
+				 is_pre_included=true}},
+			reltool_server:get_mod(Pid,cover)),
 
-    %% Exclude one application with set_apps
+    %% Change tools from include to derived by loading new config
     Sys2 = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
 		 {incl_cond, exclude},
 		 {app,kernel,[{incl_cond,include}]},
@@ -695,16 +739,20 @@ load_config_and_undo(Config) ->
     {ok,Tools2} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
     ?m(undefined, Tools2#app.is_pre_included),
     ?m(true, Tools2#app.is_included),
+    {ok,Cover2} = ?msym({ok,#mod{name=cover,
+				 is_included=true,
+				 is_pre_included=undefined}},
+			reltool_server:get_mod(Pid,cover)),
 
     %% Undo
-    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,[]}, reltool_server:undo_config(Pid)),
     ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
-    ?m({ok,[]}, reltool:get_status(Pid)),
+    ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
 
     %% Undo again, to check that it toggles
-    ?m(ok, reltool_server:undo_config(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:undo_config(Pid)),
     ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
-    ?msym({ok,["a: Cannot parse app file"++_]}, reltool:get_status(Pid)),
+    ?m({ok,Cover2}, reltool_server:get_mod(Pid,cover)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -722,12 +770,16 @@ reset_config_and_undo(Config) ->
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
     ?m({ok, Sys1}, reltool:get_config(Pid)),
 
-    %% Check that tools is included
+    %% Get app and mod
     {ok,Tools1} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
     ?m(true, Tools1#app.is_pre_included),
     ?m(true, Tools1#app.is_included),
+    {ok,Cover1} = ?msym({ok,#mod{name=cover,
+				 is_included=true,
+				 is_pre_included=true}},
+			reltool_server:get_mod(Pid,cover)),
 
-    %% Exclude one application with set_apps
+    %% Exclude tools by loading new config
     Sys2 = {sys,[{incl_cond, exclude},
 		 {app,kernel,[{incl_cond,include}]},
 		 {app,sasl,[{incl_cond,include}]},
@@ -739,17 +791,27 @@ reset_config_and_undo(Config) ->
     {ok,Tools2} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
     ?m(false, Tools2#app.is_pre_included),
     ?m(false, Tools2#app.is_included),
+    {ok,Cover2} = ?msym({ok,#mod{name=cover,
+				 is_included=false,
+				 is_pre_included=false}},
+			reltool_server:get_mod(Pid,cover)),
 
     %% Reset
     %%! warning can come twice here... :(
     ?msym({ok,["a: Cannot parse app file"++_|_]},
 	  reltool_server:reset_config(Pid)),
     ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
+
+    %% Undo
+    ?m({ok,[]}, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover2}, reltool_server:get_mod(Pid,cover)),
 
     %% Undo again, to check that it toggles
-    ?m(ok, reltool_server:undo_config(Pid)),
-    ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
-    ?m({ok,[]}, reltool:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:undo_config(Pid)),
+    ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -851,8 +913,6 @@ save_config(Config) ->
 %% Test includes x and derives y and z.
 %%
 dependencies(Config) ->
-    PrivDir = ?config(priv_dir,Config),
-
     %% Default: all modules included => y and z are included (derived)
     Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
 		{incl_cond, exclude},
