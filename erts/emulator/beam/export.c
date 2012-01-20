@@ -64,8 +64,10 @@ struct export_entry
 struct export_blob
 {
     Export exp;
-    unsigned top_ix;  /*SVERK atomic? */
+    unsigned top_ix;   /* highest ix used in entryv */
     struct export_entry entryv[ERTS_NUM_CODE_IX];
+    /* Note that entryv is not indexed by "code_ix".
+     */
 };
 
 /* Helper struct only used as template
@@ -190,10 +192,6 @@ erts_active_export_entry(Eterm m, Eterm f, unsigned int a)
     return erts_find_export_entry(m, f, a, erts_active_code_ix());
 }
 
-static void sverk_break(void)
-{
-}
-
 Export*
 erts_find_export_entry(Eterm m, Eterm f, unsigned int a,
 		       ErtsCodeIndex code_ix)
@@ -201,10 +199,6 @@ erts_find_export_entry(Eterm m, Eterm f, unsigned int a,
     HashValue hval = EXPORT_HASH((BeamInstr) m, (BeamInstr) f, (BeamInstr) a);
     int ix;
     HashBucket* b;
-
-    if (ERTS_IS_ATOM_STR("gen_event",m) && ERTS_IS_ATOM_STR("add_handler",f)) {
-	sverk_break();
-    }
 
     ix = hval % export_tables[code_ix].htable.size;
     b = export_tables[code_ix].htable.bucket[ix];
@@ -276,10 +270,6 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
     struct export_templ templ;
     int ix;
 
-    if (ERTS_IS_ATOM_STR("gen_event",mod) && ERTS_IS_ATOM_STR("add_handler",func)) {
-	sverk_break();
-    }
-
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
     ix = index_put(&export_tables[code_ix], init_template(&templ, mod, func, arity));
@@ -310,7 +300,7 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 	struct export_entry* entry;
 	/*
 	 * The code is not loaded (yet). Put the export in the secondary
-	 * export table, to avoid having to lock the main export table.
+	 * export table, to avoid having to lock the active export table.
 	 */
 	export_write_lock();
 	entry = (struct export_entry *) hash_put(&secondary_export_table,
@@ -364,9 +354,6 @@ Export *export_get(Export *e)
     struct export_entry ee;
     struct export_entry* entry;
 
-    if (ERTS_IS_ATOM_STR("gen_event",e->code[0]) && ERTS_IS_ATOM_STR("add_handler",e->code[1])) {
-	sverk_break();
-    }
     ee.ep = e;
     entry = (struct export_entry*)hash_get(&export_tables[erts_active_code_ix()].htable, &ee);
     return entry ? entry->ep : NULL;
