@@ -8,6 +8,7 @@ http_lib.erl:424: The variable _ can never match since previous clauses complete
 http_lib.erl:438: The variable _ can never match since previous clauses completely covered the type any()
 http_lib.erl:99: Function getHeaderValue/2 will never be called
 httpc_handler.erl:660: Function exit_session_ok/2 has no local return
+httpc_handler.erl:676: Function format_time/0 will never be called
 httpc_manager.erl:145: The pattern {ErrorReply, State2} can never match the type {{'ok',number()},number(),#state{reqid::number()}}
 httpc_manager.erl:160: The pattern {ErrorReply, State2} can never match the type {{'ok',number()},number(),#state{reqid::number()}}
 httpc_manager.erl:478: The pattern {'error', Reason} can never match the type 'ok' | {number(),#session{clientclose::boolean(),pipeline::[],quelength::1}}

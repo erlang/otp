@@ -20,6 +20,7 @@ cerl_inline.erl:2333: The pattern 'true' can never match the type 'false'
 cerl_inline.erl:2355: The pattern 'true' can never match the type 'false'
 cerl_inline.erl:238: The pattern 'true' can never match the type 'false'
 cerl_inline.erl:2436: Function filename/1 will never be called
+cerl_inline.erl:244: Function counter_stats/0 will never be called
 cerl_inline.erl:2700: The pattern 'true' can never match the type 'false'
 cerl_inline.erl:2730: The pattern <{F, L, D}, Vs> can never match the type <[1..255,...],[any()]>
 cerl_inline.erl:2738: The pattern <{F, L, D}, Vs> can never match the type <[1..255,...],[any()]>
