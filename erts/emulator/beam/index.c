@@ -68,14 +68,14 @@ erts_index_init(ErtsAlcType_t type, IndexTable* t, char* name,
     return t;
 }
 
-int
-index_put(IndexTable* t, void* tmpl)
+IndexSlot*
+index_put_entry(IndexTable* t, void* tmpl)
 {
     int ix;
     IndexSlot* p = (IndexSlot*) hash_put(&t->htable, tmpl);
 
     if (p->index >= 0) {
-	return p->index;
+	return p;
     }
 
     ix = t->entries;
@@ -92,7 +92,7 @@ index_put(IndexTable* t, void* tmpl)
     t->entries++;
     p->index = ix;
     t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK] = p;
-    return ix;
+    return p;
 }
 
 int index_get(IndexTable* t, void* tmpl)

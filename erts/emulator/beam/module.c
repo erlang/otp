@@ -122,7 +122,6 @@ Module*
 erts_put_module(Eterm mod)
 {
     Module e;
-    int index;
     IndexTable* mod_tab;
 
     ASSERT(is_atom(mod));
@@ -132,8 +131,7 @@ erts_put_module(Eterm mod)
 
     mod_tab = &module_tables[erts_loader_code_ix()];
     e.module = atom_val(mod);
-    index = index_put(mod_tab, (void*) &e);
-    return (Module*) erts_index_lookup(mod_tab, index);
+    return (Module*) index_put_entry(mod_tab, (void*) &e);
 }
 
 Module *module_code(int i, ErtsCodeIndex code_ix)
@@ -185,7 +183,7 @@ void module_start_load(void)
      */
     for (i = dst->entries; i < src->entries; i++) {
 	src_mod = (Module*) erts_index_lookup(src, i);
-	dst_mod = (Module*) erts_index_lookup(dst, index_put(dst, src_mod));
+	dst_mod = (Module*) index_put_entry(dst, src_mod);
 	ASSERT(dst_mod != src_mod);
 
 	dst_mod->curr = src_mod->curr;
