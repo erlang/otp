@@ -157,12 +157,12 @@ info(Pid) ->
 %%              memory in vain.)
 %%--------------------------------------------------------------------
 %% Request should not be streamed
-stream(BodyPart, Request = #request{stream = none}, _) ->
+stream(BodyPart, #request{stream = none} = Request, _) ->
     ?hcrt("stream - none", []),
     {BodyPart, Request};
 
 %% Stream to caller
-stream(BodyPart, Request = #request{stream = Self}, Code) 
+stream(BodyPart, #request{stream = Self} = Request, Code) 
   when ((Code =:= 200) orelse  (Code =:= 206)) andalso 
        ((Self =:= self) orelse (Self =:= {self, once})) ->
     ?hcrt("stream - self", [{stream, Self}, {code, Code}]),
@@ -170,17 +170,10 @@ stream(BodyPart, Request = #request{stream = Self}, Code)
 			{Request#request.id, stream, BodyPart}),
     {<<>>, Request};
 
-stream(BodyPart, Request = #request{stream = Self}, 404) 
-  when (Self =:= self) orelse (Self =:= {self, once}) ->
-    ?hcrt("stream - self with 404", [{stream, Self}]),
-    httpc_response:send(Request#request.from, 
-			{Request#request.id, stream, BodyPart}),
-    {<<>>, Request};
-
 %% Stream to file
 %% This has been moved to start_stream/3
 %% We keep this for backward compatibillity...
-stream(BodyPart, Request = #request{stream = Filename}, Code)
+stream(BodyPart, #request{stream = Filename} = Request, Code)
   when ((Code =:= 200) orelse (Code =:= 206)) andalso is_list(Filename) -> 
     ?hcrt("stream - filename", [{stream, Filename}, {code, Code}]),
     case file:open(Filename, [write, raw, append, delayed_write]) of
@@ -192,7 +185,7 @@ stream(BodyPart, Request = #request{stream = Filename}, Code)
     end;
 
 %% Stream to file
-stream(BodyPart, Request = #request{stream = Fd}, Code)  
+stream(BodyPart, #request{stream = Fd} = Request, Code)  
   when ((Code =:= 200) orelse (Code =:= 206)) -> 
     ?hcrt("stream to file", [{stream, Fd}, {code, Code}]),
     case file:write(Fd, BodyPart) of
@@ -295,7 +288,7 @@ handle_call(#request{address = Addr} = Request, _,
 					%% Queue + current
 					queue:len(NewPipeline) + 1,
 					client_close = ClientClose},
-		    httpc_manager:insert_session(NewSession, ProfileName),
+		    insert_session(NewSession, ProfileName),
 		    ?hcrd("session updated", []),
                     {reply, ok, State#state{pipeline = NewPipeline,
 					    session  = NewSession,
@@ -363,7 +356,7 @@ handle_call(#request{address = Addr} = Request, _,
 					%% Queue + current
 					queue:len(NewKeepAlive) + 1,
 					client_close = ClientClose},
-		    httpc_manager:insert_session(NewSession, ProfileName),
+		    insert_session(NewSession, ProfileName),
 		    ?hcrd("session updated", []),
                     {reply, ok, State#state{keep_alive = NewKeepAlive,
 					    session    = NewSession,
@@ -377,7 +370,7 @@ handle_call(#request{address = Addr} = Request, _,
 		    NewSession = 
 			Session#session{queue_length = 1,
 					client_close = ClientClose},
-		    httpc_manager:insert_session(NewSession, ProfileName),
+		    insert_session(NewSession, ProfileName),
 		    Relaxed = 
 			(Request#request.settings)#http_options.relaxed,
 		    MFA = {httpc_response, parse,
@@ -766,22 +759,51 @@ deliver_answer(Request) ->
 %% Func: code_change(_OldVsn, State, Extra) -> {ok, NewState}
 %% Purpose: Convert process state when code is changed
 %%--------------------------------------------------------------------
-%% code_change(_, #state{request = Request, pipeline = Queue} = State, 
-%% 	    [{from, '5.0.1'}, {to, '5.0.2'}]) ->
-%%     Settings = new_http_options(Request#request.settings),
-%%     NewRequest = Request#request{settings = Settings},
-%%     NewQueue = new_queue(Queue, fun new_http_options/1),
-%%     {ok, State#state{request = NewRequest, pipeline = NewQueue}};
 
-%% code_change(_, #state{request = Request, pipeline = Queue} = State, 
-%% 	    [{from, '5.0.2'}, {to, '5.0.1'}]) ->
-%%     Settings = old_http_options(Request#request.settings),
-%%     NewRequest = Request#request{settings = Settings},
-%%     NewQueue = new_queue(Queue, fun old_http_options/1),
-%%     {ok, State#state{request = NewRequest, pipeline = NewQueue}};
+code_change(_, 
+	    #state{session      = OldSession, 
+		   profile_name = ProfileName} = State, 
+	    upgrade_from_pre_5_8_1) ->
+    case OldSession of
+	{session, 
+	 Id, ClientClose, Scheme, Socket, SocketType, QueueLen, Type} ->
+	    NewSession = #session{id           = Id, 
+				  client_close = ClientClose, 
+				  scheme       = Scheme, 
+				  socket       = Socket, 
+				  socket_type  = SocketType,
+				  queue_length = QueueLen, 
+				  type         = Type}, 
+	    insert_session(NewSession, ProfileName), 
+	    {ok, State#state{session = NewSession}};
+	_ -> 
+	    {ok, State}
+    end;
+
+code_change(_, 
+	    #state{session      = OldSession, 
+		   profile_name = ProfileName} = State, 
+	    downgrade_to_pre_5_8_1) ->
+    case OldSession of
+	#session{id           = Id, 
+		 client_close = ClientClose, 
+		 scheme       = Scheme, 
+		 socket       = Socket, 
+		 socket_type  = SocketType,
+		 queue_length = QueueLen, 
+		 type         = Type} ->
+	    NewSession = {session, 
+			  Id, ClientClose, Scheme, Socket, SocketType, 
+			  QueueLen, Type},
+	    insert_session(NewSession, ProfileName), 
+	    {ok, State#state{session = NewSession}};
+	_ -> 
+	    {ok, State}
+    end;
 
 code_change(_, State, _) ->
     {ok, State}.
+
 
 %% new_http_options({http_options, TimeOut, AutoRedirect, SslOpts,
 %% 		  Auth, Relaxed}) ->
@@ -1181,7 +1203,7 @@ handle_pipeline(#state{status       = pipeline,
 
     case queue:out(State#state.pipeline) of
 	{empty, _} ->
-	    ?hcrd("epmty pipeline queue", []),
+	    ?hcrd("pipeline queue empty", []),
 	    
 	    %% The server may choose too teminate an idle pipeline
 	    %% in this case we want to receive the close message
@@ -1191,9 +1213,8 @@ handle_pipeline(#state{status       = pipeline,
 
 	    %% If a pipeline that has been idle for some time is not
 	    %% closed by the server, the client may want to close it.
-	    NewState   = activate_queue_timeout(TimeOut, State),
-	    NewSession = Session#session{queue_length = 0},
-	    httpc_manager:insert_session(NewSession, ProfileName),
+	    NewState = activate_queue_timeout(TimeOut, State),
+	    update_session(ProfileName, Session, #session.queue_length, 0), 
 	    %% Note mfa will be initilized when a new request 
 	    %% arrives.
 	    {noreply, 
@@ -1203,6 +1224,7 @@ handle_pipeline(#state{status       = pipeline,
 			    headers     = undefined,
 			    body        = undefined}};
 	{{value, NextRequest}, Pipeline} ->    
+	    ?hcrd("pipeline queue non-empty", []),
 	    case lists:member(NextRequest#request.id, 
 			      State#state.canceled) of		
 		true ->
@@ -1218,7 +1240,7 @@ handle_pipeline(#state{status       = pipeline,
 			Session#session{queue_length =
 					%% Queue + current
 					queue:len(Pipeline) + 1},
-		    httpc_manager:insert_session(NewSession, ProfileName),
+		    insert_session(NewSession, ProfileName),
 		    Relaxed = 
 			(NextRequest#request.settings)#http_options.relaxed,
 		    MFA = {httpc_response, 
@@ -1257,7 +1279,7 @@ handle_keep_alive_queue(
 
     case queue:out(State#state.keep_alive) of
 	{empty, _} ->
-	    ?hcrd("empty keep_alive queue", []),
+	    ?hcrd("keep_alive queue empty", []),
 	    %% The server may choose too terminate an idle keep_alive session
 	    %% in this case we want to receive the close message
 	    %% at once and not when trying to send the next
@@ -1266,8 +1288,7 @@ handle_keep_alive_queue(
 	    %% If a keep_alive session has been idle for some time is not
 	    %% closed by the server, the client may want to close it.
 	    NewState = activate_queue_timeout(TimeOut, State),
-	    NewSession = Session#session{queue_length = 0},
-	    httpc_manager:insert_session(NewSession, ProfileName),
+	    update_session(ProfileName, Session, #session.queue_length, 0),
 	    %% Note mfa will be initilized when a new request 
 	    %% arrives.
 	    {noreply, 
@@ -1279,6 +1300,7 @@ handle_keep_alive_queue(
 			   } 
 	    };
 	{{value, NextRequest}, KeepAlive} ->    
+	    ?hcrd("keep_alive queue non-empty", []),
 	    case lists:member(NextRequest#request.id, 
 			      State#state.canceled) of		
 		true ->
@@ -1388,10 +1410,10 @@ try_to_enable_pipeline_or_keep_alive(
 	    case (is_pipeline_enabled_client(Session) andalso 
 		  httpc_request:is_idempotent(Method)) of
 		true ->
-		    httpc_manager:insert_session(Session, ProfileName),
+		    insert_session(Session, ProfileName),
 		    State#state{status = pipeline};
 		false ->
-		    httpc_manager:insert_session(Session, ProfileName),
+		    insert_session(Session, ProfileName),
 		    %% Make sure type is keep_alive in session
 		    %% as it in this case might be pipeline
 		    NewSession = Session#session{type = keep_alive}, 
@@ -1403,7 +1425,9 @@ try_to_enable_pipeline_or_keep_alive(
     end.
 
 answer_request(#request{id = RequestId, from = From} = Request, Msg, 
-	       #state{timers = Timers, profile_name = ProfileName} = State) -> 
+	       #state{session      = Session, 
+		      timers       = Timers, 
+		      profile_name = ProfileName} = State) -> 
     ?hcrt("answer request", [{request, Request}, {msg, Msg}]),
     httpc_response:send(From, Msg),
     RequestTimers = Timers#timers.request_timers,
@@ -1412,12 +1436,20 @@ answer_request(#request{id = RequestId, from = From} = Request, Msg,
     Timer = {RequestId, TimerRef},
     cancel_timer(TimerRef, {timeout, Request#request.id}),
     httpc_manager:request_done(RequestId, ProfileName),
-
+    NewSession = maybe_make_session_available(ProfileName, Session), 
+    Timers2 = Timers#timers{request_timers = lists:delete(Timer, 
+							  RequestTimers)}, 
     State#state{request = Request#request{from = answer_sent},
-		timers = 
-		Timers#timers{request_timers =
-			      lists:delete(Timer, RequestTimers)}}.
+		session = NewSession, 
+		timers  = Timers2}.
 
+maybe_make_session_available(ProfileName, 
+			     #session{available = false} = Session) ->
+    update_session(ProfileName, Session, #session.available, true),
+    Session#session{available = true};
+maybe_make_session_available(_ProfileName, Session) ->
+    Session.
+    
 cancel_timers(#timers{request_timers = ReqTmrs, queue_timer = QTmr}) ->
     cancel_timer(QTmr, timeout_queue),
     CancelTimer = fun({_, Timer}) -> cancel_timer(Timer, timeout) end, 
@@ -1655,6 +1687,28 @@ send_raw(SocketType, Socket, ProcessBody, Acc) ->
             end
     end.
 
+
+%% ---------------------------------------------------------------------
+%% Session wrappers
+%% ---------------------------------------------------------------------
+
+insert_session(Session, ProfileName) ->
+    httpc_manager:insert_session(Session, ProfileName).
+
+
+update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
+    try
+	begin
+	    httpc_manager:update_session(ProfileName, SessionId, Pos, Value)
+	end
+    catch
+	error:undef -> % This could happen during code upgrade
+	    Session2 = erlang:setelement(Pos, Session, Value),
+	    insert_session(Session2, ProfileName)
+    end.
+
+
+%% ---------------------------------------------------------------------
 
 call(Msg, Pid) ->
     Timeout = infinity,

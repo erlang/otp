@@ -1987,17 +1987,14 @@ setup_ctrl_connection(Host, Port, Timeout, State) ->
 setup_data_connection(#state{mode   = active, 
 			     caller = Caller, 
 			     csock  = CSock} = State) ->    
-    IntToString = fun(Element) -> integer_to_list(Element) end,
-    
     case (catch inet:sockname(CSock)) of
 	{ok, {{_, _, _, _, _, _, _, _} = IP, _}} ->
 	    {ok, LSock} = 
 		gen_tcp:listen(0, [{ip, IP}, {active, false},
 				   inet6, binary, {packet, 0}]),
 	    {ok, Port} = inet:port(LSock),
-	    Cmd = mk_cmd("EPRT |2|~s:~s:~s:~s:~s:~s:~s:~s|~s|", 
-			 lists:map(IntToString, 
-				   tuple_to_list(IP) ++ [Port])),
+	    IpAddress = inet_parse:ntoa(IP),
+	    Cmd = mk_cmd("EPRT |2|~s|~p|", [IpAddress, Port]),
 	    send_ctrl_message(State, Cmd),
 	    activate_ctrl_connection(State),  
 	    {noreply, State#state{caller = {setup_data_connection, 

@@ -90,6 +90,7 @@ all() ->
      parse_url, 
      options,
      headers_as_is, 
+     selecting_session, 
      {group, proxy}, 
      {group, ssl}, 
      {group, stream}, 
@@ -252,7 +253,7 @@ init_per_testcase(Case, Timeout, Config) ->
 
     %% inets:enable_trace(max, io, httpd),
     %% inets:enable_trace(max, io, httpc),
-    inets:enable_trace(max, io, all),
+    %% inets:enable_trace(max, io, all),
 
     NewConfig = 
 	case atom_to_list(Case) of
@@ -1765,6 +1766,7 @@ http_stream(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
+
 http_stream_once(doc) ->
     ["Test the option stream for asynchrony requests"];
 http_stream_once(suite) ->
@@ -1772,12 +1774,12 @@ http_stream_once(suite) ->
 http_stream_once(Config) when is_list(Config) ->
     p("http_stream_once -> entry with"
       "~n   Config: ~p", [Config]),
-      
+
     p("http_stream_once -> set ipfamily to inet", []),
     ok = httpc:set_options([{ipfamily, inet}]),
     p("http_stream_once -> start dummy server", []),
     {DummyServerPid, Port} = dummy_server(ipv4),    
-    
+
     PortStr =  integer_to_list(Port),
     p("http_stream_once -> once", []),
     once(?URL_START ++ PortStr ++ "/once.html"),
@@ -1785,14 +1787,14 @@ http_stream_once(Config) when is_list(Config) ->
     once(?URL_START ++ PortStr ++ "/once_chunked.html"),
     p("http_stream_once -> dummy", []),
     once(?URL_START ++ PortStr ++ "/dummy.html"),
-    
+
     p("http_stream_once -> stop dummy server", []),
     DummyServerPid ! stop,
     p("http_stream_once -> set ipfamily to inet6fb4", []),
     ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     p("http_stream_once -> done", []),
     ok.
-  
+
 once(URL) ->
     p("once -> issue sync request for ~p", [URL]),
     {ok, {{_,200,_}, [_ | _], Body}} = 
@@ -2001,6 +2003,7 @@ ipv6(SocketType, Scheme, HTTPOptions, Extra, Config) ->
 
 
 %%-------------------------------------------------------------------------
+
 headers_as_is(doc) ->
     ["Test the option headers_as_is"];
 headers_as_is(suite) ->
@@ -2018,6 +2021,321 @@ headers_as_is(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
+
+selecting_session(doc) ->
+    ["Test selection of sessions - OTP-9847"];
+selecting_session(suite) ->
+    [];
+selecting_session(Config) when is_list(Config) ->
+    tsp("selecting_session -> entry with"
+	"~n   Config: ~p", [Config]),
+
+    tsp("selecting_session -> set ipfamily to inet"),
+    ok = httpc:set_options([{ipfamily, inet}]),
+
+    tsp("selecting_session -> start server"),
+    {ServerPid, Port} = otp_9847_server(),    
+
+    PortStr = integer_to_list(Port),
+    URL     = ?URL_START ++ PortStr ++ "/index.html",
+     
+    tsp("selecting_session -> issue the first batch (three) requests"),
+    lists:foreach(fun(P) -> 
+			  tsp("selecting_session:fun1 -> "
+			      "send stop request to ~p", [P]),
+			  P ! stop 
+		  end, 
+		  reqs(URL, ServerPid, 3, 3, false)),
+    tsp("selecting_session -> sleep some (1) to make sure nothing lingers"),
+    ?SLEEP(5000),
+    tsp("selecting_session -> "
+	"instruct the server to reply to the first request"),
+    ServerPid ! {answer, true}, 
+    receive
+	{answer, true} ->
+	    tsp("selecting_session -> "
+		"received ack from server to reply to the first request"),
+	    ok
+    end,
+    tsp("selecting_session -> issue the second batch (four) requests"),
+    lists:foreach(fun(P) -> 
+			  tsp("selecting_session:fun2 -> "
+			      "send stop request to ~p", [P]),
+			  P ! stop 
+		  end, 
+		  reqs(URL, ServerPid, 4, 1, true)),
+    tsp("selecting_session -> sleep some (2) to make sure nothing lingers"),
+    ?SLEEP(5000),
+
+    tsp("selecting_session -> stop server"),
+    ServerPid ! stop,
+    tsp("selecting_session -> set ipfamily (back) to inet6fb4"),
+    ok = httpc:set_options([{ipfamily, inet6fb4}]), 
+    tsp("selecting_session -> done"),
+    ok.
+
+reqs(URL, ServerPid, NumReqs, NumHandlers, InitialSync) ->
+    tsp("reqs -> entry with"
+	"~n   URL:         ~p"
+	"~n   ServerPid:   ~w"
+	"~n   NumReqs:     ~w"
+	"~n   NumHandlers: ~w"
+	"~n   InitialSync: ~w", 
+	[URL, ServerPid, NumReqs, NumHandlers, InitialSync]),
+    Handlers = reqs2(URL, NumReqs, [], InitialSync),
+    tsp("reqs -> "
+	"~n   Handlers: ~w", [Handlers]),
+    case length(Handlers) of
+	NumHandlers ->
+	    tsp("reqs -> "
+		"~n   NumHandlers: ~w", [NumHandlers]),
+	    ServerPid ! num_handlers, 
+	    receive
+		{num_handlers, NumHandlers} ->
+		    tsp("reqs -> received num_handlers with"
+			"~n   NumHandlers: ~w", [NumHandlers]),
+		    Handlers;
+		{num_handlers, WrongNumHandlers} ->
+		    tsp("reqs -> received num_handlers with"
+			"~n   WrongNumHandlers: ~w", [WrongNumHandlers]),
+		    exit({wrong_num_handlers1, WrongNumHandlers, NumHandlers})
+	    end;
+	WrongNumHandlers ->
+	    tsp("reqs -> "
+		"~n   WrongNumHandlers: ~w", [WrongNumHandlers]),
+	    exit({wrong_num_handlers2, WrongNumHandlers, NumHandlers})
+    end.
+	    
+
+reqs2(_URL, 0, Acc, _Sync) ->
+    lists:reverse(Acc);
+reqs2(URL, Num, Acc, Sync) ->
+    tsp("reqs2 -> entry with"
+	"~n   Num:  ~w"
+	"~n   Sync: ~w", [Num, Sync]),
+    case httpc:request(get, {URL, []}, [], [{sync, Sync}]) of
+	{ok, _Reply} ->
+	    tsp("reqs2 -> successful request: ~p", [_Reply]),
+	    receive
+		{handler, Handler, _Manager} ->
+		    %% This is when a new handler is created
+		    tsp("reqs2 -> received handler: ~p", [Handler]),
+		    case lists:member(Handler, Acc) of
+			true ->
+			    tsp("reqs2 -> duplicate handler"),
+			    exit({duplicate_handler, Handler, Num, Acc});
+			false ->
+			    tsp("reqs2 -> wait for data ack"),
+			    receive
+				{data_received, Handler} ->
+				    tsp("reqs2 -> "
+					"received data ack from ~p", [Handler]),
+				    case Sync of
+					true ->
+					    reqs2(URL, Num-1, [Handler|Acc], 
+						  false);
+					false ->
+					    reqs2(URL, Num-1, [Handler|Acc], 
+						  Sync)
+				    end
+			    end
+		    end;
+
+		{data_received, Handler} ->
+		    tsp("reqs2 -> "
+			"received data ack from ~p", [Handler]),
+		    reqs2(URL, Num-1, Acc, false)
+
+	    end;
+
+	{error, Reason} ->
+	    tsp("reqs2 -> request ~w failed: ~p", [Num, Reason]),
+	    exit({request_failed, Reason, Num, Acc})
+    end.
+
+otp_9847_server() ->
+    TC  = self(), 
+    Pid = spawn_link(fun() -> otp_9847_server_init(TC) end),
+    receive
+	{port, Port} ->
+	    {Pid, Port}
+    end.
+
+otp_9847_server_init(TC) ->
+    tsp("otp_9847_server_init -> entry with"
+	"~n   TC: ~p", [TC]),
+    {ok, ListenSocket} = 
+	gen_tcp:listen(0, [binary, inet, {packet, 0},
+			   {reuseaddr,true},
+			   {active, false}]),
+    tsp("otp_9847_server_init -> listen socket created: "
+	"~n   ListenSocket: ~p", [ListenSocket]),
+    {ok, Port} = inet:port(ListenSocket),
+    tsp("otp_9847_server_init -> Port: ~p", [Port]),
+    TC ! {port, Port},
+    otp_9847_server_main(TC, ListenSocket, false, []).
+
+otp_9847_server_main(TC, ListenSocket, Answer, Handlers) ->
+    tsp("otp_9847_server_main -> entry with"
+	"~n   TC:           ~p"
+	"~n   ListenSocket: ~p"
+	"~n   Answer:       ~p"
+	"~n   Handlers:     ~p", [TC, ListenSocket, Answer, Handlers]),
+    case gen_tcp:accept(ListenSocket, 1000) of
+	{ok, Sock} ->
+	    tsp("otp_9847_server_main -> accepted"
+		"~n   Sock: ~p", [Sock]),
+	    {Handler, Mon, Port} = otp_9847_handler(TC, Sock, Answer), 
+	    tsp("otp_9847_server_main -> handler ~p created for ~w", 
+		[Handler, Port]),
+	    gen_tcp:controlling_process(Sock, Handler),
+	    tsp("otp_9847_server_main -> control transfer"),
+	    Handler ! owner, 
+	    tsp("otp_9847_server_main -> "
+		"handler ~p informed of owner transfer", [Handler]),
+	    TC ! {handler, Handler, self()}, 
+	    tsp("otp_9847_server_main -> "
+		"TC ~p informed of handler ~p", [TC, Handler]),
+	    otp_9847_server_main(TC, ListenSocket, Answer, 
+				 [{Handler, Mon, Sock, Port}|Handlers]);
+
+	{error, timeout} ->
+	    tsp("otp_9847_server_main -> timeout"),
+	    receive 
+		{answer, true} ->
+		    tsp("otp_9847_server_main -> received answer request"),
+		    TC ! {answer, true}, 
+		    otp_9847_server_main(TC, ListenSocket, true, Handlers);
+
+		{'DOWN', _Mon, process, Pid, _Reason} ->
+		    %% Could be one of the handlers
+		    tsp("otp_9847_server_main -> received DOWN for ~p", [Pid]),
+		    otp_9847_server_main(TC, ListenSocket, Answer, 
+					 lists:keydelete(Pid, 1, Handlers));
+
+		num_handlers ->
+		    tsp("otp_9847_server_main -> "
+			"received request for number of handlers (~w)", 
+			[length(Handlers)]),
+		    TC ! {num_handlers, length(Handlers)}, 
+		    otp_9847_server_main(TC, ListenSocket, Answer, Handlers);
+
+		stop ->
+		    tsp("otp_9847_server_main -> received stop request"),
+		    %% Stop all handlers (just in case)
+		    Pids = [Handler || {Handler, _, _} <- Handlers], 
+		    lists:foreach(fun(Pid) -> Pid ! stop end, Pids),
+		    exit(normal);
+
+		Any ->
+		    tsp("otp_9847_server_main -> received"
+			"~n   Any: ~p", [Any]),
+		    exit({crap, Any})
+
+	    after 0 ->
+		    tsp("otp_9847_server_main -> nothing in queue"),
+		    otp_9847_server_main(TC, ListenSocket, Answer, Handlers)
+	    end;
+
+	Error ->
+	    exit(Error)
+    end.
+
+
+otp_9847_handler(TC, Sock, Answer) ->
+    tsp("otp_9847_handler -> entry with"
+	"~n   TC:     ~p" 
+	"~n   Sock:   ~p" 
+	"~n   Answer: ~p", [TC, Sock, Answer]),
+    Self = self(), 
+    {Pid, Mon} = 
+	spawn_opt(fun() -> 
+			  otp_9847_handler_init(TC, Self, Sock, Answer) 
+		  end, 
+		  [monitor]),
+    receive
+	{port, Port} ->
+	    tsp("otp_9847_handler -> received port message (from ~p)"
+		"~n   Port: ~p", [Pid, Port]),
+	    {Pid, Mon, Port}
+    end.
+    
+
+otp_9847_handler_init(TC, Server, Sock, Answer) ->
+    tsp("otp_9847_handler_init -> entry with"
+	"~n   TC:     ~p" 
+	"~n   Server: ~p" 
+	"~n   Sock:   ~p" 
+	"~n   Answer: ~p", [TC, Server, Sock, Answer]),
+    {ok, Port} = inet:port(Sock),
+    Server ! {port, Port},
+    receive 
+	owner ->
+	    tsp("otp_9847_handler_init -> "
+		"received owner message - activate socket"),
+	    inet:setopts(Sock, [{active, true}]),
+	    otp_9847_handler_main(TC, Server, Sock, Answer, [?HTTP_MAX_HEADER_SIZE])
+    end.
+    
+otp_9847_handler_main(TC, Server, Sock, Answer, ParseArgs) ->
+    tsp("otp_9847_handler_main -> entry with"
+	"~n   TC:        ~p" 
+	"~n   Server:    ~p" 
+	"~n   Sock:      ~p" 
+	"~n   Answer:    ~p"
+	"~n   ParseArgs: ~p", [TC, Server, Sock, Answer, ParseArgs]),
+    receive
+	stop ->
+	    tsp("otp_9847_handler_main -> received stop request"),
+	    exit(normal);
+
+	{tcp, Sock, _Data} when Answer =:= false ->
+	    tsp("otp_9847_handler_main -> received tcp data - no answer"),
+	    TC ! {data_received, self()}, 
+	    inet:setopts(Sock, [{active, true}]),
+	    %% Ignore all data
+	    otp_9847_handler_main(TC, Server, Sock, Answer, ParseArgs);
+
+	{tcp, Sock, Data} when Answer =:= true ->
+	    tsp("otp_9847_handler_main -> received tcp data - answer"),
+	    TC ! {data_received, self()}, 
+	    inet:setopts(Sock, [{active, true}]),
+	    NewParseArgs = otp_9847_handler_request(Sock, [Data|ParseArgs]), 
+	    otp_9847_handler_main(TC, Server, Sock, Answer, NewParseArgs);
+
+	{tcp_closed, Sock} ->
+	    tsp("otp_9847_handler_main -> received tcp socket closed"),
+	    exit(normal);
+
+	{tcp_error, Sock, Reason} ->
+	    tsp("otp_9847_handler_main -> socket error: ~p", [Reason]),
+	    (catch gen_tcp:close(Sock)),
+	    exit(normal)
+
+    %% after 30000 ->
+    %% 	    gen_tcp:close(Sock),
+    %% 	    exit(normal)
+    end.
+    
+otp_9847_handler_request(Sock, Args) ->
+    Msg = 
+	case httpd_request:parse(Args) of
+	    {ok, {_, "/index.html" = _RelUrl, _, _, _}} ->
+		B = 
+		    "<HTML><BODY>" ++ 
+		    "...some body part..." ++ 
+		    "</BODY></HTML>", 
+		Len = integer_to_list(length(B)), 
+		"HTTP/1.1 200 ok\r\n" ++
+		    "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+	end,
+    gen_tcp:send(Sock, Msg),
+    [?HTTP_MAX_HEADER_SIZE].
+	    
+
+
+%%-------------------------------------------------------------------------
+
 options(doc) ->
     ["Test the option parameters."];
 options(suite) ->
@@ -2042,6 +2360,7 @@ options(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
+
 http_invalid_http(doc) ->
     ["Test parse error"];
 http_invalid_http(suite) ->
@@ -2854,6 +3173,7 @@ otp_8739_dummy_server_main(_Parent, ListenSocket) ->
 	Error ->
 	    exit(Error)
     end.
+
 
 %%-------------------------------------------------------------------------
 

@@ -1406,10 +1406,9 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
-
 // For some reason the maximum size_t cannot be used as the max size
 // 3GB seems to work on all platforms
-#define SENDFILE_CHUNK_SIZE ((1 << 30) -1)
+#define SENDFILE_CHUNK_SIZE ((1UL << 30) -1)
 
 /*
  * sendfile: The implementation of the sendfile system call varies
@@ -1446,7 +1445,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	written += retval;
 	*nbytes -= retval;
       }
-    } while (retval != -1 && retval == SENDFILE_CHUNK_SIZE);
+    } while (retval == SENDFILE_CHUNK_SIZE);
     *nbytes = written;
     return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
