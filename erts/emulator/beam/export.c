@@ -64,7 +64,6 @@ struct export_entry
 struct export_blob
 {
     Export exp;
-    unsigned top_ix;   /* highest ix used in entryv */
     struct export_entry entryv[ERTS_NUM_CODE_IX];
     /* Note that entryv is not indexed by "code_ix".
      */
@@ -78,6 +77,11 @@ struct export_templ
     Export exp;
 };
 
+static struct export_blob* entry_to_blob(struct export_entry* ee)
+{
+    return (struct export_blob*)
+        ((char*)ee->ep - offsetof(struct export_blob,exp));
+}
 
 void
 export_info(int to, void *to_arg)
@@ -117,36 +121,53 @@ export_cmp(struct export_entry* tmpl_e, struct export_entry* obj_e)
 static struct export_entry*
 export_alloc(struct export_entry* tmpl_e)
 {
+    struct export_blob* blob;
+    unsigned ix;
 
-    Export* tmpl = tmpl_e->ep;
-    struct export_blob* blob =
-	(struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
-    Export* obj = &blob->exp;
-    int i;
+    if (tmpl_e->slot.index == -1) {  /* Template, allocate blob */
+	Export* tmpl = tmpl_e->ep;
+	Export* obj;
 
-    obj->fake_op_func_info_for_hipe[0] = 0;
-    obj->fake_op_func_info_for_hipe[1] = 0;
-    obj->code[0] = tmpl->code[0];
-    obj->code[1] = tmpl->code[1];
-    obj->code[2] = tmpl->code[2];
-    obj->code[3] = (BeamInstr) em_call_error_handler;
-    obj->code[4] = 0;
-    obj->match_prog_set = NULL;
+	blob = (struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
+	obj = &blob->exp;
+	obj->fake_op_func_info_for_hipe[0] = 0;
+	obj->fake_op_func_info_for_hipe[1] = 0;
+	obj->code[0] = tmpl->code[0];
+	obj->code[1] = tmpl->code[1];
+	obj->code[2] = tmpl->code[2];
+	obj->code[3] = (BeamInstr) em_call_error_handler;
+	obj->code[4] = 0;
+	obj->match_prog_set = NULL;
 
-    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
-	obj->addressv[i] = obj->code+3;
+	for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
+	    obj->addressv[ix] = obj->code+3;
 
-	blob->entryv[i].slot.index = -1;
-	blob->entryv[i].ep = &blob->exp;
+	    blob->entryv[ix].slot.index = -1;
+	    blob->entryv[ix].ep = &blob->exp;
+	}
+	ix = 0;
     }
-    blob->top_ix = 0;
-    return &blob->entryv[blob->top_ix];
+    else { /* Existing entry in another table, use free entry in blob */
+	blob = entry_to_blob(tmpl_e);
+	for (ix = 0; blob->entryv[ix].slot.index >= 0; ix++) {
+	    ASSERT(ix < ERTS_NUM_CODE_IX);
+	}
+    }
+    return &blob->entryv[ix];
 }
 
-static void 
+static void
 export_free(struct export_entry* obj)
 {
-    erts_free(ERTS_ALC_T_EXPORT,  (void*) obj);
+    struct export_blob* blob = entry_to_blob(obj);
+    int i;
+    obj->slot.index = -1;
+    for (i=0; i < ERTS_NUM_CODE_IX; i++) {
+	if (blob->entryv[i].slot.index >= 0) {
+	    return;
+	}
+    }
+    erts_free(ERTS_ALC_T_EXPORT, blob);
 }
 
 void
@@ -359,18 +380,6 @@ Export *export_get(Export *e)
     return entry ? entry->ep : NULL;
 }
 
-static struct export_entry*
-export_dummy_alloc(struct export_entry* entry)
-{
-    return entry;
-}
-
-static struct export_blob* entry_to_blob(struct export_entry* ee)
-{
-    return (struct export_blob*)
-        ((char*)ee->ep - offsetof(struct export_blob,exp));
-}
-
 IF_DEBUG(static ErtsCodeIndex debug_start_load_ix = 0;)
 
 static int entries_at_start_load = 0;
@@ -383,7 +392,6 @@ void export_start_load(void)
     IndexTable* src = &export_tables[src_ix];
     struct export_entry* src_entry;
     struct export_entry* dst_entry;
-    struct export_blob* blob;
     int i;
 
     ASSERT(dst_ix != src_ix);
@@ -394,30 +402,18 @@ void export_start_load(void)
      * Make sure our existing entries are up to date
      */
     for (i = 0; i < dst->entries; i++) {
-	src_entry = (struct export_entry*) erts_index_lookup(src, i);
-	blob = entry_to_blob(src_entry);
-	blob->exp.addressv[dst_ix] = blob->exp.addressv[src_ix];
+	dst_entry = (struct export_entry*) erts_index_lookup(dst, i);
+	dst_entry->ep->addressv[dst_ix] = dst_entry->ep->addressv[src_ix];
     }
 
     /*
      * Insert all new entries from active table
      */
-
-    /* Trick hash_put (called by index_put) to insert existing entries. */
-    dst->htable.fun.alloc = (HALLOC_FUN) &export_dummy_alloc;
-
     for (i = dst->entries; i < src->entries; i++) {
 	src_entry = (struct export_entry*) erts_index_lookup(src, i);
-	blob = entry_to_blob(src_entry);
-	dst_entry = &blob->entryv[++blob->top_ix];
-	blob->exp.addressv[dst_ix] = blob->exp.addressv[src_ix];
-	ASSERT(blob->top_ix < ERTS_NUM_CODE_IX);
-	ASSERT(dst_entry->ep == &blob->exp);
-	ASSERT(dst_entry->slot.index == -1);
-	index_put(dst, dst_entry);
+        src_entry->ep->addressv[dst_ix] = src_entry->ep->addressv[src_ix];
+	index_put(dst, src_entry);
     }
-
-    dst->htable.fun.alloc = (HALLOC_FUN) &export_alloc; /* restore */
 
     merge_secondary_table(dst);
 
