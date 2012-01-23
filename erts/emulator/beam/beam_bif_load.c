@@ -37,6 +37,7 @@
 
 static void set_default_trace_pattern(Eterm module, ErtsCodeIndex);
 static Eterm check_process_code(Process* rp, Module* modp);
+static void ensure_no_breakpoints(Process *, ErtsProcLocks, Eterm module);
 static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
 static void delete_export_references(Eterm module);
 static int purge_module(int module);
@@ -84,6 +85,8 @@ load_module_2(BIF_ALIST_2)
      *
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();*/
+
+    ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
 
     erts_lock_code_ix();
     erts_start_loader_code_ix();
@@ -167,6 +170,8 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     erts_smp_thr_progress_block();
 
     erts_export_consolidate(erts_active_code_ix());*/
+
+    ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
 
     erts_lock_code_ix();
     erts_start_loader_code_ix();
@@ -285,6 +290,8 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     /*SVERK
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();*/
+
+    ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
 
     erts_lock_code_ix();
     erts_start_loader_code_ix();
@@ -791,19 +798,18 @@ decrement_refc(BeamInstr* code)
     }
 }
 
-
-/*
- * Move code from current to old.
- */
 
-static void 
-delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
+/*
+ * Clear breakpoints in module if any
+ */
+static void ensure_no_breakpoints(Process *c_p, ErtsProcLocks c_p_locks,
+				  Eterm module)
 {
-    /*
-     * Clear breakpoints if any
-     */
-    if (modp->curr.code != NULL && modp->curr.code[MI_NUM_BREAKPOINTS] > 0) {
-	ASSERT(!"SVERK What to do here");
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    Module* modp = erts_get_module(module, code_ix);
+
+    if (modp && modp->curr.code != NULL
+	&& modp->curr.code[MI_NUM_BREAKPOINTS] > 0) {
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_SMP
 	if (c_p && c_p_locks)
@@ -821,6 +827,16 @@ delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
 	if (c_p && c_p_locks)
 	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
+}
+
+/*
+ * Move code from current to old.
+ */
+
+static void
+delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
+{
+    ASSERT(!(modp->curr.code && modp->curr.code[MI_NUM_BREAKPOINTS] > 0));
     modp->old = modp->curr;
     modp->curr.code = NULL;
     modp->curr.code_length = 0;
