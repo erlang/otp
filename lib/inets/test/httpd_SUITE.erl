@@ -2227,6 +2227,7 @@ ticket_5865(doc) ->
 ticket_5865(suite) ->
     [];
 ticket_5865(Config) ->
+    ?SKIP(as_of_r15_behaviour_of_calendar_has_changed),
     Host = ?config(host,Config),
     ServerRoot = ?config(server_root, Config), 
     DocRoot = filename:join([ServerRoot, "htdocs"]),
