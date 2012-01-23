@@ -63,7 +63,7 @@
 	       stylesheet,
 	       multiply_timetraps = 1,
 	       scale_timetraps = false,
-	       unique_priv_dir = false,
+	       unique_priv_dir,
 	       testspecs = [],
 	       tests}).
 
@@ -182,7 +182,7 @@ script_start1(Parent, Args) ->
     UniquePrivDir = get_start_opt(unique_priv_dir,
 				  fun([UPD]) -> list_to_atom(UPD);
 				     ([]) -> auto
-				  end, false, Args),
+				  end, Args),
     EvHandlers = event_handler_args2opts(Args),
     CTHooks = ct_hooks_args2opts(Args),
     EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
@@ -802,7 +802,7 @@ run_test2(StartOpts) ->
     ScaleTT = get_start_opt(scale_timetraps, value, false, StartOpts),
 
     %% create unique priv dir names
-    UniquePrivDir = get_start_opt(unique_priv_dir, value, false, StartOpts),
+    UniquePrivDir = get_start_opt(unique_priv_dir, value, StartOpts),
 
     %% auto compile & include files
     Include =
@@ -1871,8 +1871,8 @@ do_run_test(Tests, Skip, Opts) ->
 	    test_server_ctrl:multiply_timetraps(Opts#opts.multiply_timetraps),
 	    test_server_ctrl:scale_timetraps(Opts#opts.scale_timetraps),
 
-	    test_server_ctrl:unique_priv_dir(Opts#opts.unique_priv_dir),
-
+	    test_server_ctrl:unique_priv_dir(choose_val(Opts#opts.unique_priv_dir,
+							false)),
 	    ct_event:notify(#event{name=start_info,
 				   node=node(),
 				   data={NoOfTests,NoOfSuites,NoOfCases}}),
@@ -2453,7 +2453,7 @@ opts2args(EnvStartOpts) ->
 		     ({unique_priv_dir,false}) ->
 			  [];
 		     ({unique_priv_dir,UPD}) when is_atom(UPD) ->
-			  [{unique_priv_dir,[UPD]}];
+			  [{unique_priv_dir,[atom_to_list(UPD)]}];
 		     ({force_stop,true}) ->
 			  [{force_stop,[]}];
 		     ({force_stop,false}) ->

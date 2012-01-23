@@ -568,6 +568,21 @@ add_tests([{scale_timetraps,Node,ST}|Ts],Spec) ->
 add_tests([{scale_timetraps,ST}|Ts],Spec) ->
     add_tests([{scale_timetraps,all_nodes,ST}|Ts],Spec);
 
+%% --- unique_priv_dir ---
+add_tests([{unique_priv_dir,all_nodes,UPD}|Ts],Spec) ->
+    Tests = lists:map(fun(N) -> {unique_priv_dir,N,UPD} end, list_nodes(Spec)),
+    add_tests(Tests++Ts,Spec);
+add_tests([{unique_priv_dir,Nodes,UPD}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,unique_priv_dir,[UPD],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{unique_priv_dir,Node,UPD}|Ts],Spec) ->
+    UPDs = Spec#testspec.unique_priv_dir,
+    UPDs1 = [{ref2node(Node,Spec#testspec.nodes),UPD} |
+	    lists:keydelete(ref2node(Node,Spec#testspec.nodes),1,UPDs)],
+    add_tests(Ts,Spec#testspec{unique_priv_dir=UPDs1});
+add_tests([{unique_priv_dir,UPD}|Ts],Spec) ->
+    add_tests([{unique_priv_dir,all_nodes,UPD}|Ts],Spec);
+
 %% --- config ---
 add_tests([{config,all_nodes,Files}|Ts],Spec) ->
     Tests = lists:map(fun(N) -> {config,N,Files} end, list_nodes(Spec)),
@@ -1158,7 +1173,8 @@ valid_terms() ->
      {skip_groups,6},
      {skip_groups,7},
      {skip_cases,5},
-     {skip_cases,6}
+     {skip_cases,6},
+     {unique_priv_dir,2}
     ].
 
 %% this function "guesses" if the user has misspelled a term name
