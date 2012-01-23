@@ -272,6 +272,7 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
   debug_pp(Tree, false),
   Module = cerl:atom_val(cerl:module_name(Tree)),
   RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
+  RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
   BehaviourTranslations =
     case RaceDetection of
       true -> dialyzer_behaviours:translatable_behaviours(Tree);
@@ -282,9 +283,6 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
 		     TopFun, Plt, Module, Records, BehaviourTranslations),
   State1 = state__race_analysis(not GetWarnings, State),
   State2 = analyze_loop(State1),
-  RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
-  Callgraph1 = State2#state.callgraph,
-  RaceCode1 = dialyzer_callgraph:get_race_code(Callgraph1),
   case GetWarnings of
     true ->
       State3 = state__set_warning_mode(State2),
@@ -309,6 +307,8 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
           St#state{callgraph = Callgraph3}
       end;
     false ->
+      Callgraph1 = State2#state.callgraph,
+      RaceCode1 = dialyzer_callgraph:get_race_code(Callgraph1),
       state__restore_race_code(
         dict:merge(fun (_K, V1, _V2) -> V1 end,
                    RaceCode, RaceCode1), State2)
