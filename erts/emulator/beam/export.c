@@ -39,16 +39,13 @@
 #endif
 
 static IndexTable export_tables[ERTS_NUM_CODE_IX];  /* Active not locked */
-static Hash secondary_export_table; /* Locked. */
 
 #include "erl_smp.h"
 
-static erts_smp_rwmtx_t export_table_lock; /* Locks the secondary export table. */
+erts_smp_rwmtx_t export_table_lock; /* Locks the secondary export table. */
 
 #define export_read_lock()	erts_smp_rwmtx_rlock(&export_table_lock)
 #define export_read_unlock()	erts_smp_rwmtx_runlock(&export_table_lock)
-#define export_write_lock()	erts_smp_rwmtx_rwlock(&export_table_lock)
-#define export_write_unlock()	erts_smp_rwmtx_rwunlock(&export_table_lock)
 
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_call_traced_function;
@@ -92,7 +89,7 @@ export_info(int to, void *to_arg)
 	export_read_lock();
 #endif
     index_info(to, to_arg, &export_tables[erts_active_code_ix()]);
-    hash_info(to, to_arg, &secondary_export_table);
+    hash_info(to, to_arg, &export_tables[erts_loader_code_ix()].htable);
 #ifdef ERTS_SMP
     if (lock)
 	export_read_unlock();
@@ -190,8 +187,6 @@ init_export_table(void)
 	erts_index_init(ERTS_ALC_T_EXPORT_TABLE, &export_tables[i], "export_list",
 			EXPORT_INITIAL_SIZE, EXPORT_LIMIT, f);
     }
-    hash_init(ERTS_ALC_T_EXPORT_TABLE, &secondary_export_table,
-	      "secondary_export_table", 50, f);
 }
 
 /*
@@ -289,12 +284,15 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 {
     ErtsCodeIndex code_ix = erts_loader_code_ix();
     struct export_templ templ;
-    int ix;
+    struct export_entry* ee;
 
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
-    ix = index_put(&export_tables[code_ix], init_template(&templ, mod, func, arity));
-    return ((struct export_entry*) erts_index_lookup(&export_tables[code_ix], ix))->ep;
+    export_write_lock();
+    ee = (struct export_entry*) index_put_entry(&export_tables[code_ix],
+						init_template(&templ, mod, func, arity));
+    export_write_unlock();
+    return ee->ep;
 }
 
 /*
@@ -302,57 +300,46 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
  * export entry (making a call through it will cause the error_handler to
  * be called).
  *
- * Stub export entries will be placed in the secondary export table.
- * export_start_load() will move all stub export entries into the
- * main export table (will be done the next time code is loaded).
+ * Stub export entries will be placed in the loader export table.
  */
 
 Export*
 erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 {
+    ErtsCodeIndex code_ix;
     Export* ep;
+    IF_DEBUG(int retrying = 0;)
     
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
-    
-    ep = erts_active_export_entry(mod, func, arity);
-    if (ep == 0) {
-	struct export_templ templ;
-	struct export_entry* entry;
-	/*
-	 * The code is not loaded (yet). Put the export in the secondary
-	 * export table, to avoid having to lock the active export table.
-	 */
-	export_write_lock();
-	entry = (struct export_entry *) hash_put(&secondary_export_table,
-						 init_template(&templ, mod, func, arity));
-	export_write_unlock();
-	ep = entry->ep;
-    }
+
+    do {
+	code_ix = erts_active_code_ix();
+	ep = erts_find_export_entry(mod, func, arity, code_ix);
+	if (ep == 0) {
+	    /*
+	     * The code is not loaded (yet). Put the export in the loader
+	     * export table, to avoid having to lock the active export table.
+	     */
+	    export_write_lock();
+	    if (erts_active_code_ix() == code_ix) { /*SVERK barrier? */
+		struct export_templ templ;
+	        struct export_entry* entry;
+
+		IndexTable* tab = &export_tables[erts_loader_code_ix()];
+		init_template(&templ, mod, func, arity);
+		entry = (struct export_entry *) index_put_entry(tab, &templ.entry);
+		ep = entry->ep;
+		ASSERT(ep);
+	    }
+	    else { /* race */
+		ASSERT(!retrying);
+		IF_DEBUG(retrying = 1);
+	    }
+	    export_write_unlock();
+	}
+    } while (!ep);
     return ep;
-}
-
-/*
- * Move all export entries from the secondary export table into the primary.
- */
-static void merge_secondary_table(IndexTable* dst)
-{
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
-		/*SVERK	&& code_ix == erts_loader_code_ix()));
-	               || erts_initialized == 0
-		       || erts_smp_thr_progress_is_blocking());*/
-
-    export_write_lock();
-    erts_index_merge(&secondary_export_table, dst);
-    erts_hash_merge(&secondary_export_table, &dst->htable);
-    export_write_unlock();
-#ifdef DEBUG
-    {
-	HashInfo hi;
-	hash_get_info(&hi, &dst->htable);
-	ASSERT(dst->entries == hi.objs);
-    }
-#endif
 }
 
 Export *export_list(int i, ErtsCodeIndex code_ix)
@@ -382,7 +369,6 @@ Export *export_get(Export *e)
 
 IF_DEBUG(static ErtsCodeIndex debug_start_load_ix = 0;)
 
-static int entries_at_start_load = 0;
 
 void export_start_load(void)
 {
@@ -395,29 +381,20 @@ void export_start_load(void)
     int i;
 
     ASSERT(dst_ix != src_ix);
-    ASSERT(dst->entries <= src->entries);
     ASSERT(debug_start_load_ix == -1);
 
+    export_write_lock();
     /*
-     * Make sure our existing entries are up to date
+     * Insert all entries in src into dst table
      */
-    for (i = 0; i < dst->entries; i++) {
-	dst_entry = (struct export_entry*) erts_index_lookup(dst, i);
-	dst_entry->ep->addressv[dst_ix] = dst_entry->ep->addressv[src_ix];
-    }
-
-    /*
-     * Insert all new entries from active table
-     */
-    for (i = dst->entries; i < src->entries; i++) {
+    /*SVERK Room for optimization to only insert the new ones */
+    for (i = 0; i < src->entries; i++) {
 	src_entry = (struct export_entry*) erts_index_lookup(src, i);
         src_entry->ep->addressv[dst_ix] = src_entry->ep->addressv[src_ix];
-	index_put(dst, src_entry);
+	dst_entry = (struct export_entry*) index_put_entry(dst, src_entry);
+	ASSERT(entry_to_blob(src_entry) == entry_to_blob(dst_entry));
     }
-
-    merge_secondary_table(dst);
-
-    entries_at_start_load = dst->entries;
+    export_write_unlock();
 
     IF_DEBUG(debug_start_load_ix = dst_ix);
 }
@@ -425,13 +402,6 @@ void export_start_load(void)
 void export_end_load(int commit)
 {
     ASSERT(debug_start_load_ix == erts_loader_code_ix());
-
-    if (!commit) { /* abort */
-	IndexTable* tab = &export_tables[erts_loader_code_ix()];
-
-	ASSERT(entries_at_start_load <= tab->entries);
-	index_erase_latest_from(tab, entries_at_start_load);
-    }
-
     IF_DEBUG(debug_start_load_ix = -1);
 }
+

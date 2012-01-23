@@ -75,6 +75,10 @@ Export *export_get(Export*);
 void export_start_load(void);
 void export_end_load(int commit);
 
+extern erts_smp_rwmtx_t export_table_lock;
+#define export_write_lock()	erts_smp_rwmtx_rwlock(&export_table_lock)
+#define export_write_unlock()	erts_smp_rwmtx_rwunlock(&export_table_lock)
+
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
 (((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code + 3) && \

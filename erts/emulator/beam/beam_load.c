@@ -6018,10 +6018,12 @@ void erts_commit_loader_code_ix(void)
     erts_end_load_ranges(1);
     {
 	ErtsCodeIndex ix;
+	export_write_lock();
 	ix = erts_loader_code_ix();
 	erts_smp_atomic32_set_nob(&the_active_code_index, ix);
 	ix = (ix + 1) % ERTS_NUM_CODE_IX;
 	erts_smp_atomic32_set_nob(&the_loader_code_index, ix);
+	export_write_unlock();
     }
     CIX_TRACE("commit");
 }
