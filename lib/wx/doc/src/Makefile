@@ -22,7 +22,7 @@
 # ----------------------------------------------------
 include ../../vsn.mk
 include ../../config.mk
-APPLICATION=wxErlang
+APPLICATION=wx
 
 ErlMods         = wx.erl wx_object.erl
 
