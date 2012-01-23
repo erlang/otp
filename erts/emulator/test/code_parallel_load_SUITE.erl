@@ -14,10 +14,11 @@
     ]).
 
 -export([
-	parallel_load_check_purge_repeat/1
+	multiple_load_check_purge_repeat/1,
+	many_load_distributed_only_once/1
     ]).
 
--define(model,       my_model).
+-define(model,       code_parallel_load_SUITE_model).
 -define(interval,    1500).
 -define(number_of_processes, 160).
 -define(passes, 4).
@@ -28,7 +29,10 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
-    [parallel_load_check_purge_repeat].
+    [
+	multiple_load_check_purge_repeat,
+	many_load_distributed_only_once
+    ].
 
 
 init_per_suite(Config) ->
@@ -43,12 +47,27 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 
 end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+    ?t:timetrap_cancel(Dog),
+    case erlang:delete_module(?model) of
+	true ->
+	    erlang:purge_module(?model);
+	_ -> ok
+    end.
 
-
-parallel_load_check_purge_repeat(_Conf) ->
+multiple_load_check_purge_repeat(_Conf) ->
     Ts    = [v1,v2,v3,v4,v5,v6],
-    Codes = generate_codes(Ts),
+
+    %% generate code that receives a token, code switches to new code
+    %% then matches this token against a literal code token
+    %% should be identical
+    %% (smoke test for parallel code loading
+    Codes = [{T, generate(?model, [], [
+	    format("check(T) -> receive {_Pid, change, T1} -> "
+		" ~w:check(T1)\n"
+		" after 0 -> T = f(), check(T) end.\n", [?model]),
+	    format("f() -> ~w.~n", [T])
+	])} || T <- Ts],
+
     setup_code_changer(Codes),
     ok.
 
@@ -67,7 +86,6 @@ code_changer([], Codes, T, Pids, Ps) ->
 code_changer([{Token,Code}|Cs], Codes, T, Pids, Ps) ->
     receive after T ->
 	    io:format("load code with token ~4w : pass ~4w~n", [Token, Ps]),
-	    %code:load_binary(?model, ?model, Code),
 	    {module, ?model} = erlang:load_module(?model, Code),
 	    % this is second time we call load_module for this module
 	    % so it should have old code
@@ -78,19 +96,38 @@ code_changer([{Token,Code}|Cs], Codes, T, Pids, Ps) ->
 	    code_changer(Cs, Codes, T, Pids, Ps)
     end.
 
-%% generate code that receives a token, code switches to new code
-%% then matches this token against a literal code token
-%% should be identical
-%% (smoke test for parallel code loading
-generate_codes([]) -> [];
-generate_codes([T|Ts]) ->
-    [{T, generate(?model, [], [
-	    format("check(T) -> receive {_Pid, change, T1} -> "
-		" ~w:check(T1)\n"
-		" after 0 -> T = f(), check(T) end.\n", [?model]),
-	    format("f() -> ~w.~n", [T])
-	])} | generate_codes(Ts)].
 
+
+many_load_distributed_only_once(_Conf) ->
+    Ts = [<<"first version">>, <<"second version">>],
+
+    [{Token1,Code1},{Token2, Code2}] = [{T, generate(?model, [], [
+	    "check({<<\"second version\">> = V, Pid}) -> V = f(), Pid ! {self(), completed, V}, ok;\n" ++
+	    format("check(T) -> receive {Pid, change, T1, B} -> "
+		" Res = erlang:load_module(~w, B), Pid ! {self(), change, Res},\n"
+		" ~w:check({T1, Pid})\n"
+		" after 0 -> T = f(), check(T) end.\n", [?model, ?model]),
+	    format("f() -> ~w.~n", [T])
+	])} || T <- Ts],
+
+
+    {module, ?model} = erlang:load_module(?model, Code1),
+    Pids = setup_checkers(Token1,?number_of_processes),
+
+    receive after 1000 -> ok end, % give 'em some time to spin up
+    [Pid ! {self(), change, Token2, Code2} || Pid <- Pids],
+    Loads = [receive {Pid, change, Res} -> Res end || Pid <- Pids],
+    [receive {Pid, completed, Token2} -> ok end || Pid <- Pids],
+
+    ok = ensure_only_one_load(Loads, 0).
+
+ensure_only_one_load([], 1) -> ok;
+ensure_only_one_load([], _) -> too_many_loads;
+ensure_only_one_load([{module, ?model}|Loads], N) ->
+    ensure_only_one_load(Loads, N + 1);
+ensure_only_one_load([{error, not_purged}|Loads], N) ->
+    ensure_only_one_load(Loads, N).
+% no other return values are allowed from load_module
 
 
 %% aux
