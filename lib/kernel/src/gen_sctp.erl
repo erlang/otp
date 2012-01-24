@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -314,7 +314,7 @@ eof_or_abort(S, AssocId, Action) ->
 -spec send(Socket, SndRcvInfo, Data) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
       SndRcvInfo :: #sctp_sndrcvinfo{},
-      Data :: binary | iolist(),
+      Data :: binary() | iolist(),
       Reason :: term().
 
 %% Full-featured send. Rarely needed.
@@ -331,7 +331,7 @@ send(S, SRI, Data) ->
       Socket :: sctp_socket(),
       Assoc :: #sctp_assoc_change{} | assoc_id(),
       Stream :: integer(),
-      Data :: binary | iolist(),
+      Data :: binary() | iolist(),
       Reason :: term().
 
 send(S, #sctp_assoc_change{assoc_id=AssocId}, Stream, Data)
