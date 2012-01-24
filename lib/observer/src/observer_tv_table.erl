@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -401,13 +401,17 @@ handle_info({refresh, Min, Max}, State = #state{grid=Grid}) ->
     wxListCtrl:refreshItems(Grid, Min, Max),
     {noreply, State};
 handle_info({error, Error}, State = #state{frame=Frame}) ->
-    Dlg = wxMessageDialog:new(Frame, Error),
+    ErrorStr =
+	try io_lib:format("~ts", [Error]), Error
+	catch _:_ -> io_lib:format("~p", [Error])
+	end,
+    Dlg = wxMessageDialog:new(Frame, ErrorStr),
     wxMessageDialog:showModal(Dlg),
     wxMessageDialog:destroy(Dlg),
     {noreply, State};
 
-handle_info(Event, State) ->
-    io:format("~p:~p, handle info ~p\n", [?MODULE, ?LINE, Event]),
+handle_info(_Event, State) ->
+    %% io:format("~p:~p, handle info ~p\n", [?MODULE, ?LINE, _Event]),
     {noreply, State}.
 
 terminate(_Event, #state{pid=Pid, attrs=Attrs}) ->
@@ -588,12 +592,15 @@ search([Str, Row, Dir0, CaseSens],
 	      true -> [];
 	      false -> [caseless]
 	  end,
-    {ok, Re} = re:compile(Str, Opt),
     Dir = case Dir0 of
 	      true -> 1;
 	      false -> -1
 	  end,
-    Res = search(Row, Dir, Re, Table),
+    Res = case re:compile(Str, Opt) of
+	      {ok, Re} ->
+		  search(Row, Dir, Re, Table);
+	      {error, _} -> false
+	  end,
     Parent ! {self(), Res},
     S#holder{search=Res}.
 
