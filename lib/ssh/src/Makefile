@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2011. All Rights Reserved.
+# Copyright Ericsson AB 2004-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -101,8 +101,8 @@ INTERNAL_HRL_FILES = $(ASN_HRLS) ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa$(EBIN) 
-
+ERL_COMPILE_FLAGS += -pa$(EBIN)\
+	-pz $(ERL_TOP)/lib/public_key/ebin
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------

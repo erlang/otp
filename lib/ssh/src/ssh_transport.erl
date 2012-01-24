@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,10 +23,11 @@
 
 -module(ssh_transport).
 
--include("ssh_transport.hrl").
-
--include("ssh.hrl").
+-include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").
+
+-include("ssh_transport.hrl").
+-include("ssh.hrl").
 
 -export([connect/5, accept/4]). 
 -export([versions/2, hello_version_msg/1]).
@@ -331,6 +332,7 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E}, Ssh0) ->
 						       }, Ssh0),
     %%?dbg(?DBG_KEX, "shared_secret: ~s ~n", [fmt_binary(K, 16, 4)]),
     %%?dbg(?DBG_KEX, "hash: ~s ~n", [fmt_binary(H, 16, 4)]),
+    %%Hash = crypto:sha(PlainText),
     {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
 			     shared_secret = K,
 			     exchanged_hash = H,
@@ -364,6 +366,7 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = HostKey, f = F,
     H = kex_h(Ssh0, HostKey, Public, F, K),
     %%?dbg(?DBG_KEX, "shared_secret: ~s ~n", [fmt_binary(K, 16, 4)]),
     %%?dbg(?DBG_KEX, "hash: ~s ~n", [fmt_binary(H, 16, 4)]),
+    %%Hash = crypto:sha(PlainText),
     case verify_host_key(Ssh0, HostKey, H, H_SIG) of
 	ok ->
 	    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
@@ -427,8 +430,8 @@ get_host_key(SSH) ->
     case ALG#alg.hkey of
 	'ssh-rsa' ->
 	    case Mod:private_host_rsa_key(Scope, Opts) of
-		{ok,Key=#ssh_key { public={N,E}} } ->
-		    %%?dbg(true, "x~n", []),
+		{ok, #'RSAPrivateKey'{modulus = N, publicExponent = E} = Key} ->
+		    %%?dbg(true, "x~n", []),		    
 		    {Key,
 		     ssh_bits:encode(["ssh-rsa",E,N],[string,mpint,mpint])};
 		Error ->
@@ -437,7 +440,7 @@ get_host_key(SSH) ->
 	    end;
 	'ssh-dss' ->
 	    case Mod:private_host_dsa_key(Scope, Opts) of
-		{ok,Key=#ssh_key { public={P,Q,G,Y}}} ->
+		{ok, #'DSAPrivateKey'{y = Y, p = P, q = Q, g = G} = Key} ->
 		    {Key, ssh_bits:encode(["ssh-dss",P,Q,G,Y],
 					  [string,mpint,mpint,mpint,mpint])};
 		Error ->
@@ -447,57 +450,58 @@ get_host_key(SSH) ->
 	    exit({error, bad_key_type})
     end.
 
-sign_host_key(Ssh, Private, H) ->
-    ALG = Ssh#ssh.algorithms,
-    Module = case ALG#alg.hkey of
-		 'ssh-rsa' -> 
-		     ssh_rsa;
-		 'ssh-dss' -> 
-		     ssh_dsa
-	     end,
-    case catch Module:sign(Private, H) of
-	{'EXIT', Reason} ->
-	    error_logger:format("SIGN FAILED: ~p\n", [Reason]),
-	    {error, Reason};
-	SIG ->
-	    ssh_bits:encode([Module:alg_name() ,SIG],[string,binary])
-    end.    
+sign_host_key(_Ssh, #'RSAPrivateKey'{} = Private, H) ->
+    Hash = sha, %% Option ?!
+    Signature = public_key:sign(H, Hash, Private),
+    ssh_bits:encode(["ssh-rsa", Signature],[string, binary]);
+sign_host_key(_Ssh, #'DSAPrivateKey'{} = Private, H) ->
+    Hash = sha, %% Option ?!
+    DerSignature = public_key:sign(H, Hash, Private),
+    #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
+    RawSignature = <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>,
+    ssh_bits:encode(["ssh-dss", RawSignature],[string, binary]).
 
 verify_host_key(SSH, K_S, H, H_SIG) ->
     ALG = SSH#ssh.algorithms,
     case ALG#alg.hkey of
 	'ssh-rsa' ->
-	    case ssh_bits:decode(K_S,[string,mpint,mpint]) of
-		["ssh-rsa", E, N] ->
-		    ["ssh-rsa",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
-		    Public = #ssh_key { type=rsa, public={N,E} },
-		    case catch ssh_rsa:verify(Public, H, SIG) of
-			{'EXIT', Reason} ->
-			    error_logger:format("VERIFY FAILED: ~p\n", [Reason]),
-			    {error, bad_signature};
-			ok ->
-			    known_host_key(SSH, Public, "ssh-rsa")
-		    end;
-		_ ->
-		    {error, bad_format}
-	    end;
+	    verify_host_key_rsa(SSH, K_S, H, H_SIG);
 	'ssh-dss' ->
-	    case ssh_bits:decode(K_S,[string,mpint,mpint,mpint,mpint]) of
-		["ssh-dss",P,Q,G,Y] ->
-		    ["ssh-dss",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
-		    Public = #ssh_key { type=dsa, public={P,Q,G,Y} },
-		    case catch ssh_dsa:verify(Public, H, SIG) of
-			{'EXIT', Reason} ->
-			    error_logger:format("VERIFY FAILED: ~p\n", [Reason]),
-			    {error, bad_signature};
-			ok ->
-			    known_host_key(SSH, Public, "ssh-dss")
-		    end;
-		_ ->
-		    {error, bad_host_key_format}
-	    end;
+	    verify_host_key_dss(SSH, K_S, H, H_SIG);
 	_ ->
 	    {error, bad_host_key_algorithm}
+    end.
+
+verify_host_key_rsa(SSH, K_S, H, H_SIG) ->
+    case ssh_bits:decode(K_S,[string,mpint,mpint]) of
+	["ssh-rsa", E, N] ->
+	    ["ssh-rsa",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
+	    Public = #'RSAPublicKey'{publicExponent = E, modulus = N},
+	    case public_key:verify(H, sha, SIG, Public) of
+		false ->
+		    {error, bad_signature};
+		true ->
+		    known_host_key(SSH, Public, "ssh-rsa")
+	    end;
+	_ ->
+	    {error, bad_format}
+    end.
+
+verify_host_key_dss(SSH, K_S, H, H_SIG) ->
+    case ssh_bits:decode(K_S,[string,mpint,mpint,mpint,mpint]) of
+	["ssh-dss",P,Q,G,Y] ->
+	    ["ssh-dss",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
+	    Public = {Y,  #'Dss-Parms'{p = P, q = Q, g = G}},
+	    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = SIG,
+	     Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
+	    case public_key:verify(H, sha, Signature, Public) of
+		false ->
+		    {error, bad_signature};
+		true ->
+		    known_host_key(SSH, Public, "ssh-dss")
+	    end;
+	_ ->
+	    {error, bad_host_key_format}
     end.
 
 accepted_host(Ssh, PeerName, Opts) ->
@@ -1055,6 +1059,7 @@ kex_h(SSH, K_S, E, F, K) ->
 			[string,string,binary,binary,binary,
 			 mpint,mpint,mpint]),
     crypto:sha(L).
+ 
 
 kex_h(SSH, K_S, Min, NBits, Max, Prime, Gen, E, F, K) ->
     L = if Min==-1; Max==-1 ->
@@ -1075,7 +1080,7 @@ kex_h(SSH, K_S, Min, NBits, Max, Prime, Gen, E, F, K) ->
 				 Prime, Gen, E,F,K], Ts)
 	end,
     crypto:sha(L).
-    
+  
 mac_key_size('hmac-sha1')    -> 20*8;
 mac_key_size('hmac-sha1-96') -> 20*8;
 mac_key_size('hmac-md5')     -> 16*8;

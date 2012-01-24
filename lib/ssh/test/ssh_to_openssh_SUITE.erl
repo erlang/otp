@@ -76,6 +76,7 @@ end_per_suite(_Config) ->
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
+    test_server:format("Init per test case~n", []),
     ssh:start(),
     Config.
 
@@ -119,18 +120,15 @@ groups() ->
 			  erlang_client_openssh_server_password]},
      {erlang_server, [], [erlang_server_openssh_client_exec,
 			  erlang_server_openssh_client_exec_compressed,
-			  erlang_server_openssh_client_pulic_key_dsa,
-			  erlang_client_openssh_server_password]}
+			  erlang_server_openssh_client_pulic_key_dsa]}
     ].
 
 init_per_group(erlang_server, Config) ->
     DataDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, UserDir),
+    ssh_test_lib:setup_dsa_known_host(DataDir, UserDir),
     Config;
 init_per_group(_, Config) ->
-    Dir = ?config(priv_dir, Config),
-    {ok, _} = ssh_test_lib:get_id_keys(Dir),
     Config.
 
 end_per_group(erlang_server, Config) ->
@@ -138,8 +136,6 @@ end_per_group(erlang_server, Config) ->
     ssh_test_lib:clean_dsa(UserDir),
     Config;
 end_per_group(_, Config) ->
-    Dir = ?config(priv_dir, Config),
-    ssh_test_lib:remove_id_keys(Dir),
     Config.
 
 %% TEST cases starts here.
@@ -152,9 +148,8 @@ erlang_shell_client_openssh_server(suite) ->
 
 erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    UserDir = ?config(priv_dir, Config),
     IO = ssh_test_lib:start_io_server(),
-    Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO, UserDir),
+    Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
     IO ! {input, self(), "echo Hej\n"},
     receive_hej(),
     IO ! {input, self(), "exit\n"},
@@ -250,8 +245,10 @@ erlang_server_openssh_client_exec(suite) ->
     [];
 
 erlang_server_openssh_client_exec(Config) when is_list(Config) ->
-    SystemDir = ?config(priv_dir, Config),
-    
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     
@@ -259,7 +256,10 @@ erlang_server_openssh_client_exec(Config) when is_list(Config) ->
     test_server:sleep(500),
 
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
-	" -o StrictHostKeyChecking=no "++ Host ++ " 1+1.",
+	" -o UserKnownHostsFile=" ++ KnownHosts ++ " " ++ Host ++ " 1+1.",
+
+    test_server:format("Cmd: ~p~n", [Cmd]),
+
     SshPort = open_port({spawn, Cmd}, [binary]),
 
     receive
@@ -279,7 +279,10 @@ erlang_server_openssh_client_exec_compressed(suite) ->
     [];
 
 erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
-    SystemDir = ?config(priv_dir, Config),
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {compression, zlib},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
@@ -287,7 +290,7 @@ erlang_server_openssh_client_exec_compressed(Config) when is_list(Config) ->
     test_server:sleep(500),
 
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
-	" -o StrictHostKeyChecking=no -C "++ Host ++ " 1+1.",
+	" -o UserKnownHostsFile=" ++ KnownHosts ++ " -C "++ Host ++ " 1+1.",
     SshPort = open_port({spawn, Cmd}, [binary]),
 
     receive
@@ -352,26 +355,27 @@ erlang_client_openssh_server_publickey_rsa(suite) ->
     [];
 erlang_client_openssh_server_publickey_rsa(Config) when is_list(Config) ->
     {ok,[[Home]]} = init:get_argument(home),
-    SrcDir =  filename:join(Home, ".ssh"),
-    UserDir = ?config(priv_dir, Config),
-    case ssh_test_lib:copyfile(SrcDir, UserDir, "id_rsa") of
-	{ok, _} ->
-	    ConnectionRef =
-		ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-				     [{user_dir, UserDir},
-				      {public_key_alg, ssh_rsa},
-				      {user_interaction, false},
-				      silently_accept_hosts]),
-	    {ok, Channel} =
-		ssh_connection:session_channel(ConnectionRef, infinity),
-	    ok = ssh_connection:close(ConnectionRef, Channel),
-	    ok = ssh:close(ConnectionRef),
-	    ok = file:delete(filename:join(UserDir, "id_rsa"));
-	{error, enoent} ->
-	    {skip, "no ~/.ssh/id_rsa"};
-       	{error, Reason} ->
-	    {skip, Reason}
+    KeyFile =  filename:join(Home, ".ssh/id_rsa"),
+    case file:read_file(KeyFile) of
+	{ok, Pem} ->
+	    case public_key:pem_decode(Pem) of
+		[{_,_, not_encrypted}] ->
+		    ConnectionRef =
+			ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+					     [{public_key_alg, ssh_rsa},
+					      {user_interaction, false},
+					      silently_accept_hosts]),
+		    {ok, Channel} =
+			ssh_connection:session_channel(ConnectionRef, infinity),
+		    ok = ssh_connection:close(ConnectionRef, Channel),
+		    ok = ssh:close(ConnectionRef);
+		_ ->
+		    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
+	    end;
+	_ ->
+	    {skip, "no ~/.ssh/id_rsa"}  
     end.
+	
 
 %%--------------------------------------------------------------------
 erlang_client_openssh_server_publickey_dsa(doc) ->
@@ -380,27 +384,26 @@ erlang_client_openssh_server_publickey_dsa(suite) ->
     [];
 erlang_client_openssh_server_publickey_dsa(Config) when is_list(Config) ->
     {ok,[[Home]]} = init:get_argument(home),
-    SrcDir =  filename:join(Home, ".ssh"),
-    UserDir = ?config(priv_dir, Config),
-    case ssh_test_lib:copyfile(SrcDir, UserDir, "id_dsa") of
-	{ok, _} ->
-	    ConnectionRef =
-		ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-				     [{user_dir, UserDir},
-				      {public_key_alg, ssh_dsa},
-				      {user_interaction, false},
-				      silently_accept_hosts]),
-	    {ok, Channel} =
-		ssh_connection:session_channel(ConnectionRef, infinity),
-	    ok = ssh_connection:close(ConnectionRef, Channel),
-	    ok = ssh:close(ConnectionRef),
-	    ok = file:delete(filename:join(UserDir, "id_dsa"));
-	{error, enoent} ->
-	    {skip, "no ~/.ssh/id_dsa"};
-	{error, Reason} ->
-	    {skip, Reason}
+    KeyFile =  filename:join(Home, ".ssh/id_dsa"),
+    case file:read_file(KeyFile) of
+	{ok, Pem} ->
+	    case public_key:pem_decode(Pem) of
+		[{_,_, not_encrypted}] ->
+		    ConnectionRef =
+			ssh_test_lib:connect(?SSH_DEFAULT_PORT,
+					     [{public_key_alg, ssh_dsa},
+					      {user_interaction, false},
+					      silently_accept_hosts]),
+		    {ok, Channel} =
+			ssh_connection:session_channel(ConnectionRef, infinity),
+		    ok = ssh_connection:close(ConnectionRef, Channel),
+		    ok = ssh:close(ConnectionRef);
+		_ ->
+		    {skip, {error, "Has pass phrase can not be used by automated test case"}} 
+	    end;
+	_ ->
+	    {skip, "no ~/.ssh/id_dsa"}  
     end.
-
 %%--------------------------------------------------------------------
 erlang_server_openssh_client_pulic_key_dsa(doc) ->
     ["Validate using dsa publickey."];
@@ -409,7 +412,10 @@ erlang_server_openssh_client_pulic_key_dsa(suite) ->
     [];
 
 erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
-    SystemDir = ?config(priv_dir, Config),
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {public_key_alg, ssh_dsa},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
@@ -417,7 +423,8 @@ erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
     test_server:sleep(500),
 
     Cmd = "ssh -p " ++ integer_to_list(Port) ++
-	" -o StrictHostKeyChecking=no "++ Host ++ " 1+1.",
+	" -o UserKnownHostsFile=" ++ KnownHosts ++
+	" " ++ Host ++ " 1+1.",
     SshPort = open_port({spawn, Cmd}, [binary]),
 
     receive
@@ -425,7 +432,6 @@ erlang_server_openssh_client_pulic_key_dsa(Config) when is_list(Config) ->
 	    ok
     after ?TIMEOUT ->
 	    test_server:fail("Did not receive answer")
-
     end,
      ssh:stop_daemon(Pid).
 

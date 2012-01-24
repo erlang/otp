@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,28 +23,14 @@
 
 -module(ssh_dsa).
 
--export([verify/3]).
+-export([verify/3, verify/4]).
 -export([sign/2]).
 -export([alg_name/0]).
 
 -include("ssh.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
-%% start() ->
-%%     crypto:start().
-
-%% sign_file(File, Opts) ->
-%%     start(),
-%%     {ok,Bin} = file:read_file(File),
-%%     {ok,Key} = ssh_file:private_host_dsa_key(user, Opts),
-%%     sign(Key, Bin).
-
-%% verify_file(File, Sig) ->
-%%     start(),
-%%     {ok,Bin} = file:read_file(File),
-%%     {ok,Key} = ssh_file:public_host_key(user, dsa),
-%%     verify(Key, Bin, Sig).
-
-sign(_Private=#ssh_key { private={P,Q,G,X} },Mb) ->
+sign(_Private= #'DSAPrivateKey'{p = P, q = Q, g = G, x = X},Mb) ->
     K = ssh_bits:irandom(160) rem Q,
     R = ssh_math:ipow(G, K, P) rem Q,
     Ki = ssh_math:invert(K, Q),
@@ -52,27 +38,17 @@ sign(_Private=#ssh_key { private={P,Q,G,X} },Mb) ->
     S = (Ki * (M + X*R)) rem Q,
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>.
 
-
-%% the paramiko client sends a bad sig sometimes, 
-%% instead of crashing, we nicely return error, the
-%% typcally manifests itself as Sb being 39 bytes
-%% instead of 40.
+verify(PlainText, sha, Sig, {Y,  {_, P, Q, G}}) ->
+    verify(#ssh_key{type = dsa,
+		    public = {P,Q,G,Y}}, PlainText, Sig).
 
 verify(Public, Mb, Sb) ->
     case catch xverify(Public, Mb, Sb) of
 	{'EXIT', _Reason} ->
-            %store({Public, Mb, Sb, _Reason}),
-	    {error, inconsistent_key};
+	    false;
 	ok ->
-  	    %store({Public, Mb, Sb, ok})
-	    ok
+	    true
     end.
-
-%% store(Term) ->
-%%     {ok, Fd} = file:open("/tmp/dsa", [append]),
-%%     io:format(Fd, "~p~n~n~n", [Term]),
-%%     file:close(Fd).
-
 
 xverify(_Public=#ssh_key { public={P,Q,G,Y} },Mb,Sb) ->
     <<R0:160/big-unsigned-integer, S0:160/big-unsigned-integer>> = Sb,

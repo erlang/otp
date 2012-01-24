@@ -55,13 +55,16 @@
 init_per_suite(Config) ->
     case (catch crypto:start()) of
 	ok ->
-	    ssh:start(),
-	    DataDir = ?config(data_dir, Config),
-	    UserDir = ?config(priv_dir, Config),
-	    ssh_test_lib:setup_dsa(UserDir, DataDir),
+	    DataDir = ?config(data_dir, Config),	    
+	    PrivDir = ?config(priv_dir, Config),
+	    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+	    %% to make sure we don't use public-key-auth
+	    %% this should be tested by other test suites
+	    UserDir = filename:join(?config(priv_dir, Config), nopubkey), 
+	    file:make_dir(UserDir),  
 	    Config;
 	_ ->
-	    {skip,"Could not start ssh!"}
+	    {skip,"Could not start crypto!"}
     end.
 
 %%--------------------------------------------------------------------
@@ -71,8 +74,10 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(Config) ->
-    UserDir = ?config(priv_dir, Config),
-    ssh_test_lib:clean_dsa(UserDir),
+    SysDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(SysDir),
+    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    file:del_dir(UserDir),
     ssh:stop(),
     crypto:stop(),
     ok.
@@ -93,15 +98,17 @@ end_per_suite(Config) ->
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
     prep(Config),
+    PrivDir = ?config(priv_dir, Config),
+    ClientUserDir = filename:join(PrivDir, nopubkey),
     SysDir = ?config(data_dir, Config),
     {ok, Sftpd} =
 	ssh_sftpd:listen(?SFPD_PORT, [{system_dir, SysDir},
+				      {user_dir, PrivDir},
 				      {user_passwords,[{?USER, ?PASSWD}]},
 				      {pwdfun, fun(_,_) -> true end}]),
     
     Cm = ssh_test_lib:connect(?SFPD_PORT,
-			      [{system_dir, SysDir},
-			       {user_dir, SysDir},
+			      [{user_dir, ClientUserDir},
 			       {user, ?USER}, {password, ?PASSWD},
 			       {user_interaction, false},
 			       {silently_accept_hosts, true},

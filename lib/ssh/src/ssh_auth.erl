@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,10 +21,12 @@
 
 -module(ssh_auth).
 
--include("ssh.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
+-include("ssh.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_transport.hrl").
+
 
 -export([publickey_msg/1, password_msg/1, keyboard_interactive_msg/1,
 	 service_request_msg/1, init_userauth_request_msg/1,
@@ -40,26 +42,29 @@ publickey_msg([Cb, #ssh{user = User,
 		       session_id = SessionId,
 		       service = Service,
 		       opts = Opts} = Ssh]) ->
+    
+    Alg = algorithm(Cb),
+    Hash = sha, %% Maybe option?!
     ssh_bits:install_messages(userauth_pk_messages()),
-    Alg = Cb:alg_name(),
+    
     case ssh_file:private_identity_key(Alg, Opts) of
-	{ok, PrivKey} ->
-	    PubKeyBlob = ssh_file:encode_public_key(PrivKey),
+	{ok, Key} ->
+	    PubKeyBlob = ssh_file:encode_public_key(Key),
 	    SigData = build_sig_data(SessionId, 
-				     User, Service, Alg, PubKeyBlob),
-	    Sig = Cb:sign(PrivKey, SigData),
-	    SigBlob = list_to_binary([?string(Alg), ?binary(Sig)]),
+     				     User, Service, Key, PubKeyBlob),
+	    Sig = sign(SigData, Hash, Key),
+	    SigBlob = list_to_binary([?string(algorithm(Key)), ?binary(Sig)]),
 	    ssh_transport:ssh_packet(
 	      #ssh_msg_userauth_request{user = User,
 					service = Service,
 					method = "publickey",
 					data = [?TRUE,
-						?string(Alg),
+						?string(algorithm(Key)),
 						?binary(PubKeyBlob),
 						?binary(SigBlob)]},
 	      Ssh);
-	_Error ->
-	  not_ok
+     	_Error ->
+	    not_ok
     end.
 
 password_msg([#ssh{opts = Opts, io_cb = IoCb,
@@ -192,12 +197,12 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 	?TRUE ->
 	    case verify_sig(SessionId, User, "ssh-connection", Alg,
 			    KeyBlob, SigWLen, Opts) of
-		ok ->
+		true ->
 		    {authorized, User, 
 		     ssh_transport:ssh_packet(
 		       #ssh_msg_userauth_success{}, Ssh)};
-		{error, Reason} ->
-		    {not_authorized, {User, {error, Reason}}, 
+		false ->
+		    {not_authorized, {User, {error, "Invalid signature"}}, 
 		     ssh_transport:ssh_packet(#ssh_msg_userauth_failure{
 			     authentications="publickey,password",
 			     partial_success = false}, Ssh)}
@@ -312,34 +317,64 @@ get_password_option(Opts, User) ->
     end.
 	    
 verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
-    case ssh_file:lookup_user_key(User, Alg, Opts) of
+    {ok, Key} = ssh_file:decode_public_key_v2(KeyBlob, Alg),
+    case ssh_file:lookup_user_key(Key, User, Alg, Opts) of
 	{ok, OurKey} ->
-	    {ok, Key} = ssh_file:decode_public_key_v2(KeyBlob, Alg),
 	    case OurKey of
 		Key ->
-		    NewSig = build_sig_data(SessionId, 
-					    User, Service, Alg, KeyBlob),
+		    PlainText = build_sig_data(SessionId, 
+					    User, Service, Key, KeyBlob),
 		    <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
 		    <<?UINT32(AlgLen), _Alg:AlgLen/binary,
-		     ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-		    M = alg_to_module(Alg),
-		    M:verify(OurKey, NewSig, Sig);
+		      ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
+		    verify(PlainText, sha, Sig, Key);
 		_ ->
 		    {error, key_unacceptable}
 	    end;
 	Error -> Error
     end.
 
-build_sig_data(SessionId, User, Service, Alg, KeyBlob) ->
+build_sig_data(SessionId, User, Service, Key, KeyBlob) ->
     Sig = [?binary(SessionId),
 	   ?SSH_MSG_USERAUTH_REQUEST,
 	   ?string(User),
 	   ?string(Service),
 	   ?binary(<<"publickey">>),
 	   ?TRUE,
-	   ?string(Alg),
+	   ?string(algorithm(Key)),
 	   ?binary(KeyBlob)],
     list_to_binary(Sig).
+
+algorithm(ssh_rsa) ->
+    "ssh-rsa";
+algorithm(ssh_dsa) ->
+     "ssh-dss";
+algorithm(#'RSAPrivateKey'{}) ->
+    "ssh-rsa";
+algorithm(#'DSAPrivateKey'{}) ->
+    "ssh-dss";
+algorithm({_, #'Dss-Parms'{}}) ->
+    "ssh-dss";
+algorithm(#'RSAPublicKey'{}) ->
+    "ssh-rsa".
+
+sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
+    DerSignature = public_key:sign(SigData, Hash, Key),
+    #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
+    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>;
+sign(SigData, Hash, Key) ->
+    public_key:sign(SigData, Hash, Key).
+%% sign(SigData, _, #'DSAPrivateKey'{} = Key) ->
+%%     ssh_dsa:sign(Key, SigData).
+
+verify(PlainText, Hash, Sig, {_,  #'Dss-Parms'{}} = Key) ->
+    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = Sig,
+    Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
+    public_key:verify(PlainText, Hash, Signature, Key);
+verify(PlainText, Hash, Sig, Key) ->
+    public_key:verify(PlainText, sha, Sig, Key).
+%% verify(PlainText, _Hash, Sig, {_, #'Dss-Parms'{}} = Key) ->
+%%     ssh_dsa:verify(Key, PlainText, Sig).
 
 decode_keyboard_interactive_prompts(NumPrompts, Data) ->
     Types = lists:append(lists:duplicate(NumPrompts, [string, boolean])),
@@ -412,12 +447,8 @@ userauth_pk_messages() ->
 	binary]} % key blob
      ].
 
-alg_to_module("ssh-dss") ->
-    ssh_dsa;
-alg_to_module("ssh-rsa") ->
-    ssh_rsa.
-
 other_cb(ssh_rsa) -> 
     ssh_dsa;
 other_cb(ssh_dsa) -> 
     ssh_rsa.
+

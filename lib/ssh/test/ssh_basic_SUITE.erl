@@ -39,22 +39,12 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    test_server:format("Init per suite", []),
     case catch crypto:start() of
 	ok ->
-	    DataDir = ?config(data_dir, Config),
-	    UserDir = ?config(priv_dir, Config),
-	    ssh_test_lib:copyfile(DataDir, UserDir, "id_rsa"), 
-	    ssh_test_lib:copyfile(DataDir, UserDir, "id_dsa"),
-	    RSAFile = filename:join(DataDir, "id_rsa.pub"),
-	    DSAFile = filename:join(DataDir, "id_dsa.pub"),
-	    {ok, Ssh1} = file:read_file(RSAFile),
-	    {ok, Ssh2} = file:read_file(DSAFile),
-	    [{RSA, _}] = public_key:ssh_decode(Ssh1,public_key), 
-	    [{DSA, _}] = public_key:ssh_decode(Ssh2,public_key), 
-	    AuthKeys = public_key:ssh_encode([{RSA, [{comment, "Test"}]}, 
-					      {DSA,[{comment, "Test"}]}], auth_keys),
-	    AuthKeysFile = filename:join(UserDir, "authorized_keys"),
-	    file:write_file(AuthKeysFile, AuthKeys),
+	    DataDir = ?config(data_dir, Config),	    
+	    PrivDir = ?config(priv_dir, Config), 
+	    ssh_test_lib:setup_dsa(DataDir, PrivDir),
 	    Config;
 	_Else ->
 	    {skip, "Crypto could not be started!"}
@@ -67,6 +57,10 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(Config) ->
+    test_server:format("End per suite", []),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(PrivDir),
+    ssh:stop(),
     crypto:stop(),
     ok.
 
@@ -103,7 +97,7 @@ end_per_testcase(TestCase, Config) when TestCase == server_password_option;
     end_per_testcase(Config);
 end_per_testcase(_TestCase, Config) ->
     end_per_testcase(Config).
-end_per_testcase(Config) ->    
+end_per_testcase(_Config) ->    
     ssh:stop(),
     ok.
 
@@ -117,7 +111,8 @@ end_per_testcase(Config) ->
 %%--------------------------------------------------------------------
 all() -> 
     [exec, exec_compressed, shell, daemon_already_started, 
-     server_password_option, server_userpassword_option, known_hosts].
+     server_password_option, server_userpassword_option,
+     known_hosts].
 
 groups() -> 
     [].
@@ -130,17 +125,6 @@ end_per_group(_GroupName, Config) ->
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
-sign_and_verify_rsa(doc) ->
-    ["Test api function ssh:sign_data and ssh:verify_data"];
-
-sign_and_verify_rsa(suite) ->
-    [];
-sign_and_verify_rsa(Config) when is_list(Config) ->
-    Data = ssh:sign_data(<<"correct data">>, "ssh-rsa"),
-    ok = ssh:verify_data(<<"correct data">>, Data, "ssh-rsa"),
-    {error,invalid_signature} = ssh:verify_data(<<"incorrect data">>, Data,"ssh-rsa").
-
-
 exec(doc) ->
     ["Test api function ssh_connection:exec"];
 
@@ -196,7 +180,7 @@ exec_compressed(suite) ->
 exec_compressed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
+    UserDir = ?config(priv_dir, Config), 
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					     {compression, zlib},
@@ -231,7 +215,7 @@ shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
-
+   
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
     test_server:sleep(500),
@@ -301,9 +285,13 @@ daemon_already_started(suite) ->
 
 daemon_already_started(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
+    UserDir = ?config(priv_dir, Config),
+
     {Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					      {user_dir, UserDir},
 					      {failfun, fun ssh_test_lib:failfun/2}]),
     {error, eaddrinuse} = ssh_test_lib:daemon(Port, [{system_dir, SystemDir},
+						     {user_dir, UserDir},
 						     {failfun,
 						      fun ssh_test_lib:failfun/2}]),
     ssh:stop_daemon(Pid).
@@ -314,10 +302,12 @@ server_password_option(doc) ->
 server_password_option(suite) ->
     [];
 server_password_option(Config) when is_list(Config) ->
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey), % to make sure we don't use public-key-auth
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
-    SysDir = ?config(data_dir, Config),	 
+    SysDir = ?config(data_dir, Config),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, UserDir},
 					     {password, "morot"}]),
 
     ConnectionRef =
@@ -345,10 +335,12 @@ server_userpassword_option(doc) ->
 server_userpassword_option(suite) ->
     [];
 server_userpassword_option(Config) when is_list(Config) ->
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey), % to make sure we don't use public-key-auth
+    PrivDir = ?config(priv_dir, Config),
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
     file:make_dir(UserDir),
     SysDir = ?config(data_dir, Config),	  
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+					     {user_dir, PrivDir},
 					     {user_passwords, [{"vego", "morot"}]}]),
 
     ConnectionRef =
@@ -386,17 +378,17 @@ known_hosts(doc) ->
 known_hosts(suite) ->
     [];
 known_hosts(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    UserDir = ?config(priv_dir, Config),
+    DataDir = ?config(data_dir, Config), 
+    PrivDir = ?config(priv_dir, Config), 
     
-    {Pid, Host, Port} = ssh_test_lib:daemon([{user_dir, UserDir},{system_dir, DataDir},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{user_dir, PrivDir},{system_dir, DataDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
-    KnownHosts = filename:join(UserDir, "known_hosts"),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
     file:delete(KnownHosts),
     {error, enoent} = file:read_file(KnownHosts),
     ConnectionRef =
-	ssh_test_lib:connect(Host, Port, [{user_dir, UserDir},
+	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
 					  {user_interaction, false},
 					  silently_accept_hosts]),
     {ok, _Channel} = ssh_connection:session_channel(ConnectionRef, infinity),
@@ -407,7 +399,7 @@ known_hosts(Config) when is_list(Config) ->
     [HostAndIp, Alg, _KeyData] = string:tokens(Line, " "),
     [Host, _Ip] = string:tokens(HostAndIp, ","),
     "ssh-" ++ _ = Alg,
-     ssh:stop_daemon(Pid).
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 %% Internal functions
