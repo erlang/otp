@@ -609,7 +609,7 @@ static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
     Uint *code_base;
     int i, n;
 
-    modp = erts_get_module(mod, erts_active_code_ix()); /*SVERK ?? */
+    modp = erts_get_module(mod, erts_active_code_ix());
     if (modp == NULL || (code_base = modp->curr.code) == NULL)
 	return NULL;
     n = code_base[MI_NUM_FUNCTIONS];
@@ -1591,7 +1591,7 @@ BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2)
 	f = tp[2];
 	if (is_not_atom(m) || is_not_atom(f))
 	    goto badfun;
-	if (!erts_active_export_entry(m, f, BIF_ARG_2)) /*SVERK active? */
+	if (!erts_active_export_entry(m, f, BIF_ARG_2))
 	    goto badfun;
     } else
 	goto badfun;

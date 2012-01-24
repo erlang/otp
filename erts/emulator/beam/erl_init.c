@@ -236,7 +236,7 @@ void erl_error(char *fmt, va_list args)
 static int early_init(int *argc, char **argv);
 
 void
-erts_short_init_SVERK_SAYS_NOT_USED(void)
+erts_short_init(void)
 {
     int ncpu = early_init(NULL, NULL);
     erl_init(ncpu);

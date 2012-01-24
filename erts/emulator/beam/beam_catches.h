@@ -20,7 +20,7 @@
 #ifndef __BEAM_CATCHES_H
 #define __BEAM_CATCHES_H
 
-#include "global.h"  /*SVERK the code_ix stuff */
+#include "code_ix.h"
 
 #define BEAM_CATCHES_NIL	(-1)
 

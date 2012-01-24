@@ -274,9 +274,8 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
  * Returns a pointer to an existing export entry for a MFA,
  * or creates a new one and returns the pointer.
  *
- * This function provides unlocked write access to the main export
- * table. It should only be used during start up or when
- * all other threads are blocked.
+ * This function acts on the staging export table. It should only be used
+ * to load new code.
  */
 
 Export*
@@ -318,11 +317,11 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 	ep = erts_find_export_entry(mod, func, arity, code_ix);
 	if (ep == 0) {
 	    /*
-	     * The code is not loaded (yet). Put the export in the loader
+	     * The code is not loaded (yet). Put the export in the staging
 	     * export table, to avoid having to lock the active export table.
 	     */
 	    export_write_lock();
-	    if (erts_active_code_ix() == code_ix) { /*SVERK barrier? */
+	    if (erts_active_code_ix() == code_ix) {
 		struct export_templ templ;
 	        struct export_entry* entry;
 

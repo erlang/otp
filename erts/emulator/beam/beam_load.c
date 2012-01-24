@@ -1240,7 +1240,7 @@ load_import_table(LoaderState* stp)
 	 * If the export entry refers to a BIF, get the pointer to
 	 * the BIF function.
 	 */
-	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) { /*SVERK does it matter which one we use? */
+	if ((e = erts_active_export_entry(mod, func, arity)) != NULL) {
 	    if (e->code[3] == (BeamInstr) em_apply_bif) {
 		stp->import[i].bf = (BifFunction) e->code[4];
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
@@ -5952,7 +5952,7 @@ static erts_smp_atomic32_t the_loader_code_index;
 static erts_smp_mtx_t sverk_code_ix_lock; /*SVERK FIXME */
 static erts_smp_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
 
-#ifdef DEBUG
+#if 0
 # define CIX_TRACE(text) erts_fprintf(stderr, "CIX_TRACE: " text " act=%u load=%u\r\n", erts_active_code_ix(), erts_staging_code_ix())
 #else
 # define CIX_TRACE(text)
