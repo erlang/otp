@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -63,6 +63,12 @@ start_all_windows(_Config) ->
     {ok, SysPid} = ?msym({ok, _}, reltool:start([{trap_exit, false}])),
     {ok, AppPid} = ?msym({ok, _}, reltool_sys_win:open_app(SysPid, stdlib)),
     ?msym({ok, _}, reltool_app_win:open_mod(AppPid, escript)),
+
+    %% Test that server pid can be fetched, and that server is alive
+    {ok, Server} = ?msym({ok,_}, reltool:get_server(SysPid)),
+    ?m(true, erlang:is_process_alive(Server)),
+    ?m({ok,{sys,[]}}, reltool:get_config(Server)),
+
     timer:sleep(timer:seconds(10)),
     ?m(ok, reltool:stop(SysPid)),
     
