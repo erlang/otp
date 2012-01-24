@@ -129,7 +129,7 @@ erts_put_module(Eterm mod)
 		       || erts_is_code_ix_locked()
 		       || erts_smp_thr_progress_is_blocking());
 
-    mod_tab = &module_tables[erts_loader_code_ix()];
+    mod_tab = &module_tables[erts_staging_code_ix()];
     e.module = atom_val(mod);
     return (Module*) index_put_entry(mod_tab, (void*) &e);
 }
@@ -155,10 +155,10 @@ static ErtsCodeIndex dbg_load_code_ix = 0;
 
 static int entries_at_start_load = 0;
 
-void module_start_load(void)
+void module_start_staging(void)
 {
     IndexTable* src = &module_tables[erts_active_code_ix()];
-    IndexTable* dst = &module_tables[erts_loader_code_ix()];
+    IndexTable* dst = &module_tables[erts_staging_code_ix()];
     Module* src_mod;
     Module* dst_mod;
     int i;
@@ -191,15 +191,15 @@ void module_start_load(void)
     }
     entries_at_start_load = dst->entries;
 
-    IF_DEBUG(dbg_load_code_ix = erts_loader_code_ix());
+    IF_DEBUG(dbg_load_code_ix = erts_staging_code_ix());
 }
 
-void module_end_load(int commit)
+void module_end_staging(int commit)
 {
-    ASSERT(dbg_load_code_ix == erts_loader_code_ix());
+    ASSERT(dbg_load_code_ix == erts_staging_code_ix());
 
     if (!commit) { /* abort */
-	IndexTable* tab = &module_tables[erts_loader_code_ix()];
+	IndexTable* tab = &module_tables[erts_staging_code_ix()];
 
 	ASSERT(entries_at_start_load <= tab->entries);
 	index_erase_latest_from(tab, entries_at_start_load);

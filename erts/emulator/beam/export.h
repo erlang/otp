@@ -72,8 +72,8 @@ Export *export_list(int,ErtsCodeIndex);
 int export_list_size(ErtsCodeIndex);
 int export_table_sz(void);
 Export *export_get(Export*);
-void export_start_load(void);
-void export_end_load(int commit);
+void export_start_staging(void);
+void export_end_staging(int commit);
 
 extern erts_smp_rwmtx_t export_table_lock;
 #define export_write_lock()	erts_smp_rwmtx_rwlock(&export_table_lock)

@@ -78,9 +78,9 @@ erts_init_ranges(void)
 }
 
 void
-erts_start_load_ranges(void)
+erts_start_staging_ranges(void)
 {
-    ErtsCodeIndex dst = erts_loader_code_ix();
+    ErtsCodeIndex dst = erts_staging_code_ix();
 
     if (r[dst].modules) {
 	erts_smp_atomic_add_nob(&mem_used, -r[dst].allocated);
@@ -90,9 +90,9 @@ erts_start_load_ranges(void)
 }
 
 void
-erts_end_load_ranges(int commit)
+erts_end_staging_ranges(int commit)
 {
-    ErtsCodeIndex dst = erts_loader_code_ix();
+    ErtsCodeIndex dst = erts_staging_code_ix();
 
     if (commit && r[dst].modules == NULL) {
 	Sint i;
@@ -123,7 +123,7 @@ erts_end_load_ranges(int commit)
 void
 erts_update_ranges(BeamInstr* code, Uint size)
 {
-    ErtsCodeIndex dst = erts_loader_code_ix();
+    ErtsCodeIndex dst = erts_staging_code_ix();
     ErtsCodeIndex src = erts_active_code_ix();
     Sint i;
     Sint n;

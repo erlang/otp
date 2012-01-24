@@ -89,20 +89,20 @@ load_module_2(BIF_ALIST_2)
     ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
 
     erts_lock_code_ix();
-    erts_start_loader_code_ix();
+    erts_start_staging_code_ix();
 
     reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
     if (reason != NIL) {
 	if (reason == am_on_load) {
-	    erts_commit_loader_code_ix();
+	    erts_commit_staging_code_ix();
 	}
 	else {
-	    erts_abort_loader_code_ix();
+	    erts_abort_staging_code_ix();
 	}
 	res = TUPLE2(hp, am_error, reason);
     } else {
-	set_default_trace_pattern(BIF_ARG_1, erts_loader_code_ix());
-	erts_commit_loader_code_ix();
+	set_default_trace_pattern(BIF_ARG_1, erts_staging_code_ix());
+	erts_commit_staging_code_ix();
 	res = TUPLE2(hp, am_module, BIF_ARG_1);
     }
 
@@ -174,15 +174,15 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
 
     erts_lock_code_ix();
-    erts_start_loader_code_ix();
+    erts_start_staging_code_ix();
 
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
     if (res == BIF_ARG_1) {
-	erts_commit_loader_code_ix();
+	erts_commit_staging_code_ix();
     }
     else {
-	erts_abort_loader_code_ix();
+	erts_abort_staging_code_ix();
     }
     erts_unlock_code_ix();
 
@@ -294,8 +294,8 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
 
     erts_lock_code_ix();
-    erts_start_loader_code_ix();
-    code_ix = erts_loader_code_ix();
+    erts_start_staging_code_ix();
+    code_ix = erts_staging_code_ix();
     {
 	Module *modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {
@@ -316,10 +316,10 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     }
 
     if (res == am_true) {
-	erts_commit_loader_code_ix();
+	erts_commit_staging_code_ix();
     }
     else {
-	erts_abort_loader_code_ix();
+	erts_abort_staging_code_ix();
     }
     erts_unlock_code_ix();
 
@@ -869,7 +869,7 @@ delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
 static void
 delete_export_references(Eterm module)
 {
-    ErtsCodeIndex code_ix = erts_loader_code_ix();
+    ErtsCodeIndex code_ix = erts_staging_code_ix();
     int i;
 
     ASSERT(is_atom(module));

@@ -89,7 +89,7 @@ export_info(int to, void *to_arg)
 	export_read_lock();
 #endif
     index_info(to, to_arg, &export_tables[erts_active_code_ix()]);
-    hash_info(to, to_arg, &export_tables[erts_loader_code_ix()].htable);
+    hash_info(to, to_arg, &export_tables[erts_staging_code_ix()].htable);
 #ifdef ERTS_SMP
     if (lock)
 	export_read_unlock();
@@ -282,7 +282,7 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
 Export*
 erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 {
-    ErtsCodeIndex code_ix = erts_loader_code_ix();
+    ErtsCodeIndex code_ix = erts_staging_code_ix();
     struct export_templ templ;
     struct export_entry* ee;
 
@@ -326,7 +326,7 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 		struct export_templ templ;
 	        struct export_entry* entry;
 
-		IndexTable* tab = &export_tables[erts_loader_code_ix()];
+		IndexTable* tab = &export_tables[erts_staging_code_ix()];
 		init_template(&templ, mod, func, arity);
 		entry = (struct export_entry *) index_put_entry(tab, &templ.entry);
 		ep = entry->ep;
@@ -370,9 +370,9 @@ Export *export_get(Export *e)
 IF_DEBUG(static ErtsCodeIndex debug_start_load_ix = 0;)
 
 
-void export_start_load(void)
+void export_start_staging(void)
 {
-    ErtsCodeIndex dst_ix = erts_loader_code_ix();
+    ErtsCodeIndex dst_ix = erts_staging_code_ix();
     ErtsCodeIndex src_ix = erts_active_code_ix();
     IndexTable* dst = &export_tables[dst_ix];
     IndexTable* src = &export_tables[src_ix];
@@ -399,9 +399,9 @@ void export_start_load(void)
     IF_DEBUG(debug_start_load_ix = dst_ix);
 }
 
-void export_end_load(int commit)
+void export_end_staging(int commit)
 {
-    ASSERT(debug_start_load_ix == erts_loader_code_ix());
+    ASSERT(debug_start_load_ix == erts_staging_code_ix());
     IF_DEBUG(debug_start_load_ix = -1);
 }
 

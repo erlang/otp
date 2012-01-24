@@ -25,7 +25,7 @@ typedef unsigned ErtsCodeIndex;
 
 void erts_code_ix_init(void);
 ErtsCodeIndex erts_active_code_ix(void);
-ErtsCodeIndex erts_loader_code_ix(void);
+ErtsCodeIndex erts_staging_code_ix(void);
 
 /* Lock code_ix (enqueue and suspend until we get it)
 */
@@ -49,9 +49,9 @@ void erts_lock_code_ix(void);
 */
 void erts_unlock_code_ix(void);
 
-void erts_start_loader_code_ix(void);
-void erts_commit_loader_code_ix(void);
-void erts_abort_loader_code_ix(void);
+void erts_start_staging_code_ix(void);
+void erts_commit_staging_code_ix(void);
+void erts_abort_staging_code_ix(void);
 
 void erts_rwlock_old_code(ErtsCodeIndex);
 void erts_rwunlock_old_code(ErtsCodeIndex);

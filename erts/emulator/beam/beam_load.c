@@ -4249,13 +4249,13 @@ final_touch(LoaderState* stp)
 	ep = erts_export_put(stp->module, stp->export[i].function,
 			     stp->export[i].arity);
 	if (!on_load) {
-	    ep->addressv[erts_loader_code_ix()] = address;
+	    ep->addressv[erts_staging_code_ix()] = address;
 	} else {
 	    /*
 	     * Don't make any of the exported functions
 	     * callable yet.
 	     */
-	    ep->addressv[erts_loader_code_ix()] = ep->code+3;
+	    ep->addressv[erts_staging_code_ix()] = ep->code+3;
 	    ep->code[4] = (BeamInstr) address;
 	}
     }
@@ -5531,7 +5531,7 @@ stub_final_touch(LoaderState* stp, BeamInstr* fp)
     for (i = 0; i < n; i++) {
 	if (stp->export[i].function == function && stp->export[i].arity == arity) {
 	    Export* ep = erts_export_put(mod, function, arity);
-	    ep->addressv[erts_loader_code_ix()] = fp+5;
+	    ep->addressv[erts_staging_code_ix()] = fp+5;
 	    return;
 	}
     }
@@ -5953,7 +5953,7 @@ static erts_smp_mtx_t sverk_code_ix_lock; /*SVERK FIXME */
 static erts_smp_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
 
 #ifdef DEBUG
-# define CIX_TRACE(text) erts_fprintf(stderr, "CIX_TRACE: " text " act=%u load=%u\r\n", erts_active_code_ix(), erts_loader_code_ix())
+# define CIX_TRACE(text) erts_fprintf(stderr, "CIX_TRACE: " text " act=%u load=%u\r\n", erts_active_code_ix(), erts_staging_code_ix())
 #else
 # define CIX_TRACE(text)
 #endif
@@ -5974,7 +5974,7 @@ ErtsCodeIndex erts_active_code_ix(void)
 {
     return erts_smp_atomic32_read_nob(&the_active_code_index);
 }
-ErtsCodeIndex erts_loader_code_ix(void)
+ErtsCodeIndex erts_staging_code_ix(void)
 {
     return erts_smp_atomic32_read_nob(&the_loader_code_index);
 }
@@ -6000,26 +6000,26 @@ int erts_is_code_ix_locked(void)
 }
 #endif
 
-void erts_start_loader_code_ix(void)
+void erts_start_staging_code_ix(void)
 {
-    beam_catches_start_load();
-    export_start_load();
-    module_start_load();
-    erts_start_load_ranges();
+    beam_catches_start_staging();
+    export_start_staging();
+    module_start_staging();
+    erts_start_staging_ranges();
     CIX_TRACE("start");
 }
 
 
-void erts_commit_loader_code_ix(void)
+void erts_commit_staging_code_ix(void)
 {
-    beam_catches_end_load(1);
-    export_end_load(1);
-    module_end_load(1);
-    erts_end_load_ranges(1);
+    beam_catches_end_staging(1);
+    export_end_staging(1);
+    module_end_staging(1);
+    erts_end_staging_ranges(1);
     {
 	ErtsCodeIndex ix;
 	export_write_lock();
-	ix = erts_loader_code_ix();
+	ix = erts_staging_code_ix();
 	erts_smp_atomic32_set_nob(&the_active_code_index, ix);
 	ix = (ix + 1) % ERTS_NUM_CODE_IX;
 	erts_smp_atomic32_set_nob(&the_loader_code_index, ix);
@@ -6028,12 +6028,12 @@ void erts_commit_loader_code_ix(void)
     CIX_TRACE("commit");
 }
 
-void erts_abort_loader_code_ix(void)
+void erts_abort_staging_code_ix(void)
 {
-    beam_catches_end_load(0);
-    export_end_load(0);
-    module_end_load(0);
-    erts_end_load_ranges(0);
+    beam_catches_end_staging(0);
+    export_end_staging(0);
+    module_end_staging(0);
+    erts_end_staging_ranges(0);
     CIX_TRACE("abort");
 }
 

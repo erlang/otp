@@ -62,7 +62,7 @@ void beam_catches_init(void)
 	bccix[i] = bccix[i-1];
     }
      /* For initial load: */
-    IF_DEBUG(bccix[erts_loader_code_ix()].is_prepared = 1);
+    IF_DEBUG(bccix[erts_staging_code_ix()].is_prepared = 1);
 }
 
 
@@ -78,9 +78,9 @@ static void gc_old_vec(beam_catch_t* vec)
 }
 
 
-void beam_catches_start_load(void)
+void beam_catches_start_staging(void)
 {
-    ErtsCodeIndex dst = erts_loader_code_ix();
+    ErtsCodeIndex dst = erts_staging_code_ix();
     ErtsCodeIndex src = erts_active_code_ix();
     beam_catch_t* prev_vec = bccix[dst].beam_catches;
 
@@ -91,15 +91,15 @@ void beam_catches_start_load(void)
     IF_DEBUG(bccix[dst].is_prepared = 1);
 }
 
-void beam_catches_end_load(int commit)
+void beam_catches_end_staging(int commit)
 {
-    IF_DEBUG(bccix[erts_loader_code_ix()].is_prepared = 0);
+    IF_DEBUG(bccix[erts_staging_code_ix()].is_prepared = 0);
 }
 
 unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 {
     int i;
-    struct bc_code_ix* p = &bccix[erts_loader_code_ix()];
+    struct bc_code_ix* p = &bccix[erts_staging_code_ix()];
 
     ASSERT(p->is_prepared);
     /*
@@ -151,7 +151,7 @@ void beam_catches_delmod(unsigned head, BeamInstr *code, unsigned code_bytes,
     struct bc_code_ix* p = &bccix[code_ix];
     unsigned i, cdr;
 
-    ASSERT((code_ix == erts_active_code_ix()) != bccix[erts_loader_code_ix()].is_prepared);
+    ASSERT((code_ix == erts_active_code_ix()) != bccix[erts_staging_code_ix()].is_prepared);
     for(i = head; i != (unsigned)-1;) {
 	if (i >= p->tabsize) {
 	    erl_exit(1, "beam_catches_delmod: index %#x is out of range\r\n", i);

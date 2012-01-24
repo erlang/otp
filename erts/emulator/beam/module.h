@@ -43,8 +43,8 @@ Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
 Module* erts_put_module(Eterm mod);
 
 void init_module_table(void);
-void module_start_load(void);
-void module_end_load(int commit);
+void module_start_staging(void);
+void module_end_staging(int commit);
 void module_info(int, void *);
 
 Module *module_code(int, ErtsCodeIndex);
