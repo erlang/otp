@@ -1,8 +1,23 @@
-%% Copyright (C) 2012 Björn-Egil Dahlberg
 %%
-%% File:    code_parallel_load_SUITE.erl
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2012. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+%%
 %% Author:  Björn-Egil Dahlberg
-%% Created: 2012-01-19
+
 -module(code_parallel_load_SUITE).
 -export([
 	all/0,
@@ -19,7 +34,7 @@
     ]).
 
 -define(model,       code_parallel_load_SUITE_model).
--define(interval,    1500).
+-define(interval,    50).
 -define(number_of_processes, 160).
 -define(passes, 4).
 
@@ -46,13 +61,20 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     [{watchdog, Dog}|Config].
 
 end_per_testcase(_Func, Config) ->
-    Dog=?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog),
+    SConf = ?config(save_config, Config),
+    Pids  = proplists:get_value(purge_pids, SConf),
+
+    case check_old_code(?model) of
+	true -> check_and_purge_processes_code(Pids, ?model);
+	_ ->    ok
+    end,
     case erlang:delete_module(?model) of
-	true ->
-	    erlang:purge_module(?model);
-	_ -> ok
-    end.
+	true -> check_and_purge_processes_code(Pids, ?model);
+	_ ->    ok
+    end,
+    Dog=?config(watchdog, Config),
+    ?t:timetrap_cancel(Dog).
+
 
 multiple_load_check_purge_repeat(_Conf) ->
     Ts    = [v1,v2,v3,v4,v5,v6],
@@ -68,17 +90,18 @@ multiple_load_check_purge_repeat(_Conf) ->
 	    format("f() -> ~w.~n", [T])
 	])} || T <- Ts],
 
-    setup_code_changer(Codes),
-    ok.
+    Pids = setup_code_changer(Codes),
+    {save_config, [{purge_pids,Pids}]}.
 
 setup_code_changer([{Token,Code}|Cs] = Codes) ->
     {module, ?model} = erlang:load_module(?model,Code),
     Pids = setup_checkers(Token,?number_of_processes),
     code_changer(Cs, Codes, ?interval,Pids,?passes),
-    ok.
+    Pids.
 
 code_changer(_, _, _, Pids, 0) ->
-    [exit(Pid, normal) || Pid <- Pids],
+    [unlink(Pid) || Pid <- Pids],
+    [exit(Pid, die) || Pid <- Pids],
     io:format("done~n"),
     ok;
 code_changer([], Codes, T, Pids, Ps) ->
@@ -119,7 +142,8 @@ many_load_distributed_only_once(_Conf) ->
     Loads = [receive {Pid, change, Res} -> Res end || Pid <- Pids],
     [receive {Pid, completed, Token2} -> ok end || Pid <- Pids],
 
-    ok = ensure_only_one_load(Loads, 0).
+    ok = ensure_only_one_load(Loads, 0),
+    {save_config, [{purge_pids,Pids}]}.
 
 ensure_only_one_load([], 1) -> ok;
 ensure_only_one_load([], _) -> too_many_loads;
