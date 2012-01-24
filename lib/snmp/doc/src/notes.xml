@@ -33,6 +33,65 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.21.6</title>
+    <p>Version 4.21.6 supports code replacement in runtime from/to
+    version 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1 and 
+    4.20. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!--
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] DoS attack using GET-BULK with large value of 
+	  MaxRepetitions.
+	  A preventive method has been implementing by simply 
+	  limit the number of varbinds that can be included in 
+	  a Get-BULK response message. This is specified by the 
+	  new config option, 
+	  <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>. 
+	  </p>
+	  <p>Own Id: OTP-9700</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <!--
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Mib server cache gclimit update function incorrectly calls 
+	  age update function. 
+	  The gclimit update function, 
+	  <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1</seealso>, 
+	  <em>incorrectly</em> called the age update function, 
+	  <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/2</seealso>. </p>
+	  <p>Johan Claesson</p>
+          <p>Own Id: OTP-9868</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.21.6 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.21.5</title>
     <p>Version 4.21.5 supports code replacement in runtime from/to
       version 4.21.4, 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1 and 4.20. </p>
@@ -62,13 +121,13 @@
       <list type="bulleted">
         <item>
           <p>[agent] Repeated vacm table dumping fails due to file name 
-	  conflict. When dumping the vacm table to disk, a temoporary 
-	  file with a fixed name was used. If the table dumping 
-	  (snmpa_vacm:dump_table/0) was initiated from several different 
-	  processes in rapid succesion, the dumping could fail because the 
-	  different processes was simultaniously trying to write to the 
-	  same file. This problem has been eliminated by creating a unique 
-	  name for the temporary file. </p>
+          conflict. When dumping the vacm table to disk, a temoporary 
+          file with a fixed name was used. If the table dumping 
+          (snmpa_vacm:dump_table/0) was initiated from several different 
+          processes in rapid succesion, the dumping could fail because the 
+          different processes was simultaniously trying to write to the 
+          same file. This problem has been eliminated by creating a unique 
+          name for the temporary file. </p>
           <p>Own Id: OTP-9851</p>
           <p>Aux Id: Seq 11980</p>
         </item>
