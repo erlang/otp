@@ -40,7 +40,7 @@ static Eterm check_process_code(Process* rp, Module* modp);
 static void ensure_no_breakpoints(Process *, ErtsProcLocks, Eterm module);
 static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
 static void delete_export_references(Eterm module);
-static int purge_module(int module);
+static int purge_module(Process*, int module);
 static void decrement_refc(BeamInstr* code);
 static int is_native(BeamInstr* code);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
@@ -128,7 +128,7 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 
     erts_export_consolidate(erts_active_code_ix());*/
 
-    purge_res = purge_module(atom_val(BIF_ARG_1));
+    purge_res = purge_module(BIF_P, atom_val(BIF_ARG_1));
 
     /*SVERK
     erts_smp_thr_progress_unblock();
@@ -721,15 +721,17 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 
 
 static int
-purge_module(int module)
+purge_module(Process* c_p, int module)
 {
     ErtsCodeIndex code_ix;
     BeamInstr* code;
     BeamInstr* end;
     Module* modp;
+    int is_blocked = 0;
     int ret;
 
     erts_lock_code_ix();
+retry:
     code_ix = erts_active_code_ix();
 
     /*
@@ -753,6 +755,16 @@ purge_module(int module)
 	     * Unload any NIF library
 	     */
 	    if (modp->old.nif != NULL) {
+		if (!is_blocked) {
+		    /*SVERK Do unload nif without blocking */
+		    erts_rwunlock_old_code(code_ix);
+		    erts_unlock_code_ix();
+		    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+		    erts_smp_thr_progress_block();
+		    is_blocked = 1;
+		    goto retry;
+		}
+
 		erts_unload_nif(modp->old.nif);
 		modp->old.nif = NULL;
 	    }
@@ -777,7 +789,13 @@ purge_module(int module)
 	}
 	erts_rwunlock_old_code(code_ix);
     }
-    erts_unlock_code_ix();
+    if (is_blocked) {
+	erts_smp_thr_progress_unblock();
+	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+    }
+    else {
+	erts_unlock_code_ix();
+    }
     return ret;
 }
 
