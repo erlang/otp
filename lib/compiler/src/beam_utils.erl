@@ -474,8 +474,15 @@ check_liveness(R, [{make_fun2,_,_,_,NumFree}|Is], St) ->
     end;
 check_liveness(R, [{try_end,Y}|Is], St) ->
     case R of
-	Y -> {killed,St};
-	_ -> check_liveness(R, Is, St)
+	Y ->
+	    {killed,St};
+	{y,_} ->
+	    %% y registers will be used if an exception occurs and
+	    %% control transfers to the label given in the previous
+	    %% try/2 instruction.
+	    {used,St};
+	_ ->
+	    check_liveness(R, Is, St)
     end;
 check_liveness(R, [{catch_end,Y}|Is], St) ->
     case R of
