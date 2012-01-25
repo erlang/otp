@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2011. All Rights Reserved.
+# Copyright Ericsson AB 2004-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -318,10 +318,14 @@ ETHREAD_LIB=
 
 endif
 
+_create_dirs := $(shell mkdir -p $(CREATE_DIRS))
 #
 # Everything to build
 #
-all: $(CREATE_DIRS) $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
+.PHONY: all
+all: $(OBJ_DIR)/MADE
+
+$(OBJ_DIR)/MADE: $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -331,6 +335,8 @@ ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
 endif
+	echo  $? > $(OBJ_DIR)/MADE
+
 #
 # The libs ...
 #
@@ -428,13 +434,6 @@ $(MTd_OBJ_DIR)/%.o: $(ETHR_THR_LIB_BASE_DIR)/%.c
 	$(CC) $(THR_DEFS) $(CFLAGS) -MTd $(INCLUDES) -c $< -o $@
 
 #
-# Create directories
-#
-
-$(CREATE_DIRS):
-	$(MKDIR) -p $@
-
-#
 # Install
 #
 
@@ -471,6 +470,7 @@ INTERNAL_RELEASE_LIBS= \
 	$(ETHREAD_LIB) \
 	$(ERTS_INTERNAL_LIBS)
 
+.PHONY: release_spec
 release_spec: all
 ifneq ($(strip $(RELEASE_INCLUDES)),)
 	$(INSTALL_DIR) $(RELSYSDIR)/include
@@ -500,19 +500,20 @@ ifneq ($(strip $(INTERNAL_RELEASE_LIBS)),)
 	$(INSTALL_DATA) $(INTERNAL_RELEASE_LIBS) $(RELSYSDIR)/lib/internal
 endif
 
+.PHONY: docs
 docs: 
 
+.PHONY: release_docs_spec
 release_docs_spec:
-
 
 #
 # Cleanup
 #
+.PHONY: clean
 clean:
 	$(RM) -rf ../lib/internal/$(TARGET)/*
 	$(RM) -rf ../lib/$(TARGET)/*
 	$(RM) -rf obj/$(TARGET)/*
-	$(RM) -f $(TARGET)/depend.mk
 
 #
 # Make dependencies
@@ -554,9 +555,11 @@ SED_MDd_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MDd_O);$(SED_REPL_TT_DIR);$(SED_REPL
 SED_MT_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MT_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
 SED_MTd_DEPEND=sed '$(SED_PREFIX)$(SED_REPL_MTd_O);$(SED_REPL_TT_DIR);$(SED_REPL_TARGET)'
 
-DEPEND_MK=$(TARGET)/depend.mk
+DEPEND_MK=$(OBJ_DIR)/depend.mk
 
-depend:
+.PHONY: depend
+depend: $(DEPEND_MK)
+$(DEPEND_MK):
 	@echo "Generating dependency file $(DEPEND_MK)..."
 	@echo "# Generated dependency rules" > $(DEPEND_MK);
 	@echo "# " >> $(DEPEND_MK);
@@ -629,6 +632,8 @@ endif
 endif
 	@echo "# EOF" >> $(DEPEND_MK);
 
+ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPEND_MK)
+endif
 
 # eof
