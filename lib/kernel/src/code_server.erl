@@ -1317,15 +1317,21 @@ int_list([H|T]) when is_integer(H) -> int_list(T);
 int_list([_|_])                    -> false;
 int_list([])                       -> true.
 
+load_file(Mod0, {From,_}=Caller, St0) ->
+    Mod = to_atom(Mod0),
+    case pending_on_load(Mod, From, St0) of
+	no -> load_file_1(Mod, Caller, St0);
+	{yes,St} -> {noreply,St}
+    end.
 
-load_file(Mod, Caller, #state{path=Path,cache=no_cache}=St) ->
+load_file_1(Mod, Caller, #state{path=Path,cache=no_cache}=St) ->
     case mod_to_bin(Path, Mod) of
 	error ->
 	    {reply,{error,nofile},St};
 	{Mod,Binary,File} ->
 	    try_load_module(File, Mod, Binary, Caller, St)
     end;
-load_file(Mod, Caller, #state{cache=Cache}=St0) ->
+load_file_1(Mod, Caller, #state{cache=Cache}=St0) ->
     Key = {obj,Mod},
     case ets:lookup(Cache, Key) of
 	[] -> 
