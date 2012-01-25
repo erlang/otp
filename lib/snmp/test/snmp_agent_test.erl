@@ -1321,8 +1321,11 @@ finish_v3(Config) when is_list(Config) ->
     lists:keydelete(vsn, 1, C1).
 
 
-mt_cases() -> 
-    [multi_threaded, mt_trap].
+mt_cases() ->
+    [
+     multi_threaded, 
+     mt_trap
+    ].
 
 init_mt(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
