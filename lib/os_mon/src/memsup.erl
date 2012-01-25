@@ -802,8 +802,7 @@ port_init() ->
     port_idle(Port).
 
 start_portprogram() ->
-    Command = filename:join([code:priv_dir(os_mon), "bin", "memsup"]),
-    open_port({spawn, Command}, [{packet, 1}]).
+    os_mon:open_port("memsup",[{packet,1}]).
 
 %% The connected process loops are a bit awkward (several different
 %% functions doing almost the same thing) as

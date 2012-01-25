@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 -behaviour(supervisor).
 
 %% API
--export([call/2, call/3, get_env/2]).
+-export([call/2, call/3, get_env/2, open_port/2]).
 
 %% Application callbacks
 -export([start/2, stop/1]).
@@ -78,6 +78,22 @@ get_env(Service, Param) ->
 	undefined ->
 	    Service:param_default(Param)
     end.
+
+open_port(Name, Opts) ->
+    PrivDir = code:priv_dir(os_mon),
+    ReleasedPath = filename:join([PrivDir,"bin",Name]),
+    %% Check os_mon*/priv/bin/Name
+    case filelib:is_regular(ReleasedPath) of
+	true ->
+	    erlang:open_port({spawn, ReleasedPath}, Opts);
+	false ->
+	    %% Use os_mon*/priv/bin/Arch/Name
+	    ArchPath =
+		filename:join(
+		  [PrivDir,"bin",erlang:system_info(system_architecture),Name]),
+	    erlang:open_port({spawn, ArchPath}, Opts)
+    end.
+
 
 %%%-----------------------------------------------------------------
 %%% Application callbacks
