@@ -61,15 +61,46 @@ start_all_windows(TestInfo) when is_atom(TestInfo) ->
     reltool_test_lib:tc_info(TestInfo);
 start_all_windows(_Config) ->
     {ok, SysPid} = ?msym({ok, _}, reltool:start([{trap_exit, false}])),
+    erlang:monitor(process,SysPid),
     {ok, AppPid} = ?msym({ok, _}, reltool_sys_win:open_app(SysPid, stdlib)),
-    ?msym({ok, _}, reltool_app_win:open_mod(AppPid, escript)),
+    erlang:monitor(process,AppPid),
+    {ok, ModPid} = ?msym({ok, _}, reltool_app_win:open_mod(AppPid, escript)),
+    erlang:monitor(process,ModPid),
+
+    %% Let all windows get started
+    timer:sleep(timer:seconds(10)),
 
     %% Test that server pid can be fetched, and that server is alive
     {ok, Server} = ?msym({ok,_}, reltool:get_server(SysPid)),
     ?m(true, erlang:is_process_alive(Server)),
     ?m({ok,{sys,[]}}, reltool:get_config(Server)),
 
-    timer:sleep(timer:seconds(10)),
+    %% Terminate
+    check_no_win_crash(),
     ?m(ok, reltool:stop(SysPid)),
-    
+    wait_terminate([{sys,SysPid},{app,AppPid},{mod,ModPid}]),
+
     ok.
+
+
+%%%-----------------------------------------------------------------
+%%% Internal functions
+check_no_win_crash() ->
+    receive {'DOWN',_,_,_,_} = Down ->
+	    ct:log("Unexpected termination of window:~n~p",[Down]),
+	    ct:fail("window crashed")
+    after 0 ->
+	    ok
+    end.
+
+wait_terminate([]) ->
+    ok;
+wait_terminate([{Win,P}|Rest]) ->
+    receive
+	{'DOWN',_,process,P,shutdown} ->
+	    wait_terminate(Rest);
+	{'DOWN',_,process,P,Reason} ->
+	    ct:log("~p window terminated with unexpected reason:~n~p",
+		   [Win,Reason]),
+	    ct:fail("unexpected exit reason from window")
+    end.
