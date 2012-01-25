@@ -352,11 +352,26 @@ send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, ExtraInfo, NetIf) ->
     send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
 	      LocalEngineID, ExtraInfo, NetIf).
 
+%% The agent normally does not care about the result, 
+%% but since it can be usefull when debugging, add 
+%% some info when we fail to send the trap(s).
 send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, LocalEngineID, 
 	  ExtraInfo, NetIf) ->
-    (catch do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
-			LocalEngineID, ExtraInfo, NetIf)).
-
+    try 
+	begin
+	    do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
+			 LocalEngineID, ExtraInfo, NetIf)
+	end
+    catch
+	T:E ->
+	    Info = [{args, [TrapRec, NotifyName, ContextName, 
+			    Recv, Vbs, LocalEngineID, ExtraInfo, NetIf]},
+		    {tag,  T},
+		    {err,  E},
+		    {stacktrace, erlang:get_stacktrace()}],
+	    {error, {failed_sending_trap, Info}}
+    end.
+     
 do_send_trap(TrapRec, NotifyName, ContextName, Recv, Vbs, 
 	     LocalEngineID, ExtraInfo, NetIf) ->
     VarbindList = make_varbind_list(Vbs),
