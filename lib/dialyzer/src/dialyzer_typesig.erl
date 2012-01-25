@@ -106,7 +106,9 @@
 		prop_types    = dict:new() :: dict(),
 		records       = dict:new() :: dict(),
 		opaques       = []         :: [erl_types:erl_type()],
-		scc           = []         :: [type_var()]}).
+		scc           = []         :: [type_var()],
+		mfas                       :: [tuple()]
+	       }).
 
 %%-----------------------------------------------------------------------------
 
@@ -646,8 +648,14 @@ get_plt_constr(MFA, Dst, ArgVars, State) ->
   PltRes = dialyzer_plt:lookup(Plt, MFA),
   Opaques = State#state.opaques,
   Module = State#state.module,
+  SCCMFAs = State#state.mfas,
   {FunModule, _, _} = MFA,
-  case dialyzer_plt:lookup_contract(Plt, MFA) of
+  Contract =
+    case lists:member(MFA, SCCMFAs) of
+      true -> none;
+      false -> dialyzer_plt:lookup_contract(Plt, MFA)
+    end,
+  case Contract of
     none ->
       case PltRes of
 	none -> State;
@@ -2078,10 +2086,13 @@ mk_var_no_lit_list(List) ->
 %% ============================================================================
 
 new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes) ->
-  NameMap = dict:from_list([{MFA, Var} || {MFA, {Var, _Fun}, _Rec} <- SCC0]),
+  List = [{MFA, Var} || {MFA, {Var, _Fun}, _Rec} <- SCC0],
+  NameMap = dict:from_list(List),
+  MFAs = [MFA || {MFA, _Var} <- List],
   SCC = [mk_var(Fun) || {_MFA, {_Var, Fun}, _Rec} <- SCC0],
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
-	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC)}.
+	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
+	 mfas = MFAs}.
 
 state__set_rec_dict(State, RecDict) ->
   State#state{records = RecDict}.

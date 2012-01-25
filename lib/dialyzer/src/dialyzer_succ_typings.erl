@@ -330,23 +330,20 @@ analyze_scc(SCC, #st{codeserver = Codeserver} = State) ->
 		|| {_, _, _} = MFA <- SCC],
   Contracts2 = [{MFA, Contract} || {MFA, {ok, Contract}} <- Contracts1],
   Contracts3 = orddict:from_list(Contracts2),
+  NextLabel = dialyzer_codeserver:get_next_core_label(Codeserver),
   {SuccTypes, PltContracts, NotFixpoint} = 
-    find_succ_types_for_scc(SCC_Info, Contracts3, State),
+    find_succ_types_for_scc(SCC_Info, Contracts3, NextLabel, State),
   State1 = insert_into_plt(SuccTypes, State),
   ContrPlt = dialyzer_plt:insert_contract_list(State1#st.plt, PltContracts),
   {State1#st{plt = ContrPlt}, NotFixpoint}.
 
-find_succ_types_for_scc(SCC_Info, Contracts, 
-			#st{codeserver = Codeserver, 
-			    callgraph = Callgraph, plt = Plt} = State) ->
+find_succ_types_for_scc(SCC_Info, Contracts, NextLabel,
+			#st{callgraph = Callgraph, plt = Plt} = State) ->
   %% Assume that the PLT contains the current propagated types
   AllFuns = collect_fun_info([Fun || {_MFA, {_Var, Fun}, _Rec} <- SCC_Info]),
   PropTypes = get_fun_types_from_plt(AllFuns, State),
-  MFAs = [MFA || {MFA, {_Var, _Fun}, _Rec} <- SCC_Info],
-  NextLabel = dialyzer_codeserver:get_next_core_label(Codeserver),
-  Plt1 = dialyzer_plt:delete_contract_list(Plt, MFAs),
   FunTypes = dialyzer_typesig:analyze_scc(SCC_Info, NextLabel, 
-					  Callgraph, Plt1, PropTypes),
+					  Callgraph, Plt, PropTypes),
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
   FilteredFunTypes = dict:filter(fun(X, _) ->
 				      sets:is_element(X, AllFunSet) 
