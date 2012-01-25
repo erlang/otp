@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,7 @@
 	 runtime_zero_diff/1,
 	 runtime_update/1, runtime_diff/1,
 	 run_queue_one/1,
+	 scheduler_wall_time/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
 	 badarg/1]).
 
@@ -51,8 +52,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, wall_clock}, {group, runtime}, reductions,
-     reductions_big, {group, run_queue}, garbage_collection,
-     io, badarg].
+     reductions_big, {group, run_queue}, scheduler_wall_time,
+     garbage_collection, io, badarg].
 
 groups() -> 
     [{wall_clock, [],
@@ -266,11 +267,10 @@ run_queue_one(Config) when is_list(Config) ->
     
 
 run_queue_one_test(Config) when is_list(Config) ->
-    ?line Hog = spawn_link(?MODULE, hog, [self()]),
+    ?line _Hog = spawn_link(?MODULE, hog, [self()]),
     ?line receive
-	hog_started ->
-	    Hog ! go
-    end,
+	      hog_started -> ok
+	  end,
     ?line receive after 100 -> ok end,		% Give hog a head start.
     ?line case statistics(run_queue) of
 	      N when N >= 1 -> ok;
@@ -280,18 +280,88 @@ run_queue_one_test(Config) when is_list(Config) ->
 
 %% CPU-bound process, going at low priority.  It will always be ready
 %% to run.
-    
+
 hog(Pid) ->
     ?line process_flag(priority, low),
     ?line Pid ! hog_started,
-    ?line receive
-	go -> hog_iter(0)
+    ?line Mon = erlang:monitor(process, Pid),
+    ?line hog_iter(0, Mon).
+
+hog_iter(N, Mon) when N > 0 ->
+    receive
+	{'DOWN', Mon, _, _, _} ->  ok
+    after 0 ->
+	    ?line hog_iter(N-1, Mon)
+    end;
+hog_iter(0, Mon) ->
+    ?line hog_iter(10000, Mon).
+
+%%% Tests of statistics(scheduler_wall_time).
+
+scheduler_wall_time(doc) ->
+    "Tests that statistics(scheduler_wall_time) works as intended";
+scheduler_wall_time(Config) when is_list(Config) ->
+    %% Should return undefined if system_flag is not turned on yet
+    undefined = statistics(scheduler_wall_time),
+    %% Turn on statistics
+    false = erlang:system_flag(scheduler_wall_time, true),
+    try
+	Schedulers = erlang:system_info(schedulers_online),
+	%% Let testserver and everyone else finish their work
+	timer:sleep(500),
+	%% Empty load
+	EmptyLoad = get_load(),
+	{false, _} = {lists:any(fun(Load) -> Load > 50 end, EmptyLoad),EmptyLoad},
+	MeMySelfAndI = self(),
+	StartHog = fun() ->
+			   Pid = spawn(?MODULE, hog, [self()]),
+			   receive hog_started -> MeMySelfAndI ! go end,
+			   Pid
+		   end,
+	P1 = StartHog(),
+	%% Max on one, the other schedulers empty (hopefully)
+	%% Be generous the process can jump between schedulers
+	%% which is ok and we don't want the test to fail for wrong reasons
+	_L1 = [S1Load|EmptyScheds1] = get_load(),
+	{true,_}  = {S1Load > 50,S1Load},
+	{false,_} = {lists:any(fun(Load) -> Load > 50 end, EmptyScheds1),EmptyScheds1},
+	{true,_}  = {lists:sum(EmptyScheds1) < 60,EmptyScheds1},
+
+	%% 50% load
+	HalfHogs = [StartHog() || _ <- lists:seq(1, (Schedulers-1) div 2)],
+	HalfLoad = lists:sum(get_load()) div Schedulers,
+	if Schedulers < 2, HalfLoad > 80 -> ok; %% Ok only one scheduler online and one hog
+	   %% We want roughly 50% load
+	   HalfLoad > 40, HalfLoad < 60 -> ok;
+	   true -> exit({halfload, HalfLoad})
+	end,
+
+	%% 100% load
+	LastHogs = [StartHog() || _ <- lists:seq(1, Schedulers div 2)],
+	FullScheds = get_load(),
+	{false,_} = {lists:any(fun(Load) -> Load < 80 end, FullScheds),FullScheds},
+	FullLoad = lists:sum(FullScheds) div Schedulers,
+	if FullLoad > 90 -> ok;
+	   true -> exit({fullload, FullLoad})
+	end,
+
+	[exit(Pid, kill) || Pid <- [P1|HalfHogs++LastHogs]],
+	AfterLoad = get_load(),
+	{false,_} = {lists:any(fun(Load) -> Load > 5 end, AfterLoad),AfterLoad},
+	true = erlang:system_flag(scheduler_wall_time, false)
+    after
+	erlang:system_flag(scheduler_wall_time, false)
     end.
 
-hog_iter(N) when N > 0 ->
-    ?line hog_iter(N-1);
-hog_iter(0) ->
-    ?line hog_iter(10000).
+get_load() ->
+    Start = erlang:statistics(scheduler_wall_time),
+    timer:sleep(500),
+    End = erlang:statistics(scheduler_wall_time),
+    lists:reverse(lists:sort(load_percentage(lists:sort(Start),lists:sort(End)))).
+
+load_percentage([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
+    [100*(WN-WP) div (TN-TP)|load_percentage(Ss, Ps)];
+load_percentage([], []) -> [].
 
 
 garbage_collection(doc) ->
