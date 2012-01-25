@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2011. All Rights Reserved.
+# Copyright Ericsson AB 1996-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,7 @@ PURIFY =
 TYPEMARKER = .debug
 TYPE_FLAGS = -DDEBUG @DEBUG_FLAGS@
 else
+
 ifeq ($(TYPE),purify)
 PURIFY = purify
 TYPEMARKER =
@@ -38,6 +39,8 @@ else
 TYPE_FLAGS = -g -O2 -DPURIFY
 endif
 else
+
+override TYPE=opt
 PURIFY =
 TYPEMARKER =
 ERTS_LIB_TYPEMARKER=
@@ -100,6 +103,8 @@ ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal_r$(ERTS_LIB_TY
 else
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@ -lm
 endif
+
+ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
 
 # ----------------------------------------------------
 # Release directory specification
@@ -232,14 +237,17 @@ endif
 endif
 endif
 
-etc:	erts_lib $(ENTRY_OBJ) $(INSTALL_PROGS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
+.PHONY: etc
+etc:	$(ENTRY_OBJ) $(INSTALL_PROGS) $(INSTALL_LIBS) $(TEXTFILES) $(INSTALL_TOP_BIN)
 
 # erlexec needs the erts_internal library...
-erts_lib:
+$(ERTS_LIB):
 	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
 
+.PHONY: docs
 docs:
 
+.PHONY: clean
 clean:
 ifneq ($(INSTALL_PROGS),)
 	rm -f $(INSTALL_PROGS)
@@ -278,6 +286,7 @@ endif
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/vxcall.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/erl.o
 	rm -f $(ERL_TOP)/erts/obj*/$(TARGET)/werl.o
+	rm -f $(TEXTFILES)
 	rm -f *~ core
 
 #
@@ -295,7 +304,7 @@ endif
 $(OBJDIR)/inet_gethost.o: inet_gethost.c
 	$(CC) $(CFLAGS) -o $@ -c inet_gethost.c
 
-$(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ)
+$(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
@@ -320,37 +329,37 @@ $(OBJDIR)/safe_string.o: ../unix/safe_string.c
 	$(CC) $(CFLAGS) -o $@ -c ../unix/safe_string.c
 
 ifneq ($(TARGET),win32)
-$(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o
+$(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c
 	$(CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
 endif
-$(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o
+$(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/erlc.o: erlc.c
 	$(CC) $(CFLAGS) -o $@ -c erlc.c
 
-$(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o
+$(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/dialyzer.o: dialyzer.c
 	$(CC) $(CFLAGS) -o $@ -c dialyzer.c
 
-$(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o
+$(BINDIR)/typer@EXEEXT@: $(OBJDIR)/typer.o $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/typer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/typer.o: typer.c
 	$(CC) $(CFLAGS) -o $@ -c typer.c
 
-$(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o
+$(BINDIR)/escript@EXEEXT@: $(OBJDIR)/escript.o $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/escript.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/escript.o: escript.c
 	$(CC) $(CFLAGS) -o $@ -c escript.c
 
-$(BINDIR)/ct_run@EXEEXT@: $(OBJDIR)/ct_run.o
+$(BINDIR)/ct_run@EXEEXT@: $(OBJDIR)/ct_run.o $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/ct_run.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/ct_run.o: ct_run.c
@@ -367,7 +376,7 @@ $(OBJDIR)/ct_run.o: ct_run.c
 
 ifeq ($(TARGET),win32)
 
-$(BINDIR)/$(ERLEXEC): $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o  $(OBJDIR)/$(ERLRES_OBJ)
+$(BINDIR)/$(ERLEXEC): $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o  $(OBJDIR)/$(ERLRES_OBJ) $(ERTS_LIB)
 	$(LD) -dll $(LDFLAGS) -o $@ $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) $(ERTS_INTERNAL_LIBS)
 
 $(BINDIR)/erl@EXEEXT@: $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ)
@@ -515,6 +524,7 @@ erl.src: ../unix/erl.src.src ../../vsn.mk $(TARGET)/Makefile
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
+.PHONY: release_spec
 release_spec: etc
 ifneq ($(INSTALL_OBJS),)
 	$(INSTALL_DIR) $(RELEASE_PATH)/erts-$(VSN)/obj
@@ -561,9 +571,5 @@ ifneq ($(INSTALL_INCLUDES),)
 	$(INSTALL_DATA) $(INSTALL_INCLUDES) $(RELEASE_PATH)/erts-$(VSN)/include
 endif
 
+.PHONY: release_docs_spec
 release_docs_spec:
-
-
-
-
-

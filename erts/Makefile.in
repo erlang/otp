@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2006-2011. All Rights Reserved.
+# Copyright Ericsson AB 2006-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@ include vsn.mk
 # ----------------------------------------------------------------------
 
 # Other erts dirs than the emulator dir...
-ERTSDIRS = doc/src etc epmd lib_src
+ERTSDIRS = etc epmd lib_src
 XINSTDIRS = preloaded
 ifeq ($(NO_START_SCRIPTS),)
 ERTSDIRS += start_scripts
@@ -40,42 +40,36 @@ ifeq ($(BUILD_HYBRID_EMU),yes)
 EXTRA_FLAVORS += hybrid
 endif
 
-#
-# Some byggy 'make's get confused when a directory is created and used
-# for storing files which other files depend on during the same "make
-# session". As a workaround we do a 'make generate' (which creates
-# all directories) before doing 'make opt', etc...
-#
-
+.PHONY: all
 ifneq ($(BUILD_HYBRID_EMU),yes)
 all: smp opt
 else
 all: hybrid smp opt
 endif
 
-debug opt docs clean:
-	@ case $@ in \
-	    docs|clean) ;; \
-	    *) ( cd emulator && $(MAKE) generate TYPE=$@ FLAVOR=$(FLAVOR)) ;; \
-	  esac
-	@ ( cd emulator && $(MAKE) $@ FLAVOR=$(FLAVOR))
-	@for d in $(ERTSDIRS); do \
+.PHONY: docs
+docs:
+	( cd doc/src && $(MAKE) $@ )
+
+.PHONY: debug opt clean
+debug opt clean:
+	for d in emulator $(ERTSDIRS); do \
 		if test -d $$d; then \
-			( cd $$d && $(MAKE) $@ ) || exit $$? ; \
+			( cd $$d && $(MAKE) $@ FLAVOR=$(FLAVOR) ) || exit $$? ; \
 		fi ; \
-	 done
+	done
 
 # ----------------------------------------------------------------------
 # These are "convenience targets", provided as shortcuts for developers
 # - don't use them in scripts or assume they will always stay like this!
 #
 
+.PHONY: $(EXTRA_FLAVORS)
 $(EXTRA_FLAVORS):
-	@ ( cd emulator \
-	    && $(MAKE) generate TYPE=opt FLAVOR=$@ \
-	    && $(MAKE) opt FLAVOR=$@ )
+	( cd emulator && $(MAKE) opt FLAVOR=$@ )
 
 ifneq ($(BUILD_HYBRID_EMU),yes)
+.PHONY: hybrid
 hybrid:
 	@echo '*** Omitted build of hybrid heap emulator'
 	@echo '*** since target is $(TARGET)'
@@ -88,6 +82,7 @@ endif
 
 # The copying of beam.dll should be removed when the beam dll need no longer be
 # in the same directory...
+.PHONY: local_setup
 local_setup:
 	@cd start_scripts && $(MAKE)
 	@echo `ls $(ERL_TOP)/bin/`
@@ -134,11 +129,13 @@ local_setup:
 		$(ERL_TOP)/bin/start_clean.script
 
 # Run the configure script
+.PHONY: configure
 configure:
 	@set -e ; cd autoconf && $(MAKE)
 
 # Remake the makefiles, if you already have configured but you have edited
 # a "Makefile.in".
+.PHONY: makefiles
 makefiles:
 	@set -e ; cd autoconf && $(MAKE) $@
 
@@ -146,21 +143,17 @@ makefiles:
 # Release targets
 #
 
-release release_docs:
-ifeq ($(BUILD_HYBRID_EMU),yes)
-	@if test $@ = release; then ( cd emulator && $(MAKE) $@ FLAVOR=hybrid) fi
-else
-	@if test $@ = release; then ( $(MAKE) hybrid ) fi
-endif
-	@if test $@ = release; then ( cd emulator && $(MAKE) $@ FLAVOR=smp) fi
-	@ (cd emulator && $(MAKE) $@ FLAVOR=plain)
-	@for d in $(ERTSDIRS) $(XINSTDIRS); do \
+.PHONY: release
+release:
+	for f in plain $(EXTRA_FLAVORS) ; do \
+		( cd emulator && $(MAKE) release FLAVOR=$$f ) \
+	done
+	for d in $(ERTSDIRS) $(XINSTDIRS); do \
 		if test -d $$d; then \
 			( cd $$d && $(MAKE) $@ ) || exit $$? ; \
 		fi ; \
 	 done
 
-# ----------------------------------------------------------------------
-
-.PHONY: debug opt docs clean local_setup configure release \
-	release_docs run_test_cases hybrid smp
+.PHONY: release_docs
+release_docs:
+	( cd emulator && $(MAKE) $@ )

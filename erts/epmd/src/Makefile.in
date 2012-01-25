@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1998-2010. All Rights Reserved.
+# Copyright Ericsson AB 1998-2012. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@ PURIFY     =
 TYPEMARKER = .debug
 TYPE_FLAGS = -DDEBUG @DEBUG_FLAGS@
 else
+
 ifeq ($(TYPE),purify)
 PURIFY     = purify
 TYPEMARKER =
@@ -33,6 +34,8 @@ else
   TYPE_FLAGS = -O2 -DPURIFY
 endif
 else
+
+override TYPE = opt
 PURIFY     =
 TYPEMARKER =
 ifeq ($(findstring ose,$(TARGET)),ose)
@@ -64,6 +67,8 @@ else
 ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@ -lm
 endif
 endif
+
+ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
 
 CC      = @CC@
 WFLAGS  = @WFLAGS@
@@ -106,7 +111,7 @@ EPMD_OBJS = $(OBJDIR)/epmd.o       \
 #---------------------------------
 
 
-all: erts_lib $(BINDIR)/$(EPMD)
+all: $(BINDIR)/$(EPMD)
 
 docs:
 
@@ -122,13 +127,13 @@ clean:
 # Objects & executables
 #
 
-$(BINDIR)/$(EPMD): $(EPMD_OBJS)
+$(BINDIR)/$(EPMD): $(EPMD_OBJS) $(ERTS_LIB)
 	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(EPMD_OBJS) $(LIBS)
 
 $(OBJDIR)/%.o: %.c epmd.h epmd_int.h
 	$(CC) $(CFLAGS) $(EPMD_FLAGS) -o $@ -c $<
 
-erts_lib:
+$(ERTS_LIB):
 	cd $(ERL_TOP)/erts/lib_src && $(MAKE) $(TYPE)
 
 include $(ERL_TOP)/make/otp_release_targets.mk
@@ -139,4 +144,3 @@ release_spec: all
 
 
 release_docs_spec:
-

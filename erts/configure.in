@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2011. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2012. All Rights Reserved.
 dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
@@ -4373,7 +4373,6 @@ dnl  Note that the output files are relative to $srcdir
 
 AC_OUTPUT(
   emulator/$host/Makefile:emulator/Makefile.in
-  emulator/zlib/$host/Makefile:emulator/zlib/Makefile.in
   epmd/src/$host/Makefile:epmd/src/Makefile.in
   etc/common/$host/Makefile:etc/common/Makefile.in
   include/internal/$host/ethread.mk:include/internal/ethread.mk.in
