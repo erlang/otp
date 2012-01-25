@@ -1808,7 +1808,7 @@ guard_test2({call,Line,{atom,_La,F},As}=G, Vt, St0) ->
     {Asvt,St1} = gexpr_list(As, Vt, St0),       %Always check this.
     A = length(As),
     case erl_internal:type_test(F, A) of
-        true when F =/= is_record ->
+        true when F =/= is_record, A =/= 2 ->
 	    case no_guard_bif_clash(St1, {F,A}) of
 		false ->
 		    {Asvt,add_error(Line, {illegal_guard_local_call,{F,A}}, St1)};
@@ -1872,9 +1872,15 @@ gexpr({call,Line,{atom,_Lr,is_record},[E,R]}, Vt, St0) ->
 gexpr({call,Line,{remote,_Lr,{atom,_Lm,erlang},{atom,Lf,is_record}},[E,A]},
       Vt, St0) ->
     gexpr({call,Line,{atom,Lf,is_record},[E,A]}, Vt, St0);
-gexpr({call,_Line,{atom,_Lr,is_record},[E,{atom,_,_Name},{integer,_,_}]},
+gexpr({call,Line,{atom,_Lr,is_record},[E0,{atom,_,_Name},{integer,_,_}]},
       Vt, St0) ->
-    gexpr(E, Vt, St0);
+    {E,St1} = gexpr(E0, Vt, St0),
+    case no_guard_bif_clash(St0, {is_record,3}) of
+	true ->
+	    {E,St1};
+	false ->
+	    {E,add_error(Line, {illegal_guard_local_call,{is_record,3}}, St1)}
+    end;
 gexpr({call,Line,{atom,_Lr,is_record},[_,_,_]=Asvt0}, Vt, St0) ->
     {Asvt,St1} = gexpr_list(Asvt0, Vt, St0),
     {Asvt,add_error(Line, illegal_guard_expr, St1)};
