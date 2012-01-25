@@ -170,10 +170,9 @@ analysis_start(Parent, Analysis) ->
   rcv_and_send_ext_types(Parent),
   NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
   NonExportsList = sets:to_list(NonExports),
-  Plt3 = dialyzer_plt:delete_list(State3#analysis_state.plt, NonExportsList),
-  Plt4 = dialyzer_plt:delete_contract_list(Plt3, NonExportsList),
+  Plt2 = dialyzer_plt:delete_list(State3#analysis_state.plt, NonExportsList),
   send_codeserver_plt(Parent, CServer, State3#analysis_state.plt),
-  send_analysis_done(Parent, Plt4, State3#analysis_state.doc_plt).
+  send_analysis_done(Parent, Plt2, State3#analysis_state.doc_plt).
 
 analyze_callgraph(Callgraph, State) ->
   Codeserver = State#analysis_state.codeserver,

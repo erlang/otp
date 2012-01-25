@@ -32,7 +32,6 @@
 	 compute_md5_from_files/1,
 	 contains_mfa/2,
 	 contains_module/2,
-	 delete_contract_list/2,
 	 delete_list/2,
 	 delete_module/2,
 	 included_files/1,
@@ -163,18 +162,6 @@ lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
     end,
   ModCallbacks = dict:filter(FunModFilter, Callbacks),
   dict:to_list(ModCallbacks).
-
--spec delete_contract_list(plt(), [mfa()]) -> plt().
-
-delete_contract_list(#plt{contracts = Contracts,
-			  callbacks = Callbacks} = PLT, List) ->
-  PLT#plt{contracts = table_delete_list(Contracts, List),
-	  callbacks = table_delete_list(Callbacks, List)}.
-
-%% -spec insert(plt(), mfa() | integer(), {_, _}) -> plt().
-%%
-%% insert(#plt{info = Info} = PLT, Id, Types) ->
-%%   PLT#plt{info = table_insert(Info, Id, Types)}.
 
 -type ret_args_types() :: {erl_types:erl_type(), [erl_types:erl_type()]}.
 
