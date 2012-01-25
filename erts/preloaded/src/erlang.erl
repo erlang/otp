@@ -118,7 +118,7 @@
          make_tuple/2, make_tuple/3, nodes/1, open_port/2,
          port_call/3, port_info/1, port_info/2, process_flag/2,
          process_info/2, send/2, send/3, seq_trace_info/1,
-         %setelement/3, %% Does not work (yet)
+         setelement/3,
 	 statistics/1, subtract/2, system_flag/2,
          term_to_binary/1, term_to_binary/2, tl/1, trace_pattern/2,
          trace_pattern/3, tuple_to_list/1, system_info/1,
@@ -157,7 +157,7 @@
 
 -type seq_trace_info_returns() ::
       { seq_trace_info(), non_neg_integer() |
-			  boolean() |
+                          boolean() |
 			  { non_neg_integer(), non_neg_integer() } } |
       [].
 
@@ -175,90 +175,10 @@
 
 
 -type raise_stacktrace() ::
-      [{atom(), atom(), arity() | [term()]} |
+      [{module(), atom(), arity() | [term()]} |
        {function(), [term()]}] |
-      [{atom(), atom(), arity() | [term()], [{atom(),term()}]} |
+      [{module(), atom(), arity() | [term()], [{atom(),term()}]} |
        {function(), [term()], [{atom(),term()}]}].
-
--type decode_packet_type() ::
-      'raw' | 0..4 | 'asn1' | 'cdr' | 'sunrm' | 'fcgi' | 'tpkt' |
-      'line' | 'http' | 'http_bin' | 'httph' | 'httph_bin'.
--type http_packet() ::
-      http_request() | http_response() | http_header() | 'http_eoh' | http_error().
--type http_request() ::
-      {'http_request', http_method(), http_uri(), http_version()}.
--type http_response() ::
-      {'http_response', http_version(), integer(), binary() | string()}.
--type http_header() ::
-      {'http_header', integer(), http_field(), any(), binary() | string()}.
--type http_error() ::
-      {'http_error', binary() | string()}.
--type http_method() ::
-      'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE' | 'TRACE' | binary() | string().
--type http_uri() ::
-      '*' |
-      { 'http' | 'https', binary() | string(), non_neg_integer() | 'undefined', binary() | string()} |
-      {'scheme', binary() | string(), binary() | string()} |
-      {'abs_path', binary() | string()} |
-      binary() |
-      string().
--type http_version() ::
-      {non_neg_integer(), non_neg_integer()}.
--type http_field() ::
-       'Cache-Control' |
-       'Connection' |
-       'Date' |
-       'Pragma' |
-       'Transfer-Encoding' |
-       'Upgrade' |
-       'Via' |
-       'Accept' |
-       'Accept-Charset' |
-       'Accept-Encoding' |
-       'Accept-Language' |
-       'Authorization' |
-       'From' |
-       'Host' |
-       'If-Modified-Since' |
-       'If-Match' |
-       'If-None-Match' |
-       'If-Range' |
-       'If-Unmodified-Since' |
-       'Max-Forwards' |
-       'Proxy-Authorization' |
-       'Range' |
-       'Referer' |
-       'User-Agent' |
-       'Age' |
-       'Location' |
-       'Proxy-Authenticate' |
-       'Public' |
-       'Retry-After' |
-       'Server' |
-       'Vary' |
-       'Warning' |
-       'Www-Authenticate' |
-       'Allow' |
-       'Content-Base' |
-       'Content-Encoding' |
-       'Content-Language' |
-       'Content-Length' |
-       'Content-Location' |
-       'Content-Md5' |
-       'Content-Range' |
-       'Content-Type' |
-       'Etag' |
-       'Expires' |
-       'Last-Modified' |
-       'Accept-Ranges' |
-       'Set-Cookie' |
-       'Set-Cookie2' |
-       'X-Forwarded-For' |
-       'Cookie' |
-       'Keep-Alive' |
-       'Proxy-Connection' |
-       binary() |
-       string().
 
 -type bitstring_list() ::
       maybe_improper_list(byte() | bitstring() | bitstring_list(), bitstring() | []).
@@ -336,11 +256,11 @@ adler32_combine(_FirstAdler, _SecondAdler, _SecondSize) ->
     erlang:nif_error(undefined).
 
 % append_element/2
--spec erlang:append_element(Tuple, Term) -> ResTuple when
-      Tuple :: tuple(),
-      Term :: term(),
-      ResTuple :: tuple().
-append_element(_Tuple, _Term) ->
+-spec erlang:append_element(Tuple1, Term) -> Tuple2 when
+      Tuple1 :: tuple(),
+      Tuple2 :: tuple(),
+      Term :: term().
+append_element(_Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
 % atom_to_binary/2
@@ -359,7 +279,7 @@ atom_to_list(_Atom) ->
 % binary_part/2
 -spec binary_part(Subject, PosLen) -> binary() when
       Subject :: binary(),
-      PosLen :: {non_neg_integer(), integer()}.
+      PosLen :: {Start :: non_neg_integer(), Length :: integer()}.
 binary_part(_Subject, _PosLen) ->
     erlang:nif_error(undefined).
 
@@ -455,22 +375,22 @@ call_on_load_function(_P1) ->
     erlang:nif_error(undefined).
 
 % cancel_timer/1
--spec erlang:cancel_timer(TimerRef) -> Remains when
+-spec erlang:cancel_timer(TimerRef) -> Time | false when
       TimerRef :: reference(),
-      Remains :: integer() | false.
+      Time :: non_neg_integer().
 cancel_timer(_TimerRef) ->
     erlang:nif_error(undefined).
 
 % check_old_code/1
--spec erlang:check_old_code(Module) -> boolean() when
-      Module :: atom().
+-spec check_old_code(Module) -> boolean() when
+      Module :: module().
 check_old_code(_Module) ->
     erlang:nif_error(undefined).
 
 % check_process_code/2
 -spec check_process_code(Pid, Module) -> boolean() when
       Pid :: pid(),
-      Module :: atom().
+      Module :: module().
 check_process_code(_Pid, _Module) ->
     erlang:nif_error(undefined).
 
@@ -502,16 +422,105 @@ date() ->
     erlang:nif_error(undefined).
 
 % decode_packet/3
--spec erlang:decode_packet(Type, Bin, Options) -> {ok, binary() | http_packet(), binary()} | {more, non_neg_integer() | undefined} | {error, term()} when
-      Type :: decode_packet_type(),
+-spec erlang:decode_packet(Type, Bin, Options) ->
+                                  {ok, Packet, Rest} |
+                                  {more, Length} |
+                                  {error, Reason} when
+      Type :: 'raw' | 0 | 1 | 2 | 4 | 'asn1' | 'cdr' | 'sunrm' | 'fcgi'
+            | 'tpkt' | 'line' | 'http' | 'http_bin' | 'httph' | 'httph_bin',
       Bin :: binary(),
-      Options :: [{packet_size, non_neg_integer()} | {line_length, non_neg_integer()}].
+      Options :: [Opt],
+      Opt :: {packet_size, non_neg_integer()}
+           | {line_length, non_neg_integer()},
+      Packet :: binary() | HttpPacket,
+      Rest :: binary(),
+      Length :: non_neg_integer() | undefined,
+      Reason :: term(),
+      HttpPacket :: HttpRequest
+                  | HttpResponse
+                  | HttpHeader
+                  | 'http_eoh'
+                  | HttpError,
+      HttpRequest :: {'http_request', HttpMethod, HttpUri, HttpVersion},
+      HttpResponse :: {'http_response', HttpVersion, integer(), HttpString},
+      HttpHeader :: {'http_header',
+                     integer(),
+                     HttpField,
+                     Reserved :: term(),
+                     Value :: HttpString},
+      HttpError :: {'http_error', HttpString},
+      HttpMethod :: 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE'
+                  | 'TRACE' | HttpString,
+      HttpUri :: '*'
+               | { 'absoluteURI',
+                   'http' | 'https',
+                   Host :: HttpString,
+                   Port :: inet:port_number() | 'undefined',
+                   Path :: HttpString}
+               | {'scheme', Scheme :: HttpString, HttpString}
+               | {'abs_path', HttpString}
+               | HttpString,
+      HttpVersion :: {Major :: non_neg_integer(), Minor :: non_neg_integer()},
+      HttpField :: 'Cache-Control'
+                 | 'Connection'
+                 | 'Date'
+                 | 'Pragma'
+                 | 'Transfer-Encoding'
+                 | 'Upgrade'
+                 | 'Via'
+                 | 'Accept'
+                 | 'Accept-Charset'
+                 | 'Accept-Encoding'
+                 | 'Accept-Language'
+                 | 'Authorization'
+                 | 'From'
+                 | 'Host'
+                 | 'If-Modified-Since'
+                 | 'If-Match'
+                 | 'If-None-Match'
+                 | 'If-Range'
+                 | 'If-Unmodified-Since'
+                 | 'Max-Forwards'
+                 | 'Proxy-Authorization'
+                 | 'Range'
+                 | 'Referer'
+                 | 'User-Agent'
+                 | 'Age'
+                 | 'Location'
+                 | 'Proxy-Authenticate'
+                 | 'Public'
+                 | 'Retry-After'
+                 | 'Server'
+                 | 'Vary'
+                 | 'Warning'
+                 |'Www-Authenticate'
+                 | 'Allow'
+                 | 'Content-Base'
+                 | 'Content-Encoding'
+                 | 'Content-Language'
+                 | 'Content-Length'
+                 | 'Content-Location'
+                 | 'Content-Md5'
+                 | 'Content-Range'
+                 | 'Content-Type'
+                 | 'Etag'
+                 | 'Expires'
+                 | 'Last-Modified'
+                 | 'Accept-Ranges'
+                 | 'Set-Cookie'
+                 | 'Set-Cookie2'
+                 | 'X-Forwarded-For'
+                 | 'Cookie'
+                 | 'Keep-Alive'
+                 | 'Proxy-Connection'
+                 | HttpString,
+      HttpString :: string() | binary().
 decode_packet(_Type, _Bin, _Options) ->
     erlang:nif_error(undefined).
 
 % delete_module/1
 -spec delete_module(Module) -> true | undefined when
-      Module :: atom().
+      Module :: module().
 delete_module(_Module) ->
     erlang:nif_error(undefined).
 
@@ -524,7 +533,8 @@ demonitor(_MonitorRef) ->
 % demonitor/2
 -spec demonitor(MonitorRef, OptionList) -> boolean() when
       MonitorRef :: reference(),
-      OptionList :: manual.
+      OptionList :: [Option],
+      Option :: flush | info.
 demonitor(_MonitorRef, _OptionList) ->
     erlang:nif_error(undefined).
 
@@ -554,31 +564,34 @@ dist_exit(_P1, _P2, _P3) ->
     erlang:nif_error(undefined).
 
 % erase/0
--spec erase() -> [{term(), term()}].
+-spec erase() -> [{Key, Val}] when
+      Key :: term(),
+      Val :: term().
 erase() ->
     erlang:nif_error(undefined).
 
 % erase/1
--spec erase(Key) -> undefined | term() when
-      Key :: term().
+-spec erase(Key) -> Val | undefined when
+      Key :: term(),
+      Val :: term().
 erase(_Key) ->
     erlang:nif_error(undefined).
 
 % error/1
--spec error(Reason) -> none() when
+-spec error(Reason) -> no_return() when
       Reason :: term().
 error(_Reason) ->
     erlang:nif_error(undefined).
 
 % error/2
--spec error(Reason, Args) -> none() when
+-spec error(Reason, Args) -> no_return() when
       Reason :: term(),
       Args :: [term()].
 error(_Reason, _Args) ->
     erlang:nif_error(undefined).
 
 % exit/1
--spec exit(Reason) -> none() when
+-spec exit(Reason) -> no_return() when
       Reason :: term().
 exit(_Reason) ->
     erlang:nif_error(undefined).
@@ -599,7 +612,7 @@ external_size(_Term) ->
 % external_size/2
 -spec erlang:external_size(Term, Options) -> non_neg_integer() when
       Term :: term(),
-      Options :: [{minor_version, non_neg_integer()}].
+      Options :: [{minor_version, Version :: non_neg_integer()}].
 external_size(_Term, _Options) ->
     erlang:nif_error(undefined).
 
@@ -623,9 +636,10 @@ float_to_list(_Float) ->
     erlang:nif_error(undefined).
 
 % fun_info/2
--spec erlang:fun_info(Fun, Item) -> {fun_info_item(), term()} when
+-spec erlang:fun_info(Fun, Item) -> {Item, Info} when
       Fun :: function(),
-      Item :: fun_info_item().
+      Item :: fun_info_item(),
+      Info :: term().
 fun_info(_Fun, _Item) ->
     erlang:nif_error(undefined).
 
@@ -637,7 +651,7 @@ fun_to_list(_Fun) ->
 
 % function_exported/3
 -spec erlang:function_exported(Module, Function, Arity) -> boolean() when
-      Module :: atom(),
+      Module :: module(),
       Function :: atom(),
       Arity :: arity().
 function_exported(_Module, _Function, _Arity) ->
@@ -660,19 +674,23 @@ garbage_collect_message_area() ->
     erlang:nif_error(undefined).
 
 % get/0
--spec get() -> [{term(), term()}].
+-spec get() -> [{Key, Val}] when
+      Key :: term(),
+      Val :: term().
 get() ->
     erlang:nif_error(undefined).
 
 % get/1
--spec get(Key) -> term() when
-      Key :: term().
+-spec get(Key) -> Val | undefined when
+      Key :: term(),
+      Val :: term().
 get(_Key) ->
     erlang:nif_error(undefined).
 
 % get_keys/1
--spec get_keys(Val) -> [term()] when
-      Val :: term().
+-spec get_keys(Val) -> [Key] when
+      Val :: term(),
+      Key :: term().
 get_keys(_Val) ->
     erlang:nif_error(undefined).
 
@@ -700,26 +718,26 @@ group_leader(_GroupLeader, _Pid) ->
     erlang:nif_error(undefined).
 
 % halt/0
--spec halt() -> none().
+-spec halt() -> no_return().
 halt() ->
     erlang:nif_error(undefined).
 
 % halt/1
--spec halt(Status) -> none() when
-      Status :: term().
+-spec halt(Status) -> no_return() when
+      Status :: non_neg_integer() | string().
 halt(_Status) ->
     erlang:nif_error(undefined).
 
 % hash/2
--spec erlang:hash(Term, Range) -> integer() when
+-spec erlang:hash(Term, Range) -> pos_integer() when
       Term :: term(),
-      Range :: integer().
+      Range :: pos_integer().
 hash(_Term, _Range) ->
     erlang:nif_error(undefined).
 
 % hibernate/3
 -spec erlang:hibernate(Module, Function, Args) -> none() when
-      Module :: atom(),
+      Module :: module(),
       Function :: atom(),
       Args :: [term()].
 hibernate(_Module, _Function, _Args) ->
@@ -750,7 +768,7 @@ is_alive() ->
 
 % is_builtin/3
 -spec erlang:is_builtin(Module, Function, Arity) -> boolean() when
-      Module :: atom(),
+      Module :: module(),
       Function :: atom(),
       Arity :: arity().
 is_builtin(_Module, _Function, _Arity) ->
@@ -764,7 +782,7 @@ is_process_alive(_Pid) ->
 
 % length/1
 -spec length(List) -> non_neg_integer() when
-      List :: list().
+      List :: [term()].
 length(_List) ->
     erlang:nif_error(undefined).
 
@@ -824,12 +842,13 @@ list_to_pid(_String) ->
 
 % list_to_tuple/1
 -spec list_to_tuple(List) -> tuple() when
-      List :: list().
+      List :: [term()].
 list_to_tuple(_List) ->
     erlang:nif_error(undefined).
 
 % loaded/0
--spec erlang:loaded() -> [atom()].
+-spec erlang:loaded() -> [Module] when
+      Module :: module().
 loaded() ->
     erlang:nif_error(undefined).
 
@@ -846,7 +865,7 @@ make_ref() ->
 
 % match_spec_test/3
 -spec erlang:match_spec_test(P1, P2, P3) -> TestResult when
-      P1 :: list() | tuple(),
+      P1 :: [term()] | tuple(),
       P2 :: term(),
       P3 :: table | trace,
       TestResult :: {ok, term(), [return_trace], [ {error | warning, string()} ]} | {error, [ {error | warning, string()} ]}.
@@ -855,7 +874,7 @@ match_spec_test(_P1, _P2, _P3) ->
 
 % md5/1
 -spec erlang:md5(Data) -> Digest when
-      Data :: iolist() | binary(),
+      Data :: iodata(),
       Digest :: binary().
 md5(_Data) ->
     erlang:nif_error(undefined).
@@ -876,21 +895,23 @@ md5_init() ->
 % md5_update/2
 -spec erlang:md5_update(Context, Data) -> NewContext when
       Context :: binary(),
-      Data :: iolist() | binary(),
+      Data :: iodata(),
       NewContext :: binary().
 md5_update(_Context, _Data) ->
     erlang:nif_error(undefined).
 
 % module_loaded/1
 -spec module_loaded(Module) -> boolean() when
-      Module :: atom().
+      Module :: module().
 module_loaded(_Module) ->
     erlang:nif_error(undefined).
 
 % monitor/2
 -spec monitor(Type, Item) -> MonitorRef when
       Type :: process,
-      Item :: pid() | atom() | {atom(), node()},
+      Item :: pid() | Module | {Module, Node},
+      Module :: module(),
+      Node :: node(),
       MonitorRef :: reference().
 monitor(_Type, _Item) ->
     erlang:nif_error(undefined).
@@ -906,20 +927,21 @@ monitor_node(_Node, _Flag) ->
 -spec erlang:monitor_node(Node, Flag, Options) -> true when
       Node :: node(),
       Flag :: boolean(),
-      Options :: [allow_passive_connect].
+      Options :: [Option],
+      Option :: allow_passive_connect.
 monitor_node(_Node, _Flag, _Options) ->
     erlang:nif_error(undefined).
 
 % nif_error/1
--spec erlang:nif_error(Reason) -> none() when
+-spec erlang:nif_error(Reason) -> no_return() when
       Reason :: term().
 nif_error(_Reason) ->
     erlang:nif_error(undefined).
 
 % nif_error/2
--spec erlang:nif_error(Reason, Args) -> none() when
+-spec erlang:nif_error(Reason, Args) -> no_return() when
       Reason :: term(),
-      Args :: list().
+      Args :: [term()].
 nif_error(_Reason, _Args) ->
     erlang:nif_error(undefined).
 
@@ -938,7 +960,7 @@ node(_Arg) ->
 
 % now/0
 -spec now() -> Timestamp when
-      Timestamp :: {non_neg_integer(),non_neg_integer(),non_neg_integer()}.
+      Timestamp :: timestamp().
 now() ->
     erlang:nif_error(undefined).
 
@@ -988,7 +1010,8 @@ port_command(_Port, _Data) ->
 -spec port_command(Port, Data, OptionList) -> boolean() when
       Port :: port() | atom(),
       Data :: iodata(),
-      OptionList :: [force | nosuspend].
+      OptionList :: [Option],
+      Option :: force | nosuspend.
 port_command(_Port, _Data, _OptionList) ->
     erlang:nif_error(undefined).
 
@@ -1039,7 +1062,7 @@ posixtime_to_universaltime(_P1) ->
     erlang:nif_error(undefined).
 
 % pre_loaded/0
--spec pre_loaded() -> [atom()].
+-spec pre_loaded() -> [module()].
 pre_loaded() ->
     erlang:nif_error(undefined).
 
@@ -1062,7 +1085,8 @@ process_flag(_Pid, _Flag, _Value) ->
 % process_info/1
 -spec process_info(Pid) -> Info when
       Pid :: pid(),
-      Info :: [process_info_result_item()].
+      Info :: [InfoTuple],
+      InfoTuple :: process_info_result_item().
 process_info(_Pid) ->
     erlang:nif_error(undefined).
 
@@ -1085,7 +1109,7 @@ put(_Key, _Val) ->
     erlang:nif_error(undefined).
 
 % raise/3
--spec erlang:raise(Class, Reason, Stacktrace) -> none() when
+-spec erlang:raise(Class, Reason, Stacktrace) -> no_return() when
       Class :: error | exit | throw,
       Reason :: term(),
       Stacktrace :: raise_stacktrace().
@@ -1112,7 +1136,8 @@ register(_RegName, _PidOrPort) ->
     erlang:nif_error(undefined).
 
 % registered/0
--spec registered() -> [atom()].
+-spec registered() -> [RegName] when
+      RegName :: atom().
 registered() ->
     erlang:nif_error(undefined).
 
@@ -1185,7 +1210,7 @@ size(_Item) ->
 
 % spawn/3
 -spec spawn(Module, Function, Args) -> pid() when
-      Module :: atom(),
+      Module :: module(),
       Function :: atom(),
       Args :: [term()].
 spawn(_Module, _Function, _Args) ->
@@ -1193,7 +1218,7 @@ spawn(_Module, _Function, _Args) ->
 
 % spawn_link/3
 -spec spawn_link(Module, Function, Args) -> pid() when
-      Module :: atom(),
+      Module :: module(),
       Function :: atom(),
       Args :: [term()].
 spawn_link(_Module, _Function, _Args) ->
@@ -1218,20 +1243,25 @@ start_timer(_Time, _Dest, _Msg) ->
 % suspend_process/2
 -spec erlang:suspend_process(Suspendee, OptList) -> boolean() when
       Suspendee :: pid(),
-      OptList :: [unless_suspending | asynchronous].
+      OptList :: [Opt],
+      Opt :: unless_suspending | asynchronous.
 suspend_process(_Suspendee, _OptList) ->
     erlang:nif_error(undefined).
 
 % system_monitor/0
 -spec erlang:system_monitor() -> MonSettings when
-      MonSettings :: undefined | { pid(), [ system_monitor_option() ] }.
+      MonSettings :: undefined | { MonitorPid, Options },
+      MonitorPid :: pid(),
+      Options :: [ system_monitor_option() ].
 system_monitor() ->
     erlang:nif_error(undefined).
 
 % system_monitor/1
 -spec erlang:system_monitor(Arg) -> MonSettings when
-      Arg :: undefined | { pid(), [ system_monitor_option() ] },
-      MonSettings :: undefined | { pid(), [ system_monitor_option() ] }.
+      Arg :: undefined | { MonitorPid, Options },
+      MonSettings :: undefined | { MonitorPid, Options },
+      MonitorPid :: pid(),
+      Options :: [ system_monitor_option() ].
 system_monitor(_Arg) ->
     erlang:nif_error(undefined).
 
@@ -1239,26 +1269,30 @@ system_monitor(_Arg) ->
 -spec erlang:system_monitor(MonitorPid, Options) -> MonSettings when
       MonitorPid :: pid(),
       Options :: [ system_monitor_option() ],
-      MonSettings :: undefined | { pid(), [ system_monitor_option() ] }.
+      MonSettings :: undefined | { OldMonitorPid, OldOptions },
+      OldMonitorPid :: pid(),
+      OldOptions :: [ system_monitor_option() ].
 system_monitor(_MonitorPid, _Options) ->
     erlang:nif_error(undefined).
 
 % system_profile/0
 -spec erlang:system_profile() -> ProfilerSettings when
-      ProfilerSettings :: undefined | { pid() | port(), [ system_profile_option() ]}.
+      ProfilerSettings :: undefined | { ProfilerPid, Options},
+      ProfilerPid :: pid() | port(),
+      Options :: [ system_profile_option() ].
 system_profile() ->
     erlang:nif_error(undefined).
 
 % system_profile/2
 -spec erlang:system_profile(ProfilerPid, Options) -> ProfilerSettings when
-      ProfilerPid :: pid() | port() | undefined,
+      ProfilerPid :: pid() | port(),
       Options :: [ system_profile_option() ],
       ProfilerSettings :: undefined | { pid() | port(), [ system_profile_option() ]}.
 system_profile(_ProfilerPid, _Options) ->
     erlang:nif_error(undefined).
 
 % throw/1
--spec throw(Any) -> none() when
+-spec throw(Any) -> no_return() when
       Any :: term().
 throw(_Any) ->
     erlang:nif_error(undefined).
@@ -1286,7 +1320,10 @@ trace_delivered(_Tracee) ->
 
 % trace_info/2
 -spec erlang:trace_info(PidOrFunc, Item) -> Res when
-      PidOrFunc :: pid() | new | mfa() | on_load,
+      PidOrFunc :: pid() | new | {Module, Function, Arity} | on_load,
+      Module :: module(),
+      Function :: atom(),
+      Arity :: arity(),
       Item :: flags | tracer | traced | match_spec | meta | meta_match_spec | call_count | call_time | all,
       Res :: trace_info_return().
 trace_info(_PidOrFunc, _Item) ->
@@ -1351,7 +1388,7 @@ abs(_Number) ->
 
 %% Not documented
 -spec erlang:append(List,Tail) -> maybe_improper_list() when
-      List :: list(),
+      List :: [term()],
       Tail :: term().
 append(_List,_Tail) ->
     erlang:nif_error(undefined).
@@ -1682,7 +1719,11 @@ process_flag(_Flag, _Value) ->
       {trap_exit, Boolean :: boolean()}.
 
 -type stack_item() ::
-       {atom(), atom(), arity() | [term()], [{file, string()} | {line, integer()}]}.
+        {Module :: module(),
+         Function :: atom(),
+         Arity :: arity() | (Args :: [term()]),
+         Location :: [{file, Filename :: string()} |
+                      {line, Line :: integer()}]}.
 
 -spec process_info(Pid, Item) ->
                           InfoTuple | [] | undefined when
@@ -1722,13 +1763,13 @@ send(_Dest,_Msg,_Options) ->
 seq_trace_info(_What) ->
     erlang:nif_error(undefined).
 
-%% -spec setelement(Index, Tuple1, Value) -> Tuple2 when
-%%       Index :: pos_integer(),
-%%       Tuple1 :: tuple(),
-%%       Tuple2 :: tuple(),
-%%       Value :: term().
-%% setelement(_Index, _Tuple1, _Value) ->
-%%    erlang:nif_error(undefined).
+-spec setelement(Index, Tuple1, Value) -> Tuple2 when
+      Index :: pos_integer(),
+      Tuple1 :: tuple(),
+      Tuple2 :: tuple(),
+      Value :: term().
+setelement(_Index, _Tuple1, _Value) ->
+   erlang:nif_error(undefined).
 
 -spec statistics(context_switches) -> {ContextSwitches,0} when
       ContextSwitches :: non_neg_integer();
@@ -2748,7 +2789,9 @@ max(A, _) -> A.
 		 low = 0,
 		 maximum = 0}).
 
--spec memory() -> [{memory_type(), non_neg_integer()}].
+-spec memory() -> [{Type, Size}] when
+      Type :: memory_type(),
+      Size :: non_neg_integer().
 memory() ->
     case aa_mem_data(au_mem_data(?ALL_NEEDED_ALLOCS)) of
 	notsup ->
@@ -2773,8 +2816,8 @@ memory() ->
 	     {ets, Mem#memory.ets} | Tail]
     end.
 
--spec erlang:memory(memory_type()) -> non_neg_integer();
-                   ([memory_type()]) -> [{memory_type(), non_neg_integer()}].
+-spec erlang:memory(Type :: memory_type()) -> non_neg_integer();
+                   (TypeList :: [memory_type()]) -> [{memory_type(), non_neg_integer()}].
 memory(Type) when erlang:is_atom(Type) ->
     {AA, ALCU, ChkSup, BadArgZero} = need_mem_info(Type),
     case get_mem_data(ChkSup, ALCU, AA) of
