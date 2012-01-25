@@ -24,7 +24,7 @@
 	 catch_oops/1,after_oops/1,eclectic/1,rethrow/1,
 	 nested_of/1,nested_catch/1,nested_after/1,
 	 nested_horrid/1,last_call_optimization/1,bool/1,
-	 plain_catch_coverage/1,andalso_orelse/1]).
+	 plain_catch_coverage/1,andalso_orelse/1,get_in_try/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
@@ -35,7 +35,7 @@ all() ->
     [basic, lean_throw, try_of, try_after, catch_oops,
      after_oops, eclectic, rethrow, nested_of, nested_catch,
      nested_after, nested_horrid, last_call_optimization,
-     bool, plain_catch_coverage, andalso_orelse].
+     bool, plain_catch_coverage, andalso_orelse, get_in_try].
 
 groups() -> 
     [].
@@ -928,3 +928,17 @@ andalso_orelse_2({Type,Keyval}) ->
 
 zero() ->
     0.0.
+
+get_in_try(_) ->
+    undefined = get_valid_line([a], []),
+    ok.
+
+get_valid_line([_|T]=Path, Annotations) ->
+    try
+        get(Path)
+	%% beam_dead used to optimize away an assignment to {y,1}
+	%% because it didn't appear to be used.
+    catch
+        _:not_found ->
+            get_valid_line(T, Annotations)
+    end.
