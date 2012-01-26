@@ -98,6 +98,12 @@ init_per_testcase(otp8395 = Case, Config) when is_list(Config) ->
 	 "~n   Config: ~p", [Case, Config]),
     Config2 = init_per_testcase2(Case, init_suite(Config)), 
     otp8395({init, Config2});
+init_per_testcase(otp9884 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    Config2 = init_per_testcase2(Case, init_suite(Config)), 
+    otp9884({init, Config2});
 init_per_testcase(otp_7157_test = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
@@ -125,6 +131,8 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
 
 fin_per_testcase(otp8395, Config) when is_list(Config) ->
     otp8395({fin, Config});
+fin_per_testcase(otp9884, Config) when is_list(Config) ->
+    otp9884({fin, Config});
 fin_per_testcase(_Case, Config) when is_list(Config) ->
     ?DBG("fin_per_testcase -> entry with"
 	 "~n   Case:   ~p"
@@ -5177,7 +5185,8 @@ tickets1(suite) ->
 
 tickets2(suite) ->
     [
-     otp8395
+     otp8395, 
+     otp9884
     ].
 
 
@@ -5830,7 +5839,7 @@ otp_7157_test1(MA) ->
 otp8395({init, Config}) when is_list(Config) ->
     ?DBG("otp8395(init) -> entry with"
 	 "~n   Config: ~p", [Config]),
-    
+
     %% -- 
     %% Start nodes
     %% 
@@ -5838,7 +5847,7 @@ otp8395({init, Config}) when is_list(Config) ->
     {ok, AgentNode}    = start_node(agent),
     %% {ok, SubAgentNode} = start_node(sub_agent),
     {ok, ManagerNode}  = start_node(manager),
-    
+
     %% -- 
     %% Mnesia init
     %% 
@@ -5846,10 +5855,10 @@ otp8395({init, Config}) when is_list(Config) ->
     AgentDbDir = ?config(agent_db_dir, Config),
     AgentMnesiaDir = filename:join([AgentDbDir, "mnesia"]),
     mnesia_init(AgentNode, AgentMnesiaDir),
-    
-%%     SubAgentDir = ?config(sub_agent_dir, Config),
-%%     SubAgentMnesiaDir = filename:join([SubAgentDir, "mnesia"]),
-%%     mnesia_init(SubAgentNode, SubAgentMnesiaDir),
+
+    %%     SubAgentDir = ?config(sub_agent_dir, Config),
+    %%     SubAgentMnesiaDir = filename:join([SubAgentDir, "mnesia"]),
+    %%     mnesia_init(SubAgentNode, SubAgentMnesiaDir),
 
     %% ok = mnesia_create_schema(AgentNode, [AgentNode, SubAgentNode]), 
     %% ok = mnesia:create_schema([AgentNode, SubAgentNode]),
@@ -5874,12 +5883,12 @@ otp8395({init, Config}) when is_list(Config) ->
     %% SubAgentIP        = tuple_to_list(SubAgentIP0), 
     {ok, ManagerIP0}  = snmp_misc:ip(ManagerHost),
     ManagerIP         = tuple_to_list(ManagerIP0),
-    
+
 
     %% --
     %% Write agent config
     %% 
-    
+
     Vsns           = [v1], 
     AgentConfDir   = ?config(agent_conf_dir, Config),
     ManagerConfDir = ?config(manager_top_dir, Config),
@@ -5903,7 +5912,7 @@ otp8395({init, Config}) when is_list(Config) ->
 			   {manager_node,  ManagerNode},
 			   {manager_host,  ManagerHost}, 
 			   {manager_ip,    ManagerIP}|Config]),
-    
+
     %% -- 
     %% Create watchdog 
     %% 
@@ -5915,7 +5924,7 @@ otp8395({init, Config}) when is_list(Config) ->
 otp8395({fin, Config}) when is_list(Config) ->
     ?DBG("otp8395(fin) -> entry with"
 	 "~n   Config: ~p", [Config]),
-    
+
     AgentNode   = ?config(agent_node, Config),
     ManagerNode = ?config(manager_node, Config),
 
@@ -5923,11 +5932,11 @@ otp8395({fin, Config}) when is_list(Config) ->
     %% Stop agent (this is the nice way to do it, 
     %% so logs and files can be closed in the proper way).
     %% 
-    
+
     AgentSup = ?config(agent_sup, Config),
     ?DBG("otp8395(fin) -> stop (stand-alone) agent: ~p", [AgentSup]),
     stop_stdalone_agent(AgentSup), 
-    
+
     %% - 
     %% Stop mnesia
     %% 
@@ -5943,8 +5952,8 @@ otp8395({fin, Config}) when is_list(Config) ->
     stop_node(AgentNode),
 
 
-%%     SubAgentNode = ?config(sub_agent_node, Config),
-%%     stop_node(SubAgentNode),
+    %%     SubAgentNode = ?config(sub_agent_node, Config),
+    %%     stop_node(SubAgentNode),
 
 
     %% - 
@@ -5964,7 +5973,7 @@ otp8395(doc) ->
 otp8395(Config) when is_list(Config) ->
     ?DBG("otp8395 -> entry with"
 	 "~n   Config: ~p", [Config]),
-    
+
     ?SLEEP(1000),
 
     %% This is just to dirty trick for the ***old*** test-code
@@ -5982,8 +5991,8 @@ otp8395(Config) when is_list(Config) ->
     {ok, LogInfo} = rpc:call(AgentNode, snmpa, log_info, []),
     ?DBG("otp8395 -> LogInfo: ~p", [LogInfo]), 
 
-%%     SyncRes = rpc:call(AgentNode, snmp, log_sync, [?audit_trail_log_name]),
-%%     ?DBG("otp8395 -> SyncRes: ~p", [SyncRes]), 
+    %%     SyncRes = rpc:call(AgentNode, snmp, log_sync, [?audit_trail_log_name]),
+    %%     ?DBG("otp8395 -> SyncRes: ~p", [SyncRes]), 
 
     ok = agent_log_validation(AgentNode),
     LTTRes = 
@@ -5993,7 +6002,195 @@ otp8395(Config) when is_list(Config) ->
     ?SLEEP(1000),
     ?DBG("otp8395 -> done", []),
     ok.
-		    
+
+
+%%-----------------------------------------------------------------
+
+otp9884({init, Config}) when is_list(Config) ->
+    ?DBG("otp9884(init) -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    %% -- 
+    %% Start nodes
+    %% 
+
+    {ok, AgentNode}   = start_node(agent),
+    
+    %% We don't use a manager in this test but the (common) config 
+    %% function takes an argument that is derived from this
+    {ok, ManagerNode} = start_node(manager), 
+
+    %% -- 
+    %% Mnesia init
+    %% 
+
+    AgentDbDir = ?config(agent_db_dir, Config),
+    AgentMnesiaDir = filename:join([AgentDbDir, "mnesia"]),
+    mnesia_init(AgentNode, AgentMnesiaDir),
+
+    mnesia_create_schema(AgentNode, [AgentNode]),
+
+    mnesia_start(AgentNode),
+
+    %% --
+    %% Host & IP
+    %% 
+
+    AgentHost   = ?HOSTNAME(AgentNode),
+    ManagerHost = ?HOSTNAME(ManagerNode),
+
+    Host              = snmp_test_lib:hostname(), 
+    Ip                = ?LOCALHOST(),
+    {ok, AgentIP0}    = snmp_misc:ip(AgentHost),
+    AgentIP           = tuple_to_list(AgentIP0), 
+    {ok, ManagerIP0}  = snmp_misc:ip(ManagerHost),
+    ManagerIP         = tuple_to_list(ManagerIP0),
+
+
+    %% --
+    %% Write agent config
+    %% 
+
+    Vsns           = [v1], 
+    ManagerConfDir = ?config(manager_top_dir, Config),
+    AgentConfDir   = ?config(agent_conf_dir, Config),
+    AgentTopDir    = ?config(agent_top_dir, Config),
+    AgentBkpDir1   = filename:join([AgentTopDir, backup1]),
+    AgentBkpDir2   = filename:join([AgentTopDir, backup2]),
+    ok = file:make_dir(AgentBkpDir1),
+    ok = file:make_dir(AgentBkpDir2),
+    AgentBkpDirs = [AgentBkpDir1, AgentBkpDir2], 
+    snmp_agent_test_lib:config(Vsns, 
+			       ManagerConfDir, AgentConfDir, 
+			       ManagerIP, AgentIP),
+
+
+    %% --
+    %% Start the agent
+    %% 
+
+    Config2 = start_agent([{host,              Host}, 
+			   {ip,                Ip}, 
+			   {agent_node,        AgentNode}, 
+			   {agent_host,        AgentHost}, 
+			   {agent_ip,          AgentIP}, 
+			   {agent_backup_dirs, AgentBkpDirs}|Config]),
+
+    %% -- 
+    %% Create watchdog 
+    %% 
+
+    Dog = ?WD_START(?MINS(1)),
+
+    [{watchdog, Dog} | Config2];
+
+otp9884({fin, Config}) when is_list(Config) ->
+    ?DBG("otp9884(fin) -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    AgentNode   = ?config(agent_node, Config),
+    ManagerNode = ?config(manager_node, Config),
+
+    %% -
+    %% Stop agent (this is the nice way to do it, 
+    %% so logs and files can be closed in the proper way).
+    %% 
+
+    AgentSup = ?config(agent_sup, Config),
+    ?DBG("otp9884(fin) -> stop (stand-alone) agent: ~p", [AgentSup]),
+    stop_stdalone_agent(AgentSup), 
+
+    %% - 
+    %% Stop mnesia
+    %% 
+    ?DBG("otp9884(fin) -> stop mnesia", []),
+    mnesia_stop(AgentNode),
+
+
+    %% - 
+    %% Stop the agent node
+    %% 
+
+    ?DBG("otp9884(fin) -> stop agent node", []),
+    stop_node(AgentNode),
+
+
+    %%     SubAgentNode = ?config(sub_agent_node, Config),
+    %%     stop_node(SubAgentNode),
+
+
+    %% - 
+    %% Stop the manager node
+    %% 
+
+    ?DBG("otp9884(fin) -> stop manager node", []),
+    stop_node(ManagerNode),
+
+    Dog = ?config(watchdog, Config),
+    ?WD_STOP(Dog),
+    lists:keydelete(watchdog, 1, Config);
+
+otp9884(doc) ->
+    "OTP-9884 - Simlutaneous backup call should not work. ";
+
+otp9884(Config) when is_list(Config) ->
+    ?DBG("otp9884 -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    AgentNode = ?config(agent_node, Config),
+    [AgentBkpDir1, AgentBkpDir2] = ?config(agent_backup_dirs, Config),
+    Self = self(), 
+    timer:apply_after(1000, 
+		      ?MODULE, otp9884_backup, [AgentNode, Self, first,  AgentBkpDir1]), 
+    timer:apply_after(1000, 
+		      ?MODULE, otp9884_backup, [AgentNode, Self, second, AgentBkpDir2]),
+    otp9884_await_backup_completion(undefined, undefined),
+
+    ?DBG("otp9884 -> done", []),
+    ok.
+
+
+otp9884_backup(Node, Pid, Tag, Dir) ->
+    io:format("[~w] call backup function~n", [Tag]),
+    Res = rpc:call(Node, snmpa, backup, [Dir]),
+    io:format("[~w] backup result: ~p~n", [Tag, Res]),
+    Pid ! {otp9884_backup_complete, Tag, Res}.
+
+otp9884_await_backup_completion(ok, Second) 
+  when ((Second =/= ok) andalso (Second =/= undefined)) ->
+    io:format("otp9884_await_backup_completion -> "
+	      "first backup succeed and second failed (~p)~n", [Second]),
+    ok;
+otp9884_await_backup_completion(First, ok) 
+  when ((First =/= ok) andalso (First =/= undefined)) ->
+    io:format("otp9884_await_backup_completion -> "
+	      "second backup succeed and first failed (~p)~n", [First]),
+    ok;
+otp9884_await_backup_completion(First, Second) 
+  when (((First =:= undefined) andalso (Second =:= undefined)) 
+	orelse 
+	((First =:= undefined) andalso (Second =/= undefined)) 
+	orelse 
+	((First =/= undefined) andalso (Second =:= undefined))) ->
+    io:format("otp9884_await_backup_completion -> await complete messages~n", []),
+    receive
+	{otp9884_backup_complete, first, Res} ->
+	    io:format("otp9884_await_backup_completion -> "
+		      "received complete message for first: ~p~n", [Res]),
+	    otp9884_await_backup_completion(Res, Second);
+	{otp9884_backup_complete, second, Res} ->
+	    io:format("otp9884_await_backup_completion -> "
+		      "received complete message for second: ~p~n", [Res]),
+	    otp9884_await_backup_completion(First, Res)
+    after 10000 ->
+	    %% we have waited long enough
+	    throw({error, {timeout, First, Second}})
+    end;
+otp9884_await_backup_completion(First, Second) ->
+    throw({error, {bad_completion, First, Second}}).
+
+
+%%-----------------------------------------------------------------
 
 agent_log_validation(Node) ->
     rpc:call(Node, ?MODULE, agent_log_validation, []).
