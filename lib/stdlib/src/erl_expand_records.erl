@@ -452,8 +452,10 @@ conj([], _E) ->
 conj([{{Name,_Rp},L,R,Sz} | AL], E) ->
     NL = neg_line(L),
     T1 = {op,NL,'orelse',
-          {call,NL,{atom,NL,is_record},[R,{atom,NL,Name},{integer,NL,Sz}]},
-          {atom,NL,fail}},
+          {call,NL,
+	   {remote,NL,{atom,NL,erlang},{atom,NL,is_record}},
+	   [R,{atom,NL,Name},{integer,NL,Sz}]},
+	  {atom,NL,fail}},
     T2 = case conj(AL, none) of
         empty -> T1;
         C -> {op,NL,'and',C,T1}
@@ -581,7 +583,9 @@ strict_get_record_field(Line, R, {atom,_,F}=Index, Name, St0) ->
             ExpRp = erl_lint:modify_line(ExpR, fun(_L) -> 0 end),
             RA = {{Name,ExpRp},Line,ExpR,length(Fs)+1},
             St2 = St1#exprec{strict_ra = [RA | St1#exprec.strict_ra]},
-            {{call,Line,{atom,Line,element},[I,ExpR]},St2}
+            {{call,Line,
+	      {remote,Line,{atom,Line,erlang},{atom,Line,element}},
+	      [I,ExpR]},St2}
     end.
 
 record_pattern(I, I, Var, Sz, Line, Acc) ->
@@ -593,7 +597,9 @@ record_pattern(_, _, _, _, _, Acc) -> reverse(Acc).
 sloppy_get_record_field(Line, R, Index, Name, St) ->
     Fs = record_fields(Name, St),
     I = index_expr(Line, Index, Name, Fs),
-    expr({call,Line,{atom,Line,element},[I,R]}, St).
+    expr({call,Line,
+	  {remote,Line,{atom,Line,erlang},{atom,Line,element}},
+	  [I,R]}, St).
 
 strict_record_tests([strict_record_tests | _]) -> true;
 strict_record_tests([no_strict_record_tests | _]) -> false;
@@ -710,7 +716,8 @@ record_setel(R, Name, Fs, Us0) ->
     {'case',Lr,R,
      [{clause,Lr,[{tuple,Lr,[{atom,Lr,Name} | Wildcards]}],[],
        [foldr(fun ({I,Lf,Val}, Acc) ->
-                      {call,Lf,{atom,Lf,setelement},[I,Acc,Val]} end,
+                      {call,Lf,{remote,Lf,{atom,Lf,erlang},
+				{atom,Lf,setelement}},[I,Acc,Val]} end,
               R, Us)]},
       {clause,NLr,[{var,NLr,'_'}],[],
        [call_error(NLr, {tuple,NLr,[{atom,NLr,badrecord},{atom,NLr,Name}]})]}]}.

@@ -178,6 +178,9 @@ expr(Config) when is_list(Config) ->
                  true ->
                      not_ok
              end.
+
+         is_record(_, _, _) ->
+             error(wrong_is_record).
       ">>
       ],
 
@@ -366,6 +369,8 @@ strict(Config) when is_list(Config) ->
                  end
              catch error:_ -> ok
              end.
+         element(_, _) ->
+             error(wrong_element).
       ">>
       ],
     ?line run(Config, Ts1, [strict_record_tests]),
@@ -380,6 +385,8 @@ strict(Config) when is_list(Config) ->
              case foo of
                  _ when A#r2.a =:= 1 -> ok
              end.
+         element(_, _) ->
+             error(wrong_element).
       ">>
       ],
     ?line run(Config, Ts2, [no_strict_record_tests]),
@@ -415,6 +422,11 @@ update(Config) when is_list(Config) ->
          t2() ->
              R0 = #r{},
              #r{_ = R0#r{a = ok}}.
+
+         %% Implicit calls to setelement/3 must go to the BIF,
+         %% not to this function.
+         setelement(_, _, _) ->
+             erlang:error(wrong_setelement_called).
       ">>
       ],
     ?line run(Config, Ts),
