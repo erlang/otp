@@ -58,7 +58,7 @@
 	  source,
 	  tab,
 	  attrs,
-	  timer
+	  timer={false, 30}
 	}).
 
 -record(opt,
@@ -394,12 +394,19 @@ handle_info({no_rows, N}, State = #state{grid=Grid, status=StatusBar}) ->
     wxListCtrl:setItemCount(Grid, N),
     wxStatusBar:setStatusText(StatusBar, io_lib:format("Objects: ~w",[N])),
     {noreply, State};
+
 handle_info({new_cols, New}, State = #state{grid=Grid, columns=Cols0}) ->
     Cols = add_columns(Grid, Cols0, New),
     {noreply, State#state{columns=Cols}};
+
 handle_info({refresh, Min, Max}, State = #state{grid=Grid}) ->
     wxListCtrl:refreshItems(Grid, Min, Max),
     {noreply, State};
+
+handle_info(refresh_interval, State = #state{pid=Pid}) ->
+    Pid ! refresh,
+    {noreply, State};
+
 handle_info({error, Error}, State = #state{frame=Frame}) ->
     ErrorStr =
 	try io_lib:format("~ts", [Error]), Error
