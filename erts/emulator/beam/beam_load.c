@@ -643,8 +643,6 @@ erts_prepare_loading(LoaderState* stp, Process *c_p, Eterm group_leader,
     stp->code[MI_COMPILE_PTR] = 0;
     stp->code[MI_COMPILE_SIZE] = 0;
     stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
-    stp->code[MI_NUM_BREAKPOINTS] = 0;
-
 
     /*
      * Read the atom table.
@@ -5811,7 +5809,6 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
     code[MI_COMPILE_PTR] = 0;
     code[MI_COMPILE_SIZE] = 0;
     code[MI_COMPILE_SIZE_ON_HEAP] = 0;
-    code[MI_NUM_BREAKPOINTS] = 0;
     code[MI_LITERALS_START] = 0;
     code[MI_LITERALS_END] = 0;
     code[MI_LITERALS_OFF_HEAP] = 0;

@@ -29,6 +29,7 @@ struct erl_module_instance {
     int code_length;		/* Length of loaded code in bytes. */
     unsigned catches;
     struct erl_module_nif* nif;
+    int num_breakpoints;
 };
 
 typedef struct erl_module {

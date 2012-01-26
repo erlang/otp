@@ -74,6 +74,8 @@ static Module* module_alloc(Module* tmpl)
     obj->slot.index = -1;
     obj->curr.nif = NULL;
     obj->old.nif = NULL;
+    obj->curr.num_breakpoints = 0;
+    obj->old.num_breakpoints  = 0;
     return obj;
 }
 

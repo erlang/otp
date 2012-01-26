@@ -1099,7 +1099,7 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
     }
 
     if (bif == BREAK_IS_ERL) {
-	++(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
+	++modp->curr.num_breakpoints;
     }
     return 1;
 }
@@ -1276,8 +1276,8 @@ static int clear_function_break(Module *m, BeamInstr *pc, int bif, BeamInstr bre
 	}
 	Free(bd);
 	if (bif == BREAK_IS_ERL) {
-	    ASSERT(((BeamInstr) code_base[MI_NUM_BREAKPOINTS]) > 0);
-	    --(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
+	    ASSERT(m->curr.num_breakpoints > 0);
+	    --m->curr.num_breakpoints;
 	}
 	if (*rs) {
 	    for (ix = 1; ix < erts_no_schedulers; ++ix) {

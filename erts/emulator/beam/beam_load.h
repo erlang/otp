@@ -89,27 +89,22 @@ extern Uint erts_total_code_size;
 #define MI_COMPILE_SIZE_ON_HEAP 6
 
 /*
- * Number of breakpoints in module is stored in this word
- */
-#define MI_NUM_BREAKPOINTS      7
-
-/*
  * Literal area (constant pool).
  */
-#define MI_LITERALS_START	8
-#define MI_LITERALS_END		9
-#define MI_LITERALS_OFF_HEAP	10
+#define MI_LITERALS_START	7
+#define MI_LITERALS_END		8
+#define MI_LITERALS_OFF_HEAP	9
 
 
 /*
  * Pointer to the on_load function (or NULL if none).
  */
-#define MI_ON_LOAD_FUNCTION_PTR 11
+#define MI_ON_LOAD_FUNCTION_PTR 10
 
 /*
  * Pointer to the line table (or NULL if none).
  */
-#define MI_LINE_TABLE 12
+#define MI_LINE_TABLE 11
 
 /*
  * Start of function pointer table.  This table contains pointers to
@@ -120,7 +115,7 @@ extern Uint erts_total_code_size;
  * this table.
  */
 
-#define MI_FUNCTIONS         13
+#define MI_FUNCTIONS         12
 
 /*
  * Layout of the line table.

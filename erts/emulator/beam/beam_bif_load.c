@@ -826,8 +826,8 @@ static void ensure_no_breakpoints(Process *c_p, ErtsProcLocks c_p_locks,
     ErtsCodeIndex code_ix = erts_active_code_ix();
     Module* modp = erts_get_module(module, code_ix);
 
-    if (modp && modp->curr.code != NULL
-	&& modp->curr.code[MI_NUM_BREAKPOINTS] > 0) {
+    if (modp && modp->curr.num_breakpoints > 0) {
+	ASSERT(modp->curr.code != NULL);
 #ifdef ERTS_ENABLE_LOCK_CHECK
 #ifdef ERTS_SMP
 	if (c_p && c_p_locks)
@@ -840,7 +840,7 @@ static void ensure_no_breakpoints(Process *c_p, ErtsProcLocks c_p_locks,
 	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 	erts_smp_thr_progress_block();
 	erts_clear_module_break(modp);
-	modp->curr.code[MI_NUM_BREAKPOINTS] = 0;
+	modp->curr.num_breakpoints = 0;
 	erts_smp_thr_progress_unblock();
 	if (c_p && c_p_locks)
 	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
@@ -854,7 +854,7 @@ static void ensure_no_breakpoints(Process *c_p, ErtsProcLocks c_p_locks,
 static void
 delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
 {
-    ASSERT(!(modp->curr.code && modp->curr.code[MI_NUM_BREAKPOINTS] > 0));
+    ASSERT(modp->curr.num_breakpoints == 0);
     modp->old = modp->curr;
     modp->curr.code = NULL;
     modp->curr.code_length = 0;
