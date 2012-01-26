@@ -1329,10 +1329,14 @@ static BpData *get_break(Process *p, BeamInstr *pc, BeamInstr break_op) {
 }
 
 static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
-    BpData **rs = (BpData **) pc[-4];
+    BpData **rs;
     BpData  *bd = NULL, *ebd = NULL;
     ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 
+    if (erts_is_native_break(pc)) {
+	return NULL;
+    }
+    rs = (BpData **) pc[-4];
     if (! rs) {
 	return NULL;
     }
