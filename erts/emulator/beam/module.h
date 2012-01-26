@@ -30,6 +30,7 @@ struct erl_module_instance {
     unsigned catches;
     struct erl_module_nif* nif;
     int num_breakpoints;
+    int num_traced_exports;
 };
 
 typedef struct erl_module {

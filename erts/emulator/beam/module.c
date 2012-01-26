@@ -76,6 +76,8 @@ static Module* module_alloc(Module* tmpl)
     obj->old.nif = NULL;
     obj->curr.num_breakpoints = 0;
     obj->old.num_breakpoints  = 0;
+    obj->curr.num_traced_exports = 0;
+    obj->old.num_traced_exports = 0;
     return obj;
 }
 

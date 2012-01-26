@@ -1526,6 +1526,8 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 static int
 setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex code_ix)
 {
+    Module* modp;
+
     if (ep->addressv[code_ix] == ep->code+3) {
 	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
@@ -1548,12 +1550,16 @@ setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex code_ix)
     if (erts_is_native_break(ep->addressv[code_ix])) {
 	return 0;
     }
-    
+
     ep->code[3] = (BeamInstr) em_call_traced_function;
     ep->code[4] = (BeamInstr) ep->addressv[code_ix];
     ep->addressv[code_ix] = ep->code+3;
     ep->match_prog_set = match_prog;
     MatchSetRef(ep->match_prog_set);
+
+    modp = erts_get_module(ep->code[0], code_ix);
+    ASSERT(modp);
+    modp->curr.num_traced_exports++;
     return 1;
 }
 
@@ -1592,6 +1598,10 @@ reset_func_trace(Export* ep, ErtsCodeIndex code_ix)
 	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
 	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
+	    Module* modp = erts_get_module(ep->code[0], code_ix);
+	    ASSERT(modp);
+	    modp->curr.num_traced_exports--;
+
 	    ep->addressv[code_ix] = (Uint *) ep->code[4];
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;

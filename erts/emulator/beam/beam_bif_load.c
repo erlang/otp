@@ -38,8 +38,7 @@
 static void set_default_trace_pattern(Eterm module, ErtsCodeIndex);
 static Eterm check_process_code(Process* rp, Module* modp);
 static void ensure_no_breakpoints(Process *, ErtsProcLocks, Eterm module);
-static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
-static void delete_export_references(Eterm module);
+static void delete_code(Module* modp);
 static int purge_module(Process*, int module);
 static void decrement_refc(BeamInstr* code);
 static int is_native(BeamInstr* code);
@@ -309,8 +308,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	    res = am_badarg;
 	}
 	else {
-	    delete_export_references(BIF_ARG_1);
-	    delete_code(BIF_P, 0, modp);
+	    delete_code(modp);
 	    res = am_true;
 	}
     }
@@ -848,31 +846,15 @@ static void ensure_no_breakpoints(Process *c_p, ErtsProcLocks c_p_locks,
 }
 
 /*
- * Move code from current to old.
+ * Move code from current to old and null all export entries for the module
  */
 
 static void
-delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
-{
-    ASSERT(modp->curr.num_breakpoints == 0);
-    modp->old = modp->curr;
-    modp->curr.code = NULL;
-    modp->curr.code_length = 0;
-    modp->curr.catches = BEAM_CATCHES_NIL;
-    modp->curr.nif = NULL;
-}
-
-
-/* null all references on the export table for the module called with the
-   atom index below */
-
-static void
-delete_export_references(Eterm module)
+delete_code(Module* modp)
 {
     ErtsCodeIndex code_ix = erts_staging_code_ix();
+    Eterm module = make_atom(modp->module);
     int i;
-
-    ASSERT(is_atom(module));
 
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export *ep = export_list(i, code_ix);
@@ -882,15 +864,26 @@ delete_export_references(Eterm module)
 		continue;
 	    }
 	    ep->addressv[code_ix] = ep->code+3;
-	    ASSERT(ep->code[3] != (BeamInstr) em_call_traced_function); /*SVERK What to do now? */
+	    if (ep->code[3] == (BeamInstr) em_call_traced_function) {
+		ASSERT(modp->curr.num_traced_exports > 0);
+		--modp->curr.num_traced_exports;
+	    }
 	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;
 	}
     }
+
+    ASSERT(modp->curr.num_breakpoints == 0);
+    ASSERT(modp->curr.num_traced_exports == 0);
+    modp->old = modp->curr;
+    modp->curr.code = NULL;
+    modp->curr.code_length = 0;
+    modp->curr.catches = BEAM_CATCHES_NIL;
+    modp->curr.nif = NULL;
 }
-
+
 
 Eterm
 beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
@@ -905,8 +898,7 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
     if (modp->curr.code != NULL && modp->old.code != NULL)  {
 	return am_not_purged;
     } else if (modp->old.code == NULL) { /* Make the current version old. */
-	delete_code(c_p, c_p_locks, modp);
-	delete_export_references(module);
+	delete_code(modp);
     }
     return NIL;
 }
