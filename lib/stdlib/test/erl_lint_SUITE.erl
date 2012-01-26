@@ -2633,22 +2633,33 @@ bif_clash(Config) when is_list(Config) ->
 	   [warn_unused_import],
 	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}},
 	  %% Don't accept call to a guard BIF if there is a local definition
-	  %% or an import with the same name.
+	  %% or an import with the same name. Note: is_record/2 is an
+	  %% exception, since it is more of syntatic sugar than a real BIF.
 	  {clash21,
            <<"-export([is_list/1]).
               -import(x, [is_tuple/1]).
+              -record(r, {a,b}).
               x(T) when is_tuple(T) -> ok;
               x(T) when is_list(T) -> ok.
               y(T) when is_tuple(T) =:= true -> ok;
-              y(T) when is_list(T) =:= true -> ok.
+              y(T) when is_list(T) =:= true -> ok;
+              y(T) when is_record(T, r, 3) -> ok;
+              y(T) when is_record(T, r, 3) =:= true -> ok;
+              y(T) when is_record(T, r) =:= true -> ok.
               is_list(_) ->
+                ok.
+              is_record(_, _) ->
+                ok.
+              is_record(_, _, _) ->
                 ok.
              ">>,
 	   [{no_auto_import,[{is_tuple,1}]}],
-	   {errors,[{3,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
-		    {4,erl_lint,{illegal_guard_local_call,{is_list,1}}},
-		    {5,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
-		    {6,erl_lint,{illegal_guard_local_call,{is_list,1}}}],[]}}
+	   {errors,[{4,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
+		    {5,erl_lint,{illegal_guard_local_call,{is_list,1}}},
+		    {6,erl_lint,{illegal_guard_local_call,{is_tuple,1}}},
+		    {7,erl_lint,{illegal_guard_local_call,{is_list,1}}},
+		    {8,erl_lint,{illegal_guard_local_call,{is_record,3}}},
+		    {9,erl_lint,{illegal_guard_local_call,{is_record,3}}}],[]}}
 	 ],
 
     ?line [] = run(Config, Ts),
