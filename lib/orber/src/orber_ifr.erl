@@ -478,7 +478,7 @@ get_module(Id, Type) ->
 	What ->
 	    orber:dbg("[~p] ~p:get_module(~p, ~p).~n"
 		      "Id doesn't exist, mismatch Id vs Type or DB error: ~p", 
-		      [?LINE, ?MODULE, Id, What], ?DEBUG_LEVEL),
+		      [?LINE, ?MODULE, Id, Type, What], ?DEBUG_LEVEL),
 	    corba:raise(#'MARSHAL'{completion_status=?COMPLETED_MAYBE})
     end.
 
