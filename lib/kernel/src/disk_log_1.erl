@@ -1495,7 +1495,7 @@ fwrite_close2(Fd, FileName, B) ->
 pwrite_close2(Fd, FileName, Position, B) ->
     case file:pwrite(Fd, Position, B) of
 	ok -> ok;
-	Error -> file_error(FileName, {error, Error})
+	{error,Error} -> file_error(FileName, {error, Error})
     end.
 
 position2(Fd, FileName, Pos) ->

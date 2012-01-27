@@ -92,7 +92,8 @@
 -export([list_to_integer/1, list_to_pid/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
--export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2]).
+-export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2
+]).
 -export([node/0, node/1, now/0, phash/2, phash2/1, phash2/2]).
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
 -export([port_connect/2, port_control/3, port_get_data/1]).
@@ -118,7 +119,7 @@
          make_tuple/2, make_tuple/3, nodes/1, open_port/2,
          port_call/3, port_info/1, port_info/2, process_flag/2,
          process_info/2, send/2, send/3, seq_trace_info/1,
-         setelement/3,
+         setelement/3, spawn_opt/1,
 	 statistics/1, subtract/2, system_flag/2,
          term_to_binary/1, term_to_binary/2, tl/1, trace_pattern/2,
          trace_pattern/3, tuple_to_list/1, system_info/1,
@@ -598,7 +599,7 @@ exit(_Reason) ->
 
 % exit/2
 -spec exit(Pid, Reason) -> true when
-      Pid :: pid(),
+      Pid :: pid() | port(),
       Reason :: term().
 exit(_Pid, _Reason) ->
     erlang:nif_error(undefined).
@@ -736,7 +737,7 @@ hash(_Term, _Range) ->
     erlang:nif_error(undefined).
 
 % hibernate/3
--spec erlang:hibernate(Module, Function, Args) -> none() when
+-spec erlang:hibernate(Module, Function, Args) -> no_return() when
       Module :: module(),
       Function :: atom(),
       Args :: [term()].
@@ -1085,7 +1086,7 @@ process_flag(_Pid, _Flag, _Value) ->
 % process_info/1
 -spec process_info(Pid) -> Info when
       Pid :: pid(),
-      Info :: [InfoTuple],
+      Info :: [InfoTuple] | undefined,
       InfoTuple :: process_info_result_item().
 process_info(_Pid) ->
     erlang:nif_error(undefined).
@@ -1285,7 +1286,7 @@ system_profile() ->
 
 % system_profile/2
 -spec erlang:system_profile(ProfilerPid, Options) -> ProfilerSettings when
-      ProfilerPid :: pid() | port(),
+      ProfilerPid :: pid() | port() | undefined,
       Options :: [ system_profile_option() ],
       ProfilerSettings :: undefined | { pid() | port(), [ system_profile_option() ]}.
 system_profile(_ProfilerPid, _Options) ->
@@ -1501,7 +1502,7 @@ is_tuple(_Term) ->
 -spec load_module(Module, Binary) -> {module, Module} | {error, Reason} when
       Module :: module(),
       Binary :: binary(),
-      Reason :: badfile | not_purged.
+      Reason :: badfile | not_purged | on_load.
 load_module(_Module,_Binary) ->
     erlang:nif_error(undefined).
 
@@ -1635,7 +1636,11 @@ port_info(_Result, _Item) ->
       OldN :: 0..10000;
                   (sensitive, Boolean) -> OldBoolean when
       Boolean :: boolean(),
-      OldBoolean :: boolean().
+      OldBoolean :: boolean();
+                  %% Deliberately not documented.
+                  ({monitor_nodes, term()}, term()) -> term();
+                  (monitor_nodes, term()) -> term().
+
 process_flag(_Flag, _Value) ->
     erlang:nif_error(undefined).
 
@@ -1771,6 +1776,19 @@ seq_trace_info(_What) ->
 setelement(_Index, _Tuple1, _Value) ->
    erlang:nif_error(undefined).
 
+-spec spawn_opt({Module, Function, Args, Options}) ->   pid() | {pid(), reference()} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Options :: [Option],
+      Option :: link | monitor | {priority, Level}
+              | {fullsweep_after, Number :: non_neg_integer()}
+              | {min_heap_size, Size :: non_neg_integer()}
+              | {min_bin_vheap_size, VSize :: non_neg_integer()},
+      Level :: low | normal | high.
+spawn_opt(_Tuple) ->
+   erlang:nif_error(undefined).
+
 -spec statistics(context_switches) -> {ContextSwitches,0} when
       ContextSwitches :: non_neg_integer();
                 (exact_reductions) -> {Total_Exact_Reductions,
@@ -1841,7 +1859,12 @@ subtract(_,_) ->
       OldSchedulersOnline :: pos_integer();
                         (trace_control_word, TCW) -> OldTCW when
       TCW :: non_neg_integer(),
-      OldTCW :: non_neg_integer().
+      OldTCW :: non_neg_integer();
+                        %% These are deliberately not documented
+			(internal_cpu_topology, term()) -> term();
+                        (sequential_tracer, pid() | port() | false) -> pid() | port() | false;
+                        (1,0) -> true.
+
 system_flag(_Flag, _Value) ->
     erlang:nif_error(undefined).
 
@@ -1866,7 +1889,7 @@ tl(_List) ->
 -type trace_pattern_mfa() ::
       {atom(),atom(),arity() | '_'} | on_load.
 -type trace_match_spec() ::
-      [{[term()],[term()],[term()]}].
+      [{[term()] | '_' ,[term()],[term()]}].
 
 -spec erlang:trace_pattern(MFA, MatchSpec) -> non_neg_integer() when
       MFA :: trace_pattern_mfa(),
