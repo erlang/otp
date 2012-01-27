@@ -1773,6 +1773,7 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       Binary **meta_match_spec,
 			       struct trace_pattern_flags *trace_pattern_flags,
 			       Eterm *meta_tracer_pid);
+int erts_is_default_trace_enabled(void);
 void erts_bif_trace_init(void);
 
 /*

@@ -373,7 +373,10 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 	*meta_tracer_pid = erts_default_meta_tracer_pid;
 }
 
-
+int erts_is_default_trace_enabled(void)
+{
+    return erts_default_trace_pattern_is_on;
+}
 
 Uint 
 erts_trace_flag2bit(Eterm flag) 

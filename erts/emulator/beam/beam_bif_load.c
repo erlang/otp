@@ -37,7 +37,6 @@
 
 static void set_default_trace_pattern(Eterm module, ErtsCodeIndex);
 static Eterm check_process_code(Process* rp, Module* modp);
-static void ensure_no_breakpoints(Process *, ErtsProcLocks, Eterm module);
 static void delete_code(Module* modp);
 static int purge_module(Process*, int module);
 static void decrement_refc(BeamInstr* code);
@@ -55,6 +54,7 @@ load_module_2(BIF_ALIST_2)
     Eterm res;
     byte* temp_alloc = NULL;
     struct LoaderState* stp;
+    int is_blocking = 0;
 
     if (is_not_atom(BIF_ARG_1)) {
     error:
@@ -79,18 +79,32 @@ load_module_2(BIF_ALIST_2)
 	BIF_RET(res);
     }
 
-    /*SVERK
-     * Stop all other processes and finish the loading of the module.
-     *
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();*/
-
-    ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
-
     erts_lock_code_ix();
-    erts_start_staging_code_ix();
+    for(;;) {
+	Module* modp;
+	erts_start_staging_code_ix();
+	modp = erts_put_module(BIF_ARG_1);
+	if (!is_blocking) {
+	    if (modp->curr.num_breakpoints > 0
+		|| modp->curr.num_traced_exports > 0
+		|| erts_is_default_trace_enabled()) {
+		/* we have tracing, retry single threaded */
+		erts_abort_staging_code_ix();
+		erts_unlock_code_ix();
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_smp_thr_progress_block();
+		is_blocking = 1;
+		continue;
+	    }
+	}
+	else if (modp->curr.num_breakpoints) {
+	    erts_clear_module_break(modp);
+	    ASSERT(modp->curr.num_breakpoints == 0);
+	}
+	reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
+	break;
+    }
 
-    reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
     if (reason != NIL) {
 	if (reason == am_on_load) {
 	    erts_commit_staging_code_ix();
@@ -105,11 +119,13 @@ load_module_2(BIF_ALIST_2)
 	res = TUPLE2(hp, am_module, BIF_ARG_1);
     }
 
-    erts_unlock_code_ix();
-
-    /*SVERK
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
+    if (is_blocking) {
+	erts_smp_thr_progress_unblock();
+	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    }
+    else {
+	erts_unlock_code_ix();
+    }
     BIF_RET(res);
 }
 
@@ -162,17 +178,20 @@ BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 
 BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 {
+    Module* modp;
     Eterm res;
 
-    /*SVERK
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
-    erts_export_consolidate(erts_active_code_ix());*/
+    modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
 
-    ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
+    if (modp && modp->curr.num_breakpoints > 0) {
+	ASSERT(modp->curr.code != NULL);
+	erts_clear_module_break(modp);
+	ASSERT(modp->curr.num_breakpoints == 0);
+    }
 
-    erts_lock_code_ix();
     erts_start_staging_code_ix();
 
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
@@ -183,11 +202,8 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     else {
 	erts_abort_staging_code_ix();
     }
-    erts_unlock_code_ix();
-
-    /*SVERK
     erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     return res;
 }
 
@@ -281,7 +297,9 @@ check_process_code_2(BIF_ALIST_2)
 BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 {
     ErtsCodeIndex code_ix;
-    int res;
+    Module* modp;
+    int is_blocking = 0;
+    Eterm res = NIL;
 
     if (is_not_atom(BIF_ARG_1))
 	goto badarg;
@@ -290,13 +308,11 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();*/
 
-    ensure_no_breakpoints(BIF_P, 0, BIF_ARG_1);
-
     erts_lock_code_ix();
-    erts_start_staging_code_ix();
-    code_ix = erts_staging_code_ix();
-    {
-	Module *modp = erts_get_module(BIF_ARG_1, code_ix);
+    do {
+	erts_start_staging_code_ix();
+	code_ix = erts_staging_code_ix();
+	modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {
 	    res = am_undefined;
 	}
@@ -308,10 +324,26 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	    res = am_badarg;
 	}
 	else {
+	    if (!is_blocking) {
+		if (modp->curr.num_breakpoints > 0 ||
+		    modp->curr.num_traced_exports > 0) {
+		    /* we have tracing, retry single threaded */
+		    erts_abort_staging_code_ix();
+		    erts_unlock_code_ix();
+		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		    erts_smp_thr_progress_block();
+		    is_blocking = 1;
+		    continue;
+		}
+	    }
+	    else if (modp->curr.num_breakpoints) {
+		erts_clear_module_break(modp);
+		ASSERT(modp->curr.num_breakpoints == 0);
+	    }
 	    delete_code(modp);
 	    res = am_true;
 	}
-    }
+    } while (res == NIL);
 
     if (res == am_true) {
 	erts_commit_staging_code_ix();
@@ -319,7 +351,13 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     else {
 	erts_abort_staging_code_ix();
     }
-    erts_unlock_code_ix();
+    if (is_blocking) {
+	erts_smp_thr_progress_unblock();
+	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    }
+    else {
+	erts_unlock_code_ix();
+    }
 
     /*SVERK
     erts_smp_thr_progress_unblock();
@@ -725,7 +763,7 @@ purge_module(Process* c_p, int module)
     BeamInstr* code;
     BeamInstr* end;
     Module* modp;
-    int is_blocked = 0;
+    int is_blocking = 0;
     int ret;
 
     erts_lock_code_ix();
@@ -753,13 +791,13 @@ retry:
 	     * Unload any NIF library
 	     */
 	    if (modp->old.nif != NULL) {
-		if (!is_blocked) {
+		if (!is_blocking) {
 		    /*SVERK Do unload nif without blocking */
 		    erts_rwunlock_old_code(code_ix);
 		    erts_unlock_code_ix();
 		    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 		    erts_smp_thr_progress_block();
-		    is_blocked = 1;
+		    is_blocking = 1;
 		    goto retry;
 		}
 
@@ -787,7 +825,7 @@ retry:
 	}
 	erts_rwunlock_old_code(code_ix);
     }
-    if (is_blocked) {
+    if (is_blocking) {
 	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     }
@@ -814,37 +852,6 @@ decrement_refc(BeamInstr* code)
     }
 }
 
-
-/*
- * Clear breakpoints in module if any
- */
-static void ensure_no_breakpoints(Process *c_p, ErtsProcLocks c_p_locks,
-				  Eterm module)
-{
-    ErtsCodeIndex code_ix = erts_active_code_ix();
-    Module* modp = erts_get_module(module, code_ix);
-
-    if (modp && modp->curr.num_breakpoints > 0) {
-	ASSERT(modp->curr.code != NULL);
-#ifdef ERTS_ENABLE_LOCK_CHECK
-#ifdef ERTS_SMP
-	if (c_p && c_p_locks)
-	    erts_proc_lc_chk_only_proc_main(c_p);
-	else
-#endif
-	    erts_lc_check_exact(NULL, 0);
-#endif
-	if (c_p && c_p_locks)
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_thr_progress_block();
-	erts_clear_module_break(modp);
-	modp->curr.num_breakpoints = 0;
-	erts_smp_thr_progress_unblock();
-	if (c_p && c_p_locks)
-	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
-    }
-}
-
 /*
  * Move code from current to old and null all export entries for the module
  */
@@ -859,19 +866,24 @@ delete_code(Module* modp)
     for (i = 0; i < export_list_size(code_ix); i++) {
 	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->code[0] == module)) {
-	    if (ep->addressv[code_ix] == ep->code+3 &&
-		(ep->code[3] == (BeamInstr) em_apply_bif)) {
-		continue;
+	    if (ep->addressv[code_ix] == ep->code+3) {
+		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+		    continue;
+		}
+		else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
+		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ASSERT(modp->curr.num_traced_exports > 0);
+		    --modp->curr.num_traced_exports;
+		    MatchSetUnref(ep->match_prog_set);
+		    ep->match_prog_set = NULL;
+		}
+		else ASSERT(ep->code[3] == (BeamInstr) em_call_error_handler
+			    || !erts_initialized);
 	    }
 	    ep->addressv[code_ix] = ep->code+3;
-	    if (ep->code[3] == (BeamInstr) em_call_traced_function) {
-		ASSERT(modp->curr.num_traced_exports > 0);
-		--modp->curr.num_traced_exports;
-	    }
 	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
-	    MatchSetUnref(ep->match_prog_set);
-	    ep->match_prog_set = NULL;
+	    ASSERT(ep->match_prog_set == NULL);
 	}
     }
 
