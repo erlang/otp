@@ -486,7 +486,11 @@ handle_call({match, Name, Db, Pattern}, _From, State) ->
     L1 = match(Db, Name, Pattern, State),
     {reply, lists:delete([undef], L1), State};
 
-handle_call({backup, BackupDir}, From, #state{dets = Dets} = State) ->
+%% This check (that there is no backup already in progress) is also 
+%% done in the master agent process, but just in case a user issues 
+%% a backup call to this process directly, we add a similar check here. 
+handle_call({backup, BackupDir}, From, 
+	    #state{backup = undefined, dets = Dets} = State) ->
     ?vlog("backup: ~p",[BackupDir]),
     Pid = self(),
     V   = get(verbosity),
@@ -510,6 +514,10 @@ handle_call({backup, BackupDir}, From, #state{dets = Dets} = State) ->
 	Error ->
 	    {reply, Error, State}
     end;
+
+handle_call({backup, _BackupDir}, From, #state{backup = Backup} = S) ->
+    ?vinfo("backup already in progress: ~p", [Backup]),
+    {reply, {error, backup_in_progress}, S};
 
 handle_call(dump, _From, #state{dets = Dets} = State) ->
     ?vlog("dump",[]),
