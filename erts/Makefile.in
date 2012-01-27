@@ -156,4 +156,4 @@ release:
 
 .PHONY: release_docs
 release_docs:
-	( cd emulator && $(MAKE) $@ )
+	( cd doc/src && $(MAKE) $@ )
