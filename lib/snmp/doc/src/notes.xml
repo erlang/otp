@@ -78,6 +78,12 @@
           <p>Aux Id: Seq 11995</p>
         </item>
 
+        <item>
+          <p>[agent] When sending an error message (reply) regarding 
+	  <c>snmpUnknownPDUHandlers</c>, the agent used the wrong OID. </p>
+          <p>Own Id: OTP-9747</p>
+        </item>
+
       </list>
 
     </section>
