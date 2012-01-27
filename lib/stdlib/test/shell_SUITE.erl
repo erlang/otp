@@ -2388,13 +2388,28 @@ otp_6554(Config) when is_list(Config) ->
         comm_err(<<"V = lists:seq(1, 20), case V of a -> ok end.">>),
     ?line "exception error: no function clause matching" = 
         comm_err(<<"fun(P) when is_pid(P) -> true end(a).">>),
-    ?line "exception error: {function_clause," =
-        comm_err(<<"erlang:error(function_clause, [unproper | list]).">>),
+    case test_server:is_native(erl_eval) of
+	true ->
+	    %% Native code has different exit reason. Don't bother
+	    %% testing them.
+	    ok;
+	false ->
+	    "exception error: {function_clause," =
+		comm_err(<<"erlang:error(function_clause, "
+			  "[unproper | list]).">>),
+	    %% Cheating:
+	    "exception error: no function clause matching "
+		"erl_eval:do_apply(4)" ++ _ =
+		comm_err(<<"erlang:error(function_clause, [4]).">>),
+		"exception error: no function clause matching "
+		"lists:reverse(" ++ _ =
+		comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
+		"exception error: no function clause matching "
+		"lists:reverse(34) (lists.erl, line " ++ _ =
+		comm_err(<<"lists:reverse(34).">>)
+    end,
     ?line "exception error: function_clause" =
         comm_err(<<"erlang:error(function_clause, 4).">>),
-    %% Cheating:
-    ?line "exception error: no function clause matching erl_eval:do_apply(4)" ++ _ = 
-        comm_err(<<"erlang:error(function_clause, [4]).">>),
     ?line "exception error: no function clause matching" ++ _ = 
         comm_err(<<"fun(a, b, c, d) -> foo end"
                    "       (lists:seq(1,17),"
@@ -2404,10 +2419,6 @@ otp_6554(Config) when is_list(Config) ->
 
     ?line "exception error: no function clause matching" = 
         comm_err(<<"fun(P, q) when is_pid(P) -> true end(a, b).">>),
-    ?line "exception error: no function clause matching lists:reverse(" ++ _ = 
-        comm_err(<<"F=fun() -> hello end, lists:reverse(F).">>),
-    ?line "exception error: no function clause matching lists:reverse(34) (lists.erl, line " ++ _ = 
-        comm_err(<<"lists:reverse(34).">>),
     ?line "exception error: no true branch found when evaluating an if expression" = 
         comm_err(<<"if length([a,b]) > 17 -> a end.">>),
     ?line "exception error: no such process or port" = 
