@@ -66,13 +66,18 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_suite(Config) ->
-    %% No never know who skrewed up this node before this suite! :-)
-    erlang:trace_pattern({'_','_','_'},[],[local]),
-    erlang:trace_pattern({'_','_','_'},[],[global]),
-    erlang:trace(all,false,[all]),
+    case test_server:is_native(lists) of
+	true ->
+	    {skip,"Native libs -- tracing doesn't work"};
+	false ->
+	    %% We never know who messed up this node before this suite! :-)
+	    erlang:trace_pattern({'_','_','_'},[],[local]),
+	    erlang:trace_pattern({'_','_','_'},[],[global]),
+	    erlang:trace(all,false,[all]),
 
-    ?l ok=application:start(runtime_tools),
-    Config.
+	    ok=application:start(runtime_tools),
+	    Config
+    end.
 
 end_per_suite(_Config) ->
     ?l ok=application:stop(runtime_tools).
