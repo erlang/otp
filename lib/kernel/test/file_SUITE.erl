@@ -93,7 +93,7 @@
 
 
 %% System probe functions that might be handy to check from the shell
--export([unix_free/1, memsize/0, bsd_memsize/1]).
+-export([disc_free/1, memsize/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -145,6 +145,13 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_suite(Config) when is_list(Config) ->
+    SaslConfig = case application:start(sasl) of
+		     {error, {already_started, sasl}} ->
+			 [];
+		     ok ->
+			 [{sasl,started}]
+		 end,
+    ok = application:start(os_mon),
     case os:type() of
 	{win32, _} ->
 	    Priv = ?config(priv_dir, Config),
@@ -156,9 +163,9 @@ init_per_suite(Config) when is_list(Config) ->
 		    {ok, _} ->
 			[]
 		end,
-	    ?FILE_INIT(HasAccessTime++Config);
+	    ?FILE_INIT(HasAccessTime++Config++SaslConfig);
 	_ ->
-	    ?FILE_INIT(Config)
+	    ?FILE_INIT(Config++SaslConfig)
     end.
 
 end_per_suite(Config) when is_list(Config) ->
@@ -166,6 +173,13 @@ end_per_suite(Config) when is_list(Config) ->
 	{win32, _} ->
 	    os:cmd("subst z: /d");
 	_ ->
+	    ok
+    end,
+    application:stop(os_mon),
+    case proplists:get_value(sasl, Config) of
+	started ->
+	    application:stop(sasl);
+	_Else ->
 	    ok
     end,
     ?FILE_FINI(Config).
@@ -3949,7 +3963,7 @@ run_large_file_test(Config, Run, Name) ->
 	{{unix,sunos},OsVersion} when OsVersion < {5,5,1} ->
 	    {skip,"Only supported on Win32, Unix or SunOS >= 5.5.1"};
 	{{unix,_},_} ->
-	    N = unix_free(?config(priv_dir, Config)),
+	    N = disc_free(?config(priv_dir, Config)),
 	    io:format("Free disk: ~w KByte~n", [N]),
 	    if N < 5 * (1 bsl 20) ->
 		    %% Less than 5 GByte free
@@ -3989,58 +4003,15 @@ do_run_large_file_test(Config, Run, Name0) ->
 
     Res.
 
-unix_free(Path) ->
-    Cmd = ["df -k '",Path,"'"],
-    DF0 = os:cmd(Cmd),
-    io:format("$ ~s~n~s", [Cmd,DF0]),
-    Lines = re:split(DF0, "\n", [trim,{return,list}]),
-    Last = lists:last(Lines),
-    RE = "^[^\\s]*\\s+\\d+\\s+\\d+\\s+(\\d+)",
-    {match,[Avail]} = re:run(Last, RE, [{capture,all_but_first,list}]),
-    list_to_integer(Avail).
+disc_free(Path) ->
+    Data = disksup:get_disk_data(),
+    {_,Tot,Perc} = hd(lists:filter(
+			fun({P,_Size,_Full}) ->
+				lists:prefix(filename:nativename(P),
+					     filename:nativename(Path))
+			end, lists:reverse(lists:sort(Data)))),
+    round(Tot * (1-(Perc/100))).
 
 memsize() ->
-    case os:type() of
-	{unix,openbsd} ->
-	    bsd_memsize("hw.physmem");
-	{unix,freebsd} ->
-	    bsd_memsize("hw.physmem");
-	{unix,darwin} ->
-	    bsd_memsize("hw.memsize");
-	{unix,linux} ->
-	    Meminfo = os:cmd("cat /proc/meminfo"),
-	    Re = "^MemTotal:\\s+(\\d+)\\s+kB\$",
-	    ReOpts = [multiline,{capture,all_but_first,list}],
-	    case re:run(Meminfo, Re, ReOpts) of
-		{match,[Str]} ->
-		    list_to_integer(Str) bsl 10;
-		nomatch ->
-		    0
-	    end;
-	{win32,_} ->
-	    enough; % atom() > integer(); assume (64-bit) windows have enough
-	_ ->
-	    0
-    end.
-
-bsd_memsize(MIB) ->
-    Reply = os:cmd(["sysctl ",MIB]),
-    try strip_prefix(MIB, Reply) of
-	Str ->
-	    Re = "^\\s*(?::|=)\\s*(\\d+)",
-	    ReOpts =  [{capture,all_but_first,list}],
-	    case re:run(Str, Re, ReOpts) of
-		{match,[SizeStr]} ->
-		    list_to_integer(SizeStr);
-		nomatch ->
-		    0
-	    end
-    catch
-	error:_ ->
-	    0
-    end.
-
-strip_prefix([X|Prefix], [X|List]) ->
-    strip_prefix(Prefix, List);
-strip_prefix([], List) ->
-    List.
+    {Tot,_Used,_}  = memsup:get_memory_data(),
+    Tot.
