@@ -1510,11 +1510,11 @@ decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals], Status) ->
         case RelApp of
             Name when is_atom(Name) ->
                 {true, #rel_app{name = Name}};
-            {Name, Type} when is_atom(Name) ->
-                {is_type(Type), #rel_app{name = Name, app_type = Type}};
             {Name, InclApps} when is_atom(Name), is_list(InclApps) ->
 		VI = lists:all(fun erlang:is_atom/1, InclApps),
                 {VI, #rel_app{name = Name, incl_apps = InclApps}};
+            {Name, Type} when is_atom(Name) ->
+                {is_type(Type), #rel_app{name = Name, app_type = Type}};
             {Name, Type, InclApps} when is_atom(Name), is_list(InclApps) ->
 		VT = is_type(Type),
 		VI = lists:all(fun erlang:is_atom/1, InclApps),
@@ -1606,7 +1606,7 @@ check_app({RelName, AppName}, Apps, Status) ->
 	    Status;
 	_ ->
 	    Text = lists:concat(["Release ", RelName,
-						     " uses non included application ",
+				 " uses non included application ",
 				 AppName]),
 	    reltool_utils:return_first_error(Status, Text)
     end.

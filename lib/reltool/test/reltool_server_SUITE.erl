@@ -52,13 +52,32 @@ end_per_testcase(Func,Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start_server, set_config, get_config, create_release,
-     create_script, create_target, create_embedded,
-     create_standalone, create_old_target, eval_target_spec,
-     otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod,
-     get_apps, get_mod, get_sys, set_app_and_undo, set_apps_and_undo,
-     set_sys_and_undo, load_config_and_undo, reset_config_and_undo,
-     gen_rel_files, save_config, dependencies].
+    [start_server,
+     set_config,
+     get_config,
+     create_release,
+     create_release_sort,
+     create_script,
+     create_script_sort,
+     create_target,
+     create_embedded,
+     create_standalone,
+     create_old_target,
+     eval_target_spec,
+     otp_9135,
+     otp_9229_exclude_app,
+     otp_9229_exclude_mod,
+     get_apps,
+     get_mod,
+     get_sys,
+     set_app_and_undo,
+     set_apps_and_undo,
+     set_sys_and_undo,
+     load_config_and_undo,
+     reset_config_and_undo,
+     gen_rel_files,
+     save_config,
+     dependencies].
 
 groups() -> 
     [].
@@ -251,6 +270,121 @@ create_release(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate releases and make sure order of applications specified in
+%% 'rel' parameter is preserved and that included applications are
+%% started before the including application.
+%% Circular dependencies shall also be detected and cause error.
+
+create_release_sort(_Config) -> {skip, "Multiple known problems - see OTP-9792"};
+create_release_sort(Config) ->
+    DataDir = ?config(data_dir,Config),
+    %% Configure the server
+    RelName1 = "MnesiaFirst",
+    RelName2 = "SaslFirst",
+    RelName3 = "Include-both",
+    RelName4 = "Include-only-app",
+    RelName5 = "Include-only-rel",
+    RelName6 = "Include-missing-app",
+    RelName7 = "Circular",
+    RelName8 = "Include-both-missing-app",
+    RelName9 = "Include-overwrite",
+    RelVsn = "1.0",
+    Sys =
+        {sys,
+         [
+          {lib_dirs, [filename:join(DataDir,"sort_apps")]},
+          {boot_rel, RelName1},
+          {rel, RelName1, RelVsn, [stdlib, kernel, mnesia, sasl]},
+          {rel, RelName2, RelVsn, [stdlib, kernel, sasl, mnesia]},
+          {rel, RelName3, RelVsn, [stdlib, kernel, {z,[tools]}, tools]},
+          {rel, RelName4, RelVsn, [stdlib, kernel, z, tools]},
+          {rel, RelName5, RelVsn, [stdlib, kernel, {sasl,[tools]}]},
+          {rel, RelName6, RelVsn, [stdlib, kernel, z]}, %z includes tools in .app
+	  {rel, RelName7, RelVsn, [stdlib, kernel, mnesia, y, sasl, x]},
+          {rel, RelName8, RelVsn, [stdlib, kernel, {z,[tools]}]},
+          {rel, RelName9, RelVsn, [stdlib, kernel, {z,[]}]},
+	  {incl_cond,exclude},
+	  {mod_cond,app},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,mnesia,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,include}]},
+	  {app,z,[{incl_cond,include}]},
+	  {app,tools,[{mod_cond,app},{incl_cond,include}]}
+         ]},
+    %% Generate release
+
+    %% BUG: reltool reverses the list of applications after kernel and stdlib
+    ?msym({ok, {release, {RelName1, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {mnesia, _},
+		 {sasl, _}]}},
+	  reltool:get_rel([{config, Sys}], RelName1)),
+
+    %% BUG: reltool reverses the list of applications after kernel and stdlib
+    ?msym({ok, {release, {RelName2, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {sasl, _},
+		 {mnesia, _}]}},
+	  reltool:get_rel([{config, Sys}], RelName2)),
+
+    ?msym({ok, {release, {RelName3, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {tools, _},
+		 {z, _, [tools]}]}},
+	  reltool:get_rel([{config, Sys}], RelName3)),
+
+    %% BUG: reltool does not honor included applications in .app files
+    %% unless they are also mentioned in the 'rel' specification in
+    %% the reltool config.
+    %% => order of tools and z does not become correct in rel (tools
+    %% should be first since it is included in z)
+    ?msym({ok, {release, {RelName4, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {tools, _},
+		 {z, _}]}},
+	  reltool:get_rel([{config, Sys}], RelName4)),
+
+    ?m({error,"sasl: These applications are used by release "
+	"Include-only-rel but are missing as included_applications "
+	"in the app file: [tools]"},
+       reltool:get_rel([{config, Sys}], RelName5)),
+
+    %% BUG: reltool does not honor included applications in .app files
+    %% unless they are also mentioned in the 'rel' specification in
+    %% the reltool config.
+    %% => does not detect that tools (included in z) is missing
+    ?m({error, "Undefined applications: [tools]"},
+       reltool:get_rel([{config, Sys}], RelName6)),
+
+    ?m({error,"Circular dependencies: [x,y]"},
+       reltool:get_rel([{config, Sys}], RelName7)),
+
+    ?m({error,"Undefined applications: [tools]"},
+       reltool:get_rel([{config, Sys}], RelName8)),
+
+    %% BUG: Reltool looses the empty include list for z, which should
+    %% overwrite included_applications statement from the .app file.
+    ?msym({ok,{release,{RelName9,RelVsn},
+	       {erts,_},
+	       [{kernel,_},
+		{stdlib,_},
+		{z,_,[]}]}},
+	  reltool:get_rel([{config, Sys}], RelName9)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate boot scripts
 
 create_script(TestInfo) when is_atom(TestInfo) -> 
@@ -297,6 +431,203 @@ create_script(_Config) ->
     %% Stop server
     ?m(ok, reltool:stop(Pid)),
     ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test creation of .script with different sorting of applications and
+%% included applications.
+%% Test that result is equal to what systools produces
+create_script_sort(_Config) -> {skip, "Multiple known problems - see OTP-9792"};
+create_script_sort(Config) ->
+    DataDir = ?config(data_dir,Config),
+    %% Configure the server
+    RelName1 = "MnesiaFirst",
+    RelName2 = "SaslFirst",
+    RelName3 = "Include-both",
+    RelName4 = "Include-only-app",
+    RelName5 = "Include-only-rel",
+    RelName6 = "Include-missing-app",
+    RelName7 = "Circular",
+    RelName8 = "Include-both-missing-app",
+    RelName9 = "Include-overwrite",
+    RelVsn = "1.0",
+    LibDir = filename:join(DataDir,"sort_apps"),
+    Sys =
+        {sys,
+         [
+          {lib_dirs, [LibDir]},
+          {boot_rel, RelName1},
+          {rel, RelName1, RelVsn, [stdlib, kernel, mnesia, sasl]},
+          {rel, RelName2, RelVsn, [stdlib, kernel, sasl, mnesia]},
+          {rel, RelName3, RelVsn, [stdlib, kernel, {z,[tools]}, tools]},
+          {rel, RelName4, RelVsn, [stdlib, kernel, z, tools]},
+          {rel, RelName5, RelVsn, [stdlib, kernel, {sasl,[tools]}]},
+          {rel, RelName6, RelVsn, [stdlib, kernel, z]}, %z includes tools in .app
+	  {rel, RelName7, RelVsn, [stdlib, kernel, mnesia, y, sasl, x]},
+          {rel, RelName8, RelVsn, [stdlib, kernel, {z,[tools]}]},
+          {rel, RelName9, RelVsn, [stdlib, kernel, {z,[]}]},
+	  {incl_cond,exclude},
+	  {mod_cond,app},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,mnesia,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,include}]},
+	  {app,z,[{incl_cond,include}]},
+	  {app,tools,[{mod_cond,app},{incl_cond,include}]}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    %% Generate release files
+    application:load(sasl),
+    application:load(mnesia),
+    application:load(tools),
+    {ok,KernelVsn} = application:get_key(kernel,vsn),
+    {ok,StdlibVsn} = application:get_key(stdlib,vsn),
+    {ok,SaslVsn} = application:get_key(sasl,vsn),
+    {ok,MnesiaVsn} = application:get_key(mnesia,vsn),
+    {ok,ToolsVsn} = application:get_key(tools,vsn),
+    ErtsVsn = erlang:system_info(version),
+
+    Rel1 = {release, {RelName1,RelVsn}, {erts,ErtsVsn},
+	    [{kernel,KernelVsn},
+	     {stdlib,StdlibVsn},
+	     {mnesia,MnesiaVsn},
+	     {sasl,SaslVsn}]},
+    FullName1 = filename:join(?WORK_DIR,RelName1),
+    ?m(ok, file:write_file(FullName1 ++ ".rel", io_lib:format("~p.\n", [Rel1]))),
+    Rel2 = {release, {RelName2,RelVsn}, {erts,ErtsVsn},
+	    [{kernel,KernelVsn},
+	     {stdlib,StdlibVsn},
+	     {sasl,SaslVsn},
+	     {mnesia,MnesiaVsn}]},
+    FullName2 = filename:join(?WORK_DIR,RelName2),
+    ?m(ok, file:write_file(FullName2 ++ ".rel", io_lib:format("~p.\n", [Rel2]))),
+    Rel3 = {release, {RelName3,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0",[tools]},
+	      {tools,ToolsVsn}]},
+    FullName3 = filename:join(?WORK_DIR,RelName3),
+    ?m(ok, file:write_file(FullName3 ++ ".rel", io_lib:format("~p.\n", [Rel3]))),
+    Rel4 = {release, {RelName4,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0"},
+	      {tools,ToolsVsn}]},
+    FullName4 = filename:join(?WORK_DIR,RelName4),
+    ?m(ok, file:write_file(FullName4 ++ ".rel", io_lib:format("~p.\n", [Rel4]))),
+    Rel5 = {release, {RelName5,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {sasl,SaslVsn,[tools]},
+	      {tools,ToolsVsn}]},
+    FullName5 = filename:join(?WORK_DIR,RelName5),
+    ?m(ok, file:write_file(FullName5 ++ ".rel", io_lib:format("~p.\n", [Rel5]))),
+    Rel6 = {release, {RelName6,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0"}]},
+    FullName6 = filename:join(?WORK_DIR,RelName6),
+    ?m(ok, file:write_file(FullName6 ++ ".rel", io_lib:format("~p.\n", [Rel6]))),
+    Rel7 = {release, {RelName7,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {mnesia,MnesiaVsn},
+	      {y,"1.0"},
+	      {sasl,SaslVsn},
+	      {x,"1.0"}]},
+    FullName7 = filename:join(?WORK_DIR,RelName7),
+    ?m(ok, file:write_file(FullName7 ++ ".rel", io_lib:format("~p.\n", [Rel7]))),
+    Rel8 = {release, {RelName8,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0",[tools]}]},
+    FullName8 = filename:join(?WORK_DIR,RelName8),
+    ?m(ok, file:write_file(FullName8 ++ ".rel", io_lib:format("~p.\n", [Rel8]))),
+    Rel9 = {release, {RelName9,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0",[]}]},
+    FullName9 = filename:join(?WORK_DIR,RelName9),
+    ?m(ok, file:write_file(FullName9 ++ ".rel", io_lib:format("~p.\n", [Rel9]))),
+
+    %% Generate script files with systools and reltool and compare
+    ZPath = filename:join([LibDir,"*",ebin]),
+
+    %% BUG: reltool reverses the list of applications after kernel and stdlib
+    %% => mnesia and sasl are reverted
+    ?msym({ok,_,_}, systools_make_script(FullName1,ZPath)),
+    {ok, [SystoolsScript1]} = ?msym({ok,[_]}, file:consult(FullName1++".script")),
+    {ok, Script1} = ?msym({ok, _}, reltool:get_script(Pid, RelName1)),
+    ?m(equal, diff_script(SystoolsScript1, Script1)),
+
+    %% BUG: reltool reverses the list of applications after kernel and stdlib
+    %% => mnesia and sasl are reverted
+    ?msym({ok,_,_}, systools_make_script(FullName2,ZPath)),
+    {ok, [SystoolsScript2]} = ?msym({ok,[_]}, file:consult(FullName2++".script")),
+    {ok, Script2} = ?msym({ok, _}, reltool:get_script(Pid, RelName2)),
+    ?m(equal, diff_script(SystoolsScript2, Script2)),
+
+    %% BUG1: reltool loads all modules in the ebin dir of an application,
+    %% even if mod_cond is set to 'app'.
+    %% BUG2: reltool shall not start included applications!!
+    ?msym({ok,_,_}, systools_make_script(FullName3,ZPath)),
+    {ok, [SystoolsScript3]} = ?msym({ok,[_]}, file:consult(FullName3++".script")),
+    {ok, Script3} = ?msym({ok, _}, reltool:get_script(Pid, RelName3)),
+    ?m(equal, diff_script(SystoolsScript3, Script3)),
+
+    %% BUG1:  reltool loads all modules in the ebin dir of an application,
+    %% even if mod_cond is set to 'app'.
+    %% BUG2: reltool does not honor included applications in .app files
+    %% unless they are also mentioned in the 'rel' specification in
+    %% the reltool config.
+    %% => faulty order of load instructions for tools and z. tools
+    %% should be first since it is included in z.
+    ?msym({ok,_,_}, systools_make_script(FullName4,ZPath)),
+    {ok, [SystoolsScript4]} = ?msym({ok,[_]}, file:consult(FullName4++".script")),
+    {ok, Script4} = ?msym({ok, _}, reltool:get_script(Pid, RelName4)),
+    ?m(equal, diff_script(SystoolsScript4, Script4)),
+
+    ?msym({error,_,[{error_reading,{sasl,{override_include,_}}}]},
+	  systools_make_script(FullName5,ZPath)),
+    ?m({error,"sasl: These applications are used by release "
+	"Include-only-rel but are missing as included_applications "
+	"in the app file: [tools]"},
+       reltool:get_script(Pid, RelName5)),
+
+    %% BUG: reltool does not honor included applications in .app files
+    %% unless they are also mentioned in the 'rel' specification in
+    %% the reltool config.
+    %% => does not detect that tools (included in z) is missing
+    ?msym({error,_,{undefined_applications,_}},
+	  systools_make_script(FullName6,ZPath)),
+    ?m({error, "Undefined applications: [tools]"},
+       reltool:get_script(Pid, RelName6)),
+
+    ?msym({error,_,{circular_dependencies,_}},
+	  systools_make_script(FullName7,ZPath)),
+    ?m({error,"Circular dependencies: [x,y]"},
+       reltool:get_script(Pid, RelName7)),
+
+    ?msym({error,_,{undefined_applications,_}},
+	  systools_make_script(FullName8,ZPath)),
+    ?m({error, "Undefined applications: [tools]"},
+       reltool:get_script(Pid, RelName8)),
+
+    ?msym({ok,_,_}, systools_make_script(FullName9,ZPath)),
+    {ok, [SystoolsScript9]} = ?msym({ok,[_]}, file:consult(FullName9++".script")),
+    {ok, Script9} = ?msym({ok, _}, reltool:get_script(Pid, RelName9)),
+    ?m(equal, diff_script(SystoolsScript9, Script9)),
+
+    %% Stop server
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+systools_make_script(Name,Path) ->
+    systools:make_script(Name,[{path,[Path]},{outdir,?WORK_DIR},silent]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate target system
