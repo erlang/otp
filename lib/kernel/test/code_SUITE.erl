@@ -30,9 +30,9 @@
 	 load_cached/1, start_node_with_cache/1, add_and_rehash/1,
 	 where_is_file_cached/1, where_is_file_no_cache/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
-	 code_archive/1, code_archive2/1, on_load/1,
-	 big_boot_embedded/1,
-	 on_load_embedded/1, on_load_errors/1, native_early_modules/1]).
+	 code_archive/1, code_archive2/1, on_load/1, on_load_binary/1,
+	 on_load_embedded/1, on_load_errors/1, big_boot_embedded/1,
+	 native_early_modules/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2, 
 	 init_per_suite/1, end_per_suite/1,
@@ -55,8 +55,8 @@ all() ->
      add_and_rehash, where_is_file_no_cache,
      where_is_file_cached, purge_stacktrace, mult_lib_roots,
      bad_erl_libs, code_archive, code_archive2, on_load,
-     on_load_embedded, big_boot_embedded, on_load_errors, 
-     native_early_modules].
+     on_load_binary, on_load_embedded, on_load_errors,
+     big_boot_embedded, native_early_modules].
 
 groups() -> 
     [].
@@ -1285,6 +1285,45 @@ on_load_wait_for_all([Ref|T]) ->
 	    on_load_wait_for_all(T)
     end;
 on_load_wait_for_all([]) -> ok.
+
+on_load_binary(_) ->
+    Master = on_load_binary_test_case_process,
+    register(Master, self()),
+
+    %% Construct, compile and pretty-print.
+    Mod = on_load_binary,
+    File = atom_to_list(Mod) ++ ".erl",
+    Forms = [{attribute,1,file,{File,1}},
+	     {attribute,1,module,Mod},
+	     {attribute,2,export,[{ok,0}]},
+	     {attribute,3,on_load,{init,0}},
+	     {function,5,init,0,
+	      [{clause,5,[],[],
+		[{op,6,'!',
+		  {atom,6,Master},
+		  {tuple,6,[{atom,6,Mod},{call,6,{atom,6,self},[]}]}},
+		 {'receive',7,[{clause,8,[{atom,8,go}],[],[{atom,8,ok}]}]}]}]},
+	     {function,11,ok,0,[{clause,11,[],[],[{atom,11,true}]}]}],
+    {ok,Mod,Bin} = compile:forms(Forms, [report]),
+    [io:put_chars(erl_pp:form(F)) || F <- Forms],
+
+    {Pid1,Ref1} = spawn_monitor(fun() ->
+					code:load_binary(Mod, File, Bin),
+					true = on_load_binary:ok()
+				end),
+    receive {Mod,OnLoadPid} -> ok end,
+    {Pid2,Ref2} = spawn_monitor(fun() ->
+					true = on_load_binary:ok()
+				end),
+    erlang:yield(),
+    OnLoadPid ! go,
+    receive {'DOWN',Ref1,process,Pid1,Exit1} -> ok end,
+    receive {'DOWN',Ref2,process,Pid2,Exit2} -> ok end,
+    normal = Exit1,
+    normal = Exit2,
+    true = code:delete(on_load_binary),
+    false = code:purge(on_load_binary),
+    ok.
 
 on_load_embedded(Config) when is_list(Config) ->
     try

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -764,8 +764,7 @@ port_receive_cpu_util_entries(_, _, Data) ->
      exit({data_mismatch, Data}).
 
 start_portprogram() ->
-    Command = filename:join([code:priv_dir(os_mon), "bin", "cpu_sup"]),
-    Port = open_port({spawn, Command}, [stream]),
+    Port = os_mon:open_port("cpu_sup", [stream]),
     port_command(Port, ?ping),
     4711 = port_receive_uint32(Port, 5000),
     Port.

@@ -813,9 +813,9 @@ sys_pre_attributes(Config) ->
     {ok,Mod,_} = compile:file(File, PreOpts ++ CommonOpts),
     {ok,Mod,_} = compile:file(File,
 			      [{attribute,replace,replaced,42}|CommonOpts]),
-    {ok,Mod,Code} = compile:file(File, PrePostOpts ++ PreOpts ++
-				     PostOpts ++ CommonOpts --
-				     [report,verbose]),
+    {ok,Mod,_} = compile:file(File, PrePostOpts ++ PreOpts ++
+				  PostOpts ++ CommonOpts --
+				  [report,verbose]),
     ok.
 
 %%%

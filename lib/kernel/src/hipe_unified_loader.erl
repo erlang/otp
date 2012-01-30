@@ -330,11 +330,16 @@ exports(ExportMap, BaseAddress) ->
   exports(ExportMap, BaseAddress, [], []).
 
 exports([Offset,M,F,A,IsClosure,IsExported|Rest], BaseAddress, MFAs, Addresses) ->
-  MFA = {M,F,A},
-  Address = BaseAddress + Offset,
-  FunDef = #fundef{address=Address, mfa=MFA, is_closure=IsClosure,
-		   is_exported=IsExported},
-  exports(Rest, BaseAddress, [MFA|MFAs], [FunDef|Addresses]);
+  case IsExported andalso erlang:is_builtin(M, F, A) of
+    true ->
+      exports(Rest, BaseAddress, MFAs, Addresses);
+    _false ->
+      MFA = {M,F,A},
+      Address = BaseAddress + Offset,
+      FunDef = #fundef{address=Address, mfa=MFA, is_closure=IsClosure,
+		       is_exported=IsExported},
+      exports(Rest, BaseAddress, [MFA|MFAs], [FunDef|Addresses])
+  end;
 exports([], _, MFAs, Addresses) ->
   {MFAs, Addresses}.
 
