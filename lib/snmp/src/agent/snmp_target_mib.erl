@@ -46,8 +46,14 @@
 %% Column not accessible via SNMP - needed when the agent sends informs
 -define(snmpTargetAddrEngineId, 10).
 %% Extra comlumns for the augmented table snmpTargetAddrExtTable
--define(snmpTargetAddrTMask, 11).
--define(snmpTargetAddrMMS, 12).
+-define(snmpTargetAddrTMask,    11).
+-define(snmpTargetAddrMMS,      12).
+
+-ifdef(snmp_extended_verbosity).
+-define(vt(F,A), ?vtrace(F, A)).
+-else.
+-define(vt(_F, _A), ok).
+-endif.
 
 
 %%-----------------------------------------------------------------
@@ -459,10 +465,16 @@ get_target_addrs() ->
 
 
 get_target_addrs(Key, {Tab, _} = TabDb, Acc) ->
+    ?vt("get_target_addrs -> entry with"
+	"~n   Key: ~p", [Key]),
     case table_next(Tab, Key) of
 	endOfTable -> 
+	    ?vt("get_target_addrs -> endOfTable when"
+		"~n   Acc: ~p", [Acc]),
 	    Acc;
 	NextKey ->
+	    ?vt("get_target_addrs -> next ok: "
+		"~n   NextKey: ~p", [NextKey]),
 	    case get_target_addr(TabDb, NextKey) of
 		{ok, Targ} ->
 		    get_target_addrs(NextKey, TabDb, [Targ| Acc]);

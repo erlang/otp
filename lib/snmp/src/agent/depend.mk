@@ -52,6 +52,7 @@ $(EBIN)/snmpa_acm.$(EMULATOR): \
 
 $(EBIN)/snmpa_agent.$(EMULATOR): \
 	snmpa_agent.erl \
+	snmpa_internal.hrl \
 	../misc/snmp_debug.hrl \
 	../misc/snmp_verbosity.hrl \
 	../../include/snmp_types.hrl
@@ -136,6 +137,7 @@ $(EBIN)/snmpa_set_lib.$(EMULATOR): \
 
 $(EBIN)/snmpa_supervisor.$(EMULATOR): \
 	snmpa_supervisor.erl \
+	snmpa_internal.hrl \
 	../misc/snmp_debug.hrl \
 	../misc/snmp_verbosity.hrl
 

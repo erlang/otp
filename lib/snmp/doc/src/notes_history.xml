@@ -33,6 +33,355 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.17.1</title>
+    <p>Version 4.17.1 supports code replacement in runtime from/to
+      version 4.17, 4.16.2, 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p> 
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When the function FilterMod:accept_recv/2
+	  returned false the SNMP agent stopped collecting 
+	  messages from UDP.</p>
+          <p>Own Id: OTP-8761</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.17.1 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.17</title>
+    <p>Version 4.17 supports code replacement in runtime from/to
+      version 4.16.2, 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!-- 
+      <p>-</p> 
+      -->
+      <list type="bulleted">
+        <item>
+          <p>[agent] Added very basic support for multiple SNMPv3 
+            EngineIDs in a single agent. See 
+            <seealso marker="snmpa#send_notification">send_notification/7</seealso>, 
+            <seealso marker="snmpa_mpd#process_packet">process_packet/7</seealso>, 
+            <seealso marker="snmpa_mpd#generate_response_msg">generate_response_msg/6</seealso> or 
+            <seealso marker="snmpa_mpd#generate_msg">generate_msg/6</seealso> 
+            for more info. </p> 
+
+          <p>Own Id: OTP-8478</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+      <!-- 
+      <list type="bulleted">
+        <item>
+          <p>The config utility 
+            (<seealso marker="snmp#config">snmp:config/0</seealso>)
+            generated a default notify.conf 
+            with a bad name for the standard trap entry (was "stadard trap", 
+            but should have been "standard trap"). This has been corrected. </p>
+          <p>Kenji Rikitake</p>
+          <p>Own Id: OTP-8433</p>
+        </item>
+
+      </list>
+      -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.17 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.16.2</title>
+    <p>Version 4.16.2 supports code replacement in runtime from/to
+      version 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!-- 
+      <p>-</p> 
+      -->
+      <list type="bulleted">
+        <item>
+          <p>[compiler] The SMI specifies that a table row OID should be 
+            named: { &lt;tableIdentifier&gt; "1" }. </p>
+	  <p>A new option has been introduced, 
+            <seealso marker="snmpc#compiler_opts">relaxed_row_name_assign_check</seealso>, 
+            that allows for a more liberal numbering scheme</p>
+          <p>Own Id: OTP-8574</p>
+        </item>
+
+        <item>
+          <p>[agent|manager] Changes to make snmp (forward) compatible with 
+            the new version of the crypto application (released in R14).
+            As of R14, crypto is implemented using NIFs. Also,
+            the API is more strict. </p> 
+          <p>Own Id: OTP-8594</p>
+        </item>
+
+        <item>
+          <p>Auto [agent] Changed default value for the MIB server cache. 
+            GC is now on by default. </p>
+          <p>Own Id: OTP-8648</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <!-- 
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>Encode/decode of Counter64 values larger than 
+	    16#7fffffffffffffff (9223372036854775807) failed. </p>
+          <p>Own Id: OTP-8563</p>
+        </item>
+
+        <item>
+          <p>[compiler] Fails to compile non-contiguous BITS. </p>
+	  <p>Per Hedeland</p>
+          <p>Own Id: OTP-8595</p>
+        </item>
+
+        <item>
+          <p>[manager] Raise condition causing the manager server process to 
+            crash. Unregistering an agent while traffic (set/get-operations) 
+            is ongoing could cause a crash in the manager server process 
+            (raise condition). </p>
+          <p>Own Id: OTP-8646</p>
+	  <p>Aux Id: Seq 11585</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.16.2 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.16.1</title>
+    <p>Version 4.16.1 supports code replacement in runtime from/to
+      version 4.16, 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p> 
+      <!-- 
+      <list type="bulleted">
+        <item>
+          <p>[agent|manager] Entries in the audit trail log can now be 
+            augmented by a sequence number. </p>
+          <p>This is enabled by the <c>seqno</c> option, which is part of the 
+            <seealso marker="snmp_config#audit_trail_log">Audit Trail Log</seealso> 
+            config option. </p>
+          <p>See the 
+            <seealso marker="snmp_app#configuration_params">reference manual</seealso> 
+            or the 
+            <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
+            chapter of the User's Guide for further info. </p> 
+
+          <p>Own Id: OTP-8395</p>
+        </item>
+
+      </list>
+      -->
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <!-- 
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>[manager] Fixed an upgrade/downgrade problem. </p>
+          <p>Upgrade/downgrade from/to 4.13.5 did not work for the net-if 
+            process. This has now been fixed. </p>
+          <p>Own Id: OTP-8481</p>
+        </item>
+
+        <item>
+          <p>[agent] A minor mnesia related performance improvement. </p>
+          <p>Own Id: OTP-8480</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.16.1 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.16</title>
+    <p>Version 4.16 supports code replacement in runtime from/to
+      version 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!-- 
+      <p>-</p> 
+      -->
+      <list type="bulleted">
+        <item>
+          <p>[agent|manager] Entries in the audit trail log can now be 
+            augmented by a sequence number. </p>
+          <p>This is enabled by the <c>seqno</c> option, which is part of the 
+            <seealso marker="snmp_config#audit_trail_log">Audit Trail Log</seealso> 
+            config option. </p>
+          <p>See the 
+            <seealso marker="snmp_app#configuration_params">reference manual</seealso> 
+            or the 
+            <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
+            chapter of the User's Guide for further info. </p> 
+
+          <p>Own Id: OTP-8395</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <!-- 
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>[manager] Registration of agents using the config file, 
+            <seealso marker="snmp_manager_config_files#agents">agents.conf</seealso>, 
+            does not work. This has now been corrected. </p>
+          <p>Per Hedeland</p>
+          <p>Own Id: OTP-8442</p>
+        </item>
+
+        <item>
+          <p>The config utility 
+            (<seealso marker="snmp#config">snmp:config/0</seealso>)
+            generated a default notify.conf 
+            with a bad name for the standard trap entry (was "stadard trap", 
+            but should have been "standard trap"). This has been corrected. </p>
+          <p>Kenji Rikitake</p>
+          <p>Own Id: OTP-8433</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.16 -->
+
+
+  <section>
+    <title>SNMP Development Toolkit 4.15</title>
+
+    <p>Version 4.15 supports code replacement in runtime from/to
+      version 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!-- 
+      <p>-</p> 
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>The documentation is now built with open source tools 
+            (<em>xsltproc</em> and <em>fop</em>) that exists on most 
+            platforms. One visible change is that the frames are removed.</p>
+          <p>Own Id: OTP-8249</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <!-- 
+      <p>-</p>
+      -->
+      <list type="bulleted">
+        <item>
+          <p>[manager] When information from an unknown agent is received,
+            it was previously delivered to the default user via calls to all
+            the functions of the callback API depending on the info type
+            (<c>pdu</c>, <c>trap</c>, <c>report</c> or <c>inform</c>). 
+            The problem was that the <c>TargetName</c> argument was useless 
+            in this case (only an already known agent has a known/valid 
+            <c>TargetName</c>, but the <c>TargetName</c> used in these calls
+            was generated "on the fly"). </p>
+          <p>This has now been changed so that when a message is received 
+            from an unknown agent, then only 
+            <seealso marker="snmpm_user#handle_agent">handle_agent</seealso>
+            (for the default user) is called, but now this call also has a 
+            <c>Type</c> argument, which is 
+            <c>pdu | trap | report | inform</c>, depending on what kind of 
+            message was actually received, thus making it possible for the 
+            user to properly analyze the data received. </p>
+	  <p>To handle this, the 
+            <seealso marker="snmpm_user">snmpm_user</seealso> behaviour has 
+            been updated. </p>
+	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-8229</p>
+	  <!-- <p>Aux Id: Seq 11312</p> -->
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 4.15 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.14</title>
 
     <p>Version 4.14 supports code replacement in runtime from/to
