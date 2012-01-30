@@ -3956,7 +3956,8 @@ realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size,
 		if (used_allctr->thread_safe && (!force_move
 						 || used_allctr != pref_allctr))
 		    erts_mtx_lock(&used_allctr->mutex);
-		ERTS_SMP_LC_ASSERT(erts_lc_mtx_is_locked(&used_allctr->mutex));
+		ERTS_SMP_LC_ASSERT(!used_allctr->thread_safe ||
+				   erts_lc_mtx_is_locked(&used_allctr->mutex));
 		cpy_size = BLK_SZ(blk);
 		if (used_allctr->thread_safe && (!force_move
 						 || used_allctr != pref_allctr))
