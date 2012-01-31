@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -339,17 +339,37 @@ user_term(Parent, Title, Default) ->
 	?wxID_OK ->
 	    Str = wxTextEntryDialog:getValue(Dialog),
 	    wxTextEntryDialog:destroy(Dialog),
-	    parse_string(Str);
+	    parse_string(ensure_last_is_dot(Str));
 	?wxID_CANCEL ->
-	    wxTextEntryDialog:destroy(Dialog)
+	    wxTextEntryDialog:destroy(Dialog),
+	    cancel
     end.
 
 parse_string(Str) ->
     try
-	{ok, Tokens, _} = erl_scan:string(Str),
-	erl_parse:parse_term(Tokens)
-    catch _:{badmatch, {error, {_, _, Err}}} ->
-	    {error, ["Parse error: ", Err]};
-	  _Err ->
+	Tokens = case erl_scan:string(Str) of
+		     {ok, Ts, _} -> Ts;
+		     {error, {_SLine, SMod, SError}, _} ->
+			 throw(io_lib:format("~s", [SMod:format_error(SError)]))
+		 end,
+	case erl_parse:parse_term(Tokens) of
+	    {error, {_PLine, PMod, PError}} ->
+		throw(io_lib:format("~s", [PMod:format_error(PError)]));
+	    Res -> Res
+	end
+    catch
+	throw:ErrStr ->
+	    {error, ErrStr};
+	_:_Err ->
 	    {error, ["Syntax error in: ", Str]}
+    end.
+
+ensure_last_is_dot([]) ->
+    ".";
+ensure_last_is_dot(String) ->
+    case lists:last(String) =:= $. of
+	true ->
+	    String;
+	false ->
+	    String ++ "."
     end.
