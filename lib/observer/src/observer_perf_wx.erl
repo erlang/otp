@@ -23,15 +23,9 @@
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
--export([fetch_stats/2]).
-
--compile(export_all).
-
 -behaviour(wx_object).
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
-
-%%-compile(export_all).
 
 -record(state,
 	{
@@ -163,7 +157,7 @@ handle_info({active, Node}, State = #state{parent=Parent, appmon=Old}) ->
     catch _:_ ->
 	    catch Old ! exit,
 	    Me = self(),
-	    Pid = spawn_link(Node, ?MODULE, fetch_stats, [Me, 1000]),
+	    Pid = spawn_link(Node, observer_backend, fetch_stats, [Me, 1000]),
 	    {noreply, State#state{active=true, appmon=Pid, data={0, queue:new()}}}
     end;
 
@@ -189,24 +183,6 @@ add_data(Stats, {N, Q}) when N > 60 ->
     {N, queue:drop(queue:in(Stats, Q))};
 add_data(Stats, {N, Q}) ->
     {N+1, queue:in(Stats, Q)}.
-
-fetch_stats(Parent, Time) ->
-    erlang:system_flag(scheduler_wall_time, true),
-    fetch_stats_loop(Parent, Time),
-    erlang:system_flag(scheduler_wall_time, false).
-
-fetch_stats_loop(Parent, Time) ->
-    receive
-	exit -> normal
-    after Time ->
-	    _M = Parent ! {stats, 1,
-			   erlang:statistics(scheduler_wall_time),
-			   erlang:statistics(io),
-			   erlang:memory()},
-	    %% io:format("IO ~p~n",[element(4,_M)]),
-	    fetch_stats(Parent, Time)
-    end.
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -263,7 +239,8 @@ calc_delta([], []) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens}, Data) ->
-    {Len, Max, Hs} = collect_data(Id, Data),
+    {Len, Max0, Hs} = collect_data(Id, Data),
+    Max = calc_max(Max0),
     NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
     Size = wxWindow:getClientSize(Panel),
     {X0,Y0,WS,HS} = draw_borders(Id, NoGraphs, DC, Size, Max, Paint),
@@ -326,7 +303,6 @@ splines(N, XD, XD0, Tan, Y1,Y2, PX0, Clip={Cx,Cy},ZeroY, WS, Acc) when N > 0 ->
 	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, Clip,ZeroY, WS, Acc);
        true ->
 	    Y = min(Cy, max(0,round(spline(Delta, Tan, Y1,Y2)))),
-	    %% io:format("Y1:~p Y(~p):~p Y2:~p~n",[round(Y1),round(X),round(Y),round(Y2)]),
 	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, Clip,ZeroY, WS,
 		    [{round(PX), ZeroY-Y}|Acc])
     end;
@@ -353,9 +329,8 @@ spline_tan(Y0, Y1, Y2, Y3) ->
 -define(BW, 5).
 -define(BH, 5).
 
-draw_borders(Type, NoGraphs, DC, {W,H}, Max0,
+draw_borders(Type, NoGraphs, DC, {W,H}, Max,
 	     #paint{pen=Pen, pen2=Pen2, font=Font, small=Small}) ->
-    Max = calc_max(Max0),
     {Unit, MaxUnit} = bytes(Type, Max),
     Str1 = observer_lib:to_str(MaxUnit),
     Str2 = observer_lib:to_str(MaxUnit div 2),
@@ -441,9 +416,6 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max0,
 	    Text(TN0, BottomTextY, "Output", 2)
     end,
     {GraphX0+1, GraphY1, ScaleW, ScaleH}.
-
-div2({Type, Int}) -> {Type, Int div 2};
-div2(Int) -> Int div 2.
 
 uppercase([C|Rest]) ->
     [C-$a+$A|Rest].
