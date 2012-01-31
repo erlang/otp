@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,6 +41,18 @@
 		 | 'warning_msg' | 'warning_report'.
 
 -type state()   :: {non_neg_integer(), non_neg_integer(), [term()]}.
+
+%%% BIF
+
+-export([warning_map/0]).
+
+-spec warning_map() -> Tag when
+      Tag :: error | warning | info.
+
+warning_map() ->
+    erlang:nif_error(undef).
+
+%%% End of BIF
 
 %%-----------------------------------------------------------------
 

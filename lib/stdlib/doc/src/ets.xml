@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -128,11 +128,17 @@
 
   <datatypes>
     <datatype>
+      <name name="access"/>
+    </datatype>
+    <datatype>
       <name><marker id="type-continuation">continuation()</marker></name>
       <desc>
         <p>Opaque continuation used by <seealso marker="#select/1">
-          <c>select/1</c></seealso> and <seealso marker="#select/3">
-          <c>select/3</c></seealso>.</p>
+          <c>select/1,3</c></seealso>, <seealso marker="#select_reverse/1">
+          <c>select_reverse/1,3</c></seealso>, <seealso
+          marker="#match/1">
+          <c>match/1,3</c></seealso>, and <seealso marker="#match_object/1">
+          <c>match_object/1,3</c></seealso>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -149,14 +155,14 @@
       <name name="tid"/>
       <desc><p>A table identifier, as returned by new/2.</p></desc>
     </datatype>
+    <datatype>
+      <name name="type"/>
+    </datatype>
   </datatypes>
   <funcs>
     <func>
-      <name>all() -> [Tab]</name>
+      <name name="all" arity="0"/>
       <fsummary>Return a list of all ETS tables.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-      </type>
       <desc>
         <p>Returns a list of all tables at the node. Named tables are
           given by their names, unnamed tables are given by their
@@ -164,48 +170,34 @@
       </desc>
     </func>
     <func>
-      <name>delete(Tab) -> true</name>
+      <name name="delete" arity="1"/>
       <fsummary>Delete an entire ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-      </type>
       <desc>
-        <p>Deletes the entire table <c>Tab</c>.</p>
+        <p>Deletes the entire table <c><anno>Tab</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>delete(Tab, Key) -> true</name>
+      <name name="delete" arity="2"/>
       <fsummary>Delete all objects with a given key from an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = term()</v>
-      </type>
       <desc>
-        <p>Deletes all objects with the key <c>Key</c> from the table
-          <c>Tab</c>.</p>
+        <p>Deletes all objects with the key <c><anno>Key</anno></c> from the table
+          <c><anno>Tab</anno></c>.</p>
       </desc>
     </func>
     <func>
-      <name>delete_all_objects(Tab) -> true</name>
+      <name name="delete_all_objects" arity="1"/>
       <fsummary>Delete all objects in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-      </type>
       <desc>
-        <p>Delete all objects in the ETS table <c>Tab</c>. 
+        <p>Delete all objects in the ETS table <c><anno>Tab</anno></c>.
          The operation is guaranteed to be
          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
       </desc>
     </func>
     <func>
-      <name>delete_object(Tab,Object) -> true</name>
+      <name name="delete_object" arity="2"/>
       <fsummary>Deletes a specific from an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Object = tuple()</v>
-      </type>
       <desc>
-        <p>Delete the exact object <c>Object</c> from the ETS table,
+        <p>Delete the exact object <c><anno>Object</anno></c> from the ETS table,
           leaving objects with the same key but other differences
           (useful for type <c>bag</c>). In a <c>duplicate_bag</c>, all
           instances of the object will be deleted.</p>
@@ -257,14 +249,10 @@
       </desc>
     </func>
     <func>
-      <name>first(Tab) -> Key | '$end_of_table'</name>
+      <name name="first" arity="1"/>
       <fsummary>Return the first key in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = term()</v>
-      </type>
       <desc>
-        <p>Returns the first key <c>Key</c> in the table <c>Tab</c>.
+        <p>Returns the first key <c><anno>Key</anno></c> in the table <c><anno>Tab</anno></c>.
           If the table is of the <c>ordered_set</c> type, the first key
           in Erlang term order will be returned. If the table is of any
           other type, the first key according to the table's internal
@@ -336,7 +324,7 @@
           the source file.</p>
         <p>The fun is very restricted, it can take only a single
           parameter (the object to match): a sole variable or a
-          tuple. It needs to use the <c>is_</c>XXX guard tests.
+          tuple. It needs to use the <c>is_</c> guard tests.
           Language constructs that have no representation
           in a match_spec (like <c>if</c>, <c>case</c>, <c>receive</c>
           etc) are not allowed.</p>
@@ -386,19 +374,14 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>give_away(Tab, Pid, GiftData) -> true</name>
+      <name name="give_away" arity="3"/>
       <fsummary>Change owner of a table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Pid = pid()</v>
-        <v>GiftData = term()</v>
-      </type>
       <desc>
-        <p>Make process <c>Pid</c> the new owner of table <c>Tab</c>.
+        <p>Make process <c><anno>Pid</anno></c> the new owner of table <c><anno>Tab</anno></c>.
           If successful, the message
-          <c>{'ETS-TRANSFER',Tab,FromPid,GiftData}</c> will be sent
+          <c>{'ETS-TRANSFER',<anno>Tab</anno>,FromPid,<anno>GiftData</anno>}</c> will be sent
           to the new owner.</p>
-        <p>The process <c>Pid</c> must be alive, local and not already the
+        <p>The process <c><anno>Pid</anno></c> must be alive, local and not already the
           owner of the table. The calling process must be the table owner.</p>
         <p>Note that <c>give_away</c> does not at all affect the
           <seealso marker="#heir">heir</seealso> option of the table. A table
@@ -421,81 +404,72 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>info(Tab) -> [{Item, Value}] | undefined</name>
+      <name name="info" arity="1"/>
       <fsummary>Return information about an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Item = atom(), see below</v>
-        <v>Value = term(), see below</v>
-      </type>
       <desc>
-        <p>Returns information about the table <c>Tab</c> as a list of
-          <c>{Item, Value}</c> tuples. If <c>Tab</c> has the correct type
+        <p>Returns information about the table <c><anno>Tab</anno></c> as a list of
+          tuples. If <c><anno>Tab</anno></c> has the correct type
 	  for a table identifier, but does not refer to an existing ETS
-	  table, <c>undefined</c> is returned. If <c>Tab</c> is not of the
+	  table, <c>undefined</c> is returned. If <c><anno>Tab</anno></c> is not of the
 	  correct type, this function fails with reason <c>badarg</c>.</p>
 
         <list type="bulleted">
-          <item><c>Item=memory, Value=integer()</c>          <br></br>
+           <item><c>{compressed, boolean()}</c>          <br></br>
 
-           The number of words allocated to the table.</item>
-          <item><c>Item=owner, Value=pid()</c>          <br></br>
-
-           The pid of the owner of the table.</item>
-          <item><c>Item=heir, Value=pid()|none</c>          <br></br>
+            Indicates if the table is compressed or not.</item>
+          <item><c>{heir, pid() | none}</c>          <br></br>
 
            The pid of the heir of the table, or <c>none</c> if no heir is set.</item>
-          <item><c>Item=name, Value=atom()</c>          <br></br>
+          <item><c>{keypos, integer() >= 1}</c>          <br></br>
+
+           The key position.</item>
+          <item><c>{memory, integer() >= 0</c>          <br></br>
+
+           The number of words allocated to the table.</item>
+          <item><c>{name, atom()}</c>          <br></br>
 
            The name of the table.</item>
-          <item><c>Item=size, Value=integer()</c>          <br></br>
+          <item><c>{named_table, boolean()}</c>          <br></br>
 
-           The number of objects inserted in the table.</item>
-          <item><c>Item=node, Value=atom()</c>          <br></br>
+           Indicates if the table is named or not.</item>
+          <item><c>{node, node()}</c>          <br></br>
 
            The node where the table is stored. This field is no longer
            meaningful as tables cannot be accessed from other nodes.</item>
-          <item><c>Item=named_table, Value=true|false</c>          <br></br>
+          <item><c>{owner, pid()}</c>          <br></br>
 
-           Indicates if the table is named or not.</item>
-          <item><c>Item=type, Value=set|ordered_set|bag|duplicate_bag</c>          <br></br>
-
-           The table type.</item>
-          <item><c>Item=keypos, Value=integer()</c>          <br></br>
-
-           The key position.</item>
-          <item><c>Item=protection, Value=public|protected|private</c>          <br></br>
+           The pid of the owner of the table.</item>
+          <item><c>{protection, <seealso marker="#type-access">access()</seealso>}</c>          <br></br>
 
            The table access rights.</item>
-           <item><c>Item=compressed, Value=true|false</c>          <br></br>
+          <item><c>{size, integer() >= 0</c>          <br></br>
 
-            Indicates if the table is compressed or not.</item>
+           The number of objects inserted in the table.</item>
+          <item><c>{type, <seealso marker="#type-type">type()</seealso>}</c>          <br></br>
+
+           The table type.</item>
         </list>
       </desc>
     </func>
     <func>
-      <name>info(Tab, Item) -> Value | undefined</name>
+      <name name="info" arity="2"/>
       <fsummary>Return the information associated with given item for an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Item, Value - see below</v>
-      </type>
       <desc>
         <p>Returns the information associated with <c>Item</c> for
-          the table <c>Tab</c>, or returns <c>undefined</c> if <c>Tab</c>
+          the table <c><anno>Tab</anno></c>, or returns <c>undefined</c> if <c>Tab</c>
 	  does not refer an existing ETS table.
-	  If <c>Tab</c> is not of the correct type, or if <c>Item</c> is not
+	  If <c><anno>Tab</anno></c> is not of the correct type, or if <c><anno>Item</anno></c> is not
 	  one of the allowed values, this function fails with reason <c>badarg</c>.</p>
 
 	  <warning><p>In R11B and earlier, this function would not fail but return
 	  <c>undefined</c> for invalid values for <c>Item</c>.</p>
 	  </warning>
 
-	  <p>In addition to the <c>{Item,Value}</c>
+	  <p>In addition to the <c>{<anno>Item</anno>,<anno>Value</anno>}</c>
           pairs defined for <c>info/1</c>, the following items are
           allowed:</p>
         <list type="bulleted">
-          <item><c>Item=fixed, Value=true|false</c>          <br></br>
+          <item><c>Item=fixed, Value=boolean()</c>          <br></br>
 
            Indicates if the table is fixed by any process or not.</item>
           <item>
@@ -547,15 +521,11 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>insert(Tab, ObjectOrObjects) -> true</name>
+      <name name="insert" arity="2"/>
       <fsummary>Insert an object into an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>ObjectOrObjects = tuple() | [tuple()]</v>
-      </type>
       <desc>
         <p>Inserts the object or all of the objects in the list
-          <c>ObjectOrObjects</c> into the table <c>Tab</c>.  
+          <c><anno>ObjectOrObjects</anno></c> into the table <c><anno>Tab</anno></c>.
           If the table is a <c>set</c> and the key of the inserted
           objects <em>matches</em> the key of any object in the table,
           the old object will be replaced. If the table is an
@@ -572,19 +542,15 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>insert_new(Tab, ObjectOrObjects) -> boolean()</name>
+      <name name="insert_new" arity="2"/>
       <fsummary>Insert an object into an ETS table if the key is not already present.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>ObjectOrObjects = tuple() | [tuple()]</v>
-      </type>
       <desc>
         <p>This function works exactly like <c>insert/2</c>, with the
           exception that instead of overwriting objects with the same
           key (in the case of <c>set</c> or <c>ordered_set</c>) or
           adding more objects with keys already existing in the table
           (in the case of <c>bag</c> and <c>duplicate_bag</c>), it
-          simply returns <c>false</c>. If <c>ObjectOrObjects</c> is a
+          simply returns <c>false</c>. If <c><anno>ObjectOrObjects</anno></c> is a
           list, the function checks <em>every</em> key prior to
           inserting anything. Nothing will be inserted if not
           <em>all</em> keys present in the list are absent from the
@@ -593,11 +559,8 @@ Error: fun containing local Erlang function calls
       </desc>
     </func>
     <func>
-      <name>is_compiled_ms(Term) -> boolean()</name>
+      <name name="is_compiled_ms" arity="1"/>
       <fsummary>Checks if an Erlang term is the result of ets:match_spec_compile</fsummary>
-      <type>
-        <v>Term = term()</v>
-      </type>
       <desc>
         <p>This function is used to check if a term is a valid
           compiled <seealso marker="#match_spec">match_spec</seealso>.
@@ -626,14 +589,10 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>last(Tab) -> Key | '$end_of_table'</name>
+      <name name="last" arity="1"/>
       <fsummary>Return the last key in an ETS table of type<c>ordered_set</c>.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = term()</v>
-      </type>
       <desc>
-        <p>Returns the last key <c>Key</c> according to Erlang term
+        <p>Returns the last key <c><anno>Key</anno></c> according to Erlang term
           order in the table <c>Tab</c> of the <c>ordered_set</c> type.
           If the table is of any other type, the function is synonymous
           to <c>first/2</c>. If the table is empty,
@@ -642,16 +601,11 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>lookup(Tab, Key) -> [Object]</name>
+      <name name="lookup" arity="2"/>
       <fsummary>Return all objects with a given key in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = term()</v>
-        <v>Object = tuple()</v>
-      </type>
       <desc>
-        <p>Returns a list of all objects with the key <c>Key</c> in
-          the table <c>Tab</c>.</p>
+        <p>Returns a list of all objects with the key <c><anno>Key</anno></c> in
+          the table <c><anno>Tab</anno></c>.</p>
         <p>In the case of <c>set, bag and duplicate_bag</c>, an object
           is returned only if the given key <em>matches</em> the key
           of the object in the table. If the table is an
@@ -681,22 +635,16 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>lookup_element(Tab, Key, Pos) -> Elem</name>
+      <name name="lookup_element" arity="3"/>
       <fsummary>Return the <c>Pos</c>:th element of all objects with a given key in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = term()</v>
-        <v>Pos = integer()</v>
-        <v>Elem = term() | [term()]</v>
-      </type>
       <desc>
-        <p>If the table <c>Tab</c> is of type <c>set</c> or
-          <c>ordered_set</c>, the function returns the <c>Pos</c>:th
-          element of the object with the key <c>Key</c>.</p>
+        <p>If the table <c><anno>Tab</anno></c> is of type <c>set</c> or
+          <c>ordered_set</c>, the function returns the <c><anno>Pos</anno></c>:th
+          element of the object with the key <c><anno>Key</anno></c>.</p>
         <p>If the table is of type <c>bag</c> or <c>duplicate_bag</c>,
-          the functions returns a list with the <c>Pos</c>:th element of
-          every object with the key <c>Key</c>.</p>
-        <p>If no object with the key <c>Key</c> exists, the function
+          the functions returns a list with the <c><anno>Pos</anno></c>:th element of
+          every object with the key <c><anno>Key</anno></c>.</p>
+        <p>If no object with the key <c><anno>Key</anno></c> exists, the function
           will exit with reason <c>badarg</c>.</p>
         <p>The difference between <c>set</c>, <c>bag</c> and 
           <c>duplicate_bag</c> on one hand, and <c>ordered_set</c> on
@@ -708,16 +656,11 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match(Tab, Pattern) -> [Match]</name>
+      <name name="match" arity="2"/>
       <fsummary>Match the objects in an ETS table against a pattern.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Pattern = tuple()</v>
-        <v>Match = [term()]</v>
-      </type>
       <desc>
-        <p>Matches the objects in the table <c>Tab</c> against the
-          pattern <c>Pattern</c>.</p>
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> against the
+          pattern <c><anno>Pattern</anno></c>.</p>
         <p>A pattern is a term that may contain:</p>
         <list type="bulleted">
           <item>bound parts (Erlang terms),</item>
@@ -744,18 +687,12 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match(Tab, Pattern, Limit) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="match" arity="3"/>
       <fsummary>Match the objects in an ETS table against a pattern and returns part of the answers.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Pattern = tuple()</v>
-        <v>Match = [term()]</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
         <p>Works like <c>ets:match/2</c> but only returns a limited
-          (<c>Limit</c>) number of matching objects. The
-          <c>Continuation</c> term can then be used in subsequent calls
+          (<c><anno>Limit</anno></c>) number of matching objects. The
+          <c><anno>Continuation</anno></c> term can then be used in subsequent calls
           to <c>ets:match/1</c> to get the next chunk of matching
           objects. This is a space efficient way to work on objects in a
           table which is still faster than traversing the table object
@@ -764,16 +701,12 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match(Continuation) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="match" arity="1"/>
       <fsummary>Continues matching objects in an ETS table.</fsummary>
-      <type>
-        <v>Match = [term()]</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
         <p>Continues a match started with <c>ets:match/3</c>. The next
           chunk of the size given in the initial <c>ets:match/3</c>
-          call is returned together with a new <c>Continuation</c>
+          call is returned together with a new <c><anno>Continuation</anno></c>
           that can be used in subsequent calls to this function.</p>
         <p><c>'$end_of_table'</c> is returned when there are no more
           objects in the table.</p>
@@ -789,15 +722,11 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match_object(Tab, Pattern) -> [Object]</name>
+      <name name="match_object" arity="2"/>
       <fsummary>Match the objects in an ETS table against a pattern.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Pattern = Object = tuple()</v>
-      </type>
       <desc>
-        <p>Matches the objects in the table <c>Tab</c> against the
-          pattern <c>Pattern</c>. See <c>match/2</c> for a description
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> against the
+          pattern <c><anno>Pattern</anno></c>. See <c>match/2</c> for a description
           of patterns. The function returns a list of all objects which
           match the pattern.</p>
         <p>If the key is specified in the pattern, the match is very
@@ -809,18 +738,12 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match_object(Tab, Pattern, Limit) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="match_object" arity="3"/>
       <fsummary>Match the objects in an ETS table against a pattern and returns part of the answers.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Pattern = tuple()</v>
-        <v>Match = [term()]</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
         <p>Works like <c>ets:match_object/2</c> but only returns a
-          limited (<c>Limit</c>) number of matching objects. The
-          <c>Continuation</c> term can then be used in subsequent calls
+          limited (<c><anno>Limit</anno></c>) number of matching objects. The
+          <c><anno>Continuation</anno></c> term can then be used in subsequent calls
           to <c>ets:match_object/1</c> to get the next chunk of matching
           objects. This is a space efficient way to work on objects in a
           table which is still faster than traversing the table object
@@ -829,29 +752,23 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match_object(Continuation) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="match_object" arity="1"/>
       <fsummary>Continues matching objects in an ETS table.</fsummary>
-      <type>
-        <v>Match = [term()]</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
         <p>Continues a match started with <c>ets:match_object/3</c>.
           The next chunk of the size given in the initial
           <c>ets:match_object/3</c> call is returned together with a
-          new <c>Continuation</c> that can be used in subsequent calls
+          new <c><anno>Continuation</anno></c> that can be used in subsequent calls
           to this function.</p>
         <p><c>'$end_of_table'</c> is returned when there are no more
           objects in the table.</p>
       </desc>
     </func>
     <func>
-      <name>match_spec_compile(MatchSpec) -> CompiledMatchSpec</name>
+      <name name="match_spec_compile" arity="1"/>
+      <type name="comp_match_spec"/>
+      <type_desc name="comp_match_spec">A compiled match specification.</type_desc>
       <fsummary>Compiles a match specification into its internal representation</fsummary>
-      <type>
-        <v>MatchSpec = match_spec()</v>
-        <v>CompiledMatchSpec = comp_match_spec()</v>
-      </type>
       <desc>
         <p>This function transforms a
           <seealso marker="#match_spec">match_spec</seealso> into an
@@ -863,7 +780,7 @@ ets:is_compiled_ms(Broken).</code>
           valid compiled match_spec, nor can it be stored on disk).
           The validity of a compiled match_spec can be checked using
           <c>ets:is_compiled_ms/1</c>.</p>
-        <p>If the term <c>MatchSpec</c> can not be compiled (does not
+        <p>If the term <c><anno>MatchSpec</anno></c> can not be compiled (does not
           represent a valid match_spec), a <c>badarg</c> fault is
           thrown.</p>
         <note>
@@ -873,25 +790,23 @@ ets:is_compiled_ms(Broken).</code>
       </desc>
     </func>
     <func>
-      <name>match_spec_run(List,CompiledMatchSpec) -> list()</name>
+      <name name="match_spec_run" arity="2"/>
+      <type name="comp_match_spec"/>
+      <type_desc name="comp_match_spec">A compiled match specification.</type_desc>
       <fsummary>Performs matching, using a compiled match_spec, on a list of tuples</fsummary>
-      <type>
-        <v>List = [ tuple() ]</v>
-        <v>CompiledMatchSpec = comp_match_spec()</v>
-      </type>
       <desc>
         <p>This function executes the matching specified in a
           compiled <seealso marker="#match_spec">match_spec</seealso> on
-          a list of tuples. The <c>CompiledMatchSpec</c> term should be
+          a list of tuples. The <c><anno>CompiledMatchSpec</anno></c> term should be
           the result of a call to <c>ets:match_spec_compile/1</c> and
           is hence the internal representation of the match_spec one
           wants to use.</p>
-        <p>The matching will be executed on each element in <c>List</c>
+        <p>The matching will be executed on each element in <c><anno>List</anno></c>
           and the function returns a list containing all results. If an
-          element in <c>List</c> does not match, nothing is returned
+          element in <c><anno>List</anno></c> does not match, nothing is returned
           for that element. The length of the result list is therefore
           equal or less than the the length of the parameter
-          <c>List</c>. The two calls in the following example will give
+          <c><anno>List</anno></c>. The two calls in the following example will give
           the same result (but certainly not the same execution
           time...):</p>
         <code type="none">
@@ -910,37 +825,23 @@ ets:select(Table,MatchSpec),</code>
       </desc>
     </func>
     <func>
-      <name>member(Tab, Key) -> true | false</name>
+      <name name="member" arity="2"/>
       <fsummary>Tests for occurrence of a key in an ETS table</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = term()</v>
-      </type>
       <desc>
         <p>Works like <c>lookup/2</c>, but does not return the objects.
           The function returns <c>true</c> if one or more elements in
-          the table has the key <c>Key</c>, <c>false</c> otherwise.</p>
+          the table has the key <c><anno>Key</anno></c>, <c>false</c> otherwise.</p>
       </desc>
     </func>
     <func>
-      <name>new(Name, Options) -> tid() | atom()</name>
+      <name name="new" arity="2"/>
       <fsummary>Create a new ETS table.</fsummary>
-      <type>
-        <v>Name = atom()</v>
-        <v>Options = [Option]</v>
-        <v>&nbsp;Option = Type | Access | named_table | {keypos,Pos} | {heir,pid(),HeirData} | {heir,none} | Tweaks</v>
-        <v>&nbsp;&nbsp;Type = set | ordered_set | bag | duplicate_bag</v>
-        <v>&nbsp;&nbsp;Access = public | protected | private</v>
-        <v>&nbsp;&nbsp;Tweaks = {write_concurrency,boolean()} | {read_concurrency,boolean()} | compressed</v>
-        <v>&nbsp;&nbsp;Pos = integer()</v>
-        <v>&nbsp;&nbsp;HeirData = term()</v>
-      </type>
       <desc>
         <p>Creates a new table and returns a table identifier which can
           be used in subsequent operations. The table identifier can be
           sent to other processes so that a table can be shared between
           different processes within a node.</p>
-        <p>The parameter <c>Options</c> is a list of atoms which
+        <p>The parameter <c><anno>Options</anno></c> is a list of atoms which
           specifies table type, access rights, key position and if the
           table is named or not. If one or more options are left out,
           the default values are used. This means that not specifying
@@ -997,27 +898,27 @@ ets:select(Table,MatchSpec),</code>
           </item>
           <item>
             <p><c>named_table</c>
-              If this option is present, the name <c>Name</c> is
+              If this option is present, the name <c><anno>Name</anno></c> is
               associated with the table identifier. The name can then
               be used instead of the table identifier in subsequent
               operations.</p>
           </item>
           <item>
-            <p><c>{keypos,Pos}</c>
+            <p><c>{keypos,<anno>Pos</anno>}</c>
               Specfies which element in the stored tuples should be
               used as key. By default, it is the first element, i.e.
-              <c>Pos=1</c>. However, this is not always appropriate. In
+              <c><anno>Pos</anno>=1</c>. However, this is not always appropriate. In
               particular, we do not want the first element to be the
               key if we want to store Erlang records in a table.</p>
             <p>Note that any tuple stored in the table must have at
-              least <c>Pos</c> number of elements.</p>
+              least <c><anno>Pos</anno></c> number of elements.</p>
           </item>
           <item>
             <marker id="heir"></marker>
-            <p><c>{heir,Pid,HeirData} | {heir,none}</c><br></br>
+            <p><c>{heir,<anno>Pid</anno>,<anno>HeirData</anno>} | {heir,none}</c><br></br>
               Set a process as heir. The heir will inherit the table if
               the owner terminates. The message
-              <c>{'ETS-TRANSFER',tid(),FromPid,HeirData}</c> will be sent to
+              <c>{'ETS-TRANSFER',tid(),FromPid,<anno>HeirData</anno>}</c> will be sent to
               the heir when that happens. The heir must be a local process.
               Default heir is <c>none</c>, which will destroy the table when
               the owner terminates.</p>
@@ -1082,15 +983,11 @@ ets:select(Table,MatchSpec),</code>
       </desc>
     </func>
     <func>
-      <name>next(Tab, Key1) -> Key2 | '$end_of_table'</name>
+      <name name="next" arity="2"/>
       <fsummary>Return the next key in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key1 = Key2 = term()</v>
-      </type>
       <desc>
-        <p>Returns the next key <c>Key2</c>, following the key
-          <c>Key1</c> in the table <c>Tab</c>. If the table is of the
+        <p>Returns the next key <c><anno>Key2</anno></c>, following the key
+          <c><anno>Key1</anno></c> in the table <c><anno>Tab</anno></c>. If the table is of the
           <c>ordered_set</c> type, the next key in Erlang term order is
           returned. If the table is of any other type, the next key
           according to the table's internal order is returned. If there
@@ -1105,16 +1002,12 @@ ets:select(Table,MatchSpec),</code>
       </desc>
     </func>
     <func>
-      <name>prev(Tab, Key1) -> Key2 | '$end_of_table'</name>
+      <name name="prev" arity="2"/>
       <fsummary>Return the previous key in an ETS table of type<c>ordered_set</c>.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key1 = Key2 = term()</v>
-      </type>
       <desc>
-        <p>Returns the previous key <c>Key2</c>, preceding the key
-          <c>Key1</c> according the Erlang term order in the table
-          <c>Tab</c> of the <c>ordered_set</c> type. If the table is of
+        <p>Returns the previous key <c><anno>Key2</anno></c>, preceding the key
+          <c><anno>Key1</anno></c> according the Erlang term order in the table
+          <c><anno>Tab</anno></c> of the <c>ordered_set</c> type. If the table is of
           any other type, the function is synonymous to <c>next/2</c>.
           If there is no previous key, <c>'$end_of_table'</c> is
           returned.</p>
@@ -1122,14 +1015,11 @@ ets:select(Table,MatchSpec),</code>
       </desc>
     </func>
     <func>
-      <name>rename(Tab, Name) -> Name</name>
+      <name name="rename" arity="2"/>
       <fsummary>Rename a named ETS table.</fsummary>
-      <type>
-        <v>Tab = Name = atom()</v>
-      </type>
       <desc>
-        <p>Renames the named table <c>Tab</c> to the new name
-          <c>Name</c>. Afterwards, the old name can not be used to
+        <p>Renames the named table <c><anno>Tab</anno></c> to the new name
+          <c><anno>Name</anno></c>. Afterwards, the old name can not be used to
           access the table. Renaming an unnamed table has no effect.</p>
       </desc>
     </func>
@@ -1186,18 +1076,15 @@ ets:select(ets:repair_continuation(Broken,MS)).</code>
       </desc>
     </func>
     <func>
-      <name>safe_fixtable(Tab, true|false) -> true</name>
+      <name name="safe_fixtable" arity="2"/>
       <fsummary>Fix an ETS table for safe traversal.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-      </type>
       <desc>
         <p>Fixes a table of the <c>set</c>, <c>bag</c> or
           <c>duplicate_bag</c> table type for safe traversal.</p>
         <p>A process fixes a table by calling
-          <c>safe_fixtable(Tab,true)</c>. The table remains fixed until
+          <c>safe_fixtable(<anno>Tab</anno>, true)</c>. The table remains fixed until
           the process releases it by calling
-          <c>safe_fixtable(Tab,false)</c>, or until the process
+          <c>safe_fixtable(<anno>Tab</anno>, false)</c>, or until the process
           terminates.</p>
         <p>If several processes fix a table, the table will remain fixed
           until all processes have released it (or terminated).
@@ -1242,15 +1129,10 @@ clean_all_with_value(Tab,X,Key) ->
       </desc>
     </func>
     <func>
-      <name>select(Tab, MatchSpec) -> [Match]</name>
+      <name name="select" arity="2"/>
       <fsummary>Match the objects in an ETS table against a match_spec.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Match = term()</v>
-        <v>MatchSpec = match_spec()</v>
-      </type>
       <desc>
-        <p>Matches the objects in the table <c>Tab</c> using a
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
           <seealso marker="#match_spec">match_spec</seealso>. This is a
           more general call than the <c>ets:match/2</c> and
           <c>ets:match_object/2</c> calls. In its simplest forms the
@@ -1337,18 +1219,12 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>select(Tab, MatchSpec, Limit) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="select" arity="3"/>
       <fsummary>Match the objects in an ETS table against a match_spec and returns part of the answers.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Match = term()</v>
-        <v>MatchSpec = match_spec()</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
         <p>Works like <c>ets:select/2</c> but only returns a limited
-          (<c>Limit</c>) number of matching objects. The
-          <c>Continuation</c> term can then be used in subsequent calls
+          (<c><anno>Limit</anno></c>) number of matching objects. The
+          <c><anno>Continuation</anno></c> term can then be used in subsequent calls
           to <c>ets:select/1</c> to get the next chunk of matching
           objects. This is a space efficient way to work on objects in a
           table which is still faster than traversing the table object
@@ -1357,33 +1233,23 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>select(Continuation) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="select" arity="1"/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
-      <type>
-        <v>Match = term()</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
         <p>Continues a match started with
           <c>ets:select/3</c>. The next
           chunk of the size given in the initial <c>ets:select/3</c>
-          call is returned together with a new <c>Continuation</c>
+          call is returned together with a new <c><anno>Continuation</anno></c>
           that can be used in subsequent calls to this function.</p>
         <p><c>'$end_of_table'</c> is returned when there are no more
           objects in the table.</p>
       </desc>
     </func>
     <func>
-      <name>select_count(Tab, MatchSpec) -> NumMatched</name>
+      <name name="select_count" arity="2"/>
       <fsummary>Match the objects in an ETS table against a match_spec and returns the number of objects for which the match_spec returned 'true'</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Object = tuple()</v>
-        <v>MatchSpec = match_spec()</v>
-        <v>NumMatched = integer()</v>
-      </type>
       <desc>
-        <p>Matches the objects in the table <c>Tab</c> using a
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
           <seealso marker="#match_spec">match_spec</seealso>. If the
           match_spec returns <c>true</c> for an object, that object
           considered a match and is counted. For any other result from
@@ -1396,16 +1262,10 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>select_delete(Tab, MatchSpec) -> NumDeleted</name>
+      <name name="select_delete" arity="2"/>
       <fsummary>Match the objects in an ETS table against a match_spec and deletes objects where the match_spec returns 'true'</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Object = tuple()</v>
-        <v>MatchSpec = match_spec()</v>
-        <v>NumDeleted = integer()</v>
-      </type>
       <desc>
-        <p>Matches the objects in the table <c>Tab</c> using a
+        <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
           <seealso marker="#match_spec">match_spec</seealso>. If the
           match_spec returns <c>true</c> for an object, that object is
           removed from the table. For any other result from the
@@ -1422,13 +1282,8 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>select_reverse(Tab, MatchSpec) -> [Match]</name>
+      <name name="select_reverse" arity="2"/>
       <fsummary>Match the objects in an ETS table against a match_spec.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Match = term()</v>
-        <v>MatchSpec = match_spec()</v>
-      </type>
       <desc>
 
       <p>Works like <c>select/2</c>, but returns the list in reverse
@@ -1438,14 +1293,8 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>select_reverse(Tab, MatchSpec, Limit) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="select_reverse" arity="3"/>
       <fsummary>Match the objects in an ETS table against a match_spec and returns part of the answers.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Match = term()</v>
-        <v>MatchSpec = match_spec()</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
 
       <p>Works like <c>select/3</c>, but for the <c>ordered_set</c>
@@ -1456,18 +1305,14 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
 
       <p>Note that this is <em>not</em> equivalent to
       reversing the result list of a <c>select/3</c> call, as the result list
-      is not only reversed, but also contains the last <c>Limit</c>
+      is not only reversed, but also contains the last <c><anno>Limit</anno></c>
       matching objects in the table, not the first.</p>
 
       </desc>
     </func>
     <func>
-      <name>select_reverse(Continuation) -> {[Match],Continuation} | '$end_of_table'</name>
+      <name name="select_reverse" arity="1"/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
-      <type>
-        <v>Match = term()</v>
-        <v>Continuation = term()</v>
-      </type>
       <desc>
 
       <p>Continues a match started with
@@ -1477,7 +1322,7 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       returned list will also contain objects with keys in reverse
       order.</p>
 
-      <p>For all other table types, the behaviour is exatly that of <c>select/1</c>.</p>
+      <p>For all other table types, the behaviour is exactly that of <c>select/1</c>.</p>
       <p>Example:</p>
       <code>
 1> T = ets:new(x,[ordered_set]).
@@ -1501,14 +1346,8 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>setopts(Tab, Opts) -> true</name>
+      <name name="setopts" arity="2"/>
       <fsummary>Set table options.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Opts = Opt | [Opt]</v>
-        <v>Opt = {heir,pid(),HeirData} | {heir,none}</v>
-        <v>HeirData = term()</v>
-      </type>
       <desc>
         <p>Set table options. The only option that currently is allowed to be
           set after the table has been created is
@@ -1517,28 +1356,23 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       </desc>
     </func>
     <func>
-      <name>slot(Tab, I) -> [Object] | '$end_of_table'</name>
+      <name name="slot" arity="2"/>
       <fsummary>Return all objects in a given slot of an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>I = integer()</v>
-        <v>Object = tuple()</v>
-      </type>
       <desc>
         <p>This function is mostly for debugging purposes, Normally
           one should use <c>first/next</c> or <c>last/prev</c> instead.</p>
-        <p>Returns all objects in the <c>I</c>:th slot of the table
-          <c>Tab</c>. A table can be traversed by repeatedly calling
-          the function, starting with the first slot <c>I=0</c> and
+        <p>Returns all objects in the <c><anno>I</anno></c>:th slot of the table
+          <c><anno>Tab</anno></c>. A table can be traversed by repeatedly calling
+          the function, starting with the first slot <c><anno>I</anno>=0</c> and
           ending when <c>'$end_of_table'</c> is returned.
           The function will fail with reason <c>badarg</c> if the
-          <c>I</c> argument is out of range.</p>
+          <c><anno>I</anno></c> argument is out of range.</p>
         <p>Unless a table of type <c>set</c>, <c>bag</c> or
           <c>duplicate_bag</c> is protected using
           <c>safe_fixtable/2</c>, see above, a traversal may fail if
           concurrent updates are made to the table. If the table is of
           type <c>ordered_set</c>, the function returns a list
-          containing the <c>I</c>:th object in Erlang term order.</p>
+          containing the <c><anno>I</anno></c>:th object in Erlang term order.</p>
       </desc>
     </func>
     <func>
@@ -1754,16 +1588,16 @@ true</pre>
       </desc>
     </func>
     <func> 
-      <name>update_counter(Tab, Key, UpdateOp) -> Result</name>
-      <name>update_counter(Tab, Key, [UpdateOp]) -> [Result]</name>
-      <name>update_counter(Tab, Key, Incr) -> Result</name>
+      <name name="update_counter" arity="3" clause_i="1"/>
+      <name name="update_counter" arity="3" clause_i="2"/>
+      <name name="update_counter" arity="3" clause_i="3"/>
+      <type variable="Tab"/>
+      <type variable="Key"/>
+      <type variable="UpdateOp" name_i="1"/>
+      <type variable="Pos" name_i="1"/>
+      <type variable="Threshold" name_i="1"/>
+      <type variable="SetValue" name_i="1"/>
       <fsummary>Update a counter object in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = term()</v> 
-        <v>UpdateOp = {Pos,Incr} | {Pos,Incr,Threshold,SetValue}</v>
-        <v>Pos = Incr = Threshold = SetValue = Result = integer()</v>
-      </type>
       <desc>
         <p>This function provides an efficient way to update one or more 
           counters, without the hassle of having to look up an object, update 
@@ -1771,22 +1605,22 @@ true</pre>
           into the table again. (The update is done atomically; i.e. no process 
           can access the ets table in the middle of the operation.)
         </p>
-        <p>It will destructively update the object with key <c>Key</c>
-          in the table <c>Tab</c> by adding <c>Incr</c> to the element
-          at the <c>Pos</c>:th position. The new counter value is
+        <p>It will destructively update the object with key <c><anno>Key</anno></c>
+          in the table <c><anno>Tab</anno></c> by adding <c><anno>Incr</anno></c> to the element
+          at the <c><anno>Pos</anno></c>:th position. The new counter value is
           returned. If no position is specified, the element directly
           following the key (<c><![CDATA[<keypos>+1]]></c>) is updated.</p>
-        <p>If a <c>Threshold</c> is specified, the counter will be
-          reset to the value <c>SetValue</c> if the following
+        <p>If a <c><anno>Threshold</anno></c> is specified, the counter will be
+          reset to the value <c><anno>SetValue</anno></c> if the following
           conditions occur:</p>
         <list type="bulleted">
-          <item>The <c>Incr</c> is not negative (<c>>= 0</c>) and the
-           result would be greater than (<c>></c>) <c>Threshold</c></item>
-          <item>The <c>Incr</c> is negative (<c><![CDATA[< 0]]></c>) and the
+          <item>The <c><anno>Incr</anno></c> is not negative (<c>>= 0</c>) and the
+           result would be greater than (<c>></c>) <c><anno>Threshold</anno></c></item>
+          <item>The <c><anno>Incr</anno></c> is negative (<c><![CDATA[< 0]]></c>) and the
            result would be less than (<c><![CDATA[<]]></c>)
-          <c>Threshold</c></item>
+          <c><anno>Threshold</anno></c></item>
         </list>
-        <p>A list of <c>UpdateOp</c> can be supplied to do several update 
+        <p>A list of <c><anno>UpdateOp</anno></c> can be supplied to do several update
             operations within the object. The operations are carried out in the
             order specified in the list. If the same counter position occurs 
             more than one time in the list, the corresponding counter will thus 
@@ -1797,7 +1631,7 @@ true</pre>
             returned. If the function should fail, no updates will be done at 
             all.
         </p>
-        <p>The given Key is used to identify the object by either
+        <p>The given <c><anno>Key</anno></c> is used to identify the object by either
           <em>matching</em> the key of an object in a <c>set</c> table,
           or <em>compare equal</em> to the key of an object in an
           <c>ordered_set</c> table (see 
@@ -1812,29 +1646,28 @@ true</pre>
           <item>the object has the wrong arity,</item>
           <item>the element to update is not an integer,</item>
           <item>the element to update is also the key, or,</item>
-          <item>any of <c>Pos</c>, <c>Incr</c>, <c>Threshold</c> or
-          <c>SetValue</c> is not an integer</item>
+          <item>any of <c><anno>Pos</anno></c>, <c><anno>Incr</anno></c>, <c><anno>Threshold</anno></c> or
+          <c><anno>SetValue</anno></c> is not an integer</item>
         </list>
       </desc>
     </func>
     <func>
-      <name>update_element(Tab, Key, {Pos,Value}) -> true | false</name>
-      <name>update_element(Tab, Key, [{Pos,Value}]) -> true | false</name>
+      <name name="update_element" arity="3" clause_i="1"/>
+      <name name="update_element" arity="3" clause_i="2"/>
+      <type variable="Tab"/>
+      <type variable="Key"/>
+      <type variable="Value"/>
+      <type variable="Pos"/>
       <fsummary>Updates the <c>Pos</c>:th element of the object with a given key in an ETS table.</fsummary>
-      <type>
-        <v>Tab = tid() | atom()</v>
-        <v>Key = Value = term()</v>
-        <v>Pos = integer()</v>
-      </type>
       <desc>
         <p>This function provides an efficient way to update one or more 
           elements within an object, without the hassle of having to look up, 
           update and write back the entire object.
         </p>
-        <p>It will destructively update the object with key <c>Key</c>
-          in the table <c>Tab</c>. The element at the <c>Pos</c>:th position 
-          will be given the value <c>Value</c>. </p>
-        <p>A list of <c>{Pos,Value}</c> can be supplied to update several
+        <p>It will destructively update the object with key <c><anno>Key</anno></c>
+          in the table <c><anno>Tab</anno></c>. The element at the <c><anno>Pos</anno></c>:th position
+          will be given the value <c><anno>Value</anno></c>. </p>
+        <p>A list of <c>{<anno>Pos</anno>,<anno>Value</anno>}</c> can be supplied to update several
             elements within the same object. If the same position occurs more 
             than one in the list, the last value in the list will be written. If 
             the list is empty or the function fails, no updates will be done at
@@ -1842,9 +1675,9 @@ true</pre>
             can never see any intermediate results.
         </p>
         <p>The function returns <c>true</c> if an object with the key
-        <c>Key</c> was found, <c>false</c> otherwise.
+        <c><anno>Key</anno></c> was found, <c>false</c> otherwise.
         </p>
-        <p>The given Key is used to identify the object by either
+        <p>The given <c><anno>Key</anno></c> is used to identify the object by either
           <em>matching</em> the key of an object in a <c>set</c> table,
           or <em>compare equal</em> to the key of an object in an
           <c>ordered_set</c> table (see 
@@ -1855,7 +1688,7 @@ true</pre>
         <list type="bulleted">
           <item>the table is not of type <c>set</c> or
           <c>ordered_set</c>,</item> 
-          <item><c>Pos</c> is less than 1 or greater than the object
+          <item><c><anno>Pos</anno></c> is less than 1 or greater than the object
           arity, or,</item>
           <item>the element to update is also the key</item>
         </list>

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,6 +28,30 @@
 -import(lists,[reverse/1,member/2]).
 
 %%---------------------------------------------------------------------------
+
+%%% BIFs
+
+-export([to_float/1, to_integer/1]).
+
+-spec to_float(String) -> {Float, Rest} | {error, Reason} when
+      String :: string(),
+      Float :: float(),
+      Rest :: string(),
+      Reason :: no_float | not_a_list.
+
+to_float(_) ->
+    erlang:nif_error(undef).
+
+-spec to_integer(String) -> {Int, Rest} | {error, Reason} when
+      String :: string(),
+      Int :: integer(),
+      Rest :: string(),
+      Reason :: no_integer | not_a_list.
+
+to_integer(_) ->
+    erlang:nif_error(undef).
+
+%%% End of BIFs
 
 %% Robert's bit
 

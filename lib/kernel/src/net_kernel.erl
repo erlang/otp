@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -141,6 +141,17 @@
 -define(SETUPTIME, 7000).
 
 -include("net_address.hrl").
+
+%%% BIF
+
+-export([dflag_unicode_io/1]).
+
+-spec dflag_unicode_io(pid()) -> boolean().
+
+dflag_unicode_io(_) ->
+    erlang:nif_error(undef).
+
+%%% End of BIF
 
 %% Interface functions
 

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -127,11 +127,8 @@ ok</pre>
       </desc>
     </func>
     <func>
-      <name>warning_map() -> Tag</name>
+      <name name="warning_map" arity="0"/>
       <fsummary>Return the current mapping for warning events</fsummary>
-      <type>
-        <v>Tag = error | warning | info</v>
-      </type>
       <desc>
         <p>Returns the current mapping for warning events. Events sent
           using <c>warning_msg/1,2</c> or <c>warning_report/1,2</c>

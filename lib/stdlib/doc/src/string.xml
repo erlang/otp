@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -255,18 +255,12 @@ sub_string("Hello World", 4, 8).
       </desc>
     </func>
     <func>
-      <name>to_float(String) -> {Float,Rest} | {error,Reason} </name>
+      <name name="to_float" arity="1"/>
       <fsummary>Returns a float whose text representation is the integers (ASCII values) in String.</fsummary>
-      <type>
-        <v>String = string()</v>
-        <v>Float = float()</v>
-        <v>Rest = string()</v>
-        <v>Reason = no_float | not_a_list</v>
-      </type>
       <desc>
-        <p>Argument <c>String</c> is expected to start with a valid text
+        <p>Argument <c><anno>String</anno></c> is expected to start with a valid text
           represented float (the digits being ASCII values). Remaining characters 
-          in the string after the float are returned in <c>Rest</c>.</p>
+          in the string after the float are returned in <c><anno>Rest</anno></c>.</p>
         <p>Example:</p>
         <code type="none">
           > {F1,Fs} = string:to_float("1.0-1.0e-1"),
@@ -280,18 +274,12 @@ sub_string("Hello World", 4, 8).
       </desc>
     </func>
     <func>
-      <name>to_integer(String) -> {Int,Rest} | {error,Reason} </name>
+      <name name="to_integer" arity="1"/>
       <fsummary>Returns an integer whose text representation is the integers (ASCII values) in String.</fsummary>
-      <type>
-        <v>String = string()</v>
-        <v>Int = integer()</v>
-        <v>Rest = string()</v>
-        <v>Reason = no_integer | not_a_list</v>
-      </type>
       <desc>
-        <p>Argument <c>String</c> is expected to start with a valid text
+        <p>Argument <c><anno>String</anno></c> is expected to start with a valid text
           represented integer (the digits being ASCII values). Remaining characters 
-          in the string after the integer are returned in <c>Rest</c>.</p>
+          in the string after the integer are returned in <c><anno>Rest</anno></c>.</p>
         <p>Example:</p>
         <code type="none">
           > {I1,Is} = string:to_integer("33+22"),

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -77,41 +77,30 @@
   </datatypes>
   <funcs>
     <func>
-      <name>at(Subject, Pos) -> byte()</name>
+    <name name="at" arity="2"/>
       <fsummary>Returns the byte at a specific position in a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pos = integer() >= 0</v>
-      </type>
       <desc>
 
-      <p>Returns the byte at position <c>Pos</c> (zero-based) in the binary
-      <c>Subject</c> as an integer. If <c>Pos</c> &gt;= <c>byte_size(Subject)</c>,
+      <p>Returns the byte at position <c><anno>Pos</anno></c> (zero-based) in the binary
+      <c><anno>Subject</anno></c> as an integer. If <c><anno>Pos</anno></c> &gt;= <c>byte_size(<anno>Subject</anno>)</c>,
       a <c>badarg</c>
       exception is raised.</p>
 
       </desc>
     </func>
     <func>
-      <name>bin_to_list(Subject) -> [byte()]</name>
+      <name name="bin_to_list" arity="1"/>
       <fsummary>Convert a binary to a list of integers</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-      </type>
       <desc>
-      <p>The same as <c>bin_to_list(Subject,{0,byte_size(Subject)})</c>.</p>
+      <p>The same as <c>bin_to_list(<anno>Subject</anno>,{0,byte_size(<anno>Subject</anno>)})</c>.</p>
       </desc>
     </func>
     <func>
-      <name>bin_to_list(Subject, PosLen) -> [byte()]</name>
+      <name name="bin_to_list" arity="2"/>
       <fsummary>Convert a binary to a list of integers</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>PosLen = part()</v>
-      </type>
       <desc>
 
-      <p>Converts <c>Subject</c> to a list of <c>byte()</c>s, each representing
+      <p>Converts <c><anno>Subject</anno></c> to a list of <c>byte()</c>s, each representing
       the value of one byte. The <c>part()</c> denotes which part of the
       <c>binary()</c> to convert. Example:</p>
 
@@ -120,27 +109,19 @@
 "rla"
 %% or [114,108,97] in list notation.
 </code>
-      <p>If <c>PosLen</c> in any way references outside the binary, a <c>badarg</c> exception is raised.</p>
+      <p>If <c><anno>PosLen</anno></c> in any way references outside the binary, a <c>badarg</c> exception is raised.</p>
       </desc>
     </func>
     <func>
-      <name>bin_to_list(Subject, Pos, Len) -> [byte()]</name>
+      <name name="bin_to_list" arity="3"/>
       <fsummary>Convert a binary to a list of integers</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pos = integer() >= 0</v>
-        <v>Len = integer() >= 0</v>
-      </type>
       <desc>
-      <p>The same as<c> bin_to_list(Subject,{Pos,Len})</c>.</p>
+      <p>The same as<c> bin_to_list(<anno>Subject</anno>,{<anno>Pos</anno>,<anno>Len</anno>})</c>.</p>
       </desc>
     </func>
     <func>
-      <name>compile_pattern(Pattern) -> cp()</name>
+      <name name="compile_pattern" arity="1"/>
       <fsummary>Pre-compiles a binary search pattern</fsummary>
-      <type>
-        <v>Pattern = binary() | [ binary() ]</v>
-      </type>
       <desc>
 
       <p>Builds an internal structure representing a compilation of a
@@ -155,7 +136,7 @@
       <p>When a list of binaries is given, it denotes a set of
       alternative binaries to search for. I.e if
       <c>[&lt;&lt;"functional"&gt;&gt;,&lt;&lt;"programming"&gt;&gt;]</c>
-      is given as <c>Pattern</c>, this
+      is given as <c><anno>Pattern</anno></c>, this
       means "either <c>&lt;&lt;"functional"&gt;&gt;</c> or
       <c>&lt;&lt;"programming"&gt;&gt;</c>". The pattern is a set of
       alternatives; when only a single binary is given, the set has
@@ -163,32 +144,25 @@
 
       <p>The list of binaries used for search alternatives shall be flat and proper.</p>
 
-      <p>If <c>Pattern</c> is not a binary or a flat proper list of binaries with length &gt; 0,
+      <p>If <c><anno>Pattern</anno></c> is not a binary or a flat proper list of binaries with length &gt; 0,
       a <c>badarg</c> exception will be raised.</p>
 
       </desc>
     </func>
     <func>
-      <name>copy(Subject) -> binary()</name>
+      <name name="copy" arity="1"/>
       <fsummary>Creates a duplicate of a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-      </type>
       <desc>
-      <p>The same as <c>copy(Subject, 1)</c>.</p>
+      <p>The same as <c>copy(<anno>Subject</anno>, 1)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>copy(Subject,N) -> binary()</name>
+      <name name="copy" arity="2"/>
       <fsummary>Duplicates a binary N times and creates a new</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>N = integer() >= 0</v>
-      </type>
       <desc>
-      <p>Creates a binary with the content of <c>Subject</c> duplicated <c>N</c> times.</p>
+      <p>Creates a binary with the content of <c><anno>Subject</anno></c> duplicated <c><anno>N</anno></c> times.</p>
 
-      <p>This function will always create a new binary, even if <c>N =
+      <p>This function will always create a new binary, even if <c><anno>N</anno> =
       1</c>. By using <c>copy/1</c> on a binary referencing a larger binary, one
       might free up the larger binary for garbage collection.</p>
 
@@ -201,32 +175,23 @@
       large binaries are no longer used in any process, deliberate
       copying might be a good idea.</p> </note>
 
-      <p>If <c>N</c> &lt; <c>0</c>, a <c>badarg</c> exception is raised.</p>
+      <p>If <c><anno>N</anno></c> &lt; <c>0</c>, a <c>badarg</c> exception is raised.</p>
       </desc>
     </func>
     <func>
-      <name>decode_unsigned(Subject) -> Unsigned</name>
+      <name name="decode_unsigned" arity="1"/>
       <fsummary>Decode a whole binary into an integer of arbitrary size</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Unsigned = integer() >= 0</v>
-      </type>
       <desc>
-      <p>The same as <c>decode_unsigned(Subject,big)</c>.</p>
+      <p>The same as <c>decode_unsigned(<anno>Subject</anno>, big)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>decode_unsigned(Subject, Endianess) -> Unsigned</name>
+      <name name="decode_unsigned" arity="2"/>
       <fsummary>Decode a whole binary into an integer of arbitrary size</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Endianess = big | little</v>
-        <v>Unsigned = integer() >= 0</v>
-      </type>
       <desc>
 
       <p>Converts the binary digit representation, in big or little
-      endian, of a positive integer in <c>Subject</c> to an Erlang <c>integer()</c>.</p>
+      endian, of a positive integer in <c><anno>Subject</anno></c> to an Erlang <c>integer()</c>.</p>
 
       <p>Example:</p>
 
@@ -237,22 +202,15 @@
       </desc>
     </func>
     <func>
-      <name>encode_unsigned(Unsigned) -> binary()</name>
+      <name name="encode_unsigned" arity="1"/>
       <fsummary>Encodes an unsigned integer into the minimal binary</fsummary>
-      <type>
-        <v>Unsigned = integer() >= 0</v>
-      </type>
       <desc>
-      <p>The same as <c>encode_unsigned(Unsigned,big)</c>.</p>
+      <p>The same as <c>encode_unsigned(<anno>Unsigned</anno>, big)</c>.</p>
       </desc>
     </func>
     <func>
-      <name>encode_unsigned(Unsigned,Endianess) -> binary()</name>
+      <name name="encode_unsigned" arity="2"/>
       <fsummary>Encodes an unsigned integer into the minimal binary</fsummary>
-      <type>
-        <v>Unsigned = integer() >= 0</v>
-        <v>Endianess = big | little</v>
-      </type>
       <desc>
 
       <p>Converts a positive integer to the smallest possible
@@ -268,51 +226,39 @@
       </desc>
     </func>
     <func>
-      <name>first(Subject) -> byte()</name>
+      <name name="first" arity="1"/>
       <fsummary>Returns the first byte of a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-      </type>
       <desc>
 
-      <p>Returns the first byte of the binary <c>Subject</c> as an integer. If the
-      size of <c>Subject</c> is zero, a <c>badarg</c> exception is raised.</p>
+      <p>Returns the first byte of the binary <c><anno>Subject</anno></c> as an integer. If the
+      size of <c><anno>Subject</anno></c> is zero, a <c>badarg</c> exception is raised.</p>
 
       </desc>
     </func>
     <func>
-      <name>last(Subject) -> byte()</name>
+      <name name="last" arity="1"/>
       <fsummary>Returns the last byte of a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-      </type>
       <desc>
 
-      <p>Returns the last byte of the binary <c>Subject</c> as an integer. If the
-      size of <c>Subject</c> is zero, a <c>badarg</c> exception is raised.</p>
+      <p>Returns the last byte of the binary <c><anno>Subject</anno></c> as an integer. If the
+      size of <c><anno>Subject</anno></c> is zero, a <c>badarg</c> exception is raised.</p>
 
       </desc>
     </func>
     <func>
-      <name>list_to_bin(ByteList) -> binary()</name>
+      <name name="list_to_bin" arity="1"/>
       <fsummary>Convert a list of integers and binaries to a binary</fsummary>
-      <type>
-        <v>ByteList = iodata() (see module erlang)</v>
-      </type>
       <desc>
       <p>Works exactly as <c>erlang:list_to_binary/1</c>, added for completeness.</p>
       </desc>
     </func>
     <func>
-      <name>longest_common_prefix(Binaries) -> integer() >= 0</name>
+      <name name="longest_common_prefix" arity="1"/>
       <fsummary>Returns length of longest common prefix for a set of binaries</fsummary>
-      <type>
-        <v>Binaries = [ binary() ]</v>
-      </type>
       <desc>
 
       <p>Returns the length of the longest common prefix of the
-      binaries in the list <c>Binaries</c>. Example:</p>
+      binaries in the list <c><anno>Binaries</anno></c>. Example:</p>
 
 <code>
 1> binary:longest_common_prefix([&lt;&lt;"erlang"&gt;&gt;,&lt;&lt;"ergonomy"&gt;&gt;]).
@@ -321,19 +267,16 @@
 0
 </code>
 
-      <p>If <c>Binaries</c> is not a flat list of binaries, a <c>badarg</c> exception is raised.</p>
+      <p>If <c><anno>Binaries</anno></c> is not a flat list of binaries, a <c>badarg</c> exception is raised.</p>
       </desc>
     </func>
     <func>
-      <name>longest_common_suffix(Binaries) -> integer() >= 0</name>
+      <name name="longest_common_suffix" arity="1"/>
       <fsummary>Returns length of longest common suffix for a set of binaries</fsummary>
-      <type>
-        <v>Binaries = [ binary() ]</v>
-      </type>
       <desc>
 
       <p>Returns the length of the longest common suffix of the
-      binaries in the list <c>Binaries</c>. Example:</p>
+      binaries in the list <c><anno>Binaries</anno></c>. Example:</p>
 
 <code>
 1> binary:longest_common_suffix([&lt;&lt;"erlang"&gt;&gt;,&lt;&lt;"fang"&gt;&gt;]).
@@ -347,35 +290,24 @@
       </desc>
     </func>
     <func>
-      <name>match(Subject, Pattern) -> Found | <c>nomatch</c></name>
+      <name name="match" arity="2"/>
       <fsummary>Searches for the first match of a pattern in a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-	<v>Pattern = binary() | [ binary() ] | cp()</v>
-	<v>Found = part()</v>
-      </type>
       <desc>
-      <p>The same as <c>match(Subject, Pattern, [])</c>.</p>
+      <p>The same as <c>match(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>match(Subject,Pattern,Options) -> Found | <c>nomatch</c></name>
+      <name name="match" arity="3"/>
+      <type name="part"/>
       <fsummary>Searches for the first match of a pattern in a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-	<v>Pattern = binary() | [ binary() ] | cp()</v>
-	<v>Found = part()</v>
-        <v>Options = [ Option ]</v>
-	<v>Option = {scope, part()}</v>
-      </type>
       <desc>
 
-      <p>Searches for the first occurrence of <c>Pattern</c> in <c>Subject</c> and
+      <p>Searches for the first occurrence of <c><anno>Pattern</anno></c> in <c><anno>Subject</anno></c> and
       returns the position and length.</p>
 
-      <p>The function will return <c>{Pos,Length}</c> for the binary
-      in <c>Pattern</c> starting at the lowest position in
-      <c>Subject</c>, Example:</p>
+      <p>The function will return <c>{Pos, Length}</c> for the binary
+      in <c><anno>Pattern</anno></c> starting at the lowest position in
+      <c><anno>Subject</anno></c>, Example:</p>
 
 <code>
 1> binary:match(&lt;&lt;"abcde"&gt;&gt;, [&lt;&lt;"bcde"&gt;&gt;,&lt;&lt;"cd"&gt;&gt;],[]).
@@ -391,16 +323,16 @@
       <p>Summary of the options:</p>
 
       <taglist>
-      <tag>{scope, {Start, Length}}</tag>
+      <tag>{scope, {<anno>Start</anno>, <anno>Length</anno>}}</tag>
       <item><p>Only the given part is searched. Return values still have
-      offsets from the beginning of <c>Subject</c>. A negative <c>Length</c> is
-      allowed as described in the <c>TYPES</c> section of this manual.</p></item>
+      offsets from the beginning of <c><anno>Subject</anno></c>. A negative <c>Length</c> is
+      allowed as described in the <c>DATA TYPES</c> section of this manual.</p></item>
       </taglist>
 
       <p>If none of the strings in
-      <c>Pattern</c> is found, the atom <c>nomatch</c> is returned.</p>
+      <c><anno>Pattern</anno></c> is found, the atom <c>nomatch</c> is returned.</p>
 
-      <p>For a description of <c>Pattern</c>, see
+      <p>For a description of <c><anno>Pattern</anno></c>, see
       <seealso marker="#compile_pattern-1">compile_pattern/1</seealso>.</p>
 
       <p>If <c>{scope, {Start,Length}}</c> is given in the options
@@ -412,32 +344,21 @@
       </desc>
     </func>
     <func>
-      <name>matches(Subject, Pattern) -> Found</name>
+      <name name="matches" arity="2"/>
       <fsummary>Searches for all matches of a pattern in a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pattern = binary() | [ binary() ] | cp()</v>
-        <v>Found = [ part() ] | []</v>
-      </type>
       <desc>
-      <p>The same as <c>matches(Subject, Pattern, [])</c>.</p>
+      <p>The same as <c>matches(<anno>Subject</anno>, <anno>Pattern</anno>, [])</c>.</p>
       </desc>
     </func>
     <func>
-      <name>matches(Subject,Pattern,Options) -> Found</name>
+      <name name="matches" arity="3"/>
+      <type name="part"/>
       <fsummary>Searches for all matches of a pattern in a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pattern = binary() | [ binary() ] | cp()</v>
-        <v>Found = [ part() ] | []</v>
-        <v>Options = [ Option ]</v>
-        <v>Option = {scope, part()}</v>
-      </type>
       <desc>
 
-      <p>Works like match, but the <c>Subject</c> is searched until
+      <p>Works like <c>match/2</c>, but the <c><anno>Subject</anno></c> is searched until
       exhausted and a list of all non-overlapping parts matching
-      <c>Pattern</c> is returned (in order). </p>
+      <c><anno>Pattern</anno></c> is returned (in order). </p>
 
       <p>The first and longest match is preferred to a shorter,
       which is illustrated by the following example:</p>
@@ -458,26 +379,22 @@
 
        <p>If none of the strings in pattern is found, an empty list is returned.</p>
 
-       <p>For a description of <c>Pattern</c>, see <seealso marker="#compile_pattern-1">compile_pattern/1</seealso> and for a
+       <p>For a description of <c><anno>Pattern</anno></c>, see <seealso marker="#compile_pattern-1">compile_pattern/1</seealso> and for a
        description of available options, see <seealso marker="#match-3">match/3</seealso>.</p>
 
-       <p>If <c>{scope, {Start,Length}}</c> is given in the options such that
-       <c>Start</c> is larger than the size of <c>Subject</c>, <c>Start + Length</c> is
-       less than zero or <c>Start + Length</c> is larger than the size of
-       <c>Subject</c>, a <c>badarg</c> exception is raised.</p>
+       <p>If <c>{scope, {<anno>Start</anno>,<anno>Length</anno>}}</c> is given in the options such that
+       <c><anno>Start</anno></c> is larger than the size of <c><anno>Subject</anno></c>, <c><anno>Start</anno> + <anno>Length</anno></c> is
+       less than zero or <c><anno>Start</anno> + <anno>Length</anno></c> is larger than the size of
+       <c><anno>Subject</anno></c>, a <c>badarg</c> exception is raised.</p>
 
      </desc>
     </func>
     <func>
-      <name>part(Subject, PosLen) -> binary()</name>
+      <name name="part" arity="2"/>
       <fsummary>Extracts a part of a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>PosLen = part()</v>
-      </type>
       <desc>
 
-      <p>Extracts the part of the binary <c>Subject</c> described by <c>PosLen</c>.</p>
+      <p>Extracts the part of the binary <c><anno>Subject</anno></c> described by <c><anno>PosLen</anno></c>.</p>
 
       <p>Negative length can be used to extract bytes at the end of a binary:</p>
 
@@ -494,25 +411,20 @@
       <c>binary_part/3</c>. Those BIFs are allowed in guard tests.</p>
       </note>
 
-      <p>If <c>PosLen</c> in any way references outside the binary, a <c>badarg</c> exception
+      <p>If <c><anno>PosLen</anno></c> in any way references outside the binary, a <c>badarg</c> exception
       is raised.</p>
 
       </desc>
     </func>
     <func>
-      <name>part(Subject, Pos, Len) -> binary()</name>
+      <name name="part" arity="3"/>
       <fsummary>Extracts a part of a binary</fsummary>
-      <type>
-        <v>Subject = binary()</v>
-        <v>Pos = integer() >= 0</v>
-        <v>Len = integer() >= 0</v>
-      </type>
       <desc>
-      <p>The same as <c>part(Subject, {Pos, Len})</c>.</p>
+      <p>The same as <c>part(<anno>Subject</anno>, {<anno>Pos</anno>, <anno>Len</anno>})</c>.</p>
       </desc>
     </func>
     <func>
-      <name>referenced_byte_size(binary()) -> integer() >= 0</name>
+      <name name="referenced_byte_size" arity="1"/>
       <fsummary>Determines the size of the actual binary pointed out by a sub-binary</fsummary>
       <desc>
 

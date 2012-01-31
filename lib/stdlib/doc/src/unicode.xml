@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -130,34 +130,24 @@
       </desc>
     </func>
     <func>
-      <name>characters_to_list(Data, InEncoding) -> Result</name>
+      <name name="characters_to_list" arity="2"/>
       <fsummary>Convert a collection of characters to list of Unicode characters</fsummary>
-      <type>
-        <v>Data = <seealso marker="#type-latin1_chardata">latin1_chardata()</seealso>
-                | <seealso marker="#type-chardata">chardata()</seealso>
-                | <seealso marker="#type-external_chardata">external_chardata()</seealso></v>
-        <v>Result = list() | {error, list(), RestData} | {incomplete, list(), binary()}</v>
-        <v>RestData = <seealso marker="#type-latin1_chardata">latin1_chardata()</seealso>
-                    | <seealso marker="#type-chardata">chardata()</seealso>
-                    | <seealso marker="#type-external_chardata">external_chardata()</seealso></v>
-        <v>InEncoding = <seealso marker="#type-encoding">encoding()</seealso></v>
-      </type>
       <desc>
 
       <p>This function converts a possibly deep list of integers and
       binaries into a list of integers representing unicode
       characters. The binaries in the input may have characters
       encoded as latin1 (0 - 255, one character per byte), in which
-      case the <c>InEncoding</c> parameter should be given as
+      case the <c><anno>InEncoding</anno></c> parameter should be given as
       <c>latin1</c>, or have characters encoded as one of the
-      UTF-encodings, which is given as the <c>InEncoding</c>
-      parameter. Only when the <c>InEncoding</c> is one of the UTF
+      UTF-encodings, which is given as the <c><anno>InEncoding</anno></c>
+      parameter. Only when the <c><anno>InEncoding</anno></c> is one of the UTF
       encodings, integers in the list are allowed to be grater than
       255.</p>
       
-      <p>If <c>InEncoding</c> is <c>latin1</c>, the <c>Data</c> parameter
+      <p>If <c><anno>InEncoding</anno></c> is <c>latin1</c>, the <c><anno>Data</anno></c> parameter
       corresponds to the <c>iodata()</c> type, but for <c>unicode</c>,
-      the <c>Data</c> parameter can contain integers greater than 255
+      the <c><anno>Data</anno></c> parameter can contain integers greater than 255
       (unicode characters beyond the iso-latin-1 range), which would
       make it invalid as <c>iodata()</c>.</p>
 
@@ -188,16 +178,16 @@
       depth as the original data. The error occurs when traversing the
       list and whatever's left to decode is simply returned as is.</p>
 
-      <p>However, if the input <c>Data</c> is a pure binary, the third
+      <p>However, if the input <c><anno>Data</anno></c> is a pure binary, the third
       part of the error tuple is guaranteed to be a binary as
       well.</p>
 
       <p>Errors occur for the following reasons:</p>
       <list type="bulleted">
 
-           <item>Integers out of range - If <c>InEncoding</c> is
+           <item>Integers out of range - If <c><anno>InEncoding</anno></c> is
 	   <c>latin1</c>, an error occurs whenever an integer greater
-	   than 255 is found in the lists. If <c>InEncoding</c> is
+	   than 255 is found in the lists. If <c><anno>InEncoding</anno></c> is
 	   of a Unicode type, an error occurs whenever an integer
 	   <list type="bulleted">
 	     <item>greater than <c>16#10FFFF</c>
@@ -208,7 +198,7 @@
 	   is found.
 	   </item>
 
-	   <item>UTF encoding incorrect - If <c>InEncoding</c> is
+	   <item>UTF encoding incorrect - If <c><anno>InEncoding</anno></c> is
 	   one of the UTF types, the bytes in any binaries have to be valid
 	   in that encoding. Errors can occur for various
 	   reasons, including &quot;pure&quot; decoding errors 
@@ -220,7 +210,7 @@
 	   number should have been encoded in fewer bytes. The
 	   case of a truncated UTF is handled specially, see the
 	   paragraph about incomplete binaries below. If
-	   <c>InEncoding</c> is <c>latin1</c>, binaries are always valid 
+	   <c><anno>InEncoding</anno></c> is <c>latin1</c>, binaries are always valid
 	   as long as they contain whole bytes,
 	   as each byte falls into the valid iso-latin-1 range.</item>
 
@@ -238,7 +228,7 @@
       the first part of a (so far) valid UTF character.</p>
 
       <p>If one UTF characters is split over two consecutive
-      binaries in the <c>Data</c>, the conversion succeeds. This means
+      binaries in the <c><anno>Data</anno></c>, the conversion succeeds. This means
       that a character can be decoded from a range of binaries as long
       as the whole range is given as input without errors
       occurring. Example:</p>
@@ -274,21 +264,11 @@
       </desc>
     </func>
     <func>    
-     <name>characters_to_binary(Data,InEncoding) -> Result</name>
+     <name name="characters_to_binary" arity="2"/>
       <fsummary>Convert a collection of characters to an UTF-8 binary</fsummary>
 
-      <type>
-        <v>Data = <seealso marker="#type-latin1_chardata">latin1_chardata()</seealso>
-                | <seealso marker="#type-chardata">chardata()</seealso>
-                | <seealso marker="#type-external_chardata">external_chardata()</seealso></v>
-        <v>Result = binary() | {error, binary(), RestData} | {incomplete, binary(), binary()}</v>
-        <v>RestData = <seealso marker="#type-latin1_chardata">latin1_chardata()</seealso>
-                    | <seealso marker="#type-chardata">chardata()</seealso>
-                    | <seealso marker="#type-external_chardata">external_chardata()</seealso></v>
-        <v>InEncoding = <seealso marker="#type-encoding">encoding()</seealso></v>
-      </type>
       <desc>
-      <p>Same as characters_to_binary(Data, InEncoding, unicode).</p>
+      <p>Same as characters_to_binary(<anno>Data</anno>, <anno>InEncoding</anno>, unicode).</p>
       </desc>
     </func>    
     <func>

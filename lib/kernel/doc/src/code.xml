@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -728,16 +728,13 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name>is_module_native(Module) -> boolean() | undefined</name>
+      <name name="is_module_native" arity="1"/>
       <fsummary>Test whether a module has native code</fsummary>
-      <type>
-        <v>Module = module()</v>
-      </type>
       <desc>
-        <p>This function returns <c>true</c> if <c>Module</c> is 
+        <p>This function returns <c>true</c> if <c><anno>Module</anno></c> is
 	name of a loaded module that has native code loaded, and 
-	<c>false</c> if <c>Module</c> is loaded but does not have
-	native. If <c>Module</c> is not loaded, this function returns
+	<c>false</c> if <c><anno>Module</anno></c> is loaded but does not have
+	native. If <c><anno>Module</anno></c> is not loaded, this function returns
 	<c>undefined</c>.</p>
       </desc>
     </func>

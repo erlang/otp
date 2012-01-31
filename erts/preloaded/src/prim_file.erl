@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,6 +146,32 @@
 -define(POSIX_FADV_DONTNEED,   4).
 -define(POSIX_FADV_NOREUSE,    5).
 
+
+%%% BIFs
+
+-export([internal_name2native/1,
+         internal_native2name/1,
+         internal_normalize_utf8/1]).
+
+-type unicode_string() :: [unicode:unicode_char()].
+-type prim_file_name() :: unicode_string() | unicode:unicode_binary().
+
+-spec internal_name2native(prim_file_name()) -> binary().
+
+internal_name2native(_) ->
+    erlang:nif_error(undefined).
+
+-spec internal_native2name(binary()) -> prim_file_name().
+
+internal_native2name(_) ->
+    erlang:nif_error(undefined).
+
+-spec internal_normalize_utf8(unicode:unicode_binary()) -> unicode_string().
+
+internal_normalize_utf8(_) ->
+    erlang:nif_error(undefined).
+
+%%% End of BIFs
 
 %%%-----------------------------------------------------------------
 %%% Functions operating on a file through a handle. ?FD_DRV.

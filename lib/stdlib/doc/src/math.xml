@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -52,54 +52,47 @@
       </desc>
     </func>
     <func>
-      <name>sin(X)</name>
-      <name>cos(X)</name>
-      <name>tan(X)</name>
-      <name>asin(X)</name>
-      <name>acos(X)</name>
-      <name>atan(X)</name>
-      <name>atan2(Y, X)</name>
-      <name>sinh(X)</name>
-      <name>cosh(X)</name>
-      <name>tanh(X)</name>
-      <name>asinh(X)</name>
-      <name>acosh(X)</name>
-      <name>atanh(X)</name>
-      <name>exp(X)</name>
-      <name>log(X)</name>
-      <name>log10(X)</name>
-      <name>pow(X, Y)</name>
-      <name>sqrt(X)</name>
+      <name name="sin" arity="1"/>
+      <name name="cos" arity="1"/>
+      <name name="tan" arity="1"/>
+      <name name="asin" arity="1"/>
+      <name name="acos" arity="1"/>
+      <name name="atan" arity="1"/>
+      <name name="atan2" arity="2"/>
+      <name name="sinh" arity="1"/>
+      <name name="cosh" arity="1"/>
+      <name name="tanh" arity="1"/>
+      <name name="asinh" arity="1"/>
+      <name name="acosh" arity="1"/>
+      <name name="atanh" arity="1"/>
+      <name name="exp" arity="1"/>
+      <name name="log" arity="1"/>
+      <name name="log10" arity="1"/>
+      <name name="pow" arity="2"/>
+      <name name="sqrt" arity="1"/>
+      <type variable="X" name_i="7"/>
+      <type variable="Y" name_i="7"/>
       <fsummary>Diverse math functions</fsummary>
-      <type>
-        <v>X = Y = number()</v>
-      </type>
       <desc>
         <p>A collection of math functions which return floats. Arguments
           are numbers. </p>
       </desc>
     </func>
     <func>
-      <name>erf(X) -> float()</name>
+      <name name="erf" arity="1"/>
       <fsummary>Error function.</fsummary>
-      <type>
-        <v>X = number()</v>
-      </type>
       <desc>
-        <p>Returns the error function of <c>X</c>, where</p>
+        <p>Returns the error function of <c><anno>X</anno></c>, where</p>
         <pre>
 erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.        </pre>
       </desc>
     </func>
     <func>
-      <name>erfc(X) -> float()</name>
+      <name name="erfc" arity="1"/>
       <fsummary>Another error function</fsummary>
-      <type>
-        <v>X = number()</v>
-      </type>
       <desc>
         <p><c>erfc(X)</c> returns  <c>1.0 - erf(X)</c>, computed  by
-          methods that avoid cancellation for large <c>X</c>. </p>
+          methods that avoid cancellation for large <c><anno>X</anno></c>. </p>
       </desc>
     </func>
   </funcs>

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -78,28 +78,15 @@
   </datatypes>
   <funcs>
     <func>
-      <name>compile(Regexp) -> {ok, MP} | {error, ErrSpec}</name>
+      <name name="compile" arity="1"/>
       <fsummary>Compile a regular expression into a match program</fsummary>
-      <type>
-        <v>Regexp = iodata()</v>
-      </type>
       <desc>
-      <p>The same as <c>compile(Regexp,[])</c></p>
+      <p>The same as <c>compile(<anno>Regexp</anno>,[])</c></p>
       </desc>
     </func> 
     <func>
-      <name>compile(Regexp,Options) -> {ok, MP} | {error, ErrSpec}</name>
+      <name name="compile" arity="2"/>
       <fsummary>Compile a regular expression into a match program</fsummary>
-      <type>
-        <v>Regexp = iodata() | <seealso marker="unicode#type-charlist">io:charlist()</seealso></v>
-	<v>Options = [ Option ]</v>
-	<v>Option = <seealso marker="#type-compile_option">compile_option()</seealso></v>
-	<v>NLSpec = <seealso marker="#type-nl_spec">nl_spec()</seealso></v>
-	<v>MP = <seealso marker="#type-mp">mp()</seealso></v>
-	<v>ErrSpec = {ErrString, Position}</v>
-	<v>ErrString = string()</v>
-	<v>Position = non_neg_integer()</v>
-      </type>
       <desc>
       <p>This function compiles a regular expression with the syntax
       described below into an internal format to be used later as a
@@ -165,44 +152,23 @@ This option makes it possible to include comments inside complicated patterns. N
     </func> 
 
     <func>
-      <name>run(Subject,RE) -> {match, Captured} | nomatch</name>
+      <name name="run" arity="2"/>
       <fsummary>Match a subject against regular expression and capture subpatterns</fsummary>
-      <type>
-	<v>Subject = iodata() | <seealso marker="unicode#type-charlist">io:charlist()</seealso></v>
-        <v>RE = <seealso marker="#type-mp">mp()</seealso> | iodata()</v>
-	<v>Captured = [ CaptureData ]</v>
-	<v>CaptureData = {integer(),integer()}</v>
-      </type>
       <desc>
-      <p>The same as <c>run(Subject,RE,[])</c>.</p>
+      <p>The same as <c>run(<anno>Subject</anno>,<anno>RE</anno>,[])</c>.</p>
       </desc>
     </func> 
     <func>
-      <name>run(Subject,RE,Options) -> {match, Captured} | match | nomatch</name>
+      <name name="run" arity="3"/>
+      <type_desc variable="CompileOpt">See <seealso marker="#compile_options">compile/2</seealso> above.</type_desc>
       <fsummary>Match a subject against regular expression and capture subpatterns</fsummary>
-      <type>
-	<v>Subject = iodata() | <seealso marker="unicode#type-charlist">io:charlist()</seealso></v>
-        <v>RE = <seealso marker="#type-mp">mp()</seealso> | iodata() | <seealso marker="unicode#type-charlist">io:charlist()</seealso></v>
-	<v>Options = [ Option ]</v>
-	<v>Option = anchored | global | notbol | noteol | notempty | {offset, integer() >= 0} | {newline, NLSpec} | bsr_anycrlf | bsr_unicode | {capture, ValueSpec} | {capture, ValueSpec, Type} | CompileOpt</v>
-	<v>Type = index | list | binary</v>
-	<v>ValueSpec = all | all_but_first | first | none | ValueList</v>
-	<v>ValueList = [ ValueID ]</v>
-	<v>ValueID = integer() | string() | atom()</v>
-	<v>CompileOpt = <seealso marker="#type-compile_option">compile_option()</seealso></v>
-        <d>See <seealso marker="#compile_options">compile/2</seealso> above.</d>
-	<v>NLSpec = <seealso marker="#type-nl_spec">nl_spec()</seealso></v>
-	<v>Captured = [ CaptureData ] | [ [ CaptureData ] ... ]</v>
-	<v>CaptureData = {integer(),integer()} | ListConversionData | binary()</v>
-	<v>ListConversionData = string() | {error, string(), binary()} | {incomplete, string(), binary()}</v>
-      </type>
       <desc>
 
       <p>Executes a regexp matching, returning <c>match/{match,
-      Captured}</c> or <c>nomatch</c>. The regular expression can be
+      <anno>Captured</anno>}</c> or <c>nomatch</c>. The regular expression can be
       given either as <c>iodata()</c> in which case it is
       automatically compiled (as by <c>re:compile/2</c>) and executed,
-      or as a pre compiled <c>mp()</c> in which case it is executed
+      or as a pre-compiled <c>mp()</c> in which case it is executed
       against the subject directly.</p>
 
       <p>When compilation is involved, the exception <c>badarg</c> is
@@ -214,23 +180,23 @@ This option makes it possible to include comments inside complicated patterns. N
       list can only contain the options <c>anchored</c>,
       <c>global</c>, <c>notbol</c>, <c>noteol</c>,
       <c>notempty</c>, <c>{offset, integer() >= 0}</c>, <c>{newline,
-      NLSpec}</c> and <c>{capture, ValueSpec}/{capture, ValueSpec,
-      Type}</c>.  Otherwise all options valid for the
+      <anno>NLSpec</anno>}</c> and <c>{capture, <anno>ValueSpec</anno>}/{capture, <anno>ValueSpec</anno>,
+      <anno>Type</anno>}</c>.  Otherwise all options valid for the
       <c>re:compile/2</c> function are allowed as well. Options
       allowed both for compilation and execution of a match, namely
-      <c>anchored</c> and <c>{newline, NLSpec}</c>, will affect both
+      <c>anchored</c> and <c>{newline, <anno>NLSpec</anno>}</c>, will affect both
       the compilation and execution if present together with a non
       pre-compiled regular expression.</p>
 
       <p>If the regular expression was previously compiled with the
-      option <c>unicode</c>, the <c>Subject</c> should be provided as
+      option <c>unicode</c>, the <c><anno>Subject</anno></c> should be provided as
       a valid Unicode <c>charlist()</c>, otherwise any <c>iodata()</c>
       will do. If compilation is involved and the option
-      <c>unicode</c> is given, both the <c>Subject</c> and the regular
+      <c>unicode</c> is given, both the <c><anno>Subject</anno></c> and the regular
       expression should be given as valid Unicode
       <c>charlists()</c>.</p>
 
-      <p>The <c>{capture, ValueSpec}/{capture, ValueSpec, Type}</c>
+      <p>The <c>{capture, <anno>ValueSpec</anno>}/{capture, <anno>ValueSpec</anno>, <anno>Type</anno>}</c>
       defines what to return from the function upon successful
       matching. The <c>capture</c> tuple may contain both a
       value specification telling which of the captured
@@ -244,9 +210,9 @@ This option makes it possible to include comments inside complicated patterns. N
       at all is to be done (<c>{capture, none}</c>), the function will
       return the single atom <c>match</c> upon successful matching,
       otherwise the tuple
-      <c>{match, ValueList}</c> is returned. Disabling capturing can
+      <c>{match, <anno>ValueList</anno>}</c> is returned. Disabling capturing can
       be done either by specifying <c>none</c> or an empty list as
-      <c>ValueSpec</c>.</p>
+      <c><anno>ValueSpec</anno></c>.</p>
 
       <p>The options relevant for execution are:</p>
 
@@ -266,7 +232,7 @@ This option makes it possible to include comments inside complicated patterns. N
       Perl). Each match is returned as a separate
       <c>list()</c> containing the specific match as well as any
       matching subexpressions (or as specified by the <c>capture
-      option</c>). The <c>Captured</c> part of the return value will
+      option</c>). The <c><anno>Captured</anno></c> part of the return value will
       hence be a <c>list()</c> of <c>list()</c>s when this
       option is given.</p>
 
@@ -362,7 +328,7 @@ This option makes it possible to include comments inside complicated patterns. N
       subject string. The offset is zero-based, so that the default is
       <c>{offset,0}</c> (all of the subject string).</item>
 
-      <tag><c>{newline, NLSpec}</c></tag>
+      <tag><c>{newline, <anno>NLSpec</anno>}</c></tag>
       <item>
       <p>Override the default definition of a newline in the subject string, which is LF (ASCII 10) in Erlang.</p>
       <taglist>
@@ -383,7 +349,7 @@ This option makes it possible to include comments inside complicated patterns. N
       <tag><c>bsr_unicode</c></tag>
       <item>Specifies specifically that \R is to match all the Unicode newline characters (including crlf etc, the default).(overrides compilation option)</item>
 
-      <tag><c>{capture, ValueSpec}</c>/<c>{capture, ValueSpec, Type}</c></tag>
+      <tag><c>{capture, <anno>ValueSpec</anno>}</c>/<c>{capture, <anno>ValueSpec</anno>, <anno>Type</anno>}</c></tag>
       <item>
 
       <p>Specifies which captured substrings are returned and in what
@@ -392,7 +358,7 @@ This option makes it possible to include comments inside complicated patterns. N
       substring as well as all capturing subpatterns (all of the
       pattern is automatically captured). The default return type is
       (zero-based) indexes of the captured parts of the string, given as
-      <c>{Offset,Length}</c> pairs (the <c>index</c> <c>Type</c> of
+      <c>{Offset,Length}</c> pairs (the <c>index</c> <c><anno>Type</anno></c> of
       capturing).</p>
 
       <p>As an example of the default behavior, the following call:</p>
@@ -422,8 +388,8 @@ This option makes it possible to include comments inside complicated patterns. N
 
       <p>The capture tuple is built up as follows:</p>
       <taglist>
-      <tag><c>ValueSpec</c></tag>
-      <item><p>Specifies which captured (sub)patterns are to be returned. The ValueSpec can either be an atom describing a predefined set of return values, or a list containing either the indexes or the names of specific subpatterns to return.</p>
+      <tag><c><anno>ValueSpec</anno></c></tag>
+      <item><p>Specifies which captured (sub)patterns are to be returned. The <c><anno>ValueSpec</anno></c> can either be an atom describing a predefined set of return values, or a list containing either the indexes or the names of specific subpatterns to return.</p>
       <p>The predefined sets of subpatterns are:</p>
         <taglist>
         <tag><c>all</c></tag>
@@ -437,7 +403,7 @@ This option makes it possible to include comments inside complicated patterns. N
         </taglist>
       <p>The value list is a list of indexes for the subpatterns to return, where index 0 is for all of the pattern, and 1 is for the first explicit capturing subpattern in the regular expression, and so forth. When using named captured subpatterns (see below) in the regular expression, one can use <c>atom()</c>s or <c>string()</c>s to specify the subpatterns to be returned. For example, consider the regular expression:</p>
       <code>    ".*(abcd).*"</code>
-      <p>matched against the string ""ABCabcdABC", capturing only the "abcd" part (the first explicit subpattern):</p>
+      <p>matched against the string "ABCabcdABC", capturing only the "abcd" part (the first explicit subpattern):</p>
       <code>    re:run("ABCabcdABC",".*(abcd).*",[{capture,[1]}]).</code>
       <p>The call will yield the following result:</p>
       <code>    {match,[{3,4}]}</code>
@@ -460,8 +426,8 @@ This option makes it possible to include comments inside complicated patterns. N
       or list respectively.</p>
 
       </item>      
-      <tag><c>Type</c></tag>
-      <item><p>Optionally specifies how captured substrings are to be returned. If omitted, the default of <c>index</c> is used. The <c>Type</c> can be one of the following:</p>
+      <tag><c><anno>Type</anno></c></tag>
+      <item><p>Optionally specifies how captured substrings are to be returned. If omitted, the default of <c>index</c> is used. The <c><anno>Type</anno></c> can be one of the following:</p>
         <taglist>
         <tag><c>index</c></tag> 
         <item>Return captured substrings as pairs of byte indexes into the subject string and length of the matching string in the subject (as if the subject string was flattened with <c>iolist_to_binary/1</c> or <c>unicode:characters_to_binary/2</c> prior to matching). Note that the <c>unicode</c> option results in <em>byte-oriented</em> indexes in a (possibly virtual) <em>UTF-8 encoded</em> binary. A byte index tuple <c>{0,2}</c> might therefore represent one or two characters when <c>unicode</c> is in effect. This might seem counter-intuitive, but has been deemed the most effective and useful way to way to do it. To return lists instead might result in simpler code if that is desired. This return type is the default.</item>
@@ -478,7 +444,7 @@ This option makes it possible to include comments inside complicated patterns. N
 <code>    "ABCabcdABC"</code>
       <p>the subpattern at index 2 won't match, as "abdd" is not present in the string, but the complete pattern matches (due to the alternative <c>a(..d)</c>. The subpattern at index 2 is therefore unassigned and the default return value will be:</p>
 <code>    {match,[{0,10},{3,4},{-1,0},{4,3}]}</code>
-      <p>Setting the capture <c>Type</c> to <c>binary</c> would give the following:</p>
+      <p>Setting the capture <c><anno>Type</anno></c> to <c>binary</c> would give the following:</p>
 <code>    {match,[&lt;&lt;"ABCabcdABC"&gt;&gt;,&lt;&lt;"abcd"&gt;&gt;,&lt;&lt;&gt;&gt;,&lt;&lt;"bcd"&gt;&gt;]}</code>
       <p>where the empty binary (<c>&lt;&lt;&gt;&gt;</c>) represents the unassigned subpattern. In the <c>binary</c> case, some information about the matching is therefore lost, the <c>&lt;&lt;&gt;&gt;</c> might just as well be an empty string captured.</p>
       <p>If differentiation between empty matches and non existing subpatterns is necessary, use the <c>type</c> <c>index</c>
