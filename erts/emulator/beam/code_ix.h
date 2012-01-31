@@ -16,6 +16,36 @@
  *
  * %CopyrightEnd%
  */
+
+/* Description:
+ *	This is the interface that facilitate changing the beam code
+ *      (load,upgrade,delete) while allowing executing Erlang processes to
+ *      access the code without any locks or other expensive memory barriers.
+ *
+ *      The basic idea is to maintain several "logical copies" of the code. These
+ *      copies are identified by a global 'code index', an integer of 0, 1 or 2.
+ *      The code index is used as argument to code access structures like
+ *      export, module, beam_catches, beam_ranges.
+ *
+ *      The current 'active' code index is used to access the current running
+ *      code. The 'staging' code index is used by the process that performs
+ *      a code change operation. When a code change operation completes
+ *      succesfully, the staging code index becomes the new active code index.
+ *
+ *      The third code index is not explicitly used. It can be thought of as
+ *      the "previous active" or the "next staging" index. It is needed to make
+ *      sure that we do not reuse a code index for staging until we are sure
+ *      that no executing BIFs are still referring it.
+ *      We could get by with only two (0 and 1), but that would require that we
+ *      must wait for all schedulers to re-schedule before each code change
+ *      operation can start staging.
+ *
+ *      Note that the 'code index' is very loosely coupled to the concept of
+ *      'current' and 'old' module versions. You can almost say that they are
+ *      orthogonal to each other. Code index is an emulator global concept while
+ *      'current' and 'old' is specific for each module.
+ */
+
 #ifndef __CODE_IX_H__
 #define __CODE_IX_H__
 
@@ -23,34 +53,51 @@
 #define ERTS_NUM_CODE_IX 3
 typedef unsigned ErtsCodeIndex;
 
+/* Called once at emulator initialization.
+ */
 void erts_code_ix_init(void);
+
+/* Return active code index.
+ * Is guaranteed to be valid until the calling BIF returns.
+ * To get a consistent view of the code only one call to erts_active_code_ix()
+ * should be made within the same BIF call.
+ */
 ErtsCodeIndex erts_active_code_ix(void);
+
+/* Return staging code ix.
+ * Only used by a process performing code loading/upgrading/deleting/purging.
+ * code_ix must be locked.
+ */
 ErtsCodeIndex erts_staging_code_ix(void);
 
-/* Lock code_ix (enqueue and suspend until we get it)
-*/
+/* Lock code_ix.
+ * Gives (exclusive) access to the staging area and write access to active code index.
+ * ToDo: Waiting process should be queued and return to be suspended.
+ */
 void erts_lock_code_ix(void);
 
-/*SVERK
-    erts_lock_code_ix();
-    wait for thread progress
-	   (we don't want any retarded threads with pointers to inactive Module)
-    Copy active -> loader
-	rlock old_code while copying Modules
-    Update loader
-    wait for thread progress
-	   (we need a membarrier for everybody to "see" the new code)
-    Set loader as new active
-    erts_unlock_code_ix();
-}*/
-
-
-/* Unlock code_ix (resume first waiter)
-*/
+/* Unlock code_ix
+ * ToDo: Dequeue and resume waiting processes.
+ */
 void erts_unlock_code_ix(void);
 
+/* Make the "staging area" a complete copy of the active code.
+ * code_ix must be locked.
+ * Must be followed by a call to either "commit" or "abort" before code_ix lock
+ * is released.
+ */
 void erts_start_staging_code_ix(void);
+
+/* Commit the staging area and update the active code index.
+ * code_ix must be locked and erts_start_staging_code_ix() called.
+ * ToDo: Updating active code index should be done according to Rickard's recipe.
+ *       This function might need to be split into two.
+ */
 void erts_commit_staging_code_ix(void);
+
+/* Abort the staging.
+ * code_ix must be locked and erts_start_staging_code_ix() called.
+ */
 void erts_abort_staging_code_ix(void);
 
 void erts_rwlock_old_code(ErtsCodeIndex);
