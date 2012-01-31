@@ -37,6 +37,8 @@
 
 static IndexTable module_tables[ERTS_NUM_CODE_IX];
 
+erts_smp_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
+
 /*
  * SMP note: We don't need to look accesses to the module table because
  * there is one only scheduler thread when we update it.
@@ -99,6 +101,10 @@ void init_module_table(void)
     for (i = 0; i < ERTS_NUM_CODE_IX; i++) {
 	erts_index_init(ERTS_ALC_T_MODULE_TABLE, &module_tables[i], "module_code",
 			MODULE_SIZE, MODULE_LIMIT, f);
+    }
+
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	erts_smp_rwmtx_init_x(&the_old_code_rwlocks[i], "old_code", make_small(i));
     }
 }
 
@@ -211,3 +217,4 @@ void module_end_staging(int commit)
 
     IF_DEBUG(dbg_load_code_ix = -1);
 }
+

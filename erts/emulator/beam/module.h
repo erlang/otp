@@ -38,7 +38,7 @@ typedef struct erl_module {
     int module;			/* Atom index for module (not tagged). */
 
     struct erl_module_instance curr;
-    struct erl_module_instance old;
+    struct erl_module_instance old; /* protected by "old_code" rwlock */
 } Module; 
 
 Module* erts_get_module(Eterm mod, ErtsCodeIndex code_ix);
@@ -53,4 +53,43 @@ Module *module_code(int, ErtsCodeIndex);
 int module_code_size(ErtsCodeIndex);
 int module_table_sz(void);
 
+ERTS_GLB_INLINE void erts_rwlock_old_code(ErtsCodeIndex);
+ERTS_GLB_INLINE void erts_rwunlock_old_code(ErtsCodeIndex);
+ERTS_GLB_INLINE void erts_rlock_old_code(ErtsCodeIndex);
+ERTS_GLB_INLINE void erts_runlock_old_code(ErtsCodeIndex);
+#ifdef ERTS_ENABLE_LOCK_CHECK
+int erts_is_old_code_rlocked(ErtsCodeIndex);
 #endif
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+extern erts_smp_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
+
+ERTS_GLB_INLINE void erts_rwlock_old_code(ErtsCodeIndex code_ix)
+{
+    erts_smp_rwmtx_rwlock(&the_old_code_rwlocks[code_ix]);
+}
+ERTS_GLB_INLINE void erts_rwunlock_old_code(ErtsCodeIndex code_ix)
+{
+    erts_smp_rwmtx_rwunlock(&the_old_code_rwlocks[code_ix]);
+}
+ERTS_GLB_INLINE void erts_rlock_old_code(ErtsCodeIndex code_ix)
+{
+    erts_smp_rwmtx_rlock(&the_old_code_rwlocks[code_ix]);
+}
+ERTS_GLB_INLINE void erts_runlock_old_code(ErtsCodeIndex code_ix)
+{
+    erts_smp_rwmtx_runlock(&the_old_code_rwlocks[code_ix]);
+}
+
+#ifdef ERTS_ENABLE_LOCK_CHECK
+ERTS_GLB_INLINE int erts_is_old_code_rlocked(ErtsCodeIndex code_ix)
+{
+    return erts_smp_lc_rwmtx_is_rlocked(&the_old_code_rwlocks[code_ix]);
+}
+#endif
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+
+#endif /* !__MODULE_H__ */

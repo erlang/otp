@@ -20,6 +20,10 @@
 #ifndef __BEAM_CATCHES_H
 #define __BEAM_CATCHES_H
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+#include "sys.h"
 #include "code_ix.h"
 
 #define BEAM_CATCHES_NIL	(-1)

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2012-2012. All Rights Reserved.
+ * Copyright Ericsson AB 2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -49,6 +49,12 @@
 #ifndef __CODE_IX_H__
 #define __CODE_IX_H__
 
+#ifndef __SYS_H__
+#  ifdef HAVE_CONFIG_H
+#    include "config.h"
+#  endif
+#  include "sys.h"
+#endif
 
 #define ERTS_NUM_CODE_IX 3
 typedef unsigned ErtsCodeIndex;
@@ -59,15 +65,17 @@ void erts_code_ix_init(void);
 
 /* Return active code index.
  * Is guaranteed to be valid until the calling BIF returns.
- * To get a consistent view of the code only one call to erts_active_code_ix()
- * should be made within the same BIF call.
+ * To get a consistent view of the code, only one call to erts_active_code_ix()
+ * should be made and the returned ix reused within the same BIF call.
  */
+ERTS_GLB_INLINE
 ErtsCodeIndex erts_active_code_ix(void);
 
 /* Return staging code ix.
  * Only used by a process performing code loading/upgrading/deleting/purging.
  * code_ix must be locked.
  */
+ERTS_GLB_INLINE
 ErtsCodeIndex erts_staging_code_ix(void);
 
 /* Lock code_ix.
@@ -100,14 +108,27 @@ void erts_commit_staging_code_ix(void);
  */
 void erts_abort_staging_code_ix(void);
 
-void erts_rwlock_old_code(ErtsCodeIndex);
-void erts_rwunlock_old_code(ErtsCodeIndex);
-void erts_rlock_old_code(ErtsCodeIndex);
-void erts_runlock_old_code(ErtsCodeIndex);
-
 #ifdef ERTS_ENABLE_LOCK_CHECK
-int erts_is_old_code_rlocked(ErtsCodeIndex);
 int erts_is_code_ix_locked(void);
 #endif
 
+
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+extern erts_smp_atomic32_t the_active_code_index;
+extern erts_smp_atomic32_t the_staging_code_index;
+
+ERTS_GLB_INLINE ErtsCodeIndex erts_active_code_ix(void)
+{
+    return erts_smp_atomic32_read_nob(&the_active_code_index);
+}
+ERTS_GLB_INLINE ErtsCodeIndex erts_staging_code_ix(void)
+{
+    return erts_smp_atomic32_read_nob(&the_staging_code_index);
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 #endif /* !__CODE_IX_H__ */
+
