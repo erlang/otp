@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -313,7 +313,7 @@ display_table_info(Parent0, Node, Source, Table) ->
 
 list_to_strings([]) -> "None";
 list_to_strings([A]) -> integer_to_list(A);
-list_to_strings([A,B]) ->
+list_to_strings([A|B]) ->
     integer_to_list(A) ++ " ," ++ list_to_strings(B).
 
 handle_error(Foo) ->

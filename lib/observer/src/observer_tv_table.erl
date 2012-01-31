@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,7 +58,7 @@
 	  source,
 	  tab,
 	  attrs,
-	  timer
+	  timer={false, 30}
 	}).
 
 -record(opt,
@@ -268,8 +268,8 @@ handle_event(#wx{id=?ID_DELETE},
 handle_event(#wx{id=?wxID_CLOSE}, State) ->
     {stop, normal, State};
 
-handle_event(Help = #wx{id=?wxID_HELP}, State = #state{parent=Parent}) ->
-    Parent ! Help,
+handle_event(Help = #wx{id=?wxID_HELP}, State) ->
+    observer ! Help,
     {noreply, State};
 
 handle_event(#wx{id=?GOTO_ENTRY, event=#wxCommand{cmdString=Str}},
@@ -374,40 +374,51 @@ handle_event(#wx{id=?ID_REFRESH_INTERVAL},
     Timer = observer_lib:interval_dialog(Grid, Timer0, 10, 5*60),
     {noreply, State#state{timer=Timer}};
 
-handle_event(Event, State) ->
-    io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
+handle_event(_Event, State) ->
+    %io:format("~p:~p, handle event ~p\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
-handle_sync_event(Event, _Obj, _State) ->
-    io:format("~p:~p, handle sync_event ~p\n", [?MODULE, ?LINE, Event]),
+handle_sync_event(_Event, _Obj, _State) ->
+    %io:format("~p:~p, handle sync_event ~p\n", [?MODULE, ?LINE, Event]),
     ok.
 
-handle_call(Event, From, State) ->
-    io:format("~p:~p, handle call (~p) ~p\n", [?MODULE, ?LINE, From, Event]),
+handle_call(_Event, _From, State) ->
+    %io:format("~p:~p, handle call (~p) ~p\n", [?MODULE, ?LINE, From, Event]),
     {noreply, State}.
 
-handle_cast(Event, State) ->
-    io:format("~p:~p, handle cast ~p\n", [?MODULE, ?LINE, Event]),
+handle_cast(_Event, State) ->
+    %io:format("~p:~p, handle cast ~p\n", [?MODULE, ?LINE, Event]),
     {noreply, State}.
 
 handle_info({no_rows, N}, State = #state{grid=Grid, status=StatusBar}) ->
     wxListCtrl:setItemCount(Grid, N),
     wxStatusBar:setStatusText(StatusBar, io_lib:format("Objects: ~w",[N])),
     {noreply, State};
+
 handle_info({new_cols, New}, State = #state{grid=Grid, columns=Cols0}) ->
     Cols = add_columns(Grid, Cols0, New),
     {noreply, State#state{columns=Cols}};
+
 handle_info({refresh, Min, Max}, State = #state{grid=Grid}) ->
     wxListCtrl:refreshItems(Grid, Min, Max),
     {noreply, State};
+
+handle_info(refresh_interval, State = #state{pid=Pid}) ->
+    Pid ! refresh,
+    {noreply, State};
+
 handle_info({error, Error}, State = #state{frame=Frame}) ->
-    Dlg = wxMessageDialog:new(Frame, Error),
+    ErrorStr =
+	try io_lib:format("~ts", [Error]), Error
+	catch _:_ -> io_lib:format("~p", [Error])
+	end,
+    Dlg = wxMessageDialog:new(Frame, ErrorStr),
     wxMessageDialog:showModal(Dlg),
     wxMessageDialog:destroy(Dlg),
     {noreply, State};
 
-handle_info(Event, State) ->
-    io:format("~p:~p, handle info ~p\n", [?MODULE, ?LINE, Event]),
+handle_info(_Event, State) ->
+    %% io:format("~p:~p, handle info ~p\n", [?MODULE, ?LINE, _Event]),
     {noreply, State}.
 
 terminate(_Event, #state{pid=Pid, attrs=Attrs}) ->
@@ -588,19 +599,22 @@ search([Str, Row, Dir0, CaseSens],
 	      true -> [];
 	      false -> [caseless]
 	  end,
-    {ok, Re} = re:compile(Str, Opt),
     Dir = case Dir0 of
 	      true -> 1;
 	      false -> -1
 	  end,
-    Res = search(Row, Dir, Re, Table),
+    Res = case re:compile(Str, Opt) of
+	      {ok, Re} ->
+		  search(Row, Dir, Re, Table);
+	      {error, _} -> false
+	  end,
     Parent ! {self(), Res},
     S#holder{search=Res}.
 
 search(Row, Dir, Re, Table) ->
     Res = try lists:nth(Row+1, Table) of
 	      Term ->
-		  Str = io_lib:format("~w", [Term]),
+		  Str = format(Term),
 		  re:run(Str, Re)
 	  catch _:_ -> no_more
 	  end,
@@ -613,9 +627,9 @@ search(Row, Dir, Re, Table) ->
 get_row(From, Row, Col, Table) ->
     case lists:nth(Row+1, Table) of
 	[Object|_] when Col =:= all ->
-	    From ! {self(), io_lib:format("~w", [Object])};
+	    From ! {self(), format(Object)};
 	[Object|_] when tuple_size(Object) >= Col ->
-	    From ! {self(), io_lib:format("~w", [element(Col, Object)])};
+	    From ! {self(), format(element(Col, Object))};
 	_ ->
 	    From ! {self(), ""}
     end.
@@ -724,3 +738,58 @@ key_pos(Node, ets, TabId) ->
     KeyPos = rpc:call(Node, ets, info, [TabId, keypos]),
     is_integer(KeyPos) orelse throw(node_or_table_down),
     KeyPos.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+format(Tuple) when is_tuple(Tuple) ->
+    [${ |format_tuple(Tuple, 1, tuple_size(Tuple))];
+format(List) when is_list(List) ->
+    format_list(List);
+format(Bin) when is_binary(Bin), byte_size(Bin) > 100 ->
+    io_lib:format("<<#Bin:~w>>", [byte_size(Bin)]);
+format(Float) when is_float(Float) ->
+    io_lib:format("~.3g", [Float]);
+format(Term) ->
+    io_lib:format("~w", [Term]).
+
+format_tuple(Tuple, I, Max) when I < Max ->
+    [format(element(I, Tuple)), $,|format_tuple(Tuple, I+1, Max)];
+format_tuple(Tuple, Max, Max) ->
+    [format(element(Max, Tuple)), $}];
+format_tuple(_Tuple, 1, 0) ->
+    [$}].
+
+format_list([]) -> "[]";
+format_list(List) ->
+    case printable_list(List) of
+	true ->  io_lib:format("\"~ts\"", [List]);
+	false -> [$[ | make_list(List)]
+    end.
+
+make_list([Last]) ->
+    [format(Last), $]];
+make_list([Head|Tail]) ->
+    [format(Head), $,|make_list(Tail)].
+
+%% printable_list([Char]) -> bool()
+%%  Return true if CharList is a list of printable characters, else
+%%  false.
+
+printable_list([C|Cs]) when is_integer(C), C >= $ , C =< 255 ->
+    printable_list(Cs);
+printable_list([$\n|Cs]) ->
+    printable_list(Cs);
+printable_list([$\r|Cs]) ->
+    printable_list(Cs);
+printable_list([$\t|Cs]) ->
+    printable_list(Cs);
+printable_list([$\v|Cs]) ->
+    printable_list(Cs);
+printable_list([$\b|Cs]) ->
+    printable_list(Cs);
+printable_list([$\f|Cs]) ->
+    printable_list(Cs);
+printable_list([$\e|Cs]) ->
+    printable_list(Cs);
+printable_list([]) -> true;
+printable_list(_Other) -> false.	     %Everything else is false
