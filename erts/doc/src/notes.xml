@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The <c>+scl</c> command line flag has been added. It can
+	    be used for disabling compaction of scheduler load. For
+	    more information see the <c>erl(1)</c> documentation.</p>
+          <p>
+	    Own Id: OTP-9695</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
