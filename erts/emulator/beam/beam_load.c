@@ -5158,9 +5158,11 @@ native_addresses(Process* p, Eterm mod)
 	int arity = (int) func_info[4];
 	Eterm tuple;
 
-	ASSERT(is_atom(name));
+	ASSERT(is_atom(name) || is_nil(name)); /* [] if BIF stub */
 	if (func_info[1] != 0) {
-	    Eterm addr = erts_bld_uint(&hp, NULL, func_info[1]);
+	    Eterm addr;
+	    ASSERT(is_atom(name));
+	    addr = erts_bld_uint(&hp, NULL, func_info[1]);
 	    tuple = erts_bld_tuple(&hp, NULL, 3, name, make_small(arity), addr);
 	    result = erts_bld_cons(&hp, NULL, tuple, result);
 	}
