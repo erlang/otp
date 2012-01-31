@@ -27,7 +27,6 @@
 -include("ssh_auth.hrl").
 -include("ssh_transport.hrl").
 
-
 -export([publickey_msg/1, password_msg/1, keyboard_interactive_msg/1,
 	 service_request_msg/1, init_userauth_request_msg/1,
 	 userauth_request_msg/1, handle_userauth_request/3,
@@ -38,12 +37,11 @@
 %%--------------------------------------------------------------------
 %%% Internal application API
 %%--------------------------------------------------------------------
-publickey_msg([Cb, #ssh{user = User,
+publickey_msg([Alg, #ssh{user = User,
 		       session_id = SessionId,
 		       service = Service,
 		       opts = Opts} = Ssh]) ->
     
-    Alg = algorithm(Cb),
     Hash = sha, %% Maybe option?!
     ssh_bits:install_messages(userauth_pk_messages()),
     
@@ -51,15 +49,15 @@ publickey_msg([Cb, #ssh{user = User,
 	{ok, Key} ->
 	    PubKeyBlob = ssh_file:encode_public_key(Key),
 	    SigData = build_sig_data(SessionId, 
-     				     User, Service, Key, PubKeyBlob),
+				     User, Service, PubKeyBlob, Alg),
 	    Sig = sign(SigData, Hash, Key),
-	    SigBlob = list_to_binary([?string(algorithm(Key)), ?binary(Sig)]),
+	    SigBlob = list_to_binary([?string(Alg), ?binary(Sig)]),
 	    ssh_transport:ssh_packet(
 	      #ssh_msg_userauth_request{user = User,
 					service = Service,
 					method = "publickey",
 					data = [?TRUE,
-						?string(algorithm(Key)),
+						?string(Alg),
 						?binary(PubKeyBlob),
 						?binary(SigBlob)]},
 	      Ssh);
@@ -108,12 +106,12 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 					    service = "ssh-connection",
 					    method = "none",
 					    data = <<>>},
-	    CbFirst = proplists:get_value(public_key_alg, Opts, 
-					  ?PREFERRED_PK_ALG),
-	    CbSecond = other_cb(CbFirst),
+	    FirstAlg = algorithm(proplists:get_value(public_key_alg, Opts,
+					  ?PREFERRED_PK_ALG)),
+	    SecondAlg = other_alg(FirstAlg),
 	    AllowUserInt =  proplists:get_value(allow_user_interaction, Opts,
 						true),
-	    Prefs = method_preference(CbFirst, CbSecond, AllowUserInt),
+	    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
 	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 					    userauth_preference = Prefs,
 					    userauth_methods = none,
@@ -233,7 +231,6 @@ handle_userauth_info_request(
     PromptInfos = decode_keyboard_interactive_prompts(NumPrompts,Data),
     Resps = keyboard_interact_get_responses(IoCb, Opts,
 					    Name, Instr, PromptInfos),
-    %%?dbg(true, "keyboard_interactive_reply: resps=~n#~p ~n", [Resps]),
     RespBin = list_to_binary(
 		lists:map(fun(S) -> <<?STRING(list_to_binary(S))>> end,
 			  Resps)),
@@ -268,15 +265,15 @@ userauth_messages() ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-method_preference(Callback1, Callback2, true) ->
-    [{"publickey", ?MODULE, publickey_msg, [Callback1]},
-     {"publickey", ?MODULE, publickey_msg,[Callback2]},
+method_preference(Alg1, Alg2, true) ->
+    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
+     {"publickey", ?MODULE, publickey_msg,[Alg2]},
      {"password", ?MODULE, password_msg, []},
      {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
     ];
-method_preference(Callback1, Callback2, false) ->
-    [{"publickey", ?MODULE, publickey_msg, [Callback1]},
-     {"publickey", ?MODULE, publickey_msg,[Callback2]},
+method_preference(Alg1, Alg2, false) ->
+    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
+     {"publickey", ?MODULE, publickey_msg,[Alg2]},
      {"password", ?MODULE, password_msg, []}
     ].
 
@@ -300,7 +297,6 @@ user_name(Opts) ->
     end.
 
 check_password(User, Password, Opts) ->
-    %%?dbg(true, " ~p ~p ~p ~n", [User, Password, Opts]),
     case proplists:get_value(pwdfun, Opts) of
 	undefined ->
 	    Static = get_password_option(Opts, User),
@@ -322,8 +318,8 @@ verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
 	{ok, OurKey} ->
 	    case OurKey of
 		Key ->
-		    PlainText = build_sig_data(SessionId, 
-					    User, Service, Key, KeyBlob),
+		    PlainText = build_sig_data(SessionId, User,
+					       Service, KeyBlob, Alg),
 		    <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
 		    <<?UINT32(AlgLen), _Alg:AlgLen/binary,
 		      ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
@@ -334,29 +330,21 @@ verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
 	Error -> Error
     end.
 
-build_sig_data(SessionId, User, Service, Key, KeyBlob) ->
+build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->
     Sig = [?binary(SessionId),
 	   ?SSH_MSG_USERAUTH_REQUEST,
 	   ?string(User),
 	   ?string(Service),
 	   ?binary(<<"publickey">>),
 	   ?TRUE,
-	   ?string(algorithm(Key)),
+	   ?string(Alg),
 	   ?binary(KeyBlob)],
     list_to_binary(Sig).
 
 algorithm(ssh_rsa) ->
     "ssh-rsa";
 algorithm(ssh_dsa) ->
-     "ssh-dss";
-algorithm(#'RSAPrivateKey'{}) ->
-    "ssh-rsa";
-algorithm(#'DSAPrivateKey'{}) ->
-    "ssh-dss";
-algorithm({_, #'Dss-Parms'{}}) ->
-    "ssh-dss";
-algorithm(#'RSAPublicKey'{}) ->
-    "ssh-rsa".
+     "ssh-dss".
 
 sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
     DerSignature = public_key:sign(SigData, Hash, Key),
@@ -364,17 +352,13 @@ sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>;
 sign(SigData, Hash, Key) ->
     public_key:sign(SigData, Hash, Key).
-%% sign(SigData, _, #'DSAPrivateKey'{} = Key) ->
-%%     ssh_dsa:sign(Key, SigData).
 
 verify(PlainText, Hash, Sig, {_,  #'Dss-Parms'{}} = Key) ->
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = Sig,
     Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
     public_key:verify(PlainText, Hash, Signature, Key);
 verify(PlainText, Hash, Sig, Key) ->
-    public_key:verify(PlainText, sha, Sig, Key).
-%% verify(PlainText, _Hash, Sig, {_, #'Dss-Parms'{}} = Key) ->
-%%     ssh_dsa:verify(Key, PlainText, Sig).
+    public_key:verify(PlainText, Hash, Sig, Key).
 
 decode_keyboard_interactive_prompts(NumPrompts, Data) ->
     Types = lists:append(lists:duplicate(NumPrompts, [string, boolean])),
@@ -447,8 +431,7 @@ userauth_pk_messages() ->
 	binary]} % key blob
      ].
 
-other_cb(ssh_rsa) -> 
-    ssh_dsa;
-other_cb(ssh_dsa) -> 
-    ssh_rsa.
-
+other_alg("ssh-rsa") ->
+    "ssh-dss";
+other_alg("ssh-dss") ->
+    "ssh-rsa".

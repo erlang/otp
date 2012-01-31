@@ -39,10 +39,6 @@
 
 -export([encode_public_key/1, decode_public_key_v2/2]).
 
--import(lists, [reverse/1, append/1]).
-
--define(DBG_PATHS, true).
-
 -define(PERM_700, 8#700).
 -define(PERM_644, 8#644).
 
@@ -185,7 +181,6 @@ ssh_dir(system, Opts) ->
 
 file_name(Type, Name, Opts) ->
     FN = filename:join(ssh_dir(Type, Opts), Name),
-    %%?dbg(?DBG_PATHS, "file_name: ~p\n", [FN]),
     FN.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

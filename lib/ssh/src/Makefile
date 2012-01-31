@@ -56,12 +56,10 @@ MODULES= \
 	ssh_auth\
 	ssh_bits \
 	ssh_cli \
-	ssh_dsa \
 	ssh_file \
 	ssh_io \
 	ssh_math \
 	ssh_no_io \
-	ssh_rsa \
 	ssh_sftp \
 	ssh_sftpd \
 	ssh_sftpd_file\
@@ -72,9 +70,9 @@ MODULES= \
 
 PUBLIC_HRL_FILES= ssh.hrl ssh_userauth.hrl ssh_xfer.hrl
 
-ERL_FILES= $(MODULES:%=%.erl) $(ASN_ERLS)
+ERL_FILES= $(MODULES:%=%.erl)
 
-ALL_MODULES= $(MODULES) $(ASN_MODULES)
+ALL_MODULES= $(MODULES)
 
 TARGET_FILES= $(ALL_MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 
@@ -87,16 +85,7 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-ASN_MODULES = PKCS-1 DSS
-ASN_ASNS = $(ASN_MODULES:%=%.asn1)
-ASN_ERLS = $(ASN_MODULES:%=%.erl)
-ASN_HRLS = $(ASN_MODULES:%=%.hrl)
-ASN_DBS = $(ASN_MODULES:%=%.asn1db)
-ASN_TABLES = $(ASN_MODULES:%=%.table)
-
-ASN_FLAGS = -bber_bin +der +compact_bit_string +optimize +noobj +inline
-
-INTERNAL_HRL_FILES = $(ASN_HRLS) ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl
+INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl
 
 # ----------------------------------------------------
 # FLAGS
@@ -114,7 +103,6 @@ debug: ERLC_FLAGS += -Ddebug
 clean:
 	rm -f $(TARGET_FILES)
 	rm -f errs core *~
-	rm -f $(ASN_ERLS) $(ASN_HRLS) $(ASN_DBS)
 
 $(TARGET_FILES): ssh.hrl
 
@@ -127,10 +115,6 @@ $(APP_TARGET): $(APP_SRC) ../vsn.mk
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
-%.erl %.hrl: %.asn1
-	$(ERLC) $(ASN_FLAGS) $<
-
-$(EBIN)/ssh_file.$(EMULATOR) $(EBIN)/ssh_rsa.$(EMULATOR): $(ASN_HRLS)
 
 docs:
 

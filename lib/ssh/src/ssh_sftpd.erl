@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -231,8 +231,6 @@ handle_op(?SSH_FXP_REALPATH, ReqId,
     case Res of
 	{ok, AbsPath} ->
 	    NewAbsPath = chroot_filename(AbsPath, State),
-	    ?dbg(true, "handle_op ?SSH_FXP_REALPATH: RelPath=~p AbsPath=~p\n",
-		 [RelPath, NewAbsPath]),
 	    XF = State#state.xf,
 	    Attr = #ssh_xfer_attr{type=directory},
 	    ssh_xfer:xf_send_name(XF, ReqId, NewAbsPath, Attr),
@@ -463,7 +461,6 @@ get_handle(Handles, BinHandle) ->
 read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_state = FS0},
 	 XF, ReqId, Handle, RelPath, {cache, Files}) ->
     AbsPath = relate_file_name(RelPath, State0),
-    ?dbg(true, "read_dir: AbsPath=~p\n", [AbsPath]),
     if
 	length(Files) > MaxLength ->
 	    {ToSend, NewCache} = lists:split(MaxLength, Files),
@@ -484,7 +481,6 @@ read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_sta
 read_dir(State0 = #state{file_handler = FileMod, max_files = MaxLength, file_state = FS0},
 	 XF, ReqId, Handle, RelPath, _Status) ->
     AbsPath = relate_file_name(RelPath, State0),
-    ?dbg(true, "read_dir: AbsPath=~p\n", [AbsPath]),
     {Res, FS1} = FileMod:list_dir(AbsPath, FS0),
     case Res of
 	{ok, Files} when MaxLength == 0 orelse MaxLength > length(Files) ->
@@ -516,7 +512,6 @@ get_attrs(_RelPath, [], _FileMod, FS, Acc) ->
     {lists:reverse(Acc), FS};
 get_attrs(RelPath, [F | Rest], FileMod, FS0, Acc) ->
     Path = filename:absname(F, RelPath),
-    ?dbg(true, "get_attrs fun: F=~p\n", [F]),
     case FileMod:read_link_info(Path, FS0) of
 	{{ok, Info}, FS1} ->
 	    Attrs = ssh_sftp:info_to_attr(Info),
@@ -560,7 +555,6 @@ stat(ReqId, RelPath, State0=#state{file_handler=FileMod,
 				   file_state=FS0}, F) ->
     AbsPath = relate_file_name(RelPath, State0),
     XF = State0#state.xf,
-    ?dbg(false, "stat: AbsPath=~p\n", [AbsPath]),
     {Res, FS1} = FileMod:F(AbsPath, FS0),
     State1 = State0#state{file_state = FS1},
     case Res of
@@ -620,7 +614,6 @@ open(Vsn, ReqId, Data, State) when Vsn =< 3 ->
      _Attrs/binary>> = Data,
     Path = binary_to_list(BPath),
     Flags = ssh_xfer:decode_open_flags(Vsn, PFlags) -- [creat, excl, trunc],
-    ?dbg(true, "open: Flags=~p\n", [Flags]),
     do_open(ReqId, State, Path, Flags);
 open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(Access),
@@ -628,7 +621,6 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     Path = binary_to_list(BPath),
     FlagBits = ssh_xfer:decode_open_flags(Vsn, PFlags),
     AcessBits = ssh_xfer:decode_ace_mask(Access),
-    ?dbg(true, "open: Fl=~p\n", [FlagBits]),
     %% TODO: This is to make sure the Access flags are not ignored
     %% but this should be thought through better. This solution should
     %% be considered a hack in order to buy some time. At least
@@ -638,9 +630,6 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     AcessFlags = decode_4_acess(AcessBits),
     Flags = lists:append(lists:umerge(
 			   [[decode_4_flags(FlagBits)] | AcessFlags])),
-
-    ?dbg(true, "open: Flags=~p\n", [Flags]),
-    
     do_open(ReqId, State, Path, Flags).
 
 do_open(ReqId, State0, Path, Flags) ->
@@ -895,14 +884,11 @@ set_stat(Attr, Path,
 	 State0 = #state{file_handler=FileMod, file_state=FS0}) ->
     {DecodedAttr, _Rest} = 
 	ssh_xfer:decode_ATTR((State0#state.xf)#ssh_xfer.vsn, Attr),
-    ?dbg(true, "set_stat DecodedAttr=~p\n", [DecodedAttr]),
     Info = ssh_sftp:attr_to_info(DecodedAttr),
     {Res1, FS1} = FileMod:read_link_info(Path, FS0),
     case Res1 of
 	{ok, OldInfo} ->
 	    NewInfo = set_file_info(Info, OldInfo),
-	    ?dbg(true, "set_stat Path=~p\nInfo=~p\nOldInfo=~p\nNewInfo=~p\n",
-		 [Path, Info, OldInfo, NewInfo]),
 	    {Res2, FS2} = FileMod:write_file_info(Path, NewInfo, FS1),
 	    State1 = State0#state{file_state = FS2},
 	    {Res2, State1};

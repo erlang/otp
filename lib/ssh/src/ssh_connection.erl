@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -722,8 +722,6 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = _Other,
 				    want_reply = WantReply}, Connection,
 	   ConnectionPid, _) ->
-    ?dbg(true, "ssh_msg ssh_msg_channel_request: Other=~p\n",
-	 [_Other]),
     if WantReply == true ->
 	    FailMsg = channel_failure_msg(ChannelId),
 	    {{replies, [{connection_reply, ConnectionPid, FailMsg}]}, 

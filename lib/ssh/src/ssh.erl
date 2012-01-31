@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,9 @@
 	 daemon/1, daemon/2, daemon/3,
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
 	 shell/1, shell/2, shell/3]).
+
+-deprecated({sign_data, 2, next_major_release}).
+-deprecated({verify_data, 3, next_major_release}).
 
 -export([sign_data/2, verify_data/3]).
 
@@ -247,43 +250,6 @@ shell(Host, Port, Options) ->
 	    Error
     end.
 
-
-%%--------------------------------------------------------------------
-%% Function: sign_data(Data, Algorithm) -> binary() | 
-%%                                         {error, Reason}
-%%
-%%   Data = binary()
-%%   Algorithm = "ssh-rsa"
-%%
-%% Description: Use SSH key to sign data.
-%%--------------------------------------------------------------------
-sign_data(Data, Algorithm) when is_binary(Data) ->
-    case ssh_file:private_identity_key(Algorithm,[]) of
-	{ok, Key} when Algorithm == "ssh-rsa" ->
-	    ssh_rsa:sign(Key, Data);
-	Error ->
-	    Error
-    end.
-
-%%--------------------------------------------------------------------
-%% Function: verify_data(Data, Signature, Algorithm) -> ok | 
-%%                                                      {error, Reason}
-%%
-%%   Data = binary()
-%%   Signature = binary()
-%%   Algorithm = "ssh-rsa"
-%%
-%% Description: Use SSH signature to verify data.
-%%--------------------------------------------------------------------
-verify_data(Data, Signature, Algorithm) when is_binary(Data), is_binary(Signature) ->
-    case ssh_file:public_identity_key(Algorithm, []) of
-	{ok, Key} when Algorithm == "ssh-rsa" ->
-	    ssh_rsa:verify(Key, Data, Signature);
-	Error ->
-	    Error
-    end.
-
-
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -381,4 +347,42 @@ inetopt(true) ->
 inetopt(false) ->
     inet6.
 
+%%%
+%% Deprecated
+%%%
+
+%%--------------------------------------------------------------------
+%% Function: sign_data(Data, Algorithm) -> binary() |
+%%                                         {error, Reason}
+%%
+%%   Data = binary()
+%%   Algorithm = "ssh-rsa"
+%%
+%% Description: Use SSH key to sign data.
+%%--------------------------------------------------------------------
+sign_data(Data, Algorithm) when is_binary(Data) ->
+    case ssh_file:private_identity_key(Algorithm,[]) of
+	{ok, Key} when Algorithm == "ssh-rsa" ->
+	    public_key:sign(Data, sha, Key);
+	Error ->
+	    Error
+    end.
+
+%%--------------------------------------------------------------------
+%% Function: verify_data(Data, Signature, Algorithm) -> ok |
+%%                                                      {error, Reason}
+%%
+%%   Data = binary()
+%%   Signature = binary()
+%%   Algorithm = "ssh-rsa"
+%%
+%% Description: Use SSH signature to verify data.
+%%--------------------------------------------------------------------
+verify_data(Data, Signature, Algorithm) when is_binary(Data), is_binary(Signature) ->
+    case ssh_file:public_identity_key(Algorithm, []) of
+	{ok, Key} when Algorithm == "ssh-rsa" ->
+	    public_key:verify(Data, sha, Signature, Key);
+	Error ->
+	    Error
+    end.
 

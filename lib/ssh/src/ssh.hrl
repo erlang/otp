@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,18 +53,6 @@
 -define(uint64(X), << ?UINT64(X) >> ).
 -define(string(X), << ?STRING(list_to_binary(X)) >> ).
 -define(binary(X), << ?STRING(X) >>).
-
--ifdef(debug).
--define(dbg(Debug, Fmt, As),
-	case (Debug) of
-	    true ->
-		io:format([$# | (Fmt)], (As));
-	    _ ->
-		ok
-	end).
--else.
--define(dbg(Debug, Fmt, As), ok).
--endif.
 
 -define(SSH_CIPHER_NONE, 0).
 -define(SSH_CIPHER_3DES, 3).
