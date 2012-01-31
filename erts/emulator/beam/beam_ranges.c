@@ -26,6 +26,15 @@
 #include "global.h"
 #include "beam_load.h"
 
+typedef struct {
+    BeamInstr* start;		/* Pointer to start of module. */
+    erts_smp_atomic_t end; /* (BeamInstr*) Points one word beyond last function in module. */
+} Range;
+
+/* Range 'end' needs to be atomic as we purge module
+    by setting end=start in active code_ix */
+#define RANGE_END(R) ((BeamInstr*)erts_smp_atomic_read_nob(&(R)->end))
+
 static Range* find_range(BeamInstr* pc);
 static void lookup_loc(FunctionInfo* fi, BeamInstr* pc,
 		       BeamInstr* modp, int idx);
@@ -53,8 +62,8 @@ static void check_consistency(struct ranges* p)
     ASSERT((Uint)(p->mid - p->modules) < p->n ||
 	   (p->mid == p->modules && p->n == 0));
     for (i = 0; i < p->n; i++) {
-	ASSERT(p->modules[i].start <= p->modules[i].end);
-	ASSERT(!i || p->modules[i-1].end < p->modules[i].start);
+	ASSERT(p->modules[i].start <= RANGE_END(&p->modules[i]));
+	ASSERT(!i || RANGE_END(&p->modules[i-1]) < p->modules[i].start);
     }
 }
 #  define CHECK(r) check_consistency(r)
@@ -108,7 +117,7 @@ erts_end_staging_ranges(int commit)
 	n = 0;
 	for (i = 0; i < r[src].n; i++) {
 	    Range* rp = r[src].modules+i;
-	    if (rp->start < rp->end) {
+	    if (rp->start < RANGE_END(rp)) {
 		/* Only insert a module that has not been purged. */
 		r[dst].modules[n] = *rp;
 		n++;
@@ -157,22 +166,30 @@ erts_update_ranges(BeamInstr* code, Uint size)
 	Range* rp = r[src].modules+i;
 	if (code < rp->start) {
 	    r[dst].modules[n].start = code;
-	    r[dst].modules[n].end = (BeamInstr *) (((byte *)code) + size);
+	    erts_smp_atomic_init_nob(&r[dst].modules[n].end,
+				     (erts_aint_t)(((byte *)code) + size));
+	    ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < code);
 	    n++;
 	    break;
 	}
-	if (rp->start < rp->end) {
+	if (rp->start < RANGE_END(rp)) {
 	    /* Only insert a module that has not been purged. */
-	    r[dst].modules[n] = *rp;
+	    r[dst].modules[n].start = rp->start;
+	    erts_smp_atomic_init_nob(&r[dst].modules[n].end,
+				     (erts_aint_t)(RANGE_END(rp)));
+	    ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < rp->start);
 	    n++;
 	}
     }
 
     while (i < r[src].n) {
 	Range* rp = r[src].modules+i;
-	if (rp->start < rp->end) {
+	if (rp->start < RANGE_END(rp)) {
 	    /* Only insert a module that has not been purged. */
-	    r[dst].modules[n] = *rp;
+	    r[dst].modules[n].start = rp->start;
+	    erts_smp_atomic_init_nob(&r[dst].modules[n].end,
+				     (erts_aint_t)(RANGE_END(rp)));
+	    ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < rp->start);
 	    n++;
 	}
 	i++;
@@ -180,7 +197,9 @@ erts_update_ranges(BeamInstr* code, Uint size)
 
     if (n == 0 || code > r[dst].modules[n-1].start) {
 	r[dst].modules[n].start = code;
-	r[dst].modules[n].end = (BeamInstr *) (((byte *)code) + size);
+	erts_smp_atomic_init_nob(&r[dst].modules[n].end,
+				 (erts_aint_t)(((byte *)code) + size));
+	ASSERT(!n || RANGE_END(&r[dst].modules[n-1]) < code);
 	n++;
     }
 
@@ -197,7 +216,7 @@ void
 erts_remove_from_ranges(BeamInstr* code)
 {
     Range* rp = find_range(code);
-    rp->end = rp->start;
+    erts_smp_atomic_set_nob(&rp->end, (erts_aint_t)rp->start);
 }
 
 UWord
@@ -263,7 +282,7 @@ find_range(BeamInstr* pc)
     while (low < high) {
 	if (pc < mid->start) {
 	    high = mid;
-	} else if (pc > mid->end) {
+	} else if (pc > RANGE_END(mid)) {
 	    low = mid + 1;
 	} else {
 	    erts_smp_atomic_set_nob(&r[active].mid, (erts_aint_t) mid);
