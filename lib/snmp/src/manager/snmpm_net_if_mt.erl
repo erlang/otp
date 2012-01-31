@@ -46,6 +46,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
 	 code_change/3, terminate/2]).
 
+-export([logger_init/2]).
+
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
 -include("snmpm_internal.hrl").
@@ -61,10 +63,17 @@
 	  note_store,
 	  sock, 
 	  mpd_state,
-	  logger,     % undefined | pid()
+	  log, 
 	  irb = auto, % auto | {user, integer()}
 	  irgc,
 	  filter
+	 }).
+
+%% State record of the logger process
+-record(logger,
+	{
+	  parent,
+	  log
 	 }).
 
 
@@ -308,7 +317,8 @@ do_init_log(true) ->
 
 logger_start() ->
     {Pid, _} = Logger = 
-	erlang:spawn_opt(?MODULE, logger_init, [self()], [monitor]),
+	erlang:spawn_opt(?MODULE, logger_init, [self(), get(verbosity)], 
+			 [monitor]),
     receive
 	{logger_started, Pid} ->
 	    {ok, Type} = snmpm_config:system_info(audit_trail_log_type),
@@ -318,17 +328,19 @@ logger_start() ->
     after 5000 ->
 	    %% This should really not take any time at all, 
 	    %% so 5 secs is plenty of time.
-	    throw({error, {failed_starting_logger, Logger, timeout})
+	    throw({error, {failed_starting_logger, Logger, timeout}})
     end.
 	
-logger_init(Parent) ->
+logger_init(Parent, Verbosity) ->
+    put(sname,     mnifl), 
+    put(verbosity, Verbosity), 
     case (catch do_logger_init()) of
 	{ok, Log} ->
 	    Parent ! {logger_started, self()}, 
 	    logger_loop(#logger{parent = Parent, 
 				log    = Log});
 	{error, Reason} ->
-	    exit({failed_init_log, Reason})
+	    exit({logger, failed_init, Reason})
     end.
 
 %% Open log
@@ -442,7 +454,7 @@ handle_cast({send_pdu, Pdu, Vsn, MsgData, Domain, Addr, Port, ExtraInfo},
 	  "~n   Addr:    ~p"
 	  "~n   Port:    ~p", [Pdu, Vsn, MsgData, Domain, Addr, Port]),
     maybe_process_extra_info(ExtraInfo), 
-    maybe_handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State), 
+    handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State), 
     {noreply, State};
 
 handle_cast({inform_response, Ref, Addr, Port}, State) ->
@@ -469,9 +481,9 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_info({udp, Sock, Ip, Port, Bytes}, State) ->
+handle_info({udp, Sock, Ip, Port, Bytes}, #state{sock = Sock} = State) ->
     ?vlog("received ~w bytes from ~p:~p", [size(Bytes), Ip, Port]),
-    handle_udp(Sock, Ip, Port, Bytes, State),
+    handle_udp(Ip, Port, Bytes, State),
     {noreply, State};
 
 handle_info(inform_response_gc, State) ->
@@ -484,6 +496,13 @@ handle_info({disk_log, _Node, Log, Info}, State) ->
 	  "~n   Info: ~p", [Info]),
     State2 = handle_disk_log(Log, Info, State),
     {noreply, State2};
+
+handle_info({'DOWN', _MRef, process, Pid, {net_if_worker, ExitStatus}}, 
+	    State) ->
+    ?vdebug("received DOWN message from net_if-worker: "
+	    "~n   ExitStatus: ~p", [ExitStatus]),
+    handle_worker_exit(Pid, ExitStatus),
+    {noreply, State};
 
 handle_info(Info, State) ->
     warning_msg("received unknown info: ~n~p", [Info]),
@@ -529,9 +548,11 @@ code_change(_Vsn, State, _Extra) ->
 %%% Internal functions
 %%%-------------------------------------------------------------------
 
-handle_udp(Sock, Addr, Port, Bytes, State) ->
+handle_udp(Addr, Port, Bytes, State) ->
     spawn_opt(fun() -> 
-		      maybe_handle_recv_msg(Addr, Port, Bytes, State) 
+		      Res = (catch maybe_handle_recv_msg(Addr, Port, 
+							 Bytes, State)),
+		      worker_exit(udp, {Addr, Port}, Res)
 	      end, 
 	      [monitor]).
     
@@ -622,36 +643,42 @@ handle_recv_pdu(Addr, Port,
 		_Logger, 
 		#state{server = Pid} = _State) ->
     ?vtrace("received report - ok", []),
-    Pid ! {snmp_report, {ok, Pdu}, Addr, Port};
+    Pid ! {snmp_report, {ok, Pdu}, Addr, Port},
+    ok;
 handle_recv_pdu(Addr, Port, 
 		_Vsn, #pdu{type = report} = Pdu, _PduMS, 
 		{error, ReqId, Reason}, 
 		_Logger, 
 		#state{server = Pid} = _State) ->
     ?vtrace("received report - error", []),
-    Pid ! {snmp_report, {error, ReqId, Reason, Pdu}, Addr, Port};
+    Pid ! {snmp_report, {error, ReqId, Reason, Pdu}, Addr, Port},
+    ok;
 handle_recv_pdu(Addr, Port, 
 		_Vsn, #pdu{type = 'snmpv2-trap'} = Pdu, _PduMS, _ACM, 
 		_Logger, 
 		#state{server = Pid} = _State) ->
     ?vtrace("received snmpv2-trap", []),
-    Pid ! {snmp_trap, Pdu, Addr, Port};
+    Pid ! {snmp_trap, Pdu, Addr, Port},
+    ok;
 handle_recv_pdu(Addr, Port, 
 		_Vsn, Trap, _PduMS, _ACM, 
 		_Logger, 
 		#state{server = Pid} = _State) when is_record(Trap, trappdu) ->
     ?vtrace("received trappdu", []),
-    Pid ! {snmp_trap, Trap, Addr, Port};
+    Pid ! {snmp_trap, Trap, Addr, Port},
+    ok;
 handle_recv_pdu(Addr, Port, 
 		_Vsn, Pdu, _PduMS, _ACM, 
 		_Logger, 
 		#state{server = Pid} = _State) when is_record(Pdu, pdu) ->
     ?vtrace("received pdu", []),
-    Pid ! {snmp_pdu, Pdu, Addr, Port};
+    Pid ! {snmp_pdu, Pdu, Addr, Port},
+    ok;
 handle_recv_pdu(_Addr, _Port, _Vsn, Pdu, _PduMS, ACM, _Logger, _State) ->
     ?vlog("received unexpected pdu: "
 	    "~n   Pdu: ~p"
-	    "~n   ACM: ~p", [Pdu, ACM]).
+	    "~n   ACM: ~p", [Pdu, ACM]),
+    ok.
 
 
 handle_inform_request(auto, Pid, Vsn, Pdu, ACM, Addr, Port, Logger, State) ->
@@ -680,9 +707,21 @@ handle_inform_request({user, To}, Pid, Vsn, #pdu{request_id = ReqId} = Pdu,
 	    Expire = t() + To, 
 	    Rec    = {Key, Expire, {Vsn, ACM, RePdu}},
 	    ets:insert(snmpm_inform_request_table, Rec)
-    end.
+    end,
+    ok.
 	    
 handle_inform_response(Ref, Addr, Port, State) ->
+    spawn_opt(fun() -> 
+		      Res = (catch do_handle_inform_response(Ref, 
+							     Addr, Port, 
+							     State)),
+		      worker_exit(inform_reponse, {Addr, Port}, Res)
+	      end, 
+	      [monitor]).
+    
+
+
+do_handle_inform_response(Ref, Addr, Port, State) ->
     Key = {Ref, Addr, Port},
     case ets:lookup(snmpm_inform_request_table, Key) of
 	[{Key, _, {Vsn, ACM, RePdu}}] ->
@@ -750,9 +789,10 @@ irgc_stop(Ref) ->
 
 handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State) ->
     spawn_opt(fun() -> 
-		      maybe_handle_send_pdu(Pdu, Vsn, MsgData, 
-					    Domain, Addr, Port, 
-					    State)
+		      Res = (catch maybe_handle_send_pdu(Pdu, Vsn, MsgData, 
+							 Domain, Addr, Port, 
+							 State)), 
+		      worker_exit(send_pdu, {Domain, Addr, Port}, Res)
 	      end, 
 	      [monitor]).
 
@@ -776,7 +816,7 @@ do_handle_send_pdu(Pdu, Vsn, MsgData, _Domain, Addr, Port,
     case (catch snmpm_mpd:generate_msg(Vsn, NoteStore, 
 				       Pdu, MsgData, Logger)) of
 	{ok, Msg} ->
-	    ?vtrace("handle_send_pdu -> message generated", []),
+	    ?vtrace("do_handle_send_pdu -> message generated", []),
 	    maybe_udp_send(FilterMod, Sock, Addr, Port, Msg);	    
 	{discarded, Reason} ->
 	    ?vlog("PDU not sent: "
@@ -805,10 +845,12 @@ udp_send(Sock, Addr, Port, Msg) ->
 	    ok;
 	{error, Reason} ->
 	    error_msg("failed sending message to ~p:~p: "
-		      "~n   ~p",[Addr, Port, Reason]);
+		      "~n   ~p",[Addr, Port, Reason]),
+	    ok;
 	Error ->
 	    error_msg("failed sending message to ~p:~p: "
-		      "~n   ~p",[Addr, Port, Error])
+		      "~n   ~p",[Addr, Port, Error]),
+	    ok
     end.
 
 sz(B) when is_binary(B) ->
@@ -1000,6 +1042,32 @@ handle_set_log_type(#state{log = {Log, OldValue}} = State, NewType) ->
     end;
 handle_set_log_type(State, _NewType) ->
     {State, {error, not_enabled}}.
+
+
+%% -------------------------------------------------------------------
+
+worker_exit(Tag, Info, Result) ->
+    exit({net_if_worker, {Tag, Info, Result}}).
+
+handle_worker_exit(_, {_, _, ok}) ->
+    ok;
+handle_worker_exit(Pid, {udp, {Addr, Port}, ExitStatus}) ->
+    warning_msg("Worker process (~p) terminated "
+		"while processing (incomming) message from ~w:~w: "
+		"~n~p", [Pid, Addr, Port, ExitStatus]),
+    ok;
+handle_worker_exit(Pid, {send_pdu, {Domain, Addr, Port}, ExitStatus}) ->
+    warning_msg("Worker process (~p) terminated "
+		"while processing (outgoing) pdu for [~w] ~w:~w: "
+		"~n~p", [Pid, Domain, Addr, Port, ExitStatus]),
+    ok;
+handle_worker_exit(Pid, {inform_response, {Addr, Port}, ExitStatus}) ->
+    warning_msg("Worker process (~p) terminated "
+		"while processing (outgoing) inform response for ~w:~w: "
+		"~n~p", [Pid, Addr, Port, ExitStatus]),
+    ok;
+handle_worker_exit(_, _) ->
+    ok.
 
 
 %% -------------------------------------------------------------------
