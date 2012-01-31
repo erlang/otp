@@ -88,6 +88,7 @@ struct saved_calls {
 };
 
 extern Export exp_send, exp_receive, exp_timeout;
+extern int erts_sched_compact_load;
 extern Uint erts_no_schedulers;
 extern Uint erts_no_run_queues;
 extern int erts_sched_thread_suggested_stack_size;

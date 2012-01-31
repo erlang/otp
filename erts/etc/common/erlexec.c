@@ -122,6 +122,7 @@ static char *plusM_other_switches[] = {
 /* +s arguments with values */
 static char *pluss_val_switches[] = {
     "bt",
+    "cl",
     "ct",
     "wt",
     "ss",

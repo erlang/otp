@@ -738,6 +738,19 @@
 	    <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, SchedulerBindType)</seealso>.
 	    </p>
           </item>
+          <tag><marker id="+scl"><c>+scl true|false</c></marker></tag>
+          <item>
+	    <p>Enable or disable scheduler compaction of load. By default
+	    scheduler compaction of load is enabled. When enabled, load
+	    balancing will strive for a load distribution which causes
+	    as many scheduler threads as possible to be fully loaded (i.e.,
+	    not run out of work). This is accomplished by migrating load
+	    (e.g. runnable processes) into a smaller set of schedulers
+	    when schedulers frequently run out of work. When disabled,
+	    the frequency with which schedulers run out of work will
+	    not be taken into account by the load balancing logic.
+	    </p>
+          </item>
           <tag><marker id="+sct"><c>+sct CpuTopology</c></marker></tag>
           <item>
             <list type="bulleted">
