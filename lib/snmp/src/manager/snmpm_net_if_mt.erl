@@ -46,8 +46,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
 	 code_change/3, terminate/2]).
 
--export([logger_init/2]).
-
 -define(SNMP_USE_V3, true).
 -include("snmp_types.hrl").
 -include("snmpm_internal.hrl").
@@ -67,13 +65,6 @@
 	  irb = auto, % auto | {user, integer()}
 	  irgc,
 	  filter
-	 }).
-
-%% State record of the logger process
--record(logger,
-	{
-	  parent,
-	  log
 	 }).
 
 
@@ -189,13 +180,14 @@ do_init(Server, NoteStore) ->
 
     %% -- Verbosity -- 
     {ok, Verbosity} = snmpm_config:system_info(net_if_verbosity),
-    put(sname,mnif),
-    put(verbosity,Verbosity),
+    put(sname,     mnif),
+    put(verbosity, Verbosity),
     ?vlog("starting", []),
 
     %% -- MPD --
     {ok, Vsns} = snmpm_config:system_info(versions),
     MpdState   = snmpm_mpd:init(Vsns),
+    ?vdebug("MpdState: ~w", [MpdState]),
 
     %% -- Module dependent options --
     {ok, Opts} = snmpm_config:system_info(net_if_options),
@@ -220,6 +212,7 @@ do_init(Server, NoteStore) ->
     %% -- Audit trail log ---
     {ok, ATL} = snmpm_config:system_info(audit_trail_log),
     Log = do_init_log(ATL),
+    ?vdebug("Log: ~w", [Log]),
 
     %% -- Initiate counters ---
     init_counters(),
@@ -315,44 +308,12 @@ do_init_log(false) ->
     undefined;
 do_init_log(true) ->
     ?vtrace("do_init_log(true) -> entry", []),
-    logger_start().
-
-logger_start() ->
-    {Pid, _} = Logger = 
-	erlang:spawn_opt(?MODULE, logger_init, [self(), get(verbosity)], 
-			 [monitor]),
-    receive
-	{logger_started, Pid} ->
-	    {ok, Type} = snmpm_config:system_info(audit_trail_log_type),
-	    {Logger, Type};
-	{'DOWN', _MonitorRef, process, Pid, Reason} ->
-	    throw({error, {failed_starting_logger, Logger, Reason}})
-    after 5000 ->
-	    %% This should really not take any time at all, 
-	    %% so 5 secs is plenty of time.
-	    throw({error, {failed_starting_logger, Logger, timeout}})
-    end.
-	
-logger_init(Parent, Verbosity) ->
-    put(sname,     mnifl), 
-    put(verbosity, Verbosity), 
-    case (catch do_logger_init()) of
-	{ok, Log} ->
-	    Parent ! {logger_started, self()}, 
-	    logger_loop(#logger{parent = Parent, 
-				log    = Log});
-	{error, Reason} ->
-	    exit({logger, failed_init, Reason})
-    end.
-
-%% Open log
-do_logger_init() ->
-    ?vtrace("do_logger_init() -> entry", []),
+    {ok, Type}   = snmpm_config:system_info(audit_trail_log_type),
     {ok, Dir}    = snmpm_config:system_info(audit_trail_log_dir),
     {ok, Size}   = snmpm_config:system_info(audit_trail_log_size),
     {ok, Repair} = snmpm_config:system_info(audit_trail_log_repair),
-    Name = ?audit_trail_log_name, 
-    File = filename:absname(?audit_trail_log_file, Dir),
+    Name         = ?audit_trail_log_name, 
+    File         = filename:absname(?audit_trail_log_file, Dir),
     case snmpm_config:system_info(audit_trail_log_seqno) of
 	{ok, true} ->
 	    Initial  = ?ATL_SEQNO_INITIAL,
@@ -364,33 +325,22 @@ do_logger_init() ->
 	    case snmp_log:create(Name, File, SeqNoGen, Size, Repair, true) of
 		{ok, Log} ->
 		    ?vdebug("log created: ~w", [Log]),
-		    {ok, Log};
+		    {Name, Log, Type};
 		{error, Reason} ->
-		    {error, {failed_create_audit_log, Reason}}
+		    throw({error, {failed_create_audit_log, Reason}})
 	    end;
 	_ ->
 	    case snmp_log:create(Name, File, Size, Repair, true) of
 		{ok, Log} ->
 		    ?vdebug("log created: ~w", [Log]),
-		    {ok, Log};
+		    {Name, Log, Type};
 		{error, Reason} ->
-		    {error, {failed_create_audit_log, Reason}}
+		    throw({error, {failed_create_audit_log, Reason}})
 	    end
     end.
 
 
-logger_loop(Logger) ->
-    receive
-	{log, Msg, Addr, Port} ->
-	    snmp_log:log(Logger#logger.log, Msg, Addr, Port);
-	{stop, Pid} when Pid =:= Logger#logger.parent ->
-	    exit(normal)
-    end,
-    logger_loop(Logger).
-
-
 %% ----------------------------------------------------------------------
-
     
 %%--------------------------------------------------------------------
 %% Func: handle_call/3
@@ -551,9 +501,12 @@ code_change(_Vsn, State, _Extra) ->
 %%%-------------------------------------------------------------------
 
 handle_udp(Addr, Port, Bytes, State) ->
+    Verbosity = get(verbosity), 
     spawn_opt(fun() -> 
-		      Res = (catch maybe_handle_recv_msg(Addr, Port, 
-							 Bytes, State)),
+		      Log = worker_init(State, Verbosity), 
+		      Res = (catch maybe_handle_recv_msg(
+				     Addr, Port, Bytes, 
+				     State#state{log = Log})),
 		      worker_exit(udp, {Addr, Port}, Res)
 	      end, 
 	      [monitor]).
@@ -713,10 +666,13 @@ handle_inform_request({user, To}, Pid, Vsn, #pdu{request_id = ReqId} = Pdu,
     ok.
 	    
 handle_inform_response(Ref, Addr, Port, State) ->
+    Verbosity = get(verbosity), 
     spawn_opt(fun() -> 
-		      Res = (catch do_handle_inform_response(Ref, 
-							     Addr, Port, 
-							     State)),
+		      Log = worker_init(State, Verbosity), 
+		      Res = (catch do_handle_inform_response(
+				     Ref, 
+				     Addr, Port, 
+				     State#state{log = Log})),
 		      worker_exit(inform_reponse, {Addr, Port}, Res)
 	      end, 
 	      [monitor]).
@@ -790,10 +746,13 @@ irgc_stop(Ref) ->
 
 
 handle_send_pdu(Pdu, Vsn, MsgData, Domain, Addr, Port, State) ->
+    Verbosity = get(verbosity), 
     spawn_opt(fun() -> 
-		      Res = (catch maybe_handle_send_pdu(Pdu, Vsn, MsgData, 
-							 Domain, Addr, Port, 
-							 State)), 
+		      Log = worker_init(State, Verbosity), 
+		      Res = (catch maybe_handle_send_pdu(
+				     Pdu, Vsn, MsgData, 
+				     Domain, Addr, Port, 
+				     State#state{log = Log})), 
 		      worker_exit(send_pdu, {Domain, Addr, Port}, Res)
 	      end, 
 	      [monitor]).
@@ -1048,6 +1007,30 @@ handle_set_log_type(State, _NewType) ->
 
 %% -------------------------------------------------------------------
 
+worker_init(#state{log = undefined = Log}, Verbosity) ->
+    worker_init2(Log, Verbosity);
+worker_init(#state{log = {Name, Log, Type}}, Verbosity) ->
+    case snmp_log:open(Name, Log) of
+	{ok, NewLog} ->
+	    worker_init2({Name, NewLog, Type}, Verbosity);
+	{error, Reason} -> 
+	    warning_msg("NetIf worker ~p failed opening ATL: "
+			"~n   ~p", [self(), Reason]),
+	    NewLog = undefined, 
+	    worker_init2({Name, NewLog, Type}, Verbosity)
+    end;
+worker_init(State, Verbosity) ->
+    ?vinfo("worker_init -> entry with invalid data: "
+	   "~n   State:     ~p"
+	   "~n   Verbosity: ~p", [State, Verbosity]),
+    exit({worker_init, State, Verbosity}).
+
+worker_init2(Log, Verbosity) ->
+    put(sname,     mnifw),
+    put(verbosity, Verbosity),
+    Log.
+
+
 worker_exit(Tag, Info, Result) ->
     exit({net_if_worker, {Tag, Info, Result}}).
 
@@ -1116,11 +1099,11 @@ logger(undefined, _Type, _Addr, _Port) ->
     fun(_) ->
 	    ok
     end;
-logger({{Pid, _}, Types}, Type, Addr, Port) ->
+logger({_Name, Log, Types}, Type, Addr, Port) ->
     case lists:member(Type, Types) of
 	true ->
 	    fun(Msg) ->
-		    Pid ! {log, Msg, Addr, Port}
+		    snmp_log:log(Log, Msg, Addr, Port)
 	    end;
 	false ->
 	    fun(_) ->

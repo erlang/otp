@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
 
 
 -export([
-	 create/4, create/5, create/6, 
+	 create/4, create/5, create/6, open/1, open/2, 
 	 change_size/2, close/1, sync/1, info/1, 
 	 log/4, 
 	 log_to_txt/5, log_to_txt/6, log_to_txt/7,
@@ -109,6 +109,24 @@ create(Name, File, SeqNoGen, Size, Repair, Notify) ->
     {error, {bad_args, Name, File, SeqNoGen, Size, Repair, Notify}}.
     
     
+%% -- open ---
+
+%% Open an already existing ( = open ) log
+
+open(Name) ->
+    open(Name, #snmp_log{seqno = disabled}).
+open(Name, #snmp_log{seqno = SeqNoGen} = _OldLog) ->
+    %% We include mode in the opts just to be on the safe side
+    case disk_log:open([{name, Name}, {mode, read_write}]) of
+	{ok, Log} ->
+	    %% SeqNo must be proprly initiated also
+	    {ok, #snmp_log{id = Log, seqno = SeqNoGen}};
+	{repaired, Log, _RecBytes, _BadBytes} ->
+	    {ok, #snmp_log{id = Log, seqno = SeqNoGen}};
+	ERROR ->
+	    ERROR
+    end.
+
 
 %% -- close ---
 
@@ -705,21 +723,21 @@ tsf_ge(_Local,Universal,{universal_time,DateTime}) ->
 tsf_ge(Local,_Universal,DateTime) ->
     tsf_ge(Local,DateTime).
 
-tsf_ge(TimeStamp,DateTime) -> 
+tsf_ge(TimeStamp, DateTime) -> 
     T1 = calendar:datetime_to_gregorian_seconds(TimeStamp),
     T2 = calendar:datetime_to_gregorian_seconds(DateTime),
     T1 >= T2.
 
-tsf_le(_Local,_Universal,null) ->
+tsf_le(_Local, _Universal, null) ->
     true;
-tsf_le(Local,_Universal,{local_time,DateTime}) ->
-    tsf_le(Local,DateTime);
-tsf_le(_Local,Universal,{universal_time,DateTime}) ->
-    tsf_le(Universal,DateTime);
-tsf_le(Local,_Universal,DateTime) ->
+tsf_le(Local, _Universal, {local_time, DateTime}) ->
+    tsf_le(Local, DateTime);
+tsf_le(_Local, Universal, {universal_time, DateTime}) ->
+    tsf_le(Universal, DateTime);
+tsf_le(Local, _Universal, DateTime) ->
     tsf_le(Local,DateTime).
 
-tsf_le(TimeStamp,DateTime) ->
+tsf_le(TimeStamp, DateTime) ->
     T1 = calendar:datetime_to_gregorian_seconds(TimeStamp),
     T2 = calendar:datetime_to_gregorian_seconds(DateTime),
     T1 =< T2.
