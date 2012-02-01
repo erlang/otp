@@ -56,7 +56,7 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(_Case, Config) ->
     test_lib:interpret(?MODULE),
-    Dog = test_server:timetrap(?t:minutes(1)),
+    Dog = test_server:timetrap(?t:minutes(15)),
     [{watchdog,Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
