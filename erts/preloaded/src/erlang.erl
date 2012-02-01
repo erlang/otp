@@ -117,7 +117,7 @@
          is_record/3, is_reference/1, is_tuple/1, load_module/2,
          load_nif/2, localtime_to_universaltime/2, make_fun/3,
          make_tuple/2, make_tuple/3, nodes/1, open_port/2,
-         port_call/3, port_info/1, port_info/2, process_flag/2,
+         port_call/2, port_call/3, port_info/1, port_info/2, process_flag/2,
          process_info/2, send/2, send/3, seq_trace_info/1,
          setelement/3, spawn_opt/1,
 	 statistics/1, subtract/2, system_flag/2,
@@ -579,12 +579,14 @@ erase(_Key) ->
     erlang:nif_error(undefined).
 
 % error/1
+%% Shadowed by erl_bif_types: erlang:error/1
 -spec error(Reason) -> no_return() when
       Reason :: term().
 error(_Reason) ->
     erlang:nif_error(undefined).
 
 % error/2
+%% Shadowed by erl_bif_types: erlang:error/2
 -spec error(Reason, Args) -> no_return() when
       Reason :: term(),
       Args :: [term()].
@@ -592,6 +594,7 @@ error(_Reason, _Args) ->
     erlang:nif_error(undefined).
 
 % exit/1
+%% Shadowed by erl_bif_types: erlang:exit/1
 -spec exit(Reason) -> no_return() when
       Reason :: term().
 exit(_Reason) ->
@@ -719,11 +722,13 @@ group_leader(_GroupLeader, _Pid) ->
     erlang:nif_error(undefined).
 
 % halt/0
+%% Shadowed by erl_bif_types: erlang:halt/0
 -spec halt() -> no_return().
 halt() ->
     erlang:nif_error(undefined).
 
 % halt/1
+%% Shadowed by erl_bif_types: erlang:halt/1
 -spec halt(Status) -> no_return() when
       Status :: non_neg_integer() | string().
 halt(_Status) ->
@@ -934,12 +939,14 @@ monitor_node(_Node, _Flag, _Options) ->
     erlang:nif_error(undefined).
 
 % nif_error/1
+%% Shadowed by erl_bif_types: erlang:nif_error/1
 -spec erlang:nif_error(Reason) -> no_return() when
       Reason :: term().
 nif_error(_Reason) ->
     erlang:nif_error(undefined).
 
 % nif_error/2
+%% Shadowed by erl_bif_types: erlang:nif_error/2
 -spec erlang:nif_error(Reason, Args) -> no_return() when
       Reason :: term(),
       Args :: [term()].
@@ -1293,6 +1300,7 @@ system_profile(_ProfilerPid, _Options) ->
     erlang:nif_error(undefined).
 
 % throw/1
+%% Shadowed by erl_bif_types: erlang:throw/1
 -spec throw(Any) -> no_return() when
       Any :: term().
 throw(_Any) ->
@@ -1380,6 +1388,7 @@ whereis(_RegName) ->
 
 %% types and specs
 
+%% Shadowed by erl_bif_types: erlang:abs/1
 -spec abs(Float) -> float() when
       Float :: float();
          (Int) -> non_neg_integer() when
@@ -1388,12 +1397,14 @@ abs(_Number) ->
     erlang:nif_error(undefined).
 
 %% Not documented
+%% Shadowed by erl_bif_types: erlang:append/2
 -spec erlang:append(List,Tail) -> maybe_improper_list() when
       List :: [term()],
       Tail :: term().
 append(_List,_Tail) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:element/2
 -spec element(N, Tuple) -> term() when
     N :: pos_integer(),
     Tuple :: tuple().
@@ -1408,6 +1419,7 @@ element(_N, _Tuple) ->
 get_module_info(_Module, _Item) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:hd/1
 -spec hd(List) -> term() when
       List :: [term(), ...].
 hd(_List) ->
@@ -1415,73 +1427,87 @@ hd(_List) ->
 
 %% erlang:info/1 no longer exists!
 
+%% Shadowed by erl_bif_types: erlang:is_atom/1
 -spec is_atom(Term) -> boolean() when
       Term :: term().
 is_atom(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_binary/1
 -spec is_binary(Term) -> boolean() when
       Term :: term().
 is_binary(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_bitstring/1
 -spec is_bitstring(Term) -> boolean() when
       Term :: term().
 is_bitstring(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_boolean/1
 -spec is_boolean(Term) -> boolean() when
       Term :: term().
 is_boolean(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_float/1
 -spec is_float(Term) -> boolean() when
       Term :: term().
 is_float(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_function/1
 -spec is_function(Term) -> boolean() when
       Term :: term().
 is_function(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_function/2
 -spec is_function(Term, Arity) -> boolean() when
       Term :: term(),
       Arity :: arity().
 is_function(_Term, _Arity) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_integer/1
 -spec is_integer(Term) -> boolean() when
       Term :: term().
 is_integer(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_list/1
 -spec is_list(Term) -> boolean() when
       Term :: term().
 is_list(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_number/1
 -spec is_number(Term) -> boolean() when
       Term :: term().
 is_number(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_pid/1
 -spec is_pid(Term) -> boolean() when
       Term :: term().
 is_pid(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_port/1
 -spec is_port(Term) -> boolean() when
       Term :: term().
 is_port(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_record/2
 -spec is_record(Term,RecordTag) -> boolean() when
       Term :: term(),
       RecordTag :: atom().
 is_record(_Term,_RecordTag) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_record/3
 -spec is_record(Term,RecordTag,Size) -> boolean() when
       Term :: term(),
       RecordTag :: atom(),
@@ -1489,11 +1515,13 @@ is_record(_Term,_RecordTag) ->
 is_record(_Term,_RecordTag,_Size) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_reference/1
 -spec is_reference(Term) -> boolean() when
       Term :: term().
 is_reference(_Term) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:is_tuple/1
 -spec is_tuple(Term) -> boolean() when
       Term :: term().
 is_tuple(_Term) ->
@@ -1531,12 +1559,14 @@ localtime_to_universaltime(_Localtime, _IsDst) ->
 make_fun(_Module,_Function, _Arity) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:make_tuple/2
 -spec erlang:make_tuple(Arity, InitialValue) -> tuple() when
       Arity :: arity(),
       InitialValue :: term().
 make_tuple(_Arity,_InitialValue) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:make_tuple/3
 -spec erlang:make_tuple(Arity, DefaultValue, InitList) -> tuple() when
       Arity :: arity(),
       DefaultValue :: term(),
@@ -1575,6 +1605,14 @@ nodes(_Arg) ->
 open_port(_PortName,_PortSettings) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:port_call/2
+-spec erlang:port_call(Port, Data) -> term() when
+      Port :: port() | atom(),
+      Data :: term().
+port_call(_Port, _Data) ->
+    erlang:nif_error(undefined).
+
+%% Shadowed by erl_bif_types: erlang:port_call/3
 -spec erlang:port_call(Port, Operation, Data) -> term() when
       Port :: port() | atom(),
       Operation :: integer(),
@@ -1600,16 +1638,18 @@ port_call(_Port, _Operation, _Data) ->
       {input, Bytes :: non_neg_integer()} |
       {output, Bytes :: non_neg_integer()}.
 
+%% Shadowed by erl_bif_types: erlang:port_info/1
 -spec erlang:port_info(Port) -> Result when
       Port :: port() | atom(),
       Result :: [port_info_result_item()] | undefined.
 port_info(_Result) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:port_info/2
 -spec erlang:port_info(Port, Item) -> Result when
       Port :: port() | atom(),
       Item :: port_info_item(),
-      Result :: port_info_result_item() | undefined | [].
+      Result :: port_info_result_item() | undefined.
 port_info(_Result, _Item) ->
     erlang:nif_error(undefined).
 
@@ -1689,7 +1729,7 @@ process_flag(_Flag, _Value) ->
       {current_location,
        {Module :: module(), Function :: atom(), Arity :: arity(),
         Location :: [{file, Filename :: string()} | % not a stack_item()!
-                     {line, Line :: integer()}]}} |
+                     {line, Line :: pos_integer()}]}} |
       {current_stacktrace, Stack :: [stack_item()]} |
       {dictionary, Dictionary :: [{Key :: term(), Value :: term()}]} |
       {error_handler, Module :: module()} |
@@ -1728,7 +1768,7 @@ process_flag(_Flag, _Value) ->
          Function :: atom(),
          Arity :: arity() | (Args :: [term()]),
          Location :: [{file, Filename :: string()} |
-                      {line, Line :: integer()}]}.
+                      {line, Line :: pos_integer()}]}.
 
 -spec process_info(Pid, Item) ->
                           InfoTuple | [] | undefined when
@@ -1744,7 +1784,7 @@ process_flag(_Flag, _Value) ->
 process_info(_Pid,_ItemSpec) ->
     erlang:nif_error(undefined).
 
--spec send(Dest, Msg) -> Msg when
+-spec erlang:send(Dest, Msg) -> Msg when
       Dest :: dst(),
       Msg :: term().
 send(_Dest,_Msg) ->
@@ -1768,6 +1808,7 @@ send(_Dest,_Msg,_Options) ->
 seq_trace_info(_What) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:setelement/3
 -spec setelement(Index, Tuple1, Value) -> Tuple2 when
       Index :: pos_integer(),
       Tuple1 :: tuple(),
@@ -1817,6 +1858,7 @@ statistics(_Item) ->
     erlang:nif_error(undefined).
 
 %% Not documented
+%% Shadowed by erl_bif_types: erlang:subtract/2
 -spec erlang:subtract([term()], [term()]) -> [term()].
 subtract(_,_) ->
     erlang:nif_error(undefined).
@@ -1881,6 +1923,7 @@ term_to_binary(_Term) ->
 term_to_binary(_Term, _Options) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:tl/1
 -spec tl(List) -> term() when
       List :: [term(), ...].
 tl(_List) ->
@@ -1916,6 +1959,7 @@ trace_pattern(_MFA, _MatchSpec) ->
 trace_pattern(_MFA, _MatchSpec, _FlagList) ->
     erlang:nif_error(undefined).
 
+%% Shadowed by erl_bif_types: erlang:tuple_to_list/1
 -spec tuple_to_list(Tuple) -> [term()] when
       Tuple :: tuple().
 tuple_to_list(_Tuple) ->
@@ -1934,6 +1978,7 @@ tuple_to_list(_Tuple) ->
 -type info_list() :: [].
 
 %% Note: changing the ordering number of a clause will change the docs!
+%% Shadowed by erl_bif_types: erlang:system_info/1
 -spec erlang:system_info
          (allocated_areas) -> [ tuple() ];
          (allocator) ->
@@ -2031,6 +2076,7 @@ universaltime_to_localtime(_Universaltime) ->
 apply(Fun, Args) ->
     erlang:apply(Fun, Args).
 
+%% Shadowed by erl_bif_types: erlang:apply/3
 -spec apply(Module, Function, Args) -> term() when
       Module :: module(),
       Function :: atom(),

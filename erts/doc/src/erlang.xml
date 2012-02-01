@@ -3191,7 +3191,8 @@ os_prompt%</pre>
       <type name="priority_level"/>
       <fsummary>Set process flag priority for the calling process</fsummary>
       <desc>
-        <p>This sets the process priority. <c><anno>Level</anno></c> is an atom.
+        <p><marker id="process_flag_priority"></marker>
+          This sets the process priority. <c><anno>Level</anno></c> is an atom.
           There are currently four priority levels: <c>low</c>,
           <c>normal</c>, <c>high</c>, and <c>max</c>. The default
           priority level is <c>normal</c>. <em>NOTE</em>: The
@@ -3333,6 +3334,8 @@ os_prompt%</pre>
     <func>
       <name name="process_info" arity="1"/>
       <type name="process_info_result_item"/>
+      <type name="priority_level"/>
+      <type name="stack_item"/>
       <fsummary>Information about a process</fsummary>
       <desc>
         <p>Returns a list containing <c><anno>InfoTuple</anno></c>s with
@@ -3889,7 +3892,7 @@ true</pre>
         <p>Starts a timer which will send the message <c>Msg</c>
           to <c><anno>Dest</anno></c> after <c><anno>Time</anno></c> milliseconds.</p>
 	<p>If <c><anno>Dest</anno></c> is a <c>pid()</c> it has to be a <c>pid()</c> of a local process, dead or alive.</p>
-	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be grater than 4294967295.</p>
+	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be greater than 4294967295.</p>
         <p>If <c><anno>Dest</anno></c> is an <c>atom()</c>, it is supposed to be the name of
           a registered process. The process referred to by the name is
           looked up at the time of delivery. No error is given if
@@ -4314,7 +4317,7 @@ true</pre>
           <c>{timeout, <anno>TimerRef</anno>, <anno>Msg</anno>}</c> to <c><anno>Dest</anno></c>
           after <c><anno>Time</anno></c> milliseconds.</p>
 	<p>If <c><anno>Dest</anno></c> is a <c>pid()</c> it has to be a <c>pid()</c> of a local process, dead or alive.</p>
-	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be grater than 4294967295.</p>
+	<p>The <c><anno>Time</anno></c> value can, in the current implementation, not be greater than 4294967295.</p>
         <p>If <c><anno>Dest</anno></c> is an <c>atom()</c>, it is supposed to be the name of
           a registered process. The process referred to by the name is
           looked up at the time of delivery. No error is given if
@@ -4345,7 +4348,8 @@ true</pre>
       <name name="statistics" arity="1" clause_i="2"/>
       <fsummary>Information about exact reductions</fsummary>
       <desc>
-        <p><em>NOTE:</em> <c>statistics(exact_reductions)</c> is
+        <p><marker id="statistics_exact_reductions"></marker>
+          <em>NOTE:</em> <c>statistics(exact_reductions)</c> is
           a more expensive operation than
           <seealso marker="#statistics_reductions">statistics(reductions)</seealso>
           especially on an Erlang machine with SMP support.</p>
@@ -4371,7 +4375,8 @@ true</pre>
       <name name="statistics" arity="1" clause_i="5"/>
       <fsummary>Information about reductions</fsummary>
       <desc>
-        <p><em>NOTE:</em> From erts version 5.5 (OTP release R11B)
+        <p><marker id="statistics_reductions"></marker>
+          <em>NOTE:</em> From erts version 5.5 (OTP release R11B)
           this value does not include reductions performed in current
           time slices of currently scheduled processes. If an
           exact value is wanted, use
@@ -4525,12 +4530,14 @@ true</pre>
       <name name="system_flag" arity="2" clause_i="2"/>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
-      <type name="sub_level"/>
       <type name="level_tag"/>
+      <type name="sub_level"/>
+      <type name="info_list"/>
       <fsummary>Set system flag cpu_topology</fsummary>
       <desc>
         <warning>
-          <p>This argument is <em>deprecated</em> and
+          <p><marker id="system_flag_cpu_topology"></marker>
+          This argument is <em>deprecated</em> and
           scheduled for removal in erts-5.10/OTP-R16. Instead of using
           this argument you are advised to use the <c>erl</c> command
           line argument <seealso marker="erts:erl#+sct">+sct</seealso>.
@@ -4616,7 +4623,8 @@ true</pre>
       <name name="system_flag" arity="2" clause_i="6"/>
       <fsummary>Set system flag multi_scheduling</fsummary>
       <desc>
-        <p>If multi-scheduling is enabled, more than one scheduler
+        <p><marker id="system_flag_multi_scheduling"></marker>
+          If multi-scheduling is enabled, more than one scheduler
           thread is used by the emulator. Multi-scheduling can be
           blocked. When multi-scheduling has been blocked, only
           one scheduler thread will schedule Erlang processes.</p>
@@ -4655,7 +4663,8 @@ true</pre>
       <fsummary>Set system flag scheduler_bind_type</fsummary>
       <desc>
         <warning>
-          <p>This argument is <em>deprecated</em> and
+          <p><marker id="system_flag_scheduler_bind_type"></marker>
+          This argument is <em>deprecated</em> and
           scheduled for removal in erts-5.10/OTP-R16. Instead of using
           this argument you are advised to use the <c>erl</c> command
           line argument <seealso marker="erts:erl#+sbt">+sbt</seealso>.
@@ -4772,7 +4781,8 @@ true</pre>
       <name name="system_flag" arity="2" clause_i="8"/>
       <fsummary>Set system flag schedulers_online</fsummary>
       <desc>
-        <p>Sets the amount of schedulers online. Valid range is
+        <p><marker id="system_flag_schedulers_online"></marker>
+        Sets the amount of schedulers online. Valid range is
         <![CDATA[1 <= SchedulersOnline <= erlang:system_info(schedulers)]]>.
         </p>
         <p>Returns the old value of the flag.</p>
@@ -4932,6 +4942,7 @@ true</pre>
       <type name="cpu_topology"/>
       <type name="level_entry"/>
       <type_desc name="cpu_topology">
+        <marker id="system_info_cpu_topology"></marker>
         All <c><anno>LevelEntry</anno></c>s of a list
         must contain the same <c><anno>LevelTag</anno></c>, except
         on the top level where both <c>node</c> and
@@ -4956,7 +4967,7 @@ true</pre>
           of the current system
           (emulator) as specified by <c><anno>Item</anno></c>:</p>
         <taglist>
-          <tag><marker id="system_info_cpu_topology"><c>cpu_topology</c></marker></tag>
+          <tag><c>cpu_topology</c></tag>
           <item>
 	    <p>Returns the <c><anno>CpuTopology</anno></c> which currently is used by the
 	       emulator. The CPU topology is used when binding schedulers
@@ -6188,6 +6199,8 @@ true</pre>
       <name name="trace_info" arity="2"/>
       <type name="trace_info_return"/>
       <type name="trace_info_item_result"/>
+      <type name="trace_info_flag"/>
+      <type name="trace_match_spec"/>
       <fsummary>Trace information about a process or function</fsummary>
       <desc>
         <p>Returns trace information about a process or function.</p>

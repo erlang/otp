@@ -63,6 +63,7 @@
 		    t_fun/2,
 		    t_fun_args/1,
 		    t_fun_range/1,
+		    t_identifier/0,
 		    t_inf/2,
 		    t_integer/0,
 		    t_integer/1,
@@ -138,6 +139,12 @@ type(M, F, A) ->
 -spec type(atom(), atom(), arity(), [erl_types:erl_type()]) -> erl_types:erl_type().
 
 %%-- erlang -------------------------------------------------------------------
+type(erlang, halt, 0, _) -> t_none();
+type(erlang, halt, 1, _) -> t_none();
+type(erlang, exit, 1, _) -> t_none();
+type(erlang, error, 1, _) -> t_none();
+type(erlang, error, 2, _) -> t_none();
+type(erlang, throw, 1, _) -> t_none();
 type(erlang, '==', 2, Xs = [X1, X2]) ->
   case t_is_atom(X1) andalso t_is_atom(X2) of
     true -> type(erlang, '=:=', 2, Xs);
@@ -489,6 +496,9 @@ type(erlang, 'bnot', 1, Xs) ->
 	       {ok, T} -> T
 	     end
 	 end);
+%% Guard bif, needs to be here.
+type(erlang, abs, 1, Xs) ->
+  strict(arg_types(erlang, abs, 1), Xs, fun ([X]) -> X end);
 %% This returns (-X)-1, so it often gives a negative result.
 %%  strict(arg_types(erlang, 'bnot', 1), Xs, fun (_) -> t_integer() end);
 type(erlang, append, 2, Xs) -> type(erlang, '++', 2, Xs); % alias
@@ -504,8 +514,24 @@ type(erlang, apply, 2, Xs) ->
   strict(arg_types(erlang, apply, 2), Xs, Fun);
 type(erlang, apply, 3, Xs) ->
   strict(arg_types(erlang, apply, 3), Xs, fun (_) -> t_any() end);
+%% Guard bif, needs to be here.
+type(erlang, binary_part, 2, Xs) ->
+  strict(arg_types(erlang, binary_part, 2), Xs, fun (_) -> t_binary() end);
+%% Guard bif, needs to be here.
+type(erlang, binary_part, 3, Xs) ->
+  strict(arg_types(erlang, binary_part, 3), Xs, fun (_) -> t_binary() end);
+%% Guard bif, needs to be here.
+type(erlang, bit_size, 1, Xs) ->
+  strict(arg_types(erlang, bit_size, 1), Xs,
+	 fun (_) -> t_non_neg_integer() end);
+%% Guard bif, needs to be here.
+type(erlang, byte_size, 1, Xs) ->
+  strict(arg_types(erlang, byte_size, 1), Xs,
+	 fun (_) -> t_non_neg_integer() end);
 type(erlang, disconnect_node, 1, Xs) ->
   strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_sup([t_boolean(), t_atom('ignored')]) end);
+%% Guard bif, needs to be here.
+%% Also much more expressive than anything you could write in a spec...
 type(erlang, element, 2, Xs) ->
   strict(arg_types(erlang, element, 2), Xs,
 	 fun ([X1, X2]) ->
@@ -529,16 +555,22 @@ type(erlang, element, 2, Xs) ->
 		 t_sup([type(erlang, element, 2, [X1, Y]) || Y <- Ts])
 	     end
 	 end);
+%% Guard bif, needs to be here.
+type(erlang, float, 1, Xs) ->
+  strict(arg_types(erlang, float, 1), Xs, fun (_) -> t_float() end);
 type(erlang, fun_info, 1, Xs) ->
   strict(arg_types(erlang, fun_info, 1), Xs,
 	 fun (_) -> t_list(t_tuple([t_atom(), t_any()])) end);
 type(erlang, get_cookie, 0, _) -> t_atom();  % | t_atom('nocookie')
+%% Guard bif, needs to be here.
 type(erlang, hd, 1, Xs) ->
   strict(arg_types(erlang, hd, 1), Xs, fun ([X]) -> t_cons_hd(X) end);
 type(erlang, integer_to_list, 2, Xs) ->
   strict(arg_types(erlang, integer_to_list, 2), Xs,
 	 fun (_) -> t_string() end);
 type(erlang, info, 1, Xs) -> type(erlang, system_info, 1, Xs); % alias
+%% All type tests are guard BIF's and may be implemented in ways that
+%% cannot be expressed in a type spec, why they are kept in erl_bif_types.
 type(erlang, is_atom, 1, Xs) ->   
   Fun = fun (X) -> check_guard(X, fun (Y) -> t_is_atom(Y) end, t_atom()) end,
   strict(arg_types(erlang, is_atom, 1), Xs, Fun);
@@ -702,6 +734,9 @@ type(erlang, is_tuple, 1, Xs) ->
 	    check_guard(X, fun (Y) -> t_is_tuple(Y) end, t_tuple())
 	end,
   strict(arg_types(erlang, is_tuple, 1), Xs, Fun);
+%% Guard bif, needs to be here.
+type(erlang, length, 1, Xs) ->
+  strict(arg_types(erlang, length, 1), Xs, fun (_) -> t_non_neg_fixnum() end);
 type(erlang, list_to_integer, 2, Xs) ->
   strict(arg_types(erlang, list_to_integer, 2), Xs,
 	 fun (_) -> t_integer() end);
@@ -726,12 +761,47 @@ type(erlang, nif_error, 1, _) ->
   t_any();   % this BIF and the next one are stubs for NIFs and never return
 type(erlang, nif_error, 2, Xs) ->
   strict(arg_types(erlang, nif_error, 2), Xs, fun (_) -> t_any() end);
+%% Guard bif, needs to be here.
+type(erlang, node, 0, _) -> t_node();
+%% Guard bif, needs to be here.
+type(erlang, node, 1, Xs) ->
+  strict(arg_types(erlang, node, 1), Xs, fun (_) -> t_node() end);
 type(erlang, nodes, 0, _) -> t_list(t_node());
 type(erlang, port_call, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
   strict(arg_types(erlang, port_call, Arity), Xs, fun (_) -> t_any() end);
 type(erlang, port_info, 1, Xs) ->
   strict(arg_types(erlang, port_info, 1), Xs,
 	 fun (_) -> t_sup(t_atom('undefined'), t_list()) end);
+type(erlang, port_info, 2, Xs) ->
+  strict(arg_types(erlang, port_info, 2), Xs,
+	 fun ([_Port, Item]) ->
+	     t_sup(t_atom('undefined'),
+		   case t_atom_vals(Item) of
+		     ['connected'] -> t_tuple([Item, t_pid()]);
+		     ['id'] -> t_tuple([Item, t_integer()]);
+		     ['input'] -> t_tuple([Item, t_integer()]);
+		     ['links'] -> t_tuple([Item, t_list(t_pid())]);
+		     ['name'] -> t_tuple([Item, t_string()]);
+		     ['output'] -> t_tuple([Item, t_integer()]);
+		     ['registered_name'] -> t_tuple([Item, t_atom()]);
+		     List when is_list(List) ->
+		       t_tuple([t_sup([t_atom(A) || A <- List]),
+				t_sup([t_atom(), t_integer(),
+				       t_pid(), t_list(t_pid()),
+				       t_string()])]);
+		     unknown ->
+		       [_, PosItem] = arg_types(erlang, port_info, 2),
+		       t_tuple([PosItem,
+				t_sup([t_atom(), t_integer(),
+				       t_pid(), t_list(t_pid()),
+				       t_string()])])		       
+		   end)
+	 end);
+%% Guard bif, needs to be here.
+type(erlang, round, 1, Xs) ->
+  strict(arg_types(erlang, round, 1), Xs, fun (_) -> t_integer() end);
+%% Guard bif, needs to be here.
+type(erlang, self, 0, _) -> t_pid();
 type(erlang, set_cookie, 2, Xs) ->
   strict(arg_types(erlang, set_cookie, 2), Xs, fun (_) -> t_atom('true') end);
 type(erlang, setelement, 3, Xs) ->
@@ -765,6 +835,9 @@ type(erlang, setelement, 3, Xs) ->
 		 t_sup([type(erlang, setelement, 3, [X1, Y, X3]) || Y <- Ts])
 	     end
 	 end);
+%% Guard bif, needs to be here.
+type(erlang, size, 1, Xs) ->
+  strict(arg_types(erlang, size, 1), Xs, fun (_) -> t_non_neg_integer() end);
 type(erlang, spawn, 1, Xs) ->
   strict(arg_types(erlang, spawn, 1), Xs, fun (_) -> t_pid() end);
 type(erlang, spawn, 2, Xs) ->
@@ -894,13 +967,15 @@ type(erlang, system_info, 1, Xs) ->
 		 t_any() %% overapproximation as the return value might change
 	     end
 	 end);
-type(erlang, term_to_binary, 1, Xs) ->
-  strict(arg_types(erlang, term_to_binary, 1), Xs, fun (_) -> t_binary() end);
+%% Guard bif, needs to be here.
 type(erlang, tl, 1, Xs) ->
   strict(arg_types(erlang, tl, 1), Xs, fun ([X]) -> t_cons_tl(X) end);
-type(erlang, trace_pattern, 2, Xs) ->
-  strict(arg_types(erlang, trace_pattern, 2), Xs,
-	 fun (_) -> t_non_neg_fixnum() end); %% num of MFAs that match pattern
+%% Guard bif, needs to be here.
+type(erlang, trunc, 1, Xs) ->
+  strict(arg_types(erlang, trunc, 1), Xs, fun (_) -> t_integer() end);
+%% Guard bif, needs to be here.
+type(erlang, tuple_size, 1, Xs) ->
+  strict(arg_types(erlang, tuple_size, 1), Xs, fun (_) -> t_non_neg_integer() end);
 type(erlang, tuple_to_list, 1, Xs) ->
   strict(arg_types(erlang, tuple_to_list, 1), Xs,
 	 fun ([X]) ->
@@ -2092,6 +2167,9 @@ arg_types(erlang, 'bsl', 2) ->
   [t_integer(), t_integer()];
 arg_types(erlang, 'bnot', 1) ->
   [t_integer()];
+%% Guard bif, needs to be here.
+arg_types(erlang, abs, 1) ->
+  [t_number()];
 arg_types(erlang, append, 2) ->
   arg_types(erlang, '++', 2);
 arg_types(erlang, apply, 2) ->
@@ -2101,14 +2179,41 @@ arg_types(erlang, apply, 2) ->
    t_list()];
 arg_types(erlang, apply, 3) ->
   [t_sup(t_atom(), t_tuple()), t_atom(), t_list()];
+%% Guard bif, needs to be here.
+arg_types(erlang, binary_part, 2) ->
+  [t_binary(), t_tuple([t_non_neg_integer(), t_integer()])];
+%% Guard bif, needs to be here.
+arg_types(erlang, binary_part, 3) ->
+  [t_binary(), t_non_neg_integer(), t_integer()];
+%% Guard bif, needs to be here.
+arg_types(erlang, bit_size, 1) ->
+  [t_bitstr()];
+%% Guard bif, needs to be here.
+arg_types(erlang, byte_size, 1) ->
+  [t_binary()];
 arg_types(erlang, disconnect_node, 1) ->
   [t_node()];
+arg_types(erlang, halt, 0) ->
+  [];
+arg_types(erlang, halt, 1) ->
+  [t_sup(t_non_neg_fixnum(), t_string())];
+arg_types(erlang, error, 1) ->
+  [t_any()];
+arg_types(erlang, error, 2) ->
+  [t_any(), t_list()];
+arg_types(erlang, exit, 1) ->
+  [t_any()];
+%% Guard bif, needs to be here.
 arg_types(erlang, element, 2) ->
   [t_pos_fixnum(), t_tuple()];
+%% Guard bif, needs to be here.
+arg_types(erlang, float, 1) ->
+  [t_number()];
 arg_types(erlang, fun_info, 1) ->
   [t_fun()];
 arg_types(erlang, get_cookie, 0) ->
   [];
+%% Guard bif, needs to be here.
 arg_types(erlang, hd, 1) ->
   [t_cons()];
 arg_types(erlang, info, 1) ->
@@ -2149,6 +2254,9 @@ arg_types(erlang, is_reference, 1) ->
   [t_any()];
 arg_types(erlang, is_tuple, 1) ->
   [t_any()];
+%% Guard bif, needs to be here.
+arg_types(erlang, length, 1) ->
+  [t_list()];
 arg_types(erlang, list_to_integer, 2) ->
   [t_list(t_byte()), t_from_range(2, 36)];
 arg_types(erlang, make_tuple, 2) ->
@@ -2161,6 +2269,12 @@ arg_types(erlang, nif_error, 1) ->
   [t_any()];
 arg_types(erlang, nif_error, 2) ->
   [t_any(), t_list()];
+%% Guard bif, needs to be here.
+arg_types(erlang, node, 0) ->
+  [];
+%% Guard bif, needs to be here.
+arg_types(erlang, node, 1) ->
+  [t_identifier()];
 arg_types(erlang, nodes, 0) ->
   [];
 arg_types(erlang, port_call, 2) ->
@@ -2169,10 +2283,23 @@ arg_types(erlang, port_call, 3) ->
   [t_sup(t_port(), t_atom()), t_integer(), t_any()];
 arg_types(erlang, port_info, 1) ->
   [t_sup(t_port(), t_atom())];
+arg_types(erlang, port_info, 2) ->
+  [t_sup(t_port(), t_atom()),
+   t_atoms(['registered_name', 'id', 'connected',
+	    'links', 'name', 'input', 'output'])];
+%% Guard bif, needs to be here.
+arg_types(erlang, round, 1) ->
+  [t_number()];
+%% Guard bif, needs to be here.
+arg_types(erlang, self, 0) ->
+  [];
 arg_types(erlang, set_cookie, 2) ->
   [t_node(), t_atom()];
 arg_types(erlang, setelement, 3) ->
   [t_pos_integer(), t_tuple(), t_any()];
+%% Guard bif, needs to be here.
+arg_types(erlang, size, 1) ->
+  [t_sup(t_tuple(), t_binary())];
 arg_types(erlang, spawn, 1) -> %% TODO: Tuple?
   [t_fun()];
 arg_types(erlang, spawn, 2) -> %% TODO: Tuple?
@@ -2194,14 +2321,17 @@ arg_types(erlang, system_info, 1) ->
 	  t_tuple([t_atom(), t_any()]), % documented
 	  t_tuple([t_atom(), t_atom(), t_any()]),
 	  t_tuple([t_atom(allocator_sizes), t_reference(), t_any()])])];
-arg_types(erlang, term_to_binary, 1) ->
+arg_types(erlang, throw, 1) ->
   [t_any()];
+%% Guard bif, needs to be here.
 arg_types(erlang, tl, 1) ->
   [t_cons()];
-arg_types(erlang, trace_pattern, 2) ->
-  [t_sup(t_tuple([t_atom(), t_atom(), t_sup(t_arity(), t_atom('_'))]),
-	 t_atom('on_load')),
-   t_sup([t_boolean(), t_list(), t_atom('restart'), t_atom('pause')])];
+%% Guard bif, needs to be here.
+arg_types(erlang, trunc, 1) ->
+  [t_number()];
+%% Guard bif, needs to be here.
+arg_types(erlang, tuple_size, 1) ->
+  [t_tuple()];
 arg_types(erlang, tuple_to_list, 1) ->
   [t_tuple()];
 arg_types(erlang, yield, 0) ->
