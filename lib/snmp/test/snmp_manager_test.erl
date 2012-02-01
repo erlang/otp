@@ -146,12 +146,55 @@
 %% External functions
 %%======================================================================
 
+which_group(Config) ->
+    case ?config(tc_group_properties, Config) of
+	undefined ->
+	    %% Properties, if they exist, is a list
+	    ignore;
+	GroupProps ->
+	    GroupName  = ?config(name, GroupProps),
+	    %% tc_group_path is a list of parent groups...
+	    GroupPaths = ?config(tc_group_path, Config),
+	    {GroupName, [?config(name, GPs) || GPs <- GroupPaths]}
+    end.
+
+mk_group_dir(GPRoot, [], Group) ->
+    ?DBG("mk_group_dir -> entry with: "
+	 "~n   GPRoot: ~p"
+	 "~n   Group:  ~p", [GPRoot, Group]),
+    GroupDir = filename:join(GPRoot, Group), 
+    case file:make_dir(GroupDir) of
+	ok ->
+	    GroupDir;
+	{error, eexist} ->
+	    GroupDir;
+	Error ->
+	    ?FAIL({failed_creating_group_dir, Error})
+    end;
+mk_group_dir(GPRoot, [Dir|Dirs], Group) ->
+    ?DBG("mk_group_dir -> entry with: "
+	 "~n   GPRoot: ~p"
+	 "~n   Dir:    ~p"
+	 "~n   Group:  ~p", [GPRoot, Dir, Group]),
+    GPDir = filename:join(GPRoot, Dir),
+    case file:make_dir(GPDir) of
+	ok ->
+	    ok;
+	{error, eexist} ->
+	    ok;
+	Error ->
+	    ?FAIL({failed_creating_group_path_dir, Error})
+    end,
+    mk_group_dir(GPDir, Dirs, Group).
+    
+    
+
 init_per_testcase(Case, Config) when is_list(Config) ->
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
     init_per_testcase2(Case, Config).
 
 init_per_testcase2(Case, Config) ->
-    ?DBG("init [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
+    ?DBG("init_per_testcase2 -> ~p", [erlang:nodes()]),
 
     %% Fix a correct data dir (points to the wrong location):
     DataDir0     = ?config(data_dir, Config),
@@ -162,20 +205,35 @@ init_per_testcase2(Case, Config) ->
     PrivDir = ?config(priv_dir, Config),
 
     TopDir = filename:join(PrivDir, ?MODULE),
+    ?DBG("init_per_testcase2 -> try create top dir: ~n~p", [TopDir]),
     case file:make_dir(TopDir) of
 	ok ->
 	    ok;
 	{error, eexist} ->
 	    ok;
-	Error ->
-	    ?FAIL({failed_creating_subsuite_top_dir, Error})
+	ErrorS ->
+	    ?FAIL({failed_creating_subsuite_top_dir, ErrorS})
     end,
+
+    CaseRootDir = 
+	case which_group(Config) of
+	    {Group, GroupPath} ->
+		?DBG("init_per_testcase2 -> try create group dir with: "
+		     "~n   Group:     ~p"
+		     "~n   GroupPath: ~p", [Group, GroupPath]),
+		mk_group_dir(TopDir, GroupPath, Group);
+	    _ ->
+		TopDir
+	end,
 	    
-    CaseTopDir = filename:join(TopDir, Case),
+    CaseTopDir = filename:join(CaseRootDir, Case),
+    ?DBG("init_per_testcase2 -> try create case top dir: ~n~p", [CaseTopDir]),
     ?line ok   = file:make_dir(CaseTopDir),
     
     %% -- Manager dirs  --
-    MgrTopDir  = filename:join(CaseTopDir, "manager/"),
+    MgrTopDir  = filename:join(CaseTopDir, "manager/"), 
+    ?DBG("init_per_testcase2 -> try create manager top dir: ~n~p", 
+	 [MgrTopDir]),
     ?line ok   = file:make_dir(MgrTopDir),
 
     MgrConfDir = filename:join(MgrTopDir,  "conf/"),
@@ -204,6 +262,7 @@ init_per_testcase2(Case, Config) ->
 	    {watchdog,                  ?WD_START(?MINS(5))},
 	    {ip,                        ?LOCALHOST()},
 	    {top_dir,                   TopDir},
+	    {case_root_dir,             CaseRootDir},
 	    {agent_dir,                 AgTopDir},
 	    {agent_conf_dir,            AgConfDir},
 	    {agent_db_dir,              AgDbDir},
@@ -388,7 +447,9 @@ all() ->
      {group, user_tests}, 
      {group, agent_tests}, 
      {group, request_tests}, 
+     {group, request_tests_mt}, 
      {group, event_tests}, 
+     {group, event_tests_mt}, 
      discovery, 
      {group, tickets}
     ].
@@ -423,6 +484,15 @@ groups() ->
       ]
      },
      {request_tests, [],
+      [
+       {group, get_tests}, 
+       {group, get_next_tests},
+       {group, set_tests}, 
+       {group, bulk_tests},
+       {group, misc_request_tests}
+      ]
+     },
+     {request_tests_mt, [],
       [
        {group, get_tests}, 
        {group, get_next_tests},
@@ -477,18 +547,30 @@ groups() ->
 	misc_async2
        ]
       },
-      {event_tests, [],
-       [
-	trap1%% , 
-        %% trap2, 
-        %% inform1, 
-        %% inform2, 
-        %% inform3, 
-        %% inform4,
-        %% inform_swarm, 
-        %% report
-       ]
-      },
+     {event_tests, [],
+      [
+       trap1, 
+       trap2, 
+       inform1, 
+       inform2, 
+       inform3, 
+       inform4,
+       inform_swarm, 
+       report
+      ]
+     },
+     {event_tests_mt, [],
+      [
+       trap1, 
+       trap2, 
+       inform1, 
+       inform2, 
+       inform3, 
+       inform4,
+       inform_swarm, 
+       report
+      ]
+     },
      {tickets, [], 
       [
        {group, otp8015}, 
@@ -507,8 +589,12 @@ groups() ->
      }
     ].
 
+init_per_group(request_tests_mt = _GroupName, Config) ->
+    [{manager_net_if_module, snmpm_net_if_mt} | Config];
+init_per_group(event_tests_mt = _GroupName, Config) ->
+    [{manager_net_if_module, snmpm_net_if_mt} | Config];
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
 	Config.
@@ -4423,7 +4509,7 @@ inform1(Config) when is_list(Config) ->
 inform2(suite) -> [];
 inform2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    put(tname,i2),
+    put(tname, i2),
     p("starting with Config: ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
@@ -4577,7 +4663,7 @@ inform2(Config) when is_list(Config) ->
 	[
 	 {1, "Manager and agent info at start of test", Cmd1},
 	 {2, "Send notifcation [no receiver] from agent", Cmd2},
-	 {3, "await inform-sent acknowledge from agent", Cmd3},
+	 {3, "Await inform-sent acknowledge from agent", Cmd3},
 	 {4, "Await first inform to manager - do not reply", Cmd4},
 	 {5, "Await second inform to manager - reply", Cmd5},
 	 {6, "await inform-acknowledge from agent", Cmd6},
@@ -5720,6 +5806,15 @@ start_manager(Node, Vsns, Conf0, Opts) ->
 
     AtlSeqNo           = get_opt(manager_atl_seqno,            Conf0, false),
 
+    NetIfConf = 
+	case get_opt(manager_net_if_module, Conf0, no_module) of
+	    no_module ->
+		[{verbosity, NetIfVerbosity}];
+	    NetIfModule ->
+		[{module,    NetIfModule}, 
+		 {verbosity, NetIfVerbosity}]
+	end,
+
     Env = [{versions,                     Vsns},
 	   {inform_request_behaviour,     IRB},
 	   {audit_trail_log, [{type,      read_write},
@@ -5732,7 +5827,7 @@ start_manager(Node, Vsns, Conf0, Opts) ->
 			      {verbosity, ConfigVerbosity}]},
 	   {note_store,      [{verbosity, NoteStoreVerbosity}]},
 	   {server,          [{verbosity, ServerVerbosity}]},
-	   {net_if,          [{verbosity, NetIfVerbosity}]}],
+	   {net_if,          NetIfConf}],
     ?line ok = set_mgr_env(Node, Env),
 
     ?line ok = start_snmp(Node),

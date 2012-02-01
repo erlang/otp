@@ -182,8 +182,10 @@ do_init(Server, NoteStore) ->
     process_flag(priority, Prio),
 
     %% -- Create inform request table --
+    %% This should really be protected, but it also needs to 
+    %% be writable for the worker processes, so...
     ets:new(snmpm_inform_request_table,
-	    [set, protected, named_table, {keypos, 1}]),
+	    [set, public, named_table, {keypos, 1}]),
 
     %% -- Verbosity -- 
     {ok, Verbosity} = snmpm_config:system_info(net_if_verbosity),
