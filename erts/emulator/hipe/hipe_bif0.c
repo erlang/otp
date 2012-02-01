@@ -648,7 +648,7 @@ static void *hipe_get_emu_address(Eterm m, Eterm f, unsigned int arity, int is_r
 	/* if not found, stub it via the export entry */
 	/* no lock needed around erts_export_get_or_make_stub() */
 	Export *export_entry = erts_export_get_or_make_stub(m, f, arity);
-	address = export_entry->addressv[erts_staging_code_ix()];
+	address = export_entry->addressv[erts_active_code_ix()];
     }
     return address;
 }
