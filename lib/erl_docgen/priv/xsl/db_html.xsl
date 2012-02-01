@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2011. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2012. All Rights Reserved.
      #
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
@@ -39,6 +39,11 @@
   <xsl:param name="mod2app_file" select="''"/>
   <xsl:variable name="m2a" select="document($mod2app_file)"></xsl:variable>
   <xsl:key name="mod2app" match="module" use="@name"/>
+
+  <xsl:key
+        name="mfa"
+	match="func/name[string-length(@arity) > 0 and ancestor::erlref]"
+	use="concat(ancestor::erlref/module,':',@name, '/', @arity)"/>
 
   <xsl:template name="err">
     <xsl:param name="f"/>
@@ -101,10 +106,14 @@
 	</xsl:message>
       </xsl:when>
       <xsl:when test="ancestor::erlref">
+        <!-- Do not to use preceding since it is very slow! -->
+        <xsl:variable name="curModule" select="ancestor::erlref/module"/>
+        <xsl:variable name="mfas"
+                      select="key('mfa',
+                                  concat($curModule,':',$name,'/',$arity))"/>
 	<xsl:choose>
-	  <xsl:when test="preceding-sibling::name[position() = 1
-			  and @name = $name and @arity = $arity]">
-	    <!-- Avoid duplicated anchors.-->
+          <xsl:when test="generate-id($mfas[1]) != generate-id(.)">
+	    <!-- Avoid duplicated anchors. See also menu.funcs. -->
 	  </xsl:when>
 	  <xsl:otherwise>
 	    <a name="{$name}-{$arity}"></a>
@@ -1319,6 +1328,7 @@
                 <xsl:with-param name="entries"
                   select="funcs/func/name"/>
                 <xsl:with-param name="basename"><xsl:value-of select="$link_cval"/></xsl:with-param>
+                <xsl:with-param name="cval" select="$cval"/>
               </xsl:call-template>
             </ul>
           </li>
@@ -1349,6 +1359,7 @@
   <xsl:template name="menu.funcs">
     <xsl:param name="entries"/>
     <xsl:param name="basename"/>
+    <xsl:param name="cval"/>
 
     <xsl:for-each select="$entries">
 
@@ -1434,9 +1445,14 @@
             </xsl:choose>
           </xsl:variable>
 
+	  <!-- Avoid duplicated entries. See also template "spec_name" -->
+          <!-- Do not to use preceding since it is very slow! -->
+          <xsl:variable name="mfas"
+			select="key('mfa',
+				    concat($cval,':',$fname,'/',$arity))"/>
 	  <xsl:choose>
-	    <xsl:when test="preceding-sibling::name[position() = 1
-                            and @name = $fname and @arity = $arity]">
+            <xsl:when test="string-length(@name) > 0 and
+                            generate-id($mfas[1]) != generate-id(.)">
               <!-- Skip. Only works for Dialyzer specs. -->
 	    </xsl:when>
 	    <xsl:otherwise>
