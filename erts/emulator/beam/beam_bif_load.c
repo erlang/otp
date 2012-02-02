@@ -35,7 +35,7 @@
 #include "erl_nif.h"
 #include "erl_thr_progress.h"
 
-static void set_default_trace_pattern(Eterm module, ErtsCodeIndex);
+static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp);
 static void delete_code(Module* modp);
 static int purge_module(Process*, int module);
@@ -114,8 +114,10 @@ load_module_2(BIF_ALIST_2)
 	}
 	res = TUPLE2(hp, am_error, reason);
     } else {
-	set_default_trace_pattern(BIF_ARG_1, erts_staging_code_ix());
 	erts_commit_staging_code_ix();
+	if (is_blocking) {
+	    set_default_trace_pattern(BIF_ARG_1);
+	}
 	res = TUPLE2(hp, am_module, BIF_ARG_1);
     }
 
@@ -485,7 +487,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	    }
 	}
 	modp->curr.code[MI_ON_LOAD_FUNCTION_PTR] = 0;
-	set_default_trace_pattern(BIF_ARG_1, erts_active_code_ix ());
+	set_default_trace_pattern(BIF_ARG_1);
     } else if (BIF_ARG_2 == am_false) {
 	BeamInstr* code;
 	BeamInstr* end;
@@ -513,7 +515,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 }
 
 static void
-set_default_trace_pattern(Eterm module, ErtsCodeIndex code_ix)
+set_default_trace_pattern(Eterm module)
 {
     int trace_pattern_is_on;
     Binary *match_spec;
@@ -533,8 +535,7 @@ set_default_trace_pattern(Eterm module, ErtsCodeIndex code_ix)
 				      match_spec,
 				      meta_match_spec,
 				      1, trace_pattern_flags,
-				      meta_tracer_pid,
-				      code_ix);
+				      meta_tracer_pid);
     }
 }
 

@@ -1765,8 +1765,7 @@ extern int erts_call_time_breakpoint_tracing;
 int erts_set_trace_pattern(Eterm* mfa, int specified, 
 			   Binary* match_prog_set, Binary *meta_match_prog_set,
 			   int on, struct trace_pattern_flags,
-			   Eterm meta_tracer_pid,
-			   ErtsCodeIndex);
+			   Eterm meta_tracer_pid);
 void
 erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       Binary **match_spec,
