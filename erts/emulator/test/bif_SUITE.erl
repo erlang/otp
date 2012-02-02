@@ -25,7 +25,8 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
 	 display/1, display_huge/0,
-	 erl_bif_types/1,specs/1,improper_bif_stubs/1,auto_imports/1,
+	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
+	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
 	 atom_to_binary/1,min_max/1]).
@@ -33,7 +34,8 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [erl_bif_types, specs, improper_bif_stubs, auto_imports,
+    [erl_bif_types, guard_bifs_in_erl_bif_types, 
+     specs, improper_bif_stubs, auto_imports,
      t_list_to_existing_atom, os_env, otp_7526,
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
@@ -88,16 +90,8 @@ deeep(N) ->
     deeep(N,[hello]).
 
 erl_bif_types(Config) when is_list(Config) ->
-    c:l(erl_bif_types),
-    case erlang:function_exported(erl_bif_types, module_info, 0) of
-	false ->
-	    %% Fail cleanly.
-	    ?line ?t:fail("erl_bif_types not compiled");
-	true ->
-	    erl_bif_types_1()
-    end.
+    ensure_erl_bif_types_compiled(),
 
-erl_bif_types_1() ->
     List0 = erlang:system_info(snifs),
 
     %% Ignore missing type information for hipe BIFs.
@@ -145,6 +139,37 @@ erl_bif_types_3(List) ->
 			 "(or with bogus return values):\n"),
 	    io:format("~p\n", [BadSmokeTest]),
 	    ?line ?t:fail({length(BadSmokeTest),bad_smoke_test})
+    end.
+
+guard_bifs_in_erl_bif_types(_Config) ->
+    ensure_erl_bif_types_compiled(),
+
+    List0 = erlang:system_info(snifs),
+    List = [{F,A} || {erlang,F,A} <- List0,
+		     erl_internal:guard_bif(F, A)],
+    Not = [FA || {F,A}=FA <- List,
+		 not erl_bif_types:is_known(erlang, F, A)],
+    case Not of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars(
+	      ["Dialyzer requires that all guard BIFs "
+	       "have type information in erl_bif_types.\n\n"
+	       "The following guard BIFs have no type information "
+	       "in erl_bif_types:\n\n",
+	       [io_lib:format("  ~p/~p\n", [F,A]) || {F,A} <- Not]]),
+	    ?t:fail()
+    end.
+
+ensure_erl_bif_types_compiled() ->
+    c:l(erl_bif_types),
+    case erlang:function_exported(erl_bif_types, module_info, 0) of
+	false ->
+	    %% Fail cleanly.
+	    ?t:fail("erl_bif_types not compiled");
+	true ->
+	    ok
     end.
 
 known_types({M,F,A}) ->
