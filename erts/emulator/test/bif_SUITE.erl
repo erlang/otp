@@ -26,6 +26,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 display/1, display_huge/0,
 	 erl_bif_types/1,guard_bifs_in_erl_bif_types/1,
+	 shadow_comments/1,
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
@@ -34,7 +35,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [erl_bif_types, guard_bifs_in_erl_bif_types, 
+    [erl_bif_types, guard_bifs_in_erl_bif_types, shadow_comments,
      specs, improper_bif_stubs, auto_imports,
      t_list_to_existing_atom, os_env, otp_7526,
      display,
@@ -161,6 +162,74 @@ guard_bifs_in_erl_bif_types(_Config) ->
 	       [io_lib:format("  ~p/~p\n", [F,A]) || {F,A} <- Not]]),
 	    ?t:fail()
     end.
+
+shadow_comments(_Config) ->
+    ensure_erl_bif_types_compiled(),
+
+    List0 = erlang:system_info(snifs),
+    List1 = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
+    List = [MFA || MFA <- List1, not is_operator(MFA)],
+    HasTypes = [MFA || {M,F,A}=MFA <- List,
+		       erl_bif_types:is_known(M, F, A)],
+    Path = get_code_path(),
+    BifRel = sofs:relation(HasTypes, [{m,f,a}]),
+    BifModules = sofs:to_external(sofs:projection(1, BifRel)),
+    AbstrByModule = [extract_abstract(Mod, Path) || Mod <- BifModules],
+    Specs0 = [extract_specs(Mod, Abstr) ||
+		 {Mod,Abstr} <- AbstrByModule],
+    Specs = lists:append(Specs0),
+    SpecFuns0 = [F || {F,_} <- Specs],
+    SpecFuns = sofs:relation(SpecFuns0, [{m,f,a}]),
+    HasTypesAndSpecs = sofs:intersection(BifRel, SpecFuns),
+    Commented0 = lists:append([extract_comments(Mod, Path) ||
+				  Mod <- BifModules]),
+    Commented = sofs:relation(Commented0, [{m,f,a}]),
+    {NoComments0,_,NoBifSpecs0} =
+	sofs:symmetric_partition(HasTypesAndSpecs, Commented),
+    NoComments = sofs:to_external(NoComments0),
+    NoBifSpecs = sofs:to_external(NoBifSpecs0),
+
+    case NoComments of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars(
+	      ["If a BIF stub has both a spec and has type information in "
+	       "erl_bif_types, there *must*\n"
+	       "be a comment in the source file to make that immediately "
+	       "obvious.\n\nThe following comments are missing:\n\n",
+	       [io_lib:format("%% Shadowed by erl_bif_types: ~p:~p/~p\n",
+			      [M,F,A]) || {M,F,A} <- NoComments]]),
+	    ?t:fail()
+    end,
+
+    case NoBifSpecs of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars(
+	      ["The following functions have \"shadowed\" comments "
+	       "claiming that there is type information in erl_bif_types,\n"
+	       "but actually there is no such type information.\n\n"
+	       "Therefore, the following comments should be removed:\n\n",
+	       [io_lib:format("%% Shadowed by erl_bif_types: ~p:~p/~p\n",
+			      [M,F,A]) || {M,F,A} <- NoBifSpecs]]),
+	    ?t:fail()
+    end.
+
+extract_comments(Mod, Path) ->
+    Beam = which(Mod, Path),
+    SrcDir = filename:join(filename:dirname(filename:dirname(Beam)), "src"),
+    Src = filename:join(SrcDir, atom_to_list(Mod) ++ ".erl"),
+    {ok,Bin} = file:read_file(Src),
+    Lines0 = binary:split(Bin, <<"\n">>, [global]),
+    Lines1 = [T || <<"%% Shadowed by erl_bif_types: ",T/binary>> <- Lines0],
+    {ok,ReMFA} = re:compile("([^:]*):([^/]*)/(\\d*)"),
+    Lines = [L || L <- Lines1, re:run(L, ReMFA, [{capture,[]}]) =:= match],
+    [begin
+	 {match,[M,F,A]} = re:run(L, ReMFA, [{capture,all_but_first,list}]),
+	 {list_to_atom(M),list_to_atom(F),list_to_integer(A)}
+     end || L <- Lines].
 
 ensure_erl_bif_types_compiled() ->
     c:l(erl_bif_types),
