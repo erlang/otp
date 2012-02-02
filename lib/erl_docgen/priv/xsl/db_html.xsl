@@ -555,6 +555,23 @@
 
   <!-- End of Dialyzer type/spec tags -->
 
+  <!-- Cache for each module all the elements used for navigation. -->
+  <xsl:variable name="erlref.nav" select="exsl:node-set($erlref.nav_rtf)"/>
+
+  <xsl:variable name="erlref.nav_rtf">
+    <xsl:for-each select="//erlref">
+      <xsl:variable name="cval" select="module"/>
+      <xsl:variable name="link_cval"><xsl:value-of select="translate($cval, '&#173;', '')"/></xsl:variable>
+      <module name="{$cval}">
+	<xsl:call-template name="menu.funcs">
+	  <xsl:with-param name="entries" select="funcs/func/name"/>
+	  <xsl:with-param name="cval" select="$cval"/>
+	  <xsl:with-param name="basename" select="$link_cval"/>
+	</xsl:call-template>
+      </module>
+    </xsl:for-each>
+  </xsl:variable>
+
   <!-- Page layout -->
   <xsl:template name="pagelayout">
     <xsl:param name="chapnum"/>
@@ -1324,12 +1341,25 @@
                   Top of manual page
                 </a>
               </li>
-              <xsl:call-template name="menu.funcs">
-                <xsl:with-param name="entries"
-                  select="funcs/func/name"/>
-                <xsl:with-param name="basename"><xsl:value-of select="$link_cval"/></xsl:with-param>
-                <xsl:with-param name="cval" select="$cval"/>
-              </xsl:call-template>
+              <xsl:call-template name="nl"/>
+                <xsl:choose>
+                  <xsl:when test="local-name() = 'erlref'">
+	            <!-- Use the cached value in order to save time.
+                         value-of a string node is _much_ faster than
+			 copy-of a rtf -->
+		    <xsl:value-of
+		         disable-output-escaping="yes"
+			 select="$erlref.nav/module[@name = $cval]"/>
+                  </xsl:when>
+                  <xsl:otherwise>
+		    <xsl:call-template name="menu.funcs">
+		      <xsl:with-param name="entries"
+			select="funcs/func/name"/>
+		      <xsl:with-param name="basename"><xsl:value-of select="$link_cval"/></xsl:with-param>
+		      <xsl:with-param name="cval" select="$cval"/>
+		    </xsl:call-template>
+                  </xsl:otherwise>
+                </xsl:choose>
             </ul>
           </li>
         </xsl:when>
@@ -1456,11 +1486,30 @@
               <!-- Skip. Only works for Dialyzer specs. -->
 	    </xsl:when>
 	    <xsl:otherwise>
+<!--
 	      <li title="{$fname}-{$arity}">
 		<a href="{$basename}.html#{$fname}-{$arity}">
 		  <xsl:value-of select="$fname"/>/<xsl:value-of select="$arity"/>
 		</a>
 	      </li>
+-->
+	      <!-- Generate a text node -->
+	      <xsl:text>&lt;li title="</xsl:text>
+	      <xsl:value-of select="$fname"/>
+	      <xsl:text>-</xsl:text>
+	      <xsl:value-of select="$arity"/>
+	      <xsl:text>">&lt;a href="</xsl:text>
+	      <xsl:value-of select="$basename"/>
+	      <xsl:text>.html#</xsl:text>
+	      <xsl:value-of select="$fname"/>
+	      <xsl:text>-</xsl:text>
+	      <xsl:value-of select="$arity"/>
+	      <xsl:text>"></xsl:text>
+	      <xsl:value-of select="$fname"/>
+	      <xsl:text>/</xsl:text>
+	      <xsl:value-of select="$arity"/>
+	      <xsl:text>&lt;/a>&lt;/li></xsl:text>
+              <xsl:call-template name="nl"/>
 	    </xsl:otherwise>
 	  </xsl:choose>
         </xsl:when>
@@ -2224,6 +2273,11 @@
       </xsl:otherwise>
     </xsl:choose>
 
+  </xsl:template>
+
+  <xsl:template name="nl">
+    <xsl:text>
+</xsl:text>
   </xsl:template>
 
 </xsl:stylesheet>
