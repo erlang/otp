@@ -90,7 +90,7 @@ end_per_suite(Config) ->
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
     PrivDir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
+    SystemDir = filename:join(PrivDir, system),
 
     Options =
 	case atom_to_list(TestCase) of
@@ -98,7 +98,7 @@ init_per_testcase(TestCase, Config) ->
 		Spec =
 		    ssh_sftpd:subsystem_spec([{file_handler,
 					       ssh_sftpd_file_alt}]),
-		[{system_dir, DataDir},
+		[{system_dir, SystemDir},
 		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
 	    "root_dir" ->
@@ -106,19 +106,19 @@ init_per_testcase(TestCase, Config) ->
 		Root = filename:join(Privdir, root),
 		file:make_dir(Root),
 		Spec = ssh_sftpd:subsystem_spec([{root,Root}]),
-		[{system_dir, DataDir},
+		[{system_dir, SystemDir},
 		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
 	    "list_dir_limited" ->
 		Spec =
 		    ssh_sftpd:subsystem_spec([{max_files,1}]),
-		[{system_dir, DataDir},
+		[{system_dir, SystemDir},
 		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
 
 	    _ ->
 		[{user_dir, PrivDir},
-		 {system_dir, DataDir}]
+		 {system_dir, SystemDir}]
 	end,
 
     {Sftpd, Host, Port} = ssh_test_lib:daemon(Options),

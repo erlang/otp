@@ -76,7 +76,6 @@ end_per_suite(_Config) ->
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-    test_server:format("Init per test case~n", []),
     ssh:start(),
     Config.
 

@@ -39,12 +39,8 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    test_server:format("Init per suite", []),
     case catch crypto:start() of
 	ok ->
-	    DataDir = ?config(data_dir, Config),	    
-	    PrivDir = ?config(priv_dir, Config), 
-	    ssh_test_lib:setup_dsa(DataDir, PrivDir),
 	    Config;
 	_Else ->
 	    {skip, "Crypto could not be started!"}
@@ -56,10 +52,7 @@ init_per_suite(Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
-end_per_suite(Config) ->
-    test_server:format("End per suite", []),
-    PrivDir = ?config(priv_dir, Config),
-    ssh_test_lib:clean_dsa(PrivDir),
+end_per_suite(_Config) ->
     ssh:stop(),
     crypto:stop(),
     ok.
@@ -93,9 +86,9 @@ init_per_testcase(_TestCase, Config) ->
 end_per_testcase(TestCase, Config) when TestCase == server_password_option;
 					TestCase == server_userpassword_option ->
     UserDir = filename:join(?config(priv_dir, Config), nopubkey),
-    file:del_dir(UserDir),
+    ssh_test_lib:del_dirs(UserDir),
     end_per_testcase(Config);
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(TestCase, Config) ->
     end_per_testcase(Config).
 end_per_testcase(_Config) ->    
     ssh:stop(),
@@ -110,18 +103,39 @@ end_per_testcase(_Config) ->
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
 all() -> 
-    [exec, exec_compressed, shell, daemon_already_started, 
-     server_password_option, server_userpassword_option,
-     known_hosts].
+    [{group, dsa_key},
+     {group, rsa_key},
+     daemon_already_started,
+     server_password_option, server_userpassword_option].
 
 groups() -> 
-    [].
+    [{dsa_key, [], [exec, exec_compressed, shell, known_hosts]},
+     {rsa_key, [], [exec, exec_compressed, shell, known_hosts]}
+    ].
 
-init_per_group(_GroupName, Config) ->
-	Config.
+init_per_group(dsa_key, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    Config;
+init_per_group(rsa_key, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    Config;
+init_per_group(_, Config) ->
+    Config.
 
-end_per_group(_GroupName, Config) ->
-	Config.
+end_per_group(dsa_key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(PrivDir),
+    Config;
+end_per_group(rsa_key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_rsa(PrivDir),
+    Config;
+end_per_group(_, Config) ->
+    Config.
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
@@ -133,7 +147,7 @@ exec(suite) ->
 
 exec(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
     
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
@@ -179,7 +193,7 @@ exec_compressed(suite) ->
 
 exec_compressed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config), 
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
@@ -213,7 +227,7 @@ shell(suite) ->
 
 shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    SystemDir = ?config(data_dir, Config),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
@@ -378,10 +392,10 @@ known_hosts(doc) ->
 known_hosts(suite) ->
     [];
 known_hosts(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config), 
+    SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config), 
     
-    {Pid, Host, Port} = ssh_test_lib:daemon([{user_dir, PrivDir},{system_dir, DataDir},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{user_dir, PrivDir},{system_dir, SystemDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
 
     KnownHosts = filename:join(PrivDir, "known_hosts"),

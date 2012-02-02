@@ -100,9 +100,10 @@ init_per_testcase(TestCase, Config) ->
     prep(Config),
     PrivDir = ?config(priv_dir, Config),
     ClientUserDir = filename:join(PrivDir, nopubkey),
-    SysDir = ?config(data_dir, Config),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+
     {ok, Sftpd} =
-	ssh_sftpd:listen(?SFPD_PORT, [{system_dir, SysDir},
+	ssh_sftpd:listen(?SFPD_PORT, [{system_dir, SystemDir},
 				      {user_dir, PrivDir},
 				      {user_passwords,[{?USER, ?PASSWD}]},
 				      {pwdfun, fun(_,_) -> true end}]),

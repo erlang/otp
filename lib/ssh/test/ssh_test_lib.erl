@@ -220,16 +220,41 @@ known_hosts(BR) ->
 
 setup_dsa(DataDir, UserDir) ->
     file:copy(filename:join(DataDir, "id_dsa"), filename:join(UserDir, "id_dsa")),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
+    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
     setup_dsa_known_host(DataDir, UserDir),
     setup_dsa_auth_keys(DataDir, UserDir).
     
+setup_rsa(DataDir, UserDir) ->
+    file:copy(filename:join(DataDir, "id_rsa"), filename:join(UserDir, "id_rsa")),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
+    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key.pub")),
+    setup_rsa_known_host(DataDir, UserDir),
+    setup_rsa_auth_keys(DataDir, UserDir).
+
 clean_dsa(UserDir) ->
+    del_dirs(filename:join(UserDir, "system")),
     file:delete(filename:join(UserDir,"id_dsa")),
+    file:delete(filename:join(UserDir,"known_hosts")),
+    file:delete(filename:join(UserDir,"authorized_keys")).
+
+clean_rsa(UserDir) ->
+    del_dirs(filename:join(UserDir, "system")),
+    file:delete(filename:join(UserDir,"id_rsa")),
     file:delete(filename:join(UserDir,"known_hosts")),
     file:delete(filename:join(UserDir,"authorized_keys")).
 
 setup_dsa_known_host(SystemDir, UserDir) ->
     {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_dsa_key.pub")),
+    [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
+    setup_known_hosts(Key, UserDir).
+
+setup_rsa_known_host(SystemDir, UserDir) ->
+    {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_rsa_key.pub")),
     [{Key, _}] = public_key:ssh_decode(SshBin, public_key),
     setup_known_hosts(Key, UserDir).
 
@@ -253,7 +278,34 @@ setup_dsa_auth_keys(Dir, UserDir) ->
     Dss = #'Dss-Parms'{p=P, q=Q, g=G},
     setup_auth_keys([{{PKey, Dss}, [{comment, "Test"}]}], UserDir).
 
+setup_rsa_auth_keys(Dir, UserDir) ->
+    {ok, Pem} = file:read_file(filename:join(Dir, "id_rsa")),
+    RSA = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
+    #'RSAPrivateKey'{publicExponent = E, modulus = N} = RSA,
+    PKey = #'RSAPublicKey'{publicExponent = E, modulus = N},
+    setup_auth_keys([{ PKey, [{comment, "Test"}]}], UserDir).
+
 setup_auth_keys(Keys, Dir) ->
     AuthKeys = public_key:ssh_encode(Keys, auth_keys),
     AuthKeysFile = filename:join(Dir, "authorized_keys"),
     file:write_file(AuthKeysFile, AuthKeys).
+
+
+del_dirs(Dir) ->
+    case file:list_dir(Dir) of
+	{ok, []} ->
+	    file:del_dir(Dir);
+	{ok, Files} ->
+	    lists:foreach(fun(File) ->
+				  FullPath = filename:join(Dir,File),
+				  case filelib:is_dir(FullPath) of
+				      true ->
+					  del_dirs(FullPath),
+					  file:del_dir(FullPath);
+				      false ->
+					  file:delete(FullPath)
+				  end
+			  end, Files);
+	_ ->
+	    ok
+    end.

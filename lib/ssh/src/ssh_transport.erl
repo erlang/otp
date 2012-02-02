@@ -203,24 +203,24 @@ key_exchange_init_msg(Ssh0) ->
     {SshPacket, Ssh} = ssh_packet(Msg, Ssh0),
     {Msg, SshPacket, Ssh}.
 
-kex_init(#ssh{role = Role, opts = Opts}) ->
+kex_init(#ssh{role = Role, opts = Opts, available_host_keys = HostKeyAlgs}) ->
     Random = ssh_bits:random(16),
     Compression = case proplists:get_value(compression, Opts, none) of
 		      zlib -> ["zlib", "none"];
 		      none -> ["none", "zlib"]
 		  end,
-    kexinit_messsage(Role, Random, Compression).
+    kexinit_messsage(Role, Random, Compression, HostKeyAlgs).
 
 key_init(client, Ssh, Value) ->
     Ssh#ssh{c_keyinit = Value};
 key_init(server, Ssh, Value) ->
     Ssh#ssh{s_keyinit = Value}.
 
-kexinit_messsage(client, Random, Compression) ->
+kexinit_messsage(client, Random, Compression, HostKeyAlgs) ->
     #ssh_msg_kexinit{ 
 		  cookie = Random,
 		  kex_algorithms = ["diffie-hellman-group1-sha1"],
-		  server_host_key_algorithms = ["ssh-rsa", "ssh-dss"],
+		  server_host_key_algorithms = HostKeyAlgs,
 		  encryption_algorithms_client_to_server = ["aes128-cbc","3des-cbc"],
 		  encryption_algorithms_server_to_client = ["aes128-cbc","3des-cbc"],
 		  mac_algorithms_client_to_server = ["hmac-sha1"],
@@ -231,11 +231,11 @@ kexinit_messsage(client, Random, Compression) ->
 		  languages_server_to_client = []
 		 };
 
-kexinit_messsage(server, Random, Compression) ->
+kexinit_messsage(server, Random, Compression, HostKeyAlgs) ->
     #ssh_msg_kexinit{
 		  cookie = Random,
 		  kex_algorithms = ["diffie-hellman-group1-sha1"],
-		  server_host_key_algorithms = ["ssh-dss"],
+		  server_host_key_algorithms = HostKeyAlgs,
 		  encryption_algorithms_client_to_server = ["aes128-cbc","3des-cbc"],
 		  encryption_algorithms_server_to_client = ["aes128-cbc","3des-cbc"],
 		  mac_algorithms_client_to_server = ["hmac-sha1"],
@@ -426,8 +426,8 @@ get_host_key(SSH) ->
 		Error ->
 		    exit(Error)
 	    end;
-	_ ->
-	    exit({error, bad_key_type})
+	Foo ->
+	    exit({error, {Foo, bad_key_type}})
     end.
 
 sign_host_key(_Ssh, #'RSAPrivateKey'{} = Private, H) ->

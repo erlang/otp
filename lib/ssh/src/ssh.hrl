@@ -126,7 +126,8 @@
 	  userauth_quiet_mode,              %  boolean()
 	  userauth_supported_methods , %  
 	  userauth_methods,
-	  userauth_preference	  
+	  userauth_preference,
+	  available_host_keys
 	 }).
 
 -record(alg,

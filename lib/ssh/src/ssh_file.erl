@@ -30,7 +30,8 @@
 
 -export([public_host_dsa_key/2,private_host_dsa_key/2,
 	 public_host_rsa_key/2,private_host_rsa_key/2,
-	 public_host_key/2,private_host_key/2,
+	 %%public_host_key/2,
+	 private_host_key/2,
 	 lookup_host_key/3, add_host_key/3,
 	 lookup_user_key/4, ssh_dir/2, file_name/3]).
 
@@ -62,9 +63,9 @@ private_host_rsa_key(Type, Opts) ->
     Password = proplists:get_value(password, Opts, ignore),
     decode(File, Password).
 
-public_host_key(Type, Opts) ->
-    File = file_name(Type, "ssh_host_key", Opts),
-    decode(File, public_key).
+%% public_host_key(Type, Opts) ->
+%%     File = file_name(Type, "ssh_host_key", Opts),
+%%     decode(File, public_key).
  
 private_host_key(Type, Opts) ->
     File = file_name(Type, "ssh_host_key", Opts),
