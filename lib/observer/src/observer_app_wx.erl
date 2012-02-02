@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -106,6 +106,7 @@ init([Notebook, Parent]) ->
     LinkPen  = wxPen:new(SelCol, [{width, 2}]),
     %%  GC = wxGraphicsContext:create(DrawingArea),
     %%  _Font = wxGraphicsContext:createFont(GC, DefFont),
+    process_flag(trap_exit, true),
     {Panel, #state{parent=Parent,
 		   panel =Panel,
 		   apps_w=Apps,
@@ -269,6 +270,10 @@ handle_info({delivery, Pid, app, Curr, AppData},
     wxWindow:layout(Panel),
     {noreply, State#state{app=App, sel=undefined}};
 
+handle_info({'EXIT', _, noconnection}, State) ->
+    {noreply, State};
+handle_info({'EXIT', _, normal}, State) ->
+    {noreply, State};
 handle_info(_Event, State) ->
     %% io:format("~p:~p: ~p~n",[?MODULE,?LINE,_Event]),
     {noreply, State}.

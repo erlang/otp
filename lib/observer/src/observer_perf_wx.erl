@@ -108,14 +108,15 @@ handle_event(Event, _State) ->
 
 %%%%%%%%%%
 handle_sync_event(#wx{id=Id, event = #wxPaint{}},_,
-		  #state{offset=Offset, paint=Paint, windows=Windows, data=Data}) ->
+		  #state{active=Active, offset=Offset, paint=Paint,
+			 windows=Windows, data=Data}) ->
     %% PaintDC must be created in a callback to work on windows.
     Panel = element(Id, Windows),
     DC = wxPaintDC:new(Panel),
     %% Nothing is drawn until wxPaintDC is destroyed.
-    try draw(Offset, Id, DC, Panel, Paint, Data)
+    try draw(Offset, Id, DC, Panel, Paint, Data, Active)
     catch _:Err ->
-	    io:format("Crash ~p ~p~n",[Err, erlang:get_stacktrace()])
+	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
     wxPaintDC:destroy(DC),
     ok.
@@ -149,15 +150,17 @@ handle_info({refresh, Seq, Freq}, State = #state{panel=Panel, offset=Prev}) ->
 	    {noreply, State#state{offset=Seq/Freq}}
     end;
 
-handle_info({active, Node}, State = #state{parent=Parent, appmon=Old}) ->
+handle_info({active, Node}, State = #state{parent=Parent, panel=Panel, appmon=Old}) ->
     create_menus(Parent, []),
     try
 	Node = node(Old),
+	wxWindow:refresh(Panel),
 	{noreply, State#state{active=true}}
     catch _:_ ->
 	    catch Old ! exit,
 	    Me = self(),
 	    Pid = spawn_link(Node, observer_backend, fetch_stats, [Me, 1000]),
+	    wxWindow:refresh(Panel),
 	    {noreply, State#state{active=true, appmon=Pid, data={0, queue:new()}}}
     end;
 
@@ -169,7 +172,7 @@ handle_info({'EXIT', Old, _}, State = #state{appmon=Old}) ->
     {noreply, State#state{active=false, appmon=undefined}};
 
 handle_info(_Event, State) ->
-    io:format("~p:~p: ~p~n",[?MODULE,?LINE,_Event]),
+    %% io:format("~p:~p: ~p~n",[?MODULE,?LINE,_Event]),
     {noreply, State}.
 
 %%%%%%%%%%
@@ -238,7 +241,10 @@ calc_delta([{Id, WN, TN}|Ss], [{Id, WP, TP}|Ps]) ->
 calc_delta([], []) -> [].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens}, Data) ->
+draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) ->
+    %% This can be optimized a lot by collecting data once
+    %% and draw to memory and then blit memory and only draw new entries in new memory
+    %% area.
     {Len, Max0, Hs} = collect_data(Id, Data),
     Max = calc_max(Max0),
     NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
@@ -250,11 +256,20 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens}, Data) ->
 	_ ->
 	    Draw = fun(N) ->
 			   Lines = make_lines(Hs, Start, N, {X0,round(Max*HS)}, Y0, WS, HS),
-			   wxDC:setPen(DC, element(1+ (N-1 rem tuple_size(Pens)) , Pens)),
+			   wxDC:setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
 			   wxDC:drawLines(DC, Lines),
 			   N+1
 		   end,
 	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)]
+    end,
+    case Active of
+	false ->
+	    NotActive = "Service not available",
+	    wxDC:setTextForeground(DC, {0,0,0}),
+	    wxDC:setFont(DC, Small),
+	    wxDC:drawText(DC, NotActive, {X0 + 100, element(2,Size) div 2});
+	true ->
+	    ignore
     end,
     ok.
 
@@ -393,7 +408,8 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
 		   if PenId == 0 ->
 			   wxDC:setTextForeground(DC, {0,0,0});
 		      PenId > 0 ->
-			   wxDC:setTextForeground(DC, element(PenId, colors()))
+			   Id = 1 + ((PenId-1) rem tuple_size(colors())),
+			   wxDC:setTextForeground(DC, element(Id, colors()))
 		   end,
 		   wxDC:drawText(DC, Str, {X, Y}),
 		   {StrW, _} = wxDC:getTextExtent(DC, Str),
