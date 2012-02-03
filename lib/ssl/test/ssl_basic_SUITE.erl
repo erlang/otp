@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -250,6 +250,8 @@ all() ->
      no_authority_key_identifier, invalid_signature_client,
      invalid_signature_server, cert_expired,
      client_with_cert_cipher_suites_handshake,
+     verify_fun_always_run_client,
+     verify_fun_always_run_server,
      unknown_server_ca_fail, der_input,
      unknown_server_ca_accept_verify_none,
      unknown_server_ca_accept_verify_peer,
@@ -3217,6 +3219,105 @@ client_with_cert_cipher_suites_handshake(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+verify_fun_always_run_client(doc) ->
+    ["Verify that user verify_fun is always run (for valid and valid_peer not only unknown_extension)"];
+verify_fun_always_run_client(suite) ->
+    [];
+verify_fun_always_run_client(Config) when is_list(Config) ->
+    ClientOpts =  ?config(client_verification_opts, Config),
+    ServerOpts =  ?config(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options, ServerOpts}]),
+    Port  = ssl_test_lib:inet_port(Server),
+
+    %% If user verify fun is called correctly we fail the connection.
+    %% otherwise we can not tell this case apart form where we miss
+    %% to call users verify fun
+    FunAndState =  {fun(_,{extension, _}, UserState) ->
+			    {unknown, UserState};
+		       (_, valid, [ChainLen]) ->
+			    {valid, [ChainLen + 1]};
+		       (_, valid_peer, [2]) ->
+			    {fail, "verify_fun_was_always_run"};
+		       (_, valid_peer, UserState) ->
+			    {valid, UserState}
+		    end, [0]},
+
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options,
+					       [{verify, verify_peer},
+						{verify_fun, FunAndState}
+						| ClientOpts]}]),
+    %% Server error may be esslaccept or closed depending on timing
+    %% this is not a bug it is a circumstance of how tcp works!
+    receive
+	{Server, ServerError} ->
+	    test_server:format("Server Error ~p~n", [ServerError])
+    end,
+
+    ssl_test_lib:check_result(Client, {error, esslconnect}).
+
+%%--------------------------------------------------------------------
+verify_fun_always_run_server(doc) ->
+    ["Verify that user verify_fun is always run (for valid and valid_peer not only unknown_extension)"];
+verify_fun_always_run_server(suite) ->
+    [];
+verify_fun_always_run_server(Config) when is_list(Config) ->
+    ClientOpts =  ?config(client_verification_opts, Config),
+    ServerOpts =  ?config(server_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% If user verify fun is called correctly we fail the connection.
+    %% otherwise we can not tell this case apart form where we miss
+    %% to call users verify fun
+    FunAndState =  {fun(_,{extension, _}, UserState) ->
+			    {unknown, UserState};
+		       (_, valid, [ChainLen]) ->
+			    {valid, [ChainLen + 1]};
+		       (_, valid_peer, [2]) ->
+			    {fail, "verify_fun_was_always_run"};
+		       (_, valid_peer, UserState) ->
+			    {valid, UserState}
+		    end, [0]},
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options,
+					       [{verify, verify_peer},
+						{verify_fun, FunAndState} |
+						ServerOpts]}]),
+    Port  = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+					      {mfa, {ssl_test_lib,
+						     no_result, []}},
+					      {options,
+					       [{verify, verify_peer}
+						| ClientOpts]}]),
+
+    %% Client error may be esslconnect or closed depending on timing
+    %% this is not a bug it is a circumstance of how tcp works!
+    receive
+	{Client, ClientError} ->
+	    test_server:format("Client Error ~p~n", [ClientError])
+    end,
+
+    ssl_test_lib:check_result(Server, {error, esslaccept}).
+
 %%--------------------------------------------------------------------
 unknown_server_ca_fail(doc) ->
     ["Test that the client fails if the ca is unknown in verify_peer mode"];
