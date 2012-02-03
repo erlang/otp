@@ -345,7 +345,13 @@ handle_options([Opt | Rest], SockOpts, Opts) ->
 inetopt(true) ->
     inet;
 inetopt(false) ->
-    inet6.
+    case gen_tcp:listen(0, [inet6, {ip, loopback}]) of
+	{ok, Dummyport} ->
+	    gen_tcp:close(Dummyport),
+	    inet6;
+	_ ->
+	    inet
+    end.
 
 %%%
 %% Deprecated
