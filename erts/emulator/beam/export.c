@@ -44,10 +44,10 @@ static erts_smp_atomic_t total_entries_bytes;
 
 #include "erl_smp.h"
 
-erts_smp_rwmtx_t export_table_lock; /* Locks the secondary export table. */
+erts_smp_rwmtx_t export_staging_lock; /* Locks the staging export table. */
 
-#define export_read_lock()	erts_smp_rwmtx_rlock(&export_table_lock)
-#define export_read_unlock()	erts_smp_rwmtx_runlock(&export_table_lock)
+#define export_read_lock()	erts_smp_rwmtx_rlock(&export_staging_lock)
+#define export_read_unlock()	erts_smp_rwmtx_runlock(&export_staging_lock)
 
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_call_traced_function;
@@ -180,7 +180,7 @@ init_export_table(void)
     rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&export_table_lock, &rwmtx_opt, "export_tab");
+    erts_smp_rwmtx_init_opt(&export_staging_lock, &rwmtx_opt, "export_tab");
     erts_smp_atomic_init_nob(&total_entries_bytes, 0);
 
     f.hash = (H_FUN) export_hash;

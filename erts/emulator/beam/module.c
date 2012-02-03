@@ -163,7 +163,7 @@ int module_table_sz(void)
 static ErtsCodeIndex dbg_load_code_ix = 0;
 #endif
 
-static int entries_at_start_load = 0;
+static int entries_at_start_staging = 0;
 
 void module_start_staging(void)
 {
@@ -199,8 +199,8 @@ void module_start_staging(void)
 	dst_mod->curr = src_mod->curr;
 	dst_mod->old = src_mod->old;
     }
-    entries_at_start_load = dst->entries;
 
+    entries_at_start_staging = dst->entries;
     IF_DEBUG(dbg_load_code_ix = erts_staging_code_ix());
 }
 
@@ -211,8 +211,8 @@ void module_end_staging(int commit)
     if (!commit) { /* abort */
 	IndexTable* tab = &module_tables[erts_staging_code_ix()];
 
-	ASSERT(entries_at_start_load <= tab->entries);
-	index_erase_latest_from(tab, entries_at_start_load);
+	ASSERT(entries_at_start_staging <= tab->entries);
+	index_erase_latest_from(tab, entries_at_start_staging);
     }
 
     IF_DEBUG(dbg_load_code_ix = -1);
