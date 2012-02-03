@@ -71,6 +71,7 @@ Export* erts_export_get_or_make_stub(Eterm, Eterm, unsigned);
 Export *export_list(int,ErtsCodeIndex);
 int export_list_size(ErtsCodeIndex);
 int export_table_sz(void);
+int export_entries_sz(void);
 Export *export_get(Export*);
 void export_start_staging(void);
 void export_end_staging(int commit);

@@ -40,6 +40,8 @@
 
 static IndexTable export_tables[ERTS_NUM_CODE_IX];  /* Active not locked */
 
+static erts_smp_atomic_t total_entries_bytes;
+
 #include "erl_smp.h"
 
 erts_smp_rwmtx_t export_table_lock; /* Locks the secondary export table. */
@@ -126,6 +128,7 @@ export_alloc(struct export_entry* tmpl_e)
 	Export* obj;
 
 	blob = (struct export_blob*) erts_alloc(ERTS_ALC_T_EXPORT, sizeof(*blob));
+	erts_smp_atomic_add_nob(&total_entries_bytes, sizeof(*blob));
 	obj = &blob->exp;
 	obj->fake_op_func_info_for_hipe[0] = 0;
 	obj->fake_op_func_info_for_hipe[1] = 0;
@@ -165,6 +168,7 @@ export_free(struct export_entry* obj)
 	}
     }
     erts_free(ERTS_ALC_T_EXPORT, blob);
+    erts_smp_atomic_add_nob(&total_entries_bytes, -sizeof(*blob));
 }
 
 void
@@ -177,6 +181,7 @@ init_export_table(void)
     rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
     erts_smp_rwmtx_init_opt(&export_table_lock, &rwmtx_opt, "export_tab");
+    erts_smp_atomic_init_nob(&total_entries_bytes, 0);
 
     f.hash = (H_FUN) export_hash;
     f.cmp  = (HCMP_FUN) export_cmp;
@@ -353,9 +358,19 @@ int export_list_size(ErtsCodeIndex code_ix)
 
 int export_table_sz(void)
 {
-    return index_table_sz(&export_tables[erts_active_code_ix()]);
-}
+    int i, bytes = 0;
 
+    export_read_lock();
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	bytes += index_table_sz(&export_tables[i]);
+    }
+    export_read_unlock();
+    return bytes;
+}
+int export_entries_sz(void)
+{
+    return erts_smp_atomic_read_nob(&total_entries_bytes);
+}
 Export *export_get(Export *e)
 {
     struct export_entry ee;
