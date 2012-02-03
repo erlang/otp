@@ -44,7 +44,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case crypto:start() of
+    case (catch crypto:start()) of
 	ok ->
 	    ssh:start(),
 	    Config;
