@@ -1618,6 +1618,10 @@ os_prompt%</pre>
       <fsummary>Convert from text representation to an atom</fsummary>
       <desc>
         <p>Returns the atom whose text representation is <c><anno>String</anno></c>.</p>
+	<p><c><anno>String</anno></c> may only contain ISO-latin-1
+	characterns (i.e. numbers below 256) as the current
+	implementation does not allow unicode characters >= 256 in
+	atoms.</p>
         <pre>
 > <input>list_to_atom("Erlang").</input>
 'Erlang'</pre>
