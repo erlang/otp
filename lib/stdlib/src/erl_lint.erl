@@ -112,6 +112,10 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 	       on_load=[] :: [fa()],		%On-load function
 	       on_load_line=erl_anno:new(0)	%Line for on_load
                    :: erl_anno:anno(),
+               atoms=undefined                  %Declared atoms
+                   :: undefined
+                    | gb_sets:set(atom()),
+               typedef=false,                   %true for specs inside a -type
 	       clashes=[],			%Exported functions named as BIFs
                not_deprecated=[],               %Not considered deprecated
                func=[],                         %Current function
@@ -154,8 +158,6 @@ format_error(redefine_module) ->
     "redefining module";
 format_error(pmod_unsupported) ->
     "parameterized modules are no longer supported";
-%% format_error({redefine_mod_import, M, P}) ->
-%%     io_lib:format("module '~s' already imported from package '~s'", [M, P]);
 
 format_error(invalid_call) ->
     "invalid function call";
@@ -191,6 +193,8 @@ format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~w/~w has wrong arity (must be 0)", [F,A]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
+format_error({unknown_atom,A}) ->
+    io_lib:format("unknown atom: '~s' (not part of any type declaration)", [A]);
 
 format_error(export_all) ->
     "export_all flag enabled - all functions will be exported";
@@ -527,6 +531,9 @@ start(File, Opts) ->
 	 {export_all,
 	  bool_option(warn_export_all, nowarn_export_all,
 		      true, Opts)},
+	 {unknown_atom,
+	  bool_option(warn_unknown_atom, nowarn_unknown_atom,
+		      false, Opts)},
 	 {export_vars,
 	  bool_option(warn_export_vars, nowarn_export_vars,
 		      false, Opts)},
@@ -572,6 +579,12 @@ start(File, Opts) ->
 		false ->
 		    undefined
 	    end,
+    Atoms = case ordsets:is_element(unknown_atom, Enabled) of
+		true ->
+		    gb_sets:from_list(default_atoms());
+		false ->
+		    undefined
+	    end,
     #lint{state = start,
           exports = gb_sets:from_list([{module_info,0},{module_info,1}]),
           compile = Opts,
@@ -583,7 +596,8 @@ start(File, Opts) ->
 				     nowarn_format, 0, Opts),
 	  enabled_warnings = Enabled,
           nowarn_bif_clash = nowarn_function(nowarn_bif_clash, Opts),
-          file = File
+          file = File,
+          atoms = Atoms
          }.
 
 %% is_warn_enabled(Category, St) -> boolean().
@@ -734,8 +748,8 @@ start_state({attribute,Line,module,{_,_}}=Form, St0) ->
     St1 = add_error(Line, pmod_unsupported, St0),
     attribute_state(Form, St1#lint{state=attribute});
 start_state({attribute,_,module,M}, St0) ->
-    St1 = St0#lint{module=M},
-    St1#lint{state=attribute};
+    St1 = seen_atom(M, St0),
+    St1#lint{module=M, state=attribute};
 start_state(Form, St) ->
     St1 = add_error(element(2, Form), undefined_module, St),
     attribute_state(Form, St1#lint{state=attribute}).
@@ -1466,7 +1480,7 @@ pattern({char,_Line,_C}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({integer,_Line,_I}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({float,_Line,_F}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({atom,Line,A}, _Vt, _Old, _Bvt, St) ->
-    {[],[],keyword_warning(Line, A, St)};
+    {[],[],atom_warning(Line, A, keyword_warning(Line, A, St))};
 pattern({string,_Line,_S}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({nil,_Line}, _Vt, _Old, _Bvt, St) -> {[],[],St};
 pattern({cons,_Line,H,T}, Vt, Old,  Bvt, St0) ->
@@ -1894,7 +1908,7 @@ gexpr({char,_Line,_C}, _Vt, St) -> {[],St};
 gexpr({integer,_Line,_I}, _Vt, St) -> {[],St};
 gexpr({float,_Line,_F}, _Vt, St) -> {[],St};
 gexpr({atom,Line,A}, _Vt, St) ->
-    {[],keyword_warning(Line, A, St)};
+    {[],atom_warning(Line, A, keyword_warning(Line, A, St))};
 gexpr({string,_Line,_S}, _Vt, St) -> {[],St};
 gexpr({nil,_Line}, _Vt, St) -> {[],St};
 gexpr({cons,_Line,H,T}, Vt, St) ->
@@ -2146,7 +2160,7 @@ expr({char,_Line,_C}, _Vt, St) -> {[],St};
 expr({integer,_Line,_I}, _Vt, St) -> {[],St};
 expr({float,_Line,_F}, _Vt, St) -> {[],St};
 expr({atom,Line,A}, _Vt, St) ->
-    {[],keyword_warning(Line, A, St)};
+    {[],atom_warning(Line, A, keyword_warning(Line, A, St))};
 expr({string,_Line,_S}, _Vt, St) -> {[],St};
 expr({nil,_Line}, _Vt, St) -> {[],St};
 expr({cons,_Line,H,T}, Vt, St) ->
@@ -2750,7 +2764,8 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
         fun(St) ->
                 NewDefs = dict:store(TypePair, Info, TypeDefs),
                 CheckType = {type, nowarn(), product, [ProtoType|Args]},
-                check_type(CheckType, St#lint{types=NewDefs})
+                (check_type(CheckType, St#lint{types=NewDefs,typedef=true}))
+                    #lint{typedef=false}
         end,
     case is_default_type(TypePair) of
         true ->
@@ -2814,7 +2829,10 @@ check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]},
 			end, {SeenVars, St}, Args)
     end;
 check_type({integer, _L, _}, SeenVars, St) -> {SeenVars, St};
-check_type({atom, _L, _}, SeenVars, St) -> {SeenVars, St};
+check_type({atom, _L, A}, SeenVars, #lint{typedef=true}=St) ->
+    {SeenVars, seen_atom(A, St)};
+check_type({atom, L, A}, SeenVars, St) ->
+    {SeenVars, atom_warning(L, A, St)};
 check_type({var, _L, '_'}, SeenVars, St) -> {SeenVars, St};
 check_type({var, L, Name}, SeenVars, St) ->
     NewSeenVars =
@@ -3708,6 +3726,29 @@ test_overriden_by_local(Line, OldTest, Arity, St) ->
 	    add_error(Line, {obsolete_guard_overridden,OldTest}, St);
 	false ->
 	    St
+    end.
+
+%% atoms commonly used throughout the Erlang standard libraries
+default_atoms() ->
+    [ok, true, false, undefined, error, exit, throw,
+     infinity, normal, trap_exit, kill, 'EXIT', 'DOWN',
+     process, local, global, ignore, reply, noreply, stop,
+     standard_io, standard_error].
+
+%% remembering atoms seen in type declarations
+seen_atom(A, #lint{atoms=undefined}=St) when is_atom(A) ->
+    St;
+seen_atom(A, #lint{atoms=As}=St) when is_atom(A) ->
+    St#lint{atoms=gb_sets:add_element(A, As)}.
+
+%% atom_warning(Line, Atom, State) -> State.
+%%  Add warning for atoms that have not occurred in a type declaration
+atom_warning(_Line, _A, #lint{atoms=undefined}=St) ->
+    St;
+atom_warning(Line, A, #lint{atoms=As}=St) ->
+    case gb_sets:is_element(A, As) of
+        true -> St;
+        false -> add_warning(Line,{unknown_atom, A}, St)
     end.
 
 %% keyword_warning(Line, Atom, State) -> State.

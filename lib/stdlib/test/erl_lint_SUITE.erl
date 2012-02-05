@@ -64,7 +64,7 @@
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
-         record_errors/1]).
+         record_errors/1,unknown_atom/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -84,7 +84,7 @@ all() ->
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
-     record_errors].
+     record_errors,unknown_atom].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -3868,6 +3868,20 @@ record_errors(Config) when is_list(Config) ->
            {errors,[{2,erl_lint,{redefine_field,r,a}},
 		    {3,erl_lint,{redefine_field,r,a}}],[]}}],
     run(Config, Ts).
+
+%% Test that the 'warn_unknown_atom' option works.
+unknown_atom(Config) when is_list(Config) ->
+    Ts = [{atom1,
+	   <<"-type foobar() :: {foo,any()} | bar.
+              -spec t(list()) -> foobar()|boz.
+              t([])  -> baz;
+              t([X]) -> {foo, X}.
+           ">>,
+	   [warn_unknown_atom],
+	   {warnings,[{2,erl_lint,{unknown_atom,boz}},
+                      {3,erl_lint,{unknown_atom,baz}}]}}],
+    [] = run(Config, Ts),
+    ok.
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
