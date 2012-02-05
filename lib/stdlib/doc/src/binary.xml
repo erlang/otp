@@ -505,7 +505,7 @@
       <type>
         <v>Subject = binary()</v>
         <v>Pos = integer() >= 0</v>
-        <v>Len = integer() >= 0</v>
+        <v>Len = integer()</v>
       </type>
       <desc>
       <p>The same as <c>part(Subject, {Pos, Len})</c>.</p>
