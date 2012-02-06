@@ -107,14 +107,20 @@ handle_event(Event, _State) ->
     error({unhandled_event, Event}).
 
 %%%%%%%%%%
-handle_sync_event(#wx{id=Id, event = #wxPaint{}},_,
+handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 		  #state{active=Active, offset=Offset, paint=Paint,
 			 windows=Windows, data=Data}) ->
     %% PaintDC must be created in a callback to work on windows.
-    Panel = element(Id, Windows),
+    %% Sigh workaround bug on MacOSX (Id in paint event is always 0)
+    %% Panel = element(Id, Windows),
+    Id = if Panel =:= element(?RQ_W, Windows)  -> ?RQ_W;
+	    Panel =:= element(?MEM_W, Windows) -> ?MEM_W;
+	    Panel =:= element(?IO_W, Windows)  -> ?IO_W
+	 end,
     DC = wxPaintDC:new(Panel),
     %% Nothing is drawn until wxPaintDC is destroyed.
-    try draw(Offset, Id, DC, Panel, Paint, Data, Active)
+    try
+    draw(Offset, Id, DC, Panel, Paint, Data, Active)
     catch _:Err ->
 	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
@@ -253,6 +259,7 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
     Start = max(61-Len, 0)*WS+X0 - Offset*WS,
     case Hs of
 	[] -> ignore;
+	[_] -> ignore;
 	_ ->
 	    Draw = fun(N) ->
 			   Lines = make_lines(Hs, Start, N, {X0,round(Max*HS)}, Y0, WS, HS),
