@@ -41,8 +41,6 @@ INETS_APP_VSN_COMPILE_FLAGS = \
 	+'{parse_transform,sys_pre_attributes}' \
 	+'{attribute,insert,app_vsn,$(APP_VSN)}'
 
-INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
-
 INETS_ERL_COMPILE_FLAGS += \
 	-pa $(ERL_TOP)/lib/inets/ebin  \
 	$(INETS_APP_VSN_COMPILE_FLAGS) 
