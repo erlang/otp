@@ -19,25 +19,16 @@
 %%
 -module(test_undecoded_rest).
 
--export([compile/3,test/2]).
+-export([test/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 
 %% testing OTP-5104
 
-compile(Config,Rules,Opt) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    
-    ?line ok = asn1ct:compile(DataDir ++ "P-Record",[Rules,{outdir,OutDir}]++Opt).
-
-
 test(Opt, Config) ->
     ?line {ok,Msg} = asn1ct:value('P-Record','PersonnelRecord',
-                                  [{i, ?config(priv_dir, Config)}]),
+                                  [{i, ?config(case_dir, Config)}]),
     ?line {ok,Bytes} = asn1_wrapper:encode('P-Record','PersonnelRecord',Msg),
     Bytes2 =
 	fun(B) when is_list(B) ->

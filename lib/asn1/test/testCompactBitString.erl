@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,28 +19,18 @@
 %%
 -module(testCompactBitString).
 
--export([compile/3]).
+-export([compile/2]).
 -export([compact_bit_string/1, bit_string_unnamed/1,otp_4869/1,
 	 ticket_7734/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-
-compile(Config,Rules,Option) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "PrimStrings",
-			      [Rules,{outdir,OutDir}]++Option),
-    case Rules of
-	per_bin ->
-	    ?line ok = asn1ct:compile(DataDir ++ "Constraints",
-				      [Rules,{outdir,OutDir}]++Option);
-	_ ->  ok
+compile(Config, Options) ->
+    asn1_test_lib:compile("PrimStrings", Config, Options),
+    case lists:member(per_bin, Options) of
+        true -> asn1_test_lib:compile("Constraints", Config, Options);
+        _    -> ok
     end.
-
-
 
 compact_bit_string(Rules) ->
 

@@ -10,8 +10,8 @@ smp(Config)  ->
 	    io:format("smp starting ~p workers\n",[NumOfProcs]),
 
             ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-	    ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize]),
-	    
+	    ?line ok = testNBAPsystem:compile(Config, [per_bin, optimize]),
+
 	    enc_dec(NumOfProcs,Msg,2),
 
 	    N = 10000,
@@ -19,7 +19,7 @@ smp(Config)  ->
             ?line {Time1,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
 	    ?line {Time1S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
 
-	    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
+	    ?line ok = testNBAPsystem:compile(Config, [ber_bin, optimize, nif]),
             ?line {Time3,ok} = timer:tc(?MODULE,enc_dec,[NumOfProcs,Msg, N]),
 
 	    ?line {Time3S,ok} = timer:tc(?MODULE,enc_dec,[1, Msg, NumOfProcs * N]),
@@ -40,10 +40,10 @@ per_performance(Config) ->
     file:make_dir(NifDir),file:make_dir(ErlDir),
 
     ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ?line ok = testNBAPsystem:compile([{priv_dir,NifDir}|Config],per_bin,
-				      [optimize]),
-    ?line ok = testNBAPsystem:compile([{priv_dir,ErlDir}|Config],per_bin,
-				      []),
+    ?line ok = testNBAPsystem:compile([{priv_dir,NifDir}|Config],
+                                      [per_bin, optimize]),
+    ?line ok = testNBAPsystem:compile([{priv_dir,ErlDir}|Config],
+                                      [per_bin]),
 
     Modules = ['NBAP-CommonDataTypes',
 	       'NBAP-Constants',
@@ -81,7 +81,7 @@ per_performance(Config) ->
 ber_performance(Config) ->
 
     ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
-    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,nif]),
+    ?line ok = testNBAPsystem:compile(Config, [ber_bin, optimize, nif]),
 
 
     BerFun = fun() ->

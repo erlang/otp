@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,23 +19,14 @@
 %%
 -module(test_x691).
 
--export([compile/3]).
+-export([compile/2]).
 -export([cases/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-
-compile(Config,Rules,Option) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "P-RecordA1",
-			      [Rules, {outdir,OutDir}]++Option),
-    ?line ok = asn1ct:compile(DataDir ++ "P-RecordA2",
-			      [Rules, {outdir,OutDir}]++Option),
-    ?line ok = asn1ct:compile(DataDir ++ "P-RecordA3",
-			      [Rules, {outdir,OutDir}]++Option).
+compile(Config, Options) ->
+    asn1_test_lib:compile_all(["P-RecordA1", "P-RecordA2", "P-RecordA3"],
+                              Config, Options).
 
 
 cases(Erule,Variant) ->

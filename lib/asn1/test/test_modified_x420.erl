@@ -25,12 +25,9 @@
 -include_lib("test_server/include/test_server.hrl").
 
 compile(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-
-    ok = asn1ct:compile(filename:join([DataDir,modified_x420,"PKCS7"]),[der,{outdir,OutDir},{i,OutDir}]),
-    ok = asn1ct:compile(filename:join([DataDir,modified_x420,"InformationFramework"]),[der,{outdir,OutDir},{i,OutDir}]),
-    ok = asn1ct:compile(filename:join([DataDir,modified_x420,"AuthenticationFramework"]),[der,{outdir,OutDir},{i,OutDir}]).
+    [asn1_test_lib:compile(filename:join([modified_x420,M]), Config, [der])
+     || M <- ["PKCS7", "InformationFramework", "AuthenticationFramework"]],
+    ok.
 
 test_io(Config) ->
     io:format("~p~n~n", [catch test(Config)]).

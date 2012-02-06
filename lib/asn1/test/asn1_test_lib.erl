@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,11 +19,23 @@
 %%
 -module(asn1_test_lib).
 
+-export([compile/3]).
+-export([compile_all/3]).
+
 -export([ticket_7407_compile/2,ticket_7407_code/1, ticket_7678/2,
-	ticket_7708/2, ticket_7763/1, ticket_7876/3]).
+         ticket_7708/2, ticket_7763/1, ticket_7876/3]).
 
 -include_lib("test_server/include/test_server.hrl").
 
+compile(File, Config, Options) -> compile_all([File], Config, Options).
+
+compile_all(Files, Config, Options) ->
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    % TODO: Purge and load as well?
+    [ok = asn1ct:compile(filename:join(DataDir, F),
+                         [{outdir, CaseDir}|Options]) || F <- Files],
+    ok.
 
 ticket_7407_compile(Config,Option) ->
 

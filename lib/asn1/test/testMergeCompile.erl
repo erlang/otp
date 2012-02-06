@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,30 +20,12 @@
 
 -module(testMergeCompile).
 
--export([compile/3,main/1,mvrasn/1]).
+-export([main/1,mvrasn/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{protocolIEs,protocolExtensions}).
-
-compile(Config,Erule,Options) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-
-    ?line ok = asn1ct:compile(DataDir ++ 
-			      "MS.set.asn",[Erule,{outdir,OutDir}]++Options),
-
-    ?line ok = asn1ct:compile(DataDir ++ 
-			      "RANAPSET.set.asn1",[Erule,{outdir,OutDir}]++Options),
-    
-    ?line ok = asn1ct:compile(filename:join([DataDir,"Mvrasn4.set.asn"]),
-			      [Erule,{outdir,OutDir}]++Options),
-
-    ?line ok = asn1ct:compile(filename:join([DataDir,"Mvrasn6.set.asn"]),
-			      [Erule,{outdir,OutDir}]++Options).
-
 
 main(Erule) ->
     %% test of module MS.set.asn that tests OTP-4492: different tagdefault in 

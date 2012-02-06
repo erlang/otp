@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,25 +19,11 @@
 %%
 -module(testTypeValueNotation).
 
--export([compile/3]).
 -export([main/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 -record('Seq',{octstr, int, bool, enum, bitstr, null, oid, vstr}).
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SeqTypeRefPrim",
-			      [Rules,{outdir,OutDir}]++Options),
-    %% OTP-6695
-    ?line ok = asn1ct:compile(DataDir ++ "ValueTest",
-			      [Rules,{outdir,OutDir}]++Options).
-
 
 main(Rules,Option) ->
 

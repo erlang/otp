@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,29 +19,16 @@
 %%
 -module(test_driver_load).
 
--export([compile/2,test/2,encode/0]).
+-export([test/1,encode/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 
-test(per_bin,0) ->
+test(0) ->
     ok;
-test(per_bin,N) ->
+test(N) ->
     spawn(?MODULE,encode,[]),
-    test(per_bin,N-1);
-test(_,_) ->
-    ok.
-
-compile(Config,per_bin) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-
-    ?line ok = asn1ct:compile(DataDir ++ "P-Record",
-			      [per_bin,optimize,{outdir,OutDir}]);
-compile(_,Erule) ->
-    {skip,lists:concat(["not implemented for version: ",Erule])}.
-
+    test(N-1).
 
 encode() ->
     ?line Msg = msg(),

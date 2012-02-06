@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+# Copyright Ericsson AB 1997-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,6 @@ MODULES= \
 	h323test \
 	choice_extension \
 	ber_decode_error \
-	testExternal \
 	testPrim \
         testPrimStrings \
 	testCompactBitString \
@@ -88,13 +87,11 @@ MODULES= \
 	testTimer \
 	testRANAP \
 	testMegaco \
-	testMvrasn6 \
 	testSeqSetDefaultVal \
 	testParamBasic \
 	testContextSwitchingTypes \
 	testTypeValueNotation \
 	testOpenTypeImplicitTag \
-	testROSE \
 	testINSTANCE_OF \
 	test_partial_incomplete_decode \
 	testDER \

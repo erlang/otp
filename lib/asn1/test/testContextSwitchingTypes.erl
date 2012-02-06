@@ -19,20 +19,9 @@
 %%
 -module(testContextSwitchingTypes).
 
--export([compile/3]).
 -export([test/1]).
 
 -include_lib("test_server/include/test_server.hrl").
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "ContextSwitchingTypes",
-			      [Rules,{outdir,OutDir}]++Options).
-
 
 test(Config) ->
     ?line ValT = 'ContextSwitchingTypes':'val1-T'(),
@@ -42,7 +31,7 @@ test(Config) ->
 	asn1_wrapper:decode('ContextSwitchingTypes','T',Bytes1),
     ?line ok = check_EXTERNAL(Result1),
     ?line {ok,ValT2} = asn1ct:value('ContextSwitchingTypes','T',
-                                    [{i, ?config(priv_dir, Config)}]),
+                                    [{i, ?config(case_dir, Config)}]),
     ?line {ok,Bytes1_2} =
 	asn1_wrapper:encode('ContextSwitchingTypes','T',ValT2),
     ?line {ok,Result1_2} = 
