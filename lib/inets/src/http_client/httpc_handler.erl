@@ -852,13 +852,14 @@ connect(SocketType, ToAddress,
 	inet6fb4 ->
 	    Opts3 = [inet6 | Opts2],
 	    case http_transport:connect(SocketType, ToAddress, Opts3, Timeout) of
-		{error, _Reason} = Error ->
+		{error, Reason6} ->
 		    Opts4 = [inet | Opts2], 
 		    case http_transport:connect(SocketType, 
 						ToAddress, Opts4, Timeout) of
-			{error, _} ->
-			    %% Reply with the "original" error
-			    Error;
+			{error, Reason4} ->
+			    {error, {failed_connect, 
+				     [{inet6, Opts3, Reason6}, 
+				      {inet,  Opts4, Reason4}]}};
 			OK ->
 			    OK
 		    end;
@@ -867,7 +868,12 @@ connect(SocketType, ToAddress,
 	    end;
 	_ ->
 	    Opts3 = [IpFamily | Opts2], 
-	    http_transport:connect(SocketType, ToAddress, Opts3, Timeout)
+	    case http_transport:connect(SocketType, ToAddress, Opts3, Timeout) of
+		{error, Reason} ->
+		    {error, {failed_connect, [{IpFamily, Opts3, Reason}]}};
+		Else ->
+		    Else
+	    end
     end.
 
 connect_and_send_first_request(Address, Request, #state{options = Options} = State) ->
