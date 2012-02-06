@@ -39,7 +39,8 @@
 	 handle_kex_dh_gex_group/2, handle_kex_dh_gex_reply/2,
 	 handle_new_keys/2, handle_kex_dh_gex_request/2,
 	 handle_kexdh_reply/2, 
-	 unpack/3, decompress/2, ssh_packet/2, pack/2, msg_data/1]).
+	 unpack/3, decompress/2, ssh_packet/2, pack/2, msg_data/1,
+	 sign/3, verify/4]).
 
 versions(client, Options)->
     Vsn = proplists:get_value(vsn, Options, ?DEFAULT_CLIENT_VERSION),
@@ -408,37 +409,25 @@ sid(#ssh{session_id = Id}, _) ->
 %%
 get_host_key(SSH) ->
     #ssh{key_cb = Mod, opts = Opts, algorithms = ALG} = SSH,
-    Scope = proplists:get_value(key_scope, Opts, system),
-    case ALG#alg.hkey of
-	'ssh-rsa' ->
-	    case Mod:private_host_rsa_key(Scope, Opts) of
-		{ok, #'RSAPrivateKey'{modulus = N, publicExponent = E} = Key} ->
-		    {Key,
-		     ssh_bits:encode(["ssh-rsa",E,N],[string,mpint,mpint])};
-		Error ->
-		    exit(Error)
-	    end;
-	'ssh-dss' ->
-	    case Mod:private_host_dsa_key(Scope, Opts) of
-		{ok, #'DSAPrivateKey'{y = Y, p = P, q = Q, g = G} = Key} ->
-		    {Key, ssh_bits:encode(["ssh-dss",P,Q,G,Y],
-					  [string,mpint,mpint,mpint,mpint])};
-		Error ->
-		    exit(Error)
-	    end;
-	Foo ->
-	    exit({error, {Foo, bad_key_type}})
+
+    case Mod:host_key(ALG#alg.hkey, Opts) of
+	{ok, #'RSAPrivateKey'{modulus = N, publicExponent = E} = Key} ->
+	    {Key,
+	     ssh_bits:encode(["ssh-rsa",E,N],[string,mpint,mpint])};
+	{ok, #'DSAPrivateKey'{y = Y, p = P, q = Q, g = G} = Key} ->
+	    {Key, ssh_bits:encode(["ssh-dss",P,Q,G,Y],
+				  [string,mpint,mpint,mpint,mpint])};
+	Result ->
+	    exit({error, {Result, unsupported_key_type}})
     end.
 
 sign_host_key(_Ssh, #'RSAPrivateKey'{} = Private, H) ->
     Hash = sha, %% Option ?!
-    Signature = public_key:sign(H, Hash, Private),
+    Signature = sign(H, Hash, Private),
     ssh_bits:encode(["ssh-rsa", Signature],[string, binary]);
 sign_host_key(_Ssh, #'DSAPrivateKey'{} = Private, H) ->
     Hash = sha, %% Option ?!
-    DerSignature = public_key:sign(H, Hash, Private),
-    #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
-    RawSignature = <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>,
+    RawSignature = sign(H, Hash, Private),
     ssh_bits:encode(["ssh-dss", RawSignature],[string, binary]).
 
 verify_host_key(SSH, K_S, H, H_SIG) ->
@@ -457,7 +446,7 @@ verify_host_key_rsa(SSH, K_S, H, H_SIG) ->
 	["ssh-rsa", E, N] ->
 	    ["ssh-rsa",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
 	    Public = #'RSAPublicKey'{publicExponent = E, modulus = N},
-	    case public_key:verify(H, sha, SIG, Public) of
+	    case verify(H, sha, SIG, Public) of
 		false ->
 		    {error, bad_signature};
 		true ->
@@ -472,9 +461,7 @@ verify_host_key_dss(SSH, K_S, H, H_SIG) ->
 	["ssh-dss",P,Q,G,Y] ->
 	    ["ssh-dss",SIG] = ssh_bits:decode(H_SIG,[string,binary]),
 	    Public = {Y,  #'Dss-Parms'{p = P, q = Q, g = G}},
-	    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = SIG,
-	     Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
-	    case public_key:verify(H, sha, Signature, Public) of
+	    case verify(H, sha, SIG, Public) of
 		false ->
 		    {error, bad_signature};
 		true ->
@@ -495,14 +482,10 @@ accepted_host(Ssh, PeerName, Opts) ->
 known_host_key(#ssh{opts = Opts, key_cb = Mod, peer = Peer} = Ssh, 
 	       Public, Alg) ->
     PeerName = peer_name(Peer),
-    case Mod:lookup_host_key(PeerName, Alg, Opts) of
-	{ok, Public} ->
+    case Mod:is_host_key(Public, PeerName, Alg, Opts) of
+	true ->
 	    ok;
-	{ok, BadPublic} ->
-	    error_logger:format("known_host_key: Public ~p BadPublic ~p\n", 
-				[Public, BadPublic]),
-	    {error, bad_public_key};
-	{error, not_found} ->
+	false ->
 	    case accepted_host(Ssh, PeerName, Opts) of
 		yes ->
 		    Mod:add_host_key(PeerName, Public, Opts);
@@ -709,8 +692,20 @@ msg_data(PacketData) ->
      _:PaddingLen/binary>> = PacketData,
     Data.
 
+sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
+    DerSignature = public_key:sign(SigData, Hash, Key),
+    #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
+    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>;
+sign(SigData, Hash, Key) ->
+    public_key:sign(SigData, Hash, Key).
 
-   
+verify(PlainText, Hash, Sig, {_,  #'Dss-Parms'{}} = Key) ->
+    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = Sig,
+    Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
+    public_key:verify(PlainText, Hash, Signature, Key);
+verify(PlainText, Hash, Sig, Key) ->
+    public_key:verify(PlainText, Hash, Sig, Key).
+
 %% public key algorithms
 %%
 %%   ssh-dss              REQUIRED     sign    Raw DSS Key

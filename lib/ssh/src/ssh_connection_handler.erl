@@ -684,16 +684,14 @@ supported_host_keys(server, KeyCb, Options) ->
 		["ssh-dss", "ssh-rsa"]).
 
 available_host_key(KeyCb, "ssh-dss"= Alg, Opts) ->
-    Scope = proplists:get_value(key_scope, Opts, system),
-    case KeyCb:private_host_dsa_key(Scope, Opts) of
+    case KeyCb:host_key('ssh-dss', Opts) of
 	{ok, _} ->
 	    Alg;
 	Other ->
 	    Other
     end;
 available_host_key(KeyCb, "ssh-rsa" = Alg, Opts) ->
-    Scope = proplists:get_value(key_scope, Opts, system),
-    case KeyCb:private_host_rsa_key(Scope, Opts) of
+    case KeyCb:host_key('ssh-rsa', Opts) of
 	{ok, _} ->
 	    Alg;
 	Other ->

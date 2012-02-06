@@ -28,63 +28,58 @@
 
 -include("ssh.hrl").
 
--export([public_host_dsa_key/2,private_host_dsa_key/2,
-	 public_host_rsa_key/2,private_host_rsa_key/2,
-	 %%public_host_key/2,
-	 private_host_key/2,
-	 lookup_host_key/3, add_host_key/3,
-	 lookup_user_key/4, ssh_dir/2, file_name/3]).
+-export([host_key/2,
+	 user_key/2,
+	 is_host_key/4,
+	 add_host_key/3,
+	 is_auth_key/4]).
 
--export([private_identity_key/2, 
-	 public_identity_key/2]).
-
--export([encode_public_key/1, decode_public_key_v2/2]).
 
 -define(PERM_700, 8#700).
 -define(PERM_644, 8#644).
 
 
 %% API
-public_host_dsa_key(Type, Opts) ->
-    File = file_name(Type, "ssh_host_dsa_key.pub", Opts),
-    decode(File, public_key).
 
-private_host_dsa_key(Type, Opts) ->
-    File = file_name(Type, "ssh_host_dsa_key", Opts),
+%% Used by server
+host_key(Algorithm, Opts) ->
+    File = file_name(system, file_base_name(Algorithm), Opts),
     Password = proplists:get_value(password, Opts, ignore),
     decode(File, Password).
 
-public_host_rsa_key(Type, Opts) ->
-    File = file_name(Type, "ssh_host_rsa_key.pub", Opts),
-    decode(File, public_key).
 
-private_host_rsa_key(Type, Opts) ->
-    File = file_name(Type, "ssh_host_rsa_key", Opts),
-    Password = proplists:get_value(password, Opts, ignore),
-    decode(File, Password).
+is_auth_key(Key, User, Alg, Opts) ->
+    case lookup_user_key(Key, User, Alg, Opts) of
+	{ok, Key} ->
+	    true;
+	_ ->
+	    false
+    end.
 
-%% public_host_key(Type, Opts) ->
-%%     File = file_name(Type, "ssh_host_key", Opts),
-%%     decode(File, public_key).
- 
-private_host_key(Type, Opts) ->
-    File = file_name(Type, "ssh_host_key", Opts),
-    Password = proplists:get_value(password, Opts, ignore),
-    decode(File, Password).
 
-private_identity_key(Alg, Opts) ->
+%% Used by client
+is_host_key(Key, PeerName, Algorithm, Opts) ->
+    case lookup_host_key(PeerName, Algorithm, Opts) of
+	{ok, Key} ->
+	    true;
+	_ ->
+	    false
+    end.
+
+user_key(Alg, Opts) ->
     File = file_name(user, identity_key_filename(Alg), Opts),
     Password = proplists:get_value(password, Opts, ignore),
     decode(File, Password).
 
-public_identity_key(Alg, Opts) ->
-    File = file_name(user, identity_key_filename(Alg) ++ ".pub", Opts),
-    decode(File, public_key).
 
-encode_public_key(#'RSAPrivateKey'{publicExponent = E, modulus = N}) ->
-    ssh_bits:encode(["ssh-rsa",E,N], [string,mpint,mpint]);
-encode_public_key(#'DSAPrivateKey'{p = P, q = Q, g = G, y = Y}) ->
-    ssh_bits:encode(["ssh-dss",P,Q,G,Y], [string,mpint,mpint,mpint,mpint]).
+%% Internal functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+file_base_name('ssh-rsa') ->
+    "ssh_host_rsa_key";
+file_base_name('ssh-dss') ->
+    "ssh_host_dsa_key";
+file_base_name(_) ->
+    "ssh_host_key".
 
 decode(File, Password) ->
     try 
@@ -184,7 +179,7 @@ file_name(Type, Name, Opts) ->
     FN = filename:join(ssh_dir(Type, Opts), Name),
     FN.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 %% in: "host" out: "host,1.2.3.4.
 add_ip(Host)                                                             ->
@@ -216,22 +211,6 @@ do_lookup_host_key(Host, Alg, Opts) ->
 identity_key_filename("ssh-dss") -> "id_dsa";
 identity_key_filename("ssh-rsa") -> "id_rsa".
 
-decode_public_key_v2(K_S, "ssh-rsa") ->
-    case ssh_bits:decode(K_S,[string,mpint,mpint]) of
-	["ssh-rsa", E, N] ->
-	    {ok, #'RSAPublicKey'{publicExponent = E, modulus = N}};
-	_ ->
-	    {error, bad_format}
-    end;
-decode_public_key_v2(K_S, "ssh-dss") ->  
-     case ssh_bits:decode(K_S,[string,mpint,mpint,mpint,mpint]) of
-     	["ssh-dss",P,Q,G,Y] ->
-     	    {ok, {Y, #'Dss-Parms'{p = P, q = Q, g = G}}};
-     	_A ->
-     	    {error, bad_format}
-     end;
-decode_public_key_v2(_, _) ->
-    {error, bad_format}.
     
 lookup_host_key_fd(Fd, Host, KeyType) ->
     case io:get_line(Fd, '') of

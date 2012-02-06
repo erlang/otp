@@ -23,6 +23,7 @@
 
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
 	 channel_info/3,
@@ -367,7 +368,7 @@ inetopt(false) ->
 %% Description: Use SSH key to sign data.
 %%--------------------------------------------------------------------
 sign_data(Data, Algorithm) when is_binary(Data) ->
-    case ssh_file:private_identity_key(Algorithm,[]) of
+    case ssh_file:user_key(Algorithm,[]) of
 	{ok, Key} when Algorithm == "ssh-rsa" ->
 	    public_key:sign(Data, sha, Key);
 	Error ->
@@ -385,9 +386,9 @@ sign_data(Data, Algorithm) when is_binary(Data) ->
 %% Description: Use SSH signature to verify data.
 %%--------------------------------------------------------------------
 verify_data(Data, Signature, Algorithm) when is_binary(Data), is_binary(Signature) ->
-    case ssh_file:public_identity_key(Algorithm, []) of
-	{ok, Key} when Algorithm == "ssh-rsa" ->
-	    public_key:verify(Data, sha, Signature, Key);
+    case ssh_file:user_key(Algorithm, []) of
+	{ok, #'RSAPrivateKey'{publicExponent = E, modulus = N}} when Algorithm == "ssh-rsa" ->
+	    public_key:verify(Data, sha, Signature, #'RSAPublicKey'{publicExponent = E, modulus = N});
 	Error ->
 	    Error
     end.

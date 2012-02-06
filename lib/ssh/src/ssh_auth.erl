@@ -41,16 +41,17 @@ publickey_msg([Alg, #ssh{user = User,
 		       session_id = SessionId,
 		       service = Service,
 		       opts = Opts} = Ssh]) ->
-    
+
     Hash = sha, %% Maybe option?!
     ssh_bits:install_messages(userauth_pk_messages()),
-    
-    case ssh_file:private_identity_key(Alg, Opts) of
+    KeyCb = proplists:get_value(key_cb, Opts, ssh_file),
+
+    case KeyCb:user_key(Alg, Opts) of
 	{ok, Key} ->
-	    PubKeyBlob = ssh_file:encode_public_key(Key),
+	    PubKeyBlob = encode_public_key(Key),
 	    SigData = build_sig_data(SessionId, 
 				     User, Service, PubKeyBlob, Alg),
-	    Sig = sign(SigData, Hash, Key),
+	    Sig = ssh_transport:sign(SigData, Hash, Key),
 	    SigBlob = list_to_binary([?string(Alg), ?binary(Sig)]),
 	    ssh_transport:ssh_packet(
 	      #ssh_msg_userauth_request{user = User,
@@ -313,21 +314,19 @@ get_password_option(Opts, User) ->
     end.
 	    
 verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
-    {ok, Key} = ssh_file:decode_public_key_v2(KeyBlob, Alg),
-    case ssh_file:lookup_user_key(Key, User, Alg, Opts) of
-	{ok, OurKey} ->
-	    case OurKey of
-		Key ->
-		    PlainText = build_sig_data(SessionId, User,
-					       Service, KeyBlob, Alg),
-		    <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
-		    <<?UINT32(AlgLen), _Alg:AlgLen/binary,
-		      ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-		    verify(PlainText, sha, Sig, Key);
-		_ ->
-		    {error, key_unacceptable}
-	    end;
-	Error -> Error
+    {ok, Key} = decode_public_key_v2(KeyBlob, Alg),
+    KeyCb =  proplists:get_value(key_cb, Opts, ssh_file),
+
+    case KeyCb:is_auth_key(Key, User, Alg, Opts) of
+	true ->
+	    PlainText = build_sig_data(SessionId, User,
+				       Service, KeyBlob, Alg),
+	    <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
+	    <<?UINT32(AlgLen), _Alg:AlgLen/binary,
+	      ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
+	    ssh_transport:verify(PlainText, sha, Sig, Key);
+	false ->
+	    {error, key_unacceptable}
     end.
 
 build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->
@@ -345,20 +344,6 @@ algorithm(ssh_rsa) ->
     "ssh-rsa";
 algorithm(ssh_dsa) ->
      "ssh-dss".
-
-sign(SigData, Hash,  #'DSAPrivateKey'{} = Key) ->
-    DerSignature = public_key:sign(SigData, Hash, Key),
-    #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
-    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>;
-sign(SigData, Hash, Key) ->
-    public_key:sign(SigData, Hash, Key).
-
-verify(PlainText, Hash, Sig, {_,  #'Dss-Parms'{}} = Key) ->
-    <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> = Sig,
-    Signature = public_key:der_encode('Dss-Sig-Value', #'Dss-Sig-Value'{r = R, s = S}),
-    public_key:verify(PlainText, Hash, Signature, Key);
-verify(PlainText, Hash, Sig, Key) ->
-    public_key:verify(PlainText, Hash, Sig, Key).
 
 decode_keyboard_interactive_prompts(NumPrompts, Data) ->
     Types = lists:append(lists:duplicate(NumPrompts, [string, boolean])),
@@ -435,3 +420,24 @@ other_alg("ssh-rsa") ->
     "ssh-dss";
 other_alg("ssh-dss") ->
     "ssh-rsa".
+decode_public_key_v2(K_S, "ssh-rsa") ->
+    case ssh_bits:decode(K_S,[string,mpint,mpint]) of
+	["ssh-rsa", E, N] ->
+	    {ok, #'RSAPublicKey'{publicExponent = E, modulus = N}};
+	_ ->
+	    {error, bad_format}
+    end;
+decode_public_key_v2(K_S, "ssh-dss") ->
+     case ssh_bits:decode(K_S,[string,mpint,mpint,mpint,mpint]) of
+	 ["ssh-dss",P,Q,G,Y] ->
+	     {ok, {Y, #'Dss-Parms'{p = P, q = Q, g = G}}};
+	 _ ->
+	     {error, bad_format}
+     end;
+decode_public_key_v2(_, _) ->
+    {error, bad_format}.
+
+encode_public_key(#'RSAPrivateKey'{publicExponent = E, modulus = N}) ->
+    ssh_bits:encode(["ssh-rsa",E,N], [string,mpint,mpint]);
+encode_public_key(#'DSAPrivateKey'{p = P, q = Q, g = G, y = Y}) ->
+    ssh_bits:encode(["ssh-dss",P,Q,G,Y], [string,mpint,mpint,mpint,mpint]).
