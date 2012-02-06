@@ -1262,7 +1262,8 @@ handle_call(info, _From, S) ->
 handle_call(get_net_if, _From, S) ->
     {reply, get(net_if), S};
 
-handle_call({backup, BackupDir}, From, S) ->
+%% Only accept a backup request if there is none already in progress
+handle_call({backup, BackupDir}, From, #state{backup = undefined} = S) ->
     ?vlog("backup: ~p", [BackupDir]),
     Pid = self(),
     V   = get(verbosity),
@@ -1279,7 +1280,11 @@ handle_call({backup, BackupDir}, From, S) ->
 	  end),
     ?vtrace("backup server: ~p", [BackupServer]),
     {noreply, S#state{backup = {BackupServer, From}}};
-    
+
+handle_call({backup, _BackupDir}, From, #state{backup = Backup} = S) ->
+    ?vinfo("backup already in progress: ~p", [Backup]),
+    {reply, {error, backup_in_progress}, S};
+
 handle_call(dump_mibs, _From, S) ->
     Reply = snmpa_mib:dump(get(mibserver)),
     {reply, Reply, S};

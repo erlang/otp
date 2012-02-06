@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2011</year>
+      <year>2004</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -198,12 +198,18 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <type>
         <v>BackupDir = string()</v>
         <v>Agent = pid() | atom()</v>
+        <v>Reason = backup_in_progress | term()</v>
       </type>
       <desc>
         <p>Backup persistent/permanent data handled by the agent
           (such as local-db, mib-data and vacm). </p>
         <p>Data stored by mnesia is not handled. </p>
         <p>BackupDir cannot be identical to DbDir. </p>
+        <p>Simultaneous backup calls are <em>not</em> allowed. 
+	That is, two different processes cannot simultaneously 
+	successfully call this function. One of them will be first, 
+	and succeed. The second will fail with the error reason
+	<c>backup_in_progress</c>. </p>
 
         <marker id="info"></marker>
       </desc>
@@ -217,13 +223,13 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       </type>
       <desc>
         <p>Returns a list (a dictionary) containing information about
-          the agent. Information includes loaded MIBs, registered
-          sub-agents, some information about the memory allocation. </p>
-        <p>As of version 4.4 the format of the info has been changed. 
-          To convert the info to the old format, call the 
-          <seealso marker="#old_info_format">old_info_format</seealso> 
-          function. </p>
-
+	the agent. Information includes loaded MIBs, registered
+	sub-agents, some information about the memory allocation. </p>
+	<p>As of version 4.4 the format of the info has been changed. 
+	To convert the info to the old format, call the 
+	<seealso marker="#old_info_format">old_info_format</seealso> 
+	function. </p>
+	
         <marker id="old_info_format"></marker>
       </desc>
     </func>
