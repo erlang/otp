@@ -39,9 +39,12 @@ static IndexTable module_tables[ERTS_NUM_CODE_IX];
 
 erts_smp_rwmtx_t the_old_code_rwlocks[ERTS_NUM_CODE_IX];
 
-/*
- * SMP note: We don't need to look accesses to the module table because
- * there is one only scheduler thread when we update it.
+static erts_smp_atomic_t tot_module_bytes;
+
+/* SMP note: Active module table lookup and current module instance can be
+ *           read without any locks. Old module instances are protected by
+ *           "the_old_code_rwlocks" as purging is done on active module table.
+ *           Staging table is protected by the "code_ix lock". 
  */
 
 #include "erl_smp.h"
@@ -67,6 +70,7 @@ static int module_cmp(Module* tmpl, Module* obj)
 static Module* module_alloc(Module* tmpl)
 {
     Module* obj = (Module*) erts_alloc(ERTS_ALC_T_MODULE, sizeof(Module));
+    erts_smp_atomic_add_nob(&tot_module_bytes, sizeof(Module));
 
     obj->module = tmpl->module;
     obj->curr.code = 0;
@@ -86,6 +90,7 @@ static Module* module_alloc(Module* tmpl)
 static void module_free(Module* mod)
 {
     erts_free(ERTS_ALC_T_MODULE, mod);
+    erts_smp_atomic_add_nob(&tot_module_bytes, -sizeof(Module));
 }
 
 void init_module_table(void)
@@ -106,6 +111,7 @@ void init_module_table(void)
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
 	erts_smp_rwmtx_init_x(&the_old_code_rwlocks[i], "old_code", make_small(i));
     }
+    erts_smp_atomic_init_nob(&tot_module_bytes, 0);
 }
 
 Module*
@@ -133,6 +139,8 @@ erts_put_module(Eterm mod)
 {
     Module e;
     IndexTable* mod_tab;
+    int oldsz, newsz;
+    Module* res;
 
     ASSERT(is_atom(mod));
     ERTS_SMP_LC_ASSERT(erts_initialized == 0
@@ -141,7 +149,11 @@ erts_put_module(Eterm mod)
 
     mod_tab = &module_tables[erts_staging_code_ix()];
     e.module = atom_val(mod);
-    return (Module*) index_put_entry(mod_tab, (void*) &e);
+    oldsz = index_table_sz(mod_tab);
+    res = (Module*) index_put_entry(mod_tab, (void*) &e);
+    newsz = index_table_sz(mod_tab);
+    erts_smp_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
+    return res;
 }
 
 Module *module_code(int i, ErtsCodeIndex code_ix)
@@ -156,7 +168,7 @@ int module_code_size(ErtsCodeIndex code_ix)
 
 int module_table_sz(void)
 {
-    return index_table_sz(&module_tables[erts_active_code_ix()]);
+    return erts_smp_atomic_read_nob(&tot_module_bytes);
 }
 
 #ifdef DEBUG
@@ -171,7 +183,7 @@ void module_start_staging(void)
     IndexTable* dst = &module_tables[erts_staging_code_ix()];
     Module* src_mod;
     Module* dst_mod;
-    int i;
+    int i, oldsz, newsz;
 
     ASSERT(dbg_load_code_ix == -1);
     ASSERT(dst->entries <= src->entries);
@@ -191,6 +203,7 @@ void module_start_staging(void)
     /*
      * Copy all new modules from active table
      */
+    oldsz = index_table_sz(dst);
     for (i = dst->entries; i < src->entries; i++) {
 	src_mod = (Module*) erts_index_lookup(src, i);
 	dst_mod = (Module*) index_put_entry(dst, src_mod);
@@ -199,6 +212,8 @@ void module_start_staging(void)
 	dst_mod->curr = src_mod->curr;
 	dst_mod->old = src_mod->old;
     }
+    newsz = index_table_sz(dst);
+    erts_smp_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
 
     entries_at_start_staging = dst->entries;
     IF_DEBUG(dbg_load_code_ix = erts_staging_code_ix());
@@ -210,9 +225,13 @@ void module_end_staging(int commit)
 
     if (!commit) { /* abort */
 	IndexTable* tab = &module_tables[erts_staging_code_ix()];
+	int oldsz, newsz;
 
 	ASSERT(entries_at_start_staging <= tab->entries);
+	oldsz = index_table_sz(tab);
 	index_erase_latest_from(tab, entries_at_start_staging);
+	newsz = index_table_sz(tab);
+	erts_smp_atomic_add_nob(&tot_module_bytes, (newsz - oldsz));
     }
 
     IF_DEBUG(dbg_load_code_ix = -1);
