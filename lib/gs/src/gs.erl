@@ -24,7 +24,7 @@
 %%
 
 -module(gs).
-
+-deprecated(module).
 
 %% ----- Exports -----
 -export([start/0, stop/0, start/1]).

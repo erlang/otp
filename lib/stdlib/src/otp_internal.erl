@@ -350,6 +350,11 @@ obsolete_1(ssl, pid, 1) ->
     {deprecated,"deprecated (will be removed in R17); is no longer needed"};
 obsolete_1(inviso, _, _) ->
     {deprecated,"the inviso application has been deprecated and will be removed in R16"};
+
+%% Added in R15B01.
+obsolete_1(gs, _, _) ->
+    {deprecated,"the gs application has been deprecated and will be removed in R16; use the wx application instead"};
+
 obsolete_1(_, _, _) ->
     no.
 
