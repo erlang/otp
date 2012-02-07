@@ -552,7 +552,7 @@ set_attributes(Config) when is_list(Config) ->
     {ok, FileInfo} = file:read_file_info(FileName),
 
     OrigPermissions = FileInfo#file_info.mode,
-    Permissions = 8#400, %% User read-only
+    Permissions = 8#600, %% User read-write-only
 
     Flags = ?SSH_FILEXFER_ATTR_PERMISSIONS,
 

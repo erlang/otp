@@ -103,7 +103,8 @@ end_per_testcase(_Config) ->
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
 all() -> 
-    [{group, dsa_key},
+    [app_test,
+     {group, dsa_key},
      {group, rsa_key},
      daemon_already_started,
      server_password_option, server_userpassword_option].
@@ -139,6 +140,14 @@ end_per_group(_, Config) ->
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
+app_test(suite) ->
+    [];
+app_test(doc) ->
+    ["Application consistency test."];
+app_test(Config) when is_list(Config) ->
+    ?t:app_test(ssh),
+    ok.
+
 exec(doc) ->
     ["Test api function ssh_connection:exec"];
 

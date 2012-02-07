@@ -599,6 +599,8 @@ decode_4_access_flag(add_subdirectory) ->
     [read];
 decode_4_access_flag(append_data) ->
     [append];
+decode_4_access_flag(write_attributes) ->
+    [write];
 decode_4_access_flag(_) ->
     [read].
 
@@ -613,7 +615,7 @@ open(Vsn, ReqId, Data, State) when Vsn =< 3 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(PFlags),
      _Attrs/binary>> = Data,
     Path = binary_to_list(BPath),
-    Flags = ssh_xfer:decode_open_flags(Vsn, PFlags) -- [creat, excl, trunc],
+    Flags = ssh_xfer:decode_open_flags(Vsn, PFlags),
     do_open(ReqId, State, Path, Flags);
 open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
     <<?UINT32(BLen), BPath:BLen/binary, ?UINT32(Access),
@@ -635,7 +637,7 @@ open(Vsn, ReqId, Data, State) when Vsn >= 4 ->
 do_open(ReqId, State0, Path, Flags) ->
     #state{file_handler = FileMod, file_state = FS0, root = Root} = State0,
     XF = State0#state.xf,
-    F = [raw, binary | Flags],
+    F = [binary | Flags],
     %%   case FileMod:is_dir(Path) of %% This is version 6 we still have 5
     %% 	true ->
     %% 	    ssh_xfer:xf_send_status(State#state.xf, ReqId,
