@@ -337,11 +337,11 @@ obsolete_1(public_key, decode_private_key, A) when A =:= 1; A =:= 2 ->
 
 %% Added in R14B03.
 obsolete_1(docb_gen, _, _) ->
-    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+    {removed,"the DocBuilder application was removed in R15B"};
 obsolete_1(docb_transform, _, _) ->
-    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+    {removed,"the DocBuilder application was removed in R15B"};
 obsolete_1(docb_xml_check, _, _) ->
-    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+    {removed,"the DocBuilder application was removed in R15B"};
 
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
