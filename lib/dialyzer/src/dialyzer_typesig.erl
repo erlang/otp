@@ -450,7 +450,8 @@ traverse(Tree, DefinedVars, State) ->
 		%% Check if a record is constructed.
 		_ ->
 		  Arity = length(Fields),
-		  case state__lookup_record(State2, cerl:atom_val(Tag), Arity) of
+		  Records = State2#state.records,
+		  case lookup_record(Records, cerl:atom_val(Tag), Arity) of
 		    error -> {State2, TupleType};
 		    {ok, RecType} ->
 		      State3 = state__store_conj(TupleType, sub, RecType, State2),
@@ -1254,6 +1255,8 @@ get_bif_constr({erlang, is_record, 2}, Dst, [Var, Tag] = Args, _State) ->
 			   mk_constraint(Var, sub, ArgV)]);
 get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
   %% TODO: Revise this to make it precise for Tag and Arity.
+  Records = State#state.records,
+  AllOpaques = State#state.opaques,
   ArgFun =
     fun(Map) ->
 	case t_is_atom(true, lookup_type(Dst, Map)) of
@@ -1270,10 +1273,8 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 			GenRecord = t_tuple([TagType|AnyElems]),
 			case t_atom_vals(TagType) of
 			  [TagVal] ->
-			    case state__lookup_record(State, TagVal,
-						      ArityVal - 1) of
+			    case lookup_record(Records, TagVal, ArityVal - 1) of
 			      {ok, Type} ->
-				AllOpaques = State#state.opaques,
 				case t_opaque_match_record(Type, AllOpaques) of
 				  [Opaque] -> Opaque;
 				  _ -> Type
@@ -1295,7 +1296,7 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
   DstFun = fun(Map) ->
 	       [TmpVar, TmpTag, TmpArity] = TmpArgTypes = lookup_type_list(Args, Map),
 	       TmpArgTypes2 =
-		 case lists:member(TmpVar, State#state.opaques) of
+		 case lists:member(TmpVar, AllOpaques) of
 		   true ->
 		     case t_is_integer(TmpArity) of
 		       true ->
@@ -1305,7 +1306,8 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 			       true ->
 				 case t_atom_vals(TmpTag) of
 				   [TmpTagVal] ->
-				     case state__lookup_record(State, TmpTagVal, TmpArityVal - 1) of
+				     case lookup_record(Records, TmpTagVal,
+							TmpArityVal - 1) of
 				       {ok, TmpType} ->
 					 case t_is_none(t_inf(TmpType, TmpVar, opaque)) of
 					   true  -> TmpArgTypes;
@@ -1534,9 +1536,10 @@ get_bif_constr({erlang, element, 2} = _BIF, Dst, Args,
   case t_is_none(GenType) of
     true -> ?debug("Bif: ~w failed\n", [_BIF]), throw(error);
     false ->
+      Opaques = State#state.opaques,
       Fun = fun(Map) ->
 		[I, T] = ATs = lookup_type_list(Args, Map),
-		ATs2 = case lists:member(T, State#state.opaques) of
+		ATs2 = case lists:member(T, Opaques) of
 			 true -> [I, erl_types:t_opaque_structure(T)];
 			 false -> ATs
 		       end,
@@ -1554,7 +1557,7 @@ get_bif_constr({erlang, element, 2} = _BIF, Dst, Args,
   end;
 get_bif_constr({M, F, A} = _BIF, Dst, Args, State) ->
   GenType = erl_bif_types:type(M, F, A),
-  Opaques =  State#state.opaques,
+  Opaques = State#state.opaques,
   case t_is_none(GenType) of
     true -> ?debug("Bif: ~w failed\n", [_BIF]), throw(error);
     false ->
@@ -1620,11 +1623,12 @@ get_bif_test_constr(Dst, Arg, Type, State) ->
 	       end
 	   end,
   ArgV = ?mk_fun_var(ArgFun, [Dst]),
+  Opaques = State#state.opaques,
   DstFun = fun(Map) ->
 	       ArgType = lookup_type(Arg, Map),
 	       case t_is_none(t_inf(ArgType, Type)) of
 		 true ->
-		   case lists:member(ArgType, State#state.opaques) of
+		   case lists:member(ArgType, Opaques) of
 		     true ->
 		       OpaqueStruct = erl_types:t_opaque_structure(ArgType),
 		       case t_is_none(t_inf(OpaqueStruct, Type)) of
@@ -2101,15 +2105,6 @@ state__set_opaques(#state{records = RecDict} = State, {M, _F, _A}) ->
   Opaques =
     erl_types:module_builtin_opaques(M) ++ t_opaque_from_records(RecDict),
   State#state{opaques = Opaques, module = M}.
-
-state__lookup_record(#state{records = Records}, Tag, Arity) ->
-  case erl_types:lookup_record(Tag, Arity, Records) of
-    {ok, Fields} ->
-      {ok, t_tuple([t_from_term(Tag)|
-		    [FieldType || {_FieldName, FieldType} <- Fields]])};
-    error ->
-      error
-  end.
 
 state__set_in_match(State, Bool) ->
   State#state{in_match = Bool}.
@@ -2699,6 +2694,15 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
   find_constraint(Tuple, List ++ Cs);
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
+
+lookup_record(Records, Tag, Arity) ->
+  case erl_types:lookup_record(Tag, Arity, Records) of
+    {ok, Fields} ->
+      {ok, t_tuple([t_from_term(Tag)|
+		    [FieldType || {_FieldName, FieldType} <- Fields]])};
+    error ->
+      error
+  end.
 
 %% ============================================================================
 %%
