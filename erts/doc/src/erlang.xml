@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2011</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -4933,6 +4933,21 @@ true</pre>
 	    threads in the Erlang run-time system and may therefore be greater
 	    than the wall-clock time.</p>
           </item>
+          <tag><marker id="statistics_scheduler_wall_time"><c>scheduler_wall_time</c></marker></tag>
+          <item>
+            <p>Returns
+	    <c>[{Scheduler_Id, Scheduler_Worked_Time, Scheduler_Total_Time}]</c>, time lapses are since the
+	    the system flag <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso>
+	    was set to true.
+	    Returns <c>undefined</c> if the system flag <seealso marker="#system_flag_scheduler_wall_time">
+	    scheduler_wall_time</seealso> is set to false.
+	    </p>
+	    <p>The list of scheduler information is unsorted and may come in different order
+	    between calls. The time unit is undefined and may be changed and should only be used
+	    to calculate relative utilization.
+	    </p>
+          </item>
+
           <tag><c>wall_clock</c></tag>
           <item>
             <p>Returns
@@ -5305,6 +5320,14 @@ true</pre>
 	       flags.
 	    </p>
           </item>
+	  <tag><marker id="system_flag_scheduler_wall_time"><c>erlang:system_flag(scheduler_wall_time, Boolean)</c></marker></tag>
+          <item>
+            <p>Turns on/off scheduler wall time measurements. </p>
+	    <p>For more information see,
+	    <seealso marker="#statistics_scheduler_wall_time">erlang:statistics(scheduler_wall_time)</seealso>.
+	    </p>
+          </item>
+
           <tag><marker id="system_flag_schedulers_online"><c>erlang:system_flag(schedulers_online, SchedulersOnline)</c></marker></tag>
           <item>
             <p>Sets the amount of schedulers online. Valid range is
@@ -5316,6 +5339,7 @@ true</pre>
 	    <seealso marker="#system_info_schedulers_online">erlang:system_info(schedulers_online)</seealso>.
 	    </p>
           </item>
+
           <tag><c>erlang:system_flag(trace_control_word, TCW)</c></tag>
           <item>
             <p>Sets the value of the node's trace control word to

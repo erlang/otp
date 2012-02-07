@@ -394,6 +394,16 @@ do {								\
 } while (0)
 
 typedef struct {
+    int enabled;
+    Uint64 start;
+    struct {
+	Uint64 total;
+	Uint64 start;
+	int currently;
+    } working;
+} ErtsSchedWallTime;
+
+typedef struct {
     int sched_id;
     ErtsSchedulerData *esdp;
     ErtsSchedulerSleepInfo *ssi;
@@ -456,6 +466,8 @@ struct ErtsSchedulerData_ {
     ErtsAtomCacheMap atom_cache_map;
 
     ErtsSchedAllocData alloc_data;
+
+    ErtsSchedWallTime sched_wall_time;
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
     erts_alloc_verify_func_t verify_unused_temp_alloc;
@@ -1063,6 +1075,8 @@ void erts_pre_init_process(void);
 void erts_late_init_process(void);
 void erts_early_init_scheduling(int);
 void erts_init_scheduling(int, int);
+
+Eterm erts_sched_wall_time_request(Process *c_p, int set, int enable);
 
 ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
