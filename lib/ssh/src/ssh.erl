@@ -93,6 +93,9 @@ connect(Host, Port, Options, Timeout) ->
 		%% might return undefined as the connection manager
 		%% could allready have terminated, so we will not
 		%% match the Manager in this case
+		{_, not_connected, {error, econnrefused}} when DisableIpv6 == false ->
+		    do_demonitor(MRef, Manager),
+		    connect(Host, Port, [{ip_v6_disabled, true} | Options], Timeout);
 		{_, not_connected, {error, Reason}} ->
 		    do_demonitor(MRef, Manager),
 		    {error, Reason};
