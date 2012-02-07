@@ -27,27 +27,17 @@ Goals
 Supported platforms
 -------------------
 
-The autoconf procedure is supported, I believe, for OS X/Snow Leopard
-and OpenSolaris/64-bit.  Just add the `--enable-dtrace` option your
-command to run the `configure` script.
+* OS X 10.6.x / Snow Leopard.  It should also work for 10.7 / Lion,
+  but I haven't personally tested it.
+* Solaris 10.  I have done limited testing on Solaris 11 and
+  OpenIndiana release 151a, and both appear to work.
+* FreeBSD 9.0, though please see the "FreeBSD 9.0 Release Notes"
+  section below!
+* Linux via SystemTap compatibility.  Please see the file
+  `README.systemtap.md` for more details.
 
-The code has been only very lightly tested on OS X.  It ought to
-compile on a Solaris 10 or OpenSolaris machine, but no promises yet.
-
-The autoconf stuff is ugly right now.  It could use some cleaning up.
-For example:
-
-* After editing the `erlang_dtrace.d` file, you need to re-run the
-* top-level "configure" script in order to update `erlang_dtrace.h`.
-* `make clean` will remove `erlang_dtrace.h`.  A build will fail
-  unless the top-level "configure" script is re-run to re-create that
-  file.
-* The `erlang_dtrace.h` file's location should probably be moved to an
-  OTP platform-specific build dir, for example,
-  `path/to/somewhere/i386-apple-darwin10.8.0`
-* There are probably some other build by-products that are also being
-  put into the "wrong" directory, for example, `erlang_dtrace.o` for
-  Solaris platforms.
+Just add the `--enable-dtrace` option to your command when you run the
+`configure` script.
 
 Contributions
 -------------
@@ -61,9 +51,12 @@ To build from scratch, use this recipe.  If you're an experienced Git
 user and wish to add my repository as a remote repository, be my
 guest.  Just resume the recipe at command #4.
 
+NOTE: The `dtrace-experiment+michal2` branch is used for changes that
+can be applied to both R14B and R15 releases.
+
     % git clone git://github.com/slfritchie/otp.git
     % cd otp
-    % git checkout -b dtrace-experiment origin/dtrace-experiment
+    % git checkout -b dtrace-experiment+michal2 origin/dtrace-experiment+michal2
     % env ERL_TOP=`pwd` ./otp_build autoconf
     % env ERL_TOP=`pwd` ./configure --enable-dtrace + whatever args you need
     % env ERL_TOP=`pwd` make

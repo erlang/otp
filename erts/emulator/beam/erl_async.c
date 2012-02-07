@@ -253,8 +253,7 @@ erts_get_async_ready_queue(Uint sched_id)
 
 static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 {
-    /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() */
-    int len = -1;
+    int len;
 
     if (is_internal_port(a->port)) {
 #if ERTS_USE_ASYNC_READY_Q
@@ -275,6 +274,8 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
         DTRACE_CHARBUF(port_str, 16);
 
         erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+        /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
+        len = -1;
         DTRACE2(aio_pool_add, port_str, len);
     }
     gcc_optimizer_hack++;
@@ -288,8 +289,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
     int saved_fin_deq = 0;
     ErtsThrQFinDeQ_t fin_deq;
 #endif
-    /* DTRACE TODO: Get the queue length from erts_thr_q_dequeue() somehow? */
-    int len = -1;
+    int len;
 
     while (1) {
 	ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);
@@ -305,6 +305,8 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
                 DTRACE_CHARBUF(port_str, 16);
 
                 erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+                /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
+                len = -1;
                 DTRACE2(aio_pool_get, port_str, len);
             }
 	    return a;

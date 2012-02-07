@@ -30,13 +30,13 @@ erlang*:::dist-port_busy
 {
     printf("dist port_busy: node %s, port %s, remote_node %s, blocked pid %s\n",
            copyinstr(arg0), copyinstr(arg1), copyinstr(arg2), copyinstr(arg3));
-    blocked_procs[copyinstr(arg3)] = timestamp;
-}
-
-erlang*:::dist-port_busy
-{
-    printf("dist port_busy: node %s, port %s, remote_node %s, blocked pid %s\n",
-           copyinstr(arg0), copyinstr(arg1), copyinstr(arg2), copyinstr(arg3));
+    /*
+     * For variable use advice, see:
+     *    http://dtrace.org/blogs/brendan/2011/11/25/dtrace-variable-types/
+     *
+     * Howevever, it's quite possible for the blocked events to span
+     * threads, so we'll use globals.
+     */
     blocked_procs[copyinstr(arg3)] = timestamp;
 }
 

@@ -31,5 +31,5 @@ erlang*:::process-unscheduled
 erlang*:::process-hibernate
 {
     printf("  Hibernate pid %s resume mfa %s\n",
-     copyinstr(arg0), copyinstr(arg1));
+           copyinstr(arg0), copyinstr(arg1));
 }

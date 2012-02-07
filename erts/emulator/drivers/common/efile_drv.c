@@ -112,7 +112,6 @@
 #include "erl_threads.h"
 #include "zlib.h"
 #include "gzio.h"
-#define DTRACE_DRIVER_SKIP_FUNC_DECLARATIONS
 #include "dtrace-wrapper.h"
 #include <ctype.h>
 #include <sys/types.h>
@@ -125,6 +124,8 @@ static ErlDrvSysInfo sys_info;
 static unsigned gcc_optimizer_hack = 0;
 
 #ifdef  HAVE_DTRACE
+
+#define DTRACE_EFILE_BUFSIZ 128
 
 #define DTRACE_INVOKE_SETUP(op) \
     do { DTRACE3(efile_drv_int_entry, d->sched_i1, d->sched_i2, op); } while (0)
@@ -149,6 +150,7 @@ typedef struct {
 dt_private *get_dt_private(int);
 #else  /* HAVE_DTRACE */
 typedef struct {
+    char        dummy;          /* Unused except to quiet some compilers */
 } dt_private;
 
 #define DTRACE_INVOKE_SETUP(op)            do {} while (0)
@@ -429,7 +431,7 @@ struct t_data
 #ifdef  HAVE_DTRACE
     int               sched_i1;
     Uint64            sched_i2;
-    char              sched_utag[128+1];
+    char              sched_utag[DTRACE_EFILE_BUFSIZ+1];
 #else
     char              sched_utag[1];
 #endif
@@ -2196,12 +2198,12 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
     int sched_i1 = d->sched_i1, sched_i2 = d->sched_i2, command = d->command,
         result_ok = d->result_ok,
         posix_errno = d->result_ok ? 0 : d->errInfo.posix_errno;
-    DTRACE_CHARBUF(sched_utag, 128+1);
+    DTRACE_CHARBUF(sched_utag, DTRACE_EFILE_BUFSIZ+1);
 
     sched_utag[0] = '\0';
     if (DTRACE_ENABLED(efile_drv_return)) {
-        strncpy(sched_utag, d->sched_utag, sizeof(sched_utag) - 1);
-        sched_utag[sizeof(sched_utag) - 1] = '\0';
+        strncpy(sched_utag, d->sched_utag, DTRACE_EFILE_BUFSIZ);
+        sched_utag[DTRACE_EFILE_BUFSIZ] = '\0';
     }
 #endif  /* HAVE_DTRACE */
 
@@ -2488,8 +2490,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     char* name;			/* Points to the filename in buf. */
     int command;
     struct t_data *d = NULL;
-    char *dt_utag = NULL, *dt_s1 = NULL, *dt_s2 = NULL;
-    Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0, dt_i4 = 0;
+    ERTS_DECLARE_DUMMY(char *dt_utag) = NULL;
+    char *dt_s1 = NULL, *dt_s2 = NULL;
+    ERTS_DECLARE_DUMMY(Sint64 dt_i1) = 0;
+    ERTS_DECLARE_DUMMY(Sint64 dt_i2) = 0;
+    ERTS_DECLARE_DUMMY(Sint64 dt_i3) = 0;
+    ERTS_DECLARE_DUMMY(Sint64 dt_i4) = 0;
 #ifdef  HAVE_DTRACE
     dt_private *dt_priv = get_dt_private(0);
 #endif  /* HAVE_DTRACE */
@@ -3015,8 +3021,10 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     int p, q;
     int err;
     struct t_data *d = NULL;
-    Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0, dt_i4 = 0;
-    char *dt_utag = NULL, *dt_s1 = NULL;
+    Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0;
+    ERTS_DECLARE_DUMMY(Sint64 dt_i4) = 0;
+    char *dt_utag = NULL;
+    ERTS_DECLARE_DUMMY(char *dt_s1) = NULL;
 #ifdef  HAVE_DTRACE
     dt_private *dt_priv = get_dt_private(dt_driver_io_worker_base);
 #else

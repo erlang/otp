@@ -72,7 +72,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/dtrace-$(VSN)
 # ----------------------------------------------------
 # Misc Macros
 # ----------------------------------------------------
-OBJS = $(OBJDIR)/dtrace$(TYPEMARKER).o
+before_DTrace_OBJS = $(OBJDIR)/dtrace$(TYPEMARKER).o
 ## NIF_MAKEFILE = $(PRIVDIR)/Makefile
 
 # Higher-level makefiles says that we can only compile on UNIX flavors
@@ -100,17 +100,16 @@ else
 DTRACE_USER_HEADER=
 endif
 
+DTRACE_OBJS =
 ifdef DTRACE_ENABLED_2STEP
-OBJS += $(OBJDIR)/dtrace_user.o
-$(OBJDIR)/dtrace_user.o: $(OBJS) $(OBJDIR)/dtrace_user.h
-	touch $(OBJDIR)/erlang_dtrace.c
-	$(CC) $(CFLAGS) -c -o $@ $(OBJDIR)/erlang_dtrace.c
-	# The object file created above is immediately clobbered below.
-	# But creating it above avoids chicken-and-egg problem with OBJS
+DTRACE_OBJS += $(OBJDIR)/dtrace_user.o
+$(OBJDIR)/dtrace_user.o: $(before_DTrace_OBJS) $(OBJDIR)/dtrace_user.h
 	dtrace -G -C \
 	  -s ./dtrace_user.d \
-	  -o $@ $(OBJS)
+	  -o $@ $(before_DTrace_OBJS)
 endif
+
+OBJS = $(before_DTrace_OBJS) $(DTRACE_OBJS)
 
 $(OBJDIR):
 	-@mkdir -p $(OBJDIR)

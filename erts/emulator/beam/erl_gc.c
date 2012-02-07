@@ -2055,7 +2055,6 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
     Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
     Sint offs;
     Uint stack_size = p->hend - p->stop;
-    char pidbuf[DTRACE_TERM_BUF_SIZE];
 
     ASSERT(new_sz < p->heap_sz);
     sys_memmove(p->heap + new_sz - stack_size, p->stop, stack_size *

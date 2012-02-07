@@ -25,7 +25,6 @@
 #include "erl_nif.h"
 #include "config.h"
 #include "sys.h"
-#define DTRACE_DRIVER_SKIP_FUNC_DECLARATIONS
 #include "dtrace-wrapper.h"
 #ifdef  HAVE_DTRACE
 #include "dtrace_user.h"
@@ -144,8 +143,7 @@ static ERL_NIF_TERM user_trace_i4s4(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 
     if (DTRACE_ENABLED(user_trace_i4s4)) {
 	dtrace_nifenv_str(env, procbuf);
-        get_string_maybe(env, argv[0], &utbuf,
-                         user_tagbuf, sizeof(user_tagbuf)-1);
+        get_string_maybe(env, argv[0], &utbuf, user_tagbuf, MESSAGE_BUFSIZ);
         if (! enif_get_int64(env, argv[1], &i1))
             i1 = 0;
         if (! enif_get_int64(env, argv[2], &i2))
@@ -154,14 +152,10 @@ static ERL_NIF_TERM user_trace_i4s4(ErlNifEnv* env, int argc, const ERL_NIF_TERM
             i3 = 0;
         if (! enif_get_int64(env, argv[4], &i4))
             i4 = 0;
-        get_string_maybe(env, argv[5], &mbuf1,
-                         messagebuf1, sizeof(messagebuf1)-1);
-        get_string_maybe(env, argv[6], &mbuf2,
-                         messagebuf2, sizeof(messagebuf2)-1);
-        get_string_maybe(env, argv[7], &mbuf3,
-                         messagebuf3, sizeof(messagebuf3)-1);
-        get_string_maybe(env, argv[8], &mbuf4,
-                         messagebuf4, sizeof(messagebuf4)-1);
+        get_string_maybe(env, argv[5], &mbuf1, messagebuf1, MESSAGE_BUFSIZ);
+        get_string_maybe(env, argv[6], &mbuf2, messagebuf2, MESSAGE_BUFSIZ);
+        get_string_maybe(env, argv[7], &mbuf3, messagebuf3, MESSAGE_BUFSIZ);
+        get_string_maybe(env, argv[8], &mbuf4, messagebuf4, MESSAGE_BUFSIZ);
 	DTRACE10(user_trace_i4s4, procbuf, utbuf,
 		 i1, i2, i3, i4, mbuf1, mbuf2, mbuf3, mbuf4);
 	return atom_true;

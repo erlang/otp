@@ -14,8 +14,8 @@
 %%% four integer arguments and four string arguments; the integer
 %%% argument(s) must come before any string argument.  For example:
 %%% ```
-%%% 1> put(dtrace_utag, "GGOOOAAALL!!!!!").
-%%% undefined
+%%% 1> dtrace:put_tag("GGOOOAAALL!!!!!").
+%%% true
 %%% 2> dtrace:init().
 %%% ok
 %%%
@@ -35,9 +35,13 @@
 %%% then the driver will ignore the user's input and use a default
 %%% value of 0 or NULL, respectively.
 
+-define(DTRACE_UT_KEY, '_dtrace_utag_@_@'). % Match prim_file:get_dtrace_utag()!
+
 -export([init/0, available/0,
          user_trace_s1/1, % TODO: unify with pid & tag args like user_trace_i4s4
          p/0, p/1, p/2, p/3, p/4, p/5, p/6, p/7, p/8]).
+-export([put_utag/1, get_utag/0]).
+
 -export([scaff/0]). % Development only
 -export([user_trace_i4s4/9]). % Know what you're doing!
 
@@ -68,7 +72,7 @@ available() ->
 
 -spec user_trace_s1(iolist()) -> true | false | error | badarg.
 
-user_trace_s1(Message) ->
+user_trace_s1(_Message) ->
     erlang:nif_error(nif_not_loaded).
 
 -spec user_trace_i4s4(iolist(),
@@ -176,8 +180,32 @@ p(I1, I2, I3, I4, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_intege
       true | false | error | badarg.
 
 user_trace_int(I1, I2, I3, I4, S1, S2, S3, S4) ->
-    UTag = prim_file:get_dtrace_utag(),
-    user_trace_i4s4(UTag, I1, I2, I3, I4, S1, S2, S3, S4).
+    UTag = get_utag(),
+    try
+        user_trace_i4s4(UTag, I1, I2, I3, I4, S1, S2, S3, S4)
+    catch
+        error:nif_not_loaded ->
+            false
+    end.
+
+-spec put_utag(undefined | iolist()) -> ok.
+
+put_utag(undefined) ->
+    put_utag(<<>>);
+put_utag(T) when is_binary(T) ->
+    put(?DTRACE_UT_KEY, T),
+    ok;
+put_utag(T) when is_list(T) ->
+    put(?DTRACE_UT_KEY, list_to_binary(T)),
+    ok.
+
+get_utag() ->
+    case get(?DTRACE_UT_KEY) of
+        undefined ->
+            <<>>;
+        X ->
+            X
+    end.
 
 %% Scaffolding to write tedious code: quick brute force and not 100% correct.
 

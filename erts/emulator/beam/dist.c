@@ -741,8 +741,10 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
     Eterm token = NIL;
     Process *sender = dsdp->proc;
     int res;
-    Sint tok_label = 0, tok_lastcnt = 0, tok_serial = 0;
-    Uint msize = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
+    ERTS_DECLARE_DUMMY(Uint msize) = 0;
     DTRACE_CHARBUF(node_name, 64);
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(receiver_name, 64);
@@ -788,8 +790,10 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     Eterm token = NIL;
     Process *sender = dsdp->proc;
     int res;
-    Sint tok_label = 0, tok_lastcnt = 0, tok_serial = 0;
-    Uint32 msize = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
+    ERTS_DECLARE_DUMMY(Uint32 msize) = 0;
     DTRACE_CHARBUF(node_name, 64);
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(receiver_name, 128);
@@ -838,7 +842,9 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     DeclareTmpHeapNoproc(ctl_heap,6);
     int res;
     Process *sender = dsdp->proc;
-    Sint tok_label = 0, tok_lastcnt = 0, tok_serial = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
+    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
     DTRACE_CHARBUF(node_name, 64);
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(remote_name, 128);

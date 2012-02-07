@@ -173,10 +173,10 @@ typedef struct {
 static int
 write_sn(void *vwsnap, char* buf, size_t len)
 {
+    int rv = 0;
     write_sn_arg_t *wsnap = (write_sn_arg_t *) vwsnap;
     ASSERT(wsnap);
     ASSERT(len > 0);
-    int rv = 0;
     if (wsnap->len > 0) {
 	size_t sz = len;
 	if (sz >= wsnap->len)

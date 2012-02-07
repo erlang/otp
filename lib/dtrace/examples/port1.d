@@ -99,10 +99,12 @@ erlang*:::port-command
 
 erlang*:::port-control
 {
-    cmd = driver_map[copyinstr(arg2), arg3];
-    cmd_str = (cmd == 0) ? "unknown" : cmd;
+    /* http://dtrace.org/blogs/brendan/2011/11/25/dtrace-variable-types/ */
+    this->cmd = driver_map[copyinstr(arg2), arg3];
+    this->cmd_str = (this->cmd == 0) ? "unknown" : this->cmd;
     printf("port control pid %s port %s port name %s command %d %s\n",
-	   copyinstr(arg0), copyinstr(arg1), copyinstr(arg2), arg3, cmd_str);
+	   copyinstr(arg0), copyinstr(arg1), copyinstr(arg2), arg3,
+           this->cmd_str);
 }
 
 /* port-exit is fired as a result of port_close() or exit signal */

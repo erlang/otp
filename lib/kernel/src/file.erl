@@ -227,7 +227,7 @@ read_file_info(Name) ->
       Reason :: posix() | badarg.
 
 read_file_info(Name, Opts) when is_list(Opts) ->
-    check_and_call(read_file_info, [file_name(Name), Opts]).
+    check_and_call(read_file_info, [file_name(Name), Opts, get_dtrace_utag()]).
 
 -spec altname(Name :: name()) -> any().
 
@@ -249,7 +249,7 @@ read_link_info(Name) ->
       Reason :: posix() | badarg.
 
 read_link_info(Name, Opts) when is_list(Opts) ->
-    check_and_call(read_link_info, [file_name(Name),Opts]).
+    check_and_call(read_link_info, [file_name(Name),Opts, get_dtrace_utag()]).
 
 
 -spec read_link(Name) -> {ok, Filename} | {error, Reason} when
@@ -275,7 +275,7 @@ write_file_info(Name, Info = #file_info{}) ->
       Reason :: posix() | badarg.
 
 write_file_info(Name, Info = #file_info{}, Opts) when is_list(Opts) ->
-    check_and_call(write_file_info, [file_name(Name), Info, Opts]).
+    check_and_call(write_file_info, [file_name(Name), Info, Opts, get_dtrace_utag()]).
 
 -spec list_dir(Dir) -> {ok, Filenames} | {error, Reason} when
       Dir :: name(),
@@ -1504,4 +1504,4 @@ wait_file_reply(From, Ref) ->
     end.
 
 get_dtrace_utag() ->
-    prim_file:get_dtrace_utag().
+    dtrace:get_utag().
