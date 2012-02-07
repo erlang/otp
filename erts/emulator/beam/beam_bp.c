@@ -486,7 +486,8 @@ erts_find_local_func(Eterm mfa[3]) {
     for (i = 0; i < n; ++i) {
 	code_ptr = code_base[MI_FUNCTIONS+i];
 	ASSERT(((BeamInstr) BeamOp(op_i_func_info_IaaI)) == code_ptr[0]);
-	ASSERT(mfa[0] == ((Eterm) code_ptr[2]));
+	ASSERT(mfa[0] == ((Eterm) code_ptr[2]) ||
+	       is_nil((Eterm) code_ptr[2]));
 	if (mfa[1] == ((Eterm) code_ptr[3]) &&
 	    ((BeamInstr) mfa[2]) == code_ptr[4]) {
 	    return code_ptr + 5;
