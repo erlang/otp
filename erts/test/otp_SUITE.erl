@@ -151,6 +151,9 @@ ssl_crypto_filter(Undef) ->
 	{{error,bad_name},{error,bad_name}} ->
 	    filter(fun({_,{ssl,_,_}}) -> false;
 		      ({_,{crypto,_,_}}) -> false;
+		      ({_,{ssh,_,_}}) -> false;
+		      ({_,{ssh_connection,_,_}}) -> false;
+		      ({_,{ssh_sftp,_,_}}) -> false;
 		      (_) -> true
 		   end, Undef);
 	{_,_} -> Undef
