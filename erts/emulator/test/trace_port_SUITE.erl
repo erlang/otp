@@ -77,7 +77,8 @@ end_per_testcase(_Func, Config) ->
 
 call_trace(doc) -> "Test sending call trace messages to a port.";
 call_trace(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
+    case test_server:is_native(?MODULE) orelse
+	test_server:is_native(lists) of
 	true -> 
 	    {skip,"Native code"};
 	false ->
@@ -128,7 +129,8 @@ bs_sum_c(<<>>, Acc) -> Acc.
 
 return_trace(doc) -> "Test the new return trace.";
 return_trace(Config) when is_list(Config) ->
-    case test_server:is_native(?MODULE) of
+    case test_server:is_native(?MODULE) orelse
+	test_server:is_native(lists) of
 	true -> 
 	    {skip,"Native code"};
 	false ->

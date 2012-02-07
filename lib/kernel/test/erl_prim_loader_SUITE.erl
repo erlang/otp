@@ -175,10 +175,10 @@ wait_really_started(Node, N) ->
 inet_disconnects(doc) -> ["Start a node using the 'inet' loading method, ",
 			  "then lose the connection."];
 inet_disconnects(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {comment, "VxWorks: tested separately"};
-	_ ->
+    case test_server:is_native(erl_boot_server) of
+	true ->
+	    {skip,"erl_boot_server is native"};
+	false ->
 	    ?line Name = erl_prim_test_inet_disconnects,
 	    ?line Host = host(),
 	    ?line Cookie = atom_to_list(erlang:get_cookie()),
