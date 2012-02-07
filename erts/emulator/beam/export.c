@@ -206,16 +206,11 @@ init_export_table(void)
  *    called through such an export entry.
  * 3) This function is suitable for the implementation of erlang:apply/3.
  */
+extern Export* /* inline-helper */
+erts_find_export_entry(Eterm m, Eterm f, unsigned int a,ErtsCodeIndex code_ix);
 
 Export*
-erts_active_export_entry(Eterm m, Eterm f, unsigned int a)
-{
-    return erts_find_export_entry(m, f, a, erts_active_code_ix());
-}
-
-Export*
-erts_find_export_entry(Eterm m, Eterm f, unsigned int a,
-		       ErtsCodeIndex code_ix)
+erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
 {
     HashValue hval = EXPORT_HASH((BeamInstr) m, (BeamInstr) f, (BeamInstr) a);
     int ix;
@@ -401,7 +396,6 @@ void export_start_staging(void)
     /*
      * Insert all entries in src into dst table
      */
-    /*SVERK Room for optimization to only insert the new ones */
     for (i = 0; i < src->entries; i++) {
 	src_entry = (struct export_entry*) erts_index_lookup(src, i);
         src_entry->ep->addressv[dst_ix] = src_entry->ep->addressv[src_ix];

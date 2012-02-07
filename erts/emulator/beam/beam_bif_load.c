@@ -139,17 +139,7 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    /*SVERK
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
-
-    erts_export_consolidate(erts_active_code_ix());*/
-
     purge_res = purge_module(BIF_P, atom_val(BIF_ARG_1));
-
-    /*SVERK
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
 
     if (purge_res < 0) {
 	BIF_ERROR(BIF_P, BADARG);
@@ -306,10 +296,6 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     if (is_not_atom(BIF_ARG_1))
 	goto badarg;
 
-    /*SVERK
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();*/
-
     erts_lock_code_ix();
     do {
 	erts_start_staging_code_ix();
@@ -360,10 +346,6 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     else {
 	erts_unlock_code_ix();
     }
-
-    /*SVERK
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);*/
 
     if (res == am_badarg) {
     badarg:
@@ -429,17 +411,10 @@ BIF_RETTYPE loaded_0(BIF_ALIST_0)
 
 BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
-    ErtsCodeIndex code_ix = erts_active_code_ix();  /*SVERK ?? on_load ?? */
-    Module* modp = erts_get_module(BIF_ARG_1, code_ix);
-    Eterm on_load = 0;
+    Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
 
-    if (modp) {
-	if (modp->curr.code) {
-	    on_load = modp->curr.code[MI_ON_LOAD_FUNCTION_PTR];
-	}
-    }
-    if (on_load) {
-	BIF_TRAP_CODE_PTR_0(BIF_P, on_load);
+    if (modp && modp->curr.code) {
+	BIF_TRAP_CODE_PTR_0(BIF_P, modp->curr.code[MI_ON_LOAD_FUNCTION_PTR]);
     }
     else {
 	BIF_ERROR(BIF_P, BADARG);
@@ -793,7 +768,7 @@ retry:
 	     */
 	    if (modp->old.nif != NULL) {
 		if (!is_blocking) {
-		    /*SVERK Do unload nif without blocking */
+		    /* ToDo: Do unload nif without blocking */
 		    erts_rwunlock_old_code(code_ix);
 		    erts_unlock_code_ix();
 		    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);

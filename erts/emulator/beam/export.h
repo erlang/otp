@@ -61,10 +61,8 @@ typedef struct export
 void init_export_table(void);
 void export_info(int, void *);
 
-Export* erts_find_export_entry(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex);
-Export* erts_active_export_entry(Eterm m, Eterm f, unsigned int a); /*SVERK inline? */
+ERTS_GLB_INLINE Export* erts_active_export_entry(Eterm m, Eterm f, unsigned a);
 Export* erts_export_put(Eterm mod, Eterm func, unsigned int arity);
-
 
 Export* erts_export_get_or_make_stub(Eterm, Eterm, unsigned);
 
@@ -85,4 +83,16 @@ extern erts_smp_rwmtx_t export_staging_lock;
 (((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code + 3) && \
  ((EntryPtr)->code[3] == (BeamInstr) em_apply_bif))
 
-#endif
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Export*
+erts_active_export_entry(Eterm m, Eterm f, unsigned int a)
+{
+    extern Export* erts_find_export_entry(Eterm m, Eterm f, unsigned a, ErtsCodeIndex);
+    return erts_find_export_entry(m, f, a, erts_active_code_ix());
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+#endif /* __EXPORT_H__ */
+

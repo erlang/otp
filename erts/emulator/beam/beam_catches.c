@@ -37,16 +37,21 @@ typedef struct {
 #  define IF_DEBUG(x)
 #endif
 
-struct bc_code_ix { /*SVERK A better name maybe... */
+struct bc_pool {
     int free_list;
     unsigned high_mark;
     unsigned tabsize;
     beam_catch_t *beam_catches;
+    /* 
+     * Note that the 'beam_catches' area is shared by pools. Used slots
+     * are readonly as long as the module is not purgable. The free-list is
+     * protected by the code_ix lock.
+     */
 
-    IF_DEBUG(int is_prepared;)
+    IF_DEBUG(int is_staging;)
 };
 
-static struct bc_code_ix bccix[ERTS_NUM_CODE_IX];
+static struct bc_pool bccix[ERTS_NUM_CODE_IX];
 
 void beam_catches_init(void)
 {
@@ -57,12 +62,12 @@ void beam_catches_init(void)
     bccix[0].high_mark = 0;
     bccix[0].beam_catches = erts_alloc(ERTS_ALC_T_CODE,
 				     sizeof(beam_catch_t)*DEFAULT_TABSIZE);
-    IF_DEBUG(bccix[0].is_prepared = 0);
+    IF_DEBUG(bccix[0].is_staging = 0);
     for (i=1; i<ERTS_NUM_CODE_IX; i++) {
 	bccix[i] = bccix[i-1];
     }
      /* For initial load: */
-    IF_DEBUG(bccix[erts_staging_code_ix()].is_prepared = 1);
+    IF_DEBUG(bccix[erts_staging_code_ix()].is_staging = 1);
 }
 
 
@@ -84,30 +89,27 @@ void beam_catches_start_staging(void)
     ErtsCodeIndex src = erts_active_code_ix();
     beam_catch_t* prev_vec = bccix[dst].beam_catches;
 
-    ASSERT(!bccix[src].is_prepared && !bccix[dst].is_prepared);
+    ASSERT(!bccix[src].is_staging && !bccix[dst].is_staging);
 
     bccix[dst] = bccix[src];
     gc_old_vec(prev_vec);
-    IF_DEBUG(bccix[dst].is_prepared = 1);
+    IF_DEBUG(bccix[dst].is_staging = 1);
 }
 
 void beam_catches_end_staging(int commit)
 {
-    IF_DEBUG(bccix[erts_staging_code_ix()].is_prepared = 0);
+    IF_DEBUG(bccix[erts_staging_code_ix()].is_staging = 0);
 }
 
 unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 {
     int i;
-    struct bc_code_ix* p = &bccix[erts_staging_code_ix()];
+    struct bc_pool* p = &bccix[erts_staging_code_ix()];
 
-    ASSERT(p->is_prepared);
+    ASSERT(p->is_staging);
     /*
      * Allocate from free_list while it is non-empty.
      * If free_list is empty, allocate at high_mark.
-     *
-     * This avoids the need to initialise the free list in
-     * beam_catches_init(), which would cost O(TABSIZ) time.
      */
     if (p->free_list >= 0) {
 	i = p->free_list;
@@ -137,7 +139,7 @@ unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 
 BeamInstr *beam_catches_car(unsigned i)
 {
-    struct bc_code_ix* p = &bccix[erts_active_code_ix()];
+    struct bc_pool* p = &bccix[erts_active_code_ix()];
 
     if (i >= p->tabsize ) {
 	erl_exit(1, "beam_catches_delmod: index %#x is out of range\r\n", i);
@@ -148,10 +150,10 @@ BeamInstr *beam_catches_car(unsigned i)
 void beam_catches_delmod(unsigned head, BeamInstr *code, unsigned code_bytes,
 			 ErtsCodeIndex code_ix)
 {
-    struct bc_code_ix* p = &bccix[code_ix];
+    struct bc_pool* p = &bccix[code_ix];
     unsigned i, cdr;
 
-    ASSERT((code_ix == erts_active_code_ix()) != bccix[erts_staging_code_ix()].is_prepared);
+    ASSERT((code_ix == erts_active_code_ix()) != bccix[erts_staging_code_ix()].is_staging);
     for(i = head; i != (unsigned)-1;) {
 	if (i >= p->tabsize) {
 	    erl_exit(1, "beam_catches_delmod: index %#x is out of range\r\n", i);
