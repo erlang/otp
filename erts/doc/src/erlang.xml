@@ -215,9 +215,9 @@
           representation of <c>Atom</c>. If <c>Encoding</c>
 	  is <c>latin1</c>, there will be one byte for each character
 	  in the text representation. If <c>Encoding</c> is <c>utf8</c> or
-	  <c>unicode</c>, the characters will encoded using UTF-8
+	  <c>unicode</c>, the characters will be encoded using UTF-8
 	  (meaning that characters from 16#80 up to 0xFF will be
-	  encode in two bytes).</p>
+	  encoded in two bytes).</p>
 
 	<note><p>Currently, <c>atom_to_binary(Atom, latin1)</c> can
 	never fail because the text representation of an atom can only contain
@@ -268,7 +268,7 @@
 
       <p>If <c>PosLen</c> in any way references outside the binary, a <c>badarg</c> exception is raised.</p>
 
-      <p><c>Start</c> is zero-based, i.e:</p>
+      <p><c>Start</c> is zero-based, i.e.:</p>
 <code>
 1> Bin = &lt;&lt;1,2,3&gt;&gt;
 2> binary_part(Bin,{0,2}).
@@ -773,9 +773,9 @@ false</pre>
           turned off, nothing happens.</p>
         <p>Once <c>demonitor(MonitorRef)</c> has returned it is
           guaranteed that no <c>{'DOWN', MonitorRef, _, _, _}</c> message
-          due to the monitor will be placed in the callers message queue
+          due to the monitor will be placed in the caller's message queue
           in the future. A <c>{'DOWN', MonitorRef, _, _, _}</c> message
-          might have been placed in the callers message queue prior to
+          might have been placed in the caller's message queue prior to
           the call, though. Therefore, in most cases, it is advisable
           to remove such a <c>'DOWN'</c> message from the message queue
           after monitoring has been stopped. 
@@ -818,7 +818,7 @@ false</pre>
           <tag><c>flush</c></tag>
           <item>
             <p>Remove (one) <c>{_, MonitorRef, _, _, _}</c> message,
-              if there is one, from the callers message queue after
+              if there is one, from the caller's message queue after
               monitoring has been stopped.</p>
             <p>Calling <c>demonitor(MonitorRef, [flush])</c>
               is equivalent to the following, but more efficient:</p>
@@ -847,7 +847,7 @@ false</pre>
 	      <item><p>The monitor was not found and could not be removed.
 	      	       This probably because someone already has placed a
 		       <c>'DOWN'</c> message corresponding to this monitor
-		       in the callers message queue.
+		       in the caller's message queue.
 		    </p>
 	      </item>
 	    </taglist>
@@ -7090,7 +7090,7 @@ true</pre>
           <c>Id</c> has no effect on the caller in the future (unless
           the link is setup again). If caller is trapping exits, an
           <c>{'EXIT', Id, _}</c> message due to the link might have
-          been placed in the callers message queue prior to the call,
+          been placed in the caller's message queue prior to the call,
           though. Note, the <c>{'EXIT', Id, _}</c> message can be the
           result of the link, but can also be the result of <c>Id</c>
           calling <c>exit/2</c>. Therefore, it <em>may</em> be

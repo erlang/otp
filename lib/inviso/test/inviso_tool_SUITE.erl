@@ -52,7 +52,12 @@ end_per_group(_GroupName, Config) ->
 %% -----------------------------------------------------------------------------
 
 init_per_suite(Config) ->
-    Config.
+    case test_server:is_native(lists) of
+	true ->
+	    {skip,"Native libs -- tracing doesn't work"};
+	false ->
+	    Config
+    end.
 %% -----------------------------------------------------------------------------
 
 end_per_suite(_Config) ->

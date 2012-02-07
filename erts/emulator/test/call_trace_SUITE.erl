@@ -165,10 +165,14 @@ worker_loop() ->
 worker_foo(_Arg) ->
     ok.
 
-basic(doc) ->    
-    "Basic test of the call tracing (we trace one process).";
-basic(suite) -> [];
-basic(Config) when is_list(Config) ->
+%% Basic test of the call tracing (we trace one process).
+basic(_Config) ->
+    case test_server:is_native(lists) of
+	true -> {skip,"lists is native"};
+	false -> basic()
+    end.
+
+basic() ->
     ?line start_tracer(),
     ?line trace_info(self(), flags),
     ?line trace_info(self(), tracer),
@@ -263,9 +267,15 @@ foo() -> foo0.
 foo(X) -> X+1.
 foo(X, Y) -> X+Y.
 
-flags(doc) -> "Test flags (arity, timestamp) for call_trace/3. "
-		  "Also, test the '{tracer,Pid}' option.";
-flags(Config) when is_list(Config) ->
+%% Test flags (arity, timestamp) for call_trace/3.
+%% Also, test the '{tracer,Pid}' option.
+flags(_Config) ->
+    case test_server:is_native(filename) of
+	true -> {skip,"filename is native"};
+	false -> flags()
+    end.
+
+flags() ->
     ?line Tracer = start_tracer_loop(),
     ?line trace_pid(self(), true, [call,{tracer,Tracer}]),
 
@@ -428,9 +438,14 @@ pam_foo(A, B) ->
     {ok,A,B}.
 
 
-change_pam(doc) -> "Test changing PAM programs for a function.";
-change_pam(suite) -> [];
-change_pam(Config) when is_list(Config) ->
+%% Test changing PAM programs for a function.
+change_pam(_Config) ->
+    case test_server:is_native(lists) of
+	true -> {skip,"lists is native"};
+	false -> change_pam()
+    end.
+
+change_pam() ->
     ?line start_tracer(),
     ?line Self = self(),
 
@@ -468,10 +483,11 @@ change_pam_trace(Prog) ->
     {match_spec,Prog} = trace_info({erlang,process_info,2}, match_spec),
     ok.
 
-return_trace(doc) -> "Test the new return trace.";
-return_trace(suite) -> [];
-return_trace(Config) when is_list(Config) ->
-    return_trace().
+return_trace(_Config) ->
+    case test_server:is_native(lists) of
+	true -> {skip,"lists is native"};
+	false -> return_trace()
+    end.
 
 return_trace() ->
     X = {save,me},
@@ -521,7 +537,7 @@ return_trace() ->
     ?line {match_spec,Prog2} = trace_info({erlang,atom_to_list,1}, match_spec),
 
     ?line lists:seq(2, 7),
-    ?line atom_to_list(non_literal(nisse)),
+    ?line _ = atom_to_list(non_literal(nisse)),
     ?line expect({trace,Self,return_from,{lists,seq,2},[2,3,4,5,6,7]}),
     ?line expect({trace,Self,return_from,{erlang,atom_to_list,1},"nisse"}),
 
@@ -539,10 +555,11 @@ return_trace() ->
 nasty() ->
     exit(good_bye).
 
-exception_trace(doc) -> "Test the new exception trace.";
-exception_trace(suite) -> [];
-exception_trace(Config) when is_list(Config) ->
-    exception_trace().
+exception_trace(_Config) ->
+    case test_server:is_native(lists) of
+	true -> {skip,"lists is native"};
+	false -> exception_trace()
+    end.
 
 exception_trace() ->
     X = {save,me},
@@ -600,7 +617,7 @@ exception_trace() ->
 	trace_info({erlang,atom_to_list,1}, match_spec),
 
     ?line lists:seq(2, 7),
-    ?line atom_to_list(non_literal(nisse)),
+    ?line _ = atom_to_list(non_literal(nisse)),
     ?line expect({trace,Self,return_from,{lists,seq,2},[2,3,4,5,6,7]}),
     ?line expect({trace,Self,return_from,{erlang,atom_to_list,1},"nisse"}),
 

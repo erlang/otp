@@ -1879,12 +1879,9 @@ digraph(Conf) when is_list(Conf) ->
 
     ?line {'EXIT', {badarg, _}} = 
         (catch family_to_digraph(set([a]))),
-    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_],_}|_]}} =
-        (catch family_to_digraph(set([a]), [foo])),
-    ?line {'EXIT', {badarg, [{sofs,family_to_digraph,[_,_],_}|_]}} =
-        (catch family_to_digraph(F, [foo])),
-    ?line {'EXIT', {cyclic, [{sofs,family_to_digraph,[_,_],_}|_]}} =
-        (catch family_to_digraph(family([{a,[a]}]),[acyclic])),
+    digraph_fail(badarg, catch family_to_digraph(set([a]), [foo])),
+    digraph_fail(badarg, catch family_to_digraph(F, [foo])),
+    digraph_fail(cyclic, catch family_to_digraph(family([{a,[a]}]),[acyclic])),
 
     ?line G1 = family_to_digraph(E),
     ?line {'EXIT', {badarg, _}} = (catch digraph_to_family(G1, foo)),
@@ -1927,6 +1924,13 @@ digraph(Conf) when is_list(Conf) ->
     ?line true = T0 == ets:all(),
     ok.
 
+digraph_fail(ExitReason, Fail) ->
+    {'EXIT', {ExitReason, [{sofs,family_to_digraph,A,_}|_]}} = Fail,
+    case {test_server:is_native(sofs),A} of
+	{false,[_,_]} -> ok;
+	{true,2} -> ok
+    end.
+
 constant_function(suite) -> [];
 constant_function(doc) -> [""];
 constant_function(Conf) when is_list(Conf) ->
@@ -1954,6 +1958,17 @@ misc(Conf) when is_list(Conf) ->
                difference(S, RR)),
 
     %% The function external:foo/1 is undefined.
+    case test_server:is_native(sofs) of
+	true ->
+	    %% Create an export entry for external:foo/1 to work
+	    %% around a bug in the native code. If there is no
+	    %% export entry, the exception will be
+	    %% {badfun,{external,foo}}. Remove in R16 when tuple
+	    %% funs are removed.
+	    (catch external:foo([]));
+	false ->
+	    ok
+    end,
     ?line {'EXIT', {undef, _}} =    
  	(catch projection({external,foo}, set([a,b,c]))),
     ok.
