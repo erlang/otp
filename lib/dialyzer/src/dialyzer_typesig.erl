@@ -1755,33 +1755,29 @@ solve_ref_or_list(#constraint_ref{id = Id, deps = Deps},
 	  true -> solve_self_recursive(Cs, Map, MapDict, Id, t_none(), State);
 	  false -> solve_ref_or_list(Cs, Map, MapDict, State)
 	end,
-      case Res of
-	{error, NewMapDict} ->
-	  ?debug("Error solving for function ~p\n", [debug_lookup_name(Id)]),
-	  Arity = state__fun_arity(Id, State),
-	  FunType =
-	    case state__prop_domain(t_var_name(Id), State) of
-	      error -> t_fun(Arity, t_none());
-	      {ok, Dom} -> t_fun(Dom, t_none())
-	    end,
-	  NewMap1 = enter_type(Id, FunType, Map),
-	  NewMap2 =
-	    case state__get_rec_var(Id, State) of
-	      {ok, Var} -> enter_type(Var, FunType, NewMap1);
-	      error -> NewMap1
-	    end,
-	  {ok, dict:store(Id, NewMap2, NewMapDict), NewMap2};
-	{ok, NewMapDict, NewMap} ->
-	  ?debug("Done solving fun: ~p\n", [debug_lookup_name(Id)]),
-	  FunType = lookup_type(Id, NewMap),
-	  NewMap1 = enter_type(Id, FunType, Map),
-	  NewMap2 =
-	    case state__get_rec_var(Id, State) of
-	      {ok, Var} -> enter_type(Var, FunType, NewMap1);
-	      error -> NewMap1
-	    end,
-	  {ok, dict:store(Id, NewMap2, NewMapDict), NewMap2}
-      end
+      {NewMapDict, FunType} =
+	case Res of
+	  {error, NewMapDict0} ->
+	    ?debug("Error solving for function ~p\n", [debug_lookup_name(Id)]),
+	    Arity = state__fun_arity(Id, State),
+	    FunType0 =
+	      case state__prop_domain(t_var_name(Id), State) of
+		error -> t_fun(Arity, t_none());
+		{ok, Dom} -> t_fun(Dom, t_none())
+	      end,
+	    {NewMapDict0, FunType0};
+	  {ok, NewMapDict0, NewMap} ->
+	    ?debug("Done solving fun: ~p\n", [debug_lookup_name(Id)]),
+	    FunType0 = lookup_type(Id, NewMap),
+	    {NewMapDict0, FunType0}
+	end,
+      NewMap1 = enter_type(Id, FunType, Map),
+      NewMap2 =
+	case state__get_rec_var(Id, State) of
+	  {ok, Var} -> enter_type(Var, FunType, NewMap1);
+	  error -> NewMap1
+	end,
+      {ok, dict:store(Id, NewMap2, NewMapDict), NewMap2}
   end;
 solve_ref_or_list(#constraint_list{type=Type, list = Cs, deps = Deps, id = Id},
 		  Map, MapDict, State) ->
