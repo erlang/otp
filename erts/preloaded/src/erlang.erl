@@ -43,6 +43,9 @@
 -export([memory/0, memory/1]).
 -export([alloc_info/1, alloc_sizes/1]).
 
+-export([gather_sched_wall_time_result/1,
+	 await_sched_wall_time_modifications/2]).
+
 -deprecated([hash/2]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
@@ -1863,6 +1866,11 @@ spawn_opt(_Tuple) ->
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
+                (scheduler_wall_time) -> [{Scheduler_Id, Scheduler_Worked_Time, Scheduler_Total_Time}] | 
+					     undefined when
+      Scheduler_Id :: pos_integer(),
+      Scheduler_Worked_Time :: non_neg_integer(),
+      Scheduler_Total_Time :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),
@@ -1908,6 +1916,9 @@ subtract(_,_) ->
                         (scheduler_bind_type, How) -> OldBindType when
       How :: scheduler_bind_type() | default_bind,
       OldBindType :: scheduler_bind_type();
+                        (scheduler_wall_time, Boolean) ->  OldBoolean when
+      Boolean :: boolean(),
+      OldBoolean :: boolean();
                         (schedulers_online, SchedulersOnline) ->
                                 OldSchedulersOnline when
       SchedulersOnline :: pos_integer(),
@@ -3245,4 +3256,35 @@ receive_allocator(Ref, N, Acc) ->
     receive
 	{Ref, _, InfoList} ->
 	    receive_allocator(Ref, N-1, insert_info(InfoList, Acc))
+    end.
+
+-spec erlang:await_sched_wall_time_modifications(Ref, Result) -> boolean() when
+      Ref :: reference(),
+      Result :: boolean().
+
+await_sched_wall_time_modifications(Ref, Result) ->
+    sched_wall_time(Ref, erlang:system_info(schedulers)),
+    Result.
+
+-spec erlang:gather_sched_wall_time_result(Ref) -> [{pos_integer(),
+						     non_neg_integer(),
+						     non_neg_integer()}] when
+      Ref :: reference().
+
+gather_sched_wall_time_result(Ref) when erlang:is_reference(Ref) ->
+    sched_wall_time(Ref, erlang:system_info(schedulers), []).
+
+sched_wall_time(_Ref, 0) ->
+    ok;
+sched_wall_time(Ref, N) ->
+    receive Ref -> sched_wall_time(Ref, N-1) end.
+
+sched_wall_time(_Ref, 0, Acc) ->
+    Acc;
+sched_wall_time(Ref, N, undefined) ->
+    receive {Ref, _} -> sched_wall_time(Ref, N-1, undefined) end;
+sched_wall_time(Ref, N, Acc) ->
+    receive
+	{Ref, undefined} -> sched_wall_time(Ref, N-1, undefined);
+	{Ref, SWT} -> sched_wall_time(Ref, N-1, [SWT|Acc])
     end.

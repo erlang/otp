@@ -4406,6 +4406,25 @@ true</pre>
     </func>
     <func>
       <name name="statistics" arity="1" clause_i="8"/>
+      <fsummary>Information about each schedulers work time</fsummary>
+      <desc>
+      <p><marker id="statistics_scheduler_wall_time"></marker>
+      Returns time lapsed (<c><anno>Scheduler_Total_Time</anno></c>) and time spent working  
+      (<c><anno>Scheduler_Worked_Time</anno></c>) for each scheduler since
+      the system flag <seealso marker="#system_flag_scheduler_wall_time"><c>scheduler_wall_time</c></seealso>
+      was set to <c>true</c>.</p>
+      <p>
+      Returns <c>undefined</c> if the system flag <seealso marker="#system_flag_scheduler_wall_time">
+      <c>scheduler_wall_time</c></seealso> is set to <c>false</c>.
+      </p>
+      <p>The list of scheduler information is unsorted and may come in different order
+      between calls. The time unit is undefined and may be changed and should only be used
+      to calculate relative utilization.
+      </p>
+      </desc>
+    </func>
+    <func>
+      <name name="statistics" arity="1" clause_i="9"/>
       <fsummary>Information about wall-clock</fsummary>
       <desc>
         <p><c>wall_clock</c> can be used in the same manner as
@@ -4783,6 +4802,16 @@ true</pre>
     </func>
     <func>
       <name name="system_flag" arity="2" clause_i="8"/>
+      <fsummary>Set system flag scheduler_wall_time</fsummary>
+      <desc><p><marker id="system_flag_scheduler_wall_time"></marker>
+      Turns on/off scheduler wall time measurements. </p>
+      <p>For more information see,
+      <seealso marker="#statistics_scheduler_wall_time">erlang:statistics(scheduler_wall_time)</seealso>.
+      </p>
+      </desc>
+    </func>
+    <func>
+      <name name="system_flag" arity="2" clause_i="9"/>
       <fsummary>Set system flag schedulers_online</fsummary>
       <desc>
         <p><marker id="system_flag_schedulers_online"></marker>
@@ -4798,7 +4827,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name name="system_flag" arity="2" clause_i="9"/>
+      <name name="system_flag" arity="2" clause_i="10"/>
       <fsummary>Set system flag trace_control_word</fsummary>
       <desc>
         <p>Sets the value of the node's trace control word to
