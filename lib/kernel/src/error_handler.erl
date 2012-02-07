@@ -90,7 +90,7 @@ int() -> int.
 crash(Fun, Args) ->
     crash({Fun,Args,[]}).
 
--spec crash(atom(), atom(), arity()) -> no_return().
+-spec crash(atom(), atom(), arity() | [term()]) -> no_return().
 
 crash(M, F, A) ->
     crash({M,F,A,[]}).

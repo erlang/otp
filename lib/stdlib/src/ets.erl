@@ -301,6 +301,7 @@ next(_, _) ->
 prev(_, _) ->
     erlang:nif_error(undef).
 
+%% Shadowed by erl_bif_types: ets:rename/2
 -spec rename(Tab, Name) -> Name when
       Tab :: tab(),
       Name :: atom().

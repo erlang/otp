@@ -43,6 +43,7 @@
 %%% BIFs
 -export([keyfind/3, keymember/3, keysearch/3, member/2, reverse/2]).
 
+%% Shadowed by erl_bif_types: lists:keyfind/3
 -spec keyfind(Key, N, TupleList) -> Tuple | false when
       Key :: term(),
       N :: pos_integer(),
@@ -52,6 +53,7 @@
 keyfind(_, _, _) ->
     erlang:nif_error(undef).
 
+%% Shadowed by erl_bif_types: lists:keymember/3
 -spec keymember(Key, N, TupleList) -> boolean() when
       Key :: term(),
       N :: pos_integer(),
@@ -61,6 +63,7 @@ keyfind(_, _, _) ->
 keymember(_, _, _) ->
     erlang:nif_error(undef).
 
+%% Shadowed by erl_bif_types: lists:keysearch/3
 -spec keysearch(Key, N, TupleList) -> {value, Tuple} | false when
       Key :: term(),
       N :: pos_integer(),
@@ -70,6 +73,7 @@ keymember(_, _, _) ->
 keysearch(_, _, _) ->
     erlang:nif_error(undef).
 
+%% Shadowed by erl_bif_types: lists:member/2
 -spec member(Elem, List) -> boolean() when
       Elem :: T,
       List :: [T],
@@ -78,6 +82,7 @@ keysearch(_, _, _) ->
 member(_, _) ->
     erlang:nif_error(undef).
 
+%% Shadowed by erl_bif_types: lists:reverse/2
 -spec reverse(List1, Tail) -> List2 when
       List1 :: [T],
       Tail :: term(),
