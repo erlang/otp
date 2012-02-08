@@ -26,6 +26,7 @@
 
     {load_module, inets,         soft_purge, soft_purge, [inets_trace]},
     {update,      httpc_handler, soft, soft_purge, soft_purge, []},
+    {update,      httpd_sup,     soft, soft_purge, soft_purge, []},
     {add_module,  inets_trace}
    ]
   }, 
@@ -42,6 +43,7 @@
      soft_purge, soft_purge, []}, 
     {update, httpc_manager, {advanced, upgrade_from_pre_5_8_1}, 
      soft_purge, soft_purge, [httpc_handler]},
+    {update,      httpd_sup, soft, soft_purge, soft_purge, []},
 
     {add_module,  inets_trace}
    ]
@@ -61,6 +63,7 @@
 
     {load_module, inets,         soft_purge, soft_purge, []},
     {update,      httpc_handler, soft, soft_purge, soft_purge, []},
+    {update,      httpd_sup,     soft, soft_purge, soft_purge, []},
     {remove,      {inets_trace, soft_purge, brutal_purge}}
    ]
   }, 
@@ -77,6 +80,7 @@
      soft_purge, soft_purge, []}, 
     {update, httpc_manager, {advanced, upgrade_from_pre_5_8_1}, 
      soft_purge, soft_purge, [httpc_handler]},
+    {update,      httpd_sup, soft, soft_purge, soft_purge, []},
 
     {remove,      {inets_trace, soft_purge, brutal_purge}}
    ]

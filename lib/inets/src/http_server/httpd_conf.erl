@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -495,7 +495,7 @@ validate_properties(Properties) ->
 validate_properties2(Properties) ->
     case proplists:get_value(bind_address, Properties) of
 	undefined ->
-	    case  proplists:get_value(sock_type, Properties, ip_comm) of
+	    case proplists:get_value(sock_type, Properties, ip_comm) of
 		ip_comm ->
 		    case proplists:get_value(ipfamily, Properties) of
 			undefined ->
