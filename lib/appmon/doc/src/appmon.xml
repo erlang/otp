@@ -32,6 +32,12 @@
   <module>appmon</module>
   <modulesummary>A graphical node and application process tree viewer.</modulesummary>
   <description>
+    <warning>
+      <p>
+	The Appmon application has been superseded by the Observer application.
+	Appmon will be removed in R16.
+      </p>
+    </warning>
     <p>The application monitor Appmon is a graphical utility used to
       supervise applications executing either locally or on remote nodes.
       The process tree of an application can furthermore be monitored.</p>

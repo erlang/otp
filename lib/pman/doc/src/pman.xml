@@ -32,6 +32,12 @@
   <module>pman</module>
   <modulesummary>A graphical process manager.</modulesummary>
   <description>
+    <warning>
+      <p>
+	The Pman application has been superseded by the Observer application.
+	Pman will be removed in R16.
+      </p>
+    </warning>
     <p>A graphical tool used to inspect the Erlang processes executing either
       locally or on remote nodes. It is also possible to trace events in
       the individual processes.</p>

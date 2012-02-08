@@ -36,6 +36,12 @@
   <module>tv</module>
   <modulesummary>TV graphically examines ETS and Mnesia tables. </modulesummary>
   <description>
+    <warning>
+      <p>
+	The TV application has been superseded by the Observer application.
+	TV will be removed in R16.
+      </p>
+    </warning>
     <p>TV enables the user to examine ETS and Mnesia tables. Once 
       a certain table has been opened in the tool, the content may be viewed at 
       various levels of detail. The content viewed may also be sorted, using any 
