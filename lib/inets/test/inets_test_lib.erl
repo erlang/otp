@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -205,6 +205,17 @@ do_ensure_started(App, Start) when is_function(Start) ->
     end.
 
 
+ensure_loaded(App) ->
+    case application:load(App) of
+	ok ->
+	    ok;
+	{error, {already_loaded,inets}} ->
+	    ok;
+	Error ->
+	    Error
+    end.
+
+
 
 %% ----------------------------------------------------------------
 %% HTTPD starter functions
@@ -214,8 +225,9 @@ start_http_server(Conf) ->
     start_http_server(Conf, ?HTTP_DEFAULT_SSL_KIND).
 
 start_http_server(Conf, essl = _SslTag) ->
-    tsp("start_http_server(essl) -> entry - try start crypto and public_key"),
+    tsp("start_http_server(essl) -> try start crypto"),
     application:start(crypto), 
+    tsp("start_http_server(essl) -> try start public_key"),
     application:start(public_key), 
     do_start_http_server(Conf);
 start_http_server(Conf, SslTag) ->
@@ -226,23 +238,32 @@ do_start_http_server(Conf) ->
     tsp("do_start_http_server -> entry with"
 	"~n   Conf: ~p"
 	"~n", [Conf]),
-    application:load(inets), 
-    case application:set_env(inets, services, [{httpd, Conf}]) of
+    tsp("do_start_http_server -> load inets"),
+    case ensure_loaded(inets) of
 	ok ->
-	    tsp("start_http_server -> httpd conf stored in inets app env"),
-	    case application:start(inets) of
+	    tsp("do_start_http_server -> inets loaded - now set_env for httpd"),
+	    case application:set_env(inets, services, [{httpd, Conf}]) of
 		ok ->
-		    tsp("start_http_server -> inets started"),
-		    ok;
-		Error1 ->
-		    tsp("<ERROR> Failed starting application: "
-			"~n   Error1: ~p", [Error1]),
-		    Error1
+		    tsp("do_start_http_server -> "
+			"httpd conf stored in inets app env"),
+		    case (catch application:start(inets)) of
+			ok ->
+			    tsp("do_start_http_server -> inets started"),
+			    ok;
+			Error1 ->
+			    tsp("<ERROR> Failed starting application: "
+				"~n   Error1: ~p", [Error1]),
+			    tsf({failed_starting_inets, Error1})
+		    end;
+		Error2 ->
+		    tsp("<ERROR> Failed set application env: "
+			"~n   Error: ~p", [Error2]),
+		    tsf({failed_set_env, Error2})
 	    end;
-	Error2 ->
-	    tsp("<ERROR> Failed set application env: "
-		"~n   Error: ~p", [Error2]),
-	    Error2
+	{error, Reason} ->
+	    tsp("do_start_http_server -> failed loading inets"
+		"~n   Reason: ~p", [Reason]),
+	    tsf({failed_loading_inets, Reason})
     end.
 	    
 start_http_server_ssl(FileName) ->
@@ -260,6 +281,7 @@ do_start_http_server_ssl(FileName) ->
 	"~n", [FileName]),
     application:start(ssl),	       
     catch do_start_http_server(FileName).
+
 
 
 %% ----------------------------------------------------------------------
@@ -615,8 +637,8 @@ tsp(F) ->
     tsp(F, []).
 tsp(F, A) ->
     Timestamp = formated_timestamp(), 
-    test_server:format("*** ~s ~p ~p ~w:" ++ F ++ "~n", 
-		       [Timestamp, node(), self(), ?MODULE | A]).
+    test_server:format("*** ~s ~p ~p " ++ F ++ "~n", 
+		       [Timestamp, node(), self() | A]).
 
 tsf(Reason) ->
     test_server:fail(Reason).

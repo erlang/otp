@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -366,8 +366,8 @@ init_per_testcase(Case, Config) ->
 
 init_per_testcase2(Case, Config) ->
 
-    tsp("init_per_testcase2(~w) -> entry with"
-	"~n   Config: ~p", [Case, Config]),
+    tsp("init_per_testcase2 -> entry with"
+	"~n   Config: ~p", [Config]),
     
     IpNormal    = integer_to_list(?IP_PORT)    ++ ".conf",
     IpHtaccess  = integer_to_list(?IP_PORT)   ++ "htaccess.conf",
@@ -377,33 +377,33 @@ init_per_testcase2(Case, Config) ->
     DataDir     = ?config(data_dir, Config),
     SuiteTopDir = ?config(suite_top_dir, Config),
 
-    tsp("init_per_testcase2(~w) -> "
+    tsp("init_per_testcase2 -> "
 	"~n   SuiteDir: ~p"
-	"~n   DataDir:  ~p", [Case, SuiteTopDir, DataDir]),
+	"~n   DataDir:  ~p", [SuiteTopDir, DataDir]),
     
     TcTopDir = filename:join(SuiteTopDir, Case),
     ?line ok = file:make_dir(TcTopDir),
 
-    tsp("init_per_testcase2(~w) -> "
-	"~n   TcTopDir: ~p", [Case, TcTopDir]),
+    tsp("init_per_testcase2 -> "
+	"~n   TcTopDir: ~p", [TcTopDir]),
 
     DataSrc    = filename:join([DataDir, "server_root"]),
     ServerRoot = filename:join([TcTopDir, "server_root"]),
     
-    tsp("init_per_testcase2(~w) -> "
+    tsp("init_per_testcase2 -> "
 	"~n   DataSrc:    ~p"
-	"~n   ServerRoot: ~p", [Case, DataSrc, ServerRoot]),
+	"~n   ServerRoot: ~p", [DataSrc, ServerRoot]),
 
     ok = file:make_dir(ServerRoot),
     ok = file:make_dir(filename:join([TcTopDir, "logs"])),
 
     NewConfig = [{tc_top_dir, TcTopDir}, {server_root, ServerRoot} | Config],
 
-    tsp("init_per_testcase2(~w) -> copy DataSrc to ServerRoot", [Case]),
+    tsp("init_per_testcase2 -> copy DataSrc to ServerRoot"),
 
     inets_test_lib:copy_dirs(DataSrc, ServerRoot),
 
-    tsp("init_per_testcase2(~w) -> fix cgi", [Case]),
+    tsp("init_per_testcase2 -> fix cgi"),
     EnvCGI =  filename:join([ServerRoot, "cgi-bin", "printenv.sh"]),
     {ok, FileInfo} = file:read_file_info(EnvCGI),
     ok = file:write_file_info(EnvCGI, 
@@ -423,14 +423,14 @@ init_per_testcase2(Case, Config) ->
 			      FileInfo1#file_info{mode = 8#00755}),
     
     %% To be used by IP test cases
-    tsp("init_per_testcase2(~w) -> ip testcase setups", [Case]),
+    tsp("init_per_testcase2 -> ip testcase setups"),
     create_config([{port, ?IP_PORT}, {sock_type, ip_comm} | NewConfig], 
 		  normal_access, IpNormal), 
     create_config([{port, ?IP_PORT}, {sock_type, ip_comm} | NewConfig], 
     		  mod_htaccess, IpHtaccess), 
 
     %% To be used by SSL test cases
-    tsp("init_per_testcase2(~w) -> ssl testcase setups", [Case]),
+    tsp("init_per_testcase2 -> ssl testcase setups"),
     SocketType = 
 	case atom_to_list(Case) of
 	    [X, $s, $s, $l | _] ->
@@ -454,7 +454,7 @@ init_per_testcase2(Case, Config) ->
     %% when you run the whole test suite due  to shortcomings
     %% of the test server.
 
-    tsp("init_per_testcase2(~w) -> maybe generate IPv6 config file(s)", [Case]),
+    tsp("init_per_testcase2 -> maybe generate IPv6 config file(s)"),
     NewConfig2 = 
 	case atom_to_list(Case) of
 	    "ipv6_" ++ _ ->
@@ -495,8 +495,8 @@ init_per_testcase2(Case, Config) ->
 		NewConfig
 	end,
 
-    tsp("init_per_testcase2(~w) -> done when"
-	"~n   NewConfig2: ~p", [Case, NewConfig2]),
+    tsp("init_per_testcase2 -> done when"
+	"~n   NewConfig2: ~p", [NewConfig2]),
 
     NewConfig2.
 
@@ -2372,8 +2372,8 @@ create_config(Config, Access, FileName) ->
 %%     AddrStr = make_ipv6(Addr), 
 %%     BindAddress = lists:flatten(io_lib:format("~s|inet6", [AddrStr])),
 
-    %% BindAddress = "*|inet", 
-    BindAddress = "*", 
+    BindAddress = "*|inet", 
+    %% BindAddress = "*", 
 
     HttpConfig = [
 		  cline(["Port ", integer_to_list(Port)]),
@@ -2764,10 +2764,10 @@ create_ipv6_config(Config, FileName, Ipv6Address) ->
     ok = file:close(Fd).
 
 
-%% tsp(F) ->
-%%     inets_test_lib:tsp(F).
+tsp(F) ->
+    inets_test_lib:tsp("[~w]" ++ F, [?MODULE]).
 tsp(F, A) ->
-    inets_test_lib:tsp(F, A).
+    inets_test_lib:tsp("[~w]" ++ F, [?MODULE|A]).
 
 tsf(Reason) ->
     inets_test_lib:tsf(Reason).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -375,6 +375,7 @@ init_per_testcase(Case, Timeout, Config) ->
 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
 		%% Will start inets 
+		tsp("init_per_testcase -> try start server"),
 		Server = start_http_server(PrivDir, IpConfFile),
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
@@ -3298,7 +3299,10 @@ create_config(FileName, ComType, Port, PrivDir, ServerRoot, DocRoot,
 	" mod_include mod_dir mod_get mod_head" 
 	" mod_log mod_disk_log mod_trace",
 	    
+    BindAddress = "*|inet", 
+
     HttpConfig = [
+		  cline(["BindAddress ", BindAddress]),
 		  cline(["Port ", integer_to_list(Port)]),
 		  cline(["ServerName ", "httpc_test"]),
 		  cline(["SocketType ", atom_to_list(ComType)]),
@@ -3895,9 +3899,9 @@ p(F, A) ->
     io:format("~p ~w:" ++ F ++ "~n", [self(), ?MODULE | A]).
 
 tsp(F) ->
-    inets_test_lib:tsp(F).
+    inets_test_lib:tsp("[~w]" ++ F, [?MODULE]).
 tsp(F, A) ->
-    inets_test_lib:tsp(F, A).
+    inets_test_lib:tsp("[~w]" ++ F, [?MODULE|A]).
 
 tsf(Reason) ->
     test_server:fail(Reason).
