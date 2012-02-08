@@ -33,6 +33,11 @@
   <module>toolbar</module>
   <modulesummary>GUI for Starting Tools and User Contributions</modulesummary>
   <description>
+    <warning>
+      <p>
+	The Toolbar application is deprecated and will be removed in R16.
+      </p>
+    </warning>
     <p>Toolbar makes it easier to use
       the different Erlang tools - and the user contributions - which are provided.
       It has a graphical user interface with an icon for each tool.

@@ -28,6 +28,11 @@
     <rev>A</rev>
     <file>toolbar_chapter.xml</file>
   </header>
+    <warning>
+      <p>
+	The Toolbar application is deprecated and will be removed in R16.
+      </p>
+    </warning>
   <p>Toolbar provides an interface to the various Erlang tools which are available. Toolbar can also provide access to user supplied tools which are included with the Erlang software release. These tools are called GS Contributions.</p>
   <p>All tools included in Toolbar must have a configuration file which contains information about the tool, such as its start function and the location of help information. The name of a configuration file must include the suffix <c>.tool</c>.
     </p>
