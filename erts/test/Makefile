@@ -28,7 +28,6 @@ EBIN = .
 # ----------------------------------------------------
 
 MODULES= \
-	autoimport_SUITE \
 	erlc_SUITE \
 	install_SUITE \
 	nt_SUITE \
@@ -39,14 +38,11 @@ MODULES= \
 	erlexec_SUITE \
 	z_SUITE
 
-ERL_XML = $(ERL_TOP)/erts/doc/src/erlang.xml
-ERL_XML_TARGET = autoimport_SUITE_data/erlang.xml
-
 ERL_FILES= $(MODULES:%=%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-EXTRA_FILES = install_SUITE_data/install_bin $(ERL_XML_TARGET)
+EXTRA_FILES = install_SUITE_data/install_bin
 
 # ----------------------------------------------------
 # Release directory specification
@@ -65,10 +61,6 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
 tests debug opt: $(TARGET_FILES) $(EXTRA_FILES)
 
 install_SUITE_data/install_bin: ../../make/install_bin
-	rm -f $@
-	cp -p $< $@
-
-$(ERL_XML_TARGET): $(ERL_XML)
 	rm -f $@
 	cp -p $< $@
 
