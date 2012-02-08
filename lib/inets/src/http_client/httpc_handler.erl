@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -851,14 +851,16 @@ connect(SocketType, ToAddress,
     case IpFamily of
 	inet6fb4 ->
 	    Opts3 = [inet6 | Opts2],
-	    case http_transport:connect(SocketType, ToAddress, Opts3, Timeout) of
+	    case http_transport:connect(SocketType, 
+					ToAddress, Opts3, Timeout) of
 		{error, Reason6} ->
 		    Opts4 = [inet | Opts2], 
 		    case http_transport:connect(SocketType, 
 						ToAddress, Opts4, Timeout) of
 			{error, Reason4} ->
 			    {error, {failed_connect, 
-				     [{inet6, Opts3, Reason6}, 
+				     [{to_address, ToAddress}, 
+				      {inet6, Opts3, Reason6}, 
 				      {inet,  Opts4, Reason4}]}};
 			OK ->
 			    OK
@@ -870,7 +872,8 @@ connect(SocketType, ToAddress,
 	    Opts3 = [IpFamily | Opts2], 
 	    case http_transport:connect(SocketType, ToAddress, Opts3, Timeout) of
 		{error, Reason} ->
-		    {error, {failed_connect, [{IpFamily, Opts3, Reason}]}};
+		    {error, {failed_connect, [{to_address, ToAddress}, 
+					      {IpFamily, Opts3, Reason}]}};
 		Else ->
 		    Else
 	    end
