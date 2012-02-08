@@ -101,7 +101,7 @@
 		module                     :: module(),
 		name_map      = dict:new() :: dict(),
 		next_label                 :: label(),
-		non_self_recs = []         :: [label()],
+		self_recs                  :: [label()],
 		plt                        :: dialyzer_plt:plt(),
 		prop_types    = dict:new() :: dict(),
 		records       = dict:new() :: dict(),
@@ -2090,9 +2090,11 @@ new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes) ->
   NameMap = dict:from_list(List),
   MFAs = [MFA || {MFA, _Var} <- List],
   SCC = [mk_var(Fun) || {_MFA, {_Var, Fun}, _Rec} <- SCC0],
+  SelfRecs = [F || F <- SCC,
+		   dialyzer_callgraph:is_self_rec(t_var_name(F), CallGraph)],
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
-	 mfas = MFAs}.
+	 mfas = MFAs, self_recs = ordsets:from_list(SelfRecs)}.
 
 state__set_rec_dict(State, RecDict) ->
   State#state{records = RecDict}.
@@ -2270,14 +2272,12 @@ state__get_cs(Var, #state{cmap = Dict}) ->
 
 %% The functions here will not be treated as self recursive.
 %% These functions will need to be handled as such manually.
-state__mark_as_non_self_rec(SCC, #state{non_self_recs = NS} = State) ->
-  State#state{non_self_recs = ordsets:union(NS, ordsets:from_list(SCC))}.
+state__mark_as_non_self_rec(SCC, #state{self_recs = SelfRecs} = State) ->
+  %% TODO: Check if the result is always empty and just set it to [] if so.
+  State#state{self_recs = ordsets:subtract(SelfRecs, ordsets:from_list(SCC))}.
 
-state__is_self_rec(Fun, #state{callgraph = CallGraph, non_self_recs = NS}) ->
-  case ordsets:is_element(Fun, NS) of
-    true -> false;
-    false -> dialyzer_callgraph:is_self_rec(t_var_name(Fun), CallGraph)
-  end.
+state__is_self_rec(Fun, #state{self_recs = SelfRecs}) ->
+  ordsets:is_element(Fun, SelfRecs).
 
 state__store_funs(Vars0, Funs0, #state{fun_map = Map} = State) ->
   debug_make_name_map(Vars0, Funs0),
