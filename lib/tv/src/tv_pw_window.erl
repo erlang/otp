@@ -23,6 +23,10 @@
 
 
 -module(tv_pw_window).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,menuitem,3}},
+          {nowarn_deprecated_function,{gs,start,0}}]).
 
 
 

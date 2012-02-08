@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(toolbar).
+-compile([{nowarn_deprecated_function,{gs,start,1}}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %

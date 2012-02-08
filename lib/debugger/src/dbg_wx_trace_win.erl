@@ -19,6 +19,7 @@
 
 %%
 -module(dbg_wx_trace_win).
+-compile([{nowarn_deprecated_function,{gs,config,2}}]).
 
 %% External exports
 -export([init/0, stop/1]).

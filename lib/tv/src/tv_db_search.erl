@@ -21,6 +21,18 @@
 %%%
 %%%*********************************************************************
 -module(tv_db_search).
+-compile([{nowarn_deprecated_function,{gs,button,3}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,entry,3}},
+          {nowarn_deprecated_function,{gs,frame,2}},
+          {nowarn_deprecated_function,{gs,label,2}},
+          {nowarn_deprecated_function,{gs,label,3}},
+          {nowarn_deprecated_function,{gs,listbox,3}},
+          {nowarn_deprecated_function,{gs,radiobutton,3}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,3}}]).
 
 
 

@@ -30,6 +30,18 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 -module(hipe_tool).
+-compile([{nowarn_deprecated_function,{gs,button,3}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,editor,3}},
+          {nowarn_deprecated_function,{gs,label,3}},
+          {nowarn_deprecated_function,{gs,listbox,3}},
+          {nowarn_deprecated_function,{gs,menu,3}},
+          {nowarn_deprecated_function,{gs,menubar,3}},
+          {nowarn_deprecated_function,{gs,menubutton,3}},
+          {nowarn_deprecated_function,{gs,menuitem,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,3}}]).
 
 -export([start/0]).
 

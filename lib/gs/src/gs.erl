@@ -25,6 +25,12 @@
 
 -module(gs).
 -deprecated(module).
+-compile([{nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,create,4}},
+          {nowarn_deprecated_function,{gs,create_tree,2}},
+          {nowarn_deprecated_function,{gs,foreach,3}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,1}}]).
 
 %% ----- Exports -----
 -export([start/0, stop/0, start/1]).

@@ -21,6 +21,17 @@
 %%----------------------------------------------------------------------
 
 -module(et_gs_contents_viewer).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,editor,2}},
+          {nowarn_deprecated_function,{gs,frame,2}},
+          {nowarn_deprecated_function,{gs,menu,2}},
+          {nowarn_deprecated_function,{gs,menubar,2}},
+          {nowarn_deprecated_function,{gs,menubutton,2}},
+          {nowarn_deprecated_function,{gs,menuitem,2}},
+          {nowarn_deprecated_function,{gs,menuitem,3}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,2}}]).
 
 -behaviour(gen_server).
 

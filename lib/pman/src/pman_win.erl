@@ -21,6 +21,16 @@
 %% ------------------------------------------------------------
 
 -module(pman_win).
+-compile([{nowarn_deprecated_function,{gs,button,2}},
+          {nowarn_deprecated_function,{gs,canvas,2}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,create,4}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,1}},
+          {nowarn_deprecated_function,{gs,text,2}},
+          {nowarn_deprecated_function,{gs,window,2}}]).
 
 %% ---------------------------------------------------------------
 %% The user interface exports 

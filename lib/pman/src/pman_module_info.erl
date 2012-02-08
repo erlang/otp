@@ -17,6 +17,8 @@
 %% %CopyrightEnd%
 %%
 -module(pman_module_info).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,start,1}}]).
 
 %% Window with module information (View->Module Info...)
 

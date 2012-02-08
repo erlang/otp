@@ -25,6 +25,9 @@
 
 
 -module(tv_etsread).
+-compile([{nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,3}}]).
 
 
 

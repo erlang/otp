@@ -20,6 +20,8 @@
 %%
 
 -module(gstk).
+-compile([{nowarn_deprecated_function,{gs,assq,2}},
+          {nowarn_deprecated_function,{gs,creation_error,2}}]).
 
 -export([start_link/4,
 	 stop/1,

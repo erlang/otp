@@ -25,6 +25,7 @@
 %% ------------------------------------------------------------
 
 -module(tcl2erl).
+-compile([{nowarn_deprecated_function,{gs,error,2}}]).
 
 -export([parse_event/1,
 	 ret_int/1,

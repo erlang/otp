@@ -23,6 +23,9 @@
 %% ------------------------------------------------------------
 
 -module(gstk_editor).
+-compile([{nowarn_deprecated_function,{gs,assq,2}},
+          {nowarn_deprecated_function,{gs,error,2}},
+          {nowarn_deprecated_function,{gs,val,2}}]).
 
 %%------------------------------------------------------------------------------
 %% 			    CANVAS OPTIONS

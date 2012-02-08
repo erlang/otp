@@ -29,6 +29,13 @@
 %%% then pressing the load button, its application window is started.
 
 -module(appmon_lb).
+-compile([{nowarn_deprecated_function,{gs,button,3}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,listbox,3}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,3}}]).
 
 -export ([
 	  start/1, 

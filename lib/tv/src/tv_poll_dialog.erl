@@ -22,7 +22,13 @@
 %%%*********************************************************************
 
 -module(tv_poll_dialog).
-
+-compile([{nowarn_deprecated_function,{gs,button,2}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,label,2}},
+          {nowarn_deprecated_function,{gs,radiobutton,2}},
+          {nowarn_deprecated_function,{gs,scale,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,2}}]).
 
 
 -export([start/1, init/2]).

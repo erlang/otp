@@ -18,6 +18,11 @@
 %%
 
 -module(mandel).
+-compile([{nowarn_deprecated_function,{gs,assq,2}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,4}},
+          {nowarn_deprecated_function,{gs,image,2}},
+          {nowarn_deprecated_function,{gs,start,0}}]).
 -author('(mbj,eklas)@erlang.ericsson.se').
 
 %% User's interface

@@ -16,6 +16,20 @@
 %% 
 %% %CopyrightEnd%
 -module(tv_main).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,frame,3}},
+          {nowarn_deprecated_function,{gs,grid,3}},
+          {nowarn_deprecated_function,{gs,gridline,2}},
+          {nowarn_deprecated_function,{gs,label,3}},
+          {nowarn_deprecated_function,{gs,menu,2}},
+          {nowarn_deprecated_function,{gs,menubar,3}},
+          {nowarn_deprecated_function,{gs,menubutton,2}},
+          {nowarn_deprecated_function,{gs,menuitem,2}},
+          {nowarn_deprecated_function,{gs,menuitem,3}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,3}}]).
 
 
 

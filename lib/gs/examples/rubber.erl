@@ -23,6 +23,14 @@
 %% ------------------------------------------------------------
 
 -module(rubber).
+-compile([{nowarn_deprecated_function,{gs,button,2}},
+          {nowarn_deprecated_function,{gs,canvas,2}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,radiobutton,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,2}}]).
 
 -export([start/0, init/0]).
 

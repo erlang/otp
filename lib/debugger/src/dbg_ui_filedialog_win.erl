@@ -18,6 +18,13 @@
 %%
 
 -module(dbg_ui_filedialog_win).
+-compile([{nowarn_deprecated_function,{gs,button,2}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,entry,3}},
+          {nowarn_deprecated_function,{gs,label,2}},
+          {nowarn_deprecated_function,{gs,listbox,3}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,window,2}}]).
 
 %% External exports
 -export([create_win/6, create_win/7, get_window/1,
