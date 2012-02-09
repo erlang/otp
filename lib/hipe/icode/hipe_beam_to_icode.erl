@@ -465,10 +465,6 @@ trans_fun([{test,is_nil,{f,Lbl},[Arg]}|Instructions], Env) ->
 trans_fun([{test,is_binary,{f,Lbl},[Arg]}|Instructions], Env) ->
   {Code,Env1} = trans_type_test(binary,Lbl,Arg,Env),
   [Code | trans_fun(Instructions,Env1)];
-%%--- is_constant ---
-trans_fun([{test,is_constant,{f,Lbl},[Arg]}|Instructions], Env) ->
-  {Code,Env1} = trans_type_test(constant,Lbl,Arg,Env),
-  [Code | trans_fun(Instructions,Env1)];
 %%--- is_list ---
 trans_fun([{test,is_list,{f,Lbl},[Arg]}|Instructions], Env) ->
   {Code,Env1} = trans_type_test(list,Lbl,Arg,Env),

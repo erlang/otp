@@ -59,7 +59,6 @@
 -define(PRIMOP_IS_ATOM, 'is_atom').		% arity 1
 -define(PRIMOP_IS_BIGNUM, 'is_bignum').		% arity 1
 -define(PRIMOP_IS_BINARY, 'is_binary').		% arity 1
--define(PRIMOP_IS_CONSTANT, 'is_constant').	% arity 1
 -define(PRIMOP_IS_FIXNUM, 'is_fixnum').		% arity 1
 -define(PRIMOP_IS_FLOAT, 'is_float').		% arity 1
 -define(PRIMOP_IS_FUNCTION, 'is_function').	% arity 1

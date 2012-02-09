@@ -52,7 +52,6 @@
 		    t_cons/2,
 		    t_cons_hd/1,
 		    t_cons_tl/1,
-		    t_constant/0,
 		    t_fixnum/0,
 		    t_non_neg_fixnum/0,
 		    t_pos_fixnum/0,
@@ -77,7 +76,6 @@
 		    t_is_bitstr/1,
 		    t_is_boolean/1,
 		    t_is_cons/1,
-		    t_is_constant/1,
 		    t_is_float/1,
 		    t_is_float/1,
 		    t_is_fun/1,
@@ -584,11 +582,11 @@ type(erlang, is_bitstring, 1, Xs) ->
 	    check_guard(X, fun (Y) -> t_is_bitstr(Y) end, t_bitstr())
 	end,
   strict(arg_types(erlang, is_bitstring, 1), Xs, Fun);
-type(erlang, is_constant, 1, Xs) ->
+type(erlang, is_boolean, 1, Xs) ->
   Fun = fun (X) ->
-	    check_guard(X, fun (Y) -> t_is_constant(Y) end, t_constant())
+	    check_guard(X, fun (Y) -> t_is_boolean(Y) end, t_boolean())
 	end,
-  strict(arg_types(erlang, is_constant, 1), Xs, Fun);
+  strict(arg_types(erlang, is_boolean, 1), Xs, Fun);
 type(erlang, is_float, 1, Xs) ->
   Fun = fun (X) ->
 	    check_guard(X, fun (Y) -> t_is_float(Y) end, t_float())
@@ -2227,8 +2225,6 @@ arg_types(erlang, is_binary, 1) ->
 arg_types(erlang, is_bitstring, 1) ->
   [t_any()];
 arg_types(erlang, is_boolean, 1) ->
-  [t_any()];
-arg_types(erlang, is_constant, 1) ->
   [t_any()];
 arg_types(erlang, is_float, 1) ->
   [t_any()];
