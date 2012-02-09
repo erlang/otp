@@ -156,12 +156,7 @@ lookup_contract(#plt{contracts = Contracts},
 	 [{mfa(), {{Filename::string(), Line::pos_integer()}, #contract{}}}].
 
 lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
-  FunModFilter =
-    fun({M, _F, _A}, _Val) -> M =:= Mod;
-       (       _Key, _Val) -> false
-    end,
-  ModCallbacks = dict:filter(FunModFilter, Callbacks),
-  dict:to_list(ModCallbacks).
+  table_filter_module(Callbacks, Mod).
 
 -type ret_args_types() :: {erl_types:erl_type(), [erl_types:erl_type()]}.
 
@@ -607,6 +602,14 @@ table_lookup_module(Plt, Mod) ->
     true -> none;
     false -> {value, List}
   end.
+
+table_filter_module(Plt, Mod) ->
+  FunModFilter =
+    fun({M, _F, _A}, _Val) -> M =:= Mod;
+       (       _Key, _Val) -> false
+    end,
+  ModCallbacks = dict:filter(FunModFilter, Plt),
+  dict:to_list(ModCallbacks).
 
 table_all_modules(Plt) ->
   Fold =
