@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -62,11 +62,11 @@ gen_code() ->
     GLDefs  = parse_gl_defs(Opts),    
     {GLUDefines,GLUFuncs} = setup(GLUDefs, Opts),
     {GLDefines,GLFuncs}   = setup(GLDefs, Opts),
+    gl_gen_erl:gl_defines(GLDefines),
+    gl_gen_erl:gl_api(GLFuncs),
     gl_gen_erl:glu_defines(GLUDefines),
     gl_gen_erl:glu_api(GLUFuncs),
 
-    gl_gen_erl:gl_defines(GLDefines),
-    gl_gen_erl:gl_api(GLFuncs),
     %%gl_gen_erl:gen_debug(GLFuncs,GLUFuncs),
     gl_gen_c:gen(GLFuncs,GLUFuncs),
     ok.
@@ -360,7 +360,9 @@ extract_type_info2("**",  Acc) -> [{by_ref,{pointer,2}}|Acc];
 extract_type_info2(Type,  Acc) -> [Type|Acc].
 
 parse_type2(["void"],  _T, _Opts) ->  void;
-parse_type2([N="void"|R],  T, Opts) ->  
+parse_type2([N="void", const|R], T, Opts) ->
+    parse_type2([const|R],T#type{name=N, base=idx_binary},Opts);
+parse_type2([N="void"|R],  T, Opts) ->
     parse_type2(R,T#type{name=N},Opts);
 parse_type2([const|R],T=#type{mod=Mod},Opts) -> 
     parse_type2(R,T#type{mod=[const|Mod]},Opts);
@@ -676,6 +678,7 @@ get_extension(ExtName,_Opts) ->
 	"IGP"  ++ Name -> {reverse(Name),"PGI"};
 	"PH"   ++ Name -> {reverse(Name),"HP"};
 	"YDEMERG" ++ Name -> {reverse(Name),"GREMEDY"};
+	"SEO" ++ Name -> {reverse(Name),"OES"};
 	%%["" ++ Name] ->     {Name;  %%
 	_ -> {ExtName, ""}
     end.

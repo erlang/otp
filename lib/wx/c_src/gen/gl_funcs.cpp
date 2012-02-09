@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -346,477 +346,157 @@ case 5036: { // gluUnProject4
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5037: { // glAccum
- GLenum *op = (GLenum *) bp; bp += 4;
- GLfloat *value = (GLfloat *) bp; bp += 4;
- weglAccum(*op,*value);
+case 5037: { // glClearIndex
+ GLfloat *c = (GLfloat *) bp; bp += 4;
+ weglClearIndex(*c);
 }; break;
-case 5038: { // glAlphaFunc
- GLenum *func = (GLenum *) bp; bp += 4;
- GLclampf *ref = (GLclampf *) bp; bp += 4;
- weglAlphaFunc(*func,*ref);
-}; break;
-case 5039: { // glAreTexturesResident
- int * texturesLen = (int *) bp; bp += 4;
- GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
- GLboolean *residences;
- residences = (GLboolean *) driver_alloc(sizeof(GLboolean) * *texturesLen);
- GLboolean result = weglAreTexturesResident(*texturesLen,textures,residences);
- int AP = 0; ErlDrvTermData *rt;
- rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(11 + (*texturesLen)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
- for(int i=0; i < *texturesLen; i++) {
-    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) residences[i];}
- rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*texturesLen)+1;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
- driver_free(rt);
- driver_free(residences);
-}; break;
-case 5040: { // glArrayElement
- GLint *i = (GLint *) bp; bp += 4;
- weglArrayElement(*i);
-}; break;
-case 5041: { // glBegin
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglBegin(*mode);
-}; break;
-case 5042: { // glBindTexture
- GLenum *target = (GLenum *) bp; bp += 4;
- GLuint *texture = (GLuint *) bp; bp += 4;
- weglBindTexture(*target,*texture);
-}; break;
-case 5043: { // glBitmap
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLfloat *xorig = (GLfloat *) bp; bp += 4;
- GLfloat *yorig = (GLfloat *) bp; bp += 4;
- GLfloat *xmove = (GLfloat *) bp; bp += 4;
- GLfloat *ymove = (GLfloat *) bp; bp += 4;
- GLubyte *bitmap = (GLubyte *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglBitmap(*width,*height,*xorig,*yorig,*xmove,*ymove,bitmap);
-}; break;
-case 5044: { // glBitmap
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLfloat *xorig = (GLfloat *) bp; bp += 4;
- GLfloat *yorig = (GLfloat *) bp; bp += 4;
- GLfloat *xmove = (GLfloat *) bp; bp += 4;
- GLfloat *ymove = (GLfloat *) bp; bp += 4;
- GLubyte *bitmap = (GLubyte *) bins[0];
- weglBitmap(*width,*height,*xorig,*yorig,*xmove,*ymove,bitmap);
-}; break;
-case 5045: { // glBlendFunc
- GLenum *sfactor = (GLenum *) bp; bp += 4;
- GLenum *dfactor = (GLenum *) bp; bp += 4;
- weglBlendFunc(*sfactor,*dfactor);
-}; break;
-case 5046: { // glCallList
- GLuint *list = (GLuint *) bp; bp += 4;
- weglCallList(*list);
-}; break;
-case 5047: { // glCallLists
- int * listsLen = (int *) bp; bp += 4;
- GLuint * lists = (GLuint *) bp;  bp += (8-((*listsLen*4+4)%8))%8;
- weglCallLists(*listsLen,GL_UNSIGNED_INT,lists);
-}; break;
-case 5048: { // glClear
- GLbitfield *mask = (GLbitfield *) bp; bp += 4;
- weglClear(*mask);
-}; break;
-case 5049: { // glClearAccum
- GLfloat *red = (GLfloat *) bp; bp += 4;
- GLfloat *green = (GLfloat *) bp; bp += 4;
- GLfloat *blue = (GLfloat *) bp; bp += 4;
- GLfloat *alpha = (GLfloat *) bp; bp += 4;
- weglClearAccum(*red,*green,*blue,*alpha);
-}; break;
-case 5050: { // glClearColor
+case 5038: { // glClearColor
  GLclampf *red = (GLclampf *) bp; bp += 4;
  GLclampf *green = (GLclampf *) bp; bp += 4;
  GLclampf *blue = (GLclampf *) bp; bp += 4;
  GLclampf *alpha = (GLclampf *) bp; bp += 4;
  weglClearColor(*red,*green,*blue,*alpha);
 }; break;
-case 5051: { // glClearDepth
- GLclampd *depth = (GLclampd *) bp; bp += 8;
- weglClearDepth(*depth);
+case 5039: { // glClear
+ GLbitfield *mask = (GLbitfield *) bp; bp += 4;
+ weglClear(*mask);
 }; break;
-case 5052: { // glClearIndex
- GLfloat *c = (GLfloat *) bp; bp += 4;
- weglClearIndex(*c);
+case 5040: { // glIndexMask
+ GLuint *mask = (GLuint *) bp; bp += 4;
+ weglIndexMask(*mask);
 }; break;
-case 5053: { // glClearStencil
- GLint *s = (GLint *) bp; bp += 4;
- weglClearStencil(*s);
-}; break;
-case 5054: { // glClipPlane
- GLenum *plane = (GLenum *) bp; bp += 4;
- bp += 4;
- GLdouble * equation = (GLdouble *) bp; bp += 32;
- weglClipPlane(*plane,equation);
-}; break;
-case 5055: { // glColor3bv
- GLbyte *v = (GLbyte *) bp; bp += 1;
- weglColor3bv(v);
-}; break;
-case 5056: { // glColor3dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglColor3dv(v);
-}; break;
-case 5057: { // glColor3fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglColor3fv(v);
-}; break;
-case 5058: { // glColor3iv
- GLint *v = (GLint *) bp; bp += 4;
- weglColor3iv(v);
-}; break;
-case 5059: { // glColor3sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglColor3sv(v);
-}; break;
-case 5060: { // glColor3ubv
- GLubyte *v = (GLubyte *) bp; bp += 1;
- weglColor3ubv(v);
-}; break;
-case 5061: { // glColor3uiv
- GLuint *v = (GLuint *) bp; bp += 4;
- weglColor3uiv(v);
-}; break;
-case 5062: { // glColor3usv
- GLushort *v = (GLushort *) bp; bp += 2;
- weglColor3usv(v);
-}; break;
-case 5063: { // glColor4bv
- GLbyte *v = (GLbyte *) bp; bp += 1;
- weglColor4bv(v);
-}; break;
-case 5064: { // glColor4dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglColor4dv(v);
-}; break;
-case 5065: { // glColor4fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglColor4fv(v);
-}; break;
-case 5066: { // glColor4iv
- GLint *v = (GLint *) bp; bp += 4;
- weglColor4iv(v);
-}; break;
-case 5067: { // glColor4sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglColor4sv(v);
-}; break;
-case 5068: { // glColor4ubv
- GLubyte *v = (GLubyte *) bp; bp += 1;
- weglColor4ubv(v);
-}; break;
-case 5069: { // glColor4uiv
- GLuint *v = (GLuint *) bp; bp += 4;
- weglColor4uiv(v);
-}; break;
-case 5070: { // glColor4usv
- GLushort *v = (GLushort *) bp; bp += 2;
- weglColor4usv(v);
-}; break;
-case 5071: { // glColorMask
+case 5041: { // glColorMask
  GLboolean *red = (GLboolean *) bp; bp += 1;
  GLboolean *green = (GLboolean *) bp; bp += 1;
  GLboolean *blue = (GLboolean *) bp; bp += 1;
  GLboolean *alpha = (GLboolean *) bp; bp += 1;
  weglColorMask(*red,*green,*blue,*alpha);
 }; break;
-case 5072: { // glColorMaterial
- GLenum *face = (GLenum *) bp; bp += 4;
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglColorMaterial(*face,*mode);
+case 5042: { // glAlphaFunc
+ GLenum *func = (GLenum *) bp; bp += 4;
+ GLclampf *ref = (GLclampf *) bp; bp += 4;
+ weglAlphaFunc(*func,*ref);
 }; break;
-case 5073: { // glColorPointer
- GLint *size = (GLint *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglColorPointer(*size,*type,*stride,pointer);
+case 5043: { // glBlendFunc
+ GLenum *sfactor = (GLenum *) bp; bp += 4;
+ GLenum *dfactor = (GLenum *) bp; bp += 4;
+ weglBlendFunc(*sfactor,*dfactor);
 }; break;
-case 5074: { // glColorPointer
- GLint *size = (GLint *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0];
- weglColorPointer(*size,*type,*stride,pointer);
+case 5044: { // glLogicOp
+ GLenum *opcode = (GLenum *) bp; bp += 4;
+ weglLogicOp(*opcode);
 }; break;
-case 5075: { // glCopyPixels
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- weglCopyPixels(*x,*y,*width,*height,*type);
-}; break;
-case 5076: { // glCopyTexImage1D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLenum *internalFormat = (GLenum *) bp; bp += 4;
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLint *border = (GLint *) bp; bp += 4;
- weglCopyTexImage1D(*target,*level,*internalFormat,*x,*y,*width,*border);
-}; break;
-case 5077: { // glCopyTexImage2D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLenum *internalFormat = (GLenum *) bp; bp += 4;
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLint *border = (GLint *) bp; bp += 4;
- weglCopyTexImage2D(*target,*level,*internalFormat,*x,*y,*width,*height,*border);
-}; break;
-case 5078: { // glCopyTexSubImage1D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *xoffset = (GLint *) bp; bp += 4;
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- weglCopyTexSubImage1D(*target,*level,*xoffset,*x,*y,*width);
-}; break;
-case 5079: { // glCopyTexSubImage2D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *xoffset = (GLint *) bp; bp += 4;
- GLint *yoffset = (GLint *) bp; bp += 4;
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- weglCopyTexSubImage2D(*target,*level,*xoffset,*yoffset,*x,*y,*width,*height);
-}; break;
-case 5080: { // glCullFace
+case 5045: { // glCullFace
  GLenum *mode = (GLenum *) bp; bp += 4;
  weglCullFace(*mode);
 }; break;
-case 5081: { // glDeleteLists
- GLuint *list = (GLuint *) bp; bp += 4;
- GLsizei *range = (GLsizei *) bp; bp += 4;
- weglDeleteLists(*list,*range);
-}; break;
-case 5082: { // glDeleteTextures
- int * texturesLen = (int *) bp; bp += 4;
- GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
- weglDeleteTextures(*texturesLen,textures);
-}; break;
-case 5083: { // glDepthFunc
- GLenum *func = (GLenum *) bp; bp += 4;
- weglDepthFunc(*func);
-}; break;
-case 5084: { // glDepthMask
- GLboolean *flag = (GLboolean *) bp; bp += 1;
- weglDepthMask(*flag);
-}; break;
-case 5085: { // glDepthRange
- GLclampd *zNear = (GLclampd *) bp; bp += 8;
- GLclampd *zFar = (GLclampd *) bp; bp += 8;
- weglDepthRange(*zNear,*zFar);
-}; break;
-case 5086: { // glDisable
- GLenum *cap = (GLenum *) bp; bp += 4;
- weglDisable(*cap);
-}; break;
-case 5087: { // glDisableClientState
- GLenum *array = (GLenum *) bp; bp += 4;
- weglDisableClientState(*array);
-}; break;
-case 5088: { // glDrawArrays
- GLenum *mode = (GLenum *) bp; bp += 4;
- GLint *first = (GLint *) bp; bp += 4;
- GLsizei *count = (GLsizei *) bp; bp += 4;
- weglDrawArrays(*mode,*first,*count);
-}; break;
-case 5089: { // glDrawBuffer
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglDrawBuffer(*mode);
-}; break;
-case 5090: { // glDrawElements
- GLenum *mode = (GLenum *) bp; bp += 4;
- GLsizei *count = (GLsizei *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglDrawElements(*mode,*count,*type,indices);
-}; break;
-case 5091: { // glDrawElements
- GLenum *mode = (GLenum *) bp; bp += 4;
- GLsizei *count = (GLsizei *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *indices = (GLvoid *) bins[0];
- weglDrawElements(*mode,*count,*type,indices);
-}; break;
-case 5092: { // glDrawPixels
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglDrawPixels(*width,*height,*format,*type,pixels);
-}; break;
-case 5093: { // glDrawPixels
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0];
- weglDrawPixels(*width,*height,*format,*type,pixels);
-}; break;
-case 5094: { // glEdgeFlagv
- GLboolean *flag = (GLboolean *) bp; bp += 1;
- weglEdgeFlagv(flag);
-}; break;
-case 5095: { // glEdgeFlagPointer
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglEdgeFlagPointer(*stride,pointer);
-}; break;
-case 5096: { // glEdgeFlagPointer
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0];
- weglEdgeFlagPointer(*stride,pointer);
-}; break;
-case 5097: { // glEnable
- GLenum *cap = (GLenum *) bp; bp += 4;
- weglEnable(*cap);
-}; break;
-case 5098: { // glEnableClientState
- GLenum *array = (GLenum *) bp; bp += 4;
- weglEnableClientState(*array);
-}; break;
-case 5099: { // glEnd
- weglEnd();
-}; break;
-case 5100: { // glEndList
- weglEndList();
-}; break;
-case 5101: { // glEvalCoord1dv
- GLdouble *u = (GLdouble *) bp; bp += 8;
- weglEvalCoord1dv(u);
-}; break;
-case 5102: { // glEvalCoord1fv
- GLfloat *u = (GLfloat *) bp; bp += 4;
- weglEvalCoord1fv(u);
-}; break;
-case 5103: { // glEvalCoord2dv
- GLdouble *u = (GLdouble *) bp; bp += 8;
- weglEvalCoord2dv(u);
-}; break;
-case 5104: { // glEvalCoord2fv
- GLfloat *u = (GLfloat *) bp; bp += 4;
- weglEvalCoord2fv(u);
-}; break;
-case 5105: { // glEvalMesh1
- GLenum *mode = (GLenum *) bp; bp += 4;
- GLint *i1 = (GLint *) bp; bp += 4;
- GLint *i2 = (GLint *) bp; bp += 4;
- weglEvalMesh1(*mode,*i1,*i2);
-}; break;
-case 5106: { // glEvalMesh2
- GLenum *mode = (GLenum *) bp; bp += 4;
- GLint *i1 = (GLint *) bp; bp += 4;
- GLint *i2 = (GLint *) bp; bp += 4;
- GLint *j1 = (GLint *) bp; bp += 4;
- GLint *j2 = (GLint *) bp; bp += 4;
- weglEvalMesh2(*mode,*i1,*i2,*j1,*j2);
-}; break;
-case 5107: { // glEvalPoint1
- GLint *i = (GLint *) bp; bp += 4;
- weglEvalPoint1(*i);
-}; break;
-case 5108: { // glEvalPoint2
- GLint *i = (GLint *) bp; bp += 4;
- GLint *j = (GLint *) bp; bp += 4;
- weglEvalPoint2(*i,*j);
-}; break;
-case 5109: { // glFeedbackBuffer
- GLsizei *size = (GLsizei *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLfloat *buffer = (GLfloat *) bins[0];
- weglFeedbackBuffer(*size,*type,buffer);
- int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
-}; break;
-case 5110: { // glFinish
- weglFinish();
-}; break;
-case 5111: { // glFlush
- weglFlush();
-}; break;
-case 5112: { // glFogf
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglFogf(*pname,*param);
-}; break;
-case 5113: { // glFogfv
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
- weglFogfv(*pname,params);
-}; break;
-case 5114: { // glFogi
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglFogi(*pname,*param);
-}; break;
-case 5115: { // glFogiv
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
- weglFogiv(*pname,params);
-}; break;
-case 5116: { // glFrontFace
+case 5046: { // glFrontFace
  GLenum *mode = (GLenum *) bp; bp += 4;
  weglFrontFace(*mode);
 }; break;
-case 5117: { // glFrustum
- GLdouble *left = (GLdouble *) bp; bp += 8;
- GLdouble *right = (GLdouble *) bp; bp += 8;
- GLdouble *bottom = (GLdouble *) bp; bp += 8;
- GLdouble *top = (GLdouble *) bp; bp += 8;
- GLdouble *zNear = (GLdouble *) bp; bp += 8;
- GLdouble *zFar = (GLdouble *) bp; bp += 8;
- weglFrustum(*left,*right,*bottom,*top,*zNear,*zFar);
+case 5047: { // glPointSize
+ GLfloat *size = (GLfloat *) bp; bp += 4;
+ weglPointSize(*size);
 }; break;
-case 5118: { // glGenLists
- GLsizei *range = (GLsizei *) bp; bp += 4;
- GLuint result = weglGenLists(*range);
+case 5048: { // glLineWidth
+ GLfloat *width = (GLfloat *) bp; bp += 4;
+ weglLineWidth(*width);
+}; break;
+case 5049: { // glLineStipple
+ GLint *factor = (GLint *) bp; bp += 4;
+ GLushort *pattern = (GLushort *) bp; bp += 2;
+ weglLineStipple(*factor,*pattern);
+}; break;
+case 5050: { // glPolygonMode
+ GLenum *face = (GLenum *) bp; bp += 4;
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglPolygonMode(*face,*mode);
+}; break;
+case 5051: { // glPolygonOffset
+ GLfloat *factor = (GLfloat *) bp; bp += 4;
+ GLfloat *units = (GLfloat *) bp; bp += 4;
+ weglPolygonOffset(*factor,*units);
+}; break;
+case 5052: { // glPolygonStipple
+ GLubyte *mask = (GLubyte *) bins[0];
+ weglPolygonStipple(mask);
+}; break;
+case 5053: { // glGetPolygonStipple
+ ErlDrvBinary *mask = driver_alloc_binary(128);
+ weglGetPolygonStipple((GLubyte*) mask->orig_bytes);
+ int AP = 0; ErlDrvTermData rt[8];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) mask; rt[AP++] = 128; rt[AP++] = 0;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free_binary(mask);
+}; break;
+case 5054: { // glEdgeFlagv
+ GLboolean *flag = (GLboolean *) bp; bp += 1;
+ weglEdgeFlagv(flag);
+}; break;
+case 5055: { // glScissor
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ weglScissor(*x,*y,*width,*height);
+}; break;
+case 5056: { // glClipPlane
+ GLenum *plane = (GLenum *) bp; bp += 4;
+ bp += 4;
+ GLdouble * equation = (GLdouble *) bp; bp += 32;
+ weglClipPlane(*plane,equation);
+}; break;
+case 5057: { // glGetClipPlane
+ GLenum *plane = (GLenum *) bp; bp += 4;
+ GLdouble equation[4] = {0.0,0.0,0.0,0.0};
+ weglGetClipPlane(*plane,equation);
+ int AP = 0; ErlDrvTermData rt[14];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ GLdouble *equationTmp = equation;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5058: { // glDrawBuffer
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglDrawBuffer(*mode);
+}; break;
+case 5059: { // glReadBuffer
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglReadBuffer(*mode);
+}; break;
+case 5060: { // glEnable
+ GLenum *cap = (GLenum *) bp; bp += 4;
+ weglEnable(*cap);
+}; break;
+case 5061: { // glDisable
+ GLenum *cap = (GLenum *) bp; bp += 4;
+ weglDisable(*cap);
+}; break;
+case 5062: { // glIsEnabled
+ GLenum *cap = (GLenum *) bp; bp += 4;
+ GLboolean result = weglIsEnabled(*cap);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5119: { // glGenTextures
- GLsizei *n = (GLsizei *) bp; bp += 4;
- GLuint *textures;
- textures = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
- weglGenTextures(*n,textures);
- int AP = 0; ErlDrvTermData *rt;
- rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- for(int i=0; i < *n; i++) {
-    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) textures[i];}
- rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
- driver_free(rt);
- driver_free(textures);
+case 5063: { // glEnableClientState
+ GLenum *cap = (GLenum *) bp; bp += 4;
+ weglEnableClientState(*cap);
 }; break;
-case 5120: { // glGetBooleanv
+case 5064: { // glDisableClientState
+ GLenum *cap = (GLenum *) bp; bp += 4;
+ weglDisableClientState(*cap);
+}; break;
+case 5065: { // glGetBooleanv
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLboolean params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetBooleanv(*pname,params);
@@ -843,22 +523,7 @@ case 5120: { // glGetBooleanv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5121: { // glGetClipPlane
- GLenum *plane = (GLenum *) bp; bp += 4;
- GLdouble equation[4] = {0.0,0.0,0.0,0.0};
- weglGetClipPlane(*plane,equation);
- int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- GLdouble *equationTmp = equation;
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) equationTmp++;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
-}; break;
-case 5122: { // glGetDoublev
+case 5066: { // glGetDoublev
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLdouble params[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
  weglGetDoublev(*pname,params);
@@ -885,15 +550,7 @@ case 5122: { // glGetDoublev
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5123: { // glGetError
- GLenum result = weglGetError();
- int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
-}; break;
-case 5124: { // glGetFloatv
+case 5067: { // glGetFloatv
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat params[16] = {0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
  weglGetFloatv(*pname,params);
@@ -921,7 +578,7 @@ case 5124: { // glGetFloatv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5125: { // glGetIntegerv
+case 5068: { // glGetIntegerv
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
  weglGetIntegerv(*pname,params);
@@ -948,7 +605,684 @@ case 5125: { // glGetIntegerv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5126: { // glGetLightfv
+case 5069: { // glPushAttrib
+ GLbitfield *mask = (GLbitfield *) bp; bp += 4;
+ weglPushAttrib(*mask);
+}; break;
+case 5070: { // glPopAttrib
+ weglPopAttrib();
+}; break;
+case 5071: { // glPushClientAttrib
+ GLbitfield *mask = (GLbitfield *) bp; bp += 4;
+ weglPushClientAttrib(*mask);
+}; break;
+case 5072: { // glPopClientAttrib
+ weglPopClientAttrib();
+}; break;
+case 5073: { // glRenderMode
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLint result = weglRenderMode(*mode);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5074: { // glGetError
+ GLenum result = weglGetError();
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5075: { // glGetString
+ GLenum *name = (GLenum *) bp; bp += 4;
+ const GLubyte *  result = weglGetString(*name);
+ int AP = 0; ErlDrvTermData rt[7];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) result; rt[AP++] = strlen((char *) result);
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5076: { // glFinish
+ weglFinish();
+}; break;
+case 5077: { // glFlush
+ weglFlush();
+}; break;
+case 5078: { // glHint
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglHint(*target,*mode);
+}; break;
+case 5079: { // glClearDepth
+ GLclampd *depth = (GLclampd *) bp; bp += 8;
+ weglClearDepth(*depth);
+}; break;
+case 5080: { // glDepthFunc
+ GLenum *func = (GLenum *) bp; bp += 4;
+ weglDepthFunc(*func);
+}; break;
+case 5081: { // glDepthMask
+ GLboolean *flag = (GLboolean *) bp; bp += 1;
+ weglDepthMask(*flag);
+}; break;
+case 5082: { // glDepthRange
+ GLclampd *near_val = (GLclampd *) bp; bp += 8;
+ GLclampd *far_val = (GLclampd *) bp; bp += 8;
+ weglDepthRange(*near_val,*far_val);
+}; break;
+case 5083: { // glClearAccum
+ GLfloat *red = (GLfloat *) bp; bp += 4;
+ GLfloat *green = (GLfloat *) bp; bp += 4;
+ GLfloat *blue = (GLfloat *) bp; bp += 4;
+ GLfloat *alpha = (GLfloat *) bp; bp += 4;
+ weglClearAccum(*red,*green,*blue,*alpha);
+}; break;
+case 5084: { // glAccum
+ GLenum *op = (GLenum *) bp; bp += 4;
+ GLfloat *value = (GLfloat *) bp; bp += 4;
+ weglAccum(*op,*value);
+}; break;
+case 5085: { // glMatrixMode
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglMatrixMode(*mode);
+}; break;
+case 5086: { // glOrtho
+ GLdouble *left = (GLdouble *) bp; bp += 8;
+ GLdouble *right = (GLdouble *) bp; bp += 8;
+ GLdouble *bottom = (GLdouble *) bp; bp += 8;
+ GLdouble *top = (GLdouble *) bp; bp += 8;
+ GLdouble *near_val = (GLdouble *) bp; bp += 8;
+ GLdouble *far_val = (GLdouble *) bp; bp += 8;
+ weglOrtho(*left,*right,*bottom,*top,*near_val,*far_val);
+}; break;
+case 5087: { // glFrustum
+ GLdouble *left = (GLdouble *) bp; bp += 8;
+ GLdouble *right = (GLdouble *) bp; bp += 8;
+ GLdouble *bottom = (GLdouble *) bp; bp += 8;
+ GLdouble *top = (GLdouble *) bp; bp += 8;
+ GLdouble *near_val = (GLdouble *) bp; bp += 8;
+ GLdouble *far_val = (GLdouble *) bp; bp += 8;
+ weglFrustum(*left,*right,*bottom,*top,*near_val,*far_val);
+}; break;
+case 5088: { // glViewport
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ weglViewport(*x,*y,*width,*height);
+}; break;
+case 5089: { // glPushMatrix
+ weglPushMatrix();
+}; break;
+case 5090: { // glPopMatrix
+ weglPopMatrix();
+}; break;
+case 5091: { // glLoadIdentity
+ weglLoadIdentity();
+}; break;
+case 5092: { // glLoadMatrixd
+ GLdouble * m = (GLdouble *) bp; bp += 128;
+ weglLoadMatrixd(m);
+}; break;
+case 5093: { // glLoadMatrixf
+ GLfloat * m = (GLfloat *) bp; bp += 64;
+ weglLoadMatrixf(m);
+}; break;
+case 5094: { // glMultMatrixd
+ GLdouble * m = (GLdouble *) bp; bp += 128;
+ weglMultMatrixd(m);
+}; break;
+case 5095: { // glMultMatrixf
+ GLfloat * m = (GLfloat *) bp; bp += 64;
+ weglMultMatrixf(m);
+}; break;
+case 5096: { // glRotated
+ GLdouble *angle = (GLdouble *) bp; bp += 8;
+ GLdouble *x = (GLdouble *) bp; bp += 8;
+ GLdouble *y = (GLdouble *) bp; bp += 8;
+ GLdouble *z = (GLdouble *) bp; bp += 8;
+ weglRotated(*angle,*x,*y,*z);
+}; break;
+case 5097: { // glRotatef
+ GLfloat *angle = (GLfloat *) bp; bp += 4;
+ GLfloat *x = (GLfloat *) bp; bp += 4;
+ GLfloat *y = (GLfloat *) bp; bp += 4;
+ GLfloat *z = (GLfloat *) bp; bp += 4;
+ weglRotatef(*angle,*x,*y,*z);
+}; break;
+case 5098: { // glScaled
+ GLdouble *x = (GLdouble *) bp; bp += 8;
+ GLdouble *y = (GLdouble *) bp; bp += 8;
+ GLdouble *z = (GLdouble *) bp; bp += 8;
+ weglScaled(*x,*y,*z);
+}; break;
+case 5099: { // glScalef
+ GLfloat *x = (GLfloat *) bp; bp += 4;
+ GLfloat *y = (GLfloat *) bp; bp += 4;
+ GLfloat *z = (GLfloat *) bp; bp += 4;
+ weglScalef(*x,*y,*z);
+}; break;
+case 5100: { // glTranslated
+ GLdouble *x = (GLdouble *) bp; bp += 8;
+ GLdouble *y = (GLdouble *) bp; bp += 8;
+ GLdouble *z = (GLdouble *) bp; bp += 8;
+ weglTranslated(*x,*y,*z);
+}; break;
+case 5101: { // glTranslatef
+ GLfloat *x = (GLfloat *) bp; bp += 4;
+ GLfloat *y = (GLfloat *) bp; bp += 4;
+ GLfloat *z = (GLfloat *) bp; bp += 4;
+ weglTranslatef(*x,*y,*z);
+}; break;
+case 5102: { // glIsList
+ GLuint *list = (GLuint *) bp; bp += 4;
+ GLboolean result = weglIsList(*list);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5103: { // glDeleteLists
+ GLuint *list = (GLuint *) bp; bp += 4;
+ GLsizei *range = (GLsizei *) bp; bp += 4;
+ weglDeleteLists(*list,*range);
+}; break;
+case 5104: { // glGenLists
+ GLsizei *range = (GLsizei *) bp; bp += 4;
+ GLuint result = weglGenLists(*range);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5105: { // glNewList
+ GLuint *list = (GLuint *) bp; bp += 4;
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglNewList(*list,*mode);
+}; break;
+case 5106: { // glEndList
+ weglEndList();
+}; break;
+case 5107: { // glCallList
+ GLuint *list = (GLuint *) bp; bp += 4;
+ weglCallList(*list);
+}; break;
+case 5108: { // glCallLists
+ int * listsLen = (int *) bp; bp += 4;
+ GLuint * lists = (GLuint *) bp;  bp += (8-((*listsLen*4+4)%8))%8;
+ weglCallLists(*listsLen,GL_UNSIGNED_INT,lists);
+}; break;
+case 5109: { // glListBase
+ GLuint *base = (GLuint *) bp; bp += 4;
+ weglListBase(*base);
+}; break;
+case 5110: { // glBegin
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglBegin(*mode);
+}; break;
+case 5111: { // glEnd
+ weglEnd();
+}; break;
+case 5112: { // glVertex2dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglVertex2dv(v);
+}; break;
+case 5113: { // glVertex2fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglVertex2fv(v);
+}; break;
+case 5114: { // glVertex2iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglVertex2iv(v);
+}; break;
+case 5115: { // glVertex2sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglVertex2sv(v);
+}; break;
+case 5116: { // glVertex3dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglVertex3dv(v);
+}; break;
+case 5117: { // glVertex3fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglVertex3fv(v);
+}; break;
+case 5118: { // glVertex3iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglVertex3iv(v);
+}; break;
+case 5119: { // glVertex3sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglVertex3sv(v);
+}; break;
+case 5120: { // glVertex4dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglVertex4dv(v);
+}; break;
+case 5121: { // glVertex4fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglVertex4fv(v);
+}; break;
+case 5122: { // glVertex4iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglVertex4iv(v);
+}; break;
+case 5123: { // glVertex4sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglVertex4sv(v);
+}; break;
+case 5124: { // glNormal3bv
+ GLbyte *v = (GLbyte *) bp; bp += 1;
+ weglNormal3bv(v);
+}; break;
+case 5125: { // glNormal3dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglNormal3dv(v);
+}; break;
+case 5126: { // glNormal3fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglNormal3fv(v);
+}; break;
+case 5127: { // glNormal3iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglNormal3iv(v);
+}; break;
+case 5128: { // glNormal3sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglNormal3sv(v);
+}; break;
+case 5129: { // glIndexdv
+ GLdouble *c = (GLdouble *) bp; bp += 8;
+ weglIndexdv(c);
+}; break;
+case 5130: { // glIndexfv
+ GLfloat *c = (GLfloat *) bp; bp += 4;
+ weglIndexfv(c);
+}; break;
+case 5131: { // glIndexiv
+ GLint *c = (GLint *) bp; bp += 4;
+ weglIndexiv(c);
+}; break;
+case 5132: { // glIndexsv
+ GLshort *c = (GLshort *) bp; bp += 2;
+ weglIndexsv(c);
+}; break;
+case 5133: { // glIndexubv
+ GLubyte *c = (GLubyte *) bp; bp += 1;
+ weglIndexubv(c);
+}; break;
+case 5134: { // glColor3bv
+ GLbyte *v = (GLbyte *) bp; bp += 1;
+ weglColor3bv(v);
+}; break;
+case 5135: { // glColor3dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglColor3dv(v);
+}; break;
+case 5136: { // glColor3fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglColor3fv(v);
+}; break;
+case 5137: { // glColor3iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglColor3iv(v);
+}; break;
+case 5138: { // glColor3sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglColor3sv(v);
+}; break;
+case 5139: { // glColor3ubv
+ GLubyte *v = (GLubyte *) bp; bp += 1;
+ weglColor3ubv(v);
+}; break;
+case 5140: { // glColor3uiv
+ GLuint *v = (GLuint *) bp; bp += 4;
+ weglColor3uiv(v);
+}; break;
+case 5141: { // glColor3usv
+ GLushort *v = (GLushort *) bp; bp += 2;
+ weglColor3usv(v);
+}; break;
+case 5142: { // glColor4bv
+ GLbyte *v = (GLbyte *) bp; bp += 1;
+ weglColor4bv(v);
+}; break;
+case 5143: { // glColor4dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglColor4dv(v);
+}; break;
+case 5144: { // glColor4fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglColor4fv(v);
+}; break;
+case 5145: { // glColor4iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglColor4iv(v);
+}; break;
+case 5146: { // glColor4sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglColor4sv(v);
+}; break;
+case 5147: { // glColor4ubv
+ GLubyte *v = (GLubyte *) bp; bp += 1;
+ weglColor4ubv(v);
+}; break;
+case 5148: { // glColor4uiv
+ GLuint *v = (GLuint *) bp; bp += 4;
+ weglColor4uiv(v);
+}; break;
+case 5149: { // glColor4usv
+ GLushort *v = (GLushort *) bp; bp += 2;
+ weglColor4usv(v);
+}; break;
+case 5150: { // glTexCoord1dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglTexCoord1dv(v);
+}; break;
+case 5151: { // glTexCoord1fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglTexCoord1fv(v);
+}; break;
+case 5152: { // glTexCoord1iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglTexCoord1iv(v);
+}; break;
+case 5153: { // glTexCoord1sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglTexCoord1sv(v);
+}; break;
+case 5154: { // glTexCoord2dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglTexCoord2dv(v);
+}; break;
+case 5155: { // glTexCoord2fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglTexCoord2fv(v);
+}; break;
+case 5156: { // glTexCoord2iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglTexCoord2iv(v);
+}; break;
+case 5157: { // glTexCoord2sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglTexCoord2sv(v);
+}; break;
+case 5158: { // glTexCoord3dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglTexCoord3dv(v);
+}; break;
+case 5159: { // glTexCoord3fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglTexCoord3fv(v);
+}; break;
+case 5160: { // glTexCoord3iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglTexCoord3iv(v);
+}; break;
+case 5161: { // glTexCoord3sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglTexCoord3sv(v);
+}; break;
+case 5162: { // glTexCoord4dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglTexCoord4dv(v);
+}; break;
+case 5163: { // glTexCoord4fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglTexCoord4fv(v);
+}; break;
+case 5164: { // glTexCoord4iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglTexCoord4iv(v);
+}; break;
+case 5165: { // glTexCoord4sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglTexCoord4sv(v);
+}; break;
+case 5166: { // glRasterPos2dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglRasterPos2dv(v);
+}; break;
+case 5167: { // glRasterPos2fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglRasterPos2fv(v);
+}; break;
+case 5168: { // glRasterPos2iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglRasterPos2iv(v);
+}; break;
+case 5169: { // glRasterPos2sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglRasterPos2sv(v);
+}; break;
+case 5170: { // glRasterPos3dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglRasterPos3dv(v);
+}; break;
+case 5171: { // glRasterPos3fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglRasterPos3fv(v);
+}; break;
+case 5172: { // glRasterPos3iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglRasterPos3iv(v);
+}; break;
+case 5173: { // glRasterPos3sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglRasterPos3sv(v);
+}; break;
+case 5174: { // glRasterPos4dv
+ GLdouble *v = (GLdouble *) bp; bp += 8;
+ weglRasterPos4dv(v);
+}; break;
+case 5175: { // glRasterPos4fv
+ GLfloat *v = (GLfloat *) bp; bp += 4;
+ weglRasterPos4fv(v);
+}; break;
+case 5176: { // glRasterPos4iv
+ GLint *v = (GLint *) bp; bp += 4;
+ weglRasterPos4iv(v);
+}; break;
+case 5177: { // glRasterPos4sv
+ GLshort *v = (GLshort *) bp; bp += 2;
+ weglRasterPos4sv(v);
+}; break;
+case 5178: { // glRectd
+ GLdouble *x1 = (GLdouble *) bp; bp += 8;
+ GLdouble *y1 = (GLdouble *) bp; bp += 8;
+ GLdouble *x2 = (GLdouble *) bp; bp += 8;
+ GLdouble *y2 = (GLdouble *) bp; bp += 8;
+ weglRectd(*x1,*y1,*x2,*y2);
+}; break;
+case 5179: { // glRectf
+ GLfloat *x1 = (GLfloat *) bp; bp += 4;
+ GLfloat *y1 = (GLfloat *) bp; bp += 4;
+ GLfloat *x2 = (GLfloat *) bp; bp += 4;
+ GLfloat *y2 = (GLfloat *) bp; bp += 4;
+ weglRectf(*x1,*y1,*x2,*y2);
+}; break;
+case 5180: { // glRecti
+ GLint *x1 = (GLint *) bp; bp += 4;
+ GLint *y1 = (GLint *) bp; bp += 4;
+ GLint *x2 = (GLint *) bp; bp += 4;
+ GLint *y2 = (GLint *) bp; bp += 4;
+ weglRecti(*x1,*y1,*x2,*y2);
+}; break;
+case 5181: { // glRects
+ GLshort *x1 = (GLshort *) bp; bp += 2;
+ GLshort *y1 = (GLshort *) bp; bp += 2;
+ GLshort *x2 = (GLshort *) bp; bp += 2;
+ GLshort *y2 = (GLshort *) bp; bp += 2;
+ weglRects(*x1,*y1,*x2,*y2);
+}; break;
+case 5182: { // glRectdv
+ GLdouble * v1 = (GLdouble *) bp; bp += 16;
+ GLdouble * v2 = (GLdouble *) bp; bp += 16;
+ weglRectdv(v1,v2);
+}; break;
+case 5183: { // glRectfv
+ GLfloat * v1 = (GLfloat *) bp; bp += 8;
+ GLfloat * v2 = (GLfloat *) bp; bp += 8;
+ weglRectfv(v1,v2);
+}; break;
+case 5184: { // glRectiv
+ GLint * v1 = (GLint *) bp; bp += 8;
+ GLint * v2 = (GLint *) bp; bp += 8;
+ weglRectiv(v1,v2);
+}; break;
+case 5185: { // glRectsv
+ GLshort * v1 = (GLshort *) bp; bp += 4;
+ GLshort * v2 = (GLshort *) bp; bp += 4;
+ weglRectsv(v1,v2);
+}; break;
+case 5186: { // glVertexPointer
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglVertexPointer(*size,*type,*stride,ptr);
+}; break;
+case 5187: { // glVertexPointer
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) bins[0];
+ weglVertexPointer(*size,*type,*stride,ptr);
+}; break;
+case 5188: { // glNormalPointer
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglNormalPointer(*type,*stride,ptr);
+}; break;
+case 5189: { // glNormalPointer
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) bins[0];
+ weglNormalPointer(*type,*stride,ptr);
+}; break;
+case 5190: { // glColorPointer
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglColorPointer(*size,*type,*stride,ptr);
+}; break;
+case 5191: { // glColorPointer
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) bins[0];
+ weglColorPointer(*size,*type,*stride,ptr);
+}; break;
+case 5192: { // glIndexPointer
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglIndexPointer(*type,*stride,ptr);
+}; break;
+case 5193: { // glIndexPointer
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) bins[0];
+ weglIndexPointer(*type,*stride,ptr);
+}; break;
+case 5194: { // glTexCoordPointer
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglTexCoordPointer(*size,*type,*stride,ptr);
+}; break;
+case 5195: { // glTexCoordPointer
+ GLint *size = (GLint *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) bins[0];
+ weglTexCoordPointer(*size,*type,*stride,ptr);
+}; break;
+case 5196: { // glEdgeFlagPointer
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglEdgeFlagPointer(*stride,ptr);
+}; break;
+case 5197: { // glEdgeFlagPointer
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *ptr = (GLvoid *) bins[0];
+ weglEdgeFlagPointer(*stride,ptr);
+}; break;
+case 5198: { // glArrayElement
+ GLint *i = (GLint *) bp; bp += 4;
+ weglArrayElement(*i);
+}; break;
+case 5199: { // glDrawArrays
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLint *first = (GLint *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ weglDrawArrays(*mode,*first,*count);
+}; break;
+case 5200: { // glDrawElements
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglDrawElements(*mode,*count,*type,indices);
+}; break;
+case 5201: { // glDrawElements
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *indices = (GLvoid *) bins[0];
+ weglDrawElements(*mode,*count,*type,indices);
+}; break;
+case 5202: { // glInterleavedArrays
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglInterleavedArrays(*format,*stride,pointer);
+}; break;
+case 5203: { // glInterleavedArrays
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLsizei *stride = (GLsizei *) bp; bp += 4;
+ GLvoid *pointer = (GLvoid *) bins[0];
+ weglInterleavedArrays(*format,*stride,pointer);
+}; break;
+case 5204: { // glShadeModel
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglShadeModel(*mode);
+}; break;
+case 5205: { // glLightf
+ GLenum *light = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglLightf(*light,*pname,*param);
+}; break;
+case 5206: { // glLighti
+ GLenum *light = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglLighti(*light,*pname,*param);
+}; break;
+case 5207: { // glLightfv
+ GLenum *light = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglLightfv(*light,*pname,params);
+}; break;
+case 5208: { // glLightiv
+ GLenum *light = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglLightiv(*light,*pname,params);
+}; break;
+case 5209: { // glGetLightfv
  GLenum *light = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
@@ -965,7 +1299,7 @@ case 5126: { // glGetLightfv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5127: { // glGetLightiv
+case 5210: { // glGetLightiv
  GLenum *light = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[4] = {0,0,0,0};
@@ -981,40 +1315,55 @@ case 5127: { // glGetLightiv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5128: { // glGetMapdv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *query = (GLenum *) bp; bp += 4;
- GLdouble *v = (GLdouble *) bins[0];
- weglGetMapdv(*target,*query,v);
- int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
+case 5211: { // glLightModelf
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglLightModelf(*pname,*param);
 }; break;
-case 5129: { // glGetMapfv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *query = (GLenum *) bp; bp += 4;
- GLfloat *v = (GLfloat *) bins[0];
- weglGetMapfv(*target,*query,v);
- int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
+case 5212: { // glLightModeli
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglLightModeli(*pname,*param);
 }; break;
-case 5130: { // glGetMapiv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *query = (GLenum *) bp; bp += 4;
- GLint *v = (GLint *) bins[0];
- weglGetMapiv(*target,*query,v);
- int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
+case 5213: { // glLightModelfv
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
+ weglLightModelfv(*pname,params);
 }; break;
-case 5131: { // glGetMaterialfv
+case 5214: { // glLightModeliv
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
+ weglLightModeliv(*pname,params);
+}; break;
+case 5215: { // glMaterialf
+ GLenum *face = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglMaterialf(*face,*pname,*param);
+}; break;
+case 5216: { // glMateriali
+ GLenum *face = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglMateriali(*face,*pname,*param);
+}; break;
+case 5217: { // glMaterialfv
+ GLenum *face = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglMaterialfv(*face,*pname,params);
+}; break;
+case 5218: { // glMaterialiv
+ GLenum *face = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglMaterialiv(*face,*pname,params);
+}; break;
+case 5219: { // glGetMaterialfv
  GLenum *face = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
@@ -1031,7 +1380,7 @@ case 5131: { // glGetMaterialfv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5132: { // glGetMaterialiv
+case 5220: { // glGetMaterialiv
  GLenum *face = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[4] = {0,0,0,0};
@@ -1047,7 +1396,55 @@ case 5132: { // glGetMaterialiv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5133: { // glGetPixelMapfv
+case 5221: { // glColorMaterial
+ GLenum *face = (GLenum *) bp; bp += 4;
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ weglColorMaterial(*face,*mode);
+}; break;
+case 5222: { // glPixelZoom
+ GLfloat *xfactor = (GLfloat *) bp; bp += 4;
+ GLfloat *yfactor = (GLfloat *) bp; bp += 4;
+ weglPixelZoom(*xfactor,*yfactor);
+}; break;
+case 5223: { // glPixelStoref
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglPixelStoref(*pname,*param);
+}; break;
+case 5224: { // glPixelStorei
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglPixelStorei(*pname,*param);
+}; break;
+case 5225: { // glPixelTransferf
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglPixelTransferf(*pname,*param);
+}; break;
+case 5226: { // glPixelTransferi
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglPixelTransferi(*pname,*param);
+}; break;
+case 5227: { // glPixelMapfv
+ GLenum *map = (GLenum *) bp; bp += 4;
+ GLsizei *mapsize = (GLsizei *) bp; bp += 4;
+ GLfloat *values = (GLfloat *) bins[0];
+ weglPixelMapfv(*map,*mapsize,values);
+}; break;
+case 5228: { // glPixelMapuiv
+ GLenum *map = (GLenum *) bp; bp += 4;
+ GLsizei *mapsize = (GLsizei *) bp; bp += 4;
+ GLuint *values = (GLuint *) bins[0];
+ weglPixelMapuiv(*map,*mapsize,values);
+}; break;
+case 5229: { // glPixelMapusv
+ GLenum *map = (GLenum *) bp; bp += 4;
+ GLsizei *mapsize = (GLsizei *) bp; bp += 4;
+ GLushort *values = (GLushort *) bins[0];
+ weglPixelMapusv(*map,*mapsize,values);
+}; break;
+case 5230: { // glGetPixelMapfv
  GLenum *map = (GLenum *) bp; bp += 4;
  GLfloat *values = (GLfloat *) bins[0];
  weglGetPixelMapfv(*map,values);
@@ -1057,7 +1454,7 @@ case 5133: { // glGetPixelMapfv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5134: { // glGetPixelMapuiv
+case 5231: { // glGetPixelMapuiv
  GLenum *map = (GLenum *) bp; bp += 4;
  GLuint *values = (GLuint *) bins[0];
  weglGetPixelMapuiv(*map,values);
@@ -1067,7 +1464,7 @@ case 5134: { // glGetPixelMapuiv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5135: { // glGetPixelMapusv
+case 5232: { // glGetPixelMapusv
  GLenum *map = (GLenum *) bp; bp += 4;
  GLushort *values = (GLushort *) bins[0];
  weglGetPixelMapusv(*map,values);
@@ -1077,59 +1474,125 @@ case 5135: { // glGetPixelMapusv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5136: { // glGetPolygonStipple
- ErlDrvBinary *mask = driver_alloc_binary(128);
- weglGetPolygonStipple((GLubyte*) mask->orig_bytes);
- int AP = 0; ErlDrvTermData rt[8];
+case 5233: { // glBitmap
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLfloat *xorig = (GLfloat *) bp; bp += 4;
+ GLfloat *yorig = (GLfloat *) bp; bp += 4;
+ GLfloat *xmove = (GLfloat *) bp; bp += 4;
+ GLfloat *ymove = (GLfloat *) bp; bp += 4;
+ GLubyte *bitmap = (GLubyte *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglBitmap(*width,*height,*xorig,*yorig,*xmove,*ymove,bitmap);
+}; break;
+case 5234: { // glBitmap
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLfloat *xorig = (GLfloat *) bp; bp += 4;
+ GLfloat *yorig = (GLfloat *) bp; bp += 4;
+ GLfloat *xmove = (GLfloat *) bp; bp += 4;
+ GLfloat *ymove = (GLfloat *) bp; bp += 4;
+ GLubyte *bitmap = (GLubyte *) bins[0];
+ weglBitmap(*width,*height,*xorig,*yorig,*xmove,*ymove,bitmap);
+}; break;
+case 5235: { // glReadPixels
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) bins[0];
+ weglReadPixels(*x,*y,*width,*height,*format,*type,pixels);
+ int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++] = ERL_DRV_BINARY; rt[AP++] = (ErlDrvTermData) mask; rt[AP++] = 128; rt[AP++] = 0;
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
- driver_free_binary(mask);
 }; break;
-case 5137: { // glGetString
- GLenum *name = (GLenum *) bp; bp += 4;
- const GLubyte *  result = weglGetString(*name);
- int AP = 0; ErlDrvTermData rt[7];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++] = ERL_DRV_STRING; rt[AP++] = (ErlDrvTermData) result; rt[AP++] = strlen((char *) result);
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
+case 5236: { // glDrawPixels
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglDrawPixels(*width,*height,*format,*type,pixels);
 }; break;
-case 5138: { // glGetTexEnvfv
- GLenum *target = (GLenum *) bp; bp += 4;
+case 5237: { // glDrawPixels
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) bins[0];
+ weglDrawPixels(*width,*height,*format,*type,pixels);
+}; break;
+case 5238: { // glCopyPixels
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ weglCopyPixels(*x,*y,*width,*height,*type);
+}; break;
+case 5239: { // glStencilFunc
+ GLenum *func = (GLenum *) bp; bp += 4;
+ GLint *ref = (GLint *) bp; bp += 4;
+ GLuint *mask = (GLuint *) bp; bp += 4;
+ weglStencilFunc(*func,*ref,*mask);
+}; break;
+case 5240: { // glStencilMask
+ GLuint *mask = (GLuint *) bp; bp += 4;
+ weglStencilMask(*mask);
+}; break;
+case 5241: { // glStencilOp
+ GLenum *fail = (GLenum *) bp; bp += 4;
+ GLenum *zfail = (GLenum *) bp; bp += 4;
+ GLenum *zpass = (GLenum *) bp; bp += 4;
+ weglStencilOp(*fail,*zfail,*zpass);
+}; break;
+case 5242: { // glClearStencil
+ GLint *s = (GLint *) bp; bp += 4;
+ weglClearStencil(*s);
+}; break;
+case 5243: { // glTexGend
+ GLenum *coord = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat params[4] = {0.0,0.0,0.0,0.0};
- weglGetTexEnvfv(*target,*pname,params);
- int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- GLdouble paramsConv[4], *paramsTmp = paramsConv; 
- for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
- rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
+ GLdouble *param = (GLdouble *) bp; bp += 8;
+ weglTexGend(*coord,*pname,*param);
 }; break;
-case 5139: { // glGetTexEnviv
- GLenum *target = (GLenum *) bp; bp += 4;
+case 5244: { // glTexGenf
+ GLenum *coord = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
- GLint params[4] = {0,0,0,0};
- weglGetTexEnviv(*target,*pname,params);
- int AP = 0; ErlDrvTermData rt[14];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- GLint *paramsTmp = params;
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglTexGenf(*coord,*pname,*param);
 }; break;
-case 5140: { // glGetTexGendv
+case 5245: { // glTexGeni
+ GLenum *coord = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglTexGeni(*coord,*pname,*param);
+}; break;
+case 5246: { // glTexGendv
+ GLenum *coord = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 8;
+ GLdouble *params = (GLdouble *) bp; bp += *paramsLen*8;
+ weglTexGendv(*coord,*pname,params);
+}; break;
+case 5247: { // glTexGenfv
+ GLenum *coord = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglTexGenfv(*coord,*pname,params);
+}; break;
+case 5248: { // glTexGeniv
+ GLenum *coord = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglTexGeniv(*coord,*pname,params);
+}; break;
+case 5249: { // glGetTexGendv
  GLenum *coord = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLdouble params[4] = {0.0,0.0,0.0,0.0};
@@ -1145,7 +1608,7 @@ case 5140: { // glGetTexGendv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5141: { // glGetTexGenfv
+case 5250: { // glGetTexGenfv
  GLenum *coord = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
@@ -1162,7 +1625,7 @@ case 5141: { // glGetTexGenfv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5142: { // glGetTexGeniv
+case 5251: { // glGetTexGeniv
  GLenum *coord = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[4] = {0,0,0,0};
@@ -1178,49 +1641,92 @@ case 5142: { // glGetTexGeniv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5143: { // glGetTexImage
+case 5252: { // glTexEnvf
  GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0];
- weglGetTexImage(*target,*level,*format,*type,pixels);
- int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
-}; break;
-case 5144: { // glGetTexLevelParameterfv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat params[1] = {0.0};
- weglGetTexLevelParameterfv(*target,*level,*pname,params);
- int AP = 0; ErlDrvTermData rt[8];
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglTexEnvf(*target,*pname,*param);
+}; break;
+case 5253: { // glTexEnvi
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglTexEnvi(*target,*pname,*param);
+}; break;
+case 5254: { // glTexEnvfv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglTexEnvfv(*target,*pname,params);
+}; break;
+case 5255: { // glTexEnviv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglTexEnviv(*target,*pname,params);
+}; break;
+case 5256: { // glGetTexEnvfv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat params[4] = {0.0,0.0,0.0,0.0};
+ weglGetTexEnvfv(*target,*pname,params);
+ int AP = 0; ErlDrvTermData rt[14];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- GLdouble paramsConv[1], *paramsTmp = paramsConv; 
- for(int i=0; i < 1; i++) paramsConv[i] = (GLdouble) params[i];
+ GLdouble paramsConv[4], *paramsTmp = paramsConv; 
+ for(int i=0; i < 4; i++) paramsConv[i] = (GLdouble) params[i];
  rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5145: { // glGetTexLevelParameteriv
+case 5257: { // glGetTexEnviv
  GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
- GLint params[1] = {0};
- weglGetTexLevelParameteriv(*target,*level,*pname,params);
- int AP = 0; ErlDrvTermData rt[8];
+ GLint params[4] = {0,0,0,0};
+ weglGetTexEnviv(*target,*pname,params);
+ int AP = 0; ErlDrvTermData rt[14];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  GLint *paramsTmp = params;
  rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 4;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5146: { // glGetTexParameterfv
+case 5258: { // glTexParameterf
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat *param = (GLfloat *) bp; bp += 4;
+ weglTexParameterf(*target,*pname,*param);
+}; break;
+case 5259: { // glTexParameteri
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglTexParameteri(*target,*pname,*param);
+}; break;
+case 5260: { // glTexParameterfv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglTexParameterfv(*target,*pname,params);
+}; break;
+case 5261: { // glTexParameteriv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ int *paramsLen = (int *) bp; bp += 4;
+ GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
+ weglTexParameteriv(*target,*pname,params);
+}; break;
+case 5262: { // glGetTexParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat params[4] = {0.0,0.0,0.0,0.0};
@@ -1237,7 +1743,7 @@ case 5146: { // glGetTexParameterfv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5147: { // glGetTexParameteriv
+case 5263: { // glGetTexParameteriv
  GLenum *target = (GLenum *) bp; bp += 4;
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLint params[4] = {0,0,0,0};
@@ -1253,81 +1759,147 @@ case 5147: { // glGetTexParameteriv
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5148: { // glHint
+case 5264: { // glGetTexLevelParameterfv
  GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglHint(*target,*mode);
-}; break;
-case 5149: { // glIndexMask
- GLuint *mask = (GLuint *) bp; bp += 4;
- weglIndexMask(*mask);
-}; break;
-case 5150: { // glIndexPointer
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglIndexPointer(*type,*stride,pointer);
-}; break;
-case 5151: { // glIndexPointer
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0];
- weglIndexPointer(*type,*stride,pointer);
-}; break;
-case 5152: { // glIndexdv
- GLdouble *c = (GLdouble *) bp; bp += 8;
- weglIndexdv(c);
-}; break;
-case 5153: { // glIndexfv
- GLfloat *c = (GLfloat *) bp; bp += 4;
- weglIndexfv(c);
-}; break;
-case 5154: { // glIndexiv
- GLint *c = (GLint *) bp; bp += 4;
- weglIndexiv(c);
-}; break;
-case 5155: { // glIndexsv
- GLshort *c = (GLshort *) bp; bp += 2;
- weglIndexsv(c);
-}; break;
-case 5156: { // glIndexubv
- GLubyte *c = (GLubyte *) bp; bp += 1;
- weglIndexubv(c);
-}; break;
-case 5157: { // glInitNames
- weglInitNames();
-}; break;
-case 5158: { // glInterleavedArrays
- GLenum *format = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglInterleavedArrays(*format,*stride,pointer);
-}; break;
-case 5159: { // glInterleavedArrays
- GLenum *format = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0];
- weglInterleavedArrays(*format,*stride,pointer);
-}; break;
-case 5160: { // glIsEnabled
- GLenum *cap = (GLenum *) bp; bp += 4;
- GLboolean result = weglIsEnabled(*cap);
- int AP = 0; ErlDrvTermData rt[6];
+ GLint *level = (GLint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLfloat params[1] = {0.0};
+ weglGetTexLevelParameterfv(*target,*level,*pname,params);
+ int AP = 0; ErlDrvTermData rt[8];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ GLdouble paramsConv[1], *paramsTmp = paramsConv; 
+ for(int i=0; i < 1; i++) paramsConv[i] = (GLdouble) params[i];
+ rt[AP++] = ERL_DRV_FLOAT; rt[AP++] = (ErlDrvTermData) paramsTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5161: { // glIsList
- GLuint *list = (GLuint *) bp; bp += 4;
- GLboolean result = weglIsList(*list);
- int AP = 0; ErlDrvTermData rt[6];
+case 5265: { // glGetTexLevelParameteriv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint params[1] = {0};
+ weglGetTexLevelParameteriv(*target,*level,*pname,params);
+ int AP = 0; ErlDrvTermData rt[8];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ GLint *paramsTmp = params;
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) *paramsTmp++;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 1;
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5162: { // glIsTexture
+case 5266: { // glTexImage1D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *internalFormat = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLint *border = (GLint *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglTexImage1D(*target,*level,*internalFormat,*width,*border,*format,*type,pixels);
+}; break;
+case 5267: { // glTexImage1D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *internalFormat = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLint *border = (GLint *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) bins[0];
+ weglTexImage1D(*target,*level,*internalFormat,*width,*border,*format,*type,pixels);
+}; break;
+case 5268: { // glTexImage2D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *internalFormat = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLint *border = (GLint *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglTexImage2D(*target,*level,*internalFormat,*width,*height,*border,*format,*type,pixels);
+}; break;
+case 5269: { // glTexImage2D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *internalFormat = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLint *border = (GLint *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) bins[0];
+ weglTexImage2D(*target,*level,*internalFormat,*width,*height,*border,*format,*type,pixels);
+}; break;
+case 5270: { // glGetTexImage
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) bins[0];
+ weglGetTexImage(*target,*level,*format,*type,pixels);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5271: { // glGenTextures
+ GLsizei *n = (GLsizei *) bp; bp += 4;
+ GLuint *textures;
+ textures = (GLuint *) driver_alloc(sizeof(GLuint) * *n);
+ weglGenTextures(*n,textures);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*n)*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ for(int i=0; i < *n; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) textures[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*n)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(textures);
+}; break;
+case 5272: { // glDeleteTextures
+ int * texturesLen = (int *) bp; bp += 4;
+ GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
+ weglDeleteTextures(*texturesLen,textures);
+}; break;
+case 5273: { // glBindTexture
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLuint *texture = (GLuint *) bp; bp += 4;
+ weglBindTexture(*target,*texture);
+}; break;
+case 5274: { // glPrioritizeTextures
+ int * texturesLen = (int *) bp; bp += 4;
+ GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
+ int * prioritiesLen = (int *) bp; bp += 4;
+ GLclampf * priorities = (GLclampf *) bp;  bp += (8-((*prioritiesLen*4+4)%8))%8;
+ weglPrioritizeTextures(*texturesLen,textures,priorities);
+}; break;
+case 5275: { // glAreTexturesResident
+ int * texturesLen = (int *) bp; bp += 4;
+ GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
+ GLboolean *residences;
+ residences = (GLboolean *) driver_alloc(sizeof(GLboolean) * *texturesLen);
+ GLboolean result = weglAreTexturesResident(*texturesLen,textures,residences);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(11 + (*texturesLen)*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
+ for(int i=0; i < *texturesLen; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) residences[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*texturesLen)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(residences);
+}; break;
+case 5276: { // glIsTexture
  GLuint *texture = (GLuint *) bp; bp += 4;
  GLboolean result = weglIsTexture(*texture);
  int AP = 0; ErlDrvTermData rt[6];
@@ -1336,87 +1908,92 @@ case 5162: { // glIsTexture
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5163: { // glLightModelf
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglLightModelf(*pname,*param);
+case 5277: { // glTexSubImage1D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *xoffset = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglTexSubImage1D(*target,*level,*xoffset,*width,*format,*type,pixels);
 }; break;
-case 5164: { // glLightModelfv
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
- weglLightModelfv(*pname,params);
+case 5278: { // glTexSubImage1D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *xoffset = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) bins[0];
+ weglTexSubImage1D(*target,*level,*xoffset,*width,*format,*type,pixels);
 }; break;
-case 5165: { // glLightModeli
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglLightModeli(*pname,*param);
+case 5279: { // glTexSubImage2D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *xoffset = (GLint *) bp; bp += 4;
+ GLint *yoffset = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ weglTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*type,pixels);
 }; break;
-case 5166: { // glLightModeliv
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
- weglLightModeliv(*pname,params);
+case 5280: { // glTexSubImage2D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *xoffset = (GLint *) bp; bp += 4;
+ GLint *yoffset = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ GLvoid *pixels = (GLvoid *) bins[0];
+ weglTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*type,pixels);
 }; break;
-case 5167: { // glLightf
- GLenum *light = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglLightf(*light,*pname,*param);
+case 5281: { // glCopyTexImage1D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLenum *internalformat = (GLenum *) bp; bp += 4;
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLint *border = (GLint *) bp; bp += 4;
+ weglCopyTexImage1D(*target,*level,*internalformat,*x,*y,*width,*border);
 }; break;
-case 5168: { // glLightfv
- GLenum *light = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglLightfv(*light,*pname,params);
+case 5282: { // glCopyTexImage2D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLenum *internalformat = (GLenum *) bp; bp += 4;
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLint *border = (GLint *) bp; bp += 4;
+ weglCopyTexImage2D(*target,*level,*internalformat,*x,*y,*width,*height,*border);
 }; break;
-case 5169: { // glLighti
- GLenum *light = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglLighti(*light,*pname,*param);
+case 5283: { // glCopyTexSubImage1D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *xoffset = (GLint *) bp; bp += 4;
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ weglCopyTexSubImage1D(*target,*level,*xoffset,*x,*y,*width);
 }; break;
-case 5170: { // glLightiv
- GLenum *light = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglLightiv(*light,*pname,params);
+case 5284: { // glCopyTexSubImage2D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLint *xoffset = (GLint *) bp; bp += 4;
+ GLint *yoffset = (GLint *) bp; bp += 4;
+ GLint *x = (GLint *) bp; bp += 4;
+ GLint *y = (GLint *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ weglCopyTexSubImage2D(*target,*level,*xoffset,*yoffset,*x,*y,*width,*height);
 }; break;
-case 5171: { // glLineStipple
- GLint *factor = (GLint *) bp; bp += 4;
- GLushort *pattern = (GLushort *) bp; bp += 2;
- weglLineStipple(*factor,*pattern);
-}; break;
-case 5172: { // glLineWidth
- GLfloat *width = (GLfloat *) bp; bp += 4;
- weglLineWidth(*width);
-}; break;
-case 5173: { // glListBase
- GLuint *base = (GLuint *) bp; bp += 4;
- weglListBase(*base);
-}; break;
-case 5174: { // glLoadIdentity
- weglLoadIdentity();
-}; break;
-case 5175: { // glLoadMatrixd
- GLdouble * m = (GLdouble *) bp; bp += 128;
- weglLoadMatrixd(m);
-}; break;
-case 5176: { // glLoadMatrixf
- GLfloat * m = (GLfloat *) bp; bp += 64;
- weglLoadMatrixf(m);
-}; break;
-case 5177: { // glLoadName
- GLuint *name = (GLuint *) bp; bp += 4;
- weglLoadName(*name);
-}; break;
-case 5178: { // glLogicOp
- GLenum *opcode = (GLenum *) bp; bp += 4;
- weglLogicOp(*opcode);
-}; break;
-case 5179: { // glMap1d
+case 5285: { // glMap1d
  GLenum *target = (GLenum *) bp; bp += 4;
  bp += 4;
  GLdouble *u1 = (GLdouble *) bp; bp += 8;
@@ -1426,7 +2003,7 @@ case 5179: { // glMap1d
  GLdouble *points = (GLdouble *) bins[0];
  weglMap1d(*target,*u1,*u2,*stride,*order,points);
 }; break;
-case 5180: { // glMap1f
+case 5286: { // glMap1f
  GLenum *target = (GLenum *) bp; bp += 4;
  GLfloat *u1 = (GLfloat *) bp; bp += 4;
  GLfloat *u2 = (GLfloat *) bp; bp += 4;
@@ -1435,7 +2012,7 @@ case 5180: { // glMap1f
  GLfloat *points = (GLfloat *) bins[0];
  weglMap1f(*target,*u1,*u2,*stride,*order,points);
 }; break;
-case 5181: { // glMap2d
+case 5287: { // glMap2d
  GLenum *target = (GLenum *) bp; bp += 4;
  bp += 4;
  GLdouble *u1 = (GLdouble *) bp; bp += 8;
@@ -1449,7 +2026,7 @@ case 5181: { // glMap2d
  GLdouble *points = (GLdouble *) bins[0];
  weglMap2d(*target,*u1,*u2,*ustride,*uorder,*v1,*v2,*vstride,*vorder,points);
 }; break;
-case 5182: { // glMap2f
+case 5288: { // glMap2f
  GLenum *target = (GLenum *) bp; bp += 4;
  GLfloat *u1 = (GLfloat *) bp; bp += 4;
  GLfloat *u2 = (GLfloat *) bp; bp += 4;
@@ -1462,20 +2039,69 @@ case 5182: { // glMap2f
  GLfloat *points = (GLfloat *) bins[0];
  weglMap2f(*target,*u1,*u2,*ustride,*uorder,*v1,*v2,*vstride,*vorder,points);
 }; break;
-case 5183: { // glMapGrid1d
+case 5289: { // glGetMapdv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *query = (GLenum *) bp; bp += 4;
+ GLdouble *v = (GLdouble *) bins[0];
+ weglGetMapdv(*target,*query,v);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5290: { // glGetMapfv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *query = (GLenum *) bp; bp += 4;
+ GLfloat *v = (GLfloat *) bins[0];
+ weglGetMapfv(*target,*query,v);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5291: { // glGetMapiv
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *query = (GLenum *) bp; bp += 4;
+ GLint *v = (GLint *) bins[0];
+ weglGetMapiv(*target,*query,v);
+ int AP = 0; ErlDrvTermData rt[6];
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+}; break;
+case 5292: { // glEvalCoord1dv
+ GLdouble *u = (GLdouble *) bp; bp += 8;
+ weglEvalCoord1dv(u);
+}; break;
+case 5293: { // glEvalCoord1fv
+ GLfloat *u = (GLfloat *) bp; bp += 4;
+ weglEvalCoord1fv(u);
+}; break;
+case 5294: { // glEvalCoord2dv
+ GLdouble *u = (GLdouble *) bp; bp += 8;
+ weglEvalCoord2dv(u);
+}; break;
+case 5295: { // glEvalCoord2fv
+ GLfloat *u = (GLfloat *) bp; bp += 4;
+ weglEvalCoord2fv(u);
+}; break;
+case 5296: { // glMapGrid1d
  GLint *un = (GLint *) bp; bp += 4;
  bp += 4;
  GLdouble *u1 = (GLdouble *) bp; bp += 8;
  GLdouble *u2 = (GLdouble *) bp; bp += 8;
  weglMapGrid1d(*un,*u1,*u2);
 }; break;
-case 5184: { // glMapGrid1f
+case 5297: { // glMapGrid1f
  GLint *un = (GLint *) bp; bp += 4;
  GLfloat *u1 = (GLfloat *) bp; bp += 4;
  GLfloat *u2 = (GLfloat *) bp; bp += 4;
  weglMapGrid1f(*un,*u1,*u2);
 }; break;
-case 5185: { // glMapGrid2d
+case 5298: { // glMapGrid2d
  GLint *un = (GLint *) bp; bp += 4;
  bp += 4;
  GLdouble *u1 = (GLdouble *) bp; bp += 8;
@@ -1486,7 +2112,7 @@ case 5185: { // glMapGrid2d
  GLdouble *v2 = (GLdouble *) bp; bp += 8;
  weglMapGrid2d(*un,*u1,*u2,*vn,*v1,*v2);
 }; break;
-case 5186: { // glMapGrid2f
+case 5299: { // glMapGrid2f
  GLint *un = (GLint *) bp; bp += 4;
  GLfloat *u1 = (GLfloat *) bp; bp += 4;
  GLfloat *u2 = (GLfloat *) bp; bp += 4;
@@ -1495,347 +2121,67 @@ case 5186: { // glMapGrid2f
  GLfloat *v2 = (GLfloat *) bp; bp += 4;
  weglMapGrid2f(*un,*u1,*u2,*vn,*v1,*v2);
 }; break;
-case 5187: { // glMaterialf
- GLenum *face = (GLenum *) bp; bp += 4;
+case 5300: { // glEvalPoint1
+ GLint *i = (GLint *) bp; bp += 4;
+ weglEvalPoint1(*i);
+}; break;
+case 5301: { // glEvalPoint2
+ GLint *i = (GLint *) bp; bp += 4;
+ GLint *j = (GLint *) bp; bp += 4;
+ weglEvalPoint2(*i,*j);
+}; break;
+case 5302: { // glEvalMesh1
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLint *i1 = (GLint *) bp; bp += 4;
+ GLint *i2 = (GLint *) bp; bp += 4;
+ weglEvalMesh1(*mode,*i1,*i2);
+}; break;
+case 5303: { // glEvalMesh2
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLint *i1 = (GLint *) bp; bp += 4;
+ GLint *i2 = (GLint *) bp; bp += 4;
+ GLint *j1 = (GLint *) bp; bp += 4;
+ GLint *j2 = (GLint *) bp; bp += 4;
+ weglEvalMesh2(*mode,*i1,*i2,*j1,*j2);
+}; break;
+case 5304: { // glFogf
  GLenum *pname = (GLenum *) bp; bp += 4;
  GLfloat *param = (GLfloat *) bp; bp += 4;
- weglMaterialf(*face,*pname,*param);
+ weglFogf(*pname,*param);
 }; break;
-case 5188: { // glMaterialfv
- GLenum *face = (GLenum *) bp; bp += 4;
+case 5305: { // glFogi
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLint *param = (GLint *) bp; bp += 4;
+ weglFogi(*pname,*param);
+}; break;
+case 5306: { // glFogfv
  GLenum *pname = (GLenum *) bp; bp += 4;
  int *paramsLen = (int *) bp; bp += 4;
- GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglMaterialfv(*face,*pname,params);
+ GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
+ weglFogfv(*pname,params);
 }; break;
-case 5189: { // glMateriali
- GLenum *face = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglMateriali(*face,*pname,*param);
-}; break;
-case 5190: { // glMaterialiv
- GLenum *face = (GLenum *) bp; bp += 4;
+case 5307: { // glFogiv
  GLenum *pname = (GLenum *) bp; bp += 4;
  int *paramsLen = (int *) bp; bp += 4;
- GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglMaterialiv(*face,*pname,params);
+ GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+0)%2*4;
+ weglFogiv(*pname,params);
 }; break;
-case 5191: { // glMatrixMode
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglMatrixMode(*mode);
-}; break;
-case 5192: { // glMultMatrixd
- GLdouble * m = (GLdouble *) bp; bp += 128;
- weglMultMatrixd(m);
-}; break;
-case 5193: { // glMultMatrixf
- GLfloat * m = (GLfloat *) bp; bp += 64;
- weglMultMatrixf(m);
-}; break;
-case 5194: { // glNewList
- GLuint *list = (GLuint *) bp; bp += 4;
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglNewList(*list,*mode);
-}; break;
-case 5195: { // glNormal3bv
- GLbyte *v = (GLbyte *) bp; bp += 1;
- weglNormal3bv(v);
-}; break;
-case 5196: { // glNormal3dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglNormal3dv(v);
-}; break;
-case 5197: { // glNormal3fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglNormal3fv(v);
-}; break;
-case 5198: { // glNormal3iv
- GLint *v = (GLint *) bp; bp += 4;
- weglNormal3iv(v);
-}; break;
-case 5199: { // glNormal3sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglNormal3sv(v);
-}; break;
-case 5200: { // glNormalPointer
+case 5308: { // glFeedbackBuffer
+ GLsizei *size = (GLsizei *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglNormalPointer(*type,*stride,pointer);
-}; break;
-case 5201: { // glNormalPointer
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0];
- weglNormalPointer(*type,*stride,pointer);
-}; break;
-case 5202: { // glOrtho
- GLdouble *left = (GLdouble *) bp; bp += 8;
- GLdouble *right = (GLdouble *) bp; bp += 8;
- GLdouble *bottom = (GLdouble *) bp; bp += 8;
- GLdouble *top = (GLdouble *) bp; bp += 8;
- GLdouble *zNear = (GLdouble *) bp; bp += 8;
- GLdouble *zFar = (GLdouble *) bp; bp += 8;
- weglOrtho(*left,*right,*bottom,*top,*zNear,*zFar);
-}; break;
-case 5203: { // glPassThrough
- GLfloat *token = (GLfloat *) bp; bp += 4;
- weglPassThrough(*token);
-}; break;
-case 5204: { // glPixelMapfv
- GLenum *map = (GLenum *) bp; bp += 4;
- GLsizei *mapsize = (GLsizei *) bp; bp += 4;
- GLfloat *values = (GLfloat *) bins[0];
- weglPixelMapfv(*map,*mapsize,values);
-}; break;
-case 5205: { // glPixelMapuiv
- GLenum *map = (GLenum *) bp; bp += 4;
- GLsizei *mapsize = (GLsizei *) bp; bp += 4;
- GLuint *values = (GLuint *) bins[0];
- weglPixelMapuiv(*map,*mapsize,values);
-}; break;
-case 5206: { // glPixelMapusv
- GLenum *map = (GLenum *) bp; bp += 4;
- GLsizei *mapsize = (GLsizei *) bp; bp += 4;
- GLushort *values = (GLushort *) bins[0];
- weglPixelMapusv(*map,*mapsize,values);
-}; break;
-case 5207: { // glPixelStoref
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglPixelStoref(*pname,*param);
-}; break;
-case 5208: { // glPixelStorei
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglPixelStorei(*pname,*param);
-}; break;
-case 5209: { // glPixelTransferf
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglPixelTransferf(*pname,*param);
-}; break;
-case 5210: { // glPixelTransferi
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglPixelTransferi(*pname,*param);
-}; break;
-case 5211: { // glPixelZoom
- GLfloat *xfactor = (GLfloat *) bp; bp += 4;
- GLfloat *yfactor = (GLfloat *) bp; bp += 4;
- weglPixelZoom(*xfactor,*yfactor);
-}; break;
-case 5212: { // glPointSize
- GLfloat *size = (GLfloat *) bp; bp += 4;
- weglPointSize(*size);
-}; break;
-case 5213: { // glPolygonMode
- GLenum *face = (GLenum *) bp; bp += 4;
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglPolygonMode(*face,*mode);
-}; break;
-case 5214: { // glPolygonOffset
- GLfloat *factor = (GLfloat *) bp; bp += 4;
- GLfloat *units = (GLfloat *) bp; bp += 4;
- weglPolygonOffset(*factor,*units);
-}; break;
-case 5215: { // glPolygonStipple
- GLubyte *mask = (GLubyte *) bins[0];
- weglPolygonStipple(mask);
-}; break;
-case 5216: { // glPopAttrib
- weglPopAttrib();
-}; break;
-case 5217: { // glPopClientAttrib
- weglPopClientAttrib();
-}; break;
-case 5218: { // glPopMatrix
- weglPopMatrix();
-}; break;
-case 5219: { // glPopName
- weglPopName();
-}; break;
-case 5220: { // glPrioritizeTextures
- int * texturesLen = (int *) bp; bp += 4;
- GLuint * textures = (GLuint *) bp;  bp += (8-((*texturesLen*4+4)%8))%8;
- int * prioritiesLen = (int *) bp; bp += 4;
- GLclampf * priorities = (GLclampf *) bp;  bp += (8-((*prioritiesLen*4+4)%8))%8;
- weglPrioritizeTextures(*texturesLen,textures,priorities);
-}; break;
-case 5221: { // glPushAttrib
- GLbitfield *mask = (GLbitfield *) bp; bp += 4;
- weglPushAttrib(*mask);
-}; break;
-case 5222: { // glPushClientAttrib
- GLbitfield *mask = (GLbitfield *) bp; bp += 4;
- weglPushClientAttrib(*mask);
-}; break;
-case 5223: { // glPushMatrix
- weglPushMatrix();
-}; break;
-case 5224: { // glPushName
- GLuint *name = (GLuint *) bp; bp += 4;
- weglPushName(*name);
-}; break;
-case 5225: { // glRasterPos2dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglRasterPos2dv(v);
-}; break;
-case 5226: { // glRasterPos2fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglRasterPos2fv(v);
-}; break;
-case 5227: { // glRasterPos2iv
- GLint *v = (GLint *) bp; bp += 4;
- weglRasterPos2iv(v);
-}; break;
-case 5228: { // glRasterPos2sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglRasterPos2sv(v);
-}; break;
-case 5229: { // glRasterPos3dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglRasterPos3dv(v);
-}; break;
-case 5230: { // glRasterPos3fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglRasterPos3fv(v);
-}; break;
-case 5231: { // glRasterPos3iv
- GLint *v = (GLint *) bp; bp += 4;
- weglRasterPos3iv(v);
-}; break;
-case 5232: { // glRasterPos3sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglRasterPos3sv(v);
-}; break;
-case 5233: { // glRasterPos4dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglRasterPos4dv(v);
-}; break;
-case 5234: { // glRasterPos4fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglRasterPos4fv(v);
-}; break;
-case 5235: { // glRasterPos4iv
- GLint *v = (GLint *) bp; bp += 4;
- weglRasterPos4iv(v);
-}; break;
-case 5236: { // glRasterPos4sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglRasterPos4sv(v);
-}; break;
-case 5237: { // glReadBuffer
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglReadBuffer(*mode);
-}; break;
-case 5238: { // glReadPixels
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0];
- weglReadPixels(*x,*y,*width,*height,*format,*type,pixels);
+ GLfloat *buffer = (GLfloat *) bins[0];
+ weglFeedbackBuffer(*size,*type,buffer);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5239: { // glRectd
- GLdouble *x1 = (GLdouble *) bp; bp += 8;
- GLdouble *y1 = (GLdouble *) bp; bp += 8;
- GLdouble *x2 = (GLdouble *) bp; bp += 8;
- GLdouble *y2 = (GLdouble *) bp; bp += 8;
- weglRectd(*x1,*y1,*x2,*y2);
+case 5309: { // glPassThrough
+ GLfloat *token = (GLfloat *) bp; bp += 4;
+ weglPassThrough(*token);
 }; break;
-case 5240: { // glRectdv
- GLdouble * v1 = (GLdouble *) bp; bp += 16;
- GLdouble * v2 = (GLdouble *) bp; bp += 16;
- weglRectdv(v1,v2);
-}; break;
-case 5241: { // glRectf
- GLfloat *x1 = (GLfloat *) bp; bp += 4;
- GLfloat *y1 = (GLfloat *) bp; bp += 4;
- GLfloat *x2 = (GLfloat *) bp; bp += 4;
- GLfloat *y2 = (GLfloat *) bp; bp += 4;
- weglRectf(*x1,*y1,*x2,*y2);
-}; break;
-case 5242: { // glRectfv
- GLfloat * v1 = (GLfloat *) bp; bp += 8;
- GLfloat * v2 = (GLfloat *) bp; bp += 8;
- weglRectfv(v1,v2);
-}; break;
-case 5243: { // glRecti
- GLint *x1 = (GLint *) bp; bp += 4;
- GLint *y1 = (GLint *) bp; bp += 4;
- GLint *x2 = (GLint *) bp; bp += 4;
- GLint *y2 = (GLint *) bp; bp += 4;
- weglRecti(*x1,*y1,*x2,*y2);
-}; break;
-case 5244: { // glRectiv
- GLint * v1 = (GLint *) bp; bp += 8;
- GLint * v2 = (GLint *) bp; bp += 8;
- weglRectiv(v1,v2);
-}; break;
-case 5245: { // glRects
- GLshort *x1 = (GLshort *) bp; bp += 2;
- GLshort *y1 = (GLshort *) bp; bp += 2;
- GLshort *x2 = (GLshort *) bp; bp += 2;
- GLshort *y2 = (GLshort *) bp; bp += 2;
- weglRects(*x1,*y1,*x2,*y2);
-}; break;
-case 5246: { // glRectsv
- GLshort * v1 = (GLshort *) bp; bp += 4;
- GLshort * v2 = (GLshort *) bp; bp += 4;
- weglRectsv(v1,v2);
-}; break;
-case 5247: { // glRenderMode
- GLenum *mode = (GLenum *) bp; bp += 4;
- GLint result = weglRenderMode(*mode);
- int AP = 0; ErlDrvTermData rt[6];
- rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
- rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) result;
- rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
- driver_send_term(port,caller,rt,AP);
-}; break;
-case 5248: { // glRotated
- GLdouble *angle = (GLdouble *) bp; bp += 8;
- GLdouble *x = (GLdouble *) bp; bp += 8;
- GLdouble *y = (GLdouble *) bp; bp += 8;
- GLdouble *z = (GLdouble *) bp; bp += 8;
- weglRotated(*angle,*x,*y,*z);
-}; break;
-case 5249: { // glRotatef
- GLfloat *angle = (GLfloat *) bp; bp += 4;
- GLfloat *x = (GLfloat *) bp; bp += 4;
- GLfloat *y = (GLfloat *) bp; bp += 4;
- GLfloat *z = (GLfloat *) bp; bp += 4;
- weglRotatef(*angle,*x,*y,*z);
-}; break;
-case 5250: { // glScaled
- GLdouble *x = (GLdouble *) bp; bp += 8;
- GLdouble *y = (GLdouble *) bp; bp += 8;
- GLdouble *z = (GLdouble *) bp; bp += 8;
- weglScaled(*x,*y,*z);
-}; break;
-case 5251: { // glScalef
- GLfloat *x = (GLfloat *) bp; bp += 4;
- GLfloat *y = (GLfloat *) bp; bp += 4;
- GLfloat *z = (GLfloat *) bp; bp += 4;
- weglScalef(*x,*y,*z);
-}; break;
-case 5252: { // glScissor
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- weglScissor(*x,*y,*width,*height);
-}; break;
-case 5253: { // glSelectBuffer
+case 5310: { // glSelectBuffer
  GLsizei *size = (GLsizei *) bp; bp += 4;
  GLuint *buffer = (GLuint *) bins[0];
  weglSelectBuffer(*size,buffer);
@@ -1845,365 +2191,19 @@ case 5253: { // glSelectBuffer
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5254: { // glShadeModel
- GLenum *mode = (GLenum *) bp; bp += 4;
- weglShadeModel(*mode);
+case 5311: { // glInitNames
+ weglInitNames();
 }; break;
-case 5255: { // glStencilFunc
- GLenum *func = (GLenum *) bp; bp += 4;
- GLint *ref = (GLint *) bp; bp += 4;
- GLuint *mask = (GLuint *) bp; bp += 4;
- weglStencilFunc(*func,*ref,*mask);
+case 5312: { // glLoadName
+ GLuint *name = (GLuint *) bp; bp += 4;
+ weglLoadName(*name);
 }; break;
-case 5256: { // glStencilMask
- GLuint *mask = (GLuint *) bp; bp += 4;
- weglStencilMask(*mask);
+case 5313: { // glPushName
+ GLuint *name = (GLuint *) bp; bp += 4;
+ weglPushName(*name);
 }; break;
-case 5257: { // glStencilOp
- GLenum *fail = (GLenum *) bp; bp += 4;
- GLenum *zfail = (GLenum *) bp; bp += 4;
- GLenum *zpass = (GLenum *) bp; bp += 4;
- weglStencilOp(*fail,*zfail,*zpass);
-}; break;
-case 5258: { // glTexCoord1dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglTexCoord1dv(v);
-}; break;
-case 5259: { // glTexCoord1fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglTexCoord1fv(v);
-}; break;
-case 5260: { // glTexCoord1iv
- GLint *v = (GLint *) bp; bp += 4;
- weglTexCoord1iv(v);
-}; break;
-case 5261: { // glTexCoord1sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglTexCoord1sv(v);
-}; break;
-case 5262: { // glTexCoord2dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglTexCoord2dv(v);
-}; break;
-case 5263: { // glTexCoord2fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglTexCoord2fv(v);
-}; break;
-case 5264: { // glTexCoord2iv
- GLint *v = (GLint *) bp; bp += 4;
- weglTexCoord2iv(v);
-}; break;
-case 5265: { // glTexCoord2sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglTexCoord2sv(v);
-}; break;
-case 5266: { // glTexCoord3dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglTexCoord3dv(v);
-}; break;
-case 5267: { // glTexCoord3fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglTexCoord3fv(v);
-}; break;
-case 5268: { // glTexCoord3iv
- GLint *v = (GLint *) bp; bp += 4;
- weglTexCoord3iv(v);
-}; break;
-case 5269: { // glTexCoord3sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglTexCoord3sv(v);
-}; break;
-case 5270: { // glTexCoord4dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglTexCoord4dv(v);
-}; break;
-case 5271: { // glTexCoord4fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglTexCoord4fv(v);
-}; break;
-case 5272: { // glTexCoord4iv
- GLint *v = (GLint *) bp; bp += 4;
- weglTexCoord4iv(v);
-}; break;
-case 5273: { // glTexCoord4sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglTexCoord4sv(v);
-}; break;
-case 5274: { // glTexCoordPointer
- GLint *size = (GLint *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglTexCoordPointer(*size,*type,*stride,pointer);
-}; break;
-case 5275: { // glTexCoordPointer
- GLint *size = (GLint *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0];
- weglTexCoordPointer(*size,*type,*stride,pointer);
-}; break;
-case 5276: { // glTexEnvf
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglTexEnvf(*target,*pname,*param);
-}; break;
-case 5277: { // glTexEnvfv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglTexEnvfv(*target,*pname,params);
-}; break;
-case 5278: { // glTexEnvi
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglTexEnvi(*target,*pname,*param);
-}; break;
-case 5279: { // glTexEnviv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglTexEnviv(*target,*pname,params);
-}; break;
-case 5280: { // glTexGend
- GLenum *coord = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLdouble *param = (GLdouble *) bp; bp += 8;
- weglTexGend(*coord,*pname,*param);
-}; break;
-case 5281: { // glTexGendv
- GLenum *coord = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 8;
- GLdouble *params = (GLdouble *) bp; bp += *paramsLen*8;
- weglTexGendv(*coord,*pname,params);
-}; break;
-case 5282: { // glTexGenf
- GLenum *coord = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglTexGenf(*coord,*pname,*param);
-}; break;
-case 5283: { // glTexGenfv
- GLenum *coord = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglTexGenfv(*coord,*pname,params);
-}; break;
-case 5284: { // glTexGeni
- GLenum *coord = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglTexGeni(*coord,*pname,*param);
-}; break;
-case 5285: { // glTexGeniv
- GLenum *coord = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglTexGeniv(*coord,*pname,params);
-}; break;
-case 5286: { // glTexImage1D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *internalformat = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLint *border = (GLint *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglTexImage1D(*target,*level,*internalformat,*width,*border,*format,*type,pixels);
-}; break;
-case 5287: { // glTexImage1D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *internalformat = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLint *border = (GLint *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0];
- weglTexImage1D(*target,*level,*internalformat,*width,*border,*format,*type,pixels);
-}; break;
-case 5288: { // glTexImage2D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *internalformat = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLint *border = (GLint *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglTexImage2D(*target,*level,*internalformat,*width,*height,*border,*format,*type,pixels);
-}; break;
-case 5289: { // glTexImage2D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *internalformat = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLint *border = (GLint *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0];
- weglTexImage2D(*target,*level,*internalformat,*width,*height,*border,*format,*type,pixels);
-}; break;
-case 5290: { // glTexParameterf
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLfloat *param = (GLfloat *) bp; bp += 4;
- weglTexParameterf(*target,*pname,*param);
-}; break;
-case 5291: { // glTexParameterfv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLfloat *params = (GLfloat *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglTexParameterfv(*target,*pname,params);
-}; break;
-case 5292: { // glTexParameteri
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- GLint *param = (GLint *) bp; bp += 4;
- weglTexParameteri(*target,*pname,*param);
-}; break;
-case 5293: { // glTexParameteriv
- GLenum *target = (GLenum *) bp; bp += 4;
- GLenum *pname = (GLenum *) bp; bp += 4;
- int *paramsLen = (int *) bp; bp += 4;
- GLint *params = (GLint *) bp; bp += *paramsLen*4+((*paramsLen)+1)%2*4;
- weglTexParameteriv(*target,*pname,params);
-}; break;
-case 5294: { // glTexSubImage1D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *xoffset = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglTexSubImage1D(*target,*level,*xoffset,*width,*format,*type,pixels);
-}; break;
-case 5295: { // glTexSubImage1D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *xoffset = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0];
- weglTexSubImage1D(*target,*level,*xoffset,*width,*format,*type,pixels);
-}; break;
-case 5296: { // glTexSubImage2D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *xoffset = (GLint *) bp; bp += 4;
- GLint *yoffset = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*type,pixels);
-}; break;
-case 5297: { // glTexSubImage2D
- GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
- GLint *xoffset = (GLint *) bp; bp += 4;
- GLint *yoffset = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLvoid *pixels = (GLvoid *) bins[0];
- weglTexSubImage2D(*target,*level,*xoffset,*yoffset,*width,*height,*format,*type,pixels);
-}; break;
-case 5298: { // glTranslated
- GLdouble *x = (GLdouble *) bp; bp += 8;
- GLdouble *y = (GLdouble *) bp; bp += 8;
- GLdouble *z = (GLdouble *) bp; bp += 8;
- weglTranslated(*x,*y,*z);
-}; break;
-case 5299: { // glTranslatef
- GLfloat *x = (GLfloat *) bp; bp += 4;
- GLfloat *y = (GLfloat *) bp; bp += 4;
- GLfloat *z = (GLfloat *) bp; bp += 4;
- weglTranslatef(*x,*y,*z);
-}; break;
-case 5300: { // glVertex2dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglVertex2dv(v);
-}; break;
-case 5301: { // glVertex2fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglVertex2fv(v);
-}; break;
-case 5302: { // glVertex2iv
- GLint *v = (GLint *) bp; bp += 4;
- weglVertex2iv(v);
-}; break;
-case 5303: { // glVertex2sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglVertex2sv(v);
-}; break;
-case 5304: { // glVertex3dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglVertex3dv(v);
-}; break;
-case 5305: { // glVertex3fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglVertex3fv(v);
-}; break;
-case 5306: { // glVertex3iv
- GLint *v = (GLint *) bp; bp += 4;
- weglVertex3iv(v);
-}; break;
-case 5307: { // glVertex3sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglVertex3sv(v);
-}; break;
-case 5308: { // glVertex4dv
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglVertex4dv(v);
-}; break;
-case 5309: { // glVertex4fv
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglVertex4fv(v);
-}; break;
-case 5310: { // glVertex4iv
- GLint *v = (GLint *) bp; bp += 4;
- weglVertex4iv(v);
-}; break;
-case 5311: { // glVertex4sv
- GLshort *v = (GLshort *) bp; bp += 2;
- weglVertex4sv(v);
-}; break;
-case 5312: { // glVertexPointer
- GLint *size = (GLint *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglVertexPointer(*size,*type,*stride,pointer);
-}; break;
-case 5313: { // glVertexPointer
- GLint *size = (GLint *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
- GLsizei *stride = (GLsizei *) bp; bp += 4;
- GLvoid *pointer = (GLvoid *) bins[0];
- weglVertexPointer(*size,*type,*stride,pointer);
-}; break;
-case 5314: { // glViewport
- GLint *x = (GLint *) bp; bp += 4;
- GLint *y = (GLint *) bp; bp += 4;
- GLsizei *width = (GLsizei *) bp; bp += 4;
- GLsizei *height = (GLsizei *) bp; bp += 4;
- weglViewport(*x,*y,*width,*height);
+case 5314: { // glPopName
+ weglPopName();
 }; break;
 case 5315: { // glBlendColor
  GLclampf *red = (GLclampf *) bp; bp += 4;
@@ -2237,7 +2237,7 @@ case 5318: { // glDrawRangeElements
 case 5319: { // glTexImage3D
  GLenum *target = (GLenum *) bp; bp += 4;
  GLint *level = (GLint *) bp; bp += 4;
- GLint *internalformat = (GLint *) bp; bp += 4;
+ GLint *internalFormat = (GLint *) bp; bp += 4;
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLsizei *depth = (GLsizei *) bp; bp += 4;
@@ -2245,12 +2245,12 @@ case 5319: { // glTexImage3D
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLvoid *pixels = (GLvoid *) (ErlDrvSInt) * (int *) bp; bp += 4;
- weglTexImage3D(*target,*level,*internalformat,*width,*height,*depth,*border,*format,*type,pixels);
+ weglTexImage3D(*target,*level,*internalFormat,*width,*height,*depth,*border,*format,*type,pixels);
 }; break;
 case 5320: { // glTexImage3D
  GLenum *target = (GLenum *) bp; bp += 4;
  GLint *level = (GLint *) bp; bp += 4;
- GLint *internalformat = (GLint *) bp; bp += 4;
+ GLint *internalFormat = (GLint *) bp; bp += 4;
  GLsizei *width = (GLsizei *) bp; bp += 4;
  GLsizei *height = (GLsizei *) bp; bp += 4;
  GLsizei *depth = (GLsizei *) bp; bp += 4;
@@ -2258,7 +2258,7 @@ case 5320: { // glTexImage3D
  GLenum *format = (GLenum *) bp; bp += 4;
  GLenum *type = (GLenum *) bp; bp += 4;
  GLvoid *pixels = (GLvoid *) bins[0];
- weglTexImage3D(*target,*level,*internalformat,*width,*height,*depth,*border,*format,*type,pixels);
+ weglTexImage3D(*target,*level,*internalFormat,*width,*height,*depth,*border,*format,*type,pixels);
 }; break;
 case 5321: { // glTexSubImage3D
  GLenum *target = (GLenum *) bp; bp += 4;
@@ -2591,9 +2591,9 @@ case 5351: { // glGetMinmax
  GLboolean *reset = (GLboolean *) bp; bp += 1;
  bp += 3;
  GLenum *format = (GLenum *) bp; bp += 4;
- GLenum *type = (GLenum *) bp; bp += 4;
+ GLenum *types = (GLenum *) bp; bp += 4;
  GLvoid *values = (GLvoid *) bins[0];
- weglGetMinmax(*target,*reset,*format,*type,values);
+ weglGetMinmax(*target,*reset,*format,*types,values);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
@@ -2797,9 +2797,9 @@ case 5371: { // glCompressedTexSubImage1D
 }; break;
 case 5372: { // glGetCompressedTexImage
  GLenum *target = (GLenum *) bp; bp += 4;
- GLint *level = (GLint *) bp; bp += 4;
+ GLint *lod = (GLint *) bp; bp += 4;
  GLvoid *img = (GLvoid *) bins[0];
- weglGetCompressedTexImage(*target,*level,img);
+ weglGetCompressedTexImage(*target,*lod,img);
  int AP = 0; ErlDrvTermData rt[6];
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
  rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "ok");
@@ -6927,31 +6927,129 @@ case 5856: { // glGetGraphicsResetStatusARB
  rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
  driver_send_term(port,caller,rt,AP);
 }; break;
-case 5857: { // glResizeBuffersMESA
- weglResizeBuffersMESA();
+case 5857: { // glDrawArraysInstancedBaseInstance
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLint *first = (GLint *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ GLuint *baseinstance = (GLuint *) bp; bp += 4;
+ weglDrawArraysInstancedBaseInstance(*mode,*first,*count,*primcount,*baseinstance);
 }; break;
-case 5858: { // glWindowPos4dvMESA
- GLdouble *v = (GLdouble *) bp; bp += 8;
- weglWindowPos4dvMESA(v);
+case 5858: { // glDrawElementsInstancedBaseInstance
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ void *indices = (void *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ GLuint *baseinstance = (GLuint *) bp; bp += 4;
+ weglDrawElementsInstancedBaseInstance(*mode,*count,*type,indices,*primcount,*baseinstance);
 }; break;
-case 5859: { // glWindowPos4fvMESA
- GLfloat *v = (GLfloat *) bp; bp += 4;
- weglWindowPos4fvMESA(v);
+case 5859: { // glDrawElementsInstancedBaseInstance
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ void *indices = (void *) bins[0];
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ GLuint *baseinstance = (GLuint *) bp; bp += 4;
+ weglDrawElementsInstancedBaseInstance(*mode,*count,*type,indices,*primcount,*baseinstance);
 }; break;
-case 5860: { // glWindowPos4ivMESA
- GLint *v = (GLint *) bp; bp += 4;
- weglWindowPos4ivMESA(v);
+case 5860: { // glDrawElementsInstancedBaseVertexBaseInstance
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ void *indices = (void *) (ErlDrvSInt) * (int *) bp; bp += 4;
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ GLuint *baseinstance = (GLuint *) bp; bp += 4;
+ weglDrawElementsInstancedBaseVertexBaseInstance(*mode,*count,*type,indices,*primcount,*basevertex,*baseinstance);
 }; break;
-case 5861: { // glWindowPos4svMESA
- GLshort *v = (GLshort *) bp; bp += 2;
- weglWindowPos4svMESA(v);
+case 5861: { // glDrawElementsInstancedBaseVertexBaseInstance
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLsizei *count = (GLsizei *) bp; bp += 4;
+ GLenum *type = (GLenum *) bp; bp += 4;
+ void *indices = (void *) bins[0];
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ GLint *basevertex = (GLint *) bp; bp += 4;
+ GLuint *baseinstance = (GLuint *) bp; bp += 4;
+ weglDrawElementsInstancedBaseVertexBaseInstance(*mode,*count,*type,indices,*primcount,*basevertex,*baseinstance);
 }; break;
-case 5862: { // glDepthBoundsEXT
+case 5862: { // glDrawTransformFeedbackInstanced
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ weglDrawTransformFeedbackInstanced(*mode,*id,*primcount);
+}; break;
+case 5863: { // glDrawTransformFeedbackStreamInstanced
+ GLenum *mode = (GLenum *) bp; bp += 4;
+ GLuint *id = (GLuint *) bp; bp += 4;
+ GLuint *stream = (GLuint *) bp; bp += 4;
+ GLsizei *primcount = (GLsizei *) bp; bp += 4;
+ weglDrawTransformFeedbackStreamInstanced(*mode,*id,*stream,*primcount);
+}; break;
+case 5864: { // glGetInternalformativ
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLenum *internalformat = (GLenum *) bp; bp += 4;
+ GLenum *pname = (GLenum *) bp; bp += 4;
+ GLsizei *bufSize = (GLsizei *) bp; bp += 4;
+ GLint *params;
+ params = (GLint *) driver_alloc(sizeof(GLint) * *bufSize);
+ weglGetInternalformativ(*target,*internalformat,*pname,*bufSize,params);
+ int AP = 0; ErlDrvTermData *rt;
+ rt = (ErlDrvTermData *) driver_alloc(sizeof(ErlDrvTermData)*(7 + (*bufSize)*2));
+ rt[AP++]=ERL_DRV_ATOM; rt[AP++]=driver_mk_atom((char *) "_egl_result_");
+ for(int i=0; i < *bufSize; i++) {
+    rt[AP++] = ERL_DRV_INT; rt[AP++] = (ErlDrvSInt) params[i];}
+ rt[AP++] = ERL_DRV_NIL; rt[AP++] = ERL_DRV_LIST; rt[AP++] = (*bufSize)+1;
+ rt[AP++] = ERL_DRV_TUPLE; rt[AP++] = 2;
+ driver_send_term(port,caller,rt,AP);
+ driver_free(rt);
+ driver_free(params);
+}; break;
+case 5865: { // glBindImageTexture
+ GLuint *unit = (GLuint *) bp; bp += 4;
+ GLuint *texture = (GLuint *) bp; bp += 4;
+ GLint *level = (GLint *) bp; bp += 4;
+ GLboolean *layered = (GLboolean *) bp; bp += 1;
+ bp += 3;
+ GLint *layer = (GLint *) bp; bp += 4;
+ GLenum *access = (GLenum *) bp; bp += 4;
+ GLenum *format = (GLenum *) bp; bp += 4;
+ weglBindImageTexture(*unit,*texture,*level,*layered,*layer,*access,*format);
+}; break;
+case 5866: { // glMemoryBarrier
+ GLbitfield *barriers = (GLbitfield *) bp; bp += 4;
+ weglMemoryBarrier(*barriers);
+}; break;
+case 5867: { // glTexStorage1D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLsizei *levels = (GLsizei *) bp; bp += 4;
+ GLenum *internalformat = (GLenum *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ weglTexStorage1D(*target,*levels,*internalformat,*width);
+}; break;
+case 5868: { // glTexStorage2D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLsizei *levels = (GLsizei *) bp; bp += 4;
+ GLenum *internalformat = (GLenum *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ weglTexStorage2D(*target,*levels,*internalformat,*width,*height);
+}; break;
+case 5869: { // glTexStorage3D
+ GLenum *target = (GLenum *) bp; bp += 4;
+ GLsizei *levels = (GLsizei *) bp; bp += 4;
+ GLenum *internalformat = (GLenum *) bp; bp += 4;
+ GLsizei *width = (GLsizei *) bp; bp += 4;
+ GLsizei *height = (GLsizei *) bp; bp += 4;
+ GLsizei *depth = (GLsizei *) bp; bp += 4;
+ weglTexStorage3D(*target,*levels,*internalformat,*width,*height,*depth);
+}; break;
+case 5870: { // glDepthBoundsEXT
  GLclampd *zmin = (GLclampd *) bp; bp += 8;
  GLclampd *zmax = (GLclampd *) bp; bp += 8;
  weglDepthBoundsEXT(*zmin,*zmax);
 }; break;
-case 5863: { // glStencilClearTagEXT
+case 5871: { // glStencilClearTagEXT
  GLsizei *stencilTagBits = (GLsizei *) bp; bp += 4;
  GLuint *stencilClearTag = (GLuint *) bp; bp += 4;
  weglStencilClearTagEXT(*stencilTagBits,*stencilClearTag);
