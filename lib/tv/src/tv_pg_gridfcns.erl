@@ -16,6 +16,10 @@
 %%
 %% %CopyrightEnd%
 -module(tv_pg_gridfcns).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,frame,2}},
+          {nowarn_deprecated_function,{gs,label,2}},
+          {nowarn_deprecated_function,{gs,read,2}}]).
 
 
 

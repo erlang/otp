@@ -16,6 +16,9 @@
 %%
 %% %CopyrightEnd%
 -module(tv_pb).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,frame,2}}]).
 
 
 

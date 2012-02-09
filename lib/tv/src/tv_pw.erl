@@ -23,6 +23,7 @@
 
 
 -module(tv_pw).
+-compile([{nowarn_deprecated_function,{gs,config,2}}]).
 
 
 

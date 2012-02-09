@@ -19,6 +19,8 @@
 
 %%
 -module(gstk_gridline).
+-compile([{nowarn_deprecated_function,{gs,val,2}},
+          {nowarn_deprecated_function,{gs,val,3}}]).
 
 -export([event/5,create/3,config/3,option/5,read/3,delete/2,destroy/3,
 	read_option/5]).

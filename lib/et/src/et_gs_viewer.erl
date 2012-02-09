@@ -21,6 +21,23 @@
 %%----------------------------------------------------------------------
 
 -module(et_gs_viewer).
+-compile([{nowarn_deprecated_function,{gs,canvas,2}},
+          {nowarn_deprecated_function,{gs,checkbutton,3}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,frame,2}},
+          {nowarn_deprecated_function,{gs,line,2}},
+          {nowarn_deprecated_function,{gs,menu,2}},
+          {nowarn_deprecated_function,{gs,menu,3}},
+          {nowarn_deprecated_function,{gs,menubar,2}},
+          {nowarn_deprecated_function,{gs,menubutton,2}},
+          {nowarn_deprecated_function,{gs,menubutton,3}},
+          {nowarn_deprecated_function,{gs,menuitem,2}},
+          {nowarn_deprecated_function,{gs,menuitem,3}},
+          {nowarn_deprecated_function,{gs,scale,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,text,2}},
+          {nowarn_deprecated_function,{gs,window,2}}]).
 
 -behaviour(gen_server).
 

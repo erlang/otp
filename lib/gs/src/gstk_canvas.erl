@@ -23,6 +23,8 @@
 %% ------------------------------------------------------------
 
 -module(gstk_canvas).
+-compile([{nowarn_deprecated_function,{gs,pair,2}},
+          {nowarn_deprecated_function,{gs,val,2}}]).
 
 %%-----------------------------------------------------------------------------
 %% 			    CANVAS OPTIONS

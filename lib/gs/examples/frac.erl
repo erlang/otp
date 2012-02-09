@@ -21,6 +21,9 @@
 %% Purpose : Fractal trees
 
 -module(frac).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,start,0}}]).
 
 -export([start/0, go/0, test/0, grow/2, expand/3, subst/2]).
 

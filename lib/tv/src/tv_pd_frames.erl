@@ -16,6 +16,8 @@
 %% 
 %% %CopyrightEnd%
 -module(tv_pd_frames).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,frame,2}}]).
 
 
 

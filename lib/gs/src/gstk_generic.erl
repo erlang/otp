@@ -20,6 +20,7 @@
 %%
 
 -module(gstk_generic).
+-compile([{nowarn_deprecated_function,{gs,assq,2}}]).
 
 -export([out_opts/8,
 	 read_option/5,

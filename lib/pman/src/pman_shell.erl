@@ -25,6 +25,10 @@
 %% ---------------------------------------------------------------
 
 -module(pman_shell).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,start,1}}]).
 
 %% ---------------------------------------------------------------
 %% The user interface exports 

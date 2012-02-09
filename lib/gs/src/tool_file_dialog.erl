@@ -19,6 +19,16 @@
 
 %%
 -module(tool_file_dialog).
+-compile([{nowarn_deprecated_function,{gs,button,3}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,entry,3}},
+          {nowarn_deprecated_function,{gs,frame,3}},
+          {nowarn_deprecated_function,{gs,label,3}},
+          {nowarn_deprecated_function,{gs,listbox,3}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,3}}]).
+
 -export([start/1]).
 
 -record(opts, {type,          % open | save | multiselect

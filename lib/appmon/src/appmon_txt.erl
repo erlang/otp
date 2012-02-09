@@ -22,6 +22,11 @@
 %%------------------------------------------------------------
 
 -module(appmon_txt).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,1}}]).
 -export([start/0, start/1, print/1, fprint/1]).
 
 %% gen_server stuff

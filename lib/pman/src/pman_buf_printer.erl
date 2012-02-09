@@ -18,6 +18,8 @@
 %%
 
 -module(pman_buf_printer).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,start,0}}]).
 
 %%-compile(export_all).
 -export([init/2]).

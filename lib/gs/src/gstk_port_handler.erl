@@ -34,6 +34,7 @@
 %% ------------------------------------------------------------
 
 -module(gstk_port_handler).
+-compile([{nowarn_deprecated_function,{gs,error,2}}]).
 
 -include("gstk.hrl").
 

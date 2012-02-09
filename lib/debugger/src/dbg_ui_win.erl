@@ -17,6 +17,15 @@
 %% %CopyrightEnd%
 %%
 -module(dbg_ui_win).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,menu,2}},
+          {nowarn_deprecated_function,{gs,menu,3}},
+          {nowarn_deprecated_function,{gs,menubutton,2}},
+          {nowarn_deprecated_function,{gs,menuitem,2}},
+          {nowarn_deprecated_function,{gs,menuitem,3}},
+          {nowarn_deprecated_function,{gs,read,2}},
+          {nowarn_deprecated_function,{gs,start,1}}]).
 
 %% External exports
 -export([init/0,

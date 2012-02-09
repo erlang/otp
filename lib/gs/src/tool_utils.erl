@@ -19,6 +19,11 @@
 
 %%
 -module(tool_utils).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,read,2}}]).
+
 -include_lib("kernel/include/file.hrl").
 
 %%%---------------------------------------------------------------------
