@@ -16,6 +16,7 @@
 %% 
 %% %CopyrightEnd%
 -module(tv_pg).
+-compile([{nowarn_deprecated_function,{gs,config,2}}]).
 
 
 

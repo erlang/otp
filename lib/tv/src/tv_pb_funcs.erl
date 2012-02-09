@@ -16,6 +16,12 @@
 %% 
 %% %CopyrightEnd%
 -module(tv_pb_funcs).
+-compile([{nowarn_deprecated_function,{gs,button,2}},
+          {nowarn_deprecated_function,{gs,canvas,2}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,read,2}}]).
 
 
 

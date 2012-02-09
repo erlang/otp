@@ -337,11 +337,11 @@ obsolete_1(public_key, decode_private_key, A) when A =:= 1; A =:= 2 ->
 
 %% Added in R14B03.
 obsolete_1(docb_gen, _, _) ->
-    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+    {removed,"the DocBuilder application was removed in R15B"};
 obsolete_1(docb_transform, _, _) ->
-    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+    {removed,"the DocBuilder application was removed in R15B"};
 obsolete_1(docb_xml_check, _, _) ->
-    {deprecated,"the DocBuilder application is deprecated (will be removed in R15B)"};
+    {removed,"the DocBuilder application was removed in R15B"};
 
 %% Added in R15B
 obsolete_1(asn1rt, F, _) when F == load_driver; F == unload_driver ->
@@ -350,6 +350,11 @@ obsolete_1(ssl, pid, 1) ->
     {deprecated,"deprecated (will be removed in R17); is no longer needed"};
 obsolete_1(inviso, _, _) ->
     {deprecated,"the inviso application has been deprecated and will be removed in R16"};
+
+%% Added in R15B01.
+obsolete_1(gs, _, _) ->
+    {deprecated,"the gs application has been deprecated and will be removed in R16; use the wx application instead"};
+
 obsolete_1(_, _, _) ->
     no.
 

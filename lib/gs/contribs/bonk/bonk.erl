@@ -19,6 +19,12 @@
 
 %%
 -module(bonk).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,create,3}},
+          {nowarn_deprecated_function,{gs,create,4}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,start,0}}]).
+
 -export([run/0, run/1,bonk_dir/0,start/0]).
 
 -record(colors, {miss, x, bomb, face}).

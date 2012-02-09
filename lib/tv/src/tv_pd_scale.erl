@@ -24,6 +24,8 @@
 
 
 -module(tv_pd_scale).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,scale,2}}]).
 
 
 

@@ -21,6 +21,9 @@
 %% Demo for testing some events
 
 -module(event_test).
+-compile([{nowarn_deprecated_function,{gs,button,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,2}}]).
 
 -export([start/0,init/0]).
 

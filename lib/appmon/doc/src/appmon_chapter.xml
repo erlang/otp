@@ -31,6 +31,12 @@
 
   <section>
     <title>Introduction</title>
+    <warning>
+      <p>
+	The Appmon application has been superseded by the Observer application.
+	Appmon will be removed in R16.
+      </p>
+    </warning>
     <p>The application monitor Appmon is a graphical node and application viewer. The tool shows an overview of all applications on all known nodes, and it is possible to view the process tree for an application running on any of the nodes.</p>
     <note>
       <p>If the Appmon code is not available at a node, for example an

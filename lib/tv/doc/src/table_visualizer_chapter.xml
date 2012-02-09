@@ -31,6 +31,12 @@
     <rev>C</rev>
     <file>table_visualizer.xml</file>
   </header>
+    <warning>
+      <p>
+	The TV application has been superseded by the Observer application.
+	TV will be removed in R16.
+      </p>
+    </warning>
   <p>The TV, TV, is a tool that enables the user to examine 
     ETS and Mnesia tables on any (connected) node in the currently running Erlang
     system. Once a certain table has been opened in the tool, the content may be

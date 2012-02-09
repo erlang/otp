@@ -29,6 +29,7 @@
 %%----------------------------------------------------------------------
 
 -module(pman_buf_converter).
+-compile([{nowarn_deprecated_function,{gs,start,0}}]).
 
 %%-compile(export_all).
 -export([init/2]).

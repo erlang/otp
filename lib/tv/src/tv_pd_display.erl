@@ -22,6 +22,13 @@
 %%%*********************************************************************
 
 -module(tv_pd_display).
+-compile([{nowarn_deprecated_function,{gs,button,2}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,editor,2}},
+          {nowarn_deprecated_function,{gs,entry,3}},
+          {nowarn_deprecated_function,{gs,frame,2}},
+          {nowarn_deprecated_function,{gs,label,2}},
+          {nowarn_deprecated_function,{gs,read,2}}]).
 
 
 

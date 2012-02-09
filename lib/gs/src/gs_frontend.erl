@@ -24,6 +24,8 @@
 %%
 
 -module(gs_frontend).
+-compile([{nowarn_deprecated_function,{gs,assq,2}},
+          {nowarn_deprecated_function,{gs,error,2}}]).
 
 -export([create/2,
 	 config/2,

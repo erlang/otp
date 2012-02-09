@@ -19,6 +19,7 @@
 
 %%
 -module(gs_make).
+-compile([{nowarn_deprecated_function,{gs,assq,2}}]).
 
 -export([start/0]).
 

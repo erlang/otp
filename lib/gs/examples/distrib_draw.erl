@@ -43,6 +43,11 @@
 %%  
 
 -module(distrib_draw).
+-compile([{nowarn_deprecated_function,{gs,canvas,3}},
+          {nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,line,2}},
+          {nowarn_deprecated_function,{gs,start,0}},
+          {nowarn_deprecated_function,{gs,window,3}}]).
 
 -export([start/2,init/0]).
 

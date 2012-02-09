@@ -25,6 +25,7 @@
 
 
 -module(tv_pc).
+-compile([{nowarn_deprecated_function,{gs,config,2}}]).
 
 
 

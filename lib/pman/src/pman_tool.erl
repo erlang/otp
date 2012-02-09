@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(pman_tool).
+-compile([{nowarn_deprecated_function,{gs,read,2}}]).
 
 %% Listbox selection window
 

@@ -32,6 +32,12 @@
 
   <section>
     <title>Introduction</title>
+    <warning>
+      <p>
+	The Pman application has been superseded by the Observer application.
+	Pman will be removed in R16.
+      </p>
+    </warning>
     <p>The process manager Pman is a tool for viewing processes executing
       locally or on remote nodes. Its main purpose is to locate
       erroneous code by inspecting the state of the processes and by tracing

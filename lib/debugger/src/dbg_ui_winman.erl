@@ -18,6 +18,11 @@
 %%
 -module(dbg_ui_winman).
 -behaviour(gen_server).
+-compile([{nowarn_deprecated_function,{gs,config,2}},
+          {nowarn_deprecated_function,{gs,destroy,1}},
+          {nowarn_deprecated_function,{gs,menu,3}},
+          {nowarn_deprecated_function,{gs,menubutton,3}},
+          {nowarn_deprecated_function,{gs,menuitem,3}}]).
 
 %% External exports
 -export([start/0]).
