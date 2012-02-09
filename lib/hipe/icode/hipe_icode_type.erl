@@ -899,9 +899,7 @@ test_type0(list, T) ->
 test_type0(cons, T) ->
   t_is_cons(T);
 test_type0(nil, T) ->
-  t_is_nil(T);
-test_type0(constant, T) ->
-  t_is_constant(T).
+  t_is_nil(T).
 
 
 true_branch_info(integer) ->
@@ -940,8 +938,6 @@ true_branch_info(nil) ->
   t_nil();
 true_branch_info(boolean) ->
   t_boolean();
-true_branch_info(constant) ->
-  t_constant();
 true_branch_info(T) ->
   exit({?MODULE,unknown_typetest,T}).
 

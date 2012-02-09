@@ -455,7 +455,6 @@ old_guards(Config) when is_list(Config) ->
     ?line setup(Config),
     Tests = [
 	     {atom,is_atom},
-	     {constant,is_constant},
 	     {float,is_float},
 	     {integer,is_integer},
 	     {list,is_list},
@@ -490,7 +489,6 @@ old_guards(Config) when is_list(Config) ->
     ?line [{'$1',[{is_integer,'$1'},
 		  {is_float,'$1'},
 		  {is_atom,'$1'},
-		  {is_constant,'$1'},
 		  {is_list,'$1'},
 		  {is_number,'$1'},
 		  {is_pid,'$1'},
@@ -502,7 +500,7 @@ old_guards(Config) when is_list(Config) ->
 	    [true]}] =
 	compile_and_run(RD, <<
 			     "ets:fun2ms(fun(X) when integer(X),"
-			     "float(X), atom(X), constant(X),"
+			     "float(X), atom(X),"
 			     "list(X), number(X), pid(X),"
 			     "port(X), reference(X), tuple(X),"
 			     "binary(X), record(X,a) -> true end)"
@@ -530,7 +528,6 @@ autoimported(Config) when is_list(Config) ->
 	       {self,0},
                %{float,1}, see float_1_function/1
 	       {is_atom,1},
-	       {is_constant,1},
 	       {is_float,1},
 	       {is_integer,1},
 	       {is_list,1},

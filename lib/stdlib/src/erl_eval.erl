@@ -947,7 +947,6 @@ type_test(integer) -> is_integer;
 type_test(float) -> is_float;
 type_test(number) -> is_number;
 type_test(atom) -> is_atom;
-type_test(constant) -> is_constant;
 type_test(list) -> is_list;
 type_test(tuple) -> is_tuple;
 type_test(pid) -> is_pid;

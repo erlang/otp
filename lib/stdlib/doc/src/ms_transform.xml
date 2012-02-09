@@ -308,7 +308,7 @@ ets:select(emp_tab, ets:fun2ms(
       Erlang code. Also arithmetics is allowed, as well as ordinary guard
       bif's. Here's a list of bif's and expressions:</p>
     <list type="bulleted">
-      <item>The type tests: is_atom, is_constant, is_float, is_integer,
+      <item>The type tests: is_atom, is_float, is_integer,
        is_list, is_number, is_pid, is_port, is_reference, is_tuple,
        is_binary, is_function, is_record</item>
       <item>The boolean operators: not, and, or, andalso, orelse </item>
@@ -318,7 +318,7 @@ ets:select(emp_tab, ets:fun2ms(
       <item>The guard bif's: abs, element, hd, length, node, round, size, tl, 
        trunc, self</item>
       <item>The obsolete type test (only in guards):
-       atom, constant, float, integer,
+       atom, float, integer,
        list, number, pid, port, reference, tuple,
        binary, function, record</item>
     </list>

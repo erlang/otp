@@ -29,7 +29,7 @@
 
 %% Currently inlined BIFs:
 %% and, or, xor, not, <, >, >=, =<, ==, /=, =/=, =:=
-%% is_atom, is_boolean, is_binary, is_constant, is_float, is_function,
+%% is_atom, is_boolean, is_binary, is_float, is_function,
 %% is_integer, is_list, is_pid, is_port, is_reference, is_tuple
 
 -module(hipe_icode_inline_bifs).
@@ -131,7 +131,6 @@ is_type_test(Name) ->
     is_boolean -> {true, boolean};
     is_function -> {true, function};	       
     is_reference -> {true, reference};
-    is_constant -> {true, constant};
     is_port -> {true, port};
     _ -> false
   end.

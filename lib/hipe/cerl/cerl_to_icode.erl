@@ -88,7 +88,6 @@
 -define(TYPE_IS_ATOM, atom).
 -define(TYPE_IS_BIGNUM, bignum).
 -define(TYPE_IS_BINARY, binary).
--define(TYPE_IS_CONSTANT, constant).
 -define(TYPE_IS_FIXNUM, fixnum).
 -define(TYPE_IS_FLOAT, float).
 -define(TYPE_IS_FUNCTION, function).
@@ -2051,7 +2050,6 @@ is_record_test(T, A, N, True, False, Ctxt, Env, S) ->
 type_test(?PRIMOP_IS_ATOM) -> ?TYPE_IS_ATOM;
 type_test(?PRIMOP_IS_BIGNUM) -> ?TYPE_IS_BIGNUM;
 type_test(?PRIMOP_IS_BINARY) -> ?TYPE_IS_BINARY;
-type_test(?PRIMOP_IS_CONSTANT) -> ?TYPE_IS_CONSTANT;
 type_test(?PRIMOP_IS_FIXNUM) -> ?TYPE_IS_FIXNUM;
 type_test(?PRIMOP_IS_FLOAT) -> ?TYPE_IS_FLOAT;
 type_test(?PRIMOP_IS_FUNCTION) -> ?TYPE_IS_FUNCTION;
@@ -2082,7 +2080,6 @@ is_bool_op(Op, A) when is_atom(Op), is_integer(A) -> false.
 is_type_test(?PRIMOP_IS_ATOM, 1) -> true;
 is_type_test(?PRIMOP_IS_BIGNUM, 1) -> true;
 is_type_test(?PRIMOP_IS_BINARY, 1) -> true;
-is_type_test(?PRIMOP_IS_CONSTANT, 1) -> true;
 is_type_test(?PRIMOP_IS_FIXNUM, 1) -> true;
 is_type_test(?PRIMOP_IS_FLOAT, 1) -> true;
 is_type_test(?PRIMOP_IS_FUNCTION, 1) -> true;
