@@ -852,7 +852,7 @@ erts_alloc_loader_state(void)
  * in the magic binary, or NIL if the binary does not contain
  * prepared code.
  */
-int
+Eterm
 erts_module_for_prepared_code(Binary* magic)
 {
     LoaderState* stp;

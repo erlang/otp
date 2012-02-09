@@ -873,7 +873,7 @@ typedef struct {
 } FunctionInfo;
 
 Binary* erts_alloc_loader_state(void);
-int erts_module_for_prepared_code(Binary* magic);
+Eterm erts_module_for_prepared_code(Binary* magic);
 Eterm erts_prepare_loading(Binary* loader_state,  Process *c_p,
 			   Eterm group_leader, Eterm* modp,
 			   byte* code, Uint size);
