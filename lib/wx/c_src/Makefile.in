@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2011. All Rights Reserved.
+# Copyright Ericsson AB 2008-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -45,19 +45,10 @@ GL_H = egl_impl.h gen/glu_finit.h gen/gl_finit.h gen/gl_fdefs.h
 HAVE_OPENGL = true
 OPENGL_F = gl_funcs egl_impl
 
-ifneq ($(INSIDE_ERLSRC),true)
-
-ERL_DIR = @ERLANG_ROOT_DIR@
-ERL_INCS = -I$(ERL_DIR)/usr/include
-
-else
-
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 
 ERL_INCS= $(DED_INCLUDES)
-
-endif
 
 SYS_TYPE    = @WXERL_SYS_TYPE@
 
@@ -183,7 +174,6 @@ $(TARGET_DIR)/erl_gl$(SO_EXT): $(GL_OBJECTS)
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
-ifeq ($(INSIDE_ERLSRC),true)
 include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/priv
@@ -193,5 +183,3 @@ release_spec: opt
 	$(INSTALL_PROGRAM) $(TARGET_DIR)/erl_gl$(SO_EXT) $(RELSYSDIR)/priv/
 
 release_docs_spec:
-
-endif
