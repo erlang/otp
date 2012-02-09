@@ -55,7 +55,10 @@
 	 plt_and_info_from_file/1,
 	 get_specs/1,
 	 get_specs/4,
-	 to_file/4]).
+	 to_file/4,
+	 get_mini_plt/1,
+	 restore_full_plt/2
+	]).
 
 %% Debug utilities
 -export([pp_non_returning/0, pp_mod/1]).
@@ -82,7 +85,12 @@
 	      contracts      = table_new() :: dict(),
 	      callbacks      = table_new() :: dict(),
               exported_types = sets:new()  :: set()}).
--opaque plt() :: #plt{}.
+
+-record(mini_plt, {info      :: ets:tid(),
+		   contracts :: ets:tid()
+		  }).
+
+-opaque plt() :: #plt{} | #mini_plt{}.
 
 -include("dialyzer.hrl").
 
@@ -133,7 +141,10 @@ delete_list(#plt{info = Info, types = Types,
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
 
 insert_contract_list(#plt{contracts = Contracts} = PLT, List) ->
-  PLT#plt{contracts = table_insert_list(Contracts, List)}.
+  PLT#plt{contracts = table_insert_list(Contracts, List)};
+insert_contract_list(#mini_plt{contracts = Contracts} = PLT, List) ->
+  true = ets:insert(Contracts, List),
+  PLT.
 
 -spec insert_callbacks(plt(), dialyzer_codeserver:codeserver()) -> plt().
 
@@ -145,7 +156,10 @@ insert_callbacks(#plt{callbacks = Callbacks} = Plt, Codeserver) ->
 
 lookup_contract(#plt{contracts = Contracts},
 		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
-  table_lookup(Contracts, MFA).
+  table_lookup(Contracts, MFA);
+lookup_contract(#mini_plt{contracts = ETSContracts},
+		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
+  ets_table_lookup(ETSContracts, MFA).
 
 -spec lookup_callbacks(plt(), module()) ->
 	 [{mfa(), {{Filename::string(), Line::pos_integer()}, #contract{}}}].
@@ -158,15 +172,23 @@ lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
 -spec insert_list(plt(), [{mfa() | integer(), ret_args_types()}]) -> plt().
 
 insert_list(#plt{info = Info} = PLT, List) ->
-  PLT#plt{info = table_insert_list(Info, List)}.
+  PLT#plt{info = table_insert_list(Info, List)};
+insert_list(#mini_plt{info = Info} = PLT, List) ->
+  true = ets:insert(Info, List),
+  PLT.
 
 -spec lookup(plt(), integer() | mfa_patt()) ->
         'none' | {'value', ret_args_types()}.
 
-lookup(#plt{info = Info}, {M, F, _} = MFA) when is_atom(M), is_atom(F) ->
-  table_lookup(Info, MFA);
-lookup(#plt{info = Info}, Label) when is_integer(Label) ->
-  table_lookup(Info, Label).
+lookup(Plt, {M, F, _} = MFA) when is_atom(M), is_atom(F) ->
+  lookup_1(Plt, MFA);
+lookup(Plt, Label) when is_integer(Label) ->
+  lookup_1(Plt, Label).
+
+lookup_1(#plt{info = Info}, MFAorLabel) ->
+  table_lookup(Info, MFAorLabel);
+lookup_1(#mini_plt{info = Info}, MFAorLabel) ->
+  ets_table_lookup(Info, MFAorLabel).
 
 -spec insert_types(plt(), dict()) -> plt().
 
@@ -493,6 +515,24 @@ init_md5_list_1([], DiffList, Acc) ->
 init_md5_list_1(Md5List, [], Acc) ->
   {ok, lists:reverse(Acc, Md5List)}.
 
+-spec get_mini_plt(plt()) -> plt().
+
+get_mini_plt(#plt{info = Info, contracts = Contracts}) ->
+  ETSInfo = ets:new(plt_info, [public]),
+  ETSContracts = ets:new(plt_contracts, [public]),
+  true = ets:insert(ETSInfo, dict:to_list(Info)),
+  true = ets:insert(ETSContracts, dict:to_list(Contracts)),
+  #mini_plt{info = ETSInfo, contracts = ETSContracts}.
+
+-spec restore_full_plt(plt(), plt()) -> plt().
+
+restore_full_plt(#mini_plt{info = ETSInfo, contracts = ETSContracts}, Plt) ->
+  Info = dict:from_list(ets:tab2list(ETSInfo)),
+  Contracts = dict:from_list(ets:tab2list(ETSContracts)),
+  ets:delete(ETSContracts),
+  ets:delete(ETSInfo),
+  Plt#plt{info = Info, contracts = Contracts}.
+
 %%---------------------------------------------------------------------------
 %% Edoc
 
@@ -583,6 +623,13 @@ table_lookup(Plt, Obj) ->
   case dict:find(Obj, Plt) of
     error -> none;
     {ok, Val} -> {value, Val}
+  end.
+
+ets_table_lookup(Plt, Obj) ->
+  try ets:lookup_element(Plt, Obj, 2) of
+      Val -> {value, Val}
+  catch
+    _:_ -> none
   end.
 
 table_lookup_module(Plt, Mod) ->

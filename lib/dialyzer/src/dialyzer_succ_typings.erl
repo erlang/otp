@@ -75,10 +75,10 @@ analyze_callgraph(Callgraph, Plt, Codeserver) ->
          dialyzer_plt:plt().
 
 analyze_callgraph(Callgraph, Plt, Codeserver, Parent) ->
-  State = #st{callgraph = Callgraph, plt = Plt, 
+  State = #st{callgraph = Callgraph, plt = dialyzer_plt:get_mini_plt(Plt),
 	      codeserver = Codeserver, parent = Parent},
   NewState = get_refined_success_typings(State),
-  NewState#st.plt.
+  dialyzer_plt:restore_full_plt(NewState#st.plt, Plt).
 
 %%--------------------------------------------------------------------
 
