@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1446,8 +1446,8 @@ check_sane_openssl_renegotaite(Config) ->
 
 check_sane_openssl_sslv2(Config) ->
     case os:cmd("openssl version") of
-	"OpenSSL 1.0.0e" ++ _ ->
-	    {skip, "Known option bug"};
+	"OpenSSL 1.0.0" ++ _ ->
+	    {skip, "sslv2 by default turned of in 1.*"};
 	_ ->
 	    Config
     end.
