@@ -146,6 +146,20 @@ groups() ->
     ].
 
 
+init_per_group(ipv6 = _GroupName, Config) ->
+    case inets_test_lib:has_ipv6_support() of
+	{ok, _} ->
+	    Config;
+	_ ->
+	    {skip, "Host does not support IPv6"}
+    end;
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
 %% Config - [tuple()]
@@ -234,12 +248,12 @@ init_per_testcase(initial_server_connect = Case, Config) ->
 		"~n   ~p", [Case, App, ActualError]),
 	    SkipString = 
 		"Could not start " ++ atom_to_list(App),
-	    {skip, SkipString};
+	    skip(SkipString);
 	  _:X ->
 	    SkipString = 
 		lists:flatten(
 		  io_lib:format("Failed starting apps: ~p", [X])), 
-	    {skip, SkipString}
+	    skip(SkipString)
     end;
 
 init_per_testcase(Case, Config) ->
@@ -352,12 +366,12 @@ init_per_testcase(Case, Timeout, Config) ->
 			    "~n   ~p", [Case, App, ActualError]),
 			SkipString = 
 			    "Could not start " ++ atom_to_list(App),
-			{skip, SkipString};
+			skip(SkipString);
 		      _:X ->
 			SkipString = 
 			    lists:flatten(
 			      io_lib:format("Failed starting apps: ~p", [X])), 
-			{skip, SkipString}
+			skip(SkipString)
 		end;
 
 	    _ -> 
@@ -471,7 +485,7 @@ http_options(doc) ->
 http_options(suite) ->
     [];
 http_options(Config) when is_list(Config) ->
-    {skip, "Not supported by httpd"}.
+    skip("Not supported by httpd").
 
 http_head(doc) ->
     ["Test http head request against local server."];
@@ -549,7 +563,7 @@ http_get(Config) when is_list(Config) ->
 		    tsf({bad_reply, Error2})
 	    end;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 
 %%-------------------------------------------------------------------------
@@ -585,7 +599,7 @@ http_post(Config) when is_list(Config) ->
 	      httpc:request(post, {URL, [{"expect","100-continue"}],
 				  "text/plain", "foobar"}, [], []);
       _ ->
-	  {skip, "Failed to start local http-server"}
+	  skip("Failed to start local http-server")
   end.  
 
 %%-------------------------------------------------------------------------
@@ -631,7 +645,7 @@ http_post_streaming(Config) when is_list(Config) ->
 				     "text/plain", {BodyFun, 10}}, [], []);
 	
       _ ->
-          {skip, "Failed to start local http-server"}
+          skip("Failed to start local http-server")
     end.
 
 
@@ -655,7 +669,7 @@ http_emulate_lower_versions(Config) when is_list(Config) ->
 		httpc:request(get, {URL, []}, [{version, "HTTP/1.1"}], []),
 	    inets_test_lib:check_body(Body2);
         _->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.
 
 
@@ -716,7 +730,7 @@ http_inets_pipe(Config) when is_list(Config) ->
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
 	    test_pipeline(URL); 
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.
 
 
@@ -852,7 +866,7 @@ http_trace(Config) when is_list(Config) ->
 		    tsf({failed, Error})
 	    end;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 %%-------------------------------------------------------------------------
 http_async(doc) ->
@@ -887,7 +901,7 @@ http_async(Config) when is_list(Config) ->
 		    ok
 	    end;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 
 %%-------------------------------------------------------------------------
@@ -908,7 +922,7 @@ http_save_to_file(Config) when is_list(Config) ->
 	    {ok, {{_,200,_}, [_ | _], Body}} = httpc:request(URL),
 	    Bin == Body;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 
 
@@ -938,7 +952,7 @@ http_save_to_file_async(Config) when is_list(Config) ->
 	    {ok, {{_,200,_}, [_ | _], Body}} = httpc:request(URL),
 	    Bin == Body;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 %%-------------------------------------------------------------------------
 http_headers(doc) ->
@@ -995,7 +1009,7 @@ http_headers(Config) when is_list(Config) ->
 					     ]}, [], []),
 	    ok;
 		     _ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.
 
 %%-------------------------------------------------------------------------
@@ -1130,9 +1144,9 @@ ssl_head(SslTag, Config) ->
 	    {ok, {{_,200, _}, [_ | _], []}} =
 		httpc:request(head, {URL, []}, [{ssl, SSLConfig}], []);
  	{ok, _} ->
- 	    {skip, "local http-server not started"};
+ 	    skip("local http-server not started");
  	_ ->
- 	    {skip, "SSL not started"}
+ 	    skip("SSL not started")
     end.  
 
     
@@ -1185,9 +1199,9 @@ ssl_get(SslTag, Config) when is_list(Config) ->
 		    tsf({request_failed, Reason})
 	    end;
 	 {ok, _} ->
-	    {skip, "local http-server not started"}; 
+	    skip("local http-server not started"); 
 	 _ ->
-	    {skip, "SSL not started"}
+	    skip("SSL not started")
      end.
 
 
@@ -1236,9 +1250,9 @@ ssl_trace(SslTag, Config) when is_list(Config) ->
 		    tsf({failed, Error})
 	    end;
 	{ok, _} ->
-	    {skip, "local http-server not started"}; 
+	    skip("local http-server not started"); 
 	_ ->
-	    {skip, "SSL not started"}
+	    skip("SSL not started")
     end.
 
 
@@ -1357,7 +1371,7 @@ http_redirect(Config) when is_list(Config) ->
 	    ok;
 
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.
 
 
@@ -1494,7 +1508,7 @@ proxy_options(Config) when is_list(Config) ->
 		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -1515,7 +1529,7 @@ proxy_head(Config) when is_list(Config) ->
 		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -1534,7 +1548,7 @@ proxy_get(Config) when is_list(Config) ->
 		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 %%-------------------------------------------------------------------------
@@ -1575,11 +1589,12 @@ proxy_emulate_lower_versions(Config) when is_list(Config) ->
 	    end;
 		
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 pelv_get(Version) ->
     httpc:request(get, {?PROXY_URL, []}, [{version, Version}], []).
+
 
 %%-------------------------------------------------------------------------
 proxy_trace(doc) ->
@@ -1589,8 +1604,8 @@ proxy_trace(suite) ->
 proxy_trace(Config) when is_list(Config) ->
     %%{ok, {{_,200,_}, [_ | _], "TRACE " ++ _}} =
     %%	httpc:request(trace, {?PROXY_URL, []}, [], []),
-    {skip, "HTTP TRACE is no longer allowed on the ?PROXY_URL server due "
-     "to security reasons"}.
+    skip("HTTP TRACE is no longer allowed on the ?PROXY_URL server due "
+	 "to security reasons").
 
 
 %%-------------------------------------------------------------------------
@@ -1613,7 +1628,7 @@ proxy_post(Config) when is_list(Config) ->
 		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -1638,7 +1653,7 @@ proxy_put(Config) when is_list(Config) ->
 		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -1663,7 +1678,7 @@ proxy_delete(Config) when is_list(Config) ->
 		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -1697,8 +1712,9 @@ proxy_headers(Config) when is_list(Config) ->
 			     ]}, [], []),
 	    ok;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
+
 
 %%-------------------------------------------------------------------------
 proxy_auth(doc) ->
@@ -1719,7 +1735,7 @@ proxy_auth(Config) when is_list(Config) ->
 		    tsf({unexpected_result, Unexpected})
 	    end;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.  
 
 
@@ -1763,7 +1779,7 @@ proxy_page_does_not_exist(Config) when is_list(Config) ->
 		httpc:request(get, {URL, []}, [], []),
 	    ok;
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -1781,6 +1797,7 @@ proxy_https_not_supported(Config) when is_list(Config) ->
 	_ ->
 	    tsf({unexpected_reason, Result})
     end.
+
 
 %%-------------------------------------------------------------------------
 
@@ -1908,7 +1925,7 @@ proxy_stream(Config) when is_list(Config) ->
 	    
 	    Body == binary_to_list(StreamedBody);
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -2011,7 +2028,7 @@ ipv6_essl(Config) when is_list(Config) ->
 
 ipv6(SocketType, Scheme, HTTPOptions, Extra, Config) ->
     %% Check if we are a IPv6 host
-    tsp("ipv6 -> verify ipv6 support", []),
+    tsp("ipv6 -> verify ipv6 support"),
     case inets_test_lib:has_ipv6_support(Config) of
 	{ok, Addr} ->
 	    tsp("ipv6 -> ipv6 supported: ~p", [Addr]),
@@ -2042,8 +2059,8 @@ ipv6(SocketType, Scheme, HTTPOptions, Extra, Config) ->
 	    end,
 	    ok;
 	_ ->
-	    tsp("ipv6 -> ipv6 not supported", []),
-	    {skip, "Host does not support IPv6"}
+	    tsp("ipv6 -> ipv6 not supported"),
+	    skip("Host does not support IPv6")
     end.
 
 
@@ -2400,7 +2417,7 @@ options(Config) when is_list(Config) ->
 		= httpc:request(get, {URL, []}, [{timeout, infinity}],
 			       [{full_result, false}]);
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 
 
@@ -2513,7 +2530,7 @@ proxy_not_modified_otp_6821(Config) when is_list(Config) ->
 	undefined ->
 	    provocate_not_modified_bug(?PROXY_URL);
 	Reason ->
-	    {skip, Reason}
+	    skip(Reason)
     end.
 
 
@@ -2915,7 +2932,7 @@ otp_8106_pid(Config) when is_list(Config) ->
 	    
 	    ok;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 
 
@@ -2935,7 +2952,7 @@ otp_8106_fun(Config) when is_list(Config) ->
 	    
 	    ok;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.
 
 
@@ -2955,7 +2972,7 @@ otp_8106_mfa(Config) when is_list(Config) ->
 	    
 	    ok;
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 
 
@@ -3104,7 +3121,7 @@ otp_8352(Config) when is_list(Config) ->
 	    ok;
 
 	_ ->
-	    {skip, "Failed to start local http-server"}
+	    skip("Failed to start local http-server")
     end.  
 
 

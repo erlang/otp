@@ -224,7 +224,8 @@ all() ->
     ].
 
 groups() -> 
-    [{ip, [],
+    [
+     {ip, [],
       [ip_mod_alias, ip_mod_actions, ip_mod_security,
        ip_mod_auth, ip_mod_auth_api, ip_mod_auth_mnesia_api,
        ip_mod_htaccess, ip_mod_cgi, ip_mod_esi, ip_mod_get,
@@ -293,6 +294,14 @@ groups() ->
       [ticket_5775, ticket_5865, ticket_5913, ticket_6003,
        ticket_7304]}].
 
+
+init_per_group(ipv6 = _GroupName, Config) ->
+    case inets_test_lib:has_ipv6_support() of
+	{ok, _} ->
+	    Config;
+	_ ->
+	    {skip, "Host does not support IPv6"}
+    end;
 init_per_group(_GroupName, Config) ->
     Config.
 
