@@ -161,18 +161,18 @@ docs:
 #-----------------------------------------------------
 # Special Targets
 #-----------------------------------------------------
-$(SUITE): $(SUITE_SRC)
+$(SUITE): $(SUITE_SRC) asn1_common_SUITE.erl.src asn1_particular_SUITE.erl.src
 	sed -e 's;%BIN%;;' -e 's;%PER%;per;' -e 's;%BER%;ber;'  $< > $@
 	cat asn1_common_SUITE.erl.src >> $@
 	cat asn1_particular_SUITE.erl.src >> $@
 
 
-$(SUITE_BIN): $(SUITE_SRC)
+$(SUITE_BIN): $(SUITE_SRC) asn1_bin_particular_SUITE.erl.src
 	sed -e 's;%BIN%;bin_;' -e 's;%PER%;per_bin;' -e 's;%BER%;ber_bin;' $< > $@
 	echo "common() -> []." >> $@
 	cat asn1_bin_particular_SUITE.erl.src >> $@
 
-$(SUITE_BIN_V2): $(SUITE_SRC)
+$(SUITE_BIN_V2): $(SUITE_SRC) asn1_bin_v2_particular_SUITE.erl.src
 	sed -e 's;%BIN%;bin_v2_;' -e 's;%PER%;per_bin;' -e 's;%BER%;ber_bin_v2;' $< > $@
 	echo "common() -> []." >> $@
 	cat asn1_bin_v2_particular_SUITE.erl.src >> $@
