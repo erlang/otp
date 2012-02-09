@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -192,6 +192,7 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     _Address    = proplists:get_value(bind_address, Info),
 
     %% Request 1
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 1"),
     URL1        = ?URL_START ++ integer_to_list(Port),
     %% Make sure the server is ok, by making a request for a valid page
@@ -207,6 +208,7 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     end,
 
     %% Request 2
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 2"),
     %% Make sure the server is ok, by making a request for a valid page
     case httpc:request(get, {URL1 ++ "/dummy.html", []},
@@ -221,6 +223,7 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     end,
 
     %% Request 3
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 3"),
     %% Ask for a non-existing page(1)
     Path            = "/<b>this_is_bold<b>",
@@ -242,6 +245,7 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     end,
 
     %% Request 4
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 4"),
     %% Ask for a non-existing page(2)
     case httpc:request(get, {URL2, []}, 
@@ -258,6 +262,7 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
 	{ok, UnexpectedOK4} ->
 	    tsf({unexpected_ok_4, UnexpectedOK4})
     end, 
+    tss(1000), 
     tsp("escaped_url_in_error_body -> stop inets"),
     inets:stop(httpd, Pid),
     tsp("escaped_url_in_error_body -> done"),    
@@ -277,7 +282,12 @@ tsp(F, A) ->
     inets_test_lib:tsp(F, A).
 
 tsf(Reason) ->
-    test_server:fail(Reason).
+    inets_test_lib:tsf(Reason).
+
+tss(Time) ->
+    inets_test_lib:tss(Time).
+
+
 
 
 skip(Reason) ->

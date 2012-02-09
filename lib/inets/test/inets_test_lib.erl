@@ -31,7 +31,7 @@
 	 send/3, close/2]).
 -export([copy_file/3, copy_files/2, copy_dirs/2, del_dirs/1]).
 -export([info/4, log/4, debug/4, print/4]).
--export([tsp/1, tsp/2, tsf/1]).
+-export([tsp/1, tsp/2, tsf/1, tss/1]).
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
 -export([oscmd/1, has_ipv6_support/0, has_ipv6_support/1, print_system_info/1]).
@@ -643,6 +643,9 @@ tsp(F, A) ->
 
 tsf(Reason) ->
     test_server:fail(Reason).
+
+tss(Time) ->
+    test_server:sleep(Time).
 
 formated_timestamp() ->
     format_timestamp( os:timestamp() ).
