@@ -248,14 +248,18 @@ finish_loading_1(BIF_ALIST_1)
 
     for (i = 0; i < n; i++) {
 	p[i].modp = erts_put_module(p[i].module);
+    }
+    for (i = 0; i < n; i++) {
 	if (p[i].modp->curr.num_breakpoints > 0 ||
 	    p[i].modp->curr.num_traced_exports > 0 ||
 	    erts_is_default_trace_enabled()) {
+	    /* tracing involved, fallback with thread blocking */
 	    erts_abort_staging_code_ix();
 	    erts_unlock_code_ix();
 	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_smp_thr_progress_block();
 	    is_blocking = 1;
+	    erts_start_staging_code_ix();
 	    break;
 	}
     }
