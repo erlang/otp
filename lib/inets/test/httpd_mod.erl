@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,13 +39,6 @@
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 alias(Type, Port, Host, Node) ->
-    %%     io:format(user, "~w:alias -> entry with"
-%% 	      "~n   Type:       ~p"
-%% 	      "~n   Port:       ~p"
-%% 	      "~n   Host:       ~p"
-%% 	      "~n   Node:       ~p"
-%% 	      "~n", [?MODULE, Type, Port, Host, Node]),    
-
     %% This is very crude, but...
     tsp("alias -> Has IPv6 support: ~p", [inets_test_lib:has_ipv6_support()]),
     Opts = case os:type() of

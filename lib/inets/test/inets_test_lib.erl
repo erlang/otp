@@ -500,8 +500,9 @@ connect(ssl, Host, Port, Opts) ->
 	"~n   Port: ~p"
 	"~n   Opts: ~p", [Host, Port, Opts]),
     ssl:start(),
-    %% Does not support ipv6 in old ssl 
-    case ssl:connect(Host, Port, Opts) of
+    %% We ignore this option for ssl... 
+    %% ...maybe we should really treat this in the same way as ip_comm...
+    case ssl:connect(Host, Port, lists:delete(inet6fb4, Opts)) of
 	{ok, Socket} ->
 	    {ok, Socket};
 	{error, Reason} ->
