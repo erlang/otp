@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -188,14 +188,14 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
     ValidationFunAndState =
 	case VerifyFunAndState of
 	    undefined ->
-		{fun(OtpCert, ExtensionOrError, SslState) ->
+		{fun(OtpCert, ExtensionOrVerifyResult, SslState) ->
 			 ssl_certificate:validate_extension(OtpCert,
-							    ExtensionOrError, SslState)
+							    ExtensionOrVerifyResult, SslState)
 		 end, Role};
 	    {Fun, UserState0} ->
-		{fun(OtpCert, ExtensionOrError, {SslState, UserState}) ->
+		{fun(OtpCert, {extension, _} = Extension, {SslState, UserState}) ->
 			 case ssl_certificate:validate_extension(OtpCert,
-								 ExtensionOrError,
+								 Extension,
 								 SslState) of
 			     {valid, NewSslState} ->
 				 {valid, {NewSslState, UserState}};
@@ -204,8 +204,11 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 						SslState);
 			     {unknown, _} ->
 				 apply_user_fun(Fun, OtpCert,
-						ExtensionOrError, UserState, SslState)
-			 end
+						Extension, UserState, SslState)
+			 end;
+		    (OtpCert, VerifyResult, {SslState, UserState}) ->
+			 apply_user_fun(Fun, OtpCert, VerifyResult, UserState,
+					SslState)
 		 end, {Role, UserState0}}
 	end,
 
