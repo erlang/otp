@@ -975,6 +975,8 @@ t_type([E=#xmlElement{name = atom}]) ->
     t_atom(E);
 t_type([E=#xmlElement{name = integer}]) ->
     t_integer(E);
+t_type([E=#xmlElement{name = range}]) ->
+    t_range(E);
 t_type([E=#xmlElement{name = float}]) ->
     t_float(E);
 t_type([#xmlElement{name = nil}]) ->
@@ -999,6 +1001,9 @@ t_atom(E) ->
     [get_attrval(value, E)].
 
 t_integer(E) ->
+    [get_attrval(value, E)].
+
+t_range(E) ->
     [get_attrval(value, E)].
 
 t_float(E) ->
