@@ -32,6 +32,8 @@ ifdef BUILD_ALL
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer erl_docgen \
 	  percept dialyzer hipe
+  EXTRA_FILE := $(wildcard EXTRA-APPLICATIONS)
+  EXTRA_APPLICATIONS := $(if $(EXTRA_FILE),$(shell cat $(EXTRA_FILE)))
 endif
 
 ifdef BOOTSTRAP
@@ -44,7 +46,9 @@ else
     ifdef TERTIARY_BOOTSTRAP
       SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
     else # Not bootstrap build
-      SUB_DIRECTORIES = $(ERTS_SUB_DIRECTORIES) $(OTHER_SUB_DIRECTORIES)
+      SUB_DIRECTORIES = $(ERTS_SUB_DIRECTORIES) \
+			$(OTHER_SUB_DIRECTORIES) \
+			$(EXTRA_APPLICATIONS)
     endif
   endif
 endif
