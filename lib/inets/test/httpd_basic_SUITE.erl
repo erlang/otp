@@ -20,6 +20,8 @@
 -module(httpd_basic_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("inets_test_lib.hrl").
+
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -184,6 +186,15 @@ escaped_url_in_error_body(doc) ->
 escaped_url_in_error_body(suite) ->
     [];
 escaped_url_in_error_body(Config) when is_list(Config) ->
+    %% <CONDITIONAL-SKIP>
+    %% This skip is due to a problem on windows with long path's
+    %% If a path is too long file:open fails with, for example, eio.
+    %% Until that problem is fixed, we skip this case...
+    Skippable = [win32],
+    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+    %% </CONDITIONAL-SKIP>
+
     tsp("escaped_url_in_error_body -> entry"),
     HttpdConf   = ?config(httpd_conf, Config),
     {ok, Pid}   = inets:start(httpd, [{port, 0} | HttpdConf]),
