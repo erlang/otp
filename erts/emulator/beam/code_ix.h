@@ -55,9 +55,12 @@
 #  endif
 #  include "sys.h"
 #endif
+struct process;
+
 
 #define ERTS_NUM_CODE_IX 3
 typedef unsigned ErtsCodeIndex;
+
 
 /* Called once at emulator initialization.
  */
@@ -78,14 +81,13 @@ ErtsCodeIndex erts_active_code_ix(void);
 ERTS_GLB_INLINE
 ErtsCodeIndex erts_staging_code_ix(void);
 
-/* Lock code_ix.
- * Gives (exclusive) access to the staging area and write access to active code index.
- * ToDo: Waiting process should be queued and return to be suspended.
+/* Try lock code_ix that is needed for (exlusive) access of the staging area.
+ * Main process lock (only) must be held.
+ * Caller is suspended and *must* yield if 0 is returned. 
  */
-void erts_lock_code_ix(void);
+int erts_try_lock_code_ix(struct process*);
 
 /* Unlock code_ix
- * ToDo: Dequeue and resume waiting processes.
  */
 void erts_unlock_code_ix(void);
 

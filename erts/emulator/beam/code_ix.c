@@ -36,7 +36,13 @@
 erts_smp_atomic32_t the_active_code_index;
 erts_smp_atomic32_t the_staging_code_index;
 
-static erts_smp_mtx_t sverk_code_ix_lock; /*SVERK FIXME */
+static int the_code_ix_lock = 0;
+struct code_ix_queue_item {
+    Process *p;
+    struct code_ix_queue_item* next;
+};
+static struct code_ix_queue_item* the_code_ix_queue = NULL;
+static erts_smp_mtx_t the_code_ix_queue_lock;
 
 void erts_code_ix_init(void)
 {
@@ -46,7 +52,7 @@ void erts_code_ix_init(void)
      */
     erts_smp_atomic32_init_nob(&the_active_code_index, 0);
     erts_smp_atomic32_init_nob(&the_staging_code_index, 0);
-    erts_smp_mtx_init_x(&sverk_code_ix_lock, "sverk_code_ix_lock", NIL); /*SVERK FIXME */
+    erts_smp_mtx_init(&the_code_ix_queue_lock, "code_ix_queue");
     CIX_TRACE("init");
 }
 
@@ -88,23 +94,54 @@ void erts_abort_staging_code_ix(void)
 }
 
 
-/* Lock code_ix (enqueue and suspend until we get it)
-*/
-void erts_lock_code_ix(void)
+/* Try lock code_ix
+ * Calller _must_ yield if we return 0
+ */
+int erts_try_lock_code_ix(Process* c_p)
 {
-    erts_smp_mtx_lock(&sverk_code_ix_lock); /*SVERK FIXME */
+    int success;
+
+    erts_smp_mtx_lock(&the_code_ix_queue_lock);
+    success = !the_code_ix_lock;
+    if (success) {
+	the_code_ix_lock = 1;
+    }
+    else { /* Already locked */
+	struct code_ix_queue_item* qitem;
+	qitem = erts_alloc(ERTS_ALC_T_CODE_IX_LOCK_Q, sizeof(*qitem));
+	qitem->p = c_p;
+	erts_smp_proc_inc_refc(c_p);
+	qitem->next = the_code_ix_queue;
+	the_code_ix_queue = qitem;
+	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+    }
+   erts_smp_mtx_unlock(&the_code_ix_queue_lock);
+   return success;
 }
 
-/* Unlock code_ix (resume first waiter)
+/* Unlock code_ix (resume all waiters)
 */
-void erts_unlock_code_ix(void)
+void erts_unlock_code_ix()
 {
-    erts_smp_mtx_unlock(&sverk_code_ix_lock); /*SVERK FIXME */
+    erts_smp_mtx_lock(&the_code_ix_queue_lock);
+    while (the_code_ix_queue != NULL) { /* unleash the entire herd */
+	struct code_ix_queue_item* qitem = the_code_ix_queue;
+	erts_smp_proc_lock(qitem->p, ERTS_PROC_LOCK_STATUS);
+	if (!ERTS_PROC_IS_EXITING(qitem->p)) {
+	    erts_resume(qitem->p, ERTS_PROC_LOCK_STATUS);
+	}
+	erts_smp_proc_unlock(qitem->p, ERTS_PROC_LOCK_STATUS);
+	the_code_ix_queue = qitem->next;
+	erts_smp_proc_dec_refc(qitem->p);
+	erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
+    }
+    the_code_ix_lock = 0;
+    erts_smp_mtx_unlock(&the_code_ix_queue_lock);
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 int erts_is_code_ix_locked(void)
 {
-    return erts_smp_lc_mtx_is_locked(&sverk_code_ix_lock);
+    return the_code_ix_lock;
 }
 #endif

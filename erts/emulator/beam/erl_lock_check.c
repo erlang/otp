@@ -84,7 +84,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"reg_tab",				NULL			},
     {	"migration_info_update",		NULL			},
     {	"proc_main",				"pid"			},
-    {   "sverk_code_ix_lock",   NULL }, /*SVERK FIXME */
     {   "old_code",                             "address"               },
 #ifdef HIPE
     {	"hipe_mfait_lock",			NULL			},
@@ -95,6 +94,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"proc_msgq",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
+    {   "code_ix_queue",                        NULL                    },
     {	"proc_status",				"pid"			},
     {	"proc_tab",				NULL			},
     {   "ports_snapshot",                       NULL                    },
