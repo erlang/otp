@@ -302,7 +302,9 @@ run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
     File=atom_to_list(Testspec),
     Spec = case code:lib_dir(Testspec) of
-	       {error, bad_name} ->
+	       {error, bad_name} when Testspec /= emulator, 
+                                      Testspec /= system,
+                                      Testspec /= epmd ->
 		   create_skip_spec(Testspec, tests(Testspec));
 	       _ ->
 		   File++".spec"
