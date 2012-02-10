@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -536,7 +536,7 @@ projection(Conf) when is_list(Conf) ->
 			  from_term([], [[atom]]))),
     ?line {'EXIT', {badarg, _}} = 
         (catch projection({external, fun(X) -> X end}, from_term([[a]]))),
-    ?line eval(projection({sofs,union}, 
+    ?line eval(projection(fun sofs:union/1,
 			  from_term([[[1,2],[2,3]], [[a,b],[b,c]]])),
                from_term([[1,2,3], [a,b,c]])),
     ?line eval(projection(fun(_) -> from_term([a]) end, 
@@ -628,7 +628,7 @@ substitution(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = 
         (catch substitution({external, fun(X) -> X end}, from_term([[a]]))),
     ?line eval(substitution(fun(X) -> X end, from_term([], [[atom]])), E),
-    ?line eval(substitution({sofs,union}, 
+    ?line eval(substitution(fun sofs:union/1,
                             from_term([[[1,2],[2,3]], [[a,b],[b,c]]])),
                from_term([{[[1,2],[2,3]],[1,2,3]}, {[[a,b],[b,c]],[a,b,c]}])),
     ?line eval(substitution(fun(_) -> from_term([a]) end, 
@@ -745,7 +745,7 @@ restriction(Conf) when is_list(Conf) ->
     ?line eval(restriction(Id, S3, E), E),
     ?line eval(restriction(Id, from_term([], [[atom]]), set([a])),
 	       from_term([], [[atom]])),
-    ?line eval(restriction({sofs,union}, 
+    ?line eval(restriction(fun sofs:union/1,
                            from_term([[[a],[b]], [[b],[c]], 
                                       [[], [a,b]], [[1],[2]]]), 
                            from_term([[a,b],[1,2,3],[b,c]])),
@@ -862,7 +862,7 @@ drestriction(Conf) when is_list(Conf) ->
     ?line eval(drestriction(Id, S3, E), S3),
     ?line eval(drestriction(Id, from_term([], [[atom]]), set([a])),
 	       from_term([], [[atom]])),
-    ?line eval(drestriction({sofs,union}, 
+    ?line eval(drestriction(fun sofs:union/1,
                             from_term([[[a],[b]], [[b],[c]], 
                                        [[], [a,b]], [[1],[2]]]), 
                             from_term([[a,b],[1,2,3],[b,c]])),
@@ -1028,7 +1028,7 @@ specification(Conf) when is_list(Conf) ->
 	    end,
     ?line eval(specification({external,Fun2x}, S2), from_term([[1],[3]])),
 
-    Fun3 = fun(_) -> neither_true_or_false end,
+    Fun3 = fun(_) -> neither_true_nor_false end,
     ?line {'EXIT', {badarg, _}} = 
 	(catch specification(Fun3, set([a]))),
     ?line {'EXIT', {badarg, _}} = 
@@ -1810,8 +1810,8 @@ partition_3(Conf) when is_list(Conf) ->
 
     S12a = from_term([[[a],[b]], [[b],[c]], [[], [a,b]], [[1],[2]]]),
     S12b = from_term([[a,b],[1,2,3],[b,c]]),
-    ?line eval(partition({sofs,union}, S12a, S12b),
-	       lpartition({sofs,union}, S12a, S12b)),
+    ?line eval(partition(fun sofs:union/1, S12a, S12b),
+	       lpartition(fun sofs:union/1, S12a, S12b)),
 
     Fun13 = fun(_) -> from_term([a]) end,
     S13a = from_term([], [[atom]]),
@@ -1956,21 +1956,8 @@ misc(Conf) when is_list(Conf) ->
     % the "functional" part:
     ?line eval(union(intersection(partition(1,S), partition(Id,S))),
                difference(S, RR)),
-
-    %% The function external:foo/1 is undefined.
-    case test_server:is_native(sofs) of
-	true ->
-	    %% Create an export entry for external:foo/1 to work
-	    %% around a bug in the native code. If there is no
-	    %% export entry, the exception will be
-	    %% {badfun,{external,foo}}. Remove in R16 when tuple
-	    %% funs are removed.
-	    (catch external:foo([]));
-	false ->
-	    ok
-    end,
     ?line {'EXIT', {undef, _}} =    
- 	(catch projection({external,foo}, set([a,b,c]))),
+        (catch projection(fun external:foo/1, set([a,b,c]))),
     ok.
 
 relational_restriction(R) ->
@@ -1983,19 +1970,19 @@ family_specification(doc) -> [""];
 family_specification(Conf) when is_list(Conf) ->
     E = empty_set(),
     %% internal
-    ?line eval(family_specification({sofs, is_set}, E), E),
+    ?line eval(family_specification(fun sofs:is_set/1, E), E),
     ?line {'EXIT', {badarg, _}} =    
- 	(catch family_specification({sofs,is_set}, set([]))),
+       (catch family_specification(fun sofs:is_set/1, set([]))),
     ?line F1 = from_term([{1,[1]}]),
-    ?line eval(family_specification({sofs,is_set}, F1), F1),
+    ?line eval(family_specification(fun sofs:is_set/1, F1), F1),
     Fun = fun(S) -> is_subset(S, set([0,1,2,3,4])) end,
     ?line F2 = family([{a,[1,2]},{b,[3,4,5]}]),
     ?line eval(family_specification(Fun, F2), family([{a,[1,2]}])),
     ?line F3 = from_term([{a,[]},{b,[]}]),
-    ?line eval(family_specification({sofs,is_set}, F3), F3),
+    ?line eval(family_specification(fun sofs:is_set/1, F3), F3),
     Fun2 = fun(_) -> throw(fippla) end, 
     ?line fippla = (catch family_specification(Fun2, family([{a,[1]}]))),
-    Fun3 = fun(_) -> neither_true_or_false end,
+    Fun3 = fun(_) -> neither_true_nor_false end,
     ?line {'EXIT', {badarg, _}} = 
 	(catch family_specification(Fun3, F3)),
 
@@ -2110,22 +2097,22 @@ family_projection(Conf) when is_list(Conf) ->
 
     ?line eval(family_projection(fun(X) -> X end, family([])), E),
     ?line L1 = [{a,[]}],
-    ?line eval(family_projection({sofs,union}, E), E),
-    ?line eval(family_projection({sofs,union}, from_term(L1, SSType)),
+    ?line eval(family_projection(fun sofs:union/1, E), E),
+    ?line eval(family_projection(fun sofs:union/1, from_term(L1, SSType)),
                family(L1)),
     ?line {'EXIT', {badarg, _}} =    
- 	(catch family_projection({sofs,union}, set([]))),
+        (catch family_projection(fun sofs:union/1, set([]))),
     ?line {'EXIT', {badarg, _}} =
-        (catch family_projection({sofs,union}, from_term([{1,[1]}]))),
+        (catch family_projection(fun sofs:union/1, from_term([{1,[1]}]))),
 
     ?line F2 = from_term([{a,[[1],[2]]},{b,[[3,4],[5]]}], SSType),
-    ?line eval(family_projection({sofs,union}, F2),
+    ?line eval(family_projection(fun sofs:union/1, F2),
                family_union(F2)),
 
     ?line F3 = from_term([{1,[{a,b},{b,c},{c,d}]},{3,[]},{5,[{3,5}]}],
                          SRType),
-    ?line eval(family_projection({sofs,domain}, F3), family_domain(F3)),
-    ?line eval(family_projection({sofs,range}, F3), family_range(F3)),
+    ?line eval(family_projection(fun sofs:domain/1, F3), family_domain(F3)),
+    ?line eval(family_projection(fun sofs:range/1, F3), family_range(F3)),
 
     ?line eval(family_projection(fun(_) -> E end, family([{a,[b,c]}])),
 	       from_term([{a,[]}])),
@@ -2305,7 +2292,7 @@ partition_family(Conf) when is_list(Conf) ->
 
     ?line eval(partition_family(1, E), E),
     ?line eval(partition_family(2, E), E),
-    ?line eval(partition_family({sofs,union}, E), E),
+    ?line eval(partition_family(fun sofs:union/1, E), E),
     ?line eval(partition_family(1, ER), EF),
     ?line eval(partition_family(2, ER), EF),
     ?line {'EXIT', {badarg, _}} = (catch partition_family(1, set([]))),
@@ -2369,7 +2356,7 @@ partition_family(Conf) when is_list(Conf) ->
     ?line {'EXIT', {badarg, _}} = 
         (catch partition_family({external, fun(X) -> X end}, 
 				from_term([[a]]))),
-    ?line eval(partition_family({sofs,union}, 
+    ?line eval(partition_family(fun sofs:union/1,
 				from_term([[[1],[1,2]], [[1,2]]])),
 	       from_term([{[1,2], [[[1],[1,2]],[[1,2]]]}])),
     ?line eval(partition_family(fun(X) -> X end, 
