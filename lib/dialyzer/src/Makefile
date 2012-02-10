@@ -64,6 +64,8 @@ MODULES =  \
 	dialyzer_races \
 	dialyzer_succ_typings \
 	dialyzer_typesig \
+	dialyzer_typesig_coordinator \
+	dialyzer_typesig_worker \
 	dialyzer_utils
 
 HRL_FILES= dialyzer.hrl dialyzer_gui_wx.hrl

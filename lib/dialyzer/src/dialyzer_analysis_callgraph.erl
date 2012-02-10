@@ -179,22 +179,21 @@ analyze_callgraph(Callgraph, State) ->
   Parent = State#analysis_state.parent,
   DocPlt = State#analysis_state.doc_plt,
   Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
-  Callgraph1 = dialyzer_callgraph:finalize(Callgraph),
   {NewPlt, NewDocPlt} =
     case State#analysis_state.analysis_type of
       plt_build ->
-	{dialyzer_succ_typings:analyze_callgraph(Callgraph1, Plt,
+	{dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt,
 						 Codeserver, Parent),
 	 DocPlt};
       succ_typings ->
 	NoWarn = State#analysis_state.no_warn_unused,
 	{Warnings, NewPlt0, NewDocPlt0} =
-	  dialyzer_succ_typings:get_warnings(Callgraph1, Plt, DocPlt,
+	  dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt,
 					     Codeserver, NoWarn, Parent),
 	send_warnings(State#analysis_state.parent, Warnings),
 	{NewPlt0, NewDocPlt0}
     end,
-  dialyzer_callgraph:delete(Callgraph1),
+  dialyzer_callgraph:delete(Callgraph),
   State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}.
 
 %%--------------------------------------------------------------------

@@ -110,6 +110,7 @@
 -type label()	      :: non_neg_integer().
 -type rep_mode()      :: 'quiet' | 'normal' | 'verbose'.
 -type start_from()    :: 'byte_code' | 'src_code'.
+-type mfa_or_funlbl() :: label() | mfa().
 
 %%--------------------------------------------------------------------
 %% Record declarations used by various files

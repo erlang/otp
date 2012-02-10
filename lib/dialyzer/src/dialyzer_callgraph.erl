@@ -43,12 +43,14 @@
 	 %% module_postorder/1,
 	 module_postorder_from_funs/2,
 	 new/0,
+	 mini_callgraph/1,
+	 get_depends_on/2,
+	 get_required_by/2,
 	 in_neighbours/2,
 	 renew_race_info/4,
 	 reset_from_funs/2,
 	 scan_core_tree/2,
 	 strip_module_deps/2,
-	 take_scc/1,
 	 remove_external/1,
 	 to_dot/2,
 	 to_ps/3]).
@@ -65,7 +67,6 @@
 
 %%----------------------------------------------------------------------
 
--type mfa_or_funlbl() :: label() | mfa().
 -type scc()	      :: [mfa_or_funlbl()].
 -type mfa_calls()     :: [{mfa_or_funlbl(), mfa_or_funlbl()}].
 
@@ -78,9 +79,6 @@
 %% digraph	-  A digraph representing the callgraph. 
 %%		   Nodes are represented as MFAs or labels.
 %% esc		-  A set of all escaping functions as reported by dialyzer_dep.
-%% postorder	-  A list of strongly connected components of the callgraph
-%%		   sorted in a topological bottom-up order.
-%%		   This is produced by calling finalize/1.
 %% name_map	-  A mapping from label to MFA.
 %% rev_name_map	-  A reverse mapping of the name_map.
 %% rec_var_map	-  A dict mapping from letrec bound labels to function names.
@@ -91,13 +89,13 @@
 %%-----------------------------------------------------------------------------
 
 -record(callgraph, {digraph        = digraph:new() :: digraph(),
-                    esc	           = sets:new()    :: set(),
-                    name_map	   = dict:new()    :: dict(),
-                    rev_name_map   = dict:new()    :: dict(),
-                    postorder      = []	           :: [scc()],
-                    rec_var_map    = dict:new()    :: dict(),
-                    self_rec	   = sets:new()    :: set(),
-                    calls          = dict:new()    :: dict(),
+		    active_digraph                 :: digraph(),
+                    esc	           = sets:new()    :: set()  | ets:tid(),
+                    name_map	   = dict:new()    :: dict() | ets:tid(),
+                    rev_name_map   = dict:new()    :: dict() | ets:tid(),
+                    rec_var_map    = dict:new()    :: dict() | ets:tid(),
+                    self_rec	   = sets:new()    :: set()  | ets:tid(),
+                    calls          = dict:new()    :: dict() | ets:tid(),
                     race_code      = dict:new()    :: dict(),
                     public_tables  = []            :: [label()],
                     named_tables   = []            :: [string()],
@@ -115,6 +113,25 @@
 new() ->
   #callgraph{}.
 
+-spec mini_callgraph(callgraph()) -> callgraph().
+
+mini_callgraph(#callgraph{digraph        = Digraph,
+			  active_digraph = ActiveDigraph,
+			  esc	         = Esc,
+			  name_map       = NameMap,
+			  rev_name_map   = RevNameMap,
+			  rec_var_map    = RecVarMap,
+			  self_rec       = SelfRecs,
+			  calls          = Calls}) ->
+  #callgraph{digraph        = Digraph,
+	     active_digraph = ActiveDigraph,
+	     esc	         = Esc,
+	     name_map       = NameMap,
+	     rev_name_map   = RevNameMap,
+	     rec_var_map    = RecVarMap,
+	     self_rec       = SelfRecs,
+	     calls          = Calls}.
+
 -spec delete(callgraph()) -> 'true'.
 
 delete(#callgraph{digraph = Digraph}) ->
@@ -129,32 +146,32 @@ all_nodes(#callgraph{digraph = DG}) ->
 
 lookup_rec_var(Label, #callgraph{rec_var_map = RecVarMap}) 
   when is_integer(Label) ->
-  dict:find(Label, RecVarMap).
+  ets_lookup_dict(Label, RecVarMap).
 
 -spec lookup_call_site(label(), callgraph()) -> 'error' | {'ok', [_]}. % XXX: refine
 
 lookup_call_site(Label, #callgraph{calls = Calls})
   when is_integer(Label) ->
-  dict:find(Label, Calls).
+  ets_lookup_dict(Label, Calls).
 
 -spec lookup_name(label(), callgraph()) -> 'error' | {'ok', mfa()}.
 
 lookup_name(Label, #callgraph{name_map = NameMap})
   when is_integer(Label) ->
-  dict:find(Label, NameMap).
+  ets_lookup_dict(Label, NameMap).
 
 -spec lookup_label(mfa_or_funlbl(), callgraph()) -> 'error' | {'ok', integer()}.
 
 lookup_label({_,_,_} = MFA, #callgraph{rev_name_map = RevNameMap}) ->
-  dict:find(MFA, RevNameMap);
+  ets_lookup_dict(MFA, RevNameMap);
 lookup_label(Label, #callgraph{}) when is_integer(Label) ->
   {ok, Label}.
 
 -spec in_neighbours(mfa_or_funlbl(), callgraph()) -> 'none' | [mfa_or_funlbl(),...].
 
-in_neighbours(Label, #callgraph{digraph = Digraph, name_map = NameMap})
+in_neighbours(Label, #callgraph{digraph = Digraph} = CG)
   when is_integer(Label) ->
-  Name = case dict:find(Label, NameMap) of
+  Name = case lookup_name(Label, CG) of
 	   {ok, Val} -> Val;
 	   error -> Label
 	 end,
@@ -165,12 +182,12 @@ in_neighbours({_, _, _} = MFA, #callgraph{digraph = Digraph}) ->
 -spec is_self_rec(mfa_or_funlbl(), callgraph()) -> boolean().
 
 is_self_rec(MfaOrLabel, #callgraph{self_rec = SelfRecs}) ->
-  sets:is_element(MfaOrLabel, SelfRecs).
+  ets_lookup_set(MfaOrLabel, SelfRecs).
 
 -spec is_escaping(label(), callgraph()) -> boolean().
 
 is_escaping(Label, #callgraph{esc = Esc}) when is_integer(Label) ->
-  sets:is_element(Label, Esc).  
+  ets_lookup_set(Label, Esc).
 
 -type callgraph_edge() :: {mfa_or_funlbl(),mfa_or_funlbl()}.
 -spec add_edges([callgraph_edge()], callgraph()) -> callgraph().
@@ -185,13 +202,6 @@ add_edges(Edges, #callgraph{digraph = Digraph} = CG) ->
 add_edges(Edges, MFAs, #callgraph{digraph = DG} = CG) ->
   DG = digraph_confirm_vertices(MFAs, DG),
   add_edges(Edges, CG).
-
--spec take_scc(callgraph()) -> 'none' | {'ok', scc(), callgraph()}.
-
-take_scc(#callgraph{postorder = [SCC|SCCs]} = CG) ->
-  {ok, SCC, CG#callgraph{postorder = SCCs}};
-take_scc(#callgraph{postorder = []}) ->
-  none.
 
 -spec remove_external(callgraph()) -> {callgraph(), [tuple()]}.
 
@@ -228,6 +238,16 @@ renew_race_info(CG, RaceCode, PublicTables, NamedTables) ->
   CG#callgraph{race_code = RaceCode,
                public_tables = PublicTables,
                named_tables = NamedTables}.
+
+-spec get_depends_on(scc(), callgraph()) -> [scc()].
+
+get_depends_on(SCC, #callgraph{active_digraph = DG}) ->
+  digraph:out_neighbours(DG, SCC).
+
+-spec get_required_by(scc(), callgraph()) -> [scc()].
+
+get_required_by(SCC, #callgraph{active_digraph = DG}) ->
+  digraph:in_neighbours(DG, SCC).
 
 %%----------------------------------------------------------------------
 %% Handling of modules & SCCs
@@ -282,18 +302,44 @@ create_module_digraph([{_, _}|Left], MDG) ->
 create_module_digraph([], MDG) ->
   MDG.
 
--spec finalize(callgraph()) -> callgraph().
+-spec finalize(callgraph()) -> {[scc()], callgraph()}.
 
-finalize(#callgraph{digraph = DG} = CG) ->
-  CG#callgraph{postorder = digraph_finalize(DG)}.
+finalize(#callgraph{digraph      = DG,
+		    esc          = Esc,
+		    name_map     = NameMap,
+		    rev_name_map = RevNameMap,
+		    rec_var_map  = RecVarMap,
+		    self_rec     = SelfRec,
+		    calls        = Calls
+		   } = CG) ->
+  [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSSelfRec, ETSCalls] =
+    [ets:new(N,[public]) ||
+      N <- [callgraph_esc, callgraph_name_map, callgraph_rev_name_map,
+	    callgraph_rec_var_map, callgraph_self_rec, callgraph_calls]],
+  [true,true] = [ets:insert(ETS, [{E} || E <- sets:to_list(Data)]) ||
+		  {ETS, Data} <- [{ETSEsc, Esc}, {ETSSelfRec, SelfRec}]],
+  [true, true, true, true] =
+    [ets:insert(ETS, dict:to_list(Data)) ||
+      {ETS, Data} <- [{ETSNameMap, NameMap}, {ETSRevNameMap, RevNameMap},
+		      {ETSRecVarMap, RecVarMap}, {ETSCalls, Calls}]],
+  {ActiveDG, Postorder} = digraph_finalize(DG),
+  {Postorder, CG#callgraph{active_digraph = ActiveDG,
+			   esc            = ETSEsc,
+			   name_map       = ETSNameMap,
+			   rev_name_map   = ETSRevNameMap,
+			   rec_var_map    = ETSRecVarMap,
+			   self_rec       = ETSSelfRec,
+			   calls          = ETSCalls}}.
 
--spec reset_from_funs([mfa_or_funlbl()], callgraph()) -> callgraph().
+-spec reset_from_funs([mfa_or_funlbl()], callgraph()) -> {[scc()], callgraph()}.
 
-reset_from_funs(Funs, #callgraph{digraph = DG} = CG) ->
+reset_from_funs(Funs, #callgraph{digraph = DG,
+				 active_digraph = OldActiveDG} = CG) ->
+  digraph_delete(OldActiveDG),
   SubGraph = digraph_reaching_subgraph(Funs, DG),
-  Postorder = digraph_finalize(SubGraph),
+  {NewActiveDG, Postorder} = digraph_finalize(SubGraph),
   digraph_delete(SubGraph),
-  CG#callgraph{postorder = Postorder}.
+  {Postorder, CG#callgraph{active_digraph = NewActiveDG}}.
 
 -spec module_postorder_from_funs([mfa_or_funlbl()], callgraph()) -> [module()].
 
@@ -302,7 +348,20 @@ module_postorder_from_funs(Funs, #callgraph{digraph = DG} = CG) ->
   PO = module_postorder(CG#callgraph{digraph = SubGraph}),
   digraph_delete(SubGraph),
   PO.
-  
+
+ets_lookup_dict(Key, Table) ->
+  try ets:lookup_element(Table, Key, 2) of
+      Val -> {ok, Val}
+  catch
+    _:_ -> error
+  end.
+
+ets_lookup_set(Key, Table) ->
+  case ets:lookup(Table, Key) of
+      [] -> false;
+      _ -> true
+  end.
+
 %%----------------------------------------------------------------------
 %% Core code
 %%----------------------------------------------------------------------
@@ -516,13 +575,12 @@ digraph_in_neighbours(V, DG) ->
   end.
 
 digraph_postorder(Digraph) ->
-  digraph_utils:postorder(Digraph).
+  digraph_utils:topsort(Digraph).
 
 digraph_finalize(DG) ->
   DG1 = digraph_utils:condensation(DG),
   Postorder = digraph_postorder(DG1),
-  digraph:delete(DG1),
-  Postorder.
+  {DG1, Postorder}.
 
 digraph_reaching_subgraph(Funs, DG) ->  
   Vertices = digraph_utils:reaching(Funs, DG),
