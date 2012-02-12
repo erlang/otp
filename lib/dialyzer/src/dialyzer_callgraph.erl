@@ -515,68 +515,8 @@ digraph_in_neighbours(V, DG) ->
     List -> List
   end.
 
-%% Pick all the independent nodes (leaves) from one module. Then try
-%% to stay within the module until no more independent nodes can be
-%% chosen. Then pick a new module and so on.
-%%
-%% Note that an SCC that ranges over more than one module is
-%% considered to belong to all modules to make sure that we do not
-%% lose any nodes.
-
 digraph_postorder(Digraph) ->
-  %% Remove all self-edges for SCCs.
-  Edges = [digraph:edge(Digraph, E) || E <- digraph:edges(Digraph)],
-  SelfEdges = [E || {E, V, V, _} <- Edges],
-  true = digraph:del_edges(Digraph, SelfEdges),
-  %% Determine the first module outside of the loop.
-  Leaves = digraph_leaves(Digraph),
-  case Leaves =:= [] of
-    true -> [];
-    false ->
-      {Module, Taken} = take_sccs_from_fresh_module(Leaves),
-      true = digraph:del_vertices(Digraph, Taken),
-      digraph_postorder(Digraph, Module, [Taken])
-  end.
-
-digraph_postorder(Digraph, LastModule, Acc) ->
-  Leaves = digraph_leaves(Digraph),
-  case Leaves =:= [] of
-    true -> lists:append(lists:reverse(Acc));
-    false ->
-      case [SCC || SCC <- Leaves, scc_belongs_to_module(SCC, LastModule)] of
-	[] ->
-	  {NewModule, NewTaken} = take_sccs_from_fresh_module(Leaves),
-	  true = digraph:del_vertices(Digraph, NewTaken),
-	  digraph_postorder(Digraph, NewModule, [NewTaken|Acc]);
-	NewTaken ->
-	  true = digraph:del_vertices(Digraph, NewTaken),
-	  digraph_postorder(Digraph, LastModule, [NewTaken|Acc])
-      end
-  end.
-
-digraph_leaves(Digraph) ->
-  [V || V <- digraph:vertices(Digraph), digraph:out_degree(Digraph, V) =:= 0].
-
-take_sccs_from_fresh_module(Leaves) ->
-  NewModule = find_module(hd(Leaves)),
-  {NewModule, 
-   [SCC || SCC <- Leaves, scc_belongs_to_module(SCC, NewModule)]}.
-
--spec scc_belongs_to_module(scc(), module()) -> boolean().
-
-scc_belongs_to_module([Label|Left], Module) when is_integer(Label) ->
-  scc_belongs_to_module(Left, Module);
-scc_belongs_to_module([{M, _, _}|Left], Module) ->
-  if M =:= Module -> true;
-     true -> scc_belongs_to_module(Left, Module)
-  end;
-scc_belongs_to_module([], _Module) ->
-  false.
-      
--spec find_module(scc()) -> module().
-
-find_module([{M, _, _}|_]) -> M;
-find_module([Label|Left]) when is_integer(Label) -> find_module(Left).
+  digraph_utils:postorder(Digraph).
 
 digraph_finalize(DG) ->
   DG1 = digraph_utils:condensation(DG),
