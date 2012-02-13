@@ -5253,6 +5253,9 @@ check_int(S,[{'NamedNumber',Id,Num}|T],Acc) when is_integer(Num) ->
 check_int(S,[{'NamedNumber',Id,{identifier,_,Name}}|T],Acc) ->
     Val = dbget_ex(S,S#state.mname,Name),
     check_int(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
+check_int(S,[{'NamedNumber',Id,{'Externalvaluereference',_,Mod,Name}}|T],Acc) ->
+    Val = dbget_ex(S,Mod,Name),
+    check_int(S,[{'NamedNumber',Id,Val#valuedef.value}|T],Acc);
 check_int(_S,[],Acc) ->
     lists:keysort(2,Acc).
 
