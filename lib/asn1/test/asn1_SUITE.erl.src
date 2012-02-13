@@ -22,7 +22,7 @@
 -module(asn1_%BIN%SUITE).
 -define(PER, '%PER%').
 -define(BER, '%BER%').
--define(ber_driver(Erule, Func),
+-define(ber_nif(Erule, Func),
     case Erule of
         ber_bin_v2 -> Func;
         _          -> ok
@@ -207,7 +207,6 @@ parallel(Options) ->
     end.
 
 init_per_suite(Config) ->
-    io:format("code:lib_dir(asn1) = ~p~n", [code:lib_dir(asn1)]),
     Config.
 
 end_per_suite(_Config) ->
@@ -235,7 +234,7 @@ init_per_testcase(Func, Config) ->
 
 end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
-    % TODO: Clean up case_dir + code path?
+    % TODO: Clean up code path?
     test_server:timetrap_cancel(Dog).
 
 
@@ -246,8 +245,8 @@ testPrim(Config) ->
     asn1_test_lib:compile_all(Files, Config, [?BER]),
     testPrim_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, driver])),
-    ?ber_driver(?BER, testPrim_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, nif])),
+    ?ber_nif(?BER, testPrim_cases(?BER)),
 
     asn1_test_lib:compile_all(Files, Config, [?PER]),
     testPrim_cases(?PER),
@@ -276,8 +275,8 @@ testCompactBitString(Config) ->
     testCompactBitString:compile(Config, [?BER, compact_bit_string]),
     testCompactBitString:compact_bit_string(?BER),
 
-    ?ber_driver(?BER, testCompactBitString:compile(Config, [?BER, compact_bit_string, driver])),
-    ?ber_driver(?BER, testCompactBitString:compact_bit_string(?BER)),
+    ?ber_nif(?BER, testCompactBitString:compile(Config, [?BER, compact_bit_string, nif])),
+    ?ber_nif(?BER, testCompactBitString:compact_bit_string(?BER)),
 
     testCompactBitString:compile(Config, [?PER, compact_bit_string]),
     testCompactBitString:compact_bit_string(?PER),
@@ -305,9 +304,9 @@ testPrimStrings(Config) ->
     testPrimStrings:compile(Config, ?BER, []),
     testPrimStrings_cases(?BER),
     testPrimStrings:more_strings(?BER), %% these are not implemented in per yet
-    ?ber_driver(?BER, testPrimStrings:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testPrimStrings_cases(?BER)),
-    ?ber_driver(?BER, testPrimStrings:more_strings(?BER)),
+    ?ber_nif(?BER, testPrimStrings:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testPrimStrings_cases(?BER)),
+    ?ber_nif(?BER, testPrimStrings:more_strings(?BER)),
 
     testPrimStrings:compile(Config, ?PER, []),
     testPrimStrings_cases(?PER),
@@ -340,9 +339,9 @@ testPrimExternal(Config) ->
     asn1_test_lib:compile("PrimExternal", Config, [?BER]),
     testPrimExternal:external(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("PrimExternal", Config, [?BER, driver])),
-    ?ber_driver(?BER, testPrimExternal:external(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("PrimExternal", Config, [?BER, nif])),
+    ?ber_nif(?BER, testPrimExternal:external(?BER)),
 
     asn1_test_lib:compile("External", Config, [?PER]),
     asn1_test_lib:compile("PrimExternal", Config, [?PER]),
@@ -366,8 +365,8 @@ testChoPrim(Config) ->
     asn1_test_lib:compile("ChoPrim", Config, [?BER]),
     testChoPrim_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("ChoPrim", Config, [?BER, driver])),
-    ?ber_driver(?BER, testChoPrim_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("ChoPrim", Config, [?BER, nif])),
+    ?ber_nif(?BER, testChoPrim_cases(?BER)),
 
     asn1_test_lib:compile("ChoPrim", Config, [?PER]),
     testChoPrim_cases(?PER),
@@ -392,8 +391,8 @@ testChoExtension(Config) ->
     asn1_test_lib:compile("ChoExtension", Config, [?BER]),
     testChoExtension_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("ChoExtension", Config, [?BER, driver])),
-    ?ber_driver(?BER, testChoExtension_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("ChoExtension", Config, [?BER, nif])),
+    ?ber_nif(?BER, testChoExtension_cases(?BER)),
 
     asn1_test_lib:compile("ChoExtension", Config, [?PER]),
     testChoExtension_cases(?PER),
@@ -418,9 +417,9 @@ testChoExternal(Config) ->
     asn1_test_lib:compile("ChoExternal", Config, [?BER]),
     testChoExternal:external(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("ChoExternal", Config, [?BER, driver])),
-    ?ber_driver(?BER, testChoExternal:external(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("ChoExternal", Config, [?BER, nif])),
+    ?ber_nif(?BER, testChoExternal:external(?BER)),
 
     asn1_test_lib:compile("External", Config, [?PER]),
     asn1_test_lib:compile("ChoExternal", Config, [?PER]),
@@ -445,8 +444,8 @@ testChoOptional(Config) ->
     testChoOptional:compile(Config, ?BER, []),
     testChoOptional_cases(?BER),
 
-    ?ber_driver(?BER, testChoOptional:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testChoOptional_cases(?BER)),
+    ?ber_nif(?BER, testChoOptional:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testChoOptional_cases(?BER)),
 
     testChoOptional:compile(Config, ?PER, []),
     testChoOptional_cases(?PER),
@@ -476,8 +475,8 @@ testChoRecursive(Config) ->
     testChoRecursive:compile(Config, ?BER, []),
     testChoRecursive_cases(?BER),
 
-    ?ber_driver(?BER, testChoRecursive:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testChoRecursive_cases(?BER)),
+    ?ber_nif(?BER, testChoRecursive:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testChoRecursive_cases(?BER)),
 
     testChoRecursive:compile(Config, ?PER, []),
     testChoRecursive_cases(?PER),
@@ -502,8 +501,8 @@ testChoTypeRefCho(Config) ->
     testChoTypeRefCho:compile(Config, ?BER, []),
     testChoTypeRefCho_cases(?BER),
 
-    ?ber_driver(?BER, testChoTypeRefCho:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testChoTypeRefCho_cases(?BER)),
+    ?ber_nif(?BER, testChoTypeRefCho:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testChoTypeRefCho_cases(?BER)),
 
     testChoTypeRefCho:compile(Config, ?PER, []),
     testChoTypeRefCho_cases(?PER),
@@ -528,8 +527,8 @@ testChoTypeRefPrim(Config) ->
     testChoTypeRefPrim:compile(Config, ?BER, []),
     testChoTypeRefPrim_cases(?BER),
 
-    ?ber_driver(?BER, testChoTypeRefPrim:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testChoTypeRefPrim_cases(?BER)),
+    ?ber_nif(?BER, testChoTypeRefPrim:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testChoTypeRefPrim_cases(?BER)),
 
     testChoTypeRefPrim:compile(Config, ?PER, []),
     testChoTypeRefPrim_cases(?PER),
@@ -554,8 +553,8 @@ testChoTypeRefSeq(Config) ->
     testChoTypeRefSeq:compile(Config, ?BER, []),
     testChoTypeRefSeq_cases(?BER),
 
-    ?ber_driver(?BER, testChoTypeRefSeq:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testChoTypeRefSeq_cases(?BER)),
+    ?ber_nif(?BER, testChoTypeRefSeq:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testChoTypeRefSeq_cases(?BER)),
 
     testChoTypeRefSeq:compile(Config, ?PER, []),
     testChoTypeRefSeq_cases(?PER),
@@ -580,8 +579,8 @@ testChoTypeRefSet(Config) ->
     testChoTypeRefSet:compile(Config, ?BER, []),
     testChoTypeRefSet_cases(?BER),
 
-    ?ber_driver(?BER, testChoTypeRefSet:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testChoTypeRefSet_cases(?BER)),
+    ?ber_nif(?BER, testChoTypeRefSet:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testChoTypeRefSet_cases(?BER)),
 
     testChoTypeRefSet:compile(Config, ?PER, []),
     testChoTypeRefSet_cases(?PER),
@@ -606,8 +605,8 @@ testDef(Config) ->
     testDef:compile(Config, ?BER, []),
     testDef_cases(?BER),
 
-    ?ber_driver(?BER, testDef:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testDef_cases(?BER)),
+    ?ber_nif(?BER, testDef:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testDef_cases(?BER)),
 
     testDef:compile(Config, ?PER, []),
     testDef_cases(?PER),
@@ -645,8 +644,8 @@ testEnumExt(Config) ->
     asn1_test_lib:compile("EnumExt", Config, [?BER]),
     testEnumExt:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("EnumExt", Config, [?BER, driver])),
-    ?ber_driver(?BER, testEnumExt:main(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("EnumExt", Config, [?BER, nif])),
+    ?ber_nif(?BER, testEnumExt:main(?BER)),
 
     asn1_test_lib:compile("EnumExt", Config, [?PER]),
     testEnumExt:main(?PER),
@@ -666,8 +665,8 @@ testSeqDefault(Config) ->
     asn1_test_lib:compile("SeqDefault", Config, [?BER]),
     testSeqDefault_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqDefault", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqDefault_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqDefault", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqDefault_cases(?BER)),
 
     asn1_test_lib:compile("SeqDefault", Config, [?PER]),
     testSeqDefault_cases(?PER),
@@ -692,9 +691,9 @@ testSeqExtension(Config) ->
     asn1_test_lib:compile("SeqExtension", Config, [?BER]),
     testSeqExtension_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqExtension", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqExtension_cases(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqExtension", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqExtension_cases(?BER)).
 
 testSeqExtension_cases(Rules) ->
     testSeqExtension:main(Rules).
@@ -707,9 +706,9 @@ testSeqExternal(Config) ->
     asn1_test_lib:compile("SeqExternal", Config, [?BER]),
     testSeqExternal_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqExternal", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqExternal_cases(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqExternal", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqExternal_cases(?BER)).
 
 testSeqExternal_cases(Rules) ->
     testSeqExternal:main(Rules).
@@ -721,8 +720,8 @@ testSeqOptional(Config) ->
     testSeqOptional:compile(Config, ?BER, []),
     testSeqOptional_cases(?BER),
 
-    ?ber_driver(?BER, testSeqOptional:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqOptional_cases(?BER)),
+    ?ber_nif(?BER, testSeqOptional:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqOptional_cases(?BER)),
 
     testSeqOptional:compile(Config, ?PER, []),
     testSeqOptional_cases(?PER),
@@ -747,8 +746,8 @@ testSeqPrim(Config) ->
     testSeqPrim:compile(Config, ?BER, []),
     testSeqPrim_cases(?BER),
 
-    ?ber_driver(?BER, testSeqPrim:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqPrim_cases(?BER)),
+    ?ber_nif(?BER, testSeqPrim:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqPrim_cases(?BER)),
 
     testSeqPrim:compile(Config, ?PER, []),
     testSeqPrim_cases(?PER),
@@ -772,8 +771,8 @@ testSeq2738(Config) ->
     asn1_test_lib:compile("Seq2738", Config, [?BER]),
     testSeq2738_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("Seq2738", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeq2738_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("Seq2738", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeq2738_cases(?BER)),
 
     asn1_test_lib:compile("Seq2738", Config, [?PER]),
     testSeq2738_cases(?PER),
@@ -796,8 +795,8 @@ testSeqTag(Config) ->
     asn1_test_lib:compile_all(["External", "SeqTag"], Config, [?BER]),
     testSeqTag_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile_all(["External", "SeqTag"], Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqTag_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile_all(["External", "SeqTag"], Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqTag_cases(?BER)),
 
     asn1_test_lib:compile_all(["External", "SeqTag"], Config, [?PER]),
     testSeqTag_cases(?PER),
@@ -823,8 +822,8 @@ testSeqTypeRefCho(Config) ->
     testSeqTypeRefCho:compile(Config, ?BER, []),
     testSeqTypeRefCho_cases(?BER),
 
-    ?ber_driver(?BER, testSeqTypeRefCho:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqTypeRefCho_cases(?BER)),
+    ?ber_nif(?BER, testSeqTypeRefCho:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqTypeRefCho_cases(?BER)),
 
     testSeqTypeRefCho:compile(Config, ?PER, []),
     testSeqTypeRefCho_cases(?PER),
@@ -848,8 +847,8 @@ testSeqTypeRefPrim(Config) ->
     asn1_test_lib:compile("SeqTypeRefPrim", Config, [?BER]),
     testSeqTypeRefPrim_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqTypeRefPrim", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqTypeRefPrim_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqTypeRefPrim", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqTypeRefPrim_cases(?BER)),
 
     asn1_test_lib:compile("SeqTypeRefPrim", Config, [?PER]),
     testSeqTypeRefPrim_cases(?PER),
@@ -873,8 +872,8 @@ testSeqTypeRefSeq(Config) ->
     asn1_test_lib:compile("SeqTypeRefSeq", Config, [?BER]),
     testSeqTypeRefSeq_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqTypeRefSeq", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqTypeRefSeq_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqTypeRefSeq", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqTypeRefSeq_cases(?BER)),
 
     asn1_test_lib:compile("SeqTypeRefSeq", Config, [?PER]),
     testSeqTypeRefSeq_cases(?PER),
@@ -898,8 +897,8 @@ testSeqTypeRefSet(Config) ->
     asn1_test_lib:compile("SeqTypeRefSet", Config, [?BER]),
     testSeqTypeRefSet_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqTypeRefSet", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqTypeRefSet_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqTypeRefSet", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqTypeRefSet_cases(?BER)),
 
     asn1_test_lib:compile("SeqTypeRefSet", Config, [?PER]),
     testSeqTypeRefSet_cases(?PER),
@@ -924,8 +923,8 @@ testSeqOf(Config) ->
     testSeqOf:compile(Config, ?BER, []),
     testSeqOf_cases(?BER),
 
-    ?ber_driver(?BER, testSeqOf:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqOf_cases(?BER)),
+    ?ber_nif(?BER, testSeqOf:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqOf_cases(?BER)),
 
     testSeqOf:compile(Config, ?PER, []),
     testSeqOf_cases(?PER),
@@ -950,8 +949,8 @@ testSeqOfCho(Config) ->
     testSeqOfCho:compile(Config, ?BER, []),
     testSeqOfCho_cases(?BER),
 
-    ?ber_driver(?BER, testSeqOfCho:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqOfCho_cases(?BER)),
+    ?ber_nif(?BER, testSeqOfCho:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqOfCho_cases(?BER)),
 
     testSeqOfCho:compile(Config, ?PER, []),
     testSeqOfCho_cases(?PER),
@@ -971,8 +970,8 @@ testSeqOfIndefinite(Config) ->
     testSeqOfIndefinite:compile(Config, ?BER, []),
     testSeqOfIndefinite:main(),
 
-    ?ber_driver(?BER, testSeqOfIndefinite:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqOfIndefinite:main()).
+    ?ber_nif(?BER, testSeqOfIndefinite:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqOfIndefinite:main()).
 
 testSeqOfCho_cases(Rules) ->
     testSeqOfCho:main(Rules).
@@ -984,9 +983,9 @@ testSeqOfExternal(Config) ->
     testSeqOfExternal:compile(Config, ?BER, []),
     testSeqOfExternal_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqOfExternal:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqOfExternal_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqOfExternal:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqOfExternal_cases(?BER)),
 
     asn1_test_lib:compile("External", Config, [?PER]),
     testSeqOfExternal:compile(Config, ?PER, []),
@@ -1015,9 +1014,9 @@ testSeqOfTag(Config) ->
     testSeqOfTag:compile(Config, ?BER, []),
     testSeqOfTag_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqOfTag:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSeqOfTag_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqOfTag:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSeqOfTag_cases(?BER)),
 
     asn1_test_lib:compile("External", Config, [?PER]),
     testSeqOfTag:compile(Config, ?PER, []),
@@ -1046,8 +1045,8 @@ testSetDefault(Config) ->
     asn1_test_lib:compile("SetDefault", Config, [?BER]),
     testSetDefault_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SetDefault", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetDefault_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetDefault", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetDefault_cases(?BER)),
 
     asn1_test_lib:compile("SetDefault", Config, [?PER]),
     testSetDefault_cases(?PER),
@@ -1070,8 +1069,8 @@ testParamBasic(Config) ->
     testParamBasic:compile(Config, ?BER, []),
     testParamBasic_cases(?BER),
 
-    ?ber_driver(?BER, testParamBasic:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testParamBasic_cases(?BER)),
+    ?ber_nif(?BER, testParamBasic:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testParamBasic_cases(?BER)),
 
     testParamBasic:compile(Config, ?PER, []),
     testParamBasic_cases(?PER),
@@ -1095,9 +1094,9 @@ testSetExtension(Config) ->
     asn1_test_lib:compile("SetExtension", Config, [?BER]),
     testSetExtension_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("SetExtension", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetExtension_cases(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetExtension", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetExtension_cases(?BER)).
 
 testSetExtension_cases(Rules) ->
     testSetExtension:main(Rules).
@@ -1109,9 +1108,9 @@ testSetExternal(Config) ->
     testSetExternal:compile(Config, ?BER, []),
     testSetExternal_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetExternal:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSetExternal_cases(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetExternal:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSetExternal_cases(?BER)).
 
 testSetExternal_cases(Rules) ->
     testSetExternal:main(Rules).
@@ -1122,8 +1121,8 @@ testSetOptional(Config) ->
     testSetOptional:compile(Config, ?BER, []),
     testSetOptional_cases(?BER),
 
-    ?ber_driver(?BER, testSetOptional:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSetOptional_cases(?BER)),
+    ?ber_nif(?BER, testSetOptional:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSetOptional_cases(?BER)),
 
     testSetOptional:compile(Config, ?PER, []),
     testSetOptional_cases(?PER),
@@ -1149,8 +1148,8 @@ testSetPrim(Config) ->
     testSetPrim:compile(Config, ?BER, []),
     testSetPrim_cases(?BER),
 
-    ?ber_driver(?BER, testSetPrim:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSetPrim_cases(?BER)),
+    ?ber_nif(?BER, testSetPrim:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSetPrim_cases(?BER)),
 
     testSetPrim:compile(Config, ?PER, []),
     testSetPrim_cases(?PER),
@@ -1175,9 +1174,9 @@ testSetTag(Config) ->
     testSetTag:compile(Config, ?BER, []),
     testSetTag_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetTag:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testSetTag_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetTag:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testSetTag_cases(?BER)),
 
     asn1_test_lib:compile("External", Config, [?PER]),
     testSetTag:compile(Config, ?PER, []),
@@ -1205,8 +1204,8 @@ testSetTypeRefCho(Config) ->
     asn1_test_lib:compile("SetTypeRefCho", Config, [?BER]),
     testSetTypeRefCho_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SetTypeRefCho", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetTypeRefCho_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetTypeRefCho", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetTypeRefCho_cases(?BER)),
 
     asn1_test_lib:compile("SetTypeRefCho", Config, [?PER]),
     testSetTypeRefCho_cases(?PER),
@@ -1230,8 +1229,8 @@ testSetTypeRefPrim(Config) ->
     asn1_test_lib:compile("SetTypeRefPrim", Config, [?BER]),
     testSetTypeRefPrim_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SetTypeRefPrim", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetTypeRefPrim_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetTypeRefPrim", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetTypeRefPrim_cases(?BER)),
 
     asn1_test_lib:compile("SetTypeRefPrim", Config, [?PER]),
     testSetTypeRefPrim_cases(?PER),
@@ -1255,8 +1254,8 @@ testSetTypeRefSeq(Config) ->
     asn1_test_lib:compile("SetTypeRefSeq", Config, [?BER]),
     testSetTypeRefSeq_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SetTypeRefSeq", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetTypeRefSeq_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetTypeRefSeq", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetTypeRefSeq_cases(?BER)),
 
     asn1_test_lib:compile("SetTypeRefSeq", Config, [?PER]),
     testSetTypeRefSeq_cases(?PER),
@@ -1280,8 +1279,8 @@ testSetTypeRefSet(Config) ->
     asn1_test_lib:compile("SetTypeRefSet", Config, [?BER]),
     testSetTypeRefSet_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SetTypeRefSet", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetTypeRefSet_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetTypeRefSet", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetTypeRefSet_cases(?BER)),
 
     asn1_test_lib:compile("SetTypeRefSet", Config, [?PER]),
     testSetTypeRefSet_cases(?PER),
@@ -1305,8 +1304,8 @@ testSetOf(Config) ->
     asn1_test_lib:compile("SetOf", Config, [?BER]),
     testSetOf_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SetOf", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetOf_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetOf", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetOf_cases(?BER)),
 
     asn1_test_lib:compile("SetOf", Config, [?PER]),
     testSetOf_cases(?PER),
@@ -1330,8 +1329,8 @@ testSetOfCho(Config) ->
     asn1_test_lib:compile("SetOfCho", Config, [?BER]),
     testSetOfCho_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SetOfCho", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetOfCho_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetOfCho", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetOfCho_cases(?BER)),
 
     asn1_test_lib:compile("SetOfCho", Config, [?PER]),
     testSetOfCho_cases(?PER),
@@ -1355,9 +1354,9 @@ testSetOfExternal(Config) ->
     asn1_test_lib:compile("SetOfExternal", Config, [?BER]),
     testSetOfExternal_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("SetOfExternal", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetOfExternal_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetOfExternal", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetOfExternal_cases(?BER)),
 
     asn1_test_lib:compile("External", Config, [?PER]),
     asn1_test_lib:compile("SetOfExternal", Config, [?PER]),
@@ -1387,9 +1386,9 @@ testSetOfTag(Config) ->
     asn1_test_lib:compile("SetOfTag", Config, [?BER]),
     testSetOfTag_cases(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("External", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("SetOfTag", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetOfTag_cases(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("External", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("SetOfTag", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetOfTag_cases(?BER)),
 
     asn1_test_lib:compile("External", Config, [?PER]),
     asn1_test_lib:compile("SetOfTag", Config, [?PER]),
@@ -1604,8 +1603,8 @@ ber_decode_error(Config) ->
     asn1_test_lib:compile("Constructed", Config, [?BER]),
     ok = ber_decode_error:run([]),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("Constructed", Config, [?BER, driver])),
-    ok = ?ber_driver(?BER, ber_decode_error:run([driver])),
+    ?ber_nif(?BER, asn1_test_lib:compile("Constructed", Config, [?BER, nif])),
+    ok = ?ber_nif(?BER, ber_decode_error:run([nif])),
     ok.
 
 h323test(suite) ->
@@ -1659,8 +1658,8 @@ testConstraints(Config) ->
     asn1_test_lib:compile("Constraints", Config, [?BER]),
     testConstraints:int_constraints(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("Constraints", Config, [?BER, driver])),
-    ?ber_driver(?BER, testConstraints:int_constraints(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("Constraints", Config, [?BER, nif])),
+    ?ber_nif(?BER, testConstraints:int_constraints(?BER)),
 
     asn1_test_lib:compile("Constraints", Config, [?PER]),
     testConstraints:int_constraints(?PER),
@@ -1683,24 +1682,24 @@ testSeqIndefinite(Config) ->
     asn1_test_lib:compile("SeqSetIndefinite", Config, [?BER]),
     testSeqIndefinite:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqSetIndefinite", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSeqIndefinite:main(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqSetIndefinite", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSeqIndefinite:main(?BER)).
 
 testSetIndefinite(suite) -> [];
 testSetIndefinite(Config) ->
     asn1_test_lib:compile("SeqSetIndefinite", Config, [?BER]),
     testSetIndefinite:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("SeqSetIndefinite", Config, [?BER, driver])),
-    ?ber_driver(?BER, testSetIndefinite:main(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("SeqSetIndefinite", Config, [?BER, nif])),
+    ?ber_nif(?BER, testSetIndefinite:main(?BER)).
 
 testChoiceIndefinite(suite) -> [];
 testChoiceIndefinite(Config) ->
     testChoiceIndefinite:compile(Config, ?BER, []),
     testChoiceIndefinite:main(?BER),
 
-    ?ber_driver(?BER, testChoiceIndefinite:compile(Config, ?BER, [driver])),
-    ?ber_driver(?BER, testChoiceIndefinite:main(?BER)).
+    ?ber_nif(?BER, testChoiceIndefinite:compile(Config, ?BER, [nif])),
+    ?ber_nif(?BER, testChoiceIndefinite:main(?BER)).
 
 testInfObjectClass(suite) ->
     [];
@@ -1731,10 +1730,10 @@ testInfObjectClass(Config) ->
     asn1_test_lib:compile_all(InfObjFiles, Config, [?BER]),
     testInfObj:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, driver])),
-    ?ber_driver(?BER, testInfObjectClass:main(?BER)),
-    ?ber_driver(?BER, asn1_test_lib:compile_all(InfObjFiles, Config, [?BER, driver])),
-    ?ber_driver(?BER, testInfObj:main(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, nif])),
+    ?ber_nif(?BER, testInfObjectClass:main(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile_all(InfObjFiles, Config, [?BER, nif])),
+    ?ber_nif(?BER, testInfObj:main(?BER)),
 
     asn1_test_lib:compile_all(RANAPFiles, Config, [?PER]),
 
@@ -1763,8 +1762,8 @@ testParameterizedInfObj(Config) ->
     asn1_test_lib:compile("Param", Config, [?BER]),
     testParameterizedInfObj:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("Param", Config, [?BER, driver])),
-    ?ber_driver(?BER, testParameterizedInfObj:main(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("Param", Config, [?BER, nif])),
+    ?ber_nif(?BER, testParameterizedInfObj:main(?BER)).
 
 testMergeCompile(suite) ->
     [];
@@ -1787,9 +1786,9 @@ testMergeCompile(Config) ->
     testMergeCompile:main(?BER),
     testMergeCompile:mvrasn(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, driver])),
-    ?ber_driver(?BER, testMergeCompile:main(?BER)),
-    ?ber_driver(?BER, testMergeCompile:mvrasn(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, nif])),
+    ?ber_nif(?BER, testMergeCompile:main(?BER)),
+    ?ber_nif(?BER, testMergeCompile:mvrasn(?BER)).
 
 testobj(suite) ->
     [];
@@ -1814,9 +1813,9 @@ testobj(Config) ->
     ok = testRANAP:testobj(?BER),
     ok = testParameterizedInfObj:ranap(?BER),
 
-    ?ber_driver(?BER, testRANAP:compile(Config, [?BER, driver])),
-    ?ber_driver(?BER, testRANAP:testobj(?BER)),
-    ?ber_driver(?BER, testParameterizedInfObj:ranap(?BER)).
+    ?ber_nif(?BER, testRANAP:compile(Config, [?BER, nif])),
+    ?ber_nif(?BER, testRANAP:testobj(?BER)),
+    ?ber_nif(?BER, testParameterizedInfObj:ranap(?BER)).
 
 
 testDeepTConstr(suite) ->
@@ -1842,9 +1841,9 @@ testDeepTConstr(Config) ->
     asn1_test_lib:compile("TConstr", Config, [?BER]),
     testDeepTConstr:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("TConstrChoice", Config, [?BER, driver])),
-    ?ber_driver(?BER, asn1_test_lib:compile("TConstr", Config, [?BER, driver])),
-    ?ber_driver(?BER, testDeepTConstr:main(?BER)).
+    ?ber_nif(?BER, asn1_test_lib:compile("TConstrChoice", Config, [?BER, nif])),
+    ?ber_nif(?BER, asn1_test_lib:compile("TConstr", Config, [?BER, nif])),
+    ?ber_nif(?BER, testDeepTConstr:main(?BER)).
 
 testInvokeMod(suite) ->
     [];
@@ -1880,7 +1879,7 @@ testMegaco(Config) ->
 
     case ?BER of
         ber_bin_v2 ->
-            {ok, ModuleName3, ModuleName4} = testMegaco:compile(Config, ?BER, [driver]),
+            {ok, ModuleName3, ModuleName4} = testMegaco:compile(Config, ?BER, [nif]),
             ok = testMegaco:main(ModuleName3, Config),
             ok = testMegaco:main(ModuleName4, Config);
         _->
@@ -1919,8 +1918,8 @@ testContextSwitchingTypes(Config) ->
     asn1_test_lib:compile("ContextSwitchingTypes", Config, [?BER]),
     testContextSwitchingTypes:test(Config),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("ContextSwitchingTypes", Config, [?BER, driver])),
-    ?ber_driver(?BER, testContextSwitchingTypes:test(Config)),
+    ?ber_nif(?BER, asn1_test_lib:compile("ContextSwitchingTypes", Config, [?BER, nif])),
+    ?ber_nif(?BER, testContextSwitchingTypes:test(Config)),
 
     asn1_test_lib:compile("ContextSwitchingTypes", Config, [?PER]),
     testContextSwitchingTypes:test(Config),
@@ -1946,8 +1945,8 @@ testTypeValueNotation(Config) ->
             ok
     end,
 
-    ?ber_driver(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, driver])),
-    ?ber_driver(?BER, testTypeValueNotation:main(?BER, optimize)),
+    ?ber_nif(?BER, asn1_test_lib:compile_all(Files, Config, [?BER, nif])),
+    ?ber_nif(?BER, testTypeValueNotation:main(?BER, optimize)),
 
     case ?BER of
     Ber2 when Ber2 == ber; Ber2 == ber_bin ->
@@ -1975,8 +1974,8 @@ testOpenTypeImplicitTag(Config) ->
     asn1_test_lib:compile("OpenTypeImplicitTag", Config, [?BER]),
     testOpenTypeImplicitTag:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("OpenTypeImplicitTag", Config, [?BER, driver])),
-    ?ber_driver(?BER, testOpenTypeImplicitTag:main(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("OpenTypeImplicitTag", Config, [?BER, nif])),
+    ?ber_nif(?BER, testOpenTypeImplicitTag:main(?BER)),
 
     asn1_test_lib:compile("OpenTypeImplicitTag", Config, [?PER]),
     testOpenTypeImplicitTag:main(?PER),
@@ -2018,8 +2017,8 @@ testINSTANCE_OF(Config) ->
     asn1_test_lib:compile("INSTANCEOF.asn1", Config, [?BER]),
     testINSTANCE_OF:main(?BER),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("INSTANCEOF.asn1", Config, [?BER, driver])),
-    ?ber_driver(?BER, testINSTANCE_OF:main(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("INSTANCEOF.asn1", Config, [?BER, nif])),
+    ?ber_nif(?BER, testINSTANCE_OF:main(?BER)),
 
     asn1_test_lib:compile("INSTANCEOF.asn1", Config, [?PER]),
     testINSTANCE_OF:main(?PER),
@@ -2038,19 +2037,19 @@ testTCAP(Config) ->
     testTCAP:compile(Config, [?BER]),
     testTCAP:test(?BER, Config),
 
-    ?ber_driver(?BER, testTCAP:compile(Config, [?BER, driver])),
-    ?ber_driver(?BER, testTCAP:test(?BER, Config)),
+    ?ber_nif(?BER, testTCAP:compile(Config, [?BER, nif])),
+    ?ber_nif(?BER, testTCAP:test(?BER, Config)),
 
-    ?ber_driver(?BER, testTCAP:compile_asn1config(Config, [?BER, asn1config])),
-    ?ber_driver(?BER, testTCAP:test_asn1config()).
+    ?ber_nif(?BER, testTCAP:compile_asn1config(Config, [?BER, asn1config])),
+    ?ber_nif(?BER, testTCAP:test_asn1config()).
 
 testDER(suite) ->[];
 testDER(Config) ->
     asn1_test_lib:compile("DERSpec", Config, [?BER, der]),
     testDER:test(),
 
-    ?ber_driver(?BER, asn1_test_lib:compile("DERSpec", Config, [?BER, der, driver])),
-    ?ber_driver(?BER, testDER:test()),
+    ?ber_nif(?BER, asn1_test_lib:compile("DERSpec", Config, [?BER, der, nif])),
+    ?ber_nif(?BER, testDER:test()),
 
     asn1_test_lib:compile("ParamBasic", Config, [?BER, der]),
     testParamBasic_cases(der),
@@ -2082,9 +2081,9 @@ specialized_decodes(Config) ->
 special_decode_performance(suite) ->[];
 special_decode_performance(Config) ->
     Files = ["MEDIA-GATEWAY-CONTROL", "PartialDecSeq"],
-    ?ber_driver(?BER, asn1_test_lib:compile_all(Files, Config,
+    ?ber_nif(?BER, asn1_test_lib:compile_all(Files, Config,
                                                 [?BER, optimize, asn1config])),
-    ?ber_driver(?BER, test_special_decode_performance:go(all)).
+    ?ber_nif(?BER, test_special_decode_performance:go(all)).
 
 
 test_driver_load(suite) -> [];
@@ -2134,7 +2133,7 @@ testNortel(suite) -> [];
 testNortel(Config) ->
     asn1_test_lib:compile("Nortel", Config, [?BER]),
     asn1_test_lib:compile("Nortel", Config, [?BER, optimize]),
-    asn1_test_lib:compile("Nortel", Config, [?BER, optimize, driver]),
+    asn1_test_lib:compile("Nortel", Config, [?BER, optimize, nif]),
     asn1_test_lib:compile("Nortel", Config, [?PER]),
     ?per_bit_opt(asn1_test_lib:compile("Nortel", Config, [?PER, optimize])),
     ?uper_bin(asn1_test_lib:compile("Nortel", Config, [uper_bin])),
@@ -2142,6 +2141,7 @@ testNortel(Config) ->
 
 test_undecoded_rest(suite) -> [];
 test_undecoded_rest(Config) ->
+
     asn1_test_lib:compile("P-Record", Config, [?BER]),
     ok = test_undecoded_rest:test([], Config),
 
@@ -2203,8 +2203,8 @@ testDoubleEllipses(suite) ->  [];
 testDoubleEllipses(Config) ->
     asn1_test_lib:compile("DoubleEllipses", Config, [?BER]),
     testDoubleEllipses:main(?BER),
-    ?ber_driver(?BER, asn1_test_lib:compile("DoubleEllipses", Config, [?BER, driver])),
-    ?ber_driver(?BER, testDoubleEllipses:main(?BER)),
+    ?ber_nif(?BER, asn1_test_lib:compile("DoubleEllipses", Config, [?BER, nif])),
+    ?ber_nif(?BER, testDoubleEllipses:main(?BER)),
     ?per_bit_opt(asn1_test_lib:compile("DoubleEllipses", Config, [?PER, optimize])),
     ?per_bit_opt(testDoubleEllipses:main(?PER)),
     ?uper_bin(asn1_test_lib:compile("DoubleEllipses", Config, [uper_bin])),
