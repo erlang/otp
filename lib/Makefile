@@ -19,53 +19,21 @@
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-#
-# Macros
-#
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-  ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler
-  OTHER_SUB_DIRECTORIES =	\
-     snmp otp_mibs appmon erl_interface os_mon tools runtime_tools
-  ifdef BUILD_ALL
-    OTHER_SUB_DIRECTORIES += mnesia jinterface ic asn1 debugger \
-	inets mnesia_session diameter orber pman tv observer \
-	cosTransactions cosEvent cosTime cosNotification cosProperty 
-	cosFileTransfer cosEventDomain
-  endif
-else
-#
-# unix and win32
-# --------------
-#
-    ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler
-    OTHER_SUB_DIRECTORIES = tools test_server common_test runtime_tools
-    ifdef BUILD_ALL
-      ifeq ($(findstring win32,$(TARGET)),win32) # BUILD_ALL on win32
-        OTHER_SUB_DIRECTORIES += 			\
-          snmp otp_mibs appmon erl_interface asn1 jinterface gs wx inets ic \
-          mnesia crypto orber os_mon parsetools syntax_tools pman \
-          public_key ssl toolbar tv observer debugger reltool odbc \
-          diameter \
-          cosTransactions cosEvent cosTime cosNotification cosProperty \
-          cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer erl_docgen \
-	  common_test percept dialyzer
-# dialyzer
-        OTHER_SUB_DIRECTORIES += hipe
-      else # BUILD_ALL on unix
-        OTHER_SUB_DIRECTORIES += \
-          snmp otp_mibs appmon erl_interface asn1 jinterface wx debugger reltool gs inets \
+ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler
+OTHER_SUB_DIRECTORIES = tools test_server common_test runtime_tools
+ifdef BUILD_ALL
+  OTHER_SUB_DIRECTORIES += \
+          snmp otp_mibs appmon erl_interface asn1 jinterface \
+          wx debugger reltool gs inets \
           ic mnesia crypto orber os_mon parsetools syntax_tools \
           pman public_key ssl toolbar tv observer odbc \
           diameter \
           cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer erl_docgen \
-	  common_test percept dialyzer
-# dialyzer
-        OTHER_SUB_DIRECTORIES += hipe $(TSP_APP)
-      endif
-    endif
+	  percept dialyzer hipe
+  EXTRA_FILE := $(wildcard EXTRA-APPLICATIONS)
+  EXTRA_APPLICATIONS := $(if $(EXTRA_FILE),$(shell cat $(EXTRA_FILE)))
 endif
 
 ifdef BOOTSTRAP
@@ -78,7 +46,9 @@ else
     ifdef TERTIARY_BOOTSTRAP
       SUB_DIRECTORIES = snmp sasl jinterface ic syntax_tools wx
     else # Not bootstrap build
-      SUB_DIRECTORIES = $(ERTS_SUB_DIRECTORIES) $(OTHER_SUB_DIRECTORIES)
+      SUB_DIRECTORIES = $(ERTS_SUB_DIRECTORIES) \
+			$(OTHER_SUB_DIRECTORIES) \
+			$(EXTRA_APPLICATIONS)
     endif
   endif
 endif
