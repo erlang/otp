@@ -43,7 +43,11 @@ get_stacktrace(Ts) ->
 
 prune_trace([{eunit_data, _, _} | Rest], Tail) ->
     prune_trace(Rest, Tail);
+prune_trace([{eunit_data, _, _, _} | Rest], Tail) ->
+    prune_trace(Rest, Tail);
 prune_trace([{?MODULE, _, _} | _Rest], Tail) ->
+    Tail;
+prune_trace([{?MODULE, _, _, _} | _Rest], Tail) ->
     Tail;
 prune_trace([T | Ts], Tail) ->
     [T | prune_trace(Ts, Tail)];
