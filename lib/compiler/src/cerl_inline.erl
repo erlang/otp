@@ -1262,8 +1262,9 @@ i_receive_1(E, Cs, T, B, S) ->
 i_module(E, Ctxt, Ren, Env, S) ->
     %% Cf. `i_letrec'. Note that we pass a dummy constant value for the
     %% "body" parameter.
+    Exps = i_module_exports(E),
     {Es, _, Xs1, S1} = i_letrec(module_defs(E), void(),
-                                module_exports(E), Ctxt, Ren, Env, S),
+                                Exps, Ctxt, Ren, Env, S),
     %% Sanity check:
     case Es of
         [] ->
@@ -1275,6 +1276,27 @@ i_module(E, Ctxt, Ren, Env, S) ->
     end,
     E1 = update_c_module(E, module_name(E), Xs1, module_attrs(E), Es),
     {E1, count_size(weight(module), S1)}.
+
+i_module_exports(E) ->
+    %% If a function is named in an `on_load' attribute, we will
+    %% pretend that it is exported to ensure that it will not be removed.
+    Exps = module_exports(E),
+    Attrs = module_attrs(E),
+    case i_module_on_load(Attrs) of
+	none ->
+	    Exps;
+	[{_,_}=FA] ->
+	    ordsets:add_element(c_var(FA), Exps)
+    end.
+
+i_module_on_load([{Key,Val}|T]) ->    
+    case concrete(Key) of
+	on_load ->
+	    concrete(Val);
+	_ ->
+	    i_module_on_load(T)
+    end;
+i_module_on_load([]) -> none.
 
 %% Binary-syntax expressions are too complicated to do anything
 %% interesting with here - that is beyond the scope of this program;
