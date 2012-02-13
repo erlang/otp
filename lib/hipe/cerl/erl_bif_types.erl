@@ -1195,11 +1195,13 @@ type(erlang, process_flag, 2, Xs) ->
 		 case t_atom_vals(Flag) of
 		   ['error_handler'] -> t_atom();
 		   ['min_heap_size'] -> t_non_neg_integer();
+                   ['min_bin_vheap_size'] -> t_non_neg_integer();
 		   ['scheduler'] -> t_non_neg_integer();
 		   ['monitor_nodes'] -> t_boolean();
 		   ['priority'] -> t_process_priority_level();
 		   ['save_calls'] -> t_non_neg_integer();
 		   ['trap_exit'] -> t_boolean();
+                   ['sensitive'] -> t_boolean();
 		   List when is_list(List) ->
 		     T_process_flag_returns;
 		   unknown ->
@@ -1496,6 +1498,8 @@ type(erlang, system_flag, 2, Xs) ->
 		     t_non_neg_fixnum();
 		   ['min_heap_size'] ->
 		     t_non_neg_fixnum();
+		   ['min_bin_vheap_size'] ->
+		     t_non_neg_fixnum();
 		   ['multi_scheduling'] ->
 		     t_system_multi_scheduling();
 		   ['schedulers_online'] ->
@@ -1539,8 +1543,12 @@ type(erlang, system_info, 1, Xs) ->
 			      t_list(t_tuple([t_atom(),
 					      t_list(t_tuple([t_atom(),
 							      t_any()]))]))]);
+		   ['build_type'] ->
+                     t_system_build_type_return();
 		   ['break_ignored'] ->
 		     t_boolean();
+                   ['c_compiler_used'] ->
+                     t_tuple([t_atom(), t_any()]);
 		   ['cpu_topology'] ->
 		     t_system_cpu_topology();
 		   ['compat_rel'] ->
@@ -1553,6 +1561,8 @@ type(erlang, system_info, 1, Xs) ->
 		     t_binary();
 		   ['dist_ctrl'] ->
 		     t_list(t_tuple([t_atom(), t_sup([t_pid(), t_port])]));
+                   ['driver_version'] ->
+                     t_string();
 		   %% elib_malloc is intentionally not included,
 		   %% because it scheduled for removal in R15.
 		   ['endian'] ->
@@ -1566,7 +1576,9 @@ type(erlang, system_info, 1, Xs) ->
 		   ['heap_sizes'] ->
 		     t_list(t_integer());
 		   ['heap_type'] ->
-		     t_sup([t_atom('private'), t_atom('hybrid')]);
+		     t_sup([t_atom('private'),
+                            t_atom('shared'),
+                            t_atom('hybrid')]);
 		   ['hipe_architecture'] ->
 		     t_atoms(['amd64', 'arm', 'powerpc', 'ppc64',
 			      'undefined', 'ultrasparc', 'x86']);
@@ -1574,12 +1586,20 @@ type(erlang, system_info, 1, Xs) ->
 		     t_binary();
 		   ['internal_cpu_topology'] -> %% Undocumented internal feature
 		     t_internal_cpu_topology();
+                   ['kernel_poll'] ->
+                     t_boolean();
 		   ['loaded'] ->
 		     t_binary();
 		   ['logical_processors'] ->
 		     t_non_neg_fixnum();
 		   ['machine'] ->
 		     t_string();
+                   ['min_heap_size'] ->
+                     t_tuple([t_atom('min_heap_size'),
+                              t_non_neg_integer()]);
+                   ['min_bin_vheap_size'] ->
+                     t_tuple([t_atom('min_bin_vheap_size'),
+                              t_non_neg_integer()]);
 		   ['multi_scheduling'] ->
 		     t_system_multi_scheduling();
 		   ['multi_scheduling_blockers'] ->
@@ -1594,6 +1614,8 @@ type(erlang, system_info, 1, Xs) ->
 				    t_non_neg_fixnum(),
 				    t_non_neg_fixnum()]),
 			   t_string());
+                   ['otp_release'] ->
+                     t_string();
 		   ['process_count'] ->
 		     t_non_neg_fixnum();
 		   ['process_limit'] ->
@@ -1623,6 +1645,8 @@ type(erlang, system_info, 1, Xs) ->
 		     t_non_neg_fixnum();
 		   ['trace_control_word'] ->
 		     t_integer();
+                   ['update_cpu_info'] ->
+                     t_sup([t_atom('changed'), t_atom('unchanged')]);
 		   ['version'] ->
 		     t_string();
 		   ['wordsize'] ->
@@ -3738,8 +3762,13 @@ arg_types(erlang, pre_loaded, 0) ->
 arg_types(erlang, process_display, 2) ->
   [t_pid(), t_atom('backtrace')];
 arg_types(erlang, process_flag, 2) ->
-  [t_sup([t_atom('trap_exit'), t_atom('error_handler'),
-	  t_atom('min_heap_size'), t_atom('priority'), t_atom('save_calls'),
+  [t_sup([t_atom('trap_exit'),
+          t_atom('error_handler'),
+	  t_atom('min_heap_size'),
+          t_atom('min_bin_vheap_size'),
+          t_atom('priority'),
+          t_atom('save_calls'),
+          t_atom('sensitive'),
 	  t_atom('scheduler'),                             % undocumented
 	  t_atom('monitor_nodes'), 			  % undocumented
 	  t_tuple([t_atom('monitor_nodes'), t_list()])]), % undocumented
@@ -3852,6 +3881,7 @@ arg_types(erlang, system_flag, 2) ->
 	  t_atom('display_items'),	% undocumented
 	  t_atom('fullsweep_after'),
 	  t_atom('min_heap_size'),
+	  t_atom('min_bin_vheap_size'),
 	  t_atom('multi_scheduling'),
 	  t_atom('schedulers_online'),
 	  t_atom('scheduler_bind_type'),
@@ -4724,6 +4754,7 @@ t_spawn_options() ->
 	 t_atom('monitor'),
 	 t_tuple([t_atom('priority'), t_process_priority_level()]),
 	 t_tuple([t_atom('min_heap_size'), t_fixnum()]),
+	 t_tuple([t_atom('min_bin_vheap_size'), t_fixnum()]),
 	 t_tuple([t_atom('fullsweep_after'), t_fixnum()])]).
 
 t_spawn_opt_return(List) ->
@@ -4811,6 +4842,17 @@ t_system_profile_options() ->
 t_system_profile_return() ->
   t_sup(t_atom('undefined'),
 	t_tuple([t_sup(t_pid(), t_port()), t_system_profile_options()])).
+
+t_system_build_type_return() ->
+  t_sup([t_atom('opt'),
+         t_atom('debug'),
+         t_atom('purify'),
+         t_atom('quantify'),
+         t_atom('purecov'),
+         t_atom('gcov'),
+         t_atom('valgrind'),
+         t_atom('gprof'),
+         t_atom('lcnt')]).
 
 %% =====================================================================
 %% These are used for the built-in functions of 'ets'
