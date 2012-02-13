@@ -24,14 +24,12 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 
 -include_lib("kernel/include/file.hrl").
 
 % Default timetrap timeout
 -define(default_timeout, ?t:minutes(1)).
 
--define(SFPD_PORT, 9999).
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
 
@@ -46,17 +44,12 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    case {catch crypto:start(),catch ssh:start()} of
-	{ok,ok} ->
-	    Dir = ?config(priv_dir, Config),
-	    {ok, _} = ssh_test_lib:get_id_keys(Dir),
+    case (catch crypto:start()) of
+	ok ->
+	    ssh:start(),
 	    Config;
-	{ok,_} ->
-	    {skip,"Could not start ssh!"};
-	{_,ok} ->
-	    {skip,"Could not start crypto!"};
-	{_,_} ->
-	    {skip,"Could not start crypto and ssh!"}
+	_ ->
+	    {skip,"Could not start crypto!"}
     end.
 
 %%--------------------------------------------------------------------
@@ -66,9 +59,8 @@ init_per_suite(Config) ->
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
 end_per_suite(Config) ->
+    ssh:stop(),
     crypto:stop(),
-    Dir = ?config(priv_dir, Config),
-    ssh_test_lib:remove_id_keys(Dir),
     Config.
 
 %%--------------------------------------------------------------------
@@ -89,28 +81,30 @@ init_per_testcase(_Case, Config) ->
     TmpConfig0 = lists:keydelete(watchdog, 1, Config),
     TmpConfig = lists:keydelete(sftp, 1, TmpConfig0),
     Dog = test_server:timetrap(?default_timeout),
-    Dir = ?config(priv_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
     SysDir =  ?config(data_dir, Config),
     Host = ssh_test_lib:hostname(),
 
     %% Run test against openssh server if available
-    Sftp = case (catch ssh_sftp:start_channel(Host,
-					      [{user_dir, Dir},
-					       {user_interaction, false},
+    Sftp = case (catch ssh_sftp:start_channel(Host,					      
+					      [{user_interaction, false},
 					       {silently_accept_hosts, true}])) of
 	       {ok, ChannelPid, Connection} ->
+		   test_server:format("Running against openssh"),
 		   {ChannelPid, Connection};
-	       _Error -> %% Start own sftp server
-		   {_Sftpd, _Host, _Port} = 
-		       ssh_test_lib:daemon(Host, ?SFPD_PORT,
-					   [{system_dir, SysDir},
+	       _Error -> %% Start own sftp
+		   test_server:format("Running against erlang ssh"),
+		   {_Sftpd, Host1, Port} = 		       
+		       ssh_test_lib:daemon([{system_dir, SysDir},
+					    {user_dir, PrivDir},
 					    {user_passwords,
 					     [{?USER, ?PASSWD}]},
 					    {failfun,
 					     fun ssh_test_lib:failfun/2}]),
-		   Result = (catch ssh_sftp:start_channel(Host, ?SFPD_PORT,
+		   Result = (catch ssh_sftp:start_channel(Host1, Port,
 							  [{user, ?USER},
 							   {password, ?PASSWD},
+							   {user_dir, PrivDir},
 							   {user_interaction, false},
 							   {silently_accept_hosts, true}])),
 		   {ok, ChannelPid, Connection} = Result,

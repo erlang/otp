@@ -28,7 +28,6 @@
 
 -include_lib("kernel/include/file.hrl").
 
--define(SSHD_PORT, 9999).
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
 -define(SSH_MAX_PACKET_SIZE, 32768).
@@ -48,14 +47,14 @@ init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
 	    DataDir = ?config(data_dir, Config),
-	    UserDir = ?config(priv_dir, Config),
+	    PrivDir = ?config(priv_dir, Config),
 	    FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
 	    c:c(FileAlt),
 	    FileName = filename:join(DataDir, "test.txt"),
 	    {ok, FileInfo} = file:read_file_info(FileName),
 	    ok = file:write_file_info(FileName,
 				      FileInfo#file_info{mode = 8#400}),
-	    ssh_test_lib:setup_dsa(DataDir, UserDir),
+	    ssh_test_lib:setup_dsa(DataDir, PrivDir),
 	    Config;
 	_Else ->
 	    {skip,"Could not start ssh!"}
@@ -67,9 +66,11 @@ init_per_suite(Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after the whole suite
 %%--------------------------------------------------------------------
-end_per_suite(Config) ->
-    UserDir = ?config(priv_dir, Config),
-    ssh_test_lib:clean_dsa(UserDir),
+end_per_suite(Config) -> 
+    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    file:del_dir(UserDir),
+    SysDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(SysDir),
     crypto:stop(),
     ok.
 
@@ -89,6 +90,7 @@ end_per_suite(Config) ->
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
     PrivDir = ?config(priv_dir, Config),
+    SystemDir = filename:join(PrivDir, system),
 
     Options =
 	case atom_to_list(TestCase) of
@@ -96,45 +98,39 @@ init_per_testcase(TestCase, Config) ->
 		Spec =
 		    ssh_sftpd:subsystem_spec([{file_handler,
 					       ssh_sftpd_file_alt}]),
-		[{user_passwords,[{?USER, ?PASSWD}]},
-		 {pwdfun, fun(_,_) -> true end},
-		 {system_dir, PrivDir},
+		[{system_dir, SystemDir},
+		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
 	    "root_dir" ->
 		Privdir = ?config(priv_dir, Config),
 		Root = filename:join(Privdir, root),
 		file:make_dir(Root),
 		Spec = ssh_sftpd:subsystem_spec([{root,Root}]),
-		[{user_passwords,[{?USER, ?PASSWD}]},
-		 {pwdfun, fun(_,_) -> true end},
-		 {system_dir, PrivDir},
+		[{system_dir, SystemDir},
+		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
 	    "list_dir_limited" ->
 		Spec =
 		    ssh_sftpd:subsystem_spec([{max_files,1}]),
-		[{user_passwords,[{?USER, ?PASSWD}]},
-		 {pwdfun, fun(_,_) -> true end},
-		 {system_dir, PrivDir},
+		[{system_dir, SystemDir},
+		 {user_dir, PrivDir},
 		 {subsystems, [Spec]}];
 
 	    _ ->
-		[{user_passwords,[{?USER, ?PASSWD}]},
-		 {pwdfun, fun(_,_) -> true end},
-		 {system_dir, PrivDir}]
+		[{user_dir, PrivDir},
+		 {system_dir, SystemDir}]
 	end,
 
-    {Sftpd, Host, _Port} = ssh_test_lib:daemon(any, ?SSHD_PORT, Options),
+    {Sftpd, Host, Port} = ssh_test_lib:daemon(Options),
 
     {ok, ChannelPid, Connection} =
-	ssh_sftp:start_channel(Host, ?SSHD_PORT,
+	ssh_sftp:start_channel(Host, Port,
 			       [{silently_accept_hosts, true},
-				{user, ?USER}, {password, ?PASSWD}, 
-				{pwdfun, fun(_,_) -> true end},
 				{user_dir, PrivDir},
 				{timeout, 30000}]),
     TmpConfig = lists:keydelete(sftp, 1, Config),
     NewConfig = lists:keydelete(sftpd, 1, TmpConfig),
-    [{sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
+    [{port, Port}, {sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config) -> _
@@ -214,6 +210,8 @@ quit_OTP_6349(suite) ->
 quit_OTP_6349(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
+    UserDir = ?config(priv_dir, Config), 
+    Port = ?config(port, Config),
 
     {Sftp, _} = ?config(sftp, Config),
 
@@ -224,11 +222,10 @@ quit_OTP_6349(Config) when is_list(Config) ->
     Host = ssh_test_lib:hostname(),
 
     timer:sleep(5000),
-    {ok, NewSftp, _Conn} = ssh_sftp:start_channel(Host, ?SSHD_PORT,
+    {ok, NewSftp, _Conn} = ssh_sftp:start_channel(Host, Port,
 						 [{silently_accept_hosts, true},
 						  {pwdfun, fun(_,_) -> true end},
-						  {system_dir, DataDir},
-						  {user_dir, DataDir},
+						  {user_dir, UserDir},
 						  {user, ?USER}, {password, ?PASSWD}]),
 
     {ok, <<_/binary>>} = ssh_sftp:read_file(NewSftp, FileName),

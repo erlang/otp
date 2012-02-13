@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -105,16 +105,12 @@ bignum(X) ->
 
 install_messages(Codes) ->
     foreach(fun({Name, Code, Ts}) ->
-		   %%  ?dbg(true, "install msg: ~s = ~w ~w~n", 
-%% 			 [Name,Code,Ts]),
 		    put({msg_name,Code}, {Name,Ts}),
 		    put({msg_code,Name}, {Code,Ts})
 	    end, Codes).
 
 uninstall_messages(Codes) ->
     foreach(fun({Name, Code, _Ts}) ->
-		  %%   ?dbg(true, "uninstall msg: ~s = ~w ~w~n", 
-%% 			 [Name,Code,_Ts]),
 		    erase({msg_name,Code}),
 		    erase({msg_code,Name})
 	    end, Codes).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -637,16 +637,18 @@ init_ssh(client = Role, Vsn, Version, Options, Socket) ->
     {ok, PeerAddr} = inet:peername(Socket),
     
     PeerName =  proplists:get_value(host, Options),
+    KeyCb =  proplists:get_value(key_cb, Options, ssh_file),
 
     #ssh{role = Role,
 	 c_vsn = Vsn,
 	 c_version = Version,
-	 key_cb = proplists:get_value(key_cb, Options, ssh_file),
+	 key_cb = KeyCb,
 	 io_cb = IOCb,
 	 userauth_quiet_mode = proplists:get_value(quiet_mode, Options, false),
 	 opts = Options,
 	 userauth_supported_methods = AuthMethods,
-	 peer = {PeerName, PeerAddr}
+	 peer = {PeerName, PeerAddr},
+	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
 	};
 
 init_ssh(server = Role, Vsn, Version, Options, Socket) ->
@@ -654,16 +656,47 @@ init_ssh(server = Role, Vsn, Version, Options, Socket) ->
     AuthMethods = proplists:get_value(auth_methods, Options, 
 				      ?SUPPORTED_AUTH_METHODS),
     {ok, PeerAddr} = inet:peername(Socket),
-    
+    KeyCb =  proplists:get_value(key_cb, Options, ssh_file),
+
     #ssh{role = Role,
 	 s_vsn = Vsn,
 	 s_version = Version,
-	 key_cb = proplists:get_value(key_cb, Options, ssh_file),
+	 key_cb = KeyCb,
 	 io_cb = proplists:get_value(io_cb, Options, ssh_io),
 	 opts = Options,
 	 userauth_supported_methods = AuthMethods,
-	 peer = {undefined, PeerAddr}
+	 peer = {undefined, PeerAddr},
+	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
 	 }.
+
+supported_host_keys(client, _, _) ->
+    ["ssh-rsa", "ssh-dss"];
+supported_host_keys(server, KeyCb, Options) ->
+    lists:foldl(fun(Type, Acc) ->
+			case available_host_key(KeyCb, Type, Options) of
+			    {error, _} ->
+				Acc;
+			    Alg ->
+				[Alg | Acc]
+			end
+		end, [],
+		%% Prefered alg last so no need to reverse
+		["ssh-dss", "ssh-rsa"]).
+
+available_host_key(KeyCb, "ssh-dss"= Alg, Opts) ->
+    case KeyCb:host_key('ssh-dss', Opts) of
+	{ok, _} ->
+	    Alg;
+	Other ->
+	    Other
+    end;
+available_host_key(KeyCb, "ssh-rsa" = Alg, Opts) ->
+    case KeyCb:host_key('ssh-rsa', Opts) of
+	{ok, _} ->
+	    Alg;
+	Other ->
+	    Other
+    end.
 
 send_msg(Msg, #state{socket = Socket, transport_cb = Transport}) ->
     Transport:send(Socket, Msg).

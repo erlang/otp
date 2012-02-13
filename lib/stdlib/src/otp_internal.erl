@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -354,10 +354,13 @@ obsolete_1(inviso, _, _) ->
 %% Added in R15B01.
 obsolete_1(gs, _, _) ->
     {deprecated,"the gs application has been deprecated and will be removed in R16; use the wx application instead"};
-
+obsolete_1(ssh, sign_data, 2) ->
+    {deprecated,"deprecated (will be removed in R16A); use public_key:pem_decode/1, public_key:pem_entry_decode/1 "
+     "and public_key:sign/3 instead"};
+obsolete_1(ssh, verify_data, 3) ->
+    {deprecated,"deprecated (will be removed in R16A); use public_key:ssh_decode/1, and public_key:verify/4 instead"};
 obsolete_1(_, _, _) ->
     no.
-
 
 -spec is_snmp_agent_function(atom(), byte()) -> boolean().
 
