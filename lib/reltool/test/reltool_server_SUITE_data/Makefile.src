@@ -14,8 +14,11 @@ DEPENDENCIES= \
      dependencies/y-1.0/ebin/y2.@EMULATOR@ \
      dependencies/z-1.0/ebin/z1.@EMULATOR@
 
+ESCRIPT= \
+     escript/someapp-1.0/ebin/mymod.@EMULATOR@
 
-all: $(OTP9229) $(DEPENDENCIES)
+
+all: $(OTP9229) $(DEPENDENCIES) $(ESCRIPT)
 
 otp_9229/x-1.0/ebin/x.@EMULATOR@: otp_9229/x-1.0/src/x.erl
 	erlc $(EFLAGS) -ootp_9229/x-1.0/ebin otp_9229/x-1.0/src/x.erl
@@ -38,3 +41,6 @@ dependencies/y-1.0/ebin/y2.@EMULATOR@: dependencies/y-1.0/src/y2.erl
 	erlc $(EFLAGS) -odependencies/y-1.0/ebin dependencies/y-1.0/src/y2.erl
 dependencies/z-1.0/ebin/z1.@EMULATOR@: dependencies/z-1.0/src/z1.erl
 	erlc $(EFLAGS) -odependencies/z-1.0/ebin dependencies/z-1.0/src/z1.erl
+
+escript/someapp-1.0/ebin/mymod.@EMULATOR@: escript/someapp-1.0/src/mymod.erl
+	erlc $(EFLAGS) -oescript/someapp-1.0/ebin escript/someapp-1.0/src/mymod.erl

@@ -62,6 +62,9 @@ all() ->
      create_target,
      create_embedded,
      create_standalone,
+     create_standalone_beam,
+     create_standalone_app,
+     create_multiple_standalone,
      create_old_target,
      eval_target_spec,
      otp_9135,
@@ -74,6 +77,10 @@ all() ->
      set_apps_and_undo,
      set_sys_and_undo,
      load_config_and_undo,
+     load_config_escript_path,
+     load_config_same_escript_source,
+     load_config_same_escript_beam,
+     load_config_add_escript,
      reset_config_and_undo,
      gen_rel_files,
      save_config,
@@ -138,27 +145,34 @@ set_config(_Config) ->
 %% Check that get_config returns the expected derivates and defaults
 %% as specified
 get_config(_Config) ->
+
+    KVsn = latest(kernel),
+    StdVsn = latest(stdlib),
+    SaslVsn = latest(sasl),
+
     Sys = {sys,[{incl_cond, exclude},
 		{app,kernel,[{incl_cond,include}]},
-		{app,sasl,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include},{vsn,SaslVsn}]},
 		{app,stdlib,[{incl_cond,include}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
     ?m({ok, Sys}, reltool:get_config(Pid)),
     ?m({ok, Sys}, reltool:get_config(Pid,false,false)),
 
+    %% Include derived info
     ?msym({ok,{sys,[{incl_cond, exclude},
 		    {erts,[]},
 		    {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
-		    {app,sasl,[{incl_cond,include},{mod,_,[]}|_]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},{mod,_,[]}|_]},
 		    {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}},
 	  reltool:get_config(Pid,false,true)),
 
+    %% Include defaults
     ?msym({ok,{sys,[{root_dir,_},
 		    {lib_dirs,_},
 		    {mod_cond,all},
 		    {incl_cond,exclude},
 		    {app,kernel,[{incl_cond,include},{vsn,undefined}]},
-		    {app,sasl,[{incl_cond,include},{vsn,undefined}]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn}]},
 		    {app,stdlib,[{incl_cond,include},{vsn,undefined}]},
 		    {boot_rel,"start_clean"},
 		    {rel,"start_clean","1.0",[]},
@@ -178,16 +192,14 @@ get_config(_Config) ->
 		    {debug_info,keep}]}},
 	  reltool:get_config(Pid,true,false)),
 
-    KVsn = latest(kernel),
-    StdVsn = latest(stdlib),
-
+    %% Include both defaults and derived info
     ?msym({ok,{sys,[{root_dir,_},
 		    {lib_dirs,_},
 		    {mod_cond,all},
 		    {incl_cond,exclude},
 		    {erts,[]},
 		    {app,kernel,[{incl_cond,include},{vsn,KVsn},{mod,_,[]}|_]},
-		    {app,sasl,[{incl_cond,include},{vsn,_},{mod,_,[]}|_]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},{mod,_,[]}|_]},
 		    {app,stdlib,[{incl_cond,include},{vsn,StdVsn},{mod,_,[]}|_]},
 		    {boot_rel,"start_clean"},
 		    {rel,"start_clean","1.0",[]},
@@ -720,19 +732,185 @@ create_standalone(_Config) ->
     ?m(ok, file:make_dir(TargetDir)),
     ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
 
+    %% Start the target system and fetch root dir
     BinDir = filename:join([TargetDir, "bin"]),
     Erl = filename:join([BinDir, "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)), 
     RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
     ?msym(ok, stop_node(Node)),
     
+    %% Execute escript
     Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
 				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
 				  "Smp: false\n",
 				  "ExitCode:0"]),
     io:format("Expected: ~s\n", [Expected]),
-    ?m(Expected, run(BinDir, EscriptName ++ " -arg1 arg2 arg3")),
+    ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
     
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with inlined beam file
+
+create_standalone_beam(Config) ->
+    %% Read beam file
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+
+    %% Create the escript
+    EscriptName = "mymod.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_standalone_beam"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+
+    %% Start the target system and fetch root dir
+    BinDir = filename:join([TargetDir, "bin"]),
+    Erl = filename:join([BinDir, "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
+    ?msym(ok, stop_node(Node)),
+
+    %% Execute escript
+    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected: ~s\n", [Expected]),
+    ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with inlined archived application
+
+%% BUG: see OTP-9792, 25)
+%% Problem related to change of #app.name from "*escript* someapp" to
+%% just "someapp", since there is a someapp.app in the
+%% archive. "someapp" does not have an incl_cond=include statement,
+%% and it is not derived so the it is not included in the target
+%% system.
+create_standalone_app(_Config) -> {skip, "Known bug: escript with inlined archive is not handled correctly by reltool"};
+create_standalone_app(Config) ->
+    %% Create archive
+    DataDir = ?config(data_dir,Config),
+    EscriptDir = filename:join(DataDir,escript),
+    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
+				     [memory,
+				      {cwd,EscriptDir},
+				      {compress,all},
+				      {uncompress,[".beam",".app"]}]),
+
+    %% Create the escript
+    EscriptName = "someapp.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,
+				 {emu_args,"-escript main mymod"},
+				 {archive,Bin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_standalone_app"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+
+    %% Start the target system and fetch root dir
+    BinDir = filename:join([TargetDir, "bin"]),
+    Erl = filename:join([BinDir, "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
+    ?msym(ok, stop_node(Node)),
+
+    %% Execute escript
+    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected: ~s\n", [Expected]),
+    ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with multiple escripts
+
+create_multiple_standalone(Config) ->
+    %% First escript
+    ExDir = code:lib_dir(reltool, examples),
+    EscriptName1 = "display_args",
+    Escript1 = filename:join([ExDir, EscriptName1]),
+
+    %% Second escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName2 = "mymod.escript",
+    Escript2 = filename:join(?WORK_DIR,EscriptName2),
+    ok = escript:create(Escript2,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript2,8#00744),
+
+    %% Configure server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript1, [{incl_cond, include}]},
+          {escript, Escript2, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    %% Generate target system
+    TargetDir = filename:join([?WORK_DIR, "target_multiple_standalone"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config,Sys}], TargetDir)),
+
+    %% Start the target system and fetch root dir
+    BinDir = filename:join([TargetDir, "bin"]),
+    Erl = filename:join([BinDir, "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
+    ?msym(ok, stop_node(Node)),
+
+    %% Execute escript1
+    Expected1 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "Smp: false\n",
+				  "ExitCode:0"]),
+    io:format("Expected1: ~s\n", [Expected1]),
+    ?m(Expected1, run(BinDir, EscriptName1, "-arg1 arg2 arg3")),
+
+
+    %% Execute escript2
+    Expected2 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected2: ~s\n", [Expected2]),
+    ?m(Expected2, run(BinDir, EscriptName2, "-arg1 arg2 arg3")),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1181,6 +1359,171 @@ load_config_and_undo(Config) ->
     ?m(ok, reltool:stop(Pid)),
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with escript
+
+load_config_escript_path(_Config) -> {skip,"Known bug: loading config with escript at reltool start creates different #app record than loading same config with load_config"};
+load_config_escript_path(Config) ->
+    %% Create escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName = "mymod.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Start reltool_server with one escript in configuration
+    EscriptSys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid1} = ?msym({ok, _}, reltool:start_server([{config, EscriptSys}])),
+    {ok,[#app{name='*escript* mymod'}=A]} =
+	?msym({ok,[_]}, reltool_server:get_apps(Pid1,whitelist)),
+    ?m(ok, reltool:stop(Pid1)),
+
+
+    %% Do same again, but now start reltool first with simple config,
+    %% then add escript by loading new configuration and check that
+    %% #app is the same
+    SimpleSys =
+        {sys,
+         [
+          {lib_dirs, []}
+         ]},
+
+    {ok, Pid2} = ?msym({ok, _}, reltool:start_server([{config, SimpleSys}])),
+    ?m({ok,[]}, reltool_server:get_apps(Pid2,whitelist)),
+    ?m({ok,[]}, reltool_server:load_config(Pid2,EscriptSys)),
+    ?m({ok,[A]}, reltool_server:get_apps(Pid2,whitelist)),
+
+    ?m(ok, reltool:stop(Pid2)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with same (source) escript twice and check that the
+%% application information is not changed.
+
+load_config_same_escript_source(_Config) -> {skip,"Known bug: loading config with same escript (source) twice causes reltool to add same module twice in #app.mods"};
+load_config_same_escript_source(_Config) ->
+    %% Create escript
+    ExDir = code:lib_dir(reltool, examples),
+    EscriptName = "display_args",
+    Escript = filename:join([ExDir, EscriptName]),
+
+    %% Start reltool_server with one escript in configuration
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    {ok,[#app{name='*escript* display_args'}=A]} =
+	?msym({ok,[_]}, reltool_server:get_apps(Pid,whitelist)),
+
+    %% Load the same config again, then check that app is not changed
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys)),
+    ?m({ok,[A]}, reltool_server:get_apps(Pid,whitelist)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with same (beam) escript twice and check that the
+%% application information is not changed.
+
+load_config_same_escript_beam(_Config) -> {skip,"Known bug: loading config with same escript (with inlined beam) twice causes reltool to fail and say module is included by two different applications"};
+load_config_same_escript_beam(Config) ->
+    %% Create escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName = "mymod.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Start reltool_server with one escript in configuration
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    {ok,[#app{name='*escript* mymod'}=A]} =
+	?msym({ok,[_]}, reltool_server:get_apps(Pid,whitelist)),
+
+    %% Load the same config again, then check that app is not changed
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys)),
+    ?m({ok,[A]}, reltool_server:get_apps(Pid,whitelist)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with escript
+
+%% BUG: see OTP-9792, 25)
+load_config_add_escript(_Config) -> {skip,"Known bug: Can not load_config which in addition to an existing escript also adds another escript for which the name sorts before the existing one"};
+load_config_add_escript(Config) ->
+    %% First escript
+    ExDir = code:lib_dir(reltool, examples),
+    EscriptName1 = "display_args",
+    Escript1 = filename:join([ExDir, EscriptName1]),
+
+    %% Second escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName2 = "mymod.escript",
+    Escript2 = filename:join(?WORK_DIR,EscriptName2),
+    ok = escript:create(Escript2,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript2,8#00744),
+
+    %% Start reltool_server with one escript in configuration
+    Sys1 =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript2, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+
+    %% Add second escript by loading new configuration
+    Sys2 =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript1, [{incl_cond, include}]},
+          {escript, Escript2, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok,[]} = ?m({ok,[]}, reltool_server:load_config(Pid,Sys2)),
+    {ok,[#app{name='*escript* display_args'},
+	 #app{name='*escript* mymod'}]} =
+	?msym({ok,[_,_]}, reltool_server:get_apps(Pid,whitelist)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 reset_config_and_undo(Config) ->
@@ -1654,14 +1997,16 @@ wait_for_process(Node, Name, N) when is_integer(N), N > 0 ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Run escript
 
-run(Dir, Cmd0) ->
+run(Dir, Script, Args) ->
+    Cmd0 = filename:rootname(Script) ++ " " ++ Args,
     Cmd = case os:type() of
               {win32,_} -> filename:nativename(Dir) ++ "\\" ++ Cmd0;
               _ -> Cmd0
           end,
     do_run(Dir, Cmd).
 
-run(Dir, Opts, Cmd0) ->
+run(Dir, Opts, Script, Args) ->
+    Cmd0 = filename:rootname(Script) ++ " " ++ Args,
     Cmd = case os:type() of
               {win32,_} -> Opts ++ " " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
               _ -> Opts ++ " " ++ Dir ++ "/" ++ Cmd0
