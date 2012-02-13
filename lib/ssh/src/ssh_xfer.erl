@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -298,8 +298,6 @@ xf_send_names(#ssh_xfer{cm = CM, channel = Channel, vsn = Vsn},
     Size = 1 + 4 + 4 + Len,
     ToSend = [<<?UINT32(Size), ?SSH_FXP_NAME, ?UINT32(ReqId), ?UINT32(Count)>>,
 	      Data],
-    %%?dbg(true, "xf_send_names: Size=~p size(ToSend)=~p\n",
-	%% [Size, size(list_to_binary(ToSend))]),
     ssh_connection:send(CM, Channel, ToSend).
 
 xf_send_status(XF, ReqId, ErrorCode) ->
@@ -353,7 +351,6 @@ xf_reply(_XF, <<?SSH_FXP_DATA, ?UINT32(ReqID),
     {data, ReqID, Data};
 xf_reply(XF, <<?SSH_FXP_NAME, ?UINT32(ReqID),
 	      ?UINT32(Count), AData/binary>>) ->
-    %%?dbg(true, "xf_reply ?SSH_FXP_NAME: AData=~p\n", [AData]),
     {name, ReqID, decode_names(XF#ssh_xfer.vsn, Count, AData)};
 xf_reply(XF, <<?SSH_FXP_ATTRS, ?UINT32(ReqID),
 	      AData/binary>>) ->
@@ -579,7 +576,6 @@ encode_attr_flags(Vsn, Flags) ->
       end, Flags).
 
 encode_file_type(Type) ->
-    %%?dbg(true, "encode_file_type(~p)\n", [Type]),
     case Type of
 	regular -> ?SSH_FILEXFER_TYPE_REGULAR;
 	directory -> ?SSH_FILEXFER_TYPE_DIRECTORY;
@@ -660,15 +656,12 @@ encode_ATTR(Vsn, A) ->
 		   {extended, A#ssh_xfer_attr.extensions}],
 		  0, []),
     Type = encode_file_type(A#ssh_xfer_attr.type),
-    %%?dbg(true, "encode_ATTR: Vsn=~p A=~p As=~p Flags=~p Type=~p",
-    %% 	 [Vsn, A, As, Flags, Type]),
     Result = list_to_binary([?uint32(Flags),
 			     if Vsn >= 5 ->
 				     ?byte(Type);
 				true ->
 				     (<<>>)
 			     end, As]),
-    %% ?dbg(true, " Result=~p\n", [Result]),
     Result.
 
 
@@ -722,7 +715,6 @@ encode_As(_Vsn, [], Flags, Acc) ->
 
 
 decode_ATTR(Vsn, <<?UINT32(Flags), Tail/binary>>) ->
-    %%?dbg(true, "decode_ATTR: Vsn=~p Flags=~p Tail=~p\n", [Vsn, Flags, Tail]),
     {Type,Tail2} =
 	if Vsn =< 3 ->
 		{?SSH_FILEXFER_TYPE_UNKNOWN, Tail};
@@ -751,7 +743,6 @@ decode_ATTR(Vsn, <<?UINT32(Flags), Tail/binary>>) ->
 	      Tail2).
 
 decode_As(Vsn, [{AName, AField}|As], R, Flags, Tail) ->
-    %%?dbg(false, "decode_As: Vsn=~p AName=~p AField=~p Flags=~p Tail=~p\n", [Vsn, AName, AField, Flags, Tail]),
     case AName of
 	size when ?is_set(?SSH_FILEXFER_ATTR_SIZE, Flags) ->
 	    <<?UINT64(X), Tail2/binary>> = Tail,
@@ -762,7 +753,6 @@ decode_As(Vsn, [{AName, AField}|As], R, Flags, Tail) ->
 	ownergroup when ?is_set(?SSH_FILEXFER_ATTR_OWNERGROUP, Flags),Vsn>=5 ->
 	    <<?UINT32(Len), Bin:Len/binary, Tail2/binary>> = Tail,
 	    X = binary_to_list(Bin),
-	    %%?dbg(true, "ownergroup X=~p\n", [X]),
 	    decode_As(Vsn, As, setelement(AField, R, X), Flags, Tail2);
 
 	permissions when ?is_set(?SSH_FILEXFER_ATTR_PERMISSIONS,Flags),Vsn>=5->
@@ -824,13 +814,11 @@ decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary,
 		      ?UINT32(LLen), _LongName:LLen/binary,
 		      Tail/binary>>) when Vsn =< 3 ->
     Name = binary_to_list(FileName),
-    %%?dbg(true, "decode_names: ~p\n", [Name]),
     {A, Tail2} = decode_ATTR(Vsn, Tail),
     [{Name, A} | decode_names(Vsn, I-1, Tail2)];
 decode_names(Vsn, I, <<?UINT32(Len), FileName:Len/binary, 
 		      Tail/binary>>) when Vsn >= 4 ->
     Name = binary_to_list(FileName),
-    %%?dbg(true, "decode_names: ~p\n", [Name]),
     {A, Tail2} = decode_ATTR(Vsn, Tail),
     [{Name, A} | decode_names(Vsn, I-1, Tail2)].
 
@@ -839,8 +827,6 @@ encode_names(Vsn, NamesAndAttrs) ->
 
 encode_name(Vsn, {Name,Attr}, Len) when Vsn =< 3 ->
     NLen = length(Name),
-    %%?dbg(true, "encode_name: Vsn=~p Name=~p Attr=~p\n",
-    %% 	 [Vsn, Name, Attr]),
     EncAttr = encode_ATTR(Vsn, Attr),
     ALen = size(EncAttr),
     NewLen = Len + NLen*2 + 4 + 4 + ALen,

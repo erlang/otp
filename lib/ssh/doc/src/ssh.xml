@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2010</year>
+      <year>2004</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -283,22 +283,6 @@
     </func>
 
     <func>
-      <name>sign_data(Data, Algorithm) -> Signature | {error, Reason}</name>
-      <fsummary> </fsummary>
-      <type>
-        <v> Data = binary()</v>
-	<v> Algorithm = "ssh-rsa"</v>
-	<v> Signature = binary()</v>
-	<v> Reason = term()</v>
-      </type>
-      <desc>
-        <p>Signs the supplied binary using the SSH key.
-	</p>
-      </desc>
-    </func>
-
-
-    <func>
       <name>start() -> </name>
       <name>start(Type) -> ok | {error, Reason}</name>
       <fsummary>Starts the Ssh application. </fsummary>
@@ -353,21 +337,6 @@
       <desc>
 	<p>Stops the listener, but leaves existing connections started
 	by the listener up and running.</p>
-      </desc>
-    </func>
-
-    <func>
-      <name>verify_data(Data, Signature, Algorithm) -> ok | {error, Reason}</name>
-      <fsummary> </fsummary>
-      <type>
-        <v> Data = binary()</v>
-	<v> Algorithm = "ssh-rsa"</v>
-	<v> Signature = binary()</v>
-	<v> Reason = term()</v>
-      </type>
-      <desc>
-        <p>Verifies the supplied binary against the binary signature.
-	</p>
       </desc>
     </func>
 

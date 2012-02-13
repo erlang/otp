@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -146,16 +146,7 @@ do_openssh_decode(auth_keys = FileType, [Line | Lines], Acc) ->
     Split = binary:split(Line, <<" ">>, [global]),
     case mend_split(Split, []) of
 	%% ssh2
-	[Options, KeyType, Base64Enc, Comment] when KeyType == <<"ssh-rsa">>;
-						     KeyType == <<"ssh-dss">> ->
-	    do_openssh_decode(FileType, Lines,
-			      [{openssh_pubkey_decode(KeyType, Base64Enc),
-				[{comment, string_decode(Comment)},
-				 {options, comma_list_decode(Options)}]}
-			       | Acc]);
-
-	[KeyType, Base64Enc, Comment] when KeyType == <<"ssh-rsa">>;
-					    KeyType == <<"ssh-dss">> ->
+	[KeyType, Base64Enc, Comment] ->
 	    do_openssh_decode(FileType, Lines,
 			      [{openssh_pubkey_decode(KeyType, Base64Enc),
 				[{comment, string_decode(Comment)}]} | Acc]);
@@ -166,44 +157,32 @@ do_openssh_decode(auth_keys = FileType, [Line | Lines], Acc) ->
 				[{comment, string_decode(Comment)},
 				 {options, comma_list_decode(Options)},
 				 {bits, integer_decode(Bits)}]} | Acc]);
-	[Bits, Exponent, Modulus, Comment]  ->
-	    do_openssh_decode(FileType, Lines,
-			      [{ssh1_rsa_pubkey_decode(Modulus, Exponent),
-				[{comment, string_decode(Comment)},
-				 {bits, integer_decode(Bits)}]} | Acc])
-	end;
+	[A, B, C, D]  ->
+	    ssh_2_or_1(FileType, Lines, Acc, A,B,C,D)
+    end;
 
 do_openssh_decode(known_hosts = FileType, [Line | Lines], Acc) ->
-    case binary:split(Line, <<" ">>, [global]) of
+    Split = binary:split(Line, <<" ">>, [global]),
+    case mend_split(Split, []) of
 	%% ssh 2
-	[HostNames, KeyType, Base64Enc] when KeyType == <<"ssh-rsa">>;
-					     KeyType == <<"ssh-dss">> ->
+	[HostNames, KeyType, Base64Enc] ->
 	    do_openssh_decode(FileType, Lines,
 			      [{openssh_pubkey_decode(KeyType, Base64Enc),
 				[{hostnames, comma_list_decode(HostNames)}]}| Acc]);
-	[HostNames, KeyType, Base64Enc, Comment] when KeyType == <<"ssh-rsa">>;
-						       KeyType == <<"ssh-dss">> ->
-	    do_openssh_decode(FileType, Lines,
-			      [{openssh_pubkey_decode(KeyType, Base64Enc),
-				[{comment, string_decode(Comment)},
-				 {hostnames, comma_list_decode(HostNames)}]} | Acc]);
+	[A, B, C, D] ->
+	    ssh_2_or_1(FileType, Lines, Acc, A, B, C, D);			  
 	%% ssh 1
 	[HostNames, Bits, Exponent, Modulus, Comment] ->
 	    do_openssh_decode(FileType, Lines,
 			      [{ssh1_rsa_pubkey_decode(Modulus, Exponent),
 				[{comment, string_decode(Comment)},
 				 {hostnames, comma_list_decode(HostNames)},
-				 {bits, integer_decode(Bits)}]} | Acc]);
-	[HostNames, Bits, Exponent, Modulus]  ->
-	    do_openssh_decode(FileType, Lines,
-			      [{ssh1_rsa_pubkey_decode(Modulus, Exponent),
-				[{comment, []},
-				 {hostnames, comma_list_decode(HostNames)},
 				 {bits, integer_decode(Bits)}]} | Acc])
 	end;
 
 do_openssh_decode(openssh_public_key = FileType, [Line | Lines], Acc) ->
-    case binary:split(Line, <<" ">>, [global]) of
+    Split = binary:split(Line, <<" ">>, [global]),
+    case mend_split(Split, []) of
 	[KeyType, Base64Enc, Comment0] when KeyType == <<"ssh-rsa">>;
 					    KeyType == <<"ssh-dss">> ->
 	    Comment = string:strip(binary_to_list(Comment0), right, $\n),
@@ -212,6 +191,46 @@ do_openssh_decode(openssh_public_key = FileType, [Line | Lines], Acc) ->
 				[{comment, Comment}]} | Acc])
     end.
 
+ssh_2_or_1(known_hosts = FileType, Lines, Acc, A, B, C, D) ->
+    try integer_decode(B) of
+	Int -> 
+	    file_type_decode_ssh1(FileType, Lines, Acc, A, Int, C,D)
+    catch
+	error:badarg  ->
+	    file_type_decode_ssh2(FileType, Lines, Acc, A,B,C,D)
+    end;
+ssh_2_or_1(auth_keys = FileType, Lines, Acc, A, B, C, D) ->
+  try integer_decode(A) of
+	Int -> 
+	    file_type_decode_ssh1(FileType, Lines, Acc, Int, B, C,D)
+    catch
+	error:badarg  ->
+	    file_type_decode_ssh2(FileType, Lines, Acc, A,B,C,D)
+    end.
+
+file_type_decode_ssh1(known_hosts = FileType, Lines, Acc, HostNames, Bits, Exponent, Modulus) ->
+    do_openssh_decode(FileType, Lines,
+		      [{ssh1_rsa_pubkey_decode(Modulus, Exponent),
+			[{comment, []},
+			 {hostnames, comma_list_decode(HostNames)},
+			 {bits, Bits}]} | Acc]);  
+file_type_decode_ssh1(auth_keys = FileType, Lines, Acc, Bits, Exponent, Modulus, Comment) ->
+    do_openssh_decode(FileType, Lines,
+		      [{ssh1_rsa_pubkey_decode(Modulus, Exponent),
+			[{comment, string_decode(Comment)},
+			 {bits, Bits}]} | Acc]).
+
+file_type_decode_ssh2(known_hosts = FileType, Lines, Acc, HostNames, KeyType, Base64Enc, Comment) ->
+    do_openssh_decode(FileType, Lines,
+		      [{openssh_pubkey_decode(KeyType, Base64Enc),
+			[{comment, string_decode(Comment)},
+			 {hostnames, comma_list_decode(HostNames)}]} | Acc]);
+file_type_decode_ssh2(auth_keys = FileType, Lines, Acc, Options, KeyType, Base64Enc, Comment) ->
+    do_openssh_decode(FileType, Lines,
+		      [{openssh_pubkey_decode(KeyType, Base64Enc),
+			[{comment, string_decode(Comment)},
+			 {options, comma_list_decode(Options)}]}
+		       | Acc]).
 
 openssh_pubkey_decode(<<"ssh-rsa">>, Base64Enc) ->
     <<?UINT32(StrLen), _:StrLen/binary,
@@ -231,7 +250,9 @@ openssh_pubkey_decode(<<"ssh-dss">>, Base64Enc) ->
     {erlint(SizeY, Y),
      #'Dss-Parms'{p = erlint(SizeP, P),
 		  q = erlint(SizeQ, Q),
-		  g = erlint(SizeG, G)}}.
+		  g = erlint(SizeG, G)}};
+openssh_pubkey_decode(KeyType, Base64Enc) ->
+    {KeyType, base64:mime_decode(Base64Enc)}.
 
 erlint(MPIntSize, MPIntValue) ->
     Bits= MPIntSize * 8,
@@ -411,6 +432,12 @@ option_end(Part1, Part2) ->
 is_key_field(<<"ssh-dss">>) ->
     true;
 is_key_field(<<"ssh-rsa">>) ->
+    true;
+is_key_field(<<"ecdsa-sha2-nistp256">>) ->
+    true;
+is_key_field(<<"ecdsa-sha2-nistp384">>) ->
+    true;
+is_key_field(<<"ecdsa-sha2-nistp521">>) ->
     true;
 is_key_field(_) ->
     false.
