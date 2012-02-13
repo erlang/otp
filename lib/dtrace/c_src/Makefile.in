@@ -76,7 +76,7 @@ before_DTrace_OBJS = $(OBJDIR)/dtrace$(TYPEMARKER).o
 ## NIF_MAKEFILE = $(PRIVDIR)/Makefile
 
 # Higher-level makefiles says that we can only compile on UNIX flavors
-NIF_LIB = $(LIBDIR)/dtrace$(TYPEMARKER).so
+NIF_LIB = $(LIBDIR)/dtrace$(TYPEMARKER).@DED_EXT@
 
 ifeq ($(HOST_OS),)
 HOST_OS := $(shell $(ERL_TOP)/erts/autoconf/config.guess)
@@ -121,14 +121,14 @@ $(OBJDIR)/%$(TYPEMARKER).o: %.c $(DTRACE_USER_HEADER)
 	$(INSTALL_DIR) $(OBJDIR)
 	$(CC) -c -o $@ $(ALL_CFLAGS) $<
 
-$(LIBDIR)/dtrace$(TYPEMARKER).so: $(OBJS)
+$(NIF_LIB): $(OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 clean:
-	rm -f $(LIBDIR)/dtrace.so
-	rm -f $(LIBDIR)/dtrace.debug.so
-	rm -f $(LIBDIR)/dtrace.valgrind.so
+	rm -f $(LIBDIR)/dtrace.@DED_EXT@
+	rm -f $(LIBDIR)/dtrace.debug.@DED_EXT@
+	rm -f $(LIBDIR)/dtrace.valgrind.@DED_EXT@
 	rm -f $(OBJDIR)/dtrace.o
 	rm -f $(OBJDIR)/dtrace.debug.o
 	rm -f $(OBJDIR)/dtrace.valgrind.o

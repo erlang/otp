@@ -563,7 +563,11 @@ erts_queue_monitor_message(Process *p,
     ref_copy    = copy_struct(ref, ref_size, &hp, ohp);
 
     tup = TUPLE5(hp, am_DOWN, ref_copy, type, item_copy, reason_copy);
-    erts_queue_message(p, p_locksp, bp, tup, NIL);
+    erts_queue_message(p, p_locksp, bp, tup, NIL
+#ifdef HAVE_DTRACE
+		       , NIL
+#endif
+		       );
 }
 
 static BIF_RETTYPE
@@ -1944,7 +1948,11 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
 	
-	if (SEQ_TRACE_TOKEN(p) != NIL) {
+	if (SEQ_TRACE_TOKEN(p) != NIL
+#ifdef HAVE_DTRACE
+	    && SEQ_TRACE_TOKEN(p) != am_have_dt_utag
+#endif
+	    ) {
 	    seq_trace_update_send(p);
 	    seq_trace_output(SEQ_TRACE_TOKEN(p), msg, 
 			     SEQ_TRACE_SEND, portid, p);
@@ -4226,13 +4234,21 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	for (i = 0; i < erts_max_processes; i++) {
 	    if (process_tab[i] != (Process*) 0) {
 		Process* p = process_tab[i];
+#ifdef HAVE_DTRACE
+		p->seq_trace_token = (p->dt_utag != NIL) ? am_have_dt_utag : NIL;
+#else
 		p->seq_trace_token = NIL;
+#endif
 		p->seq_trace_clock = 0;
 		p->seq_trace_lastcnt = 0;
 		ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
 		mp = p->msg.first;
 		while(mp != NULL) {
+#ifdef HAVE_DTRACE
+		    ERL_MESSAGE_TOKEN(mp) = (ERL_MESSAGE_DT_UTAG(mp) != NIL) ? am_have_dt_utag : NIL;
+#else
 		    ERL_MESSAGE_TOKEN(mp) = NIL;
+#endif
 		    mp = mp->next;
 		}
 	    }
@@ -4630,3 +4646,171 @@ BIF_RETTYPE get_module_info_2(BIF_ALIST_2)
     }
     BIF_RET(ret);
 }
+
+BIF_RETTYPE put_utag_1(BIF_ALIST_1)
+{
+#ifdef HAVE_DTRACE
+    Eterm otag;
+    if (BIF_ARG_1 == am_undefined) {
+	otag = (DT_UTAG(BIF_P) == NIL) ? am_undefined : DT_UTAG(BIF_P);
+	DT_UTAG(BIF_P) = NIL;
+	DT_UTAG_FLAGS(BIF_P) = 0;
+	if (SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag) {
+	    SEQ_TRACE_TOKEN(BIF_P) = NIL;
+	}
+	BIF_RET(otag);
+    }
+    if (!is_binary(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    otag = (DT_UTAG(BIF_P) == NIL) ? am_undefined : DT_UTAG(BIF_P);
+    DT_UTAG(BIF_P) = BIF_ARG_1;
+    DT_UTAG_FLAGS(BIF_P) |= DT_UTAG_PERMANENT;
+    if (SEQ_TRACE_TOKEN(BIF_P) == NIL) {
+	SEQ_TRACE_TOKEN(BIF_P) = am_have_dt_utag;
+    }
+    BIF_RET(otag);
+#else
+    BIF_RET(am_undefined);
+#endif
+}
+
+BIF_RETTYPE get_utag_0(BIF_ALIST_0)
+{
+#ifdef HAVE_DTRACE
+    BIF_RET((DT_UTAG(BIF_P) == NIL || !(DT_UTAG_FLAGS(BIF_P) & DT_UTAG_PERMANENT)) ? am_undefined : DT_UTAG(BIF_P));
+#else
+    BIF_RET(am_undefined);
+#endif
+}
+BIF_RETTYPE get_utag_data_0(BIF_ALIST_0)
+{
+#ifdef HAVE_DTRACE
+    BIF_RET((DT_UTAG(BIF_P) == NIL) ? am_undefined : DT_UTAG(BIF_P));
+#else
+    BIF_RET(am_undefined);
+#endif
+}
+BIF_RETTYPE prepend_vm_utag_data_1(BIF_ALIST_1)
+{
+#ifdef HAVE_DTRACE
+    Eterm b; 
+    Eterm *hp;
+    hp = HAlloc(BIF_P,2);
+    if (is_binary((DT_UTAG(BIF_P)))) {
+	Uint sz = binary_size(DT_UTAG(BIF_P));
+	int i;
+	unsigned char *p,*q;
+	byte *temp_alloc = NULL;
+	b = new_binary(BIF_P,NULL,sz+1);
+	q = binary_bytes(b);
+	p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),&temp_alloc);
+	for(i=0;i<sz;++i) {
+	    q[i] = p[i];
+	} 
+	erts_free_aligned_binary_bytes(temp_alloc);
+	q[sz] = '\0';
+    } else {
+	b = new_binary(BIF_P,(byte *)"\0",1);
+    }
+    BIF_RET(CONS(hp,b,BIF_ARG_1));
+#else
+    BIF_RET(BIF_ARG_1);
+#endif
+}
+BIF_RETTYPE append_vm_utag_data_1(BIF_ALIST_1)
+{
+#ifdef HAVE_DTRACE
+    Eterm b; 
+    Eterm *hp;
+    hp = HAlloc(BIF_P,2);
+    if (is_binary((DT_UTAG(BIF_P)))) {
+	Uint sz = binary_size(DT_UTAG(BIF_P));
+	int i;
+	unsigned char *p,*q;
+	byte *temp_alloc = NULL;
+	b = new_binary(BIF_P,NULL,sz+1);
+	q = binary_bytes(b);
+	p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),&temp_alloc);
+	for(i=0;i<sz;++i) {
+	    q[i] = p[i];
+	} 
+	erts_free_aligned_binary_bytes(temp_alloc);
+	q[sz] = '\0';
+    } else {
+	b = new_binary(BIF_P,(byte *)"\0",1);
+    }
+    BIF_RET(CONS(hp,BIF_ARG_1,b));
+#else
+    BIF_RET(BIF_ARG_1);
+#endif
+}
+BIF_RETTYPE spread_utag_1(BIF_ALIST_1)
+{
+#ifdef HAVE_DTRACE
+    Eterm ret;
+    Eterm *hp;
+#endif
+    if (BIF_ARG_1 != am_true && BIF_ARG_1 != am_false) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+#ifdef HAVE_DTRACE
+    hp = HAlloc(BIF_P,3);
+    ret = TUPLE2(hp,make_small(DT_UTAG_FLAGS(BIF_P)),DT_UTAG(BIF_P));
+    if (DT_UTAG(BIF_P) != NIL) {
+	if (BIF_ARG_1 == am_true) {
+	    DT_UTAG_FLAGS(BIF_P) |= DT_UTAG_SPREADING;
+	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) start spreading tag %T\r\n",BIF_P->id,DT_UTAG(BIF_P));
+	} else {
+	    DT_UTAG_FLAGS(BIF_P) &= ~DT_UTAG_SPREADING;
+	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) stop spreading tag %T\r\n",BIF_P->id,DT_UTAG(BIF_P));
+	}
+    }
+    BIF_RET(ret);
+#else
+    BIF_RET(am_true);
+#endif
+}
+BIF_RETTYPE restore_utag_1(BIF_ALIST_1)
+{
+#ifdef HAVE_DTRACE
+    Eterm *tpl;
+    Uint x;
+    if (is_not_tuple(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    tpl = tuple_val(BIF_ARG_1);
+    if(arityval(*tpl) != 2 || is_not_small(tpl[1]) || (is_not_binary(tpl[2]) && tpl[2] != NIL)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    if (tpl[2] == NIL) {
+	if (DT_UTAG(BIF_P) != NIL) {
+	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) restore Killing tag!\r\n",BIF_P->id);
+	}
+	DT_UTAG(BIF_P) = NIL;
+	if (SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag) {
+	    SEQ_TRACE_TOKEN(BIF_P) = NIL;
+	}
+	DT_UTAG_FLAGS(BIF_P) = 0;
+    } else {
+	x = unsigned_val(tpl[1]) & (DT_UTAG_SPREADING | DT_UTAG_PERMANENT);
+	if (!(x & DT_UTAG_SPREADING) && (DT_UTAG_FLAGS(BIF_P) & DT_UTAG_SPREADING)) {
+	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) restore stop spreading tag %T\r\n",BIF_P->id,tpl[2]);
+	} else if ((x & DT_UTAG_SPREADING) && !(DT_UTAG_FLAGS(BIF_P) & DT_UTAG_SPREADING)) {
+	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) restore start spreading tag %T\r\n",BIF_P->id,tpl[2]);
+	}
+	DT_UTAG_FLAGS(BIF_P) = x;
+	DT_UTAG(BIF_P) = tpl[2];
+	if (SEQ_TRACE_TOKEN(BIF_P) == NIL) {
+	    SEQ_TRACE_TOKEN(BIF_P) = am_have_dt_utag;
+	}
+    }
+#else    
+    if (BIF_ARG_1 != am_true) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+#endif
+    BIF_RET(am_true);
+}
+
+

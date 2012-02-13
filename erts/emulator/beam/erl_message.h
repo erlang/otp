@@ -70,11 +70,18 @@ typedef struct erl_mesg {
 	ErlHeapFragment *heap_frag;
 	void *attached;
     } data;
+#ifdef HAVE_DTRACE
+    Eterm m[3];                 /* m[0] = message, m[1] = seq trace token, m[3] = dynamic trace user tag */
+#else
     Eterm m[2];			/* m[0] = message, m[1] = seq trace token */
+#endif
 } ErlMessage;
 
 #define ERL_MESSAGE_TERM(mp) ((mp)->m[0])
 #define ERL_MESSAGE_TOKEN(mp) ((mp)->m[1])
+#ifdef HAVE_DTRACE
+#define ERL_MESSAGE_DT_UTAG(mp) ((mp)->m[2])
+#endif
 
 /* Size of default message buffer (erl_message.c) */
 #define ERL_MESSAGE_BUF_SZ 500
@@ -221,7 +228,11 @@ ErlHeapFragment* erts_resize_message_buffer(ErlHeapFragment *, Uint,
 					    Eterm *, Uint);
 void free_message_buffer(ErlHeapFragment *);
 void erts_queue_dist_message(Process*, ErtsProcLocks*, ErtsDistExternal *, Eterm);
-void erts_queue_message(Process*, ErtsProcLocks*, ErlHeapFragment*, Eterm, Eterm);
+void erts_queue_message(Process*, ErtsProcLocks*, ErlHeapFragment*, Eterm, Eterm
+#ifdef HAVE_DTRACE
+		   , Eterm dt_utag
+#endif
+);
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
 void erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);

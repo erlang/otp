@@ -683,6 +683,10 @@ struct process {
     Uint seq_trace_lastcnt;
     Eterm seq_trace_token;	/* Sequential trace token (tuple size 5 see below) */
 
+#ifdef HAVE_DTRACE
+    Eterm dt_utag;              /* Place to store the dynamc trace user tag */
+    Uint dt_utag_flags;         /* flag field for the dt_utag */
+#endif       
     BeamInstr initial[3];	/* Initial module(0), function(1), arity(2), often used instead
 				   of pointer to funcinfo instruction, hence the BeamInstr datatype */
     BeamInstr* current;		/* Current Erlang function, part of the funcinfo:
@@ -997,6 +1001,14 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define SEQ_TRACE_RECEIVE  (1 << 1)
 #define SEQ_TRACE_PRINT    (1 << 2)
 #define SEQ_TRACE_TIMESTAMP (1 << 3)
+
+#ifdef HAVE_DTRACE
+#define DT_UTAG_PERMANENT (1 << 0)
+#define DT_UTAG_SPREADING (1 << 1)
+#define DT_UTAG(P) ((P)->dt_utag)
+#define DT_UTAG_FLAGS(P)  ((P)->dt_utag_flags) 
+#endif
+
 
 #ifdef ERTS_SMP
 /* Status flags ... */

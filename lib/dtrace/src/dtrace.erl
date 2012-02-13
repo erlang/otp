@@ -35,12 +35,10 @@
 %%% then the driver will ignore the user's input and use a default
 %%% value of 0 or NULL, respectively.
 
--define(DTRACE_UT_KEY, '_dtrace_utag_@_@'). % Match prim_file:get_dtrace_utag()!
-
 -export([init/0, available/0,
          user_trace_s1/1, % TODO: unify with pid & tag args like user_trace_i4s4
          p/0, p/1, p/2, p/3, p/4, p/5, p/6, p/7, p/8]).
--export([put_utag/1, get_utag/0]).
+-export([put_utag/1, get_utag/0, get_utag_data/0, spread_utag/1, restore_utag/1]).
 
 -export([scaff/0]). % Development only
 -export([user_trace_i4s4/9]). % Know what you're doing!
@@ -188,24 +186,29 @@ user_trace_int(I1, I2, I3, I4, S1, S2, S3, S4) ->
             false
     end.
 
--spec put_utag(undefined | iolist()) -> ok.
+-spec put_utag(undefined | iodata()) -> binary() | undefined.
+put_utag(Data) ->
+    erlang:put_utag(unicode:characters_to_binary(Data)).
 
-put_utag(undefined) ->
-    put_utag(<<>>);
-put_utag(T) when is_binary(T) ->
-    put(?DTRACE_UT_KEY, T),
-    ok;
-put_utag(T) when is_list(T) ->
-    put(?DTRACE_UT_KEY, list_to_binary(T)),
-    ok.
-
+-spec get_utag() -> binary() | undefined.
 get_utag() ->
-    case get(?DTRACE_UT_KEY) of
-        undefined ->
-            <<>>;
-        X ->
-            X
-    end.
+    erlang:get_utag().
+
+-spec get_utag_data() -> binary() | undefined.
+%% Gets utag if set, otherwise the spread utag data from last incoming message
+get_utag_data() ->
+    erlang:get_utag_data().
+
+-spec spread_utag(boolean()) -> true | {non_neg_integer(), binary() | []}.
+%% Makes the utag behave as a sequential trace token, will spread with messages to be picked up by someone using
+%% get_utag_data or get_drv_utag_data. 
+spread_utag(B) ->			   
+    erlang:spread_utag(B).
+
+-spec restore_utag(true | {non_neg_integer(), binary() | []}) -> true.
+restore_utag(T) ->
+    erlang:restore_utag(T).
+    
 
 %% Scaffolding to write tedious code: quick brute force and not 100% correct.
 

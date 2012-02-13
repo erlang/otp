@@ -71,7 +71,8 @@ erlang*:::efile_drv-entry
 	   arg4 == NULL ? "" : copyinstr(arg4),
 	   arg5 == NULL ? "" : copyinstr(arg5), arg6, arg7,
            /* NOTE: port name in args[10] is experimental */
-           copyinstr((user_addr_t) args[10]))
+           (args[10] == NULL) ? 
+	       "?" : copyinstr((user_addr_t) args[10]));
 }
 
 erlang*:::efile_drv-int*

@@ -382,7 +382,11 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	    Eterm tup;
 	    Eterm *hp = erts_alloc_message_heap(3,&bp,&ohp,rp,&rp_locks);
 	    tup = TUPLE2(hp, am_nodedown, name);
-	    erts_queue_message(rp, &rp_locks, bp, tup, NIL);
+	    erts_queue_message(rp, &rp_locks, bp, tup, NIL
+#ifdef HAVE_DTRACE
+			       , NIL
+#endif
+			       );
 	}
 	erts_smp_proc_unlock(rp, rp_locks);
     }
@@ -750,7 +754,11 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
     DTRACE_CHARBUF(receiver_name, 64);
 
     UseTmpHeapNoproc(5);
-    if (SEQ_TRACE_TOKEN(sender) != NIL) {
+    if (SEQ_TRACE_TOKEN(sender) != NIL 
+#ifdef HAVE_DTRACE
+	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
+#endif
+	) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote, sender);
@@ -799,7 +807,11 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     DTRACE_CHARBUF(receiver_name, 128);
 
     UseTmpHeapNoproc(6);
-    if (SEQ_TRACE_TOKEN(sender) != NIL) {
+    if (SEQ_TRACE_TOKEN(sender) != NIL
+#ifdef HAVE_DTRACE
+	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
+#endif
+	) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
@@ -851,7 +863,11 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     DTRACE_CHARBUF(reason_str, 128);
 
     UseTmpHeapNoproc(6);
-    if (token != NIL) {	
+    if (token != NIL 
+#ifdef HAVE_DTRACE
+	&& token != am_have_dt_utag
+#endif
+	) {	
 	seq_trace_update_send(dsdp->proc);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
 	ctl = TUPLE5(&ctl_heap[0],
@@ -866,7 +882,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
         erts_snprintf(remote_name, sizeof(remote_name),
                       "{%T,%s}", remote, node_name);
         erts_snprintf(reason_str, sizeof(reason), "%T", reason);
-        if (token != NIL) {
+        if (token != NIL && token != am_have_dt_utag) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -3094,7 +3110,11 @@ send_nodes_mon_msg(Process *rp,
     }
 
     ASSERT(hend == hp);
-    erts_queue_message(rp, rp_locksp, bp, msg, NIL);
+    erts_queue_message(rp, rp_locksp, bp, msg, NIL
+#ifdef HAVE_DTRACE
+		       , NIL
+#endif
+		       );
 }
 
 static void

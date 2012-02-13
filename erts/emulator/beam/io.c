@@ -1564,7 +1564,11 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 	    hp = erts_alloc_message_heap(sz_res + 3, &bp, &ohp, rp, &rp_locks);
 	    res = copy_struct(res, sz_res, &hp, ohp);
 	    tuple = TUPLE2(hp, sender, res);
-	erts_queue_message(rp, &rp_locks, bp, tuple, NIL);
+	erts_queue_message(rp, &rp_locks, bp, tuple, NIL
+#ifdef HAVE_DTRACE
+			   , NIL
+#endif
+			   );
 	erts_smp_proc_unlock(rp, rp_locks);
 	erts_smp_proc_dec_refc(rp);
     }
@@ -1653,7 +1657,11 @@ static void deliver_read_message(Port* prt, Eterm to,
     tuple = TUPLE2(hp, prt->id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
+    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
+#ifdef HAVE_DTRACE
+			   , NIL
+#endif
+		       );
     erts_smp_proc_unlock(rp, rp_locks);
     erts_smp_proc_dec_refc(rp);
 }
@@ -1806,7 +1814,11 @@ deliver_vec_message(Port* prt,			/* Port */
     tuple = TUPLE2(hp, prt->id, tuple);
     hp += 3;
 
-    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
+    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
+#ifdef HAVE_DTRACE
+		       , NIL
+#endif
+		       );
     erts_smp_proc_unlock(rp, rp_locks);
     erts_smp_proc_dec_refc(rp);
 }
@@ -2772,7 +2784,11 @@ void driver_report_exit(int ix, int status)
    hp += 3;
    tuple = TUPLE2(hp, prt->id, tuple);
 
-   erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined);
+   erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
+#ifdef HAVE_DTRACE
+		      , NIL
+#endif
+		      );
 
    erts_smp_proc_unlock(rp, rp_locks);
    erts_smp_proc_dec_refc(rp);
@@ -3322,7 +3338,11 @@ driver_deliver_term(ErlDrvPort port,
 	    HRelease(rp, hp_end, hp);	    
 	}
 	/* send message */
-	erts_queue_message(rp, &rp_locks, bp, mess, am_undefined);
+	erts_queue_message(rp, &rp_locks, bp, mess, am_undefined
+#ifdef HAVE_DTRACE
+			   , NIL
+#endif
+			   );
     }
     else {
 	if (b2t.ix > b2t.used)

@@ -100,7 +100,7 @@
 #endif
 #include <stdlib.h>
 
-// Need (NON)BLOCKING macros for sendfile
+/* Need (NON)BLOCKING macros for sendfile */
 #ifndef WANT_NONBLOCKING
 #define WANT_NONBLOCKING
 #endif
@@ -112,7 +112,7 @@
 #include "erl_threads.h"
 #include "zlib.h"
 #include "gzio.h"
-#include "dtrace-wrapper.h"
+#include "dtrace-wrapper.h" 
 #include <ctype.h>
 #include <sys/types.h>
 
@@ -149,10 +149,6 @@ typedef struct {
 
 dt_private *get_dt_private(int);
 #else  /* HAVE_DTRACE */
-typedef struct {
-    char        dummy;          /* Unused except to quiet some compilers */
-} dt_private;
-
 #define DTRACE_INVOKE_SETUP(op)            do {} while (0)
 #define DTRACE_INVOKE_SETUP_BY_NAME(op)    do {} while (0)
 #define DTRACE_INVOKE_RETURN(op)           do {} while (0)
@@ -212,6 +208,9 @@ typedef struct {
 
 
 #ifdef FILENAMES_16BIT
+#ifdef HAVE_DTRACE
+#error 16bit characters in filenames and dtrace in combination is not supported.
+#endif
 #  define FILENAME_BYTELEN(Str) filename_len_16bit(Str)
 #  define FILENAME_COPY(To,From) filename_cpy_16bit((To),(From)) 
 #  define FILENAME_CHARSIZE 2
@@ -432,8 +431,6 @@ struct t_data
     int               sched_i1;
     Uint64            sched_i2;
     char              sched_utag[DTRACE_EFILE_BUFSIZ+1];
-#else
-    char              sched_utag[1];
 #endif
     int            result_ok;
     Efile_error    errInfo;
@@ -2027,8 +2024,11 @@ static void cq_execute(file_descriptor *desc) {
 }
 
 static struct t_data *async_write(file_descriptor *desc, int *errp,
-		       int reply, Uint32 reply_size,
-                       Sint64 *dt_i1, Sint64 *dt_i2, Sint64 *dt_i3) {
+		       int reply, Uint32 reply_size
+#ifdef HAVE_DTRACE
+		       ,Sint64 *dt_i1, Sint64 *dt_i2, Sint64 *dt_i3
+#endif
+) {
     struct t_data *d;
     if (! (d = EF_ALLOC(sizeof(struct t_data) - 1))) {
 	if (errp) *errp = ENOMEM;
@@ -2041,11 +2041,13 @@ static struct t_data *async_write(file_descriptor *desc, int *errp,
     d->c.writev.port = desc->port;
     d->c.writev.q_mtx = desc->q_mtx;
     d->c.writev.size = desc->write_buffered;
+#ifdef HAVE_DTRACE
     if (dt_i1 != NULL) {
         *dt_i1 = d->fd;
         *dt_i2 = d->flags;
         *dt_i3 = d->c.writev.size;
     }
+#endif
     d->reply = reply;
     d->c.writev.free_size = 0;
     d->c.writev.reply_size = reply_size;
@@ -2057,16 +2059,24 @@ static struct t_data *async_write(file_descriptor *desc, int *errp,
     return d;
 }
 
-static int flush_write(file_descriptor *desc, int *errp,
-                       dt_private *dt_priv, char *dt_utag) {
+static int flush_write(file_descriptor *desc, int *errp
+#ifdef HAVE_DTRACE
+                       , dt_private *dt_priv, char *dt_utag
+#endif
+) {
     int    result = 0;
+#ifdef HAVE_DTRACE
     Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0;
+#endif
     struct t_data *d = NULL;
 
     MUTEX_LOCK(desc->q_mtx);
     if (desc->write_buffered > 0) {
-	if ((d = async_write(desc, errp, 0, 0,
-                             &dt_i1, &dt_i2, &dt_i3)) == NULL) {
+	if ((d = async_write(desc, errp, 0, 0
+#ifdef HAVE_DTRACE
+			     ,&dt_i1, &dt_i2, &dt_i3
+#endif
+			     )) == NULL) {
             result = -1;
         }
     }
@@ -2101,10 +2111,17 @@ static int check_write_error(file_descriptor *desc, int *errp) {
     return 0;
 }
 
-static int flush_write_check_error(file_descriptor *desc, int *errp,
-                                   dt_private *dt_priv, char *dt_utag) {
+static int flush_write_check_error(file_descriptor *desc, int *errp
+#ifdef HAVE_DTRACE
+                                   , dt_private *dt_priv, char *dt_utag
+#endif
+				   ) {
     int r;
-    if ( (r = flush_write(desc, errp, dt_priv, dt_utag)) != 0) {
+    if ( (r = flush_write(desc, errp
+#ifdef HAVE_DTRACE
+			  , dt_priv, dt_utag
+#endif
+			  )) != 0) {
 	check_write_error(desc, NULL);
 	return r;
     } else {
@@ -2113,8 +2130,11 @@ static int flush_write_check_error(file_descriptor *desc, int *errp,
 }
 
 static struct t_data *async_lseek(file_descriptor *desc, int *errp, int reply,
-		       Sint64 offset, int origin,
-                       Sint64 *dt_i1, Sint64 *dt_i2, Sint64 *dt_i3) {
+				  Sint64 offset, int origin
+#ifdef HAVE_DTRACE
+				  , Sint64 *dt_i1, Sint64 *dt_i2, Sint64 *dt_i3
+#endif
+				  ) {
     struct t_data *d;
     if (! (d = EF_ALLOC(sizeof(struct t_data)))) {
 	*errp = ENOMEM;
@@ -2126,11 +2146,13 @@ static struct t_data *async_lseek(file_descriptor *desc, int *errp, int reply,
     d->reply = reply;
     d->c.lseek.offset = offset;
     d->c.lseek.origin = origin;
+#ifdef HAVE_DTRACE
     if (dt_i1 != NULL) {
         *dt_i1 = d->fd;
         *dt_i2 = d->c.lseek.offset;
         *dt_i3 = d->c.lseek.origin;
     }
+#endif
     d->invoke = invoke_lseek;
     d->free = free_data;
     d->level = 1;
@@ -2147,18 +2169,26 @@ static void flush_read(file_descriptor *desc) {
     }
 }
 
-static int lseek_flush_read(file_descriptor *desc, int *errp,
-                            dt_private *dt_priv, char *dt_utag) {
+static int lseek_flush_read(file_descriptor *desc, int *errp
+#ifdef HAVE_DTRACE
+			    ,dt_private *dt_priv, char *dt_utag
+#endif
+			    ) {
     int r = 0;
     size_t read_size = desc->read_size;
+#ifdef HAVE_DTRACE
     Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0;
+#endif
     struct t_data *d;
 
     flush_read(desc);
     if (read_size != 0) {
 	if ((d = async_lseek(desc, errp, 0,
-                             -((ssize_t)read_size), EFILE_SEEK_CUR,
-                             &dt_i1, &dt_i2, &dt_i3)) == NULL) {
+                             -((ssize_t)read_size), EFILE_SEEK_CUR
+#ifdef HAVE_DTRACE
+			     , &dt_i1, &dt_i2, &dt_i3
+#endif
+			     )) == NULL) {
             r = -1;
         } else {
 #ifdef HAVE_DTRACE
@@ -2490,13 +2520,13 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     char* name;			/* Points to the filename in buf. */
     int command;
     struct t_data *d = NULL;
-    ERTS_DECLARE_DUMMY(char *dt_utag) = NULL;
-    char *dt_s1 = NULL, *dt_s2 = NULL;
-    ERTS_DECLARE_DUMMY(Sint64 dt_i1) = 0;
-    ERTS_DECLARE_DUMMY(Sint64 dt_i2) = 0;
-    ERTS_DECLARE_DUMMY(Sint64 dt_i3) = 0;
-    ERTS_DECLARE_DUMMY(Sint64 dt_i4) = 0;
 #ifdef  HAVE_DTRACE
+    char *dt_utag = NULL;
+    char *dt_s1 = NULL, *dt_s2 = NULL;
+    Sint64 dt_i1 = 0;
+    Sint64 dt_i2 = 0;
+    Sint64 dt_i3 = 0;
+    Sint64 dt_i4 = 0;
     dt_private *dt_priv = get_dt_private(0);
 #endif  /* HAVE_DTRACE */
 
@@ -2513,8 +2543,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
 	dt_s1 = d->b;
-	dt_utag = name + strlen(d->b) + 1;
+	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+#endif
 	d->command = command;
 	d->invoke = invoke_mkdir;
 	d->free = free_data;
@@ -2526,8 +2558,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
 	dt_s1 = d->b;
-	dt_utag = name + strlen(d->b) + 1;
+	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+#endif
 	d->command = command;
 	d->invoke = invoke_rmdir;
 	d->free = free_data;
@@ -2539,8 +2573,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
 	dt_s1 = d->b;
-	dt_utag = name + strlen(d->b) + 1;
+	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+#endif
 	d->command = command;
 	d->invoke = invoke_delete_file;
 	d->free = free_data;
@@ -2557,10 +2593,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
 	
 	    FILENAME_COPY(d->b, name);
-	    dt_s1 = d->b;
 	    FILENAME_COPY(d->b + namelen, new_name);
+#ifdef HAVE_DTRACE
+	    dt_s1 = d->b;
 	    dt_s2 = d->b + namelen;
-	    dt_utag = buf + namelen + strlen(dt_s2) + 1;
+	    dt_utag = buf + namelen + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+#endif
 	    d->flags = desc->flags;
 	    d->fd = fd;
 	    d->command = command;
@@ -2574,8 +2612,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
 	dt_s1 = d->b;
-	dt_utag = name + strlen(d->b) + 1;
+	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+#endif
 	d->command = command;
 	d->invoke = invoke_chdir;
 	d->free = free_data;
@@ -2587,7 +2627,9 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
 	
 	    d->drive = *(uchar*)buf;
+#ifdef HAVE_DTRACE
 	    dt_utag = buf + 1;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_pwd;
 	    d->free = free_data;
@@ -2603,8 +2645,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      FILENAME_CHARSIZE);
 	
 	    FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
 	    dt_s1 = d->b;
-	    dt_utag = name + strlen(d->b) + 1;
+	    dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+#endif
 	    d->dir_handle = NULL;
 	    d->command = command;
 	    d->invoke = invoke_readdir;
@@ -2629,9 +2673,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    dir_handle          = NULL;
 	    resbuf[0]           = FILE_RESP_LFNAME;
 
+#ifdef HAVE_DTRACE
 	    dt_s1 = name;
-	    dt_utag = name + strlen(dt_s1) + 1;
-
+	    dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+#endif
 	    /* Fill the buffer with multiple directory listings before sending it to the
 	     * receiving process. READDIR_CHUNKS is minimum number of files sent to the
 	     * receiver.
@@ -2680,11 +2725,13 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      FILENAME_CHARSIZE);
 	
 	    d->flags = get_int32((uchar*)buf);
-	    dt_i1 = d->flags;
 	    name = buf+4;
 	    FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
+	    dt_i1 = d->flags;
 	    dt_s1 = d->b;
-	    dt_utag = name + strlen(d->b) + 1;
+	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_open;
 	    d->free = free_data;
@@ -2696,9 +2743,11 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
 	    
-	    dt_utag = name;
 	    d->fd = fd;
+#ifdef HAVE_DTRACE
+	    dt_utag = name;
 	    dt_i1 = fd;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_fdatasync;
 	    d->free = free_data;
@@ -2710,9 +2759,11 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
 	    
-	    dt_utag = name;
 	    d->fd = fd;
+#ifdef HAVE_DTRACE
+	    dt_utag = name;
 	    dt_i1 = fd;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_fsync;
 	    d->free = free_data;
@@ -2728,13 +2779,15 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      FILENAME_CHARSIZE);
 	    
 	    FILENAME_COPY(d->b, name);
-	    dt_utag = name + strlen(d->b) + 1;
 	    d->fd = fd;
+#ifdef HAVE_DTRACE
+	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
 	    if (command == FILE_LSTAT) {
 		dt_s1 = d->b;
 	    } else {
 		dt_i1 = fd;
 	    }
+#endif
 	    d->command = command;
 	    d->invoke = invoke_flstat;
 	    d->free = free_data;
@@ -2746,11 +2799,13 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
         {
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
 	    
-	    dt_utag = name;
 	    d->flags = desc->flags;
 	    d->fd = fd;
+#ifdef HAVE_DTRACE
+	    dt_utag = name;
 	    dt_i1 = fd;
 	    dt_i2 = d->flags;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_truncate;
 	    d->free = free_data;
@@ -2764,18 +2819,20 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      + FILENAME_BYTELEN(buf + 9*4) + FILENAME_CHARSIZE);
 	    
 	    d->info.mode       = get_int32(buf +  0 * 4);
-	    dt_i1              = d->info.mode;
 	    d->info.uid        = get_int32(buf +  1 * 4);
-	    dt_i2              = d->info.uid;
 	    d->info.gid        = get_int32(buf +  2 * 4);
-	    dt_i3              = d->info.gid;
 	    d->info.accessTime = (time_t)((Sint64)get_int64(buf +  3 * 4));
 	    d->info.modifyTime = (time_t)((Sint64)get_int64(buf +  5 * 4));
 	    d->info.cTime      = (time_t)((Sint64)get_int64(buf +  7 * 4));
 
 	    FILENAME_COPY(d->b, buf + 9*4);
+#ifdef HAVE_DTRACE
+	    dt_i1              = d->info.mode;
+	    dt_i2              = d->info.uid;
+	    dt_i3              = d->info.gid;
 	    dt_s1 = d->b;
-	    dt_utag = buf + 9 * 4 + strlen(d->b) + 1;
+	    dt_utag = buf + 9 * 4 + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_write_info;
 	    d->free = free_data;
@@ -2788,8 +2845,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
 	
 	    FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
 	    dt_s1 = d->b;
-	    dt_utag = name + strlen(d->b) + 1;
+	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_readlink;
 	    d->free = free_data;
@@ -2801,8 +2860,10 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
 	    FILENAME_COPY(d->b, name);
+#ifdef HAVE_DTRACE
 	    dt_s1 = d->b;
-	    dt_utag = name + strlen(d->b) + 1;
+	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
+#endif
 	    d->command = command;
 	    d->invoke = invoke_altname;
 	    d->free = free_data;
@@ -2822,10 +2883,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
 	
 	    FILENAME_COPY(d->b, name);
-	    dt_s1 = d->b;
 	    FILENAME_COPY(d->b + namelen, new_name);
+#ifdef HAVE_DTRACE
+	    dt_s1 = d->b;
 	    dt_s2 = d->b + namelen;
-	    dt_utag = buf + namelen + strlen(dt_s2) + 1;
+	    dt_utag = buf + namelen + FILENAME_BYTELEN(dt_s2) + FILENAME_CHARSIZE;
+#endif
 	    d->flags = desc->flags;
 	    d->fd = fd;
 	    d->command = command;
@@ -2846,10 +2909,12 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE);
 	
 	    FILENAME_COPY(d->b, name);
-	    dt_s1 = d->b;
 	    FILENAME_COPY(d->b + namelen, new_name);
+#ifdef HAVE_DTRACE
+	    dt_s1 = d->b;
 	    dt_s2 = d->b + namelen;
-	    dt_utag = buf + namelen + strlen(dt_s2) + 1;
+	    dt_utag = buf + namelen + FILENAME_BYTELEN(dt_s2) + FILENAME_CHARSIZE;
+#endif
 	    d->flags = desc->flags;
 	    d->fd = fd;
 	    d->command = command;
@@ -2864,18 +2929,20 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
         d = EF_SAFE_ALLOC(sizeof(struct t_data));
 
         d->fd = fd;
-        dt_i1 = d->fd;
         d->command = command;
         d->invoke = invoke_fadvise;
         d->free = free_data;
         d->level = 2;
         d->c.fadvise.offset = get_int64((uchar*) buf);
-        dt_i2 = d->c.fadvise.offset;
         d->c.fadvise.length = get_int64(((uchar*) buf) + sizeof(Sint64));
-        dt_i3 = d->c.fadvise.length;
         d->c.fadvise.advise = get_int32(((uchar*) buf) + 2 * sizeof(Sint64));
+#ifdef HAVE_DTRACE
+        dt_i1 = d->fd;
+        dt_i2 = d->c.fadvise.offset;
+        dt_i3 = d->c.fadvise.length;
         dt_i4 = d->c.fadvise.advise;
         dt_utag = buf + 3 * sizeof(Sint64);
+#endif
         goto done;
     }
 
@@ -2920,8 +2987,6 @@ file_flush(ErlDrvData e) {
 #endif
 #ifdef  HAVE_DTRACE
     dt_private *dt_priv = get_dt_private(dt_driver_io_worker_base);
-#else
-    dt_private *dt_priv = NULL;
 #endif
 
     TRACE_C('f');
@@ -2933,8 +2998,11 @@ file_flush(ErlDrvData e) {
 #ifdef DEBUG
     r = 
 #endif
-         flush_write(desc, NULL, dt_priv,
-                    (desc->d == NULL) ? NULL : desc->d->sched_utag);
+         flush_write(desc, NULL
+#ifdef HAVE_DTRACE
+		     , dt_priv, (desc->d == NULL) ? NULL : desc->d->sched_utag
+#endif
+		     );
     /* Only possible reason for bad return value is ENOMEM, and 
      * there is nobody to tell...
      */
@@ -2978,8 +3046,6 @@ file_timeout(ErlDrvData e) {
     enum e_timer timer_state = desc->timer_state;
 #ifdef  HAVE_DTRACE
     dt_private *dt_priv = get_dt_private(dt_driver_io_worker_base);
-#else
-    dt_private *dt_priv = NULL;
 #endif
 
     TRACE_C('t');
@@ -2998,8 +3064,11 @@ file_timeout(ErlDrvData e) {
 #ifdef DEBUG
 	int r = 
 #endif
-	         flush_write(desc, NULL, dt_priv,
-                            (desc->d == NULL) ? NULL : desc->d->sched_utag);
+	         flush_write(desc, NULL
+#ifdef HAVE_DTRACE
+			     , dt_priv, (desc->d == NULL) ? NULL : desc->d->sched_utag
+#endif
+			     );
 	/* Only possible reason for bad return value is ENOMEM, and 
 	 * there is nobody to tell...
 	 */
@@ -3021,15 +3090,14 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     int p, q;
     int err;
     struct t_data *d = NULL;
+#ifdef HAVE_DTRACE
     Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0;
-    ERTS_DECLARE_DUMMY(Sint64 dt_i4) = 0;
+    Sint64 dt_i4 = 0;
     char *dt_utag = NULL;
-    ERTS_DECLARE_DUMMY(char *dt_s1) = NULL;
-#ifdef  HAVE_DTRACE
+    char *dt_s1 = NULL;
     dt_private *dt_priv = get_dt_private(dt_driver_io_worker_base);
-#else
-    dt_private *dt_priv = NULL;
 #endif
+
     TRACE_C('v');
 
     p = 0; q = 1;
@@ -3048,9 +3116,15 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     switch (command) {
 
     case FILE_CLOSE: {
+#ifdef HAVE_DTRACE
 	dt_utag = EV_CHAR_P(ev, p, q);
+#endif
 	flush_read(desc);
-	if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+	if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				    , dt_priv, dt_utag
+#endif
+				    ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
@@ -3061,9 +3135,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 		d->command = command;
 		d->reply = !0;
 		d->fd = desc->fd;
-		dt_i1 = d->fd;
 		d->flags = desc->flags;
+#ifdef HAVE_DTRACE
+		dt_i1 = d->fd;
 		dt_i2 = d->flags;
+#endif
 		d->invoke = invoke_close;
 		d->free = free_data;
 		d->level = 2;
@@ -3086,8 +3162,14 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
+#ifdef HAVE_DTRACE
 	dt_utag = EV_CHAR_P(ev, p, q);
-	if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+#endif
+	if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				    , dt_priv, dt_utag
+#endif
+				    ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
@@ -3095,7 +3177,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	if (desc->read_bufsize == 0 && desc->read_binp != NULL && desc->read_size > 0) {
 	    /* We have allocated a buffer for line mode but should not really have a 
 	       read-ahead buffer... */
-	    if (lseek_flush_read(desc, &err, dt_priv) < 0) {
+	    if (lseek_flush_read(desc, &err
+#ifdef HAVE_DTRACE
+				 , dt_priv, dt_utag
+#endif
+				 ) < 0) {
 		reply_posix_error(desc, err);
 		goto done;
 	    }
@@ -3171,14 +3257,16 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->reply = !0;
 	d->fd = desc->fd;
-	dt_i1 = d->fd;
 	d->flags = desc->flags;
-	dt_i2 = d->flags;
 	d->c.read.binp = desc->read_binp;
 	d->c.read.bin_offset = desc->read_offset + desc->read_size;
 	d->c.read.bin_size = desc->read_binp->orig_size - d->c.read.bin_offset;
 	d->c.read.size = size;
+#ifdef HAVE_DTRACE
+	dt_i1 = d->fd;
+	dt_i2 = d->flags;
 	dt_i3 = d->c.read.size;
+#endif
 	driver_binary_inc_refc(d->c.read.binp);
 	d->invoke = invoke_read;
 	d->free = free_read;
@@ -3196,12 +3284,22 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	 *    allocated binary + dealing with offsets and lengts are done in file_async ready
 	 *    for this OP.
 	 */
+#ifdef HAVE_DTRACE
 	dt_utag = EV_CHAR_P(ev, p, q);
-	if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+#endif
+	if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				    , dt_priv, dt_utag
+#endif
+				    ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
-	if (ev->size != 1+strlen(dt_utag)+1) {
+	if (ev->size != 1
+#ifdef HAVE_DTRACE
+	    + FILENAME_BYTELEN(dt_utag) + FILENAME_CHARSIZE
+#endif
+	    ) {
 	    /* Wrong command length */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
@@ -3253,41 +3351,43 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->reply = !0;
 	d->fd = desc->fd;
-	dt_i1 = d->fd;
 	d->flags = desc->flags;
-	dt_i2 = d->flags;
 	d->c.read_line.binp = desc->read_binp;
 	d->c.read_line.read_offset = desc->read_offset;
 	d->c.read_line.read_size = desc->read_size;
+#ifdef HAVE_DTRACE
+	dt_i1 = d->fd;
+	dt_i2 = d->flags;
 	dt_i3 = d->c.read_line.read_offset;
+#endif
 #if !ALWAYS_READ_LINE_AHEAD
 	d->c.read_line.read_ahead = (desc->read_bufsize > 0);
-#endif 
+#ifdef HAVE_DTRACE
 	dt_i4 = d->c.read_line.read_ahead;
+#endif
+#endif 
 	driver_binary_inc_refc(d->c.read.binp);
 	d->invoke = invoke_read_line;
 	d->free = free_read_line;
 	d->level = 1;
 	cq_enq(desc, d);
     } goto done;
-    case FILE_WRITE: {
+    case FILE_WRITE: { /* Dtrace: The dtrace user tag is not last in message, 
+			  but follows the message tag directly. 
+			  This is handled specially in prim_file.erl */
 	ErlDrvSizeT skip = 1;
 	ErlDrvSizeT size = ev->size - skip;
 
+#ifdef HAVE_DTRACE
 	dt_utag = EV_CHAR_P(ev, p, q);
-	skip += strlen(dt_utag) + 1;
+	skip += FILENAME_BYTELEN(dt_utag) + FILENAME_CHARSIZE;
 	size = ev->size - skip;
-	/*
-	 * Interesting dependency on using port # for key to async
-	 * I/O worker pool thread: lseek_flush_read() can enqueue a
-	 * lseek() op.  If that lseek() were scheduled on a different
-	 * thread than the write that we'll enqueue later in this case,
-	 * then Bad Things could happen.  This DTrace work is probably
-	 * well worthwhile to get a sense of how often there's head-of-
-	 * line blocking/unfairness during busy file I/O because of the
-	 * mapping of port #/key -> thread.
-	 */
-	if (lseek_flush_read(desc, &err, dt_priv, dt_utag) < 0) {
+#endif
+	if (lseek_flush_read(desc, &err
+#ifdef HAVE_DTRACE
+			     , dt_priv, dt_utag
+#endif
+			     ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
@@ -3314,8 +3414,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 		driver_set_timer(desc->port, desc->write_delay);
 	    }
 	} else {
-	    if ((d = async_write(desc, &err, !0, size,
-				 &dt_i1, &dt_i2, &dt_i3)) == NULL) {
+	    if ((d = async_write(desc, &err, !0, size
+#ifdef HAVE_DTRACE
+				 , &dt_i1, &dt_i2, &dt_i3
+#endif
+				 )) == NULL) {
 		MUTEX_UNLOCK(desc->q_mtx);
 		reply_posix_error(desc, err);
 		goto done;
@@ -3325,27 +3428,46 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
     } goto done; /* case FILE_WRITE */
 
-    case FILE_PWRITEV: {
+    case FILE_PWRITEV: { /* Dtrace: The dtrace user tag is not last in message, 
+			   but follows the message tag directly. 
+			   This is handled specially in prim_file.erl */
 	Uint32 i, j, n; 
 	size_t total;
-	char tmp;
+#ifdef HAVE_DTRACE
+	char dt_tmp;
 	int dt_utag_bytes = 1;
 
 	dt_utag = EV_CHAR_P(ev, p, q);
-	while (EV_GET_CHAR(ev, &tmp, &p, &q) && tmp != '\0') {
+	/* This will work for UTF-8, but not for UTF-16 - extra reminder here */
+#ifdef FILENAMES_16BIT 
+#error 16bit characters in filenames and dtrace in combination is not supported.
+#endif
+	while (EV_GET_CHAR(ev, &dt_tmp, &p, &q) && dt_tmp != '\0') {
 	    dt_utag_bytes++;
 	}
-	if (ev->size < 1+4+dt_utag_bytes
+#endif
+	if (ev->size < 1+4
+#ifdef HAVE_DTRACE
+	    + dt_utag_bytes
+#endif
 	    || !EV_GET_UINT32(ev, &n, &p, &q)) {
 	    /* Buffer too short to contain even the number of pos/size specs */
 	    reply_Uint_posix_error(desc, 0, EINVAL);
 	    goto done;
 	}
-	if (lseek_flush_read(desc, &err, dt_priv, dt_utag) < 0) {
+	if (lseek_flush_read(desc, &err
+#ifdef HAVE_DTRACE
+			     , dt_priv, dt_utag
+#endif
+			     ) < 0) {
 	    reply_Uint_posix_error(desc, 0, err);
 	    goto done;
 	}
-	if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+	if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				    , dt_priv, dt_utag
+#endif
+				    ) < 0) {
 	    reply_Uint_posix_error(desc, 0, err);
 	    goto done;
 	}
@@ -3358,7 +3480,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    }
 	    goto done;
 	}
-	if (ev->size < 1+4+8*(2*n)+dt_utag_bytes) {
+	if (ev->size < 1+4+8*(2*n)
+#ifdef HAVE_DTRACE
+	    + dt_utag_bytes
+#endif
+	    ) {
 	    /* Buffer too short to contain even the pos/size specs */
 	    reply_Uint_posix_error(desc, 0, EINVAL);
 	    goto done;
@@ -3372,9 +3498,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->reply = !0;
 	d->fd = desc->fd;
-	dt_i1 = d->fd;
 	d->flags = desc->flags;
+#ifdef HAVE_DTRACE
+	dt_i1 = d->fd;
 	dt_i2 = d->flags;
+#endif
 	d->c.pwritev.port = desc->port;
 	d->c.pwritev.q_mtx = desc->q_mtx;
 	d->c.pwritev.n = n;
@@ -3412,14 +3540,20 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    }
 	}
 	d->c.pwritev.size = total;
+#ifdef HAVE_DTRACE
 	dt_i3 = d->c.pwritev.size;
+#endif
 	d->c.pwritev.free_size = 0;
 	if (j == 0) {
 	    /* Trivial case - nothing to write */
 	    EF_FREE(d);
 	    reply_Uint(desc, 0);
 	} else {
-	    ErlDrvSizeT skip = 1 + 4 + 8 * (2*n) + dt_utag_bytes;
+	    ErlDrvSizeT skip = 1 + 4 + 8 * (2*n) 
+#ifdef HAVE_DTRACE
+		+ dt_utag_bytes
+#endif
+		;
 	    if (skip + total != ev->size) {
 		/* Actual amount of data does not match 
 		 * total of all pos/size specs
@@ -3440,33 +3574,55 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
     } goto done; /* case FILE_PWRITEV: */
 
-    case FILE_PREADV: {
+    case FILE_PREADV: { /* Dtrace: The dtrace user tag is not last in message, 
+			   but follows the message tag directly. 
+			   This is handled specially in prim_file.erl */
 	register void * void_ptr;
 	Uint32 i, n;
 	ErlIOVec *res_ev;
-	char tmp;
+#ifdef HAVE_DTRACE
+	char dt_tmp;
 	int dt_utag_bytes = 1;
-
+	/* This will work for UTF-8, but not for UTF-16 - extra reminder here */
+#ifdef FILENAMES_16BIT 
+#error 16bit characters in filenames and dtrace in combination is not supported.
+#endif
 	dt_utag = EV_CHAR_P(ev, p, q);
-	while (EV_GET_CHAR(ev, &tmp, &p, &q) && tmp != '\0') {
+	while (EV_GET_CHAR(ev, &dt_tmp, &p, &q) && dt_tmp != '\0') {
 	    dt_utag_bytes++;
 	}
-	if (lseek_flush_read(desc, &err, dt_priv, dt_utag) < 0) {
+#endif
+	if (lseek_flush_read(desc, &err
+#ifdef HAVE_DTRACE
+			     , dt_priv, dt_utag
+#endif
+			     ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
-	if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+	if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				    , dt_priv, dt_utag
+#endif
+				    ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
-	if (ev->size < 1+8+dt_utag_bytes
+	if (ev->size < 1+8
+#ifdef HAVE_DTRACE
+	    + dt_utag_bytes
+#endif
 	    || !EV_GET_UINT32(ev, &n, &p, &q)
 	    || !EV_GET_UINT32(ev, &n, &p, &q)) {
 	    /* Buffer too short to contain even the number of pos/size specs */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-	if (ev->size < 1+8+8*(2*n)+dt_utag_bytes) {
+	if (ev->size < 1+8+8*(2*n)
+#ifdef HAVE_DTRACE
+	    + dt_utag_bytes
+#endif
+	    ) {
 	    /* Buffer wrong length to contain the pos/size specs */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
@@ -3485,9 +3641,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->reply = !0;
 	d->fd = desc->fd;
-	dt_i1 = d->fd;
 	d->flags = desc->flags;
+#ifdef HAVE_DTRACE
+	dt_i1 = d->fd;
 	dt_i2 = d->flags;
+#endif
 	d->c.preadv.n = n;
 	d->c.preadv.cnt = 0;
 	d->c.preadv.size = 0;
@@ -3515,7 +3673,9 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #else
 	    size = ((size_t)sizeH<<32) | sizeL;
 #endif
+#ifdef HAVE_DTRACE
 	    dt_i3 += size;
+#endif
 	    if (! (res_ev->binv[i] = driver_alloc_binary(size))) {
 		reply_posix_error(desc, ENOMEM);
 		break;
@@ -3572,17 +3732,30 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
+#ifdef HAVE_DTRACE
 	dt_utag = EV_CHAR_P(ev, p, q);
-	if (lseek_flush_read(desc, &err, dt_priv, dt_utag) < 0) {
+#endif
+	if (lseek_flush_read(desc, &err
+#ifdef HAVE_DTRACE
+			     , dt_priv, dt_utag
+#endif
+			     ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
-	if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+	if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				    , dt_priv, dt_utag
+#endif
+				    ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
-	if ((d = async_lseek(desc, &err, !0, offset, origin,
-			     &dt_i1, &dt_i2, &dt_i3)) == NULL) {
+	if ((d = async_lseek(desc, &err, !0, offset, origin
+#ifdef HAVE_DTRACE
+			     , &dt_i1, &dt_i2, &dt_i3
+#endif
+			     )) == NULL) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
@@ -3595,11 +3768,22 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, ENOENT);
 	    goto done;
 	}
+#ifndef HAVE_DTRACE
+	/* In the dtrace case, the iov has an extra element, the dtrace utag - we will need 
+	   another test to see that
+	   the filename is in a single buffer: */
 	if (ev->size-1 != ev->iov[q].iov_len-p) {
 	    /* Name not in one single buffer */
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
+#else
+	if (((byte *)ev->iov[q].iov_base)[ev->iov[q].iov_len-1] != '\0') {
+	    /* Name not in one single buffer */
+	    reply_posix_error(desc, EINVAL);
+	    goto done;
+	}	
+#endif
 	filename = EV_CHAR_P(ev, p, q);
 	d = EF_ALLOC(sizeof(struct t_data) -1 + FILENAME_BYTELEN(filename) + FILENAME_CHARSIZE);
 	if (! d) {
@@ -3610,8 +3794,22 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->reply = !0;
 	/* Copy name */
 	FILENAME_COPY(d->b, filename);
-	dt_s1 = d->b;
-	dt_utag = filename + strlen(d->b) + 1;
+#ifdef HAVE_DTRACE
+	{
+	    char dt_tmp;
+
+	    /* This will work for UTF-8, but not for UTF-16 - extra reminder here */
+#ifdef FILENAMES_16BIT 
+#error 16bit characters in filenames and dtrace in combination is not supported.
+#endif
+	    while (EV_GET_CHAR(ev, &dt_tmp, &p, &q) && dt_tmp != '\0') 
+		;
+	    dt_s1 = d->b;
+	    dt_utag = EV_CHAR_P(ev, p, q);
+	    if (*dt_utag != 0)
+		fprintf(stderr,"dt_utag = %s\r\n",dt_utag);
+	}
+#endif
 	d->c.read_file.binp = NULL;
 	d->invoke = invoke_read_file;
 	d->free = free_read_file;
@@ -3650,12 +3848,22 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
+#ifdef HAVE_DTRACE
 	dt_utag = EV_CHAR_P(ev, p, q);
-	if (lseek_flush_read(desc, &err, dt_priv, dt_utag) < 0) {
+#endif
+	if (lseek_flush_read(desc, &err
+#ifdef HAVE_DTRACE
+			     , dt_priv, dt_utag
+#endif
+			     ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
-	if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+	if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				    , dt_priv, dt_utag
+#endif
+				    ) < 0) {
 	    reply_posix_error(desc, err);
 	    goto done;
 	}
@@ -3672,13 +3880,15 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->command = command;
 	d->reply = !0;
 	d->fd = desc->fd;
-	dt_i1 = d->fd;
 	d->flags = desc->flags;
-	dt_i2 = d->flags;
 	d->c.preadv.offsets[0] = hdr_offset;
-	dt_i3 = d->c.preadv.offsets[0];
 	d->c.preadv.size = max_size;
+#ifdef HAVE_DTRACE
+	dt_i1 = d->fd;
+	dt_i2 = d->flags;
+	dt_i3 = d->c.preadv.offsets[0];
 	dt_i4 = d->c.preadv.size;
+#endif
 	res_ev = &d->c.preadv.eiov;
 	/* XXX possible alignment problems here for weird machines */
 	res_ev->iov = void_ptr = d + 1;
@@ -3700,12 +3910,17 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
+#ifdef HAVE_DTRACE
 	dt_i1 = opt;
 	dt_utag = EV_CHAR_P(ev, p, q);
+#endif
 	switch (opt) {
 	case FILE_OPT_DELAYED_WRITE: {
 	    Uint32 sizeH, sizeL, delayH, delayL;
-	    if (ev->size != 1+1+4*sizeof(Uint32)+strlen(dt_utag)+1
+	    if (ev->size != 1+1+4*sizeof(Uint32)
+#ifdef HAVE_DTRACE
+		+ FILENAME_BYTELEN(dt_utag) + FILENAME_CHARSIZE
+#endif
 		|| !EV_GET_UINT32(ev, &sizeH, &p, &q)
 		|| !EV_GET_UINT32(ev, &sizeL, &p, &q)
 		|| !EV_GET_UINT32(ev, &delayH, &p, &q)
@@ -3732,13 +3947,18 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #else
 	    desc->write_delay = ((unsigned long)delayH << 32) | delayL;
 #endif
+#ifdef HAVE_DTRACE
 	    dt_i2 = desc->write_delay;
+#endif
 	    TRACE_C('K');
 	    reply_ok(desc);
 	} goto done;
 	case FILE_OPT_READ_AHEAD: {
 	    Uint32 sizeH, sizeL;
-	    if (ev->size != 1+1+2*sizeof(Uint32)+strlen(dt_utag)+1
+	    if (ev->size != 1+1+2*sizeof(Uint32)
+#ifdef HAVE_DTRACE
+		+ FILENAME_BYTELEN(dt_utag)+FILENAME_CHARSIZE
+#endif
 		|| !EV_GET_UINT32(ev, &sizeH, &p, &q)
 		|| !EV_GET_UINT32(ev, &sizeL, &p, &q)) {
 		/* Buffer has wrong length to contain the option values */
@@ -3754,7 +3974,9 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #else
 	    desc->read_bufsize = ((size_t)sizeH << 32) | sizeL;
 #endif
+#ifdef HAVE_DTRACE
 	    dt_i2 = desc->read_bufsize;
+#endif
 	    TRACE_C('K');
 	    reply_ok(desc);
 	} goto done;
@@ -3841,11 +4063,19 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
     } /* switch(command) */
 
-    if (lseek_flush_read(desc, &err, dt_priv, dt_utag) < 0) {
+    if (lseek_flush_read(desc, &err
+#ifdef HAVE_DTRACE
+			 , dt_priv, dt_utag
+#endif
+			 ) < 0) {
 	reply_posix_error(desc, err);
 	goto done;
     }
-    if (flush_write_check_error(desc, &err, dt_priv, dt_utag) < 0) {
+    if (flush_write_check_error(desc, &err
+#ifdef HAVE_DTRACE
+				, dt_priv, dt_utag
+#endif
+				) < 0) {
 	reply_posix_error(desc, err);
 	goto done;
     } else {

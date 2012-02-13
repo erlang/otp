@@ -393,13 +393,26 @@ erts_queue_dist_message(Process *rcvr,
                         receiver_name, size_object(msg), rcvr->msg.len,
                         tok_label, tok_lastcnt, tok_serial);
             }
-	    erts_queue_message(rcvr, rcvr_locks, mbuf, msg, token);
+	    erts_queue_message(rcvr, rcvr_locks, mbuf, msg, token
+#ifdef HAVE_DTRACE
+			       , NIL
+#endif
+			       );
     }
     else {
 	/* Enqueue message on external format */
 
 	ERL_MESSAGE_TERM(mp) = THE_NON_VALUE;
-	ERL_MESSAGE_TOKEN(mp) = token;
+#ifdef HAVE_DTRACE
+	ERL_MESSAGE_DT_UTAG(mp) = NIL;
+	if (token == am_have_dt_utag) {
+	    ERL_MESSAGE_TOKEN(mp) = NIL;
+	} else {
+#endif
+	    ERL_MESSAGE_TOKEN(mp) = token;
+#ifdef HAVE_DTRACE
+	}
+#endif
 	mp->next = NULL;
 
         if (DTRACE_ENABLED(message_queued)) {
@@ -431,7 +444,11 @@ erts_queue_message(Process* receiver,
 		   ErtsProcLocks *receiver_locks,
 		   ErlHeapFragment* bp,
 		   Eterm message,
-		   Eterm seq_trace_token)
+		   Eterm seq_trace_token
+#ifdef HAVE_DTRACE
+		   , Eterm dt_utag
+#endif
+)
 {
     ErlMessage* mp;
 #ifdef ERTS_SMP
@@ -472,6 +489,9 @@ erts_queue_message(Process* receiver,
 
     ERL_MESSAGE_TERM(mp) = message;
     ERL_MESSAGE_TOKEN(mp) = seq_trace_token;
+#ifdef HAVE_DTRACE
+    ERL_MESSAGE_DT_UTAG(mp) = dt_utag;
+#endif
     mp->next = NULL;
     mp->data.heap_frag = bp;
 
@@ -547,6 +567,9 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
     Sint offs;
     Uint sz;
     ErlHeapFragment *bp;
+#ifdef HAVE_DTRACE
+    Eterm utag;
+#endif
 
 #ifdef HARD_DEBUG
     ProcBin *dbg_mso_start = off_heap->mso;
@@ -556,32 +579,56 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
     ErlHeapFragment *dbg_bp;
     Uint *dbg_hp, *dbg_thp_start;
     Uint dbg_term_sz, dbg_token_sz;
+#ifdef HAVE_DTRACE
+    Eterm dbg_utag;
+    Uint dbg_utag_sz;
+#endif
 #endif
 
     bp = msg->data.heap_frag;
     term = ERL_MESSAGE_TERM(msg);
     token = ERL_MESSAGE_TOKEN(msg);
+#ifdef HAVE_DTRACE
+    utag = ERL_MESSAGE_DT_UTAG(msg);
+#endif
     if (!bp) {
+#ifdef HAVE_DTRACE
+	ASSERT(is_immed(term) && is_immed(token) && is_immed(utag));
+#else
 	ASSERT(is_immed(term) && is_immed(token));
+#endif
 	return;
     }
 
 #ifdef HARD_DEBUG
     dbg_term_sz = size_object(term);
     dbg_token_sz = size_object(token);
+    dbg_bp = new_message_buffer(dbg_term_sz + dbg_token_sz);
+#ifdef HAVE_DTRACE
+    dbg_utag_sz = size_object(utag);
+    dbg_bp = new_message_buffer(dbg_term_sz + dbg_token_sz + dbg_utag_sz );
+#endif
     /*ASSERT(dbg_term_sz + dbg_token_sz == erts_msg_used_frag_sz(msg));
       Copied size may be smaller due to removed SubBins's or garbage.
       Copied size may be larger due to duplicated shared terms.
     */
-    dbg_bp = new_message_buffer(dbg_term_sz + dbg_token_sz);
     dbg_hp = dbg_bp->mem;
     dbg_term = copy_struct(term, dbg_term_sz, &dbg_hp, &dbg_bp->off_heap);
     dbg_token = copy_struct(token, dbg_token_sz, &dbg_hp, &dbg_bp->off_heap);
-    dbg_thp_start = *hpp;
+#ifdef HAVE_DTRACE
+    dbg_utag = copy_struct(utag, dbg_utag_sz, &dbg_hp, &dbg_bp->off_heap);
+#endif
+   dbg_thp_start = *hpp;
 #endif
 
     if (bp->next != NULL) {
-	move_multi_frags(hpp, off_heap, bp, msg->m, 2);
+	move_multi_frags(hpp, off_heap, bp, msg->m, 
+#ifdef HAVE_DTRACE
+			 3
+#else
+			 2
+#endif
+			 );
 	goto copy_done;
     }
 
@@ -683,6 +730,16 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
 	ASSERT(hp > ptr_val(ERL_MESSAGE_TERM(msg)));
 #endif
     }
+#ifdef HAVE_DTRACE
+    if (is_not_immed(utag)) {
+	ASSERT(in_heapfrag(ptr_val(utag), bp));
+	ERL_MESSAGE_DT_UTAG(msg) = offset_ptr(utag, offs);
+#ifdef HARD_DEBUG
+	ASSERT(dbg_thp_start <= ptr_val(ERL_MESSAGE_DT_UTAG(msg)));
+	ASSERT(hp > ptr_val(ERL_MESSAGE_DT_UTAG(msg)));
+#endif
+    }
+#endif
 
 copy_done:
 
@@ -749,6 +806,9 @@ copy_done:
 #ifdef HARD_DEBUG
     ASSERT(eq(ERL_MESSAGE_TERM(msg), dbg_term));
     ASSERT(eq(ERL_MESSAGE_TOKEN(msg), dbg_token));
+#ifdef HAVE_DTRACE
+    ASSERT(eq(ERL_MESSAGE_DT_UTAG(msg), dbg_utag));
+#endif
     free_message_buffer(dbg_bp);
 #endif
 
@@ -841,42 +901,85 @@ erts_send_message(Process* sender,
     }
     if (SEQ_TRACE_TOKEN(sender) != NIL && !(flags & ERTS_SND_FLG_NO_SEQ_TRACE)) {
         Eterm* hp;
+	Eterm stoken = SEQ_TRACE_TOKEN(sender);
+	Uint seq_trace_size = 0;
+#ifdef HAVE_DTRACE
+	Uint dt_utag_size = 0;
+	Eterm utag = NIL;
+#endif
 
-        BM_SWAP_TIMER(send,size);
+	BM_SWAP_TIMER(send,size);
 	msize = size_object(message);
-        BM_SWAP_TIMER(size,send);
+	BM_SWAP_TIMER(size,send);
 
-	seq_trace_update_send(sender);
-	seq_trace_output(SEQ_TRACE_TOKEN(sender), message, SEQ_TRACE_SEND, 
-			 receiver->id, sender);
-	bp = new_message_buffer(msize + 6 /* TUPLE5 */);
+#ifdef HAVE_DTRACE
+	if (stoken != am_have_dt_utag) {
+#endif
+
+	    seq_trace_update_send(sender);
+	    seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
+			     receiver->id, sender);
+	    seq_trace_size = 6; /* TUPLE5 */
+#ifdef HAVE_DTRACE
+	}
+	if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
+	    dt_utag_size = size_object(DT_UTAG(sender));
+	} else if (stoken == am_have_dt_utag ) {
+	    stoken = NIL;
+	}
+#endif
+
+	bp = new_message_buffer(msize + seq_trace_size 
+#ifdef HAVE_DTRACE
+				+ dt_utag_size
+#endif
+				);
 	hp = bp->mem;
 
         BM_SWAP_TIMER(send,copy);
-	token = copy_struct(SEQ_TRACE_TOKEN(sender),
-			    6 /* TUPLE5 */,
+	token = copy_struct(stoken,
+			    seq_trace_size,
 			    &hp,
 			    &bp->off_heap);
 
 	message = copy_struct(message, msize, &hp, &bp->off_heap);
+#ifdef HAVE_DTRACE
+	if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
+	    utag = copy_struct(DT_UTAG(sender), dt_utag_size, &hp, &bp->off_heap);
+	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) Spreading tag (%T) with message %T!\r\n",sender->id, utag, message);
+	}
+#if 0
+	DT_UTAG_FLAGS(sender) &= ~DT_UTAG_SPREADING;
+	if (!(DT_UTAG_FLAGS(sender) & DT_UTAG_PERMANENT)) {
+	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) Killing tag!\r\n",sender->id);
+	    DT_UTAG(sender) = NIL;
+	    if (SEQ_TRACE_TOKEN(sender) == am_have_dt_utag) {
+		SEQ_TRACE_TOKEN(sender) = NIL;
+	    }
+	}
+#endif
+#endif
         BM_MESSAGE_COPIED(msize);
         BM_SWAP_TIMER(copy,send);
 
         if (DTRACE_ENABLED(message_send)) {
-            Eterm token2 = NIL;
-
-            token2 = SEQ_TRACE_TOKEN(sender);
-            tok_label = signed_val(SEQ_TRACE_T_LABEL(token2));
-            tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token2));
-            tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token2));
-            DTRACE6(message_send, sender_name, receiver_name,
-                    msize, tok_label, tok_lastcnt, tok_serial);
+	    if (stoken != NIL) {
+		tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
+		tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
+		tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));
+	    }
+	    DTRACE6(message_send, sender_name, receiver_name,
+		    msize, tok_label, tok_lastcnt, tok_serial);
         }
         erts_queue_message(receiver,
 			   receiver_locks,
 			   bp,
 			   message,
-			   token);
+			   token
+#ifdef HAVE_DTRACE
+			   , utag
+#endif
+			   );
         BM_SWAP_TIMER(send,system);
 #ifdef HYBRID
     } else {
@@ -909,6 +1012,9 @@ erts_send_message(Process* sender,
                 size_object(message)msize, tok_label, tok_lastcnt, tok_serial);
         ERL_MESSAGE_TERM(mp) = message;
         ERL_MESSAGE_TOKEN(mp) = NIL;
+#ifdef HAVE_DTRACE
+	ERL_MESSAGE_DT_UTAG(mp) = NIL;
+#endif
         mp->next = NULL;
 	LINK_MESSAGE(receiver, mp);
         ACTIVATE(receiver);
@@ -951,6 +1057,9 @@ erts_send_message(Process* sender,
 	    mp->data.attached = NULL;
 	    ERL_MESSAGE_TERM(mp) = message;
 	    ERL_MESSAGE_TOKEN(mp) = NIL;
+#ifdef HAVE_DTRACE
+	    ERL_MESSAGE_DT_UTAG(mp) = NIL;
+#endif
 	    mp->next = NULL;
 	    /*
 	     * We move 'in queue' to 'private queue' and place
@@ -984,7 +1093,11 @@ erts_send_message(Process* sender,
 	BM_SWAP_TIMER(copy,send);
         DTRACE6(message_send, sender_name, receiver_name,
                 msize, tok_label, tok_lastcnt, tok_serial);
-	erts_queue_message(receiver, receiver_locks, bp, message, token);
+	erts_queue_message(receiver, receiver_locks, bp, message, token
+#ifdef HAVE_DTRACE
+			   , NIL
+#endif
+			   );
         BM_SWAP_TIMER(send,system);
 #else
 	ErlMessage* mp = message_alloc();
@@ -1008,6 +1121,9 @@ erts_send_message(Process* sender,
                 (uint32_t)msize, tok_label, tok_lastcnt, tok_serial);
 	ERL_MESSAGE_TERM(mp) = message;
 	ERL_MESSAGE_TOKEN(mp) = NIL;
+#ifdef HAVE_DTRACE
+	ERL_MESSAGE_DT_UTAG(mp) = NIL;
+#endif
 	mp->next = NULL;
 	mp->data.attached = NULL;
 	LINK_MESSAGE(receiver, mp);
@@ -1046,7 +1162,11 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
     Eterm temptoken;
     ErlHeapFragment* bp = NULL;
 
-    if (token != NIL) {
+    if (token != NIL
+#ifdef HAVE_DTRACE
+	&& token != am_have_dt_utag
+#endif
+	) {
 
 	ASSERT(is_tuple(token));
 	sz_reason = size_object(reason);
@@ -1061,7 +1181,11 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 	/* the trace token must in this case be updated by the caller */
 	seq_trace_output(token, save, SEQ_TRACE_SEND, to->id, NULL);
 	temptoken = copy_struct(token, sz_token, &hp, &bp->off_heap);
-	erts_queue_message(to, to_locksp, bp, save, temptoken);
+	erts_queue_message(to, to_locksp, bp, save, temptoken
+#ifdef HAVE_DTRACE
+			   , NIL
+#endif
+			   );
     } else {
 	ErlOffHeap *ohp;
 	sz_reason = size_object(reason);
@@ -1078,7 +1202,11 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 		     ? from
 		     : copy_struct(from, sz_from, &hp, ohp));
 	save = TUPLE3(hp, am_EXIT, from_copy, mess);
-	erts_queue_message(to, to_locksp, bp, save, NIL);
+	erts_queue_message(to, to_locksp, bp, save, NIL
+#ifdef HAVE_DTRACE
+			   , NIL
+#endif
+			   );
     }
 }
 

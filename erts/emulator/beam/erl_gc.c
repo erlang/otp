@@ -1935,7 +1935,13 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	roots[n].sz = 1;
 	n++;
     }
-
+#ifdef HAVE_DTRACE
+    if (is_not_immed(p->dt_utag)) {
+	roots[n].v = &p->dt_utag;
+	roots[n].sz = 1;
+	n++;
+    }
+#endif
     ASSERT(is_nil(p->tracer_proc) ||
 	   is_internal_pid(p->tracer_proc) ||
 	   is_internal_port(p->tracer_proc));
@@ -2472,6 +2478,13 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
 	if (is_boxed(mesg) && in_area(ptr_val(mesg), area, area_size)) {
 	    ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
         }
+#ifdef HAVE_DTRACE
+	mesg = ERL_MESSAGE_DT_UTAG(mp);
+	if (is_boxed(mesg) && in_area(ptr_val(mesg), area, area_size)) {
+	    ERL_MESSAGE_DT_UTAG(mp) = offset_ptr(mesg, offs);
+        }
+#endif	
+	
         ASSERT((is_nil(ERL_MESSAGE_TOKEN(mp)) ||
 		is_tuple(ERL_MESSAGE_TOKEN(mp)) ||
 		is_atom(ERL_MESSAGE_TOKEN(mp))));
@@ -2491,6 +2504,9 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
     offset_heap_ptr(&p->fvalue, 1, offs, area, area_size);
     offset_heap_ptr(&p->ftrace, 1, offs, area, area_size);
     offset_heap_ptr(&p->seq_trace_token, 1, offs, area, area_size);
+#ifdef HAVE_DTRACE
+    offset_heap_ptr(&p->dt_utag, 1, offs, area, area_size);
+#endif
     offset_heap_ptr(&p->group_leader, 1, offs, area, area_size);
     offset_mqueue(p, offs, area, area_size);
     offset_heap_ptr(p->stop, (STACK_START(p) - p->stop), offs, area, area_size);

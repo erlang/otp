@@ -373,7 +373,11 @@ bif_timer_timeout(ErtsBifTimer* btm)
 		message = TUPLE3(hp, am_timeout, ref, message);
 	    }
 
-	    erts_queue_message(rp, &rp_locks, bp, message, NIL);
+	    erts_queue_message(rp, &rp_locks, bp, message, NIL
+#ifdef HAVE_DTRACE
+			       , NIL
+#endif
+			       );
 	    erts_smp_proc_unlock(rp, rp_locks);
 	    erts_smp_proc_dec_refc(rp);
 	}

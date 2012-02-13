@@ -351,7 +351,11 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     if (flush_me) {	
 	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
-    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined);
+    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined
+#ifdef HAVE_DTRACE
+		       , NIL
+#endif
+		       );
     if (rp_locks) {	
 	ERTS_SMP_LC_ASSERT(rp_locks == (rp_had_locks | (ERTS_PROC_LOCK_MSGQ | 
 							ERTS_PROC_LOCK_STATUS)));
