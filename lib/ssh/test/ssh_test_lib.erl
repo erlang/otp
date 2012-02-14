@@ -248,6 +248,35 @@ clean_rsa(UserDir) ->
     file:delete(filename:join(UserDir,"known_hosts")),
     file:delete(filename:join(UserDir,"authorized_keys")).
 
+setup_dsa_pass_pharse(DataDir, UserDir, Phrase) ->
+    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
+    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
+    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
+    setup_dsa_known_host(DataDir, UserDir),
+    setup_dsa_auth_keys(DataDir, UserDir).
+
+setup_rsa_pass_pharse(DataDir, UserDir, Phrase) ->
+    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
+    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
+    System = filename:join(UserDir, "system"),
+    file:make_dir(System),
+    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
+    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
+    setup_rsa_known_host(DataDir, UserDir),
+    setup_rsa_auth_keys(DataDir, UserDir).
+
+setup_pass_pharse(KeyBin, OutFile, Phrase) ->
+    [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
+    Key =  public_key:pem_entry_decode(Entry0),
+    Salt = crypto:rand_bytes(8),
+    Entry = public_key:pem_entry_encode(KeyType, Key,
+					{{"DES-CBC", Salt}, Phrase}),
+    Pem = public_key:pem_encode([Entry]),
+    file:write_file(OutFile, Pem).
+
 setup_dsa_known_host(SystemDir, UserDir) ->
     {ok, SshBin} = file:read_file(filename:join(SystemDir, "ssh_host_dsa_key.pub")),
     [{Key, _}] = public_key:ssh_decode(SshBin, public_key),

@@ -306,6 +306,10 @@ handle_options([{connect_timeout, _} = Opt | Rest], SockOpts, Opts) ->
     handle_options(Rest, SockOpts, [Opt | Opts]);
 handle_options([{user, _} = Opt | Rest], SockOpts, Opts) -> 
     handle_options(Rest, SockOpts, [Opt | Opts]);
+handle_options([{dsa_pass_phrase, _} = Opt | Rest], SockOpts, Opts) ->
+    handle_options(Rest, SockOpts, [Opt | Opts]);
+handle_options([{rsa_pass_phrase, _} = Opt | Rest], SockOpts, Opts) ->
+    handle_options(Rest, SockOpts, [Opt | Opts]);
 handle_options([{password, _} = Opt | Rest], SockOpts, Opts) -> 
     handle_options(Rest, SockOpts, [Opt | Opts]);
 handle_options([{user_passwords, _} = Opt | Rest], SockOpts, Opts) -> 
