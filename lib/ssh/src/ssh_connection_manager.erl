@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -144,7 +144,7 @@ adjust_window(ConnectionManager, Channel, Bytes) ->
     cast(ConnectionManager, {adjust_window, Channel, Bytes}).
 
 close(ConnectionManager, ChannelId) ->
-    try   call(ConnectionManager, {close, ChannelId}) of
+    try call(ConnectionManager, {close, ChannelId}) of
 	  ok ->
 	    ok;
 	  {error, channel_closed} ->
@@ -604,6 +604,8 @@ call(Pid, Msg, Timeout) ->
 	exit:{timeout, _} ->
 	    {error, timeout};
 	exit:{normal, _} ->
+	    {error, channel_closed};
+	exit:{noproc,_} ->
 	    {error, channel_closed}
     end.
 
