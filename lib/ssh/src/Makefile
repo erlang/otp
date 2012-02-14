@@ -36,7 +36,11 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 # Common Macros
 # ----------------------------------------------------
 
+# Behaviour (api) modules are first so they are compiled when
+# the compiler reaches a callback module using them.
 MODULES= \
+	ssh_sftpd_file_api \
+	ssh_key_api \
 	ssh \
 	ssh_sup \
 	sshc_sup \
@@ -63,7 +67,6 @@ MODULES= \
 	ssh_sftp \
 	ssh_sftpd \
 	ssh_sftpd_file\
-	ssh_sftpd_file_api \
 	ssh_transport \
 	ssh_userreg \
 	ssh_xfer
