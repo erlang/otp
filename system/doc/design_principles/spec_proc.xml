@@ -108,7 +108,7 @@ ok
     <list type="bulleted">
       <item>be started in a way that makes the process fit into a
        supervision tree,</item>
-      <item>support the <c>sys</c><seealso marker="#debug">debug facilities</seealso>, and</item>
+      <item>support the <c>sys</c> <seealso marker="#debug">debug facilities</seealso>, and</item>
       <item>take care of <seealso marker="#msg">system messages</seealso>.</item>
     </list>
     <p>System messages are messages with special meaning, used in
