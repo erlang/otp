@@ -2370,11 +2370,11 @@ test_modules() ->
 	 "LDAP"
 	].
 
-test_OTP_9688(_Config) ->
+test_OTP_9688(Config) ->
     Asn1Mod = "OTP-9688.asn1",
-    Files = [Asn1Mod, "OTP-9688.asn1db", "OTP-9688.beam", "OTP-9688.erl", "OTP-9688.hrl"],
-    Data = 
-        "
+    %%DataDir = ?config(data_dir,Config),     
+    PrivDir = ?config(priv_dir,Config),
+    Data = "
 OTP-9688 DEFINITIONS ::= BEGIN
 
  foo INTEGER ::= 1
@@ -2385,9 +2385,8 @@ OTP-9688 DEFINITIONS ::= BEGIN
 
 END
 ",
-    file:write_file(Asn1Mod, Data),
+    File = filename:join(PrivDir,Asn1Mod),
+    ok = file:write_file(File, Data),
     %% Does it compile with changes to asn1ct_check and asn1ct_gen_per_rt2ct?
     %% (see ticket)
-    ok = asn1ct:compile(Asn1Mod),
-    [file:delete(File) || File <- Files],
-    ok.
+    ok = asn1ct:compile(File, [{outdir, PrivDir}]).
