@@ -71,29 +71,43 @@ password_msg([#ssh{opts = Opts, io_cb = IoCb,
     ssh_bits:install_messages(userauth_passwd_messages()),
     Password = case proplists:get_value(password, Opts) of
 		   undefined -> 
-		       IoCb:read_password("ssh password: ");
+		       user_interaction(Opts, IoCb);
 		   PW -> 
 		       PW
 	       end,
-    ssh_transport:ssh_packet(
-      #ssh_msg_userauth_request{user = User,
-				service = Service,
-				method = "password",
-				data =
-				<<?BOOLEAN(?FALSE),
-				 ?STRING(list_to_binary(Password))>>},
-      Ssh).
+    case Password of
+	not_ok ->
+	    not_ok;
+	_  ->
+	    ssh_transport:ssh_packet(
+	      #ssh_msg_userauth_request{user = User,
+					service = Service,
+					method = "password",
+					data =
+					    <<?BOOLEAN(?FALSE),
+					      ?STRING(list_to_binary(Password))>>},
+	      Ssh)
+    end.
+
+user_interaction(Opts, IoCb) ->
+    case proplists:get_value(allow_user_interaction, Opts, true) of
+	true ->
+	    IoCb:read_password("ssh password: ");
+	false ->
+	    not_ok
+    end.
+
 
 %% See RFC 4256 for info on keyboard-interactive
 keyboard_interactive_msg([#ssh{user = User,
-			      service = Service} = Ssh]) ->
+			       service = Service} = Ssh]) ->
     ssh_bits:install_messages(userauth_keyboard_interactive_messages()),
     ssh_transport:ssh_packet(
       #ssh_msg_userauth_request{user = User,
 				service = Service,
 				method = "keyboard-interactive",
 				data = << ?STRING(<<"">>),
-					?STRING(<<>>) >> }, 
+					  ?STRING(<<>>) >> },
       Ssh).
 
 service_request_msg(Ssh) ->
