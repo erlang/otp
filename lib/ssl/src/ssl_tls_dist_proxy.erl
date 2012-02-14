@@ -19,7 +19,7 @@
 -module(ssl_tls_dist_proxy).
 
 
--export([listen/1, accept/1, connect/2, get_remote_id/2]).
+-export([listen/1, accept/1, connect/2, get_tcp_address/1]).
 -export([init/1, start_link/0, handle_call/3, handle_cast/2, handle_info/2, 
 	 terminate/2, code_change/3, ssl_options/2]).
 
@@ -47,9 +47,6 @@ accept(Listen) ->
 connect(Ip, Port) ->
     gen_server:call(?MODULE, {connect, Ip, Port}, infinity).
 
-get_remote_id(Socket, Node) ->
-    gen_server:call(?MODULE, {get_remote_id, {Socket,Node}}, infinity).
-
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -65,8 +62,8 @@ handle_call({listen, Name}, _From, State) ->
     case gen_tcp:listen(0, [{active, false}, {packet,?PPRE}]) of
 	{ok, Socket} ->
 	    {ok, World} = gen_tcp:listen(0, [{active, false}, binary, {packet,?PPRE}]),
-	    TcpAddress = get_tcp_address(Socket),
-	    WorldTcpAddress = get_tcp_address(World),
+	    {ok, TcpAddress} = get_tcp_address(Socket),
+	    {ok, WorldTcpAddress} = get_tcp_address(World),
 	    {_,Port} = WorldTcpAddress#net_address.address,
 	    {ok, Creation} = erl_epmd:register_node(Name, Port),
 	    {reply, {ok, {Socket, TcpAddress, Creation}},
@@ -87,16 +84,15 @@ handle_call({connect, Ip, Port}, {From, _}, State) ->
     receive 
 	{Pid, go_ahead, LPort} -> 
 	    Res = {ok, Socket} = try_connect(LPort),
-	    ok = gen_tcp:controlling_process(Socket, From),
-	    flush_old_controller(From, Socket),
-	    {reply, Res, State};
+	    case gen_tcp:controlling_process(Socket, From) of
+		{error, badarg} = Error -> {reply, Error, State};   % From is dead anyway.
+		ok ->
+		    flush_old_controller(From, Socket),
+		    {reply, Res, State}
+        end;
 	{Pid, Error} ->
 	    {reply, Error, State}
     end;
-
-handle_call({get_remote_id, {Socket,_Node}}, _From, State) ->
-    Address = get_tcp_address(Socket),
-    {reply, Address, State};
 
 handle_call(_What, _From, State) ->
     {reply, ok, State}.
@@ -117,14 +113,18 @@ code_change(_OldVsn, St, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 get_tcp_address(Socket) ->
-    {ok, Address} = inet:sockname(Socket),
-    {ok, Host} = inet:gethostname(),
-    #net_address{
+    case inet:sockname(Socket) of
+	{ok, Address} ->
+	{ok, Host} = inet:gethostname(),
+	    NetAddress = #net_address{
 		  address = Address,
 		  host = Host,
 		  protocol = proxy,
 		  family = inet
-		}.
+		},
+	    {ok, NetAddress};
+	{error, _} = Error -> Error
+    end.
 
 accept_loop(Proxy, erts = Type, Listen, Extra) ->
     process_flag(priority, max),
@@ -178,8 +178,8 @@ setup_proxy(Ip, Port, Parent) ->
     Opts = get_ssl_options(client),
     case ssl:connect(Ip, Port, [{active, true}, binary, {packet,?PPRE}] ++ Opts) of
 	{ok, World} ->
-	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, binary, {packet,?PPRE}]),
-	    #net_address{address={_,LPort}} = get_tcp_address(ErtsL),
+	    {ok, ErtsL} = gen_tcp:listen(0, [{active, true}, {ip, {127,0,0,1}}, binary, {packet,?PPRE}]),
+	    {ok, #net_address{address={_,LPort}}} = get_tcp_address(ErtsL),
 	    Parent ! {self(), go_ahead, LPort},
 	    case gen_tcp:accept(ErtsL) of
 		{ok, Erts} ->
@@ -194,7 +194,7 @@ setup_proxy(Ip, Port, Parent) ->
 
 setup_connection(World, ErtsListen) ->
     process_flag(trap_exit, true),
-    TcpAddress = get_tcp_address(ErtsListen),
+    {ok, TcpAddress} = get_tcp_address(ErtsListen),
     {_Addr,Port} = TcpAddress#net_address.address,
     {ok, Erts} = gen_tcp:connect({127,0,0,1}, Port, [{active, true}, binary, {packet,?PPRE}]),
     ssl:setopts(World, [{active,true}, {packet,?PPRE}]),

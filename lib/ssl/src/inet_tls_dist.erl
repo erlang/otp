@@ -57,7 +57,7 @@ accept_connection(AcceptPid, Socket, MyNode, Allowed, SetupTime) ->
 
 setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
     Kernel = self(),
-    spawn(fun() -> do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) end).
+    spawn_opt(fun() -> do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) end, [link, {priority, max}]).
 		   
 do_setup(Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     [Name, Address] = splitnode(Node, LongOrShortNames),
@@ -229,9 +229,7 @@ connect_hs_data(Kernel, Node, MyNode, Socket, Timer, Version, Ip, TcpPort, Addre
 accept_hs_data(Kernel, MyNode, Socket, Timer, Allowed) ->
     common_hs_data(Kernel, MyNode, Socket, Timer, #hs_data{
 					     allowed = Allowed,
-					     f_address = fun(S, N) -> 
-								 ssl_tls_dist_proxy:get_remote_id(S, N)
-							 end
+					     f_address = fun get_remote_id/2
 					    }).
 
 common_hs_data(Kernel, MyNode, Socket, Timer, HsData) ->
@@ -273,3 +271,11 @@ common_hs_data(Kernel, MyNode, Socket, Timer, HsData) ->
 		  P = proplists:get_value(send_pend, Stats, 0),
 		  {ok, R,W,P}
 	  end}.
+
+get_remote_id(Socket, _Node) ->
+    case ssl_tls_dist_proxy:get_tcp_address(Socket) of
+        {ok, Address} ->
+	    Address;
+	{error, _Reason} ->
+	    ?shutdown(no_node)
+    end.
