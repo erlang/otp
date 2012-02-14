@@ -23,6 +23,8 @@
 
 -module(ssh_file).
 
+-behaviour(ssh_key_api).
+
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
 

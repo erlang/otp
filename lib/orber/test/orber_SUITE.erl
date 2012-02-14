@@ -20,7 +20,6 @@
 -module(orber_SUITE).
 -include_lib("test_server/include/test_server.hrl").
 
-
 -define(default_timeout, ?t:minutes(15)).
 -define(application, orber).
 
@@ -31,7 +30,11 @@
 
 % Test cases must be exported.
 -export([app_test/1, undefined_functions/1, install_load_order/1,
-	 install_local_content/1]).
+	 install_local_content/1, 
+         otp_9887/1]).
+
+%% Exporting error handler callbacks for use in otp_9887
+-export([init/1, handle_event/2]).
 
 %%
 %% all/1
@@ -40,7 +43,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [app_test, undefined_functions, install_load_order,
-     install_local_content].
+     install_local_content,
+     otp_9887].
 
 groups() -> 
     [].
@@ -74,6 +78,27 @@ app_test(doc) -> [];
 app_test(suite) -> [];
 app_test(_Config) ->
     ?line ok=?t:app_test(orber),
+    ok.
+
+otp_9887(_Config) ->
+    orber:jump_stop(),
+    application:set_env(orber, orber_debug_level, 10),
+    orber:jump_start([]),
+    
+    mnesia:create_table(orber_light_ifr, []),
+
+    error_logger:add_report_handler(?MODULE,[self()]),
+    catch orber_ifr:get_module(foo, bar),
+    
+    receive
+	{stolen,Reason} ->
+            {error,_Pid1, {_Pid2, _ErrorString, ArgumentList}} = Reason,
+            5 = length(ArgumentList)
+    after 500 ->
+            test_server:fail("OTP_9887 TIMED OUT")
+    end,
+
+    orber:jump_stop(),
     ok.
 
 %% Install Orber using the load_order option.
@@ -192,5 +217,10 @@ key1search(Key, L) ->
 fail(Reason) ->
     exit({suite_failed, Reason}).
 
+%% Error handler 
 
+init([Proc]) -> {ok,Proc}.
 
+handle_event(Event, Proc) -> 
+    Proc ! {stolen,Event},
+    {ok,Proc}.

@@ -21,6 +21,7 @@
 	     sshd_sup,
 	     ssh_file,
 	     ssh_io,
+             ssh_key_api,
 	     ssh_math,
 	     ssh_no_io,
 	     ssh_sftp,
