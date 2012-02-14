@@ -358,6 +358,10 @@ greatest_common_range2({_,Int},VR={_Lb,_Ub}) when is_integer(Int) ->
 greatest_common_range2({_,L},{Lb,Ub}) when is_list(L) ->
     Min = least_Lb([Lb|L]),
     Max = greatest_Ub([Ub|L]),
+    [{'ValueRange',{Min,Max}}];
+greatest_common_range2({Lb1,Ub1},{Lb2,Ub2}) ->
+    Min = least_Lb([Lb1,Lb2]),
+    Max = greatest_Ub([Ub1,Ub2]),
     [{'ValueRange',{Min,Max}}].
 
 mk_vr([{Type,I}]) when is_atom(Type), is_integer(I) ->
