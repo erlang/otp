@@ -26,7 +26,7 @@
 
 -define(DEFAULT_TIMETRAP_SECS, 240).
 
--define(AWAIT_SLL_NODE_UP_TIMEOUT, 30000).
+-define(AWAIT_SSL_NODE_UP_TIMEOUT, 30000).
 
 -record(node_handle,
 	{connection_handler,
@@ -119,6 +119,12 @@ basic(Config) when is_list(Config) ->
     %% via the erlang distribution.
     pang = net_adm:ping(Node1),
     pang = net_adm:ping(Node2),
+
+    %% SSL nodes should not be able to communicate with the test_server node
+    %% either (and ping should return eventually).
+    TestServer = node(),
+    pang = apply_on_ssl_node(NH1, fun () -> net_adm:ping(TestServer) end),
+    pang = apply_on_ssl_node(NH2, fun () -> net_adm:ping(TestServer) end),
 
     %%
     %% Check that we are able to communicate over the erlang
@@ -380,7 +386,7 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 %%
 
 await_ssl_node_up(Name, LSock) ->
-    case gen_tcp:accept(LSock, ?AWAIT_SLL_NODE_UP_TIMEOUT) of
+    case gen_tcp:accept(LSock, ?AWAIT_SSL_NODE_UP_TIMEOUT) of
 	timeout ->
 	    gen_tcp:close(LSock),
 	    ?t:format("Timeout waiting for ssl node ~s to come up~n",

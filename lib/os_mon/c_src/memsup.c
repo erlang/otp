@@ -327,27 +327,27 @@ get_mem_procfs(memory_ext *me){
     /* Total and free is NEEDED! */
     
     bp = strstr(buffer, "MemTotal:");    
-    if (sscanf(bp, "MemTotal: %lu kB\n", &(me->total)))  me->flag |= F_MEM_TOTAL;
+    if (bp != NULL && sscanf(bp, "MemTotal: %lu kB\n", &(me->total)))  me->flag |= F_MEM_TOTAL;
 
     bp = strstr(buffer, "MemFree:");    
-    if (sscanf(bp, "MemFree: %lu kB\n", &(me->free)))    me->flag |= F_MEM_FREE;
+    if (bp != NULL && sscanf(bp, "MemFree: %lu kB\n", &(me->free)))    me->flag |= F_MEM_FREE;
     
     /* Extensions */
     
     bp = strstr(buffer, "Buffers:");    
-    if (sscanf(bp, "Buffers: %lu kB\n", &(me->buffered))) me->flag |= F_MEM_BUFFERS;
+    if (bp != NULL && sscanf(bp, "Buffers: %lu kB\n", &(me->buffered))) me->flag |= F_MEM_BUFFERS;
     
     bp = strstr(buffer, "Cached:");    
-    if (sscanf(bp, "Cached: %lu kB\n", &(me->cached)))   me->flag |= F_MEM_CACHED;
+    if (bp != NULL && sscanf(bp, "Cached: %lu kB\n", &(me->cached)))   me->flag |= F_MEM_CACHED;
     
 
     /* Swap */
     
     bp = strstr(buffer, "SwapTotal:");    
-    if (sscanf(bp, "SwapTotal: %lu kB\n", &(me->total_swap))) me->flag |= F_SWAP_TOTAL;
+    if (bp != NULL && sscanf(bp, "SwapTotal: %lu kB\n", &(me->total_swap))) me->flag |= F_SWAP_TOTAL;
     
     bp = strstr(buffer, "SwapFree:");    
-    if (sscanf(bp, "SwapFree: %lu kB\n", &(me->free_swap))) me->flag |= F_SWAP_FREE;
+    if (bp != NULL && sscanf(bp, "SwapFree: %lu kB\n", &(me->free_swap))) me->flag |= F_SWAP_FREE;
     
     me->pagesize = 1024; /* procfs defines its size in kB */
     
