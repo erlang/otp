@@ -1281,7 +1281,7 @@ handle_call({backup, BackupDir}, From, #state{backup = undefined} = S) ->
     ?vtrace("backup server: ~p", [BackupServer]),
     {noreply, S#state{backup = {BackupServer, From}}};
 
-handle_call({backup, _BackupDir}, From, #state{backup = Backup} = S) ->
+handle_call({backup, _BackupDir}, _From, #state{backup = Backup} = S) ->
     ?vinfo("backup already in progress: ~p", [Backup]),
     {reply, {error, backup_in_progress}, S};
 
