@@ -223,7 +223,11 @@ loop_conn_setup(World, Erts) ->
 	    loop_conn_setup(World, Erts);
 	{tcp, Erts, Data} ->
 	    ssl:send(World, Data),
-	    loop_conn_setup(World, Erts)
+	    loop_conn_setup(World, Erts);
+	{tcp_closed, Erts} ->
+	    ssl:close(World);
+	{ssl_closed,  World} ->
+	    gen_tcp:close(Erts)
     end.
 
 loop_conn(World, Erts) ->
