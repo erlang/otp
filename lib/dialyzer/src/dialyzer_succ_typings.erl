@@ -213,22 +213,22 @@ refine_one_module(M, State) ->
   #st{callgraph = Callgraph, codeserver = CodeServer, plt = PLT} = State,
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
-  FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, PLT),
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   {NewFunTypes, RaceCode, PublicTables, NamedTables} =
     dialyzer_dataflow:get_fun_types(ModCode, PLT, Callgraph, Records),
   NewCallgraph =
     dialyzer_callgraph:renew_race_info(Callgraph, RaceCode, PublicTables,
                                        NamedTables),
+  FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, PLT),
+  State1 = st__renew_state_calls(NewCallgraph, State),
   case reached_fixpoint(FunTypes, NewFunTypes) of
     true ->
-      State1 = st__renew_state_calls(NewCallgraph, State),
       {State1, ordsets:new()};
     {false, NotFixpoint} ->
       ?debug("Not fixpoint\n", []),
       NewPlt = insert_into_plt(dict:from_list(NotFixpoint), Callgraph, PLT),
-      NewState1 = st__renew_state_calls(NewCallgraph, State#st{plt = NewPlt}),
-      {NewState1, ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])}
+      {State1#st{plt = NewPlt},
+       ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])}
   end.
 
 st__renew_state_calls(Callgraph, State) ->
