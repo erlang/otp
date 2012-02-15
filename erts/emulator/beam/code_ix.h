@@ -91,22 +91,27 @@ int erts_try_lock_code_ix(struct process*);
  */
 void erts_unlock_code_ix(void);
 
-/* Make the "staging area" a complete copy of the active code.
+/* Prepare the "staging area" to be a complete copy of the active code.
  * code_ix must be locked.
- * Must be followed by a call to either "commit" or "abort" before code_ix lock
- * is released.
+ * Must be followed by calls to either "end" and "activate" or "abort" before
+ * code_ix lock is released.
  */
 void erts_start_staging_code_ix(void);
 
-/* Commit the staging area and update the active code index.
- * code_ix must be locked and erts_start_staging_code_ix() called.
- * ToDo: Updating active code index should be done according to Rickard's recipe.
- *       This function might need to be split into two.
+/* End the staging.
+ * code_ix must be locked.
+ * Must be followed by a call to either "activate" or "abort"
+ * before code_ix lock is released.
  */
-void erts_commit_staging_code_ix(void);
+void erts_end_staging_code_ix(void);
+
+/* Set staging code index as new active code index.
+ * code_ix must be locked and "start" and "end" called.
+ */
+void erts_activate_staging_code_ix(void);
 
 /* Abort the staging.
- * code_ix must be locked and erts_start_staging_code_ix() called.
+ * code_ix must be locked and "start" called.
  */
 void erts_abort_staging_code_ix(void);
 

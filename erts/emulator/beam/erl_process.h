@@ -264,6 +264,7 @@ typedef enum {
 #define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 8)
 #define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 9)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 10)
+#define ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION	(((erts_aint32_t) 1) << 11)
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -428,6 +429,12 @@ typedef struct {
 #endif
 	void *queue;
     } async_ready;
+#endif
+#ifdef ERTS_SMP
+    struct {
+	Process* code_stager;
+	ErtsThrPrgrVal thr_prgr;
+    } code_ix_activation;
 #endif
 } ErtsAuxWorkData;
 
@@ -1109,6 +1116,9 @@ void erts_smp_notify_check_children_needed(void);
 #endif
 #if ERTS_USE_ASYNC_READY_Q
 void erts_notify_check_async_ready_queue(void *);
+#endif
+#ifdef ERTS_SMP
+void erts_notify_code_ix_activation(Process* p, ErtsThrPrgrVal later);
 #endif
 void erts_schedule_misc_aux_work(int sched_id,
 				 void (*func)(void *),

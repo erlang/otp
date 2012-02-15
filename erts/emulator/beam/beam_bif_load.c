@@ -35,6 +35,7 @@
 #include "erl_nif.h"
 #include "erl_thr_progress.h"
 
+static Eterm staging_epilogue(Process* c_p, int, Eterm res, int);
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp);
 static void delete_code(Module* modp);
@@ -86,7 +87,8 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 
     if (res == BIF_ARG_1) {
-	erts_commit_staging_code_ix();
+	erts_end_staging_code_ix();
+	erts_activate_staging_code_ix();
     }
     else {
 	erts_abort_staging_code_ix();
@@ -166,6 +168,7 @@ finish_loading_1(BIF_ALIST_1)
     Uint exceptions;
     Eterm res;
     int is_blocking = 0;
+    int do_commit = 0;
 
     if (!erts_try_lock_code_ix(BIF_P)) {
 	ERTS_BIF_YIELD1(bif_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
@@ -272,7 +275,6 @@ finish_loading_1(BIF_ALIST_1)
 
     if (exceptions) {
 	res = exception_list(BIF_P, am_not_purged, p, exceptions);
-	erts_abort_staging_code_ix();
     } else {
 	/*
 	 * Now we can load all code. This can't fail.
@@ -299,20 +301,63 @@ finish_loading_1(BIF_ALIST_1)
 	if (exceptions) {
 	    res = exception_list(BIF_P, am_on_load, p, exceptions);
 	}
-	erts_commit_staging_code_ix();
+	do_commit = 1;
     }
 
 done:
     if (p) {
 	erts_free(ERTS_ALC_T_LOADER_TMP, p);
     }
-    if (!is_blocking) {
-	erts_unlock_code_ix();
-    } else {
-	erts_smp_thr_progress_unblock();
-	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    return staging_epilogue(BIF_P, do_commit, res, is_blocking);
+}
+
+static Eterm
+staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
+{    
+#ifdef ERTS_SMP
+    if (is_blocking || !commit)
+#endif
+    {
+	if (commit) {
+	    erts_end_staging_code_ix();
+	    erts_activate_staging_code_ix();
+	}
+	else {
+	    erts_abort_staging_code_ix();
+	}
+	if (is_blocking) {
+	    erts_smp_thr_progress_unblock();
+	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	}
+	else {
+	    erts_unlock_code_ix();
+	}
+	return res;
     }
-    BIF_RET(res);
+#ifdef ERTS_SMP
+    else {
+	ErtsThrPrgrVal later;
+	ASSERT(is_value(res));
+
+	erts_end_staging_code_ix();
+	/*
+	 * Now we must wait for all schedulers to do a memory barrier before
+	 * we can activate and let them access the new staged code. This allows
+	 * schedulers to read active code_ix in a safe way while executing
+	 * without any memory barriers at all. 
+	 */
+    
+	later = erts_thr_progress_later(); 
+	erts_thr_progress_wakeup(c_p->scheduler_data, later);
+	erts_notify_code_ix_activation(c_p, later);
+	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+	/*
+	 * handle_code_ix_activation() will do the rest "later"
+	 * and resume this process in bif_return_trap() to return 'res'.  
+	 */
+	ERTS_BIF_YIELD1(&bif_return_trap_export, c_p, res);
+    }
+#endif
 }
 
 BIF_RETTYPE
@@ -407,17 +452,18 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     ErtsCodeIndex code_ix;
     Module* modp;
     int is_blocking = 0;
+    int success = 0;
     Eterm res = NIL;
 
     if (is_not_atom(BIF_ARG_1)) {
-	goto badarg;
+	BIF_ERROR(BIF_P, BADARG);
     }
 
     if (!erts_try_lock_code_ix(BIF_P)) {
 	ERTS_BIF_YIELD1(bif_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
     }
-
-    do {
+retry:
+    {
 	erts_start_staging_code_ix();
 	code_ix = erts_staging_code_ix();
 	modp = erts_get_module(BIF_ARG_1, code_ix);
@@ -429,7 +475,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	    erts_dsprintf(dsbufp, "Module %T must be purged before loading\n",
 			  BIF_ARG_1);
 	    erts_send_error_to_logger(BIF_P->group_leader, dsbufp);
-	    res = am_badarg;
+	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
 	}
 	else {
 	    if (!is_blocking) {
@@ -441,7 +487,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		    erts_smp_thr_progress_block();
 		    is_blocking = 1;
-		    continue;
+		    goto retry;
 		}
 	    }
 	    else if (modp->curr.num_breakpoints) {
@@ -450,28 +496,11 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	    }
 	    delete_code(modp);
 	    res = am_true;
+	    success = 1;
 	}
-    } while (res == NIL);
-
-    if (res == am_true) {
-	erts_commit_staging_code_ix();
-    }
-    else {
-	erts_abort_staging_code_ix();
-    }
-    if (is_blocking) {
-	erts_smp_thr_progress_unblock();
-	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    }
-    else {
-	erts_unlock_code_ix();
     }
 
-    if (res == am_badarg) {
-    badarg:
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    BIF_RET(res);
+    return staging_epilogue(BIF_P, success, res, is_blocking);  
 }
 
 BIF_RETTYPE module_loaded_1(BIF_ALIST_1)

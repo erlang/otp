@@ -66,22 +66,25 @@ void erts_start_staging_code_ix(void)
 }
 
 
-void erts_commit_staging_code_ix(void)
+void erts_end_staging_code_ix(void)
 {
     beam_catches_end_staging(1);
     export_end_staging(1);
     module_end_staging(1);
     erts_end_staging_ranges(1);
-    {
-	ErtsCodeIndex ix;
-	export_write_lock();
-	ix = erts_staging_code_ix();
-	erts_smp_atomic32_set_nob(&the_active_code_index, ix);
-	ix = (ix + 1) % ERTS_NUM_CODE_IX;
-	erts_smp_atomic32_set_nob(&the_staging_code_index, ix);
-	export_write_unlock();
-    }
-    CIX_TRACE("commit");
+    CIX_TRACE("end");
+}
+
+void erts_activate_staging_code_ix(void)
+{
+    ErtsCodeIndex ix;
+    export_write_lock();
+    ix = erts_staging_code_ix();
+    erts_smp_atomic32_set_nob(&the_active_code_index, ix);
+    ix = (ix + 1) % ERTS_NUM_CODE_IX;
+    erts_smp_atomic32_set_nob(&the_staging_code_index, ix);
+    export_write_unlock();
+    CIX_TRACE("activate");
 }
 
 void erts_abort_staging_code_ix(void)
@@ -121,7 +124,7 @@ int erts_try_lock_code_ix(Process* c_p)
 
 /* Unlock code_ix (resume all waiters)
 */
-void erts_unlock_code_ix()
+void erts_unlock_code_ix(void)
 {
     erts_smp_mtx_lock(&the_code_ix_queue_lock);
     while (the_code_ix_queue != NULL) { /* unleash the entire herd */
