@@ -181,17 +181,13 @@ refine_succ_typings(ModulePostorder, State) ->
   ?debug("Module postorder: ~p\n", [ModulePostorder]),
   refine_succ_typings(ModulePostorder, State, []).
 
-refine_succ_typings([SCC|SCCs], State, Fixpoint) ->
-  Msg = io_lib:format("Dataflow of one SCC: ~w\n", [SCC]),
+refine_succ_typings([M|Rest], State, Fixpoint) ->
+  Msg = io_lib:format("Dataflow of module: ~w\n", [M]),
   send_log(State#st.parent, Msg),
   ?debug("~s\n", [Msg]),
-  {NewState, FixpointFromScc} =
-    case SCC of
-      [M] -> refine_one_module(M, State);
-      [_|_] -> refine_one_scc(SCC, State)
-    end,
+  {NewState, FixpointFromScc} = refine_one_module(M, State),
   NewFixpoint = ordsets:union(Fixpoint, FixpointFromScc),
-  refine_succ_typings(SCCs, NewState, NewFixpoint);
+  refine_succ_typings(Rest, NewState, NewFixpoint);
 refine_succ_typings([], State, Fixpoint) ->
   case Fixpoint =:= [] of
     true -> {fixpoint, State};
@@ -224,25 +220,6 @@ refine_one_module(M, State) ->
 
 st__renew_state_calls(Callgraph, State) ->
   State#st{callgraph = Callgraph}.
-
-refine_one_scc(SCC, State) ->
-  refine_one_scc(SCC, State, []).
-
-refine_one_scc(SCC, State, AccFixpoint) ->
-  {NewState, FixpointFromScc} = refine_mods_in_scc(SCC, State, []),
-  case FixpointFromScc =:= [] of
-    true -> {NewState, AccFixpoint};
-    false ->
-      NewAccFixpoint = ordsets:union(AccFixpoint, FixpointFromScc),
-      refine_one_scc(SCC, NewState, NewAccFixpoint)
-  end.
-
-refine_mods_in_scc([Mod|Mods], State, Fixpoint) ->
-  {NewState, FixpointFromModule} = refine_one_module(Mod, State),
-  NewFixpoint = ordsets:union(FixpointFromModule, Fixpoint),
-  refine_mods_in_scc(Mods, NewState, NewFixpoint);
-refine_mods_in_scc([], State, Fixpoint) ->
-  {State, Fixpoint}.
 
 reached_fixpoint(OldTypes, NewTypes) ->
   reached_fixpoint(OldTypes, NewTypes, false).

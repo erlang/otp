@@ -238,33 +238,30 @@ renew_race_info(CG, RaceCode, PublicTables, NamedTables) ->
 modules(#callgraph{digraph = DG}) ->
   ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]).
 
--spec module_postorder(callgraph()) -> [[module()]].
+-spec module_postorder(callgraph()) -> [module()].
 
 module_postorder(#callgraph{digraph = DG}) ->
-  {MDG, _Nodes} = get_module_digraph_and_nodes(DG),
-  MDG1 = digraph_utils:condensation(MDG),
-  PostOrder = digraph_utils:postorder(MDG1),
-  PostOrder1 = sort_sccs_internally(PostOrder, MDG),
-  digraph:delete(MDG1),
-  digraph_delete(MDG),
-  PostOrder1.
-
-get_module_digraph_and_nodes(DG) ->
   Edges = digraph_edges(DG),
   Nodes = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
-  MDG = digraph:new(),
-  MDG = digraph_confirm_vertices(Nodes, MDG),
-  MDG = create_module_digraph(Edges, MDG),
-  {MDG, Nodes}.
+  MDG = digraph:new([acyclic]),
+  MDG1 = digraph_confirm_vertices(Nodes, MDG),
+  MDG2 = create_module_digraph(Edges, MDG1),
+  PostOrder = digraph_utils:postorder(MDG2),
+  digraph:delete(MDG2),
+  PostOrder.
 
 %% The module deps of a module are modules that depend on the module
 -spec module_deps(callgraph()) -> dict().
 
 module_deps(#callgraph{digraph = DG}) ->
-  {MDG, Nodes} = get_module_digraph_and_nodes(DG),
-  Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG, N))}
+  Edges = digraph_edges(DG),
+  Nodes = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
+  MDG = digraph:new(),
+  MDG1 = digraph_confirm_vertices(Nodes, MDG),
+  MDG2 = create_module_digraph(Edges, MDG1),
+  Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG2, N))}
 	  || N <- Nodes],
-  digraph_delete(MDG),
+  digraph_delete(MDG2),
   dict:from_list(Deps).
 
 -spec strip_module_deps(dict(), set()) -> dict().
@@ -275,22 +272,6 @@ strip_module_deps(ModDeps, StripSet) ->
   ModDeps1 = dict:map(MapFun, ModDeps),
   FilterFun2 = fun(_Key, ValSet) -> ValSet =/= [] end,
   dict:filter(FilterFun2, ModDeps1).
-
-sort_sccs_internally(PO, MDG) ->
-  sort_sccs_internally(PO, MDG, []).
-
-sort_sccs_internally([SCC|SCCs], MDG, Acc) ->
-  case SCC of
-    [_, _, _ | _] ->    % length(SCC) >= 3
-      TmpDG = digraph_utils:subgraph(MDG, SCC),
-      NewSCC = digraph_utils:postorder(TmpDG),
-      digraph_delete(TmpDG),
-      sort_sccs_internally(SCCs, MDG, [NewSCC|Acc]);
-    _ ->
-      sort_sccs_internally(SCCs, MDG, [SCC|Acc])
-  end;
-sort_sccs_internally([], _MDG, Acc) ->
-  lists:reverse(Acc).
 
 create_module_digraph([{{M, _, _}, {M, _, _}}|Left], MDG) ->
   create_module_digraph(Left, MDG);
@@ -314,7 +295,7 @@ reset_from_funs(Funs, #callgraph{digraph = DG} = CG) ->
   digraph_delete(SubGraph),
   CG#callgraph{postorder = Postorder}.
 
--spec module_postorder_from_funs([mfa_or_funlbl()], callgraph()) -> [[module()]].
+-spec module_postorder_from_funs([mfa_or_funlbl()], callgraph()) -> [module()].
 
 module_postorder_from_funs(Funs, #callgraph{digraph = DG} = CG) ->
   SubGraph = digraph_reaching_subgraph(Funs, DG),
