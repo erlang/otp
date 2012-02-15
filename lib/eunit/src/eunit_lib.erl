@@ -59,8 +59,9 @@ format_exception({Class,Term,Trace}, Depth)
   when is_atom(Class), is_list(Trace) ->
     case is_stacktrace(Trace) of
 	true ->
-	    io_lib:format("~w:~P\n~s",
-			  [Class, Term, Depth, format_stacktrace(Trace)]);
+	    io_lib:format("~s**~w:~s",
+			  [format_stacktrace(Trace), Class,
+                           format_term(Term, Depth)]);
 	false ->
 	    format_term(Term, Depth)
     end;
@@ -103,7 +104,7 @@ format_stacktrace(Trace) ->
     format_stacktrace(Trace, "in function", "in call from").
 
 format_stacktrace([{M,F,A,L}|Fs], Pre, Pre1) when is_integer(A) ->
-    [io_lib:fwrite("  ~s ~w:~w/~w~s\n",
+    [io_lib:fwrite("~s ~w:~w/~w~s\n",
                    [Pre, M, F, A, format_stacktrace_location(L)])
      | format_stacktrace(Fs, Pre1, Pre1)];
 format_stacktrace([{M,F,As,L}|Fs], Pre, Pre1) when is_list(As) ->
@@ -119,7 +120,7 @@ format_stacktrace([{M,F,As,L}|Fs], Pre, Pre1) when is_list(As) ->
 	    false ->
 		io_lib:fwrite("~w(~s)", [F,format_arglist(As)])
 	end,
-    [io_lib:fwrite("  ~s ~w:~w/~w~s\n    called as ~s\n",
+    [io_lib:fwrite("~s ~w:~w/~w~s\n  called as ~s\n",
 		   [Pre,M,F,A,format_stacktrace_location(L),C])
      | format_stacktrace(Fs,Pre1,Pre1)];
 format_stacktrace([{M,F,As}|Fs], Pre, Pre1) ->
@@ -181,23 +182,23 @@ format_error({instantiation_failed, Exception}) ->
 	      [format_exception(Exception)]).
 
 error_msg(Title, Fmt, Args) ->
-    Msg = io_lib:format("::"++Fmt, Args),    % gets indentation right
+    Msg = io_lib:format("**"++Fmt, Args),    % gets indentation right
     io_lib:fwrite("*** ~s ***\n~s\n\n", [Title, Msg]).
 
 -ifdef(TEST).
 format_exception_test_() ->
     [?_assertMatch(
-        "error:dummy"++_,
-        lists:flatten(
+        "\nymmud:rorre"++_,
+        lists:reverse(lists:flatten(
           format_exception(try erlang:error(dummy)
                            catch C:R -> {C, R, erlang:get_stacktrace()}
-                           end))),
+                           end)))),
      ?_assertMatch(
-        "error:dummy"++_,
-        lists:flatten(
+        "\nymmud:rorre"++_,
+        lists:reverse(lists:flatten(
           format_exception(try erlang:error(dummy, [a])
                            catch C:R -> {C, R, erlang:get_stacktrace()}
-                           end)))].
+                           end))))].
 -endif.
 
 %% ---------------------------------------------------------------------

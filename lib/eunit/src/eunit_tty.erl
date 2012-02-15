@@ -213,7 +213,7 @@ print_test_end(Data) ->
 
 print_test_error({error, Exception}, Data) ->
     Output = proplists:get_value(output, Data),
-    fwrite("*failed*\n::~s", [eunit_lib:format_exception(Exception)]),
+    fwrite("*failed*\n~s", [eunit_lib:format_exception(Exception)]),
     case Output of
 	<<>> ->
 	    fwrite("\n\n");
@@ -228,7 +228,7 @@ print_test_error({skipped, Reason}, _) ->
 format_skipped({module_not_found, M}) ->
     io_lib:fwrite("missing module: ~w", [M]);
 format_skipped({no_such_function, {M,F,A}}) ->
-    io_lib:fwrite("no such function: ~w:~w/~w", [M,F,A]).    
+    io_lib:fwrite("no such function: ~w:~w/~w", [M,F,A]).
 
 print_test_cancel(Reason) ->
     fwrite(format_cancel(Reason)).
