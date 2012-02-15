@@ -78,12 +78,13 @@ void erts_end_staging_code_ix(void)
 void erts_activate_staging_code_ix(void)
 {
     ErtsCodeIndex ix;
-    export_write_lock();
+    /* We need to this lock as we are now making the staging export table active */
+    export_staging_lock();
     ix = erts_staging_code_ix();
     erts_smp_atomic32_set_nob(&the_active_code_index, ix);
     ix = (ix + 1) % ERTS_NUM_CODE_IX;
     erts_smp_atomic32_set_nob(&the_staging_code_index, ix);
-    export_write_unlock();
+    export_staging_unlock();
     CIX_TRACE("activate");
 }
 

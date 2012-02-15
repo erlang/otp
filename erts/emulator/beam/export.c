@@ -44,10 +44,10 @@ static erts_smp_atomic_t total_entries_bytes;
 
 #include "erl_smp.h"
 
-erts_smp_rwmtx_t export_staging_lock; /* Locks the staging export table. */
-
-#define export_read_lock()	erts_smp_rwmtx_rlock(&export_staging_lock)
-#define export_read_unlock()	erts_smp_rwmtx_runlock(&export_staging_lock)
+/* This lock protects the staging export table from concurrent access
+ * AND it protects the staging table from becoming active.
+ */
+erts_smp_mtx_t export_staging_lock;
 
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_call_traced_function;
@@ -88,13 +88,13 @@ export_info(int to, void *to_arg)
 #ifdef ERTS_SMP
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
-	export_read_lock();
+	export_staging_lock();
 #endif
     index_info(to, to_arg, &export_tables[erts_active_code_ix()]);
     hash_info(to, to_arg, &export_tables[erts_staging_code_ix()].htable);
 #ifdef ERTS_SMP
     if (lock)
-	export_read_unlock();
+	export_staging_unlock();
 #endif
 }
 
@@ -175,12 +175,9 @@ void
 init_export_table(void)
 {
     HashFunctions f;
-    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     int i;
-    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
-    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    erts_smp_rwmtx_init_opt(&export_staging_lock, &rwmtx_opt, "export_tab");
+    erts_smp_mtx_init(&export_staging_lock, "export_tab");
     erts_smp_atomic_init_nob(&total_entries_bytes, 0);
 
     f.hash = (H_FUN) export_hash;
@@ -287,10 +284,10 @@ erts_export_put(Eterm mod, Eterm func, unsigned int arity)
 
     ASSERT(is_atom(mod));
     ASSERT(is_atom(func));
-    export_write_lock();
+    export_staging_lock();
     ee = (struct export_entry*) index_put_entry(&export_tables[code_ix],
 						init_template(&templ, mod, func, arity));
-    export_write_unlock();
+    export_staging_unlock();
     return ee->ep;
 }
 
@@ -320,7 +317,7 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 	     * The code is not loaded (yet). Put the export in the staging
 	     * export table, to avoid having to lock the active export table.
 	     */
-	    export_write_lock();
+	    export_staging_lock();
 	    if (erts_active_code_ix() == code_ix) {
 		struct export_templ templ;
 	        struct export_entry* entry;
@@ -335,7 +332,7 @@ erts_export_get_or_make_stub(Eterm mod, Eterm func, unsigned int arity)
 		ASSERT(!retrying);
 		IF_DEBUG(retrying = 1);
 	    }
-	    export_write_unlock();
+	    export_staging_unlock();
 	}
     } while (!ep);
     return ep;
@@ -355,11 +352,11 @@ int export_table_sz(void)
 {
     int i, bytes = 0;
 
-    export_read_lock();
+    export_staging_lock();
     for (i=0; i<ERTS_NUM_CODE_IX; i++) {
 	bytes += index_table_sz(&export_tables[i]);
     }
-    export_read_unlock();
+    export_staging_unlock();
     return bytes;
 }
 int export_entries_sz(void)
@@ -392,7 +389,7 @@ void export_start_staging(void)
     ASSERT(dst_ix != src_ix);
     ASSERT(debug_start_load_ix == -1);
 
-    export_write_lock();
+    export_staging_lock();
     /*
      * Insert all entries in src into dst table
      */
@@ -402,7 +399,7 @@ void export_start_staging(void)
 	dst_entry = (struct export_entry*) index_put_entry(dst, src_entry);
 	ASSERT(entry_to_blob(src_entry) == entry_to_blob(dst_entry));
     }
-    export_write_unlock();
+    export_staging_unlock();
 
     IF_DEBUG(debug_start_load_ix = dst_ix);
 }
