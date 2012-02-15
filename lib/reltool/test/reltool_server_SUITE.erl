@@ -1192,8 +1192,10 @@ set_app_and_undo(Config) ->
     ExclCover = Cover#mod{incl_cond=exclude},
     Mods = Tools#app.mods,
     Tools1 = Tools#app{mods = lists:keyreplace(cover,#mod.name,Mods,ExclCover)},
-    {ok,ToolsNoCover,[]} = ?msym({ok,_,[]}, reltool_server:set_app(Pid,Tools1)),
-    ?m({ok,[]}, reltool_server:get_status(Pid)),
+    {ok,ToolsNoCover,["a: Cannot parse app file"++_|_]} =
+	?msym({ok,_,["a: Cannot parse app file"++_|_]},
+	      reltool_server:set_app(Pid,Tools1)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
 
     %% Check that the module is no longer included
     ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
@@ -1201,17 +1203,16 @@ set_app_and_undo(Config) ->
 				reltool_server:get_mod(Pid,cover)),
 
     %% Undo
-    %%! warning can come twice here... :(
     ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:undo_config(Pid)),
     ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
     ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
     ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
 
     %% Undo again, to check that it toggles
-    ?m({ok,[]}, reltool_server:undo_config(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:undo_config(Pid)),
     ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
     ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
-    ?m({ok,[]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -1238,8 +1239,9 @@ set_apps_and_undo(Config) ->
 
     %% Exclude one application with set_apps
     ExclTools = Tools#app{incl_cond=exclude},
-    ?m({ok,[]}, reltool_server:set_apps(Pid,[ExclTools])),
-    ?m({ok,[]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]},
+       reltool_server:set_apps(Pid,[ExclTools])),
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
 
     %% Check that the app and its modules (one of them) are no longer included
     {ok,NoTools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
@@ -1249,17 +1251,16 @@ set_apps_and_undo(Config) ->
 				reltool_server:get_mod(Pid,cover)),
 
     %% Undo
-    %%! warning can come twice here... :(
     ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:undo_config(Pid)),
     ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
     ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
     ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
 
     %% Undo again, to check that it toggles
-    ?m({ok,[]}, reltool_server:undo_config(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:undo_config(Pid)),
     ?m({ok,NoTools}, reltool_server:get_app(Pid,tools)),
     ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
-    ?m({ok,[]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -1327,7 +1328,7 @@ load_config_and_undo(Config) ->
 		 {app,sasl,[{incl_cond,include}]},
 		 {app,stdlib,[{incl_cond,include}]},
 		 {app,tools,[{incl_cond,derived}]}]},
-    ?msym({ok,["a: Cannot parse app file"++_]},
+    ?msym({ok,["a: Cannot parse app file"++_|_]},
 	  reltool_server:load_config(Pid,Sys2)),
 %%% OTP-0702, 15)    ?m({ok, Sys2}, reltool:get_config(Pid)),
 %%% Note that {incl_cond,exclude} is removed compared to Sys1 -
@@ -1363,7 +1364,6 @@ load_config_and_undo(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load config with escript
 
-load_config_escript_path(_Config) -> {skip,"Known bug: loading config with escript at reltool start creates different #app record than loading same config with load_config"};
 load_config_escript_path(Config) ->
     %% Create escript
     DataDir = ?config(data_dir,Config),
@@ -1411,7 +1411,6 @@ load_config_escript_path(Config) ->
 %% Load config with same (source) escript twice and check that the
 %% application information is not changed.
 
-load_config_same_escript_source(_Config) -> {skip,"Known bug: loading config with same escript (source) twice causes reltool to add same module twice in #app.mods"};
 load_config_same_escript_source(_Config) ->
     %% Create escript
     ExDir = code:lib_dir(reltool, examples),
@@ -1428,12 +1427,14 @@ load_config_same_escript_source(_Config) ->
          ]},
 
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
-    {ok,[#app{name='*escript* display_args'}=A]} =
-	?msym({ok,[_]}, reltool_server:get_apps(Pid,whitelist)),
+%    {ok,[#app{name='*escript* display_args'}]} =
+    ?msym({ok,[#app{name='*escript* display_args',mods=[_]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
 
     %% Load the same config again, then check that app is not changed
     ?m({ok,[]}, reltool_server:load_config(Pid,Sys)),
-    ?m({ok,[A]}, reltool_server:get_apps(Pid,whitelist)),
+    ?msym({ok,[#app{name='*escript* display_args',mods=[_]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
 
     ?m(ok, reltool:stop(Pid)),
 
@@ -1443,7 +1444,6 @@ load_config_same_escript_source(_Config) ->
 %% Load config with same (beam) escript twice and check that the
 %% application information is not changed.
 
-load_config_same_escript_beam(_Config) -> {skip,"Known bug: loading config with same escript (with inlined beam) twice causes reltool to fail and say module is included by two different applications"};
 load_config_same_escript_beam(Config) ->
     %% Create escript
     DataDir = ?config(data_dir,Config),
@@ -1478,8 +1478,6 @@ load_config_same_escript_beam(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Load config with escript
 
-%% BUG: see OTP-9792, 25)
-load_config_add_escript(_Config) -> {skip,"Known bug: Can not load_config which in addition to an existing escript also adds another escript for which the name sorts before the existing one"};
 load_config_add_escript(Config) ->
     %% First escript
     ExDir = code:lib_dir(reltool, examples),
@@ -1566,7 +1564,6 @@ reset_config_and_undo(Config) ->
 			reltool_server:get_mod(Pid,cover)),
 
     %% Reset
-    %%! warning can come twice here... :(
     ?msym({ok,["a: Cannot parse app file"++_|_]},
 	  reltool_server:reset_config(Pid)),
     ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
