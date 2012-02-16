@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -314,8 +314,8 @@ do_create_code_page(#state{xref_pid = Xref, mod = M} = S, PageName) ->
     {ok, App} = reltool_server:get_app(Xref, M#mod.app_name),
     ErlBin =
 	case App#app.is_escript of
-	    true -> find_escript_bin(App, M);
-	    false -> find_regular_bin(App, M)
+	    false -> find_regular_bin(App, M);
+	    _ -> find_escript_bin(App, M)
 	end,
 
     load_code(Editor, ErlBin),

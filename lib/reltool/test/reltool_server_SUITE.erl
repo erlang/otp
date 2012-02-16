@@ -64,6 +64,7 @@ all() ->
      create_standalone,
      create_standalone_beam,
      create_standalone_app,
+     create_standalone_app_clash,
      create_multiple_standalone,
      create_old_target,
      eval_target_spec,
@@ -75,6 +76,7 @@ all() ->
      get_sys,
      set_app_and_undo,
      set_apps_and_undo,
+     set_apps_inlined,
      set_sys_and_undo,
      load_config_and_undo,
      load_config_escript_path,
@@ -798,13 +800,6 @@ create_standalone_beam(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate standalone system with inlined archived application
 
-%% BUG: see OTP-9792, 25)
-%% Problem related to change of #app.name from "*escript* someapp" to
-%% just "someapp", since there is a someapp.app in the
-%% archive. "someapp" does not have an incl_cond=include statement,
-%% and it is not derived so the it is not included in the target
-%% system.
-create_standalone_app(_Config) -> {skip, "Known bug: escript with inlined archive is not handled correctly by reltool"};
 create_standalone_app(Config) ->
     %% Create archive
     DataDir = ?config(data_dir,Config),
@@ -851,6 +846,43 @@ create_standalone_app(Config) ->
 				  "ExitCode:0"]),
     io:format("Expected: ~s\n", [Expected]),
     ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with inlined archived application
+%% Check that the inlined app can not be explicitly configured
+
+create_standalone_app_clash(Config) ->
+    %% Create archive
+    DataDir = ?config(data_dir,Config),
+    EscriptDir = filename:join(DataDir,escript),
+    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
+				     [memory,
+				      {cwd,EscriptDir},
+				      {compress,all},
+				      {uncompress,[".beam",".app"]}]),
+
+    %% Create the escript
+    EscriptName = "someapp.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,
+				 {emu_args,"-escript main mymod"},
+				 {archive,Bin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone},
+	  {app, someapp, [{incl_cond,include}]}
+         ]},
+
+    ?msym({error,"someapp: Application name clash. Escript "++_},
+	  reltool:get_target_spec([{config,Sys}])),
 
     ok.
 
@@ -1261,6 +1293,76 @@ set_apps_and_undo(Config) ->
     ?m({ok,NoTools}, reltool_server:get_app(Pid,tools)),
     ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
     ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that escript can be configured, but not its inlined applications
+set_apps_inlined(Config) ->
+    %% Create archive
+    DataDir = ?config(data_dir,Config),
+    EscriptDir = filename:join(DataDir,escript),
+    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
+				     [memory,
+				      {cwd,EscriptDir},
+				      {compress,all},
+				      {uncompress,[".beam",".app"]}]),
+
+    %% Create the escript
+    EscriptName = "someapp.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,
+				 {emu_args,"-escript main mymod"},
+				 {archive,Bin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys = {sys,[{incl_cond, exclude},
+		{escript,Escript,[]},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?msym({ok,[]},reltool_server:get_status(Pid)),
+
+    %% Get app and mod
+    {ok,EApp} = ?msym({ok,_}, reltool_server:get_app(Pid,'*escript* someapp')),
+    {ok,Someapp} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
+    ?m(undefined, EApp#app.incl_cond),
+    ?m(undefined, Someapp#app.incl_cond),
+    ?m(false, Someapp#app.is_included),
+    ?m(false, Someapp#app.is_pre_included),
+
+    %% Include escript
+    EApp1 = EApp#app{incl_cond=include},
+    ?m({ok,[]}, reltool_server:set_apps(Pid,[EApp1])),
+    ExpectedEApp = EApp1#app{is_included=true,is_pre_included=true},
+    ?m({ok,ExpectedEApp}, reltool_server:get_app(Pid,'*escript* someapp')),
+    {ok,Someapp1} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
+    ?m(include, Someapp1#app.incl_cond),
+    ?m(true, Someapp1#app.is_included),
+    ?m(true, Someapp1#app.is_pre_included),
+
+    %% Check that inlined app can not be configured
+    Someapp2 = Someapp1#app{incl_cond=exclude},
+    ?msym({error,
+	   "Application someapp is inlined in '*escript* someapp'. "
+	   "Can not change configuration for an inlined application."},
+	  reltool_server:set_apps(Pid,[Someapp2])),
+    ?m({ok,Someapp1}, reltool_server:get_app(Pid,someapp)),
+
+    %% Exclude escript
+    {ok,EApp2} = ?msym({ok,_}, reltool_server:get_app(Pid,'*escript* someapp')),
+    EApp3 = EApp2#app{incl_cond=exclude},
+    ?m({ok,[]}, reltool_server:set_apps(Pid,[EApp3])),
+    ExpectedEApp3 = EApp3#app{is_included=false,is_pre_included=false},
+    ?m({ok,ExpectedEApp3}, reltool_server:get_app(Pid,'*escript* someapp')),
+    {ok,Someapp3} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
+    ?m(exclude, Someapp3#app.incl_cond),
+    ?m(false, Someapp3#app.is_included),
+    ?m(false, Someapp3#app.is_pre_included),
 
     ?m(ok, reltool:stop(Pid)),
     ok.

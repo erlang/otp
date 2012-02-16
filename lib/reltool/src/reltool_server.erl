@@ -467,20 +467,30 @@ loop(#state{common = C, sys = Sys} = S) ->
 do_set_apps(#state{sys = Sys} = S, ChangedApps, Status) ->
 
     %% Create new list of configured applications
-    Sys2 = Sys#sys{apps = app_update_config(ChangedApps, Sys#sys.apps)},
+    {SysApps,Status2} = app_update_config(ChangedApps, Sys#sys.apps, Status),
+    Sys2 = Sys#sys{apps = SysApps},
 
-    %% Refresh and analyse
-    {S2, Apps, Status2} = refresh(S#state{sys = Sys2}, true, Status),
-    Status3 = analyse(S2, Apps, Status2),
+    %% Refresh from filesystem and analyse dependencies
+    {S2, Apps, Status3} = refresh(S#state{sys = Sys2}, true, Status2),
+    Status4 = analyse(S2, Apps, Status3),
 
-    {S2, Status3}.
+    {S2, Status4}.
 
 %% Re-create the #sys.apps list by
 %% 1) taking configurable fields from the changed #app records and
 %%    create new default records
 %% 2) removing #app records if no configurable fields are set
 %% 3) keeping #app records that are not changed
-app_update_config([Config|Configs],SysApps) ->
+app_update_config([#app{name=Name,is_escript={inlined,Escript}}|Configs],
+		  SysApps,Status) ->
+    Text =
+	lists:flatten(
+	  io_lib:format("Application ~p is inlined in ~p. Can not change "
+			"configuration for an inlined application.",
+			[Name,Escript])),
+    Status2 = reltool_utils:return_first_error(Status, Text),
+    app_update_config(Configs,SysApps,Status2);
+app_update_config([Config|Configs],SysApps,Status) ->
     NewSysApps =
 	case app_set_config_only(Config) of
 	    {delete,Name} ->
@@ -488,9 +498,9 @@ app_update_config([Config|Configs],SysApps) ->
 	    New ->
 		lists:ukeymerge(#app.name,[New],SysApps)
 	end,
-    app_update_config(Configs,NewSysApps);
-app_update_config([],SysApps) ->
-    SysApps.
+    app_update_config(Configs,NewSysApps,Status);
+app_update_config([],SysApps,Status) ->
+    {SysApps,Status}.
 
 app_set_config_only(#app{mods=ConfigMods} = Config) ->
     app_set_config_only(mod_set_config_only(ConfigMods),Config).
@@ -506,13 +516,13 @@ app_set_config_only([],#app{name                 = Name,
 			    excl_app_filters     = undefined,
 			    incl_archive_filters = undefined,
 			    excl_archive_filters = undefined,
-			    archive_opts         = undefined}) ->
+			    archive_opts         = undefined,
+			    is_escript           = false})->
     {delete,Name};
 app_set_config_only(Mods,#app{name                 = Name,
 			      incl_cond            = InclCond,
 			      mod_cond             = ModCond,
 			      use_selected_vsn     = UseSelectedVsn,
-			      active_dir           = ActiveDir,
 			      debug_info           = DebugInfo,
 			      app_file             = AppFile,
 			      app_type             = AppType,
@@ -521,21 +531,38 @@ app_set_config_only(Mods,#app{name                 = Name,
 			      incl_archive_filters = InclArchiveFilters,
 			      excl_archive_filters = ExclArchiveFilters,
 			      archive_opts         = ArchiveOpts,
-			      vsn                  = Vsn}) ->
-    (default_app(Name))#app{incl_cond            = InclCond,
-			    mod_cond             = ModCond,
-			    use_selected_vsn     = UseSelectedVsn,
-			    active_dir           = ActiveDir,
-			    debug_info           = DebugInfo,
-			    app_file             = AppFile,
-			    app_type             = AppType,
-			    incl_app_filters     = InclAppFilters,
-			    excl_app_filters     = ExclAppFilters,
-			    incl_archive_filters = InclArchiveFilters,
-			    excl_archive_filters = ExclArchiveFilters,
-			    archive_opts         = ArchiveOpts,
-			    vsn                  = Vsn,
-			    mods                 = Mods}.
+			      vsn                  = Vsn,
+			      is_escript           = IsEscript,
+			      label                = Label,
+			      info                 = Info,
+			      active_dir           = ActiveDir,
+			      sorted_dirs          = SortedDirs}) ->
+    App = (default_app(Name))#app{incl_cond            = InclCond,
+				  mod_cond             = ModCond,
+				  use_selected_vsn     = UseSelectedVsn,
+				  debug_info           = DebugInfo,
+				  app_file             = AppFile,
+				  app_type             = AppType,
+				  incl_app_filters     = InclAppFilters,
+				  excl_app_filters     = ExclAppFilters,
+				  incl_archive_filters = InclArchiveFilters,
+				  excl_archive_filters = ExclArchiveFilters,
+				  archive_opts         = ArchiveOpts,
+				  vsn                  = Vsn,
+				  mods                 = Mods},
+
+    %% Some fields shall only be set if it is an escript, e.g. label
+    %% must never be set for any other applications since that will
+    %% prevent refreshing.
+    if IsEscript ->
+	    App#app{is_escript  = IsEscript,
+		    active_dir  = ActiveDir,
+		    sorted_dirs = SortedDirs,
+		    label       = Label,
+		    info        = Info};
+       true ->
+	    App
+    end.
 
 mod_set_config_only(ConfigMods) ->
     [#mod{name       = Name,
@@ -1044,7 +1071,7 @@ refresh_app(#app{name = AppName,
 			%% And read all modules from ebin and create
 			%% #mod record with dependencies (uses_mods).
                         {AI, read_ebin_mods(Ebin, AppName), Status2};
-                    true ->
+                    _ ->
                         {App#app.info, Mods, Status}
                 end,
 
@@ -1316,7 +1343,7 @@ shrink_app(A) ->
 		  info = undefined,
 		  mods = [],
 		  uses_mods = undefined};
-        true ->
+	true ->
             {Dir, Dirs, OptVsn} =
                 case A#app.use_selected_vsn of
                     undefined ->
@@ -1881,7 +1908,7 @@ escripts_to_apps([Escript | Escripts], Apps, Status) ->
 		    EA    -> EA
 		end,
 	    {Apps2, Status3} =
-		escript_files_to_apps(Escript,
+		escript_files_to_apps(EscriptAppName,
 				      lists:sort(Files),
 				      [EscriptApp],
 				      Apps,
@@ -1898,7 +1925,7 @@ escripts_to_apps([], Apps, Status) ->
 
 %% Assume that all files for an app are in consecutive order
 %% Assume the app info is before the mods
-escript_files_to_apps(Escript,
+escript_files_to_apps(EscriptAppName,
 		      [{AppName, Type, Dir, ModOrInfo} | Files],
 		      Acc,
 		      Apps,
@@ -1914,6 +1941,7 @@ escript_files_to_apps(Escript,
 			{[App#app{mods = Mods} | Acc2], Status};
 		    Acc ->
 			{NewApp, Status2} = init_escript_app(AppName,
+							     EscriptAppName,
 							     Dir,
 							     missing_app_info(""),
 							     [ModOrInfo],
@@ -1923,6 +1951,7 @@ escript_files_to_apps(Escript,
 		end;
            app ->
 		{App, Status2} = init_escript_app(AppName,
+						  EscriptAppName,
 						  Dir,
 						  ModOrInfo,
 						  [],
@@ -1930,18 +1959,24 @@ escript_files_to_apps(Escript,
 						  Status),
 		{[App | Acc], Status2}
 	end,
-    escript_files_to_apps(Escript, Files, NewAcc, Apps, Status3);
-escript_files_to_apps(_Escript, [], Acc, Apps, Status) ->
-    {lists:ukeymerge(#app.name, Acc, Apps), Status}.
+    escript_files_to_apps(EscriptAppName, Files, NewAcc, Apps, Status3);
+escript_files_to_apps(_EscriptAppName, [], Acc, Apps, Status) ->
+    {lists:ukeymerge(#app.name, lists:reverse(Acc), Apps), Status}.
 
-init_escript_app(AppName, Dir, Info, Mods, Apps, Status) ->
+init_escript_app(AppName, EscriptAppName, Dir, Info, Mods, Apps, Status) ->
     App1 = default_app(AppName, Dir),
-    App2 = App1#app{is_escript = true,
+    IsEscript =
+	if AppName=:=EscriptAppName -> true;
+	   true -> {inlined, EscriptAppName}
+	end,
+    InclCond = (lists:keyfind(EscriptAppName,#app.name,Apps))#app.incl_cond,
+    App2 = App1#app{is_escript = IsEscript,
 		    label = filename:basename(Dir, ".escript"),
 		    info = Info,
 		    mods = Mods,
 		    active_dir = Dir,
-		    sorted_dirs = [Dir]},
+		    sorted_dirs = [Dir],
+		    incl_cond = InclCond},% inlined apps inherit incl from escript
     case lists:keymember(AppName, #app.name, Apps) of
         true ->
             Error = lists:concat([AppName, ": Application name clash. ",
@@ -2022,8 +2057,10 @@ refresh_apps(_ConfigApps, [], Acc, _Force, Status) ->
     {lists:reverse(Acc), Status}.
 
 
-ensure_app_info(#app{is_escript = true, active_dir = Dir, info = Info},
-		Status) ->
+ensure_app_info(#app{is_escript = IsEscript, active_dir = Dir, info = Info},
+		Status)
+  when IsEscript=/=false ->
+    %% Escript or application which is inlined in an escript
     {Info, Dir, Status};
 ensure_app_info(#app{name = Name, sorted_dirs = []}, Status) ->
     Error = lists:concat([Name, ": Missing application directory."]),

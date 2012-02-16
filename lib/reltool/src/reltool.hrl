@@ -45,6 +45,7 @@
 -type profile()          :: development | embedded | standalone.
 -type relocatable()      :: boolean().
 -type escript_file()     :: file().
+-type escript_app_name() :: app_name().
 -type mod_name()         :: atom().
 -type app_name()         :: atom().
 -type app_vsn()          :: string(). % e.g. "4.7"
@@ -170,7 +171,7 @@
 -record(app,
         { %% Static info
           name             :: app_name(),
-          is_escript       :: boolean(),
+          is_escript       :: boolean() | {inlined, escript_app_name()},
           use_selected_vsn :: boolean() | undefined,
           active_dir       :: dir(),
           sorted_dirs      :: [dir()],

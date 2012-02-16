@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -101,7 +101,7 @@ do_gen_config(#sys{root_dir          	= RootDir,
 	 || A <- Apps,
 	    A#app.name =/= ?MISSING_APP_NAME,
 	    A#app.name =/= erts,
-	    not A#app.is_escript],
+	    A#app.is_escript =/= true],
     EscriptItems = [{escript,
 		     A#app.active_dir,
 		     emit(incl_cond, A#app.incl_cond, undefined, InclDefs)}
@@ -895,7 +895,7 @@ spec_escripts(#sys{apps = Apps}, ErtsBin, BinFiles) ->
                      if
                          Name =:= ?MISSING_APP_NAME ->
                              false;
-                         not IsEscript ->
+                         IsEscript =/= true ->
                              false;
                          IsIncl; IsPre ->
                              {true, do_spec_escript(File, ErtsBin, BinFiles)};
@@ -957,7 +957,7 @@ spec_lib_files(#sys{apps = Apps} = Sys) ->
                      if
                          Name =:= ?MISSING_APP_NAME ->
                              false;
-                         IsEscript ->
+                         IsEscript =/= false ->
                              false;
                          IsIncl; IsPre ->
                              true;
