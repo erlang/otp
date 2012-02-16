@@ -53,7 +53,7 @@ public class OtpErlangAtom extends OtpErlangObject implements Serializable,
 
 	if (atom.length() > maxAtomLength) {
 	    throw new java.lang.IllegalArgumentException("Atom may not exceed "
-		    + maxAtomLength + " characters");
+		    + maxAtomLength + " characters: " + atom);
 	}
 	this.atom = atom;
     }
