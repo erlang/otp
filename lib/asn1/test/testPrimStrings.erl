@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,6 @@
 %%
 -module(testPrimStrings).
 
--export([compile/3]).
 -export([bit_string/1]).
 -export([bit_string_unnamed/1]).
 -export([octet_string/1]).
@@ -32,22 +31,6 @@
 -export([utf8_string/1]).
 
 -include_lib("test_server/include/test_server.hrl").
-
-
-compile(Config,Rules,Option) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "PrimStrings",
-			      [Rules,{outdir,OutDir}]++Option),
-    ?line {ok,IO} = file:open(test_config,write),
-    io:format(IO,"~p.~n",[Config]),
-    file:close(IO),
-    ?line ok = asn1ct:compile(DataDir ++ "BitStr",
-			      [Rules, {outdir,OutDir}]++Option).
-
-
 
 bit_string(Rules) ->
     

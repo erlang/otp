@@ -20,14 +20,9 @@
 -module(test_modified_x420).
 
 %-compile(export_all).
--export([compile/1, test_io/1]).
+-export([test_io/1]).
 
 -include_lib("test_server/include/test_server.hrl").
-
-compile(Config) ->
-    [asn1_test_lib:compile(filename:join([modified_x420,M]), Config, [der])
-     || M <- ["PKCS7", "InformationFramework", "AuthenticationFramework"]],
-    ok.
 
 test_io(Config) ->
     io:format("~p~n~n", [catch test(Config)]).

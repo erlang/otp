@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,42 +19,10 @@
 %%
 -module(testSeqOfIndefinite).
 
--export([compile/3]).
 -export([main/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-%-record('Seq1',{bool1, int1, seq1 = asn1_DEFAULT}).
-%-record('Seq2',{seq2 = asn1_DEFAULT, bool2, int2}).
-%-record('Seq3',{bool3, seq3 = asn1_DEFAULT, int3}).
-%-record('Seq4',{seq41 = asn1_DEFAULT, seq42 = asn1_DEFAULT, seq43 = asn1_DEFAULT}).
-%-record('SeqIn',{boolIn, intIn}).
-%-record('SeqCho',{bool1, int1, seq1 = asn1_DEFAULT}).
-%-record('SeqChoInline',{bool1, int1, seq1 = asn1_DEFAULT}).
-%-record('SeqChoOfInline_SEQOF',{bool1, int1, seq1 = asn1_DEFAULT}).
-%-record('SeqEmp',{seq1}).
-%-record('Empty',{}).
-
-
-
-compile(Config,Rules,Opts) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line Options = [Rules,{outdir,OutDir}]++Opts,
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-Constants-1",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-DataTypes-1",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-21-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-20-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-19-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-18-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-17-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-15-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-14-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "Mvrasn-11-4",Options),
-    ?line ok = asn1ct:compile(DataDir ++ "SeqOf",Options).
-    
 main() ->
     ?line ok = test(isd),
     ?line ok = test(isd2),

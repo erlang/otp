@@ -27,31 +27,27 @@
 %% testing OTP-5104
 
 test(Opt, Config) ->
-    ?line {ok,Msg} = asn1ct:value('P-Record','PersonnelRecord',
-                                  [{i, ?config(case_dir, Config)}]),
-    ?line {ok,Bytes} = asn1_wrapper:encode('P-Record','PersonnelRecord',Msg),
-    Bytes2 =
-	fun(B) when is_list(B) ->
-		B ++ [55,55,55];
-	   (B) when is_binary(B) ->
-		iolist_to_binary([B,<<55,55,55>>])
-	end (Bytes),
-    
+    {ok, Msg} = asn1ct:value('P-Record', 'PersonnelRecord',
+                             [{i, ?config(case_dir, Config)}]),
+    {ok, Bytes} = asn1_wrapper:encode('P-Record', 'PersonnelRecord', Msg),
+    Bytes2 = if  is_list(Bytes) ->
+                     Bytes ++ [55, 55, 55];
+                 is_binary(Bytes) ->
+                     iolist_to_binary([Bytes, <<55, 55, 55>>])
+             end,
     case Opt of
-	undec_rest ->
-	    ?line {ok,Msg,R}=asn1_wrapper:decode('P-Record','PersonnelRecord',
-					     Bytes2),
-	    ?line case R of
-		      <<55,55,55>> ->ok;
-		      [55,55,55] -> ok;
-		      BStr when is_bitstring(BStr) ->
-			  PadLen = (8 - (bit_size(BStr) rem 8)) rem 8,
-			  case <<0:PadLen,BStr/bitstring>> of
-			      <<0,55,55,55>> -> ok
-			  end
-		  end;
-	_ ->
-	    ?line {ok,Msg} = asn1_wrapper:decode('P-Record','PersonnelRecord',
-					   Bytes2)
+        undec_rest ->
+            {ok, Msg, R} = asn1_wrapper:decode('P-Record', 'PersonnelRecord',
+                                               Bytes2),
+            case R of
+                <<55, 55, 55>> -> ok;
+                [55, 55, 55] -> ok;
+                BStr when is_bitstring(BStr) ->
+                    PadLen = (8 - (bit_size(BStr) rem 8)) rem 8,
+                    <<0, 55, 55, 55>> = <<0:PadLen, BStr/bitstring>>
+            end;
+        _ ->
+            {ok, Msg} = asn1_wrapper:decode('P-Record', 'PersonnelRecord',
+                                            Bytes2)
     end,
     ok.

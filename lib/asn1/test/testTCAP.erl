@@ -29,12 +29,13 @@ compile(Config, Options) ->
              "TCAPMessages-simple",
              "TCAPPackage"],
     asn1_test_lib:compile_all(Files, Config, Options),
-    DataDir = ?config(data_dir,Config),
-    CaseDir = ?config(case_dir,Config),
-    compile:file(filename:join([DataDir,"TCAPPackage_msg"]),[{i,CaseDir},{outdir,CaseDir}]).
+    asn1_test_lib:compile_erlang("TCAPPackage_msg", Config, []).
 
 compile_asn1config(Config, Options) ->
-    asn1_test_lib:compile("TCAPPackage", Config, Options).
+    Files = ["Remote-Operations-Information-Objects",
+             "TCAPPackage"],
+    asn1_test_lib:compile_all(Files, Config, Options),
+    asn1_test_lib:compile_erlang("TCAPPackage_msg", Config, []).
 
 test(Erule,_Config) when Erule==ber;Erule==ber_bin;Erule==ber_bin_v2 ->
 %    ?line OutDir = ?config(priv_dir,Config),

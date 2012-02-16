@@ -19,15 +19,9 @@
 %%
 -module(test_x691).
 
--export([compile/2]).
 -export([cases/2]).
 
 -include_lib("test_server/include/test_server.hrl").
-
-compile(Config, Options) ->
-    asn1_test_lib:compile_all(["P-RecordA1", "P-RecordA2", "P-RecordA3"],
-                              Config, Options).
-
 
 cases(Erule,Variant) ->
     MsgA1 = a1(),

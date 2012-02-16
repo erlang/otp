@@ -29,9 +29,9 @@ MODULES= \
 	choice_extension \
 	ber_decode_error \
 	testPrim \
-        testPrimStrings \
+	testPrimStrings \
 	testCompactBitString \
-        testPrimExternal \
+	testPrimExternal \
 	testChoPrim \
 	testChoExtension \
 	testChoExternal \
@@ -85,7 +85,6 @@ MODULES= \
 	testMergeCompile \
 	testDeepTConstr \
 	testTimer \
-	testRANAP \
 	testMegaco \
 	testSeqSetDefaultVal \
 	testParamBasic \
@@ -105,7 +104,6 @@ MODULES= \
 	test_inline \
 	testTcapsystem \
 	testNBAPsystem \
-	test_bad_values \
 	test_compile_options \
 	testDoubleEllipses \
 	test_modified_x420 \
@@ -115,16 +113,9 @@ MODULES= \
 	asn1_app_test \
 	asn1_appup_test \
 	asn1_wrapper \
-	asn1_SUITE \
-	asn1_bin_SUITE \
-	asn1_bin_v2_SUITE
+	asn1_SUITE
 
 SUITE= asn1_SUITE.erl
-SUITE_BIN= asn1_bin_SUITE.erl
-SUITE_BIN_V2= asn1_bin_v2_SUITE.erl
-SUITE_SRC= asn1_SUITE.erl.src
-SUITE_BIN_SRC= asn1_bin_SUITE.erl.src
-SUITE_BIN_V2_SRC= asn1_bin_SUITE.erl.src
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -153,29 +144,9 @@ $(EMAKEFILE): $(ERL_FILES) $(HRL_FILES)
 tests debug opt: $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2) $(EMAKEFILE)
 
 clean:
-	rm -f $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2)
 	rm -f core
 
 docs:
-
-#-----------------------------------------------------
-# Special Targets
-#-----------------------------------------------------
-$(SUITE): $(SUITE_SRC) asn1_common_SUITE.erl.src asn1_particular_SUITE.erl.src
-	sed -e 's;%BIN%;;' -e 's;%PER%;per;' -e 's;%BER%;ber;'  $< > $@
-	cat asn1_common_SUITE.erl.src >> $@
-	cat asn1_particular_SUITE.erl.src >> $@
-
-
-$(SUITE_BIN): $(SUITE_SRC) asn1_bin_particular_SUITE.erl.src
-	sed -e 's;%BIN%;bin_;' -e 's;%PER%;per_bin;' -e 's;%BER%;ber_bin;' $< > $@
-	echo "common() -> []." >> $@
-	cat asn1_bin_particular_SUITE.erl.src >> $@
-
-$(SUITE_BIN_V2): $(SUITE_SRC) asn1_bin_v2_particular_SUITE.erl.src
-	sed -e 's;%BIN%;bin_v2_;' -e 's;%PER%;per_bin;' -e 's;%BER%;ber_bin_v2;' $< > $@
-	echo "common() -> []." >> $@
-	cat asn1_bin_v2_particular_SUITE.erl.src >> $@
 
 # ----------------------------------------------------
 # Release Target
@@ -187,15 +158,11 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DIR) $(RELSYSDIR)/asn1_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_v2_SUITE_data
 	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) asn1.spec asn1.cover $(INSTALL_PROGS) $(RELSYSDIR)
 	chmod -R u+w $(RELSYSDIR)
 	cd asn1_SUITE_data; tar cfh $(RELSYSDIR)/asn1_SUITE_data.tar *
 	cd $(RELSYSDIR)/asn1_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
-	cd $(RELSYSDIR)/asn1_bin_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
-	cd $(RELSYSDIR)/asn1_bin_v2_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
 	rm $(RELSYSDIR)/asn1_SUITE_data.tar
 
 release_docs_spec:

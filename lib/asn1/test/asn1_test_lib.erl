@@ -21,6 +21,7 @@
 
 -export([compile/3]).
 -export([compile_all/3]).
+-export([compile_erlang/3]).
 
 -export([ticket_7407_compile/2,ticket_7407_code/1, ticket_7678/2,
          ticket_7708/2, ticket_7763/1, ticket_7876/3]).
@@ -32,10 +33,53 @@ compile(File, Config, Options) -> compile_all([File], Config, Options).
 compile_all(Files, Config, Options) ->
     DataDir = ?config(data_dir, Config),
     CaseDir = ?config(case_dir, Config),
-    % TODO: Purge and load as well?
-    [ok = asn1ct:compile(filename:join(DataDir, F),
-                         [{outdir, CaseDir}|Options]) || F <- Files],
+    [compile_file(filename:join(DataDir, F), [{outdir, CaseDir}|Options])
+         || F <- Files],
     ok.
+
+compile_file(File, Options) ->
+    try
+        ok = asn1ct:compile(File, Options),
+        case should_load(File, Options) of
+            false ->
+                ok;
+            {module, Module} ->
+                code:purge(Module),
+                true = code:soft_purge(Module),
+                {module, Module} = code:load_file(Module)
+        end
+    catch
+        Class:Reason ->
+            erlang:error({compile_failed, {File, Options}, {Class, Reason}})
+    end.
+
+compile_erlang(Mod, Config, Options) ->
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    M = list_to_atom(Mod),
+    {ok, M} = compile:file(filename:join(DataDir, Mod),
+                           [{i, CaseDir}, {outdir, CaseDir}|Options]).
+
+should_load(File, Options) ->
+    should_load(File, lists:member(abs, Options),
+                proplists:lookup(inline, Options)).
+
+should_load(_File, true, _Inline) ->
+    false;
+should_load(_File, _Abs, {inline, Module}) when Module /= true ->
+    {module, Module};
+should_load(File, _Abs, _Inline) ->
+    {module, list_to_atom(strip_extension(filename:basename(File)))}.
+
+strip_extension(File) ->
+    strip_extension(File, filename:extension(File)).
+
+strip_extension(File, "") ->
+    File;
+strip_extension(File, Ext) when Ext == ".asn"; Ext == ".set"; Ext == ".asn1"->
+    strip_extension(filename:rootname(File));
+strip_extension(File, _Ext) ->
+    File.
 
 ticket_7407_compile(Config,Option) ->
 

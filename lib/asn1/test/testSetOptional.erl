@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,6 @@
 -module(testSetOptional).
 
 -include("External.hrl").
--export([compile/3]).
 -export([main/1]).
 -export([ticket_7533/1,decoder/4]).
 -include_lib("test_server/include/test_server.hrl").
@@ -35,16 +34,6 @@
 -record('SetOpt3Imp',{bool3 = asn1_NOVALUE, set3 = asn1_NOVALUE, int3 = asn1_NOVALUE}).
 -record('SetOpt3Exp',{bool3 = asn1_NOVALUE, set3 = asn1_NOVALUE, int3 = asn1_NOVALUE}).
 -record('SetIn',{boolIn, intIn}).
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SetOptional",[Rules,{outdir,OutDir}]++Options).
-
-
 
 main(_Rules) ->
     
@@ -204,9 +193,8 @@ ticket_7533(Ber) when Ber == ber; Ber == ber_bin ->
 	    io:format("Decode result: ~p~n",[Result]),
 	    ok
     after 10000 ->
-	    exit(Pid,normal),
 	    io:format("Decode timeout~n",[]),
-	    error
+	    exit(Pid,normal)
     end;
 ticket_7533(_) ->
     ok.

@@ -19,7 +19,6 @@
 %%
 -module(testParamBasic).
 
--export([compile/3]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -28,15 +27,6 @@
 -record('T12',{number, string=asn1_DEFAULT}).
 -record('T21',{number, string}).
 -record('T22',{number, string}).
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "ParamBasic",
-			      [Rules,{outdir,OutDir}]++Options).
 
 main(Rules) ->
     

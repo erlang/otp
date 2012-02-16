@@ -19,18 +19,10 @@
 %%
 -module(testCompactBitString).
 
--export([compile/2]).
 -export([compact_bit_string/1, bit_string_unnamed/1,otp_4869/1,
 	 ticket_7734/1]).
 
 -include_lib("test_server/include/test_server.hrl").
-
-compile(Config, Options) ->
-    asn1_test_lib:compile("PrimStrings", Config, Options),
-    case lists:member(per_bin, Options) of
-        true -> asn1_test_lib:compile("Constraints", Config, Options);
-        _    -> ok
-    end.
 
 compact_bit_string(Rules) ->
 
