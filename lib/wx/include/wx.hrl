@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,251 +22,294 @@
 %%  Each event record may be sent for one or more event types.
 %%  The mapping to wxWidgets is one record per class.
 
-%% @type wx() = #wx{id=integer(), obj=wx:wxObject(), userData=term(), event=Rec}. Rec is a event record.
--record(wx, {id,     %% Integer Identity of object.
-             obj,    %% Object reference that was used in the connect call.
-             userData, %% User data specified in the connect call.
-             event}).%% The event record
+-record(wx, {id   :: integer(),         %% Integer Identity of object.
+             obj  :: wx:wx_object(),    %% Object reference that was used in the connect call.
+             userData :: term(),        %% User data specified in the connect call.
+             event :: event()           %% The event record
+            }).
 
+-type wx() :: #wx{}. %% wx event record 
 %% Here comes the definitions of all event records.
 %% they contain the event type and possible some extra information.
 
-%% @type wxNavigationKey() = #wxNavigationKey{type=wxEventType(),flags=integer(),focus=wxWindow:wxWindow()}.
-%% <dl><dt>EventType:</dt> <dd><em>navigation_key</em></dd></dl>
-%% Callback event: {@link wxNavigationKeyEvent}
--record(wxNavigationKey,{type, flags,focus}).
+-record(wxNavigationKey,{type :: wxNavigationKeyEventType(), %% Callback event: {@link wxNavigationKeyEvent}
+	flags :: integer(),
+	focus :: wxWindow:wxWindow()}).
+-type wxNavigationKeyEventType() :: navigation_key.
+-type wxNavigationKey() :: #wxNavigationKey{}. %% Callback event: {@link wxNavigationKeyEvent}
 
-%% @type wxSash() = #wxSash{type=wxEventType(),edge=WxSashEdgePosition,dragRect={X::integer(), Y::integer(), W::integer(), H::integer()},dragStatus=WxSashDragStatus}.
-%% <dl><dt>EventType:</dt> <dd><em>sash_dragged</em></dd></dl>
-%% Callback event: {@link wxSashEvent}
--record(wxSash,{type, edge,dragRect,dragStatus}).
+-record(wxSash,{type :: wxSashEventType(), %% Callback event: {@link wxSashEvent}
+	edge :: wx:wx_enum(),
+	dragRect :: {X::integer(), Y::integer(), W::integer(), H::integer()},
+	dragStatus :: wx:wx_enum()}).
+-type wxSashEventType() :: sash_dragged.
+-type wxSash() :: #wxSash{}. %% Callback event: {@link wxSashEvent}
 
-%% @type wxList() = #wxList{type=wxEventType(),code=integer(),oldItemIndex=integer(),itemIndex=integer(),col=integer(),pointDrag={X::integer(), Y::integer()}}.
-%% <dl><dt>EventType:</dt> <dd><em>command_list_begin_drag</em>, <em>command_list_begin_rdrag</em>, <em>command_list_begin_label_edit</em>, <em>command_list_end_label_edit</em>, <em>command_list_delete_item</em>, <em>command_list_delete_all_items</em>, <em>command_list_key_down</em>, <em>command_list_insert_item</em>, <em>command_list_col_click</em>, <em>command_list_col_right_click</em>, <em>command_list_col_begin_drag</em>, <em>command_list_col_dragging</em>, <em>command_list_col_end_drag</em>, <em>command_list_item_selected</em>, <em>command_list_item_deselected</em>, <em>command_list_item_right_click</em>, <em>command_list_item_middle_click</em>, <em>command_list_item_activated</em>, <em>command_list_item_focused</em>, <em>command_list_cache_hint</em></dd></dl>
-%% Callback event: {@link wxListEvent}
--record(wxList,{type, code,oldItemIndex,itemIndex,col,pointDrag}).
+-record(wxList,{type :: wxListEventType(), %% Callback event: {@link wxListEvent}
+	code :: integer(),
+	oldItemIndex :: integer(),
+	itemIndex :: integer(),
+	col :: integer(),
+	pointDrag :: {X::integer(), Y::integer()}}).
+-type wxListEventType() :: command_list_begin_drag | command_list_begin_rdrag | command_list_begin_label_edit | command_list_end_label_edit | command_list_delete_item | command_list_delete_all_items | command_list_key_down | command_list_insert_item | command_list_col_click | command_list_col_right_click | command_list_col_begin_drag | command_list_col_dragging | command_list_col_end_drag | command_list_item_selected | command_list_item_deselected | command_list_item_right_click | command_list_item_middle_click | command_list_item_activated | command_list_item_focused | command_list_cache_hint.
+-type wxList() :: #wxList{}. %% Callback event: {@link wxListEvent}
 
-%% @type wxNotebook() = #wxNotebook{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_notebook_page_changed</em>, <em>command_notebook_page_changing</em></dd></dl>
-%% Callback event: {@link wxNotebookEvent}
--record(wxNotebook, {type}).
+-record(wxNotebook, {type :: wxNotebookEventType()}). %% Callback event: {@link wxNotebookEvent}
+-type wxNotebookEventType() :: command_notebook_page_changed | command_notebook_page_changing.
+-type wxNotebook() :: #wxNotebook{}. %% Callback event: {@link wxNotebookEvent}
 
-%% @type wxDisplayChanged() = #wxDisplayChanged{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>display_changed</em></dd></dl>
-%% Callback event: {@link wxDisplayChangedEvent}
--record(wxDisplayChanged, {type}).
+-record(wxDisplayChanged, {type :: wxDisplayChangedEventType()}). %% Callback event: {@link wxDisplayChangedEvent}
+-type wxDisplayChangedEventType() :: display_changed.
+-type wxDisplayChanged() :: #wxDisplayChanged{}. %% Callback event: {@link wxDisplayChangedEvent}
 
-%% @type wxErase() = #wxErase{type=wxEventType(),dc=wxDC:wxDC()}.
-%% <dl><dt>EventType:</dt> <dd><em>erase_background</em></dd></dl>
-%% Callback event: {@link wxEraseEvent}
--record(wxErase,{type, dc}).
+-record(wxErase,{type :: wxEraseEventType(), %% Callback event: {@link wxEraseEvent}
+	dc :: wxDC:wxDC()}).
+-type wxEraseEventType() :: erase_background.
+-type wxErase() :: #wxErase{}. %% Callback event: {@link wxEraseEvent}
 
-%% @type wxKey() = #wxKey{type=wxEventType(),x=integer(),y=integer(),keyCode=integer(),controlDown=bool(),shiftDown=bool(),altDown=bool(),metaDown=bool(),scanCode=bool(),uniChar=integer(),rawCode=integer(),rawFlags=integer()}.
-%% <dl><dt>EventType:</dt> <dd><em>char</em>, <em>char_hook</em>, <em>key_down</em>, <em>key_up</em></dd></dl>
-%% Callback event: {@link wxKeyEvent}
--record(wxKey,{type, x,y,keyCode,controlDown,shiftDown,altDown,metaDown,scanCode,uniChar,rawCode,rawFlags}).
+-record(wxKey,{type :: wxKeyEventType(), %% Callback event: {@link wxKeyEvent}
+	x :: integer(),
+	y :: integer(),
+	keyCode :: integer(),
+	controlDown :: boolean(),
+	shiftDown :: boolean(),
+	altDown :: boolean(),
+	metaDown :: boolean(),
+	scanCode :: boolean(),
+	uniChar :: integer(),
+	rawCode :: integer(),
+	rawFlags :: integer()}).
+-type wxKeyEventType() :: char | char_hook | key_down | key_up.
+-type wxKey() :: #wxKey{}. %% Callback event: {@link wxKeyEvent}
 
-%% @type wxWindowDestroy() = #wxWindowDestroy{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>destroy</em></dd></dl>
-%% Callback event: {@link wxWindowDestroyEvent}
--record(wxWindowDestroy, {type}).
+-record(wxWindowDestroy, {type :: wxWindowDestroyEventType()}). %% Callback event: {@link wxWindowDestroyEvent}
+-type wxWindowDestroyEventType() :: destroy.
+-type wxWindowDestroy() :: #wxWindowDestroy{}. %% Callback event: {@link wxWindowDestroyEvent}
 
-%% @type wxCalendar() = #wxCalendar{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>calendar_sel_changed</em>, <em>calendar_day_changed</em>, <em>calendar_month_changed</em>, <em>calendar_year_changed</em>, <em>calendar_doubleclicked</em>, <em>calendar_weekday_clicked</em></dd></dl>
-%% Callback event: {@link wxCalendarEvent}
--record(wxCalendar, {type}).
+-record(wxCalendar, {type :: wxCalendarEventType()}). %% Callback event: {@link wxCalendarEvent}
+-type wxCalendarEventType() :: calendar_sel_changed | calendar_day_changed | calendar_month_changed | calendar_year_changed | calendar_doubleclicked | calendar_weekday_clicked.
+-type wxCalendar() :: #wxCalendar{}. %% Callback event: {@link wxCalendarEvent}
 
-%% @type wxSplitter() = #wxSplitter{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_splitter_sash_pos_changed</em>, <em>command_splitter_sash_pos_changing</em>, <em>command_splitter_doubleclicked</em>, <em>command_splitter_unsplit</em></dd></dl>
-%% Callback event: {@link wxSplitterEvent}
--record(wxSplitter, {type}).
+-record(wxSplitter, {type :: wxSplitterEventType()}). %% Callback event: {@link wxSplitterEvent}
+-type wxSplitterEventType() :: command_splitter_sash_pos_changed | command_splitter_sash_pos_changing | command_splitter_doubleclicked | command_splitter_unsplit.
+-type wxSplitter() :: #wxSplitter{}. %% Callback event: {@link wxSplitterEvent}
 
-%% @type wxScroll() = #wxScroll{type=wxEventType(),commandInt=integer(),extraLong=integer()}.
-%% <dl><dt>EventType:</dt> <dd><em>scroll_top</em>, <em>scroll_bottom</em>, <em>scroll_lineup</em>, <em>scroll_linedown</em>, <em>scroll_pageup</em>, <em>scroll_pagedown</em>, <em>scroll_thumbtrack</em>, <em>scroll_thumbrelease</em>, <em>scroll_changed</em></dd></dl>
-%% Callback event: {@link wxScrollEvent}
--record(wxScroll,{type, commandInt,extraLong}).
+-record(wxScroll,{type :: wxScrollEventType(), %% Callback event: {@link wxScrollEvent}
+	commandInt :: integer(),
+	extraLong :: integer()}).
+-type wxScrollEventType() :: scroll_top | scroll_bottom | scroll_lineup | scroll_linedown | scroll_pageup | scroll_pagedown | scroll_thumbtrack | scroll_thumbrelease | scroll_changed.
+-type wxScroll() :: #wxScroll{}. %% Callback event: {@link wxScrollEvent}
 
-%% @type wxMenu() = #wxMenu{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>menu_open</em>, <em>menu_close</em>, <em>menu_highlight</em></dd></dl>
-%% Callback event: {@link wxMenuEvent}
--record(wxMenu, {type}).
+-record(wxMenu, {type :: wxMenuEventType()}). %% Callback event: {@link wxMenuEvent}
+-type wxMenuEventType() :: menu_open | menu_close | menu_highlight.
+-type wxMenu() :: #wxMenu{}. %% Callback event: {@link wxMenuEvent}
 
-%% @type wxContextMenu() = #wxContextMenu{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>context_menu</em></dd></dl>
-%% Callback event: {@link wxContextMenuEvent}
--record(wxContextMenu, {type}).
+-record(wxContextMenu, {type :: wxContextMenuEventType()}). %% Callback event: {@link wxContextMenuEvent}
+-type wxContextMenuEventType() :: context_menu.
+-type wxContextMenu() :: #wxContextMenu{}. %% Callback event: {@link wxContextMenuEvent}
 
-%% @type wxShow() = #wxShow{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>show</em></dd></dl>
-%% Callback event: {@link wxShowEvent}
--record(wxShow, {type}).
+-record(wxShow, {type :: wxShowEventType()}). %% Callback event: {@link wxShowEvent}
+-type wxShowEventType() :: show.
+-type wxShow() :: #wxShow{}. %% Callback event: {@link wxShowEvent}
 
-%% @type wxSpin() = #wxSpin{type=wxEventType(),commandInt=integer()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_spinctrl_updated</em>, <em>spin_up</em>, <em>spin_down</em>, <em>spin</em></dd></dl>
-%% Callback event: {@link wxSpinEvent}
--record(wxSpin,{type, commandInt}).
+-record(wxSpin,{type :: wxSpinEventType(), %% Callback event: {@link wxSpinEvent}
+	commandInt :: integer()}).
+-type wxSpinEventType() :: command_spinctrl_updated | spin_up | spin_down | spin.
+-type wxSpin() :: #wxSpin{}. %% Callback event: {@link wxSpinEvent}
 
-%% @type wxSetCursor() = #wxSetCursor{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>set_cursor</em></dd></dl>
-%% Callback event: {@link wxSetCursorEvent}
--record(wxSetCursor, {type}).
+-record(wxSetCursor, {type :: wxSetCursorEventType()}). %% Callback event: {@link wxSetCursorEvent}
+-type wxSetCursorEventType() :: set_cursor.
+-type wxSetCursor() :: #wxSetCursor{}. %% Callback event: {@link wxSetCursorEvent}
 
-%% @type wxFontPicker() = #wxFontPicker{type=wxEventType(),font=wxFont:wxFont()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_fontpicker_changed</em></dd></dl>
-%% Callback event: {@link wxFontPickerEvent}
--record(wxFontPicker,{type, font}).
+-record(wxFontPicker,{type :: wxFontPickerEventType(), %% Callback event: {@link wxFontPickerEvent}
+	font :: wxFont:wxFont()}).
+-type wxFontPickerEventType() :: command_fontpicker_changed.
+-type wxFontPicker() :: #wxFontPicker{}. %% Callback event: {@link wxFontPickerEvent}
 
-%% @type wxScrollWin() = #wxScrollWin{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>scrollwin_top</em>, <em>scrollwin_bottom</em>, <em>scrollwin_lineup</em>, <em>scrollwin_linedown</em>, <em>scrollwin_pageup</em>, <em>scrollwin_pagedown</em>, <em>scrollwin_thumbtrack</em>, <em>scrollwin_thumbrelease</em></dd></dl>
-%% Callback event: {@link wxScrollWinEvent}
--record(wxScrollWin, {type}).
+-record(wxScrollWin, {type :: wxScrollWinEventType()}). %% Callback event: {@link wxScrollWinEvent}
+-type wxScrollWinEventType() :: scrollwin_top | scrollwin_bottom | scrollwin_lineup | scrollwin_linedown | scrollwin_pageup | scrollwin_pagedown | scrollwin_thumbtrack | scrollwin_thumbrelease.
+-type wxScrollWin() :: #wxScrollWin{}. %% Callback event: {@link wxScrollWinEvent}
 
-%% @type wxPaint() = #wxPaint{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>paint</em>, <em>paint_icon</em></dd></dl>
-%% Callback event: {@link wxPaintEvent}
--record(wxPaint, {type}).
+-record(wxPaint, {type :: wxPaintEventType()}). %% Callback event: {@link wxPaintEvent}
+-type wxPaintEventType() :: paint | paint_icon.
+-type wxPaint() :: #wxPaint{}. %% Callback event: {@link wxPaintEvent}
 
-%% @type wxChildFocus() = #wxChildFocus{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>child_focus</em></dd></dl>
-%% Callback event: {@link wxChildFocusEvent}
--record(wxChildFocus, {type}).
+-record(wxChildFocus, {type :: wxChildFocusEventType()}). %% Callback event: {@link wxChildFocusEvent}
+-type wxChildFocusEventType() :: child_focus.
+-type wxChildFocus() :: #wxChildFocus{}. %% Callback event: {@link wxChildFocusEvent}
 
-%% @type wxMaximize() = #wxMaximize{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>maximize</em></dd></dl>
-%% Callback event: {@link wxMaximizeEvent}
--record(wxMaximize, {type}).
+-record(wxMaximize, {type :: wxMaximizeEventType()}). %% Callback event: {@link wxMaximizeEvent}
+-type wxMaximizeEventType() :: maximize.
+-type wxMaximize() :: #wxMaximize{}. %% Callback event: {@link wxMaximizeEvent}
 
-%% @type wxFileDirPicker() = #wxFileDirPicker{type=wxEventType(),path=string()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_filepicker_changed</em>, <em>command_dirpicker_changed</em></dd></dl>
-%% Callback event: {@link wxFileDirPickerEvent}
--record(wxFileDirPicker,{type, path}).
+-record(wxFileDirPicker,{type :: wxFileDirPickerEventType(), %% Callback event: {@link wxFileDirPickerEvent}
+	path :: string()}).
+-type wxFileDirPickerEventType() :: command_filepicker_changed | command_dirpicker_changed.
+-type wxFileDirPicker() :: #wxFileDirPicker{}. %% Callback event: {@link wxFileDirPickerEvent}
 
-%% @type wxFocus() = #wxFocus{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>set_focus</em>, <em>kill_focus</em></dd></dl>
-%% Callback event: {@link wxFocusEvent}
--record(wxFocus, {type}).
+-record(wxFocus, {type :: wxFocusEventType()}). %% Callback event: {@link wxFocusEvent}
+-type wxFocusEventType() :: set_focus | kill_focus.
+-type wxFocus() :: #wxFocus{}. %% Callback event: {@link wxFocusEvent}
 
-%% @type wxDate() = #wxDate{type=wxEventType(),date=wx:datetime()}.
-%% <dl><dt>EventType:</dt> <dd><em>date_changed</em></dd></dl>
-%% Callback event: {@link wxDateEvent}
--record(wxDate,{type, date}).
+-record(wxDate,{type :: wxDateEventType(), %% Callback event: {@link wxDateEvent}
+	date :: wx:wx_datetime()}).
+-type wxDateEventType() :: date_changed.
+-type wxDate() :: #wxDate{}. %% Callback event: {@link wxDateEvent}
 
-%% @type wxHtmlLink() = #wxHtmlLink{type=wxEventType(),linkInfo=wx:wxHtmlLinkInfo()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_html_link_clicked</em></dd></dl>
-%% Callback event: {@link wxHtmlLinkEvent}
--record(wxHtmlLink,{type, linkInfo}).
+-record(wxHtmlLink,{type :: wxHtmlLinkEventType(), %% Callback event: {@link wxHtmlLinkEvent}
+	linkInfo :: wx:wx_wxHtmlLinkInfo()}).
+-type wxHtmlLinkEventType() :: command_html_link_clicked.
+-type wxHtmlLink() :: #wxHtmlLink{}. %% Callback event: {@link wxHtmlLinkEvent}
 
-%% @type wxHelp() = #wxHelp{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>help</em>, <em>detailed_help</em></dd></dl>
-%% Callback event: {@link wxHelpEvent}
--record(wxHelp, {type}).
+-record(wxHelp, {type :: wxHelpEventType()}). %% Callback event: {@link wxHelpEvent}
+-type wxHelpEventType() :: help | detailed_help.
+-type wxHelp() :: #wxHelp{}. %% Callback event: {@link wxHelpEvent}
 
-%% @type wxStyledText() = #wxStyledText{type=wxEventType(),position=integer(),key=integer(),modifiers=integer(),modificationType=integer(),text=string(),length=integer(),linesAdded=integer(),line=integer(),foldLevelNow=integer(),foldLevelPrev=integer(),margin=integer(),message=integer(),wParam=integer(),lParam=integer(),listType=integer(),x=integer(),y=integer(),dragText=string(),dragAllowMove=bool(),dragResult=WxDragResult}.
-%% <dl><dt>EventType:</dt> <dd><em>stc_change</em>, <em>stc_styleneeded</em>, <em>stc_charadded</em>, <em>stc_savepointreached</em>, <em>stc_savepointleft</em>, <em>stc_romodifyattempt</em>, <em>stc_key</em>, <em>stc_doubleclick</em>, <em>stc_updateui</em>, <em>stc_modified</em>, <em>stc_macrorecord</em>, <em>stc_marginclick</em>, <em>stc_needshown</em>, <em>stc_painted</em>, <em>stc_userlistselection</em>, <em>stc_uridropped</em>, <em>stc_dwellstart</em>, <em>stc_dwellend</em>, <em>stc_start_drag</em>, <em>stc_drag_over</em>, <em>stc_do_drop</em>, <em>stc_zoom</em>, <em>stc_hotspot_click</em>, <em>stc_hotspot_dclick</em>, <em>stc_calltip_click</em>, <em>stc_autocomp_selection</em></dd></dl>
-%% Callback event: {@link wxStyledTextEvent}
--record(wxStyledText,{type, position,key,modifiers,modificationType,text,length,linesAdded,line,foldLevelNow,foldLevelPrev,margin,message,wParam,lParam,listType,x,y,dragText,dragAllowMove,dragResult}).
+-record(wxStyledText,{type :: wxStyledTextEventType(), %% Callback event: {@link wxStyledTextEvent}
+	position :: integer(),
+	key :: integer(),
+	modifiers :: integer(),
+	modificationType :: integer(),
+	text :: string(),
+	length :: integer(),
+	linesAdded :: integer(),
+	line :: integer(),
+	foldLevelNow :: integer(),
+	foldLevelPrev :: integer(),
+	margin :: integer(),
+	message :: integer(),
+	wParam :: integer(),
+	lParam :: integer(),
+	listType :: integer(),
+	x :: integer(),
+	y :: integer(),
+	dragText :: string(),
+	dragAllowMove :: boolean(),
+	dragResult :: wx:wx_enum()}).
+-type wxStyledTextEventType() :: stc_change | stc_styleneeded | stc_charadded | stc_savepointreached | stc_savepointleft | stc_romodifyattempt | stc_key | stc_doubleclick | stc_updateui | stc_modified | stc_macrorecord | stc_marginclick | stc_needshown | stc_painted | stc_userlistselection | stc_uridropped | stc_dwellstart | stc_dwellend | stc_start_drag | stc_drag_over | stc_do_drop | stc_zoom | stc_hotspot_click | stc_hotspot_dclick | stc_calltip_click | stc_autocomp_selection.
+-type wxStyledText() :: #wxStyledText{}. %% Callback event: {@link wxStyledTextEvent}
 
-%% @type wxSysColourChanged() = #wxSysColourChanged{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>sys_colour_changed</em></dd></dl>
-%% Callback event: {@link wxSysColourChangedEvent}
--record(wxSysColourChanged, {type}).
+-record(wxSysColourChanged, {type :: wxSysColourChangedEventType()}). %% Callback event: {@link wxSysColourChangedEvent}
+-type wxSysColourChangedEventType() :: sys_colour_changed.
+-type wxSysColourChanged() :: #wxSysColourChanged{}. %% Callback event: {@link wxSysColourChangedEvent}
 
-%% @type wxGrid() = #wxGrid{type=wxEventType(),row=integer(),col=integer(),x=integer(),y=integer(),selecting=bool(),control=bool(),meta=bool(),shift=bool(),alt=bool()}.
-%% <dl><dt>EventType:</dt> <dd><em>grid_cell_left_click</em>, <em>grid_cell_right_click</em>, <em>grid_cell_left_dclick</em>, <em>grid_cell_right_dclick</em>, <em>grid_label_left_click</em>, <em>grid_label_right_click</em>, <em>grid_label_left_dclick</em>, <em>grid_label_right_dclick</em>, <em>grid_row_size</em>, <em>grid_col_size</em>, <em>grid_range_select</em>, <em>grid_cell_change</em>, <em>grid_select_cell</em>, <em>grid_editor_shown</em>, <em>grid_editor_hidden</em>, <em>grid_editor_created</em>, <em>grid_cell_begin_drag</em></dd></dl>
-%% Callback event: {@link wxGridEvent}
--record(wxGrid,{type, row,col,x,y,selecting,control,meta,shift,alt}).
+-record(wxGrid,{type :: wxGridEventType(), %% Callback event: {@link wxGridEvent}
+	row :: integer(),
+	col :: integer(),
+	x :: integer(),
+	y :: integer(),
+	selecting :: boolean(),
+	control :: boolean(),
+	meta :: boolean(),
+	shift :: boolean(),
+	alt :: boolean()}).
+-type wxGridEventType() :: grid_cell_left_click | grid_cell_right_click | grid_cell_left_dclick | grid_cell_right_dclick | grid_label_left_click | grid_label_right_click | grid_label_left_dclick | grid_label_right_dclick | grid_row_size | grid_col_size | grid_range_select | grid_cell_change | grid_select_cell | grid_editor_shown | grid_editor_hidden | grid_editor_created | grid_cell_begin_drag.
+-type wxGrid() :: #wxGrid{}. %% Callback event: {@link wxGridEvent}
 
-%% @type wxPaletteChanged() = #wxPaletteChanged{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>palette_changed</em></dd></dl>
-%% Callback event: {@link wxPaletteChangedEvent}
--record(wxPaletteChanged, {type}).
+-record(wxPaletteChanged, {type :: wxPaletteChangedEventType()}). %% Callback event: {@link wxPaletteChangedEvent}
+-type wxPaletteChangedEventType() :: palette_changed.
+-type wxPaletteChanged() :: #wxPaletteChanged{}. %% Callback event: {@link wxPaletteChangedEvent}
 
-%% @type wxUpdateUI() = #wxUpdateUI{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>update_ui</em></dd></dl>
-%% Callback event: {@link wxUpdateUIEvent}
--record(wxUpdateUI, {type}).
+-record(wxUpdateUI, {type :: wxUpdateUIEventType()}). %% Callback event: {@link wxUpdateUIEvent}
+-type wxUpdateUIEventType() :: update_ui.
+-type wxUpdateUI() :: #wxUpdateUI{}. %% Callback event: {@link wxUpdateUIEvent}
 
-%% @type wxSize() = #wxSize{type=wxEventType(),size={W::integer(), H::integer()},rect={X::integer(), Y::integer(), W::integer(), H::integer()}}.
-%% <dl><dt>EventType:</dt> <dd><em>size</em></dd></dl>
-%% Callback event: {@link wxSizeEvent}
--record(wxSize,{type, size,rect}).
+-record(wxSize,{type :: wxSizeEventType(), %% Callback event: {@link wxSizeEvent}
+	size :: {W::integer(), H::integer()},
+	rect :: {X::integer(), Y::integer(), W::integer(), H::integer()}}).
+-type wxSizeEventType() :: size.
+-type wxSize() :: #wxSize{}. %% Callback event: {@link wxSizeEvent}
 
-%% @type wxIconize() = #wxIconize{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>iconize</em></dd></dl>
-%% Callback event: {@link wxIconizeEvent}
--record(wxIconize, {type}).
+-record(wxIconize, {type :: wxIconizeEventType()}). %% Callback event: {@link wxIconizeEvent}
+-type wxIconizeEventType() :: iconize.
+-type wxIconize() :: #wxIconize{}. %% Callback event: {@link wxIconizeEvent}
 
-%% @type wxAuiNotebook() = #wxAuiNotebook{type=wxEventType(),old_selection=integer(),selection=integer(),drag_source=wxAuiNotebook:wxAuiNotebook()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_auinotebook_page_close</em>, <em>command_auinotebook_page_changed</em>, <em>command_auinotebook_page_changing</em>, <em>command_auinotebook_button</em>, <em>command_auinotebook_begin_drag</em>, <em>command_auinotebook_end_drag</em>, <em>command_auinotebook_drag_motion</em>, <em>command_auinotebook_allow_dnd</em>, <em>command_auinotebook_tab_middle_down</em>, <em>command_auinotebook_tab_middle_up</em>, <em>command_auinotebook_tab_right_down</em>, <em>command_auinotebook_tab_right_up</em>, <em>command_auinotebook_page_closed</em>, <em>command_auinotebook_drag_done</em>, <em>command_auinotebook_bg_dclick</em></dd></dl>
-%% Callback event: {@link wxAuiNotebookEvent}
--record(wxAuiNotebook,{type, old_selection,selection,drag_source}).
+-record(wxAuiNotebook,{type :: wxAuiNotebookEventType(), %% Callback event: {@link wxAuiNotebookEvent}
+	old_selection :: integer(),
+	selection :: integer(),
+	drag_source :: wxAuiNotebook:wxAuiNotebook()}).
+-type wxAuiNotebookEventType() :: command_auinotebook_page_close | command_auinotebook_page_changed | command_auinotebook_page_changing | command_auinotebook_button | command_auinotebook_begin_drag | command_auinotebook_end_drag | command_auinotebook_drag_motion | command_auinotebook_allow_dnd | command_auinotebook_tab_middle_down | command_auinotebook_tab_middle_up | command_auinotebook_tab_right_down | command_auinotebook_tab_right_up | command_auinotebook_page_closed | command_auinotebook_drag_done | command_auinotebook_bg_dclick.
+-type wxAuiNotebook() :: #wxAuiNotebook{}. %% Callback event: {@link wxAuiNotebookEvent}
 
-%% @type wxClose() = #wxClose{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>close_window</em>, <em>end_session</em>, <em>query_end_session</em></dd></dl>
-%% Callback event: {@link wxCloseEvent}
--record(wxClose, {type}).
+-record(wxClose, {type :: wxCloseEventType()}). %% Callback event: {@link wxCloseEvent}
+-type wxCloseEventType() :: close_window | end_session | query_end_session.
+-type wxClose() :: #wxClose{}. %% Callback event: {@link wxCloseEvent}
 
-%% @type wxMouseCaptureChanged() = #wxMouseCaptureChanged{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>mouse_capture_changed</em></dd></dl>
-%% Callback event: {@link wxMouseCaptureChangedEvent}
--record(wxMouseCaptureChanged, {type}).
+-record(wxMouseCaptureChanged, {type :: wxMouseCaptureChangedEventType()}). %% Callback event: {@link wxMouseCaptureChangedEvent}
+-type wxMouseCaptureChangedEventType() :: mouse_capture_changed.
+-type wxMouseCaptureChanged() :: #wxMouseCaptureChanged{}. %% Callback event: {@link wxMouseCaptureChangedEvent}
 
-%% @type wxMouse() = #wxMouse{type=wxEventType(),x=integer(),y=integer(),leftDown=bool(),middleDown=bool(),rightDown=bool(),controlDown=bool(),shiftDown=bool(),altDown=bool(),metaDown=bool(),wheelRotation=integer(),wheelDelta=integer(),linesPerAction=integer()}.
-%% <dl><dt>EventType:</dt> <dd><em>left_down</em>, <em>left_up</em>, <em>middle_down</em>, <em>middle_up</em>, <em>right_down</em>, <em>right_up</em>, <em>motion</em>, <em>enter_window</em>, <em>leave_window</em>, <em>left_dclick</em>, <em>middle_dclick</em>, <em>right_dclick</em>, <em>mousewheel</em>, <em>nc_left_down</em>, <em>nc_left_up</em>, <em>nc_middle_down</em>, <em>nc_middle_up</em>, <em>nc_right_down</em>, <em>nc_right_up</em>, <em>nc_motion</em>, <em>nc_enter_window</em>, <em>nc_leave_window</em>, <em>nc_left_dclick</em>, <em>nc_middle_dclick</em>, <em>nc_right_dclick</em></dd></dl>
-%% Callback event: {@link wxMouseEvent}
--record(wxMouse,{type, x,y,leftDown,middleDown,rightDown,controlDown,shiftDown,altDown,metaDown,wheelRotation,wheelDelta,linesPerAction}).
+-record(wxMouse,{type :: wxMouseEventType(), %% Callback event: {@link wxMouseEvent}
+	x :: integer(),
+	y :: integer(),
+	leftDown :: boolean(),
+	middleDown :: boolean(),
+	rightDown :: boolean(),
+	controlDown :: boolean(),
+	shiftDown :: boolean(),
+	altDown :: boolean(),
+	metaDown :: boolean(),
+	wheelRotation :: integer(),
+	wheelDelta :: integer(),
+	linesPerAction :: integer()}).
+-type wxMouseEventType() :: left_down | left_up | middle_down | middle_up | right_down | right_up | motion | enter_window | leave_window | left_dclick | middle_dclick | right_dclick | mousewheel | nc_left_down | nc_left_up | nc_middle_down | nc_middle_up | nc_right_down | nc_right_up | nc_motion | nc_enter_window | nc_leave_window | nc_left_dclick | nc_middle_dclick | nc_right_dclick.
+-type wxMouse() :: #wxMouse{}. %% Callback event: {@link wxMouseEvent}
 
-%% @type wxWindowCreate() = #wxWindowCreate{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>create</em></dd></dl>
-%% Callback event: {@link wxWindowCreateEvent}
--record(wxWindowCreate, {type}).
+-record(wxWindowCreate, {type :: wxWindowCreateEventType()}). %% Callback event: {@link wxWindowCreateEvent}
+-type wxWindowCreateEventType() :: create.
+-type wxWindowCreate() :: #wxWindowCreate{}. %% Callback event: {@link wxWindowCreateEvent}
 
-%% @type wxAuiManager() = #wxAuiManager{type=wxEventType(),manager=wxAuiManager:wxAuiManager(),pane=wxAuiPaneInfo:wxAuiPaneInfo(),button=integer(),veto_flag=bool(),canveto_flag=bool(),dc=wxDC:wxDC()}.
-%% <dl><dt>EventType:</dt> <dd><em>aui_pane_button</em>, <em>aui_pane_close</em>, <em>aui_pane_maximize</em>, <em>aui_pane_restore</em>, <em>aui_render</em>, <em>aui_find_manager</em></dd></dl>
-%% Callback event: {@link wxAuiManagerEvent}
--record(wxAuiManager,{type, manager,pane,button,veto_flag,canveto_flag,dc}).
+-record(wxAuiManager,{type :: wxAuiManagerEventType(), %% Callback event: {@link wxAuiManagerEvent}
+	manager :: wxAuiManager:wxAuiManager(),
+	pane :: wxAuiPaneInfo:wxAuiPaneInfo(),
+	button :: integer(),
+	veto_flag :: boolean(),
+	canveto_flag :: boolean(),
+	dc :: wxDC:wxDC()}).
+-type wxAuiManagerEventType() :: aui_pane_button | aui_pane_close | aui_pane_maximize | aui_pane_restore | aui_render | aui_find_manager.
+-type wxAuiManager() :: #wxAuiManager{}. %% Callback event: {@link wxAuiManagerEvent}
 
-%% @type wxCommand() = #wxCommand{type=wxEventType(),cmdString=string(),commandInt=integer(),extraLong=integer()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_button_clicked</em>, <em>command_checkbox_clicked</em>, <em>command_choice_selected</em>, <em>command_listbox_selected</em>, <em>command_listbox_doubleclicked</em>, <em>command_text_updated</em>, <em>command_text_enter</em>, <em>command_menu_selected</em>, <em>command_slider_updated</em>, <em>command_radiobox_selected</em>, <em>command_radiobutton_selected</em>, <em>command_scrollbar_updated</em>, <em>command_vlbox_selected</em>, <em>command_combobox_selected</em>, <em>command_tool_rclicked</em>, <em>command_tool_enter</em>, <em>command_checklistbox_toggled</em>, <em>command_togglebutton_clicked</em>, <em>command_left_click</em>, <em>command_left_dclick</em>, <em>command_right_click</em>, <em>command_set_focus</em>, <em>command_kill_focus</em>, <em>command_enter</em></dd></dl>
-%% Callback event: {@link wxCommandEvent}
--record(wxCommand,{type, cmdString,commandInt,extraLong}).
+-record(wxCommand,{type :: wxCommandEventType(), %% Callback event: {@link wxCommandEvent}
+	cmdString :: string(),
+	commandInt :: integer(),
+	extraLong :: integer()}).
+-type wxCommandEventType() :: command_button_clicked | command_checkbox_clicked | command_choice_selected | command_listbox_selected | command_listbox_doubleclicked | command_text_updated | command_text_enter | command_menu_selected | command_slider_updated | command_radiobox_selected | command_radiobutton_selected | command_scrollbar_updated | command_vlbox_selected | command_combobox_selected | command_tool_rclicked | command_tool_enter | command_checklistbox_toggled | command_togglebutton_clicked | command_left_click | command_left_dclick | command_right_click | command_set_focus | command_kill_focus | command_enter.
+-type wxCommand() :: #wxCommand{}. %% Callback event: {@link wxCommandEvent}
 
-%% @type wxJoystick() = #wxJoystick{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>joy_button_down</em>, <em>joy_button_up</em>, <em>joy_move</em>, <em>joy_zmove</em></dd></dl>
-%% Callback event: {@link wxJoystickEvent}
--record(wxJoystick, {type}).
+-record(wxJoystick, {type :: wxJoystickEventType()}). %% Callback event: {@link wxJoystickEvent}
+-type wxJoystickEventType() :: joy_button_down | joy_button_up | joy_move | joy_zmove.
+-type wxJoystick() :: #wxJoystick{}. %% Callback event: {@link wxJoystickEvent}
 
-%% @type wxQueryNewPalette() = #wxQueryNewPalette{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>query_new_palette</em></dd></dl>
-%% Callback event: {@link wxQueryNewPaletteEvent}
--record(wxQueryNewPalette, {type}).
+-record(wxQueryNewPalette, {type :: wxQueryNewPaletteEventType()}). %% Callback event: {@link wxQueryNewPaletteEvent}
+-type wxQueryNewPaletteEventType() :: query_new_palette.
+-type wxQueryNewPalette() :: #wxQueryNewPalette{}. %% Callback event: {@link wxQueryNewPaletteEvent}
 
-%% @type wxMove() = #wxMove{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>move</em></dd></dl>
-%% Callback event: {@link wxMoveEvent}
--record(wxMove, {type}).
+-record(wxMove, {type :: wxMoveEventType()}). %% Callback event: {@link wxMoveEvent}
+-type wxMoveEventType() :: move.
+-type wxMove() :: #wxMove{}. %% Callback event: {@link wxMoveEvent}
 
-%% @type wxIdle() = #wxIdle{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>idle</em></dd></dl>
-%% Callback event: {@link wxIdleEvent}
--record(wxIdle, {type}).
+-record(wxIdle, {type :: wxIdleEventType()}). %% Callback event: {@link wxIdleEvent}
+-type wxIdleEventType() :: idle.
+-type wxIdle() :: #wxIdle{}. %% Callback event: {@link wxIdleEvent}
 
-%% @type wxNcPaint() = #wxNcPaint{type=wxEventType()}.
-%% <dl><dt>EventType:</dt> <dd><em>nc_paint</em></dd></dl>
-%% Callback event: {@link wxNcPaintEvent}
--record(wxNcPaint, {type}).
+-record(wxNcPaint, {type :: wxNcPaintEventType()}). %% Callback event: {@link wxNcPaintEvent}
+-type wxNcPaintEventType() :: nc_paint.
+-type wxNcPaint() :: #wxNcPaint{}. %% Callback event: {@link wxNcPaintEvent}
 
-%% @type wxColourPicker() = #wxColourPicker{type=wxEventType(),colour=wx:colour()}.
-%% <dl><dt>EventType:</dt> <dd><em>command_colourpicker_changed</em></dd></dl>
-%% Callback event: {@link wxColourPickerEvent}
--record(wxColourPicker,{type, colour}).
+-record(wxColourPicker,{type :: wxColourPickerEventType(), %% Callback event: {@link wxColourPickerEvent}
+	colour :: wx:wx_colour()}).
+-type wxColourPickerEventType() :: command_colourpicker_changed.
+-type wxColourPicker() :: #wxColourPicker{}. %% Callback event: {@link wxColourPickerEvent}
 
-%% @type wxTree() = #wxTree{type=wxEventType(),item=integer(),itemOld=integer(),pointDrag={X::integer(), Y::integer()}}.
-%% <dl><dt>EventType:</dt> <dd><em>command_tree_begin_drag</em>, <em>command_tree_begin_rdrag</em>, <em>command_tree_begin_label_edit</em>, <em>command_tree_end_label_edit</em>, <em>command_tree_delete_item</em>, <em>command_tree_get_info</em>, <em>command_tree_set_info</em>, <em>command_tree_item_expanded</em>, <em>command_tree_item_expanding</em>, <em>command_tree_item_collapsed</em>, <em>command_tree_item_collapsing</em>, <em>command_tree_sel_changed</em>, <em>command_tree_sel_changing</em>, <em>command_tree_key_down</em>, <em>command_tree_item_activated</em>, <em>command_tree_item_right_click</em>, <em>command_tree_item_middle_click</em>, <em>command_tree_end_drag</em>, <em>command_tree_state_image_click</em>, <em>command_tree_item_gettooltip</em>, <em>command_tree_item_menu</em></dd></dl>
-%% Callback event: {@link wxTreeEvent}
--record(wxTree,{type, item,itemOld,pointDrag}).
+-record(wxTree,{type :: wxTreeEventType(), %% Callback event: {@link wxTreeEvent}
+	item :: integer(),
+	itemOld :: integer(),
+	pointDrag :: {X::integer(), Y::integer()}}).
+-type wxTreeEventType() :: command_tree_begin_drag | command_tree_begin_rdrag | command_tree_begin_label_edit | command_tree_end_label_edit | command_tree_delete_item | command_tree_get_info | command_tree_set_info | command_tree_item_expanded | command_tree_item_expanding | command_tree_item_collapsed | command_tree_item_collapsing | command_tree_sel_changed | command_tree_sel_changing | command_tree_key_down | command_tree_item_activated | command_tree_item_right_click | command_tree_item_middle_click | command_tree_end_drag | command_tree_state_image_click | command_tree_item_gettooltip | command_tree_item_menu.
+-type wxTree() :: #wxTree{}. %% Callback event: {@link wxTreeEvent}
 
-%% @type wxEventType() = aui_find_manager | aui_pane_button | aui_pane_close | aui_pane_maximize | aui_pane_restore | aui_render | calendar_day_changed | calendar_doubleclicked | calendar_month_changed | calendar_sel_changed | calendar_weekday_clicked | calendar_year_changed | char | char_hook | child_focus | close_window | command_auinotebook_allow_dnd | command_auinotebook_begin_drag | command_auinotebook_bg_dclick | command_auinotebook_button | command_auinotebook_drag_done | command_auinotebook_drag_motion | command_auinotebook_end_drag | command_auinotebook_page_changed | command_auinotebook_page_changing | command_auinotebook_page_close | command_auinotebook_page_closed | command_auinotebook_tab_middle_down | command_auinotebook_tab_middle_up | command_auinotebook_tab_right_down | command_auinotebook_tab_right_up | command_button_clicked | command_checkbox_clicked | command_checklistbox_toggled | command_choice_selected | command_colourpicker_changed | command_combobox_selected | command_dirpicker_changed | command_enter | command_filepicker_changed | command_fontpicker_changed | command_html_link_clicked | command_kill_focus | command_left_click | command_left_dclick | command_list_begin_drag | command_list_begin_label_edit | command_list_begin_rdrag | command_list_cache_hint | command_list_col_begin_drag | command_list_col_click | command_list_col_dragging | command_list_col_end_drag | command_list_col_right_click | command_list_delete_all_items | command_list_delete_item | command_list_end_label_edit | command_list_insert_item | command_list_item_activated | command_list_item_deselected | command_list_item_focused | command_list_item_middle_click | command_list_item_right_click | command_list_item_selected | command_list_key_down | command_listbox_doubleclicked | command_listbox_selected | command_menu_selected | command_notebook_page_changed | command_notebook_page_changing | command_radiobox_selected | command_radiobutton_selected | command_right_click | command_scrollbar_updated | command_set_focus | command_slider_updated | command_spinctrl_updated | command_splitter_doubleclicked | command_splitter_sash_pos_changed | command_splitter_sash_pos_changing | command_splitter_unsplit | command_text_enter | command_text_updated | command_togglebutton_clicked | command_tool_enter | command_tool_rclicked | command_tree_begin_drag | command_tree_begin_label_edit | command_tree_begin_rdrag | command_tree_delete_item | command_tree_end_drag | command_tree_end_label_edit | command_tree_get_info | command_tree_item_activated | command_tree_item_collapsed | command_tree_item_collapsing | command_tree_item_expanded | command_tree_item_expanding | command_tree_item_gettooltip | command_tree_item_menu | command_tree_item_middle_click | command_tree_item_right_click | command_tree_key_down | command_tree_sel_changed | command_tree_sel_changing | command_tree_set_info | command_tree_state_image_click | command_vlbox_selected | context_menu | create | date_changed | destroy | detailed_help | display_changed | end_session | enter_window | erase_background | grid_cell_begin_drag | grid_cell_change | grid_cell_left_click | grid_cell_left_dclick | grid_cell_right_click | grid_cell_right_dclick | grid_col_size | grid_editor_created | grid_editor_hidden | grid_editor_shown | grid_label_left_click | grid_label_left_dclick | grid_label_right_click | grid_label_right_dclick | grid_range_select | grid_row_size | grid_select_cell | help | iconize | idle | joy_button_down | joy_button_up | joy_move | joy_zmove | key_down | key_up | kill_focus | leave_window | left_dclick | left_down | left_up | maximize | menu_close | menu_highlight | menu_open | middle_dclick | middle_down | middle_up | motion | mouse_capture_changed | mousewheel | move | navigation_key | nc_enter_window | nc_leave_window | nc_left_dclick | nc_left_down | nc_left_up | nc_middle_dclick | nc_middle_down | nc_middle_up | nc_motion | nc_paint | nc_right_dclick | nc_right_down | nc_right_up | paint | paint_icon | palette_changed | query_end_session | query_new_palette | right_dclick | right_down | right_up | sash_dragged | scroll_bottom | scroll_changed | scroll_linedown | scroll_lineup | scroll_pagedown | scroll_pageup | scroll_thumbrelease | scroll_thumbtrack | scroll_top | scrollwin_bottom | scrollwin_linedown | scrollwin_lineup | scrollwin_pagedown | scrollwin_pageup | scrollwin_thumbrelease | scrollwin_thumbtrack | scrollwin_top | set_cursor | set_focus | show | size | spin | spin_down | spin_up | stc_autocomp_selection | stc_calltip_click | stc_change | stc_charadded | stc_do_drop | stc_doubleclick | stc_drag_over | stc_dwellend | stc_dwellstart | stc_hotspot_click | stc_hotspot_dclick | stc_key | stc_macrorecord | stc_marginclick | stc_modified | stc_needshown | stc_painted | stc_romodifyattempt | stc_savepointleft | stc_savepointreached | stc_start_drag | stc_styleneeded | stc_updateui | stc_uridropped | stc_userlistselection | stc_zoom | sys_colour_changed | update_ui.
+-type event() :: wxAuiManager() | wxAuiNotebook() | wxCalendar() | wxChildFocus() | wxClose() | wxColourPicker() | wxCommand() | wxContextMenu() | wxDate() | wxDisplayChanged() | wxErase() | wxFileDirPicker() | wxFocus() | wxFontPicker() | wxGrid() | wxHelp() | wxHtmlLink() | wxIconize() | wxIdle() | wxJoystick() | wxKey() | wxList() | wxMaximize() | wxMenu() | wxMouse() | wxMouseCaptureChanged() | wxMove() | wxNavigationKey() | wxNcPaint() | wxNotebook() | wxPaint() | wxPaletteChanged() | wxQueryNewPalette() | wxSash() | wxScroll() | wxScrollWin() | wxSetCursor() | wxShow() | wxSize() | wxSpin() | wxSplitter() | wxStyledText() | wxSysColourChanged() | wxTree() | wxUpdateUI() | wxWindowCreate() | wxWindowDestroy().
+-type wxEventType() :: wxAuiManagerEventType() | wxAuiNotebookEventType() | wxCalendarEventType() | wxChildFocusEventType() | wxCloseEventType() | wxColourPickerEventType() | wxCommandEventType() | wxContextMenuEventType() | wxDateEventType() | wxDisplayChangedEventType() | wxEraseEventType() | wxFileDirPickerEventType() | wxFocusEventType() | wxFontPickerEventType() | wxGridEventType() | wxHelpEventType() | wxHtmlLinkEventType() | wxIconizeEventType() | wxIdleEventType() | wxJoystickEventType() | wxKeyEventType() | wxListEventType() | wxMaximizeEventType() | wxMenuEventType() | wxMouseCaptureChangedEventType() | wxMouseEventType() | wxMoveEventType() | wxNavigationKeyEventType() | wxNcPaintEventType() | wxNotebookEventType() | wxPaintEventType() | wxPaletteChangedEventType() | wxQueryNewPaletteEventType() | wxSashEventType() | wxScrollEventType() | wxScrollWinEventType() | wxSetCursorEventType() | wxShowEventType() | wxSizeEventType() | wxSpinEventType() | wxSplitterEventType() | wxStyledTextEventType() | wxSysColourChangedEventType() | wxTreeEventType() | wxUpdateUIEventType() | wxWindowCreateEventType() | wxWindowDestroyEventType().
 
 %% Hardcoded Records
 -record(wxMouseState, {x, y,  %% integer()

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,7 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxFilePickerCtrl/0]).
 %% @hidden
 parent_class(wxPickerBase) -> true;
 parent_class(wxControl) -> true;
@@ -81,21 +82,31 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxFilePickerCtrl()
+-type wxFilePickerCtrl() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
+-spec new() -> wxFilePickerCtrl().
 new() ->
   wxe_util:construct(?wxFilePickerCtrl_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer()) -> wxFilePickerCtrl()
 %% @equiv new(Parent,Id, [])
+-spec new(Parent, Id) -> wxFilePickerCtrl() when
+	Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxFilePickerCtrl()
-%% Option = {path, string()} | {message, string()} | {wildcard, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
+-spec new(Parent, Id, [Option]) -> wxFilePickerCtrl() when
+	Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {path, string()}
+		 | {message, string()}
+		 | {wildcard, string()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -111,15 +122,24 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxFilePickerCtrl_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer()) -> bool()
 %% @equiv create(This,Parent,Id, [])
+-spec create(This, Parent, Id) -> boolean() when
+	This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
   create(This,Parent,Id, []).
 
-%% @spec (This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {path, string()} | {message, string()} | {wildcard, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlcreate">external documentation</a>.
+-spec create(This, Parent, Id, [Option]) -> boolean() when
+	This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {path, string()}
+		 | {message, string()}
+		 | {wildcard, string()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
@@ -136,15 +156,17 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   wxe_util:call(?wxFilePickerCtrl_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxFilePickerCtrl()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlgetpath">external documentation</a>.
+-spec getPath(This) -> string() when
+	This::wxFilePickerCtrl().
 getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
   wxe_util:call(?wxFilePickerCtrl_GetPath,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxFilePickerCtrl(), Str::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlsetpath">external documentation</a>.
+-spec setPath(This, Str) -> ok when
+	This::wxFilePickerCtrl(), Str::string().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
@@ -152,8 +174,8 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
   wxe_util:cast(?wxFilePickerCtrl_SetPath,
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxFilePickerCtrl()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxFilePickerCtrl) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFilePickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

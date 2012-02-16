@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,20 +68,24 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxControl/0]).
 %% @hidden
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxControl()) -> string()
+-type wxControl() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrol.html#wxcontrolgetlabel">external documentation</a>.
+-spec getLabel(This) -> string() when
+	This::wxControl().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControl),
   wxe_util:call(?wxControl_GetLabel,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxControl(), Label::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrol.html#wxcontrolsetlabel">external documentation</a>.
+-spec setLabel(This, Label) -> ok when
+	This::wxControl(), Label::string().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->
   ?CLASS(ThisT,wxControl),

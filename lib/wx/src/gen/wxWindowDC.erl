@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,25 +52,28 @@
   setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,startDoc/2,
   startPage/1]).
 
+-export_type([wxWindowDC/0]).
 %% @hidden
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxWindowDC()
+-type wxWindowDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindowdc.html#wxwindowdcwxwindowdc">external documentation</a>.
+-spec new() -> wxWindowDC().
 new() ->
   wxe_util:construct(?wxWindowDC_new_0,
   <<>>).
 
-%% @spec (Win::wxWindow:wxWindow()) -> wxWindowDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindowdc.html#wxwindowdcwxwindowdc">external documentation</a>.
+-spec new(Win) -> wxWindowDC() when
+	Win::wxWindow:wxWindow().
 new(#wx_ref{type=WinT,ref=WinRef}) ->
   ?CLASS(WinT,wxWindow),
   wxe_util:construct(?wxWindowDC_new_1,
   <<WinRef:32/?UI>>).
 
-%% @spec (This::wxWindowDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxWindowDC) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxWindowDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

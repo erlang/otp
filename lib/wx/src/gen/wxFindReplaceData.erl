@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,53 +30,61 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxFindReplaceData/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxFindReplaceData()
+-type wxFindReplaceData() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatawxfindreplacedata">external documentation</a>.
+-spec new() -> wxFindReplaceData().
 new() ->
   wxe_util:construct(?wxFindReplaceData_new_0,
   <<>>).
 
-%% @spec (Flags::integer()) -> wxFindReplaceData()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatawxfindreplacedata">external documentation</a>.
+-spec new(Flags) -> wxFindReplaceData() when
+	Flags::integer().
 new(Flags)
  when is_integer(Flags) ->
   wxe_util:construct(?wxFindReplaceData_new_1,
   <<Flags:32/?UI>>).
 
-%% @spec (This::wxFindReplaceData()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatagetfindstring">external documentation</a>.
+-spec getFindString(This) -> string() when
+	This::wxFindReplaceData().
 getFindString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFindReplaceData),
   wxe_util:call(?wxFindReplaceData_GetFindString,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxFindReplaceData()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatagetreplacestring">external documentation</a>.
+-spec getReplaceString(This) -> string() when
+	This::wxFindReplaceData().
 getReplaceString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFindReplaceData),
   wxe_util:call(?wxFindReplaceData_GetReplaceString,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxFindReplaceData()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatagetflags">external documentation</a>.
+-spec getFlags(This) -> integer() when
+	This::wxFindReplaceData().
 getFlags(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFindReplaceData),
   wxe_util:call(?wxFindReplaceData_GetFlags,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxFindReplaceData(), Flags::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatasetflags">external documentation</a>.
+-spec setFlags(This, Flags) -> ok when
+	This::wxFindReplaceData(), Flags::integer().
 setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxFindReplaceData),
   wxe_util:cast(?wxFindReplaceData_SetFlags,
   <<ThisRef:32/?UI,Flags:32/?UI>>).
 
-%% @spec (This::wxFindReplaceData(), Str::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatasetfindstring">external documentation</a>.
+-spec setFindString(This, Str) -> ok when
+	This::wxFindReplaceData(), Str::string().
 setFindString(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -84,8 +92,9 @@ setFindString(#wx_ref{type=ThisT,ref=ThisRef},Str)
   wxe_util:cast(?wxFindReplaceData_SetFindString,
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxFindReplaceData(), Str::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatasetreplacestring">external documentation</a>.
+-spec setReplaceString(This, Str) -> ok when
+	This::wxFindReplaceData(), Str::string().
 setReplaceString(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -93,8 +102,8 @@ setReplaceString(#wx_ref{type=ThisT,ref=ThisRef},Str)
   wxe_util:cast(?wxFindReplaceData_SetReplaceString,
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxFindReplaceData()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxFindReplaceData) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFindReplaceData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

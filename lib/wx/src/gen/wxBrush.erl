@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,23 +30,22 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxBrush/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxBrush()
+-type wxBrush() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushwxbrush">external documentation</a>.
+-spec new() -> wxBrush().
 new() ->
   wxe_util:construct(?wxBrush_new_0,
   <<>>).
 
-%% @spec (X::term()) -> wxBrush()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushwxbrush">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Colour::wx:colour()) -> new(Colour, []) </c></p>
-%% <p><c>
-%% new(StippleBitmap::wxBitmap:wxBitmap()) -> wxBrush() </c>
-%% </p>
+-spec new(Colour) -> wxBrush() when
+	Colour::wx:wx_colour();
+      (StippleBitmap) -> wxBrush() when
+	StippleBitmap::wxBitmap:wxBitmap().
 
 new(Colour)
  when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4 ->
@@ -56,9 +55,10 @@ new(#wx_ref{type=StippleBitmapT,ref=StippleBitmapRef}) ->
   wxe_util:construct(?wxBrush_new_1,
   <<StippleBitmapRef:32/?UI>>).
 
-%% @spec (Colour::wx:colour(), [Option]) -> wxBrush()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushwxbrush">external documentation</a>.
+-spec new(Colour, [Option]) -> wxBrush() when
+	Colour::wx:wx_colour(),
+	Option :: {style, integer()}.
 new(Colour, Options)
  when tuple_size(Colour) =:= 3; tuple_size(Colour) =:= 4,is_list(Options) ->
   MOpts = fun({style, Style}, Acc) -> [<<1:32/?UI,Style:32/?UI>>|Acc];
@@ -67,75 +67,84 @@ new(Colour, Options)
   wxe_util:construct(?wxBrush_new_2,
   <<(wxe_util:colour_bin(Colour)):16/binary, BinOpt/binary>>).
 
-%% @spec (This::wxBrush()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushgetcolour">external documentation</a>.
+-spec getColour(This) -> wx:wx_colour() when
+	This::wxBrush().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:call(?wxBrush_GetColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBrush()) -> wxBitmap:wxBitmap()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushgetstipple">external documentation</a>.
+-spec getStipple(This) -> wxBitmap:wxBitmap() when
+	This::wxBrush().
 getStipple(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:call(?wxBrush_GetStipple,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBrush()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushgetstyle">external documentation</a>.
+-spec getStyle(This) -> integer() when
+	This::wxBrush().
 getStyle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:call(?wxBrush_GetStyle,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBrush()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushishatch">external documentation</a>.
+-spec isHatch(This) -> boolean() when
+	This::wxBrush().
 isHatch(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:call(?wxBrush_IsHatch,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBrush()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushisok">external documentation</a>.
+-spec isOk(This) -> boolean() when
+	This::wxBrush().
 isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:call(?wxBrush_IsOk,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBrush(), Col::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushsetcolour">external documentation</a>.
+-spec setColour(This, Col) -> ok when
+	This::wxBrush(), Col::wx:wx_colour().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
  when tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:cast(?wxBrush_SetColour_1,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
-%% @spec (This::wxBrush(), R::integer(), G::integer(), B::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushsetcolour">external documentation</a>.
+-spec setColour(This, R, G, B) -> ok when
+	This::wxBrush(), R::integer(), G::integer(), B::integer().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},R,G,B)
  when is_integer(R),is_integer(G),is_integer(B) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:cast(?wxBrush_SetColour_3,
   <<ThisRef:32/?UI,R:32/?UI,G:32/?UI,B:32/?UI>>).
 
-%% @spec (This::wxBrush(), Stipple::wxBitmap:wxBitmap()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushsetstipple">external documentation</a>.
+-spec setStipple(This, Stipple) -> ok when
+	This::wxBrush(), Stipple::wxBitmap:wxBitmap().
 setStipple(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=StippleT,ref=StippleRef}) ->
   ?CLASS(ThisT,wxBrush),
   ?CLASS(StippleT,wxBitmap),
   wxe_util:cast(?wxBrush_SetStipple,
   <<ThisRef:32/?UI,StippleRef:32/?UI>>).
 
-%% @spec (This::wxBrush(), Style::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushsetstyle">external documentation</a>.
+-spec setStyle(This, Style) -> ok when
+	This::wxBrush(), Style::integer().
 setStyle(#wx_ref{type=ThisT,ref=ThisRef},Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxBrush),
   wxe_util:cast(?wxBrush_SetStyle,
   <<ThisRef:32/?UI,Style:32/?UI>>).
 
-%% @spec (This::wxBrush()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxBrush) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBrush),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

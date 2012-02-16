@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -80,6 +80,7 @@
   thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,updateWindowUI/1,
   updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxMDIChildFrame/0]).
 %% @hidden
 parent_class(wxFrame) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -87,21 +88,27 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxMDIChildFrame()
+-type wxMDIChildFrame() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
+-spec new() -> wxMDIChildFrame().
 new() ->
   wxe_util:construct(?wxMDIChildFrame_new_0,
   <<>>).
 
-%% @spec (Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string()) -> wxMDIChildFrame()
 %% @equiv new(Parent,Id,Title, [])
+-spec new(Parent, Id, Title) -> wxMDIChildFrame() when
+	Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string().
+
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   new(Parent,Id,Title, []).
 
-%% @spec (Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string(), [Option]) -> wxMDIChildFrame()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframewxmdichildframe">external documentation</a>.
+-spec new(Parent, Id, Title, [Option]) -> wxMDIChildFrame() when
+	Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ParentT,wxMDIParentFrame),
@@ -114,22 +121,28 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
   wxe_util:construct(?wxMDIChildFrame_new_4,
   <<ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxMDIChildFrame()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframeactivate">external documentation</a>.
+-spec activate(This) -> ok when
+	This::wxMDIChildFrame().
 activate(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMDIChildFrame),
   wxe_util:cast(?wxMDIChildFrame_Activate,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string()) -> bool()
 %% @equiv create(This,Parent,Id,Title, [])
+-spec create(This, Parent, Id, Title) -> boolean() when
+	This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string().
+
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @spec (This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string(), [Option]) -> bool()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframecreate">external documentation</a>.
+-spec create(This, Parent, Id, Title, [Option]) -> boolean() when
+	This::wxMDIChildFrame(), Parent::wxMDIParentFrame:wxMDIParentFrame(), Id::integer(), Title::string(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ThisT,wxMDIChildFrame),
@@ -143,15 +156,18 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Ti
   wxe_util:call(?wxMDIChildFrame_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxMDIChildFrame()) -> ok
 %% @equiv maximize(This, [])
+-spec maximize(This) -> ok when
+	This::wxMDIChildFrame().
+
 maximize(This)
  when is_record(This, wx_ref) ->
   maximize(This, []).
 
-%% @spec (This::wxMDIChildFrame(), [Option]) -> ok
-%% Option = {maximize, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframemaximize">external documentation</a>.
+-spec maximize(This, [Option]) -> ok when
+	This::wxMDIChildFrame(),
+	Option :: {maximize, boolean()}.
 maximize(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMDIChildFrame),
@@ -161,15 +177,16 @@ maximize(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxMDIChildFrame_Maximize,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxMDIChildFrame()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdichildframe.html#wxmdichildframerestore">external documentation</a>.
+-spec restore(This) -> ok when
+	This::wxMDIChildFrame().
 restore(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMDIChildFrame),
   wxe_util:cast(?wxMDIChildFrame_Restore,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxMDIChildFrame()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxMDIChildFrame) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMDIChildFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

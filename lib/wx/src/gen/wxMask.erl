@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,31 +29,30 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxMask/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxMask()
+-type wxMask() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskwxmask">external documentation</a>.
+-spec new() -> wxMask().
 new() ->
   wxe_util:construct(?wxMask_new_0,
   <<>>).
 
-%% @spec (Bitmap::wxBitmap:wxBitmap()) -> wxMask()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskwxmask">external documentation</a>.
+-spec new(Bitmap) -> wxMask() when
+	Bitmap::wxBitmap:wxBitmap().
 new(#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   ?CLASS(BitmapT,wxBitmap),
   wxe_util:construct(?wxMask_new_1,
   <<BitmapRef:32/?UI>>).
 
-%% @spec (Bitmap::wxBitmap:wxBitmap(),X::integer()|term()) -> wxMask()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskwxmask">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer()) -> wxMask() </c>
-%% </p>
-%% <p><c>
-%% new(Bitmap::wxBitmap:wxBitmap(), Colour::wx:colour()) -> wxMask() </c>
-%% </p>
+-spec new(Bitmap, PaletteIndex) -> wxMask() when
+	Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer();
+      (Bitmap, Colour) -> wxMask() when
+	Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().
 new(#wx_ref{type=BitmapT,ref=BitmapRef},PaletteIndex)
  when is_integer(PaletteIndex) ->
   ?CLASS(BitmapT,wxBitmap),
@@ -65,23 +64,20 @@ new(#wx_ref{type=BitmapT,ref=BitmapRef},Colour)
   wxe_util:construct(?wxMask_new_2_1,
   <<BitmapRef:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
-%% @spec (This::wxMask(), Bitmap::wxBitmap:wxBitmap()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskcreate">external documentation</a>.
+-spec create(This, Bitmap) -> boolean() when
+	This::wxMask(), Bitmap::wxBitmap:wxBitmap().
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   ?CLASS(ThisT,wxMask),
   ?CLASS(BitmapT,wxBitmap),
   wxe_util:call(?wxMask_Create_1,
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
-%% @spec (This::wxMask(),Bitmap::wxBitmap:wxBitmap(),X::integer()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskcreate">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% create(This::wxMask(), Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer()) -> bool() </c>
-%% </p>
-%% <p><c>
-%% create(This::wxMask(), Bitmap::wxBitmap:wxBitmap(), Colour::wx:colour()) -> bool() </c>
-%% </p>
+-spec create(This, Bitmap, PaletteIndex) -> boolean() when
+	This::wxMask(), Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer();
+      (This, Bitmap, Colour) -> boolean() when
+	This::wxMask(), Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef},PaletteIndex)
  when is_integer(PaletteIndex) ->
   ?CLASS(ThisT,wxMask),
@@ -95,8 +91,8 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef},Colou
   wxe_util:call(?wxMask_Create_2_1,
   <<ThisRef:32/?UI,BitmapRef:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
-%% @spec (This::wxMask()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxMask) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMask),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

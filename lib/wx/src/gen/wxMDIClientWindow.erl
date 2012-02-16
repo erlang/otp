@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,26 +68,31 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxMDIClientWindow/0]).
 %% @hidden
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxMDIClientWindow()
+-type wxMDIClientWindow() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiclientwindow.html#wxmdiclientwindowwxmdiclientwindow">external documentation</a>.
+-spec new() -> wxMDIClientWindow().
 new() ->
   wxe_util:construct(?wxMDIClientWindow_new_0,
   <<>>).
 
-%% @spec (Parent::wxMDIParentFrame:wxMDIParentFrame()) -> wxMDIClientWindow()
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxMDIClientWindow() when
+	Parent::wxMDIParentFrame:wxMDIParentFrame().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxMDIParentFrame:wxMDIParentFrame(), [Option]) -> wxMDIClientWindow()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiclientwindow.html#wxmdiclientwindowwxmdiclientwindow">external documentation</a>.
+-spec new(Parent, [Option]) -> wxMDIClientWindow() when
+	Parent::wxMDIParentFrame:wxMDIParentFrame(),
+	Option :: {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxMDIParentFrame),
@@ -97,15 +102,18 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxMDIClientWindow_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame()) -> bool()
 %% @equiv createClient(This,Parent, [])
+-spec createClient(This, Parent) -> boolean() when
+	This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame().
+
 createClient(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
   createClient(This,Parent, []).
 
-%% @spec (This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame(), [Option]) -> bool()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmdiclientwindow.html#wxmdiclientwindowcreateclient">external documentation</a>.
+-spec createClient(This, Parent, [Option]) -> boolean() when
+	This::wxMDIClientWindow(), Parent::wxMDIParentFrame:wxMDIParentFrame(),
+	Option :: {style, integer()}.
 createClient(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxMDIClientWindow),
@@ -116,8 +124,8 @@ createClient(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}
   wxe_util:call(?wxMDIClientWindow_CreateClient,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxMDIClientWindow()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxMDIClientWindow) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMDIClientWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

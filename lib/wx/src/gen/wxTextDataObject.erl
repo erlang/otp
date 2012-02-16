@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,18 +32,21 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxTextDataObject/0]).
 %% @hidden
 parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxTextDataObject()
+-type wxTextDataObject() :: wx:wx_object().
 %% @equiv new([])
+-spec new() -> wxTextDataObject().
+
 new() ->
   new([]).
 
-%% @spec ([Option]) -> wxTextDataObject()
-%% Option = {text, string()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextdataobject.html#wxtextdataobjectwxtextdataobject">external documentation</a>.
+-spec new([Option]) -> wxTextDataObject() when
+	Option :: {text, string()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({text, Text}, Acc) ->   Text_UC = unicode:characters_to_binary([Text,0]),[<<1:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
@@ -52,22 +55,25 @@ new(Options)
   wxe_util:construct(?wxTextDataObject_new,
   <<BinOpt/binary>>).
 
-%% @spec (This::wxTextDataObject()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextdataobject.html#wxtextdataobjectgettextlength">external documentation</a>.
+-spec getTextLength(This) -> integer() when
+	This::wxTextDataObject().
 getTextLength(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextDataObject),
   wxe_util:call(?wxTextDataObject_GetTextLength,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextDataObject()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextdataobject.html#wxtextdataobjectgettext">external documentation</a>.
+-spec getText(This) -> string() when
+	This::wxTextDataObject().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextDataObject),
   wxe_util:call(?wxTextDataObject_GetText,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextDataObject(), Text::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextdataobject.html#wxtextdataobjectsettext">external documentation</a>.
+-spec setText(This, Text) -> ok when
+	This::wxTextDataObject(), Text::string().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxTextDataObject),
@@ -75,8 +81,8 @@ setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
   wxe_util:cast(?wxTextDataObject_SetText,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxTextDataObject()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxTextDataObject) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextDataObject),
   wxe_util:destroy(?wxTextDataObject_destroy,Obj),

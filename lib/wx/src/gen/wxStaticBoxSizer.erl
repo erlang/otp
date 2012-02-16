@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,19 +41,18 @@
   setItemMinSize/4,setMinSize/2,setMinSize/3,setSizeHints/2,setVirtualSizeHints/2,
   show/2,show/3]).
 
+-export_type([wxStaticBoxSizer/0]).
 %% @hidden
 parent_class(wxBoxSizer) -> true;
 parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (X::integer()|term(),X::term()|integer()) -> wxStaticBoxSizer()
+-type wxStaticBoxSizer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticboxsizer.html#wxstaticboxsizerwxstaticboxsizer">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Orient::integer(), Win::wxWindow:wxWindow()) -> new(Orient,Win, []) </c></p>
-%% <p><c>
-%% new(Box::wxStaticBox:wxStaticBox(), Orient::integer()) -> wxStaticBoxSizer() </c>
-%% </p>
+-spec new(Orient, Win) -> wxStaticBoxSizer() when
+	Orient::integer(), Win::wxWindow:wxWindow();
+      (Box, Orient) -> wxStaticBoxSizer() when
+	Box::wxStaticBox:wxStaticBox(), Orient::integer().
 
 new(Orient,Win)
  when is_integer(Orient),is_record(Win, wx_ref) ->
@@ -64,9 +63,10 @@ new(#wx_ref{type=BoxT,ref=BoxRef},Orient)
   wxe_util:construct(?wxStaticBoxSizer_new_2,
   <<BoxRef:32/?UI,Orient:32/?UI>>).
 
-%% @spec (Orient::integer(), Win::wxWindow:wxWindow(), [Option]) -> wxStaticBoxSizer()
-%% Option = {label, string()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticboxsizer.html#wxstaticboxsizerwxstaticboxsizer">external documentation</a>.
+-spec new(Orient, Win, [Option]) -> wxStaticBoxSizer() when
+	Orient::integer(), Win::wxWindow:wxWindow(),
+	Option :: {label, string()}.
 new(Orient,#wx_ref{type=WinT,ref=WinRef}, Options)
  when is_integer(Orient),is_list(Options) ->
   ?CLASS(WinT,wxWindow),
@@ -76,15 +76,16 @@ new(Orient,#wx_ref{type=WinT,ref=WinRef}, Options)
   wxe_util:construct(?wxStaticBoxSizer_new_3,
   <<Orient:32/?UI,WinRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxStaticBoxSizer()) -> wxStaticBox:wxStaticBox()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticboxsizer.html#wxstaticboxsizergetstaticbox">external documentation</a>.
+-spec getStaticBox(This) -> wxStaticBox:wxStaticBox() when
+	This::wxStaticBoxSizer().
 getStaticBox(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStaticBoxSizer),
   wxe_util:call(?wxStaticBoxSizer_GetStaticBox,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxStaticBoxSizer()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxStaticBoxSizer) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBoxSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

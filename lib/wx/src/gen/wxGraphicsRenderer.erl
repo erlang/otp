@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,17 +31,20 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxGraphicsRenderer/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxGraphicsRenderer()
+-type wxGraphicsRenderer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderergetdefaultrenderer">external documentation</a>.
+-spec getDefaultRenderer() -> wxGraphicsRenderer().
 getDefaultRenderer() ->
   wxe_util:call(?wxGraphicsRenderer_GetDefaultRenderer,
   <<>>).
 
-%% @spec (This::wxGraphicsRenderer(), Dc::wxWindowDC:wxWindowDC() | wxWindow:wxWindow()) -> wxGraphicsContext:wxGraphicsContext()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatecontext">external documentation</a>.
+-spec createContext(This, Dc) -> wxGraphicsContext:wxGraphicsContext() when
+	This::wxGraphicsRenderer(), Dc::wxWindowDC:wxWindowDC() | wxWindow:wxWindow().
 createContext(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   DcOP = case ?CLASS_T(DcT,wxWindowDC) of
@@ -53,47 +56,54 @@ createContext(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}) ->
   wxe_util:call(DcOP,
   <<ThisRef:32/?UI,DcRef:32/?UI>>).
 
-%% @spec (This::wxGraphicsRenderer(), Pen::wxPen:wxPen()) -> wxGraphicsPen:wxGraphicsPen()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatepen">external documentation</a>.
+-spec createPen(This, Pen) -> wxGraphicsPen:wxGraphicsPen() when
+	This::wxGraphicsRenderer(), Pen::wxPen:wxPen().
 createPen(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PenT,ref=PenRef}) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   ?CLASS(PenT,wxPen),
   wxe_util:call(?wxGraphicsRenderer_CreatePen,
   <<ThisRef:32/?UI,PenRef:32/?UI>>).
 
-%% @spec (This::wxGraphicsRenderer(), Brush::wxBrush:wxBrush()) -> wxGraphicsBrush:wxGraphicsBrush()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatebrush">external documentation</a>.
+-spec createBrush(This, Brush) -> wxGraphicsBrush:wxGraphicsBrush() when
+	This::wxGraphicsRenderer(), Brush::wxBrush:wxBrush().
 createBrush(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BrushT,ref=BrushRef}) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   ?CLASS(BrushT,wxBrush),
   wxe_util:call(?wxGraphicsRenderer_CreateBrush,
   <<ThisRef:32/?UI,BrushRef:32/?UI>>).
 
-%% @spec (This::wxGraphicsRenderer(), X1::float(), Y1::float(), X2::float(), Y2::float(), C1::wx:colour(), C2::wx:colour()) -> wxGraphicsBrush:wxGraphicsBrush()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatelineargradientbrush">external documentation</a>.
+-spec createLinearGradientBrush(This, X1, Y1, X2, Y2, C1, C2) -> wxGraphicsBrush:wxGraphicsBrush() when
+	This::wxGraphicsRenderer(), X1::float(), Y1::float(), X2::float(), Y2::float(), C1::wx:wx_colour(), C2::wx:wx_colour().
 createLinearGradientBrush(#wx_ref{type=ThisT,ref=ThisRef},X1,Y1,X2,Y2,C1,C2)
  when is_float(X1),is_float(Y1),is_float(X2),is_float(Y2),tuple_size(C1) =:= 3; tuple_size(C1) =:= 4,tuple_size(C2) =:= 3; tuple_size(C2) =:= 4 ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   wxe_util:call(?wxGraphicsRenderer_CreateLinearGradientBrush,
   <<ThisRef:32/?UI,0:32,X1:64/?F,Y1:64/?F,X2:64/?F,Y2:64/?F,(wxe_util:colour_bin(C1)):16/binary,(wxe_util:colour_bin(C2)):16/binary>>).
 
-%% @spec (This::wxGraphicsRenderer(), Xo::float(), Yo::float(), Xc::float(), Yc::float(), Radius::float(), OColor::wx:colour(), CColor::wx:colour()) -> wxGraphicsBrush:wxGraphicsBrush()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreateradialgradientbrush">external documentation</a>.
+-spec createRadialGradientBrush(This, Xo, Yo, Xc, Yc, Radius, OColor, CColor) -> wxGraphicsBrush:wxGraphicsBrush() when
+	This::wxGraphicsRenderer(), Xo::float(), Yo::float(), Xc::float(), Yc::float(), Radius::float(), OColor::wx:wx_colour(), CColor::wx:wx_colour().
 createRadialGradientBrush(#wx_ref{type=ThisT,ref=ThisRef},Xo,Yo,Xc,Yc,Radius,OColor,CColor)
  when is_float(Xo),is_float(Yo),is_float(Xc),is_float(Yc),is_float(Radius),tuple_size(OColor) =:= 3; tuple_size(OColor) =:= 4,tuple_size(CColor) =:= 3; tuple_size(CColor) =:= 4 ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   wxe_util:call(?wxGraphicsRenderer_CreateRadialGradientBrush,
   <<ThisRef:32/?UI,0:32,Xo:64/?F,Yo:64/?F,Xc:64/?F,Yc:64/?F,Radius:64/?F,(wxe_util:colour_bin(OColor)):16/binary,(wxe_util:colour_bin(CColor)):16/binary>>).
 
-%% @spec (This::wxGraphicsRenderer(), Font::wxFont:wxFont()) -> wxGraphicsFont:wxGraphicsFont()
 %% @equiv createFont(This,Font, [])
+-spec createFont(This, Font) -> wxGraphicsFont:wxGraphicsFont() when
+	This::wxGraphicsRenderer(), Font::wxFont:wxFont().
+
 createFont(This,Font)
  when is_record(This, wx_ref),is_record(Font, wx_ref) ->
   createFont(This,Font, []).
 
-%% @spec (This::wxGraphicsRenderer(), Font::wxFont:wxFont(), [Option]) -> wxGraphicsFont:wxGraphicsFont()
-%% Option = {col, wx:colour()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatefont">external documentation</a>.
+-spec createFont(This, Font, [Option]) -> wxGraphicsFont:wxGraphicsFont() when
+	This::wxGraphicsRenderer(), Font::wxFont:wxFont(),
+	Option :: {col, wx:wx_colour()}.
 createFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
@@ -104,15 +114,23 @@ createFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}, Opti
   wxe_util:call(?wxGraphicsRenderer_CreateFont,
   <<ThisRef:32/?UI,FontRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxGraphicsRenderer()) -> wxGraphicsMatrix:wxGraphicsMatrix()
 %% @equiv createMatrix(This, [])
+-spec createMatrix(This) -> wxGraphicsMatrix:wxGraphicsMatrix() when
+	This::wxGraphicsRenderer().
+
 createMatrix(This)
  when is_record(This, wx_ref) ->
   createMatrix(This, []).
 
-%% @spec (This::wxGraphicsRenderer(), [Option]) -> wxGraphicsMatrix:wxGraphicsMatrix()
-%% Option = {a, float()} | {b, float()} | {c, float()} | {d, float()} | {tx, float()} | {ty, float()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatematrix">external documentation</a>.
+-spec createMatrix(This, [Option]) -> wxGraphicsMatrix:wxGraphicsMatrix() when
+	This::wxGraphicsRenderer(),
+	Option :: {a, float()}
+		 | {b, float()}
+		 | {c, float()}
+		 | {d, float()}
+		 | {tx, float()}
+		 | {ty, float()}.
 createMatrix(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
@@ -127,8 +145,9 @@ createMatrix(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxGraphicsRenderer_CreateMatrix,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxGraphicsRenderer()) -> wxGraphicsPath:wxGraphicsPath()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatepath">external documentation</a>.
+-spec createPath(This) -> wxGraphicsPath:wxGraphicsPath() when
+	This::wxGraphicsRenderer().
 createPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   wxe_util:call(?wxGraphicsRenderer_CreatePath,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,18 +32,21 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxFileDataObject/0]).
 %% @hidden
 parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxFileDataObject()
+-type wxFileDataObject() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectwxfiledataobject">external documentation</a>.
+-spec new() -> wxFileDataObject().
 new() ->
   wxe_util:construct(?wxFileDataObject_new,
   <<>>).
 
-%% @spec (This::wxFileDataObject(), Filename::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectaddfile">external documentation</a>.
+-spec addFile(This, Filename) -> ok when
+	This::wxFileDataObject(), Filename::string().
 addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
  when is_list(Filename) ->
   ?CLASS(ThisT,wxFileDataObject),
@@ -51,15 +54,16 @@ addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
   wxe_util:cast(?wxFileDataObject_AddFile,
   <<ThisRef:32/?UI,(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((0+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxFileDataObject()) -> [[string()]]
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectgetfilenames">external documentation</a>.
+-spec getFilenames(This) -> [[string()]] when
+	This::wxFileDataObject().
 getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDataObject),
   wxe_util:call(?wxFileDataObject_GetFilenames,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxFileDataObject()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxFileDataObject) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDataObject),
   wxe_util:destroy(?wxFileDataObject_destroy,Obj),

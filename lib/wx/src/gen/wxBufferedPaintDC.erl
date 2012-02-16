@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,27 +55,28 @@
   setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,startDoc/2,
   startPage/1]).
 
+-export_type([wxBufferedPaintDC/0]).
 %% @hidden
 parent_class(wxBufferedDC) -> true;
 parent_class(wxMemoryDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Window::wxWindow:wxWindow()) -> wxBufferedPaintDC()
+-type wxBufferedPaintDC() :: wx:wx_object().
 %% @equiv new(Window, [])
+-spec new(Window) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow().
+
 new(Window)
  when is_record(Window, wx_ref) ->
   new(Window, []).
 
-%% @spec (Window::wxWindow:wxWindow(),X::term()) -> wxBufferedPaintDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbufferedpaintdc.html#wxbufferedpaintdcwxbufferedpaintdc">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap()) -> new(Window,Buffer, []) </c></p>
-%% <p><c>
-%% new(Window::wxWindow:wxWindow(), [Option]) -> wxBufferedPaintDC() </c>
-%%<br /> Option = {style, integer()}
-%% </p>
+-spec new(Window, Buffer) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap();
+      (Window, [Option]) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow(),
+	Option :: {style, integer()}.
 
 new(Window,Buffer)
  when is_record(Window, wx_ref),is_record(Buffer, wx_ref) ->
@@ -89,9 +90,10 @@ new(#wx_ref{type=WindowT,ref=WindowRef}, Options)
   wxe_util:construct(?wxBufferedPaintDC_new_2,
   <<WindowRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap(), [Option]) -> wxBufferedPaintDC()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbufferedpaintdc.html#wxbufferedpaintdcwxbufferedpaintdc">external documentation</a>.
+-spec new(Window, Buffer, [Option]) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap(),
+	Option :: {style, integer()}.
 new(#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=BufferT,ref=BufferRef}, Options)
  when is_list(Options) ->
   ?CLASS(WindowT,wxWindow),
@@ -102,8 +104,8 @@ new(#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=BufferT,ref=BufferRef}, Opt
   wxe_util:construct(?wxBufferedPaintDC_new_3,
   <<WindowRef:32/?UI,BufferRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxBufferedPaintDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxBufferedPaintDC) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedPaintDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

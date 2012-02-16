@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,49 +37,58 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxCloseEvent/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxCloseEvent()) -> bool()
+-type wxCloseEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventcanveto">external documentation</a>.
+-spec canVeto(This) -> boolean() when
+	This::wxCloseEvent().
 canVeto(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCloseEvent),
   wxe_util:call(?wxCloseEvent_CanVeto,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCloseEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventgetloggingoff">external documentation</a>.
+-spec getLoggingOff(This) -> boolean() when
+	This::wxCloseEvent().
 getLoggingOff(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCloseEvent),
   wxe_util:call(?wxCloseEvent_GetLoggingOff,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCloseEvent(), CanVeto::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventsetcanveto">external documentation</a>.
+-spec setCanVeto(This, CanVeto) -> ok when
+	This::wxCloseEvent(), CanVeto::boolean().
 setCanVeto(#wx_ref{type=ThisT,ref=ThisRef},CanVeto)
  when is_boolean(CanVeto) ->
   ?CLASS(ThisT,wxCloseEvent),
   wxe_util:cast(?wxCloseEvent_SetCanVeto,
   <<ThisRef:32/?UI,(wxe_util:from_bool(CanVeto)):32/?UI>>).
 
-%% @spec (This::wxCloseEvent(), LogOff::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventsetloggingoff">external documentation</a>.
+-spec setLoggingOff(This, LogOff) -> ok when
+	This::wxCloseEvent(), LogOff::boolean().
 setLoggingOff(#wx_ref{type=ThisT,ref=ThisRef},LogOff)
  when is_boolean(LogOff) ->
   ?CLASS(ThisT,wxCloseEvent),
   wxe_util:cast(?wxCloseEvent_SetLoggingOff,
   <<ThisRef:32/?UI,(wxe_util:from_bool(LogOff)):32/?UI>>).
 
-%% @spec (This::wxCloseEvent()) -> ok
 %% @equiv veto(This, [])
+-spec veto(This) -> ok when
+	This::wxCloseEvent().
+
 veto(This)
  when is_record(This, wx_ref) ->
   veto(This, []).
 
-%% @spec (This::wxCloseEvent(), [Option]) -> ok
-%% Option = {veto, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcloseevent.html#wxcloseeventveto">external documentation</a>.
+-spec veto(This, [Option]) -> ok when
+	This::wxCloseEvent(),
+	Option :: {veto, boolean()}.
 veto(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxCloseEvent),

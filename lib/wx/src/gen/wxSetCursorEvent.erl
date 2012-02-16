@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,40 +37,47 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxSetCursorEvent/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxSetCursorEvent()) -> wxCursor:wxCursor()
+-type wxSetCursorEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventgetcursor">external documentation</a>.
+-spec getCursor(This) -> wxCursor:wxCursor() when
+	This::wxSetCursorEvent().
 getCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:call(?wxSetCursorEvent_GetCursor,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSetCursorEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventgetx">external documentation</a>.
+-spec getX(This) -> integer() when
+	This::wxSetCursorEvent().
 getX(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:call(?wxSetCursorEvent_GetX,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSetCursorEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventgety">external documentation</a>.
+-spec getY(This) -> integer() when
+	This::wxSetCursorEvent().
 getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:call(?wxSetCursorEvent_GetY,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSetCursorEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventhascursor">external documentation</a>.
+-spec hasCursor(This) -> boolean() when
+	This::wxSetCursorEvent().
 hasCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:call(?wxSetCursorEvent_HasCursor,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSetCursorEvent(), Cursor::wxCursor:wxCursor()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsetcursorevent.html#wxsetcursoreventsetcursor">external documentation</a>.
+-spec setCursor(This, Cursor) -> ok when
+	This::wxSetCursorEvent(), Cursor::wxCursor:wxCursor().
 setCursor(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CursorT,ref=CursorRef}) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   ?CLASS(CursorT,wxCursor),

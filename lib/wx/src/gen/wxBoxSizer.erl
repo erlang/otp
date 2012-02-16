@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,26 +40,30 @@
   setMinSize/2,setMinSize/3,setSizeHints/2,setVirtualSizeHints/2,show/2,
   show/3]).
 
+-export_type([wxBoxSizer/0]).
 %% @hidden
 parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Orient::integer()) -> wxBoxSizer()
+-type wxBoxSizer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxboxsizer.html#wxboxsizerwxboxsizer">external documentation</a>.
+-spec new(Orient) -> wxBoxSizer() when
+	Orient::integer().
 new(Orient)
  when is_integer(Orient) ->
   wxe_util:construct(?wxBoxSizer_new,
   <<Orient:32/?UI>>).
 
-%% @spec (This::wxBoxSizer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxboxsizer.html#wxboxsizergetorientation">external documentation</a>.
+-spec getOrientation(This) -> integer() when
+	This::wxBoxSizer().
 getOrientation(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBoxSizer),
   wxe_util:call(?wxBoxSizer_GetOrientation,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBoxSizer()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxBoxSizer) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBoxSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

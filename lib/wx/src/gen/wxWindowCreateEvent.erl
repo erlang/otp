@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,11 +40,13 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxWindowCreateEvent/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
+-type wxWindowCreateEvent() :: wx:wx_object().
  %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).

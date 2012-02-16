@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,7 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxChoice/0]).
 %% @hidden
 parent_class(wxControlWithItems) -> true;
 parent_class(wxControl) -> true;
@@ -81,21 +82,29 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxChoice()
+-type wxChoice() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
+-spec new() -> wxChoice().
 new() ->
   wxe_util:construct(?wxChoice_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer()) -> wxChoice()
 %% @equiv new(Parent,Id, [])
+-spec new(Parent, Id) -> wxChoice() when
+	Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxChoice()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {choices, [[string()]]} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicewxchoice">external documentation</a>.
+-spec new(Parent, Id, [Option]) -> wxChoice() when
+	Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {choices, [[string()]]}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -109,15 +118,19 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxChoice_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]]) -> bool()
 %% @equiv create(This,Parent,Id,Pos,Size,Choices, [])
+-spec create(This, Parent, Id, Pos, Size, Choices) -> boolean() when
+	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]].
+
 create(This,Parent,Id,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
   create(This,Parent,Id,Pos,Size,Choices, []).
 
-%% @spec (This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]], [Option]) -> bool()
-%% Option = {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicecreate">external documentation</a>.
+-spec create(This, Parent, Id, Pos, Size, Choices, [Option]) -> boolean() when
+	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]],
+	Option :: {style, integer()}
+		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,{PosX,PosY},{SizeW,SizeH},Choices, Options)
  when is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxChoice),
@@ -131,30 +144,35 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,{P
   wxe_util:call(?wxChoice_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,PosX:32/?UI,PosY:32/?UI,SizeW:32/?UI,SizeH:32/?UI,(length(Choices_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Choices_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Choices_UCA])) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxChoice(), N::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicedelete">external documentation</a>.
+-spec delete(This, N) -> ok when
+	This::wxChoice(), N::integer().
 delete(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxChoice),
   wxe_util:cast(?wxChoice_Delete,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxChoice()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicegetcolumns">external documentation</a>.
+-spec getColumns(This) -> integer() when
+	This::wxChoice().
 getColumns(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxChoice),
   wxe_util:call(?wxChoice_GetColumns,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxChoice()) -> ok
 %% @equiv setColumns(This, [])
+-spec setColumns(This) -> ok when
+	This::wxChoice().
+
 setColumns(This)
  when is_record(This, wx_ref) ->
   setColumns(This, []).
 
-%% @spec (This::wxChoice(), [Option]) -> ok
-%% Option = {n, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchoice.html#wxchoicesetcolumns">external documentation</a>.
+-spec setColumns(This, [Option]) -> ok when
+	This::wxChoice(),
+	Option :: {n, integer()}.
 setColumns(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxChoice),
@@ -164,8 +182,8 @@ setColumns(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxChoice_SetColumns,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxChoice()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxChoice) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxChoice),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,7 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxColourPickerCtrl/0]).
 %% @hidden
 parent_class(wxPickerBase) -> true;
 parent_class(wxControl) -> true;
@@ -81,21 +82,29 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxColourPickerCtrl()
+-type wxColourPickerCtrl() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlwxcolourpickerctrl">external documentation</a>.
+-spec new() -> wxColourPickerCtrl().
 new() ->
   wxe_util:construct(?wxColourPickerCtrl_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer()) -> wxColourPickerCtrl()
 %% @equiv new(Parent,Id, [])
+-spec new(Parent, Id) -> wxColourPickerCtrl() when
+	Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxColourPickerCtrl()
-%% Option = {col, wx:colour()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlwxcolourpickerctrl">external documentation</a>.
+-spec new(Parent, Id, [Option]) -> wxColourPickerCtrl() when
+	Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {col, wx:wx_colour()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -109,15 +118,22 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxColourPickerCtrl_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer()) -> bool()
 %% @equiv create(This,Parent,Id, [])
+-spec create(This, Parent, Id) -> boolean() when
+	This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
   create(This,Parent,Id, []).
 
-%% @spec (This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {col, wx:colour()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlcreate">external documentation</a>.
+-spec create(This, Parent, Id, [Option]) -> boolean() when
+	This::wxColourPickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {col, wx:wx_colour()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
@@ -132,22 +148,19 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   wxe_util:call(?wxColourPickerCtrl_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxColourPickerCtrl()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlgetcolour">external documentation</a>.
+-spec getColour(This) -> wx:wx_colour() when
+	This::wxColourPickerCtrl().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
   wxe_util:call(?wxColourPickerCtrl_GetColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxColourPickerCtrl(),X::string()|term()) -> bool()|ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlsetcolour">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% setColour(This::wxColourPickerCtrl(), Text::string()) -> bool() </c>
-%% </p>
-%% <p><c>
-%% setColour(This::wxColourPickerCtrl(), Col::wx:colour()) -> ok </c>
-%% </p>
+-spec setColour(This, Text) -> boolean() when
+	This::wxColourPickerCtrl(), Text::string();
+      (This, Col) -> ok when
+	This::wxColourPickerCtrl(), Col::wx:wx_colour().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
@@ -160,8 +173,8 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
   wxe_util:cast(?wxColourPickerCtrl_SetColour_1_1,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
-%% @spec (This::wxColourPickerCtrl()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxColourPickerCtrl) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourPickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

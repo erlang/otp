@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,18 +33,22 @@
 -export([beginEdit/4,endEdit/4,handleReturn/2,isCreated/1,paintBackground/3,
   parent_class/1,reset/1,setSize/2,show/2,show/3,startingClick/1,startingKey/2]).
 
+-export_type([wxGridCellFloatEditor/0]).
 %% @hidden
 parent_class(wxGridCellEditor) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxGridCellFloatEditor()
+-type wxGridCellFloatEditor() :: wx:wx_object().
 %% @equiv new([])
+-spec new() -> wxGridCellFloatEditor().
+
 new() ->
   new([]).
 
-%% @spec ([Option]) -> wxGridCellFloatEditor()
-%% Option = {width, integer()} | {precision, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellfloateditor.html#wxgridcellfloateditorwxgridcellfloateditor">external documentation</a>.
+-spec new([Option]) -> wxGridCellFloatEditor() when
+	Option :: {width, integer()}
+		 | {precision, integer()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({width, Width}, Acc) -> [<<1:32/?UI,Width:32/?UI>>|Acc];
@@ -54,8 +58,9 @@ new(Options)
   wxe_util:construct(?wxGridCellFloatEditor_new,
   <<BinOpt/binary>>).
 
-%% @spec (This::wxGridCellFloatEditor(), Params::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellfloateditor.html#wxgridcellfloateditorsetparameters">external documentation</a>.
+-spec setParameters(This, Params) -> ok when
+	This::wxGridCellFloatEditor(), Params::string().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
   ?CLASS(ThisT,wxGridCellFloatEditor),
@@ -63,8 +68,8 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
   wxe_util:cast(?wxGridCellFloatEditor_SetParameters,
   <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxGridCellFloatEditor()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxGridCellFloatEditor) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellFloatEditor),
   wxe_util:destroy(?wxGridCellFloatEditor_destroy,Obj),

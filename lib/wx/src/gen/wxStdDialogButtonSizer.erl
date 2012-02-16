@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,58 +42,65 @@
   setItemMinSize/4,setMinSize/2,setMinSize/3,setSizeHints/2,setVirtualSizeHints/2,
   show/2,show/3]).
 
+-export_type([wxStdDialogButtonSizer/0]).
 %% @hidden
 parent_class(wxBoxSizer) -> true;
 parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxStdDialogButtonSizer()
+-type wxStdDialogButtonSizer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizerwxstddialogbuttonsizer">external documentation</a>.
+-spec new() -> wxStdDialogButtonSizer().
 new() ->
   wxe_util:construct(?wxStdDialogButtonSizer_new,
   <<>>).
 
-%% @spec (This::wxStdDialogButtonSizer(), Button::wxButton:wxButton()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizeraddbutton">external documentation</a>.
+-spec addButton(This, Button) -> ok when
+	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 addButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),
   wxe_util:cast(?wxStdDialogButtonSizer_AddButton,
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
-%% @spec (This::wxStdDialogButtonSizer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizerrealize">external documentation</a>.
+-spec realize(This) -> ok when
+	This::wxStdDialogButtonSizer().
 realize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   wxe_util:cast(?wxStdDialogButtonSizer_Realize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxStdDialogButtonSizer(), Button::wxButton:wxButton()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetaffirmativebutton">external documentation</a>.
+-spec setAffirmativeButton(This, Button) -> ok when
+	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setAffirmativeButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),
   wxe_util:cast(?wxStdDialogButtonSizer_SetAffirmativeButton,
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
-%% @spec (This::wxStdDialogButtonSizer(), Button::wxButton:wxButton()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetcancelbutton">external documentation</a>.
+-spec setCancelButton(This, Button) -> ok when
+	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setCancelButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),
   wxe_util:cast(?wxStdDialogButtonSizer_SetCancelButton,
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
-%% @spec (This::wxStdDialogButtonSizer(), Button::wxButton:wxButton()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstddialogbuttonsizer.html#wxstddialogbuttonsizersetnegativebutton">external documentation</a>.
+-spec setNegativeButton(This, Button) -> ok when
+	This::wxStdDialogButtonSizer(), Button::wxButton:wxButton().
 setNegativeButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=ButtonRef}) ->
   ?CLASS(ThisT,wxStdDialogButtonSizer),
   ?CLASS(ButtonT,wxButton),
   wxe_util:cast(?wxStdDialogButtonSizer_SetNegativeButton,
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
-%% @spec (This::wxStdDialogButtonSizer()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxStdDialogButtonSizer) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStdDialogButtonSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

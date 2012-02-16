@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,6 +77,7 @@
   transferDataFromWindow/1,transferDataToWindow/1,update/1,updateWindowUI/1,
   updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxFindReplaceDialog/0]).
 %% @hidden
 parent_class(wxDialog) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -84,21 +85,25 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxFindReplaceDialog()
+-type wxFindReplaceDialog() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedialog.html#wxfindreplacedialogwxfindreplacedialog">external documentation</a>.
+-spec new() -> wxFindReplaceDialog().
 new() ->
   wxe_util:construct(?wxFindReplaceDialog_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string()) -> wxFindReplaceDialog()
 %% @equiv new(Parent,Data,Title, [])
+-spec new(Parent, Data, Title) -> wxFindReplaceDialog() when
+	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string().
+
 new(Parent,Data,Title)
  when is_record(Parent, wx_ref),is_record(Data, wx_ref),is_list(Title) ->
   new(Parent,Data,Title, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string(), [Option]) -> wxFindReplaceDialog()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedialog.html#wxfindreplacedialogwxfindreplacedialog">external documentation</a>.
+-spec new(Parent, Data, Title, [Option]) -> wxFindReplaceDialog() when
+	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string(),
+	Option :: {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, Options)
  when is_list(Title),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -110,15 +115,18 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, O
   wxe_util:construct(?wxFindReplaceDialog_new_4,
   <<ParentRef:32/?UI,DataRef:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string()) -> bool()
 %% @equiv create(This,Parent,Data,Title, [])
+-spec create(This, Parent, Data, Title) -> boolean() when
+	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string().
+
 create(This,Parent,Data,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_record(Data, wx_ref),is_list(Title) ->
   create(This,Parent,Data,Title, []).
 
-%% @spec (This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string(), [Option]) -> bool()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedialog.html#wxfindreplacedialogcreate">external documentation</a>.
+-spec create(This, Parent, Data, Title, [Option]) -> boolean() when
+	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string(),
+	Option :: {style, integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, Options)
  when is_list(Title),is_list(Options) ->
   ?CLASS(ThisT,wxFindReplaceDialog),
@@ -131,15 +139,16 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_r
   wxe_util:call(?wxFindReplaceDialog_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,DataRef:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxFindReplaceDialog()) -> wxFindReplaceData:wxFindReplaceData()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedialog.html#wxfindreplacedialoggetdata">external documentation</a>.
+-spec getData(This) -> wxFindReplaceData:wxFindReplaceData() when
+	This::wxFindReplaceDialog().
 getData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFindReplaceDialog),
   wxe_util:call(?wxFindReplaceDialog_GetData,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxFindReplaceDialog()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxFindReplaceDialog) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFindReplaceDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

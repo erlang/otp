@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,27 +72,35 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxScrolledWindow/0]).
 %% @hidden
 parent_class(wxPanel) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxScrolledWindow()
+-type wxScrolledWindow() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowwxscrolledwindow">external documentation</a>.
+-spec new() -> wxScrolledWindow().
 new() ->
   wxe_util:construct(?wxScrolledWindow_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxScrolledWindow()
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxScrolledWindow() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxScrolledWindow()
-%% Option = {winid, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowwxscrolledwindow">external documentation</a>.
+-spec new(Parent, [Option]) -> wxScrolledWindow() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {winid, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -105,93 +113,108 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxScrolledWindow_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcscrolledposition">external documentation</a>.
+-spec calcScrolledPosition(This, Pt) -> {X::integer(), Y::integer()} when
+	This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
 calcScrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:call(?wxScrolledWindow_CalcScrolledPosition_1,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), X::integer(), Y::integer()) -> {Xx::integer(), Yy::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcscrolledposition">external documentation</a>.
+-spec calcScrolledPosition(This, X, Y) -> {Xx::integer(), Yy::integer()} when
+	This::wxScrolledWindow(), X::integer(), Y::integer().
 calcScrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:call(?wxScrolledWindow_CalcScrolledPosition_4,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcunscrolledposition">external documentation</a>.
+-spec calcUnscrolledPosition(This, Pt) -> {X::integer(), Y::integer()} when
+	This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
 calcUnscrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:call(?wxScrolledWindow_CalcUnscrolledPosition_1,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), X::integer(), Y::integer()) -> {Xx::integer(), Yy::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowcalcunscrolledposition">external documentation</a>.
+-spec calcUnscrolledPosition(This, X, Y) -> {Xx::integer(), Yy::integer()} when
+	This::wxScrolledWindow(), X::integer(), Y::integer().
 calcUnscrolledPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:call(?wxScrolledWindow_CalcUnscrolledPosition_4,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), X_scrolling::bool(), Y_scrolling::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowenablescrolling">external documentation</a>.
+-spec enableScrolling(This, X_scrolling, Y_scrolling) -> ok when
+	This::wxScrolledWindow(), X_scrolling::boolean(), Y_scrolling::boolean().
 enableScrolling(#wx_ref{type=ThisT,ref=ThisRef},X_scrolling,Y_scrolling)
  when is_boolean(X_scrolling),is_boolean(Y_scrolling) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:cast(?wxScrolledWindow_EnableScrolling,
   <<ThisRef:32/?UI,(wxe_util:from_bool(X_scrolling)):32/?UI,(wxe_util:from_bool(Y_scrolling)):32/?UI>>).
 
-%% @spec (This::wxScrolledWindow()) -> {PixelsPerUnitX::integer(), PixelsPerUnitY::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowgetscrollpixelsperunit">external documentation</a>.
+-spec getScrollPixelsPerUnit(This) -> {PixelsPerUnitX::integer(), PixelsPerUnitY::integer()} when
+	This::wxScrolledWindow().
 getScrollPixelsPerUnit(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:call(?wxScrolledWindow_GetScrollPixelsPerUnit,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow()) -> {X::integer(), Y::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowgetviewstart">external documentation</a>.
+-spec getViewStart(This) -> {X::integer(), Y::integer()} when
+	This::wxScrolledWindow().
 getViewStart(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:call(?wxScrolledWindow_GetViewStart,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), Dc::wxDC:wxDC()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowdopreparedc">external documentation</a>.
+-spec doPrepareDC(This, Dc) -> ok when
+	This::wxScrolledWindow(), Dc::wxDC:wxDC().
 doPrepareDC(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}) ->
   ?CLASS(ThisT,wxScrolledWindow),
   ?CLASS(DcT,wxDC),
   wxe_util:cast(?wxScrolledWindow_DoPrepareDC,
   <<ThisRef:32/?UI,DcRef:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), Dc::wxDC:wxDC()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowpreparedc">external documentation</a>.
+-spec prepareDC(This, Dc) -> ok when
+	This::wxScrolledWindow(), Dc::wxDC:wxDC().
 prepareDC(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}) ->
   ?CLASS(ThisT,wxScrolledWindow),
   ?CLASS(DcT,wxDC),
   wxe_util:cast(?wxScrolledWindow_PrepareDC,
   <<ThisRef:32/?UI,DcRef:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), X::integer(), Y::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowscroll">external documentation</a>.
+-spec scroll(This, X, Y) -> ok when
+	This::wxScrolledWindow(), X::integer(), Y::integer().
 scroll(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:cast(?wxScrolledWindow_Scroll,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), PixelsPerUnitX::integer(), PixelsPerUnitY::integer(), NoUnitsX::integer(), NoUnitsY::integer()) -> ok
 %% @equiv setScrollbars(This,PixelsPerUnitX,PixelsPerUnitY,NoUnitsX,NoUnitsY, [])
+-spec setScrollbars(This, PixelsPerUnitX, PixelsPerUnitY, NoUnitsX, NoUnitsY) -> ok when
+	This::wxScrolledWindow(), PixelsPerUnitX::integer(), PixelsPerUnitY::integer(), NoUnitsX::integer(), NoUnitsY::integer().
+
 setScrollbars(This,PixelsPerUnitX,PixelsPerUnitY,NoUnitsX,NoUnitsY)
  when is_record(This, wx_ref),is_integer(PixelsPerUnitX),is_integer(PixelsPerUnitY),is_integer(NoUnitsX),is_integer(NoUnitsY) ->
   setScrollbars(This,PixelsPerUnitX,PixelsPerUnitY,NoUnitsX,NoUnitsY, []).
 
-%% @spec (This::wxScrolledWindow(), PixelsPerUnitX::integer(), PixelsPerUnitY::integer(), NoUnitsX::integer(), NoUnitsY::integer(), [Option]) -> ok
-%% Option = {xPos, integer()} | {yPos, integer()} | {noRefresh, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowsetscrollbars">external documentation</a>.
+-spec setScrollbars(This, PixelsPerUnitX, PixelsPerUnitY, NoUnitsX, NoUnitsY, [Option]) -> ok when
+	This::wxScrolledWindow(), PixelsPerUnitX::integer(), PixelsPerUnitY::integer(), NoUnitsX::integer(), NoUnitsY::integer(),
+	Option :: {xPos, integer()}
+		 | {yPos, integer()}
+		 | {noRefresh, boolean()}.
 setScrollbars(#wx_ref{type=ThisT,ref=ThisRef},PixelsPerUnitX,PixelsPerUnitY,NoUnitsX,NoUnitsY, Options)
  when is_integer(PixelsPerUnitX),is_integer(PixelsPerUnitY),is_integer(NoUnitsX),is_integer(NoUnitsY),is_list(Options) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -203,24 +226,26 @@ setScrollbars(#wx_ref{type=ThisT,ref=ThisRef},PixelsPerUnitX,PixelsPerUnitY,NoUn
   wxe_util:cast(?wxScrolledWindow_SetScrollbars,
   <<ThisRef:32/?UI,PixelsPerUnitX:32/?UI,PixelsPerUnitY:32/?UI,NoUnitsX:32/?UI,NoUnitsY:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxScrolledWindow(), Xstep::integer(), Ystep::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowsetscrollrate">external documentation</a>.
+-spec setScrollRate(This, Xstep, Ystep) -> ok when
+	This::wxScrolledWindow(), Xstep::integer(), Ystep::integer().
 setScrollRate(#wx_ref{type=ThisT,ref=ThisRef},Xstep,Ystep)
  when is_integer(Xstep),is_integer(Ystep) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:cast(?wxScrolledWindow_SetScrollRate,
   <<ThisRef:32/?UI,Xstep:32/?UI,Ystep:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow(), Target::wxWindow:wxWindow()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrolledwindow.html#wxscrolledwindowsettargetwindow">external documentation</a>.
+-spec setTargetWindow(This, Target) -> ok when
+	This::wxScrolledWindow(), Target::wxWindow:wxWindow().
 setTargetWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=TargetT,ref=TargetRef}) ->
   ?CLASS(ThisT,wxScrolledWindow),
   ?CLASS(TargetT,wxWindow),
   wxe_util:cast(?wxScrolledWindow_SetTargetWindow,
   <<ThisRef:32/?UI,TargetRef:32/?UI>>).
 
-%% @spec (This::wxScrolledWindow()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxScrolledWindow) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScrolledWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

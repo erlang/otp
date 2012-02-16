@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,158 +32,175 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxPrintData/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxPrintData()
+-type wxPrintData() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatawxprintdata">external documentation</a>.
+-spec new() -> wxPrintData().
 new() ->
   wxe_util:construct(?wxPrintData_new_0,
   <<>>).
 
-%% @spec (PrintData::wxPrintData()) -> wxPrintData()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatawxprintdata">external documentation</a>.
+-spec new(PrintData) -> wxPrintData() when
+	PrintData::wxPrintData().
 new(#wx_ref{type=PrintDataT,ref=PrintDataRef}) ->
   ?CLASS(PrintDataT,wxPrintData),
   wxe_util:construct(?wxPrintData_new_1,
   <<PrintDataRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetcollate">external documentation</a>.
+-spec getCollate(This) -> boolean() when
+	This::wxPrintData().
 getCollate(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetCollate,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> WxPrintBin
-%% WxPrintBin = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetbin">external documentation</a>.
-%%<br /> WxPrintBin is one of ?wxPRINTBIN_DEFAULT | ?wxPRINTBIN_ONLYONE | ?wxPRINTBIN_LOWER | ?wxPRINTBIN_MIDDLE | ?wxPRINTBIN_MANUAL | ?wxPRINTBIN_ENVELOPE | ?wxPRINTBIN_ENVMANUAL | ?wxPRINTBIN_AUTO | ?wxPRINTBIN_TRACTOR | ?wxPRINTBIN_SMALLFMT | ?wxPRINTBIN_LARGEFMT | ?wxPRINTBIN_LARGECAPACITY | ?wxPRINTBIN_CASSETTE | ?wxPRINTBIN_FORMSOURCE | ?wxPRINTBIN_USER
+%%<br /> Res = ?wxPRINTBIN_DEFAULT | ?wxPRINTBIN_ONLYONE | ?wxPRINTBIN_LOWER | ?wxPRINTBIN_MIDDLE | ?wxPRINTBIN_MANUAL | ?wxPRINTBIN_ENVELOPE | ?wxPRINTBIN_ENVMANUAL | ?wxPRINTBIN_AUTO | ?wxPRINTBIN_TRACTOR | ?wxPRINTBIN_SMALLFMT | ?wxPRINTBIN_LARGEFMT | ?wxPRINTBIN_LARGECAPACITY | ?wxPRINTBIN_CASSETTE | ?wxPRINTBIN_FORMSOURCE | ?wxPRINTBIN_USER
+-spec getBin(This) -> wx:wx_enum() when
+	This::wxPrintData().
 getBin(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetBin,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetcolour">external documentation</a>.
+-spec getColour(This) -> boolean() when
+	This::wxPrintData().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> WxDuplexMode
-%% WxDuplexMode = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetduplex">external documentation</a>.
-%%<br /> WxDuplexMode is one of ?wxDUPLEX_SIMPLEX | ?wxDUPLEX_HORIZONTAL | ?wxDUPLEX_VERTICAL
+%%<br /> Res = ?wxDUPLEX_SIMPLEX | ?wxDUPLEX_HORIZONTAL | ?wxDUPLEX_VERTICAL
+-spec getDuplex(This) -> wx:wx_enum() when
+	This::wxPrintData().
 getDuplex(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetDuplex,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetnocopies">external documentation</a>.
+-spec getNoCopies(This) -> integer() when
+	This::wxPrintData().
 getNoCopies(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetNoCopies,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetorientation">external documentation</a>.
+-spec getOrientation(This) -> integer() when
+	This::wxPrintData().
 getOrientation(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetOrientation,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetpaperid">external documentation</a>.
+-spec getPaperId(This) -> integer() when
+	This::wxPrintData().
 getPaperId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetPaperId,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetprintername">external documentation</a>.
+-spec getPrinterName(This) -> string() when
+	This::wxPrintData().
 getPrinterName(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetPrinterName,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetquality">external documentation</a>.
+-spec getQuality(This) -> integer() when
+	This::wxPrintData().
 getQuality(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_GetQuality,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdataisok">external documentation</a>.
+-spec isOk(This) -> boolean() when
+	This::wxPrintData().
 isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:call(?wxPrintData_IsOk,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintData(), Bin::WxPrintBin) -> ok
-%% WxPrintBin = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetbin">external documentation</a>.
-%%<br /> WxPrintBin is one of ?wxPRINTBIN_DEFAULT | ?wxPRINTBIN_ONLYONE | ?wxPRINTBIN_LOWER | ?wxPRINTBIN_MIDDLE | ?wxPRINTBIN_MANUAL | ?wxPRINTBIN_ENVELOPE | ?wxPRINTBIN_ENVMANUAL | ?wxPRINTBIN_AUTO | ?wxPRINTBIN_TRACTOR | ?wxPRINTBIN_SMALLFMT | ?wxPRINTBIN_LARGEFMT | ?wxPRINTBIN_LARGECAPACITY | ?wxPRINTBIN_CASSETTE | ?wxPRINTBIN_FORMSOURCE | ?wxPRINTBIN_USER
+%%<br /> Bin = ?wxPRINTBIN_DEFAULT | ?wxPRINTBIN_ONLYONE | ?wxPRINTBIN_LOWER | ?wxPRINTBIN_MIDDLE | ?wxPRINTBIN_MANUAL | ?wxPRINTBIN_ENVELOPE | ?wxPRINTBIN_ENVMANUAL | ?wxPRINTBIN_AUTO | ?wxPRINTBIN_TRACTOR | ?wxPRINTBIN_SMALLFMT | ?wxPRINTBIN_LARGEFMT | ?wxPRINTBIN_LARGECAPACITY | ?wxPRINTBIN_CASSETTE | ?wxPRINTBIN_FORMSOURCE | ?wxPRINTBIN_USER
+-spec setBin(This, Bin) -> ok when
+	This::wxPrintData(), Bin::wx:wx_enum().
 setBin(#wx_ref{type=ThisT,ref=ThisRef},Bin)
  when is_integer(Bin) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetBin,
   <<ThisRef:32/?UI,Bin:32/?UI>>).
 
-%% @spec (This::wxPrintData(), Flag::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetcollate">external documentation</a>.
+-spec setCollate(This, Flag) -> ok when
+	This::wxPrintData(), Flag::boolean().
 setCollate(#wx_ref{type=ThisT,ref=ThisRef},Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetCollate,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
-%% @spec (This::wxPrintData(), Colour::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetcolour">external documentation</a>.
+-spec setColour(This, Colour) -> ok when
+	This::wxPrintData(), Colour::boolean().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
  when is_boolean(Colour) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetColour,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Colour)):32/?UI>>).
 
-%% @spec (This::wxPrintData(), Duplex::WxDuplexMode) -> ok
-%% WxDuplexMode = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetduplex">external documentation</a>.
-%%<br /> WxDuplexMode is one of ?wxDUPLEX_SIMPLEX | ?wxDUPLEX_HORIZONTAL | ?wxDUPLEX_VERTICAL
+%%<br /> Duplex = ?wxDUPLEX_SIMPLEX | ?wxDUPLEX_HORIZONTAL | ?wxDUPLEX_VERTICAL
+-spec setDuplex(This, Duplex) -> ok when
+	This::wxPrintData(), Duplex::wx:wx_enum().
 setDuplex(#wx_ref{type=ThisT,ref=ThisRef},Duplex)
  when is_integer(Duplex) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetDuplex,
   <<ThisRef:32/?UI,Duplex:32/?UI>>).
 
-%% @spec (This::wxPrintData(), V::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetnocopies">external documentation</a>.
+-spec setNoCopies(This, V) -> ok when
+	This::wxPrintData(), V::integer().
 setNoCopies(#wx_ref{type=ThisT,ref=ThisRef},V)
  when is_integer(V) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetNoCopies,
   <<ThisRef:32/?UI,V:32/?UI>>).
 
-%% @spec (This::wxPrintData(), Orient::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetorientation">external documentation</a>.
+-spec setOrientation(This, Orient) -> ok when
+	This::wxPrintData(), Orient::integer().
 setOrientation(#wx_ref{type=ThisT,ref=ThisRef},Orient)
  when is_integer(Orient) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetOrientation,
   <<ThisRef:32/?UI,Orient:32/?UI>>).
 
-%% @spec (This::wxPrintData(), SizeId::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetpaperid">external documentation</a>.
+-spec setPaperId(This, SizeId) -> ok when
+	This::wxPrintData(), SizeId::integer().
 setPaperId(#wx_ref{type=ThisT,ref=ThisRef},SizeId)
  when is_integer(SizeId) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetPaperId,
   <<ThisRef:32/?UI,SizeId:32/?UI>>).
 
-%% @spec (This::wxPrintData(), Name::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetprintername">external documentation</a>.
+-spec setPrinterName(This, Name) -> ok when
+	This::wxPrintData(), Name::string().
 setPrinterName(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxPrintData),
@@ -191,16 +208,17 @@ setPrinterName(#wx_ref{type=ThisT,ref=ThisRef},Name)
   wxe_util:cast(?wxPrintData_SetPrinterName,
   <<ThisRef:32/?UI,(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((0+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxPrintData(), Quality::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetquality">external documentation</a>.
+-spec setQuality(This, Quality) -> ok when
+	This::wxPrintData(), Quality::integer().
 setQuality(#wx_ref{type=ThisT,ref=ThisRef},Quality)
  when is_integer(Quality) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:cast(?wxPrintData_SetQuality,
   <<ThisRef:32/?UI,Quality:32/?UI>>).
 
-%% @spec (This::wxPrintData()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxPrintData) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

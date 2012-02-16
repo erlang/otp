@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,38 +52,42 @@
   setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,startDoc/2,
   startPage/1]).
 
+-export_type([wxPostScriptDC/0]).
 %% @hidden
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxPostScriptDC()
+-type wxPostScriptDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
+-spec new() -> wxPostScriptDC().
 new() ->
   wxe_util:construct(?wxPostScriptDC_new_0,
   <<>>).
 
-%% @spec (PrintData::wxPrintData:wxPrintData()) -> wxPostScriptDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcwxpostscriptdc">external documentation</a>.
+-spec new(PrintData) -> wxPostScriptDC() when
+	PrintData::wxPrintData:wxPrintData().
 new(#wx_ref{type=PrintDataT,ref=PrintDataRef}) ->
   ?CLASS(PrintDataT,wxPrintData),
   wxe_util:construct(?wxPostScriptDC_new_1,
   <<PrintDataRef:32/?UI>>).
 
-%% @spec (Ppi::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcsetresolution">external documentation</a>.
+-spec setResolution(Ppi) -> ok when
+	Ppi::integer().
 setResolution(Ppi)
  when is_integer(Ppi) ->
   wxe_util:cast(?wxPostScriptDC_SetResolution,
   <<Ppi:32/?UI>>).
 
-%% @spec () -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html#wxpostscriptdcgetresolution">external documentation</a>.
+-spec getResolution() -> integer().
 getResolution() ->
   wxe_util:call(?wxPostScriptDC_GetResolution,
   <<>>).
 
-%% @spec (This::wxPostScriptDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxPostScriptDC) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPostScriptDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

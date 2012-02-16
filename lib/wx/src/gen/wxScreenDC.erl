@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -52,18 +52,20 @@
   setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,startDoc/2,
   startPage/1]).
 
+-export_type([wxScreenDC/0]).
 %% @hidden
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxScreenDC()
+-type wxScreenDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscreendc.html#wxscreendcwxscreendc">external documentation</a>.
+-spec new() -> wxScreenDC().
 new() ->
   wxe_util:construct(?wxScreenDC_new,
   <<>>).
 
-%% @spec (This::wxScreenDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxScreenDC) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScreenDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

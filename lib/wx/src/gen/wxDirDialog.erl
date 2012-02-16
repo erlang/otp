@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,6 +77,7 @@
   transferDataFromWindow/1,transferDataToWindow/1,update/1,updateWindowUI/1,
   updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxDirDialog/0]).
 %% @hidden
 parent_class(wxDialog) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -84,15 +85,23 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxDirDialog()
+-type wxDirDialog() :: wx:wx_object().
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxDirDialog() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxDirDialog()
-%% Option = {title, string()} | {defaultPath, string()} | {style, integer()} | {pos, {X::integer(), Y::integer()}} | {sz, {W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdirdialog.html#wxdirdialogwxdirdialog">external documentation</a>.
+-spec new(Parent, [Option]) -> wxDirDialog() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {title, string()}
+		 | {defaultPath, string()}
+		 | {style, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {sz, {W::integer(), H::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -106,22 +115,25 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxDirDialog_new,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxDirDialog()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdirdialog.html#wxdirdialoggetpath">external documentation</a>.
+-spec getPath(This) -> string() when
+	This::wxDirDialog().
 getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDirDialog),
   wxe_util:call(?wxDirDialog_GetPath,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDirDialog()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdirdialog.html#wxdirdialoggetmessage">external documentation</a>.
+-spec getMessage(This) -> string() when
+	This::wxDirDialog().
 getMessage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDirDialog),
   wxe_util:call(?wxDirDialog_GetMessage,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDirDialog(), Message::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdirdialog.html#wxdirdialogsetmessage">external documentation</a>.
+-spec setMessage(This, Message) -> ok when
+	This::wxDirDialog(), Message::string().
 setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
  when is_list(Message) ->
   ?CLASS(ThisT,wxDirDialog),
@@ -129,8 +141,9 @@ setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
   wxe_util:cast(?wxDirDialog_SetMessage,
   <<ThisRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxDirDialog(), Path::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdirdialog.html#wxdirdialogsetpath">external documentation</a>.
+-spec setPath(This, Path) -> ok when
+	This::wxDirDialog(), Path::string().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
  when is_list(Path) ->
   ?CLASS(ThisT,wxDirDialog),
@@ -138,8 +151,8 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
   wxe_util:cast(?wxDirDialog_SetPath,
   <<ThisRef:32/?UI,(byte_size(Path_UC)):32/?UI,(Path_UC)/binary, 0:(((8- ((0+byte_size(Path_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxDirDialog()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxDirDialog) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDirDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

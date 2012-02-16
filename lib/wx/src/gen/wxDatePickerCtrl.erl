@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,7 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxDatePickerCtrl/0]).
 %% @hidden
 parent_class(wxPickerBase) -> true;
 parent_class(wxControl) -> true;
@@ -81,21 +82,29 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxDatePickerCtrl()
+-type wxDatePickerCtrl() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdatepickerctrl.html#wxdatepickerctrlwxdatepickerctrl">external documentation</a>.
+-spec new() -> wxDatePickerCtrl().
 new() ->
   wxe_util:construct(?wxDatePickerCtrl_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer()) -> wxDatePickerCtrl()
 %% @equiv new(Parent,Id, [])
+-spec new(Parent, Id) -> wxDatePickerCtrl() when
+	Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxDatePickerCtrl()
-%% Option = {date, wx:datetime()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdatepickerctrl.html#wxdatepickerctrlwxdatepickerctrl">external documentation</a>.
+-spec new(Parent, Id, [Option]) -> wxDatePickerCtrl() when
+	Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {date, wx:wx_datetime()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -109,39 +118,43 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxDatePickerCtrl_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxDatePickerCtrl(), Dt1::wx:datetime(), Dt2::wx:datetime()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdatepickerctrl.html#wxdatepickerctrlgetrange">external documentation</a>.
+-spec getRange(This, Dt1, Dt2) -> boolean() when
+	This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
 getRange(#wx_ref{type=ThisT,ref=ThisRef},Dt1,Dt2)
  when tuple_size(Dt1) =:= 2,tuple_size(Dt2) =:= 2 ->
   ?CLASS(ThisT,wxDatePickerCtrl),
   wxe_util:call(?wxDatePickerCtrl_GetRange,
   <<ThisRef:32/?UI,(wxe_util:datetime_bin(Dt1)):24/binary,(wxe_util:datetime_bin(Dt2)):24/binary>>).
 
-%% @spec (This::wxDatePickerCtrl()) -> wx:datetime()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdatepickerctrl.html#wxdatepickerctrlgetvalue">external documentation</a>.
+-spec getValue(This) -> wx:wx_datetime() when
+	This::wxDatePickerCtrl().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
   wxe_util:call(?wxDatePickerCtrl_GetValue,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxDatePickerCtrl(), Dt1::wx:datetime(), Dt2::wx:datetime()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdatepickerctrl.html#wxdatepickerctrlsetrange">external documentation</a>.
+-spec setRange(This, Dt1, Dt2) -> ok when
+	This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
 setRange(#wx_ref{type=ThisT,ref=ThisRef},Dt1,Dt2)
  when tuple_size(Dt1) =:= 2,tuple_size(Dt2) =:= 2 ->
   ?CLASS(ThisT,wxDatePickerCtrl),
   wxe_util:cast(?wxDatePickerCtrl_SetRange,
   <<ThisRef:32/?UI,(wxe_util:datetime_bin(Dt1)):24/binary,(wxe_util:datetime_bin(Dt2)):24/binary>>).
 
-%% @spec (This::wxDatePickerCtrl(), Date::wx:datetime()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdatepickerctrl.html#wxdatepickerctrlsetvalue">external documentation</a>.
+-spec setValue(This, Date) -> ok when
+	This::wxDatePickerCtrl(), Date::wx:wx_datetime().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Date)
  when tuple_size(Date) =:= 2 ->
   ?CLASS(ThisT,wxDatePickerCtrl),
   wxe_util:cast(?wxDatePickerCtrl_SetValue,
   <<ThisRef:32/?UI,(wxe_util:datetime_bin(Date)):24/binary>>).
 
-%% @spec (This::wxDatePickerCtrl()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxDatePickerCtrl) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDatePickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

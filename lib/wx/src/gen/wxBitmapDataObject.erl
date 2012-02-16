@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,25 +32,23 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxBitmapDataObject/0]).
 %% @hidden
 parent_class(wxDataObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxBitmapDataObject()
+-type wxBitmapDataObject() :: wx:wx_object().
 %% @equiv new([])
+-spec new() -> wxBitmapDataObject().
+
 new() ->
   new([]).
 
-%% @spec (X::term()) -> wxBitmapDataObject()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectwxbitmapdataobject">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new([Option]) -> wxBitmapDataObject() </c>
-%%<br /> Option = {bitmap, wxBitmap:wxBitmap()}
-%% </p>
-%% <p><c>
-%% new(Bitmap::wxBitmap:wxBitmap()) -> wxBitmapDataObject() </c>
-%% </p>
+-spec new([Option]) -> wxBitmapDataObject() when
+	Option :: {bitmap, wxBitmap:wxBitmap()};
+      (Bitmap) -> wxBitmapDataObject() when
+	Bitmap::wxBitmap:wxBitmap().
 new(Options)
  when is_list(Options) ->
   MOpts = fun({bitmap, #wx_ref{type=BitmapT,ref=BitmapRef}}, Acc) ->   ?CLASS(BitmapT,wxBitmap),[<<1:32/?UI,BitmapRef:32/?UI>>|Acc];
@@ -63,23 +61,25 @@ new(#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   wxe_util:construct(?wxBitmapDataObject_new_1_1,
   <<BitmapRef:32/?UI>>).
 
-%% @spec (This::wxBitmapDataObject()) -> wxBitmap:wxBitmap()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectgetbitmap">external documentation</a>.
+-spec getBitmap(This) -> wxBitmap:wxBitmap() when
+	This::wxBitmapDataObject().
 getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBitmapDataObject),
   wxe_util:call(?wxBitmapDataObject_GetBitmap,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectsetbitmap">external documentation</a>.
+-spec setBitmap(This, Bitmap) -> ok when
+	This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   ?CLASS(ThisT,wxBitmapDataObject),
   ?CLASS(BitmapT,wxBitmap),
   wxe_util:cast(?wxBitmapDataObject_SetBitmap,
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
-%% @spec (This::wxBitmapDataObject()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxBitmapDataObject) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapDataObject),
   wxe_util:destroy(?wxBitmapDataObject_destroy,Obj),

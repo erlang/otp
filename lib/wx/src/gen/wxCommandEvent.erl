@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,69 +38,80 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxCommandEvent/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxCommandEvent()) -> term()
+-type wxCommandEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetclientobject">external documentation</a>.
+-spec getClientData(This) -> term() when
+	This::wxCommandEvent().
 getClientData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:call(?wxCommandEvent_getClientData,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCommandEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetextralong">external documentation</a>.
+-spec getExtraLong(This) -> integer() when
+	This::wxCommandEvent().
 getExtraLong(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:call(?wxCommandEvent_GetExtraLong,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCommandEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetint">external documentation</a>.
+-spec getInt(This) -> integer() when
+	This::wxCommandEvent().
 getInt(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:call(?wxCommandEvent_GetInt,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCommandEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetselection">external documentation</a>.
+-spec getSelection(This) -> integer() when
+	This::wxCommandEvent().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:call(?wxCommandEvent_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCommandEvent()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetstring">external documentation</a>.
+-spec getString(This) -> string() when
+	This::wxCommandEvent().
 getString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:call(?wxCommandEvent_GetString,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCommandEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventischecked">external documentation</a>.
+-spec isChecked(This) -> boolean() when
+	This::wxCommandEvent().
 isChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:call(?wxCommandEvent_IsChecked,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCommandEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventisselection">external documentation</a>.
+-spec isSelection(This) -> boolean() when
+	This::wxCommandEvent().
 isSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:call(?wxCommandEvent_IsSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCommandEvent(), I::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventsetint">external documentation</a>.
+-spec setInt(This, I) -> ok when
+	This::wxCommandEvent(), I::integer().
 setInt(#wx_ref{type=ThisT,ref=ThisRef},I)
  when is_integer(I) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:cast(?wxCommandEvent_SetInt,
   <<ThisRef:32/?UI,I:32/?UI>>).
 
-%% @spec (This::wxCommandEvent(), S::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventsetstring">external documentation</a>.
+-spec setString(This, S) -> ok when
+	This::wxCommandEvent(), S::string().
 setString(#wx_ref{type=ThisT,ref=ThisRef},S)
  when is_list(S) ->
   ?CLASS(ThisT,wxCommandEvent),

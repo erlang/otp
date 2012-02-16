@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,26 +34,32 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxTextAttr/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxTextAttr()
+-type wxTextAttr() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrwxtextattr">external documentation</a>.
+-spec new() -> wxTextAttr().
 new() ->
   wxe_util:construct(?wxTextAttr_new_0,
   <<>>).
 
-%% @spec (ColText::wx:colour()) -> wxTextAttr()
 %% @equiv new(ColText, [])
+-spec new(ColText) -> wxTextAttr() when
+	ColText::wx:wx_colour().
+
 new(ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
   new(ColText, []).
 
-%% @spec (ColText::wx:colour(), [Option]) -> wxTextAttr()
-%% Option = {colBack, wx:colour()} | {font, wxFont:wxFont()} | {alignment, WxTextAttrAlignment}
-%% WxTextAttrAlignment = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrwxtextattr">external documentation</a>.
-%%<br /> WxTextAttrAlignment is one of ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
+%%<br /> Alignment = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
+-spec new(ColText, [Option]) -> wxTextAttr() when
+	ColText::wx:wx_colour(),
+	Option :: {colBack, wx:wx_colour()}
+		 | {font, wxFont:wxFont()}
+		 | {alignment, wx:wx_enum()}.
 new(ColText, Options)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4,is_list(Options) ->
   MOpts = fun({colBack, ColBack}, Acc) -> [<<1:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary,0:32>>|Acc];
@@ -64,134 +70,151 @@ new(ColText, Options)
   wxe_util:construct(?wxTextAttr_new_2,
   <<(wxe_util:colour_bin(ColText)):16/binary, BinOpt/binary>>).
 
-%% @spec (This::wxTextAttr()) -> WxTextAttrAlignment
-%% WxTextAttrAlignment = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetalignment">external documentation</a>.
-%%<br /> WxTextAttrAlignment is one of ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
+%%<br /> Res = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
+-spec getAlignment(This) -> wx:wx_enum() when
+	This::wxTextAttr().
 getAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetAlignment,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetbackgroundcolour">external documentation</a>.
+-spec getBackgroundColour(This) -> wx:wx_colour() when
+	This::wxTextAttr().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetBackgroundColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> wxFont:wxFont()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetfont">external documentation</a>.
+-spec getFont(This) -> wxFont:wxFont() when
+	This::wxTextAttr().
 getFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetFont,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetleftindent">external documentation</a>.
+-spec getLeftIndent(This) -> integer() when
+	This::wxTextAttr().
 getLeftIndent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetLeftIndent,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetleftsubindent">external documentation</a>.
+-spec getLeftSubIndent(This) -> integer() when
+	This::wxTextAttr().
 getLeftSubIndent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetLeftSubIndent,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetrightindent">external documentation</a>.
+-spec getRightIndent(This) -> integer() when
+	This::wxTextAttr().
 getRightIndent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetRightIndent,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> [integer()]
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgettabs">external documentation</a>.
+-spec getTabs(This) -> [integer()] when
+	This::wxTextAttr().
 getTabs(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetTabs,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgettextcolour">external documentation</a>.
+-spec getTextColour(This) -> wx:wx_colour() when
+	This::wxTextAttr().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetTextColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrhasbackgroundcolour">external documentation</a>.
+-spec hasBackgroundColour(This) -> boolean() when
+	This::wxTextAttr().
 hasBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_HasBackgroundColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrhasfont">external documentation</a>.
+-spec hasFont(This) -> boolean() when
+	This::wxTextAttr().
 hasFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_HasFont,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrhastextcolour">external documentation</a>.
+-spec hasTextColour(This) -> boolean() when
+	This::wxTextAttr().
 hasTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_HasTextColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetflags">external documentation</a>.
+-spec getFlags(This) -> integer() when
+	This::wxTextAttr().
 getFlags(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_GetFlags,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrisdefault">external documentation</a>.
+-spec isDefault(This) -> boolean() when
+	This::wxTextAttr().
 isDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:call(?wxTextAttr_IsDefault,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTextAttr(), Alignment::WxTextAttrAlignment) -> ok
-%% WxTextAttrAlignment = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsetalignment">external documentation</a>.
-%%<br /> WxTextAttrAlignment is one of ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
+%%<br /> Alignment = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
+-spec setAlignment(This, Alignment) -> ok when
+	This::wxTextAttr(), Alignment::wx:wx_enum().
 setAlignment(#wx_ref{type=ThisT,ref=ThisRef},Alignment)
  when is_integer(Alignment) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:cast(?wxTextAttr_SetAlignment,
   <<ThisRef:32/?UI,Alignment:32/?UI>>).
 
-%% @spec (This::wxTextAttr(), ColBack::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsetbackgroundcolour">external documentation</a>.
+-spec setBackgroundColour(This, ColBack) -> ok when
+	This::wxTextAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
  when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:cast(?wxTextAttr_SetBackgroundColour,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary>>).
 
-%% @spec (This::wxTextAttr(), Flags::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsetflags">external documentation</a>.
+-spec setFlags(This, Flags) -> ok when
+	This::wxTextAttr(), Flags::integer().
 setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:cast(?wxTextAttr_SetFlags,
   <<ThisRef:32/?UI,Flags:32/?UI>>).
 
-%% @spec (This::wxTextAttr(), Font::wxFont:wxFont()) -> ok
 %% @equiv setFont(This,Font, [])
+-spec setFont(This, Font) -> ok when
+	This::wxTextAttr(), Font::wxFont:wxFont().
+
 setFont(This,Font)
  when is_record(This, wx_ref),is_record(Font, wx_ref) ->
   setFont(This,Font, []).
 
-%% @spec (This::wxTextAttr(), Font::wxFont:wxFont(), [Option]) -> ok
-%% Option = {flags, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsetfont">external documentation</a>.
+-spec setFont(This, Font, [Option]) -> ok when
+	This::wxTextAttr(), Font::wxFont:wxFont(),
+	Option :: {flags, integer()}.
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -202,15 +225,18 @@ setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}, Options
   wxe_util:cast(?wxTextAttr_SetFont,
   <<ThisRef:32/?UI,FontRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTextAttr(), Indent::integer()) -> ok
 %% @equiv setLeftIndent(This,Indent, [])
+-spec setLeftIndent(This, Indent) -> ok when
+	This::wxTextAttr(), Indent::integer().
+
 setLeftIndent(This,Indent)
  when is_record(This, wx_ref),is_integer(Indent) ->
   setLeftIndent(This,Indent, []).
 
-%% @spec (This::wxTextAttr(), Indent::integer(), [Option]) -> ok
-%% Option = {subIndent, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsetleftindent">external documentation</a>.
+-spec setLeftIndent(This, Indent, [Option]) -> ok when
+	This::wxTextAttr(), Indent::integer(),
+	Option :: {subIndent, integer()}.
 setLeftIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent, Options)
  when is_integer(Indent),is_list(Options) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -220,16 +246,18 @@ setLeftIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent, Options)
   wxe_util:cast(?wxTextAttr_SetLeftIndent,
   <<ThisRef:32/?UI,Indent:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTextAttr(), Indent::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsetrightindent">external documentation</a>.
+-spec setRightIndent(This, Indent) -> ok when
+	This::wxTextAttr(), Indent::integer().
 setRightIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent)
  when is_integer(Indent) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:cast(?wxTextAttr_SetRightIndent,
   <<ThisRef:32/?UI,Indent:32/?UI>>).
 
-%% @spec (This::wxTextAttr(), Tabs::[integer()]) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsettabs">external documentation</a>.
+-spec setTabs(This, Tabs) -> ok when
+	This::wxTextAttr(), Tabs::[integer()].
 setTabs(#wx_ref{type=ThisT,ref=ThisRef},Tabs)
  when is_list(Tabs) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -237,16 +265,17 @@ setTabs(#wx_ref{type=ThisT,ref=ThisRef},Tabs)
   <<ThisRef:32/?UI,(length(Tabs)):32/?UI,
         (<< <<C:32/?I>> || C <- Tabs>>)/binary, 0:(((0+length(Tabs)) rem 2)*32)>>).
 
-%% @spec (This::wxTextAttr(), ColText::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrsettextcolour">external documentation</a>.
+-spec setTextColour(This, ColText) -> ok when
+	This::wxTextAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:cast(?wxTextAttr_SetTextColour,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
-%% @spec (This::wxTextAttr()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxTextAttr) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextAttr),
   wxe_util:destroy(?wxTextAttr_destroy,Obj),

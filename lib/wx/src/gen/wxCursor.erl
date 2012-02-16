@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -34,25 +34,23 @@
   getSubBitmap/2,getWidth/1,loadFile/2,loadFile/3,parent_class/1,saveFile/3,
   saveFile/4,setDepth/2,setHeight/2,setMask/2,setPalette/2,setWidth/2]).
 
+-export_type([wxCursor/0]).
 %% @hidden
 parent_class(wxBitmap) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxCursor()
+-type wxCursor() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
+-spec new() -> wxCursor().
 new() ->
   wxe_util:construct(?wxCursor_new_0,
   <<>>).
 
-%% @spec (X::integer()|term()) -> wxCursor()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(CursorId::integer()) -> wxCursor() </c>
-%% </p>
-%% <p><c>
-%% new(Image::wxImage:wxImage()) -> wxCursor() </c>
-%% </p>
+-spec new(CursorId) -> wxCursor() when
+	CursorId::integer();
+      (Image) -> wxCursor() when
+	Image::wxImage:wxImage().
 new(CursorId)
  when is_integer(CursorId) ->
   wxe_util:construct(?wxCursor_new_1_0,
@@ -62,15 +60,19 @@ new(#wx_ref{type=ImageT,ref=ImageRef}) ->
   wxe_util:construct(?wxCursor_new_1_1,
   <<ImageRef:32/?UI>>).
 
-%% @spec (Bits::binary(), Width::integer(), Height::integer()) -> wxCursor()
 %% @equiv new(Bits,Width,Height, [])
+-spec new(Bits, Width, Height) -> wxCursor() when
+	Bits::binary(), Width::integer(), Height::integer().
+
 new(Bits,Width,Height)
  when is_binary(Bits),is_integer(Width),is_integer(Height) ->
   new(Bits,Width,Height, []).
 
-%% @spec (Bits::binary(), Width::integer(), Height::integer(), [Option]) -> wxCursor()
-%% Option = {hotSpotX, integer()} | {hotSpotY, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
+-spec new(Bits, Width, Height, [Option]) -> wxCursor() when
+	Bits::binary(), Width::integer(), Height::integer(),
+	Option :: {hotSpotX, integer()}
+		 | {hotSpotY, integer()}.
 new(Bits,Width,Height, Options)
  when is_binary(Bits),is_integer(Width),is_integer(Height),is_list(Options) ->
   wxe_util:send_bin(Bits),
@@ -81,15 +83,16 @@ new(Bits,Width,Height, Options)
   wxe_util:construct(?wxCursor_new_4,
   <<Width:32/?UI,Height:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxCursor()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorok">external documentation</a>.
+-spec ok(This) -> boolean() when
+	This::wxCursor().
 ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCursor),
   wxe_util:call(?wxCursor_Ok,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxCursor()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxCursor) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCursor),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

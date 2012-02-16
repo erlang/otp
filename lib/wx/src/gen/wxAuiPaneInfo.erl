@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,54 +44,63 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxAuiPaneInfo/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxAuiPaneInfo()
+-type wxAuiPaneInfo() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfowxauipaneinfo">external documentation</a>.
+-spec new() -> wxAuiPaneInfo().
 new() ->
   wxe_util:construct(?wxAuiPaneInfo_new_0,
   <<>>).
 
-%% @spec (C::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfowxauipaneinfo">external documentation</a>.
+-spec new(C) -> wxAuiPaneInfo() when
+	C::wxAuiPaneInfo().
 new(#wx_ref{type=CT,ref=CRef}) ->
   ?CLASS(CT,wxAuiPaneInfo),
   wxe_util:construct(?wxAuiPaneInfo_new_1,
   <<CRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfobestsize">external documentation</a>.
+-spec bestSize(This, Size) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 bestSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_BestSize_1,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), X::integer(), Y::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfobestsize">external documentation</a>.
+-spec bestSize(This, X, Y) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), X::integer(), Y::integer().
 bestSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_BestSize_2,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfobottom">external documentation</a>.
+-spec bottom(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 bottom(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Bottom,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv bottomDockable(This, [])
+-spec bottomDockable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 bottomDockable(This)
  when is_record(This, wx_ref) ->
   bottomDockable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfobottomdockable">external documentation</a>.
+-spec bottomDockable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 bottomDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -101,8 +110,9 @@ bottomDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_BottomDockable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), C::string()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfocaption">external documentation</a>.
+-spec caption(This, C) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), C::string().
 caption(#wx_ref{type=ThisT,ref=ThisRef},C)
  when is_list(C) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -110,15 +120,18 @@ caption(#wx_ref{type=ThisT,ref=ThisRef},C)
   wxe_util:call(?wxAuiPaneInfo_Caption,
   <<ThisRef:32/?UI,(byte_size(C_UC)):32/?UI,(C_UC)/binary, 0:(((8- ((0+byte_size(C_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv captionVisible(This, [])
+-spec captionVisible(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 captionVisible(This)
  when is_record(This, wx_ref) ->
   captionVisible(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {visible, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfocaptionvisible">external documentation</a>.
+-spec captionVisible(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {visible, boolean()}.
 captionVisible(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -128,29 +141,34 @@ captionVisible(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_CaptionVisible,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfocentre">external documentation</a>.
+-spec centre(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 centre(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Centre,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfocentrepane">external documentation</a>.
+-spec centrePane(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 centrePane(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_CentrePane,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv closeButton(This, [])
+-spec closeButton(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 closeButton(This)
  when is_record(This, wx_ref) ->
   closeButton(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {visible, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoclosebutton">external documentation</a>.
+-spec closeButton(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {visible, boolean()}.
 closeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -160,22 +178,26 @@ closeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_CloseButton,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfodefaultpane">external documentation</a>.
+-spec defaultPane(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 defaultPane(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_DefaultPane,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv destroyOnClose(This, [])
+-spec destroyOnClose(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 destroyOnClose(This)
  when is_record(This, wx_ref) ->
   destroyOnClose(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfodestroyonclose">external documentation</a>.
+-spec destroyOnClose(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 destroyOnClose(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -185,30 +207,35 @@ destroyOnClose(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_DestroyOnClose,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Direction::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfodirection">external documentation</a>.
+-spec direction(This, Direction) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Direction::integer().
 direction(#wx_ref{type=ThisT,ref=ThisRef},Direction)
  when is_integer(Direction) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Direction,
   <<ThisRef:32/?UI,Direction:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfodock">external documentation</a>.
+-spec dock(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 dock(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Dock,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv dockable(This, [])
+-spec dockable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 dockable(This)
  when is_record(This, wx_ref) ->
   dockable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfodockable">external documentation</a>.
+-spec dockable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 dockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -218,29 +245,34 @@ dockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_Dockable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofixed">external documentation</a>.
+-spec fixed(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 fixed(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Fixed,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloat">external documentation</a>.
+-spec float(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 float(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Float,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv floatable(This, [])
+-spec floatable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 floatable(This)
  when is_record(This, wx_ref) ->
   floatable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloatable">external documentation</a>.
+-spec floatable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 floatable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -250,47 +282,54 @@ floatable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_Floatable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Pos::{X::integer(), Y::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloatingposition">external documentation</a>.
+-spec floatingPosition(This, Pos) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Pos::{X::integer(), Y::integer()}.
 floatingPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
  when is_integer(PosX),is_integer(PosY) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_FloatingPosition_1,
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), X::integer(), Y::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloatingposition">external documentation</a>.
+-spec floatingPosition(This, X, Y) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), X::integer(), Y::integer().
 floatingPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_FloatingPosition_2,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloatingsize">external documentation</a>.
+-spec floatingSize(This, Size) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 floatingSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_FloatingSize_1,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), X::integer(), Y::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfofloatingsize">external documentation</a>.
+-spec floatingSize(This, X, Y) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), X::integer(), Y::integer().
 floatingSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_FloatingSize_2,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv gripper(This, [])
+-spec gripper(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 gripper(This)
  when is_record(This, wx_ref) ->
   gripper(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {visible, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfogripper">external documentation</a>.
+-spec gripper(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {visible, boolean()}.
 gripper(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -300,15 +339,18 @@ gripper(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_Gripper,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv gripperTop(This, [])
+-spec gripperTop(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 gripperTop(This)
  when is_record(This, wx_ref) ->
   gripperTop(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {attop, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfogrippertop">external documentation</a>.
+-spec gripperTop(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {attop, boolean()}.
 gripperTop(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -318,192 +360,220 @@ gripperTop(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_GripperTop,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohasborder">external documentation</a>.
+-spec hasBorder(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasBorder(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasBorder,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohascaption">external documentation</a>.
+-spec hasCaption(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasCaption(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasCaption,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohasclosebutton">external documentation</a>.
+-spec hasCloseButton(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasCloseButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasCloseButton,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Flag::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohasflag">external documentation</a>.
+-spec hasFlag(This, Flag) -> boolean() when
+	This::wxAuiPaneInfo(), Flag::integer().
 hasFlag(#wx_ref{type=ThisT,ref=ThisRef},Flag)
  when is_integer(Flag) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasFlag,
   <<ThisRef:32/?UI,Flag:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohasgripper">external documentation</a>.
+-spec hasGripper(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasGripper(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasGripper,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohasgrippertop">external documentation</a>.
+-spec hasGripperTop(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasGripperTop(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasGripperTop,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohasmaximizebutton">external documentation</a>.
+-spec hasMaximizeButton(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasMaximizeButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasMaximizeButton,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohasminimizebutton">external documentation</a>.
+-spec hasMinimizeButton(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasMinimizeButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasMinimizeButton,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohaspinbutton">external documentation</a>.
+-spec hasPinButton(This) -> boolean() when
+	This::wxAuiPaneInfo().
 hasPinButton(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_HasPinButton,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfohide">external documentation</a>.
+-spec hide(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 hide(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Hide,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisbottomdockable">external documentation</a>.
+-spec isBottomDockable(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isBottomDockable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsBottomDockable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisdocked">external documentation</a>.
+-spec isDocked(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isDocked(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsDocked,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisfixed">external documentation</a>.
+-spec isFixed(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isFixed(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsFixed,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisfloatable">external documentation</a>.
+-spec isFloatable(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isFloatable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsFloatable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisfloating">external documentation</a>.
+-spec isFloating(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isFloating(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsFloating,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisleftdockable">external documentation</a>.
+-spec isLeftDockable(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isLeftDockable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsLeftDockable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoismovable">external documentation</a>.
+-spec isMovable(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isMovable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsMovable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisok">external documentation</a>.
+-spec isOk(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsOk,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisresizable">external documentation</a>.
+-spec isResizable(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isResizable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsResizable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisrightdockable">external documentation</a>.
+-spec isRightDockable(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isRightDockable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsRightDockable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoisshown">external documentation</a>.
+-spec isShown(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isShown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsShown,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoistoolbar">external documentation</a>.
+-spec isToolbar(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isToolbar(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsToolbar,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoistopdockable">external documentation</a>.
+-spec isTopDockable(This) -> boolean() when
+	This::wxAuiPaneInfo().
 isTopDockable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_IsTopDockable,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Layer::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfolayer">external documentation</a>.
+-spec layer(This, Layer) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Layer::integer().
 layer(#wx_ref{type=ThisT,ref=ThisRef},Layer)
  when is_integer(Layer) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Layer,
   <<ThisRef:32/?UI,Layer:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoleft">external documentation</a>.
+-spec left(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 left(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Left,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv leftDockable(This, [])
+-spec leftDockable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 leftDockable(This)
  when is_record(This, wx_ref) ->
   leftDockable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoleftdockable">external documentation</a>.
+-spec leftDockable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 leftDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -513,31 +583,36 @@ leftDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_LeftDockable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfomaxsize">external documentation</a>.
+-spec maxSize(This, Size) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 maxSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_MaxSize_1,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), X::integer(), Y::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfomaxsize">external documentation</a>.
+-spec maxSize(This, X, Y) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), X::integer(), Y::integer().
 maxSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_MaxSize_2,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv maximizeButton(This, [])
+-spec maximizeButton(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 maximizeButton(This)
  when is_record(This, wx_ref) ->
   maximizeButton(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {visible, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfomaximizebutton">external documentation</a>.
+-spec maximizeButton(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {visible, boolean()}.
 maximizeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -547,31 +622,36 @@ maximizeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_MaximizeButton,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfominsize">external documentation</a>.
+-spec minSize(This, Size) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 minSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_MinSize_1,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), X::integer(), Y::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfominsize">external documentation</a>.
+-spec minSize(This, X, Y) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), X::integer(), Y::integer().
 minSize(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_MinSize_2,
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv minimizeButton(This, [])
+-spec minimizeButton(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 minimizeButton(This)
  when is_record(This, wx_ref) ->
   minimizeButton(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {visible, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfominimizebutton">external documentation</a>.
+-spec minimizeButton(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {visible, boolean()}.
 minimizeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -581,15 +661,18 @@ minimizeButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_MinimizeButton,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv movable(This, [])
+-spec movable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 movable(This)
  when is_record(This, wx_ref) ->
   movable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfomovable">external documentation</a>.
+-spec movable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 movable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -599,8 +682,9 @@ movable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_Movable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), N::string()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoname">external documentation</a>.
+-spec name(This, N) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), N::string().
 name(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_list(N) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -608,15 +692,18 @@ name(#wx_ref{type=ThisT,ref=ThisRef},N)
   wxe_util:call(?wxAuiPaneInfo_Name,
   <<ThisRef:32/?UI,(byte_size(N_UC)):32/?UI,(N_UC)/binary, 0:(((8- ((0+byte_size(N_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv paneBorder(This, [])
+-spec paneBorder(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 paneBorder(This)
  when is_record(This, wx_ref) ->
   paneBorder(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {visible, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfopaneborder">external documentation</a>.
+-spec paneBorder(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {visible, boolean()}.
 paneBorder(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -626,15 +713,18 @@ paneBorder(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_PaneBorder,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv pinButton(This, [])
+-spec pinButton(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 pinButton(This)
  when is_record(This, wx_ref) ->
   pinButton(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {visible, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfopinbutton">external documentation</a>.
+-spec pinButton(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {visible, boolean()}.
 pinButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -644,23 +734,27 @@ pinButton(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_PinButton,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Pos::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoposition">external documentation</a>.
+-spec position(This, Pos) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Pos::integer().
 position(#wx_ref{type=ThisT,ref=ThisRef},Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Position,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv resizable(This, [])
+-spec resizable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 resizable(This)
  when is_record(This, wx_ref) ->
   resizable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {resizable, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinforesizable">external documentation</a>.
+-spec resizable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {resizable, boolean()}.
 resizable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -670,22 +764,26 @@ resizable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_Resizable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinforight">external documentation</a>.
+-spec right(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 right(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Right,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv rightDockable(This, [])
+-spec rightDockable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 rightDockable(This)
  when is_record(This, wx_ref) ->
   rightDockable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinforightdockable">external documentation</a>.
+-spec rightDockable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 rightDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -695,39 +793,45 @@ rightDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_RightDockable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), Row::integer()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinforow">external documentation</a>.
+-spec row(This, Row) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Row::integer().
 row(#wx_ref{type=ThisT,ref=ThisRef},Row)
  when is_integer(Row) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Row,
   <<ThisRef:32/?UI,Row:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Source::wxAuiPaneInfo()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfosafeset">external documentation</a>.
+-spec safeSet(This, Source) -> ok when
+	This::wxAuiPaneInfo(), Source::wxAuiPaneInfo().
 safeSet(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SourceT,ref=SourceRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   ?CLASS(SourceT,wxAuiPaneInfo),
   wxe_util:cast(?wxAuiPaneInfo_SafeSet,
   <<ThisRef:32/?UI,SourceRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo(), Flag::integer(), Option_state::bool()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfosetflag">external documentation</a>.
+-spec setFlag(This, Flag, Option_state) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), Flag::integer(), Option_state::boolean().
 setFlag(#wx_ref{type=ThisT,ref=ThisRef},Flag,Option_state)
  when is_integer(Flag),is_boolean(Option_state) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_SetFlag,
   <<ThisRef:32/?UI,Flag:32/?UI,(wxe_util:from_bool(Option_state)):32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv show(This, [])
+-spec show(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 show(This)
  when is_record(This, wx_ref) ->
   show(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {show, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoshow">external documentation</a>.
+-spec show(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {show, boolean()}.
 show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -737,29 +841,34 @@ show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_Show,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfotoolbarpane">external documentation</a>.
+-spec toolbarPane(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 toolbarPane(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_ToolbarPane,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfotop">external documentation</a>.
+-spec top(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
 top(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:call(?wxAuiPaneInfo_Top,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> wxAuiPaneInfo()
 %% @equiv topDockable(This, [])
+-spec topDockable(This) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo().
+
 topDockable(This)
  when is_record(This, wx_ref) ->
   topDockable(This, []).
 
-%% @spec (This::wxAuiPaneInfo(), [Option]) -> wxAuiPaneInfo()
-%% Option = {b, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfotopdockable">external documentation</a>.
+-spec topDockable(This, [Option]) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(),
+	Option :: {b, boolean()}.
 topDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -769,16 +878,17 @@ topDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxAuiPaneInfo_TopDockable,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiPaneInfo(), W::wxWindow:wxWindow()) -> wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfowindow">external documentation</a>.
+-spec window(This, W) -> wxAuiPaneInfo() when
+	This::wxAuiPaneInfo(), W::wxWindow:wxWindow().
 window(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WT,ref=WRef}) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   ?CLASS(WT,wxWindow),
   wxe_util:call(?wxAuiPaneInfo_Window,
   <<ThisRef:32/?UI,WRef:32/?UI>>).
 
-%% @spec (This::wxAuiPaneInfo()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxAuiPaneInfo) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiPaneInfo),
   wxe_util:destroy(?wxAuiPaneInfo_destruct,Obj),

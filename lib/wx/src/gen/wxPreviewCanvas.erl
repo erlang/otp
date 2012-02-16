@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,6 +74,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-export_type([wxPreviewCanvas/0]).
 %% @hidden
 parent_class(wxScrolledWindow) -> true;
 parent_class(wxPanel) -> true;
@@ -81,6 +82,7 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
+-type wxPreviewCanvas() :: wx:wx_object().
  %% From wxScrolledWindow
 %% @hidden
 setTargetWindow(This,Target) -> wxScrolledWindow:setTargetWindow(This,Target).

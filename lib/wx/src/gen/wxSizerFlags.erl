@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,17 +30,20 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxSizerFlags/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxSizerFlags()
+-type wxSizerFlags() :: wx:wx_object().
 %% @equiv new([])
+-spec new() -> wxSizerFlags().
+
 new() ->
   new([]).
 
-%% @spec ([Option]) -> wxSizerFlags()
-%% Option = {proportion, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagswxsizerflags">external documentation</a>.
+-spec new([Option]) -> wxSizerFlags() when
+	Option :: {proportion, integer()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({proportion, Proportion}, Acc) -> [<<1:32/?UI,Proportion:32/?UI>>|Acc];
@@ -49,23 +52,27 @@ new(Options)
   wxe_util:construct(?wxSizerFlags_new,
   <<BinOpt/binary>>).
 
-%% @spec (This::wxSizerFlags(), Alignment::integer()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagsalign">external documentation</a>.
+-spec align(This, Alignment) -> wxSizerFlags() when
+	This::wxSizerFlags(), Alignment::integer().
 align(#wx_ref{type=ThisT,ref=ThisRef},Alignment)
  when is_integer(Alignment) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Align,
   <<ThisRef:32/?UI,Alignment:32/?UI>>).
 
-%% @spec (This::wxSizerFlags()) -> wxSizerFlags()
 %% @equiv border(This, [])
+-spec border(This) -> wxSizerFlags() when
+	This::wxSizerFlags().
+
 border(This)
  when is_record(This, wx_ref) ->
   border(This, []).
 
-%% @spec (This::wxSizerFlags(), [Option]) -> wxSizerFlags()
-%% Option = {direction, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagsborder">external documentation</a>.
+-spec border(This, [Option]) -> wxSizerFlags() when
+	This::wxSizerFlags(),
+	Option :: {direction, integer()}.
 border(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxSizerFlags),
@@ -75,59 +82,66 @@ border(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:call(?wxSizerFlags_Border_1,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxSizerFlags(), Direction::integer(), BorderInPixels::integer()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagsborder">external documentation</a>.
+-spec border(This, Direction, BorderInPixels) -> wxSizerFlags() when
+	This::wxSizerFlags(), Direction::integer(), BorderInPixels::integer().
 border(#wx_ref{type=ThisT,ref=ThisRef},Direction,BorderInPixels)
  when is_integer(Direction),is_integer(BorderInPixels) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Border_2,
   <<ThisRef:32/?UI,Direction:32/?UI,BorderInPixels:32/?UI>>).
 
-%% @spec (This::wxSizerFlags()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagscenter">external documentation</a>.
+-spec center(This) -> wxSizerFlags() when
+	This::wxSizerFlags().
 center(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Center,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerFlags()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagscentre">external documentation</a>.
+-spec centre(This) -> wxSizerFlags() when
+	This::wxSizerFlags().
 centre(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Centre,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerFlags()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagsexpand">external documentation</a>.
+-spec expand(This) -> wxSizerFlags() when
+	This::wxSizerFlags().
 expand(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Expand,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerFlags()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagsleft">external documentation</a>.
+-spec left(This) -> wxSizerFlags() when
+	This::wxSizerFlags().
 left(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Left,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerFlags(), Proportion::integer()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagsproportion">external documentation</a>.
+-spec proportion(This, Proportion) -> wxSizerFlags() when
+	This::wxSizerFlags(), Proportion::integer().
 proportion(#wx_ref{type=ThisT,ref=ThisRef},Proportion)
  when is_integer(Proportion) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Proportion,
   <<ThisRef:32/?UI,Proportion:32/?UI>>).
 
-%% @spec (This::wxSizerFlags()) -> wxSizerFlags()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizerflags.html#wxsizerflagsright">external documentation</a>.
+-spec right(This) -> wxSizerFlags() when
+	This::wxSizerFlags().
 right(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerFlags),
   wxe_util:call(?wxSizerFlags_Right,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSizerFlags()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxSizerFlags) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSizerFlags),
   wxe_util:destroy(?wxSizerFlags_destroy,Obj),

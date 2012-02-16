@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,6 +77,7 @@
   transferDataFromWindow/1,transferDataToWindow/1,update/1,updateWindowUI/1,
   updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxMessageDialog/0]).
 %% @hidden
 parent_class(wxDialog) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -84,15 +85,21 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Parent::wxWindow:wxWindow(), Message::string()) -> wxMessageDialog()
+-type wxMessageDialog() :: wx:wx_object().
 %% @equiv new(Parent,Message, [])
+-spec new(Parent, Message) -> wxMessageDialog() when
+	Parent::wxWindow:wxWindow(), Message::string().
+
 new(Parent,Message)
  when is_record(Parent, wx_ref),is_list(Message) ->
   new(Parent,Message, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Message::string(), [Option]) -> wxMessageDialog()
-%% Option = {caption, string()} | {style, integer()} | {pos, {X::integer(), Y::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmessagedialog.html#wxmessagedialogwxmessagedialog">external documentation</a>.
+-spec new(Parent, Message, [Option]) -> wxMessageDialog() when
+	Parent::wxWindow:wxWindow(), Message::string(),
+	Option :: {caption, string()}
+		 | {style, integer()}
+		 | {pos, {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
  when is_list(Message),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -105,8 +112,8 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
   wxe_util:construct(?wxMessageDialog_new,
   <<ParentRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxMessageDialog()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxMessageDialog) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMessageDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

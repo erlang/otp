@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -80,6 +80,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-export_type([wxSplashScreen/0]).
 %% @hidden
 parent_class(wxFrame) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -87,21 +88,27 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxSplashScreen()
+-type wxSplashScreen() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
+-spec new() -> wxSplashScreen().
 new() ->
   wxe_util:construct(?wxSplashScreen_new_0,
   <<>>).
 
-%% @spec (Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer()) -> wxSplashScreen()
 %% @equiv new(Bitmap,SplashStyle,Milliseconds,Parent,Id, [])
+-spec new(Bitmap, SplashStyle, Milliseconds, Parent, Id) -> wxSplashScreen() when
+	Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Bitmap,SplashStyle,Milliseconds,Parent,Id)
  when is_record(Bitmap, wx_ref),is_integer(SplashStyle),is_integer(Milliseconds),is_record(Parent, wx_ref),is_integer(Id) ->
   new(Bitmap,SplashStyle,Milliseconds,Parent,Id, []).
 
-%% @spec (Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxSplashScreen()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreenwxsplashscreen">external documentation</a>.
+-spec new(Bitmap, SplashStyle, Milliseconds, Parent, Id, [Option]) -> wxSplashScreen() when
+	Bitmap::wxBitmap:wxBitmap(), SplashStyle::integer(), Milliseconds::integer(), Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=BitmapT,ref=BitmapRef},SplashStyle,Milliseconds,#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(SplashStyle),is_integer(Milliseconds),is_integer(Id),is_list(Options) ->
   ?CLASS(BitmapT,wxBitmap),
@@ -114,22 +121,24 @@ new(#wx_ref{type=BitmapT,ref=BitmapRef},SplashStyle,Milliseconds,#wx_ref{type=Pa
   wxe_util:construct(?wxSplashScreen_new_6,
   <<BitmapRef:32/?UI,SplashStyle:32/?UI,Milliseconds:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxSplashScreen()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreengetsplashstyle">external documentation</a>.
+-spec getSplashStyle(This) -> integer() when
+	This::wxSplashScreen().
 getSplashStyle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSplashScreen),
   wxe_util:call(?wxSplashScreen_GetSplashStyle,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSplashScreen()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplashscreen.html#wxsplashscreengettimeout">external documentation</a>.
+-spec getTimeout(This) -> integer() when
+	This::wxSplashScreen().
 getTimeout(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSplashScreen),
   wxe_util:call(?wxSplashScreen_GetTimeout,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSplashScreen()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxSplashScreen) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSplashScreen),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -71,27 +71,35 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxGauge/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxGauge()
+-type wxGauge() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugewxgauge">external documentation</a>.
+-spec new() -> wxGauge().
 new() ->
   wxe_util:construct(?wxGauge_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Range::integer()) -> wxGauge()
 %% @equiv new(Parent,Id,Range, [])
+-spec new(Parent, Id, Range) -> wxGauge() when
+	Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
+
 new(Parent,Id,Range)
  when is_record(Parent, wx_ref),is_integer(Id),is_integer(Range) ->
   new(Parent,Id,Range, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Range::integer(), [Option]) -> wxGauge()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugewxgauge">external documentation</a>.
+-spec new(Parent, Id, Range, [Option]) -> wxGauge() when
+	Parent::wxWindow:wxWindow(), Id::integer(), Range::integer(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Range, Options)
  when is_integer(Id),is_integer(Range),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -104,15 +112,21 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Range, Options)
   wxe_util:construct(?wxGauge_new_4,
   <<ParentRef:32/?UI,Id:32/?UI,Range:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer()) -> bool()
 %% @equiv create(This,Parent,Id,Range, [])
+-spec create(This, Parent, Id, Range) -> boolean() when
+	This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer().
+
 create(This,Parent,Id,Range)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(Range) ->
   create(This,Parent,Id,Range, []).
 
-%% @spec (This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer(), [Option]) -> bool()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugecreate">external documentation</a>.
+-spec create(This, Parent, Id, Range, [Option]) -> boolean() when
+	This::wxGauge(), Parent::wxWindow:wxWindow(), Id::integer(), Range::integer(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Range, Options)
  when is_integer(Id),is_integer(Range),is_list(Options) ->
   ?CLASS(ThisT,wxGauge),
@@ -126,82 +140,92 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Ra
   wxe_util:call(?wxGauge_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,Range:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxGauge()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugegetbezelface">external documentation</a>.
+-spec getBezelFace(This) -> integer() when
+	This::wxGauge().
 getBezelFace(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:call(?wxGauge_GetBezelFace,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGauge()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugegetrange">external documentation</a>.
+-spec getRange(This) -> integer() when
+	This::wxGauge().
 getRange(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:call(?wxGauge_GetRange,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGauge()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugegetshadowwidth">external documentation</a>.
+-spec getShadowWidth(This) -> integer() when
+	This::wxGauge().
 getShadowWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:call(?wxGauge_GetShadowWidth,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGauge()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugegetvalue">external documentation</a>.
+-spec getValue(This) -> integer() when
+	This::wxGauge().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:call(?wxGauge_GetValue,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGauge()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugeisvertical">external documentation</a>.
+-spec isVertical(This) -> boolean() when
+	This::wxGauge().
 isVertical(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:call(?wxGauge_IsVertical,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGauge(), W::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugesetbezelface">external documentation</a>.
+-spec setBezelFace(This, W) -> ok when
+	This::wxGauge(), W::integer().
 setBezelFace(#wx_ref{type=ThisT,ref=ThisRef},W)
  when is_integer(W) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:cast(?wxGauge_SetBezelFace,
   <<ThisRef:32/?UI,W:32/?UI>>).
 
-%% @spec (This::wxGauge(), R::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugesetrange">external documentation</a>.
+-spec setRange(This, R) -> ok when
+	This::wxGauge(), R::integer().
 setRange(#wx_ref{type=ThisT,ref=ThisRef},R)
  when is_integer(R) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:cast(?wxGauge_SetRange,
   <<ThisRef:32/?UI,R:32/?UI>>).
 
-%% @spec (This::wxGauge(), W::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugesetshadowwidth">external documentation</a>.
+-spec setShadowWidth(This, W) -> ok when
+	This::wxGauge(), W::integer().
 setShadowWidth(#wx_ref{type=ThisT,ref=ThisRef},W)
  when is_integer(W) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:cast(?wxGauge_SetShadowWidth,
   <<ThisRef:32/?UI,W:32/?UI>>).
 
-%% @spec (This::wxGauge(), Pos::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugesetvalue">external documentation</a>.
+-spec setValue(This, Pos) -> ok when
+	This::wxGauge(), Pos::integer().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:cast(?wxGauge_SetValue,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
-%% @spec (This::wxGauge()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgauge.html#wxgaugepulse">external documentation</a>.
+-spec pulse(This) -> ok when
+	This::wxGauge().
 pulse(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGauge),
   wxe_util:cast(?wxGauge_Pulse,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGauge()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxGauge) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGauge),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,32 +53,34 @@
   setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,
   setUserScale/3,startDoc/2,startPage/1]).
 
+-export_type([wxBufferedDC/0]).
 %% @hidden
 parent_class(wxMemoryDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxBufferedDC()
+-type wxBufferedDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
+-spec new() -> wxBufferedDC().
 new() ->
   wxe_util:construct(?wxBufferedDC_new_0,
   <<>>).
 
-%% @spec (Dc::wxDC:wxDC()) -> wxBufferedDC()
 %% @equiv new(Dc, [])
+-spec new(Dc) -> wxBufferedDC() when
+	Dc::wxDC:wxDC().
+
 new(Dc)
  when is_record(Dc, wx_ref) ->
   new(Dc, []).
 
-%% @spec (Dc::wxDC:wxDC(),X::term()) -> wxBufferedDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}) -> new(Dc,Area, []) </c></p>
-%% <p><c>
-%% new(Dc::wxDC:wxDC(), [Option]) -> wxBufferedDC() </c>
-%%<br /> Option = {buffer, wxBitmap:wxBitmap()} | {style, integer()}
-%% </p>
+-spec new(Dc, Area) -> wxBufferedDC() when
+	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
+      (Dc, [Option]) -> wxBufferedDC() when
+	Dc::wxDC:wxDC(),
+	Option :: {buffer, wxBitmap:wxBitmap()}
+		 | {style, integer()}.
 
 new(Dc,Area={AreaW,AreaH})
  when is_record(Dc, wx_ref),is_integer(AreaW),is_integer(AreaH) ->
@@ -93,9 +95,10 @@ new(#wx_ref{type=DcT,ref=DcRef}, Options)
   wxe_util:construct(?wxBufferedDC_new_2,
   <<DcRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}, [Option]) -> wxBufferedDC()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
+-spec new(Dc, Area, [Option]) -> wxBufferedDC() when
+	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
+	Option :: {style, integer()}.
 new(#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
  when is_integer(AreaW),is_integer(AreaH),is_list(Options) ->
   ?CLASS(DcT,wxDC),
@@ -105,21 +108,21 @@ new(#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
   wxe_util:construct(?wxBufferedDC_new_3,
   <<DcRef:32/?UI,AreaW:32/?UI,AreaH:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxBufferedDC(), Dc::wxDC:wxDC()) -> ok
 %% @equiv init(This,Dc, [])
+-spec init(This, Dc) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC().
+
 init(This,Dc)
  when is_record(This, wx_ref),is_record(Dc, wx_ref) ->
   init(This,Dc, []).
 
-%% @spec (This::wxBufferedDC(),Dc::wxDC:wxDC(),X::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% init(This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}) -> init(This,Dc,Area, []) </c></p>
-%% <p><c>
-%% init(This::wxBufferedDC(), Dc::wxDC:wxDC(), [Option]) -> ok </c>
-%%<br /> Option = {buffer, wxBitmap:wxBitmap()} | {style, integer()}
-%% </p>
+-spec init(This, Dc, Area) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
+      (This, Dc, [Option]) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC(),
+	Option :: {buffer, wxBitmap:wxBitmap()}
+		 | {style, integer()}.
 
 init(This,Dc,Area={AreaW,AreaH})
  when is_record(This, wx_ref),is_record(Dc, wx_ref),is_integer(AreaW),is_integer(AreaH) ->
@@ -135,9 +138,10 @@ init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}, Options)
   wxe_util:cast(?wxBufferedDC_Init_2,
   <<ThisRef:32/?UI,DcRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}, [Option]) -> ok
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
+-spec init(This, Dc, Area, [Option]) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
+	Option :: {style, integer()}.
 init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
  when is_integer(AreaW),is_integer(AreaH),is_list(Options) ->
   ?CLASS(ThisT,wxBufferedDC),
@@ -148,8 +152,8 @@ init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, 
   wxe_util:cast(?wxBufferedDC_Init_3,
   <<ThisRef:32/?UI,DcRef:32/?UI,AreaW:32/?UI,AreaH:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxBufferedDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxBufferedDC) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

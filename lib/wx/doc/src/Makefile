@@ -96,10 +96,10 @@ ref_man.xml: ref_man.xml.src
 	@echo
 
 $(ErlMods:%.erl=%.xml):
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -sort_functions false ../../src/$(@:%.xml=%.erl)
+	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -preprocess true -sort_functions false ../../src/$(@:%.xml=%.erl)
 
 $(GenMods:%.erl=%.xml):
-	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -sort_functions false ../../src/gen/$(@:%.xml=%.erl)
+	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -i ../../src -preprocess true -sort_functions false ../../src/gen/$(@:%.xml=%.erl)
 
 $(XML_CHAPTER_FILES):
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -chapter ../overview.edoc

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,67 +70,78 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxListView/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxListView(), Col::integer()) -> ok
+-type wxListView() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewclearcolumnimage">external documentation</a>.
+-spec clearColumnImage(This, Col) -> ok when
+	This::wxListView(), Col::integer().
 clearColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:cast(?wxListView_ClearColumnImage,
   <<ThisRef:32/?UI,Col:32/?UI>>).
 
-%% @spec (This::wxListView(), Index::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewfocus">external documentation</a>.
+-spec focus(This, Index) -> ok when
+	This::wxListView(), Index::integer().
 focus(#wx_ref{type=ThisT,ref=ThisRef},Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:cast(?wxListView_Focus,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @spec (This::wxListView()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewgetfirstselected">external documentation</a>.
+-spec getFirstSelected(This) -> integer() when
+	This::wxListView().
 getFirstSelected(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:call(?wxListView_GetFirstSelected,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListView()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewgetfocuseditem">external documentation</a>.
+-spec getFocusedItem(This) -> integer() when
+	This::wxListView().
 getFocusedItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:call(?wxListView_GetFocusedItem,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListView(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewgetnextselected">external documentation</a>.
+-spec getNextSelected(This, Item) -> integer() when
+	This::wxListView(), Item::integer().
 getNextSelected(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:call(?wxListView_GetNextSelected,
   <<ThisRef:32/?UI,Item:32/?UI>>).
 
-%% @spec (This::wxListView(), Index::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewisselected">external documentation</a>.
+-spec isSelected(This, Index) -> boolean() when
+	This::wxListView(), Index::integer().
 isSelected(#wx_ref{type=ThisT,ref=ThisRef},Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxListView),
   wxe_util:call(?wxListView_IsSelected,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @spec (This::wxListView(), N::integer()) -> ok
 %% @equiv select(This,N, [])
+-spec select(This, N) -> ok when
+	This::wxListView(), N::integer().
+
 select(This,N)
  when is_record(This, wx_ref),is_integer(N) ->
   select(This,N, []).
 
-%% @spec (This::wxListView(), N::integer(), [Option]) -> ok
-%% Option = {on, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewselect">external documentation</a>.
+-spec select(This, N, [Option]) -> ok when
+	This::wxListView(), N::integer(),
+	Option :: {on, boolean()}.
 select(#wx_ref{type=ThisT,ref=ThisRef},N, Options)
  when is_integer(N),is_list(Options) ->
   ?CLASS(ThisT,wxListView),
@@ -140,8 +151,9 @@ select(#wx_ref{type=ThisT,ref=ThisRef},N, Options)
   wxe_util:cast(?wxListView_Select,
   <<ThisRef:32/?UI,N:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxListView(), Col::integer(), Image::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html#wxlistviewsetcolumnimage">external documentation</a>.
+-spec setColumnImage(This, Col, Image) -> ok when
+	This::wxListView(), Col::integer(), Image::integer().
 setColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col,Image)
  when is_integer(Col),is_integer(Image) ->
   ?CLASS(ThisT,wxListView),
