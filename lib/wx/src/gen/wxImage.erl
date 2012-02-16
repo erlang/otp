@@ -209,9 +209,9 @@ convertToGreyscale(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximageconverttogreyscale">external documentation</a>.
 -spec convertToGreyscale(This, [Option]) -> wxImage() when
 	This::wxImage(),
-	Option :: {lr, float()}
-		 | {lg, float()}
-		 | {lb, float()}.
+	Option :: {lr, number()}
+		 | {lg, number()}
+		 | {lb, number()}.
 convertToGreyscale(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxImage),
@@ -697,19 +697,19 @@ resize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH},{PosX,PosY}, Options)
 
 %% @equiv rotate(This,Angle,Centre_of_rotation, [])
 -spec rotate(This, Angle, Centre_of_rotation) -> wxImage() when
-	This::wxImage(), Angle::float(), Centre_of_rotation::{X::integer(), Y::integer()}.
+	This::wxImage(), Angle::number(), Centre_of_rotation::{X::integer(), Y::integer()}.
 
 rotate(This,Angle,Centre_of_rotation={Centre_of_rotationX,Centre_of_rotationY})
- when is_record(This, wx_ref),is_float(Angle),is_integer(Centre_of_rotationX),is_integer(Centre_of_rotationY) ->
+ when is_record(This, wx_ref),is_number(Angle),is_integer(Centre_of_rotationX),is_integer(Centre_of_rotationY) ->
   rotate(This,Angle,Centre_of_rotation, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagerotate">external documentation</a>.
 -spec rotate(This, Angle, Centre_of_rotation, [Option]) -> wxImage() when
-	This::wxImage(), Angle::float(), Centre_of_rotation::{X::integer(), Y::integer()},
+	This::wxImage(), Angle::number(), Centre_of_rotation::{X::integer(), Y::integer()},
 	Option :: {interpolating, boolean()}
 		 | {offset_after_rotation, {X::integer(), Y::integer()}}.
 rotate(#wx_ref{type=ThisT,ref=ThisRef},Angle,{Centre_of_rotationX,Centre_of_rotationY}, Options)
- when is_float(Angle),is_integer(Centre_of_rotationX),is_integer(Centre_of_rotationY),is_list(Options) ->
+ when is_number(Angle),is_integer(Centre_of_rotationX),is_integer(Centre_of_rotationY),is_list(Options) ->
   ?CLASS(ThisT,wxImage),
   MOpts = fun({interpolating, Interpolating}, Acc) -> [<<1:32/?UI,(wxe_util:from_bool(Interpolating)):32/?UI>>|Acc];
           ({offset_after_rotation, {Offset_after_rotationX,Offset_after_rotationY}}, Acc) -> [<<2:32/?UI,Offset_after_rotationX:32/?UI,Offset_after_rotationY:32/?UI,0:32>>|Acc];
@@ -720,9 +720,9 @@ rotate(#wx_ref{type=ThisT,ref=ThisRef},Angle,{Centre_of_rotationX,Centre_of_rota
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagerotatehue">external documentation</a>.
 -spec rotateHue(This, Angle) -> ok when
-	This::wxImage(), Angle::float().
+	This::wxImage(), Angle::number().
 rotateHue(#wx_ref{type=ThisT,ref=ThisRef},Angle)
- when is_float(Angle) ->
+ when is_number(Angle) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:cast(?wxImage_RotateHue,
   <<ThisRef:32/?UI,0:32,Angle:64/?F>>).

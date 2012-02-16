@@ -76,18 +76,18 @@ createBrush(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BrushT,ref=BrushRef}) -
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatelineargradientbrush">external documentation</a>.
 -spec createLinearGradientBrush(This, X1, Y1, X2, Y2, C1, C2) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsRenderer(), X1::float(), Y1::float(), X2::float(), Y2::float(), C1::wx:wx_colour(), C2::wx:wx_colour().
+	This::wxGraphicsRenderer(), X1::number(), Y1::number(), X2::number(), Y2::number(), C1::wx:wx_colour(), C2::wx:wx_colour().
 createLinearGradientBrush(#wx_ref{type=ThisT,ref=ThisRef},X1,Y1,X2,Y2,C1,C2)
- when is_float(X1),is_float(Y1),is_float(X2),is_float(Y2),tuple_size(C1) =:= 3; tuple_size(C1) =:= 4,tuple_size(C2) =:= 3; tuple_size(C2) =:= 4 ->
+ when is_number(X1),is_number(Y1),is_number(X2),is_number(Y2),tuple_size(C1) =:= 3; tuple_size(C1) =:= 4,tuple_size(C2) =:= 3; tuple_size(C2) =:= 4 ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   wxe_util:call(?wxGraphicsRenderer_CreateLinearGradientBrush,
   <<ThisRef:32/?UI,0:32,X1:64/?F,Y1:64/?F,X2:64/?F,Y2:64/?F,(wxe_util:colour_bin(C1)):16/binary,(wxe_util:colour_bin(C2)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreateradialgradientbrush">external documentation</a>.
 -spec createRadialGradientBrush(This, Xo, Yo, Xc, Yc, Radius, OColor, CColor) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsRenderer(), Xo::float(), Yo::float(), Xc::float(), Yc::float(), Radius::float(), OColor::wx:wx_colour(), CColor::wx:wx_colour().
+	This::wxGraphicsRenderer(), Xo::number(), Yo::number(), Xc::number(), Yc::number(), Radius::number(), OColor::wx:wx_colour(), CColor::wx:wx_colour().
 createRadialGradientBrush(#wx_ref{type=ThisT,ref=ThisRef},Xo,Yo,Xc,Yc,Radius,OColor,CColor)
- when is_float(Xo),is_float(Yo),is_float(Xc),is_float(Yc),is_float(Radius),tuple_size(OColor) =:= 3; tuple_size(OColor) =:= 4,tuple_size(CColor) =:= 3; tuple_size(CColor) =:= 4 ->
+ when is_number(Xo),is_number(Yo),is_number(Xc),is_number(Yc),is_number(Radius),tuple_size(OColor) =:= 3; tuple_size(OColor) =:= 4,tuple_size(CColor) =:= 3; tuple_size(CColor) =:= 4 ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   wxe_util:call(?wxGraphicsRenderer_CreateRadialGradientBrush,
   <<ThisRef:32/?UI,0:32,Xo:64/?F,Yo:64/?F,Xc:64/?F,Yc:64/?F,Radius:64/?F,(wxe_util:colour_bin(OColor)):16/binary,(wxe_util:colour_bin(CColor)):16/binary>>).
@@ -125,12 +125,12 @@ createMatrix(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsrenderer.html#wxgraphicsrenderercreatematrix">external documentation</a>.
 -spec createMatrix(This, [Option]) -> wxGraphicsMatrix:wxGraphicsMatrix() when
 	This::wxGraphicsRenderer(),
-	Option :: {a, float()}
-		 | {b, float()}
-		 | {c, float()}
-		 | {d, float()}
-		 | {tx, float()}
-		 | {ty, float()}.
+	Option :: {a, number()}
+		 | {b, number()}
+		 | {c, number()}
+		 | {d, number()}
+		 | {tx, number()}
+		 | {ty, number()}.
 createMatrix(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsRenderer),

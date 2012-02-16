@@ -307,6 +307,11 @@ gen_dest(#class{name=CName,abstract=Abs}, Ms) ->
 	false ->
 	    case lists:keysearch(destructor,#method.method_type, lists:append(Ms)) of
 		{value, #method{method_type=destructor, id=Id}} ->
+		    case CName of
+			"wxGraphicsCo" ++ _ ->
+			    io:format("parents ~p~n",[parents(CName)]);
+			_ -> ok
+		    end,
 		    case hd(reverse(parents(CName))) of
 			object ->
 			    gen_dest2(CName, object);
@@ -603,9 +608,9 @@ guard_test(#param{name=N,type=#type{base=int64}}) ->
 guard_test(#param{name=N,type=#type{base=long}}) ->
     "is_integer(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{base=float}}) ->
-    "is_float(" ++ erl_arg_name(N) ++ ")";
+    "is_number(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{base=double}}) ->
-    "is_float(" ++ erl_arg_name(N) ++ ")";
+    "is_number(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{base=bool}}) ->
     "is_boolean(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{name="wxDateTime"}}) ->
@@ -744,8 +749,8 @@ doc_arg_type3(#type{base=int64}) ->        "integer()";
 doc_arg_type3(#type{base=long}) ->       "integer()";
 doc_arg_type3(#type{name="wxTreeItemId"}) -> "wxTreeCtrl:treeItemId()";
 doc_arg_type3(#type{base=bool}) ->       "boolean()";
-doc_arg_type3(#type{base=float}) ->      "float()";
-doc_arg_type3(#type{base=double}) ->     "float()";
+doc_arg_type3(#type{base=float}) ->      "number()";
+doc_arg_type3(#type{base=double}) ->     "number()";
 doc_arg_type3(#type{base=binary}) ->     "binary()";
 doc_arg_type3(#type{base={binary,_}}) -> "binary()";
 doc_arg_type3(#type{base=eventType}) ->  "atom()";
@@ -933,7 +938,7 @@ marshal_arg(#type{single=true,base={comp,_,Comp}}, Name, Align0) ->
 	    Str = args(fun(Str) -> Str end, ",", A),
 	    {Str,(Align0 + length(Comp)) rem 2};
 	{double,_} ->
-	    A = [Name++Spec++":64/float" || {double,Spec} <- Comp],
+	    A = [Name++Spec++":64/?F" || {double,Spec} <- Comp],
 	    Str = args(fun(Str) -> Str end, ",", A),
 	    align(64,Align0,Str)
     end;
@@ -959,9 +964,14 @@ marshal_arg(#type{base=Base, single=Single}, Name, Align0)
 	    Str0 = "(length("++Name++")):32/?UI,\n"
 		"        (<< <<X:32/?I,Y:32/?I>> || {X,Y} <- "++Name++">>)/binary",
 	    align(32,Align0, Str0);
+	{comp, "wxPoint2DDouble", _} ->
+	    Str0 = "(length("++Name++")):32/?UI,\n",
+	    Str1 = "    (<< <<X:64/?F,Y:64/?F>> || {X,Y} <- "++Name++">>)/binary",
+	    {Str,_Align} = align(64,Align0+1, Str1),
+	    {Str0 ++ Str, 0};
 	double ->
 	    Str0 = "(length("++Name++")):32/?UI,\n",
-	    Str1 = "  (<< <<C:64/float>> || C <- "++Name++">>)/binary",
+	    Str1 = "  (<< <<C:64/?F>> || C <- "++Name++">>)/binary",
 	    {Str,_Align} = align(64,Align0+1, Str1),
 	    {Str0 ++ Str, 0};
 	_ ->

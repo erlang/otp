@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -6255,17 +6255,21 @@ case wxGraphicsContext_DrawIcon: { // wxGraphicsContext::DrawIcon
 case wxGraphicsContext_DrawLines: { // wxGraphicsContext::DrawLines
  int fillStyle=wxODDEVEN_RULE;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- int * n = (int *) bp; bp += 4;
- wxDouble * pointsX = (wxDouble *) bp; bp += 8;
- wxDouble * pointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble points = wxPoint2DDouble(*pointsX,*pointsY);
+ int * pointsLen = (int *) bp; bp += 4;
+ wxPoint2DDouble *points;
+ points = (wxPoint2DDouble *) driver_alloc(sizeof(wxPoint2DDouble) * *pointsLen);
+ for(int i=0; i < *pointsLen; i++) {
+   double x = * (double *) bp; bp += 8;
+   double y = * (double *) bp; bp += 8;
+   points[i] = wxPoint2DDouble(x,y);}
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  fillStyle = (int)*(int *) bp; bp += 4;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- This->DrawLines((size_t) *n,&points,fillStyle);
+ This->DrawLines(*pointsLen,points,fillStyle);
+ driver_free(points);
  break;
 }
 case wxGraphicsContext_DrawPath: { // wxGraphicsContext::DrawPath
@@ -6514,27 +6518,18 @@ case wxGraphicsContext_StrokeLine: { // wxGraphicsContext::StrokeLine
  This->StrokeLine((wxDouble) *x1,(wxDouble) *y1,(wxDouble) *x2,(wxDouble) *y2);
  break;
 }
-case wxGraphicsContext_StrokeLines_2: { // wxGraphicsContext::StrokeLines
+case wxGraphicsContext_StrokeLines: { // wxGraphicsContext::StrokeLines
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- int * n = (int *) bp; bp += 4;
- wxDouble * pointsX = (wxDouble *) bp; bp += 8;
- wxDouble * pointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble points = wxPoint2DDouble(*pointsX,*pointsY);
+ int * pointsLen = (int *) bp; bp += 4;
+ wxPoint2DDouble *points;
+ points = (wxPoint2DDouble *) driver_alloc(sizeof(wxPoint2DDouble) * *pointsLen);
+ for(int i=0; i < *pointsLen; i++) {
+   double x = * (double *) bp; bp += 8;
+   double y = * (double *) bp; bp += 8;
+   points[i] = wxPoint2DDouble(x,y);}
  if(!This) throw wxe_badarg(0);
- This->StrokeLines((size_t) *n,&points);
- break;
-}
-case wxGraphicsContext_StrokeLines_3: { // wxGraphicsContext::StrokeLines
- wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- int * n = (int *) bp; bp += 4;
- wxDouble * beginPointsX = (wxDouble *) bp; bp += 8;
- wxDouble * beginPointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble beginPoints = wxPoint2DDouble(*beginPointsX,*beginPointsY);
- wxDouble * endPointsX = (wxDouble *) bp; bp += 8;
- wxDouble * endPointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble endPoints = wxPoint2DDouble(*endPointsX,*endPointsY);
- if(!This) throw wxe_badarg(0);
- This->StrokeLines((size_t) *n,&beginPoints,&endPoints);
+ This->StrokeLines(*pointsLen,points);
+ driver_free(points);
  break;
 }
 #endif // wxUSE_GRAPHICS_CONTEXT

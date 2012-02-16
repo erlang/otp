@@ -160,7 +160,7 @@ getProportion(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemgetratio">external documentation</a>.
--spec getRatio(This) -> float() when
+-spec getRatio(This) -> number() when
 	This::wxSizerItem().
 getRatio(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -312,11 +312,11 @@ setProportion(#wx_ref{type=ThisT,ref=ThisRef},Proportion)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemsetratio">external documentation</a>.
 -spec setRatio(This, Ratio) -> ok when
-	This::wxSizerItem(), Ratio::float();
+	This::wxSizerItem(), Ratio::number();
       (This, Size) -> ok when
 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 setRatio(#wx_ref{type=ThisT,ref=ThisRef},Ratio)
- when is_float(Ratio) ->
+ when is_number(Ratio) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:cast(?wxSizerItem_SetRatio_1_0,
   <<ThisRef:32/?UI,Ratio:32/?F>>);

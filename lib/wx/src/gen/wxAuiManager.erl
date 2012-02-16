@@ -131,7 +131,7 @@ getArtProvider(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagergetdocksizeconstraint">external documentation</a>.
--spec getDockSizeConstraint(This) -> {Width_pct::float(), Height_pct::float()} when
+-spec getDockSizeConstraint(This) -> {Width_pct::number(), Height_pct::number()} when
 	This::wxAuiManager().
 getDockSizeConstraint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -271,9 +271,9 @@ setArtProvider(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Art_providerT,ref=Ar
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagersetdocksizeconstraint">external documentation</a>.
 -spec setDockSizeConstraint(This, Width_pct, Height_pct) -> ok when
-	This::wxAuiManager(), Width_pct::float(), Height_pct::float().
+	This::wxAuiManager(), Width_pct::number(), Height_pct::number().
 setDockSizeConstraint(#wx_ref{type=ThisT,ref=ThisRef},Width_pct,Height_pct)
- when is_float(Width_pct),is_float(Height_pct) ->
+ when is_number(Width_pct),is_number(Height_pct) ->
   ?CLASS(ThisT,wxAuiManager),
   wxe_util:cast(?wxAuiManager_SetDockSizeConstraint,
   <<ThisRef:32/?UI,0:32,Width_pct:64/?F,Height_pct:64/?F>>).

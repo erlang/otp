@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -644,6 +644,16 @@ decode_arg(N,#type{name=Type,single=list,base={class,Class}},arg,A0) ->
     w(" for(int i=0; i < *~sLen; i++) {", [N]),
     w("  ~s.Append(*(~s *) getPtr(bp,memenv)); bp += 4;}~n", [N,Class]),
     w(" bp += ((~p+ *~sLen)%2 )*4;~n", [A,N]),
+    0;
+decode_arg(N,#type{single=array,base={comp,Class="wxPoint2DDouble",_}},arg,A0) ->
+    w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
+    w(" ~s *~s;~n",[Class,N]),
+    w(" ~s = (~s *) driver_alloc(sizeof(~s) * *~sLen);~n",[N,Class,Class,N]),
+    store_free(N),
+    align(A0+1,64),
+    w(" for(int i=0; i < *~sLen; i++) {~n", [N]),
+    w("   double x = * (double *) bp; bp += 8;~n   double y = * (double *) bp; bp += 8;~n", []),
+    w("   ~s[i] = wxPoint2DDouble(x,y);}~n", [N]),
     0;
 decode_arg(Name,T, Arg,_A) ->
     ?error({unhandled_type, {Name,T, Arg}}).

@@ -150,7 +150,7 @@ getMinimumPaneSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterwindow.html#wxsplitterwindowgetsashgravity">external documentation</a>.
--spec getSashGravity(This) -> float() when
+-spec getSashGravity(This) -> number() when
 	This::wxSplitterWindow().
 getSashGravity(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -219,9 +219,9 @@ replaceWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WinOldT,ref=WinOldRef
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsplitterwindow.html#wxsplitterwindowsetsashgravity">external documentation</a>.
 -spec setSashGravity(This, Gravity) -> ok when
-	This::wxSplitterWindow(), Gravity::float().
+	This::wxSplitterWindow(), Gravity::number().
 setSashGravity(#wx_ref{type=ThisT,ref=ThisRef},Gravity)
- when is_float(Gravity) ->
+ when is_number(Gravity) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:cast(?wxSplitterWindow_SetSashGravity,
   <<ThisRef:32/?UI,0:32,Gravity:64/?F>>).

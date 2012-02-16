@@ -50,7 +50,7 @@ concat(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=TT,ref=TRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixget">external documentation</a>.
 -spec get(This) -> Result when
-	Result ::{A::float(), B::float(), C::float(), D::float(), Tx::float(), Ty::float()},
+	Result ::{A::number(), B::number(), C::number(), D::number(), Tx::number(), Ty::number()},
 	This::wxGraphicsMatrix().
 get(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
@@ -92,27 +92,27 @@ isIdentity(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixrotate">external documentation</a>.
 -spec rotate(This, Angle) -> ok when
-	This::wxGraphicsMatrix(), Angle::float().
+	This::wxGraphicsMatrix(), Angle::number().
 rotate(#wx_ref{type=ThisT,ref=ThisRef},Angle)
- when is_float(Angle) ->
+ when is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:cast(?wxGraphicsMatrix_Rotate,
   <<ThisRef:32/?UI,0:32,Angle:64/?F>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixscale">external documentation</a>.
 -spec scale(This, XScale, YScale) -> ok when
-	This::wxGraphicsMatrix(), XScale::float(), YScale::float().
+	This::wxGraphicsMatrix(), XScale::number(), YScale::number().
 scale(#wx_ref{type=ThisT,ref=ThisRef},XScale,YScale)
- when is_float(XScale),is_float(YScale) ->
+ when is_number(XScale),is_number(YScale) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:cast(?wxGraphicsMatrix_Scale,
   <<ThisRef:32/?UI,0:32,XScale:64/?F,YScale:64/?F>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtranslate">external documentation</a>.
 -spec translate(This, Dx, Dy) -> ok when
-	This::wxGraphicsMatrix(), Dx::float(), Dy::float().
+	This::wxGraphicsMatrix(), Dx::number(), Dy::number().
 translate(#wx_ref{type=ThisT,ref=ThisRef},Dx,Dy)
- when is_float(Dx),is_float(Dy) ->
+ when is_number(Dx),is_number(Dy) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:cast(?wxGraphicsMatrix_Translate,
   <<ThisRef:32/?UI,0:32,Dx:64/?F,Dy:64/?F>>).
@@ -128,12 +128,12 @@ set(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixset">external documentation</a>.
 -spec set(This, [Option]) -> ok when
 	This::wxGraphicsMatrix(),
-	Option :: {a, float()}
-		 | {b, float()}
-		 | {c, float()}
-		 | {d, float()}
-		 | {tx, float()}
-		 | {ty, float()}.
+	Option :: {a, number()}
+		 | {b, number()}
+		 | {c, number()}
+		 | {d, number()}
+		 | {tx, number()}
+		 | {ty, number()}.
 set(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
@@ -149,7 +149,7 @@ set(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtransformpoint">external documentation</a>.
--spec transformPoint(This) -> {X::float(), Y::float()} when
+-spec transformPoint(This) -> {X::number(), Y::number()} when
 	This::wxGraphicsMatrix().
 transformPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
@@ -157,7 +157,7 @@ transformPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixtransformdistance">external documentation</a>.
--spec transformDistance(This) -> {Dx::float(), Dy::float()} when
+-spec transformDistance(This) -> {Dx::number(), Dy::number()} when
 	This::wxGraphicsMatrix().
 transformDistance(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsMatrix),

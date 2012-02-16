@@ -24,7 +24,7 @@
 
 -module(wxGraphicsObject).
 -include("wxe.hrl").
--export([getRenderer/1,isNull/1]).
+-export([destroy/1,getRenderer/1,isNull/1]).
 
 %% inherited exports
 -export([parent_class/1]).
@@ -50,3 +50,9 @@ isNull(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGraphicsObject_IsNull,
   <<ThisRef:32/?UI>>).
 
+%% @doc Destroys this object, do not use object again
+-spec destroy(This::wxGraphicsObject) -> ok.
+destroy(Obj=#wx_ref{type=Type}) ->
+  ?CLASS(Type,wxGraphicsObject),
+  wxe_util:destroy(?DESTROY_OBJECT,Obj),
+  ok.

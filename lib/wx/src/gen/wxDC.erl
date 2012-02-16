@@ -227,9 +227,9 @@ drawEllipse(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawellipticarc">external documentation</a>.
 -spec drawEllipticArc(This, Pt, Sz, Sa, Ea) -> ok when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Sa::float(), Ea::float().
+	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Sa::number(), Ea::number().
 drawEllipticArc(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Sa,Ea)
- when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_float(Sa),is_float(Ea) ->
+ when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_number(Sa),is_number(Ea) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:cast(?wxDC_DrawEllipticArc,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,SzW:32/?UI,SzH:32/?UI,0:32,Sa:64/?F,Ea:64/?F>>).
@@ -356,9 +356,9 @@ drawRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawrotatedtext">external documentation</a>.
 -spec drawRotatedText(This, Text, Pt, Angle) -> ok when
-	This::wxDC(), Text::string(), Pt::{X::integer(), Y::integer()}, Angle::float().
+	This::wxDC(), Text::string(), Pt::{X::integer(), Y::integer()}, Angle::number().
 drawRotatedText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY},Angle)
- when is_list(Text),is_integer(PtX),is_integer(PtY),is_float(Angle) ->
+ when is_list(Text),is_integer(PtX),is_integer(PtY),is_number(Angle) ->
   ?CLASS(ThisT,wxDC),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:cast(?wxDC_DrawRotatedText,
@@ -366,18 +366,18 @@ drawRotatedText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY},Angle)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawroundedrectangle">external documentation</a>.
 -spec drawRoundedRectangle(This, R, Radius) -> ok when
-	This::wxDC(), R::{X::integer(), Y::integer(), W::integer(), H::integer()}, Radius::float().
+	This::wxDC(), R::{X::integer(), Y::integer(), W::integer(), H::integer()}, Radius::number().
 drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{RX,RY,RW,RH},Radius)
- when is_integer(RX),is_integer(RY),is_integer(RW),is_integer(RH),is_float(Radius) ->
+ when is_integer(RX),is_integer(RY),is_integer(RW),is_integer(RH),is_number(Radius) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:cast(?wxDC_DrawRoundedRectangle_2,
   <<ThisRef:32/?UI,RX:32/?UI,RY:32/?UI,RW:32/?UI,RH:32/?UI,0:32,Radius:64/?F>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawroundedrectangle">external documentation</a>.
 -spec drawRoundedRectangle(This, Pt, Sz, Radius) -> ok when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Radius::float().
+	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Radius::number().
 drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Radius)
- when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_float(Radius) ->
+ when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_number(Radius) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:cast(?wxDC_DrawRoundedRectangle_3,
   <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,SzW:32/?UI,SzH:32/?UI,0:32,Radius:64/?F>>).
@@ -629,7 +629,7 @@ getTextForeground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetuserscale">external documentation</a>.
--spec getUserScale(This) -> {X::float(), Y::float()} when
+-spec getUserScale(This) -> {X::number(), Y::number()} when
 	This::wxDC().
 getUserScale(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
@@ -905,9 +905,9 @@ setTextForeground(#wx_ref{type=ThisT,ref=ThisRef},Colour)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcsetuserscale">external documentation</a>.
 -spec setUserScale(This, X, Y) -> ok when
-	This::wxDC(), X::float(), Y::float().
+	This::wxDC(), X::number(), Y::number().
 setUserScale(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
- when is_float(X),is_float(Y) ->
+ when is_number(X),is_number(Y) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:cast(?wxDC_SetUserScale,
   <<ThisRef:32/?UI,0:32,X:64/?F,Y:64/?F>>).

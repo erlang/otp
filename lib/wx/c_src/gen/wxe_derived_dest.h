@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -127,6 +127,14 @@ class EwxBufferedPaintDC : public wxBufferedPaintDC {
  public: ~EwxBufferedPaintDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxBufferedPaintDC(wxWindow * window,wxBitmap& buffer,int style) : wxBufferedPaintDC(window,buffer,style) {};
  EwxBufferedPaintDC(wxWindow * window,int style) : wxBufferedPaintDC(window,style) {};
+};
+
+class EwxGraphicsObject : public wxGraphicsObject {
+ public: ~EwxGraphicsObject() {((WxeApp *)wxTheApp)->clearPtr(this);};
+};
+
+class EwxGraphicsContext : public wxGraphicsContext {
+ public: ~EwxGraphicsContext() {((WxeApp *)wxTheApp)->clearPtr(this);};
 };
 
 class EwxMenuBar : public wxMenuBar {
