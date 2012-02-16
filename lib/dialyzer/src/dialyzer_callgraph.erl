@@ -48,6 +48,7 @@
 	 get_required_by/2,
 	 in_neighbours/2,
 	 renew_race_info/4,
+	 renew_race_code/2,
 	 reset_from_funs/2,
 	 scan_core_tree/2,
 	 strip_module_deps/2,
@@ -238,6 +239,14 @@ renew_race_info(CG, RaceCode, PublicTables, NamedTables) ->
   CG#callgraph{race_code = RaceCode,
                public_tables = PublicTables,
                named_tables = NamedTables}.
+
+-spec renew_race_code(dialyzer_races:races(), callgraph()) -> callgraph().
+
+renew_race_code(Races, #callgraph{race_code = RaceCode} = Callgraph) ->
+  Fun = dialyzer_races:get_curr_fun(Races),
+  FunArgs = dialyzer_races:get_curr_fun_args(Races),
+  Code = lists:reverse(dialyzer_races:get_race_list(Races)),
+  Callgraph#callgraph{race_code = dict:store(Fun, [FunArgs, Code], RaceCode)}.
 
 -spec get_depends_on(scc(), callgraph()) -> [scc()].
 

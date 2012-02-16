@@ -358,16 +358,7 @@ analyze_loop(#state{callgraph = Callgraph, races = Races} = State) ->
 		      t_to_string(t_fun(ArgTypes, BodyType))]),
               NewState5 =
                 case RaceDetection andalso RaceAnalysis of
-                  true ->
-		    Races1 = NewState4#state.races,
-                    Code = lists:reverse(dialyzer_races:get_race_list(Races1)),
-                    Callgraph1 =
-                      renew_code(dialyzer_races:get_curr_fun(Races1),
-                                 dialyzer_races:get_curr_fun_args(Races1),
-                                 Code,
-                                 state__warning_mode(NewState4),
-                                 NewState4#state.callgraph),
-                    NewState4#state{callgraph = Callgraph1};
+                  true -> renew_race_code(NewState4);
                   false -> NewState4
                 end,
               NewState6 =
@@ -3342,13 +3333,13 @@ state__records_only(#state{records = Records}) ->
 %%%
 %%% ===========================================================================
 
-renew_code(Fun, FunArgs, Code, WarningMode, Callgraph) ->
+renew_race_code(#state{races = Races, callgraph = Callgraph,
+		       warning_mode = WarningMode} = State) ->
   case WarningMode of
-    true -> Callgraph;
+    true -> State;
     false ->
-      RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
-      dialyzer_callgraph:put_race_code(
-        dict:store(Fun, [FunArgs, Code], RaceCode), Callgraph)
+      NewCallgraph = dialyzer_callgraph:renew_race_code(Races, Callgraph),
+      State#state{callgraph = NewCallgraph}
   end.
 
 renew_public_tables([Var], Table, WarningMode, Callgraph) ->
