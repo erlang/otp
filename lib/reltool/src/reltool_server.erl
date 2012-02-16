@@ -133,11 +133,10 @@ init(Options) ->
 
 do_init(Options) ->
     {S, Status} = parse_options(Options),
-    #state{parent_pid = ParentPid, common = C, sys = Sys} = S,
+    #state{parent_pid = ParentPid, common = C} = S,
 
     %% process_flag(trap_exit, (S#state.common)#common.trap_exit),
-    proc_lib:init_ack(ParentPid,
-		      {ok, self(), C, Sys#sys{apps = undefined}}),
+    proc_lib:init_ack(ParentPid, {ok, self(), C}),
     {S2, Apps, Status2} = refresh(S, true, Status),
     Status3 = analyse(S2, Apps, Status2),
     case Status3 of

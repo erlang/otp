@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,7 +66,7 @@ start_link(Options) when is_list(Options) ->
 -spec start_server(options()) -> {ok, server_pid()} | {error, reason()}.
 start_server(Options) ->
     case reltool_server:start_link(Options) of
-        {ok, ServerPid, _Common, _Sys} ->
+        {ok, ServerPid, _Common} ->
             {ok, ServerPid};
         {error, Reason} ->
             {error, lists:flatten(io_lib:format("~p", [Reason]))}

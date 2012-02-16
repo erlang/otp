@@ -135,7 +135,7 @@ init(Options) ->
 
 do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
     case reltool_server:start_link(Options) of
-        {ok, ServerPid, C, Sys} ->
+        {ok, ServerPid, C} ->
 	    process_flag(trap_exit, C#common.trap_exit),
             wx:new(),
             wx:debug(C#common.wx_debug),
