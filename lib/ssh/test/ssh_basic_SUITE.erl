@@ -106,12 +106,16 @@ all() ->
     [app_test,
      {group, dsa_key},
      {group, rsa_key},
+     {group, dsa_pass_key},
+     {group, rsa_pass_key},
      daemon_already_started,
      server_password_option, server_userpassword_option].
 
 groups() -> 
     [{dsa_key, [], [exec, exec_compressed, shell, known_hosts]},
-     {rsa_key, [], [exec, exec_compressed, shell, known_hosts]}
+     {rsa_key, [], [exec, exec_compressed, shell, known_hosts]},
+     {dsa_pass_key, [], [pass_phrase]},
+     {rsa_pass_key, [], [pass_phrase]}
     ].
 
 init_per_group(dsa_key, Config) ->
@@ -124,6 +128,16 @@ init_per_group(rsa_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_rsa(DataDir, PrivDir),
     Config;
+init_per_group(rsa_pass_key, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_rsa_pass_pharse(DataDir, PrivDir, "Password"),
+    [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
+init_per_group(dsa_pass_key, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
+    [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
 init_per_group(_, Config) ->
     Config.
 
@@ -132,6 +146,14 @@ end_per_group(dsa_key, Config) ->
     ssh_test_lib:clean_dsa(PrivDir),
     Config;
 end_per_group(rsa_key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_rsa(PrivDir),
+    Config;
+end_per_group(dsa_pass_key, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(PrivDir),
+    Config;
+end_per_group(rsa_pass_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_rsa(PrivDir),
     Config;
@@ -422,6 +444,29 @@ known_hosts(Config) when is_list(Config) ->
     [HostAndIp, Alg, _KeyData] = string:tokens(Line, " "),
     [Host, _Ip] = string:tokens(HostAndIp, ","),
     "ssh-" ++ _ = Alg,
+    ssh:stop_daemon(Pid).
+
+pass_phrase(doc) ->
+    ["Test that we can use keyes protected by pass phrases"];
+
+pass_phrase(suite) ->
+    [];
+
+pass_phrase(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    PhraseArg = ?config(pass_phrase, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  PhraseArg,
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
