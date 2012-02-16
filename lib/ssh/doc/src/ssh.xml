@@ -234,6 +234,14 @@
 	    option <c>shell</c> which is much less work than implementing
 	    your own cli channel.
 	  </item>
+	  <tag><c><![CDATA[{user_dir, String}]]></c></tag>
+	  <item>
+	    <p>Sets the user directory e.i. the directory containing
+	    ssh configuration files for the user such as
+	    <c><![CDATA[known_hosts]]></c>, <c><![CDATA[id_rsa, id_dsa]]></c> and
+	    <c><![CDATA[authorized_key]]></c>. Defaults to the directory normally
+	    referred to as <c><![CDATA[~/.ssh]]></c> </p>
+	  </item>
           <tag><c><![CDATA[{system_dir, string()}]]></c></tag>
           <item>
             <p>Sets the system directory, containing the host files
