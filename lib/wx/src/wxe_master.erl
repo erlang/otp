@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -100,17 +100,10 @@ init([]) ->
     case catch erlang:system_info(smp_support) of
 	true -> ok;
 	_ -> 
-	    error_logger:format("WX ERROR: SMP emulator required", []),
+	    error_logger:format("WX ERROR: SMP emulator required (start with erl -smp)", []),
 	    erlang:error(not_smp)
     end,
-    case catch (erlang:system_info(version) >= "5.6.2") of
-	true -> ok;
-	_ -> %% Needs to be able to disable FPU exceptions. 
-	    error_logger:format("WX ERROR: OTP R12B-2 or Emulator >= 5.6.2 required", []),
-	    erlang:error(wrong_version)
-    end,
 
-    %% io:format("Loading ~p @ ~p ~n", [DriverName,PrivDir]),
     case os:type() of
         {win32,_} ->  %% Needed for mingwm10.dll
             Path = os:getenv("PATH"),
