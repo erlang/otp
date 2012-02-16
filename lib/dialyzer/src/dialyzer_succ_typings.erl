@@ -142,17 +142,14 @@ get_warnings_from_modules([M|Ms], State, DocPlt, Acc) when is_atom(M) ->
   %% Check if there are contracts for functions that do not exist
   Warnings1 = 
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
-  {RawWarnings2, FunTypes, RaceCode, PublicTables, NamedTables} =
-    dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph, Records, NoWarnUnused),
+  {RawWarnings2, FunTypes} =
+    dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph,
+				   Records, NoWarnUnused),
   {NewAcc, Warnings2} = postprocess_dataflow_warns(RawWarnings2, State, Acc),
   Attrs = cerl:module_attrs(ModCode),
   Warnings3 = dialyzer_behaviours:check_callbacks(M, Attrs, Plt, Codeserver),
   NewDocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),
-  NewCallgraph =
-    dialyzer_callgraph:renew_race_info(Callgraph, RaceCode, PublicTables,
-                                       NamedTables),
-  State1 = st__renew_state_calls(NewCallgraph, State),
-  get_warnings_from_modules(Ms, State1, NewDocPlt,
+  get_warnings_from_modules(Ms, State, NewDocPlt,
 			    [Warnings1, Warnings2, Warnings3|NewAcc]);
 get_warnings_from_modules([], #st{plt = Plt}, DocPlt, Acc) ->
   {lists:flatten(Acc), Plt, DocPlt}.
@@ -195,44 +192,39 @@ refine_succ_typings(ModulePostorder, State) ->
   refine_succ_typings(ModulePostorder, State, []).
 
 refine_succ_typings([M|Rest], State, Fixpoint) ->
+  #st{callgraph = Callgraph, codeserver = CodeServer, plt = PLT} = State,
   Msg = io_lib:format("Dataflow of module: ~w\n", [M]),
   send_log(State#st.parent, Msg),
   ?debug("~s\n", [Msg]),
-  {NewState, FixpointFromScc} = refine_one_module(M, State),
+  {NewCallgraph, FixpointFromScc} =
+    refine_one_module(M, Callgraph, CodeServer, PLT),
   NewFixpoint = ordsets:union(Fixpoint, FixpointFromScc),
-  refine_succ_typings(Rest, NewState, NewFixpoint);
+  refine_succ_typings(Rest, State#st{callgraph = NewCallgraph}, NewFixpoint);
 refine_succ_typings([], State, Fixpoint) ->
   case Fixpoint =:= [] of
     true -> {fixpoint, State};
     false -> {not_fixpoint, Fixpoint, State}
   end.
 
--spec refine_one_module(module(), #st{}) -> {#st{}, [label()]}. % ordset
+-spec refine_one_module(module(), dialyzer_callgraph:callgraph(),
+			dialyzer_codeserver:codeserver(), dialyzer_plt:plt()) ->
+        {dialyzer_callgraph:callgraph(), [label()]}. % ordset
 
-refine_one_module(M, State) ->
-  #st{callgraph = Callgraph, codeserver = CodeServer, plt = PLT} = State,
+refine_one_module(M, Callgraph, CodeServer, PLT) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
-  {NewFunTypes, RaceCode, PublicTables, NamedTables} =
+  {NewFunTypes, NewCallgraph} =
     dialyzer_dataflow:get_fun_types(ModCode, PLT, Callgraph, Records),
-  NewCallgraph =
-    dialyzer_callgraph:renew_race_info(Callgraph, RaceCode, PublicTables,
-                                       NamedTables),
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, PLT),
-  State1 = st__renew_state_calls(NewCallgraph, State),
   case reached_fixpoint(FunTypes, NewFunTypes) of
     true ->
-      {State1, ordsets:new()};
+      {NewCallgraph, ordsets:new()};
     {false, NotFixpoint} ->
       ?debug("Not fixpoint\n", []),
-      NewPlt = insert_into_plt(dict:from_list(NotFixpoint), Callgraph, PLT),
-      {State1#st{plt = NewPlt},
-       ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])}
+      insert_into_plt(dict:from_list(NotFixpoint), Callgraph, PLT),
+      {NewCallgraph, ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])}
   end.
-
-st__renew_state_calls(Callgraph, State) ->
-  State#st{callgraph = Callgraph}.
 
 reached_fixpoint(OldTypes, NewTypes) ->
   reached_fixpoint(OldTypes, NewTypes, false).

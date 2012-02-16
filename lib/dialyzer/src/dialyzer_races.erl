@@ -36,6 +36,7 @@
 -export([beg_clause_new/3, cleanup/1, end_case_new/1, end_clause_new/3,
          get_curr_fun/1, get_curr_fun_args/1, get_new_table/1,
          get_race_analysis/1, get_race_list/1, get_race_list_size/1,
+	 get_race_list_and_size/1,
          let_tag_new/2, new/0, put_curr_fun/3, put_fun_args/2,
          put_race_analysis/2, put_race_list/3]).
 
@@ -2433,6 +2434,12 @@ get_race_list(#races{race_list = RaceList}) ->
 
 get_race_list_size(#races{race_list_size = RaceListSize}) ->
   RaceListSize.
+
+-spec get_race_list_and_size(races()) -> {code(), non_neg_integer()}.
+
+get_race_list_and_size(#races{race_list = RaceList,
+			      race_list_size = RaceListSize}) ->
+  {RaceList, RaceListSize}.
 
 -spec let_tag_new(var_to_map1(), var_to_map1()) -> #let_tag{}.
 
