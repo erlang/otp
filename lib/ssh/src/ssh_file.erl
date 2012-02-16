@@ -46,7 +46,10 @@
 %% Used by server
 host_key(Algorithm, Opts) ->
     File = file_name(system, file_base_name(Algorithm), Opts),
-    Password = proplists:get_value(password, Opts, ignore),
+    %% We do not expect host keys to have pass phrases
+    %% so probably we could hardcod Password = ignore, but
+    %% we keep it as an undocumented option for now.
+    Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
     decode(File, Password).
 
 
@@ -68,9 +71,9 @@ is_host_key(Key, PeerName, Algorithm, Opts) ->
 	    false
     end.
 
-user_key(Alg, Opts) ->
-    File = file_name(user, identity_key_filename(Alg), Opts),
-    Password = proplists:get_value(password, Opts, ignore),
+user_key(Algorithm, Opts) ->
+    File = file_name(user, identity_key_filename(Algorithm), Opts),
+    Password = proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
     decode(File, Password).
 
 
@@ -210,10 +213,20 @@ do_lookup_host_key(Host, Alg, Opts) ->
 	Error -> Error
     end.
 
-identity_key_filename("ssh-dss") -> "id_dsa";
-identity_key_filename("ssh-rsa") -> "id_rsa".
+identity_key_filename("ssh-dss") ->
+    "id_dsa";
+identity_key_filename("ssh-rsa") ->
+    "id_rsa".
 
-    
+identity_pass_phrase("ssh-dss") ->
+    dsa_pass_phrase;
+identity_pass_phrase('ssh-dss') ->
+    dsa_pass_phrase;
+identity_pass_phrase('ssh-rsa') ->
+    rsa_pass_phrase;
+identity_pass_phrase("ssh-rsa") ->
+    rsa_pass_phrase.
+
 lookup_host_key_fd(Fd, Host, KeyType) ->
     case io:get_line(Fd, '') of
 	eof ->
@@ -289,7 +302,6 @@ is_auth_key(Key, Key) ->
     true;
 is_auth_key(_,_) -> 
     false.
-
 
 default_user_dir()->
     {ok,[[Home|_]]} = init:get_argument(home),

@@ -86,13 +86,25 @@
 	by calling ssh_connect:session_channel/2.</p>
 	<p>Options are:</p>
 	<taglist>
-          <tag><c><![CDATA[{user_dir, String}]]></c></tag>
+          <tag><c><![CDATA[{user_dir, string()}]]></c></tag>
 	  <item>
 	    <p>Sets the user directory e.i. the directory containing
 	    ssh configuration files for the user such as
 	    <c><![CDATA[known_hosts]]></c>, <c><![CDATA[id_rsa, id_dsa]]></c> and
 	    <c><![CDATA[authorized_key]]></c>. Defaults to the directory normally
 	    referred to as <c><![CDATA[~/.ssh]]></c> </p>
+	  </item>
+	  <tag><c><![CDATA[{dsa_pass_phrase, string()}]]></c></tag>
+	  <item>
+	    <p>If the user dsa key is protected by a pass phrase it can be
+	    supplied with this option.
+	    </p>
+	  </item>
+	  <tag><c><![CDATA[{rsa_pass_phrase, string()}]]></c></tag>
+	  <item>
+	    <p>If the user rsa key is protected by a pass phrase it can be
+	    supplied with this option.
+	    </p>
 	  </item>
           <tag><c><![CDATA[{silently_accept_hosts, boolean()}]]></c></tag>
 	  <item>
