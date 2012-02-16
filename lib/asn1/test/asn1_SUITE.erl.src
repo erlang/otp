@@ -96,7 +96,8 @@ all() -> [{group,compile},parse,default_per,default_ber,default_per_opt,per,
 	       testSSLspecs, testNortel,test_undecoded_rest,
 	       test_inline, testTcapsystem, testNBAPsystem,
 	       test_compile_options,testDoubleEllipses, test_modified_x420,
-	       testX420, test_x691,ticket_6143, testExtensionAdditionGroup
+	       testX420, test_x691,ticket_6143, testExtensionAdditionGroup,
+               test_OTP_9688
                ] ++ common() ++ particular().
 
 groups() -> 
@@ -2369,4 +2370,23 @@ test_modules() ->
 	 "LDAP"
 	].
 
+test_OTP_9688(Config) ->
+    Asn1Mod = "OTP-9688.asn1",
+    %%DataDir = ?config(data_dir,Config),     
+    PrivDir = ?config(priv_dir,Config),
+    Data = "
+OTP-9688 DEFINITIONS ::= BEGIN
 
+ foo INTEGER ::= 1
+ bar INTEGER ::= 42
+
+ Baz ::= INTEGER {x-y-z1(foo), x-y-z2(bar)}
+ Qux ::= SEQUENCE {flerpInfo SEQUENCE {x INTEGER (-10 | -9 | (0..4))} OPTIONAL}
+
+END
+",
+    File = filename:join(PrivDir,Asn1Mod),
+    ok = file:write_file(File, Data),
+    %% Does it compile with changes to asn1ct_check and asn1ct_gen_per_rt2ct?
+    %% (see ticket)
+    ok = asn1ct:compile(File, [{outdir, PrivDir}]).

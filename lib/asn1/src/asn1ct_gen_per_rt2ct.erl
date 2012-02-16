@@ -704,6 +704,10 @@ greatest_common_range([{_,Int}],VR=[{_,{_Lb,_Ub}}]) when is_integer(Int) ->
 greatest_common_range([{_,L}],[{_,{Lb,Ub}}]) when is_list(L) ->
     Min = least_Lb([Lb|L]),
     Max = greatest_Ub([Ub|L]),
+    [{'ValueRange',{Min,Max}}];
+greatest_common_range([{_,{Lb1,Ub1}}],[{_,{Lb2,Ub2}}]) ->
+    Min = least_Lb([Lb1,Lb2]),
+    Max = greatest_Ub([Ub1,Ub2]),
     [{'ValueRange',{Min,Max}}].
     
 
