@@ -141,7 +141,7 @@ public class OtpMbox {
      * Get the registered name of this mailbox.
      * 
      * @return the registered name of this mailbox, or null if the mailbox had
-     *         no registerd name.
+     *         no registered name.
      */
     public String getName() {
 	return name;

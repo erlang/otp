@@ -202,6 +202,12 @@ public class echo_server {
 		final OtpErlangAtom o = new OtpErlangAtom(s.stringValue()
 			.substring(3));
 		return o;
+	    } else if (atomValue.equals("codepointBug")
+		    && i instanceof OtpErlangString) {
+		final OtpErlangString s = (OtpErlangString) i;
+		final String ss = s.stringValue().substring(3, 6);
+		final int[] cps = OtpErlangString.stringToCodePoints(ss);
+		return s;
 	    } else if (atomValue.equals("utf8")) {
 		if (i instanceof OtpErlangString) {
 		    final OtpErlangString s = (OtpErlangString) i;
