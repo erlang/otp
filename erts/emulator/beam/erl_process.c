@@ -348,39 +348,24 @@ dbg_chk_aux_work_val(erts_aint32_t value)
 {
     erts_aint32_t valid = 0;
 
-#ifdef ERTS_SSI_AUX_WORK_SET_TMO
     valid |= ERTS_SSI_AUX_WORK_SET_TMO;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_CHECK_CHILDREN
-    valid |= ERTS_SSI_AUX_WORK_CHECK_CHILDREN;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_MISC
     valid |= ERTS_SSI_AUX_WORK_MISC;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_MISC_THR_PRGR
-    valid |= ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_ASYNC_READY
+    valid |= ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM;
+    valid |= ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC;
+#if ERTS_USE_ASYNC_READY_Q
     valid |= ERTS_SSI_AUX_WORK_ASYNC_READY;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN
     valid |= ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
 #endif
-
-#ifdef ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
-    valid |= ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC
-    valid |= ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_DD
+#ifdef ERTS_SMP
+    valid |= ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
     valid |= ERTS_SSI_AUX_WORK_DD;
-#endif
-#ifdef ERTS_SSI_AUX_WORK_DD
     valid |= ERTS_SSI_AUX_WORK_DD_THR_PRGR;
 #endif
-#ifdef ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK
+#if HAVE_ERTS_MSEG
     valid |= ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK;
+#endif
+#ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
+    valid |= ERTS_SSI_AUX_WORK_CHECK_CHILDREN;
 #endif
 
     if (~valid & value)
@@ -802,7 +787,7 @@ misc_aux_work_clean(ErtsThrQ_t *q,
     return aux_work;
 }
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_misc_aux_work(ErtsAuxWorkData *awdp,
 		     erts_aint32_t aux_work)
 {
@@ -822,13 +807,13 @@ handle_misc_aux_work(ErtsAuxWorkData *awdp,
 
 #ifdef ERTS_SMP
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_misc_aux_work_thr_prgr(ErtsAuxWorkData *awdp,
 			      erts_aint32_t aux_work)
 {
     if (!erts_thr_progress_has_reached_this(thr_prgr_current(awdp),
 					    awdp->misc.thr_prgr))
-	return aux_work;
+	return aux_work & ~ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
 
     unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MISC_THR_PRGR);
 
@@ -901,7 +886,7 @@ erts_notify_check_async_ready_queue(void *vno)
 				  ERTS_SSI_AUX_WORK_ASYNC_READY);
 }
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_async_ready(ErtsAuxWorkData *awdp,
 		   erts_aint32_t aux_work)
 {
@@ -923,7 +908,7 @@ handle_async_ready(ErtsAuxWorkData *awdp,
 	    | ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN);
 }
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_async_ready_clean(ErtsAuxWorkData *awdp,
 			 erts_aint32_t aux_work)
 {
@@ -960,7 +945,7 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 
 #endif
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_fix_alloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
     ErtsSchedulerSleepInfo *ssi = awdp->ssi;
@@ -988,7 +973,7 @@ erts_alloc_notify_delayed_dealloc(int ix)
 				  ERTS_SSI_AUX_WORK_DD);
 }
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
     ErtsSchedulerSleepInfo *ssi = awdp->ssi;
@@ -1026,7 +1011,7 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     return aux_work & ~ERTS_SSI_AUX_WORK_DD;
 }
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
     ErtsSchedulerSleepInfo *ssi;
@@ -1154,7 +1139,7 @@ erts_smp_notify_check_children_needed(void)
 				      ERTS_SSI_AUX_WORK_CHECK_CHILDREN);
 }
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_check_children(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
     unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_CHECK_CHILDREN);
@@ -1164,9 +1149,9 @@ handle_check_children(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 
 #endif
 
-#ifdef ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK
+#if HAVE_ERTS_MSEG
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_mseg_cache_check(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
     unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK);
@@ -1176,7 +1161,7 @@ handle_mseg_cache_check(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 
 #endif
 
-static erts_aint32_t
+static ERTS_INLINE erts_aint32_t
 handle_setup_aux_work_timer(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
     unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_SET_TMO);
@@ -1184,72 +1169,92 @@ handle_setup_aux_work_timer(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     return aux_work & ~ERTS_SSI_AUX_WORK_SET_TMO;
 }
 
-static ERTS_INLINE erts_aint32_t
-handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
+static erts_aint32_t
+handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work)
 {
+#undef HANDLE_AUX_WORK
+#define HANDLE_AUX_WORK(FLG, HNDLR) \
+    ignore |= FLG; \
+    if (aux_work & FLG) { \
+	aux_work = HNDLR(awdp, aux_work); \
+	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work); \
+	if (!(aux_work & ~ignore)) { \
+	    ERTS_DBG_CHK_AUX_WORK_VAL(aux_work); \
+	    return aux_work; \
+	} \
+    }
+
+    erts_aint32_t aux_work = orig_aux_work;
+    erts_aint32_t ignore = 0;
+
 #ifdef ERTS_SMP
     thr_prgr_current_reset(awdp);
 #endif
+
+    ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
+    ASSERT(aux_work);
+
     /*
      * Handlers are *only* allowed to modify flags in return value
      * and ssi flags that are explicity handled by the handler.
      * Handlers are, e.g., not allowed to read the ssi flag field and
      * then unconditionally return that value.
+     *
+     * Flag field returned should only contain flags for work that
+     * can continue immediately.
      */
-    ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    if (aux_work & ERTS_SSI_AUX_WORK_SET_TMO) {
-	aux_work = handle_setup_aux_work_timer(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
+
+    /*
+     * Keep ERTS_SSI_AUX_WORK flags in expected frequency order relative
+     * eachother. Most frequent first.
+     */
 #ifdef ERTS_SMP
-    if (aux_work & ERTS_SSI_AUX_WORK_MISC_THR_PRGR) {
-	aux_work = handle_misc_aux_work_thr_prgr(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_DD,
+		    handle_delayed_dealloc);
+    /* DD must be before DD_THR_PRGR */
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_DD_THR_PRGR,
+		    handle_delayed_dealloc_thr_prgr);
 #endif
-    if (aux_work & ERTS_SSI_AUX_WORK_MISC) {
-	aux_work = handle_misc_aux_work(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
+
+    HANDLE_AUX_WORK((ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
+		     | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC),
+		    handle_fix_alloc);
+
 #if ERTS_USE_ASYNC_READY_Q
-    if (aux_work & ERTS_SSI_AUX_WORK_ASYNC_READY) {
-	aux_work = handle_async_ready(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
-    if (aux_work & ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN) {
-	aux_work = handle_async_ready_clean(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_ASYNC_READY,
+		    handle_async_ready);
+    /* ASYNC_READY must be before ASYNC_READY_CLEAN */
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN,
+		    handle_async_ready_clean);
 #endif
-#ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-    if (aux_work & ERTS_SSI_AUX_WORK_CHECK_CHILDREN) {
-	aux_work = handle_check_children(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
-#endif
-    if (aux_work & (ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
-		    | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC)) {
-	aux_work = handle_fix_alloc(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
+
 #ifdef ERTS_SMP
-    if (aux_work & ERTS_SSI_AUX_WORK_DD) {
-	aux_work = handle_delayed_dealloc(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
-    if (aux_work & ERTS_SSI_AUX_WORK_DD_THR_PRGR) {
-	aux_work = handle_delayed_dealloc_thr_prgr(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_MISC_THR_PRGR,
+		    handle_misc_aux_work_thr_prgr);
 #endif
-#ifdef ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK
-    if (aux_work & ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK) {
-	aux_work = handle_mseg_cache_check(awdp, aux_work);
-	ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
-    }
+    /* MISC_THR_PRGR must be before MISC */
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_MISC,
+		    handle_misc_aux_work);
+
+#ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_CHECK_CHILDREN,
+		    handle_check_children);
 #endif
+
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_SET_TMO,
+		    handle_setup_aux_work_timer);
+
+#if HAVE_ERTS_MSEG
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK,
+		    handle_mseg_cache_check);
+#endif
+
     ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
+
     return aux_work;
+
+#undef HANDLE_AUX_WORK
+
 }
 
 typedef struct {
