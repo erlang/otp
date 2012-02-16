@@ -132,15 +132,6 @@
       </desc>
     </func>
     <func>
-      <name name="lookup" arity="2"/>
-      <fsummary>Look up a key in a tree</fsummary>
-      <desc>
-        <p>Looks up <c><anno>Key</anno></c> in <c><anno>Tree</anno></c>; returns
-          <c>{value, <anno>Val</anno>}</c>, or <c>none</c> if <c><anno>Key</anno></c> is not
-          present.</p>
-      </desc>
-    </func>
-    <func>
       <name name="insert" arity="3"/>
       <fsummary>Insert a new key and value in a tree</fsummary>
       <desc>
@@ -193,6 +184,15 @@
         <p>Returns <c>{<anno>Key</anno>, <anno>Val</anno>}</c>, where <c><anno>Key</anno></c> is the largest
           key in <c><anno>Tree</anno></c>, and <c><anno>Val</anno></c> is the value associated
           with this key. Assumes that the tree is nonempty.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="lookup" arity="2"/>
+      <fsummary>Look up a key in a tree</fsummary>
+      <desc>
+        <p>Looks up <c><anno>Key</anno></c> in <c><anno>Tree</anno></c>; returns
+          <c>{value, <anno>Val</anno>}</c>, or <c>none</c> if <c><anno>Key</anno></c> is not
+          present.</p>
       </desc>
     </func>
     <func>
