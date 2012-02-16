@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1577,9 +1577,11 @@ erts_alloc_register_scheduler(void *vesdp)
     }
 }
 
+#ifdef ERTS_SMP
 void
 erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
 					    int *need_thr_progress,
+					    ErtsThrPrgrVal *thr_prgr_p,
 					    int *more_work)
 {
     ErtsSchedulerData *esdp = (ErtsSchedulerData *) vesdp;
@@ -1599,10 +1601,12 @@ erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
 	    erts_alcu_check_delayed_dealloc(allctr,
 					    1,
 					    need_thr_progress,
+					    thr_prgr_p,
 					    more_work);
 	}
     }
 }
+#endif
 
 erts_aint32_t
 erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs)

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -251,7 +251,7 @@ free_dbtable(DbTable* tb)
 	ASSERT(is_immed(tb->common.heir_data));
 	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
 	ERTS_ETS_MISC_MEM_ADD(-sizeof(DbTable));
-	ERTS_THR_MEMORY_BARRIER;
+	ERTS_SMP_MEMORY_BARRIER;
 }
 
 #ifdef ERTS_SMP
@@ -3816,7 +3816,7 @@ void db_info(int to, void *to_arg, int show)    /* Called by break handler */
 Uint
 erts_get_ets_misc_mem_size(void)
 {
-    ERTS_THR_MEMORY_BARRIER;
+    ERTS_SMP_MEMORY_BARRIER;
     /* Memory not allocated in ets_alloc */
     return (Uint) erts_smp_atomic_read_nob(&erts_ets_misc_mem_size);
 }

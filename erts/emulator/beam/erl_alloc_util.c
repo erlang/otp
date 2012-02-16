@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -949,7 +949,6 @@ ddq_check_incoming(ErtsAllctrDDQueue_t *ddq)
 		ERTS_THR_MEMORY_BARRIER;
 	    else {
 		ddq->head.next.unref_end = (ErtsAllctrDDBlock_t *) ilast;
-		ERTS_THR_MEMORY_BARRIER;
 		ddq->head.next.thr_progress = erts_thr_progress_later();
 		erts_atomic32_set_relb(&ddq->tail.data.um_refc_ix,
 				       um_refc_ix);
@@ -961,12 +960,24 @@ ddq_check_incoming(ErtsAllctrDDQueue_t *ddq)
     return 1;
 }
 
+static ERTS_INLINE void
+store_earliest_thr_prgr(ErtsThrPrgrVal *prev_val, ErtsAllctrDDQueue_t *ddq)
+{
+    if (!ddq->head.next.thr_progress_reached
+	&& (*prev_val == ERTS_THR_PRGR_INVALID
+	    || erts_thr_progress_cmp(ddq->head.next.thr_progress,
+				     *prev_val) < 0)) {
+	*prev_val = ddq->head.next.thr_progress;
+    }
+}
+
 static ERTS_INLINE int
 handle_delayed_dealloc(Allctr_t *allctr,
 		       int allctr_locked,
 		       int use_limit,
 		       int ops_limit,
 		       int *need_thr_progress,
+		       ErtsThrPrgrVal *thr_prgr_p,
 		       int *need_more_work)
 {
     int need_thr_prgr = 0;
@@ -1008,8 +1019,12 @@ handle_delayed_dealloc(Allctr_t *allctr,
 	    if (have_checked_incoming)
 		break;
 	    need_thr_prgr = ddq_check_incoming(ddq);
-	    if (need_thr_progress)
+	    if (need_thr_progress) {
 		*need_thr_progress |= need_thr_prgr;
+		if (need_thr_prgr)
+		    store_earliest_thr_prgr(thr_prgr_p, ddq);
+
+	    }
 	    have_checked_incoming = 1;
 	    goto dequeue;
 	}
@@ -1067,6 +1082,8 @@ handle_delayed_dealloc(Allctr_t *allctr,
     if (need_thr_progress && !(need_thr_prgr | need_mr_wrk)) {
 	need_thr_prgr = ddq_check_incoming(ddq);
 	*need_thr_progress |= need_thr_prgr;
+	if (need_thr_prgr)
+	    store_earliest_thr_prgr(thr_prgr_p, ddq);
     }
 
     if (allctr->thread_safe && !allctr_locked)
@@ -1086,25 +1103,27 @@ enqueue_dealloc_other_instance(ErtsAlcType_t type, Allctr_t *allctr, void *ptr)
 
 #endif
 
+#ifdef ERTS_SMP
 void
 erts_alcu_check_delayed_dealloc(Allctr_t *allctr,
 				int limit,
 				int *need_thr_progress,
+				ErtsThrPrgrVal *thr_prgr_p,
 				int *more_work)
 {
-#ifdef ERTS_SMP
     handle_delayed_dealloc(allctr,
 			   0,
 			   limit,
 			   ERTS_ALCU_DD_OPS_LIM_HIGH,
 			   need_thr_progress,
+			   thr_prgr_p,
 			   more_work);
-#endif
 }
+#endif
 
 #define ERTS_ALCU_HANDLE_DD_IN_OP(Allctr, Locked) \
     handle_delayed_dealloc((Allctr), (Locked), 1, \
-			 ERTS_ALCU_DD_OPS_LIM_LOW, NULL, NULL)
+			   ERTS_ALCU_DD_OPS_LIM_LOW, NULL, NULL, NULL)
 
 /* Multi block carrier alloc/realloc/free ... */
 

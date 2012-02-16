@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -33,10 +33,11 @@
  * This module keeps track of the progress of a set of managed threads. Only
  * threads that behave well can be allowed to be managed. A managed thread
  * should update its thread progress frequently. Currently only scheduler
- * threads and the aux_thread are managed threads. We typically do not want
- * any async threads as managed threads since they cannot guarantee a
- * frequent update of thread progress, since they execute user implemented
- * driver code.
+ * threads, the system-message-dispatcher threads, and the aux-thread are
+ * managed threads. We typically do not want any async threads as managed
+ * threads since they cannot guarantee a frequent update of thread progress,
+ * since they execute user implemented driver code that is assumed to be
+ * time consuming.
  *
  * erts_thr_progress_current() returns the global current thread progress
  * value of managed threads. I.e., the latest progress value that all
@@ -112,8 +113,10 @@
  *
  * On 32-bit systems we therefore need a double word atomic.
  */
-
+#undef read_acqb
 #define read_acqb erts_thr_prgr_read_acqb__
+#undef read_nob
+#define read_nob erts_thr_prgr_read_nob__
 
 #ifdef ARCH_64
 
@@ -129,12 +132,6 @@ set_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
     erts_atomic_set_nob(atmc, val);
 }
 
-static ERTS_INLINE ErtsThrPrgrVal
-read_nob(ERTS_THR_PRGR_ATOMIC *atmc)
-{
-    return (ErtsThrPrgrVal) erts_atomic_read_nob(atmc);
-}
-
 static ERTS_INLINE void
 init_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 {
@@ -143,52 +140,44 @@ init_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 
 #else
 
-#undef dw_sint_to_val
-#define dw_sint_to_val erts_thr_prgr_dw_sint_to_val__
+#undef dw_aint_to_val
+#define dw_aint_to_val erts_thr_prgr_dw_aint_to_val__
 
 static void
-val_to_dw_sint(ethr_dw_sint_t *dw_sint, ErtsThrPrgrVal val)
+val_to_dw_aint(erts_dw_aint_t *dw_aint, ErtsThrPrgrVal val)
 {
 #ifdef ETHR_SU_DW_NAINT_T__
-    dw_sint->dw_sint = (ETHR_SU_DW_NAINT_T__) val;
+    dw_aint->dw_sint = (ETHR_SU_DW_NAINT_T__) val;
 #else
-    dw_sint->sint[ETHR_DW_SINT_LOW_WORD]
-	= (ethr_sint_t) (val & 0xffffffff);
-    dw_sint->sint[ETHR_DW_SINT_HIGH_WORD]
-	= (ethr_sint_t) ((val >> 32) & 0xffffffff);
+    dw_aint->sint[ERTS_DW_AINT_LOW_WORD]
+	= (erts_aint_t) (val & 0xffffffff);
+    dw_aint->sint[ERTS_DW_AINT_HIGH_WORD]
+	= (erts_aint_t) ((val >> 32) & 0xffffffff);
 #endif
 }
 
 static ERTS_INLINE void
 set_mb(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 {
-    ethr_dw_sint_t dw_sint;
-    val_to_dw_sint(&dw_sint, val);
-    erts_dw_atomic_set_mb(atmc, &dw_sint);
+    erts_dw_aint_t dw_aint;
+    val_to_dw_aint(&dw_aint, val);
+    erts_dw_atomic_set_mb(atmc, &dw_aint);
 }
 
 static ERTS_INLINE void
 set_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 {
-    ethr_dw_sint_t dw_sint;
-    val_to_dw_sint(&dw_sint, val);
-    erts_dw_atomic_set_nob(atmc, &dw_sint);
-}
-
-static ERTS_INLINE ErtsThrPrgrVal
-read_nob(ERTS_THR_PRGR_ATOMIC *atmc)
-{
-    ethr_dw_sint_t dw_sint;
-    erts_dw_atomic_read_nob(atmc, &dw_sint);
-    return erts_thr_prgr_dw_sint_to_val__(&dw_sint);
+    erts_dw_aint_t dw_aint;
+    val_to_dw_aint(&dw_aint, val);
+    erts_dw_atomic_set_nob(atmc, &dw_aint);
 }
 
 static ERTS_INLINE void
 init_nob(ERTS_THR_PRGR_ATOMIC *atmc, ErtsThrPrgrVal val)
 {
-    ethr_dw_sint_t dw_sint;
-    val_to_dw_sint(&dw_sint, val);
-    erts_dw_atomic_init_nob(atmc, &dw_sint);
+    erts_dw_aint_t dw_aint;
+    val_to_dw_aint(&dw_aint, val);
+    erts_dw_atomic_init_nob(atmc, &dw_aint);
 }
 
 #endif
@@ -1222,9 +1211,9 @@ erts_thr_progress_block(void)
 }
 
 void
-erts_thr_progress_fatal_error_block(SWord timeout)
+erts_thr_progress_fatal_error_block(SWord timeout,
+				    ErtsThrPrgrData *tmp_tpd_bufp)
 {
-    ErtsThrPrgrData tpd_buf;
     ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
     erts_aint32_t bc;
     SWord time_left = timeout;
@@ -1248,7 +1237,7 @@ erts_thr_progress_fatal_error_block(SWord timeout)
 	 * since we never complete an unblock after a fatal error
 	 * block.
 	 */
-	tpd = &tpd_buf;
+	tpd = tmp_tpd_bufp;
 	init_tmp_thr_prgr_data(tpd);
     }
 

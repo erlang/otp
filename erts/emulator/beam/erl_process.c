@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -709,6 +709,27 @@ unset_aux_work_flags(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flgs)
     return erts_atomic32_read_band_nob(&ssi->aux_work, ~flgs);
 }
 
+#ifdef ERTS_SMP
+
+static ERTS_INLINE void
+thr_prgr_current_reset(ErtsAuxWorkData *awdp)
+{
+    awdp->current_thr_prgr = ERTS_THR_PRGR_INVALID;
+}
+
+static ERTS_INLINE ErtsThrPrgrVal
+thr_prgr_current(ErtsAuxWorkData *awdp)
+{
+    ErtsThrPrgrVal current = awdp->current_thr_prgr;
+    if (current == ERTS_THR_PRGR_INVALID) {
+	current = erts_thr_progress_current();
+	awdp->current_thr_prgr = current;
+    }
+    return current;
+}
+
+#endif
+
 typedef struct erts_misc_aux_work_t_ erts_misc_aux_work_t;
 struct erts_misc_aux_work_t_ {
     void (*func)(void *);
@@ -805,7 +826,8 @@ static erts_aint32_t
 handle_misc_aux_work_thr_prgr(ErtsAuxWorkData *awdp,
 			      erts_aint32_t aux_work)
 {
-    if (!erts_thr_progress_has_reached(awdp->misc.thr_prgr))
+    if (!erts_thr_progress_has_reached_this(thr_prgr_current(awdp),
+					    awdp->misc.thr_prgr))
 	return aux_work;
 
     unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_MISC_THR_PRGR);
@@ -909,7 +931,8 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 
 #ifdef ERTS_SMP
     if (awdp->async_ready.need_thr_prgr
-	&& !erts_thr_progress_has_reached(awdp->async_ready.thr_prgr)) {
+	&& !erts_thr_progress_has_reached_this(thr_prgr_current(awdp),
+					       awdp->async_ready.thr_prgr)) {
 	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
     }
 
@@ -970,11 +993,13 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
     ErtsSchedulerSleepInfo *ssi = awdp->ssi;
     int need_thr_progress = 0;
+    ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
     int more_work = 0;
 
     unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD);
     erts_alloc_scheduler_handle_delayed_dealloc((void *) awdp->esdp,
 						&need_thr_progress,
+						&wakeup,
 						&more_work);
     if (more_work) {
 	if (set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD)
@@ -986,9 +1011,12 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     }
 
     if (need_thr_progress) {
+	if (wakeup == ERTS_THR_PRGR_INVALID)
+	    wakeup = erts_thr_progress_later_than(thr_prgr_current(awdp));
+	awdp->dd.thr_prgr = wakeup;
 	set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD_THR_PRGR);
-	awdp->dd.thr_prgr = erts_thr_progress_later();
-	erts_thr_progress_wakeup(awdp->esdp, awdp->dd.thr_prgr);
+	awdp->dd.thr_prgr = wakeup;
+	erts_thr_progress_wakeup(awdp->esdp, wakeup);
     }
     else if (awdp->dd.completed_callback) {
 	awdp->dd.completed_callback(awdp->dd.completed_arg);
@@ -1004,8 +1032,10 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     ErtsSchedulerSleepInfo *ssi;
     int need_thr_progress;
     int more_work;
+    ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
+    ErtsThrPrgrVal current = thr_prgr_current(awdp);
 
-    if (!erts_thr_progress_has_reached(awdp->dd.thr_prgr))
+    if (!erts_thr_progress_has_reached_this(current, awdp->dd.thr_prgr))
 	return aux_work & ~ERTS_SSI_AUX_WORK_DD_THR_PRGR;
 
     ssi = awdp->ssi;
@@ -1014,6 +1044,7 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 
     erts_alloc_scheduler_handle_delayed_dealloc((void *) awdp->esdp,
 						&need_thr_progress,
+						&wakeup,
 						&more_work);
     if (more_work) {
 	set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD);
@@ -1023,8 +1054,10 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     }
 
     if (need_thr_progress) {
-	awdp->dd.thr_prgr = erts_thr_progress_later();
-	erts_thr_progress_wakeup(awdp->esdp, awdp->dd.thr_prgr);
+	if (wakeup == ERTS_THR_PRGR_INVALID)
+	    wakeup = erts_thr_progress_later_than(current);
+	awdp->dd.thr_prgr = wakeup;
+	erts_thr_progress_wakeup(awdp->esdp, wakeup);
     }
     else {
 	unset_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD_THR_PRGR);
@@ -1154,6 +1187,9 @@ handle_setup_aux_work_timer(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 static ERTS_INLINE erts_aint32_t
 handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 {
+#ifdef ERTS_SMP
+    thr_prgr_current_reset(awdp);
+#endif
     /*
      * Handlers are *only* allowed to modify flags in return value
      * and ssi flags that are explicity handled by the handler.

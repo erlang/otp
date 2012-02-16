@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -418,10 +418,9 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	    }
 
 	    if (q->head.unref_end == (ErtsThrQElement_t *) ilast)
-		ERTS_THR_MEMORY_BARRIER;
+		ERTS_SMP_MEMORY_BARRIER;
 	    else {
 		q->head.next.unref_end = (ErtsThrQElement_t *) ilast;
-		ERTS_THR_MEMORY_BARRIER;
 #ifdef ERTS_SMP
 		q->head.next.thr_progress = erts_thr_progress_later();
 #endif
