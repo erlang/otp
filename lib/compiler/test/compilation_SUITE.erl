@@ -159,6 +159,7 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 ?comp(convopts).
 ?comp(otp_7202).
 ?comp(on_load).
+?comp(on_load_inline).
 
 beam_compiler_7(doc) ->
     "Code snippet submitted from Ulf Wiger which fails in R3 Beam.";
