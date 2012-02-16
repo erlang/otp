@@ -844,7 +844,7 @@ name_to_pid(Name) ->
 	undefined ->
 	    case global:whereis_name(Name) of
 		undefined ->
-		    exit(could_not_find_registerd_name);
+		    exit(could_not_find_registered_name);
 		Pid ->
 		    Pid
 	    end;
