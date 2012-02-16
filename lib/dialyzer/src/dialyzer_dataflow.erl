@@ -272,46 +272,39 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
   debug_pp(Tree, false),
   Module = cerl:atom_val(cerl:module_name(Tree)),
   RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
-  RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
   BehaviourTranslations =
     case RaceDetection of
       true -> dialyzer_behaviours:translatable_behaviours(Tree);
       false -> []
     end,
   TopFun = cerl:ann_c_fun([{label, top}], [], Tree),
-  State = state__new(dialyzer_callgraph:race_code_new(Callgraph),
-		     TopFun, Plt, Module, Records, BehaviourTranslations),
+  State =
+    state__new(Callgraph, TopFun, Plt, Module, Records, BehaviourTranslations),
   State1 = state__race_analysis(not GetWarnings, State),
   State2 = analyze_loop(State1),
   case GetWarnings of
     true ->
       State3 = state__set_warning_mode(State2),
       State4 = analyze_loop(State3),
-      State5 = state__restore_race_code(RaceCode, State4),
 
       %% EXPERIMENTAL: Turn all behaviour API calls into calls to the
       %%               respective callback module's functions.
 
       case BehaviourTranslations of
-	[] -> dialyzer_races:race(State5);
+	[] -> dialyzer_races:race(State4);
 	Behaviours ->
-          Callgraph2 = State5#state.callgraph,
-          Digraph = dialyzer_callgraph:get_digraph(Callgraph2),
+          Digraph = dialyzer_callgraph:get_digraph(State4#state.callgraph),
 	  TranslatedCallgraph =
 	    dialyzer_behaviours:translate_callgraph(Behaviours, Module,
-						    Callgraph2),
+						    Callgraph),
           St =
-            dialyzer_races:race(State5#state{callgraph = TranslatedCallgraph}),
-          Callgraph3 = dialyzer_callgraph:put_digraph(Digraph,
-                                                      St#state.callgraph),
-          St#state{callgraph = Callgraph3}
+            dialyzer_races:race(State4#state{callgraph = TranslatedCallgraph}),
+          FinalCallgraph = dialyzer_callgraph:put_digraph(Digraph,
+							   St#state.callgraph),
+          St#state{callgraph = FinalCallgraph}
       end;
     false ->
-      Callgraph1 = State2#state.callgraph,
-      RaceCode1 = dialyzer_callgraph:get_race_code(Callgraph1),
-      state__restore_race_code(
-        dict:merge(fun (_K, V1, _V2) -> V1 end,
-                   RaceCode, RaceCode1), State2)
+      State2
   end.
 
 analyze_loop(#state{callgraph = Callgraph, races = Races} = State) ->
@@ -2904,10 +2897,6 @@ state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
   State#state{work = init_work([top|Funs--[top]]),
 	      fun_tab = FunTab, warning_mode = true,
               races = dialyzer_races:put_race_analysis(true, Races)}.
-
-state__restore_race_code(RaceCode, #state{callgraph = Callgraph} = State) ->
-  State#state{callgraph = dialyzer_callgraph:put_race_code(RaceCode,
-                                                           Callgraph)}.
 
 state__race_analysis(Analysis, #state{races = Races} = State) ->
   State#state{races = dialyzer_races:put_race_analysis(Analysis, Races)}.
