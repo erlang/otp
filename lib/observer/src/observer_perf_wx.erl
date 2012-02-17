@@ -39,6 +39,8 @@
 	  appmon
 	}).
 
+-define(wxGC, wxGraphicsContext).
+
 -record(paint, {font, small, pen, pen2, pens}).
 
 -define(RQ_W,  1).
@@ -74,11 +76,12 @@ init([Notebook, Parent]) ->
     wxPanel:connect(IO, paint, [callback]),
     wxPanel:connect(MEM, paint, [callback]),
 
-    DefFont  = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    DefSize = wxFont:getPointSize(DefFont),
-    DefFamily = wxFont:getFamily(DefFont),
-    Font = wxFont:new(DefSize, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
-    SmallFont = wxFont:new(10, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+    % DefFont  = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+    %% DefSize = wxFont:getPointSize(DefFont),
+    %% DefFamily = wxFont:getFamily(DefFont),
+    %% Font = wxFont:new(DefSize, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
+    Font = wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
+    SmallFont = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
     BlackPen = wxPen:new({0,0,0}, [{width, 2}]),
     Pens = [wxPen:new(Col, [{width, 2}]) || Col <- tuple_to_list(colors())],
     process_flag(trap_exit, true),
@@ -118,12 +121,14 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 	    Panel =:= element(?IO_W, Windows)  -> ?IO_W
 	 end,
     DC = wxPaintDC:new(Panel),
+    GC = ?wxGC:create(DC),
     %% Nothing is drawn until wxPaintDC is destroyed.
     try
-    draw(Offset, Id, DC, Panel, Paint, Data, Active)
+    draw(Offset, Id, GC, Panel, Paint, Data, Active)
     catch _:Err ->
 	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
+    ?wxGC:destroy(GC),
     wxPaintDC:destroy(DC),
     ok.
 %%%%%%%%%%
@@ -250,21 +255,22 @@ calc_delta([], []) -> [].
 draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) ->
     %% This can be optimized a lot by collecting data once
     %% and draw to memory and then blit memory and only draw new entries in new memory
-    %% area.
+    %% area.  Hmm now rewritten to use ?wxGC I don't now if it is feasable.
     {Len, Max0, Hs} = collect_data(Id, Data),
     Max = calc_max(Max0),
     NoGraphs = try tuple_size(hd(Hs)) catch _:_ -> 0 end,
     Size = wxWindow:getClientSize(Panel),
     {X0,Y0,WS,HS} = draw_borders(Id, NoGraphs, DC, Size, Max, Paint),
+    Last = 60*WS+X0-1,
     Start = max(61-Len, 0)*WS+X0 - Offset*WS,
     case Hs of
 	[] -> ignore;
 	[_] -> ignore;
 	_ ->
 	    Draw = fun(N) ->
-			   Lines = make_lines(Hs, Start, N, {X0,round(Max*HS)}, Y0, WS, HS),
-			   wxDC:setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
-			   wxDC:drawLines(DC, Lines),
+			   Lines = make_lines(Hs, Start, N, {X0,Max*HS,Last}, Y0, WS, HS),
+			   ?wxGC:setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
+			   ?wxGC:strokeLines(DC, Lines),
 			   N+1
 		   end,
 	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)]
@@ -272,9 +278,8 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
     case Active of
 	false ->
 	    NotActive = "Service not available",
-	    wxDC:setTextForeground(DC, {0,0,0}),
-	    wxDC:setFont(DC, Small),
-	    wxDC:drawText(DC, NotActive, {X0 + 100, element(2,Size) div 2});
+	    ?wxGC:setFont(DC, Small, {0,0,0}),
+	    ?wxGC:drawText(DC, NotActive, X0 + 100, element(2,Size) div 2);
 	true ->
 	    ignore
     end,
@@ -284,30 +289,30 @@ make_lines(Ds = [Data|_], PX, N, Clip, ZeroY, WS, HS) ->
     Y = element(N,Data),
     make_lines(Ds, PX, N, Clip, ZeroY, WS, HS, Y, []).
 
-make_lines([D1 | Ds = [D2|Rest]], PX, N, Clip={Cx,Cy}, ZeroY, WS, HS, Y0, Acc0) ->
+make_lines([D1 | Ds = [D2|Rest]], PX, N, Clip={Cx,Cy, _}, ZeroY, WS, HS, Y0, Acc0) ->
     Y1 = element(N,D1),
     Y2 = element(N,D2),
     Y3 = case Rest of
 	     [D3|_] -> element(N,D3);
 	     [] -> Y2
 	 end,
-    This = {max(Cx, round(PX)),ZeroY-min(Cy,round(Y1*HS))},
-    Acc = make_splines(Y0,Y1,Y2,Y3,PX,Clip,ZeroY,WS,HS,[This|Acc0]),
+    This = {max(Cx, PX),ZeroY-min(Cy,Y1*HS)},
+    Acc = if (abs(Y1-Y2) * HS) < 3.0 -> [This|Acc0];
+	     WS < 3.0 -> [This|Acc0];
+	     PX < Cx ->
+		  make_splines(Y0,Y1,Y2,Y3,PX,Clip,ZeroY,WS,HS,Acc0);
+	     true ->
+		  make_splines(Y0,Y1,Y2,Y3,PX,Clip,ZeroY,WS,HS,[This|Acc0])
+	  end,
     make_lines(Ds, PX+WS, N, Clip, ZeroY, WS, HS, Y1, Acc);
-make_lines([D1],  PX, N, _Clip, ZeroY, _WS, HS, _Y0, Acc) ->
+make_lines([D1],  _PX, N, {_,Cy,Last}, ZeroY, _WS, HS, _Y0, Acc) ->
     Y1 = element(N,D1),
-    [{round(PX),ZeroY-round(Y1*HS)}|Acc].
+    [{Last,ZeroY-min(Cy, Y1*HS)}|Acc].
 
-make_splines(_Y0,Y1,Y2,_Y3, _PX, _Clip,_ZeroY, _WS,HS, Acc)
-  when (abs(Y1-Y2) * HS) < 3.0  ->
-    Acc;
-make_splines(_Y0,_Y1,_Y2,_Y3, _PX, _Clip,_ZeroY, WS,_HS, Acc)
-  when WS < 3.0 ->
-    Acc;
 make_splines(Y00,Y10,Y20,Y30,PX,Clip,ZeroY,WS,HS,Acc) ->
     Y1 = Y10*HS,
     Y2 = Y20*HS,
-    Steps = round(min(abs(Y1-Y2), WS)),
+    Steps = min(abs(Y1-Y2), WS),
     if Steps > 2 ->
 	    Y0 = Y00*HS,
 	    Y3 = Y30*HS,
@@ -318,15 +323,15 @@ make_splines(Y00,Y10,Y20,Y30,PX,Clip,ZeroY,WS,HS,Acc) ->
 	    Acc
     end.
 
-splines(N, XD, XD0, Tan, Y1,Y2, PX0, Clip={Cx,Cy},ZeroY, WS, Acc) when N > 0 ->
+splines(N, XD, XD0, Tan, Y1,Y2, PX0, Clip={Cx,Cy,_},ZeroY, WS, Acc) when N > 0 ->
     PX = PX0+WS,
     Delta = XD+XD0,
     if PX < Cx ->
 	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, Clip,ZeroY, WS, Acc);
        true ->
-	    Y = min(Cy, max(0,round(spline(Delta, Tan, Y1,Y2)))),
+	    Y = min(Cy, max(0,spline(Delta, Tan, Y1,Y2))),
 	    splines(N-1, Delta, XD0, Tan, Y1, Y2, PX, Clip,ZeroY, WS,
-		    [{round(PX), ZeroY-Y}|Acc])
+		    [{PX, ZeroY-Y}|Acc])
     end;
 splines(_N, _XD, _XD0, _Tan, _Y1,_Y2, _PX, _Clip,_ZeroY, _WS, Acc) -> Acc.
 
@@ -357,8 +362,10 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
     Str1 = observer_lib:to_str(MaxUnit),
     Str2 = observer_lib:to_str(MaxUnit div 2),
     Str3 = observer_lib:to_str(0),
-    {TW,TH} = wxDC:getTextExtent(DC, Str1),
-    {SpaceW, _} = wxDC:getTextExtent(DC, " "),
+
+    ?wxGC:setFont(DC, Font, {0,0,0}),
+    {TW,TH,_,_} = ?wxGC:getTextExtent(DC, Str1),
+    {SpaceW, _,_,_} = ?wxGC:getTextExtent(DC, "W"),
 
     GraphX0 = ?BW+TW+?BW,
     GraphX1 = W-?BW*4,
@@ -366,60 +373,60 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
     MaxTextY = ?BH+TH+?BH,
     BottomTextY = H-?BH-TH,
     SecondsY = BottomTextY - ?BH - TH,
-    GraphY0 = MaxTextY + (TH div 2),
+    GraphY0 = MaxTextY + (TH / 2),
     GraphY1 = SecondsY - ?BH,
     GraphW = GraphX1-GraphX0-1,
     GraphH = GraphY1-GraphY0-1,
-    GraphY25 = GraphY0 + (GraphY1 - GraphY0) div 4,
-    GraphY50 = GraphY0 + (GraphY1 - GraphY0) div 2,
-    GraphY75 = GraphY0 + 3*(GraphY1 - GraphY0) div 4,
+    GraphY25 = GraphY0 + (GraphY1 - GraphY0) / 4,
+    GraphY50 = GraphY0 + (GraphY1 - GraphY0) / 2,
+    GraphY75 = GraphY0 + 3*(GraphY1 - GraphY0) / 4,
     ScaleW = GraphW / 60,
     ScaleH = GraphH / Max,
 
-    wxDC:setFont(DC, Small),
+    ?wxGC:setFont(DC, Small, {0,0,0}),
     Align = fun(Str, Y) ->
-		    {StrW, _} = wxDC:getTextExtent(DC, Str),
-		    wxDC:drawText(DC, Str, {GraphX0 - StrW - ?BW, Y})
+		    {StrW, _, _, _} = ?wxGC:getTextExtent(DC, Str),
+		    ?wxGC:drawText(DC, Str, GraphX0 - StrW - ?BW, Y)
 	    end,
     Align(Str1, MaxTextY),
-    Align(Str2, GraphY50 - (TH div 2)),
-    Align(Str3, GraphY1 - (TH div 2) + 1),
+    Align(Str2, GraphY50 - (TH / 2)),
+    Align(Str3, GraphY1 - (TH / 2) + 1),
 
-    wxDC:setPen(DC, Pen),
+    ?wxGC:setPen(DC, Pen),
     DrawSecs = fun(Secs, Pos) ->
 		       Str = [observer_lib:to_str(Secs)|" s"],
-		       X = round(GraphX0+Pos),
-		       wxDC:drawText(DC, Str,  {X-SpaceW, SecondsY}),
-		       wxDC:drawLine(DC, {X, GraphY0}, {X, GraphY1+5}),
+		       X = GraphX0+Pos,
+		       ?wxGC:drawText(DC, Str,  X-SpaceW, SecondsY),
+		       ?wxGC:strokeLine(DC, X, GraphY0, X, GraphY1+5),
 		       Pos + 10*ScaleW
 	       end,
     lists:foldl(DrawSecs, 0, lists:seq(60,0, -10)),
 
-    wxDC:drawLine(DC, {GraphX0-3, GraphY25}, {GraphX1, GraphY25}),
-    wxDC:drawLine(DC, {GraphX0-3, GraphY50}, {GraphX1, GraphY50}),
-    wxDC:drawLine(DC, {GraphX0-3, GraphY75}, {GraphX1, GraphY75}),
+    ?wxGC:strokeLine(DC, GraphX0-3, GraphY25, GraphX1, GraphY25),
+    ?wxGC:strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
+    ?wxGC:strokeLine(DC, GraphX0-3, GraphY75, GraphX1, GraphY75),
 
-    wxDC:setPen(DC, Pen2),
-    wxDC:drawLines(DC, [{GraphX0, GraphY0-1}, {GraphX0, GraphY1+1},
-			{GraphX1, GraphY1+1}, {GraphX1, GraphY0-1},
-			{GraphX0, GraphY0-1}]),
+    ?wxGC:setPen(DC, Pen2),
+    ?wxGC:strokeLines(DC, [{GraphX0, GraphY0-1}, {GraphX0, GraphY1+1},
+			   {GraphX1, GraphY1+1}, {GraphX1, GraphY0-1},
+			   {GraphX0, GraphY0-1}]),
 
-    wxDC:setFont(DC, Font),
+    ?wxGC:setFont(DC, Font, {0,0,0}),
     case Type of
-	?RQ_W ->  wxDC:drawText(DC, "Scheduler Utilization (%) ", {TopTextX,?BH});
-	?MEM_W -> wxDC:drawText(DC, "Memory Usage " ++ Unit, {TopTextX,?BH});
-	?IO_W ->  wxDC:drawText(DC, "IO Usage " ++ Unit, {TopTextX,?BH})
+	?RQ_W ->  ?wxGC:drawText(DC, "Scheduler Utilization (%) ", TopTextX,?BH);
+	?MEM_W -> ?wxGC:drawText(DC, "Memory Usage " ++ Unit, TopTextX,?BH);
+	?IO_W ->  ?wxGC:drawText(DC, "IO Usage " ++ Unit, TopTextX,?BH)
     end,
 
     Text = fun(X,Y, Str, PenId) ->
 		   if PenId == 0 ->
-			   wxDC:setTextForeground(DC, {0,0,0});
+			   ?wxGC:setFont(DC, Font, {0,0,0});
 		      PenId > 0 ->
 			   Id = 1 + ((PenId-1) rem tuple_size(colors())),
-			   wxDC:setTextForeground(DC, element(Id, colors()))
+			   ?wxGC:setFont(DC, Font, element(Id, colors()))
 		   end,
-		   wxDC:drawText(DC, Str, {X, Y}),
-		   {StrW, _} = wxDC:getTextExtent(DC, Str),
+		   ?wxGC:drawText(DC, Str, X, Y),
+		   {StrW, _, _, _} = ?wxGC:getTextExtent(DC, Str),
 		   StrW + X + SpaceW
 	   end,
     case Type of
