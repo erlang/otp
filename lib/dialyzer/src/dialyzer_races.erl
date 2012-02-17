@@ -347,6 +347,7 @@ fixup_race_list(RaceWarnTag, WarnVarArgs, State) ->
   DepList2 =
     fixup_race_list_helper(NewParents, Calls, CurrFun, WarnVarArgs,
                            RaceWarnTag, NewState),
+  dialyzer_dataflow:dispose_state(CleanState),
   lists:usort(cleanup_dep_calls(DepList1 ++ DepList2)).
 
 fixup_race_list_helper(Parents, Calls, CurrFun, WarnVarArgs, RaceWarnTag,
@@ -381,13 +382,15 @@ fixup_race_forward_pullout(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                            InitFun, WarnVarArgs, RaceWarnTag, RaceVarMap,
                            FunDefVars, FunCallVars, FunArgTypes, NestingLevel,
                            State) ->
+  TState = dialyzer_dataflow:state__duplicate(State),
   {DepList, NewCurrFun, NewCurrFunLabel, NewCalls,
    NewCode, NewRaceList, NewRaceVarMap, NewFunDefVars,
    NewFunCallVars, NewFunArgTypes, NewNestingLevel} =
     fixup_race_forward(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                        InitFun, WarnVarArgs, RaceWarnTag, RaceVarMap,
                        FunDefVars, FunCallVars, FunArgTypes, NestingLevel,
-                       cleanup_race_code(State)),
+                       cleanup_race_code(TState)),
+  dialyzer_dataflow:dispose_state(TState),
   case NewCode of
     [] -> DepList;
     [#fun_call{caller = NewCurrFun, callee = Call, arg_types = FunTypes,

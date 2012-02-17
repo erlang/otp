@@ -32,6 +32,7 @@
 
 %% Data structure interfaces.
 -export([state__add_warning/2, state__cleanup/1,
+	 state__duplicate/1, dispose_state/1,
          state__get_callgraph/1, state__get_races/1,
          state__get_records/1, state__put_callgraph/2,
          state__put_races/2, state__records_only/1]).
@@ -3248,6 +3249,16 @@ state__cleanup(#state{callgraph = Callgraph,
   #state{callgraph = dialyzer_callgraph:cleanup(Callgraph),
          races = dialyzer_races:cleanup(Races),
          records = Records}.
+
+-spec state__duplicate(state()) -> state().
+
+state__duplicate(#state{callgraph = Callgraph} = State) ->
+  State#state{callgraph = dialyzer_callgraph:duplicate(Callgraph)}.
+
+-spec dispose_state(state()) -> ok.
+
+dispose_state(#state{callgraph = Callgraph}) ->
+  dialyzer_callgraph:dispose_race_server(Callgraph).
 
 -spec state__get_callgraph(state()) -> dialyzer_callgraph:callgraph().
 
