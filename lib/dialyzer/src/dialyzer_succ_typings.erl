@@ -31,7 +31,9 @@
 	 analyze_callgraph/4,
 	 get_warnings/6,
 	 find_succ_types_for_scc/1,
+	 refine_one_module/1,
 	 collect_scc_data/2,
+	 collect_refine_scc_data/2,
 	 find_required_by/2,
 	 find_depends_on/2
 	]).
@@ -98,9 +100,10 @@ get_refined_success_typings(SCCs, State) ->
     {not_fixpoint, NotFixpoint1, State1} ->
       Callgraph = State1#st.callgraph,
       NotFixpoint2 = [lookup_name(F, Callgraph) || F <- NotFixpoint1],
-      ModulePostorder = 
+      {ModulePostorder, ModCallgraph} =
 	dialyzer_callgraph:module_postorder_from_funs(NotFixpoint2, Callgraph),
-      case refine_succ_typings(ModulePostorder, State1) of
+      ModState = State1#st{callgraph = ModCallgraph},
+      case refine_succ_typings(ModulePostorder, ModState) of
 	{fixpoint, State2} ->
 	  State2;
 	{not_fixpoint, NotFixpoint3, State2} ->
@@ -187,23 +190,27 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
 postprocess_dataflow_warns([W|Rest], State, Wacc, Acc) ->
   postprocess_dataflow_warns(Rest, State, Wacc, [W|Acc]).
   
-refine_succ_typings(ModulePostorder, State) ->
+refine_succ_typings(ModulePostorder, #st{codeserver = Codeserver,
+					 callgraph = Callgraph,
+					 plt = Plt} = State) ->
   ?debug("Module postorder: ~p\n", [ModulePostorder]),
-  refine_succ_typings(ModulePostorder, State, []).
+  Servers = {Codeserver, Callgraph, Plt},
+  Coordinator = dialyzer_coordinator:start(dataflow, Servers),
+  refine_succ_typings(ModulePostorder, State, Coordinator).
 
-refine_succ_typings([M|Rest], State, Fixpoint) ->
-  #st{callgraph = Callgraph, codeserver = CodeServer, plt = PLT} = State,
+refine_succ_typings([M|Rest], State, Coordinator) ->
   Msg = io_lib:format("Dataflow of module: ~w\n", [M]),
   send_log(State#st.parent, Msg),
   ?debug("~s\n", [Msg]),
-  Data = collect_refine_scc_data(M, {CodeServer, Callgraph, PLT}),
-  FixpointFromScc = refine_one_module(Data),
-  NewFixpoint = ordsets:union(Fixpoint, FixpointFromScc),
-  refine_succ_typings(Rest, State, NewFixpoint);
-refine_succ_typings([], State, Fixpoint) ->
-  case Fixpoint =:= [] of
+  dialyzer_coordinator:scc_spawn(M, Coordinator),
+  refine_succ_typings(Rest, State, Coordinator);
+refine_succ_typings([], State, Coordinator) ->
+  dialyzer_coordinator:all_spawned(Coordinator),
+  NotFixpoint = dialyzer_coordinator:receive_not_fixpoint(),
+  ?debug("==================== Dataflow done ====================\n\n", []),
+  case NotFixpoint =:= [] of
     true -> {fixpoint, State};
-    false -> {not_fixpoint, Fixpoint, State}
+    false -> {not_fixpoint, NotFixpoint, State}
   end.
 
 -type servers()         :: term().
@@ -303,7 +310,7 @@ compare_types_1([], [], _Strict, NotFixpoint) ->
 find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 			    plt = Plt} = State) ->
   Servers = {Codeserver, dialyzer_callgraph:mini_callgraph(Callgraph), Plt},
-  Coordinator = dialyzer_coordinator:start(Servers),
+  Coordinator = dialyzer_coordinator:start(typesig, Servers),
   find_succ_typings(SCCs, State, Coordinator).
 
 find_succ_typings([SCC|Rest], #st{parent = Parent} = State, Coordinator) ->

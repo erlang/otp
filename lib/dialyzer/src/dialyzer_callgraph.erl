@@ -262,9 +262,8 @@ module_postorder(#callgraph{digraph = DG}) ->
   MDG = digraph:new([acyclic]),
   MDG1 = digraph_confirm_vertices(Nodes, MDG),
   MDG2 = create_module_digraph(Edges, MDG1),
-  PostOrder = digraph_utils:postorder(MDG2),
-  digraph:delete(MDG2),
-  PostOrder.
+  PostOrder = digraph_utils:topsort(MDG2),
+  {PostOrder, MDG2}.
 
 %% The module deps of a module are modules that depend on the module
 -spec module_deps(callgraph()) -> dict().
@@ -341,9 +340,9 @@ reset_from_funs(Funs, #callgraph{digraph = DG,
 
 module_postorder_from_funs(Funs, #callgraph{digraph = DG} = CG) ->
   SubGraph = digraph_reaching_subgraph(Funs, DG),
-  PO = module_postorder(CG#callgraph{digraph = SubGraph}),
+  {PO, Active} = module_postorder(CG#callgraph{digraph = SubGraph}),
   digraph_delete(SubGraph),
-  PO.
+  {PO, CG#callgraph{active_digraph = Active}}.
 
 ets_lookup_dict(Key, Table) ->
   try ets:lookup_element(Table, Key, 2) of

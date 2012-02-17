@@ -20,11 +20,12 @@
 
 -module(dialyzer_worker).
 
--export([launch/2]).
+-export([launch/3]).
 
 -type worker() :: pid().
 
 -record(state, {
+	  mode             :: dialyzer_coordinator:mode(),
 	  scc         = [] :: mfa_or_funlbl(),
 	  depends_on  = [] :: list(),
 	  coordinator      :: dialyzer_coordinator:coordinator(),
@@ -44,10 +45,12 @@
 
 %%--------------------------------------------------------------------
 
--spec launch([mfa_or_funlbl()], dialyzer_typesig:servers()) -> worker().
+-spec launch(dialyzer_coordinator:mode(), [mfa_or_funlbl()],
+	     dialyzer_typesig:servers()) -> worker().
 
-launch(SCC, Servers) ->
-  State = #state{scc         = SCC,
+launch(Mode, SCC, Servers) ->
+  State = #state{mode        = Mode,
+		 scc         = SCC,
 		 servers     = Servers,
 		 coordinator = self()},
   spawn(fun() -> loop(initializing, State) end).
@@ -81,13 +84,13 @@ loop(waiting, State) ->
   loop(updating, NewState);
 loop(getting_data, State) ->
   ?debug("Data: ~p\n",[State#state.scc]),
-  loop(updating, get_typesig_data(State));
+  loop(updating, get_data(State));
 loop(running, State) ->
   ?debug("Run: ~p\n",[State#state.scc]),
   ok = ask_coordinator_for_callers(State),
-  NotFixpoint = find_succ_typings(State),
+  NotFixpoint = do_work(State),
   Callers = get_callers_reply_from_coordinator(),
-  ok = broadcast_own_succ_typings(State, Callers),
+  ok = broadcast_done(State, Callers),
   report_to_coordinator(NotFixpoint, State).
 
 waits_more_success_typings(#state{depends_on = Depends}) ->
@@ -103,8 +106,13 @@ has_data(#state{scc_data = Data}) ->
     _ -> true
   end.
 
-get_typesig_data(#state{scc = SCC, servers = Servers} = State) ->
-  State#state{scc_data = dialyzer_succ_typings:collect_scc_data(SCC, Servers)}.
+get_data(#state{mode = Mode, scc = SCC, servers = Servers} = State) ->
+  Data =
+    case Mode of
+      typesig -> dialyzer_succ_typings:collect_scc_data(SCC, Servers);
+      dataflow -> dialyzer_succ_typings:collect_refine_scc_data(SCC, Servers)
+    end,
+  State#state{scc_data = Data}.
 
 ask_coordinator_for_callers(#state{scc = SCC,
 				   servers = Servers,
@@ -117,7 +125,7 @@ ask_coordinator_for_callers(#state{scc = SCC,
 get_callers_reply_from_coordinator() ->
   dialyzer_coordinator:sccs_to_pids_reply().
 
-broadcast_own_succ_typings(#state{scc = SCC}, Callers) ->
+broadcast_done(#state{scc = SCC}, Callers) ->
   ?debug("Sending ~p: ~p\n",[SCC, Callers]),
   SendSTFun = fun(PID) -> PID ! {done, SCC} end,
   lists:foreach(SendSTFun, Callers).
@@ -133,8 +141,11 @@ wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
       State
   end.
 
-find_succ_typings(#state{scc_data = SCCData}) ->
-  dialyzer_succ_typings:find_succ_types_for_scc(SCCData).
+do_work(#state{mode = Mode, scc_data = SCCData}) ->
+  case Mode of
+    typesig -> dialyzer_succ_typings:find_succ_types_for_scc(SCCData);
+    dataflow -> dialyzer_succ_typings:refine_one_module(SCCData)
+  end.
 
 report_to_coordinator(NotFixpoint,
 		      #state{scc = SCC, coordinator = Coordinator}) ->

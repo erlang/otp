@@ -52,7 +52,7 @@
 	 scc_spawn/2,
 	 sccs_to_pids_reply/0,
 	 sccs_to_pids_request/2,
-	 start/1,
+	 start/2,
 	 receive_not_fixpoint/0
 	]).
 
@@ -64,8 +64,10 @@
 -type coordinator() :: pid().
 -type map() :: dict().
 -type scc() :: [mfa_or_funlbl()].
+-type mode()   :: typesig | dataflow.
 
 -record(state, {parent                   :: pid(),
+		mode                     :: mode(),
 		spawn_count  = 0         :: integer(),
 		all_spawned  = false     :: boolean(),
 		scc_to_pid   = new_map() :: map(),
@@ -77,10 +79,10 @@
 
 %%--------------------------------------------------------------------
 
--spec start(dialyzer_typesig:servers()) -> pid().
+-spec start(mode(), dialyzer_typesig:servers()) -> pid().
 
-start(Servers) ->
-    {ok, Pid} = gen_server:start(?MODULE, {self(), Servers}, []),
+start(Mode, Servers) ->
+    {ok, Pid} = gen_server:start(?MODULE, {self(), Mode, Servers}, []),
     Pid.
 
 -spec scc_spawn(scc(), coordinator()) -> ok.
@@ -123,10 +125,10 @@ receive_not_fixpoint() ->
 
 %%--------------------------------------------------------------------
 
--spec init([]) -> {ok, #state{}}.
+-spec init({pid(), mode(), dialyzer_succ_typings:servers()}) -> {ok, #state{}}.
 
-init({Parent, Servers}) ->
-    {ok, #state{parent = Parent, servers = Servers}}.
+init({Parent, Mode, Servers}) ->
+    {ok, #state{parent = Parent, mode = Mode, servers = Servers}}.
 
 -spec handle_call(Query::term(), From::term(), #state{}) ->
         {reply, Reply::term(), #state{}}.
@@ -175,11 +177,12 @@ handle_cast({sccs_to_pids, SCCs, Worker},
     scc_to_pids_request_handle(Worker, SCCs, SCCtoPID),
     {noreply, State};
 handle_cast({scc_spawn, SCC},
-	    #state{servers = Servers,
+	    #state{mode = Mode,
+		   servers = Servers,
 		   spawn_count = SpawnCount,
 		   scc_to_pid = SCCtoPID
 		  } = State) ->
-    Pid = dialyzer_worker:launch(SCC, Servers),
+    Pid = dialyzer_worker:launch(Mode, SCC, Servers),
     {noreply,
      State#state{spawn_count = SpawnCount + 1,
 		 scc_to_pid = store_map(SCC, Pid, SCCtoPID)}
