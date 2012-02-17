@@ -340,7 +340,7 @@ verify_sig(SessionId, User, Service, Alg, KeyBlob, SigWLen, Opts) ->
 	      ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
 	    ssh_transport:verify(PlainText, sha, Sig, Key);
 	false ->
-	    {error, key_unacceptable}
+	    false
     end.
 
 build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->

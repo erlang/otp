@@ -41,7 +41,7 @@
 -export([hello/2, kexinit/2, key_exchange/2, new_keys/2,
 	 userauth/2, connected/2]).
 
--export([init/1, state_name/3, handle_event/3,
+-export([init/1, handle_event/3,
 	 handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
 %% spawn export
@@ -110,18 +110,23 @@ init([Role, Manager, Socket, SshOpts]) ->
     ssh_bits:install_messages(ssh_transport:transport_messages(NumVsn)),
     {Protocol, Callback, CloseTag} = 
 	proplists:get_value(transport, SshOpts, {tcp, gen_tcp, tcp_closed}),
-    Ssh = init_ssh(Role, NumVsn, StrVsn, SshOpts, Socket),
-    {ok, hello, #state{ssh_params = 
-		       Ssh#ssh{send_sequence = 0, recv_sequence = 0}, 
-		       socket = Socket,
-		       decoded_data_buffer = <<>>,
-		       encoded_data_buffer = <<>>,
-		       transport_protocol = Protocol, 
-		       transport_cb = Callback,
-		       transport_close_tag = CloseTag,
-		       manager = Manager,
-		       opts = SshOpts
-		      }}.
+    try init_ssh(Role, NumVsn, StrVsn, SshOpts, Socket) of
+	Ssh ->
+	    {ok, hello, #state{ssh_params =
+				   Ssh#ssh{send_sequence = 0, recv_sequence = 0},
+			       socket = Socket,
+			       decoded_data_buffer = <<>>,
+			       encoded_data_buffer = <<>>,
+			       transport_protocol = Protocol,
+			       transport_cb = Callback,
+			       transport_close_tag = CloseTag,
+			       manager = Manager,
+			       opts = SshOpts
+			      }}
+    catch
+	exit:Reason ->
+	    {stop, {shutdown, Reason}}
+    end.
 %%--------------------------------------------------------------------
 %% Function: 
 %% state_name(Event, State) -> {next_state, NextStateName, NextState}|
@@ -179,7 +184,12 @@ kexinit({#ssh_msg_kexinit{} = Kex, Payload},
 	     next_packet(State#state{ssh_params = Ssh})}
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State)
     end.
     
 key_exchange(#ssh_msg_kexdh_init{} = Msg, 
@@ -192,7 +202,12 @@ key_exchange(#ssh_msg_kexdh_init{} = Msg,
 	    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	      handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State)
     end;
   
 key_exchange(#ssh_msg_kexdh_reply{} = Msg, 
@@ -203,7 +218,12 @@ key_exchange(#ssh_msg_kexdh_reply{} = Msg,
 	    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 
 key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg, 
@@ -216,7 +236,12 @@ key_exchange(#ssh_msg_kex_dh_gex_group{} = Msg,
 	    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 
 key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg, 
@@ -227,7 +252,12 @@ key_exchange(#ssh_msg_kex_dh_gex_request{} = Msg,
 	    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 key_exchange(#ssh_msg_kex_dh_gex_reply{} = Msg, 
 	     #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
@@ -237,7 +267,12 @@ key_exchange(#ssh_msg_kex_dh_gex_reply{} = Msg,
 	    {next_state, new_keys, next_packet(State#state{ssh_params = Ssh})}
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State)
     end.
 
 new_keys(#ssh_msg_newkeys{} = Msg, #state{ssh_params = Ssh0} = State0) ->
@@ -249,7 +284,12 @@ new_keys(#ssh_msg_newkeys{} = Msg, #state{ssh_params = Ssh0} = State0) ->
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
 	    handle_disconnect(DisconnectMsg, State0),
-	    {stop, normal, State0}
+	    {stop, normal, State0};
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+						  description = Desc,
+						  language = "en"}, State0)
     end.
 
 userauth(#ssh_msg_service_request{name = "ssh-userauth"} = Msg, 
@@ -262,7 +302,12 @@ userauth(#ssh_msg_service_request{name = "ssh-userauth"} = Msg,
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
     catch 	
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 
 userauth(#ssh_msg_service_accept{name = "ssh-userauth"},  
@@ -284,7 +329,12 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
            {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
     catch 
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 
 userauth(#ssh_msg_userauth_request{service = "ssh-connection",
@@ -307,7 +357,12 @@ userauth(#ssh_msg_userauth_request{service = "ssh-connection",
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})} 
     catch 	
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	  handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 
 userauth(#ssh_msg_userauth_info_request{} = Msg, 
@@ -319,7 +374,12 @@ userauth(#ssh_msg_userauth_info_request{} = Msg,
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
     catch 	
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 
 userauth(#ssh_msg_userauth_info_response{} = Msg, 
@@ -330,7 +390,12 @@ userauth(#ssh_msg_userauth_info_response{} = Msg,
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
     catch 	
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State)
+	    handle_disconnect(DisconnectMsg, State);
+	_:Error ->
+	    Desc = log_error(Error),
+	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
+						  description = Desc,
+						  language = "en"}, State)
     end;
 			
 userauth(#ssh_msg_userauth_success{}, #state{ssh_params = #ssh{role = client},
@@ -396,25 +461,6 @@ userauth(#ssh_msg_userauth_banner{message = Msg},
 
 connected({#ssh_msg_kexinit{}, _Payload} = Event, State) ->
     kexinit(Event, State#state{renegotiate = true}).
-
-%%--------------------------------------------------------------------
-%% Function:
-%% state_name(Event, From, State) -> {next_state, NextStateName, NextState} |
-%%                                   {next_state, NextStateName, 
-%%                                     NextState, Timeout} |
-%%                                   {reply, Reply, NextStateName, NextState}|
-%%                                   {reply, Reply, NextStateName, 
-%%                                    NextState, Timeout} |
-%%                                   {stop, Reason, NewState}|
-%%                                   {stop, Reason, Reply, NewState}
-%% Description: There should be one instance of this function for each
-%% possible state name. Whenever a gen_fsm receives an event sent using
-%% gen_fsm:sync_send_event/2,3, the instance of this function with the same
-%% name as the current state name StateName is called to handle the event.
-%%--------------------------------------------------------------------
-state_name(_Event, _From, State) ->
-    Reply = ok,
-    {reply, Reply, state_name, State}.
 
 %%--------------------------------------------------------------------
 %% Function: 
@@ -566,10 +612,9 @@ handle_info({Protocol, Socket, Data}, Statename,
 			   Statename, State);
 
 handle_info({CloseTag, _Socket}, _StateName, 
-	    #state{transport_close_tag = CloseTag, %%manager = Pid,
+	    #state{transport_close_tag = CloseTag,
 		   ssh_params = #ssh{role = _Role, opts = _Opts}} = State) ->
-    %%ok = ssh_connection_manager:delivered(Pid),
-    {stop, normal, State};
+    {stop, {shutdown, connection_lost}, State};
 handle_info(UnexpectedMessage, StateName, #state{ssh_params = SshParams} = State) ->
     Msg = lists:flatten(io_lib:format(
            "Unexpected message '~p' received in state '~p'\n"
@@ -603,12 +648,18 @@ terminate(shutdown, _, State) ->
 			    language = "en"},
     handle_disconnect(DisconnectMsg, State);
 
-terminate(Reason, _, State) ->
-    Desc = io_lib:format("Erlang ssh connection handler failed with reason: "
-			 "~p , please report this to erlang-bugs@erlang.org \n", 
-			 [Reason]),
+
+terminate({shutdown, connection_lost}, _, State) ->
     DisconnectMsg = 
 	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_CONNECTION_LOST,
+			    description = "Connection Lost",
+			    language = "en"},
+    handle_disconnect(DisconnectMsg, State);
+
+terminate(Reason, _, State) ->
+    Desc = log_error(Reason),
+    DisconnectMsg =
+	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
 			    description = Desc,
 			    language = "en"},
     handle_disconnect(DisconnectMsg, State).
@@ -928,3 +979,10 @@ ssh_info([peer | Rest], #ssh{peer = Peer} = SshParams, Acc) ->
 
 ssh_info([ _ | Rest], SshParams, Acc) ->
     ssh_info(Rest, SshParams, Acc).
+
+log_error(Reason) ->
+    Report = io_lib:format("Erlang ssh connection handler failed with reason: "
+			   "~p , please report this to erlang-bugs@erlang.org \n",
+			   [Reason]),
+    error_logger:error_report(Report),
+    "Internal error".

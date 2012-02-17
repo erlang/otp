@@ -362,11 +362,11 @@ server_password_option(Config) when is_list(Config) ->
 					  {user_interaction, false},
 					  {user_dir, UserDir}]),
     {error, Reason} =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "vego"},
-					  {password, "foo"},
-					  {user_interaction, false},
-					  {user_dir, UserDir}]),
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+				 {user, "vego"},
+				 {password, "foo"},
+				 {user_interaction, false},
+				 {user_dir, UserDir}]),
     
     test_server:format("Test of wrong password: Error msg: ~p ~n", [Reason]),
 
@@ -397,21 +397,21 @@ server_userpassword_option(Config) when is_list(Config) ->
     ssh:close(ConnectionRef),
 
     {error, Reason0} =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "foo"},
-					  {password, "morot"},
-					  {user_interaction, false},
-					  {user_dir, UserDir}]),
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+				 {user, "foo"},
+				 {password, "morot"},
+				 {user_interaction, false},
+				 {user_dir, UserDir}]),
     
     test_server:format("Test of user foo that does not exist. "
 		       "Error msg: ~p ~n", [Reason0]),
 
     {error, Reason1} =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "vego"},
-					  {password, "foo"},
-					  {user_interaction, false},
-					  {user_dir, UserDir}]),
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+				 {user, "vego"},
+				 {password, "foo"},
+				 {user_interaction, false},
+				 {user_dir, UserDir}]),
     test_server:format("Test of wrong Password. "
 		       "Error msg: ~p ~n", [Reason1]),
     

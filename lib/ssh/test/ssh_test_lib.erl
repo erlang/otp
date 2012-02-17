@@ -43,12 +43,8 @@ connect(Host, Options) ->
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
 connect(Host, Port, Options) ->
-    case ssh:connect(Host, Port, Options) of
-	{ok, ConnectionRef} ->
-	    ConnectionRef;
-	Error ->
-	    Error
-    end.
+    {ok, ConnectionRef} = ssh:connect(Host, Port, Options),
+    ConnectionRef.
 
 daemon(Options) ->
     daemon(any, inet_port(), Options).
