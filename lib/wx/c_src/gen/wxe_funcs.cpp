@@ -5334,14 +5334,18 @@ case wxDC_GetCharWidth: { // wxDC::GetCharWidth
  break;
 }
 case wxDC_GetClippingBox: { // wxDC::GetClippingBox
+ wxCoord x;
+ wxCoord y;
+ wxCoord w;
+ wxCoord h;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
- int * rectX = (int *) bp; bp += 4;
- int * rectY = (int *) bp; bp += 4;
- int * rectW = (int *) bp; bp += 4;
- int * rectH = (int *) bp; bp += 4;
- wxRect rect = wxRect(*rectX,*rectY,*rectW,*rectH);
  if(!This) throw wxe_badarg(0);
- This->GetClippingBox(rect);
+ This->GetClippingBox(&x,&y,&w,&h);
+ rt.addInt(x);
+ rt.addInt(y);
+ rt.addInt(w);
+ rt.addInt(h);
+ rt.addTupleCount(4);
  break;
 }
 case wxDC_GetFont: { // wxDC::GetFont
@@ -5405,17 +5409,16 @@ case wxDC_GetMultiLineTextExtent_1: { // wxDC::GetMultiLineTextExtent
  break;
 }
 case wxDC_GetPartialTextExtents: { // wxDC::GetPartialTextExtents
+ wxArrayInt widths;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
  bp += *textLen+((8-((0+ *textLen) & 7)) & 7);
- int * widthsLen = (int *) bp; bp += 4;
- wxArrayInt widths;
- for(int i=0; i < *widthsLen; i++) {  widths.Add(*(int *) bp); bp += 4;}
- bp += ((*widthsLen + 1) % 2 )*4;
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetPartialTextExtents(text,widths);
  rt.addBool(Result);
+ rt.add(widths);
+ rt.addTupleCount(2);
  break;
 }
 case wxDC_GetPen: { // wxDC::GetPen
@@ -5426,18 +5429,16 @@ case wxDC_GetPen: { // wxDC::GetPen
  break;
 }
 case wxDC_GetPixel: { // wxDC::GetPixel
+ wxColour col;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * ptX = (int *) bp; bp += 4;
  int * ptY = (int *) bp; bp += 4;
  wxPoint pt = wxPoint(*ptX,*ptY);
- int * colR = (int *) bp; bp += 4;
- int * colG = (int *) bp; bp += 4;
- int * colB = (int *) bp; bp += 4;
- int * colA = (int *) bp; bp += 4;
- wxColour col = wxColour(*colR,*colG,*colB,*colA);
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetPixel(pt,&col);
  rt.addBool(Result);
+ rt.add(col);
+ rt.addTupleCount(2);
  break;
 }
 case wxDC_GetPPI: { // wxDC::GetPPI
@@ -6376,23 +6377,15 @@ case wxGraphicsContext_StrokePath: { // wxGraphicsContext::StrokePath
  This->StrokePath(*path);
  break;
 }
-case wxGraphicsContext_GetNativeContext: { // wxGraphicsContext::GetNativeContext
- wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- if(!This) throw wxe_badarg(0);
- This->GetNativeContext();
- break;
-}
 case wxGraphicsContext_GetPartialTextExtents: { // wxGraphicsContext::GetPartialTextExtents
+ wxArrayDouble widths;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
  bp += *textLen+((8-((0+ *textLen) & 7)) & 7);
- int * widthsLen = (int *) bp; bp += 4;
- bp += 4; /* Align */
- wxArrayDouble widths;
- for(int i=0; i < *widthsLen; i++) {  widths.Add(*(int *) bp); bp += 4;}
  if(!This) throw wxe_badarg(0);
  This->GetPartialTextExtents(text,widths);
+ rt.add(widths);
  break;
 }
 case wxGraphicsContext_GetTextExtent: { // wxGraphicsContext::GetTextExtent
@@ -6558,12 +6551,6 @@ case wxGraphicsMatrix_Get: { // wxGraphicsMatrix::Get
  rt.addFloat(tx);
  rt.addFloat(ty);
  rt.addTupleCount(6);
- break;
-}
-case wxGraphicsMatrix_GetNativeMatrix: { // wxGraphicsMatrix::GetNativeMatrix
- wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
- if(!This) throw wxe_badarg(0);
- This->GetNativeMatrix();
  break;
 }
 case wxGraphicsMatrix_Invert: { // wxGraphicsMatrix::Invert

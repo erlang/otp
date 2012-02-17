@@ -307,11 +307,6 @@ gen_dest(#class{name=CName,abstract=Abs}, Ms) ->
 	false ->
 	    case lists:keysearch(destructor,#method.method_type, lists:append(Ms)) of
 		{value, #method{method_type=destructor, id=Id}} ->
-		    case CName of
-			"wxGraphicsCo" ++ _ ->
-			    io:format("parents ~p~n",[parents(CName)]);
-			_ -> ok
-		    end,
 		    case hd(reverse(parents(CName))) of
 			object ->
 			    gen_dest2(CName, object);

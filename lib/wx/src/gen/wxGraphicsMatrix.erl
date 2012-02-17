@@ -27,8 +27,8 @@
 
 -module(wxGraphicsMatrix).
 -include("wxe.hrl").
--export([concat/2,get/1,getNativeMatrix/1,invert/1,isEqual/2,isIdentity/1,rotate/2,
-  scale/3,set/1,set/2,transformDistance/1,transformPoint/1,translate/3]).
+-export([concat/2,get/1,invert/1,isEqual/2,isIdentity/1,rotate/2,scale/3,set/1,
+  set/2,transformDistance/1,transformPoint/1,translate/3]).
 
 %% inherited exports
 -export([getRenderer/1,isNull/1,parent_class/1]).
@@ -55,14 +55,6 @@ concat(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=TT,ref=TRef}) ->
 get(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:call(?wxGraphicsMatrix_Get,
-  <<ThisRef:32/?UI>>).
-
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixgetnativematrix">external documentation</a>.
--spec getNativeMatrix(This) -> ok when
-	This::wxGraphicsMatrix().
-getNativeMatrix(#wx_ref{type=ThisT,ref=ThisRef}) ->
-  ?CLASS(ThisT,wxGraphicsMatrix),
-  wxe_util:cast(?wxGraphicsMatrix_GetNativeMatrix,
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html#wxgraphicsmatrixinvert">external documentation</a>.

@@ -32,10 +32,9 @@
   createPath/1,createPen/2,createRadialGradientBrush/8,destroy/1,drawBitmap/6,
   drawEllipse/5,drawIcon/6,drawLines/2,drawLines/3,drawPath/2,drawPath/3,
   drawRectangle/5,drawRoundedRectangle/6,drawText/4,drawText/5,drawText/6,
-  fillPath/2,fillPath/3,getNativeContext/1,getPartialTextExtents/3,
-  getTextExtent/2,getTransform/1,resetClip/1,rotate/2,scale/3,setBrush/2,
-  setFont/2,setFont/3,setPen/2,setTransform/2,strokeLine/5,strokeLines/2,
-  strokePath/2,translate/3]).
+  fillPath/2,fillPath/3,getPartialTextExtents/2,getTextExtent/2,getTransform/1,
+  resetClip/1,rotate/2,scale/3,setBrush/2,setFont/2,setFont/3,setPen/2,
+  setTransform/2,strokeLine/5,strokeLines/2,strokePath/2,translate/3]).
 
 %% inherited exports
 -export([getRenderer/1,isNull/1,parent_class/1]).
@@ -350,24 +349,15 @@ strokePath(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PathT,ref=PathRef}) ->
   wxe_util:cast(?wxGraphicsContext_StrokePath,
   <<ThisRef:32/?UI,PathRef:32/?UI>>).
 
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextgetnativecontext">external documentation</a>.
--spec getNativeContext(This) -> ok when
-	This::wxGraphicsContext().
-getNativeContext(#wx_ref{type=ThisT,ref=ThisRef}) ->
-  ?CLASS(ThisT,wxGraphicsContext),
-  wxe_util:cast(?wxGraphicsContext_GetNativeContext,
-  <<ThisRef:32/?UI>>).
-
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextgetpartialtextextents">external documentation</a>.
--spec getPartialTextExtents(This, Text, Widths) -> ok when
-	This::wxGraphicsContext(), Text::string(), Widths::[number()].
-getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text,Widths)
- when is_list(Text),is_list(Widths) ->
+-spec getPartialTextExtents(This, Text) -> [number()] when
+	This::wxGraphicsContext(), Text::string().
+getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
+ when is_list(Text) ->
   ?CLASS(ThisT,wxGraphicsContext),
   Text_UC = unicode:characters_to_binary([Text,0]),
-  wxe_util:cast(?wxGraphicsContext_GetPartialTextExtents,
-  <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8,(length(Widths)):32/?UI,
-0:32,  (<< <<C:64/?F>> || C <- Widths>>)/binary>>).
+  wxe_util:call(?wxGraphicsContext_GetPartialTextExtents,
+  <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextgettextextent">external documentation</a>.
 -spec getTextExtent(This, Text) -> Result when

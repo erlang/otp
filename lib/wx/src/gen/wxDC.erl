@@ -32,10 +32,10 @@
   drawPoint/2,drawPolygon/2,drawPolygon/3,drawRectangle/2,drawRectangle/3,
   drawRotatedText/4,drawRoundedRectangle/3,drawRoundedRectangle/4,
   drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,getBackground/1,
-  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/2,
+  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/1,
   getFont/1,getLayoutDirection/1,getLogicalFunction/1,getMapMode/1,
-  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/3,
-  getPen/1,getPixel/3,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
+  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/2,
+  getPen/1,getPixel/2,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
   getTextExtent/3,getTextForeground/1,getUserScale/1,gradientFillConcentric/4,
   gradientFillConcentric/5,gradientFillLinear/4,gradientFillLinear/5,
   isOk/1,logicalToDeviceX/2,logicalToDeviceXRel/2,logicalToDeviceY/2,
@@ -470,13 +470,13 @@ getCharWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetclippingbox">external documentation</a>.
--spec getClippingBox(This, Rect) -> ok when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
-getClippingBox(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
- when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
+-spec getClippingBox(This) -> Result when
+	Result ::{X::integer(), Y::integer(), W::integer(), H::integer()},
+	This::wxDC().
+getClippingBox(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
-  wxe_util:cast(?wxDC_GetClippingBox,
-  <<ThisRef:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI>>).
+  wxe_util:call(?wxDC_GetClippingBox,
+  <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetfont">external documentation</a>.
 -spec getFont(This) -> wxFont:wxFont() when
@@ -536,15 +536,15 @@ getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
   <<ThisRef:32/?UI,(byte_size(String_UC)):32/?UI,(String_UC)/binary, 0:(((8- ((0+byte_size(String_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetpartialtextextents">external documentation</a>.
--spec getPartialTextExtents(This, Text, Widths) -> boolean() when
-	This::wxDC(), Text::string(), Widths::[integer()].
-getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text,Widths)
- when is_list(Text),is_list(Widths) ->
+-spec getPartialTextExtents(This, Text) -> Result when
+	Result ::{Res ::boolean(), Widths::[integer()]},
+	This::wxDC(), Text::string().
+getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
+ when is_list(Text) ->
   ?CLASS(ThisT,wxDC),
   Text_UC = unicode:characters_to_binary([Text,0]),
   wxe_util:call(?wxDC_GetPartialTextExtents,
-  <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8,(length(Widths)):32/?UI,
-        (<< <<C:32/?I>> || C <- Widths>>)/binary, 0:(((1+length(Widths)) rem 2)*32)>>).
+  <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetpen">external documentation</a>.
 -spec getPen(This) -> wxPen:wxPen() when
@@ -555,13 +555,14 @@ getPen(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetpixel">external documentation</a>.
--spec getPixel(This, Pt, Col) -> boolean() when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:wx_colour().
-getPixel(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},Col)
- when is_integer(PtX),is_integer(PtY),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
+-spec getPixel(This, Pt) -> Result when
+	Result ::{Res ::boolean(), Col::wx:wx_colour()},
+	This::wxDC(), Pt::{X::integer(), Y::integer()}.
+getPixel(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
+ when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:call(?wxDC_GetPixel,
-  <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
+  <<ThisRef:32/?UI,PtX:32/?UI,PtY:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetppi">external documentation</a>.
 -spec getPPI(This) -> {W::integer(), H::integer()} when

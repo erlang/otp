@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -665,7 +665,11 @@ extract_type_info2("&",   Acc) -> [{by_ref,reference}|Acc];
 extract_type_info2("WXDLLIMP" ++ _, Acc) ->  Acc;
 extract_type_info2(Type,  Acc) -> [Type|Acc].
 
-parse_type2(["void"], _Info,  _Opts, _T) ->  void;
+parse_type2(["void"], _Info,  _Opts, #type{by_val=ByVal}) ->
+    case ByVal of
+	true ->  void;
+	false -> voidp
+    end;
 parse_type2(["virtual"|R], _Info,  _Opts, _T) ->  
     [] = R,
     %% Bug in old doxygen virtual destructors have type virtual
@@ -1106,6 +1110,7 @@ type_foot_print(#type{base={enum,_}}) ->  int;
 type_foot_print(#type{base={ref,_}}) ->   ref;
 type_foot_print(#type{base={term,_}}) ->  term;
 type_foot_print(#type{base=eventType}) -> atom;
+type_foot_print(voidp) -> int;
 %% type_foot_print({Type,Str}) when is_list(Str) ->
 %%     type_foot_print(Type);
 type_foot_print(#type{base={comp,_,R={record,_}}}) ->

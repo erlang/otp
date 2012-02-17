@@ -129,13 +129,17 @@ class EwxBufferedPaintDC : public wxBufferedPaintDC {
  EwxBufferedPaintDC(wxWindow * window,int style) : wxBufferedPaintDC(window,style) {};
 };
 
+#if wxUSE_GRAPHICS_CONTEXT
 class EwxGraphicsObject : public wxGraphicsObject {
  public: ~EwxGraphicsObject() {((WxeApp *)wxTheApp)->clearPtr(this);};
 };
+#endif // wxUSE_GRAPHICS_CONTEXT
 
+#if wxUSE_GRAPHICS_CONTEXT
 class EwxGraphicsContext : public wxGraphicsContext {
  public: ~EwxGraphicsContext() {((WxeApp *)wxTheApp)->clearPtr(this);};
 };
+#endif // wxUSE_GRAPHICS_CONTEXT
 
 class EwxMenuBar : public wxMenuBar {
  public: ~EwxMenuBar() {((WxeApp *)wxTheApp)->clearPtr(this);};
@@ -679,16 +683,20 @@ class EwxGLCanvas : public wxGLCanvas {
  EwxGLCanvas(wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style,const wxString& name,int * attribList,const wxPalette& palette) : wxGLCanvas(parent,id,pos,size,style,name,attribList,palette) {};
 };
 
+#if wxUSE_AUI
 class EwxAuiManager : public wxAuiManager {
  public: ~EwxAuiManager() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxAuiManager(wxWindow * managed_wnd,unsigned int flags) : wxAuiManager(managed_wnd,flags) {};
 };
+#endif // wxUSE_AUI
 
+#if wxUSE_AUI
 class EwxAuiNotebook : public wxAuiNotebook {
  public: ~EwxAuiNotebook() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxAuiNotebook(wxWindow * parent,wxWindowID id,const wxPoint& pos,const wxSize& size,long style) : wxAuiNotebook(parent,id,pos,size,style) {};
  EwxAuiNotebook() : wxAuiNotebook() {};
 };
+#endif // wxUSE_AUI
 
 class EwxMDIParentFrame : public wxMDIParentFrame {
  public: ~EwxMDIParentFrame() {((WxeApp *)wxTheApp)->clearPtr(this);};
