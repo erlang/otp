@@ -196,34 +196,53 @@ refine_succ_typings([M|Rest], State, Fixpoint) ->
   Msg = io_lib:format("Dataflow of module: ~w\n", [M]),
   send_log(State#st.parent, Msg),
   ?debug("~s\n", [Msg]),
-  {NewCallgraph, FixpointFromScc} =
-    refine_one_module(M, Callgraph, CodeServer, PLT),
+  Data = collect_refine_scc_data(M, {CodeServer, Callgraph, PLT}),
+  FixpointFromScc = refine_one_module(Data),
   NewFixpoint = ordsets:union(Fixpoint, FixpointFromScc),
-  refine_succ_typings(Rest, State#st{callgraph = NewCallgraph}, NewFixpoint);
+  refine_succ_typings(Rest, State, NewFixpoint);
 refine_succ_typings([], State, Fixpoint) ->
   case Fixpoint =:= [] of
     true -> {fixpoint, State};
     false -> {not_fixpoint, Fixpoint, State}
   end.
 
--spec refine_one_module(module(), dialyzer_callgraph:callgraph(),
-			dialyzer_codeserver:codeserver(), dialyzer_plt:plt()) ->
-        {dialyzer_callgraph:callgraph(), [label()]}. % ordset
+-type servers()         :: term().
+-type scc_data()        :: term().
+-type scc_refine_data() :: term().
+-type scc()             :: [mfa_or_funlbl()] | [module()].
 
-refine_one_module(M, Callgraph, CodeServer, PLT) ->
+-spec find_depends_on(scc(), servers()) -> [scc()].
+
+find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
+  dialyzer_callgraph:get_depends_on(SCC, Callgraph).
+
+-spec find_required_by(scc(), servers()) -> [scc()].
+
+find_required_by(SCC, {_Codeserver, Callgraph, _Plt}) ->
+  dialyzer_callgraph:get_required_by(SCC, Callgraph).
+
+-spec collect_refine_scc_data(module(), servers()) -> scc_refine_data().
+
+collect_refine_scc_data(M, {CodeServer, Callgraph, PLT}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
-  {NewFunTypes, NewCallgraph} =
-    dialyzer_dataflow:get_fun_types(ModCode, PLT, Callgraph, Records),
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, PLT),
+  {ModCode, PLT, Callgraph, Records, FunTypes}.
+
+-spec refine_one_module(scc_refine_data()) ->
+        {dialyzer_callgraph:callgraph(), [label()]}. % ordset
+
+refine_one_module({ModCode, PLT, Callgraph, Records, FunTypes}) ->
+  NewFunTypes =
+    dialyzer_dataflow:get_fun_types(ModCode, PLT, Callgraph, Records),
   case reached_fixpoint(FunTypes, NewFunTypes) of
     true ->
-      {NewCallgraph, ordsets:new()};
+      ordsets:new();
     {false, NotFixpoint} ->
       ?debug("Not fixpoint\n", []),
       insert_into_plt(dict:from_list(NotFixpoint), Callgraph, PLT),
-      {NewCallgraph, ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])}
+      ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])
   end.
 
 reached_fixpoint(OldTypes, NewTypes) ->
@@ -301,20 +320,6 @@ find_succ_typings([], State, Coordinator) ->
     true -> {fixpoint, State};
     false -> {not_fixpoint, NotFixpoint, State}
   end.
-
--type servers()  :: term().
--type scc_data() :: term().
--type scc()      :: [mfa_or_funlbl()].
-
--spec find_depends_on(scc(), servers()) -> [scc()].
-
-find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
-  dialyzer_callgraph:get_depends_on(SCC, Callgraph).
-
--spec find_required_by(scc(), servers()) -> [scc()].
-
-find_required_by(SCC, {_Codeserver, Callgraph, _Plt}) ->
-  dialyzer_callgraph:get_required_by(SCC, Callgraph).
 
 -spec collect_scc_data(scc(), servers()) -> scc_data().
 

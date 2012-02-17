@@ -123,12 +123,11 @@ get_warnings(Tree, Plt, Callgraph, Records, NoWarnUnused) ->
   {State4#state.warnings, state__all_fun_types(State4)}.
 
 -spec get_fun_types(cerl:c_module(), dialyzer_plt:plt(),
-                    dialyzer_callgraph:callgraph(), dict()) ->
-	{dict(), dialyzer_callgraph:callgraph()}.
+                    dialyzer_callgraph:callgraph(), dict()) -> dict().
 
 get_fun_types(Tree, Plt, Callgraph, Records) ->
   State = analyze_module(Tree, Plt, Callgraph, Records, false),
-  {state__all_fun_types(State), State#state.callgraph}.
+  state__all_fun_types(State).
 
 %%--------------------------------------------------------------------
 
