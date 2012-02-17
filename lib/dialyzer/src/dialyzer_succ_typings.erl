@@ -303,18 +303,18 @@ compare_types_1([], [], _Strict, NotFixpoint) ->
 find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 			    plt = Plt} = State) ->
   Servers = {Codeserver, dialyzer_callgraph:mini_callgraph(Callgraph), Plt},
-  Coordinator = dialyzer_typesig_coordinator:start(Servers),
+  Coordinator = dialyzer_coordinator:start(Servers),
   find_succ_typings(SCCs, State, Coordinator).
 
 find_succ_typings([SCC|Rest], #st{parent = Parent} = State, Coordinator) ->
   Msg = io_lib:format("Typesig analysis for SCC: ~w\n", [format_scc(SCC)]),
   ?debug("~s", [Msg]),
   send_log(Parent, Msg),
-  dialyzer_typesig_coordinator:scc_spawn(SCC, Coordinator),
+  dialyzer_coordinator:scc_spawn(SCC, Coordinator),
   find_succ_typings(Rest, State, Coordinator);
 find_succ_typings([], State, Coordinator) ->
-  dialyzer_typesig_coordinator:all_spawned(Coordinator),
-  NotFixpoint = dialyzer_typesig_coordinator:receive_not_fixpoint(),
+  dialyzer_coordinator:all_spawned(Coordinator),
+  NotFixpoint = dialyzer_coordinator:receive_not_fixpoint(),
   ?debug("==================== Typesig done ====================\n\n", []),
   case NotFixpoint =:= [] of
     true -> {fixpoint, State};

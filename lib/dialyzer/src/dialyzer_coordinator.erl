@@ -19,7 +19,7 @@
 %%
 
 %%%-------------------------------------------------------------------
-%%% File        : dialyzer_typesig_coordinator.erl
+%%% File        : dialyzer_coordinator.erl
 %%% Authors     : Stavros Aronis <aronisstav@gmail.com>
 %%%
 %%% Description:
@@ -32,8 +32,8 @@
 %%%
 %%% - The original Dialyzer backend (in succ_typings module)
 %%% - The worker process for the typesig analysis (in typesig and
-%%%   typesig_worker)
-%%% - A coordinator of the worker processes (in typesig_coordinator)
+%%%   worker)
+%%% - A coordinator of the worker processes (in coordinator)
 %%%
 %%% Operation guidelines:
 %%%
@@ -44,7 +44,7 @@
 %%%
 %%%-------------------------------------------------------------------
 
--module(dialyzer_typesig_coordinator).
+-module(dialyzer_coordinator).
 
 -export([
 	 all_spawned/1,
@@ -98,7 +98,7 @@ scc_to_pids_request_handle(Worker, SCCs, SCCtoPID) ->
     Worker ! {sccs_to_pids, Pids},
     ok.
 
--spec sccs_to_pids_reply() -> [dialyzer_typesig_worker:worker()].
+-spec sccs_to_pids_reply() -> [dialyzer_worker:worker()].
 
 sccs_to_pids_reply() ->
     receive {sccs_to_pids, Pids} -> Pids end.
@@ -179,7 +179,7 @@ handle_cast({scc_spawn, SCC},
 		   spawn_count = SpawnCount,
 		   scc_to_pid = SCCtoPID
 		  } = State) ->
-    Pid = dialyzer_typesig_worker:launch(SCC, Servers),
+    Pid = dialyzer_worker:launch(SCC, Servers),
     {noreply,
      State#state{spawn_count = SpawnCount + 1,
 		 scc_to_pid = store_map(SCC, Pid, SCCtoPID)}

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(dialyzer_typesig_worker).
+-module(dialyzer_worker).
 
 -export([launch/2]).
 
@@ -112,10 +112,10 @@ ask_coordinator_for_callers(#state{scc = SCC,
   RequiredBy = dialyzer_succ_typings:find_required_by(SCC, Servers),
   WithoutSelf = RequiredBy -- [SCC],
   ?debug("Waiting for me~p: ~p\n",[SCC, WithoutSelf]),
-  dialyzer_typesig_coordinator:sccs_to_pids_request(WithoutSelf, Coordinator).
+  dialyzer_coordinator:sccs_to_pids_request(WithoutSelf, Coordinator).
 
 get_callers_reply_from_coordinator() ->
-  dialyzer_typesig_coordinator:sccs_to_pids_reply().
+  dialyzer_coordinator:sccs_to_pids_reply().
 
 broadcast_own_succ_typings(#state{scc = SCC}, Callers) ->
   ?debug("Sending ~p: ~p\n",[SCC, Callers]),
@@ -139,4 +139,4 @@ find_succ_typings(#state{scc_data = SCCData}) ->
 report_to_coordinator(NotFixpoint,
 		      #state{scc = SCC, coordinator = Coordinator}) ->
   ?debug("Done: ~p\n",[SCC]),
-  dialyzer_typesig_coordinator:scc_done(SCC, NotFixpoint, Coordinator).
+  dialyzer_coordinator:scc_done(SCC, NotFixpoint, Coordinator).
