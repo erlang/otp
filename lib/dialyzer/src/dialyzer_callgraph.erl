@@ -92,12 +92,12 @@
 
 -record(callgraph, {digraph        = digraph:new() :: digraph(),
 		    active_digraph                 :: digraph(),
-                    esc	           = sets:new()    :: set()  | ets:tid(),
-                    name_map	   = dict:new()    :: dict() | ets:tid(),
-                    rev_name_map   = dict:new()    :: dict() | ets:tid(),
-                    rec_var_map    = dict:new()    :: dict() | ets:tid(),
-                    self_rec	   = sets:new()    :: set()  | ets:tid(),
-                    calls          = dict:new()    :: dict() | ets:tid(),
+                    esc	                           :: ets:tid(),
+                    name_map	                   :: ets:tid(),
+                    rev_name_map                   :: ets:tid(),
+                    rec_var_map                    :: ets:tid(),
+                    self_rec	                   :: ets:tid(),
+                    calls                          :: ets:tid(),
                     race_detection = false         :: boolean(),
 		    race_data_server = new_race_data_server() :: pid()}).
 
@@ -115,7 +115,16 @@
 -spec new() -> callgraph().
 
 new() ->
-  #callgraph{}.
+  [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSSelfRec, ETSCalls] =
+    [ets:new(N,[public]) ||
+      N <- [callgraph_esc, callgraph_name_map, callgraph_rev_name_map,
+	    callgraph_rec_var_map, callgraph_self_rec, callgraph_calls]],
+  #callgraph{esc            = ETSEsc,
+	     name_map       = ETSNameMap,
+	     rev_name_map   = ETSRevNameMap,
+	     rec_var_map    = ETSRecVarMap,
+	     self_rec       = ETSSelfRec,
+	     calls          = ETSCalls}.
 
 -spec mini_callgraph(callgraph()) -> callgraph().
 
@@ -299,32 +308,9 @@ create_module_digraph([], MDG) ->
 
 -spec finalize(callgraph()) -> {[scc()], callgraph()}.
 
-finalize(#callgraph{digraph      = DG,
-		    esc          = Esc,
-		    name_map     = NameMap,
-		    rev_name_map = RevNameMap,
-		    rec_var_map  = RecVarMap,
-		    self_rec     = SelfRec,
-		    calls        = Calls
-		   } = CG) ->
-  [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSSelfRec, ETSCalls] =
-    [ets:new(N,[public]) ||
-      N <- [callgraph_esc, callgraph_name_map, callgraph_rev_name_map,
-	    callgraph_rec_var_map, callgraph_self_rec, callgraph_calls]],
-  [true,true] = [ets:insert(ETS, [{E} || E <- sets:to_list(Data)]) ||
-		  {ETS, Data} <- [{ETSEsc, Esc}, {ETSSelfRec, SelfRec}]],
-  [true, true, true, true] =
-    [ets:insert(ETS, dict:to_list(Data)) ||
-      {ETS, Data} <- [{ETSNameMap, NameMap}, {ETSRevNameMap, RevNameMap},
-		      {ETSRecVarMap, RecVarMap}, {ETSCalls, Calls}]],
+finalize(#callgraph{digraph = DG} = CG) ->
   {ActiveDG, Postorder} = digraph_finalize(DG),
-  {Postorder, CG#callgraph{active_digraph = ActiveDG,
-			   esc            = ETSEsc,
-			   name_map       = ETSNameMap,
-			   rev_name_map   = ETSRevNameMap,
-			   rec_var_map    = ETSRecVarMap,
-			   self_rec       = ETSSelfRec,
-			   calls          = ETSCalls}}.
+  {Postorder, CG#callgraph{active_digraph = ActiveDG}}.
 
 -spec reset_from_funs([mfa_or_funlbl()], callgraph()) -> {[scc()], callgraph()}.
 
@@ -367,34 +353,34 @@ ets_lookup_set(Key, Table) ->
 
 -spec scan_core_tree(cerl:c_module(), callgraph()) -> callgraph().
 
-scan_core_tree(Tree, #callgraph{calls = OldCalls,
-				esc = OldEsc,
-				name_map = OldNameMap,
-				rec_var_map = OldRecVarMap, 
-				rev_name_map = OldRevNameMap,
-				self_rec = OldSelfRec} = CG) ->
+scan_core_tree(Tree, #callgraph{calls = ETSCalls,
+				esc = ETSEsc,
+				name_map = ETSNameMap,
+				rec_var_map = ETSRecVarMap,
+				rev_name_map = ETSRevNameMap,
+				self_rec = ETSSelfRec} = CG) ->
   %% Build name map and recursion variable maps.
-  {NewNameMap, NewRevNameMap, NewRecVarMap} = 
-    build_maps(Tree, OldRecVarMap, OldNameMap, OldRevNameMap),
+  build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap),
   
   %% First find the module-local dependencies.
   {Deps0, EscapingFuns, Calls} = dialyzer_dep:analyze(Tree),
-  NewCalls = dict:merge(fun(_Key, Val, Val) -> Val end, OldCalls, Calls),
-  NewEsc = sets:union(sets:from_list(EscapingFuns), OldEsc),
+  true = ets:insert(ETSCalls, dict:to_list(Calls)),
+  true = ets:insert(ETSEsc, [{E} || E <- EscapingFuns]),
+
   LabelEdges = get_edges_from_deps(Deps0),
   
   %% Find the self recursive functions. Named functions get both the
   %% key and their name for convenience.
   SelfRecs0 = lists:foldl(fun({Key, Key}, Acc) -> 
-			      case dict:find(Key, NewNameMap) of
+			      case ets_lookup_dict(Key, ETSNameMap) of
 				error      -> [Key|Acc];
 				{ok, Name} -> [Key, Name|Acc]
 			      end;
 			     (_, Acc) -> Acc
 			  end, [], LabelEdges),
-  SelfRecs = sets:union(sets:from_list(SelfRecs0), OldSelfRec),
+  true = ets:insert(ETSSelfRec, [{S} || S <- SelfRecs0]),
   
-  NamedEdges1 = name_edges(LabelEdges, NewNameMap),
+  NamedEdges1 = name_edges(LabelEdges, ETSNameMap),
   
   %% We need to scan for inter-module calls since these are not tracked
   %% by dialyzer_dep. Note that the caller is always recorded as the
@@ -413,27 +399,25 @@ scan_core_tree(Tree, #callgraph{calls = OldCalls,
   NewNamedEdges1 =
     [E || {From, To} = E <- NamedEdges1, From =/= top, To =/= top],
   NamedEdges3 = NewNamedEdges1 ++ NewNamedEdges2,
-  CG1 = add_edges(NamedEdges3, Names3, CG),
-  CG1#callgraph{calls = NewCalls,
-                esc = NewEsc,
-                name_map = NewNameMap,
-                rec_var_map = NewRecVarMap, 
-                rev_name_map = NewRevNameMap,
-                self_rec = SelfRecs}.
+  add_edges(NamedEdges3, Names3, CG).
 
-build_maps(Tree, RecVarMap, NameMap, RevNameMap) ->
+build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap) ->
   %% We only care about the named (top level) functions. The anonymous
   %% functions will be analysed together with their parents. 
   Defs = cerl:module_defs(Tree),
   Mod = cerl:atom_val(cerl:module_name(Tree)),
-  lists:foldl(fun({Var, Function}, {AccNameMap, AccRevNameMap, AccRecVarMap}) ->
-		  FunName = cerl:fname_id(Var),
-		  Arity = cerl:fname_arity(Var),
-		  MFA = {Mod, FunName, Arity},
-		  {dict:store(get_label(Function), MFA, AccNameMap),
-		   dict:store(MFA, get_label(Function), AccRevNameMap),
-		   dict:store(get_label(Var), MFA, AccRecVarMap)}
-	      end, {NameMap, RevNameMap, RecVarMap}, Defs).
+  Fun =
+    fun({Var, Function}) ->
+	FunName = cerl:fname_id(Var),
+	Arity = cerl:fname_arity(Var),
+	MFA = {Mod, FunName, Arity},
+	FunLabel = get_label(Function),
+	VarLabel = get_label(Var),
+	true = ets:insert(ETSNameMap, {FunLabel, MFA}),
+	true = ets:insert(ETSRevNameMap, {MFA, FunLabel}),
+	true = ets:insert(ETSRecVarMap, {VarLabel, MFA})
+    end,
+  lists:foreach(Fun, Defs).
 
 get_edges_from_deps(Deps) ->
   %% Convert the dependencies as produced by dialyzer_dep to a list of
@@ -446,22 +430,22 @@ get_edges_from_deps(Deps) ->
 		    end, [], Deps),
   lists:flatten(Edges).
 
-name_edges(Edges, NameMap) ->
+name_edges(Edges, ETSNameMap) ->
   %% If a label is present in the name map it is renamed. Otherwise
   %% keep the label as the identity.
   MapFun = fun(X) ->
-	       case dict:find(X, NameMap) of
+	       case ets_lookup_dict(X, ETSNameMap) of
 		 error -> X;
 		 {ok, MFA} -> MFA
 	       end
 	   end,
-  name_edges(Edges, MapFun, NameMap, []).
+  name_edges(Edges, MapFun, []).
 
-name_edges([{From, To}|Left], MapFun, NameMap, Acc) ->
+name_edges([{From, To}|Left], MapFun, Acc) ->
   NewFrom = MapFun(From),
   NewTo = MapFun(To),
-  name_edges(Left, MapFun, NameMap, [{NewFrom, NewTo}|Acc]);
-name_edges([], _MapFun, _NameMap, Acc) ->
+  name_edges(Left, MapFun, [{NewFrom, NewTo}|Acc]);
+name_edges([], _MapFun, Acc) ->
   Acc.
 
 scan_core_funs(Tree) ->
