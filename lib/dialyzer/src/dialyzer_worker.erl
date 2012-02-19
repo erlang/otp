@@ -26,10 +26,11 @@
 
 -record(state, {
 	  mode             :: dialyzer_coordinator:mode(),
-	  scc         = [] :: mfa_or_funlbl(),
+	  job              :: mfa_or_funlbl() | file:filename(),
 	  depends_on  = [] :: list(),
 	  coordinator      :: dialyzer_coordinator:coordinator(),
-	  servers          :: dialyzer_typesig:servers(),
+	  servers          :: dialyzer_typesig:servers() |
+			      dialyzer_analysis_callgraph:servers(),
 	  scc_data         :: dialyzer_typesig:scc_data()
 	 }).
 
@@ -48,17 +49,22 @@
 -spec launch(dialyzer_coordinator:mode(), [mfa_or_funlbl()],
 	     dialyzer_typesig:servers()) -> worker().
 
-launch(Mode, SCC, Servers) ->
+launch(Mode, Job, Servers) ->
   State = #state{mode        = Mode,
-		 scc         = SCC,
+		 job         = Job,
 		 servers     = Servers,
 		 coordinator = self()},
-  spawn(fun() -> loop(initializing, State) end).
+  InitState =
+    case Mode of
+      X when X =:= 'typesig'; X =:= 'dataflow' -> initializing;
+      'compile' -> running
+    end,
+  spawn(fun() -> loop(InitState, State) end).
 
 %%--------------------------------------------------------------------
 
 loop(updating, State) ->
-  ?debug("Update: ~p\n",[State#state.scc]),
+  ?debug("Update: ~p\n",[State#state.job]),
   NextStatus =
     case waits_more_success_typings(State) of
       true -> waiting;
@@ -73,20 +79,27 @@ loop(updating, State) ->
 	end
     end,
   loop(NextStatus, State);
-loop(initializing, #state{scc = SCC, servers = Servers} = State) ->
+loop(initializing, #state{job = SCC, servers = Servers} = State) ->
   DependsOn = dialyzer_succ_typings:find_depends_on(SCC, Servers),
   WithoutSelf = DependsOn -- [SCC],
-  ?debug("Deps ~p: ~p\n",[State#state.scc, WithoutSelf]),
+  ?debug("Deps ~p: ~p\n",[State#state.job, WithoutSelf]),
   loop(updating, State#state{depends_on = WithoutSelf});
 loop(waiting, State) ->
-  ?debug("Wait: ~p\n",[State#state.scc]),
+  ?debug("Wait: ~p\n",[State#state.job]),
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
 loop(getting_data, State) ->
-  ?debug("Data: ~p\n",[State#state.scc]),
+  ?debug("Data: ~p\n",[State#state.job]),
   loop(updating, get_data(State));
-loop(running, State) ->
-  ?debug("Run: ~p\n",[State#state.scc]),
+loop(running, #state{mode = 'compile'} = State) ->
+  ?debug("Compile: ~s\n",[State#state.job]),
+  {EstimatedSize, Data} = start_compilation(State),
+  Label = ask_coordinator_for_label(EstimatedSize, State),
+  Result = continue_compilation(Label, Data),
+  report_to_coordinator(Result, State);
+loop(running, #state{mode = Mode} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+  ?debug("Run: ~p\n",[State#state.job]),
   ok = ask_coordinator_for_callers(State),
   NotFixpoint = do_work(State),
   Callers = get_callers_reply_from_coordinator(),
@@ -106,7 +119,7 @@ has_data(#state{scc_data = Data}) ->
     _ -> true
   end.
 
-get_data(#state{mode = Mode, scc = SCC, servers = Servers} = State) ->
+get_data(#state{mode = Mode, job = SCC, servers = Servers} = State) ->
   Data =
     case Mode of
       typesig -> dialyzer_succ_typings:collect_scc_data(SCC, Servers);
@@ -114,7 +127,7 @@ get_data(#state{mode = Mode, scc = SCC, servers = Servers} = State) ->
     end,
   State#state{scc_data = Data}.
 
-ask_coordinator_for_callers(#state{scc = SCC,
+ask_coordinator_for_callers(#state{job = SCC,
 				   servers = Servers,
 				   coordinator = Coordinator}) ->
   RequiredBy = dialyzer_succ_typings:find_required_by(SCC, Servers),
@@ -125,7 +138,7 @@ ask_coordinator_for_callers(#state{scc = SCC,
 get_callers_reply_from_coordinator() ->
   dialyzer_coordinator:sccs_to_pids_reply().
 
-broadcast_done(#state{scc = SCC}, Callers) ->
+broadcast_done(#state{job = SCC}, Callers) ->
   ?debug("Sending ~p: ~p\n",[SCC, Callers]),
   SendSTFun = fun(PID) -> PID ! {done, SCC} end,
   lists:foreach(SendSTFun, Callers).
@@ -133,11 +146,11 @@ broadcast_done(#state{scc = SCC}, Callers) ->
 wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
   receive
     {done, SCC} ->
-      ?debug("GOT ~p: ~p\n",[State#state.scc, SCC]),
+      ?debug("GOT ~p: ~p\n",[State#state.job, SCC]),
       State#state{depends_on = DependsOn -- [SCC]}
   after
     5000 ->
-      ?debug("Still Waiting ~p: ~p\n",[State#state.scc, DependsOn]),
+      ?debug("Still Waiting ~p: ~p\n",[State#state.job, DependsOn]),
       State
   end.
 
@@ -148,6 +161,15 @@ do_work(#state{mode = Mode, scc_data = SCCData}) ->
   end.
 
 report_to_coordinator(NotFixpoint,
-		      #state{scc = SCC, coordinator = Coordinator}) ->
-  ?debug("Done: ~p\n",[SCC]),
-  dialyzer_coordinator:scc_done(SCC, NotFixpoint, Coordinator).
+		      #state{job = Job, coordinator = Coordinator}) ->
+  ?debug("Done: ~p\n",[Job]),
+  dialyzer_coordinator:scc_done(Job, NotFixpoint, Coordinator).
+
+start_compilation(#state{job = Job, servers = Servers}) ->
+  dialyzer_analysis_callgraph:start_compilation(Job, Servers).
+
+ask_coordinator_for_label(EstimatedSize, #state{coordinator = Coordinator}) ->
+  dialyzer_coordinator:get_next_label(EstimatedSize, Coordinator).
+
+continue_compilation(Label, Data) ->
+  dialyzer_analysis_callgraph:continue_compilation(Label, Data).

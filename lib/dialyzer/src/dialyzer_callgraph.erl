@@ -28,6 +28,7 @@
 -module(dialyzer_callgraph).
 
 -export([add_edges/2,
+	 add_edges/3,
 	 all_nodes/1,
 	 delete/1,
 	 finalize/1,
@@ -358,10 +359,10 @@ scan_core_tree(Tree, #callgraph{calls = ETSCalls,
 				name_map = ETSNameMap,
 				rec_var_map = ETSRecVarMap,
 				rev_name_map = ETSRevNameMap,
-				self_rec = ETSSelfRec} = CG) ->
+				self_rec = ETSSelfRec}) ->
   %% Build name map and recursion variable maps.
   build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap),
-  
+
   %% First find the module-local dependencies.
   {Deps0, EscapingFuns, Calls} = dialyzer_dep:analyze(Tree),
   true = ets:insert(ETSCalls, dict:to_list(Calls)),
@@ -399,7 +400,7 @@ scan_core_tree(Tree, #callgraph{calls = ETSCalls,
   NewNamedEdges1 =
     [E || {From, To} = E <- NamedEdges1, From =/= top, To =/= top],
   NamedEdges3 = NewNamedEdges1 ++ NewNamedEdges2,
-  add_edges(NamedEdges3, Names3, CG).
+  {Names3, NamedEdges3}.
 
 build_maps(Tree, ETSRecVarMap, ETSNameMap, ETSRevNameMap) ->
   %% We only care about the named (top level) functions. The anonymous
