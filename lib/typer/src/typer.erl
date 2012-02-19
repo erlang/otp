@@ -181,7 +181,6 @@ get_type_info(#analysis{callgraph = CallGraph,
 
 remove_external(CallGraph, PLT) ->
   {StrippedCG0, Ext} = dialyzer_callgraph:remove_external(CallGraph),
-  StrippedCG = dialyzer_callgraph:finalize(StrippedCG0),
   case get_external(Ext, PLT) of
     [] -> ok;
     Externals ->
@@ -192,7 +191,7 @@ remove_external(CallGraph, PLT) ->
         _ -> msg(io_lib:format(" Unknown types: ~p\n", [ExtTypes]))
       end
   end,
-  StrippedCG.
+  StrippedCG0.
 
 -spec get_external([{mfa(), mfa()}], plt()) -> [mfa()].
 
@@ -902,7 +901,8 @@ analyze_core_tree(Core, Records, SpecInfo, CbInfo, ExpTypes, Analysis, File) ->
   CS6 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes, CS5),
   Ex_Funcs = [{0,F,A} || {_,_,{F,A}} <- cerl:module_exports(Tree)],
   TmpCG = Analysis#analysis.callgraph,
-  CG = dialyzer_callgraph:scan_core_tree(Tree, TmpCG),
+  {V, E} = dialyzer_callgraph:scan_core_tree(Tree, TmpCG),
+  CG = dialyzer_callgraph:add_edges(E, V, TmpCG),
   Fun = fun analyze_one_function/2,
   All_Defs = cerl:module_defs(Tree),
   Acc = lists:foldl(Fun, #tmpAcc{file = File, module = Module}, All_Defs),
