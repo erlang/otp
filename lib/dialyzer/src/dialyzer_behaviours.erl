@@ -92,8 +92,9 @@ get_warnings(Module, [Behaviour|Rest], State, Acc) ->
 
 check_behaviour(Module, Behaviour, #state{plt = Plt} = State, Acc) ->
   case dialyzer_plt:lookup_callbacks(Plt, Behaviour) of
-    [] -> [{callback_info_missing, [Behaviour]}|Acc];
-    Callbacks -> check_all_callbacks(Module, Behaviour, Callbacks, State, Acc)
+    none -> [{callback_info_missing, [Behaviour]}|Acc];
+    {value, Callbacks} ->
+      check_all_callbacks(Module, Behaviour, Callbacks, State, Acc)
   end.
 
 check_all_callbacks(_Module, _Behaviour, [], _State, Acc) ->

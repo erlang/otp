@@ -126,13 +126,16 @@ get_refined_success_typings(SCCs, State) ->
 get_warnings(Callgraph, Plt, DocPlt, Codeserver, NoWarnUnused, Parent) ->
   InitState =
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver, Parent),
-  NewState =
-    InitState#st{no_warn_unused = NoWarnUnused,
-		 plt = dialyzer_plt:restore_full_plt(InitState#st.plt, Plt)},
+  NewState = InitState#st{no_warn_unused = NoWarnUnused},
   Mods = dialyzer_callgraph:modules(NewState#st.callgraph),
   CWarns = dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver,
 							    NewState#st.plt),
-  get_warnings_from_modules(Mods, NewState, DocPlt, CWarns).
+  MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
+  {Warnings, FinalPlt, FinalDocPlt} =
+    get_warnings_from_modules(Mods, NewState, MiniDocPlt, CWarns),
+  {postprocess_warnings(Warnings, Codeserver),
+   dialyzer_plt:restore_full_plt(FinalPlt, Plt),
+   dialyzer_plt:restore_full_plt(FinalDocPlt, DocPlt)}.
 
 get_warnings_from_modules([M|Ms], State, DocPlt, Acc) when is_atom(M) ->
   send_log(State#st.parent, io_lib:format("Getting warnings for ~w\n", [M])),
@@ -145,25 +148,29 @@ get_warnings_from_modules([M|Ms], State, DocPlt, Acc) when is_atom(M) ->
   %% Check if there are contracts for functions that do not exist
   Warnings1 = 
     dialyzer_contracts:contracts_without_fun(Contracts, AllFuns, Callgraph),
-  {RawWarnings2, FunTypes} =
+  {Warnings2, FunTypes} =
     dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph,
 				   Records, NoWarnUnused),
-  {NewAcc, Warnings2} = postprocess_dataflow_warns(RawWarnings2, State, Acc),
   Attrs = cerl:module_attrs(ModCode),
   Warnings3 = dialyzer_behaviours:check_callbacks(M, Attrs, Plt, Codeserver),
   NewDocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),
   get_warnings_from_modules(Ms, State, NewDocPlt,
-			    [Warnings1, Warnings2, Warnings3|NewAcc]);
+			    [Warnings1, Warnings2, Warnings3|Acc]);
 get_warnings_from_modules([], #st{plt = Plt}, DocPlt, Acc) ->
   {lists:flatten(Acc), Plt, DocPlt}.
 
-postprocess_dataflow_warns(RawWarnings, State, WarnAcc) ->
-  postprocess_dataflow_warns(RawWarnings, State, WarnAcc, []).
+postprocess_warnings(RawWarnings, Codeserver) ->
+  Pred =
+    fun({?WARN_CONTRACT_RANGE, _, _}) -> true;
+       (_) -> false
+    end,
+  {CRWarns, NonCRWarns} = lists:partition(Pred, RawWarnings),
+  postprocess_dataflow_warns(CRWarns, Codeserver, NonCRWarns, []).
 
-postprocess_dataflow_warns([], _State, WAcc, Acc) ->
-  {WAcc, lists:reverse(Acc)};
+postprocess_dataflow_warns([], _Callgraph, WAcc, Acc) ->
+  lists:reverse(Acc, WAcc);
 postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
-			   #st{codeserver = Codeserver} = State, WAcc, Acc) ->
+			   Codeserver, WAcc, Acc) ->
   {contract_range, [Contract, M, F, A, ArgStrings, CRet]} = Msg,
   case dialyzer_codeserver:lookup_mfa_contract({M,F,A}, Codeserver) of
     {ok, {{ContrF, _ContrL} = FileLine, _C}} ->
@@ -176,19 +183,17 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
 	       (_) -> true
 	    end,
 	  FilterWAcc = lists:filter(Filter, WAcc),
-	  postprocess_dataflow_warns(Rest, State, FilterWAcc, [W|Acc]);
+	  postprocess_dataflow_warns(Rest, Codeserver, FilterWAcc, [W|Acc]);
 	false ->
-	  postprocess_dataflow_warns(Rest, State, WAcc, Acc)
+	  postprocess_dataflow_warns(Rest, Codeserver, WAcc, Acc)
       end;
     error ->
       %% The contract is not in a module that is currently under analysis.
       %% We display the warning in the file/line of the call.
       NewMsg = {contract_range, [Contract, M, F, ArgStrings, CallL, CRet]},
       W = {?WARN_CONTRACT_RANGE, {CallF, CallL}, NewMsg},
-      postprocess_dataflow_warns(Rest, State, WAcc, [W|Acc])
-  end;
-postprocess_dataflow_warns([W|Rest], State, Wacc, Acc) ->
-  postprocess_dataflow_warns(Rest, State, Wacc, [W|Acc]).
+      postprocess_dataflow_warns(Rest, Codeserver, WAcc, [W|Acc])
+  end.
   
 refine_succ_typings(ModulePostorder, #st{codeserver = Codeserver,
 					 callgraph = Callgraph,

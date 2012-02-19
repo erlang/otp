@@ -87,7 +87,8 @@
               exported_types = sets:new()  :: set()}).
 
 -record(mini_plt, {info      :: ets:tid(),
-		   contracts :: ets:tid()
+		   contracts :: ets:tid(),
+		   callbacks :: ets:tid()
 		  }).
 
 -opaque plt() :: #plt{} | #mini_plt{}.
@@ -140,8 +141,6 @@ delete_list(#plt{info = Info, types = Types,
 
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
 
-insert_contract_list(#plt{contracts = Contracts} = PLT, List) ->
-  PLT#plt{contracts = table_insert_list(Contracts, List)};
 insert_contract_list(#mini_plt{contracts = Contracts} = PLT, List) ->
   true = ets:insert(Contracts, List),
   PLT.
@@ -154,9 +153,6 @@ insert_callbacks(#plt{callbacks = Callbacks} = Plt, Codeserver) ->
 
 -spec lookup_contract(plt(), mfa_patt()) -> 'none' | {'value', #contract{}}.
 
-lookup_contract(#plt{contracts = Contracts},
-		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
-  table_lookup(Contracts, MFA);
 lookup_contract(#mini_plt{contracts = ETSContracts},
 		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
   ets_table_lookup(ETSContracts, MFA).
@@ -164,15 +160,13 @@ lookup_contract(#mini_plt{contracts = ETSContracts},
 -spec lookup_callbacks(plt(), module()) ->
 	 [{mfa(), {{Filename::string(), Line::pos_integer()}, #contract{}}}].
 
-lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
-  table_filter_module(Callbacks, Mod).
+lookup_callbacks(#mini_plt{callbacks = ETSCallbacks}, Mod) when is_atom(Mod) ->
+  ets_table_lookup(ETSCallbacks, Mod).
 
 -type ret_args_types() :: {erl_types:erl_type(), [erl_types:erl_type()]}.
 
 -spec insert_list(plt(), [{mfa() | integer(), ret_args_types()}]) -> plt().
 
-insert_list(#plt{info = Info} = PLT, List) ->
-  PLT#plt{info = table_insert_list(Info, List)};
 insert_list(#mini_plt{info = Info} = PLT, List) ->
   true = ets:insert(Info, List),
   PLT.
@@ -185,8 +179,6 @@ lookup(Plt, {M, F, _} = MFA) when is_atom(M), is_atom(F) ->
 lookup(Plt, Label) when is_integer(Label) ->
   lookup_1(Plt, Label).
 
-lookup_1(#plt{info = Info}, MFAorLabel) ->
-  table_lookup(Info, MFAorLabel);
 lookup_1(#mini_plt{info = Info}, MFAorLabel) ->
   ets_table_lookup(Info, MFAorLabel).
 
@@ -517,12 +509,20 @@ init_md5_list_1(Md5List, [], Acc) ->
 
 -spec get_mini_plt(plt()) -> plt().
 
-get_mini_plt(#plt{info = Info, contracts = Contracts}) ->
-  ETSInfo = ets:new(plt_info, [public]),
-  ETSContracts = ets:new(plt_contracts, [public]),
-  true = ets:insert(ETSInfo, dict:to_list(Info)),
-  true = ets:insert(ETSContracts, dict:to_list(Contracts)),
-  #mini_plt{info = ETSInfo, contracts = ETSContracts}.
+get_mini_plt(#plt{info = Info, contracts = Contracts, callbacks = Callbacks}) ->
+  [ETSInfo, ETSContracts, ETSCallbacks] =
+    [ets:new(Name, [public]) || Name <- [plt_info, plt_contracts, plt_callbacks]],
+  CallbackList = dict:to_list(Callbacks),
+  CallbacksByModule =
+    [{M, [Cb || {{M1,_,_},_} = Cb <- CallbackList, M1 =:= M]} ||
+      M <- lists:usort([M || {{M,_,_},_} <- CallbackList])],
+  [true, true] =
+    [ets:insert(ETS, dict:to_list(Data)) ||
+      {ETS, Data} <- [{ETSInfo, Info}, {ETSContracts, Contracts}]],
+  true = ets:insert(ETSCallbacks, CallbacksByModule),
+  #mini_plt{info = ETSInfo, contracts = ETSContracts, callbacks = ETSCallbacks};
+get_mini_plt(undefined) ->
+  undefined.
 
 -spec restore_full_plt(plt(), plt()) -> plt().
 
@@ -531,7 +531,9 @@ restore_full_plt(#mini_plt{info = ETSInfo, contracts = ETSContracts}, Plt) ->
   Contracts = dict:from_list(ets:tab2list(ETSContracts)),
   ets:delete(ETSContracts),
   ets:delete(ETSInfo),
-  Plt#plt{info = Info, contracts = Contracts}.
+  Plt#plt{info = Info, contracts = Contracts};
+restore_full_plt(undefined, undefined) ->
+  undefined.
 
 %%---------------------------------------------------------------------------
 %% Edoc
@@ -644,14 +646,6 @@ table_lookup_module(Plt, Mod) ->
     true -> none;
     false -> {value, List}
   end.
-
-table_filter_module(Plt, Mod) ->
-  FunModFilter =
-    fun({M, _F, _A}, _Val) -> M =:= Mod;
-       (       _Key, _Val) -> false
-    end,
-  ModCallbacks = dict:filter(FunModFilter, Plt),
-  dict:to_list(ModCallbacks).
 
 table_all_modules(Plt) ->
   Fold =
