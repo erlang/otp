@@ -35,6 +35,10 @@
 	 start_compilation/2,
 	 continue_compilation/2]).
 
+-export_type([compilation_data/0,
+	      result/0,
+	      servers/0]).
+
 -include("dialyzer.hrl").
 
 -record(analysis_state,
@@ -247,10 +251,10 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   send_log(Parent, Msg2),
   {Callgraph, sets:from_list(NoWarn), CServer2}.
 
--type servers()     :: term().
--type result()      :: term().
--type file_result() :: term().
--type data()        :: term().
+-type servers()          :: term(). %%opaque
+-type result()           :: term(). %%opaque
+-type file_result()      :: term(). %%opaque
+-type compilation_data() :: term(). %%opaque
 
 -spec compile_coordinator_init() -> result().
 
@@ -266,7 +270,8 @@ add_to_result(File, NewData, {V, E, Failed, NoWarn, Mods}) ->
       {NV ++ V, NE ++ E, Failed, NewNoWarn ++ NoWarn, [Mod|Mods]}
   end.
 
--spec start_compilation(file:filename(), servers()) -> data().
+-spec start_compilation(file:filename(), servers()) ->
+	{error, term()} |{ok, integer(), compilation_data()}.
 
 start_compilation(File, {Callgraph, Codeserver, StartFrom,
 			 Includes, Defines, UseContracts}) ->
@@ -368,9 +373,9 @@ store_core(Mod, Core, NoWarn, Callgraph, CServer) ->
   CServer = dialyzer_codeserver:insert_exports(Exp, CServer),
   CServer = dialyzer_codeserver:insert_temp_exported_types(ExpTypes, CServer),
   CoreTree = cerl:from_records(Core),
-  {cerl_trees:size(CoreTree), {Mod, CoreTree, NoWarn, Callgraph, CServer}}.
+  {ok, cerl_trees:size(CoreTree), {Mod, CoreTree, NoWarn, Callgraph, CServer}}.
 
--spec continue_compilation(integer(), data()) -> {integer(), file_result()}.
+-spec continue_compilation(integer(), compilation_data()) -> file_result().
 
 continue_compilation(NextLabel, {Mod, CoreTree, NoWarn, Callgraph, CServer}) ->
   {LabeledTree, _NewNextLabel} = cerl_trees:label(CoreTree, NextLabel),

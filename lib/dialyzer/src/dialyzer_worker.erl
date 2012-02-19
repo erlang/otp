@@ -20,18 +20,26 @@
 
 -module(dialyzer_worker).
 
--export([launch/3]).
+-export([launch/4]).
 
--type worker() :: pid().
+-export_type([worker/0]).
+
+-type worker() :: pid(). %%opaque
+
+-type mode() :: dialyzer_coordinator:mode().
+-type coordinator() :: dialyzer_coordinator:coordinator().
+-type servers() :: dialyzer_succ_typings:servers() |
+		   dialyzer_analysis_callgraph:servers().
+-type data()    :: dialyzer_succ_typings:scc_data() |
+		   dialyzer_succ_typings:scc_refine_data().
 
 -record(state, {
-	  mode             :: dialyzer_coordinator:mode(),
+	  mode             :: mode(),
 	  job              :: mfa_or_funlbl() | file:filename(),
+	  coordinator      :: coordinator(),
+	  servers          :: servers(),
 	  depends_on  = [] :: list(),
-	  coordinator      :: dialyzer_coordinator:coordinator(),
-	  servers          :: dialyzer_typesig:servers() |
-			      dialyzer_analysis_callgraph:servers(),
-	  scc_data         :: dialyzer_typesig:scc_data()
+	  scc_data         :: data()
 	 }).
 
 -include("dialyzer.hrl").
@@ -46,14 +54,13 @@
 
 %%--------------------------------------------------------------------
 
--spec launch(dialyzer_coordinator:mode(), [mfa_or_funlbl()],
-	     dialyzer_typesig:servers()) -> worker().
+-spec launch(mode(), [mfa_or_funlbl()], servers(), coordinator()) -> worker().
 
-launch(Mode, Job, Servers) ->
+launch(Mode, Job, Servers, Coordinator) ->
   State = #state{mode        = Mode,
 		 job         = Job,
 		 servers     = Servers,
-		 coordinator = self()},
+		 coordinator = Coordinator},
   InitState =
     case Mode of
       X when X =:= 'typesig'; X =:= 'dataflow' -> initializing;
@@ -93,9 +100,14 @@ loop(getting_data, State) ->
   loop(updating, get_data(State));
 loop(running, #state{mode = 'compile'} = State) ->
   ?debug("Compile: ~s\n",[State#state.job]),
-  {EstimatedSize, Data} = start_compilation(State),
-  Label = ask_coordinator_for_label(EstimatedSize, State),
-  Result = continue_compilation(Label, Data),
+  Result =
+    case start_compilation(State) of
+      {ok, EstimatedSize, Data} ->
+	Label = ask_coordinator_for_label(EstimatedSize, State),
+	continue_compilation(Label, Data);
+      {error, _Reason} = Error ->
+	Error
+    end,
   report_to_coordinator(Result, State);
 loop(running, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
@@ -160,10 +172,9 @@ do_work(#state{mode = Mode, scc_data = SCCData}) ->
     dataflow -> dialyzer_succ_typings:refine_one_module(SCCData)
   end.
 
-report_to_coordinator(NotFixpoint,
-		      #state{job = Job, coordinator = Coordinator}) ->
+report_to_coordinator(Result, #state{job = Job, coordinator = Coordinator}) ->
   ?debug("Done: ~p\n",[Job]),
-  dialyzer_coordinator:scc_done(Job, NotFixpoint, Coordinator).
+  dialyzer_coordinator:job_done(Job, Result, Coordinator).
 
 start_compilation(#state{job = Job, servers = Servers}) ->
   dialyzer_analysis_callgraph:start_compilation(Job, Servers).

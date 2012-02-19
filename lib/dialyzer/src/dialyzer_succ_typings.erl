@@ -29,7 +29,10 @@
 
 -export([analyze_callgraph/3, 
 	 analyze_callgraph/4,
-	 get_warnings/6,
+	 get_warnings/6
+	]).
+
+-export([
 	 find_succ_types_for_scc/1,
 	 refine_one_module/1,
 	 collect_scc_data/2,
@@ -38,12 +41,9 @@
 	 find_depends_on/2
 	]).
 
-%% These are only intended as debug functions.
--export([doit/1,
-	 get_top_level_signatures/3]).
+-export_type([servers/0, scc_data/0, scc_refine_data/0]).
 
 %%-define(DEBUG, true).
-%%-define(DEBUG_PP, true).
 
 -ifdef(DEBUG).
 -define(debug(X__, Y__), io:format(X__, Y__)).
@@ -213,9 +213,9 @@ refine_succ_typings([], State, Coordinator) ->
     false -> {not_fixpoint, NotFixpoint, State}
   end.
 
--type servers()         :: term().
--type scc_data()        :: term().
--type scc_refine_data() :: term().
+-type servers()         :: term(). %%opaque
+-type scc_data()        :: term(). %%opaque
+-type scc_refine_data() :: term(). %%opaque
 -type scc()             :: [mfa_or_funlbl()] | [module()].
 
 -spec find_depends_on(scc(), servers()) -> [scc()].
@@ -237,18 +237,17 @@ collect_refine_scc_data(M, {CodeServer, Callgraph, PLT}) ->
   FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, PLT),
   {ModCode, PLT, Callgraph, Records, FunTypes}.
 
--spec refine_one_module(scc_refine_data()) ->
-        {dialyzer_callgraph:callgraph(), [label()]}. % ordset
+-spec refine_one_module(scc_refine_data()) -> [label()]. % ordset
 
-refine_one_module({ModCode, PLT, Callgraph, Records, FunTypes}) ->
+refine_one_module({ModCode, Plt, Callgraph, Records, FunTypes}) ->
   NewFunTypes =
-    dialyzer_dataflow:get_fun_types(ModCode, PLT, Callgraph, Records),
+    dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, Records),
   case reached_fixpoint(FunTypes, NewFunTypes) of
     true ->
       ordsets:new();
     {false, NotFixpoint} ->
       ?debug("Not fixpoint\n", []),
-      insert_into_plt(dict:from_list(NotFixpoint), Callgraph, PLT),
+      Plt = insert_into_plt(dict:from_list(NotFixpoint), Callgraph, Plt),
       ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])
   end.
 
@@ -366,8 +365,8 @@ find_succ_types_for_scc({SCC_Info, Contracts, NextLabel, AllFuns,
 		    {value, _} -> true
 		  end
 	      end, PltContracts),
-  insert_into_plt(FilteredFunTypes, Callgraph, Plt),
-  dialyzer_plt:insert_contract_list(Plt, PltContracts),
+  Plt = insert_into_plt(FilteredFunTypes, Callgraph, Plt),
+  Plt = dialyzer_plt:insert_contract_list(Plt, PltContracts),
   case (ContractFixpoint andalso 
 	reached_fixpoint_strict(PropTypes, FilteredFunTypes)) of
     true -> [];
@@ -460,122 +459,3 @@ send_log(Parent, Msg) ->
 
 format_scc(SCC) ->
   [MFA || {_M, _F, _A} = MFA <- SCC].
-
-%% ============================================================================
-%%
-%%  Debug interface.
-%%
-%% ============================================================================
-
--spec doit(atom() | file:filename()) -> 'ok'.
-
-doit(Module) ->
-  {ok, AbstrCode} = dialyzer_utils:get_abstract_code_from_src(Module),
-  {ok, Code} = dialyzer_utils:get_core_from_abstract_code(AbstrCode),
-  {ok, Records} = dialyzer_utils:get_record_and_type_info(AbstrCode),
-  %% contract typing info in dictionary format
-  {ok, Contracts, _Callbacks} =
-    dialyzer_utils:get_spec_info(cerl:concrete(cerl:module_name(Code)),
-                                 AbstrCode, Records),
-  Sigs0 = get_top_level_signatures(Code, Records, Contracts),
-  M = if is_atom(Module) ->  
-	  list_to_atom(filename:basename(atom_to_list(Module)));
-	 is_list(Module) -> 
-	  list_to_atom(filename:basename(Module))
-      end,
-  Sigs1 = [{{M, F, A}, Type} || {{F, A}, Type} <- Sigs0],
-  Sigs = ordsets:from_list(Sigs1),
-  io:format("==================== Final result ====================\n\n", []),
-  pp_signatures(Sigs, Records),
-  ok.
-
--spec get_top_level_signatures(cerl:c_module(), dict(), dict()) ->
-	 [{{atom(), arity()}, erl_types:erl_type()}].
-
-get_top_level_signatures(Code, Records, Contracts) ->
-  Tree = cerl:from_records(Code),
-  {LabeledTree, NextLabel} = cerl_trees:label(Tree),
-  Plt = get_def_plt(),
-  ModuleName = cerl:atom_val(cerl:module_name(LabeledTree)),
-  Plt1 = dialyzer_plt:delete_module(Plt, ModuleName),
-  Plt2 = analyze_module(LabeledTree, NextLabel, Plt1, Records, Contracts),
-  M = cerl:concrete(cerl:module_name(Tree)),
-  Functions = [{M, cerl:fname_id(V), cerl:fname_arity(V)} 
-	       || {V, _F} <- cerl:module_defs(LabeledTree)],
-  %% First contracts check
-  AllContracts = dict:fetch_keys(Contracts),
-  ErrorContracts = AllContracts -- Functions,  
-  lists:foreach(fun(C) -> 
-		    io:format("Contract for non-existing function: ~w\n",[C])
-		end, ErrorContracts),
-  Types = [{MFA, dialyzer_plt:lookup(Plt2, MFA)} || MFA <- Functions],
-  Sigs = [{{F, A}, erl_types:t_fun(ArgT, RetT)} 
-	  || {{_M, F, A}, {value, {RetT, ArgT}}} <- Types],
-  ordsets:from_list(Sigs).
-
-get_def_plt() ->
-  try 
-    dialyzer_plt:from_file(dialyzer_plt:get_default_plt())
-  catch
-    error:no_such_file -> dialyzer_plt:new();
-    throw:{dialyzer_error, _} -> dialyzer_plt:new()
-  end.
-
-pp_signatures([{{_, module_info, 0}, _}|Left], Records) -> 
-  pp_signatures(Left, Records);
-pp_signatures([{{_, module_info, 1}, _}|Left], Records) -> 
-  pp_signatures(Left, Records);
-pp_signatures([{{M, F, _A}, Type}|Left], Records) ->
-  TypeString =
-    case cerl:is_literal(Type) of
-%% Commented out so that dialyzer does not complain
-%%      false -> 
-%%        "fun(" ++ String = erl_types:t_to_string(Type, Records),
-%%        string:substr(String, 1, length(String)-1);
-      true ->
-	io_lib:format("~w", [cerl:concrete(Type)])
-    end,
-  io:format("~w:~w~s\n", [M, F, TypeString]),
-  pp_signatures(Left, Records);
-pp_signatures([], _Records) ->
-  ok.
-
--ifdef(DEBUG_PP).
-debug_pp(Tree, _Map) -> 
-  Tree1 = strip_annotations(Tree),
-  io:put_chars(cerl_prettypr:format(Tree1)),
-  io:nl().  
-
-strip_annotations(Tree) ->
-  cerl_trees:map(fun(T) ->
-		     case cerl:is_literal(T) orelse cerl:is_c_values(T) of
-		       true -> cerl:set_ann(T, []);
-		       false ->
-			 Label = cerl_trees:get_label(T),
-			 cerl:set_ann(T, [{'label', Label}])
-		     end
-		 end, Tree).
--else.
-debug_pp(_Tree, _Map) ->
-  ok.
--endif. % DEBUG_PP
-
-%%
-%% Analysis of a single module
-%%
-analyze_module(LabeledTree, NextLbl, Plt, Records, Contracts) ->
-  debug_pp(LabeledTree, dict:new()),
-  CallGraph1 = dialyzer_callgraph:new(),
-  CallGraph2 = dialyzer_callgraph:scan_core_tree(LabeledTree, CallGraph1),
-  {CallGraph3, _Ext} = dialyzer_callgraph:remove_external(CallGraph2),
-  CallGraph4 = dialyzer_callgraph:finalize(CallGraph3),
-  CodeServer1 = dialyzer_codeserver:new(),
-  Mod = cerl:concrete(cerl:module_name(LabeledTree)),
-  CodeServer2 = dialyzer_codeserver:insert(Mod, LabeledTree, CodeServer1),
-  CodeServer3 = dialyzer_codeserver:set_next_core_label(NextLbl, CodeServer2),
-  CodeServer4 = dialyzer_codeserver:store_records(Mod, Records, CodeServer3),
-  CodeServer5 = dialyzer_codeserver:store_contracts(Mod, Contracts, CodeServer4),
-  Res = analyze_callgraph(CallGraph4, Plt, CodeServer5),
-  dialyzer_callgraph:delete(CallGraph4),
-  dialyzer_codeserver:delete(CodeServer5),
-  Res.

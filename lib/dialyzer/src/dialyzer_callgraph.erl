@@ -264,7 +264,7 @@ get_required_by(SCC, #callgraph{active_digraph = DG}) ->
 modules(#callgraph{digraph = DG}) ->
   ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]).
 
--spec module_postorder(callgraph()) -> [module()].
+-spec module_postorder(callgraph()) -> {[module()], digraph()}.
 
 module_postorder(#callgraph{digraph = DG}) ->
   Edges = digraph_edges(DG),
@@ -323,7 +323,8 @@ reset_from_funs(Funs, #callgraph{digraph = DG,
   digraph_delete(SubGraph),
   {Postorder, CG#callgraph{active_digraph = NewActiveDG}}.
 
--spec module_postorder_from_funs([mfa_or_funlbl()], callgraph()) -> [module()].
+-spec module_postorder_from_funs([mfa_or_funlbl()], callgraph()) ->
+        {[module()], callgraph()}.
 
 module_postorder_from_funs(Funs, #callgraph{digraph = DG} = CG) ->
   SubGraph = digraph_reaching_subgraph(Funs, DG),
@@ -352,7 +353,8 @@ ets_lookup_set(Key, Table) ->
 %% The set of labels in the tree must be disjoint from the set of
 %% labels already occuring in the callgraph.
 
--spec scan_core_tree(cerl:c_module(), callgraph()) -> callgraph().
+-spec scan_core_tree(cerl:c_module(), callgraph()) ->
+        {[mfa_or_funlbl()], [callgraph_edge()]}.
 
 scan_core_tree(Tree, #callgraph{calls = ETSCalls,
 				esc = ETSEsc,
@@ -595,9 +597,10 @@ renew_race_code(Races, #callgraph{race_data_server = RaceDataServer} = CG) ->
   ok = race_data_server_cast(
 	 {renew_race_code, {Fun, FunArgs, Code}},
 	 RaceDataServer),
-  CG;
-renew_race_code({Fun, FunArgs, Code},
-		#race_data_state{race_code = RaceCode} = State) ->
+  CG.
+
+renew_race_code_handler({Fun, FunArgs, Code},
+		      #race_data_state{race_code = RaceCode} = State) ->
   State#race_data_state{race_code = dict:store(Fun, [FunArgs, Code], RaceCode)}.
 
 -spec renew_race_public_tables(label(), callgraph()) -> callgraph().
@@ -606,9 +609,11 @@ renew_race_public_tables(VarLabel,
 			 #callgraph{race_data_server = RaceDataServer} = CG) ->
   ok =
     race_data_server_cast({renew_race_public_tables, VarLabel}, RaceDataServer),
-  CG;
-renew_race_public_tables(VarLabel,
-			 #race_data_state{public_tables = PT} = State) ->
+  CG.
+
+renew_race_public_tables_handler(VarLabel,
+				 #race_data_state{public_tables = PT}
+				 = State) ->
   State#race_data_state{public_tables = ordsets:add_element(VarLabel, PT)}.
 
 -spec cleanup(callgraph()) -> callgraph().
@@ -739,8 +744,8 @@ race_data_server_handle_cast(race_code_new, State) ->
 race_data_server_handle_cast({Tag, Data}, State) ->
   case Tag of
     renew_race_info -> renew_race_info(Data, State);
-    renew_race_code -> renew_race_code(Data, State);
-    renew_race_public_tables -> renew_race_public_tables(Data, State);
+    renew_race_code -> renew_race_code_handler(Data, State);
+    renew_race_public_tables -> renew_race_public_tables_handler(Data, State);
     put_race_code -> State#race_data_state{race_code = Data};
     put_public_tables -> State#race_data_state{public_tables = Data};
     put_named_tables -> State#race_data_state{named_tables = Data};
@@ -775,7 +780,7 @@ to_dot(#callgraph{digraph = DG, esc = Esc} = CG, File) ->
 	    end
 	end,
   Escaping = [{Fun(L), {color, red}} 
-	      || L <- sets:to_list(Esc), L =/= external],
+	      || L <- [E || {E} <- ets:tab2list(Esc)], L =/= external],
   Vertices = digraph_edges(DG),
   hipe_dot:translate_list(Vertices, File, "CG", Escaping).
 

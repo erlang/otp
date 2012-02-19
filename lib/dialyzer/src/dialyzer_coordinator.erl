@@ -46,17 +46,19 @@
 
 -module(dialyzer_coordinator).
 
-%%% Exports for all possible uses of coordinator
+%%% Exports for all possible uses of coordinator from main process
 -export([start/2,
 	 all_spawned/1]).
+
+%%% Exports for all possible workers
+-export([job_done/3]).
 
 %%% Exports for the typesig and dataflow analysis main process
 -export([scc_spawn/2,
 	 receive_not_fixpoint/0]).
 
 %%% Exports for the typesig and dataflow analysis workers
--export([scc_done/3,
-	 sccs_to_pids_reply/0,
+-export([sccs_to_pids_reply/0,
 	 sccs_to_pids_request/2]).
 
 %%% Exports for the compilation main process
@@ -67,39 +69,44 @@
 -export([compilation_done/3,
 	 get_next_label/2]).
 
+-export_type([coordinator/0, mode/0]).
+
 -behaviour(gen_server).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	 code_change/3]).
 
--type coordinator() :: pid().
--type map() :: dict().
--type scc() :: [mfa_or_funlbl()].
--type mode()   :: 'typesig' | 'dataflow' | 'compile'.
+-type coordinator() :: pid(). %%opaque
 
--record(state, {parent                   :: pid(),
-		mode                     :: mode(),
-		spawn_count  = 0         :: integer(),
-		all_spawned  = false     :: boolean(),
-		job_to_pid               :: map(),
-		next_label               :: integer(),
-		result                   :: [mfa_or_funlbl()] |
-					    dialyzer_analysis_callgraph:result(),
-		init_job_data            :: dialyzer_typesig:servers()
+-type map()     :: dict().
+-type scc()     :: [mfa_or_funlbl()].
+-type mode()    :: 'typesig' | 'dataflow' | 'compile'.
+-type servers() :: dialyzer_succ_typings:servers() |
+		   dialyzer_analysis_callgraph:servers().
+
+-record(state, {parent               :: pid(),
+		mode                 :: mode(),
+		spawn_count  = 0     :: integer(),
+		all_spawned  = false :: boolean(),
+		job_to_pid           :: map(),
+		next_label           :: integer(),
+		result               :: [mfa_or_funlbl()] |
+					dialyzer_analysis_callgraph:result(),
+		init_job_data        :: servers()
 	       }).
 
 -include("dialyzer.hrl").
 
 %%--------------------------------------------------------------------
 
--spec start('typesig' | 'dataflow', dialyzer_typesig:servers()) -> pid();
+-spec start('typesig' | 'dataflow', dialyzer_succ_typings:servers()) -> pid();
 	   ('compile', dialyzer_analysis_callgraph:servers()) -> pid().
 
 start(Mode, Servers) ->
   {ok, Pid} = gen_server:start(?MODULE, {self(), Mode, Servers}, []),
   Pid.
 
--spec scc_spawn(scc(), coordinator()) -> ok.
+-spec scc_spawn(scc() | module(), coordinator()) -> ok.
 
 scc_spawn(SCC, Coordinator) ->
   cast({scc_spawn, SCC}, Coordinator).
@@ -119,10 +126,10 @@ scc_to_pids_request_handle(Worker, SCCs, SCCtoPID) ->
 sccs_to_pids_reply() ->
   receive {sccs_to_pids, Pids} -> Pids end.
 
--spec scc_done(scc(), scc(), coordinator()) -> ok.
+-spec job_done(scc() | file:filename(), term(), coordinator()) -> ok.
 
-scc_done(SCC, NotFixpoint, Coordinator) ->
-  cast({done, SCC, NotFixpoint}, Coordinator).
+job_done(Job, Result, Coordinator) ->
+  cast({done, Job, Result}, Coordinator).
 
 -spec compilation_done(file:filename(),
 		       dialyzer_analysis_callgraph:compilation_data(),
@@ -145,9 +152,10 @@ send_done_to_parent(#state{mode = Mode,
       X when X =:= 'typesig'; X =:= 'dataflow' -> {not_fixpoint, Result};
       'compile' ->  {compilation_data, Result, NextLabel}
     end,
-  Parent ! Msg.
+  Parent ! Msg,
+  ok.
 
--spec receive_not_fixpoint() -> dialyzer_plt:plt().
+-spec receive_not_fixpoint() -> [mfa_or_funlbl()].
 
 receive_not_fixpoint() ->
   receive {not_fixpoint, NotFixpoint} -> NotFixpoint end.
@@ -172,8 +180,7 @@ get_next_label(EstimatedSize, Coordinator) ->
 
 %%--------------------------------------------------------------------
 
--spec init({pid(), mode(), dialyzer_succ_typings:servers() |
-	    dialyzer_analysis_callgraph:servers()}) -> {ok, #state{}}.
+-spec init({pid(), mode(), servers()}) -> {ok, #state{}}.
 
 init({Parent, Mode, InitJobData}) ->
   InitState = #state{parent = Parent, mode = Mode, init_job_data = InitJobData},
@@ -247,7 +254,7 @@ handle_cast({scc_spawn, SCC},
 		   spawn_count = SpawnCount,
 		   job_to_pid = SCCtoPID
 		  } = State) ->
-  Pid = dialyzer_worker:launch(Mode, SCC, Servers),
+  Pid = dialyzer_worker:launch(Mode, SCC, Servers, self()),
   {noreply,
    State#state{spawn_count = SpawnCount + 1,
 	       job_to_pid = store_map(SCC, Pid, SCCtoPID)}
@@ -257,7 +264,7 @@ handle_cast({compiler_spawn, Filename},
 		   init_job_data = Servers,
 		   spawn_count = SpawnCount
 		  } = State) ->
-  dialyzer_worker:launch(Mode, Filename, Servers),
+  dialyzer_worker:launch(Mode, Filename, Servers, self()),
   {noreply,
    State#state{spawn_count = SpawnCount + 1}
   }.

@@ -37,9 +37,6 @@
          state__get_records/1, state__put_callgraph/2,
          state__put_races/2, state__records_only/1]).
 
-%% Debug and test interfaces.
--export([get_top_level_signatures/2, pp/1]).
-
 -export_type([state/0]).
 
 -include("dialyzer.hrl").
@@ -68,7 +65,7 @@
 
 %%-define(DEBUG, true).
 %%-define(DEBUG_PP, true).
-%%-define(DOT, true).
+%%-define(DEBUG_TIME, true).
 
 -ifdef(DEBUG).
 -import(erl_types, [t_to_string/1]).
@@ -129,136 +126,11 @@ get_fun_types(Tree, Plt, Callgraph, Records) ->
   State = analyze_module(Tree, Plt, Callgraph, Records, false),
   state__all_fun_types(State).
 
-%%--------------------------------------------------------------------
-
--spec pp(file:filename()) -> 'ok'.
-
-pp(File) ->
-  {ok, Code} = dialyzer_utils:get_core_from_src(File, [no_copt]),
-  Plt = get_def_plt(),
-  AnnTree = annotate_module(Code, Plt),
-  io:put_chars(cerl_prettypr:format(AnnTree, [{hook, cerl_typean:pp_hook()}])),
-  io:nl().
-
-%%--------------------------------------------------------------------
-%% This is used in the testsuite.
-
--spec get_top_level_signatures(cerl:c_module(), dict()) ->
-        [{{atom(), arity()}, erl_types:erl_type()}].
-
-get_top_level_signatures(Code, Records) ->
-  {Tree, _} = cerl_trees:label(cerl:from_records(Code)),
-  Callgraph0 = dialyzer_callgraph:new(),
-  Callgraph1 = dialyzer_callgraph:scan_core_tree(Tree, Callgraph0),
-  {Callgraph2, _} = dialyzer_callgraph:remove_external(Callgraph1),
-  Callgraph = dialyzer_callgraph:finalize(Callgraph2),
-  to_dot(Callgraph),
-  Plt = get_def_plt(),
-  FunTypes = get_fun_types(Tree, Plt, Callgraph, Records),
-  FunTypes1 = lists:foldl(fun({V, F}, Acc) ->
-			      Label = get_label(F),
-			      case dict:find(Label, Acc) of
-				error ->
-				  Arity = cerl:fname_arity(V),
-				  Type = t_fun(lists:duplicate(Arity,
-							       t_none()),
-					       t_none()),
-				  dict:store(Label, Type, Acc);
-				{ok, _} -> Acc
-			      end
-			  end, FunTypes, cerl:module_defs(Tree)),
-  dialyzer_callgraph:delete(Callgraph),
-  Sigs = [{{cerl:fname_id(V), cerl:fname_arity(V)},
-	   dict:fetch(get_label(F), FunTypes1)}
-	  || {V, F} <- cerl:module_defs(Tree)],
-  ordsets:from_list(Sigs).
-
-get_def_plt() ->
-  try
-    dialyzer_plt:from_file(dialyzer_plt:get_default_plt())
-  catch
-    throw:{dialyzer_error, _} -> dialyzer_plt:new()
-  end.
-
-%%% ===========================================================================
-%%%
-%%%  Annotate all top level funs.
-%%%
-%%% ===========================================================================
-
-annotate_module(Code, Plt) ->
-  {Tree, _} = cerl_trees:label(cerl:from_records(Code)),
-  Callgraph0 = dialyzer_callgraph:new(),
-  Callgraph1 = dialyzer_callgraph:scan_core_tree(Tree, Callgraph0),
-  {Callgraph2, _} = dialyzer_callgraph:remove_external(Callgraph1),
-  Callgraph = dialyzer_callgraph:finalize(Callgraph2),
-  State = analyze_module(Tree, Plt, Callgraph),
-  Res = annotate(Tree, State),
-  dialyzer_callgraph:delete(Callgraph),
-  Res.
-
-annotate(Tree, State) ->
-  case cerl:subtrees(Tree) of
-    [] -> set_type(Tree, State);
-    List ->
-      NewSubTrees = [[annotate(Subtree, State) || Subtree <- Group]
-		     || Group <- List],
-      NewTree = cerl:update_tree(Tree, NewSubTrees),
-      set_type(NewTree, State)
-  end.
-
-set_type(Tree, State) ->
-  case cerl:type(Tree) of
-    'fun' ->
-      Type = state__fun_type(Tree, State),
-      case t_is_any(Type) of
-	true ->
-	  cerl:set_ann(Tree, delete_ann(typesig, cerl:get_ann(Tree)));
-	false ->
-	  cerl:set_ann(Tree, append_ann(typesig, Type, cerl:get_ann(Tree)))
-      end;
-    apply ->
-      case state__find_apply_return(Tree, State) of
-	unknown -> Tree;
-	ReturnType ->
-	  case t_is_any(ReturnType) of
-	    true ->
-	      cerl:set_ann(Tree, delete_ann(type, cerl:get_ann(Tree)));
-	    false ->
-	      cerl:set_ann(Tree, append_ann(type, ReturnType,
-					    cerl:get_ann(Tree)))
-	  end
-      end;
-    _ ->
-      Tree
-  end.
-
-append_ann(Tag, Val, [X | Xs]) ->
-  if tuple_size(X) >= 1, element(1, X) =:= Tag ->
-      append_ann(Tag, Val, Xs);
-     true ->
-      [X | append_ann(Tag, Val, Xs)]
-  end;
-append_ann(Tag, Val, []) ->
-  [{Tag, Val}].
-
-delete_ann(Tag, [X | Xs]) ->
-  if tuple_size(X) >= 1, element(1, X) =:= Tag ->
-      delete_ann(Tag, Xs);
-     true ->
-      [X | delete_ann(Tag, Xs)]
-  end;
-delete_ann(_, []) ->
-  [].
-
 %%% ===========================================================================
 %%%
 %%%  The analysis.
 %%%
 %%% ===========================================================================
-
-analyze_module(Tree, Plt, Callgraph) ->
-  analyze_module(Tree, Plt, Callgraph, dict:new(), false).
 
 analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
   debug_pp(Tree, false),
@@ -3204,21 +3076,6 @@ state__fun_info(Fun, #state{callgraph = CG, fun_tab = FunTab, plt = PLT}) ->
   ?debug("LocalRet: ~s\n", [t_to_string(LocalRet)]),
   {Fun, Sig, Contract, LocalRet}.
 
-state__find_apply_return(Tree, #state{callgraph = Callgraph} = State) ->
-  Apply = get_label(Tree),
-  case dialyzer_callgraph:lookup_call_site(Apply, Callgraph) of
-    error ->
-      unknown;
-    {ok, List} ->
-      case lists:member(external, List) of
-	true -> t_any();
-	false ->
-	  FunTypes = [state__fun_type(F, State) || F <- List],
-	  Returns = [t_fun_range(F) || F <- FunTypes],
-	  t_sup(Returns)
-      end
-  end.
-
 forward_args(Fun, ArgTypes, #state{work = Work, fun_tab = FunTab} = State) ->
   {OldArgTypes, OldOut, Fixpoint} =
     case dict:find(Fun, FunTab) of
@@ -3652,17 +3509,3 @@ strip_annotations(Tree) ->
 debug_pp(_Tree, _UseHook) ->
   ok.
 -endif.
-
-%%----------------------------------------------------------------------------
-
--spec to_dot(dialyzer_callgraph:callgraph()) -> 'ok'.
-
--ifdef(DOT).
-to_dot(CG) ->
-  dialyzer_callgraph:to_dot(CG).
--else.
-to_dot(_CG) ->
-  ok.
--endif.
-
-%%----------------------------------------------------------------------------
