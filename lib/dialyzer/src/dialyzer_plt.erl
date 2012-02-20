@@ -158,7 +158,9 @@ lookup_contract(#mini_plt{contracts = ETSContracts},
   ets_table_lookup(ETSContracts, MFA).
 
 -spec lookup_callbacks(plt(), module()) ->
-	 [{mfa(), {{Filename::string(), Line::pos_integer()}, #contract{}}}].
+	 'none' | {'value', [{mfa(), {{Filename::string(),
+				       Line::pos_integer()},
+				      #contract{}}}]}.
 
 lookup_callbacks(#mini_plt{callbacks = ETSCallbacks}, Mod) when is_atom(Mod) ->
   ets_table_lookup(ETSCallbacks, Mod).
