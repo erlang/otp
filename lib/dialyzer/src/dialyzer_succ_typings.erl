@@ -38,10 +38,11 @@
 	 collect_scc_data/2,
 	 collect_refine_scc_data/2,
 	 find_required_by/2,
-	 find_depends_on/2
+	 find_depends_on/2,
+	 collect_warnings/2
 	]).
 
--export_type([servers/0, scc_data/0, scc_refine_data/0]).
+-export_type([servers/0, scc_data/0, scc_refine_data/0, warning_servers/0]).
 
 %%-define(DEBUG, true).
 
@@ -128,20 +129,31 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver, NoWarnUnused, Parent) ->
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver, Parent),
   NewState = InitState#st{no_warn_unused = NoWarnUnused},
   Mods = dialyzer_callgraph:modules(NewState#st.callgraph),
-  CWarns = dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver,
-							    NewState#st.plt),
+  MiniPlt = NewState#st.plt,
+  CWarns =
+    dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver, MiniPlt),
   MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
-  {Warnings, FinalPlt, FinalDocPlt} =
-    ?timing("warning",
-	    get_warnings_from_modules(Mods, NewState, MiniDocPlt, CWarns)),
-  {postprocess_warnings(Warnings, Codeserver),
-   dialyzer_plt:restore_full_plt(FinalPlt, Plt),
-   dialyzer_plt:restore_full_plt(FinalDocPlt, DocPlt)}.
+  ModWarns =
+    ?timing("warning", get_warnings_from_modules(Mods, NewState, MiniDocPlt)),
+  {postprocess_warnings(CWarns ++ ModWarns, Codeserver),
+   dialyzer_plt:restore_full_plt(MiniPlt, Plt),
+   dialyzer_plt:restore_full_plt(MiniDocPlt, DocPlt)}.
 
-get_warnings_from_modules([M|Ms], State, DocPlt, Acc) when is_atom(M) ->
-  send_log(State#st.parent, io_lib:format("Getting warnings for ~w\n", [M])),
+get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,
       no_warn_unused = NoWarnUnused, plt = Plt} = State,
+  Servers = {Callgraph, Codeserver, NoWarnUnused, Plt, DocPlt},
+  Coordinator = dialyzer_coordinator:start('warnings', Servers),
+  Spawner = fun(M) -> dialyzer_coordinator:scc_spawn(M, Coordinator) end,
+  lists:foreach(Spawner, Mods),
+  dialyzer_coordinator:all_spawned(Coordinator),
+  dialyzer_coordinator:receive_warnings().
+
+-type warning_servers() :: term().
+
+-spec collect_warnings(module(), warning_servers()) -> [dial_warning()].
+
+collect_warnings(M, {Callgraph, Codeserver, NoWarnUnused, Plt, DocPlt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, Codeserver),
   Records = dialyzer_codeserver:lookup_mod_records(M, Codeserver),
   Contracts = dialyzer_codeserver:lookup_mod_contracts(M, Codeserver),
@@ -154,11 +166,8 @@ get_warnings_from_modules([M|Ms], State, DocPlt, Acc) when is_atom(M) ->
 				   Records, NoWarnUnused),
   Attrs = cerl:module_attrs(ModCode),
   Warnings3 = dialyzer_behaviours:check_callbacks(M, Attrs, Plt, Codeserver),
-  NewDocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),
-  get_warnings_from_modules(Ms, State, NewDocPlt,
-			    [Warnings1, Warnings2, Warnings3|Acc]);
-get_warnings_from_modules([], #st{plt = Plt}, DocPlt, Acc) ->
-  {lists:flatten(Acc), Plt, DocPlt}.
+  DocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),
+  lists:flatten([Warnings1, Warnings2, Warnings3]).
 
 postprocess_warnings(RawWarnings, Codeserver) ->
   Pred =

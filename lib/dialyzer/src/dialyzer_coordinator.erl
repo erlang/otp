@@ -53,9 +53,14 @@
 %%% Exports for all possible workers
 -export([job_done/3]).
 
-%%% Exports for the typesig and dataflow analysis main process
--export([scc_spawn/2,
-	 receive_not_fixpoint/0]).
+%%% Export for the typesig, dataflow and warnings main process
+-export([scc_spawn/2]).
+
+%%% Export for the typesig and dataflow analysis main process
+-export([receive_not_fixpoint/0]).
+
+%%% Export for warning main process
+-export([receive_warnings/0]).
 
 %%% Exports for the typesig and dataflow analysis workers
 -export([sccs_to_pids_reply/0,
@@ -79,10 +84,11 @@
 -type coordinator() :: pid(). %%opaque
 
 -type map()     :: dict().
--type scc()     :: [mfa_or_funlbl()].
--type mode()    :: 'typesig' | 'dataflow' | 'compile'.
+-type scc()     :: [mfa_or_funlbl()] | module().
+-type mode()    :: 'typesig' | 'dataflow' | 'compile' | 'warnings'.
 -type servers() :: dialyzer_succ_typings:servers() |
-		   dialyzer_analysis_callgraph:servers().
+		   dialyzer_analysis_callgraph:servers() |
+		   dialyzer_succ_typings:warning_servers().
 
 -record(state, {parent               :: pid(),
 		mode                 :: mode(),
@@ -91,7 +97,8 @@
 		job_to_pid           :: map(),
 		next_label           :: integer(),
 		result               :: [mfa_or_funlbl()] |
-					dialyzer_analysis_callgraph:result(),
+					dialyzer_analysis_callgraph:result() |
+					[dial_warning()],
 		init_job_data        :: servers()
 	       }).
 
@@ -99,8 +106,7 @@
 
 %%--------------------------------------------------------------------
 
--spec start('typesig' | 'dataflow', dialyzer_succ_typings:servers()) -> pid();
-	   ('compile', dialyzer_analysis_callgraph:servers()) -> pid().
+-spec start(mode(), servers()) -> coordinator().
 
 start(Mode, Servers) ->
   {ok, Pid} = gen_server:start(?MODULE, {self(), Mode, Servers}, []),
@@ -150,7 +156,8 @@ send_done_to_parent(#state{mode = Mode,
   Msg =
     case Mode of
       X when X =:= 'typesig'; X =:= 'dataflow' -> {not_fixpoint, Result};
-      'compile' ->  {compilation_data, Result, NextLabel}
+      'compile' -> {compilation_data, Result, NextLabel};
+      'warnings' -> {warnings, Result}
     end,
   Parent ! Msg,
   ok.
@@ -167,6 +174,11 @@ receive_compilation_data() ->
   receive {compilation_data, CompilationData, NextLabel} ->
       {CompilationData, NextLabel}
   end.
+
+-spec receive_warnings() -> [dial_warning()].
+
+receive_warnings() ->
+  receive {warnings, Warnings} -> Warnings end.
 
 -spec compiler_spawn(file:filename(), coordinator()) -> ok.
 
@@ -186,7 +198,7 @@ init({Parent, Mode, InitJobData}) ->
   InitState = #state{parent = Parent, mode = Mode, init_job_data = InitJobData},
   State =
     case Mode of
-      X when X =:= 'typesig'; X =:= 'dataflow' ->
+      X when X =:= 'typesig'; X =:= 'dataflow'; X =:= 'warnings' ->
 	InitState#state{result = [], job_to_pid = new_map()};
       'compile' ->
 	InitResult = dialyzer_analysis_callgraph:compile_coordinator_init(),
@@ -215,7 +227,9 @@ handle_cast({done, Job, NewData},
       X when X =:= 'typesig'; X =:= 'dataflow' ->
 	ordsets:union(OldResult, NewData);
       'compile' ->
-	dialyzer_analysis_callgraph:add_to_result(Job, NewData, OldResult)
+	dialyzer_analysis_callgraph:add_to_result(Job, NewData, OldResult);
+      'warnings' ->
+	NewData ++ OldResult
     end,
   UpdatedState = State#state{result = NewResult},
   Action =

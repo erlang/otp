@@ -64,7 +64,7 @@ launch(Mode, Job, Servers, Coordinator) ->
   InitState =
     case Mode of
       X when X =:= 'typesig'; X =:= 'dataflow' -> initializing;
-      'compile' -> running
+      X when X =:= 'compile'; X =:= 'warnings' -> running
     end,
   spawn(fun() -> loop(InitState, State) end).
 
@@ -108,6 +108,10 @@ loop(running, #state{mode = 'compile'} = State) ->
       {error, _Reason} = Error ->
 	Error
     end,
+  report_to_coordinator(Result, State);
+loop(running, #state{mode = 'warnings'} = State) ->
+  ?debug("Warning: ~s\n",[State#state.job]),
+  Result = collect_warnings(State),
   report_to_coordinator(Result, State);
 loop(running, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
@@ -184,3 +188,6 @@ ask_coordinator_for_label(EstimatedSize, #state{coordinator = Coordinator}) ->
 
 continue_compilation(Label, Data) ->
   dialyzer_analysis_callgraph:continue_compilation(Label, Data).
+
+collect_warnings(#state{job = Job, servers = Servers}) ->
+  dialyzer_succ_typings:collect_warnings(Job, Servers).
