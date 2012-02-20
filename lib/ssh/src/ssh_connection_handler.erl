@@ -837,13 +837,18 @@ generate_event_new_state(#state{ssh_params =
 
 next_packet(#state{decoded_data_buffer = <<>>,
 		   encoded_data_buffer = Buff,
+		   ssh_params = #ssh{decrypt_block_size = BlockSize},
 		   socket = Socket,
-		   transport_protocol = Protocol} = 
-	    State) when Buff =/= <<>> andalso size(Buff) >= 8 ->
-    %% More data from the next packet has been received
-    %% Fake a socket-recive message so that the data will be processed
-    inet:setopts(Socket, [{active, once}]),
-    self() ! {Protocol, Socket, <<>>},
+		   transport_protocol = Protocol} = State) when Buff =/= <<>> ->
+    case  size(Buff) >= erlang:max(8, BlockSize) of
+	true ->
+	    %% Enough data from the next packet has been received to
+	    %% decode the length indicator, fake a socket-recive
+	    %% message so that the data will be processed
+	    self() ! {Protocol, Socket, <<>>};
+	false ->
+	    inet:setopts(Socket, [{active, once}])
+    end,
     State;
 
 next_packet(#state{socket = Socket} = State) ->
