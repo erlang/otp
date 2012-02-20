@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -44,7 +44,6 @@
 #define erts_smp_thr_progress_unblock erts_thr_progress_unblock
 #define erts_smp_thr_progress_is_blocking erts_thr_progress_is_blocking
 
-void erts_thr_progress_fatal_error_block(SWord timeout);
 void erts_thr_progress_block(void);
 void erts_thr_progress_unblock(void);
 int erts_thr_progress_is_blocking(void);
@@ -73,6 +72,10 @@ typedef struct {
 	ErtsThrPrgrVal current;
     } previous;
 } ErtsThrPrgrData;
+
+void erts_thr_progress_fatal_error_block(SWord timeout,
+					 ErtsThrPrgrData *tmp_tpd_bufp);
+
 #endif /* ERTS_SMP */
 
 #endif
@@ -86,6 +89,7 @@ typedef struct {
 #ifdef ERTS_SMP
 
 #define ERTS_THR_PRGR_VAL_WAITING (~((ErtsThrPrgrVal) 0))
+#define ERTS_THR_PRGR_INVALID (~((ErtsThrPrgrVal) 0))
 
 extern erts_tsd_key_t erts_thr_prgr_data_key__;
 
@@ -127,14 +131,19 @@ void erts_thr_progress_dbg_print_state(void);
 
 #ifdef ARCH_32
 #define ERTS_THR_PRGR_ATOMIC erts_dw_atomic_t
-ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_dw_sint_to_val__(ethr_dw_sint_t *dw_sint);
+ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_dw_aint_to_val__(erts_dw_aint_t *dw_aint);
 #endif
+ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *atmc);
+ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc);
 
 ERTS_GLB_INLINE int erts_thr_progress_is_managed_thread(void);
+ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later_than(ErtsThrPrgrVal val);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later(void);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current(void);
 ERTS_GLB_INLINE int erts_thr_progress_has_passed__(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2);
+ERTS_GLB_INLINE int erts_thr_progress_has_reached_this(ErtsThrPrgrVal this, ErtsThrPrgrVal val);
+ERTS_GLB_INLINE int erts_thr_progress_cmp(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2);
 ERTS_GLB_INLINE int erts_thr_progress_has_reached(ErtsThrPrgrVal val);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
@@ -142,33 +151,61 @@ ERTS_GLB_INLINE int erts_thr_progress_has_reached(ErtsThrPrgrVal val);
 #ifdef ARCH_64
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
+erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc)
+{
+    return (ErtsThrPrgrVal) erts_atomic_read_nob(atmc);
+}
+
+ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *atmc)
 {
     return (ErtsThrPrgrVal) erts_atomic_read_acqb(atmc);
 }
 
+ERTS_GLB_INLINE ErtsThrPrgrVal
+erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc)
+{
+    return (ErtsThrPrgrVal) erts_atomic_read_mb(atmc);
+}
+
 #else /* ARCH_32 */
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_prgr_dw_sint_to_val__(ethr_dw_sint_t *dw_sint)
+erts_thr_prgr_dw_aint_to_val__(erts_dw_aint_t *dw_aint)
 {
 #ifdef ETHR_SU_DW_NAINT_T__
-    return (ErtsThrPrgrVal) dw_sint->dw_sint;
+    return (ErtsThrPrgrVal) dw_aint->dw_sint;
 #else
     ErtsThrPrgrVal res;
-    res = (ErtsThrPrgrVal) ((Uint32) dw_sint->sint[ETHR_DW_SINT_HIGH_WORD]);
+    res = (ErtsThrPrgrVal) ((Uint32) dw_aint->sint[ERTS_DW_AINT_HIGH_WORD]);
     res <<= 32;
-    res |= (ErtsThrPrgrVal) ((Uint32) dw_sint->sint[ETHR_DW_SINT_LOW_WORD]);
+    res |= (ErtsThrPrgrVal) ((Uint32) dw_aint->sint[ERTS_DW_AINT_LOW_WORD]);
     return res;
 #endif
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
+erts_thr_prgr_read_nob__(ERTS_THR_PRGR_ATOMIC *atmc)
+{
+    erts_dw_aint_t dw_aint;
+    erts_dw_atomic_read_nob(atmc, &dw_aint);
+    return erts_thr_prgr_dw_aint_to_val__(&dw_aint);
+}
+
+ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *atmc)
 {
-    ethr_dw_sint_t dw_sint;
-    erts_dw_atomic_read_acqb(atmc, &dw_sint);
-    return erts_thr_prgr_dw_sint_to_val__(&dw_sint);
+    erts_dw_aint_t dw_aint;
+    erts_dw_atomic_read_acqb(atmc, &dw_aint);
+    return erts_thr_prgr_dw_aint_to_val__(&dw_aint);
+}
+
+ERTS_GLB_INLINE ErtsThrPrgrVal
+erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc)
+{
+    erts_dw_aint_t dw_aint;
+    erts_dw_atomic_read_mb(atmc, &dw_aint);
+    return erts_thr_prgr_dw_aint_to_val__(&dw_aint);
 }
 
 #endif
@@ -181,9 +218,9 @@ erts_thr_progress_is_managed_thread(void)
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_progress_later(void)
+erts_thr_progress_later_than(ErtsThrPrgrVal val)
 {
-    ErtsThrPrgrVal val = erts_thr_prgr_read_acqb__(&erts_thr_prgr__.current);
+    ERTS_THR_MEMORY_BARRIER;
     if (val == (ERTS_THR_PRGR_VAL_WAITING-((ErtsThrPrgrVal)2)))
 	return ((ErtsThrPrgrVal) 0);
     else if (val == (ERTS_THR_PRGR_VAL_WAITING-((ErtsThrPrgrVal)1)))
@@ -193,9 +230,19 @@ erts_thr_progress_later(void)
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
+erts_thr_progress_later(void)
+{
+    ErtsThrPrgrVal val = erts_thr_prgr_read_mb__(&erts_thr_prgr__.current);
+    return erts_thr_progress_later_than(val);
+}
+
+ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_progress_current(void)
 {
-    return erts_thr_prgr_read_acqb__(&erts_thr_prgr__.current);
+    if (erts_thr_progress_is_managed_thread())
+	return erts_thr_prgr_read_nob__(&erts_thr_prgr__.current);
+    else
+	return erts_thr_prgr_read_acqb__(&erts_thr_prgr__.current);
 }
 
 ERTS_GLB_INLINE int
@@ -217,13 +264,29 @@ erts_thr_progress_has_passed__(ErtsThrPrgrVal val1, ErtsThrPrgrVal val0)
 }
 
 ERTS_GLB_INLINE int
+erts_thr_progress_has_reached_this(ErtsThrPrgrVal this, ErtsThrPrgrVal val)
+{
+    if (this == val)
+	return 1;
+    return erts_thr_progress_has_passed__(this, val);
+}
+
+ERTS_GLB_INLINE int
+erts_thr_progress_cmp(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2)
+{
+    if (val1 == val2)
+	return 0;
+    if (erts_thr_progress_has_passed__(val1, val2))
+	return 1;
+    else
+	return -1;
+}	
+
+ERTS_GLB_INLINE int
 erts_thr_progress_has_reached(ErtsThrPrgrVal val)
 {
-    ErtsThrPrgrVal current;
-    current = erts_thr_prgr_read_acqb__(&erts_thr_prgr__.current);
-    if (current == val)
-	return 1;
-    return erts_thr_progress_has_passed__(current, val);
+    ErtsThrPrgrVal current = erts_thr_progress_current();
+    return erts_thr_progress_has_reached_this(current, val);
 }
 
 #endif

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2001-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2001-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,235 @@
 
 #ifndef ERL_THREAD_H__
 #define ERL_THREAD_H__
+
+/*
+ * --- Documentation of atomics and memory barriers --------------------------
+ *
+ * The following explicit memory barriers exist:
+ *   
+ * - ERTS_THR_MEMORY_BARRIER
+ *      Full memory barrier. Orders both loads, and stores. No
+ *      load or store is allowed to be reordered over the
+ *      barrier.
+ * - ERTS_THR_WRITE_MEMORY_BARRIER
+ *      Write barrier. Orders *only* stores. These are not
+ *      allowed to be reordered over the barrier.
+ * - ERTS_THR_READ_MEMORY_BARRIER
+ *      Read barrier. Orders *only* loads. These are not
+ *      allowed to be reordered over the barrier.
+ * - ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER
+ *      Data dependency read barrier. Orders *only* loads
+ *      according to data dependency across the barrier.
+ *
+ * If thread support has been disabled, these barriers will become no-ops.
+ *
+ * If the prefix ERTS_THR_ is replaced with ERTS_SMP_, the barriers will
+ * be enabled only in the SMP enabled runtime system.
+ *
+ * --- Atomic operations ---
+ *
+ * Atomics operations exist for 32-bit, word size, and double word size
+ * integers. Function prototypes are listed below.
+ *
+ * Each function implementing an atomic operation exist with the following
+ * implied memory barrier semantics. Not all combinations are useful, but
+ * all of them exist for simplicity. <B> is suffix in function name:
+ *
+ * - <B>  - Description
+ *
+ * - mb   - Full memory barrier. Orders both loads, and
+ *          stores before, and after the atomic operation.
+ *          No load or store is allowed to be reordered
+ *          over the atomic operation.
+ * - relb - Release barrier. Orders both loads, and
+ *          stores appearing *before* the atomic
+ *          operation. These are not allowed to be
+ *          reordered over the atomic operation.
+ * - acqb - Acquire barrier. Orders both loads, and stores
+ *          appearing *after* the atomic operation. These
+ *          are not allowed to be reordered over the
+ *          atomic operation.
+ * - wb   - Write barrier. Orders *only* stores. These are
+ *          not allowed to be reordered over the barrier.
+ *          Store in atomic operation is ordered *after*
+ *          the barrier.
+ * - rb   - Read barrier. Orders *only* loads. These are
+ *          not allowed to be reordered over the barrier.
+ *          Load in atomic operation is ordered *before*
+ *          the barrier. 
+ * - ddrb - Data dependency read barrier. Orders *only*
+ *          loads according to data dependency across the
+ *          barrier. Load in atomic operation is ordered
+ *          before the barrier.
+ *
+ * If thread support has been disabled, these functions are mapped to
+ * functions that performs the same operation, but aren't atomic
+ * and don't imply any memory barriers.
+ *
+ * If the atomic operations are prefixed with erts_smp_ instead of only
+ * erts_ the atomic operations will only be atomic in the SMP enabled
+ * runtime system, and will be mapped to non-atomic operations without
+ * memory barriers in the runtime system without SMP support. Atomic
+ * operations with erts_smp_ prefix should use the atomic types
+ * erts_smp_atomic32_t, erts_smp_atomic_t, and erts_smp_dw_atomic_t
+ * instead of erts_atomic32_t, erts_atomic_t, and erts_dw_atomic_t. The
+ * integer data types erts_aint32_t, erts_aint_t, and erts_dw_atomic_t
+ * are the same.
+ *
+ * --- 32-bit atomic operations ---
+ *
+ * The following 32-bit atomic operations exist. <B> should be
+ * replaced with a supported memory barrier (see above). Note
+ * that sizeof(erts_atomic32_t) might be larger than 4!
+ *
+ *
+ * Initialize (not necessarily the same as the set operation):
+ *   void erts_atomic32_init_<B>(erts_atomic32_t *atmc,
+ *                               erts_aint32_t val);
+ *
+ * Set value:
+ *   void erts_atomic32_set_<B>(erts_atomic32_t *atmc,
+ *                              erts_aint32_t val);
+ *
+ * Read; returns current value:
+ *   erts_aint32_t erts_atomic32_read_<B>(erts_atomic32_t *atmc);
+ *
+ * Increment; returns resulting value:
+ *   erts_aint32_t erts_atomic32_inc_read_<B>(erts_atomic32_t *atmc);
+ *
+ * Decrement; returns resulting value:
+ *   erts_aint32_t erts_atomic32_dec_read_<B>(erts_atomic32_t *atmc);
+ *
+ * Increment:
+ *   void erts_atomic32_inc_<B>(erts_atomic32_t *atmc);
+ *
+ * Decrement:
+ *   void erts_atomic32_dec_<B>(erts_atomic32_t *atmc);
+ *
+ * Add value; returns resulting value:
+ *   erts_aint32_t erts_atomic32_add_read_<B>(erts_atomic32_t *atmc,
+ *                                            erts_aint32_t val);
+ *
+ * Add value:
+ *   void erts_atomic32_add_<B>(erts_atomic32_t *atmc,
+ *                              erts_aint32_t val);
+ *
+ * Bitwise-or; returns previous value:
+ *   erts_aint32_t erts_atomic32_read_bor_<B>(erts_atomic32_t *atmc,
+ *                                            erts_aint32_t val);
+ *
+ * Bitwise-and; returns previous value:
+ *   erts_aint32_t erts_atomic32_read_band_<B>(erts_atomic32_t *atmc,
+ *                                             erts_aint32_t val);
+ *
+ * Exchange; returns previous value:
+ *   erts_aint32_t erts_atomic32_xchg_<B>(erts_atomic32_t *atmc,
+ *                                        erts_aint32_t val);
+ *
+ * Compare and exchange; returns previous or current value. If
+ * returned value equals 'exp' the value was changed to 'new';
+ * otherwise not:
+ *   erts_aint32_t erts_atomic32_cmpxchg_<B>(erts_atomic32_t *a,
+ *                                           erts_aint32_t new,
+ *                                           erts_aint32_t exp);
+ *
+ * --- Word size atomic operations ---
+ *
+ * The following word size (same size as sizeof(void *)) atomic
+ * operations exist. <B> should be replaced with a supported
+ * memory barrier (see above). Note that sizeof(erts_atomic_t)
+ * might be larger than sizeof(void *)!
+ *
+ * Initialize (not necessarily the same as the set operation):
+ *   void erts_atomic_init_<B>(erts_atomic_t *atmc,
+ *                             erts_aint_t val);
+ *
+ * Set value;
+ *   void erts_atomic_set_<B>(erts_atomic_t *atmc,
+ *                            erts_aint_t val);
+ *
+ * Read; returns current value:
+ *   erts_aint_t erts_atomic_read_<B>(erts_atomic_t *atmc);
+ *
+ * Increment; returns resulting value:
+ *   erts_aint_t erts_atomic_inc_read_<B>(erts_atomic_t *atmc);
+ *
+ * Decrement; returns resulting value:
+ *   erts_aint_t erts_atomic_dec_read_<B>(erts_atomic_t *atmc);
+ *
+ * Increment:
+ *   void erts_atomic_inc_<B>(erts_atomic_t *atmc);
+ *
+ * Decrement:
+ *   void erts_atomic_dec_<B>(erts_atomic_t *atmc);
+ *
+ * Add value; returns resulting value:
+ *   erts_aint_t erts_atomic_add_read_<B>(erts_atomic_t *atmc,
+ *                                        erts_aint_t val);
+ *
+ * Add value:
+ *   void erts_atomic_add_<B>(erts_atomic_t *atmc,
+ *                            erts_aint_t val);
+ *
+ * Bitwise-or; returns previous value:
+ *   erts_aint_t erts_atomic_read_bor_<B>(erts_atomic_t *atmc,
+ *                                        erts_aint_t val);
+ *
+ * Bitwise-and; returns previous value:
+ *   erts_aint_t erts_atomic_read_band_<B>(erts_atomic_t *atmc,
+ *                                         erts_aint_t val);
+ *
+ * Exchange; returns previous value:
+ *   erts_aint_t erts_atomic_xchg_<B>(erts_atomic_t *atmc,
+ *                                    erts_aint_t val);
+ *
+ * Compare and exchange; returns previous or current value. If
+ * returned value equals 'exp' the value was changed to 'new';
+ * otherwise not:
+ *   erts_aint_t erts_atomic_cmpxchg_<B>(erts_atomic_t *a,
+ *                                       erts_aint_t new,
+ *                                       erts_aint_t exp);
+ *
+ * --- Double word size atomic operations ---
+ *
+ * The following double word atomic operations exist. <B> should be
+ * replaced with a supported memory barrier (see above).
+ *
+ * Note that sizeof(erts_dw_atomic_t) usually is larger than
+ * 2*sizeof(void *)!
+ * 
+ * The erts_dw_aint_t data type should be accessed as if it was defined
+ * like this:
+ *
+ *     typedef struct {
+ *         erts_aint_t sint[2];
+ *     } erts_dw_aint_t;
+ *
+ *     Most significant word is 'sint[ERTS_DW_AINT_HIGH_WORD]' and least
+ *     significant word is 'sint[ERTS_DW_AINT_LOW_WORD]'.
+ *
+ *
+ * Initialize (not necessarily the same as the set operation):
+ *   void erts_dw_atomic_init_<B>(erts_dw_atomic_t *var,
+ *                           erts_dw_aint_t *val);
+ *
+ * Set; value is written into 'val':
+ *   void erts_dw_atomic_set_<B>(erts_dw_atomic_t *var,
+ *                               erts_dw_aint_t *val);
+ *
+ * Read; value is written into 'val':
+ *   void erts_dw_atomic_read_<B>(erts_dw_atomic_t *var,
+ *                                erts_dw_aint_t *val);
+ *
+ * Compare and exchange; returns a value != 0 if exchange was
+ * made; otherwise 0. 'new_val' contains new value to set. If 'exp_act'
+ * contains the same value as in memory when the function is called,
+ * 'new' is written to memory; otherwise, not. If exchange was not
+ * made, 'exp_act' contains the actual value in memory:
+ *   int erts_dw_atomic_cmpxchg_<B>(erts_dw_atomic_t *var,
+ *                                  erts_dw_aint_t *new,
+ *                                  erts_dw_aint_t *exp_act);
+ */
 
 #define ERTS_SPIN_BODY ETHR_SPIN_BODY
 
@@ -52,6 +281,9 @@ typedef Sint32 erts_no_atomic32_t;
 #endif
 
 #define ERTS_THR_MEMORY_BARRIER ETHR_MEMORY_BARRIER
+#define ERTS_THR_WRITE_MEMORY_BARRIER ETHR_WRITE_MEMORY_BARRIER
+#define ERTS_THR_READ_MEMORY_BARRIER ETHR_READ_MEMORY_BARRIER
+#define ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER ETHR_READ_DEPEND_MEMORY_BARRIER
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #define erts_mtx_lock(L) erts_mtx_lock_x(L, __FILE__, __LINE__)
@@ -113,6 +345,9 @@ typedef ethr_ts_event erts_tse_t;
 #define erts_aint32_t ethr_sint32_t 
 #define erts_atomic32_t ethr_atomic32_t
 
+#define ERTS_DW_AINT_HIGH_WORD ETHR_DW_SINT_HIGH_WORD
+#define ERTS_DW_AINT_LOW_WORD ETHR_DW_SINT_LOW_WORD
+
 /* spinlock */
 typedef struct {
     ethr_spinlock_t slck;
@@ -149,6 +384,9 @@ __decl_noreturn void  __noreturn erts_thr_fatal_error(int, char *);
 #else /* #ifdef USE_THREADS */
 
 #define ERTS_THR_MEMORY_BARRIER
+#define ERTS_THR_WRITE_MEMORY_BARRIER
+#define ERTS_THR_READ_MEMORY_BARRIER
+#define ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER
 
 #define ERTS_THR_OPTS_DEFAULT_INITER 0
 typedef int erts_thr_opts_t;
@@ -361,17 +599,12 @@ ERTS_GLB_INLINE void erts_thr_sigmask(int how, const sigset_t *set,
 ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #endif /* #ifdef HAVE_ETHR_SIG_FUNCS */
 
-/*
- * Functions implementing atomic operations with with no (nob),
- * full (mb), acquire (acqb), release (relb), read (rb), and
- * write (wb) memory barriers.
- *
- * If thread support has been disabled, they are mapped to
- * functions that performs the same operation, but aren't atomic
- * and don't imply memory barriers.
- */
-
 #ifdef USE_THREADS
+
+/*
+ * See "Documentation of atomics and memory barriers" at the top
+ * of this file for info on atomics.
+ */
 
 /* Double word size atomics */
 
@@ -394,6 +627,11 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_dw_atomic_set_relb ethr_dw_atomic_set_relb
 #define erts_dw_atomic_read_relb ethr_dw_atomic_read_relb
 #define erts_dw_atomic_cmpxchg_relb ethr_dw_atomic_cmpxchg_relb
+
+#define erts_dw_atomic_init_ddrb ethr_dw_atomic_init_ddrb
+#define erts_dw_atomic_set_ddrb ethr_dw_atomic_set_ddrb
+#define erts_dw_atomic_read_ddrb ethr_dw_atomic_read_ddrb
+#define erts_dw_atomic_cmpxchg_ddrb ethr_dw_atomic_cmpxchg_ddrb
 
 #define erts_dw_atomic_init_rb ethr_dw_atomic_init_rb
 #define erts_dw_atomic_set_rb ethr_dw_atomic_set_rb
@@ -462,6 +700,20 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic_read_band_relb ethr_atomic_read_band_relb
 #define erts_atomic_xchg_relb ethr_atomic_xchg_relb
 #define erts_atomic_cmpxchg_relb ethr_atomic_cmpxchg_relb
+
+#define erts_atomic_init_ddrb ethr_atomic_init_ddrb
+#define erts_atomic_set_ddrb ethr_atomic_set_ddrb
+#define erts_atomic_read_ddrb ethr_atomic_read_ddrb
+#define erts_atomic_inc_read_ddrb ethr_atomic_inc_read_ddrb
+#define erts_atomic_dec_read_ddrb ethr_atomic_dec_read_ddrb
+#define erts_atomic_inc_ddrb ethr_atomic_inc_ddrb
+#define erts_atomic_dec_ddrb ethr_atomic_dec_ddrb
+#define erts_atomic_add_read_ddrb ethr_atomic_add_read_ddrb
+#define erts_atomic_add_ddrb ethr_atomic_add_ddrb
+#define erts_atomic_read_bor_ddrb ethr_atomic_read_bor_ddrb
+#define erts_atomic_read_band_ddrb ethr_atomic_read_band_ddrb
+#define erts_atomic_xchg_ddrb ethr_atomic_xchg_ddrb
+#define erts_atomic_cmpxchg_ddrb ethr_atomic_cmpxchg_ddrb
 
 #define erts_atomic_init_rb ethr_atomic_init_rb
 #define erts_atomic_set_rb ethr_atomic_set_rb
@@ -549,6 +801,20 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic32_xchg_relb ethr_atomic32_xchg_relb
 #define erts_atomic32_cmpxchg_relb ethr_atomic32_cmpxchg_relb
 
+#define erts_atomic32_init_ddrb ethr_atomic32_init_ddrb
+#define erts_atomic32_set_ddrb ethr_atomic32_set_ddrb
+#define erts_atomic32_read_ddrb ethr_atomic32_read_ddrb
+#define erts_atomic32_inc_read_ddrb ethr_atomic32_inc_read_ddrb
+#define erts_atomic32_dec_read_ddrb ethr_atomic32_dec_read_ddrb
+#define erts_atomic32_inc_ddrb ethr_atomic32_inc_ddrb
+#define erts_atomic32_dec_ddrb ethr_atomic32_dec_ddrb
+#define erts_atomic32_add_read_ddrb ethr_atomic32_add_read_ddrb
+#define erts_atomic32_add_ddrb ethr_atomic32_add_ddrb
+#define erts_atomic32_read_bor_ddrb ethr_atomic32_read_bor_ddrb
+#define erts_atomic32_read_band_ddrb ethr_atomic32_read_band_ddrb
+#define erts_atomic32_xchg_ddrb ethr_atomic32_xchg_ddrb
+#define erts_atomic32_cmpxchg_ddrb ethr_atomic32_cmpxchg_ddrb
+
 #define erts_atomic32_init_rb ethr_atomic32_init_rb
 #define erts_atomic32_set_rb ethr_atomic32_set_rb
 #define erts_atomic32_read_rb ethr_atomic32_read_rb
@@ -600,6 +866,11 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_dw_atomic_set_relb erts_no_dw_atomic_set
 #define erts_dw_atomic_read_relb erts_no_dw_atomic_read
 #define erts_dw_atomic_cmpxchg_relb erts_no_dw_atomic_cmpxchg
+
+#define erts_dw_atomic_init_ddrb erts_no_dw_atomic_init
+#define erts_dw_atomic_set_ddrb erts_no_dw_atomic_set
+#define erts_dw_atomic_read_ddrb erts_no_dw_atomic_read
+#define erts_dw_atomic_cmpxchg_ddrb erts_no_dw_atomic_cmpxchg
 
 #define erts_dw_atomic_init_rb erts_no_dw_atomic_init
 #define erts_dw_atomic_set_rb erts_no_dw_atomic_set
@@ -668,6 +939,20 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic_read_band_relb erts_no_atomic_read_band
 #define erts_atomic_xchg_relb erts_no_atomic_xchg
 #define erts_atomic_cmpxchg_relb erts_no_atomic_cmpxchg
+
+#define erts_atomic_init_ddrb erts_no_atomic_set
+#define erts_atomic_set_ddrb erts_no_atomic_set
+#define erts_atomic_read_ddrb erts_no_atomic_read
+#define erts_atomic_inc_read_ddrb erts_no_atomic_inc_read
+#define erts_atomic_dec_read_ddrb erts_no_atomic_dec_read
+#define erts_atomic_inc_ddrb erts_no_atomic_inc
+#define erts_atomic_dec_ddrb erts_no_atomic_dec
+#define erts_atomic_add_read_ddrb erts_no_atomic_add_read
+#define erts_atomic_add_ddrb erts_no_atomic_add
+#define erts_atomic_read_bor_ddrb erts_no_atomic_read_bor
+#define erts_atomic_read_band_ddrb erts_no_atomic_read_band
+#define erts_atomic_xchg_ddrb erts_no_atomic_xchg
+#define erts_atomic_cmpxchg_ddrb erts_no_atomic_cmpxchg
 
 #define erts_atomic_init_rb erts_no_atomic_set
 #define erts_atomic_set_rb erts_no_atomic_set
@@ -754,6 +1039,20 @@ ERTS_GLB_INLINE void erts_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_atomic32_read_band_relb erts_no_atomic32_read_band
 #define erts_atomic32_xchg_relb erts_no_atomic32_xchg
 #define erts_atomic32_cmpxchg_relb erts_no_atomic32_cmpxchg
+
+#define erts_atomic32_init_ddrb erts_no_atomic32_set
+#define erts_atomic32_set_ddrb erts_no_atomic32_set
+#define erts_atomic32_read_ddrb erts_no_atomic32_read
+#define erts_atomic32_inc_read_ddrb erts_no_atomic32_inc_read
+#define erts_atomic32_dec_read_ddrb erts_no_atomic32_dec_read
+#define erts_atomic32_inc_ddrb erts_no_atomic32_inc
+#define erts_atomic32_dec_ddrb erts_no_atomic32_dec
+#define erts_atomic32_add_read_ddrb erts_no_atomic32_add_read
+#define erts_atomic32_add_ddrb erts_no_atomic32_add
+#define erts_atomic32_read_bor_ddrb erts_no_atomic32_read_bor
+#define erts_atomic32_read_band_ddrb erts_no_atomic32_read_band
+#define erts_atomic32_xchg_ddrb erts_no_atomic32_xchg
+#define erts_atomic32_cmpxchg_ddrb erts_no_atomic32_cmpxchg
 
 #define erts_atomic32_init_rb erts_no_atomic32_set
 #define erts_atomic32_set_rb erts_no_atomic32_set

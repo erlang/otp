@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1998-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -105,11 +105,7 @@
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
-#ifdef ETHR_ORDERED_READ_DEPEND
-#define SEGTAB(tb) ((struct segment**)erts_smp_atomic_read_nob(&(tb)->segtab))
-#else
-#define SEGTAB(tb) ((struct segment**)erts_smp_atomic_read_rb(&(tb)->segtab))
-#endif
+#define SEGTAB(tb) ((struct segment**)erts_smp_atomic_read_ddrb(&(tb)->segtab))
 #define NACTIVE(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nactive))
 #define NITEMS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->common.nitems))
 

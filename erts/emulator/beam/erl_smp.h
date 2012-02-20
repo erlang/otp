@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2005-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2005-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -61,6 +61,11 @@ typedef erts_spinlock_t erts_smp_spinlock_t;
 typedef erts_rwlock_t erts_smp_rwlock_t;
 void erts_thr_fatal_error(int, char *); /* implemented in erl_init.c */
 
+#define ERTS_SMP_MEMORY_BARRIER ERTS_THR_MEMORY_BARRIER
+#define ERTS_SMP_WRITE_MEMORY_BARRIER ERTS_THR_WRITE_MEMORY_BARRIER
+#define ERTS_SMP_READ_MEMORY_BARRIER ERTS_THR_READ_MEMORY_BARRIER
+#define ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER
+
 #else /* #ifdef ERTS_SMP */
 
 #define ERTS_SMP_THR_OPTS_DEFAULT_INITER {0}
@@ -94,6 +99,11 @@ typedef struct { } erts_smp_rwlock_t;
 typedef struct { int gcc_is_buggy; } erts_smp_spinlock_t;
 typedef struct { int gcc_is_buggy; } erts_smp_rwlock_t;
 #endif
+
+#define ERTS_SMP_MEMORY_BARRIER
+#define ERTS_SMP_WRITE_MEMORY_BARRIER
+#define ERTS_SMP_READ_MEMORY_BARRIER
+#define ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER
 
 #endif /* #ifdef ERTS_SMP */
 
@@ -206,13 +216,8 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #endif /* #ifdef ERTS_THR_HAVE_SIG_FUNCS */
 
 /*
- * Functions implementing atomic operations with with no (nob),
- * full (mb), acquire (acqb), release (relb), read (rb), and
- * write (wb) memory barriers.
- *
- * If SMP support has been disabled, they are mapped to functions
- * that performs the same operation, but aren't atomic and don't
- * imply memory barriers.
+ * See "Documentation of atomics and memory barriers" at the top
+ * of erl_threads.h for info on atomics.
  */
 
 #ifdef ERTS_SMP
@@ -238,6 +243,11 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_dw_atomic_set_relb erts_dw_atomic_set_relb
 #define erts_smp_dw_atomic_read_relb erts_dw_atomic_read_relb
 #define erts_smp_dw_atomic_cmpxchg_relb erts_dw_atomic_cmpxchg_relb
+
+#define erts_smp_dw_atomic_init_ddrb erts_dw_atomic_init_ddrb
+#define erts_smp_dw_atomic_set_ddrb erts_dw_atomic_set_ddrb
+#define erts_smp_dw_atomic_read_ddrb erts_dw_atomic_read_ddrb
+#define erts_smp_dw_atomic_cmpxchg_ddrb erts_dw_atomic_cmpxchg_ddrb
 
 #define erts_smp_dw_atomic_init_rb erts_dw_atomic_init_rb
 #define erts_smp_dw_atomic_set_rb erts_dw_atomic_set_rb
@@ -306,6 +316,20 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic_read_band_relb erts_atomic_read_band_relb
 #define erts_smp_atomic_xchg_relb erts_atomic_xchg_relb
 #define erts_smp_atomic_cmpxchg_relb erts_atomic_cmpxchg_relb
+
+#define erts_smp_atomic_init_ddrb erts_atomic_init_ddrb
+#define erts_smp_atomic_set_ddrb erts_atomic_set_ddrb
+#define erts_smp_atomic_read_ddrb erts_atomic_read_ddrb
+#define erts_smp_atomic_inc_read_ddrb erts_atomic_inc_read_ddrb
+#define erts_smp_atomic_dec_read_ddrb erts_atomic_dec_read_ddrb
+#define erts_smp_atomic_inc_ddrb erts_atomic_inc_ddrb
+#define erts_smp_atomic_dec_ddrb erts_atomic_dec_ddrb
+#define erts_smp_atomic_add_read_ddrb erts_atomic_add_read_ddrb
+#define erts_smp_atomic_add_ddrb erts_atomic_add_ddrb
+#define erts_smp_atomic_read_bor_ddrb erts_atomic_read_bor_ddrb
+#define erts_smp_atomic_read_band_ddrb erts_atomic_read_band_ddrb
+#define erts_smp_atomic_xchg_ddrb erts_atomic_xchg_ddrb
+#define erts_smp_atomic_cmpxchg_ddrb erts_atomic_cmpxchg_ddrb
 
 #define erts_smp_atomic_init_rb erts_atomic_init_rb
 #define erts_smp_atomic_set_rb erts_atomic_set_rb
@@ -393,6 +417,20 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic32_xchg_relb erts_atomic32_xchg_relb
 #define erts_smp_atomic32_cmpxchg_relb erts_atomic32_cmpxchg_relb
 
+#define erts_smp_atomic32_init_ddrb erts_atomic32_init_ddrb
+#define erts_smp_atomic32_set_ddrb erts_atomic32_set_ddrb
+#define erts_smp_atomic32_read_ddrb erts_atomic32_read_ddrb
+#define erts_smp_atomic32_inc_read_ddrb erts_atomic32_inc_read_ddrb
+#define erts_smp_atomic32_dec_read_ddrb erts_atomic32_dec_read_ddrb
+#define erts_smp_atomic32_inc_ddrb erts_atomic32_inc_ddrb
+#define erts_smp_atomic32_dec_ddrb erts_atomic32_dec_ddrb
+#define erts_smp_atomic32_add_read_ddrb erts_atomic32_add_read_ddrb
+#define erts_smp_atomic32_add_ddrb erts_atomic32_add_ddrb
+#define erts_smp_atomic32_read_bor_ddrb erts_atomic32_read_bor_ddrb
+#define erts_smp_atomic32_read_band_ddrb erts_atomic32_read_band_ddrb
+#define erts_smp_atomic32_xchg_ddrb erts_atomic32_xchg_ddrb
+#define erts_smp_atomic32_cmpxchg_ddrb erts_atomic32_cmpxchg_ddrb
+
 #define erts_smp_atomic32_init_rb erts_atomic32_init_rb
 #define erts_smp_atomic32_set_rb erts_atomic32_set_rb
 #define erts_smp_atomic32_read_rb erts_atomic32_read_rb
@@ -444,6 +482,11 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_dw_atomic_set_relb erts_no_dw_atomic_set
 #define erts_smp_dw_atomic_read_relb erts_no_dw_atomic_read
 #define erts_smp_dw_atomic_cmpxchg_relb erts_no_dw_atomic_cmpxchg
+
+#define erts_smp_dw_atomic_init_ddrb erts_no_dw_atomic_init
+#define erts_smp_dw_atomic_set_ddrb erts_no_dw_atomic_set
+#define erts_smp_dw_atomic_read_ddrb erts_no_dw_atomic_read
+#define erts_smp_dw_atomic_cmpxchg_ddrb erts_no_dw_atomic_cmpxchg
 
 #define erts_smp_dw_atomic_init_rb erts_no_dw_atomic_init
 #define erts_smp_dw_atomic_set_rb erts_no_dw_atomic_set
@@ -512,6 +555,20 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic_read_band_relb erts_no_atomic_read_band
 #define erts_smp_atomic_xchg_relb erts_no_atomic_xchg
 #define erts_smp_atomic_cmpxchg_relb erts_no_atomic_cmpxchg
+
+#define erts_smp_atomic_init_ddrb erts_no_atomic_set
+#define erts_smp_atomic_set_ddrb erts_no_atomic_set
+#define erts_smp_atomic_read_ddrb erts_no_atomic_read
+#define erts_smp_atomic_inc_read_ddrb erts_no_atomic_inc_read
+#define erts_smp_atomic_dec_read_ddrb erts_no_atomic_dec_read
+#define erts_smp_atomic_inc_ddrb erts_no_atomic_inc
+#define erts_smp_atomic_dec_ddrb erts_no_atomic_dec
+#define erts_smp_atomic_add_read_ddrb erts_no_atomic_add_read
+#define erts_smp_atomic_add_ddrb erts_no_atomic_add
+#define erts_smp_atomic_read_bor_ddrb erts_no_atomic_read_bor
+#define erts_smp_atomic_read_band_ddrb erts_no_atomic_read_band
+#define erts_smp_atomic_xchg_ddrb erts_no_atomic_xchg
+#define erts_smp_atomic_cmpxchg_ddrb erts_no_atomic_cmpxchg
 
 #define erts_smp_atomic_init_rb erts_no_atomic_set
 #define erts_smp_atomic_set_rb erts_no_atomic_set
@@ -598,6 +655,20 @@ ERTS_GLB_INLINE void erts_smp_thr_sigwait(const sigset_t *set, int *sig);
 #define erts_smp_atomic32_read_band_relb erts_no_atomic32_read_band
 #define erts_smp_atomic32_xchg_relb erts_no_atomic32_xchg
 #define erts_smp_atomic32_cmpxchg_relb erts_no_atomic32_cmpxchg
+
+#define erts_smp_atomic32_init_ddrb erts_no_atomic32_set
+#define erts_smp_atomic32_set_ddrb erts_no_atomic32_set
+#define erts_smp_atomic32_read_ddrb erts_no_atomic32_read
+#define erts_smp_atomic32_inc_read_ddrb erts_no_atomic32_inc_read
+#define erts_smp_atomic32_dec_read_ddrb erts_no_atomic32_dec_read
+#define erts_smp_atomic32_inc_ddrb erts_no_atomic32_inc
+#define erts_smp_atomic32_dec_ddrb erts_no_atomic32_dec
+#define erts_smp_atomic32_add_read_ddrb erts_no_atomic32_add_read
+#define erts_smp_atomic32_add_ddrb erts_no_atomic32_add
+#define erts_smp_atomic32_read_bor_ddrb erts_no_atomic32_read_bor
+#define erts_smp_atomic32_read_band_ddrb erts_no_atomic32_read_band
+#define erts_smp_atomic32_xchg_ddrb erts_no_atomic32_xchg
+#define erts_smp_atomic32_cmpxchg_ddrb erts_no_atomic32_cmpxchg
 
 #define erts_smp_atomic32_init_rb erts_no_atomic32_set
 #define erts_smp_atomic32_set_rb erts_no_atomic32_set
