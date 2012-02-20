@@ -72,14 +72,22 @@ stop() ->
 connect(Host, Port, Options) ->
     connect(Host, Port, Options, infinity).
 connect(Host, Port, Options, Timeout) ->
-    {SocketOpts, Opts} = handle_options(Options),
-    DisableIpv6 =  proplists:get_value(ip_v6_disabled, Opts, false),
-    Inet = inetopt(DisableIpv6),
+    case handle_options(Options) of
+	{error, _Reason} = Error ->
+	    Error;
+	{SocketOptions, SshOptions} ->
+	    DisableIpv6 =  proplists:get_value(ip_v6_disabled, SshOptions, false),
+	    Inet = inetopt(DisableIpv6),
+	    do_connect(Host, Port, [Inet | SocketOptions], 
+		       [{host, Host} | SshOptions], Timeout, DisableIpv6)
+    end.
+
+do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
     try sshc_sup:start_child([[{address, Host}, {port, Port}, 
-			      {role, client},
-			      {channel_pid, self()},
-			      {socket_opts, [Inet | SocketOpts]}, 
-			      {ssh_opts, [{host, Host}| Opts]}]]) of 
+			       {role, client},
+			       {channel_pid, self()},
+			       {socket_opts, SocketOptions}, 
+			       {ssh_opts, SshOptions}]]) of 
  	{ok, ConnectionSup} ->
 	    {ok, Manager} = 
 		ssh_connection_controler:connection_manager(ConnectionSup),
@@ -95,7 +103,8 @@ connect(Host, Port, Options, Timeout) ->
 		%% match the Manager in this case
 		{_, not_connected, {error, econnrefused}} when DisableIpv6 == false ->
 		    do_demonitor(MRef, Manager),
-		    connect(Host, Port, [{ip_v6_disabled, true} | Options], Timeout);
+		    do_connect(Host, Port, proplists:delete(inet6, SocketOptions), 
+			    SshOptions, Timeout, true);
 		{_, not_connected, {error, Reason}} ->
 		    do_demonitor(MRef, Manager),
 		    {error, Reason};
@@ -192,7 +201,7 @@ daemon(HostAddr, Port, Options0) ->
 				    {HostAddr, inet6, 
 				     [{ip, HostAddr} | Options1]}
 			    end,
-    start_daemon(Host, Port, [{role, server} | Options], Inet).
+    start_daemon(Host, Port, Options, Inet).
 
 %%--------------------------------------------------------------------
 %% Function: stop_listener(SysRef) -> ok
@@ -258,7 +267,14 @@ shell(Host, Port, Options) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 start_daemon(Host, Port, Options, Inet) ->
-    {SocketOpts, Opts} = handle_options(Options),
+    case handle_options(Options) of
+	{error, _Reason} = Error ->
+	    Error;
+	{SocketOptions, SshOptions}->
+	    do_start_daemon(Host, Port,[{role, server} |SshOptions] , [Inet | SocketOptions])
+    end.
+    
+do_start_daemon(Host, Port, Options, SocketOptions) ->
     case ssh_system_sup:system_supervisor(Host, Port) of
 	undefined ->
 	    %% TODO: It would proably make more sense to call the
@@ -266,8 +282,8 @@ start_daemon(Host, Port, Options, Inet) ->
 	    %% monent. The name is a legacy name!
 	    try sshd_sup:start_child([{address, Host}, 
 				      {port, Port}, {role, server},
-				      {socket_opts, [Inet | SocketOpts]}, 
-				      {ssh_opts, Opts}]) of
+				      {socket_opts, SocketOptions}, 
+				      {ssh_opts, Options}]) of
 		{ok, SysSup} ->
 		    {ok, SysSup};
 		{error, {already_started, _}} ->
@@ -286,68 +302,148 @@ start_daemon(Host, Port, Options, Inet) ->
     end.
 
 handle_options(Opts) ->
-    handle_options(proplists:unfold(Opts), [], []).
-handle_options([], SockOpts, Opts) ->
-    {SockOpts, Opts};
-%% TODO: Could do some type checks here on plain ssh-opts
-handle_options([{system_dir, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{user_dir, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{user_dir_fun, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{silently_accept_hosts, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{user_interaction, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{public_key_alg, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{connect_timeout, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{user, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{dsa_pass_phrase, _} = Opt | Rest], SockOpts, Opts) ->
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{rsa_pass_phrase, _} = Opt | Rest], SockOpts, Opts) ->
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{password, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{user_passwords, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{pwdfun, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{user_auth, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{key_cb, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{role, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{channel, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{compression, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{allow_user_interaction, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{infofun, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{connectfun, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{disconnectfun , _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{failfun, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{ip_v6_disabled, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, SockOpts, [Opt | Opts]);
-handle_options([{ip, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, [Opt |SockOpts], Opts);
-handle_options([{ifaddr, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, [Opt |SockOpts], Opts);
-handle_options([{fd, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, [Opt | SockOpts], Opts);
-handle_options([{nodelay, _} = Opt | Rest], SockOpts, Opts) -> 
-    handle_options(Rest, [Opt | SockOpts], Opts);
-handle_options([Opt | Rest], SockOpts, Opts) ->
-    handle_options(Rest, SockOpts, [Opt | Opts]).
+    try handle_option(proplists:unfold(Opts), [], []) of
+	{_,_} = Options ->
+	    Options
+    catch
+	throw:Error ->
+	    Error
+    end.
+
+handle_option([], SocketOptions, SshOptions) ->
+    {SocketOptions, SshOptions};
+handle_option([{system_dir, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{user_dir, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{user_dir_fun, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{silently_accept_hosts, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{user_interaction, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{public_key_alg, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{connect_timeout, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{user, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{dsa_pass_phrase, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{rsa_pass_phrase, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{password, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{user_passwords, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{pwdfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{user_auth, _} = Opt | Rest],SocketOptions, SshOptions ) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{key_cb, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{role, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{compression, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{allow_user_interaction, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{infofun, _} = Opt | Rest],SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{connectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{disconnectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{failfun, _} = Opt | Rest],  SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{ip_v6_disabled, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{transport, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{subsystems, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{ssh_cli, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{shell, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
+
+handle_ssh_option({system_dir, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({user_dir, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({user_dir_fun, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({silently_accept_hosts, Value} = Opt) when Value == true; Value == false ->
+    Opt;
+handle_ssh_option({user_interaction, Value} = Opt) when Value == true; Value == false ->
+    Opt;
+handle_ssh_option({public_key_alg, Value} = Opt) when Value == ssh_rsa; Value == ssh_dsa ->
+    Opt;
+handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
+    Opt;
+handle_ssh_option({user, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({dsa_pass_phrase, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({rsa_pass_phrase, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({password, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({user_passwords, Value} = Opt) when is_list(Value)->
+    Opt;
+handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({user_auth, Value} = Opt)  when is_function(Value) ->
+    Opt;
+handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
+    Opt;
+handle_ssh_option({compression, Value} = Opt) when is_atom(Value) ->
+    Opt;
+handle_ssh_option({allow_user_interaction, Value} = Opt) when Value == true;
+							      Value == false ->
+    Opt;
+handle_ssh_option({infofun, Value} = Opt)  when is_function(Value) ->
+    Opt;
+handle_ssh_option({connectfun, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({ip_v6_disabled, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({transport, {Protocol, Cb, ClosTag}} = Opt) when is_atom(Protocol),
+							     is_atom(Cb),
+							     is_atom(ClosTag) ->
+    Opt;
+handle_ssh_option({subsystems, Value} = Opt) when is_list(Value) ->
+    Opt;
+handle_ssh_option({ssh_cli, {Cb, _}}= Opt) when is_atom(Cb) ->
+    Opt;
+handle_ssh_option({shell, {Module, Function, _}} = Opt)  when is_atom(Module),
+							      is_atom(Function) ->
+    Opt;
+handle_ssh_option({shell, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option(Opt) ->
+    throw({error, {eoptions, Opt}}).
+
+handle_inet_option({active, _} = Opt) ->
+    throw({error, {{eoptions, Opt}, "Ssh has built in flow control, "
+		   "and activ is handled internaly user is not allowd"
+		   "to specify this option"}});
+handle_inet_option({inet, _} = Opt) ->
+    throw({error, {{eoptions, Opt},"Is set internaly use ip_v6_disabled to"
+		   " enforce iv4 in the server, client will fallback to ipv4 if"
+		   " it can not use ipv6"}});
+handle_inet_option({reuseaddr, _} = Opt) ->
+    throw({error, {{eoptions, Opt},"Is set internaly user is not allowd"
+		   "to specify this option"}});
+%% Option verified by inet
+handle_inet_option(Opt) ->
+    Opt.
 
 %% Has IPv6 been disabled?
 inetopt(true) ->
