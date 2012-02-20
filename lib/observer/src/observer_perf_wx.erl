@@ -23,6 +23,12 @@
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
+%% Drawing wrappers for DC and GC areas
+-export([haveGC/1,
+	 setPen/2, setFont/3, setBrush/2,
+	 strokeLine/5, strokeLines/2, drawRoundedRectangle/6,
+	 drawText/4, getTextExtent/2]).
+
 -behaviour(wx_object).
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
@@ -36,7 +42,8 @@
 	  data = {0, queue:new()},
 	  panel,
 	  paint,
-	  appmon
+	  appmon,
+	  usegc = false
 	}).
 
 -define(wxGC, wxGraphicsContext).
@@ -76,11 +83,18 @@ init([Notebook, Parent]) ->
     wxPanel:connect(IO, paint, [callback]),
     wxPanel:connect(MEM, paint, [callback]),
 
-    % DefFont  = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-    %% DefSize = wxFont:getPointSize(DefFont),
-    %% DefFamily = wxFont:getFamily(DefFont),
-    %% Font = wxFont:new(DefSize, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
-    Font = wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
+    UseGC = haveGC(Panel),
+    Font = case UseGC of
+	       true ->
+		   %% Def font is really small when using Graphics contexts for some reason
+		   %% Hardcode it
+		   wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD);
+	       false ->
+		   DefFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+		   DefSize = wxFont:getPointSize(DefFont),
+		   DefFamily = wxFont:getFamily(DefFont),
+		   wxFont:new(DefSize, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD)
+	   end,
     SmallFont = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
     BlackPen = wxPen:new({0,0,0}, [{width, 2}]),
     Pens = [wxPen:new(Col, [{width, 2}]) || Col <- tuple_to_list(colors())],
@@ -88,6 +102,7 @@ init([Notebook, Parent]) ->
     {Panel, #state{parent=Parent,
 		   panel =Panel,
 		   windows = {CPU, MEM, IO},
+		   usegc=UseGC,
 		   paint=#paint{font = Font,
 				small = SmallFont,
 				pen  = ?wxGREY_PEN,
@@ -112,7 +127,7 @@ handle_event(Event, _State) ->
 %%%%%%%%%%
 handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 		  #state{active=Active, offset=Offset, paint=Paint,
-			 windows=Windows, data=Data}) ->
+			 windows=Windows, data=Data, usegc=UseGC}) ->
     %% PaintDC must be created in a callback to work on windows.
     %% Sigh workaround bug on MacOSX (Id in paint event is always 0)
     %% Panel = element(Id, Windows),
@@ -121,14 +136,17 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 	    Panel =:= element(?IO_W, Windows)  -> ?IO_W
 	 end,
     DC = wxPaintDC:new(Panel),
-    GC = ?wxGC:create(DC),
+    GC = case UseGC of
+	     true ->  ?wxGC:create(DC);
+	     false -> DC
+	 end,
     %% Nothing is drawn until wxPaintDC is destroyed.
     try
-    draw(Offset, Id, GC, Panel, Paint, Data, Active)
+	draw(Offset, Id, {UseGC, GC}, Panel, Paint, Data, Active)
     catch _:Err ->
 	    io:format("Internal error ~p ~p~n",[Err, erlang:get_stacktrace()])
     end,
-    ?wxGC:destroy(GC),
+    UseGC andalso ?wxGC:destroy(GC),
     wxPaintDC:destroy(DC),
     ok.
 %%%%%%%%%%
@@ -269,8 +287,8 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
 	_ ->
 	    Draw = fun(N) ->
 			   Lines = make_lines(Hs, Start, N, {X0,Max*HS,Last}, Y0, WS, HS),
-			   ?wxGC:setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
-			   ?wxGC:strokeLines(DC, Lines),
+			   setPen(DC, element(1+ ((N-1) rem tuple_size(Pens)), Pens)),
+			   strokeLines(DC, Lines),
 			   N+1
 		   end,
 	    [Draw(I) || I <- lists:seq(NoGraphs, 1, -1)]
@@ -278,8 +296,8 @@ draw(Offset, Id, DC, Panel, Paint=#paint{pens=Pens, small=Small}, Data, Active) 
     case Active of
 	false ->
 	    NotActive = "Service not available",
-	    ?wxGC:setFont(DC, Small, {0,0,0}),
-	    ?wxGC:drawText(DC, NotActive, X0 + 100, element(2,Size) div 2);
+	    setFont(DC, Small, {0,0,0}),
+	    drawText(DC, NotActive, X0 + 100, element(2,Size) div 2);
 	true ->
 	    ignore
     end,
@@ -363,9 +381,9 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
     Str2 = observer_lib:to_str(MaxUnit div 2),
     Str3 = observer_lib:to_str(0),
 
-    ?wxGC:setFont(DC, Font, {0,0,0}),
-    {TW,TH,_,_} = ?wxGC:getTextExtent(DC, Str1),
-    {SpaceW, _,_,_} = ?wxGC:getTextExtent(DC, "W"),
+    setFont(DC, Font, {0,0,0}),
+    {TW,TH} = getTextExtent(DC, Str1),
+    {SpaceW, _} = getTextExtent(DC, "W"),
 
     GraphX0 = ?BW+TW+?BW,
     GraphX1 = W-?BW*4,
@@ -383,50 +401,50 @@ draw_borders(Type, NoGraphs, DC, {W,H}, Max,
     ScaleW = GraphW / 60,
     ScaleH = GraphH / Max,
 
-    ?wxGC:setFont(DC, Small, {0,0,0}),
+    setFont(DC, Small, {0,0,0}),
     Align = fun(Str, Y) ->
-		    {StrW, _, _, _} = ?wxGC:getTextExtent(DC, Str),
-		    ?wxGC:drawText(DC, Str, GraphX0 - StrW - ?BW, Y)
+		    {StrW, _} = getTextExtent(DC, Str),
+		    drawText(DC, Str, GraphX0 - StrW - ?BW, Y)
 	    end,
     Align(Str1, MaxTextY),
     Align(Str2, GraphY50 - (TH / 2)),
     Align(Str3, GraphY1 - (TH / 2) + 1),
 
-    ?wxGC:setPen(DC, Pen),
+    setPen(DC, Pen),
     DrawSecs = fun(Secs, Pos) ->
 		       Str = [observer_lib:to_str(Secs)|" s"],
 		       X = GraphX0+Pos,
-		       ?wxGC:drawText(DC, Str,  X-SpaceW, SecondsY),
-		       ?wxGC:strokeLine(DC, X, GraphY0, X, GraphY1+5),
+		       drawText(DC, Str,  X-SpaceW, SecondsY),
+		       strokeLine(DC, X, GraphY0, X, GraphY1+5),
 		       Pos + 10*ScaleW
 	       end,
     lists:foldl(DrawSecs, 0, lists:seq(60,0, -10)),
 
-    ?wxGC:strokeLine(DC, GraphX0-3, GraphY25, GraphX1, GraphY25),
-    ?wxGC:strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
-    ?wxGC:strokeLine(DC, GraphX0-3, GraphY75, GraphX1, GraphY75),
+    strokeLine(DC, GraphX0-3, GraphY25, GraphX1, GraphY25),
+    strokeLine(DC, GraphX0-3, GraphY50, GraphX1, GraphY50),
+    strokeLine(DC, GraphX0-3, GraphY75, GraphX1, GraphY75),
 
-    ?wxGC:setPen(DC, Pen2),
-    ?wxGC:strokeLines(DC, [{GraphX0, GraphY0-1}, {GraphX0, GraphY1+1},
-			   {GraphX1, GraphY1+1}, {GraphX1, GraphY0-1},
-			   {GraphX0, GraphY0-1}]),
+    setPen(DC, Pen2),
+    strokeLines(DC, [{GraphX0, GraphY0-1}, {GraphX0, GraphY1+1},
+		     {GraphX1, GraphY1+1}, {GraphX1, GraphY0-1},
+		     {GraphX0, GraphY0-1}]),
 
-    ?wxGC:setFont(DC, Font, {0,0,0}),
+    setFont(DC, Font, {0,0,0}),
     case Type of
-	?RQ_W ->  ?wxGC:drawText(DC, "Scheduler Utilization (%) ", TopTextX,?BH);
-	?MEM_W -> ?wxGC:drawText(DC, "Memory Usage " ++ Unit, TopTextX,?BH);
-	?IO_W ->  ?wxGC:drawText(DC, "IO Usage " ++ Unit, TopTextX,?BH)
+	?RQ_W ->  drawText(DC, "Scheduler Utilization (%) ", TopTextX,?BH);
+	?MEM_W -> drawText(DC, "Memory Usage " ++ Unit, TopTextX,?BH);
+	?IO_W ->  drawText(DC, "IO Usage " ++ Unit, TopTextX,?BH)
     end,
 
     Text = fun(X,Y, Str, PenId) ->
 		   if PenId == 0 ->
-			   ?wxGC:setFont(DC, Font, {0,0,0});
+			   setFont(DC, Font, {0,0,0});
 		      PenId > 0 ->
 			   Id = 1 + ((PenId-1) rem tuple_size(colors())),
-			   ?wxGC:setFont(DC, Font, element(Id, colors()))
+			   setFont(DC, Font, element(Id, colors()))
 		   end,
-		   ?wxGC:drawText(DC, Str, X, Y),
-		   {StrW, _, _, _} = ?wxGC:getTextExtent(DC, Str),
+		   drawText(DC, Str, X, Y),
+		   {StrW, _} = getTextExtent(DC, Str),
 		   StrW + X + SpaceW
 	   end,
     case Type of
@@ -483,3 +501,56 @@ colors() ->
      {240, 200, 80}, {140, 2, 140},
      {100, 200, 240}, {100, 240, 100}
     }.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% wxDC and ?wxGC wrappers
+
+haveGC(Win) ->
+    try
+	GC = ?wxGC:create(Win),
+	?wxGC:destroy(GC),
+	true
+    catch _:_  -> false
+    end.
+
+setPen({false, DC}, Pen) ->
+    wxDC:setPen(DC, Pen);
+setPen({true, GC}, Pen) ->
+    ?wxGC:setPen(GC, Pen).
+
+setFont({false, DC}, Font, Color) ->
+    wxDC:setTextForeground(DC, Color),
+    wxDC:setFont(DC, Font);
+setFont({true, GC}, Font, Color) ->
+    ?wxGC:setFont(GC, Font, Color).
+
+setBrush({false, DC}, Brush) ->
+    wxDC:setBrush(DC, Brush);
+setBrush({true, GC}, Brush) ->
+    ?wxGC:setBrush(GC, Brush).
+
+strokeLine({false, DC}, X0, Y0, X1, Y1) ->
+    wxDC:drawLine(DC, {round(X0), round(Y0)}, {round(X1), round(Y1)});
+strokeLine({true, GC}, X0, Y0, X1, Y1) ->
+    ?wxGC:strokeLine(GC, X0, Y0, X1, Y1).
+
+strokeLines({false, DC}, Lines) ->
+    wxDC:drawLines(DC, [{round(X), round(Y)} || {X,Y} <- Lines]);
+strokeLines({true, GC}, Lines) ->
+    ?wxGC:strokeLines(GC, Lines).
+
+drawRoundedRectangle({false, DC}, X0, Y0, X1, Y1, R) ->
+    wxDC:drawRoundedRectangle(DC, {round(X0), round(Y0)}, {round(X1), round(Y1)}, round(R));
+drawRoundedRectangle({true, GC}, X0, Y0, X1, Y1, R) ->
+    ?wxGC:drawRoundedRectangle(GC, X0, Y0, X1, Y1, R).
+
+drawText({false, DC}, Str, X, Y) ->
+    wxDC:drawText(DC, Str, {round(X),round(Y)});
+drawText({true, GC}, Str, X, Y) ->
+    ?wxGC:drawText(GC, Str, X, Y).
+
+getTextExtent({false, DC}, Str) ->
+    wxDC:getTextExtent(DC, Str);
+getTextExtent({true, GC}, Str) ->
+    {W,H,_,_} = ?wxGC:getTextExtent(GC, Str),
+    {W,H}.
