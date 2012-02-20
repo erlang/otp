@@ -31,7 +31,7 @@
 -export([check_plt/3,
 	 compute_md5_from_files/1,
 	 contains_mfa/2,
-	 contains_module/2,
+	 all_modules/1,
 	 delete_list/2,
 	 delete_module/2,
 	 included_files/1,
@@ -205,10 +205,10 @@ get_exported_types(#plt{exported_types = ExpTypes}) ->
 lookup_module(#plt{info = Info}, M) when is_atom(M) ->
   table_lookup_module(Info, M).
 
--spec contains_module(plt(), atom()) -> boolean().
+-spec all_modules(plt()) -> [module()].
 
-contains_module(#plt{info = Info, contracts = Cs}, M) when is_atom(M) ->
-  table_contains_module(Info, M) orelse table_contains_module(Cs, M).
+all_modules(#plt{info = Info, contracts = Cs}) ->
+  sets:union(table_all_modules(Info), table_all_modules(Cs)).
 
 -spec contains_mfa(plt(), mfa()) -> boolean().
 
@@ -608,10 +608,12 @@ table_lookup_module(Plt, Mod) ->
     false -> {value, List}
   end.
 
-table_contains_module(Plt, Mod) ->
-  dict:fold(fun({M, _F, _A}, _Val, _Acc) when M =:= Mod -> true;
-	       (_, _, Acc) -> Acc
-	    end, false, Plt).
+table_all_modules(Plt) ->
+  Fold =
+    fun({M, _F, _A}, _Val, Acc) -> sets:add_element(M, Acc);
+       (_, _, Acc) -> Acc
+    end,
+  dict:fold(Fold, sets:new(), Plt).
 
 table_merge([H|T]) ->
   table_merge(T, H).

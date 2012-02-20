@@ -281,10 +281,10 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
     if ExtCalls1 =:= [] -> {[], []};
        true ->
 	ModuleSet = sets:from_list(Modules),
-	lists:partition(fun({_From, {M, _F, _A}}) ->
-			    sets:is_element(M, ModuleSet) orelse
-			      dialyzer_plt:contains_module(InitPlt, M)
-			end, ExtCalls1)
+	PltModuleSet = dialyzer_plt:all_modules(InitPlt),
+	AllModules = sets:union(ModuleSet, PltModuleSet),
+	Pred = fun({_From, {M, _F, _A}}) -> sets:is_element(M, AllModules) end,
+	lists:partition(Pred, ExtCalls1)
     end,
   NonLocalCalls = dialyzer_callgraph:non_local_calls(Callgraph1),
   BadCalls2 = [Call || Call = {_From, To} <- NonLocalCalls,
