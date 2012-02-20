@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -21,6 +21,10 @@
 #define ERL_ALLOC_H__
 
 #include "erl_alloc_types.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_alloc_util.h"
 #ifdef USE_THREADS
 #include "erl_threads.h"
@@ -132,9 +136,12 @@ typedef struct {
 extern ErtsAllocatorThrSpec_t erts_allctr_thr_spec[ERTS_ALC_A_MAX+1];
 
 void erts_alloc_register_scheduler(void *vesdp);
+#ifdef ERTS_SMP
 void erts_alloc_scheduler_handle_delayed_dealloc(void *vesdp,
 						 int *need_thr_progress,
+						 ErtsThrPrgrVal *thr_prgr_p,
 						 int *more_work);
+#endif
 erts_aint32_t erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs);
 
 __decl_noreturn void erts_alloc_enomem(ErtsAlcType_t,Uint)		

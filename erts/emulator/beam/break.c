@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -646,6 +646,9 @@ bin_check(void)
 void
 erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 {
+#ifdef ERTS_SMP
+    ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
+#endif
     int fd;
     time_t now;
     size_t dumpnamebufsize = MAXPATHLEN;
@@ -663,7 +666,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
      * We do not release system again. We expect an exit() or abort() after
      * dump has been written.
      */
-    erts_thr_progress_fatal_error_block(60000);
+    erts_thr_progress_fatal_error_block(60000, &tpd_buf);
     /* Either worked or not... */
 
     /* Allow us to pass certain places without locking... */

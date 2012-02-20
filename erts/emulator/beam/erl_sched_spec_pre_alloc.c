@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2011. All Rights Reserved.
+ * Copyright Ericsson AB 2011-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -227,7 +227,6 @@ fetch_remote(erts_sspa_chunk_header_t *chdr, int max)
 		    ERTS_THR_MEMORY_BARRIER;
 		else {
 		    chdr->head.next.unref_end = (erts_sspa_blk_t *) ilast;
-		    ERTS_THR_MEMORY_BARRIER;
 		    chdr->head.next.thr_progress = erts_thr_progress_later();
 		    erts_atomic32_set_relb(&chdr->tail.data.um_refc_ix,
 					   um_refc_ix);

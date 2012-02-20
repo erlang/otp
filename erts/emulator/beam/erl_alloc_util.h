@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -170,7 +170,9 @@ Eterm	erts_alcu_info(Allctr_t *, int, int *, void *, Uint **, Uint *);
 void	erts_alcu_init(AlcUInit_t *);
 void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *,
 			       ErtsAlcUFixInfo_t *, int);
-void    erts_alcu_check_delayed_dealloc(Allctr_t *, int, int *, int *);
+#ifdef ERTS_SMP
+void    erts_alcu_check_delayed_dealloc(Allctr_t *, int, int *, ErtsThrPrgrVal *, int *);
+#endif
 erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 #endif

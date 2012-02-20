@@ -4,7 +4,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,9 @@
 -define(DW_RTCHK_MACRO, "ETHR_RTCHK_USE_NATIVE_DW_ATOMIC_IMPL__").
 
 %% Barrier versions we implement
--define(BARRIERS, [none, rb, wb, acqb, relb, mb]).
+-define(BARRIERS, [none, ddrb, rb, wb, acqb, relb, mb]).
+-define(NON_NATIVE_BARRIERS, [ddrb]).
+-define(NATIVE_BARRIERS, (?BARRIERS -- ?NON_NATIVE_BARRIERS)).
 
 -define(ATOMIC_SIZES, ["dword", "word", "32"]).
 
@@ -381,7 +383,6 @@ do_func_header(#atomic_context{dw = true,
 	       cmpxchg, Inline, Func) ->
     [Inline, "int ", Func, "(", AtomicT, " *", Arg1, ", ", AintT, " *", Arg2, ", ", AintT, " *", Arg3, ")"].
 
-
 xbarriers(_Op, none, _NB) ->
     {"", ""};
 
@@ -455,7 +456,7 @@ try_barrier_order_first(mb) ->
 
 try_barrier_order(B) ->
     First = try_barrier_order_first(B),
-    First ++ (?BARRIERS -- First).
+    First ++ (?NATIVE_BARRIERS -- First).
 
 native_barrier_op(#atomic_context{'NATMC' = NATMC} = AC, If, ExtraDecl, Op, B, NB, TypeCasts) ->
     NOpStr = opstr(native(Op)),
@@ -571,12 +572,12 @@ do_cmpxchg_fallback_define(#atomic_context{'NATMC' = NATMC,
     NoneTryBarrierOrder = try_barrier_order(none),
     %% First a sanity check
     ["
-#if (", NotDefCMPXCHG(hd(?BARRIERS)) ,
+#if (", NotDefCMPXCHG(hd(?NATIVE_BARRIERS)) ,
      lists:map(fun (B) ->
 		       [" \\
      && ", NotDefCMPXCHG(B)]
 	       end,
-	       tl(?BARRIERS)), ")
+	       tl(?NATIVE_BARRIERS)), ")
 #  error \"No native cmpxchg() op available\"
 #endif
 
@@ -744,7 +745,7 @@ translate_have_defs(#atomic_context{dw = DW, 'NATMC' = NATMC}) ->
 								      ]
 							     end]
 						    end,
-						    ?BARRIERS)
+						    ?NATIVE_BARRIERS)
 				  end,
 				  case DW of
 				      true -> ?DW_ATOMIC_OPS;
@@ -800,6 +801,46 @@ rtchk_fallback_call(Return, #atomic_context{dw = DW,
 			true -> "return";
 			false -> [RetVar, " ="]
 		    end, [?DW_FUNC_MACRO, "(", opstr(Op), op_barrier_ext(B), ")"], Arg1, Arg2, Arg3, "").
+
+non_native_barrier(B) ->
+    lists:member(B, ?NON_NATIVE_BARRIERS).
+
+non_native_barrier_impl(AC, Type, Macro, Op, B) ->
+    ["
+", func_header(AC, Type, Macro, Op, B), "
+{",
+     case B of
+	 ddrb ->
+	     ["
+#ifdef ETHR_ORDERED_READ_DEPEND
+    ", func_call(AC, Type, Macro, Op, none, true), "
+#else
+    ", func_call(AC, Type, Macro, Op, rb, true), "
+#endif
+"
+	     ]
+     end,
+     "}
+"
+    ].
+
+func_call(#atomic_context{'ATMC' = ATMC} = AC, inline_implementation, _Macro, Op, B, RetStatement) ->
+    func_call(AC, Op, ["ETHR_", ATMC, "_FUNC__(", opstr(Op), op_barrier_ext(B), ")"], RetStatement);
+func_call(#atomic_context{atomic = Atomic} = AC, implementation, false, Op, B, RetStatement) ->
+    func_call(AC, Op, [Atomic, "_", opstr(Op), op_barrier_ext(B)], RetStatement);
+func_call(AC, implementation, Macro, Op, B, RetStatement) ->
+    func_call(AC, Op, [Macro, "(", opstr(Op), op_barrier_ext(B), ")"], RetStatement).
+
+func_call(#atomic_context{dw = DW, arg1 = Arg1, arg2 = Arg2, arg3 = Arg3} = AC, Op, Func, true) ->
+    op_call(Op, DW, case is_return_op(AC, Op) of
+			true -> "return";
+			false -> ""
+		    end, Func, Arg1, Arg2, Arg3, "");
+func_call(#atomic_context{dw = DW, arg1 = Arg1, arg2 = Arg2, arg3 = Arg3, ret_var = RetVar} = AC, Op, Func, false) ->
+    op_call(Op, DW, case is_return_op(AC, Op) of
+			true -> [RetVar, " = "];
+			false -> ""
+		    end, Func, Arg1, Arg2, Arg3, "").
 
 make_implementations(#atomic_context{dw = DW,
 				     ret_type = RetType,
@@ -858,73 +899,78 @@ make_implementations(#atomic_context{dw = DW,
 
 ",
 			lists:map(fun (B) ->
-					  TryBarriers = try_barrier_order(B),
-					  ["
+					  case non_native_barrier(B) of
+					      true ->
+						  non_native_barrier_impl(AC, inline_implementation, false, Op, B);
+					      false ->
+						  TryBarriers = try_barrier_order(B),
+						  ["
 ", func_header(AC, inline_implementation, false, Op, B), "
 {
 ",
-					   case is_return_op(AC, Op) of
-					       true ->
-						   ["    ", RetType, " ", RetVar, ";\n"];
-					       _ -> ""
-					   end,
-					   case DW of
-					       true ->
-						   [RtchkBegin,
-						    "\n",
-						    su_dw_native_barrier_op(AC, "#if", Op, B, hd(TryBarriers)),
-						    lists:map(fun (NB) ->
-								      su_dw_native_barrier_op(AC, "#elif", Op, B, NB)
-							      end,
-							      tl(TryBarriers)),
-						    lists:map(fun (NB) ->
-								      dw_native_barrier_op(AC, "#elif", "", Op, B, NB)
-							      end,
-							      TryBarriers),
-						   case simple_fallback(AC, Op, B) of
-						       "" ->
-							   %% No simple fallback available;
-							   %% use cmpxchg() fallbacks...
-							   [cmpxchg_fallbacks(AC#atomic_context{'NATMC' = ["SU_", NATMC]}, true, Op, B),
-							    cmpxchg_fallbacks(AC, false, Op, B),
-							    "#else
-#error \"Missing implementation of ", Atomic, "_", opstr(Op), op_barrier_ext(B), "()!\"
-#endif
-"
-							   ];
-						       SimpleFallback ->
-							   ["#else\n", SimpleFallback, "#endif\n"]
+						   case is_return_op(AC, Op) of
+						       true ->
+							   ["    ", RetType, " ", RetVar, ";\n"];
+						       _ -> ""
 						   end,
-						    RtchkEnd(false, Op, B), "\n"];
-					       false ->
-						   [native_barrier_op(AC, "#if", "", Op, B, hd(TryBarriers), true),
-						    lists:map(fun (NB) ->
-								      native_barrier_op(AC, "#elif", "", Op, B, NB, true)
-							      end,
-							      tl(TryBarriers)),
-						    case simple_fallback(AC, Op, B) of
-							"" ->
-							    %% No simple fallback available;
-							    %% use cmpxchg() fallbacks...
-							    [cmpxchg_fallbacks(AC, false, Op, B),
-							     "#else
+						   case DW of
+						       true ->
+							   [RtchkBegin,
+							    "\n",
+							    su_dw_native_barrier_op(AC, "#if", Op, B, hd(TryBarriers)),
+							    lists:map(fun (NB) ->
+									      su_dw_native_barrier_op(AC, "#elif", Op, B, NB)
+								      end,
+								      tl(TryBarriers)),
+							    lists:map(fun (NB) ->
+									      dw_native_barrier_op(AC, "#elif", "", Op, B, NB)
+								      end,
+								      TryBarriers),
+							    case simple_fallback(AC, Op, B) of
+								"" ->
+								    %% No simple fallback available;
+								    %% use cmpxchg() fallbacks...
+								    [cmpxchg_fallbacks(AC#atomic_context{'NATMC' = ["SU_", NATMC]}, true, Op, B),
+								     cmpxchg_fallbacks(AC, false, Op, B),
+								     "#else
 #error \"Missing implementation of ", Atomic, "_", opstr(Op), op_barrier_ext(B), "()!\"
 #endif
 "
-							    ];
-							SimpleFallback ->
-							    ["#else\n", SimpleFallback, "#endif\n"]
-						    end]
-					   end,
-					   case is_return_op(AC, Op) of
-					       true ->
-						   ["    return ", RetVar, ";\n"];
-					       false ->
-						   ""
-					   end,
-					   "}\n"]
+								    ];
+								SimpleFallback ->
+								    ["#else\n", SimpleFallback, "#endif\n"]
+							    end,
+							    RtchkEnd(false, Op, B), "\n"];
+						       false ->
+							   [native_barrier_op(AC, "#if", "", Op, B, hd(TryBarriers), true),
+							    lists:map(fun (NB) ->
+									      native_barrier_op(AC, "#elif", "", Op, B, NB, true)
+								      end,
+								      tl(TryBarriers)),
+							    case simple_fallback(AC, Op, B) of
+								"" ->
+								    %% No simple fallback available;
+								    %% use cmpxchg() fallbacks...
+								    [cmpxchg_fallbacks(AC, false, Op, B),
+								     "#else
+#error \"Missing implementation of ", Atomic, "_", opstr(Op), op_barrier_ext(B), "()!\"
+#endif
+"
+								    ];
+								SimpleFallback ->
+								    ["#else\n", SimpleFallback, "#endif\n"]
+							    end]
+						   end,
+						   case is_return_op(AC, Op) of
+						       true ->
+							   ["    return ", RetVar, ";\n"];
+						       false ->
+							   ""
+						   end,
+						   "}\n"]
+					  end
 				  end,
-				  ?BARRIERS)]
+				  ?NATIVE_BARRIERS ++ ?NON_NATIVE_BARRIERS)] %% non-native needs to be after native...
 	       end,
 	       case DW of
 		   true -> ?DW_ATOMIC_OPS;
@@ -1159,33 +1205,38 @@ int ethr_have_native_dw_atomic(void)
 
 ",
 			lists:map(fun (B) ->
-					  ["\n",
-					   func_header(AC, implementation,
-						       case DW of
-							   true -> ?DW_FUNC_MACRO;
-							   false -> false
-						       end,  Op, B),
-					   "\n{\n",
-					   case is_return_op(AC, Op) of
-					       true -> ["    ", RetType, " ", RetVar, ";\n"];
-					       false -> ""
-					   end,
-					   case Op of
-					       init -> "";
-					       _ -> ["    ETHR_ASSERT(!ethr_not_inited__);\n"]
-					   end,
-					   ["    ETHR_ASSERT(", Arg1, ");\n"],
-					   make_native_impl_op(AC, Op, B),
-					   make_amc_fallback_op(AC#atomic_context{arg1 = FallbackVar}, Op, B), 
-					   make_locked_fallback_op(AC#atomic_context{arg1 = FallbackVar}, Op, B),
-					   case is_return_op(AC, Op) of
-					       true -> ["    return ", RetVar, ";"
-						       ];
-					       false ->
-						   ""
-					   end,
-					   "\n}\n",
-					   make_symbol_to_fallback_impl(AC, Op, B)]
+					Macro = case DW of
+						   true -> ?DW_FUNC_MACRO;
+						   false -> false
+						end,
+					case non_native_barrier(B) of
+					    true ->
+						non_native_barrier_impl(AC, implementation, Macro, Op, B);
+					    false ->
+						["\n",
+					   	func_header(AC, implementation, Macro,  Op, B),
+						   "\n{\n",
+						   case is_return_op(AC, Op) of
+						       true -> ["    ", RetType, " ", RetVar, ";\n"];
+						       false -> ""
+						   end,
+						   case Op of
+						       init -> "";
+						       _ -> ["    ETHR_ASSERT(!ethr_not_inited__);\n"]
+						   end,
+						   ["    ETHR_ASSERT(", Arg1, ");\n"],
+						   make_native_impl_op(AC, Op, B),
+						   make_amc_fallback_op(AC#atomic_context{arg1 = FallbackVar}, Op, B), 
+						   make_locked_fallback_op(AC#atomic_context{arg1 = FallbackVar}, Op, B),
+						   case is_return_op(AC, Op) of
+						       true -> ["    return ", RetVar, ";"
+							       ];
+						       false ->
+							   ""
+						   end,
+						   "\n}\n",
+						   make_symbol_to_fallback_impl(AC, Op, B)]
+					  end
 				  end,
 				  ?BARRIERS)]
 	       end,
@@ -1233,7 +1284,7 @@ static char *native_", DW, "atomic", Bits, "_ops[] = {",
 #endif"
 							     ]
 						     end,
-						     ?BARRIERS)
+						     ?NATIVE_BARRIERS)
 				   end,
 				   case NBits of
 				       "dw" -> ?DW_ATOMIC_OPS;
@@ -1390,25 +1441,51 @@ comments() ->
  * Appart from a function implementing the atomic operation
  * with unspecified memory barrier semantics, there are
  * functions implementing each operation with the following
- * memory barrier semantics:
-",
+ * implied memory barrier semantics:",
      lists:map(fun (none) ->
 		       "";
-		   (rb) ->
-		       [" * - rb (read barrier)\n"];
-		   (wb) ->
-		       [" * - wb (write barrier)\n"];
-		   (acqb) ->
-		       [" * - acqb (acquire barrier)\n"];
-		   (relb) ->
-		       [" * - relb (release barrier)\n"];
 		   (mb) ->
-		       [" * - mb (full memory barrier)\n"];
+		       ["
+ * - mb   - Full memory barrier. Orders both loads, and
+ *          stores before, and after the atomic operation.
+ *          No load or store is allowed to be reordered
+ *          over the atomic operation."];
+		   (acqb) ->
+		       ["
+ * - acqb - Acquire barrier. Orders both loads, and stores
+ *          appearing *after* the atomic operation. These
+ *          are not allowed to be reordered over the
+ *          atomic operation."];
+		   (relb) ->
+		       ["
+ * - relb - Release barrier. Orders both loads, and
+ *          stores appearing *before* the atomic
+ *          operation. These are not allowed to be
+ *          reordered over the atomic operation."];
+		   (rb) ->
+		       ["
+ * - rb   - Read barrier. Orders *only* loads. These are
+ *          not allowed to be reordered over the barrier.
+ *          Load in atomic operation is ordered *before*
+ *          the barrier. "];
+		   (ddrb) ->
+		       ["
+ * - ddrb - Data dependency read barrier. Orders *only*
+ *          loads according to data dependency across the
+ *          barrier. Load in atomic operation is ordered
+ *          before the barrier."];
+		   (wb) ->
+		       ["
+ * - wb   - Write barrier. Orders *only* stores. These are
+ *          not allowed to be reordered over the barrier.
+ *          Store in atomic operation is ordered *after*
+ *          the barrier."];
 		   (B) ->
 		       [" * - ", a2l(B), "\n"]
 	       end,
-	       ?BARRIERS),
-     " *
+	       lists:reverse(?BARRIERS)),
+     "
+ *
  * We implement all of these operation/barrier
  * combinations, regardless of whether they are useful
  * or not (some of them are useless).
