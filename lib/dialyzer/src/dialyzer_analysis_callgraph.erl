@@ -134,8 +134,7 @@ analysis_start(Parent, Analysis) ->
 			  use_contracts = Analysis#analysis.use_contracts
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
-  {Callgraph, NoWarn, TmpCServer0} =
-    ?timing("compile",compile_and_store(Files, State)),
+  {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
   %% Remote type postprocessing
   NewCServer =
     try
@@ -156,7 +155,8 @@ analysis_start(Parent, Analysis) ->
         dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
                                                        TmpCServer1),
       TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
-      dialyzer_contracts:process_contract_remote_types(TmpCServer3)
+      ?timing("remote",
+	      dialyzer_contracts:process_contract_remote_types(TmpCServer3))
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
@@ -228,9 +228,10 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   lists:foreach(Spawner, Files),
   dialyzer_coordinator:all_spawned(Coordinator),
   {{V, E, Failed, NoWarn, Modules}, NextLabel} =
-    dialyzer_coordinator:receive_compilation_data(),
+    ?timing("compile", _C1, dialyzer_coordinator:receive_compilation_data()),
   CServer2 = dialyzer_codeserver:set_next_core_label(NextLabel, CServer),
-  Callgraph = dialyzer_callgraph:add_edges(E, V, Callgraph),
+  Callgraph =
+    ?timing("digraph", _C2, dialyzer_callgraph:add_edges(E, V, Callgraph)),
   case Failed =:= [] of
     true ->
       NewFiles = lists:zip(lists:reverse(Modules), Files),
@@ -246,7 +247,9 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {T2, _} = statistics(runtime),
   Msg1 = io_lib:format("done in ~.2f secs\nRemoving edges... ", [(T2-T1)/1000]),
   send_log(Parent, Msg1),
-  Callgraph = cleanup_callgraph(State, CServer2, Callgraph, Modules),
+  Callgraph =
+    ?timing("clean", _C3,
+	    cleanup_callgraph(State, CServer2, Callgraph, Modules)),
   {T3, _} = statistics(runtime),
   Msg2 = io_lib:format("done in ~.2f secs\n", [(T3-T2)/1000]),
   send_log(Parent, Msg2),

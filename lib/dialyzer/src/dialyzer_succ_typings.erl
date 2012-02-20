@@ -90,7 +90,8 @@ analyze_callgraph(Callgraph, Plt, Codeserver, Parent) ->
 %%--------------------------------------------------------------------
 
 init_state_and_get_success_typings(Callgraph, Plt, Codeserver, Parent) ->
-  {SCCs, Callgraph1} = dialyzer_callgraph:finalize(Callgraph),
+  {SCCs, Callgraph1} =
+    ?timing("order", dialyzer_callgraph:finalize(Callgraph)),
   State = #st{callgraph = Callgraph1, plt = dialyzer_plt:get_mini_plt(Plt),
 	      codeserver = Codeserver, parent = Parent},
   get_refined_success_typings(SCCs, State).
@@ -102,7 +103,10 @@ get_refined_success_typings(SCCs, State) ->
       Callgraph = State1#st.callgraph,
       NotFixpoint2 = [lookup_name(F, Callgraph) || F <- NotFixpoint1],
       {ModulePostorder, ModCallgraph} =
-	dialyzer_callgraph:module_postorder_from_funs(NotFixpoint2, Callgraph),
+	?timing(
+	   "order", _C1,
+	   dialyzer_callgraph:module_postorder_from_funs(NotFixpoint2,
+							 Callgraph)),
       ModState = State1#st{callgraph = ModCallgraph},
       case refine_succ_typings(ModulePostorder, ModState) of
 	{fixpoint, State2} ->
@@ -112,7 +116,9 @@ get_refined_success_typings(SCCs, State) ->
 	  %% Need to reset the callgraph.
 	  NotFixpoint4 = [lookup_name(F, Callgraph1) || F <- NotFixpoint3],
 	  {NewSCCs, Callgraph2} =
-	    dialyzer_callgraph:reset_from_funs(NotFixpoint4, Callgraph1),
+	    ?timing("order", _C2,
+		    dialyzer_callgraph:reset_from_funs(NotFixpoint4,
+						       Callgraph1)),
 	  NewState = State2#st{callgraph = Callgraph2},
 	  get_refined_success_typings(NewSCCs, NewState)
       end
@@ -325,7 +331,15 @@ find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 			    plt = Plt} = State) ->
   Servers = {Codeserver, dialyzer_callgraph:mini_callgraph(Callgraph), Plt},
   Coordinator = dialyzer_coordinator:start(typesig, Servers),
-  ?timing("typesig", find_succ_typings(SCCs, State, Coordinator)).
+  ?timing("spawn", _C1, find_succ_typings(SCCs, State, Coordinator)),
+  dialyzer_coordinator:all_spawned(Coordinator),
+  NotFixpoint =
+    ?timing("typesig", _C2, dialyzer_coordinator:receive_not_fixpoint()),
+  ?debug("==================== Typesig done ====================\n\n", []),
+  case NotFixpoint =:= [] of
+    true -> {fixpoint, State};
+    false -> {not_fixpoint, NotFixpoint, State}
+  end.
 
 find_succ_typings([SCC|Rest], #st{parent = Parent} = State, Coordinator) ->
   Msg = io_lib:format("Typesig analysis for SCC: ~w\n", [format_scc(SCC)]),
@@ -333,14 +347,8 @@ find_succ_typings([SCC|Rest], #st{parent = Parent} = State, Coordinator) ->
   send_log(Parent, Msg),
   dialyzer_coordinator:scc_spawn(SCC, Coordinator),
   find_succ_typings(Rest, State, Coordinator);
-find_succ_typings([], State, Coordinator) ->
-  dialyzer_coordinator:all_spawned(Coordinator),
-  NotFixpoint = dialyzer_coordinator:receive_not_fixpoint(),
-  ?debug("==================== Typesig done ====================\n\n", []),
-  case NotFixpoint =:= [] of
-    true -> {fixpoint, State};
-    false -> {not_fixpoint, NotFixpoint, State}
-  end.
+find_succ_typings([], _State, _Coordinator) ->
+  ok.
 
 -spec collect_scc_data(scc(), servers()) -> scc_data().
 

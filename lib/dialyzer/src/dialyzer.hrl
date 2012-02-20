@@ -155,10 +155,11 @@
 
 %%--------------------------------------------------------------------
 
--define(timing(Msg,Expr),
+-define(timing(Msg,Var,Expr),
 	begin
 	    dialyzer_timing:start_stamp(Msg),
-	    __T = Expr,
+	    Var = Expr,
 	    dialyzer_timing:end_stamp(),
-	    __T
+	    Var
 	end).
+-define(timing(Msg,Expr),?timing(Msg,_T,Expr)).

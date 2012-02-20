@@ -56,13 +56,13 @@ dummy_loop() ->
 loop(LastNow) ->
   receive
     {stamp, Msg, Now} ->
-      io:format("~s\t(+~6.2fs): ", [Msg, diff(Now, LastNow)]),
+      io:format("    ~-10s (+~4.2fs):", [Msg, diff(Now, LastNow)]),
       loop(Now);
     {stamp, Now} ->
-      io:format("~6.2fs\n", [diff(Now, LastNow)]),
+      io:format("~7.2fs\n", [diff(Now, LastNow)]),
       loop(Now);
     {Pid, stop, Now} ->
-      io:format("\t(+~6.2fs)\n", [diff(Now, LastNow)]),
+      io:format("    ~-10s (+~4.2fs)\n", ["",diff(Now, LastNow)]),
       Pid ! ok
   end.
 
