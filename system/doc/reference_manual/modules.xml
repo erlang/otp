@@ -186,7 +186,7 @@ fact(0) ->           %  |
         <p>Read more in <seealso marker="typespec">Types and Function specifications</seealso>.
 	</p>
 	<p>
-	  The desciption is based on
+	  The description is based on
 	    <url href="http://www.erlang.org/eeps/eep-0008.html">EEP8 -
 	    Types and function specifications</url>
 	    which will not be further updated.
