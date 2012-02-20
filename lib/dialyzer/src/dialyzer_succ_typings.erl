@@ -171,7 +171,8 @@ collect_warnings(M, {Callgraph, Codeserver, NoWarnUnused, Plt, DocPlt}) ->
     dialyzer_dataflow:get_warnings(ModCode, Plt, Callgraph,
 				   Records, NoWarnUnused),
   Attrs = cerl:module_attrs(ModCode),
-  Warnings3 = dialyzer_behaviours:check_callbacks(M, Attrs, Plt, Codeserver),
+  Warnings3 =
+    dialyzer_behaviours:check_callbacks(M, Attrs, Records, Plt, Codeserver),
   DocPlt = insert_into_doc_plt(FunTypes, Callgraph, DocPlt),
   lists:flatten([Warnings1, Warnings2, Warnings3]).
 

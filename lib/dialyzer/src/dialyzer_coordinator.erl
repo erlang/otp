@@ -220,18 +220,20 @@ handle_cast({done, Job, NewData},
 	    #state{mode = Mode,
 		   spawn_count = SpawnCount,
 		   all_spawned = AllSpawned,
-		   result = OldResult
+		   result = OldResult,
+		   job_to_pid = JobToPID
 		  } = State) ->
-  NewResult =
+  {NewResult, NewJobToPID} =
     case Mode of
       X when X =:= 'typesig'; X =:= 'dataflow' ->
-	ordsets:union(OldResult, NewData);
+	{ordsets:union(OldResult, NewData), dict:erase(Job, JobToPID)};
       'compile' ->
-	dialyzer_analysis_callgraph:add_to_result(Job, NewData, OldResult);
+	{dialyzer_analysis_callgraph:add_to_result(Job, NewData, OldResult),
+	 JobToPID};
       'warnings' ->
-	NewData ++ OldResult
+	{NewData ++ OldResult, dict:erase(Job, JobToPID)}
     end,
-  UpdatedState = State#state{result = NewResult},
+  UpdatedState = State#state{result = NewResult, job_to_pid = NewJobToPID},
   Action =
     case AllSpawned of
       false -> reduce;
