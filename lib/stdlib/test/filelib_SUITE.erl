@@ -188,7 +188,52 @@ do_wildcard_6(Dir, Wcf) ->
     ["xbin"] = Wcf("*"),
     All = Wcf("*/*"),
     del(Files),
-    ok = file:del_dir(filename:join(Dir, "xbin")).
+    ok = file:del_dir(filename:join(Dir, "xbin")),
+    do_wildcard_7(Dir, Wcf).
+
+do_wildcard_7(Dir, Wcf) ->
+    Dirs = ["blurf","xa","yyy"],
+    SubDirs = ["blurf/nisse"],
+    foreach(fun(D) ->
+		    ok = file:make_dir(filename:join(Dir, D))
+	    end, Dirs ++ SubDirs),
+    All = ["blurf/nisse/baz","xa/arne","xa/kalle","yyy/arne"],
+    Files = mkfiles(lists:reverse(All), Dir),
+
+    %% Test.
+    Listing = Wcf("**"),
+    ["blurf","blurf/nisse","blurf/nisse/baz",
+     "xa","xa/arne","xa/kalle","yyy","yyy/arne"] = Listing,
+    Listing = Wcf("**/*"),
+    ["xa/arne","yyy/arne"] = Wcf("**/arne"),
+    ["blurf/nisse"] = Wcf("**/nisse"),
+    [] = Wcf("mountain/**"),
+
+    %% Cleanup
+    del(Files),
+    foreach(fun(D) ->
+		    ok = file:del_dir(filename:join(Dir, D))
+	    end, SubDirs ++ Dirs),
+    do_wildcard_8(Dir, Wcf).
+
+do_wildcard_8(Dir, Wcf) ->
+    Dirs0 = ["blurf"],
+    Dirs1 = ["blurf/nisse"],
+    Dirs2 = ["blurf/nisse/a", "blurf/nisse/b"],
+    foreach(fun(D) ->
+		    ok = file:make_dir(filename:join(Dir, D))
+	    end, Dirs0 ++ Dirs1 ++ Dirs2),
+    All = ["blurf/nisse/a/1.txt", "blurf/nisse/b/2.txt", "blurf/nisse/b/3.txt"],
+    Files = mkfiles(lists:reverse(All), Dir),
+
+    %% Test.
+    All = Wcf("**/blurf/**/*.txt"),
+
+    %% Cleanup
+    del(Files),
+    foreach(fun(D) ->
+		    ok = file:del_dir(filename:join(Dir, D))
+	    end, Dirs2 ++ Dirs1 ++ Dirs0).
 
 fold_files(Config) when is_list(Config) ->
     ?line Dir = filename:join(?config(priv_dir, Config), "fold_files"),
