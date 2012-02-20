@@ -150,6 +150,11 @@
             <p>Matches any number of characters up to the end of
               the filename, the next dot, or the next slash.</p>
           </item>
+          <tag>**</tag>
+          <item>
+            <p>Two adjacent <c>*</c>'s used as a single pattern will
+        match all files and zero or more directories and subdirectories.</p>
+          </item>
           <tag>[Character1,Character2,...]</tag>
           <item>
             <p>Matches any of the characters listed. Two characters
@@ -192,6 +197,10 @@
           <c>src</c> or <c>include</c> directories, use:</p>
         <code type="none">
     filelib:wildcard("lib/*/{src,include}/*.{erl,hrl}")        </code>
+        <p>To find all <c>.erl</c> or <c>.hrl</c> files in any
+          subdirectory, use:</p>
+        <code type="none">
+    filelib:wildcard("lib/**/*.{erl,hrl}")        </code>
       </desc>
     </func>
     <func>

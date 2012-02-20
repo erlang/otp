@@ -176,9 +176,49 @@ do_wildcard_5(Dir, Wcf) ->
 
     %% Cleanup
     ?line del(Files),
-    ?line foreach(fun(D) -> ok = file:del_dir(filename:join(Dir, D)) end, Dirs).
+    ?line foreach(fun(D) -> ok = file:del_dir(filename:join(Dir, D)) end, Dirs),
+    do_wildcard_6(Dir, Wcf).
 
+do_wildcard_6(Dir, Wcf) ->
+    Dirs = ["blurf","xa","yyy"],
+    ?line foreach(fun(D) -> ok = file:make_dir(filename:join(Dir, D)) end, Dirs),
+    SubDirs = ["blurf/nisse"],
+    ?line foreach(fun(D) -> ok = file:make_dir(filename:join(Dir, D)) end, SubDirs),
+    All = ["blurf/nisse/baz","xa/arne","xa/kalle","yyy/arne"],
+    ?line Files = mkfiles(lists:reverse(All), Dir),
 
+    %% Test.
+    ?line Listing = Wcf("**"),
+    ?line ["blurf","blurf/nisse","blurf/nisse/baz","xa","xa/arne","xa/kalle","yyy","yyy/arne"] = Listing,
+    ?line Listing = Wcf("**/*"),
+    ?line ["xa/arne","yyy/arne"] = Wcf("**/arne"),
+    ?line ["blurf/nisse"] = Wcf("**/nisse"),
+    ?line [] = Wcf("mountain/**"),
+
+    %% Cleanup
+    ?line del(Files),
+    ?line foreach(fun(D) -> ok = file:del_dir(filename:join(Dir, D)) end, SubDirs),
+    ?line foreach(fun(D) -> ok = file:del_dir(filename:join(Dir, D)) end, Dirs),
+    do_wildcard_7(Dir, Wcf).
+
+do_wildcard_7(Dir, Wcf) ->
+    Dirs0 = ["blurf"],
+    ?line foreach(fun(D) -> ok = file:make_dir(filename:join(Dir, D)) end, Dirs0),
+    Dirs1 = ["blurf/nisse"],
+    ?line foreach(fun(D) -> ok = file:make_dir(filename:join(Dir, D)) end, Dirs1),
+    Dirs2 = ["blurf/nisse/a", "blurf/nisse/b"],
+    ?line foreach(fun(D) -> ok = file:make_dir(filename:join(Dir, D)) end, Dirs2),
+    All = ["blurf/nisse/a/1.txt", "blurf/nisse/b/2.txt", "blurf/nisse/b/3.txt"],
+    ?line Files = mkfiles(lists:reverse(All), Dir),
+
+    %% Test.
+    ?line All = Wcf("**/blurf/**/*.txt"),
+
+    %% Cleanup
+    ?line del(Files),
+    ?line foreach(fun(Dirs) ->
+      foreach(fun(D) -> ok = file:del_dir(filename:join(Dir, D)) end, Dirs)
+    end, [Dirs2, Dirs1, Dirs0]).
 
 fold_files(Config) when is_list(Config) ->
     ?line Dir = filename:join(?config(priv_dir, Config), "fold_files"),
