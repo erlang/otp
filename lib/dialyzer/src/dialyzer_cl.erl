@@ -400,8 +400,10 @@ do_analysis(Files, Options, Plt, PltInfo) ->
 			   callgraph_file = Options#options.callgraph_file},
   State3 = start_analysis(State2, InitAnalysis),
   {T1, _} = statistics(wall_clock),
+  ok = dialyzer_timing:init(Options#options.timing),
   Return = cl_loop(State3),
   {T2, _} = statistics(wall_clock),
+  ok = dialyzer_timing:stop(),
   report_elapsed_time(T1, T2, Options),
   Return.
 

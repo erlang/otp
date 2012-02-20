@@ -134,7 +134,8 @@ analysis_start(Parent, Analysis) ->
 			  use_contracts = Analysis#analysis.use_contracts
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
-  {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
+  {Callgraph, NoWarn, TmpCServer0} =
+    ?timing("compile",compile_and_store(Files, State)),
   %% Remote type postprocessing
   NewCServer =
     try

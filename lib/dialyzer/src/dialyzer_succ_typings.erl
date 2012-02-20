@@ -132,7 +132,8 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver, NoWarnUnused, Parent) ->
 							    NewState#st.plt),
   MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
   {Warnings, FinalPlt, FinalDocPlt} =
-    get_warnings_from_modules(Mods, NewState, MiniDocPlt, CWarns),
+    ?timing("warning",
+	    get_warnings_from_modules(Mods, NewState, MiniDocPlt, CWarns)),
   {postprocess_warnings(Warnings, Codeserver),
    dialyzer_plt:restore_full_plt(FinalPlt, Plt),
    dialyzer_plt:restore_full_plt(FinalDocPlt, DocPlt)}.
@@ -201,7 +202,7 @@ refine_succ_typings(ModulePostorder, #st{codeserver = Codeserver,
   ?debug("Module postorder: ~p\n", [ModulePostorder]),
   Servers = {Codeserver, Callgraph, Plt},
   Coordinator = dialyzer_coordinator:start(dataflow, Servers),
-  refine_succ_typings(ModulePostorder, State, Coordinator).
+  ?timing("refine",refine_succ_typings(ModulePostorder, State, Coordinator)).
 
 refine_succ_typings([M|Rest], State, Coordinator) ->
   Msg = io_lib:format("Dataflow of module: ~w\n", [M]),
@@ -315,7 +316,7 @@ find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 			    plt = Plt} = State) ->
   Servers = {Codeserver, dialyzer_callgraph:mini_callgraph(Callgraph), Plt},
   Coordinator = dialyzer_coordinator:start(typesig, Servers),
-  find_succ_typings(SCCs, State, Coordinator).
+  ?timing("typesig", find_succ_typings(SCCs, State, Coordinator)).
 
 find_succ_typings([SCC|Rest], #st{parent = Parent} = State, Coordinator) ->
   Msg = io_lib:format("Typesig analysis for SCC: ~w\n", [format_scc(SCC)]),

@@ -194,6 +194,8 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
     callgraph_file ->
       assert_filename(Value),
       build_options(Rest, Options#options{callgraph_file = Value});
+    timing ->
+      build_options(Rest, Options#options{timing = Value});
     _ ->
       bad_option("Unknown dialyzer command line option", Term)
   end;

@@ -132,6 +132,7 @@
 -record(options, {files           = []		   :: [file:filename()],
 		  files_rec       = []		   :: [file:filename()],
 		  analysis_type   = succ_typings   :: anal_type1(),
+		  timing          = false          :: boolean(),
 		  defines         = []		   :: [dial_define()],
 		  from            = byte_code	   :: start_from(),
 		  get_warnings    = maybe          :: boolean() | 'maybe',
@@ -153,3 +154,11 @@
 		   forms	  = []		   :: [{_, _}]}).
 
 %%--------------------------------------------------------------------
+
+-define(timing(Msg,Expr),
+	begin
+	    dialyzer_timing:start_stamp(Msg),
+	    __T = Expr,
+	    dialyzer_timing:end_stamp(),
+	    __T
+	end).

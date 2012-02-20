@@ -164,6 +164,9 @@ cl(["--src"|T]) ->
 cl(["--no_spec"|T]) ->
   put(dialyzer_options_use_contracts, false),
   cl(T);
+cl(["--time"|T]) ->
+  put(dialyzer_timing, true),
+  cl(T);
 cl(["-v"|_]) ->
   io:format("Dialyzer version "++?VSN++"\n"),
   erlang:halt(?RET_NOTHING_SUSPICIOUS);
@@ -250,6 +253,7 @@ init() ->
   put(dialyzer_output_format,     formatted),
   put(dialyzer_filename_opt,      basename),
   put(dialyzer_options_check_plt, DefaultOpts#options.check_plt),
+  put(dialyzer_timing,            DefaultOpts#options.timing),
   ok.
 
 append_defines([Def, Val]) ->
@@ -290,6 +294,7 @@ cl_options() ->
    {filename_opt, get(dialyzer_filename_opt)},
    {analysis_type, get(dialyzer_options_analysis_type)},
    {get_warnings, get(dialyzer_options_get_warnings)},
+   {timing, get(dialyzer_timing)},
    {callgraph_file, get(dialyzer_callgraph_file)}
    |common_options()].
 
@@ -351,7 +356,7 @@ help_message() ->
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--no_native] [--fullpath]
+                [--no_native] [--fullpath] [--time]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -418,6 +423,8 @@ Options:
       Make Dialyzer a bit more quiet.
   --verbose
       Make Dialyzer a bit more verbose.
+  --time
+      Print time information
   --build_plt
       The analysis starts from an empty plt and creates a new one from the
       files specified with -c and -r. Only works for beam files.

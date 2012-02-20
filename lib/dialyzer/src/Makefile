@@ -63,6 +63,7 @@ MODULES =  \
 	dialyzer_plt \
 	dialyzer_races \
 	dialyzer_succ_typings \
+	dialyzer_timing \
 	dialyzer_typesig \
 	dialyzer_coordinator \
 	dialyzer_worker \
