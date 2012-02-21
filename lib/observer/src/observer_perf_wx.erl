@@ -61,15 +61,15 @@ init([Notebook, Parent]) ->
  try
     Panel = wxPanel:new(Notebook),
     Main  = wxBoxSizer:new(?wxVERTICAL),
-
-    CPU = wxPanel:new(Panel, [{winid, ?RQ_W}, {style,?wxFULL_REPAINT_ON_RESIZE}]),
+    Style = ?wxFULL_REPAINT_ON_RESIZE bor ?wxCLIP_CHILDREN,
+    CPU = wxPanel:new(Panel, [{winid, ?RQ_W}, {style,Style}]),
     wxWindow:setBackgroundColour(CPU, ?wxWHITE),
     wxSizer:add(Main, CPU, [{flag, ?wxEXPAND bor ?wxALL},
 				 {proportion, 1}, {border, 5}]),
     MemIO = wxBoxSizer:new(?wxHORIZONTAL),
-    MEM = wxPanel:new(Panel, [{winid, ?MEM_W}, {style,?wxFULL_REPAINT_ON_RESIZE}]),
+    MEM = wxPanel:new(Panel, [{winid, ?MEM_W}, {style,Style}]),
     wxWindow:setBackgroundColour(MEM, ?wxWHITE),
-    IO  = wxPanel:new(Panel, [{winid, ?IO_W}, {style,?wxFULL_REPAINT_ON_RESIZE}]),
+    IO  = wxPanel:new(Panel, [{winid, ?IO_W}, {style,Style}]),
     wxWindow:setBackgroundColour(IO, ?wxWHITE),
     wxSizer:add(MemIO, MEM, [{flag, ?wxEXPAND bor ?wxLEFT},
 			     {proportion, 1}, {border, 5}]),
@@ -82,20 +82,31 @@ init([Notebook, Parent]) ->
     wxPanel:connect(CPU, paint, [callback]),
     wxPanel:connect(IO, paint, [callback]),
     wxPanel:connect(MEM, paint, [callback]),
+    case os:type() of
+	{win32, _} -> %% Ignore erase on windows
+	    wxPanel:connect(CPU, erase_background, [{callback, fun(_,_) -> ok end}]),
+	    wxPanel:connect(IO,  erase_background, [{callback, fun(_,_) -> ok end}]),
+	    wxPanel:connect(MEM, erase_background, [{callback, fun(_,_) -> ok end}]);
+	_ -> ok
+    end,
 
     UseGC = haveGC(Panel),
-    Font = case UseGC of
-	       true ->
-		   %% Def font is really small when using Graphics contexts for some reason
-		   %% Hardcode it
-		   wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD);
-	       false ->
-		   DefFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
-		   DefSize = wxFont:getPointSize(DefFont),
-		   DefFamily = wxFont:getFamily(DefFont),
-		   wxFont:new(DefSize, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD)
-	   end,
-    SmallFont = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+    {Font, SmallFont}
+	= case os:type() of
+	      {unix, _} when UseGC ->
+		  %% Def font is really small when using Graphics contexts for some reason
+		  %% Hardcode it
+		  F = wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_BOLD),
+		  SF = wxFont:new(10, ?wxFONTFAMILY_DECORATIVE, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+		  {F, SF};
+	      _ ->
+		  DefFont = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+		  DefSize = wxFont:getPointSize(DefFont),
+		  DefFamily = wxFont:getFamily(DefFont),
+		  F = wxFont:new(DefSize, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_BOLD),
+		  SF = wxFont:new(DefSize-1, DefFamily, ?wxFONTSTYLE_NORMAL, ?wxFONTWEIGHT_NORMAL),
+		  {F, SF}
+	  end,
     BlackPen = wxPen:new({0,0,0}, [{width, 2}]),
     Pens = [wxPen:new(Col, [{width, 2}]) || Col <- tuple_to_list(colors())],
     process_flag(trap_exit, true),
@@ -135,10 +146,18 @@ handle_sync_event(#wx{obj=Panel, event = #wxPaint{}},_,
 	    Panel =:= element(?MEM_W, Windows) -> ?MEM_W;
 	    Panel =:= element(?IO_W, Windows)  -> ?IO_W
 	 end,
-    DC = wxPaintDC:new(Panel),
-    GC = case UseGC of
-	     true ->  ?wxGC:create(DC);
-	     false -> DC
+    IsWindows = element(1, os:type()) =:= win32,
+
+    DC = if IsWindows -> 
+		 %% Ugly hack to aviod flickering on windows, works on windows only
+		 %% But the other platforms are doublebuffered by default
+		 wx:typeCast(wxBufferedPaintDC:new(Panel), wxPaintDC);
+	    true -> 
+		 wxPaintDC:new(Panel)
+	 end,
+    IsWindows andalso wxDC:clear(DC),
+    GC = if UseGC -> ?wxGC:create(DC);
+	    true -> DC
 	 end,
     %% Nothing is drawn until wxPaintDC is destroyed.
     try

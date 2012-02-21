@@ -108,11 +108,18 @@ init([Notebook, Parent]) ->
     wxPanel:connect(DrawingArea, left_up),
     wxPanel:connect(DrawingArea, left_dclick),
     wxPanel:connect(DrawingArea, right_down),
+    case os:type() of
+	{win32, _} -> %% Ignore erase on windows
+	    wxPanel:connect(DrawingArea, erase_background, [{callback, fun(_,_) -> ok end}]);
+	_ -> ok
+    end,
 
     UseGC = haveGC(DrawingArea),
-    Font = case UseGC of
-	       true ->  wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT);
-	       false -> wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_NORMAL)
+    Font = case os:type() of
+	       {unix,_} when UseGC -> 
+		   wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_NORMAL);
+	       _ ->
+		   wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT)
 	   end,
     SelCol   = wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT),
     GreyBrush = wxBrush:new({230,230,240}),
@@ -231,7 +238,12 @@ handle_event(Event, _State) ->
 handle_sync_event(#wx{event = #wxPaint{}},_,
 		  #state{app_w=DA, app=App, sel=Sel, paint=Paint, usegc=UseGC}) ->
     %% PaintDC must be created in a callback to work on windows.
-    DC = wxPaintDC:new(DA),
+    IsWindows = element(1, os:type()) =:= win32,
+    %% Avoid Windows flickering hack
+    DC = if IsWindows -> wx:typeCast(wxBufferedPaintDC:new(DA), wxPaintDC); 
+	    true -> wxPaintDC:new(DA)
+	 end,
+    IsWindows andalso wxDC:clear(DC),
     GC = case UseGC of
 	     true  ->
 		 GC0 = ?wxGC:create(DC),
