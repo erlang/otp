@@ -805,17 +805,17 @@ rtchk_fallback_call(Return, #atomic_context{dw = DW,
 non_native_barrier(B) ->
     lists:member(B, ?NON_NATIVE_BARRIERS).
 
-non_native_barrier_impl(AC, Type, Macro, Op, B) ->
+non_native_barrier_impl(AC, Type, Op, B) ->
     ["
-", func_header(AC, Type, Macro, Op, B), "
+", func_header(AC, Type, false, Op, B), "
 {",
      case B of
 	 ddrb ->
 	     ["
 #ifdef ETHR_ORDERED_READ_DEPEND
-    ", func_call(AC, Type, Macro, Op, none, true), "
+    ", func_call(AC, Type, Op, none, true), "
 #else
-    ", func_call(AC, Type, Macro, Op, rb, true), "
+    ", func_call(AC, Type, Op, rb, true), "
 #endif
 "
 	     ]
@@ -824,12 +824,10 @@ non_native_barrier_impl(AC, Type, Macro, Op, B) ->
 "
     ].
 
-func_call(#atomic_context{'ATMC' = ATMC} = AC, inline_implementation, _Macro, Op, B, RetStatement) ->
+func_call(#atomic_context{'ATMC' = ATMC} = AC, inline_implementation, Op, B, RetStatement) ->
     func_call(AC, Op, ["ETHR_", ATMC, "_FUNC__(", opstr(Op), op_barrier_ext(B), ")"], RetStatement);
-func_call(#atomic_context{atomic = Atomic} = AC, implementation, false, Op, B, RetStatement) ->
-    func_call(AC, Op, [Atomic, "_", opstr(Op), op_barrier_ext(B)], RetStatement);
-func_call(AC, implementation, Macro, Op, B, RetStatement) ->
-    func_call(AC, Op, [Macro, "(", opstr(Op), op_barrier_ext(B), ")"], RetStatement).
+func_call(#atomic_context{atomic = Atomic} = AC, implementation, Op, B, RetStatement) ->
+    func_call(AC, Op, [Atomic, "_", opstr(Op), op_barrier_ext(B)], RetStatement).
 
 func_call(#atomic_context{dw = DW, arg1 = Arg1, arg2 = Arg2, arg3 = Arg3} = AC, Op, Func, true) ->
     op_call(Op, DW, case is_return_op(AC, Op) of
@@ -901,7 +899,7 @@ make_implementations(#atomic_context{dw = DW,
 			lists:map(fun (B) ->
 					  case non_native_barrier(B) of
 					      true ->
-						  non_native_barrier_impl(AC, inline_implementation, false, Op, B);
+						  non_native_barrier_impl(AC, inline_implementation, Op, B);
 					      false ->
 						  TryBarriers = try_barrier_order(B),
 						  ["
@@ -1211,7 +1209,7 @@ int ethr_have_native_dw_atomic(void)
 						end,
 					case non_native_barrier(B) of
 					    true ->
-						non_native_barrier_impl(AC, implementation, Macro, Op, B);
+						non_native_barrier_impl(AC, implementation, Op, B);
 					    false ->
 						["\n",
 					   	func_header(AC, implementation, Macro,  Op, B),
