@@ -978,7 +978,7 @@ static int function_is_traced(Process *p,
 			      Binary **ms,              /* out */
 			      Binary **ms_meta,         /* out */
 			      Eterm   *tracer_pid_meta, /* out */
-			      Sint    *count,           /* out */
+			      Uint    *count,           /* out */
 			      Eterm   *call_time)       /* out */
 {
     Export e;
@@ -1029,7 +1029,7 @@ static int function_is_traced(Process *p,
     /* OK, now look for breakpoint tracing */
     if ((code = erts_find_local_func(mfa)) != NULL) {
 	int r = 
-	    (erts_is_trace_break(code, ms, NULL)
+	    (erts_is_trace_break(code, ms)
 	     ? FUNC_TRACE_LOCAL_TRACE : 0) 
 	    | (erts_is_mtrace_break(code, ms_meta, tracer_pid_meta)
 	       ? FUNC_TRACE_META_TRACE : 0)
@@ -1050,7 +1050,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     Eterm* hp;
     DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     Binary *ms = NULL, *ms_meta = NULL;
-    Sint count = 0;
+    Uint count = 0;
     Eterm traced = am_false;
     Eterm match_spec = am_false;
     Eterm retval = am_false;
@@ -1138,9 +1138,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 	break;
     case am_call_count:
 	if (r & FUNC_TRACE_COUNT_TRACE) {
-	    retval = count < 0 ? 
-		erts_make_integer(-count-1, p) : 
-		erts_make_integer(count, p);
+	    retval = erts_make_integer(count, p);
 	}
 	break;
     case am_call_time:
@@ -1477,8 +1475,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	} else {
 	    int m = 0;
 	    if (flags.local) {
-		m = erts_set_trace_break(mfa, specified, match_prog_set,
-					 am_true);
+		m = erts_set_trace_break(mfa, specified, match_prog_set);
 	    }
 	    if (flags.meta) {
 		m = erts_set_mtrace_break(mfa, specified, meta_match_prog_set,

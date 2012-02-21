@@ -2186,14 +2186,12 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 					 &meta_tracer_pid);
 	}
 	if (time) {
-	    BpDataTime *bdt = NULL;
+	    BpDataTime *bdt;
 	    BeamInstr *pc = (BeamInstr *)ep->code+3;
 
-	    bdt = (BpDataTime *) erts_get_time_break(p, pc);
-	    ASSERT(bdt);
-
-	    if (!bdt->pause) {
-		erts_trace_time_break(p, pc, bdt, ERTS_BP_CALL_TIME_CALL);
+	    bdt = erts_get_active_time_break(pc);
+	    if (bdt) {
+		erts_trace_time_call(p, pc, bdt);
 	    }
 	}
 	/* Restore original continuation pointer (if changed). */

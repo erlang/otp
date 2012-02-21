@@ -62,11 +62,8 @@ label L
 i_func_info I a a I
 int_code_end
 
-i_trace_breakpoint
-i_mtrace_breakpoint
+i_generic_breakpoint
 i_debug_breakpoint
-i_count_breakpoint
-i_time_breakpoint
 i_return_time_trace
 i_return_to_trace
 i_yield

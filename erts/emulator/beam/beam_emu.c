@@ -4643,80 +4643,22 @@ void process_main(void)
      Goto(*I);
  }
 
- OpCase(i_count_breakpoint): {
+ OpCase(i_generic_breakpoint): {
      BeamInstr real_I;
-     
-     ErtsCountBreak(c_p, (BeamInstr *) I, &real_I);
+     ASSERT(I[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+     SWAPOUT;
+     reg[0] = r(0);
+     real_I = erts_generic_breakpoint(c_p, I, reg);
+     r(0) = reg[0];
+     SWAPIN;
      ASSERT(VALID_INSTR(real_I));
-     Goto(real_I);
- }
-
- /* need to send mfa instead of bdt pointer
-  * the pointer might be deallocated.
-  */
-
- OpCase(i_time_breakpoint): {
-     BeamInstr real_I;
-     BpData **bds = (BpData **) (I)[-4];
-     BpDataTime *bdt = NULL;
-     Uint ix = 0;
-#ifdef ERTS_SMP
-     ix = c_p->scheduler_data->no - 1;
-#else
-     ix = 0;
-#endif
-     bdt = (BpDataTime *)bds[ix];
-
-     ASSERT((I)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-     ASSERT(bdt);
-     bdt = (BpDataTime *) bdt->next;
-     ASSERT(bdt);
-     bds[ix] = (BpData *) bdt;
-     real_I = bdt->orig_instr;
-     ASSERT(VALID_INSTR(real_I));
-
-     if (IS_TRACED_FL(c_p, F_TRACE_CALLS) && !(bdt->pause)) {
-	 if (	(*(c_p->cp) == (BeamInstr) OpCode(i_return_time_trace)) ||
-		(*(c_p->cp) == (BeamInstr) OpCode(return_trace)) ||
-		(*(c_p->cp) == (BeamInstr) OpCode(i_return_to_trace))) {
-	     /* This _IS_ a tail recursive call */
-	     SWAPOUT;
-	     erts_trace_time_break(c_p, I, bdt, ERTS_BP_CALL_TIME_TAIL_CALL);
-	     SWAPIN;
-	 } else {
-	     SWAPOUT;
-	     erts_trace_time_break(c_p, I, bdt, ERTS_BP_CALL_TIME_CALL);
-
-	     /* r register needs to be copied to the array
-	      * for the garbage collector
-	      */
-	     ASSERT(c_p->htop <= E && E <= c_p->hend);
-	     if (E - 2 < HTOP) {
-		 reg[0] = r(0);
-		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 FCALLS -= erts_garbage_collect(c_p, 2, reg, I[-1]);
-		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 r(0) = reg[0];
-	     }
-	     SWAPIN;
-
-	     ASSERT(c_p->htop <= E && E <= c_p->hend);
-
-	     E -= 2;
-	     E[0] = make_cp(I);
-	     E[1] = make_cp(c_p->cp);     /* original return address */
-	     c_p->cp = beam_return_time_trace;
-	 }
-     }
-
      Goto(real_I);
  }
 
  OpCase(i_return_time_trace): {
      BeamInstr *pc = (BeamInstr *) (UWord) E[0];
      SWAPOUT;
-     erts_trace_time_break(c_p, pc, NULL, ERTS_BP_CALL_TIME_RETURN);
+     erts_trace_time_return(c_p, pc);
      SWAPIN;
      c_p->cp = NULL;
      SET_I((BeamInstr *) cp_val(E[1]));
@@ -4724,114 +4666,6 @@ void process_main(void)
      Goto(*I);
  }
 
- OpCase(i_trace_breakpoint):
-     if (! IS_TRACED_FL(c_p, F_TRACE_CALLS)) {
-	 BeamInstr real_I;
-	 
-	 ErtsBreakSkip(c_p, (BeamInstr *) I, &real_I);
-	 Goto(real_I);
-     }
- /* Fall through to next case */
- OpCase(i_mtrace_breakpoint): {
-     BeamInstr real_I;
-     Uint32 flags;
-     Eterm tracer_pid;
-     Uint* cpp;
-     int return_to_trace = 0, need = 0;
-     flags = 0;
-     SWAPOUT;
-     reg[0] = r(0);
-
-     if (*(c_p->cp) == (BeamInstr) OpCode(return_trace)) {
-	 cpp = &E[2];
-     } else if (*(c_p->cp) == (BeamInstr) OpCode(i_return_to_trace)) {
-	 return_to_trace = !0;
-	 cpp = &E[0];
-     } else if (*(c_p->cp) == (BeamInstr) OpCode(i_return_time_trace)) {
-	 return_to_trace = !0;
-	 cpp = &E[0];
-     } else {
-	 cpp = NULL;
-     }
-     if (cpp) {
-	 /* This _IS_ a tail recursive call, if there are
-	  * return_trace and/or i_return_to_trace stackframes
-	  * on the stack, they are not intermixed with y registers
-	  */
-	 BeamInstr *cp_save = c_p->cp;
-	 for (;;) {
-	     ASSERT(is_CP(*cpp));
-	     if (*cp_val(*cpp) == (BeamInstr) OpCode(return_trace)) {
-		 cpp += 3;
-	     } else if (*cp_val(*cpp) == (BeamInstr) OpCode(i_return_to_trace)) {
-		 return_to_trace = !0;
-		 cpp += 1;
-	     } else if (*cp_val(*cpp) == (BeamInstr) OpCode(i_return_time_trace)) {
-		 cpp += 2;
-	     } else
-		 break;
-	 }
-	 c_p->cp = (BeamInstr *) cp_val(*cpp);
-	 ASSERT(is_CP(*cpp));
-	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	 real_I = erts_trace_break(c_p, I, reg, &flags, &tracer_pid);
-	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	 SWAPIN;		/* Needed by shared heap. */
-	 c_p->cp = cp_save;
-     } else {
-	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	 real_I = erts_trace_break(c_p, I, reg, &flags, &tracer_pid);
-	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	 SWAPIN;		/* Needed by shared heap. */
-     }
-
-     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-
-     if ((flags & MATCH_SET_RETURN_TO_TRACE) && !return_to_trace) {
-	 need += 1;
-     }
-     if (flags & MATCH_SET_RX_TRACE) {
-	 need += 3;
-     }
-     if (need) {
-	 ASSERT(c_p->htop <= E && E <= c_p->hend);
-	 if (E - need < HTOP) {
-	     /* SWAPOUT was done and r(0) was saved above */
-	     PROCESS_MAIN_CHK_LOCKS(c_p);
-	     FCALLS -= erts_garbage_collect(c_p, need, reg, I[-1]);
-	     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	     PROCESS_MAIN_CHK_LOCKS(c_p);
-	     r(0) = reg[0];
-	     SWAPIN;
-	 }
-     }
-     if ((flags & MATCH_SET_RETURN_TO_TRACE) && !return_to_trace) {
-	 E -= 1;
-	 ASSERT(c_p->htop <= E && E <= c_p->hend);
-	 E[0] = make_cp(c_p->cp);
-	 c_p->cp = (BeamInstr *) beam_return_to_trace;
-     }
-     if (flags & MATCH_SET_RX_TRACE) {
-	 E -= 3;
-	 ASSERT(c_p->htop <= E && E <= c_p->hend);
-	 ASSERT(is_CP((Eterm) (UWord) (I - 3)));
-	 ASSERT(am_true == tracer_pid || 
-		is_internal_pid(tracer_pid) || is_internal_port(tracer_pid));
-	 E[2] = make_cp(c_p->cp);
-	 E[1] = tracer_pid;
-	 E[0] = make_cp(I - 3); /* We ARE at the beginning of an 
-				   instruction,
-				   the funcinfo is above i. */
-	 c_p->cp =
-	     (flags & MATCH_SET_EXCEPTION_TRACE)
-		     ? beam_exception_trace : beam_return_trace;
-	 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-	 c_p->trace_flags |= F_EXCEPTION_TRACE;
-	 erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-     }
-     Goto(real_I);
- }
- 
  OpCase(i_return_to_trace): {
      if (IS_TRACED_FL(c_p, F_TRACE_RETURN_TO)) {
 	 Uint *cpp = (Uint*) E;

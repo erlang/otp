@@ -25,77 +25,6 @@
 #include "erl_vm.h"
 #include "global.h"
 
-
-
-/* A couple of gotchas:
- *
- * The breakpoint structure from BeamInstr,
- * In beam_emu where the instruction counter pointer, I (or pc),
- * points to the *current* instruction. At that time, if the instruction
- * is a breakpoint instruction the pc looks like the following,
- *
- * I[-5]   | op_i_func_info_IaaI |        scheduler specific entries
- * I[-4]   |    BpData** bpa     |  --> | BpData * bdas1 | ... | BpData * bdasN |
- * I[-3]   |  Tagged Module      |            |                    |
- * I[-2]   |  Tagged Function    |            V                    V
- * I[-1]   |  Arity              |          BpData -> BpData -> BpData -> BpData
- * I[0]    | The bp instruction  |            ^       * the bp wheel *      |
- *                                            |------------------------------
- *
- * Common struct to all bp_data_*
- *
- * 1) The type of bp_data structure in the ring is deduced from the
- *    orig_instr field of the structure _before_ in the ring, except for
- *    the first structure in the ring that has its instruction in
- *    pc[0] of the code to execute.
- *    This is valid as long as you don't search for the function while it is
- *    being executed by something else. Or is in the middle of its rotation for
- *    any other reason.
- *    A key, the bp beam instruction, is included for this reason.
- *
- * 2) pc[-4][sched_id - 1] points to the _last_ structure in the ring before the
- *    breakpoints are being executed.
- *
- * So, as an example, when a breakpointed function starts to execute,
- * the first instruction that is a breakpoint instruction at pc[0] finds
- * its data at ((BpData **) pc[-4][sched_id - 1])->next and has to cast that pointer
- * to the correct bp_data type.
-*/
-
-typedef struct bp_data {
-    struct bp_data *next; /* Doubly linked ring pointers */
-    struct bp_data *prev; /* -"-                         */
-    BeamInstr orig_instr;      /* The original instruction to execute */
-    BeamInstr this_instr;      /* key */
-} BpData;
-/*
-** All the following bp_data_.. structs must begin the same way
-*/
-
-typedef struct bp_data_trace {
-    struct bp_data *next;
-    struct bp_data *prev;
-    BeamInstr       orig_instr;
-    BeamInstr       this_instr;   /* key */
-    Binary         *match_spec;
-    Eterm           tracer_pid;
-} BpDataTrace;
-
-typedef struct bp_data_debug {
-    struct bp_data *next;
-    struct bp_data *prev;
-    BeamInstr       orig_instr;
-    BeamInstr       this_instr;   /* key */
-} BpDataDebug;
-
-typedef struct bp_data_count {    /* Call count */
-    struct bp_data *next;
-    struct bp_data *prev;
-    BeamInstr       orig_instr;
-    BeamInstr       this_instr;   /* key */
-    erts_smp_atomic_t acount;
-} BpDataCount;
-
 typedef struct {
     Eterm pid;
     Sint  count;
@@ -110,13 +39,9 @@ typedef struct {
 } bp_time_hash_t;
 
 typedef struct bp_data_time {     /* Call time */
-    struct bp_data *next;
-    struct bp_data *prev;
-    BeamInstr       orig_instr;
-    BeamInstr       this_instr;   /* key */
-    Uint	    pause;
-    Uint	    n;
-    bp_time_hash_t  *hash;
+    Uint n;
+    bp_time_hash_t *hash;
+    erts_refc_t refc;
 } BpDataTime;
 
 typedef struct {
@@ -126,63 +51,34 @@ typedef struct {
     BeamInstr *pc;
 } process_breakpoint_time_t; /* used within psd */
 
-extern erts_smp_spinlock_t erts_bp_lock;
+typedef struct {
+    erts_smp_atomic_t acount;
+    erts_refc_t refc;
+} BpCount;
+
+typedef struct generic_bp_data {
+    Uint flags;
+    Binary* local_ms;		/* Match spec for local call trace */
+    Binary* meta_ms;		/* Match spec for meta trace */
+    erts_smp_atomic_t tracer_pid; /* For meta trace */
+    BpCount* count;		  /* For call count */
+    BpDataTime* time;		  /* For time trace */
+} GenericBpData;
+
+typedef struct generic_bp {
+    BeamInstr orig_instr;
+    GenericBpData data[1];
+} GenericBp;
 
 #define ERTS_BP_CALL_TIME_SCHEDULE_IN      (0)
 #define ERTS_BP_CALL_TIME_SCHEDULE_OUT     (1)
 #define ERTS_BP_CALL_TIME_SCHEDULE_EXITING (2)
-
-#define ERTS_BP_CALL_TIME_CALL      (0)
-#define ERTS_BP_CALL_TIME_RETURN    (1)
-#define ERTS_BP_CALL_TIME_TAIL_CALL (2)
-
-#ifdef ERTS_SMP
-#define ErtsSmpBPLock(BDC) erts_smp_spin_lock(&erts_bp_lock)
-#define ErtsSmpBPUnlock(BDC) erts_smp_spin_unlock(&erts_bp_lock)
-#else
-#define ErtsSmpBPLock(BDC)
-#define ErtsSmpBPUnlock(BDC)
-#endif
 
 #ifdef ERTS_SMP
 #define bp_sched2ix_proc(p) ((p)->scheduler_data->no - 1)
 #else
 #define bp_sched2ix_proc(p) (0)
 #endif
-
-#define ErtsCountBreak(p, pc,instr_result)                       \
-do {                                                             \
-    BpData **bds = (BpData **) (pc)[-4];                         \
-    BpDataCount *bdc = NULL;                                     \
-    Uint ix = bp_sched2ix_proc( (p) );                           \
-    erts_aint_t count = 0;                                       \
-                                                                 \
-    ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
-    ASSERT(bds);                                                 \
-    bdc = (BpDataCount *) bds[ix];                               \
-    bdc = (BpDataCount *) bdc->next;                             \
-    ASSERT(bdc);                                                 \
-    bds[ix] = (BpData *) bdc;                                    \
-    count = erts_smp_atomic_read_nob(&bdc->acount);                  \
-    if (count >= 0)  erts_smp_atomic_inc_nob(&bdc->acount);      \
-    *(instr_result) = bdc->orig_instr;                           \
-} while (0)
-
-#define ErtsBreakSkip(p, pc,instr_result)                        \
-do {                                                             \
-    BpData **bds = (BpData **) (pc)[-4];                         \
-    BpData *bd = NULL;                                           \
-    Uint ix = bp_sched2ix_proc( (p) );                           \
-                                                                 \
-    ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
-    ASSERT(bds);                                                 \
-    bd = bds[ix];                                                \
-    ASSERT(bd);                                                  \
-    bd = bd->next;                                               \
-    ASSERT(bd);                                                  \
-    bds[ix] = bd;                                                \
-    *(instr_result) = bd->orig_instr;                            \
-} while (0)
 
 enum erts_break_op{
     erts_break_nop   =  0, /* Must be false */
@@ -199,8 +95,7 @@ enum erts_break_op{
 
 void erts_bp_init(void);
 
-int erts_set_trace_break(Eterm mfa[3], int specified, Binary *match_spec,
-			 Eterm tracer_pid);
+int erts_set_trace_break(Eterm mfa[3], int specified, Binary *match_spec);
 int erts_clear_trace_break(Eterm mfa[3], int specified);
 int erts_set_mtrace_break(Eterm mfa[3], int specified, Binary *match_spec,
 			  Eterm tracer_pid);
@@ -218,22 +113,23 @@ int erts_clear_break(Eterm mfa[3], int specified);
 int erts_clear_module_break(Module *modp);
 int erts_clear_function_break(Module *modp, BeamInstr *pc);
 
+BeamInstr erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
 		      Uint32 *ret_flags, Eterm *tracer_pid);
 Uint32 erts_bif_mtrace(Process *p, BeamInstr *pc, Eterm *args,
 		       int local, Eterm *tracer_pid);
 
-int erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret,
-			Eterm *tracer_pid_ret);
+int erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret);
 int erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret,
 			 Eterm *tracer_pid_rte);
 int erts_is_mtrace_bif(BeamInstr *pc, Binary **match_spec_ret,
 		       Eterm *tracer_pid_ret);
 int erts_is_native_break(BeamInstr *pc);
-int erts_is_count_break(BeamInstr *pc, Sint *count_ret);
+int erts_is_count_break(BeamInstr *pc, Uint *count_ret);
 int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *call_time);
 
-void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type);
+void erts_trace_time_call(Process* c_p, BeamInstr* pc, BpDataTime* bdt);
+void erts_trace_time_return(Process* c_p, BeamInstr* pc);
 void erts_schedule_time_break(Process *p, Uint out);
 int erts_set_time_break(Eterm mfa[3], int specified, enum erts_break_op);
 int erts_clear_time_break(Eterm mfa[3], int specified);
@@ -241,7 +137,7 @@ int erts_clear_time_break(Eterm mfa[3], int specified);
 int erts_is_time_trace_bif(Process *p, BeamInstr *pc, Eterm *call_time);
 void erts_set_time_trace_bif(BeamInstr *pc, enum erts_break_op);
 void erts_clear_time_trace_bif(BeamInstr *pc);
-BpData *erts_get_time_break(Process *p, BeamInstr *pc);
+BpDataTime* erts_get_active_time_break(BeamInstr *pc);
 
 BeamInstr *erts_find_local_func(Eterm mfa[3]);
 

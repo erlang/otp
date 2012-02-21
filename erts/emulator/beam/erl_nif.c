@@ -1711,9 +1711,10 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		code_ptr[5+0] = (BeamInstr) BeamOp(op_call_nif);
 	    }
 	    else { /* Function traced, patch the original instruction word */
-		BpData** bps = (BpData**) code_ptr[1];
-		BpData*  bp  = (BpData*) bps[erts_bp_sched2ix()];
-	        bp->orig_instr = (BeamInstr) BeamOp(op_call_nif);
+		GenericBp* g = (GenericBp *) code_ptr[1];
+		ASSERT(code_ptr[5+0] ==
+		       (BeamInstr) BeamOp(op_i_generic_breakpoint));
+	        g->orig_instr = (BeamInstr) BeamOp(op_call_nif);
 	    }	    
 	    code_ptr[5+1] = (BeamInstr) entry->funcs[i].fptr;
 	    code_ptr[5+2] = (BeamInstr) lib;
