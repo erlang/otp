@@ -83,6 +83,7 @@ ErtsCodeIndex erts_staging_code_ix(void);
 
 /* Try lock code_ix that is needed for (exlusive) access of the staging area.
  * Main process lock (only) must be held.
+ * System thread progress must not be blocked.
  * Caller is suspended and *must* yield if 0 is returned. 
  */
 int erts_try_lock_code_ix(struct process*);

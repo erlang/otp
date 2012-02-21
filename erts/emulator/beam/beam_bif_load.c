@@ -45,6 +45,7 @@ static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 
 
+
 BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 {
     Module* modp;
@@ -71,6 +72,11 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     Module* modp;
     Eterm res;
 
+    if (!erts_try_lock_code_ix(BIF_P)) {
+	ERTS_BIF_YIELD3(bif_export[BIF_code_make_stub_module_3],
+			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    }
+
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
@@ -95,6 +101,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     }
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_unlock_code_ix();
     return res;
 }
 
@@ -245,12 +252,9 @@ finish_loading_1(BIF_ALIST_1)
 	    p[i].modp->curr.num_traced_exports > 0 ||
 	    erts_is_default_trace_enabled()) {
 	    /* tracing involved, fallback with thread blocking */
-	    erts_abort_staging_code_ix();
-	    erts_unlock_code_ix();
 	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_smp_thr_progress_block();
 	    is_blocking = 1;
-	    erts_start_staging_code_ix();
 	    break;
 	}
     }
@@ -329,9 +333,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
 	    erts_smp_thr_progress_unblock();
 	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 	}
-	else {
-	    erts_unlock_code_ix();
-	}
+	erts_unlock_code_ix();
 	return res;
     }
 #ifdef ERTS_SMP
@@ -462,7 +464,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
     if (!erts_try_lock_code_ix(BIF_P)) {
 	ERTS_BIF_YIELD1(bif_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
     }
-retry:
+
     {
 	erts_start_staging_code_ix();
 	code_ix = erts_staging_code_ix();
@@ -478,28 +480,22 @@ retry:
 	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
 	}
 	else {
-	    if (!is_blocking) {
-		if (modp->curr.num_breakpoints > 0 ||
-		    modp->curr.num_traced_exports > 0) {
-		    /* we have tracing, retry single threaded */
-		    erts_abort_staging_code_ix();
-		    erts_unlock_code_ix();
-		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_thr_progress_block();
-		    is_blocking = 1;
-		    goto retry;
+	    if (modp->curr.num_breakpoints > 0 ||
+		modp->curr.num_traced_exports > 0) {
+		/* we have tracing, retry single threaded */
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_smp_thr_progress_block();
+		is_blocking = 1;
+		if (modp->curr.num_breakpoints) {
+		    erts_clear_module_break(modp);
+		    ASSERT(modp->curr.num_breakpoints == 0);
 		}
-	    }
-	    else if (modp->curr.num_breakpoints) {
-		erts_clear_module_break(modp);
-		ASSERT(modp->curr.num_breakpoints == 0);
 	    }
 	    delete_code(modp);
 	    res = am_true;
 	    success = 1;
 	}
     }
-
     return staging_epilogue(BIF_P, success, res, is_blocking);  
 }
 
@@ -576,7 +572,12 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     Module* modp;
     Eterm on_load;
 
-    /* ToDo: Use code_ix switch instead */
+    if (!erts_try_lock_code_ix(BIF_P)) {
+	ERTS_BIF_YIELD2(bif_export[BIF_finish_after_on_load_2],
+			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
+
+    /* ToDo: Use code_ix staging instead of thread blocking */
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
@@ -588,6 +589,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     error:
 	erts_smp_thr_progress_unblock();
         erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_unlock_code_ix();
 	BIF_ERROR(BIF_P, BADARG);
     }
     if ((on_load = modp->curr.code[MI_ON_LOAD_FUNCTION_PTR]) == 0) {
@@ -637,6 +639,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_unlock_code_ix();
     BIF_RET(am_true);
 }
 
@@ -899,7 +902,6 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 	ERTS_BIF_YIELD1(bif_export[BIF_purge_module_1], BIF_P, BIF_ARG_1);
     }
 
-retry:
     code_ix = erts_active_code_ix();
 
     /*
@@ -923,16 +925,12 @@ retry:
 	     * Unload any NIF library
 	     */
 	    if (modp->old.nif != NULL) {
-		if (!is_blocking) {
-		    /* ToDo: Do unload nif without blocking */
-		    erts_rwunlock_old_code(code_ix);
-		    erts_unlock_code_ix();
-		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_thr_progress_block();
-		    is_blocking = 1;
-		    goto retry;
-		}
-
+		/* ToDo: Do unload nif without blocking */
+		erts_rwunlock_old_code(code_ix);
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_smp_thr_progress_block();
+		is_blocking = 1;
+		erts_rwlock_old_code(code_ix);
 		erts_unload_nif(modp->old.nif);
 		modp->old.nif = NULL;
 	    }
@@ -961,9 +959,7 @@ retry:
 	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     }
-    else {
-	erts_unlock_code_ix();
-    }
+    erts_unlock_code_ix();
     return ret;
 }
 

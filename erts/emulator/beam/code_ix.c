@@ -105,6 +105,8 @@ int erts_try_lock_code_ix(Process* c_p)
 {
     int success;
 
+    ASSERT(!erts_smp_thr_progress_is_blocking());
+
     erts_smp_mtx_lock(&the_code_ix_queue_lock);
     success = !the_code_ix_lock;
     if (success) {
