@@ -36,7 +36,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxArtProvider() :: wx:wx_object().
 %% @equiv getBitmap(Id, [])
 -spec getBitmap(Id) -> wxBitmap:wxBitmap() when
-	Id::string().
+	Id::unicode:chardata().
 
 getBitmap(Id)
  when is_list(Id) ->
@@ -44,8 +44,8 @@ getBitmap(Id)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxartprovider.html#wxartprovidergetbitmap">external documentation</a>.
 -spec getBitmap(Id, [Option]) -> wxBitmap:wxBitmap() when
-	Id::string(),
-	Option :: {client, string()}
+	Id::unicode:chardata(),
+	Option :: {client, unicode:chardata()}
 		 | {size, {W::integer(), H::integer()}}.
 getBitmap(Id, Options)
  when is_list(Id),is_list(Options) ->
@@ -59,7 +59,7 @@ getBitmap(Id, Options)
 
 %% @equiv getIcon(Id, [])
 -spec getIcon(Id) -> wxIcon:wxIcon() when
-	Id::string().
+	Id::unicode:chardata().
 
 getIcon(Id)
  when is_list(Id) ->
@@ -67,8 +67,8 @@ getIcon(Id)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxartprovider.html#wxartprovidergeticon">external documentation</a>.
 -spec getIcon(Id, [Option]) -> wxIcon:wxIcon() when
-	Id::string(),
-	Option :: {client, string()}
+	Id::unicode:chardata(),
+	Option :: {client, unicode:chardata()}
 		 | {size, {W::integer(), H::integer()}}.
 getIcon(Id, Options)
  when is_list(Id),is_list(Options) ->

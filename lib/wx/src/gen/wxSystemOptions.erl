@@ -35,8 +35,8 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxSystemOptions() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsgetoption">external documentation</a>.
--spec getOption(Name) -> string() when
-	Name::string().
+-spec getOption(Name) -> unicode:charlist() when
+	Name::unicode:chardata().
 getOption(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
@@ -45,7 +45,7 @@ getOption(Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsgetoptionint">external documentation</a>.
 -spec getOptionInt(Name) -> integer() when
-	Name::string().
+	Name::unicode:chardata().
 getOptionInt(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
@@ -54,7 +54,7 @@ getOptionInt(Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionshasoption">external documentation</a>.
 -spec hasOption(Name) -> boolean() when
-	Name::string().
+	Name::unicode:chardata().
 hasOption(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
@@ -63,7 +63,7 @@ hasOption(Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsisfalse">external documentation</a>.
 -spec isFalse(Name) -> boolean() when
-	Name::string().
+	Name::unicode:chardata().
 isFalse(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
@@ -72,9 +72,9 @@ isFalse(Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionssetoption">external documentation</a>.
 -spec setOption(Name, Value) -> ok when
-	Name::string(), Value::integer();
+	Name::unicode:chardata(), Value::integer();
       (Name, Value) -> ok when
-	Name::string(), Value::string().
+	Name::unicode:chardata(), Value::unicode:chardata().
 setOption(Name,Value)
  when is_list(Name),is_integer(Value) ->
   Name_UC = unicode:characters_to_binary([Name,0]),

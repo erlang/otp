@@ -68,7 +68,7 @@ getAllowSymbols(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfontdata.html#wxfontdatagetcolour">external documentation</a>.
--spec getColour(This) -> wx:wx_colour() when
+-spec getColour(This) -> wx:wx_colour4() when
 	This::wxFontData().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFontData),
@@ -162,7 +162,7 @@ setShowHelp(#wx_ref{type=ThisT,ref=ThisRef},Flag)
   <<ThisRef:32/?UI,(wxe_util:from_bool(Flag)):32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFontData) -> ok.
+-spec destroy(This::wxFontData()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFontData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

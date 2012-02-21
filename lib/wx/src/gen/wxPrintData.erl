@@ -110,7 +110,7 @@ getPaperId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatagetprintername">external documentation</a>.
--spec getPrinterName(This) -> string() when
+-spec getPrinterName(This) -> unicode:charlist() when
 	This::wxPrintData().
 getPrinterName(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintData),
@@ -200,7 +200,7 @@ setPaperId(#wx_ref{type=ThisT,ref=ThisRef},SizeId)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdata.html#wxprintdatasetprintername">external documentation</a>.
 -spec setPrinterName(This, Name) -> ok when
-	This::wxPrintData(), Name::string().
+	This::wxPrintData(), Name::unicode:chardata().
 setPrinterName(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxPrintData),
@@ -218,7 +218,7 @@ setQuality(#wx_ref{type=ThisT,ref=ThisRef},Quality)
   <<ThisRef:32/?UI,Quality:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrintData) -> ok.
+-spec destroy(This::wxPrintData()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

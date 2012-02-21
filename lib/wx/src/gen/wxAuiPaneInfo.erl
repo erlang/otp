@@ -112,7 +112,7 @@ bottomDockable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfocaption">external documentation</a>.
 -spec caption(This, C) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), C::string().
+	This::wxAuiPaneInfo(), C::unicode:chardata().
 caption(#wx_ref{type=ThisT,ref=ThisRef},C)
  when is_list(C) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -684,7 +684,7 @@ movable(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauipaneinfo.html#wxauipaneinfoname">external documentation</a>.
 -spec name(This, N) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), N::string().
+	This::wxAuiPaneInfo(), N::unicode:chardata().
 name(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_list(N) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -888,7 +888,7 @@ window(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WT,ref=WRef}) ->
   <<ThisRef:32/?UI,WRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAuiPaneInfo) -> ok.
+-spec destroy(This::wxAuiPaneInfo()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiPaneInfo),
   wxe_util:destroy(?wxAuiPaneInfo_destruct,Obj),

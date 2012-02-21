@@ -68,7 +68,7 @@ new(Colour, Options)
   <<(wxe_util:colour_bin(Colour)):16/binary, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushgetcolour">external documentation</a>.
--spec getColour(This) -> wx:wx_colour() when
+-spec getColour(This) -> wx:wx_colour4() when
 	This::wxBrush().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxBrush),
@@ -144,7 +144,7 @@ setStyle(#wx_ref{type=ThisT,ref=ThisRef},Style)
   <<ThisRef:32/?UI,Style:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBrush) -> ok.
+-spec destroy(This::wxBrush()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBrush),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

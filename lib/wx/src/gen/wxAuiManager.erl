@@ -74,7 +74,7 @@ addPane(This,Window)
 -spec addPane(This, Window, [Option]) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(),
 	Option :: {direction, integer()}
-		 | {caption, string()};
+		 | {caption, unicode:chardata()};
       (This, Window, Pane_info) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo().
 addPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Options)
@@ -164,7 +164,7 @@ getManager(#wx_ref{type=WindowT,ref=WindowRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagergetpane">external documentation</a>.
 -spec getPane(This, Name) -> wxAuiPaneInfo:wxAuiPaneInfo() when
-	This::wxAuiManager(), Name::string();
+	This::wxAuiManager(), Name::unicode:chardata();
       (This, Window) -> wxAuiPaneInfo:wxAuiPaneInfo() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow().
 getPane(#wx_ref{type=ThisT,ref=ThisRef},Name)
@@ -212,7 +212,7 @@ insertPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagerloadpaneinfo">external documentation</a>.
 -spec loadPaneInfo(This, Pane_part, Pane) -> ok when
-	This::wxAuiManager(), Pane_part::string(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
+	This::wxAuiManager(), Pane_part::unicode:chardata(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 loadPaneInfo(#wx_ref{type=ThisT,ref=ThisRef},Pane_part,#wx_ref{type=PaneT,ref=PaneRef})
  when is_list(Pane_part) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -223,7 +223,7 @@ loadPaneInfo(#wx_ref{type=ThisT,ref=ThisRef},Pane_part,#wx_ref{type=PaneT,ref=Pa
 
 %% @equiv loadPerspective(This,Perspective, [])
 -spec loadPerspective(This, Perspective) -> boolean() when
-	This::wxAuiManager(), Perspective::string().
+	This::wxAuiManager(), Perspective::unicode:chardata().
 
 loadPerspective(This,Perspective)
  when is_record(This, wx_ref),is_list(Perspective) ->
@@ -231,7 +231,7 @@ loadPerspective(This,Perspective)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagerloadperspective">external documentation</a>.
 -spec loadPerspective(This, Perspective, [Option]) -> boolean() when
-	This::wxAuiManager(), Perspective::string(),
+	This::wxAuiManager(), Perspective::unicode:chardata(),
 	Option :: {update, boolean()}.
 loadPerspective(#wx_ref{type=ThisT,ref=ThisRef},Perspective, Options)
  when is_list(Perspective),is_list(Options) ->
@@ -244,7 +244,7 @@ loadPerspective(#wx_ref{type=ThisT,ref=ThisRef},Perspective, Options)
   <<ThisRef:32/?UI,(byte_size(Perspective_UC)):32/?UI,(Perspective_UC)/binary, 0:(((8- ((0+byte_size(Perspective_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagersavepaneinfo">external documentation</a>.
--spec savePaneInfo(This, Pane) -> string() when
+-spec savePaneInfo(This, Pane) -> unicode:charlist() when
 	This::wxAuiManager(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 savePaneInfo(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PaneT,ref=PaneRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -253,7 +253,7 @@ savePaneInfo(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PaneT,ref=PaneRef}) ->
   <<ThisRef:32/?UI,PaneRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagersaveperspective">external documentation</a>.
--spec savePerspective(This) -> string() when
+-spec savePerspective(This) -> unicode:charlist() when
 	This::wxAuiManager().
 savePerspective(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiManager),
@@ -322,7 +322,7 @@ update(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAuiManager) -> ok.
+-spec destroy(This::wxAuiManager()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiManager),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

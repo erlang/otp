@@ -189,7 +189,7 @@ isHoliday(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendardateattr.html#wxcalendardateattrgettextcolour">external documentation</a>.
--spec getTextColour(This) -> wx:wx_colour() when
+-spec getTextColour(This) -> wx:wx_colour4() when
 	This::wxCalendarDateAttr().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -197,7 +197,7 @@ getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendardateattr.html#wxcalendardateattrgetbackgroundcolour">external documentation</a>.
--spec getBackgroundColour(This) -> wx:wx_colour() when
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxCalendarDateAttr().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -205,7 +205,7 @@ getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendardateattr.html#wxcalendardateattrgetbordercolour">external documentation</a>.
--spec getBorderColour(This) -> wx:wx_colour() when
+-spec getBorderColour(This) -> wx:wx_colour4() when
 	This::wxCalendarDateAttr().
 getBorderColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -230,7 +230,7 @@ getBorder(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCalendarDateAttr) -> ok.
+-spec destroy(This::wxCalendarDateAttr()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCalendarDateAttr),
   wxe_util:destroy(?wxCalendarDateAttr_destroy,Obj),

@@ -213,7 +213,7 @@ setBitmapSelected(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SelT,ref=SelRef})
   <<ThisRef:32/?UI,SelRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBitmapButton) -> ok.
+-spec destroy(This::wxBitmapButton()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapButton),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

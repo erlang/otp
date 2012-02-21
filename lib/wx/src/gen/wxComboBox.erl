@@ -102,10 +102,10 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcombobox.html#wxcomboboxwxcombobox">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxComboBox() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {value, string()}
+	Option :: {value, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
-		 | {choices, [[string()]]}
+		 | {choices, [[unicode:chardata()]]}
 		 | {style, integer()}
 		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
@@ -124,7 +124,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 
 %% @equiv create(This,Parent,Id,Value,Pos,Size,Choices, [])
 -spec create(This, Parent, Id, Value, Pos, Size, Choices) -> boolean() when
-	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]].
+	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]].
 
 create(This,Parent,Id,Value,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -132,7 +132,7 @@ create(This,Parent,Id,Value,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcombobox.html#wxcomboboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Value, Pos, Size, Choices, [Option]) -> boolean() when
-	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]],
+	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]],
 	Option :: {style, integer()}
 		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,{PosX,PosY},{SizeW,SizeH},Choices, Options)
@@ -222,7 +222,7 @@ getLastPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcombobox.html#wxcomboboxgetvalue">external documentation</a>.
--spec getValue(This) -> string() when
+-spec getValue(This) -> unicode:charlist() when
 	This::wxComboBox().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxComboBox),
@@ -247,7 +247,7 @@ redo(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcombobox.html#wxcomboboxreplace">external documentation</a>.
 -spec replace(This, From, To, Value) -> ok when
-	This::wxComboBox(), From::integer(), To::integer(), Value::string().
+	This::wxComboBox(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},From,To,Value)
  when is_integer(From),is_integer(To),is_list(Value) ->
   ?CLASS(ThisT,wxComboBox),
@@ -301,7 +301,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},From,To)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcombobox.html#wxcomboboxsetvalue">external documentation</a>.
 -spec setValue(This, Value) -> ok when
-	This::wxComboBox(), Value::string().
+	This::wxComboBox(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
  when is_list(Value) ->
   ?CLASS(ThisT,wxComboBox),
@@ -318,7 +318,7 @@ undo(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxComboBox) -> ok.
+-spec destroy(This::wxComboBox()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxComboBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

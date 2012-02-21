@@ -143,7 +143,7 @@
 -type wxMaximize() :: #wxMaximize{}. %% Callback event: {@link wxMaximizeEvent}
 
 -record(wxFileDirPicker,{type :: wxFileDirPickerEventType(), %% Callback event: {@link wxFileDirPickerEvent}
-	path :: string()}).
+	path :: unicode:chardata()}).
 -type wxFileDirPickerEventType() :: command_filepicker_changed | command_dirpicker_changed.
 -type wxFileDirPicker() :: #wxFileDirPicker{}. %% Callback event: {@link wxFileDirPickerEvent}
 
@@ -170,7 +170,7 @@
 	key :: integer(),
 	modifiers :: integer(),
 	modificationType :: integer(),
-	text :: string(),
+	text :: unicode:chardata(),
 	length :: integer(),
 	linesAdded :: integer(),
 	line :: integer(),
@@ -183,7 +183,7 @@
 	listType :: integer(),
 	x :: integer(),
 	y :: integer(),
-	dragText :: string(),
+	dragText :: unicode:chardata(),
 	dragAllowMove :: boolean(),
 	dragResult :: wx:wx_enum()}).
 -type wxStyledTextEventType() :: stc_change | stc_styleneeded | stc_charadded | stc_savepointreached | stc_savepointleft | stc_romodifyattempt | stc_key | stc_doubleclick | stc_updateui | stc_modified | stc_macrorecord | stc_marginclick | stc_needshown | stc_painted | stc_userlistselection | stc_uridropped | stc_dwellstart | stc_dwellend | stc_start_drag | stc_drag_over | stc_do_drop | stc_zoom | stc_hotspot_click | stc_hotspot_dclick | stc_calltip_click | stc_autocomp_selection.
@@ -270,7 +270,7 @@
 -type wxAuiManager() :: #wxAuiManager{}. %% Callback event: {@link wxAuiManagerEvent}
 
 -record(wxCommand,{type :: wxCommandEventType(), %% Callback event: {@link wxCommandEvent}
-	cmdString :: string(),
+	cmdString :: unicode:chardata(),
 	commandInt :: integer(),
 	extraLong :: integer()}).
 -type wxCommandEventType() :: command_button_clicked | command_checkbox_clicked | command_choice_selected | command_listbox_selected | command_listbox_doubleclicked | command_text_updated | command_text_enter | command_menu_selected | command_slider_updated | command_radiobox_selected | command_radiobutton_selected | command_scrollbar_updated | command_vlbox_selected | command_combobox_selected | command_tool_rclicked | command_tool_enter | command_checklistbox_toggled | command_togglebutton_clicked | command_left_click | command_left_dclick | command_right_click | command_set_focus | command_kill_focus | command_enter.
@@ -317,7 +317,7 @@
           controlDown, shiftDown, altDown, metaDown, cmdDown %% bool()
         }).
 -record(wxHtmlLinkInfo, {
-          href, target %% string()
+          href, target %% unicode:chardata()
         }).
 
 %% Hardcoded Defines

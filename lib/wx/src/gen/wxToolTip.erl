@@ -52,7 +52,7 @@ setDelay(Msecs)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtooltip.html#wxtooltipwxtooltip">external documentation</a>.
 -spec new(Tip) -> wxToolTip() when
-	Tip::string().
+	Tip::unicode:chardata().
 new(Tip)
  when is_list(Tip) ->
   Tip_UC = unicode:characters_to_binary([Tip,0]),
@@ -61,7 +61,7 @@ new(Tip)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtooltip.html#wxtooltipsettip">external documentation</a>.
 -spec setTip(This, Tip) -> ok when
-	This::wxToolTip(), Tip::string().
+	This::wxToolTip(), Tip::unicode:chardata().
 setTip(#wx_ref{type=ThisT,ref=ThisRef},Tip)
  when is_list(Tip) ->
   ?CLASS(ThisT,wxToolTip),
@@ -70,7 +70,7 @@ setTip(#wx_ref{type=ThisT,ref=ThisRef},Tip)
   <<ThisRef:32/?UI,(byte_size(Tip_UC)):32/?UI,(Tip_UC)/binary, 0:(((8- ((0+byte_size(Tip_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtooltip.html#wxtooltipgettip">external documentation</a>.
--spec getTip(This) -> string() when
+-spec getTip(This) -> unicode:charlist() when
 	This::wxToolTip().
 getTip(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxToolTip),
@@ -86,7 +86,7 @@ getWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxToolTip) -> ok.
+-spec destroy(This::wxToolTip()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToolTip),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

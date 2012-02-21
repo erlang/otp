@@ -99,7 +99,7 @@ getPoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistevent.html#wxlisteventgetlabel">external documentation</a>.
--spec getLabel(This) -> string() when
+-spec getLabel(This) -> unicode:charlist() when
 	This::wxListEvent().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListEvent),
@@ -107,7 +107,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistevent.html#wxlisteventgettext">external documentation</a>.
--spec getText(This) -> string() when
+-spec getText(This) -> unicode:charlist() when
 	This::wxListEvent().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListEvent),

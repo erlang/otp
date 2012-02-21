@@ -108,7 +108,7 @@ layoutWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, 
   <<ThisRef:32/?UI,FrameRef:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxLayoutAlgorithm) -> ok.
+-spec destroy(This::wxLayoutAlgorithm()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxLayoutAlgorithm),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

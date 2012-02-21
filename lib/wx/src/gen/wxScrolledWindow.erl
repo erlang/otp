@@ -245,7 +245,7 @@ setTargetWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=TargetT,ref=TargetR
   <<ThisRef:32/?UI,TargetRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxScrolledWindow) -> ok.
+-spec destroy(This::wxScrolledWindow()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScrolledWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

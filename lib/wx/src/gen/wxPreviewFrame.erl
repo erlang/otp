@@ -101,7 +101,7 @@ new(Preview,Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewframe.html#wxpreviewframewxpreviewframe">external documentation</a>.
 -spec new(Preview, Parent, [Option]) -> wxPreviewFrame() when
 	Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow(),
-	Option :: {title, string()}
+	Option :: {title, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}.
@@ -152,7 +152,7 @@ onCloseWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=EventT,ref=EventRef})
   <<ThisRef:32/?UI,EventRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPreviewFrame) -> ok.
+-spec destroy(This::wxPreviewFrame()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPreviewFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

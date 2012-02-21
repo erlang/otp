@@ -162,7 +162,7 @@ hasEditor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellattr.html#wxgridcellattrgettextcolour">external documentation</a>.
--spec getTextColour(This) -> wx:wx_colour() when
+-spec getTextColour(This) -> wx:wx_colour4() when
 	This::wxGridCellAttr().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -170,7 +170,7 @@ getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellattr.html#wxgridcellattrgetbackgroundcolour">external documentation</a>.
--spec getBackgroundColour(This) -> wx:wx_colour() when
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxGridCellAttr().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridCellAttr),

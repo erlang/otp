@@ -115,7 +115,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 
 %% @equiv addPage(This,Page,Text, [])
 -spec addPage(This, Page, Text) -> boolean() when
-	This::wxToolbook(), Page::wxWindow:wxWindow(), Text::string().
+	This::wxToolbook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 addPage(This,Page,Text)
  when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Text) ->
@@ -123,7 +123,7 @@ addPage(This,Page,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbook.html#wxtoolbookaddpage">external documentation</a>.
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
-	This::wxToolbook(), Page::wxWindow:wxWindow(), Text::string(),
+	This::wxToolbook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {bSelect, boolean()}
 		 | {imageId, integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
@@ -263,7 +263,7 @@ getPageImage(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbook.html#wxtoolbookgetpagetext">external documentation</a>.
--spec getPageText(This, N) -> string() when
+-spec getPageText(This, N) -> unicode:charlist() when
 	This::wxToolbook(), N::integer().
 getPageText(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -291,7 +291,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
 
 %% @equiv insertPage(This,N,Page,Text, [])
 -spec insertPage(This, N, Page, Text) -> boolean() when
-	This::wxToolbook(), N::integer(), Page::wxWindow:wxWindow(), Text::string().
+	This::wxToolbook(), N::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 insertPage(This,N,Page,Text)
  when is_record(This, wx_ref),is_integer(N),is_record(Page, wx_ref),is_list(Text) ->
@@ -299,7 +299,7 @@ insertPage(This,N,Page,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbook.html#wxtoolbookinsertpage">external documentation</a>.
 -spec insertPage(This, N, Page, Text, [Option]) -> boolean() when
-	This::wxToolbook(), N::integer(), Page::wxWindow:wxWindow(), Text::string(),
+	This::wxToolbook(), N::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {bSelect, boolean()}
 		 | {imageId, integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},N,#wx_ref{type=PageT,ref=PageRef},Text, Options)
@@ -343,7 +343,7 @@ setPageImage(#wx_ref{type=ThisT,ref=ThisRef},N,ImageId)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbook.html#wxtoolbooksetpagetext">external documentation</a>.
 -spec setPageText(This, N, StrText) -> boolean() when
-	This::wxToolbook(), N::integer(), StrText::string().
+	This::wxToolbook(), N::integer(), StrText::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},N,StrText)
  when is_integer(N),is_list(StrText) ->
   ?CLASS(ThisT,wxToolbook),
@@ -370,7 +370,7 @@ changeSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxToolbook) -> ok.
+-spec destroy(This::wxToolbook()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToolbook),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

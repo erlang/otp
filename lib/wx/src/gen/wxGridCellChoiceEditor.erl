@@ -41,7 +41,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxGridCellChoiceEditor() :: wx:wx_object().
 %% @equiv new(Choices, [])
 -spec new(Choices) -> wxGridCellChoiceEditor() when
-	Choices::[[string()]].
+	Choices::[[unicode:chardata()]].
 
 new(Choices)
  when is_list(Choices) ->
@@ -49,7 +49,7 @@ new(Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellchoiceeditor.html#wxgridcellchoiceeditorwxgridcellchoiceeditor">external documentation</a>.
 -spec new(Choices, [Option]) -> wxGridCellChoiceEditor() when
-	Choices::[[string()]],
+	Choices::[[unicode:chardata()]],
 	Option :: {allowOthers, boolean()}.
 new(Choices, Options)
  when is_list(Choices),is_list(Options) ->
@@ -63,7 +63,7 @@ new(Choices, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellchoiceeditor.html#wxgridcellchoiceeditorsetparameters">external documentation</a>.
 -spec setParameters(This, Params) -> ok when
-	This::wxGridCellChoiceEditor(), Params::string().
+	This::wxGridCellChoiceEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
   ?CLASS(ThisT,wxGridCellChoiceEditor),
@@ -72,7 +72,7 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
   <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellChoiceEditor) -> ok.
+-spec destroy(This::wxGridCellChoiceEditor()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellChoiceEditor),
   wxe_util:destroy(?wxGridCellChoiceEditor_destroy,Obj),

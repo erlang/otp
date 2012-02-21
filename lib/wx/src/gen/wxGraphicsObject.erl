@@ -51,7 +51,7 @@ isNull(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGraphicsObject) -> ok.
+-spec destroy(This::wxGraphicsObject()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGraphicsObject),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

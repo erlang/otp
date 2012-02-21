@@ -94,7 +94,7 @@ new() ->
 
 %% @equiv new(Parent,Message,Caption,Choices, [])
 -spec new(Parent, Message, Caption, Choices) -> wxMultiChoiceDialog() when
-	Parent::wxWindow:wxWindow(), Message::string(), Caption::string(), Choices::[[string()]].
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[[unicode:chardata()]].
 
 new(Parent,Message,Caption,Choices)
  when is_record(Parent, wx_ref),is_list(Message),is_list(Caption),is_list(Choices) ->
@@ -102,7 +102,7 @@ new(Parent,Message,Caption,Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmultichoicedialog.html#wxmultichoicedialogwxmultichoicedialog">external documentation</a>.
 -spec new(Parent, Message, Caption, Choices, [Option]) -> wxMultiChoiceDialog() when
-	Parent::wxWindow:wxWindow(), Message::string(), Caption::string(), Choices::[[string()]],
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[[unicode:chardata()]],
 	Option :: {style, integer()}
 		 | {pos, {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message,Caption,Choices, Options)
@@ -138,7 +138,7 @@ setSelections(#wx_ref{type=ThisT,ref=ThisRef},Selections)
         (<< <<C:32/?I>> || C <- Selections>>)/binary, 0:(((0+length(Selections)) rem 2)*32)>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMultiChoiceDialog) -> ok.
+-spec destroy(This::wxMultiChoiceDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMultiChoiceDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

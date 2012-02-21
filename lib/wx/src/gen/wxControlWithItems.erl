@@ -82,7 +82,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxControlWithItems() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
 -spec append(This, Item) -> integer() when
-	This::wxControlWithItems(), Item::string().
+	This::wxControlWithItems(), Item::unicode:chardata().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_list(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -92,7 +92,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
 -spec append(This, Item, ClientData) -> integer() when
-	This::wxControlWithItems(), Item::string(), ClientData::term().
+	This::wxControlWithItems(), Item::unicode:chardata(), ClientData::term().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
  when is_list(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -103,7 +103,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
 -spec appendStrings(This, Strings) -> ok when
-	This::wxControlWithItems(), Strings::[[string()]].
+	This::wxControlWithItems(), Strings::[[unicode:chardata()]].
 appendStrings(#wx_ref{type=ThisT,ref=ThisRef},Strings)
  when is_list(Strings) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -131,7 +131,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},N)
 
 %% @equiv findString(This,S, [])
 -spec findString(This, S) -> integer() when
-	This::wxControlWithItems(), S::string().
+	This::wxControlWithItems(), S::unicode:chardata().
 
 findString(This,S)
  when is_record(This, wx_ref),is_list(S) ->
@@ -139,7 +139,7 @@ findString(This,S)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsfindstring">external documentation</a>.
 -spec findString(This, S, [Option]) -> integer() when
-	This::wxControlWithItems(), S::string(),
+	This::wxControlWithItems(), S::unicode:chardata(),
 	Option :: {bCase, boolean()}.
 findString(#wx_ref{type=ThisT,ref=ThisRef},S, Options)
  when is_list(S),is_list(Options) ->
@@ -187,7 +187,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetstring">external documentation</a>.
--spec getString(This, N) -> string() when
+-spec getString(This, N) -> unicode:charlist() when
 	This::wxControlWithItems(), N::integer().
 getString(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -196,7 +196,7 @@ getString(#wx_ref{type=ThisT,ref=ThisRef},N)
   <<ThisRef:32/?UI,N:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetstringselection">external documentation</a>.
--spec getStringSelection(This) -> string() when
+-spec getStringSelection(This) -> unicode:charlist() when
 	This::wxControlWithItems().
 getStringSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -205,7 +205,7 @@ getStringSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
 -spec insert(This, Item, Pos) -> integer() when
-	This::wxControlWithItems(), Item::string(), Pos::integer().
+	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
  when is_list(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -215,7 +215,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
 -spec insert(This, Item, Pos, ClientData) -> integer() when
-	This::wxControlWithItems(), Item::string(), Pos::integer(), ClientData::term().
+	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer(), ClientData::term().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos,ClientData)
  when is_list(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -252,7 +252,7 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemssetstring">external documentation</a>.
 -spec setString(This, N, S) -> ok when
-	This::wxControlWithItems(), N::integer(), S::string().
+	This::wxControlWithItems(), N::integer(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
  when is_integer(N),is_list(S) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -262,7 +262,7 @@ setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemssetstringselection">external documentation</a>.
 -spec setStringSelection(This, S) -> boolean() when
-	This::wxControlWithItems(), S::string().
+	This::wxControlWithItems(), S::unicode:chardata().
 setStringSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
  when is_list(S) ->
   ?CLASS(ThisT,wxControlWithItems),

@@ -194,7 +194,7 @@ show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCaret) -> ok.
+-spec destroy(This::wxCaret()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCaret),
   wxe_util:destroy(?wxCaret_destruct,Obj),

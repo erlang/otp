@@ -80,7 +80,7 @@ getAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgetbackgroundcolour">external documentation</a>.
--spec getBackgroundColour(This) -> wx:wx_colour() when
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxTextAttr().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -128,7 +128,7 @@ getTabs(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextattr.html#wxtextattrgettextcolour">external documentation</a>.
--spec getTextColour(This) -> wx:wx_colour() when
+-spec getTextColour(This) -> wx:wx_colour4() when
 	This::wxTextAttr().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -275,7 +275,7 @@ setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxTextAttr) -> ok.
+-spec destroy(This::wxTextAttr()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextAttr),
   wxe_util:destroy(?wxTextAttr_destroy,Obj),

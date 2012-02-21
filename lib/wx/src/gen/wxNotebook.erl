@@ -115,7 +115,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Winid, Options)
 
 %% @equiv addPage(This,Page,Text, [])
 -spec addPage(This, Page, Text) -> boolean() when
-	This::wxNotebook(), Page::wxWindow:wxWindow(), Text::string().
+	This::wxNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata().
 
 addPage(This,Page,Text)
  when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Text) ->
@@ -123,7 +123,7 @@ addPage(This,Page,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookaddpage">external documentation</a>.
 -spec addPage(This, Page, Text, [Option]) -> boolean() when
-	This::wxNotebook(), Page::wxWindow:wxWindow(), Text::string(),
+	This::wxNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(),
 	Option :: {bSelect, boolean()}
 		 | {imageId, integer()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Text, Options)
@@ -263,7 +263,7 @@ getPageImage(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetpagetext">external documentation</a>.
--spec getPageText(This, NPage) -> string() when
+-spec getPageText(This, NPage) -> unicode:charlist() when
 	This::wxNotebook(), NPage::integer().
 getPageText(#wx_ref{type=ThisT,ref=ThisRef},NPage)
  when is_integer(NPage) ->
@@ -288,7 +288,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookgetthemebackgroundcolour">external documentation</a>.
--spec getThemeBackgroundColour(This) -> wx:wx_colour() when
+-spec getThemeBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxNotebook().
 getThemeBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotebook),
@@ -307,7 +307,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
 
 %% @equiv insertPage(This,Position,Win,StrText, [])
 -spec insertPage(This, Position, Win, StrText) -> boolean() when
-	This::wxNotebook(), Position::integer(), Win::wxWindow:wxWindow(), StrText::string().
+	This::wxNotebook(), Position::integer(), Win::wxWindow:wxWindow(), StrText::unicode:chardata().
 
 insertPage(This,Position,Win,StrText)
  when is_record(This, wx_ref),is_integer(Position),is_record(Win, wx_ref),is_list(StrText) ->
@@ -315,7 +315,7 @@ insertPage(This,Position,Win,StrText)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebookinsertpage">external documentation</a>.
 -spec insertPage(This, Position, Win, StrText, [Option]) -> boolean() when
-	This::wxNotebook(), Position::integer(), Win::wxWindow:wxWindow(), StrText::string(),
+	This::wxNotebook(), Position::integer(), Win::wxWindow:wxWindow(), StrText::unicode:chardata(),
 	Option :: {bSelect, boolean()}
 		 | {imageId, integer()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Position,#wx_ref{type=WinT,ref=WinRef},StrText, Options)
@@ -368,7 +368,7 @@ setPageImage(#wx_ref{type=ThisT,ref=ThisRef},NPage,NImage)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebook.html#wxnotebooksetpagetext">external documentation</a>.
 -spec setPageText(This, NPage, StrText) -> boolean() when
-	This::wxNotebook(), NPage::integer(), StrText::string().
+	This::wxNotebook(), NPage::integer(), StrText::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},NPage,StrText)
  when is_integer(NPage),is_list(StrText) ->
   ?CLASS(ThisT,wxNotebook),
@@ -395,7 +395,7 @@ changeSelection(#wx_ref{type=ThisT,ref=ThisRef},NPage)
   <<ThisRef:32/?UI,NPage:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxNotebook) -> ok.
+-spec destroy(This::wxNotebook()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxNotebook),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

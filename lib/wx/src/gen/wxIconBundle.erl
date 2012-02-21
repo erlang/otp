@@ -55,7 +55,7 @@ new(#wx_ref{type=IcT,ref=IcRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundlewxiconbundle">external documentation</a>.
 -spec new(File, Type) -> wxIconBundle() when
-	File::string(), Type::integer().
+	File::unicode:chardata(), Type::integer().
 new(File,Type)
  when is_list(File),is_integer(Type) ->
   File_UC = unicode:characters_to_binary([File,0]),
@@ -73,7 +73,7 @@ addIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundleaddicon">external documentation</a>.
 -spec addIcon(This, File, Type) -> ok when
-	This::wxIconBundle(), File::string(), Type::integer().
+	This::wxIconBundle(), File::unicode:chardata(), Type::integer().
 addIcon(#wx_ref{type=ThisT,ref=ThisRef},File,Type)
  when is_list(File),is_integer(Type) ->
   ?CLASS(ThisT,wxIconBundle),
@@ -110,7 +110,7 @@ getIcon(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxIconBundle) -> ok.
+-spec destroy(This::wxIconBundle()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxIconBundle),
   wxe_util:destroy(?wxIconBundle_destruct,Obj),

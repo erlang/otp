@@ -145,7 +145,7 @@ get() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxClipboard) -> ok.
+-spec destroy(This::wxClipboard()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxClipboard),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

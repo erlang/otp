@@ -88,7 +88,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxTextEntryDialog() :: wx:wx_object().
 %% @equiv new(Parent,Message, [])
 -spec new(Parent, Message) -> wxTextEntryDialog() when
-	Parent::wxWindow:wxWindow(), Message::string().
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
 new(Parent,Message)
  when is_record(Parent, wx_ref),is_list(Message) ->
@@ -96,9 +96,9 @@ new(Parent,Message)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextentrydialog.html#wxtextentrydialogwxtextentrydialog">external documentation</a>.
 -spec new(Parent, Message, [Option]) -> wxTextEntryDialog() when
-	Parent::wxWindow:wxWindow(), Message::string(),
-	Option :: {caption, string()}
-		 | {value, string()}
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
+	Option :: {caption, unicode:chardata()}
+		 | {value, unicode:chardata()}
 		 | {style, integer()}
 		 | {pos, {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
@@ -115,7 +115,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
   <<ParentRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextentrydialog.html#wxtextentrydialoggetvalue">external documentation</a>.
--spec getValue(This) -> string() when
+-spec getValue(This) -> unicode:charlist() when
 	This::wxTextEntryDialog().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextEntryDialog),
@@ -124,7 +124,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextentrydialog.html#wxtextentrydialogsetvalue">external documentation</a>.
 -spec setValue(This, Val) -> ok when
-	This::wxTextEntryDialog(), Val::string().
+	This::wxTextEntryDialog(), Val::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Val)
  when is_list(Val) ->
   ?CLASS(ThisT,wxTextEntryDialog),
@@ -133,7 +133,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Val)
   <<ThisRef:32/?UI,(byte_size(Val_UC)):32/?UI,(Val_UC)/binary, 0:(((8- ((0+byte_size(Val_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxTextEntryDialog) -> ok.
+-spec destroy(This::wxTextEntryDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextEntryDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

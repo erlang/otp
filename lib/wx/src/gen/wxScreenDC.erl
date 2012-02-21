@@ -65,7 +65,7 @@ new() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxScreenDC) -> ok.
+-spec destroy(This::wxScreenDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScreenDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

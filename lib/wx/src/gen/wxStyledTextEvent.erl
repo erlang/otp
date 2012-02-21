@@ -84,7 +84,7 @@ getModificationType(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgettext">external documentation</a>.
--spec getText(This) -> string() when
+-spec getText(This) -> unicode:charlist() when
 	This::wxStyledTextEvent().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStyledTextEvent),
@@ -188,7 +188,7 @@ getY(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextevent.html#wxstyledtexteventgetdragtext">external documentation</a>.
--spec getDragText(This) -> string() when
+-spec getDragText(This) -> unicode:charlist() when
 	This::wxStyledTextEvent().
 getDragText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStyledTextEvent),

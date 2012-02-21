@@ -61,7 +61,7 @@ new(Options)
   <<BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellnumbereditor.html#wxgridcellnumbereditorgetvalue">external documentation</a>.
--spec getValue(This) -> string() when
+-spec getValue(This) -> unicode:charlist() when
 	This::wxGridCellNumberEditor().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridCellNumberEditor),
@@ -70,7 +70,7 @@ getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellnumbereditor.html#wxgridcellnumbereditorsetparameters">external documentation</a>.
 -spec setParameters(This, Params) -> ok when
-	This::wxGridCellNumberEditor(), Params::string().
+	This::wxGridCellNumberEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
   ?CLASS(ThisT,wxGridCellNumberEditor),
@@ -79,7 +79,7 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
   <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellNumberEditor) -> ok.
+-spec destroy(This::wxGridCellNumberEditor()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellNumberEditor),
   wxe_util:destroy(?wxGridCellNumberEditor_destroy,Obj),

@@ -48,7 +48,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxFileDirPickerEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledirpickerevent.html#wxfiledirpickereventgetpath">external documentation</a>.
--spec getPath(This) -> string() when
+-spec getPath(This) -> unicode:charlist() when
 	This::wxFileDirPickerEvent().
 getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDirPickerEvent),

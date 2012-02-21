@@ -48,7 +48,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxColourPickerEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerevent.html#wxcolourpickereventgetcolour">external documentation</a>.
--spec getColour(This) -> wx:wx_colour() when
+-spec getColour(This) -> wx:wx_colour4() when
 	This::wxColourPickerEvent().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxColourPickerEvent),

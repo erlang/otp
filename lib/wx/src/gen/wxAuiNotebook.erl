@@ -116,7 +116,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 
 %% @equiv addPage(This,Page,Caption, [])
 -spec addPage(This, Page, Caption) -> boolean() when
-	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::string().
+	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
 addPage(This,Page,Caption)
  when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Caption) ->
@@ -124,7 +124,7 @@ addPage(This,Page,Caption)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookaddpage">external documentation</a>.
 -spec addPage(This, Page, Caption, [Option]) -> boolean() when
-	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::string(),
+	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
 	Option :: {select, boolean()}
 		 | {bitmap, wxBitmap:wxBitmap()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Caption, Options)
@@ -220,7 +220,7 @@ getPageIndex(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Page_wndT,ref=Page_wnd
   <<ThisRef:32/?UI,Page_wndRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetpagetext">external documentation</a>.
--spec getPageText(This, Page_idx) -> string() when
+-spec getPageText(This, Page_idx) -> unicode:charlist() when
 	This::wxAuiNotebook(), Page_idx::integer().
 getPageText(#wx_ref{type=ThisT,ref=ThisRef},Page_idx)
  when is_integer(Page_idx) ->
@@ -238,7 +238,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @equiv insertPage(This,Page_idx,Page,Caption, [])
 -spec insertPage(This, Page_idx, Page, Caption) -> boolean() when
-	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::string().
+	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
 insertPage(This,Page_idx,Page,Caption)
  when is_record(This, wx_ref),is_integer(Page_idx),is_record(Page, wx_ref),is_list(Caption) ->
@@ -246,7 +246,7 @@ insertPage(This,Page_idx,Page,Caption)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookinsertpage">external documentation</a>.
 -spec insertPage(This, Page_idx, Page, Caption, [Option]) -> boolean() when
-	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::string(),
+	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
 	Option :: {select, boolean()}
 		 | {bitmap, wxBitmap:wxBitmap()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Page_idx,#wx_ref{type=PageT,ref=PageRef},Caption, Options)
@@ -300,7 +300,7 @@ setPageBitmap(#wx_ref{type=ThisT,ref=ThisRef},Page,#wx_ref{type=BitmapT,ref=Bitm
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksetpagetext">external documentation</a>.
 -spec setPageText(This, Page, Text) -> boolean() when
-	This::wxAuiNotebook(), Page::integer(), Text::string().
+	This::wxAuiNotebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},Page,Text)
  when is_integer(Page),is_list(Text) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -336,7 +336,7 @@ setUniformBitmapSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAuiNotebook) -> ok.
+-spec destroy(This::wxAuiNotebook()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiNotebook),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

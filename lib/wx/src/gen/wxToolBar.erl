@@ -121,13 +121,13 @@ addTool(This,Toolid,Bitmap)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
 -spec addTool(This, Toolid, Label, Bitmap) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap();
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap();
       (This, Toolid, Bitmap, BmpDisabled) -> wx:wx() when
 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap();
       (This, Toolid, Bitmap, [Option]) -> wx:wx() when
 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(),
-	Option :: {shortHelpString, string()}
-		 | {longHelpString, string()}.
+	Option :: {shortHelpString, unicode:chardata()}
+		 | {longHelpString, unicode:chardata()}.
 
 addTool(This,Toolid,Label,Bitmap)
  when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
@@ -149,17 +149,17 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
 -spec addTool(This, Toolid, Label, Bitmap, BmpDisabled) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap();
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap();
       (This, Toolid, Label, Bitmap, [Option]) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap(),
-	Option :: {shortHelp, string()}
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(),
+	Option :: {shortHelp, unicode:chardata()}
 		 | {kind, wx:wx_enum()};
       (This, Toolid, Bitmap, BmpDisabled, [Option]) -> wx:wx() when
 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(),
 	Option :: {toggle, boolean()}
 		 | {clientData, wx:wx()}
-		 | {shortHelpString, string()}
-		 | {longHelpString, string()}.
+		 | {shortHelpString, unicode:chardata()}
+		 | {longHelpString, unicode:chardata()}.
 
 addTool(This,Toolid,Label,Bitmap,BmpDisabled)
  when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref),is_record(BmpDisabled, wx_ref) ->
@@ -193,10 +193,10 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
 -spec addTool(This, Toolid, Bitmap, BmpDisabled, Toggle, XPos) -> wx:wx() when
 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(), Toggle::boolean(), XPos::integer();
       (This, Toolid, Label, Bitmap, BmpDisabled, [Option]) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(),
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(),
 	Option :: {kind, wx:wx_enum()}
-		 | {shortHelp, string()}
-		 | {longHelp, string()}
+		 | {shortHelp, unicode:chardata()}
+		 | {longHelp, unicode:chardata()}
 		 | {data, wx:wx()}.
 
 addTool(This,Toolid,Bitmap,BmpDisabled,Toggle,XPos)
@@ -222,8 +222,8 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,ref=Bi
 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(), Toggle::boolean(), XPos::integer(),
 	Option :: {yPos, integer()}
 		 | {clientData, wx:wx()}
-		 | {shortHelp, string()}
-		 | {longHelp, string()}.
+		 | {shortHelp, unicode:chardata()}
+		 | {longHelp, unicode:chardata()}.
 addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRef},#wx_ref{type=BmpDisabledT,ref=BmpDisabledRef},Toggle,XPos, Options)
  when is_integer(Toolid),is_boolean(Toggle),is_integer(XPos),is_list(Options) ->
   ?CLASS(ThisT,wxToolBar),
@@ -240,7 +240,7 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
 
 %% @equiv addCheckTool(This,Toolid,Label,Bitmap, [])
 -spec addCheckTool(This, Toolid, Label, Bitmap) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap().
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
 
 addCheckTool(This,Toolid,Label,Bitmap)
  when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
@@ -248,10 +248,10 @@ addCheckTool(This,Toolid,Label,Bitmap)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddchecktool">external documentation</a>.
 -spec addCheckTool(This, Toolid, Label, Bitmap, [Option]) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap(),
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(),
 	Option :: {bmpDisabled, wxBitmap:wxBitmap()}
-		 | {shortHelp, string()}
-		 | {longHelp, string()}
+		 | {shortHelp, unicode:chardata()}
+		 | {longHelp, unicode:chardata()}
 		 | {data, wx:wx()}.
 addCheckTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Toolid),is_list(Label),is_list(Options) ->
@@ -269,7 +269,7 @@ addCheckTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,r
 
 %% @equiv addRadioTool(This,Toolid,Label,Bitmap, [])
 -spec addRadioTool(This, Toolid, Label, Bitmap) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap().
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap().
 
 addRadioTool(This,Toolid,Label,Bitmap)
  when is_record(This, wx_ref),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
@@ -277,10 +277,10 @@ addRadioTool(This,Toolid,Label,Bitmap)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddradiotool">external documentation</a>.
 -spec addRadioTool(This, Toolid, Label, Bitmap, [Option]) -> wx:wx() when
-	This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap(),
+	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(),
 	Option :: {bmpDisabled, wxBitmap:wxBitmap()}
-		 | {shortHelp, string()}
-		 | {longHelp, string()}
+		 | {shortHelp, unicode:chardata()}
+		 | {longHelp, unicode:chardata()}
 		 | {data, wx:wx()}.
 addRadioTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Toolid),is_list(Label),is_list(Options) ->
@@ -384,7 +384,7 @@ getToolEnabled(#wx_ref{type=ThisT,ref=ThisRef},Toolid)
   <<ThisRef:32/?UI,Toolid:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbargettoollonghelp">external documentation</a>.
--spec getToolLongHelp(This, Toolid) -> string() when
+-spec getToolLongHelp(This, Toolid) -> unicode:charlist() when
 	This::wxToolBar(), Toolid::integer().
 getToolLongHelp(#wx_ref{type=ThisT,ref=ThisRef},Toolid)
  when is_integer(Toolid) ->
@@ -418,7 +418,7 @@ getToolSeparation(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbargettoolshorthelp">external documentation</a>.
--spec getToolShortHelp(This, Toolid) -> string() when
+-spec getToolShortHelp(This, Toolid) -> unicode:charlist() when
 	This::wxToolBar(), Toolid::integer().
 getToolShortHelp(#wx_ref{type=ThisT,ref=ThisRef},Toolid)
  when is_integer(Toolid) ->
@@ -474,14 +474,14 @@ insertTool(This,Pos,Toolid,Bitmap)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbarinserttool">external documentation</a>.
 -spec insertTool(This, Pos, Toolid, Label, Bitmap) -> wx:wx() when
-	This::wxToolBar(), Pos::integer(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap();
+	This::wxToolBar(), Pos::integer(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap();
       (This, Pos, Toolid, Bitmap, [Option]) -> wx:wx() when
 	This::wxToolBar(), Pos::integer(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(),
 	Option :: {bmpDisabled, wxBitmap:wxBitmap()}
 		 | {toggle, boolean()}
 		 | {clientData, wx:wx()}
-		 | {shortHelp, string()}
-		 | {longHelp, string()}.
+		 | {shortHelp, unicode:chardata()}
+		 | {longHelp, unicode:chardata()}.
 
 insertTool(This,Pos,Toolid,Label,Bitmap)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Toolid),is_list(Label),is_record(Bitmap, wx_ref) ->
@@ -503,11 +503,11 @@ insertTool(#wx_ref{type=ThisT,ref=ThisRef},Pos,Toolid,#wx_ref{type=BitmapT,ref=B
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbarinserttool">external documentation</a>.
 %%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec insertTool(This, Pos, Toolid, Label, Bitmap, [Option]) -> wx:wx() when
-	This::wxToolBar(), Pos::integer(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap(),
+	This::wxToolBar(), Pos::integer(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(),
 	Option :: {bmpDisabled, wxBitmap:wxBitmap()}
 		 | {kind, wx:wx_enum()}
-		 | {shortHelp, string()}
-		 | {longHelp, string()}
+		 | {shortHelp, unicode:chardata()}
+		 | {longHelp, unicode:chardata()}
 		 | {clientData, wx:wx()}.
 insertTool(#wx_ref{type=ThisT,ref=ThisRef},Pos,Toolid,Label,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Pos),is_integer(Toolid),is_list(Label),is_list(Options) ->
@@ -561,7 +561,7 @@ setToolBitmapSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbarsettoollonghelp">external documentation</a>.
 -spec setToolLongHelp(This, Toolid, HelpString) -> ok when
-	This::wxToolBar(), Toolid::integer(), HelpString::string().
+	This::wxToolBar(), Toolid::integer(), HelpString::unicode:chardata().
 setToolLongHelp(#wx_ref{type=ThisT,ref=ThisRef},Toolid,HelpString)
  when is_integer(Toolid),is_list(HelpString) ->
   ?CLASS(ThisT,wxToolBar),
@@ -580,7 +580,7 @@ setToolPacking(#wx_ref{type=ThisT,ref=ThisRef},Packing)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbarsettoolshorthelp">external documentation</a>.
 -spec setToolShortHelp(This, Id, HelpString) -> ok when
-	This::wxToolBar(), Id::integer(), HelpString::string().
+	This::wxToolBar(), Id::integer(), HelpString::unicode:chardata().
 setToolShortHelp(#wx_ref{type=ThisT,ref=ThisRef},Id,HelpString)
  when is_integer(Id),is_list(HelpString) ->
   ?CLASS(ThisT,wxToolBar),

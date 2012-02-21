@@ -70,7 +70,7 @@ getAlign(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetbackgroundcolour">external documentation</a>.
--spec getBackgroundColour(This) -> wx:wx_colour() when
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxListItem().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
@@ -126,7 +126,7 @@ getState(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgettext">external documentation</a>.
--spec getText(This) -> string() when
+-spec getText(This) -> unicode:charlist() when
 	This::wxListItem().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
@@ -134,7 +134,7 @@ getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgettextcolour">external documentation</a>.
--spec getTextColour(This) -> wx:wx_colour() when
+-spec getTextColour(This) -> wx:wx_colour4() when
 	This::wxListItem().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
@@ -233,7 +233,7 @@ setStateMask(#wx_ref{type=ThisT,ref=ThisRef},StateMask)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsettext">external documentation</a>.
 -spec setText(This, Text) -> ok when
-	This::wxListItem(), Text::string().
+	This::wxListItem(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxListItem),
@@ -260,7 +260,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxListItem) -> ok.
+-spec destroy(This::wxListItem()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListItem),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

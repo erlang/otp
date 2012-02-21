@@ -149,7 +149,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlgetcolour">external documentation</a>.
--spec getColour(This) -> wx:wx_colour() when
+-spec getColour(This) -> wx:wx_colour4() when
 	This::wxColourPickerCtrl().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxColourPickerCtrl),
@@ -158,7 +158,7 @@ getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlsetcolour">external documentation</a>.
 -spec setColour(This, Text) -> boolean() when
-	This::wxColourPickerCtrl(), Text::string();
+	This::wxColourPickerCtrl(), Text::unicode:chardata();
       (This, Col) -> ok when
 	This::wxColourPickerCtrl(), Col::wx:wx_colour().
 setColour(#wx_ref{type=ThisT,ref=ThisRef},Text)
@@ -174,7 +174,7 @@ setColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxColourPickerCtrl) -> ok.
+-spec destroy(This::wxColourPickerCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourPickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

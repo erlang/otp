@@ -82,7 +82,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxRadioBox() :: wx:wx_object().
 %% @equiv new(Parent,Id,Title,Pos,Size,Choices, [])
 -spec new(Parent, Id, Title, Pos, Size, Choices) -> wxRadioBox() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]].
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]].
 
 new(Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -90,7 +90,7 @@ new(Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxwxradiobox">external documentation</a>.
 -spec new(Parent, Id, Title, Pos, Size, Choices, [Option]) -> wxRadioBox() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]],
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]],
 	Option :: {majorDim, integer()}
 		 | {style, integer()}
 		 | {val, wx:wx()}.
@@ -110,7 +110,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choic
 
 %% @equiv create(This,Parent,Id,Title,Pos,Size,Choices, [])
 -spec create(This, Parent, Id, Title, Pos, Size, Choices) -> boolean() when
-	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]].
+	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]].
 
 create(This,Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -118,7 +118,7 @@ create(This,Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, Pos, Size, Choices, [Option]) -> boolean() when
-	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]],
+	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]],
 	Option :: {majorDim, integer()}
 		 | {style, integer()}
 		 | {val, wx:wx()}.
@@ -186,7 +186,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxgetstring">external documentation</a>.
--spec getString(This, N) -> string() when
+-spec getString(This, N) -> unicode:charlist() when
 	This::wxRadioBox(), N::integer().
 getString(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -252,7 +252,7 @@ getColumnCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxgetitemhelptext">external documentation</a>.
--spec getItemHelpText(This, N) -> string() when
+-spec getItemHelpText(This, N) -> unicode:charlist() when
 	This::wxRadioBox(), N::integer().
 getItemHelpText(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
@@ -306,7 +306,7 @@ isItemShown(#wx_ref{type=ThisT,ref=ThisRef},N)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxsetitemhelptext">external documentation</a>.
 -spec setItemHelpText(This, N, HelpText) -> ok when
-	This::wxRadioBox(), N::integer(), HelpText::string().
+	This::wxRadioBox(), N::integer(), HelpText::unicode:chardata().
 setItemHelpText(#wx_ref{type=ThisT,ref=ThisRef},N,HelpText)
  when is_integer(N),is_list(HelpText) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -316,7 +316,7 @@ setItemHelpText(#wx_ref{type=ThisT,ref=ThisRef},N,HelpText)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxsetitemtooltip">external documentation</a>.
 -spec setItemToolTip(This, Item, Text) -> ok when
-	This::wxRadioBox(), Item::integer(), Text::string().
+	This::wxRadioBox(), Item::integer(), Text::unicode:chardata().
 setItemToolTip(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
  when is_integer(Item),is_list(Text) ->
   ?CLASS(ThisT,wxRadioBox),
@@ -325,7 +325,7 @@ setItemToolTip(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
   <<ThisRef:32/?UI,Item:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxRadioBox) -> ok.
+-spec destroy(This::wxRadioBox()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxRadioBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

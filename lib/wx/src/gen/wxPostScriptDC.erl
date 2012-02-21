@@ -87,7 +87,7 @@ getResolution() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPostScriptDC) -> ok.
+-spec destroy(This::wxPostScriptDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPostScriptDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

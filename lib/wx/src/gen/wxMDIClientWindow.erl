@@ -125,7 +125,7 @@ createClient(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMDIClientWindow) -> ok.
+-spec destroy(This::wxMDIClientWindow()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMDIClientWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

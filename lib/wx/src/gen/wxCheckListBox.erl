@@ -104,7 +104,7 @@ new(Parent,Id)
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
-		 | {choices, [[string()]]}
+		 | {choices, [[unicode:chardata()]]}
 		 | {style, integer()}
 		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
@@ -151,7 +151,7 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef},Index)
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCheckListBox) -> ok.
+-spec destroy(This::wxCheckListBox()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCheckListBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

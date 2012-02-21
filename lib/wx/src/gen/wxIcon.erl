@@ -49,7 +49,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html#wxiconwxicon">external documentation</a>.
 -spec new(Filename) -> wxIcon() when
-	Filename::string();
+	Filename::unicode:chardata();
       (Loc) -> wxIcon() when
 	Loc::wx:wx().
 
@@ -64,7 +64,7 @@ new(#wx_ref{type=LocT,ref=LocRef}) ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html#wxiconwxicon">external documentation</a>.
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(Filename, [Option]) -> wxIcon() when
-	Filename::string(),
+	Filename::unicode:chardata(),
 	Option :: {type, wx:wx_enum()}
 		 | {desiredWidth, integer()}
 		 | {desiredHeight, integer()}.
@@ -89,7 +89,7 @@ copyFromBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
   <<ThisRef:32/?UI,BmpRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxIcon) -> ok.
+-spec destroy(This::wxIcon()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxIcon),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

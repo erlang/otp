@@ -94,7 +94,7 @@ new() ->
 
 %% @equiv new(Parent,Id,Title, [])
 -spec new(Parent, Id, Title) -> wxFrame() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::string().
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
@@ -102,7 +102,7 @@ new(Parent,Id,Title)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframewxframe">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxFrame() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::string(),
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}.
@@ -120,7 +120,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
 
 %% @equiv create(This,Parent,Id,Title, [])
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string().
+	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
@@ -128,7 +128,7 @@ create(This,Parent,Id,Title)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframecreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
-	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(),
+	This::wxFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}.
@@ -279,7 +279,7 @@ setStatusBarPane(#wx_ref{type=ThisT,ref=ThisRef},N)
 
 %% @equiv setStatusText(This,Text, [])
 -spec setStatusText(This, Text) -> ok when
-	This::wxFrame(), Text::string().
+	This::wxFrame(), Text::unicode:chardata().
 
 setStatusText(This,Text)
  when is_record(This, wx_ref),is_list(Text) ->
@@ -287,7 +287,7 @@ setStatusText(This,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxframe.html#wxframesetstatustext">external documentation</a>.
 -spec setStatusText(This, Text, [Option]) -> ok when
-	This::wxFrame(), Text::string(),
+	This::wxFrame(), Text::unicode:chardata(),
 	Option :: {number, integer()}.
 setStatusText(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
  when is_list(Text),is_list(Options) ->
@@ -319,7 +319,7 @@ setToolBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ToolbarT,ref=ToolbarRef}
   <<ThisRef:32/?UI,ToolbarRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFrame) -> ok.
+-spec destroy(This::wxFrame()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -94,7 +94,7 @@ new() ->
 
 %% @equiv new(Parent,Data,Title, [])
 -spec new(Parent, Data, Title) -> wxFindReplaceDialog() when
-	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string().
+	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
 new(Parent,Data,Title)
  when is_record(Parent, wx_ref),is_record(Data, wx_ref),is_list(Title) ->
@@ -102,7 +102,7 @@ new(Parent,Data,Title)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedialog.html#wxfindreplacedialogwxfindreplacedialog">external documentation</a>.
 -spec new(Parent, Data, Title, [Option]) -> wxFindReplaceDialog() when
-	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string(),
+	Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata(),
 	Option :: {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, Options)
  when is_list(Title),is_list(Options) ->
@@ -117,7 +117,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, O
 
 %% @equiv create(This,Parent,Data,Title, [])
 -spec create(This, Parent, Data, Title) -> boolean() when
-	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string().
+	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata().
 
 create(This,Parent,Data,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_record(Data, wx_ref),is_list(Title) ->
@@ -125,7 +125,7 @@ create(This,Parent,Data,Title)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedialog.html#wxfindreplacedialogcreate">external documentation</a>.
 -spec create(This, Parent, Data, Title, [Option]) -> boolean() when
-	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::string(),
+	This::wxFindReplaceDialog(), Parent::wxWindow:wxWindow(), Data::wxFindReplaceData:wxFindReplaceData(), Title::unicode:chardata(),
 	Option :: {style, integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef},Title, Options)
  when is_list(Title),is_list(Options) ->
@@ -148,7 +148,7 @@ getData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFindReplaceDialog) -> ok.
+-spec destroy(This::wxFindReplaceDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFindReplaceDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

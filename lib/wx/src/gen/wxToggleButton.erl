@@ -85,7 +85,7 @@ new() ->
 
 %% @equiv new(Parent,Id,Label, [])
 -spec new(Parent, Id, Label) -> wxToggleButton() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::string().
+	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
@@ -93,7 +93,7 @@ new(Parent,Id,Label)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtogglebutton.html#wxtogglebuttonwxtogglebutton">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxToggleButton() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::string(),
+	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -113,7 +113,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
 
 %% @equiv create(This,Parent,Id,Label, [])
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::string().
+	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
@@ -121,7 +121,7 @@ create(This,Parent,Id,Label)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtogglebutton.html#wxtogglebuttoncreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
-	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::string(),
+	This::wxToggleButton(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -158,7 +158,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},State)
   <<ThisRef:32/?UI,(wxe_util:from_bool(State)):32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxToggleButton) -> ok.
+-spec destroy(This::wxToggleButton()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxToggleButton),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

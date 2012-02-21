@@ -75,7 +75,7 @@ getKeyEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventgetlabel">external documentation</a>.
--spec getLabel(This) -> string() when
+-spec getLabel(This) -> unicode:charlist() when
 	This::wxTreeEvent().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeEvent),
@@ -108,7 +108,7 @@ isEditCancelled(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreeevent.html#wxtreeeventsettooltip">external documentation</a>.
 -spec setToolTip(This, ToolTip) -> ok when
-	This::wxTreeEvent(), ToolTip::string().
+	This::wxTreeEvent(), ToolTip::unicode:chardata().
 setToolTip(#wx_ref{type=ThisT,ref=ThisRef},ToolTip)
  when is_list(ToolTip) ->
   ?CLASS(ThisT,wxTreeEvent),

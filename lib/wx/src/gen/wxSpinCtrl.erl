@@ -96,7 +96,7 @@ new(Parent)
 -spec new(Parent, [Option]) -> wxSpinCtrl() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
-		 | {value, string()}
+		 | {value, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -131,7 +131,7 @@ create(This,Parent)
 -spec create(This, Parent, [Option]) -> boolean() when
 	This::wxSpinCtrl(), Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
-		 | {value, string()}
+		 | {value, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -159,7 +159,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
 -spec setValue(This, Value) -> ok when
 	This::wxSpinCtrl(), Value::integer();
       (This, Text) -> ok when
-	This::wxSpinCtrl(), Text::string().
+	This::wxSpinCtrl(), Text::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
  when is_integer(Value) ->
   ?CLASS(ThisT,wxSpinCtrl),
@@ -215,7 +215,7 @@ getMax(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSpinCtrl) -> ok.
+-spec destroy(This::wxSpinCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSpinCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

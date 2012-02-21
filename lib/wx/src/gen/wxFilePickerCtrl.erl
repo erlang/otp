@@ -100,9 +100,9 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlwxfilepickerctrl">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxFilePickerCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {path, string()}
-		 | {message, string()}
-		 | {wildcard, string()}
+	Option :: {path, unicode:chardata()}
+		 | {message, unicode:chardata()}
+		 | {wildcard, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -133,9 +133,9 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxFilePickerCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {path, string()}
-		 | {message, string()}
-		 | {wildcard, string()}
+	Option :: {path, unicode:chardata()}
+		 | {message, unicode:chardata()}
+		 | {wildcard, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -157,7 +157,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlgetpath">external documentation</a>.
--spec getPath(This) -> string() when
+-spec getPath(This) -> unicode:charlist() when
 	This::wxFilePickerCtrl().
 getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
@@ -166,7 +166,7 @@ getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfilepickerctrl.html#wxfilepickerctrlsetpath">external documentation</a>.
 -spec setPath(This, Str) -> ok when
-	This::wxFilePickerCtrl(), Str::string().
+	This::wxFilePickerCtrl(), Str::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxFilePickerCtrl),
@@ -175,7 +175,7 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Str)
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFilePickerCtrl) -> ok.
+-spec destroy(This::wxFilePickerCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFilePickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

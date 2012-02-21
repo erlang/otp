@@ -199,7 +199,7 @@ setSashVisible(#wx_ref{type=ThisT,ref=ThisRef},Edge,Sash)
   <<ThisRef:32/?UI,Edge:32/?UI,(wxe_util:from_bool(Sash)):32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSashWindow) -> ok.
+-spec destroy(This::wxSashWindow()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSashWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

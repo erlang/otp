@@ -60,7 +60,7 @@ new() ->
 
 %% @equiv new(Name, [])
 -spec new(Name) -> wxImage() when
-	Name::string().
+	Name::unicode:chardata().
 
 new(Name)
  when is_list(Name) ->
@@ -70,7 +70,7 @@ new(Name)
 -spec new(Width, Height) -> wxImage() when
 	Width::integer(), Height::integer();
       (Name, [Option]) -> wxImage() when
-	Name::string(),
+	Name::unicode:chardata(),
 	Option :: {type, integer()}
 		 | {index, integer()}.
 
@@ -94,7 +94,7 @@ new(Name, Options)
 	Width::integer(), Height::integer(),
 	Option :: {clear, boolean()};
       (Name, Mimetype, [Option]) -> wxImage() when
-	Name::string(), Mimetype::string(),
+	Name::unicode:chardata(), Mimetype::unicode:chardata(),
 	Option :: {index, integer()}.
 
 new(Width,Height,Data)
@@ -338,7 +338,7 @@ findFirstUnusedColour(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagegetimageextwildcard">external documentation</a>.
--spec getImageExtWildcard() -> string().
+-spec getImageExtWildcard() -> unicode:charlist().
 getImageExtWildcard() ->
   wxe_util:call(?wxImage_GetImageExtWildcard,
   <<>>).
@@ -388,7 +388,7 @@ getGreen(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
 
 %% @equiv getImageCount(Name, [])
 -spec getImageCount(Name) -> integer() when
-	Name::string().
+	Name::unicode:chardata().
 
 getImageCount(Name)
  when is_list(Name) ->
@@ -396,7 +396,7 @@ getImageCount(Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagegetimagecount">external documentation</a>.
 -spec getImageCount(Name, [Option]) -> integer() when
-	Name::string(),
+	Name::unicode:chardata(),
 	Option :: {type, integer()}.
 getImageCount(Name, Options)
  when is_list(Name),is_list(Options) ->
@@ -499,8 +499,8 @@ hasMask(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagegetoption">external documentation</a>.
--spec getOption(This, Name) -> string() when
-	This::wxImage(), Name::string().
+-spec getOption(This, Name) -> unicode:charlist() when
+	This::wxImage(), Name::unicode:chardata().
 getOption(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -510,7 +510,7 @@ getOption(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagegetoptionint">external documentation</a>.
 -spec getOptionInt(This, Name) -> integer() when
-	This::wxImage(), Name::string().
+	This::wxImage(), Name::unicode:chardata().
 getOptionInt(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -520,7 +520,7 @@ getOptionInt(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagehasoption">external documentation</a>.
 -spec hasOption(This, Name) -> boolean() when
-	This::wxImage(), Name::string().
+	This::wxImage(), Name::unicode:chardata().
 hasOption(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -565,7 +565,7 @@ isTransparent(#wx_ref{type=ThisT,ref=ThisRef},X,Y, Options)
 
 %% @equiv loadFile(This,Name, [])
 -spec loadFile(This, Name) -> boolean() when
-	This::wxImage(), Name::string().
+	This::wxImage(), Name::unicode:chardata().
 
 loadFile(This,Name)
  when is_record(This, wx_ref),is_list(Name) ->
@@ -573,7 +573,7 @@ loadFile(This,Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximageloadfile">external documentation</a>.
 -spec loadFile(This, Name, [Option]) -> boolean() when
-	This::wxImage(), Name::string(),
+	This::wxImage(), Name::unicode:chardata(),
 	Option :: {type, integer()}
 		 | {index, integer()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name, Options)
@@ -589,7 +589,7 @@ loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximageloadfile">external documentation</a>.
 -spec loadFile(This, Name, Mimetype, [Option]) -> boolean() when
-	This::wxImage(), Name::string(), Mimetype::string(),
+	This::wxImage(), Name::unicode:chardata(), Mimetype::unicode:chardata(),
 	Option :: {index, integer()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Mimetype, Options)
  when is_list(Name),is_list(Mimetype),is_list(Options) ->
@@ -612,7 +612,7 @@ ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximageremovehandler">external documentation</a>.
 -spec removeHandler(Name) -> boolean() when
-	Name::string().
+	Name::unicode:chardata().
 removeHandler(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
@@ -750,7 +750,7 @@ rotate90(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesavefile">external documentation</a>.
 -spec saveFile(This, Name) -> boolean() when
-	This::wxImage(), Name::string().
+	This::wxImage(), Name::unicode:chardata().
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -760,9 +760,9 @@ saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesavefile">external documentation</a>.
 -spec saveFile(This, Name, Type) -> boolean() when
-	This::wxImage(), Name::string(), Type::integer();
+	This::wxImage(), Name::unicode:chardata(), Type::integer();
       (This, Name, Mimetype) -> boolean() when
-	This::wxImage(), Name::string(), Mimetype::string().
+	This::wxImage(), Name::unicode:chardata(), Mimetype::unicode:chardata().
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Type)
  when is_list(Name),is_integer(Type) ->
   ?CLASS(ThisT,wxImage),
@@ -940,9 +940,9 @@ setMaskFromImage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MaskT,ref=MaskRef}
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesetoption">external documentation</a>.
 -spec setOption(This, Name, Value) -> ok when
-	This::wxImage(), Name::string(), Value::integer();
+	This::wxImage(), Name::unicode:chardata(), Value::integer();
       (This, Name, Value) -> ok when
-	This::wxImage(), Name::string(), Value::string().
+	This::wxImage(), Name::unicode:chardata(), Value::unicode:chardata().
 setOption(#wx_ref{type=ThisT,ref=ThisRef},Name,Value)
  when is_list(Name),is_integer(Value) ->
   ?CLASS(ThisT,wxImage),
@@ -985,7 +985,7 @@ setRGB(#wx_ref{type=ThisT,ref=ThisRef},X,Y,R,G,B)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,R:32/?UI,G:32/?UI,B:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxImage) -> ok.
+-spec destroy(This::wxImage()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxImage),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

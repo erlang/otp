@@ -119,7 +119,7 @@ printDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprinter.html#wxprinterreporterror">external documentation</a>.
 -spec reportError(This, Parent, Printout, Message) -> ok when
-	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout(), Message::string().
+	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout(), Message::unicode:chardata().
 reportError(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=PrintoutT,ref=PrintoutRef},Message)
  when is_list(Message) ->
   ?CLASS(ThisT,wxPrinter),
@@ -139,7 +139,7 @@ setup(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}) ->
   <<ThisRef:32/?UI,ParentRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrinter) -> ok.
+-spec destroy(This::wxPrinter()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrinter),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

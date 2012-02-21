@@ -233,7 +233,7 @@ setHeaderColours(#wx_ref{type=ThisT,ref=ThisRef},ColFg,ColBg)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColFg)):16/binary,(wxe_util:colour_bin(ColBg)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlgetheadercolourfg">external documentation</a>.
--spec getHeaderColourFg(This) -> wx:wx_colour() when
+-spec getHeaderColourFg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHeaderColourFg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -241,7 +241,7 @@ getHeaderColourFg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlgetheadercolourbg">external documentation</a>.
--spec getHeaderColourBg(This) -> wx:wx_colour() when
+-spec getHeaderColourBg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHeaderColourBg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -258,7 +258,7 @@ setHighlightColours(#wx_ref{type=ThisT,ref=ThisRef},ColFg,ColBg)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColFg)):16/binary,(wxe_util:colour_bin(ColBg)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlgethighlightcolourfg">external documentation</a>.
--spec getHighlightColourFg(This) -> wx:wx_colour() when
+-spec getHighlightColourFg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHighlightColourFg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -266,7 +266,7 @@ getHighlightColourFg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlgethighlightcolourbg">external documentation</a>.
--spec getHighlightColourBg(This) -> wx:wx_colour() when
+-spec getHighlightColourBg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHighlightColourBg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -283,7 +283,7 @@ setHolidayColours(#wx_ref{type=ThisT,ref=ThisRef},ColFg,ColBg)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColFg)):16/binary,(wxe_util:colour_bin(ColBg)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlgetholidaycolourfg">external documentation</a>.
--spec getHolidayColourFg(This) -> wx:wx_colour() when
+-spec getHolidayColourFg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHolidayColourFg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -291,7 +291,7 @@ getHolidayColourFg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarctrl.html#wxcalendarctrlgetholidaycolourbg">external documentation</a>.
--spec getHolidayColourBg(This) -> wx:wx_colour() when
+-spec getHolidayColourBg(This) -> wx:wx_colour4() when
 	This::wxCalendarCtrl().
 getHolidayColourBg(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarCtrl),
@@ -348,7 +348,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCalendarCtrl) -> ok.
+-spec destroy(This::wxCalendarCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCalendarCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

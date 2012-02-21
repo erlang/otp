@@ -50,7 +50,7 @@ new(Flags)
   <<Flags:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatagetfindstring">external documentation</a>.
--spec getFindString(This) -> string() when
+-spec getFindString(This) -> unicode:charlist() when
 	This::wxFindReplaceData().
 getFindString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -58,7 +58,7 @@ getFindString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatagetreplacestring">external documentation</a>.
--spec getReplaceString(This) -> string() when
+-spec getReplaceString(This) -> unicode:charlist() when
 	This::wxFindReplaceData().
 getReplaceString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -84,7 +84,7 @@ setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatasetfindstring">external documentation</a>.
 -spec setFindString(This, Str) -> ok when
-	This::wxFindReplaceData(), Str::string().
+	This::wxFindReplaceData(), Str::unicode:chardata().
 setFindString(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -94,7 +94,7 @@ setFindString(#wx_ref{type=ThisT,ref=ThisRef},Str)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfindreplacedata.html#wxfindreplacedatasetreplacestring">external documentation</a>.
 -spec setReplaceString(This, Str) -> ok when
-	This::wxFindReplaceData(), Str::string().
+	This::wxFindReplaceData(), Str::unicode:chardata().
 setReplaceString(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -103,7 +103,7 @@ setReplaceString(#wx_ref{type=ThisT,ref=ThisRef},Str)
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFindReplaceData) -> ok.
+-spec destroy(This::wxFindReplaceData()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFindReplaceData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -320,7 +320,7 @@ gen_dest(#class{name=CName,abstract=Abs}, Ms) ->
 
 gen_dest2(Class, Id) ->
     w("%% @doc Destroys this object, do not use object again~n", []),
-    w("-spec destroy(This::~s) -> ok.~n", [Class]),
+    w("-spec destroy(This::~s()) -> ok.~n", [Class]),
     w("destroy(Obj=#wx_ref{type=Type}) ->~n", []),
     w("  ?CLASS(Type,~s),~n",[Class]),
     case Id of
@@ -723,41 +723,51 @@ erl_arg_names(Ps0) ->
 doc_arg_types(Ps0) ->
     Ps = [P || P=#param{in=In, where=Where} <- Ps0,In =/= false, Where =/= c],
     args(fun doc_arg_type/1, ", ", Ps).
-doc_arg_type(#param{name=Name,def=none,type=T}) ->
-    erl_arg_name(Name) ++ "::" ++ doc_arg_type2(T);
-doc_arg_type(#param{name=Name,in=false,type=T}) ->
-    erl_arg_name(Name) ++ "::" ++ doc_arg_type2(T);
-doc_arg_type(_) -> skip.
 
-doc_arg_type2(T=#type{single=Single}) when Single =:= array; Single =:= list ->
-    "[" ++ doc_arg_type3(T) ++ "]";
+doc_arg_type(T) ->
+    doc_arg_type(T, in).
+
+doc_arg_type(#param{name=Name,def=none,type=T}, Out) ->
+    erl_arg_name(Name) ++ "::" ++ doc_arg_type2(T, Out);
+doc_arg_type(#param{name=Name,in=false,type=T}, Out) ->
+    erl_arg_name(Name) ++ "::" ++ doc_arg_type2(T, Out);
+doc_arg_type(_, _) -> skip.
+
 doc_arg_type2(T) ->
-    doc_arg_type3(T).
+    doc_arg_type2(T, in).
 
-doc_arg_type3(#type{base=string}) -> "string()";
-doc_arg_type3(#type{name="wxChar", single=S}) when S =/= true -> "string()";
-doc_arg_type3(#type{name="wxArrayString"}) -> "[string()]";
-doc_arg_type3(#type{name="wxDateTime"}) ->    "wx:wx_datetime()";
-doc_arg_type3(#type{name="wxArtClient"}) ->    "string()";
-doc_arg_type3(#type{base=int}) ->        "integer()";
-doc_arg_type3(#type{base=int64}) ->        "integer()";
-doc_arg_type3(#type{base=long}) ->       "integer()";
-doc_arg_type3(#type{name="wxTreeItemId"}) -> "wxTreeCtrl:treeItemId()";
-doc_arg_type3(#type{base=bool}) ->       "boolean()";
-doc_arg_type3(#type{base=float}) ->      "number()";
-doc_arg_type3(#type{base=double}) ->     "number()";
-doc_arg_type3(#type{base=binary}) ->     "binary()";
-doc_arg_type3(#type{base={binary,_}}) -> "binary()";
-doc_arg_type3(#type{base=eventType}) ->  "atom()";
-doc_arg_type3(#type{base={ref,N}}) ->     N++"()";
-doc_arg_type3(#type{base={term,_N}}) ->  "term()";
-doc_arg_type3(T=#type{base={class,N}}) ->
+doc_arg_type2(T=#type{single=Single}, Out) when Single =:= array; Single =:= list ->
+    "[" ++ doc_arg_type3(T, Out) ++ "]";
+doc_arg_type2(T, Out) ->
+    doc_arg_type3(T, Out).
+
+doc_arg_type3(#type{base=string}, in) -> "unicode:chardata()";
+doc_arg_type3(#type{base=string}, out) -> "unicode:charlist()";
+doc_arg_type3(#type{name="wxChar", single=S},in) when S =/= true -> "unicode:chardata()";
+doc_arg_type3(#type{name="wxChar", single=S},out) when S =/= true -> "unicode:charlist()";
+doc_arg_type3(#type{name="wxArrayString"},in) -> "[unicode:chardata()]";
+doc_arg_type3(#type{name="wxArrayString"},out) -> "[unicode:charlist()]";
+doc_arg_type3(#type{name="wxDateTime"}, _) ->    "wx:wx_datetime()";
+doc_arg_type3(#type{name="wxArtClient"}, _) ->    "unicode:chardata()";
+doc_arg_type3(#type{base=int}, _) ->        "integer()";
+doc_arg_type3(#type{base=int64}, _) ->        "integer()";
+doc_arg_type3(#type{base=long}, _) ->       "integer()";
+doc_arg_type3(#type{name="wxTreeItemId"}, _) -> "wxTreeCtrl:treeItemId()";
+doc_arg_type3(#type{base=bool}, _) ->       "boolean()";
+doc_arg_type3(#type{base=float}, _) ->      "number()";
+doc_arg_type3(#type{base=double}, _) ->     "number()";
+doc_arg_type3(#type{base=binary}, _) ->     "binary()";
+doc_arg_type3(#type{base={binary,_}}, _) -> "binary()";
+doc_arg_type3(#type{base=eventType}, _) ->  "atom()";
+doc_arg_type3(#type{base={ref,N}}, _) ->     N++"()";
+doc_arg_type3(#type{base={term,_N}}, _) ->  "term()";
+doc_arg_type3(T=#type{base={class,N}}, _) ->
     check_class(T),
     case get(current_class) of
 	N -> N ++ "()";
 	_ ->  N++":" ++ N++"()"
     end;
-doc_arg_type3({merged,_,T1=#type{base={class,N1}},_,_,T2=#type{base={class,N2}},_}) ->
+doc_arg_type3({merged,_,T1=#type{base={class,N1}},_,_,T2=#type{base={class,N2}},_}, _) ->
     check_class(T1),
     check_class(T2),
     Curr = get(current_class),
@@ -768,31 +778,34 @@ doc_arg_type3({merged,_,T1=#type{base={class,N1}},_,_,T2=#type{base={class,N2}},
 	true ->
 	    N1++":" ++ N1++"() | "++ N2++":" ++ N2++"()"
     end;
-%% doc_arg_type3(#type{base={enum,{_,N}}}) ->    uppercase(N);
-%% doc_arg_type3(#type{base={enum,N}}) ->    uppercase(N);
-doc_arg_type3(#type{base={enum,_N}}) -> "wx:wx_enum()";
-doc_arg_type3(#type{base={comp,"wxColour",_Tup}}) ->
+%% doc_arg_type3(#type{base={enum,{_,N}}}, _) ->    uppercase(N);
+%% doc_arg_type3(#type{base={enum,N}}, _) ->    uppercase(N);
+doc_arg_type3(#type{base={enum,_N}}, _) -> "wx:wx_enum()";
+doc_arg_type3(#type{base={comp,"wxColour",_Tup}}, in) ->
     "wx:wx_colour()";
-doc_arg_type3(#type{base={comp,_,{record,Name}}}) ->
+doc_arg_type3(#type{base={comp,"wxColour",_Tup}}, out) ->
+    "wx:wx_colour4()";
+doc_arg_type3(#type{base={comp,_,{record,Name}}}, _) ->
     "wx:wx_" ++ atom_to_list(Name) ++ "()";
-doc_arg_type3(#type{base={comp,_,Tup}}) ->
+doc_arg_type3(#type{base={comp,_,Tup}}, _) ->
     Doc = fun({int,V}) -> V ++ "::integer()";
 	     ({double,V}) -> V ++ "::float()"
 	  end,
     "{" ++ args(Doc, ", ", Tup) ++ "}";
-doc_arg_type3(T) -> ?error({unknown_type,T}).
+doc_arg_type3(T, _) -> ?error({unknown_type,T}).
 
 doc_return_types(T, Ps) ->
     doc_return_types2(T, [P || P=#param{in=In} <- Ps,In =/= true]).
 doc_return_types2(void, []) ->    {simple, "ok"};
-doc_return_types2(void, [#param{type=T}]) ->     {simple, doc_arg_type2(T)};
-doc_return_types2(T, []) ->                      {simple, doc_arg_type2(T)};
+doc_return_types2(void, [#param{type=T}]) ->     {simple, doc_arg_type2(T, out)};
+doc_return_types2(T, []) ->                      {simple, doc_arg_type2(T, out)};
 doc_return_types2(void, Ps) when length(Ps) < 4 ->
-    {simple, "{" ++ args(fun doc_arg_type/1,", ",Ps) ++ "}"};
+    {simple, "{" ++ args(fun(Arg) -> doc_arg_type(Arg, out) end,", ",Ps) ++ "}"};
 doc_return_types2(void, Ps) ->
-    {complex, "{" ++ args(fun doc_arg_type/1,", ",Ps) ++ "}"};
+    {complex, "{" ++ args(fun(Arg) -> doc_arg_type(Arg, out) end,", ",Ps) ++ "}"};
 doc_return_types2(T, Ps) ->
-    {complex, "{Res ::" ++ doc_arg_type2(T) ++ ", " ++ args(fun doc_arg_type/1,", ",Ps) ++ "}"}.
+    {complex, "{Res ::" ++ doc_arg_type2(T, out) ++ ", " ++
+	 args(fun(Arg) -> doc_arg_type(Arg, out) end,", ",Ps) ++ "}"}.
 
 doc_enum(#type{base={enum,Enum}},Ps) ->
     [doc_enum_type(Enum, "res") |
@@ -998,7 +1011,7 @@ gen_enums_ints() ->
       "          controlDown, shiftDown, altDown, metaDown, cmdDown %% bool()~n"
       "        }).~n", []),
     w("-record(wxHtmlLinkInfo, {~n"
-      "          href, target %% string()~n"
+      "          href, target %% unicode:chardata()~n"
       "        }).~n", []),
     w("~n%% Hardcoded Defines~n", []),
     Enums = [E || {{enum,_},E = #enum{as_atom=false}} <- get()],

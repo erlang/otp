@@ -92,7 +92,7 @@ ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxCursor) -> ok.
+-spec destroy(This::wxCursor()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCursor),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

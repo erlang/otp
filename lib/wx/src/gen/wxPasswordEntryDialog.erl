@@ -91,7 +91,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxPasswordEntryDialog() :: wx:wx_object().
 %% @equiv new(Parent,Message, [])
 -spec new(Parent, Message) -> wxPasswordEntryDialog() when
-	Parent::wxWindow:wxWindow(), Message::string().
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata().
 
 new(Parent,Message)
  when is_record(Parent, wx_ref),is_list(Message) ->
@@ -99,9 +99,9 @@ new(Parent,Message)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpasswordentrydialog.html#wxpasswordentrydialogwxpasswordentrydialog">external documentation</a>.
 -spec new(Parent, Message, [Option]) -> wxPasswordEntryDialog() when
-	Parent::wxWindow:wxWindow(), Message::string(),
-	Option :: {caption, string()}
-		 | {value, string()}
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata(),
+	Option :: {caption, unicode:chardata()}
+		 | {value, unicode:chardata()}
 		 | {style, integer()}
 		 | {pos, {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
@@ -118,7 +118,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
   <<ParentRef:32/?UI,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((0+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPasswordEntryDialog) -> ok.
+-spec destroy(This::wxPasswordEntryDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPasswordEntryDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

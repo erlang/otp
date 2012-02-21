@@ -47,7 +47,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellbooleditor.html#wxgridcellbooleditoristruevalue">external documentation</a>.
 -spec isTrueValue(Value) -> boolean() when
-	Value::string().
+	Value::unicode:chardata().
 isTrueValue(Value)
  when is_list(Value) ->
   Value_UC = unicode:characters_to_binary([Value,0]),
@@ -62,8 +62,8 @@ useStringValues() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellbooleditor.html#wxgridcellbooleditorusestringvalues">external documentation</a>.
 -spec useStringValues([Option]) -> ok when
-	Option :: {valueTrue, string()}
-		 | {valueFalse, string()}.
+	Option :: {valueTrue, unicode:chardata()}
+		 | {valueFalse, unicode:chardata()}.
 useStringValues(Options)
  when is_list(Options) ->
   MOpts = fun({valueTrue, ValueTrue}, Acc) ->   ValueTrue_UC = unicode:characters_to_binary([ValueTrue,0]),[<<1:32/?UI,(byte_size(ValueTrue_UC)):32/?UI,(ValueTrue_UC)/binary, 0:(((8- ((0+byte_size(ValueTrue_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
@@ -74,7 +74,7 @@ useStringValues(Options)
   <<BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellBoolEditor) -> ok.
+-spec destroy(This::wxGridCellBoolEditor()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellBoolEditor),
   wxe_util:destroy(?wxGridCellBoolEditor_destroy,Obj),

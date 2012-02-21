@@ -66,7 +66,7 @@ new(#wx_ref{type=BoxT,ref=BoxRef},Orient)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticboxsizer.html#wxstaticboxsizerwxstaticboxsizer">external documentation</a>.
 -spec new(Orient, Win, [Option]) -> wxStaticBoxSizer() when
 	Orient::integer(), Win::wxWindow:wxWindow(),
-	Option :: {label, string()}.
+	Option :: {label, unicode:chardata()}.
 new(Orient,#wx_ref{type=WinT,ref=WinRef}, Options)
  when is_integer(Orient),is_list(Options) ->
   ?CLASS(WinT,wxWindow),
@@ -85,7 +85,7 @@ getStaticBox(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStaticBoxSizer) -> ok.
+-spec destroy(This::wxStaticBoxSizer()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBoxSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

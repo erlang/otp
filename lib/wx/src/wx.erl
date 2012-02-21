@@ -49,7 +49,7 @@
 %%
 %% The following classes are implemented directly as erlang types: <br />
 %% wxPoint={x,y},wxSize={w,h},wxRect={x,y,w,h},wxColour={r,g,b [,a]},
-%% wxString={@link //stdlib/unicode:charlist()},
+%% wxString={@link //stdlib/unicode:chardata()},
 %% wxGBPosition={r,c},wxGBSpan={rs,cs},wxGridCellCoords={r,c}.
 %%
 %% wxWidgets uses a process specific environment, which is created by
@@ -75,13 +75,16 @@
 -include("wxe.hrl").
 -include("../include/wx.hrl").
 
--opaque wx_object() :: tuple().  %% Opaque object reference
--opaque wx_env() :: tuple().     %% Opaque process environment
--opaque wx_memory() :: tuple().     %% Opaque memory reference
--type wx_colour() :: {R::byte(),G::byte(),B::byte()} |
-		     {R::byte(),G::byte(),B::byte(), A::byte()}. %% Always RGBA as return values
+-opaque wx_object() :: #wx_ref{}.  %% Opaque object reference
+-opaque wx_env() :: #wx_env{}.     %% Opaque process environment
+-opaque wx_memory() :: binary() | #wx_mem{}.     %% Opaque memory reference
+
+-type wx_colour4() :: {R::byte(),G::byte(),B::byte(), A::byte()}.
+-type wx_colour()  :: {R::byte(),G::byte(),B::byte()}  | wx_colour4().
+
 -type wx_datetime() :: {{Year::integer(),Month::integer(),Day::integer()},
 			{Hour::integer(),Minute::integer(),Second::integer()}}. %% In Local Timezone
+
 -type wx_mouseState() :: #wxMouseState{}.  %% See #wxMouseState{} defined in wx.hrl
 -type wx_enum() :: integer().      %% Constant defined in wx.hrl
 -type wx_wxHtmlLinkInfo() :: #wxHtmlLinkInfo{}.
@@ -269,11 +272,11 @@ release_memory(Bin) when is_binary(Bin) ->
     wxe_util:send_bin(Bin),
     ok = wxe_util:cast(?WXE_BIN_DECR, <<>>).
 
-%% @doc Sets debug level. If debug level is verbose or trace
-%% each call is printed on console. If Level is driver each allocated
+%% @doc Sets debug level. If debug level is 'verbose' or 'trace'
+%% each call is printed on console. If Level is 'driver' each allocated
 %% object and deletion is printed on the console.
 -spec debug(Level | [Level]) -> ok
-     when Level :: none | verbose | trace | driver.
+     when Level :: none | verbose | trace | driver | integer().
 
 debug(none) -> debug(0);
 debug(verbose) -> debug(1);

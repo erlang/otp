@@ -123,7 +123,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowappendtopage">external documentation</a>.
 -spec appendToPage(This, Source) -> boolean() when
-	This::wxHtmlWindow(), Source::string().
+	This::wxHtmlWindow(), Source::unicode:chardata().
 appendToPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
  when is_list(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -132,7 +132,7 @@ appendToPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
   <<ThisRef:32/?UI,(byte_size(Source_UC)):32/?UI,(Source_UC)/binary, 0:(((8- ((0+byte_size(Source_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedanchor">external documentation</a>.
--spec getOpenedAnchor(This) -> string() when
+-spec getOpenedAnchor(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedAnchor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -140,7 +140,7 @@ getOpenedAnchor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpage">external documentation</a>.
--spec getOpenedPage(This) -> string() when
+-spec getOpenedPage(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -148,7 +148,7 @@ getOpenedPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowgetopenedpagetitle">external documentation</a>.
--spec getOpenedPageTitle(This) -> string() when
+-spec getOpenedPageTitle(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 getOpenedPageTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -205,7 +205,7 @@ historyForward(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowloadfile">external documentation</a>.
 -spec loadFile(This, Filename) -> boolean() when
-	This::wxHtmlWindow(), Filename::string().
+	This::wxHtmlWindow(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
  when is_list(Filename) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -215,7 +215,7 @@ loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowloadpage">external documentation</a>.
 -spec loadPage(This, Location) -> boolean() when
-	This::wxHtmlWindow(), Location::string().
+	This::wxHtmlWindow(), Location::unicode:chardata().
 loadPage(#wx_ref{type=ThisT,ref=ThisRef},Location)
  when is_list(Location) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -232,7 +232,7 @@ selectAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowselectiontotext">external documentation</a>.
--spec selectionToText(This) -> string() when
+-spec selectionToText(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 selectionToText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -268,7 +268,7 @@ setBorders(#wx_ref{type=ThisT,ref=ThisRef},B)
 
 %% @equiv setFonts(This,Normal_face,Fixed_face, [])
 -spec setFonts(This, Normal_face, Fixed_face) -> ok when
-	This::wxHtmlWindow(), Normal_face::string(), Fixed_face::string().
+	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
 setFonts(This,Normal_face,Fixed_face)
  when is_record(This, wx_ref),is_list(Normal_face),is_list(Fixed_face) ->
@@ -276,7 +276,7 @@ setFonts(This,Normal_face,Fixed_face)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetfonts">external documentation</a>.
 -spec setFonts(This, Normal_face, Fixed_face, [Option]) -> ok when
-	This::wxHtmlWindow(), Normal_face::string(), Fixed_face::string(),
+	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
 	Option :: {sizes, integer()}.
 setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
  when is_list(Normal_face),is_list(Fixed_face),is_list(Options) ->
@@ -291,7 +291,7 @@ setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetpage">external documentation</a>.
 -spec setPage(This, Source) -> boolean() when
-	This::wxHtmlWindow(), Source::string().
+	This::wxHtmlWindow(), Source::unicode:chardata().
 setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
  when is_list(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -301,7 +301,7 @@ setPage(#wx_ref{type=ThisT,ref=ThisRef},Source)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowsetrelatedframe">external documentation</a>.
 -spec setRelatedFrame(This, Frame, Format) -> ok when
-	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::string().
+	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
 setRelatedFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef},Format)
  when is_list(Format) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -320,7 +320,7 @@ setRelatedStatusBar(#wx_ref{type=ThisT,ref=ThisRef},Bar)
   <<ThisRef:32/?UI,Bar:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html#wxhtmlwindowtotext">external documentation</a>.
--spec toText(This) -> string() when
+-spec toText(This) -> unicode:charlist() when
 	This::wxHtmlWindow().
 toText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -328,7 +328,7 @@ toText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxHtmlWindow) -> ok.
+-spec destroy(This::wxHtmlWindow()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxHtmlWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -88,7 +88,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxProgressDialog() :: wx:wx_object().
 %% @equiv new(Title,Message, [])
 -spec new(Title, Message) -> wxProgressDialog() when
-	Title::string(), Message::string().
+	Title::unicode:chardata(), Message::unicode:chardata().
 
 new(Title,Message)
  when is_list(Title),is_list(Message) ->
@@ -96,7 +96,7 @@ new(Title,Message)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprogressdialog.html#wxprogressdialogwxprogressdialog">external documentation</a>.
 -spec new(Title, Message, [Option]) -> wxProgressDialog() when
-	Title::string(), Message::string(),
+	Title::unicode:chardata(), Message::unicode:chardata(),
 	Option :: {maximum, integer()}
 		 | {parent, wxWindow:wxWindow()}
 		 | {style, integer()}.
@@ -139,7 +139,7 @@ update(This,Value)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprogressdialog.html#wxprogressdialogupdate">external documentation</a>.
 -spec update(This, Value, [Option]) -> boolean() when
 	This::wxProgressDialog(), Value::integer(),
-	Option :: {newmsg, string()}.
+	Option :: {newmsg, unicode:chardata()}.
 update(#wx_ref{type=ThisT,ref=ThisRef},Value, Options)
  when is_integer(Value),is_list(Options) ->
   ?CLASS(ThisT,wxProgressDialog),
@@ -150,7 +150,7 @@ update(#wx_ref{type=ThisT,ref=ThisRef},Value, Options)
   <<ThisRef:32/?UI,Value:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxProgressDialog) -> ok.
+-spec destroy(This::wxProgressDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxProgressDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

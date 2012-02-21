@@ -202,7 +202,7 @@ setScrollbar(#wx_ref{type=ThisT,ref=ThisRef},Position,ThumbSize,Range,PageSize, 
   <<ThisRef:32/?UI,Position:32/?UI,ThumbSize:32/?UI,Range:32/?UI,PageSize:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxScrollBar) -> ok.
+-spec destroy(This::wxScrollBar()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScrollBar),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

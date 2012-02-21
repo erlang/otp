@@ -58,7 +58,7 @@ getChooseFull(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatagetcolour">external documentation</a>.
--spec getColour(This) -> wx:wx_colour() when
+-spec getColour(This) -> wx:wx_colour4() when
 	This::wxColourData().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxColourData),
@@ -66,7 +66,7 @@ getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourdata.html#wxcolourdatagetcustomcolour">external documentation</a>.
--spec getCustomColour(This, I) -> wx:wx_colour() when
+-spec getCustomColour(This, I) -> wx:wx_colour4() when
 	This::wxColourData(), I::integer().
 getCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I)
  when is_integer(I) ->
@@ -102,7 +102,7 @@ setCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I,Colour)
   <<ThisRef:32/?UI,I:32/?UI,(wxe_util:colour_bin(Colour)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxColourData) -> ok.
+-spec destroy(This::wxColourData()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

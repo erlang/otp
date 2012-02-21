@@ -396,7 +396,7 @@ setItemSpan(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},
   <<ThisRef:32/?UI,WindowRef:32/?UI,SpanRS:32/?UI,SpanCS:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridBagSizer) -> ok.
+-spec destroy(This::wxGridBagSizer()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridBagSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

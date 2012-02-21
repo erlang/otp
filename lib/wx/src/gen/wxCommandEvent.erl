@@ -77,7 +77,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventgetstring">external documentation</a>.
--spec getString(This) -> string() when
+-spec getString(This) -> unicode:charlist() when
 	This::wxCommandEvent().
 getString(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCommandEvent),
@@ -111,7 +111,7 @@ setInt(#wx_ref{type=ThisT,ref=ThisRef},I)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcommandevent.html#wxcommandeventsetstring">external documentation</a>.
 -spec setString(This, S) -> ok when
-	This::wxCommandEvent(), S::string().
+	This::wxCommandEvent(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},S)
  when is_list(S) ->
   ?CLASS(ThisT,wxCommandEvent),

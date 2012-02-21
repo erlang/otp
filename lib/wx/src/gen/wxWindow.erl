@@ -327,7 +327,7 @@ findFocus() ->
 -spec findWindow(This, Winid) -> wxWindow() when
 	This::wxWindow(), Winid::integer();
       (This, Name) -> wxWindow() when
-	This::wxWindow(), Name::string().
+	This::wxWindow(), Name::unicode:chardata().
 findWindow(#wx_ref{type=ThisT,ref=ThisRef},Winid)
  when is_integer(Winid) ->
   ?CLASS(ThisT,wxWindow),
@@ -362,7 +362,7 @@ findWindowById(Winid, Options)
 
 %% @equiv findWindowByName(Name, [])
 -spec findWindowByName(Name) -> wxWindow() when
-	Name::string().
+	Name::unicode:chardata().
 
 findWindowByName(Name)
  when is_list(Name) ->
@@ -370,7 +370,7 @@ findWindowByName(Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowfindwindowbyname">external documentation</a>.
 -spec findWindowByName(Name, [Option]) -> wxWindow() when
-	Name::string(),
+	Name::unicode:chardata(),
 	Option :: {parent, wxWindow()}.
 findWindowByName(Name, Options)
  when is_list(Name),is_list(Options) ->
@@ -383,7 +383,7 @@ findWindowByName(Name, Options)
 
 %% @equiv findWindowByLabel(Label, [])
 -spec findWindowByLabel(Label) -> wxWindow() when
-	Label::string().
+	Label::unicode:chardata().
 
 findWindowByLabel(Label)
  when is_list(Label) ->
@@ -391,7 +391,7 @@ findWindowByLabel(Label)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowfindwindowbylabel">external documentation</a>.
 -spec findWindowByLabel(Label, [Option]) -> wxWindow() when
-	Label::string(),
+	Label::unicode:chardata(),
 	Option :: {parent, wxWindow()}.
 findWindowByLabel(Label, Options)
  when is_list(Label),is_list(Options) ->
@@ -435,7 +435,7 @@ getAcceleratorTable(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetbackgroundcolour">external documentation</a>.
--spec getBackgroundColour(This) -> wx:wx_colour() when
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxWindow().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -554,7 +554,7 @@ getFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetforegroundcolour">external documentation</a>.
--spec getForegroundColour(This) -> wx:wx_colour() when
+-spec getForegroundColour(This) -> wx:wx_colour4() when
 	This::wxWindow().
 getForegroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -578,7 +578,7 @@ getHandle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgethelptext">external documentation</a>.
--spec getHelpText(This) -> string() when
+-spec getHelpText(This) -> unicode:charlist() when
 	This::wxWindow().
 getHelpText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -594,7 +594,7 @@ getId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetlabel">external documentation</a>.
--spec getLabel(This) -> string() when
+-spec getLabel(This) -> unicode:charlist() when
 	This::wxWindow().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -618,7 +618,7 @@ getMinSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetname">external documentation</a>.
--spec getName(This) -> string() when
+-spec getName(This) -> unicode:charlist() when
 	This::wxWindow().
 getName(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -711,7 +711,7 @@ getSizer(#wx_ref{type=ThisT,ref=ThisRef}) ->
 %% @equiv getTextExtent(This,String, [])
 -spec getTextExtent(This, String) -> Result when
 	Result ::{X::integer(), Y::integer(), Descent::integer(), ExternalLeading::integer()},
-	This::wxWindow(), String::string().
+	This::wxWindow(), String::unicode:chardata().
 
 getTextExtent(This,String)
  when is_record(This, wx_ref),is_list(String) ->
@@ -720,7 +720,7 @@ getTextExtent(This,String)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgettextextent">external documentation</a>.
 -spec getTextExtent(This, String, [Option]) -> Result when
 	Result :: {X::integer(), Y::integer(), Descent::integer(), ExternalLeading::integer()},
-	This::wxWindow(), String::string(),
+	This::wxWindow(), String::unicode:chardata(),
 	Option :: {theFont, wxFont:wxFont()}.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
  when is_list(String),is_list(Options) ->
@@ -1419,7 +1419,7 @@ setForegroundColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsethelptext">external documentation</a>.
 -spec setHelpText(This, Text) -> ok when
-	This::wxWindow(), Text::string().
+	This::wxWindow(), Text::unicode:chardata().
 setHelpText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxWindow),
@@ -1438,7 +1438,7 @@ setId(#wx_ref{type=ThisT,ref=ThisRef},Winid)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> ok when
-	This::wxWindow(), Label::string().
+	This::wxWindow(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->
   ?CLASS(ThisT,wxWindow),
@@ -1448,7 +1448,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetname">external documentation</a>.
 -spec setName(This, Name) -> ok when
-	This::wxWindow(), Name::string().
+	This::wxWindow(), Name::unicode:chardata().
 setName(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxWindow),
@@ -1666,7 +1666,7 @@ setThemeEnabled(#wx_ref{type=ThisT,ref=ThisRef},EnableTheme)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsettooltip">external documentation</a>.
 -spec setToolTip(This, Tip) -> ok when
-	This::wxWindow(), Tip::string();
+	This::wxWindow(), Tip::unicode:chardata();
       (This, Tip) -> ok when
 	This::wxWindow(), Tip::wxToolTip:wxToolTip().
 setToolTip(#wx_ref{type=ThisT,ref=ThisRef},Tip)
@@ -1869,7 +1869,7 @@ warpPointer(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxWindow) -> ok.
+-spec destroy(This::wxWindow()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

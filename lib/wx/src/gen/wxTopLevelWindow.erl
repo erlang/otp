@@ -96,7 +96,7 @@ getIcons(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowgettitle">external documentation</a>.
--spec getTitle(This) -> string() when
+-spec getTitle(This) -> unicode:charlist() when
 	This::wxTopLevelWindow().
 getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTopLevelWindow),
@@ -269,7 +269,7 @@ setShape(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=RegionT,ref=RegionRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoplevelwindow.html#wxtoplevelwindowsettitle">external documentation</a>.
 -spec setTitle(This, Title) -> ok when
-	This::wxTopLevelWindow(), Title::string().
+	This::wxTopLevelWindow(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT,ref=ThisRef},Title)
  when is_list(Title) ->
   ?CLASS(ThisT,wxTopLevelWindow),

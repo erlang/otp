@@ -45,7 +45,7 @@ new() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellStringRenderer) -> ok.
+-spec destroy(This::wxGridCellStringRenderer()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellStringRenderer),
   wxe_util:destroy(?wxGridCellStringRenderer_destroy,Obj),

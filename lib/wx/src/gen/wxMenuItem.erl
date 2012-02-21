@@ -48,8 +48,8 @@ new() ->
 -spec new([Option]) -> wxMenuItem() when
 	Option :: {parentMenu, wxMenu:wxMenu()}
 		 | {id, integer()}
-		 | {text, string()}
-		 | {help, string()}
+		 | {text, unicode:chardata()}
+		 | {help, unicode:chardata()}
 		 | {kind, wx:wx_enum()}
 		 | {subMenu, wxMenu:wxMenu()}.
 new(Options)
@@ -116,7 +116,7 @@ getBitmap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuitem.html#wxmenuitemgethelp">external documentation</a>.
--spec getHelp(This) -> string() when
+-spec getHelp(This) -> unicode:charlist() when
 	This::wxMenuItem().
 getHelp(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -141,7 +141,7 @@ getKind(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuitem.html#wxmenuitemgetlabel">external documentation</a>.
--spec getLabel(This) -> string() when
+-spec getLabel(This) -> unicode:charlist() when
 	This::wxMenuItem().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -149,8 +149,8 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuitem.html#wxmenuitemgetlabelfromtext">external documentation</a>.
--spec getLabelFromText(Text) -> string() when
-	Text::string().
+-spec getLabelFromText(Text) -> unicode:charlist() when
+	Text::unicode:chardata().
 getLabelFromText(Text)
  when is_list(Text) ->
   Text_UC = unicode:characters_to_binary([Text,0]),
@@ -166,7 +166,7 @@ getMenu(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuitem.html#wxmenuitemgettext">external documentation</a>.
--spec getText(This) -> string() when
+-spec getText(This) -> unicode:charlist() when
 	This::wxMenuItem().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -232,7 +232,7 @@ setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) -
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuitem.html#wxmenuitemsethelp">external documentation</a>.
 -spec setHelp(This, Str) -> ok when
-	This::wxMenuItem(), Str::string().
+	This::wxMenuItem(), Str::unicode:chardata().
 setHelp(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -260,7 +260,7 @@ setSubMenu(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MenuT,ref=MenuRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuitem.html#wxmenuitemsettext">external documentation</a>.
 -spec setText(This, Str) -> ok when
-	This::wxMenuItem(), Str::string().
+	This::wxMenuItem(), Str::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Str)
  when is_list(Str) ->
   ?CLASS(ThisT,wxMenuItem),
@@ -269,7 +269,7 @@ setText(#wx_ref{type=ThisT,ref=ThisRef},Str)
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMenuItem) -> ok.
+-spec destroy(This::wxMenuItem()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMenuItem),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

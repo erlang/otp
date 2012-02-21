@@ -184,7 +184,7 @@ setMaxPointSize(#wx_ref{type=ThisT,ref=ThisRef},Max)
   <<ThisRef:32/?UI,Max:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFontPickerCtrl) -> ok.
+-spec destroy(This::wxFontPickerCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFontPickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -73,7 +73,7 @@ getCap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpen.html#wxpengetcolour">external documentation</a>.
--spec getColour(This) -> wx:wx_colour() when
+-spec getColour(This) -> wx:wx_colour4() when
 	This::wxPen().
 getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPen),
@@ -167,7 +167,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPen) -> ok.
+-spec destroy(This::wxPen()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPen),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

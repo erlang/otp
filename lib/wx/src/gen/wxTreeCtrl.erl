@@ -134,7 +134,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 
 %% @equiv addRoot(This,Text, [])
 -spec addRoot(This, Text) -> integer() when
-	This::wxTreeCtrl(), Text::string().
+	This::wxTreeCtrl(), Text::unicode:chardata().
 
 addRoot(This,Text)
  when is_record(This, wx_ref),is_list(Text) ->
@@ -142,7 +142,7 @@ addRoot(This,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrladdroot">external documentation</a>.
 -spec addRoot(This, Text, [Option]) -> integer() when
-	This::wxTreeCtrl(), Text::string(),
+	This::wxTreeCtrl(), Text::unicode:chardata(),
 	Option :: {image, integer()}
 		 | {selectedImage, integer()}
 		 | {data, term()}.
@@ -160,7 +160,7 @@ addRoot(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
 
 %% @equiv appendItem(This,Parent,Text, [])
 -spec appendItem(This, Parent, Text) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Text::string().
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
 appendItem(This,Parent,Text)
  when is_record(This, wx_ref),is_integer(Parent),is_list(Text) ->
@@ -168,7 +168,7 @@ appendItem(This,Parent,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlappenditem">external documentation</a>.
 -spec appendItem(This, Parent, Text, [Option]) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Text::string(),
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata(),
 	Option :: {image, integer()}
 		 | {selectedImage, integer()}
 		 | {data, term()}.
@@ -406,7 +406,7 @@ getIndent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitembackgroundcolour">external documentation</a>.
--spec getItemBackgroundColour(This, Item) -> wx:wx_colour() when
+-spec getItemBackgroundColour(This, Item) -> wx:wx_colour4() when
 	This::wxTreeCtrl(), Item::integer().
 getItemBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
@@ -456,7 +456,7 @@ getItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
   <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemtext">external documentation</a>.
--spec getItemText(This, Item) -> string() when
+-spec getItemText(This, Item) -> unicode:charlist() when
 	This::wxTreeCtrl(), Item::integer().
 getItemText(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
@@ -465,7 +465,7 @@ getItemText(#wx_ref{type=ThisT,ref=ThisRef},Item)
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemtextcolour">external documentation</a>.
--spec getItemTextColour(This, Item) -> wx:wx_colour() when
+-spec getItemTextColour(This, Item) -> wx:wx_colour4() when
 	This::wxTreeCtrl(), Item::integer().
 getItemTextColour(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
@@ -571,7 +571,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
 
 %% @equiv insertItem(This,Parent,Pos,Text, [])
 -spec insertItem(This, Parent, Pos, Text) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::string().
+	This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::unicode:chardata().
 
 insertItem(This,Parent,Pos,Text)
  when is_record(This, wx_ref),is_integer(Parent),is_integer(Pos),is_list(Text) ->
@@ -579,7 +579,7 @@ insertItem(This,Parent,Pos,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlinsertitem">external documentation</a>.
 -spec insertItem(This, Parent, Pos, Text, [Option]) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::string(),
+	This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::unicode:chardata(),
 	Option :: {image, integer()}
 		 | {selImage, integer()}
 		 | {data, term()}.
@@ -642,7 +642,7 @@ itemHasChildren(#wx_ref{type=ThisT,ref=ThisRef},Item)
 
 %% @equiv prependItem(This,Parent,Text, [])
 -spec prependItem(This, Parent, Text) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Text::string().
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
 
 prependItem(This,Parent,Text)
  when is_record(This, wx_ref),is_integer(Parent),is_list(Text) ->
@@ -650,7 +650,7 @@ prependItem(This,Parent,Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlprependitem">external documentation</a>.
 -spec prependItem(This, Parent, Text, [Option]) -> integer() when
-	This::wxTreeCtrl(), Parent::integer(), Text::string(),
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata(),
 	Option :: {image, integer()}
 		 | {selectedImage, integer()}
 		 | {data, term()}.
@@ -832,7 +832,7 @@ setItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item,Image, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemtext">external documentation</a>.
 -spec setItemText(This, Item, Text) -> ok when
-	This::wxTreeCtrl(), Item::integer(), Text::string().
+	This::wxTreeCtrl(), Item::integer(), Text::unicode:chardata().
 setItemText(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
  when is_integer(Item),is_list(Text) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -920,7 +920,7 @@ unselectItem(#wx_ref{type=ThisT,ref=ThisRef},Item)
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxTreeCtrl) -> ok.
+-spec destroy(This::wxTreeCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTreeCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

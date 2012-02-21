@@ -100,7 +100,7 @@ setNegativeButton(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ButtonT,ref=Butto
   <<ThisRef:32/?UI,ButtonRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStdDialogButtonSizer) -> ok.
+-spec destroy(This::wxStdDialogButtonSizer()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStdDialogButtonSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

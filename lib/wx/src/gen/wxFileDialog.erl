@@ -99,10 +99,10 @@ new(Parent)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialogwxfiledialog">external documentation</a>.
 -spec new(Parent, [Option]) -> wxFileDialog() when
 	Parent::wxWindow:wxWindow(),
-	Option :: {message, string()}
-		 | {defaultDir, string()}
-		 | {defaultFile, string()}
-		 | {wildCard, string()}
+	Option :: {message, unicode:chardata()}
+		 | {defaultDir, unicode:chardata()}
+		 | {defaultFile, unicode:chardata()}
+		 | {wildCard, unicode:chardata()}
 		 | {style, integer()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {sz, {W::integer(), H::integer()}}.
@@ -122,7 +122,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetdirectory">external documentation</a>.
--spec getDirectory(This) -> string() when
+-spec getDirectory(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getDirectory(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -130,7 +130,7 @@ getDirectory(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetfilename">external documentation</a>.
--spec getFilename(This) -> string() when
+-spec getFilename(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getFilename(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -138,7 +138,7 @@ getFilename(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetfilenames">external documentation</a>.
--spec getFilenames(This) -> [[string()]] when
+-spec getFilenames(This) -> [[unicode:charlist()]] when
 	This::wxFileDialog().
 getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -154,7 +154,7 @@ getFilterIndex(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetmessage">external documentation</a>.
--spec getMessage(This) -> string() when
+-spec getMessage(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getMessage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -162,7 +162,7 @@ getMessage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetpath">external documentation</a>.
--spec getPath(This) -> string() when
+-spec getPath(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -170,7 +170,7 @@ getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetpaths">external documentation</a>.
--spec getPaths(This) -> [[string()]] when
+-spec getPaths(This) -> [[unicode:charlist()]] when
 	This::wxFileDialog().
 getPaths(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -178,7 +178,7 @@ getPaths(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetwildcard">external documentation</a>.
--spec getWildcard(This) -> string() when
+-spec getWildcard(This) -> unicode:charlist() when
 	This::wxFileDialog().
 getWildcard(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -187,7 +187,7 @@ getWildcard(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialogsetdirectory">external documentation</a>.
 -spec setDirectory(This, Dir) -> ok when
-	This::wxFileDialog(), Dir::string().
+	This::wxFileDialog(), Dir::unicode:chardata().
 setDirectory(#wx_ref{type=ThisT,ref=ThisRef},Dir)
  when is_list(Dir) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -197,7 +197,7 @@ setDirectory(#wx_ref{type=ThisT,ref=ThisRef},Dir)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialogsetfilename">external documentation</a>.
 -spec setFilename(This, Name) -> ok when
-	This::wxFileDialog(), Name::string().
+	This::wxFileDialog(), Name::unicode:chardata().
 setFilename(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -216,7 +216,7 @@ setFilterIndex(#wx_ref{type=ThisT,ref=ThisRef},FilterIndex)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialogsetmessage">external documentation</a>.
 -spec setMessage(This, Message) -> ok when
-	This::wxFileDialog(), Message::string().
+	This::wxFileDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
  when is_list(Message) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -226,7 +226,7 @@ setMessage(#wx_ref{type=ThisT,ref=ThisRef},Message)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialogsetpath">external documentation</a>.
 -spec setPath(This, Path) -> ok when
-	This::wxFileDialog(), Path::string().
+	This::wxFileDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
  when is_list(Path) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -236,7 +236,7 @@ setPath(#wx_ref{type=ThisT,ref=ThisRef},Path)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialogsetwildcard">external documentation</a>.
 -spec setWildcard(This, WildCard) -> ok when
-	This::wxFileDialog(), WildCard::string().
+	This::wxFileDialog(), WildCard::unicode:chardata().
 setWildcard(#wx_ref{type=ThisT,ref=ThisRef},WildCard)
  when is_list(WildCard) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -245,7 +245,7 @@ setWildcard(#wx_ref{type=ThisT,ref=ThisRef},WildCard)
   <<ThisRef:32/?UI,(byte_size(WildCard_UC)):32/?UI,(WildCard_UC)/binary, 0:(((8- ((0+byte_size(WildCard_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFileDialog) -> ok.
+-spec destroy(This::wxFileDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

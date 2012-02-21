@@ -85,7 +85,7 @@ new() ->
 
 %% @equiv new(Parent,Id,Label, [])
 -spec new(Parent, Id, Label) -> wxStaticText() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::string().
+	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
@@ -93,7 +93,7 @@ new(Parent,Id,Label)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextwxstatictext">external documentation</a>.
 -spec new(Parent, Id, Label, [Option]) -> wxStaticText() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::string(),
+	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}.
@@ -111,7 +111,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
 
 %% @equiv create(This,Parent,Id,Label, [])
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::string().
+	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
@@ -119,7 +119,7 @@ create(This,Parent,Id,Label)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextcreate">external documentation</a>.
 -spec create(This, Parent, Id, Label, [Option]) -> boolean() when
-	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::string(),
+	This::wxStaticText(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}.
@@ -137,7 +137,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,La
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextgetlabel">external documentation</a>.
--spec getLabel(This) -> string() when
+-spec getLabel(This) -> unicode:charlist() when
 	This::wxStaticText().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStaticText),
@@ -146,7 +146,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstatictext.html#wxstatictextsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> ok when
-	This::wxStaticText(), Label::string().
+	This::wxStaticText(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->
   ?CLASS(ThisT,wxStaticText),
@@ -164,7 +164,7 @@ wrap(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStaticText) -> ok.
+-spec destroy(This::wxStaticText()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticText),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

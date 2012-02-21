@@ -68,7 +68,7 @@ new(#wx_ref{type=DcT,ref=DcRef},Mirror)
   <<DcRef:32/?UI,(wxe_util:from_bool(Mirror)):32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMirrorDC) -> ok.
+-spec destroy(This::wxMirrorDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMirrorDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

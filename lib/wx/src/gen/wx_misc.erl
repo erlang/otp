@@ -67,7 +67,7 @@ bell() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxfindmenuitemid">external documentation</a>.
 -spec findMenuItemId(Frame, MenuString, ItemString) -> integer() when
-	Frame::wxFrame:wxFrame(), MenuString::string(), ItemString::string().
+	Frame::wxFrame:wxFrame(), MenuString::unicode:chardata(), ItemString::unicode:chardata().
 findMenuItemId(#wx_ref{type=FrameT,ref=FrameRef},MenuString,ItemString)
  when is_list(MenuString),is_list(ItemString) ->
   ?CLASS(FrameT,wxFrame),
@@ -138,7 +138,7 @@ shell() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxshell">external documentation</a>.
 -spec shell([Option]) -> boolean() when
-	Option :: {command, string()}.
+	Option :: {command, unicode:chardata()}.
 shell(Options)
  when is_list(Options) ->
   MOpts = fun({command, Command}, Acc) ->   Command_UC = unicode:characters_to_binary([Command,0]),[<<1:32/?UI,(byte_size(Command_UC)):32/?UI,(Command_UC)/binary, 0:(((8- ((0+byte_size(Command_UC)) band 16#7)) band 16#7))/unit:8>>|Acc];
@@ -149,7 +149,7 @@ shell(Options)
 
 %% @equiv launchDefaultBrowser(Url, [])
 -spec launchDefaultBrowser(Url) -> boolean() when
-	Url::string().
+	Url::unicode:chardata().
 
 launchDefaultBrowser(Url)
  when is_list(Url) ->
@@ -157,7 +157,7 @@ launchDefaultBrowser(Url)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxlaunchdefaultbrowser">external documentation</a>.
 -spec launchDefaultBrowser(Url, [Option]) -> boolean() when
-	Url::string(),
+	Url::unicode:chardata(),
 	Option :: {flags, integer()}.
 launchDefaultBrowser(Url, Options)
  when is_list(Url),is_list(Options) ->
@@ -169,19 +169,19 @@ launchDefaultBrowser(Url, Options)
   <<(byte_size(Url_UC)):32/?UI,(Url_UC)/binary, 0:(((8- ((4+byte_size(Url_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxgetemailaddress">external documentation</a>.
--spec getEmailAddress() -> string().
+-spec getEmailAddress() -> unicode:charlist().
 getEmailAddress() ->
   wxe_util:call(?utils_wxGetEmailAddress,
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxgetuserid">external documentation</a>.
--spec getUserId() -> string().
+-spec getUserId() -> unicode:charlist().
 getUserId() ->
   wxe_util:call(?utils_wxGetUserId,
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxgethomedir">external documentation</a>.
--spec getHomeDir() -> string().
+-spec getHomeDir() -> unicode:charlist().
 getHomeDir() ->
   wxe_util:call(?utils_wxGetHomeDir,
   <<>>).
@@ -207,7 +207,7 @@ getCurrentId() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_miscellany.html#wxgetosdescription">external documentation</a>.
--spec getOsDescription() -> string().
+-spec getOsDescription() -> unicode:charlist().
 getOsDescription() ->
   wxe_util:call(?utils_wxGetOsDescription,
   <<>>).

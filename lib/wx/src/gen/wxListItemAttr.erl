@@ -52,7 +52,7 @@ new(ColText,ColBack,#wx_ref{type=FontT,ref=FontRef})
   <<(wxe_util:colour_bin(ColText)):16/binary,(wxe_util:colour_bin(ColBack)):16/binary,FontRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrgetbackgroundcolour">external documentation</a>.
--spec getBackgroundColour(This) -> wx:wx_colour() when
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxListItemAttr().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
@@ -68,7 +68,7 @@ getFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrgettextcolour">external documentation</a>.
--spec getTextColour(This) -> wx:wx_colour() when
+-spec getTextColour(This) -> wx:wx_colour4() when
 	This::wxListItemAttr().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
@@ -127,7 +127,7 @@ setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxListItemAttr) -> ok.
+-spec destroy(This::wxListItemAttr()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListItemAttr),
   wxe_util:destroy(?wxListItemAttr_destroy,Obj),

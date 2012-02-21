@@ -46,7 +46,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfont.html#wxfontwxfont">external documentation</a>.
 -spec new(Fontname) -> wxFont() when
-	Fontname::string().
+	Fontname::unicode:chardata().
 new(Fontname)
  when is_list(Fontname) ->
   Fontname_UC = unicode:characters_to_binary([Fontname,0]),
@@ -68,7 +68,7 @@ new(Size,Family,Style,Weight)
 -spec new(Size, Family, Style, Weight, [Option]) -> wxFont() when
 	Size::integer(), Family::wx:wx_enum(), Style::wx:wx_enum(), Weight::integer(),
 	Option :: {underlined, boolean()}
-		 | {face, string()}
+		 | {face, unicode:chardata()}
 		 | {encoding, wx:wx_enum()}.
 new(Size,Family,Style,Weight, Options)
  when is_integer(Size),is_integer(Family),is_integer(Style),is_integer(Weight),is_list(Options) ->
@@ -96,7 +96,7 @@ getDefaultEncoding() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfont.html#wxfontgetfacename">external documentation</a>.
--spec getFaceName(This) -> string() when
+-spec getFaceName(This) -> unicode:charlist() when
 	This::wxFont().
 getFaceName(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFont),
@@ -113,7 +113,7 @@ getFamily(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfont.html#wxfontgetnativefontinfodesc">external documentation</a>.
--spec getNativeFontInfoDesc(This) -> string() when
+-spec getNativeFontInfoDesc(This) -> unicode:charlist() when
 	This::wxFont().
 getNativeFontInfoDesc(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFont),
@@ -121,7 +121,7 @@ getNativeFontInfoDesc(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfont.html#wxfontgetnativefontinfouserdesc">external documentation</a>.
--spec getNativeFontInfoUserDesc(This) -> string() when
+-spec getNativeFontInfoUserDesc(This) -> unicode:charlist() when
 	This::wxFont().
 getNativeFontInfoUserDesc(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFont),
@@ -180,7 +180,7 @@ setDefaultEncoding(Encoding)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfont.html#wxfontsetfacename">external documentation</a>.
 -spec setFaceName(This, FaceName) -> boolean() when
-	This::wxFont(), FaceName::string().
+	This::wxFont(), FaceName::unicode:chardata().
 setFaceName(#wx_ref{type=ThisT,ref=ThisRef},FaceName)
  when is_list(FaceName) ->
   ?CLASS(ThisT,wxFont),
@@ -236,7 +236,7 @@ setWeight(#wx_ref{type=ThisT,ref=ThisRef},Weight)
   <<ThisRef:32/?UI,Weight:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFont) -> ok.
+-spec destroy(This::wxFont()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFont),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

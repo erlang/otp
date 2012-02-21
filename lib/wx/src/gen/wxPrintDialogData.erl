@@ -263,7 +263,7 @@ setToPage(#wx_ref{type=ThisT,ref=ThisRef},V)
   <<ThisRef:32/?UI,V:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrintDialogData) -> ok.
+-spec destroy(This::wxPrintDialogData()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintDialogData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

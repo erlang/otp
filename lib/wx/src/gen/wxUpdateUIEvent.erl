@@ -141,7 +141,7 @@ getSetText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgettext">external documentation</a>.
--spec getText(This) -> string() when
+-spec getText(This) -> unicode:charlist() when
 	This::wxUpdateUIEvent().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
@@ -178,7 +178,7 @@ setMode(Mode)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventsettext">external documentation</a>.
 -spec setText(This, Text) -> ok when
-	This::wxUpdateUIEvent(), Text::string().
+	This::wxUpdateUIEvent(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxUpdateUIEvent),

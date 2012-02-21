@@ -60,7 +60,7 @@ new(Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellfloateditor.html#wxgridcellfloateditorsetparameters">external documentation</a>.
 -spec setParameters(This, Params) -> ok when
-	This::wxGridCellFloatEditor(), Params::string().
+	This::wxGridCellFloatEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
   ?CLASS(ThisT,wxGridCellFloatEditor),
@@ -69,7 +69,7 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
   <<ThisRef:32/?UI,(byte_size(Params_UC)):32/?UI,(Params_UC)/binary, 0:(((8- ((0+byte_size(Params_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellFloatEditor) -> ok.
+-spec destroy(This::wxGridCellFloatEditor()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellFloatEditor),
   wxe_util:destroy(?wxGridCellFloatEditor_destroy,Obj),

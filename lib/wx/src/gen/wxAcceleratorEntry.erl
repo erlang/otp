@@ -109,7 +109,7 @@ set(#wx_ref{type=ThisT,ref=ThisRef},Flags,KeyCode,Cmd, Options)
   <<ThisRef:32/?UI,Flags:32/?UI,KeyCode:32/?UI,Cmd:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxAcceleratorEntry) -> ok.
+-spec destroy(This::wxAcceleratorEntry()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAcceleratorEntry),
   wxe_util:destroy(?wxAcceleratorEntry_destroy,Obj),

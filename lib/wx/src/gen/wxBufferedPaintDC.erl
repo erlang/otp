@@ -105,7 +105,7 @@ new(#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=BufferT,ref=BufferRef}, Opt
   <<WindowRef:32/?UI,BufferRef:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBufferedPaintDC) -> ok.
+-spec destroy(This::wxBufferedPaintDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedPaintDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

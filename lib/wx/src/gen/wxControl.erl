@@ -76,7 +76,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxControl() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrol.html#wxcontrolgetlabel">external documentation</a>.
--spec getLabel(This) -> string() when
+-spec getLabel(This) -> unicode:charlist() when
 	This::wxControl().
 getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControl),
@@ -85,7 +85,7 @@ getLabel(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrol.html#wxcontrolsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> ok when
-	This::wxControl(), Label::string().
+	This::wxControl(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->
   ?CLASS(ThisT,wxControl),

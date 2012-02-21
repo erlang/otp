@@ -154,7 +154,7 @@ getDefaultSize() ->
   <<>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxStaticLine) -> ok.
+-spec destroy(This::wxStaticLine()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticLine),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

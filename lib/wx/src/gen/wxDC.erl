@@ -246,7 +246,7 @@ drawIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef},{PtX,Pt
 
 %% @equiv drawLabel(This,Text,Rect, [])
 -spec drawLabel(This, Text, Rect) -> ok when
-	This::wxDC(), Text::string(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+	This::wxDC(), Text::unicode:chardata(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 
 drawLabel(This,Text,Rect={RectX,RectY,RectW,RectH})
  when is_record(This, wx_ref),is_list(Text),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -254,7 +254,7 @@ drawLabel(This,Text,Rect={RectX,RectY,RectW,RectH})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawlabel">external documentation</a>.
 -spec drawLabel(This, Text, Rect, [Option]) -> ok when
-	This::wxDC(), Text::string(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()},
+	This::wxDC(), Text::unicode:chardata(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()},
 	Option :: {alignment, integer()}
 		 | {indexAccel, integer()}.
 drawLabel(#wx_ref{type=ThisT,ref=ThisRef},Text,{RectX,RectY,RectW,RectH}, Options)
@@ -356,7 +356,7 @@ drawRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawrotatedtext">external documentation</a>.
 -spec drawRotatedText(This, Text, Pt, Angle) -> ok when
-	This::wxDC(), Text::string(), Pt::{X::integer(), Y::integer()}, Angle::number().
+	This::wxDC(), Text::unicode:chardata(), Pt::{X::integer(), Y::integer()}, Angle::number().
 drawRotatedText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY},Angle)
  when is_list(Text),is_integer(PtX),is_integer(PtY),is_number(Angle) ->
   ?CLASS(ThisT,wxDC),
@@ -384,7 +384,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY},{SzW,SzH},Radius)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcdrawtext">external documentation</a>.
 -spec drawText(This, Text, Pt) -> ok when
-	This::wxDC(), Text::string(), Pt::{X::integer(), Y::integer()}.
+	This::wxDC(), Text::unicode:chardata(), Pt::{X::integer(), Y::integer()}.
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Text,{PtX,PtY})
  when is_list(Text),is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxDC),
@@ -513,7 +513,7 @@ getMapMode(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetmultilinetextextent">external documentation</a>.
 -spec getMultiLineTextExtent(This, String) -> {W::integer(), H::integer()} when
-	This::wxDC(), String::string().
+	This::wxDC(), String::unicode:chardata().
 getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
  when is_list(String) ->
   ?CLASS(ThisT,wxDC),
@@ -523,7 +523,7 @@ getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetmultilinetextextent">external documentation</a>.
 -spec getMultiLineTextExtent(This, String, [Option]) -> {Width::integer(), Height::integer(), HeightLine::integer()} when
-	This::wxDC(), String::string(),
+	This::wxDC(), String::unicode:chardata(),
 	Option :: {font, wxFont:wxFont()}.
 getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
  when is_list(String),is_list(Options) ->
@@ -538,7 +538,7 @@ getMultiLineTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetpartialtextextents">external documentation</a>.
 -spec getPartialTextExtents(This, Text) -> Result when
 	Result ::{Res ::boolean(), Widths::[integer()]},
-	This::wxDC(), Text::string().
+	This::wxDC(), Text::unicode:chardata().
 getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxDC),
@@ -556,7 +556,7 @@ getPen(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgetpixel">external documentation</a>.
 -spec getPixel(This, Pt) -> Result when
-	Result ::{Res ::boolean(), Col::wx:wx_colour()},
+	Result ::{Res ::boolean(), Col::wx:wx_colour4()},
 	This::wxDC(), Pt::{X::integer(), Y::integer()}.
 getPixel(#wx_ref{type=ThisT,ref=ThisRef},{PtX,PtY})
  when is_integer(PtX),is_integer(PtY) ->
@@ -589,7 +589,7 @@ getSizeMM(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgettextbackground">external documentation</a>.
--spec getTextBackground(This) -> wx:wx_colour() when
+-spec getTextBackground(This) -> wx:wx_colour4() when
 	This::wxDC().
 getTextBackground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
@@ -598,7 +598,7 @@ getTextBackground(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgettextextent">external documentation</a>.
 -spec getTextExtent(This, String) -> {W::integer(), H::integer()} when
-	This::wxDC(), String::string().
+	This::wxDC(), String::unicode:chardata().
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
  when is_list(String) ->
   ?CLASS(ThisT,wxDC),
@@ -609,7 +609,7 @@ getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgettextextent">external documentation</a>.
 -spec getTextExtent(This, String, [Option]) -> Result when
 	Result :: {X::integer(), Y::integer(), Descent::integer(), ExternalLeading::integer()},
-	This::wxDC(), String::string(),
+	This::wxDC(), String::unicode:chardata(),
 	Option :: {theFont, wxFont:wxFont()}.
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
  when is_list(String),is_list(Options) ->
@@ -622,7 +622,7 @@ getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},String, Options)
   <<ThisRef:32/?UI,(byte_size(String_UC)):32/?UI,(String_UC)/binary, 0:(((8- ((0+byte_size(String_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcgettextforeground">external documentation</a>.
--spec getTextForeground(This) -> wx:wx_colour() when
+-spec getTextForeground(This) -> wx:wx_colour4() when
 	This::wxDC().
 getTextForeground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxDC),
@@ -915,7 +915,7 @@ setUserScale(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcstartdoc">external documentation</a>.
 -spec startDoc(This, Message) -> boolean() when
-	This::wxDC(), Message::string().
+	This::wxDC(), Message::unicode:chardata().
 startDoc(#wx_ref{type=ThisT,ref=ThisRef},Message)
  when is_list(Message) ->
   ?CLASS(ThisT,wxDC),

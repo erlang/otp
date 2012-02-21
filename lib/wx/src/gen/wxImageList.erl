@@ -213,7 +213,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=BitmapT,ref=BitmapRef
   <<ThisRef:32/?UI,Index:32/?UI,BitmapRef:32/?UI,MaskRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxImageList) -> ok.
+-spec destroy(This::wxImageList()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxImageList),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

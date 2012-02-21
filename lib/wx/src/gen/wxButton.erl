@@ -95,7 +95,7 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxButton() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {label, string()}
+	Option :: {label, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -124,7 +124,7 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttoncreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {label, string()}
+	Option :: {label, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -159,7 +159,7 @@ setDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonsetlabel">external documentation</a>.
 -spec setLabel(This, Label) -> ok when
-	This::wxButton(), Label::string().
+	This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->
   ?CLASS(ThisT,wxButton),
@@ -168,7 +168,7 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
   <<ThisRef:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxButton) -> ok.
+-spec destroy(This::wxButton()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxButton),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

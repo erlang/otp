@@ -78,7 +78,7 @@ getWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellfloatrenderer.html#wxgridcellfloatrenderersetparameters">external documentation</a>.
 -spec setParameters(This, Params) -> ok when
-	This::wxGridCellFloatRenderer(), Params::string().
+	This::wxGridCellFloatRenderer(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
  when is_list(Params) ->
   ?CLASS(ThisT,wxGridCellFloatRenderer),
@@ -105,7 +105,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGridCellFloatRenderer) -> ok.
+-spec destroy(This::wxGridCellFloatRenderer()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellFloatRenderer),
   wxe_util:destroy(?wxGridCellFloatRenderer_destroy,Obj),

@@ -288,7 +288,7 @@ union(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,W:32/?UI,H:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxRegion) -> ok.
+-spec destroy(This::wxRegion()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxRegion),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

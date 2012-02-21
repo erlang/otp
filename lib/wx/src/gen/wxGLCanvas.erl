@@ -92,7 +92,7 @@ new(Parent)
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
-		 | {name, string()}
+		 | {name, unicode:chardata()}
 		 | {attribList, [integer()]}
 		 | {palette, wxPalette:wxPalette()}.
 
@@ -122,7 +122,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
-		 | {name, string()}
+		 | {name, unicode:chardata()}
 		 | {attribList, [integer()]}
 		 | {palette, wxPalette:wxPalette()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Options)
@@ -174,7 +174,7 @@ swapBuffers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGLCanvas) -> ok.
+-spec destroy(This::wxGLCanvas()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGLCanvas),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

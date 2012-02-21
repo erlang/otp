@@ -208,7 +208,7 @@ setZoom(#wx_ref{type=ThisT,ref=ThisRef},Percent)
   <<ThisRef:32/?UI,Percent:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrintPreview) -> ok.
+-spec destroy(This::wxPrintPreview()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintPreview),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

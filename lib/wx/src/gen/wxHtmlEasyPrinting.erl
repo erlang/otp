@@ -45,7 +45,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingwxhtmleasyprinting">external documentation</a>.
 -spec new([Option]) -> wxHtmlEasyPrinting() when
-	Option :: {name, string()}
+	Option :: {name, unicode:chardata()}
 		 | {parentWindow, wxWindow:wxWindow()}.
 new(Options)
  when is_list(Options) ->
@@ -74,7 +74,7 @@ getPageSetupData(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingpreviewfile">external documentation</a>.
 -spec previewFile(This, Htmlfile) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmlfile::string().
+	This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
 previewFile(#wx_ref{type=ThisT,ref=ThisRef},Htmlfile)
  when is_list(Htmlfile) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
@@ -84,7 +84,7 @@ previewFile(#wx_ref{type=ThisT,ref=ThisRef},Htmlfile)
 
 %% @equiv previewText(This,Htmltext, [])
 -spec previewText(This, Htmltext) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmltext::string().
+	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
 
 previewText(This,Htmltext)
  when is_record(This, wx_ref),is_list(Htmltext) ->
@@ -92,8 +92,8 @@ previewText(This,Htmltext)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingpreviewtext">external documentation</a>.
 -spec previewText(This, Htmltext, [Option]) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmltext::string(),
-	Option :: {basepath, string()}.
+	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata(),
+	Option :: {basepath, unicode:chardata()}.
 previewText(#wx_ref{type=ThisT,ref=ThisRef},Htmltext, Options)
  when is_list(Htmltext),is_list(Options) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
@@ -106,7 +106,7 @@ previewText(#wx_ref{type=ThisT,ref=ThisRef},Htmltext, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingprintfile">external documentation</a>.
 -spec printFile(This, Htmlfile) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmlfile::string().
+	This::wxHtmlEasyPrinting(), Htmlfile::unicode:chardata().
 printFile(#wx_ref{type=ThisT,ref=ThisRef},Htmlfile)
  when is_list(Htmlfile) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
@@ -116,7 +116,7 @@ printFile(#wx_ref{type=ThisT,ref=ThisRef},Htmlfile)
 
 %% @equiv printText(This,Htmltext, [])
 -spec printText(This, Htmltext) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmltext::string().
+	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata().
 
 printText(This,Htmltext)
  when is_record(This, wx_ref),is_list(Htmltext) ->
@@ -124,8 +124,8 @@ printText(This,Htmltext)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingprinttext">external documentation</a>.
 -spec printText(This, Htmltext, [Option]) -> boolean() when
-	This::wxHtmlEasyPrinting(), Htmltext::string(),
-	Option :: {basepath, string()}.
+	This::wxHtmlEasyPrinting(), Htmltext::unicode:chardata(),
+	Option :: {basepath, unicode:chardata()}.
 printText(#wx_ref{type=ThisT,ref=ThisRef},Htmltext, Options)
  when is_list(Htmltext),is_list(Options) ->
   ?CLASS(ThisT,wxHtmlEasyPrinting),
@@ -146,7 +146,7 @@ pageSetup(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @equiv setFonts(This,Normal_face,Fixed_face, [])
 -spec setFonts(This, Normal_face, Fixed_face) -> ok when
-	This::wxHtmlEasyPrinting(), Normal_face::string(), Fixed_face::string().
+	This::wxHtmlEasyPrinting(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
 setFonts(This,Normal_face,Fixed_face)
  when is_record(This, wx_ref),is_list(Normal_face),is_list(Fixed_face) ->
@@ -154,7 +154,7 @@ setFonts(This,Normal_face,Fixed_face)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingsetfonts">external documentation</a>.
 -spec setFonts(This, Normal_face, Fixed_face, [Option]) -> ok when
-	This::wxHtmlEasyPrinting(), Normal_face::string(), Fixed_face::string(),
+	This::wxHtmlEasyPrinting(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata(),
 	Option :: {sizes, [integer()]}.
 setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
  when is_list(Normal_face),is_list(Fixed_face),is_list(Options) ->
@@ -170,7 +170,7 @@ setFonts(#wx_ref{type=ThisT,ref=ThisRef},Normal_face,Fixed_face, Options)
 
 %% @equiv setHeader(This,Header, [])
 -spec setHeader(This, Header) -> ok when
-	This::wxHtmlEasyPrinting(), Header::string().
+	This::wxHtmlEasyPrinting(), Header::unicode:chardata().
 
 setHeader(This,Header)
  when is_record(This, wx_ref),is_list(Header) ->
@@ -178,7 +178,7 @@ setHeader(This,Header)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingsetheader">external documentation</a>.
 -spec setHeader(This, Header, [Option]) -> ok when
-	This::wxHtmlEasyPrinting(), Header::string(),
+	This::wxHtmlEasyPrinting(), Header::unicode:chardata(),
 	Option :: {pg, integer()}.
 setHeader(#wx_ref{type=ThisT,ref=ThisRef},Header, Options)
  when is_list(Header),is_list(Options) ->
@@ -192,7 +192,7 @@ setHeader(#wx_ref{type=ThisT,ref=ThisRef},Header, Options)
 
 %% @equiv setFooter(This,Footer, [])
 -spec setFooter(This, Footer) -> ok when
-	This::wxHtmlEasyPrinting(), Footer::string().
+	This::wxHtmlEasyPrinting(), Footer::unicode:chardata().
 
 setFooter(This,Footer)
  when is_record(This, wx_ref),is_list(Footer) ->
@@ -200,7 +200,7 @@ setFooter(This,Footer)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmleasyprinting.html#wxhtmleasyprintingsetfooter">external documentation</a>.
 -spec setFooter(This, Footer, [Option]) -> ok when
-	This::wxHtmlEasyPrinting(), Footer::string(),
+	This::wxHtmlEasyPrinting(), Footer::unicode:chardata(),
 	Option :: {pg, integer()}.
 setFooter(#wx_ref{type=ThisT,ref=ThisRef},Footer, Options)
  when is_list(Footer),is_list(Options) ->
@@ -213,7 +213,7 @@ setFooter(#wx_ref{type=ThisT,ref=ThisRef},Footer, Options)
   <<ThisRef:32/?UI,(byte_size(Footer_UC)):32/?UI,(Footer_UC)/binary, 0:(((8- ((0+byte_size(Footer_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxHtmlEasyPrinting) -> ok.
+-spec destroy(This::wxHtmlEasyPrinting()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxHtmlEasyPrinting),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

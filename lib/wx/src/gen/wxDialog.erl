@@ -92,7 +92,7 @@ new() ->
 
 %% @equiv new(Parent,Id,Title, [])
 -spec new(Parent, Id, Title) -> wxDialog() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::string().
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
@@ -100,7 +100,7 @@ new(Parent,Id,Title)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogwxdialog">external documentation</a>.
 -spec new(Parent, Id, Title, [Option]) -> wxDialog() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::string(),
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}.
@@ -118,7 +118,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
 
 %% @equiv create(This,Parent,Id,Title, [])
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string().
+	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
@@ -126,7 +126,7 @@ create(This,Parent,Id,Title)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdialog.html#wxdialogcreate">external documentation</a>.
 -spec create(This, Parent, Id, Title, [Option]) -> boolean() when
-	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(),
+	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}.
@@ -242,7 +242,7 @@ showModal(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxDialog) -> ok.
+-spec destroy(This::wxDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

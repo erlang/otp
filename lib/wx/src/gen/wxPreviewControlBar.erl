@@ -138,7 +138,7 @@ setZoomControl(#wx_ref{type=ThisT,ref=ThisRef},Zoom)
   <<ThisRef:32/?UI,Zoom:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPreviewControlBar) -> ok.
+-spec destroy(This::wxPreviewControlBar()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPreviewControlBar),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

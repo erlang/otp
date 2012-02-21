@@ -169,7 +169,7 @@ getPPIScreen(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintout.html#wxprintoutgettitle">external documentation</a>.
--spec getTitle(This) -> string() when
+-spec getTitle(This) -> unicode:charlist() when
 	This::wxPrintout().
 getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintout),
@@ -289,7 +289,7 @@ offsetLogicalOrigin(#wx_ref{type=ThisT,ref=ThisRef},Xoff,Yoff)
   <<ThisRef:32/?UI,Xoff:32/?UI,Yoff:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxPrintout) -> ok.
+-spec destroy(This::wxPrintout()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintout),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

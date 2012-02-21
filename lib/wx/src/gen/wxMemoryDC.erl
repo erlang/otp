@@ -96,7 +96,7 @@ selectObjectAsSource(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRe
   <<ThisRef:32/?UI,BmpRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxMemoryDC) -> ok.
+-spec destroy(This::wxMemoryDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMemoryDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

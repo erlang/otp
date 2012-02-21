@@ -46,7 +46,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectaddfile">external documentation</a>.
 -spec addFile(This, Filename) -> ok when
-	This::wxFileDataObject(), Filename::string().
+	This::wxFileDataObject(), Filename::unicode:chardata().
 addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
  when is_list(Filename) ->
   ?CLASS(ThisT,wxFileDataObject),
@@ -55,7 +55,7 @@ addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
   <<ThisRef:32/?UI,(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((0+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectgetfilenames">external documentation</a>.
--spec getFilenames(This) -> [[string()]] when
+-spec getFilenames(This) -> [[unicode:charlist()]] when
 	This::wxFileDataObject().
 getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDataObject),
@@ -63,7 +63,7 @@ getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxFileDataObject) -> ok.
+-spec destroy(This::wxFileDataObject()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDataObject),
   wxe_util:destroy(?wxFileDataObject_destroy,Obj),

@@ -138,7 +138,7 @@ getTimeout(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxSplashScreen) -> ok.
+-spec destroy(This::wxSplashScreen()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSplashScreen),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -669,7 +669,7 @@ getCellAlignment(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
   <<ThisRef:32/?UI,Row:32/?UI,Col:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcellbackgroundcolour">external documentation</a>.
--spec getCellBackgroundColour(This, Row, Col) -> wx:wx_colour() when
+-spec getCellBackgroundColour(This, Row, Col) -> wx:wx_colour4() when
 	This::wxGrid(), Row::integer(), Col::integer().
 getCellBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
  when is_integer(Row),is_integer(Col) ->
@@ -705,7 +705,7 @@ getCellRenderer(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
   <<ThisRef:32/?UI,Row:32/?UI,Col:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcelltextcolour">external documentation</a>.
--spec getCellTextColour(This, Row, Col) -> wx:wx_colour() when
+-spec getCellTextColour(This, Row, Col) -> wx:wx_colour4() when
 	This::wxGrid(), Row::integer(), Col::integer().
 getCellTextColour(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
  when is_integer(Row),is_integer(Col) ->
@@ -714,7 +714,7 @@ getCellTextColour(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
   <<ThisRef:32/?UI,Row:32/?UI,Col:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcellvalue">external documentation</a>.
--spec getCellValue(This, Coords) -> string() when
+-spec getCellValue(This, Coords) -> unicode:charlist() when
 	This::wxGrid(), Coords::{R::integer(), C::integer()}.
 getCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC})
  when is_integer(CoordsR),is_integer(CoordsC) ->
@@ -723,7 +723,7 @@ getCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC})
   <<ThisRef:32/?UI,CoordsR:32/?UI,CoordsC:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcellvalue">external documentation</a>.
--spec getCellValue(This, Row, Col) -> string() when
+-spec getCellValue(This, Row, Col) -> unicode:charlist() when
 	This::wxGrid(), Row::integer(), Col::integer().
 getCellValue(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
  when is_integer(Row),is_integer(Col) ->
@@ -748,7 +748,7 @@ getColLabelSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetcollabelvalue">external documentation</a>.
--spec getColLabelValue(This, Col) -> string() when
+-spec getColLabelValue(This, Col) -> unicode:charlist() when
 	This::wxGrid(), Col::integer().
 getColLabelValue(#wx_ref{type=ThisT,ref=ThisRef},Col)
  when is_integer(Col) ->
@@ -773,7 +773,7 @@ getDefaultCellAlignment(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetdefaultcellbackgroundcolour">external documentation</a>.
--spec getDefaultCellBackgroundColour(This) -> wx:wx_colour() when
+-spec getDefaultCellBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxGrid().
 getDefaultCellBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -789,7 +789,7 @@ getDefaultCellFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetdefaultcelltextcolour">external documentation</a>.
--spec getDefaultCellTextColour(This) -> wx:wx_colour() when
+-spec getDefaultCellTextColour(This) -> wx:wx_colour4() when
 	This::wxGrid().
 getDefaultCellTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -840,7 +840,7 @@ getDefaultEditorForCell(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetdefaulteditorfortype">external documentation</a>.
 -spec getDefaultEditorForType(This, TypeName) -> wxGridCellEditor:wxGridCellEditor() when
-	This::wxGrid(), TypeName::string().
+	This::wxGrid(), TypeName::unicode:chardata().
 getDefaultEditorForType(#wx_ref{type=ThisT,ref=ThisRef},TypeName)
  when is_list(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -867,7 +867,7 @@ getDefaultRendererForCell(#wx_ref{type=ThisT,ref=ThisRef},Row,Col)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetdefaultrendererfortype">external documentation</a>.
 -spec getDefaultRendererForType(This, TypeName) -> wxGridCellRenderer:wxGridCellRenderer() when
-	This::wxGrid(), TypeName::string().
+	This::wxGrid(), TypeName::unicode:chardata().
 getDefaultRendererForType(#wx_ref{type=ThisT,ref=ThisRef},TypeName)
  when is_list(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -908,7 +908,7 @@ getGridCursorRow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetgridlinecolour">external documentation</a>.
--spec getGridLineColour(This) -> wx:wx_colour() when
+-spec getGridLineColour(This) -> wx:wx_colour4() when
 	This::wxGrid().
 getGridLineColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -924,7 +924,7 @@ gridLinesEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetlabelbackgroundcolour">external documentation</a>.
--spec getLabelBackgroundColour(This) -> wx:wx_colour() when
+-spec getLabelBackgroundColour(This) -> wx:wx_colour4() when
 	This::wxGrid().
 getLabelBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -940,7 +940,7 @@ getLabelFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetlabeltextcolour">external documentation</a>.
--spec getLabelTextColour(This) -> wx:wx_colour() when
+-spec getLabelTextColour(This) -> wx:wx_colour4() when
 	This::wxGrid().
 getLabelTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -997,7 +997,7 @@ getRowLabelSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetrowlabelvalue">external documentation</a>.
--spec getRowLabelValue(This, Row) -> string() when
+-spec getRowLabelValue(This, Row) -> unicode:charlist() when
 	This::wxGrid(), Row::integer().
 getRowLabelValue(#wx_ref{type=ThisT,ref=ThisRef},Row)
  when is_integer(Row) ->
@@ -1055,7 +1055,7 @@ getSelectedRows(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetselectionbackground">external documentation</a>.
--spec getSelectionBackground(This) -> wx:wx_colour() when
+-spec getSelectionBackground(This) -> wx:wx_colour4() when
 	This::wxGrid().
 getSelectionBackground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -1079,7 +1079,7 @@ getSelectionBlockBottomRight(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridgetselectionforeground">external documentation</a>.
--spec getSelectionForeground(This) -> wx:wx_colour() when
+-spec getSelectionForeground(This) -> wx:wx_colour4() when
 	This::wxGrid().
 getSelectionForeground(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGrid),
@@ -1391,7 +1391,7 @@ movePageUp(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridregisterdatatype">external documentation</a>.
 -spec registerDataType(This, TypeName, Renderer, Editor) -> ok when
-	This::wxGrid(), TypeName::string(), Renderer::wxGridCellRenderer:wxGridCellRenderer(), Editor::wxGridCellEditor:wxGridCellEditor().
+	This::wxGrid(), TypeName::unicode:chardata(), Renderer::wxGridCellRenderer:wxGridCellRenderer(), Editor::wxGridCellEditor:wxGridCellEditor().
 registerDataType(#wx_ref{type=ThisT,ref=ThisRef},TypeName,#wx_ref{type=RendererT,ref=RendererRef},#wx_ref{type=EditorT,ref=EditorRef})
  when is_list(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -1610,7 +1610,7 @@ setCellTextColour(#wx_ref{type=ThisT,ref=ThisRef},Val,Row,Col)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcellvalue">external documentation</a>.
 -spec setCellValue(This, Coords, S) -> ok when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}, S::string().
+	This::wxGrid(), Coords::{R::integer(), C::integer()}, S::unicode:chardata().
 setCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC},S)
  when is_integer(CoordsR),is_integer(CoordsC),is_list(S) ->
   ?CLASS(ThisT,wxGrid),
@@ -1620,9 +1620,9 @@ setCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC},S)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcellvalue">external documentation</a>.
 -spec setCellValue(This, Row, Col, S) -> ok when
-	This::wxGrid(), Row::integer(), Col::integer(), S::string();
+	This::wxGrid(), Row::integer(), Col::integer(), S::unicode:chardata();
       (This, Val, Row, Col) -> ok when
-	This::wxGrid(), Val::string(), Row::integer(), Col::integer().
+	This::wxGrid(), Val::unicode:chardata(), Row::integer(), Col::integer().
 setCellValue(#wx_ref{type=ThisT,ref=ThisRef},Row,Col,S)
  when is_integer(Row),is_integer(Col),is_list(S) ->
   ?CLASS(ThisT,wxGrid),
@@ -1689,7 +1689,7 @@ setColFormatFloat(#wx_ref{type=ThisT,ref=ThisRef},Col, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcolformatcustom">external documentation</a>.
 -spec setColFormatCustom(This, Col, TypeName) -> ok when
-	This::wxGrid(), Col::integer(), TypeName::string().
+	This::wxGrid(), Col::integer(), TypeName::unicode:chardata().
 setColFormatCustom(#wx_ref{type=ThisT,ref=ThisRef},Col,TypeName)
  when is_integer(Col),is_list(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -1717,7 +1717,7 @@ setColLabelSize(#wx_ref{type=ThisT,ref=ThisRef},Height)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcollabelvalue">external documentation</a>.
 -spec setColLabelValue(This, Col, Val) -> ok when
-	This::wxGrid(), Col::integer(), Val::string().
+	This::wxGrid(), Col::integer(), Val::unicode:chardata().
 setColLabelValue(#wx_ref{type=ThisT,ref=ThisRef},Col,Val)
  when is_integer(Col),is_list(Val) ->
   ?CLASS(ThisT,wxGrid),
@@ -1953,7 +1953,7 @@ setRowLabelSize(#wx_ref{type=ThisT,ref=ThisRef},Width)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetrowlabelvalue">external documentation</a>.
 -spec setRowLabelValue(This, Row, Val) -> ok when
-	This::wxGrid(), Row::integer(), Val::string().
+	This::wxGrid(), Row::integer(), Val::unicode:chardata().
 setRowLabelValue(#wx_ref{type=ThisT,ref=ThisRef},Row,Val)
  when is_integer(Row),is_list(Val) ->
   ?CLASS(ThisT,wxGrid),
@@ -2091,7 +2091,7 @@ yToRow(#wx_ref{type=ThisT,ref=ThisRef},Y)
   <<ThisRef:32/?UI,Y:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGrid) -> ok.
+-spec destroy(This::wxGrid()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGrid),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

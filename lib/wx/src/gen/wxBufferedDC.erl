@@ -153,7 +153,7 @@ init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, 
   <<ThisRef:32/?UI,DcRef:32/?UI,AreaW:32/?UI,AreaH:32/?UI, BinOpt/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBufferedDC) -> ok.
+-spec destroy(This::wxBufferedDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

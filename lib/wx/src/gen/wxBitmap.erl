@@ -45,7 +45,7 @@ new() ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmap.html#wxbitmapwxbitmap">external documentation</a>.
 -spec new(Filename) -> wxBitmap() when
-	Filename::string();
+	Filename::unicode:chardata();
       (Image) -> wxBitmap() when
 	Image::wxImage:wxImage().
 
@@ -61,7 +61,7 @@ new(Image)
 -spec new(Width, Height) -> wxBitmap() when
 	Width::integer(), Height::integer();
       (Filename, [Option]) -> wxBitmap() when
-	Filename::string(),
+	Filename::unicode:chardata(),
 	Option :: {type, wx:wx_enum()};
       (Image, [Option]) -> wxBitmap() when
 	Image::wxImage:wxImage(),
@@ -207,7 +207,7 @@ getSubBitmap(#wx_ref{type=ThisT,ref=ThisRef},{RectX,RectY,RectW,RectH})
 
 %% @equiv loadFile(This,Name, [])
 -spec loadFile(This, Name) -> boolean() when
-	This::wxBitmap(), Name::string().
+	This::wxBitmap(), Name::unicode:chardata().
 
 loadFile(This,Name)
  when is_record(This, wx_ref),is_list(Name) ->
@@ -216,7 +216,7 @@ loadFile(This,Name)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmap.html#wxbitmaploadfile">external documentation</a>.
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec loadFile(This, Name, [Option]) -> boolean() when
-	This::wxBitmap(), Name::string(),
+	This::wxBitmap(), Name::unicode:chardata(),
 	Option :: {type, wx:wx_enum()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},Name, Options)
  when is_list(Name),is_list(Options) ->
@@ -238,7 +238,7 @@ ok(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @equiv saveFile(This,Name,Type, [])
 -spec saveFile(This, Name, Type) -> boolean() when
-	This::wxBitmap(), Name::string(), Type::wx:wx_enum().
+	This::wxBitmap(), Name::unicode:chardata(), Type::wx:wx_enum().
 
 saveFile(This,Name,Type)
  when is_record(This, wx_ref),is_list(Name),is_integer(Type) ->
@@ -247,7 +247,7 @@ saveFile(This,Name,Type)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmap.html#wxbitmapsavefile">external documentation</a>.
 %%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec saveFile(This, Name, Type, [Option]) -> boolean() when
-	This::wxBitmap(), Name::string(), Type::wx:wx_enum(),
+	This::wxBitmap(), Name::unicode:chardata(), Type::wx:wx_enum(),
 	Option :: {palette, wxPalette:wxPalette()}.
 saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name,Type, Options)
  when is_list(Name),is_integer(Type),is_list(Options) ->
@@ -305,7 +305,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxBitmap) -> ok.
+-spec destroy(This::wxBitmap()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmap),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

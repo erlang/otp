@@ -102,7 +102,7 @@ new(Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlwxtextctrl">external documentation</a>.
 -spec new(Parent, Id, [Option]) -> wxTextCtrl() when
 	Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {value, string()}
+	Option :: {value, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -122,7 +122,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlappendtext">external documentation</a>.
 -spec appendText(This, Text) -> ok when
-	This::wxTextCtrl(), Text::string().
+	This::wxTextCtrl(), Text::unicode:chardata().
 appendText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -197,7 +197,7 @@ create(This,Parent,Id)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlcreate">external documentation</a>.
 -spec create(This, Parent, Id, [Option]) -> boolean() when
 	This::wxTextCtrl(), Parent::wxWindow:wxWindow(), Id::integer(),
-	Option :: {value, string()}
+	Option :: {value, unicode:chardata()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
@@ -275,7 +275,7 @@ getLineLength(#wx_ref{type=ThisT,ref=ThisRef},LineNo)
   <<ThisRef:32/?UI,LineNo:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlgetlinetext">external documentation</a>.
--spec getLineText(This, LineNo) -> string() when
+-spec getLineText(This, LineNo) -> unicode:charlist() when
 	This::wxTextCtrl(), LineNo::integer().
 getLineText(#wx_ref{type=ThisT,ref=ThisRef},LineNo)
  when is_integer(LineNo) ->
@@ -292,7 +292,7 @@ getNumberOfLines(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlgetrange">external documentation</a>.
--spec getRange(This, From, To) -> string() when
+-spec getRange(This, From, To) -> unicode:charlist() when
 	This::wxTextCtrl(), From::integer(), To::integer().
 getRange(#wx_ref{type=ThisT,ref=ThisRef},From,To)
  when is_integer(From),is_integer(To) ->
@@ -309,7 +309,7 @@ getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlgetstringselection">external documentation</a>.
--spec getStringSelection(This) -> string() when
+-spec getStringSelection(This) -> unicode:charlist() when
 	This::wxTextCtrl().
 getStringSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -327,7 +327,7 @@ getStyle(#wx_ref{type=ThisT,ref=ThisRef},Position,#wx_ref{type=StyleT,ref=StyleR
   <<ThisRef:32/?UI,Position:32/?UI,StyleRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlgetvalue">external documentation</a>.
--spec getValue(This) -> string() when
+-spec getValue(This) -> unicode:charlist() when
 	This::wxTextCtrl().
 getValue(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -368,7 +368,7 @@ isSingleLine(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @equiv loadFile(This,File, [])
 -spec loadFile(This, File) -> boolean() when
-	This::wxTextCtrl(), File::string().
+	This::wxTextCtrl(), File::unicode:chardata().
 
 loadFile(This,File)
  when is_record(This, wx_ref),is_list(File) ->
@@ -376,7 +376,7 @@ loadFile(This,File)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlloadfile">external documentation</a>.
 -spec loadFile(This, File, [Option]) -> boolean() when
-	This::wxTextCtrl(), File::string(),
+	This::wxTextCtrl(), File::unicode:chardata(),
 	Option :: {fileType, integer()}.
 loadFile(#wx_ref{type=ThisT,ref=ThisRef},File, Options)
  when is_list(File),is_list(Options) ->
@@ -433,7 +433,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},From,To)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlreplace">external documentation</a>.
 -spec replace(This, From, To, Value) -> ok when
-	This::wxTextCtrl(), From::integer(), To::integer(), Value::string().
+	This::wxTextCtrl(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT,ref=ThisRef},From,To,Value)
  when is_integer(From),is_integer(To),is_list(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -452,7 +452,7 @@ saveFile(This)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlsavefile">external documentation</a>.
 -spec saveFile(This, [Option]) -> boolean() when
 	This::wxTextCtrl(),
-	Option :: {file, string()}
+	Option :: {file, unicode:chardata()}
 		 | {fileType, integer()}.
 saveFile(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
@@ -529,7 +529,7 @@ setStyle(#wx_ref{type=ThisT,ref=ThisRef},Start,End,#wx_ref{type=StyleT,ref=Style
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlsetvalue">external documentation</a>.
 -spec setValue(This, Value) -> ok when
-	This::wxTextCtrl(), Value::string().
+	This::wxTextCtrl(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT,ref=ThisRef},Value)
  when is_list(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -556,7 +556,7 @@ undo(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtextctrl.html#wxtextctrlwritetext">external documentation</a>.
 -spec writeText(This, Text) -> ok when
-	This::wxTextCtrl(), Text::string().
+	This::wxTextCtrl(), Text::unicode:chardata().
 writeText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -574,7 +574,7 @@ xYToPosition(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxTextCtrl) -> ok.
+-spec destroy(This::wxTextCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTextCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

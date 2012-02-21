@@ -102,7 +102,7 @@ new(Parent,Id)
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
-		 | {choices, [[string()]]}
+		 | {choices, [[unicode:chardata()]]}
 		 | {style, integer()}
 		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
@@ -120,7 +120,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
 
 %% @equiv create(This,Parent,Id,Pos,Size,Choices, [])
 -spec create(This, Parent, Id, Pos, Size, Choices) -> boolean() when
-	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]].
+	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]].
 
 create(This,Parent,Id,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -128,7 +128,7 @@ create(This,Parent,Id,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxcreate">external documentation</a>.
 -spec create(This, Parent, Id, Pos, Size, Choices, [Option]) -> boolean() when
-	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[string()]],
+	This::wxListBox(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]],
 	Option :: {style, integer()}
 		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,{PosX,PosY},{SizeW,SizeH},Choices, Options)
@@ -164,7 +164,7 @@ getSelections(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxinsertitems">external documentation</a>.
 -spec insertItems(This, Items, Pos) -> ok when
-	This::wxListBox(), Items::[[string()]], Pos::integer().
+	This::wxListBox(), Items::[[unicode:chardata()]], Pos::integer().
 insertItems(#wx_ref{type=ThisT,ref=ThisRef},Items,Pos)
  when is_list(Items),is_integer(Pos) ->
   ?CLASS(ThisT,wxListBox),
@@ -184,7 +184,7 @@ isSelected(#wx_ref{type=ThisT,ref=ThisRef},N)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxset">external documentation</a>.
 -spec set(This, Items) -> ok when
-	This::wxListBox(), Items::[[string()]].
+	This::wxListBox(), Items::[[unicode:chardata()]].
 set(#wx_ref{type=ThisT,ref=ThisRef},Items)
  when is_list(Items) ->
   ?CLASS(ThisT,wxListBox),
@@ -206,7 +206,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
 -spec setFirstItem(This, N) -> ok when
 	This::wxListBox(), N::integer();
       (This, S) -> ok when
-	This::wxListBox(), S::string().
+	This::wxListBox(), S::unicode:chardata().
 setFirstItem(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxListBox),
@@ -220,7 +220,7 @@ setFirstItem(#wx_ref{type=ThisT,ref=ThisRef},S)
   <<ThisRef:32/?UI,(byte_size(S_UC)):32/?UI,(S_UC)/binary, 0:(((8- ((0+byte_size(S_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxListBox) -> ok.
+-spec destroy(This::wxListBox()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

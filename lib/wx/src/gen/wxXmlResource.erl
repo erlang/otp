@@ -48,7 +48,7 @@ new() ->
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourcewxxmlresource">external documentation</a>.
 -spec new([Option]) -> wxXmlResource() when
 	Option :: {flags, integer()}
-		 | {domain, string()}.
+		 | {domain, unicode:chardata()}.
 new(Options)
  when is_list(Options) ->
   MOpts = fun({flags, Flags}, Acc) -> [<<1:32/?UI,Flags:32/?UI>>|Acc];
@@ -60,9 +60,9 @@ new(Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourcewxxmlresource">external documentation</a>.
 -spec new(Filemask, [Option]) -> wxXmlResource() when
-	Filemask::string(),
+	Filemask::unicode:chardata(),
 	Option :: {flags, integer()}
-		 | {domain, string()}.
+		 | {domain, unicode:chardata()}.
 new(Filemask, Options)
  when is_list(Filemask),is_list(Options) ->
   Filemask_UC = unicode:characters_to_binary([Filemask,0]),
@@ -75,7 +75,7 @@ new(Filemask, Options)
 
 %% @equiv attachUnknownControl(This,Name,Control, [])
 -spec attachUnknownControl(This, Name, Control) -> boolean() when
-	This::wxXmlResource(), Name::string(), Control::wxWindow:wxWindow().
+	This::wxXmlResource(), Name::unicode:chardata(), Control::wxWindow:wxWindow().
 
 attachUnknownControl(This,Name,Control)
  when is_record(This, wx_ref),is_list(Name),is_record(Control, wx_ref) ->
@@ -83,7 +83,7 @@ attachUnknownControl(This,Name,Control)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceattachunknowncontrol">external documentation</a>.
 -spec attachUnknownControl(This, Name, Control, [Option]) -> boolean() when
-	This::wxXmlResource(), Name::string(), Control::wxWindow:wxWindow(),
+	This::wxXmlResource(), Name::unicode:chardata(), Control::wxWindow:wxWindow(),
 	Option :: {parent, wxWindow:wxWindow()}.
 attachUnknownControl(#wx_ref{type=ThisT,ref=ThisRef},Name,#wx_ref{type=ControlT,ref=ControlRef}, Options)
  when is_list(Name),is_list(Options) ->
@@ -137,7 +137,7 @@ getVersion(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @equiv getXRCID(Str_id, [])
 -spec getXRCID(Str_id) -> integer() when
-	Str_id::[string()].
+	Str_id::[unicode:chardata()].
 
 getXRCID(Str_id)
  when is_list(Str_id) ->
@@ -145,7 +145,7 @@ getXRCID(Str_id)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourcegetxrcid">external documentation</a>.
 -spec getXRCID(Str_id, [Option]) -> integer() when
-	Str_id::[string()],
+	Str_id::[unicode:chardata()],
 	Option :: {value_if_not_found, integer()}.
 getXRCID(Str_id, Options)
  when is_list(Str_id),is_list(Options) ->
@@ -166,7 +166,7 @@ initAllHandlers(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceload">external documentation</a>.
 -spec load(This, Filemask) -> boolean() when
-	This::wxXmlResource(), Filemask::string().
+	This::wxXmlResource(), Filemask::unicode:chardata().
 load(#wx_ref{type=ThisT,ref=ThisRef},Filemask)
  when is_list(Filemask) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -176,7 +176,7 @@ load(#wx_ref{type=ThisT,ref=ThisRef},Filemask)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadbitmap">external documentation</a>.
 -spec loadBitmap(This, Name) -> wxBitmap:wxBitmap() when
-	This::wxXmlResource(), Name::string().
+	This::wxXmlResource(), Name::unicode:chardata().
 loadBitmap(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -186,7 +186,7 @@ loadBitmap(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloaddialog">external documentation</a>.
 -spec loadDialog(This, Parent, Name) -> wxDialog:wxDialog() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -197,7 +197,7 @@ loadDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},N
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloaddialog">external documentation</a>.
 -spec loadDialog(This, Dlg, Parent, Name) -> boolean() when
-	This::wxXmlResource(), Dlg::wxDialog:wxDialog(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Dlg::wxDialog:wxDialog(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DlgT,ref=DlgRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -209,7 +209,7 @@ loadDialog(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DlgT,ref=DlgRef},#wx_ref
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadframe">external documentation</a>.
 -spec loadFrame(This, Parent, Name) -> wxFrame:wxFrame() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -220,7 +220,7 @@ loadFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Na
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadframe">external documentation</a>.
 -spec loadFrame(This, Frame, Parent, Name) -> boolean() when
-	This::wxXmlResource(), Frame::wxFrame:wxFrame(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Frame::wxFrame:wxFrame(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -232,7 +232,7 @@ loadFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef},#wx_
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadicon">external documentation</a>.
 -spec loadIcon(This, Name) -> wxIcon:wxIcon() when
-	This::wxXmlResource(), Name::string().
+	This::wxXmlResource(), Name::unicode:chardata().
 loadIcon(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -242,7 +242,7 @@ loadIcon(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadmenu">external documentation</a>.
 -spec loadMenu(This, Name) -> wxMenu:wxMenu() when
-	This::wxXmlResource(), Name::string().
+	This::wxXmlResource(), Name::unicode:chardata().
 loadMenu(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -252,7 +252,7 @@ loadMenu(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadmenubar">external documentation</a>.
 -spec loadMenuBar(This, Name) -> wxMenuBar:wxMenuBar() when
-	This::wxXmlResource(), Name::string().
+	This::wxXmlResource(), Name::unicode:chardata().
 loadMenuBar(#wx_ref{type=ThisT,ref=ThisRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -262,7 +262,7 @@ loadMenuBar(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadmenubar">external documentation</a>.
 -spec loadMenuBar(This, Parent, Name) -> wxMenuBar:wxMenuBar() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadMenuBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -273,7 +273,7 @@ loadMenuBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadpanel">external documentation</a>.
 -spec loadPanel(This, Parent, Name) -> wxPanel:wxPanel() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadPanel(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -284,7 +284,7 @@ loadPanel(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Na
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadpanel">external documentation</a>.
 -spec loadPanel(This, Panel, Parent, Name) -> boolean() when
-	This::wxXmlResource(), Panel::wxPanel:wxPanel(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Panel::wxPanel:wxPanel(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadPanel(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PanelT,ref=PanelRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -296,7 +296,7 @@ loadPanel(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PanelT,ref=PanelRef},#wx_
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceloadtoolbar">external documentation</a>.
 -spec loadToolBar(This, Parent, Name) -> wxToolBar:wxToolBar() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::string().
+	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadToolBar(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Name)
  when is_list(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -324,7 +324,7 @@ setFlags(#wx_ref{type=ThisT,ref=ThisRef},Flags)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxxmlresource.html#wxxmlresourceunload">external documentation</a>.
 -spec unload(This, Filename) -> boolean() when
-	This::wxXmlResource(), Filename::string().
+	This::wxXmlResource(), Filename::unicode:chardata().
 unload(#wx_ref{type=ThisT,ref=ThisRef},Filename)
  when is_list(Filename) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -352,7 +352,7 @@ xrcctrl(Window = #wx_ref{}, Name, Type) when is_list(Name), is_atom(Type) ->
     wx:typeCast(Res, Type).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxXmlResource) -> ok.
+-spec destroy(This::wxXmlResource()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxXmlResource),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

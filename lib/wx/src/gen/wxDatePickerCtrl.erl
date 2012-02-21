@@ -154,7 +154,7 @@ setValue(#wx_ref{type=ThisT,ref=ThisRef},Date)
   <<ThisRef:32/?UI,(wxe_util:datetime_bin(Date)):24/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxDatePickerCtrl) -> ok.
+-spec destroy(This::wxDatePickerCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxDatePickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -280,7 +280,7 @@ drawRoundedRectangle(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H,Radius)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawtext">external documentation</a>.
 -spec drawText(This, Str, X, Y) -> ok when
-	This::wxGraphicsContext(), Str::string(), X::number(), Y::number().
+	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number().
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y)
  when is_list(Str),is_number(X),is_number(Y) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -290,9 +290,9 @@ drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawtext">external documentation</a>.
 -spec drawText(This, Str, X, Y, Angle) -> ok when
-	This::wxGraphicsContext(), Str::string(), X::number(), Y::number(), Angle::number();
+	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number();
       (This, Str, X, Y, BackgroundBrush) -> ok when
-	This::wxGraphicsContext(), Str::string(), X::number(), Y::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
+	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y,Angle)
  when is_list(Str),is_number(X),is_number(Y),is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -309,7 +309,7 @@ drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y,#wx_ref{type=BackgroundBrushT,r
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawtext">external documentation</a>.
 -spec drawText(This, Str, X, Y, Angle, BackgroundBrush) -> ok when
-	This::wxGraphicsContext(), Str::string(), X::number(), Y::number(), Angle::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
+	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().
 drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y,Angle,#wx_ref{type=BackgroundBrushT,ref=BackgroundBrushRef})
  when is_list(Str),is_number(X),is_number(Y),is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -351,7 +351,7 @@ strokePath(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PathT,ref=PathRef}) ->
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextgetpartialtextextents">external documentation</a>.
 -spec getPartialTextExtents(This, Text) -> [number()] when
-	This::wxGraphicsContext(), Text::string().
+	This::wxGraphicsContext(), Text::unicode:chardata().
 getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -362,7 +362,7 @@ getPartialTextExtents(#wx_ref{type=ThisT,ref=ThisRef},Text)
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextgettextextent">external documentation</a>.
 -spec getTextExtent(This, Text) -> Result when
 	Result ::{Width::number(), Height::number(), Descent::number(), ExternalLeading::number()},
-	This::wxGraphicsContext(), Text::string().
+	This::wxGraphicsContext(), Text::unicode:chardata().
 getTextExtent(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxGraphicsContext),
@@ -490,7 +490,7 @@ strokeLines(#wx_ref{type=ThisT,ref=ThisRef},Points)
     (<< <<X:64/?F,Y:64/?F>> || {X,Y} <- Points>>)/binary>>).
 
 %% @doc Destroys this object, do not use object again
--spec destroy(This::wxGraphicsContext) -> ok.
+-spec destroy(This::wxGraphicsContext()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGraphicsContext),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
