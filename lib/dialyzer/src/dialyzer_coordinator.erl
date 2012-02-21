@@ -123,8 +123,8 @@ sccs_to_pids_request(SCCs, Coordinator) ->
   cast({sccs_to_pids, SCCs, self()}, Coordinator).
 
 scc_to_pids_request_handle(Worker, SCCs, SCCtoPID) ->
-  Pids = [fetch_map(SCC, SCCtoPID) || SCC <- SCCs],
-  Worker ! {sccs_to_pids, Pids},
+  Result = map_lookup(SCCs, SCCtoPID),
+  Worker ! {sccs_to_pids, Result},
   ok.
 
 -spec sccs_to_pids_reply() -> [dialyzer_worker:worker()].
@@ -314,5 +314,12 @@ new_map() ->
 store_map(Key, Value, Map) ->
   dict:store(Key, Value, Map).
 
-fetch_map(Key, Map) ->
-  dict:fetch(Key, Map).
+map_lookup(SCCs, Map) ->
+  Fold =
+    fun(Key, {Mapped, Unknown}) ->
+	case dict:find(Key, Map) of
+	  {ok, Value} -> {[Value|Mapped], Unknown};
+	  error -> {Mapped, [Key|Unknown]}
+	end
+    end,
+  lists:foldl(Fold, {[], []}, SCCs).

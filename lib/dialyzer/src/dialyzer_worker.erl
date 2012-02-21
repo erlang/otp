@@ -88,9 +88,8 @@ loop(updating, State) ->
   loop(NextStatus, State);
 loop(initializing, #state{job = SCC, servers = Servers} = State) ->
   DependsOn = dialyzer_succ_typings:find_depends_on(SCC, Servers),
-  WithoutSelf = DependsOn -- [SCC],
-  ?debug("Deps ~p: ~p\n",[State#state.job, WithoutSelf]),
-  loop(updating, State#state{depends_on = WithoutSelf});
+  ?debug("Deps ~p: ~p\n",[State#state.job, DependsOn]),
+  loop(updating, State#state{depends_on = DependsOn});
 loop(waiting, State) ->
   ?debug("Wait: ~p\n",[State#state.job]),
   NewState = wait_for_success_typings(State),
@@ -118,8 +117,7 @@ loop(running, #state{mode = Mode} = State) when
   ?debug("Run: ~p\n",[State#state.job]),
   ok = ask_coordinator_for_callers(State),
   NotFixpoint = do_work(State),
-  Callers = get_callers_reply_from_coordinator(),
-  ok = broadcast_done(State, Callers),
+  ok = broadcast_done(State),
   report_to_coordinator(NotFixpoint, State).
 
 waits_more_success_typings(#state{depends_on = Depends}) ->
@@ -147,17 +145,25 @@ ask_coordinator_for_callers(#state{job = SCC,
 				   servers = Servers,
 				   coordinator = Coordinator}) ->
   RequiredBy = dialyzer_succ_typings:find_required_by(SCC, Servers),
-  WithoutSelf = RequiredBy -- [SCC],
-  ?debug("Waiting for me~p: ~p\n",[SCC, WithoutSelf]),
-  dialyzer_coordinator:sccs_to_pids_request(WithoutSelf, Coordinator).
+  ?debug("Waiting for me~p: ~p\n",[SCC, RequiredBy]),
+  dialyzer_coordinator:sccs_to_pids_request(RequiredBy, Coordinator).
 
-get_callers_reply_from_coordinator() ->
-  dialyzer_coordinator:sccs_to_pids_reply().
+broadcast_done(#state{job = SCC, coordinator = Coordinator}) ->
+  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids_reply(),
+  send_done(Callers, SCC),
+  continue_broadcast_done(Unknown, SCC, Coordinator).
 
-broadcast_done(#state{job = SCC}, Callers) ->
+send_done(Callers, SCC) ->
   ?debug("Sending ~p: ~p\n",[SCC, Callers]),
   SendSTFun = fun(PID) -> PID ! {done, SCC} end,
   lists:foreach(SendSTFun, Callers).
+
+continue_broadcast_done([], _SCC, _Coordinator) -> ok;
+continue_broadcast_done(Rest, SCC, Coordinator) ->
+  dialyzer_coordinator:sccs_to_pids_request(Rest, Coordinator),
+  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids_reply(),
+  send_done(Callers, SCC),
+  continue_broadcast_done(Unknown, SCC, Coordinator).
 
 wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
   receive

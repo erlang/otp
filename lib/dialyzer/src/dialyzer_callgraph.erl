@@ -92,7 +92,7 @@
 %%-----------------------------------------------------------------------------
 
 -record(callgraph, {digraph        = digraph:new() :: digraph(),
-		    active_digraph                 :: digraph(),
+		    active_digraph                 :: active_digraph(),
                     esc	                           :: ets:tid(),
                     name_map	                   :: ets:tid(),
                     rev_name_map                   :: ets:tid(),
@@ -110,6 +110,8 @@
 %% Exported Types
 
 -type callgraph() :: #callgraph{}.
+
+-type active_digraph() :: {'d', digraph()} | {'e', ets:tid(), ets:tid()}.
 
 %%----------------------------------------------------------------------
 
@@ -247,12 +249,22 @@ find_non_local_calls([], Set) ->
 
 -spec get_depends_on(scc(), callgraph()) -> [scc()].
 
-get_depends_on(SCC, #callgraph{active_digraph = DG}) ->
+get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In}}) ->
+  case ets_lookup_dict(SCC, Out) of
+    {ok, Value} -> Value;
+    error -> []
+  end;
+get_depends_on(SCC, #callgraph{active_digraph = {'d', DG}}) ->
   digraph:out_neighbours(DG, SCC).
 
 -spec get_required_by(scc(), callgraph()) -> [scc()].
 
-get_required_by(SCC, #callgraph{active_digraph = DG}) ->
+get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In}}) ->
+  case ets_lookup_dict(SCC, In) of
+    {ok, Value} -> Value;
+    error -> []
+  end;
+get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
   digraph:in_neighbours(DG, SCC).
 
 %%----------------------------------------------------------------------
@@ -273,7 +285,7 @@ module_postorder(#callgraph{digraph = DG}) ->
   MDG1 = digraph_confirm_vertices(Nodes, MDG),
   MDG2 = create_module_digraph(Edges, MDG1),
   PostOrder = digraph_utils:topsort(MDG2),
-  {PostOrder, MDG2}.
+  {PostOrder, {'d', MDG2}}.
 
 %% The module deps of a module are modules that depend on the module
 -spec module_deps(callgraph()) -> dict().
@@ -310,23 +322,24 @@ create_module_digraph([], MDG) ->
 -spec finalize(callgraph()) -> {[scc()], callgraph()}.
 
 finalize(#callgraph{digraph = DG} = CG) ->
-  {ActiveDG, Postorder} = digraph_finalize(DG),
+  {ActiveDG, Postorder} = condensation(DG),
   {Postorder, CG#callgraph{active_digraph = ActiveDG}}.
 
 -spec reset_from_funs([mfa_or_funlbl()], callgraph()) -> {[scc()], callgraph()}.
 
-reset_from_funs(Funs, #callgraph{digraph = DG,
-				 active_digraph = OldActiveDG} = CG) ->
-  digraph_delete(OldActiveDG),
+reset_from_funs(Funs, #callgraph{digraph = DG, active_digraph = ADG} = CG) ->
+  active_digraph_delete(ADG),
   SubGraph = digraph_reaching_subgraph(Funs, DG),
-  {NewActiveDG, Postorder} = digraph_finalize(SubGraph),
+  {NewActiveDG, Postorder} = condensation(SubGraph),
   digraph_delete(SubGraph),
   {Postorder, CG#callgraph{active_digraph = NewActiveDG}}.
 
 -spec module_postorder_from_funs([mfa_or_funlbl()], callgraph()) ->
         {[module()], callgraph()}.
 
-module_postorder_from_funs(Funs, #callgraph{digraph = DG} = CG) ->
+module_postorder_from_funs(Funs, #callgraph{digraph = DG,
+					    active_digraph = ADG} = CG) ->
+  active_digraph_delete(ADG),
   SubGraph = digraph_reaching_subgraph(Funs, DG),
   {PO, Active} = module_postorder(CG#callgraph{digraph = SubGraph}),
   digraph_delete(SubGraph),
@@ -544,6 +557,12 @@ remove_unconfirmed([], DG, Unconfirmed) ->
 digraph_delete(DG) ->
   digraph:delete(DG).
 
+active_digraph_delete({'d', DG}) ->
+  digraph:delete(DG);
+active_digraph_delete({'e', Out, In}) ->
+  ets:delete(Out),
+  ets:delete(In).
+
 digraph_edges(DG) ->
   digraph:edges(DG).
 
@@ -555,14 +574,6 @@ digraph_in_neighbours(V, DG) ->
     [] -> none;
     List -> List
   end.
-
-digraph_postorder(Digraph) ->
-  digraph_utils:topsort(Digraph).
-
-digraph_finalize(DG) ->
-  DG1 = digraph_utils:condensation(DG),
-  Postorder = digraph_postorder(DG1),
-  {DG1, Postorder}.
 
 digraph_reaching_subgraph(Funs, DG) ->  
   Vertices = digraph_utils:reaching(Funs, DG),
@@ -792,3 +803,41 @@ to_ps(#callgraph{} = CG, File, Args) ->
   Command = io_lib:format("dot -Tps ~s -o ~s ~s", [Args, File, Dot_File]),
   _ = os:cmd(Command),
   ok.
+
+condensation(G) ->
+  SCs = digraph_utils:strong_components(G),
+  V2I = ets:new(condensation, []),
+  I2C = ets:new(condensation, []),
+  I2I = ets:new(condensation, [bag]),
+  CFun =
+    fun(SC, N) ->
+	lists:foreach(fun(V) -> true = ets:insert(V2I, {V,N}) end, SC),
+	true = ets:insert(I2C, {N, SC}),
+	N + 1
+    end,
+  lists:foldl(CFun, 1, SCs),
+  Fun1 =
+    fun({V1, V2}) ->
+        I1 = ets:lookup_element(V2I, V1, 2),
+        I2 = ets:lookup_element(V2I, V2, 2),
+	case I1 =:= I2 of
+	  true  -> true;
+	  false -> ets:insert(I2I, {I1, I2})
+	end
+    end,
+  lists:foreach(Fun1, digraph:edges(G)),
+  Fun3 =
+    fun({I1, I2}, {Out, In}) ->
+        SC1 = ets:lookup_element(I2C, I1, 2),
+        SC2 = ets:lookup_element(I2C, I2, 2),
+        {dict:append(SC1, SC2, Out), dict:append(SC2, SC1, In)}
+    end,
+  {OutDict, InDict} = ets:foldl(Fun3, {dict:new(), dict:new()}, I2I),
+  OutETS = ets:new(out,[]),
+  InETS = ets:new(in,[]),
+  ets:insert(OutETS, dict:to_list(OutDict)),
+  ets:insert(InETS, dict:to_list(InDict)),
+  ets:delete(V2I),
+  ets:delete(I2C),
+  ets:delete(I2I),
+  {{'e', OutETS, InETS}, SCs}.
