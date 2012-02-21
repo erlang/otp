@@ -576,11 +576,18 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     Module* modp;
     Eterm on_load;
 
+    /* ToDo: Use code_ix switch instead */
+
+    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_thr_progress_block();
+
     code_ix = erts_active_code_ix();
     modp = erts_get_module(BIF_ARG_1, code_ix);
 
     if (!modp || modp->curr.code == 0) {
     error:
+	erts_smp_thr_progress_unblock();
+        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	BIF_ERROR(BIF_P, BADARG);
     }
     if ((on_load = modp->curr.code[MI_ON_LOAD_FUNCTION_PTR]) == 0) {
@@ -589,11 +596,6 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
 	goto error;
     }
-
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
-
-    /*SVERK Use code_ix switch instead */
 
     if (BIF_ARG_2 == am_true) {
 	int i;
