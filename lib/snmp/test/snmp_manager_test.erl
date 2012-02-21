@@ -49,6 +49,8 @@
 	 init_per_group/2, end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
 
+	 init_per_suite/1, end_per_suite/1, 
+
 	
 	 simple_start_and_stop1/1,
 	 simple_start_and_stop2/1,
@@ -146,48 +148,29 @@
 %% External functions
 %%======================================================================
 
-which_group(Config) ->
-    case ?config(tc_group_properties, Config) of
-	undefined ->
-	    %% Properties, if they exist, is a list
-	    ignore;
-	GroupProps ->
-	    GroupName  = ?config(name, GroupProps),
-	    %% tc_group_path is a list of parent groups...
-	    GroupPaths = ?config(tc_group_path, Config),
-	    {GroupName, [?config(name, GPs) || GPs <- GroupPaths]}
-    end.
+init_per_suite(Config0) when is_list(Config0) ->
 
-mk_group_dir(GPRoot, [], Group) ->
-    ?DBG("mk_group_dir -> entry with: "
-	 "~n   GPRoot: ~p"
-	 "~n   Group:  ~p", [GPRoot, Group]),
-    GroupDir = filename:join(GPRoot, Group), 
-    case file:make_dir(GroupDir) of
-	ok ->
-	    GroupDir;
-	{error, eexist} ->
-	    GroupDir;
-	Error ->
-	    ?FAIL({failed_creating_group_dir, Error})
-    end;
-mk_group_dir(GPRoot, [Dir|Dirs], Group) ->
-    ?DBG("mk_group_dir -> entry with: "
-	 "~n   GPRoot: ~p"
-	 "~n   Dir:    ~p"
-	 "~n   Group:  ~p", [GPRoot, Dir, Group]),
-    GPDir = filename:join(GPRoot, Dir),
-    case file:make_dir(GPDir) of
-	ok ->
-	    ok;
-	{error, eexist} ->
-	    ok;
-	Error ->
-	    ?FAIL({failed_creating_group_path_dir, Error})
-    end,
-    mk_group_dir(GPDir, Dirs, Group).
-    
-    
+    ?DBG("init_per_suite -> entry with"
+	 "~n   Config0: ~p", [Config0]),
+
+    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    Config2   = snmp_test_lib:fix_data_dir(Config1),
+
+    %% Mib-dirs
+    %% data_dir is trashed by the test-server / common-test
+    %% so there is no point in fixing it...
+    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
+    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+
+    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2].
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    Config.
+
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
@@ -196,40 +179,8 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 init_per_testcase2(Case, Config) ->
     ?DBG("init_per_testcase2 -> ~p", [erlang:nodes()]),
 
-    %% Fix a correct data dir (points to the wrong location):
-    DataDir0     = ?config(data_dir, Config),
-    DataDir1     = filename:split(filename:absname(DataDir0)),
-    [_|DataDir2] = lists:reverse(DataDir1),
-    DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
+    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
 
-    PrivDir = ?config(priv_dir, Config),
-
-    TopDir = filename:join(PrivDir, ?MODULE),
-    ?DBG("init_per_testcase2 -> try create top dir: ~n~p", [TopDir]),
-    case file:make_dir(TopDir) of
-	ok ->
-	    ok;
-	{error, eexist} ->
-	    ok;
-	ErrorS ->
-	    ?FAIL({failed_creating_subsuite_top_dir, ErrorS})
-    end,
-
-    CaseRootDir = 
-	case which_group(Config) of
-	    {Group, GroupPath} ->
-		?DBG("init_per_testcase2 -> try create group dir with: "
-		     "~n   Group:     ~p"
-		     "~n   GroupPath: ~p", [Group, GroupPath]),
-		mk_group_dir(TopDir, GroupPath, Group);
-	    _ ->
-		TopDir
-	end,
-	    
-    CaseTopDir = filename:join(CaseRootDir, Case),
-    ?DBG("init_per_testcase2 -> try create case top dir: ~n~p", [CaseTopDir]),
-    ?line ok   = file:make_dir(CaseTopDir),
-    
     %% -- Manager dirs  --
     MgrTopDir  = filename:join(CaseTopDir, "manager/"), 
     ?DBG("init_per_testcase2 -> try create manager top dir: ~n~p", 
@@ -258,11 +209,9 @@ init_per_testcase2(Case, Config) ->
     AgLogDir  = filename:join(AgTopDir,   "log/"),
     ?line ok  = file:make_dir(AgLogDir),
 
-    Conf = [{snmp_data_dir,             DataDir},
-	    {watchdog,                  ?WD_START(?MINS(5))},
+    Conf = [{watchdog,                  ?WD_START(?MINS(5))},
 	    {ip,                        ?LOCALHOST()},
-	    {top_dir,                   TopDir},
-	    {case_root_dir,             CaseRootDir},
+	    {case_top_dir,              CaseTopDir},
 	    {agent_dir,                 AgTopDir},
 	    {agent_conf_dir,            AgConfDir},
 	    {agent_db_dir,              AgDbDir},
@@ -451,7 +400,7 @@ all() ->
      {group, event_tests}, 
      {group, event_tests_mt}, 
      discovery, 
-     {group, tickets}
+     {group, tickets} 
     ].
 
 groups() -> 
@@ -589,15 +538,21 @@ groups() ->
      }
     ].
 
-init_per_group(request_tests_mt = _GroupName, Config) ->
-    [{manager_net_if_module, snmpm_net_if_mt} | Config];
-init_per_group(event_tests_mt = _GroupName, Config) ->
-    [{manager_net_if_module, snmpm_net_if_mt} | Config];
-init_per_group(_GroupName, Config) ->
-    Config.
+init_per_group(request_tests_mt = GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(
+      GroupName, 
+      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(event_tests_mt = GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(
+      GroupName, 
+      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(GroupName, Config).
 
+	    
 end_per_group(_GroupName, Config) ->
-	Config.
+    %% Do we really need to do this?
+    lists:keydelete(snmp_group_top_dir, 1, Config).
 
 
 %%======================================================================
@@ -1657,6 +1612,11 @@ simple_sync_get1(Config) when is_list(Config) ->
     ?line ok = mgr_user_load_mib(Node, std_mib()),
     Oids2 = [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
     ?line ok = do_simple_sync_get(Node, Addr, Port, Oids2),
+
+    p("Display log"),
+    display_log(Config),
+
+    p("done"),
     ok.
 
 do_simple_sync_get(Node, Addr, Port, Oids) ->
@@ -1664,7 +1624,7 @@ do_simple_sync_get(Node, Addr, Port, Oids) ->
 
     ?DBG("~n   Reply: ~p"
 	 "~n   Rem:   ~w", [Reply, Rem]),
-    
+
     %% verify that the operation actually worked:
     %% The order should be the same, so no need to seach 
     ?line ok = case Reply of
@@ -1698,7 +1658,9 @@ simple_sync_get2(suite) -> [];
 simple_sync_get2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssg2),
-    do_simple_sync_get2(Config).
+    do_simple_sync_get2(Config),
+    display_log(Config),
+    ok.
 
 do_simple_sync_get2(Config) ->
     Get = fun(Node, TargetName, Oids) -> 
@@ -1763,7 +1725,9 @@ simple_sync_get3(suite) -> [];
 simple_sync_get3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssg3),
-    do_simple_sync_get3(Config).
+    do_simple_sync_get3(Config),
+    display_log(Config),
+    ok.
 
 do_simple_sync_get3(Config) ->
     Self  = self(), 
@@ -1789,8 +1753,8 @@ do_simple_sync_get3(Config) ->
 
 %%======================================================================
 
-simple_async_get1(doc) -> ["Simple (async) get-request - "
-			   "Old style (Addr & Port)"];
+simple_async_get1(doc) -> 
+    ["Simple (async) get-request - Old style (Addr & Port)"];
 simple_async_get1(suite) -> [];
 simple_async_get1(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
@@ -1852,6 +1816,7 @@ simple_async_get1(Config) when is_list(Config) ->
     p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
 
+    display_log(Config),
     ok.
 
 async_g_exec1(Node, Addr, Port, Oids) ->
@@ -1902,7 +1867,9 @@ simple_async_get2(Config) when is_list(Config) ->
     TargetName = ?config(manager_agent_target_name, Config),
     Get        = fun(Oids) -> async_g_exec2(MgrNode, TargetName, Oids) end,
     PostVerify = fun(Res) -> Res end, 
-    do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify).
+    do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify),
+    display_log(Config),
+    ok.
 
 do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify) ->
     ?line ok = mgr_user_load_mib(MgrNode, std_mib()),
@@ -1991,7 +1958,9 @@ simple_async_get3(Config) when is_list(Config) ->
     PostVerify = fun(ok)    -> receive Msg -> ok end;
 		    (Error) -> Error 
 		 end,
-    do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify).
+    do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify),
+    display_log(Config),
+    ok.
 
 async_g_exec3(Node, TargetName, Oids, SendOpts) ->
     mgr_user_async_get2(Node, TargetName, Oids, SendOpts).
@@ -2085,6 +2054,8 @@ simple_sync_get_next1(Config) when is_list(Config) ->
 	     end,
     ?line ok = do_simple_get_next(8, 
 				  MgrNode, Addr, Port, Oids08, VF08),
+    
+    display_log(Config),
     ok.
 
 
@@ -2148,7 +2119,10 @@ simple_sync_get_next2(Config) when is_list(Config) ->
 		      mgr_user_sync_get_next(Node, TargetName, Oids) 
 	      end,
     PostVerify = fun(Res) -> Res end,
-    do_simple_sync_get_next2(Config, GetNext, PostVerify).
+    do_simple_sync_get_next2(Config, GetNext, PostVerify),
+    display_log(Config),
+    ok.
+
 
 do_simple_sync_get_next2(Config, GetNext, PostVerify) 
   when is_function(GetNext, 3) andalso is_function(PostVerify, 1) ->
@@ -2279,7 +2253,9 @@ simple_sync_get_next3(Config) when is_list(Config) ->
     PostVerify = fun(ok)    -> receive Msg -> ok end;
 		    (Error) -> Error 
 		 end,
-    do_simple_sync_get_next2(Config, GetNext, PostVerify).
+    do_simple_sync_get_next2(Config, GetNext, PostVerify),
+    display_log(Config),
+    ok.
 
 
 %%======================================================================
@@ -2372,6 +2348,7 @@ simple_async_get_next1(Config) when is_list(Config) ->
     p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
 
+    display_log(Config),
     ok.
 
 
@@ -2401,7 +2378,9 @@ simple_async_get_next2(Config) when is_list(Config) ->
 		      async_gn_exec2(MgrNode, TargetName, Oids)
 	      end,
     PostVerify = fun(Res) -> Res end,
-    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify).
+    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify),
+    display_log(Config),
+    ok.
 
 do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify) 
   when is_function(GetNext, 1) andalso is_function(PostVerify, 1) ->
@@ -2523,7 +2502,9 @@ simple_async_get_next3(Config) when is_list(Config) ->
 		    (Error) -> Error 
 		 end,
 
-    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify).
+    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify),
+    display_log(Config),
+    ok.
 
 async_gn_exec3(Node, TargetName, Oids, SendOpts) ->
     mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts).
@@ -2561,6 +2542,8 @@ simple_sync_set1(Config) when is_list(Config) ->
 	     {[sysLocation, 0], Val22}
 	    ],
     ?line ok = do_simple_set1(Node, Addr, Port, VAVs2),
+
+    display_log(Config),
     ok.
 
 do_simple_set1(Node, Addr, Port, VAVs) ->
@@ -2613,7 +2596,9 @@ simple_sync_set2(Config) when is_list(Config) ->
 	  end,
     PostVerify = fun() -> ok end,
 
-    do_simple_sync_set2(Config, Set, PostVerify).
+    do_simple_sync_set2(Config, Set, PostVerify),
+    display_log(Config),
+    ok.
 
 do_simple_sync_set2(Config, Set, PostVerify) 
   when is_function(Set, 3) andalso is_function(PostVerify, 0) ->
@@ -2690,7 +2675,9 @@ simple_sync_set3(Config) when is_list(Config) ->
 	  end,
     PostVerify = fun() -> receive Msg -> ok end end,
 
-    do_simple_sync_set2(Config, Set, PostVerify).
+    do_simple_sync_set2(Config, Set, PostVerify),
+    display_log(Config),
+    ok.
 
 
 %%======================================================================
@@ -2749,6 +2736,7 @@ simple_async_set1(Config) when is_list(Config) ->
     p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
 
+    display_log(Config),
     ok.
 
 
@@ -2810,7 +2798,9 @@ simple_async_set2(Config) when is_list(Config) ->
 	end,
     PostVerify = fun(Res) -> Res end,
 
-    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify).
+    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify),
+    display_log(Config),
+    ok.
 
 do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify) ->
     Requests = 
@@ -2892,7 +2882,9 @@ simple_async_set3(Config) when is_list(Config) ->
 		    (Res) -> Res 
 		 end,
 
-    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify).
+    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify),
+    display_log(Config),
+    ok.
 
 async_s_exec3(Node, TargetName, VAVs, SendOpts) ->
     mgr_user_async_set2(Node, TargetName, VAVs, SendOpts).
@@ -3018,6 +3010,7 @@ simple_sync_get_bulk1(Config) when is_list(Config) ->
 				  0, 2, 
 				  [[TCnt2, 1]], VF11),
 
+    display_log(Config),
     ok.
 
 fl(L) ->
@@ -3090,7 +3083,9 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
 	end,
     PostVerify = fun(Res) -> Res end,
 
-    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify).
+    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify),
+    display_log(Config),
+    ok.
 
 do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% -- 1 --
@@ -3255,7 +3250,9 @@ simple_sync_get_bulk3(Config) when is_list(Config) ->
 		    (Res) -> Res 
 		 end,
 
-    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify).
+    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify),
+    display_log(Config),
+    ok.
 
 
 %%======================================================================
@@ -3394,6 +3391,7 @@ simple_async_get_bulk1(Config) when is_list(Config) ->
     p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
 
+    display_log(Config),
     ok.
 
 
@@ -3426,7 +3424,9 @@ simple_async_get_bulk2(Config) when is_list(Config) ->
 	end,
     PostVerify = fun(Res) -> Res end,
 
-    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify).
+    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify),
+    display_log(Config),
+    ok.
 
 do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% We re-use the verification functions from the ssgb test-case
@@ -3591,7 +3591,9 @@ simple_async_get_bulk3(Config) when is_list(Config) ->
 		    (Res) -> Res 
 		 end,
 
-    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify).
+    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify),
+    display_log(Config),
+    ok.
 
 async_gb_exec3(Node, TargetName, {NR, MR, Oids}, SendOpts) ->
     mgr_user_async_get_bulk2(Node, TargetName, NR, MR, Oids, SendOpts).
@@ -3783,6 +3785,7 @@ misc_async1(Config) when is_list(Config) ->
     p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
 
+    display_log(Config),
     ok.
 
 
@@ -3971,6 +3974,7 @@ misc_async2(Config) when is_list(Config) ->
     p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
     p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
 
+    display_log(Config),
     ok.
 
 
@@ -4185,7 +4189,9 @@ trap1(Config) when is_list(Config) ->
 	 {5, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands).
+    command_handler(Commands),
+    display_log(Config),
+    ok.
 
     
 %%======================================================================
@@ -4376,7 +4382,9 @@ trap2(Config) when is_list(Config) ->
 	 {7, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands).
+    command_handler(Commands),
+    display_log(Config),
+    ok.
 
     
 %%======================================================================
@@ -4501,7 +4509,9 @@ inform1(Config) when is_list(Config) ->
 	 {6, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands).
+    command_handler(Commands),
+    display_log(Config),
+    ok.
 
 
 %%======================================================================
@@ -4671,7 +4681,9 @@ inform2(Config) when is_list(Config) ->
 	 {8, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands).
+    command_handler(Commands),
+    display_log(Config),
+    ok.
 
     
 %%======================================================================
@@ -4805,7 +4817,9 @@ inform3(Config) when is_list(Config) ->
 	 {9, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands).
+    command_handler(Commands),
+    display_log(Config),
+    ok.
 
     
 %%======================================================================
@@ -4921,7 +4935,9 @@ inform4(Config) when is_list(Config) ->
 	 {6, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands).
+    command_handler(Commands),
+    display_log(Config),
+    ok.
 
 
 %%======================================================================
@@ -5009,7 +5025,10 @@ inform_swarm(Config) when is_list(Config) ->
 	 {5, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands).
+    command_handler(Commands),
+    display_log(Config),
+    ok.
+
 
 inform_swarm_collector(N) ->
     inform_swarm_collector(N, 0, 0, 0, 10000).
@@ -5313,8 +5332,8 @@ init_agent(Config) ->
     %% -- 
     %% Retrieve some dir's
     %% 
-    Dir     = ?config(top_dir,  Config),
-    DataDir = ?config(data_dir, Config),
+    Dir    = ?config(agent_dir, Config),
+    MibDir = ?config(mib_dir,  Config),
 
     %% -- 
     %% Start node
@@ -5345,7 +5364,7 @@ init_agent(Config) ->
     ?line ok = write_agent_config(Vsns, Config),
 
     Conf = [{agent_node, Node},
-	    {mib_dir,    DataDir} | Config],
+	    {mib_dir,    MibDir} | Config],
     
     %% 
     %% Start the agent 
@@ -6113,6 +6132,38 @@ write_conf_file(Dir, File, Str) ->
 
 %% ------
 
+display_log(Config) ->
+    case lists:keysearch(manager_log_dir, 1, Config) of
+	{value, {_, Dir}} ->
+	    case lists:keysearch(manager_node, 1, Config) of
+		{value, {_, Node}} ->
+		    LogDir  = Dir, 
+		    Mibs    = [], 
+		    OutFile = j(LogDir, "snmpm_log.txt"), 
+		    p("~n"
+		      "========================="
+		      "  < Audit Trail Log >  "
+		      "========================="
+		      "~n"),
+		    rcall(Node, snmpm, log_to_txt, [LogDir, Mibs, OutFile]),
+		    rcall(Node, snmpm, log_to_io, [LogDir, Mibs]),
+		    p("~n"
+		      "========================="
+		      " < / Audit Trail Log > "
+		      "========================="
+		      "~n");
+		false ->
+		    p("display_log -> no manager node found"),
+		    ok
+	    end;
+	false ->
+	    p("display_log -> no manager log dir found"),
+	    ok
+    end.
+
+
+%% ------
+
 test2_mib(Config) ->
     j(test_mib_dir(Config), "Test2.bin").
 
@@ -6129,7 +6180,7 @@ snmpv2_mib() ->
     j(mib_dir(), "SNMPv2-MIB.bin").
 
 test_mib_dir(Config) ->
-    ?config(snmp_data_dir, Config).
+    ?config(mib_dir, Config).
 
 mib_dir() ->
     j(code:priv_dir(snmp), "mibs").

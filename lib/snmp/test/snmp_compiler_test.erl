@@ -40,6 +40,7 @@
 	 all/0, 
 	 groups/0, init_per_group/2, end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1,
 
 	 description/1,
 	 oid_conflicts/1,
@@ -74,19 +75,41 @@
 %% External functions
 %%======================================================================
 
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
-    [_|RL] = lists:reverse(filename:split(DataDir)),
-    MibDir = join(lists:reverse(["snmp_test_data"|RL])),
-    CompDir = join(Dir, "comp_dir/"),
-    ?line ok = file:make_dir(CompDir),
-    [{comp_dir, CompDir}, {mib_dir, MibDir} | Config].
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?DBG("init_per_suite -> entry with"
+	 "~n   Config0: ~p", [Config0]),
+
+    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    Config2   = snmp_test_lib:fix_data_dir(Config1),
+
+    %% Mib-dirs
+    %% data_dir is trashed by the test-server / common-test
+    %% so there is no point in fixing it...
+    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
+    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+
+    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2].
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    Config.
+
+
+init_per_testcase(Case, Config) when is_list(Config) ->
+
+    ?DBG("init_per_testcase -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
+
+    [{case_top_dir, CaseTopDir} | Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    CompDir = ?config(comp_dir, Config),
-    ?line ok = ?DEL_DIR(CompDir),
-    lists:keydelete(comp_dir, 1, Config).
+    Config.
 
 
 %%======================================================================
@@ -126,7 +149,7 @@ description(Config) when is_list(Config) ->
     put(tname,desc),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir = ?config(comp_dir, Config),
+    Dir = ?config(case_top_dir, Config),
     Filename   = join(Dir,"test"),
     MibSrcName = Filename ++ ".mib",
     MibBinName = Filename ++ ".bin",
@@ -161,7 +184,7 @@ oid_conflicts(Config) when is_list(Config) ->
     put(tname,oid_conflicts),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir = ?config(comp_dir, Config),
+    Dir = ?config(case_top_dir, Config),
     Mib = join(Dir,"TESTv2.mib"),
     ?line ok = write_oid_conflict_mib(Mib),
     ?line {error,compilation_failed} = 
@@ -278,7 +301,7 @@ warnings_as_errors(suite) ->
 warnings_as_errors(Config) when is_list(Config) ->
     put(tname,warnings_as_errors),
     p("starting with Config: ~p~n", [Config]),
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8574-MIB.mib"),
     OutFile = join(Dir, "OTP8574-MIB.bin"),
@@ -303,7 +326,7 @@ otp_6150(Config) when is_list(Config) ->
     put(tname,otp_6150),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "ERICSSON-TOP-MIB.mib"),
     ?line {ok, Mib} = snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
@@ -319,7 +342,7 @@ otp_8574(Config) when is_list(Config) ->
     put(tname,otp_8574),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8574-MIB.mib"),
     
@@ -352,7 +375,7 @@ otp_8595(Config) when is_list(Config) ->
     put(tname,otp_8595),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8595-MIB.mib"),
     ?line {ok, Mib} = 
@@ -546,8 +569,8 @@ check_desc(Desc1, Desc2) ->
     exit({'description not equal', Desc1, Desc2}).
 
 
-join(Comp) ->
-    filename:join(Comp).
+%% join(Comp) ->
+%%     filename:join(Comp).
 
 join(A,B) ->
     filename:join(A,B).

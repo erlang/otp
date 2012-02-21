@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -228,48 +228,79 @@ groups() ->
      }
     ].
 
-init_per_group(all_tcs, Config) ->
-    init_all(Config);
-init_per_group(otp_7157, Config) -> 
-	init_otp_7157(Config);
-init_per_group(otp_4394, Config) -> 
-	init_otp_4394(Config);
-init_per_group(v2_inform, Config) -> 
-	init_v2_inform(Config);
-init_per_group(multiple_reqs_2, Config) -> 
-	init_mul(Config);
-init_per_group(multiple_reqs, Config) -> 
-	init_mul(Config);
-init_per_group(test_multi_threaded, Config) -> 
-	init_mt(Config);
-init_per_group(test_v3, Config) -> 
-	init_v3(Config);
-init_per_group(test_v1_v2, Config) -> 
-	init_v1_v2(Config);
-init_per_group(test_v2, Config) -> 
-	init_v2(Config);
-init_per_group(test_v1, Config) -> 
-	init_v1(Config);
-init_per_group(misc, Config) -> 
-	init_misc(Config);
-init_per_group(mib_storage_varm_mnesia, Config) -> 
-	init_varm_mib_storage_mnesia(Config);
-init_per_group(mib_storage_varm_dets, Config) -> 
-	init_varm_mib_storage_dets(Config);
-init_per_group(mib_storage_size_check_mnesia, Config) -> 
-	init_size_check_msm(Config);
-init_per_group(mib_storage_size_check_dets, Config) -> 
-	init_size_check_msd(Config);
-init_per_group(mib_storage_size_check_ets, Config) -> 
-	init_size_check_mse(Config);
-init_per_group(mib_storage_mnesia, Config) -> 
-	init_mib_storage_mnesia(Config);
-init_per_group(mib_storage_dets, Config) -> 
-	init_mib_storage_dets(Config);
-init_per_group(mib_storage_ets, Config) -> 
-	init_mib_storage_ets(Config);
-init_per_group(_GroupName, Config) ->
-	Config.
+
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?DBG("init_per_suite -> entry with"
+	 "~n   Config0: ~p", [Config0]),
+
+    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    Config2   = snmp_test_lib:fix_data_dir(Config1),
+
+    %% Mib-dirs
+    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
+    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+
+    Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
+
+    ?DBG("init_per_suite -> end with"
+	 "~n   Config3: ~p", [Config3]),
+
+    Config3.
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    Config.
+
+
+init_per_group(all_tcs = GroupName, Config) ->
+    init_all(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp_7157 = GroupName, Config) -> 
+    init_otp_7157(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp_4394 = GroupName, Config) -> 
+    init_otp_4394(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(v2_inform = GroupName, Config) -> 
+    init_v2_inform(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(multiple_reqs_2 = GroupName, Config) -> 
+    init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(multiple_reqs = GroupName, Config) -> 
+    init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_multi_threaded = GroupName, Config) -> 
+    init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v3 = GroupName, Config) -> 
+    init_v3(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v1_v2 = GroupName, Config) -> 
+    init_v1_v2(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v2 = GroupName, Config) -> 
+    init_v2(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v1 = GroupName, Config) -> 
+    init_v1(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(misc = GroupName, Config) -> 
+    init_misc(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_varm_mnesia = GroupName, Config) -> 
+    init_varm_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
+								  Config));
+init_per_group(mib_storage_varm_dets = GroupName, Config) -> 
+    init_varm_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, 
+								Config));
+init_per_group(mib_storage_size_check_mnesia = GroupName, Config) -> 
+    init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_size_check_dets = GroupName, Config) -> 
+    init_size_check_msd(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_size_check_ets = GroupName, Config) -> 
+    init_size_check_mse(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_mnesia = GroupName, Config) -> 
+    init_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
+							     Config));
+init_per_group(mib_storage_dets = GroupName, Config) -> 
+    init_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_ets = GroupName, Config) -> 
+    init_mib_storage_ets(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(GroupName, Config).
 
 end_per_group(all_tcs, Config) ->
     finish_all(Config);
@@ -320,7 +351,7 @@ init_per_testcase(otp8395 = Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
-    Config2 = init_per_testcase2(Case, init_per_suite(Config)), 
+    Config2 = init_per_testcase2(Case, Config), 
     otp8395({init, Config2});
 init_per_testcase(otp_7157_test = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
@@ -358,65 +389,14 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 
-init_per_suite(Config) ->
-    ?DBG("init_per_suite -> entry with"
-	 "~n   Config: ~p", [Config]),
-
-    %% Suite root dir for test suite
-    PrivDir = ?config(priv_dir, Config),
-
-    %% Create top-directory for this sub-suite
-    SuiteTopDir = filename:join([PrivDir, ?MODULE]),
-    case file:make_dir(SuiteTopDir) of
-	ok ->
-	    ok;
-	{error, eexist} ->
-	    %% This can happen since this is not really a 
-	    %% suite-init function.
-	    ok;
-	{error, Reason} ->
-	    ?FAIL({failed_creating_suite_top_dir, SuiteTopDir, Reason})
-    end,
-    
-
-    %% --
-    %% Fix config (data-dir is not correct):
-    %% 
-
-    Config1 = fix_data_dir(Config), 
-    %% Config1 = Config, 
-
-    %% Mib-dirs
-    MibDir    = ?config(data_dir, Config1),
-    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
-
-    Config2 = [{suite_top_dir, SuiteTopDir}, 
-	       {mib_dir,       MibDir}, 
-	       {std_mib_dir,   StdMibDir} | Config1],
-
-    ?DBG("init_per_suite -> done when"
-	 "~n   Config2: ~p", [Config2]),
-    Config2.
-
-%% end_per_suite(Config) ->
-end_per_suite(Config) ->
-    Config.
-
-fix_data_dir(Config) ->
-    DataDir0     = ?config(data_dir, Config),
-    DataDir1     = filename:split(filename:absname(DataDir0)),
-    [_|DataDir2] = lists:reverse(DataDir1),
-    DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
-    Config1      = lists:keydelete(data_dir, 1, Config),
-    [{data_dir, DataDir} | Config1].
-
-
 init_per_testcase2(Case, Config) ->
-    SuiteToDir = ?config(suite_top_dir, Config),
+    %% SuiteToDir = ?config(snmp_suite_top_dir, Config),
     
-    %% Create top-directory for this test-case
-    CaseTopDir = filename:join([SuiteToDir, Case]),
-    ok = file:make_dir(CaseTopDir),
+    %% %% Create top-directory for this test-case
+    %% filename:join([SuiteToDir, Case]),
+    %% ok = file:make_dir(CaseTopDir),
+
+    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
 
     %% Create agent top-dir(s)
     AgentTopDir = filename:join([CaseTopDir, agent]),

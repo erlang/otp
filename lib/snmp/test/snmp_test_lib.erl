@@ -25,7 +25,10 @@
 -export([hostname/0, hostname/1, localhost/0, os_type/0, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1]).
--export([replace_config/3, set_config/3, get_config/2, get_config/3]).
+-export([fix_data_dir/1, 
+	 init_suite_top_dir/2, init_group_top_dir/2, init_testcase_top_dir/2, 
+	 lookup/2, 
+	 replace_config/3, set_config/3, get_config/2, get_config/3]).
 -export([fail/3, skip/3]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
 -export([flush_mqueue/0, trap_exit/0, trap_exit/1]).
@@ -198,6 +201,85 @@ os_based_skip(_Crap) ->
 %% Test suite utility functions
 %% 
 
+fix_data_dir(Config) ->
+    DataDir0     = lookup(data_dir, Config),
+    DataDir1     = filename:split(filename:absname(DataDir0)),
+    [_|DataDir2] = lists:reverse(DataDir1),
+    DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
+    Config1      = lists:keydelete(data_dir, 1, Config),
+    [{data_dir, DataDir} | Config1].
+
+
+init_suite_top_dir(Suite, Config0) ->
+    Dir         = lookup(priv_dir, Config0),
+    SuiteTopDir = filename:join(Dir, Suite),
+    case file:make_dir(SuiteTopDir) of
+        ok ->
+            ok;
+        {error, eexist} ->
+            ok;
+        {error, Reason} ->
+            fail({failed_creating_suite_top_dir, SuiteTopDir, Reason}, 
+		 ?MODULE, ?LINE)
+    end,
+
+    %% This is just in case...
+    Config1 = lists:keydelete(snmp_group_top_dir, 1, Config0), 
+    Config2 = lists:keydelete(snmp_suite_top_dir, 1, Config1), 
+    [{snmp_suite_top_dir, SuiteTopDir} | Config2].
+
+
+init_group_top_dir(GroupName, Config) ->
+    case lists:keysearch(snmp_group_top_dir, 1, Config) of
+	{value, {_Key, Dir}} ->
+	    %% This is a sub-group, so create our dir within Dir
+	    GroupTopDir = filename:join(Dir, GroupName),
+	    case file:make_dir(GroupTopDir) of
+		ok ->
+		    ok;
+		{error, Reason} ->
+		    fail({failed_creating_group_top_dir, GroupTopDir, Reason}, 
+			 ?MODULE, ?LINE)
+	    end,
+	    [{snmp_group_top_dir, GroupTopDir} | Config];
+
+	_ ->
+	    case lists:keysearch(snmp_suite_top_dir, 1, Config) of
+		{value, {_Key, Dir}} ->
+		    GroupTopDir = filename:join(Dir, GroupName),
+		    case file:make_dir(GroupTopDir) of
+			ok ->
+			    ok;
+			{error, Reason} ->
+			    fail({failed_creating_group_top_dir, 
+				  GroupTopDir, Reason}, 
+				 ?MODULE, ?LINE)
+		    end,
+		    [{snmp_group_top_dir, GroupTopDir} | Config];
+		_ ->
+		    fail(could_not_find_suite_top_dir, ?MODULE, ?LINE)
+	    end
+    end.
+
+
+init_testcase_top_dir(Case, Config) ->
+    case lists:keysearch(snmp_group_top_dir, 1, Config) of
+	{value, {_Key, Dir}} ->
+	    CaseTopDir = filename:join(Dir, Case),
+	    ok = file:make_dir(CaseTopDir),
+	    CaseTopDir;
+	false ->
+	    case lists:keysearch(snmp_suite_top_dir, 1, Config) of
+		{value, {_Key, Dir}} ->
+		    CaseTopDir = filename:join(Dir, Case),
+		    ok = file:make_dir(CaseTopDir),
+		    CaseTopDir;
+		false ->
+		    fail(failed_creating_case_top_dir, ?MODULE, ?LINE)
+	    end
+    end.
+
+
 replace_config(Key, Config, NewValue) ->
     lists:keyreplace(Key, 1, Config, {Key, NewValue}).
 
@@ -220,6 +302,9 @@ get_config(Key,C,Default) ->
             Default
     end.
 
+lookup(Key, Config) ->
+    {value, {Key, Value}} = lists:keysearch(Key, 1, Config),
+    Value.
 
 fail(Reason, Mod, Line) ->
     exit({suite_failed, Reason, Mod, Line}).
