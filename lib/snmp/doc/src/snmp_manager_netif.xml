@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -35,31 +35,34 @@
   <image file="snmp_manager_netif_1.gif">
     <icaption>The Purpose of Manager Net if</icaption>
   </image>
+
   <p>The Network Interface (Net if) process delivers SNMP PDUs to the
-    manager server, and receives SNMP PDUs from the manager server. 
-    The most common behaviour of a Net if process is that is receives 
-    request PDU from the manager server, encodes the PDU into bytes
-    and transmits the bytes onto the network to an agent. When the 
-    reply from the agent is received by the Net if process, which it
-    decodes into an SNMP PDU, which it sends to the manager server.
-    </p>
+  manager server, and receives SNMP PDUs from the manager server. 
+  The most common behaviour of a Net if process is that is receives 
+  request PDU from the manager server, encodes the PDU into bytes
+  and transmits the bytes onto the network to an agent. When the 
+  reply from the agent is received by the Net if process, which it
+  decodes into an SNMP PDU, which it sends to the manager server. </p>
+
   <p>However, that simple behaviour can be modified in numerous
-    ways. For example, the Net if process can apply some kind of
-    encrypting/decrypting scheme on the bytes.
-    </p>
-  <p>It is also possible to write your own Net if process. The default
-    Net if process is implemented in the module <c>snmpm_net_if</c> and
-    it uses UDP as the transport protocol.
-    </p>
-  <p>This section describes how to write a Net if process.
-    </p>
+  ways. For example, the Net if process can apply some kind of
+  encrypting/decrypting scheme on the bytes. </p>
+
+  <p>The snmp application provides two different modules, 
+  <c>snmpm_net_if</c> (the default) and <c>snmpm_net_if_mt</c>, 
+  both uses the UDP as the transport protocol. The difference 
+  between the two modules is that the latter is "multi-threaded", 
+  i.e. for each message/request a new process is created that 
+  process the message/request and then exits. </p>
+
+  <p>It is also possible to write your own Net if process, 
+  this section describes how to write a Net if processdo that.</p>
 
   <section>
     <marker id="mandatory_functions"></marker>
     <title>Mandatory Functions</title>
     <p>A Net if process must implement the SNMP manager 
-      <seealso marker="snmpm_network_interface">network interface behaviour</seealso>.
-      </p>
+    <seealso marker="snmpm_network_interface">network interface behaviour</seealso>. </p>
   </section>
 
   <section>
