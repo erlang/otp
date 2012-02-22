@@ -59,7 +59,7 @@
          put_named_tables/2, put_public_tables/2, put_behaviour_api_calls/2,
 	 get_behaviour_api_calls/1]).
 
--export_type([callgraph/0]).
+-export_type([callgraph/0, mfa_or_funlbl/0]).
 
 -include("dialyzer.hrl").
 

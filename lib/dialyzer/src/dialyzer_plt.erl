@@ -205,7 +205,7 @@ get_exported_types(#plt{exported_types = ExpTypes}) ->
 lookup_module(#plt{info = Info}, M) when is_atom(M) ->
   table_lookup_module(Info, M).
 
--spec all_modules(plt()) -> [module()].
+-spec all_modules(plt()) -> set().
 
 all_modules(#plt{info = Info, contracts = Cs}) ->
   sets:union(table_all_modules(Info), table_all_modules(Cs)).

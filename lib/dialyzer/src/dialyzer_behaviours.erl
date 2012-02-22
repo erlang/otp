@@ -241,12 +241,12 @@ translatable_behaviours(Tree) ->
 get_behaviour_apis(Behaviours) ->
   get_behaviour_apis(Behaviours, []).
 
--spec translate_behaviour_api_call(dialyzer_races:mfa_or_funlbl(),
+-spec translate_behaviour_api_call(dialyzer_callgraph:mfa_or_funlbl(),
 				   [erl_types:erl_type()],
 				   [dialyzer_races:core_vars()],
 				   module(),
 				   behaviour_api_dict()) ->
-				      {dialyzer_races:mfa_or_funlbl(),
+				      {dialyzer_callgraph:mfa_or_funlbl(),
 				       [erl_types:erl_type()],
 				       [dialyzer_races:core_vars()]}
 					| 'plain_call'.

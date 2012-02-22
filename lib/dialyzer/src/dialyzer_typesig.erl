@@ -91,23 +91,23 @@
 -type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, dict()}].
 -type typesig_funmap() :: [{type_var(), type_var()}]. %% Orddict
 
--record(state, {callgraph                  :: dialyzer_callgraph:callgraph(),
-		cs            = []         :: [constr()],
-		cmap          = dict:new() :: dict(),
-		fun_map       = []         :: typesig_funmap(),
-		fun_arities   = dict:new() :: dict(),
-		in_match      = false      :: boolean(),
-		in_guard      = false      :: boolean(),
-		module                     :: module(),
-		name_map      = dict:new() :: dict(),
-		next_label                 :: label(),
-		self_recs                  :: [label()],
-		plt                        :: dialyzer_plt:plt(),
-		prop_types    = dict:new() :: dict(),
-		records       = dict:new() :: dict(),
-		opaques       = []         :: [erl_types:erl_type()],
-		scc           = []         :: [type_var()],
-		mfas                       :: [tuple()]
+-record(state, {callgraph                :: dialyzer_callgraph:callgraph(),
+		cs          = []         :: [constr()],
+		cmap        = dict:new() :: dict(),
+		fun_map     = []         :: typesig_funmap(),
+		fun_arities = dict:new() :: dict(),
+		in_match    = false      :: boolean(),
+		in_guard    = false      :: boolean(),
+		module                   :: module(),
+		name_map    = dict:new() :: dict(),
+		next_label               :: label(),
+		self_recs                :: [label()],
+		plt                      :: dialyzer_plt:plt(),
+		prop_types  = dict:new() :: dict(),
+		records     = dict:new() :: dict(),
+		opaques     = []         :: [erl_types:erl_type()],
+		scc         = []         :: [type_var()],
+		mfas        = []         :: [dialyzer_callgraph:mfa_or_funlbl()]
 	       }).
 
 %%-----------------------------------------------------------------------------
