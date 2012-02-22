@@ -247,7 +247,7 @@ find_non_local_calls([{Label1, Label2}|Left], Set) when is_integer(Label1),
 find_non_local_calls([], Set) ->
   sets:to_list(Set).
 
--spec get_depends_on(scc(), callgraph()) -> [scc()].
+-spec get_depends_on(scc() | module(), callgraph()) -> [scc()].
 
 get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In}}) ->
   case ets_lookup_dict(SCC, Out) of
@@ -257,7 +257,7 @@ get_depends_on(SCC, #callgraph{active_digraph = {'e', Out, _In}}) ->
 get_depends_on(SCC, #callgraph{active_digraph = {'d', DG}}) ->
   digraph:out_neighbours(DG, SCC).
 
--spec get_required_by(scc(), callgraph()) -> [scc()].
+-spec get_required_by(scc() | module(), callgraph()) -> [scc()].
 
 get_required_by(SCC, #callgraph{active_digraph = {'e', _Out, In}}) ->
   case ets_lookup_dict(SCC, In) of
@@ -276,7 +276,7 @@ get_required_by(SCC, #callgraph{active_digraph = {'d', DG}}) ->
 modules(#callgraph{digraph = DG}) ->
   ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]).
 
--spec module_postorder(callgraph()) -> {[module()], digraph()}.
+-spec module_postorder(callgraph()) -> {[module()], {'d', digraph()}}.
 
 module_postorder(#callgraph{digraph = DG}) ->
   Edges = digraph_edges(DG),

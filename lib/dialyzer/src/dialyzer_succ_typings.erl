@@ -240,12 +240,12 @@ refine_succ_typings([], State, Coordinator) ->
 -type scc_refine_data() :: term(). %%opaque
 -type scc()             :: [mfa_or_funlbl()] | [module()].
 
--spec find_depends_on(scc(), servers()) -> [scc()].
+-spec find_depends_on(scc() | module(), servers()) -> [scc()].
 
 find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
   dialyzer_callgraph:get_depends_on(SCC, Callgraph).
 
--spec find_required_by(scc(), servers()) -> [scc()].
+-spec find_required_by(scc() | module(), servers()) -> [scc()].
 
 find_required_by(SCC, {_Codeserver, Callgraph, _Plt}) ->
   dialyzer_callgraph:get_required_by(SCC, Callgraph).

@@ -127,7 +127,7 @@ scc_to_pids_request_handle(Worker, SCCs, SCCtoPID) ->
   Worker ! {sccs_to_pids, Result},
   ok.
 
--spec sccs_to_pids_reply() -> [dialyzer_worker:worker()].
+-spec sccs_to_pids_reply() -> {[dialyzer_worker:worker()], [scc()]}.
 
 sccs_to_pids_reply() ->
   receive {sccs_to_pids, Pids} -> Pids end.
