@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,13 +70,12 @@ ssh_connectinon_child_spec(Opts) ->
     Address = proplists:get_value(address, Opts),
     Port = proplists:get_value(port, Opts),
     Role = proplists:get_value(role, Opts),
-    Name = id(Role, ssh_connection_controler, Address, Port),
-    StartFunc = {ssh_connection_controler, start_link, [Opts]},
+    Name = id(Role, ssh_connection_sup, Address, Port),
+    StartFunc = {ssh_connection_sup, start_link, [Opts]},
     Restart = transient, 
-%    Restart = permanent, 
     Shutdown = 5000,
-    Modules = [ssh_connection_controler],
-    Type = worker,
+    Modules = [ssh_connection_sup],
+    Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
 ssh_channel_child_spec(Opts) ->
@@ -86,7 +85,6 @@ ssh_channel_child_spec(Opts) ->
     Name = id(Role, ssh_channel_sup, Address, Port),
     StartFunc = {ssh_channel_sup, start_link, [Opts]},
     Restart = transient, 
-%    Restart = permanent, 
     Shutdown = infinity,
     Modules = [ssh_channel_sup],
     Type = supervisor,
@@ -95,7 +93,7 @@ ssh_channel_child_spec(Opts) ->
 id(Role, Sup, Address, Port) ->
     {Role, Sup, Address, Port}.
 
-ssh_connection_sup([{_, Child, _, [ssh_connection_controler]} | _]) ->
+ssh_connection_sup([{_, Child, _, [ssh_connection_sup]} | _]) ->
     Child;
 ssh_connection_sup([_ | Rest]) ->
     ssh_connection_sup(Rest).

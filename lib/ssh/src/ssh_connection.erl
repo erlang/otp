@@ -744,8 +744,8 @@ handle_msg(#ssh_msg_global_request{name = _Type,
 
 %%% This transport message will also be handled at the connection level
 handle_msg(#ssh_msg_disconnect{code = Code,
-			      description = Description,
-			      language = _Lang }, 
+			       description = Description,
+			       language = _Lang },
 	   #connection{channel_cache = Cache} = Connection0, _, _) ->
     {Connection, Replies} = 
 	ssh_channel:cache_foldl(fun(Channel, {Connection1, Acc}) ->
@@ -779,7 +779,7 @@ handle_cli_msg(#connection{channel_cache = Cache} = Connection0,
 handle_cli_msg(Connection0, _, Channel, Reply0) -> 
     {Reply, Connection} =  reply_msg(Channel, Connection0, Reply0),
     {{replies, [Reply]}, Connection}.
-    
+
 
 channel_eof_msg(ChannelId) ->
     #ssh_msg_channel_eof{recipient_channel = ChannelId}.

@@ -90,7 +90,7 @@ do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
 			       {ssh_opts, SshOptions}]]) of 
  	{ok, ConnectionSup} ->
 	    {ok, Manager} = 
-		ssh_connection_controler:connection_manager(ConnectionSup),
+		ssh_connection_sup:connection_manager(ConnectionSup),
 	    MRef = erlang:monitor(process, Manager),
 	    receive 
 		{Manager, is_connected} ->

@@ -106,6 +106,7 @@ peer_address(ConnectionHandler) ->
 %% initialize. 
 %%--------------------------------------------------------------------
 init([Role, Manager, Socket, SshOpts]) ->
+    process_flag(trap_exit, true),
     {NumVsn, StrVsn} = ssh_transport:versions(Role, SshOpts),
     ssh_bits:install_messages(ssh_transport:transport_messages(NumVsn)),
     {Protocol, Callback, CloseTag} = 
@@ -283,8 +284,7 @@ new_keys(#ssh_msg_newkeys{} = Msg, #state{ssh_params = Ssh0} = State0) ->
 	    {next_state, NextStateName, next_packet(State)}
     catch
 	#ssh_msg_disconnect{} = DisconnectMsg ->
-	    handle_disconnect(DisconnectMsg, State0),
-	    {stop, normal, State0};
+	    handle_disconnect(DisconnectMsg, State0);
 	_:Error ->
 	    Desc = log_error(Error),
 	    handle_disconnect(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
@@ -426,24 +426,11 @@ userauth(#ssh_msg_userauth_failure{authentications = Methodes},
 
 %% The prefered authentication method failed try next method 
 userauth(#ssh_msg_userauth_failure{},  
-	 #state{ssh_params = #ssh{role = client} = Ssh0,
-		manager = Pid} = State) ->
+	 #state{ssh_params = #ssh{role = client} = Ssh0} = State) ->
     case ssh_auth:userauth_request_msg(Ssh0) of
-	{disconnect, Event, {Msg, _}} ->
-	    try 
-		send_msg(Msg, State),
-		ssh_connection_manager:event(Pid, Event)
-	    catch
-		exit:{noproc, _Reason} ->
-		    Report = io_lib:format("Connection Manager terminated: ~p~n",
-					   [Pid]),
-		    error_logger:info_report(Report);
-		  exit:Exit ->
-		    Report = io_lib:format("Connection Manager returned:~n~p~n~p~n",
-					   [Msg, Exit]),
-		    error_logger:info_report(Report)
-	    end,
-	    {stop, normal, State};
+	{disconnect,  DisconnectMsg,{Msg, Ssh}} ->
+	    send_msg(Msg, State),
+	    handle_disconnect(DisconnectMsg, State#state{ssh_params = Ssh}); 
 	{Msg, Ssh} ->	  
 	    send_msg(Msg, State),
 	    {next_state, userauth, next_packet(State#state{ssh_params = Ssh})}
@@ -614,7 +601,16 @@ handle_info({Protocol, Socket, Data}, Statename,
 handle_info({CloseTag, _Socket}, _StateName, 
 	    #state{transport_close_tag = CloseTag,
 		   ssh_params = #ssh{role = _Role, opts = _Opts}} = State) ->
-    {stop, {shutdown, connection_lost}, State};
+    DisconnectMsg =
+	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_CONNECTION_LOST,
+			    description = "Connection Lost",
+			    language = "en"},
+    {stop, {shutdown, DisconnectMsg}, State};
+
+%%% So that terminate will be run when supervisor is shutdown
+handle_info({'EXIT', _Sup, Reason}, _StateName, State) ->
+    {stop, Reason, State};
+
 handle_info(UnexpectedMessage, StateName, #state{ssh_params = SshParams} = State) ->
     Msg = lists:flatten(io_lib:format(
            "Unexpected message '~p' received in state '~p'\n"
@@ -625,7 +621,6 @@ handle_info(UnexpectedMessage, StateName, #state{ssh_params = SshParams} = State
                proplists:get_value(address, SshParams#ssh.opts)])),
     error_logger:info_report(Msg),
     {next_state, StateName, State}.
-
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, StateName, State) -> void()
@@ -641,28 +636,31 @@ terminate(normal, _, #state{transport_cb = Transport,
     (catch Transport:close(Socket)),
     ok;
 
-terminate(shutdown, _, State) ->
+%% Terminated as manager terminated
+terminate(shutdown, StateName, #state{ssh_params = Ssh0} = State) ->
     DisconnectMsg = 
 	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-			    description = "Application disconnect",
+			    description = "Application shutdown",
 			    language = "en"},
-    handle_disconnect(DisconnectMsg, State);
+    {SshPacket, Ssh} = ssh_transport:ssh_packet(DisconnectMsg, Ssh0),
+    send_msg(SshPacket, State),
+    terminate(normal, StateName, State#state{ssh_params = Ssh});
 
-
-terminate({shutdown, connection_lost}, _, State) ->
+terminate({shutdown, #ssh_msg_disconnect{} = Msg}, StateName, #state{ssh_params = Ssh0, manager = Pid} = State) ->
+    {SshPacket, Ssh} = ssh_transport:ssh_packet(Msg, Ssh0),
+    send_msg(SshPacket, State),
+    ssh_connection_manager:event(Pid, Msg),
+    terminate(normal, StateName, State#state{ssh_params = Ssh});
+terminate(Reason, StateName, #state{ssh_params = Ssh0, manager = Pid} = State) ->
+    log_error(Reason),
     DisconnectMsg = 
-	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_CONNECTION_LOST,
-			    description = "Connection Lost",
+	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+			    description = "Internal error",
 			    language = "en"},
-    handle_disconnect(DisconnectMsg, State);
-
-terminate(Reason, _, State) ->
-    Desc = log_error(Reason),
-    DisconnectMsg =
-	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_SERVICE_NOT_AVAILABLE,
-			    description = Desc,
-			    language = "en"},
-    handle_disconnect(DisconnectMsg, State).
+    {SshPacket, Ssh} = ssh_transport:ssh_packet(DisconnectMsg, Ssh0),
+    ssh_connection_manager:event(Pid, DisconnectMsg),
+    send_msg(SshPacket, State),
+    terminate(normal, StateName, State#state{ssh_params = Ssh}).
 
 %%--------------------------------------------------------------------
 %% Function:
@@ -808,11 +806,8 @@ generate_event(<<?BYTE(Byte), _/binary>> = Msg, StateName,
 	next_packet(State),
 	{next_state, StateName, State}
     catch
-	exit:{noproc, _Reason} ->
-	    Report = io_lib:format("~p Connection Handler terminated: ~p~n",
-				   [self(), Pid]),
-	    error_logger:info_report(Report),
-	    {stop, normal, State0}
+	exit:{noproc, Reason} ->
+	    {stop, {shutdown, Reason}, State0}
     end;
 generate_event(Msg, StateName, State0, EncData) ->
     Event = ssh_bits:decode(Msg),
@@ -909,24 +904,8 @@ handle_ssh_packet(Length, StateName, #state{decoded_data_buffer = DecData0,
 	    handle_disconnect(DisconnectMsg, State0)
     end.
 
-handle_disconnect(#ssh_msg_disconnect{} = Msg, 
-		  #state{ssh_params = Ssh0, manager = Pid} = State) ->
-    {SshPacket, Ssh} = ssh_transport:ssh_packet(Msg, Ssh0),
-    try 
-	send_msg(SshPacket, State),
- 	ssh_connection_manager:event(Pid, Msg)
-    catch
-	exit:{noproc, _Reason} ->
-	    Report = io_lib:format("~p Connection Manager terminated: ~p~n",
-				   [self(), Pid]),
-	    error_logger:info_report(Report);
-	exit:Exit ->
-	    Report = io_lib:format("Connection Manager returned:~n~p~n~p~n",
-				   [Msg, Exit]),
-	    error_logger:info_report(Report)
-    end,
-    (catch ssh_userreg:delete_user(Pid)),
-    {stop, normal, State#state{ssh_params = Ssh}}.
+handle_disconnect(#ssh_msg_disconnect{} = Msg, State) ->
+    {stop, {shutdown, Msg}, State}.
 
 counterpart_versions(NumVsn, StrVsn, #ssh{role = server} = Ssh) ->
     Ssh#ssh{c_vsn = NumVsn , c_version = StrVsn};
@@ -987,7 +966,8 @@ ssh_info([ _ | Rest], SshParams, Acc) ->
 
 log_error(Reason) ->
     Report = io_lib:format("Erlang ssh connection handler failed with reason: "
-			   "~p , please report this to erlang-bugs@erlang.org \n",
-			   [Reason]),
+			   "~p ~n, Stacktace: ~p ~n"
+			   "please report this to erlang-bugs@erlang.org \n",
+			   [Reason,  erlang:get_stacktrace()]),
     error_logger:error_report(Report),
     "Internal error".

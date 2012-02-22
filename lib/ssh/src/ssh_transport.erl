@@ -142,7 +142,7 @@ connect(ConnectionSup, Address, Port, SocketOpts, Opts) ->
     case do_connect(Callback, Address, Port, SocketOpts, Timeout) of
  	{ok, Socket} ->
 	    {ok, Pid} = 
-		ssh_connection_controler:start_handler_child(ConnectionSup,
+		ssh_connection_sup:start_handler_child(ConnectionSup,
 						       [client, Socket,
 							[{address, Address},
 							 {port, Port} |
@@ -174,12 +174,11 @@ accept(Address, Port, Socket, Options) ->
 	ssh_system_sup:connection_supervisor(
 	  ssh_system_sup:system_supervisor(Address, Port)),
     {ok, Pid} = 
-	ssh_connection_controler:start_handler_child(ConnectionSup,
+	ssh_connection_sup:start_handler_child(ConnectionSup,
 					       [server, Socket,
 						[{address, Address},
 						 {port, Port} | Options]]),
     Callback:controlling_process(Socket, Pid),
-    ssh_connection_handler:send_event(Pid, socket_control),
     {ok, Pid}.
 
 format_version({Major,Minor}) ->

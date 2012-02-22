@@ -146,7 +146,7 @@ ssh_acceptor_child_spec(ServerOpts) ->
 ssh_subsystem_child_spec(ServerOpts) ->
     Name = make_ref(),
     StartFunc = {ssh_subsystem_sup, start_link, [ServerOpts]},
-    Restart = temporary, 
+    Restart = transient, 
     Shutdown = infinity,
     Modules = [ssh_subsystem_sup],
     Type = supervisor,
