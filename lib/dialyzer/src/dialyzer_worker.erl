@@ -63,7 +63,7 @@ launch(Mode, Job, Servers, Coordinator) ->
       X when X =:= 'typesig'; X =:= 'dataflow' -> initializing;
       X when X =:= 'compile'; X =:= 'warnings' -> running
     end,
-  spawn(fun() -> loop(InitState, State) end).
+  spawn_link(fun() -> loop(InitState, State) end).
 
 %%--------------------------------------------------------------------
 

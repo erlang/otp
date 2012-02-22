@@ -31,7 +31,7 @@
 -spec init(boolean()) -> ok.
 
 init(Active) ->
-  Pid = spawn(fun() -> loop_init(Active) end),
+  Pid = spawn_link(fun() -> loop_init(Active) end),
   case whereis(?MODULE) of
     undefined -> ok;
     _ -> unregister(?MODULE)

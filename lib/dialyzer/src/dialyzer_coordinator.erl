@@ -109,7 +109,7 @@
 -spec start(mode(), servers()) -> coordinator().
 
 start(Mode, Servers) ->
-  {ok, Pid} = gen_server:start(?MODULE, {self(), Mode, Servers}, []),
+  {ok, Pid} = gen_server:start_link(?MODULE, {self(), Mode, Servers}, []),
   Pid.
 
 -spec scc_spawn(scc() | module(), coordinator()) -> ok.

@@ -724,7 +724,7 @@ put_behaviour_api_calls(Calls,
 
 
 new_race_data_server() ->
-  spawn(fun() -> race_data_server_loop(#race_data_state{}) end).
+  spawn_link(fun() -> race_data_server_loop(#race_data_state{}) end).
 
 race_data_server_loop(State) ->
   receive
@@ -770,7 +770,7 @@ race_data_server_handle_call(Query,
 					      beh_api_calls = BehApiCalls}
 			     = State) ->
   case Query of
-    dup -> spawn(fun() -> race_data_server_loop(State) end);
+    dup -> spawn_link(fun() -> race_data_server_loop(State) end);
     get_race_code -> RaceCode;
     get_public_tables -> PublicTables;
     get_named_tables -> NamedTables;
