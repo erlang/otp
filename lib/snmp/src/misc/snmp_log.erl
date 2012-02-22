@@ -412,6 +412,14 @@ log_to_io(Log, FileName, Dir, Mibs, Start) ->
 
 log_to_io(Log, FileName, Dir, Mibs, Start, Stop) 
   when is_list(Mibs) ->
+    ?vtrace("log_to_io -> entry with"
+	    "~n   Log:      ~p"
+	    "~n   FileName: ~p"
+	    "~n   Dir:      ~p"
+	    "~n   Mibs:     ~p"
+	    "~n   Start:    ~p"
+	    "~n   Stop:     ~p", 
+	    [Log, FileName, Dir, Mibs, Start, Stop]),
     File = filename:join(Dir, FileName),
     Converter = fun(L) ->
 			do_log_to_io(L, Mibs, Start, Stop)
@@ -419,27 +427,9 @@ log_to_io(Log, FileName, Dir, Mibs, Start, Stop)
     log_convert(Log, File, Converter).
 
 
-%% -- log_to_plain ---
-
-%% log_to_plain(Log, FileName, Dir) ->
-%%     log_to_plain(Log, FileName, Dir, null, null).
-
-%% log_to_plain(Log, FileName, Dir, Start) ->
-%%     log_to_plain(Log, FileName, Dir, Start, null).
-
-%% log_to_plain(Log, FileName, Dir, Start, Stop) 
-%%   when is_list(Mibs) ->
-%%     File = filename:join(Dir, FileName),
-%%     Converter = fun(L) ->
-%% 			do_log_to_plain(L, Start, Stop)
-%% 		end,
-%%     log_convert(Log, File, Converter).
-
-
 %% --------------------------------------------------------------------
 %% Internal functions
 %% --------------------------------------------------------------------
-
 
 %% -- log_convert ---
 
@@ -449,6 +439,26 @@ log_convert(Log, File, Converter) ->
     do_log_convert(Log, File, Converter).
 
 do_log_convert(Log, File, Converter) ->
+    %% ?vtrace("do_log_converter -> entry with"
+    %% 	    "~n   Log:  ~p"
+    %% 	    "~n   File: ~p"
+    %% 	    "~n   disk_log:info(Log): ~p", [Log, File, disk_log:info(Log)]),
+    {Pid, Ref} = 
+	erlang:spawn_monitor(
+	  fun() ->
+		  Result = do_log_convert2(Log, File, Converter),
+		  exit(Result)
+	  end),
+    receive 
+	{'DOWN', Ref, process, Pid, Result} ->
+	    %% ?vtrace("do_log_converter -> received result"
+	    %% 	    "~n   Result: ~p"
+	    %% 	    "~n   disk_log:info(Log): ~p", 
+	    %% 	    [Result, disk_log:info(Log)]),
+	    Result
+    end.
+    
+do_log_convert2(Log, File, Converter) ->
     %% First check if the caller process has already opened the
     %% log, because if we close an already open log we will cause
     %% a runtime error.
@@ -457,28 +467,17 @@ do_log_convert(Log, File, Converter) ->
 	    Converter(Log);
 	false ->
 	    %% Not yet member of the ruling party, apply for membership...
-	    %% If a log is opened as read_write it is not possible to 
-	    %% open it as read_only. So, to get around this we open 
-	    %% it under a different name...
-	    Log2 = convert_name(Log),
-	    case log_open(Log2, File) of
+	    case log_open(Log, File) of
 		{ok, _} ->
-		    Res = Converter(Log2),
-		    disk_log:close(Log2),
+		    Res = Converter(Log),
+		    disk_log:close(Log),
 		    Res;
 		{error, {name_already_open, _}} ->
-                    Converter(Log2);
+                    Converter(Log);
                 {error, Reason} ->
                     {error, {Log, Reason}}
 	    end
     end.
-
-convert_name(Name) when is_list(Name) ->
-    Name ++ "_tmp";
-convert_name(Name) when is_atom(Name) ->
-    list_to_atom(atom_to_list(Name) ++ "_tmp");
-convert_name(Name) ->
-    lists:flatten(io_lib:format("~w_tmp", [Name])).
 
 
 %% -- do_log_to_text ---
@@ -882,11 +881,8 @@ do_std_log_open(Name, File, Size, Repair, Notify) ->
 
 
 log_open(Name, File) ->
-    Opts = [{name,   Name}, 
-	    {file,   File}, 
-	    {type,   ?LOG_TYPE},
-	    {format, ?LOG_FORMAT},	    
-	    {mode,   read_only}],
+    Opts = [{name, Name}, 
+	    {file, File}],
     case disk_log:open(Opts) of
 	{error, {badarg, size}} ->
 	    {error, no_such_log};

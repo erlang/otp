@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -83,8 +83,11 @@
 -export([add_agent_caps/2, del_agent_caps/1, get_agent_caps/0]).
 
 %% Audit Trail Log functions
--export([log_to_txt/2, log_to_txt/3, log_to_txt/4, 
+-export([log_to_txt/1, 
+	 log_to_txt/2, log_to_txt/3, log_to_txt/4, 
 	 log_to_txt/5, log_to_txt/6, log_to_txt/7, 
+	 log_to_io/1,  log_to_io/2,  log_to_io/3, 
+	 log_to_io/4,  log_to_io/5,  log_to_io/6, 
 	 log_info/0, 
 	 change_log_size/1,
 	 get_log_type/0,    get_log_type/1, 
@@ -780,6 +783,8 @@ get_agent_caps() ->
 %%% Audit Trail Log functions 
 %%%-----------------------------------------------------------------
 
+log_to_txt(LogDir) -> 
+    log_to_txt(LogDir, []).
 log_to_txt(LogDir, Mibs) -> 
     OutFile = "snmpa_log.txt",       
     LogName = ?audit_trail_log_name, 
@@ -798,6 +803,23 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start).
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop).
+
+
+log_to_io(LogDir) -> 
+    log_to_io(LogDir, []).
+log_to_io(LogDir, Mibs) -> 
+    LogName = ?audit_trail_log_name, 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+log_to_io(LogDir, Mibs, LogName) -> 
+    LogFile = ?audit_trail_log_file, 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+log_to_io(LogDir, Mibs, LogName, LogFile) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile).
+log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start).
+log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop).
 
 
 log_info() ->

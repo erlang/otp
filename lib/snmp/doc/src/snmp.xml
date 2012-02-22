@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -390,6 +390,30 @@
           and <c>Vsn</c> is the SNMP version. <c>PDU</c> is a textual
           version of the protocol data unit. There is a new line
           between <c>Vsn</c> and <c>PDU</c>.</p>
+
+        <marker id="log_to_io"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start) ->  ok | {error, Reason}</name>
+      <name>log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> ok | {error, Reason}</name>
+      <fsummary>Convert an Audit Trail Log to text format</fsummary>
+      <type>
+        <v>LogDir = string()</v>
+        <v>Mibs = [MibName]</v>
+        <v>MibName = string()</v>
+        <v>LogName = string()</v>
+        <v>LogFile = string()</v>
+        <v>Start = Stop = null | datetime() | {local_time,datetime()} |  {universal_time,datetime()} </v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Converts an Audit Trail Log to a readable format and 
+	prints it on stdio. See 
+	<seealso marker="snmp#log_to_txt">log_to_txt</seealso> 
+	above for more info.</p>
 
         <marker id="change_log_size"></marker>
       </desc>
