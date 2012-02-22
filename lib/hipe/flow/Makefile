@@ -82,6 +82,9 @@ clean:
 	rm -f $(TARGET_FILES)
 	rm -f core
 
+distclean: clean
+realclean: clean
+
 $(DOCS)/%.html:%.erl
 	erl -noshell -run edoc_run file '"$<"' '[{dir, "$(DOCS)"}]' -s init stop
 

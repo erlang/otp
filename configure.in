@@ -361,6 +361,12 @@ if test X${enable_m32_build} = Xyes; then
 	export LDFLAGS
 fi
 
+NATIVE_LIBS_ENABLED=
+if test X${enable_native_libs} = Xyes -a X${enable_hipe} != Xno; then
+  NATIVE_LIBS_ENABLED=yes
+fi
+AC_SUBST(NATIVE_LIBS_ENABLED)
+
 export ERL_TOP
 AC_CONFIG_SUBDIRS(lib erts)
 
