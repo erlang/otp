@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -60,6 +60,6 @@ stripped(Config) when is_list(Config) ->
     ?line true = is_list(Attr),
     ?line true = is_list(CompileInfo),
     ?line {ok, {tmp, _}} = beam_lib:strip(BeamName),
-    ?line {beam_file, tmp, _, none, none, [_|_]} =
+    ?line {beam_file, tmp, _, [], [], [_|_]} =
 	beam_disasm:file(BeamName),
     ok.

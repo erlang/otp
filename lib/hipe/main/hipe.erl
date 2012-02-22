@@ -574,12 +574,8 @@ file(File, Options) when is_atom(File) ->
 disasm(File) ->
   case beam_disasm:file(File) of
     #beam_file{labeled_exports = LabeledExports,
-	       compile_info = CompInfo0,
+	       compile_info = CompInfo,
 	       code = BeamCode} ->
-      CompInfo = case CompInfo0 of
-		   none -> [];
-		   _ -> CompInfo0
-		 end,
       CompOpts = proplists:get_value(options, CompInfo, []),
       HCompOpts = case lists:keyfind(hipe, 1, CompOpts) of
 		    {hipe, L} when is_list(L) -> L;

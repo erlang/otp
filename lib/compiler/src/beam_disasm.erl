@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -182,10 +182,14 @@ process_chunks(F) ->
 	    Literals = beam_disasm_literals(LiteralBin),
 	    Code = beam_disasm_code(CodeBin, Atoms, mk_imports(ImportsList),
 				    StrBin, Lambdas, Literals, Module),
-	    Attributes = optional_chunk(F, attributes),
+	    Attributes =
+		case optional_chunk(F, attributes) of
+		    none -> [];
+		    Atts when is_list(Atts) -> Atts
+		end,
 	    CompInfo = 
 		case optional_chunk(F, "CInf") of
-		    none -> none;
+		    none -> [];
 		    CompInfoBin when is_binary(CompInfoBin) ->
 			binary_to_term(CompInfoBin)
 		end,
@@ -198,7 +202,7 @@ process_chunks(F) ->
     end.
 
 %%-----------------------------------------------------------------------
-%% Retrieve an optional chunk or none if the chunk doesn't exist.
+%% Retrieve an optional chunk or return 'none' if the chunk doesn't exist.
 %%-----------------------------------------------------------------------
 
 optional_chunk(F, ChunkTag) ->

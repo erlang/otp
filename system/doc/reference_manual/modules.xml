@@ -114,6 +114,12 @@ fact(0) ->           %  |
           <p>If this attribute is not specified, the version defaults
             to the MD5 checksum of the module.</p>
         </item>
+        <tag><c>-on_load(Function).</c></tag>
+        <item>
+          <p>Names a function that should be run automatically when a
+            module a loaded. See <seealso marker="code_loading#on_load">
+            code loading</seealso> for more information.</p>
+        </item>
       </taglist>
     </section>
 
@@ -180,7 +186,7 @@ fact(0) ->           %  |
         <p>Read more in <seealso marker="typespec">Types and Function specifications</seealso>.
 	</p>
 	<p>
-	  The desciption is based on
+	  The description is based on
 	    <url href="http://www.erlang.org/eeps/eep-0008.html">EEP8 -
 	    Types and function specifications</url>
 	    which will not be further updated.
