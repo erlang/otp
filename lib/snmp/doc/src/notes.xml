@@ -46,8 +46,8 @@
 
       <list type="bulleted">
         <item>
-          <p>Added the log_to_io audit-trail-log converter function to the 
-	  api modules of both the 
+          <p>Added the <c>log_to_io</c> audit-trail-log converter function 
+	  to the api modules of both the 
 	  <seealso marker="snmpm#log_to_io">manager</seealso> 
 	  and 
 	  <seealso marker="snmpa#log_to_io">agent</seealso>. </p>
