@@ -221,12 +221,14 @@ handle_cast({done, Job, NewData},
 		   spawn_count = SpawnCount,
 		   all_spawned = AllSpawned,
 		   result = OldResult,
-		   job_to_pid = JobToPID
+		   job_to_pid = JobToPID,
+		   init_job_data = Servers
 		  } = State) ->
   {NewResult, NewJobToPID} =
     case Mode of
       X when X =:= 'typesig'; X =:= 'dataflow' ->
-	{ordsets:union(OldResult, NewData), dict:erase(Job, JobToPID)};
+	FinalData = dialyzer_succ_typings:lookup_names(NewData, Servers),
+	{ordsets:union(OldResult, FinalData), dict:erase(Job, JobToPID)};
       'compile' ->
 	{dialyzer_analysis_callgraph:add_to_result(Job, NewData, OldResult),
 	 JobToPID};

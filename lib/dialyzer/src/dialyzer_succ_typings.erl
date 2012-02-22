@@ -37,7 +37,8 @@
 	 refine_one_module/2,
 	 find_required_by/2,
 	 find_depends_on/2,
-	 collect_warnings/2
+	 collect_warnings/2,
+	 lookup_names/2
 	]).
 
 -export_type([servers/0, warning_servers/0]).
@@ -97,29 +98,25 @@ init_state_and_get_success_typings(Callgraph, Plt, Codeserver, Parent) ->
 	      codeserver = Codeserver, parent = Parent},
   get_refined_success_typings(SCCs, State).
 
-get_refined_success_typings(SCCs, State) ->
+get_refined_success_typings(SCCs, #st{callgraph = Callgraph} = State) ->
   case find_succ_typings(SCCs, State) of
     {fixpoint, State1} -> State1;
     {not_fixpoint, NotFixpoint1, State1} ->
-      Callgraph = State1#st.callgraph,
-      NotFixpoint2 = [lookup_name(F, Callgraph) || F <- NotFixpoint1],
       {ModulePostorder, ModCallgraph} =
 	?timing(
 	   "order", _C1,
-	   dialyzer_callgraph:module_postorder_from_funs(NotFixpoint2,
+	   dialyzer_callgraph:module_postorder_from_funs(NotFixpoint1,
 							 Callgraph)),
       ModState = State1#st{callgraph = ModCallgraph},
       case refine_succ_typings(ModulePostorder, ModState) of
 	{fixpoint, State2} ->
 	  State2;
-	{not_fixpoint, NotFixpoint3, State2} ->
-	  Callgraph1 = State2#st.callgraph,
+	{not_fixpoint, NotFixpoint2, State2} ->
 	  %% Need to reset the callgraph.
-	  NotFixpoint4 = [lookup_name(F, Callgraph1) || F <- NotFixpoint3],
 	  {NewSCCs, Callgraph2} =
 	    ?timing("order", _C2,
-		    dialyzer_callgraph:reset_from_funs(NotFixpoint4,
-						       Callgraph1)),
+		    dialyzer_callgraph:reset_from_funs(NotFixpoint2,
+						       ModCallgraph)),
 	  NewState = State2#st{callgraph = Callgraph2},
 	  get_refined_success_typings(NewSCCs, NewState)
       end
@@ -245,6 +242,11 @@ find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
 
 find_required_by(SCC, {_Codeserver, Callgraph, _Plt}) ->
   dialyzer_callgraph:get_required_by(SCC, Callgraph).
+
+-spec lookup_names([label()], servers()) -> [mfa_or_funlbl()].
+
+lookup_names(Labels, {_Codeserver, Callgraph, _Plt}) ->
+  [lookup_name(F, Callgraph) || F <- Labels].
 
 -spec refine_one_module(module(), servers()) -> [label()]. % ordset
 
