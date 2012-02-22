@@ -119,20 +119,10 @@
 %%% didn't undo (since it failed).
 %%%-----------------------------------------------------------------
 
-init_all(Config0) when is_list(Config0) ->
+init_all(Config) when is_list(Config) ->
+
     ?LOG("init_all -> entry with"
-	 "~n   Config0: ~p",[Config0]),
-
-    %% --
-    %% Fix config:
-    %% 
-
-    DataDir0     = ?config(data_dir, Config0),
-    DataDir1     = filename:split(filename:absname(DataDir0)),
-    [_|DataDir2] = lists:reverse(DataDir1),
-    DataDir3     = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
-    Config1      = lists:keydelete(data_dir, 1, Config0),
-    Config       = [{data_dir, DataDir3 ++ "/"}|Config1],
+	 "~n   Config: ~p",[Config]),
 
     %% -- 
     %% Start nodes
@@ -143,33 +133,42 @@ init_all(Config0) when is_list(Config0) ->
 
 
     %% -- 
-    %% Create necessary files
+    %% Create necessary files ( and dirs ) 
     %% 
 
-    PrivDir = ?config(priv_dir, Config),
-    ?DBG("init_all -> PrivDir ~p", [PrivDir]),
+    SuiteTopDir = ?config(snmp_suite_top_dir, Config),
+    ?DBG("init_all -> SuiteTopDir ~p", [SuiteTopDir]),
 
-    TopDir = filename:join(PrivDir, snmp_agent_test),
-    case file:make_dir(TopDir) of
-	ok ->
-	    ok;
-	{error, eexist} ->
-	    ok;
-	Error ->
-	    ?FAIL({failed_creating_subsuite_top_dir, Error})
-    end,
-
-    DataDir = ?config(data_dir, Config),
-    ?DBG("init_all -> DataDir ~p", [DataDir]),
-
-    ?line ok = file:make_dir(MgrDir = filename:join(TopDir, "mgr_dir/")),
-    ?DBG("init_all -> MgrDir ~p", [MgrDir]),
-
-    ?line ok = file:make_dir(AgentDir = filename:join(TopDir, "agent_dir/")),
+    AgentDir = filename:join(SuiteTopDir, "agent/"), 
+    ?line ok = file:make_dir(AgentDir),
     ?DBG("init_all -> AgentDir ~p", [AgentDir]),
 
-    ?line ok = file:make_dir(SaDir = filename:join(TopDir, "sa_dir/")),
+    AgentDbDir = filename:join(AgentDir, "db/"), 
+    ?line ok   = file:make_dir(AgentDbDir),
+    ?DBG("init_all -> AgentDbDir ~p", [AgentDbDir]),
+
+    AgentLogDir = filename:join(AgentDir, "log/"), 
+    ?line ok    = file:make_dir(AgentLogDir),
+    ?DBG("init_all -> AgentLogDir ~p", [AgentLogDir]),
+
+    AgentConfDir = filename:join(AgentDir, "conf/"), 
+    ?line ok     = file:make_dir(AgentConfDir),
+    ?DBG("init_all -> AgentConfDir ~p", [AgentConfDir]),
+
+    MgrDir   = filename:join(SuiteTopDir, "mgr/"), 
+    ?line ok = file:make_dir(MgrDir),
+    ?DBG("init_all -> MgrDir ~p", [MgrDir]),
+
+    SaDir    = filename:join(SuiteTopDir, "sa/"), 
+    ?line ok = file:make_dir(SaDir),
     ?DBG("init_all -> SaDir ~p", [SaDir]),
+
+    SaDbDir  = filename:join(SaDir, "db/"), 
+    ?line ok = file:make_dir(SaDbDir),
+    ?DBG("init_all -> SaDbDir ~p", [SaDbDir]),
+
+    %% MibDir = ?config(mib_dir, Config),
+    %% ?DBG("init_all -> MibDir ~p", [DataDir]),
 
 
     %% -- 
@@ -184,11 +183,11 @@ init_all(Config0) when is_list(Config0) ->
     
     ?DBG("init_all -> application mnesia: set_env dir",[]),
     ?line application_controller:set_env(mnesia, dir, 
-					 filename:join(TopDir, "Mnesia1")),
+					 filename:join(AgentDbDir, "Mnesia1")),
 
     ?DBG("init_all -> application mnesia: set_env dir on node ~p",[SaNode]),
-    ?line rpc:call(SaNode, application_controller, set_env,
-		   [mnesia, dir,  filename:join(TopDir, "Mnesia2")]),
+    ?line rpc:call(SaNode, application_controller, set_env, 
+		   [mnesia, dir,  filename:join(SaDir, "Mnesia2")]),
 
     ?DBG("init_all -> create mnesia schema",[]),
     ?line ok = mnesia:create_schema([SaNode, node()]),
@@ -199,13 +198,18 @@ init_all(Config0) when is_list(Config0) ->
     ?DBG("init_all -> start application mnesia on ~p",[SaNode]),
     ?line ok = rpc:call(SaNode, application, start, [mnesia]),
     Ip = ?LOCALHOST(),
-    [{snmp_sa,   SaNode}, 
-     {snmp_mgr,  MgrNode}, 
-     {agent_dir, AgentDir ++ "/"},
-     {mgr_dir,   MgrDir ++ "/"},
-     {sa_dir,    SaDir ++ "/"}, 
-     {mib_dir,   DataDir}, 
-     {ip,        Ip} | 
+    [{snmp_sa,        SaNode}, 
+     {snmp_mgr,       MgrNode}, 
+     {snmp_master,    node()}, 
+     {agent_dir,      AgentDir ++ "/"},
+     {agent_db_dir,   AgentDbDir ++ "/"},
+     {agent_log_dir,  AgentLogDir ++ "/"},
+     {agent_conf_dir, AgentConfDir ++ "/"},
+     {sa_dir,         SaDir ++ "/"}, 
+     {sa_db_dir,      SaDbDir ++ "/"}, 
+     {mgr_dir,        MgrDir ++ "/"},
+     %% {mib_dir,        DataDir}, 
+     {ip,             Ip} | 
      Config].
 
 
@@ -220,11 +224,14 @@ finish_all(Config) when is_list(Config) ->
 %% --- This one *must* be run first in each case ---
 
 init_case(Config) when is_list(Config) ->
+
     ?DBG("init_case -> entry with"
-	   "~n   Config: ~p", [Config]),
-    SaNode     = ?config(snmp_sa, Config),
-    MgrNode    = ?config(snmp_mgr, Config),
-    MasterNode = node(),
+	 "~n   Config: ~p", [Config]),
+
+    SaNode     = ?config(snmp_sa,     Config),
+    MgrNode    = ?config(snmp_mgr,    Config),
+    MasterNode = ?config(snmp_master, Config),
+    %% MasterNode = node(),
 
     SaHost         = ?HOSTNAME(SaNode),
     MgrHost        = ?HOSTNAME(MgrNode),
@@ -411,7 +418,8 @@ start_v3_agent(Config, Opts) when is_list(Config) andalso is_list(Opts) ->
 start_bilingual_agent(Config) when is_list(Config) ->
     start_agent(Config, [v1,v2]).
  
-start_bilingual_agent(Config, Opts) when is_list(Config) andalso is_list(Opts) ->
+start_bilingual_agent(Config, Opts) 
+  when is_list(Config) andalso is_list(Opts) ->
     start_agent(Config, [v1,v2], Opts).
  
 start_mt_agent(Config) when is_list(Config) ->
@@ -423,57 +431,33 @@ start_mt_agent(Config, Opts) when is_list(Config) andalso is_list(Opts) ->
 start_agent(Config, Vsns) ->
     start_agent(Config, Vsns, []).
 start_agent(Config, Vsns, Opts) -> 
+
     ?LOG("start_agent -> entry (~p) with"
 	"~n   Config: ~p"
 	"~n   Vsns:   ~p"
 	"~n   Opts:   ~p", [node(), Config, Vsns, Opts]),
     
-    ?line AgentDir = ?config(agent_dir, Config),
-    ?line SaNode   = ?config(snmp_sa,   Config),
+    ?line AgentLogDir  = ?config(agent_log_dir,  Config),
+    ?line AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line AgentDbDir   = ?config(agent_db_dir,   Config),
+    ?line SaNode       = ?config(snmp_sa,        Config),
 
-%%     AgentConfig = 
-%% 	[{agent_type, master},
-%% 	 %% {multi_threaded,         MultiT},
-%% 	 %% {priority,               Prio}, 
-%% 	 %% {error_report_mod,       ErrorReportMod},
-%% 	 {versions,   Vsns},
-%% 	 {db_dir,     AgentDir}, 
-%% 	 %% {db_init_error,          DbInitError},
-%% 	 %% {set_mechanism,          SetModule},
-%% 	 %% {authentication_service, AuthModule},
-%% 	 {audit_trail_log, [{type,   read_write},
-%% 			    {dir,    AgentDir},
-%% 			    {size,   {10240, 10}},
-%% 			    {repair, true}]},
-%% 	 {config, [{verbosity,  info},
-%% 		   {dir,        AgentDir},
-%% 		   {force_load, false}]},
-%% 	 {mibs, Mibs},
-%% 	 %% {mib_storage, MibStorage}, 
-%% 	 {local_db, []},
-%% 	 {mib_server, []},
-%% 	 {symbolic_store, []},
-%% 	 {note_store, []}, 
-%% 	 {net_if, []}, 
-%% 	 %% {supervisor,             SupOpts}
-%% 	],
-    
     app_env_init(vsn_init(Vsns) ++ 
-		 [{audit_trail_log, read_write_log},
-		  {audit_trail_log_dir, AgentDir},
-		  {audit_trail_log_size, {10240, 10}},
-		  {force_config_reload, false},
-		  {snmp_agent_type, master},
-		  {snmp_config_dir, AgentDir},
-		  {snmp_db_dir, AgentDir},
-		  {snmp_local_db_auto_repair, true},
-		  {snmp_local_db_verbosity, log},
-		  {snmp_master_agent_verbosity, trace},
-		  {snmp_supervisor_verbosity, trace},
-		  {snmp_mibserver_verbosity, log},
+		 [{audit_trail_log,               read_write_log},
+		  {audit_trail_log_dir,           AgentLogDir},
+		  {audit_trail_log_size,          {10240, 10}},
+		  {force_config_reload,           false},
+		  {snmp_agent_type,               master},
+		  {snmp_config_dir,               AgentConfDir},
+		  {snmp_db_dir,                   AgentDbDir},
+		  {snmp_local_db_auto_repair,     true},
+		  {snmp_local_db_verbosity,       log},
+		  {snmp_master_agent_verbosity,   trace},
+		  {snmp_supervisor_verbosity,     trace},
+		  {snmp_mibserver_verbosity,      log},
 		  {snmp_symbolic_store_verbosity, log},
-		  {snmp_note_store_verbosity, log},
-		  {snmp_net_if_verbosity, trace}],
+		  {snmp_note_store_verbosity,     log},
+		  {snmp_net_if_verbosity,         trace}],
 		 Opts),
 
 
@@ -1237,30 +1221,44 @@ stop_node(Node) ->
 %%% Configuration
 %%%-----------------------------------------------------------------
 
-config(Vsns, MgrDir, AgentDir, MIp, AIp) ->
-    ?line snmp_config:write_agent_snmp_files(AgentDir, Vsns, MIp, 
- 					     ?TRAP_UDP, AIp, 4000, 
+config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
+    ?LOG("config -> entry with"
+	 "~n   Vsns:         ~p" 
+	 "~n   MgrDir:       ~p" 
+	 "~n   AgentConfDir: ~p" 
+	 "~n   MIp:          ~p" 
+	 "~n   AIp:          ~p", 
+	 [Vsns, MgrDir, AgentConfDir, MIp, AIp]),
+    ?line snmp_config:write_agent_snmp_files(AgentConfDir, Vsns, 
+					     MIp, ?TRAP_UDP, AIp, 4000, 
  					     "test"),
-    ?line case update_usm(Vsns, AgentDir) of
+    ?line case update_usm(Vsns, AgentConfDir) of
 	      true ->
-		  ?line copy_file(filename:join(AgentDir, "usm.conf"),
+		  ?line copy_file(filename:join(AgentConfDir, "usm.conf"),
 				  filename:join(MgrDir, "usm.conf")),
 		  ?line update_usm_mgr(Vsns, MgrDir);
 	      false ->
 		  ?line ok
 	  end,
-    ?line update_community(Vsns, AgentDir),
-    ?line update_vacm(Vsns, AgentDir),
-    ?line write_target_addr_conf(AgentDir, MIp, ?TRAP_UDP, Vsns),
-    ?line write_target_params_conf(AgentDir, Vsns),
-    ?line write_notify_conf(AgentDir),
+    ?line update_community(Vsns, AgentConfDir),
+    ?line update_vacm(Vsns, AgentConfDir),
+    ?line write_target_addr_conf(AgentConfDir, MIp, ?TRAP_UDP, Vsns),
+    ?line write_target_params_conf(AgentConfDir, Vsns),
+    ?line write_notify_conf(AgentConfDir),
     ok.
 
 delete_files(Config) ->
-    Dir = ?config(agent_dir, Config),
-    {ok, List} = file:list_dir(Dir),
+    AgentDir = ?config(agent_dir, Config),
+    delete_files(AgentDir, [db, conf]).
+
+delete_files(_AgentFiles, []) ->
+    ok;
+delete_files(AgentDir, [DirName|DirNames]) ->
+    Dir = filename:join(AgentDir, DirName),
+    {ok, Files} = file:list_dir(Dir),
     lists:foreach(fun(FName) -> file:delete(filename:join(Dir, FName)) end,
-		  List).
+		  Files),
+    delete_files(AgentDir, DirNames).
 
 update_usm(Vsns, Dir) ->
     case lists:member(v3, Vsns) of
@@ -1418,8 +1416,8 @@ rewrite_target_addr_conf2(_NewPort,O) ->
     O.
 
 reset_target_addr_conf(Dir) ->
-    ?line ok = file:rename(filename:join(Dir,"target_addr.old"),
-			   filename:join(Dir,"target_addr.conf")).
+    ?line ok = file:rename(filename:join(Dir, "target_addr.old"),
+			   filename:join(Dir, "target_addr.conf")).
 
 write_target_params_conf(Dir, Vsns) -> 
     F = fun(v1) -> {"target_v1", v1,  v1,  "all-rights", noAuthNoPriv};
@@ -1456,7 +1454,6 @@ write_view_conf(Dir) ->
 copy_file(From, To) ->
     {ok, Bin} = file:read_file(From),
     ok = file:write_file(To, Bin).
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

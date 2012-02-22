@@ -207,7 +207,7 @@ fix_data_dir(Config) ->
     [_|DataDir2] = lists:reverse(DataDir1),
     DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
     Config1      = lists:keydelete(data_dir, 1, Config),
-    [{data_dir, DataDir} | Config1].
+    [{data_dir, DataDir ++ "/"} | Config1].
 
 
 init_suite_top_dir(Suite, Config0) ->
