@@ -119,7 +119,7 @@
 
 new() ->
   [ETSEsc, ETSNameMap, ETSRevNameMap, ETSRecVarMap, ETSSelfRec, ETSCalls] =
-    [ets:new(N,[public]) ||
+    [ets:new(N,[public, {read_concurrency, true}]) ||
       N <- [callgraph_esc, callgraph_name_map, callgraph_rev_name_map,
 	    callgraph_rec_var_map, callgraph_self_rec, callgraph_calls]],
   #callgraph{esc            = ETSEsc,
@@ -833,8 +833,8 @@ condensation(G) ->
         {dict:append(SC1, SC2, Out), dict:append(SC2, SC1, In)}
     end,
   {OutDict, InDict} = ets:foldl(Fun3, {dict:new(), dict:new()}, I2I),
-  OutETS = ets:new(out,[]),
-  InETS = ets:new(in,[]),
+  [OutETS, InETS] =
+    [ets:new(Name,[{read_concurrency, true}]) || Name <- [out, in]],
   ets:insert(OutETS, dict:to_list(OutDict)),
   ets:insert(InETS, dict:to_list(InDict)),
   ets:delete(V2I),
