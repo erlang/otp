@@ -1513,6 +1513,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     if (len < 0) {
 	BIF_ERROR(BIF_P, BADARG);
     }
+
     lib_name = (char *) erts_alloc(ERTS_ALC_T_TMP, len + 1);
 
     if (intlist_to_buf(BIF_ARG_1, lib_name, len) != len) {
@@ -1520,6 +1521,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
     lib_name[len] = '\0';
+
+    if (!erts_try_lock_code_ix(BIF_P)) {
+	erts_free(ERTS_ALC_T_TMP, lib_name);
+	ERTS_BIF_YIELD2(bif_export[BIF_load_nif_2],
+			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
 
     /* Block system (is this the right place to do it?) */
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -1715,6 +1722,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_unlock_code_ix();
     erts_free(ERTS_ALC_T_TMP, lib_name);
 
     if (reload_warning) {

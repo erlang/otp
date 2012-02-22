@@ -98,7 +98,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 {
     DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     int i;
-    int matches = 0;
+    int matches = -1;
     int specified = 0;
     enum erts_break_op on;
     Binary* match_prog_set;
@@ -108,6 +108,9 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     Process *meta_tracer_proc = p;
     Eterm meta_tracer_pid = p->id;
 
+    if (!erts_try_lock_code_ix(p)) {
+	ERTS_BIF_YIELD3(bif_export[BIF_trace_pattern_3], p, MFA, Pattern, flaglist);
+    }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
@@ -241,7 +244,6 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    erts_default_meta_match_spec = NULL;
 	    erts_default_meta_tracer_pid = NIL;
 	}
-	MatchSetUnref(match_prog_set);
 	if (erts_default_trace_pattern_flags.breakpoint &&
 	    flags.breakpoint) { 
 	    /* Breakpoint trace -> breakpoint trace */
@@ -297,8 +299,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		erts_default_trace_pattern_is_on = !!flags.breakpoint;
 	    }
 	}
-
-	goto done;
+	matches = 0;
     } else if (is_tuple(MFA)) {
 	Eterm *tp = tuple_val(MFA);
 	if (tp[0] != make_arityval(3)) {
@@ -322,35 +323,29 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	if (is_small(mfa[2])) {
 	    mfa[2] = signed_val(mfa[2]);
 	}
-    } else {
-	goto error;
-    }
     
-    if (meta_tracer_proc) {
-	meta_tracer_proc->trace_flags |= F_TRACER;
+	if (meta_tracer_proc) {
+	    meta_tracer_proc->trace_flags |= F_TRACER;
+	}
+
+	matches = erts_set_trace_pattern(mfa, specified, 
+					 match_prog_set, match_prog_set,
+					 on, flags, meta_tracer_pid);
     }
-
-
-    matches = erts_set_trace_pattern(mfa, specified, 
-				     match_prog_set, match_prog_set,
-				     on, flags, meta_tracer_pid);
-    MatchSetUnref(match_prog_set);
-
- done:
-    UnUseTmpHeap(3,p);
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-
-    return make_small(matches);
 
  error:
-
     MatchSetUnref(match_prog_set);
-
     UnUseTmpHeap(3,p);
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    BIF_ERROR(p, BADARG);
+    erts_unlock_code_ix();
+
+    if (matches >= 0) {
+	return make_small(matches);
+    }
+    else {
+	BIF_ERROR(p, BADARG);    
+    }
 }
 
 void
@@ -467,6 +462,10 @@ Eterm trace_3(BIF_ALIST_3)
 
     if (! erts_trace_flags(list, &mask, &tracer, &cpu_ts)) {
 	BIF_ERROR(p, BADARG);
+    }
+
+    if (!erts_try_lock_code_ix(BIF_P)) {
+	ERTS_BIF_YIELD3(bif_export[BIF_trace_3], BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
     if (is_nil(tracer) || is_internal_pid(tracer)) {
@@ -733,6 +732,7 @@ Eterm trace_3(BIF_ALIST_3)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
+    erts_unlock_code_ix();
 
     BIF_RET(make_small(matches));
 
@@ -748,6 +748,7 @@ Eterm trace_3(BIF_ALIST_3)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
+    erts_unlock_code_ix();
 
     BIF_ERROR(p, BADARG);
 }
