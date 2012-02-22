@@ -30,16 +30,13 @@
 -type coordinator() :: dialyzer_coordinator:coordinator().
 -type servers() :: dialyzer_succ_typings:servers() |
 		   dialyzer_analysis_callgraph:servers().
--type data()    :: dialyzer_succ_typings:scc_data() |
-		   dialyzer_succ_typings:scc_refine_data().
 
 -record(state, {
 	  mode             :: mode(),
 	  job              :: mfa_or_funlbl() | file:filename(),
 	  coordinator      :: coordinator(),
 	  servers          :: servers(),
-	  depends_on  = [] :: list(),
-	  scc_data         :: data()
+	  depends_on  = [] :: list()
 	 }).
 
 -include("dialyzer.hrl").
@@ -75,15 +72,7 @@ loop(updating, State) ->
   NextStatus =
     case waits_more_success_typings(State) of
       true -> waiting;
-      Other ->
-	case has_data(State) of
-	  false -> getting_data;
-	  true ->
-	    case Other of
-	      imminent -> waiting;
-	      false -> running
-	    end
-	end
+      false -> running
     end,
   loop(NextStatus, State);
 loop(initializing, #state{job = SCC, servers = Servers} = State) ->
@@ -94,9 +83,6 @@ loop(waiting, State) ->
   ?debug("Wait: ~p\n",[State#state.job]),
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
-loop(getting_data, State) ->
-  ?debug("Data: ~p\n",[State#state.job]),
-  loop(updating, get_data(State));
 loop(running, #state{mode = 'compile'} = State) ->
   ?debug("Compile: ~s\n",[State#state.job]),
   Result =
@@ -123,23 +109,8 @@ loop(running, #state{mode = Mode} = State) when
 waits_more_success_typings(#state{depends_on = Depends}) ->
   case Depends of
     [] -> false;
-    [_] -> imminent;
     _ -> true
   end.
-
-has_data(#state{scc_data = Data}) ->
-  case Data of
-    undefined -> false;
-    _ -> true
-  end.
-
-get_data(#state{mode = Mode, job = SCC, servers = Servers} = State) ->
-  Data =
-    case Mode of
-      typesig -> dialyzer_succ_typings:collect_scc_data(SCC, Servers);
-      dataflow -> dialyzer_succ_typings:collect_refine_scc_data(SCC, Servers)
-    end,
-  State#state{scc_data = Data}.
 
 ask_coordinator_for_callers(#state{job = SCC,
 				   servers = Servers,
@@ -176,10 +147,10 @@ wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
       State
   end.
 
-do_work(#state{mode = Mode, scc_data = SCCData}) ->
+do_work(#state{mode = Mode, job = Job, servers = Servers}) ->
   case Mode of
-    typesig -> dialyzer_succ_typings:find_succ_types_for_scc(SCCData);
-    dataflow -> dialyzer_succ_typings:refine_one_module(SCCData)
+    typesig -> dialyzer_succ_typings:find_succ_types_for_scc(Job, Servers);
+    dataflow -> dialyzer_succ_typings:refine_one_module(Job, Servers)
   end.
 
 report_to_coordinator(Result, #state{job = Job, coordinator = Coordinator}) ->

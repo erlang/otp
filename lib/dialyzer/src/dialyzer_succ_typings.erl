@@ -33,16 +33,14 @@
 	]).
 
 -export([
-	 find_succ_types_for_scc/1,
-	 refine_one_module/1,
-	 collect_scc_data/2,
-	 collect_refine_scc_data/2,
+	 find_succ_types_for_scc/2,
+	 refine_one_module/2,
 	 find_required_by/2,
 	 find_depends_on/2,
 	 collect_warnings/2
 	]).
 
--export_type([servers/0, scc_data/0, scc_refine_data/0, warning_servers/0]).
+-export_type([servers/0, warning_servers/0]).
 
 %%-define(DEBUG, true).
 
@@ -62,6 +60,9 @@
 %% State record -- local to this module
 
 -type parent() :: 'none' | pid().
+-type servers()         :: term(). %%opaque
+-type scc()             :: [mfa_or_funlbl()] | [module()].
+
 
 -record(st, {callgraph      :: dialyzer_callgraph:callgraph(),
 	     codeserver     :: dialyzer_codeserver:codeserver(),
@@ -235,11 +236,6 @@ refine_succ_typings([], State, Coordinator) ->
     false -> {not_fixpoint, NotFixpoint, State}
   end.
 
--type servers()         :: term(). %%opaque
--type scc_data()        :: term(). %%opaque
--type scc_refine_data() :: term(). %%opaque
--type scc()             :: [mfa_or_funlbl()] | [module()].
-
 -spec find_depends_on(scc() | module(), servers()) -> [scc()].
 
 find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
@@ -250,18 +246,13 @@ find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
 find_required_by(SCC, {_Codeserver, Callgraph, _Plt}) ->
   dialyzer_callgraph:get_required_by(SCC, Callgraph).
 
--spec collect_refine_scc_data(module(), servers()) -> scc_refine_data().
+-spec refine_one_module(module(), servers()) -> [label()]. % ordset
 
-collect_refine_scc_data(M, {CodeServer, Callgraph, PLT}) ->
+refine_one_module(M, {CodeServer, Callgraph, Plt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
-  FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, PLT),
-  {ModCode, PLT, Callgraph, Records, FunTypes}.
-
--spec refine_one_module(scc_refine_data()) -> [label()]. % ordset
-
-refine_one_module({ModCode, Plt, Callgraph, Records, FunTypes}) ->
+  FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, Records),
   case reached_fixpoint(FunTypes, NewFunTypes) of
@@ -351,9 +342,9 @@ find_succ_typings([SCC|Rest], #st{parent = Parent} = State, Coordinator) ->
 find_succ_typings([], _State, _Coordinator) ->
   ok.
 
--spec collect_scc_data(scc(), servers()) -> scc_data().
+-spec find_succ_types_for_scc(scc(), servers()) -> [mfa_or_funlbl()].
 
-collect_scc_data(SCC, {Codeserver, Callgraph, Plt}) ->
+find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt}) ->
   SCC_Info = [{MFA, 
 	       dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
 	       dialyzer_codeserver:lookup_mod_records(M, Codeserver)}
@@ -362,25 +353,18 @@ collect_scc_data(SCC, {Codeserver, Callgraph, Plt}) ->
 		|| {_, _, _} = MFA <- SCC],
   Contracts2 = [{MFA, Contract} || {MFA, {ok, Contract}} <- Contracts1],
   Contracts3 = orddict:from_list(Contracts2),
-  NextLabel = dialyzer_codeserver:get_next_core_label(Codeserver),
+  Label = dialyzer_codeserver:get_next_core_label(Codeserver),
   AllFuns = collect_fun_info([Fun || {_MFA, {_Var, Fun}, _Rec} <- SCC_Info]),
   PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
-  {SCC_Info, Contracts3, NextLabel, AllFuns, PropTypes, Callgraph, Plt}.
-
--spec find_succ_types_for_scc(scc_data()) -> [mfa_or_funlbl()].
-
-find_succ_types_for_scc({SCC_Info, Contracts, NextLabel, AllFuns,
-			 PropTypes, Callgraph, Plt}) ->
   %% Assume that the PLT contains the current propagated types
-  FunTypes = dialyzer_typesig:analyze_scc(SCC_Info, NextLabel, 
-					  Callgraph, Plt, PropTypes),
+  FunTypes =
+    dialyzer_typesig:analyze_scc(SCC_Info, Label, Callgraph, Plt, PropTypes),
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
-  FilteredFunTypes = dict:filter(fun(X, _) ->
-				      sets:is_element(X, AllFunSet) 
-				  end, FunTypes),
+  FilteredFunTypes =
+    dict:filter(fun(X, _) -> sets:is_element(X, AllFunSet) end, FunTypes),
   %% Check contracts
-  PltContracts = dialyzer_contracts:check_contracts(Contracts, Callgraph, 
-						    FilteredFunTypes),
+  PltContracts =
+    dialyzer_contracts:check_contracts(Contracts3, Callgraph, FilteredFunTypes),
   ContractFixpoint =
     lists:all(fun({MFA, _C}) ->
 		  %% Check the non-deleted PLT
