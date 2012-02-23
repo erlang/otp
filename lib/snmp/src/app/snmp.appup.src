@@ -30,10 +30,14 @@
     {load_module, snmp_log, soft_purge, soft_purge, []}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
+
+    {update, snmpa_local_db, soft, soft_purge, soft_purge, []}, 
+    {update, snmpa_mib,      soft, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent,    soft, soft_purge, soft_purge, []}, 
+
     {add_module,  snmpm_net_if_mt}
    ]
   }, 
-
   {"4.21.6",
    [
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
@@ -212,10 +216,14 @@
     {load_module, snmp_log, soft_purge, soft_purge, []}, 
     {load_module, snmp_verbosity, soft_purge, soft_purge, []}, 
     {load_module, snmpm_mpd, soft_purge, soft_purge, []}, 
+
+    {update, snmpa_local_db, soft, soft_purge, soft_purge, []}, 
+    {update, snmpa_mib,      soft, soft_purge, soft_purge, []}, 
+    {update, snmpa_agent,    soft, soft_purge, soft_purge, []}, 
+
     {remove, {snmpm_net_if_mt, soft_purge, soft_purge}}
    ]
   }, 
-
   {"4.21.6",
    [
     {load_module, snmp, soft_purge, soft_purge, [snmp_log]}, 
