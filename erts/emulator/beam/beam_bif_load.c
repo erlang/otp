@@ -355,9 +355,9 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	/*
 	 * handle_code_ix_activation() will do the rest "later"
-	 * and resume this process in bif_return_trap() to return 'res'.  
+	 * and resume this process to return 'res'.  
 	 */
-	ERTS_BIF_YIELD1(&bif_return_trap_export, c_p, res);
+	ERTS_BIF_YIELD_RETURN(c_p, res);
     }
 #endif
 }
