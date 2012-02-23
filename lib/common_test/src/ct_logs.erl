@@ -635,11 +635,11 @@ create_io_fun(FromPid, State) ->
     %% we have to build one io-list of all strings
     %% before printing, or other io printouts (made in
     %% parallel) may get printed between this header 
-    %% and footer 
+    %% and footer
+    Fd = State#logger_state.ct_log_fd,
     fun({Str,Args}, IoList) ->
 	    case catch io_lib:format(Str,Args) of
 		{'EXIT',_Reason} ->
-		    Fd = State#logger_state.ct_log_fd,
 		    io:format(Fd, "Logging fails! Str: ~p, Args: ~p~n",
 			      [Str,Args]),
 		    %% stop the testcase, we need to see the fault
