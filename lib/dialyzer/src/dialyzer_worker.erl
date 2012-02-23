@@ -101,7 +101,6 @@ loop(running, #state{mode = 'warnings'} = State) ->
 loop(running, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
   ?debug("Run: ~p\n",[State#state.job]),
-  ok = ask_coordinator_for_callers(State),
   NotFixpoint = do_work(State),
   ok = broadcast_done(State),
   report_to_coordinator(NotFixpoint, State).
@@ -112,29 +111,25 @@ waits_more_success_typings(#state{depends_on = Depends}) ->
     _ -> true
   end.
 
-ask_coordinator_for_callers(#state{job = SCC,
-				   servers = Servers,
-				   coordinator = Coordinator}) ->
+broadcast_done(#state{job = SCC, servers = Servers}) ->
   RequiredBy = dialyzer_succ_typings:find_required_by(SCC, Servers),
-  ?debug("Waiting for me~p: ~p\n",[SCC, RequiredBy]),
-  dialyzer_coordinator:sccs_to_pids_request(RequiredBy, Coordinator).
-
-broadcast_done(#state{job = SCC, coordinator = Coordinator}) ->
-  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids_reply(),
+  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids(RequiredBy),
   send_done(Callers, SCC),
-  continue_broadcast_done(Unknown, SCC, Coordinator).
+  continue_broadcast_done(Unknown, SCC).
 
 send_done(Callers, SCC) ->
   ?debug("Sending ~p: ~p\n",[SCC, Callers]),
   SendSTFun = fun(PID) -> PID ! {done, SCC} end,
   lists:foreach(SendSTFun, Callers).
 
-continue_broadcast_done([], _SCC, _Coordinator) -> ok;
-continue_broadcast_done(Rest, SCC, Coordinator) ->
-  dialyzer_coordinator:sccs_to_pids_request(Rest, Coordinator),
-  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids_reply(),
+continue_broadcast_done([], _SCC) -> ok;
+continue_broadcast_done(Rest, SCC) ->
+  %% This time limit should be greater than the time required
+  %% by the coordinator to spawn all processes.
+  timer:sleep(500),
+  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids(Rest),
   send_done(Callers, SCC),
-  continue_broadcast_done(Unknown, SCC, Coordinator).
+  continue_broadcast_done(Unknown, SCC).
 
 wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
   receive
