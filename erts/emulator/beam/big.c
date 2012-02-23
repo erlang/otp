@@ -1844,6 +1844,7 @@ dsize_t big_bytes(Eterm x)
 /*
 ** Load a bignum from bytes
 ** xsz is the number of bytes in xp
+** *r is untouched if number fits in small
 */
 Eterm bytes_to_big(byte *xp, dsize_t xsz, int xsgn, Eterm *r)
 {
@@ -1852,7 +1853,7 @@ Eterm bytes_to_big(byte *xp, dsize_t xsz, int xsgn, Eterm *r)
     ErtsDigit d;
     int i;
 
-    while(xsz >= sizeof(ErtsDigit)) {
+    while(xsz > sizeof(ErtsDigit)) {
 	d = 0;
 	for(i = sizeof(ErtsDigit); --i >= 0;)
 	    d = (d << 8) | xp[i];
@@ -1867,11 +1868,20 @@ Eterm bytes_to_big(byte *xp, dsize_t xsz, int xsgn, Eterm *r)
 	d = 0;
 	for(i = xsz; --i >= 0;)
 	    d = (d << 8) | xp[i];
+	if (++rsz == 1 && IS_USMALL(xsgn,d)) {
+	    if (xsgn) d = -d;
+	    return make_small(d);
+	}
 	*rwp = d;
 	rwp++;
-	rsz++;
     }
-    return big_norm(r, rsz, (short) xsgn);
+    if (xsgn) {
+      *r = make_neg_bignum_header(rsz);
+    }
+    else {
+      *r = make_pos_bignum_header(rsz);
+    }
+    return make_big(r);
 }
 
 /*

@@ -72,6 +72,7 @@
 	 exit_many_many_tables_owner/1]).
 -export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
+-export([otp_9932/1]).
 -export([otp_9423/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -145,6 +146,7 @@ all() ->
      exit_many_large_table_owner, exit_many_tables_owner,
      exit_many_many_tables_owner, write_concurrency, heir,
      give_away, setopts, bad_table, types,
+     otp_9932,
      otp_9423].
 
 groups() -> 
@@ -5433,6 +5435,22 @@ types_do(Opts) ->
     ets:delete(T),
     ?line verify_etsmem(EtsMem).
 
+
+%% OTP-9932: Memory overwrite when inserting large integers in compressed bag.
+%% Will crash with segv on 64-bit opt if not fixed.
+otp_9932(Config) when is_list(Config) ->
+    T = ets:new(xxx, [bag, compressed]),    
+    Fun = fun(N) -> 
+		  Key = {1316110174588445 bsl N,1316110174588583 bsl N},
+		  S = {Key, Key},
+		  true = ets:insert(T, S),
+		  [S] = ets:lookup(T, Key),
+		  true = ets:insert(T, S),
+		  [S] = ets:lookup(T, Key)
+	  end,
+    lists:foreach(Fun, lists:seq(0, 16)),
+    ets:delete(T).
+    
 
 otp_9423(doc) -> ["vm-deadlock caused by race between ets:delete and others on write_concurrency table"];
 otp_9423(Config) when is_list(Config) ->

@@ -3118,6 +3118,9 @@ decoded_size(byte *ep, byte* endp, int internal_tags)
 	case LARGE_BIG_EXT:
 	    CHKSIZE(4);
 	    n = get_int32(ep);
+	    if (n > BIG_ARITY_MAX*sizeof(ErtsDigit)) {
+		return -1;
+	    }
 	    SKIP2(n,4+1);		/* skip, size,sign,digits */
 	    heap_size += 1+1+(n+sizeof(Eterm)-1)/sizeof(Eterm); /* XXX: 1 too much? */
 	    break;
