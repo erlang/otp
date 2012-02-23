@@ -61,6 +61,12 @@
 	  traffic in newly created processes. The message/request is
 	  processed and then the process exits. </p>
           <p>Own Id: OTP-9876</p>
+	</item>
+
+        <item>
+          <p>[agent] Documenting previously existing but undocumented function, 
+	  <seealso marker="snmp_generic#get_table_info">snmp_generic:get_table_info/2</seealso>. </p>
+	  <p>Own Id: OTP-9942</p>
         </item>
 
       </list>
@@ -85,6 +91,7 @@
 
       </list>
       -->
+
     </section>
 
     <section>
