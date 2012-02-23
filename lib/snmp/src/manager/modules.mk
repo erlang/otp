@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2009. All Rights Reserved.
+# Copyright Ericsson AB 2004-2012. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,7 @@ MODULES = \
 	snmpm_mpd \
 	snmpm_misc_sup \
 	snmpm_net_if \
+	snmpm_net_if_mt \
 	snmpm_net_if_filter \
 	snmpm_server \
 	snmpm_server_sup \

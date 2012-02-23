@@ -228,48 +228,79 @@ groups() ->
      }
     ].
 
-init_per_group(all_tcs, Config) ->
-    init_all(Config);
-init_per_group(otp_7157, Config) -> 
-	init_otp_7157(Config);
-init_per_group(otp_4394, Config) -> 
-	init_otp_4394(Config);
-init_per_group(v2_inform, Config) -> 
-	init_v2_inform(Config);
-init_per_group(multiple_reqs_2, Config) -> 
-	init_mul(Config);
-init_per_group(multiple_reqs, Config) -> 
-	init_mul(Config);
-init_per_group(test_multi_threaded, Config) -> 
-	init_mt(Config);
-init_per_group(test_v3, Config) -> 
-	init_v3(Config);
-init_per_group(test_v1_v2, Config) -> 
-	init_v1_v2(Config);
-init_per_group(test_v2, Config) -> 
-	init_v2(Config);
-init_per_group(test_v1, Config) -> 
-	init_v1(Config);
-init_per_group(misc, Config) -> 
-	init_misc(Config);
-init_per_group(mib_storage_varm_mnesia, Config) -> 
-	init_varm_mib_storage_mnesia(Config);
-init_per_group(mib_storage_varm_dets, Config) -> 
-	init_varm_mib_storage_dets(Config);
-init_per_group(mib_storage_size_check_mnesia, Config) -> 
-	init_size_check_msm(Config);
-init_per_group(mib_storage_size_check_dets, Config) -> 
-	init_size_check_msd(Config);
-init_per_group(mib_storage_size_check_ets, Config) -> 
-	init_size_check_mse(Config);
-init_per_group(mib_storage_mnesia, Config) -> 
-	init_mib_storage_mnesia(Config);
-init_per_group(mib_storage_dets, Config) -> 
-	init_mib_storage_dets(Config);
-init_per_group(mib_storage_ets, Config) -> 
-	init_mib_storage_ets(Config);
-init_per_group(_GroupName, Config) ->
-	Config.
+
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?DBG("init_per_suite -> entry with"
+	 "~n   Config0: ~p", [Config0]),
+
+    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    Config2   = snmp_test_lib:fix_data_dir(Config1),
+
+    %% Mib-dirs
+    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
+    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+
+    Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
+
+    ?DBG("init_per_suite -> end with"
+	 "~n   Config3: ~p", [Config3]),
+
+    Config3.
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    Config.
+
+
+init_per_group(all_tcs = GroupName, Config) ->
+    init_all(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp_7157 = GroupName, Config) -> 
+    init_otp_7157(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(otp_4394 = GroupName, Config) -> 
+    init_otp_4394(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(v2_inform = GroupName, Config) -> 
+    init_v2_inform(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(multiple_reqs_2 = GroupName, Config) -> 
+    init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(multiple_reqs = GroupName, Config) -> 
+    init_mul(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_multi_threaded = GroupName, Config) -> 
+    init_mt(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v3 = GroupName, Config) -> 
+    init_v3(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v1_v2 = GroupName, Config) -> 
+    init_v1_v2(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v2 = GroupName, Config) -> 
+    init_v2(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(test_v1 = GroupName, Config) -> 
+    init_v1(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(misc = GroupName, Config) -> 
+    init_misc(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_varm_mnesia = GroupName, Config) -> 
+    init_varm_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
+								  Config));
+init_per_group(mib_storage_varm_dets = GroupName, Config) -> 
+    init_varm_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, 
+								Config));
+init_per_group(mib_storage_size_check_mnesia = GroupName, Config) -> 
+    init_size_check_msm(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_size_check_dets = GroupName, Config) -> 
+    init_size_check_msd(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_size_check_ets = GroupName, Config) -> 
+    init_size_check_mse(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_mnesia = GroupName, Config) -> 
+    init_mib_storage_mnesia(snmp_test_lib:init_group_top_dir(GroupName, 
+							     Config));
+init_per_group(mib_storage_dets = GroupName, Config) -> 
+    init_mib_storage_dets(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(mib_storage_ets = GroupName, Config) -> 
+    init_mib_storage_ets(snmp_test_lib:init_group_top_dir(GroupName, Config));
+init_per_group(GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(GroupName, Config).
 
 end_per_group(all_tcs, Config) ->
     finish_all(Config);
@@ -320,38 +351,36 @@ init_per_testcase(otp8395 = Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
-    Config2 = init_per_testcase2(Case, init_per_suite(Config)), 
-    otp8395({init, Config2});
+    otp8395({init, init_per_testcase2(Case, Config)});
 init_per_testcase(otp9884 = Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
-    Config2 = init_per_testcase2(Case, init_per_suite(Config)), 
-    otp9884({init, Config2});
+    otp9884({init, init_per_testcase2(Case, Config)});
 init_per_testcase(otp_7157_test = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
     Dog = ?WD_START(?MINS(1)),
-    [{watchdog, Dog}|Config];
+    [{watchdog, Dog} | Config ];
 init_per_testcase(v2_inform_i = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
     Dog = ?WD_START(?MINS(10)),
-    [{watchdog, Dog}|Config];
+    [{watchdog, Dog} | Config ];
 init_per_testcase(v3_inform_i = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
     Dog = ?WD_START(?MINS(10)),
-    [{watchdog, Dog}|Config];
+    [{watchdog, Dog} | Config ];
 init_per_testcase(_Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
     Dog = ?WD_START(?MINS(6)),
-    [{watchdog, Dog}|Config].
+    [{watchdog, Dog}| Config ].
 
 end_per_testcase(otp8395, Config) when is_list(Config) ->
     otp8395({fin, Config});
@@ -366,65 +395,13 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 
-init_per_suite(Config) ->
-    ?DBG("init_per_suite -> entry with"
-	 "~n   Config: ~p", [Config]),
-
-    %% Suite root dir for test suite
-    PrivDir = ?config(priv_dir, Config),
-
-    %% Create top-directory for this sub-suite
-    SuiteTopDir = filename:join([PrivDir, ?MODULE]),
-    case file:make_dir(SuiteTopDir) of
-	ok ->
-	    ok;
-	{error, eexist} ->
-	    %% This can happen since this is not really a 
-	    %% suite-init function.
-	    ok;
-	{error, Reason} ->
-	    ?FAIL({failed_creating_suite_top_dir, SuiteTopDir, Reason})
-    end,
-    
-
-    %% --
-    %% Fix config (data-dir is not correct):
-    %% 
-
-    Config1 = fix_data_dir(Config), 
-    %% Config1 = Config, 
-
-    %% Mib-dirs
-    MibDir    = ?config(data_dir, Config1),
-    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
-
-    Config2 = [{suite_top_dir, SuiteTopDir}, 
-	       {mib_dir,       MibDir}, 
-	       {std_mib_dir,   StdMibDir} | Config1],
-
-    ?DBG("init_per_suite -> done when"
-	 "~n   Config2: ~p", [Config2]),
-    Config2.
-
-%% end_per_suite(Config) ->
-end_per_suite(Config) ->
-    Config.
-
-fix_data_dir(Config) ->
-    DataDir0     = ?config(data_dir, Config),
-    DataDir1     = filename:split(filename:absname(DataDir0)),
-    [_|DataDir2] = lists:reverse(DataDir1),
-    DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
-    Config1      = lists:keydelete(data_dir, 1, Config),
-    [{data_dir, DataDir} | Config1].
-
-
 init_per_testcase2(Case, Config) ->
-    SuiteToDir = ?config(suite_top_dir, Config),
-    
-    %% Create top-directory for this test-case
-    CaseTopDir = filename:join([SuiteToDir, Case]),
-    ok = file:make_dir(CaseTopDir),
+
+    ?DBG("end_per_testcase2 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+
+    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
 
     %% Create agent top-dir(s)
     AgentTopDir = filename:join([CaseTopDir, agent]),
@@ -623,19 +600,19 @@ mib_storage_mnesia_cases() ->
  msm_mib_of].
 
 mse_size_check_cases() -> 
-[mse_size_check].
+    [mse_size_check].
 
 msd_size_check_cases() -> 
-[msd_size_check].
+    [msd_size_check].
 
 msm_size_check_cases() -> 
-[msm_size_check].
+    [msm_size_check].
 
 varm_mib_storage_dets_cases() -> 
-[msd_varm_mib_start].
+    [msd_varm_mib_start].
 
 varm_mib_storage_mnesia_cases() -> 
-[msm_varm_mib_start].
+    [msm_varm_mib_start].
 
 init_mib_storage_ets(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_ets -> entry", []),
@@ -655,17 +632,18 @@ init_mib_storage_mnesia(Config) when is_list(Config) ->
 
 init_ms(Config, Opts) when is_list(Config) ->
     ?LOG("init_mib_storage_ets -> entry", []),
-    ?line SaNode   = ?GCONF(snmp_sa, Config),
+    ?line SaNode       = ?GCONF(snmp_sa, Config),
     ?line create_tables(SaNode),
-    ?line AgentDir = ?GCONF(agent_dir, Config),
-    ?line MgrDir   = ?GCONF(mgr_dir, Config),
-    ?line Ip       = ?GCONF(ip, Config),
-    ?line config([v1], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    ?line AgentConfDir = ?GCONF(agent_conf_dir, Config),
+    ?line MgrDir       = ?GCONF(mgr_dir, Config),
+    ?line Ip           = ?GCONF(ip, Config),
+    ?line config([v1], MgrDir, AgentConfDir, 
+		 tuple_to_list(Ip), tuple_to_list(Ip)),
     MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
     MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
     SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
-    Opts1 = [MasterAgentVerbosity,MibsVerbosity,SymStoreVerbosity|Opts],
-    [{vsn, v1} | start_v1_agent(Config,Opts1)].
+    Opts1 = [MasterAgentVerbosity, MibsVerbosity, SymStoreVerbosity | Opts],
+    [{vsn, v1} | start_v1_agent(Config, Opts1)].
 
 init_size_check_mse(Config) when is_list(Config) ->
     MibStorage = {snmp_mib_storage, ets},
@@ -1189,10 +1167,11 @@ v1_cases() ->
 init_v1(Config) when is_list(Config) ->
     ?line SaNode = ?config(snmp_sa, Config),
     ?line create_tables(SaNode),
-    ?line AgentDir = ?config(agent_dir, Config),
+    ?line AgentConfDir = ?config(agent_conf_dir, Config),
     ?line MgrDir = ?config(mgr_dir, Config),
     ?line Ip = ?config(ip, Config),
-    ?line config([v1], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    ?line config([v1], MgrDir, AgentConfDir, 
+		 tuple_to_list(Ip), tuple_to_list(Ip)),
     [{vsn, v1} | start_v1_agent(Config)].
 
 finish_v1(Config) when is_list(Config) ->
@@ -1232,10 +1211,11 @@ v2_cases() ->
 init_v2(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
-    AgentDir = ?config(agent_dir, Config),
+    AgentConfDir = ?config(agent_conf_dir, Config),
     MgrDir = ?config(mgr_dir, Config),
     Ip = ?config(ip, Config),
-    config([v2], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    config([v2], MgrDir, AgentConfDir, 
+	   tuple_to_list(Ip), tuple_to_list(Ip)),
     [{vsn, v2} | start_v2_agent(Config)].
 
 finish_v2(Config) when is_list(Config) ->
@@ -1251,10 +1231,11 @@ v1_v2_cases() ->
 init_v1_v2(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
-    AgentDir = ?config(agent_dir, Config),
+    AgentConfDir = ?config(agent_conf_dir, Config),
     MgrDir = ?config(mgr_dir, Config),
     Ip = ?config(ip, Config),
-    config([v1,v2], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    config([v1,v2], MgrDir, AgentConfDir, 
+	   tuple_to_list(Ip), tuple_to_list(Ip)),
     [{vsn, bilingual} | start_bilingual_agent(Config)].
 
 finish_v1_v2(Config) when is_list(Config) ->
@@ -1315,10 +1296,10 @@ init_v3(Config) when is_list(Config) ->
     end,
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
-    AgentDir = ?config(agent_dir, Config),
+    AgentConfDir = ?config(agent_conf_dir, Config),
     MgrDir = ?config(mgr_dir, Config),
     Ip = ?config(ip, Config),
-    ?line ok = config([v3], MgrDir, AgentDir, 
+    ?line ok = config([v3], MgrDir, AgentConfDir, 
 		      tuple_to_list(Ip), tuple_to_list(Ip)),
     [{vsn, v3} | start_v3_agent(Config)].
 
@@ -1338,11 +1319,11 @@ mt_cases() ->
 init_mt(Config) when is_list(Config) ->
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
-    AgentDir = ?config(agent_dir, Config),
+    AgentConfDir = ?config(agent_conf_dir, Config),
     MgrDir   = ?config(mgr_dir, Config),
     Ip       = ?config(ip, Config),
-    ?line ok = 
-	config([v2], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    ?line ok = config([v2], MgrDir, AgentConfDir, 
+		      tuple_to_list(Ip), tuple_to_list(Ip)),
     [{vsn, v2} | start_multi_threaded_agent(Config)].
 
 finish_mt(Config) when is_list(Config) ->
@@ -1421,7 +1402,13 @@ simple(Config) when is_list(Config) ->
     ?P(simple),
     init_case(Config),
     
-    try_test(simple_standard_test).
+    try_test(simple_standard_test),
+
+    p("Display log"),
+    display_log(Config),
+    
+    p("done"),
+    ok.
 
 simple_2(X) -> ?P(simple_2), simple(X).
 
@@ -1601,7 +1588,7 @@ change_target_addr_config(Config) when is_list(Config) ->
     try_test(ma_trap1, [MA]),
 
     ?LOG("change_target_addr_config -> set silence verbosity for local_db",[]),
-    ?line snmpa:verbosity(local_db,silence),
+    ?line snmpa:verbosity(local_db, silence),
 
     %% Start new dummy listener
     ?LOG("change_target_addr_config -> start dummy manager",[]),
@@ -1609,9 +1596,9 @@ change_target_addr_config(Config) when is_list(Config) ->
     
     %% Reconfigure
     ?LOG("change_target_addr_config -> reconfigure",[]),
-    AgentDir = ?config(agent_dir, Config),
-    ?line rewrite_target_addr_conf(AgentDir, NewPort),
-    ?line snmp_target_mib:reconfigure(AgentDir),
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_addr_conf(AgentConfDir, NewPort),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
 
     %% Send the trap again
     ?LOG("change_target_addr_config -> send trap again",[]),
@@ -1624,7 +1611,7 @@ change_target_addr_config(Config) when is_list(Config) ->
     ?line ok = dummy_manager_stop(Pid),
 
     ?LOG("change_target_addr_config -> reset target address config",[]),
-    ?line reset_target_addr_conf(AgentDir),
+    ?line reset_target_addr_conf(AgentConfDir),
 
     ?LOG("change_target_addr_config -> unload TestTrap",[]),
     ?line unload_master("TestTrap").
@@ -2067,7 +2054,7 @@ v3_inform(_X) ->
     {req, [], {conf, init_v3_inform, [v3_inform_i], finish_v3_inform}}. 
 
 init_v2_inform(Config) when is_list(Config) ->
-    _Dir = ?config(agent_dir, Config),
+    _Dir = ?config(agent_conf_dir, Config),
     %% snmp_internal_mib:configure(Dir),
     Config.
 
@@ -2075,7 +2062,7 @@ init_v3_inform(X) ->
     init_v2_inform(X).
 
 finish_v2_inform(Config) when is_list(Config) ->
-    _Dir = ?config(agent_dir, Config),
+    _Dir = ?config(agent_conf_dir, Config),
     %% snmp_internal_mib:configure(Dir),
     Config.
 
@@ -2377,9 +2364,9 @@ v3_md5_auth(Config) when is_list(Config) ->
 
     ?P1("Testing MD5 authentication...takes a few seconds..."),
     
-    AgentDir = ?config(agent_dir, Config),
-    ?line rewrite_target_params_conf(AgentDir, "authMD5", authNoPriv),
-    ?line snmp_target_mib:reconfigure(AgentDir),
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_params_conf(AgentConfDir, "authMD5", authNoPriv),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
 
     MA = whereis(snmp_master_agent),
 
@@ -2388,14 +2375,14 @@ v3_md5_auth(Config) when is_list(Config) ->
     ?line load_master("TestTrapv2"),
 
     try_test(v3_sync, [[{v2_proc, []},
-		   {ma_v2_trap1, [MA]},
-		   {v3_inform_sync, [MA]}]],
-	[{sec_level, authNoPriv}, {user, "authMD5"}]),
+			{ma_v2_trap1, [MA]},
+			{v3_inform_sync, [MA]}]],
+	     [{sec_level, authNoPriv}, {user, "authMD5"}]),
 
     ?line unload_master("TestTrapv2"),
     ?line unload_master("TestTrap"),
     ?line unload_master("Test2"),
-    ?line reset_target_params_conf(AgentDir).
+    ?line reset_target_params_conf(AgentConfDir).
 
 v3_sha_auth(suite) -> [];
 v3_sha_auth(Config) when is_list(Config) ->
@@ -2404,9 +2391,9 @@ v3_sha_auth(Config) when is_list(Config) ->
 
     ?P1("Testing SHA authentication...takes a few seconds..."),
 
-    AgentDir = ?config(agent_dir, Config),
-    ?line rewrite_target_params_conf(AgentDir, "authSHA", authNoPriv),
-    ?line snmp_target_mib:reconfigure(AgentDir),
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_params_conf(AgentConfDir, "authSHA", authNoPriv),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
 
     MA = whereis(snmp_master_agent),
 
@@ -2415,14 +2402,14 @@ v3_sha_auth(Config) when is_list(Config) ->
     ?line load_master("TestTrapv2"),
 
     try_test(v3_sync, [[{v2_proc, []},
-		   {ma_v2_trap1, [MA]},
-		   {v3_inform_sync, [MA]}]],
-	[{sec_level, authNoPriv}, {user, "authSHA"}]),
+			{ma_v2_trap1, [MA]},
+			{v3_inform_sync, [MA]}]],
+	     [{sec_level, authNoPriv}, {user, "authSHA"}]),
 
     ?line unload_master("TestTrapv2"),
     ?line unload_master("TestTrap"),
     ?line unload_master("Test2"),
-    ?line reset_target_params_conf(AgentDir).
+    ?line reset_target_params_conf(AgentConfDir).
 
 v3_des_priv(suite) -> [];
 v3_des_priv(Config) when is_list(Config) ->
@@ -2431,9 +2418,9 @@ v3_des_priv(Config) when is_list(Config) ->
 
     ?P1("Testing DES encryption...takes a few seconds..."),
 
-    AgentDir = ?config(agent_dir, Config),
-    ?line rewrite_target_params_conf(AgentDir, "privDES", authPriv),
-    ?line snmp_target_mib:reconfigure(AgentDir),
+    AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line rewrite_target_params_conf(AgentConfDir, "privDES", authPriv),
+    ?line snmp_target_mib:reconfigure(AgentConfDir),
 
     MA = whereis(snmp_master_agent),
 
@@ -2444,14 +2431,14 @@ v3_des_priv(Config) when is_list(Config) ->
     ?line load_master("TestTrapv2"),
 
     try_test(v3_sync, [[{v2_proc, []},
-		   {ma_v2_trap1, [MA]},
-		   {v3_inform_sync, [MA]}]],
-	[{sec_level, authPriv}, {user, "privDES"}]),
+			{ma_v2_trap1, [MA]},
+			{v3_inform_sync, [MA]}]],
+	     [{sec_level, authPriv}, {user, "privDES"}]),
 
     ?line unload_master("TestTrapv2"),
     ?line unload_master("TestTrap"),
     ?line unload_master("Test2"),
-    ?line reset_target_params_conf(AgentDir).
+    ?line reset_target_params_conf(AgentConfDir).
 
 %% -define(usmStatsNotInTimeWindows_instance, [1,3,6,1,6,3,15,1,1,2,0]).
 
@@ -4795,7 +4782,7 @@ snmp_user_based_sm_mib_3(Config) when is_list(Config) ->
     ?P(snmp_user_based_sm_mib_3), 
     init_case(Config),
 
-    _AgentDir = ?config(agent_dir, Config),
+    _AgentDir = ?config(agent_conf_dir, Config),
     ?line load_master_std("SNMP-USER-BASED-SM-MIB"),
 
     %% The newUser used here already has VACM access.
@@ -5727,28 +5714,28 @@ otp_3725_test(MaNode) ->
 init_otp_4394(Config) when is_list(Config) ->
     ?DBG("init_otp_4394 -> entry with"
 	   "~n   Config: ~p", [Config]),
-    ?line AgentDir = ?config(agent_dir, Config),
-    ?line MgrDir   = ?config(mgr_dir, Config),
-    ?line Ip       = ?config(ip, Config),
-    ?line otp_4394_config(AgentDir, MgrDir, Ip),
+    ?line AgentConfDir = ?config(agent_conf_dir, Config),
+    ?line MgrDir       = ?config(mgr_dir,        Config),
+    ?line Ip           = ?config(ip,             Config),
+    ?line otp_4394_config(AgentConfDir, MgrDir, Ip),
     MasterAgentVerbosity = {master_agent_verbosity, trace},
     NetIfVerbosity       = {net_if_verbosity,       trace},
-    Opts = [MasterAgentVerbosity,NetIfVerbosity],
-    [{vsn, v1} | start_v1_agent(Config,Opts)].
+    Opts = [MasterAgentVerbosity, NetIfVerbosity],
+    [{vsn, v1} | start_v1_agent(Config, Opts)].
 
-otp_4394_config(AgentDir, MgrDir, Ip0) ->
+otp_4394_config(AgentConfDir, MgrDir, Ip0) ->
     ?DBG("otp_4394_config -> entry with"
-	   "~n   AgentDir: ~p"
-	   "~n   MgrDir:   ~p"
-	   "~n   Ip0:      ~p", [AgentDir, MgrDir, Ip0]),
+	   "~n   AgentConfDir: ~p"
+	   "~n   MgrDir:       ~p"
+	   "~n   Ip0:          ~p", [AgentConfDir, MgrDir, Ip0]),
     Vsn = [v1],
     Ip = tuple_to_list(Ip0), 
-    ?line snmp_config:write_agent_snmp_files(AgentDir, Vsn, Ip, 
+    ?line snmp_config:write_agent_snmp_files(AgentConfDir, Vsn, Ip, 
 					     ?TRAP_UDP, Ip, 4000, 
 					     "OTP-4394 test"),
-    ?line case update_usm(Vsn, AgentDir) of
+    ?line case update_usm(Vsn, AgentConfDir) of
 	true ->
-	    ?line copy_file(filename:join(AgentDir, "usm.conf"),
+	    ?line copy_file(filename:join(AgentConfDir, "usm.conf"),
 			    filename:join(MgrDir, "usm.conf")),
 	    ?line update_usm_mgr(Vsn, MgrDir);
 	false ->
@@ -5756,8 +5743,8 @@ otp_4394_config(AgentDir, MgrDir, Ip0) ->
     end,
     C1 = {"a", "all-rights", "initial", "", "pc"},
     C2 = {"c", "secret", "secret_name", "", "secret_tag"},
-    ?line write_community_conf(AgentDir, [C1, C2]),
-    ?line update_vacm(Vsn, AgentDir),
+    ?line write_community_conf(AgentConfDir, [C1, C2]),
+    ?line update_vacm(Vsn, AgentConfDir),
     Ta1 = {"shelob v1", 
 	   [134,138,177,177], 5000, 1500, 3, %% Använd Ip och modda
 	   "pc1", 
@@ -5771,9 +5758,9 @@ otp_4394_config(AgentDir, MgrDir, Ip0) ->
 	   "target_v1", "", 
 	   %% [255,255,255,255,0,0],
 	   [], 2048},
-    ?line write_target_addr_conf(AgentDir, [Ta1, Ta2]),
-    ?line write_target_params_conf(AgentDir, Vsn),
-    ?line write_notify_conf(AgentDir),
+    ?line write_target_addr_conf(AgentConfDir, [Ta1, Ta2]),
+    ?line write_target_params_conf(AgentConfDir, Vsn),
+    ?line write_notify_conf(AgentConfDir),
     ok.
     
 
@@ -5826,10 +5813,11 @@ init_otp_7157(Config) when is_list(Config) ->
 
     ?DBG("init_otp_7157 -> entry with"
 	   "~n   Config: ~p", [Config]),
-    ?line AgentDir = ?config(agent_dir, Config),
+    ?line AgentConfDir = ?config(agent_conf_dir, Config),
     ?line MgrDir = ?config(mgr_dir, Config),
     ?line Ip = ?config(ip, Config),
-    ?line config([v2], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    ?line config([v2], MgrDir, AgentConfDir, 
+		 tuple_to_list(Ip), tuple_to_list(Ip)),
     MasterAgentVerbosity = {master_agent_verbosity, trace},
     NetIfVerbosity       = {net_if_verbosity,       trace},
     Opts = [MasterAgentVerbosity, NetIfVerbosity],
@@ -6562,8 +6550,8 @@ write_community_conf(Dir, Conf) ->
 write_target_addr_conf(Dir, Conf) ->
     snmp_agent_test_lib:write_target_addr_conf(Dir, Conf).
 
-write_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
-    snmp_agent_test_lib:write_target_addr_conf(Dir, ManagerIp, UDP, Vsns).
+%% write_target_addr_conf(Dir, ManagerIp, UDP, Vsns) -> 
+%%     snmp_agent_test_lib:write_target_addr_conf(Dir, ManagerIp, UDP, Vsns).
 
 rewrite_target_addr_conf(Dir, NewPort) ->
     snmp_agent_test_lib:rewrite_target_addr_conf(Dir, NewPort).
@@ -6596,9 +6584,42 @@ copy_file(From, To) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+display_log(Config) ->
+    case lists:keysearch(agent_log_dir, 1, Config) of
+	{value, {_, Dir}} ->
+	    case lists:keysearch(snmp_master, 1, Config) of
+		{value, {_, Node}} ->
+		    LogDir  = Dir, 
+		    Mibs    = [], 
+		    OutFile = filename:join(LogDir, "snmpa_log.txt"), 
+		    p("~n"
+		      "========================="
+		      "  < Audit Trail Log >  "
+		      "========================="
+		      "~n"),
+		    rcall(Node, snmpa, log_to_txt, [LogDir, Mibs, OutFile]),
+		    rcall(Node, snmpa, log_to_io, [LogDir, Mibs]),
+		    p("~n"
+		      "========================="
+		      " < / Audit Trail Log > "
+		      "========================="
+		      "~n", []);
+		false ->
+		    p("display_log -> no agent node found"),
+		    ok
+	    end;
+	false ->
+	    p("display_log -> no agent log dir found: "
+	      "~n   ~p", [Config]),
+	    ok
+    end.
+
+
+%% ------
+
 display_memory_usage() ->
     Info  = snmpa:info(snmp_master_agent),
-    AMU   = display_agent_memory_uasge(Info),
+    AMU   = display_agent_memory_usage(Info),
     NIMU  = display_net_if_memory_usage(Info),
     NSMU  = display_note_store_memory_usage(Info),
     SSMU  = display_symbolic_store_memory_usage(Info),
@@ -6608,7 +6629,7 @@ display_memory_usage() ->
 	 AMU ++ NIMU ++ NSMU ++ SSMU ++ LDBMU ++ MSMU, []),
     ok.
 
-display_agent_memory_uasge(Info) ->
+display_agent_memory_usage(Info) ->
     AgentInfo = lists_key1search(agent, Info),
     ProcMem   = 
 	lists_key1search([process_memory,master_agent], AgentInfo),
@@ -6716,4 +6737,28 @@ lists_key1search(Key, List) when is_atom(Key) ->
 
 regs() ->
     lists:sort(registered()).
+
+
+%% ------
+
+rcall(Node, Mod, Func, Args) ->
+    case rpc:call(Node, Mod, Func, Args) of
+	{badrpc, nodedown} ->
+	    ?FAIL({rpc_failure, Node});
+	Else ->
+	    Else
+    end.
+
+
+%% ------
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("*** [~s] ***"
+              "~n" ++ F ++ "~n", [formated_timestamp()|A]).
+
+formated_timestamp() ->
+    snmp_test_lib:formated_timestamp().
 

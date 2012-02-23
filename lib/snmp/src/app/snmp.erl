@@ -50,6 +50,7 @@
 	 read_mib/1, 
  
 	 log_to_txt/5, log_to_txt/6, log_to_txt/7,
+	 log_to_io/4,  log_to_io/5,  log_to_io/6,
 	 change_log_size/2,
 
 	 octet_string_to_bits/1, bits_to_octet_string/1, 
@@ -843,6 +844,12 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
     snmp_log:log_to_txt(LogName, LogFile, LogDir, Mibs, OutFile, Start, Stop).
 
+log_to_io(LogDir, Mibs, LogName, LogFile) -> 
+    snmp_log:log_to_io(LogName, LogFile, LogDir, Mibs).
+log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
+    snmp_log:log_to_io(LogName, LogFile, LogDir, Mibs, Start).
+log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
+    snmp_log:log_to_io(LogName, LogFile, LogDir, Mibs, Start, Stop).
 
 change_log_size(LogName, NewSize) -> 
     snmp_log:change_size(LogName, NewSize).

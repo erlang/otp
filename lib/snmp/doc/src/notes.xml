@@ -34,6 +34,68 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.22</title>
+    <p>Version 4.22 supports code replacement in runtime from/to
+    version 4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 4.21. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Added the <c>log_to_io</c> audit-trail-log converter function 
+	  to the api modules of both the 
+	  <seealso marker="snmpm#log_to_io">manager</seealso> 
+	  and 
+	  <seealso marker="snmpa#log_to_io">agent</seealso>. </p>
+          <p>Own Id: OTP-9940</p>
+        </item>
+
+        <item>
+          <p>[manager] Introduced a new transport module, 
+	  <c>snmpm_net_if_mt</c>, 
+	  which handles all incomming and outgoing 
+	  traffic in newly created processes. The message/request is
+	  processed and then the process exits. </p>
+          <p>Own Id: OTP-9876</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+      <!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Simultaneous 
+          <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso> 
+          calls can interfere.
+          The master agent did not check if a backup was already in 
+          progress when a backup request was accepted. </p>
+          <p>Own Id: OTP-9884</p>
+          <p>Aux Id: Seq 11995</p>
+        </item>
+
+      </list>
+      -->
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.22 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.21.7</title>
     <p>Version 4.21.7 supports code replacement in runtime from/to
     version 4.21.6, 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1, 4.21, 4.20.1 and 
@@ -47,14 +109,14 @@
       <list type="bulleted">
         <item>
           <p>[agent] DoS attack using GET-BULK with large value of 
-	  MaxRepetitions.
-	  A preventive method has been implementing by simply 
-	  limit the number of varbinds that can be included in 
-	  a Get-BULK response message. This is specified by the 
-	  new config option, 
-	  <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>. 
-	  </p>
-	  <p>Own Id: OTP-9700</p>
+          MaxRepetitions.
+          A preventive method has been implementing by simply 
+          limit the number of varbinds that can be included in 
+          a Get-BULK response message. This is specified by the 
+          new config option, 
+          <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>. 
+          </p>
+          <p>Own Id: OTP-9700</p>
         </item>
 
       </list>
@@ -63,7 +125,7 @@
     </section>
 
     <section>
-      <title>Reported Fixed Bugs and Malfunctions</title>
+      <title>Fixed Bugs and Malfunctions</title>
       <!--
       <p>-</p>
       -->
@@ -71,10 +133,10 @@
       <list type="bulleted">
         <item>
           <p>[agent] Simultaneous 
-	  <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso> 
-	  calls can interfere.
-	  The master agent did not check if a backup was already in 
-	  progress when a backup request was accepted. </p>
+          <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso> 
+          calls can interfere.
+          The master agent did not check if a backup was already in 
+          progress when a backup request was accepted. </p>
           <p>Own Id: OTP-9884</p>
           <p>Aux Id: Seq 11995</p>
         </item>
@@ -106,14 +168,14 @@
       <list type="bulleted">
         <item>
           <p>[agent] DoS attack using GET-BULK with large value of 
-	  MaxRepetitions.
-	  A preventive method has been implementing by simply 
-	  limit the number of varbinds that can be included in 
-	  a Get-BULK response message. This is specified by the 
-	  new config option, 
-	  <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>. 
-	  </p>
-	  <p>Own Id: OTP-9700</p>
+          MaxRepetitions.
+          A preventive method has been implementing by simply 
+          limit the number of varbinds that can be included in 
+          a Get-BULK response message. This is specified by the 
+          new config option, 
+          <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>. 
+          </p>
+          <p>Own Id: OTP-9700</p>
         </item>
 
       </list>
@@ -121,7 +183,7 @@
     </section>
 
     <section>
-      <title>Reported Fixed Bugs and Malfunctions</title>
+      <title>Fixed Bugs and Malfunctions</title>
       <!--
       <p>-</p>
       -->
@@ -129,12 +191,12 @@
       <list type="bulleted">
         <item>
           <p>[agent] Mib server cache gclimit update function incorrectly calls 
-	  age update function. 
-	  The gclimit update function, 
-	  <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1</seealso>, 
-	  <em>incorrectly</em> called the age update function, 
-	  <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/2</seealso>. </p>
-	  <p>Johan Claesson</p>
+          age update function. 
+          The gclimit update function, 
+          <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1</seealso>, 
+          <em>incorrectly</em> called the age update function, 
+          <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/2</seealso>. </p>
+          <p>Johan Claesson</p>
           <p>Own Id: OTP-9868</p>
         </item>
 
