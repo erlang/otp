@@ -503,7 +503,7 @@ patch_offset(Type, Data, Address, ConstAndZone, Addresses) ->
       Atom = Data,
       patch_atom(Address, Atom);
     sdesc ->
-      patch_sdesc(Data, Address, ConstAndZone);
+      patch_sdesc(Data, Address, ConstAndZone, Addresses);
     x86_abs_pcrel ->
       patch_instr(Address, Data, x86_abs_pcrel)
     %% _ ->
@@ -516,14 +516,16 @@ patch_atom(Address, Atom) ->
   patch_instr(Address, hipe_bifs:atom_to_word(Atom), atom).
 
 patch_sdesc(?STACK_DESC(SymExnRA, FSize, Arity, Live),
-	    Address, {_ConstMap2,CodeAddress}) ->
+	    Address, {_ConstMap2,CodeAddress}, _Addresses) ->
   ExnRA =
     case SymExnRA of
       [] -> 0; % No catch
       LabelOffset -> CodeAddress + LabelOffset
     end,
   ?ASSERT(assert_local_patch(Address)),
-  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live}).
+  DBG_MFA = ?IF_DEBUG(address_to_mfa_lth(Address, _Addresses), {undefined,undefined,0}),
+  hipe_bifs:enter_sdesc({Address, ExnRA, FSize, Arity, Live, DBG_MFA}).
+
 
 %%----------------------------------------------------------------
 %% Handle a 'load_address'-type patch.
@@ -730,7 +732,7 @@ find_const(ConstNo, []) ->
 %%
 
 add_ref(CalleeMFA, Address, Addresses, RefType, Trampoline, RemoteOrLocal) ->
-  CallerMFA = address_to_mfa(Address, Addresses),
+  CallerMFA = address_to_mfa_lth(Address, Addresses),
   %% just a sanity assertion below
   true = case RemoteOrLocal of
 	   local ->
@@ -743,11 +745,31 @@ add_ref(CalleeMFA, Address, Addresses, RefType, Trampoline, RemoteOrLocal) ->
   %% io:format("Adding ref ~w\n",[{CallerMFA, CalleeMFA, Address, RefType}]),
   hipe_bifs:add_ref(CalleeMFA, {CallerMFA,Address,RefType,Trampoline,RemoteOrLocal}).
 
-address_to_mfa(Address, [#fundef{address=Adr, mfa=MFA}|_Rest]) when Address >= Adr -> MFA;
-address_to_mfa(Address, [_ | Rest]) -> address_to_mfa(Address, Rest);
-address_to_mfa(Address, []) -> 
-  ?error_msg("Local adddress not found ~w\n",[Address]),
-  exit({?MODULE, local_address_not_found}).
+% For FunDefs sorted from low to high addresses
+address_to_mfa_lth(Address, FunDefs) ->
+    case address_to_mfa_lth(Address, FunDefs, false) of
+	false ->
+	    ?error_msg("Local adddress not found ~w\n",[Address]),
+	    exit({?MODULE, local_address_not_found});
+	MFA ->
+	    MFA
+    end.
+    
+address_to_mfa_lth(Address, [#fundef{address=Adr, mfa=MFA}|Rest], Prev) ->
+  if Address < Adr -> 
+	  Prev;
+     true -> 
+	  address_to_mfa_lth(Address, Rest, MFA)
+  end;
+address_to_mfa_lth(_Address, [], Prev) -> 
+    Prev.
+
+% For FunDefs sorted from high to low addresses
+%% address_to_mfa_htl(Address, [#fundef{address=Adr, mfa=MFA}|_Rest]) when Address >= Adr -> MFA;
+%% address_to_mfa_htl(Address, [_ | Rest]) -> address_to_mfa_htl(Address, Rest);
+%% address_to_mfa_htl(Address, []) -> 
+%%   ?error_msg("Local adddress not found ~w\n",[Address]),
+%%   exit({?MODULE, local_address_not_found}).
 
 %%----------------------------------------------------------------
 %% Change callers of the given module to instead trap to BEAM.

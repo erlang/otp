@@ -130,7 +130,7 @@ struct sdesc *hipe_decode_sdesc(Eterm arg)
     struct sdesc *sdesc;
 
     if (is_not_tuple(arg) ||
-	(tuple_val(arg))[0] != make_arityval(5) ||
+	(tuple_val(arg))[0] != make_arityval(6) ||
 	term_to_Uint((tuple_val(arg))[1], &ra) == 0 ||
 	term_to_Uint((tuple_val(arg))[2], &exnra) == 0 ||
 	is_not_small((tuple_val(arg))[3]) ||
@@ -183,5 +183,13 @@ struct sdesc *hipe_decode_sdesc(Eterm arg)
 	off = unsigned_val(live[i]);
 	sdesc->livebits[off / 32] |= (1 << (off & 31));
     }
+#ifdef DEBUG
+    {
+	Eterm mfa_tpl = tuple_val(arg)[6];	
+	sdesc->dbg_M = tuple_val(mfa_tpl)[1];
+	sdesc->dbg_F = tuple_val(mfa_tpl)[2];
+	sdesc->dbg_A = tuple_val(mfa_tpl)[3];
+    }
+#endif
     return sdesc;
 }

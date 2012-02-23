@@ -69,6 +69,11 @@ nstack_walk_init_sdesc(const Process *p, struct nstack_walk_state *state)
 	nstkarity = 0;
     state->sdesc0[0].summary = (0 << 9) | (0 << 8) | nstkarity;
     state->sdesc0[0].livebits[0] = 0;
+# ifdef DEBUG
+    state->sdesc0[0].dbg_M = 0;
+    state->sdesc0[0].dbg_F = am_init;
+    state->sdesc0[0].dbg_A = 0;
+# endif
     /* XXX: this appears to prevent a gcc-4.1.1 bug on x86 */
     __asm__ __volatile__("" : : "m"(*state) : "memory");
     return &state->sdesc0[0];

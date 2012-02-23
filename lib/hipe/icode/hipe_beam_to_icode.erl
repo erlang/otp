@@ -41,6 +41,9 @@
 %%
 %%-ifndef(DEBUG).
 %%-define(DEBUG,6).
+%% Choose one of two tracing methods
+%%-define(DEBUG_BIF_CALL_TRACE,true).
+%%-define(IO_FORMAT_CALL_TRACE,true).
 %%-endif.
 
 -include("../main/hipe.hrl").
@@ -51,8 +54,27 @@
 -define(no_debug_msg(Str,Xs),ok).
 %%-define(no_debug_msg(Str,Xs),msg(Str,Xs)).
 
--define(mk_debugcode(MFA, Env, Code),
-	case MFA of
+-ifdef(DEBUG_BIF_CALL_TRACE).
+
+%% Use BIF hipe_bifs_debug_native_called_2 to trace function calls
+mk_debug_calltrace({_M,_F,A}=MFA, Env, Code) ->
+    MFAVar = mk_var(new),
+    Ignore = mk_var(new),    
+    MkMfa = hipe_icode:mk_move(MFAVar,hipe_icode:mk_const(MFA)),
+    Args = [mk_var({x,I-1}) || I <- lists:seq(1,A)],
+    ArgTup = mk_var(new),
+    MkArgTup = hipe_icode:mk_primop([ArgTup], mktuple, Args),
+    Call = hipe_icode:mk_primop([Ignore], debug_native_called,
+				[MFAVar,ArgTup]),
+    {[MkMfa,MkArgTup,Call | Code], Env}.
+
+-endif.
+
+-ifdef(IO_FORMAT_CALL_TRACE).
+
+%% Use io:format to trace function calls
+mk_debug_calltrace(MFA, Env, Code) ->
+    case MFA of
 	  {io,_,_} ->
 	    %% We do not want to loop infinitely if we are compiling
 	    %% the module io.
@@ -69,7 +91,9 @@
 	    Call =
 	      hipe_icode:mk_call([Ignore],io,format,[StringVar,MFAVar],remote),
 	    {[MkMfa,MkString,Call | Code], Env}
-	end).
+    end.
+-endif.
+
 
 %%-----------------------------------------------------------------------
 %% Exported types
@@ -127,7 +151,7 @@ trans_mfa_code(M,F,A, FunBeamCode, ClosureInfo) ->
   MFA = {M,F,A},
   %% Debug code
   ?IF_DEBUG_LEVEL(5,
-		  {Code3,_Env3} = ?mk_debugcode(MFA, Env2, Code2),
+		  {Code3,_Env3} = mk_debug_calltrace(MFA, Env1, Code2),
 		  {Code3,_Env3} = {Code2,Env1}),
   %% For stack optimization
   Leafness = leafness(Code3),

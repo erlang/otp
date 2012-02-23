@@ -437,7 +437,10 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount,
 	}
 	    break;
 	case BINARY_DEF:
-	    {
+	    if (header_is_bin_matchstate(*boxed_val(wobj))) {
+		PRINT_STRING(res, fn, arg, "#MatchState");
+	    }
+	    else {
 		ProcBin* pb = (ProcBin *) binary_val(wobj);
 		if (pb->size == 1)
 		    PRINT_STRING(res, fn, arg, "<<1 byte>>");
