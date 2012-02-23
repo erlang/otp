@@ -72,7 +72,7 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
     Module* modp;
     Eterm res;
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_code_make_stub_module_3],
 			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
@@ -94,14 +94,14 @@ BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
 
     if (res == BIF_ARG_1) {
 	erts_end_staging_code_ix();
-	erts_activate_staging_code_ix();
+	erts_commit_staging_code_ix();
     }
     else {
 	erts_abort_staging_code_ix();
     }
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
     return res;
 }
 
@@ -177,7 +177,7 @@ finish_loading_1(BIF_ALIST_1)
     int is_blocking = 0;
     int do_commit = 0;
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD1(bif_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
     }
 
@@ -324,7 +324,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
     {
 	if (commit) {
 	    erts_end_staging_code_ix();
-	    erts_activate_staging_code_ix();
+	    erts_commit_staging_code_ix();
 	}
 	else {
 	    erts_abort_staging_code_ix();
@@ -333,7 +333,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
 	    erts_smp_thr_progress_unblock();
 	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 	}
-	erts_unlock_code_ix();
+	erts_release_code_write_permission();
 	return res;
     }
 #ifdef ERTS_SMP
@@ -461,7 +461,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD1(bif_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
     }
 
@@ -572,7 +572,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     Module* modp;
     Eterm on_load;
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD2(bif_export[BIF_finish_after_on_load_2],
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
@@ -589,7 +589,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     error:
 	erts_smp_thr_progress_unblock();
         erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erts_unlock_code_ix();
+	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
     if ((on_load = modp->curr.code[MI_ON_LOAD_FUNCTION_PTR]) == 0) {
@@ -639,7 +639,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     }
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
     BIF_RET(am_true);
 }
 
@@ -898,7 +898,7 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD1(bif_export[BIF_purge_module_1], BIF_P, BIF_ARG_1);
     }
 
@@ -959,7 +959,7 @@ BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 	erts_smp_thr_progress_unblock();
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     }
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
     return ret;
 }
 

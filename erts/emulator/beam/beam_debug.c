@@ -114,7 +114,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 	mfa[2] = signed_val(mfa[2]);
     }
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD2(bif_export[BIF_erts_debug_breakpoint_2],
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
     }
@@ -129,7 +129,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
     return res;
 
  error:

@@ -108,7 +108,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     Process *meta_tracer_proc = p;
     Eterm meta_tracer_pid = p->id;
 
-    if (!erts_try_lock_code_ix(p)) {
+    if (!erts_try_seize_code_write_permission(p)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_trace_pattern_3], p, MFA, Pattern, flaglist);
     }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
@@ -338,7 +338,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     UnUseTmpHeap(3,p);
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
 
     if (matches >= 0) {
 	return make_small(matches);
@@ -464,7 +464,7 @@ Eterm trace_3(BIF_ALIST_3)
 	BIF_ERROR(p, BADARG);
     }
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_trace_3], BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
@@ -732,7 +732,7 @@ Eterm trace_3(BIF_ALIST_3)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
 
     BIF_RET(make_small(matches));
 
@@ -748,7 +748,7 @@ Eterm trace_3(BIF_ALIST_3)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
 
     BIF_ERROR(p, BADARG);
 }

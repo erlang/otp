@@ -81,38 +81,37 @@ ErtsCodeIndex erts_active_code_ix(void);
 ERTS_GLB_INLINE
 ErtsCodeIndex erts_staging_code_ix(void);
 
-/* Try lock code_ix that is needed for (exlusive) access of the staging area.
+/* Try seize exclusive code write permission. Needed for code staging.
  * Main process lock (only) must be held.
  * System thread progress must not be blocked.
  * Caller is suspended and *must* yield if 0 is returned. 
  */
-int erts_try_lock_code_ix(struct process*);
+int erts_try_seize_code_write_permission(struct process*);
 
-/* Unlock code_ix
+/* Release code write permission.
+ * Will resume any suspended waiters.
  */
-void erts_unlock_code_ix(void);
+void erts_release_code_write_permission(void);
 
 /* Prepare the "staging area" to be a complete copy of the active code.
- * code_ix must be locked.
- * Must be followed by calls to either "end" and "activate" or "abort" before
- * code_ix lock is released.
+ * Code write permission must have been seized.
+ * Must be followed by calls to either "end" and "commit" or "abort" before
+ * code write permission can be released.
  */
 void erts_start_staging_code_ix(void);
 
 /* End the staging.
- * code_ix must be locked.
- * Must be followed by a call to either "activate" or "abort"
- * before code_ix lock is released.
+ * Preceded by "start" and followed by "commit" or "abort".
  */
 void erts_end_staging_code_ix(void);
 
 /* Set staging code index as new active code index.
- * code_ix must be locked and "start" and "end" called.
+ * Preceded by "end".
  */
-void erts_activate_staging_code_ix(void);
+void erts_commit_staging_code_ix(void);
 
 /* Abort the staging.
- * code_ix must be locked and "start" called.
+ * Preceded by "start" or "end".
  */
 void erts_abort_staging_code_ix(void);
 

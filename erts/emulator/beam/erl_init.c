@@ -1474,7 +1474,7 @@ erl_start(int argc, char **argv)
     init_shared_memory(boot_argc, boot_argv);
     load_preloaded();
     erts_end_staging_code_ix();
-    erts_activate_staging_code_ix();
+    erts_commit_staging_code_ix();
 
     erts_initialized = 1;
 

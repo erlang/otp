@@ -75,7 +75,7 @@ void erts_end_staging_code_ix(void)
     CIX_TRACE("end");
 }
 
-void erts_activate_staging_code_ix(void)
+void erts_commit_staging_code_ix(void)
 {
     ErtsCodeIndex ix;
     /* We need to this lock as we are now making the staging export table active */
@@ -98,14 +98,14 @@ void erts_abort_staging_code_ix(void)
 }
 
 
-/* Try lock code_ix
+/*
  * Calller _must_ yield if we return 0
  */
-int erts_try_lock_code_ix(Process* c_p)
+int erts_try_seize_code_write_permission(Process* c_p)
 {
     int success;
 
-    ASSERT(!erts_smp_thr_progress_is_blocking());
+    ASSERT(!erts_smp_thr_progress_is_blocking()); /* to avoid deadlock */
 
     erts_smp_mtx_lock(&the_code_ix_queue_lock);
     success = !the_code_ix_lock;
@@ -125,9 +125,7 @@ int erts_try_lock_code_ix(Process* c_p)
    return success;
 }
 
-/* Unlock code_ix (resume all waiters)
-*/
-void erts_unlock_code_ix(void)
+void erts_release_code_write_permission(void)
 {
     erts_smp_mtx_lock(&the_code_ix_queue_lock);
     while (the_code_ix_queue != NULL) { /* unleash the entire herd */

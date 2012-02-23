@@ -1522,7 +1522,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     }
     lib_name[len] = '\0';
 
-    if (!erts_try_lock_code_ix(BIF_P)) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
 	erts_free(ERTS_ALC_T_TMP, lib_name);
 	ERTS_BIF_YIELD2(bif_export[BIF_load_nif_2],
 			BIF_P, BIF_ARG_1, BIF_ARG_2);
@@ -1722,7 +1722,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_unlock_code_ix();
+    erts_release_code_write_permission();
     erts_free(ERTS_ALC_T_TMP, lib_name);
 
     if (reload_warning) {
