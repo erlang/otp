@@ -130,7 +130,9 @@
           trap_exit 	  :: boolean(),
           app_tab   	  :: ets:tab(),
           mod_tab   	  :: ets:tab(),
-          mod_used_by_tab :: ets:tab()
+          mod_used_by_tab :: ets:tab(),
+          old_app_tab     :: ets:tab(),
+          old_mod_tab     :: ets:tab()
 	}).
 
 -record(mod,

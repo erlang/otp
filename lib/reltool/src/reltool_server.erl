@@ -132,33 +132,32 @@ init(Options) ->
     end.
 
 do_init(Options) ->
-    {S, Status} = parse_options(Options),
-    #state{parent_pid = ParentPid, common = C} = S,
-
-    %% process_flag(trap_exit, (S#state.common)#common.trap_exit),
-    proc_lib:init_ack(ParentPid, {ok, self(), C}),
-    {S2, Apps, Status2} = refresh(S, true, Status),
-    Status3 = analyse(S2, Apps, Status2),
-    case Status3 of
-	{ok, _Warnings} -> % BUGBUG: handle warnings
-	    loop(S2#state{old_sys = S2#state.sys,
-			  status = Status3,
-			  old_status = {ok, []}});
-	{error, Reason} ->
-	    exit(Reason)
-    end.
-
-parse_options(Opts) ->
     AppTab = ets:new(reltool_apps, [public, ordered_set, {keypos, #app.name}]),
     ModTab = ets:new(reltool_mods, [public, ordered_set, {keypos, #mod.name}]),
+    OldAppTab = ets:new(reltool_apps, [public, ordered_set, {keypos, #app.name}]),
+    OldModTab = ets:new(reltool_mods, [public, ordered_set, {keypos, #mod.name}]),
     ModUsesTab = ets:new(reltool_mod_uses, [public, bag, {keypos, 1}]),
+    InitialC = #common{app_tab = AppTab,
+		       mod_tab = ModTab,
+		       old_app_tab = OldAppTab,
+		       old_mod_tab = OldModTab,
+		       mod_used_by_tab = ModUsesTab},
+
+    {S, Status} = parse_options(InitialC, Options),
+    %%! Check status before returning ok?
+
+    proc_lib:init_ack(S#state.parent_pid, {ok, self(), S#state.common}),
+
+    %% This will do exit if it fails
+    {S2, _Status2} = refresh_and_analyse_no_rollback(S, Status),
+    %%! what to do about warnings?
+    loop(S2).
+
+parse_options(C, Opts) ->
     Sys = default_sys(),
-    C2 = #common{sys_debug = [],
-                 wx_debug = 0,
-                 trap_exit = true,
-                 app_tab = AppTab,
-                 mod_tab = ModTab,
-                 mod_used_by_tab = ModUsesTab},
+    C2 = C#common{sys_debug = [],
+		  wx_debug = 0,
+		  trap_exit = true},
     S = #state{options = Opts},
     parse_options(Opts, S, C2, Sys, {ok, []}).
 
@@ -246,54 +245,31 @@ loop(#state{common = C, sys = Sys} = S) ->
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {load_config, SysConfig}} ->
-            {S2, Reply} = do_load_config(S, SysConfig),
-            reltool_utils:reply(ReplyTo, Ref, Reply),
-            ?MODULE:loop(S2);
+	    {S2, Status} = do_load_config(S, SysConfig),
+	    {S3, Status2} = refresh_and_analyse(S, S2, Status),
+            reltool_utils:reply(ReplyTo, Ref, Status2),
+            ?MODULE:loop(S3);
         {call, ReplyTo, Ref, {save_config, Filename, InclDef, InclDeriv}} ->
             Reply = do_save_config(S, Filename, InclDef, InclDeriv),
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, reset_config} ->
-            {S2, Status} = parse_options(S#state.options),
-            {S4, Apps, Status2} = refresh(S2, true, Status),
-            Status3 = analyse(S4, Apps, Status2),
-            S5 =
-                case Status3 of
-                    {ok, _Warnings} ->
-                        S4#state{old_sys = Sys,
-				 status = Status3,
-				 old_status = S#state.status};
-                    {error, _} ->
-			%% Keep old state
-                        S
-                end,
-            reltool_utils:reply(ReplyTo, Ref, Status3),
-            ?MODULE:loop(S5);
-        {call, ReplyTo, Ref, undo_config} ->
-	    OldSys = S#state.old_sys,
-            S2 = S#state{sys = OldSys,
-                         old_sys = Sys},
-	    %%! Possibly skip old_status here, since we do all job again!
-	    %%! If so, consider if it is correct to use Force or not -
-	    %%! since warnings from refresh_app will not re-appear here
-	    %%! in undo if Force==false.
-            Force = true,
-%                (OldSys#sys.root_dir =/= Sys#sys.root_dir) orelse
-%                (OldSys#sys.lib_dirs =/= Sys#sys.lib_dirs) orelse
-%                (OldSys#sys.escripts =/= Sys#sys.escripts),
-
-            {S3, Apps, Status} = refresh(S2, Force, S#state.old_status),
-	    Status2 = analyse(S3, Apps, Status),
-	    S4 =
-		case Status2 of
-		    {ok, _Warnings} -> % BUGBUG: handle warnings
-			S3#state{status = Status2, old_status = S#state.status};
-		    {error, _} ->
-			%% Keep old state
-			S
-		end,
+	    {S2, Status} = parse_options(C, S#state.options),
+	    {S3, Status2} = refresh_and_analyse(S, S2, Status),
             reltool_utils:reply(ReplyTo, Ref, Status2),
-            ?MODULE:loop(S4);
+            ?MODULE:loop(S3);
+        {call, ReplyTo, Ref, undo_config} ->
+	    C2 = C#common{app_tab = C#common.old_app_tab,
+			  old_app_tab = C#common.app_tab,
+			  mod_tab = C#common.old_mod_tab,
+			  old_mod_tab = C#common.mod_tab},
+            S2 = S#state{common = C2,
+			 sys = S#state.old_sys,
+                         old_sys = Sys,
+			 status = S#state.old_status,
+			 old_status = S#state.status},
+            reltool_utils:reply(ReplyTo, Ref, ok),
+            ?MODULE:loop(S2);
         {call, ReplyTo, Ref, {get_rel, RelName}} ->
             Sys = S#state.sys,
             Reply =
@@ -341,18 +317,15 @@ loop(#state{common = C, sys = Sys} = S) ->
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {set_app, App}} ->
-            {S2, Status} = do_set_apps(S, [App], {ok, []}),
-	    {S3, Reply} =
-		case Status of
+	    {S2, Status} = do_set_apps(S, [App]),
+	    {S3, Status2} = refresh_and_analyse(S, S2, Status),
+	    Reply =
+		case Status2 of
 		    {ok, Warnings} ->
 			[App2] = ets:lookup(C#common.app_tab,App#app.name),
-			{S2#state{old_sys=Sys,
-				  status=Status,
-				  old_status=S#state.status},
-			 {ok, App2, Warnings}};
+			{ok, App2, Warnings};
 		    {error, _} ->
-			%% Keep old state
-			{S, Status}
+			Status2
 		end,
 	    reltool_utils:reply(ReplyTo, Ref, Reply),
 	    ?MODULE:loop(S3);
@@ -393,42 +366,18 @@ loop(#state{common = C, sys = Sys} = S) ->
             reltool_utils:reply(ReplyTo, Ref, {ok, AppNames}),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {set_apps, Apps}} ->
-            {S2, Status} = do_set_apps(S, Apps, {ok, []}),
-	    S3 =
-		case Status of
-		    {ok, _Warnings} ->
-			S2#state{old_sys = Sys,
-				 status=Status,
-				 old_status=S#state.status};
-		    {error, _} ->
-			%% Keep old state
-			S
-		end,
-            reltool_utils:reply(ReplyTo, Ref, Status),
+	    {S2, Status} = do_set_apps(S, Apps),
+	    {S3, Status2} = refresh_and_analyse(S, S2, Status),
+            reltool_utils:reply(ReplyTo, Ref, Status2),
 	    ?MODULE:loop(S3);
         {call, ReplyTo, Ref, get_sys} ->
             reltool_utils:reply(ReplyTo, Ref, {ok, Sys#sys{apps = undefined}}),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {set_sys, Sys2}} ->
-            S2 = S#state{sys = Sys2#sys{apps = Sys#sys.apps}},
-            Force = true,
-%                (Sys2#sys.root_dir =/= Sys#sys.root_dir) orelse
-%                (Sys2#sys.lib_dirs =/= Sys#sys.lib_dirs) orelse
-%                (Sys2#sys.escripts =/= Sys#sys.escripts),
-            {S3, Apps, Status} = refresh(S2, Force, {ok, []}),
-	    Status2 = analyse(S3, Apps, Status),
-	    S4 =
-		case Status2 of
-		    {ok, _Warnings} -> % BUGBUG: handle warnings
-			S3#state{old_sys = Sys,
-				 status = Status2,
-				 old_status = S#state.status};
-		    {error, _} ->
-			%% Keep old state
-			S
-		end,
-            reltool_utils:reply(ReplyTo, Ref, Status2),
-            ?MODULE:loop(S4);
+	    S2 = S#state{sys =  Sys2#sys{apps = Sys#sys.apps}},
+	    {S3, Status} = refresh_and_analyse(S, S2, {ok,[]}),
+            reltool_utils:reply(ReplyTo, Ref, Status),
+            ?MODULE:loop(S3);
         {call, ReplyTo, Ref, get_status} ->
             reltool_utils:reply(ReplyTo, Ref, S#state.status),
             ?MODULE:loop(S);
@@ -463,18 +412,12 @@ loop(#state{common = C, sys = Sys} = S) ->
             ?MODULE:loop(S)
     end.
 
+
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-do_set_apps(#state{sys = Sys} = S, ChangedApps, Status) ->
-
+do_set_apps(#state{sys = Sys} = S, ChangedApps) ->
     %% Create new list of configured applications
-    {SysApps,Status2} = app_update_config(ChangedApps, Sys#sys.apps, Status),
-    Sys2 = Sys#sys{apps = SysApps},
-
-    %% Refresh from filesystem and analyse dependencies
-    {S2, Apps, Status3} = refresh(S#state{sys = Sys2}, true, Status2),
-    Status4 = analyse(S2, Apps, Status3),
-
-    {S2, Status4}.
+    {SysApps,Status} = app_update_config(ChangedApps, Sys#sys.apps, {ok,[]}),
+    {S#state{sys = Sys#sys{apps = SysApps}}, Status}.
 
 %% Re-create the #sys.apps list by
 %% 1) taking configurable fields from the changed #app records and
@@ -577,10 +520,6 @@ mod_set_config_only(ConfigMods) ->
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 analyse(#state{common=C, sys=Sys}, Apps, Status) ->
-    ets:delete_all_objects(C#common.app_tab),
-    ets:delete_all_objects(C#common.mod_tab),
-    ets:delete_all_objects(C#common.mod_used_by_tab),
-
     %% Create a list of {RelName,AppName}, one element for each
     %% AppName that needs to be included for the given release.
     {RelApps, Status2} = apps_in_rels(Sys#sys.rels, Apps, Status),
@@ -1373,25 +1312,7 @@ do_save_config(S, Filename, InclDef, InclDeriv) ->
 
 do_load_config(S, SysConfig) ->
     {NewSys, Status} = read_config(default_sys(), SysConfig, {ok, []}),
-    case Status of
-        {ok, _Warnings} ->
-            {S2, Apps, Status2} = refresh(S#state{sys=NewSys}, true, Status),
-            Status3 = analyse(S2, Apps, Status2),
-            S3 =
-                case Status3 of
-                    {ok, _Warnings2} ->
-                        S2#state{old_sys = S#state.sys,
-				 status = Status3,
-				 old_status = S#state.status};
-                    {error, _} ->
-			%% Keep old state
-                        S
-                end,
-            {S3, Status3};
-        {error, _} ->
-            %% Keep old state
-            {S, Status}
-    end.
+    {S#state{sys = NewSys}, Status}.
 
 read_config(OldSys, Filename, Status) when is_list(Filename) ->
     case file:consult(Filename) of
@@ -1717,7 +1638,7 @@ default_escript_app(File) ->
 %% Apps is a list of #app records - sorted on #app.name - containing
 %% only the apps that have specific configuration (e.g. in the config
 %% file)
-refresh(#state{sys=Sys} = S, Force, Status) ->
+refresh(#state{sys=Sys} = S, Status) ->
     RootDir = filename:absname(Sys#sys.root_dir),
     LibDirs = [filename:absname(D) || D <- Sys#sys.lib_dirs],
     Escripts = [filename:absname(E) || E <- Sys#sys.escripts],
@@ -1738,7 +1659,7 @@ refresh(#state{sys=Sys} = S, Force, Status) ->
     %% Then find all modules and their dependencies and set user
     %% configuration per module if it exists.
     {RefreshedApps, Status4} = refresh_apps(Sys#sys.apps, AllApps, [],
-					    Force, Status3),
+					    true, Status3),
 
     %% Make sure erts exists in app list and has a version (or warn)
     {PatchedApps, Status5} = patch_erts_version(RootDir, RefreshedApps, Status4),
@@ -2142,6 +2063,71 @@ sys_all_apps(C,Sys) ->
 
 all_apps(C) ->
     ets:match_object(C#common.app_tab,'_').
+
+refresh_and_analyse_no_rollback(#state{common=C} = S, {ok,_} = Status) ->
+    case refresh(S, Status) of
+	{S2, Apps, {ok, _}=Status2} ->
+	    case analyse(S2, Apps, Status2) of
+		{ok, _} = Status3 ->
+		    %% Set old_xxx is equal to xxx
+		    FakeBackup = {ets:tab2list(C#common.app_tab),
+				  ets:tab2list(C#common.mod_tab)},
+		    save_old(S2, S2, FakeBackup, Status3);
+		{error,Reason} ->
+		    exit(Reason)
+	    end;
+	{_,_,{error,Reason}} ->
+	    exit(Reason)
+    end;
+refresh_and_analyse_no_rollback(_,{error,Reason}) ->
+    exit(Reason).
+
+refresh_and_analyse(OldS, S, {ok,_}=Status) ->
+    case refresh(S, Status) of
+	{S2, Apps, {ok,_}=Status2} ->
+	    %% Analyse will write to app_tab and mod_tab, so we first
+	    %% backup these tables and clear them
+	    Backup = backup(OldS),
+	    case analyse(S2, Apps, Status2) of
+		{ok, _} = Status3 ->
+		    save_old(OldS, S2, Backup, Status3);
+		Status3 ->
+		    restore(Backup,OldS),
+		    {OldS,Status3}
+	    end;
+	{_, _, Status2} ->
+	    {OldS, Status2}
+    end;
+refresh_and_analyse(OldS, _S, Status) ->
+    {OldS,Status}.
+
+
+backup(#state{common=C}) ->
+    Apps = ets:tab2list(C#common.app_tab),
+    Mods = ets:tab2list(C#common.mod_tab),
+    ets:delete_all_objects(C#common.app_tab),
+    ets:delete_all_objects(C#common.mod_tab),
+    ets:delete_all_objects(C#common.mod_used_by_tab), %tmp tab, no backup needed
+    {Apps,Mods}.
+
+restore({Apps,Mods}, #state{common=C}) ->
+    insert_all(C#common.app_tab,Apps),
+    insert_all(C#common.mod_tab,Mods).
+
+save_old(#state{status=OldStatus,sys=OldSys},#state{common=C}=NewS,
+	 {OldApps,OldMods},NewStatus) ->
+    ets:delete_all_objects(C#common.old_app_tab),
+    ets:delete_all_objects(C#common.old_mod_tab),
+    insert_all(C#common.old_app_tab,OldApps),
+    insert_all(C#common.old_mod_tab,OldMods),
+    {NewS#state{old_sys=OldSys,
+		old_status=OldStatus,
+		status=NewStatus},
+     NewStatus}.
+
+insert_all(Tab,Items) ->
+    lists:foreach(fun(Item) -> ets:insert(Tab,Item) end, Items).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% sys callbacks
