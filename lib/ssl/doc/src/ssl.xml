@@ -122,6 +122,9 @@
    <p> <c>hash() = md5 | sha
     </c></p>
 
+    <p><c>prf_random() =  client_random | server_random
+    </c></p>
+
   </section>
 
   <section>
@@ -560,6 +563,26 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       </desc>
     </func>
     
+    <func>
+      <name>prf(Socket, Secret, Label, Seed, WantedLength) -> {ok, binary()} | {error, reason()}</name>
+      <fsummary>Use a sessions pseudo random function to generate key material.</fsummary>
+      <type>
+	<v>Socket = sslsocket()</v>
+	<v>Secret = binary() | master_secret</v>
+	<v>Label = binary()</v>
+	<v>Seed = [binary() | prf_random()]</v>
+	<v>WantedLength = non_neg_integer()</v>
+      </type>
+      <desc>
+        <p>Use the pseudo random function (PRF) of a TLS session to generate
+	  additional key material. It either takes user generated values for
+	  <c>Secret</c> and <c>Seed</c> or atoms directing it use a specific
+	  value from the session security parameters.</p>
+        <p>This function can only be used with TLS connections, <c>{error, undefined}</c>
+	  is returned for SSLv3 connections.</p>
+      </desc>
+    </func>
+
     <func>
       <name>renegotiate(Socket) -> ok | {error, Reason}</name>
       <fsummary> Initiates a new handshake.</fsummary>

@@ -40,7 +40,8 @@
 -export([send/2, recv/3, connect/7, ssl_accept/6, handshake/2,
 	 socket_control/3, close/1, shutdown/2,
 	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
-	 peer_certificate/1, sockname/1, peername/1, renegotiation/1]).
+	 peer_certificate/1, sockname/1, peername/1, renegotiation/1,
+	 prf/5]).
 
 %% Called by ssl_connection_sup
 -export([start_link/7]). 
@@ -272,6 +273,16 @@ peer_certificate(ConnectionPid) ->
 %%--------------------------------------------------------------------
 renegotiation(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, renegotiate). 
+
+%%--------------------------------------------------------------------
+-spec prf(pid(), binary() | 'master_secret', binary(),
+	  binary() | ssl:prf_secret(), non_neg_integer()) ->
+		 {ok, binary()} | {error, reason()} | {'EXIT', term()}.
+%%
+%% Description: use a ssl sessions TLS PRF to generate key material
+%%--------------------------------------------------------------------
+prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
+    sync_send_all_state_event(ConnectionPid, {prf, Secret, Label, Seed, WantedLength}).
 
 %%====================================================================
 %% ssl_connection_sup API
@@ -867,6 +878,32 @@ handle_sync_event(renegotiate, From, connection, State) ->
 
 handle_sync_event(renegotiate, _, StateName, State) ->
     {reply, {error, already_renegotiating}, StateName, State, get_timeout(State)};
+
+handle_sync_event({prf, Secret, Label, Seed, WantedLength}, _, StateName,
+		  #state{connection_states = ConnectionStates,
+			 negotiated_version = Version} = State) ->
+    ConnectionState =
+	ssl_record:current_connection_state(ConnectionStates, read),
+    SecParams = ConnectionState#connection_state.security_parameters,
+    #security_parameters{master_secret = MasterSecret,
+			 client_random = ClientRandom,
+			 server_random = ServerRandom} = SecParams,
+    Reply = try
+		SecretToUse = case Secret of
+				  _ when is_binary(Secret) -> Secret;
+				  master_secret -> MasterSecret
+			      end,
+		SeedToUse = lists:reverse(
+			      lists:foldl(fun(X, Acc) when is_binary(X) -> [X|Acc];
+					     (client_random, Acc) -> [ClientRandom|Acc];
+					     (server_random, Acc) -> [ServerRandom|Acc]
+					  end, [], Seed)),
+		ssl_handshake:prf(Version, SecretToUse, Label, SeedToUse, WantedLength)
+	    catch
+		exit:_ -> {error, badarg};
+		error:Reason -> {error, Reason}
+	    end,
+    {reply, Reply, StateName, State, get_timeout(State)};
 
 handle_sync_event(info, _, StateName, 
 		  #state{negotiated_version = Version,
