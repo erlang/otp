@@ -220,8 +220,10 @@ BOOTSTRAP_ROOT = $(ERL_TOP)
 LOCAL_PATH     = $(ERL_TOP)/erts/bin/$(TARGET):$(ERL_TOP)/erts/bin
 ifeq ($(TARGET),win32)
 BOOT_PREFIX=$(WIN32_WRAPPER_PATH):$(BOOTSTRAP_ROOT)/bootstrap/bin:
+TEST_PATH_PREFIX=$(WIN32_WRAPPER_PATH):$(ERL_TOP)/bin:
 else
 BOOT_PREFIX=$(BOOTSTRAP_ROOT)/bootstrap/bin:
+TEST_PATH_PREFIX=$(ERL_TOP)/bin:
 endif
 
 # ----------------------------------------------------------------------
@@ -880,7 +882,7 @@ tests release_tests: $(TEST_DIRS)
 $(TEST_DIRS):
 	if test -f $@/Makefile; then \
 	    (cd $@; $(MAKE) TESTROOT=$(TESTSUITE_ROOT) \
-	    PATH=$(ERL_TOP)/bin:$(BOOT_PREFIX)$${PATH} release_tests) || exit $$?; \
+	    PATH=$(TEST_PATH_PREFIX)$(BOOT_PREFIX)$${PATH} release_tests) || exit $$?; \
 	fi
 
 #

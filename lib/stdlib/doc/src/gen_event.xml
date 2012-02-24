@@ -120,8 +120,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>start_link(EventMgrName) -> Result</name>
       <fsummary>Create a generic event manager process in a supervision tree.</fsummary>
       <type>
-        <v>EventMgrName = {local,Name} | {global,Name}</v>
+        <v>EventMgrName = {local,Name} | {global,GlobalName}
+	| {via,Module,ViaName}</v>
         <v>&nbsp;Name = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
         <v>&nbsp;Pid = pid()</v>
       </type>
@@ -132,10 +134,17 @@ gen_event:stop             ----->  Module:terminate/2
           the event manager is linked to the supervisor.</p>
         <p>If <c>EventMgrName={local,Name}</c>, the event manager is
           registered locally as <c>Name</c> using <c>register/2</c>.
-          If <c>EventMgrName={global,Name}</c>, the event manager is
-          registered globally as <c>Name</c> using
+          If <c>EventMgrName={global,GlobalName}</c>, the event manager is
+          registered globally as <c>GlobalName</c> using
           <c>global:register_name/2</c>. If no name is provided,
-          the event manager is not registered.</p>
+          the event manager is not registered.
+	If <c>EventMgrName={via,Module,ViaName}</c>, the event manager will
+	register with the registry represented by <c>Module</c>.
+	The <c>Module</c> callback should export the functions
+	<c>register_name/2</c>, <c>unregister_name/1</c>,
+	<c>whereis_name/1</c> and <c>send/2</c>, which should behave like the
+	corresponding functions in <c>global</c>. Thus,
+	<c>{via,global,GlobalName}</c> is a valid reference.</p>
         <p>If the event manager is successfully created the function
           returns <c>{ok,Pid}</c>, where <c>Pid</c> is the pid of
           the event manager. If there already exists a process with
@@ -149,8 +158,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>start(EventMgrName) -> Result</name>
       <fsummary>Create a stand-alone event manager process.</fsummary>
       <type>
-        <v>EventMgrName = {local,Name} | {global,Name}</v>
+        <v>EventMgrName = {local,Name} | {global,GlobalName}
+	| {via,Module,ViaName}</v>
         <v>&nbsp;Name = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Result = {ok,Pid} | {error,{already_started,Pid}}</v>
         <v>&nbsp;Pid = pid()</v>
       </type>
@@ -166,8 +177,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>add_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Add an event handler to a generic event manager.</fsummary>
       <type>
-        <v>EventMgr = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgr = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Handler = Module | {Module,Id}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
@@ -185,8 +198,10 @@ gen_event:stop             ----->  Module:terminate/2
           <item><c>Name</c>, if the event manager is locally registered,</item>
           <item><c>{Name,Node}</c>, if the event manager is locally
            registered at another node, or</item>
-          <item><c>{global,Name}</c>, if the event manager is globally
+          <item><c>{global,GlobalName}</c>, if the event manager is globally
            registered.</item>
+	   <item><c>{via,Module,ViaName}</c>, if the event manager is registered
+	   through an alternative process registry.</item>
         </list>
         <p><c>Handler</c> is the name of the callback module <c>Module</c> or
           a tuple <c>{Module,Id}</c>, where <c>Id</c> is any term.
@@ -208,8 +223,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>add_sup_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Add a supervised event handler to a generic event manager.</fsummary>
       <type>
-        <v>EventMgr = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgr = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Handler = Module | {Module,Id}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
@@ -253,8 +270,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>sync_notify(EventMgrRef, Event) -> ok</name>
       <fsummary>Notify an event manager about an event.</fsummary>
       <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Event = term()</v>
       </type>
       <desc>
@@ -278,8 +297,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>call(EventMgrRef, Handler, Request, Timeout) -> Result</name>
       <fsummary>Make a synchronous call to a generic event manager.</fsummary>
       <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Handler = Module | {Module,Id}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
@@ -318,8 +339,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>delete_handler(EventMgrRef, Handler, Args) -> Result</name>
       <fsummary>Delete an event handler from a generic event manager.</fsummary>
       <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Handler = Module | {Module,Id}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
@@ -346,8 +369,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>swap_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result</name>
       <fsummary>Replace an event handler in a generic event manager.</fsummary>
       <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Handler1 = Handler2 = Module | {Module,Id}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
@@ -390,8 +415,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>swap_sup_handler(EventMgrRef, {Handler1,Args1}, {Handler2,Args2}) -> Result</name>
       <fsummary>Replace an event handler in a generic event manager.</fsummary>
       <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Handler1 = Handler 2 = Module | {Module,Id}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
@@ -412,8 +439,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>which_handlers(EventMgrRef) -> [Handler]</name>
       <fsummary>Return all event handlers installed in a generic event manager.</fsummary>
       <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>&nbsp;Name = Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
         <v>Handler = Module | {Module,Id}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Id = term()</v>
@@ -429,8 +458,10 @@ gen_event:stop             ----->  Module:terminate/2
       <name>stop(EventMgrRef) -> ok</name>
       <fsummary>Terminate a generic event manager.</fsummary>
       <type>
-        <v>EventMgrRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>EventMgrRef = Name | {Name,Node} | {global,GlobalName}
+	| {via,Module,ViaName} | pid()</v>
         <v>Name = Node = atom()</v>
+        <v>GlobalName = ViaName = term()</v>
       </type>
       <desc>
         <p>Terminates the event manager <c>EventMgrRef</c>. Before

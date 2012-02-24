@@ -63,6 +63,13 @@
           If <c><anno>SupBridgeName</anno>={global,<anno>Name</anno>}</c> the supervisor_bridge is
           registered globally as <c><anno>Name</anno></c> using
           <c>global:register_name/2</c>.
+          If <c><anno>SupBridgeName</anno>={via,<anno>Module</anno>,<anno>Name</anno>}</c> the supervisor_bridge is
+          registered as <c><anno>Name</anno></c> using a registry represented
+	  by <anno>Module</anno>. The <c>Module</c> callback should export
+	  the functions <c>register_name/2</c>, <c>unregister_name/1</c>
+	  and <c>send/2</c>, which should behave like the
+	  corresponding functions in <c>global</c>. Thus,
+	  <c>{via,global,GlobalName}</c> is a valid reference.
           If no name is provided, the supervisor_bridge is not registered.
           If there already exists a process with the specified
           <c><anno>SupBridgeName</anno></c> the function returns

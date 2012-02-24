@@ -36,7 +36,7 @@
 %%-----------------------------------------------------------------
 
 -type linkage()    :: 'link' | 'nolink'.
--type emgr_name()  :: {'local', atom()} | {'global', term()}.
+-type emgr_name()  :: {'local', atom()} | {'global', term()} | {via, atom(), term()}.
 
 -type start_ret()  :: {'ok', pid()} | 'ignore' | {'error', term()}.
 
@@ -53,7 +53,7 @@
 %% start(GenMod, LinkP, Name, Mod, Args, Options)
 %%    GenMod = atom(), callback module implementing the 'real' fsm
 %%    LinkP = link | nolink
-%%    Name = {local, atom()} | {global, term()}
+%%    Name = {local, atom()} | {global, term()} | {via, atom(), term()}
 %%    Args = term(), init arguments (to Mod:init/1)
 %%    Options = [{timeout, Timeout} | {debug, [Flag]} | {spawn_opt, OptionList}]
 %%      Flag = trace | log | {logfile, File} | statistics | debug
@@ -158,9 +158,12 @@ call(Name, Label, Request, Timeout)
 	    exit(noproc)
     end;
 %% Global by name
-call({global, _Name}=Process, Label, Request, Timeout)
-  when Timeout =:= infinity;
-       is_integer(Timeout), Timeout >= 0 ->
+call(Process, Label, Request, Timeout)
+  when ((tuple_size(Process) == 2 andalso element(1, Process) == global)
+	orelse
+	  (tuple_size(Process) == 3 andalso element(1, Process) == via))
+       andalso
+       (Timeout =:= infinity orelse (is_integer(Timeout) andalso Timeout >= 0)) ->
     case where(Process) of
 	Pid when is_pid(Pid) ->
 	    Node = node(Pid),
@@ -274,6 +277,7 @@ reply({To, Tag}, Reply) ->
 %%%  Misc. functions.
 %%%-----------------------------------------------------------------
 where({global, Name}) -> global:whereis_name(Name);
+where({via, Module, Name}) -> Module:whereis_name(Name);
 where({local, Name})  -> whereis(Name).
 
 name_register({local, Name} = LN) ->
@@ -287,7 +291,15 @@ name_register({global, Name} = GN) ->
     case global:register_name(Name, self()) of
 	yes -> true;
 	no -> {false, where(GN)}
+    end;
+name_register({via, Module, Name} = GN) ->
+    case Module:register_name(Name, self()) of
+	yes ->
+	    true;
+	no ->
+	    {false, where(GN)}
     end.
+
 
 timeout(Options) ->
     case opt(timeout, Options) of
