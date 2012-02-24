@@ -29365,6 +29365,13 @@ case wxStyledTextCtrl_SetEdgeColumn: { // wxStyledTextCtrl::SetEdgeColumn
  This->SetEdgeColumn((int) *column);
  break;
 }
+case wxStyledTextCtrl_SetEdgeMode: { // wxStyledTextCtrl::SetEdgeMode
+ wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
+ int * mode = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetEdgeMode((int) *mode);
+ break;
+}
 case wxStyledTextCtrl_GetEdgeMode: { // wxStyledTextCtrl::GetEdgeMode
  wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);

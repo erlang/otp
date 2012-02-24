@@ -99,14 +99,14 @@
   setCaretForeground/2,setCaretLineBackAlpha/2,setCaretLineBackground/2,
   setCaretLineVisible/2,setCaretPeriod/2,setCaretSticky/2,setCaretWidth/2,
   setCharsDefault/1,setCodePage/2,setControlCharSymbol/2,setCurrentPos/2,
-  setEOLMode/2,setEdgeColour/2,setEdgeColumn/2,setFoldExpanded/3,setFoldFlags/2,
-  setFoldLevel/3,setFoldMarginColour/3,setFoldMarginHiColour/3,setHScrollBar/2,
-  setHighlightGuide/2,setHotspotActiveBackground/3,setHotspotActiveForeground/3,
-  setHotspotActiveUnderline/2,setHotspotSingleLine/2,setIndent/2,setIndentationGuides/2,
-  setKeyWords/3,setLastKeydownProcessed/2,setLayoutCache/2,setLexer/2,
-  setLexerLanguage/2,setLineIndentation/3,setLineState/3,setMarginLeft/2,
-  setMarginMask/3,setMarginRight/2,setMarginSensitive/3,setMarginType/3,
-  setMarginWidth/3,setMargins/3,setModEventMask/2,setMouseDownCaptures/2,
+  setEOLMode/2,setEdgeColour/2,setEdgeColumn/2,setEdgeMode/2,setFoldExpanded/3,
+  setFoldFlags/2,setFoldLevel/3,setFoldMarginColour/3,setFoldMarginHiColour/3,
+  setHScrollBar/2,setHighlightGuide/2,setHotspotActiveBackground/3,
+  setHotspotActiveForeground/3,setHotspotActiveUnderline/2,setHotspotSingleLine/2,
+  setIndent/2,setIndentationGuides/2,setKeyWords/3,setLastKeydownProcessed/2,
+  setLayoutCache/2,setLexer/2,setLexerLanguage/2,setLineIndentation/3,
+  setLineState/3,setMarginLeft/2,setMarginMask/3,setMarginRight/2,setMarginSensitive/3,
+  setMarginType/3,setMarginWidth/3,setMargins/3,setModEventMask/2,setMouseDownCaptures/2,
   setMouseDwellTime/2,setPasteConvertEndings/2,setPrintColourMode/2,
   setPrintMagnification/2,setProperty/3,setReadOnly/2,setSTCCursor/2,
   setSTCFocus/2,setSavePoint/1,setScrollWidth/2,setSearchFlags/2,setSelAlpha/2,
@@ -3025,6 +3025,15 @@ setEdgeColumn(#wx_ref{type=ThisT,ref=ThisRef},Column)
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:cast(?wxStyledTextCtrl_SetEdgeColumn,
   <<ThisRef:32/?UI,Column:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlsetedgemode">external documentation</a>.
+-spec setEdgeMode(This, Mode) -> ok when
+	This::wxStyledTextCtrl(), Mode::integer().
+setEdgeMode(#wx_ref{type=ThisT,ref=ThisRef},Mode)
+ when is_integer(Mode) ->
+  ?CLASS(ThisT,wxStyledTextCtrl),
+  wxe_util:cast(?wxStyledTextCtrl_SetEdgeMode,
+  <<ThisRef:32/?UI,Mode:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlgetedgemode">external documentation</a>.
 -spec getEdgeMode(This) -> integer() when
