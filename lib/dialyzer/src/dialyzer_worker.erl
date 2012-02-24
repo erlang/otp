@@ -84,6 +84,7 @@ loop(waiting, State) ->
   NewState = wait_for_success_typings(State),
   loop(updating, NewState);
 loop(running, #state{mode = 'compile'} = State) ->
+  dialyzer_coordinator:wait_activation(),
   ?debug("Compile: ~s\n",[State#state.job]),
   Result =
     case start_compilation(State) of
@@ -95,15 +96,21 @@ loop(running, #state{mode = 'compile'} = State) ->
     end,
   report_to_coordinator(Result, State);
 loop(running, #state{mode = 'warnings'} = State) ->
+  dialyzer_coordinator:wait_activation(),
   ?debug("Warning: ~s\n",[State#state.job]),
   Result = collect_warnings(State),
   report_to_coordinator(Result, State);
 loop(running, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+  request_activation(State),
+  dialyzer_coordinator:wait_activation(),
   ?debug("Run: ~p\n",[State#state.job]),
   NotFixpoint = do_work(State),
   ok = broadcast_done(State),
   report_to_coordinator(NotFixpoint, State).
+
+request_activation(#state{coordinator = Coordinator}) ->
+  dialyzer_coordinator:request_activation(Coordinator).
 
 waits_more_success_typings(#state{depends_on = Depends}) ->
   case Depends of
