@@ -45,6 +45,10 @@ new() ->
   new([]).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectwxbitmapdataobject">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Bitmap) -> wxBitmapDataObject() when<br />
+%% 	Bitmap::wxBitmap:wxBitmap().<br />
+%% 
 -spec new([Option]) -> wxBitmapDataObject() when
 	Option :: {bitmap, wxBitmap:wxBitmap()};
       (Bitmap) -> wxBitmapDataObject() when

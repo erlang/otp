@@ -289,6 +289,10 @@ setPaperId(#wx_ref{type=ThisT,ref=ThisRef},Id)
   <<ThisRef:32/?UI,Id:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetpapersize">external documentation</a>.
+%% <br /> Also:<br />
+%% setPaperSize(This, Sz) -> ok when<br />
+%% 	This::wxPageSetupDialogData(), Sz::{W::integer(), H::integer()}.<br />
+%% 
 -spec setPaperSize(This, Id) -> ok when
 	This::wxPageSetupDialogData(), Id::integer();
       (This, Sz) -> ok when

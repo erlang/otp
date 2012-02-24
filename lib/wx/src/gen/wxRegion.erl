@@ -44,6 +44,10 @@ new() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregionwxregion">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Rect) -> wxRegion() when<br />
+%% 	Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec new(Bmp) -> wxRegion() when
 	Bmp::wxBitmap:wxBitmap();
       (Rect) -> wxRegion() when
@@ -82,6 +86,10 @@ clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregioncontains">external documentation</a>.
+%% <br /> Also:<br />
+%% contains(This, Rect) -> wx:wx_enum() when<br />
+%% 	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 %%<br /> Res = ?wxOutRegion | ?wxPartRegion | ?wxInRegion
 -spec contains(This, Pt) -> wx:wx_enum() when
 	This::wxRegion(), Pt::{X::integer(), Y::integer()};
@@ -135,6 +143,10 @@ getBox(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregionintersect">external documentation</a>.
+%% <br /> Also:<br />
+%% intersect(This, Rect) -> boolean() when<br />
+%% 	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec intersect(This, Region) -> boolean() when
 	This::wxRegion(), Region::wxRegion();
       (This, Rect) -> boolean() when
@@ -168,6 +180,10 @@ isEmpty(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregionsubtract">external documentation</a>.
+%% <br /> Also:<br />
+%% subtract(This, Rect) -> boolean() when<br />
+%% 	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec subtract(This, Region) -> boolean() when
 	This::wxRegion(), Region::wxRegion();
       (This, Rect) -> boolean() when
@@ -211,6 +227,10 @@ offset(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregionunion">external documentation</a>.
+%% <br /> Also:<br />
+%% union(This, Rect) -> boolean() when<br />
+%% 	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec union(This, Region) -> boolean() when
 	This::wxRegion(), Region::wxRegion() | wxBitmap:wxBitmap();
       (This, Rect) -> boolean() when
@@ -263,6 +283,10 @@ union(#wx_ref{type=ThisT,ref=ThisRef},X,Y,W,H)
   <<ThisRef:32/?UI,X:32/?UI,Y:32/?UI,W:32/?UI,H:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxregion.html#wxregionxor">external documentation</a>.
+%% <br /> Also:<br />
+%% 'Xor'(This, Rect) -> boolean() when<br />
+%% 	This::wxRegion(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec 'Xor'(This, Region) -> boolean() when
 	This::wxRegion(), Region::wxRegion();
       (This, Rect) -> boolean() when

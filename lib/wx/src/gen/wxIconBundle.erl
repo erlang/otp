@@ -90,6 +90,10 @@ getIcon(This)
   getIcon(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundlegeticon">external documentation</a>.
+%% <br /> Also:<br />
+%% getIcon(This, Size) -> wxIcon:wxIcon() when<br />
+%% 	This::wxIconBundle(), Size::{W::integer(), H::integer()}.<br />
+%% 
 -spec getIcon(This, [Option]) -> wxIcon:wxIcon() when
 	This::wxIconBundle(),
 	Option :: {size, integer()};

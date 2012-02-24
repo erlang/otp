@@ -50,6 +50,16 @@ add(This,Window)
   add(This,Window, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizeradd">external documentation</a>.
+%% <br /> Also:<br />
+%% add(This, Window, [Option]) -> wxSizerItem:wxSizerItem() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
+%% 	Option :: {proportion, integer()}<br />
+%% 		 | {flag, integer()}<br />
+%% 		 | {border, integer()}<br />
+%% 		 | {userData, wx:wx()};<br />
+%%       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
+%% 
 -spec add(This, Width, Height) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Width::integer(), Height::integer();
       (This, Window, [Option]) -> wxSizerItem:wxSizerItem() when
@@ -173,6 +183,10 @@ clear(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerdetach">external documentation</a>.
+%% <br /> Also:<br />
+%% detach(This, Window) -> boolean() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer().<br />
+%% 
 -spec detach(This, Index) -> boolean() when
 	This::wxSizer(), Index::integer();
       (This, Window) -> boolean() when
@@ -220,6 +234,10 @@ getChildren(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizergetitem">external documentation</a>.
+%% <br /> Also:<br />
+%% getItem(This, Index) -> wxSizerItem:wxSizerItem() when<br />
+%% 	This::wxSizer(), Index::integer().<br />
+%% 
 -spec getItem(This, Window) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer();
       (This, Index) -> wxSizerItem:wxSizerItem() when
@@ -278,6 +296,10 @@ getMinSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerhide">external documentation</a>.
+%% <br /> Also:<br />
+%% hide(This, Index) -> boolean() when<br />
+%% 	This::wxSizer(), Index::integer().<br />
+%% 
 -spec hide(This, Window) -> boolean() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer();
       (This, Index) -> boolean() when
@@ -322,6 +344,16 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=ItemT,ref=ItemRef})
   <<ThisRef:32/?UI,Index:32/?UI,ItemRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerinsert">external documentation</a>.
+%% <br /> Also:<br />
+%% insert(This, Index, Window, [Option]) -> wxSizerItem:wxSizerItem() when<br />
+%% 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
+%% 	Option :: {proportion, integer()}<br />
+%% 		 | {flag, integer()}<br />
+%% 		 | {border, integer()}<br />
+%% 		 | {userData, wx:wx()};<br />
+%%       (This, Index, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
+%% 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
+%% 
 -spec insert(This, Index, Width, Height) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Index::integer(), Width::integer(), Height::integer();
       (This, Index, Window, [Option]) -> wxSizerItem:wxSizerItem() when
@@ -417,6 +449,10 @@ insertStretchSpacer(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
   <<ThisRef:32/?UI,Index:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerisshown">external documentation</a>.
+%% <br /> Also:<br />
+%% isShown(This, Window) -> boolean() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer().<br />
+%% 
 -spec isShown(This, Index) -> boolean() when
 	This::wxSizer(), Index::integer();
       (This, Window) -> boolean() when
@@ -455,6 +491,16 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerprepend">external documentation</a>.
+%% <br /> Also:<br />
+%% prepend(This, Window, [Option]) -> wxSizerItem:wxSizerItem() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
+%% 	Option :: {proportion, integer()}<br />
+%% 		 | {flag, integer()}<br />
+%% 		 | {border, integer()}<br />
+%% 		 | {userData, wx:wx()};<br />
+%%       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
+%% 
 -spec prepend(This, Width, Height) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Width::integer(), Height::integer();
       (This, Window, [Option]) -> wxSizerItem:wxSizerItem() when
@@ -557,6 +603,10 @@ recalcSizes(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerremove">external documentation</a>.
+%% <br /> Also:<br />
+%% remove(This, Sizer) -> boolean() when<br />
+%% 	This::wxSizer(), Sizer::wxSizer().<br />
+%% 
 -spec remove(This, Index) -> boolean() when
 	This::wxSizer(), Index::integer();
       (This, Sizer) -> boolean() when
@@ -573,6 +623,10 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SizerT,ref=SizerRef}) ->
   <<ThisRef:32/?UI,SizerRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerreplace">external documentation</a>.
+%% <br /> Also:<br />
+%% replace(This, Index, Newitem) -> boolean() when<br />
+%% 	This::wxSizer(), Index::integer(), Newitem::wxSizerItem:wxSizerItem().<br />
+%% 
 -spec replace(This, Oldwin, Newwin) -> boolean() when
 	This::wxSizer(), Oldwin::wxWindow:wxWindow() | wxSizer(), Newwin::wxWindow:wxWindow() | wxSizer();
       (This, Index, Newitem) -> boolean() when
@@ -637,6 +691,10 @@ setMinSize(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizersetitemminsize">external documentation</a>.
+%% <br /> Also:<br />
+%% setItemMinSize(This, Window, Size) -> boolean() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Size::{W::integer(), H::integer()}.<br />
+%% 
 -spec setItemMinSize(This, Index, Size) -> boolean() when
 	This::wxSizer(), Index::integer(), Size::{W::integer(), H::integer()};
       (This, Window, Size) -> boolean() when
@@ -659,6 +717,10 @@ setItemMinSize(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRe
   <<ThisRef:32/?UI,WindowRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizersetitemminsize">external documentation</a>.
+%% <br /> Also:<br />
+%% setItemMinSize(This, Window, Width, Height) -> boolean() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Width::integer(), Height::integer().<br />
+%% 
 -spec setItemMinSize(This, Index, Width, Height) -> boolean() when
 	This::wxSizer(), Index::integer(), Width::integer(), Height::integer();
       (This, Window, Width, Height) -> boolean() when
@@ -699,6 +761,12 @@ setVirtualSizeHints(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=Win
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizershow">external documentation</a>.
+%% <br /> Also:<br />
+%% show(This, Window) -> boolean() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer();<br />
+%%       (This, Show) -> ok when<br />
+%% 	This::wxSizer(), Show::boolean().<br />
+%% 
 -spec show(This, Index) -> boolean() when
 	This::wxSizer(), Index::integer();
       (This, Window) -> boolean() when
@@ -720,6 +788,12 @@ show(#wx_ref{type=ThisT,ref=ThisRef},Show)
   <<ThisRef:32/?UI,(wxe_util:from_bool(Show)):32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizershow">external documentation</a>.
+%% <br /> Also:<br />
+%% show(This, Window, [Option]) -> boolean() when<br />
+%% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(),<br />
+%% 	Option :: {show, boolean()}<br />
+%% 		 | {recursive, boolean()}.<br />
+%% 
 -spec show(This, Index, [Option]) -> boolean() when
 	This::wxSizer(), Index::integer(),
 	Option :: {show, boolean()};

@@ -289,6 +289,10 @@ drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y)
   <<ThisRef:32/?UI,(byte_size(Str_UC)):32/?UI,(Str_UC)/binary, 0:(((8- ((0+byte_size(Str_UC)) band 16#7)) band 16#7))/unit:8,X:64/?F,Y:64/?F>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawtext">external documentation</a>.
+%% <br /> Also:<br />
+%% drawText(This, Str, X, Y, BackgroundBrush) -> ok when<br />
+%% 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), BackgroundBrush::wxGraphicsBrush:wxGraphicsBrush().<br />
+%% 
 -spec drawText(This, Str, X, Y, Angle) -> ok when
 	This::wxGraphicsContext(), Str::unicode:chardata(), X::number(), Y::number(), Angle::number();
       (This, Str, X, Y, BackgroundBrush) -> ok when

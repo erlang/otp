@@ -49,6 +49,10 @@ new(#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   <<BitmapRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskwxmask">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Bitmap, Colour) -> wxMask() when<br />
+%% 	Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().<br />
+%% 
 -spec new(Bitmap, PaletteIndex) -> wxMask() when
 	Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer();
       (Bitmap, Colour) -> wxMask() when
@@ -74,6 +78,10 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskcreate">external documentation</a>.
+%% <br /> Also:<br />
+%% create(This, Bitmap, Colour) -> boolean() when<br />
+%% 	This::wxMask(), Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().<br />
+%% 
 -spec create(This, Bitmap, PaletteIndex) -> boolean() when
 	This::wxMask(), Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer();
       (This, Bitmap, Colour) -> boolean() when

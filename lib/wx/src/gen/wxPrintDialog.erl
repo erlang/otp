@@ -95,6 +95,10 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html#wxprintdialogwxprintdialog">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Parent, Data) -> wxPrintDialog() when<br />
+%% 	Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().<br />
+%% 
 -spec new(Parent, [Option]) -> wxPrintDialog() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {data, wxPrintDialogData:wxPrintDialogData()};

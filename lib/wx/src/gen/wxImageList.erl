@@ -74,6 +74,10 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
   <<ThisRef:32/?UI,BitmapRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistadd">external documentation</a>.
+%% <br /> Also:<br />
+%% add(This, Bitmap, MaskColour) -> integer() when<br />
+%% 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), MaskColour::wx:wx_colour().<br />
+%% 
 -spec add(This, Bitmap, Mask) -> integer() when
 	This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap();
       (This, Bitmap, MaskColour) -> integer() when

@@ -71,6 +71,10 @@ addPane(This,Window)
   addPane(This,Window, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanageraddpane">external documentation</a>.
+%% <br /> Also:<br />
+%% addPane(This, Window, Pane_info) -> boolean() when<br />
+%% 	This::wxAuiManager(), Window::wxWindow:wxWindow(), Pane_info::wxAuiPaneInfo:wxAuiPaneInfo().<br />
+%% 
 -spec addPane(This, Window, [Option]) -> boolean() when
 	This::wxAuiManager(), Window::wxWindow:wxWindow(),
 	Option :: {direction, integer()}
@@ -163,6 +167,10 @@ getManager(#wx_ref{type=WindowT,ref=WindowRef}) ->
   <<WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagergetpane">external documentation</a>.
+%% <br /> Also:<br />
+%% getPane(This, Window) -> wxAuiPaneInfo:wxAuiPaneInfo() when<br />
+%% 	This::wxAuiManager(), Window::wxWindow:wxWindow().<br />
+%% 
 -spec getPane(This, Name) -> wxAuiPaneInfo:wxAuiPaneInfo() when
 	This::wxAuiManager(), Name::unicode:chardata();
       (This, Window) -> wxAuiPaneInfo:wxAuiPaneInfo() when

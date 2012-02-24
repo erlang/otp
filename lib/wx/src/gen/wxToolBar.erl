@@ -120,6 +120,15 @@ addTool(This,Toolid,Bitmap)
   addTool(This,Toolid,Bitmap, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
+%% <br /> Also:<br />
+%% addTool(This, Toolid, Bitmap, BmpDisabled) -> wx:wx() when<br />
+%% 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap();<br />
+%%       (This, Toolid, Bitmap, [Option]) -> wx:wx() when<br />
+%% 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(),<br />
+%% 	Option :: {shortHelpString, unicode:chardata()}<br />
+%% 		 | {longHelpString, unicode:chardata()}.<br />
+%% 
+%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec addTool(This, Toolid, Label, Bitmap) -> wx:wx() when
 	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap();
       (This, Toolid, Bitmap, BmpDisabled) -> wx:wx() when
@@ -148,6 +157,19 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
   <<ThisRef:32/?UI,Toolid:32/?UI,BitmapRef:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
+%% <br /> Also:<br />
+%% addTool(This, Toolid, Label, Bitmap, [Option]) -> wx:wx() when<br />
+%% 	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(),<br />
+%% 	Option :: {shortHelp, unicode:chardata()}<br />
+%% 		 | {kind, wx:wx_enum()};<br />
+%%       (This, Toolid, Bitmap, BmpDisabled, [Option]) -> wx:wx() when<br />
+%% 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(),<br />
+%% 	Option :: {toggle, boolean()}<br />
+%% 		 | {clientData, wx:wx()}<br />
+%% 		 | {shortHelpString, unicode:chardata()}<br />
+%% 		 | {longHelpString, unicode:chardata()}.<br />
+%% 
+%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec addTool(This, Toolid, Label, Bitmap, BmpDisabled) -> wx:wx() when
 	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap();
       (This, Toolid, Label, Bitmap, [Option]) -> wx:wx() when
@@ -190,6 +212,15 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
   <<ThisRef:32/?UI,Toolid:32/?UI,BitmapRef:32/?UI,BmpDisabledRef:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
+%% <br /> Also:<br />
+%% addTool(This, Toolid, Label, Bitmap, BmpDisabled, [Option]) -> wx:wx() when<br />
+%% 	This::wxToolBar(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(),<br />
+%% 	Option :: {kind, wx:wx_enum()}<br />
+%% 		 | {shortHelp, unicode:chardata()}<br />
+%% 		 | {longHelp, unicode:chardata()}<br />
+%% 		 | {data, wx:wx()}.<br />
+%% 
+%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec addTool(This, Toolid, Bitmap, BmpDisabled, Toggle, XPos) -> wx:wx() when
 	This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(), Toggle::boolean(), XPos::integer();
       (This, Toolid, Label, Bitmap, BmpDisabled, [Option]) -> wx:wx() when
@@ -473,6 +504,16 @@ insertTool(This,Pos,Toolid,Bitmap)
   insertTool(This,Pos,Toolid,Bitmap, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbarinserttool">external documentation</a>.
+%% <br /> Also:<br />
+%% insertTool(This, Pos, Toolid, Bitmap, [Option]) -> wx:wx() when<br />
+%% 	This::wxToolBar(), Pos::integer(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(),<br />
+%% 	Option :: {bmpDisabled, wxBitmap:wxBitmap()}<br />
+%% 		 | {toggle, boolean()}<br />
+%% 		 | {clientData, wx:wx()}<br />
+%% 		 | {shortHelp, unicode:chardata()}<br />
+%% 		 | {longHelp, unicode:chardata()}.<br />
+%% 
+%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec insertTool(This, Pos, Toolid, Label, Bitmap) -> wx:wx() when
 	This::wxToolBar(), Pos::integer(), Toolid::integer(), Label::unicode:chardata(), Bitmap::wxBitmap:wxBitmap();
       (This, Pos, Toolid, Bitmap, [Option]) -> wx:wx() when

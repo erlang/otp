@@ -798,6 +798,10 @@ setBrush(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BrushT,ref=BrushRef}) ->
   <<ThisRef:32/?UI,BrushRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcsetclippingregion">external documentation</a>.
+%% <br /> Also:<br />
+%% setClippingRegion(This, Rect) -> ok when<br />
+%% 	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec setClippingRegion(This, Region) -> ok when
 	This::wxDC(), Region::wxRegion:wxRegion();
       (This, Rect) -> ok when

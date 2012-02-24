@@ -194,6 +194,11 @@ contains(This,C={CX,CY})
   contains(This,C, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathcontains">external documentation</a>.
+%% <br /> Also:<br />
+%% contains(This, C, [Option]) -> boolean() when<br />
+%% 	This::wxGraphicsPath(), C::{X::float(), Y::float()},<br />
+%% 	Option :: {fillStyle, integer()}.<br />
+%% 
 -spec contains(This, X, Y) -> boolean() when
 	This::wxGraphicsPath(), X::number(), Y::number();
       (This, C, [Option]) -> boolean() when

@@ -84,6 +84,17 @@ new(Parent)
   new(Parent, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvaswxglcanvas">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Parent, [Option]) -> wxGLCanvas() when<br />
+%% 	Parent::wxWindow:wxWindow(),<br />
+%% 	Option :: {id, integer()}<br />
+%% 		 | {pos, {X::integer(), Y::integer()}}<br />
+%% 		 | {size, {W::integer(), H::integer()}}<br />
+%% 		 | {style, integer()}<br />
+%% 		 | {name, unicode:chardata()}<br />
+%% 		 | {attribList, [integer()]}<br />
+%% 		 | {palette, wxPalette:wxPalette()}.<br />
+%% 
 -spec new(Parent, Shared) -> wxGLCanvas() when
 	Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas();
       (Parent, [Option]) -> wxGLCanvas() when

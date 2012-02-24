@@ -44,6 +44,11 @@ new() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendardateattr.html#wxcalendardateattrwxcalendardateattr">external documentation</a>.
+%% <br /> Also:<br />
+%% new(ColText) -> wxCalendarDateAttr() when<br />
+%% 	ColText::wx:wx_colour().<br />
+%% 
+%%<br /> Border = ?wxCAL_BORDER_NONE | ?wxCAL_BORDER_SQUARE | ?wxCAL_BORDER_ROUND
 -spec new(Border) -> wxCalendarDateAttr() when
 	Border::wx:wx_enum();
       (ColText) -> wxCalendarDateAttr() when
@@ -58,6 +63,15 @@ new(ColText)
   new(ColText, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendardateattr.html#wxcalendardateattrwxcalendardateattr">external documentation</a>.
+%% <br /> Also:<br />
+%% new(ColText, [Option]) -> wxCalendarDateAttr() when<br />
+%% 	ColText::wx:wx_colour(),<br />
+%% 	Option :: {colBack, wx:wx_colour()}<br />
+%% 		 | {colBorder, wx:wx_colour()}<br />
+%% 		 | {font, wxFont:wxFont()}<br />
+%% 		 | {border, wx:wx_enum()}.<br />
+%% 
+%%<br /> Border = ?wxCAL_BORDER_NONE | ?wxCAL_BORDER_SQUARE | ?wxCAL_BORDER_ROUND
 -spec new(Border, [Option]) -> wxCalendarDateAttr() when
 	Border::wx:wx_enum(),
 	Option :: {colBorder, wx:wx_colour()};

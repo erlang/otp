@@ -71,6 +71,10 @@ isFalse(Name)
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionssetoption">external documentation</a>.
+%% <br /> Also:<br />
+%% setOption(Name, Value) -> ok when<br />
+%% 	Name::unicode:chardata(), Value::unicode:chardata().<br />
+%% 
 -spec setOption(Name, Value) -> ok when
 	Name::unicode:chardata(), Value::integer();
       (Name, Value) -> ok when

@@ -42,6 +42,10 @@ new() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushwxbrush">external documentation</a>.
+%% <br /> Also:<br />
+%% new(StippleBitmap) -> wxBrush() when<br />
+%% 	StippleBitmap::wxBitmap:wxBitmap().<br />
+%% 
 -spec new(Colour) -> wxBrush() when
 	Colour::wx:wx_colour();
       (StippleBitmap) -> wxBrush() when

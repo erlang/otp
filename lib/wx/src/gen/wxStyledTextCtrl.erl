@@ -3967,8 +3967,8 @@ loadFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
   <<ThisRef:32/?UI,(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((0+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrldodragover">external documentation</a>.
-%%<br /> Res = ?wxDragError | ?wxDragNone | ?wxDragCopy | ?wxDragMove | ?wxDragLink | ?wxDragCancel
 %%<br /> Def = ?wxDragError | ?wxDragNone | ?wxDragCopy | ?wxDragMove | ?wxDragLink | ?wxDragCancel
+%%<br /> Res = ?wxDragError | ?wxDragNone | ?wxDragCopy | ?wxDragMove | ?wxDragLink | ?wxDragCancel
 -spec doDragOver(This, X, Y, Def) -> wx:wx_enum() when
 	This::wxStyledTextCtrl(), X::integer(), Y::integer(), Def::wx:wx_enum().
 doDragOver(#wx_ref{type=ThisT,ref=ThisRef},X,Y,Def)

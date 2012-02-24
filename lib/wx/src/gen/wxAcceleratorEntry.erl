@@ -41,6 +41,10 @@ new() ->
   new([]).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratorentry.html#wxacceleratorentrywxacceleratorentry">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Entry) -> wxAcceleratorEntry() when<br />
+%% 	Entry::wxAcceleratorEntry().<br />
+%% 
 -spec new([Option]) -> wxAcceleratorEntry() when
 	Option :: {flags, integer()}
 		 | {keyCode, integer()}

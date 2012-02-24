@@ -156,6 +156,10 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinctrl.html#wxspinctrlsetvalue">external documentation</a>.
+%% <br /> Also:<br />
+%% setValue(This, Text) -> ok when<br />
+%% 	This::wxSpinCtrl(), Text::unicode:chardata().<br />
+%% 
 -spec setValue(This, Value) -> ok when
 	This::wxSpinCtrl(), Value::integer();
       (This, Text) -> ok when

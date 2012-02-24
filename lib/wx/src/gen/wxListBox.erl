@@ -203,6 +203,10 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
   <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxsetfirstitem">external documentation</a>.
+%% <br /> Also:<br />
+%% setFirstItem(This, S) -> ok when<br />
+%% 	This::wxListBox(), S::unicode:chardata().<br />
+%% 
 -spec setFirstItem(This, N) -> ok when
 	This::wxListBox(), N::integer();
       (This, S) -> ok when

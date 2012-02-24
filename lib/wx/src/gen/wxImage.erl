@@ -67,6 +67,12 @@ new(Name)
   new(Name, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagewximage">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Name, [Option]) -> wxImage() when<br />
+%% 	Name::unicode:chardata(),<br />
+%% 	Option :: {type, integer()}<br />
+%% 		 | {index, integer()}.<br />
+%% 
 -spec new(Width, Height) -> wxImage() when
 	Width::integer(), Height::integer();
       (Name, [Option]) -> wxImage() when
@@ -88,6 +94,14 @@ new(Name, Options)
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagewximage">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Width, Height, [Option]) -> wxImage() when<br />
+%% 	Width::integer(), Height::integer(),<br />
+%% 	Option :: {clear, boolean()};<br />
+%%       (Name, Mimetype, [Option]) -> wxImage() when<br />
+%% 	Name::unicode:chardata(), Mimetype::unicode:chardata(),<br />
+%% 	Option :: {index, integer()}.<br />
+%% 
 -spec new(Width, Height, Data) -> wxImage() when
 	Width::integer(), Height::integer(), Data::binary();
       (Width, Height, [Option]) -> wxImage() when
@@ -118,6 +132,11 @@ new(Name,Mimetype, Options)
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8,(byte_size(Mimetype_UC)):32/?UI,(Mimetype_UC)/binary, 0:(((8- ((4+byte_size(Mimetype_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagewximage">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Width, Height, Data, [Option]) -> wxImage() when<br />
+%% 	Width::integer(), Height::integer(), Data::binary(),<br />
+%% 	Option :: {static_data, boolean()}.<br />
+%% 
 -spec new(Width, Height, Data, Alpha) -> wxImage() when
 	Width::integer(), Height::integer(), Data::binary(), Alpha::binary();
       (Width, Height, Data, [Option]) -> wxImage() when
@@ -249,6 +268,11 @@ create(This,Width,Height)
   create(This,Width,Height, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagecreate">external documentation</a>.
+%% <br /> Also:<br />
+%% create(This, Width, Height, [Option]) -> boolean() when<br />
+%% 	This::wxImage(), Width::integer(), Height::integer(),<br />
+%% 	Option :: {clear, boolean()}.<br />
+%% 
 -spec create(This, Width, Height, Data) -> boolean() when
 	This::wxImage(), Width::integer(), Height::integer(), Data::binary();
       (This, Width, Height, [Option]) -> boolean() when
@@ -268,6 +292,11 @@ create(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
   <<ThisRef:32/?UI,Width:32/?UI,Height:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagecreate">external documentation</a>.
+%% <br /> Also:<br />
+%% create(This, Width, Height, Data, [Option]) -> boolean() when<br />
+%% 	This::wxImage(), Width::integer(), Height::integer(), Data::binary(),<br />
+%% 	Option :: {static_data, boolean()}.<br />
+%% 
 -spec create(This, Width, Height, Data, Alpha) -> boolean() when
 	This::wxImage(), Width::integer(), Height::integer(), Data::binary(), Alpha::binary();
       (This, Width, Height, Data, [Option]) -> boolean() when
@@ -759,6 +788,10 @@ saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name)
   <<ThisRef:32/?UI,(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((0+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesavefile">external documentation</a>.
+%% <br /> Also:<br />
+%% saveFile(This, Name, Mimetype) -> boolean() when<br />
+%% 	This::wxImage(), Name::unicode:chardata(), Mimetype::unicode:chardata().<br />
+%% 
 -spec saveFile(This, Name, Type) -> boolean() when
 	This::wxImage(), Name::unicode:chardata(), Type::integer();
       (This, Name, Mimetype) -> boolean() when
@@ -939,6 +972,10 @@ setMaskFromImage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MaskT,ref=MaskRef}
   <<ThisRef:32/?UI,MaskRef:32/?UI,Mr:32/?UI,Mg:32/?UI,Mb:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesetoption">external documentation</a>.
+%% <br /> Also:<br />
+%% setOption(This, Name, Value) -> ok when<br />
+%% 	This::wxImage(), Name::unicode:chardata(), Value::unicode:chardata().<br />
+%% 
 -spec setOption(This, Name, Value) -> ok when
 	This::wxImage(), Name::unicode:chardata(), Value::integer();
       (This, Name, Value) -> ok when

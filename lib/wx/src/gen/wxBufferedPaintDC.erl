@@ -72,6 +72,11 @@ new(Window)
   new(Window, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbufferedpaintdc.html#wxbufferedpaintdcwxbufferedpaintdc">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Window, [Option]) -> wxBufferedPaintDC() when<br />
+%% 	Window::wxWindow:wxWindow(),<br />
+%% 	Option :: {style, integer()}.<br />
+%% 
 -spec new(Window, Buffer) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap();
       (Window, [Option]) -> wxBufferedPaintDC() when

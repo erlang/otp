@@ -640,70 +640,74 @@ gen_doc(_Class, [#method{method_type=destructor}]) ->  skip;
 gen_doc(_Class,Ms=[#method{name=N,alias=A,params=Ps,where=erl_no_opt,method_type=MT}])->
     w("%% @equiv ", []),
     gen_function_clause(erl_func_name(N,A),MT,Ps,empty_list,[no_guards,name_only]),
-    w("~n",[]),
-    write_specs(Ms);
-gen_doc(Class,Ms=[#method{name=N,params=Ps,type=T}])->
+    w("~n-spec ",[]),
+    write_specs(Ms, "\n");
+gen_doc(Class,Ms=[#method{name=N, type=T}|Rest])->
     %%doc_optional(Optional, normal),
     doc_link(Class, N),
-    doc_enum_desc(doc_enum(T,Ps)),
-    write_specs(Ms);
-
-gen_doc(Class, Ms = [#method{name=N, type=T}|_]) ->
-    doc_link(Class, N),
-    Ps = lists:usort([Ps || #method{params=Ps} <- Ms]),
-    doc_enum_desc(doc_enum(T,Ps)),
-    write_specs(Ms),
+    gen_overload_doc(Rest),
+    Ps = lists:foldl(fun(#method{params=Ps}, Acc) -> Ps ++ Acc end,[],Ms),
+    doc_enum_desc(lists:usort(doc_enum(T,Ps))),
+    w("-spec ",[]),
+    write_specs(Ms, "\n"),
     ok.
 
-write_specs(M=[#method{method_type=constructor}|_]) ->
-    w("-spec new", []),
-    write_specs1(M);
-write_specs(M=[#method{name=N, alias=A}|_]) ->
-    w("-spec ~s", [erl_func_name(N,A)]),
-    write_specs1(M).
+gen_overload_doc([]) -> ok;
+%%gen_overload_doc(_) -> ok;
+gen_overload_doc(Cs) ->
+    w("%% <br /> Also:<br />~n%% ",[]),
+    write_specs(Cs, "<br />\n%% "),
+    w("~n", []).
 
-write_specs1([M]) ->
-    write_spec(M),
-    w(".~n", []);
-write_specs1([M|Next]) ->
-    write_spec(M),
-    w(";~n      ", []),
-    write_specs1(Next).
+write_specs(M=[#method{method_type=constructor}|_], Eol) ->
+    w("new", []),
+    write_specs1(M, Eol);
+write_specs(M=[#method{name=N, alias=A}|_], Eol) ->
+    w("~s", [erl_func_name(N,A)]),
+    write_specs1(M, Eol).
 
-write_spec(#method{params=Ps,type=T,where=erl_no_opt}) ->
+write_specs1([M], Eol) ->
+    write_spec(M, Eol),
+    w(".~s", [Eol]);
+write_specs1([M|Next], Eol) ->
+    write_spec(M, Eol),
+    w(";~s      ", [Eol]),
+    write_specs1(Next, Eol).
+
+write_spec(#method{params=Ps,type=T,where=erl_no_opt}, Eol) ->
     {NonDef, _Optional} = split_optional(Ps),
     Res = doc_return_types(T,Ps),
-    write_spec(NonDef, [], Res);
-write_spec(#method{params=Ps,type=T}) ->
+    write_spec(NonDef, [], Res, Eol);
+write_spec(#method{params=Ps,type=T}, Eol) ->
     {NonDef, Optional} = split_optional(Ps),
     Res = doc_return_types(T,Ps),
-    write_spec(NonDef, Optional, Res).
+    write_spec(NonDef, Optional, Res, Eol).
 
-write_spec([], [], {simple, Res}) ->
+write_spec([], [], {simple, Res}, _Eol) ->
     w("() -> ~s", [Res]);
-write_spec([], [], {complex, Res}) ->
-    w("() -> Resultwhen~n\tResult ::~s", [Res]);
-write_spec(Args, [], {simple, Res}) ->
-    w("(~s) -> ~s when~n\t~s",
-      [erl_arg_names(Args), Res, doc_arg_types(Args)]);
-write_spec(Args, [], {complex, Res}) ->
-    w("(~s) -> Result when~n\tResult ::~s,~n\t~s",
-      [erl_arg_names(Args), Res, doc_arg_types(Args)]);
-write_spec([], Optional, {simple, Res}) ->
-    w("([Option]) -> ~s when~n\t~s",
-      [Res, optional_type(Optional)]);
-write_spec([], Optional, {complex, Res}) ->
-    w("([Option]) -> Result when~n\tResult :: ~s,~n\t~s",
-      [Res, optional_type(Optional)]);
-write_spec(Args, Optional, {simple, Res}) ->
-    w("(~s, [Option]) -> ~s when~n\t~s,~n\t~s",
-      [erl_arg_names(Args), Res, doc_arg_types(Args), optional_type(Optional)]);
-write_spec(Args, Optional, {complex, Res}) ->
-    w("(~s, [Option]) -> Result when~n\tResult :: ~s,~n\t~s,~n\t~s",
-      [erl_arg_names(Args), Res, doc_arg_types(Args), optional_type(Optional)]).
+write_spec([], [], {complex, Res}, Eol) ->
+    w("() -> Resultwhen~s\tResult ::~s", [Eol,Res]);
+write_spec(Args, [], {simple, Res}, Eol) ->
+    w("(~s) -> ~s when~s\t~s",
+      [erl_arg_names(Args), Res, Eol, doc_arg_types(Args)]);
+write_spec(Args, [], {complex, Res}, Eol) ->
+    w("(~s) -> Result when~s\tResult ::~s,~s\t~s",
+      [erl_arg_names(Args), Eol, Res, Eol, doc_arg_types(Args)]);
+write_spec([], Optional, {simple, Res}, Eol) ->
+    w("([Option]) -> ~s when~s\t~s",
+      [Res, Eol, optional_type(Optional, Eol)]);
+write_spec([], Optional, {complex, Res}, Eol) ->
+    w("([Option]) -> Result when~s\tResult :: ~s,~s\t~s",
+      [Eol, Res, Eol, optional_type(Optional, Eol)]);
+write_spec(Args, Optional, {simple, Res}, Eol) ->
+    w("(~s, [Option]) -> ~s when~s\t~s,~s\t~s",
+      [erl_arg_names(Args), Res, Eol, doc_arg_types(Args), Eol, optional_type(Optional, Eol)]);
+write_spec(Args, Optional, {complex, Res}, Eol) ->
+    w("(~s, [Option]) -> Result when~s\tResult :: ~s,~s\t~s,~s\t~s",
+      [erl_arg_names(Args), Eol, Res, Eol, doc_arg_types(Args), Eol, optional_type(Optional, Eol)]).
 
-optional_type(Opts) ->
-    "Option :: " ++ args(fun optional_type2/1, "\n\t\t | ", Opts).
+optional_type(Opts, Eol) ->
+    "Option :: " ++ args(fun optional_type2/1, Eol++"\t\t | ", Opts).
 optional_type2(#param{name=Name, def=Def, type=T}) ->
     "{" ++ erl_option_name(Name) ++ ", " ++ doc_arg_type2(T) ++ "}". %%   %% Default: " ++ Def.
 

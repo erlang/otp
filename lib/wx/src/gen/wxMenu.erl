@@ -94,6 +94,13 @@ append(This,Itemid,Text)
   append(This,Itemid,Text, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappend">external documentation</a>.
+%% <br /> Also:<br />
+%% append(This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when<br />
+%% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(),<br />
+%% 	Option :: {help, unicode:chardata()}<br />
+%% 		 | {kind, wx:wx_enum()}.<br />
+%% 
+%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec append(This, Itemid, Text, Submenu) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu();
       (This, Itemid, Text, [Option]) -> wxMenuItem:wxMenuItem() when
@@ -116,6 +123,11 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
   <<ThisRef:32/?UI,Itemid:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappend">external documentation</a>.
+%% <br /> Also:<br />
+%% append(This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
+%% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
+%% 	Option :: {help, unicode:chardata()}.<br />
+%% 
 -spec append(This, Itemid, Text, Help, IsCheckable) -> ok when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Help::unicode:chardata(), IsCheckable::boolean();
       (This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
@@ -209,6 +221,10 @@ check(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Check)
   <<ThisRef:32/?UI,Itemid:32/?UI,(wxe_util:from_bool(Check)):32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenudelete">external documentation</a>.
+%% <br /> Also:<br />
+%% delete(This, Item) -> boolean() when<br />
+%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
+%% 
 -spec delete(This, Itemid) -> boolean() when
 	This::wxMenu(), Itemid::integer();
       (This, Item) -> boolean() when
@@ -225,6 +241,10 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
   <<ThisRef:32/?UI,ItemRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenudestroy">external documentation</a>.
+%% <br /> Also:<br />
+%% 'Destroy'(This, Item) -> boolean() when<br />
+%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
+%% 
 -spec 'Destroy'(This, Itemid) -> boolean() when
 	This::wxMenu(), Itemid::integer();
       (This, Item) -> boolean() when
@@ -250,6 +270,10 @@ enable(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Enable)
   <<ThisRef:32/?UI,Itemid:32/?UI,(wxe_util:from_bool(Enable)):32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenufinditem">external documentation</a>.
+%% <br /> Also:<br />
+%% findItem(This, Item) -> integer() when<br />
+%% 	This::wxMenu(), Item::unicode:chardata().<br />
+%% 
 -spec findItem(This, Itemid) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer();
       (This, Item) -> integer() when
@@ -318,6 +342,11 @@ getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
+%% <br /> Also:<br />
+%% insert(This, Pos, Item) -> wxMenuItem:wxMenuItem() when<br />
+%% 	This::wxMenu(), Pos::integer(), Item::wxMenuItem:wxMenuItem().<br />
+%% 
+%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec insert(This, Pos, Itemid) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Pos::integer(), Itemid::integer();
       (This, Pos, Item) -> wxMenuItem:wxMenuItem() when
@@ -360,6 +389,11 @@ insert(This,Pos,Itemid,Text,Submenu)
   insert(This,Pos,Itemid,Text,Submenu, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
+%% <br /> Also:<br />
+%% insert(This, Pos, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
+%% 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
+%% 	Option :: {help, unicode:chardata()}.<br />
+%% 
 -spec insert(This, Pos, Itemid, Text, Help, IsCheckable) -> ok when
 	This::wxMenu(), Pos::integer(), Itemid::integer(), Text::unicode:chardata(), Help::unicode:chardata(), IsCheckable::boolean();
       (This, Pos, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
@@ -455,6 +489,11 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
+%% <br /> Also:<br />
+%% prepend(This, Item) -> wxMenuItem:wxMenuItem() when<br />
+%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
+%% 
+%%<br /> Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_MAX
 -spec prepend(This, Itemid) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer();
       (This, Item) -> wxMenuItem:wxMenuItem() when
@@ -496,6 +535,11 @@ prepend(This,Itemid,Text,Submenu)
   prepend(This,Itemid,Text,Submenu, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
+%% <br /> Also:<br />
+%% prepend(This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when<br />
+%% 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Submenu::wxMenu(),<br />
+%% 	Option :: {help, unicode:chardata()}.<br />
+%% 
 -spec prepend(This, Itemid, Text, Help, IsCheckable) -> ok when
 	This::wxMenu(), Itemid::integer(), Text::unicode:chardata(), Help::unicode:chardata(), IsCheckable::boolean();
       (This, Itemid, Text, Submenu, [Option]) -> wxMenuItem:wxMenuItem() when
@@ -572,6 +616,10 @@ prependSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuremove">external documentation</a>.
+%% <br /> Also:<br />
+%% remove(This, Item) -> wxMenuItem:wxMenuItem() when<br />
+%% 	This::wxMenu(), Item::wxMenuItem:wxMenuItem().<br />
+%% 
 -spec remove(This, Itemid) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Itemid::integer();
       (This, Item) -> wxMenuItem:wxMenuItem() when

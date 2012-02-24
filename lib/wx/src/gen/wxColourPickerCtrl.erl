@@ -157,6 +157,10 @@ getColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcolourpickerctrl.html#wxcolourpickerctrlsetcolour">external documentation</a>.
+%% <br /> Also:<br />
+%% setColour(This, Col) -> ok when<br />
+%% 	This::wxColourPickerCtrl(), Col::wx:wx_colour().<br />
+%% 
 -spec setColour(This, Text) -> boolean() when
 	This::wxColourPickerCtrl(), Text::unicode:chardata();
       (This, Col) -> ok when

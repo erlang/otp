@@ -49,6 +49,10 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -type wxStaticBoxSizer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticboxsizer.html#wxstaticboxsizerwxstaticboxsizer">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Box, Orient) -> wxStaticBoxSizer() when<br />
+%% 	Box::wxStaticBox:wxStaticBox(), Orient::integer().<br />
+%% 
 -spec new(Orient, Win) -> wxStaticBoxSizer() when
 	Orient::integer(), Win::wxWindow:wxWindow();
       (Box, Orient) -> wxStaticBoxSizer() when

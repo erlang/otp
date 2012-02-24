@@ -149,6 +149,13 @@ new(Parent,Id)
   new(Parent,Id, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridwxgrid">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Parent, Id, [Option]) -> wxGrid() when<br />
+%% 	Parent::wxWindow:wxWindow(), Id::integer(),<br />
+%% 	Option :: {pos, {X::integer(), Y::integer()}}<br />
+%% 		 | {size, {W::integer(), H::integer()}}<br />
+%% 		 | {style, integer()}.<br />
+%% 
 -spec new(Parent, X, Y) -> wxGrid() when
 	Parent::wxWindow:wxWindow(), X::integer(), Y::integer();
       (Parent, Id, [Option]) -> wxGrid() when
@@ -1252,6 +1259,11 @@ isVisible(This,Coords={CoordsR,CoordsC})
   isVisible(This,Coords, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridisvisible">external documentation</a>.
+%% <br /> Also:<br />
+%% isVisible(This, Coords, [Option]) -> boolean() when<br />
+%% 	This::wxGrid(), Coords::{R::integer(), C::integer()},<br />
+%% 	Option :: {wholeCellVisible, boolean()}.<br />
+%% 
 -spec isVisible(This, Row, Col) -> boolean() when
 	This::wxGrid(), Row::integer(), Col::integer();
       (This, Coords, [Option]) -> boolean() when
@@ -1538,6 +1550,10 @@ setCellBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcellbackgroundcolour">external documentation</a>.
+%% <br /> Also:<br />
+%% setCellBackgroundColour(This, Colour, Row, Col) -> ok when<br />
+%% 	This::wxGrid(), Colour::wx:wx_colour(), Row::integer(), Col::integer().<br />
+%% 
 -spec setCellBackgroundColour(This, Row, Col, Val) -> ok when
 	This::wxGrid(), Row::integer(), Col::integer(), Val::wx:wx_colour();
       (This, Colour, Row, Col) -> ok when
@@ -1593,6 +1609,10 @@ setCellTextColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
   <<ThisRef:32/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcelltextcolour">external documentation</a>.
+%% <br /> Also:<br />
+%% setCellTextColour(This, Val, Row, Col) -> ok when<br />
+%% 	This::wxGrid(), Val::wx:wx_colour(), Row::integer(), Col::integer().<br />
+%% 
 -spec setCellTextColour(This, Row, Col, Val) -> ok when
 	This::wxGrid(), Row::integer(), Col::integer(), Val::wx:wx_colour();
       (This, Val, Row, Col) -> ok when
@@ -1619,6 +1639,10 @@ setCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC},S)
   <<ThisRef:32/?UI,CoordsR:32/?UI,CoordsC:32/?UI,(byte_size(S_UC)):32/?UI,(S_UC)/binary, 0:(((8- ((0+byte_size(S_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcellvalue">external documentation</a>.
+%% <br /> Also:<br />
+%% setCellValue(This, Val, Row, Col) -> ok when<br />
+%% 	This::wxGrid(), Val::unicode:chardata(), Row::integer(), Col::integer().<br />
+%% 
 -spec setCellValue(This, Row, Col, S) -> ok when
 	This::wxGrid(), Row::integer(), Col::integer(), S::unicode:chardata();
       (This, Val, Row, Col) -> ok when

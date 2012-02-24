@@ -146,6 +146,11 @@ enable(This)
   enable(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxenable">external documentation</a>.
+%% <br /> Also:<br />
+%% enable(This, [Option]) -> boolean() when<br />
+%% 	This::wxRadioBox(),<br />
+%% 	Option :: {enable, boolean()}.<br />
+%% 
 -spec enable(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer();
       (This, [Option]) -> boolean() when
@@ -212,6 +217,11 @@ show(This)
   show(This, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxradiobox.html#wxradioboxshow">external documentation</a>.
+%% <br /> Also:<br />
+%% show(This, [Option]) -> boolean() when<br />
+%% 	This::wxRadioBox(),<br />
+%% 	Option :: {show, boolean()}.<br />
+%% 
 -spec show(This, N) -> boolean() when
 	This::wxRadioBox(), N::integer();
       (This, [Option]) -> boolean() when

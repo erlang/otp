@@ -311,6 +311,10 @@ setProportion(#wx_ref{type=ThisT,ref=ThisRef},Proportion)
   <<ThisRef:32/?UI,Proportion:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemsetratio">external documentation</a>.
+%% <br /> Also:<br />
+%% setRatio(This, Size) -> ok when<br />
+%% 	This::wxSizerItem(), Size::{W::integer(), H::integer()}.<br />
+%% 
 -spec setRatio(This, Ratio) -> ok when
 	This::wxSizerItem(), Ratio::number();
       (This, Size) -> ok when

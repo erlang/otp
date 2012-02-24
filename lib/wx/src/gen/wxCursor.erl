@@ -47,6 +47,10 @@ new() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcursor.html#wxcursorwxcursor">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Image) -> wxCursor() when<br />
+%% 	Image::wxImage:wxImage().<br />
+%% 
 -spec new(CursorId) -> wxCursor() when
 	CursorId::integer();
       (Image) -> wxCursor() when

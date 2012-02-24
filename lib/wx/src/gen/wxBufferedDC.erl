@@ -75,6 +75,12 @@ new(Dc)
   new(Dc, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
+%% <br /> Also:<br />
+%% new(Dc, [Option]) -> wxBufferedDC() when<br />
+%% 	Dc::wxDC:wxDC(),<br />
+%% 	Option :: {buffer, wxBitmap:wxBitmap()}<br />
+%% 		 | {style, integer()}.<br />
+%% 
 -spec new(Dc, Area) -> wxBufferedDC() when
 	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
       (Dc, [Option]) -> wxBufferedDC() when
@@ -117,6 +123,12 @@ init(This,Dc)
   init(This,Dc, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
+%% <br /> Also:<br />
+%% init(This, Dc, [Option]) -> ok when<br />
+%% 	This::wxBufferedDC(), Dc::wxDC:wxDC(),<br />
+%% 	Option :: {buffer, wxBitmap:wxBitmap()}<br />
+%% 		 | {style, integer()}.<br />
+%% 
 -spec init(This, Dc, Area) -> ok when
 	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
       (This, Dc, [Option]) -> ok when

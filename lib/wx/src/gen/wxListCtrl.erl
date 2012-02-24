@@ -270,6 +270,10 @@ findItem(This,Start,Str)
   findItem(This,Start,Str, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlfinditem">external documentation</a>.
+%% <br /> Also:<br />
+%% findItem(This, Start, Pt, Direction) -> integer() when<br />
+%% 	This::wxListCtrl(), Start::integer(), Pt::{X::integer(), Y::integer()}, Direction::integer().<br />
+%% 
 -spec findItem(This, Start, Str, [Option]) -> integer() when
 	This::wxListCtrl(), Start::integer(), Str::unicode:chardata(),
 	Option :: {partial, boolean()};
@@ -517,6 +521,10 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
   <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlinsertcolumn">external documentation</a>.
+%% <br /> Also:<br />
+%% insertColumn(This, Col, Info) -> integer() when<br />
+%% 	This::wxListCtrl(), Col::integer(), Info::wxListItem:wxListItem().<br />
+%% 
 -spec insertColumn(This, Col, Heading) -> integer() when
 	This::wxListCtrl(), Col::integer(), Heading::unicode:chardata();
       (This, Col, Info) -> integer() when
@@ -558,6 +566,10 @@ insertItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=InfoT,ref=InfoRef}) ->
   <<ThisRef:32/?UI,InfoRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlinsertitem">external documentation</a>.
+%% <br /> Also:<br />
+%% insertItem(This, Index, Label) -> integer() when<br />
+%% 	This::wxListCtrl(), Index::integer(), Label::unicode:chardata().<br />
+%% 
 -spec insertItem(This, Index, ImageIndex) -> integer() when
 	This::wxListCtrl(), Index::integer(), ImageIndex::integer();
       (This, Index, Label) -> integer() when

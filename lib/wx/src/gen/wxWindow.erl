@@ -324,6 +324,10 @@ findFocus() ->
   <<>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowfindwindow">external documentation</a>.
+%% <br /> Also:<br />
+%% findWindow(This, Name) -> wxWindow() when<br />
+%% 	This::wxWindow(), Name::unicode:chardata().<br />
+%% 
 -spec findWindow(This, Winid) -> wxWindow() when
 	This::wxWindow(), Winid::integer();
       (This, Name) -> wxWindow() when
@@ -839,6 +843,10 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowisexposed">external documentation</a>.
+%% <br /> Also:<br />
+%% isExposed(This, Rect) -> boolean() when<br />
+%% 	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec isExposed(This, Pt) -> boolean() when
 	This::wxWindow(), Pt::{X::integer(), Y::integer()};
       (This, Rect) -> boolean() when
@@ -958,6 +966,11 @@ move(This,Pt={PtX,PtY})
   move(This,Pt, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowmove">external documentation</a>.
+%% <br /> Also:<br />
+%% move(This, Pt, [Option]) -> ok when<br />
+%% 	This::wxWindow(), Pt::{X::integer(), Y::integer()},<br />
+%% 	Option :: {flags, integer()}.<br />
+%% 
 -spec move(This, X, Y) -> ok when
 	This::wxWindow(), X::integer(), Y::integer();
       (This, Pt, [Option]) -> ok when
@@ -1278,6 +1291,10 @@ setCaret(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CaretT,ref=CaretRef}) ->
   <<ThisRef:32/?UI,CaretRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetclientsize">external documentation</a>.
+%% <br /> Also:<br />
+%% setClientSize(This, Rect) -> ok when<br />
+%% 	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.<br />
+%% 
 -spec setClientSize(This, Size) -> ok when
 	This::wxWindow(), Size::{W::integer(), H::integer()};
       (This, Rect) -> ok when
@@ -1508,6 +1525,10 @@ setScrollPos(#wx_ref{type=ThisT,ref=ThisRef},Orient,Pos, Options)
   <<ThisRef:32/?UI,Orient:32/?UI,Pos:32/?UI, 0:32,BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetsize">external documentation</a>.
+%% <br /> Also:<br />
+%% setSize(This, Size) -> ok when<br />
+%% 	This::wxWindow(), Size::{W::integer(), H::integer()}.<br />
+%% 
 -spec setSize(This, Rect) -> ok when
 	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
       (This, Size) -> ok when
@@ -1523,6 +1544,11 @@ setSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetsize">external documentation</a>.
+%% <br /> Also:<br />
+%% setSize(This, Rect, [Option]) -> ok when<br />
+%% 	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()},<br />
+%% 	Option :: {sizeFlags, integer()}.<br />
+%% 
 -spec setSize(This, Width, Height) -> ok when
 	This::wxWindow(), Width::integer(), Height::integer();
       (This, Rect, [Option]) -> ok when
@@ -1572,6 +1598,12 @@ setSizeHints(This,MinSize={MinSizeW,MinSizeH})
   setSizeHints(This,MinSize, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetsizehints">external documentation</a>.
+%% <br /> Also:<br />
+%% setSizeHints(This, MinSize, [Option]) -> ok when<br />
+%% 	This::wxWindow(), MinSize::{W::integer(), H::integer()},<br />
+%% 	Option :: {maxSize, {W::integer(), H::integer()}}<br />
+%% 		 | {incSize, {W::integer(), H::integer()}}.<br />
+%% 
 -spec setSizeHints(This, MinW, MinH) -> ok when
 	This::wxWindow(), MinW::integer(), MinH::integer();
       (This, MinSize, [Option]) -> ok when
@@ -1665,6 +1697,10 @@ setThemeEnabled(#wx_ref{type=ThisT,ref=ThisRef},EnableTheme)
   <<ThisRef:32/?UI,(wxe_util:from_bool(EnableTheme)):32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsettooltip">external documentation</a>.
+%% <br /> Also:<br />
+%% setToolTip(This, Tip) -> ok when<br />
+%% 	This::wxWindow(), Tip::wxToolTip:wxToolTip().<br />
+%% 
 -spec setToolTip(This, Tip) -> ok when
 	This::wxWindow(), Tip::unicode:chardata();
       (This, Tip) -> ok when
@@ -1708,6 +1744,11 @@ setVirtualSizeHints(This,MinSize={MinSizeW,MinSizeH})
   setVirtualSizeHints(This,MinSize, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetvirtualsizehints">external documentation</a>.
+%% <br /> Also:<br />
+%% setVirtualSizeHints(This, MinSize, [Option]) -> ok when<br />
+%% 	This::wxWindow(), MinSize::{W::integer(), H::integer()},<br />
+%% 	Option :: {maxSize, {W::integer(), H::integer()}}.<br />
+%% 
 -spec setVirtualSizeHints(This, MinW, MinH) -> ok when
 	This::wxWindow(), MinW::integer(), MinH::integer();
       (This, MinSize, [Option]) -> ok when
