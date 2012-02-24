@@ -114,7 +114,7 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
   M = F = atom()
   A = [term()]
  Restart = permanent | transient | temporary
- Shutdown = brutal_kill | int()>=0 | infinity
+ Shutdown = brutal_kill | int()>0 | infinity
  Type = worker | supervisor
  Modules = [Module] | dynamic
   Module = atom()</pre>
@@ -517,7 +517,8 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
         <v>Args = term()</v>
         <v>Result = {ok,{{RestartStrategy,MaxR,MaxT},[ChildSpec]}} | ignore</v>
         <v>&nbsp;RestartStrategy = <seealso marker="#type-strategy">strategy()</seealso></v>
-        <v>&nbsp;MaxR = MaxT = integer()>=0</v>
+        <v>&nbsp;MaxR = integer()>=0</v>
+        <v>&nbsp;MaxT = integer()>0</v>
         <v>&nbsp;ChildSpec = <seealso marker="#type-child_spec">child_spec()</seealso></v>
       </type>
       <desc>
