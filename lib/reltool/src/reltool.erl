@@ -59,17 +59,17 @@ start_link(Options) when is_list(Options) ->
         {ok, _WinPid} = OK ->
             OK;
         {error, Reason} ->
-            {error, lists:flatten(io_lib:format("~p", [Reason]))}
+            {error, Reason}
     end.
 
 %% Start server process with options
 -spec start_server(options()) -> {ok, server_pid()} | {error, reason()}.
 start_server(Options) ->
     case reltool_server:start_link(Options) of
-        {ok, ServerPid, _Common} ->
+        {ok, ServerPid, _Common, _Sys} ->
             {ok, ServerPid};
         {error, Reason} ->
-            {error, lists:flatten(io_lib:format("~p", [Reason]))}
+            {error, Reason}
     end.
 
 %% Start server process with options

@@ -135,54 +135,49 @@ init(Options) ->
 
 do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
     case reltool_server:start_link(Options) of
-        {ok, ServerPid, C} ->
+        {ok, ServerPid, C, Sys} ->
 	    process_flag(trap_exit, C#common.trap_exit),
             wx:new(),
             wx:debug(C#common.wx_debug),
 
             %% wx_misc:beginBusyCursor(),
-	    case reltool_server:get_status(ServerPid) of
-		{ok, Warnings} ->
-		    exit_dialog(Warnings),
-		    {ok, Sys}  = reltool_server:get_sys(ServerPid),
-		    S = #state{parent_pid = Parent,
-			       server_pid = ServerPid,
-			       common = C,
-			       config_file = filename:absname("config.reltool"),
-			       target_dir = filename:absname("reltool_target_dir"),
-			       app_wins = [],
-			       sys = Sys,
-			       fgraph_wins = []},
-		    S2 = create_window(S),
-		    S5 = wx:batch(fun() ->
-					  Title = atom_to_list(?APPLICATION),
-					  wxFrame:setTitle(S2#state.frame,
-							   Title),
-					  %% wxFrame:setMinSize(Frame,
-					  %% {?WIN_WIDTH, ?WIN_HEIGHT}),
-					  wxStatusBar:setStatusText(
-					    S2#state.status_bar,
-					    "Done."),
-					  S3 = redraw_apps(S2),
-					  S4 = redraw_libs(S3),
-					  redraw_config_page(S4)
-				  end),
-		    %% wx_misc:endBusyCursor(),
-		    %% wxFrame:destroy(Frame),
-		    proc_lib:init_ack(S#state.parent_pid, {ok, self()}),
-		    loop(S5);
-		{error, Reason} ->
-		    restart_server_safe_config(Safe,Parent,Reason)
-	    end;
+	    {ok, Warnings} = reltool_server:get_status(ServerPid),
+	    exit_dialog(Warnings),
+	    S = #state{parent_pid = Parent,
+		       server_pid = ServerPid,
+		       common = C,
+		       config_file = filename:absname("config.reltool"),
+		       target_dir = filename:absname("reltool_target_dir"),
+		       app_wins = [],
+		       sys = Sys,
+		       fgraph_wins = []},
+	    S2 = create_window(S),
+	    S5 = wx:batch(fun() ->
+				  Title = atom_to_list(?APPLICATION),
+				  wxFrame:setTitle(S2#state.frame,
+						   Title),
+				  %% wxFrame:setMinSize(Frame,
+				  %% {?WIN_WIDTH, ?WIN_HEIGHT}),
+				  wxStatusBar:setStatusText(
+				    S2#state.status_bar,
+				    "Done."),
+				  S3 = redraw_apps(S2),
+				  S4 = redraw_libs(S3),
+				  redraw_config_page(S4)
+			  end),
+	    %% wx_misc:endBusyCursor(),
+	    %% wxFrame:destroy(Frame),
+	    proc_lib:init_ack(S#state.parent_pid, {ok, self()}),
+	    loop(S5);
 	{error, Reason} ->
-	    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
-	    exit(Reason)
+	    restart_server_safe_config(Safe,Parent,Reason)
     end.
 
-restart_server_safe_config(true,_Parent,Reason) ->
+restart_server_safe_config(true,Parent,Reason) ->
     io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
-    exit(Reason);
+    proc_lib:init_ack(Parent, {error,Reason});
 restart_server_safe_config(false,Parent,Reason) ->
+    wx:new(),
     Strings =
 	[{?wxBLACK,"Could not start reltool server:\n\n"},
 	 {?wxRED,Reason++"\n\n"},
@@ -197,7 +192,7 @@ restart_server_safe_config(false,Parent,Reason) ->
 	    do_init([{safe_config,true},{parent,Parent},?safe_config]);
 	?wxID_CANCEL ->
 	    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
-	    exit(Reason)
+	    proc_lib:init_ack(Parent,{error,Reason})
     end.
 
 exit_dialog([]) ->

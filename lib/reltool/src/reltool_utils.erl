@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@
 	 get_item/1, get_items/1, get_selected_items/3,
 	 select_items/3, select_item/2,
 
-	 safe_keysearch/5, print/4, return_first_error/2, add_warning/2,
+	 safe_keysearch/5, print/4, add_warning/2,
 
 	 create_dir/1, list_dir/1, read_file_info/1,
 	 write_file_info/2, read_file/1, write_file/2,
@@ -392,31 +392,12 @@ print(X, X, Format, Args) ->
 print(_, _, _, _) ->
     ok.
 
-%% -define(SAFE(M,F,A), safe(M, F, A, ?MODULE, ?LINE)).
-%%
-%% safe(M, F, A, Mod, Line) ->
-%%     case catch apply(M, F, A) of
-%%      {'EXIT', Reason} ->
-%%          io:format("~p(~p): ~p:~p~p -> ~p\n", [Mod, Line, M, F, A, Reason]),
-%%          timer:sleep(infinity);
-%%      Res ->
-%%          Res
-%%     end.
-
-return_first_error(Status, NewError) when is_list(NewError) ->
-    case Status of
-	{ok, _Warnings} ->
-	    {error, NewError};
-	{error, OldError} ->
-	    {error, OldError}
-    end.
-
-add_warning(Status, Warning) ->
-    case Status of
-	{ok, Warnings} ->
-	    {ok, [Warning | Warnings]};
-	{error, Error} ->
-	    {error, Error}
+add_warning({ok,Warnings}, Warning) ->
+    case lists:member(Warning,Warnings) of
+	true ->
+	    {ok,Warnings};
+	false ->
+	    {ok,[Warning|Warnings]}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

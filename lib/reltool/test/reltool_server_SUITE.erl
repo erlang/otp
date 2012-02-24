@@ -883,8 +883,7 @@ create_standalone_app_clash(Config) ->
          ]},
 
     ?msym({error,"someapp: Application name clash. Escript "++_},
-	  reltool:get_target_spec([{config,Sys}])),
-
+	  reltool:start_server([{config,Sys}])),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1214,7 +1213,7 @@ set_app_and_undo(Config) ->
 		{app,tools,[{incl_cond,include}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
     ?m({ok, Sys}, reltool:get_config(Pid)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     %% Get app and mod
     {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
@@ -1228,7 +1227,7 @@ set_app_and_undo(Config) ->
     {ok,ToolsNoCover,["a: Cannot parse app file"++_|_]} =
 	?msym({ok,_,["a: Cannot parse app file"++_|_]},
 	      reltool_server:set_app(Pid,Tools1)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
 
     %% Check that the module is no longer included
     ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
@@ -1239,13 +1238,13 @@ set_app_and_undo(Config) ->
     ?m(ok, reltool_server:undo_config(Pid)),
     ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
     ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
 
     %% Undo again, to check that it toggles
     ?msym(ok, reltool_server:undo_config(Pid)),
     ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
     ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -1261,7 +1260,7 @@ set_apps_and_undo(Config) ->
 		{app,tools,[{incl_cond,include}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
     ?m({ok, Sys}, reltool:get_config(Pid)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     %% Get app and mod
     {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
@@ -1272,9 +1271,9 @@ set_apps_and_undo(Config) ->
 
     %% Exclude one application with set_apps
     ExclTools = Tools#app{incl_cond=exclude},
-    ?msym({ok,["a: Cannot parse app file"++_|_]},
+    ?msym({ok,["a: Cannot parse app file"++_]},
        reltool_server:set_apps(Pid,[ExclTools])),
-    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
 
     %% Check that the app and its modules (one of them) are no longer included
     {ok,NoTools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
@@ -1287,13 +1286,13 @@ set_apps_and_undo(Config) ->
     ?m(ok, reltool_server:undo_config(Pid)),
     ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
     ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     %% Undo again, to check that it toggles
     ?m(ok, reltool_server:undo_config(Pid)),
     ?m({ok,NoTools}, reltool_server:get_app(Pid,tools)),
     ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]}, reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -1386,10 +1385,10 @@ set_sys_and_undo(Config) ->
     NewLib = filename:join(datadir(Config),"faulty_app_file"),
     NewLibDirs = [NewLib | SysRec#sys.lib_dirs],
     NewSysRec = SysRec#sys{lib_dirs=NewLibDirs},
-    ?msym({ok,["a: Cannot parse app file"++_|_]},
+    ?msym({ok,["a: Cannot parse app file"++_]},
 	  reltool_server:set_sys(Pid, NewSysRec)),
     ?m({ok,NewSysRec}, reltool_server:get_sys(Pid)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     %% Undo
     ?m(ok, reltool_server:undo_config(Pid)),
@@ -1399,7 +1398,7 @@ set_sys_and_undo(Config) ->
     %% Undo again, to check that it toggles
     ?m(ok,reltool_server:undo_config(Pid)),
     ?m({ok,NewSysRec}, reltool_server:get_sys(Pid)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -1431,12 +1430,12 @@ load_config_and_undo(Config) ->
 		 {app,sasl,[{incl_cond,include}]},
 		 {app,stdlib,[{incl_cond,include}]},
 		 {app,tools,[{incl_cond,derived}]}]},
-    ?msym({ok,["a: Cannot parse app file"++_|_]},
+    ?msym({ok,["a: Cannot parse app file"++_]},
 	  reltool_server:load_config(Pid,Sys2)),
 %%% OTP-0702, 15)    ?m({ok, Sys2}, reltool:get_config(Pid)),
 %%% Note that {incl_cond,exclude} is removed compared to Sys1 -
 %%% config is merged, not overwritten - is this correct???
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     %% Check that tools is included (since it is used by sasl) but not
     %% pre-included (neither included or excluded => undefined)
@@ -1458,7 +1457,7 @@ load_config_and_undo(Config) ->
     ?m(ok, reltool_server:undo_config(Pid)),
     ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
     ?m({ok,Cover2}, reltool_server:get_mod(Pid,cover)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
@@ -1487,7 +1486,7 @@ load_config_fail(_Config) ->
 		 {app,kernel,[{incl_cond,include}]},
 		 {app,sasl,[{incl_cond,include}]},
 		 {app,stdlib,[{incl_cond,include}]}]},
-    ?msym({error,"Release faulty_rel uses non existing application xxx"},
+    ?msym({error,"Release \"faulty_rel\" uses non existing application xxx"},
 	  reltool_server:load_config(Pid,Sys2)),
 
     %% Check that a rollback is done to the old configuration
@@ -1674,7 +1673,7 @@ reset_config_and_undo(Config) ->
 		 {app,tools,[{incl_cond,include}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
     ?m({ok, Sys1}, reltool:get_config(Pid)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     %% Get app and mod
     {ok,Tools1} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
@@ -1704,11 +1703,10 @@ reset_config_and_undo(Config) ->
 			reltool_server:get_mod(Pid,cover)),
 
     %% Reset
-    ?msym({ok,["a: Cannot parse app file"++_|_]},
-	  reltool_server:reset_config(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:reset_config(Pid)),
     ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
     ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     %% Undo
     ?m(ok, reltool_server:undo_config(Pid)),
@@ -1720,7 +1718,7 @@ reset_config_and_undo(Config) ->
     ?m(ok, reltool_server:undo_config(Pid)),
     ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
     ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
-    ?msym({ok,["a: Cannot parse app file"++_|_]},reltool_server:get_status(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
 
     ?m(ok, reltool:stop(Pid)),
     ok.
