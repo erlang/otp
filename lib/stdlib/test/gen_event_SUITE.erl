@@ -62,6 +62,8 @@ start(suite) -> [];
 start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
+    ?line dummy_via:reset(),
+
     ?line {ok, Pid0} = gen_event:start(), %anonymous
     ?line [] = gen_event:which_handlers(Pid0),
     ?line ok = gen_event:stop(Pid0),
@@ -85,6 +87,11 @@ start(Config) when is_list(Config) ->
     ?line [] = gen_event:which_handlers(Pid4),
     ?line ok = gen_event:stop({global, my_dummy_name}),
 
+    ?line {ok, Pid5} = gen_event:start_link({via, dummy_via, my_dummy_name}),
+    ?line [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
+    ?line [] = gen_event:which_handlers(Pid5),
+    ?line ok = gen_event:stop({via, dummy_via, my_dummy_name}),
+
     ?line {ok, _} = gen_event:start_link({local, my_dummy_name}),
     ?line {error, {already_started, _}} =
 	gen_event:start_link({local, my_dummy_name}),
@@ -92,15 +99,28 @@ start(Config) when is_list(Config) ->
 	gen_event:start({local, my_dummy_name}),
     ?line ok = gen_event:stop(my_dummy_name),
 
-    ?line {ok, Pid5} = gen_event:start_link({global, my_dummy_name}),
+    ?line {ok, Pid6} = gen_event:start_link({global, my_dummy_name}),
     ?line {error, {already_started, _}} =
 	gen_event:start_link({global, my_dummy_name}),
     ?line {error, {already_started, _}} =
 	gen_event:start({global, my_dummy_name}),
 
-    exit(Pid5, shutdown),
+    exit(Pid6, shutdown),
     receive
-	{'EXIT', Pid5, shutdown} -> ok
+	{'EXIT', Pid6, shutdown} -> ok
+    after 10000 ->
+	    ?t:fail(exit_gen_event)
+    end,
+
+    ?line {ok, Pid7} = gen_event:start_link({via, dummy_via, my_dummy_name}),
+    ?line {error, {already_started, _}} =
+	gen_event:start_link({via, dummy_via, my_dummy_name}),
+    ?line {error, {already_started, _}} =
+	gen_event:start({via, dummy_via, my_dummy_name}),
+
+    exit(Pid7, shutdown),
+    receive
+	{'EXIT', Pid7, shutdown} -> ok
     after 10000 ->
 	    ?t:fail(exit_gen_event)
     end,

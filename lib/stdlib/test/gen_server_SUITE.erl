@@ -36,7 +36,7 @@
 	]).
 
 % spawn export
--export([spec_init_local/2, spec_init_global/2, 
+-export([spec_init_local/2, spec_init_global/2, spec_init_via/2,
 	 spec_init_default_timeout/2, spec_init_anonymous/1,
 	 spec_init_anonymous_default_timeout/1,
 	 spec_init_not_proc_lib/1, cast_fast_messup/0]).
@@ -199,6 +199,35 @@ start(Config) when is_list(Config) ->
 		  test_server:fail(not_stopped)
 	  end,
 
+    %% via register
+    ?line dummy_via:reset(),
+    ?line {ok, Pid6} =
+	gen_server:start({via, dummy_via, my_test_name},
+			 gen_server_SUITE, [], []),
+    ?line ok = gen_server:call({via, dummy_via, my_test_name}, started_p),
+    ?line {error, {already_started, Pid6}} =
+	gen_server:start({via, dummy_via, my_test_name},
+			 gen_server_SUITE, [], []),
+    ?line ok = gen_server:call({via, dummy_via, my_test_name}, stop),
+    test_server:sleep(1),
+    ?line {'EXIT', {noproc,_}} = (catch gen_server:call(Pid6, started_p, 10)),
+
+    %% via register linked
+    ?line dummy_via:reset(),
+    ?line {ok, Pid7} =
+	gen_server:start_link({via, dummy_via, my_test_name},
+			      gen_server_SUITE, [], []),
+    ?line ok = gen_server:call({via, dummy_via, my_test_name}, started_p),
+    ?line {error, {already_started, Pid7}} =
+	gen_server:start({via, dummy_via, my_test_name},
+			 gen_server_SUITE, [], []),
+    ?line ok = gen_server:call({via, dummy_via, my_test_name}, stop),
+    ?line receive
+	      {'EXIT', Pid7, stopped} ->
+		  ok
+	  after 5000 ->
+		  test_server:fail(not_stopped)
+	  end,
     test_server:messages_get(),
 
     %% Must wait for all error messages before going to next test.
@@ -853,6 +882,8 @@ otp_5854(doc) ->
 otp_5854(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
 
+    ?line dummy_via:reset(),
+
     %% Make sure gen_server:enter_loop does not accept {local,Name}
     %% when it's another process than the calling one which is
     %% registered under that name
@@ -880,6 +911,18 @@ otp_5854(Config) when is_list(Config) ->
 	    ?line test_server:fail(gen_server_started)
     end,
     global:unregister_name(armitage),
+
+    %% (same for {via, Mod, Name})
+    dummy_via:register_name(armitage, self()),
+    ?line {ok, Pid3} =
+	start_link(spec_init_via, [{not_ok, armitage}, []]),
+    receive
+	{'EXIT', Pid3, {process_not_registered_via, dummy_via}} ->
+	    ok
+    after 1000 ->
+	    ?line test_server:fail(gen_server_started)
+    end,
+    dummy_via:unregister_name(armitage),
 
     process_flag(trap_exit, OldFlag),
     ok.
@@ -1060,7 +1103,22 @@ spec_init_global({not_ok, Name}, Options) ->
     %% Supervised init can occur here  ...
     gen_server:enter_loop(?MODULE, Options, {}, {global, Name}, infinity).
 
-spec_init_default_timeout({ok, Name}, Options) -> 
+spec_init_via({ok, Name}, Options) ->
+    process_flag(trap_exit, true),
+    dummy_via:register_name(Name, self()),
+    proc_lib:init_ack({ok, self()}),
+    %% Supervised init can occur here  ...
+    gen_server:enter_loop(?MODULE, Options, {},
+			  {via, dummy_via, Name}, infinity);
+
+spec_init_via({not_ok, Name}, Options) ->
+    process_flag(trap_exit, true),
+    proc_lib:init_ack({ok, self()}),
+    %% Supervised init can occur here  ...
+    gen_server:enter_loop(?MODULE, Options, {},
+			  {via, dummy_via, Name}, infinity).
+
+spec_init_default_timeout({ok, Name}, Options) ->
     process_flag(trap_exit, true),
     register(Name, self()),
     proc_lib:init_ack({ok, self()}),

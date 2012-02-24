@@ -21,11 +21,11 @@
 -include_lib("test_server/include/test_server.hrl").
 
 %% Test cases
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
--export([ start1/1, start2/1, start3/1, start4/1 , start5/1, start6/1,
-	 start7/1, start8/1, start9/1, start10/1, start11/1]).
+-export([start1/1, start2/1, start3/1, start4/1, start5/1, start6/1,
+	 start7/1, start8/1, start9/1, start10/1, start11/1, start12/1]).
 
 -export([ abnormal1/1, abnormal2/1]).
 
@@ -56,14 +56,14 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [{group, start}, {group, abnormal}, shutdown,
      {group, sys}, hibernate, enter_loop].
 
-groups() -> 
+groups() ->
     [{start, [],
       [start1, start2, start3, start4, start5, start6, start7,
-       start8, start9, start10, start11]},
+       start8, start9, start10, start11, start12]},
      {abnormal, [], [abnormal1, abnormal2]},
      {sys, [],
       [sys1, call_format_status, error_format_status]}].
@@ -258,6 +258,25 @@ start11(Config) when is_list(Config) ->
     test_server:messages_get(),
     ok.
 
+%% Via register linked
+start12(Config) when is_list(Config) ->
+    ?line dummy_via:reset(),
+    ?line {ok, Pid} =
+	gen_fsm:start_link({via, dummy_via, my_fsm}, gen_fsm_SUITE, [], []),
+    ?line {error, {already_started, Pid}} =
+	gen_fsm:start_link({via, dummy_via, my_fsm}, gen_fsm_SUITE, [], []),
+    ?line {error, {already_started, Pid}} =
+	gen_fsm:start({via, dummy_via, my_fsm}, gen_fsm_SUITE, [], []),
+
+    ?line ok = do_func_test(Pid),
+    ?line ok = do_sync_func_test(Pid),
+    ?line ok = do_func_test({via, dummy_via, my_fsm}),
+    ?line ok = do_sync_func_test({via, dummy_via, my_fsm}),
+    ?line stop_it({via, dummy_via, my_fsm}),
+
+    test_server:messages_get(),
+    ok.
+
 
 %% Check that time outs in calls work
 abnormal1(suite) -> [];
@@ -362,7 +381,25 @@ call_format_status(Config) when is_list(Config) ->
     ?line Status4 = sys:get_status(GlobalName2),
     ?line {status, Pid4, _Mod, [_PDict4, running, _, _, Data4]} = Status4,
     ?line [format_status_called | _] = lists:reverse(Data4),
-    ?line stop_it(Pid4).
+    ?line stop_it(Pid4),
+
+    %% check that format_status can handle a name being a term other than a
+    %% pid or atom
+    ?line dummy_via:reset(),
+    ViaName1 = {via, dummy_via, "CallFormatStatus"},
+    ?line {ok, Pid5} = gen_fsm:start(ViaName1, gen_fsm_SUITE, [], []),
+    ?line Status5 = sys:get_status(ViaName1),
+    ?line {status, Pid5, _Mod, [_PDict5, running, _, _, Data5]} = Status5,
+    ?line [format_status_called | _] = lists:reverse(Data5),
+    ?line stop_it(Pid5),
+    ViaName2 = {via, dummy_via, {name, "term"}},
+    ?line {ok, Pid6} = gen_fsm:start(ViaName2, gen_fsm_SUITE, [], []),
+    ?line Status6 = sys:get_status(ViaName2),
+    ?line {status, Pid6, _Mod, [_PDict6, running, _, _, Data6]} = Status6,
+    ?line [format_status_called | _] = lists:reverse(Data6),
+    ?line stop_it(Pid6).
+
+
 
 error_format_status(Config) when is_list(Config) ->
     ?line error_logger_forwarder:register(),
@@ -520,6 +557,8 @@ enter_loop(doc) ->
 enter_loop(Config) when is_list(Config) ->
     OldFlag = process_flag(trap_exit, true),
 
+    ?line dummy_via:reset(),
+
     %% Locally registered process + {local, Name}
     ?line {ok, Pid1a} =
 	proc_lib:start_link(?MODULE, enter_loop, [local, local]),
@@ -623,9 +662,21 @@ enter_loop(Config) when is_list(Config) ->
 	{'EXIT', Pid6b, process_not_registered_globally} ->
 	    ok
     after 1000 ->
-	    ?line test_server:fail(gen_server_started)
+	    ?line test_server:fail(gen_fsm_started)
     end,
     global:unregister_name(armitage),
+
+    dummy_via:register_name(armitage, self()),
+    ?line {ok, Pid6c} =
+	proc_lib:start_link(?MODULE, enter_loop, [anon, via]),
+    receive
+	{'EXIT', Pid6c, {process_not_registered_via, dummy_via}} ->
+	    ok
+    after 1000 ->
+	    ?line test_server:fail({gen_fsm_started, process_info(self(),
+								 messages)})
+    end,
+    dummy_via:unregister_name(armitage),
 
     process_flag(trap_exit, OldFlag),
     ok.
@@ -635,6 +686,7 @@ enter_loop(Reg1, Reg2) ->
     case Reg1 of
 	local -> register(armitage, self());
 	global -> global:register_name(armitage, self());
+	via -> dummy_via:register_name(armitage, self());
 	anon -> ignore
     end,
     proc_lib:init_ack({ok, self()}),
@@ -643,6 +695,9 @@ enter_loop(Reg1, Reg2) ->
 	    gen_fsm:enter_loop(?MODULE, [], state0, [], {local,armitage});
 	global ->
 	    gen_fsm:enter_loop(?MODULE, [], state0, [], {global,armitage});
+	via ->
+	    gen_fsm:enter_loop(?MODULE, [], state0, [],
+			       {via, dummy_via, armitage});
 	anon ->
 	    gen_fsm:enter_loop(?MODULE, [], state0, [])
     end.

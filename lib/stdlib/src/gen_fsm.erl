@@ -165,7 +165,7 @@
 %%% start(Name, Mod, Args, Options)
 %%% start_link(Mod, Args, Options)
 %%% start_link(Name, Mod, Args, Options) where:
-%%%    Name ::= {local, atom()} | {global, atom()}
+%%%    Name ::= {local, atom()} | {global, atom()} | {via, atom(), term()}
 %%%    Mod  ::= atom(), callback module implementing the 'real' fsm
 %%%    Args ::= term(), init arguments (to Mod:init/1)
 %%%    Options ::= [{debug, [Flag]}]
@@ -191,6 +191,9 @@ start_link(Name, Mod, Args, Options) ->
 send_event({global, Name}, Event) ->
     catch global:send(Name, {'$gen_event', Event}),
     ok;
+send_event({via, Mod, Name}, Event) ->
+    catch Mod:send(Name, {'$gen_event', Event}),
+    ok;
 send_event(Name, Event) ->
     Name ! {'$gen_event', Event},
     ok.
@@ -213,6 +216,9 @@ sync_send_event(Name, Event, Timeout) ->
 
 send_all_state_event({global, Name}, Event) ->
     catch global:send(Name, {'$gen_all_state_event', Event}),
+    ok;
+send_all_state_event({via, Mod, Name}, Event) ->
+    catch Mod:send(Name, {'$gen_all_state_event', Event}),
     ok;
 send_all_state_event(Name, Event) ->
     Name ! {'$gen_all_state_event', Event},
@@ -273,7 +279,10 @@ cancel_timer(Ref) ->
 enter_loop(Mod, Options, StateName, StateData) ->
     enter_loop(Mod, Options, StateName, StateData, self(), infinity).
 
-enter_loop(Mod, Options, StateName, StateData, ServerName = {_,_}) ->
+enter_loop(Mod, Options, StateName, StateData, {Scope,_} = ServerName)
+  when Scope == local; Scope == global ->
+    enter_loop(Mod, Options, StateName, StateData, ServerName,infinity);
+enter_loop(Mod, Options, StateName, StateData, {via,_,_} = ServerName) ->
     enter_loop(Mod, Options, StateName, StateData, ServerName,infinity);
 enter_loop(Mod, Options, StateName, StateData, Timeout) ->
     enter_loop(Mod, Options, StateName, StateData, self(), Timeout).
@@ -303,6 +312,15 @@ get_proc_name({global, Name}) ->
 	    Name;
 	_Pid ->
 	    exit(process_not_registered_globally)
+    end;
+get_proc_name({via, Mod, Name}) ->
+    case Mod:whereis_name(Name) of
+	undefined ->
+	    exit({process_not_registered_via, Mod});
+	Pid when Pid =:= self() ->
+	    Name;
+	_Pid ->
+	    exit({process_not_registered_via, Mod})
     end.
 
 get_parent() ->
@@ -367,12 +385,15 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 
 name({local,Name}) -> Name;
 name({global,Name}) -> Name;
+name({via,_, Name}) -> Name;
 name(Pid) when is_pid(Pid) -> Pid.
 
 unregister_name({local,Name}) ->
     _ = (catch unregister(Name));
 unregister_name({global,Name}) ->
     _ = global:unregister_name(Name);
+unregister_name({via, Mod, Name}) ->
+    _ = Mod:unregister_name(Name);
 unregister_name(Pid) when is_pid(Pid) ->
     Pid.
 
