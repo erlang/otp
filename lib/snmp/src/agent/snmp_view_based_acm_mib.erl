@@ -115,7 +115,7 @@ do_reconfigure(Dir) ->
 
 read_vacm_config_files(Dir) ->
     ?vdebug("read vacm config file",[]),
-    Gen    = fun(_) -> ok end,
+    Gen    = fun(_D, _Reason) -> ok end,
     Filter = fun(Vacms) -> 
                      Sec2Group = [X || {vacmSecurityToGroup, X} <- Vacms],
                      Access = [X || {vacmAccess, X} <- Vacms],

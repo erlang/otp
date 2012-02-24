@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -71,6 +71,18 @@
 
 %%-----------------------------------------------------------------
 
+%% read_files(Dir, Files) -> Configs
+%% Dir      - string()   - Full path to the config dir.
+%% Files    - [{Gen, Filter, Check, FileName}]
+%% Gen      - function/2 - In case of failure when reading the config file, 
+%%                         this function is called to either generate a
+%%                         default file or issue the error.
+%% Filter   - function/1 - Filters all the config entries read from the file
+%% Check    - function/1 - Check each entry as they are read from the file.
+%% FileName - string()   - Name of the config file.
+%% Configs  - [config_entry()]
+%% config_entry() - term()
+
 read_files(Dir, Files) when is_list(Dir) andalso is_list(Files) ->
     read_files(Dir, Files, []).
 
@@ -90,7 +102,7 @@ read_files(Dir, [{Gen, Filter, Check, FileName}|Files], Res)
         {error, R} ->
 	    ?vlog("failed reading file info for ~s: "
 		  "~n   ~p", [FileName, R]),
-            Gen(Dir),
+            Gen(Dir, R),
             read_files(Dir, Files, [Filter([])|Res])
     end.
 
@@ -99,6 +111,7 @@ read_files(Dir, [{Gen, Filter, Check, FileName}|Files], Res)
 read(File, Check) when is_function(Check) -> 
     ?vdebug("read -> entry with"
 	"~n   File: ~p", [File]),
+
     Fd = open_file(File),
 
     case loop(Fd, [], Check, 1, File) of
