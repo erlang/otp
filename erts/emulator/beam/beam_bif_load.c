@@ -35,7 +35,6 @@
 #include "erl_nif.h"
 #include "erl_thr_progress.h"
 
-static Eterm staging_epilogue(Process* c_p, int, Eterm res, int);
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp);
 static void delete_code(Module* modp);
@@ -146,6 +145,8 @@ struct m {
     Module* modp;
     Uint exception;
 };
+
+static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int);
 
 static Eterm
 exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
@@ -309,14 +310,12 @@ finish_loading_1(BIF_ALIST_1)
     }
 
 done:
-    if (p) {
-	erts_free(ERTS_ALC_T_LOADER_TMP, p);
-    }
-    return staging_epilogue(BIF_P, do_commit, res, is_blocking);
+    return staging_epilogue(BIF_P, do_commit, res, is_blocking, p, n);
 }
 
 static Eterm
-staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
+staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
+		 struct m* loaded, int nloaded)
 {    
 #ifdef ERTS_SMP
     if (is_blocking || !commit)
@@ -325,9 +324,18 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
 	if (commit) {
 	    erts_end_staging_code_ix();
 	    erts_commit_staging_code_ix();
+	    if (loaded) {
+		int i;
+		for (i=0; i < nloaded; i++) {		
+		    set_default_trace_pattern(loaded[i].module);
+		}
+	    }
 	}
 	else {
 	    erts_abort_staging_code_ix();
+	}
+	if (loaded) {
+	    erts_free(ERTS_ALC_T_LOADER_TMP, loaded);
 	}
 	if (is_blocking) {
 	    erts_smp_thr_progress_unblock();
@@ -341,6 +349,9 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking)
 	ErtsThrPrgrVal later;
 	ASSERT(is_value(res));
 
+	if (loaded) {
+	    erts_free(ERTS_ALC_T_LOADER_TMP, loaded);
+	}
 	erts_end_staging_code_ix();
 	/*
 	 * Now we must wait for all schedulers to do a memory barrier before
@@ -496,7 +507,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 	    success = 1;
 	}
     }
-    return staging_epilogue(BIF_P, success, res, is_blocking);  
+    return staging_epilogue(BIF_P, success, res, is_blocking, NULL, 0);  
 }
 
 BIF_RETTYPE module_loaded_1(BIF_ALIST_1)
