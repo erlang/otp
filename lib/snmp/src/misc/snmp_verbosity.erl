@@ -76,7 +76,7 @@ format_timestamp({_N1, _N2, N3} = Now) ->
     {YYYY,MM,DD}   = Date,
     {Hour,Min,Sec} = Time,
     FormatDate =
-        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
+        io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w ~w",
                       [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
     lists:flatten(FormatDate).
 
