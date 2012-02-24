@@ -743,3 +743,8 @@ class EwxHtmlWindow : public wxHtmlWindow {
  EwxHtmlWindow() : wxHtmlWindow() {};
 };
 
+class EwxTaskBarIcon : public wxTaskBarIcon {
+ public: ~EwxTaskBarIcon() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxTaskBarIcon() : wxTaskBarIcon() {};
+};
+

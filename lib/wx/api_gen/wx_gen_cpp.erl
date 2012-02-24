@@ -1061,6 +1061,7 @@ gen_macros() ->
     w("#include <wx/toolbook.h>~n"),
     w("#include <wx/listbook.h>~n"),
     w("#include <wx/treebook.h>~n"),
+    w("#include <wx/taskbar.h>~n"),
     w("#include <wx/html/htmlwin.h>~n"),
     w("#include <wx/html/htmlcell.h>~n"),
     w("#include <wx/filename.h>~n"),

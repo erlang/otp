@@ -31336,6 +31336,43 @@ case wxLogNull_destroy: { // wxLogNull::destroy
    delete This;}
  break;
 }
+case wxTaskBarIcon_new: { // wxTaskBarIcon::wxTaskBarIcon
+ wxTaskBarIcon * Result = new EwxTaskBarIcon();
+ newPtr((void *) Result, 1, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxTaskBarIcon");
+ break;
+}
+case wxTaskBarIcon_PopupMenu: { // wxTaskBarIcon::PopupMenu
+ wxTaskBarIcon *This = (wxTaskBarIcon *) getPtr(bp,memenv); bp += 4;
+ wxMenu *menu = (wxMenu *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->PopupMenu(menu);
+ rt.addBool(Result);
+ break;
+}
+case wxTaskBarIcon_RemoveIcon: { // wxTaskBarIcon::RemoveIcon
+ wxTaskBarIcon *This = (wxTaskBarIcon *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->RemoveIcon();
+ rt.addBool(Result);
+ break;
+}
+case wxTaskBarIcon_SetIcon: { // wxTaskBarIcon::SetIcon
+ wxString tooltip= wxEmptyString;
+ wxTaskBarIcon *This = (wxTaskBarIcon *) getPtr(bp,memenv); bp += 4;
+ wxIcon *icon = (wxIcon *) getPtr(bp,memenv); bp += 4;
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ int * tooltipLen = (int *) bp; bp += 4;
+ tooltip = wxString(bp, wxConvUTF8);
+ bp += *tooltipLen+((8-((0+ *tooltipLen) & 7)) & 7);
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->SetIcon(*icon,tooltip);
+ rt.addBool(Result);
+ break;
+}
   default: {
     wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);    error.addAtom("_wxe_error_");
     error.addInt((int) Ecmd.op);

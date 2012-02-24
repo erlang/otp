@@ -3295,3 +3295,8 @@
 -define(wxAuiManagerEvent_CanVeto, 3516).
 -define(wxLogNull_new, 3517).
 -define(wxLogNull_destroy, 3518).
+-define(wxTaskBarIcon_new, 3519).
+-define(wxTaskBarIcon_destruct, 3520).
+-define(wxTaskBarIcon_PopupMenu, 3521).
+-define(wxTaskBarIcon_RemoveIcon, 3522).
+-define(wxTaskBarIcon_SetIcon, 3523).

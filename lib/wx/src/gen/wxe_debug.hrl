@@ -3298,6 +3298,11 @@ wxdebug_table() ->
  {3516, {wxAuiManagerEvent, canVeto, 0}},
  {3517, {wxLogNull, new, 0}},
  {3518, {wxLogNull, 'Destroy', undefined}},
+ {3519, {wxTaskBarIcon, new, 0}},
+ {3520, {wxTaskBarIcon, destruct, 0}},
+ {3521, {wxTaskBarIcon, popupMenu, 1}},
+ {3522, {wxTaskBarIcon, removeIcon, 0}},
+ {3523, {wxTaskBarIcon, setIcon, 2}},
  {-1, {mod, func, -1}}
 ].
 

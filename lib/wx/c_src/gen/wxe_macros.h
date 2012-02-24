@@ -57,6 +57,7 @@
 #include <wx/toolbook.h>
 #include <wx/listbook.h>
 #include <wx/treebook.h>
+#include <wx/taskbar.h>
 #include <wx/html/htmlwin.h>
 #include <wx/html/htmlcell.h>
 #include <wx/filename.h>
@@ -3344,5 +3345,10 @@
 #define wxAuiManagerEvent_CanVeto 3516
 #define wxLogNull_new 3517
 #define wxLogNull_destroy 3518
+#define wxTaskBarIcon_new 3519
+#define wxTaskBarIcon_destruct 3520
+#define wxTaskBarIcon_PopupMenu 3521
+#define wxTaskBarIcon_RemoveIcon 3522
+#define wxTaskBarIcon_SetIcon 3523
 
 
