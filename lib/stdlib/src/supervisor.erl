@@ -566,13 +566,12 @@ check_flags(What) ->
     {bad_flags, What}.
 
 update_childspec(State, StartSpec) when ?is_simple(State) ->
-    case check_startspec(StartSpec) of                        
-        {ok, [Child]} ->                                      
-            {ok, State#state{children = [Child]}};            
-        Error ->                                              
-            {error, Error}                                    
-    end;                                                      
-
+    case check_startspec(StartSpec) of
+        {ok, [Child]} ->
+            {ok, State#state{children = [Child]}};
+        Error ->
+            {error, Error}
+    end;
 update_childspec(State, StartSpec) ->
     case check_startspec(StartSpec) of
 	{ok, Children} ->
@@ -592,7 +591,7 @@ update_childspec1([Child|OldC], Children, KeepOld) ->
     end;
 update_childspec1([], Children, KeepOld) ->
     %% Return them in (kept) reverse start order.
-    lists:reverse(Children ++ KeepOld).  
+    lists:reverse(Children ++ KeepOld).
 
 update_chsp(OldCh, Children) ->
     case lists:map(fun(Ch) when OldCh#child.name =:= Ch#child.name ->
