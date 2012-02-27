@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -50,7 +50,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [calendarCtrl, treeCtrl, notebook, staticBoxSizer,
      clipboard, helpFrame, htmlWindow, listCtrlSort, listCtrlVirtual,
-     radioBox, systemSettings].
+     radioBox, systemSettings, taskBarIcon].
 
 groups() ->
     [].
@@ -469,4 +469,16 @@ textCtrl(Config) ->
     wxTextCtrl:appendText(TC, "This line is in default color\n"),
     wxTextAttr:destroy(Attr),
     wxWindow:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
+
+taskBarIcon(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+taskBarIcon(Config) ->
+    Wx = wx:new(),
+    Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
+    TBI = wxTaskBarIcon:new(),
+    Icon = wxIcon:new(filename:join(code:priv_dir(debugger), "erlang_bug.png")),
+    wxTaskBarIcon:setIcon(TBI, Icon, [{tooltip, "Testing wxTaskBarIcon"}]),
+    wxWindow:show(Frame),
+    wxTaskBarIcon:connect(TBI, taskbar_left_down, [{callback, fun(Ev,_) -> io:format("Left clicked: ~p~n",[Ev]) end}]),
+    wxTaskBarIcon:connect(TBI, taskbar_right_down, [{callback,fun(Ev,_) -> io:format("Right clicked: ~p~n",[Ev]) end}]),
     wx_test_lib:wx_destroy(Frame,Config).
