@@ -258,12 +258,11 @@ refine_one_module(M, {CodeServer, Callgraph, Plt}) ->
   NewFunTypes =
     dialyzer_dataflow:get_fun_types(ModCode, Plt, Callgraph, Records),
   case reached_fixpoint(FunTypes, NewFunTypes) of
-    true ->
-      ordsets:new();
+    true -> [];
     {false, NotFixpoint} ->
       ?debug("Not fixpoint\n", []),
       Plt = insert_into_plt(dict:from_list(NotFixpoint), Callgraph, Plt),
-      ordsets:from_list([FunLbl || {FunLbl,_Type} <- NotFixpoint])
+      [FunLbl || {FunLbl,_Type} <- NotFixpoint]
   end.
 
 reached_fixpoint(OldTypes, NewTypes) ->
@@ -382,7 +381,7 @@ find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt}) ->
     true -> [];
     false ->
       ?debug("Not fixpoint for: ~w\n", [AllFuns]),
-      ordsets:from_list([Fun || {Fun, _Arity} <- AllFuns])
+      [Fun || {Fun, _Arity} <- AllFuns]
   end.
 
 get_fun_types_from_plt(FunList, Callgraph, Plt) ->

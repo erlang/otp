@@ -260,7 +260,7 @@ handle_cast({done, Job, NewData},
     case Mode of
       X when X =:= 'typesig'; X =:= 'dataflow' ->
 	FinalData = dialyzer_succ_typings:lookup_names(NewData, Servers),
-	ordsets:union(OldResult, FinalData);
+	FinalData ++ OldResult;
       'compile' ->
 	dialyzer_analysis_callgraph:add_to_result(Job, NewData, OldResult);
       'warnings' ->
