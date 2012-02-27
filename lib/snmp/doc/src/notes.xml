@@ -69,6 +69,12 @@
 	  <p>Own Id: OTP-9942</p>
         </item>
 
+        <item>
+          <p>[agent] Improve error handling while reading agent config files. 
+	  Some files contain mandatory information and is therefor themself
+	  mandatory. </p>
+	  <p>Own Id: OTP-9943</p>
+        </item>
       </list>
 
     </section>
