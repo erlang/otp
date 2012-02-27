@@ -209,9 +209,8 @@ init({Parent, Mode, InitJobData}) ->
   Tickets =
     case Mode of
       'compile' -> 4*BaseTickets;
-      'typesig' -> BaseTickets*BaseTickets;
-      'dataflow' -> 4*BaseTickets;
-      'warnings' -> 4*BaseTickets
+      'warnings' -> 4*BaseTickets;
+      _ -> non_regulated
     end,
   InitState =
     #state{parent = Parent, mode = Mode, init_job_data = InitJobData,
@@ -239,15 +238,19 @@ handle_call({get_next_label, EstimatedSize}, _From,
 -spec handle_cast(Msg::term(), #state{}) ->
 		     {noreply, #state{}} | {stop, normal, #state{}}.
 
+handle_cast({done, _Job, NewData},
+	    #state{mode = Mode, result = OldResult,
+		   init_job_data = Servers} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+  FinalData = dialyzer_succ_typings:lookup_names(NewData, Servers),
+  UpdatedState = State#state{result = FinalData ++ OldResult},
+  reduce_or_stop(UpdatedState);
 handle_cast({done, Job, NewData},
 	    #state{mode = Mode,
-		   spawn_count = SpawnCount,
-		   all_spawned = AllSpawned,
 		   result = OldResult,
-		   init_job_data = Servers,
 		   tickets = Tickets,
-		   queue = Queue
-		  } = State) ->
+		   queue = Queue} = State)  when
+    Mode =:= 'compile'; Mode =:= 'warnings' ->
   {Waiting, NewQueue} = queue:out(Queue),
   NewTickets =
     case Waiting of
@@ -258,9 +261,6 @@ handle_cast({done, Job, NewData},
     end,
   NewResult =
     case Mode of
-      X when X =:= 'typesig'; X =:= 'dataflow' ->
-	FinalData = dialyzer_succ_typings:lookup_names(NewData, Servers),
-	FinalData ++ OldResult;
       'compile' ->
 	dialyzer_analysis_callgraph:add_to_result(Job, NewData, OldResult);
       'warnings' ->
@@ -268,23 +268,7 @@ handle_cast({done, Job, NewData},
     end,
   UpdatedState =
     State#state{result = NewResult, tickets = NewTickets, queue = NewQueue},
-  Action =
-    case AllSpawned of
-      false -> reduce;
-      true ->
-	case SpawnCount of
-	  1 -> finish;
-	  _ -> reduce
-	end
-    end,
-  case Action of
-    reduce ->
-      NewState = UpdatedState#state{spawn_count = SpawnCount - 1},
-      {noreply, NewState};
-    finish ->
-      send_done_to_parent(UpdatedState),
-      {stop, normal, State}
-  end;
+  reduce_or_stop(UpdatedState);
 handle_cast(all_spawned, #state{spawn_count = SpawnCount} = State) ->
   case SpawnCount of
     0 ->
@@ -307,22 +291,24 @@ handle_cast({request_activation, Pid},
 handle_cast({scc_spawn, SCC},
 	    #state{mode = Mode,
 		   init_job_data = Servers,
+		   spawn_count = SpawnCount} = State) when
+    Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+  Pid = dialyzer_worker:launch(Mode, SCC, Servers, self()),
+  true = ets:insert(?MAP, {SCC, Pid}),
+  {noreply, State#state{spawn_count = SpawnCount + 1}};
+handle_cast({scc_spawn, SCC},
+	    #state{mode = 'warnings',
+		   init_job_data = Servers,
 		   spawn_count = SpawnCount,
 		   tickets = Tickets,
 		   queue = Queue} = State) ->
-  Pid = dialyzer_worker:launch(Mode, SCC, Servers, self()),
+  Pid = dialyzer_worker:launch('warnings', SCC, Servers, self()),
   {NewTickets, NewQueue} =
-    case Mode of
-      X when X =:= 'typesig'; X =:= 'dataflow' ->
-	true = ets:insert(?MAP, {SCC, Pid}),
-	{Tickets, Queue};
-    warnings ->
-	case Tickets of
-	  0 -> {Tickets, queue:in(Pid, Queue)};
-	  N ->
-	    activate_pid(Pid),
-	    {N-1, Queue}
-	end
+    case Tickets of
+      0 -> {Tickets, queue:in(Pid, Queue)};
+      N ->
+	activate_pid(Pid),
+	{N-1, Queue}
     end,
   {noreply, State#state{spawn_count = SpawnCount + 1,
 			tickets = NewTickets,
@@ -373,3 +359,23 @@ cast(Message, Coordinator) ->
 
 call(Message, Coordinator) ->
   gen_server:call(Coordinator, Message, infinity).
+
+reduce_or_stop(#state{all_spawned = AllSpawned,
+		      spawn_count = SpawnCount} = State) ->
+  Action =
+    case AllSpawned of
+      false -> reduce;
+      true ->
+	case SpawnCount of
+	  1 -> finish;
+	  _ -> reduce
+	end
+    end,
+  case Action of
+    reduce ->
+      NewState = State#state{spawn_count = SpawnCount - 1},
+      {noreply, NewState};
+    finish ->
+      send_done_to_parent(State),
+      {stop, normal, State}
+  end.
