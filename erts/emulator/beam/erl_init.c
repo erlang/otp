@@ -56,6 +56,61 @@
 #endif
 
 /*
+ * The variables below (prefixed with etp_) are for erts/etc/unix/etp-commands
+ * only. Do not remove even though they aren't used elsewhere in the emulator!
+ */
+#ifdef ERTS_SMP
+const int etp_smp_compiled = 1;
+#else
+const int etp_smp_compiled = 0;
+#endif
+#ifdef USE_THREADS
+const int etp_thread_compiled = 1;
+#else
+const int etp_thread_compiled = 0;
+#endif
+const char etp_erts_version[] = ERLANG_VERSION;
+const char etp_otp_release[] = ERLANG_OTP_RELEASE;
+const char etp_compile_date[] = ERLANG_COMPILE_DATE;
+const char etp_arch[] = ERLANG_ARCHITECTURE;
+#ifdef ERTS_ENABLE_KERNEL_POLL
+const int etp_kernel_poll_support = 1;
+#else
+const int etp_kernel_poll_support = 0;
+#endif
+#if defined(ARCH_64)
+const int etp_arch_bits = 64;
+#elif defined(ARCH_32)
+const int etp_arch_bits = 32;
+#else
+# error "Not 64-bit, nor 32-bit arch"
+#endif
+#if HALFWORD_HEAP
+const int etp_halfword = 1;
+#else
+const int etp_halfword = 0;
+#endif
+#ifdef HIPE
+const int etp_hipe = 1;
+#else
+const int etp_hipe = 0;
+#endif
+#ifdef DEBUG
+const int etp_debug_compiled = 1;
+#else
+const int etp_debug_compiled = 0;
+#endif
+#ifdef ERTS_ENABLE_LOCK_COUNT
+const int etp_lock_count = 1;
+#else
+const int etp_lock_count = 0;
+#endif
+#ifdef ERTS_ENABLE_LOCK_CHECK
+const int etp_lock_check = 1;
+#else
+const int etp_lock_check = 0;
+#endif
+/*
  * Note about VxWorks: All variables must be initialized by executable code,
  * not by an initializer. Otherwise a new instance of the emulator will
  * inherit previous values.
