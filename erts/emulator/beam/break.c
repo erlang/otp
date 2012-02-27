@@ -73,8 +73,8 @@ process_info(int to, void *to_arg)
     for (i = 0; i < erts_max_processes; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
-	   if (p->status != P_EXITING)
-	       print_process_info(to, to_arg, p);
+	    if (!ERTS_PROC_IS_EXITING(p))
+		print_process_info(to, to_arg, p);
 	}
     }
 
@@ -99,11 +99,20 @@ process_killer(void)
 		if ((j = sys_get_key(0)) <= 0)
 		    erl_exit(0, "");
 		switch(j) {
-		case 'k':
-		    if (rp->status == P_WAITING) {
-			ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-			erts_smp_proc_inc_refc(rp);
-			erts_smp_proc_lock(rp, rp_locks);
+		case 'k': {
+		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
+		    erts_aint32_t state;
+		    erts_smp_proc_inc_refc(rp);
+		    erts_smp_proc_lock(rp, rp_locks);
+		    state = erts_smp_atomic32_read_acqb(&rp->state);
+		    if (state & (ERTS_PSFLG_FREE
+				  | ERTS_PSFLG_EXITING
+				  | ERTS_PSFLG_ACTIVE
+				  | ERTS_PSFLG_IN_RUNQ
+				  | ERTS_PSFLG_RUNNING)) {
+			erts_printf("Can only kill WAITING processes this way\n");
+		    }
+		    else {
 			(void) erts_send_exit_signal(NULL,
 						     NIL,
 						     rp,
@@ -112,12 +121,10 @@ process_killer(void)
 						     NIL,
 						     NULL,
 						     0);
-			erts_smp_proc_unlock(rp, rp_locks);
-			erts_smp_proc_dec_refc(rp);
 		    }
-		    else
-			erts_printf("Can only kill WAITING processes this way\n");
-
+		    erts_smp_proc_unlock(rp, rp_locks);
+		    erts_smp_proc_dec_refc(rp);
+		}
 		case 'n': br = 1; break;
 		case 'r': return;
 		default: return;
@@ -186,38 +193,34 @@ print_process_info(int to, void *to_arg, Process *p)
     int garbing = 0;
     int running = 0;
     struct saved_calls *scb;
+    erts_aint32_t state;
 
     /* display the PID */
     erts_print(to, to_arg, "=proc:%T\n", p->id);
 
     /* Display the state */
     erts_print(to, to_arg, "State: ");
-    switch (p->status) {
-    case P_FREE:
+
+    state = erts_smp_atomic32_read_acqb(&p->state);
+    if (state & ERTS_PSFLG_FREE)
 	erts_print(to, to_arg, "Non Existing\n"); /* Should never happen */
-	break;
-    case P_RUNABLE:
-	erts_print(to, to_arg, "Scheduled\n");
-	break;
-    case P_WAITING:
-	erts_print(to, to_arg, "Waiting\n");
-	break;
-    case P_SUSPENDED:
-	erts_print(to, to_arg, "Suspended\n");
-	break;
-    case P_RUNNING:
-	erts_print(to, to_arg, "Running\n");
-	running = 1;
-	break;
-    case P_EXITING:
+    else if (state & ERTS_PSFLG_EXITING)
 	erts_print(to, to_arg, "Exiting\n");
-	break;
-    case P_GARBING:
-	erts_print(to, to_arg, "Garbing\n");
+    else if (state & ERTS_PSFLG_GC) {
 	garbing = 1;
 	running = 1;
-	break;
+	erts_print(to, to_arg, "Garbing\n");
     }
+    else if (state & ERTS_PSFLG_SUSPENDED)
+	erts_print(to, to_arg, "Suspended\n");
+    else if (state & ERTS_PSFLG_RUNNING) {
+	running = 1;
+	erts_print(to, to_arg, "Running\n");
+    }
+    else if (state & ERTS_PSFLG_ACTIVE)
+	erts_print(to, to_arg, "Scheduled\n");
+    else
+	erts_print(to, to_arg, "Waiting\n");
 
     /*
      * If the process is registered as a global process, display the

@@ -1666,12 +1666,20 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
     }
 
 #ifndef ERTS_SMP
-    if (
 #ifdef USE_THREADS
-	!erts_get_scheduler_data() || /* Must be scheduler thread */
+    p = NULL;
+    if (erts_get_scheduler_data()) /* Must be scheduler thread */
 #endif
-	(p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0)) == NULL
-	|| p->status == P_RUNNING) {
+    {
+	p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
+	if (p) {
+	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
+	    if (state & ERTS_PSFLG_RUNNING)
+		p = NULL;
+	}
+    }
+
+    if (!p) {
 	/* buf *always* points to a null terminated string */
 	erts_fprintf(stderr, "(no error logger present) %T: \"%s\"\n",
 		     tag, buf);

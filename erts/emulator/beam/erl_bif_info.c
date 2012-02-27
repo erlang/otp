@@ -1355,13 +1355,15 @@ process_info_aux(Process *BIF_P,
 	hp = HAlloc(BIF_P, 3);
 	break;
 
-    case am_trap_exit:
+    case am_trap_exit: {
+	erts_aint32_t state = erts_smp_atomic32_read_nob(&rp->state);
 	hp = HAlloc(BIF_P, 3);
-	if (rp->flags  & F_TRAPEXIT)
+	if (state & ERTS_PSFLG_TRAP_EXIT)
 	    res = am_true;
 	else
 	    res = am_false;
 	break;
+    }
 
     case am_error_handler:
 	hp = HAlloc(BIF_P, 3);
@@ -3144,14 +3146,8 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
 	   BIF_RET(am_false);
        }
        else {
-	   int px;
-#ifdef ERTS_SMP
-	   px = (erts_atomic32_read_acqb(&rp->aflags)
-		 & (ERTS_PROC_AFLG_PENDING_EXIT|ERTS_PROC_AFLG_EXITING));
-#else
-	   px = 0;
-#endif
-	   if (px)
+	   if (erts_smp_atomic32_read_acqb(&rp->state)
+		 & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING))
 	       ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_false);
 	   else
 	       BIF_RET(am_true);

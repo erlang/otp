@@ -143,8 +143,8 @@ typedef struct ErtsXPortsList_ ErtsXPortsList;
 struct port {
     ErtsPortTaskSched sched;
     ErtsPortTaskHandle timeout_task;
-#ifdef ERTS_SMP
     erts_smp_atomic_t refc;
+#ifdef ERTS_SMP
     erts_smp_mtx_t *lock;
     ErtsXPortsList *xports;
     erts_smp_atomic_t run_queue;
@@ -196,6 +196,8 @@ erts_port_runq(Port *prt)
 #ifdef ERTS_SMP
     ErtsRunQueue *rq1, *rq2;
     rq1 = (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue);
+    if (!rq1)
+	return NULL;
     while (1) {
 	erts_smp_runq_lock(rq1);
 	rq2 = (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue);
@@ -203,6 +205,8 @@ erts_port_runq(Port *prt)
 	    return rq1;
 	erts_smp_runq_unlock(rq1);
 	rq1 = rq2;
+	if (!rq1)
+	    return NULL;
     }
 #else
     return ERTS_RUNQ_IX(0);
@@ -1220,28 +1224,29 @@ erts_smp_port_state_unlock(Port *prt)
 ERTS_GLB_INLINE int
 erts_smp_port_trylock(Port *prt)
 {
-#ifdef ERTS_SMP
     int res;
 
     ASSERT(erts_smp_atomic_read_nob(&prt->refc) > 0);
     erts_smp_atomic_inc_nob(&prt->refc);
+
+#ifdef ERTS_SMP
     res = erts_smp_mtx_trylock(prt->lock);
     if (res == EBUSY) {
 	erts_smp_atomic_dec_nob(&prt->refc);
     }
+#else
+    res = 0;
+#endif
 
     return res;
-#else /* !ERTS_SMP */
-    return 0;
-#endif
 }
 
 ERTS_GLB_INLINE void
 erts_smp_port_lock(Port *prt)
 {
-#ifdef ERTS_SMP
     ASSERT(erts_smp_atomic_read_nob(&prt->refc) > 0);
     erts_smp_atomic_inc_nob(&prt->refc);
+#ifdef ERTS_SMP
     erts_smp_mtx_lock(prt->lock);
 #endif
 }
@@ -1249,14 +1254,14 @@ erts_smp_port_lock(Port *prt)
 ERTS_GLB_INLINE void
 erts_smp_port_unlock(Port *prt)
 {
-#ifdef ERTS_SMP
     erts_aint_t refc;
+#ifdef ERTS_SMP
     erts_smp_mtx_unlock(prt->lock);
+#endif
     refc = erts_smp_atomic_dec_read_nob(&prt->refc);
     ASSERT(refc >= 0);
     if (refc == 0)
 	erts_port_cleanup(prt);
-#endif
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
@@ -1319,12 +1324,12 @@ erts_id2port_sflgs(Eterm id, Process *c_p, ErtsProcLocks c_p_locks, Uint32 sflgs
 	erts_smp_port_state_unlock(prt);
 	prt = NULL;
     }
-#ifdef ERTS_SMP
     else {
 	erts_smp_atomic_inc_nob(&prt->refc);
 	erts_smp_port_state_unlock(prt);
 
-	if (no_proc_locks)
+#ifdef ERTS_SMP
+ 	if (no_proc_locks)
 	    erts_smp_mtx_lock(prt->lock);
 	else if (erts_smp_mtx_trylock(prt->lock) == EBUSY) {
 	    /* Unlock process locks, and acquire locks in lock order... */
@@ -1340,8 +1345,9 @@ erts_id2port_sflgs(Eterm id, Process *c_p, ErtsProcLocks c_p_locks, Uint32 sflgs
 	    erts_smp_port_unlock(prt); /* Also decrements refc... */
 	    prt = NULL;
 	}
-    }
 #endif
+
+    }
 
     return prt;
 }
@@ -1349,12 +1355,7 @@ erts_id2port_sflgs(Eterm id, Process *c_p, ErtsProcLocks c_p_locks, Uint32 sflgs
 ERTS_GLB_INLINE void
 erts_port_release(Port *prt)
 {
-#ifdef ERTS_SMP
     erts_smp_port_unlock(prt);
-#else
-    if (prt->status & ERTS_PORT_SFLGS_DEAD)
-	erts_port_cleanup(prt);
-#endif
 }
 
 ERTS_GLB_INLINE Port*
@@ -1935,6 +1936,13 @@ extern erts_driver_t spawn_driver;
 extern erts_driver_t fd_driver;
 
 /* Should maybe be placed in erl_message.h, but then we get an include mess. */
+ERTS_GLB_INLINE Eterm *
+erts_alloc_message_heap_state(Uint size,
+			      ErlHeapFragment **bpp,
+			      ErlOffHeap **ohpp,
+			      Process *receiver,
+			      ErtsProcLocks *receiver_locks,
+			      erts_aint32_t *statep);
 
 ERTS_GLB_INLINE Eterm *
 erts_alloc_message_heap(Uint size,
@@ -1957,16 +1965,22 @@ erts_alloc_message_heap(Uint size,
  */
 
 ERTS_GLB_INLINE Eterm *
-erts_alloc_message_heap(Uint size,
-			ErlHeapFragment **bpp,
-			ErlOffHeap **ohpp,
-			Process *receiver,
-			ErtsProcLocks *receiver_locks)
+erts_alloc_message_heap_state(Uint size,
+			      ErlHeapFragment **bpp,
+			      ErlOffHeap **ohpp,
+			      Process *receiver,
+			      ErtsProcLocks *receiver_locks,
+			      erts_aint32_t *statep)
 {
     Eterm *hp;
+    erts_aint32_t state;
 #ifdef ERTS_SMP
     int locked_main = 0;
-    ErtsProcLocks ulocks = *receiver_locks & ERTS_PROC_LOCKS_MSG_SEND;
+    state = erts_smp_atomic32_read_acqb(&receiver->state);
+    if (statep)
+	*statep = state;
+    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
+	goto allocate_in_mbuf;
 #endif
 
     if (size > (Uint) INT_MAX)
@@ -1982,20 +1996,19 @@ erts_alloc_message_heap(Uint size,
 #ifdef ERTS_SMP
     try_allocate_on_heap:
 #endif
-	if (ERTS_PROC_IS_EXITING(receiver)
+	state = erts_smp_atomic32_read_nob(&receiver->state);
+	if (statep)
+	    *statep = state;
+	if ((state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))
 	    || HEAP_LIMIT(receiver) - HEAP_TOP(receiver) <= size) {
 #ifdef ERTS_SMP
-	    if (locked_main)
-		ulocks |= ERTS_PROC_LOCK_MAIN;
+	    if (locked_main) {
+		*receiver_locks &= ~ERTS_PROC_LOCK_MAIN;
+		erts_smp_proc_unlock(receiver, ERTS_PROC_LOCK_MAIN);
+	    }
 #endif
 	    goto allocate_in_mbuf;
 	}
-#ifdef ERTS_SMP
-	if (ulocks) {
-	    erts_smp_proc_unlock(receiver, ulocks);
-	    *receiver_locks &= ~ulocks;
-	}
-#endif
 	hp = HEAP_TOP(receiver);
 	HEAP_TOP(receiver) = hp + size;
 	*bpp = NULL;
@@ -2011,12 +2024,6 @@ erts_alloc_message_heap(Uint size,
     else {
 	ErlHeapFragment *bp;
     allocate_in_mbuf:
-#ifdef ERTS_SMP
-	if (ulocks) {
-	    *receiver_locks &= ~ulocks;
-	    erts_smp_proc_unlock(receiver, ulocks);
-	}
-#endif
 	bp = new_message_buffer(size);
 	hp = bp->mem;
 	*bpp = bp;
@@ -2024,6 +2031,17 @@ erts_alloc_message_heap(Uint size,
     }
 
     return hp;
+}
+
+ERTS_GLB_INLINE Eterm *
+erts_alloc_message_heap(Uint size,
+			ErlHeapFragment **bpp,
+			ErlOffHeap **ohpp,
+			Process *receiver,
+			ErtsProcLocks *receiver_locks)
+{
+    return erts_alloc_message_heap_state(size, bpp, ohpp, receiver,
+					 receiver_locks, NULL);
 }
 
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */

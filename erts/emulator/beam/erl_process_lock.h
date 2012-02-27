@@ -129,11 +129,9 @@ typedef struct erts_proc_lock_t_ {
 /*
  * Status lock:
  *   Protects the following fields in the process structure:
- *   * status
- *   * rstatus
- *   * status_flags
  *   * pending_suspenders
  *   * suspendee
+ *   * ...
  */
 #define ERTS_PROC_LOCK_STATUS		(((ErtsProcLocks) 1) << ERTS_PROC_LOCK_MAX_BIT)
 
@@ -165,12 +163,11 @@ typedef struct erts_proc_lock_t_ {
  * Other rules regarding process locking:
  *
  * Exiting processes:
- *   When changing status to P_EXITING on a process, you are required
- *   to take all process locks (ERTS_PROC_LOCKS_ALL). Thus, by holding
- *   at least one process lock (whichever one doesn't matter) you
- *   are guaranteed that the process won't exit until the lock you are
- *   holding has been released. Appart from all process locks also
- *   the pix lock corresponding to the process has to be held.
+ *   When changing state to exiting (ERTS_PSFLG_EXITING) on a process,
+ *   you are required to take all process locks (ERTS_PROC_LOCKS_ALL).
+ *   Thus, by holding at least one process lock (whichever one doesn't
+ *   matter) you are guaranteed that the process won't exit until the
+ *   lock you are holding has been released.
  *
  * Lock order:
  *   Process locks with low numeric values has to be locked before
@@ -946,11 +943,11 @@ erts_pid2proc_opt(Process *c_p_unused,
 		  int flags)
 {
     Process *proc = erts_proc_lookup_raw(pid);
-    if (!(flags & ERTS_P2P_FLG_ALLOW_OTHER_X)
-	&& proc
-	&& proc->status == P_EXITING)
-	return NULL;
-    return proc;
+    return ((!(flags & ERTS_P2P_FLG_ALLOW_OTHER_X)
+	     && proc
+	     && ERTS_PROC_IS_EXITING(proc))
+	    ? NULL
+	    : proc);
 }
 #endif /* !ERTS_SMP */
 

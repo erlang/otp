@@ -713,7 +713,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
     BpDataTime *pbdt = NULL;
 
     ASSERT(p);
-    ASSERT(p->status == P_RUNNING);
+    ASSERT(ERTS_PSFLG_RUNNING & erts_smp_atomic32_read_acqb(&p->state));
 
     /* get previous timestamp and breakpoint
      * from the process psd  */

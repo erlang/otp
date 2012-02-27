@@ -233,15 +233,17 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 
     BIF_ERROR(BIF_P, BADARG);
 
- res_no_proc:
-    if (BIF_P->flags & F_TRAPEXIT) {
-	ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
-	erts_deliver_exit_message(BIF_ARG_1, BIF_P, &locks, am_noproc, NIL);
-	erts_smp_proc_unlock(BIF_P, ~ERTS_PROC_LOCK_MAIN & locks);
-	BIF_RET(am_true);
+res_no_proc: {
+	erts_aint32_t state = erts_smp_atomic32_read_nob(&BIF_P->state);
+	if (state & ERTS_PSFLG_TRAP_EXIT) {
+	    ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
+	    erts_deliver_exit_message(BIF_ARG_1, BIF_P, &locks, am_noproc, NIL);
+	    erts_smp_proc_unlock(BIF_P, ~ERTS_PROC_LOCK_MAIN & locks);
+	    BIF_RET(am_true);
+	}
+	else
+	    BIF_ERROR(BIF_P, EXC_NOPROC);
     }
-    else
-	BIF_ERROR(BIF_P, EXC_NOPROC);
 }
 
 #define ERTS_DEMONITOR_FALSE		2
@@ -1103,8 +1105,9 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
 
     if (erts_hibernate(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, reg)) {
         /*
-         * If hibernate succeeded, TRAP. The process will be suspended
-         * if status is P_WAITING or continue (if any message was in the queue).
+         * If hibernate succeeded, TRAP. The process will be wait in a
+         * hibernated state if its state is inactive (!ERTS_PSFLG_ACTIVE);
+         * otherwise, continue executing (if any message was in the queue).
          */
         BIF_TRAP_CODE_PTR_(BIF_P, BIF_P->i);
     }
@@ -1499,14 +1502,13 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
       BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_priority) {
-       erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_STATUS);
        old_value = erts_set_process_priority(BIF_P, BIF_ARG_2);
-       erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_STATUS);
        if (old_value == THE_NON_VALUE)
 	   goto error;
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_trap_exit) {
+       erts_aint32_t state;
        Uint trap_exit;
        if (BIF_ARG_2 == am_true) {
 	   trap_exit = 1;
@@ -1521,59 +1523,52 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	*       For more info, see implementation of erts_send_exit_signal().
 	*/
        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_STATUS);
+       ERTS_SMP_LC_ASSERT((ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS)
+			  & erts_proc_lc_my_proc_locks(BIF_P));
        ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P,
 				     ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
-       old_value = ERTS_PROC_IS_TRAPPING_EXITS(BIF_P) ? am_true : am_false;
-       if (trap_exit) {
-	   ERTS_PROC_SET_TRAP_EXIT(BIF_P);
-       } else {
-	   ERTS_PROC_UNSET_TRAP_EXIT(BIF_P);
-       }
+       if (trap_exit)
+	   state = erts_smp_atomic32_read_bor_nob(&BIF_P->state,
+						  ERTS_PSFLG_TRAP_EXIT);
+       else
+	   state = erts_smp_atomic32_read_band_nob(&BIF_P->state,
+						   ~ERTS_PSFLG_TRAP_EXIT);
+       old_value = (state & ERTS_PSFLG_TRAP_EXIT) ? am_true : am_false;
        erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_STATUS);
        BIF_RET(old_value);
    }
    else if (BIF_ARG_1 == am_scheduler) {
-       int yield;
-       ErtsRunQueue *old;
-       ErtsRunQueue *new;
+       ErtsRunQueue *old, *new, *curr;
        Sint sched;
+       erts_aint32_t state;
+
        if (!is_small(BIF_ARG_2))
 	   goto error;
        sched = signed_val(BIF_ARG_2);
        if (sched < 0 || erts_no_schedulers < sched)
 	   goto error;
-       erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_STATUS);
-       old = BIF_P->bound_runq;
-#ifdef ERTS_SMP
-       ASSERT(!old || old == BIF_P->run_queue);
-#endif
-       new = !sched ? NULL : erts_schedid2runq(sched);
-#ifndef ERTS_SMP
-       yield = 0;
-#else
-       if (new == old)
-	   yield = 0;
-       else {
-	   ErtsRunQueue *curr = BIF_P->run_queue;
-	   if (!new)
-	       erts_smp_runq_lock(curr);
-	   else
-	       erts_smp_runqs_lock(curr, new);
-	   yield = new && BIF_P->run_queue != new;
-#endif
-	   BIF_P->bound_runq = new;
-#ifdef ERTS_SMP
-	   if (new)
-	       BIF_P->run_queue = new;
-	   if (!new)
-	       erts_smp_runq_unlock(curr);
-	   else
-	       erts_smp_runqs_unlock(curr, new);
+
+       if (sched == 0) {
+	   new = NULL;
+	   state = erts_smp_atomic32_read_band_mb(&BIF_P->state,
+						  ~ERTS_PSFLG_BOUND);
        }
+       else {
+	   new = erts_schedid2runq(sched);
+#ifdef ERTS_SMP
+	   erts_atomic_set_nob(&BIF_P->run_queue, (erts_aint_t) new);
 #endif
-       erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_STATUS);
+	   state = erts_smp_atomic32_read_bor_mb(&BIF_P->state,
+						 ERTS_PSFLG_BOUND);
+       }
+
+       curr = ERTS_GET_SCHEDULER_DATA_FROM_PROC(BIF_P)->run_queue;
+       old = (ERTS_PSFLG_BOUND & state) ? curr : NULL;
+
+       ASSERT(!old || old == curr);
+
        old_value = old ? make_small(old->ix+1) : make_small(0);
-       if (yield)
+       if (new && new != curr)
 	   ERTS_BIF_YIELD_RETURN_X(BIF_P, old_value, am_scheduler);
        else
 	   BIF_RET(old_value);

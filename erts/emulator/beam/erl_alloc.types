@@ -336,6 +336,8 @@ type	SL_PTIMER	SHORT_LIVED	SYSTEM		ptimer_sl
 type	LL_PTIMER	STANDARD	SYSTEM		ptimer_ll
 type	SYS_MSG_Q	SHORT_LIVED	PROCESSES	system_messages_queue
 type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
+type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
+type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 +endif
 
 +if hipe

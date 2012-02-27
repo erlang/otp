@@ -360,7 +360,8 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 	      p->flags &= ~F_HIBERNATE_SCHED;
 	      goto do_schedule;
 	  }
-	  if (p->status == P_WAITING) {
+
+	  if (!(erts_smp_atomic32_read_acqb(&p->state) & ERTS_PSFLG_ACTIVE)) {
 	      for (i = 0; i < p->arity; ++i)
 		  p->arg_reg[i] = reg[i]; 	      
 	      goto do_schedule;
@@ -451,10 +452,6 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
       case HIPE_MODE_SWITCH_RES_SUSPEND: {
 	  p->i = hipe_beam_pc_resume;
 	  p->arity = 0;
-	  erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-	  if (p->status != P_SUSPENDED)
-	      erts_add_to_runq(p);
-	  erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
 	  goto do_schedule;
       }
       case HIPE_MODE_SWITCH_RES_WAIT:
@@ -470,7 +467,8 @@ Process *hipe_mode_switch(Process *p, unsigned cmd, Eterm reg[])
 #endif
 	  p->i = hipe_beam_pc_resume;
 	  p->arity = 0;
-	  p->status = P_WAITING;
+	  erts_smp_atomic32_read_band_relb(&p->state,
+					   ~ERTS_PSFLG_ACTIVE);
 	  erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
       do_schedule:
 	  {

@@ -259,10 +259,8 @@ get_free_port(void)
 	}
     }
     port->status = ERTS_PORT_SFLG_INITIALIZING;
-#ifdef ERTS_SMP
-    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 0);
+    ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 0);
     erts_smp_atomic_set_nob(&port->refc, 2); /* Port alive + lock */
-#endif	
     erts_smp_port_state_unlock(port);
     return num & port_num_mask;
 }
@@ -340,10 +338,14 @@ port_cleanup(Port *prt)
     prt->drv_ptr = NULL;
     ASSERT(driver);
 
-#ifdef ERTS_SMP
-
     ASSERT(prt->status & ERTS_PORT_SFLG_FREE_SCHEDULED);
-    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&prt->refc) == 0);
+    ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&prt->refc) == 0);
+
+    ASSERT(prt->status & ERTS_PORT_SFLG_PORT_DEBUG);
+    ASSERT(!(prt->status & ERTS_PORT_SFLG_FREE));
+    prt->status = ERTS_PORT_SFLG_FREE;
+
+#ifdef ERTS_SMP
 
     port_specific = (prt->status & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK);
 
@@ -351,10 +353,6 @@ port_cleanup(Port *prt)
     ASSERT(mtx);
 
     prt->lock = NULL;
-
-    ASSERT(prt->status & ERTS_PORT_SFLG_PORT_DEBUG);
-    ASSERT(!(prt->status & ERTS_PORT_SFLG_FREE));
-    prt->status = ERTS_PORT_SFLG_FREE;
 
     erts_smp_port_state_unlock(prt);    
     erts_smp_mtx_unlock(mtx);
@@ -605,10 +603,8 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	/* Need to mark the port as free again */
 	erts_smp_port_state_lock(port);
 	port->status = ERTS_PORT_SFLG_FREE;
-#ifdef ERTS_SMP
-	ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 2);
+	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 2);
 	erts_smp_atomic_set_nob(&port->refc, 0); 
-#endif	
 	erts_smp_port_state_unlock(port);
 	return -3;
     }
@@ -1343,8 +1339,8 @@ void init_io(void)
 
     for (i = 0; i < erts_max_ports; i++) {
 	erts_port_task_init_sched(&erts_port[i].sched);
-#ifdef ERTS_SMP
 	erts_smp_atomic_init_nob(&erts_port[i].refc, 0);
+#ifdef ERTS_SMP
 	erts_port[i].lock = NULL;
 	erts_port[i].xports = NULL;
 	erts_smp_spinlock_init_x(&erts_port[i].state_lck, "port_state", make_small(i));
