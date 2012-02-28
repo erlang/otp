@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,50 +29,56 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxSystemOptions/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Name::string()) -> string()
+-type wxSystemOptions() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsgetoption">external documentation</a>.
+-spec getOption(Name) -> unicode:charlist() when
+	Name::unicode:chardata().
 getOption(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_GetOption,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (Name::string()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsgetoptionint">external documentation</a>.
+-spec getOptionInt(Name) -> integer() when
+	Name::unicode:chardata().
 getOptionInt(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_GetOptionInt,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (Name::string()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionshasoption">external documentation</a>.
+-spec hasOption(Name) -> boolean() when
+	Name::unicode:chardata().
 hasOption(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_HasOption,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (Name::string()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionsisfalse">external documentation</a>.
+-spec isFalse(Name) -> boolean() when
+	Name::unicode:chardata().
 isFalse(Name)
  when is_list(Name) ->
   Name_UC = unicode:characters_to_binary([Name,0]),
   wxe_util:call(?wxSystemOptions_IsFalse,
   <<(byte_size(Name_UC)):32/?UI,(Name_UC)/binary, 0:(((8- ((4+byte_size(Name_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (Name::string(),X::integer()|string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsystemoptions.html#wxsystemoptionssetoption">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% setOption(Name::string(), Value::integer()) -> ok </c>
-%% </p>
-%% <p><c>
-%% setOption(Name::string(), Value::string()) -> ok </c>
-%% </p>
+%% <br /> Also:<br />
+%% setOption(Name, Value) -> ok when<br />
+%% 	Name::unicode:chardata(), Value::unicode:chardata().<br />
+%% 
+-spec setOption(Name, Value) -> ok when
+	Name::unicode:chardata(), Value::integer();
+      (Name, Value) -> ok when
+	Name::unicode:chardata(), Value::unicode:chardata().
 setOption(Name,Value)
  when is_list(Name),is_integer(Value) ->
   Name_UC = unicode:characters_to_binary([Name,0]),

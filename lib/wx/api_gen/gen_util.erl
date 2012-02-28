@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -96,8 +96,8 @@ check_diff(Diff) ->
 	    [<<>>] -> ok;
 	    _ -> throw(diff)
 	end,
-	<<_, _, "%% Copyright", _/binary>> = D1,
-	<<_, _, "%% Copyright", _/binary>> = D2,
+	copyright(D1),
+	copyright(D2),
 	copyright
     catch
 	throw:_ ->  diff;
@@ -107,6 +107,10 @@ check_diff(Diff) ->
 	    io:format("~p:~p: ~p ~p~n", [?MODULE,?LINE, What, erlang:get_stacktrace()]),
 	    diff
     end.
+
+copyright(<<_, _, "%% Copyright", _/binary>>) -> ok;
+copyright(<<_, _, " * Copyright", _/binary>>) -> ok;
+copyright(_) -> throw(diff).
 
 w(Str) ->
     w(Str, []).
@@ -217,7 +221,7 @@ erl_copyright() ->
     w("%%~n",[]),
     w("%% %CopyrightBegin%~n",[]),
     w("%%~n",[]),
-    w("%% Copyright Ericsson AB ~p-2011. All Rights Reserved.~n",
+    w("%% Copyright Ericsson AB ~p-2012. All Rights Reserved.~n",
       [StartYear]),
     w("%%~n",[]),
     w("%% The contents of this file are subject to the Erlang Public License,~n",[]),
@@ -237,7 +241,7 @@ c_copyright() ->
     w("/*~n",[]),
     w(" * %CopyrightBegin%~n",[]),
     w(" *~n",[]),
-    w(" * Copyright Ericsson AB 2008-2011. All Rights Reserved.~n",[]),
+    w(" * Copyright Ericsson AB 2008-2012. All Rights Reserved.~n",[]),
     w(" *~n",[]),
     w(" * The contents of this file are subject to the Erlang Public License,~n",[]),
     w(" * Version 1.1, (the \"License\"); you may not use this file except in~n",[]),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,129 +42,143 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxUpdateUIEvent/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Win::wxWindow:wxWindow()) -> bool()
+-type wxUpdateUIEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventcanupdate">external documentation</a>.
+-spec canUpdate(Win) -> boolean() when
+	Win::wxWindow:wxWindow().
 canUpdate(#wx_ref{type=WinT,ref=WinRef}) ->
   ?CLASS(WinT,wxWindow),
   wxe_util:call(?wxUpdateUIEvent_CanUpdate,
   <<WinRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent(), Check::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventcheck">external documentation</a>.
+-spec check(This, Check) -> ok when
+	This::wxUpdateUIEvent(), Check::boolean().
 check(#wx_ref{type=ThisT,ref=ThisRef},Check)
  when is_boolean(Check) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:cast(?wxUpdateUIEvent_Check,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Check)):32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent(), Enable::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventenable">external documentation</a>.
+-spec enable(This, Enable) -> ok when
+	This::wxUpdateUIEvent(), Enable::boolean().
 enable(#wx_ref{type=ThisT,ref=ThisRef},Enable)
  when is_boolean(Enable) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:cast(?wxUpdateUIEvent_Enable,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Enable)):32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent(), Show::bool()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventshow">external documentation</a>.
+-spec show(This, Show) -> ok when
+	This::wxUpdateUIEvent(), Show::boolean().
 show(#wx_ref{type=ThisT,ref=ThisRef},Show)
  when is_boolean(Show) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:cast(?wxUpdateUIEvent_Show,
   <<ThisRef:32/?UI,(wxe_util:from_bool(Show)):32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetchecked">external documentation</a>.
+-spec getChecked(This) -> boolean() when
+	This::wxUpdateUIEvent().
 getChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetChecked,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetenabled">external documentation</a>.
+-spec getEnabled(This) -> boolean() when
+	This::wxUpdateUIEvent().
 getEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetEnabled,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetshown">external documentation</a>.
+-spec getShown(This) -> boolean() when
+	This::wxUpdateUIEvent().
 getShown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetShown,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetsetchecked">external documentation</a>.
+-spec getSetChecked(This) -> boolean() when
+	This::wxUpdateUIEvent().
 getSetChecked(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetSetChecked,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetsetenabled">external documentation</a>.
+-spec getSetEnabled(This) -> boolean() when
+	This::wxUpdateUIEvent().
 getSetEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetSetEnabled,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetsetshown">external documentation</a>.
+-spec getSetShown(This) -> boolean() when
+	This::wxUpdateUIEvent().
 getSetShown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetSetShown,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetsettext">external documentation</a>.
+-spec getSetText(This) -> boolean() when
+	This::wxUpdateUIEvent().
 getSetText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetSetText,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgettext">external documentation</a>.
+-spec getText(This) -> unicode:charlist() when
+	This::wxUpdateUIEvent().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:call(?wxUpdateUIEvent_GetText,
   <<ThisRef:32/?UI>>).
 
-%% @spec () -> WxUpdateUIMode
-%% WxUpdateUIMode = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetmode">external documentation</a>.
-%%<br /> WxUpdateUIMode is one of ?wxUPDATE_UI_PROCESS_ALL | ?wxUPDATE_UI_PROCESS_SPECIFIED
+%%<br /> Res = ?wxUPDATE_UI_PROCESS_ALL | ?wxUPDATE_UI_PROCESS_SPECIFIED
+-spec getMode() -> wx:wx_enum().
 getMode() ->
   wxe_util:call(?wxUpdateUIEvent_GetMode,
   <<>>).
 
-%% @spec () -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventgetupdateinterval">external documentation</a>.
+-spec getUpdateInterval() -> integer().
 getUpdateInterval() ->
   wxe_util:call(?wxUpdateUIEvent_GetUpdateInterval,
   <<>>).
 
-%% @spec () -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventresetupdatetime">external documentation</a>.
+-spec resetUpdateTime() -> ok.
 resetUpdateTime() ->
   wxe_util:cast(?wxUpdateUIEvent_ResetUpdateTime,
   <<>>).
 
-%% @spec (Mode::WxUpdateUIMode) -> ok
-%% WxUpdateUIMode = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventsetmode">external documentation</a>.
-%%<br /> WxUpdateUIMode is one of ?wxUPDATE_UI_PROCESS_ALL | ?wxUPDATE_UI_PROCESS_SPECIFIED
+%%<br /> Mode = ?wxUPDATE_UI_PROCESS_ALL | ?wxUPDATE_UI_PROCESS_SPECIFIED
+-spec setMode(Mode) -> ok when
+	Mode::wx:wx_enum().
 setMode(Mode)
  when is_integer(Mode) ->
   wxe_util:cast(?wxUpdateUIEvent_SetMode,
   <<Mode:32/?UI>>).
 
-%% @spec (This::wxUpdateUIEvent(), Text::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventsettext">external documentation</a>.
+-spec setText(This, Text) -> ok when
+	This::wxUpdateUIEvent(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
@@ -172,8 +186,9 @@ setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
   wxe_util:cast(?wxUpdateUIEvent_SetText,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (UpdateInterval::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxupdateuievent.html#wxupdateuieventsetupdateinterval">external documentation</a>.
+-spec setUpdateInterval(UpdateInterval) -> ok when
+	UpdateInterval::integer().
 setUpdateInterval(UpdateInterval)
  when is_integer(UpdateInterval) ->
   wxe_util:cast(?wxUpdateUIEvent_SetUpdateInterval,

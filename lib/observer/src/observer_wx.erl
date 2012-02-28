@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -55,6 +55,7 @@
 	 sys_panel,
 	 trace_panel,
 	 app_panel,
+	 perf_panel,
 	 active_tab,
 	 node,
 	 nodes
@@ -129,6 +130,10 @@ setup(#state{frame = Frame} = State) ->
     %% I postpone the creation of the other tabs so they can query/use
     %% the window size
 
+    %% Perf Viewer Panel
+    PerfPanel = observer_perf_wx:start_link(Notebook, self()),
+    wxNotebook:addPage(Notebook, PerfPanel, "Load Charts", []),
+
     %% App Viewer Panel
     AppPanel = observer_app_wx:start_link(Notebook, self()),
     wxNotebook:addPage(Notebook, AppPanel, "Applications", []),
@@ -160,6 +165,7 @@ setup(#state{frame = Frame} = State) ->
 			   tv_panel  = TVPanel,
 			   trace_panel = TracePanel,
 			   app_panel = AppPanel,
+			   perf_panel = PerfPanel,
 			   active_tab = SysPid,
 			   node  = node(),
 			   nodes = Nodes
@@ -322,8 +328,9 @@ handle_info({nodedown, Node},
     create_txt_dialog(Frame, Msg, "Node down", ?wxICON_EXCLAMATION),
     {noreply, State3};
 
-handle_info({'EXIT', _Pid, _Reason}, State) ->
-    io:format("Child crashed exiting:  ~p ~p~n", [_Pid,_Reason]),
+handle_info({'EXIT', Pid, _Reason}, State) ->
+    io:format("Child (~s) crashed exiting:  ~p ~p~n",
+	      [pid2panel(Pid, State), Pid,_Reason]),
     {stop, normal, State};
 
 handle_info(_Info, State) ->
@@ -345,6 +352,7 @@ try_rpc(Node, Mod, Func, Args) ->
 	    error_logger:error_report([{node, Node},
 				       {call, {Mod, Func, Args}},
 				       {reason, {badrpc, Reason}}]),
+	    observer ! {nodedown, Node},
 	    error({badrpc, Reason});
 	Res ->
 	    Res
@@ -404,15 +412,32 @@ check_page_title(Notebook) ->
     wxNotebook:getPageText(Notebook, Selection).
 
 get_active_pid(#state{notebook=Notebook, pro_panel=Pro, sys_panel=Sys,
-		      tv_panel=Tv, trace_panel=Trace, app_panel=App}) ->
+		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
+		      perf_panel=Perf
+		     }) ->
     Panel = case check_page_title(Notebook) of
 		"Processes" -> Pro;
 		"System" -> Sys;
 		"Table Viewer" -> Tv;
 		?TRACE_STR -> Trace;
+		"Load Charts" -> Perf;
 		"Applications" -> App
 	    end,
     wx_object:get_pid(Panel).
+
+pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
+		      tv_panel=Tv, trace_panel=Trace, app_panel=App,
+		      perf_panel=Perf}) ->
+    case Pid of
+	Pro -> "Processes";
+	Sys -> "System";
+	Tv -> "Table Viewer" ;
+	Trace -> ?TRACE_STR;
+	Perf -> "Load Charts";
+	App -> "Applications";
+	_ -> "unknown"
+    end.
+
 
 create_connect_dialog(ping, #state{frame = Frame}) ->
     Dialog = wxTextEntryDialog:new(Frame, "Connect to node"),

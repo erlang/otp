@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2011. All Rights Reserved.
+# Copyright Ericsson AB 2008-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,6 @@
 include ../vsn.mk
 ifdef TERTIARY_BOOTSTRAP
  VSN = $(WX_VSN)
- INSIDE_ERLSRC = true
  include $(ERL_TOP)/make/target.mk
  include $(ERL_TOP)/make/$(TARGET)/otp.mk
  RELSYSDIR = $(RELEASE_PATH)/lib/wx-$(VSN)
@@ -119,7 +118,6 @@ $(EBIN)/%.beam: $(EGEN)/%.erl $(HEADER_FILES)
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
-ifeq ($(INSIDE_ERLSRC), true)
 include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt 
 	$(INSTALL_DIR) $(RELSYSDIR)/src
@@ -134,4 +132,3 @@ release_spec: opt
 #	$(INSTALL_DATA) ../$(ARCHIVE) $(RELEASE_PATH)/lib
 
 release_docs_spec:
-endif

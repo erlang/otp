@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -73,27 +73,35 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-export_type([wxAuiNotebook/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxAuiNotebook()
+-type wxAuiNotebook() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookwxauinotebook">external documentation</a>.
+-spec new() -> wxAuiNotebook().
 new() ->
   wxe_util:construct(?wxAuiNotebook_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxAuiNotebook()
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxAuiNotebook() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxAuiNotebook()
-%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookwxauinotebook">external documentation</a>.
+-spec new(Parent, [Option]) -> wxAuiNotebook() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -106,15 +114,19 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxAuiNotebook_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::string()) -> bool()
 %% @equiv addPage(This,Page,Caption, [])
+-spec addPage(This, Page, Caption) -> boolean() when
+	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
+
 addPage(This,Page,Caption)
  when is_record(This, wx_ref),is_record(Page, wx_ref),is_list(Caption) ->
   addPage(This,Page,Caption, []).
 
-%% @spec (This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::string(), [Option]) -> bool()
-%% Option = {select, bool()} | {bitmap, wxBitmap:wxBitmap()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookaddpage">external documentation</a>.
+-spec addPage(This, Page, Caption, [Option]) -> boolean() when
+	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
+	Option :: {select, boolean()}
+		 | {bitmap, wxBitmap:wxBitmap()}.
 addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Caption, Options)
  when is_list(Caption),is_list(Options) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -127,15 +139,21 @@ addPage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PageT,ref=PageRef},Caption,
   wxe_util:call(?wxAuiNotebook_AddPage,
   <<ThisRef:32/?UI,PageRef:32/?UI,(byte_size(Caption_UC)):32/?UI,(Caption_UC)/binary, 0:(((8- ((4+byte_size(Caption_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxAuiNotebook(), Parent::wxWindow:wxWindow()) -> bool()
 %% @equiv create(This,Parent, [])
+-spec create(This, Parent) -> boolean() when
+	This::wxAuiNotebook(), Parent::wxWindow:wxWindow().
+
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
   create(This,Parent, []).
 
-%% @spec (This::wxAuiNotebook(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookcreate">external documentation</a>.
+-spec create(This, Parent, [Option]) -> boolean() when
+	This::wxAuiNotebook(), Parent::wxWindow:wxWindow(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -149,76 +167,88 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   wxe_util:call(?wxAuiNotebook_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxAuiNotebook(), Page::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookdeletepage">external documentation</a>.
+-spec deletePage(This, Page) -> boolean() when
+	This::wxAuiNotebook(), Page::integer().
 deletePage(#wx_ref{type=ThisT,ref=ThisRef},Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_DeletePage,
   <<ThisRef:32/?UI,Page:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook()) -> wxAuiTabArt:wxAuiTabArt()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetartprovider">external documentation</a>.
+-spec getArtProvider(This) -> wxAuiTabArt:wxAuiTabArt() when
+	This::wxAuiNotebook().
 getArtProvider(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_GetArtProvider,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Page_idx::integer()) -> wxWindow:wxWindow()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetpage">external documentation</a>.
+-spec getPage(This, Page_idx) -> wxWindow:wxWindow() when
+	This::wxAuiNotebook(), Page_idx::integer().
 getPage(#wx_ref{type=ThisT,ref=ThisRef},Page_idx)
  when is_integer(Page_idx) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_GetPage,
   <<ThisRef:32/?UI,Page_idx:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Page_idx::integer()) -> wxBitmap:wxBitmap()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetpagebitmap">external documentation</a>.
+-spec getPageBitmap(This, Page_idx) -> wxBitmap:wxBitmap() when
+	This::wxAuiNotebook(), Page_idx::integer().
 getPageBitmap(#wx_ref{type=ThisT,ref=ThisRef},Page_idx)
  when is_integer(Page_idx) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_GetPageBitmap,
   <<ThisRef:32/?UI,Page_idx:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetpagecount">external documentation</a>.
+-spec getPageCount(This) -> integer() when
+	This::wxAuiNotebook().
 getPageCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_GetPageCount,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Page_wnd::wxWindow:wxWindow()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetpageindex">external documentation</a>.
+-spec getPageIndex(This, Page_wnd) -> integer() when
+	This::wxAuiNotebook(), Page_wnd::wxWindow:wxWindow().
 getPageIndex(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=Page_wndT,ref=Page_wndRef}) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(Page_wndT,wxWindow),
   wxe_util:call(?wxAuiNotebook_GetPageIndex,
   <<ThisRef:32/?UI,Page_wndRef:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Page_idx::integer()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetpagetext">external documentation</a>.
+-spec getPageText(This, Page_idx) -> unicode:charlist() when
+	This::wxAuiNotebook(), Page_idx::integer().
 getPageText(#wx_ref{type=ThisT,ref=ThisRef},Page_idx)
  when is_integer(Page_idx) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_GetPageText,
   <<ThisRef:32/?UI,Page_idx:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookgetselection">external documentation</a>.
+-spec getSelection(This) -> integer() when
+	This::wxAuiNotebook().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::string()) -> bool()
 %% @equiv insertPage(This,Page_idx,Page,Caption, [])
+-spec insertPage(This, Page_idx, Page, Caption) -> boolean() when
+	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
+
 insertPage(This,Page_idx,Page,Caption)
  when is_record(This, wx_ref),is_integer(Page_idx),is_record(Page, wx_ref),is_list(Caption) ->
   insertPage(This,Page_idx,Page,Caption, []).
 
-%% @spec (This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::string(), [Option]) -> bool()
-%% Option = {select, bool()} | {bitmap, wxBitmap:wxBitmap()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookinsertpage">external documentation</a>.
+-spec insertPage(This, Page_idx, Page, Caption, [Option]) -> boolean() when
+	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata(),
+	Option :: {select, boolean()}
+		 | {bitmap, wxBitmap:wxBitmap()}.
 insertPage(#wx_ref{type=ThisT,ref=ThisRef},Page_idx,#wx_ref{type=PageT,ref=PageRef},Caption, Options)
  when is_integer(Page_idx),is_list(Caption),is_list(Options) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -231,32 +261,36 @@ insertPage(#wx_ref{type=ThisT,ref=ThisRef},Page_idx,#wx_ref{type=PageT,ref=PageR
   wxe_util:call(?wxAuiNotebook_InsertPage,
   <<ThisRef:32/?UI,Page_idx:32/?UI,PageRef:32/?UI,(byte_size(Caption_UC)):32/?UI,(Caption_UC)/binary, 0:(((8- ((0+byte_size(Caption_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxAuiNotebook(), Page::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebookremovepage">external documentation</a>.
+-spec removePage(This, Page) -> boolean() when
+	This::wxAuiNotebook(), Page::integer().
 removePage(#wx_ref{type=ThisT,ref=ThisRef},Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_RemovePage,
   <<ThisRef:32/?UI,Page:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Art::wxAuiTabArt:wxAuiTabArt()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksetartprovider">external documentation</a>.
+-spec setArtProvider(This, Art) -> ok when
+	This::wxAuiNotebook(), Art::wxAuiTabArt:wxAuiTabArt().
 setArtProvider(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ArtT,ref=ArtRef}) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(ArtT,wxAuiTabArt),
   wxe_util:cast(?wxAuiNotebook_SetArtProvider,
   <<ThisRef:32/?UI,ArtRef:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Font::wxFont:wxFont()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksetfont">external documentation</a>.
+-spec setFont(This, Font) -> boolean() when
+	This::wxAuiNotebook(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(FontT,wxFont),
   wxe_util:call(?wxAuiNotebook_SetFont,
   <<ThisRef:32/?UI,FontRef:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Page::integer(), Bitmap::wxBitmap:wxBitmap()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksetpagebitmap">external documentation</a>.
+-spec setPageBitmap(This, Page, Bitmap) -> boolean() when
+	This::wxAuiNotebook(), Page::integer(), Bitmap::wxBitmap:wxBitmap().
 setPageBitmap(#wx_ref{type=ThisT,ref=ThisRef},Page,#wx_ref{type=BitmapT,ref=BitmapRef})
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -264,8 +298,9 @@ setPageBitmap(#wx_ref{type=ThisT,ref=ThisRef},Page,#wx_ref{type=BitmapT,ref=Bitm
   wxe_util:call(?wxAuiNotebook_SetPageBitmap,
   <<ThisRef:32/?UI,Page:32/?UI,BitmapRef:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Page::integer(), Text::string()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksetpagetext">external documentation</a>.
+-spec setPageText(This, Page, Text) -> boolean() when
+	This::wxAuiNotebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT,ref=ThisRef},Page,Text)
  when is_integer(Page),is_list(Text) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -273,32 +308,35 @@ setPageText(#wx_ref{type=ThisT,ref=ThisRef},Page,Text)
   wxe_util:call(?wxAuiNotebook_SetPageText,
   <<ThisRef:32/?UI,Page:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxAuiNotebook(), New_page::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksetselection">external documentation</a>.
+-spec setSelection(This, New_page) -> integer() when
+	This::wxAuiNotebook(), New_page::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},New_page)
  when is_integer(New_page) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:call(?wxAuiNotebook_SetSelection,
   <<ThisRef:32/?UI,New_page:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Height::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksettabctrlheight">external documentation</a>.
+-spec setTabCtrlHeight(This, Height) -> ok when
+	This::wxAuiNotebook(), Height::integer().
 setTabCtrlHeight(#wx_ref{type=ThisT,ref=ThisRef},Height)
  when is_integer(Height) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:cast(?wxAuiNotebook_SetTabCtrlHeight,
   <<ThisRef:32/?UI,Height:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook(), Size::{W::integer(), H::integer()}) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauinotebook.html#wxauinotebooksetuniformbitmapsize">external documentation</a>.
+-spec setUniformBitmapSize(This, Size) -> ok when
+	This::wxAuiNotebook(), Size::{W::integer(), H::integer()}.
 setUniformBitmapSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:cast(?wxAuiNotebook_SetUniformBitmapSize,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @spec (This::wxAuiNotebook()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxAuiNotebook()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiNotebook),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

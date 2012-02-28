@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -81,6 +81,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-export_type([wxPreviewFrame/0]).
 %% @hidden
 parent_class(wxFrame) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -88,15 +89,22 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow()) -> wxPreviewFrame()
+-type wxPreviewFrame() :: wx:wx_object().
 %% @equiv new(Preview,Parent, [])
+-spec new(Preview, Parent) -> wxPreviewFrame() when
+	Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow().
+
 new(Preview,Parent)
  when is_record(Preview, wx_ref),is_record(Parent, wx_ref) ->
   new(Preview,Parent, []).
 
-%% @spec (Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow(), [Option]) -> wxPreviewFrame()
-%% Option = {title, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewframe.html#wxpreviewframewxpreviewframe">external documentation</a>.
+-spec new(Preview, Parent, [Option]) -> wxPreviewFrame() when
+	Preview::wxPrintPreview:wxPrintPreview(), Parent::wxWindow:wxWindow(),
+	Option :: {title, unicode:chardata()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=PreviewT,ref=PreviewRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(PreviewT,wxPrintPreview),
@@ -110,37 +118,41 @@ new(#wx_ref{type=PreviewT,ref=PreviewRef},#wx_ref{type=ParentT,ref=ParentRef}, O
   wxe_util:construct(?wxPreviewFrame_new,
   <<PreviewRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxPreviewFrame()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewframe.html#wxpreviewframecreatecontrolbar">external documentation</a>.
+-spec createControlBar(This) -> ok when
+	This::wxPreviewFrame().
 createControlBar(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
   wxe_util:cast(?wxPreviewFrame_CreateControlBar,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPreviewFrame()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewframe.html#wxpreviewframecreatecanvas">external documentation</a>.
+-spec createCanvas(This) -> ok when
+	This::wxPreviewFrame().
 createCanvas(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
   wxe_util:cast(?wxPreviewFrame_CreateCanvas,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPreviewFrame()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewframe.html#wxpreviewframeinitialize">external documentation</a>.
+-spec initialize(This) -> ok when
+	This::wxPreviewFrame().
 initialize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
   wxe_util:cast(?wxPreviewFrame_Initialize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPreviewFrame(), Event::wxCloseEvent:wxCloseEvent()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpreviewframe.html#wxpreviewframeonclosewindow">external documentation</a>.
+-spec onCloseWindow(This, Event) -> ok when
+	This::wxPreviewFrame(), Event::wxCloseEvent:wxCloseEvent().
 onCloseWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=EventT,ref=EventRef}) ->
   ?CLASS(ThisT,wxPreviewFrame),
   ?CLASS(EventT,wxCloseEvent),
   wxe_util:cast(?wxPreviewFrame_OnCloseWindow,
   <<ThisRef:32/?UI,EventRef:32/?UI>>).
 
-%% @spec (This::wxPreviewFrame()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxPreviewFrame()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPreviewFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

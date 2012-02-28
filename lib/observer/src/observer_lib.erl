@@ -154,7 +154,9 @@ to_str(Value) when is_atom(Value) ->
 to_str({bytes, B}) ->
     KB = B div 1024,
     MB = KB div 1024,
+    GB = MB div 1024,
     if
+	GB > 10 -> integer_to_list(GB) ++ " gB";
 	MB > 10 -> integer_to_list(MB) ++ " mB";
 	KB >  0 -> integer_to_list(KB) ++ " kB";
 	true -> integer_to_list(B) ++ " B "

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,27 +70,35 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxStaticLine/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxStaticLine()
+-type wxStaticLine() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticline.html#wxstaticlinewxstaticline">external documentation</a>.
+-spec new() -> wxStaticLine().
 new() ->
   wxe_util:construct(?wxStaticLine_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxStaticLine()
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxStaticLine() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxStaticLine()
-%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticline.html#wxstaticlinewxstaticline">external documentation</a>.
+-spec new(Parent, [Option]) -> wxStaticLine() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -103,15 +111,21 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxStaticLine_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxStaticLine(), Parent::wxWindow:wxWindow()) -> bool()
 %% @equiv create(This,Parent, [])
+-spec create(This, Parent) -> boolean() when
+	This::wxStaticLine(), Parent::wxWindow:wxWindow().
+
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
   create(This,Parent, []).
 
-%% @spec (This::wxStaticLine(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticline.html#wxstaticlinecreate">external documentation</a>.
+-spec create(This, Parent, [Option]) -> boolean() when
+	This::wxStaticLine(), Parent::wxWindow:wxWindow(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxStaticLine),
@@ -125,21 +139,22 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   wxe_util:call(?wxStaticLine_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxStaticLine()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticline.html#wxstaticlineisvertical">external documentation</a>.
+-spec isVertical(This) -> boolean() when
+	This::wxStaticLine().
 isVertical(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxStaticLine),
   wxe_util:call(?wxStaticLine_IsVertical,
   <<ThisRef:32/?UI>>).
 
-%% @spec () -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticline.html#wxstaticlinegetdefaultsize">external documentation</a>.
+-spec getDefaultSize() -> integer().
 getDefaultSize() ->
   wxe_util:call(?wxStaticLine_GetDefaultSize,
   <<>>).
 
-%% @spec (This::wxStaticLine()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxStaticLine()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticLine),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

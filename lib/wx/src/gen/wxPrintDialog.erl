@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,6 +77,7 @@
   transferDataFromWindow/1,transferDataToWindow/1,update/1,updateWindowUI/1,
   updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxPrintDialog/0]).
 %% @hidden
 parent_class(wxDialog) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -84,22 +85,25 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxPrintDialog()
+-type wxPrintDialog() :: wx:wx_object().
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxPrintDialog() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(),X::term()) -> wxPrintDialog()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html#wxprintdialogwxprintdialog">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Parent::wxWindow:wxWindow(), [Option]) -> wxPrintDialog() </c>
-%%<br /> Option = {data, wxPrintDialogData:wxPrintDialogData()}
-%% </p>
-%% <p><c>
-%% new(Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData()) -> wxPrintDialog() </c>
-%% </p>
+%% <br /> Also:<br />
+%% new(Parent, Data) -> wxPrintDialog() when<br />
+%% 	Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().<br />
+%% 
+-spec new(Parent, [Option]) -> wxPrintDialog() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {data, wxPrintDialogData:wxPrintDialogData()};
+      (Parent, Data) -> wxPrintDialog() when
+	Parent::wxWindow:wxWindow(), Data::wxPrintData:wxPrintData().
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -114,22 +118,24 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=DataT,ref=DataRef}) ->
   wxe_util:construct(?wxPrintDialog_new_2_1,
   <<ParentRef:32/?UI,DataRef:32/?UI>>).
 
-%% @spec (This::wxPrintDialog()) -> wxPrintDialogData:wxPrintDialogData()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html#wxprintdialoggetprintdialogdata">external documentation</a>.
+-spec getPrintDialogData(This) -> wxPrintDialogData:wxPrintDialogData() when
+	This::wxPrintDialog().
 getPrintDialogData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintDialog),
   wxe_util:call(?wxPrintDialog_GetPrintDialogData,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintDialog()) -> wxDC:wxDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprintdialog.html#wxprintdialoggetprintdc">external documentation</a>.
+-spec getPrintDC(This) -> wxDC:wxDC() when
+	This::wxPrintDialog().
 getPrintDC(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPrintDialog),
   wxe_util:call(?wxPrintDialog_GetPrintDC,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPrintDialog()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxPrintDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

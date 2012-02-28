@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,27 +36,32 @@
   parent_class/1,resumePropagation/2,setInt/2,setString/2,shouldPropagate/1,
   skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxNotifyEvent/0]).
 %% @hidden
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxNotifyEvent()) -> ok
+-type wxNotifyEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotifyevent.html#wxnotifyeventallow">external documentation</a>.
+-spec allow(This) -> ok when
+	This::wxNotifyEvent().
 allow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotifyEvent),
   wxe_util:cast(?wxNotifyEvent_Allow,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxNotifyEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotifyevent.html#wxnotifyeventisallowed">external documentation</a>.
+-spec isAllowed(This) -> boolean() when
+	This::wxNotifyEvent().
 isAllowed(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotifyEvent),
   wxe_util:call(?wxNotifyEvent_IsAllowed,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxNotifyEvent()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotifyevent.html#wxnotifyeventveto">external documentation</a>.
+-spec veto(This) -> ok when
+	This::wxNotifyEvent().
 veto(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotifyEvent),
   wxe_util:cast(?wxNotifyEvent_Veto,

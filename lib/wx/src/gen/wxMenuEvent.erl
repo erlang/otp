@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,26 +37,31 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxMenuEvent/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxMenuEvent()) -> wxMenu:wxMenu()
+-type wxMenuEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuevent.html#wxmenueventgetmenu">external documentation</a>.
+-spec getMenu(This) -> wxMenu:wxMenu() when
+	This::wxMenuEvent().
 getMenu(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMenuEvent),
   wxe_util:call(?wxMenuEvent_GetMenu,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxMenuEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuevent.html#wxmenueventgetmenuid">external documentation</a>.
+-spec getMenuId(This) -> integer() when
+	This::wxMenuEvent().
 getMenuId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMenuEvent),
   wxe_util:call(?wxMenuEvent_GetMenuId,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxMenuEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenuevent.html#wxmenueventispopup">external documentation</a>.
+-spec isPopup(This) -> boolean() when
+	This::wxMenuEvent().
 isPopup(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxMenuEvent),
   wxe_util:call(?wxMenuEvent_IsPopup,

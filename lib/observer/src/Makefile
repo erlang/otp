@@ -45,6 +45,7 @@ MODULES= \
 	observer_app_wx \
 	observer_lib \
 	observer_wx \
+	observer_perf_wx \
 	observer_pro_wx \
 	observer_procinfo \
 	observer_sys_wx \

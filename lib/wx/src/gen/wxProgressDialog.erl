@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -77,6 +77,7 @@
   transferDataFromWindow/1,transferDataToWindow/1,updateWindowUI/1,
   updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxProgressDialog/0]).
 %% @hidden
 parent_class(wxDialog) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -84,15 +85,21 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Title::string(), Message::string()) -> wxProgressDialog()
+-type wxProgressDialog() :: wx:wx_object().
 %% @equiv new(Title,Message, [])
+-spec new(Title, Message) -> wxProgressDialog() when
+	Title::unicode:chardata(), Message::unicode:chardata().
+
 new(Title,Message)
  when is_list(Title),is_list(Message) ->
   new(Title,Message, []).
 
-%% @spec (Title::string(), Message::string(), [Option]) -> wxProgressDialog()
-%% Option = {maximum, integer()} | {parent, wxWindow:wxWindow()} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprogressdialog.html#wxprogressdialogwxprogressdialog">external documentation</a>.
+-spec new(Title, Message, [Option]) -> wxProgressDialog() when
+	Title::unicode:chardata(), Message::unicode:chardata(),
+	Option :: {maximum, integer()}
+		 | {parent, wxWindow:wxWindow()}
+		 | {style, integer()}.
 new(Title,Message, Options)
  when is_list(Title),is_list(Message),is_list(Options) ->
   Title_UC = unicode:characters_to_binary([Title,0]),
@@ -105,29 +112,34 @@ new(Title,Message, Options)
   wxe_util:construct(?wxProgressDialog_new,
   <<(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8,(byte_size(Message_UC)):32/?UI,(Message_UC)/binary, 0:(((8- ((4+byte_size(Message_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxProgressDialog()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprogressdialog.html#wxprogressdialogresume">external documentation</a>.
+-spec resume(This) -> ok when
+	This::wxProgressDialog().
 resume(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxProgressDialog),
   wxe_util:cast(?wxProgressDialog_Resume,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxProgressDialog()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprogressdialog.html#wxprogressdialogupdate">external documentation</a>.
+-spec update(This) -> ok when
+	This::wxProgressDialog().
 update(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxProgressDialog),
   wxe_util:cast(?wxProgressDialog_Update_0,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxProgressDialog(), Value::integer()) -> bool()
 %% @equiv update(This,Value, [])
+-spec update(This, Value) -> boolean() when
+	This::wxProgressDialog(), Value::integer().
+
 update(This,Value)
  when is_record(This, wx_ref),is_integer(Value) ->
   update(This,Value, []).
 
-%% @spec (This::wxProgressDialog(), Value::integer(), [Option]) -> bool()
-%% Option = {newmsg, string()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxprogressdialog.html#wxprogressdialogupdate">external documentation</a>.
+-spec update(This, Value, [Option]) -> boolean() when
+	This::wxProgressDialog(), Value::integer(),
+	Option :: {newmsg, unicode:chardata()}.
 update(#wx_ref{type=ThisT,ref=ThisRef},Value, Options)
  when is_integer(Value),is_list(Options) ->
   ?CLASS(ThisT,wxProgressDialog),
@@ -137,8 +149,8 @@ update(#wx_ref{type=ThisT,ref=ThisRef},Value, Options)
   wxe_util:call(?wxProgressDialog_Update_2,
   <<ThisRef:32/?UI,Value:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxProgressDialog()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxProgressDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxProgressDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

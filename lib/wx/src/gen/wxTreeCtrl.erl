@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,27 +89,36 @@
   show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,
   updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxTreeCtrl/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxTreeCtrl()
+-type wxTreeCtrl() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlwxtreectrl">external documentation</a>.
+-spec new() -> wxTreeCtrl().
 new() ->
   wxe_util:construct(?wxTreeCtrl_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxTreeCtrl()
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxTreeCtrl() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxTreeCtrl()
-%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlwxtreectrl">external documentation</a>.
+-spec new(Parent, [Option]) -> wxTreeCtrl() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -123,15 +132,20 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxTreeCtrl_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Text::string()) -> integer()
 %% @equiv addRoot(This,Text, [])
+-spec addRoot(This, Text) -> integer() when
+	This::wxTreeCtrl(), Text::unicode:chardata().
+
 addRoot(This,Text)
  when is_record(This, wx_ref),is_list(Text) ->
   addRoot(This,Text, []).
 
-%% @spec (This::wxTreeCtrl(), Text::string(), [Option]) -> integer()
-%% Option = {image, integer()} | {selectedImage, integer()} | {data, term()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrladdroot">external documentation</a>.
+-spec addRoot(This, Text, [Option]) -> integer() when
+	This::wxTreeCtrl(), Text::unicode:chardata(),
+	Option :: {image, integer()}
+		 | {selectedImage, integer()}
+		 | {data, term()}.
 addRoot(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
  when is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -144,15 +158,20 @@ addRoot(#wx_ref{type=ThisT,ref=ThisRef},Text, Options)
   wxe_util:call(?wxTreeCtrl_AddRoot,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Parent::integer(), Text::string()) -> integer()
 %% @equiv appendItem(This,Parent,Text, [])
+-spec appendItem(This, Parent, Text) -> integer() when
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
+
 appendItem(This,Parent,Text)
  when is_record(This, wx_ref),is_integer(Parent),is_list(Text) ->
   appendItem(This,Parent,Text, []).
 
-%% @spec (This::wxTreeCtrl(), Parent::integer(), Text::string(), [Option]) -> integer()
-%% Option = {image, integer()} | {selectedImage, integer()} | {data, term()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlappenditem">external documentation</a>.
+-spec appendItem(This, Parent, Text, [Option]) -> integer() when
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata(),
+	Option :: {image, integer()}
+		 | {selectedImage, integer()}
+		 | {data, term()}.
 appendItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Text, Options)
  when is_integer(Parent),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -165,47 +184,58 @@ appendItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Text, Options)
   wxe_util:call(?wxTreeCtrl_AppendItem,
   <<ThisRef:32/?UI,0:32,Parent:64/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), ImageList::wxImageList:wxImageList()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlassignimagelist">external documentation</a>.
+-spec assignImageList(This, ImageList) -> ok when
+	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 assignImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
   wxe_util:cast(?wxTreeCtrl_AssignImageList,
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), ImageList::wxImageList:wxImageList()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlassignstateimagelist">external documentation</a>.
+-spec assignStateImageList(This, ImageList) -> ok when
+	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 assignStateImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
   wxe_util:cast(?wxTreeCtrl_AssignStateImageList,
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlcollapse">external documentation</a>.
+-spec collapse(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 collapse(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_Collapse,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlcollapseandreset">external documentation</a>.
+-spec collapseAndReset(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 collapseAndReset(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_CollapseAndReset,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Parent::wxWindow:wxWindow()) -> bool()
 %% @equiv create(This,Parent, [])
+-spec create(This, Parent) -> boolean() when
+	This::wxTreeCtrl(), Parent::wxWindow:wxWindow().
+
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
   create(This,Parent, []).
 
-%% @spec (This::wxTreeCtrl(), Parent::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlcreate">external documentation</a>.
+-spec create(This, Parent, [Option]) -> boolean() when
+	This::wxTreeCtrl(), Parent::wxWindow:wxWindow(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -220,62 +250,71 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}, Opti
   wxe_util:call(?wxTreeCtrl_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrldelete">external documentation</a>.
+-spec delete(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 delete(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_Delete,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrldeleteallitems">external documentation</a>.
+-spec deleteAllItems(This) -> ok when
+	This::wxTreeCtrl().
 deleteAllItems(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_DeleteAllItems,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrldeletechildren">external documentation</a>.
+-spec deleteChildren(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 deleteChildren(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_DeleteChildren,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> wxTextCtrl:wxTextCtrl()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrleditlabel">external documentation</a>.
+-spec editLabel(This, Item) -> wxTextCtrl:wxTextCtrl() when
+	This::wxTreeCtrl(), Item::integer().
 editLabel(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_EditLabel,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlensurevisible">external documentation</a>.
+-spec ensureVisible(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 ensureVisible(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_EnsureVisible,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlexpand">external documentation</a>.
+-spec expand(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 expand(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_Expand,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}) -> bool()
 %% @equiv getBoundingRect(This,Item,Rect, [])
+-spec getBoundingRect(This, Item, Rect) -> boolean() when
+	This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+
 getBoundingRect(This,Item,Rect={RectX,RectY,RectW,RectH})
  when is_record(This, wx_ref),is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   getBoundingRect(This,Item,Rect, []).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, [Option]) -> bool()
-%% Option = {textOnly, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetboundingrect">external documentation</a>.
+-spec getBoundingRect(This, Item, Rect, [Option]) -> boolean() when
+	This::wxTreeCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()},
+	Option :: {textOnly, boolean()}.
 getBoundingRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Options)
  when is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -285,15 +324,18 @@ getBoundingRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, 
   wxe_util:call(?wxTreeCtrl_GetBoundingRect,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @equiv getChildrenCount(This,Item, [])
+-spec getChildrenCount(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
+
 getChildrenCount(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
   getChildrenCount(This,Item, []).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), [Option]) -> integer()
-%% Option = {recursively, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetchildrencount">external documentation</a>.
+-spec getChildrenCount(This, Item, [Option]) -> integer() when
+	This::wxTreeCtrl(), Item::integer(),
+	Option :: {recursively, boolean()}.
 getChildrenCount(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
  when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -303,94 +345,107 @@ getChildrenCount(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
   wxe_util:call(?wxTreeCtrl_GetChildrenCount,
   <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetcount">external documentation</a>.
+-spec getCount(This) -> integer() when
+	This::wxTreeCtrl().
 getCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetCount,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> wxTextCtrl:wxTextCtrl()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgeteditcontrol">external documentation</a>.
+-spec getEditControl(This) -> wxTextCtrl:wxTextCtrl() when
+	This::wxTreeCtrl().
 getEditControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetEditControl,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> {integer(), Cookie::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetfirstchild">external documentation</a>.
+-spec getFirstChild(This, Item) -> Result when
+	Result ::{Res ::integer(), Cookie::integer()},
+	This::wxTreeCtrl(), Item::integer().
 getFirstChild(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetFirstChild,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Cookie::integer()) -> {integer(), Cookie::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetnextchild">external documentation</a>.
+-spec getNextChild(This, Item, Cookie) -> Result when
+	Result ::{Res ::integer(), Cookie::integer()},
+	This::wxTreeCtrl(), Item::integer(), Cookie::integer().
 getNextChild(#wx_ref{type=ThisT,ref=ThisRef},Item,Cookie)
  when is_integer(Item),is_integer(Cookie) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetNextChild,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,Cookie:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetfirstvisibleitem">external documentation</a>.
+-spec getFirstVisibleItem(This) -> integer() when
+	This::wxTreeCtrl().
 getFirstVisibleItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetFirstVisibleItem,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> wxImageList:wxImageList()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetimagelist">external documentation</a>.
+-spec getImageList(This) -> wxImageList:wxImageList() when
+	This::wxTreeCtrl().
 getImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetImageList,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetindent">external documentation</a>.
+-spec getIndent(This) -> integer() when
+	This::wxTreeCtrl().
 getIndent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetIndent,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitembackgroundcolour">external documentation</a>.
+-spec getItemBackgroundColour(This, Item) -> wx:wx_colour4() when
+	This::wxTreeCtrl(), Item::integer().
 getItemBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetItemBackgroundColour,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> term()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemdata">external documentation</a>.
+-spec getItemData(This, Item) -> term() when
+	This::wxTreeCtrl(), Item::integer().
 getItemData(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetItemData,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> wxFont:wxFont()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemfont">external documentation</a>.
+-spec getItemFont(This, Item) -> wxFont:wxFont() when
+	This::wxTreeCtrl(), Item::integer().
 getItemFont(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetItemFont,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemimage">external documentation</a>.
+-spec getItemImage(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
 getItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetItemImage_1,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), [Option]) -> integer()
-%% Option = {which, WxTreeItemIcon}
-%% WxTreeItemIcon = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemimage">external documentation</a>.
-%%<br /> WxTreeItemIcon is one of ?wxTreeItemIcon_Normal | ?wxTreeItemIcon_Selected | ?wxTreeItemIcon_Expanded | ?wxTreeItemIcon_SelectedExpanded | ?wxTreeItemIcon_Max
+%%<br /> Which = ?wxTreeItemIcon_Normal | ?wxTreeItemIcon_Selected | ?wxTreeItemIcon_Expanded | ?wxTreeItemIcon_SelectedExpanded | ?wxTreeItemIcon_Max
+-spec getItemImage(This, Item, [Option]) -> integer() when
+	This::wxTreeCtrl(), Item::integer(),
+	Option :: {which, wx:wx_enum()}.
 getItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
  when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -400,115 +455,134 @@ getItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
   wxe_util:call(?wxTreeCtrl_GetItemImage_2,
   <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemtext">external documentation</a>.
+-spec getItemText(This, Item) -> unicode:charlist() when
+	This::wxTreeCtrl(), Item::integer().
 getItemText(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetItemText,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemtextcolour">external documentation</a>.
+-spec getItemTextColour(This, Item) -> wx:wx_colour4() when
+	This::wxTreeCtrl(), Item::integer().
 getItemTextColour(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetItemTextColour,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetlastchild">external documentation</a>.
+-spec getLastChild(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
 getLastChild(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetLastChild,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetnextsibling">external documentation</a>.
+-spec getNextSibling(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
 getNextSibling(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetNextSibling,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetnextvisible">external documentation</a>.
+-spec getNextVisible(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
 getNextVisible(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetNextVisible,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetitemparent">external documentation</a>.
+-spec getItemParent(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
 getItemParent(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetItemParent,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetprevsibling">external documentation</a>.
+-spec getPrevSibling(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
 getPrevSibling(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetPrevSibling,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetprevvisible">external documentation</a>.
+-spec getPrevVisible(This, Item) -> integer() when
+	This::wxTreeCtrl(), Item::integer().
 getPrevVisible(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetPrevVisible,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetrootitem">external documentation</a>.
+-spec getRootItem(This) -> integer() when
+	This::wxTreeCtrl().
 getRootItem(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetRootItem,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetselection">external documentation</a>.
+-spec getSelection(This) -> integer() when
+	This::wxTreeCtrl().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> {integer(), Val::[integer()]}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetselections">external documentation</a>.
+-spec getSelections(This) -> Result when
+	Result ::{Res ::integer(), Val::[integer()]},
+	This::wxTreeCtrl().
 getSelections(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetSelections,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> wxImageList:wxImageList()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlgetstateimagelist">external documentation</a>.
+-spec getStateImageList(This) -> wxImageList:wxImageList() when
+	This::wxTreeCtrl().
 getStateImageList(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_GetStateImageList,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Point::{X::integer(), Y::integer()}) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlhittest">external documentation</a>.
+-spec hitTest(This, Point) -> integer() when
+	This::wxTreeCtrl(), Point::{X::integer(), Y::integer()}.
 hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
  when is_integer(PointX),is_integer(PointY) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_HitTest,
   <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::string()) -> integer()
 %% @equiv insertItem(This,Parent,Pos,Text, [])
+-spec insertItem(This, Parent, Pos, Text) -> integer() when
+	This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::unicode:chardata().
+
 insertItem(This,Parent,Pos,Text)
  when is_record(This, wx_ref),is_integer(Parent),is_integer(Pos),is_list(Text) ->
   insertItem(This,Parent,Pos,Text, []).
 
-%% @spec (This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::string(), [Option]) -> integer()
-%% Option = {image, integer()} | {selImage, integer()} | {data, term()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlinsertitem">external documentation</a>.
+-spec insertItem(This, Parent, Pos, Text, [Option]) -> integer() when
+	This::wxTreeCtrl(), Parent::integer(), Pos::integer(), Text::unicode:chardata(),
+	Option :: {image, integer()}
+		 | {selImage, integer()}
+		 | {data, term()}.
 insertItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Pos,Text, Options)
  when is_integer(Parent),is_integer(Pos),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -521,55 +595,65 @@ insertItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Pos,Text, Options)
   wxe_util:call(?wxTreeCtrl_InsertItem,
   <<ThisRef:32/?UI,0:32,Parent:64/?UI,Pos:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlisbold">external documentation</a>.
+-spec isBold(This, Item) -> boolean() when
+	This::wxTreeCtrl(), Item::integer().
 isBold(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_IsBold,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlisexpanded">external documentation</a>.
+-spec isExpanded(This, Item) -> boolean() when
+	This::wxTreeCtrl(), Item::integer().
 isExpanded(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_IsExpanded,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlisselected">external documentation</a>.
+-spec isSelected(This, Item) -> boolean() when
+	This::wxTreeCtrl(), Item::integer().
 isSelected(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_IsSelected,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlisvisible">external documentation</a>.
+-spec isVisible(This, Item) -> boolean() when
+	This::wxTreeCtrl(), Item::integer().
 isVisible(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_IsVisible,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlitemhaschildren">external documentation</a>.
+-spec itemHasChildren(This, Item) -> boolean() when
+	This::wxTreeCtrl(), Item::integer().
 itemHasChildren(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:call(?wxTreeCtrl_ItemHasChildren,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Parent::integer(), Text::string()) -> integer()
 %% @equiv prependItem(This,Parent,Text, [])
+-spec prependItem(This, Parent, Text) -> integer() when
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata().
+
 prependItem(This,Parent,Text)
  when is_record(This, wx_ref),is_integer(Parent),is_list(Text) ->
   prependItem(This,Parent,Text, []).
 
-%% @spec (This::wxTreeCtrl(), Parent::integer(), Text::string(), [Option]) -> integer()
-%% Option = {image, integer()} | {selectedImage, integer()} | {data, term()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlprependitem">external documentation</a>.
+-spec prependItem(This, Parent, Text, [Option]) -> integer() when
+	This::wxTreeCtrl(), Parent::integer(), Text::unicode:chardata(),
+	Option :: {image, integer()}
+		 | {selectedImage, integer()}
+		 | {data, term()}.
 prependItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Text, Options)
  when is_integer(Parent),is_list(Text),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -582,25 +666,28 @@ prependItem(#wx_ref{type=ThisT,ref=ThisRef},Parent,Text, Options)
   wxe_util:call(?wxTreeCtrl_PrependItem,
   <<ThisRef:32/?UI,0:32,Parent:64/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlscrollto">external documentation</a>.
+-spec scrollTo(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 scrollTo(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_ScrollTo,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlselectitem">external documentation</a>.
+-spec selectItem(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 selectItem(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_SelectItem_1,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), [Option]) -> ok
-%% Option = {select, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlselectitem">external documentation</a>.
+-spec selectItem(This, Item, [Option]) -> ok when
+	This::wxTreeCtrl(), Item::integer(),
+	Option :: {select, boolean()}.
 selectItem(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
  when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -610,39 +697,45 @@ selectItem(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
   wxe_util:cast(?wxTreeCtrl_SelectItem_2,
   <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Indent::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetindent">external documentation</a>.
+-spec setIndent(This, Indent) -> ok when
+	This::wxTreeCtrl(), Indent::integer().
 setIndent(#wx_ref{type=ThisT,ref=ThisRef},Indent)
  when is_integer(Indent) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_SetIndent,
   <<ThisRef:32/?UI,Indent:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), ImageList::wxImageList:wxImageList()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetimagelist">external documentation</a>.
+-spec setImageList(This, ImageList) -> ok when
+	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 setImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
   wxe_util:cast(?wxTreeCtrl_SetImageList,
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Col::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitembackgroundcolour">external documentation</a>.
+-spec setItemBackgroundColour(This, Item, Col) -> ok when
+	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},Item,Col)
  when is_integer(Item),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_SetItemBackgroundColour,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @equiv setItemBold(This,Item, [])
+-spec setItemBold(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
+
 setItemBold(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
   setItemBold(This,Item, []).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), [Option]) -> ok
-%% Option = {bold, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitembold">external documentation</a>.
+-spec setItemBold(This, Item, [Option]) -> ok when
+	This::wxTreeCtrl(), Item::integer(),
+	Option :: {bold, boolean()}.
 setItemBold(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
  when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -652,8 +745,9 @@ setItemBold(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
   wxe_util:cast(?wxTreeCtrl_SetItemBold,
   <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Data::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemdata">external documentation</a>.
+-spec setItemData(This, Item, Data) -> ok when
+	This::wxTreeCtrl(), Item::integer(), Data::term().
 setItemData(#wx_ref{type=ThisT,ref=ThisRef},Item,Data)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -661,15 +755,18 @@ setItemData(#wx_ref{type=ThisT,ref=ThisRef},Item,Data)
   wxe_util:cast(?wxTreeCtrl_SetItemData,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @equiv setItemDropHighlight(This,Item, [])
+-spec setItemDropHighlight(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
+
 setItemDropHighlight(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
   setItemDropHighlight(This,Item, []).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), [Option]) -> ok
-%% Option = {highlight, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemdrophighlight">external documentation</a>.
+-spec setItemDropHighlight(This, Item, [Option]) -> ok when
+	This::wxTreeCtrl(), Item::integer(),
+	Option :: {highlight, boolean()}.
 setItemDropHighlight(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
  when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -679,8 +776,9 @@ setItemDropHighlight(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
   wxe_util:cast(?wxTreeCtrl_SetItemDropHighlight,
   <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Font::wxFont:wxFont()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemfont">external documentation</a>.
+-spec setItemFont(This, Item, Font) -> ok when
+	This::wxTreeCtrl(), Item::integer(), Font::wxFont:wxFont().
 setItemFont(#wx_ref{type=ThisT,ref=ThisRef},Item,#wx_ref{type=FontT,ref=FontRef})
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -688,15 +786,18 @@ setItemFont(#wx_ref{type=ThisT,ref=ThisRef},Item,#wx_ref{type=FontT,ref=FontRef}
   wxe_util:cast(?wxTreeCtrl_SetItemFont,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,FontRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @equiv setItemHasChildren(This,Item, [])
+-spec setItemHasChildren(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
+
 setItemHasChildren(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
   setItemHasChildren(This,Item, []).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), [Option]) -> ok
-%% Option = {has, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemhaschildren">external documentation</a>.
+-spec setItemHasChildren(This, Item, [Option]) -> ok when
+	This::wxTreeCtrl(), Item::integer(),
+	Option :: {has, boolean()}.
 setItemHasChildren(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
  when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -706,19 +807,20 @@ setItemHasChildren(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
   wxe_util:cast(?wxTreeCtrl_SetItemHasChildren,
   <<ThisRef:32/?UI,0:32,Item:64/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Image::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemimage">external documentation</a>.
+-spec setItemImage(This, Item, Image) -> ok when
+	This::wxTreeCtrl(), Item::integer(), Image::integer().
 setItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item,Image)
  when is_integer(Item),is_integer(Image) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_SetItemImage_2,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,Image:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Image::integer(), [Option]) -> ok
-%% Option = {which, WxTreeItemIcon}
-%% WxTreeItemIcon = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemimage">external documentation</a>.
-%%<br /> WxTreeItemIcon is one of ?wxTreeItemIcon_Normal | ?wxTreeItemIcon_Selected | ?wxTreeItemIcon_Expanded | ?wxTreeItemIcon_SelectedExpanded | ?wxTreeItemIcon_Max
+%%<br /> Which = ?wxTreeItemIcon_Normal | ?wxTreeItemIcon_Selected | ?wxTreeItemIcon_Expanded | ?wxTreeItemIcon_SelectedExpanded | ?wxTreeItemIcon_Max
+-spec setItemImage(This, Item, Image, [Option]) -> ok when
+	This::wxTreeCtrl(), Item::integer(), Image::integer(),
+	Option :: {which, wx:wx_enum()}.
 setItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item,Image, Options)
  when is_integer(Item),is_integer(Image),is_list(Options) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -728,8 +830,9 @@ setItemImage(#wx_ref{type=ThisT,ref=ThisRef},Item,Image, Options)
   wxe_util:cast(?wxTreeCtrl_SetItemImage_3,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,Image:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Text::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemtext">external documentation</a>.
+-spec setItemText(This, Item, Text) -> ok when
+	This::wxTreeCtrl(), Item::integer(), Text::unicode:chardata().
 setItemText(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
  when is_integer(Item),is_list(Text) ->
   ?CLASS(ThisT,wxTreeCtrl),
@@ -737,78 +840,87 @@ setItemText(#wx_ref{type=ThisT,ref=ThisRef},Item,Text)
   wxe_util:cast(?wxTreeCtrl_SetItemText,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((4+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer(), Col::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetitemtextcolour">external documentation</a>.
+-spec setItemTextColour(This, Item, Col) -> ok when
+	This::wxTreeCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemTextColour(#wx_ref{type=ThisT,ref=ThisRef},Item,Col)
  when is_integer(Item),tuple_size(Col) =:= 3; tuple_size(Col) =:= 4 ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_SetItemTextColour,
   <<ThisRef:32/?UI,0:32,Item:64/?UI,(wxe_util:colour_bin(Col)):16/binary>>).
 
-%% @spec (This::wxTreeCtrl(), ImageList::wxImageList:wxImageList()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetstateimagelist">external documentation</a>.
+-spec setStateImageList(This, ImageList) -> ok when
+	This::wxTreeCtrl(), ImageList::wxImageList:wxImageList().
 setStateImageList(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ImageListT,ref=ImageListRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   ?CLASS(ImageListT,wxImageList),
   wxe_util:cast(?wxTreeCtrl_SetStateImageList,
   <<ThisRef:32/?UI,ImageListRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Styles::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsetwindowstyle">external documentation</a>.
+-spec setWindowStyle(This, Styles) -> ok when
+	This::wxTreeCtrl(), Styles::integer().
 setWindowStyle(#wx_ref{type=ThisT,ref=ThisRef},Styles)
  when is_integer(Styles) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_SetWindowStyle,
   <<ThisRef:32/?UI,Styles:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlsortchildren">external documentation</a>.
+-spec sortChildren(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 sortChildren(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_SortChildren,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrltoggle">external documentation</a>.
+-spec toggle(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 toggle(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_Toggle,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrltoggleitemselection">external documentation</a>.
+-spec toggleItemSelection(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 toggleItemSelection(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_ToggleItemSelection,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlunselect">external documentation</a>.
+-spec unselect(This) -> ok when
+	This::wxTreeCtrl().
 unselect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_Unselect,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlunselectall">external documentation</a>.
+-spec unselectAll(This) -> ok when
+	This::wxTreeCtrl().
 unselectAll(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_UnselectAll,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxTreeCtrl(), Item::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtreectrl.html#wxtreectrlunselectitem">external documentation</a>.
+-spec unselectItem(This, Item) -> ok when
+	This::wxTreeCtrl(), Item::integer().
 unselectItem(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxTreeCtrl),
   wxe_util:cast(?wxTreeCtrl_UnselectItem,
   <<ThisRef:32/?UI,0:32,Item:64/?UI>>).
 
-%% @spec (This::wxTreeCtrl()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxTreeCtrl()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxTreeCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

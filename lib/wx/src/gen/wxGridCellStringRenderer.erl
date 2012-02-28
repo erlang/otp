@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,18 +32,20 @@
 %% inherited exports
 -export([draw/8,getBestSize/6,parent_class/1]).
 
+-export_type([wxGridCellStringRenderer/0]).
 %% @hidden
 parent_class(wxGridCellRenderer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxGridCellStringRenderer()
+-type wxGridCellStringRenderer() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellstringrenderer.html#wxgridcellstringrendererwxgridcellstringrenderer">external documentation</a>.
+-spec new() -> wxGridCellStringRenderer().
 new() ->
   wxe_util:construct(?wxGridCellStringRenderer_new,
   <<>>).
 
-%% @spec (This::wxGridCellStringRenderer()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxGridCellStringRenderer()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellStringRenderer),
   wxe_util:destroy(?wxGridCellStringRenderer_destroy,Obj),

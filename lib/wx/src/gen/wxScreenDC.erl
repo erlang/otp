@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -38,10 +38,10 @@
   drawPoint/2,drawPolygon/2,drawPolygon/3,drawRectangle/2,drawRectangle/3,
   drawRotatedText/4,drawRoundedRectangle/3,drawRoundedRectangle/4,
   drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,getBackground/1,
-  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/2,
+  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/1,
   getFont/1,getLayoutDirection/1,getLogicalFunction/1,getMapMode/1,
-  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/3,
-  getPen/1,getPixel/3,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
+  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/2,
+  getPen/1,getPixel/2,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
   getTextExtent/3,getTextForeground/1,getUserScale/1,gradientFillConcentric/4,
   gradientFillConcentric/5,gradientFillLinear/4,gradientFillLinear/5,
   isOk/1,logicalToDeviceX/2,logicalToDeviceXRel/2,logicalToDeviceY/2,
@@ -52,18 +52,20 @@
   setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,startDoc/2,
   startPage/1]).
 
+-export_type([wxScreenDC/0]).
 %% @hidden
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxScreenDC()
+-type wxScreenDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscreendc.html#wxscreendcwxscreendc">external documentation</a>.
+-spec new() -> wxScreenDC().
 new() ->
   wxe_util:construct(?wxScreenDC_new,
   <<>>).
 
-%% @spec (This::wxScreenDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxScreenDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScreenDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
@@ -150,11 +152,11 @@ getSize(This) -> wxDC:getSize(This).
 %% @hidden
 getPPI(This) -> wxDC:getPPI(This).
 %% @hidden
-getPixel(This,Pt,Col) -> wxDC:getPixel(This,Pt,Col).
+getPixel(This,Pt) -> wxDC:getPixel(This,Pt).
 %% @hidden
 getPen(This) -> wxDC:getPen(This).
 %% @hidden
-getPartialTextExtents(This,Text,Widths) -> wxDC:getPartialTextExtents(This,Text,Widths).
+getPartialTextExtents(This,Text) -> wxDC:getPartialTextExtents(This,Text).
 %% @hidden
 getMultiLineTextExtent(This,String, Options) -> wxDC:getMultiLineTextExtent(This,String, Options).
 %% @hidden
@@ -168,7 +170,7 @@ getLayoutDirection(This) -> wxDC:getLayoutDirection(This).
 %% @hidden
 getFont(This) -> wxDC:getFont(This).
 %% @hidden
-getClippingBox(This,Rect) -> wxDC:getClippingBox(This,Rect).
+getClippingBox(This) -> wxDC:getClippingBox(This).
 %% @hidden
 getCharWidth(This) -> wxDC:getCharWidth(This).
 %% @hidden

@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -301,6 +301,13 @@ void initEventTable()
    {wxEVT_AUI_PANE_RESTORE, 224, "aui_pane_restore"},
    {wxEVT_AUI_RENDER, 224, "aui_render"},
    {wxEVT_AUI_FIND_MANAGER, 224, "aui_find_manager"},
+   {wxEVT_TASKBAR_MOVE, 227, "taskbar_move"},
+   {wxEVT_TASKBAR_LEFT_DOWN, 227, "taskbar_left_down"},
+   {wxEVT_TASKBAR_LEFT_UP, 227, "taskbar_left_up"},
+   {wxEVT_TASKBAR_RIGHT_DOWN, 227, "taskbar_right_down"},
+   {wxEVT_TASKBAR_RIGHT_UP, 227, "taskbar_right_up"},
+   {wxEVT_TASKBAR_LEFT_DCLICK, 227, "taskbar_left_dclick"},
+   {wxEVT_TASKBAR_RIGHT_DCLICK, 227, "taskbar_right_dclick"},
    {-1, 0, }
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
@@ -805,6 +812,13 @@ case 224: {// wxAuiManagerEvent
  rt.addBool(ev->canveto_flag);
  rt.addRef(getRef((void *)GetDC,memenv), "wxDC");
     rt.addTupleCount(8);
+  break;
+}
+case 227: {// wxTaskBarIconEvent
+    evClass = (char*)"wxTaskBarIconEvent";
+    rt.addAtom((char*)"wxTaskBarIcon");
+    rt.addAtom(Etype->eName);
+    rt.addTupleCount(2);
   break;
 }
  }

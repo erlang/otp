@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,16 +41,18 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxCalendarEvent/0]).
 %% @hidden
 parent_class(wxDateEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxCalendarEvent()) -> WeekDay
-%% WeekDay = integer()
+-type wxCalendarEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendarevent.html#wxcalendareventgetweekday">external documentation</a>.
-%%<br /> WeekDay is one of ?wxDateTime_Sun | ?wxDateTime_Mon | ?wxDateTime_Tue | ?wxDateTime_Wed | ?wxDateTime_Thu | ?wxDateTime_Fri | ?wxDateTime_Sat | ?wxDateTime_Inv_WeekDay
+%%<br /> Res = ?wxDateTime_Sun | ?wxDateTime_Mon | ?wxDateTime_Tue | ?wxDateTime_Wed | ?wxDateTime_Thu | ?wxDateTime_Fri | ?wxDateTime_Sat | ?wxDateTime_Inv_WeekDay
+-spec getWeekDay(This) -> wx:wx_enum() when
+	This::wxCalendarEvent().
 getWeekDay(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxCalendarEvent),
   wxe_util:call(?wxCalendarEvent_GetWeekDay,

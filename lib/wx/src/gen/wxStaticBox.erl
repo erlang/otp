@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -69,27 +69,34 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxStaticBox/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxStaticBox()
+-type wxStaticBox() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbox.html#wxstaticboxwxstaticbox">external documentation</a>.
+-spec new() -> wxStaticBox().
 new() ->
   wxe_util:construct(?wxStaticBox_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Label::string()) -> wxStaticBox()
 %% @equiv new(Parent,Id,Label, [])
+-spec new(Parent, Id, Label) -> wxStaticBox() when
+	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
   new(Parent,Id,Label, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Label::string(), [Option]) -> wxStaticBox()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbox.html#wxstaticboxwxstaticbox">external documentation</a>.
+-spec new(Parent, Id, Label, [Option]) -> wxStaticBox() when
+	Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -102,15 +109,20 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
   wxe_util:construct(?wxStaticBox_new_4,
   <<ParentRef:32/?UI,Id:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((4+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::string()) -> bool()
 %% @equiv create(This,Parent,Id,Label, [])
+-spec create(This, Parent, Id, Label) -> boolean() when
+	This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata().
+
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Label) ->
   create(This,Parent,Id,Label, []).
 
-%% @spec (This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::string(), [Option]) -> bool()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstaticbox.html#wxstaticboxcreate">external documentation</a>.
+-spec create(This, Parent, Id, Label, [Option]) -> boolean() when
+	This::wxStaticBox(), Parent::wxWindow:wxWindow(), Id::integer(), Label::unicode:chardata(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Label, Options)
  when is_integer(Id),is_list(Label),is_list(Options) ->
   ?CLASS(ThisT,wxStaticBox),
@@ -124,8 +136,8 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,La
   wxe_util:call(?wxStaticBox_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxStaticBox()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxStaticBox()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxStaticBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

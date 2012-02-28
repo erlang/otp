@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,61 +30,72 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxEvent/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxEvent()) -> integer()
+-type wxEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventgetid">external documentation</a>.
+-spec getId(This) -> integer() when
+	This::wxEvent().
 getId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:call(?wxEvent_GetId,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventgetskipped">external documentation</a>.
+-spec getSkipped(This) -> boolean() when
+	This::wxEvent().
 getSkipped(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:call(?wxEvent_GetSkipped,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventgettimestamp">external documentation</a>.
+-spec getTimestamp(This) -> integer() when
+	This::wxEvent().
 getTimestamp(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:call(?wxEvent_GetTimestamp,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventiscommandevent">external documentation</a>.
+-spec isCommandEvent(This) -> boolean() when
+	This::wxEvent().
 isCommandEvent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:call(?wxEvent_IsCommandEvent,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxEvent(), PropagationLevel::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventresumepropagation">external documentation</a>.
+-spec resumePropagation(This, PropagationLevel) -> ok when
+	This::wxEvent(), PropagationLevel::integer().
 resumePropagation(#wx_ref{type=ThisT,ref=ThisRef},PropagationLevel)
  when is_integer(PropagationLevel) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:cast(?wxEvent_ResumePropagation,
   <<ThisRef:32/?UI,PropagationLevel:32/?UI>>).
 
-%% @spec (This::wxEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventshouldpropagate">external documentation</a>.
+-spec shouldPropagate(This) -> boolean() when
+	This::wxEvent().
 shouldPropagate(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:call(?wxEvent_ShouldPropagate,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxEvent()) -> ok
 %% @equiv skip(This, [])
+-spec skip(This) -> ok when
+	This::wxEvent().
+
 skip(This)
  when is_record(This, wx_ref) ->
   skip(This, []).
 
-%% @spec (This::wxEvent(), [Option]) -> ok
-%% Option = {skip, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventskip">external documentation</a>.
+-spec skip(This, [Option]) -> ok when
+	This::wxEvent(),
+	Option :: {skip, boolean()}.
 skip(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxEvent),
@@ -94,8 +105,9 @@ skip(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxEvent_Skip,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxevent.html#wxeventstoppropagation">external documentation</a>.
+-spec stopPropagation(This) -> integer() when
+	This::wxEvent().
 stopPropagation(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxEvent),
   wxe_util:call(?wxEvent_StopPropagation,

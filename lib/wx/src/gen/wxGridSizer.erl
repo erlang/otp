@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,19 +41,25 @@
   setMinSize/2,setMinSize/3,setSizeHints/2,setVirtualSizeHints/2,show/2,
   show/3]).
 
+-export_type([wxGridSizer/0]).
 %% @hidden
 parent_class(wxSizer) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Cols::integer()) -> wxGridSizer()
+-type wxGridSizer() :: wx:wx_object().
 %% @equiv new(Cols, [])
+-spec new(Cols) -> wxGridSizer() when
+	Cols::integer().
+
 new(Cols)
  when is_integer(Cols) ->
   new(Cols, []).
 
-%% @spec (Cols::integer(), [Option]) -> wxGridSizer()
-%% Option = {vgap, integer()} | {hgap, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
+-spec new(Cols, [Option]) -> wxGridSizer() when
+	Cols::integer(),
+	Option :: {vgap, integer()}
+		 | {hgap, integer()}.
 new(Cols, Options)
  when is_integer(Cols),is_list(Options) ->
   MOpts = fun({vgap, Vgap}, Acc) -> [<<1:32/?UI,Vgap:32/?UI>>|Acc];
@@ -63,75 +69,84 @@ new(Cols, Options)
   wxe_util:construct(?wxGridSizer_new_2,
   <<Cols:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer()) -> wxGridSizer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizerwxgridsizer">external documentation</a>.
+-spec new(Rows, Cols, Vgap, Hgap) -> wxGridSizer() when
+	Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
 new(Rows,Cols,Vgap,Hgap)
  when is_integer(Rows),is_integer(Cols),is_integer(Vgap),is_integer(Hgap) ->
   wxe_util:construct(?wxGridSizer_new_4,
   <<Rows:32/?UI,Cols:32/?UI,Vgap:32/?UI,Hgap:32/?UI>>).
 
-%% @spec (This::wxGridSizer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergetcols">external documentation</a>.
+-spec getCols(This) -> integer() when
+	This::wxGridSizer().
 getCols(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:call(?wxGridSizer_GetCols,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGridSizer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergethgap">external documentation</a>.
+-spec getHGap(This) -> integer() when
+	This::wxGridSizer().
 getHGap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:call(?wxGridSizer_GetHGap,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGridSizer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergetrows">external documentation</a>.
+-spec getRows(This) -> integer() when
+	This::wxGridSizer().
 getRows(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:call(?wxGridSizer_GetRows,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGridSizer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizergetvgap">external documentation</a>.
+-spec getVGap(This) -> integer() when
+	This::wxGridSizer().
 getVGap(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:call(?wxGridSizer_GetVGap,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGridSizer(), Cols::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersetcols">external documentation</a>.
+-spec setCols(This, Cols) -> ok when
+	This::wxGridSizer(), Cols::integer().
 setCols(#wx_ref{type=ThisT,ref=ThisRef},Cols)
  when is_integer(Cols) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:cast(?wxGridSizer_SetCols,
   <<ThisRef:32/?UI,Cols:32/?UI>>).
 
-%% @spec (This::wxGridSizer(), Gap::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersethgap">external documentation</a>.
+-spec setHGap(This, Gap) -> ok when
+	This::wxGridSizer(), Gap::integer().
 setHGap(#wx_ref{type=ThisT,ref=ThisRef},Gap)
  when is_integer(Gap) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:cast(?wxGridSizer_SetHGap,
   <<ThisRef:32/?UI,Gap:32/?UI>>).
 
-%% @spec (This::wxGridSizer(), Rows::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersetrows">external documentation</a>.
+-spec setRows(This, Rows) -> ok when
+	This::wxGridSizer(), Rows::integer().
 setRows(#wx_ref{type=ThisT,ref=ThisRef},Rows)
  when is_integer(Rows) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:cast(?wxGridSizer_SetRows,
   <<ThisRef:32/?UI,Rows:32/?UI>>).
 
-%% @spec (This::wxGridSizer(), Gap::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html#wxgridsizersetvgap">external documentation</a>.
+-spec setVGap(This, Gap) -> ok when
+	This::wxGridSizer(), Gap::integer().
 setVGap(#wx_ref{type=ThisT,ref=ThisRef},Gap)
  when is_integer(Gap) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:cast(?wxGridSizer_SetVGap,
   <<ThisRef:32/?UI,Gap:32/?UI>>).
 
-%% @spec (This::wxGridSizer()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxGridSizer()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

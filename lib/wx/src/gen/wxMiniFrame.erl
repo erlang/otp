@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -80,6 +80,7 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-export_type([wxMiniFrame/0]).
 %% @hidden
 parent_class(wxFrame) -> true;
 parent_class(wxTopLevelWindow) -> true;
@@ -87,21 +88,27 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxMiniFrame()
+-type wxMiniFrame() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
+-spec new() -> wxMiniFrame().
 new() ->
   wxe_util:construct(?wxMiniFrame_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Title::string()) -> wxMiniFrame()
 %% @equiv new(Parent,Id,Title, [])
+-spec new(Parent, Id, Title) -> wxMiniFrame() when
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   new(Parent,Id,Title, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), [Option]) -> wxMiniFrame()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html#wxminiframewxminiframe">external documentation</a>.
+-spec new(Parent, Id, Title, [Option]) -> wxMiniFrame() when
+	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -114,15 +121,20 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
   wxe_util:construct(?wxMiniFrame_new_4,
   <<ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((4+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string()) -> bool()
 %% @equiv create(This,Parent,Id,Title, [])
+-spec create(This, Parent, Id, Title) -> boolean() when
+	This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_list(Title) ->
   create(This,Parent,Id,Title, []).
 
-%% @spec (This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::string(), [Option]) -> bool()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html#wxminiframecreate">external documentation</a>.
+-spec create(This, Parent, Id, Title, [Option]) -> boolean() when
+	This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title, Options)
  when is_integer(Id),is_list(Title),is_list(Options) ->
   ?CLASS(ThisT,wxMiniFrame),
@@ -136,8 +148,8 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Ti
   wxe_util:call(?wxMiniFrame_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI,(byte_size(Title_UC)):32/?UI,(Title_UC)/binary, 0:(((8- ((0+byte_size(Title_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxMiniFrame()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxMiniFrame()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMiniFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,91 +31,103 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxListItemAttr/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxListItemAttr()
+-type wxListItemAttr() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrwxlistitemattr">external documentation</a>.
+-spec new() -> wxListItemAttr().
 new() ->
   wxe_util:construct(?wxListItemAttr_new_0,
   <<>>).
 
-%% @spec (ColText::wx:colour(), ColBack::wx:colour(), Font::wxFont:wxFont()) -> wxListItemAttr()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrwxlistitemattr">external documentation</a>.
+-spec new(ColText, ColBack, Font) -> wxListItemAttr() when
+	ColText::wx:wx_colour(), ColBack::wx:wx_colour(), Font::wxFont:wxFont().
 new(ColText,ColBack,#wx_ref{type=FontT,ref=FontRef})
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4,tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
   ?CLASS(FontT,wxFont),
   wxe_util:construct(?wxListItemAttr_new_3,
   <<(wxe_util:colour_bin(ColText)):16/binary,(wxe_util:colour_bin(ColBack)):16/binary,FontRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrgetbackgroundcolour">external documentation</a>.
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
+	This::wxListItemAttr().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:call(?wxListItemAttr_GetBackgroundColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr()) -> wxFont:wxFont()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrgetfont">external documentation</a>.
+-spec getFont(This) -> wxFont:wxFont() when
+	This::wxListItemAttr().
 getFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:call(?wxListItemAttr_GetFont,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrgettextcolour">external documentation</a>.
+-spec getTextColour(This) -> wx:wx_colour4() when
+	This::wxListItemAttr().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:call(?wxListItemAttr_GetTextColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrhasbackgroundcolour">external documentation</a>.
+-spec hasBackgroundColour(This) -> boolean() when
+	This::wxListItemAttr().
 hasBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:call(?wxListItemAttr_HasBackgroundColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrhasfont">external documentation</a>.
+-spec hasFont(This) -> boolean() when
+	This::wxListItemAttr().
 hasFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:call(?wxListItemAttr_HasFont,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrhastextcolour">external documentation</a>.
+-spec hasTextColour(This) -> boolean() when
+	This::wxListItemAttr().
 hasTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:call(?wxListItemAttr_HasTextColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr(), ColBack::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrsetbackgroundcolour">external documentation</a>.
+-spec setBackgroundColour(This, ColBack) -> ok when
+	This::wxListItemAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
  when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:cast(?wxListItemAttr_SetBackgroundColour,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary>>).
 
-%% @spec (This::wxListItemAttr(), Font::wxFont:wxFont()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrsetfont">external documentation</a>.
+-spec setFont(This, Font) -> ok when
+	This::wxListItemAttr(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   ?CLASS(ThisT,wxListItemAttr),
   ?CLASS(FontT,wxFont),
   wxe_util:cast(?wxListItemAttr_SetFont,
   <<ThisRef:32/?UI,FontRef:32/?UI>>).
 
-%% @spec (This::wxListItemAttr(), ColText::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitemattr.html#wxlistitemattrsettextcolour">external documentation</a>.
+-spec setTextColour(This, ColText) -> ok when
+	This::wxListItemAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:cast(?wxListItemAttr_SetTextColour,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
-%% @spec (This::wxListItemAttr()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxListItemAttr()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListItemAttr),
   wxe_util:destroy(?wxListItemAttr_destroy,Obj),

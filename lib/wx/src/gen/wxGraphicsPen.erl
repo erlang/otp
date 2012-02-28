@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,10 +32,12 @@
 %% inherited exports
 -export([getRenderer/1,isNull/1,parent_class/1]).
 
+-export_type([wxGraphicsPen/0]).
 %% @hidden
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
+-type wxGraphicsPen() :: wx:wx_object().
  %% From wxGraphicsObject
 %% @hidden
 isNull(This) -> wxGraphicsObject:isNull(This).

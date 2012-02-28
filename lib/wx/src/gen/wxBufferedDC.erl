@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,10 +39,10 @@
   drawPoint/2,drawPolygon/2,drawPolygon/3,drawRectangle/2,drawRectangle/3,
   drawRotatedText/4,drawRoundedRectangle/3,drawRoundedRectangle/4,
   drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,getBackground/1,
-  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/2,
+  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/1,
   getFont/1,getLayoutDirection/1,getLogicalFunction/1,getMapMode/1,
-  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/3,
-  getPen/1,getPixel/3,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
+  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/2,
+  getPen/1,getPixel/2,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
   getTextExtent/3,getTextForeground/1,getUserScale/1,gradientFillConcentric/4,
   gradientFillConcentric/5,gradientFillLinear/4,gradientFillLinear/5,
   isOk/1,logicalToDeviceX/2,logicalToDeviceXRel/2,logicalToDeviceY/2,
@@ -53,32 +53,40 @@
   setMapMode/2,setPalette/2,setPen/2,setTextBackground/2,setTextForeground/2,
   setUserScale/3,startDoc/2,startPage/1]).
 
+-export_type([wxBufferedDC/0]).
 %% @hidden
 parent_class(wxMemoryDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxBufferedDC()
+-type wxBufferedDC() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
+-spec new() -> wxBufferedDC().
 new() ->
   wxe_util:construct(?wxBufferedDC_new_0,
   <<>>).
 
-%% @spec (Dc::wxDC:wxDC()) -> wxBufferedDC()
 %% @equiv new(Dc, [])
+-spec new(Dc) -> wxBufferedDC() when
+	Dc::wxDC:wxDC().
+
 new(Dc)
  when is_record(Dc, wx_ref) ->
   new(Dc, []).
 
-%% @spec (Dc::wxDC:wxDC(),X::term()) -> wxBufferedDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}) -> new(Dc,Area, []) </c></p>
-%% <p><c>
-%% new(Dc::wxDC:wxDC(), [Option]) -> wxBufferedDC() </c>
-%%<br /> Option = {buffer, wxBitmap:wxBitmap()} | {style, integer()}
-%% </p>
+%% <br /> Also:<br />
+%% new(Dc, [Option]) -> wxBufferedDC() when<br />
+%% 	Dc::wxDC:wxDC(),<br />
+%% 	Option :: {buffer, wxBitmap:wxBitmap()}<br />
+%% 		 | {style, integer()}.<br />
+%% 
+-spec new(Dc, Area) -> wxBufferedDC() when
+	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
+      (Dc, [Option]) -> wxBufferedDC() when
+	Dc::wxDC:wxDC(),
+	Option :: {buffer, wxBitmap:wxBitmap()}
+		 | {style, integer()}.
 
 new(Dc,Area={AreaW,AreaH})
  when is_record(Dc, wx_ref),is_integer(AreaW),is_integer(AreaH) ->
@@ -93,9 +101,10 @@ new(#wx_ref{type=DcT,ref=DcRef}, Options)
   wxe_util:construct(?wxBufferedDC_new_2,
   <<DcRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}, [Option]) -> wxBufferedDC()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
+-spec new(Dc, Area, [Option]) -> wxBufferedDC() when
+	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
+	Option :: {style, integer()}.
 new(#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
  when is_integer(AreaW),is_integer(AreaH),is_list(Options) ->
   ?CLASS(DcT,wxDC),
@@ -105,21 +114,27 @@ new(#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
   wxe_util:construct(?wxBufferedDC_new_3,
   <<DcRef:32/?UI,AreaW:32/?UI,AreaH:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxBufferedDC(), Dc::wxDC:wxDC()) -> ok
 %% @equiv init(This,Dc, [])
+-spec init(This, Dc) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC().
+
 init(This,Dc)
  when is_record(This, wx_ref),is_record(Dc, wx_ref) ->
   init(This,Dc, []).
 
-%% @spec (This::wxBufferedDC(),Dc::wxDC:wxDC(),X::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% init(This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}) -> init(This,Dc,Area, []) </c></p>
-%% <p><c>
-%% init(This::wxBufferedDC(), Dc::wxDC:wxDC(), [Option]) -> ok </c>
-%%<br /> Option = {buffer, wxBitmap:wxBitmap()} | {style, integer()}
-%% </p>
+%% <br /> Also:<br />
+%% init(This, Dc, [Option]) -> ok when<br />
+%% 	This::wxBufferedDC(), Dc::wxDC:wxDC(),<br />
+%% 	Option :: {buffer, wxBitmap:wxBitmap()}<br />
+%% 		 | {style, integer()}.<br />
+%% 
+-spec init(This, Dc, Area) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
+      (This, Dc, [Option]) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC(),
+	Option :: {buffer, wxBitmap:wxBitmap()}
+		 | {style, integer()}.
 
 init(This,Dc,Area={AreaW,AreaH})
  when is_record(This, wx_ref),is_record(Dc, wx_ref),is_integer(AreaW),is_integer(AreaH) ->
@@ -135,9 +150,10 @@ init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef}, Options)
   wxe_util:cast(?wxBufferedDC_Init_2,
   <<ThisRef:32/?UI,DcRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()}, [Option]) -> ok
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
+-spec init(This, Dc, Area, [Option]) -> ok when
+	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()},
+	Option :: {style, integer()}.
 init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, Options)
  when is_integer(AreaW),is_integer(AreaH),is_list(Options) ->
   ?CLASS(ThisT,wxBufferedDC),
@@ -148,8 +164,8 @@ init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, 
   wxe_util:cast(?wxBufferedDC_Init_3,
   <<ThisRef:32/?UI,DcRef:32/?UI,AreaW:32/?UI,AreaH:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxBufferedDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxBufferedDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
@@ -241,11 +257,11 @@ getSize(This) -> wxDC:getSize(This).
 %% @hidden
 getPPI(This) -> wxDC:getPPI(This).
 %% @hidden
-getPixel(This,Pt,Col) -> wxDC:getPixel(This,Pt,Col).
+getPixel(This,Pt) -> wxDC:getPixel(This,Pt).
 %% @hidden
 getPen(This) -> wxDC:getPen(This).
 %% @hidden
-getPartialTextExtents(This,Text,Widths) -> wxDC:getPartialTextExtents(This,Text,Widths).
+getPartialTextExtents(This,Text) -> wxDC:getPartialTextExtents(This,Text).
 %% @hidden
 getMultiLineTextExtent(This,String, Options) -> wxDC:getMultiLineTextExtent(This,String, Options).
 %% @hidden
@@ -259,7 +275,7 @@ getLayoutDirection(This) -> wxDC:getLayoutDirection(This).
 %% @hidden
 getFont(This) -> wxDC:getFont(This).
 %% @hidden
-getClippingBox(This,Rect) -> wxDC:getClippingBox(This,Rect).
+getClippingBox(This) -> wxDC:getClippingBox(This).
 %% @hidden
 getCharWidth(This) -> wxDC:getCharWidth(This).
 %% @hidden
