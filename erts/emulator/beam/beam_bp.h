@@ -56,18 +56,25 @@ typedef struct {
     erts_refc_t refc;
 } BpCount;
 
+typedef struct {
+    erts_smp_atomic_t pid;
+    erts_refc_t refc;
+} BpMetaPid;
+
 typedef struct generic_bp_data {
     Uint flags;
     Binary* local_ms;		/* Match spec for local call trace */
     Binary* meta_ms;		/* Match spec for meta trace */
-    erts_smp_atomic_t tracer_pid; /* For meta trace */
-    BpCount* count;		  /* For call count */
-    BpDataTime* time;		  /* For time trace */
+    BpMetaPid* meta_pid;	/* Meta trace pid */
+    BpCount* count;		/* For call count */
+    BpDataTime* time;		/* For time trace */
 } GenericBpData;
+
+#define ERTS_NUM_BP_IX 2
 
 typedef struct generic_bp {
     BeamInstr orig_instr;
-    GenericBpData data[1];
+    GenericBpData data[ERTS_NUM_BP_IX];
 } GenericBp;
 
 #define ERTS_BP_CALL_TIME_SCHEDULE_IN      (0)
@@ -87,7 +94,17 @@ enum erts_break_op{
     erts_break_stop
 };
 
+typedef Uint32 ErtsBpIndex;
 
+typedef struct {
+    BeamInstr* pc;
+    Module* mod;
+} BpFunction;
+
+typedef struct {
+    Uint matched;		/* Number matched */
+    BpFunction* matching;	/* Matching functions */
+} BpFunctions;
 
 /*
 ** Function interface exported from beam_bp.c
@@ -95,23 +112,35 @@ enum erts_break_op{
 
 void erts_bp_init(void);
 
-int erts_set_trace_break(Eterm mfa[3], int specified, Binary *match_spec);
-int erts_clear_trace_break(Eterm mfa[3], int specified);
-int erts_set_mtrace_break(Eterm mfa[3], int specified, Binary *match_spec,
+void erts_prepare_bp_staging(void);
+void erts_commit_staged_bp(void);
+
+ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void);
+ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void);
+
+void erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified);
+void erts_bp_free_matched_functions(BpFunctions* f);
+
+void erts_install_breakpoints(BpFunctions* f);
+void erts_uninstall_breakpoints(BpFunctions* f);
+void erts_consolidate_bp_data(BpFunctions* f);
+
+void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
+void erts_clear_trace_break(BpFunctions *f);
+void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec,
 			  Eterm tracer_pid);
-int erts_clear_mtrace_break(Eterm mfa[3], int specified);
+void erts_clear_mtrace_break(BpFunctions *f);
 void erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec,
 			 Eterm tracer_pid);
 void erts_clear_mtrace_bif(BeamInstr *pc);
-int erts_set_debug_break(Eterm mfa[3], int specified);
-int erts_clear_debug_break(Eterm mfa[3], int specified);
-int erts_set_count_break(Eterm mfa[3], int specified, enum erts_break_op);
-int erts_clear_count_break(Eterm mfa[3], int specified);
+void erts_set_debug_break(BpFunctions *f);
+void erts_clear_debug_break(BpFunctions *f);
+void erts_set_count_break(BpFunctions *f, enum erts_break_op);
+void erts_clear_count_break(BpFunctions *f);
 
 
-int erts_clear_break(Eterm mfa[3], int specified);
+void erts_clear_all_breaks(BpFunctions* f);
 int erts_clear_module_break(Module *modp);
-int erts_clear_function_break(Module *modp, BeamInstr *pc);
 
 BeamInstr erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
@@ -131,8 +160,8 @@ int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *call_time);
 void erts_trace_time_call(Process* c_p, BeamInstr* pc, BpDataTime* bdt);
 void erts_trace_time_return(Process* c_p, BeamInstr* pc);
 void erts_schedule_time_break(Process *p, Uint out);
-int erts_set_time_break(Eterm mfa[3], int specified, enum erts_break_op);
-int erts_clear_time_break(Eterm mfa[3], int specified);
+void erts_set_time_break(BpFunctions *f, enum erts_break_op);
+void erts_clear_time_break(BpFunctions *f);
 
 int erts_is_time_trace_bif(Process *p, BeamInstr *pc, Eterm *call_time);
 void erts_set_time_trace_bif(BeamInstr *pc, enum erts_break_op);
@@ -153,6 +182,19 @@ ERTS_GLB_INLINE Uint erts_bp_sched2ix(void)
 #else
     return 0;
 #endif
+}
+
+extern erts_smp_atomic32_t erts_active_bp_index;
+extern erts_smp_atomic32_t erts_staging_bp_index;
+
+ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void)
+{
+    return erts_smp_atomic32_read_nob(&erts_active_bp_index);
+}
+
+ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void)
+{
+    return erts_smp_atomic32_read_nob(&erts_staging_bp_index);
 }
 #endif
 

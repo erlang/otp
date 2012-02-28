@@ -1333,6 +1333,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 		       Eterm meta_tracer_pid)
 {
     const ErtsCodeIndex code_ix = erts_active_code_ix();
+    BpFunctions f;
     int matches = 0;
     int i;
 
@@ -1466,50 +1467,50 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
     /*
     ** So, now for breakpoint tracing
     */
+    erts_bp_match_functions(&f, mfa, specified);
     if (on) {
 	if (! flags.breakpoint) {
-	    erts_clear_trace_break(mfa, specified);
-	    erts_clear_mtrace_break(mfa, specified);
-	    erts_clear_count_break(mfa, specified);
-	    erts_clear_time_break(mfa, specified);
+	    erts_clear_all_breaks(&f);
+	    erts_commit_staged_bp();
+	    erts_uninstall_breakpoints(&f);
 	} else {
-	    int m = 0;
 	    if (flags.local) {
-		m = erts_set_trace_break(mfa, specified, match_prog_set);
+		erts_set_trace_break(&f, match_prog_set);
 	    }
 	    if (flags.meta) {
-		m = erts_set_mtrace_break(mfa, specified, meta_match_prog_set,
-					  meta_tracer_pid);
+		erts_set_mtrace_break(&f, meta_match_prog_set,
+				      meta_tracer_pid);
 	    }
 	    if (flags.call_count) {
-		m = erts_set_count_break(mfa, specified, on);
+		erts_set_count_break(&f, on);
 	    }
 	    if (flags.call_time) {
-		m = erts_set_time_break(mfa, specified, on);
+		erts_set_time_break(&f, on);
 	    }
-	    /* All assignments to 'm' above should give the same value,
-	     * so just use the last */
-	    matches += m;
+	    erts_install_breakpoints(&f);
+	    erts_commit_staged_bp();
 	}
     } else {
-	int m = 0;
 	if (flags.local) {
-	    m = erts_clear_trace_break(mfa, specified);
+	    erts_clear_trace_break(&f);
 	}
 	if (flags.meta) {
-	    m = erts_clear_mtrace_break(mfa, specified);
+	    erts_clear_mtrace_break(&f);
 	}
 	if (flags.call_count) {
-	    m = erts_clear_count_break(mfa, specified);
+	    erts_clear_count_break(&f);
 	}
 	if (flags.call_time) {
-	    m = erts_clear_time_break(mfa, specified);
+	    erts_clear_time_break(&f);
 	}
-	/* All assignments to 'm' above should give the same value,
-	 * so just use the last */
-	matches += m;
+	erts_commit_staged_bp();
+	erts_uninstall_breakpoints(&f);
     }
-
+    erts_consolidate_bp_data(&f);
+    if (flags.breakpoint) {
+	matches += f.matched;
+    }
+    erts_bp_free_matched_functions(&f);
     return matches;
 }
 
@@ -1631,7 +1632,6 @@ static void reset_bif_trace(int bif_index) {
     ASSERT(ExportIsBuiltIn(ep));
     ASSERT(ep->code[4]);
     ASSERT(! ep->match_prog_set);
-    ASSERT(! erts_is_mtrace_break((BeamInstr *)ep->code+3, NULL, NULL));
     ep->code[4] = (BeamInstr) bif_table[bif_index].f;
 }
 
