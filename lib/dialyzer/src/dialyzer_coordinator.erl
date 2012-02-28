@@ -152,7 +152,9 @@ send_done_to_parent(#state{mode = Mode,
 			   next_label = NextLabel}) ->
   Msg =
     case Mode of
-      X when X =:= 'typesig'; X =:= 'dataflow' -> {not_fixpoint, Result};
+      X when X =:= 'typesig'; X =:= 'dataflow' ->
+	ets:delete(?MAP),
+	{not_fixpoint, Result};
       'compile' -> {compilation_data, Result, NextLabel};
       'warnings' -> {warnings, Result}
     end,
@@ -340,11 +342,7 @@ handle_info(_Info, State) ->
 
 -spec terminate(term(), #state{}) -> ok.
 
-terminate(_Reason, #state{mode = Mode}) ->
-  case Mode of
-    X when X =:= 'typesig'; X =:= 'dataflow' -> ets:delete(?MAP);
-    _ -> true
-  end,
+terminate(_Reason, _State) ->
   ok.
 
 -spec code_change(term(), #state{}, term()) -> {ok, #state{}}.
