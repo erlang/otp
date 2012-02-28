@@ -117,7 +117,8 @@ Default: <c>on</c></item>
       <name>start() -> ok</name>
       <fsummary>Start etop</fsummary>
       <desc>
-        <p>This function starts <c>etop</c>.</p>
+        <p>This function starts <c>etop</c>.
+        Note that etop is preferably started with the etop and getop scripts</p>
       </desc>
     </func>
     <func>
