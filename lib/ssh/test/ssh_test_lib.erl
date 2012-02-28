@@ -43,12 +43,8 @@ connect(Host, Options) ->
 connect(any, Port, Options) ->
     connect(hostname(), Port, Options);
 connect(Host, Port, Options) ->
-    case ssh:connect(Host, Port, Options) of
-	{ok, ConnectionRef} ->
-	    ConnectionRef;
-	Error ->
-	    Error
-    end.
+    {ok, ConnectionRef} = ssh:connect(Host, Port, Options),
+    ConnectionRef.
 
 daemon(Options) ->
     daemon(any, inet_port(), Options).
@@ -338,3 +334,13 @@ del_dirs(Dir) ->
 	_ ->
 	    ok
     end.
+
+inet_port(Node) ->
+    {Port, Socket} = do_inet_port(Node),
+     rpc:call(Node, gen_tcp, close, [Socket]),
+     Port.
+
+do_inet_port(Node) ->
+    {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
+    {ok, Port} = rpc:call(Node, inet, port, [Socket]),
+    {Port, Socket}.

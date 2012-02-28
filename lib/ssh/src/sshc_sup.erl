@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,7 +26,7 @@
 
 -behaviour(supervisor).
 
--export([start_link/1, start_child/1]).
+-export([start_link/1, start_child/1, stop_child/1]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -40,12 +40,19 @@ start_link(Args) ->
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
 
+stop_child(Client) ->
+    spawn(fun() -> 
+		  ClientSup = whereis(?MODULE),
+		  supervisor:terminate_child(ClientSup, Client)
+	  end),
+    ok.
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init(Args) ->
     RestartStrategy = simple_one_for_one,
-    MaxR = 10,
+    MaxR = 0,
     MaxT = 3600,
     {ok, {{RestartStrategy, MaxR, MaxT}, [child_spec(Args)]}}.
 
@@ -54,12 +61,9 @@ init(Args) ->
 %%%=========================================================================
 child_spec(_) ->
     Name = undefined, % As simple_one_for_one is used.
-    StartFunc = {ssh_connection_controler, start_link, []},
-    Restart = temporary, 
-%    Shutdown = infinity,
-    Shutdown = 5000,
-    Modules = [ssh_connection_controler],
-%    Type = supervisor,
-    Type = worker,
+    StartFunc = {ssh_connection_sup, start_link, []},
+    Restart = temporary,
+    Shutdown = infinity,
+    Modules = [ssh_connection_sup],
+    Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
-

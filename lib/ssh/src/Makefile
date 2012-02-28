@@ -45,11 +45,11 @@ MODULES= \
 	ssh_sup \
 	sshc_sup \
 	sshd_sup \
+	ssh_connection_sup \
         ssh_channel \
 	ssh_connection \
 	ssh_connection_handler \
 	ssh_connection_manager \
-	ssh_connection_controler \
 	ssh_shell \
 	ssh_system_sup \
 	ssh_subsystem_sup \
