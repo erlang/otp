@@ -279,26 +279,36 @@ modules(#callgraph{digraph = DG}) ->
 -spec module_postorder(callgraph()) -> {[module()], {'d', digraph()}}.
 
 module_postorder(#callgraph{digraph = DG}) ->
-  Edges = digraph_edges(DG),
-  Nodes = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
+  Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
+  Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new([acyclic]),
-  MDG1 = digraph_confirm_vertices(Nodes, MDG),
-  MDG2 = create_module_digraph(Edges, MDG1),
-  PostOrder = digraph_utils:topsort(MDG2),
-  {PostOrder, {'d', MDG2}}.
+  MDG = digraph_confirm_vertices(sets:to_list(Nodes), MDG),
+  Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
+  lists:foreach(Foreach, sets:to_list(Edges)),
+  PostOrder = digraph_utils:topsort(MDG),
+  {PostOrder, {'d', MDG}}.
+
+edge_fold({{M1,_,_},{M2,_,_}}, Set) ->
+  case M1 =/= M2 of
+    true  -> sets:add_element({M1,M2},Set);
+    false -> Set
+  end;
+edge_fold(_, Set) -> Set.
+
 
 %% The module deps of a module are modules that depend on the module
 -spec module_deps(callgraph()) -> dict().
 
 module_deps(#callgraph{digraph = DG}) ->
-  Edges = digraph_edges(DG),
-  Nodes = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
+  Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
+  Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
-  MDG1 = digraph_confirm_vertices(Nodes, MDG),
-  MDG2 = create_module_digraph(Edges, MDG1),
-  Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG2, N))}
-	  || N <- Nodes],
-  digraph_delete(MDG2),
+  MDG = digraph_confirm_vertices(sets:to_list(Nodes), MDG),
+  Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
+  lists:foreach(Foreach, sets:to_list(Edges)),
+  Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG, N))}
+	  || N <- sets:to_list(Nodes)],
+  digraph_delete(MDG),
   dict:from_list(Deps).
 
 -spec strip_module_deps(dict(), set()) -> dict().
@@ -309,15 +319,6 @@ strip_module_deps(ModDeps, StripSet) ->
   ModDeps1 = dict:map(MapFun, ModDeps),
   FilterFun2 = fun(_Key, ValSet) -> ValSet =/= [] end,
   dict:filter(FilterFun2, ModDeps1).
-
-create_module_digraph([{{M, _, _}, {M, _, _}}|Left], MDG) ->
-  create_module_digraph(Left, MDG);
-create_module_digraph([{{M1, _, _}, {M2, _, _}}|Left], MDG) ->
-  create_module_digraph(Left, digraph_add_edge(M1, M2, MDG));
-create_module_digraph([{_, _}|Left], MDG) ->
-  create_module_digraph(Left, MDG);
-create_module_digraph([], MDG) ->
-  MDG.
 
 -spec finalize(callgraph()) -> {[scc()], callgraph()}.
 
