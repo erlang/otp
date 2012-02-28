@@ -445,7 +445,7 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
     %% to make sure we don't public-key-auth
     UserDir = ?config(data_dir, Config),
     {error, Reason0} =
-	ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
+	ssh:connect(any, ?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 						 {user, "foo"},
 						 {password, "morot"},
 						 {user_interaction, false},
@@ -459,12 +459,12 @@ erlang_client_openssh_server_password(Config) when is_list(Config) ->
     case length(string:tokens(User, " ")) of
 	1 ->
 	    {error, Reason1} =
-		ssh_test_lib:connect(?SSH_DEFAULT_PORT,
-				     [{silently_accept_hosts, true},
-				      {user, User},
-				      {password, "foo"},
-				      {user_interaction, false},
-				      {user_dir, UserDir}]),
+		ssh:connect(any, ?SSH_DEFAULT_PORT,
+			    [{silently_accept_hosts, true},
+			     {user, User},
+			     {password, "foo"},
+			     {user_interaction, false},
+			     {user_dir, UserDir}]),
 	    test_server:format("Test of wrong Pasword.  "
 			       "Error msg: ~p~n", [Reason1]);
 	_ ->

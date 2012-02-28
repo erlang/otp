@@ -30,7 +30,6 @@
 
 -include_lib("kernel/include/file.hrl").
 
--define(SFPD_PORT, 9999).
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
 -define(XFER_PACKET_SIZE, 32768).
@@ -102,13 +101,15 @@ init_per_testcase(TestCase, Config) ->
     ClientUserDir = filename:join(PrivDir, nopubkey),
     SystemDir = filename:join(?config(priv_dir, Config), system),
 
+    Port = ssh_test_lib:inet_port(node()),
+
     {ok, Sftpd} =
-	ssh_sftpd:listen(?SFPD_PORT, [{system_dir, SystemDir},
+	ssh_sftpd:listen(Port, [{system_dir, SystemDir},
 				      {user_dir, PrivDir},
 				      {user_passwords,[{?USER, ?PASSWD}]},
 				      {pwdfun, fun(_,_) -> true end}]),
     
-    Cm = ssh_test_lib:connect(?SFPD_PORT,
+    Cm = ssh_test_lib:connect(Port,
 			      [{user_dir, ClientUserDir},
 			       {user, ?USER}, {password, ?PASSWD},
 			       {user_interaction, false},

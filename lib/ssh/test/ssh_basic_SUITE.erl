@@ -88,7 +88,7 @@ end_per_testcase(TestCase, Config) when TestCase == server_password_option;
     UserDir = filename:join(?config(priv_dir, Config), nopubkey),
     ssh_test_lib:del_dirs(UserDir),
     end_per_testcase(Config);
-end_per_testcase(TestCase, Config) ->
+end_per_testcase(_TestCase, Config) ->
     end_per_testcase(Config).
 end_per_testcase(_Config) ->    
     ssh:stop(),
@@ -108,14 +108,16 @@ all() ->
      {group, rsa_key},
      {group, dsa_pass_key},
      {group, rsa_pass_key},
+     {group, internal_error},
      daemon_already_started,
      server_password_option, server_userpassword_option].
 
 groups() -> 
     [{dsa_key, [], [exec, exec_compressed, shell, known_hosts]},
-     {rsa_key, [], [exec, exec_compressed, shell, known_hosts]},
+     {rsa_key, [], [exec, exec_compressed, shell, known_hosts]},     
      {dsa_pass_key, [], [pass_phrase]},
-     {rsa_pass_key, [], [pass_phrase]}
+     {rsa_pass_key, [], [pass_phrase]},
+     {internal_error, [], [internal_error]}
     ].
 
 init_per_group(dsa_key, Config) ->
@@ -138,6 +140,12 @@ init_per_group(dsa_pass_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
     [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
+init_per_group(internal_error, Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:setup_dsa(DataDir, PrivDir),
+    file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")),
+    Config;
 init_per_group(_, Config) ->
     Config.
 
@@ -157,6 +165,11 @@ end_per_group(rsa_pass_key, Config) ->
     PrivDir = ?config(priv_dir, Config),
     ssh_test_lib:clean_rsa(PrivDir),
     Config;
+end_per_group(internal_error, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    ssh_test_lib:clean_dsa(PrivDir),
+    Config;
+
 end_per_group(_, Config) ->
     Config.
 
@@ -268,9 +281,14 @@ shell(Config) when is_list(Config) ->
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
     receive
+	{'EXIT', _, _} ->
+	    test_server:fail(no_ssh_connection);  
 	ErlShellStart ->
-	    test_server:format("Erlang shell start: ~p~n", [ErlShellStart])
-    end,
+	    test_server:format("Erlang shell start: ~p~n", [ErlShellStart]),
+	    do_shell(IO, Shell)
+    end.
+    
+do_shell(IO, Shell) ->
     receive
 	ErlPrompt0 ->
 	    test_server:format("Erlang prompt: ~p~n", [ErlPrompt0])
@@ -361,12 +379,15 @@ server_password_option(Config) when is_list(Config) ->
 					  {password, "morot"},
 					  {user_interaction, false},
 					  {user_dir, UserDir}]),
+
+    Reason = "Unable to connect using the available authentication methods",
+    
     {error, Reason} =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "vego"},
-					  {password, "foo"},
-					  {user_interaction, false},
-					  {user_dir, UserDir}]),
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+				 {user, "vego"},
+				 {password, "foo"},
+				 {user_interaction, false},
+				 {user_dir, UserDir}]),
     
     test_server:format("Test of wrong password: Error msg: ~p ~n", [Reason]),
 
@@ -396,25 +417,20 @@ server_userpassword_option(Config) when is_list(Config) ->
 					  {user_dir, UserDir}]),
     ssh:close(ConnectionRef),
 
-    {error, Reason0} =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "foo"},
-					  {password, "morot"},
-					  {user_interaction, false},
-					  {user_dir, UserDir}]),
-    
-    test_server:format("Test of user foo that does not exist. "
-		       "Error msg: ~p ~n", [Reason0]),
+    Reason = "Unable to connect using the available authentication methods",
 
-    {error, Reason1} =
-	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
-					  {user, "vego"},
-					  {password, "foo"},
-					  {user_interaction, false},
-					  {user_dir, UserDir}]),
-    test_server:format("Test of wrong Password. "
-		       "Error msg: ~p ~n", [Reason1]),
-    
+    {error, Reason} =
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+				 {user, "foo"},
+				 {password, "morot"},
+				 {user_interaction, false},
+				 {user_dir, UserDir}]),
+    {error, Reason} =
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+				 {user, "vego"},
+				 {password, "foo"},
+				 {user_interaction, false},
+				 {user_dir, UserDir}]),
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
@@ -445,6 +461,7 @@ known_hosts(Config) when is_list(Config) ->
     [Host, _Ip] = string:tokens(HostAndIp, ","),
     "ssh-" ++ _ = Alg,
     ssh:stop_daemon(Pid).
+%%--------------------------------------------------------------------
 
 pass_phrase(doc) ->
     ["Test that we can use keyes protected by pass phrases"];
@@ -469,6 +486,28 @@ pass_phrase(Config) when is_list(Config) ->
     {ok, _ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
     ssh:stop_daemon(Pid).
 
+%%--------------------------------------------------------------------
+
+internal_error(doc) ->
+    ["Test that client does not hang if disconnects due to internal error"];
+
+internal_error(suite) ->
+    [];
+
+internal_error(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    {error,"Internal error"} =
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+				 {user_dir, UserDir},
+				 {user_interaction, false}]).
+
+    
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------

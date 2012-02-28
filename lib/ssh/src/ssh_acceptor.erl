@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -86,11 +86,11 @@ handle_connection(Callback, Address, Port, Options, Socket) ->
     {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
     ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
     {ok, Pid} = 
-	ssh_connection_controler:start_manager_child(ConnectionSup,
-					       [server, Socket, Options, SubSysSup]),
+	ssh_connection_sup:start_manager_child(ConnectionSup,
+					       [server, Socket, Options]),
     Callback:controlling_process(Socket, Pid),
     SshOpts = proplists:get_value(ssh_opts, Options),
-    Pid ! {start_connection, server, [Address, Port, Socket, SshOpts]}.
+    Pid ! {start_connection, server, [Address, Port, Socket, SshOpts, SubSysSup]}.
 
 handle_error(timeout) ->
     ok;

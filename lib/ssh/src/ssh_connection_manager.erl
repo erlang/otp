@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -182,17 +182,15 @@ send_eof(ConnectionManager, ChannelId) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([server, _Socket, Opts, SubSysSup]) ->  
+init([server, _Socket, Opts]) ->
     process_flag(trap_exit, true),
     ssh_bits:install_messages(ssh_connection:messages()),
-    Cache = ssh_channel:cache_create(), 
+    Cache = ssh_channel:cache_create(),
     {ok, #state{role = server, 
 		connection_state = #connection{channel_cache = Cache,
 					       channel_id_seed = 0,
 					       port_bindings = [],
-					       requests = [],
-					       channel_pids = [],
-					       sub_system_supervisor = SubSysSup},
+					       requests = []},
 		opts = Opts,
 		connected = false}};
 
@@ -207,15 +205,14 @@ init([client, Opts]) ->
     Options = proplists:get_value(ssh_opts, Opts),
     ChannelPid = proplists:get_value(channel_pid, Opts),
     self() ! 
-	{start_connection, client, [Parent, Address, Port, 
-				    ChannelPid, SocketOpts, Options]},
+	{start_connection, client, [Parent, Address, Port, SocketOpts, Options]},
     {ok, #state{role = client, 
 		client = ChannelPid,
 		connection_state = #connection{channel_cache = Cache,
 					       channel_id_seed = 0,
 					       port_bindings = [],
-					       requests = [],
-					       channel_pids = []},
+					       connection_supervisor = Parent,
+					       requests = []},
 		opts = Opts,
 		connected = false}}.
 
@@ -269,29 +266,25 @@ handle_call({ssh_msg, Pid, Msg}, From,
 	when Role == client andalso (not IsConnected) ->
 	    lists:foreach(fun send_msg/1, Replies),
 	    ClientPid ! {self(), not_connected, Reason},
-	    {stop, normal, State#state{connection = Connection}};
+	    {stop, {shutdown, normal}, State#state{connection = Connection}};
 	{disconnect, Reason, {{replies, Replies}, Connection}} ->
 	    lists:foreach(fun send_msg/1, Replies),
 	    SSHOpts = proplists:get_value(ssh_opts, Opts),
 	    disconnect_fun(Reason, SSHOpts),
-	    {stop, normal, State#state{connection_state = Connection}}
+	    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
 	catch
-	exit:{noproc, Reason} ->
-	    Report = io_lib:format("Connection probably terminated:~n~p~n~p~n~p~n",
-				   [ConnectionMsg, Reason, erlang:get_stacktrace()]),
-	    error_logger:info_report(Report),
-            {noreply, State};
-	error:Error ->
-	    Report = io_lib:format("Connection message returned:~n~p~n~p~n~p~n",
-				   [ConnectionMsg, Error, erlang:get_stacktrace()]),
-	    error_logger:info_report(Report),
-	    {noreply, State};
-	exit:Exit ->
-	    Report = io_lib:format("Connection message returned:~n~p~n~p~n~p~n",
-				   [ConnectionMsg, Exit, erlang:get_stacktrace()]),
-	    error_logger:info_report(Report),
-	    {noreply, State}
-    end;
+	    _:Reason ->
+		{disconnect, Reason, {{replies, Replies}, Connection}} =
+		    ssh_connection:handle_msg(
+		      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+					  description = "Internal error",
+					  language = "en"}, Connection0, undefined,
+		      Role),
+		lists:foreach(fun send_msg/1, Replies),
+		SSHOpts = proplists:get_value(ssh_opts, Opts),
+		disconnect_fun(Reason, SSHOpts),
+		{stop, {shutdown, Reason}, State#state{connection_state = Connection}}
+	end;
 
 handle_call({global_request, Pid, _, _, _} = Request, From, 
 	    #state{connection_state = 
@@ -341,7 +334,8 @@ handle_call({info, ChannelPid}, _From,
 handle_call({open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data}, 
 	    From, #state{connection = Pid,
 			 connection_state = 
-			 #connection{channel_cache = Cache}} = State0) ->
+			     #connection{channel_cache = Cache}} = State0) ->
+    erlang:monitor(process, ChannelPid),
     {ChannelId, State1}  = new_channel_id(State0),
     Msg = ssh_connection:channel_open_msg(Type, ChannelId, 
 					  InitialWindowSize, 
@@ -404,18 +398,18 @@ handle_call({close, ChannelId}, _,
 	    {reply, ok, State}
     end;
 
-handle_call(stop, _, #state{role = _client, 
-			    client = _ChannelPid,
-			    connection = Pid} = State) ->
-    DisconnectMsg = 
-	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
-			    description = "Application disconnect",
-			    language = "en"},
-    (catch gen_fsm:send_all_state_event(Pid, DisconnectMsg)),
-%    ssh_connection_handler:send(Pid, DisconnectMsg),
-    {stop, normal, ok, State};
-handle_call(stop, _, State) ->
-    {stop, normal, ok, State};
+handle_call(stop, _, #state{connection_state = Connection0,
+			    role = Role,
+			    opts = Opts} = State) ->
+    {disconnect, Reason, {{replies, Replies}, Connection}} =
+	ssh_connection:handle_msg(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+						      description = "User closed down connection",
+						      language = "en"}, Connection0, undefined, 
+				  Role),
+    lists:foreach(fun send_msg/1, Replies),
+    SSHOpts = proplists:get_value(ssh_opts, Opts),
+    disconnect_fun(Reason, SSHOpts),
+    {stop, normal, ok, State#state{connection_state = Connection}};
 
 %% API violation make it the violaters problem
 %% by ignoring it. The violating process will get
@@ -493,31 +487,33 @@ handle_cast({failure, ChannelId},  #state{connection = Pid} = State) ->
 %% Description: Handling all non call/cast messages
 %%--------------------------------------------------------------------
 handle_info({start_connection, server, 
-	     [Address, Port, Socket, Options]}, 
+	     [Address, Port, Socket, Options, SubSysSup]},
 	    #state{connection_state = CState} = State) ->
     {ok, Connection} = ssh_transport:accept(Address, Port, Socket, Options),
     Shell = proplists:get_value(shell, Options),
     Exec = proplists:get_value(exec, Options),
     CliSpec = proplists:get_value(ssh_cli, Options, {ssh_cli, [Shell]}),
+    ssh_connection_handler:send_event(Connection, socket_control),
     {noreply, State#state{connection = Connection,
 			  connection_state = 
 			  CState#connection{address = Address,
 					    port = Port,
 					    cli_spec = CliSpec,
 					    options = Options,
-					    exec = Exec}}};
+					    exec = Exec,
+					    sub_system_supervisor = SubSysSup
+					   }}};
 	    
 handle_info({start_connection, client, 
-	     [Parent, Address, Port, ChannelPid, SocketOpts, Options]},
-	    State) ->
+	     [Parent, Address, Port, SocketOpts, Options]},
+	    #state{client = Pid} = State) ->
     case (catch ssh_transport:connect(Parent, Address, 
 				      Port, SocketOpts, Options)) of
 	{ok, Connection} ->
-	    erlang:monitor(process, ChannelPid),
 	    {noreply, State#state{connection = Connection}};
 	Reason ->
-	    ChannelPid ! {self(), not_connected, Reason},
-	    {stop, normal, State}	
+	    Pid ! {self(), not_connected, Reason},
+	    {stop, {shutdown, normal}, State}
     end;
 
 handle_info({ssh_cm, _Sender, Msg}, State0) ->
@@ -537,20 +533,13 @@ handle_info(ssh_connected, #state{role = client, client = Pid}
 handle_info(ssh_connected, #state{role = server} = State) ->
     {noreply, State#state{connected = true}};
 
-handle_info({'DOWN', _Ref, process, ChannelPid, normal}, State0) ->
-    handle_down(handle_channel_down(ChannelPid, State0)); 
-	
-handle_info({'DOWN', _Ref, process, ChannelPid, shutdown}, State0) ->
-   handle_down(handle_channel_down(ChannelPid, State0));
+%%% Handle that ssh channels user process goes down
+handle_info({'DOWN', _Ref, process, ChannelPid, _Reason}, State) ->
+    handle_down(handle_channel_down(ChannelPid, State));
 
-handle_info({'DOWN', _Ref, process, ChannelPid, Reason}, State0) ->
-    Report = io_lib:format("Pid ~p DOWN ~p\n", [ChannelPid, Reason]),
-    error_logger:error_report(Report),
-    handle_down(handle_channel_down(ChannelPid, State0));
-
-handle_info({'EXIT', _, _}, State) ->
-    %% Handled in 'DOWN'
-    {noreply, State}.
+%%% So that terminate will be run when supervisor is shutdown
+handle_info({'EXIT', _Sup, Reason}, State) ->
+    {stop, Reason, State}.
 
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
@@ -559,20 +548,19 @@ handle_info({'EXIT', _, _}, State) ->
 %% cleaning up. When it returns, the gen_server terminates with Reason.
 %% The return value is ignored.
 %%--------------------------------------------------------------------
-terminate(Reason, #state{connection_state =  
-			 #connection{requests = Requests,
-			            sub_system_supervisor = SubSysSup},
+terminate(_Reason, #state{role = client,
+			  connection_state =
+			      #connection{connection_supervisor = Supervisor}}) ->
+    sshc_sup:stop_child(Supervisor);
+	
+terminate(_Reason, #state{role = server,
+			 connection_state =
+			     #connection{sub_system_supervisor = SubSysSup},
 			 opts = Opts}) ->
-    SSHOpts = proplists:get_value(ssh_opts, Opts),
-    disconnect_fun(Reason, SSHOpts),
-    (catch lists:foreach(fun({_, From}) -> 
-				 gen_server:reply(From, {error, connection_closed})
-			 end, Requests)),
     Address =  proplists:get_value(address, Opts),
     Port = proplists:get_value(port, Opts),
     SystemSup = ssh_system_sup:system_supervisor(Address, Port),
-    ssh_system_sup:stop_subsystem(SystemSup, SubSysSup),
-    ok.
+    ssh_system_sup:stop_subsystem(SystemSup, SubSysSup).
 
 %%--------------------------------------------------------------------
 %% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -619,16 +607,7 @@ decode_ssh_msg(Msg) ->
 
 
 send_msg(Msg) ->
-    case catch do_send_msg(Msg) of
-	{'EXIT', Reason}->
-	    Report = io_lib:format("Connection Manager fail to send:~n~p~n"
-				   "Reason why it failed was:~n~p~n",
-				   [Msg, Reason]),
-	    error_logger:info_report(Report);
-	_ ->
-	    ok
-    end.
-
+    catch do_send_msg(Msg).
 do_send_msg({channel_data, Pid, Data}) ->
     Pid ! {ssh_cm, self(), Data};
 do_send_msg({channel_requst_reply, From, Data}) ->
@@ -676,8 +655,8 @@ handle_down({{replies, Replies}, State}) ->
     {noreply, State}.
 
 handle_channel_down(ChannelPid, #state{connection_state = 
-				       #connection{channel_cache = Cache}} = 
-		    State) ->
+					   #connection{channel_cache = Cache}} =
+			State) ->
     ssh_channel:cache_foldl(
 	       fun(Channel, Acc) when Channel#channel.user == ChannelPid ->
 		       ssh_channel:cache_delete(Cache,
