@@ -28,14 +28,13 @@
 
 -type mode() :: dialyzer_coordinator:mode().
 -type coordinator() :: dialyzer_coordinator:coordinator().
--type servers() :: dialyzer_succ_typings:servers() |
-		   dialyzer_analysis_callgraph:servers().
+-type init_data() :: dialyzer_coordinator:init_data().
 
 -record(state, {
 	  mode             :: mode(),
 	  job              :: mfa_or_funlbl() | file:filename(),
 	  coordinator      :: coordinator(),
-	  servers          :: servers(),
+	  init_data        :: init_data(),
 	  depends_on  = [] :: list()
 	 }).
 
@@ -51,12 +50,12 @@
 
 %%--------------------------------------------------------------------
 
--spec launch(mode(), [mfa_or_funlbl()], servers(), coordinator()) -> worker().
+-spec launch(mode(), [mfa_or_funlbl()], init_data(), coordinator()) -> worker().
 
-launch(Mode, Job, Servers, Coordinator) ->
+launch(Mode, Job, InitData, Coordinator) ->
   State = #state{mode        = Mode,
 		 job         = Job,
-		 servers     = Servers,
+		 init_data     = InitData,
 		 coordinator = Coordinator},
   InitState =
     case Mode of
@@ -75,8 +74,8 @@ loop(updating, State) ->
       false -> running
     end,
   loop(NextStatus, State);
-loop(initializing, #state{job = SCC, servers = Servers} = State) ->
-  DependsOn = dialyzer_succ_typings:find_depends_on(SCC, Servers),
+loop(initializing, #state{job = SCC, init_data = InitData} = State) ->
+  DependsOn = dialyzer_succ_typings:find_depends_on(SCC, InitData),
   ?debug("Deps ~p: ~p\n",[State#state.job, DependsOn]),
   loop(updating, State#state{depends_on = DependsOn});
 loop(waiting, State) ->
@@ -113,8 +112,8 @@ waits_more_success_typings(#state{depends_on = Depends}) ->
     _ -> true
   end.
 
-broadcast_done(#state{job = SCC, servers = Servers}) ->
-  RequiredBy = dialyzer_succ_typings:find_required_by(SCC, Servers),
+broadcast_done(#state{job = SCC, init_data = InitData}) ->
+  RequiredBy = dialyzer_succ_typings:find_required_by(SCC, InitData),
   {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids(RequiredBy),
   send_done(Callers, SCC),
   continue_broadcast_done(Unknown, SCC).
@@ -144,18 +143,18 @@ wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
       State
   end.
 
-do_work(#state{mode = Mode, job = Job, servers = Servers}) ->
+do_work(#state{mode = Mode, job = Job, init_data = InitData}) ->
   case Mode of
-    typesig -> dialyzer_succ_typings:find_succ_types_for_scc(Job, Servers);
-    dataflow -> dialyzer_succ_typings:refine_one_module(Job, Servers)
+    typesig -> dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
+    dataflow -> dialyzer_succ_typings:refine_one_module(Job, InitData)
   end.
 
 report_to_coordinator(Result, #state{job = Job, coordinator = Coordinator}) ->
   ?debug("Done: ~p\n",[Job]),
   dialyzer_coordinator:job_done(Job, Result, Coordinator).
 
-start_compilation(#state{job = Job, servers = Servers}) ->
-  dialyzer_analysis_callgraph:start_compilation(Job, Servers).
+start_compilation(#state{job = Job, init_data = InitData}) ->
+  dialyzer_analysis_callgraph:start_compilation(Job, InitData).
 
 ask_coordinator_for_label(EstimatedSize, #state{coordinator = Coordinator}) ->
   dialyzer_coordinator:get_next_label(EstimatedSize, Coordinator).
@@ -163,5 +162,5 @@ ask_coordinator_for_label(EstimatedSize, #state{coordinator = Coordinator}) ->
 continue_compilation(Label, Data) ->
   dialyzer_analysis_callgraph:continue_compilation(Label, Data).
 
-collect_warnings(#state{job = Job, servers = Servers}) ->
-  dialyzer_succ_typings:collect_warnings(Job, Servers).
+collect_warnings(#state{job = Job, init_data = InitData}) ->
+  dialyzer_succ_typings:collect_warnings(Job, InitData).

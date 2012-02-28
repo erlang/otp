@@ -41,7 +41,7 @@
 	 lookup_names/2
 	]).
 
--export_type([servers/0, warning_servers/0]).
+-export_type([typesig_init_data/0, dataflow_init_data/0, warnings_init_data/0]).
 
 %%-define(DEBUG, true).
 
@@ -61,7 +61,12 @@
 %% State record -- local to this module
 
 -type parent() :: 'none' | pid().
--type servers()         :: term(). %%opaque
+-type typesig_init_data() :: term().
+-type dataflow_init_data() :: term().
+-type warnings_init_data() :: term().
+
+-type fixpoint_init_data() :: typesig_init_data() | dataflow_init_data().
+
 -type scc()             :: [mfa_or_funlbl()] | [module()].
 
 
@@ -146,12 +151,8 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver, NoWarnUnused, Parent) ->
 get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,
       no_warn_unused = NoWarnUnused, plt = Plt} = State,
-  Servers = {Callgraph, Codeserver, NoWarnUnused, Plt, DocPlt},
-  Coordinator = dialyzer_coordinator:start('warnings', Servers),
-  Spawner = fun(M) -> dialyzer_coordinator:scc_spawn(M, Coordinator) end,
-  lists:foreach(Spawner, Mods),
-  dialyzer_coordinator:all_spawned(Coordinator),
-  dialyzer_coordinator:receive_warnings().
+  Init = {Callgraph, Codeserver, NoWarnUnused, Plt, DocPlt},
+  dialyzer_coordinator:parallel_job(warnings, Mods, Init).
 
 -type warning_servers() :: term().
 
@@ -210,45 +211,36 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
       postprocess_dataflow_warns(Rest, Codeserver, WAcc, [W|Acc])
   end.
   
-refine_succ_typings(ModulePostorder, #st{codeserver = Codeserver,
-					 callgraph = Callgraph,
-					 plt = Plt} = State) ->
+refine_succ_typings(Modules, #st{codeserver = Codeserver,
+				 callgraph = Callgraph,
+				 plt = Plt} = State) ->
   ?debug("Module postorder: ~p\n", [ModulePostorder]),
-  Servers = {Codeserver, Callgraph, Plt},
-  Coordinator = dialyzer_coordinator:start(dataflow, Servers),
-  ?timing("refine",refine_succ_typings(ModulePostorder, State, Coordinator)).
-
-refine_succ_typings([M|Rest], State, Coordinator) ->
-  Msg = io_lib:format("Dataflow of module: ~w\n", [M]),
-  send_log(State#st.parent, Msg),
-  ?debug("~s\n", [Msg]),
-  dialyzer_coordinator:scc_spawn(M, Coordinator),
-  refine_succ_typings(Rest, State, Coordinator);
-refine_succ_typings([], State, Coordinator) ->
-  dialyzer_coordinator:all_spawned(Coordinator),
-  NotFixpoint = dialyzer_coordinator:receive_not_fixpoint(),
+  Init = {Codeserver, Callgraph, Plt},
+  NotFixpoint =
+    ?timing("refine",
+	    dialyzer_coordinator:parallel_job(dataflow, Modules, Init)),
   ?debug("==================== Dataflow done ====================\n\n", []),
   case NotFixpoint =:= [] of
     true -> {fixpoint, State};
     false -> {not_fixpoint, NotFixpoint, State}
   end.
 
--spec find_depends_on(scc() | module(), servers()) -> [scc()].
+-spec find_depends_on(scc() | module(), fixpoint_init_data()) -> [scc()].
 
 find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
   dialyzer_callgraph:get_depends_on(SCC, Callgraph).
 
--spec find_required_by(scc() | module(), servers()) -> [scc()].
+-spec find_required_by(scc() | module(), fixpoint_init_data()) -> [scc()].
 
 find_required_by(SCC, {_Codeserver, Callgraph, _Plt}) ->
   dialyzer_callgraph:get_required_by(SCC, Callgraph).
 
--spec lookup_names([label()], servers()) -> [mfa_or_funlbl()].
+-spec lookup_names([label()], fixpoint_init_data()) -> [mfa_or_funlbl()].
 
 lookup_names(Labels, {_Codeserver, Callgraph, _Plt}) ->
   [lookup_name(F, Callgraph) || F <- Labels].
 
--spec refine_one_module(module(), servers()) -> [label()]. % ordset
+-spec refine_one_module(module(), dataflow_init_data()) -> [label()]. % ordset
 
 refine_one_module(M, {CodeServer, Callgraph, Plt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
@@ -322,28 +314,17 @@ compare_types_1([], [], _Strict, NotFixpoint) ->
 
 find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 			    plt = Plt} = State) ->
-  Servers = {Codeserver, dialyzer_callgraph:mini_callgraph(Callgraph), Plt},
-  Coordinator = dialyzer_coordinator:start(typesig, Servers),
-  ?timing("spawn", _C1, find_succ_typings(SCCs, State, Coordinator)),
-  dialyzer_coordinator:all_spawned(Coordinator),
+  Init = {Codeserver, dialyzer_callgraph:mini_callgraph(Callgraph), Plt},
   NotFixpoint =
-    ?timing("typesig", _C2, dialyzer_coordinator:receive_not_fixpoint()),
+    ?timing("typesig",
+	    dialyzer_coordinator:parallel_job(typesig, SCCs, Init)),
   ?debug("==================== Typesig done ====================\n\n", []),
   case NotFixpoint =:= [] of
     true -> {fixpoint, State};
     false -> {not_fixpoint, NotFixpoint, State}
   end.
 
-find_succ_typings([SCC|Rest], #st{parent = Parent} = State, Coordinator) ->
-  Msg = io_lib:format("Typesig analysis for SCC: ~w\n", [format_scc(SCC)]),
-  ?debug("~s", [Msg]),
-  send_log(Parent, Msg),
-  dialyzer_coordinator:scc_spawn(SCC, Coordinator),
-  find_succ_typings(Rest, State, Coordinator);
-find_succ_typings([], _State, _Coordinator) ->
-  ok.
-
--spec find_succ_types_for_scc(scc(), servers()) -> [mfa_or_funlbl()].
+-spec find_succ_types_for_scc(scc(), typesig_init_data()) -> [mfa_or_funlbl()].
 
 find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt}) ->
   SCC_Info = [{MFA, 
@@ -459,12 +440,3 @@ lookup_name(F, CG) ->
     error -> F;
     {ok, Name} -> Name
   end.
-
-send_log(none, _Msg) ->
-  ok;
-send_log(Parent, Msg) ->
-  Parent ! {self(), log, lists:flatten(Msg)},
-  ok.
-
-format_scc(SCC) ->
-  [MFA || {_M, _F, _A} = MFA <- SCC].

@@ -30,14 +30,14 @@
 
 -export([start/3]).
 
--export([compile_coordinator_init/0,
-	 add_to_result/3,
+-export([compile_init_result/0,
+	 add_to_result/4,
 	 start_compilation/2,
 	 continue_compilation/2]).
 
--export_type([compilation_data/0,
-	      result/0,
-	      servers/0]).
+-export_type([compile_mid_data/0,
+	      compile_result/0,
+	      compile_init_data/0]).
 
 -include("dialyzer.hrl").
 
@@ -210,28 +210,37 @@ analyze_callgraph(Callgraph, State) ->
 %% Build the callgraph and fill the codeserver.
 %%--------------------------------------------------------------------
 
+-record(compile_init,{
+	  callgraph                 :: dialyzer_callgraph:callgraph(),
+	  codeserver                :: dialyzer_codeserver:codeserver(),
+	  defines       = []        :: [dial_define()],
+	  include_dirs  = []        :: [file:filename()],
+	  start_from    = byte_code :: start_from(),
+	  use_contracts = true      :: boolean()
+	 }).
+
+make_compile_init(#analysis_state{codeserver = Codeserver,
+				  defines = Defs,
+				  include_dirs = Dirs,
+				  use_contracts = UseContracts,
+				  start_from = StartFrom}, Callgraph) ->
+  #compile_init{callgraph = Callgraph,
+		codeserver = Codeserver,
+		defines = [{d, Macro, Val} || {Macro, Val} <- Defs],
+		include_dirs = [{i, D} || D <- Dirs],
+		use_contracts = UseContracts,
+		start_from = StartFrom}.
+
 compile_and_store(Files, #analysis_state{codeserver = CServer,
-					 defines = Defs,
-					 include_dirs = Dirs,
-					 parent = Parent,
-					 use_contracts = UseContracts,
-					 start_from = StartFrom
-					} = State) ->
+					 parent = Parent} = State) ->
   send_log(Parent, "Reading files and computing callgraph... "),
   {T1, _} = statistics(runtime),
-  Includes = [{i, D} || D <- Dirs],
-  Defines = [{d, Macro, Val} || {Macro, Val} <- Defs],
   Callgraph = dialyzer_callgraph:new(),
-  Servers = {Callgraph, CServer, StartFrom, Includes, Defines, UseContracts},
-  Coordinator = dialyzer_coordinator:start(compile, Servers),
-  Spawner = fun(F) -> dialyzer_coordinator:compiler_spawn(F, Coordinator) end,
-  lists:foreach(Spawner, Files),
-  dialyzer_coordinator:all_spawned(Coordinator),
-  {{V, E, Failed, NoWarn, Modules}, NextLabel} =
-    ?timing("compile", _C1, dialyzer_coordinator:receive_compilation_data()),
+  CompileInit = make_compile_init(State, Callgraph),
+  {{Failed, NoWarn, Modules}, NextLabel} =
+    ?timing("compile",
+	    dialyzer_coordinator:parallel_job(compile, Files, CompileInit)),
   CServer2 = dialyzer_codeserver:set_next_core_label(NextLabel, CServer),
-  Callgraph =
-    ?timing("digraph", _C2, dialyzer_callgraph:add_edges(E, V, Callgraph)),
   case Failed =:= [] of
     true ->
       NewFiles = lists:zip(lists:reverse(Modules), Files),
@@ -255,33 +264,39 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   send_log(Parent, Msg2),
   {Callgraph, sets:from_list(NoWarn), CServer2}.
 
--type servers()          :: term(). %%opaque
--type result()           :: term(). %%opaque
--type file_result()      :: term(). %%opaque
--type compilation_data() :: term(). %%opaque
+-type compile_init_data() :: #compile_init{}.
+-type compile_result()    :: {list(), list(), list()}. %%opaque
+-type one_file_result()   :: term(). %%opaque
+-type compile_mid_data()  :: term(). %%opaque
 
--spec compile_coordinator_init() -> result().
+-spec compile_init_result() -> compile_result().
 
-compile_coordinator_init() -> {[], [], [], [], []}.
+compile_init_result() -> {[], [], []}.
 
--spec add_to_result(file:filename(), file_result(), result()) -> result().
+-spec add_to_result(file:filename(), one_file_result(), compile_result(),
+		    compile_init_data()) -> compile_result().
 
-add_to_result(File, NewData, {V, E, Failed, NoWarn, Mods}) ->
+add_to_result(File, NewData, {Failed, NoWarn, Mods}, InitData) ->
   case NewData of
     {error, Reason} ->
       {[{File, Reason}|Failed], NoWarn, Mods};
-    {ok, NV, NE, NewNoWarn, Mod} ->
-      {NV ++ V, NE ++ E, Failed, NewNoWarn ++ NoWarn, [Mod|Mods]}
+    {ok, V, E, NewNoWarn, Mod} ->
+      Callgraph = InitData#compile_init.callgraph,
+      dialyzer_callgraph:add_edges(E, V, Callgraph),
+      {Failed, NewNoWarn ++ NoWarn, [Mod|Mods]}
   end.
 
--spec start_compilation(file:filename(), servers()) ->
-	{error, term()} |{ok, integer(), compilation_data()}.
+-spec start_compilation(file:filename(), compile_init_data()) ->
+	{error, term()} |{ok, integer(), compile_mid_data()}.
 
-start_compilation(File, {Callgraph, Codeserver, StartFrom,
-			 Includes, Defines, UseContracts}) ->
+start_compilation(File,
+		  #compile_init{callgraph = Callgraph, codeserver = Codeserver,
+				defines = Defines, include_dirs = IncludeD,
+				use_contracts = UseContracts,
+				start_from = StartFrom}) ->
   case StartFrom of
     src_code ->
-      compile_src(File, Includes, Defines, Callgraph, Codeserver, UseContracts);
+      compile_src(File, IncludeD, Defines, Callgraph, Codeserver, UseContracts);
     byte_code ->
       compile_byte(File, Callgraph, Codeserver, UseContracts)
   end.
@@ -379,7 +394,7 @@ store_core(Mod, Core, NoWarn, Callgraph, CServer) ->
   CoreTree = cerl:from_records(Core),
   {ok, cerl_trees:size(CoreTree), {Mod, CoreTree, NoWarn, Callgraph, CServer}}.
 
--spec continue_compilation(integer(), compilation_data()) -> file_result().
+-spec continue_compilation(integer(), compile_mid_data()) -> one_file_result().
 
 continue_compilation(NextLabel, {Mod, CoreTree, NoWarn, Callgraph, CServer}) ->
   {LabeledTree, _NewNextLabel} = cerl_trees:label(CoreTree, NextLabel),
