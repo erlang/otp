@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,24 +29,29 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxAcceleratorEntry/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxAcceleratorEntry()
+-type wxAcceleratorEntry() :: wx:wx_object().
 %% @equiv new([])
+-spec new() -> wxAcceleratorEntry().
+
 new() ->
   new([]).
 
-%% @spec (X::term()|wxAcceleratorEntry()) -> wxAcceleratorEntry()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratorentry.html#wxacceleratorentrywxacceleratorentry">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new([Option]) -> wxAcceleratorEntry() </c>
-%%<br /> Option = {flags, integer()} | {keyCode, integer()} | {cmd, integer()} | {item, wxMenuItem:wxMenuItem()}
-%% </p>
-%% <p><c>
-%% new(Entry::wxAcceleratorEntry()) -> wxAcceleratorEntry() </c>
-%% </p>
+%% <br /> Also:<br />
+%% new(Entry) -> wxAcceleratorEntry() when<br />
+%% 	Entry::wxAcceleratorEntry().<br />
+%% 
+-spec new([Option]) -> wxAcceleratorEntry() when
+	Option :: {flags, integer()}
+		 | {keyCode, integer()}
+		 | {cmd, integer()}
+		 | {item, wxMenuItem:wxMenuItem()};
+      (Entry) -> wxAcceleratorEntry() when
+	Entry::wxAcceleratorEntry().
 new(Options)
  when is_list(Options) ->
   MOpts = fun({flags, Flags}, Acc) -> [<<1:32/?UI,Flags:32/?UI>>|Acc];
@@ -62,36 +67,42 @@ new(#wx_ref{type=EntryT,ref=EntryRef}) ->
   wxe_util:construct(?wxAcceleratorEntry_new_1_1,
   <<EntryRef:32/?UI>>).
 
-%% @spec (This::wxAcceleratorEntry()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratorentry.html#wxacceleratorentrygetcommand">external documentation</a>.
+-spec getCommand(This) -> integer() when
+	This::wxAcceleratorEntry().
 getCommand(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
   wxe_util:call(?wxAcceleratorEntry_GetCommand,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAcceleratorEntry()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratorentry.html#wxacceleratorentrygetflags">external documentation</a>.
+-spec getFlags(This) -> integer() when
+	This::wxAcceleratorEntry().
 getFlags(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
   wxe_util:call(?wxAcceleratorEntry_GetFlags,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAcceleratorEntry()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratorentry.html#wxacceleratorentrygetkeycode">external documentation</a>.
+-spec getKeyCode(This) -> integer() when
+	This::wxAcceleratorEntry().
 getKeyCode(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
   wxe_util:call(?wxAcceleratorEntry_GetKeyCode,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer()) -> ok
 %% @equiv set(This,Flags,KeyCode,Cmd, [])
+-spec set(This, Flags, KeyCode, Cmd) -> ok when
+	This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer().
+
 set(This,Flags,KeyCode,Cmd)
  when is_record(This, wx_ref),is_integer(Flags),is_integer(KeyCode),is_integer(Cmd) ->
   set(This,Flags,KeyCode,Cmd, []).
 
-%% @spec (This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer(), [Option]) -> ok
-%% Option = {item, wxMenuItem:wxMenuItem()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratorentry.html#wxacceleratorentryset">external documentation</a>.
+-spec set(This, Flags, KeyCode, Cmd, [Option]) -> ok when
+	This::wxAcceleratorEntry(), Flags::integer(), KeyCode::integer(), Cmd::integer(),
+	Option :: {item, wxMenuItem:wxMenuItem()}.
 set(#wx_ref{type=ThisT,ref=ThisRef},Flags,KeyCode,Cmd, Options)
  when is_integer(Flags),is_integer(KeyCode),is_integer(Cmd),is_list(Options) ->
   ?CLASS(ThisT,wxAcceleratorEntry),
@@ -101,8 +112,8 @@ set(#wx_ref{type=ThisT,ref=ThisRef},Flags,KeyCode,Cmd, Options)
   wxe_util:cast(?wxAcceleratorEntry_Set,
   <<ThisRef:32/?UI,Flags:32/?UI,KeyCode:32/?UI,Cmd:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxAcceleratorEntry()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxAcceleratorEntry()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAcceleratorEntry),
   wxe_util:destroy(?wxAcceleratorEntry_destroy,Obj),

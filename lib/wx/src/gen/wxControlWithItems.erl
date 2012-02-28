@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -72,14 +72,17 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxControlWithItems/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxControlWithItems(), Item::string()) -> integer()
+-type wxControlWithItems() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
+-spec append(This, Item) -> integer() when
+	This::wxControlWithItems(), Item::unicode:chardata().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item)
  when is_list(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -87,8 +90,9 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item)
   wxe_util:call(?wxControlWithItems_Append_1,
   <<ThisRef:32/?UI,(byte_size(Item_UC)):32/?UI,(Item_UC)/binary, 0:(((8- ((0+byte_size(Item_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxControlWithItems(), Item::string(), ClientData::term()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
+-spec append(This, Item, ClientData) -> integer() when
+	This::wxControlWithItems(), Item::unicode:chardata(), ClientData::term().
 append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
  when is_list(Item) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -97,8 +101,9 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
   wxe_util:call(?wxControlWithItems_Append_2,
   <<ThisRef:32/?UI,(byte_size(Item_UC)):32/?UI,(Item_UC)/binary, 0:(((8- ((0+byte_size(Item_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxControlWithItems(), Strings::[[string()]]) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
+-spec appendStrings(This, Strings) -> ok when
+	This::wxControlWithItems(), Strings::[[unicode:chardata()]].
 appendStrings(#wx_ref{type=ThisT,ref=ThisRef},Strings)
  when is_list(Strings) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -107,30 +112,35 @@ appendStrings(#wx_ref{type=ThisT,ref=ThisRef},Strings)
   wxe_util:cast(?wxControlWithItems_appendStrings_1,
   <<ThisRef:32/?UI,(length(Strings_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Strings_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Strings_UCA])) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxControlWithItems()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsclear">external documentation</a>.
+-spec clear(This) -> ok when
+	This::wxControlWithItems().
 clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:cast(?wxControlWithItems_Clear,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), N::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsdelete">external documentation</a>.
+-spec delete(This, N) -> ok when
+	This::wxControlWithItems(), N::integer().
 delete(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:cast(?wxControlWithItems_Delete,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), S::string()) -> integer()
 %% @equiv findString(This,S, [])
+-spec findString(This, S) -> integer() when
+	This::wxControlWithItems(), S::unicode:chardata().
+
 findString(This,S)
  when is_record(This, wx_ref),is_list(S) ->
   findString(This,S, []).
 
-%% @spec (This::wxControlWithItems(), S::string(), [Option]) -> integer()
-%% Option = {bCase, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsfindstring">external documentation</a>.
+-spec findString(This, S, [Option]) -> integer() when
+	This::wxControlWithItems(), S::unicode:chardata(),
+	Option :: {bCase, boolean()}.
 findString(#wx_ref{type=ThisT,ref=ThisRef},S, Options)
  when is_list(S),is_list(Options) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -141,16 +151,18 @@ findString(#wx_ref{type=ThisT,ref=ThisRef},S, Options)
   wxe_util:call(?wxControlWithItems_FindString,
   <<ThisRef:32/?UI,(byte_size(S_UC)):32/?UI,(S_UC)/binary, 0:(((8- ((0+byte_size(S_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxControlWithItems(), N::integer()) -> term()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetclientobject">external documentation</a>.
+-spec getClientData(This, N) -> term() when
+	This::wxControlWithItems(), N::integer().
 getClientData(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:call(?wxControlWithItems_getClientData,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), N::integer(), ClientData::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemssetclientobject">external documentation</a>.
+-spec setClientData(This, N, ClientData) -> ok when
+	This::wxControlWithItems(), N::integer(), ClientData::term().
 setClientData(#wx_ref{type=ThisT,ref=ThisRef},N,ClientData)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -158,37 +170,42 @@ setClientData(#wx_ref{type=ThisT,ref=ThisRef},N,ClientData)
   wxe_util:cast(?wxControlWithItems_setClientData,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxControlWithItems()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetcount">external documentation</a>.
+-spec getCount(This) -> integer() when
+	This::wxControlWithItems().
 getCount(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:call(?wxControlWithItems_GetCount,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxControlWithItems()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetselection">external documentation</a>.
+-spec getSelection(This) -> integer() when
+	This::wxControlWithItems().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:call(?wxControlWithItems_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), N::integer()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetstring">external documentation</a>.
+-spec getString(This, N) -> unicode:charlist() when
+	This::wxControlWithItems(), N::integer().
 getString(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:call(?wxControlWithItems_GetString,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxControlWithItems()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsgetstringselection">external documentation</a>.
+-spec getStringSelection(This) -> unicode:charlist() when
+	This::wxControlWithItems().
 getStringSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:call(?wxControlWithItems_GetStringSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), Item::string(), Pos::integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
+-spec insert(This, Item, Pos) -> integer() when
+	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
  when is_list(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -196,8 +213,9 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos)
   wxe_util:call(?wxControlWithItems_Insert_2,
   <<ThisRef:32/?UI,(byte_size(Item_UC)):32/?UI,(Item_UC)/binary, 0:(((8- ((0+byte_size(Item_UC)) band 16#7)) band 16#7))/unit:8,Pos:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), Item::string(), Pos::integer(), ClientData::term()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsinsert">external documentation</a>.
+-spec insert(This, Item, Pos, ClientData) -> integer() when
+	This::wxControlWithItems(), Item::unicode:chardata(), Pos::integer(), ClientData::term().
 insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos,ClientData)
  when is_list(Item),is_integer(Pos) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -206,31 +224,35 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Item,Pos,ClientData)
   wxe_util:call(?wxControlWithItems_Insert_3,
   <<ThisRef:32/?UI,(byte_size(Item_UC)):32/?UI,(Item_UC)/binary, 0:(((8- ((0+byte_size(Item_UC)) band 16#7)) band 16#7))/unit:8,Pos:32/?UI>>).
 
-%% @spec (This::wxControlWithItems()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsisempty">external documentation</a>.
+-spec isEmpty(This) -> boolean() when
+	This::wxControlWithItems().
 isEmpty(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:call(?wxControlWithItems_IsEmpty,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), N::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsselect">external documentation</a>.
+-spec select(This, N) -> ok when
+	This::wxControlWithItems(), N::integer().
 select(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:cast(?wxControlWithItems_Select,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), N::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemssetselection">external documentation</a>.
+-spec setSelection(This, N) -> ok when
+	This::wxControlWithItems(), N::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxControlWithItems),
   wxe_util:cast(?wxControlWithItems_SetSelection,
   <<ThisRef:32/?UI,N:32/?UI>>).
 
-%% @spec (This::wxControlWithItems(), N::integer(), S::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemssetstring">external documentation</a>.
+-spec setString(This, N, S) -> ok when
+	This::wxControlWithItems(), N::integer(), S::unicode:chardata().
 setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
  when is_integer(N),is_list(S) ->
   ?CLASS(ThisT,wxControlWithItems),
@@ -238,8 +260,9 @@ setString(#wx_ref{type=ThisT,ref=ThisRef},N,S)
   wxe_util:cast(?wxControlWithItems_SetString,
   <<ThisRef:32/?UI,N:32/?UI,(byte_size(S_UC)):32/?UI,(S_UC)/binary, 0:(((8- ((4+byte_size(S_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxControlWithItems(), S::string()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemssetstringselection">external documentation</a>.
+-spec setStringSelection(This, S) -> boolean() when
+	This::wxControlWithItems(), S::unicode:chardata().
 setStringSelection(#wx_ref{type=ThisT,ref=ThisRef},S)
  when is_list(S) ->
   ?CLASS(ThisT,wxControlWithItems),

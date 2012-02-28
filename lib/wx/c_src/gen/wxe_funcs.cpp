@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -5334,14 +5334,18 @@ case wxDC_GetCharWidth: { // wxDC::GetCharWidth
  break;
 }
 case wxDC_GetClippingBox: { // wxDC::GetClippingBox
+ wxCoord x;
+ wxCoord y;
+ wxCoord w;
+ wxCoord h;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
- int * rectX = (int *) bp; bp += 4;
- int * rectY = (int *) bp; bp += 4;
- int * rectW = (int *) bp; bp += 4;
- int * rectH = (int *) bp; bp += 4;
- wxRect rect = wxRect(*rectX,*rectY,*rectW,*rectH);
  if(!This) throw wxe_badarg(0);
- This->GetClippingBox(rect);
+ This->GetClippingBox(&x,&y,&w,&h);
+ rt.addInt(x);
+ rt.addInt(y);
+ rt.addInt(w);
+ rt.addInt(h);
+ rt.addTupleCount(4);
  break;
 }
 case wxDC_GetFont: { // wxDC::GetFont
@@ -5405,17 +5409,16 @@ case wxDC_GetMultiLineTextExtent_1: { // wxDC::GetMultiLineTextExtent
  break;
 }
 case wxDC_GetPartialTextExtents: { // wxDC::GetPartialTextExtents
+ wxArrayInt widths;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
  bp += *textLen+((8-((0+ *textLen) & 7)) & 7);
- int * widthsLen = (int *) bp; bp += 4;
- wxArrayInt widths;
- for(int i=0; i < *widthsLen; i++) {  widths.Add(*(int *) bp); bp += 4;}
- bp += ((*widthsLen + 1) % 2 )*4;
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetPartialTextExtents(text,widths);
  rt.addBool(Result);
+ rt.add(widths);
+ rt.addTupleCount(2);
  break;
 }
 case wxDC_GetPen: { // wxDC::GetPen
@@ -5426,18 +5429,16 @@ case wxDC_GetPen: { // wxDC::GetPen
  break;
 }
 case wxDC_GetPixel: { // wxDC::GetPixel
+ wxColour col;
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * ptX = (int *) bp; bp += 4;
  int * ptY = (int *) bp; bp += 4;
  wxPoint pt = wxPoint(*ptX,*ptY);
- int * colR = (int *) bp; bp += 4;
- int * colG = (int *) bp; bp += 4;
- int * colB = (int *) bp; bp += 4;
- int * colA = (int *) bp; bp += 4;
- wxColour col = wxColour(*colR,*colG,*colB,*colA);
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetPixel(pt,&col);
  rt.addBool(Result);
+ rt.add(col);
+ rt.addTupleCount(2);
  break;
 }
 case wxDC_GetPPI: { // wxDC::GetPPI
@@ -6255,17 +6256,21 @@ case wxGraphicsContext_DrawIcon: { // wxGraphicsContext::DrawIcon
 case wxGraphicsContext_DrawLines: { // wxGraphicsContext::DrawLines
  int fillStyle=wxODDEVEN_RULE;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- int * n = (int *) bp; bp += 4;
- wxDouble * pointsX = (wxDouble *) bp; bp += 8;
- wxDouble * pointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble points = wxPoint2DDouble(*pointsX,*pointsY);
+ int * pointsLen = (int *) bp; bp += 4;
+ wxPoint2DDouble *points;
+ points = (wxPoint2DDouble *) driver_alloc(sizeof(wxPoint2DDouble) * *pointsLen);
+ for(int i=0; i < *pointsLen; i++) {
+   double x = * (double *) bp; bp += 8;
+   double y = * (double *) bp; bp += 8;
+   points[i] = wxPoint2DDouble(x,y);}
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  fillStyle = (int)*(int *) bp; bp += 4;
   } break;
  }};
  if(!This) throw wxe_badarg(0);
- This->DrawLines((size_t) *n,&points,fillStyle);
+ This->DrawLines(*pointsLen,points,fillStyle);
+ driver_free(points);
  break;
 }
 case wxGraphicsContext_DrawPath: { // wxGraphicsContext::DrawPath
@@ -6372,23 +6377,15 @@ case wxGraphicsContext_StrokePath: { // wxGraphicsContext::StrokePath
  This->StrokePath(*path);
  break;
 }
-case wxGraphicsContext_GetNativeContext: { // wxGraphicsContext::GetNativeContext
- wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- if(!This) throw wxe_badarg(0);
- This->GetNativeContext();
- break;
-}
 case wxGraphicsContext_GetPartialTextExtents: { // wxGraphicsContext::GetPartialTextExtents
+ wxArrayDouble widths;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
  bp += *textLen+((8-((0+ *textLen) & 7)) & 7);
- int * widthsLen = (int *) bp; bp += 4;
- bp += 4; /* Align */
- wxArrayDouble widths;
- for(int i=0; i < *widthsLen; i++) {  widths.Add(*(int *) bp); bp += 4;}
  if(!This) throw wxe_badarg(0);
  This->GetPartialTextExtents(text,widths);
+ rt.add(widths);
  break;
 }
 case wxGraphicsContext_GetTextExtent: { // wxGraphicsContext::GetTextExtent
@@ -6514,27 +6511,18 @@ case wxGraphicsContext_StrokeLine: { // wxGraphicsContext::StrokeLine
  This->StrokeLine((wxDouble) *x1,(wxDouble) *y1,(wxDouble) *x2,(wxDouble) *y2);
  break;
 }
-case wxGraphicsContext_StrokeLines_2: { // wxGraphicsContext::StrokeLines
+case wxGraphicsContext_StrokeLines: { // wxGraphicsContext::StrokeLines
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- int * n = (int *) bp; bp += 4;
- wxDouble * pointsX = (wxDouble *) bp; bp += 8;
- wxDouble * pointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble points = wxPoint2DDouble(*pointsX,*pointsY);
+ int * pointsLen = (int *) bp; bp += 4;
+ wxPoint2DDouble *points;
+ points = (wxPoint2DDouble *) driver_alloc(sizeof(wxPoint2DDouble) * *pointsLen);
+ for(int i=0; i < *pointsLen; i++) {
+   double x = * (double *) bp; bp += 8;
+   double y = * (double *) bp; bp += 8;
+   points[i] = wxPoint2DDouble(x,y);}
  if(!This) throw wxe_badarg(0);
- This->StrokeLines((size_t) *n,&points);
- break;
-}
-case wxGraphicsContext_StrokeLines_3: { // wxGraphicsContext::StrokeLines
- wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
- int * n = (int *) bp; bp += 4;
- wxDouble * beginPointsX = (wxDouble *) bp; bp += 8;
- wxDouble * beginPointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble beginPoints = wxPoint2DDouble(*beginPointsX,*beginPointsY);
- wxDouble * endPointsX = (wxDouble *) bp; bp += 8;
- wxDouble * endPointsY = (wxDouble *) bp; bp += 8;
- wxPoint2DDouble endPoints = wxPoint2DDouble(*endPointsX,*endPointsY);
- if(!This) throw wxe_badarg(0);
- This->StrokeLines((size_t) *n,&beginPoints,&endPoints);
+ This->StrokeLines(*pointsLen,points);
+ driver_free(points);
  break;
 }
 #endif // wxUSE_GRAPHICS_CONTEXT
@@ -6563,12 +6551,6 @@ case wxGraphicsMatrix_Get: { // wxGraphicsMatrix::Get
  rt.addFloat(tx);
  rt.addFloat(ty);
  rt.addTupleCount(6);
- break;
-}
-case wxGraphicsMatrix_GetNativeMatrix: { // wxGraphicsMatrix::GetNativeMatrix
- wxGraphicsMatrix *This = (wxGraphicsMatrix *) getPtr(bp,memenv); bp += 4;
- if(!This) throw wxe_badarg(0);
- This->GetNativeMatrix();
  break;
 }
 case wxGraphicsMatrix_Invert: { // wxGraphicsMatrix::Invert
@@ -29383,6 +29365,13 @@ case wxStyledTextCtrl_SetEdgeColumn: { // wxStyledTextCtrl::SetEdgeColumn
  This->SetEdgeColumn((int) *column);
  break;
 }
+case wxStyledTextCtrl_SetEdgeMode: { // wxStyledTextCtrl::SetEdgeMode
+ wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
+ int * mode = (int *) bp; bp += 4;
+ if(!This) throw wxe_badarg(0);
+ This->SetEdgeMode((int) *mode);
+ break;
+}
 case wxStyledTextCtrl_GetEdgeMode: { // wxStyledTextCtrl::GetEdgeMode
  wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
@@ -31352,6 +31341,43 @@ case wxLogNull_destroy: { // wxLogNull::destroy
  wxLogNull *This = (wxLogNull *) getPtr(bp,memenv); bp += 4;
  if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
    delete This;}
+ break;
+}
+case wxTaskBarIcon_new: { // wxTaskBarIcon::wxTaskBarIcon
+ wxTaskBarIcon * Result = new EwxTaskBarIcon();
+ newPtr((void *) Result, 1, memenv);
+ rt.addRef(getRef((void *)Result,memenv), "wxTaskBarIcon");
+ break;
+}
+case wxTaskBarIcon_PopupMenu: { // wxTaskBarIcon::PopupMenu
+ wxTaskBarIcon *This = (wxTaskBarIcon *) getPtr(bp,memenv); bp += 4;
+ wxMenu *menu = (wxMenu *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->PopupMenu(menu);
+ rt.addBool(Result);
+ break;
+}
+case wxTaskBarIcon_RemoveIcon: { // wxTaskBarIcon::RemoveIcon
+ wxTaskBarIcon *This = (wxTaskBarIcon *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->RemoveIcon();
+ rt.addBool(Result);
+ break;
+}
+case wxTaskBarIcon_SetIcon: { // wxTaskBarIcon::SetIcon
+ wxString tooltip= wxEmptyString;
+ wxTaskBarIcon *This = (wxTaskBarIcon *) getPtr(bp,memenv); bp += 4;
+ wxIcon *icon = (wxIcon *) getPtr(bp,memenv); bp += 4;
+ while( * (int*) bp) { switch (* (int*) bp) {
+  case 1: {bp += 4;
+ int * tooltipLen = (int *) bp; bp += 4;
+ tooltip = wxString(bp, wxConvUTF8);
+ bp += *tooltipLen+((8-((0+ *tooltipLen) & 7)) & 7);
+  } break;
+ }};
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->SetIcon(*icon,tooltip);
+ rt.addBool(Result);
  break;
 }
   default: {

@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+# Copyright Ericsson AB 2008-2012. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@ ERL_COMPILE_FLAGS=+debug_info +warn_unused_vars
 COMPILER = gen_util wx_gen wx_gen_erl wx_gen_cpp
 COMPILER_T = $(COMPILER:%=$(EBIN)/%.beam)
 
-GL_COMP = gl_gen gl_gen_erl gl_gen_c
+GL_COMP = gl_gen gl_gen_erl gl_gen_c gl_scan_doc
 GL_COMP_T = $(GL_COMP:%=$(EBIN)/%.beam)
 
 TARGET_EDIR = ../src/gen

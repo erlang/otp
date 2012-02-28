@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2009-2011. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2009-2012. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -25,7 +25,7 @@ SRC = .
 BIN = .
 ERLINC = $(TOPDIR)/include
 ERLC = erlc
-TESTMODS = sudoku sudoku_board sudoku_game sudoku_gui 
+TESTMODS = sudoku sudoku_board sudoku_game sudoku_gui
 TESTTARGETS = $(TESTMODS:%=%.beam)
 TESTSRC = $(TESTMODS:%=%.erl)
 
@@ -35,21 +35,15 @@ clean:
 	rm -f $(TESTTARGETS)
 	rm -f *~ core erl_crash.dump
 
-docs: 
+docs:
 
 run: opt
-	erl -smp -detached -pa $(TOPDIR)/ebin -s sudoku 
+	erl -smp -detached -pa $(TOPDIR)/ebin -s sudoku
 
-ifneq ($(INSIDE_ERLSRC),true)
-
-%.beam: %.erl
-	$(ERLC) -W -I$(ERLINC)  -bbeam -o$(BIN) $<
-
-else
 EXRELSYSDIR = $(RELSYSDIR)/examples/sudoku
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-docs: 
+docs:
 
 release_spec: opt
 	$(INSTALL_DIR) $(EXRELSYSDIR)
@@ -59,8 +53,3 @@ release_spec: opt
 release_tests_spec:
 
 release_docs_spec:
-
-endif
-
-
-

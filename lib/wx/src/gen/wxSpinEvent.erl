@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,21 +41,25 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
+-export_type([wxSpinEvent/0]).
 %% @hidden
 parent_class(wxNotifyEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxSpinEvent()) -> integer()
+-type wxSpinEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinevent.html#wxspineventgetposition">external documentation</a>.
+-spec getPosition(This) -> integer() when
+	This::wxSpinEvent().
 getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSpinEvent),
   wxe_util:call(?wxSpinEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxSpinEvent(), Pos::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxspinevent.html#wxspineventsetposition">external documentation</a>.
+-spec setPosition(This, Pos) -> ok when
+	This::wxSpinEvent(), Pos::integer().
 setPosition(#wx_ref{type=ThisT,ref=ThisRef},Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxSpinEvent),

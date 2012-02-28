@@ -17,40 +17,32 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxeraseevent.html">wxEraseEvent</a>.
+%% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtaskbariconevent.html">wxTaskBarIconEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>erase_background</em></dd></dl>
-%% See also the message variant {@link wxEvtHandler:wxErase(). #wxErase{}} event record type.
+%% <dd><em>taskbar_move</em>, <em>taskbar_left_down</em>, <em>taskbar_left_up</em>, <em>taskbar_right_down</em>, <em>taskbar_right_up</em>, <em>taskbar_left_dclick</em>, <em>taskbar_right_dclick</em></dd></dl>
+%% See also the message variant {@link wxEvtHandler:wxTaskBarIcon(). #wxTaskBarIcon{}} event record type.
 %%
 %% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
-%% @type wxEraseEvent().  An object reference, The representation is internal
+%% @type wxTaskBarIconEvent().  An object reference, The representation is internal
 %% and can be changed without notice. It can't be used for comparsion
 %% stored on disc or distributed for use on other nodes.
 
--module(wxEraseEvent).
+-module(wxTaskBarIconEvent).
 -include("wxe.hrl").
--export([getDC/1]).
+-export([]).
 
 %% inherited exports
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
--export_type([wxEraseEvent/0]).
+-export_type([wxTaskBarIconEvent/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
--type wxEraseEvent() :: wx:wx_object().
-%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxeraseevent.html#wxeraseeventgetdc">external documentation</a>.
--spec getDC(This) -> wxDC:wxDC() when
-	This::wxEraseEvent().
-getDC(#wx_ref{type=ThisT,ref=ThisRef}) ->
-  ?CLASS(ThisT,wxEraseEvent),
-  wxe_util:call(?wxEraseEvent_GetDC,
-  <<ThisRef:32/?UI>>).
-
+-type wxTaskBarIconEvent() :: wx:wx_object().
  %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).

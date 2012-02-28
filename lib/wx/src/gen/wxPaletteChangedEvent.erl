@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,20 +37,24 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxPaletteChangedEvent/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxPaletteChangedEvent(), Win::wxWindow:wxWindow()) -> ok
+-type wxPaletteChangedEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalettechangedevent.html#wxpalettechangedeventsetchangedwindow">external documentation</a>.
+-spec setChangedWindow(This, Win) -> ok when
+	This::wxPaletteChangedEvent(), Win::wxWindow:wxWindow().
 setChangedWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WinT,ref=WinRef}) ->
   ?CLASS(ThisT,wxPaletteChangedEvent),
   ?CLASS(WinT,wxWindow),
   wxe_util:cast(?wxPaletteChangedEvent_SetChangedWindow,
   <<ThisRef:32/?UI,WinRef:32/?UI>>).
 
-%% @spec (This::wxPaletteChangedEvent()) -> wxWindow:wxWindow()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpalettechangedevent.html#wxpalettechangedeventgetchangedwindow">external documentation</a>.
+-spec getChangedWindow(This) -> wxWindow:wxWindow() when
+	This::wxPaletteChangedEvent().
 getChangedWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPaletteChangedEvent),
   wxe_util:call(?wxPaletteChangedEvent_GetChangedWindow,

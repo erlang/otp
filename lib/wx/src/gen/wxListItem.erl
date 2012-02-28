@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,184 +33,207 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxListItem/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxListItem()
+-type wxListItem() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemwxlistitem">external documentation</a>.
+-spec new() -> wxListItem().
 new() ->
   wxe_util:construct(?wxListItem_new_0,
   <<>>).
 
-%% @spec (Item::wxListItem()) -> wxListItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemwxlistitem">external documentation</a>.
+-spec new(Item) -> wxListItem() when
+	Item::wxListItem().
 new(#wx_ref{type=ItemT,ref=ItemRef}) ->
   ?CLASS(ItemT,wxListItem),
   wxe_util:construct(?wxListItem_new_1,
   <<ItemRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemclear">external documentation</a>.
+-spec clear(This) -> ok when
+	This::wxListItem().
 clear(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_Clear,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> WxListColumnFormat
-%% WxListColumnFormat = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetalign">external documentation</a>.
-%%<br /> WxListColumnFormat is one of ?wxLIST_FORMAT_LEFT | ?wxLIST_FORMAT_RIGHT | ?wxLIST_FORMAT_CENTRE | ?wxLIST_FORMAT_CENTER
+%%<br /> Res = ?wxLIST_FORMAT_LEFT | ?wxLIST_FORMAT_RIGHT | ?wxLIST_FORMAT_CENTRE | ?wxLIST_FORMAT_CENTER
+-spec getAlign(This) -> wx:wx_enum() when
+	This::wxListItem().
 getAlign(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetAlign,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetbackgroundcolour">external documentation</a>.
+-spec getBackgroundColour(This) -> wx:wx_colour4() when
+	This::wxListItem().
 getBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetBackgroundColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetcolumn">external documentation</a>.
+-spec getColumn(This) -> integer() when
+	This::wxListItem().
 getColumn(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetColumn,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> wxFont:wxFont()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetfont">external documentation</a>.
+-spec getFont(This) -> wxFont:wxFont() when
+	This::wxListItem().
 getFont(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetFont,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetid">external documentation</a>.
+-spec getId(This) -> integer() when
+	This::wxListItem().
 getId(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetId,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetimage">external documentation</a>.
+-spec getImage(This) -> integer() when
+	This::wxListItem().
 getImage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetImage,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetmask">external documentation</a>.
+-spec getMask(This) -> integer() when
+	This::wxListItem().
 getMask(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetMask,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetstate">external documentation</a>.
+-spec getState(This) -> integer() when
+	This::wxListItem().
 getState(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetState,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgettext">external documentation</a>.
+-spec getText(This) -> unicode:charlist() when
+	This::wxListItem().
 getText(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetText,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> wx:colour()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgettextcolour">external documentation</a>.
+-spec getTextColour(This) -> wx:wx_colour4() when
+	This::wxListItem().
 getTextColour(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetTextColour,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemgetwidth">external documentation</a>.
+-spec getWidth(This) -> integer() when
+	This::wxListItem().
 getWidth(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:call(?wxListItem_GetWidth,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxListItem(), Align::WxListColumnFormat) -> ok
-%% WxListColumnFormat = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetalign">external documentation</a>.
-%%<br /> WxListColumnFormat is one of ?wxLIST_FORMAT_LEFT | ?wxLIST_FORMAT_RIGHT | ?wxLIST_FORMAT_CENTRE | ?wxLIST_FORMAT_CENTER
+%%<br /> Align = ?wxLIST_FORMAT_LEFT | ?wxLIST_FORMAT_RIGHT | ?wxLIST_FORMAT_CENTRE | ?wxLIST_FORMAT_CENTER
+-spec setAlign(This, Align) -> ok when
+	This::wxListItem(), Align::wx:wx_enum().
 setAlign(#wx_ref{type=ThisT,ref=ThisRef},Align)
  when is_integer(Align) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetAlign,
   <<ThisRef:32/?UI,Align:32/?UI>>).
 
-%% @spec (This::wxListItem(), ColBack::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetbackgroundcolour">external documentation</a>.
+-spec setBackgroundColour(This, ColBack) -> ok when
+	This::wxListItem(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},ColBack)
  when tuple_size(ColBack) =:= 3; tuple_size(ColBack) =:= 4 ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetBackgroundColour,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColBack)):16/binary>>).
 
-%% @spec (This::wxListItem(), Col::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetcolumn">external documentation</a>.
+-spec setColumn(This, Col) -> ok when
+	This::wxListItem(), Col::integer().
 setColumn(#wx_ref{type=ThisT,ref=ThisRef},Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetColumn,
   <<ThisRef:32/?UI,Col:32/?UI>>).
 
-%% @spec (This::wxListItem(), Font::wxFont:wxFont()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetfont">external documentation</a>.
+-spec setFont(This, Font) -> ok when
+	This::wxListItem(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FontT,ref=FontRef}) ->
   ?CLASS(ThisT,wxListItem),
   ?CLASS(FontT,wxFont),
   wxe_util:cast(?wxListItem_SetFont,
   <<ThisRef:32/?UI,FontRef:32/?UI>>).
 
-%% @spec (This::wxListItem(), Id::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetid">external documentation</a>.
+-spec setId(This, Id) -> ok when
+	This::wxListItem(), Id::integer().
 setId(#wx_ref{type=ThisT,ref=ThisRef},Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetId,
   <<ThisRef:32/?UI,Id:32/?UI>>).
 
-%% @spec (This::wxListItem(), Image::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetimage">external documentation</a>.
+-spec setImage(This, Image) -> ok when
+	This::wxListItem(), Image::integer().
 setImage(#wx_ref{type=ThisT,ref=ThisRef},Image)
  when is_integer(Image) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetImage,
   <<ThisRef:32/?UI,Image:32/?UI>>).
 
-%% @spec (This::wxListItem(), Mask::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetmask">external documentation</a>.
+-spec setMask(This, Mask) -> ok when
+	This::wxListItem(), Mask::integer().
 setMask(#wx_ref{type=ThisT,ref=ThisRef},Mask)
  when is_integer(Mask) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetMask,
   <<ThisRef:32/?UI,Mask:32/?UI>>).
 
-%% @spec (This::wxListItem(), State::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetstate">external documentation</a>.
+-spec setState(This, State) -> ok when
+	This::wxListItem(), State::integer().
 setState(#wx_ref{type=ThisT,ref=ThisRef},State)
  when is_integer(State) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetState,
   <<ThisRef:32/?UI,State:32/?UI>>).
 
-%% @spec (This::wxListItem(), StateMask::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetstatemask">external documentation</a>.
+-spec setStateMask(This, StateMask) -> ok when
+	This::wxListItem(), StateMask::integer().
 setStateMask(#wx_ref{type=ThisT,ref=ThisRef},StateMask)
  when is_integer(StateMask) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetStateMask,
   <<ThisRef:32/?UI,StateMask:32/?UI>>).
 
-%% @spec (This::wxListItem(), Text::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsettext">external documentation</a>.
+-spec setText(This, Text) -> ok when
+	This::wxListItem(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
  when is_list(Text) ->
   ?CLASS(ThisT,wxListItem),
@@ -218,24 +241,26 @@ setText(#wx_ref{type=ThisT,ref=ThisRef},Text)
   wxe_util:cast(?wxListItem_SetText,
   <<ThisRef:32/?UI,(byte_size(Text_UC)):32/?UI,(Text_UC)/binary, 0:(((8- ((0+byte_size(Text_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxListItem(), ColText::wx:colour()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsettextcolour">external documentation</a>.
+-spec setTextColour(This, ColText) -> ok when
+	This::wxListItem(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT,ref=ThisRef},ColText)
  when tuple_size(ColText) =:= 3; tuple_size(ColText) =:= 4 ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetTextColour,
   <<ThisRef:32/?UI,(wxe_util:colour_bin(ColText)):16/binary>>).
 
-%% @spec (This::wxListItem(), Width::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistitem.html#wxlistitemsetwidth">external documentation</a>.
+-spec setWidth(This, Width) -> ok when
+	This::wxListItem(), Width::integer().
 setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:cast(?wxListItem_SetWidth,
   <<ThisRef:32/?UI,Width:32/?UI>>).
 
-%% @spec (This::wxListItem()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxListItem()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListItem),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

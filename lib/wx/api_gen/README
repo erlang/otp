@@ -1,6 +1,6 @@
 API GENERATION:
-    Most of the code in wx is generated.  
-    Users of wxErlang should not normally need to regenerate the generated code, 
+    Most of the code in wx is generated.
+    Users of wxErlang should not normally need to regenerate the generated code,
     as it is checked in by wxErlang developers, when changes are made.
 
     Code checked in is currently generated from wxwidgets 2.8.10.
@@ -9,6 +9,8 @@ REQUIREMENTS:
     The code generation requires doxygen (1.4.6) which is
     used to parse wxWidgets c++ headers and generate xml files (in
     wx_xml/).
+
+    2012-02-09 doxygen 1.7.4 is working fine
 
     2008-09-29 doxygen 1.4.6 is required.
       Later versions of Doxygen - up to 1.5.6 at least - have a bug in the xml generation
@@ -32,5 +34,12 @@ RUNNING:
     I keep the opengl headers separate so I don't go backwards in version when generating the code
     from another machine.
 
+    Also gl.h from different vendors differ so keep it consistent,
+    I have used mesa's gl.h and the glext.h from opengl.org
+    (version see GL_GLEXT_VERSION in gl.hrl)
+
+    I also get the xml documentation from opengl.org (subversion) and place it in
+    api_gen/gl_man2 (all old functions) and api_gen/gl_man4 (all the new functions).
+
 CONTRIBUTION:
-    Send me patches or update the svn version.
+    Send me patches

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,24 +35,28 @@
   saveFile/3,saveFile/4,setDepth/2,setHeight/2,setMask/2,setPalette/2,
   setWidth/2]).
 
+-export_type([wxIcon/0]).
 %% @hidden
 parent_class(wxBitmap) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxIcon()
+-type wxIcon() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html#wxiconwxicon">external documentation</a>.
+-spec new() -> wxIcon().
 new() ->
   wxe_util:construct(?wxIcon_new_0,
   <<>>).
 
-%% @spec (X::string()|term()) -> wxIcon()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html#wxiconwxicon">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Filename::string()) -> new(Filename, []) </c></p>
-%% <p><c>
-%% new(Loc::wx:wx()) -> wxIcon() </c>
-%% </p>
+%% <br /> Also:<br />
+%% new(Loc) -> wxIcon() when<br />
+%% 	Loc::wx:wx().<br />
+%% 
+%%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
+-spec new(Filename) -> wxIcon() when
+	Filename::unicode:chardata();
+      (Loc) -> wxIcon() when
+	Loc::wx:wx().
 
 new(Filename)
  when is_list(Filename) ->
@@ -62,11 +66,13 @@ new(#wx_ref{type=LocT,ref=LocRef}) ->
   wxe_util:construct(?wxIcon_new_1,
   <<LocRef:32/?UI>>).
 
-%% @spec (Filename::string(), [Option]) -> wxIcon()
-%% Option = {type, WxBitmapType} | {desiredWidth, integer()} | {desiredHeight, integer()}
-%% WxBitmapType = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html#wxiconwxicon">external documentation</a>.
-%%<br /> WxBitmapType is one of ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
+%%<br /> Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
+-spec new(Filename, [Option]) -> wxIcon() when
+	Filename::unicode:chardata(),
+	Option :: {type, wx:wx_enum()}
+		 | {desiredWidth, integer()}
+		 | {desiredHeight, integer()}.
 new(Filename, Options)
  when is_list(Filename),is_list(Options) ->
   Filename_UC = unicode:characters_to_binary([Filename,0]),
@@ -78,16 +84,17 @@ new(Filename, Options)
   wxe_util:construct(?wxIcon_new_2,
   <<(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((4+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8, BinOpt/binary>>).
 
-%% @spec (This::wxIcon(), Bmp::wxBitmap:wxBitmap()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html#wxiconcopyfrombitmap">external documentation</a>.
+-spec copyFromBitmap(This, Bmp) -> ok when
+	This::wxIcon(), Bmp::wxBitmap:wxBitmap().
 copyFromBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
   ?CLASS(ThisT,wxIcon),
   ?CLASS(BmpT,wxBitmap),
   wxe_util:cast(?wxIcon_CopyFromBitmap,
   <<ThisRef:32/?UI,BmpRef:32/?UI>>).
 
-%% @spec (This::wxIcon()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxIcon()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxIcon),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,24 +30,29 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxLayoutAlgorithm/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxLayoutAlgorithm()
+-type wxLayoutAlgorithm() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlayoutalgorithm.html#wxlayoutalgorithmwxlayoutalgorithm">external documentation</a>.
+-spec new() -> wxLayoutAlgorithm().
 new() ->
   wxe_util:construct(?wxLayoutAlgorithm_new,
   <<>>).
 
-%% @spec (This::wxLayoutAlgorithm(), Frame::wxFrame:wxFrame()) -> bool()
 %% @equiv layoutFrame(This,Frame, [])
+-spec layoutFrame(This, Frame) -> boolean() when
+	This::wxLayoutAlgorithm(), Frame::wxFrame:wxFrame().
+
 layoutFrame(This,Frame)
  when is_record(This, wx_ref),is_record(Frame, wx_ref) ->
   layoutFrame(This,Frame, []).
 
-%% @spec (This::wxLayoutAlgorithm(), Frame::wxFrame:wxFrame(), [Option]) -> bool()
-%% Option = {mainWindow, wxWindow:wxWindow()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlayoutalgorithm.html#wxlayoutalgorithmlayoutframe">external documentation</a>.
+-spec layoutFrame(This, Frame, [Option]) -> boolean() when
+	This::wxLayoutAlgorithm(), Frame::wxFrame:wxFrame(),
+	Option :: {mainWindow, wxWindow:wxWindow()}.
 layoutFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxLayoutAlgorithm),
@@ -58,15 +63,18 @@ layoutFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, O
   wxe_util:call(?wxLayoutAlgorithm_LayoutFrame,
   <<ThisRef:32/?UI,FrameRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame()) -> bool()
 %% @equiv layoutMDIFrame(This,Frame, [])
+-spec layoutMDIFrame(This, Frame) -> boolean() when
+	This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame().
+
 layoutMDIFrame(This,Frame)
  when is_record(This, wx_ref),is_record(Frame, wx_ref) ->
   layoutMDIFrame(This,Frame, []).
 
-%% @spec (This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame(), [Option]) -> bool()
-%% Option = {rect, {X::integer(), Y::integer(), W::integer(), H::integer()}}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlayoutalgorithm.html#wxlayoutalgorithmlayoutmdiframe">external documentation</a>.
+-spec layoutMDIFrame(This, Frame, [Option]) -> boolean() when
+	This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame(),
+	Option :: {rect, {X::integer(), Y::integer(), W::integer(), H::integer()}}.
 layoutMDIFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxLayoutAlgorithm),
@@ -77,15 +85,18 @@ layoutMDIFrame(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}
   wxe_util:call(?wxLayoutAlgorithm_LayoutMDIFrame,
   <<ThisRef:32/?UI,FrameRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxLayoutAlgorithm(), Frame::wxWindow:wxWindow()) -> bool()
 %% @equiv layoutWindow(This,Frame, [])
+-spec layoutWindow(This, Frame) -> boolean() when
+	This::wxLayoutAlgorithm(), Frame::wxWindow:wxWindow().
+
 layoutWindow(This,Frame)
  when is_record(This, wx_ref),is_record(Frame, wx_ref) ->
   layoutWindow(This,Frame, []).
 
-%% @spec (This::wxLayoutAlgorithm(), Frame::wxWindow:wxWindow(), [Option]) -> bool()
-%% Option = {mainWindow, wxWindow:wxWindow()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlayoutalgorithm.html#wxlayoutalgorithmlayoutwindow">external documentation</a>.
+-spec layoutWindow(This, Frame, [Option]) -> boolean() when
+	This::wxLayoutAlgorithm(), Frame::wxWindow:wxWindow(),
+	Option :: {mainWindow, wxWindow:wxWindow()}.
 layoutWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxLayoutAlgorithm),
@@ -96,8 +107,8 @@ layoutWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, 
   wxe_util:call(?wxLayoutAlgorithm_LayoutWindow,
   <<ThisRef:32/?UI,FrameRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxLayoutAlgorithm()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxLayoutAlgorithm()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxLayoutAlgorithm),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

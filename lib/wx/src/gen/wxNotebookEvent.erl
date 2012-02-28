@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -41,36 +41,42 @@
   isSelection/1,parent_class/1,resumePropagation/2,setInt/2,setString/2,
   shouldPropagate/1,skip/1,skip/2,stopPropagation/1,veto/1]).
 
+-export_type([wxNotebookEvent/0]).
 %% @hidden
 parent_class(wxNotifyEvent) -> true;
 parent_class(wxCommandEvent) -> true;
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (This::wxNotebookEvent()) -> integer()
+-type wxNotebookEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventgetoldselection">external documentation</a>.
+-spec getOldSelection(This) -> integer() when
+	This::wxNotebookEvent().
 getOldSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotebookEvent),
   wxe_util:call(?wxNotebookEvent_GetOldSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxNotebookEvent()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventgetselection">external documentation</a>.
+-spec getSelection(This) -> integer() when
+	This::wxNotebookEvent().
 getSelection(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxNotebookEvent),
   wxe_util:call(?wxNotebookEvent_GetSelection,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxNotebookEvent(), NOldSel::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventsetoldselection">external documentation</a>.
+-spec setOldSelection(This, NOldSel) -> ok when
+	This::wxNotebookEvent(), NOldSel::integer().
 setOldSelection(#wx_ref{type=ThisT,ref=ThisRef},NOldSel)
  when is_integer(NOldSel) ->
   ?CLASS(ThisT,wxNotebookEvent),
   wxe_util:cast(?wxNotebookEvent_SetOldSelection,
   <<ThisRef:32/?UI,NOldSel:32/?UI>>).
 
-%% @spec (This::wxNotebookEvent(), NSel::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxnotebookevent.html#wxnotebookeventsetselection">external documentation</a>.
+-spec setSelection(This, NSel) -> ok when
+	This::wxNotebookEvent(), NSel::integer().
 setSelection(#wx_ref{type=ThisT,ref=ThisRef},NSel)
  when is_integer(NSel) ->
   ?CLASS(ThisT,wxNotebookEvent),

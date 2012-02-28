@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,27 +70,35 @@
   transferDataToWindow/1,update/1,updateWindowUI/1,updateWindowUI/2,
   validate/1,warpPointer/3]).
 
+-export_type([wxScrollBar/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxScrollBar()
+-type wxScrollBar() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbarwxscrollbar">external documentation</a>.
+-spec new() -> wxScrollBar().
 new() ->
   wxe_util:construct(?wxScrollBar_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer()) -> wxScrollBar()
 %% @equiv new(Parent,Id, [])
+-spec new(Parent, Id) -> wxScrollBar() when
+	Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxScrollBar()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbarwxscrollbar">external documentation</a>.
+-spec new(Parent, Id, [Option]) -> wxScrollBar() when
+	Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -103,15 +111,21 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxScrollBar_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer()) -> bool()
 %% @equiv create(This,Parent,Id, [])
+-spec create(This, Parent, Id) -> boolean() when
+	This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer().
+
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
   create(This,Parent,Id, []).
 
-%% @spec (This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbarcreate">external documentation</a>.
+-spec create(This, Parent, Id, [Option]) -> boolean() when
+	This::wxScrollBar(), Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxScrollBar),
@@ -125,51 +139,59 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   wxe_util:call(?wxScrollBar_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxScrollBar()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbargetrange">external documentation</a>.
+-spec getRange(This) -> integer() when
+	This::wxScrollBar().
 getRange(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:call(?wxScrollBar_GetRange,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxScrollBar()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbargetpagesize">external documentation</a>.
+-spec getPageSize(This) -> integer() when
+	This::wxScrollBar().
 getPageSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:call(?wxScrollBar_GetPageSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxScrollBar()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbargetthumbposition">external documentation</a>.
+-spec getThumbPosition(This) -> integer() when
+	This::wxScrollBar().
 getThumbPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:call(?wxScrollBar_GetThumbPosition,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxScrollBar()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbargetthumbsize">external documentation</a>.
+-spec getThumbSize(This) -> integer() when
+	This::wxScrollBar().
 getThumbSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:call(?wxScrollBar_GetThumbSize,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxScrollBar(), ViewStart::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbarsetthumbposition">external documentation</a>.
+-spec setThumbPosition(This, ViewStart) -> ok when
+	This::wxScrollBar(), ViewStart::integer().
 setThumbPosition(#wx_ref{type=ThisT,ref=ThisRef},ViewStart)
  when is_integer(ViewStart) ->
   ?CLASS(ThisT,wxScrollBar),
   wxe_util:cast(?wxScrollBar_SetThumbPosition,
   <<ThisRef:32/?UI,ViewStart:32/?UI>>).
 
-%% @spec (This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer()) -> ok
 %% @equiv setScrollbar(This,Position,ThumbSize,Range,PageSize, [])
+-spec setScrollbar(This, Position, ThumbSize, Range, PageSize) -> ok when
+	This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer().
+
 setScrollbar(This,Position,ThumbSize,Range,PageSize)
  when is_record(This, wx_ref),is_integer(Position),is_integer(ThumbSize),is_integer(Range),is_integer(PageSize) ->
   setScrollbar(This,Position,ThumbSize,Range,PageSize, []).
 
-%% @spec (This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer(), [Option]) -> ok
-%% Option = {refresh, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxscrollbar.html#wxscrollbarsetscrollbar">external documentation</a>.
+-spec setScrollbar(This, Position, ThumbSize, Range, PageSize, [Option]) -> ok when
+	This::wxScrollBar(), Position::integer(), ThumbSize::integer(), Range::integer(), PageSize::integer(),
+	Option :: {refresh, boolean()}.
 setScrollbar(#wx_ref{type=ThisT,ref=ThisRef},Position,ThumbSize,Range,PageSize, Options)
  when is_integer(Position),is_integer(ThumbSize),is_integer(Range),is_integer(PageSize),is_list(Options) ->
   ?CLASS(ThisT,wxScrollBar),
@@ -179,8 +201,8 @@ setScrollbar(#wx_ref{type=ThisT,ref=ThisRef},Position,ThumbSize,Range,PageSize, 
   wxe_util:cast(?wxScrollBar_SetScrollbar,
   <<ThisRef:32/?UI,Position:32/?UI,ThumbSize:32/?UI,Range:32/?UI,PageSize:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxScrollBar()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxScrollBar()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxScrollBar),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

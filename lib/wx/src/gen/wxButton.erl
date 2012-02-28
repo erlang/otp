@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -70,27 +70,36 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxButton/0]).
 %% @hidden
 parent_class(wxControl) -> true;
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxButton()
+-type wxButton() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+-spec new() -> wxButton().
 new() ->
   wxe_util:construct(?wxButton_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer()) -> wxButton()
 %% @equiv new(Parent,Id, [])
+-spec new(Parent, Id) -> wxButton() when
+	Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxButton()
-%% Option = {label, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonwxbutton">external documentation</a>.
+-spec new(Parent, Id, [Option]) -> wxButton() when
+	Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {label, unicode:chardata()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -104,15 +113,22 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxButton_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer()) -> bool()
 %% @equiv create(This,Parent,Id, [])
+-spec create(This, Parent, Id) -> boolean() when
+	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer().
+
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
   create(This,Parent,Id, []).
 
-%% @spec (This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> bool()
-%% Option = {label, string()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttoncreate">external documentation</a>.
+-spec create(This, Parent, Id, [Option]) -> boolean() when
+	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {label, unicode:chardata()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxButton),
@@ -127,21 +143,23 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id, O
   wxe_util:call(?wxButton_Create,
   <<ThisRef:32/?UI,ParentRef:32/?UI,Id:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec () -> {W::integer(), H::integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttongetdefaultsize">external documentation</a>.
+-spec getDefaultSize() -> {W::integer(), H::integer()}.
 getDefaultSize() ->
   wxe_util:call(?wxButton_GetDefaultSize,
   <<>>).
 
-%% @spec (This::wxButton()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonsetdefault">external documentation</a>.
+-spec setDefault(This) -> ok when
+	This::wxButton().
 setDefault(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:cast(?wxButton_SetDefault,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxButton(), Label::string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbutton.html#wxbuttonsetlabel">external documentation</a>.
+-spec setLabel(This, Label) -> ok when
+	This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
  when is_list(Label) ->
   ?CLASS(ThisT,wxButton),
@@ -149,8 +167,8 @@ setLabel(#wx_ref{type=ThisT,ref=ThisRef},Label)
   wxe_util:cast(?wxButton_SetLabel,
   <<ThisRef:32/?UI,(byte_size(Label_UC)):32/?UI,(Label_UC)/binary, 0:(((8- ((0+byte_size(Label_UC)) band 16#7)) band 16#7))/unit:8>>).
 
-%% @spec (This::wxButton()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxButton()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxButton),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

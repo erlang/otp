@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,26 +68,34 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxPanel/0]).
 %% @hidden
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxPanel()
+-type wxPanel() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpanel.html#wxpanelwxpanel">external documentation</a>.
+-spec new() -> wxPanel().
 new() ->
   wxe_util:construct(?wxPanel_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxPanel()
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxPanel() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxPanel()
-%% Option = {winid, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpanel.html#wxpanelwxpanel">external documentation</a>.
+-spec new(Parent, [Option]) -> wxPanel() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {winid, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -100,15 +108,18 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxPanel_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), X::integer(), Y::integer(), Width::integer(), Height::integer()) -> wxPanel()
 %% @equiv new(Parent,X,Y,Width,Height, [])
+-spec new(Parent, X, Y, Width, Height) -> wxPanel() when
+	Parent::wxWindow:wxWindow(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+
 new(Parent,X,Y,Width,Height)
  when is_record(Parent, wx_ref),is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   new(Parent,X,Y,Width,Height, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), X::integer(), Y::integer(), Width::integer(), Height::integer(), [Option]) -> wxPanel()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpanel.html#wxpanelwxpanel">external documentation</a>.
+-spec new(Parent, X, Y, Width, Height, [Option]) -> wxPanel() when
+	Parent::wxWindow:wxWindow(), X::integer(), Y::integer(), Width::integer(), Height::integer(),
+	Option :: {style, integer()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},X,Y,Width,Height, Options)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -118,15 +129,16 @@ new(#wx_ref{type=ParentT,ref=ParentRef},X,Y,Width,Height, Options)
   wxe_util:construct(?wxPanel_new_6,
   <<ParentRef:32/?UI,X:32/?UI,Y:32/?UI,Width:32/?UI,Height:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxPanel()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpanel.html#wxpanelinitdialog">external documentation</a>.
+-spec initDialog(This) -> ok when
+	This::wxPanel().
 initDialog(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPanel),
   wxe_util:cast(?wxPanel_InitDialog,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPanel()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxPanel()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPanel),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

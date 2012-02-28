@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,34 +37,39 @@
 -export([getId/1,getSkipped/1,getTimestamp/1,isCommandEvent/1,parent_class/1,
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
+-export_type([wxIdleEvent/0]).
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Win::wxWindow:wxWindow()) -> bool()
+-type wxIdleEvent() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventcansend">external documentation</a>.
+-spec canSend(Win) -> boolean() when
+	Win::wxWindow:wxWindow().
 canSend(#wx_ref{type=WinT,ref=WinRef}) ->
   ?CLASS(WinT,wxWindow),
   wxe_util:call(?wxIdleEvent_CanSend,
   <<WinRef:32/?UI>>).
 
-%% @spec () -> WxIdleMode
-%% WxIdleMode = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventgetmode">external documentation</a>.
-%%<br /> WxIdleMode is one of ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
+%%<br /> Res = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
+-spec getMode() -> wx:wx_enum().
 getMode() ->
   wxe_util:call(?wxIdleEvent_GetMode,
   <<>>).
 
-%% @spec (This::wxIdleEvent()) -> ok
 %% @equiv requestMore(This, [])
+-spec requestMore(This) -> ok when
+	This::wxIdleEvent().
+
 requestMore(This)
  when is_record(This, wx_ref) ->
   requestMore(This, []).
 
-%% @spec (This::wxIdleEvent(), [Option]) -> ok
-%% Option = {needMore, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventrequestmore">external documentation</a>.
+-spec requestMore(This, [Option]) -> ok when
+	This::wxIdleEvent(),
+	Option :: {needMore, boolean()}.
 requestMore(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxIdleEvent),
@@ -74,17 +79,18 @@ requestMore(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxIdleEvent_RequestMore,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxIdleEvent()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventmorerequested">external documentation</a>.
+-spec moreRequested(This) -> boolean() when
+	This::wxIdleEvent().
 moreRequested(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxIdleEvent),
   wxe_util:call(?wxIdleEvent_MoreRequested,
   <<ThisRef:32/?UI>>).
 
-%% @spec (Mode::WxIdleMode) -> ok
-%% WxIdleMode = integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxidleevent.html#wxidleeventsetmode">external documentation</a>.
-%%<br /> WxIdleMode is one of ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
+%%<br /> Mode = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
+-spec setMode(Mode) -> ok when
+	Mode::wx:wx_enum().
 setMode(Mode)
  when is_integer(Mode) ->
   wxe_util:cast(?wxIdleEvent_SetMode,

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,18 +29,23 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxPageSetupDialog/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxPageSetupDialog()
+-type wxPageSetupDialog() :: wx:wx_object().
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxPageSetupDialog() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), [Option]) -> wxPageSetupDialog()
-%% Option = {data, wxPageSetupDialogData:wxPageSetupDialogData()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialog.html#wxpagesetupdialogwxpagesetupdialog">external documentation</a>.
+-spec new(Parent, [Option]) -> wxPageSetupDialog() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {data, wxPageSetupDialogData:wxPageSetupDialogData()}.
 new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -50,22 +55,24 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxPageSetupDialog_new,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (This::wxPageSetupDialog()) -> wxPageSetupDialogData:wxPageSetupDialogData()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialog.html#wxpagesetupdialoggetpagesetupdata">external documentation</a>.
+-spec getPageSetupData(This) -> wxPageSetupDialogData:wxPageSetupDialogData() when
+	This::wxPageSetupDialog().
 getPageSetupData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPageSetupDialog),
   wxe_util:call(?wxPageSetupDialog_GetPageSetupData,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialog()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialog.html#wxpagesetupdialogshowmodal">external documentation</a>.
+-spec showModal(This) -> integer() when
+	This::wxPageSetupDialog().
 showModal(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxPageSetupDialog),
   wxe_util:call(?wxPageSetupDialog_ShowModal,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxPageSetupDialog()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxPageSetupDialog()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPageSetupDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

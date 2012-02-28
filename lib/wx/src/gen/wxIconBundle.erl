@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,17 +29,20 @@
 %% inherited exports
 -export([parent_class/1]).
 
+-export_type([wxIconBundle/0]).
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxIconBundle()
+-type wxIconBundle() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundlewxiconbundle">external documentation</a>.
+-spec new() -> wxIconBundle().
 new() ->
   wxe_util:construct(?wxIconBundle_new_0,
   <<>>).
 
-%% @spec (Ic::wxIconBundle() | wxIcon:wxIcon()) -> wxIconBundle()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundlewxiconbundle">external documentation</a>.
+-spec new(Ic) -> wxIconBundle() when
+	Ic::wxIconBundle() | wxIcon:wxIcon().
 new(#wx_ref{type=IcT,ref=IcRef}) ->
   IcOP = case ?CLASS_T(IcT,wxIconBundle) of
      true ->
@@ -50,24 +53,27 @@ new(#wx_ref{type=IcT,ref=IcRef}) ->
   wxe_util:construct(IcOP,
   <<IcRef:32/?UI>>).
 
-%% @spec (File::string(), Type::integer()) -> wxIconBundle()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundlewxiconbundle">external documentation</a>.
+-spec new(File, Type) -> wxIconBundle() when
+	File::unicode:chardata(), Type::integer().
 new(File,Type)
  when is_list(File),is_integer(Type) ->
   File_UC = unicode:characters_to_binary([File,0]),
   wxe_util:construct(?wxIconBundle_new_2,
   <<(byte_size(File_UC)):32/?UI,(File_UC)/binary, 0:(((8- ((4+byte_size(File_UC)) band 16#7)) band 16#7))/unit:8,Type:32/?UI>>).
 
-%% @spec (This::wxIconBundle(), Icon::wxIcon:wxIcon()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundleaddicon">external documentation</a>.
+-spec addIcon(This, Icon) -> ok when
+	This::wxIconBundle(), Icon::wxIcon:wxIcon().
 addIcon(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=IconT,ref=IconRef}) ->
   ?CLASS(ThisT,wxIconBundle),
   ?CLASS(IconT,wxIcon),
   wxe_util:cast(?wxIconBundle_AddIcon_1,
   <<ThisRef:32/?UI,IconRef:32/?UI>>).
 
-%% @spec (This::wxIconBundle(), File::string(), Type::integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundleaddicon">external documentation</a>.
+-spec addIcon(This, File, Type) -> ok when
+	This::wxIconBundle(), File::unicode:chardata(), Type::integer().
 addIcon(#wx_ref{type=ThisT,ref=ThisRef},File,Type)
  when is_list(File),is_integer(Type) ->
   ?CLASS(ThisT,wxIconBundle),
@@ -75,22 +81,24 @@ addIcon(#wx_ref{type=ThisT,ref=ThisRef},File,Type)
   wxe_util:cast(?wxIconBundle_AddIcon_2,
   <<ThisRef:32/?UI,(byte_size(File_UC)):32/?UI,(File_UC)/binary, 0:(((8- ((0+byte_size(File_UC)) band 16#7)) band 16#7))/unit:8,Type:32/?UI>>).
 
-%% @spec (This::wxIconBundle()) -> wxIcon:wxIcon()
 %% @equiv getIcon(This, [])
+-spec getIcon(This) -> wxIcon:wxIcon() when
+	This::wxIconBundle().
+
 getIcon(This)
  when is_record(This, wx_ref) ->
   getIcon(This, []).
 
-%% @spec (This::wxIconBundle(),X::term()) -> wxIcon:wxIcon()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundlegeticon">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% getIcon(This::wxIconBundle(), [Option]) -> wxIcon:wxIcon() </c>
-%%<br /> Option = {size, integer()}
-%% </p>
-%% <p><c>
-%% getIcon(This::wxIconBundle(), Size::{W::integer(), H::integer()}) -> wxIcon:wxIcon() </c>
-%% </p>
+%% <br /> Also:<br />
+%% getIcon(This, Size) -> wxIcon:wxIcon() when<br />
+%% 	This::wxIconBundle(), Size::{W::integer(), H::integer()}.<br />
+%% 
+-spec getIcon(This, [Option]) -> wxIcon:wxIcon() when
+	This::wxIconBundle(),
+	Option :: {size, integer()};
+      (This, Size) -> wxIcon:wxIcon() when
+	This::wxIconBundle(), Size::{W::integer(), H::integer()}.
 getIcon(#wx_ref{type=ThisT,ref=ThisRef}, Options)
  when is_list(Options) ->
   ?CLASS(ThisT,wxIconBundle),
@@ -105,8 +113,8 @@ getIcon(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
   wxe_util:call(?wxIconBundle_GetIcon_1_1,
   <<ThisRef:32/?UI,SizeW:32/?UI,SizeH:32/?UI>>).
 
-%% @spec (This::wxIconBundle()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxIconBundle()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxIconBundle),
   wxe_util:destroy(?wxIconBundle_destruct,Obj),

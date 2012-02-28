@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -75,6 +75,7 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxCheckListBox/0]).
 %% @hidden
 parent_class(wxListBox) -> true;
 parent_class(wxControlWithItems) -> true;
@@ -83,21 +84,29 @@ parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec () -> wxCheckListBox()
+-type wxCheckListBox() :: wx:wx_object().
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
+-spec new() -> wxCheckListBox().
 new() ->
   wxe_util:construct(?wxCheckListBox_new_0,
   <<>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer()) -> wxCheckListBox()
 %% @equiv new(Parent,Id, [])
+-spec new(Parent, Id) -> wxCheckListBox() when
+	Parent::wxWindow:wxWindow(), Id::integer().
+
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
   new(Parent,Id, []).
 
-%% @spec (Parent::wxWindow:wxWindow(), Id::integer(), [Option]) -> wxCheckListBox()
-%% Option = {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {choices, [[string()]]} | {style, integer()} | {validator, wx:wx()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxwxchecklistbox">external documentation</a>.
+-spec new(Parent, Id, [Option]) -> wxCheckListBox() when
+	Parent::wxWindow:wxWindow(), Id::integer(),
+	Option :: {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {choices, [[unicode:chardata()]]}
+		 | {style, integer()}
+		 | {validator, wx:wx()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -111,15 +120,18 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
   wxe_util:construct(?wxCheckListBox_new_3,
   <<ParentRef:32/?UI,Id:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxCheckListBox(), Index::integer()) -> ok
 %% @equiv check(This,Index, [])
+-spec check(This, Index) -> ok when
+	This::wxCheckListBox(), Index::integer().
+
 check(This,Index)
  when is_record(This, wx_ref),is_integer(Index) ->
   check(This,Index, []).
 
-%% @spec (This::wxCheckListBox(), Index::integer(), [Option]) -> ok
-%% Option = {check, bool()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxcheck">external documentation</a>.
+-spec check(This, Index, [Option]) -> ok when
+	This::wxCheckListBox(), Index::integer(),
+	Option :: {check, boolean()}.
 check(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
  when is_integer(Index),is_list(Options) ->
   ?CLASS(ThisT,wxCheckListBox),
@@ -129,16 +141,17 @@ check(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
   wxe_util:cast(?wxCheckListBox_Check,
   <<ThisRef:32/?UI,Index:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxCheckListBox(), Index::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html#wxchecklistboxischecked">external documentation</a>.
+-spec isChecked(This, Index) -> boolean() when
+	This::wxCheckListBox(), Index::integer().
 isChecked(#wx_ref{type=ThisT,ref=ThisRef},Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxCheckListBox),
   wxe_util:call(?wxCheckListBox_IsChecked,
   <<ThisRef:32/?UI,Index:32/?UI>>).
 
-%% @spec (This::wxCheckListBox()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxCheckListBox()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCheckListBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

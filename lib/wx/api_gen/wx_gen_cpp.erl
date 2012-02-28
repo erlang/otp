@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -64,11 +64,16 @@ gen_derived_dest(Defs) ->
     [gen_derived_dest_2(Class) || Class <- Defs],
     ok.
 
-gen_derived_dest_2(C=#class{name=Class}) ->
+gen_derived_dest_2(C=#class{name=Class, options=Opts}) ->
     ?WTC("gen_derived_dest_2"),
     Derived = is_derived(C),
     TaylorMade = taylormade_class(C),
+
     if Derived andalso (TaylorMade =:= false) ->
+	    case lists:keysearch(ifdef,1,Opts) of
+		{value, {ifdef, What}} -> w("#if ~p~n",[What]);
+		_ -> ok
+	    end,
 	    w("class E~s : public ~s {~n",[Class,Class]),
 	    case Class of
 		"wxGLCanvas" ->  %% Special for cleaning up gl context
@@ -78,7 +83,13 @@ gen_derived_dest_2(C=#class{name=Class}) ->
 		    w(" public: ~~E~s() {((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class])
 	    end,
 	    gen_constructors(C),
-	    w("};~n~n", []);
+	    case lists:keysearch(ifdef,1,Opts) of
+		{value, {ifdef, Endif}} ->
+		    w("};~n", []),
+		    w("#endif // ~p~n~n",[Endif]);
+		_ ->
+		    w("};~n~n", [])
+	    end;
        TaylorMade /= false ->
 	    w("~s~n", [TaylorMade]);
        true ->
@@ -324,6 +335,8 @@ declare_var(P = #param{name=Name,in=In,def=Def,type=Type}) ->
 
 declare_type(N,false,_,#type{name="wxArrayInt"}) ->
     w(" wxArrayInt ~s;~n", [N]);
+declare_type(N,false,_,#type{name="wxArrayDouble"}) ->
+    w(" wxArrayDouble ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxArrayString"}) ->
     w(" wxArrayString ~s;~n", [N]);
 declare_type(N,false,_,#type{base=Base,single=true,name=Type,by_val=false,mod=Mod})
@@ -335,6 +348,8 @@ declare_type(N,false,_,#type{name="wxArrayTreeItemIds",ref=reference}) ->
     w(" wxArrayTreeItemIds ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxDateTime"}) ->
     w(" wxDateTime ~s;~n", [N]);
+declare_type(N,false,_,#type{name="wxColour"}) ->
+    w(" wxColour ~s;~n", [N]);
 declare_type(N,false,_,#type{name=Type, base=int64, ref=reference}) ->
     w(" ~s ~s;~n", [Type,N]);
 declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=true})
@@ -362,6 +377,8 @@ declare_type(N,true,Def,#type{single=true,base=string}) ->
 declare_type(N,true,Def,#type{base=binary, name=char}) ->
     w(" char ~sD[] = {~s}, * ~s = ~sD;~n", [N,Def,N,N]);
 declare_type(_N,true,_Def,void) ->
+    skip;
+declare_type(_N,true,_Def,voidp) ->
     skip;
 declare_type(N,true,Def,#type{name=Type, ref={pointer,2}}) ->
     %% xxxx
@@ -645,6 +662,16 @@ decode_arg(N,#type{name=Type,single=list,base={class,Class}},arg,A0) ->
     w("  ~s.Append(*(~s *) getPtr(bp,memenv)); bp += 4;}~n", [N,Class]),
     w(" bp += ((~p+ *~sLen)%2 )*4;~n", [A,N]),
     0;
+decode_arg(N,#type{single=array,base={comp,Class="wxPoint2DDouble",_}},arg,A0) ->
+    w(" int * ~sLen = (int *) bp; bp += 4;~n", [N]),
+    w(" ~s *~s;~n",[Class,N]),
+    w(" ~s = (~s *) driver_alloc(sizeof(~s) * *~sLen);~n",[N,Class,Class,N]),
+    store_free(N),
+    align(A0+1,64),
+    w(" for(int i=0; i < *~sLen; i++) {~n", [N]),
+    w("   double x = * (double *) bp; bp += 8;~n   double y = * (double *) bp; bp += 8;~n", []),
+    w("   ~s[i] = wxPoint2DDouble(x,y);}~n", [N]),
+    0;
 decode_arg(Name,T, Arg,_A) ->
     ?error({unhandled_type, {Name,T, Arg}}).
 
@@ -792,6 +819,7 @@ call_arg(#param{name=N,type={merged,_,#type{base={class,_},single=true,
   when ByVal =:= true; Ref =:= reference ->
     "*" ++ N;
 call_arg(#param{def=Def, type=void}) when Def =/= none -> Def;
+call_arg(#param{def=Def, type=voidp}) when Def =/= none -> Def;
 call_arg(#param{name=N,type=#type{base={ref,_},by_val=true,single=true}}) -> N;
 call_arg(#param{name=N,type={merged,_,_,_,_,_,_}}) -> N.
 
@@ -917,6 +945,8 @@ build_ret(Name,_,#type{base=int,single=true,mod=M}) ->
     end;
 build_ret(Name,_,#type{name="wxArrayInt"}) ->
     w(" rt.add(~s);~n", [Name]);
+build_ret(Name,_,#type{name="wxArrayDouble"}) ->
+    w(" rt.add(~s);~n", [Name]);
 build_ret(Name,_,#type{base={comp,_,_},single=array}) ->
     w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),
     w("  rt.add(~s[i]);~n }~n",[Name]),
@@ -1031,6 +1061,7 @@ gen_macros() ->
     w("#include <wx/toolbook.h>~n"),
     w("#include <wx/listbook.h>~n"),
     w("#include <wx/treebook.h>~n"),
+    w("#include <wx/taskbar.h>~n"),
     w("#include <wx/html/htmlwin.h>~n"),
     w("#include <wx/html/htmlcell.h>~n"),
     w("#include <wx/filename.h>~n"),

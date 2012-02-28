@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -68,26 +68,44 @@
   show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
+-export_type([wxGLCanvas/0]).
 %% @hidden
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Parent::wxWindow:wxWindow()) -> wxGLCanvas()
+-type wxGLCanvas() :: wx:wx_object().
 %% @equiv new(Parent, [])
+-spec new(Parent) -> wxGLCanvas() when
+	Parent::wxWindow:wxWindow().
+
 new(Parent)
  when is_record(Parent, wx_ref) ->
   new(Parent, []).
 
-%% @spec (Parent::wxWindow:wxWindow(),X::term()) -> wxGLCanvas()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvaswxglcanvas">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas()) -> new(Parent,Shared, []) </c></p>
-%% <p><c>
-%% new(Parent::wxWindow:wxWindow(), [Option]) -> wxGLCanvas() </c>
-%%<br /> Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {name, string()} | {attribList, [integer()]} | {palette, wxPalette:wxPalette()}
-%% </p>
+%% <br /> Also:<br />
+%% new(Parent, [Option]) -> wxGLCanvas() when<br />
+%% 	Parent::wxWindow:wxWindow(),<br />
+%% 	Option :: {id, integer()}<br />
+%% 		 | {pos, {X::integer(), Y::integer()}}<br />
+%% 		 | {size, {W::integer(), H::integer()}}<br />
+%% 		 | {style, integer()}<br />
+%% 		 | {name, unicode:chardata()}<br />
+%% 		 | {attribList, [integer()]}<br />
+%% 		 | {palette, wxPalette:wxPalette()}.<br />
+%% 
+-spec new(Parent, Shared) -> wxGLCanvas() when
+	Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas();
+      (Parent, [Option]) -> wxGLCanvas() when
+	Parent::wxWindow:wxWindow(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {name, unicode:chardata()}
+		 | {attribList, [integer()]}
+		 | {palette, wxPalette:wxPalette()}.
 
 new(Parent,Shared)
  when is_record(Parent, wx_ref),is_record(Shared, wx_ref) ->
@@ -108,9 +126,16 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
   wxe_util:construct(?wxGLCanvas_new_2,
   <<ParentRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas(), [Option]) -> wxGLCanvas()
-%% Option = {id, integer()} | {pos, {X::integer(), Y::integer()}} | {size, {W::integer(), H::integer()}} | {style, integer()} | {name, string()} | {attribList, [integer()]} | {palette, wxPalette:wxPalette()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvaswxglcanvas">external documentation</a>.
+-spec new(Parent, Shared, [Option]) -> wxGLCanvas() when
+	Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas(),
+	Option :: {id, integer()}
+		 | {pos, {X::integer(), Y::integer()}}
+		 | {size, {W::integer(), H::integer()}}
+		 | {style, integer()}
+		 | {name, unicode:chardata()}
+		 | {attribList, [integer()]}
+		 | {palette, wxPalette:wxPalette()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Options)
  when is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -133,15 +158,17 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Opt
   wxe_util:construct(SharedOP,
   <<ParentRef:32/?UI,SharedRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxGLCanvas()) -> wxGLContext:wxGLContext()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvasgetcontext">external documentation</a>.
+-spec getContext(This) -> wxGLContext:wxGLContext() when
+	This::wxGLCanvas().
 getContext(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
   wxe_util:call(?wxGLCanvas_GetContext,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGLCanvas()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvassetcurrent">external documentation</a>.
+-spec setCurrent(This) -> ok when
+	This::wxGLCanvas().
 setCurrent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
   _Result =  wxe_util:cast(?wxGLCanvas_SetCurrent,
@@ -149,15 +176,16 @@ setCurrent(#wx_ref{type=ThisT,ref=ThisRef}) ->
   {ok, _} = wxe_master:init_opengl(),
   _Result.
 
-%% @spec (This::wxGLCanvas()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvasswapbuffers">external documentation</a>.
+-spec swapBuffers(This) -> ok when
+	This::wxGLCanvas().
 swapBuffers(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),
   wxe_util:cast(?wxGLCanvas_SwapBuffers,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxGLCanvas()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxGLCanvas()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGLCanvas),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),

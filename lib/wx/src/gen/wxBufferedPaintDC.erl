@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,10 +40,10 @@
   drawPoint/2,drawPolygon/2,drawPolygon/3,drawRectangle/2,drawRectangle/3,
   drawRotatedText/4,drawRoundedRectangle/3,drawRoundedRectangle/4,
   drawText/3,endDoc/1,endPage/1,floodFill/3,floodFill/4,getBackground/1,
-  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/2,
+  getBackgroundMode/1,getBrush/1,getCharHeight/1,getCharWidth/1,getClippingBox/1,
   getFont/1,getLayoutDirection/1,getLogicalFunction/1,getMapMode/1,
-  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/3,
-  getPen/1,getPixel/3,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
+  getMultiLineTextExtent/2,getMultiLineTextExtent/3,getPPI/1,getPartialTextExtents/2,
+  getPen/1,getPixel/2,getSize/1,getSizeMM/1,getTextBackground/1,getTextExtent/2,
   getTextExtent/3,getTextForeground/1,getUserScale/1,gradientFillConcentric/4,
   gradientFillConcentric/5,gradientFillLinear/4,gradientFillLinear/5,
   init/2,init/3,init/4,isOk/1,logicalToDeviceX/2,logicalToDeviceXRel/2,
@@ -55,27 +55,33 @@
   setPen/2,setTextBackground/2,setTextForeground/2,setUserScale/3,startDoc/2,
   startPage/1]).
 
+-export_type([wxBufferedPaintDC/0]).
 %% @hidden
 parent_class(wxBufferedDC) -> true;
 parent_class(wxMemoryDC) -> true;
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
-%% @spec (Window::wxWindow:wxWindow()) -> wxBufferedPaintDC()
+-type wxBufferedPaintDC() :: wx:wx_object().
 %% @equiv new(Window, [])
+-spec new(Window) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow().
+
 new(Window)
  when is_record(Window, wx_ref) ->
   new(Window, []).
 
-%% @spec (Window::wxWindow:wxWindow(),X::term()) -> wxBufferedPaintDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbufferedpaintdc.html#wxbufferedpaintdcwxbufferedpaintdc">external documentation</a>.
-%% <br /> Alternatives:
-%% <p><c>
-%% new(Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap()) -> new(Window,Buffer, []) </c></p>
-%% <p><c>
-%% new(Window::wxWindow:wxWindow(), [Option]) -> wxBufferedPaintDC() </c>
-%%<br /> Option = {style, integer()}
-%% </p>
+%% <br /> Also:<br />
+%% new(Window, [Option]) -> wxBufferedPaintDC() when<br />
+%% 	Window::wxWindow:wxWindow(),<br />
+%% 	Option :: {style, integer()}.<br />
+%% 
+-spec new(Window, Buffer) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap();
+      (Window, [Option]) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow(),
+	Option :: {style, integer()}.
 
 new(Window,Buffer)
  when is_record(Window, wx_ref),is_record(Buffer, wx_ref) ->
@@ -89,9 +95,10 @@ new(#wx_ref{type=WindowT,ref=WindowRef}, Options)
   wxe_util:construct(?wxBufferedPaintDC_new_2,
   <<WindowRef:32/?UI, 0:32,BinOpt/binary>>).
 
-%% @spec (Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap(), [Option]) -> wxBufferedPaintDC()
-%% Option = {style, integer()}
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbufferedpaintdc.html#wxbufferedpaintdcwxbufferedpaintdc">external documentation</a>.
+-spec new(Window, Buffer, [Option]) -> wxBufferedPaintDC() when
+	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap(),
+	Option :: {style, integer()}.
 new(#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=BufferT,ref=BufferRef}, Options)
  when is_list(Options) ->
   ?CLASS(WindowT,wxWindow),
@@ -102,8 +109,8 @@ new(#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{type=BufferT,ref=BufferRef}, Opt
   wxe_util:construct(?wxBufferedPaintDC_new_3,
   <<WindowRef:32/?UI,BufferRef:32/?UI, BinOpt/binary>>).
 
-%% @spec (This::wxBufferedPaintDC()) -> ok
 %% @doc Destroys this object, do not use object again
+-spec destroy(This::wxBufferedPaintDC()) -> ok.
 destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedPaintDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
@@ -202,11 +209,11 @@ getSize(This) -> wxDC:getSize(This).
 %% @hidden
 getPPI(This) -> wxDC:getPPI(This).
 %% @hidden
-getPixel(This,Pt,Col) -> wxDC:getPixel(This,Pt,Col).
+getPixel(This,Pt) -> wxDC:getPixel(This,Pt).
 %% @hidden
 getPen(This) -> wxDC:getPen(This).
 %% @hidden
-getPartialTextExtents(This,Text,Widths) -> wxDC:getPartialTextExtents(This,Text,Widths).
+getPartialTextExtents(This,Text) -> wxDC:getPartialTextExtents(This,Text).
 %% @hidden
 getMultiLineTextExtent(This,String, Options) -> wxDC:getMultiLineTextExtent(This,String, Options).
 %% @hidden
@@ -220,7 +227,7 @@ getLayoutDirection(This) -> wxDC:getLayoutDirection(This).
 %% @hidden
 getFont(This) -> wxDC:getFont(This).
 %% @hidden
-getClippingBox(This,Rect) -> wxDC:getClippingBox(This,Rect).
+getClippingBox(This) -> wxDC:getClippingBox(This).
 %% @hidden
 getCharWidth(This) -> wxDC:getCharWidth(This).
 %% @hidden

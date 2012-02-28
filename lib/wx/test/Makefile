@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2008-2011. All Rights Reserved.
+# Copyright Ericsson AB 2008-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -48,14 +48,6 @@ clean:
 
 docs: 
 
-
-# Rules
-ifneq ($(INSIDE_ERLSRC),true)
-
-$(EBIN)/%.beam: $(ESRC)/%.erl
-	$(ERLC) -W -bbeam $(ERL_FLAGS) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
-
-else
 RELSYSDIR = $(RELEASE_PATH)/wx_test
 include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: 
@@ -66,5 +58,3 @@ release_tests_spec: opt
 	$(INSTALL_SCRIPT) wxt $(RELSYSDIR)
 
 release_docs_spec:
-
-endif
