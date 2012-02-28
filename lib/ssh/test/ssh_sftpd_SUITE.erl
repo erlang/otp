@@ -545,56 +545,60 @@ set_attributes(doc) ->
 set_attributes(suite) ->
     [];
 set_attributes(Config) when is_list(Config) ->
-    PrivDir =  ?config(priv_dir, Config),
-    FileName = filename:join(PrivDir, "test.txt"),
-    ReqId = 0,
-    {Cm, Channel} = ?config(sftp, Config),
+    case test_server:os_type() of
+	{win32, _} ->
+	    {skip,  "Known error bug in erts file:read_file_info"};
+	_ ->
+	    PrivDir =  ?config(priv_dir, Config),
+	    FileName = filename:join(PrivDir, "test.txt"),
+	    ReqId = 0,
+	    {Cm, Channel} = ?config(sftp, Config),
 
-    {ok, FileInfo} = file:read_file_info(FileName),
+	    {ok, FileInfo} = file:read_file_info(FileName),
 
-    OrigPermissions = FileInfo#file_info.mode,
-    Permissions = 8#600, %% User read-write-only
+	    OrigPermissions = FileInfo#file_info.mode,
+	    Permissions = not_default_permissions(),
 
-    Flags = ?SSH_FILEXFER_ATTR_PERMISSIONS,
+	    Flags = ?SSH_FILEXFER_ATTR_PERMISSIONS,
 
-    Atters = [?uint32(Flags), ?byte(?SSH_FILEXFER_TYPE_REGULAR),
-	      ?uint32(Permissions)],
+	    Atters = [?uint32(Flags), ?byte(?SSH_FILEXFER_TYPE_REGULAR),
+		      ?uint32(Permissions)],
 
-    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
-	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-	set_attributes_file(FileName, Atters, Cm, Channel, ReqId),
+	    {ok, <<?SSH_FXP_STATUS, ?UINT32(ReqId),
+		   ?UINT32(?SSH_FX_OK), _/binary>>, _} =
+		set_attributes_file(FileName, Atters, Cm, Channel, ReqId),
 
-    {ok, NewFileInfo} = file:read_file_info(FileName),
-    NewPermissions = NewFileInfo#file_info.mode,
+	    {ok, NewFileInfo} = file:read_file_info(FileName),
+	    NewPermissions = NewFileInfo#file_info.mode,
 
-    %% Can not test that NewPermissions = Permissions as
-    %% on Unix platforms, other bits than those listed in the
-    %% API may be set.
-    test_server:format("Org: ~p New: ~p~n", [OrigPermissions, NewPermissions]),
-    true = OrigPermissions =/= NewPermissions,
+	    %% Can not test that NewPermissions = Permissions as
+	    %% on Unix platforms, other bits than those listed in the
+	    %% API may be set.
+	    test_server:format("Org: ~p New: ~p~n", [OrigPermissions, NewPermissions]),
+	    true = OrigPermissions =/= NewPermissions,
 
-    test_server:format("Try to open the file"),
-    NewReqId = 2,
-    {ok, <<?SSH_FXP_HANDLE, ?UINT32(NewReqId), Handle/binary>>, _} =
-	open_file(FileName, Cm, Channel, NewReqId,
-		  ?ACE4_READ_DATA bor ?ACE4_WRITE_ATTRIBUTES,
-		  ?SSH_FXF_OPEN_EXISTING),
+	    test_server:format("Try to open the file"),
+	    NewReqId = 2,
+	    {ok, <<?SSH_FXP_HANDLE, ?UINT32(NewReqId), Handle/binary>>, _} =
+		open_file(FileName, Cm, Channel, NewReqId,
+			  ?ACE4_READ_DATA bor ?ACE4_WRITE_ATTRIBUTES,
+			  ?SSH_FXF_OPEN_EXISTING),
 
-    NewAtters = [?uint32(Flags), ?byte(?SSH_FILEXFER_TYPE_REGULAR),
-		 ?uint32(OrigPermissions)],
+	    NewAtters = [?uint32(Flags), ?byte(?SSH_FILEXFER_TYPE_REGULAR),
+			 ?uint32(OrigPermissions)],
 
-    NewReqId1 = 3,
+	    NewReqId1 = 3,
 
-    test_server:format("Set original permissions on the now open file"),
+	    test_server:format("Set original permissions on the now open file"),
 
-     {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId1),
-	  ?UINT32(?SSH_FX_OK), _/binary>>, _} =
-	set_attributes_open_file(Handle, NewAtters, Cm, Channel, NewReqId1),
+	    {ok, <<?SSH_FXP_STATUS, ?UINT32(NewReqId1),
+		   ?UINT32(?SSH_FX_OK), _/binary>>, _} =
+		set_attributes_open_file(Handle, NewAtters, Cm, Channel, NewReqId1),
 
-    {ok, NewFileInfo1} = file:read_file_info(FileName),
-    OrigPermissions = NewFileInfo1#file_info.mode,
-
-    ok.
+	    {ok, NewFileInfo1} = file:read_file_info(FileName),
+	    OrigPermissions = NewFileInfo1#file_info.mode,
+	    ok
+    end.
 
 %%--------------------------------------------------------------------
 ver3_rename_OTP_6352(doc) ->
@@ -943,3 +947,6 @@ sshd_read_file(Config) when is_list(Config) ->
     {ok, Data} = file:read_file(FileName),
 
     ok.
+
+not_default_permissions() ->
+    8#600. %% User read-write-only
