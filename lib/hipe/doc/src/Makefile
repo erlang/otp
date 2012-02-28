@@ -97,6 +97,9 @@ clean clean_docs:
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
 
+distclean: clean
+realclean: clean
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 

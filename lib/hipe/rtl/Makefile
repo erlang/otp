@@ -89,6 +89,9 @@ clean:
 	rm -f $(TARGET_FILES)
 	rm -f core erl_crash.dump
 
+distclean: clean
+realclean: clean
+
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------

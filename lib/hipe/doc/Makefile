@@ -24,6 +24,9 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 clean:
 	-rm -f *.html edoc-info stylesheet.css erlang.png
 
+distclean: clean
+realclean: clean
+
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
