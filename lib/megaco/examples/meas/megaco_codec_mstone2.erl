@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,7 +40,7 @@
 %%            When the finished timer expires, it will stop respawing
 %%            the worker processes, and instead just wait for them all
 %%            to finish. 
-%%            The test is finished by printing the statistics.
+%%            The test is finishes by printing the statistics.
 %%          - A worker process for each codec combination.
 %%            This process is spawned by the loader process. It receives
 %%            at start a list of messages. It shall decode and then 
@@ -162,7 +162,6 @@ parse_message_package(BadMessagePackage) ->
 
 mstone_init(MessagePackage, DrvInclude) ->
     io:format("~n", []),
-    ?LIB:set_default_sched_bind(), 
     ?LIB:display_os_info(),
     ?LIB:display_system_info(),
     ?LIB:display_app_info(),
