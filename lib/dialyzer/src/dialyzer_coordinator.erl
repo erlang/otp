@@ -307,4 +307,4 @@ cast(Message, Coordinator) ->
   gen_server:cast(Coordinator, Message).
 
 call(Message, Coordinator) ->
-  gen_server:call(Coordinator, Message).
+  gen_server:call(Coordinator, Message, infinity).
