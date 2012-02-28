@@ -33,9 +33,20 @@
   <module>ssh</module>
   <modulesummary>Main API of the SSH application</modulesummary>
   <description>
-    <p>Interface module for the SSH application</p>
+    <p>Interface module for the SSH application. </p>
   </description>
 
+   <section>
+    <title>SSH</title>
+
+    <list type="bulleted">
+      <item>ssh requires the crypto and public_key applications.</item>
+      <item>Supported SSH-version is 2.0 </item>
+      <item>Currently supports only a minimum of mac and encryption algorithms i.e.
+      hmac-sha1, and aes128-cb and 3des-cbc.</item>
+    </list>
+ 
+  </section>
   
   <section>
     <title>COMMON DATA TYPES </title>
