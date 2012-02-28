@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,6 +27,12 @@
 -include_lib("wx/include/wx.hrl").
 -include("observer_defs.hrl").
 
+%% Import drawing wrappers
+-import(observer_perf_wx, [haveGC/1,
+			   setPen/2, setFont/3, setBrush/2,
+			   strokeLine/5, strokeLines/2, drawRoundedRectangle/6,
+			   drawText/4, getTextExtent/2]).
+
 -record(state,
 	{
 	  parent,
@@ -37,7 +43,8 @@
 	  current,
 	  app,
 	  sel,
-	  appmon
+	  appmon,
+	  usegc = false
 	}).
 
 -record(paint, {font, pen, brush, sel, links}).
@@ -62,6 +69,8 @@
 -define(ID_TRACE_NAME, 105).
 -define(ID_TRACE_TREE_PIDS, 106).
 -define(ID_TRACE_TREE_NAMES, 107).
+
+-define(wxGC, wxGraphicsContext).
 
 start_link(Notebook, Parent) ->
     wx_object:start_link(?MODULE, [Notebook, Parent], []).
@@ -99,22 +108,34 @@ init([Notebook, Parent]) ->
     wxPanel:connect(DrawingArea, left_up),
     wxPanel:connect(DrawingArea, left_dclick),
     wxPanel:connect(DrawingArea, right_down),
+    case os:type() of
+	{win32, _} -> %% Ignore erase on windows
+	    wxPanel:connect(DrawingArea, erase_background, [{callback, fun(_,_) -> ok end}]);
+	_ -> ok
+    end,
 
-    DefFont  = wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT),
+    UseGC = haveGC(DrawingArea),
+    Font = case os:type() of
+	       {unix,_} when UseGC -> 
+		   wxFont:new(12,?wxFONTFAMILY_DECORATIVE,?wxFONTSTYLE_NORMAL,?wxFONTWEIGHT_NORMAL);
+	       _ ->
+		   wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT)
+	   end,
     SelCol   = wxSystemSettings:getColour(?wxSYS_COLOUR_HIGHLIGHT),
+    GreyBrush = wxBrush:new({230,230,240}),
     SelBrush = wxBrush:new(SelCol),
     LinkPen  = wxPen:new(SelCol, [{width, 2}]),
-    %%  GC = wxGraphicsContext:create(DrawingArea),
-    %%  _Font = wxGraphicsContext:createFont(GC, DefFont),
+    process_flag(trap_exit, true),
     {Panel, #state{parent=Parent,
 		   panel =Panel,
 		   apps_w=Apps,
 		   app_w =DrawingArea,
-		   paint=#paint{font= DefFont,
-				pen=  ?wxBLACK_PEN,
-				brush=?wxLIGHT_GREY_BRUSH,
-				sel=  SelBrush,
-				links=LinkPen
+		   usegc = UseGC,
+		   paint=#paint{font = Font,
+				pen  = wxPen:new({80,80,80}, [{width, 2}]),
+				brush= GreyBrush,
+				sel  = SelBrush,
+				links= LinkPen
 			       }
 		  }}.
 
@@ -215,12 +236,28 @@ handle_event(Event, _State) ->
 
 %%%%%%%%%%
 handle_sync_event(#wx{event = #wxPaint{}},_,
-		  #state{app_w=DA, app=App, sel=Sel, paint=Paint}) ->
+		  #state{app_w=DA, app=App, sel=Sel, paint=Paint, usegc=UseGC}) ->
     %% PaintDC must be created in a callback to work on windows.
-    DC = wxPaintDC:new(DA),
-    wxScrolledWindow:doPrepareDC(DA,DC),
+    IsWindows = element(1, os:type()) =:= win32,
+    %% Avoid Windows flickering hack
+    DC = if IsWindows -> wx:typeCast(wxBufferedPaintDC:new(DA), wxPaintDC); 
+	    true -> wxPaintDC:new(DA)
+	 end,
+    IsWindows andalso wxDC:clear(DC),
+    GC = case UseGC of
+	     true  ->
+		 GC0 = ?wxGC:create(DC),
+		 %% Argh must handle scrolling when using ?wxGC
+		 {Sx,Sy} = wxScrolledWindow:calcScrolledPosition(DA, {0,0}),
+		 ?wxGC:translate(GC0, Sx,Sy),
+		 GC0;
+	     false ->
+		 wxScrolledWindow:doPrepareDC(DA,DC),
+		 DC
+	 end,
     %% Nothing is drawn until wxPaintDC is destroyed.
-    draw(DC, App, Sel, Paint),
+    draw({UseGC, GC}, App, Sel, Paint),
+    UseGC andalso ?wxGC:destroy(GC),
     wxPaintDC:destroy(DC),
     ok.
 %%%%%%%%%%
@@ -249,26 +286,44 @@ handle_info(not_active, State = #state{appmon=AppMon, current=Prev}) ->
     {noreply, State};
 
 handle_info({delivery, Pid, app_ctrl, _, Apps0},
-	    State = #state{appmon=Pid, apps_w=LBox}) ->
+	    State = #state{appmon=Pid, apps_w=LBox, current=Curr0}) ->
     Apps = [atom_to_list(App) || {_, App, {_, _, _}} <- Apps0],
     wxListBox:clear(LBox),
     wxListBox:appendStrings(LBox, [App || App <- lists:sort(Apps)]),
-    {noreply, State};
-
+    case Apps of
+	[App|_] when Curr0 =:= undefined ->
+	    Curr = list_to_atom(App),
+	    appmon_info:app(Pid, Curr, true, []),
+	    {noreply, State#state{current=Curr}};
+	_ ->
+	    {noreply, State}
+    end;
 handle_info({delivery, _Pid, app, _Curr, {[], [], [], []}},
 	    State = #state{panel=Panel}) ->
     wxWindow:refresh(Panel),
     {noreply, State#state{app=undefined, sel=undefined}};
 
 handle_info({delivery, Pid, app, Curr, AppData},
-	    State = #state{panel=Panel, appmon=Pid, current=Curr,
+	    State = #state{panel=Panel, appmon=Pid, current=Curr, usegc=UseGC,
 			   app_w=AppWin, paint=#paint{font=Font}}) ->
-    App = build_tree(AppData, {AppWin,Font}),
+    GC = if UseGC -> ?wxGC:create(AppWin);
+	    true -> wxWindowDC:new(AppWin)
+	 end,
+    FontW = {UseGC, GC},
+    setFont(FontW, Font, {0,0,0}),
+    App = build_tree(AppData, FontW),
+    if UseGC -> ?wxGC:destroy(GC);
+       true -> wxWindowDC:destroy(GC)
+    end,
     setup_scrollbar(AppWin, App),
     wxWindow:refresh(Panel),
     wxWindow:layout(Panel),
     {noreply, State#state{app=App, sel=undefined}};
 
+handle_info({'EXIT', _, noconnection}, State) ->
+    {noreply, State};
+handle_info({'EXIT', _, normal}, State) ->
+    {noreply, State};
 handle_info(_Event, State) ->
     %% io:format("~p:~p: ~p~n",[?MODULE,?LINE,_Event]),
     {noreply, State}.
@@ -354,11 +409,11 @@ locate_box(From, []) -> {false, From}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-build_tree({Root, P2Name, Links, XLinks0}, Font) ->
+build_tree({Root, P2Name, Links, XLinks0}, FontW) ->
     Fam = sofs:relation_to_family(sofs:relation(Links)),
     Name2P = gb_trees:from_orddict(lists:sort([{Name,Pid} || {Pid,Name} <- P2Name])),
     Lookup = gb_trees:from_orddict(sofs:to_external(Fam)),
-    {_, Tree0} = build_tree2(Root, Lookup, Name2P, Font),
+    {_, Tree0} = build_tree2(Root, Lookup, Name2P, FontW),
     {Tree, Dim} = calc_tree_size(Tree0),
     Fetch = fun({From, To}, Acc) ->
 		    try {value, ToPid} = gb_trees:lookup(To, Name2P),
@@ -371,18 +426,18 @@ build_tree({Root, P2Name, Links, XLinks0}, Font) ->
     XLinks = lists:foldl(Fetch, [], XLinks0),
     #app{ptree=Tree, dim=Dim, links=XLinks}.
 
-build_tree2(Root, Tree0, N2P, Font) ->
+build_tree2(Root, Tree0, N2P, FontW) ->
     case gb_trees:lookup(Root, Tree0) of
-	none -> {Tree0, {box(Root, N2P, Font), []}};
+	none -> {Tree0, {box(Root, N2P, FontW), []}};
 	{value, Children} ->
 	    Tree1 = gb_trees:delete(Root, Tree0),
 	    {Tree, CHs} = lists:foldr(fun("port " ++_, Acc) ->
 					      Acc; %% Skip ports
 					 (Child,{T0, Acc}) ->
-					      {T, C} = build_tree2(Child, T0, N2P, Font),
+					      {T, C} = build_tree2(Child, T0, N2P, FontW),
 					      {T, [C|Acc]}
 				      end, {Tree1, []}, Children),
-	    {Tree, {box(Root, N2P, Font), CHs}}
+	    {Tree, {box(Root, N2P, FontW), CHs}}
     end.
 
 calc_tree_size(Tree) ->
@@ -427,15 +482,15 @@ middle([{#box{y=Y0},_}|List], _) ->
     {#box{y=Y1},_} = lists:last(List),
     (Y0+Y1) div 2.
 
-box(Str0, N2P, {Win,Font}) ->
+box(Str0, N2P, FontW) ->
     Pid = gb_trees:get(Str0, N2P),
     Str = if hd(Str0) =:= $< -> lists:append(io_lib:format("~w", [Pid]));
 	     true -> Str0
 	  end,
-    {TW,TH, _, _} = wxWindow:getTextExtent(Win, Str, [{theFont, Font}]),
+    {TW,TH} = getTextExtent(FontW, Str),
     Data = #str{text=Str, x=?BX_HE, y=?BY_HE, pid=Pid},
     %% Add pid
-    #box{w=TW+?BX_E, h=TH+?BY_E, s1=Data}.
+    #box{w=round(TW)+?BX_E, h=round(TH)+?BY_E, s1=Data}.
 
 box_to_pid(#box{s1=#str{pid=Pid}}) -> Pid.
 box_to_reg(#box{s1=#str{text=[$<|_], pid=Pid}}) -> Pid;
@@ -453,39 +508,30 @@ draw(_DC, undefined, _, _) ->
     ok;
 draw(DC, #app{dim={_W,_H}, ptree=Tree, links=Links}, Sel,
      #paint{font=Font, pen=Pen, brush=Brush, links=LPen, sel=SelBrush}) ->
-    %% Canvas = wxGraphicsContext:create(DC),
-    %% Pen    = wxGraphicsContext:createPen(Canvas, ?wxBLACK_PEN),
-    %% wxGraphicsContext:setPen(Canvas, Pen),
-    %% Brush = wxGraphicsContext:createBrush(Canvas, ?wxLIGHT_GREY_BRUSH),
-    %% wxGraphicsContext:setBrush(Canvas, Brush),
-    %% Font  = wxGraphicsContext:createFont(Canvas, wxSystemSettings:getFont(?wxSYS_DEFAULT_GUI_FONT)),
-    %% wxGraphicsContext:setFont(Canvas, Font),
-    %% draw_tree(Tree, Canvas).
-    wxDC:setPen(DC, LPen),
+    setPen(DC, LPen),
     [draw_xlink(Link, DC) || Link <- Links],
-    wxDC:setPen(DC, Pen),
-    %% wxDC:drawRectangle(DC, {2,2}, {W-2,H-2}), %% DEBUG
-    wxDC:setBrush(DC, Brush),
-    wxDC:setFont(DC, Font),
+    setPen(DC, Pen),
+    %% ?wxGC:drawRectangle(DC, 2,2, _W-2,_H-2), %% DEBUG
+    setBrush(DC, Brush),
+    setFont(DC, Font, {0,0,0}),
     draw_tree(Tree, root, DC),
     case Sel of
 	undefined -> ok;
 	{#box{x=X,y=Y,w=W,h=H,s1=Str1}, _} ->
-	    wxDC:setBrush(DC, SelBrush),
-	    wxDC:drawRoundedRectangle(DC, {X-1,Y-1}, {W+2,H+2}, 8.0),
+	    setBrush(DC, SelBrush),
+	    drawRoundedRectangle(DC, X-1,Y-1, W+2,H+2, 8.0),
 	    draw_str(DC, Str1, X, Y)
     end.
 
 draw_tree({Box=#box{x=X,y=Y,w=W,h=H,s1=Str1}, Chs}, Parent, DC) ->
-    %%wxGraphicsContext:drawRoundedRectangle(DC, float(X), float(Y), float(W), float(H), 8.0),
-    wxDC:drawRoundedRectangle(DC, {X,Y}, {W,H}, 8.0),
+    drawRoundedRectangle(DC, X,Y, W,H, 8.0),
     draw_str(DC, Str1, X, Y),
     Dot = case Chs of
 	      [] -> ok;
 	      [{#box{x=CX0},_}|_] ->
 		  CY = Y+(H div 2),
 		  CX = CX0-(?BB_X div 2),
-		  wxDC:drawLine(DC, {X+W, CY}, {CX, CY}),
+		  strokeLine(DC, X+W, CY, CX, CY),
 		  {CX, CY}
 	  end,
     draw_link(Parent, Box, DC),
@@ -495,9 +541,9 @@ draw_link({CX,CY}, #box{x=X,y=Y0,h=H}, DC) ->
     Y = Y0+(H div 2),
     case Y =:= CY of
 	true ->
-	    wxDC:drawLine(DC, {CX, CY}, {X, CY});
+	    strokeLine(DC, CX, CY, X, CY);
 	false ->
-	    wxDC:drawLines(DC, [{CX, CY}, {CX, Y}, {X,Y}])
+	    strokeLines(DC, [{CX, CY}, {CX, Y}, {X,Y}])
     end;
 draw_link(_, _, _) -> ok.
 
@@ -516,9 +562,8 @@ draw_xlink(X0, Y00, X1, Y11, BH, DC) ->
     {Y0,Y1} = if Y00 < Y11 -> {Y00+BH-6, Y11+6};
 		 true -> {Y00+6, Y11+BH-6}
 	      end,
-    wxDC:drawLines(DC, [{X0,Y0}, {X0+5,Y0}, {X1-5,Y1}, {X1,Y1}]).
+    strokeLines(DC, [{X0,Y0}, {X0+5,Y0}, {X1-5,Y1}, {X1,Y1}]).
 
 draw_str(DC, #str{x=Sx,y=Sy, text=Text}, X, Y) ->
-    %%wxGraphicsContext:drawText(DC, Text, float(Sx+X), float(Sy+Y));
-    wxDC:drawText(DC, Text, {X+Sx,Y+Sy});
+    drawText(DC, Text, X+Sx,Y+Sy);
 draw_str(_, _, _, _) -> ok.

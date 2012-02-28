@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2002-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 -export([vsn/0]).
 
 %% observer stuff
--export([sys_info/0, get_table/3, get_table_list/2]).
+-export([sys_info/0, get_table/3, get_table_list/2, fetch_stats/2]).
 
 %% etop stuff
 -export([etop_collect/1]).
@@ -198,6 +198,22 @@ get_table_list(mnesia, Opts) ->
 	   end,
     lists:foldl(Info, [], mnesia:system_info(tables)).
 
+fetch_stats(Parent, Time) ->
+    erlang:system_flag(scheduler_wall_time, true),
+    process_flag(trap_exit, true),
+    fetch_stats_loop(Parent, Time),
+    erlang:system_flag(scheduler_wall_time, false).
+
+fetch_stats_loop(Parent, Time) ->
+    receive
+	_Msg -> normal
+    after Time ->
+	    _M = Parent ! {stats, 1,
+			   erlang:statistics(scheduler_wall_time),
+			   erlang:statistics(io),
+			   erlang:memory()},
+	    fetch_stats(Parent, Time)
+    end.
 %%
 %% etop backend
 %%
