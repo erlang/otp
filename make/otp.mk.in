@@ -115,6 +115,12 @@ $(EBIN)/%.beam: $(EGEN)/%.erl
 $(EBIN)/%.beam: $(ESRC)/%.erl
 	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(EBIN) $<
 
+ifeq ($(NATIVE_LIBS_ENABLED),yes)
+# Special rule for the HIPE bootstrap w/ native libs
+../boot_ebin/%.beam: $(ESRC)/%.erl
+	$(ERLC) $(ERL_COMPILE_FLAGS) -o../boot_ebin $<
+endif
+
 .erl.beam:
 	$(ERLC) $(ERL_COMPILE_FLAGS) -o$(dir $@) $<
 

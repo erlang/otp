@@ -157,6 +157,14 @@ ERLANG_LIBDIR     = $(DESTDIR)$(ERLANG_INST_LIBDIR)
 # Must be GNU make!
 MAKE		= @MAKE_PROG@
 
+NATIVE_LIBS_ENABLED = @NATIVE_LIBS_ENABLED@
+
+ifeq ($(NATIVE_LIBS_ENABLED),yes)
+HIPE_BOOTSTRAP_EBIN = boot_ebin
+else
+HIPE_BOOTSTRAP_EBIN = ebin
+endif
+
 # This should be set to the target "arch-vendor-os"
 TARGET	:= @TARGET@
 include $(ERL_TOP)/make/target.mk
@@ -527,7 +535,7 @@ secondary_bootstrap_build:
 secondary_bootstrap_copy:
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; fi
-	for x in lib/hipe/ebin/*.beam; do \
+	for x in lib/hipe/$(HIPE_BOOTSTRAP_EBIN)/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin/$$BN; \
 		test -f  $$TF && \
@@ -537,7 +545,6 @@ secondary_bootstrap_copy:
 			cp $$x $$TF; \
 		true; \
 	done
-#	if test -f lib/hipe/ebin/hipe.beam ; then cp lib/hipe/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
