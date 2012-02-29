@@ -23,7 +23,7 @@
 	 split_app_name/1, prim_consult/1,
 	 default_rels/0, choose_default/3,
 
-	 assign_image_list/1, get_latest_resize/1,
+	 assign_image_list/1, get_latest_resize/1, wait_for_stop_motion/2,
 	 mod_conds/0, list_to_mod_cond/1, mod_cond_to_index/1,
 	 incl_conds/0, list_to_incl_cond/1, incl_cond_to_index/1, elem_to_index/2,
 	 app_dir_test/2, split_app_dir/1,
@@ -187,6 +187,16 @@ get_latest_resize(#wx{obj = ObjRef, event = #wxSize{}} = Wx) ->
 	    get_latest_resize(Wx2)
     after 10 ->
 	    Wx
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+wait_for_stop_motion(ObjRef, {_,_}=Pos) ->
+    receive
+	#wx{obj = ObjRef, event = #wxMouse{type = motion, x=X, y=Y}} ->
+	    wait_for_stop_motion(ObjRef, {X,Y})
+    after 100 ->
+	    Pos
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

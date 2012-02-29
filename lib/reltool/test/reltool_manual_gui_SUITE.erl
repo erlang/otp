@@ -67,37 +67,49 @@ config(Config) ->
     SimpleConfigFile = create_simple_config(PrivDir),
     WarningConfigFile = create_warning_config(PrivDir,DataDir),
 
-    break("there are no modules in the 'Included' and 'Excluded' columns",
+    break("there are no modules in the 'Included' and 'Excluded' columns, "
+	  "and now warnings are displayed",
 	  {"load configuration ~p",[SimpleConfigFile]}),
     break("kernel, stdlib and sasl are included and all other are excluded",
 	  "undo"),
     break("we are back to default - no included and no excluded applications",
 	  "undo again"),
     break("kernel, stdlib and sasl are included and all other are excluded",
-	  {"load configuration ~p, but click 'cancel' in the warning dialog",
+	  {"load configuration ~p",
 	   [WarningConfigFile]}),
-    break("no change is done",
-	  "load same configuration again and this time click 'ok' in the dialog"),
-    break("application a is added in the 'Included' column",
-	  "reset configuration"),
-    break("we are back to default - no included and no excluded applications",
+    break("a warning is displayed in the warning list",
 	  "undo"),
-    break("a warning dialog is displayed, with only an ok button",
-	  "click ok"),
-    break("a, kernel, stdlib and sasl are included and all other are excluded",
+    break("no warning is displayed in the warning list",
+	  "load same configuration again"),
+    break("application a is added in the 'Included' column and "
+	  "one warning is displayed",
+	  "reset configuration"),
+    break("we are back to default - no included and no excluded applications, "
+	  "and no warnings",
+	  "undo"),
+    break("a, kernel, stdlib and sasl are included and all other are excluded. "
+	  "One warning should now exist through the rest of this test case",
+	  "double click the warning"),
+    break("a popup window occurs displaying the warning text",
+	  "close it with the 'Close' button"),
+    break("it disappears",
+	  "open it again"),
+    break("the warning text can be marked, copied and pasted",
+	  "close the popup with the close box on the top frame"),
+    break("it disappears",
 	  "select application a from 'Included' column and click red cross to "
 	  "exclude it"),
     break("application a is moved to 'Excluded' column",
 	  "select application tools from 'Excluded' column and click green V to "
 	  "include it"),
     break("application tools is moved to 'Included' column",
-	  "select application runtime-tools from 'Excluded' column and click "
+	  "select application runtime_tools from 'Excluded' column and click "
 	  "green V to include it"),
-    break("application runtime-tools is moved to 'Included' column",
+    break("application runtime_tools is moved to 'Included' column",
 	  "undo"),
 
     ExplicitConfig = filename:join(PrivDir,"explicit.config"),
-    break("application runtime-tools is moved back to 'Excluded' column",
+    break("application runtime_tools is moved back to 'Excluded' column",
 	  {"save configuration as 'explicit' to ~p",[ExplicitConfig]}),
     ExpectedExplicitConfig =
 	{sys,[{lib_dirs,[filename:join(DataDir,"faulty_app_file")]},
@@ -113,7 +125,7 @@ config(Config) ->
 	  "Now go to the 'Libraries' tab and change the root directory to "
 	  "some invalid directory."),
     break("an error dialog occurs saying that there is no lib dir",
-	  {"add library directory ~p, and click 'ok' in warning dialog",
+	  {"add library directory ~p",
 	   [filename:join(DataDir,"dependencies")]}),
     break("applications x, y and z are added to the 'Excluded' column in "
 	  "'Applications' tab",
@@ -121,7 +133,7 @@ config(Config) ->
 	  "to 'derived'"),
     break("a is excluded, kernel, stdlib, sasl and tools are included and "
 	  "x, y and z are available in the 'Applications' tab",
-	  "undo, and click ok in the warning dialog"),
+	  "undo"),
     break("all non included application are moved to the 'Excluded' column "
 	  "and that 'Application inclusion policy' under 'System settings' "
 	  "tab is set back to 'exclude'",
@@ -218,7 +230,13 @@ break(Check,Do) ->
     break(CheckStr,DoStr).
 
 break(Str) ->
-    test_server:break(Str).
+    Count =
+	case get(count) of
+	    undefined -> 1;
+	    C -> C
+	end,
+    put(count,Count+1),
+    test_server:break("Step " ++ integer_to_list(Count) ++ ":\n" ++ Str).
 
 check_config(Expected,File) ->
     {ok,[Config]} = file:consult(File),
