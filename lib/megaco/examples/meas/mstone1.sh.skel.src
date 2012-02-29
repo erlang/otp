@@ -3,7 +3,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2007-2011. All Rights Reserved.
+# Copyright Ericsson AB 2007-2012. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -55,6 +55,15 @@ Options:
                                flex scanner will be used
                         nd   - only codec config(s) without drivers will be used
                         od   - only codec config(s) with drivers will be used
+ -sbt <bind-type>       Set scheduler bind type. See erl man page for more info.
+                        tnnps - Thread no node processor spread (default)
+                        u     - Unbound
+                        ns    - No spread
+                        ts    - Thread spread
+                        ps    - Processor spread
+                        s     - Spread
+                        nnts  - No node thread spread
+                        nnps  - No node processor spread
  --                     everything after this is just passed on to erl.
 "
 
@@ -67,6 +76,7 @@ MODULE=megaco_codec_mstone1
 STARTF="start"
 FACTOR=""
 MSG_PACK=time_test
+SBT="+sbt tnnps"
 
 while test $# != 0; do
     # echo "DBG: Value = $1"
@@ -103,6 +113,17 @@ while test $# != 0; do
 		    shift ; shift ;;
 		*)
 		    echo "unknown driver mode: $2";
+		    echo "$usage" ;
+		    exit 0
+	    esac;;
+	    
+        -sbt)
+	    case $2 in
+		tnnps|u|ns|ts|ps|s|nnts|nnps)
+		    SBT="+sbt $2";
+		    shift ; shift ;;
+		*)
+		    echo "unknown scheduler bind type: $2";
 		    echo "$usage" ;
 		    exit 0
 	    esac;;
@@ -177,6 +198,7 @@ if [ $TYPE = factor ]; then
 
         ERL="erl \
           -noshell \
+          $SBT \
           $PHS \
           $ATP \
           $SMP_OPTS \
@@ -218,6 +240,7 @@ elif [ $TYPE = sched ]; then
 
         ERL="erl \
           -noshell \
+          $SBT \
           $PHS \
           $ATP \
           $SMP_OPTS \

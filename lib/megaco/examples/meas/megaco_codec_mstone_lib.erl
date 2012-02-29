@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,6 @@
 -compile({no_auto_import,[error/1]}).
 -export([start_flex_scanner/0, stop_flex_scanner/1,
 	 expanded_messages/2, expanded_messages/3, 
-	 set_default_sched_bind/0,
 	 display_os_info/0, 
 	 display_system_info/0, 
 	 display_alloc_info/0, 
@@ -66,16 +65,6 @@ detect_version(Codec, Conf, Bin) ->
 	Error3 ->
 	    error({version_of_failed, Error3, Codec, Conf, Bin})
     end.
-
-
-%%----------------------------------------------------------------------
-%% 
-%% S c h e d u l e r   b i n d   t y p e
-%% 
-%%----------------------------------------------------------------------
-
-set_default_sched_bind() ->
-    (catch erlang:system_flag(scheduler_bind_type, default_bind)).
 
 
 %%----------------------------------------------------------------------

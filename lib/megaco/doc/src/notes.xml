@@ -56,6 +56,13 @@
 -->
         </item>
 
+        <item>
+          <p>Removed use of deprecated system flag, 
+	  <c>scheduler_bind_type</c>, in the measurement tool 
+	  <c>mstone1</c>. </p>
+          <p>Own Id: OTP-9949</p>
+        </item>
+
      </list>
 
     </section>
@@ -95,7 +102,7 @@
 
     </section>
 
-  </section> <!-- 3.16 -->
+  </section> <!-- 3.16.0.1 -->
 
 
   <section><title>Megaco 3.16</title>
@@ -112,7 +119,7 @@
 
       <list type="bulleted">
         <item>
-          <p>Minor improvemnts to the emasurement tool mstone1. </p>
+          <p>Minor improvements to the measurement tool <c>mstone1</c>. </p>
           <p>Own Id: OTP-9604</p>
         </item>
 
