@@ -424,18 +424,18 @@ handle_op(?SSH_FXP_RENAME, ReqId,
 	    State0
     end;
 handle_op(?SSH_FXP_SYMLINK, ReqId,
-	  <<?UINT32(PLen), BPath:PLen/binary, ?UINT32(PLen2),
-	   BPath2:PLen2/binary>>, 
+	  <<?UINT32(PLen), Link:PLen/binary, ?UINT32(PLen2),
+	    Target:PLen2/binary>>, 
 	  State0 = #state{file_handler = FileMod, file_state = FS0}) ->
-    Path = relate_file_name(BPath, State0),
-    Path2 = relate_file_name(BPath2, State0),
-    {Status, FS1} = FileMod:make_symlink(Path2, Path, FS0),
+    LinkPath = relate_file_name(Link, State0),
+    TargetPath = relate_file_name(Target, State0),
+    {Status, FS1} = FileMod:make_symlink(TargetPath, LinkPath, FS0),
     State1 = State0#state{file_state = FS1},
     send_status(Status, ReqId, State1).
 
 new_handle([], H) ->
     H;
-new_handle([{N, _} | Rest], H) when N > H ->
+new_handle([{N, _,_} | Rest], H) when N =< H ->
     new_handle(Rest, N+1);
 new_handle([_ | Rest], H) ->
     new_handle(Rest, H).
@@ -444,6 +444,8 @@ add_handle(State, XF, ReqId, Type, DirFileTuple) ->
     Handles = State#state.handles,
     Handle = new_handle(Handles, 0),
     ssh_xfer:xf_send_handle(XF, ReqId, integer_to_list(Handle)),
+    %% OBS: If you change handles-tuple also change new_handle!
+    %% Is this this the best way to implement new handle?
     State#state{handles = [{Handle, Type, DirFileTuple} | Handles]}.
     
 get_handle(Handles, BinHandle) ->

@@ -76,42 +76,34 @@ end_per_suite(Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %% Description: Initiation before each test case
 %%--------------------------------------------------------------------
-init_per_testcase(_Case, Config) ->
+init_per_testcase(Case, Config) ->
     prep(Config),
     TmpConfig0 = lists:keydelete(watchdog, 1, Config),
     TmpConfig = lists:keydelete(sftp, 1, TmpConfig0),
     Dog = test_server:timetrap(?default_timeout),
-    PrivDir = ?config(priv_dir, Config),
-    SysDir =  ?config(data_dir, Config),
-    Host = ssh_test_lib:hostname(),
 
-    %% Run test against openssh server if available
-    Sftp = case (catch ssh_sftp:start_channel(Host,					      
-					      [{user_interaction, false},
-					       {silently_accept_hosts, true}])) of
-	       {ok, ChannelPid, Connection} ->
-		   test_server:format("Running against openssh"),
-		   {ChannelPid, Connection};
-	       _Error -> %% Start own sftp
-		   test_server:format("Running against erlang ssh"),
-		   {_Sftpd, Host1, Port} = 		       
-		       ssh_test_lib:daemon([{system_dir, SysDir},
-					    {user_dir, PrivDir},
-					    {user_passwords,
-					     [{?USER, ?PASSWD}]},
-					    {failfun,
-					     fun ssh_test_lib:failfun/2}]),
-		   Result = (catch ssh_sftp:start_channel(Host1, Port,
-							  [{user, ?USER},
-							   {password, ?PASSWD},
-							   {user_dir, PrivDir},
-							   {user_interaction, false},
-							   {silently_accept_hosts, true}])),
-		   {ok, ChannelPid, Connection} = Result,
-		   {ChannelPid, Connection}
-	   end,
-
-    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig].
+    case ?config(group, Config) of 
+	erlang_server ->
+	    {_,Host, Port} =  ?config(sftpd, Config),
+	    {ok, ChannelPid, Connection}  = 
+		ssh_sftp:start_channel(Host, Port,
+				       [{user, ?USER},
+					{password, ?PASSWD},
+					{user_interaction, false},
+					{silently_accept_hosts, true}]),
+	    Sftp = {ChannelPid, Connection},
+	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig];
+	openssh_server when Case == links ->
+	    {skip, "known bug in openssh"};
+	openssh_server ->
+	    Host = ssh_test_lib:hostname(),
+	    {ok, ChannelPid, Connection} = 
+		ssh_sftp:start_channel(Host, 
+				       [{user_interaction, false},
+					{silently_accept_hosts, true}]), 
+	    Sftp = {ChannelPid, Connection},
+	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig]
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config) -> _
@@ -121,7 +113,15 @@ init_per_testcase(_Case, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(_Case, Config) ->
+end_per_testcase(rename_file, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    NewFileName = filename:join(PrivDir, "test.txt"),
+    file:delete(NewFileName),  
+    end_per_testcase(Config);
+end_per_testcase(_, Config) ->
+    end_per_testcase(Config).
+
+end_per_testcase(Config) ->
     {Sftp, Connection} = ?config(sftp, Config),
     ssh_sftp:stop_channel(Sftp),
     ssh:close(Connection),
@@ -138,19 +138,47 @@ end_per_testcase(_Case, Config) ->
 %% Description: Returns a list of all test cases in this test suite
 %%--------------------------------------------------------------------
 all() -> 
-    [open_close_file, open_close_dir, read_file, read_dir,
-     write_file, rename_file, mk_rm_dir, remove_file, links,
-     retrieve_attributes, set_attributes, async_read,
-     async_write, position, pos_read, pos_write].
+    [{group, erlang_server},
+     {group, openssh_server}].
 
 groups() -> 
-    [].
+    [{erlang_server, [], [open_close_file, open_close_dir, read_file, read_dir,
+			  write_file, rename_file, mk_rm_dir, remove_file, links,
+			  retrieve_attributes, set_attributes, async_read,
+			  async_write, position, pos_read, pos_write]},
+     {openssh_server, [], [open_close_file, open_close_dir, read_file, read_dir,
+			   write_file, rename_file, mk_rm_dir, remove_file, links,
+			   retrieve_attributes, set_attributes, async_read,
+			   async_write, position, pos_read, pos_write]}].
+     
+init_per_group(erlang_server, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    SysDir =  ?config(data_dir, Config),
+    Sftpd = 		       
+	ssh_test_lib:daemon([{system_dir, SysDir},
+			     {user_dir, PrivDir},
+			     {user_passwords,
+			      [{?USER, ?PASSWD}]},
+			     {failfun,
+			      fun ssh_test_lib:failfun/2}]),
+    [{group, erlang_server}, {sftpd, Sftpd} | Config];
 
-init_per_group(_GroupName, Config) ->
-	Config.
+init_per_group(openssh_server, Config) ->
+    Host = ssh_test_lib:hostname(),
+    case (catch ssh_sftp:start_channel(Host,					      
+				       [{user_interaction, false},
+					{silently_accept_hosts, true}])) of
+	{ok, _ChannelPid, Connection} ->
+	    ssh:close(Connection),
+	    [{group, openssh_server} | Config];
+	_ ->
+	    {skip, "No openssh server"} 
+    end.
 
-end_per_group(_GroupName, Config) ->
-	Config.
+end_per_group(erlang_server, Config) ->
+    Config;
+end_per_group(_, Config) ->
+    Config.
 
 
 %% Test cases starts here.
@@ -332,7 +360,7 @@ links(Config) when is_list(Config) ->
 	    FileName = filename:join(PrivDir, "sftp.txt"),
 	    LinkFileName = filename:join(PrivDir, "link_test.txt"),
 
-	    ok = ssh_sftp:make_symlink(Sftp, FileName, LinkFileName),
+	    ok = ssh_sftp:make_symlink(Sftp, LinkFileName, FileName),
 	    {ok, FileName} = ssh_sftp:read_link(Sftp, LinkFileName),
 	    ok
     end.
