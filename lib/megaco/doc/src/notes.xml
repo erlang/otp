@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2011</year>
+      <year>2000</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,6 +34,68 @@
     bugfixes for every release of Megaco. Each release of Megaco
     thus constitutes one section in this document. The title of each
     section is the version number of Megaco.</p>
+
+
+  <section><title>Megaco 3.16.0.1</title>
+
+    <p>Version 3.16.0.1 supports code replacement in runtime from/to
+      version 3.16, 3.15.1.1, 3.15.1 and 3.15.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+	  <p>Fixed some faulty test cases. </p>
+<!--
+          <p>Own Id: OTP-9795</p>
+-->
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      
+      <p>-</p>
+      
+ <!--
+      <list type="bulleted">
+	<item>
+	  <p>Fixing miscellaneous things detected by dialyzer. </p>
+	  <p>Own Id: OTP-9075</p>
+	</item>
+	
+      </list>
+ -->
+      
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+	  <p>Due to the change in the flex driver API, 
+	  we may no longer be able to build and/or use 
+	  the flex driver without reentrant support. </p>
+          <p>Own Id: OTP-9795</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 3.16 -->
 
 
   <section><title>Megaco 3.16</title>
