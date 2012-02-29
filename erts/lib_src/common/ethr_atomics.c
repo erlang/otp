@@ -561,12 +561,12 @@ int ethr_dw_atomic_cmpxchg(ethr_dw_atomic_t *var, ethr_dw_sint_t *val, ethr_dw_s
 }
 #endif
 
-int ETHR_DW_ATOMIC_FUNC__(cmpxchg_ddrb)(ethr_dw_atomic_t *var, ethr_dw_sint_t *val, ethr_dw_sint_t *old_val)
+int ethr_dw_atomic_cmpxchg_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val, ethr_dw_sint_t *old_val)
 {
 #ifdef ETHR_ORDERED_READ_DEPEND
-    return ETHR_DW_ATOMIC_FUNC__(cmpxchg)(var, val, old_val);
+    return ethr_dw_atomic_cmpxchg(var, val, old_val);
 #else
-    return ETHR_DW_ATOMIC_FUNC__(cmpxchg_rb)(var, val, old_val);
+    return ethr_dw_atomic_cmpxchg_rb(var, val, old_val);
 #endif
 }
 
@@ -784,12 +784,12 @@ void ethr_dw_atomic_set(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 }
 #endif
 
-void ETHR_DW_ATOMIC_FUNC__(set_ddrb)(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
+void ethr_dw_atomic_set_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 {
 #ifdef ETHR_ORDERED_READ_DEPEND
-    ETHR_DW_ATOMIC_FUNC__(set)(var, val);
+    ethr_dw_atomic_set(var, val);
 #else
-    ETHR_DW_ATOMIC_FUNC__(set_rb)(var, val);
+    ethr_dw_atomic_set_rb(var, val);
 #endif
 }
 
@@ -947,12 +947,12 @@ void ethr_dw_atomic_read(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 }
 #endif
 
-void ETHR_DW_ATOMIC_FUNC__(read_ddrb)(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
+void ethr_dw_atomic_read_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 {
 #ifdef ETHR_ORDERED_READ_DEPEND
-    ETHR_DW_ATOMIC_FUNC__(read)(var, val);
+    ethr_dw_atomic_read(var, val);
 #else
-    ETHR_DW_ATOMIC_FUNC__(read_rb)(var, val);
+    ethr_dw_atomic_read_rb(var, val);
 #endif
 }
 
@@ -1107,12 +1107,12 @@ void ethr_dw_atomic_init(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 }
 #endif
 
-void ETHR_DW_ATOMIC_FUNC__(init_ddrb)(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
+void ethr_dw_atomic_init_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 {
 #ifdef ETHR_ORDERED_READ_DEPEND
-    ETHR_DW_ATOMIC_FUNC__(init)(var, val);
+    ethr_dw_atomic_init(var, val);
 #else
-    ETHR_DW_ATOMIC_FUNC__(init_rb)(var, val);
+    ethr_dw_atomic_init_rb(var, val);
 #endif
 }
 
