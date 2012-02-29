@@ -217,7 +217,6 @@ BeamInstr beam_continue_exit[1];
 
 BeamInstr* em_call_error_handler;
 BeamInstr* em_apply_bif;
-BeamInstr* em_call_traced_function;
 
 
 /* NOTE These should be the only variables containing trace instructions.
@@ -4571,64 +4570,6 @@ void process_main(void)
      * Trace and debugging support.
      */
 
-    /*
-     * At this point, I points to the code[3] in the export entry for
-     * a trace-enabled function.
-     *
-     * code[0]: Module
-     * code[1]: Function
-     * code[2]: Arity
-     * code[3]: &&call_traced_function
-     * code[4]: Address of function.
-     */
- OpCase(call_traced_function): {
-     if (IS_TRACED_FL(c_p, F_TRACE_CALLS)) {
-	 unsigned offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
-	 Export* ep = (Export *) (((char *)I)-offset);
-	 Uint32 flags;
-
-	 SWAPOUT;
-	 reg[0] = r(0);
-	 PROCESS_MAIN_CHK_LOCKS(c_p);
-	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	 flags = erts_call_trace(c_p, ep->code, ep->match_prog_set, reg,
-				 0, &c_p->tracer_proc);
-	 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
-	 PROCESS_MAIN_CHK_LOCKS(c_p);
-	 ASSERT(!ERTS_PROC_IS_EXITING(c_p));
-	 SWAPIN;
-	 
-	 if (flags & MATCH_SET_RX_TRACE) {
-	     ASSERT(c_p->htop <= E && E <= c_p->hend);
-	     if (E - 3 < HTOP) {
-		 /* SWAPOUT, SWAPIN was done and r(0) was saved above */
-		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 FCALLS -= erts_garbage_collect(c_p, 3, reg, ep->code[2]);
-		 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-		 PROCESS_MAIN_CHK_LOCKS(c_p);
-		 r(0) = reg[0];
-		 SWAPIN;
-	     }
-	     E -= 3;
-	     ASSERT(c_p->htop <= E && E <= c_p->hend);
-	     ASSERT(is_CP((BeamInstr)(ep->code)));
-	     ASSERT(is_internal_pid(c_p->tracer_proc) || 
-		    is_internal_port(c_p->tracer_proc));
-	     E[2] = make_cp(c_p->cp); /* Code in lower range on halfword */
-	     E[1] = am_true; /* Process tracer */
-	     E[0] = make_cp(ep->code);
-	     c_p->cp = (flags & MATCH_SET_EXCEPTION_TRACE)
-		 ? beam_exception_trace : beam_return_trace;
-	     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-	     c_p->trace_flags |= F_EXCEPTION_TRACE;
-	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-	 }
-     }
-     SET_I((BeamInstr *)Arg(0));
-     Dispatch();
- }
-
  OpCase(return_trace): {
      BeamInstr* code = (BeamInstr *) (UWord) E[0];
      
@@ -5015,7 +4956,6 @@ void process_main(void)
 #endif /* NO_JUMP_TABLE */
      
      em_call_error_handler = OpCode(call_error_handler);
-     em_call_traced_function = OpCode(call_traced_function);
      em_apply_bif = OpCode(apply_bif);
 
      beam_apply[0]             = (BeamInstr) OpCode(i_apply);

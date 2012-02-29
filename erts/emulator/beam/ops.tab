@@ -519,7 +519,6 @@ apply_bif
 call_nif
 call_error_handler
 error_action_code
-call_traced_function
 return_trace
 
 #

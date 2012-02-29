@@ -672,11 +672,11 @@ set_default_trace_pattern(Eterm module)
     if (trace_pattern_is_on) {
 	Eterm mfa[1];
 	mfa[0] = module;
-	(void) erts_set_trace_pattern(mfa, 1,
+	(void) erts_set_trace_pattern(0, mfa, 1,
 				      match_spec,
 				      meta_match_spec,
 				      1, trace_pattern_flags,
-				      meta_tracer_pid);
+				      meta_tracer_pid, 1);
     }
 }
 
@@ -1006,12 +1006,11 @@ delete_code(Module* modp)
 		if (ep->code[3] == (BeamInstr) em_apply_bif) {
 		    continue;
 		}
-		else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
+		else if (ep->code[3] ==
+			 (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
 		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
 		    ASSERT(modp->curr.num_traced_exports > 0);
-		    --modp->curr.num_traced_exports;
-		    MatchSetUnref(ep->match_prog_set);
-		    ep->match_prog_set = NULL;
+		    erts_clear_export_break(modp, ep->code+3);
 		}
 		else ASSERT(ep->code[3] == (BeamInstr) em_call_error_handler
 			    || !erts_initialized);
@@ -1019,7 +1018,6 @@ delete_code(Module* modp)
 	    ep->addressv[code_ix] = ep->code+3;
 	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
-	    ASSERT(ep->match_prog_set == NULL);
 	}
     }
 

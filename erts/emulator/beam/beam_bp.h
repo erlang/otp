@@ -119,20 +119,27 @@ ERTS_GLB_INLINE ErtsBpIndex erts_active_bp_ix(void);
 ERTS_GLB_INLINE ErtsBpIndex erts_staging_bp_ix(void);
 
 void erts_bp_match_functions(BpFunctions* f, Eterm mfa[3], int specified);
+void erts_bp_match_export(BpFunctions* f, Eterm mfa[3], int specified);
 void erts_bp_free_matched_functions(BpFunctions* f);
 
 void erts_install_breakpoints(BpFunctions* f);
 void erts_uninstall_breakpoints(BpFunctions* f);
-void erts_consolidate_bp_data(BpFunctions* f);
+void erts_consolidate_bp_data(BpFunctions* f, int local);
+void erts_consolidate_bif_bp_data(void);
 
 void erts_set_trace_break(BpFunctions *f, Binary *match_spec);
 void erts_clear_trace_break(BpFunctions *f);
+
+void erts_set_call_trace_bif(BeamInstr *pc, Binary *match_spec, int local);
+void erts_clear_call_trace_bif(BeamInstr *pc, int local);
+
 void erts_set_mtrace_break(BpFunctions *f, Binary *match_spec,
 			  Eterm tracer_pid);
 void erts_clear_mtrace_break(BpFunctions *f);
 void erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec,
 			 Eterm tracer_pid);
 void erts_clear_mtrace_bif(BeamInstr *pc);
+
 void erts_set_debug_break(BpFunctions *f);
 void erts_clear_debug_break(BpFunctions *f);
 void erts_set_count_break(BpFunctions *f, enum erts_break_op);
@@ -141,14 +148,13 @@ void erts_clear_count_break(BpFunctions *f);
 
 void erts_clear_all_breaks(BpFunctions* f);
 int erts_clear_module_break(Module *modp);
+void erts_clear_export_break(Module *modp, BeamInstr* pc);
 
 BeamInstr erts_generic_breakpoint(Process* c_p, BeamInstr* I, Eterm* reg);
 BeamInstr erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
 		      Uint32 *ret_flags, Eterm *tracer_pid);
-Uint32 erts_bif_mtrace(Process *p, BeamInstr *pc, Eterm *args,
-		       int local, Eterm *tracer_pid);
 
-int erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret);
+int erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret, int local);
 int erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret,
 			 Eterm *tracer_pid_rte);
 int erts_is_mtrace_bif(BeamInstr *pc, Binary **match_spec_ret,
@@ -166,7 +172,6 @@ void erts_clear_time_break(BpFunctions *f);
 int erts_is_time_trace_bif(Process *p, BeamInstr *pc, Eterm *call_time);
 void erts_set_time_trace_bif(BeamInstr *pc, enum erts_break_op);
 void erts_clear_time_trace_bif(BeamInstr *pc);
-BpDataTime* erts_get_active_time_break(BeamInstr *pc);
 
 BeamInstr *erts_find_local_func(Eterm mfa[3]);
 

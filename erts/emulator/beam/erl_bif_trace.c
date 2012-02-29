@@ -42,11 +42,23 @@
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 const struct trace_pattern_flags   erts_trace_pattern_flags_off = {0, 0, 0, 0, 0};
+
+/*
+ * The following variables are protected by code write permission.
+ */
 static int                         erts_default_trace_pattern_is_on;
 static Binary                     *erts_default_match_spec;
 static Binary                     *erts_default_meta_match_spec;
 static struct trace_pattern_flags  erts_default_trace_pattern_flags;
 static Eterm                       erts_default_meta_tracer_pid;
+
+static struct {			/* Protected by code write permission */
+    int current;
+    int install;
+    int local;
+    BpFunctions f;		/* Local functions */
+    BpFunctions e;		/* Export entries */
+} finish_bp;
 
 static Eterm
 trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist);
@@ -60,12 +72,11 @@ static Eterm trace_info_pid(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_func(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_on_load(Process* p, Eterm key);
 
-static int setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex);
-static int reset_func_trace(Export* ep, ErtsCodeIndex);
-static void reset_bif_trace(int bif_index);
-static void setup_bif_trace(int bif_index);
-static void set_trace_bif(int bif_index, void* match_prog);
-static void clear_trace_bif(int bif_index);
+static void reset_bif_trace(void);
+static void setup_bif_trace(void);
+static void install_exp_breakpoints(BpFunctions* f);
+static void uninstall_exp_breakpoints(BpFunctions* f);
+static void clean_export_entries(BpFunctions* f);
 
 void
 erts_bif_trace_init(void)
@@ -107,12 +118,12 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     int is_global;
     Process *meta_tracer_proc = p;
     Eterm meta_tracer_pid = p->id;
+    int is_blocking = 0;
 
     if (!erts_try_seize_code_write_permission(p)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_trace_pattern_3], p, MFA, Pattern, flaglist);
     }
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    finish_bp.current = -1;
 
     UseTmpHeap(3,p);
     /*
@@ -328,16 +339,24 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    meta_tracer_proc->trace_flags |= F_TRACER;
 	}
 
-	matches = erts_set_trace_pattern(mfa, specified, 
+	matches = erts_set_trace_pattern(p, mfa, specified,
 					 match_prog_set, match_prog_set,
-					 on, flags, meta_tracer_pid);
+					 on, flags, meta_tracer_pid, 0);
     }
 
  error:
     MatchSetUnref(match_prog_set);
     UnUseTmpHeap(3,p);
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+
+#ifdef ERTS_SMP
+    if (finish_bp.current >= 0) {
+	ASSERT(matches >= 0);
+	erts_notify_finish_breakpointing(p);
+	erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL);
+	ERTS_BIF_YIELD_RETURN(p, make_small(matches));
+    }
+#endif
+
     erts_release_code_write_permission();
 
     if (matches >= 0) {
@@ -355,6 +374,8 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       struct trace_pattern_flags *trace_pattern_flags,
 			       Eterm *meta_tracer_pid)
 {
+    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked() ||
+		       erts_smp_thr_progress_is_blocking());
     if (trace_pattern_is_on)
 	*trace_pattern_is_on = erts_default_trace_pattern_is_on;
     if (match_spec)
@@ -369,6 +390,8 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 
 int erts_is_default_trace_enabled(void)
 {
+    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked() ||
+		       erts_smp_thr_progress_is_blocking());
     return erts_default_trace_pattern_is_on;
 }
 
@@ -842,6 +865,11 @@ Eterm trace_info_2(BIF_ALIST_2)
     Eterm What = BIF_ARG_1;
     Eterm Key = BIF_ARG_2;
     Eterm res;
+
+    if (!erts_try_seize_code_write_permission(p)) {
+	ERTS_BIF_YIELD2(bif_export[BIF_trace_info_2], p, What, Key);
+    }
+
     if (What == am_on_load) {
 	res = trace_info_on_load(p, Key);
     } else if (is_atom(What) || is_pid(What)) {
@@ -849,8 +877,10 @@ Eterm trace_info_2(BIF_ALIST_2)
     } else if (is_tuple(What)) {
 	res = trace_info_func(p, What, Key);
     } else {
+	erts_release_code_write_permission();
 	BIF_ERROR(p, BADARG);
     }
+    erts_release_code_write_permission();
     BIF_RET(res);
 }
 
@@ -983,59 +1013,49 @@ static int function_is_traced(Process *p,
 {
     Export e;
     Export* ep;
-    int i;
-    BeamInstr *code;
+    BeamInstr* pc;
 
     /* First look for an export entry */
     e.code[0] = mfa[0];
     e.code[1] = mfa[1];
     e.code[2] = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
-	if (ep->addressv[erts_active_code_ix()] == ep->code+3 &&
-	    ep->code[3] != (BeamInstr) em_call_error_handler) {
-	    if (ep->code[3] == (BeamInstr) em_call_traced_function) {
-		*ms = ep->match_prog_set;
+	pc = ep->code+3;
+	if (ep->addressv[erts_active_code_ix()] == pc &&
+	    *pc != (BeamInstr) em_call_error_handler) {
+
+	    int r = 0;
+
+	    ASSERT(*pc == (BeamInstr) em_apply_bif ||
+		   *pc == (BeamInstr) BeamOp(op_i_generic_breakpoint));
+
+	    if (erts_is_trace_break(pc, ms, 0)) {
 		return FUNC_TRACE_GLOBAL_TRACE;
 	    }
-	    if (ep->code[3] == (BeamInstr) em_apply_bif) {
-		for (i = 0; i < BIF_SIZE; ++i) {
-		    if (bif_export[i] == ep) {
-			int r = 0;
-			
-			if (erts_bif_trace_flags[i] & BIF_TRACE_AS_GLOBAL) {
-			    *ms = ep->match_prog_set;
-			    return FUNC_TRACE_GLOBAL_TRACE;
-			} else {
-			    if (erts_bif_trace_flags[i] & BIF_TRACE_AS_LOCAL) {
-				r |= FUNC_TRACE_LOCAL_TRACE;
-				*ms = ep->match_prog_set;
-			    }
-			    if (erts_is_mtrace_break(ep->code+3, ms_meta,
-						   tracer_pid_meta)) {
-				r |= FUNC_TRACE_META_TRACE;
-			    }
-			    if (erts_is_time_break(p, ep->code+3, call_time)) {
-				r |= FUNC_TRACE_TIME_TRACE;
-			    }
-			}
-			return r ? r : FUNC_TRACE_UNTRACED;
-		    }
-		}
-		erl_exit(1,"Impossible ghost bif encountered in trace_info.");
+
+	    if (erts_is_trace_break(pc, ms, 1)) {
+		r |= FUNC_TRACE_LOCAL_TRACE;
 	    }
+	    if (erts_is_mtrace_break(pc, ms_meta, tracer_pid_meta)) {
+		r |= FUNC_TRACE_META_TRACE;
+	    }
+	    if (erts_is_time_break(p, pc, call_time)) {
+		r |= FUNC_TRACE_TIME_TRACE;
+	    }
+	    return r ? r : FUNC_TRACE_UNTRACED;
 	}
     }
     
     /* OK, now look for breakpoint tracing */
-    if ((code = erts_find_local_func(mfa)) != NULL) {
+    if ((pc = erts_find_local_func(mfa)) != NULL) {
 	int r = 
-	    (erts_is_trace_break(code, ms)
+	    (erts_is_trace_break(pc, ms, 1)
 	     ? FUNC_TRACE_LOCAL_TRACE : 0) 
-	    | (erts_is_mtrace_break(code, ms_meta, tracer_pid_meta)
+	    | (erts_is_mtrace_break(pc, ms_meta, tracer_pid_meta)
 	       ? FUNC_TRACE_META_TRACE : 0)
-	    | (erts_is_count_break(code, count)
+	    | (erts_is_count_break(pc, count)
 	       ? FUNC_TRACE_COUNT_TRACE : 0)
-	    | (erts_is_time_break(p, code, call_time)
+	    | (erts_is_time_break(p, pc, call_time)
 	       ? FUNC_TRACE_TIME_TRACE : 0);
 	
 	return r ? r : FUNC_TRACE_UNTRACED;
@@ -1327,40 +1347,46 @@ trace_info_on_load(Process* p, Eterm key)
 #undef FUNC_TRACE_LOCAL_TRACE
 
 int
-erts_set_trace_pattern(Eterm* mfa, int specified, 
+erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 		       Binary* match_prog_set, Binary *meta_match_prog_set,
 		       int on, struct trace_pattern_flags flags,
-		       Eterm meta_tracer_pid)
+		       Eterm meta_tracer_pid, int is_blocking)
 {
     const ErtsCodeIndex code_ix = erts_active_code_ix();
-    BpFunctions f;
     int matches = 0;
     int i;
+    int n;
+    BpFunction* fp;
 
     /*
      * First work on normal functions (not real BIFs).
      */
-    
-    for (i = 0; i < export_list_size(code_ix); i++) {
-	Export* ep = export_list(i, code_ix);
-	int j;
-	
-	if (ExportIsBuiltIn(ep)) {
-	    continue;
-	}
-	
-	for (j = 0; j < specified && mfa[j] == ep->code[j]; j++) {
-	    /* Empty loop body */
-	}
 
-	if (j == specified) {
-	    if (on) {
-		if (! flags.breakpoint)
-		    matches += setup_func_trace(ep, match_prog_set, code_ix);
-		else
-		    reset_func_trace(ep, code_ix);
-	    } else if (! flags.breakpoint) {
-		matches += reset_func_trace(ep, code_ix);
+    erts_bp_match_export(&finish_bp.e, mfa, specified);
+    fp = finish_bp.e.matching;
+    n = finish_bp.e.matched;
+
+    for (i = 0; i < n; i++) {
+	BeamInstr* pc = fp[i].pc;
+	Export* ep = (Export *)(((char *)(pc-3)) - offsetof(Export, code));
+
+	if (!on || flags.breakpoint) {
+	    erts_clear_call_trace_bif(pc, 0);
+	    if (pc[0] == (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
+		pc[0] = (BeamInstr) BeamOp(op_jump_f);
+	    }
+	} else {
+	    if (ep->addressv[code_ix] != pc) {
+		fp[i].mod->curr.num_traced_exports++;
+#ifdef DEBUG
+		pc[-5] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
+#endif
+		pc[0] = (BeamInstr) BeamOp(op_jump_f);
+		pc[1] = (BeamInstr) ep->addressv[code_ix];
+	    }
+	    erts_set_call_trace_bif(pc, match_prog_set, 0);
+	    if (ep->addressv[code_ix] != pc) {
+		pc[0] = (BeamInstr) BeamOp(op_i_generic_breakpoint);
 	    }
 	}
     }
@@ -1385,26 +1411,15 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	    /* Empty loop body */
 	}
 	if (j == specified) {
+	    BeamInstr* pc = (BeamInstr *)bif_export[i]->code + 3;
+
 	    if (! flags.breakpoint) { /* Export entry call trace */
 		if (on) {
-		    if (erts_bif_trace_flags[i] & BIF_TRACE_AS_META) {
-			ASSERT(ExportIsBuiltIn(bif_export[i]));
-			erts_clear_mtrace_bif
-			    ((BeamInstr *)bif_export[i]->code + 3);
-			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_META;
-		    }
-		    set_trace_bif(i, match_prog_set);
-		    erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_LOCAL;
-		    erts_bif_trace_flags[i] |= BIF_TRACE_AS_GLOBAL;
-		    setup_bif_trace(i);
+		    erts_clear_call_trace_bif(pc, 1);
+		    erts_clear_mtrace_bif(pc);
+		    erts_set_call_trace_bif(pc, match_prog_set, 0);
 		} else { /* off */
-		    if (erts_bif_trace_flags[i] & BIF_TRACE_AS_GLOBAL) {
-			clear_trace_bif(i);
-			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_GLOBAL;
-		    }
-		    if (! erts_bif_trace_flags[i]) {
-			reset_bif_trace(i);
-		    }
+		    erts_clear_call_trace_bif(pc, 0);
 		}
 		matches++;
 	    } else { /* Breakpoint call trace */
@@ -1412,51 +1427,32 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 		
 		if (on) {
 		    if (flags.local) {
-			set_trace_bif(i, match_prog_set);
-			erts_bif_trace_flags[i] |= BIF_TRACE_AS_LOCAL;
-			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_GLOBAL;
+			erts_clear_call_trace_bif(pc, 0);
+			erts_set_call_trace_bif(pc, match_prog_set, 1);
 			m = 1;
 		    }
 		    if (flags.meta) {
-			erts_set_mtrace_bif
-			    ((BeamInstr *)bif_export[i]->code + 3,
-			     meta_match_prog_set, meta_tracer_pid);
-			erts_bif_trace_flags[i] |= BIF_TRACE_AS_META;
-			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_GLOBAL;
+			erts_set_mtrace_bif(pc, meta_match_prog_set,
+					    meta_tracer_pid);
 			m = 1;
 		    }
 		    if (flags.call_time) {
-			erts_set_time_trace_bif(bif_export[i]->code + 3, on);
+			erts_set_time_trace_bif(pc, on);
 			/* I don't want to remove any other tracers */
-			erts_bif_trace_flags[i] |= BIF_TRACE_AS_CALL_TIME;
 			m = 1;
-		    }
-		    if (erts_bif_trace_flags[i]) {
-			setup_bif_trace(i);
 		    }
 		} else { /* off */
 		    if (flags.local) {
-			if (erts_bif_trace_flags[i] & BIF_TRACE_AS_LOCAL) {
-			    clear_trace_bif(i);
-			    erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_LOCAL;
-			}
+			erts_clear_call_trace_bif(pc, 1);
 			m = 1;
 		    }
 		    if (flags.meta) {
-			if (erts_bif_trace_flags[i] & BIF_TRACE_AS_META) {
-			    erts_clear_mtrace_bif
-				((BeamInstr *)bif_export[i]->code + 3);
-			    erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_META;
-			}
+			erts_clear_mtrace_bif(pc);
 			m = 1;
 		    }
 		    if (flags.call_time) {
-			erts_clear_time_trace_bif(bif_export[i]->code + 3);
-			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_CALL_TIME;
+			erts_clear_time_trace_bif(pc);
 			m = 1;
-		    }
-		    if (! erts_bif_trace_flags[i]) {
-			reset_bif_trace(i);
 		    }
 		}
 		matches += m;
@@ -1467,184 +1463,242 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
     /*
     ** So, now for breakpoint tracing
     */
-    erts_bp_match_functions(&f, mfa, specified);
+    erts_bp_match_functions(&finish_bp.f, mfa, specified);
     if (on) {
 	if (! flags.breakpoint) {
-	    erts_clear_all_breaks(&f);
-	    erts_commit_staged_bp();
-	    erts_uninstall_breakpoints(&f);
+	    erts_clear_all_breaks(&finish_bp.f);
 	} else {
 	    if (flags.local) {
-		erts_set_trace_break(&f, match_prog_set);
+		erts_set_trace_break(&finish_bp.f, match_prog_set);
 	    }
 	    if (flags.meta) {
-		erts_set_mtrace_break(&f, meta_match_prog_set,
+		erts_set_mtrace_break(&finish_bp.f, meta_match_prog_set,
 				      meta_tracer_pid);
 	    }
 	    if (flags.call_count) {
-		erts_set_count_break(&f, on);
+		erts_set_count_break(&finish_bp.f, on);
 	    }
 	    if (flags.call_time) {
-		erts_set_time_break(&f, on);
+		erts_set_time_break(&finish_bp.f, on);
 	    }
-	    erts_install_breakpoints(&f);
-	    erts_commit_staged_bp();
 	}
     } else {
 	if (flags.local) {
-	    erts_clear_trace_break(&f);
+	    erts_clear_trace_break(&finish_bp.f);
 	}
 	if (flags.meta) {
-	    erts_clear_mtrace_break(&f);
+	    erts_clear_mtrace_break(&finish_bp.f);
 	}
 	if (flags.call_count) {
-	    erts_clear_count_break(&f);
+	    erts_clear_count_break(&finish_bp.f);
 	}
 	if (flags.call_time) {
-	    erts_clear_time_break(&f);
+	    erts_clear_time_break(&finish_bp.f);
 	}
-	erts_commit_staged_bp();
-	erts_uninstall_breakpoints(&f);
     }
-    erts_consolidate_bp_data(&f);
+
+    finish_bp.current = 0;
+    finish_bp.install = on;
+    finish_bp.local = flags.breakpoint;
+
+#ifdef ERTS_SMP
+    if (is_blocking) {
+	ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+#endif
+	while (erts_finish_breakpointing()) {
+	    /* Empty loop body */
+	}
+#ifdef ERTS_SMP
+	finish_bp.current = -1;
+    }
+#endif
+
     if (flags.breakpoint) {
-	matches += f.matched;
+	matches += finish_bp.f.matched;
+    } else {
+	matches += finish_bp.e.matched;
     }
-    erts_bp_free_matched_functions(&f);
     return matches;
 }
 
-/*
- * Setup function tracing for the given exported function.
- *
- * Return Value: 1 if entry refers to a BIF or loaded function,
- * 0 if the entry refers to a function not loaded.
- */
-
-static int
-setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex code_ix)
+int
+erts_finish_breakpointing(void)
 {
-    Module* modp;
+    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
 
-    if (ep->addressv[code_ix] == ep->code+3) {
-	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
-	    return 0;
-	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
-	    MatchSetUnref(ep->match_prog_set);
-	    ep->match_prog_set = match_prog;
-	    MatchSetRef(ep->match_prog_set);
-	    return 1;
+    /*
+     * Memory barriers will be issued for all processes *before*
+     * each of the stages below. (Unless the other schedulers
+     * are blocked, in which case memory barriers will be issued
+     * when they are awaken.)
+     */
+
+    switch (finish_bp.current++) {
+    case 0:
+	/*
+	 * At this point, in all functions that are to be breakpointed,
+	 * a pointer to a GenericBp struct has already been added,
+	 *
+	 * Insert the new breakpoints (if any) into the
+	 * code. Different schedulers may see breakpoint instruction
+	 * at different times, but it does not matter since the newly
+	 * added breakpoints are disabled.
+	 */
+	if (finish_bp.install) {
+	    if (finish_bp.local) {
+		erts_install_breakpoints(&finish_bp.f);
+	    } else {
+		install_exp_breakpoints(&finish_bp.e);
+	    }
+	}
+	setup_bif_trace();
+	return 1;
+    case 1:
+	/*
+	 * Switch index for the breakpoint data, activating the staged
+	 * data. (Depending on the changes in the breakpoint data,
+	 * that could either activate breakpoints or disable
+	 * breakpoints.)
+	 */
+	erts_commit_staged_bp();
+	return 1;
+    case 2:
+	/*
+	 * Remove breakpoints instructions for disabled breakpoints
+	 * (if any).
+	 */
+	if (finish_bp.install) {
+	    if (finish_bp.local) {
+		uninstall_exp_breakpoints(&finish_bp.e);
+	    } else {
+		erts_uninstall_breakpoints(&finish_bp.f);
+	    }
 	} else {
-	    /*
-	     * We ignore apply/3 and anything else.
-	     */
-	    return 0;
+	    if (finish_bp.local) {
+		erts_uninstall_breakpoints(&finish_bp.f);
+	    } else {
+		uninstall_exp_breakpoints(&finish_bp.e);
+	    }
+	}
+	reset_bif_trace();
+	return 1;
+    case 3:
+	/*
+	 * Now all breakpoints have either been inserted or removed.
+	 * For all updated breakpoints, copy the active breakpoint
+	 * data to the staged breakpoint data to make them equal
+	 * (simplifying for the next time breakpoints are to be
+	 * updated).  If any breakpoints have been totally disabled,
+	 * deallocate the GenericBp structs for them.
+	 */
+	erts_consolidate_bif_bp_data();
+	clean_export_entries(&finish_bp.e);
+	erts_consolidate_bp_data(&finish_bp.e, 0);
+	erts_consolidate_bp_data(&finish_bp.f, 1);
+	erts_bp_free_matched_functions(&finish_bp.e);
+	erts_bp_free_matched_functions(&finish_bp.f);
+	return 0;
+    default:
+	ASSERT(0);
+    }
+    return 0;
+}
+
+static void
+install_exp_breakpoints(BpFunctions* f)
+{
+    const ErtsCodeIndex code_ix = erts_active_code_ix();
+    BpFunction* fp = f->matching;
+    Uint ne = f->matched;
+    Uint i;
+    Uint offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
+
+    for (i = 0; i < ne; i++) {
+	BeamInstr* pc = fp[i].pc;
+	Export* ep = (Export *) (((char *)pc)-offset);
+
+	ep->addressv[code_ix] = pc;
+    }
+}
+
+static void
+uninstall_exp_breakpoints(BpFunctions* f)
+{
+    const ErtsCodeIndex code_ix = erts_active_code_ix();
+    BpFunction* fp = f->matching;
+    Uint ne = f->matched;
+    Uint i;
+    Uint offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
+
+    for (i = 0; i < ne; i++) {
+	BeamInstr* pc = fp[i].pc;
+	Export* ep = (Export *) (((char *)pc)-offset);
+
+	if (ep->addressv[code_ix] != pc) {
+	    continue;
+	}
+	ASSERT(*pc == (BeamInstr) BeamOp(op_jump_f));
+	ep->addressv[code_ix] = (BeamInstr *) ep->code[4];
+    }
+}
+
+static void
+clean_export_entries(BpFunctions* f)
+{
+    const ErtsCodeIndex code_ix = erts_active_code_ix();
+    BpFunction* fp = f->matching;
+    Uint ne = f->matched;
+    Uint i;
+    Uint offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
+
+    for (i = 0; i < ne; i++) {
+	BeamInstr* pc = fp[i].pc;
+	Export* ep = (Export *) (((char *)pc)-offset);
+
+	if (ep->addressv[code_ix] == pc) {
+	    continue;
+	}
+	if (*pc == (BeamInstr) BeamOp(op_jump_f)) {
+	    ep->code[3] = (BeamInstr) 0;
+	    ep->code[4] = (BeamInstr) 0;
 	}
     }
-    
-    /*
-     * Currently no trace support for native code.
-     */
-    if (erts_is_native_break(ep->addressv[code_ix])) {
-	return 0;
-    }
-
-    ep->code[3] = (BeamInstr) em_call_traced_function;
-    ep->code[4] = (BeamInstr) ep->addressv[code_ix];
-    ep->addressv[code_ix] = ep->code+3;
-    ep->match_prog_set = match_prog;
-    MatchSetRef(ep->match_prog_set);
-
-    modp = erts_get_module(ep->code[0], code_ix);
-    ASSERT(modp);
-    modp->curr.num_traced_exports++;
-    return 1;
 }
 
-static void setup_bif_trace(int bif_index) {
-    Export *ep = bif_export[bif_index];
-    
-    ASSERT(ExportIsBuiltIn(ep));
-    ASSERT(ep->code[4]);
-    ep->code[4] = (BeamInstr) bif_table[bif_index].traced;
-}
-
-static void set_trace_bif(int bif_index, void* match_prog) {
-    Export *ep = bif_export[bif_index];
-    
-#ifdef HARDDEBUG
-    erts_fprintf(stderr, "set_trace_bif: %T:%T/%bpu\n",
-		 ep->code[0], ep->code[1], ep->code[2]);
-#endif
-    ASSERT(ExportIsBuiltIn(ep));
-    MatchSetUnref(ep->match_prog_set);
-    ep->match_prog_set = match_prog;
-    MatchSetRef(ep->match_prog_set);
-}
-
-/*
- * Reset function tracing for the given exported function.
- *
- * Return Value: 1 if entry refers to a BIF or loaded function,
- * 0 if the entry refers to a function not loaded.
- */
-
-static int
-reset_func_trace(Export* ep, ErtsCodeIndex code_ix)
+static void
+setup_bif_trace(void)
 {
-    if (ep->addressv[code_ix] == ep->code+3) {
-	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
-	    return 0;
-	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
-	    Module* modp = erts_get_module(ep->code[0], code_ix);
-	    ASSERT(modp);
-	    modp->curr.num_traced_exports--;
+    int i;
 
-	    ep->addressv[code_ix] = (Uint *) ep->code[4];
-	    MatchSetUnref(ep->match_prog_set);
-	    ep->match_prog_set = NULL;
-	    return 1;
-	} else {
-	    /*
-	     * We ignore apply/3 and anything else.
-	     */
-	    return 0;
+    for (i = 0; i < BIF_SIZE; ++i) {
+	Export *ep = bif_export[i];
+	GenericBp* g = (GenericBp *) ep->fake_op_func_info_for_hipe[1];
+	if (g) {
+	    if (ExportIsBuiltIn(ep)) {
+		ASSERT(ep->code[4]);
+		ep->code[4] = (BeamInstr) bif_table[i].traced;
+	    }
 	}
     }
-    
-    /*
-     * Currently no trace support for native code.
-     */
-    if (erts_is_native_break(ep->addressv[code_ix])) {
-	return 0;
+}
+
+static void
+reset_bif_trace(void)
+{
+    int i;
+    ErtsBpIndex active = erts_active_bp_ix();
+
+    for (i = 0; i < BIF_SIZE; ++i) {
+	Export *ep = bif_export[i];
+	BeamInstr* pc = ep->code+3;
+	GenericBp* g = (GenericBp *) pc[-4];
+	if (g && g->data[active].flags == 0) {
+	    if (ExportIsBuiltIn(ep)) {
+		ASSERT(ep->code[4]);
+		ep->code[4] = (BeamInstr) bif_table[i].f;
+	    }
+	}
     }
-    
-    /*
-     * Nothing to do, but the export entry matches.
-     */
-
-    return 1;
-}
-
-static void reset_bif_trace(int bif_index) {
-    Export *ep = bif_export[bif_index];
-    
-    ASSERT(ExportIsBuiltIn(ep));
-    ASSERT(ep->code[4]);
-    ASSERT(! ep->match_prog_set);
-    ep->code[4] = (BeamInstr) bif_table[bif_index].f;
-}
-
-static void clear_trace_bif(int bif_index) {
-    Export *ep = bif_export[bif_index];
-    
-#ifdef HARDDEBUG
-    erts_fprintf(stderr, "clear_trace_bif: %T:%T/%bpu\n",
-		 ep->code[0], ep->code[1], ep->code[2]);
-#endif
-    ASSERT(ExportIsBuiltIn(ep));
-    MatchSetUnref(ep->match_prog_set);
-    ep->match_prog_set = NULL;
 }
 
 /*

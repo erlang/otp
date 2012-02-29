@@ -37,7 +37,6 @@
 typedef struct export
 {
     void* addressv[ERTS_NUM_CODE_IX];  /* Pointer to code for function. */
-    struct binary* match_prog_set; /* Match program for tracing. */
 
     BeamInstr fake_op_func_info_for_hipe[2]; /* MUST be just before code[] */
     /*
@@ -46,12 +45,12 @@ typedef struct export
      * code[2]: Arity (untagged integer).
      * code[3]: This entry is 0 unless the 'address' field points to it.
      *          Threaded code instruction to load function
-     *		(em_call_error_handler), execute BIF (em_apply_bif,
-     *		em_apply_apply), or call a traced function
-     *		(em_call_traced_function).
-     * code[4]: Function pointer to BIF function (for BIFs only)
+     *		(em_call_error_handler), execute BIF (em_apply_bif),
+     *		or a breakpoint instruction (op_i_generic_breakpoint).
+     * code[4]: Function pointer to BIF function (for BIFs only),
      *		or pointer to threaded code if the module has an
-     *		on_load function that has not been run yet.
+     *		on_load function that has not been run yet, or pointer
+     *          to code for function code[3] is a breakpont instruction.
      *		Otherwise: 0.
      */
     BeamInstr code[5];

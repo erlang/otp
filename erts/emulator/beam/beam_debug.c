@@ -132,7 +132,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 	erts_commit_staged_bp();
 	erts_uninstall_breakpoints(&f);
     }
-    erts_consolidate_bp_data(&f);
+    erts_consolidate_bp_data(&f, 1);
     res = make_small(f.matched);
     erts_bp_free_matched_functions(&f);
 
