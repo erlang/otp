@@ -275,6 +275,20 @@ init_per_testcase(Case, Timeout, Config) ->
     %% inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
 
+    %% <IPv6>
+    % Set default ipfamily to the same as the main server has by default
+    %% This makes the client try w/ ipv6 before falling back to ipv4,
+    %% as that is what the server is configured to do.
+    %% Note that this is required for the tests to run on *BSD w/ ipv6 enabled
+    %% as well as on Windows. The Linux behaviour of allowing ipv4 connects
+    %% to ipv6 sockets is not required or even encouraged.
+
+    httpc:set_options([{ipfamily, inet6fb4}]),
+
+    %% Note that the IPv6 trest case *must* use inet6, 
+    %% so this value will be overwritten (see "ipv6_" below).
+    %% </IPv6>
+
     NewConfig = 
 	case atom_to_list(Case) of
 	    [$s, $s, $l | _] ->
@@ -376,16 +390,18 @@ init_per_testcase(Case, Timeout, Config) ->
 
 	    _ -> 
 		%% Try inet6fb4 on windows...
-		tsp("init_per_testcase -> allways try IPv6 on windows"),
-		?RUN_ON_WINDOWS(
-		   fun() -> 
-			   tsp("init_per_testcase:set_options_fun -> "
-			       "set-option ipfamily to inet6fb4"),
-			   Res = httpc:set_options([{ipfamily, inet6fb4}]),
- 			   tsp("init_per_testcase:set_options_fun -> "
-			       "~n   Res: ~p", [Res]),
-			   Res
-		   end),
+		%% No need? Since it is set above?
+
+		%% tsp("init_per_testcase -> allways try IPv6 on windows"),
+		%% ?RUN_ON_WINDOWS(
+		%%    fun() -> 
+		%% 	   tsp("init_per_testcase:set_options_fun -> "
+		%% 	       "set-option ipfamily to inet6fb4"),
+		%% 	   Res = httpc:set_options([{ipfamily, inet6fb4}]),
+ 		%% 	   tsp("init_per_testcase:set_options_fun -> "
+		%% 	       "~n   Res: ~p", [Res]),
+		%% 	   Res
+		%%    end),
 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
 		%% Will start inets 
@@ -441,6 +457,7 @@ end_per_testcase(http_save_to_file = Case, Config) ->
 end_per_testcase(Case, Config) ->
     io:format(user, "~n~n*** END ~w:~w ***~n~n", 
 	      [?MODULE, Case]),
+    dbg:stop(), % ?
     case atom_to_list(Case) of
 	"ipv6_" ++ _Rest ->
 	    tsp("end_per_testcase(~w) -> stop ssl", [Case]),
@@ -1267,8 +1284,8 @@ http_redirect(Config) when is_list(Config) ->
 	"~n   Config: ~p", [Config]),
     case ?config(local_server, Config) of 
 	ok ->
-	    tsp("http_redirect -> set ipfamily option to inet"),
-	    ok = httpc:set_options([{ipfamily, inet}]),
+	    %% tsp("http_redirect -> set ipfamily option to inet"),
+	    %% ok = httpc:set_options([{ipfamily, inet}]),
 
 	    tsp("http_redirect -> start dummy server inet"),
 	    {DummyServerPid, Port} = dummy_server(ipv4),
@@ -3316,7 +3333,8 @@ create_config(FileName, ComType, Port, PrivDir, ServerRoot, DocRoot,
 	" mod_include mod_dir mod_get mod_head" 
 	" mod_log mod_disk_log mod_trace",
 	    
-    BindAddress = "*|inet", 
+    %% BindAddress = "*|inet", % Force the use of IPv4
+    BindAddress = "*", % This corresponds to using IpFamily inet6fb4
 
     HttpConfig = [
 		  cline(["BindAddress ", BindAddress]),

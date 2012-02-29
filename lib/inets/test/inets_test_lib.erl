@@ -494,83 +494,78 @@ connect_byte(ip_comm, Host, Port, Opts0) ->
     connect(ip_comm, Host, Port, Opts).
 
 
-connect(ssl, Host, Port, Opts) ->
+%% This always falls back on IPV4, but tries IPV6 first.
+connect(Proto, Host, Port, Opts0) ->
+    Opts = Opts0 -- [inet, inet6],
+    connect(Proto, Host, Port, Opts ++ [inet6], inet6).
+
+connect(ssl, Host, Port, Opts, Type) ->
     tsp("connect(ssl) -> entry with"
 	"~n   Host: ~p"
 	"~n   Port: ~p"
-	"~n   Opts: ~p", [Host, Port, Opts]),
+	"~n   Opts: ~p"
+	"~n   Type: ~p", [Host, Port, Opts, Type]),
     ssl:start(),
     %% We ignore this option for ssl... 
     %% ...maybe we should really treat this in the same way as ip_comm...
-    case ssl:connect(Host, Port, lists:delete(inet6fb4, Opts)) of
+    case ssl:connect(Host, Port, Opts) of
 	{ok, Socket} ->
 	    {ok, Socket};
+	{error, Reason} when Type =:= inet6 ->
+	    tsp("connect(ssl) -> failed connecting with inet6: "
+		"~n   Reason: ~p"
+		"~n   trying inet", [Reason]),
+	    connect(ssl, Host, Port, Opts -- [inet6], inet);
 	{error, Reason} ->
-	    {error, Reason};
+	    tsp("connect(ssl) -> failed connecting: "
+		"~n   Reason: ~p", [Reason]),
+ 	    {error, Reason};
 	Error ->
 	    Error
     end;
-connect(ip_comm, Host, Port, Opts) ->
+connect(ip_comm, Host, Port, Opts, Type) ->
     tsp("connect(ip_comm) -> entry with"
 	"~n   Host: ~p"
 	"~n   Port: ~p"
-	"~n   Opts: ~p", [Host, Port, Opts]),
+	"~n   Opts: ~p"
+	"~n   Type: ~p", [Host, Port, Opts, Type]),
     
-    %% We check for precence of inet6fb4. 
-    %% If found, we shall try inet6 and if that does not work
-    %% try inet (regardless of error reason)
-    case lists:delete(inet6fb4, Opts) of
-	Opts ->
-	    %% Nope, run as usual, where we use error reason 
-	    %% to detect if we are on IPv6 or not...
-	    case gen_tcp:connect(Host,Port, Opts) of
-		{ok, Socket} ->
-		    tsp("connect success"),
-		    {ok, Socket};
-		{error, nxdomain} ->
-		    tsp("connect error nxdomain when opts: ~p", [Opts]),
-		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-		{error, eafnosupport}  ->
-		    tsp("connect error eafnosupport when opts: ~p", [Opts]),
-		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-		{error, econnreset} ->
-		    tsp("connect error econnreset when opts: ~p", [Opts]),
-		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-		{error, enetunreach}  ->
-		    tsp("connect error eafnosupport when opts: ~p", [Opts]),
-		    connect(ip_comm, Host, Port, lists:delete(inet6, Opts));
-		{error, {enfile,_}} ->
-		    tsp("connect error enfile when opts: ~p", [Opts]),
-		    {error, enfile};
-		Error ->
-		    tsp("connect(ip_conn) -> Unexpected error: "
-			"~n   Error: ~p"
-			"~nwhen"
-			"~n   Host:  ~p"
-			"~n   Port:  ~p"
-			"~n   Opts:  ~p"
-			"~n", [Error, Host, Port, Opts]),
-		    Error
-	    end;
+    case gen_tcp:connect(Host, Port, Opts) of
+	{ok, Socket} ->
+	    tsp("connect success"),
+	    {ok, Socket};
 
-	Opts2 ->
-	    %% Yep, so try first with inet6 and if that fails inet
-	    case gen_tcp:connect(Host, Port, [inet6|Opts2]) of
-		{ok, Socket} ->
-		    tsp("connect success"),
-		    {ok, Socket};
-		{error, Reason_inet6} ->
-		    tsp("inet6 connect failed: ~p", [Reason_inet6]),
-		    case gen_tcp:connect(Host, Port, [inet|Opts2]) of
-			{ok, Socket} ->
-			    tsp("connect success"),
-			    {ok, Socket};
-			{error, Reason_inet} ->
-			    tsp("inet connect also failed: ~p", [Reason_inet]),
-			    {error, {connect_failure, [{inet6, Reason_inet6}, 
-						       {inet,  Reason_inet}]}}
-		    end
-	    end
+	{error, nxdomain} when Type =:= inet6 ->
+	    tsp("connect error nxdomain when"
+		"~n   Opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
+	{error, eafnosupport} when Type =:= inet6 ->
+	    tsp("connect error eafnosupport when"
+		"~n   Opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
+	{error, econnreset} when Type =:= inet6 ->
+	    tsp("connect error econnreset when"
+		"~n   Opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
+	{error, enetunreach} when Type =:= inet6 ->
+	    tsp("connect error eafnosupport when"
+		"~n   Opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
+	{error, econnrefused} when Type =:= inet6 ->
+	    tsp("connect error econnrefused when"
+		"~n   Opts: ~p", [Opts]),
+	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
+
+	Error ->
+	    tsp("connect(ip_conn) -> Fatal connect error: "
+		"~n   Error: ~p"
+		"~nwhen"
+		"~n   Host:  ~p"
+		"~n   Port:  ~p"
+		"~n   Opts:  ~p"
+		"~n   Type:  ~p"
+		"~n", [Error, Host, Port, Opts, Type]),
+	    Error
     end.
 			
 

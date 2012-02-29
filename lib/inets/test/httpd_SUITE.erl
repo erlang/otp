@@ -2357,29 +2357,30 @@ create_config(Config, Access, FileName) ->
 	    true ->
 		[]
 	end,
-    ModOrder = case Access of
-		   mod_htaccess ->
-		       "Modules mod_alias mod_htaccess mod_auth "
-			   "mod_security "
-			   "mod_responsecontrol mod_trace mod_esi "
-			   "mod_actions mod_cgi mod_include mod_dir "
+    ModOrder = 
+	case Access of
+	    mod_htaccess ->
+		"Modules mod_alias mod_htaccess mod_auth "
+		    "mod_security "
+		    "mod_responsecontrol mod_trace mod_esi "
+		    "mod_actions mod_cgi mod_include mod_dir "
+		    "mod_range mod_get "
+		    "mod_head mod_log mod_disk_log";
+	    _ ->
+		"Modules mod_alias mod_auth mod_security "
+		    "mod_responsecontrol mod_trace mod_esi "
+		    "mod_actions mod_cgi mod_include mod_dir "
 			   "mod_range mod_get "
-			   "mod_head mod_log mod_disk_log";
-		   _ ->
-		       "Modules mod_alias mod_auth mod_security "
-			   "mod_responsecontrol mod_trace mod_esi "
-			   "mod_actions mod_cgi mod_include mod_dir "
-			   "mod_range mod_get "
-			   "mod_head mod_log mod_disk_log"
-	       end,
+		    "mod_head mod_log mod_disk_log"
+	end,
     
-%% The test suite currently does not handle an explicit BindAddress.
-%% They assume any has been used, that is Addr is always set to undefined!
+    %% The test suite currently does not handle an explicit BindAddress.
+    %% They assume any has been used, that is Addr is always set to undefined!
 
-%%     {ok, Hostname} = inet:gethostname(), 
-%%     {ok, Addr} = inet:getaddr(Hostname, inet6),
-%%     AddrStr = make_ipv6(Addr), 
-%%     BindAddress = lists:flatten(io_lib:format("~s|inet6", [AddrStr])),
+    %%     {ok, Hostname} = inet:gethostname(), 
+    %%     {ok, Addr} = inet:getaddr(Hostname, inet6),
+    %%     AddrStr = make_ipv6(Addr), 
+    %%     BindAddress = lists:flatten(io_lib:format("~s|inet6", [AddrStr])),
 
     BindAddress = "*|inet", 
     %% BindAddress = "*", 
