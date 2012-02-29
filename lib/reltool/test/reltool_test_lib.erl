@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -137,10 +137,6 @@ init_per_testcase(_Func, Config) when is_list(Config) ->
 end_per_testcase(_Func, Config) when is_list(Config) ->
     reset_kill_timer(Config),
     Config.
-
-%% Backwards compatible with test_server
-tc_info(suite) -> [];
-tc_info(doc) -> "".
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

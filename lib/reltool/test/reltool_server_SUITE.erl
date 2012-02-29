@@ -104,8 +104,6 @@ end_per_group(_GroupName, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start a server process and check that it does not crash
 
-start_server(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 start_server(_Config) ->
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([])),
     Libs = lists:sort(erl_libs()),
@@ -121,8 +119,6 @@ start_server(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start a server process and check that it does not crash
 
-set_config(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 set_config(_Config) ->
     Libs = lists:sort(erl_libs()),
     Default =
@@ -229,8 +225,6 @@ get_config(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OTP-9135, test that app_file option can be set to all | keep | strip
 
-otp_9135(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 otp_9135(_Config) ->
     Libs = lists:sort(erl_libs()),
     StrippedDefaultSys = 
@@ -260,8 +254,6 @@ otp_9135(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate releases
 
-create_release(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_release(_Config) ->
     %% Configure the server
     RelName = "Just testing...",
@@ -402,8 +394,6 @@ create_release_sort(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate boot scripts
 
-create_script(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_script(_Config) ->
     %% Configure the server
     RelName = "Just testing",
@@ -647,8 +637,6 @@ systools_make_script(Name,Path) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate target system
 
-create_target(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_target(_Config) ->
     %% Configure the server
     RelName1 = "Just testing",
@@ -681,8 +669,6 @@ create_target(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate embedded target system
 
-create_embedded(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_embedded(_Config) ->
     %% Configure the server
     RelName1 = "Just testing",
@@ -714,8 +700,6 @@ create_embedded(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate standalone system
 
-create_standalone(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_standalone(_Config) ->
     %% Configure the server
     ExDir = code:lib_dir(reltool, examples),
@@ -948,10 +932,8 @@ create_multiple_standalone(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate old type of target system
 
-create_old_target(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
+create_old_target(_Config) -> {skip, "Old style of target"};
 create_old_target(_Config) ->
-    ?skip("Old style of target", []),
     
     %% Configure the server
     RelName1 = "Just testing",
