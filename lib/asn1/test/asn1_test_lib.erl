@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,11 +19,67 @@
 %%
 -module(asn1_test_lib).
 
+-export([compile/3]).
+-export([compile_all/3]).
+-export([compile_erlang/3]).
+
 -export([ticket_7407_compile/2,ticket_7407_code/1, ticket_7678/2,
-	ticket_7708/2, ticket_7763/1, ticket_7876/3]).
+         ticket_7708/2, ticket_7763/1, ticket_7876/3]).
 
 -include_lib("test_server/include/test_server.hrl").
 
+compile(File, Config, Options) -> compile_all([File], Config, Options).
+
+compile_all(Files, Config, Options) ->
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    [compile_file(filename:join(DataDir, F), [{outdir, CaseDir}|Options])
+         || F <- Files],
+    ok.
+
+compile_file(File, Options) ->
+    try
+        ok = asn1ct:compile(File, Options),
+        case should_load(File, Options) of
+            false ->
+                ok;
+            {module, Module} ->
+                code:purge(Module),
+                true = code:soft_purge(Module),
+                {module, Module} = code:load_file(Module)
+        end
+    catch
+        Class:Reason ->
+            erlang:error({compile_failed, {File, Options}, {Class, Reason}})
+    end.
+
+compile_erlang(Mod, Config, Options) ->
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    M = list_to_atom(Mod),
+    {ok, M} = compile:file(filename:join(DataDir, Mod),
+                           [{i, CaseDir}, {outdir, CaseDir}|Options]).
+
+should_load(File, Options) ->
+    should_load(File, lists:member(abs, Options),
+                proplists:lookup(inline, Options)).
+
+should_load(_File, true, _Inline) ->
+    false;
+should_load(_File, _Abs, {inline, Module}) when Module /= true ->
+    {module, Module};
+should_load(File, _Abs, _Inline) ->
+    {module, list_to_atom(strip_extension(filename:basename(File)))}.
+
+strip_extension(File) ->
+    strip_extension(File, filename:extension(File)).
+
+strip_extension(File, "") ->
+    File;
+strip_extension(File, Ext) when Ext == ".asn"; Ext == ".set"; Ext == ".asn1"->
+    strip_extension(filename:rootname(File));
+strip_extension(File, _Ext) ->
+    File.
 
 ticket_7407_compile(Config,Option) ->
 

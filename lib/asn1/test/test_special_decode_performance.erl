@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,24 +19,9 @@
 %%
 -module(test_special_decode_performance).
 
--export([compile/2,go/1,loop2/4,loop1/5]).
+-export([go/1,loop2/4,loop1/5]).
 
 -include_lib("test_server/include/test_server.hrl").
-
-
-compile(Config,Rule) when Rule==ber_bin_v2 ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    
-    ?line asn1ct:compile(DataDir++"MEDIA-GATEWAY-CONTROL",
-			 [ber_bin,optimize,asn1config,{outdir,OutDir},
-			  {i,DataDir}]),
-    ?line asn1ct:compile(DataDir++"PartialDecSeq",
-			 [ber_bin,optimize,asn1config,{outdir,OutDir},
-			  {i,DataDir}]);
-compile(_,Rule) ->
-    {skip,lists:concat(["not implemented yet for version: ",Rule])}.
 
 go(all) ->
     {Time_S_s,Time_S_e,Time_S_c}=go(10000,'PartialDecSeq'),

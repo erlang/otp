@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2011. All Rights Reserved.
+# Copyright Ericsson AB 1997-2012. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -58,7 +58,8 @@ CT_MODULES= \
 	asn1ct_gen_ber_bin_v2 \
 	asn1ct_value \
 	asn1ct_tok \
-	asn1ct_parser2
+	asn1ct_parser2 \
+	asn1ct_table
 
 RT_MODULES= \
 	asn1rt \

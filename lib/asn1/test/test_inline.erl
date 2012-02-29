@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 %%
 -module(test_inline).
 
--export([compile/3,main/1,inline1/3,performance/1,performance2/0]).
+-export([compile/2,main/2,inline1/3,performance/1,performance2/0]).
 -export([mvrasn_inlined_encdec/2,mvrasn_encdec/2,
 	 mi_encdec/2,m_encdec/2]).
 
@@ -27,52 +27,38 @@
 -define(times, 5000).
 -define(times2, 50000).
 
-compile(Config,_Rules,Opt) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line true = code:add_patha(DataDir),
-    
-    ?line ok=asn1ct:compile(DataDir++"Mvrasn.set.asn",[{inline,mvrasn_inlined},{outdir,OutDir}]++Opt),
-    ?line ok=asn1ct:compile(DataDir++"Mvrasn-11-6.asn",[{outdir,OutDir}]++Opt),
+compile(Config, Options) ->
+    CaseDir = ?config(case_dir, Config),
+    asn1_test_lib:compile("Mvrasn.set.asn", Config, [{inline, mvrasn_inlined}|Options]),
+    asn1_test_lib:compile("Mod.set.asn", Config, [{inline, m}|Options]),
+    ok = remove_inlined_files(CaseDir, [filename:join([CaseDir, X])||X<-["m.erl", "m.beam"]]),
+    asn1_test_lib:compile("Mod.set.asn", Config, [inline|Options]),
+    ok = remove_inlined_files(CaseDir, []).
 
-    ?line ok=asn1ct:compile(DataDir++"Mod.set.asn",[{inline,m},{outdir,OutDir}]++Opt),
-    ?line ok=remove_inlined_files(OutDir,[filename:join([OutDir,X])||X<-["m.erl","m.beam"]]),
-    ?line ok=asn1ct:compile(DataDir++"Mod.set.asn",[inline,{outdir,OutDir}]++Opt),
-    ?line ok=remove_inlined_files(OutDir,[]).
-    
-inline1(Config,Rule,Opt) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    
-    ?line ok=asn1ct:compile(DataDir++"P-Record",
-			    [{inline,'inlined_P_Record'},
-			     {outdir,OutDir}]++Opt),
-    ?line test_inline1(),
-    
-    ?line ok=remove_inlined_files2(OutDir,ber_bin_v2),
+inline1(Config, Rule, Opt) ->
+    CaseDir = ?config(case_dir, Config),
+
+    asn1_test_lib:compile("P-Record", Config, [{inline, 'inlined_P_Record'}|Opt]),
+    test_inline1(),
+
+    ok=remove_inlined_files2(CaseDir, ber_bin_v2),
 
     case Rule of
-	ber_bin_v2 ->
-	    ?line ok=asn1ct:compile(DataDir++"P-Record",
-				    [inline,asn1config,ber_bin,optimize,
-				     {outdir,OutDir}]++Opt),
-	    ?line test_inline2(Rule,'P-Record'),
-	    ?line remove_inlined_files3(OutDir,Rule),
-	    io:format("compiling ~p~nwith ~p~n",
-		      [DataDir ++ "p_record.set.asn",
-		       [inline,asn1config,ber_bin,optimize,{outdir,OutDir}]++Opt]),
-	    ?line ok = asn1ct:compile(DataDir ++ "p_record.set.asn",
-				      [inline,asn1config,ber_bin,optimize,
-				       {outdir,OutDir}]++Opt),
-	    ?line test_inline2(Rule,'p_record'),
-	    ?line remove_inlined_files4(OutDir,Rule);
-	_ ->
-	    ok
+        ber_bin_v2 ->
+            asn1_test_lib:compile("P-Record", Config,
+                                  [ber_bin, inline, asn1config, optimize|Opt]),
+            test_inline2(Rule, 'P-Record'),
+            remove_inlined_files3(CaseDir, Rule),
+            asn1_test_lib:compile("p_record.set.asn", Config,
+                                  [ber_bin, inline, asn1config, optimize|Opt]),
+            test_inline2(Rule, 'p_record'),
+            remove_inlined_files4(CaseDir, Rule);
+        _ ->
+            ok
     end.
 
-main(_Erule) ->
-    ?line Val = val(),
+main(Config, _Erule) ->
+    Val = val(Config),
     ?line {ok,Bytes}=asn1_wrapper:encode(mvrasn_inlined,'InsertSubscriberDataArg',Val),
     ?line {ok,_Val2}=asn1_wrapper:decode(mvrasn_inlined,'InsertSubscriberDataArg',Bytes).
 
@@ -94,14 +80,13 @@ test_inline2(ber_bin_v2,Mod) ->
 test_inline2(_,_) ->
     ok.
 
-val() ->
-    ?line {ok,Val} = asn1ct:value('Mvrasn-11-6','InsertSubscriberDataArg'),
+val(Config) ->
+    {ok,Val} = asn1ct:value('Mvrasn','InsertSubscriberDataArg',
+                            [{i, ?config(case_dir, Config)}]),
     Val.
 
 performance(Config) ->
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line true = code:add_patha(?config(data_dir,Config)),
-    ?line Val = val(),
+    Val = val(Config),
     %% warm up
     timer:tc(?MODULE,mvrasn_inlined_encdec,[2,Val]),
     %% performance test

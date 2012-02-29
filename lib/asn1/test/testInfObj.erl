@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,49 +20,13 @@
 
 -module(testInfObj).
 
--export([compile/3,main/1,compile_RANAPfiles/3]).
+-export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('InitiatingMessage2',{procedureCode,criticality,value}).
 -record('Iu-ReleaseCommand',{first,second}).
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-
-    ?line ok = asn1ct:compile(DataDir ++ 
-			      "RANAPextract1",[Rules,{outdir,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "InfObj",[Rules,{outdir,OutDir}]++Options),
-    %% test case for OTP-4792 optional open type
-    ?line ok = asn1ct:compile(DataDir ++ "MAP-ExtensionDataTypes",[Rules,{outdir,OutDir}]++Options),
-    %% OTP-6707
-    ?line ok = asn1ct:compile(DataDir ++ "Objects",[Rules,{outdir,OutDir}]++Options),
-    %% OTP-6717
-    ?line ok = asn1ct:compile(DataDir ++ "INAPv2extract",[Rules,{outdir,OutDir}]++Options).
-
-
-compile_RANAPfiles(Config,Rules,Options) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-
-    ?line ok = asn1ct:compile(DataDir ++ "RANAP-CommonDataTypes",
-			      [Rules,{outdir,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "RANAP-Constants",
-			      [Rules,{outdir,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "RANAP-Containers",
-			      [Rules,{outdir,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "RANAP-IEs",
-			      [Rules,{outdir,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "RANAP-PDU-Contents",
-			      [Rules,{outdir,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "RANAP-PDU-Descriptions",
-			      [Rules,{outdir,OutDir}]++Options).
-
 
 main(_Erule) ->
     Val1 = #'InitiatingMessage'{procedureCode=1,

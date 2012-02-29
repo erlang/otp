@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,54 +19,46 @@
 %%
 -module(testTcapsystem).
 
--export([compile/3]).
+-export([compile/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-
-
-compile(Config,Rules,Opt) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line DataDir2 = filename:join([DataDir,tcapsystem]),
-
-    ?line ok = asn1ct:compile(filename:join([DataDir2,"DialoguePDUs.asn"]),[Rules,{outdir,OutDir}]++Opt),
-    ?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-ApplicationContexts.asn"]),[Rules,{outdir,OutDir}]++Opt),
-    ?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-BS-Code.asn"]),[Rules,{outdir,OutDir}]++Opt),
-    	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-CallHandlingOperations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-CH-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-CommonDataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-DialogueInformation.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-ER-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-Errors.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-ExtensionDataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-GR-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-Group-Call-Operations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-LCS-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-LocationServiceOperations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-MobileServiceOperations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-MS-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-OM-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-OperationAndMaintenanceOperations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-Protocol.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-SecureTransportOperations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-ShortMessageServiceOperations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-SM-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-SS-Code.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-SS-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-ST-DataTypes.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-SupplementaryServiceOperations.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MAP-TS-Code.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"MobileDomainDefinitions.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"Remote-Operations-Generic-ROS-PDUs.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"Remote-Operations-Information-Objects.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"Remote-Operations-Useful-Definitions.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"TCAP-Examples.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"TCAPMessages.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"TCAP-Tools.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"TC-Notation-Extensions.asn"]),[Rules,{outdir,OutDir}]++Opt),
-	?line ok = asn1ct:compile(filename:join([DataDir2,"UnidialoguePDUs.asn"]),[Rules,{outdir,OutDir}]++Opt).
-
-
+compile(Config, Options) ->
+    [asn1_test_lib:compile(filename:join([tcapsystem, M]), Config, Options)
+     || M <- ["DialoguePDUs.asn",
+              "MAP-ApplicationContexts.asn",
+              "MAP-BS-Code.asn",
+              "MAP-CallHandlingOperations.asn",
+              "MAP-CH-DataTypes.asn",
+              "MAP-CommonDataTypes.asn",
+              "MAP-DialogueInformation.asn",
+              "MAP-ER-DataTypes.asn",
+              "MAP-Errors.asn",
+              "MAP-ExtensionDataTypes.asn",
+              "MAP-GR-DataTypes.asn",
+              "MAP-Group-Call-Operations.asn",
+              "MAP-LCS-DataTypes.asn",
+              "MAP-LocationServiceOperations.asn",
+              "MAP-MobileServiceOperations.asn",
+              "MAP-MS-DataTypes.asn",
+              "MAP-OM-DataTypes.asn",
+              "MAP-OperationAndMaintenanceOperations.asn",
+              "MAP-Protocol.asn",
+              "MAP-SecureTransportOperations.asn",
+              "MAP-ShortMessageServiceOperations.asn",
+              "MAP-SM-DataTypes.asn",
+              "MAP-SS-Code.asn",
+              "MAP-SS-DataTypes.asn",
+              "MAP-ST-DataTypes.asn",
+              "MAP-SupplementaryServiceOperations.asn",
+              "MAP-TS-Code.asn",
+              "MobileDomainDefinitions.asn",
+              "Remote-Operations-Generic-ROS-PDUs.asn",
+              "Remote-Operations-Information-Objects.asn",
+              "Remote-Operations-Useful-Definitions.asn",
+              "TCAP-Examples.asn",
+              "TCAPMessages.asn",
+              "TCAP-Tools.asn",
+              "TC-Notation-Extensions.asn",
+              "UnidialoguePDUs.asn"]],
+    ok.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,47 +19,35 @@
 %%
 -module(test_undecoded_rest).
 
--export([compile/3,test/1]).
+-export([test/2]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 
 %% testing OTP-5104
 
-compile(Config,Rules,Opt) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    
-    ?line ok = asn1ct:compile(DataDir ++ "P-Record",[Rules,{outdir,OutDir}]++Opt).
-
-
-test(Opt) ->
-    ?line {ok,Msg} = asn1ct:value('P-Record','PersonnelRecord'),
-    ?line {ok,Bytes} = asn1_wrapper:encode('P-Record','PersonnelRecord',Msg),
-    Bytes2 =
-	fun(B) when is_list(B) ->
-		B ++ [55,55,55];
-	   (B) when is_binary(B) ->
-		iolist_to_binary([B,<<55,55,55>>])
-	end (Bytes),
-    
+test(Opt, Config) ->
+    {ok, Msg} = asn1ct:value('P-Record', 'PersonnelRecord',
+                             [{i, ?config(case_dir, Config)}]),
+    {ok, Bytes} = asn1_wrapper:encode('P-Record', 'PersonnelRecord', Msg),
+    Bytes2 = if  is_list(Bytes) ->
+                     Bytes ++ [55, 55, 55];
+                 is_binary(Bytes) ->
+                     iolist_to_binary([Bytes, <<55, 55, 55>>])
+             end,
     case Opt of
-	undec_rest ->
-	    ?line {ok,Msg,R}=asn1_wrapper:decode('P-Record','PersonnelRecord',
-					     Bytes2),
-	    ?line case R of
-		      <<55,55,55>> ->ok;
-		      [55,55,55] -> ok;
-		      BStr when is_bitstring(BStr) ->
-			  PadLen = (8 - (bit_size(BStr) rem 8)) rem 8,
-			  case <<0:PadLen,BStr/bitstring>> of
-			      <<0,55,55,55>> -> ok
-			  end
-		  end;
-	_ ->
-	    ?line {ok,Msg} = asn1_wrapper:decode('P-Record','PersonnelRecord',
-					   Bytes2)
+        undec_rest ->
+            {ok, Msg, R} = asn1_wrapper:decode('P-Record', 'PersonnelRecord',
+                                               Bytes2),
+            case R of
+                <<55, 55, 55>> -> ok;
+                [55, 55, 55] -> ok;
+                BStr when is_bitstring(BStr) ->
+                    PadLen = (8 - (bit_size(BStr) rem 8)) rem 8,
+                    <<0, 55, 55, 55>> = <<0:PadLen, BStr/bitstring>>
+            end;
+        _ ->
+            {ok, Msg} = asn1_wrapper:decode('P-Record', 'PersonnelRecord',
+                                            Bytes2)
     end,
     ok.

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -26,32 +26,21 @@
 -include_lib("test_server/include/test_server.hrl").
 
 
-compile(Erule,Options,Config) ->
-    
+compile(Erule, Options, Config) ->
     Specs = specs(),
-    ?line 99 = length(Specs),
-    ?line ok = compile_loop(Erule,Specs,Options,Config).
-	
-	    
+    99 = length(Specs),
+    ok = compile_loop(Erule,Specs,Options,Config).
 
-compile_loop(_Erule,[],_Options,_Config) ->
+compile_loop(_Erule, [], _Options, _Config) ->
     ok;
-compile_loop(Erule,[Spec|Specs],Options,Config) 
-  when Erule == ber; Erule == ber_bin; Erule == ber_bin_v2;
-       Erule == per ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-  
-    case asn1ct:compile(DataDir ++ "/x420/" ++ Spec,[Erule,{outdir,OutDir},
-					 {i,OutDir}]++Options) of
-	ok ->
-	    compile_loop(Erule,Specs,Options,Config);
-	Error ->
-	    Error
-    end;
-compile_loop(_Erule,_Specs,_Options,_Config) ->
-    ok.%%{skip,io_lib:format("Not tested for ~p",[Erule])}.
+compile_loop(Erule, [Spec|Specs], Options, Config)
+  when Erule == ber; Erule == ber_bin; Erule == ber_bin_v2; Erule == per ->
+    CaseDir = ?config(case_dir, Config),
+    asn1_test_lib:compile(filename:join([x420, Spec]), Config,
+                          [Erule, {i, CaseDir}]),
+    compile_loop(Erule, Specs, Options, Config);
+compile_loop(_Erule, _Specs, _Options, _Config) ->
+    ok.
 
 
 specs() ->
@@ -91,7 +80,7 @@ specs() ->
      "Protected-Part-Descriptors", "ProtocolObjectIdentifiers",
      "Raster-Gr-Coding-Attributes", "Raster-Gr-Presentation-Attributes",
      "Raster-Gr-Profile-Attributes", "Reliable-Transfer-APDU",
-     "Remote-Operations-Abstract-Syntaxes", 
+     "Remote-Operations-Abstract-Syntaxes",
      "Remote-Operations-Generic-ROS-PDUs",
      "Remote-Operations-Information-Objects-extensions",
      "Remote-Operations-Information-Objects",

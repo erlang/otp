@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -40,10 +40,7 @@ wrong_path(Config) ->
 comp(Parent,Config) ->
     DataDir = ?config(data_dir,Config),
     OutDir = ?config(priv_dir,Config),
-    %%?line true = code:add_patha(?config(priv_dir,Config)),
-    io:format("DataDir: ~p~n",[DataDir]),
     ?line Err=asn1ct:compile(DataDir++"NoImport",[{i,OutDir},{i,filename:join([DataDir,"subdir"])},{outdir,OutDir}]),
-    io:format("compiling process terminated with value: ~p~n",[Err]),
     Parent!Err.
 
 %% OTP-5701
@@ -67,13 +64,7 @@ path(Config) ->
     file:set_cwd(CWD),
     ok.
 
-ticket_6143(Config) ->
-    DataDir = ?config(data_dir,Config),
-    OutDir = ?config(priv_dir,Config),
-    io:format("DataDir: ~p~n",[DataDir]),
-
-    ?line ok=asn1ct:compile(filename:join([DataDir,"AA1"]),[{i,DataDir},{outdir,OutDir}]),
-    ok.
+ticket_6143(Config) -> asn1_test_lib:compile("AA1", Config, []).
 
 noobj(Config) ->
     DataDir = ?config(data_dir,Config),

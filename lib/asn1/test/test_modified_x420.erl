@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,17 +20,9 @@
 -module(test_modified_x420).
 
 %-compile(export_all).
--export([compile/1, test_io/1]).
+-export([test_io/1]).
 
 -include_lib("test_server/include/test_server.hrl").
-
-compile(Config) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-
-    ok = asn1ct:compile(filename:join([DataDir,modified_x420,"PKCS7"]),[der,{outdir,OutDir}]),
-    ok = asn1ct:compile(filename:join([DataDir,modified_x420,"InformationFramework"]),[der,{outdir,OutDir}]),
-    ok = asn1ct:compile(filename:join([DataDir,modified_x420,"AuthenticationFramework"]),[der,{outdir,OutDir}]).
 
 test_io(Config) ->
     io:format("~p~n~n", [catch test(Config)]).

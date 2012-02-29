@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,33 +19,23 @@
 %%
 -module(testTCAP).
 
--export([compile/3,test/2,compile_asn1config/3,test_asn1config/0]).
+-export([compile/2,test/2,compile_asn1config/2,test_asn1config/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 
+compile(Config, Options) ->
+    Files = ["Remote-Operations-Information-Objects",
+             "TCAPMessages",
+             "TCAPMessages-simple",
+             "TCAPPackage"],
+    asn1_test_lib:compile_all(Files, Config, Options),
+    asn1_test_lib:compile_erlang("TCAPPackage_msg", Config, []).
 
-
-compile(Config,Rules,Opt) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    
-    ?line ok = asn1ct:compile(DataDir ++ "Remote-Operations-Information-Objects",[Rules,{outdir,OutDir}]++Opt),
-%    ?line ok = asn1ct:compile(DataDir ++ "Remote-Operations-Generic-ROS-PDUs",[Rules,{outdir,OutDir}]++Opt),
-%    ?line ok = asn1ct:compile(DataDir ++ "Remote-Operations-Useful-Definitions",[Rules,{outdir,OutDir}]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "TCAPMessages",[Rules,{outdir,OutDir}]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "TCAPMessages-simple",[Rules,{outdir,OutDir}]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "TCAPPackage",[Rules,{outdir,OutDir}]++Opt),
-    ?line compile:file(filename:join([DataDir,"TCAPPackage_msg"]),[{i,OutDir},{outdir,OutDir}]).
-
-compile_asn1config(Config,Rules,Opt) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    
-    ?line ok = asn1ct:compile(DataDir ++ "TCAPPackage",
-			      [Rules,{outdir,OutDir},{i,DataDir}]++Opt).
+compile_asn1config(Config, Options) ->
+    Files = ["Remote-Operations-Information-Objects",
+             "TCAPPackage"],
+    asn1_test_lib:compile_all(Files, Config, Options),
+    asn1_test_lib:compile_erlang("TCAPPackage_msg", Config, []).
 
 test(Erule,_Config) when Erule==ber;Erule==ber_bin;Erule==ber_bin_v2 ->
 %    ?line OutDir = ?config(priv_dir,Config),
