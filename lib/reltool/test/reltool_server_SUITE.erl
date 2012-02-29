@@ -2150,7 +2150,9 @@ run(Dir, Opts, Script, Args) ->
 
 do_run(Dir, Cmd) ->
     io:format("Run: ~p\n", [Cmd]),
-    Env = [{"PATH",Dir++":"++os:getenv("PATH")}],
+    Env = [{"PATH",Dir++":"++os:getenv("PATH")},
+	   {"ERL_FLAGS",""},   % Make sure no flags are set that can override
+	   {"ERL_ZFLAGS",""}], % any of the flags set in the escript.
     Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
     Res = get_data(Port, []),
     receive
