@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,12 +19,12 @@
 %%
 -module(test_selective_decode).
 
--export([test/2]).
+-export([test/0]).
 
 -include_lib("test_server/include/test_server.hrl").
 
 
-test(ber_bin_v2,_Config) ->
+test() ->
     FMsg = msg('F'),
     ?line {ok,Bytes} = asn1_wrapper:encode('PartialDecSeq','F',FMsg),
     ?line {ok,3} =
@@ -48,10 +48,7 @@ test(ber_bin_v2,_Config) ->
     ?line {ok,Bytes4} = asn1_wrapper:encode('P-Record','PersonnelRecord',
 					    PRecMsg),
     ?line {ok,_} = 'P-Record':sel_dec(list_to_binary(Bytes4)),
-
-    ok;
-test(Erule,_) ->
-    {skip,lists:concat(["not implemented yet for version: ",Erule])}.
+    ok.
 
 
     

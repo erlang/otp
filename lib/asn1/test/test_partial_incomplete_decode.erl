@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,40 +19,11 @@
 %%
 -module(test_partial_incomplete_decode).
 
--export([compile/3,test/2]).
+-export([test/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
-
-
-compile(Config,Rule,Opt) when Rule == ber_bin_v2 ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    
-    ?line ok = asn1ct:compile(DataDir ++ "PartialDecSeq.asn",
-			      [Rule,{outdir,OutDir},{i,DataDir},
-			       asn1config]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "PartialDecSeq2.asn",
-			      [Rule,{outdir,OutDir},{i,DataDir},
-			       asn1config]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "PartialDecSeq3.asn",
-			      [Rule,{outdir,OutDir},{i,DataDir},
-			      asn1config]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "PartialDecMyHTTP.asn",
-			      [Rule,{outdir,OutDir},{i,DataDir},
-			       asn1config]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "MEDIA-GATEWAY-CONTROL.asn",
-			      [Rule,{outdir,OutDir},{i,DataDir},
-			       asn1config]++Opt),
-    ?line ok = asn1ct:compile(DataDir ++ "P-Record",
-			      [Rule,{outdir,OutDir},{i,DataDir},
-			       asn1config]++Opt);
-compile(_,Rule,_) ->
-    {skip,lists:concat(["not implemented yet for version: ",Rule])}.
-
-test(ber_bin_v2,Config) ->
+test(Config) ->
     FMsg = msg('F'),
     ?line {ok,Bytes} = asn1_wrapper:encode('PartialDecSeq','F',FMsg),
     ?line {ok,_} = asn1_wrapper:decode('PartialDecSeq','F',Bytes),
@@ -110,9 +81,7 @@ test(ber_bin_v2,Config) ->
 
     %% test of MEDIA-GATEWAY-CONTROL
     test_megaco(Config),
-    ok;
-test(Erule,_) ->
-    {skip,lists:concat(["not implemented yet for version: ",Erule])}.
+    ok.
 
 test_megaco(Config) ->
     ?line DataDir = ?config(data_dir,Config),

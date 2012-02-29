@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,6 @@
 %%
 -module(testSeqOfCho).
 
--export([compile/3]).
 -export([main/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -30,17 +29,6 @@
 -record('SeqChoEmbOpt',{bool1, int1, seq1 = asn1_NOVALUE}).
 -record('SeqOfChoEmbDef_SEQOF',{bool1, int1, seq1 = asn1_DEFAULT}).
 -record('SeqOfChoEmbOpt_SEQOF',{bool1, int1, seq1 = asn1_NOVALUE}).
-
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "SeqOfCho",[Rules,{outdir,OutDir}]++Options).
-
-
 
 main(_Rules) ->
     

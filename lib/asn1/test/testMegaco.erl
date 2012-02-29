@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -108,24 +108,17 @@ compile(_Config,ber,[optimize]) ->
 compile(_Config,per,[optimize]) ->
     {ok,no_module,no_module};
 compile(Config,Erule,Options) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-
-    ?line ok = asn1ct:compile(DataDir ++ 
-			      "MEDIA-GATEWAY-CONTROL.asn",
-			      [Erule,{outdir,OutDir}]++Options),
-    
-    ?line ok = asn1ct:compile(DataDir ++ 
-			      "OLD-MEDIA-GATEWAY-CONTROL.asn",
-			      [Erule,{outdir,OutDir}]++Options),
+    asn1_test_lib:compile("MEDIA-GATEWAY-CONTROL.asn", Config, [Erule|Options]),
+    asn1_test_lib:compile("OLD-MEDIA-GATEWAY-CONTROL.asn", Config, [Erule|Options]),
     {ok,'OLD-MEDIA-GATEWAY-CONTROL','MEDIA-GATEWAY-CONTROL'}.
 
 
 main(no_module,_) -> ok;
-main('OLD-MEDIA-GATEWAY-CONTROL',_) ->
+main('OLD-MEDIA-GATEWAY-CONTROL',Config) ->
 %    Msg = msg11(),
-    {ok,Msg} = asn1ct:value('OLD-MEDIA-GATEWAY-CONTROL','MegacoMessage'),
+    CaseDir = ?config(case_dir, Config),
+    {ok,Msg} = asn1ct:value('OLD-MEDIA-GATEWAY-CONTROL','MegacoMessage',
+                            [{i, CaseDir}]),
     ?line {ok,Bytes} = asn1_wrapper:encode('OLD-MEDIA-GATEWAY-CONTROL',
 					   'MegacoMessage',Msg),
     ?line {ok,Msg} = asn1_wrapper:decode('OLD-MEDIA-GATEWAY-CONTROL',
@@ -176,7 +169,7 @@ request(Mid, TransId, ContextId, CmdReq) when is_list(CmdReq) ->
 
 msg11() ->
     TimeStamp = #'TimeNotation'{date = "19990729",
-                                time = "22010001"},
+                                time = "22012001"},
     Parm = #'EventParameter'{eventParameterName = "ds",
                              value = "916135551212"},
 

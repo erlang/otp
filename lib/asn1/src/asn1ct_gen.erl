@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -169,7 +169,7 @@ pgen_objectsets(Rtmod,Erules,Module,[H|T]) ->
     pgen_objectsets(Rtmod,Erules,Module,T).
 
 pgen_check_defaultval(Erules,Module) ->
-    CheckObjects = ets:tab2list(check_functions),
+    CheckObjects = asn1ct_table:to_list(check_functions),
     case get(asndebug) of
 	true ->
 	    FileName = lists:concat([Module,".table"]),
@@ -1598,7 +1598,7 @@ gen_check_call(TopType,Cname,Type,InnerType,WhatKind,DefaultValue,Element) ->
 	    NameList = [Cname|TopType],
 	    Name = list2name(NameList ++ [check]),
 	    emit({"'",Name,"'(",DefaultValue,", ",Element,")"}),
-	    ets:insert(check_functions,{Name,Type}),
+	    asn1ct_table:insert(check_functions, {Name, Type}),
 	    %% Must look for check functions in InnerType,
 	    %% that may be referenced  or internal defined 
 	    %% constructed types not used elsewhere.
@@ -1744,10 +1744,9 @@ lookahead_reference(#'Externaltypereference'{module=M,type=T}) ->
     end.
 
 insert_once(Table,Object) ->
-    _Info = ets:info(Table),
-    case ets:lookup(Table,element(1,Object)) of
+    case asn1ct_table:lookup(Table, element(1, Object)) of
 	[] ->
-	    ets:insert(Table,Object); %returns true
+	    asn1ct_table:insert(Table, Object); %returns true
 	_ -> false
     end.
 

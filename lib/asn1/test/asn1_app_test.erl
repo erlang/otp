@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -138,7 +138,7 @@ check_asn1ct_modules(Extra) ->
 		  asn1ct_name,asn1ct_constructed_per,asn1ct_constructed_ber,
 		  asn1ct_gen_ber,asn1ct_constructed_ber_bin_v2,
 		  asn1ct_gen_ber_bin_v2,asn1ct_value,
-		  asn1ct_tok,asn1ct_parser2],
+		  asn1ct_tok,asn1ct_parser2,asn1ct_table],
     case Extra -- ASN1CTMods of
 	[] ->
 	    ok;

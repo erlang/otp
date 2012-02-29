@@ -1,7 +1,8 @@
+%% vim: tabstop=8:shiftwidth=4
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -81,14 +82,15 @@ parse_ModuleDefinition([{typereference,L1,ModuleIdentifier}|Rest0]) ->
     case Rest3 of
 	[{'::=',_L7}, {'BEGIN',_L8}|Rest4] ->
 	    {Exports, Rest5} = parse_Exports(Rest4),
-	    {Imports, Rest6} = parse_Imports(Rest5),
+	    {{imports, Imports}, Rest6} = parse_Imports(Rest5),
+            put({get(asn1_module), imports}, Imports),
 	    {#module{ pos = L1,
 		     name = ModuleIdentifier,
 		     defid = [], % fix this
 		     tagdefault = TagDefault,
 		     extensiondefault = ExtensionDefault,
 		     exports = Exports,
-		     imports = Imports},Rest6};
+		     imports = {imports, Imports}}, Rest6};
 	_ -> throw({asn1_error,{get_line(hd(Rest3)),get(asn1_module),
 				[got,get_token(hd(Rest3)),expected,"::= BEGIN"]}})
     end;
@@ -717,12 +719,12 @@ parse_DefinedType(Tokens=[{typereference,L1,TypeName},
 	{'EXIT',_Reason} ->
 	    Rest2 = [T2,T3|Rest],
 	    {#type{def = #'Externaltypereference'{pos=L1,
-						  module=get(asn1_module),
+						  module=resolve_module(TypeName),
 						  type=TypeName}},Rest2};
 	{asn1_error,_} ->
 	    Rest2 = [T2,T3|Rest],
 	    {#type{def = #'Externaltypereference'{pos=L1,
-						  module=get(asn1_module),
+						  module=resolve_module(TypeName),
 						  type=TypeName}},Rest2};
 	Result ->
 	    Result
@@ -735,7 +737,7 @@ parse_DefinedType([{typereference,L1,Module},{'.',_},{typereference,_,TypeName}|
 parse_DefinedType([{typereference,L1,TypeName}|Rest]) ->
     case is_pre_defined_class(TypeName) of
 	false  ->
-	    {#type{def = #'Externaltypereference'{pos=L1,module=get(asn1_module),
+	    {#type{def = #'Externaltypereference'{pos=L1,module=resolve_module(TypeName),
 						  type=TypeName}},Rest};
 	_ ->
 	    throw({asn1_error,
@@ -757,6 +759,21 @@ parse_SelectionType(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,'identifier <']}}).
     
+
+resolve_module(Type) ->
+    Current = get(asn1_module),
+    Imports = get({Current, imports}),
+    resolve_module(Type, Current, Imports).
+
+resolve_module(_Type, Current, undefined) ->
+    Current;
+resolve_module(Type, Current, Imports) ->
+    case [Mod || #'SymbolsFromModule'{symbols = S, module = Mod} <- Imports,
+                 #'Externaltypereference'{type = T} <- S,
+                 Type == T] of
+        [#'Externaltypereference'{type = Mod}] -> Mod;
+        []  -> Current
+    end.
 
 %% --------------------------
 
@@ -1539,7 +1556,7 @@ parse_DefinedObjectSet([{typereference,L1,ModuleName},{'.',_},
     {{objectset,L1,#'Externaltypereference'{pos=L2,module=ModuleName,
 					    type=ObjSetName}},Rest};
 parse_DefinedObjectSet([{typereference,L1,ObjSetName}|Rest]) ->
-    {{objectset,L1,#'Externaltypereference'{pos=L1,module=get(asn1_module),
+    {{objectset,L1,#'Externaltypereference'{pos=L1,module=resolve_module(ObjSetName),
 					    type=ObjSetName}},Rest};
 parse_DefinedObjectSet(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
@@ -3203,17 +3220,17 @@ prioritize_error(ErrList) ->
 
 tref2Exttref(#typereference{pos=Pos,val=Name}) ->
     #'Externaltypereference'{pos=Pos,
-			     module=get(asn1_module),
+			     module=resolve_module(Name),
 			     type=Name}.
 
 tref2Exttref(Pos,Name) ->
     #'Externaltypereference'{pos=Pos,
-			     module=get(asn1_module),
+			     module=resolve_module(Name),
 			     type=Name}.
 
 identifier2Extvalueref(#identifier{pos=Pos,val=Name}) ->
     #'Externalvaluereference'{pos=Pos,
-			      module=get(asn1_module),
+			      module=resolve_module(Name),
 			      value=Name}.
 
 %% lookahead_assignment/1 checks that the next sequence of tokens

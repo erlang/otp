@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2002-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2002-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -1197,7 +1197,7 @@ static ERL_NIF_TERM encode_per_complete(ErlNifEnv* env, int argc,
     ErlNifBinary out_binary;
     int complete_len;
     if (!enif_inspect_iolist_as_binary(env, argv[0], &in_binary))
-	return enif_make_atom(env, "badarg");
+	return enif_make_badarg(env);
 
     if (!enif_alloc_binary(in_binary.size, &out_binary))
 	return enif_make_atom(env, "alloc_binary_failed");

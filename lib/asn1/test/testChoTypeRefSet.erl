@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,6 @@
 %%
 -module(testChoTypeRefSet).
 
--export([compile/3]).
 -export([set/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -27,16 +26,6 @@
 -record('ChoSet',{setInt, setOs}).
 -record('ChoSetImp',{setInt, setOs}).
 -record('ChoSetExp',{setInt, setOs}).
-
-
-compile(Config,Rules,Options) ->
-
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-    ?line ok = asn1ct:compile(DataDir ++ "ChoTypeRefSet",[Rules,{outdir,OutDir}]++Options).
-
-
 
 set(_Rules) ->
 

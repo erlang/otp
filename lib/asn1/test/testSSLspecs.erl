@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,58 +20,37 @@
 
 -module(testSSLspecs).
 
--export([compile/3,run/1,compile_inline/2,run_inline/1]).
+-export([compile/2,run/1,compile_inline/2,run_inline/1]).
 
 -include_lib("test_server/include/test_server.hrl").
 
+compile(Config, Options) ->
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    NewOptions = [{i, DataDir}, {i, CaseDir}|Options],
 
-compile(Config,Rules,Options) ->
+    asn1_test_lib:compile_all(["SSL-PKIX", "PKIXAttributeCertificate"],
+                              Config, NewOptions),
 
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-
-    ?line ok = asn1ct:compile(DataDir ++ 
-			      "SSL-PKIX",[Rules,{outdir,OutDir},{i,DataDir},
-					  {i,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "PKIXAttributeCertificate",
-			      [Rules,{outdir,OutDir},{i,DataDir},
-			       {i,OutDir}]++Options),
     %% test case for OTP-4792 optional open type
-    ?line ok = asn1ct:compile(DataDir ++ "PKIX1Algorithms88",
-			      [Rules,{outdir,OutDir},{i,DataDir},
-			       {i,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "PKIX1Explicit88",
-			      [Rules,{outdir,OutDir},{i,DataDir},
-			       {i,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "PKIX1Implicit88",
-			      [Rules,{outdir,OutDir},{i,DataDir},
-			       {i,OutDir}]++Options),
+    asn1_test_lib:compile_all(["PKIX1Algorithms88", "PKIX1Explicit88",
+                               "PKIX1Implicit88"],
+                              Config, NewOptions),
+
     %% OTP-6698, OTP-6702
-    ?line ok = remove_db_files(OutDir),
-    ?line ok = asn1ct:compile(DataDir ++ "PKIX1Explicit93",
-			      [Rules,{outdir,OutDir},{i,DataDir},
-			       {i,OutDir}]++Options),
-    ?line ok = asn1ct:compile(DataDir ++ "PKIX1Implicit93",
-			      [Rules,{outdir,OutDir},{i,DataDir},
-			       {i,OutDir}]++Options).
+    ok = remove_db_files(CaseDir),
+    asn1_test_lib:compile_all(["PKIX1Explicit93", "PKIX1Implicit93"],
+                              Config, NewOptions).
 
-compile_inline(Config,Rule) ->
-    ?line DataDir = ?config(data_dir,Config),
-    ?line OutDir = ?config(priv_dir,Config),
-    ?line true = code:add_patha(?config(priv_dir,Config)),
-
-    case Rule of
-	BER when BER==ber_bin;BER==ber_bin_v2 ->
-	    Options = [der,compact_bit_string,optimize,
-		       asn1config,inline],
-	    ?line ok = remove_db_file_inline(OutDir),
-	    ?line ok = asn1ct:compile(DataDir ++ "OTP-PKIX.set.asn",
-				      [Rule,{outdir,OutDir},{i,DataDir},
-				       {i,OutDir}]++Options);
-	_ ->
-	    ok
-    end.
+compile_inline(Config, Rule) when Rule == ber_bin; Rule == ber_bin_v2 ->
+    DataDir = ?config(data_dir, Config),
+    CaseDir = ?config(case_dir, Config),
+    Options = [{i, CaseDir}, {i, DataDir}, Rule,
+               der, compact_bit_string, optimize, asn1config, inline],
+    ok = remove_db_file_inline(CaseDir),
+    asn1_test_lib:compile("OTP-PKIX.set.asn", Config, Options);
+compile_inline(_Config, _Rule) ->
+    ok.
 
 remove_db_files(Dir) ->
     ?line ok = remove_db_file(Dir ++ "PKIX1Explicit93.asn1db"),

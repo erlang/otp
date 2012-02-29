@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,8 +20,7 @@
 -module(asn1ct_name).
 
 %%-compile(export_all).
--export([name_server_loop/1,
-	 start/0,
+-export([start/0,
 	 stop/0,
 	 push/1,
 	 pop/1,
@@ -35,38 +34,50 @@
 	 new/1]).
 
 start() ->
-    start_server(asn1_ns, asn1ct_name,name_server_loop,[[]]).
+    Parent = self(),
+    case get(?MODULE) of
+	undefined ->
+            put(?MODULE, spawn_link(fun() ->
+                            Ref = monitor(process, Parent),
+                            name_server_loop({Ref,Parent},[])
+                    end)),
+            ok;
+	_Pid ->
+	    already_started
+    end.
 
-stop() -> stop_server(asn1_ns).
+stop() ->
+    req(stop),
+    erase(?MODULE).
 
-name_server_loop(Vars) ->
+name_server_loop({Ref, Parent} = Monitor,Vars) ->
 %%    io:format("name -- ~w~n",[Vars]),
     receive
 	{From,{current,Variable}} ->
-	    From ! {asn1_ns,get_curr(Vars,Variable)},
-	    name_server_loop(Vars);
+	    From ! {?MODULE,get_curr(Vars,Variable)},
+	    name_server_loop(Monitor,Vars);
 	{From,{pop,Variable}} ->
-	    From ! {asn1_ns,done},
-	    name_server_loop(pop_var(Vars,Variable));
+	    From ! {?MODULE,done},
+	    name_server_loop(Monitor,pop_var(Vars,Variable));
 	{From,{push,Variable}} ->
-	    From ! {asn1_ns,done},
-	    name_server_loop(push_var(Vars,Variable));
+	    From ! {?MODULE,done},
+	    name_server_loop(Monitor,push_var(Vars,Variable));
 	{From,{delete,Variable}} ->
-	    From ! {asn1_ns,done},
-	    name_server_loop(delete_var(Vars,Variable));
+	    From ! {?MODULE,done},
+	    name_server_loop(Monitor,delete_var(Vars,Variable));
 	{From,{new,Variable}} ->
-	    From ! {asn1_ns,done},
-	    name_server_loop(new_var(Vars,Variable));
+	    From ! {?MODULE,done},
+	    name_server_loop(Monitor,new_var(Vars,Variable));
 	{From,{prev,Variable}} ->
-	    From ! {asn1_ns,get_prev(Vars,Variable)},
-	    name_server_loop(Vars);
+	    From ! {?MODULE,get_prev(Vars,Variable)},
+	    name_server_loop(Monitor,Vars);
 	{From,{next,Variable}} ->
-	    From ! {asn1_ns,get_next(Vars,Variable)},
-	    name_server_loop(Vars);
+	    From ! {?MODULE,get_next(Vars,Variable)},
+	    name_server_loop(Monitor,Vars);
+    {'DOWN', Ref, process, Parent, Reason} ->
+        exit(Reason);
 	{From,stop} ->
-	    unregister(asn1_ns),
-	    From ! {asn1_ns,stopped},
-	    exit(normal)
+	    From ! {?MODULE,stopped}
     end.
 
 active(V) ->
@@ -76,12 +87,16 @@ active(V) ->
     end.
 
 req(Req) ->
-    asn1_ns ! {self(), Req},
-    receive {asn1_ns, Reply} -> Reply end.
+    get(?MODULE) ! {self(), Req},
+    receive
+        {?MODULE, Reply} -> Reply
+    after 5000 ->
+            exit(name_server_timeout)
+    end.
 
 pop(V) ->     req({pop,V}).
 push(V) ->         req({push,V}).
-clear() ->     req(stop), start().
+clear() ->     stop(), start().
 curr(V) ->     req({current,V}).
 new(V) ->      req({new,V}).
 delete(V) ->   req({delete,V}).
@@ -208,26 +223,4 @@ get_next(Vars,Variable) ->
 				       integer_to_list(Digit+1)]));
 	_ ->
 	    none
-    end.
-
-
-stop_server(Name) ->
-    stop_server(Name, whereis(Name)).
-stop_server(_Name, undefined) -> stopped;
-stop_server(Name, _Pid) ->
-    Name  ! {self(), stop},
-    receive {Name, _} -> stopped end.
-
-
-start_server(Name,Mod,Fun,Args) ->	
-    case whereis(Name) of
-	undefined ->
-	    case catch register(Name, spawn(Mod,Fun, Args)) of
-		{'EXIT',{badarg,_}} ->
-		    start_server(Name,Mod,Fun,Args);
-		_ ->
-		    ok
-	    end;
-	_Pid ->
-	    already_started
     end.
