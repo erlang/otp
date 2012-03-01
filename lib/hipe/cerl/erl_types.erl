@@ -683,9 +683,9 @@ t_solve_remote(?opaque(Set), ET, R, C) ->
   {NewList, RR} = opaques_solve_remote(List, ET, R, C),
   {?opaque(ordsets:from_list(NewList)), RR};
 t_solve_remote(?tuple(?any, _, _) = T, _ET, _R, _C) -> {T, []};
-t_solve_remote(?tuple(Types, Arity, Tag), ET, R, C)  ->
+t_solve_remote(?tuple(Types, _Arity, _Tag), ET, R, C)  ->
   {RL, RR} = list_solve_remote(Types, ET, R, C),
-  {?tuple(RL, Arity, Tag), RR};
+  {t_tuple(RL), RR};
 t_solve_remote(?tuple_set(Set), ET, R, C) ->
   {NewSet, RR} = tuples_solve_remote(Set, ET, R, C),
   {?tuple_set(NewSet), RR};
