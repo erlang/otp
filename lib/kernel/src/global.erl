@@ -1965,7 +1965,7 @@ resolve_it(Method, Name, Pid1, Pid2) ->
 minmax(P1,P2) ->
     if node(P1) < node(P2) -> {P1, P2}; true -> {P2, P1} end.
 
--spec random_exit_name(Name, Pid1, Pid2) -> 'none' when
+-spec random_exit_name(Name, Pid1, Pid2) -> pid() when
       Name :: term(),
       Pid1 :: pid(),
       Pid2 :: pid().
@@ -1976,7 +1976,7 @@ random_exit_name(Name, Pid, Pid2) ->
     exit(Max, kill),
     Min.
 
--spec random_notify_name(Name, Pid1, Pid2) -> 'none' when
+-spec random_notify_name(Name, Pid1, Pid2) -> pid() when
       Name :: term(),
       Pid1 :: pid(),
       Pid2 :: pid().
