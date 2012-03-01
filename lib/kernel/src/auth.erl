@@ -381,13 +381,17 @@ create_cookie(Name) ->
 	    case {R1, R2} of
 		{ok, ok} ->
 		    ok;
-		{{error,_Reason}, _} ->
-		    {error, "Failed to create cookie file"};
+		{{error,Reason}, _} ->
+		    {error,
+		     lists:flatten(
+		       io_lib:format("Failed to write to cookie file '~s': ~p", [Name, Reason]))};
 		{ok, {error, Reason}} ->
 		    {error, "Failed to change mode: " ++ atom_to_list(Reason)}
 	    end;
-	{error,_Reason} ->
-	    {error, "Failed to create cookie file"}
+	{error,Reason} ->
+	    {error,
+	     lists:flatten(
+	       io_lib:format("Failed to create cookie file '~s': ~p", [Name, Reason]))}
     end.
 
 random_cookie(0, _, Result) ->
