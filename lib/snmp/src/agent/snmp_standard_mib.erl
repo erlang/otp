@@ -155,7 +155,8 @@ read_standard(Dir) ->
     FileName   = "standard.conf", 
     Gen        = fun(D, Reason) -> 
 			 throw({error, {failed_reading_config_file, 
-					D, FileName, Reason}})
+					D, FileName, 
+					file:list_dir(Dir), Reason}})
 		 end,
     Filter     = fun(Standard) -> sort_standard(Standard) end,
     Check      = fun(Entry) -> check_standard(Entry) end,
@@ -595,4 +596,4 @@ error(Reason) ->
     throw({error, Reason}).
 
 config_err(F, A) ->
-    snmpa_error:config_err("[STANDARD-MIB]: " ++ F, A).
+    snmpa_error:config_err("[STANDARD-MIB] " ++ F, A).
