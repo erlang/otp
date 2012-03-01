@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -370,5 +370,5 @@ condense('$end_of_table', _T, _SC, _G, _SCG, _I2C) ->
 condense(I, T, SC, G, SCG, I2C) ->
     [{_,C}] = ets:lookup(I2C, I),
     digraph:add_vertex(SCG, C),
-    digraph:add_edge(SCG, SC, C),
+    [digraph:add_edge(SCG, SC, C) || C =/= SC],
     condense(ets:next(T, I), T, SC, G, SCG, I2C).

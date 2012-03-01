@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -2141,17 +2141,17 @@ basic(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval("components (Mod) E", [[m1,m2,m3]], S),
     ?line {ok, _} = eval("components closure (Mod) E", [[m1,m2,m3]], S),
     ?line {ok, _} = eval("condensation (Mod) E",
-			 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]}], S),
+			 [{[m1,m2,m3],[m17]}], S),
     ?line {ok, _} = eval("condensation closure (Mod) E",
-			 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]}], S),
+			 [{[m1,m2,m3],[m17]}], S),
     ?line {ok, _} = eval("condensation closure closure closure (Mod) E",
-			 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]}], S),
+			 [{[m1,m2,m3],[m17]}], S),
     ?line {ok, _} = eval("weak condensation (Mod) E",
 	 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]},{[m17],[m17]}], S),
     ?line {ok, _} = eval("strict condensation (Mod) E",
 			 [{[m1,m2,m3],[m17]}], S),
     ?line {ok, _} = eval("range condensation (Mod) E",
-			 [[m1,m2,m3],[m17]], S),
+			 [[m17]], S),
     ?line {ok, _} = eval("domain condensation (Mod) E",
 			 [[m1,m2,m3]], S),
 
