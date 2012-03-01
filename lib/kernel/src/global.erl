@@ -280,13 +280,13 @@ unregister_name(Name) ->
             gen_server:call(global_name_server, {registrar, Fun}, infinity)
     end.
 
--spec re_register_name(Name, Pid) -> _ when
+-spec re_register_name(Name, Pid) -> 'yes' when
       Name :: term(),
       Pid :: pid().
 re_register_name(Name, Pid) when is_pid(Pid) ->
     re_register_name(Name, Pid, fun random_exit_name/3).
 
--spec re_register_name(Name, Pid, Resolve) -> _ when
+-spec re_register_name(Name, Pid, Resolve) -> 'yes' when
       Name :: term(),
       Pid :: pid(),
       Resolve :: method().
@@ -2175,7 +2175,7 @@ get_own_nodes() ->
 
 start_the_registrar() ->
     spawn_link(fun() -> loop_the_registrar() end).
-                       
+
 loop_the_registrar() ->
     receive 
         {trans_all_known, Fun, From} ->
