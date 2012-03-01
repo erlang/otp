@@ -104,7 +104,7 @@ new(Parent,Id)
 		 | {size, {W::integer(), H::integer()}}
 		 | {choices, [[unicode:chardata()]]}
 		 | {style, integer()}
-		 | {validator, wx:wx()}.
+		 | {validator, wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -130,7 +130,7 @@ create(This,Parent,Id,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 -spec create(This, Parent, Id, Pos, Size, Choices, [Option]) -> boolean() when
 	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]],
 	Option :: {style, integer()}
-		 | {validator, wx:wx()}.
+		 | {validator, wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,{PosX,PosY},{SizeW,SizeH},Choices, Options)
  when is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxChoice),

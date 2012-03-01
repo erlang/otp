@@ -101,7 +101,7 @@ new(Parent,Id,Bitmap)
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
-		 | {validator, wx:wx()}.
+		 | {validator, wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -129,7 +129,7 @@ create(This,Parent,Id,Bitmap)
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
-		 | {validator, wx:wx()}.
+		 | {validator, wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,#wx_ref{type=BitmapT,ref=BitmapRef}, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ThisT,wxBitmapButton),

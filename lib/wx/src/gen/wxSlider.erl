@@ -99,7 +99,7 @@ new(Parent,Id,Value,MinValue,MaxValue)
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
-		 | {validator, wx:wx()}.
+		 | {validator, wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -126,7 +126,7 @@ create(This,Parent,Id,Value,MinValue,MaxValue)
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
 		 | {style, integer()}
-		 | {validator, wx:wx()}.
+		 | {validator, wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Value,MinValue,MaxValue, Options)
  when is_integer(Id),is_integer(Value),is_integer(MinValue),is_integer(MaxValue),is_list(Options) ->
   ?CLASS(ThisT,wxSlider),

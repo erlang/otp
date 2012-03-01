@@ -177,7 +177,18 @@ parents_check([Parent|Ps]) ->
     w("parent_class(~s) -> true;~n",[Parent]),
     parents_check(Ps).
 
-check_class(#type{base={class,"wx"}}) -> ok;
+check_class(#type{name="wxObject", base={class,"wx"}}) ->
+    "wx:wx_object()";
+check_class(#type{name="wxIconLocation", base={class,"wx"}}) ->
+    "wx:wx_object()";
+check_class(#type{name="wxToolBarToolBase", base={class,"wx"}, mod=Mod}) ->
+    %% Implement this some day
+    "wx:wx_object()";
+check_class(#type{name="wxValidator", base={class,"wx"}, mod=Mod}) ->
+    %% Implement this some day
+    "wx:wx_object()";
+check_class(#type{name=Name, base={class,"wx"}}) ->
+    exit({class, Name});
 check_class(#type{base={class,Name},xml=Xml}) ->
     case get({class,Name}) of
 	undefined ->
@@ -190,12 +201,15 @@ check_class(#type{base={class,Name},xml=Xml}) ->
 			_ ->
 			    ?warning("~s:~s: Class ~p used but not defined~n   (see ~p)~n",
 				     [get(current_class),get(current_func),Name, Xml])
-		    end;
+		    end,
+		    "wx:wx_object()";
 		_ ->
 		    ?warning("~s:~s: Class ~p used is enum~n",
-			     [get(current_class),get(current_func),Name])
+			     [get(current_class),get(current_func),Name]),
+		    exit(class_enum)
 	    end;
-	_ -> ok
+	_ ->
+	    Name ++ ":" ++ Name ++ "()"
     end.
 
 gen_export(#class{name=Class,abstract=Abs},Ms0) ->
@@ -766,21 +780,21 @@ doc_arg_type3(#type{base=eventType}, _) ->  "atom()";
 doc_arg_type3(#type{base={ref,N}}, _) ->     N++"()";
 doc_arg_type3(#type{base={term,_N}}, _) ->  "term()";
 doc_arg_type3(T=#type{base={class,N}}, _) ->
-    check_class(T),
-    case get(current_class) of
-	N -> N ++ "()";
-	_ ->  N++":" ++ N++"()"
+    ClassType = check_class(T),
+    Current = get(current_class),
+    if N =:= Current -> N ++ "()";
+       true -> ClassType
     end;
 doc_arg_type3({merged,_,T1=#type{base={class,N1}},_,_,T2=#type{base={class,N2}},_}, _) ->
-    check_class(T1),
-    check_class(T2),
+    CT1 = check_class(T1),
+    CT2 = check_class(T2),
     Curr = get(current_class),
     if
-	N1 =:= Curr, N2 =:= Curr ->  N1++"() | "++ N2++"()";
-	N1 =:= Curr -> N1++"() | "++ N2++":" ++ N2++"()";
-	N2 =:= Curr -> N1++":" ++ N1++"() | "++ N2++"()";
+	N1 =:= Curr, N2 =:= Curr ->  N1++"()";
+	N1 =:= Curr -> N1++"() | "++ CT2;
+	N2 =:= Curr -> CT1 ++ " | "++ N2++"()";
 	true ->
-	    N1++":" ++ N1++"() | "++ N2++":" ++ N2++"()"
+	    CT1 ++ " | " ++ CT2
     end;
 %% doc_arg_type3(#type{base={enum,{_,N}}}, _) ->    uppercase(N);
 %% doc_arg_type3(#type{base={enum,N}}, _) ->    uppercase(N);

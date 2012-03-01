@@ -119,7 +119,7 @@ detachPane(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}) 
   <<ThisRef:32/?UI,WindowRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagergetallpanes">external documentation</a>.
--spec getAllPanes(This) -> wxAuiPaneInfoArray:wxAuiPaneInfoArray() when
+-spec getAllPanes(This) -> wx:wx_object() when
 	This::wxAuiManager().
 getAllPanes(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxAuiManager),
