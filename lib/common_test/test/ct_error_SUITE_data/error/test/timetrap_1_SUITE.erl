@@ -83,23 +83,11 @@ init_per_testcase(TC, Config) ->
     ets:insert(?MODULE, {last_case,fail}),
     init_per_testcase1(TC, Config).
 
-init_per_testcase1(tc1, Config) ->
-    [{tc,tc1}|Config];
-
-init_per_testcase1(tc2, Config) ->
-    [{tc,tc2}|Config];
-
-init_per_testcase1(tc3, Config) ->
-    [{tc,tc3}|Config];
-
 init_per_testcase1(tc4, Config) ->
     [{tc,tc4},{default_timeout,5000}|Config];
 
-init_per_testcase1(tc5, Config) ->
-    [{tc,tc5}|Config];
-
-init_per_testcase1(tc6, Config) ->
-    [{tc,tc6}|Config].
+init_per_testcase1(TC, Config) ->
+    [{tc,TC}|Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config0) ->
@@ -145,7 +133,19 @@ end_per_testcase1(tc5, Config) ->
 end_per_testcase1(tc6, Config) ->
     ct:pal("end_per_testcase(tc6): ~p", [Config]),
     tc6 = ?config(tc, Config),
-    exit(end_per_tc_fail_after_abort).
+    exit(end_per_tc_fail_after_abort);
+
+end_per_testcase1(tc7, Config) ->
+    ct:pal("end_per_testcase(tc7): ~p", [Config]),
+    tc7 = ?config(tc, Config),
+    {failed,timetrap_timeout} = ?config(tc_status, Config),
+    ok;
+
+end_per_testcase1(tc8, Config) ->
+    ct:pal("end_per_testcase(tc8): ~p", [Config]),
+    tc8 = ?config(tc, Config),
+    {failed,timetrap_timeout} = ?config(tc_status, Config),
+    ok.
 
 %%--------------------------------------------------------------------
 %% Function: groups() -> [Group]
@@ -170,25 +170,42 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [tc1, tc2, tc3, tc4, tc5, tc6].
+    [tc1, tc2, tc3, tc4, tc5, tc6, tc7, tc8].
 
 tc1(_) ->
-    timer:sleep(2000).
+    timer:sleep(2000),
+    ok.
 
 tc2(_) ->
     timer:sleep(2000).
 
 tc3(_) ->
     spawn(ct, abort_current_testcase, [testing_end_conf]),
-    timer:sleep(2000).
+    timer:sleep(2000),
+    ok.
 
 tc4(_) ->
     spawn(ct, abort_current_testcase, [testing_end_conf]),
-    timer:sleep(2000).
+    timer:sleep(2000),
+    ok.
 
 tc5(_) ->
-    timer:sleep(2000).
+    timer:sleep(2000),
+    ok.
 
 tc6(_) ->
     spawn(ct, abort_current_testcase, [testing_end_conf]),
     timer:sleep(2000).
+
+tc7(_) ->
+    sleep(2000),
+    ok.
+
+tc8(_) ->
+    timetrap_helper:sleep(2000),
+    ok.
+
+%%%-----------------------------------------------------------------
+sleep(T) ->
+    timer:sleep(T),
+    ok.
