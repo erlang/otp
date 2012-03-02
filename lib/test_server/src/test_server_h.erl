@@ -79,10 +79,21 @@ set_group_leader() ->
 handle_event({_Type, GL, _Msg}, State) when node(GL)/=node() ->
     {ok, State};
 handle_event({Tag, _GL, {_Pid, Type, _Report}} = Event, State) ->
-    case report(Tag, Type) of
-	sasl ->
-	    tag(State#state.testcase),
-	    sasl_report_tty_h:handle_event(Event, State#state.sasl);
+    SASL = lists:keyfind(sasl, 1, application:which_applications()),
+    case report_receiver(Tag, Type) of
+	sasl when SASL /= false ->
+	    {ok,ErrLogType} = application:get_env(sasl, errlog_type),
+	    SReport = sasl_report:format_report(group_leader(), ErrLogType,
+						tag_event(Event)),
+	    if is_list(SReport) ->
+		    tag(State#state.testcase),
+		    sasl_report_tty_h:handle_event(Event,
+						   State#state.sasl);
+	       true -> %% Report is an atom if no logging is to be done
+		    ignore
+	    end;
+	sasl -> %% SASL not running
+	    ignore;
 	kernel ->
 	    tag(State#state.testcase),
 	    error_logger_tty_h:handle_event(Event, State#state.kernel);
@@ -111,19 +122,22 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-report(error_report, supervisor_report) -> sasl;
-report(error_report, crash_report) -> sasl;
-report(info_report, progress) -> sasl;
-report(error, _) -> kernel;
-report(error_report, _) -> kernel;
-report(warning_msg, _) -> kernel;
-report(warning_report, _) -> kernel;
-report(info, _) -> kernel;
-report(info_msg, _) -> kernel;
-report(info_report, _) -> kernel;
-report(_, _) -> none.
+report_receiver(error_report, supervisor_report) -> sasl;
+report_receiver(error_report, crash_report) -> sasl;
+report_receiver(info_report, progress) -> sasl;
+report_receiver(error, _) -> kernel;
+report_receiver(error_report, _) -> kernel;
+report_receiver(warning_msg, _) -> kernel;
+report_receiver(warning_report, _) -> kernel;
+report_receiver(info, _) -> kernel;
+report_receiver(info_msg, _) -> kernel;
+report_receiver(info_report, _) -> kernel;
+report_receiver(_, _) -> none.
 
 tag({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) ->
     io:format(user, "~n=TESTCASE: ~p:~p/~p", [M,F,A]);
 tag(Testcase) ->
     io:format(user, "~n=TESTCASE: ~p", [Testcase]).
+
+tag_event(Event) ->
+    {calendar:local_time(), Event}.
