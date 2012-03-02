@@ -1698,7 +1698,7 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
     }
 #else
     erts_queue_message(p, NULL /* only used for smp build */, bp, tuple3, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );

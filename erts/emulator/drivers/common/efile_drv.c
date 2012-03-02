@@ -123,7 +123,7 @@ static ErlDrvSysInfo sys_info;
 /* For explanation of this var, see comment for same var in erl_async.c */
 static unsigned gcc_optimizer_hack = 0;
 
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
 
 #define DTRACE_EFILE_BUFSIZ 128
 
@@ -148,11 +148,11 @@ typedef struct {
 } dt_private;
 
 dt_private *get_dt_private(int);
-#else  /* HAVE_DTRACE */
+#else  /* USE_VM_PROBES */
 #define DTRACE_INVOKE_SETUP(op)            do {} while (0)
 #define DTRACE_INVOKE_SETUP_BY_NAME(op)    do {} while (0)
 #define DTRACE_INVOKE_RETURN(op)           do {} while (0)
-#endif  /* HAVE_DTRACE */
+#endif  /* USE_VM_PROBES */
 
 /* #define TRACE 1 */
 #ifdef TRACE
@@ -208,7 +208,7 @@ dt_private *get_dt_private(int);
 
 
 #ifdef FILENAMES_16BIT
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 #error 16bit characters in filenames and dtrace in combination is not supported.
 #endif
 #  define FILENAME_BYTELEN(Str) filename_len_16bit(Str)
@@ -326,7 +326,7 @@ typedef struct {
     ErlDrvPDL       q_mtx;    /* Mutex for the driver queue, known by the emulator. Also used for
 				 mutual exclusion when accessing field(s) below. */
     size_t          write_buffered;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     int             idnum;      /* Unique ID # for this driver thread/desc */
     char            port_str[DTRACE_TERM_BUF_SIZE];
 #endif
@@ -427,7 +427,7 @@ struct t_data
     void         (*free)(void *);
     int            again;
     int            reply;
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
     int               sched_i1;
     Uint64            sched_i2;
     char              sched_utag[DTRACE_EFILE_BUFSIZ+1];
@@ -727,10 +727,10 @@ file_init(void)
 			    : 0);
     driver_system_info(&sys_info, sizeof(ErlDrvSysInfo));
 
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
     erts_mtx_init(&dt_driver_mutex, "efile_drv dtrace mutex");
     pthread_key_create(&dt_driver_key, NULL);
-#endif  /* HAVE_DTRACE */
+#endif  /* USE_VM_PROBES */
 
     return 0;
 }
@@ -771,10 +771,10 @@ file_start(ErlDrvPort port, char* command)
     desc->write_error = 0;
     MUTEX_INIT(desc->q_mtx, port); /* Refc is one, referenced by emulator now */
     desc->write_buffered = 0;
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
     dtrace_drvport_str(port, desc->port_str);
     get_dt_private(0);           /* throw away return value */
-#endif  /* HAVE_DTRACE */
+#endif  /* USE_VM_PROBES */
     return (ErlDrvData) desc;
 }
 
@@ -2025,7 +2025,7 @@ static void cq_execute(file_descriptor *desc) {
 
 static struct t_data *async_write(file_descriptor *desc, int *errp,
 		       int reply, Uint32 reply_size
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       ,Sint64 *dt_i1, Sint64 *dt_i2, Sint64 *dt_i3
 #endif
 ) {
@@ -2041,7 +2041,7 @@ static struct t_data *async_write(file_descriptor *desc, int *errp,
     d->c.writev.port = desc->port;
     d->c.writev.q_mtx = desc->q_mtx;
     d->c.writev.size = desc->write_buffered;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     if (dt_i1 != NULL) {
         *dt_i1 = d->fd;
         *dt_i2 = d->flags;
@@ -2060,12 +2060,12 @@ static struct t_data *async_write(file_descriptor *desc, int *errp,
 }
 
 static int flush_write(file_descriptor *desc, int *errp
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
                        , dt_private *dt_priv, char *dt_utag
 #endif
 ) {
     int    result = 0;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0;
 #endif
     struct t_data *d = NULL;
@@ -2073,7 +2073,7 @@ static int flush_write(file_descriptor *desc, int *errp
     MUTEX_LOCK(desc->q_mtx);
     if (desc->write_buffered > 0) {
 	if ((d = async_write(desc, errp, 0, 0
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     ,&dt_i1, &dt_i2, &dt_i3
 #endif
 			     )) == NULL) {
@@ -2081,7 +2081,7 @@ static int flush_write(file_descriptor *desc, int *errp
         }
     }
     MUTEX_UNLOCK(desc->q_mtx);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     if (d != NULL) {
         d->sched_i1 = dt_priv->thread_num;
         d->sched_i2 = dt_priv->tag;
@@ -2098,7 +2098,7 @@ static int flush_write(file_descriptor *desc, int *errp
                  dt_utag, FILE_WRITE,
                  NULL, NULL, dt_i1, dt_i2, dt_i3, 0, desc->port_str);
     }
-#endif /* HAVE_DTRACE */
+#endif /* USE_VM_PROBES */
     return result;
 }
 
@@ -2112,13 +2112,13 @@ static int check_write_error(file_descriptor *desc, int *errp) {
 }
 
 static int flush_write_check_error(file_descriptor *desc, int *errp
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
                                    , dt_private *dt_priv, char *dt_utag
 #endif
 				   ) {
     int r;
     if ( (r = flush_write(desc, errp
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			  , dt_priv, dt_utag
 #endif
 			  )) != 0) {
@@ -2131,7 +2131,7 @@ static int flush_write_check_error(file_descriptor *desc, int *errp
 
 static struct t_data *async_lseek(file_descriptor *desc, int *errp, int reply,
 				  Sint64 offset, int origin
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				  , Sint64 *dt_i1, Sint64 *dt_i2, Sint64 *dt_i3
 #endif
 				  ) {
@@ -2146,7 +2146,7 @@ static struct t_data *async_lseek(file_descriptor *desc, int *errp, int reply,
     d->reply = reply;
     d->c.lseek.offset = offset;
     d->c.lseek.origin = origin;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     if (dt_i1 != NULL) {
         *dt_i1 = d->fd;
         *dt_i2 = d->c.lseek.offset;
@@ -2170,13 +2170,13 @@ static void flush_read(file_descriptor *desc) {
 }
 
 static int lseek_flush_read(file_descriptor *desc, int *errp
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			    ,dt_private *dt_priv, char *dt_utag
 #endif
 			    ) {
     int r = 0;
     size_t read_size = desc->read_size;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0;
 #endif
     struct t_data *d;
@@ -2185,13 +2185,13 @@ static int lseek_flush_read(file_descriptor *desc, int *errp
     if (read_size != 0) {
 	if ((d = async_lseek(desc, errp, 0,
                              -((ssize_t)read_size), EFILE_SEEK_CUR
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , &dt_i1, &dt_i2, &dt_i3
 #endif
 			     )) == NULL) {
             r = -1;
         } else {
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
             d->sched_i1 = dt_priv->thread_num;
             d->sched_i2 = dt_priv->tag;
             d->sched_utag[0] = '\0';
@@ -2206,7 +2206,7 @@ static int lseek_flush_read(file_descriptor *desc, int *errp
             DTRACE11(efile_drv_entry, dt_priv->thread_num, dt_priv->tag++,
                      dt_utag, FILE_LSEEK,
                      NULL, NULL, dt_i1, dt_i2, dt_i3, 0, desc->port_str);
-#endif /* HAVE_DTRACE */
+#endif /* USE_VM_PROBES */
         }
     }
     return r;
@@ -2224,7 +2224,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
     struct t_data *d = (struct t_data *) data;
     char header[5];		/* result code + count */
     char resbuf[RESBUFSIZE];	/* Result buffer. */
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
     int sched_i1 = d->sched_i1, sched_i2 = d->sched_i2, command = d->command,
         result_ok = d->result_ok,
         posix_errno = d->result_ok ? 0 : d->errInfo.posix_errno;
@@ -2235,7 +2235,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
         strncpy(sched_utag, d->sched_utag, DTRACE_EFILE_BUFSIZ);
         sched_utag[DTRACE_EFILE_BUFSIZ] = '\0';
     }
-#endif  /* HAVE_DTRACE */
+#endif  /* USE_VM_PROBES */
 
     TRACE_C('r');
 
@@ -2438,7 +2438,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	  if (d->reply) {
 	      TRACE_C('K');
 	      reply_ok(desc);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
               result_ok = 1;
 #endif
 	  }
@@ -2520,7 +2520,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     char* name;			/* Points to the filename in buf. */
     int command;
     struct t_data *d = NULL;
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
     char *dt_utag = NULL;
     char *dt_s1 = NULL, *dt_s2 = NULL;
     Sint64 dt_i1 = 0;
@@ -2528,7 +2528,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
     Sint64 dt_i3 = 0;
     Sint64 dt_i4 = 0;
     dt_private *dt_priv = get_dt_private(0);
-#endif  /* HAVE_DTRACE */
+#endif  /* USE_VM_PROBES */
 
     TRACE_C('o');
 
@@ -2543,7 +2543,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_s1 = d->b;
 	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 #endif
@@ -2558,7 +2558,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_s1 = d->b;
 	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 #endif
@@ -2573,7 +2573,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_s1 = d->b;
 	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 #endif
@@ -2594,7 +2594,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	
 	    FILENAME_COPY(d->b, name);
 	    FILENAME_COPY(d->b + namelen, new_name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
 	    dt_s2 = d->b + namelen;
 	    dt_utag = buf + namelen + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
@@ -2612,7 +2612,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE);
 	
 	FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_s1 = d->b;
 	dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 #endif
@@ -2627,7 +2627,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
 	
 	    d->drive = *(uchar*)buf;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_utag = buf + 1;
 #endif
 	    d->command = command;
@@ -2645,7 +2645,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 			      FILENAME_CHARSIZE);
 	
 	    FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
 	    dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 #endif
@@ -2673,7 +2673,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    dir_handle          = NULL;
 	    resbuf[0]           = FILE_RESP_LFNAME;
 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_s1 = name;
 	    dt_utag = name + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
 #endif
@@ -2710,7 +2710,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 		reply_error(desc, &errInfo);
 		return;
 	    }
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    DTRACE11(efile_drv_entry, dt_priv->thread_num, dt_priv->tag++,
 		     dt_utag, command, name, dt_s2,
 		     dt_i1, dt_i2, dt_i3, dt_i4, desc->port_str);
@@ -2727,7 +2727,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d->flags = get_int32((uchar*)buf);
 	    name = buf+4;
 	    FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_i1 = d->flags;
 	    dt_s1 = d->b;
 	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
@@ -2744,7 +2744,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
 	    
 	    d->fd = fd;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_utag = name;
 	    dt_i1 = fd;
 #endif
@@ -2760,7 +2760,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
 	    
 	    d->fd = fd;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_utag = name;
 	    dt_i1 = fd;
 #endif
@@ -2780,7 +2780,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    
 	    FILENAME_COPY(d->b, name);
 	    d->fd = fd;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
 	    if (command == FILE_LSTAT) {
 		dt_s1 = d->b;
@@ -2801,7 +2801,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    
 	    d->flags = desc->flags;
 	    d->fd = fd;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_utag = name;
 	    dt_i1 = fd;
 	    dt_i2 = d->flags;
@@ -2826,7 +2826,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d->info.cTime      = (time_t)((Sint64)get_int64(buf +  7 * 4));
 
 	    FILENAME_COPY(d->b, buf + 9*4);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_i1              = d->info.mode;
 	    dt_i2              = d->info.uid;
 	    dt_i3              = d->info.gid;
@@ -2845,7 +2845,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
 	
 	    FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
 	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
 #endif
@@ -2860,7 +2860,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	{
 	    d = EF_SAFE_ALLOC(sizeof(struct t_data) - 1 + RESBUFSIZE + 1);
 	    FILENAME_COPY(d->b, name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
 	    dt_utag = name + FILENAME_BYTELEN(d->b) + FILENAME_CHARSIZE;
 #endif
@@ -2884,7 +2884,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	
 	    FILENAME_COPY(d->b, name);
 	    FILENAME_COPY(d->b + namelen, new_name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
 	    dt_s2 = d->b + namelen;
 	    dt_utag = buf + namelen + FILENAME_BYTELEN(dt_s2) + FILENAME_CHARSIZE;
@@ -2910,7 +2910,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 	
 	    FILENAME_COPY(d->b, name);
 	    FILENAME_COPY(d->b + namelen, new_name);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
 	    dt_s2 = d->b + namelen;
 	    dt_utag = buf + namelen + FILENAME_BYTELEN(dt_s2) + FILENAME_CHARSIZE;
@@ -2936,7 +2936,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
         d->c.fadvise.offset = get_int64((uchar*) buf);
         d->c.fadvise.length = get_int64(((uchar*) buf) + sizeof(Sint64));
         d->c.fadvise.advise = get_int32(((uchar*) buf) + 2 * sizeof(Sint64));
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
         dt_i1 = d->fd;
         dt_i2 = d->c.fadvise.offset;
         dt_i3 = d->c.fadvise.length;
@@ -2956,7 +2956,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 
  done:
     if (d) {
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	d->sched_i1 = dt_priv->thread_num;
 	d->sched_i2 = dt_priv->tag;
 	d->sched_utag[0] = '\0';
@@ -2985,7 +2985,7 @@ file_flush(ErlDrvData e) {
 #ifdef DEBUG
     int r;
 #endif
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
     dt_private *dt_priv = get_dt_private(dt_driver_io_worker_base);
 #endif
 
@@ -2999,7 +2999,7 @@ file_flush(ErlDrvData e) {
     r = 
 #endif
          flush_write(desc, NULL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		     , dt_priv, (desc->d == NULL) ? NULL : desc->d->sched_utag
 #endif
 		     );
@@ -3044,7 +3044,7 @@ static void
 file_timeout(ErlDrvData e) {
     file_descriptor *desc = (file_descriptor *)e;
     enum e_timer timer_state = desc->timer_state;
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
     dt_private *dt_priv = get_dt_private(dt_driver_io_worker_base);
 #endif
 
@@ -3065,7 +3065,7 @@ file_timeout(ErlDrvData e) {
 	int r = 
 #endif
 	         flush_write(desc, NULL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , dt_priv, (desc->d == NULL) ? NULL : desc->d->sched_utag
 #endif
 			     );
@@ -3090,7 +3090,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     int p, q;
     int err;
     struct t_data *d = NULL;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     Sint64 dt_i1 = 0, dt_i2 = 0, dt_i3 = 0;
     Sint64 dt_i4 = 0;
     char *dt_utag = NULL;
@@ -3116,12 +3116,12 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     switch (command) {
 
     case FILE_CLOSE: {
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_utag = EV_CHAR_P(ev, p, q);
 #endif
 	flush_read(desc);
 	if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				    , dt_priv, dt_utag
 #endif
 				    ) < 0) {
@@ -3136,7 +3136,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 		d->reply = !0;
 		d->fd = desc->fd;
 		d->flags = desc->flags;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		dt_i1 = d->fd;
 		dt_i2 = d->flags;
 #endif
@@ -3162,11 +3162,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_utag = EV_CHAR_P(ev, p, q);
 #endif
 	if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				    , dt_priv, dt_utag
 #endif
 				    ) < 0) {
@@ -3178,7 +3178,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    /* We have allocated a buffer for line mode but should not really have a 
 	       read-ahead buffer... */
 	    if (lseek_flush_read(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				 , dt_priv, dt_utag
 #endif
 				 ) < 0) {
@@ -3262,7 +3262,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->c.read.bin_offset = desc->read_offset + desc->read_size;
 	d->c.read.bin_size = desc->read_binp->orig_size - d->c.read.bin_offset;
 	d->c.read.size = size;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i1 = d->fd;
 	dt_i2 = d->flags;
 	dt_i3 = d->c.read.size;
@@ -3284,11 +3284,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	 *    allocated binary + dealing with offsets and lengts are done in file_async ready
 	 *    for this OP.
 	 */
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_utag = EV_CHAR_P(ev, p, q);
 #endif
 	if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				    , dt_priv, dt_utag
 #endif
 				    ) < 0) {
@@ -3296,7 +3296,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (ev->size != 1
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    + FILENAME_BYTELEN(dt_utag) + FILENAME_CHARSIZE
 #endif
 	    ) {
@@ -3355,14 +3355,14 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->c.read_line.binp = desc->read_binp;
 	d->c.read_line.read_offset = desc->read_offset;
 	d->c.read_line.read_size = desc->read_size;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i1 = d->fd;
 	dt_i2 = d->flags;
 	dt_i3 = d->c.read_line.read_offset;
 #endif
 #if !ALWAYS_READ_LINE_AHEAD
 	d->c.read_line.read_ahead = (desc->read_bufsize > 0);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i4 = d->c.read_line.read_ahead;
 #endif
 #endif 
@@ -3378,13 +3378,13 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	ErlDrvSizeT skip = 1;
 	ErlDrvSizeT size = ev->size - skip;
 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_utag = EV_CHAR_P(ev, p, q);
 	skip += FILENAME_BYTELEN(dt_utag) + FILENAME_CHARSIZE;
 	size = ev->size - skip;
 #endif
 	if (lseek_flush_read(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , dt_priv, dt_utag
 #endif
 			     ) < 0) {
@@ -3415,7 +3415,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    }
 	} else {
 	    if ((d = async_write(desc, &err, !0, size
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				 , &dt_i1, &dt_i2, &dt_i3
 #endif
 				 )) == NULL) {
@@ -3433,7 +3433,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 			   This is handled specially in prim_file.erl */
 	Uint32 i, j, n; 
 	size_t total;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	char dt_tmp;
 	int dt_utag_bytes = 1;
 
@@ -3447,7 +3447,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
 #endif
 	if (ev->size < 1+4
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    + dt_utag_bytes
 #endif
 	    || !EV_GET_UINT32(ev, &n, &p, &q)) {
@@ -3456,7 +3456,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (lseek_flush_read(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , dt_priv, dt_utag
 #endif
 			     ) < 0) {
@@ -3464,7 +3464,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				    , dt_priv, dt_utag
 #endif
 				    ) < 0) {
@@ -3481,7 +3481,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (ev->size < 1+4+8*(2*n)
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    + dt_utag_bytes
 #endif
 	    ) {
@@ -3499,7 +3499,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->reply = !0;
 	d->fd = desc->fd;
 	d->flags = desc->flags;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i1 = d->fd;
 	dt_i2 = d->flags;
 #endif
@@ -3540,7 +3540,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    }
 	}
 	d->c.pwritev.size = total;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i3 = d->c.pwritev.size;
 #endif
 	d->c.pwritev.free_size = 0;
@@ -3550,7 +3550,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_Uint(desc, 0);
 	} else {
 	    ErlDrvSizeT skip = 1 + 4 + 8 * (2*n) 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		+ dt_utag_bytes
 #endif
 		;
@@ -3580,7 +3580,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	register void * void_ptr;
 	Uint32 i, n;
 	ErlIOVec *res_ev;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	char dt_tmp;
 	int dt_utag_bytes = 1;
 	/* This will work for UTF-8, but not for UTF-16 - extra reminder here */
@@ -3593,7 +3593,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	}
 #endif
 	if (lseek_flush_read(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , dt_priv, dt_utag
 #endif
 			     ) < 0) {
@@ -3601,7 +3601,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				    , dt_priv, dt_utag
 #endif
 				    ) < 0) {
@@ -3609,7 +3609,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (ev->size < 1+8
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    + dt_utag_bytes
 #endif
 	    || !EV_GET_UINT32(ev, &n, &p, &q)
@@ -3619,7 +3619,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (ev->size < 1+8+8*(2*n)
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    + dt_utag_bytes
 #endif
 	    ) {
@@ -3642,7 +3642,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->reply = !0;
 	d->fd = desc->fd;
 	d->flags = desc->flags;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i1 = d->fd;
 	dt_i2 = d->flags;
 #endif
@@ -3673,7 +3673,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #else
 	    size = ((size_t)sizeH<<32) | sizeL;
 #endif
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_i3 += size;
 #endif
 	    if (! (res_ev->binv[i] = driver_alloc_binary(size))) {
@@ -3732,11 +3732,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_utag = EV_CHAR_P(ev, p, q);
 #endif
 	if (lseek_flush_read(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , dt_priv, dt_utag
 #endif
 			     ) < 0) {
@@ -3744,7 +3744,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				    , dt_priv, dt_utag
 #endif
 				    ) < 0) {
@@ -3752,7 +3752,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if ((d = async_lseek(desc, &err, !0, offset, origin
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , &dt_i1, &dt_i2, &dt_i3
 #endif
 			     )) == NULL) {
@@ -3768,7 +3768,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, ENOENT);
 	    goto done;
 	}
-#ifndef HAVE_DTRACE
+#ifndef USE_VM_PROBES
 	/* In the dtrace case, the iov has an extra element, the dtrace utag - we will need 
 	   another test to see that
 	   the filename is in a single buffer: */
@@ -3794,7 +3794,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->reply = !0;
 	/* Copy name */
 	FILENAME_COPY(d->b, filename);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	{
 	    char dt_tmp;
 
@@ -3848,11 +3848,11 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_utag = EV_CHAR_P(ev, p, q);
 #endif
 	if (lseek_flush_read(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			     , dt_priv, dt_utag
 #endif
 			     ) < 0) {
@@ -3860,7 +3860,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    goto done;
 	}
 	if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				    , dt_priv, dt_utag
 #endif
 				    ) < 0) {
@@ -3883,7 +3883,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->flags = desc->flags;
 	d->c.preadv.offsets[0] = hdr_offset;
 	d->c.preadv.size = max_size;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i1 = d->fd;
 	dt_i2 = d->flags;
 	dt_i3 = d->c.preadv.offsets[0];
@@ -3910,7 +3910,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	    reply_posix_error(desc, EINVAL);
 	    goto done;
 	}
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	dt_i1 = opt;
 	dt_utag = EV_CHAR_P(ev, p, q);
 #endif
@@ -3918,7 +3918,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	case FILE_OPT_DELAYED_WRITE: {
 	    Uint32 sizeH, sizeL, delayH, delayL;
 	    if (ev->size != 1+1+4*sizeof(Uint32)
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		+ FILENAME_BYTELEN(dt_utag) + FILENAME_CHARSIZE
 #endif
 		|| !EV_GET_UINT32(ev, &sizeH, &p, &q)
@@ -3947,7 +3947,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #else
 	    desc->write_delay = ((unsigned long)delayH << 32) | delayL;
 #endif
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_i2 = desc->write_delay;
 #endif
 	    TRACE_C('K');
@@ -3956,7 +3956,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	case FILE_OPT_READ_AHEAD: {
 	    Uint32 sizeH, sizeL;
 	    if (ev->size != 1+1+2*sizeof(Uint32)
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		+ FILENAME_BYTELEN(dt_utag)+FILENAME_CHARSIZE
 #endif
 		|| !EV_GET_UINT32(ev, &sizeH, &p, &q)
@@ -3974,7 +3974,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 #else
 	    desc->read_bufsize = ((size_t)sizeH << 32) | sizeL;
 #endif
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    dt_i2 = desc->read_bufsize;
 #endif
 	    TRACE_C('K');
@@ -4064,7 +4064,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     } /* switch(command) */
 
     if (lseek_flush_read(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			 , dt_priv, dt_utag
 #endif
 			 ) < 0) {
@@ -4072,7 +4072,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	goto done;
     }
     if (flush_write_check_error(desc, &err
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				, dt_priv, dt_utag
 #endif
 				) < 0) {
@@ -4094,7 +4094,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
  done:
     if (d != NULL) {
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	/*
 	 * If d == NULL, then either:
 	 *    1). There was an error of some sort, or
@@ -4119,7 +4119,7 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
     cq_execute(desc);
 }
 
-#ifdef  HAVE_DTRACE
+#ifdef  USE_VM_PROBES
 dt_private *
 get_dt_private(int base)
 {
@@ -4135,4 +4135,4 @@ get_dt_private(int base)
     }
     return dt_priv;
 }
-#endif  /* HAVE_DTRACE */
+#endif  /* USE_VM_PROBES */

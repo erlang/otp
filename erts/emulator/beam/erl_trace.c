@@ -125,7 +125,7 @@ do { \
     enqueue_sys_msg_unlocked(SYS_MSG_TYPE_TRACE, (FPID), (TPID), (MSG), (BP)); \
 } while(0)
 #else
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 #define ERTS_ENQ_TRACE_MSG(FPID, TPROC, MSG, BP) \
     erts_queue_message((TPROC), NULL, (BP), (MSG), NIL, NIL)
 #else
@@ -589,7 +589,7 @@ profile_send(Eterm from, Eterm message) {
 	msg = copy_struct(message, sz, &hp, &bp->off_heap);
 	
     	erts_queue_message(profile_p, NULL, bp, msg, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );
@@ -1004,7 +1004,7 @@ seq_trace_update_send(Process *p)
     Eterm seq_tracer = erts_get_system_seq_tracer();
     ASSERT((is_tuple(SEQ_TRACE_TOKEN(p)) || is_nil(SEQ_TRACE_TOKEN(p))));
     if ( (p->id == seq_tracer) || (SEQ_TRACE_TOKEN(p) == NIL)
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	 || (SEQ_TRACE_TOKEN(p) == am_have_dt_utag)
 #endif
 	 ) {
@@ -1192,7 +1192,7 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
 	erts_smp_mtx_unlock(&smq_mtx);
 #else
 	erts_queue_message(tracer, NULL, bp, mess, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   ); /* trace_token must be NIL here */
@@ -2487,7 +2487,7 @@ monitor_long_gc(Process *p, Uint time) {
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->id, NIL, msg, bp);
 #else
     erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 		       );
@@ -2563,7 +2563,7 @@ monitor_large_heap(Process *p) {
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->id, NIL, msg, bp);
 #else
     erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );
@@ -2597,7 +2597,7 @@ monitor_generic(Process *p, Eterm type, Eterm spec) {
     enqueue_sys_msg(SYS_MSG_TYPE_SYSMON, p->id, NIL, msg, bp);
 #else
     erts_queue_message(monitor_p, NULL, bp, msg, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );
@@ -3387,7 +3387,7 @@ sys_msg_dispatcher_func(void *unused)
 		else {
 		queue_proc_msg:
 		    erts_queue_message(proc,&proc_locks,smqp->bp,smqp->msg,NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				       , NIL
 #endif
 				       );

@@ -680,7 +680,7 @@ reply_sched_wall_time(void *vswtrp)
     }
 
     erts_queue_message(rp, &rp_locks, bp, msg, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 		       );
@@ -7264,7 +7264,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->seq_trace_lastcnt = 0;
     p->seq_trace_clock = 0;
     SEQ_TRACE_TOKEN(p) = NIL;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     DT_UTAG(p) = NIL;
     DT_UTAG_FLAGS(p) = 0;
 #endif
@@ -7860,7 +7860,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 		  Eterm exit_term, Uint term_size, Eterm token)
 {
     if (token == NIL 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	|| token == am_have_dt_utag
 #endif
 	) {
@@ -7872,7 +7872,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 	hp = erts_alloc_message_heap(term_size, &bp, &ohp, to, to_locksp);
 	mess = copy_struct(exit_term, term_size, &hp, ohp);
 	erts_queue_message(to, to_locksp, bp, mess, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );
@@ -7892,7 +7892,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 	seq_trace_output(token, mess, SEQ_TRACE_SEND, to->id, NULL);
 	temp_token = copy_struct(token, sz_token, &hp, &bp->off_heap);
 	erts_queue_message(to, to_locksp, bp, mess, temp_token
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );
@@ -8002,7 +8002,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
     if (ERTS_PROC_IS_TRAPPING_EXITS(rp)
 	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
 	if (is_not_nil(token) 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    && token != am_have_dt_utag
 #endif
 	    && token_update)

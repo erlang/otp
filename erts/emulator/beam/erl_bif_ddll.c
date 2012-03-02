@@ -1763,7 +1763,7 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
 	mess = TUPLE5(hp,type,r,am_driver,driver_name,tag);
     }
     erts_queue_message(proc, &rp_locks, bp, mess, am_undefined
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );

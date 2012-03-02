@@ -1744,13 +1744,13 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 	    return THE_NON_VALUE;
         }
 	if (build_result) {
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    old_value = (SEQ_TRACE_TOKEN(p) == am_have_dt_utag) ? NIL : SEQ_TRACE_TOKEN(p);
 #else
 	    old_value = SEQ_TRACE_TOKEN(p);
 #endif
 	}
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
         SEQ_TRACE_TOKEN(p) = (DT_UTAG(p) != NIL) ? am_have_dt_utag : NIL;
 #else
         SEQ_TRACE_TOKEN(p) = NIL;
@@ -1768,7 +1768,7 @@ new_seq_trace_token(Process* p)
     Eterm* hp;
 
     if (SEQ_TRACE_TOKEN(p) == NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	|| SEQ_TRACE_TOKEN(p) == am_have_dt_utag
 #endif
 	) {
@@ -1792,7 +1792,7 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
     }
 
     if (SEQ_TRACE_TOKEN(p) == NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	|| SEQ_TRACE_TOKEN(p) == am_have_dt_utag
 #endif
 	) {
@@ -1853,7 +1853,7 @@ BIF_RETTYPE seq_trace_info_1(BIF_ALIST_1)
 BIF_RETTYPE seq_trace_print_1(BIF_ALIST_1)    
 {
     if (SEQ_TRACE_TOKEN(BIF_P) == NIL 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	|| SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag
 #endif
 	) {
@@ -1876,7 +1876,7 @@ BIF_RETTYPE seq_trace_print_1(BIF_ALIST_1)
 BIF_RETTYPE seq_trace_print_2(BIF_ALIST_2)    
 {
     if (SEQ_TRACE_TOKEN(BIF_P) == NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	|| SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag
 #endif
 	) {

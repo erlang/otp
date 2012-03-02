@@ -42,7 +42,7 @@
 #define DTRACE_CHARBUF(name, size) \
     char name##_BUFFER[size], *name = name##_BUFFER
 
-#ifdef  HAVE_DTRACE
+#if defined(USE_DYNAMIC_TRACE) && defined(USE_VM_PROBES) 
 
 #include "erlang_dtrace.h"
 
@@ -87,7 +87,7 @@
     STAP_PROBE10(provider,probe,(parm1),(parm2),(parm3),(parm4),(parm5),(parm6),(parm7),(parm8),(parm9),(parm10))
 #endif /* STAP_PROBE_ADDR */
 
-#else   /* HAVE_DTRACE */
+#else   /* USE_DYNAMIC_TRACE && USE_VM_PROBES */
 
 /* Render all macros to do nothing */
 #define DTRACE_ENABLED(name)                         0
@@ -104,6 +104,6 @@
 #define DTRACE11(name, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
                                                      do {} while (0)
 
-#endif  /* HAVE_DTRACE */
+#endif  /* USE_DYNAMIC_TRACE && USE_VM_PROBES */
 
 #endif  /* __DTRACE_WRAPPER_H */

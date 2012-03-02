@@ -383,7 +383,7 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	    Eterm *hp = erts_alloc_message_heap(3,&bp,&ohp,rp,&rp_locks);
 	    tup = TUPLE2(hp, am_nodedown, name);
 	    erts_queue_message(rp, &rp_locks, bp, tup, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			       , NIL
 #endif
 			       );
@@ -755,7 +755,7 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
 
     UseTmpHeapNoproc(5);
     if (SEQ_TRACE_TOKEN(sender) != NIL 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
 #endif
 	) {
@@ -808,7 +808,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
 
     UseTmpHeapNoproc(6);
     if (SEQ_TRACE_TOKEN(sender) != NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
 #endif
 	) {
@@ -864,7 +864,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
 
     UseTmpHeapNoproc(6);
     if (token != NIL 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	&& token != am_have_dt_utag
 #endif
 	) {	
@@ -3111,7 +3111,7 @@ send_nodes_mon_msg(Process *rp,
 
     ASSERT(hend == hp);
     erts_queue_message(rp, rp_locksp, bp, msg, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );

@@ -183,7 +183,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {   "save_ops_lock",                        NULL                    },
 #endif
 #endif
-#ifdef	HAVE_DTRACE
+#ifdef	USE_VM_PROBES
     {   "efile_drv dtrace mutex",               NULL                    },
 #endif
     {	"mtrace_buf",				NULL			},

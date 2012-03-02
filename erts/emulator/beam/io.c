@@ -1565,7 +1565,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 	    res = copy_struct(res, sz_res, &hp, ohp);
 	    tuple = TUPLE2(hp, sender, res);
 	erts_queue_message(rp, &rp_locks, bp, tuple, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );
@@ -1658,7 +1658,7 @@ static void deliver_read_message(Port* prt, Eterm to,
     hp += 3;
 
     erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 		       );
@@ -1815,7 +1815,7 @@ deliver_vec_message(Port* prt,			/* Port */
     hp += 3;
 
     erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );
@@ -2785,7 +2785,7 @@ void driver_report_exit(int ix, int status)
    tuple = TUPLE2(hp, prt->id, tuple);
 
    erts_queue_message(rp, &rp_locks, bp, tuple, am_undefined
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		      , NIL
 #endif
 		      );
@@ -3339,7 +3339,7 @@ driver_deliver_term(ErlDrvPort port,
 	}
 	/* send message */
 	erts_queue_message(rp, &rp_locks, bp, mess, am_undefined
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );

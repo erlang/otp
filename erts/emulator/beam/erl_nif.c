@@ -352,7 +352,7 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
 	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
     erts_queue_message(rp, &rp_locks, frags, msg, am_undefined
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );

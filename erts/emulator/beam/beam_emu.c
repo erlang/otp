@@ -1051,7 +1051,7 @@ init_emulator(void)
 #  define REG_tmp_arg2
 #endif
 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 
 #define DTRACE_CALL(p, m, f, a)                                 \
     if (DTRACE_ENABLED(function_entry)) {                       \
@@ -1111,7 +1111,7 @@ init_emulator(void)
         DTRACE2(nif_return, process_name, mfa);                 \
     }
 
-#else /* HAVE_DTRACE */
+#else /* USE_VM_PROBES */
 
 #define DTRACE_CALL(p, m, f, a)       do {} while (0)
 #define DTRACE_RETURN(p, m, f, a)     do {} while (0)
@@ -1120,7 +1120,7 @@ init_emulator(void)
 #define DTRACE_NIF_ENTRY(p, m, f, a)  do {} while (0)
 #define DTRACE_NIF_RETURN(p, m, f, a) do {} while (0)
 
-#endif /* HAVE_DTRACE */
+#endif /* USE_VM_PROBES */
 
 void
 dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
@@ -1892,34 +1892,49 @@ void process_main(void)
 	 save_calls(c_p, &exp_receive);
      }
      if (ERL_MESSAGE_TOKEN(msgp) == NIL) {
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	 if (DT_UTAG(c_p) != NIL) {
 	     if (DT_UTAG_FLAGS(c_p) & DT_UTAG_PERMANENT) {
 		 SEQ_TRACE_TOKEN(c_p) = am_have_dt_utag;
+#ifdef DTRACE_TAG_HARDDEBUG
 		 if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING) 
-		     erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) stop spreading tag %T with message %T\r\n",c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+		     erts_fprintf(stderr,
+				  "Dtrace -> (%T) stop spreading "
+				  "tag %T with message %T\r\n",
+				  c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+#endif
 	     } else {
-		 erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) kill tag %T with message %T\r\n",c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+#ifdef DTRACE_TAG_HARDDEBUG
+		 erts_fprintf(stderr,
+			      "Dtrace -> (%T) kill tag %T with "
+			      "message %T\r\n",
+			      c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+#endif
 		 DT_UTAG(c_p) = NIL;
 		 SEQ_TRACE_TOKEN(c_p) = NIL;
 	     }
 	 } else {
 #endif
 	     SEQ_TRACE_TOKEN(c_p) = NIL;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	 }
 	 DT_UTAG_FLAGS(c_p) &= ~DT_UTAG_SPREADING;
 #endif
      } else if (ERL_MESSAGE_TOKEN(msgp) != am_undefined) {
 	 Eterm msg;
 	 SEQ_TRACE_TOKEN(c_p) = ERL_MESSAGE_TOKEN(msgp);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	 if (ERL_MESSAGE_TOKEN(msgp) == am_have_dt_utag) {
 	     if (DT_UTAG(c_p) == NIL) {
 		 DT_UTAG(c_p) = ERL_MESSAGE_DT_UTAG(msgp);
 	     }
 	     DT_UTAG_FLAGS(c_p) |= DT_UTAG_SPREADING;
-	     erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) receive tag (%T) with message %T\r\n",c_p->id, DT_UTAG(c_p), ERL_MESSAGE_TERM(msgp));
+#ifdef DTRACE_TAG_HARDDEBUG
+	     erts_fprintf(stderr,
+			  "Dtrace -> (%T) receive tag (%T) "
+			  "with message %T\r\n",
+			  c_p->id, DT_UTAG(c_p), ERL_MESSAGE_TERM(msgp));
+#endif
 	 } else {
 #endif
 	     ASSERT(is_tuple(SEQ_TRACE_TOKEN(c_p)));
@@ -1935,7 +1950,7 @@ void process_main(void)
 	     msg = ERL_MESSAGE_TERM(msgp);
 	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
 			      c_p->id, c_p);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	 }
 #endif
      }

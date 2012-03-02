@@ -394,7 +394,7 @@ erts_queue_dist_message(Process *rcvr,
                         tok_label, tok_lastcnt, tok_serial);
             }
 	    erts_queue_message(rcvr, rcvr_locks, mbuf, msg, token
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			       , NIL
 #endif
 			       );
@@ -403,14 +403,14 @@ erts_queue_dist_message(Process *rcvr,
 	/* Enqueue message on external format */
 
 	ERL_MESSAGE_TERM(mp) = THE_NON_VALUE;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	ERL_MESSAGE_DT_UTAG(mp) = NIL;
 	if (token == am_have_dt_utag) {
 	    ERL_MESSAGE_TOKEN(mp) = NIL;
 	} else {
 #endif
 	    ERL_MESSAGE_TOKEN(mp) = token;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	}
 #endif
 	mp->next = NULL;
@@ -445,7 +445,7 @@ erts_queue_message(Process* receiver,
 		   ErlHeapFragment* bp,
 		   Eterm message,
 		   Eterm seq_trace_token
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		   , Eterm dt_utag
 #endif
 )
@@ -489,7 +489,7 @@ erts_queue_message(Process* receiver,
 
     ERL_MESSAGE_TERM(mp) = message;
     ERL_MESSAGE_TOKEN(mp) = seq_trace_token;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     ERL_MESSAGE_DT_UTAG(mp) = dt_utag;
 #endif
     mp->next = NULL;
@@ -567,7 +567,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
     Sint offs;
     Uint sz;
     ErlHeapFragment *bp;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     Eterm utag;
 #endif
 
@@ -579,7 +579,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
     ErlHeapFragment *dbg_bp;
     Uint *dbg_hp, *dbg_thp_start;
     Uint dbg_term_sz, dbg_token_sz;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     Eterm dbg_utag;
     Uint dbg_utag_sz;
 #endif
@@ -588,11 +588,11 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
     bp = msg->data.heap_frag;
     term = ERL_MESSAGE_TERM(msg);
     token = ERL_MESSAGE_TOKEN(msg);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     utag = ERL_MESSAGE_DT_UTAG(msg);
 #endif
     if (!bp) {
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	ASSERT(is_immed(term) && is_immed(token) && is_immed(utag));
 #else
 	ASSERT(is_immed(term) && is_immed(token));
@@ -604,7 +604,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
     dbg_term_sz = size_object(term);
     dbg_token_sz = size_object(token);
     dbg_bp = new_message_buffer(dbg_term_sz + dbg_token_sz);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     dbg_utag_sz = size_object(utag);
     dbg_bp = new_message_buffer(dbg_term_sz + dbg_token_sz + dbg_utag_sz );
 #endif
@@ -615,7 +615,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
     dbg_hp = dbg_bp->mem;
     dbg_term = copy_struct(term, dbg_term_sz, &dbg_hp, &dbg_bp->off_heap);
     dbg_token = copy_struct(token, dbg_token_sz, &dbg_hp, &dbg_bp->off_heap);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     dbg_utag = copy_struct(utag, dbg_utag_sz, &dbg_hp, &dbg_bp->off_heap);
 #endif
    dbg_thp_start = *hpp;
@@ -623,7 +623,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
 
     if (bp->next != NULL) {
 	move_multi_frags(hpp, off_heap, bp, msg->m, 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			 3
 #else
 			 2
@@ -730,7 +730,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
 	ASSERT(hp > ptr_val(ERL_MESSAGE_TERM(msg)));
 #endif
     }
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     if (is_not_immed(utag)) {
 	ASSERT(in_heapfrag(ptr_val(utag), bp));
 	ERL_MESSAGE_DT_UTAG(msg) = offset_ptr(utag, offs);
@@ -806,7 +806,7 @@ copy_done:
 #ifdef HARD_DEBUG
     ASSERT(eq(ERL_MESSAGE_TERM(msg), dbg_term));
     ASSERT(eq(ERL_MESSAGE_TOKEN(msg), dbg_token));
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
     ASSERT(eq(ERL_MESSAGE_DT_UTAG(msg), dbg_utag));
 #endif
     free_message_buffer(dbg_bp);
@@ -903,7 +903,7 @@ erts_send_message(Process* sender,
         Eterm* hp;
 	Eterm stoken = SEQ_TRACE_TOKEN(sender);
 	Uint seq_trace_size = 0;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	Uint dt_utag_size = 0;
 	Eterm utag = NIL;
 #endif
@@ -912,7 +912,7 @@ erts_send_message(Process* sender,
 	msize = size_object(message);
 	BM_SWAP_TIMER(size,send);
 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	if (stoken != am_have_dt_utag) {
 #endif
 
@@ -920,7 +920,7 @@ erts_send_message(Process* sender,
 	    seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
 			     receiver->id, sender);
 	    seq_trace_size = 6; /* TUPLE5 */
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	}
 	if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
 	    dt_utag_size = size_object(DT_UTAG(sender));
@@ -930,7 +930,7 @@ erts_send_message(Process* sender,
 #endif
 
 	bp = new_message_buffer(msize + seq_trace_size 
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 				+ dt_utag_size
 #endif
 				);
@@ -943,21 +943,15 @@ erts_send_message(Process* sender,
 			    &bp->off_heap);
 
 	message = copy_struct(message, msize, &hp, &bp->off_heap);
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	if (DT_UTAG_FLAGS(sender) & DT_UTAG_SPREADING) {
 	    utag = copy_struct(DT_UTAG(sender), dt_utag_size, &hp, &bp->off_heap);
-	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) Spreading tag (%T) with message %T!\r\n",sender->id, utag, message);
-	}
-#if 0
-	DT_UTAG_FLAGS(sender) &= ~DT_UTAG_SPREADING;
-	if (!(DT_UTAG_FLAGS(sender) & DT_UTAG_PERMANENT)) {
-	    erts_fprintf(stderr,"XXX: PaN: Dtrace -> (%T) Killing tag!\r\n",sender->id);
-	    DT_UTAG(sender) = NIL;
-	    if (SEQ_TRACE_TOKEN(sender) == am_have_dt_utag) {
-		SEQ_TRACE_TOKEN(sender) = NIL;
-	    }
-	}
+#ifdef DTRACE_TAG_HARDDEBUG
+	    erts_fprintf(stderr,
+			 "Dtrace -> (%T) Spreading tag (%T) with "
+			 "message %T!\r\n",sender->id, utag, message);
 #endif
+	}
 #endif
         BM_MESSAGE_COPIED(msize);
         BM_SWAP_TIMER(copy,send);
@@ -976,7 +970,7 @@ erts_send_message(Process* sender,
 			   bp,
 			   message,
 			   token
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , utag
 #endif
 			   );
@@ -1012,7 +1006,7 @@ erts_send_message(Process* sender,
                 size_object(message)msize, tok_label, tok_lastcnt, tok_serial);
         ERL_MESSAGE_TERM(mp) = message;
         ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	ERL_MESSAGE_DT_UTAG(mp) = NIL;
 #endif
         mp->next = NULL;
@@ -1057,7 +1051,7 @@ erts_send_message(Process* sender,
 	    mp->data.attached = NULL;
 	    ERL_MESSAGE_TERM(mp) = message;
 	    ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	    ERL_MESSAGE_DT_UTAG(mp) = NIL;
 #endif
 	    mp->next = NULL;
@@ -1094,7 +1088,7 @@ erts_send_message(Process* sender,
         DTRACE6(message_send, sender_name, receiver_name,
                 msize, tok_label, tok_lastcnt, tok_serial);
 	erts_queue_message(receiver, receiver_locks, bp, message, token
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );
@@ -1121,7 +1115,7 @@ erts_send_message(Process* sender,
                 (uint32_t)msize, tok_label, tok_lastcnt, tok_serial);
 	ERL_MESSAGE_TERM(mp) = message;
 	ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	ERL_MESSAGE_DT_UTAG(mp) = NIL;
 #endif
 	mp->next = NULL;
@@ -1163,7 +1157,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
     ErlHeapFragment* bp = NULL;
 
     if (token != NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 	&& token != am_have_dt_utag
 #endif
 	) {
@@ -1182,7 +1176,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 	seq_trace_output(token, save, SEQ_TRACE_SEND, to->id, NULL);
 	temptoken = copy_struct(token, sz_token, &hp, &bp->off_heap);
 	erts_queue_message(to, to_locksp, bp, save, temptoken
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );
@@ -1203,7 +1197,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 		     : copy_struct(from, sz_from, &hp, ohp));
 	save = TUPLE3(hp, am_EXIT, from_copy, mess);
 	erts_queue_message(to, to_locksp, bp, save, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			   , NIL
 #endif
 			   );

@@ -2204,7 +2204,7 @@ restart:
 	    break;
 	case matchIsSeqTrace:
 	    if (SEQ_TRACE_TOKEN(c_p) != NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		&& SEQ_TRACE_TOKEN(c_p) != am_have_dt_utag
 #endif
 		)
@@ -2232,7 +2232,7 @@ restart:
 	    break;
 	case matchGetSeqToken:
 	    if (SEQ_TRACE_TOKEN(c_p) == NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		|| SEQ_TRACE_TOKEN(c_p) == am_have_dt_utag
 #endif
 		) 

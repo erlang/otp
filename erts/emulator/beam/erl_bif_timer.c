@@ -374,7 +374,7 @@ bif_timer_timeout(ErtsBifTimer* btm)
 	    }
 
 	    erts_queue_message(rp, &rp_locks, bp, message, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 			       , NIL
 #endif
 			       );

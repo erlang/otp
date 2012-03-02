@@ -3002,7 +3002,7 @@ reply_alloc_info(void *vair)
     }
 
     erts_queue_message(rp, &rp_locks, bp, msg, NIL
-#ifdef HAVE_DTRACE
+#ifdef USE_VM_PROBES
 		       , NIL
 #endif
 		       );
