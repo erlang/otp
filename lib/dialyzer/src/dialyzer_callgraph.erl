@@ -354,10 +354,7 @@ ets_lookup_dict(Key, Table) ->
   end.
 
 ets_lookup_set(Key, Table) ->
-  case ets:lookup(Table, Key) of
-      [] -> false;
-      _ -> true
-  end.
+  ets:lookup(Table, Key) =/= [].
 
 %%----------------------------------------------------------------------
 %% Core code

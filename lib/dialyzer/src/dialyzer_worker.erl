@@ -107,10 +107,7 @@ loop(running, #state{mode = Mode} = State) when
   report_to_coordinator(NotFixpoint, State).
 
 waits_more_success_typings(#state{depends_on = Depends}) ->
-  case Depends of
-    [] -> false;
-    _ -> true
-  end.
+  Depends =/= [].
 
 broadcast_done(#state{job = SCC, init_data = InitData}) ->
   RequiredBy = dialyzer_succ_typings:find_required_by(SCC, InitData),
