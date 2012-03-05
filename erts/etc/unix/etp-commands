@@ -1883,6 +1883,28 @@ document etp-ets-tables
 %---------------------------------------------------------------------------
 end
 
+define etp-ets-obj
+# Args: DbTerm*
+#
+  set $etp_ets_obj_i = 1
+  while $etp_ets_obj_i <= (($arg0)->tpl[0] >> 6)
+    if $etp_ets_obj_i == 1      
+      printf "{"
+    else
+      printf ", "
+    end
+    set $etp_ets_elem = ($arg0)->tpl[$etp_ets_obj_i]
+    if ($etp_ets_elem & 3) == 0
+      printf "<compressed>"
+    else
+      etp-1 $etp_ets_elem 0
+    end
+    set $etp_ets_obj_i++
+  end
+  printf "}"
+end
+
+
 define etp-ets-tabledump
 # Args: int tableindex
 #
@@ -1896,10 +1918,10 @@ define etp-ets-tabledump
   if $etp_ets_tabledump_t->common.status & 0x130
     # Hash table
     set $etp_ets_tabledump_h = $etp_ets_tabledump_t->hash
-    printf "%% nitems=%d\n", $etp_ets_tabledump_t->common.nitems
-    while $etp_ets_tabledump_i < $etp_ets_tabledump_h->nactive
-      set $etp_ets_tabledump_l = $etp_ets_tabledump_h->seg \
-            [$etp_ets_tabledump_i>>8][$etp_ets_tabledump_i&0xFF]
+    printf "%% nitems=%d\n", (long) $etp_ets_tabledump_t->common.nitems
+    while $etp_ets_tabledump_i < (long) $etp_ets_tabledump_h->nactive
+      set $etp_ets_tabledump_seg = ((struct segment**)$etp_ets_tabledump_h->segtab)[$etp_ets_tabledump_i>>8]
+      set $etp_ets_tabledump_l = $etp_ets_tabledump_seg->buckets[$etp_ets_tabledump_i&0xFF]
       if $etp_ets_tabledump_l
         printf "%% Slot %d:\n", $etp_ets_tabledump_i
         while $etp_ets_tabledump_l
@@ -1909,7 +1931,7 @@ define etp-ets-tabledump
             printf "["
           end
           set $etp_ets_tabledump_n++
-          etp-1 ((Eterm)($etp_ets_tabledump_l->dbterm.tpl)|0x2) 0
+	  etp-ets-obj &($etp_ets_tabledump_l->dbterm)
           if $etp_ets_tabledump_l->hvalue == ((unsigned long)-1)
             printf "% *\n"
           else
