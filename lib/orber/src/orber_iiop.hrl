@@ -467,14 +467,14 @@
 			      [{"iiop_version",?IIOP_VERSION },
 			       {"host", {'tk_string', 0}},
 			       {"port", 'tk_ushort'},
-			       {"object_key", {'tk_sequence', 'tk_octet', 0}}
+			       {"object_key", {'tk_sequence', 'tk_octet', 0}},
 			       {"components", ?IOP_TAGGEDCOMPONENT_SEQ}]}).
 
 -define(PROFILEBODY_1_2_TYPEDEF, {'tk_struct', ?SYSTEM_TYPE, 'IIOP_ProfileBody_1_1',
 			      [{"iiop_version",?IIOP_VERSION },
 			       {"host", {'tk_string', 0}},
 			       {"port", 'tk_ushort'},
-			       {"object_key", {'tk_sequence', 'tk_octet', 0}}
+			       {"object_key", {'tk_sequence', 'tk_octet', 0}},
 			       {"components", ?IOP_TAGGEDCOMPONENT_SEQ}]}).
 			       
 -define(SSLIOP_SSL, {'tk_struct', ?SYSTEM_TYPE, 'SSLIOP_SSL',
