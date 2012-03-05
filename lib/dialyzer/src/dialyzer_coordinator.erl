@@ -35,7 +35,7 @@
 -export([sccs_to_pids/1]).
 
 %%% Exports for the compilation workers
--export([get_next_label/2, compilation_done/3]).
+-export([get_next_label/2]).
 
 -export_type([coordinator/0, mode/0, init_data/0]).
 
@@ -230,14 +230,6 @@ pid_partition(SCC, {Pids, Unknown}) ->
 
 job_done(Job, Result, Coordinator) ->
   Coordinator ! {done, Job, Result},
-  ok.
-
--spec compilation_done(file:filename(),
-		       dialyzer_analysis_callgraph:compile_result(),
-		       coordinator()) -> ok.
-
-compilation_done(Filename, CompilationData, Coordinator) ->
-  Coordinator ! {done, Filename, CompilationData},
   ok.
 
 -spec get_next_label(integer(), coordinator()) -> integer().
