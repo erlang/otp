@@ -206,17 +206,17 @@ is_escaping(Label, #callgraph{esc = Esc}) when is_integer(Label) ->
   ets_lookup_set(Label, Esc).
 
 -type callgraph_edge() :: {mfa_or_funlbl(),mfa_or_funlbl()}.
--spec add_edges([callgraph_edge()], callgraph()) -> callgraph().
+-spec add_edges([callgraph_edge()], callgraph()) -> ok.
 
-add_edges([], CG) ->
-  CG;
-add_edges(Edges, #callgraph{digraph = Digraph} = CG) ->
-  CG#callgraph{digraph = digraph_add_edges(Edges, Digraph)}.
+add_edges([], _CG) ->
+  ok;
+add_edges(Edges, #callgraph{digraph = Digraph}) ->
+  digraph_add_edges(Edges, Digraph).
 
--spec add_edges([callgraph_edge()], [mfa_or_funlbl()], callgraph()) -> callgraph().
+-spec add_edges([callgraph_edge()], [mfa_or_funlbl()], callgraph()) -> ok.
 
 add_edges(Edges, MFAs, #callgraph{digraph = DG} = CG) ->
-  DG = digraph_confirm_vertices(MFAs, DG),
+  digraph_confirm_vertices(MFAs, DG),
   add_edges(Edges, CG).
 
 -spec remove_external(callgraph()) -> {callgraph(), [tuple()]}.
@@ -282,7 +282,7 @@ module_postorder(#callgraph{digraph = DG}) ->
   Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
   Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new([acyclic]),
-  MDG = digraph_confirm_vertices(sets:to_list(Nodes), MDG),
+  digraph_confirm_vertices(sets:to_list(Nodes), MDG),
   Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
   lists:foreach(Foreach, sets:to_list(Edges)),
   PostOrder = digraph_utils:topsort(MDG),
@@ -303,7 +303,7 @@ module_deps(#callgraph{digraph = DG}) ->
   Edges = lists:foldl(fun edge_fold/2, sets:new(), digraph_edges(DG)),
   Nodes = sets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
-  MDG = digraph_confirm_vertices(sets:to_list(Nodes), MDG),
+  digraph_confirm_vertices(sets:to_list(Nodes), MDG),
   Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
   lists:foreach(Foreach, sets:to_list(Edges)),
   Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG, N))}
@@ -511,9 +511,10 @@ get_label(T) ->
 %%----------------------------------------------------------------------
 
 digraph_add_edges([{From, To}|Left], DG) ->
-  digraph_add_edges(Left, digraph_add_edge(From, To, DG));
-digraph_add_edges([], DG) ->
-  DG.
+  digraph_add_edge(From, To, DG),
+  digraph_add_edges(Left, DG);
+digraph_add_edges([], _DG) ->
+  ok.
 
 digraph_add_edge(From, To, DG) ->
   case digraph:vertex(DG, From) of
@@ -525,13 +526,13 @@ digraph_add_edge(From, To, DG) ->
     {To, _} -> ok
   end,
   digraph:add_edge(DG, {From, To}, From, To, []),
-  DG.
+  ok.
 
 digraph_confirm_vertices([MFA|Left], DG) ->
   digraph:add_vertex(DG, MFA, confirmed),
   digraph_confirm_vertices(Left, DG);
-digraph_confirm_vertices([], DG) ->
-  DG.
+digraph_confirm_vertices([], _DG) ->
+  ok.
   
 digraph_remove_external(DG) ->
   Vertices = digraph:vertices(DG),

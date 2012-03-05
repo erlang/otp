@@ -280,8 +280,8 @@ translate_callgraph([{Behaviour,_}|Behaviours], Module, Callgraph) ->
   DirectCalls = [{From, {Module, Fun, Arity}} ||
 		  {From, To} <- UsedCalls,{API, {Fun, Arity, _Ord}} <- Calls,
 		  To =:= API],
-  NewCallgraph = dialyzer_callgraph:add_edges(DirectCalls, Callgraph),
-  translate_callgraph(Behaviours, Module, NewCallgraph);
+  dialyzer_callgraph:add_edges(DirectCalls, Callgraph),
+  translate_callgraph(Behaviours, Module, Callgraph);
 translate_callgraph([], _Module, Callgraph) ->
   Callgraph.
 
