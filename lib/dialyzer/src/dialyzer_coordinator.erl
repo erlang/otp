@@ -105,6 +105,12 @@ spawn_jobs(Mode, Jobs, InitData) when
 	Count + 1
     end,
   JobCount = lists:foldl(Fold, 0, Jobs),
+  Unit =
+    case Mode of
+      'typesig'  -> "SCCs";
+      'dataflow' -> "modules"
+    end,
+  dialyzer_timing:send_size_info(JobCount, Unit),
   #state{active = JobCount, result = [], init_data = InitData};
 spawn_jobs(Mode, Jobs, InitData) when
     Mode =:= 'compile'; Mode =:= 'warnings' ->
@@ -122,6 +128,7 @@ spawn_jobs(Mode, Jobs, InitData) when
   InitTickets = 4*CPUs,
   {Tickets, Queue, JobCount} =
     lists:foldl(Fold, {InitTickets, queue:new(), 0}, Jobs),
+  dialyzer_timing:send_size_info(JobCount, "modules"),
   InitResult =
     case Mode of
       'warnings' -> [];

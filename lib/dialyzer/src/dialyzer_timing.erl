@@ -26,7 +26,7 @@
 
 -module(dialyzer_timing).
 
--export([init/1, start_stamp/1, end_stamp/0, stop/0]).
+-export([init/1, start_stamp/1, send_size_info/2, end_stamp/0, stop/0]).
 
 -spec init(boolean()) -> ok.
 
@@ -43,7 +43,7 @@ loop_init(Active) ->
   case Active of
     true ->
       io:format("\n"),
-      loop(now());
+      loop(now(), 0, "");
     false -> dummy_loop()
   end.
 
@@ -53,16 +53,25 @@ dummy_loop() ->
     _ -> dummy_loop()
   end.
 
-loop(LastNow) ->
+loop(LastNow, Size, Unit) ->
   receive
     {stamp, Msg, Now} ->
       io:format("    ~-10s (+~4.2fs):", [Msg, diff(Now, LastNow)]),
-      loop(Now);
+      loop(Now, 0, "");
     {stamp, Now} ->
-      io:format("~7.2fs\n", [diff(Now, LastNow)]),
-      loop(Now);
+      SizeStr =
+	case Size of
+	  0 -> "";
+	  _ ->
+	    Data = io_lib:format("~p ~s",[Size, Unit]),
+	    io_lib:format(" (~12s)",[Data])
+	end,
+      io:format("~7.2fs~s\n", [diff(Now, LastNow), SizeStr]),
+      loop(Now, 0, "");
+    {size, NewSize, NewUnit} ->
+      loop(LastNow, NewSize, NewUnit);
     {Pid, stop, Now} ->
-      io:format("    ~-10s (+~4.2fs)\n", ["",diff(Now, LastNow)]),
+      io:format("    ~-9s (+~5.2fs)\n", ["",diff(Now, LastNow)]),
       Pid ! ok
   end.
 
@@ -76,6 +85,12 @@ start_stamp(Msg) ->
 
 end_stamp() ->
   ?MODULE ! {stamp, now()},
+  ok.
+
+-spec send_size_info(integer(), string()) -> ok.
+
+send_size_info(Size, Unit) ->
+  ?MODULE ! {size, Size, Unit},
   ok.
 
 -spec stop() -> ok.

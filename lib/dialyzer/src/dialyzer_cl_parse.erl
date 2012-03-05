@@ -164,7 +164,7 @@ cl(["--src"|T]) ->
 cl(["--no_spec"|T]) ->
   put(dialyzer_options_use_contracts, false),
   cl(T);
-cl(["--time"|T]) ->
+cl(["--statistics"|T]) ->
   put(dialyzer_timing, true),
   cl(T);
 cl(["-v"|_]) ->
@@ -356,7 +356,7 @@ help_message() ->
                 [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
 		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-                [--no_native] [--fullpath] [--time]
+                [--no_native] [--fullpath] [--statistics]
 Options:
   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
       Use Dialyzer from the command line to detect defects in the
@@ -423,8 +423,9 @@ Options:
       Make Dialyzer a bit more quiet.
   --verbose
       Make Dialyzer a bit more verbose.
-  --time
-      Print time information
+  --statistics
+      Prints information about the progress of execution (analysis phases,
+      time spent in each and size of the relative input).
   --build_plt
       The analysis starts from an empty plt and creates a new one from the
       files specified with -c and -r. Only works for beam files.
