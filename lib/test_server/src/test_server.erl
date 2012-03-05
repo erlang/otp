@@ -766,7 +766,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 			    %% timout during framework call
 			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,{timetrap,TVal}},
-					  unknown,self(),Comment),
+					  unknown,self()),
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 						  Comment,undefined);
 			Loc1 ->
@@ -792,7 +792,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 					%% and let the group leader go back to handle io.
 					spawn_fw_call(Mod,Func,CurrConf,Pid,
 						      {timetrap_timeout,TVal},
-						      Loc1,self(),Comment),
+						      Loc1,self()),
 					undefined
 				end,
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
@@ -804,12 +804,12 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 			    %% timout during framework call
 			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,{timetrap,TVal}},
-					  unknown,self(),Comment);
+					  unknown,self());
 			Loc1 ->
 			    {Mod,_Func} = get_mf(Loc1),
 			    spawn_fw_call(Mod,InitOrEnd,CurrConf,Pid,
 					  {timetrap_timeout,TVal},
-					  Loc1,self(),Comment)
+					  Loc1,self())
 		    end,
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 		{testcase_aborted,AbortReason,AbortLoc} ->
@@ -819,7 +819,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 			    %% abort during framework call
 			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,ErrorMsg},
-					  unknown,self(),Comment),
+					  unknown,self()),
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 						  Comment,undefined);
 			Loc1 ->
@@ -842,7 +842,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 				    _ ->
 					{Mod,Func} = get_mf(Loc1),
 					spawn_fw_call(Mod,Func,CurrConf,Pid,ErrorMsg,
-						      Loc1,self(),Comment),
+						      Loc1,self()),
 					undefined
 				end,
 			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
@@ -854,30 +854,46 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 		    %% (see abort_current_testcase)
 		    spawn_fw_call(undefined,undefined,CurrConf,Pid,
 				  testcase_aborted_or_killed,
-				  unknown,self(),Comment),
+				  unknown,self()),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 		{fw_error,{FwMod,FwFunc,FwError}} ->
 		    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,{framework_error,FwError},
-				  unknown,self(),Comment),
+				  unknown,self()),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 		_Other ->
 		    %% the testcase has terminated because of Reason (e.g. an exit
 		    %% because a linked process failed)
 		    spawn_fw_call(undefined,undefined,CurrConf,Pid,Reason,
-				  unknown,self(),Comment),
+				  unknown,self()),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
 	    end;
 	{EndConfPid,{call_end_conf,Data,_Result}} ->
 	    case CurrConf of
 		{EndConfPid,{Mod,Func},_Conf} ->
 		    {_Mod,_Func,TCPid,TCExitReason,Loc} = Data,
-		    spawn_fw_call(Mod,Func,CurrConf,TCPid,TCExitReason,Loc,self(),Comment),
+		    spawn_fw_call(Mod,Func,CurrConf,TCPid,TCExitReason,Loc,self()),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,undefined);
 		_ ->
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
 	    end;
-	{_FwCallPid,fw_notify_done,RetVal} ->
+	{_FwCallPid,fw_notify_done,{T,Value,Loc,Opts,AddToComment}} ->
 	    %% the framework has been notified, we're finished
+	    RetVal =
+		case AddToComment of
+		    undefined ->
+			{T,Value,Loc,Opts,Comment};
+		    _ ->
+			Comment1 =
+			    if Comment == "" -> 
+				    AddToComment;
+			       true -> 
+				    Comment ++
+				    test_server_ctrl:xhtml("<br>",
+							   "<br />") ++
+				    AddToComment
+			    end,
+			{T,Value,Loc,Opts,Comment1}
+		end,
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment,undefined);
  	{'EXIT',_FwCallPid,{fw_notify_done,Func,Error}} ->
 	    %% a framework function failed
@@ -956,9 +972,12 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
     spawn_link(EndConfProc).
 
 spawn_fw_call(Mod,{init_per_testcase,Func},_,Pid,{timetrap_timeout,TVal}=Why,
-	      Loc,SendTo,Comment) ->
+	      Loc,SendTo) ->
     FwCall =
 	fun() ->
+		%% set group leader so that printouts/comments
+		%% from the framework get printed in the logs
+		group_leader(SendTo, self()),
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
@@ -970,12 +989,12 @@ spawn_fw_call(Mod,{init_per_testcase,Func},_,Pid,{timetrap_timeout,TVal}=Why,
 		end,
 		%% finished, report back
 		SendTo ! {self(),fw_notify_done,
-			  {TVal/1000,Skip,Loc,[],Comment}}
+			  {TVal/1000,Skip,Loc,[],undefined}}
 	end,
     spawn_link(FwCall);
 
 spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
-	      {timetrap_timeout,TVal}=Why,_Loc,SendTo,Comment) ->
+	      {timetrap_timeout,TVal}=Why,_Loc,SendTo) ->
     %%! This is a temporary fix that keeps Test Server alive during
     %%! execution of a parallel test case group, when sometimes
     %%! this clause gets called with EndConf == undefined. See OTP-9594
@@ -987,6 +1006,9 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 	       end,
     FwCall =
 	fun() ->
+		%% set group leader so that printouts/comments
+		%% from the framework get printed in the logs
+		group_leader(SendTo, self()),
 		{RetVal,Report} =
 		    case proplists:get_value(tc_status, EndConf1) of
 			undefined ->
@@ -1006,41 +1028,42 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 		    _ ->
 			ok
 		end,
-		%% if end_per_testcase fails a warning should be
-		%% printed as comment
-		Comment1 = if Comment == "" -> 
-				   "";
-			      true -> 
-				   Comment ++ test_server_ctrl:xhtml("<br>",
-								     "<br />")
-			   end,
-		%% finished, report back
+		Warn = "<font color=\"red\">"
+		       "WARNING: end_per_testcase timed out!</font>",
+		%% finished, report back (if end_per_testcase fails, a warning
+		%% should be printed as part of the comment)
 		SendTo ! {self(),fw_notify_done,
-			  {TVal/1000,RetVal,FailLoc,[],
-			   [Comment1,"<font color=\"red\">"
-			    "WARNING: end_per_testcase timed out!"
-			    "</font>"]}}
+			  {TVal/1000,RetVal,FailLoc,[],Warn}}
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
+spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
     FwCall =
 	fun() ->
+		%% set group leader so that printouts/comments
+		%% from the framework get printed in the logs
+		group_leader(SendTo, self()),
 		test_server_sup:framework_call(report, [framework_error,
-							{{FwMod,FwFunc},FwError}]),
+							{{FwMod,FwFunc},
+							 FwError}]),
 		Comment =
 		    lists:flatten(
 		      io_lib:format("<font color=\"red\">"
-				    "WARNING! ~w:~w failed!</font>", [FwMod,FwFunc])),
+				    "WARNING! ~w:~w failed!</font>",
+				    [FwMod,FwFunc])),
 	    %% finished, report back
 	    SendTo ! {self(),fw_notify_done,
-		      {died,{error,{FwMod,FwFunc,FwError}},{FwMod,FwFunc},[],Comment}}
+		      {died,{error,{FwMod,FwFunc,FwError}},
+		       {FwMod,FwFunc},[],Comment}}
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo,Comment) ->
+spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo) ->
     FwCall =
 	fun() ->
+		%% set group leader so that printouts/comments
+		%% from the framework get printed in the logs
+		group_leader(SendTo, self()),
 		case catch fw_error_notify(Mod,Func,[],
 					   Error,Loc) of
 		    {'EXIT',FwErrorNotifyErr} ->
@@ -1058,7 +1081,7 @@ spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo,Comment) ->
 			ok
 		end,
 		%% finished, report back
-		SendTo ! {self(),fw_notify_done,{died,Error,Loc,Comment}}
+		SendTo ! {self(),fw_notify_done,{died,Error,Loc,[],undefined}}
 	end,
     spawn_link(FwCall).
 
