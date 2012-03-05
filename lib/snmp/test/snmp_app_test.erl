@@ -23,7 +23,7 @@
 -module(snmp_app_test).
 
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1,
+	 all/0,groups/0,init_per_group/2,end_per_group/2, init_per_suite/1,
 	 end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2, 
 
@@ -52,24 +52,24 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() -> 
-Cases = [fields, modules, exportall, app_depend,
-	 undef_funcs, {group, start_and_stop}],
-	Cases.
+    Cases = [fields, modules, exportall, app_depend,
+	     undef_funcs, {group, start_and_stop}],
+    Cases.
 
 groups() -> 
     [{start_and_stop, [],
-  [start_and_stop_empty, start_and_stop_with_agent,
-   start_and_stop_with_manager,
-   start_and_stop_with_agent_and_manager,
-   start_epmty_and_then_agent_and_manager_and_stop,
-   start_with_agent_and_then_manager_and_stop,
-   start_with_manager_and_then_agent_and_stop]}].
+      [start_and_stop_empty, start_and_stop_with_agent,
+       start_and_stop_with_manager,
+       start_and_stop_with_agent_and_manager,
+       start_epmty_and_then_agent_and_manager_and_stop,
+       start_with_agent_and_then_manager_and_stop,
+       start_with_manager_and_then_agent_and_stop]}].
 
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 end_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 
 init_per_suite(Config) when is_list(Config) ->

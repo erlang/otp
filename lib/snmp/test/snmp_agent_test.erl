@@ -224,8 +224,7 @@ groups() ->
      },
      {tickets2, [], [otp8395, otp9884]},
      {otp_4394, [], [otp_4394_test]},
-     {otp_7157, [], [otp_7157_test]
-     }
+     {otp_7157, [], [otp_7157_test]}
     ].
 
 init_per_group(all_tcs, Config) ->
