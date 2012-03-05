@@ -21,7 +21,7 @@
 -module(supervisor_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--define(TIMEOUT, 1000).
+-define(TIMEOUT, ?t:minutes(1)).
 
 %% Testserver specific export
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -62,7 +62,8 @@
 	 do_not_save_start_parameters_for_temporary_children/1,
 	 do_not_save_child_specs_for_temporary_children/1,
 	 simple_one_for_one_scale_many_temporary_children/1,
-         simple_global_supervisor/1]).
+         simple_global_supervisor/1, hanging_restart_loop/1,
+	 hanging_restart_loop_simple/1]).
 
 %%-------------------------------------------------------------------------
 
@@ -82,7 +83,7 @@ all() ->
      count_children_memory, do_not_save_start_parameters_for_temporary_children,
      do_not_save_child_specs_for_temporary_children,
      simple_one_for_one_scale_many_temporary_children, temporary_bystander,
-     simple_global_supervisor].
+     simple_global_supervisor, hanging_restart_loop, hanging_restart_loop_simple].
 
 groups() -> 
     [{sup_start, [],
@@ -111,10 +112,8 @@ groups() ->
      {restart_rest_for_one, [],
       [rest_for_one, rest_for_one_escalation]}].
 
-init_per_suite(Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = test_server:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
+init_per_suite(Config) ->
+    Config.
 
 end_per_suite(_Config) ->
     ok.
@@ -129,18 +128,21 @@ init_per_testcase(count_children_memory, Config) ->
     try erlang:memory() of
 	_ ->
 	    erts_debug:set_internal_state(available_internal_state, true),
-	    Config
+	    Dog = ?t:timetrap(?TIMEOUT),
+	    [{watchdog,Dog}|Config]
     catch error:notsup ->
 	    {skip, "+Meamin used during test; erlang:memory/1 not available"}
     end;
 init_per_testcase(_Case, Config) ->
-    erlang:display(_Case),
-    Config.
+    Dog = ?t:timetrap(?TIMEOUT),
+    [{watchdog,Dog}|Config].
 
-end_per_testcase(count_children_memory, _Config) ->
+end_per_testcase(count_children_memory, Config) ->
     catch erts_debug:set_internal_state(available_internal_state, false),
+    ?t:timetrap_cancel(?config(watchdog,Config)),
     ok;
-end_per_testcase(_Case, _Config) ->
+end_per_testcase(_Case, Config) ->
+    ?t:timetrap_cancel(?config(watchdog,Config)),
     ok.
 
 start_link(InitResult) ->
@@ -1453,6 +1455,102 @@ gen_server9212() ->
     InitResult = {ok, []},
     gen_server:start_link({global,server}, ?MODULE, InitResult, []).
 
+
+%%-------------------------------------------------------------------------
+%% Test that child and supervisor can be shutdown while hanging in restart loop.
+%% See OTP-9549.
+hanging_restart_loop(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, Pid} = start_link({ok, {{one_for_one, 8, 10}, []}}),
+    Child1 = {child1, {supervisor_deadlock, start_child, []},
+	      permanent, brutal_kill, worker, []},
+
+    %% Ets table with state read by supervisor_deadlock.erl
+    ets:new(supervisor_deadlock,[set,named_table,public]),
+    ets:insert(supervisor_deadlock,{fail_start,false}),
+
+    {ok, CPid1} = supervisor:start_child(sup_test, Child1),
+    link(CPid1),
+
+    ets:insert(supervisor_deadlock,{fail_start,true}),
+    supervisor_deadlock:restart_child(),
+    timer:sleep(2000), % allow restart to happen before proceeding
+
+    {error, already_present} = supervisor:start_child(sup_test, Child1),
+    {error, restarting} = supervisor:restart_child(sup_test, child1),
+    {error, restarting} = supervisor:delete_child(sup_test, child1),
+    [{child1,restarting,worker,[]}] = supervisor:which_children(sup_test),
+    [1,0,0,1] = get_child_counts(sup_test),
+
+    ok = supervisor:terminate_child(sup_test, child1),
+    check_exit_reason(CPid1, error),
+    [{child1,undefined,worker,[]}] = supervisor:which_children(sup_test),
+
+    ets:insert(supervisor_deadlock,{fail_start,false}),
+    {ok, CPid2} = supervisor:restart_child(sup_test, child1),
+    link(CPid2),
+
+    ets:insert(supervisor_deadlock,{fail_start,true}),
+    supervisor_deadlock:restart_child(),
+    timer:sleep(2000), % allow restart to happen before proceeding
+
+    %% Terminating supervisor.
+    %% OTP-9549 fixes so this does not give a timetrap timeout -
+    %% i.e. that supervisor does not hang in restart loop.
+    terminate(Pid,shutdown),
+
+    %% Check that child died with reason from 'restart' request above
+    check_exit_reason(CPid2, error),
+    undefined = whereis(sup_test),
+    ok.
+
+%%-------------------------------------------------------------------------
+%% Test that child and supervisor can be shutdown while hanging in
+%% restart loop, simple_one_for_one.
+%% See OTP-9549.
+hanging_restart_loop_simple(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    Child1 = {child1, {supervisor_deadlock, start_child, []},
+	      permanent, brutal_kill, worker, []},
+    {ok, Pid} = start_link({ok, {{simple_one_for_one, 8, 10}, [Child1]}}),
+
+    %% Ets table with state read by supervisor_deadlock.erl
+    ets:new(supervisor_deadlock,[set,named_table,public]),
+    ets:insert(supervisor_deadlock,{fail_start,false}),
+
+    {ok, CPid1} = supervisor:start_child(sup_test, []),
+    link(CPid1),
+
+    ets:insert(supervisor_deadlock,{fail_start,true}),
+    supervisor_deadlock:restart_child(),
+    timer:sleep(2000), % allow restart to happen before proceeding
+
+    {error, simple_one_for_one} = supervisor:restart_child(sup_test, child1),
+    {error, simple_one_for_one} = supervisor:delete_child(sup_test, child1),
+    [{undefined,restarting,worker,[]}] = supervisor:which_children(sup_test),
+    [1,0,0,1] = get_child_counts(sup_test),
+
+    ok = supervisor:terminate_child(sup_test, CPid1),
+    check_exit_reason(CPid1, error),
+    [] = supervisor:which_children(sup_test),
+
+    ets:insert(supervisor_deadlock,{fail_start,false}),
+    {ok, CPid2} = supervisor:start_child(sup_test, []),
+    link(CPid2),
+
+    ets:insert(supervisor_deadlock,{fail_start,true}),
+    supervisor_deadlock:restart_child(),
+    timer:sleep(2000), % allow restart to happen before proceeding
+
+    %% Terminating supervisor.
+    %% OTP-9549 fixes so this does not give a timetrap timeout -
+    %% i.e. that supervisor does not hang in restart loop.
+    terminate(Pid,shutdown),
+
+    %% Check that child died with reason from 'restart' request above
+    check_exit_reason(CPid2, error),
+    undefined = whereis(sup_test),
+    ok.
 
 %%-------------------------------------------------------------------------
 terminate(Pid, Reason) when Reason =/= supervisor ->
