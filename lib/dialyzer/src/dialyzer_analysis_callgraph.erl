@@ -35,9 +35,9 @@
 	 start_compilation/2,
 	 continue_compilation/2]).
 
--export_type([compile_mid_data/0,
-	      compile_result/0,
-	      compile_init_data/0]).
+-export_type([compile_init_data/0,
+	      one_file_result/0,
+	      compile_result/0]).
 
 -include("dialyzer.hrl").
 
@@ -265,9 +265,15 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {Callgraph, sets:from_list(NoWarn), CServer2}.
 
 -type compile_init_data() :: #compile_init{}.
--type compile_result()    :: {list(), list(), list()}. %%opaque
--type one_file_result()   :: term(). %%opaque
--type compile_mid_data()  :: term(). %%opaque
+-type error_reason()      :: string().
+-type compile_result()    :: {[{file:filename(), error_reason()}], [mfa()],
+			      [module()]}. %%opaque
+-type one_file_result()   :: {error, error_reason()} |
+			     {ok, [dialyzer_callgraph:callgraph_edge()],
+			      [mfa_or_funlbl()], [mfa()], module()}. %%opaque
+-type compile_mid_data()  :: {module(), cerl:cerl(), [mfa()],
+			      dialyzer_callgraph:callgraph(),
+			      dialyzer_codeserver:codeserver()}.
 
 -spec compile_init_result() -> compile_result().
 
@@ -287,7 +293,7 @@ add_to_result(File, NewData, {Failed, NoWarn, Mods}, InitData) ->
   end.
 
 -spec start_compilation(file:filename(), compile_init_data()) ->
-	{error, term()} |{ok, integer(), compile_mid_data()}.
+	{error, error_reason()} |{ok, integer(), compile_mid_data()}.
 
 start_compilation(File,
 		  #compile_init{callgraph = Callgraph, codeserver = Codeserver,

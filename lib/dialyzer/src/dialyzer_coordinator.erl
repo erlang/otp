@@ -69,6 +69,10 @@
 -type result() :: compile_result() | typesig_result() |
 		  dataflow_result() | warnings_result().
 
+-type job() :: scc() | module() | file:filename().
+-type job_result() :: dialyzer_analysis_callgraph:one_file_result() |
+		      typesig_result() | dataflow_result() | warnings_result().
+
 -record(state, {active     = 0           :: integer(),
 		result                   :: result(),
 		next_label = 0           :: integer(),
@@ -226,7 +230,7 @@ pid_partition(SCC, {Pids, Unknown}) ->
     _:_ -> {Pids, [SCC|Unknown]}
   end.
 
--spec job_done(scc() | module() | file:filename(), term(), coordinator()) -> ok.
+-spec job_done(job(), job_result(), coordinator()) -> ok.
 
 job_done(Job, Result, Coordinator) ->
   Coordinator ! {done, Job, Result},
