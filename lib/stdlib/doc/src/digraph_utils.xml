@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2011</year>
+      <year>2000</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -156,7 +156,7 @@
         <p>Creates a digraph where the vertices are 
   	  the <seealso marker="#strong_components">strongly connected 
 	  components</seealso> of <c><anno>Digraph</anno></c> as returned by
-          <c>strong_components/1</c>. If X and Y are strongly
+          <c>strong_components/1</c>. If X and Y are two different strongly
           connected components, and there exist vertices x and y in X
           and Y respectively such that there is an 
 	  edge <seealso marker="#emanate">emanating</seealso> from x 
