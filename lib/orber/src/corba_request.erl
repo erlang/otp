@@ -272,9 +272,6 @@ handle_call(create, From, State) ->
     ReqId = term_to_binary({node(), now()}),
     _F = ?write_function(#'corba_request'{reqid=ReqId}),
     R = write_result(mnesia:transaction(_F)),
-
-    ReqId
-
     ?query_check(Qres) = mnesia:dirty_read({orber_request, Objkey}),
     case Qres of
 	[] ->
@@ -327,7 +324,7 @@ handle_info({'EXIT', Pid, Reason}, State) when pid(Pid) ->
 get_reqids_from_pid(Pid) ->
     case  mnesia:dirty_match_object({orber_request, '_', '_', '_', '_', '_', '_', Pid}) of
 	Keys -> 
-	    [Keys]
+	    [Keys];
 	_ ->
 	    corba:raise(#'OBJECT_NOT_EXIST'{completion_status=?COMPLETED_NO})
     end.
