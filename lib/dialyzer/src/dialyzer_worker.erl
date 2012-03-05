@@ -89,7 +89,7 @@ loop(running, #state{mode = 'compile'} = State) ->
     case start_compilation(State) of
       {ok, EstimatedSize, Data} ->
 	Label = ask_coordinator_for_label(EstimatedSize, State),
-	continue_compilation(Label, Data);
+	dialyzer_analysis_callgraph:continue_compilation(Label, Data);
       {error, _Reason} = Error ->
 	Error
     end,
@@ -155,9 +155,6 @@ start_compilation(#state{job = Job, init_data = InitData}) ->
 
 ask_coordinator_for_label(EstimatedSize, #state{coordinator = Coordinator}) ->
   dialyzer_coordinator:get_next_label(EstimatedSize, Coordinator).
-
-continue_compilation(Label, Data) ->
-  dialyzer_analysis_callgraph:continue_compilation(Label, Data).
 
 collect_warnings(#state{job = Job, init_data = InitData}) ->
   dialyzer_succ_typings:collect_warnings(Job, InitData).
