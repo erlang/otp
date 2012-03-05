@@ -156,13 +156,21 @@ read_standard(Dir) ->
     Gen        = fun(D, Reason) -> 
 			 throw({error, {failed_reading_config_file, 
 					D, FileName, 
-					file:list_dir(Dir), Reason}})
+					list_dir(Dir), Reason}})
 		 end,
     Filter     = fun(Standard) -> sort_standard(Standard) end,
     Check      = fun(Entry) -> check_standard(Entry) end,
     [Standard] = 
 	snmp_conf:read_files(Dir, [{Gen, Filter, Check, FileName}]), 
     Standard.
+
+list_dir(Dir) ->
+    case file:list_dir(Dir) of
+	{ok, Files} ->
+	    Files;
+	Error ->
+	    Error
+    end.
 
 
 %%-----------------------------------------------------------------

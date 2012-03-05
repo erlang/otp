@@ -211,6 +211,10 @@ fix_data_dir(Config) ->
 
 
 init_suite_top_dir(Suite, Config0) ->
+    io:format("~w:init_suite_top_dir -> entry with"
+	      "~n   Suite:   ~p"
+	      "~n   Config0: ~p"
+	      "~n", [?MODULE, Suite, Config0]),
     Dir         = lookup(priv_dir, Config0),
     SuiteTopDir = filename:join(Dir, Suite),
     case file:make_dir(SuiteTopDir) of
@@ -230,6 +234,10 @@ init_suite_top_dir(Suite, Config0) ->
 
 
 init_group_top_dir(GroupName, Config) ->
+    io:format("~w:init_group_top_dir -> entry with"
+	      "~n   GroupName: ~p"
+	      "~n   Config:    ~p"
+	      "~n", [?MODULE, GroupName, Config]),
     case lists:keysearch(snmp_group_top_dir, 1, Config) of
 	{value, {_Key, Dir}} ->
 	    %% This is a sub-group, so create our dir within Dir
@@ -263,6 +271,10 @@ init_group_top_dir(GroupName, Config) ->
 
 
 init_testcase_top_dir(Case, Config) ->
+    io:format("~w:init_testcase_top_dir -> entry with"
+	      "~n   Case:   ~p"
+	      "~n   Config: ~p"
+	      "~n", [?MODULE, Case, Config]),
     case lists:keysearch(snmp_group_top_dir, 1, Config) of
 	{value, {_Key, Dir}} ->
 	    CaseTopDir = filename:join(Dir, Case),

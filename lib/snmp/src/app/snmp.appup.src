@@ -24,6 +24,7 @@
  [
   {"4.21.7", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -49,6 +50,7 @@
   }, 
   {"4.21.6",
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -74,6 +76,7 @@
   },
   {"4.21.5",
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -104,6 +107,7 @@
   },
   {"4.21.4", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -137,6 +141,7 @@
   }, 
   {"4.21.3", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -170,6 +175,7 @@
   }, 
   {"4.21.2", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -205,6 +211,7 @@
   }, 
   {"4.21.1", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -241,6 +248,7 @@
   }, 
   {"4.21", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -282,6 +290,7 @@
  [
   {"4.21.7", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -307,6 +316,7 @@
   }, 
   {"4.21.6",
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -332,6 +342,7 @@
   },
   {"4.21.5",
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -362,6 +373,7 @@
   },
   {"4.21.4", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -395,6 +407,7 @@
   }, 
   {"4.21.3", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -428,6 +441,7 @@
   }, 
   {"4.21.2", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -463,6 +477,7 @@
   }, 
   {"4.21.1", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 
@@ -499,6 +514,7 @@
   }, 
   {"4.21", 
    [
+    {load_module, snmp_config, soft_purge, soft_purge, []}, 
     {load_module, snmp_conf, soft_purge, soft_purge, []}, 
     {load_module, snmp_community_mib, soft_purge, soft_purge, [snmp_conf]}, 
     {load_module, snmp_framework_mib, soft_purge, soft_purge, [snmp_conf]}, 

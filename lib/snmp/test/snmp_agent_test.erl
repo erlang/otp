@@ -224,8 +224,7 @@ groups() ->
      },
      {tickets2, [], [otp8395, otp9884]},
      {otp_4394, [], [otp_4394_test]},
-     {otp_7157, [], [otp_7157_test]
-     }
+     {otp_7157, [], [otp_7157_test]}
     ].
 
 
@@ -621,13 +620,13 @@ init_mib_storage_ets(Config) when is_list(Config) ->
 
 init_mib_storage_dets(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_ets -> entry", []),
-    ?line AgentDir = ?GCONF(agent_dir, Config),
-    MibStorage = {snmp_mib_storage,{dets,AgentDir}},
+    ?line AgentDbDir = ?GCONF(agent_db_dir, Config),
+    MibStorage = {snmp_mib_storage, {dets, AgentDbDir}},
     init_ms(Config, [MibStorage]).
 
 init_mib_storage_mnesia(Config) when is_list(Config) ->
     ?LOG("init_mib_storage_ets -> entry", []),
-    MibStorage = {snmp_mib_storage,{mnesia,[]}},
+    MibStorage = {snmp_mib_storage, {mnesia,[]}},
     init_ms(Config, [MibStorage]).
 
 init_ms(Config, Opts) when is_list(Config) ->
@@ -650,8 +649,8 @@ init_size_check_mse(Config) when is_list(Config) ->
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_msd(Config) when is_list(Config) ->
-    AgentDir   = ?GCONF(agent_dir, Config),
-    MibStorage = {snmp_mib_storage, {dets, AgentDir}},
+    AgentDbDir = ?GCONF(agent_db_dir, Config),
+    MibStorage = {snmp_mib_storage, {dets, AgentDbDir}},
     init_size_check_ms(Config, [MibStorage]).
 
 init_size_check_msm(Config) when is_list(Config) ->
@@ -673,22 +672,24 @@ init_size_check_ms(Config, Opts) when is_list(Config) ->
 	    ?SKIP({failed_starting_crypto, Reason})
     end,
     create_tables(SaNode),
-    AgentDir = ?GCONF(agent_dir, Config),
-    MgrDir = ?GCONF(mgr_dir, Config),
-    Ip = ?GCONF(ip, Config),
-    ?line ok = 
-	config([v3], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    AgentConfDir = ?GCONF(agent_conf_dir, Config),
+    MgrDir       = ?GCONF(mgr_dir, Config),
+    Ip           = ?GCONF(ip, Config),
+    ?line ok = config([v3], MgrDir, AgentConfDir, 
+		      tuple_to_list(Ip), tuple_to_list(Ip)),
     [{vsn, v3} | start_v3_agent(Config, Opts)].
 
 init_varm_mib_storage_dets(Config) when is_list(Config) ->
     ?LOG("init_varm_mib_storage_dets -> entry", []),
-    ?line SaNode   = ?GCONF(snmp_sa, Config),
+    ?line SaNode       = ?GCONF(snmp_sa, Config),
     ?line create_tables(SaNode),
-    ?line AgentDir = ?GCONF(agent_dir, Config),
-    ?line MgrDir   = ?GCONF(mgr_dir, Config),
-    ?line Ip       = ?GCONF(ip, Config),
-    ?line config([v1], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
-    MibStorage           = {snmp_mib_storage,{dets,AgentDir}},
+    ?line AgentDbDir   = ?GCONF(agent_db_dir, Config),
+    ?line AgentConfDir = ?GCONF(agent_conf_dir, Config),
+    ?line MgrDir       = ?GCONF(mgr_dir, Config),
+    ?line Ip           = ?GCONF(ip, Config),
+    ?line config([v1], MgrDir, AgentConfDir, 
+		 tuple_to_list(Ip), tuple_to_list(Ip)),
+    MibStorage           = {snmp_mib_storage, {dets, AgentDbDir}},
     MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
     MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
     SymStoreVerbosity    = {snmp_symbolic_store_verbosity, trace},
@@ -697,12 +698,13 @@ init_varm_mib_storage_dets(Config) when is_list(Config) ->
 
 init_varm_mib_storage_mnesia(Config) when is_list(Config) ->
     ?LOG("init_varm_mib_storage_mnesia -> entry", []),
-    ?line SaNode   = ?GCONF(snmp_sa, Config),
+    ?line SaNode       = ?GCONF(snmp_sa, Config),
     ?line create_tables(SaNode),
-    ?line AgentDir = ?GCONF(agent_dir, Config),
-    ?line MgrDir   = ?GCONF(mgr_dir, Config),
-    ?line Ip       = ?GCONF(ip, Config),
-    ?line config([v1], MgrDir, AgentDir, tuple_to_list(Ip), tuple_to_list(Ip)),
+    ?line AgentConfDir = ?GCONF(agent_conf_dir, Config),
+    ?line MgrDir       = ?GCONF(mgr_dir, Config),
+    ?line Ip           = ?GCONF(ip, Config),
+    ?line config([v1], MgrDir, AgentConfDir, 
+		 tuple_to_list(Ip), tuple_to_list(Ip)),
     MibStorage           = {snmp_mib_storage,{mnesia,[]}},
     MasterAgentVerbosity = {snmp_master_agent_verbosity,   trace},
     MibsVerbosity        = {snmp_mibserver_verbosity,      trace},
