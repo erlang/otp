@@ -399,10 +399,11 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           <c>SupRef</c>.</p>
         <p>If successful, the function returns <c>ok</c>. If the child
           specification identified by <c><anno>Id</anno></c> exists but
-          the corresponding child process is running, the function
-          returns <c>{error,running}</c>. If the child specification
-          identified by <c><anno>Id</anno></c> does not exist, the function returns
-          <c>{error,not_found}</c>.</p>
+          the corresponding child process is running or about to be restarted,
+	  the function returns <c>{error,running}</c> or
+	  <c>{error,restarting}</c> respectively. If the child specification
+          identified by <c><anno>Id</anno></c> does not exist, the function
+	  returns <c>{error,not_found}</c>.</p>
       </desc>
     </func>
     <func>
@@ -462,7 +463,8 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           </item>
           <item>
             <p><c><anno>Child</anno></c> - the pid of the corresponding child
-              process, or <c>undefined</c> if there is no such process.</p>
+              process, the atom <c>restarting</c> if the process is about to be
+	      restarted or <c>undefined</c> if there is no such process.</p>
           </item>
           <item>
             <p><c><anno>Type</anno></c> - as defined in the child specification.</p>
