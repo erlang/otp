@@ -1963,7 +1963,7 @@ void process_main(void)
 
          dtrace_proc_str(c_p, receiver_name);
          token2 = SEQ_TRACE_TOKEN(c_p);
-         if (token2 != NIL) {
+         if (token2 != NIL && token2 != am_have_dt_utag) {
              tok_label = signed_val(SEQ_TRACE_T_LABEL(token2));
              tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token2));
              tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token2));

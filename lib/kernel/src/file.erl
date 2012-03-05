@@ -1416,15 +1416,16 @@ mode_list(_) ->
 %% Functions for communicating with the file server
 
 call(Command, Args) when is_list(Args) ->
-    gen_server:call(?FILE_SERVER, list_to_tuple([Command | Args]), infinity).
+    X = erlang:spread_utag(true),
+    Y = gen_server:call(?FILE_SERVER, list_to_tuple([Command | Args]), 
+			infinity),
+    erlang:restore_utag(X),
+    Y.
 
 check_and_call(Command, Args) when is_list(Args) ->
     case check_args(Args) of
 	ok ->
-	    X = erlang:spread_utag(true),
-	    Y = call(Command, Args),
-	    erlang:restore_utag(X),
-	    Y;
+	    call(Command, Args);
 	Error ->
 	    Error
     end.

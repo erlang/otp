@@ -28,12 +28,12 @@
  *       environment.
  */
 
-probe process("dtrace.so").mark("user_trace-s1")
+probe process("dyntrace.so").mark("user_trace-s1")
 {
     printf("%s\n", user_string($arg1));
 }
 
-probe process("dtrace.so").mark("user_trace-i4s4")
+probe process("dyntrace.so").mark("user_trace-i4s4")
 {
     printf("%s %s %d %d %d %d '%s' '%s' '%s' '%s'\n",
            user_string($arg1),

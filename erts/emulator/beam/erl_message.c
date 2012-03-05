@@ -384,7 +384,7 @@ erts_queue_dist_message(Process *rcvr,
                 DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
 
                 dtrace_proc_str(rcvr, receiver_name);
-                if (token != NIL) {
+                if (token != NIL && token != am_have_dt_utag) {
                     tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
                     tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
                     tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -419,7 +419,7 @@ erts_queue_dist_message(Process *rcvr,
             DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
 
             dtrace_proc_str(rcvr, receiver_name);
-            if (token != NIL) {
+            if (token != NIL && token != am_have_dt_utag) {
                 tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
                 tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
                 tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -957,7 +957,7 @@ erts_send_message(Process* sender,
         BM_SWAP_TIMER(copy,send);
 
         if (DTRACE_ENABLED(message_send)) {
-	    if (stoken != NIL) {
+	    if (stoken != NIL && stoken != am_have_dt_utag) {
 		tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
 		tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(stoken));
 		tok_serial = signed_val(SEQ_TRACE_T_SERIAL(stoken));

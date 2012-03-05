@@ -769,7 +769,7 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
         erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
         erts_snprintf(receiver_name, sizeof(receiver_name), "%T", remote);
         msize = size_object(message);
-        if (token != NIL) {
+        if (token != NIL && token != am_have_dt_utag) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
@@ -823,7 +823,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
         erts_snprintf(receiver_name, sizeof(receiver_name),
                       "{%T,%s}", remote_name, node_name);
         msize = size_object(message);
-        if (token != NIL) {
+        if (token != NIL && token != am_have_dt_utag) {
             tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
