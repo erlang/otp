@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -211,8 +211,7 @@ condensation(Config) when is_list(Config) ->
 			{lists:sort(V1), lists:sort(V2)} 
 		end,
     ?line Es = lists:map(Fun, digraph:edges(CG)),
-    ?line [{[b],[c]},{[b],[d]},{[e,f,g],[e,f,g]},{[h],[h]},{[i,j],[i,j]}] =
-	lists:sort(Es),
+    ?line [{[b],[c]},{[b],[d]}] = lists:sort(Es),
     ?line true = digraph:delete(CG),
     ?line true = digraph:delete(G),
     ok.
