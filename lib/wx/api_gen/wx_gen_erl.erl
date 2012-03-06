@@ -1059,16 +1059,16 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 
     Format = fun(#const{name="wxEVT_" ++ _}) ->
 		     ignore; %% Ignore event macros they are not valid in our event model
-		(#const{name=Name,val=Value,is_const=true}) when is_integer(Value) ->
+		(#const{name=Name,val=Value,is_const=true}) when is_number(Value) ->
 		     w("-define(~s, ~p).~n", [enum_name(Name),Value]);
-		(#const{name=Name,val=Value,is_const=false}) when is_integer(Value) ->
+		(#const{name=Name,val=Value,is_const=false}) when is_number(Value) ->
 		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),enum_name(Name)]);
 		(#const{name=Name,val={Str,0}}) ->
 		     case string:tokens(Str, " |()") of
 			 [Token] ->
-			     w("-define(~s, ?~s).~n", [enum_name(Name),Token]);
+			     w("-define(~s, ~s).~n", [enum_name(Name),const_value(Token)]);
 			 Tokens ->
-			     Def = args(fun(T) -> [$?|T] end, " bor ", Tokens),
+			     Def = args(fun(T) -> const_value(T) end, " bor ", Tokens),
 			     w("-define(~s, (~s)).~n", [enum_name(Name),Def])
 		     end;
 		(#const{name=Name,val={Str,N}}) ->
@@ -1092,6 +1092,17 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 		    end
 	    end,
     lists:foldl(Write, Done, Vals).
+
+const_value(V) when is_integer(V) -> integer_to_list(V);
+const_value(V = "16#" ++ IntList) ->
+    _ = http_util:hexlist_to_integer(IntList), %% ASSERT
+    V;
+const_value(V0) ->
+    try
+	_ = list_to_integer(V0),
+	V0
+    catch _:_ -> [$?|V0]
+    end.
 
 gen_event_recs() ->
     open_write("../include/wx.hrl"),

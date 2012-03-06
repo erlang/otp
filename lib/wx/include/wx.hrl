@@ -984,7 +984,7 @@
 -define(wxRESET, 16384).
 -define(wxBACKWARD, 8192).
 -define(wxFORWARD, 4096).
--define(wxICON_MASK, (?16#00000100 bor ?16#00000200 bor ?16#00000400 bor ?16#00000800)).
+-define(wxICON_MASK, (16#00000100 bor 16#00000200 bor 16#00000400 bor 16#00000800)).
 -define(wxICON_ASTERISK, ?wxICON_INFORMATION).
 -define(wxICON_STOP, ?wxICON_HAND).
 -define(wxICON_INFORMATION, 2048).

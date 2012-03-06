@@ -190,14 +190,17 @@ parse_define([#xmlElement{name=initializer,content=[#xmlText{value=V}]}|_],Def,_
     try 
 	case Val0 of
 	    "0x" ++ Val1 -> 
-		Val = http_util:hexlist_to_integer(Val1),
-		Def#def{val=Val, type=hex};
+		_ = http_util:hexlist_to_integer(Val1),
+		Def#def{val=Val1, type=hex};
 	    _ ->
 		Val = list_to_integer(Val0),
 		Def#def{val=Val, type=int}
 	end
-    catch _:_ -> 
-	    Def#def{val=Val0, type=string}
+    catch _:_ ->
+	    case catch list_to_float(Val0) of
+		{'EXIT', _} -> Def#def{val=Val0, type=string};
+		_ -> Def#def{val=Val0, type=float_str}
+	    end
     end;
 parse_define([_|R], D, Opts) ->
     parse_define(R, D, Opts);

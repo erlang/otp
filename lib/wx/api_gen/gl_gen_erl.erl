@@ -54,8 +54,10 @@ glu_defines(Defs) ->
 
 gen_define(#def{name=N, val=Val, type=int}) ->
     w("-define(~s, ~p).~n", [N,Val]);
+gen_define(#def{name=N, val=Val, type=float_str}) ->
+    w("-define(~s, ~s).~n", [N,Val]);
 gen_define(#def{name=N, val=Val, type=hex}) ->
-    w("-define(~s, ~.16#).~n", [N,Val]);
+    w("-define(~s, 16#~s).~n", [N,Val]);
 gen_define(#def{name=N, val=Val, type=string}) ->
     w("-define(~s, ?~s).~n", [N,Val]);
 gen_define(#def{name="GLEXT_64_TYPES"++_, val=undefined, type=undefined}) ->
