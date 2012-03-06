@@ -24,7 +24,7 @@
 -export([start/2, stop/1]).
 
 start(_Type, _State) ->
-    supervisor:start_link({local, inets_sup}, inets_sup, []).
+    inets_sup:start_link().
 
 stop(_State) ->
     ok.

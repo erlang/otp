@@ -20,6 +20,9 @@
  [
   {"5.8.1", 
    [
+    {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
+    {update,      inets_sup,     soft, soft_purge, soft_purge, []},
+
     {load_module, httpd_conf, soft_purge, soft_purge, []}, 
     {load_module, httpd_response, soft_purge, soft_purge, []}, 
     {load_module, httpd_script_env, soft_purge, soft_purge, []}, 
@@ -32,6 +35,9 @@
   }, 
   {"5.8",
    [
+    {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
+    {update,      inets_sup,     soft, soft_purge, soft_purge, []},
+
     {load_module, inets, soft_purge, soft_purge, [inets_trace]},
 
     {load_module, httpd_conf, soft_purge, soft_purge, []}, 
@@ -57,6 +63,9 @@
  [
   {"5.8.1",
    [
+    {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
+    {update,      inets_sup,     soft, soft_purge, soft_purge, []},
+
     {load_module, httpd_conf, soft_purge, soft_purge, []}, 
     {load_module, httpd_response, soft_purge, soft_purge, []}, 
     {load_module, httpd_script_env, soft_purge, soft_purge, []}, 
@@ -69,6 +78,9 @@
   }, 
   {"5.8",
    [
+    {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
+    {update,      inets_sup,     soft, soft_purge, soft_purge, []},
+
     {load_module, inets, soft_purge, soft_purge, []},
 
     {load_module, httpd_conf, soft_purge, soft_purge, []}, 
