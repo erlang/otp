@@ -61,7 +61,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [cfg_error, lib_error, no_compile, timetrap_end_conf,
      timetrap_normal, timetrap_extended, timetrap_parallel,
-     timetrap_fun].
+     timetrap_fun, misc_errors].
 
 groups() -> 
     [].
@@ -247,6 +247,24 @@ timetrap_fun(Config) when is_list(Config) ->
 			       Opts),
 
     TestEvents = events_to_check(timetrap_fun),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+misc_errors(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suites = [Join(DataDir, "misc_error_1_SUITE")],
+    {Opts,ERPid} = setup([{suite,Suites}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(misc_errors,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
+
+    TestEvents = events_to_check(misc_errors),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 
@@ -898,6 +916,42 @@ test_events(timetrap_fun) ->
       {timetrap_7_SUITE,tc3,{failed,{timetrap_timeout,1000}}}},
      {?eh,test_stats,{0,12,{0,5}}},
      {?eh,tc_done,{timetrap_7_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(misc_errors) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,7}},
+     {?eh,tc_start,{misc_error_1_SUITE,ct_fail_1}},
+     {?eh,tc_done,{misc_error_1_SUITE,ct_fail_1,
+		   {failed,{error,{test_case_failed,{error,this_is_expected}}}}}},
+     {?eh,test_stats,{0,1,{0,0}}},
+     {?eh,tc_start,{misc_error_1_SUITE,ct_fail_2}},
+     {?eh,tc_done,{misc_error_1_SUITE,ct_fail_2,
+		   {failed,{error,{test_case_failed,"this_is_expected"}}}}},
+     {?eh,test_stats,{0,2,{0,0}}},
+     {?eh,tc_start,{misc_error_1_SUITE,ct_fail_3}},
+     {?eh,tc_done,{misc_error_1_SUITE,ct_fail_3,
+		   {failed,{error,{test_case_failed,this_is_expected}}}}},
+     {?eh,test_stats,{0,3,{0,0}}},
+     {?eh,tc_start,{misc_error_1_SUITE,ts_fail_1}},
+     {?eh,tc_done,{misc_error_1_SUITE,ts_fail_1,
+		   {failed,{error,{suite_failed,this_is_expected}}}}},
+     {?eh,test_stats,{0,4,{0,0}}},
+     {?eh,tc_start,{misc_error_1_SUITE,ts_fail_2}},
+     {?eh,tc_done,{misc_error_1_SUITE,ts_fail_2,
+		   {failed,{error,{suite_failed,this_is_expected}}}}},
+     {?eh,test_stats,{0,5,{0,0}}},
+     {?eh,tc_start,{misc_error_1_SUITE,killed_by_signal_1}},
+     {?eh,tc_done,{undefined,undefined,i_die_now}},
+     {?eh,test_stats,{0,6,{0,0}}},
+     {?eh,tc_start,{misc_error_1_SUITE,killed_by_signal_2}},
+     {?eh,tc_done,{undefined,undefined,
+		   {failed,testcase_aborted_or_killed}}},
+     {?eh,test_stats,{0,7,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

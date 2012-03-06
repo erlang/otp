@@ -585,8 +585,16 @@ capture_get([]) ->
 %%% @doc Terminate a test case with the given error
 %%% <code>Reason</code>.
 fail(Reason) ->
-    exit({test_case_failed,Reason}).
-
+    try
+	exit({test_case_failed,Reason})
+    catch
+	Class:R ->
+	    case erlang:get_stacktrace() of
+		[{?MODULE,fail,1,_}|Stk] -> ok;
+		Stk -> ok
+	    end,
+	    erlang:raise(Class, R, Stk)
+    end.
 
 %%%-----------------------------------------------------------------
 %%% @spec fail(Format, Args) -> void()
@@ -599,12 +607,20 @@ fail(Reason) ->
 fail(Format, Args) ->
     try io_lib:format(Format, Args) of
 	Str ->
-	    exit({test_case_failed,lists:flatten(Str)})
+	    try
+		exit({test_case_failed,lists:flatten(Str)})
+	    catch
+		Class:R ->
+		    case erlang:get_stacktrace() of
+			[{?MODULE,fail,2,_}|Stk] -> ok;
+			Stk -> ok
+		    end,
+		    erlang:raise(Class, R, Stk)
+	    end
     catch
 	_:BadArgs ->
 	    exit({BadArgs,{?MODULE,fail,[Format,Args]}})
     end.
-
 
 %%%-----------------------------------------------------------------
 %%% @spec comment(Comment) -> void()
