@@ -31,7 +31,7 @@
 %% Event handler Callbacks
 -export([init/1,
 	 handle_event/2, handle_call/2, handle_info/2,
-	 terminate/2]).
+	 terminate/1]).
 
 id(_Opts) ->
     ?MODULE.
@@ -101,7 +101,8 @@ handle_call({set_logfunc,NewLogFunc},_) ->
     {ok, NewLogFunc, NewLogFunc};
 handle_call(_Query, _State) -> {error, bad_query}.
 
-terminate(_Reason, _Type) ->
+terminate(_State) ->
+    error_logger:delete_report_handler(?MODULE),
     [].
 
 tag_event(Event) ->
