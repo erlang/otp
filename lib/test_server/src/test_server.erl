@@ -1530,8 +1530,18 @@ get_loc(Pid) ->
     lists:foreach(fun({Key,Val}) -> put(Key, Val) end, Dict),
     Stk = [rewrite_loc_item(Loc) || Loc <- Stk0],
     case get(test_server_loc) of
-	undefined -> put(test_server_loc, Stk);
-	_ -> ok
+	undefined ->
+	    put(test_server_loc, Stk);
+	{Suite,Case} ->
+	    %% location info unknown, check if {Suite,Case,Line}
+	    %% is available in stacktrace. and if so, use stacktrace
+	    %% instead of currect test_server_loc
+	    case [match || {S,C,_L} <- Stk, S == Suite, C == Case] of
+		[match|_] -> put(test_server_loc, Stk);
+		_         -> ok
+	    end;
+	_ ->
+	    ok
     end,
     get_loc().
 
