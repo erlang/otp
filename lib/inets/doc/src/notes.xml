@@ -53,6 +53,17 @@
 	  <p>Own Id: OTP-9805</p>
         </item>
 
+        <item>
+	  <p>Improve inets support for inets as an included application. </p>
+	  <p><c>inets_app</c> calls <c>supervisor:start_link/3</c> directly 
+	  rather than calling the root supervisor function 
+	  <c>inets_sup:start_link/0</c>. 
+	  This precludes using included_applications to start inets without 
+	  having a wrapper function. </p>
+	  <p>Jay Nelson</p>
+	  <p>Own Id: OTP-9960</p>
+        </item>
+
       </list>
 
     </section>
