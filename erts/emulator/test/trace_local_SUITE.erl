@@ -80,6 +80,7 @@ config(priv_dir,_) ->
 	 exception_meta_nocatch/1, exception_meta_nocatch_apply/1,
 	 exception_meta_nocatch_function/1,
 	 exception_meta_nocatch_apply_function/1,
+	 concurrency/1,
 	 init_per_testcase/2, end_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:minutes(2)),
@@ -106,7 +107,8 @@ all() ->
 	     exception_meta_apply_function, exception_meta_nocatch,
 	     exception_meta_nocatch_apply,
 	     exception_meta_nocatch_function,
-	     exception_meta_nocatch_apply_function]
+	     exception_meta_nocatch_apply_function,
+	     concurrency]
     end.
 
 groups() -> 
@@ -812,6 +814,42 @@ clean_location({crash,{Reason,Stk0}}) ->
     Stk = [{M,F,A,[]} || {M,F,A,_} <- Stk0],
     {crash,{Reason,Stk}};
 clean_location(Term) -> Term.
+
+concurrency(_Config) ->
+    N = erlang:system_info(schedulers),
+
+    %% Spawn 2*N processes that spin in a tight infinite loop,
+    %% and one process that will turn on and off local call
+    %% trace on the infinite_loop/0 function. We expect the
+    %% emulator to crash if there is a memory barrier bug or
+    %% if an aligned word-sized write is not atomic.
+
+    Ps0 = [spawn_monitor(fun() -> infinite_loop() end) ||
+	      _ <- lists:seq(1, 2*N)],
+    OnAndOff = fun() -> concurrency_on_and_off() end,
+    Ps1 = [spawn_monitor(OnAndOff)|Ps0],
+    ?t:sleep(1000),
+
+    %% Now spawn off N more processes that turn on off and off
+    %% a local trace pattern.
+    Ps = [spawn_monitor(OnAndOff) || _ <- lists:seq(1, N)] ++ Ps1,
+    ?t:sleep(1000),
+
+    %% Clean up.
+    [exit(Pid, kill) || {Pid,_} <- Ps],
+    [receive
+	 {'DOWN',Ref,process,Pid,killed} -> ok
+     end || {Pid,Ref} <- Ps],
+    erlang:trace_pattern({?MODULE,infinite_loop,0}, false, [local]),
+    ok.
+
+concurrency_on_and_off() ->
+    1 = erlang:trace_pattern({?MODULE,infinite_loop,0}, true, [local]),
+    1 = erlang:trace_pattern({?MODULE,infinite_loop,0}, false, [local]),
+    concurrency_on_and_off().
+
+infinite_loop() ->
+    infinite_loop().
 
 %%% Tracee target functions %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%
