@@ -38,7 +38,7 @@
 -export([get_ts_html_wrapper/3]).
 
 %% Logging stuff directly from testcase
--export([tc_log/3,tc_print/3,tc_pal/3,ct_log/3,
+-export([tc_log/3,tc_log_async/3,tc_print/3,tc_pal/3,ct_log/3,
 	 basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
@@ -239,7 +239,7 @@ end_tc(TCPid) ->
 %%% activity it is. <code>Format</code> and <code>Args</code> is the
 %%% data to log (as in <code>io:format(Format,Args)</code>).</p>
 log(Heading,Format,Args) ->
-    cast({log,self(),group_leader(),
+    cast({log,sync,self(),group_leader(),
 	  [{int_header(),[log_timestamp(now()),Heading]},
 	   {Format,Args},
 	   {int_footer(),[]}]}),
@@ -261,7 +261,7 @@ log(Heading,Format,Args) ->
 %%% @see cont_log/2
 %%% @see end_log/0
 start_log(Heading) ->
-    cast({log,self(),group_leader(),
+    cast({log,sync,self(),group_leader(),
 	  [{int_header(),[log_timestamp(now()),Heading]}]}),
     ok.
 
@@ -276,7 +276,7 @@ cont_log([],[]) ->
     ok;
 cont_log(Format,Args) ->
     maybe_log_timestamp(),
-    cast({log,self(),group_leader(),[{Format,Args}]}),
+    cast({log,sync,self(),group_leader(),[{Format,Args}]}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -287,7 +287,7 @@ cont_log(Format,Args) ->
 %%% @see start_log/1
 %%% @see cont_log/2
 end_log() ->
-    cast({log,self(),group_leader(),[{int_footer(), []}]}),
+    cast({log,sync,self(),group_leader(),[{int_footer(), []}]}),
     ok.
     
 
@@ -333,9 +333,29 @@ add_link(Heading,File,Type) ->
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
 tc_log(Category,Format,Args) ->
-    cast({log,self(),group_leader(),[{div_header(Category),[]},
-				     {Format,Args},
-				     {div_footer(),[]}]}),
+    cast({log,sync,self(),group_leader(),[{div_header(Category),[]},
+					  {Format,Args},
+					  {div_footer(),[]}]}),
+    ok.
+
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_log_async(Category,Format,Args) -> ok
+%%%      Category = atom()
+%%%      Format = string()
+%%%      Args = list()
+%%%
+%%% @doc Internal use only.
+%%%
+%%% <p>This function is used to perform asynchronous printouts
+%%% towards the test server IO handler. This is necessary in order
+%%% to avoid deadlocks when e.g. the hook that handles SASL printouts
+%%% prints to the test case log file at the same time test server
+%%% asks ct_logs for an html wrapper.</p>
+tc_log_async(Category,Format,Args) ->
+    cast({log,async,self(),group_leader(),[{div_header(Category),[]},
+					   {Format,Args},
+					   {div_footer(),[]}]}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -377,9 +397,9 @@ print_heading(Category) ->
 %%% log and on the console.</p>
 tc_pal(Category,Format,Args) ->
     tc_print(Category,Format,Args),
-    cast({log,self(),group_leader(),[{div_header(Category),[]},
-				     {Format,Args},
-				     {div_footer(),[]}]}),
+    cast({log,sync,self(),group_leader(),[{div_header(Category),[]},
+					  {Format,Args},
+					  {div_footer(),[]}]}),
     ok.
 
 
@@ -420,7 +440,7 @@ maybe_log_timestamp() ->
 	{MS,S,_} ->
 	    ok;
 	_ ->
-	    cast({log,self(),group_leader(),
+	    cast({log,sync,self(),group_leader(),
 		  [{"<i>~s</i>",[log_timestamp({MS,S,US})]}]})
     end.
 
@@ -441,7 +461,8 @@ log_timestamp({MS,S,US}) ->
 		      orig_GL,
 		      ct_log_fd,
 		      tc_groupleaders,
-		      stylesheet}).
+		      stylesheet,
+		      async_print_jobs}).
 
 logger(Parent,Mode) ->
     register(?MODULE,self()),
@@ -520,50 +541,32 @@ logger(Parent,Mode) ->
 			      start_time=Time,
 			      orig_GL=group_leader(),
 			      ct_log_fd=CtLogFd,
-			      tc_groupleaders=[]}).
+			      tc_groupleaders=[],
+			      async_print_jobs=[]}).
 
 logger_loop(State) ->
     receive
-	{log,Pid,GL,List} ->
-	    case get_groupleader(Pid,GL,State) of
+	{log,SyncOrAsync,Pid,GL,List} ->
+	    case get_groupleader(Pid, GL, State) of
 		{tc_log,TCGL,TCGLs} ->
 		    case erlang:is_process_alive(TCGL) of
 			true ->
-			    %% we have to build one io-list of all strings
-			    %% before printing, or other io printouts (made in
-			    %% parallel) may get printed between this header 
-			    %% and footer 
-			    Fun = 
-				fun({Str,Args},IoList) ->
-					case catch io_lib:format(Str,Args) of
-					    {'EXIT',_Reason} ->
-						Fd = State#logger_state.ct_log_fd,
-						io:format(Fd, 
-							  "Logging fails! "
-							  "Str: ~p, Args: ~p~n",
-							  [Str,Args]),
-						%% stop the testcase, we need
-						%% to see the fault
-						exit(Pid,{log_printout_error,Str,Args}),
-						[];
-					    IoStr when IoList == [] ->
-						[IoStr];
-					    IoStr ->
-						[IoList,"\n",IoStr]
-					end
-				end,
-			    io:format(TCGL,"~s",[lists:foldl(Fun,[],List)]),
-			    logger_loop(State#logger_state{tc_groupleaders=TCGLs});
+			    State1 = print_to_log(SyncOrAsync, Pid, TCGL,
+						  List, State),
+			    logger_loop(State1#logger_state{tc_groupleaders =
+							       TCGLs});
 			false ->
-			    %% Group leader is dead, so write to the CtLog instead
+			    %% Group leader is dead, so write to the
+			    %% CtLog instead
 			    Fd = State#logger_state.ct_log_fd,
 			    [begin io:format(Fd,Str,Args),io:nl(Fd) end || 
 				{Str,Args} <- List],
 			    logger_loop(State)			    
 		    end;
 		{ct_log,Fd,TCGLs} ->
-		    [begin io:format(Fd,Str,Args),io:nl(Fd) end || {Str,Args} <- List],
-		    logger_loop(State#logger_state{tc_groupleaders=TCGLs})
+		    [begin io:format(Fd,Str,Args),io:nl(Fd) end ||
+			{Str,Args} <- List],
+		    logger_loop(State#logger_state{tc_groupleaders = TCGLs})
 	    end;
 	{{init_tc,TCPid,GL,RefreshLog},From} ->
 	    print_style(GL, State#logger_state.stylesheet),
@@ -575,11 +578,12 @@ logger_loop(State) ->
 		    make_last_run_index(State#logger_state.start_time)
 	    end,
 	    return(From,ok),
-	    logger_loop(State#logger_state{tc_groupleaders=TCGLs});
+	    logger_loop(State#logger_state{tc_groupleaders = TCGLs});
 	{{end_tc,TCPid},From} ->
 	    set_evmgr_gl(State#logger_state.ct_log_fd),
 	    return(From,ok),
-	    logger_loop(State#logger_state{tc_groupleaders=rm_tc_gl(TCPid,State)});
+	    logger_loop(State#logger_state{tc_groupleaders =
+					       rm_tc_gl(TCPid,State)});
 	{{get_log_dir,true},From} ->
 	    return(From,{ok,State#logger_state.log_dir}),
 	    logger_loop(State);
@@ -590,21 +594,35 @@ logger_loop(State) ->
 	    make_last_run_index(State#logger_state.start_time),
 	    return(From,filename:basename(State#logger_state.log_dir)),
 	    logger_loop(State);
-	{set_stylesheet,_,SSFile} when State#logger_state.stylesheet == SSFile ->
+	{set_stylesheet,_,SSFile} when State#logger_state.stylesheet ==
+				       SSFile ->
 	    logger_loop(State);
 	{set_stylesheet,TC,SSFile} ->
 	    Fd = State#logger_state.ct_log_fd,
-	    io:format(Fd, "~p loading external style sheet: ~s~n", [TC,SSFile]),
-	    logger_loop(State#logger_state{stylesheet=SSFile});
+	    io:format(Fd, "~p loading external style sheet: ~s~n",
+		      [TC,SSFile]),
+	    logger_loop(State#logger_state{stylesheet = SSFile});
 	{clear_stylesheet,_} when State#logger_state.stylesheet == undefined ->
 	    logger_loop(State);
 	{clear_stylesheet,_} ->
-	    logger_loop(State#logger_state{stylesheet=undefined});
+	    logger_loop(State#logger_state{stylesheet = undefined});
 	{ct_log, List} ->
 	    Fd = State#logger_state.ct_log_fd,
 	    [begin io:format(Fd,Str,Args),io:nl(Fd) end ||
 				{Str,Args} <- List],
 	    logger_loop(State);
+	{'DOWN',Ref,_,_Pid,_} ->
+	    %% there might be print jobs executing in parallel with ct_logs
+	    %% and whenever one is finished (indicated by 'DOWN'), the
+	    %% next job should be spawned
+	    case lists:delete(Ref, State#logger_state.async_print_jobs) of
+		[] ->
+		    logger_loop(State#logger_state{async_print_jobs = []});
+		Jobs ->
+		    [Next|JobsRev] = lists:reverse(Jobs),
+		    Jobs1 = [print_next(Next)|lists:reverse(JobsRev)],
+		    logger_loop(State#logger_state{async_print_jobs = Jobs1})
+	    end;
 	stop ->
 	    io:format(State#logger_state.ct_log_fd,
 		      int_header()++int_footer(),
@@ -612,6 +630,49 @@ logger_loop(State) ->
 	    close_ctlog(State#logger_state.ct_log_fd),
 	    ok
     end.
+
+create_io_fun(FromPid, State) ->
+    %% we have to build one io-list of all strings
+    %% before printing, or other io printouts (made in
+    %% parallel) may get printed between this header 
+    %% and footer
+    Fd = State#logger_state.ct_log_fd,
+    fun({Str,Args}, IoList) ->
+	    case catch io_lib:format(Str,Args) of
+		{'EXIT',_Reason} ->
+		    io:format(Fd, "Logging fails! Str: ~p, Args: ~p~n",
+			      [Str,Args]),
+		    %% stop the testcase, we need to see the fault
+		    exit(FromPid, {log_printout_error,Str,Args}),
+		    [];
+		IoStr when IoList == [] ->
+		    [IoStr];
+		IoStr ->
+		    [IoList,"\n",IoStr]
+	    end
+    end.
+
+print_to_log(sync, FromPid, TCGL, List, State) ->
+    IoFun = create_io_fun(FromPid, State),
+    io:format(TCGL, "~s", [lists:foldl(IoFun, [], List)]),
+    State;
+
+print_to_log(async, FromPid, TCGL, List, State) ->
+    IoFun = create_io_fun(FromPid, State),
+    Printer = fun() ->
+		      io:format(TCGL, "~s", [lists:foldl(IoFun, [], List)])
+	      end,
+    case State#logger_state.async_print_jobs of
+	[] ->
+	    {_Pid,Ref} = spawn_monitor(Printer),
+	    State#logger_state{async_print_jobs = [Ref]};
+	Queue ->
+	    State#logger_state{async_print_jobs = [Printer|Queue]}
+    end.
+
+print_next(PrintFun) ->
+    {_Pid,Ref} = spawn_monitor(PrintFun),
+    Ref.
 
 %% #logger_state.tc_groupleaders == [{Pid,{Type,GLPid}},...]
 %% Type = tc | io
@@ -1894,7 +1955,7 @@ simulate() ->
 
 simulate_logger_loop() ->
     receive 
-    	{log,_,_,List} ->
+    	{log,_,_,_,List} ->
 	    S = [[io_lib:format(Str,Args),io_lib:nl()] || {Str,Args} <- List],
 	    io:format("~s",[S]),
 	    simulate_logger_loop();

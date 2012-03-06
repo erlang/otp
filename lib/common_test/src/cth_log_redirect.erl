@@ -38,15 +38,15 @@ id(_Opts) ->
 
 init(?MODULE, _Opts) ->
     error_logger:add_report_handler(?MODULE),
-    tc_log.
+    tc_log_async.
 
-post_init_per_group(Group, Config, Result, tc_log) ->
+post_init_per_group(Group, Config, Result, tc_log_async) ->
     case lists:member(parallel,proplists:get_value(
 				 tc_group_properties,Config,[])) of
 	true ->
 	    {Result, {set_log_func(ct_log),Group}};
 	false ->
-	    {Result, tc_log}
+	    {Result, tc_log_async}
     end;
 post_init_per_group(_Group, _Config, Result, State) ->
     {Result, State}.
@@ -58,14 +58,14 @@ post_end_per_testcase(_TC, _Config, Result, State) ->
     {Result, State}.
 
 pre_end_per_group(Group, Config, {ct_log, Group}) ->
-    {Config, set_log_func(tc_log)};
+    {Config, set_log_func(tc_log_async)};
 pre_end_per_group(_Group, Config, State) ->
     {Config, State}.
 
 
 %% Copied and modified from sasl_report_tty_h.erl
 init(_Type) ->
-    {ok, tc_log}.
+    {ok, tc_log_async}.
 
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
