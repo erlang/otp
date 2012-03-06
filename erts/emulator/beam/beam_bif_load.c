@@ -136,6 +136,7 @@ prepare_loading_2(BIF_ALIST_2)
     }
     hp = HAlloc(BIF_P, PROC_BIN_SIZE);
     res = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), magic);
+    erts_refc_dec(&magic->refc, 1);
     BIF_RET(res);
 }
 
