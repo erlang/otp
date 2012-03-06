@@ -88,6 +88,8 @@ ERL_FILES = $(MODULES:%=%.erl)
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR)) 
 
+INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
+
 
 # ----------------------------------------------------
 # FLAGS

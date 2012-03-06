@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,14 +39,17 @@
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 alias(Type, Port, Host, Node) ->
-%%     io:format(user, "~w:alias -> entry with"
-%% 	      "~n   Type:       ~p"
-%% 	      "~n   Port:       ~p"
-%% 	      "~n   Host:       ~p"
-%% 	      "~n   Node:       ~p"
-%% 	      "~n", [?MODULE, Type, Port, Host, Node]),    
-    
-    ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+    %% This is very crude, but...
+    tsp("alias -> Has IPv6 support: ~p", [inets_test_lib:has_ipv6_support()]),
+    Opts = case os:type() of
+	       {win32, _} ->
+		   [inet6fb4];
+	       _ ->
+		   []
+	   end,
+    tsp("alias -> Opts: ~p", [Opts]),
+
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /pics/icon.sheet.gif "
  				       "HTTP/1.0\r\n\r\n",
  				       [{statuscode, 200},
@@ -55,7 +58,7 @@ alias(Type, Port, Host, Node) ->
  					{header, "Date"},
  				        {version, "HTTP/1.0"}]),
     
-     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, 
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET / HTTP/1.0\r\n\r\n",
  				       [{statuscode, 200},
  					{header, "Content-Type","text/html"},
@@ -63,7 +66,7 @@ alias(Type, Port, Host, Node) ->
  					{header, "Date"},
  				        {version, "HTTP/1.0"}]),
 
-     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /misc/ HTTP/1.0\r\n\r\n",
  				       [{statuscode, 200},
  					{header, "Content-Type","text/html"},
@@ -71,8 +74,8 @@ alias(Type, Port, Host, Node) ->
  					{header, "Date"},
  				        {version, "HTTP/1.0"}]),
 
-     %% Check redirection if trailing slash is missing.
-     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
+    %% Check redirection if trailing slash is missing.
+    ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /misc HTTP/1.0\r\n\r\n",
  				       [{statuscode, 301},
  					{header, "Location"},
@@ -1032,9 +1035,10 @@ check_lists_members1(L1,L2) ->
 
 
 %% tsp(F) ->
-%%     tsp(F, []).
-%% tsp(F, A) ->
-%%     test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+%%     inets_test_lib:tsp(F).
+tsp(F, A) ->
+    inets_test_lib:tsp(F, A).
+
 
 tsf(Reason) ->
     test_server:fail(Reason).
