@@ -1301,7 +1301,12 @@ terminate(_Reason, State) ->
     end,
     kill_all_jobs(State#state.jobs),
     test_server_node:stop(State#state.target_info),
-    test_server_h:restore(),
+    case lists:keysearch(sasl, 1, application:which_applications()) of
+	{value,_} ->
+	    test_server_h:restore();
+	_ ->
+	    ok
+    end,
     ok.
 
 kill_all_jobs([{_Name,JobPid}|Jobs]) ->
