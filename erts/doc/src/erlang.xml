@@ -4937,11 +4937,17 @@ true</pre>
           <item>
             <p>Returns a list of tuples with 
 	    <c>{SchedulerId, ActiveTime, TotalTime}]</c>, where <c>SchedulerId</c> is an integer id of the scheduler, <c>ActiveTime</c> is
-		 the duration the scheduler has been busy. <c>TotalTime</c> is the total time duration since 
-	    <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso> activation. The time unit is not defined and may be subject to change. <c>scheduler_wall_time</c> should only be used to calculate relative values for scheduler-utilization. <c>ActiveTime</c> can never exceed <c>TotalTime</c>.
+		 the duration the scheduler has been busy, <c>TotalTime</c> is the total time duration since 
+	    <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso>
+		activation. The time unit is not defined and may be subject to change.
+		<c>scheduler_wall_time</c> should only be used to calculate relative
+		values for scheduler-utilization. <c>ActiveTime</c> can never exceed <c>TotalTime</c>.
 		</p>
 
-		<p>The definition of a busy scheduler is when it is not idle or not scheduling (selecting) a process or port, meaning; executing process code, executing linked-in-driver or NIF code, garbage collecting or handling any other memory management.
+		<p>The definition of a busy scheduler is when it is not idle or not
+			scheduling (selecting) a process or port, meaning; executing process
+			code, executing linked-in-driver or NIF code, executing
+			built-in-functions or any other runtime handling, garbage collecting or handling any other memory management.
 		</p>
 
 		<p>
