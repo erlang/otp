@@ -4935,17 +4935,51 @@ true</pre>
           </item>
           <tag><marker id="statistics_scheduler_wall_time"><c>scheduler_wall_time</c></marker></tag>
           <item>
-            <p>Returns
-	    <c>[{Scheduler_Id, Scheduler_Worked_Time, Scheduler_Total_Time}]</c>, time lapses are since the
-	    the system flag <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso>
-	    was set to true.
+            <p>Returns a list of tuples with 
+	    <c>{SchedulerId, ActiveTime, TotalTime}]</c>, where <c>SchedulerId</c> is an integer id of the scheduler, <c>ActiveTime</c> is
+		 the duration the scheduler has been busy. <c>TotalTime</c> is the total time duration since 
+	    <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso> activation. The time unit is not defined and may be subject to change. <c>scheduler_wall_time</c> should only be used to calculate relative values for scheduler-utilization. <c>ActiveTime</c> can never exceed <c>TotalTime</c>.
+		</p>
+
+		<p>The definition of a busy scheduler is when it is not idle or not scheduling (selecting) a process or port, meaning; executing process code, executing linked-in-driver or NIF code, garbage collecting or handling any other memory management.
+		</p>
+
+		<p>
 	    Returns <c>undefined</c> if the system flag <seealso marker="#system_flag_scheduler_wall_time">
-	    scheduler_wall_time</seealso> is set to false.
+	    scheduler_wall_time</seealso> is turned off.
 	    </p>
+
 	    <p>The list of scheduler information is unsorted and may come in different order
-	    between calls. The time unit is undefined and may be changed and should only be used
-	    to calculate relative utilization.
+	    between calls. 
 	    </p>
+		<p>Using <c>scheduler_wall_time</c> to calculate scheduler utilization.</p>
+<pre>
+> <input>erlang:system_flag(scheduler_wall_time, true).</input>
+false
+> <input>Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
+ok
+</pre>
+		<p>Some time later we will take another snapshot and calculate scheduler-utilization per scheduler.</p>
+<pre>
+> <input>Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
+ok
+> <input>lists:map(fun({{I, W0, T0}, {I, W1, T1}}) -> {I, (W1 - W0)/(T1 - T0)} end, lists:zip(Ts0,Ts1)).</input>
+[{1,0.9743474730177548},
+ {2,0.9744843782751444},
+ {3,0.9995902361669045},
+ {4,0.9738012596572161},
+ {5,0.9717956667018103},
+ {6,0.9739235846420741},
+ {7,0.973237033077876},
+ {8,0.9741297293248656}]
+</pre>
+		<p>Using the same snapshot to calculate a total scheduler-utilization.</p>
+<pre>
+> <input>{W, T} = lists:foldl(fun({{_, W0, T0}, {_, W1, T1}}, {Wi,Ti}) -> 
+	{Wi + (W1 - W0), Ti + (T1 - T0)} end, {0,0}, lists:zip(Ts0,Ts1)), W/T.</input>
+0.9769136803764825
+</pre>
+ 
           </item>
 
           <tag><c>wall_clock</c></tag>
@@ -4965,6 +4999,10 @@ true</pre>
 {2046,11}
 > <input>statistics(garbage_collection).</input>
 {85,23961,0}</pre>
+        <note>
+          <p><c>scheduler_wall_time</c> is by default disabled. Use <c>erlang:system_flag(scheduler_wall_time, true)</c> to enable it. </p>
+        </note>
+ 
       </desc>
     </func>
     <func>
