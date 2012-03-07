@@ -101,7 +101,7 @@ void erts_release_code_write_permission(void);
 void erts_start_staging_code_ix(void);
 
 /* End the staging.
- * Preceded by "start" and followed by "commit" or "abort".
+ * Preceded by "start" and must be followed by "commit".
  */
 void erts_end_staging_code_ix(void);
 
@@ -111,7 +111,7 @@ void erts_end_staging_code_ix(void);
 void erts_commit_staging_code_ix(void);
 
 /* Abort the staging.
- * Preceded by "start" or "end".
+ * Preceded by "start".
  */
 void erts_abort_staging_code_ix(void);
 

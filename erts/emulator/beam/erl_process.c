@@ -1176,17 +1176,13 @@ handle_code_ix_activation(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 #ifdef DEBUG
     awdp->code_ix_activation.code_stager = NULL;
 #endif
+    erts_commit_staging_code_ix();
+    erts_release_code_write_permission();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     if (!ERTS_PROC_IS_EXITING(p)) {
-	erts_commit_staging_code_ix();
 	erts_resume(p, ERTS_PROC_LOCK_STATUS);
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     }
-    else {
-	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-	erts_abort_staging_code_ix();
-    }
-    erts_release_code_write_permission();
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
     erts_smp_proc_dec_refc(p);
     return aux_work & ~ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION;
 }
