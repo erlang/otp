@@ -22,11 +22,15 @@
  */
 
 
+
 #include "erl_nif.h"
 #include "config.h"
 #include "sys.h"
 #include "dtrace-wrapper.h"
-#ifdef  HAVE_DTRACE
+#if defined(USE_DYNAMIC_TRACE) && (defined(USE_DTRACE) || defined(USE_SYSTEMTAP))
+#define HAVE_USE_DTRACE 1
+#endif
+#ifdef  HAVE_USE_DTRACE
 #include "dtrace_user.h"
 #endif
 
@@ -59,7 +63,7 @@ static ErlNifFunc nif_funcs[] = {
     {"user_trace_i4s4", 9, user_trace_i4s4}
 };
 
-ERL_NIF_INIT(dtrace, nif_funcs, load, NULL, NULL, NULL)
+ERL_NIF_INIT(dyntrace, nif_funcs, load, NULL, NULL, NULL)
 
 static ERL_NIF_TERM atom_true;
 static ERL_NIF_TERM atom_false;
@@ -82,7 +86,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
 static ERL_NIF_TERM available(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef	HAVE_DTRACE
+#ifdef	HAVE_USE_DTRACE
     return atom_true;
 #else
     return atom_false;
@@ -91,7 +95,7 @@ static ERL_NIF_TERM available(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 
 static ERL_NIF_TERM user_trace_s1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef	HAVE_DTRACE
+#ifdef	HAVE_USE_DTRACE
     ErlNifBinary message_bin;
     DTRACE_CHARBUF(messagebuf, MESSAGE_BUFSIZ + 1);
 
@@ -130,7 +134,7 @@ get_string_maybe(ErlNifEnv *env,
 
 static ERL_NIF_TERM user_trace_i4s4(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-#ifdef	HAVE_DTRACE
+#ifdef	HAVE_USE_DTRACE
     DTRACE_CHARBUF(procbuf, 32 + 1);
     DTRACE_CHARBUF(user_tagbuf, MESSAGE_BUFSIZ + 1);
     char *utbuf = NULL;

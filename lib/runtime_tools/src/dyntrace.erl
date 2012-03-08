@@ -1,27 +1,28 @@
--module(dtrace).
+-module(dyntrace).
 
-%%% @doc The DTrace interface module
+%%% @doc The Dynamic tracing interface module
 %%%
-%%% This DTrace interface module, with the corresponding NIFs, should
-%%% work on any operating system platform where user-space DTrace
-%%% probes are supported.
+%%% This Dynamic tracing interface module, with the corresponding NIFs, should
+%%% work on any operating system platform where user-space DTrace/Systemtap 
+%%% (and in the future LttNG UST) probes are supported.
 %%%
-%%% Use the `dtrace:init()' function to load the NIF shared library and
+%%% Use the `dyntrace:init()' function to load the NIF shared library and
 %%% to initialize library's private state.
 %%%
-%%% It is recommended that you use the `dtrace:p()' function to add
-%%% DTrace probes to your Erlang code.  This function can accept up to
+%%% It is recommended that you use the `dyntrace:p()' function to add
+%%% Dynamic trace probes to your Erlang code.  This function can accept up to
 %%% four integer arguments and four string arguments; the integer
 %%% argument(s) must come before any string argument.  For example:
 %%% ```
-%%% 1> dtrace:put_tag("GGOOOAAALL!!!!!").
+%%% 1> dyntrace:put_utag("GGOOOAAALL!!!!!").
 %%% true
-%%% 2> dtrace:init().
+%%% 2> dyntrace:init().
 %%% ok
 %%%
-%%% % % % Enable the DTrace probe using the 'dtrace' command.
+%%% % % % If using dtrace, enable the Dynamic trace probe using the 'dtrace' 
+%%% % % % command.
 %%%
-%%% 3> dtrace:p(7, 8, 9, "one", "four").
+%%% 3> dyntrace:p(7, 8, 9, "one", "four").
 %%% true
 %%% '''
 %%%
@@ -35,29 +36,60 @@
 %%% then the driver will ignore the user's input and use a default
 %%% value of 0 or NULL, respectively.
 
--export([init/0, available/0,
+-export([available/0,
          user_trace_s1/1, % TODO: unify with pid & tag args like user_trace_i4s4
          p/0, p/1, p/2, p/3, p/4, p/5, p/6, p/7, p/8]).
 -export([put_utag/1, get_utag/0, get_utag_data/0, spread_utag/1, restore_utag/1]).
 
 -export([scaff/0]). % Development only
 -export([user_trace_i4s4/9]). % Know what you're doing!
+-on_load(on_load/0).
 
 -type probe_arg() :: integer() | iolist().
 -type int_p_arg() :: integer() | iolist() | undef.
+
 %% The *_maybe() types use atom() instead of a stricter 'undef'
 %% because user_trace_i4s4/9 is exposed to the outside world, and
 %% because the driver will allow any atom to be used as a "not
 %% present" indication, we'll allow any atom in the types.
+
 -type integer_maybe() :: integer() | atom().
 -type iolist_maybe() :: iolist() | atom().
 
--spec init() -> ok | {error, {term(), term()}}.
-
-init() ->
-    PrivDir = code:priv_dir(dtrace),
-    Lib = filename:join([PrivDir, "lib", "dtrace"]),
-    erlang:load_nif(Lib, 0).
+on_load() ->
+    PrivDir = code:priv_dir(runtime_tools),
+    LibName = "dyntrace",
+    Lib = filename:join([PrivDir, "lib", LibName]),
+    Status = case erlang:load_nif(Lib, 0) of
+                 ok -> ok;
+                 {error, {load_failed, _}}=Error1 ->
+                     ArchLibDir = 
+                         filename:join([PrivDir, "lib", 
+                                        erlang:system_info(system_architecture)]),
+                     Candidate =
+                         filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+                     case Candidate of
+                         [] -> Error1;
+                         _ ->
+                             ArchLib = filename:join([ArchLibDir, LibName]),
+                             erlang:load_nif(ArchLib, 0)
+                     end;
+                 Error1 -> Error1
+             end,
+    case Status of
+        ok -> ok;
+        {error, {E, Str}} ->
+	    case erlang:system_info(dynamic_trace) of
+		none ->
+		    ok;
+		_ ->
+		    error_logger:error_msg("Unable to load dyntrace library. Failed with error:~n
+\"~p, ~s\"~n"
+					   "Dynamic tracing is enabled but the driver is not built correctly~n",[
+														 E,Str]),
+		    Status
+	    end
+    end.
 
 %%%
 %%% NIF placeholders

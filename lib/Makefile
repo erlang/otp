@@ -31,7 +31,7 @@ ifdef BUILD_ALL
           cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer erl_docgen \
-	  percept dialyzer dtrace hipe
+	  percept dialyzer hipe
   EXTRA_FILE := $(wildcard EXTRA-APPLICATIONS)
   EXTRA_APPLICATIONS := $(if $(EXTRA_FILE),$(shell cat $(EXTRA_FILE)))
 endif
