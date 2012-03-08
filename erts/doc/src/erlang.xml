@@ -4969,7 +4969,8 @@ ok
 <pre>
 > <input>Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
 ok
-> <input>lists:map(fun({{I, W0, T0}, {I, W1, T1}}) -> {I, (W1 - W0)/(T1 - T0)} end, lists:zip(Ts0,Ts1)).</input>
+> <input>lists:map(fun({{I, A0, T0}, {I, A1, T1}}) ->
+	{I, (A1 - A0)/(T1 - T0)} end, lists:zip(Ts0,Ts1)).</input>
 [{1,0.9743474730177548},
  {2,0.9744843782751444},
  {3,0.9995902361669045},
@@ -4981,8 +4982,8 @@ ok
 </pre>
 		<p>Using the same snapshot to calculate a total scheduler-utilization.</p>
 <pre>
-> <input>{W, T} = lists:foldl(fun({{_, W0, T0}, {_, W1, T1}}, {Wi,Ti}) -> 
-	{Wi + (W1 - W0), Ti + (T1 - T0)} end, {0,0}, lists:zip(Ts0,Ts1)), W/T.</input>
+> <input>{A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
+	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)), A/T.</input>
 0.9769136803764825
 </pre>
  
