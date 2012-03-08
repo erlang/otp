@@ -4881,6 +4881,7 @@ true</pre>
         <v>Type, Res -- see below</v>
       </type>
       <desc>
+	        <p>All times are in milliseconds unless otherwise specified.</p>
         <p>Returns information about the system as specified by
           <c>Type</c>:</p>
         <taglist>
@@ -4894,15 +4895,20 @@ true</pre>
           <item>
             <p>Returns
               <c>{Total_Exact_Reductions, Exact_Reductions_Since_Last_Call}</c>.</p>
-            <p><em>NOTE:</em><c>statistics(exact_reductions)</c> is
-              a more expensive operation than
-              <seealso marker="#statistics_reductions">statistics(reductions)</seealso>
-              especially on an Erlang machine with SMP support.</p>
+		  <note><p><c>statistics(exact_reductions)</c> is
+				  a more expensive operation than
+				  <seealso marker="#statistics_reductions">statistics(reductions)</seealso>
+				  especially on an Erlang machine with SMP support.</p>
+		  </note>
           </item>
           <tag><c>garbage_collection</c></tag>
           <item>
             <p>Returns <c>{Number_of_GCs, Words_Reclaimed, 0}</c>. This
               information may not be valid for all implementations.</p>
+			<pre>
+> <input>statistics(garbage_collection).</input>
+{85,23961,0}
+</pre>
           </item>
           <tag><c>io</c></tag>
           <item>
@@ -4914,12 +4920,18 @@ true</pre>
           <tag><marker id="statistics_reductions"><c>reductions</c></marker></tag>
           <item>
             <p>Returns
-              <c>{Total_Reductions, Reductions_Since_Last_Call}</c>.</p>
-            <p><em>NOTE:</em> From erts version 5.5 (OTP release R11B)
-              this value does not include reductions performed in current
-              time slices of currently scheduled processes. If an
-              exact value is wanted, use
-              <seealso marker="#statistics_exact_reductions">statistics(exact_reductions)</seealso>.</p>
+				<c>{Total_Reductions, Reductions_Since_Last_Call}</c>.</p>
+			<note>
+				<p>From erts version 5.5 (OTP release R11B)
+					this value does not include reductions performed in current
+					time slices of currently scheduled processes. If an
+					exact value is wanted, use
+					<seealso marker="#statistics_exact_reductions">statistics(exact_reductions)</seealso>.</p>
+			</note>
+        <pre>
+> <input>statistics(reductions).</input>
+{2046,11}
+</pre>
           </item>
           <tag><c>run_queue</c></tag>
           <item>
@@ -4932,6 +4944,10 @@ true</pre>
 	    Note that the run-time is the sum of the run-time for all
 	    threads in the Erlang run-time system and may therefore be greater
 	    than the wall-clock time.</p>
+        <pre>
+> <input>statistics(runtime).</input>
+{1690,1620}
+</pre>
           </item>
           <tag><marker id="statistics_scheduler_wall_time"><c>scheduler_wall_time</c></marker></tag>
           <item>
@@ -4989,6 +5005,9 @@ ok
 0.9769136803764825
 </pre>
  
+        <note>
+          <p><c>scheduler_wall_time</c> is by default disabled. Use <c>erlang:system_flag(scheduler_wall_time, true)</c> to enable it. </p>
+        </note>
           </item>
 
           <tag><c>wall_clock</c></tag>
@@ -5000,18 +5019,6 @@ ok
               opposed to runtime or CPU time.</p>
           </item>
         </taglist>
-        <p>All times are in milliseconds.</p>
-        <pre>
-> <input>statistics(runtime).</input>
-{1690,1620}
-> <input>statistics(reductions).</input>
-{2046,11}
-> <input>statistics(garbage_collection).</input>
-{85,23961,0}</pre>
-        <note>
-          <p><c>scheduler_wall_time</c> is by default disabled. Use <c>erlang:system_flag(scheduler_wall_time, true)</c> to enable it. </p>
-        </note>
- 
       </desc>
     </func>
     <func>
