@@ -805,7 +805,7 @@ rtchk_fallback_call(Return, #atomic_context{dw = DW,
 non_native_barrier(B) ->
     lists:member(B, ?NON_NATIVE_BARRIERS).
 
-non_native_barrier_impl(AC, Type, Op, B) ->
+non_native_barrier_impl(AC, inline_implementation = Type, Op, B) ->
     ["
 ", func_header(AC, Type, false, Op, B), "
 {",
@@ -822,11 +822,36 @@ non_native_barrier_impl(AC, Type, Op, B) ->
      end,
      "}
 "
+    ];
+non_native_barrier_impl(#atomic_context{have_native_atomic_ops = HaveNative} = AC,
+			implementation = Type,
+			Op,
+			B) ->
+    ["
+", func_header(AC, Type, false, Op, B), "
+{",
+     case B of
+	 ddrb ->
+	     ["
+#if defined(", HaveNative, ")
+    ", func_call(AC, Type, Op, B, true), "
+#elif defined(ETHR_ORDERED_READ_DEPEND)
+    ", func_call(AC, symbol_implementation, Op, none, true), "
+#else
+    ", func_call(AC, symbol_implementation, Op, rb, true), "
+#endif
+"
+	     ]
+     end,
+     "}
+"
     ].
 
 func_call(#atomic_context{'ATMC' = ATMC} = AC, inline_implementation, Op, B, RetStatement) ->
     func_call(AC, Op, ["ETHR_", ATMC, "_FUNC__(", opstr(Op), op_barrier_ext(B), ")"], RetStatement);
 func_call(#atomic_context{atomic = Atomic} = AC, implementation, Op, B, RetStatement) ->
+    func_call(AC, Op, [Atomic, "_", opstr(Op), op_barrier_ext(B), "__"], RetStatement);
+func_call(#atomic_context{atomic = Atomic} = AC, symbol_implementation, Op, B, RetStatement) ->
     func_call(AC, Op, [Atomic, "_", opstr(Op), op_barrier_ext(B)], RetStatement).
 
 func_call(#atomic_context{dw = DW, arg1 = Arg1, arg2 = Arg2, arg3 = Arg3} = AC, Op, Func, true) ->
