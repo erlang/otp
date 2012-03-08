@@ -51,7 +51,12 @@
          sys,
          old_sys,
          status,
-         old_status}).
+         old_status,
+	 app_tab,
+	 old_app_tab,
+	 mod_tab,
+	 old_mod_tab,
+	 mod_used_by_tab}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Client
@@ -134,35 +139,34 @@ init([{parent,Parent}|_] = Options) ->
     end.
 
 do_init(Options) ->
-    AppTab = ets:new(reltool_apps, [public, ordered_set, {keypos, #app.name}]),
-    ModTab = ets:new(reltool_mods, [public, ordered_set, {keypos, #mod.name}]),
-    OldAppTab = ets:new(reltool_apps, [public, ordered_set, {keypos, #app.name}]),
-    OldModTab = ets:new(reltool_mods, [public, ordered_set, {keypos, #mod.name}]),
+    AppTab = ets:new(reltool_apps1, [public, ordered_set, {keypos,#app.name}]),
+    OldAppTab = ets:new(reltool_apps2, [public, ordered_set, {keypos,#app.name}]),
+    ModTab = ets:new(reltool_mods1, [public, ordered_set, {keypos,#mod.name}]),
+    OldModTab = ets:new(reltool_mods2, [public, ordered_set, {keypos,#mod.name}]),
     ModUsesTab = ets:new(reltool_mod_uses, [public, bag, {keypos, 1}]),
-    InitialC = #common{app_tab = AppTab,
-		       mod_tab = ModTab,
-		       old_app_tab = OldAppTab,
-		       old_mod_tab = OldModTab,
-		       mod_used_by_tab = ModUsesTab},
+    S = #state{options = Options,
+	       app_tab = AppTab,
+	       old_app_tab = OldAppTab,
+	       mod_tab = ModTab,
+	       old_mod_tab = OldModTab,
+	       mod_used_by_tab = ModUsesTab},
 
-    S = parse_options(InitialC, Options),
-    {S2, Apps, Status2} = refresh(S),
-    Status3 =  analyse(S2, Apps, Status2),
+    S2 = parse_options(S),
+    {S3, Apps, Status2} = refresh(S2),
+    Status3 =  analyse(S3, Apps, Status2),
     %% Set old_xxx equal to xxx to allow undo=nop
-    FakeBackup = {ets:tab2list((S2#state.common)#common.app_tab),
-		  ets:tab2list((S2#state.common)#common.mod_tab)},
-    S3 = save_old(S2, S2, FakeBackup, Status3),
-    #state{parent_pid = Parent, sys=Sys, common=C} = S3,
+    FakeBackup = {ets:tab2list(S3#state.app_tab),ets:tab2list(S3#state.mod_tab)},
+    S4 = save_old(S3, S3, FakeBackup, Status3),
+    #state{parent_pid = Parent, sys=Sys, common=C} = S4,
     proc_lib:init_ack(Parent, {ok, self(), C, Sys#sys{apps=undefined}}),
-    loop(S3).
+    loop(S4).
 
-parse_options(C, Opts) ->
+parse_options(S) ->
     Sys = default_sys(),
-    C2 = C#common{sys_debug = [],
-		  wx_debug = 0,
-		  trap_exit = true},
-    S = #state{options = Opts},
-    parse_options(Opts, S, C2, Sys).
+    C = #common{sys_debug = [],
+		wx_debug = 0,
+		trap_exit = true},
+    parse_options(S#state.options, S, C, Sys).
 
 default_sys() ->
     #sys{root_dir          = reltool_utils:root_dir(),
@@ -227,14 +231,14 @@ parse_options([], S, C, Sys) ->
 parse_options(KeyVals, _S, _C, _Sys) ->
     reltool_utils:throw_error("Illegal option: ~p", [KeyVals]).
 
-loop(#state{common = C, sys = Sys} = S) ->
+loop(#state{sys = Sys} = S) ->
     receive
         {system, From, Msg} ->
             sys:handle_system_msg(Msg,
 				  From,
 				  S#state.parent_pid,
 				  ?MODULE,
-				  C#common.sys_debug,
+				  (S#state.common)#common.sys_debug,
 				  S);
         {call, ReplyTo, Ref, {get_config, InclDef, InclDeriv}} ->
             Reply = do_get_config(S, InclDef, InclDeriv),
@@ -250,41 +254,38 @@ loop(#state{common = C, sys = Sys} = S) ->
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, reset_config} ->
-	    Fun = fun() -> parse_options(C, S#state.options) end,
+	    Fun = fun() -> parse_options(S) end,
 	    {S3, Status2} = config_and_refresh(S, Fun),
             reltool_utils:reply(ReplyTo, Ref, Status2),
             ?MODULE:loop(S3);
         {call, ReplyTo, Ref, undo_config} ->
-	    C2 = C#common{app_tab = C#common.old_app_tab,
-			  old_app_tab = C#common.app_tab,
-			  mod_tab = C#common.old_mod_tab,
-			  old_mod_tab = C#common.mod_tab},
-            S2 = S#state{common = C2,
-			 sys = S#state.old_sys,
+            S2 = S#state{sys = S#state.old_sys,
                          old_sys = Sys,
 			 status = S#state.old_status,
-			 old_status = S#state.status},
+			 old_status = S#state.status,
+			 app_tab = S#state.old_app_tab,
+			 old_app_tab = S#state.app_tab,
+			 mod_tab = S#state.old_mod_tab,
+			 old_mod_tab = S#state.mod_tab},
             reltool_utils:reply(ReplyTo, Ref, ok),
             ?MODULE:loop(S2);
         {call, ReplyTo, Ref, {get_rel, RelName}} ->
-            Sys = S#state.sys,
             Reply =
                 case lists:keysearch(RelName, #rel.name, Sys#sys.rels) of
                     {value, Rel} ->
-                        reltool_target:gen_rel(Rel, sys_all_apps(C,Sys));
+                        reltool_target:gen_rel(Rel, sys_all_apps(S));
                     false ->
                         {error, "No such release: " ++ RelName}
                 end,
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {get_script, RelName}} ->
-            Sys = S#state.sys,
             Reply =
                 case lists:keysearch(RelName, #rel.name, Sys#sys.rels) of
                     {value, Rel} ->
                         PathFlag = true,
                         Vars = [],
-                        reltool_target:gen_script(Rel, sys_all_apps(C,Sys),
+                        reltool_target:gen_script(Rel, sys_all_apps(S),
 						  PathFlag, Vars);
                     false ->
                         {error, "No such release: " ++ RelName}
@@ -293,7 +294,7 @@ loop(#state{common = C, sys = Sys} = S) ->
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {get_mod, ModName}} ->
             Reply =
-                case ets:lookup(C#common.mod_tab, ModName) of
+                case ets:lookup(S#state.mod_tab, ModName) of
                     [M] ->
                         {ok, M};
                     [] ->
@@ -303,7 +304,7 @@ loop(#state{common = C, sys = Sys} = S) ->
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {get_app, AppName}} when is_atom(AppName) ->
             Reply =
-                case ets:lookup(C#common.app_tab,AppName) of
+                case ets:lookup(S#state.app_tab,AppName) of
                     [App] ->
                         {ok, App};
                     [] ->
@@ -318,7 +319,7 @@ loop(#state{common = C, sys = Sys} = S) ->
 	    Reply =
 		case Status2 of
 		    {ok, Warnings} ->
-			[App2] = ets:lookup(C#common.app_tab,App#app.name),
+			[App2] = ets:lookup(S3#state.app_tab,App#app.name),
 			{ok, App2, Warnings};
 		    {error, _} ->
 			Status2
@@ -330,19 +331,19 @@ loop(#state{common = C, sys = Sys} = S) ->
                 case Kind of
                     whitelist ->
 			%% Pre-included
-			ets:select(C#common.app_tab,
+			ets:select(S#state.app_tab,
 				   [{#app{is_pre_included=true,_='_'},
 				     [],
 				     ['$_']}]);
 		    blacklist ->
 			%% Pre-excluded
-			ets:select(C#common.app_tab,
+			ets:select(S#state.app_tab,
 				   [{#app{is_pre_included=false,_='_'},
 				     [],
 				     ['$_']}]);
 		    source ->
 			%% Not included and not pre-excluded
-			ets:select(C#common.app_tab,
+			ets:select(S#state.app_tab,
 				   [{#app{is_included='$1',
 					  is_pre_included='$2',
 					  _='_'},
@@ -351,7 +352,7 @@ loop(#state{common = C, sys = Sys} = S) ->
 				     ['$_']}]);
                     derived ->
 			%% Included, but not pre-included
-			ets:select(C#common.app_tab,
+			ets:select(S#state.app_tab,
 				   [{#app{is_included='$1',
 					  is_pre_included='$2',
 					  _='_'},
@@ -379,7 +380,7 @@ loop(#state{common = C, sys = Sys} = S) ->
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {gen_rel_files, Dir}} ->
             Status =
-                case reltool_target:gen_rel_files(sys_all_apps(C,Sys), Dir) of
+                case reltool_target:gen_rel_files(sys_all_apps(S), Dir) of
                     ok ->
                         {ok, []};
                     {error, Reason} ->
@@ -388,11 +389,11 @@ loop(#state{common = C, sys = Sys} = S) ->
             reltool_utils:reply(ReplyTo, Ref, Status),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, {gen_target, Dir}} ->
-            Reply = reltool_target:gen_target(sys_all_apps(C,Sys), Dir),
+            Reply = reltool_target:gen_target(sys_all_apps(S), Dir),
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
         {call, ReplyTo, Ref, gen_spec} ->
-            Reply = reltool_target:gen_spec(sys_all_apps(C,Sys)),
+            Reply = reltool_target:gen_spec(sys_all_apps(S)),
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
         {'EXIT', Pid, Reason} when Pid =:= S#state.parent_pid ->
@@ -510,7 +511,7 @@ mod_set_config_only(ConfigMods) ->
 
  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-analyse(#state{common=C, sys=Sys}, Apps, Status) ->
+analyse(#state{sys=Sys} = S, Apps, Status) ->
     %% Create a list of {RelName,AppName}, one element for each
     %% AppName that needs to be included for the given release.
     RelApps = apps_in_rels(Sys#sys.rels, Apps),
@@ -522,16 +523,16 @@ analyse(#state{common=C, sys=Sys}, Apps, Status) ->
     %% are no duplicated module names (in different applications)
     %% where we can not decide which one to use.
     %% Write all #app to app_tab and all #mod to mod_tab.
-    Status2 = apps_init_is_included(C, Sys, Apps, RelApps, Status),
+    Status2 = apps_init_is_included(S, Apps, RelApps, Status),
 
     %% For each module that has #mod.is_included==true, propagate
     %% is_included to the modules it uses.
-    propagate_is_included(C, Sys),
+    propagate_is_included(S),
 
     %% Insert reverse dependencies - i.e. for each
     %% #mod{name=Mod, uses_mods=[UsedMod]},
     %% insert an entry {UsedMod,Mod} in mod_used_by_tab.
-    propagate_is_used_by(C),
+    propagate_is_used_by(S),
 
     %% Set the above reverse dependencies in #mod records
     %% (used_by_mods) and accumulate in #app records.
@@ -539,13 +540,13 @@ analyse(#state{common=C, sys=Sys}, Apps, Status) ->
     %% #mod.is_included==true for at least one module in the app.
     %% Set status=missing|ok for #app and #mod - indicates if module
     %% (.beam file) is missing in file system.
-    app_recap_dependencies(C),
+    app_recap_dependencies(S),
 
     %% Check that the boot_rel exists.
     %% Check that all applications that are listed in a 'rel' spec are
     %% also really included in the target release.
     %% Check that all mandatory applications are included in all rels.
-    verify_config(C, Sys, RelApps, Status2).
+    verify_config(S, RelApps, Status2).
 
 apps_in_rels(Rels, Apps) ->
     AllRelApps =
@@ -585,15 +586,14 @@ more_apps_in_rels([], _Apps, Acc) ->
     Acc.
 
 
-apps_init_is_included(C, Sys, Apps, RelApps, Status) ->
+apps_init_is_included(S, Apps, RelApps, Status) ->
     lists:foldl(fun(App, AccStatus) ->
-			app_init_is_included(C, Sys, App, RelApps, AccStatus)
+			app_init_is_included(S, App, RelApps, AccStatus)
 		end,
 		Status,
 		Apps).
 
-app_init_is_included(C,
-		     Sys,
+app_init_is_included(#state{app_tab = AppTab, mod_tab = ModTab, sys=Sys},
 		     #app{name = AppName, mods = Mods} = A,
 		     RelApps,
 		     Status) ->
@@ -624,7 +624,7 @@ app_init_is_included(C,
 		{true, undefined, true, Status}
         end,
     {Mods2,Status3} = lists:mapfoldl(fun(Mod,Acc) ->
-					     mod_init_is_included(C,
+					     mod_init_is_included(ModTab,
 								  Mod,
 								  ModCond,
 								  AppCond,
@@ -637,10 +637,10 @@ app_init_is_included(C,
 	       is_pre_included = IsPreIncl,
 	       is_included = IsIncl,
 	       rels = Rels},
-    ets:insert(C#common.app_tab, A2),
+    ets:insert(AppTab, A2),
     Status3.
 
-mod_init_is_included(C, M, ModCond, AppCond, Default, Status) ->
+mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
     %% print(M#mod.name, hipe, "incl_cond -> ~p\n", [AppCond]),
     IsIncl =
         case AppCond of
@@ -677,7 +677,7 @@ mod_init_is_included(C, M, ModCond, AppCond, Default, Status) ->
     M2 = M#mod{is_pre_included = IsIncl, is_included = IsIncl},
 
     Status2 =
-	case ets:lookup(C#common.mod_tab,M#mod.name) of
+	case ets:lookup(ModTab,M#mod.name) of
 	    [Existing] ->
 		case {Existing#mod.is_included,IsIncl} of
 		    {false,_} ->
@@ -688,7 +688,7 @@ mod_init_is_included(C, M, ModCond, AppCond, Default, Status) ->
 			      " and ", M#mod.app_name,
 			       ". Using module from application ",
 			       M#mod.app_name, "."]),
-			ets:insert(C#common.mod_tab, M2),
+			ets:insert(ModTab, M2),
 			reltool_utils:add_warning(Status,Warning);
 		    {_,false} ->
 			Warning =
@@ -699,7 +699,7 @@ mod_init_is_included(C, M, ModCond, AppCond, Default, Status) ->
 			       ". Using module from application ",
 			       Existing#mod.app_name, "."]),
 
-			%% Don't insert in mod_tab - using Existing
+			%% Don't insert in ModTab - using Existing
 			reltool_utils:add_warning(Status,Warning);
 		    {_,_} ->
 			reltool_utils:throw_error(
@@ -708,7 +708,7 @@ mod_init_is_included(C, M, ModCond, AppCond, Default, Status) ->
 			  [M#mod.name,Existing#mod.app_name,M#mod.app_name])
 		end;
 	    [] ->
-		ets:insert(C#common.mod_tab, M2),
+		ets:insert(ModTab, M2),
 		Status
 	end,
 
@@ -723,20 +723,20 @@ false_to_undefined(Bool) ->
 
 %% Return the list for {ModName, UsesModNames} for all modules where
 %% #mod.is_included==true.
-get_all_mods_and_dependencies(C) ->
-    ets:select(C#common.mod_tab, [{#mod{name='$1',
-					uses_mods='$2',
-					is_included=true,
-					_='_'},
-				   [],
-				   [{{'$1','$2'}}]}]).
+get_all_mods_and_dependencies(S) ->
+    ets:select(S#state.mod_tab, [{#mod{name='$1',
+				       uses_mods='$2',
+				       is_included=true,
+				       _='_'},
+				  [],
+				  [{{'$1','$2'}}]}]).
 
-propagate_is_included(C, Sys) ->
+propagate_is_included(S) ->
     case lists:flatmap(
 	   fun({ModName,UsesModNames}) ->
-		   mod_mark_is_included(C,Sys,ModName,UsesModNames,[])
+		   mod_mark_is_included(S,ModName,UsesModNames,[])
 	   end,
-	   get_all_mods_and_dependencies(C)) of
+	   get_all_mods_and_dependencies(S)) of
 	[] ->
 	    ok;
 	MissingMods ->
@@ -746,13 +746,14 @@ propagate_is_included(C, Sys) ->
 					 mods = MissingMods,
 					 status = missing,
 					 uses_mods = []},
-	    ets:insert(C#common.app_tab, MissingApp2),
+	    ets:insert(S#state.app_tab, MissingApp2),
 	    ok
     end.
 
-mod_mark_is_included(C, Sys, UsedByName, [ModName | ModNames], Acc) ->
+mod_mark_is_included(#state{app_tab=AppTab, mod_tab=ModTab, sys=Sys} = S,
+		     UsedByName, [ModName | ModNames], Acc) ->
     Acc3 =
-        case ets:lookup(C#common.mod_tab, ModName) of
+        case ets:lookup(ModTab, ModName) of
             [M] ->
                 case M#mod.is_included of
                     undefined ->
@@ -768,8 +769,8 @@ mod_mark_is_included(C, Sys, UsedByName, [ModName | ModNames], Acc) ->
                                 undefined ->
                                     M#mod{is_included = true}
                             end,
-                        ets:insert(C#common.mod_tab, M2),
-                        [A] = ets:lookup(C#common.app_tab, M2#mod.app_name),
+                        ets:insert(ModTab, M2),
+                        [A] = ets:lookup(AppTab, M2#mod.app_name),
                         Acc2 =
                             case A#app.is_included of
                                 undefined ->
@@ -790,9 +791,8 @@ mod_mark_is_included(C, Sys, UsedByName, [ModName | ModNames], Acc) ->
                                         end,
                                     Mods = lists:filter(Filter, A#app.mods),
                                     A2 = A#app{is_included = true},
-                                    ets:insert(C#common.app_tab, A2),
-                                    mod_mark_is_included(C,
-							 Sys,
+                                    ets:insert(AppTab, A2),
+                                    mod_mark_is_included(S,
 							 ModName,
 							 [M3#mod.name ||
 							     M3 <- Mods],
@@ -801,11 +801,7 @@ mod_mark_is_included(C, Sys, UsedByName, [ModName | ModNames], Acc) ->
 				    %% Already marked true or false
                                     Acc
                             end,
-                        mod_mark_is_included(C,
-					     Sys,
-					     ModName,
-					     M2#mod.uses_mods,
-					     Acc2);
+                        mod_mark_is_included(S, ModName, M2#mod.uses_mods, Acc2);
 		    _ ->
                         %% Already marked true or false
                         Acc
@@ -813,31 +809,31 @@ mod_mark_is_included(C, Sys, UsedByName, [ModName | ModNames], Acc) ->
             [] ->
                 M = missing_mod(ModName, ?MISSING_APP_NAME),
                 M2 = M#mod{is_included = true},
-                ets:insert(C#common.mod_tab, M2),
+                ets:insert(ModTab, M2),
                 [M2 | Acc]
         end,
-    mod_mark_is_included(C, Sys, UsedByName, ModNames, Acc3);
-mod_mark_is_included(_C, _Sys, _UsedByName, [], Acc) ->
+    mod_mark_is_included(S, UsedByName, ModNames, Acc3);
+mod_mark_is_included(_S, _UsedByName, [], Acc) ->
     Acc.
 
-propagate_is_used_by(C) ->
+propagate_is_used_by(S) ->
     lists:foreach(
       fun({Mod,UsesMods}) ->
 	      lists:foreach(
 		fun(UsedMod) ->
-			ets:insert(C#common.mod_used_by_tab,{UsedMod,Mod})
+			ets:insert(S#state.mod_used_by_tab,{UsedMod,Mod})
 		end,
 		UsesMods)
       end,
-      get_all_mods_and_dependencies(C)).
+      get_all_mods_and_dependencies(S)).
 
 
-app_recap_dependencies(C) ->
-    ets:foldl(fun(App,_) -> app_recap_dependencies(C,App) end,
-	      ok, C#common.app_tab).
+app_recap_dependencies(S) ->
+    ets:foldl(fun(App,_) -> app_recap_dependencies(S,App) end,
+	      ok, S#state.app_tab).
 
-app_recap_dependencies(C, #app{mods = Mods, is_included = IsIncl} = A) ->
-    {Mods2, IsIncl2} = mod_recap_dependencies(C, A, Mods, [], IsIncl),
+app_recap_dependencies(S, #app{mods = Mods, is_included = IsIncl} = A) ->
+    {Mods2, IsIncl2} = mod_recap_dependencies(S, A, Mods, [], IsIncl),
     AppStatus =
         case lists:keymember(missing, #mod.status, Mods2) of
             true  -> missing;
@@ -846,12 +842,12 @@ app_recap_dependencies(C, #app{mods = Mods, is_included = IsIncl} = A) ->
     UsesMods = [M#mod.uses_mods || M <- Mods2, M#mod.is_included =:= true],
     UsesMods2 = lists:usort(lists:flatten(UsesMods)),
     UsesApps = [M#mod.app_name || ModName <- UsesMods2,
-				  M <- ets:lookup(C#common.mod_tab, ModName)],
+				  M <- ets:lookup(S#state.mod_tab, ModName)],
     UsesApps2 = lists:usort(UsesApps),
     UsedByMods = [M#mod.used_by_mods || M <- Mods2, M#mod.is_included =:= true],
     UsedByMods2 = lists:usort(lists:flatten(UsedByMods)),
     UsedByApps = [M#mod.app_name || ModName <- UsedByMods2,
-				    M <- ets:lookup(C#common.mod_tab, ModName)],
+				    M <- ets:lookup(S#state.mod_tab, ModName)],
     UsedByApps2 = lists:usort(UsedByApps),
 
     A2 = A#app{mods = Mods2,
@@ -861,11 +857,11 @@ app_recap_dependencies(C, #app{mods = Mods, is_included = IsIncl} = A) ->
                uses_apps = UsesApps2,
                used_by_apps = UsedByApps2,
                is_included = IsIncl2},
-    ets:insert(C#common.app_tab,A2),
+    ets:insert(S#state.app_tab,A2),
     ok.
 
-mod_recap_dependencies(C, A, [#mod{name = ModName}=M1 | Mods], Acc, IsIncl) ->
-    case ets:lookup(C#common.mod_tab, ModName) of
+mod_recap_dependencies(S, A, [#mod{name = ModName}=M1 | Mods], Acc, IsIncl) ->
+    case ets:lookup(S#state.mod_tab, ModName) of
 	[M2] when M2#mod.app_name=:=A#app.name ->
 	    ModStatus = do_get_status(M2),
 	    %% print(M2#mod.name, hipe, "status -> ~p\n", [ModStatus]),
@@ -873,19 +869,19 @@ mod_recap_dependencies(C, A, [#mod{name = ModName}=M1 | Mods], Acc, IsIncl) ->
 		case M2#mod.is_included of
 		    true ->
 			UsedByMods =
-			    [N || {_, N} <- ets:lookup(C#common.mod_used_by_tab,
+			    [N || {_, N} <- ets:lookup(S#state.mod_used_by_tab,
 						       ModName)],
 			{true, M2#mod{status = ModStatus, used_by_mods = UsedByMods}};
 		    _    ->
 			{IsIncl, M2#mod{status = ModStatus, used_by_mods = []}}
 		end,
-	    ets:insert(C#common.mod_tab, M3),
-	    mod_recap_dependencies(C, A, Mods, [M3 | Acc], IsIncl2);
+	    ets:insert(S#state.mod_tab, M3),
+	    mod_recap_dependencies(S, A, Mods, [M3 | Acc], IsIncl2);
 	[_] when A#app.is_included==false; M1#mod.incl_cond==exclude ->
 	    %% App is explicitely excluded so it is ok that the module
 	    %% record does not exist for this module in this
 	    %% application.
-	    mod_recap_dependencies(C, A, Mods, [M1 | Acc], IsIncl);
+	    mod_recap_dependencies(S, A, Mods, [M1 | Acc], IsIncl);
 	[M2] ->
 	    %% A module is potensially included by multiple
 	    %% applications. This is not allowed!
@@ -893,7 +889,7 @@ mod_recap_dependencies(C, A, [#mod{name = ModName}=M1 | Mods], Acc, IsIncl) ->
 	      "Module ~p potentially included by two different applications: "
 	      "~p and ~p", [ModName,A#app.name, " and ", M2#mod.app_name, "."])
     end;
-mod_recap_dependencies(_C, _A, [], Acc, IsIncl) ->
+mod_recap_dependencies(_S, _A, [], Acc, IsIncl) ->
     {lists:reverse(Acc), IsIncl}.
 
 do_get_status(M) ->
@@ -904,11 +900,12 @@ do_get_status(M) ->
             ok
     end.
 
-verify_config(C, #sys{boot_rel = BootRel, rels = Rels}, RelApps, Status) ->
+verify_config(#state{app_tab=AppTab, sys=#sys{boot_rel = BootRel, rels = Rels}},
+	      RelApps, Status) ->
     case lists:keymember(BootRel, #rel.name, Rels) of
         true ->
 	    Status2 = lists:foldl(fun(RA, Acc) ->
-					  check_app(C, RA, Acc) end,
+					  check_app(AppTab, RA, Acc) end,
 				  Status,
 				  RelApps),
 	    lists:foldl(fun(#rel{name = RelName}, Acc)->
@@ -921,8 +918,8 @@ verify_config(C, #sys{boot_rel = BootRel, rels = Rels}, RelApps, Status) ->
 	      "Release ~p is mandatory (used as boot_rel)",[BootRel])
     end.
 
-check_app(C, {RelName, AppName}, Status) ->
-    case ets:lookup(C#common.app_tab, AppName) of
+check_app(AppTab, {RelName, AppName}, Status) ->
+    case ets:lookup(AppTab, AppName) of
 	[#app{is_pre_included=IsPreIncl, is_included=IsIncl}]
 	  when IsPreIncl; IsIncl ->
 	    Status;
@@ -1001,7 +998,7 @@ refresh_app(#app{name = AppName,
             %% Add optional user config for each module.
 	    %% The #mod records that are already in the #app record at
 	    %% this point do only contain user defined configuration
-	    %% (set by parse_options/2). So here we merge with the
+	    %% (set by parse_options/4). So here we merge with the
 	    %% default records from above.
             Mods2 = add_mod_config(MissingMods ++ EbinMods, Mods),
 
@@ -1221,7 +1218,7 @@ set_mod_flags(Mods, AppModNames) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 do_get_config(S, InclDef, InclDeriv) ->
-    AppTab = (S#state.common)#common.app_tab,
+    AppTab = S#state.app_tab,
     Sys =
         case InclDeriv of
             false ->
@@ -1232,7 +1229,7 @@ do_get_config(S, InclDef, InclDeriv) ->
 			   App <- ets:lookup(AppTab,Name)],
 		(S#state.sys)#sys{apps=Apps};
             true  ->
-		sys_all_apps(S#state.common,S#state.sys)
+		sys_all_apps(S)
         end,
     reltool_target:gen_config(Sys, InclDef).
 
@@ -1940,11 +1937,8 @@ get_base(Name, Dir) ->
             filename:basename(Dir)
     end.
 
-sys_all_apps(C,Sys) ->
-    Sys#sys{apps = all_apps(C)}.
-
-all_apps(C) ->
-    ets:match_object(C#common.app_tab,'_').
+sys_all_apps(#state{app_tab=AppTab, sys=Sys}) ->
+    Sys#sys{apps = ets:match_object(AppTab,'_')}.
 
 config_and_refresh(OldS, Fun) ->
     try
@@ -1966,27 +1960,26 @@ config_and_refresh(OldS, Fun) ->
     end.
 
 
-backup(#state{common=C}) ->
-    Apps = ets:tab2list(C#common.app_tab),
-    Mods = ets:tab2list(C#common.mod_tab),
-    ets:delete_all_objects(C#common.app_tab),
-    ets:delete_all_objects(C#common.mod_tab),
-    ets:delete_all_objects(C#common.mod_used_by_tab), %tmp tab, no backup needed
+backup(S) ->
+    Apps = ets:tab2list(S#state.app_tab),
+    Mods = ets:tab2list(S#state.mod_tab),
+    ets:delete_all_objects(S#state.app_tab),
+    ets:delete_all_objects(S#state.mod_tab),
+    ets:delete_all_objects(S#state.mod_used_by_tab), %tmp tab, no backup needed
     {Apps,Mods}.
 
-restore({Apps,Mods}, #state{common=C}) ->
-    insert_all(C#common.app_tab,Apps),
-    insert_all(C#common.mod_tab,Mods).
+restore({Apps,Mods}, S) ->
+    insert_all(S#state.app_tab,Apps),
+    insert_all(S#state.mod_tab,Mods).
 
-save_old(#state{status=OldStatus,sys=OldSys},#state{common=C}=NewS,
-	 {OldApps,OldMods},NewStatus) ->
-    ets:delete_all_objects(C#common.old_app_tab),
-    ets:delete_all_objects(C#common.old_mod_tab),
-    insert_all(C#common.old_app_tab,OldApps),
-    insert_all(C#common.old_mod_tab,OldMods),
+save_old(#state{status=OldStatus,sys=OldSys},NewS,{OldApps,OldMods},NewStatus) ->
+    ets:delete_all_objects(NewS#state.old_app_tab),
+    ets:delete_all_objects(NewS#state.old_mod_tab),
+    insert_all(NewS#state.old_app_tab,OldApps),
+    insert_all(NewS#state.old_mod_tab,OldMods),
     NewS#state{old_sys=OldSys,
-		old_status=OldStatus,
-		status=NewStatus}.
+	       old_status=OldStatus,
+	       status=NewStatus}.
 
 insert_all(Tab,Items) ->
     lists:foreach(fun(Item) -> ets:insert(Tab,Item) end, Items).

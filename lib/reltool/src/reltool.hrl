@@ -127,12 +127,7 @@
         {
           sys_debug 	  :: term(),
           wx_debug  	  :: term(),
-          trap_exit 	  :: boolean(),
-          app_tab   	  :: ets:tab(),
-          mod_tab   	  :: ets:tab(),
-          mod_used_by_tab :: ets:tab(),
-          old_app_tab     :: ets:tab(),
-          old_mod_tab     :: ets:tab()
+          trap_exit 	  :: boolean()
 	}).
 
 -record(mod,
