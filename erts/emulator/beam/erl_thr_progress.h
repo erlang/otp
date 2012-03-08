@@ -138,6 +138,7 @@ ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_acqb__(ERTS_THR_PRGR_ATOMIC *a
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atmc);
 
 ERTS_GLB_INLINE int erts_thr_progress_is_managed_thread(void);
+ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current_to_later__(ErtsThrPrgrVal val);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later_than(ErtsThrPrgrVal val);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later(void);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current(void);
@@ -218,9 +219,8 @@ erts_thr_progress_is_managed_thread(void)
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_progress_later_than(ErtsThrPrgrVal val)
+erts_thr_progress_current_to_later__(ErtsThrPrgrVal val)
 {
-    ERTS_THR_MEMORY_BARRIER;
     if (val == (ERTS_THR_PRGR_VAL_WAITING-((ErtsThrPrgrVal)2)))
 	return ((ErtsThrPrgrVal) 0);
     else if (val == (ERTS_THR_PRGR_VAL_WAITING-((ErtsThrPrgrVal)1)))
@@ -230,10 +230,17 @@ erts_thr_progress_later_than(ErtsThrPrgrVal val)
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
+erts_thr_progress_later_than(ErtsThrPrgrVal val)
+{
+    ERTS_THR_MEMORY_BARRIER;
+    return erts_thr_progress_current_to_later__(val);
+}
+
+ERTS_GLB_INLINE ErtsThrPrgrVal
 erts_thr_progress_later(void)
 {
     ErtsThrPrgrVal val = erts_thr_prgr_read_mb__(&erts_thr_prgr__.current);
-    return erts_thr_progress_later_than(val);
+    return erts_thr_progress_current_to_later__(val);
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
