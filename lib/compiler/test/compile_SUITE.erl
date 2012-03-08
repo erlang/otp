@@ -211,6 +211,12 @@ makedep(Config) when is_list(Config) ->
       [makedep,{makedep_output,Target}|IncludeOptions]),
     ?line {ok,Mf6} = file:read_file(Target),
     ?line BasicMf2 = makedep_canonicalize_result(Mf6, DataDir),
+    %% Rule with creating phony target.
+    ?line PhonyMfName = SimpleRootname ++ "-phony.mk",
+    ?line {ok,PhonyMf} = file:read_file(PhonyMfName),
+    ?line {ok,_,Mf7} = compile:file(Simple,
+      [binary,makedep,makedep_phony|IncludeOptions]),
+    ?line PhonyMf = makedep_canonicalize_result(Mf7, DataDir),
 
     ?line ok = file:delete(Target),
     ?line ok = file:del_dir(filename:dirname(Target)),

@@ -335,7 +335,7 @@ main(int argc, char** argv)
 			    /* Push the following options:
 			     *   o  makedep_phony
 			     */
-			    buf = strsave("makedep_add_missing");
+			    buf = strsave("makedep_phony");
 			    PUSH2("@option", buf);
 			    break;
 			default:
