@@ -4939,7 +4939,8 @@ true</pre>
 	    <c>{SchedulerId, ActiveTime, TotalTime}]</c>, where <c>SchedulerId</c> is an integer id of the scheduler, <c>ActiveTime</c> is
 		 the duration the scheduler has been busy, <c>TotalTime</c> is the total time duration since 
 	    <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso>
-		activation. The time unit is not defined and may be subject to change.
+		activation. The time unit is not defined and may be subject to change
+		between releases, operating systems and system restarts.
 		<c>scheduler_wall_time</c> should only be used to calculate relative
 		values for scheduler-utilization. <c>ActiveTime</c> can never exceed <c>TotalTime</c>.
 		</p>
@@ -4947,7 +4948,8 @@ true</pre>
 		<p>The definition of a busy scheduler is when it is not idle or not
 			scheduling (selecting) a process or port, meaning; executing process
 			code, executing linked-in-driver or NIF code, executing
-			built-in-functions or any other runtime handling, garbage collecting or handling any other memory management.
+			built-in-functions or any other runtime handling, garbage collecting
+			or handling any other memory management.
 		</p>
 
 		<p>
@@ -4980,7 +4982,7 @@ ok
  {7,0.973237033077876},
  {8,0.9741297293248656}]
 </pre>
-		<p>Using the same snapshot to calculate a total scheduler-utilization.</p>
+		<p>Using the same snapshots to calculate a total scheduler-utilization.</p>
 <pre>
 > <input>{A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
 	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)), A/T.</input>
