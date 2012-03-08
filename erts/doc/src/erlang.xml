@@ -4952,7 +4952,7 @@ true</pre>
           <tag><marker id="statistics_scheduler_wall_time"><c>scheduler_wall_time</c></marker></tag>
           <item>
             <p>Returns a list of tuples with 
-	    <c>{SchedulerId, ActiveTime, TotalTime}]</c>, where <c>SchedulerId</c> is an integer id of the scheduler, <c>ActiveTime</c> is
+	    <c>{SchedulerId, ActiveTime, TotalTime}</c>, where <c>SchedulerId</c> is an integer id of the scheduler, <c>ActiveTime</c> is
 		 the duration the scheduler has been busy, <c>TotalTime</c> is the total time duration since 
 	    <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso>
 		activation. The time unit is not defined and may be subject to change
@@ -4965,7 +4965,9 @@ true</pre>
 			scheduling (selecting) a process or port, meaning; executing process
 			code, executing linked-in-driver or NIF code, executing
 			built-in-functions or any other runtime handling, garbage collecting
-			or handling any other memory management.
+			or handling any other memory management. Note, a scheduler may also be
+			busy even if the operating system has scheduled out the scheduler
+			thread.
 		</p>
 
 		<p>
@@ -4973,7 +4975,7 @@ true</pre>
 	    scheduler_wall_time</seealso> is turned off.
 	    </p>
 
-	    <p>The list of scheduler information is unsorted and may come in different order
+	    <p>The list of scheduler information is unsorted and may appear in different order
 	    between calls. 
 	    </p>
 		<p>Using <c>scheduler_wall_time</c> to calculate scheduler utilization.</p>
