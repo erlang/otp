@@ -115,8 +115,11 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 #ifdef VALGRIND
 				     " [valgrind-compiled]"
 #endif
-#ifdef USE_VM_PROBES
+#ifdef USE_DTRACE
 				     " [dtrace]"
+#endif
+#ifdef USE_SYSTEMTAP
+				     " [systemtap]"
 #endif
 				     "\n");
 
@@ -2722,6 +2725,24 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 		    ETHR_PPC_RUNTIME_CONF_HAVE_LWSYNC__ ? "yes" : "no");
 #endif
 	BIF_RET(am_true);
+    }
+    else if (ERTS_IS_ATOM_STR("dynamic_trace", BIF_ARG_1)) {
+#if defined(USE_DTRACE)
+	DECL_AM(dtrace);
+	BIF_RET(AM_dtrace);
+#elif defined(USE_SYSTEMTAP)
+	DECL_AM(systemtap);
+	BIF_RET(AM_systemtap);
+#else
+	BIF_RET(am_none);
+#endif
+    }	    
+    else if (ERTS_IS_ATOM_STR("dynamic_trace_probes", BIF_ARG_1)) {
+#if defined(USE_VM_PROBES)
+	BIF_RET(am_true);
+#else
+	BIF_RET(am_false);
+#endif	
     }
 #ifdef ERTS_SMP
     else if (ERTS_IS_ATOM_STR("thread_progress", BIF_ARG_1)) {
