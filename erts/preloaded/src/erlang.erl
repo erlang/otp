@@ -1895,11 +1895,10 @@ spawn_opt(_Tuple) ->
                 (runtime) -> {Total_Run_Time, Time_Since_Last_Call} when
       Total_Run_Time :: non_neg_integer(),
       Time_Since_Last_Call :: non_neg_integer();
-                (scheduler_wall_time) -> [{Scheduler_Id, Scheduler_Worked_Time, Scheduler_Total_Time}] | 
-					     undefined when
-      Scheduler_Id :: pos_integer(),
-      Scheduler_Worked_Time :: non_neg_integer(),
-      Scheduler_Total_Time :: non_neg_integer();
+                (scheduler_wall_time) -> [{SchedulerId, ActiveTime, TotalTime}] | undefined when
+      SchedulerId :: pos_integer(),
+      ActiveTime  :: non_neg_integer(),
+      TotalTime   :: non_neg_integer();
                 (wall_clock) -> {Total_Wallclock_Time,
                                  Wallclock_Time_Since_Last_Call} when
       Total_Wallclock_Time :: non_neg_integer(),

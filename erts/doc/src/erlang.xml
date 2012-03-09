@@ -4352,11 +4352,12 @@ true</pre>
       <name name="statistics" arity="1" clause_i="2"/>
       <fsummary>Information about exact reductions</fsummary>
       <desc>
-        <p><marker id="statistics_exact_reductions"></marker>
-          <em>NOTE:</em> <c>statistics(exact_reductions)</c> is
-          a more expensive operation than
-          <seealso marker="#statistics_reductions">statistics(reductions)</seealso>
-          especially on an Erlang machine with SMP support.</p>
+        <marker id="statistics_exact_reductions"></marker>
+			<note><p><c>statistics(exact_reductions)</c> is
+					a more expensive operation than
+					<seealso marker="#statistics_reductions">statistics(reductions)</seealso>
+					especially on an Erlang machine with SMP support.</p>
+			</note>
       </desc>
     </func>
     <func>
@@ -4364,6 +4365,10 @@ true</pre>
       <fsummary>Information about garbage collection</fsummary>
       <desc>
         <p>This information may not be valid for all implementations.</p>
+	  <pre>
+> <input>statistics(garbage_collection).</input>
+{85,23961,0}
+</pre>
       </desc>
     </func>
     <func>
@@ -4379,12 +4384,18 @@ true</pre>
       <name name="statistics" arity="1" clause_i="5"/>
       <fsummary>Information about reductions</fsummary>
       <desc>
-        <p><marker id="statistics_reductions"></marker>
-          <em>NOTE:</em> From erts version 5.5 (OTP release R11B)
-          this value does not include reductions performed in current
-          time slices of currently scheduled processes. If an
-          exact value is wanted, use
-          <seealso marker="#statistics_exact_reductions">statistics(exact_reductions)</seealso>.</p>
+        <marker id="statistics_reductions"></marker>
+			<note>
+				<p>Since erts-5.5 (OTP release R11B)
+					this value does not include reductions performed in current
+					time slices of currently scheduled processes. If an
+					exact value is wanted, use
+					<seealso marker="#statistics_exact_reductions">statistics(exact_reductions)</seealso>.</p>
+			</note>
+        <pre>
+> <input>statistics(reductions).</input>
+{2046,11}
+</pre>
       </desc>
     </func>
     <func>
@@ -4402,25 +4413,78 @@ true</pre>
         <p>Note that the run-time is the sum of the run-time for all
         threads in the Erlang run-time system and may therefore be greater
         than the wall-clock time.</p>
+        <pre>
+> <input>statistics(runtime).</input>
+{1690,1620}
+</pre>
       </desc>
     </func>
     <func>
       <name name="statistics" arity="1" clause_i="8"/>
       <fsummary>Information about each schedulers work time</fsummary>
       <desc>
-      <p><marker id="statistics_scheduler_wall_time"></marker>
-      Returns time lapsed (<c><anno>Scheduler_Total_Time</anno></c>) and time spent working  
-      (<c><anno>Scheduler_Worked_Time</anno></c>) for each scheduler since
-      the system flag <seealso marker="#system_flag_scheduler_wall_time"><c>scheduler_wall_time</c></seealso>
-      was set to <c>true</c>.</p>
-      <p>
-      Returns <c>undefined</c> if the system flag <seealso marker="#system_flag_scheduler_wall_time">
-      <c>scheduler_wall_time</c></seealso> is set to <c>false</c>.
-      </p>
-      <p>The list of scheduler information is unsorted and may come in different order
-      between calls. The time unit is undefined and may be changed and should only be used
-      to calculate relative utilization.
-      </p>
+		  <marker id="statistics_scheduler_wall_time"></marker>
+		  <p>
+			  Returns a list of tuples with <c>{<anno>SchedulerId</anno>,
+				  <anno>ActiveTime</anno>, <anno>TotalTime</anno>}</c>, where
+			  <c>SchedulerId</c> is an integer id of the scheduler, <c>ActiveTime</c> is
+			  the duration the scheduler has been busy, <c>TotalTime</c> is the total time duration since
+			  <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso>
+			  activation. The time unit is not defined and may be subject to change
+			  between releases, operating systems and system restarts.
+			  <c>scheduler_wall_time</c> should only be used to calculate relative
+			  values for scheduler-utilization. <c>ActiveTime</c> can never exceed <c>TotalTime</c>.
+		  </p>
+
+		  <p>The definition of a busy scheduler is when it is not idle or not
+			  scheduling (selecting) a process or port, meaning; executing process
+			  code, executing linked-in-driver or NIF code, executing
+			  built-in-functions or any other runtime handling, garbage collecting
+			  or handling any other memory management. Note, a scheduler may also be
+			  busy even if the operating system has scheduled out the scheduler
+			  thread.
+		  </p>
+
+		  <p>
+			  Returns <c>undefined</c> if the system flag
+			  <seealso marker="#system_flag_scheduler_wall_time">scheduler_wall_time</seealso>
+			  is turned off.
+		  </p>
+
+		  <p>The list of scheduler information is unsorted and may appear in different order
+			  between calls.
+		  </p>
+		  <p>Using <c>scheduler_wall_time</c> to calculate scheduler utilization.</p>
+<pre>
+> <input>erlang:system_flag(scheduler_wall_time, true).</input>
+false
+> <input>Ts0 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
+ok
+</pre>
+		<p>Some time later we will take another snapshot and calculate scheduler-utilization per scheduler.</p>
+<pre>
+> <input>Ts1 = lists:sort(erlang:statistics(scheduler_wall_time)), ok.</input>
+ok
+> <input>lists:map(fun({{I, A0, T0}, {I, A1, T1}}) ->
+	{I, (A1 - A0)/(T1 - T0)} end, lists:zip(Ts0,Ts1)).</input>
+[{1,0.9743474730177548},
+ {2,0.9744843782751444},
+ {3,0.9995902361669045},
+ {4,0.9738012596572161},
+ {5,0.9717956667018103},
+ {6,0.9739235846420741},
+ {7,0.973237033077876},
+ {8,0.9741297293248656}]
+</pre>
+		<p>Using the same snapshots to calculate a total scheduler-utilization.</p>
+<pre>
+> <input>{A, T} = lists:foldl(fun({{_, A0, T0}, {_, A1, T1}}, {Ai,Ti}) ->
+	{Ai + (A1 - A0), Ti + (T1 - T0)} end, {0, 0}, lists:zip(Ts0,Ts1)), A/T.</input>
+0.9769136803764825
+</pre>
+        <note>
+          <p><c>scheduler_wall_time</c> is by default disabled. Use <c>erlang:system_flag(scheduler_wall_time, true)</c> to enable it. </p>
+        </note>
       </desc>
     </func>
     <func>
@@ -4445,8 +4509,8 @@ true</pre>
 	<p>A process can be suspended by multiple processes and can
 	be suspended multiple times by a single process. A suspended
 	process will not leave the suspended state until its suspend 
-	count reach zero. The suspend count of <c><anno>Suspendee</anno></c>	is
-	decreased when
+	count reach zero. The suspend count of <c><anno>Suspendee</anno></c>
+	is decreased when
 	<seealso marker="#resume_process/1">erlang:resume_process(<anno>Suspendee</anno>)</seealso>
 	is called by the same process that called
 	<c>erlang:suspend_process(<anno>Suspendee</anno>)</c>. All increased suspend
