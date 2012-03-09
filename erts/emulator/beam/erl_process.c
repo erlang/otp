@@ -6219,12 +6219,14 @@ Process *schedule(Process *p, int calls)
     int actual_reds;
     int reds;
 
+#ifdef USE_VM_PROBES
     if (p != NULL && DTRACE_ENABLED(process_unscheduled)) {
         DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, process_buf);
         DTRACE1(process_unscheduled, process_buf);
     }
+#endif
 
     if (ERTS_USE_MODIFIED_TIMING()) {
 	context_reds = ERTS_MODIFIED_TIMING_CONTEXT_REDS;
@@ -7400,6 +7402,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     VERBOSE(DEBUG_PROCESSES, ("Created a new process: %T\n",p->id));
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_spawn)) {
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);
@@ -7407,6 +7410,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         dtrace_fun_decode(p, mod, func, arity, process_name, mfa);
         DTRACE2(process_spawn, process_name, mfa);
     }
+#endif
 
  error:
 
@@ -7988,6 +7992,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
     ASSERT(reason != THE_NON_VALUE);
 
+#ifdef USE_VM_PROBES
     if(DTRACE_ENABLED(process_exit_signal) && is_pid(from)) {
         DTRACE_CHARBUF(sender_str, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(receiver_str, DTRACE_TERM_BUF_SIZE);
@@ -7998,6 +8003,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
         erts_snprintf(reason_buf, sizeof(reason_buf) - 1, "%T", reason);
         DTRACE3(process_exit_signal, sender_str, receiver_str, reason_buf);
     }
+#endif
 
     if (ERTS_PROC_IS_TRAPPING_EXITS(rp)
 	&& (reason != am_kill || (flags & ERTS_XSIG_FLG_IGN_KILL))) {
@@ -8430,6 +8436,7 @@ erts_do_exit_process(Process* p, Eterm reason)
     p->arity = 0;		/* No live registers */
     p->fvalue = reason;
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_exit)) {
         DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(reason_buf, 256);
@@ -8438,6 +8445,7 @@ erts_do_exit_process(Process* p, Eterm reason)
         erts_snprintf(reason_buf, sizeof(reason_buf) - 1, "%T", reason);
         DTRACE2(process_exit, process_buf, reason_buf);
     }
+#endif
 
 #ifdef ERTS_SMP
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);

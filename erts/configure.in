@@ -323,7 +323,9 @@ AS_HELP_STRING([--enable-vm-probes],
 			    use_vm_probes=no
 			fi)
 
+AC_SUBST(USE_VM_PROBES)
 if test X"$use_vm_probes" = X"yes"; then
+   USE_VM_PROBES=yes
    AC_DEFINE(USE_VM_PROBES,[1],
 	     [Define to enable VM dynamic trace probes])
 fi

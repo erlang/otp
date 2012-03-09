@@ -745,13 +745,15 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
     Eterm token = NIL;
     Process *sender = dsdp->proc;
     int res;
-    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
-    ERTS_DECLARE_DUMMY(Uint msize) = 0;
+#ifdef USE_VM_PROBES
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
+    Uint msize = 0;
     DTRACE_CHARBUF(node_name, 64);
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(receiver_name, 64);
+#endif
 
     UseTmpHeapNoproc(5);
     if (SEQ_TRACE_TOKEN(sender) != NIL 
@@ -763,6 +765,7 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote, sender);
     }
+#ifdef USE_VM_PROBES
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
@@ -775,6 +778,7 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
         }
     }
+#endif
 
     if (token != NIL)
 	ctl = TUPLE4(&ctl_heap[0],
@@ -798,13 +802,15 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     Eterm token = NIL;
     Process *sender = dsdp->proc;
     int res;
-    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
-    ERTS_DECLARE_DUMMY(Uint32 msize) = 0;
+#ifdef USE_VM_PROBES
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
+    Uint32 msize = 0;
     DTRACE_CHARBUF(node_name, 64);
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(receiver_name, 128);
+#endif
 
     UseTmpHeapNoproc(6);
     if (SEQ_TRACE_TOKEN(sender) != NIL
@@ -816,6 +822,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
     }
+#ifdef USE_VM_PROBES
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
@@ -829,6 +836,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
         }
     }
+#endif
 
     if (token != NIL)
 	ctl = TUPLE5(&ctl_heap[0], make_small(DOP_REG_SEND_TT),
@@ -853,14 +861,16 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     Eterm ctl;
     DeclareTmpHeapNoproc(ctl_heap,6);
     int res;
+#ifdef USE_VM_PROBES
     Process *sender = dsdp->proc;
-    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
     DTRACE_CHARBUF(node_name, 64);
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(remote_name, 128);
     DTRACE_CHARBUF(reason_str, 128);
+#endif
 
     UseTmpHeapNoproc(6);
     if (token != NIL 
@@ -875,6 +885,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     } else {
 	ctl = TUPLE4(&ctl_heap[0], make_small(DOP_EXIT), local, remote, reason);
     }
+#ifdef USE_VM_PROBES
     *node_name = *sender_name = *remote_name = '\0';
     if (DTRACE_ENABLED(process_exit_signal_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
@@ -888,6 +899,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
         }
     }
+#endif
     DTRACE7(process_exit_signal_remote, sender_name, node_name,
             remote_name, reason_str, tok_label, tok_lastcnt, tok_serial);
     /* forced, i.e ignore busy */
@@ -1706,6 +1718,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 	    if (!(dep->qflgs & ERTS_DE_QFLG_BUSY)) {
 		if (suspended)
 		    resume = 1; /* was busy when we started, but isn't now */
+#ifdef USE_VM_PROBES
                 if (resume && DTRACE_ENABLED(dist_port_not_busy)) {
                     DTRACE_CHARBUF(port_str, 64);
                     DTRACE_CHARBUF(remote_str, 64);
@@ -1716,6 +1729,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
                     DTRACE3(dist_port_not_busy, erts_this_node_sysname,
                             port_str, remote_str);
                 }
+#endif
 	    }
 	    else {
 		/* Enqueue suspended process on dist entry */
@@ -1765,6 +1779,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
     }
 
     if (suspended) {
+#ifdef USE_VM_PROBES
         if (!resume && DTRACE_ENABLED(dist_port_busy)) {
             DTRACE_CHARBUF(port_str, 64);
             DTRACE_CHARBUF(remote_str, 64);
@@ -1776,6 +1791,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
             DTRACE4(dist_port_busy, erts_this_node_sysname,
                     port_str, remote_str, pid_str);
         }
+#endif
 	if (!resume && erts_system_monitor_flags.busy_dist_port)
 	    monitor_generic(c_p, am_busy_dist_port, cid);
 	return ERTS_DSIG_SEND_YIELD;
@@ -1799,6 +1815,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
 		 "(%beu bytes) passed.\n",
 		 size);
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_output)) {
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
@@ -1809,6 +1826,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE4(dist_output, erts_this_node_sysname, port_str,
                 remote_str, size);
     }
+#endif
     prt->caller = NIL;
     fpe_was_unmasked = erts_block_fpe();
     (*prt->drv_ptr->output)((ErlDrvData) prt->drv_data,
@@ -1851,6 +1869,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 
     ASSERT(prt->drv_ptr->outputv);
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_outputv)) {
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
@@ -1861,6 +1880,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE4(dist_outputv, erts_this_node_sysname, port_str,
                 remote_str, size);
     }
+#endif
     prt->caller = NIL;
     fpe_was_unmasked = erts_block_fpe();
     (*prt->drv_ptr->outputv)((ErlDrvData) prt->drv_data, &eiov);
@@ -2180,6 +2200,7 @@ erts_dist_command(Port *prt, int reds_limit)
 void
 erts_dist_port_not_busy(Port *prt)
 {
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_port_not_busy)) {
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
@@ -2190,6 +2211,7 @@ erts_dist_port_not_busy(Port *prt)
         DTRACE3(dist_port_not_busy, erts_this_node_sysname,
                 port_str, remote_str);
     }
+#endif
     erts_schedule_dist_command(prt, NULL);
 }
 
@@ -3127,6 +3149,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
     ASSERT(is_immed(what));
     ASSERT(is_immed(node));
     ASSERT(is_immed(type));
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(dist_monitor)) {
         DTRACE_CHARBUF(what_str, 12);
         DTRACE_CHARBUF(node_str, 64);
@@ -3140,6 +3163,7 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
         DTRACE5(dist_monitor, erts_this_node_sysname,
                 what_str, node_str, type_str, reason_str);
     }
+#endif
 
     ERTS_SMP_LC_ASSERT(!c_p
 		       || (erts_proc_lc_my_proc_locks(c_p)

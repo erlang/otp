@@ -66,7 +66,9 @@ static void add_readonly_check(ErlNifEnv*, unsigned char* ptr, unsigned sz);
 static int is_offheap(const ErlOffHeap* off_heap);
 #endif
 
+#ifdef USE_VM_PROBES
 void dtrace_nifenv_str(ErlNifEnv *, char *);
+#endif
 
 #define MIN_HEAP_FRAG_SZ 200
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp);
@@ -1784,10 +1786,12 @@ void erl_nif_init()
     resource_type_list.name = THE_NON_VALUE;
 }
 
+#ifdef USE_VM_PROBES
 void dtrace_nifenv_str(ErlNifEnv *env, char *process_buf)
 {
     dtrace_pid_str(env->proc->id, process_buf);
 }
+#endif
 
 #ifdef READONLY_CHECK
 /* Use checksums to assert that NIFs do not write into inspected binaries

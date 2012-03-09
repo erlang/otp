@@ -498,7 +498,9 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
     ErtsDrvEventState *state;
     int wake_poller;
     int ret;
+#ifdef USE_VM_PROBES
     DTRACE_CHARBUF(name, 64);
+#endif
     
     ERTS_SMP_LC_ASSERT(erts_drvport2port(ix)
 		       && erts_lc_is_port_locked(erts_drvport2port(ix)));
@@ -528,8 +530,10 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 	if (IS_FD_UNKNOWN(state)) {
 	    /* fast track to stop_select callback */
 	    stop_select_fn = erts_drvport2port(ix)->drv_ptr->stop_select;
+#ifdef USE_VM_PROBES
 	    strncpy(name, erts_drvport2port(ix)->drv_ptr->name, sizeof(name)-1);
 	    name[sizeof(name)-1] = '\0';
+#endif
 	    ret = 0;
 	    goto done_unknown;
 	}
@@ -666,8 +670,10 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 		    /* Safe to close fd now as it is not in pollset
 		       or there was no need to eject fd (kernel poll) */
 		    stop_select_fn = drv_ptr->stop_select;
+#ifdef USE_VM_PROBES
 		    strncpy(name, erts_drvport2port(ix)->drv_ptr->name, sizeof(name)-1);
 		    name[sizeof(name)-1] = '\0';
+#endif
 		}
 		else {
 		    /* Not safe to close fd, postpone stop_select callback. */

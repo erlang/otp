@@ -62,6 +62,7 @@ do {					\
     (P)->sched.next = NULL;		\
 } while (0)
 
+#ifdef USE_VM_PROBES
 #define DTRACE_DRIVER(PROBE_NAME, PP)                              \
     if (DTRACE_ENABLED(driver_ready_input)) {                      \
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);         \
@@ -71,6 +72,9 @@ do {					\
         dtrace_port_str(PP, port_str);                             \
         DTRACE3(PROBE_NAME, process_str, port_str, PP->name);      \
     }
+#else
+#define  DTRACE_DRIVER(PROBE_NAME, PP) do {} while(0)
+#endif
 
 erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 

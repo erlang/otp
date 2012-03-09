@@ -270,6 +270,7 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 #endif
 
     erts_thr_q_enqueue(&q->thr_q, a);
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(aio_pool_add)) {
         DTRACE_CHARBUF(port_str, 16);
 
@@ -278,6 +279,7 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
         len = -1;
         DTRACE2(aio_pool_add, port_str, len);
     }
+#endif
     gcc_optimizer_hack++;
 }
 
@@ -301,6 +303,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    if (saved_fin_deq)
 		erts_thr_q_append_finalize_dequeue_data(&a->q.fin_deq, &fin_deq);
 #endif
+#ifdef USE_VM_PROBES
             if (DTRACE_ENABLED(aio_pool_get)) {
                 DTRACE_CHARBUF(port_str, 16);
 
@@ -309,6 +312,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
                 len = -1;
                 DTRACE2(aio_pool_get, port_str, len);
             }
+#endif
 	    return a;
 	}
 

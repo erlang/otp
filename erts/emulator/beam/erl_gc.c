@@ -350,8 +350,9 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     Uint reclaimed_now = 0;
     int done = 0;
     Uint ms1, s1, us1;
+#ifdef USE_VM_PROBES
     DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
-
+#endif
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, am_gc_start);
     }
@@ -371,7 +372,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     if (GEN_GCS(p) >= MAX_GEN_GCS(p)) {
         FLAGS(p) |= F_NEED_FULLSWEEP;
     }
-
+#ifdef USE_VM_PROBES
     *pidbuf = '\0';
     if (DTRACE_ENABLED(gc_major_start)
         || DTRACE_ENABLED(gc_major_end)
@@ -379,7 +380,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
         || DTRACE_ENABLED(gc_minor_end)) {
         dtrace_proc_str(p, pidbuf);
     }
-
+#endif
     /*
      * Test which type of GC to do.
      */
@@ -1132,12 +1133,14 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     sys_memcpy(n_heap + new_sz - n, p->stop, n * sizeof(Eterm));
     p->stop = n_heap + new_sz - n;
 
+#ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
         DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, pidbuf);
         DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
     }
+#endif
 
     ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void*)HEAP_START(p),
@@ -1360,12 +1363,14 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     sys_memcpy(n_heap + new_sz - n, p->stop, n * sizeof(Eterm));
     p->stop = n_heap + new_sz - n;
 
+#ifdef USE_VM_PROBES
     if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
         DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, pidbuf);
         DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
     }
+#endif
 
     ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void *) HEAP_START(p),
@@ -2044,12 +2049,14 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
         HEAP_START(p) = new_heap;
     }
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_heap_grow)) {
 	DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, pidbuf);
 	DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
     }
+#endif
 
     HEAP_SIZE(p) = new_sz;
 }
@@ -2089,12 +2096,14 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
         HEAP_START(p) = new_heap;
     }
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_heap_shrink)) {
 	DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, pidbuf);
 	DTRACE3(process_heap_shrink, pidbuf, HEAP_SIZE(p), new_sz);
     }
+#endif
 
     HEAP_SIZE(p) = new_sz;
 }

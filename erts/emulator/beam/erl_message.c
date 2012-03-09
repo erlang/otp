@@ -336,9 +336,11 @@ erts_queue_dist_message(Process *rcvr,
 			Eterm token)
 {
     ErlMessage* mp;
-    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
+#ifdef USE_VM_PROBES
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
+#endif
 #ifdef ERTS_SMP
     ErtsProcLocks need_locks;
 #endif
@@ -380,6 +382,7 @@ erts_queue_dist_message(Process *rcvr,
 	message_free(mp);
 	msg = erts_msg_distext2heap(rcvr, rcvr_locks, &mbuf, &token, dist_ext);
 	if (is_value(msg))
+#ifdef USE_VM_PROBES
             if (DTRACE_ENABLED(message_queued)) {
                 DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
 
@@ -393,6 +396,7 @@ erts_queue_dist_message(Process *rcvr,
                         receiver_name, size_object(msg), rcvr->msg.len,
                         tok_label, tok_lastcnt, tok_serial);
             }
+#endif
 	    erts_queue_message(rcvr, rcvr_locks, mbuf, msg, token
 #ifdef USE_VM_PROBES
 			       , NIL
@@ -415,6 +419,7 @@ erts_queue_dist_message(Process *rcvr,
 #endif
 	mp->next = NULL;
 
+#ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(message_queued)) {
             DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
 
@@ -431,6 +436,7 @@ erts_queue_dist_message(Process *rcvr,
             DTRACE6(message_queued, receiver_name, -1, rcvr->msg.len + 1,
                     tok_label, tok_lastcnt, tok_serial);
         }
+#endif
 	mp->data.dist_ext = dist_ext;
 	LINK_MESSAGE(rcvr, mp);
 
@@ -515,11 +521,12 @@ erts_queue_message(Process* receiver,
     LINK_MESSAGE(receiver, mp);
 #endif
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(message_queued)) {
         DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
-        ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
-        ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
-        ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
+        Sint tok_label = 0;
+        Sint tok_lastcnt = 0;
+        Sint tok_serial = 0;
 
         dtrace_proc_str(receiver, receiver_name);
         if (seq_trace_token != NIL && is_tuple(seq_trace_token)) {
@@ -531,7 +538,7 @@ erts_queue_message(Process* receiver,
                 receiver_name, size_object(message), receiver->msg.len,
                 tok_label, tok_lastcnt, tok_serial);
     }
-
+#endif
     notify_new_message(receiver);
 
     if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE)) {
@@ -884,21 +891,24 @@ erts_send_message(Process* sender,
     Uint msize;
     ErlHeapFragment* bp = NULL;
     Eterm token = NIL;
+#ifdef USE_VM_PROBES
     DTRACE_CHARBUF(sender_name, 64);
     DTRACE_CHARBUF(receiver_name, 64);
-    ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
-    ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
-
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
+#endif
     BM_STOP_TIMER(system);
     BM_MESSAGE(message,sender,receiver);
     BM_START_TIMER(send);
 
+ #ifdef USE_VM_PROBES
     *sender_name = *receiver_name = '\0';
-    if (DTRACE_ENABLED(message_send)) {
+   if (DTRACE_ENABLED(message_send)) {
         erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
         erts_snprintf(receiver_name, sizeof(receiver_name), "%T", receiver->id);
     }
+#endif
     if (SEQ_TRACE_TOKEN(sender) != NIL && !(flags & ERTS_SND_FLG_NO_SEQ_TRACE)) {
         Eterm* hp;
 	Eterm stoken = SEQ_TRACE_TOKEN(sender);
@@ -956,6 +966,7 @@ erts_send_message(Process* sender,
         BM_MESSAGE_COPIED(msize);
         BM_SWAP_TIMER(copy,send);
 
+#ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(message_send)) {
 	    if (stoken != NIL && stoken != am_have_dt_utag) {
 		tok_label = signed_val(SEQ_TRACE_T_LABEL(stoken));
@@ -965,6 +976,7 @@ erts_send_message(Process* sender,
 	    DTRACE6(message_send, sender_name, receiver_name,
 		    msize, tok_label, tok_lastcnt, tok_serial);
         }
+#endif
         erts_queue_message(receiver,
 			   receiver_locks,
 			   bp,

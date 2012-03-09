@@ -344,6 +344,7 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
 		 __FILE__, __LINE__, endp - (bytes + size));
     }
     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(driver_call)) {
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
@@ -352,6 +353,7 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
         dtrace_port_str(p, port_str);
         DTRACE5(driver_call, process_str, port_str, p->name, op, real_size);
     }
+#endif
     prc  = (char *) port_resp;
     fpe_was_unmasked = erts_block_fpe();
     ret = drv->call((ErlDrvData)p->drv_data, 
@@ -548,6 +550,7 @@ BIF_RETTYPE port_connect_2(BIF_ALIST_2)
 
     prt->connected = pid; /* internal pid */
     erts_smp_port_unlock(prt);
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(port_connect)) {
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
@@ -558,6 +561,7 @@ BIF_RETTYPE port_connect_2(BIF_ALIST_2)
         dtrace_proc_str(rp, newprocess_str);
         DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
     }
+#endif
     BIF_RET(am_true);
 }
 
@@ -923,6 +927,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 
     port_num = erts_open_driver(driver, p->id, name_buf, &opts, err_nump);
+#ifdef USE_VM_PROBES
     if (port_num >= 0 && DTRACE_ENABLED(port_open)) {
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
@@ -931,7 +936,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
         erts_snprintf(port_str, sizeof(port_str), "%T", erts_port[port_num].id);
         DTRACE3(port_open, process_str, name_buf, port_str);
     }
-
+#endif
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
     if (port_num < 0) {

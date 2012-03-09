@@ -60,12 +60,14 @@ copy_object(Eterm obj, Process* to)
     Eterm* hp = HAlloc(to, size);
     Eterm res;
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(copy_object)) {
         DTRACE_CHARBUF(proc_name, 64);
 
         erts_snprintf(proc_name, sizeof(proc_name), "%T", to->id);
         DTRACE2(copy_object, proc_name, size);
     }
+#endif
     res = copy_struct(obj, size, &hp, &to->off_heap);
 #ifdef DEBUG
     if (eq(obj, res) == 0) {

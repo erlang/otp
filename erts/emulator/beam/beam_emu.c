@@ -1122,6 +1122,7 @@ init_emulator(void)
 
 #endif /* USE_VM_PROBES */
 
+#ifdef USE_VM_PROBES
 void
 dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
 {
@@ -1131,7 +1132,7 @@ dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
                   port_channel_no(port->id),
                   port_number(port->id));
 }
-
+#endif
 /*
  * process_main() is called twice:
  * The first call performs some initialisation, including exporting
@@ -1304,6 +1305,7 @@ void process_main(void)
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
 
+#ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(process_scheduled)) {
             DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
             DTRACE_CHARBUF(fun_buf, DTRACE_TERM_BUF_SIZE);
@@ -1325,7 +1327,7 @@ void process_main(void)
 
             DTRACE2(process_scheduled, process_buf, fun_buf);
         }
-
+#endif
 	Goto(next);
     }
 
@@ -1591,13 +1593,16 @@ void process_main(void)
 
 
  OpCase(return): {
+#ifdef USE_VM_PROBES
     BeamInstr* fptr;
+#endif
     SET_I(c_p->cp);
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(function_return) && (fptr = find_function_from_pc(c_p->cp))) {
         DTRACE_RETURN(c_p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
     }
-
+#endif
     /*
      * We must clear the CP to make sure that a stale value do not
      * create a false module dependcy preventing code upgrading.
@@ -1954,12 +1959,13 @@ void process_main(void)
 	 }
 #endif
      }
+#ifdef USE_VM_PROBES
      if (DTRACE_ENABLED(message_receive)) {
          Eterm token2 = NIL;
          DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
-         ERTS_DECLARE_DUMMY(Sint tok_label) = 0;
-         ERTS_DECLARE_DUMMY(Sint tok_lastcnt) = 0;
-         ERTS_DECLARE_DUMMY(Sint tok_serial) = 0;
+         Sint tok_label = 0;
+         Sint tok_lastcnt = 0;
+         Sint tok_serial = 0;
 
          dtrace_proc_str(c_p, receiver_name);
          token2 = SEQ_TRACE_TOKEN(c_p);
@@ -1972,6 +1978,7 @@ void process_main(void)
                  receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
                  c_p->msg.len - 1, tok_label, tok_lastcnt, tok_serial);
      }
+#endif
      UNLINK_MESSAGE(c_p, msgp);
      JOIN_MESSAGE(c_p);
      CANCEL_TIMER(c_p);
@@ -3332,7 +3339,6 @@ void process_main(void)
 	    BifFunction vbf;
 
 	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
-
 	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
@@ -3356,7 +3362,6 @@ void process_main(void)
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 
 	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
-
 	    goto apply_bif_or_nif_epilogue;
 	 
 	OpCase(apply_bif):
@@ -6082,13 +6087,14 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	save_calls(p, ep);
     }
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(function_entry) && ep->address) {
         BeamInstr *fptr = find_function_from_pc(ep->address);
         if (fptr) {
             DTRACE_CALL(p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
         }
     }
-
+#endif
     return ep->address;
 }
 
@@ -6138,13 +6144,14 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
 	save_calls(p, ep);
     }
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(function_entry)) {
         BeamInstr *fptr = find_function_from_pc(ep->address);
         if (fptr) {
             DTRACE_CALL(p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
         }
     }
-
+#endif
     return ep->address;
 }
 
@@ -6194,6 +6201,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	c_p->max_arg_reg = sizeof(c_p->def_arg_reg)/sizeof(c_p->def_arg_reg[0]);
     }
 
+#ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_hibernate)) {
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);
@@ -6201,7 +6209,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
                           process_name, mfa);
         DTRACE2(process_hibernate, process_name, mfa);
     }
-
+#endif
     /*
      * Arrange for the process to be resumed at the given MFA with
      * the stack cleared.
@@ -6276,6 +6284,7 @@ call_fun(Process* p,		/* Current process. */
 	code_ptr = fe->address;
 	actual_arity = (int) code_ptr[-1];
 
+#ifdef USE_VM_PROBES
 	if (DTRACE_ENABLED(function_entry)) {
 	    BeamInstr *fptr = find_function_from_pc(code_ptr);
 
@@ -6283,7 +6292,7 @@ call_fun(Process* p,		/* Current process. */
 		DTRACE_CALL(p, fe->module, (Eterm)fptr[1], actual_arity);
 	    }
 	}
-
+#endif
 	if (actual_arity == arity+num_free) {
 	    if (num_free == 0) {
 		return code_ptr;
