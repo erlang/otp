@@ -301,7 +301,15 @@ run(List, Opts) when is_list(List), is_list(Opts) ->
 run(Testspec, Config) when is_atom(Testspec), is_list(Config) ->
     Options=check_test_get_opts(Testspec, Config),
     File=atom_to_list(Testspec),
-    run_test(File, [{spec,[File++".spec"]}], Options);
+    Spec = case code:lib_dir(Testspec) of
+	       {error, bad_name} when Testspec /= emulator, 
+                                      Testspec /= system,
+                                      Testspec /= epmd ->
+		   create_skip_spec(Testspec, tests(Testspec));
+	       _ ->
+		   File++".spec"
+	       end,
+    run_test(File, [{spec,[Spec]}], Options);
 %% Runs one module in a spec (interactive)
 run(Testspec, Mod) when is_atom(Testspec), is_atom(Mod) ->
     run_test({atom_to_list(Testspec), Mod}, 
@@ -331,6 +339,21 @@ run(Testspec, Mod, Case, Config) when is_atom(Testspec),
     Options=check_test_get_opts(Testspec, Config),
     Args = [{suite,atom_to_list(Mod)}, {testcase,atom_to_list(Case)}],
     run_test(atom_to_list(Testspec), Args, Options).
+
+%% Create a spec to skip all SUITES, this is used when the application
+%% to be tested is not part of the OTP release to be tested.
+create_skip_spec(Testspec, SuitesToSkip) ->
+    {ok,Cwd} = file:get_cwd(),
+    TestspecString = atom_to_list(Testspec),
+    Specname = TestspecString++"_skip.spec",
+    {ok,D} = file:open(filename:join([filename:dirname(Cwd),
+				      TestspecString++"_test",Specname]),
+		       [write]),
+    TestDir = "\"../"++TestspecString++"_test\"",
+    io:format(D,"{suites, "++TestDir++", all}.~n",[]),
+    io:format(D,"{skip_suites, "++TestDir++", ~w, \"Skipped as application"
+	      " is not in path!\"}.",[SuitesToSkip]),
+    Specname.
 
 %% Check testspec to be valid and get possible Options
 %% from the config.
