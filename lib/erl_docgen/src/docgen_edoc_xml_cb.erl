@@ -187,6 +187,7 @@ chapter_title(#xmlElement{content=Es}) -> % name = h3 | h4
 %% 8)  <blockquote> contents may need to be made into paragraphs
 %% 9)  <th> (table header) is not allowed - is replaced by
 %%     <td><em>...</em></td>.
+%% 10) <img src=""> is not allowed, replace with <image file="">
 otp_xmlify([]) ->
     [];
 otp_xmlify(Es0) ->
@@ -416,6 +417,9 @@ otp_xmlify_e(#xmlElement{name=tr} = E) ->
 otp_xmlify_e(#xmlElement{name=td} = E) ->
     Content = otp_xmlify_e(E#xmlElement.content),
     [E#xmlElement{content=Content}];
+otp_xmlify_e(#xmlElement{name=img} = E) ->     % 10)
+    Content = otp_xmlify_e(E#xmlElement.content),
+    [otp_xmlify_img(E#xmlElement{ content = Content })];
 otp_xmlify_e([E | Es]) ->
     otp_xmlify_e(E) ++ otp_xmlify_e(Es);
 otp_xmlify_e([]) ->
@@ -633,6 +637,20 @@ otp_xmlify_table([#xmlElement{name=td, content=Content}|Es]) ->
     otp_xmlify_e(Content) ++ otp_xmlify_table(Es);
 otp_xmlify_table([]) ->
     [].
+
+%% otp_xmlify_img(E) -> Es.
+%% Transforms a <img src=""> into <image file="">
+otp_xmlify_img(E0) ->
+    Attrs = lists:map(
+	      fun(#xmlAttribute{ name = src, value = Path} = A) ->
+		      V = otp_xmlify_a_fileref(Path,this),
+		      A#xmlAttribute{ name = file,
+				      value = V };
+		 (A) ->
+		      A
+	      end,E0#xmlElement.attributes),
+    E0#xmlElement{name = image, expanded_name = image,
+		       attributes = Attrs}.
 
 %%--Misc help functions used by otp_xmlify/1 et al---------------------
 
@@ -975,6 +993,8 @@ t_type([E=#xmlElement{name = atom}]) ->
     t_atom(E);
 t_type([E=#xmlElement{name = integer}]) ->
     t_integer(E);
+t_type([E=#xmlElement{name = range}]) ->
+    t_range(E);
 t_type([E=#xmlElement{name = float}]) ->
     t_float(E);
 t_type([#xmlElement{name = nil}]) ->
@@ -999,6 +1019,9 @@ t_atom(E) ->
     [get_attrval(value, E)].
 
 t_integer(E) ->
+    [get_attrval(value, E)].
+
+t_range(E) ->
     [get_attrval(value, E)].
 
 t_float(E) ->
