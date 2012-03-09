@@ -28,6 +28,7 @@ my $verbose = 0;
 my $hot = 1;
 my $num_file_opcodes = 0;
 my $wordsize = 32;
+my %defs;			# Defines (from command line).
 
 # This is shift counts and mask for the packer.
 my $WHOLE_WORD = '';
@@ -94,6 +95,12 @@ my @unnumbered_generic;
 my %unnumbered;
 
 my %is_transformed;
+
+#
+# Pre-processor.
+#
+my @if_val;
+my @if_line;
 
 #
 # Code transformations.
@@ -223,6 +230,7 @@ while (@ARGV && $ARGV[0] =~ /^-(.*)/) {
     ($outdir = shift), next if /^outdir/;
     ($wordsize = shift), next if /^wordsize/;
     ($verbose = 1), next if /^v/;
+    ($defs{$1} = $2), next if /^D(\w+)=(\w+)/;
     die "$0: Bad option: -$_\n";
 }
 
@@ -239,7 +247,43 @@ while (<>) {
     }
     next if /^\s*$/;
     next if /^\#/;
-    
+
+    #
+    # Handle %if.
+    #
+    if (/^\%if (\w+)/) {
+	my $name = $1;
+	my $val = $defs{$name};
+	defined $val or error("'$name' is undefined");
+	push @if_val, $val;
+	push @if_line, $.;
+	next;
+    } elsif (/^\%unless (\w+)/) {
+	my $name = $1;
+	my $val = $defs{$name};
+	defined $val or error("'$name' is undefined");
+	push @if_val, !$val;
+	push @if_line, $.;
+	next;
+    } elsif (/^\%else$/) {
+	unless (@if_line) {
+	    error("%else without a preceding %if/%unless");
+	}
+	$if_line[$#if_line] = $.;
+	$if_val[$#if_val] = !$if_val[$#if_val];
+	next;
+    } elsif (/^\%endif$/) {
+	unless (@if_line) {
+	    error("%endif without a preceding %if/%unless/%else");
+	}
+	pop @if_val;
+	pop @if_line;
+	next;
+    }
+    if (@if_val and not $if_val[$#if_val]) {
+	next;
+    }
+
     #
     # Handle assignments.
     #
@@ -349,7 +393,13 @@ while (<>) {
 	$unnumbered{$name,$arity} = 1;
     }
 } continue {
-    close(ARGV) if eof(ARGV);
+    if (eof(ARGV)) {
+	close(ARGV);
+	if (@if_line) {
+	    error("Unterminated %if/%unless/%else at " .
+		  "line $if_line[$#if_line]\n");
+	}
+    }
 }
 
 $num_file_opcodes = @gen_opname;
