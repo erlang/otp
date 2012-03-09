@@ -78,23 +78,36 @@
 
 %%-----------------------------------------------------------------
 %% TableInfo - stored in snmp_symbolic_store for use by the
-%% generic table functions.
+%% generic table functions. For an ordinary table, the
+%% types will be the following: 
 %%   nbr_of_cols      is an integer
+%%                    pos_integer()
 %%   defvals          is a list of {Col, Defval}, ordered by column
 %%                    number
+%%                    [{Col :: integer(), Defval :: term()}]
 %%   status_col       is an integer
+%%                    pos_integer()
 %%   not_accessible   a sorted list of columns (> first_accessible) 
 %%                    that are 'not-accessible'
-%%   indextypes       is a list of #asn1_type for the index-columns,
-%%                    ordered by column number
-%%   first_accessible is an integer, the first non-accessible
-%%                    column
+%%                    [pos_integer()]
+%%   index_types      is a list of #asn1_type for the index-columns,
+%%                    ordered by column number or an "augment"-tuple
+%%                    [asn1_type()]
+%%   first_accessible is an integer, the first accessible column
+%%                    pos_integer()
 %%   first_own_index  is an integer. 0 if there is no such index for 
 %%                    this table.
 %%                    This is not the same as the last integer in the oid!
 %%                    Example: If a table has one own index (oid.1), one 
 %%                    column (oid.2) and one imported index then 
 %%                    first_own_index will be 2.
+%%                    non_neg_integer()
+%% For a augmented table, it will instead look like this:
+%%   index_types      {augments, {atom(), asn1_type()}}
+%%   nbr_of_cols      pos_integer()
+%%   not_accessible   [pos_integer()]
+%%   first_accessible pos_integer()
+%%   
 %%-----------------------------------------------------------------
 
 -record(table_info, 
@@ -192,7 +205,7 @@
 %%----------------------------------------------------------------------
 -record(mib, 
 	{misc = [], 
-	 mib_format_version = "3.2", 
+	 mib_format_version = "3.3", 
 	 name = "",
 	 module_identity,  %% Not in SMIv1, and only with +module_identity
 	 mes = [], 

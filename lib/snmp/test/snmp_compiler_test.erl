@@ -49,6 +49,7 @@
 	 agent_capabilities/1,
 	 module_compliance/1, 
 	 warnings_as_errors/1,
+	 augments_extra_info/1,
 
 	 otp_6150/1,
 	 otp_8574/1, 
@@ -59,6 +60,7 @@
 %%----------------------------------------------------------------------
 %% Internal exports
 %%----------------------------------------------------------------------
+
 -export([
         ]).
 
@@ -125,6 +127,7 @@ all() ->
      agent_capabilities, 
      module_compliance, 
      warnings_as_errors,
+     augments_extra_info, 
      {group, tickets}
     ].
 
@@ -387,6 +390,47 @@ otp_8595(Config) when is_list(Config) ->
 
 
 %%======================================================================
+
+augments_extra_info(suite) ->
+    [];
+augments_extra_info(Config) when is_list(Config) ->
+    put(tname, augments_extra_info),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir       = ?config(case_top_dir, Config),
+    MibDir    = ?config(mib_dir,      Config),
+    Test2File = join(MibDir, "Test2.mib"),
+    Test3File = join(MibDir, "Test3.mib"),
+    ?line {ok, Test2BinFile} = 
+	snmpc:compile(Test2File, [{outdir,      Dir}, 
+				  {verbosity,   silence}, 
+				  {group_check, false}]),
+    io:format("Test2BinFile: ~n~p~n", [Test2BinFile]),
+    ?line {ok, Test3BinFile} = 
+	snmpc:compile(Test3File, [{i,           [MibDir]}, 
+				  {outdir,      Dir}, 
+				  {verbosity,   silence}, 
+				  {group_check, true}]),
+    io:format("Test3BinFile: ~n~p~n", [Test3BinFile]),
+    {ok, Test3Mib} = snmp_misc:read_mib(Test3BinFile), 
+    io:format("Test3Mib: ~n~p~n", [Test3Mib]),
+    %% There is only one table in this mib
+    #mib{table_infos = [{TableName, TI}]} = Test3Mib, 
+    io:format("TableName: ~p"
+	      "~n   Table Info: ~p"
+	      "~n", [TableName, TI]), 
+    #table_info{nbr_of_cols      = 4, 
+		defvals          = DefVals, 
+		not_accessible   = [2,4], 
+		index_types      = {augments, {tEntry, undefined}},
+		first_accessible = 1} = TI,
+    io:format("Table info:   ~p"
+	      "~n   DefVals: ~p"
+	      "~n", [TableName, DefVals]), 
+    ok.
+
+
+%%======================================================================
 %% Internal functions
 %%======================================================================
 
@@ -540,11 +584,11 @@ DESCRIPTION	\"" ++ Desc ++ "\"
     ::= { test 1 }
 
 END",
-    Message = file:write_file(Filename ,Binary),
+    Message = file:write_file(Filename, Binary),
 case Message of
     ok -> ok;
     {error, Reason} ->
-	exit({failed_writing_mib,Reason})
+	exit({failed_writing_mib, Reason})
 end.
 
 
