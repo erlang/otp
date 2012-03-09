@@ -1585,53 +1585,6 @@ system_cleanup(int flush_async)
     erts_exit_flush_async();
 }
 
-/*
- * Common exit function, all exits from the system go through here.
- * n <= 0 -> normal exit with status n;
- * n = 127 -> Erlang crash dump produced, exit with status 1;
- * other positive n -> Erlang crash dump and core dump produced.
- */
-
-__decl_noreturn void erl_exit0(char *file, int line, int n, char *fmt,...)
-{
-    unsigned int an;
-    va_list args;
-
-    va_start(args, fmt);
-
-    system_cleanup(n);
-
-    save_statistics();
-
-    an = abs(n);
-
-    if (erts_mtrace_enabled)
-	erts_mtrace_exit((Uint32) an);
-
-    /* Produce an Erlang core dump if error */
-    if (n > 0 && erts_initialized &&
-	(erts_no_crash_dump == 0 || n == ERTS_DUMP_EXIT)) {
-	erl_crash_dump_v(file, line, fmt, args); 
-    }
-
-    /* need to reinitialize va_args thing */
-    va_end(args);
-    va_start(args, fmt);
-
-    if (fmt != NULL && *fmt != '\0')
-	  erl_error(fmt, args);	/* Print error message. */
-    va_end(args);
-    sys_tty_reset(n);
-
-    if (n == ERTS_INTR_EXIT)
-	exit(0);
-    else if (n == 127)
-	ERTS_EXIT_AFTER_DUMP(1);
-    else if (n > 0 || n == ERTS_ABORT_EXIT)
-        abort();
-    exit(an);
-}
-
 static __decl_noreturn void __noreturn
 erl_exit_vv(int n, int flush_async, char *fmt, va_list args1, va_list args2)
 {

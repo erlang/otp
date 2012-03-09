@@ -901,14 +901,8 @@ void loaded(int, void *);
 /* config.c */
 
 __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
-__decl_noreturn void __noreturn erl_exit0(char *, int, int n, char*, ...);
 __decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
-
-#define ERL_EXIT0(n,f)		erl_exit0(__FILE__, __LINE__, n, f)
-#define ERL_EXIT1(n,f,a)	erl_exit0(__FILE__, __LINE__, n, f, a)
-#define ERL_EXIT2(n,f,a,b)	erl_exit0(__FILE__, __LINE__, n, f, a, b)
-#define ERL_EXIT3(n,f,a,b,c)	erl_exit0(__FILE__, __LINE__, n, f, a, b, c)
 
 /* copy.c */
 void init_copy(void);
