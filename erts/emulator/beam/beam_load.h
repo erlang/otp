@@ -50,21 +50,12 @@ extern BeamInstr beam_debug_apply[];
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_apply_bif;
 extern BeamInstr* em_call_traced_function;
-typedef struct {
-    BeamInstr* start;		/* Pointer to start of module. */
-    BeamInstr* end;			/* Points one word beyond last function in module. */
-} Range;
 
 /*
  * The following variables keep a sorted list of address ranges for
  * each module.  It allows us to quickly find a function given an
  * instruction pointer.
  */
-
-extern Range* modules;
-extern int num_loaded_modules;
-extern int allocated_modules;
-extern Range* mid_module;
 
 /* Total code size in bytes */
 extern Uint erts_total_code_size;
@@ -94,27 +85,22 @@ extern Uint erts_total_code_size;
 #define MI_COMPILE_SIZE_ON_HEAP 6
 
 /*
- * Number of breakpoints in module is stored in this word
- */
-#define MI_NUM_BREAKPOINTS      7
-
-/*
  * Literal area (constant pool).
  */
-#define MI_LITERALS_START	8
-#define MI_LITERALS_END		9
-#define MI_LITERALS_OFF_HEAP	10
+#define MI_LITERALS_START	7
+#define MI_LITERALS_END		8
+#define MI_LITERALS_OFF_HEAP	9
 
 
 /*
  * Pointer to the on_load function (or NULL if none).
  */
-#define MI_ON_LOAD_FUNCTION_PTR 11
+#define MI_ON_LOAD_FUNCTION_PTR 10
 
 /*
  * Pointer to the line table (or NULL if none).
  */
-#define MI_LINE_TABLE 12
+#define MI_LINE_TABLE 11
 
 /*
  * Start of function pointer table.  This table contains pointers to
@@ -125,5 +111,27 @@ extern Uint erts_total_code_size;
  * this table.
  */
 
-#define MI_FUNCTIONS         13
+#define MI_FUNCTIONS         12
+
+/*
+ * Layout of the line table.
+ */
+
+#define MI_LINE_FNAME_PTR 0
+#define MI_LINE_LOC_TAB 1
+#define MI_LINE_LOC_SIZE 2
+#define MI_LINE_FUNC_TAB 3
+
+#define LINE_INVALID_LOCATION (0)
+
+/*
+ * Macros for manipulating locations.
+ */
+
+#define IS_VALID_LOCATION(File, Line) \
+    ((unsigned) (File) < 255 && (unsigned) (Line) < ((1 << 24) - 1))
+#define MAKE_LOCATION(File, Line) (((File) << 24) | (Line))
+#define LOC_FILE(Loc) ((Loc) >> 24)
+#define LOC_LINE(Loc) ((Loc) & ((1 << 24)-1))
+
 #endif /* _BEAM_LOAD_H */

@@ -3709,7 +3709,8 @@ BIF_RETTYPE function_exported_3(BIF_ALIST_3)
 	is_not_small(BIF_ARG_3)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if (erts_find_function(BIF_ARG_1, BIF_ARG_2, signed_val(BIF_ARG_3)) == NULL) {
+    if (erts_find_function(BIF_ARG_1, BIF_ARG_2, signed_val(BIF_ARG_3),
+			   erts_active_code_ix()) == NULL) {
 	BIF_RET(am_false);
     }
     BIF_RET(am_true);
@@ -4434,6 +4435,21 @@ erts_bif_prep_await_proc_exit_apply_trap(Process *c_p,
 
 Export bif_return_trap_export;
 
+void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
+			   Eterm (*bif)(BIF_ALIST_0))
+{
+    int i;
+    sys_memset((void *) ep, 0, sizeof(Export));
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	ep->addressv[i] = &ep->code[3];
+    }
+    ep->code[0] = m;
+    ep->code[1] = f;
+    ep->code[2] = a;
+    ep->code[3] = (BeamInstr) em_apply_bif;
+    ep->code[4] = (BeamInstr) bif;
+}
+
 void erts_init_bif(void)
 {
     reference0 = 0;
@@ -4449,17 +4465,13 @@ void erts_init_bif(void)
      * yield the calling process traps to. The only thing it does:
      * return the value passed as argument.
      */
-    sys_memset((void *) &bif_return_trap_export, 0, sizeof(Export));
-    bif_return_trap_export.address = &bif_return_trap_export.code[3];
-    bif_return_trap_export.code[0] = am_erlang;
-    bif_return_trap_export.code[1] = am_bif_return_trap;
+    erts_init_trap_export(&bif_return_trap_export, am_erlang, am_bif_return_trap,
 #ifdef DEBUG
-    bif_return_trap_export.code[2] = 2;
+		     2
 #else
-    bif_return_trap_export.code[2] = 1;
+		     1
 #endif
-    bif_return_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    bif_return_trap_export.code[4] = (BeamInstr) &bif_return_trap;
+		     , &bif_return_trap);
 
     flush_monitor_message_trap = erts_export_put(am_erlang,
 						 am_flush_monitor_message,

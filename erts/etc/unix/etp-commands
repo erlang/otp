@@ -1022,16 +1022,17 @@ define etp-cp-1
 # Non-reentrant
 #
   set $etp_cp = (Eterm)($arg0)
-  set $etp_cp_low = modules
-  set $etp_cp_high = $etp_cp_low + num_loaded_modules
-  set $etp_cp_mid = mid_module
+  set $etp_ranges = &r[(int)the_active_code_index]
+  set $etp_cp_low = $etp_ranges->modules
+  set $etp_cp_high = $etp_cp_low + $etp_ranges->n
+  set $etp_cp_mid = (Range*)$etp_ranges->mid
   set $etp_cp_p = 0
   #
   while $etp_cp_low < $etp_cp_high
     if $etp_cp < $etp_cp_mid->start
       set $etp_cp_high = $etp_cp_mid
     else
-      if $etp_cp > $etp_cp_mid->end
+      if $etp_cp > (BeamInstr*)$etp_cp_mid->end
         set $etp_cp_low = $etp_cp_mid + 1
       else
         set $etp_cp_p = $etp_cp_low = $etp_cp_high = $etp_cp_mid

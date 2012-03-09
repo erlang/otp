@@ -37,25 +37,83 @@
 
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp);
-static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
-static void delete_export_references(Eterm module);
-static int purge_module(int module);
+static void delete_code(Module* modp);
 static void decrement_refc(BeamInstr* code);
 static int is_native(BeamInstr* code);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
-static void remove_from_address_table(BeamInstr* code);
 
-Eterm
-load_module_2(BIF_ALIST_2)
+
+
+BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
 {
-    Eterm   reason;
-    Eterm*  hp;
-    int      sz;
-    byte*    code;
+    Module* modp;
     Eterm res;
+    ErtsCodeIndex code_ix;
+
+    if (is_not_atom(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    code_ix = erts_active_code_ix();
+    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL) {
+	return am_undefined;
+    }
+    erts_rlock_old_code(code_ix);
+    res = ((modp->curr.code && is_native(modp->curr.code)) ||
+	    (modp->old.code != 0 && is_native(modp->old.code))) ?
+		am_true : am_false;
+    erts_runlock_old_code(code_ix);
+    return res;
+}
+
+BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
+{
+    Module* modp;
+    Eterm res;
+
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD3(bif_export[BIF_code_make_stub_module_3],
+			BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    }
+
+    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_thr_progress_block();
+
+    modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
+
+    if (modp && modp->curr.num_breakpoints > 0) {
+	ASSERT(modp->curr.code != NULL);
+	erts_clear_module_break(modp);
+	ASSERT(modp->curr.num_breakpoints == 0);
+    }
+
+    erts_start_staging_code_ix();
+
+    res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+
+    if (res == BIF_ARG_1) {
+	erts_end_staging_code_ix();
+	erts_commit_staging_code_ix();
+    }
+    else {
+	erts_abort_staging_code_ix();
+    }
+    erts_smp_thr_progress_unblock();
+    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_release_code_write_permission();
+    return res;
+}
+
+BIF_RETTYPE
+prepare_loading_2(BIF_ALIST_2)
+{
     byte* temp_alloc = NULL;
-    struct LoaderState* stp;
+    byte* code;
+    Uint sz;
+    Binary* magic;
+    Eterm reason;
+    Eterm* hp;
+    Eterm res;
 
     if (is_not_atom(BIF_ARG_1)) {
     error:
@@ -65,108 +123,277 @@ load_module_2(BIF_ALIST_2)
     if ((code = erts_get_aligned_binary_bytes(BIF_ARG_2, &temp_alloc)) == NULL) {
 	goto error;
     }
-    hp = HAlloc(BIF_P, 3);
 
-    /*
-     * Read the BEAM file and prepare the module for loading.
-     */
-    stp = erts_alloc_loader_state();
+    magic = erts_alloc_loader_state();
     sz = binary_size(BIF_ARG_2);
-    reason = erts_prepare_loading(stp, BIF_P, BIF_P->group_leader,
+    reason = erts_prepare_loading(magic, BIF_P, BIF_P->group_leader,
 				  &BIF_ARG_1, code, sz);
     erts_free_aligned_binary_bytes(temp_alloc);
     if (reason != NIL) {
+	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_error, reason);
 	BIF_RET(res);
     }
-
-    /*
-     * Stop all other processes and finish the loading of the module.
-     */
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
-
-    reason = erts_finish_loading(stp, BIF_P, 0, &BIF_ARG_1);
-    if (reason != NIL) {
-	res = TUPLE2(hp, am_error, reason);
-    } else {
-	set_default_trace_pattern(BIF_ARG_1);
-	res = TUPLE2(hp, am_module, BIF_ARG_1);
-    }
-
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    hp = HAlloc(BIF_P, PROC_BIN_SIZE);
+    res = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), magic);
+    erts_refc_dec(&magic->refc, 1);
     BIF_RET(res);
 }
 
-BIF_RETTYPE purge_module_1(BIF_ALIST_1)
-{
-    int purge_res;
-
-    if (is_not_atom(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
-
-    erts_export_consolidate();
-    purge_res = purge_module(atom_val(BIF_ARG_1));
-
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-
-    if (purge_res < 0) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    BIF_RET(am_true);
-}
-
-BIF_RETTYPE code_is_module_native_1(BIF_ALIST_1)
-{
+struct m {
+    Binary* code;
+    Eterm module;
     Module* modp;
+    Uint exception;
+};
 
-    if (is_not_atom(BIF_ARG_1)) {
-	BIF_ERROR(BIF_P, BADARG);
+static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int);
+
+static Eterm
+exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
+{
+    Eterm* hp = HAlloc(p, 3 + 2*exceptions);
+    Eterm res = NIL;
+
+    mp += exceptions - 1;
+    while (exceptions > 0) {
+	if (mp->exception) {
+	    res = CONS(hp, mp->module, res);
+	    hp += 2;
+	    exceptions--;
+	}
+	mp--;
     }
-    if ((modp = erts_get_module(BIF_ARG_1)) == NULL) {
-	return am_undefined;
-    }
-    return ((modp->code && is_native(modp->code)) ||
-	    (modp->old_code != 0 && is_native(modp->old_code))) ?
-		am_true : am_false;
+    return TUPLE2(hp, tag, res);
 }
 
-BIF_RETTYPE code_make_stub_module_3(BIF_ALIST_3)
+
+BIF_RETTYPE
+finish_loading_1(BIF_ALIST_1)
 {
+    int i;
+    int n;
+    struct m* p = NULL;
+    Uint exceptions;
     Eterm res;
+    int is_blocking = 0;
+    int do_commit = 0;
 
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD1(bif_export[BIF_finish_loading_1], BIF_P, BIF_ARG_1);
+    }
 
-    erts_export_consolidate();
-    res = erts_make_stub_module(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    /*
+     * Validate the argument before we start loading; it must be a
+     * proper list where each element is a magic binary containing
+     * prepared (not previously loaded) code.
+     *
+     * First count the number of elements and allocate an array
+     * to keep the elements in.
+     */
 
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    return res;
+    n = list_length(BIF_ARG_1);
+    if (n == -1) {
+	ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
+	goto done;
+    }
+    p = erts_alloc(ERTS_ALC_T_LOADER_TMP, n*sizeof(struct m));
+
+    /*
+     * We now know that the argument is a proper list. Validate
+     * and collect the binaries into the array.
+     */
+
+    for (i = 0; i < n; i++) {
+	Eterm* cons = list_val(BIF_ARG_1);
+	Eterm term = CAR(cons);
+	ProcBin* pb;
+
+	if (!ERTS_TERM_IS_MAGIC_BINARY(term)) {
+	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
+	    goto done;
+	}
+	pb = (ProcBin*) binary_val(term);
+	p[i].code = pb->val;
+	p[i].module = erts_module_for_prepared_code(p[i].code);
+	if (p[i].module == NIL) {
+	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
+	    goto done;
+	}
+	BIF_ARG_1 = CDR(cons);
+    }
+
+    /*
+     * Since we cannot handle atomic loading of a group of modules
+     * if one or more of them uses on_load, we will only allow one
+     * element in the list. This limitation is intended to be
+     * lifted in the future.
+     */
+
+    if (n > 1) {
+	ERTS_BIF_PREP_ERROR(res, BIF_P, SYSTEM_LIMIT);
+	goto done;
+    }
+
+    /*
+     * All types are correct. There cannot be a BADARG from now on.
+     * Before we can start loading, we must check whether any of
+     * the modules already has old code. To avoid a race, we must
+     * not allow other process to initiate a code loading operation
+     * from now on.
+     */
+
+    res = am_ok;
+    erts_start_staging_code_ix();
+
+    for (i = 0; i < n; i++) {
+	p[i].modp = erts_put_module(p[i].module);
+    }
+    for (i = 0; i < n; i++) {
+	if (p[i].modp->curr.num_breakpoints > 0 ||
+	    p[i].modp->curr.num_traced_exports > 0 ||
+	    erts_is_default_trace_enabled()) {
+	    /* tracing involved, fallback with thread blocking */
+	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    erts_smp_thr_progress_block();
+	    is_blocking = 1;
+	    break;
+	}
+    }
+
+    if (is_blocking) {
+	for (i = 0; i < n; i++) {
+	    if (p[i].modp->curr.num_breakpoints) {
+		erts_clear_module_break(p[i].modp);
+		ASSERT(p[i].modp->curr.num_breakpoints == 0);
+	    }
+	}
+    }
+
+    exceptions = 0;
+    for (i = 0; i < n; i++) {
+	p[i].exception = 0;
+	if (p[i].modp->curr.code && p[i].modp->old.code) {
+	    p[i].exception = 1;
+	    exceptions++;
+	}
+    }
+
+    if (exceptions) {
+	res = exception_list(BIF_P, am_not_purged, p, exceptions);
+    } else {
+	/*
+	 * Now we can load all code. This can't fail.
+	 */
+
+	exceptions = 0;
+	for (i = 0; i < n; i++) {
+	    Eterm mod;
+	    Eterm retval;
+
+	    erts_refc_inc(&p[i].code->refc, 1);
+	    retval = erts_finish_loading(p[i].code, BIF_P, 0, &mod);
+	    ASSERT(retval == NIL || retval == am_on_load);
+	    if (retval == am_on_load) {
+		p[i].exception = 1;
+		exceptions++;
+	    }
+	}
+
+	/*
+	 * Check whether any module has an on_load_handler.
+	 */
+
+	if (exceptions) {
+	    res = exception_list(BIF_P, am_on_load, p, exceptions);
+	}
+	do_commit = 1;
+    }
+
+done:
+    return staging_epilogue(BIF_P, do_commit, res, is_blocking, p, n);
+}
+
+static Eterm
+staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
+		 struct m* loaded, int nloaded)
+{    
+#ifdef ERTS_SMP
+    if (is_blocking || !commit)
+#endif
+    {
+	if (commit) {
+	    erts_end_staging_code_ix();
+	    erts_commit_staging_code_ix();
+	    if (loaded) {
+		int i;
+		for (i=0; i < nloaded; i++) {		
+		    set_default_trace_pattern(loaded[i].module);
+		}
+	    }
+	}
+	else {
+	    erts_abort_staging_code_ix();
+	}
+	if (loaded) {
+	    erts_free(ERTS_ALC_T_LOADER_TMP, loaded);
+	}
+	if (is_blocking) {
+	    erts_smp_thr_progress_unblock();
+	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
+	}
+	erts_release_code_write_permission();
+	return res;
+    }
+#ifdef ERTS_SMP
+    else {
+	ErtsThrPrgrVal later;
+	ASSERT(is_value(res));
+
+	if (loaded) {
+	    erts_free(ERTS_ALC_T_LOADER_TMP, loaded);
+	}
+	erts_end_staging_code_ix();
+	/*
+	 * Now we must wait for all schedulers to do a memory barrier before
+	 * we can activate and let them access the new staged code. This allows
+	 * schedulers to read active code_ix in a safe way while executing
+	 * without any memory barriers at all. 
+	 */
+    
+	later = erts_thr_progress_later(); 
+	erts_thr_progress_wakeup(c_p->scheduler_data, later);
+	erts_notify_code_ix_activation(c_p, later);
+	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
+	/*
+	 * handle_code_ix_activation() will do the rest "later"
+	 * and resume this process to return 'res'.  
+	 */
+	ERTS_BIF_YIELD_RETURN(c_p, res);
+    }
+#endif
 }
 
 BIF_RETTYPE
 check_old_code_1(BIF_ALIST_1)
 {
+    ErtsCodeIndex code_ix;
     Module* modp;
+    Eterm res = am_false;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    modp = erts_get_module(BIF_ARG_1);
-    if (modp == NULL) {		/* Doesn't exist. */
-	BIF_RET(am_false);
-    } else if (modp->old_code == NULL) { /* No old code. */
-	BIF_RET(am_false);
+    code_ix = erts_active_code_ix();
+    modp = erts_get_module(BIF_ARG_1, code_ix);
+    if (modp != NULL) {
+	erts_rlock_old_code(code_ix);
+	if (modp->old.code != NULL) {
+	    res = am_true;
+	}
+	erts_runlock_old_code(code_ix);
     }
-    BIF_RET(am_true);
+    BIF_RET(res);
 }
 
 Eterm
@@ -180,14 +407,20 @@ check_process_code_2(BIF_ALIST_2)
     }
     if (is_internal_pid(BIF_ARG_1)) {
 	Eterm res;
+	ErtsCodeIndex code_ix;
 	if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
 	    goto error;
-	modp = erts_get_module(BIF_ARG_2);
+	code_ix = erts_active_code_ix();
+	modp = erts_get_module(BIF_ARG_2, code_ix);
 	if (modp == NULL) {		/* Doesn't exist. */
 	    return am_false;
-	} else if (modp->old_code == NULL) { /* No old code. */
+	}
+	erts_rlock_old_code(code_ix);
+	if (modp->old.code == NULL) { /* No old code. */
+	    erts_runlock_old_code(code_ix);
 	    return am_false;
 	}
+	erts_runlock_old_code(code_ix);
 	
 #ifdef ERTS_SMP
 	rp = erts_pid2proc_suspend(BIF_P, ERTS_PROC_LOCK_MAIN,
@@ -202,7 +435,14 @@ check_process_code_2(BIF_ALIST_2)
 	    ERTS_BIF_YIELD2(bif_export[BIF_check_process_code_2], BIF_P,
 			    BIF_ARG_1, BIF_ARG_2);
 	}
-	res = check_process_code(rp, modp);
+	erts_rlock_old_code(code_ix);
+	if (modp->old.code != NULL) { /* must check again */
+	    res = check_process_code(rp, modp);
+	}
+	else {
+	    res = am_false;
+	}
+	erts_runlock_old_code(code_ix);
 #ifdef ERTS_SMP
 	if (BIF_P != rp) {
 	    erts_resume(rp, ERTS_PROC_LOCK_MAIN);
@@ -223,56 +463,71 @@ check_process_code_2(BIF_ALIST_2)
 
 BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 {
-    int res;
+    ErtsCodeIndex code_ix;
+    Module* modp;
+    int is_blocking = 0;
+    int success = 0;
+    Eterm res = NIL;
 
-    if (is_not_atom(BIF_ARG_1))
-	goto badarg;
+    if (is_not_atom(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
 
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD1(bif_export[BIF_delete_module_1], BIF_P, BIF_ARG_1);
+    }
 
     {
-	Module *modp = erts_get_module(BIF_ARG_1);
+	erts_start_staging_code_ix();
+	code_ix = erts_staging_code_ix();
+	modp = erts_get_module(BIF_ARG_1, code_ix);
 	if (!modp) {
 	    res = am_undefined;
 	}
-	else if (modp->old_code != 0) {
+	else if (modp->old.code != 0) {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	    erts_dsprintf(dsbufp, "Module %T must be purged before loading\n",
 			  BIF_ARG_1);
 	    erts_send_error_to_logger(BIF_P->group_leader, dsbufp);
-	    res = am_badarg;
+	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
 	}
 	else {
-	    delete_export_references(BIF_ARG_1);
-	    delete_code(BIF_P, 0, modp);
+	    if (modp->curr.num_breakpoints > 0 ||
+		modp->curr.num_traced_exports > 0) {
+		/* we have tracing, retry single threaded */
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_smp_thr_progress_block();
+		is_blocking = 1;
+		if (modp->curr.num_breakpoints) {
+		    erts_clear_module_break(modp);
+		    ASSERT(modp->curr.num_breakpoints == 0);
+		}
+	    }
+	    delete_code(modp);
 	    res = am_true;
+	    success = 1;
 	}
     }
-
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-
-    if (res == am_badarg) {
-    badarg:
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    BIF_RET(res);
+    return staging_epilogue(BIF_P, success, res, is_blocking, NULL, 0);  
 }
 
 BIF_RETTYPE module_loaded_1(BIF_ALIST_1)
 {
     Module* modp;
+    ErtsCodeIndex code_ix;
+    Eterm res = am_false;
 
     if (is_not_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((modp = erts_get_module(BIF_ARG_1)) == NULL ||
-	modp->code == NULL ||
-	modp->code[MI_ON_LOAD_FUNCTION_PTR] != 0) {
-	BIF_RET(am_false);
+    code_ix = erts_active_code_ix();
+    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) != NULL) {
+	if (modp->curr.code != NULL
+	    && modp->curr.code[MI_ON_LOAD_FUNCTION_PTR] == 0) {
+	    res = am_true;
+	}
     }
-    BIF_RET(am_true);
+    BIF_RET(res);
 }
 
 BIF_RETTYPE pre_loaded_0(BIF_ALIST_0)
@@ -282,27 +537,28 @@ BIF_RETTYPE pre_loaded_0(BIF_ALIST_0)
 
 BIF_RETTYPE loaded_0(BIF_ALIST_0)
 {
+    ErtsCodeIndex code_ix = erts_active_code_ix();
+    Module* modp;
     Eterm previous = NIL;
     Eterm* hp;
     int i;
     int j = 0;
-    
-    for (i = 0; i < module_code_size(); i++) {
-	if (module_code(i) != NULL &&
-	    ((module_code(i)->code_length != 0) ||
-	     (module_code(i)->old_code_length != 0))) {
+
+    for (i = 0; i < module_code_size(code_ix); i++) {
+	if ((modp = module_code(i, code_ix)) != NULL &&
+	    ((modp->curr.code_length != 0) ||
+	     (modp->old.code_length != 0))) {
 	    j++;
 	}
     }
     if (j > 0) {
 	hp = HAlloc(BIF_P, j*2);
 
-	for (i = 0; i < module_code_size(); i++) {
-	    if (module_code(i) != NULL &&
-		((module_code(i)->code_length != 0) ||
-		 (module_code(i)->old_code_length != 0))) {
-		previous = CONS(hp, make_atom(module_code(i)->module), 
-				previous);
+	for (i = 0; i < module_code_size(code_ix); i++) {
+	    if ((modp=module_code(i,code_ix)) != NULL &&
+		((modp->curr.code_length != 0) ||
+		 (modp->old.code_length != 0))) {
+		previous = CONS(hp, make_atom(modp->module), previous);
 		hp += 2;
 	    }
 	}
@@ -312,37 +568,48 @@ BIF_RETTYPE loaded_0(BIF_ALIST_0)
 
 BIF_RETTYPE call_on_load_function_1(BIF_ALIST_1)
 {
-    Module* modp = erts_get_module(BIF_ARG_1);
-    Eterm on_load;
+    Module* modp = erts_get_module(BIF_ARG_1, erts_active_code_ix());
 
-    if (!modp || modp->code == 0) {
-    error:
+    if (modp && modp->curr.code) {
+	BIF_TRAP_CODE_PTR_0(BIF_P, modp->curr.code[MI_ON_LOAD_FUNCTION_PTR]);
+    }
+    else {
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((on_load = modp->code[MI_ON_LOAD_FUNCTION_PTR]) == 0) {
-	goto error;
-    }
-    BIF_TRAP_CODE_PTR_0(BIF_P, on_load);
 }
 
 BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 {
-    Module* modp = erts_get_module(BIF_ARG_1);
+    ErtsCodeIndex code_ix;
+    Module* modp;
     Eterm on_load;
 
-    if (!modp || modp->code == 0) {
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD2(bif_export[BIF_finish_after_on_load_2],
+			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
+
+    /* ToDo: Use code_ix staging instead of thread blocking */
+
+    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_smp_thr_progress_block();
+
+    code_ix = erts_active_code_ix();
+    modp = erts_get_module(BIF_ARG_1, code_ix);
+
+    if (!modp || modp->curr.code == 0) {
     error:
+	erts_smp_thr_progress_unblock();
+        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_release_code_write_permission();
 	BIF_ERROR(BIF_P, BADARG);
     }
-    if ((on_load = modp->code[MI_ON_LOAD_FUNCTION_PTR]) == 0) {
+    if ((on_load = modp->curr.code[MI_ON_LOAD_FUNCTION_PTR]) == 0) {
 	goto error;
     }
     if (BIF_ARG_2 != am_false && BIF_ARG_2 != am_true) {
 	goto error;
     }
-
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_thr_progress_block();
 
     if (BIF_ARG_2 == am_true) {
 	int i;
@@ -350,16 +617,16 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	/*
 	 * The on_load function succeded. Fix up export entries.
 	 */
-	for (i = 0; i < export_list_size(); i++) {
-	    Export *ep = export_list(i);
+	for (i = 0; i < export_list_size(code_ix); i++) {
+	    Export *ep = export_list(i,code_ix);
 	    if (ep != NULL &&
 		ep->code[0] == BIF_ARG_1 &&
 		ep->code[4] != 0) {
-		ep->address = (void *) ep->code[4];
+		ep->addressv[code_ix] = (void *) ep->code[4];
 		ep->code[4] = 0;
 	    }
 	}
-	modp->code[MI_ON_LOAD_FUNCTION_PTR] = 0;
+	modp->curr.code[MI_ON_LOAD_FUNCTION_PTR] = 0;
 	set_default_trace_pattern(BIF_ARG_1);
     } else if (BIF_ARG_2 == am_false) {
 	BeamInstr* code;
@@ -370,19 +637,21 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	 * This is an combination of delete and purge. We purge
 	 * the current code; the old code is not touched.
 	 */
-	erts_total_code_size -= modp->code_length;
-	code = modp->code;
-	end = (BeamInstr *)((char *)code + modp->code_length);
+	erts_total_code_size -= modp->curr.code_length;
+	code = modp->curr.code;
+	end = (BeamInstr *)((char *)code + modp->curr.code_length);
 	erts_cleanup_funs_on_purge(code, end);
-	beam_catches_delmod(modp->catches, code, modp->code_length);
+	beam_catches_delmod(modp->curr.catches, code, modp->curr.code_length,
+			    erts_active_code_ix());
 	erts_free(ERTS_ALC_T_CODE, (void *) code);
-	modp->code = NULL;
-	modp->code_length = 0;
-	modp->catches = BEAM_CATCHES_NIL;
-	remove_from_address_table(code);
+	modp->curr.code = NULL;
+	modp->curr.code_length = 0;
+	modp->curr.catches = BEAM_CATCHES_NIL;
+	erts_remove_from_ranges(code);
     }
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_release_code_write_permission();
     BIF_RET(am_true);
 }
 
@@ -429,10 +698,10 @@ check_process_code(Process* rp, Module* modp)
     /*
      * Pick up limits for the module.
      */
-    start = modp->old_code;
-    end = (BeamInstr *)((char *)start + modp->old_code_length);
+    start = modp->old.code;
+    end = (BeamInstr *)((char *)start + modp->old.code_length);
     mod_start = (char *) start;
-    mod_size = modp->old_code_length;
+    mod_size = modp->old.code_length;
 
     /*
      * Check if current instruction or continuation pointer points into module.
@@ -566,10 +835,10 @@ check_process_code(Process* rp, Module* modp)
 	    done_gc = 1;
 	    FLAGS(rp) |= F_NEED_FULLSWEEP;
 	    (void) erts_garbage_collect(rp, 0, rp->arg_reg, rp->arity);
-	    literals = (Eterm *) modp->old_code[MI_LITERALS_START];
-	    lit_size = (Eterm *) modp->old_code[MI_LITERALS_END] - literals;
+	    literals = (Eterm *) modp->old.code[MI_LITERALS_START];
+	    lit_size = (Eterm *) modp->old.code[MI_LITERALS_END] - literals;
 	    oh = (struct erl_off_heap_header *)
-		modp->old_code[MI_LITERALS_OFF_HEAP];
+		modp->old.code[MI_LITERALS_OFF_HEAP];
 	    erts_garbage_collect_literals(rp, literals, lit_size, oh);
 	}
     }
@@ -628,53 +897,82 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 
 #undef in_area
 
-
-static int
-purge_module(int module)
+BIF_RETTYPE purge_module_1(BIF_ALIST_1)
 {
+    ErtsCodeIndex code_ix;
     BeamInstr* code;
     BeamInstr* end;
     Module* modp;
+    int is_blocking = 0;
+    Eterm ret;
+
+    if (is_not_atom(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD1(bif_export[BIF_purge_module_1], BIF_P, BIF_ARG_1);
+    }
+
+    code_ix = erts_active_code_ix();
 
     /*
      * Correct module?
      */
 
-    if ((modp = erts_get_module(make_atom(module))) == NULL) {
-	return -2;
+    if ((modp = erts_get_module(BIF_ARG_1, code_ix)) == NULL) {
+	ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
     }
+    else {
+	erts_rwlock_old_code(code_ix);
 
-    /*
-     * Any code to purge?
-     */
-    if (modp->old_code == 0) {
-	return -1;
+	/*
+	 * Any code to purge?
+	 */
+	if (modp->old.code == 0) {
+	    ERTS_BIF_PREP_ERROR(ret, BIF_P, BADARG);
+	}
+	else {
+	    /*
+	     * Unload any NIF library
+	     */
+	    if (modp->old.nif != NULL) {
+		/* ToDo: Do unload nif without blocking */
+		erts_rwunlock_old_code(code_ix);
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_smp_thr_progress_block();
+		is_blocking = 1;
+		erts_rwlock_old_code(code_ix);
+		erts_unload_nif(modp->old.nif);
+		modp->old.nif = NULL;
+	    }
+
+	    /*
+	     * Remove the old code.
+	     */
+	    ASSERT(erts_total_code_size >= modp->old.code_length);
+	    erts_total_code_size -= modp->old.code_length;
+	    code = modp->old.code;
+	    end = (BeamInstr *)((char *)code + modp->old.code_length);
+	    erts_cleanup_funs_on_purge(code, end);
+	    beam_catches_delmod(modp->old.catches, code, modp->old.code_length,
+				code_ix);
+	    decrement_refc(code);
+	    erts_free(ERTS_ALC_T_CODE, (void *) code);
+	    modp->old.code = NULL;
+	    modp->old.code_length = 0;
+	    modp->old.catches = BEAM_CATCHES_NIL;
+	    erts_remove_from_ranges(code);
+	    ERTS_BIF_PREP_RET(ret, am_true);
+	}
+	erts_rwunlock_old_code(code_ix);
     }
-
-    /*
-     * Unload any NIF library
-     */
-    if (modp->old_nif != NULL) {
-	erts_unload_nif(modp->old_nif);
-	modp->old_nif = NULL;
+    if (is_blocking) {
+	erts_smp_thr_progress_unblock();
+	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     }
-
-    /*
-     * Remove the old code.
-     */
-    ASSERT(erts_total_code_size >= modp->old_code_length);
-    erts_total_code_size -= modp->old_code_length;
-    code = modp->old_code;
-    end = (BeamInstr *)((char *)code + modp->old_code_length);
-    erts_cleanup_funs_on_purge(code, end);
-    beam_catches_delmod(modp->old_catches, code, modp->old_code_length);
-    decrement_refc(code);
-    erts_free(ERTS_ALC_T_CODE, (void *) code);
-    modp->old_code = NULL;
-    modp->old_code_length = 0;
-    modp->old_catches = BEAM_CATCHES_NIL;
-    remove_from_address_table(code);
-    return 0;
+    erts_release_code_write_permission();
+    return ret;
 }
 
 static void
@@ -694,92 +992,50 @@ decrement_refc(BeamInstr* code)
     }
 }
 
-static void
-remove_from_address_table(BeamInstr* code)
-{
-    int i;
-
-    for (i = 0; i < num_loaded_modules; i++) {
-	if (modules[i].start == code) {
-	    num_loaded_modules--;
-	    while (i < num_loaded_modules) {
-		modules[i] = modules[i+1];
-		i++;
-	    }
-	    mid_module = &modules[num_loaded_modules/2];
-	    return;
-	}
-    }
-    ASSERT(0);			/* Not found? */
-}
-
-
 /*
- * Move code from current to old.
+ * Move code from current to old and null all export entries for the module
  */
 
-static void 
-delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
-{
-#ifdef ERTS_ENABLE_LOCK_CHECK
-#ifdef ERTS_SMP
-    if (c_p && c_p_locks)
-	erts_proc_lc_chk_only_proc_main(c_p);
-    else
-#endif
-	erts_lc_check_exact(NULL, 0);
-#endif
-
-    /*
-     * Clear breakpoints if any
-     */
-    if (modp->code != NULL && modp->code[MI_NUM_BREAKPOINTS] > 0) {
-	if (c_p && c_p_locks)
-	    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-	erts_smp_thr_progress_block();
-	erts_clear_module_break(modp);
-	modp->code[MI_NUM_BREAKPOINTS] = 0;
-	erts_smp_thr_progress_unblock();
-	if (c_p && c_p_locks)
-	    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
-    }
-    modp->old_code = modp->code;
-    modp->old_code_length = modp->code_length;
-    modp->old_catches = modp->catches;
-    modp->old_nif = modp->nif;
-    modp->code = NULL;
-    modp->code_length = 0;
-    modp->catches = BEAM_CATCHES_NIL;
-    modp->nif = NULL;
-}
-
-
-/* null all references on the export table for the module called with the
-   atom index below */
-
 static void
-delete_export_references(Eterm module)
+delete_code(Module* modp)
 {
+    ErtsCodeIndex code_ix = erts_staging_code_ix();
+    Eterm module = make_atom(modp->module);
     int i;
 
-    ASSERT(is_atom(module));
-
-    for (i = 0; i < export_list_size(); i++) {
-	Export *ep = export_list(i);
+    for (i = 0; i < export_list_size(code_ix); i++) {
+	Export *ep = export_list(i, code_ix);
         if (ep != NULL && (ep->code[0] == module)) {
-	    if (ep->address == ep->code+3 &&
-		(ep->code[3] == (BeamInstr) em_apply_bif)) {
-		continue;
+	    if (ep->addressv[code_ix] == ep->code+3) {
+		if (ep->code[3] == (BeamInstr) em_apply_bif) {
+		    continue;
+		}
+		else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
+		    ERTS_SMP_LC_ASSERT(erts_smp_thr_progress_is_blocking());
+		    ASSERT(modp->curr.num_traced_exports > 0);
+		    --modp->curr.num_traced_exports;
+		    MatchSetUnref(ep->match_prog_set);
+		    ep->match_prog_set = NULL;
+		}
+		else ASSERT(ep->code[3] == (BeamInstr) em_call_error_handler
+			    || !erts_initialized);
 	    }
-	    ep->address = ep->code+3;
+	    ep->addressv[code_ix] = ep->code+3;
 	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
-	    MatchSetUnref(ep->match_prog_set);
-	    ep->match_prog_set = NULL;
+	    ASSERT(ep->match_prog_set == NULL);
 	}
     }
+
+    ASSERT(modp->curr.num_breakpoints == 0);
+    ASSERT(modp->curr.num_traced_exports == 0);
+    modp->old = modp->curr;
+    modp->curr.code = NULL;
+    modp->curr.code_length = 0;
+    modp->curr.catches = BEAM_CATCHES_NIL;
+    modp->curr.nif = NULL;
 }
-
+
 
 Eterm
 beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
@@ -791,11 +1047,10 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
      * if not, delete old code; error if old code already exists.
      */
 
-    if (modp->code != NULL && modp->old_code != NULL)  {
+    if (modp->curr.code != NULL && modp->old.code != NULL)  {
 	return am_not_purged;
-    } else if (modp->old_code == NULL) { /* Make the current version old. */
-	delete_code(c_p, c_p_locks, modp);
-	delete_export_references(module);
+    } else if (modp->old.code == NULL) { /* Make the current version old. */
+	delete_code(modp);
     }
     return NIL;
 }

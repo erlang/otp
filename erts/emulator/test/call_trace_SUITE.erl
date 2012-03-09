@@ -25,6 +25,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 hipe/1,process_specs/1,basic/1,flags/1,errors/1,pam/1,change_pam/1,
 	 return_trace/1,exception_trace/1,on_load/1,deep_exception/1,
+	 upgrade/1,
 	 exception_nocatch/1,bit_syntax/1]).
 
 %% Helper functions.
@@ -46,6 +47,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     Common = [errors, on_load],
     NotHipe = [process_specs, basic, flags, pam, change_pam,
+	       upgrade,
 	       return_trace, exception_trace, deep_exception,
 	       exception_nocatch, bit_syntax],
     Hipe = [hipe],
@@ -266,6 +268,118 @@ bar() ->
 foo() -> foo0.
 foo(X) -> X+1.
 foo(X, Y) -> X+Y.
+
+
+%% Note that the semantics that this test case verifies
+%% are not explicitly specified in the docs (what I could find in R15B).
+%% This test case was written to verify that we do not change
+%% any behaviour with the introduction of "block-free" upgrade in R16.
+%% In short: Do not refer to this test case as an authority of how it must work.
+upgrade(doc) ->
+    "Test tracing on module being upgraded";
+upgrade(Config) when is_list(Config) ->
+    V1 = compile_version(my_upgrade_test, 1, Config),
+    V2 = compile_version(my_upgrade_test, 2, Config),
+    start_tracer(),
+    upgrade_do(V1, V2, false),
+    upgrade_do(V1, V2, true).
+
+upgrade_do(V1, V2, TraceLocalVersion) ->
+    {module,my_upgrade_test} = erlang:load_module(my_upgrade_test, V1),
+
+
+    %% Test that trace is cleared after load_module
+
+    trace_func({my_upgrade_test,'_','_'}, [], [global]),
+    case TraceLocalVersion of
+	true -> trace_func({my_upgrade_test,local_version,0}, [], [local]);
+	_ -> ok
+    end,
+    1 = my_upgrade_test:version(),
+    1 = my_upgrade_test:do_local(),
+    1 = my_upgrade_test:do_real_local(),
+    put('F1_exp', my_upgrade_test:make_fun_exp()),
+    put('F1_loc', my_upgrade_test:make_fun_local()),
+    1 = (get('F1_exp'))(),
+    1 = (get('F1_loc'))(),
+
+    Self = self(),
+    expect({trace,Self,call,{my_upgrade_test,version,[]}}),
+    expect({trace,Self,call,{my_upgrade_test,do_local,[]}}),
+    expect({trace,Self,call,{my_upgrade_test,do_real_local,[]}}),
+    case TraceLocalVersion of
+	true -> expect({trace,Self,call,{my_upgrade_test,local_version,[]}});
+	_ -> ok
+    end,
+    expect({trace,Self,call,{my_upgrade_test,make_fun_exp,[]}}),
+    expect({trace,Self,call,{my_upgrade_test,make_fun_local,[]}}),
+    expect({trace,Self,call,{my_upgrade_test,version,[]}}), % F1_exp
+    case TraceLocalVersion of
+	true -> expect({trace,Self,call,{my_upgrade_test,local_version,[]}}); % F1_loc
+	_ -> ok
+    end,
+
+    {module,my_upgrade_test} = erlang:load_module(my_upgrade_test, V2),
+    2 = my_upgrade_test:version(),
+    put('F2_exp', my_upgrade_test:make_fun_exp()),
+    put('F2_loc', my_upgrade_test:make_fun_local()),
+    2 = (get('F1_exp'))(),
+    1 = (get('F1_loc'))(),
+    2 = (get('F2_exp'))(),
+    2 = (get('F2_loc'))(),
+    expect(),
+
+    put('F1_exp', undefined),
+    put('F1_loc', undefined),
+    erlang:garbage_collect(),
+    erlang:purge_module(my_upgrade_test),
+
+    % Test that trace is cleared after delete_module
+
+    trace_func({my_upgrade_test,'_','_'}, [], [global]),
+    case TraceLocalVersion of
+	true -> trace_func({my_upgrade_test,local_version,0}, [], [local]);
+	_ -> ok
+    end,
+    2 = my_upgrade_test:version(),
+    2 = my_upgrade_test:do_local(),
+    2 = my_upgrade_test:do_real_local(),
+    2 = (get('F2_exp'))(),
+    2 = (get('F2_loc'))(),
+
+    expect({trace,Self,call,{my_upgrade_test,version,[]}}),
+    expect({trace,Self,call,{my_upgrade_test,do_local,[]}}),
+    expect({trace,Self,call,{my_upgrade_test,do_real_local,[]}}),
+    case TraceLocalVersion of
+	true -> expect({trace,Self,call,{my_upgrade_test,local_version,[]}});
+	_ -> ok
+    end,
+    expect({trace,Self,call,{my_upgrade_test,version,[]}}), % F2_exp
+    case TraceLocalVersion of
+	true -> expect({trace,Self,call,{my_upgrade_test,local_version,[]}}); % F2_loc
+	_ -> ok
+    end,
+
+    true = erlang:delete_module(my_upgrade_test),
+    {'EXIT',{undef,_}} = (catch my_upgrade_test:version()),
+    {'EXIT',{undef,_}} = (catch ((get('F2_exp'))())),
+    2 = (get('F2_loc'))(),
+    expect(),
+
+    put('F2_exp', undefined),
+    put('F2_loc', undefined),
+    erlang:garbage_collect(),
+    erlang:purge_module(my_upgrade_test),
+    ok.
+
+compile_version(Module, Version, Config) ->
+    Data = ?config(data_dir, Config),
+    File = filename:join(Data, atom_to_list(Module)),
+    {ok,Module,Bin} = compile:file(File, [{d,'VERSION',Version},
+					    binary,report]),
+    Bin.
+
+
 
 %% Test flags (arity, timestamp) for call_trace/3.
 %% Also, test the '{tracer,Pid}' option.
@@ -1151,11 +1265,13 @@ trace_info(What, Key) ->
     Res.
     
 trace_func(MFA, MatchSpec) ->
-    get(tracer) ! {apply,self(),{erlang,trace_pattern,[MFA, MatchSpec]}},
+    trace_func(MFA, MatchSpec, []).
+trace_func(MFA, MatchSpec, Flags) ->
+    get(tracer) ! {apply,self(),{erlang,trace_pattern,[MFA, MatchSpec, Flags]}},
     Res = receive
 	      {apply_result,Result} -> Result
 	  end,
-    ok = io:format("trace_pattern(~p, ~p) -> ~p", [MFA,MatchSpec,Res]),
+    ok = io:format("trace_pattern(~p, ~p, ~p) -> ~p", [MFA,MatchSpec,Flags,Res]),
     Res.
 
 trace_pid(Pid, On, Flags) ->

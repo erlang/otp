@@ -2185,9 +2185,9 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     if (want.code) {
 	size.code = module_table_sz();
 	size.code += export_table_sz();
-	size.code += export_list_size() * sizeof(Export);
+	size.code += export_entries_sz();
 	size.code += erts_fun_table_sz();
-	size.code += allocated_modules*sizeof(Range);
+	size.code += erts_ranges_sz();
 	size.code += erts_total_code_size;
     }
 
@@ -2335,7 +2335,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
 
     values[i].arity = 2;
     values[i].name = "export_list";
-    values[i].ui[0] = export_list_size() * sizeof(Export);
+    values[i].ui[0] = export_entries_sz();
     i++;
 
     values[i].arity = 2;
@@ -2350,7 +2350,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
 
     values[i].arity = 2;
     values[i].name = "module_refs";
-    values[i].ui[0] = allocated_modules*sizeof(Range);
+    values[i].ui[0] = erts_ranges_sz();
     i++;
 
     values[i].arity = 2;

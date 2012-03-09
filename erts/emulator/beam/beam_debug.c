@@ -114,6 +114,10 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 	mfa[2] = signed_val(mfa[2]);
     }
 
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD2(bif_export[BIF_erts_debug_breakpoint_2],
+			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
@@ -125,7 +129,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-
+    erts_release_code_write_permission();
     return res;
 
  error:
@@ -207,6 +211,7 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	    BIF_RET(am_false);
 	}
     } else if (is_tuple(addr)) {
+	ErtsCodeIndex code_ix;
 	Module* modp;
 	Eterm mod;
 	Eterm name;
@@ -225,14 +230,14 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	    goto error;
 	}
 	arity = signed_val(tp[3]);
-	modp = erts_get_module(mod);
+	code_ix = erts_active_code_ix();
+	modp = erts_get_module(mod, code_ix);
 
 	/*
 	 * Try the export entry first to allow disassembly of special functions
 	 * such as erts_debug:apply/4.  Then search for it in the module.
 	 */
-
-	if ((ep = erts_find_function(mod, name, arity)) != NULL) {
+	if ((ep = erts_find_function(mod, name, arity, code_ix)) != NULL) {
 	    /* XXX: add "&& ep->address != ep->code+3" condition?
 	     * Consider a traced function.
 	     * Its ep will have ep->address == ep->code+3.
@@ -241,9 +246,9 @@ erts_debug_disassemble_1(BIF_ALIST_1)
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    code_ptr = ((BeamInstr *) ep->address) - 5;
+	    code_ptr = ((BeamInstr *) ep->addressv[code_ix]) - 5;
 	    funcinfo = code_ptr+2;
-	} else if (modp == NULL || (code_base = modp->code) == NULL) {
+	} else if (modp == NULL || (code_base = modp->curr.code) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
 	    n = code_base[MI_NUM_FUNCTIONS];

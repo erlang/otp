@@ -264,6 +264,7 @@ erl_init(int ncpu)
     erts_init_trace();
     erts_init_binary();
     erts_init_bits();
+    erts_code_ix_init();
     erts_init_fun_table();
     init_atom_table();
     init_export_table();
@@ -352,7 +353,8 @@ erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char**
     Eterm env;
     
     start_mod = am_atom_put(modname, sys_strlen(modname));
-    if (erts_find_function(start_mod, am_start, 2) == NULL) {
+    if (erts_find_function(start_mod, am_start, 2,
+			   erts_active_code_ix()) == NULL) {
 	erl_exit(5, "No function %s:start/2\n", modname);
     }
 
@@ -451,7 +453,7 @@ load_preloaded(void)
 	if ((code = sys_preload_begin(&preload_p[i])) == 0)
 	    erl_exit(1, "Failed to find preloaded code for module %s\n", 
 		     name);
-	res = erts_load_module(NULL, 0, NIL, &module_name, code, length);
+	res = erts_preload_module(NULL, 0, NIL, &module_name, code, length);
 	sys_preload_end(&preload_p[i]);
 	if (res != NIL)
 	    erl_exit(1,"Failed loading preloaded module %s (%T)\n",
@@ -1471,6 +1473,8 @@ erl_start(int argc, char **argv)
 
     init_shared_memory(boot_argc, boot_argv);
     load_preloaded();
+    erts_end_staging_code_ix();
+    erts_commit_staging_code_ix();
 
     erts_initialized = 1;
 

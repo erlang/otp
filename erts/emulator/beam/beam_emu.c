@@ -541,7 +541,7 @@ extern int count_instructions;
   do {								\
      if (FCALLS > 0) {						\
         Eterm* dis_next;					\
-        SET_I(((Export *) Arg(0))->address);			\
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
         dis_next = (Eterm *) *I;				\
         FCALLS--;						\
         CHECK_ARGS(I);						\
@@ -550,7 +550,7 @@ extern int count_instructions;
 		&& FCALLS > neg_o_reds) {			\
         goto save_calls1;					\
      } else {							\
-        SET_I(((Export *) Arg(0))->address);			\
+        SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]); \
         CHECK_ARGS(I);						\
 	goto context_switch;					\
      }								\
@@ -5065,7 +5065,7 @@ void process_main(void)
 
 	save_calls(c_p, (Export *) Arg(0));
 
-	SET_I(((Export *) Arg(0))->address);
+	SET_I(((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 
 	dis_next = (Eterm *) *I;
 	FCALLS--;
@@ -5742,7 +5742,8 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     /*
      * Search for the error_handler module.
      */
-    ep = erts_find_function(erts_proc_get_error_handler(p), func, 3);
+    ep = erts_find_function(erts_proc_get_error_handler(p), func, 3,
+			    erts_active_code_ix());
     if (ep == NULL) {		/* No error handler */
 	p->current = fi;
 	p->freason = EXC_UNDEF;
@@ -5772,7 +5773,7 @@ call_error_handler(Process* p, BeamInstr* fi, Eterm* reg, Eterm func)
     reg[0] = fi[0];
     reg[1] = fi[1];
     reg[2] = args;
-    return ep->address;
+    return ep->addressv[erts_active_code_ix()];
 }
 
 
@@ -5786,7 +5787,7 @@ apply_setup_error_handler(Process* p, Eterm module, Eterm function, Uint arity, 
      * there is no error handler module.
      */
 
-    if ((ep = erts_find_export_entry(erts_proc_get_error_handler(p),
+    if ((ep = erts_active_export_entry(erts_proc_get_error_handler(p),
 				     am_undefined_function, 3)) == NULL) {
 	return NULL;
     } else {
@@ -5893,13 +5894,13 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
      * Note: All BIFs have export entries; thus, no special case is needed.
      */
 
-    if ((ep = erts_find_export_entry(module, function, arity)) == NULL) {
+    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL) goto error;
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
 
-    return ep->address;
+    return ep->addressv[erts_active_code_ix()];
 }
 
 static BeamInstr*
@@ -5941,14 +5942,14 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
      * Note: All BIFs have export entries; thus, no special case is needed.
      */
 
-    if ((ep = erts_find_export_entry(module, function, arity)) == NULL) {
+    if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
 	if ((ep = apply_setup_error_handler(p, module, function, arity, reg)) == NULL)
 	    goto error;
     } else if (ERTS_PROC_GET_SAVED_CALLS_BUF(p)) {
 	save_calls(p, ep);
     }
 
-    return ep->address;
+    return ep->addressv[erts_active_code_ix()];
 }
 
 int
@@ -6118,7 +6119,7 @@ call_fun(Process* p,		/* Current process. */
 		Export* ep;
 		Module* modp;
 		Eterm module;
-
+		ErtsCodeIndex code_ix = erts_active_code_ix();
 
 		/*
 		 * No arity. There is no module loaded that defines the fun,
@@ -6126,9 +6127,9 @@ call_fun(Process* p,		/* Current process. */
 		 * representation (the module has never been loaded),
 		 * or the module defining the fun has been unloaded.
 		 */
-
 		module = fe->module;
-		if ((modp = erts_get_module(module)) != NULL && modp->code != NULL) {
+		if ((modp = erts_get_module(module, code_ix)) != NULL
+		    && modp->curr.code != NULL) {
 		    /*
 		     * There is a module loaded, but obviously the fun is not
 		     * defined in it. We must not call the error_handler
@@ -6143,7 +6144,7 @@ call_fun(Process* p,		/* Current process. */
 		 */
 
 		ep = erts_find_function(erts_proc_get_error_handler(p),
-					am_undefined_lambda, 3);
+					am_undefined_lambda, 3, code_ix);
 		if (ep == NULL) {	/* No error handler */
 		    p->current = NULL;
 		    p->freason = EXC_UNDEF;
@@ -6153,7 +6154,7 @@ call_fun(Process* p,		/* Current process. */
 		reg[1] = fun;
 		reg[2] = args;
 		reg[3] = NIL;
-		return ep->address;
+		return ep->addressv[erts_active_code_ix()];
 	    }
 	}
     } else if (is_export_header(hdr)) {
@@ -6164,7 +6165,7 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = (int) ep->code[2];
 
 	if (arity == actual_arity) {
-	    return ep->address;
+	    return ep->addressv[erts_active_code_ix()];
 	} else {
 	    /*
 	     * Wrong arity. First build a list of the arguments.
@@ -6215,8 +6216,8 @@ call_fun(Process* p,		/* Current process. */
 	    erts_send_warning_to_logger(p->group_leader, dsbufp);
 	}
 
-	if ((ep = erts_find_export_entry(module, function, arity)) == NULL) {
-	    ep = erts_find_export_entry(erts_proc_get_error_handler(p),
+	if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
+	    ep = erts_active_export_entry(erts_proc_get_error_handler(p),
 					am_undefined_function, 3);
 	    if (ep == NULL) {
 		p->freason = EXC_UNDEF;
@@ -6239,7 +6240,7 @@ call_fun(Process* p,		/* Current process. */
 	    reg[1] = function;
 	    reg[2] = args;
 	}
-	return ep->address;
+	return ep->addressv[erts_active_code_ix()];
     } else {
     badfun:
 	p->current = NULL;
@@ -6344,7 +6345,8 @@ erts_is_builtin(Eterm Mod, Eterm Name, int arity)
     if ((ep = export_get(&e)) == NULL) {
 	return 0;
     }
-    return ep->address == ep->code+3 && (ep->code[3] == (BeamInstr) em_apply_bif);
+    return ep->addressv[erts_active_code_ix()] == ep->code+3
+	&& (ep->code[3] == (BeamInstr) em_apply_bif);
 }
 
 

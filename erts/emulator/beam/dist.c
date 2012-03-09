@@ -2295,15 +2295,15 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 	goto error;
 
     /* Check that all trap functions are defined !! */
-    if (dsend2_trap->address == NULL ||
-	dsend3_trap->address == NULL ||
+    if (dsend2_trap->addressv[0] == NULL ||
+	dsend3_trap->addressv[0] == NULL ||
 	/*	dsend_nosuspend_trap->address == NULL ||*/
-	dlink_trap->address == NULL ||
-	dunlink_trap->address == NULL ||
-	dmonitor_node_trap->address == NULL ||
-	dgroup_leader_trap->address == NULL ||
-	dmonitor_p_trap->address == NULL ||
-	dexit_trap->address == NULL) {
+	dlink_trap->addressv[0] == NULL ||
+	dunlink_trap->addressv[0] == NULL ||
+	dmonitor_node_trap->addressv[0] == NULL ||
+	dgroup_leader_trap->addressv[0] == NULL ||
+	dmonitor_p_trap->addressv[0] == NULL ||
+	dexit_trap->addressv[0] == NULL) {
 	goto error;
     }
 

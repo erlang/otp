@@ -1513,6 +1513,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     if (len < 0) {
 	BIF_ERROR(BIF_P, BADARG);
     }
+
     lib_name = (char *) erts_alloc(ERTS_ALC_T_TMP, len + 1);
 
     if (intlist_to_buf(BIF_ARG_1, lib_name, len) != len) {
@@ -1520,6 +1521,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	BIF_ERROR(BIF_P, BADARG);
     }
     lib_name[len] = '\0';
+
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	erts_free(ERTS_ALC_T_TMP, lib_name);
+	ERTS_BIF_YIELD2(bif_export[BIF_load_nif_2],
+			BIF_P, BIF_ARG_1, BIF_ARG_2);
+    }
 
     /* Block system (is this the right place to do it?) */
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
@@ -1534,11 +1541,11 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     ASSERT(caller != NULL);
     mod_atom = caller[0];
     ASSERT(is_atom(mod_atom));
-    mod=erts_get_module(mod_atom);
+    mod=erts_get_module(mod_atom, erts_active_code_ix());
     ASSERT(mod != NULL);
 
-    if (!in_area(caller, mod->code, mod->code_length)) {
-	ASSERT(in_area(caller, mod->old_code, mod->old_code_length));
+    if (!in_area(caller, mod->curr.code, mod->curr.code_length)) {
+	ASSERT(in_area(caller, mod->old.code, mod->old.code_length));
 
 	ret = load_nif_error(BIF_P, "old_code", "Calling load_nif from old "
 			     "module '%T' not allowed", mod_atom);
@@ -1584,7 +1591,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    BeamInstr** code_pp;
 	    ErlNifFunc* f = &entry->funcs[i];
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom)
-		|| (code_pp = get_func_pp(mod->code, f_atom, f->arity))==NULL) { 
+		|| (code_pp = get_func_pp(mod->curr.code, f_atom, f->arity))==NULL) {
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }    
@@ -1613,18 +1620,18 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     erts_refc_init(&lib->rt_dtor_cnt, 0);
     lib->mod = mod;
     env.mod_nif = lib;
-    if (mod->nif != NULL) { /* Reload */
+    if (mod->curr.nif != NULL) { /* Reload */
 	int k;
-        lib->priv_data = mod->nif->priv_data;
+        lib->priv_data = mod->curr.nif->priv_data;
 
-	ASSERT(mod->nif->entry != NULL);
+	ASSERT(mod->curr.nif->entry != NULL);
 	if (entry->reload == NULL) {
 	    ret = load_nif_error(BIF_P,reload,"Reload not supported by this NIF library.");
 	    goto error;
 	}
 	/* Check that no NIF is removed */
-	for (k=0; k < mod->nif->entry->num_of_funcs; k++) {
-	    ErlNifFunc* old_func = &mod->nif->entry->funcs[k];
+	for (k=0; k < mod->curr.nif->entry->num_of_funcs; k++) {
+	    ErlNifFunc* old_func = &mod->curr.nif->entry->funcs[k];
 	    for (i=0; i < entry->num_of_funcs; i++) {
 		if (old_func->arity == entry->funcs[i].arity
 		    && sys_strcmp(old_func->name, entry->funcs[i].name) == 0) {			   
@@ -1645,24 +1652,24 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    ret = load_nif_error(BIF_P, reload, "Library reload-call unsuccessful.");
 	}
 	else {
-	    mod->nif->entry = NULL; /* to prevent 'unload' callback */
-	    erts_unload_nif(mod->nif);
+	    mod->curr.nif->entry = NULL; /* to prevent 'unload' callback */
+	    erts_unload_nif(mod->curr.nif);
 	    reload_warning = 1;
 	}
     }
     else {
 	lib->priv_data = NULL;
-	if (mod->old_nif != NULL) { /* Upgrade */
-	    void* prev_old_data = mod->old_nif->priv_data;
+	if (mod->old.nif != NULL) { /* Upgrade */
+	    void* prev_old_data = mod->old.nif->priv_data;
 	    if (entry->upgrade == NULL) {
 		ret = load_nif_error(BIF_P, upgrade, "Upgrade not supported by this NIF library.");
 		goto error;
 	    }
 	    erts_pre_nif(&env, BIF_P, lib);
-	    veto = entry->upgrade(&env, &lib->priv_data, &mod->old_nif->priv_data, BIF_ARG_2);
+	    veto = entry->upgrade(&env, &lib->priv_data, &mod->old.nif->priv_data, BIF_ARG_2);
 	    erts_post_nif(&env);
 	    if (veto) {
-		mod->old_nif->priv_data = prev_old_data;
+		mod->old.nif->priv_data = prev_old_data;
 		ret = load_nif_error(BIF_P, upgrade, "Library upgrade-call unsuccessful.");
 	    }
 	    /*else if (mod->old_nif->priv_data != prev_old_data) {
@@ -1682,12 +1689,12 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	/*
 	** Everything ok, patch the beam code with op_call_nif
 	*/
-        mod->nif = lib; 
+        mod->curr.nif = lib;
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
 	    BeamInstr* code_ptr;
 	    erts_atom_get(entry->funcs[i].name, sys_strlen(entry->funcs[i].name), &f_atom); 
-	    code_ptr = *get_func_pp(mod->code, f_atom, entry->funcs[i].arity); 
+	    code_ptr = *get_func_pp(mod->curr.code, f_atom, entry->funcs[i].arity);
 	    
 	    if (code_ptr[1] == 0) {
 		code_ptr[5+0] = (BeamInstr) BeamOp(op_call_nif);
@@ -1715,6 +1722,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_release_code_write_permission();
     erts_free(ERTS_ALC_T_TMP, lib_name);
 
     if (reload_warning) {

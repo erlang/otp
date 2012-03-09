@@ -609,8 +609,8 @@ static Uint *hipe_find_emu_address(Eterm mod, Eterm name, unsigned int arity)
     Uint *code_base;
     int i, n;
 
-    modp = erts_get_module(mod);
-    if (modp == NULL || (code_base = modp->code) == NULL)
+    modp = erts_get_module(mod, erts_active_code_ix());
+    if (modp == NULL || (code_base = modp->curr.code) == NULL)
 	return NULL;
     n = code_base[MI_NUM_FUNCTIONS];
     for (i = 0; i < n; ++i) {
@@ -648,7 +648,7 @@ static void *hipe_get_emu_address(Eterm m, Eterm f, unsigned int arity, int is_r
 	/* if not found, stub it via the export entry */
 	/* no lock needed around erts_export_get_or_make_stub() */
 	Export *export_entry = erts_export_get_or_make_stub(m, f, arity);
-	address = export_entry->address;
+	address = export_entry->addressv[erts_active_code_ix()];
     }
     return address;
 }
@@ -1591,7 +1591,7 @@ BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2)
 	f = tp[2];
 	if (is_not_atom(m) || is_not_atom(f))
 	    goto badfun;
-	if (!erts_find_export_entry(m, f, BIF_ARG_2))
+	if (!erts_active_export_entry(m, f, BIF_ARG_2))
 	    goto badfun;
     } else
 	goto badfun;

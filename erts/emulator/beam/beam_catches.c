@@ -31,78 +31,144 @@ typedef struct {
     unsigned cdr;
 } beam_catch_t;
 
-static int free_list;
-static unsigned high_mark;
-static unsigned tabsize;
-static beam_catch_t *beam_catches;
+#ifdef DEBUG
+#  define IF_DEBUG(x) x
+#else
+#  define IF_DEBUG(x)
+#endif
+
+struct bc_pool {
+    int free_list;
+    unsigned high_mark;
+    unsigned tabsize;
+    beam_catch_t *beam_catches;
+    /* 
+     * Note that the 'beam_catches' area is shared by pools. Used slots
+     * are readonly as long as the module is not purgable. The free-list is
+     * protected by the code_ix lock.
+     */
+
+    IF_DEBUG(int is_staging;)
+};
+
+static struct bc_pool bccix[ERTS_NUM_CODE_IX];
 
 void beam_catches_init(void)
 {
-    tabsize   = DEFAULT_TABSIZE;
-    free_list = -1;
-    high_mark = 0;
+    int i;
 
-    beam_catches = erts_alloc(ERTS_ALC_T_CODE, sizeof(beam_catch_t)*DEFAULT_TABSIZE);
+    bccix[0].tabsize   = DEFAULT_TABSIZE;
+    bccix[0].free_list = -1;
+    bccix[0].high_mark = 0;
+    bccix[0].beam_catches = erts_alloc(ERTS_ALC_T_CODE,
+				     sizeof(beam_catch_t)*DEFAULT_TABSIZE);
+    IF_DEBUG(bccix[0].is_staging = 0);
+    for (i=1; i<ERTS_NUM_CODE_IX; i++) {
+	bccix[i] = bccix[i-1];
+    }
+     /* For initial load: */
+    IF_DEBUG(bccix[erts_staging_code_ix()].is_staging = 1);
+}
+
+
+static void gc_old_vec(beam_catch_t* vec)
+{
+    int i;
+    for (i=0; i<ERTS_NUM_CODE_IX; i++) {
+	if (bccix[i].beam_catches == vec) {
+	    return;
+	}
+    }
+    erts_free(ERTS_ALC_T_CODE, vec);
+}
+
+
+void beam_catches_start_staging(void)
+{
+    ErtsCodeIndex dst = erts_staging_code_ix();
+    ErtsCodeIndex src = erts_active_code_ix();
+    beam_catch_t* prev_vec = bccix[dst].beam_catches;
+
+    ASSERT(!bccix[src].is_staging && !bccix[dst].is_staging);
+
+    bccix[dst] = bccix[src];
+    gc_old_vec(prev_vec);
+    IF_DEBUG(bccix[dst].is_staging = 1);
+}
+
+void beam_catches_end_staging(int commit)
+{
+    IF_DEBUG(bccix[erts_staging_code_ix()].is_staging = 0);
 }
 
 unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 {
     int i;
+    struct bc_pool* p = &bccix[erts_staging_code_ix()];
 
+    ASSERT(p->is_staging);
     /*
      * Allocate from free_list while it is non-empty.
      * If free_list is empty, allocate at high_mark.
-     *
-     * This avoids the need to initialise the free list in
-     * beam_catches_init(), which would cost O(TABSIZ) time.
      */
-    if( free_list >= 0 ) {
-	i = free_list;
-	free_list = beam_catches[i].cdr;
-    } else if( high_mark < tabsize ) {
-	i = high_mark;
-	high_mark++;
-    } else {
-	/* No free slots and table is full: realloc table */
-	tabsize      = 2*tabsize;
-	beam_catches = erts_realloc(ERTS_ALC_T_CODE, beam_catches, sizeof(beam_catch_t)*tabsize);
-	i = high_mark;
-	high_mark++;
+    if (p->free_list >= 0) {
+	i = p->free_list;
+	p->free_list = p->beam_catches[i].cdr;
+    }
+    else {
+	if (p->high_mark >= p->tabsize) {
+	    /* No free slots and table is full: realloc table */
+	    beam_catch_t* prev_vec = p->beam_catches;
+	    unsigned newsize = p->tabsize*2;
+
+	    p->beam_catches = erts_alloc(ERTS_ALC_T_CODE,
+					 newsize*sizeof(beam_catch_t));
+	    sys_memcpy(p->beam_catches, prev_vec,
+		       p->tabsize*sizeof(beam_catch_t));
+	    gc_old_vec(prev_vec);
+	    p->tabsize = newsize;
+	}
+	i = p->high_mark++;
     }
 
-    beam_catches[i].cp  = cp;
-    beam_catches[i].cdr = cdr;
+    p->beam_catches[i].cp  = cp;
+    p->beam_catches[i].cdr = cdr;
 
     return i;
 }
 
 BeamInstr *beam_catches_car(unsigned i)
 {
-    if( i >= tabsize ) {
+    struct bc_pool* p = &bccix[erts_active_code_ix()];
+
+    if (i >= p->tabsize ) {
 	erl_exit(1, "beam_catches_delmod: index %#x is out of range\r\n", i);
     }
-    return beam_catches[i].cp;
+    return p->beam_catches[i].cp;
 }
 
-void beam_catches_delmod(unsigned head, BeamInstr *code, unsigned code_bytes)
+void beam_catches_delmod(unsigned head, BeamInstr *code, unsigned code_bytes,
+			 ErtsCodeIndex code_ix)
 {
+    struct bc_pool* p = &bccix[code_ix];
     unsigned i, cdr;
 
+    ASSERT((code_ix == erts_active_code_ix()) != bccix[erts_staging_code_ix()].is_staging);
     for(i = head; i != (unsigned)-1;) {
-	if( i >= tabsize ) {
+	if (i >= p->tabsize) {
 	    erl_exit(1, "beam_catches_delmod: index %#x is out of range\r\n", i);
 	}
-	if( (char*)beam_catches[i].cp - (char*)code >= code_bytes ) {
+	if( (char*)p->beam_catches[i].cp - (char*)code >= code_bytes ) {
 	    erl_exit(1,
 		    "beam_catches_delmod: item %#x has cp %#lx which is not "
 		    "in module's range [%#lx,%#lx[\r\n",
-		    i, (long)beam_catches[i].cp,
+		    i, (long)p->beam_catches[i].cp,
 		    (long)code, (long)((char*)code + code_bytes));
 	}
-	beam_catches[i].cp = 0;
-	cdr = beam_catches[i].cdr;
-	beam_catches[i].cdr = free_list;
-	free_list = i;
+	p->beam_catches[i].cp = 0;
+	cdr = p->beam_catches[i].cdr;
+	p->beam_catches[i].cdr = p->free_list;
+	p->free_list = i;
 	i = cdr;
     }
 }

@@ -60,8 +60,8 @@ static Eterm trace_info_pid(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_func(Process* p, Eterm pid_spec, Eterm key);
 static Eterm trace_info_on_load(Process* p, Eterm key);
 
-static int setup_func_trace(Export* ep, void* match_prog);
-static int reset_func_trace(Export* ep);
+static int setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex);
+static int reset_func_trace(Export* ep, ErtsCodeIndex);
 static void reset_bif_trace(int bif_index);
 static void setup_bif_trace(int bif_index);
 static void set_trace_bif(int bif_index, void* match_prog);
@@ -98,7 +98,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 {
     DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     int i;
-    int matches = 0;
+    int matches = -1;
     int specified = 0;
     enum erts_break_op on;
     Binary* match_prog_set;
@@ -108,6 +108,9 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     Process *meta_tracer_proc = p;
     Eterm meta_tracer_pid = p->id;
 
+    if (!erts_try_seize_code_write_permission(p)) {
+	ERTS_BIF_YIELD3(bif_export[BIF_trace_pattern_3], p, MFA, Pattern, flaglist);
+    }
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
@@ -241,7 +244,6 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    erts_default_meta_match_spec = NULL;
 	    erts_default_meta_tracer_pid = NIL;
 	}
-	MatchSetUnref(match_prog_set);
 	if (erts_default_trace_pattern_flags.breakpoint &&
 	    flags.breakpoint) { 
 	    /* Breakpoint trace -> breakpoint trace */
@@ -297,8 +299,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		erts_default_trace_pattern_is_on = !!flags.breakpoint;
 	    }
 	}
-
-	goto done;
+	matches = 0;
     } else if (is_tuple(MFA)) {
 	Eterm *tp = tuple_val(MFA);
 	if (tp[0] != make_arityval(3)) {
@@ -322,35 +323,29 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	if (is_small(mfa[2])) {
 	    mfa[2] = signed_val(mfa[2]);
 	}
-    } else {
-	goto error;
-    }
     
-    if (meta_tracer_proc) {
-	meta_tracer_proc->trace_flags |= F_TRACER;
+	if (meta_tracer_proc) {
+	    meta_tracer_proc->trace_flags |= F_TRACER;
+	}
+
+	matches = erts_set_trace_pattern(mfa, specified, 
+					 match_prog_set, match_prog_set,
+					 on, flags, meta_tracer_pid);
     }
-
-
-    matches = erts_set_trace_pattern(mfa, specified, 
-				     match_prog_set, match_prog_set,
-				     on, flags, meta_tracer_pid);
-    MatchSetUnref(match_prog_set);
-
- done:
-    UnUseTmpHeap(3,p);
-    erts_smp_thr_progress_unblock();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-
-    return make_small(matches);
 
  error:
-
     MatchSetUnref(match_prog_set);
-
     UnUseTmpHeap(3,p);
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
-    BIF_ERROR(p, BADARG);
+    erts_release_code_write_permission();
+
+    if (matches >= 0) {
+	return make_small(matches);
+    }
+    else {
+	BIF_ERROR(p, BADARG);    
+    }
 }
 
 void
@@ -372,7 +367,10 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 	*meta_tracer_pid = erts_default_meta_tracer_pid;
 }
 
-
+int erts_is_default_trace_enabled(void)
+{
+    return erts_default_trace_pattern_is_on;
+}
 
 Uint 
 erts_trace_flag2bit(Eterm flag) 
@@ -464,6 +462,10 @@ Eterm trace_3(BIF_ALIST_3)
 
     if (! erts_trace_flags(list, &mask, &tracer, &cpu_ts)) {
 	BIF_ERROR(p, BADARG);
+    }
+
+    if (!erts_try_seize_code_write_permission(BIF_P)) {
+	ERTS_BIF_YIELD3(bif_export[BIF_trace_3], BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
     }
 
     if (is_nil(tracer) || is_internal_pid(tracer)) {
@@ -730,6 +732,7 @@ Eterm trace_3(BIF_ALIST_3)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
+    erts_release_code_write_permission();
 
     BIF_RET(make_small(matches));
 
@@ -745,6 +748,7 @@ Eterm trace_3(BIF_ALIST_3)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 #endif
+    erts_release_code_write_permission();
 
     BIF_ERROR(p, BADARG);
 }
@@ -990,7 +994,7 @@ static int function_is_traced(Process *p,
     e.code[1] = mfa[1];
     e.code[2] = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
-	if (ep->address == ep->code+3 &&
+	if (ep->addressv[erts_active_code_ix()] == ep->code+3 &&
 	    ep->code[3] != (BeamInstr) em_call_error_handler) {
 	    if (ep->code[3] == (BeamInstr) em_call_traced_function) {
 		*ms = ep->match_prog_set;
@@ -1333,6 +1337,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 		       int on, struct trace_pattern_flags flags,
 		       Eterm meta_tracer_pid)
 {
+    const ErtsCodeIndex code_ix = erts_active_code_ix();
     int matches = 0;
     int i;
 
@@ -1340,8 +1345,8 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
      * First work on normal functions (not real BIFs).
      */
     
-    for (i = 0; i < export_list_size(); i++) {
-	Export* ep = export_list(i);
+    for (i = 0; i < export_list_size(code_ix); i++) {
+	Export* ep = export_list(i, code_ix);
 	int j;
 	
 	if (ExportIsBuiltIn(ep)) {
@@ -1355,11 +1360,11 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	if (j == specified) {
 	    if (on) {
 		if (! flags.breakpoint)
-		    matches += setup_func_trace(ep, match_prog_set);
+		    matches += setup_func_trace(ep, match_prog_set, code_ix);
 		else
-		    reset_func_trace(ep);
+		    reset_func_trace(ep, code_ix);
 	    } else if (! flags.breakpoint) {
-		matches += reset_func_trace(ep);
+		matches += reset_func_trace(ep, code_ix);
 	    }
 	}
     }
@@ -1522,9 +1527,11 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
  */
 
 static int
-setup_func_trace(Export* ep, void* match_prog)
+setup_func_trace(Export* ep, void* match_prog, ErtsCodeIndex code_ix)
 {
-    if (ep->address == ep->code+3) {
+    Module* modp;
+
+    if (ep->addressv[code_ix] == ep->code+3) {
 	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
 	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
@@ -1543,15 +1550,19 @@ setup_func_trace(Export* ep, void* match_prog)
     /*
      * Currently no trace support for native code.
      */
-    if (erts_is_native_break(ep->address)) {
+    if (erts_is_native_break(ep->addressv[code_ix])) {
 	return 0;
     }
-    
+
     ep->code[3] = (BeamInstr) em_call_traced_function;
-    ep->code[4] = (BeamInstr) ep->address;
-    ep->address = ep->code+3;
+    ep->code[4] = (BeamInstr) ep->addressv[code_ix];
+    ep->addressv[code_ix] = ep->code+3;
     ep->match_prog_set = match_prog;
     MatchSetRef(ep->match_prog_set);
+
+    modp = erts_get_module(ep->code[0], code_ix);
+    ASSERT(modp);
+    modp->curr.num_traced_exports++;
     return 1;
 }
 
@@ -1584,13 +1595,17 @@ static void set_trace_bif(int bif_index, void* match_prog) {
  */
 
 static int
-reset_func_trace(Export* ep)
+reset_func_trace(Export* ep, ErtsCodeIndex code_ix)
 {
-    if (ep->address == ep->code+3) {
+    if (ep->addressv[code_ix] == ep->code+3) {
 	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
 	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
-	    ep->address = (Uint *) ep->code[4];
+	    Module* modp = erts_get_module(ep->code[0], code_ix);
+	    ASSERT(modp);
+	    modp->curr.num_traced_exports--;
+
+	    ep->addressv[code_ix] = (Uint *) ep->code[4];
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;
 	    return 1;
@@ -1605,7 +1620,7 @@ reset_func_trace(Export* ep)
     /*
      * Currently no trace support for native code.
      */
-    if (erts_is_native_break(ep->address)) {
+    if (erts_is_native_break(ep->addressv[code_ix])) {
 	return 0;
     }
     

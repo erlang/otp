@@ -71,14 +71,9 @@ void erts_init_bif_re(void)
     erts_pcre_stack_free = &erts_erts_pcre_stack_free;
     default_table = NULL; /* ISO8859-1 default, forced into pcre */
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
- 
-    sys_memset((void *) &re_exec_trap_export, 0, sizeof(Export));
-    re_exec_trap_export.address = &re_exec_trap_export.code[3];
-    re_exec_trap_export.code[0] = am_erlang;
-    re_exec_trap_export.code[1] = am_re_run_trap;
-    re_exec_trap_export.code[2] = 3;
-    re_exec_trap_export.code[3] = (BeamInstr) em_apply_bif;
-    re_exec_trap_export.code[4] = (BeamInstr) &re_exec_trap;
+
+    erts_init_trap_export(&re_exec_trap_export, am_erlang, am_re_run_trap, 3,
+			  &re_exec_trap);
 
     grun_trap_exportp =  erts_export_put(am_re,am_grun,3);
     urun_trap_exportp =  erts_export_put(am_re,am_urun,3);

@@ -452,16 +452,8 @@ DbTableMethod db_tree =
 
 void db_initialize_tree(void)
 {
-    memset(&ets_select_reverse_exp, 0, sizeof(Export));
-    ets_select_reverse_exp.address = 
-	&ets_select_reverse_exp.code[3];
-    ets_select_reverse_exp.code[0] = am_ets;
-    ets_select_reverse_exp.code[1] = am_reverse;
-    ets_select_reverse_exp.code[2] = 3;
-    ets_select_reverse_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    ets_select_reverse_exp.code[4] = 
-	(BeamInstr) &ets_select_reverse;
+    erts_init_trap_export(&ets_select_reverse_exp, am_ets, am_reverse, 3,
+			  &ets_select_reverse);
     return;
 };
 

@@ -535,6 +535,12 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 
 #endif /* __WIN32__ */
 
+#ifdef HAVE_SOCKLEN_T
+#  define SOCKLEN_T socklen_t
+#else
+#  define SOCKLEN_T int
+#endif
+
 #include "packet_parser.h"
 
 #define get_int24(s) ((((unsigned char*) (s))[0] << 16) | \
@@ -5340,13 +5346,8 @@ static int setopt_prio_tos_trick
     int          res;
     int          res_prio;
     int          res_tos;
-#ifdef HAVE_SOCKLEN_T
-	    socklen_t
-#else
-		int
-#endif
-		tmp_arg_sz_prio = sizeof(tmp_ival_prio),
-		tmp_arg_sz_tos  = sizeof(tmp_ival_tos);
+    SOCKLEN_T    tmp_arg_sz_prio = sizeof(tmp_ival_prio);
+    SOCKLEN_T    tmp_arg_sz_tos  = sizeof(tmp_ival_tos);
 
     res_prio = sock_getopt(fd, SOL_SOCKET, SO_PRIORITY,
 		      (char *) &tmp_ival_prio, &tmp_arg_sz_prio);
@@ -7754,8 +7755,8 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	desc->state = INET_STATE_BOUND;
 
 	if ((port = inet_address_port(&local)) == 0) {
-	    len = sizeof(local);
-	    sock_name(desc->s, (struct sockaddr*) &local, (unsigned int*)&len);
+	    SOCKLEN_T adrlen = sizeof(local);
+	    sock_name(desc->s, &local.sa, &adrlen);
 	    port = inet_address_port(&local);
 	}
 	port = sock_ntohs(port);

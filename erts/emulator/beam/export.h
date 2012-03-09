@@ -28,13 +28,15 @@
 #include "index.h"
 #endif
 
+#include "code_ix.h"
+
 /*
 ** Export entry
 */
+
 typedef struct export
 {
-    IndexSlot slot; /* MUST BE LOCATED AT TOP OF STRUCT!!! */
-    void* address;		/* Pointer to code for function. */
+    void* addressv[ERTS_NUM_CODE_IX];  /* Pointer to code for function. */
     struct binary* match_prog_set; /* Match program for tracing. */
 
     BeamInstr fake_op_func_info_for_hipe[2]; /* MUST be just before code[] */
@@ -59,21 +61,38 @@ typedef struct export
 void init_export_table(void);
 void export_info(int, void *);
 
-Export* erts_find_export_entry(Eterm m, Eterm f, unsigned int a);
+ERTS_GLB_INLINE Export* erts_active_export_entry(Eterm m, Eterm f, unsigned a);
 Export* erts_export_put(Eterm mod, Eterm func, unsigned int arity);
 
-
 Export* erts_export_get_or_make_stub(Eterm, Eterm, unsigned);
-void erts_export_consolidate(void);
 
-Export *export_list(int);
-int export_list_size(void);
+Export *export_list(int,ErtsCodeIndex);
+int export_list_size(ErtsCodeIndex);
 int export_table_sz(void);
+int export_entries_sz(void);
 Export *export_get(Export*);
+void export_start_staging(void);
+void export_end_staging(int commit);
+
+extern erts_smp_mtx_t export_staging_lock;
+#define export_staging_lock()	erts_smp_mtx_lock(&export_staging_lock)
+#define export_staging_unlock()	erts_smp_mtx_unlock(&export_staging_lock)
 
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
-(((EntryPtr)->address == (EntryPtr)->code + 3) && 	\
+(((EntryPtr)->addressv[erts_active_code_ix()] == (EntryPtr)->code + 3) && \
  ((EntryPtr)->code[3] == (BeamInstr) em_apply_bif))
 
-#endif
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Export*
+erts_active_export_entry(Eterm m, Eterm f, unsigned int a)
+{
+    extern Export* erts_find_export_entry(Eterm m, Eterm f, unsigned a, ErtsCodeIndex);
+    return erts_find_export_entry(m, f, a, erts_active_code_ix());
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+#endif /* __EXPORT_H__ */
+

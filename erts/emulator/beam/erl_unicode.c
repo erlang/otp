@@ -77,66 +77,25 @@ void erts_init_unicode(void)
 {
     max_loop_limit = CONTEXT_REDS * LOOP_FACTOR;
     /* Non visual BIFs to trap to. */
-    memset(&characters_to_utf8_trap_exp, 0, sizeof(Export));
-    characters_to_utf8_trap_exp.address = 
-	&characters_to_utf8_trap_exp.code[3];
-    characters_to_utf8_trap_exp.code[0] = am_erlang;
-    characters_to_utf8_trap_exp.code[1] = 
-	am_atom_put("characters_to_utf8_trap",23);
-    characters_to_utf8_trap_exp.code[2] = 3;
-    characters_to_utf8_trap_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    characters_to_utf8_trap_exp.code[4] = 
-	(BeamInstr) &characters_to_utf8_trap;
+    erts_init_trap_export(&characters_to_utf8_trap_exp,
+			  am_erlang, am_atom_put("characters_to_utf8_trap",23), 3,
+			  &characters_to_utf8_trap);
 
-    memset(&characters_to_list_trap_1_exp, 0, sizeof(Export));
-    characters_to_list_trap_1_exp.address = 
-	&characters_to_list_trap_1_exp.code[3];
-    characters_to_list_trap_1_exp.code[0] = am_erlang;
-    characters_to_list_trap_1_exp.code[1] = 
-	am_atom_put("characters_to_list_trap_1",25);
-    characters_to_list_trap_1_exp.code[2] = 3;
-    characters_to_list_trap_1_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    characters_to_list_trap_1_exp.code[4] = 
-	(BeamInstr) &characters_to_list_trap_1;
+    erts_init_trap_export(&characters_to_list_trap_1_exp,
+			  am_erlang, am_atom_put("characters_to_list_trap_1",25), 3,
+			  &characters_to_list_trap_1);
 
-    memset(&characters_to_list_trap_2_exp, 0, sizeof(Export));
-    characters_to_list_trap_2_exp.address = 
-	&characters_to_list_trap_2_exp.code[3];
-    characters_to_list_trap_2_exp.code[0] = am_erlang;
-    characters_to_list_trap_2_exp.code[1] = 
-	am_atom_put("characters_to_list_trap_2",25);
-    characters_to_list_trap_2_exp.code[2] = 3;
-    characters_to_list_trap_2_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    characters_to_list_trap_2_exp.code[4] = 
-	(BeamInstr) &characters_to_list_trap_2;
+    erts_init_trap_export(&characters_to_list_trap_2_exp,
+			  am_erlang, am_atom_put("characters_to_list_trap_2",25), 3,
+			  &characters_to_list_trap_2);
 
+    erts_init_trap_export(&characters_to_list_trap_3_exp,
+			  am_erlang, am_atom_put("characters_to_list_trap_3",25), 3,
+			  &characters_to_list_trap_3);
 
-    memset(&characters_to_list_trap_3_exp, 0, sizeof(Export));
-    characters_to_list_trap_3_exp.address = 
-	&characters_to_list_trap_3_exp.code[3];
-    characters_to_list_trap_3_exp.code[0] = am_erlang;
-    characters_to_list_trap_3_exp.code[1] = 
-	am_atom_put("characters_to_list_trap_3",25);
-    characters_to_list_trap_3_exp.code[2] = 3;
-    characters_to_list_trap_3_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    characters_to_list_trap_3_exp.code[4] = 
-	(BeamInstr) &characters_to_list_trap_3;
-
-    memset(&characters_to_list_trap_4_exp, 0, sizeof(Export));
-    characters_to_list_trap_4_exp.address = 
-	&characters_to_list_trap_4_exp.code[3];
-    characters_to_list_trap_4_exp.code[0] = am_erlang;
-    characters_to_list_trap_4_exp.code[1] = 
-	am_atom_put("characters_to_list_trap_4",25);
-    characters_to_list_trap_4_exp.code[2] = 1;
-    characters_to_list_trap_4_exp.code[3] =
-	(BeamInstr) em_apply_bif;
-    characters_to_list_trap_4_exp.code[4] = 
-	(BeamInstr) &characters_to_list_trap_4;
+    erts_init_trap_export(&characters_to_list_trap_4_exp,
+			  am_erlang, am_atom_put("characters_to_list_trap_4",25), 1,
+			  &characters_to_list_trap_4);
 
     c_to_b_int_trap_exportp =  erts_export_put(am_unicode,am_characters_to_binary_int,2);
     c_to_l_int_trap_exportp =  erts_export_put(am_unicode,am_characters_to_list_int,2);

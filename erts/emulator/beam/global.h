@@ -28,6 +28,7 @@
 #include "hash.h"
 #include "index.h"
 #include "atom.h"
+#include "code_ix.h"
 #include "export.h"
 #include "module.h"
 #include "register.h"
@@ -847,6 +848,8 @@ void erts_queue_monitor_message(Process *,
 				Eterm,
 				Eterm,
 				Eterm);
+void erts_init_trap_export(Export* ep, Eterm m, Eterm f, Uint a,
+			   Eterm (*bif)(Process*,Eterm*));
 void erts_init_bif(void);
 Eterm erl_send(Process *p, Eterm to, Eterm msg);
 
@@ -869,23 +872,32 @@ typedef struct {
     Eterm* fname_ptr;		/* Pointer to fname table */
 } FunctionInfo;
 
-struct LoaderState* erts_alloc_loader_state(void);
-Eterm erts_prepare_loading(struct LoaderState*,  Process *c_p,
+Binary* erts_alloc_loader_state(void);
+Eterm erts_module_for_prepared_code(Binary* magic);
+Eterm erts_prepare_loading(Binary* loader_state,  Process *c_p,
 			   Eterm group_leader, Eterm* modp,
 			   byte* code, Uint size);
-Eterm erts_finish_loading(struct LoaderState* stp, Process* c_p,
+Eterm erts_finish_loading(Binary* loader_state, Process* c_p,
 			  ErtsProcLocks c_p_locks, Eterm* modp);
-Eterm erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
-		      Eterm group_leader, Eterm* mod, byte* code, Uint size);
+Eterm erts_preload_module(Process *c_p, ErtsProcLocks c_p_locks,
+			  Eterm group_leader, Eterm* mod, byte* code, Uint size);
 void init_load(void);
 BeamInstr* find_function_from_pc(BeamInstr* pc);
 Eterm* erts_build_mfa_item(FunctionInfo* fi, Eterm* hp,
 			   Eterm args, Eterm* mfa_p);
-void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
 void erts_set_current_function(FunctionInfo* fi, BeamInstr* current);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
+
+/* beam_ranges.c */
+void erts_init_ranges(void);
+void erts_start_staging_ranges(void);
+void erts_end_staging_ranges(int commit);
+void erts_update_ranges(BeamInstr* code, Uint size);
+void erts_remove_from_ranges(BeamInstr* code);
+UWord erts_ranges_sz(void);
+void erts_lookup_function_info(FunctionInfo* fi, BeamInstr* pc, int full_info);
 
 /* break.c */
 void init_break_handler(void);
@@ -1483,7 +1495,7 @@ void erts_cleanup_offheap(ErlOffHeap *offheap);
 
 Uint erts_fit_in_bits(Uint);
 int list_length(Eterm);
-Export* erts_find_function(Eterm, Eterm, unsigned int);
+Export* erts_find_function(Eterm, Eterm, unsigned int, ErtsCodeIndex);
 int erts_is_builtin(Eterm, Eterm, int);
 Uint32 make_broken_hash(Eterm);
 Uint32 block_hash(byte *, unsigned, Uint32);
@@ -1761,6 +1773,7 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       Binary **meta_match_spec,
 			       struct trace_pattern_flags *trace_pattern_flags,
 			       Eterm *meta_tracer_pid);
+int erts_is_default_trace_enabled(void);
 void erts_bif_trace_init(void);
 
 /*
