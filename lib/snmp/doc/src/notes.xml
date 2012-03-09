@@ -46,6 +46,13 @@
 
       <list type="bulleted">
         <item>
+          <p>[compiler] The table information the MIB compiler provides with 
+	  augmented tables has been extended with <c>nbr_of_cols</c>, 
+	  <c>first_accessible</c> and <c>not_accessible</c>. </p>
+          <p>Own Id: OTP-9969</p>
+        </item>
+
+        <item>
           <p>Added the <c>log_to_io</c> audit-trail-log converter function 
 	  to the api modules of both the 
 	  <seealso marker="snmpm#log_to_io">manager</seealso> 
