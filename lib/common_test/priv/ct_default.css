@@ -81,10 +81,18 @@ div.copyright {
     color: #000000;
 }
 
-div.ct_internal { 
+div.ct_internal {
     background: lightgrey; color: black; 
     font-family: "Monaco", "Andale Mono", "Consolas", monospace;
     font-size: .95em;
+    margin: .2em 0 0 0;
+}
+
+div.ct_error_notify { 
+    background: #CC0000;
+    color: #FFFFFF;
+    font-family: "Monaco", "Andale Mono", "Consolas", monospace;
+    font-size: 1.05em;
     margin: .2em 0 0 0;
 }
 
