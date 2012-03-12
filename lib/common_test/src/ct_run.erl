@@ -2347,31 +2347,38 @@ event_handler_init_args2opts([]) ->
 %% relative dirs "post run_test erl_args" is not kept!
 rel_to_abs(CtArgs) ->
     {PA,PZ} = get_pa_pz(CtArgs, [], []),
-    io:format(user, "~n", []),
     [begin
-	 code:del_path(filename:basename(D)),
-	 Abs = filename:absname(D),
-	 code:add_pathz(Abs),
-	 if D /= Abs ->
+	 Dir = rm_trailing_slash(D),
+	 Abs = make_abs(Dir),
+	 if Dir /= Abs ->
+		 code:del_path(Dir),
+		 code:del_path(Abs),		 
 		 io:format(user, "Converting ~p to ~p and re-inserting "
 			   "with add_pathz/1~n",
-			   [D, Abs]);
+			   [Dir, Abs]);
 	    true ->
-		 ok
-	 end
+		 code:del_path(Dir)
+	 end,
+	 code:add_pathz(Abs)	 
      end || D <- PZ],
     [begin
-	 code:del_path(filename:basename(D)),
-	 Abs = filename:absname(D),
-	 code:add_patha(Abs),
-	 if D /= Abs ->
+	 Dir = rm_trailing_slash(D),
+	 Abs = make_abs(Dir),
+	 if Dir /= Abs ->
+		 code:del_path(Dir),
+		 code:del_path(Abs),		 
 		 io:format(user, "Converting ~p to ~p and re-inserting "
 			   "with add_patha/1~n",
-			   [D, Abs]);
-	    true ->ok
-	 end
+			   [Dir, Abs]);
+	    true ->
+		 code:del_path(Dir)
+	 end,
+	 code:add_patha(Abs)
      end || D <- PA],
-    io:format(user, "~n", []).
+    io:format(user, "~n", []).	    
+
+rm_trailing_slash(Dir) ->
+    filename:join(filename:split(Dir)).
 
 get_pa_pz([{pa,Dirs} | Args], PA, PZ) ->
     get_pa_pz(Args, PA ++ Dirs, PZ);
@@ -2381,6 +2388,19 @@ get_pa_pz([_ | Args], PA, PZ) ->
     get_pa_pz(Args, PA, PZ);
 get_pa_pz([], PA, PZ) ->
     {PA,PZ}.
+
+make_abs(RelDir) ->
+    Tokens = filename:split(filename:absname(RelDir)),
+    filename:join(lists:reverse(make_abs1(Tokens, []))).
+
+make_abs1([".."|Dirs], [_Dir|Path]) ->
+    make_abs1(Dirs, Path);
+make_abs1(["."|Dirs], Path) ->
+    make_abs1(Dirs, Path);
+make_abs1([Dir|Dirs], Path) ->
+    make_abs1(Dirs, [Dir|Path]);
+make_abs1([], Path) ->
+    Path.
 
 %% This function translates ct:run_test/1 start options
 %% to ct_run start arguments (on the init arguments format) -
