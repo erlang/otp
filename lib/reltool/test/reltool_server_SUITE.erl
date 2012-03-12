@@ -69,8 +69,9 @@ all() ->
      create_old_target,
      eval_target_spec,
      otp_9135,
-     otp_9229_exclude_app,
-     otp_9229_exclude_mod,
+     otp_9229_dupl_mod_exclude_app,
+     otp_9229_dupl_mod_exclude_mod,
+     dupl_mod_in_app_file,
      get_apps,
      get_mod,
      get_sys,
@@ -1002,7 +1003,7 @@ eval_target_spec(_Config) ->
 %% exists in two applications.
 
 %% Include on app, exclude the other
-otp_9229_exclude_app(Config) ->
+otp_9229_dupl_mod_exclude_app(Config) ->
     DataDir =  ?config(data_dir,Config),
     LibDir = filename:join(DataDir,"otp_9229"),
 
@@ -1049,7 +1050,7 @@ otp_9229_exclude_app(Config) ->
     ok.
 
 %% Include both apps, but exclude common module from one app
-otp_9229_exclude_mod(Config) ->
+otp_9229_dupl_mod_exclude_mod(Config) ->
     DataDir =  ?config(data_dir,Config),
     LibDir = filename:join(DataDir,"otp_9229"),
 
@@ -1101,6 +1102,37 @@ otp_9229_exclude_mod(Config) ->
 
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that if a module is duplicated in a .app file, then a warning
+%% is produced, but target can still be created.
+dupl_mod_in_app_file(Config) ->
+    DataDir =  ?config(data_dir,Config),
+    LibDir = filename:join(DataDir,"dupl_mod"),
+
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, [LibDir]},
+	  {incl_cond,exclude},
+	  {app,a,[{incl_cond,include}]},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_dupl_mod_in_app_file"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
+    ?m({ok,["Module a duplicated in app file for application a."]},
+       reltool:get_status([{config, Sys}])),
+
+    %%! test that only one module installed (in spec)
+
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test the interface used by the GUI:

@@ -977,18 +977,32 @@ refresh_app(#app{name = AppName,
             %% Add non-existing modules - i.e. create default #mod
             %% records for all modules that are listed in .app file
             %% but do not exist in ebin.
-	    AppInfoMods = AppInfo#app_info.modules,
-            AppModNames =
-                case AppInfo#app_info.mod of
-                    {StartModName, _} ->
-                        case lists:member(StartModName, AppInfoMods) of
-                            true  -> AppInfoMods;
-                            false -> [StartModName | AppInfoMods]
-                        end;
-                    undefined ->
-                        AppInfoMods
-                end,
-            MissingMods = add_missing_mods(AppName, EbinMods, AppModNames),
+	    AppInfoMods = lists:usort(AppInfo#app_info.modules),
+	    Status4 =
+		case AppInfo#app_info.modules -- AppInfoMods of
+		    [] ->
+			Status3;
+		    DuplicatedMods  ->
+			lists:foldl(
+			  fun(M,S) ->
+				  reltool_utils:add_warning(
+				    "Module ~p duplicated in app file for "
+				    "application ~p.", [M, AppName], S)
+			  end,
+			  Status3,
+			  DuplicatedMods)
+		end,
+	    AppModNames =
+		case AppInfo#app_info.mod of
+		    {StartModName, _} ->
+			case lists:member(StartModName, AppInfoMods) of
+			    true  -> AppInfoMods;
+			    false -> [StartModName | AppInfoMods]
+			end;
+		    undefined ->
+			AppInfoMods
+		end,
+	    MissingMods = add_missing_mods(AppName, EbinMods, AppModNames),
 
             %% Add optional user config for each module.
 	    %% The #mod records that are already in the #app record at
@@ -1013,7 +1027,7 @@ refresh_app(#app{name = AppName,
                            label = AppLabel,
                            info = AppInfo,
                            mods = lists:keysort(#mod.name, Mods3)},
-            {App2, Status3};
+            {App2, Status4};
         true ->
             {App, Status}
     end.
