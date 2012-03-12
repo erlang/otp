@@ -1746,25 +1746,31 @@ set_group_leader_same_as_shell() ->
 	    false
     end.
 
-check_and_add([{TestDir0,M,_} | Tests], Added) ->
+check_and_add([{TestDir0,M,_} | Tests], Added, PA) ->
     case locate_test_dir(TestDir0, M) of
 	{ok,TestDir} ->
 	    case lists:member(TestDir, Added) of
 		true ->
-		    check_and_add(Tests, Added);
+		    check_and_add(Tests, Added, PA);
 		false ->
-		    true = code:add_patha(TestDir),
-		    check_and_add(Tests, [TestDir|Added])
+		    case lists:member(rm_trailing_slash(TestDir),
+				      code:get_path()) of
+			false ->
+			    true = code:add_patha(TestDir),
+			    check_and_add(Tests, [TestDir|Added], [TestDir|PA]);
+			true ->
+			    check_and_add(Tests, [TestDir|Added], PA)
+		    end
 	    end;
 	{error,_} ->
 	    {error,{invalid_directory,TestDir0}}
     end;
-check_and_add([], _) ->
-    ok.
+check_and_add([], _, PA) ->
+    {ok,PA}.
 
 do_run_test(Tests, Skip, Opts) ->
-    case check_and_add(Tests, []) of
-	ok ->
+    case check_and_add(Tests, [], []) of
+	{ok,AddedToPath} ->
 	    ct_util:set_testdata({stats,{0,0,{0,0}}}),
 	    ct_util:set_testdata({cover,undefined}),
 	    test_server_ctrl:start_link(local),
@@ -1858,7 +1864,9 @@ do_run_test(Tests, Skip, Opts) ->
 	    end,
 	    lists:foreach(fun(Suite) ->
 				  maybe_cleanup_interpret(Suite, Opts#opts.step)
-			  end, CleanUp);
+			  end, CleanUp),
+	    [code:del_path(Dir) || Dir <- AddedToPath],
+	    ok;
 	Error ->
 	    Error
     end.
