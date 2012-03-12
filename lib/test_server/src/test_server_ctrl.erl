@@ -1390,7 +1390,7 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
 	end,
     OkN = get(test_server_ok),
     FailedN = get(test_server_failed),
-    print(html,"<tr><td></td><td><b>TOTAL</b></td><td></td><td></td>"
+    print(html,"<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
 	  "<td>~.3fs</td><td><b>~s</b></td><td>~p Ok, ~p Failed~s of ~p</td></tr>\n",
 	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]).
 
@@ -1775,8 +1775,9 @@ do_test_cases(TopCases, SkipCases,
 		  "<p>~s</p>\n" ++
 		   xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">",
 			 "<table>") ++
-		   "<tr><th>Num</th><th>Module</th><th>Case</th><th>Log</th>"
-		   "<th>Time</th><th>Result</th><th>Comment</th></tr>\n",
+		   "<tr><th>Num</th><th>Module</th><th>Group</th>" ++
+		   "<th>Case</th><th>Log</th><th>Time</th><th>Result</th>" ++
+		   "<th>Comment</th></tr>\n",
 		  [print_if_known(N, {"<i>Executing <b>~p</b> test cases...</i>\n",[N]},
 				  {"",[]})]),
 	    print(html, xhtml("<br>", "<br />")),
@@ -3254,15 +3255,20 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
     print(major, "=result          skipped: ~s", [Comment1]),
     print(2,"*** Skipping test case #~w ~p ***", [CaseNum,{Mod,Func}]),
     TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),
+    GroupName =	case get_name(Mode) of
+		    undefined -> "";
+		    Name      -> cast_to_list(Name)
+		end,
     print(html,
 	  TR ++ "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "~p" ++ Col1 ++ "</td>"
+	  "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "~p" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "< >" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "0.000s" ++ Col1 ++ "</td>"
 	  "<td><font color=\"~s\">SKIPPED</font></td>"
 	  "<td>~s</td></tr>\n",
-	  [num2str(CaseNum),Mod,Func,ResultCol,Comment1]),
+	  [num2str(CaseNum),Mod,GroupName,Func,ResultCol,Comment1]),
     if CaseNum > 0 ->
 	    {US,AS} = get(test_server_skipped),
 	    case Type of
@@ -3656,16 +3662,20 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 
     Args1 = [[{tc_logfile,MinorName} | proplists:delete(tc_logfile,hd(Args))]],
     test_server_sup:framework_call(report, [tc_start,{{?pl2a(Mod),Func},MinorName}]),
-
     print_props((RunInit==skip_init), get_props(Mode)),
+    GroupName =	case get_name(Mode) of
+		    undefined -> "";
+		    Name      -> cast_to_list(Name)
+		end,
     print(major, "=started       ~s", [lists:flatten(timestamp_get(""))]),
     {{Col0,Col1},Style} = get_font_style((RunInit==run_init), Mode),
     TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),
     print(html,	TR ++ "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
 	  "<td>" ++ Col0 ++ "~p" ++ Col1 ++ "</td>"
+	  "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
 	  "<td><a href=\"~s\">~p</a></td>"
 	  "<td><a href=\"~s#top\"><</a> <a href=\"~s#end\">></a></td>",
-	  [num2str(Num),Mod,MinorBase,Func,MinorBase,MinorBase]),
+	  [num2str(Num),Mod,GroupName,MinorBase,Func,MinorBase,MinorBase]),
 
     do_if_parallel(Main, ok, fun erlang:yield/0),
     %% run the test case
