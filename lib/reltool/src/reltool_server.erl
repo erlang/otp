@@ -681,26 +681,21 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
 	    [Existing] ->
 		case {Existing#mod.is_included,IsIncl} of
 		    {false,_} ->
-			Warning =
-			    lists:concat(
-			      ["Module ",M#mod.name,
-			       " exists in applications ", Existing#mod.app_name,
-			      " and ", M#mod.app_name,
-			       ". Using module from application ",
-			       M#mod.app_name, "."]),
 			ets:insert(ModTab, M2),
-			reltool_utils:add_warning(Status,Warning);
+			reltool_utils:add_warning(
+			  "Module ~p exists in applications ~p and ~p. "
+			  "Using module from application ~p.",
+			  [M#mod.name, Existing#mod.app_name,
+			   M#mod.app_name, M#mod.app_name],
+			  Status);
 		    {_,false} ->
-			Warning =
-			    lists:concat(
-			      ["Module ",M#mod.name,
-			       " exists in applications ", Existing#mod.app_name,
-			      " and ", M#mod.app_name,
-			       ". Using module from application ",
-			       Existing#mod.app_name, "."]),
-
 			%% Don't insert in ModTab - using Existing
-			reltool_utils:add_warning(Status,Warning);
+			reltool_utils:add_warning(
+			  "Module ~p exists in applications ~p and ~p. "
+			  "Using module from application ~p.",
+			  [M#mod.name, Existing#mod.app_name,
+			   M#mod.app_name,Existing#mod.app_name],
+			  Status);
 		    {_,_} ->
 			reltool_utils:throw_error(
 			  "Module ~p potentially included by two different "
@@ -1035,22 +1030,21 @@ read_app_info(AppFileOrBin, AppFile, AppName, DefaultVsn, Status) ->
             AI = #app_info{vsn = DefaultVsn},
             parse_app_info(AppFile, Info, AI, Status);
         {ok, _BadApp} ->
-            Text = lists:concat([AppName,
-				 ": Illegal contents in app file ", AppFile,
-				 ", application tuple with arity 3 expected."]),
             {missing_app_info(DefaultVsn),
-	     reltool_utils:add_warning(Status, Text)};
+	     reltool_utils:add_warning("~p: Illegal contents in app file ~p, "
+				       "application tuple with arity 3 expected.",
+				       [AppName,AppFile],
+				       Status)};
         {error, Text} when Text =:= EnoentText ->
-	    Text2 = lists:concat([AppName,
-				  ": Missing app file ", AppFile, "."]),
 	    {missing_app_info(DefaultVsn),
-	     reltool_utils:add_warning(Status, Text2)};
+	     reltool_utils:add_warning("~p: Missing app file ~p.",
+				       [AppName,AppFile],
+				       Status)};
         {error, Text} ->
-            Text2 = lists:concat([AppName,
-				  ": Cannot parse app file ",
-				  AppFile, " (", Text, ")."]),
             {missing_app_info(DefaultVsn),
-	     reltool_utils:add_warning(Status, Text2)}
+	     reltool_utils:add_warning("~p: Cannot parse app file ~p (~p).",
+				       [AppName,AppFile,Text],
+				       Status)}
     end.
 
 parse_app_info(File, [{Key, Val} | KeyVals], AI, Status) ->
@@ -1084,10 +1078,11 @@ parse_app_info(File, [{Key, Val} | KeyVals], AI, Status) ->
 	    parse_app_info(File, KeyVals, AI#app_info{start_phases = Val},
 			   Status);
         _ ->
-	    String = lists:concat(["Unexpected item ",
-				   Key, "in app file ", File]),
-	    parse_app_info(File, KeyVals, AI,
-			   reltool_utils:add_warning(Status, String))
+	    Status2 =
+		reltool_utils:add_warning("Unexpected item ~p in app file ~p.",
+					  [Key,File],
+					  Status),
+	    parse_app_info(File, KeyVals, AI, Status2)
     end;
 parse_app_info(_, [], AI, Status) ->
     {AI, Status}.
@@ -1581,8 +1576,8 @@ patch_erts_version(RootDir, Apps, Status) ->
                     Apps2 = lists:keystore(AppName, #app.name, Apps, Erts2),
                     {Apps2, Status};
                 Vsn =:= "" ->
-                    {Apps, reltool_utils:add_warning(Status,
-						     "erts has no version")};
+                    {Apps, reltool_utils:add_warning("erts has no version",[],
+						     Status)};
                 true ->
                     {Apps, Status}
             end;

@@ -30,7 +30,7 @@
 	 get_item/1, get_items/1, get_selected_items/3,
 	 select_items/3, select_item/2,
 
-	 safe_keysearch/5, print/4, add_warning/2,
+	 safe_keysearch/5, print/4, add_warning/3,
 
 	 create_dir/1, list_dir/1, read_file_info/1,
 	 write_file_info/2, read_file/1, write_file/2,
@@ -402,7 +402,8 @@ print(X, X, Format, Args) ->
 print(_, _, _, _) ->
     ok.
 
-add_warning({ok,Warnings}, Warning) ->
+add_warning(Format, Args, {ok,Warnings}) ->
+    Warning = lists:flatten(io_lib:format(Format,Args)),
     case lists:member(Warning,Warnings) of
 	true ->
 	    {ok,Warnings};
