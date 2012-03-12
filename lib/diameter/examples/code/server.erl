@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,7 @@
 -module(server).
 
 -include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/src/app/diameter_gen_base_rfc3588.hrl").
+-include_lib("diameter/include/diameter_gen_base_rfc3588.hrl").
 
 -export([start/1,    %% start a service
          listen/2,   %% add a listening transport

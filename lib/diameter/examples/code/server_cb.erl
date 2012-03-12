@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,7 +24,7 @@
 -module(server_cb).
 
 -include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/src/app/diameter_gen_base_rfc3588.hrl").
+-include_lib("diameter/include/diameter_gen_base_rfc3588.hrl").
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -76,7 +76,7 @@ handle_request(#diameter_packet{msg = Req, errors = []}, _SvcName, {_, Caps})
 %% ... or one that wasn't. 3xxx errors are answered by diameter itself
 %% but these are 5xxx errors for which we must contruct a reply.
 %% diameter will set Result-Code and Failed-AVP's.
-handle_request(#diameter_packet{msg = Req} = Pkt, _SvcName, {_, Caps})
+handle_request(#diameter_packet{msg = Req}, _SvcName, {_, Caps})
   when is_record(Req, diameter_base_RAR) ->
     #diameter_caps{origin_host = {OH,_},
                    origin_realm = {OR,_}}
