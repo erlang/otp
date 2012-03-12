@@ -37,7 +37,7 @@
 
 
 %% Misc internal functions
--export([variables_file_name/1,script_start1/2,run_test1/1]).
+-export([variables_file_name/1,script_start1/2,run_test2/1]).
 
 -include("ct_event.hrl").
 -include("ct_util.hrl").
