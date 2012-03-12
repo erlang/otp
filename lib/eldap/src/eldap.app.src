@@ -1,0 +1,9 @@
+{application, eldap,
+ [{description, "Ldap api"},
+  {vsn, "%VSN%"},
+  {modules, []},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {mod, { eldap_app, []}},
+  {env, []}
+]}.
