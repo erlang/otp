@@ -63,7 +63,7 @@
 -type mod()              :: {incl_cond, incl_cond()}
                           | {debug_info, debug_info()}.
 -type app()              :: {vsn, app_vsn()}
-                          | {mod, mod_name(), mod()}
+                          | {mod, mod_name(), [mod()]}
                           | {mod_cond, mod_cond()}
                           | {incl_cond, incl_cond()}
                           | {app_file, app_file()}
