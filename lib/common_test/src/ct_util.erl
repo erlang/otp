@@ -827,15 +827,20 @@ get_profile_data(Profile, Key, StartDir) ->
 %%%-----------------------------------------------------------------
 %%% Internal functions
 call(Msg) ->
-    MRef = erlang:monitor(process,whereis(ct_util_server)),
-    Ref = make_ref(),
-    ct_util_server ! {Msg,{self(),Ref}},
-    receive
-	{Ref, Result} -> 
-	    erlang:demonitor(MRef, [flush]),
-	    Result;
-	{'DOWN',MRef,process,_,Reason}  -> 
-	    {error,{ct_util_server_down,Reason}}
+    case whereis(ct_util_server) of
+	undefined ->
+	    {error,ct_util_server_not_running};
+	Pid ->
+	    MRef = erlang:monitor(process, Pid),
+	    Ref = make_ref(),
+	    ct_util_server ! {Msg,{self(),Ref}},
+	    receive
+		{Ref, Result} -> 
+		    erlang:demonitor(MRef, [flush]),
+		    Result;
+		{'DOWN',MRef,process,_,Reason}  -> 
+		    {error,{ct_util_server_down,Reason}}
+	    end
     end.
 
 return({To,Ref},Result) ->
