@@ -861,6 +861,8 @@ get_status() ->
 	    
 get_testdata(Key) ->
     case catch ct_util:get_testdata(Key) of
+	{error,ct_util_server_not_running} ->
+	    no_tests_running;
 	Error = {error,_Reason} ->
 	    Error;
 	{'EXIT',_Reason} ->

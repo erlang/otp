@@ -852,7 +852,11 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 		    %% result of an exit(TestCase,kill) call, which is the
 		    %% only way to abort a testcase process that traps exits
 		    %% (see abort_current_testcase)
-		    spawn_fw_call(undefined,undefined,CurrConf,Pid,
+		    {Mod,Func} = case CurrConf of
+				     {MF,_} -> MF;
+				     _      -> {undefined,undefined}
+				 end,
+		    spawn_fw_call(Mod,Func,CurrConf,Pid,
 				  testcase_aborted_or_killed,
 				  unknown,self()),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
@@ -863,8 +867,11 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 		_Other ->
 		    %% the testcase has terminated because of Reason (e.g. an exit
 		    %% because a linked process failed)
-		    spawn_fw_call(undefined,undefined,CurrConf,Pid,Reason,
-				  unknown,self()),
+		    {Mod,Func} = case CurrConf of
+				     {MF,_} -> MF;
+				     _      -> {undefined,undefined}
+				 end,
+		    spawn_fw_call(Mod,Func,CurrConf,Pid,Reason,unknown,self()),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf)
 	    end;
 	{EndConfPid,{call_end_conf,Data,_Result}} ->
@@ -1594,13 +1601,20 @@ mod_loc(Loc) ->
     %% handle diff line num versions
     case Loc of
 	[{{_M,_F},_L}|_] ->
-	    [{?pl2a(M),F,L} || {{M,F},L} <- Loc];
+	    [begin if L /= 0 -> {?pl2a(M),F,L};
+		      true   -> {?pl2a(M),F} end end || {{M,F},L} <- Loc];
 	[{_M,_F}|_] ->
 	    [{?pl2a(M),F} || {M,F} <- Loc];
+	{{M,F},0} ->
+	    [{?pl2a(M),F}];
 	{{M,F},L} ->
 	    [{?pl2a(M),F,L}];
 	{M,ForL} ->
 	    [{?pl2a(M),ForL}];
+	{M,F,0} ->
+	    [{M,F}];
+	[{M,F,0}|Stack] ->
+	    [{M,F}|Stack];
 	_ ->
 	    Loc
     end.
