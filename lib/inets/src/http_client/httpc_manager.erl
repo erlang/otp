@@ -37,6 +37,7 @@
 	 update_session/4, 
 	 delete_session/2, 
 	 set_options/2, 
+	 get_options/2, 
 	 store_cookies/3,
 	 which_cookies/1, which_cookies/2, which_cookies/3, 
 	 reset_cookies/1, 
@@ -250,6 +251,21 @@ set_options(Options, ProfileName) ->
 
 
 %%--------------------------------------------------------------------
+%% Function: get_options(OptionItems, ProfileName) -> Values
+%%
+%%	OptionItems = [OptionItem]
+%%	OptionItem = Any or all fields of the current #options{} record 
+%%      Values = [{OptionItem, Value}]
+%%      Value = term()
+%% 
+%% Description: Gets the specified options used by the client.
+%%--------------------------------------------------------------------
+
+get_options(Options, ProfileName) ->
+    call(ProfileName, {get_options, Options}).
+
+
+%%--------------------------------------------------------------------
 %% Function: store_cookies(Cookies, Address, ProfileName) -> ok
 %%
 %%	Cookies = [Cookie]
@@ -438,6 +454,12 @@ handle_call({which_cookies, Url, Options}, _,
 	{error, _} = ERROR ->
 	    {reply, ERROR, State}
     end;
+
+handle_call({get_options, OptionItems}, _, #state{options = Options} = State) ->
+    ?hcrv("get options", [{option_items, OptionItems}]),
+    Reply = [{OptionItem, get_option(OptionItem, Options)} || OptionItem <- 
+								  OptionItems], 
+    {reply, Reply, State};
 
 handle_call(info, _, State) ->
     ?hcrv("info", []),
@@ -882,6 +904,31 @@ call(ProfileName, Msg, Timeout) ->
 cast(ProfileName, Msg) ->
    gen_server:cast(ProfileName, Msg).
 
+
+get_option(proxy, #options{proxy = Proxy}) ->
+    Proxy;
+get_option(pipeline_timeout, #options{pipeline_timeout = Timeout}) ->
+    Timeout;
+get_option(max_pipeline_length, #options{max_pipeline_length = Length}) ->
+    Length;
+get_option(keep_alive_timeout, #options{keep_alive_timeout = Timeout}) ->
+    Timeout;
+get_option(max_keep_alive_length, #options{max_keep_alive_length = Length}) ->
+    Length;
+get_option(max_sessions, #options{max_sessions = MaxSessions}) ->
+    MaxSessions;
+get_option(cookies, #options{cookies = Cookies}) ->
+    Cookies;
+get_option(verbose, #options{verbose = Verbose}) ->
+    Verbose;
+get_option(ipfamily, #options{ipfamily = IpFamily}) ->
+    IpFamily;
+get_option(ip, #options{ip = IP}) ->
+    IP;
+get_option(port, #options{port = Port}) ->
+    Port;
+get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
+    SocketOpts.
 
 get_proxy(Opts, #options{proxy = Default}) ->
     proplists:get_value(proxy, Opts, Default).

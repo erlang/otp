@@ -64,6 +64,12 @@
 	  <p>Own Id: OTP-9960</p>
         </item>
 
+        <item>
+          <p>[httpc] Add function for retrieving current options, 
+	  <seealso marker="httpc#get_options">get_options/1,2</seealso>. </p>
+	  <p>Own Id: OTP-9979</p>
+        </item>
+
       </list>
 
     </section>
