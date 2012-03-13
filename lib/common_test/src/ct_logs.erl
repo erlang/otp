@@ -38,7 +38,7 @@
 -export([get_ts_html_wrapper/3]).
 
 %% Logging stuff directly from testcase
--export([tc_log/3,tc_log_async/3,tc_print/3,tc_pal/3,ct_log/3,
+-export([tc_log/3,tc_log/4,tc_log_async/3,tc_print/3,tc_pal/3,ct_log/3,
 	 basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
@@ -333,7 +333,10 @@ add_link(Heading,File,Type) ->
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
 tc_log(Category,Format,Args) ->
-    cast({log,sync,self(),group_leader(),[{div_header(Category),[]},
+    tc_log(Category,"User",Format,Args).
+
+tc_log(Category,Printer,Format,Args) ->
+    cast({log,sync,self(),group_leader(),[{div_header(Category,Printer),[]},
 					  {Format,Args},
 					  {div_footer(),[]}]}),
     ok.
@@ -369,19 +372,18 @@ tc_log_async(Category,Format,Args) ->
 %%% <p>This function is called by <code>ct</code> when printing
 %%% stuff a testcase on the user console.</p>
 tc_print(Category,Format,Args) ->
-    print_heading(Category),
-    io:format(user,Format,Args),
-    io:format(user,"\n\n",[]),
+    Head = get_heading(Category),
+    io:format(user, lists:concat([Head,Format,"\n\n"]), Args),
     ok.
 
-print_heading(default) ->
-    io:format(user,
-	      "----------------------------------------------------\n~s\n",
-	      [log_timestamp(now())]);
-print_heading(Category) ->
-    io:format(user,
-	      "----------------------------------------------------\n~s  ~w\n",
-	      [log_timestamp(now()),Category]).    
+get_heading(default) ->
+    io_lib:format("-----------------------------"
+		  "-----------------------\n~s\n",
+		  [log_timestamp(now())]);
+get_heading(Category) ->
+    io_lib:format("-----------------------------"
+		  "-----------------------\n~s  ~w\n",
+		  [log_timestamp(now()),Category]).    
     
 
 %%%-----------------------------------------------------------------
@@ -428,8 +430,10 @@ int_footer() ->
     "</div>".
 
 div_header(Class) ->
-    "<div class=\"" ++ atom_to_list(Class) ++ "\"><b>*** User  " ++   
-	log_timestamp(now()) ++ " ***</b>".
+    div_header(Class,"User").
+div_header(Class,Printer) ->
+    "<div class=\"" ++ atom_to_list(Class) ++ "\"><b>*** " ++ Printer ++
+    " " ++ log_timestamp(now()) ++ " ***</b>".
 div_footer() ->
     "</div>".
 

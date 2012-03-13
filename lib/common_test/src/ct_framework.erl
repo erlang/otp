@@ -806,31 +806,36 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 	    end
     end,
 
-    io:format(user, "~n- - - - - - - - - - - - - - - - "
-	      "- - - - - - - - - -~n", []),
+    PrintErr = fun(ErrFormat, ErrArgs) ->
+		       Div = "~n- - - - - - - - - - - - - - - - "
+			   "- - - - - - - - - -~n",
+		       io:format(user, lists:concat([Div,ErrFormat,Div,"~n"]),
+				 ErrArgs),
+		       ct_logs:tc_log(ct_error_notify, "CT Error Notification",
+				      ErrFormat, ErrArgs)
+	       end,
     case Loc of
-	%% we don't use the line parse transform as we compile this 
-	%% module so location will be on form {M,F}
 	[{?MODULE,error_in_suite}] ->
-	    io:format(user, "Error in suite detected: ~s", [ErrStr]);
+	    PrintErr("Error in suite detected: ~s", [ErrStr]);
 
-	R when R == unknown;  R == undefined ->
-	    io:format(user, "Error detected: ~s", [ErrStr]);
+	R when R == unknown; R == undefined ->
+	    PrintErr("Error detected: ~s", [ErrStr]);
 
 	%% if a function specified by all/0 does not exist, we
 	%% pick up undef here
-	[{LastMod,LastFunc}] ->
-	    io:format(user, "~w:~w could not be executed~n", 
-		      [LastMod,LastFunc]),
-	    io:format(user, "Reason: ~s", [ErrStr]);
+	[{LastMod,LastFunc}|_] when ErrStr == "undef" ->
+	    PrintErr("~w:~w could not be executed~nReason: ~s",
+		     [LastMod,LastFunc,ErrStr]);
+
+	[{LastMod,LastFunc}|_] ->
+	    PrintErr("~w:~w failed~nReason: ~s", [LastMod,LastFunc,ErrStr]);
 	    
 	[{LastMod,LastFunc,LastLine}|_] ->
 	    %% print error to console, we are only
 	    %% interested in the last executed expression
-	    io:format(user, "~w:~w failed on line ~w~n", 
-		      [LastMod,LastFunc,LastLine]),
-	    io:format(user, "Reason: ~s", [ErrStr]),
-    
+	    PrintErr("~w:~w failed on line ~w~nReason: ~s",
+		     [LastMod,LastFunc,LastLine,ErrStr]),
+	    
 	    case ct_util:read_suite_data({seq,Mod,Func}) of
 		undefined ->
 		    ok;
@@ -839,8 +844,6 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 		    mark_as_failed(Seq,Mod,Func,SeqTCs)
 	    end	    
     end,
-    io:format(user, "~n- - - - - - - - - - - - - - - - "
-	      "- - - - - - - - - -~n~n", []),
     ok.
 
 %% cases in seq that have already run

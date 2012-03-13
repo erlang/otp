@@ -1601,13 +1601,20 @@ mod_loc(Loc) ->
     %% handle diff line num versions
     case Loc of
 	[{{_M,_F},_L}|_] ->
-	    [{?pl2a(M),F,L} || {{M,F},L} <- Loc];
+	    [begin if L /= 0 -> {?pl2a(M),F,L};
+		      true   -> {?pl2a(M),F} end end || {{M,F},L} <- Loc];
 	[{_M,_F}|_] ->
 	    [{?pl2a(M),F} || {M,F} <- Loc];
+	{{M,F},0} ->
+	    [{?pl2a(M),F}];
 	{{M,F},L} ->
 	    [{?pl2a(M),F,L}];
 	{M,ForL} ->
 	    [{?pl2a(M),ForL}];
+	{M,F,0} ->
+	    [{M,F}];
+	[{M,F,0}|Stack] ->
+	    [{M,F}|Stack];
 	_ ->
 	    Loc
     end.
