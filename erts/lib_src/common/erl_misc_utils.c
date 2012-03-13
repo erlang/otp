@@ -834,8 +834,8 @@ read_topology(erts_cpu_info_t *cpuinfo)
     ix = -1;
 
     if (realpath(ERTS_SYS_NODE_PATH, npath)) {
-	got_nodes = 1;
 	ndir = opendir(npath);
+	got_nodes = (ndir != NULL);
     }
 
     do {
