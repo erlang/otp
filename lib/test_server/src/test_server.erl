@@ -948,17 +948,20 @@ output(Msg,Sender) ->
     local_or_remote_apply({test_server_ctrl,output,[Msg,Sender]}).
 
 call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
+    %% Starter is also the group leader process
     Starter = self(),
     Data = {Mod,Func,TCPid,TCExitReason,Loc},
     EndConfProc =
 	fun() ->
+		group_leader(Starter, self()),
 		Supervisor = self(),
 		EndConfApply =
 		    fun() ->
 			    case catch apply(Mod,end_per_testcase,[Func,Conf]) of
 				{'EXIT',Why} ->
+				    timer:sleep(1),
 				    group_leader() ! {printout,12,
-						      "ERROR! ~p:end_per_testcase(~p, ~p)"
+						      "WARNING! ~p:end_per_testcase(~p, ~p)"
 						      " crashed!\n\tReason: ~p\n",
 						      [Mod,Func,Conf,Why]};
 				_ ->
@@ -973,6 +976,11 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 		    {'EXIT',Pid,Reason} ->
 			Starter ! {self(),{call_end_conf,Data,{error,Reason}}}
 		after TVal ->
+			exit(Pid, kill),
+			group_leader() ! {printout,12,
+					  "WARNING! ~p:end_per_testcase(~p, ~p)"
+					  " failed!\n\tReason: timetrap timeout"
+					  " after ~w ms!\n", [Mod,Func,Conf,TVal]},
 			Starter ! {self(),{call_end_conf,Data,{error,timeout}}}
 		end
 	end,
@@ -1027,6 +1035,10 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 			    E = {failed,{Mod,end_per_testcase,Why}},
 			    {Result,E}
 		    end,
+		group_leader() ! {printout,12,
+				  "WARNING! ~p:end_per_testcase(~p, ~p)"
+				  " failed!\n\tReason: timetrap timeout"
+				  " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
 		FailLoc = proplists:get_value(tc_fail_loc, EndConf1),
 		case catch do_end_tc_call(Mod,Func, FailLoc,
 					  {Pid,Report,[EndConf1]}, Why) of
