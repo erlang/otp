@@ -69,7 +69,8 @@ MODULES= \
 	ct_slave \
         ct_hooks\
         ct_hooks_lock\
-	cth_log_redirect
+	cth_log_redirect\
+	cth_surefire
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))

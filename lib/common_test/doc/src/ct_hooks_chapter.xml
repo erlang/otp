@@ -429,6 +429,16 @@ terminate(State) ->
 	<seealso marker="sasl:sasl_app">SASL</seealso> events report
 	using the normal SASL mechanisms. </cell>
       </row>
+      <row>
+	<cell>cth_surefire</cell>
+	<cell>no</cell>
+	<cell>Captures all test results and outputs them as surefire XML into
+	a file. The file which is created is by default called junit_report.xml.
+	The name can be by setting the path option for this hook. e.g.
+	<code>-ct_hooks cth_surefix [{path,"/tmp/report.xml"}]</code>
+	Surefire XML can forinstance be used by Jenkins to display test
+	results.</cell>
+      </row>
     </table>
 
   </section>
