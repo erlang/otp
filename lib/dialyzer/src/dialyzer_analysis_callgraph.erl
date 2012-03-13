@@ -365,9 +365,11 @@ abs_get_nowarn(Abs, M) ->
     false ->
       [{M, F, A} || {function, _, F, A, _} <- Abs]; % all functions
     true ->
-      [{M, F, A} ||
-        {nowarn_unused_function, FAs} <- Opts,
-        {F, A} <- lists:flatten([FAs])]
+      OnLoad =
+	lists:flatten([{M, F, A} || {attribute, _, on_load, {F, A}} <- Abs]),
+      OnLoad ++ [{M, F, A} ||
+		  {nowarn_unused_function, FAs} <- Opts,
+		  {F, A} <- lists:flatten([FAs])]
   end.
 
 get_exported_types_from_core(Core) ->
