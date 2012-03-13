@@ -21,7 +21,7 @@
 %%% File: ct_priv_dir_SUITE
 %%%
 %%% Description: 
-%%% Test that it works to use the unique_priv_dir option.
+%%% Test that it works to use the create_priv_dir option.
 %%%
 %%%-------------------------------------------------------------------
 -module(ct_priv_dir_SUITE).
@@ -60,11 +60,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [
      default,
-     unique_auto,
-     unique_manual,
+     auto_per_run,
+     auto_per_tc,
+     manual_per_tc,
      spec_default,
-     spec_unique_auto,
-     spec_unique_manual
+     spec_auto_per_run,
+     spec_auto_per_run,
+     spec_manual_per_tc
     ].
 
 %%--------------------------------------------------------------------
@@ -82,23 +84,33 @@ default(Config) when is_list(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% 
-unique_auto(Config) when is_list(Config) -> 
+auto_per_run(Config) when is_list(Config) -> 
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "priv_dir_SUITE"),
-    {Opts,ERPid} = setup([{suite,Suite},{testcase,unique_auto},
-			  {label,unique_auto},
-			  {unique_priv_dir,auto}], Config),
-    ok = execute(unique_auto, Opts, ERPid, Config).
+    {Opts,ERPid} = setup([{suite,Suite},{testcase,default},
+			  {label,auto_per_run},
+			  {create_priv_dir,auto_per_run}], Config),
+    ok = execute(auto_per_run, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
 %%% 
-unique_manual(Config) when is_list(Config) -> 
+auto_per_tc(Config) when is_list(Config) -> 
     DataDir = ?config(data_dir, Config),
     Suite = filename:join(DataDir, "priv_dir_SUITE"),
-    {Opts,ERPid} = setup([{suite,Suite},{testcase,unique_manual},
-			  {label,unique_manual},
-			  {unique_priv_dir,manual}], Config),
-    ok = execute(unique_manual, Opts, ERPid, Config).
+    {Opts,ERPid} = setup([{suite,Suite},{testcase,auto_per_tc},
+			  {label,auto_per_tc},
+			  {create_priv_dir,auto_per_tc}], Config),
+    ok = execute(auto_per_tc, Opts, ERPid, Config).
+
+%%%-----------------------------------------------------------------
+%%% 
+manual_per_tc(Config) when is_list(Config) -> 
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "priv_dir_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},{testcase,manual_per_tc},
+			  {label,manual_per_tc},
+			  {create_priv_dir,manual_per_tc}], Config),
+    ok = execute(manual_per_tc, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -111,21 +123,30 @@ spec_default(Config) when is_list(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% 
-spec_unique_auto(Config) when is_list(Config) -> 
+spec_auto_per_run(Config) when is_list(Config) -> 
     DataDir = ?config(data_dir, Config),
-    Spec = filename:join(DataDir, "unique_auto.spec"),
+    Spec = filename:join(DataDir, "auto_per_run.spec"),
     {Opts,ERPid} = setup([{spec,Spec},
-			  {label,spec_unique_auto}], Config),
-    ok = execute(spec_unique_auto, Opts, ERPid, Config).
+			  {label,spec_auto_per_run}], Config),
+    ok = execute(spec_auto_per_run, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
 %%% 
-spec_unique_manual(Config) when is_list(Config) -> 
+spec_auto_per_tc(Config) when is_list(Config) -> 
     DataDir = ?config(data_dir, Config),
-    Spec = filename:join(DataDir, "unique_manual.spec"),
+    Spec = filename:join(DataDir, "auto_per_tc.spec"),
     {Opts,ERPid} = setup([{spec,Spec},
-			  {label,spec_unique_manual}], Config),
-    ok = execute(spec_unique_manual, Opts, ERPid, Config).
+			  {label,spec_auto_per_tc}], Config),
+    ok = execute(spec_auto_per_tc, Opts, ERPid, Config).
+
+%%%-----------------------------------------------------------------
+%%% 
+spec_manual_per_tc(Config) when is_list(Config) -> 
+    DataDir = ?config(data_dir, Config),
+    Spec = filename:join(DataDir, "manual_per_tc.spec"),
+    {Opts,ERPid} = setup([{spec,Spec},
+			  {label,spec_manual_per_tc}], Config),
+    ok = execute(spec_manual_per_tc, Opts, ERPid, Config).
 
 
 %%%-----------------------------------------------------------------
@@ -168,7 +189,7 @@ events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
 
-test_events(default) ->
+test_events(DEF) when DEF == default ; DEF == auto_per_run ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
@@ -183,35 +204,36 @@ test_events(default) ->
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
-test_events(unique_auto) ->
+test_events(auto_per_tc) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,start_info,{1,1,1}},
      {?eh,tc_start,{priv_dir_SUITE,init_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,init_per_suite,ok}},
-     {?eh,tc_start,{priv_dir_SUITE,unique_auto}},
-     {?eh,tc_done,{priv_dir_SUITE,unique_auto,ok}},
+     {?eh,tc_start,{priv_dir_SUITE,auto_per_tc}},
+     {?eh,tc_done,{priv_dir_SUITE,auto_per_tc,ok}},
      {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{priv_dir_SUITE,end_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
-test_events(unique_manual) ->
+test_events(manual_per_tc) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,start_info,{1,1,1}},
      {?eh,tc_start,{priv_dir_SUITE,init_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,init_per_suite,ok}},
-     {?eh,tc_start,{priv_dir_SUITE,unique_manual}},
-     {?eh,tc_done,{priv_dir_SUITE,unique_manual,ok}},
+     {?eh,tc_start,{priv_dir_SUITE,manual_per_tc}},
+     {?eh,tc_done,{priv_dir_SUITE,manual_per_tc,ok}},
      {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{priv_dir_SUITE,end_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
-test_events(spec_default) ->
+test_events(SPECDEF) when SPECDEF == spec_default ;
+			  SPECDEF == spec_auto_per_run ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,start_info,{1,1,1}},
@@ -225,28 +247,28 @@ test_events(spec_default) ->
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
-test_events(spec_unique_auto) ->
+test_events(spec_auto_per_tc) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,start_info,{1,1,1}},
      {?eh,tc_start,{priv_dir_SUITE,init_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,init_per_suite,ok}},
-     {?eh,tc_start,{priv_dir_SUITE,unique_auto}},
-     {?eh,tc_done,{priv_dir_SUITE,unique_auto,ok}},
+     {?eh,tc_start,{priv_dir_SUITE,auto_per_tc}},
+     {?eh,tc_done,{priv_dir_SUITE,auto_per_tc,ok}},
      {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{priv_dir_SUITE,end_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}];
 
-test_events(spec_unique_manual) ->
+test_events(spec_manual_per_tc) ->
     [{?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,start_info,{1,1,1}},
      {?eh,tc_start,{priv_dir_SUITE,init_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,init_per_suite,ok}},
-     {?eh,tc_start,{priv_dir_SUITE,unique_manual}},
-     {?eh,tc_done,{priv_dir_SUITE,unique_manual,ok}},
+     {?eh,tc_start,{priv_dir_SUITE,manual_per_tc}},
+     {?eh,tc_done,{priv_dir_SUITE,manual_per_tc,ok}},
      {?eh,test_stats,{1,0,{0,0}}},
      {?eh,tc_start,{priv_dir_SUITE,end_per_suite}},
      {?eh,tc_done,{priv_dir_SUITE,end_per_suite,ok}},

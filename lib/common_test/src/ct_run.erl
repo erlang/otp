@@ -63,7 +63,7 @@
 	       stylesheet,
 	       multiply_timetraps = 1,
 	       scale_timetraps = false,
-	       unique_priv_dir,
+	       create_priv_dir,
 	       testspecs = [],
 	       tests}).
 
@@ -179,9 +179,9 @@ script_start1(Parent, Args) ->
 			    fun([CT]) -> list_to_atom(CT);
 			       ([]) -> true
 			    end, false, Args),
-    UniquePrivDir = get_start_opt(unique_priv_dir,
-				  fun([UPD]) -> list_to_atom(UPD);
-				     ([]) -> auto
+    CreatePrivDir = get_start_opt(create_priv_dir,
+				  fun([PD]) -> list_to_atom(PD);
+				     ([]) -> auto_per_tc
 				  end, Args),
     EvHandlers = event_handler_args2opts(Args),
     CTHooks = ct_hooks_args2opts(Args),
@@ -261,7 +261,7 @@ script_start1(Parent, Args) ->
 		     stylesheet = Stylesheet,
 		     multiply_timetraps = MultTT,
 		     scale_timetraps = ScaleTT,
-		     unique_priv_dir = UniquePrivDir},
+		     create_priv_dir = CreatePrivDir},
 
     %% check if log files should be refreshed or go on to run tests...
     Result = run_or_refresh(StartOpts, Args),
@@ -335,9 +335,9 @@ script_start2(StartOpts = #opts{vts = undefined,
 			    choose_val(StartOpts#opts.scale_timetraps,
 				       SpecStartOpts#opts.scale_timetraps),
 
-			UniquePrivDir =
-			    choose_val(StartOpts#opts.unique_priv_dir,
-				       SpecStartOpts#opts.unique_priv_dir),
+			CreatePrivDir =
+			    choose_val(StartOpts#opts.create_priv_dir,
+				       SpecStartOpts#opts.create_priv_dir),
 
 			AllEvHs = 
 			    merge_vals([StartOpts#opts.event_handlers,
@@ -370,7 +370,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   include = AllInclude,
 					   multiply_timetraps = MultTT,
 					   scale_timetraps = ScaleTT,
-					   unique_priv_dir = UniquePrivDir}}
+					   create_priv_dir = CreatePrivDir}}
 		end;
 	    _ ->
 		{undefined,StartOpts}
@@ -583,7 +583,7 @@ script_usage() ->
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
-	      "\n\t[-unique_priv_dir [auto | manual]]"
+	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
 	      "\n\t[-basic_html]\n\n"),
     io:format("Run tests from command line:\n\n"
 	      "\tct_run [-dir TestDir1 TestDir2 .. TestDirN] |"
@@ -603,7 +603,7 @@ script_usage() ->
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
-	      "\n\t[-unique_priv_dir [auto | manual]]"
+	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
 	      "\n\t[-basic_html]"
 	      "\n\t[-repeat N [-force_stop]] |"
 	      "\n\t[-duration HHMMSS [-force_stop]] |"
@@ -624,7 +624,7 @@ script_usage() ->
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
-	      "\n\t[-unique_priv_dir [auto | manual]]"
+	      "\n\t[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]"
 	      "\n\t[-basic_html]"
 	      "\n\t[-repeat N [-force_stop]] |"
 	      "\n\t[-duration HHMMSS [-force_stop]] |"
@@ -802,7 +802,7 @@ run_test2(StartOpts) ->
     ScaleTT = get_start_opt(scale_timetraps, value, false, StartOpts),
 
     %% create unique priv dir names
-    UniquePrivDir = get_start_opt(unique_priv_dir, value, StartOpts),
+    CreatePrivDir = get_start_opt(create_priv_dir, value, StartOpts),
 
     %% auto compile & include files
     Include =
@@ -865,7 +865,7 @@ run_test2(StartOpts) ->
 		 stylesheet = Stylesheet,
 		 multiply_timetraps = MultiplyTT,
 		 scale_timetraps = ScaleTT,
-		 unique_priv_dir = UniquePrivDir},
+		 create_priv_dir = CreatePrivDir},
 
     %% test specification
     case proplists:get_value(spec, StartOpts) of
@@ -912,8 +912,8 @@ run_spec_file(Relaxed,
 				SpecOpts#opts.multiply_timetraps),
 	    ScaleTT = choose_val(Opts#opts.scale_timetraps,
 				 SpecOpts#opts.scale_timetraps),
-	    UniquePrivDir = choose_val(Opts#opts.unique_priv_dir,
-				       SpecOpts#opts.unique_priv_dir),
+	    CreatePrivDir = choose_val(Opts#opts.create_priv_dir,
+				       SpecOpts#opts.create_priv_dir),
 	    AllEvHs = merge_vals([Opts#opts.event_handlers,
 				  SpecOpts#opts.event_handlers]),
 	    AllInclude = merge_vals([Opts#opts.include,
@@ -937,7 +937,7 @@ run_spec_file(Relaxed,
 			      testspecs = AbsSpecs,
 			      multiply_timetraps = MultTT,
 			      scale_timetraps = ScaleTT,
-			      unique_priv_dir = UniquePrivDir,
+			      create_priv_dir = CreatePrivDir,
 			      ct_hooks = AllCTHooks,
 			      enable_builtin_hooks = EnableBuiltinHooks
 			     },
@@ -1197,7 +1197,7 @@ get_data_for_node(#testspec{label = Labels,
 			    include = Incl,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs,
-			    unique_priv_dir = UPDs}, Node) ->
+			    create_priv_dir = PDs}, Node) ->
     Label = proplists:get_value(Node, Labels),
     Profile = proplists:get_value(Node, Profiles),
     LogDir = case proplists:get_value(Node, LogDirs) of
@@ -1211,7 +1211,7 @@ get_data_for_node(#testspec{label = Labels,
     Cover = proplists:get_value(Node, CoverFs),
     MT = proplists:get_value(Node, MTs),
     ST = proplists:get_value(Node, STs),
-    UniquePrivDir = proplists:get_value(Node, UPDs),
+    CreatePrivDir = proplists:get_value(Node, PDs),
     ConfigFiles = [{?ct_config_txt,F} || {N,F} <- Cfgs, N==Node] ++
 	[CBF || {N,CBF} <- UsrCfgs, N==Node],
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
@@ -1229,7 +1229,7 @@ get_data_for_node(#testspec{label = Labels,
 	  include = Include,
 	  multiply_timetraps = MT,
 	  scale_timetraps = ST,
-	  unique_priv_dir = UniquePrivDir}.
+	  create_priv_dir = CreatePrivDir}.
 
 refresh_logs(LogDir) ->
     {ok,Cwd} = file:get_cwd(),
@@ -1871,8 +1871,8 @@ do_run_test(Tests, Skip, Opts) ->
 	    test_server_ctrl:multiply_timetraps(Opts#opts.multiply_timetraps),
 	    test_server_ctrl:scale_timetraps(Opts#opts.scale_timetraps),
 
-	    test_server_ctrl:unique_priv_dir(choose_val(Opts#opts.unique_priv_dir,
-							false)),
+	    test_server_ctrl:create_priv_dir(choose_val(Opts#opts.create_priv_dir,
+							auto_per_run)),
 	    ct_event:notify(#event{name=start_info,
 				   node=node(),
 				   data={NoOfTests,NoOfSuites,NoOfCases}}),
@@ -2450,10 +2450,10 @@ opts2args(EnvStartOpts) ->
 			  [{scale_timetraps,[]}];
 		     ({scale_timetraps,false}) ->
 			  [];
-		     ({unique_priv_dir,false}) ->
+		     ({create_priv_dir,auto_per_run}) ->
 			  [];
-		     ({unique_priv_dir,UPD}) when is_atom(UPD) ->
-			  [{unique_priv_dir,[atom_to_list(UPD)]}];
+		     ({create_priv_dir,PD}) when is_atom(PD) ->
+			  [{create_priv_dir,[atom_to_list(PD)]}];
 		     ({force_stop,true}) ->
 			  [{force_stop,[]}];
 		     ({force_stop,false}) ->

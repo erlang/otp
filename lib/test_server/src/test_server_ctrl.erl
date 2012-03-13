@@ -164,7 +164,7 @@
 -export([start_get_totals/1, stop_get_totals/0]).
 -export([get_levels/0, set_levels/3]).
 -export([multiply_timetraps/1, scale_timetraps/1, get_timetrap_parameters/0]).
--export([unique_priv_dir/1]).
+-export([create_priv_dir/1]).
 -export([cover/2, cover/3, cover/7,
 	 cross_cover_analyse/1, cross_cover_analyse/2, trc/1, stop_trace/0]).
 -export([testcase_callback/1]).
@@ -221,7 +221,7 @@
 
 -record(state,{jobs=[],levels={1,19,10},
 	       multiply_timetraps=1, scale_timetraps=true,
-	       unique_priv_dir=false, finish=false,
+	       create_priv_dir=auto_per_run, finish=false,
 	       target_info, trc=false, cover=false, wait_for_node=[],
 	       testcase_callback=undefined, idle_notify=[],
 	       get_totals=false, random_seed=undefined}).
@@ -507,8 +507,8 @@ scale_timetraps(Bool) ->
 get_timetrap_parameters() ->
     controller_call(get_timetrap_parameters).
 
-unique_priv_dir(Value) ->
-    controller_call({unique_priv_dir,Value}).
+create_priv_dir(Value) ->
+    controller_call({create_priv_dir,Value}).
 
 trc(TraceFile) ->
     controller_call({trace,TraceFile}, 2*?ACCEPT_TIMEOUT).
@@ -815,7 +815,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 			    [SpecName,{State#state.multiply_timetraps,
 				       State#state.scale_timetraps}],
 			    LogDir, Name, State#state.levels,
-			    State#state.unique_priv_dir,
+			    State#state.create_priv_dir,
 			    State#state.testcase_callback, ExtraTools1),
 		    NewJobs = [{Name,Pid}|State#state.jobs],
 		    {reply, ok, State#state{jobs=NewJobs}};
@@ -825,7 +825,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 			    [SpecList,{State#state.multiply_timetraps,
 				       State#state.scale_timetraps}],
 			    LogDir, Name, State#state.levels,
-			    State#state.unique_priv_dir,
+			    State#state.create_priv_dir,
 			    State#state.testcase_callback, ExtraTools1),
 		    NewJobs = [{Name,Pid}|State#state.jobs],
 		    {reply, ok, State#state{jobs=NewJobs}};
@@ -843,7 +843,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 				     {State#state.multiply_timetraps,
 				      State#state.scale_timetraps}],
 				    LogDir, Name, State#state.levels,
-				    State#state.unique_priv_dir,
+				    State#state.create_priv_dir,
 				    State#state.testcase_callback, ExtraTools1),
 			    NewJobs = [{Name,Pid}|State#state.jobs],
 			    {reply, ok, State#state{jobs=NewJobs}}
@@ -1052,16 +1052,16 @@ handle_call({cover,App,Analyse}, _From, State) ->
     {reply,ok,State#state{cover={App,Analyse}}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_call({unique_priv_dir,Value}, _, State) -> ok | {error,Reason}
+%% handle_call({create_priv_dir,Value}, _, State) -> ok | {error,Reason}
 %%
-%% Set unique_priv_dir to either false (create common priv dir once
-%% per test run), manual (the priv dir name will be unique for each test
-%% case, but the user has to call test_server:make_priv_dir/0 to create
-%% it), or auto (unique priv dir created automatically for each test
+%% Set create_priv_dir to either auto_per_run (create common priv dir once
+%% per test run), manual_per_tc (the priv dir name will be unique for each
+%% test case, but the user has to call test_server:make_priv_dir/0 to create
+%% it), or auto_per_tc (unique priv dir created automatically for each test
 %% case).
 
-handle_call({unique_priv_dir,Value}, _From, State) ->
-    {reply,ok,State#state{unique_priv_dir=Value}};
+handle_call({create_priv_dir,Value}, _From, State) ->
+    {reply,ok,State#state{create_priv_dir=Value}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call({testcase_callback,{Mod,Func}}, _, State) -> ok | {error,Reason}
@@ -1340,7 +1340,7 @@ kill_all_jobs([]) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% spawn_tester(Mod, Func, Args, Dir, Name, Levels, UniquePrivDir,
+%% spawn_tester(Mod, Func, Args, Dir, Name, Levels, CreatePrivDir,
 %%              TestCaseCallback, ExtraTools) -> Pid
 %% Mod = atom()
 %% Func = atom()
@@ -1348,7 +1348,7 @@ kill_all_jobs([]) ->
 %% Dir = string()
 %% Name = string()
 %% Levels = {integer(),integer(),integer()}
-%% UniquePrivDir = false | manual | auto
+%% CreatePrivDir = auto_per_run | manual_per_tc | auto_per_tc
 %% TestCaseCallback = {CBMod,CBFunc} | undefined
 %% ExtraTools = [ExtraTool,...]
 %% ExtraTool = CoverInfo | TraceInfo | RandomSeed
@@ -1360,14 +1360,14 @@ kill_all_jobs([]) ->
 %% is printed to the log files.
 
 spawn_tester(Mod, Func, Args, Dir, Name, Levels, 
-	     UniquePrivDir, TCCallback, ExtraTools) ->
+	     CreatePrivDir, TCCallback, ExtraTools) ->
     spawn_link(
       fun() -> init_tester(Mod, Func, Args, Dir, Name, Levels,
-			   UniquePrivDir, TCCallback, ExtraTools)
+			   CreatePrivDir, TCCallback, ExtraTools)
       end).
 
 init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
-	    UniquePrivDir, TCCallback, ExtraTools) ->
+	    CreatePrivDir, TCCallback, ExtraTools) ->
     process_flag(trap_exit, true),
     put(test_server_name, Name),
     put(test_server_dir, Dir),
@@ -1378,7 +1378,7 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
     put(test_server_summary_level, SumLev),
     put(test_server_major_level, MajLev),
     put(test_server_minor_level, MinLev),
-    put(test_server_unique_priv_dir, UniquePrivDir),
+    put(test_server_create_priv_dir, CreatePrivDir),
     put(test_server_random_seed, proplists:get_value(random_seed, ExtraTools)),
     put(test_server_testcase_callback, TCCallback),
     %% before first print, read and set logging options
@@ -2777,8 +2777,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 					  {failed,TcFail}]}]
 	       end,
 
-    case get(test_server_unique_priv_dir) of
-	false ->				% use common priv_dir
+    case get(test_server_create_priv_dir) of
+	auto_per_run ->				% use common priv_dir
 	    TSDirs = [{priv_dir,get(test_server_priv_dir)},
 		      {data_dir,get_data_dir(Mod)}];
 	_ ->
@@ -2946,8 +2946,8 @@ run_test_cases_loop([{conf,_Ref,_Props,_X}=Conf|_Cases0],
 
 run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
     ActualCfg =
-    case get(test_server_unique_priv_dir) of
-	false ->
+    case get(test_server_create_priv_dir) of
+	auto_per_run ->
 	    update_config(hd(Config), [{priv_dir,get(test_server_priv_dir)},
 				       {data_dir,get_data_dir(Mod)}]);
 	_ ->
@@ -3702,8 +3702,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 
     UpdatedArgs =
 	%% maybe create unique private directory for test case or config func
-	case get(test_server_unique_priv_dir) of
-	    false ->
+	case get(test_server_create_priv_dir) of
+	    auto_per_run ->
 		update_config(hd(Args), [{tc_logfile,MinorName}]);
 	    PrivDirMode ->
 		RunDir = filename:dirname(MinorName),
@@ -3717,9 +3717,9 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 			    lists:flatten(io_lib:format(".~w", [Num]))
 		    end,
 		PrivDir = filename:join(RunDir, ?priv_dir) ++ Ext,
-		if PrivDirMode == auto ->
+		if PrivDirMode == auto_per_tc ->
 			ok = file:make_dir(PrivDir);
-		   PrivDirMode == manual ->
+		   PrivDirMode == manual_per_tc ->
 			ok
 		end,
 		update_config(hd(Args), [{priv_dir,PrivDir++"/"},

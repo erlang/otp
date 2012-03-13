@@ -113,12 +113,12 @@ default(Config) ->
     "log_private" = filename:basename(PrivDir),
     {ok,_} = file:list_dir(PrivDir).
 
-unique_auto(Config) ->
+auto_per_tc(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
     {ok,_} = file:list_dir(PrivDir).
 
-unique_manual(Config) ->
+manual_per_tc(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
     {error,_} = file:list_dir(PrivDir),

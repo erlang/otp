@@ -676,9 +676,9 @@ send_html_comment(Comment) ->
 %%%-----------------------------------------------------------------
 %%% @spec make_priv_dir() -> ok | {error,Reason}
 %%%      Reason = term()
-%%% @doc If the test has been started with the unique_priv_dir 
-%%% option set to manual, in order for the test case to use the
-%%% private directory, it must first create it by calling
+%%% @doc If the test has been started with the create_priv_dir 
+%%% option set to manual_per_tc, in order for the test case to use
+%%% the private directory, it must first create it by calling
 %%% this function.
 make_priv_dir() ->
     test_server:make_priv_dir().

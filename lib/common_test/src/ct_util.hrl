@@ -43,7 +43,7 @@
 		   include=[],
 		   multiply_timetraps=[],
 		   scale_timetraps=[],
-		   unique_priv_dir=[],
+		   create_priv_dir=[],
 		   alias=[],
 		   tests=[],
 		   merge_tests=true}).
