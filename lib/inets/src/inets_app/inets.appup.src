@@ -20,6 +20,9 @@
  [
   {"5.8.1", 
    [
+    {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
+    {update,      httpc_manager, soft, soft_purge, soft_purge, []},
+
     {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
     {update,      inets_sup,     soft, soft_purge, soft_purge, []},
 
@@ -35,6 +38,8 @@
   }, 
   {"5.8",
    [
+    {load_module, httpc, soft_purge, soft_purge, [httpc_manager]}, 
+
     {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
     {update,      inets_sup,     soft, soft_purge, soft_purge, []},
 
@@ -63,6 +68,9 @@
  [
   {"5.8.1",
    [
+    {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
+    {update,      httpc_manager, soft, soft_purge, soft_purge, []},
+
     {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
     {update,      inets_sup,     soft, soft_purge, soft_purge, []},
 
@@ -78,6 +86,8 @@
   }, 
   {"5.8",
    [
+    {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
+
     {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
     {update,      inets_sup,     soft, soft_purge, soft_purge, []},
 

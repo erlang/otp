@@ -275,20 +275,6 @@ init_per_testcase(Case, Timeout, Config) ->
     %% inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
 
-    %% <IPv6>
-    % Set default ipfamily to the same as the main server has by default
-    %% This makes the client try w/ ipv6 before falling back to ipv4,
-    %% as that is what the server is configured to do.
-    %% Note that this is required for the tests to run on *BSD w/ ipv6 enabled
-    %% as well as on Windows. The Linux behaviour of allowing ipv4 connects
-    %% to ipv6 sockets is not required or even encouraged.
-
-    httpc:set_options([{ipfamily, inet6fb4}]),
-
-    %% Note that the IPv6 trest case *must* use inet6, 
-    %% so this value will be overwritten (see "ipv6_" below).
-    %% </IPv6>
-
     NewConfig = 
 	case atom_to_list(Case) of
 	    [$s, $s, $l | _] ->
@@ -371,7 +357,8 @@ init_per_testcase(Case, Timeout, Config) ->
 			    inets:start(httpc, 
 					[{profile,  Profile}, 
 					 {data_dir, PrivDir}], stand_alone),
-			httpc:set_options([{ipfamily, inet6}], ProfilePid), 
+			ok = httpc:set_options([{ipfamily, inet6}], 
+					       ProfilePid), 
 			tsp("httpc profile pid: ~p", [ProfilePid]),
 			[{watchdog, Dog}, {profile, ProfilePid}| TmpConfig]
 		catch 
@@ -410,9 +397,31 @@ init_per_testcase(Case, Timeout, Config) ->
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
+    %% <IPv6>
+    %% Set default ipfamily to the same as the main server has by default
+    %% This makes the client try w/ ipv6 before falling back to ipv4,
+    %% as that is what the server is configured to do.
+    %% Note that this is required for the tests to run on *BSD w/ ipv6 enabled
+    %% as well as on Windows. The Linux behaviour of allowing ipv4 connects
+    %% to ipv6 sockets is not required or even encouraged.
+
+    tsp("init_per_testcase -> Options before ipfamily set: ~n~p", 
+	[httpc:get_options(all)]),
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),
+    tsp("init_per_testcase -> Options after ipfamily set: ~n~p", 
+	[httpc:get_options(all)]),
+
+    %% Note that the IPv6 test case(s) *must* use inet6, 
+    %% so this value will be overwritten (see "ipv6_" below).
+    %% </IPv6>
+
     %% This will fail for the ipv6_ - cases (but that is ok)
     ProxyExceptions = ["localhost", ?IPV6_LOCAL_HOST], 
-    httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
+    tsp("init_per_testcase -> Options before proxy set: ~n~p", 
+	[httpc:get_options(all)]),
+    ok = httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
+    tsp("init_per_testcase -> Options after proxy set: ~n~p", 
+	[httpc:get_options(all)]),
     inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp]),
