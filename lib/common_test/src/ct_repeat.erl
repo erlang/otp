@@ -116,7 +116,7 @@ spawn_tester(script,Ctrl,Args) ->
 
 spawn_tester(func,Ctrl,Opts) ->
     Tester = fun() ->
-		     case catch ct_run:run_test1(Opts) of
+		     case catch ct_run:run_test2(Opts) of
 			 {'EXIT',Reason} ->
 			     exit(Reason);
 			 Result ->
