@@ -1,0 +1,66 @@
+module 'seq_in_guard' ['seq_in_guard'/0,
+		       't'/1]
+    attributes []
+'seq_in_guard'/0 =
+    %% Line 4
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_cor0> =
+		  catch
+		      %% Line 5
+		      apply 't'/1
+			  ({})
+	      in  %% Line 5
+		  case _cor0 of
+		    <{'EXIT',{'function_clause',_cor4}}> when 'true' ->
+			let <_cor2> =
+			    catch
+				%% Line 6
+				apply 't'/1
+				    ('atom')
+			in  %% Line 6
+			    case _cor2 of
+			      <{'EXIT',{'function_clause',_cor5}}> when 'true' ->
+				  %% Line 7
+				  apply 't'/1
+				      ({'a','b'})
+			      ( <_cor3> when 'true' ->
+				    primop 'match_fail'
+					({'badmatch',_cor3})
+				-| ['compiler_generated'] )
+			    end
+		    ( <_cor1> when 'true' ->
+			  primop 'match_fail'
+			      ({'badmatch',_cor1})
+		      -| ['compiler_generated'] )
+		  end
+	  ( <> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause'})
+		  -| [{'function_name',{'seq_in_guard',0}}] )
+	    -| ['compiler_generated'] )
+	end
+'t'/1 =
+    %% Line 9
+    fun (_cor0) ->
+	case _cor0 of
+	  <X>
+	      when try
+		    do
+			call 'erlang':'element'
+			    (2, X)
+			'true'
+		of <Try> ->
+		    Try
+		catch <T,R> ->
+		    'false' ->
+	      %% Line 10
+	      'ok'
+	  ( <_cor3> when 'true' ->
+		( primop 'match_fail'
+		      ({'function_clause',_cor3})
+		  -| [{'function_name',{'t',1}}] )
+	    -| ['compiler_generated'] )
+	end
+end

@@ -21,7 +21,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
-	 eq/1,nested_call_in_case/1,coverage/1]).
+	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -32,7 +32,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     test_lib:recompile(?MODULE),
     [t_element, setelement, t_length, append, t_apply, bifs,
-     eq, nested_call_in_case, coverage].
+     eq, nested_call_in_case, guard_try_catch, coverage].
 
 groups() -> 
     [].
@@ -206,6 +206,23 @@ nested_call_in_case(Config) when is_list(Config) ->
     ?line no = Mod:a([1,2,3], 4),
     ?line {'EXIT',_} = (catch Mod:a(not_a_list, 42)),
     ok.
+
+guard_try_catch(_Config) ->
+    false = do_guard_try_catch(key, value),
+    value = get(key),
+    ok.
+
+do_guard_try_catch(K, V) ->
+    %% This try...catch block looks like a guard.
+    %% Make sure that it is not optimized like a guard
+    %% (the put/2 call must not be optimized away).
+    try
+	put(K, V),
+	false
+    catch
+	_:_ ->
+	    false
+    end.
 
 coverage(Config) when is_list(Config) ->
     ?line {'EXIT',{{case_clause,{a,b,c}},_}} =

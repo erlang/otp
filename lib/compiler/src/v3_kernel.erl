@@ -88,8 +88,6 @@
 -include("core_parse.hrl").
 -include("v3_kernel.hrl").
 
--define(EXPENSIVE_BINARY_LIMIT, 256).
-
 %% These are not defined in v3_kernel.hrl.
 get_kanno(Kthing) -> element(2, Kthing).
 set_kanno(Kthing, Anno) -> setelement(2, Kthing, Anno).
@@ -120,7 +118,6 @@ copy_anno(Kdst, Ksrc) ->
 	       funs=[],				%Fun functions
 	       free=[],				%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
-	       lit,			        %Constant pool for literals.
 	       guard_refc=0}).			%> 0 means in guard
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -129,7 +126,7 @@ copy_anno(Kdst, Ksrc) ->
 module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
     Kas = attributes(As),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    St0 = #kern{lit=dict:new()},
+    St0 = #kern{},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
 		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
@@ -250,26 +247,20 @@ expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
     expr(Fun, Sub, St);
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
-expr(#c_literal{}=Lit, Sub, St) ->
-    Core = handle_literal(Lit),
-    expr(Core, Sub, St);
-expr(#k_literal{val=Val0}=Klit, _Sub, #kern{lit=Literals0}=St) ->
-    %% Share identical literals to save some space and time during compilation.
-    case dict:find(Val0, Literals0) of
-	{ok,Val} ->
-	    {Klit#k_literal{val=Val},[],St};
-	error ->
-	    Literals = dict:store(Val0, Val0, Literals0),
-	    {Klit,[],St#kern{lit=Literals}}
-    end;
-expr(#k_nil{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_int{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_float{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_atom{}=V, _Sub, St) ->
-    {V,[],St};
+expr(#c_literal{anno=A,val=V}, _Sub, St) ->
+    Klit = case V of
+	       [] ->
+		   #k_nil{anno=A};
+	       V when is_integer(V) ->
+		   #k_int{anno=A,val=V};
+	       V when is_float(V) ->
+		   #k_float{anno=A,val=V};
+	       V when is_atom(V) ->
+		   #k_atom{anno=A,val=V};
+	       _ ->
+		   #k_literal{anno=A,val=V}
+	   end,
+    {Klit,[],St};
 expr(#c_cons{anno=A,hd=Ch,tl=Ct}, Sub, St0) ->
     %% Do cons in two steps, first the expressions left to right, then
     %% any remaining literals right to left.
@@ -610,7 +601,6 @@ is_atomic(#k_int{}) -> true;
 is_atomic(#k_float{}) -> true;
 is_atomic(#k_atom{}) -> true;
 %%is_atomic(#k_char{}) -> true;			%No characters
-%%is_atomic(#k_string{}) -> true;
 is_atomic(#k_nil{}) -> true;
 is_atomic(#k_var{}) -> true;
 is_atomic(_) -> false.
@@ -919,9 +909,8 @@ match_guard_1([#iclause{anno=A,osub=Osub,guard=G,body=B}|Cs0], Def0, St0) ->
 	true ->
 	    %% The true clause body becomes the default.
 	    {Kb,Pb,St1} = body(B, Osub, St0),
-	    Line = get_line(A),
-	    St2 = maybe_add_warning(Cs0, Line, St1),
-	    St = maybe_add_warning(Def0, Line, St2),
+	    St2 = maybe_add_warning(Cs0, A, St1),
+	    St = maybe_add_warning(Def0, A, St2),
 	    {[],pre_seq(Pb, Kb),St};
 	false ->
 	    {Kg,St1} = guard(G, Osub, St0),
@@ -932,15 +921,18 @@ match_guard_1([#iclause{anno=A,osub=Osub,guard=G,body=B}|Cs0], Def0, St0) ->
     end;
 match_guard_1([], Def, St) -> {[],Def,St}. 
 
-maybe_add_warning([C|_], Line, St) ->
-    maybe_add_warning(C, Line, St);
-maybe_add_warning([], _Line, St) -> St;
-maybe_add_warning(fail, _Line, St) -> St;
-maybe_add_warning(Ke, MatchLine, St) ->
-    case get_kanno(Ke) of
-	[compiler_generated|_] -> St;
-	Anno ->
+maybe_add_warning([C|_], MatchAnno, St) ->
+    maybe_add_warning(C, MatchAnno, St);
+maybe_add_warning([], _MatchAnno, St) -> St;
+maybe_add_warning(fail, _MatchAnno, St) -> St;
+maybe_add_warning(Ke, MatchAnno, St) ->
+    case is_compiler_generated(Ke) of
+	true ->
+	    St;
+	false ->
+	    Anno = get_kanno(Ke),
 	    Line = get_line(Anno),
+	    MatchLine = get_line(MatchAnno),
 	    Warn = case MatchLine of
 		       none -> nomatch_shadow;
 		       _ -> {nomatch_shadow,MatchLine}
@@ -1122,7 +1114,6 @@ select_bin_int([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
     end,
     select_assert_match_possible(Bits, Val, Fl),
     P = #k_bin_int{anno=A,size=Sz,unit=U,flags=Fl,val=Val,next=N},
-    select_assert_match_possible(Bits, Val, Fl),
     case member(native, Fl) of
 	true -> throw(not_possible);
 	false -> ok
@@ -1264,8 +1255,6 @@ match_clause([U|Us], [C|_]=Cs0, Def, St0) ->
 
 sub_size_var(#k_bin_seg{size=#k_var{name=Name}=Kvar}=BinSeg, [#iclause{isub=Sub}|_]) ->
     BinSeg#k_bin_seg{size=Kvar#k_var{name=get_vsub(Name, Sub)}};
-sub_size_var(#k_bin_int{size=#k_var{name=Name}=Kvar}=BinSeg, [#iclause{isub=Sub}|_]) ->
-    BinSeg#k_bin_int{size=Kvar#k_var{name=get_vsub(Name, Sub)}};
 sub_size_var(K, _) -> K.
 
 get_con([C|_]) -> arg_arg(clause_arg(C)).	%Get the constructor
@@ -1383,7 +1372,6 @@ arg_con(Arg) ->
 	#k_tuple{} -> k_tuple;
 	#k_binary{} -> k_binary;
 	#k_bin_end{} -> k_bin_end;
-	#k_bin_int{} -> k_bin_int;
 	#k_bin_seg{} -> k_bin_seg;
 	#k_var{} -> k_var
     end.
@@ -1394,15 +1382,9 @@ arg_val(Arg) ->
 	#k_int{val=I} -> I;
 	#k_float{val=F} -> F;
 	#k_atom{val=A} -> A;
-	#k_nil{} -> 0;
-	#k_cons{} -> 2; 
 	#k_tuple{es=Es} -> length(Es);
 	#k_bin_seg{size=S,unit=U,type=T,flags=Fs} ->
-	    {set_kanno(S, []),U,T,Fs};
-	#k_bin_int{} ->
-	    0;
-	#k_bin_end{} -> 0;
-	#k_binary{} -> 0
+	    {set_kanno(S, []),U,T,Fs}
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]
@@ -1432,14 +1414,12 @@ ubody(#ivalues{anno=A,args=As}, return, St) ->
     {#k_return{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
-    if St#kern.guard_refc > 0 ->
+    case is_in_guard(St) of
+	true ->
 	    {#k_guard_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
-       true ->
+	false ->
 	    {#k_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St}
     end;
-ubody(#ivalues{anno=A,args=As}, {guard_break,_Vbs}, St) ->
-    Au = lit_list_vars(As),
-    {#k_guard_break{anno=#k{us=Au,ns=[],a=A},args=As},Au,St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
@@ -1456,12 +1436,7 @@ ubody(E, {break,_Rs} = Break, St0) ->
 	false ->
 	    {Ea,Pa,St1} = force_atomic(E, St0),
 	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), Break, St1)
-    end;
-ubody(E, {guard_break,_Rs} = GuardBreak, St0) ->
-    %%ok = io:fwrite("ubody ~w:~p~n", [?LINE,{E,Br}]),
-    %% Exiting expressions need no trailing break.
-    {Ea,Pa,St1} = force_atomic(E, St0),
-    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), GuardBreak, St1).
+    end.
 
 iletrec_funs(#iletrec{defs=Fs}, St0) ->
     %% Use union of all free variables.
@@ -1513,64 +1488,21 @@ is_enter_expr(#k_receive{}) -> true;
 is_enter_expr(#k_receive_next{}) -> true;
 is_enter_expr(_) -> false.
 
-%% uguard(Expr, State) -> {Expr,[UsedVar],State}.
-%%  Tag the guard sequence with its used variables.
-
-uguard(#k_try{anno=A,arg=B0,vars=[#k_var{name=X}],body=#k_var{name=X},
-	      handler=#k_atom{val=false}}=Try, St0) ->
-    {B1,Bu,St1} = uguard(B0, St0),
-    {Try#k_try{anno=#k{us=Bu,ns=[],a=A},arg=B1},Bu,St1};
-uguard(T, St) ->
-    %%ok = io:fwrite("~w: ~p~n", [?LINE,T]),
-    uguard_test(T, St).
-
-%% uguard_test(Expr, State) -> {Test,[UsedVar],State}.
-%%  At this stage tests are just expressions which don't return any
-%%  values.
-
-uguard_test(T, St) -> uguard_expr(T, [], St).
-
-uguard_expr(#iset{anno=A,vars=Vs,arg=E0,body=B0}, Rs, St0) ->
-    Ns = lit_list_vars(Vs),
-    {E1,Eu,St1} = uguard_expr(E0, Vs, St0),
-    {B1,Bu,St2} = uguard_expr(B0, Rs, St1),
-    Used = union(Eu, subtract(Bu, Ns)),
-    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
-uguard_expr(#k_try{anno=A,arg=B0,vars=[#k_var{name=X}],body=#k_var{name=X},
-		   handler=#k_atom{val=false}}=Try, Rs, St0) ->
-    {B1,Bu,St1} = uguard_expr(B0, Rs, St0),
-    {Try#k_try{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},arg=B1,ret=Rs},
-     Bu,St1};
-uguard_expr(#k_test{anno=A,op=Op,args=As}=Test, Rs, St) ->
-    [] = Rs,					%Sanity check
-    Used = union(op_vars(Op), lit_list_vars(As)),
-    {Test#k_test{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A}},
-     Used,St};
-uguard_expr(#k_bif{anno=A,op=Op,args=As}=Bif, Rs, St) ->
-    Used = union(op_vars(Op), lit_list_vars(As)),
-    {Bif#k_bif{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A},ret=Rs},
-     Used,St};
-uguard_expr(#ivalues{anno=A,args=As}, Rs, St) ->
-    Sets = foldr2(fun (V, Arg, Rhs) ->
-			  #iset{anno=A,vars=[V],arg=Arg,body=Rhs}
-		  end, #k_atom{val=true}, Rs, As),
-    uguard_expr(Sets, [], St);
-uguard_expr(#k_match{anno=A,vars=Vs,body=B0}, Rs, St0) ->
-    %% Experimental support for andalso/orelse in guards.
-    Br = {guard_break,Rs},
-    {B1,Bu,St1} = umatch(B0, Br, St0),
-    {#k_guard_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
-		    vars=Vs,body=B1,ret=Rs},Bu,St1};
-uguard_expr(Lit, Rs, St) ->
-    %% Transform literals to puts here.
-    Used = lit_vars(Lit),
-    {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
-	    arg=Lit,ret=Rs},Used,St}.
-
 %% uexpr(Expr, Break, State) -> {Expr,[UsedVar],State}.
 %%  Tag an expression with its used variables.
 %%  Break = return | {break,[RetVar]}.
 
+uexpr(#k_test{anno=A,op=Op,args=As}=Test, {break,Rs}, St) ->
+    [] = Rs,					%Sanity check
+    Used = union(op_vars(Op), lit_list_vars(As)),
+    {Test#k_test{anno=#k{us=Used,ns=lit_list_vars(Rs),a=A}},
+     Used,St};
+uexpr(#iset{anno=A,vars=Vs,arg=E0,body=B0}, {break,_}=Br, St0) ->
+    Ns = lit_list_vars(Vs),
+    {E1,Eu,St1} = uexpr(E0, {break,Vs}, St0),
+    {B1,Bu,St2} = uexpr(B0, Br, St1),
+    Used = union(Eu, subtract(Bu, Ns)),
+    {#k_seq{anno=#k{us=Used,ns=Ns,a=A},arg=E1,body=B1},Used,St2};
 uexpr(#k_call{anno=A,op=#k_local{name=F,arity=Ar}=Op,args=As0}=Call, Br, St) ->
     Free = get_free(F, Ar, St),
     As1 = As0 ++ Free,				%Add free variables LAST!
@@ -1602,10 +1534,11 @@ uexpr(#k_match{anno=A,vars=Vs0,body=B0}, Br, St0) ->
     Vs = handle_reuse_annos(Vs0, St0),
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
-    if St0#kern.guard_refc > 0 ->
+    case is_in_guard(St1) of
+	true ->
 	    {#k_guard_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
 			    vars=Vs,body=B1,ret=Rs},Bu,St1};
-       true ->
+	false ->
 	    {#k_match{anno=#k{us=Bu,ns=lit_list_vars(Rs),a=A},
 		      vars=Vs,body=B1,ret=Rs},Bu,St1}
     end;
@@ -1622,24 +1555,27 @@ uexpr(#k_receive_accept{anno=A}, _, St) ->
     {#k_receive_accept{anno=#k{us=[],ns=[],a=A}},[],St};
 uexpr(#k_receive_next{anno=A}, _, St) ->
     {#k_receive_next{anno=#k{us=[],ns=[],a=A}},[],St};
-uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
-      {break,Rs0}, St0) ->
-    {Avs,St1} = new_vars(length(Vs), St0),	%Need dummy names here
-    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),	%Must break to clean up here!
-    {B1,Bu,St3} = ubody(B0, {break,Rs0}, St2),
-    {H1,Hu,St4} = ubody(H0, {break,Rs0}, St3),
-    %% Guarantee ONE return variable.
-    NumNew = if
-		 Rs0 =:= [] -> 1;
-		 true -> 0
-	     end,
-    {Ns,St5} = new_vars(NumNew, St4),
-    Rs1 = Rs0 ++ Ns,
-    Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
-		  subtract(Hu, lit_list_vars(Evs))]),
-    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs1),a=A},
-	    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs1},
-     Used,St5};
+uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0}=Try,
+      {break,Rs0}=Br, St0) ->
+    case is_in_guard(St0) of
+	true ->
+	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
+	    #k_atom{val=false} = H0,		%Assertion.
+	    {A1,Bu,St1} = uexpr(A0, Br, St0),
+	    {Try#k_try{anno=#k{us=Bu,ns=lit_list_vars(Rs0),a=A},
+		       arg=A1,ret=Rs0},Bu,St1};
+	false ->
+	    {Avs,St1} = new_vars(length(Vs), St0),
+	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
+	    {B1,Bu,St3} = ubody(B0, Br, St2),
+	    {H1,Hu,St4} = ubody(H0, Br, St3),
+	    {Rs1,St5} = ensure_return_vars(Rs0, St4),
+	    Used = union([Au,subtract(Bu, lit_list_vars(Vs)),
+			  subtract(Hu, lit_list_vars(Evs))]),
+	    {#k_try{anno=#k{us=Used,ns=lit_list_vars(Rs1),a=A},
+		    arg=A1,vars=Vs,body=B1,evars=Evs,handler=H1,ret=Rs1},
+	     Used,St5}
+    end;
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       return, St0) ->
     {Avs,St1} = new_vars(length(Vs), St0),	%Need dummy names here
@@ -1685,12 +1621,13 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
  		  #k_int{val=Index},#k_int{val=Uniq}|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
-uexpr(Lit, {break,Rs}, St) ->
+uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),
     Used = lit_vars(Lit),
+    {Rs,St1} = ensure_return_vars(Rs0, St0),
     {#k_put{anno=#k{us=Used,ns=lit_list_vars(Rs),a=get_kanno(Lit)},
-	    arg=Lit,ret=Rs},Used,St}.
+	    arg=Lit,ret=Rs},Used,St1}.
 
 add_local_function(_, #kern{funs=ignore}=St) -> St;
 add_local_function(F, #kern{funs=Funs}=St) -> St#kern{funs=[F|Funs]}.
@@ -1747,6 +1684,11 @@ bif_returns(#k_internal{name=N,arity=Ar}, Rs, St0) ->
     {Ns,St1} = new_vars(bif_vals(N, Ar) - length(Rs), St0),
     {Rs ++ Ns,St1}.
 
+%% ensure_return_vars([Ret], State) -> {[Ret],State}.
+
+ensure_return_vars([], St) -> new_vars(1, St);
+ensure_return_vars([_]=Rs, St) -> {Rs,St}.
+
 %% umatch(Match, Break, State) -> {Match,[UsedVar],State}.
 %%  Tag a match expression with its used variables.
 
@@ -1779,7 +1721,8 @@ umatch(#k_guard{anno=A,clauses=Gs0}, Br, St0) ->
     {#k_guard{anno=#k{us=Gus,ns=[],a=A},clauses=Gs1},Gus,St1};
 umatch(#k_guard_clause{anno=A,guard=G0,body=B0}, Br, St0) ->
     %%ok = io:fwrite("~w: ~p~n", [?LINE,G0]),
-    {G1,Gu,St1} = uguard(G0, St0#kern{guard_refc=St0#kern.guard_refc+1}),
+    {G1,Gu,St1} = uexpr(G0, {break,[]},
+			St0#kern{guard_refc=St0#kern.guard_refc+1}),
     %%ok = io:fwrite("~w: ~p~n", [?LINE,G1]),
     {B1,Bu,St2} = umatch(B0, Br, St1#kern{guard_refc=St1#kern.guard_refc-1}),
     Used = union(Gu, Bu),
@@ -1827,7 +1770,6 @@ lit_list_vars(Ps) ->
 
 pat_vars(#k_var{name=N}) -> {[],[N]};
 %%pat_vars(#k_char{}) -> {[],[]};
-%%pat_vars(#k_string{}) -> {[],[]};
 pat_vars(#k_literal{}) -> {[],[]};
 pat_vars(#k_int{}) -> {[],[]};
 pat_vars(#k_float{}) -> {[],[]};
@@ -1854,34 +1796,6 @@ pat_list_vars(Ps) ->
 		  {union(Used0, Used),union(New0, New)} end,
 	  {[],[]}, Ps).
 
-%% handle_literal(Literal, Anno) -> Kernel
-%%  Examine the literal. Complex (heap-based) literals such as lists,
-%%  tuples, and binaries should be kept as literals and put into the constant pool.
-%%
-%%  (If necessary, this function could be extended to go through the literal
-%%  and convert huge binary literals to bit syntax expressions. We don't do that
-%%  because v3_core does not produce huge binary literals, and the optimizations in
-%%  sys_core_fold don't do much optimizations of binaries. IF THAT CHANGE IS MADE,
-%%  ALSO CHANGE sys_core_dsetel.)
-
-handle_literal(#c_literal{anno=A,val=V}) ->
-    case V of
-	[_|_] ->
-	    #k_literal{anno=A,val=V};
-	[] ->
-	    #k_nil{anno=A};
-	V when is_tuple(V) ->
-	    #k_literal{anno=A,val=V};
-	V when is_bitstring(V) ->
-	    #k_literal{anno=A,val=V};
-	V when is_integer(V) ->
-	    #k_int{anno=A,val=V};
-	V when is_float(V) ->
-	    #k_float{anno=A,val=V};
-	V when is_atom(V) ->
-	    #k_atom{anno=A,val=V}
-    end.
-
 make_list(Es) ->
     foldr(fun(E, Acc) ->
  		  #c_cons{hd=E,tl=Acc}
@@ -1892,6 +1806,11 @@ make_list(Es) ->
 integers(N, M) when N =< M ->
     [N|integers(N + 1, M)];
 integers(_, _) -> [].
+
+%% is_in_guard(State) -> true|false.
+
+is_in_guard(#kern{guard_refc=Refc}) ->
+    Refc > 0.
 
 %%%
 %%% Handling of errors and warnings.
@@ -1913,7 +1832,10 @@ format_error(bad_call) ->
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
     St#kern{ws=[{File,[{?MODULE,Term}]}|Ws]};
-add_warning(Line, Term, Anno, #kern{ws=Ws}=St) when Line >= 0 ->
+add_warning(Line, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
-    St#kern{ws=[{File,[{Line,?MODULE,Term}]}|Ws]};
-add_warning(_, _, _, St) -> St.
+    St#kern{ws=[{File,[{Line,?MODULE,Term}]}|Ws]}.
+
+is_compiler_generated(Ke) ->
+    Anno = get_kanno(Ke),
+    member(compiler_generated, Anno).

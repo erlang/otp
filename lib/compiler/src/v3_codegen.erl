@@ -1423,20 +1423,7 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 	      Other ->
 		  [{move,Other,Ret}]
 	  end,
-    {Ais,clear_dead(Int, Le#l.i, Vdb),St};
-set_cg([], {binary,Segs}, Le, Vdb, Bef, St) ->
-    Fail = {f,St#cg.bfail},
-    Target = find_scratch_reg(Bef#sr.reg),
-    Temp = find_scratch_reg(put_reg(Target, Bef#sr.reg)),
-    PutCode = cg_bin_put(Segs, Fail, Bef),
-    MaxRegs = max_reg(Bef#sr.reg),
-    Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
-    Aft = clear_dead(Bef, Le#l.i, Vdb),
-    {Code,Aft,St};
-set_cg([], _, Le, Vdb, Bef, St) ->
-    %% This should have been stripped by compiler, just cleanup.
-    {[],clear_dead(Bef, Le#l.i, Vdb), St}.
-
+    {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
 
 %%%
 %%% Code generation for constructing binaries.
@@ -2067,7 +2054,7 @@ line_1(_, 0) ->
     %% Missing line number or line number 0.
     {line,[]};
 line_1(Name, Line) ->
-    {line,[{location,Name,abs(Line)}]}.
+    {line,[{location,Name,Line}]}.
 
 find_loc([Line|T], File, _) when is_integer(Line) ->
     find_loc(T, File, Line);

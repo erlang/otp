@@ -150,14 +150,26 @@ guard(Expr, Sub) ->
 opt_guard_try(#c_seq{arg=Arg,body=Body0}=Seq) ->
     Body = opt_guard_try(Body0),
     case {Arg,Body} of
-	{#c_call{},#c_literal{val=false}} ->
-	    %% We have sequence consisting of a call (evaluted
-	    %% for a possible exception only), followed by 'false'.
-	    %% Since the sequence is inside a try block that will
+	{#c_call{module=#c_literal{val=Mod},
+		 name=#c_literal{val=Name},
+		 args=Args},#c_literal{val=false}} ->
+	    %% We have sequence consisting of a call (evaluated
+	    %% for a possible exception and/or side effect only),
+	    %% followed by 'false'.
+	    %%   Since the sequence is inside a try block that will
 	    %% default to 'false' if any exception occurs, not
 	    %% evalutating the call will not change the behaviour
-	    %% of the guard.
-	    Body;
+	    %% provided that the call has no side effects.
+	    case erl_bifs:is_pure(Mod, Name, length(Args)) of
+		false ->
+		    %% Not a pure BIF (meaning that this is not
+		    %% a guard and that we must keep the call).
+		    Seq#c_seq{body=Body};
+		true ->
+		    %% The BIF has no side effects, so it can
+		    %% be safely removed.
+		    Body
+	    end;
 	{_,_} ->
 	    Seq#c_seq{body=Body}
     end;
@@ -1747,35 +1759,25 @@ opt_bool_clauses([_|_], _, _) ->
 %%     end.			       NewVar ->
 %%                                        erlang:error(badarg)
 %%                                  end.
-%%
-%%  We add the extra match-all clause at the end only if Expr is
-%%  not guaranteed to evaluate to a boolean.
 
 opt_bool_not(#c_case{arg=Arg,clauses=Cs0}=Case0) ->
     case Arg of
 	#c_call{anno=Anno,module=#c_literal{val=erlang},
  		name=#c_literal{val='not'},
  		args=[Expr]} ->
-	    Cs = opt_bool_not(Anno, Expr, Cs0),
+	    Cs = [opt_bool_not_invert(C) || C <- Cs0] ++
+		 [#c_clause{anno=[compiler_generated],
+			    pats=[#c_var{name=cor_variable}],
+			    guard=#c_literal{val=true},
+			    body=#c_call{anno=Anno,
+					 module=#c_literal{val=erlang},
+					 name=#c_literal{val=error},
+					 args=[#c_literal{val=badarg}]}}],
 	    Case = Case0#c_case{arg=Expr,clauses=Cs},
 	    opt_bool_not(Case);
 	_ ->
 	    opt_bool_case_redundant(Case0)
     end.
-
-opt_bool_not(Anno, Expr, Cs) ->
-    Tail = case is_bool_expr(Expr) of
-	       false ->
-		   [#c_clause{anno=[compiler_generated],
-			      pats=[#c_var{name=cor_variable}],
-			      guard=#c_literal{val=true},
-			      body=#c_call{anno=Anno,
-					   module=#c_literal{val=erlang},
-					   name=#c_literal{val=error},
-					   args=[#c_literal{val=badarg}]}}];
-	       true -> []
-	   end,
-    [opt_bool_not_invert(C) || C <- Cs] ++ Tail.
 
 opt_bool_not_invert(#c_clause{pats=[#c_literal{val=Bool}]}=C) ->
     C#c_clause{pats=[#c_literal{val=not Bool}]}.
@@ -2065,32 +2067,7 @@ opt_case_in_let_2(V, Arg0,
 		   (_) -> false end, Es),	%Only variables in tuple
     false = core_lib:is_var_used(V, B),		%Built tuple must not be used.
     Arg1 = tuple_to_values(Arg0, length(Es)),	%Might fail.
-    #c_let{vars=Es,arg=Arg1,body=B};
-opt_case_in_let_2(_, Arg, Cs) ->
-    %% simplify_bool_case(Case0) -> Case
-    %%  Remove unecessary cases like
-    %%
-    %%     case BoolExpr of
-    %%       true -> true;
-    %%       false -> false;
-    %%       ....
-    %%     end
-    %%
-    %%  where BoolExpr is an expression that can only return true
-    %%  or false (or throw an exception).
-
-    true = is_bool_case(Cs) andalso is_bool_expr(Arg),
-    Arg.
-
-is_bool_case([A,B|_]) ->
-    (is_bool_clause(true, A) andalso is_bool_clause(false, B))
-	orelse (is_bool_clause(false, A) andalso is_bool_clause(true, B)).
-
-is_bool_clause(Bool, #c_clause{pats=[#c_literal{val=Bool}],
-			       guard=#c_literal{val=true},
-			       body=#c_literal{val=Bool}}) ->
-    true;
-is_bool_clause(_, _) -> false.
+    #c_let{vars=Es,arg=Arg1,body=B}.
 
 %% is_simple_case_arg(Expr) -> true|false
 %%  Determine whether the Expr is simple enough to be worth
@@ -2612,14 +2589,14 @@ bsm_maybe_ctx_to_binary(V, B) ->
 		   body=B}
     end.
 
-previous_ctx_to_binary(V, #c_seq{arg=#c_primop{name=Name,args=As}}) ->
-    case {Name,As} of
-	{#c_literal{val=bs_context_to_binary},[#c_var{name=V}]} ->
+previous_ctx_to_binary(V, Core) ->
+    case Core of
+	#c_seq{arg=#c_primop{name=#c_literal{val=bs_context_to_binary},
+			     args=[#c_var{name=V}]}} ->
 	    true;
-	{_,_} ->
+	_ ->
 	    false
-    end;
-previous_ctx_to_binary(_, _) -> false.
+    end.
 
 %% bsm_leftmost(Cs) -> none | ArgumentNumber
 %%  Find the leftmost argument that does binary matching. Return
@@ -2764,22 +2741,20 @@ add_bin_opt_info(Core, Term) ->
     end.
 
 add_warning(Core, Term) ->
-    Anno = core_lib:get_anno(Core),
-    case lists:member(compiler_generated, Anno) of
-	true -> ok;
+    case is_compiler_generated(Core) of
+	true ->
+	    ok;
 	false ->
-	    case get_line(Anno) of
-		Line when Line >= 0 ->		%Must be positive.
-                    File = get_file(Anno),
-		    Key = {?MODULE,warnings},
-		    case get(Key) of
-			[{File,[{Line,?MODULE,Term}]}|_] ->
-			    ok;			%We already have 
+	    Anno = core_lib:get_anno(Core),
+	    Line = get_line(Anno),
+	    File = get_file(Anno),
+	    Key = {?MODULE,warnings},
+	    case get(Key) of
+		[{File,[{Line,?MODULE,Term}]}|_] ->
+		    ok;				%We already have
 						%an identical warning.
-			Ws ->
-			    put(Key, [{File,[{Line,?MODULE,Term}]}|Ws])
-		    end;
-		_ -> ok				%Compiler-generated code.
+		Ws ->
+		    put(Key, [{File,[{Line,?MODULE,Term}]}|Ws])
 	    end
     end.
 
@@ -2793,14 +2768,7 @@ get_file([]) -> "no_file". % should not happen
 
 is_compiler_generated(Core) ->
     Anno = core_lib:get_anno(Core),
-    case lists:member(compiler_generated, Anno) of
-	true -> true;
-	false ->
-	    case get_line(Anno) of
-		Line when Line >= 0 -> false;
-		_ -> true
-	    end
-    end.
+    member(compiler_generated, Anno).
 
 get_warnings() ->
     ordsets:from_list((erase({?MODULE,warnings}))).

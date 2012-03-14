@@ -2085,7 +2085,12 @@ bitstr_vars(Segs, Vs) ->
 
 lineno_anno(L, St) ->
     {line, Line} = erl_parse:get_attribute(L, line),
-    [Line] ++ St#core.file.
+    if
+	Line < 0 ->
+	    [-Line] ++ St#core.file ++ [compiler_generated];
+	true ->
+	    [Line] ++ St#core.file
+    end.
 
 get_ianno(Ce) ->
     case get_anno(Ce) of
