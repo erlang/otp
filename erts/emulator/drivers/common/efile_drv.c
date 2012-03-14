@@ -1777,20 +1777,16 @@ static void invoke_sendfile(void *data)
 
     d->c.sendfile.written += nbytes;
 
-    if (result == 1) {
-	if (USE_THRDS_FOR_SENDFILE) {
-	    d->result_ok = 0;
-	} else if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
-	    d->result_ok = 1;
-	} else if ((d->c.sendfile.nbytes - nbytes) != 0) {
-	    d->result_ok = 1;
-	    d->c.sendfile.nbytes -= nbytes;
-	} else {
-	    d->result_ok = 0;
-	}
+ if (result == 1 || (result == 0 && USE_THRDS_FOR_SENDFILE)) {
+      d->result_ok = 0;
     } else if (result == 0 && (d->errInfo.posix_errno == EAGAIN
 				 || d->errInfo.posix_errno == EINTR)) {
+      if ((d->c.sendfile.nbytes - nbytes) != 0) {
 	d->result_ok = 1;
+	if (d->c.sendfile.nbytes != 0)
+	  d->c.sendfile.nbytes -= nbytes;
+      } else
+	d->result_ok = 0;
     } else {
 	d->result_ok = -1;
     }
