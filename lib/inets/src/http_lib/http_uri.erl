@@ -72,12 +72,15 @@ parse_scheme(AbsURI) ->
 	{error, no_scheme} ->
 	    {error, no_scheme};
 	{StrScheme, Rest} ->
-	    case list_to_atom(http_util:to_lower(StrScheme)) of
-		Scheme when (Scheme =:= http) orelse (Scheme =:= https) ->
-		    {Scheme, Rest};
-		Scheme ->
-		    {error, {not_supported_scheme, Scheme}}
-	    end
+	    %% case list_to_atom(http_util:to_lower(StrScheme)) of
+	    %% 	Scheme when (Scheme =:= http) orelse (Scheme =:= https) ->
+	    %% 	    {Scheme, Rest};
+	    %% 	Scheme ->
+	    %% 	    {error, {not_supported_scheme, Scheme}}
+	    %% end
+
+	    %% Allow all schemes even if they are unknown
+	    {list_to_atom(http_util:to_lower(StrScheme)), Rest}
     end.
 
 parse_uri_rest(Scheme, "//" ++ URIPart, Opts) ->
@@ -133,10 +136,21 @@ maybe_ipv6_host_with_brackets(Host, Opts) ->
 	    Host
     end.
 
-default_port(http) ->
+default_port(http) -> 
     80;
-default_port(https) ->
-    443.
+default_port(https) -> 
+    443;
+
+%%% Added some additional default ports
+%%% Other protocols would have to be handled by the calling function
+default_port(ftp) -> 21;
+default_port(ssh) -> 22;
+default_port(sftp) -> 22;
+default_port(tftp) -> 69;
+
+default_port(_) ->
+    undefined.
+
 
 int_port(Port) when is_integer(Port) ->
     Port;
