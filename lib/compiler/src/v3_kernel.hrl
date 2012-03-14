@@ -35,7 +35,6 @@
 -record(k_int, {anno=[],val}).
 -record(k_float, {anno=[],val}).
 -record(k_atom, {anno=[],val}).
--record(k_string, {anno=[],val}).
 -record(k_nil, {anno=[]}).
 
 -record(k_tuple, {anno=[],es}).
