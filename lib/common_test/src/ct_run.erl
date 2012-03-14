@@ -1413,7 +1413,8 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 	    %% which framework it runs under.
 	    case os:getenv("TEST_SERVER_FRAMEWORK") of
 		false ->
-		    os:putenv("TEST_SERVER_FRAMEWORK", "ct_framework");
+		    os:putenv("TEST_SERVER_FRAMEWORK", "ct_framework"),
+		    os:putenv("TEST_SERVER_FRAMEWORK_NAME", "common_test");
 		"ct_framework" ->
 		    ok;
 		Other ->

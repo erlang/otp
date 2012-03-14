@@ -29,7 +29,8 @@
 
 -export([get_logopts/0, format_comment/1, get_html_wrapper/3]).
 
--export([error_in_suite/1, ct_init_per_group/2, ct_end_per_group/2]).
+-export([error_in_suite/1, init_per_suite/1, end_per_suite/1,
+	 ct_init_per_group/2, ct_end_per_group/2]).
 
 -export([make_all_conf/3, make_conf/5]).
 
@@ -69,14 +70,16 @@ init_tc(Mod,Func,Config) ->
 	case ct_util:get_testdata(curr_tc) of
 	    {Suite,{suite0_failed,_}=Failure} ->
 		{Failure,false};
-	    {?MODULE,_} ->		    % should not really happen
-		{false,false};
-	    {Suite,_} ->	            % Func is not 1st case in suite
-		{false,false};
-	    _ when Func == init_per_suite ->	% defaults will be added anyway
-		{false,false};
-	    _ ->				% first case in suite
-		{false,true}
+	    {?MODULE,_} when Func == init_per_suite ->
+		{false,true};			% no init_per_suite in Mod
+	    {?MODULE,_} ->		        
+		{false,false};	                % should not really happen
+	    {Suite,_} ->
+		{false,false};	                % Func is not 1st case in suite
+	    _ when Func == init_per_suite ->
+		{false,false};	                % defaults will be added anyway
+	    _ ->
+		{false,true}			% first case in suite
 	end,
     case InitFailed of
 	false ->
@@ -123,8 +126,9 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
 	    {{Mod,LastFunc},SavedConfig} ->	% last testcase
 		[{saved_config,{LastFunc,SavedConfig}} | 
 		 lists:keydelete(saved_config,1,Config0)];
-	    {{LastSuite,InitOrEnd},SavedConfig} when InitOrEnd == init_per_suite ;
-						     InitOrEnd == end_per_suite ->
+	    {{LastSuite,InitOrEnd},
+	     SavedConfig} when InitOrEnd == init_per_suite ;
+			       InitOrEnd == end_per_suite ->
 		%% last suite
 		[{saved_config,{LastSuite,SavedConfig}} | 
 		 lists:keydelete(saved_config,1,Config0)];
@@ -259,7 +263,11 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
     end.
 
 ct_suite_init(Mod, Func, [Config]) when is_list(Config) ->
-    case ct_hooks:init_tc( Mod, Func, Config) of
+
+%%! --- Thu Mar 15 15:16:17 2012 --- peppe was here!
+%%!io:format(user, "+++ ct_suite_init ~p:~p -- ~p~n", [Mod,Func,Config]),
+
+    case ct_hooks:init_tc(Mod, Func, Config) of
 	NewConfig when is_list(NewConfig) ->
 	    {ok, [NewConfig]};
 	Else ->
@@ -1470,6 +1478,16 @@ error_in_suite(Config) ->
     Reason = test_server:lookup_config(error,Config),
     exit(Reason).
 
+%% if init_per_suite and end_per_suite are missing in the suite,
+%% these will be called instead (without any trace of them in the
+%% log files), only so that it's possible to call hook functions
+%% for configuration
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
 %% if the group config functions are missing in the suite,
 %% use these instead
 ct_init_per_group(GroupName, Config) ->
@@ -1485,7 +1503,6 @@ ct_end_per_group(GroupName, _) ->
 		"in suite, using default.",
 		[GroupName]),
     ok.
-
     
 %%%-----------------------------------------------------------------
 %%% @spec report(What,Data) -> ok
