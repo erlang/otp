@@ -546,12 +546,17 @@ $(TTF_DIR)/driver_tab.c: Makefile.in
 	LANG=C $(PERL) utils/make_driver_tab -o $@ $(DRV_OBJS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
+
+
 # Preloaded code.
 # 
 # This list must be consistent with PRE_LOADED_MODULES in
 # lib/kernel/src/Makefile.
 ifeq ($(TARGET),win32)
-$(TARGET)/beams.rc: $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
+# On windows the preloaded objects are in a resource object.
+PRELOAD_OBJ = $(OBJDIR)/beams.$(RES_EXT)
+PRELOAD_SRC = $(TARGET)/beams.rc
+$(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
@@ -560,9 +565,10 @@ $(TARGET)/beams.rc: $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam
 	LANG=C $(PERL) utils/make_preload $(MAKE_PRELOAD_EXTRA) -rc $^ > $@
-GENERATE += $(TARGET)/beams.rc
 else
-$(TARGET)/preload.c: $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
+PRELOAD_OBJ = $(OBJDIR)/preload.o
+PRELOAD_SRC = $(TARGET)/preload.c
+$(PRELOAD_SRC): $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/init.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_inet.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/prim_file.beam \
@@ -571,7 +577,6 @@ $(TARGET)/preload.c: $(ERL_TOP)/erts/preloaded/ebin/otp_ring0.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erl_prim_loader.beam \
 			$(ERL_TOP)/erts/preloaded/ebin/erlang.beam
 	LANG=C $(PERL) utils/make_preload -old $^ > $@
-GENERATE += $(TARGET)/preload.c
 endif
 
 .PHONY : generate
@@ -579,7 +584,8 @@ ifdef VOID_EMULATOR
 generate:
 	@echo $(VOID_EMULATOR)' - omitted target generate'
 else
-generate: $(TTF_DIR)/GENERATED
+generate: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
+
 $(TTF_DIR)/GENERATED: $(GENERATE)
 	echo $? >$(TTF_DIR)/GENERATED
 endif
@@ -660,7 +666,7 @@ endif
 #
 CS_SRC = sys/$(ERLANG_OSTYPE)/erl_child_setup.c
 
-$(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(CS_SRC) $(ERTS_LIB)
+$(BINDIR)/$(CS_EXECUTABLE): $(TTF_DIR)/GENERATED $(PRELOAD_SRC) $(CS_SRC) $(ERTS_LIB)
 	$(CS_PURIFY) $(CC) $(CS_LDFLAGS) -o $(BINDIR)/$(CS_EXECUTABLE) \
                $(CS_CFLAGS) $(COMMON_INCLUDES) $(CS_SRC) $(CS_LIBS)
 
@@ -689,16 +695,7 @@ $(ERL_TOP)/lib/%.beam:
 # Object files
 #
 
-# On windows the preloaded objects are in a resource object.
-
-ifeq ($(TARGET),win32)
-PRELOAD =	$(OBJDIR)/beams.$(RES_EXT)
-else
-PRELOAD = 	$(OBJDIR)/preload.o
-endif
-
-
-INIT_OBJS = $(OBJDIR)/erl_main.o		$(PRELOAD)
+INIT_OBJS = $(OBJDIR)/erl_main.o	$(PRELOAD_OBJ)
 
 EMU_OBJS = \
 	$(OBJDIR)/beam_emu.o		$(OBJDIR)/beam_opcodes.o \
@@ -1037,7 +1034,7 @@ depend:
 	@echo $(VOID_EMULATOR)' - omitted target depend'
 else
 depend: $(TTF_DIR)/depend.mk
-$(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED
+$(TTF_DIR)/depend.mk: $(TTF_DIR)/GENERATED $(PRELOAD_SRC)
 	$(DEP_CC) $(DEP_FLAGS) $(BEAM_SRC) \
 		| $(SED_DEPEND) > $(TTF_DIR)/depend.mk
 	$(DEP_CC) $(DEP_FLAGS) -DLIBSCTP=$(LIBSCTP) $(DRV_COMMON_SRC) \
