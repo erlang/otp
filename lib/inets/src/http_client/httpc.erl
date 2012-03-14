@@ -585,6 +585,10 @@ maybe_encode_uri(#http_options{url_encode = true}, URI) ->
 maybe_encode_uri(_, URI) ->
     URI.
 
+uri_parse(AbsURI) ->
+    http_uri:parse(AbsURI, [{scheme_defaults, [{http, 80}, {https, 443}]}]).
+
+
 mk_chunkify_fun(ProcessBody) ->
     fun(eof_body) ->
 	    eof;
