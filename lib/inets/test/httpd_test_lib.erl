@@ -101,7 +101,7 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 	"~n   Options:    ~p"
 	"~n   TimeOut:    ~p", 
 	[SocketType, Host, Port, TranspOpts, Node, Options, TimeOut]),
-    case (catch inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts)) of
+    try inets_test_lib:connect_bin(SocketType, Host, Port, TranspOpts) of
 	{ok, Socket} ->
 	    tsp("verify_request -> connected - now send message"),
 	    SendRes = inets_test_lib:send(SocketType, Socket, RequestStr),
@@ -132,10 +132,22 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 	    end;
 
 	ConnectError ->
-	    tsp("verify_request -> connect failed: "
+	    tsp("verify_request -> connect error: "
 		"~n   ~p"
 		"~n", [ConnectError]),
-	    tsf({connect_failure, ConnectError})
+	    tsf({connect_error, ConnectError, 
+		 [SocketType, Host, Port, TranspOpts]})
+    catch
+	T:E ->
+	    tsp("verify_request -> connect failed: "
+		"~n   E: ~p"
+		"~n   T: ~p"
+		"~n", [E, T]),
+	    tsf({connect_failure, 
+		 [{type,       T}, 
+		  {error,      E}, 
+		  {stacktrace, erlang:get_stacktrace()}, 
+		  {args,       [SocketType, Host, Port, TranspOpts]}]}) 
     end.
 
 request(#state{mfa = {Module, Function, Args}, 

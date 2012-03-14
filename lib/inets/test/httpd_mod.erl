@@ -41,14 +41,7 @@
 alias(Type, Port, Host, Node) ->
     %% This is very crude, but...
     tsp("alias -> Has IPv6 support: ~p", [inets_test_lib:has_ipv6_support()]),
-    Opts = case os:type() of
-	       {win32, _} ->
-		   [inet6fb4];
-	       _ ->
-		   []
-	   end,
-    tsp("alias -> Opts: ~p", [Opts]),
-
+    Opts = [], 
     ok = httpd_test_lib:verify_request(Type, Host, Port, Opts, Node, 
  				       "GET /pics/icon.sheet.gif "
  				       "HTTP/1.0\r\n\r\n",
