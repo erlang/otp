@@ -73,6 +73,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [{group, api}, {group, examples}, {group, func}, smp,
+     otp_9981,
      otp_7359].
 
 groups() -> 
@@ -964,6 +965,24 @@ otp_7359_def_inf(Data,{DefSize,InfSize}) ->
     ?line ok = zlib:close(ZInf),
     ok.
 
+otp_9981(Config) when is_list(Config) ->
+    Ports = lists:sort(erlang:ports()),
+    Invalid = <<"My invalid data">>,
+    catch zlib:compress(invalid),
+    Ports = lists:sort(erlang:ports()),
+    catch zlib:uncompress(Invalid),
+    Ports = lists:sort(erlang:ports()),
+    catch zlib:zip(invalid),
+    Ports = lists:sort(erlang:ports()),
+    catch zlib:unzip(Invalid),
+    Ports = lists:sort(erlang:ports()),
+    catch zlib:gzip(invalid),
+    Ports = lists:sort(erlang:ports()),
+    catch zlib:gunzip(Invalid),
+    Ports = lists:sort(erlang:ports()),
+    ok.
+
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Helps with testing directly %%%%%%%%%%%%%
