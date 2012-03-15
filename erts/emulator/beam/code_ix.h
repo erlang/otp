@@ -18,7 +18,7 @@
  */
 
 /* Description:
- *	This is the interface that facilitate changing the beam code
+ *	This is the interface that facilitates changing the beam code
  *      (load,upgrade,delete) while allowing executing Erlang processes to
  *      access the code without any locks or other expensive memory barriers.
  *
@@ -35,7 +35,7 @@
  *      The third code index is not explicitly used. It can be thought of as
  *      the "previous active" or the "next staging" index. It is needed to make
  *      sure that we do not reuse a code index for staging until we are sure
- *      that no executing BIFs are still referring it.
+ *      that no executing BIFs are still referencing it.
  *      We could get by with only two (0 and 1), but that would require that we
  *      must wait for all schedulers to re-schedule before each code change
  *      operation can start staging.
