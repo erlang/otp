@@ -342,7 +342,7 @@ redirect(Response = {StatusLine, Headers, Body}, Request) ->
 	RedirUrl ->
 	    UrlParseOpts = [{ipv6_host_with_brackets, 
 			     Request#request.ipv6_host_with_brackets}], 
-	    case http_uri:parse(RedirUrl, UrlParseOpts) of
+	    case uri_parse(RedirUrl, UrlParseOpts) of
 		{error, no_scheme} when
 		(Request#request.settings)#http_options.relaxed ->
 		    NewLocation = fix_relative_uri(Request, RedirUrl),
@@ -436,4 +436,18 @@ format_response({StatusLine, Headers, Body}) ->
 		{Body, <<>>}
 	end,
     {{StatusLine, http_response:header_list(Headers), NewBody}, Data}.
+
+%%--------------------------------------------------------------------------
+%% These functions is just simple wrappers to parse specifically HTTP URIs
+%%--------------------------------------------------------------------------
+
+scheme_defaults() ->
+    [{http, 80}, {https, 443}].
+
+uri_parse(URI, Opts) ->
+    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
+
+
+%%--------------------------------------------------------------------------
+
 

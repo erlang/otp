@@ -1974,7 +1974,7 @@ parse_url(Config) when is_list(Config) ->
 	http_uri:parse("http://[2010:836B:4179::836B:4179]/foobar.html", 
 		       [{foo, false}]),
     {error,
-     {malformed_url,"http://2010:836B:4179::836B:4179/foobar.html"}} =
+     {malformed_url, _, "http://2010:836B:4179::836B:4179/foobar.html"}} =
 	http_uri:parse("http://2010:836B:4179::836B:4179/foobar.html"), 
 
     %% ipv4
@@ -1990,8 +1990,8 @@ parse_url(Config) when is_list(Config) ->
 	http_uri:parse("http://nisse:foobar@localhost:8888/foobar.html"),
     
     %% Scheme error
-    {error,no_scheme} =  http_uri:parse("localhost/foobar.html"),
-    {error,{not_supported_scheme,localhost}} =
+    {error, no_scheme} = http_uri:parse("localhost/foobar.html"),
+    {error, {malformed_url, _, _}} =
 	http_uri:parse("localhost:8888/foobar.html"),
     
     %% Query

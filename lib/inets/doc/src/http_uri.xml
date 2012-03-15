@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2012</year><year>2012</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>http_uri</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+
+  <module>http_uri</module>
+  <modulesummary>URI utility module</modulesummary>
+
+  <description>
+    <p>This module provides utility functions for working with URIs, 
+    according to RFC 3986. </p>
+
+  </description>
+  
+  <section>
+    <title>COMMON DATA TYPES </title>
+    <p>Type definitions that are used more than once in
+      this module:</p>
+    <code type="none"><![CDATA[
+boolean() = true | false 
+string()  = list of ASCII characters 
+    ]]></code>
+
+  </section>
+  
+  <section>
+    <title>URI DATA TYPES </title>
+    <p>Type definitions that are related to URI:</p>
+    <p>For more information about URI, see RFC 3986. </p>
+
+    <code type="none"><![CDATA[
+uri()       = string() - Syntax according to the URI definition in rfc 3986, ex: "http://www.erlang.org/"
+user_info() = string()
+scheme()    = atom()   - Example: http, https
+host()      = string()
+port()      = pos_integer()
+path()      = string() - Representing a file path or directory path 
+query()     = string()
+    ]]></code>
+
+    <marker id="scheme_defaults"></marker>
+  </section>
+  
+  <funcs>
+    <func>
+      <name>scheme_defaults() -> SchemeDefaults</name>
+      <fsummary>A list of scheme and their default ports</fsummary>
+      <type>
+        <v>SchemeDefaults = [{scheme(), default_scheme_port_number()}] </v> 
+	<v>default_scheme_port_number() = pos_integer()</v>
+      </type>
+      <desc>
+        <p>This function provides a list of the scheme and their default 
+	port numbers currently supported (by default) by this utility. </p>
+
+        <marker id="parse"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>parse(URI) -> {ok, Result} | {error, Reason}</name>
+      <name>parse(URI, Options) -> {ok, Result} | {error, Reason}</name>
+      <fsummary>Parse an URI</fsummary>
+      <type>
+        <v>URI = uri() </v> 
+        <v>Options = [Option] </v> 
+        <v>Option = {ipv6_host_with_brackets, boolean()} | 
+                    {scheme_defaults, scheme_defaults()}]</v> 
+	<v>Result = {Scheme, UserInfo, Host, Port, Path, Query}</v>
+	<v>UserInfo = user_info()</v>
+	<v>Host = host()</v>
+	<v>Port = pos_integer()</v>
+	<v>Path = path()</v>
+	<v>Query = query()</v>
+	<v>Reason = term() </v>
+      </type>
+      <desc>
+        <p>This function is used to parse an URI. If no scheme defaults 
+	are provided, the value of 
+	<seealso marker="#scheme_defaults">scheme_defaults</seealso>
+	function will be used. </p>
+
+        <p>Note that when parsing an URI with an unknown scheme (that is, 
+	a scheme not found in the scheme defaults) a port number must be 
+	provided or else the parsing will fail. </p>
+
+        <marker id="encode"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>encode(URI) -> HexEncodedURI</name>
+      
+      <fsummary>Hex encode an URI</fsummary>
+      <type>
+        <v>URI = uri()</v>
+        <v>HexEncodedURI = string() - Hex encoded uri</v>
+      </type>
+
+      <desc>
+        <p>Hex encode an URI. </p>
+
+        <marker id="decode"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>decode(HexEncodedURI) -> URI</name>
+      
+      <fsummary>Decode a hex encoded URI</fsummary>
+      <type>
+        <v>HexEncodedURI = string() - A possibly hex encoded uri</v>
+        <v>URI = uri()</v>
+      </type>
+
+      <desc>
+        <p>Decode a possibly hex encoded URI. </p>
+
+      </desc>
+    </func>
+
+  </funcs>
+
+<!--
+  <section>
+    <title>SEE ALSO</title>
+    <p>RFC 2616, <seealso marker="inets">inets(3)</seealso>,
+      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
+      <seealso marker="ssl:ssl">ssl(3)</seealso>
+    </p>
+  </section>
+-->
+
+</erlref>

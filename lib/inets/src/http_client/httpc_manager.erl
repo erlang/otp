@@ -446,7 +446,7 @@ handle_call(which_cookies, _, #state{cookie_db = CookieDb} = State) ->
 handle_call({which_cookies, Url, Options}, _, 
 	    #state{cookie_db = CookieDb} = State) ->
     ?hcrv("which cookies", [{url, Url}, {options, Options}]),
-    case http_uri:parse(Url, Options) of
+    case uri_parse(Url, Options) of
 	{ok, {Scheme, _, Host, Port, Path, _}} ->
 	    CookieHeaders = 
 		httpc_cookie:header(CookieDb, Scheme, {Host, Port}, Path),
@@ -893,6 +893,19 @@ handler_db_name(ProfileName) ->
 make_db_name(ProfileName, Post) ->
     list_to_atom(atom_to_list(ProfileName) ++ Post).
     
+
+%%--------------------------------------------------------------------------
+%% These functions is just simple wrappers to parse specifically HTTP URIs
+%%--------------------------------------------------------------------------
+
+scheme_defaults() ->
+    [{http, 80}, {https, 443}].
+
+uri_parse(URI, Opts) ->
+    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
+
+
+%%--------------------------------------------------------------------------
 
 
 call(ProfileName, Msg) ->

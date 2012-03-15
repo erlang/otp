@@ -70,6 +70,18 @@
 	  <p>Own Id: OTP-9979</p>
         </item>
 
+        <item>
+          <p>Utility module 
+	  <seealso marker="http_uri">http_uri</seealso>
+	  now officially supported. </p>
+	  <p>Also, the 
+	  <seealso marker="http_uri#parse">parse</seealso> 
+	  function has been extended with more
+	  scheme support and a way to provide your own scheme info. </p>
+	  <p>Own Id: OTP-9983</p>
+          <p>Aux Id: Seq 12022</p>
+        </item>
+
       </list>
 
     </section>

@@ -158,7 +158,7 @@ request(Method,
 		      {http_options, HTTPOptions}, 
 		      {options,      Options}, 
 		      {profile,      Profile}]),
-    case http_uri:parse(Url, Options) of
+    case uri_parse(Url, Options) of
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, ParsedUrl} ->
@@ -179,7 +179,7 @@ request(Method,
 		      {http_options, HTTPOptions}, 
 		      {options,      Options}, 
 		      {profile,      Profile}]),
-    case http_uri:parse(Url, Options) of
+    case uri_parse(Url, Options) of
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, ParsedUrl} ->
@@ -328,7 +328,7 @@ store_cookies(SetCookieHeaders, Url, Profile)
 	    %% Since the Address part is not actually used
 	    %% by the manager when storing cookies, we dont
 	    %% care about ipv6-host-with-brackets.
-	    {ok, {_, _, Host, Port, Path, _}} = http_uri:parse(Url),
+	    {ok, {_, _, Host, Port, Path, _}} = uri_parse(Url),
 	    Address     = {Host, Port}, 
 	    ProfileName = profile_name(Profile),
 	    Cookies     = httpc_cookie:cookies(SetCookieHeaders, Path, Host),
@@ -1198,6 +1198,22 @@ validate_headers(RequestHeaders, _, _) ->
     RequestHeaders.
 
 
+%%--------------------------------------------------------------------------
+%% These functions is just simple wrappers to parse specifically HTTP URIs
+%%--------------------------------------------------------------------------
+
+scheme_defaults() ->
+    [{http, 80}, {https, 443}].
+
+uri_parse(URI) ->
+    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()}]).
+
+uri_parse(URI, Opts) ->
+    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
+
+
+%%--------------------------------------------------------------------------
+    
 child_name2info(undefined) ->
     {error, no_such_service};
 child_name2info(httpc_manager) ->
