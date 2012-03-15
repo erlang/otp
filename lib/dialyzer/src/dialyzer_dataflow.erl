@@ -67,7 +67,6 @@
 
 %%-define(DEBUG, true).
 %%-define(DEBUG_PP, true).
-%%-define(DEBUG_TIME, true).
 %%-define(DOT, true).
 
 -ifdef(DEBUG).
@@ -76,9 +75,6 @@
 -else.
 -define(debug(S_, L_), ok).
 -endif.
-
-%%-define(debug1(S_, L_), io:format(S_, L_)).
-%%-define(debug1(S_, L_), ok).
 
 %%--------------------------------------------------------------------
 
@@ -276,6 +272,7 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
   debug_pp(Tree, false),
   Module = cerl:atom_val(cerl:module_name(Tree)),
   RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
+  RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
   BehaviourTranslations =
     case RaceDetection of
       true -> dialyzer_behaviours:translatable_behaviours(Tree);
@@ -286,9 +283,6 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
 		     TopFun, Plt, Module, Records, BehaviourTranslations),
   State1 = state__race_analysis(not GetWarnings, State),
   State2 = analyze_loop(State1),
-  RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
-  Callgraph1 = State2#state.callgraph,
-  RaceCode1 = dialyzer_callgraph:get_race_code(Callgraph1),
   case GetWarnings of
     true ->
       State3 = state__set_warning_mode(State2),
@@ -313,6 +307,8 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
           St#state{callgraph = Callgraph3}
       end;
     false ->
+      Callgraph1 = State2#state.callgraph,
+      RaceCode1 = dialyzer_callgraph:get_race_code(Callgraph1),
       state__restore_race_code(
         dict:merge(fun (_K, V1, _V2) -> V1 end,
                    RaceCode, RaceCode1), State2)
@@ -320,27 +316,26 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
 
 analyze_loop(#state{callgraph = Callgraph, races = Races} = State) ->
   case state__get_work(State) of
-    none -> state__clean_not_called(State);
-    {Fun, NewState} ->
-      ArgTypes = state__get_args(Fun, NewState),
-      case any_none(ArgTypes) of
+    none -> State;
+    {Fun, NewState1} ->
+      {ArgTypes, IsCalled} = state__get_args_and_status(Fun, NewState1),
+      case not IsCalled of
 	true ->
-	  ?debug("Not handling1 ~w: ~s\n",
+	  ?debug("Not handling (not called) ~w: ~s\n",
 		 [state__lookup_name(get_label(Fun), State),
 		  t_to_string(t_product(ArgTypes))]),
-	  analyze_loop(NewState);
+	  analyze_loop(NewState1);
 	false ->
-	  case state__fun_env(Fun, NewState) of
+	  case state__fun_env(Fun, NewState1) of
 	    none ->
-	      ?debug("Not handling2 ~w: ~s\n",
+	      ?debug("Not handling (no env) ~w: ~s\n",
 		     [state__lookup_name(get_label(Fun), State),
 		      t_to_string(t_product(ArgTypes))]),
-	      analyze_loop(NewState);
+	      analyze_loop(NewState1);
 	    Map ->
 	      ?debug("Handling fun ~p: ~s\n",
 		     [state__lookup_name(get_label(Fun), State),
-		      t_to_string(state__fun_type(Fun, NewState))]),
-	      NewState1 = state__mark_fun_as_handled(NewState, Fun),
+		      t_to_string(state__fun_type(Fun, NewState1))]),
 	      Vars = cerl:fun_vars(Fun),
 	      Map1 = enter_type_lists(Vars, ArgTypes, Map),
 	      Body = cerl:fun_body(Fun),
@@ -2892,28 +2887,22 @@ state__new(Callgraph, Tree, Plt, Module, Records, BehaviourTranslations) ->
   TreeMap = build_tree_map(Tree),
   Funs = dict:fetch_keys(TreeMap),
   FunTab = init_fun_tab(Funs, dict:new(), TreeMap, Callgraph, Plt, Opaques),
-  Work = init_work([get_label(Tree)]),
-  Env = dict:store(top, map__new(), dict:new()),
+  ExportedFuns =
+    [Fun || Fun <- Funs--[top], dialyzer_callgraph:is_escaping(Fun, Callgraph)],
+  Work = init_work(ExportedFuns),
+  Env = lists:foldl(fun(Fun, Env) -> dict:store(Fun, map__new(), Env) end,
+		    dict:new(), Funs),
   #state{callgraph = Callgraph, envs = Env, fun_tab = FunTab, opaques = Opaques,
 	 plt = Plt, races = dialyzer_races:new(), records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
 	 module = Module, behaviour_api_dict = BehaviourTranslations}.
-
-state__mark_fun_as_handled(#state{fun_tab = FunTab} = State, Fun0) ->
-  Fun = get_label(Fun0),
-  case dict:find(Fun, FunTab) of
-    {ok, {not_handled, Entry}} ->
-      State#state{fun_tab = dict:store(Fun, Entry, FunTab)};
-    {ok, {_, _}} ->
-      State
-  end.
 
 state__warning_mode(#state{warning_mode = WM}) ->
   WM.
 
 state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
                                races = Races} = State) ->
-  ?debug("Starting warning pass\n", []),
+  ?debug("==========\nStarting warning pass\n==========\n", []),
   Funs = dict:fetch_keys(TreeMap),
   State#state{work = init_work([top|Funs--[top]]),
 	      fun_tab = FunTab, warning_mode = true,
@@ -2985,7 +2974,7 @@ state__get_warnings(#state{tree_map = TreeMap, fun_tab = FunTab,
 	{NotCalled, Ret} =
 	  case dict:fetch(get_label(Fun), FunTab) of
 	    {not_handled, {_Args0, Ret0}} -> {true, Ret0};
-	    {Args0, Ret0} -> {any_none(Args0), Ret0}
+	    {_Args0, Ret0} -> {false, Ret0}
 	  end,
 	case NotCalled of
 	  true ->
@@ -3079,11 +3068,11 @@ state__lookup_record(Tag, Arity, #state{records = Records}) ->
       error
   end.
 
-state__get_args(Tree, #state{fun_tab = FunTab}) ->
+state__get_args_and_status(Tree, #state{fun_tab = FunTab}) ->
   Fun = get_label(Tree),
   case dict:find(Fun, FunTab) of
-    {ok, {not_handled, {ArgTypes, _}}} -> ArgTypes;
-    {ok, {ArgTypes, _}} -> ArgTypes
+    {ok, {not_handled, {ArgTypes, _}}} -> {ArgTypes, false};
+    {ok, {ArgTypes, _}} -> {ArgTypes, true}
   end.
 
 build_tree_map(Tree) ->
@@ -3099,7 +3088,7 @@ build_tree_map(Tree) ->
   cerl_trees:fold(Fun, dict:new(), Tree).
 
 init_fun_tab([top|Left], Dict, TreeMap, Callgraph, Plt, Opaques) ->
-  NewDict = dict:store(top, {not_handled, {[], t_none()}}, Dict),
+  NewDict = dict:store(top, {[], t_none()}, Dict),
   init_fun_tab(Left, NewDict, TreeMap, Callgraph, Plt, Opaques);
 init_fun_tab([Fun|Left], Dict, TreeMap, Callgraph, Plt, Opaques) ->
   Arity = cerl:fun_arity(dict:fetch(Fun, TreeMap)),
@@ -3115,9 +3104,9 @@ init_fun_tab([Fun|Left], Dict, TreeMap, Callgraph, Plt, Opaques) ->
 	      false -> {Args, t_unit()}
 	    end
 	end;
-      false -> {lists:duplicate(Arity, t_none()), t_unit()}
+      false -> {not_handled, {lists:duplicate(Arity, t_none()), t_unit()}}
     end,
-  NewDict = dict:store(Fun, {not_handled, FunEntry}, Dict),
+  NewDict = dict:store(Fun, FunEntry, Dict),
   init_fun_tab(Left, NewDict, TreeMap, Callgraph, Plt, Opaques);
 init_fun_tab([], Dict, _TreeMap, _Callgraph, _Plt, _Opaques) ->
   Dict.
@@ -3141,7 +3130,8 @@ state__clean_not_called(#state{fun_tab = FunTab} = State) ->
 	     end, FunTab),
   State#state{fun_tab = NewFunTab}.
 
-state__all_fun_types(#state{fun_tab = FunTab}) ->
+state__all_fun_types(State) ->
+  #state{fun_tab = FunTab} = state__clean_not_called(State),
   Tab1 = dict:erase(top, FunTab),
   dict:map(fun(_Fun, {Args, Ret}) -> t_fun(Args, Ret)end, Tab1).
 

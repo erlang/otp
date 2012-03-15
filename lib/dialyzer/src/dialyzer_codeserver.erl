@@ -292,15 +292,11 @@ table__loop(Cached, Map) ->
       {NewCached, Ans} =
 	case Cached of
 	  {M, Tree} ->
-	    [Val] = [VarFun || {Var, _Fun} = VarFun <- cerl:module_defs(Tree),
-			       cerl:fname_id(Var) =:= F,
-			       cerl:fname_arity(Var) =:= A],
+	    Val = find_fun(F, A, Tree),
 	    {Cached, Val};
 	  _ ->
 	    Tree = fetch_and_expand(M, Map),
-	    [Val] = [VarFun || {Var, _Fun} = VarFun <- cerl:module_defs(Tree),
-			       cerl:fname_id(Var) =:= F,
-			       cerl:fname_arity(Var) =:= A],
+	    Val = find_fun(F, A, Tree),
 	    {{M, Tree}, Val}
 	end,
       Pid ! {self(), MFA, Ans},
@@ -329,3 +325,12 @@ fetch_and_expand(Mod, Map) ->
       Msg = "found no module named '" ++ S ++ "' in the analyzed files",
       exit({error, Msg})
   end.
+
+find_fun(F, A, Tree) ->
+  Pred =
+    fun({Var, _Fun}) ->
+	(cerl:fname_id(Var) =/= F) orelse
+	  (cerl:fname_arity(Var) =/= A)
+    end,
+  [Val|_] = lists:dropwhile(Pred, cerl:module_defs(Tree)),
+  Val.

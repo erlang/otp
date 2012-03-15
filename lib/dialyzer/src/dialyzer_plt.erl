@@ -31,8 +31,7 @@
 -export([check_plt/3,
 	 compute_md5_from_files/1,
 	 contains_mfa/2,
-	 contains_module/2,
-	 delete_contract_list/2,
+	 all_modules/1,
 	 delete_list/2,
 	 delete_module/2,
 	 included_files/1,
@@ -153,10 +152,8 @@ lookup_contract(#plt{contracts = Contracts},
 		{M, F, _} = MFA) when is_atom(M), is_atom(F) ->
   table_lookup(Contracts, MFA).
 
--spec lookup_callbacks(plt(), module()) -> [{mfa(),
-					     {{Filename::string(),
-					       Line::pos_integer()},
-					      #contract{}}}].
+-spec lookup_callbacks(plt(), module()) ->
+	 [{mfa(), {{Filename::string(), Line::pos_integer()}, #contract{}}}].
 
 lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
   FunModFilter =
@@ -165,18 +162,6 @@ lookup_callbacks(#plt{callbacks = Callbacks}, Mod) when is_atom(Mod) ->
     end,
   ModCallbacks = dict:filter(FunModFilter, Callbacks),
   dict:to_list(ModCallbacks).
-
--spec delete_contract_list(plt(), [mfa()]) -> plt().
-
-delete_contract_list(#plt{contracts = Contracts,
-			  callbacks = Callbacks} = PLT, List) ->
-  PLT#plt{contracts = table_delete_list(Contracts, List),
-	  callbacks = table_delete_list(Callbacks, List)}.
-
-%% -spec insert(plt(), mfa() | integer(), {_, _}) -> plt().
-%%
-%% insert(#plt{info = Info} = PLT, Id, Types) ->
-%%   PLT#plt{info = table_insert(Info, Id, Types)}.
 
 -type ret_args_types() :: {erl_types:erl_type(), [erl_types:erl_type()]}.
 
@@ -220,10 +205,10 @@ get_exported_types(#plt{exported_types = ExpTypes}) ->
 lookup_module(#plt{info = Info}, M) when is_atom(M) ->
   table_lookup_module(Info, M).
 
--spec contains_module(plt(), atom()) -> boolean().
+-spec all_modules(plt()) -> set().
 
-contains_module(#plt{info = Info, contracts = Cs}, M) when is_atom(M) ->
-  table_contains_module(Info, M) orelse table_contains_module(Cs, M).
+all_modules(#plt{info = Info, contracts = Cs}) ->
+  sets:union(table_all_modules(Info), table_all_modules(Cs)).
 
 -spec contains_mfa(plt(), mfa()) -> boolean().
 
@@ -623,10 +608,12 @@ table_lookup_module(Plt, Mod) ->
     false -> {value, List}
   end.
 
-table_contains_module(Plt, Mod) ->
-  dict:fold(fun({M, _F, _A}, _Val, _Acc) when M =:= Mod -> true;
-	       (_, _, Acc) -> Acc
-	    end, false, Plt).
+table_all_modules(Plt) ->
+  Fold =
+    fun({M, _F, _A}, _Val, Acc) -> sets:add_element(M, Acc);
+       (_, _, Acc) -> Acc
+    end,
+  dict:fold(Fold, sets:new(), Plt).
 
 table_merge([H|T]) ->
   table_merge(T, H).

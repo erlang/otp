@@ -39,7 +39,7 @@
          let_tag_new/2, new/0, put_curr_fun/3, put_fun_args/2,
          put_race_analysis/2, put_race_list/3]).
 
--export_type([races/0, mfa_or_funlbl/0, core_vars/0]).
+-export_type([races/0, core_vars/0]).
 
 -include("dialyzer.hrl").
 
@@ -65,8 +65,6 @@
 %%%  Local Types
 %%%
 %%% ===========================================================================
-
--type mfa_or_funlbl() :: label() | mfa().
 
 -type label_type()  :: label() | [label()] | {label()} | ?no_label.
 -type args()        :: [label_type() | [string()]].
@@ -94,7 +92,7 @@
                      guard      :: cerl:cerl()}).
 -record(end_case,   {clauses    :: [#end_clause{}]}).
 -record(curr_fun,   {status     :: 'in' | 'out',
-                     mfa        :: mfa_or_funlbl(),
+                     mfa        :: dialyzer_callgraph:mfa_or_funlbl(),
                      label      :: label(),
                      def_vars   :: [core_vars()],
                      arg_types  :: [erl_types:erl_type()],
@@ -107,8 +105,8 @@
                      state      :: _, %% XXX: recursive
                      file_line  :: file_line(),
                      var_map    :: dict()}).
--record(fun_call,   {caller     :: mfa_or_funlbl(),
-                     callee     :: mfa_or_funlbl(),
+-record(fun_call,   {caller     :: dialyzer_callgraph:mfa_or_funlbl(),
+                     callee     :: dialyzer_callgraph:mfa_or_funlbl(),
                      arg_types  :: [erl_types:erl_type()],
                      vars       :: [core_vars()]}).
 -record(let_tag,    {var        :: var_to_map1(),
@@ -130,10 +128,10 @@
                      vars       :: [core_vars()],
                      file_line  :: file_line(),
                      index      :: non_neg_integer(),
-                     fun_mfa    :: mfa_or_funlbl(),
+                     fun_mfa    :: dialyzer_callgraph:mfa_or_funlbl(),
                      fun_label  :: label()}).
 
--record(races, {curr_fun                :: mfa_or_funlbl(),
+-record(races, {curr_fun                :: dialyzer_callgraph:mfa_or_funlbl(),
                 curr_fun_label          :: label(),
                 curr_fun_args = 'empty' :: core_args(),
                 new_table = 'no_t'      :: table(),
@@ -158,7 +156,8 @@
 %%%
 %%% ===========================================================================
 
--spec store_race_call(mfa_or_funlbl(), [erl_types:erl_type()], [core_vars()],
+-spec store_race_call(dialyzer_callgraph:mfa_or_funlbl(),
+		      [erl_types:erl_type()], [core_vars()],
                       file_line(), dialyzer_dataflow:state()) ->
   dialyzer_dataflow:state().
 
@@ -2405,7 +2404,7 @@ end_case_new(Clauses) ->
 end_clause_new(Arg, Pats, Guard) ->
   #end_clause{arg = Arg, pats = Pats, guard = Guard}.
 
--spec get_curr_fun(races()) -> mfa_or_funlbl().
+-spec get_curr_fun(races()) -> dialyzer_callgraph:mfa_or_funlbl().
 
 get_curr_fun(#races{curr_fun = CurrFun}) ->
   CurrFun.
@@ -2444,7 +2443,7 @@ let_tag_new(Var, Arg) ->
 
 new() -> #races{}.
 
--spec put_curr_fun(mfa_or_funlbl(), label(), races()) ->
+-spec put_curr_fun(dialyzer_callgraph:mfa_or_funlbl(), label(), races()) ->
   races().
 
 put_curr_fun(CurrFun, CurrFunLabel, Races) ->

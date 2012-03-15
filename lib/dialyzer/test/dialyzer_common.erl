@@ -216,10 +216,13 @@ get_suites(Dir) ->
     end.
 
 suffix(String, Suffix) ->
-    Index = string:rstr(String, Suffix),
-    case string:substr(String, Index) =:= Suffix of
-	true -> {yes, string:sub_string(String,1,Index-1)};
-	false -> no
+    case string:rstr(String, Suffix) of
+	0 -> no;
+	Index ->
+	    case string:substr(String, Index) =:= Suffix of
+		true -> {yes, string:sub_string(String,1,Index-1)};
+		false -> no
+	    end
     end.
 
 -spec create_suite(string()) -> 'ok'.

@@ -1,0 +1,3 @@
+
+no_local_return.erl:11: Function bar/1 will never be called
+no_local_return.erl:8: Function foo/0 will never be called

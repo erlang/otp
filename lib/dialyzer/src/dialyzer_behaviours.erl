@@ -72,9 +72,11 @@ check_callbacks(Module, Attrs, Plt, Codeserver) ->
 %%--------------------------------------------------------------------
 
 get_behaviours(Attrs) ->
-  BehaviourListsAndLine = [{cerl:concrete(L2), hd(cerl:get_ann(L2))} ||
-		  {L1, L2} <- Attrs, cerl:is_literal(L1),
-		  cerl:is_literal(L2), cerl:concrete(L1) =:= 'behaviour'],
+  BehaviourListsAndLine =
+    [{cerl:concrete(L2), hd(cerl:get_ann(L2))} ||
+      {L1, L2} <- Attrs, cerl:is_literal(L1),
+      cerl:is_literal(L2), cerl:concrete(L1) =:= 'behaviour' orelse
+	cerl:concrete(L1) =:= 'behavior'],
   Behaviours = lists:append([Behs || {Behs,_} <- BehaviourListsAndLine]),
   BehLines = [{B,L} || {L1,L} <- BehaviourListsAndLine, B <- L1],
   {Behaviours, BehLines}.
@@ -239,12 +241,12 @@ translatable_behaviours(Tree) ->
 get_behaviour_apis(Behaviours) ->
   get_behaviour_apis(Behaviours, []).
 
--spec translate_behaviour_api_call(dialyzer_races:mfa_or_funlbl(),
+-spec translate_behaviour_api_call(dialyzer_callgraph:mfa_or_funlbl(),
 				   [erl_types:erl_type()],
 				   [dialyzer_races:core_vars()],
 				   module(),
 				   behaviour_api_dict()) ->
-				      {dialyzer_races:mfa_or_funlbl(),
+				      {dialyzer_callgraph:mfa_or_funlbl(),
 				       [erl_types:erl_type()],
 				       [dialyzer_races:core_vars()]}
 					| 'plain_call'.

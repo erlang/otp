@@ -1,6 +1,7 @@
 -module(sample_callback_wrong).
 
--behaviour(sample_behaviour).
+%% This attribute uses the american spelling of 'behaviour'.
+-behavior(sample_behaviour).
 
 -export([
 %	 sample_callback_1/0,

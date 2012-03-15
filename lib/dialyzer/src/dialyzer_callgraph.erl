@@ -59,7 +59,7 @@
          put_named_tables/2, put_public_tables/2, put_behaviour_api_calls/2,
 	 get_behaviour_api_calls/1]).
 
--export_type([callgraph/0]).
+-export_type([callgraph/0, mfa_or_funlbl/0]).
 
 -include("dialyzer.hrl").
 
@@ -177,14 +177,14 @@ is_escaping(Label, #callgraph{esc = Esc}) when is_integer(Label) ->
 
 add_edges([], CG) ->
   CG;
-add_edges(Edges, #callgraph{digraph = Callgraph} = CG) ->
-  CG#callgraph{digraph = digraph_add_edges(Edges, Callgraph)}.
+add_edges(Edges, #callgraph{digraph = Digraph} = CG) ->
+  CG#callgraph{digraph = digraph_add_edges(Edges, Digraph)}.
 
 -spec add_edges([callgraph_edge()], [mfa_or_funlbl()], callgraph()) -> callgraph().
 
 add_edges(Edges, MFAs, #callgraph{digraph = DG} = CG) ->
-  DG1 = digraph_confirm_vertices(MFAs, DG),
-  add_edges(Edges, CG#callgraph{digraph = DG1}).
+  DG = digraph_confirm_vertices(MFAs, DG),
+  add_edges(Edges, CG).
 
 -spec take_scc(callgraph()) -> 'none' | {'ok', scc(), callgraph()}.
 
@@ -196,8 +196,8 @@ take_scc(#callgraph{postorder = []}) ->
 -spec remove_external(callgraph()) -> {callgraph(), [tuple()]}.
 
 remove_external(#callgraph{digraph = DG} = CG) ->
-  {NewDG, External} = digraph_remove_external(DG),
-  {CG#callgraph{digraph = NewDG}, External}.
+  {DG, External} = digraph_remove_external(DG),
+  {CG, External}.
 
 -spec non_local_calls(callgraph()) -> mfa_calls().
 
@@ -241,30 +241,30 @@ modules(#callgraph{digraph = DG}) ->
 -spec module_postorder(callgraph()) -> [[module()]].
 
 module_postorder(#callgraph{digraph = DG}) ->
+  {MDG, _Nodes} = get_module_digraph_and_nodes(DG),
+  MDG1 = digraph_utils:condensation(MDG),
+  PostOrder = digraph_utils:postorder(MDG1),
+  PostOrder1 = sort_sccs_internally(PostOrder, MDG),
+  digraph:delete(MDG1),
+  digraph_delete(MDG),
+  PostOrder1.
+
+get_module_digraph_and_nodes(DG) ->
   Edges = digraph_edges(DG),
   Nodes = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
   MDG = digraph:new(),
-  MDG1 = digraph_confirm_vertices(Nodes, MDG),
-  MDG2 = create_module_digraph(Edges, MDG1),
-  MDG3 = digraph_utils:condensation(MDG2),
-  PostOrder = digraph_utils:postorder(MDG3),
-  PostOrder1 = sort_sccs_internally(PostOrder, MDG2),
-  digraph:delete(MDG2),
-  digraph_delete(MDG3),
-  PostOrder1.
+  MDG = digraph_confirm_vertices(Nodes, MDG),
+  MDG = create_module_digraph(Edges, MDG),
+  {MDG, Nodes}.
 
 %% The module deps of a module are modules that depend on the module
 -spec module_deps(callgraph()) -> dict().
 
 module_deps(#callgraph{digraph = DG}) ->
-  Edges = digraph_edges(DG),
-  Nodes = ordsets:from_list([M || {M,_F,_A} <- digraph_vertices(DG)]),
-  MDG = digraph:new(),
-  MDG1 = digraph_confirm_vertices(Nodes, MDG),
-  MDG2 = create_module_digraph(Edges, MDG1),
-  Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG2, N))}
+  {MDG, Nodes} = get_module_digraph_and_nodes(DG),
+  Deps = [{N, ordsets:from_list(digraph:in_neighbours(MDG, N))}
 	  || N <- Nodes],
-  digraph_delete(MDG2),
+  digraph_delete(MDG),
   dict:from_list(Deps).
 
 -spec strip_module_deps(dict(), set()) -> dict().

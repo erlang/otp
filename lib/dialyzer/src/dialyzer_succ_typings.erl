@@ -204,7 +204,7 @@ refine_one_module(M, State) ->
   #st{callgraph = Callgraph, codeserver = CodeServer, plt = PLT} = State,
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
-  FunTypes = get_fun_types_from_plt(AllFuns, State),
+  FunTypes = get_fun_types_from_plt(AllFuns, Callgraph, PLT),
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
   {NewFunTypes, RaceCode, PublicTables, NamedTables} =
     dialyzer_dataflow:get_fun_types(ModCode, PLT, Callgraph, Records),
@@ -321,7 +321,9 @@ find_succ_typings(#st{callgraph = Callgraph, parent = Parent} = State,
       end
   end.
 
-analyze_scc(SCC, #st{codeserver = Codeserver} = State) ->
+analyze_scc(SCC, #st{codeserver = Codeserver,
+		     callgraph = Callgraph,
+		     plt = Plt} = State) ->
   SCC_Info = [{MFA, 
 	       dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
 	       dialyzer_codeserver:lookup_mod_records(M, Codeserver)}
@@ -330,23 +332,19 @@ analyze_scc(SCC, #st{codeserver = Codeserver} = State) ->
 		|| {_, _, _} = MFA <- SCC],
   Contracts2 = [{MFA, Contract} || {MFA, {ok, Contract}} <- Contracts1],
   Contracts3 = orddict:from_list(Contracts2),
+  NextLabel = dialyzer_codeserver:get_next_core_label(Codeserver),
   {SuccTypes, PltContracts, NotFixpoint} = 
-    find_succ_types_for_scc(SCC_Info, Contracts3, State),
+    find_succ_types_for_scc(SCC_Info, Contracts3, NextLabel, Callgraph, Plt),
   State1 = insert_into_plt(SuccTypes, State),
   ContrPlt = dialyzer_plt:insert_contract_list(State1#st.plt, PltContracts),
   {State1#st{plt = ContrPlt}, NotFixpoint}.
 
-find_succ_types_for_scc(SCC_Info, Contracts, 
-			#st{codeserver = Codeserver, 
-			    callgraph = Callgraph, plt = Plt} = State) ->
+find_succ_types_for_scc(SCC_Info, Contracts, NextLabel, Callgraph, Plt) ->
   %% Assume that the PLT contains the current propagated types
   AllFuns = collect_fun_info([Fun || {_MFA, {_Var, Fun}, _Rec} <- SCC_Info]),
-  PropTypes = get_fun_types_from_plt(AllFuns, State),
-  MFAs = [MFA || {MFA, {_Var, _Fun}, _Rec} <- SCC_Info],
-  NextLabel = dialyzer_codeserver:get_next_core_label(Codeserver),
-  Plt1 = dialyzer_plt:delete_contract_list(Plt, MFAs),
+  PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   FunTypes = dialyzer_typesig:analyze_scc(SCC_Info, NextLabel, 
-					  Callgraph, Plt1, PropTypes),
+					  Callgraph, Plt, PropTypes),
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
   FilteredFunTypes = dict:filter(fun(X, _) ->
 				      sets:is_element(X, AllFunSet) 
@@ -372,13 +370,13 @@ find_succ_types_for_scc(SCC_Info, Contracts,
        ordsets:from_list([Fun || {Fun, _Arity} <- AllFuns])}
   end.
 
-get_fun_types_from_plt(FunList, State) ->
-  get_fun_types_from_plt(FunList, State, dict:new()).
+get_fun_types_from_plt(FunList, Callgraph, Plt) ->
+  get_fun_types_from_plt(FunList, Callgraph, Plt, dict:new()).
 
-get_fun_types_from_plt([{FunLabel, Arity}|Left], State, Map) ->
-  Type = lookup_fun_type(FunLabel, Arity, State),
-  get_fun_types_from_plt(Left, State, dict:store(FunLabel, Type, Map));
-get_fun_types_from_plt([], _State, Map) ->
+get_fun_types_from_plt([{FunLabel, Arity}|Left], Callgraph, Plt, Map) ->
+  Type = lookup_fun_type(FunLabel, Arity, Callgraph, Plt),
+  get_fun_types_from_plt(Left, Callgraph, Plt, dict:store(FunLabel, Type, Map));
+get_fun_types_from_plt([], _Callgraph, _Plt, Map) ->
   Map.
 
 collect_fun_info(Trees) ->
@@ -396,7 +394,7 @@ collect_fun_info([Tree|Trees], List) ->
 collect_fun_info([], List) ->
   List.
 
-lookup_fun_type(Label, Arity, #st{callgraph = Callgraph, plt = Plt}) ->
+lookup_fun_type(Label, Arity, Callgraph, Plt) ->
   ID = lookup_name(Label, Callgraph),
   case dialyzer_plt:lookup(Plt, ID) of
     none -> erl_types:t_fun(Arity, erl_types:t_any());
