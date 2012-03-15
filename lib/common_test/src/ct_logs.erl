@@ -920,33 +920,48 @@ insert_dir(D,[D1|Ds]) ->
 insert_dir(D,[]) ->
     [D].
 
-make_last_run_index([Name|Rest], Result, TotSucc, TotFail, UserSkip, AutoSkip,
-		    TotNotBuilt, Missing) ->
-    case last_test(Name) of
+make_last_run_index([Name|Rest], Result, TotSucc, TotFail,
+		    UserSkip, AutoSkip, TotNotBuilt, Missing) ->
+    case get_run_dirs(Name) of
 	false ->
 	    %% Silently skip.
-	    make_last_run_index(Rest, Result, TotSucc, TotFail, UserSkip, AutoSkip,
-				TotNotBuilt, Missing);
-	LastLogDir ->
+	    make_last_run_index(Rest, Result, TotSucc, TotFail,
+				UserSkip, AutoSkip, TotNotBuilt, Missing);
+	LogDirs ->
 	    SuiteName = filename:rootname(filename:basename(Name)),
-	    case make_one_index_entry(SuiteName, LastLogDir, "-", false, Missing) of
-		{Result1,Succ,Fail,USkip,ASkip,NotBuilt} ->
-		    %% for backwards compatibility
-		    AutoSkip1 = case catch AutoSkip+ASkip of
-				    {'EXIT',_} -> undefined;
-				    Res -> Res
-				end,
-		    make_last_run_index(Rest, [Result|Result1], TotSucc+Succ, 
-					TotFail+Fail, UserSkip+USkip, AutoSkip1,
-					TotNotBuilt+NotBuilt, Missing);
-		error ->
-		    make_last_run_index(Rest, Result, TotSucc, TotFail, UserSkip, AutoSkip, 
-					TotNotBuilt, Missing)
-	    end
+	    {Result1,TotSucc1,TotFail1,UserSkip1,AutoSkip1,TotNotBuilt1} = 
+		make_last_run_index1(SuiteName, LogDirs, Result,
+				     TotSucc, TotFail,
+				     UserSkip, AutoSkip,
+				     TotNotBuilt, Missing),
+	    make_last_run_index(Rest, Result1, TotSucc1, TotFail1,
+				UserSkip1, AutoSkip1,
+				TotNotBuilt1, Missing)
     end;
+
 make_last_run_index([], Result, TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, _) ->
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, false)],
      {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}}.
+	    
+make_last_run_index1(SuiteName, [LogDir | LogDirs], Result, TotSucc, TotFail,
+		     UserSkip, AutoSkip, TotNotBuilt, Missing) ->
+    case make_one_index_entry(SuiteName, LogDir, "-", false, Missing) of
+	{Result1,Succ,Fail,USkip,ASkip,NotBuilt} ->
+	    %% for backwards compatibility
+	    AutoSkip1 = case catch AutoSkip+ASkip of
+			    {'EXIT',_} -> undefined;
+			    Res -> Res
+			end,
+	    make_last_run_index1(SuiteName, LogDirs, [Result|Result1], TotSucc+Succ, 
+				TotFail+Fail, UserSkip+USkip, AutoSkip1,
+				TotNotBuilt+NotBuilt, Missing);
+	error ->
+	    make_last_run_index1(SuiteName, LogDirs, Result, TotSucc, TotFail,
+				 UserSkip, AutoSkip, TotNotBuilt, Missing)
+    end;
+make_last_run_index1(_, [], Result, TotSucc, TotFail,
+		     UserSkip, AutoSkip, TotNotBuilt, _) ->
+    {Result,TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}.
 
 make_one_index_entry(SuiteName, LogDir, Label, All, Missing) ->
     case count_cases(LogDir) of
@@ -1698,14 +1713,20 @@ make_all_suites_index(NewTestData = {_TestName,DirName}) ->
 sort_logdirs([Dir|Dirs],Groups) ->
     TestName = filename:rootname(filename:basename(Dir)),
     case filelib:wildcard(filename:join(Dir,"run.*")) of
-	[RunDir] ->
-	    Groups1 = insert_test(TestName,{filename:basename(RunDir),RunDir},Groups),
+	RunDirs = [_|_] ->
+	    Groups1 = sort_logdirs1(TestName,RunDirs,Groups),
 	    sort_logdirs(Dirs,Groups1);
 	_ ->					% ignore missing run directory
 	    sort_logdirs(Dirs,Groups)
     end;
 sort_logdirs([],Groups) ->
     lists:keysort(1,sort_each_group(Groups)).
+
+sort_logdirs1(TestName,[RunDir|RunDirs],Groups) ->
+    Groups1 = insert_test(TestName,{filename:basename(RunDir),RunDir},Groups),
+    sort_logdirs1(TestName,RunDirs,Groups1);
+sort_logdirs1(_,[],Groups) ->
+    Groups.
 
 insert_test(Test,IxDir,[{Test,IxDirs}|Groups]) ->
     [{Test,[IxDir|IxDirs]}|Groups];
@@ -1998,21 +2019,17 @@ notify_and_unlock_file(File) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec last_test(Dir) -> string() | false
+%%% @spec get_run_dirs(Dir) -> [string()] | false
 %%%
 %%% @doc
 %%%
-last_test(Dir) ->
-    last_test(filelib:wildcard(filename:join(Dir, "run.[1-2]*")), false).
-
-last_test([Run|Rest], false) ->
-    last_test(Rest, Run);
-last_test([Run|Rest], Latest) when Run > Latest ->
-    last_test(Rest, Run);
-last_test([_|Rest], Latest) ->
-    last_test(Rest, Latest);
-last_test([], Latest) ->
-    Latest.
+get_run_dirs(Dir) ->
+    case filelib:wildcard(filename:join(Dir, "run.[1-2]*")) of
+	[] ->
+	    false;
+	RunDirs ->
+	    lists:sort(RunDirs)
+    end.
 
 %%%-----------------------------------------------------------------
 %%% @spec xhtml(HTML, XHTML) -> HTML | XHTML

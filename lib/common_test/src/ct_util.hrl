@@ -43,9 +43,10 @@
 		   include=[],
 		   multiply_timetraps=[],
 		   scale_timetraps=[],
+		   create_priv_dir=[],
 		   alias=[],
 		   tests=[],
-		   merge_tests = true }).
+		   merge_tests=true}).
 
 -record(cover, {app=none,
 		level=details,
