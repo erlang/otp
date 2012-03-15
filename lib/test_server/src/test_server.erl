@@ -44,7 +44,7 @@
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
 -export([app_test/1, app_test/2]).
 -export([is_native/1]).
--export([comment/1]).
+-export([comment/1, make_priv_dir/0]).
 -export([os_type/0]).
 -export([run_on_shielded_node/2]).
 -export([is_cover/0,is_debug/0,is_commercial/0]).
@@ -754,6 +754,25 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 	{set_curr_conf,From,NewCurrConf} ->
 	    From ! {self(),set_curr_conf,ok},
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,NewCurrConf);
+	{make_priv_dir,From} when CurrConf == undefined ->
+	    From ! {self(),make_priv_dir,{error,no_priv_dir_in_config}};
+	{make_priv_dir,From} ->
+	    Result =
+		case proplists:get_value(priv_dir, element(2, CurrConf)) of
+		    undefined ->
+			{error,no_priv_dir_in_config};
+		    PrivDir ->
+			case file:make_dir(PrivDir) of
+			    ok ->
+				ok;
+			    {error, eexist} ->
+				ok;
+			    MkDirError ->
+				{error,{MkDirError,PrivDir}}
+			end
+		end,
+	    From ! {self(),make_priv_dir,Result},
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
 	    RetVal = {Time/1000000,Value,mod_loc(Loc),Opts,Comment},
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},Comment,undefined);
@@ -948,17 +967,20 @@ output(Msg,Sender) ->
     local_or_remote_apply({test_server_ctrl,output,[Msg,Sender]}).
 
 call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
+    %% Starter is also the group leader process
     Starter = self(),
     Data = {Mod,Func,TCPid,TCExitReason,Loc},
     EndConfProc =
 	fun() ->
+		group_leader(Starter, self()),
 		Supervisor = self(),
 		EndConfApply =
 		    fun() ->
 			    case catch apply(Mod,end_per_testcase,[Func,Conf]) of
 				{'EXIT',Why} ->
+				    timer:sleep(1),
 				    group_leader() ! {printout,12,
-						      "ERROR! ~p:end_per_testcase(~p, ~p)"
+						      "WARNING! ~p:end_per_testcase(~p, ~p)"
 						      " crashed!\n\tReason: ~p\n",
 						      [Mod,Func,Conf,Why]};
 				_ ->
@@ -973,6 +995,11 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 		    {'EXIT',Pid,Reason} ->
 			Starter ! {self(),{call_end_conf,Data,{error,Reason}}}
 		after TVal ->
+			exit(Pid, kill),
+			group_leader() ! {printout,12,
+					  "WARNING! ~p:end_per_testcase(~p, ~p)"
+					  " failed!\n\tReason: timetrap timeout"
+					  " after ~w ms!\n", [Mod,Func,Conf,TVal]},
 			Starter ! {self(),{call_end_conf,Data,{error,timeout}}}
 		end
 	end,
@@ -1027,6 +1054,10 @@ spawn_fw_call(Mod,{end_per_testcase,Func},EndConf,Pid,
 			    E = {failed,{Mod,end_per_testcase,Why}},
 			    {Result,E}
 		    end,
+		group_leader() ! {printout,12,
+				  "WARNING! ~p:end_per_testcase(~p, ~p)"
+				  " failed!\n\tReason: timetrap timeout"
+				  " after ~w ms!\n", [Mod,Func,EndConf,TVal]},
 		FailLoc = proplists:get_value(tc_fail_loc, EndConf1),
 		case catch do_end_tc_call(Mod,Func, FailLoc,
 					  {Pid,Report,[EndConf1]}, Why) of
@@ -1176,6 +1207,9 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
     exit({Ref,Time,Value,Loc,Opts}).
 
 run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
+    %% save current state in controller loop
+    sync_send(group_leader(),set_curr_conf,{{Mod,Func},hd(Args)},
+	      5000, fun() -> exit(no_answer_from_group_leader) end),
     case RunInit of
 	run_init ->
 	    put(test_server_init_or_end_conf,{init_per_testcase,Func}),
@@ -1234,8 +1268,8 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    %% call user callback function if defined
 		    EndConf1 = user_callback(TCCallback, Mod, Func, 'end', EndConf),
 		    %% update current state in controller loop
-		    sync_send(group_leader(),set_curr_conf,EndConf1,
-			      5000, fun() -> exit(no_answer_from_group_leader) end),
+		    sync_send(group_leader(),set_curr_conf,EndConf1, 5000,
+			      fun() -> exit(no_answer_from_group_leader) end),
 		    {FWReturn1,TSReturn1,EndConf2} =
 			case end_per_testcase(Mod, Func, EndConf1) of
 			    SaveCfg1={save_config,_} ->
@@ -2575,11 +2609,23 @@ read_comment() ->
     MsgLooper = group_leader(),
     MsgLooper ! {read_comment,self()},
     receive
-	{MsgLooper,read_comment,Comment} ->
-	    Comment
+	{MsgLooper,read_comment,Comment} -> Comment
     after
-	5000 ->
-	    ""
+	5000 -> ""
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% make_priv_dir() -> ok
+%%
+%% Order test server to create the private directory
+%% for the current test case.
+make_priv_dir() ->
+    MsgLooper = group_leader(),
+    group_leader() ! {make_priv_dir,self()},
+    receive
+	{MsgLooper,make_priv_dir,Result} -> Result
+    after
+	5000 -> error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

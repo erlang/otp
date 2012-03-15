@@ -29,6 +29,7 @@ MODULES= \
 	ct_test_support_eh \
 	ct_userconfig_callback \
 	ct_smoke_test_SUITE \
+	ct_priv_dir_SUITE \
 	ct_event_handler_SUITE \
 	ct_config_info_SUITE \
 	ct_groups_test_1_SUITE \

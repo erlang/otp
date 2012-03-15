@@ -145,7 +145,16 @@ end_per_testcase1(tc8, Config) ->
     ct:pal("end_per_testcase(tc8): ~p", [Config]),
     tc8 = ?config(tc, Config),
     {failed,timetrap_timeout} = ?config(tc_status, Config),
+    ok;
+
+end_per_testcase1(tc9, Config) ->
+    ct:pal("end_per_testcase(tc9): ~p", [Config]),
+    tc9 = ?config(tc, Config),
+    %% check that it's possible to send and receive synchronously
+    %% with the group leader process for end_per_testcase
+    test_server:stop_node(dummy@somehost),
     ok.
+
 
 %%--------------------------------------------------------------------
 %% Function: groups() -> [Group]
@@ -170,7 +179,7 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [tc1, tc2, tc3, tc4, tc5, tc6, tc7, tc8].
+    [tc1, tc2, tc3, tc4, tc5, tc6, tc7, tc8, tc9].
 
 tc1(_) ->
     timer:sleep(2000),
@@ -203,6 +212,10 @@ tc7(_) ->
 
 tc8(_) ->
     timetrap_helper:sleep(2000),
+    ok.
+
+tc9(_) ->
+    sleep(2000),
     ok.
 
 %%%-----------------------------------------------------------------
