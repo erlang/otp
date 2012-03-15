@@ -30,7 +30,7 @@
 -export([get_logopts/0, format_comment/1, get_html_wrapper/3]).
 
 -export([error_in_suite/1, init_per_suite/1, end_per_suite/1,
-	 ct_init_per_group/2, ct_end_per_group/2]).
+	 init_per_group/2, end_per_group/2]).
 
 -export([make_all_conf/3, make_conf/5]).
 
@@ -333,8 +333,7 @@ add_defaults1(Mod,Func, GroupPath, SuiteInfo, DoInit) ->
 			      _ -> []
 			  end
 		  end, GroupPath),
-    Args = if Func == init_per_group; Func == ct_init_per_group;
-	      Func == end_per_group; Func == ct_end_per_group ->
+    Args = if Func == init_per_group ; Func == end_per_group ->
 		   [?val(name, hd(GroupPath))];
 	      true ->
 		   []
@@ -433,7 +432,7 @@ add_defaults2(Mod,init_per_suite, IPSInfo, SuiteInfo,SuiteReqs, false) ->
     add_defaults2(Mod,init_per_suite, IPSInfo, SuiteInfo,SuiteReqs, true);
 
 add_defaults2(_Mod,IPG, IPGAndGroupInfo, SuiteInfo,SuiteReqs, DoInit) when
-      IPG == init_per_group ; IPG == ct_init_per_group ->
+      IPG == init_per_group ->
     %% If DoInit == true, we have to process the suite() list, otherwise
     %% it has already been handled (see clause for init_per_suite)
     case DoInit of		
@@ -476,7 +475,7 @@ add_defaults2(_Mod,_Func, TCAndGroupInfo, SuiteInfo,SuiteReqs, false) ->
 add_defaults2(_Mod,_Func, TCInfo, SuiteInfo,SuiteReqs, true) ->
     %% Here we have to process the suite info list also (no call to
     %% init_per_suite before this first test case). This TC can't belong
-    %% to a group, or the clause for (ct_)init_per_group would've caught this.
+    %% to a group, or the clause for init_per_group would've caught this.
     Info = lists:flatten([TCInfo, SuiteReqs]),
     lists:flatten([Info,remove_info_in_prev(Info, [SuiteInfo])]).
 
@@ -577,8 +576,6 @@ required_default(Name,Key,Info,_,{init_per_suite,_}) ->
     try_set_default(Name,Key,Info,suite);
 required_default(Name,Key,Info,_,{{init_per_group,GrName,_},_}) ->
     try_set_default(Name,Key,Info,{group,GrName});
-required_default(Name,Key,Info,_,{{ct_init_per_group,GrName,_},_}) ->
-    try_set_default(Name,Key,Info,{group,GrName});
 required_default(Name,Key,Info,_,_FuncSpec) ->
     try_set_default(Name,Key,Info,testcase).
 
@@ -647,7 +644,7 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     FuncSpec =
 	case group_or_func(Func,Args) of
 	    {_,GroupName,_Props} = Group ->
-		if Func == end_per_group; Func == ct_end_per_group ->
+		if Func == end_per_group ->
 			ct_config:delete_default_config({group,GroupName});
 		   true -> ok
 		end,
@@ -872,9 +869,7 @@ mark_as_failed1(_,_,_,[]) ->
     ok.
 
 group_or_func(Func, Config) when Func == init_per_group; 
-				 Func == end_per_group;
-				 Func == ct_init_per_group; 
-				 Func == ct_end_per_group ->
+				 Func == end_per_group ->
     case ?val(tc_group_properties, Config) of
 	undefined ->
 	    {Func,unknown,[]};
@@ -1217,8 +1212,8 @@ make_conf(Mod, Name, Props, TestSpec) ->
 			    "end_per_group/2 missing for group "
 			    "~p in ~p, using default.",
 			    [Name,Mod]),
-		{{?MODULE,ct_init_per_group},
-		 {?MODULE,ct_end_per_group},
+		{{?MODULE,init_per_group},
+		 {?MODULE,end_per_group},
 		 [{suite,Mod}]}
 	end,
     {conf,[{name,Name}|Props++ExtraProps],InitConf,TestSpec,EndConf}.
@@ -1490,14 +1485,14 @@ end_per_suite(_Config) ->
 
 %% if the group config functions are missing in the suite,
 %% use these instead
-ct_init_per_group(GroupName, Config) ->
+init_per_group(GroupName, Config) ->
     ct:comment(io_lib:format("start of ~p", [GroupName])),
     ct_logs:log("TEST INFO", "init_per_group/2 for ~w missing "
 		"in suite, using default.",
 		[GroupName]),
     Config.
 
-ct_end_per_group(GroupName, _) ->
+end_per_group(GroupName, _) ->
     ct:comment(io_lib:format("end of ~p", [GroupName])),
     ct_logs:log("TEST INFO", "end_per_group/2 for ~w missing "
 		"in suite, using default.",
@@ -1579,10 +1574,6 @@ report(What,Data) ->
 		    ok;
 		{end_per_group,_} ->
 		    ok;
-		{ct_init_per_group,_} ->
-		    ok;
-		{ct_end_per_group,_} ->
-		    ok;
 		{_,ok} ->
 		    add_to_stats(ok);
 		{_,{skipped,{failed,{_,init_per_testcase,_}}}} ->
@@ -1619,8 +1610,7 @@ report(What,Data) ->
 					data=Data}),
 	    ct_hooks:on_tc_skip(What, Data),
 	    if Case /= end_per_suite, 
-	       Case /= end_per_group,
-	       Case /= ct_end_per_group -> 
+	       Case /= end_per_group ->
 		    add_to_stats(auto_skipped);
 	       true -> 
 		    ok

@@ -88,11 +88,6 @@ init_tc(Mod, {init_per_group, GroupName, Opts}, Config) ->
     call(fun call_generic/3, Config, [pre_init_per_group, GroupName]);
 init_tc(_Mod, {end_per_group, GroupName, _}, Config) ->
     call(fun call_generic/3, Config, [pre_end_per_group, GroupName]);
-init_tc(Mod, {ct_init_per_group, GroupName, Opts}, Config) ->
-    maybe_start_locker(Mod, GroupName, Opts),
-    call(fun call_generic/3, Config, [pre_init_per_group, GroupName]);
-init_tc(_Mod, {ct_end_per_group, GroupName, _}, Config) ->
-    call(fun call_generic/3, Config, [pre_end_per_group, GroupName]);
 init_tc(_Mod, TC, Config) ->
     call(fun call_generic/3, Config, [pre_init_per_testcase, TC]).
 
@@ -119,14 +114,6 @@ end_tc(_Mod, {init_per_group, GroupName, _}, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config],
 	 '$ct_no_change');
 end_tc(Mod, {end_per_group, GroupName, Opts}, Config, Result, _Return) ->
-    Res = call(fun call_generic/3, Result,
-	       [post_end_per_group, GroupName, Config], '$ct_no_change'),
-    maybe_stop_locker(Mod, GroupName,Opts),
-    Res;
-end_tc(_Mod, {ct_init_per_group, GroupName, _}, Config, _Result, Return) ->
-    call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config],
-	 '$ct_no_change');
-end_tc(Mod, {ct_end_per_group, GroupName, Opts}, Config, Result, _Return) ->
     Res = call(fun call_generic/3, Result,
 	       [post_end_per_group, GroupName, Config], '$ct_no_change'),
     maybe_stop_locker(Mod, GroupName,Opts),
