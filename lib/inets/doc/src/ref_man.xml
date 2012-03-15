@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE application SYSTEM "application.dtd">
 
 <application xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>1997</year><year>2010</year>
+      <year>1997</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -30,8 +30,8 @@
   </header>
   <description>
     <p>Inets is a container for Internet clients and
-      servers. Currently a FTP client, a HTTP client and server, and
-      a tftp client and server has been incorporated in Inets.</p>
+    servers. Currently a FTP client, a HTTP client and server, and
+    a tftp client and server has been incorporated in Inets.</p>
   </description>
   <xi:include href="inets.xml"/>
   <xi:include href="ftp.xml"/>
@@ -45,6 +45,7 @@
   <xi:include href="mod_auth.xml"/>
   <xi:include href="mod_esi.xml"/>
   <xi:include href="mod_security.xml"/>
+  <xi:include href="http_uri.xml"/>
 </application>
 
 
