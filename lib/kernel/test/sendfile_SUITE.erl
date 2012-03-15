@@ -102,6 +102,8 @@ t_sendfile_many_small(Config) when is_list(Config) ->
     Filename = proplists:get_value(small_file, Config),
     FileOpts = proplists:get_value(file_opts, Config, []),
 
+    error_logger:add_report_handler(?MODULE,[self()]),
+
     Send = fun(Sock) ->
 		   {Size,_} = sendfile_file_info(Filename),
 		   N = 10000,
@@ -113,7 +115,15 @@ t_sendfile_many_small(Config) when is_list(Config) ->
 		   Size*N
 	   end,
 
-    ok = sendfile_send({127,0,0,1}, Send, 0).
+    ok = sendfile_send({127,0,0,1}, Send, 0),
+
+    receive
+	{stolen,Reason} ->
+	    exit(Reason)
+    after 200 ->
+	    ok
+    end.
+
 
 t_sendfile_big_all(Config) when is_list(Config) ->
     Filename = proplists:get_value(big_file, Config),

@@ -1800,7 +1800,7 @@ static void free_sendfile(void *data) {
 	MUTEX_LOCK(d->c.sendfile.q_mtx);
 	driver_deq(d->c.sendfile.port,1);
 	MUTEX_UNLOCK(d->c.sendfile.q_mtx);
-	driver_select(d->c.sendfile.port, (ErlDrvEvent)(long)d->c.sendfile.out_fd, ERL_DRV_USE|ERL_DRV_WRITE, 0);
+	driver_select(d->c.sendfile.port, (ErlDrvEvent)(long)d->c.sendfile.out_fd, ERL_DRV_USE_NO_CALLBACK|ERL_DRV_WRITE, 0);
     }
     EF_FREE(data);
 }
@@ -2272,7 +2272,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 	      desc->sendfile_state = sending;
 	      desc->d = d;
 	      driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
-			    ERL_DRV_USE|ERL_DRV_WRITE, 1);
+			    ERL_DRV_USE_NO_CALLBACK|ERL_DRV_WRITE, 1);
 	  }
 	  break;
 #endif
