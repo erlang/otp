@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -33,10 +33,13 @@
     Web server API programmer.</modulesummary>
   <description>
     <p>This module provides the Erlang Web server API module programmer
-      with utility functions for generic sockets communication. The
-      appropriate communication mechanism is transparently used, that
-      is <c>ip_comm</c> or <c>ssl</c>.</p>
+    with utility functions for generic sockets communication. The
+    appropriate communication mechanism is transparently used, that
+    is <c>ip_comm</c> or <c>ssl</c>.</p>
+    
+    <marker id="deliver"></marker>
   </description>
+
   <funcs>
     <func>
       <name>deliver(SocketType, Socket, Data) -> Result</name>
@@ -50,11 +53,14 @@
       <desc>
         <marker id="deliver"></marker>
         <p><c>deliver/3</c> sends the <c>Binary</c> over the
-          <c>Socket</c> using the specified <c>SocketType</c>. Socket
-          and SocketType should be the socket and the socket_type form
-          the mod record as defined in httpd.hrl</p>
+	<c>Socket</c> using the specified <c>SocketType</c>. Socket
+	and SocketType should be the socket and the socket_type form
+	the mod record as defined in httpd.hrl</p>
+    
+	<marker id="peername"></marker>
       </desc>
     </func>
+
     <func>
       <name>peername(SocketType,Socket) -> {Port,IPAddress}</name>
       <fsummary>Return the port and IP-address of the remote socket.</fsummary>
@@ -67,9 +73,12 @@
       <desc>
         <marker id="peername"></marker>
         <p><c>peername/3</c> returns the <c>Port</c> and
-          <c>IPAddress</c> of the remote <c>Socket</c>. </p>
+	<c>IPAddress</c> of the remote <c>Socket</c>. </p>
+    
+	<marker id="resolve"></marker>
       </desc>
     </func>
+
     <func>
       <name>resolve() -> HostName</name>
       <fsummary>Return the official name of the current host.</fsummary>
@@ -79,7 +88,7 @@
       <desc>
         <marker id="resolve"></marker>
         <p><c>resolve/0</c> returns the official <c>HostName</c> of
-          the current host. </p>
+	the current host. </p>
       </desc>
     </func>
   </funcs>
