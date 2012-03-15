@@ -563,7 +563,9 @@ int ethr_dw_atomic_cmpxchg(ethr_dw_atomic_t *var, ethr_dw_sint_t *val, ethr_dw_s
 
 int ethr_dw_atomic_cmpxchg_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val, ethr_dw_sint_t *old_val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_DOUBLE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_dw_atomic_cmpxchg_ddrb__(var, val, old_val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_dw_atomic_cmpxchg(var, val, old_val);
 #else
     return ethr_dw_atomic_cmpxchg_rb(var, val, old_val);
@@ -786,7 +788,9 @@ void ethr_dw_atomic_set(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 
 void ethr_dw_atomic_set_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_DOUBLE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_dw_atomic_set_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_dw_atomic_set(var, val);
 #else
     ethr_dw_atomic_set_rb(var, val);
@@ -949,7 +953,9 @@ void ethr_dw_atomic_read(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 
 void ethr_dw_atomic_read_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_DOUBLE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_dw_atomic_read_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_dw_atomic_read(var, val);
 #else
     ethr_dw_atomic_read_rb(var, val);
@@ -1109,7 +1115,9 @@ void ethr_dw_atomic_init(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 
 void ethr_dw_atomic_init_ddrb(ethr_dw_atomic_t *var, ethr_dw_sint_t *val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_DOUBLE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_dw_atomic_init_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_dw_atomic_init(var, val);
 #else
     ethr_dw_atomic_init_rb(var, val);
@@ -1278,7 +1286,9 @@ ethr_sint_t ethr_atomic_cmpxchg(ethr_atomic_t *var, ethr_sint_t val, ethr_sint_t
 
 ethr_sint_t ethr_atomic_cmpxchg_ddrb(ethr_atomic_t *var, ethr_sint_t val, ethr_sint_t old_val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_cmpxchg_ddrb__(var, val, old_val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_cmpxchg(var, val, old_val);
 #else
     return ethr_atomic_cmpxchg_rb(var, val, old_val);
@@ -1398,7 +1408,9 @@ ethr_sint_t ethr_atomic_xchg(ethr_atomic_t *var, ethr_sint_t val)
 
 ethr_sint_t ethr_atomic_xchg_ddrb(ethr_atomic_t *var, ethr_sint_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_xchg_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_xchg(var, val);
 #else
     return ethr_atomic_xchg_rb(var, val);
@@ -1512,7 +1524,9 @@ void ethr_atomic_set(ethr_atomic_t *var, ethr_sint_t val)
 
 void ethr_atomic_set_ddrb(ethr_atomic_t *var, ethr_sint_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_atomic_set_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic_set(var, val);
 #else
     ethr_atomic_set_rb(var, val);
@@ -1620,7 +1634,9 @@ void ethr_atomic_init(ethr_atomic_t *var, ethr_sint_t val)
 
 void ethr_atomic_init_ddrb(ethr_atomic_t *var, ethr_sint_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_atomic_init_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic_init(var, val);
 #else
     ethr_atomic_init_rb(var, val);
@@ -1725,7 +1741,9 @@ ethr_sint_t ethr_atomic_add_read(ethr_atomic_t *var, ethr_sint_t val)
 
 ethr_sint_t ethr_atomic_add_read_ddrb(ethr_atomic_t *var, ethr_sint_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_add_read_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_add_read(var, val);
 #else
     return ethr_atomic_add_read_rb(var, val);
@@ -1840,7 +1858,9 @@ ethr_sint_t ethr_atomic_read(ethr_atomic_t *var)
 
 ethr_sint_t ethr_atomic_read_ddrb(ethr_atomic_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_read_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_read(var);
 #else
     return ethr_atomic_read_rb(var);
@@ -1954,7 +1974,9 @@ ethr_sint_t ethr_atomic_inc_read(ethr_atomic_t *var)
 
 ethr_sint_t ethr_atomic_inc_read_ddrb(ethr_atomic_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_inc_read_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_inc_read(var);
 #else
     return ethr_atomic_inc_read_rb(var);
@@ -2069,7 +2091,9 @@ ethr_sint_t ethr_atomic_dec_read(ethr_atomic_t *var)
 
 ethr_sint_t ethr_atomic_dec_read_ddrb(ethr_atomic_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_dec_read_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_dec_read(var);
 #else
     return ethr_atomic_dec_read_rb(var);
@@ -2183,7 +2207,9 @@ void ethr_atomic_add(ethr_atomic_t *var, ethr_sint_t val)
 
 void ethr_atomic_add_ddrb(ethr_atomic_t *var, ethr_sint_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_atomic_add_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic_add(var, val);
 #else
     ethr_atomic_add_rb(var, val);
@@ -2292,7 +2318,9 @@ void ethr_atomic_inc(ethr_atomic_t *var)
 
 void ethr_atomic_inc_ddrb(ethr_atomic_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_atomic_inc_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic_inc(var);
 #else
     ethr_atomic_inc_rb(var);
@@ -2401,7 +2429,9 @@ void ethr_atomic_dec(ethr_atomic_t *var)
 
 void ethr_atomic_dec_ddrb(ethr_atomic_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    ethr_atomic_dec_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic_dec(var);
 #else
     ethr_atomic_dec_rb(var);
@@ -2511,7 +2541,9 @@ ethr_sint_t ethr_atomic_read_band(ethr_atomic_t *var, ethr_sint_t val)
 
 ethr_sint_t ethr_atomic_read_band_ddrb(ethr_atomic_t *var, ethr_sint_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_read_band_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_read_band(var, val);
 #else
     return ethr_atomic_read_band_rb(var, val);
@@ -2626,7 +2658,9 @@ ethr_sint_t ethr_atomic_read_bor(ethr_atomic_t *var, ethr_sint_t val)
 
 ethr_sint_t ethr_atomic_read_bor_ddrb(ethr_atomic_t *var, ethr_sint_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_WORD_SZ_NATIVE_ATOMIC_OPS)
+    return ethr_atomic_read_bor_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic_read_bor(var, val);
 #else
     return ethr_atomic_read_bor_rb(var, val);
@@ -2761,7 +2795,9 @@ ethr_sint32_t ethr_atomic32_cmpxchg(ethr_atomic32_t *var, ethr_sint32_t val, eth
 
 ethr_sint32_t ethr_atomic32_cmpxchg_ddrb(ethr_atomic32_t *var, ethr_sint32_t val, ethr_sint32_t old_val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_cmpxchg_ddrb__(var, val, old_val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_cmpxchg(var, val, old_val);
 #else
     return ethr_atomic32_cmpxchg_rb(var, val, old_val);
@@ -2858,7 +2894,9 @@ ethr_sint32_t ethr_atomic32_xchg(ethr_atomic32_t *var, ethr_sint32_t val)
 
 ethr_sint32_t ethr_atomic32_xchg_ddrb(ethr_atomic32_t *var, ethr_sint32_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_xchg_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_xchg(var, val);
 #else
     return ethr_atomic32_xchg_rb(var, val);
@@ -2954,7 +2992,9 @@ void ethr_atomic32_set(ethr_atomic32_t *var, ethr_sint32_t val)
 
 void ethr_atomic32_set_ddrb(ethr_atomic32_t *var, ethr_sint32_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    ethr_atomic32_set_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic32_set(var, val);
 #else
     ethr_atomic32_set_rb(var, val);
@@ -3044,7 +3084,9 @@ void ethr_atomic32_init(ethr_atomic32_t *var, ethr_sint32_t val)
 
 void ethr_atomic32_init_ddrb(ethr_atomic32_t *var, ethr_sint32_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    ethr_atomic32_init_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic32_init(var, val);
 #else
     ethr_atomic32_init_rb(var, val);
@@ -3131,7 +3173,9 @@ ethr_sint32_t ethr_atomic32_add_read(ethr_atomic32_t *var, ethr_sint32_t val)
 
 ethr_sint32_t ethr_atomic32_add_read_ddrb(ethr_atomic32_t *var, ethr_sint32_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_add_read_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_add_read(var, val);
 #else
     return ethr_atomic32_add_read_rb(var, val);
@@ -3228,7 +3272,9 @@ ethr_sint32_t ethr_atomic32_read(ethr_atomic32_t *var)
 
 ethr_sint32_t ethr_atomic32_read_ddrb(ethr_atomic32_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_read_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_read(var);
 #else
     return ethr_atomic32_read_rb(var);
@@ -3325,7 +3371,9 @@ ethr_sint32_t ethr_atomic32_inc_read(ethr_atomic32_t *var)
 
 ethr_sint32_t ethr_atomic32_inc_read_ddrb(ethr_atomic32_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_inc_read_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_inc_read(var);
 #else
     return ethr_atomic32_inc_read_rb(var);
@@ -3422,7 +3470,9 @@ ethr_sint32_t ethr_atomic32_dec_read(ethr_atomic32_t *var)
 
 ethr_sint32_t ethr_atomic32_dec_read_ddrb(ethr_atomic32_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_dec_read_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_dec_read(var);
 #else
     return ethr_atomic32_dec_read_rb(var);
@@ -3518,7 +3568,9 @@ void ethr_atomic32_add(ethr_atomic32_t *var, ethr_sint32_t val)
 
 void ethr_atomic32_add_ddrb(ethr_atomic32_t *var, ethr_sint32_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    ethr_atomic32_add_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic32_add(var, val);
 #else
     ethr_atomic32_add_rb(var, val);
@@ -3609,7 +3661,9 @@ void ethr_atomic32_inc(ethr_atomic32_t *var)
 
 void ethr_atomic32_inc_ddrb(ethr_atomic32_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    ethr_atomic32_inc_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic32_inc(var);
 #else
     ethr_atomic32_inc_rb(var);
@@ -3700,7 +3754,9 @@ void ethr_atomic32_dec(ethr_atomic32_t *var)
 
 void ethr_atomic32_dec_ddrb(ethr_atomic32_t *var)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    ethr_atomic32_dec_ddrb__(var);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     ethr_atomic32_dec(var);
 #else
     ethr_atomic32_dec_rb(var);
@@ -3792,7 +3848,9 @@ ethr_sint32_t ethr_atomic32_read_band(ethr_atomic32_t *var, ethr_sint32_t val)
 
 ethr_sint32_t ethr_atomic32_read_band_ddrb(ethr_atomic32_t *var, ethr_sint32_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_read_band_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_read_band(var, val);
 #else
     return ethr_atomic32_read_band_rb(var, val);
@@ -3889,7 +3947,9 @@ ethr_sint32_t ethr_atomic32_read_bor(ethr_atomic32_t *var, ethr_sint32_t val)
 
 ethr_sint32_t ethr_atomic32_read_bor_ddrb(ethr_atomic32_t *var, ethr_sint32_t val)
 {
-#ifdef ETHR_ORDERED_READ_DEPEND
+#if defined(ETHR_HAVE_32BIT_NATIVE_ATOMIC_OPS)
+    return ethr_atomic32_read_bor_ddrb__(var, val);
+#elif defined(ETHR_ORDERED_READ_DEPEND)
     return ethr_atomic32_read_bor(var, val);
 #else
     return ethr_atomic32_read_bor_rb(var, val);
