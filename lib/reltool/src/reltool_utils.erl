@@ -126,18 +126,14 @@ prim_parse(Tokens, Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 default_rels() ->
-    %%Kernel = #rel_app{name = kernel, incl_apps = []},
-    %%Stdlib = #rel_app{name = stdlib, incl_apps = []},
-    Sasl = #rel_app{name = sasl,   incl_apps = []},
+    %% kernel and stdlib are added automatically in every release
     [
      #rel{name = ?DEFAULT_REL_NAME,
 	  vsn = "1.0",
 	  rel_apps = []},
-	  %%rel_apps = [Kernel, Stdlib]},
      #rel{name = "start_sasl",
 	  vsn = "1.0",
-	  rel_apps = [Sasl]}
-	  %%rel_apps = [Kernel, Sasl, Stdlib]}
+	  rel_apps = [#rel_app{name = sasl}]}
     ].
 
 choose_default(Tag, Profile, InclDefs)

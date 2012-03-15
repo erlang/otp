@@ -560,10 +560,30 @@ apps_in_rels(Rels, Apps) ->
 
 apps_in_rel(#rel{name = RelName, rel_apps = RelApps}, Apps) ->
     Mandatory = [{RelName, kernel}, {RelName, stdlib}],
-    Other = [{RelName, AppName} ||
-		RA <- RelApps,
-		AppName <- [RA#rel_app.name | RA#rel_app.incl_apps],
-		not lists:keymember(AppName, 2, Mandatory)],
+    Other =
+	[{RelName, AppName} ||
+	    RA <- RelApps,
+	    AppName <- [RA#rel_app.name |
+			%% Included applications in rel shall overwrite included
+			%% applications in .app. I.e. included applications in
+			%% .app shall only be used if it is not defined in rel.
+			case RA#rel_app.incl_apps of
+			    undefined ->
+				case lists:keyfind(RA#rel_app.name,
+						   #app.name,
+						   Apps) of
+				    #app{info = #app_info{incl_apps = IA}} ->
+					IA;
+				    false ->
+					reltool_utils:throw_error(
+					  "Release ~p uses non existing "
+					  "application ~p",
+					  [RelName,RA#rel_app.name])
+				end;
+			    IA ->
+				IA
+			end],
+	    not lists:keymember(AppName, 2, Mandatory)],
     more_apps_in_rels(Mandatory ++ Other, Apps, []).
 
 more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc) ->
@@ -1505,7 +1525,7 @@ decode(#rel{rel_apps = RelApps} = Rel, [RelApp | KeyVals]) ->
 		{VT andalso VI,
                  #rel_app{name = Name, app_type = Type, incl_apps = InclApps}};
             _ ->
-                {false, #rel_app{incl_apps = []}}
+                {false, #rel_app{}}
         end,
     case ValidTypesAssigned of
 	true ->

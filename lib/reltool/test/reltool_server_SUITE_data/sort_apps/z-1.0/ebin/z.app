@@ -4,5 +4,5 @@
   {vsn, "1.0"},
   {modules,[]},
   {registered, []},
-  {applications, [kernel, stdlib]},
-  {included_applications, [tools]}]}.
+  {applications, [kernel, stdlib, sasl, inets]},
+  {included_applications, [tools, mnesia]}]}.

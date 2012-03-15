@@ -208,10 +208,10 @@ do_gen_config(#rel_app{name = Name,
 		       incl_apps = InclApps},
 	      _InclDefs) ->
     case {Type, InclApps} of
-        {undefined, []} -> Name;
-        {undefined, _}  -> {Name, InclApps};
-        {_, []}         -> {Name, Type};
-        {_, _}          -> {Name, Type, InclApps}
+        {undefined, undefined} -> Name;
+        {undefined, _}         -> {Name, InclApps};
+        {_, undefined}         -> {Name, Type};
+        {_, _}                 -> {Name, Type, InclApps}
     end;
 do_gen_config({Tag, Val}, InclDefs) ->
     emit(Tag, Val, undefined, InclDefs);
@@ -279,7 +279,7 @@ gen_rel(Rel, Sys) ->
             {error, Text}
     end.
 
-do_gen_rel(#rel{name = RelName, vsn = RelVsn},
+do_gen_rel(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
 	   #sys{apps = Apps},
 	   MergedApps) ->
     ErtsName = erts,
@@ -288,7 +288,7 @@ do_gen_rel(#rel{name = RelName, vsn = RelVsn},
 	    {release,
 	     {RelName, RelVsn},
 	     {ErtsName, Erts#app.vsn},
-	     [strip_rel_info(App) || App <- MergedApps]};
+	     [strip_rel_info(App, RelApps) || App <- MergedApps]};
 	false ->
 	    reltool_utils:throw_error("Mandatory application ~p is "
 				      "not included",
@@ -298,13 +298,17 @@ do_gen_rel(#rel{name = RelName, vsn = RelVsn},
 strip_rel_info(#app{name = Name,
 		    vsn = Vsn,
 		    app_type = Type,
-		    info = #app_info{incl_apps = InclApps}})
-  when Type =/= undefined ->
-    case {Type, InclApps} of
-        {permanent, []} -> {Name, Vsn};
-        {permanent, _}  -> {Name, Vsn, InclApps};
-        {_, []}         -> {Name, Vsn, Type};
-        {_, _}          -> {Name, Vsn, Type, InclApps}
+		    info = #app_info{incl_apps = AppInclApps}},
+	       RelApps) when Type =/= undefined ->
+    RelInclApps = case lists:keyfind(Name,#rel_app.name,RelApps) of
+		      #rel_app{incl_apps = RIA} when RIA =/= undefined -> RIA;
+		      _ -> undefined
+		  end,
+    case {Type, RelInclApps} of
+        {permanent, undefined} -> {Name, Vsn};
+	{permanent, _}         -> {Name, Vsn, AppInclApps};
+        {_, undefined}         -> {Name, Vsn, Type};
+        {_, _}                 -> {Name, Vsn, Type, AppInclApps}
     end.
 
 merge_apps(#rel{name = RelName,
@@ -323,7 +327,7 @@ merge_apps(#rel{name = RelName,
 		       A#app.name =/= ?MISSING_APP_NAME,
 		       not lists:keymember(A#app.name, #app.name, MergedApps2)],
     MergedApps3 = do_merge_apps(RelName, Embedded, Apps, EmbAppType, MergedApps2),
-    sort_apps(MergedApps3).
+    sort_apps(lists:reverse(MergedApps3)).
 
 do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType, Acc) ->
     case is_already_merged(Name, RelApps, Acc) of
@@ -341,25 +345,18 @@ do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
 	true ->
 	  do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
 	false ->
-	  RelApp = init_rel_app(Name, Apps),
+	  RelApp = #rel_app{name = Name},
 	  do_merge_apps(RelName, [RelApp | RelApps], Apps, RelAppType, Acc)
   end;
 do_merge_apps(_RelName, [], _Apps, _RelAppType, Acc) ->
-    lists:reverse(Acc).
-
-init_rel_app(Name, Apps) ->
-    {value, App} = lists:keysearch(Name, #app.name, Apps),
-    Info = App#app.info,
-    #rel_app{name = Name,
-	     app_type = undefined,
-	     incl_apps = Info#app_info.incl_apps}.
+    Acc.
 
 merge_app(RelName,
-	      #rel_app{name = Name,
-		       app_type = Type,
-		       incl_apps = InclApps},
-	      RelAppType,
-	      App) ->
+	  #rel_app{name = Name,
+		   app_type = Type,
+		   incl_apps = InclApps0},
+	  RelAppType,
+	  App) ->
     Type2 =
         case {Type, App#app.app_type} of
             {undefined, undefined} -> RelAppType;
@@ -367,6 +364,11 @@ merge_app(RelName,
             {_, _} -> Type
         end,
     Info = App#app.info,
+    InclApps =
+	case InclApps0 of
+	    undefined -> Info#app_info.incl_apps;
+	    _ -> InclApps0
+	end,
     case InclApps -- Info#app_info.incl_apps of
         [] ->
 	    App#app{app_type = Type2, info = Info#app_info{incl_apps = InclApps}};
@@ -421,7 +423,10 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn},
     Mandatory = mandatory_modules(),
     Early = Mandatory ++ Preloaded,
     {value, KernelApp} = lists:keysearch(kernel, #app.name, MergedApps),
-    InclApps = [I || #app{info = #app_info{incl_apps = I}} <- MergedApps],
+    InclApps = lists:flatmap(fun(#app{info = #app_info{incl_apps = I}}) ->
+				     I
+			     end,
+			     MergedApps),
 
     %% Create the script
     DeepList =
@@ -471,7 +476,7 @@ load_app_mods(#app{mods = Mods} = App, Mand, PathFlag, Variables) ->
     Path = cr_path(App, PathFlag, Variables),
     PartNames =
         lists:sort([{packages:split(M),M} ||
-                       #mod{name = M} <- Mods,
+                       #mod{name = M, is_included=true} <- Mods,
                        not lists:member(M, Mand)]),
     SplitMods =
         lists:foldl(
@@ -513,7 +518,12 @@ sort_apps([#app{name = Name, info = Info} = App | Apps],
 	  Circular,
 	  Visited) ->
     {Uses, Apps1, NotFnd1} =
-	find_all(Name, Info#app_info.applications, Apps, Visited, [], []),
+	find_all(Name,
+		 lists:reverse(Info#app_info.applications),
+		 Apps,
+		 Visited,
+		 [],
+		 []),
     {Incs, Apps2, NotFnd2} =
 	find_all(Name,
 		 lists:reverse(Info#app_info.incl_apps),

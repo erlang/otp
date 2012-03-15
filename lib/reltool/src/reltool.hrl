@@ -206,7 +206,7 @@
         {
           name           :: app_name(),
           app_type       :: app_type() | undefined,
-          incl_apps = [] :: [incl_app()]
+          incl_apps      :: [incl_app()] | undefined
         }).
 
 -record(rel,
