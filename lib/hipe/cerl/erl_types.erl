@@ -424,12 +424,7 @@ t_has_opaque_subtype(T) ->
 -spec t_opaque_structure(erl_type()) -> erl_type().
 
 t_opaque_structure(?opaque(Elements)) ->
-  case ordsets:size(Elements) of
-    1 ->
-      [#opaque{struct = Struct}] = ordsets:to_list(Elements),
-      Struct;
-    _ -> throw({error, "Unexpected multiple opaque types"})
-  end.
+  t_sup([Struct || #opaque{struct = Struct} <- ordsets:to_list(Elements)]).
 
 -spec t_opaque_module(erl_type()) -> module().
 
@@ -688,9 +683,9 @@ t_solve_remote(?opaque(Set), ET, R, C) ->
   {NewList, RR} = opaques_solve_remote(List, ET, R, C),
   {?opaque(ordsets:from_list(NewList)), RR};
 t_solve_remote(?tuple(?any, _, _) = T, _ET, _R, _C) -> {T, []};
-t_solve_remote(?tuple(Types, Arity, Tag), ET, R, C)  ->
+t_solve_remote(?tuple(Types, _Arity, _Tag), ET, R, C)  ->
   {RL, RR} = list_solve_remote(Types, ET, R, C),
-  {?tuple(RL, Arity, Tag), RR};
+  {t_tuple(RL), RR};
 t_solve_remote(?tuple_set(Set), ET, R, C) ->
   {NewSet, RR} = tuples_solve_remote(Set, ET, R, C),
   {?tuple_set(NewSet), RR};

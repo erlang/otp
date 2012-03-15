@@ -503,6 +503,16 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
 			  [ExtCalls]),
       free_editor(State,"Analysis Done",  Msg),
       gui_loop(State);
+    {BackendPid, ext_types, ExtTypes} ->
+      Map = fun({M,F,A}) -> io_lib:format("~p:~p/~p",[M,F,A]) end,
+      ExtTypeString = string:join(lists:map(Map, ExtTypes), "\n"),
+      Msg = io_lib:format("The following remote types are being used "
+			  "but information about them is not available.\n"
+			  "The analysis might get more precise by including "
+			  "the modules containing these types and making sure "
+			  "that they are exported:\n~s\n", [ExtTypeString]),
+      free_editor(State, "Analysis done", Msg),
+      gui_loop(State);
     {BackendPid, log, LogMsg} ->
       update_editor(Log, LogMsg),
       gui_loop(State);

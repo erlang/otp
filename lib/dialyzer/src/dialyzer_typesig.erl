@@ -91,22 +91,24 @@
 -type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, dict()}].
 -type typesig_funmap() :: [{type_var(), type_var()}]. %% Orddict
 
--record(state, {callgraph                  :: dialyzer_callgraph:callgraph(),
-		cs            = []         :: [constr()],
-		cmap          = dict:new() :: dict(),
-		fun_map       = []         :: typesig_funmap(),
-		fun_arities   = dict:new() :: dict(),
-		in_match      = false      :: boolean(),
-		in_guard      = false      :: boolean(),
-		module                     :: module(),
-		name_map      = dict:new() :: dict(),
-		next_label                 :: label(),
-		non_self_recs = []         :: [label()],
-		plt                        :: dialyzer_plt:plt(),
-		prop_types    = dict:new() :: dict(),
-		records       = dict:new() :: dict(),
-		opaques       = []         :: [erl_types:erl_type()],
-		scc           = []         :: [type_var()]}).
+-record(state, {callgraph                :: dialyzer_callgraph:callgraph(),
+		cs          = []         :: [constr()],
+		cmap        = dict:new() :: dict(),
+		fun_map     = []         :: typesig_funmap(),
+		fun_arities = dict:new() :: dict(),
+		in_match    = false      :: boolean(),
+		in_guard    = false      :: boolean(),
+		module                   :: module(),
+		name_map    = dict:new() :: dict(),
+		next_label               :: label(),
+		self_recs                :: [label()],
+		plt                      :: dialyzer_plt:plt(),
+		prop_types  = dict:new() :: dict(),
+		records     = dict:new() :: dict(),
+		opaques     = []         :: [erl_types:erl_type()],
+		scc         = []         :: [type_var()],
+		mfas        = []         :: [dialyzer_callgraph:mfa_or_funlbl()]
+	       }).
 
 %%-----------------------------------------------------------------------------
 
@@ -448,7 +450,8 @@ traverse(Tree, DefinedVars, State) ->
 		%% Check if a record is constructed.
 		_ ->
 		  Arity = length(Fields),
-		  case state__lookup_record(State2, cerl:atom_val(Tag), Arity) of
+		  Records = State2#state.records,
+		  case lookup_record(Records, cerl:atom_val(Tag), Arity) of
 		    error -> {State2, TupleType};
 		    {ok, RecType} ->
 		      State3 = state__store_conj(TupleType, sub, RecType, State2),
@@ -646,8 +649,14 @@ get_plt_constr(MFA, Dst, ArgVars, State) ->
   PltRes = dialyzer_plt:lookup(Plt, MFA),
   Opaques = State#state.opaques,
   Module = State#state.module,
+  SCCMFAs = State#state.mfas,
   {FunModule, _, _} = MFA,
-  case dialyzer_plt:lookup_contract(Plt, MFA) of
+  Contract =
+    case lists:member(MFA, SCCMFAs) of
+      true -> none;
+      false -> dialyzer_plt:lookup_contract(Plt, MFA)
+    end,
+  case Contract of
     none ->
       case PltRes of
 	none -> State;
@@ -1246,6 +1255,8 @@ get_bif_constr({erlang, is_record, 2}, Dst, [Var, Tag] = Args, _State) ->
 			   mk_constraint(Var, sub, ArgV)]);
 get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
   %% TODO: Revise this to make it precise for Tag and Arity.
+  Records = State#state.records,
+  AllOpaques = State#state.opaques,
   ArgFun =
     fun(Map) ->
 	case t_is_atom(true, lookup_type(Dst, Map)) of
@@ -1262,10 +1273,8 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 			GenRecord = t_tuple([TagType|AnyElems]),
 			case t_atom_vals(TagType) of
 			  [TagVal] ->
-			    case state__lookup_record(State, TagVal,
-						      ArityVal - 1) of
+			    case lookup_record(Records, TagVal, ArityVal - 1) of
 			      {ok, Type} ->
-				AllOpaques = State#state.opaques,
 				case t_opaque_match_record(Type, AllOpaques) of
 				  [Opaque] -> Opaque;
 				  _ -> Type
@@ -1287,7 +1296,7 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
   DstFun = fun(Map) ->
 	       [TmpVar, TmpTag, TmpArity] = TmpArgTypes = lookup_type_list(Args, Map),
 	       TmpArgTypes2 =
-		 case lists:member(TmpVar, State#state.opaques) of
+		 case lists:member(TmpVar, AllOpaques) of
 		   true ->
 		     case t_is_integer(TmpArity) of
 		       true ->
@@ -1297,7 +1306,8 @@ get_bif_constr({erlang, is_record, 3}, Dst, [Var, Tag, Arity] = Args, State) ->
 			       true ->
 				 case t_atom_vals(TmpTag) of
 				   [TmpTagVal] ->
-				     case state__lookup_record(State, TmpTagVal, TmpArityVal - 1) of
+				     case lookup_record(Records, TmpTagVal,
+							TmpArityVal - 1) of
 				       {ok, TmpType} ->
 					 case t_is_none(t_inf(TmpType, TmpVar, opaque)) of
 					   true  -> TmpArgTypes;
@@ -1526,9 +1536,10 @@ get_bif_constr({erlang, element, 2} = _BIF, Dst, Args,
   case t_is_none(GenType) of
     true -> ?debug("Bif: ~w failed\n", [_BIF]), throw(error);
     false ->
+      Opaques = State#state.opaques,
       Fun = fun(Map) ->
 		[I, T] = ATs = lookup_type_list(Args, Map),
-		ATs2 = case lists:member(T, State#state.opaques) of
+		ATs2 = case lists:member(T, Opaques) of
 			 true -> [I, erl_types:t_opaque_structure(T)];
 			 false -> ATs
 		       end,
@@ -1546,7 +1557,7 @@ get_bif_constr({erlang, element, 2} = _BIF, Dst, Args,
   end;
 get_bif_constr({M, F, A} = _BIF, Dst, Args, State) ->
   GenType = erl_bif_types:type(M, F, A),
-  Opaques =  State#state.opaques,
+  Opaques = State#state.opaques,
   case t_is_none(GenType) of
     true -> ?debug("Bif: ~w failed\n", [_BIF]), throw(error);
     false ->
@@ -1612,11 +1623,12 @@ get_bif_test_constr(Dst, Arg, Type, State) ->
 	       end
 	   end,
   ArgV = ?mk_fun_var(ArgFun, [Dst]),
+  Opaques = State#state.opaques,
   DstFun = fun(Map) ->
 	       ArgType = lookup_type(Arg, Map),
 	       case t_is_none(t_inf(ArgType, Type)) of
 		 true ->
-		   case lists:member(ArgType, State#state.opaques) of
+		   case lists:member(ArgType, Opaques) of
 		     true ->
 		       OpaqueStruct = erl_types:t_opaque_structure(ArgType),
 		       case t_is_none(t_inf(OpaqueStruct, Type)) of
@@ -1743,33 +1755,29 @@ solve_ref_or_list(#constraint_ref{id = Id, deps = Deps},
 	  true -> solve_self_recursive(Cs, Map, MapDict, Id, t_none(), State);
 	  false -> solve_ref_or_list(Cs, Map, MapDict, State)
 	end,
-      case Res of
-	{error, NewMapDict} ->
-	  ?debug("Error solving for function ~p\n", [debug_lookup_name(Id)]),
-	  Arity = state__fun_arity(Id, State),
-	  FunType =
-	    case state__prop_domain(t_var_name(Id), State) of
-	      error -> t_fun(Arity, t_none());
-	      {ok, Dom} -> t_fun(Dom, t_none())
-	    end,
-	  NewMap1 = enter_type(Id, FunType, Map),
-	  NewMap2 =
-	    case state__get_rec_var(Id, State) of
-	      {ok, Var} -> enter_type(Var, FunType, NewMap1);
-	      error -> NewMap1
-	    end,
-	  {ok, dict:store(Id, NewMap2, NewMapDict), NewMap2};
-	{ok, NewMapDict, NewMap} ->
-	  ?debug("Done solving fun: ~p\n", [debug_lookup_name(Id)]),
-	  FunType = lookup_type(Id, NewMap),
-	  NewMap1 = enter_type(Id, FunType, Map),
-	  NewMap2 =
-	    case state__get_rec_var(Id, State) of
-	      {ok, Var} -> enter_type(Var, FunType, NewMap1);
-	      error -> NewMap1
-	    end,
-	  {ok, dict:store(Id, NewMap2, NewMapDict), NewMap2}
-      end
+      {NewMapDict, FunType} =
+	case Res of
+	  {error, NewMapDict0} ->
+	    ?debug("Error solving for function ~p\n", [debug_lookup_name(Id)]),
+	    Arity = state__fun_arity(Id, State),
+	    FunType0 =
+	      case state__prop_domain(t_var_name(Id), State) of
+		error -> t_fun(Arity, t_none());
+		{ok, Dom} -> t_fun(Dom, t_none())
+	      end,
+	    {NewMapDict0, FunType0};
+	  {ok, NewMapDict0, NewMap} ->
+	    ?debug("Done solving fun: ~p\n", [debug_lookup_name(Id)]),
+	    FunType0 = lookup_type(Id, NewMap),
+	    {NewMapDict0, FunType0}
+	end,
+      NewMap1 = enter_type(Id, FunType, Map),
+      NewMap2 =
+	case state__get_rec_var(Id, State) of
+	  {ok, Var} -> enter_type(Var, FunType, NewMap1);
+	  error -> NewMap1
+	end,
+      {ok, dict:store(Id, NewMap2, NewMapDict), NewMap2}
   end;
 solve_ref_or_list(#constraint_list{type=Type, list = Cs, deps = Deps, id = Id},
 		  Map, MapDict, State) ->
@@ -2078,10 +2086,15 @@ mk_var_no_lit_list(List) ->
 %% ============================================================================
 
 new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes) ->
-  NameMap = dict:from_list([{MFA, Var} || {MFA, {Var, _Fun}, _Rec} <- SCC0]),
+  List = [{MFA, Var} || {MFA, {Var, _Fun}, _Rec} <- SCC0],
+  NameMap = dict:from_list(List),
+  MFAs = [MFA || {MFA, _Var} <- List],
   SCC = [mk_var(Fun) || {_MFA, {_Var, Fun}, _Rec} <- SCC0],
+  SelfRecs = [F || F <- SCC,
+		   dialyzer_callgraph:is_self_rec(t_var_name(F), CallGraph)],
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
-	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC)}.
+	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
+	 mfas = MFAs, self_recs = ordsets:from_list(SelfRecs)}.
 
 state__set_rec_dict(State, RecDict) ->
   State#state{records = RecDict}.
@@ -2090,15 +2103,6 @@ state__set_opaques(#state{records = RecDict} = State, {M, _F, _A}) ->
   Opaques =
     erl_types:module_builtin_opaques(M) ++ t_opaque_from_records(RecDict),
   State#state{opaques = Opaques, module = M}.
-
-state__lookup_record(#state{records = Records}, Tag, Arity) ->
-  case erl_types:lookup_record(Tag, Arity, Records) of
-    {ok, Fields} ->
-      {ok, t_tuple([t_from_term(Tag)|
-		    [FieldType || {_FieldName, FieldType} <- Fields]])};
-    error ->
-      error
-  end.
 
 state__set_in_match(State, Bool) ->
   State#state{in_match = Bool}.
@@ -2268,14 +2272,12 @@ state__get_cs(Var, #state{cmap = Dict}) ->
 
 %% The functions here will not be treated as self recursive.
 %% These functions will need to be handled as such manually.
-state__mark_as_non_self_rec(SCC, #state{non_self_recs = NS} = State) ->
-  State#state{non_self_recs = ordsets:union(NS, ordsets:from_list(SCC))}.
+state__mark_as_non_self_rec(SCC, #state{self_recs = SelfRecs} = State) ->
+  %% TODO: Check if the result is always empty and just set it to [] if so.
+  State#state{self_recs = ordsets:subtract(SelfRecs, ordsets:from_list(SCC))}.
 
-state__is_self_rec(Fun, #state{callgraph = CallGraph, non_self_recs = NS}) ->
-  case ordsets:is_element(Fun, NS) of
-    true -> false;
-    false -> dialyzer_callgraph:is_self_rec(t_var_name(Fun), CallGraph)
-  end.
+state__is_self_rec(Fun, #state{self_recs = SelfRecs}) ->
+  ordsets:is_element(Fun, SelfRecs).
 
 state__store_funs(Vars0, Funs0, #state{fun_map = Map} = State) ->
   debug_make_name_map(Vars0, Funs0),
@@ -2688,6 +2690,15 @@ find_constraint(Tuple, [#constraint_list{list = List}|Cs]) ->
   find_constraint(Tuple, List ++ Cs);
 find_constraint(Tuple, [_|Cs]) ->
   find_constraint(Tuple, Cs).
+
+lookup_record(Records, Tag, Arity) ->
+  case erl_types:lookup_record(Tag, Arity, Records) of
+    {ok, Fields} ->
+      {ok, t_tuple([t_from_term(Tag)|
+		    [FieldType || {_FieldName, FieldType} <- Fields]])};
+    error ->
+      error
+  end.
 
 %% ============================================================================
 %%

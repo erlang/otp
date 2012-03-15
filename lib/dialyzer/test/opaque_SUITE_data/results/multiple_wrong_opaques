@@ -1,0 +1,2 @@
+
+multiple_wrong_opaques.erl:5: Invalid type specification for function multiple_wrong_opaques:weird/1. The success typing is ('gazonk') -> 42
