@@ -210,7 +210,7 @@ session_cleanup(Config)when is_list(Config) ->
 
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
-    State = state(Prop),
+    State = ssl_test_lib:state(Prop),
     Cache = element(2, State),
     SessionTimer = element(6, State),
 
@@ -238,11 +238,6 @@ session_cleanup(Config)when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-state([{data,[{"State", State}]} | _]) ->
-    State;
-state([_ | Rest]) ->
-    state(Rest).
-
 check_timer(Timer) ->
     case erlang:read_timer(Timer) of
 	false ->
@@ -256,7 +251,7 @@ check_timer(Timer) ->
 get_delay_timer() ->
     {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
     [_, _,_, _, Prop] = StatusInfo,
-    State = state(Prop),
+    State = ssl_test_lib:state(Prop),
     case element(7, State) of
 	undefined ->
 	    test_server:sleep(?SLEEP),

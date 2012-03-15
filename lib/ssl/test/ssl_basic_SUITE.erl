@@ -258,7 +258,8 @@ all() ->
      %%different_ca_peer_sign,
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
-     hibernate, connect_twice, renegotiate_dos_mitigate
+     hibernate, connect_twice, renegotiate_dos_mitigate,
+     tcp_error_propagation_in_active_mode
     ].
 
 groups() -> 
@@ -3688,7 +3689,35 @@ renegotiate_dos_mitigate(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
-  
+tcp_error_propagation_in_active_mode(doc) ->
+    ["Test that process recives {ssl_error, Socket, closed} when tcp error ocurres"];
+tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					  {from, self()},
+					  {mfa, {ssl_test_lib, no_result, []}},
+					  {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {Client, #sslsocket{pid=Pid} = SslSocket} = ssl_test_lib:start_client([return_socket,
+							       {node, ClientNode}, {port, Port},
+							       {host, Hostname},
+							       {from, self()},
+							       {mfa, {?MODULE, receive_msg, []}},
+							       {options, ClientOpts}]),
+
+    {status, _, _, StatusInfo} = sys:get_status(Pid),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    Socket = element(10, State),
+
+    %% Fake tcp error
+    Pid ! {tcp_error, Socket, etimedout},
+
+    ssl_test_lib:check_result(Client, {ssl_closed, SslSocket}).
     
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -3922,4 +3951,10 @@ erlang_ssl_receive(Socket, Data) ->
 	    test_server:fail({unexpected_message, Other})
     after ?SLEEP * 3 ->
 	    test_server:fail({did_not_get, Data})
+    end.
+
+receive_msg(_) ->
+    receive
+	Msg ->
+	   Msg
     end.
