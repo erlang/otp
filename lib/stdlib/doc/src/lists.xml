@@ -663,7 +663,7 @@ splitwith(Pred, List) ->
       <desc>
         <p>Returns the sub-list of <c><anno>List1</anno></c> starting at position 1
           and with (max) <c><anno>Len</anno></c> elements. It is not an error for
-          <c><anno>Len</anno></c> to exceed the length of the list -- in that case
+          <c><anno>Len</anno></c> to exceed the length of the list, in that case
           the whole list is returned.</p>
       </desc>
     </func>

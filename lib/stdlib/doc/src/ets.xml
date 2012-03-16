@@ -671,7 +671,7 @@ ets:is_compiled_ms(Broken).</code>
           <c>duplicate_bag</c>, the function returns a list of
           arbitrary length.</p>
         <p>Note that the time order of object insertions is preserved;
-          The first object inserted with the given key will be first
+          the first object inserted with the given key will be first
           in the resulting list, and so on.</p>
         <p>Insert and look-up times in tables of type <c>set</c>,
           <c>bag</c> and <c>duplicate_bag</c> are constant, regardless
