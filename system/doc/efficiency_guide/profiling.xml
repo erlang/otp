@@ -116,7 +116,7 @@
         minimize runtime performance impact. Using fprof is just a
 		matter of calling a few library functions, see 
 		<seealso marker="tools:fprof">fprof</seealso> 
-		manual page under the application tools.<c>fprof</c> was introduced in 
+		manual page under the application tools.<c> fprof</c> was introduced in
 		version R8 of Erlang/OTP.
 	</p>
     </section>
