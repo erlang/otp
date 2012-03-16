@@ -39,7 +39,6 @@
 #include "dtrace-wrapper.h"
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
-#  define ERTS_DRV_EV_STATE_EXTRA_SIZE 128
 #else
 #  include "safe_hash.h"
 #  define DRV_EV_STATE_HTAB_SIZE 1024
@@ -334,12 +333,14 @@ static void
 grow_drv_ev_state(int min_ix)
 {
     int i;
-    int new_len = min_ix + 1 + ERTS_DRV_EV_STATE_EXTRA_SIZE;
+    int new_len;
+
+    new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_ix + 1);
     if (new_len > max_fds)
 	new_len = max_fds;
 
     erts_smp_mtx_lock(&drv_ev_state_grow_lock);
-    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= min_ix) {
+    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= new_len) {
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) { /* lock all fd's */
 	    erts_smp_mtx_lock(&drv_ev_state_locks[i].lck);
 	}

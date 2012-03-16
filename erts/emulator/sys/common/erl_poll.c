@@ -105,8 +105,8 @@
 
 #define ERTS_POLL_COALESCE_KP_RES (ERTS_POLL_USE_KQUEUE || ERTS_POLL_USE_EPOLL)
 
-#define FDS_STATUS_EXTRA_FREE_SIZE 128
-#define POLL_FDS_EXTRA_FREE_SIZE 128
+#define ERTS_EV_TABLE_MIN_LENGTH		1024
+#define ERTS_EV_TABLE_EXP_THRESHOLD		(2048*1024)
 
 #ifdef ERTS_POLL_NEED_ASYNC_INTERRUPT_SUPPORT
 #  define ERTS_POLL_ASYNC_INTERRUPT_SUPPORT 1
@@ -563,6 +563,28 @@ free_update_requests_block(ErtsPollSet ps,
  * --- Growing poll set structures -------------------------------------------
  */
 
+int
+ERTS_POLL_EXPORT(erts_poll_get_table_len) (int new_len)
+{
+    if (new_len < ERTS_EV_TABLE_MIN_LENGTH) {
+	new_len = ERTS_EV_TABLE_MIN_LENGTH;
+    } else if (new_len < ERTS_EV_TABLE_EXP_THRESHOLD) {
+	/* find next power of 2 */
+	--new_len;
+	new_len |= new_len >> 1;
+	new_len |= new_len >> 2;
+	new_len |= new_len >> 4;
+	new_len |= new_len >> 8;
+	new_len |= new_len >> 16;
+	++new_len;
+    } else {
+	/* grow incrementally */
+	new_len += ERTS_EV_TABLE_EXP_THRESHOLD;
+    }
+    return new_len;
+}
+
+
 #if ERTS_POLL_USE_KERNEL_POLL
 static void
 grow_res_events(ErtsPollSet ps, int new_len)
@@ -575,7 +597,7 @@ grow_res_events(ErtsPollSet ps, int new_len)
 #elif ERTS_POLL_USE_KQUEUE
 	struct kevent
 #endif
-	)*new_len;
+	) * ERTS_POLL_EXPORT(erts_poll_get_table_len)(new_len);
     /* We do not need to save previously stored data */
     if (ps->res_events)
 	erts_free(ERTS_ALC_T_POLL_RES_EVS, ps->res_events);
@@ -589,7 +611,7 @@ static void
 grow_poll_fds(ErtsPollSet ps, int min_ix)
 {
     int i;
-    int new_len = min_ix + 1 + POLL_FDS_EXTRA_FREE_SIZE;
+    int new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_ix + 1);
     if (new_len > max_fds)
 	new_len = max_fds;
     ps->poll_fds = (ps->poll_fds_len
@@ -611,7 +633,7 @@ static void
 grow_fds_status(ErtsPollSet ps, int min_fd)
 {
     int i;
-    int new_len = min_fd + 1 + FDS_STATUS_EXTRA_FREE_SIZE;
+    int new_len = ERTS_POLL_EXPORT(erts_poll_get_table_len)(min_fd + 1);
     ASSERT(min_fd < max_fds);
     if (new_len > max_fds)
 	new_len = max_fds;
