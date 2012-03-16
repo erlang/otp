@@ -49,7 +49,7 @@ const char *str_undefined = "undefined";
 
 static ethr_tsd_key lcnt_thr_data_key;
 static int lcnt_n_thr;
-static erts_lcnt_thread_data_t *lcnt_thread_data[1024]; 
+static erts_lcnt_thread_data_t *lcnt_thread_data[4096]; 
 
 /* local functions */
 
