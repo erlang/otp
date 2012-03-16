@@ -2199,7 +2199,7 @@ add_init_and_end_per_suite([], LastMod, LastRef, FwMod) ->
 	    %% let's call a "fake" end_per_suite if it exists			
 	    case erlang:function_exported(FwMod, end_per_suite, 1) of
 		true ->					
-		    [{conf,LastRef,[],{FwMod,end_per_suite}}];		    
+		    [{conf,LastRef,[{suite,LastMod}],{FwMod,end_per_suite}}];
 		false ->		
 		    [{conf,LastRef,[],{LastMod,end_per_suite}}]
 	    end
@@ -2220,7 +2220,8 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 		case erlang:function_exported(FwMod, init_per_suite, 1) of
 		    true ->
 			Ref = make_ref(),
-			{[{conf,Ref,[],{FwMod,init_per_suite}}],Mod,Ref};
+			{[{conf,Ref,[{suite,Mod}],
+			   {FwMod,init_per_suite}}],Mod,Ref};
 		    false ->
 			{[],Mod,undefined}
 		end
@@ -2241,7 +2242,8 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 			%% let's call a "fake" end_per_suite if it exists
 			case erlang:function_exported(FwMod, end_per_suite, 1) of
 			    true ->				
-				[{conf,LastRef,[],{FwMod,end_per_suite}}|Init];
+				[{conf,LastRef,[{suite,Mod}],
+				  {FwMod,end_per_suite}}|Init];
 			    false ->
 				[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
 			end
@@ -2846,7 +2848,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 					  end, Mode0),
 		update_config(hd(Config), 
 			      TSDirs ++ [{tc_group_path,GroupPath} | CfgProps])
-	end,	   
+	end,
+
     CurrMode = curr_mode(Ref, Mode0, Mode),
     ConfCaseResult = run_test_case(Ref, 0, Mod, Func, [ActualCfg], skip_init, target,
 				   TimetrapData, CurrMode),
