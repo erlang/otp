@@ -1024,12 +1024,13 @@ enum_name(Name) ->
 gen_enums_ints() ->
     %% open_write("../include/wx.hrl"), opened in gen_event_recs
     w("~n%% Hardcoded Records~n", []),
-    w("-record(wxMouseState, {x, y,  %% integer()~n"
-      "          leftDown, middleDown, rightDown, %% bool()~n"
-      "          controlDown, shiftDown, altDown, metaDown, cmdDown %% bool()~n"
+    w("-record(wxMouseState, {x :: integer(), y :: integer(),~n"
+      "          leftDown :: boolean(), middleDown :: boolean, rightDown :: boolean, ~n"
+      "          controlDown :: boolean(), shiftDown :: boolean(),~n"
+      "          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()~n"
       "        }).~n", []),
     w("-record(wxHtmlLinkInfo, {~n"
-      "          href, target %% unicode:chardata()~n"
+      "          href :: unicode:chardata(), target :: unicode:chardata()~n"
       "        }).~n", []),
     w("~n%% Hardcoded Defines~n", []),
     Enums = [E || {{enum,_},E = #enum{as_atom=false}} <- get()],

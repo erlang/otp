@@ -15420,25 +15420,21 @@ case wxListCtrl_GetItemFont: { // wxListCtrl::GetItemFont
  break;
 }
 case wxListCtrl_GetItemPosition: { // wxListCtrl::GetItemPosition
+ wxPoint pos;
  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
  int * item = (int *) bp; bp += 4;
- int * posX = (int *) bp; bp += 4;
- int * posY = (int *) bp; bp += 4;
- wxPoint pos = wxPoint(*posX,*posY);
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetItemPosition((long) *item,pos);
  rt.addBool(Result);
+ rt.add(pos);
+ rt.addTupleCount(2);
  break;
 }
 case wxListCtrl_GetItemRect: { // wxListCtrl::GetItemRect
+ wxRect rect;
  int code=wxLIST_RECT_BOUNDS;
  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
  int * item = (int *) bp; bp += 4;
- int * rectX = (int *) bp; bp += 4;
- int * rectY = (int *) bp; bp += 4;
- int * rectW = (int *) bp; bp += 4;
- int * rectH = (int *) bp; bp += 4;
- wxRect rect = wxRect(*rectX,*rectY,*rectW,*rectH);
  while( * (int*) bp) { switch (* (int*) bp) {
   case 1: {bp += 4;
  code = (int)*(int *) bp; bp += 4;
@@ -15447,6 +15443,8 @@ case wxListCtrl_GetItemRect: { // wxListCtrl::GetItemRect
  if(!This) throw wxe_badarg(0);
  bool Result = This->GetItemRect((long) *item,rect,code);
  rt.addBool(Result);
+ rt.add(rect);
+ rt.addTupleCount(2);
  break;
 }
 case wxListCtrl_GetItemSpacing: { // wxListCtrl::GetItemSpacing
@@ -15528,16 +15526,14 @@ case wxListCtrl_GetViewRect: { // wxListCtrl::GetViewRect
  break;
 }
 case wxListCtrl_HitTest: { // wxListCtrl::HitTest
- int flags;
  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
  int * pointX = (int *) bp; bp += 4;
  int * pointY = (int *) bp; bp += 4;
  wxPoint point = wxPoint(*pointX,*pointY);
+ int * flags = (int *) bp; bp += 4;
  if(!This) throw wxe_badarg(0);
- long Result = This->HitTest(point,flags);
+ long Result = This->HitTest(point,*flags);
  rt.addInt(Result);
- rt.addInt(flags);
- rt.addTupleCount(2);
  break;
 }
 case wxListCtrl_InsertColumn_2: { // wxListCtrl::InsertColumn
