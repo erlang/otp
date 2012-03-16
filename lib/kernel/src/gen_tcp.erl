@@ -175,7 +175,7 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
       Port :: inet:port_number(),
       Options :: [listen_option()],
       ListenSocket :: socket(),
-      Reason :: inet:posix().
+      Reason :: system_limit | inet:posix().
 
 listen(Port, Opts) ->
     Mod = mod(Opts, undefined),
@@ -208,7 +208,7 @@ accept(S) ->
       ListenSocket :: socket(),
       Timeout :: timeout(),
       Socket :: socket(),
-      Reason :: closed | timeout | inet:posix().
+      Reason :: closed | timeout | system_limit | inet:posix().
 
 accept(S, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
