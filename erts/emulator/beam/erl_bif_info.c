@@ -2927,10 +2927,10 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
     else if (item == am_os_pid) {
         if (prt->os_pid >= 0) {
             Uint hsz = 3;
-            Uint n = prt->os_pid;
-            (void) erts_bld_uint(NULL, &hsz, n);
+            UWord n = prt->os_pid;
+            (void) erts_bld_uword(NULL, &hsz, n);
             hp = HAlloc(p, hsz);
-            res = erts_bld_uint(&hp, NULL, n);
+            res = erts_bld_uword(&hp, NULL, n);
         } else {
 	    hp = HAlloc(p, 3);
 	    res = am_undefined;

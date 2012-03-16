@@ -1339,7 +1339,9 @@ case $TARGET in
 	if [ X"$OVERRIDE_TARGET" = X"" -a X"$1" != X"env_win32" -a X"$1" != X"env_msys32" -a X"$1" != X"env_msys64"  ];then
 	    echo "Building for windows, you should do the " \
 		"following first:" >&2
-	    echo 'eval `./otp_build env_msys64`' >&2
+	    echo 'eval `./otp_build env_win32`' >&2
+	    echo 'or' >&2
+	    echo 'eval `./otp_build env_win32 x64`' >&2
 	    echo 'please note that there are backticks (``) in' \
 		'the command'
 	    exit 1
