@@ -761,7 +761,13 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
       true -> AccArgTypes;
       false -> [t_sup(X, Y) || {X, Y} <- lists:zip(NewArgTypes, AccArgTypes)]
     end,
-  NewAccRet = t_sup(AccRet, t_inf(RetWithoutLocal, LocalRet, opaque)),
+  TotalRet =
+    case t_is_none(LocalRet) andalso t_is_unit(RetWithoutLocal) of
+      true -> RetWithoutLocal;
+      false -> t_inf(RetWithoutLocal, LocalRet, opaque)
+    end,
+  NewAccRet = t_sup(AccRet, TotalRet),
+  ?debug("NewAccRet: ~s\n", [t_to_string(NewAccRet)]),
   handle_apply_or_call(Left, Args, ArgTypes, Map, Tree,
 		       State3, NewAccArgTypes, NewAccRet);
 handle_apply_or_call([], Args, _ArgTypes, Map, _Tree, State,
@@ -3109,6 +3115,7 @@ init_fun_tab([Fun|Left], Dict, TreeMap, Callgraph, Plt, Opaques) ->
   NewDict = dict:store(Fun, FunEntry, Dict),
   init_fun_tab(Left, NewDict, TreeMap, Callgraph, Plt, Opaques);
 init_fun_tab([], Dict, _TreeMap, _Callgraph, _Plt, _Opaques) ->
+  ?debug("DICT:~p\n",[dict:to_list(Dict)]),
   Dict.
 
 state__update_fun_env(Tree, Map, #state{envs = Envs} = State) ->
@@ -3140,7 +3147,9 @@ state__fun_type(Fun, #state{fun_tab = FunTab}) ->
     if is_integer(Fun) -> Fun;
        true -> get_label(Fun)
     end,
-  case dict:find(Label, FunTab) of
+  Entry = dict:find(Label, FunTab),
+  ?debug("FunType ~p:~p\n",[Label, Entry]),
+  case Entry of
     {ok, {not_handled, {A, R}}} ->
       t_fun(A, R);
     {ok, {A, R}} ->
@@ -3248,6 +3257,7 @@ state__fun_info(Fun, #state{callgraph = CG, fun_tab = FunTab, plt = PLT}) ->
       {not_handled, {_Args, Ret}} -> Ret;
       {_Args, Ret} -> Ret
     end,
+  ?debug("LocalRet: ~s\n", [t_to_string(LocalRet)]),
   {Fun, Sig, Contract, LocalRet}.
 
 state__find_apply_return(Tree, #state{callgraph = Callgraph} = State) ->
