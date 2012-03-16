@@ -316,12 +316,13 @@
 -type wxEventType() :: wxAuiManagerEventType() | wxAuiNotebookEventType() | wxCalendarEventType() | wxChildFocusEventType() | wxCloseEventType() | wxColourPickerEventType() | wxCommandEventType() | wxContextMenuEventType() | wxDateEventType() | wxDisplayChangedEventType() | wxEraseEventType() | wxFileDirPickerEventType() | wxFocusEventType() | wxFontPickerEventType() | wxGridEventType() | wxHelpEventType() | wxHtmlLinkEventType() | wxIconizeEventType() | wxIdleEventType() | wxJoystickEventType() | wxKeyEventType() | wxListEventType() | wxMaximizeEventType() | wxMenuEventType() | wxMouseCaptureChangedEventType() | wxMouseEventType() | wxMoveEventType() | wxNavigationKeyEventType() | wxNcPaintEventType() | wxNotebookEventType() | wxPaintEventType() | wxPaletteChangedEventType() | wxQueryNewPaletteEventType() | wxSashEventType() | wxScrollEventType() | wxScrollWinEventType() | wxSetCursorEventType() | wxShowEventType() | wxSizeEventType() | wxSpinEventType() | wxSplitterEventType() | wxStyledTextEventType() | wxSysColourChangedEventType() | wxTaskBarIconEventType() | wxTreeEventType() | wxUpdateUIEventType() | wxWindowCreateEventType() | wxWindowDestroyEventType().
 
 %% Hardcoded Records
--record(wxMouseState, {x, y,  %% integer()
-          leftDown, middleDown, rightDown, %% bool()
-          controlDown, shiftDown, altDown, metaDown, cmdDown %% bool()
+-record(wxMouseState, {x :: integer(), y :: integer(),
+          leftDown :: boolean(), middleDown :: boolean, rightDown :: boolean, 
+          controlDown :: boolean(), shiftDown :: boolean(),
+          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()
         }).
 -record(wxHtmlLinkInfo, {
-          href, target %% unicode:chardata()
+          href :: unicode:chardata(), target :: unicode:chardata()
         }).
 
 %% Hardcoded Defines
