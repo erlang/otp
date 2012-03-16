@@ -104,7 +104,7 @@
           that node. <c>Value</c> is one of:</p>
         <taglist>
           <tag><c>never</c></tag>
-          <item>Connections are never automatically connected, they
+          <item>Connections are never automatically established, they
            must be explicitly connected. See <c>net_kernel(3)</c>.</item>
           <tag><c>once</c></tag>
           <item>Connections will be established automatically, but only

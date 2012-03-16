@@ -136,7 +136,7 @@ init(...) ->
         M = F = atom()
         A = [term()]
     Restart = permanent | transient | temporary
-    Shutdown = brutal_kill | integer()>=0 | infinity
+    Shutdown = brutal_kill | integer()>0 | infinity
     Type = worker | supervisor
     Modules = [Module] | dynamic
         Module = atom()]]></code>
