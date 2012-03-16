@@ -240,7 +240,7 @@ void erts_lcnt_init() {
 
     lcnt_lock();
 
-    erts_lcnt_rt_options = ERTS_LCNT_OPT_PROCLOCK;
+    erts_lcnt_rt_options = ERTS_LCNT_OPT_PROCLOCK | ERTS_LCNT_OPT_LOCATION;
     
     eltd = lcnt_thread_data_alloc();
 
@@ -312,7 +312,7 @@ void erts_lcnt_list_insert(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock) 
 }
 
 void erts_lcnt_list_delete(erts_lcnt_lock_list_t *list, erts_lcnt_lock_t *lock) {
-    
+
     if (lock->next) lock->next->prev = lock->prev;
     if (lock->prev) lock->prev->next = lock->next;
     if (list->head == lock) list->head = lock->next;
@@ -334,6 +334,10 @@ void erts_lcnt_init_lock(erts_lcnt_lock_t *lock, char *name, Uint16 flag ) {
 }
 void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eterm id) { 
     int i;
+    if (!name) {
+	lock->flag = 0;
+	return;
+    }
     lcnt_lock();
     
     lock->next = NULL;
@@ -363,6 +367,8 @@ void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eter
 void erts_lcnt_destroy_lock(erts_lcnt_lock_t *lock) {
     erts_lcnt_lock_t *deleted_lock;
 
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
+
     lcnt_lock();
 
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_COPYSAVE) {
@@ -378,6 +384,7 @@ void erts_lcnt_destroy_lock(erts_lcnt_lock_t *lock) {
     }
     /* delete original */
     erts_lcnt_list_delete(erts_lcnt_data->current_locks, lock);
+    lock->flag = 0;
     
     lcnt_unlock();
 }
@@ -389,6 +396,7 @@ void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
     erts_lcnt_thread_data_t *eltd;
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
 
     eltd = lcnt_get_thread_data();
 
@@ -422,6 +430,7 @@ void erts_lcnt_lock(erts_lcnt_lock_t *lock) {
     erts_lcnt_thread_data_t *eltd;
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
 
     w_state = ethr_atomic_read(&lock->w_state);
     ethr_atomic_inc( &lock->w_state);
@@ -452,6 +461,7 @@ void erts_lcnt_lock_unaquire(erts_lcnt_lock_t *lock) {
     /* should check if this thread was "waiting" */
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
 
     ethr_atomic_dec( &lock->w_state);
 }
@@ -475,6 +485,7 @@ void erts_lcnt_lock_post_x(erts_lcnt_lock_t *lock, char *file, unsigned int line
 #endif
 
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
     
 #ifdef DEBUG
     if (!(lock->flag & (ERTS_LCNT_LT_RWMUTEX | ERTS_LCNT_LT_RWSPINLOCK))) {
@@ -489,9 +500,13 @@ void erts_lcnt_lock_post_x(erts_lcnt_lock_t *lock, char *file, unsigned int line
     ASSERT(eltd);
 
     /* if lock was in conflict, time it */
-	
-    stats = lcnt_get_lock_stats(lock, file, line);
     
+    if (erts_lcnt_rt_options & ERTS_LCNT_OPT_LOCATION) {
+	stats = lcnt_get_lock_stats(lock, file, line);
+    } else {
+	stats = &lock->stats[0];
+    }
+
     if (eltd->timer_set) {
 	lcnt_time(&timer);
 	
@@ -510,6 +525,7 @@ void erts_lcnt_lock_post_x(erts_lcnt_lock_t *lock, char *file, unsigned int line
 
 void erts_lcnt_unlock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
     if (option & ERTS_LCNT_LO_WRITE) ethr_atomic_dec(&lock->w_state);
     if (option & ERTS_LCNT_LO_READ ) ethr_atomic_dec(&lock->r_state);
 }
@@ -520,6 +536,7 @@ void erts_lcnt_unlock(erts_lcnt_lock_t *lock) {
     erts_aint_t flowstate;
 #endif
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
 #ifdef DEBUG
     /* flowstate */
     flowstate = ethr_atomic_read(&lock->flowstate);
@@ -537,6 +554,7 @@ void erts_lcnt_unlock(erts_lcnt_lock_t *lock) {
 
 void erts_lcnt_trylock_opt(erts_lcnt_lock_t *lock, int res, Uint16 option) {
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
     /* Determine lock_state via res instead of state */
     if (res != EBUSY) {
 	if (option & ERTS_LCNT_LO_WRITE) ethr_atomic_inc(&lock->w_state);
@@ -555,6 +573,7 @@ void erts_lcnt_trylock(erts_lcnt_lock_t *lock, int res) {
     erts_aint_t flowstate;
 #endif 
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
+    if (!ERTS_LCNT_LOCK_TYPE(lock)) return;
     if (res != EBUSY) {
 	
 #ifdef DEBUG

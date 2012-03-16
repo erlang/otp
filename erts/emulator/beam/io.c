@@ -625,7 +625,11 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	port->lock = erts_alloc(ERTS_ALC_T_PORT_LOCK,
 					      sizeof(erts_smp_mtx_t));
 	erts_smp_mtx_init_x(port->lock,
+#ifdef ERTS_ENABLE_LOCK_COUNT
+			    (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK) ? "port_lock" : NULL,
+#else
 			    "port_lock",
+#endif
 			    port->id);
 	xstatus |= ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK;
     }
@@ -783,7 +787,13 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
 	creator_port->xports = xplp;
 	port->lock = erts_alloc(ERTS_ALC_T_PORT_LOCK,
 					      sizeof(erts_smp_mtx_t));
-	erts_smp_mtx_init_locked_x(port->lock, "port_lock", port_id);
+	erts_smp_mtx_init_locked_x(port->lock,
+#ifdef ERTS_ENABLE_LOCK_COUNT
+				   (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK) ? "port_lock" : NULL,
+#else
+				   "port_lock",
+#endif
+				   port_id);
 	xstatus |= ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK;
     }
 
@@ -1347,7 +1357,13 @@ void init_io(void)
 	erts_smp_atomic_init_nob(&erts_port[i].refc, 0);
 	erts_port[i].lock = NULL;
 	erts_port[i].xports = NULL;
-	erts_smp_spinlock_init_x(&erts_port[i].state_lck, "port_state", make_small(i));
+	erts_smp_spinlock_init_x(&erts_port[i].state_lck,
+#ifdef ERTS_ENABLE_LOCK_COUNT
+				 (erts_lcnt_rt_options & ERTS_LCNT_OPT_PORTLOCK) ? "port_state" : NULL,
+#else
+				 "port_state",
+#endif
+				 0);
 #endif
 	erts_port[i].tracer_proc = NIL;
 	erts_port[i].trace_flags = 0;
@@ -1379,6 +1395,31 @@ void init_io(void)
     erts_smp_tsd_set(driver_list_lock_status_key, NULL);
     erts_smp_mtx_unlock(&erts_driver_list_lock);
 }
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+void enable_io_lock_count (int enable);
+
+void
+enable_io_lock_count (int enable)
+{
+    int i;
+
+    for (i = 0; i < erts_max_ports; i++) {
+	Port* p = &erts_port[i];
+	if (enable) {
+	    erts_lcnt_init_lock_x(&p->state_lck.lcnt, "port_state", ERTS_LCNT_LT_SPINLOCK, make_small(i));
+	    if (p->lock) {
+		erts_lcnt_init_lock_x(&p->lock->lcnt, "port_lock", ERTS_LCNT_LT_MUTEX, make_small(i));
+	    }
+	} else {
+	    erts_lcnt_destroy_lock(&p->state_lck.lcnt);
+	    if (p->lock) {
+		erts_lcnt_destroy_lock(&p->lock->lcnt);
+	    }
+	}
+    }
+}
+#endif
 
 /*
  * Buffering of data when using line oriented I/O on ports

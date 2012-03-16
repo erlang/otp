@@ -89,6 +89,7 @@
 #define ERTS_LCNT_OPT_LOCATION  (((Uint16) 1) << 1)
 #define ERTS_LCNT_OPT_PROCLOCK  (((Uint16) 1) << 2)
 #define ERTS_LCNT_OPT_COPYSAVE  (((Uint16) 1) << 3)
+#define ERTS_LCNT_OPT_PORTLOCK  (((Uint16) 1) << 4)
 
 typedef struct {
     unsigned long s;
@@ -200,6 +201,8 @@ Uint16 erts_lcnt_clear_rt_opt(Uint16 opt);
 void   erts_lcnt_clear_counters(void);
 char  *erts_lcnt_lock_type(Uint16 type);
 erts_lcnt_data_t *erts_lcnt_get_data(void);
+
+#define ERTS_LCNT_LOCK_TYPE(lockp)	((lockp)->flag & ERTS_LCNT_LT_ALL)
 
 #endif /* ifdef  ERTS_ENABLE_LOCK_COUNT  */
 #endif /* ifndef ERTS_LOCK_COUNT_H__     */

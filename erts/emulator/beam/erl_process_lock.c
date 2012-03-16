@@ -1002,7 +1002,7 @@ erts_proc_lock_init(Process *p)
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 void erts_lcnt_proc_lock_init(Process *p) {
-    
+    if (erts_lcnt_rt_options & ERTS_LCNT_OPT_PROCLOCK) {
     if (p->id != ERTS_INVALID_PID) {
 	erts_lcnt_init_lock_x(&(p->lock.lcnt_main),   "proc_main",   ERTS_LCNT_LT_PROCLOCK, p->id);
 	erts_lcnt_init_lock_x(&(p->lock.lcnt_msgq),   "proc_msgq",   ERTS_LCNT_LT_PROCLOCK, p->id);
@@ -1013,6 +1013,12 @@ void erts_lcnt_proc_lock_init(Process *p) {
 	erts_lcnt_init_lock(&(p->lock.lcnt_msgq),   "proc_msgq",   ERTS_LCNT_LT_PROCLOCK);
 	erts_lcnt_init_lock(&(p->lock.lcnt_link),   "proc_link",   ERTS_LCNT_LT_PROCLOCK);
 	erts_lcnt_init_lock(&(p->lock.lcnt_status), "proc_status", ERTS_LCNT_LT_PROCLOCK);
+    }
+    } else {
+	sys_memzero(&(p->lock.lcnt_main), sizeof(p->lock.lcnt_main));
+	sys_memzero(&(p->lock.lcnt_msgq), sizeof(p->lock.lcnt_msgq));
+	sys_memzero(&(p->lock.lcnt_link), sizeof(p->lock.lcnt_link));
+	sys_memzero(&(p->lock.lcnt_status), sizeof(p->lock.lcnt_status));
     }
 }
 	
@@ -1105,6 +1111,29 @@ void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res
     if (locks & ERTS_PROC_LOCK_STATUS) {
 	erts_lcnt_trylock(&(lock->lcnt_status), res);
     }
+    }
+}
+
+void enable_proc_lock_count (int enable);
+
+void
+enable_proc_lock_count (int enable)
+{
+    int i;
+
+    for (i = 0; i < erts_max_processes; ++i) {
+	Process* p = process_tab[i];
+	if (p) {
+	    if (enable) {
+		if (!ERTS_LCNT_LOCK_TYPE(&(p->lock.lcnt_main))) {
+		    erts_lcnt_proc_lock_init(p);
+		}
+	    } else {
+		if (ERTS_LCNT_LOCK_TYPE(&(p->lock.lcnt_main))) {
+		    erts_lcnt_proc_lock_destroy(p);
+		}
+	    }
+	}
     }
 }
 
