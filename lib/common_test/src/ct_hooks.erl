@@ -213,25 +213,10 @@ call([{HookId, Fun} | Rest], Config, Meta, Hooks) ->
     try
         Hook = lists:keyfind(HookId, #ct_hook_config.id, Hooks),
         {NewConf, NewHook} =  Fun(Hook, Config, Meta),
-
-	%%! --- Fri Mar 16 17:27:25 2012 --- peppe was here!
-	%%!!??
-	NewConf1 =
-	    if is_tuple(NewConf) ->
-		    if element(1, NewConf) == skip;
-		       element(1, NewConf) == fail ->
-			    Config;
-		       true ->
-			    NewConf
-		    end;
-	       true ->
-		    NewConf
-	    end,
-
-        NewCalls = get_new_hooks(NewConf1, Fun),
+        NewCalls = get_new_hooks(NewConf, Fun),
         NewHooks = lists:keyreplace(HookId, #ct_hook_config.id, Hooks, NewHook),
         call(resort(NewCalls ++ Rest,NewHooks,Meta), %% Resort if call_init changed prio
-	     remove(?config_name, NewConf1), Meta,
+	     remove(?config_name, NewConf), Meta,
              terminate_if_scope_ends(HookId, Meta, NewHooks))
     catch throw:{error_in_cth_call,Reason} ->
             call(Rest, {fail, Reason}, Meta,

@@ -2329,7 +2329,7 @@ ct_hooks_args2opts(Args) ->
 			Acc
 		end,[],Args).
 
-ct_hooks_args2opts([CTH,Arg,Prio,"and"| Rest],Acc) ->
+ct_hooks_args2opts([CTH,Arg,Prio,"and"| Rest],Acc) when Arg /= "and" ->
     ct_hooks_args2opts(Rest,[{list_to_atom(CTH),
 			      parse_cth_args(Arg),
 			      parse_cth_args(Prio)}|Acc]);
