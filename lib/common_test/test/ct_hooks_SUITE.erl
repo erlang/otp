@@ -83,10 +83,9 @@ all(suite) ->
        fail_post_suite_cth, skip_pre_suite_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        state_update_cth, options_cth, same_id_cth, 
-       fail_n_skip_with_minimal_cth, prio_cth
+       fail_n_skip_with_minimal_cth, prio_cth, no_config
       ]
-    )
-	.
+    ).
 
 
 %%--------------------------------------------------------------------
@@ -213,6 +212,10 @@ prio_cth(Config) when is_list(Config) ->
     do_test(prio_cth, "ct_cth_prio_SUITE.erl",
 	    [{empty_cth,[1000],1000},{empty_cth,[900],900},
 	     {prio_cth,[1100,100],100},{prio_cth,[1100]}],Config).
+
+no_config(Config) when is_list(Config) ->
+    do_test(no_config, "ct_no_config_SUITE.erl",
+	    [verify_config_cth],Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -1077,6 +1080,9 @@ test_events(prio_cth) ->
 	[{?eh,tc_done,{ct_cth_prio_SUITE,end_per_suite,ok}},
 	 {?eh,test_done,{'DEF','STOP_TIME'}},
 	 {?eh,stop_logging,[]}];
+
+test_events(no_config) ->
+    [];
 
 test_events(ok) ->
     ok.

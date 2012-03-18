@@ -641,7 +641,6 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 					data={Mod,FuncSpec,tag(Result)}}),
 	    FinalResult = Fun(end_tc, Return)
     end,
-
     
     case FinalResult of
 	{skip,{sequence_failed,_,_}} ->
