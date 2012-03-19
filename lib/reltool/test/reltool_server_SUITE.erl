@@ -454,7 +454,6 @@ create_script(_Config) ->
 %% Test creation of .script with different sorting of applications and
 %% included applications.
 %% Test that result is equal to what systools produces
-create_script_sort(_Config) -> {skip, "OTP-9984 - stdlib sort problem"};
 create_script_sort(Config) ->
     DataDir = ?config(data_dir,Config),
     %% Configure the server
