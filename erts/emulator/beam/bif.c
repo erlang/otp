@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -3666,9 +3666,8 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 BIF_RETTYPE halt_0(BIF_ALIST_0)
 {
     VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt/0\n"));
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erl_exit(0, "");
-    return NIL;  /* Pedantic (lint does not know about erl_exit) */
+    erl_halt(0);
+    ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
 }
 
 /**********************************************************************/
@@ -3685,12 +3684,12 @@ BIF_RETTYPE halt_1(BIF_ALIST_1)
     
     if (is_small(BIF_ARG_1) && (code = signed_val(BIF_ARG_1)) >= 0) {
 	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%d)\n", code));
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erl_exit(-code, "");
-    } else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	if ((i = intlist_to_buf(BIF_ARG_1, msg, MSG_SIZE-1)) < 0) {
+	erl_halt((int)(- code));
+	ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
+    }
+    else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
+	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0)
 	    goto error;
-	}
 	msg[i] = '\0';
 	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%s)\n", msg));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
