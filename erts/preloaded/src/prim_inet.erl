@@ -83,8 +83,10 @@ open(Protocol, Family, Type, Req, Data) ->
 	    end
     catch
 	%% The only (?) way to get here is to try to open
-	%% the sctp driver when it does not exist
-	error:badarg -> {error,eprotonosupport}
+	%% the sctp driver when it does not exist (badarg)
+	error:badarg       -> {error, eprotonosupport};
+	%% system_limit if out of port slots
+	error:system_limit -> {error, system_limit}
     end.
 
 enc_family(inet) -> ?INET_AF_INET;

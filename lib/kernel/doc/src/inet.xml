@@ -149,7 +149,7 @@ fe80::204:acff:fe17:bf38
       <fsummary>Return a descriptive string for an error reason</fsummary>
       <desc>
         <p>Returns a diagnostic error string. See the section below
-          for possible <c><anno>Posix</anno></c> values and the corresponding
+          for possible Posix values and the corresponding
           strings.</p>
       </desc>
     </func>
