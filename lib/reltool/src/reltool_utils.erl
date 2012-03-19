@@ -29,6 +29,7 @@
 	 app_dir_test/2, split_app_dir/1,
 	 get_item/1, get_items/1, get_selected_items/3,
 	 select_items/3, select_item/2,
+	 get_column_width/1,
 
 	 safe_keysearch/5, print/4, add_warning/3,
 
@@ -382,6 +383,26 @@ select_item(ListCtrl, [{ItemNo, Text} | Items]) ->
     end;
 select_item(_ListCtrl, []) ->
     ok.
+
+get_column_width(ListCtrl) ->
+    wx:batch(fun() ->
+		     {Total, _} = wxWindow:getClientSize(ListCtrl),
+		     Total - scroll_size(ListCtrl)
+	     end).
+
+scroll_size(ObjRef) ->
+    case os:type() of
+	{win32, nt} -> 0;
+	{unix, darwin} ->
+	    %% I can't figure out is there is a visible scrollbar
+	    %% Always make room for it
+	    wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+	_ ->
+	    case wxWindow:hasScrollbar(ObjRef, ?wxVERTICAL) of
+		true -> wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+		false -> 0
+	    end
+    end.
 
 safe_keysearch(Key, Pos, List, Mod, Line) ->
     case lists:keysearch(Key, Pos, List) of

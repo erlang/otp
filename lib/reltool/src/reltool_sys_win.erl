@@ -458,6 +458,7 @@ create_app_list_ctrl(Panel, OuterSz, Title, Tick, Cross) ->
     ListItem  = wxListItem:new(),
     wxListItem:setAlign(ListItem, ?wxLIST_FORMAT_LEFT),
     wxListItem:setText(ListItem, Title),
+    wxListItem:setWidth(ListItem, reltool_utils:get_column_width(ListCtrl)),
     wxListCtrl:insertColumn(ListCtrl, ?APPS_APP_COL, ListItem),
     wxListItem:destroy(ListItem),
 
@@ -665,7 +666,8 @@ create_warning_list(#state{panel = Panel} = S) ->
 			       {size, {?WIN_WIDTH,80}}]),
     reltool_utils:assign_image_list(ListCtrl),
     wxListCtrl:insertColumn(ListCtrl, ?WARNING_COL, "Warnings",
-			    [{format,?wxLIST_FORMAT_LEFT}]),
+			    [{format,?wxLIST_FORMAT_LEFT},
+			     {width,reltool_utils:get_column_width(ListCtrl)}]),
     wxListCtrl:setToolTip(ListCtrl, ?DEFAULT_WARNING_TIP),
     wxEvtHandler:connect(ListCtrl, size,
 			 [{skip, true}, {userData, warnings}]),
@@ -907,7 +909,9 @@ handle_event(S, #wx{id = Id, obj= ObjRef, userData = UserData, event = Event} = 
         when S#state.popup_menu =/= undefined ->
             handle_popup_event(S, Type, Id, ObjRef, UserData, Str);
 	#wxMouse{type = enter_window} ->
-	    wxWindow:setFocus(ObjRef),
+	    %% The following is commented out because it raises the
+	    %% main system window on top of popup windows.
+	    %% wxWindow:setFocus(ObjRef),
 	    S;
         _ ->
 	    case wxNotebook:getPageText(S#state.book,
@@ -920,21 +924,12 @@ handle_event(S, #wx{id = Id, obj= ObjRef, userData = UserData, event = Event} = 
     end.
 
 handle_warning_event(S, ObjRef, _, #wxSize{type = size}) ->
-    {Total, _} = wxWindow:getClientSize(ObjRef),
-    SBSize = scroll_size(ObjRef),
-    wxListCtrl:setColumnWidth(ObjRef, ?WARNING_COL, Total-SBSize),
+    ColumnWidth = reltool_utils:get_column_width(ObjRef),
+    wxListCtrl:setColumnWidth(ObjRef, ?WARNING_COL, ColumnWidth),
     S;
 handle_warning_event(S, ObjRef, _, #wxMouse{type = motion, x=X, y=Y}) ->
     Pos = reltool_utils:wait_for_stop_motion(ObjRef, {X,Y}),
-    Index = wxListCtrl:findItem(ObjRef,-1,Pos,0),
-    Tip =
-	case wxListCtrl:getItemText(ObjRef,Index) of
-	    "" ->
-		?DEFAULT_WARNING_TIP;
-	    Text ->
-		"WARNING:\n" ++ Text
-	end,
-    wxListCtrl:setToolTip(ObjRef, Tip),
+    warning_list_set_tool_tip(os:type(),ObjRef,Pos),
     S;
 handle_warning_event(S, ObjRef, _, #wxList{type = command_list_item_activated,
 					itemIndex = Pos}) ->
@@ -945,6 +940,49 @@ handle_warning_event(S, _ObjRef, {warning,Frame},
     wxFrame:destroy(Frame),
     S#state{warning_wins = lists:delete(Frame,S#state.warning_wins)}.
 
+warning_list_set_tool_tip({win32,_},ListCtrl,{_X,Y}) ->
+    case win_find_item(ListCtrl,Y,0) of
+	-1 ->
+	    wxListCtrl:setToolTip(ListCtrl,?DEFAULT_WARNING_TIP);
+	_Index ->
+	    %% The following is commented out because there seems to
+	    %% be an utomatic tooltip under Windows that shows the
+	    %% expanded list item in case it is truncated because it
+	    %% is too long for column width.
+	    %% Tip =
+	    %% 	case wxListCtrl:getItemText(ListCtrl,Index) of
+	    %% 	    "" ->
+	    %% 		?DEFAULT_WARNING_TIP;
+	    %% 	    Text ->
+	    %% 		"WARNING:\n" ++ Text
+	    %% 	end,
+	    %% wxListCtrl:setToolTip(ListCtrl,Tip),
+	    ok
+    end;
+warning_list_set_tool_tip(_,ListCtrl,Pos) ->
+    case wxListCtrl:findItem(ListCtrl,-1,Pos,0) of
+	Index when Index >= 0 ->
+	    Tip =
+		case wxListCtrl:getItemText(ListCtrl,Index) of
+		    "" ->
+			?DEFAULT_WARNING_TIP;
+		    Text ->
+			"WARNING:\n" ++ Text
+		end,
+	    wxListCtrl:setToolTip(ListCtrl, Tip);
+	_ ->
+	    ok
+    end.
+
+win_find_item(ListCtrl,YPos,Index) ->
+    case wxListCtrl:getItemRect(ListCtrl,Index) of
+	{true,{_,Y,_,H}} when YPos>=Y, YPos=<Y+H ->
+	    Index;
+	{true,_} ->
+	    win_find_item(ListCtrl,YPos,Index+1);
+	{false,_} ->
+	    -1
+    end.
 
 display_warning(S,Warning) ->
     Pos = warning_popup_position(S,?WARNING_POPUP_SIZE),
@@ -954,8 +992,6 @@ display_warning(S,Warning) ->
     Text = wxTextCtrl:new(Panel, ?wxID_ANY, [{value, Warning},
 					     {style, TextStyle},
 					     {size, ?WARNING_POPUP_SIZE}]),
-    Color = wxWindow:getBackgroundColour(Frame),
-    wxTextCtrl:setBackgroundColour(Text,Color),
     Attr = wxTextAttr:new(),
     wxTextAttr:setLeftIndent(Attr,10),
     wxTextAttr:setRightIndent(Attr,10),
@@ -1606,21 +1642,6 @@ add_text(Text,Attr,[{Color,String}|Strings]) ->
     add_text(Text,Attr,Strings);
 add_text(_,_,[]) ->
     ok.
-
-
-scroll_size(ObjRef) ->
-    case os:type() of
-	{win32, nt} -> 0;
-	{unix, darwin} ->
-	    %% I can't figure out is there is a visible scrollbar
-	    %% Always make room for it
-	    wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
-	_ ->
-	    case wxWindow:hasScrollbar(ObjRef, ?wxVERTICAL) of
-		true -> wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
-		false -> 0
-	    end
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

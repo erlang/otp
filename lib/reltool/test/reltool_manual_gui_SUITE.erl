@@ -97,14 +97,14 @@ config(Config) ->
     break("the warning text can be marked, copied and pasted",
 	  "close the popup with the close box on the top frame"),
     break("it disappears",
-	  "select application a from 'Included' column and click red cross to "
-	  "exclude it"),
+	  "select application a from 'Included' column and click 'cross'-button "
+	  "with to exclude it"),
     break("application a is moved to 'Excluded' column",
-	  "select application tools from 'Excluded' column and click green V to "
-	  "include it"),
+	  "select application tools from 'Excluded' column and click "
+	  "'tick'-button to include it"),
     break("application tools is moved to 'Included' column",
 	  "select application runtime_tools from 'Excluded' column and click "
-	  "green V to include it"),
+	  "'tick'-button to include it"),
     break("application runtime_tools is moved to 'Included' column",
 	  "undo"),
 
@@ -171,7 +171,8 @@ config(Config) ->
     {ok,ServerPid} = reltool:get_server(SysPid),
     unlink(SysPid),
     break("the system window is still alive",
-	  "terminate reltool by hitting 'Ctrl-q' when system window is active"),
+	  "terminate reltool by hitting 'Ctrl-q' (linux) or clicking the "
+	  "close box on the top fram when system window is active"),
     false = erlang:is_process_alive(SysPid),
     false = erlang:is_process_alive(ServerPid),
 
