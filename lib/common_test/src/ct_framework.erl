@@ -588,59 +588,62 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     end,
     ct_util:delete_testdata(comment),
     ct_util:delete_suite_data(last_saved_config),
-    FuncSpec =
-	case group_or_func(Func,Args) of
-	    {_,GroupName,_Props} = Group ->
-		if Func == end_per_group ->
-			ct_config:delete_default_config({group,GroupName});
-		   true -> ok
-		end,
-		case lists:keysearch(save_config,1,Args) of
-		    {value,{save_config,SaveConfig}} ->
-			ct_util:save_suite_data(
-			  last_saved_config,
-			  {Suite,{group,GroupName}},
-			  SaveConfig),
-			Group;
-		    false ->
-			Group
-		end;
-	    _ ->
-		case lists:keysearch(save_config,1,Args) of
-		    {value,{save_config,SaveConfig}} ->
-			ct_util:save_suite_data(last_saved_config,
-						{Suite,Func},SaveConfig),
-			Func;
-		    false ->
-			Func
-		end
-	end,
-    ct_util:reset_silent_connections(),
+
+    FuncSpec = case group_or_func(Func,Args) of
+		   {_,_GroupName,_} = Group -> Group;
+		   _ -> Func
+	       end,
 
     case get('$test_server_framework_test') of
 	undefined ->
 	    {FinalResult,FinalNotify} =
 		case ct_hooks:end_tc(
-			    Suite, FuncSpec, Args, Result, Return) of
+		       Suite, FuncSpec, Args, Result, Return) of
 		    '$ct_no_change' ->
 			{ok,Result};
 		    FinalResult1 ->
 			{FinalResult1,FinalResult1}
 		end,
-	    % send sync notification so that event handlers may print
-	    % in the log file before it gets closed
+	    %% send sync notification so that event handlers may print
+	    %% in the log file before it gets closed
 	    ct_event:sync_notify(#event{name=tc_done,
 					node=node(),
 					data={Mod,FuncSpec,
 					      tag_cth(FinalNotify)}});
 	Fun ->
-	    % send sync notification so that event handlers may print
-	    % in the log file before it gets closed
+	    %% send sync notification so that event handlers may print
+	    %% in the log file before it gets closed
 	    ct_event:sync_notify(#event{name=tc_done,
 					node=node(),
 					data={Mod,FuncSpec,tag(Result)}}),
 	    FinalResult = Fun(end_tc, Return)
+    end,    
+    
+    case FuncSpec of
+	{_,GroupName,_Props} ->
+	    if Func == end_per_group ->
+		    ct_config:delete_default_config({group,GroupName});
+	       true -> ok
+	    end,
+	    case lists:keysearch(save_config,1,Args) of
+		{value,{save_config,SaveConfig}} ->
+		    ct_util:save_suite_data(last_saved_config,
+					    {Suite,{group,GroupName}},
+					    SaveConfig);
+		false ->
+		    ok
+	    end;
+	_ ->
+	    case lists:keysearch(save_config,1,Args) of
+		{value,{save_config,SaveConfig}} ->
+		    ct_util:save_suite_data(last_saved_config,
+					    {Suite,Func},SaveConfig);
+		false ->
+		    ok
+	    end
     end,
+
+    ct_util:reset_silent_connections(),
     
     case FinalResult of
 	{skip,{sequence_failed,_,_}} ->

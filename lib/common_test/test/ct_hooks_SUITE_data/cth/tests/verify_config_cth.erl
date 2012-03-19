@@ -27,7 +27,7 @@
 -define(val(K, L), proplists:get_value(K, L)).
 
 id(Opts) ->
-    empty_cth:id(Opts).
+    ?MODULE.
 
 init(Id, Opts) ->
     {ok, State} = empty_cth:init(Id, Opts),
@@ -86,8 +86,7 @@ pre_end_per_group(Group,Config,State) ->
 post_end_per_group(Group,Config,Return,State) ->
     true = ?val(pre_end_per_group, Config),
     ct_no_config_SUITE = ct:get_config(suite_cfg),
-    %%! BUG! SHOULD WORK:
-    %%! test_group = ct:get_config(group_cfg),
+    test_group = ct:get_config(group_cfg),
     empty_cth:post_end_per_group(Group,Config,Return,State).
 
 pre_init_per_testcase(TC,Config,State) ->
