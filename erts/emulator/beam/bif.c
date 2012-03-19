@@ -3665,41 +3665,121 @@ BIF_RETTYPE display_nl_0(BIF_ALIST_0)
 /* ARGSUSED */
 BIF_RETTYPE halt_0(BIF_ALIST_0)
 {
-    VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt/0\n"));
+    VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt()\n"));
     erl_halt(0);
     ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
 }
 
 /**********************************************************************/
 
-#define MSG_SIZE	200
+#define HALT_MSG_SIZE	200
+static char halt_msg[HALT_MSG_SIZE];
 
 /* stop the system with exit code */
 /* ARGSUSED */
 BIF_RETTYPE halt_1(BIF_ALIST_1)
 {
     Sint code;
-    static char msg[MSG_SIZE];
-    int i;
     
     if (is_small(BIF_ARG_1) && (code = signed_val(BIF_ARG_1)) >= 0) {
-	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%d)\n", code));
+	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
 	erl_halt((int)(- code));
 	ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
     }
-    else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
-	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0)
-	    goto error;
-	msg[i] = '\0';
-	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%s)\n", msg));
+    else if (ERTS_IS_ATOM_STR("abort", BIF_ARG_1)) {
+	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	erl_exit(ERTS_DUMP_EXIT, "%s\n", msg);
-    } else {
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+	erl_exit(ERTS_ABORT_EXIT, "");
     }
+    else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
+	int i;
+
+	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
+	    goto error;
+	}
+	halt_msg[i] = '\0';
+	VERBOSE(DEBUG_SYSTEM,("System halted by BIF halt(%T)\n", BIF_ARG_1));
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erl_exit(ERTS_DUMP_EXIT, "%s\n", halt_msg);
+    }
+    else
+	goto error;
     return NIL;  /* Pedantic (lint does not know about erl_exit) */
+ error:
+	BIF_ERROR(BIF_P, BADARG);
 }
+
+/**********************************************************************/
+
+/* stop the system with exit code and flags */
+/* ARGSUSED */
+BIF_RETTYPE halt_2(BIF_ALIST_2)
+{
+    Sint code;
+    Eterm optlist = BIF_ARG_2;
+    int flush = 0;
+
+    for (optlist = BIF_ARG_2;
+	 is_list(optlist);
+	 optlist = CDR(list_val(optlist))) {
+	Eterm *tp, opt = CAR(list_val(optlist));
+	if (is_not_tuple(opt))
+	    goto error;
+	tp = tuple_val(opt);
+	if (tp[0] != make_arityval(2))
+	    goto error;
+	if (tp[1] == am_flush) {
+	    if (tp[2] == am_true)
+		flush = 1;
+	    else if (tp[2] == am_false)
+		flush = 0;
+	    else
+		goto error;
+	}
+	else
+	    goto error;
+    }
+    if (is_not_nil(optlist))
+	goto error;
+
+    if (is_small(BIF_ARG_1) && (code = signed_val(BIF_ARG_1)) >= 0) {
+	VERBOSE(DEBUG_SYSTEM,
+		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
+	if (flush) {
+	    erl_halt((int)(- code));
+	    ERTS_BIF_YIELD1(bif_export[BIF_halt_1], BIF_P, am_undefined);
+	}
+	else {
+	    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    erl_exit((int)(- code), "");
+	}
+    }
+    else if (ERTS_IS_ATOM_STR("abort", BIF_ARG_1)) {
+	VERBOSE(DEBUG_SYSTEM,
+		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erl_exit(ERTS_ABORT_EXIT, "");
+    }
+    else if (is_string(BIF_ARG_1) || BIF_ARG_1 == NIL) {
+	int i;
+
+	if ((i = intlist_to_buf(BIF_ARG_1, halt_msg, HALT_MSG_SIZE-1)) < 0) {
+	    goto error;
+	}
+	halt_msg[i] = '\0';
+	VERBOSE(DEBUG_SYSTEM,
+		("System halted by BIF halt(%T, %T)\n", BIF_ARG_1, BIF_ARG_2));
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erl_exit(ERTS_DUMP_EXIT, "%s\n", halt_msg);
+    }
+    else
+	goto error;
+    return NIL;  /* Pedantic (lint does not know about erl_exit) */
+ error:
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+/**********************************************************************/
 
 BIF_RETTYPE function_exported_3(BIF_ALIST_3)
 {

@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -241,6 +241,7 @@ type(erl_ddll, try_unload, 2, Xs) ->
 %%-- erlang -------------------------------------------------------------------
 type(erlang, halt, 0, _) -> t_none();
 type(erlang, halt, 1, _) -> t_none();
+type(erlang, halt, 2, _) -> t_none();
 type(erlang, exit, 1, _) -> t_none();
 %% Note that exit/2 sends an exit signal to another process.
 type(erlang, exit, 2, _) -> t_atom('true');
@@ -3553,7 +3554,10 @@ arg_types(erlang, group_leader, 2) ->
 arg_types(erlang, halt, 0) ->
   [];
 arg_types(erlang, halt, 1) ->
-  [t_sup(t_non_neg_fixnum(), t_string())];
+  [t_sup([t_non_neg_fixnum(), t_atom('abort'), t_string()])];
+arg_types(erlang, halt, 2) ->
+  [t_sup([t_non_neg_fixnum(), t_atom('abort'), t_string()]),
+   t_list(t_tuple([t_atom('flush'), t_boolean()]))];
 arg_types(erlang, hash, 2) ->
   [t_any(), t_integer()];
 arg_types(erlang, hd, 1) ->

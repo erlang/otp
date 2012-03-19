@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2011. All Rights Reserved.
+# Copyright Ericsson AB 1996-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -115,6 +115,8 @@ bif erlang:halt/0
 bif 'erl.lang.system':halt/0		ebif_halt_0
 bif erlang:halt/1
 bif 'erl.lang.system':halt/1		ebif_halt_1
+bif erlang:halt/2
+bif 'erl.lang.system':halt/2		ebif_halt_2
 bif erlang:phash/2
 bif erlang:phash2/1
 bif erlang:phash2/2
