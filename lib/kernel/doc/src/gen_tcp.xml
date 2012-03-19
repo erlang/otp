@@ -235,7 +235,9 @@ do_recv(Sock, Bs) ->
         <p>Returns <c>{ok, <anno>Socket</anno>}</c> if a connection is established,
           or <c>{error, closed}</c> if <c><anno>ListenSocket</anno></c> is closed,
           or <c>{error, timeout}</c> if no connection is established
-          within the specified time. May also return a POSIX error
+          within the specified time,
+          or <c>{error, system_limit}</c> if all available ports in the
+          Erlang emulator are in use. May also return a POSIX error
           value if something else goes wrong, see inet(3) for possible
           error values.</p>
         <p>Packets can be sent to the returned socket <c><anno>Socket</anno></c>

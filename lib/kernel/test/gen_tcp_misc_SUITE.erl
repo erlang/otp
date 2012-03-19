@@ -39,7 +39,8 @@
 	 accept_timeouts_in_order/1,accept_timeouts_in_order2/1,
 	 accept_timeouts_in_order3/1,accept_timeouts_mixed/1, 
 	 killing_acceptor/1,killing_multi_acceptors/1,killing_multi_acceptors2/1,
-	 several_accepts_in_one_go/1,active_once_closed/1, send_timeout/1, send_timeout_active/1, 
+	 several_accepts_in_one_go/1, accept_system_limit/1,
+	 active_once_closed/1, send_timeout/1, send_timeout_active/1,
 	 otp_7731/1, zombie_sockets/1, otp_7816/1, otp_8102/1,
          otp_9389/1]).
 
@@ -71,7 +72,7 @@ all() ->
      accept_timeouts_in_order, accept_timeouts_in_order2,
      accept_timeouts_in_order3, accept_timeouts_mixed,
      killing_acceptor, killing_multi_acceptors,
-     killing_multi_acceptors2, several_accepts_in_one_go,
+     killing_multi_acceptors2, several_accepts_in_one_go, accept_system_limit,
      active_once_closed, send_timeout, send_timeout_active, otp_7731,
      zombie_sockets, otp_7816, otp_8102, otp_9389].
 
@@ -1836,6 +1837,54 @@ wait_until_accepting(Proc,N) ->
             end
     end.
 
+
+accept_system_limit(suite) ->
+    [];
+accept_system_limit(doc) ->
+    ["Check that accept returns {error, system_limit} "
+     "(and not {error, enfile}) when running out of ports"];
+accept_system_limit(Config) when is_list(Config) ->
+    ?line {ok, LS} = gen_tcp:listen(0, []),
+    ?line {ok, TcpPort} = inet:port(LS),
+    ?line Connector = spawn_link(fun () -> connector(TcpPort) end),
+    ?line ok = acceptor(LS, false, []),
+    ?line Connector ! stop,
+    ok.
+
+acceptor(LS, GotSL, A) ->
+    case gen_tcp:accept(LS, 1000) of
+	{ok, S} ->
+	    acceptor(LS, GotSL, [S|A]);
+	{error, system_limit} ->
+	    acceptor(LS, true, A);
+	{error, timeout} when GotSL ->
+	    ok;
+	{error, timeout} ->
+	    error
+    end.
+
+connector(TcpPort) ->
+    ManyPorts = open_ports([]),
+    ConnF = fun (Port) ->
+		    case catch gen_tcp:connect({127,0,0,1}, TcpPort, []) of
+			{ok, Sock} ->
+			    Sock;
+			_Error ->
+			    port_close(Port)
+		    end
+	    end,
+    R = [ConnF(Port) || Port <- lists:sublist(ManyPorts, 10)],
+    receive stop -> R end.
+
+open_ports(L) ->
+    case catch open_port({spawn_driver, "ram_file_drv"}, []) of
+	Port when is_port(Port) ->
+	    open_ports([Port|L]);
+	{'EXIT', {system_limit, _}} ->
+	    {L1, L2} = lists:split(5, L),
+	    [port_close(Port) || Port <- L1],
+	    L2
+    end.
 
 
 active_once_closed(suite) ->

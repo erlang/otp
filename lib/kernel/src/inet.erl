@@ -1218,11 +1218,13 @@ port_list(Name) ->
 %%  utils
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
--spec format_error(Posix) -> string() when
-      Posix :: posix().
+-spec format_error(Reason) -> string() when
+      Reason :: posix() | system_limit.
 
 format_error(exbadport) -> "invalid port state";
 format_error(exbadseq) ->  "bad command sequence";
+format_error(system_limit) ->
+    "a system limit was hit, probably not enough ports";
 format_error(Tag) ->
     erl_posix_msg:message(Tag).
 

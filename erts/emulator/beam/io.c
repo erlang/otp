@@ -743,7 +743,7 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
 	return (ErlDrvTermData) -1;   /* pid does not exist */
     }
     if ((port_num = get_free_port()) < 0) {
-	errno = ENFILE;
+	errno = SYSTEM_LIMIT;
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	erts_smp_mtx_unlock(&erts_driver_list_lock);
 	return (ErlDrvTermData) -1;

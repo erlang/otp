@@ -553,6 +553,12 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #  define VALGRIND_MAKE_MEM_DEFINED(ptr,size)
 #endif
 
+/*
+  Magic errno value used locally for return of {error, system_limit}
+  - the emulator definition of SYSTEM_LIMIT is not available here.
+*/
+#define INET_ERRNO_SYSTEM_LIMIT  (15 << 8)
+
 /*----------------------------------------------------------------------------
 ** Interface constants.
 ** 
@@ -1645,6 +1651,17 @@ static struct erl_drv_entry dummy_sctp_driver_entry =
 
 #endif
 
+/* return lowercase string form of errno value */
+static char *errno_str(int err)
+{
+    switch (err) {
+    case INET_ERRNO_SYSTEM_LIMIT:
+	return "system_limit";
+    default:
+	return erl_errno_id(err);
+    }
+}
+
 /* general control reply function */
 static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
 			      char** rbuf, ErlDrvSizeT rsize)
@@ -1665,13 +1682,9 @@ static ErlDrvSSizeT ctl_reply(int rep, char* buf, ErlDrvSizeT len,
 /* general control error reply function */
 static ErlDrvSSizeT ctl_error(int err, char** rbuf, ErlDrvSizeT rsize)
 {
-    char response[256];		/* Response buffer. */
-    char* s;
-    char* t;
+    char* s = errno_str(err);
 
-    for (s = erl_errno_id(err), t = response; *s; s++, t++)
-	*t = tolower(*s);
-    return ctl_reply(INET_REP_ERROR, response, t-response, rbuf, rsize);
+    return ctl_reply(INET_REP_ERROR, s, strlen(s), rbuf, rsize);
 }
 
 static ErlDrvSSizeT ctl_xerror(char* xerr, char** rbuf, ErlDrvSizeT rsize)
@@ -1683,14 +1696,7 @@ static ErlDrvSSizeT ctl_xerror(char* xerr, char** rbuf, ErlDrvSizeT rsize)
 
 static ErlDrvTermData error_atom(int err)
 {
-    char errstr[256];
-    char* s;
-    char* t;
-
-    for (s = erl_errno_id(err), t = errstr; *s; s++, t++)
-	*t = tolower(*s);
-    *t = '\0';
-    return driver_mk_atom(errstr);
+    return driver_mk_atom(errno_str(err));
 }
 
 
@@ -8051,7 +8057,7 @@ static ErlDrvData tcp_inet_start(ErlDrvPort port, char* args)
 
 /* Copy a descriptor, by creating a new port with same settings
  * as the descriptor desc.
- * return NULL on error (ENFILE no ports avail)
+ * return NULL on error (SYSTEM_LIMIT no ports avail)
  */
 static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
 				     ErlDrvTermData owner, int* err)
@@ -8090,7 +8096,7 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     /* The new port will be linked and connected to the original caller */
     port = driver_create_port(port, owner, "tcp_inet", (ErlDrvData) copy_desc);
     if ((long)port == -1) {
-	*err = ENFILE;
+	*err = INET_ERRNO_SYSTEM_LIMIT;
 	FREE(copy_desc);
 	return NULL;
     }
