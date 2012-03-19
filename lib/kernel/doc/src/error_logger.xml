@@ -49,7 +49,7 @@
       that events are logged to file instead, or not logged at all, see
       <seealso marker="kernel_app">kernel(6)</seealso>.</p>
     <p>Also the SASL application, if started, adds its own event
-      handler, which by default writes supervisor-, crash- and progress
+      handler, which by default writes supervisor, crash and progress
       reports to tty. See
       <seealso marker="sasl:sasl_app">sasl(6)</seealso>.</p>
     <p>It is recommended that user defined applications should report

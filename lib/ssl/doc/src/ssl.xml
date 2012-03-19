@@ -62,8 +62,8 @@
     </c></p>
 
     <p>For valid options
-      see <seealso marker="kernel:inet">inet(3) </seealso> and
-      <seealso marker="kernel:gen_tcp">gen_tcp(3) </seealso>.
+      see <seealso marker="kernel:inet">inet(3)</seealso> and
+      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>.
     </p>
     
     <p> <c>ssloption() = {verify, verify_type()} |

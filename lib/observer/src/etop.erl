@@ -31,9 +31,9 @@
 
 help() ->
     io:format(
-      "Usage of the erlang top program~n"
-      "Options are set as command line parameters as in -node a@host -..~n"
-      "or as parameter to etop:start([{node, a@host}, {...}])~n"
+      "Usage of the Erlang top program~n~n"
+      "Options are set as command line parameters as in -node my@host~n"
+      "or as parameters to etop:start([{node, my@host}, {...}]).~n~n"
       "Options are:~n"
       "  node        atom       Required   The erlang node to measure ~n"
       "  port        integer    The used port, NOTE: due to a bug this program~n"

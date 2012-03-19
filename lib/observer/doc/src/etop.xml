@@ -114,6 +114,37 @@ Default: <c>on</c></item>
   </description>
   <funcs>
     <func>
+      <name>start() -> ok</name>
+      <fsummary>Start etop</fsummary>
+      <desc>
+        <p>This function starts <c>etop</c>.
+        Note that etop is preferably started with the etop and getop scripts</p>
+      </desc>
+    </func>
+    <func>
+      <name>start(Options) -> ok</name>
+      <fsummary>Start etop</fsummary>
+      <type>
+        <v>Options = [Option]</v>
+        <v>Option = {Key, Value}</v>
+        <v>Key = atom()</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>This function starts <c>etop</c>. Use
+          <seealso marker="#help/0">help/0</seealso> to see a
+          description of the possible options.</p>
+      </desc>
+    </func>
+    <func>
+      <name>help() -> ok</name>
+      <fsummary>Print etop's help</fsummary>
+      <desc>
+        <p>This function prints the help of <c>etop</c> and
+          its options.</p>
+      </desc>
+    </func>
+    <func>
       <name>config(Key,Value) -> Result</name>
       <fsummary>Change tool's configuration</fsummary>
       <type>

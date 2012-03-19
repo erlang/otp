@@ -55,7 +55,8 @@
       monitoring its child processes. The basic idea of a supervisor is
       that it should keep its child processes alive by restarting them
       when necessary.</p>
-    <p>The children of a supervisor is defined as a list of <em>child specifications</em>. When the supervisor is started, the child
+    <p>The children of a supervisor is defined as a list of
+      <em>child specifications</em>. When the supervisor is started, the child
       processes are started in order from left to right according to
       this list. When the supervisor terminates, it first terminates
       its child processes in reversed start order, from right to left.</p>
@@ -100,7 +101,8 @@
       </item>
     </list>
     <p>To prevent a supervisor from getting into an infinite loop of
-      child process terminations and restarts, a <em>maximum restart frequency</em> is defined using two integer values <c>MaxR</c>
+      child process terminations and restarts, a <em>maximum restart frequency</em>
+      is defined using two integer values <c>MaxR</c>
       and <c>MaxT</c>. If more than <c>MaxR</c> restarts occur within
       <c>MaxT</c> seconds, the supervisor terminates all child
       processes and then itself.
@@ -114,7 +116,7 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
   M = F = atom()
   A = [term()]
  Restart = permanent | transient | temporary
- Shutdown = brutal_kill | int()>=0 | infinity
+ Shutdown = brutal_kill | int()>0 | infinity
  Type = worker | supervisor
  Modules = [Module] | dynamic
   Module = atom()</pre>
@@ -197,7 +199,8 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           the callback module, if the child process is a supervisor,
           gen_server or gen_fsm. If the child process is an event
           manager (gen_event) with a dynamic set of callback modules,
-          <c>Modules</c> should be <c>dynamic</c>. See <em>OTP Design Principles</em> for more information about release handling.</p>
+          <c>Modules</c> should be <c>dynamic</c>. See <em>OTP Design Principles</em>
+          for more information about release handling.</p>
       </item>
       <item>
         <p>Internally, the supervisor also keeps track of the pid
@@ -443,7 +446,8 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
     </func>
     <func>
       <name name="which_children" arity="1"/>
-      <fsummary>Return information about all children specifications and child processes belonging to a supervisor.</fsummary>
+      <fsummary>Return information about all children specifications and
+        child processes belonging to a supervisor.</fsummary>
       <desc>
         <p>Returns a newly created list with information about all child
           specifications and child processes belonging to
@@ -477,7 +481,8 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
     </func>
     <func>
       <name name="count_children" arity="1"/>
-      <fsummary>Return counts for the number of childspecs, active children, supervisors and workers.</fsummary>
+      <fsummary>Return counts for the number of childspecs, active children,
+        supervisors and workers.</fsummary>
       <desc>
         <p>Returns a property list (see <c>proplists</c>) containing the
           counts for each of the following elements of the supervisor's
@@ -527,7 +532,8 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
         <v>Args = term()</v>
         <v>Result = {ok,{{RestartStrategy,MaxR,MaxT},[ChildSpec]}} | ignore</v>
         <v>&nbsp;RestartStrategy = <seealso marker="#type-strategy">strategy()</seealso></v>
-        <v>&nbsp;MaxR = MaxT = integer()>=0</v>
+        <v>&nbsp;MaxR = integer()>=0</v>
+        <v>&nbsp;MaxT = integer()>0</v>
         <v>&nbsp;ChildSpec = <seealso marker="#type-child_spec">child_spec()</seealso></v>
       </type>
       <desc>
