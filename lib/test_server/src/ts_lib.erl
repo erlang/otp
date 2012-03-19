@@ -24,10 +24,12 @@
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
 -export([error/1, var/2, erlang_type/0,
+	 erlang_type/1,
 	 initial_capital/1, interesting_logs/1, 
 	 specs/1, suites/2, last_test/1,
 	 force_write_file/2, force_delete/1,
 	 subst_file/3, subst/2, print_data/1,
+	 make_non_erlang/2,
 	 maybe_atom_to_list/1, progress/4
 	]).
 
@@ -73,8 +75,10 @@ progress(Vars, Level, Format, Args) ->
 %% Returns: {Type, Version} where Type is otp|src
 
 erlang_type() ->
+    erlang_type(code:root_dir()).
+erlang_type(RootDir) ->
     {_, Version} = init:script_id(),
-    RelDir = filename:join(code:root_dir(), "releases"), % Only in installed
+    RelDir = filename:join(RootDir, "releases"), % Only in installed
     case filelib:is_file(RelDir) of
 	true -> {otp,Version};			% installed OTP
 	false -> {srctree,Version}		% source code tree
@@ -333,3 +337,45 @@ maybe_atom_to_list(To_list) when is_list(To_list) ->
 maybe_atom_to_list(To_list) when is_atom(To_list)->
     atom_to_list(To_list).
     
+
+%% Configure and run all the Makefiles in the data dir of the suite
+%% in question
+make_non_erlang(DataDir, Variables) ->
+    %% Make the stuff in all_SUITE_data if it exists
+    AllDir = filename:join(DataDir,"../all_SUITE_data"),
+    case filelib:is_dir(AllDir) of
+	true ->
+	    make_non_erlang_do(AllDir,Variables);
+	false ->
+	    ok
+    end,
+    make_non_erlang_do(DataDir, Variables).
+
+make_non_erlang_do(DataDir, Variables) ->
+    try
+	MakeCommand = proplists:get_value(make_command,Variables),
+
+	FirstMakefile = filename:join(DataDir,"Makefile.first"),
+	case filelib:is_regular(FirstMakefile) of
+	    true ->
+		io:format("Making ~p",[FirstMakefile]),
+		ok = ts_make:make(
+		       MakeCommand, DataDir, filename:basename(FirstMakefile));
+	    false ->
+		ok
+	end,
+
+	MakefileSrc = filename:join(DataDir,"Makefile.src"),
+	MakefileDest = filename:join(DataDir,"Makefile"),
+	case filelib:is_regular(MakefileSrc) of
+	    true ->
+		ok = ts_lib:subst_file(MakefileSrc,MakefileDest,Variables),
+		io:format("Making ~p",[MakefileDest]),
+		ok = ts_make:make([{makefile,"Makefile"},{data_dir,DataDir}
+				   | Variables]);
+	    false ->
+		ok
+	end
+    after
+	timer:sleep(100)  %% maybe unnecessary now when we don't do set_cwd anymore
+    end.

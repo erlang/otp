@@ -95,17 +95,12 @@ pre_init_per_suite(_Suite,Config,State) ->
     try
 	{ok,Variables} = 
 	    file:consult(filename:join(State#state.ts_conf_dir,"variables")),
-
-	%% Make the stuff in all_SUITE_data if it exists
-	AllDir = filename:join(DataDir,"../all_SUITE_data"),
-	case filelib:is_dir(AllDir) of
-	    true ->
-		make_non_erlang(AllDir,Variables);
-	    false ->
-		ok
+	case proplists:get_value(cross,Variables) of
+	    "yes" ->
+		ct:log("Not making data dir as tests have been cross compiled");
+	    _ ->
+		ts_lib:make_non_erlang(DataDir, Variables)
 	end,
-	
-	make_non_erlang(DataDir, Variables),
 
 	{add_node_name(Config, State), State}
     catch Error:Reason ->
@@ -219,39 +214,6 @@ terminate(_State) ->
 %%% ============================================================================
 %%% Local functions
 %%% ============================================================================
-%% Configure and run all the Makefiles in the data dirs of the suite 
-%% in question
-make_non_erlang(DataDir, Variables) ->
-    {ok,CurrWD} = file:get_cwd(),
-    try
-	file:set_cwd(DataDir),
-	MakeCommand = proplists:get_value(make_command,Variables),
-	
-	FirstMakefile = filename:join(DataDir,"Makefile.first"),
-	case filelib:is_regular(FirstMakefile) of
-	    true ->
-		ct:log("Making ~p",[FirstMakefile]),
-		ok = ts_make:make(
-		       MakeCommand, DataDir, filename:basename(FirstMakefile));
-	    false ->
-		ok
-	end,
-	
-	MakefileSrc = filename:join(DataDir,"Makefile.src"),
-	MakefileDest = filename:join(DataDir,"Makefile"),
-	case filelib:is_regular(MakefileSrc) of
-	    true ->
-		ok = ts_lib:subst_file(MakefileSrc,MakefileDest,Variables),
-		ct:log("Making ~p",[MakefileDest]),
-		ok = ts_make:make([{makefile,"Makefile"},{data_dir,DataDir} 
-				   | Variables]);
-	    false ->
-		ok
-	end
-    after
-	file:set_cwd(CurrWD),
-	timer:sleep(100)
-    end.
 
 %% Add a nodename to config if it does not exist
 add_node_name(Config, State) ->

@@ -28,12 +28,25 @@ install(install_local, Options) ->
     install(os:type(), Options);
 
 install(TargetSystem, Options) ->
-    io:format("Running configure for cross architecture, network target name~n"
-	      "~p~n", [TargetSystem]),
-    case autoconf(TargetSystem) of
+    case file:consult(?variables) of
+	{ok, Vars} ->
+	    case proplists:get_value(cross,Vars) of
+		"yes" when Options == []->
+		    target_install(Vars);
+		_ ->
+		    build_install(TargetSystem, Options)
+	    end;
+	_ ->
+	    build_install(TargetSystem, Options)
+    end.
+
+
+build_install(TargetSystem, Options) ->
+    XComp = parse_xcomp_file(proplists:get_value(xcomp,Options)),
+    case autoconf(TargetSystem, XComp++Options) of
 	{ok, Vars0} ->
 	    OsType = os_type(TargetSystem),
-	    Vars1 = ts_erl_config:variables(merge(Vars0,Options),OsType),
+	    Vars1 = ts_erl_config:variables(Vars0++XComp++Options,OsType),
 	    {Options1, Vars2} = add_vars(Vars1, Options),
 	    Vars3 = lists:flatten([Options1|Vars2]),
 	    write_terms(?variables, Vars3);
@@ -45,32 +58,43 @@ os_type({unix,_}=OsType) -> OsType;
 os_type({win32,_}=OsType) -> OsType;
 os_type(_Other) -> vxworks.
 
-merge(Vars,[]) ->
-    Vars;
-merge(Vars,[{crossroot,X}| Tail]) ->
-    merge([{crossroot, X} | Vars], Tail);
-merge(Vars,[_X | Tail]) ->
-    merge(Vars,Tail).
+target_install(CrossVars) ->
+    io:format("Cross installation detected, skipping configure and data_dir make~n"),
+    case file:rename(?variables,?cross_variables) of
+	ok ->
+	    ok;
+	_ ->
+	    io:format("Could not find variables file from cross make~n"),
+	    throw(cross_installation_failed)
+    end,
+    CPU = proplists:get_value('CPU',CrossVars),
+    OS = proplists:get_value(os,CrossVars),
+    {Options,Vars} = add_vars([{cross,"yes"},{'CPU',CPU},{os,OS}],[]),
+    Variables = lists:flatten([Options|Vars]),
+    write_terms(?variables, Variables).
 
 %% Autoconf for various platforms.
 %% unix uses the configure script
 %% win32 uses ts_autoconf_win32
 %% VxWorks uses ts_autoconf_vxworks.
 
-autoconf(TargetSystem) ->
-    case autoconf1(TargetSystem) of
+autoconf(TargetSystem, XComp) ->
+    case autoconf1(TargetSystem, XComp) of
 	ok ->
 	    autoconf2(file:read_file("conf_vars"));
 	Error ->
 	    Error
     end.
 
-autoconf1({win32, _}) ->
+autoconf1({win32, _},[{cross,"no"}]) ->
     ts_autoconf_win32:configure();
-autoconf1({unix, _}) ->
-    unix_autoconf();
-autoconf1(Other) ->
-    ts_autoconf_vxworks:configure(Other).
+autoconf1({unix, _},XCompFile) ->
+    unix_autoconf(XCompFile);
+autoconf1(Other,[{cross,"no"}]) ->
+    ts_autoconf_vxworks:configure(Other);
+autoconf1(_,_) ->
+    io:format("cross compilation not supported for that this platform~n"),
+    throw(cross_installation_failed).
 
 autoconf2({ok, Bin}) ->
     get_vars(binary_to_list(Bin), name, [], []);
@@ -92,26 +116,39 @@ get_vars([], name, [], Result) ->
 get_vars(_, _, _, _) ->
     {error, fatal_bad_conf_vars}.
 
-unix_autoconf() ->
+unix_autoconf(XConf) ->
     Configure = filename:absname("configure"),
-    Args = case catch erlang:system_info(threads) of
-	       false -> "";
-	       _ -> " --enable-shlib-thread-safety"
-	   end
-	++ case catch string:str(erlang:system_info(system_version),
-				 "debug") > 0 of
-	       false -> "";
-	       _ -> " --enable-debug-mode"
-	   end,
+    Flags = proplists:get_value(crossflags,XConf,[]),
+    Env = proplists:get_value(crossenv,XConf,[]),
+    Host = get_xcomp_flag("host", Flags),
+    Build = get_xcomp_flag("build", Flags),
+    Threads = [" --enable-shlib-thread-safety" ||
+		  erlang:system_info(threads) /= false],
+    Debug = [" --enable-debug-mode" ||
+		string:str(erlang:system_info(system_version),"debug") > 0],
+    Args = Host ++ Build ++ Threads ++ Debug,
     case filelib:is_file(Configure) of
 	true ->
-	    Env = macosx_cflags(),
-	    Port = open_port({spawn, Configure ++ Args},
-			     [stream, eof, {env,Env}]),
+	    OSXEnv = macosx_cflags(),
+	    io:format("Running ~sEnv: ~p~n",
+		      [lists:flatten(Configure ++ Args),Env++OSXEnv]),
+	    Port = open_port({spawn, lists:flatten(Configure ++ Args)},
+			     [stream, eof, {env,Env++OSXEnv}]),
 	    ts_lib:print_data(Port);
 	false ->
 	    {error, no_configure_script}
     end.
+
+
+get_xcomp_flag(Flag, Flags) ->
+    get_xcomp_flag(Flag, Flag, Flags).
+get_xcomp_flag(Flag, Tag, Flags) ->
+    case proplists:get_value(Flag,Flags) of
+	undefined -> "";
+	"guess" -> [" --",Tag,"=",os:cmd("$ERL_TOP/erts/autoconf/config.guess")];
+	HostVal -> [" --",Tag,"=",HostVal]
+    end.
+
 
 macosx_cflags() ->
     case os:type() of
@@ -125,10 +162,33 @@ macosx_cflags() ->
 	    []
     end.
 
+parse_xcomp_file(undefined) ->
+    [{cross,"no"}];
+parse_xcomp_file(Filepath) ->
+    {ok,Bin} = file:read_file(Filepath),
+    Lines = binary:split(Bin,<<"\n">>,[global,trim]),
+    {Envs,Flags} = parse_xcomp_file(Lines,[],[]),
+    [{cross,"yes"},{crossroot,os:getenv("ERL_TOP")},
+     {crossenv,Envs},{crossflags,Flags}].
+
+parse_xcomp_file([<<A:8,_/binary>> = Line|R],Envs,Flags)
+  when $A =< A, A =< $Z ->
+    [Var,Value] = binary:split(Line,<<"=">>),
+    parse_xcomp_file(R,[{binary_to_list(Var),
+			 binary_to_list(Value)}|Envs],Flags);
+parse_xcomp_file([<<"erl_xcomp_",Line/binary>>|R],Envs,Flags) ->
+    [Var,Value] = binary:split(Line,<<"=">>),
+    parse_xcomp_file(R,Envs,[{binary_to_list(Var),
+			      binary_to_list(Value)}|Flags]);
+parse_xcomp_file([_|R],Envs,Flags) ->
+    parse_xcomp_file(R,Envs,Flags);
+parse_xcomp_file([],Envs,Flags) ->
+    {lists:reverse(Envs),lists:reverse(Flags)}.
+
 write_terms(Name, Terms) ->
     case file:open(Name, [write]) of
 	{ok, Fd} ->
-	    Result = write_terms1(Fd, Terms),
+	    Result = write_terms1(Fd, remove_duplicates(Terms)),
 	    file:close(Fd),
 	    Result;
 	{error, Reason} ->
@@ -140,6 +200,17 @@ write_terms1(Fd, [Term|Rest]) ->
     write_terms1(Fd, Rest);
 write_terms1(_, []) ->
     ok.
+
+remove_duplicates(List) ->
+    lists:reverse(
+      lists:foldl(fun({Key,Val},Acc) ->
+			  R = make_ref(),
+			  case proplists:get_value(Key,Acc,R) of
+			      R -> [{Key,Val}|Acc];
+			      _Else ->
+				  Acc
+			  end
+		  end,[],List)).
 
 add_vars(Vars0, Opts0) ->
     {Opts,LongNames} =

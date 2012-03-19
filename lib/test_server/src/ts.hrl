@@ -28,6 +28,7 @@
 -define(run_summary, "suite.summary").
 -define(cover_total,"total_cover.log").
 -define(variables, "variables").
+-define(cross_variables, "variables-cross").
 -define(LF, [10]).                              % Newline in VxWorks script
 -define(CHAR_PER_LINE, 60).                     % Characters per VxWorks script building line
 -define(CROSS_COOKIE, "cross").                 % cookie used when cross platform testing
