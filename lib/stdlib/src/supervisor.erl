@@ -624,13 +624,12 @@ check_flags(What) ->
     {bad_flags, What}.
 
 update_childspec(State, StartSpec) when ?is_simple(State) ->
-    case check_startspec(StartSpec) of                        
-        {ok, [Child]} ->                                      
-            {ok, State#state{children = [Child]}};            
-        Error ->                                              
-            {error, Error}                                    
-    end;                                                      
-
+    case check_startspec(StartSpec) of
+        {ok, [Child]} ->
+            {ok, State#state{children = [Child]}};
+        Error ->
+            {error, Error}
+    end;
 update_childspec(State, StartSpec) ->
     case check_startspec(StartSpec) of
 	{ok, Children} ->
@@ -650,7 +649,7 @@ update_childspec1([Child|OldC], Children, KeepOld) ->
     end;
 update_childspec1([], Children, KeepOld) ->
     %% Return them in (kept) reverse start order.
-    lists:reverse(Children ++ KeepOld).  
+    lists:reverse(Children ++ KeepOld).
 
 update_chsp(OldCh, Children) ->
     case lists:map(fun(Ch) when OldCh#child.name =:= Ch#child.name ->
@@ -1148,9 +1147,9 @@ remove_child(Child, State) ->
 %% Args: SupName = {local, atom()} | {global, atom()} | self
 %%       Type = {Strategy, MaxIntensity, Period}
 %%         Strategy = one_for_one | one_for_all | simple_one_for_one |
-%%                    rest_for_one 
-%%         MaxIntensity = integer()
-%%         Period = integer()
+%%                    rest_for_one
+%%         MaxIntensity = integer() >= 0
+%%         Period = integer() > 0
 %%       Mod :== atom()
 %%       Args :== term()
 %% Purpose: Check that Type is of correct type (!)
@@ -1201,7 +1200,7 @@ supname(N, _)      -> N.
 %%% where Name is an atom
 %%%       Func is {Mod, Fun, Args} == {atom(), atom(), list()}
 %%%       RestartType is permanent | temporary | transient
-%%%       Shutdown = integer() | infinity | brutal_kill
+%%%       Shutdown = integer() > 0 | infinity | brutal_kill
 %%%       ChildType = supervisor | worker
 %%%       Modules = [atom()] | dynamic
 %%% Returns: {ok, [child_rec()]} | Error

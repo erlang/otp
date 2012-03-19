@@ -68,8 +68,8 @@
 start(SharedLib) ->
     case erl_ddll:load_driver(".", SharedLib) of
         ok -> ok;
-\011{error, already_loaded} -> ok;
-\011_ -> exit({error, could_not_load_driver})
+        {error, already_loaded} -> ok;
+        _ -> exit({error, could_not_load_driver})
     end,
     spawn(?MODULE, init, [SharedLib]).
 
@@ -102,7 +102,7 @@ loop(Port) ->
         {call, Caller, Msg} ->
             Port ! {self(), {command, encode(Msg)}},
             receive
-\011        {Port, {data, Data}} ->
+                {Port, {data, Data}} ->
                     Caller ! {complex, decode(Data)}
             end,
             loop(Port)

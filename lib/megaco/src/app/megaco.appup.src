@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -142,10 +142,17 @@
 %%      |
 %%      v
 %%    3.16
+%%      |
+%%      v
+%%   3.16.0.1
 %%
 %%
 {"%VSN%",
  [
+  {"3.16", 
+   [
+   ]
+  },
   {"3.15.1.1", 
    [
     {restart_application, megaco}
@@ -163,6 +170,10 @@
   }
  ],
  [
+  {"3.16", 
+   [
+   ]
+  },
   {"3.15.1.1", 
    [
     {restart_application, megaco}

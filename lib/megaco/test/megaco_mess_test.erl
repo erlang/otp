@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -324,9 +324,6 @@
 min(M) -> timer:minutes(M).
 
 %% Test server callbacks
-% init_per_testcase(pending_ack = Case, Config) ->
-%     put(dbg,true),
-%     megaco_test_lib:init_per_testcase(Case, Config);
 init_per_testcase(otp_7189 = Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
     megaco_test_lib:init_per_testcase(Case, [{tc_timeout, min(2)} |C]);
@@ -337,9 +334,6 @@ init_per_testcase(Case, Config) ->
     C = lists:keydelete(tc_timeout, 1, Config),
     megaco_test_lib:init_per_testcase(Case, [{tc_timeout, min(1)} |C]).
 
-% end_per_testcase(pending_ack = Case, Config) ->
-%     erase(dbg),
-%     megaco_test_lib:end_per_testcase(Case, Config);
 end_per_testcase(Case, Config) ->
     megaco_test_lib:end_per_testcase(Case, Config).
 
@@ -434,6 +428,7 @@ connect(suite) ->
 connect(doc) ->
     [];
 connect(Config) when is_list(Config) ->
+    %% ?SKIP("Needs a re-write..."),
     ?ACQUIRE_NODES(1, Config),
     PrelMid = preliminary_mid,
     MgMid   = ipv4_mid(4711),
@@ -457,16 +452,25 @@ connect(Config) when is_list(Config) ->
     ?VERIFY(bad_send_mod, megaco:conn_info(PrelCH, send_mod)),
     SC = service_change_request(),
     case megaco:call(PrelCH, [SC], []) of
-	{error, 
-	 {send_message_failed, 
-	  {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _]} | _]}}}} ->
+	{_Version, 
+	 {error, 
+	  {send_message_failed, 
+	   {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _]} | _]}}}}
+	} ->
+	    %% R14B and previous
+	    ?LOG("expected send failure (1)", []),
 	    ok;
 	
 	%% As of R15, we also get some extra info (e.g. line numbers)
-	{error, 
-	 {send_message_failed, 
-	  {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _], _} | _]}}}} ->
+	{_Version, 
+	 {error, 
+	  {send_message_failed, 
+	   {'EXIT', {undef, [{bad_send_mod, send_message, [sh, _], _} | _]}}}}
+	} ->
+	    %% R15B and later
+	    ?LOG("expected send failure (2)", []),
 	    ok;
+
 	Unexpected ->
 	    ?ERROR(Unexpected)
     end,
