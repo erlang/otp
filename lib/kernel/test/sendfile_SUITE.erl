@@ -315,6 +315,10 @@ sendfile_server(ClientPid, Orig) ->
 
 -define(SENDFILE_TIMEOUT, 10000).
 sendfile_do_recv(Sock, Bs) ->
+    TimeoutMul = case os:type() of
+		     {win32, _} -> 6;
+		     _ -> 1
+		 end,
     receive
 	stop when Bs /= 0,is_integer(Bs) ->
 	    gen_tcp:close(Sock),
@@ -338,7 +342,7 @@ sendfile_do_recv(Sock, Bs) ->
 	{tcp_closed, Sock} when is_integer(Bs) ->
 	    ct:log("Stopped due to close"),
 	    {ok, Bs}
-    after ?SENDFILE_TIMEOUT ->
+    after ?SENDFILE_TIMEOUT * TimeoutMul ->
 	    ct:log("Sendfile timeout"),
 	    timeout
     end.
