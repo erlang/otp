@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -499,6 +499,22 @@ crazy_script(Config) when is_list(Config) ->
     error = systools:make_script(LatestName3),
     {error, _, {mandatory_app,kernel,load}} =
 	systools:make_script(LatestName3, [silent,{path,P}]),
+
+    %% Run with .rel file with non-permanent stdlib
+    {LatestDir4, LatestName4} = create_script(latest_stdlib_start_type, Config),
+    ok = file:set_cwd(LatestDir4),
+
+    error = systools:make_script(LatestName4),
+    {error, _, {mandatory_app,stdlib,load}} =
+	systools:make_script(LatestName4, [silent,{path,P}]),
+
+    %% Run with .rel file lacking stdlib
+    {LatestDir5, LatestName5} = create_script(latest_no_stdlib, Config),
+    ok = file:set_cwd(LatestDir5),
+
+    error = systools:make_script(LatestName5),
+    {error, _, {missing_mandatory_app,stdlib}} =
+	systools:make_script(LatestName5, [silent,{path,P}]),
 
     ok = file:set_cwd(OldDir),
     ok.
@@ -2026,8 +2042,14 @@ create_script(latest_nokernel,Config) ->
     Apps = [{db,"2.1"},{fe,"3.1"}],
     do_create_script(latest_nokernel,Config,"4.4",Apps);
 create_script(latest_kernel_start_type,Config) ->
-    Apps = [{kernel,"1.0",load},{db,"2.1"},{fe,"3.1"}],
+    Apps = [{kernel,"1.0",load},{stdlib,"1.0"},{db,"2.1"},{fe,"3.1"}],
     do_create_script(latest_kernel_start_type,Config,"4.4",Apps);
+create_script(latest_stdlib_start_type,Config) ->
+    Apps = [{kernel,"1.0"},{stdlib,"1.0",load},{db,"2.1"},{fe,"3.1"}],
+    do_create_script(latest_stdlib_start_type,Config,"4.4",Apps);
+create_script(latest_no_stdlib,Config) ->
+    Apps = [{kernel,"1.0"},{db,"2.1"},{fe,"3.1"}],
+    do_create_script(latest_no_stdlib,Config,"4.4",Apps);
 create_script(latest_app_start_type1,Config) ->
     Apps = core_apps(current),
     do_create_script(latest_app_start_type1,Config,current,Apps);

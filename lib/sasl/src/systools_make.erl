@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -482,7 +482,7 @@ mandatory_applications([_|Apps],Kernel,Stdlib,Sasl) ->
 mandatory_applications([],Type,_,_) when Type=/=permanent ->
     error_mandatory_application(kernel,Type);
 mandatory_applications([],_,Type,_) when Type=/=permanent ->
-    error_mandatory_application(sasl,Type);
+    error_mandatory_application(stdlib,Type);
 mandatory_applications([],_,_,undefined) ->
     {ok, [{warning,missing_sasl}]};
 mandatory_applications([],_,_,_) ->
