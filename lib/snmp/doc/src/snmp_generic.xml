@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -34,15 +34,16 @@
   <module>snmp_generic</module>
   <modulesummary>Generic Functions for Implementing SNMP Objects in a Database</modulesummary>
   <description>
-    <p>The module <c>snmp_generic</c> contains generic functions for implementing tables
-      (and variables) using the SNMP built-in database or Mnesia. These
-      default functions are used if no instrumentation function is
-      provided for a managed object in a MIB. Sometimes, it might be
-      necessary to customize the behaviour of the default functions. For
-      example, in some situations a trap should be sent if a row is
-      deleted or modified, or some hardware is to be informed, when
-      information is changed.
-      </p>
+    <marker id="description"></marker>
+    <p>The module <c>snmp_generic</c> contains generic functions for 
+    implementing tables (and variables) using the SNMP built-in database 
+    or Mnesia. These default functions are used if no instrumentation 
+    function is provided for a managed object in a MIB. Sometimes, 
+    it might be necessary to customize the behaviour of the default 
+    functions. For example, in some situations a trap should be sent 
+    if a row is deleted or modified, or some hardware is to be informed, 
+    when information is changed. </p>
+
     <p>The overall structure is shown in the following figure:</p>
     <pre>
          +---------------+
@@ -93,6 +94,7 @@
   </description>
 
   <section>
+    <marker id="data_types"></marker>
     <title>DATA TYPES</title>
     <p>In the functions defined below, the following types are used:</p>
     <code type="none">
@@ -118,7 +120,10 @@ value() = term()
           case of a <c>set</c> operation. </p>
       </item>
     </taglist>
+
+    <marker id="get_status_col2"></marker>
   </section>
+
   <funcs>
     <func>
       <name>get_status_col(Name, Cols)</name>
@@ -136,8 +141,11 @@ value() = term()
         <p>This function can be used in instrumentation functions for
           <c>is_set_ok</c>, <c>undo</c> or <c>set</c> to check if the
           status column of a table is modified.</p>
+	  
+	  <marker id="get_index_types"></marker>
       </desc>
     </func>
+
     <func>
       <name>get_index_types(Name)</name>
       <fsummary>Get the index types of <c>Name</c></fsummary>
@@ -147,9 +155,36 @@ value() = term()
       <desc>
         <p>Gets the index types of <c>Name</c></p>
         <p>This function can be used in instrumentation functions to
-          retrieve the index types part of the table info.</p>
+	retrieve the index types part of the table info.</p>
+	
+	<marker id="get_table_info"></marker>
       </desc>
     </func>
+
+    <func>
+      <name>get_table_info(Name, Item) -> table_info_result()</name>
+      <fsummary>Get table info item of MIB table <c>Name</c></fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Item = table_item() | all</v>
+        <v>table_item() = nbr_of_cols | defvals | status_col | not_accessible | 
+	index_types | first_accessible | first_own_index</v>
+        <v>table_info_result() = Value | [{table_item(), Value}]</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Get a specific table info item or, if <c>Item</c> has the
+	value <c>all</c>, a two tuple list (property list) is instead 
+	returned with all the items and their respctive values of the 
+	given table. </p>
+
+        <p>This function can be used in instrumentation functions to
+	retrieve a given part of the table info.</p>
+	
+	<marker id="table_func"></marker>
+      </desc>
+    </func>
+
     <func>
       <name>table_func(Op1, NameDb)</name>
       <name>table_func(Op2, RowIndex, Cols, NameDb) -> Ret</name>
@@ -190,8 +225,11 @@ value() = term()
         <p>The function returns according to the specification of an
           instrumentation function.
           </p>
+	
+	<marker id="table_get_elements"></marker>
       </desc>
     </func>
+
     <func>
       <name>table_get_elements(NameDb, RowIndex, Cols) -> Values</name>
       <fsummary>Get elements in a table row</fsummary>
@@ -204,8 +242,11 @@ value() = term()
       <desc>
         <p>Returns a list with values for all columns in <c>Cols</c>.
           If a column is undefined, its value is <c>noinit</c>.</p>
+	
+	<marker id="table_next"></marker>
       </desc>
     </func>
+
     <func>
       <name>table_next(NameDb, RestOid) -> RowIndex | endOfTable</name>
       <fsummary>Find the next row in the table</fsummary>
@@ -217,8 +258,11 @@ value() = term()
       <desc>
         <p>Finds the indices of the next row in the table.  <c>RestOid</c>
           does not have to specify an existing row.</p>
+	
+	<marker id="table_row_exists"></marker>
       </desc>
     </func>
+
     <func>
       <name>table_row_exists(NameDb, RowIndex) -> bool()</name>
       <fsummary>Check if a row in a table exists</fsummary>
@@ -228,8 +272,11 @@ value() = term()
       </type>
       <desc>
         <p>Checks if a row in a table exists.</p>
+	
+	<marker id="table_set_elements"></marker>
       </desc>
     </func>
+
     <func>
       <name>table_set_elements(NameDb, RowIndex, Cols) -> bool()</name>
       <fsummary>Set elements in a table row</fsummary>
@@ -246,8 +293,11 @@ value() = term()
           <c>mnesia:write</c> to store the values.  This means that
           this function must be called from within a transaction
           (<c>mnesia:transaction/1</c> or <c>mnesia:dirty/1</c>).</p>
+	
+	<marker id="variable_func"></marker>
       </desc>
     </func>
+
     <func>
       <name>variable_func(Op1, NameDb)</name>
       <name>variable_func(Op2, Val, NameDb) -> Ret</name>
@@ -268,8 +318,11 @@ value() = term()
           the database. </p>
         <p>The function returns according to the specification of an 
           instrumentation function. </p>
+	
+	<marker id="variable_get"></marker>
       </desc>
     </func>
+
     <func>
       <name>variable_get(NameDb) -> {value, Value} | undefined</name>
       <fsummary>Get the value of a variable</fsummary>
@@ -279,8 +332,11 @@ value() = term()
       </type>
       <desc>
         <p>Gets the value of a variable.</p>
+	
+	<marker id="variable_set"></marker>
       </desc>
     </func>
+
     <func>
       <name>variable_set(NameDb, NewVal) -> true | false</name>
       <fsummary>Set a value for a variable</fsummary>
@@ -299,6 +355,7 @@ value() = term()
   </funcs>
 
   <section>
+    <marker id="example"></marker>
     <title>Example</title>
     <p>The following example shows an implementation of a table which is
       stored in Mnesia, but with some checks performed at set-request

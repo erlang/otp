@@ -76,7 +76,8 @@ MIB_FILES = \
 	TestTrap.mib \
 	TestTrapv2.mib \
 	Test1.mib \
-	Test2.mib
+	Test2.mib \
+	Test3.mib
 
 SPECS = snmp.spec snmp.spec.vxworks 
 

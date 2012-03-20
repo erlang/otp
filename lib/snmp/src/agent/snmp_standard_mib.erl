@@ -143,19 +143,34 @@ do_reconfigure(Dir) ->
 %% Func: read_standard/1
 %% Args: Dir is the directory with trailing dir_separator where
 %%       the configuration files can be found.
-%% Purpose: Reads th standard configuration file.
+%% Purpose: Reads the standard configuration file.
 %% Returns: A list of standard variables
 %% Fails: If an error occurs, the process will die with Reason
 %%        configuration_error.
+%%        This file is mandatory, as it contains mandatory 
+%%        config options for which there are no default values. 
 %%-----------------------------------------------------------------
 read_standard(Dir) ->
     ?vdebug("check standard config file",[]),
-    Gen    = fun(_) -> ok end,
-    Filter = fun(Standard) -> sort_standard(Standard) end,
-    Check  = fun(Entry) -> check_standard(Entry) end,
+    FileName   = "standard.conf", 
+    Gen        = fun(D, Reason) -> 
+			 throw({error, {failed_reading_config_file, 
+					D, FileName, 
+					list_dir(Dir), Reason}})
+		 end,
+    Filter     = fun(Standard) -> sort_standard(Standard) end,
+    Check      = fun(Entry) -> check_standard(Entry) end,
     [Standard] = 
-	snmp_conf:read_files(Dir, [{Gen, Filter, Check, "standard.conf"}]), 
+	snmp_conf:read_files(Dir, [{Gen, Filter, Check, FileName}]), 
     Standard.
+
+list_dir(Dir) ->
+    case file:list_dir(Dir) of
+	{ok, Files} ->
+	    Files;
+	Error ->
+	    Error
+    end.
 
 
 %%-----------------------------------------------------------------
@@ -548,6 +563,7 @@ snmp_set_serial_no(set, NewVal) ->
     snmp_generic:variable_func(set, (NewVal + 1) rem 2147483648,
 			       {snmpSetSerialNo, volatile}).
 
+
 %%-----------------------------------------------------------------
 %% This is the instrumentation function for sysOrTable
 %%-----------------------------------------------------------------
@@ -588,4 +604,4 @@ error(Reason) ->
     throw({error, Reason}).
 
 config_err(F, A) ->
-    snmpa_error:config_err("[STANDARD-MIB]: " ++ F, A).
+    snmpa_error:config_err("[STANDARD-MIB] " ++ F, A).

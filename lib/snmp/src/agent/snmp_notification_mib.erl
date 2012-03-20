@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,6 +27,7 @@
 -export([add_notify/3, delete_notify/1]).
 -export([check_notify/1]).
 
+-include("snmpa_internal.hrl").
 -include("SNMP-NOTIFICATION-MIB.hrl").
 -include("SNMPv2-TC.hrl").
 -include("snmp_tables.hrl").
@@ -104,7 +105,14 @@ do_reconfigure(Dir) ->
 
 read_notify_config_files(Dir) ->
     ?vdebug("read notify config file",[]),
-    Gen    = fun(_) -> ok end,
+    FileName = "notify.conf", 
+    Gen      = fun(D, Reason) -> 
+		       info_msg("failed reading config file ~s"
+				"~n   Config Dir: ~s"
+				"~n   Reason:     ~p", 
+				[FileName, D, Reason]),
+		       ok 
+	       end,
     Filter = fun(Notifs) -> Notifs end,
     Check  = fun(Entry) -> check_notify(Entry) end,
     [Notifs] = 
@@ -112,7 +120,7 @@ read_notify_config_files(Dir) ->
     Notifs.
 
 check_notify({Name, Tag, Type}) ->
-    snmp_conf:check_string(Name,{gt,0}),
+    snmp_conf:check_string(Name, {gt, 0}),
     snmp_conf:check_string(Tag),
     {ok, Val} = snmp_conf:check_atom(Type, [{trap, 1}, {inform, 2}]),
     Notify = {Name, Tag, Val, 
@@ -451,12 +459,15 @@ set_sname() ->
     set_sname(get(sname)).
 
 set_sname(undefined) ->
-    put(sname,conf);
+    put(sname, conf);
 set_sname(_) -> %% Keep it, if already set.
     ok.
 
 error(Reason) ->
     throw({error, Reason}).
+
+info_msg(F, A) -> 
+    ?snmpa_info("[NOTIFICATION-MIB]: " ++ F, A).
 
 config_err(F, A) ->
     snmpa_error:config_err("[NOTIFICATION-MIB]: " ++ F, A).

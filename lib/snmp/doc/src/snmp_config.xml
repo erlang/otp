@@ -586,18 +586,18 @@
           {no_reuse, no_reuse()} |
           {filter, manager_net_if_filter_options()}</c></p>
         <p>These options are actually specific to the used module.
-          The ones shown here are applicable to the default 
-          <c>manager_net_if_module()</c>.</p>
+	The ones shown here are applicable to the default 
+	<c>manager_net_if_module()</c>. </p>
         <p>For defaults see the options in <c>manager_net_if_option()</c>.</p>
       </item>
 
       <marker id="manager_ni_module"></marker>
       <tag><c><![CDATA[manager_net_if_module() = atom() <optional>]]></c></tag>
       <item>
-        <p>Module which handles the network interface part for the
-          SNMP manager. Must implement the 
-          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour.</p>
-        <p>Default is <c>snmpm_net_if</c>.</p>
+        <p>The module which handles the network interface part for the
+	SNMP manager. It must implement the 
+	<seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour. </p>
+        <p>Default is <c>snmpm_net_if</c>. </p>
       </item>
 
       <marker id="manager_ni_filter_opts"></marker>

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,7 +21,7 @@
 
 
 -export([
-	 create/4, create/5, create/6, 
+	 create/4, create/5, create/6, open/1, open/2, 
 	 change_size/2, close/1, sync/1, info/1, 
 	 log/4, 
 	 log_to_txt/5, log_to_txt/6, log_to_txt/7,
@@ -109,6 +109,24 @@ create(Name, File, SeqNoGen, Size, Repair, Notify) ->
     {error, {bad_args, Name, File, SeqNoGen, Size, Repair, Notify}}.
     
     
+%% -- open ---
+
+%% Open an already existing ( = open ) log
+
+open(Name) ->
+    open(Name, #snmp_log{seqno = disabled}).
+open(Name, #snmp_log{seqno = SeqNoGen} = _OldLog) ->
+    %% We include mode in the opts just to be on the safe side
+    case disk_log:open([{name, Name}, {mode, read_write}]) of
+	{ok, Log} ->
+	    %% SeqNo must be proprly initiated also
+	    {ok, #snmp_log{id = Log, seqno = SeqNoGen}};
+	{repaired, Log, _RecBytes, _BadBytes} ->
+	    {ok, #snmp_log{id = Log, seqno = SeqNoGen}};
+	ERROR ->
+	    ERROR
+    end.
+
 
 %% -- close ---
 
@@ -394,6 +412,14 @@ log_to_io(Log, FileName, Dir, Mibs, Start) ->
 
 log_to_io(Log, FileName, Dir, Mibs, Start, Stop) 
   when is_list(Mibs) ->
+    ?vtrace("log_to_io -> entry with"
+	    "~n   Log:      ~p"
+	    "~n   FileName: ~p"
+	    "~n   Dir:      ~p"
+	    "~n   Mibs:     ~p"
+	    "~n   Start:    ~p"
+	    "~n   Stop:     ~p", 
+	    [Log, FileName, Dir, Mibs, Start, Stop]),
     File = filename:join(Dir, FileName),
     Converter = fun(L) ->
 			do_log_to_io(L, Mibs, Start, Stop)
@@ -401,27 +427,9 @@ log_to_io(Log, FileName, Dir, Mibs, Start, Stop)
     log_convert(Log, File, Converter).
 
 
-%% -- log_to_plain ---
-
-%% log_to_plain(Log, FileName, Dir) ->
-%%     log_to_plain(Log, FileName, Dir, null, null).
-
-%% log_to_plain(Log, FileName, Dir, Start) ->
-%%     log_to_plain(Log, FileName, Dir, Start, null).
-
-%% log_to_plain(Log, FileName, Dir, Start, Stop) 
-%%   when is_list(Mibs) ->
-%%     File = filename:join(Dir, FileName),
-%%     Converter = fun(L) ->
-%% 			do_log_to_plain(L, Start, Stop)
-%% 		end,
-%%     log_convert(Log, File, Converter).
-
-
 %% --------------------------------------------------------------------
 %% Internal functions
 %% --------------------------------------------------------------------
-
 
 %% -- log_convert ---
 
@@ -431,6 +439,26 @@ log_convert(Log, File, Converter) ->
     do_log_convert(Log, File, Converter).
 
 do_log_convert(Log, File, Converter) ->
+    %% ?vtrace("do_log_converter -> entry with"
+    %% 	    "~n   Log:  ~p"
+    %% 	    "~n   File: ~p"
+    %% 	    "~n   disk_log:info(Log): ~p", [Log, File, disk_log:info(Log)]),
+    {Pid, Ref} = 
+	erlang:spawn_monitor(
+	  fun() ->
+		  Result = do_log_convert2(Log, File, Converter),
+		  exit(Result)
+	  end),
+    receive 
+	{'DOWN', Ref, process, Pid, Result} ->
+	    %% ?vtrace("do_log_converter -> received result"
+	    %% 	    "~n   Result: ~p"
+	    %% 	    "~n   disk_log:info(Log): ~p", 
+	    %% 	    [Result, disk_log:info(Log)]),
+	    Result
+    end.
+    
+do_log_convert2(Log, File, Converter) ->
     %% First check if the caller process has already opened the
     %% log, because if we close an already open log we will cause
     %% a runtime error.
@@ -439,28 +467,17 @@ do_log_convert(Log, File, Converter) ->
 	    Converter(Log);
 	false ->
 	    %% Not yet member of the ruling party, apply for membership...
-	    %% If a log is opened as read_write it is not possible to 
-	    %% open it as read_only. So, to get around this we open 
-	    %% it under a different name...
-	    Log2 = convert_name(Log),
-	    case log_open(Log2, File) of
+	    case log_open(Log, File) of
 		{ok, _} ->
-		    Res = Converter(Log2),
-		    disk_log:close(Log2),
+		    Res = Converter(Log),
+		    disk_log:close(Log),
 		    Res;
 		{error, {name_already_open, _}} ->
-                    Converter(Log2);
+                    Converter(Log);
                 {error, Reason} ->
                     {error, {Log, Reason}}
 	    end
     end.
-
-convert_name(Name) when is_list(Name) ->
-    Name ++ "_tmp";
-convert_name(Name) when is_atom(Name) ->
-    list_to_atom(atom_to_list(Name) ++ "_tmp");
-convert_name(Name) ->
-    lists:flatten(io_lib:format("~w_tmp", [Name])).
 
 
 %% -- do_log_to_text ---
@@ -705,21 +722,21 @@ tsf_ge(_Local,Universal,{universal_time,DateTime}) ->
 tsf_ge(Local,_Universal,DateTime) ->
     tsf_ge(Local,DateTime).
 
-tsf_ge(TimeStamp,DateTime) -> 
+tsf_ge(TimeStamp, DateTime) -> 
     T1 = calendar:datetime_to_gregorian_seconds(TimeStamp),
     T2 = calendar:datetime_to_gregorian_seconds(DateTime),
     T1 >= T2.
 
-tsf_le(_Local,_Universal,null) ->
+tsf_le(_Local, _Universal, null) ->
     true;
-tsf_le(Local,_Universal,{local_time,DateTime}) ->
-    tsf_le(Local,DateTime);
-tsf_le(_Local,Universal,{universal_time,DateTime}) ->
-    tsf_le(Universal,DateTime);
-tsf_le(Local,_Universal,DateTime) ->
+tsf_le(Local, _Universal, {local_time, DateTime}) ->
+    tsf_le(Local, DateTime);
+tsf_le(_Local, Universal, {universal_time, DateTime}) ->
+    tsf_le(Universal, DateTime);
+tsf_le(Local, _Universal, DateTime) ->
     tsf_le(Local,DateTime).
 
-tsf_le(TimeStamp,DateTime) ->
+tsf_le(TimeStamp, DateTime) ->
     T1 = calendar:datetime_to_gregorian_seconds(TimeStamp),
     T2 = calendar:datetime_to_gregorian_seconds(DateTime),
     T1 =< T2.
@@ -864,11 +881,8 @@ do_std_log_open(Name, File, Size, Repair, Notify) ->
 
 
 log_open(Name, File) ->
-    Opts = [{name,   Name}, 
-	    {file,   File}, 
-	    {type,   ?LOG_TYPE},
-	    {format, ?LOG_FORMAT},	    
-	    {mode,   read_only}],
+    Opts = [{name, Name}, 
+	    {file, File}],
     case disk_log:open(Opts) of
 	{error, {badarg, size}} ->
 	    {error, no_such_log};
