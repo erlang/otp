@@ -242,25 +242,28 @@ test_events(ts_if_1) ->
      {?eh,tc_auto_skip,{ts_if_5_SUITE,end_per_suite,
 			{require_failed_in_suite0,{not_available,undef_variable}}}},
 
-     {?eh,tc_start,{ts_if_6_SUITE,tc1}},
-     {?eh,tc_done,{ts_if_6_SUITE,tc1,{failed,{error,{suite0_failed,{exited,suite0_byebye}}}}}},
-     {?eh,test_stats,{3,5,{6,8}}},
+     {?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,tc_done,{ct_framework,init_per_suite,
+		   {failed,{error,{suite0_failed,{exited,suite0_byebye}}}}}},
+     {?eh,tc_auto_skip,{ts_if_6_SUITE,tc1,
+			{failed,{error,{suite0_failed,{exited,suite0_byebye}}}}}},
+     {?eh,test_stats,{3,5,{5,9}}},
 
      {?eh,tc_start,{ts_if_7_SUITE,tc1}},
      {?eh,tc_done,{ts_if_7_SUITE,tc1,ok}},
-     {?eh,test_stats,{4,5,{6,8}}},
+     {?eh,test_stats,{4,5,{5,9}}},
 
      {?eh,tc_start,{ts_if_8_SUITE,tc1}},
      {?eh,tc_done,{ts_if_8_SUITE,tc1,{failed,{error,failed_on_purpose}}}},
-     {?eh,test_stats,{4,6,{6,8}}},
+     {?eh,test_stats,{4,6,{5,9}}},
 
      {?eh,tc_user_skip,{skipped_by_spec_1_SUITE,all,"should be skipped"}},
-     {?eh,test_stats,{4,6,{7,8}}},
+     {?eh,test_stats,{4,6,{6,9}}},
 
      {?eh,tc_start,{skipped_by_spec_2_SUITE,init_per_suite}},
      {?eh,tc_done,{skipped_by_spec_2_SUITE,init_per_suite,ok}},
      {?eh,tc_user_skip,{skipped_by_spec_2_SUITE,tc1,"should be skipped"}},
-     {?eh,test_stats,{4,6,{8,8}}},
+     {?eh,test_stats,{4,6,{7,9}}},
      {?eh,tc_start,{skipped_by_spec_2_SUITE,end_per_suite}},
      {?eh,tc_done,{skipped_by_spec_2_SUITE,end_per_suite,ok}},
 
