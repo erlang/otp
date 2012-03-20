@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -806,6 +806,8 @@ do {									\
 /* Port uses port specific locking (opposed to driver specific locking) */
 #define ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK ((Uint32) (1 << 13))
 #define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 14))
+/* Last port to terminate halts the emulator */
+#define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 15))
 #ifdef DEBUG
 /* Only debug: make sure all flags aren't cleared unintentionally */
 #define ERTS_PORT_SFLG_PORT_DEBUG	((Uint32) (1 << 31))
@@ -900,6 +902,7 @@ void loaded(int, void *);
 
 __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 __decl_noreturn void __noreturn erl_exit0(char *, int, int n, char*, ...);
+__decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
 
 #define ERL_EXIT0(n,f)		erl_exit0(__FILE__, __LINE__, n, f)

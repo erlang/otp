@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2011. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -511,7 +511,7 @@ __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 /* Some special erl_exit() codes: */
 #define ERTS_INTR_EXIT	INT_MIN		/* called from signal handler */
 #define ERTS_ABORT_EXIT	(INT_MIN + 1)	/* no crash dump; only abort() */
-#define ERTS_DUMP_EXIT	(127)		/* crash dump; then exit() */
+#define ERTS_DUMP_EXIT	(INT_MIN + 2)	/* crash dump; then exit() */
 
 Eterm erts_check_io_info(void *p);
 
