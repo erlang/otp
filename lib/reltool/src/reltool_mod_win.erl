@@ -215,7 +215,7 @@ create_deps_page(S) ->
 
     UsedByCtrl = create_mods_list_ctrl(Panel,
 				       Main,
-				       "Modules used by others",
+				       "Modules using this",
 				       " and their applications"),
     wxSizer:add(Main,
 		wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),

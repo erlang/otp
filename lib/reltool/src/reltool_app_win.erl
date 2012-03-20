@@ -292,7 +292,7 @@ create_deps_page(S, Derived) ->
 
     UsedByCtrl = create_mods_list_ctrl(Panel,
 				       Main,
-				       "Modules used by others",
+				       "Modules using this",
 				       " and their applications",
 				       undefined,
 				       undefined),
