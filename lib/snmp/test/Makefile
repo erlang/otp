@@ -224,6 +224,9 @@ $(SNMP_BIN_TARGET_DIR)/Klas4.bin: $(SNMP_BIN_TARGET_DIR)/Klas3.bin
 
 $(SNMP_BIN_TARGET_DIR)/SA-MIB.bin: $(SNMP_BIN_TARGET_DIR)/OLD-SNMPEA-MIB.bin
 
+$(SNMP_BIN_TARGET_DIR)/Test3.bin: $(SNMP_BIN_TARGET_DIR)/Test2.bin
+
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 

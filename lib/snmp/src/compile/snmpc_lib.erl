@@ -704,23 +704,29 @@ check_trap_name(EnterpriseName, Line, MEs) ->
 %% This information is needed to be able to create default instrumentation
 %% functions for tables.
 %%----------------------------------------------------------------------
-make_table_info(Line, _TableName, {augments,SrcTableEntry}, ColumnMEs) ->
+make_table_info(Line, TableName, {augments, SrcTableEntry}, ColumnMEs) ->
     ColMEs = lists:keysort(#me.oid, ColumnMEs),
-    %% Nbr_of_Cols = length(ColMEs), 
+    Nbr_of_Cols = length(ColMEs), 
     MEs = ColMEs ++ (get(cdata))#cdata.mes,
-    Aug = case lookup(SrcTableEntry,MEs) of
+    Aug = case lookup(SrcTableEntry, MEs) of
 	      false ->
 		  print_error("Cannot AUGMENT the non-existing table entry ~p",
-			      [SrcTableEntry],Line),
+			      [SrcTableEntry], Line),
 		  {augments, error};
-	      {value,ME} ->
-		  {augments, {SrcTableEntry,translate_type(ME#me.asn1_type)}}
+	      {value, ME} ->
+		  {augments, {SrcTableEntry, translate_type(ME#me.asn1_type)}}
 	  end,
-    #table_info{index_types = Aug};
-make_table_info(Line, TableName, {indexes,[]}, _ColumnMEs) ->
+    FirstNonIdxCol = augments_first_non_index_column(ColMEs), 
+    NoAccs         = list_not_accessible(FirstNonIdxCol, ColMEs),
+    FirstAcc       = first_accessible(TableName, ColMEs),
+    #table_info{nbr_of_cols      = Nbr_of_Cols,
+		first_accessible = FirstAcc, 
+		not_accessible   = NoAccs, 
+		index_types      = Aug}; 
+make_table_info(Line, TableName, {indexes, []}, _ColumnMEs) ->
     print_error("Table ~w lacks indexes.", [TableName],Line),
     #table_info{};
-make_table_info(Line, TableName, {indexes,Indexes}, ColumnMEs) ->
+make_table_info(Line, TableName, {indexes, Indexes}, ColumnMEs) ->
     ColMEs = lists:keysort(#me.oid, ColumnMEs),
     NonImpliedIndexes = lists:map(fun non_implied_name/1, Indexes),
     test_read_create_access(ColMEs, Line, dummy),
@@ -860,10 +866,16 @@ get_asn1_type(ColumnName, MEs, Line) ->
     end.
 
 test_index_positions(Line, Indexes, ColMEs) ->
-    TLI = lists:filter(fun (IndexName) ->
-			       is_table_local_index(IndexName,ColMEs) end,
-		       Indexes),
+    IsTLI = fun(IndexName) -> is_table_local_index(IndexName, ColMEs) end, 
+    TLI   = lists:filter(IsTLI, Indexes),
     test_index_positions_impl(Line, TLI, ColMEs).
+
+%% An table that augments another cannot conatin any index, 
+%% so the first non-index column is always the first column.
+augments_first_non_index_column([]) ->
+    none;
+augments_first_non_index_column([#me{oid=Col}|_ColMEs]) ->
+    Col.
 
 %% Returns the first non-index column | none
 test_index_positions_impl(_Line, [], []) -> none;

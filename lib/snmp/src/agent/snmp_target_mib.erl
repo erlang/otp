@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -132,12 +132,12 @@ do_reconfigure(Dir) ->
 
 
 read_target_config_files(Dir) ->
-    ?vdebug("check target address config file",[]),
-    TAGen    = fun(_D) -> ok end,
+    ?vdebug("check target address and parameter config file(s)",[]),
+    TAGen    = fun(_D, _Reason) -> ok end,
     TAFilter = fun(Addr) -> Addr end,
     TACheck  = fun(Entry) -> check_target_addr(Entry) end,
 
-    TPGen    = fun(_D) -> ok end,
+    TPGen    = fun(_D, _Reason) -> ok end,
     TPFilter = fun(Params) -> Params end,
     TPCheck  = fun(Entry) -> check_target_params(Entry) end,
 

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -136,7 +136,7 @@ do_reconfigure(Dir) ->
 
 read_usm_config_files(Dir) ->
     ?vdebug("read usm config file",[]),
-    Gen    = fun(D) -> generate_usm(D) end,
+    Gen    = fun(D, Reason) -> generate_usm(D, Reason) end,
     Filter = fun(Usms) -> Usms end,
     Check  = fun(Entry) -> check_usm(Entry) end,
     [Usms] = 
@@ -144,7 +144,7 @@ read_usm_config_files(Dir) ->
     Usms.
 
 
-generate_usm(Dir) ->
+generate_usm(Dir, _Reason) ->
     info_msg("Incomplete configuration. Generating empty usm.conf.", []),
     USMFile = filename:join(Dir, "usm.conf"),
     ok = file:write_file(USMFile, list_to_binary([])).

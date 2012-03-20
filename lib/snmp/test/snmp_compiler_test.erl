@@ -40,6 +40,7 @@
 	 all/0, 
 	 groups/0, init_per_group/2, end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
+         init_per_suite/1, end_per_suite/1,
 
 	 description/1,
 	 oid_conflicts/1,
@@ -48,6 +49,7 @@
 	 agent_capabilities/1,
 	 module_compliance/1, 
 	 warnings_as_errors/1,
+	 augments_extra_info/1,
 
 	 otp_6150/1,
 	 otp_8574/1, 
@@ -58,6 +60,7 @@
 %%----------------------------------------------------------------------
 %% Internal exports
 %%----------------------------------------------------------------------
+
 -export([
         ]).
 
@@ -74,19 +77,41 @@
 %% External functions
 %%======================================================================
 
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Dir = ?config(priv_dir, Config),
-    DataDir = ?config(data_dir, Config),
-    [_|RL] = lists:reverse(filename:split(DataDir)),
-    MibDir = join(lists:reverse(["snmp_test_data"|RL])),
-    CompDir = join(Dir, "comp_dir/"),
-    ?line ok = file:make_dir(CompDir),
-    [{comp_dir, CompDir}, {mib_dir, MibDir} | Config].
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?DBG("init_per_suite -> entry with"
+	 "~n   Config0: ~p", [Config0]),
+
+    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    Config2   = snmp_test_lib:fix_data_dir(Config1),
+
+    %% Mib-dirs
+    %% data_dir is trashed by the test-server / common-test
+    %% so there is no point in fixing it...
+    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
+    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+
+    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2].
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    Config.
+
+
+init_per_testcase(Case, Config) when is_list(Config) ->
+
+    ?DBG("init_per_testcase -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config), 
+
+    [{case_top_dir, CaseTopDir} | Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
-    CompDir = ?config(comp_dir, Config),
-    ?line ok = ?DEL_DIR(CompDir),
-    lists:keydelete(comp_dir, 1, Config).
+    Config.
 
 
 %%======================================================================
@@ -102,6 +127,7 @@ all() ->
      agent_capabilities, 
      module_compliance, 
      warnings_as_errors,
+     augments_extra_info, 
      {group, tickets}
     ].
 
@@ -126,7 +152,7 @@ description(Config) when is_list(Config) ->
     put(tname,desc),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir = ?config(comp_dir, Config),
+    Dir = ?config(case_top_dir, Config),
     Filename   = join(Dir,"test"),
     MibSrcName = Filename ++ ".mib",
     MibBinName = Filename ++ ".bin",
@@ -161,7 +187,7 @@ oid_conflicts(Config) when is_list(Config) ->
     put(tname,oid_conflicts),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir = ?config(comp_dir, Config),
+    Dir = ?config(case_top_dir, Config),
     Mib = join(Dir,"TESTv2.mib"),
     ?line ok = write_oid_conflict_mib(Mib),
     ?line {error,compilation_failed} = 
@@ -278,7 +304,7 @@ warnings_as_errors(suite) ->
 warnings_as_errors(Config) when is_list(Config) ->
     put(tname,warnings_as_errors),
     p("starting with Config: ~p~n", [Config]),
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8574-MIB.mib"),
     OutFile = join(Dir, "OTP8574-MIB.bin"),
@@ -303,7 +329,7 @@ otp_6150(Config) when is_list(Config) ->
     put(tname,otp_6150),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "ERICSSON-TOP-MIB.mib"),
     ?line {ok, Mib} = snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
@@ -319,7 +345,7 @@ otp_8574(Config) when is_list(Config) ->
     put(tname,otp_8574),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8574-MIB.mib"),
     
@@ -352,7 +378,7 @@ otp_8595(Config) when is_list(Config) ->
     put(tname,otp_8595),
     p("starting with Config: ~p~n", [Config]),
 
-    Dir     = ?config(comp_dir, Config),
+    Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8595-MIB.mib"),
     ?line {ok, Mib} = 
@@ -360,6 +386,47 @@ otp_8595(Config) when is_list(Config) ->
 				{verbosity,   trace}, 
 				{group_check, false}]),
     io:format("otp_8595 -> Mib: ~n~p~n", [Mib]),
+    ok.
+
+
+%%======================================================================
+
+augments_extra_info(suite) ->
+    [];
+augments_extra_info(Config) when is_list(Config) ->
+    put(tname, augments_extra_info),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir       = ?config(case_top_dir, Config),
+    MibDir    = ?config(mib_dir,      Config),
+    Test2File = join(MibDir, "Test2.mib"),
+    Test3File = join(MibDir, "Test3.mib"),
+    ?line {ok, Test2BinFile} = 
+	snmpc:compile(Test2File, [{outdir,      Dir}, 
+				  {verbosity,   silence}, 
+				  {group_check, false}]),
+    io:format("Test2BinFile: ~n~p~n", [Test2BinFile]),
+    ?line {ok, Test3BinFile} = 
+	snmpc:compile(Test3File, [{i,           [MibDir]}, 
+				  {outdir,      Dir}, 
+				  {verbosity,   silence}, 
+				  {group_check, true}]),
+    io:format("Test3BinFile: ~n~p~n", [Test3BinFile]),
+    {ok, Test3Mib} = snmp_misc:read_mib(Test3BinFile), 
+    io:format("Test3Mib: ~n~p~n", [Test3Mib]),
+    %% There is only one table in this mib
+    #mib{table_infos = [{TableName, TI}]} = Test3Mib, 
+    io:format("TableName: ~p"
+	      "~n   Table Info: ~p"
+	      "~n", [TableName, TI]), 
+    #table_info{nbr_of_cols      = 4, 
+		defvals          = DefVals, 
+		not_accessible   = [2,4], 
+		index_types      = {augments, {tEntry, undefined}},
+		first_accessible = 1} = TI,
+    io:format("Table info:   ~p"
+	      "~n   DefVals: ~p"
+	      "~n", [TableName, DefVals]), 
     ok.
 
 
@@ -517,11 +584,11 @@ DESCRIPTION	\"" ++ Desc ++ "\"
     ::= { test 1 }
 
 END",
-    Message = file:write_file(Filename ,Binary),
+    Message = file:write_file(Filename, Binary),
 case Message of
     ok -> ok;
     {error, Reason} ->
-	exit({failed_writing_mib,Reason})
+	exit({failed_writing_mib, Reason})
 end.
 
 
@@ -546,8 +613,8 @@ check_desc(Desc1, Desc2) ->
     exit({'description not equal', Desc1, Desc2}).
 
 
-join(Comp) ->
-    filename:join(Comp).
+%% join(Comp) ->
+%%     filename:join(Comp).
 
 join(A,B) ->
     filename:join(A,B).

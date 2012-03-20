@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
   <header>
     <copyright>
-      <year>2007</year><year>2009</year>
+      <year>2007</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -72,9 +72,10 @@
     </list>
     <p>Note that the network interface filter is something which is used 
       by the network interface implementation provided by the application 
-      (<c>snmpm_net_if</c>). The default filter accepts all messages.</p>
+    (<c>snmpm_net_if</c> and <c>snmpm_net_if_mt</c>). 
+    The default filter accepts all messages.</p>
     <p>A network interface filter can e.g. be used during testing or for load 
-      regulation. </p>
+    regulation. </p>
   </description>
 
   <section>

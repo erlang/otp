@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,6 +18,8 @@
 %% 
 
 -module(snmp_SUITE).
+
+-include("snmp_test_lib.hrl").
 
 -export([all/0, 
 	 suite/0,
@@ -39,6 +41,21 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
 
+init_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("init_per_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    Config.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
@@ -53,7 +70,8 @@ all() ->
      {group, manager}].
 
 groups() -> 
-    [{app,      [], [{group, app_test}, 
+    [
+     {app,      [], [{group, app_test}, 
 		     {group, appup_test}]},
      {compiler, [], [{group, compiler_test}]},
      {misc,     [], [{group, conf_test}, 
@@ -66,6 +84,7 @@ groups() ->
      {manager, [],  [{group, manager_config_test},
 		     {group, manager_user_test}, 
 		     {group, manager_test}]},
+
      {app_test,            [], [{snmp_app_test,            all}]},
      {appup_test,          [], [{snmp_appup_test,          all}]},
      {compiler_test,       [], [{snmp_compiler_test,       all}]},
@@ -78,17 +97,25 @@ groups() ->
      {agent_test,          [], [{snmp_agent_test,          all}]},
      {manager_config_test, [], [{snmp_manager_config_test, all}]},
      {manager_user_test,   [], [{snmp_manager_user_test,   all}]},
-     {manager_test,        [], [{snmp_manager_test,        all}]}].
+     {manager_test,        [], [{snmp_manager_test,        all}]}
+    ].
 
-init_per_suite(Config) ->
-    Config.
 
-end_per_suite(_Config) ->
-    ok.
+init_per_group(GroupName, Config0) ->
 
-init_per_group(_GroupName, Config) ->
-    Config.
+    ?DBG("init_per_group -> entry with"
+	 "~n   GroupName: ~p"
+	 "~n   Config0:   ~p", [GroupName, Config0]),
+
+    %% Group name is not really the suite name
+    %% (but it is a good enough approximation), 
+    %% but it does not matter since we only need 
+    %% it to be unique. 
+    snmp_test_lib:init_suite_top_dir(GroupName, Config0).
+    
 
 end_per_group(_GroupName, Config) ->
-    Config.
+    lists:keydelete(snmp_suite_top_dir, 1, Config).
+
+
 

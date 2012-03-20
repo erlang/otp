@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,7 +39,7 @@
 
 %% Manager callback API:
 -export([handle_error/3,
-         handle_agent/4,
+         handle_agent/5,
          handle_pdu/4,
          handle_trap/3,
          handle_inform/3,
@@ -265,16 +265,17 @@ handle_snmp_callback(handle_error, {ReqId, Reason}) ->
 	      "~n   Reason:     ~p"
 	      "~n", [ReqId, Reason]),
     ok;
-handle_snmp_callback(handle_agent, {Addr, Port, SnmpInfo}) ->
+handle_snmp_callback(handle_agent, {Addr, Port, Type, SnmpInfo}) ->
     {ES, EI, VBs} = SnmpInfo, 
     io:format("*** UNKNOWN AGENT ***"
 	      "~n   Address:   ~p"
 	      "~n   Port:      ~p"
+	      "~n   Type:      ~p"
 	      "~n   SNMP Info: "
 	      "~n     Error Status: ~w"
 	      "~n     Error Index:  ~w"
 	      "~n     Varbinds:     ~p"
-	      "~n", [Addr, Port, ES, EI, VBs]),
+	      "~n", [Addr, Port, Type, ES, EI, VBs]),
     ok;
 handle_snmp_callback(handle_pdu, {TargetName, ReqId, SnmpResponse}) ->
     {ES, EI, VBs} = SnmpResponse, 
@@ -382,8 +383,8 @@ handle_error(ReqId, Reason, Server) when is_pid(Server) ->
     ignore.
 
 
-handle_agent(Addr, Port, SnmpInfo, Server) when is_pid(Server) ->
-    report_callback(Server, handle_agent, {Addr, Port, SnmpInfo}),
+handle_agent(Addr, Port, Type, SnmpInfo, Server) when is_pid(Server) ->
+    report_callback(Server, handle_agent, {Addr, Port, Type, SnmpInfo}),
     ignore.
 
 
