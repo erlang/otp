@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1456,15 +1456,18 @@ pack_app(#application{name=Name,vsn=V,id=Id,description=D,modules=M,
       {applications, App},
       {included_applications, Incs},
       {env, Env},
-      {start_phases, SF},
       {maxT, MaxT},
       {maxP, MaxP} |
-      behave(Mod)]}.
+      behave([{start_phases,SF},{mod,Mod}])]}.
 
+behave([{mod,[]}|T]) ->
+    behave(T);
+behave([{start_phases,undefined}|T]) ->
+    behave(T);
+behave([H|T]) ->
+    [H|behave(T)];
 behave([]) ->
-    [];
-behave(Mod) ->
-    [{mod, Mod}].
+    [].
 
 %%______________________________________________________________________
 %% mandatory modules; this modules must be loaded before processes
