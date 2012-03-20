@@ -352,9 +352,14 @@ parse_args([], _, Data) ->
 
 try_connect([Host|Hosts], Data) ->
     TcpOpts = [{packet, asn1}, {active,false}],
-    case do_connect(Host, Data, TcpOpts) of
+    try do_connect(Host, Data, TcpOpts) of
 	{ok,Fd} -> {ok,Data#eldap{host = Host, fd   = Fd}};
-	_       -> try_connect(Hosts, Data)
+	Err    ->
+	    log2(Data, "Connect: ~p failed ~p~n",[Host, Err]),
+	    try_connect(Hosts, Data)
+    catch _:Err ->
+	    log2(Data, "Connect: ~p failed ~p~n",[Host, Err]),
+	    try_connect(Hosts, Data)
     end;
 try_connect([],_) ->
     {error,"connect failed"}.
