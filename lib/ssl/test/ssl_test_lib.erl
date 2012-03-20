@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -674,17 +674,6 @@ cipher_result(Socket, Result) ->
 session_info_result(Socket) ->
     ssl:session_info(Socket).
 
-public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
-				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?rsaEncryption},
-			     privateKey = Key}) ->
-    public_key:der_decode('RSAPrivateKey', iolist_to_binary(Key));
-
-public_key(#'PrivateKeyInfo'{privateKeyAlgorithm =
-				 #'PrivateKeyInfo_privateKeyAlgorithm'{algorithm = ?'id-dsa'},
-			     privateKey = Key}) ->
-    public_key:der_decode('DSAPrivateKey', iolist_to_binary(Key));
-public_key(Key) ->
-    Key.
 
 receive_rizzo_duong_beast() ->
     receive 
