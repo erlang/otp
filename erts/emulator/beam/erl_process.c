@@ -8439,10 +8439,10 @@ erts_do_exit_process(Process* p, Eterm reason)
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_exit)) {
         DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(reason_buf, 256);
+        DTRACE_CHARBUF(reason_buf, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, process_buf);
-        erts_snprintf(reason_buf, sizeof(reason_buf) - 1, "%T", reason);
+        erts_snprintf(reason_buf, DTRACE_TERM_BUF_SIZE - 1, "%T", reason);
         DTRACE2(process_exit, process_buf, reason_buf);
     }
 #endif
