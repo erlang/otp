@@ -349,10 +349,14 @@ getQSize(Z) ->
       Compressed :: binary().
 compress(Data) ->
     Z = open(),
-    deflateInit(Z, default),
-    Bs = deflate(Z, Data, finish),
-    deflateEnd(Z),
-    close(Z),
+    Bs = try
+	     deflateInit(Z, default),
+	     B = deflate(Z, Data, finish),
+	     deflateEnd(Z),
+	     B
+	 after
+	     close(Z)
+	 end,
     iolist_to_binary(Bs).
 
 -spec uncompress(Data) -> Decompressed when
@@ -364,10 +368,14 @@ uncompress(Data) ->
             if
                 Size >= 8 ->
                     Z = open(),
-                    inflateInit(Z),
-                    Bs = inflate(Z, Data),
-                    inflateEnd(Z),
-                    close(Z),
+		    Bs = try
+			     inflateInit(Z),
+			     B = inflate(Z, Data),
+			     inflateEnd(Z),
+			     B
+			 after
+			     close(Z)
+			 end,
                     iolist_to_binary(Bs);
                 true ->
                     erlang:error(data_error)
@@ -383,10 +391,14 @@ uncompress(Data) ->
       Compressed :: binary().
 zip(Data) ->
     Z = open(),
-    deflateInit(Z, default, deflated, -?MAX_WBITS, 8, default),
-    Bs = deflate(Z, Data, finish),
-    deflateEnd(Z),
-    close(Z),
+    Bs = try
+	     deflateInit(Z, default, deflated, -?MAX_WBITS, 8, default),
+	     B = deflate(Z, Data, finish),
+	     deflateEnd(Z),
+	     B
+	 after
+	     close(Z)
+	 end,
     iolist_to_binary(Bs).
 
 -spec unzip(Data) -> Decompressed when
@@ -394,10 +406,14 @@ zip(Data) ->
       Decompressed :: binary().
 unzip(Data) ->
     Z = open(),
-    inflateInit(Z, -?MAX_WBITS),
-    Bs = inflate(Z, Data),
-    inflateEnd(Z),
-    close(Z),
+    Bs = try
+	     inflateInit(Z, -?MAX_WBITS),
+	     B = inflate(Z, Data),
+	     inflateEnd(Z),
+	     B
+	 after
+	     close(Z)
+	 end,
     iolist_to_binary(Bs).
     
 -spec gzip(Data) -> Compressed when
@@ -405,10 +421,14 @@ unzip(Data) ->
       Compressed :: binary().
 gzip(Data) ->
     Z = open(),
-    deflateInit(Z, default, deflated, 16+?MAX_WBITS, 8, default),
-    Bs = deflate(Z, Data, finish),
-    deflateEnd(Z),
-    close(Z),
+    Bs = try
+	     deflateInit(Z, default, deflated, 16+?MAX_WBITS, 8, default),
+	     B = deflate(Z, Data, finish),
+	     deflateEnd(Z),
+	     B
+	 after
+	     close(Z)
+	 end,
     iolist_to_binary(Bs).
 
 -spec gunzip(Data) -> Decompressed when
@@ -416,10 +436,14 @@ gzip(Data) ->
       Decompressed :: binary().
 gunzip(Data) ->
     Z = open(),
-    inflateInit(Z, 16+?MAX_WBITS),
-    Bs = inflate(Z, Data),
-    inflateEnd(Z),
-    close(Z),
+    Bs = try
+	     inflateInit(Z, 16+?MAX_WBITS),
+	     B = inflate(Z, Data),
+	     inflateEnd(Z),
+	     B
+	 after
+	     close(Z)
+	 end,
     iolist_to_binary(Bs).
 
 -spec collect(zstream()) -> iolist().

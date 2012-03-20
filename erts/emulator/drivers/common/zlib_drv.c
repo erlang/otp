@@ -64,6 +64,7 @@
 static int zlib_init(void);
 static ErlDrvData zlib_start(ErlDrvPort port, char* buf);
 static void zlib_stop(ErlDrvData e);
+static void zlib_flush(ErlDrvData e);
 static ErlDrvSSizeT zlib_ctl(ErlDrvData drv_data, unsigned int command, char *buf,
 			     ErlDrvSizeT len, char **rbuf, ErlDrvSizeT rlen);
 static void zlib_outputv(ErlDrvData drv_data, ErlIOVec *ev);
@@ -82,7 +83,7 @@ ErlDrvEntry zlib_driver_entry = {
     NULL,                           /* timeout */
     zlib_outputv,
     NULL,                           /* read_async */
-    NULL,                           /* flush */
+    zlib_flush,
     NULL,                           /* call */
     NULL,                           /* event */
     ERL_DRV_EXTENDED_MARKER,
@@ -408,6 +409,13 @@ static void zlib_stop(ErlDrvData e)
 	driver_free_binary(d->bin);
 
     driver_free(d);
+}
+
+static void zlib_flush(ErlDrvData drv_data)
+{
+    ZLibData* d = (ZLibData*) drv_data;
+
+    driver_deq(d->port, driver_sizeq(d->port));
 }
 
 static ErlDrvSSizeT zlib_ctl(ErlDrvData drv_data, unsigned int command, char *buf,
