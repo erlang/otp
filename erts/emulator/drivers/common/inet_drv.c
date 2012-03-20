@@ -4095,6 +4095,7 @@ static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 	addr->sa_family = AF_INET;
 	return ptr + sizeof(struct in_addr);
     }
+#if defined(HAVE_IN6) && defined(AF_INET6)
     case INET_AF_INET6: {
 	struct in6_addr *p = &((struct sockaddr_in6*)addr)->sin6_addr;
 	buf_check(ptr,end,sizeof(struct in6_addr));
@@ -4102,6 +4103,7 @@ static char* buf_to_sockaddr(char* ptr, char* end, struct sockaddr* addr)
 	addr->sa_family = AF_INET6;
 	return ptr + sizeof(struct in6_addr);
     }
+#endif
     }
  error:
     return NULL;
