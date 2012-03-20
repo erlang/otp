@@ -766,10 +766,6 @@ report1(tc_done,{_Suite,init_per_group,_},State) ->
     State;
 report1(tc_done,{_Suite,end_per_group,_},State) ->
     State;
-report1(tc_done,{_Suite,ct_init_per_group,_},State) ->
-    State;
-report1(tc_done,{_Suite,ct_end_per_group,_},State) ->
-    State;
 report1(tc_done,{_Suite,_Case,ok},State) ->
     State#state{ok=State#state.ok+1};
 report1(tc_done,{_Suite,_Case,{failed,_Reason}},State) ->

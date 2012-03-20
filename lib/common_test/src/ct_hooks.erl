@@ -70,8 +70,7 @@ terminate(Hooks) ->
     {skip, Reason :: term()} |
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()}.
-init_tc(ct_framework, _Func, Args) ->
-    Args;
+
 init_tc(Mod, init_per_suite, Config) ->
     Info = try proplists:get_value(ct_hooks, Mod:suite(),[]) of
 	       List when is_list(List) -> 
@@ -104,27 +103,21 @@ init_tc(_Mod, TC, Config) ->
     {auto_skip, Reason :: term()} |
     {fail, Reason :: term()} |
     ok | '$ct_no_change'.
-end_tc(ct_framework, _Func, _Args, Result, _Return) ->
-    Result;
 
 end_tc(Mod, init_per_suite, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_suite, Mod, Config],
 	 '$ct_no_change');
-
 end_tc(Mod, end_per_suite, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_suite, Mod, Config],
 	'$ct_no_change');
-
 end_tc(_Mod, {init_per_group, GroupName, _}, Config, _Result, Return) ->
     call(fun call_generic/3, Return, [post_init_per_group, GroupName, Config],
 	 '$ct_no_change');
-
 end_tc(Mod, {end_per_group, GroupName, Opts}, Config, Result, _Return) ->
     Res = call(fun call_generic/3, Result,
 	       [post_end_per_group, GroupName, Config], '$ct_no_change'),
     maybe_stop_locker(Mod, GroupName,Opts),
     Res;
-
 end_tc(_Mod, TC, Config, Result, _Return) ->
     call(fun call_generic/3, Result, [post_end_per_testcase, TC, Config],
 	'$ct_no_change').

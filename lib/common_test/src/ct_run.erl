@@ -1413,7 +1413,8 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 	    %% which framework it runs under.
 	    case os:getenv("TEST_SERVER_FRAMEWORK") of
 		false ->
-		    os:putenv("TEST_SERVER_FRAMEWORK", "ct_framework");
+		    os:putenv("TEST_SERVER_FRAMEWORK", "ct_framework"),
+		    os:putenv("TEST_SERVER_FRAMEWORK_NAME", "common_test");
 		"ct_framework" ->
 		    ok;
 		Other ->
@@ -2328,7 +2329,7 @@ ct_hooks_args2opts(Args) ->
 			Acc
 		end,[],Args).
 
-ct_hooks_args2opts([CTH,Arg,Prio,"and"| Rest],Acc) ->
+ct_hooks_args2opts([CTH,Arg,Prio,"and"| Rest],Acc) when Arg /= "and" ->
     ct_hooks_args2opts(Rest,[{list_to_atom(CTH),
 			      parse_cth_args(Arg),
 			      parse_cth_args(Prio)}|Acc]);

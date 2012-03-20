@@ -650,8 +650,8 @@ init([Param]) ->
 contact_main_target(local) ->
     %% When used by a general framework, global registration of
     %% test_server should not be required.
-    case os:getenv("TEST_SERVER_FRAMEWORK") of
-	FW when FW =:= false; FW =:= "undefined" ->
+    case get_fw_mod(undefined) of
+	undefined ->
 	    %% Local target! The global test_server process implemented by
 	    %% test_server.erl will not be started, so we simulate it by
 	    %% globally registering this process instead.
@@ -1381,6 +1381,18 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
     put(test_server_create_priv_dir, CreatePrivDir),
     put(test_server_random_seed, proplists:get_value(random_seed, ExtraTools)),
     put(test_server_testcase_callback, TCCallback),
+    case os:getenv("TEST_SERVER_FRAMEWORK") of
+	FW when FW =:= false; FW =:= "undefined" ->
+	    put(test_server_framework, '$none');	
+	FW ->
+	    put(test_server_framework_name, list_to_atom(FW)),
+	    case os:getenv("TEST_SERVER_FRAMEWORK_NAME") of
+		FWName when FWName =:= false; FWName =:= "undefined" ->
+		    put(test_server_framework_name, '$none');	
+		FWName ->
+		    put(test_server_framework_name, list_to_atom(FWName))
+	    end
+    end,
     %% before first print, read and set logging options
     LogOpts = test_server_sup:framework_call(get_logopts, [], []),
     put(test_server_logopts, LogOpts),
@@ -1700,11 +1712,7 @@ do_test_cases(TopCases, SkipCases,
 	      Config, TimetrapData) when is_list(TopCases),
 					 is_tuple(TimetrapData) ->
     {ok,TestDir} = start_log_file(),
-    FwMod =
-	case os:getenv("TEST_SERVER_FRAMEWORK") of
-	    FW when FW =:= false; FW =:= "undefined" -> ?MODULE;
-	    FW -> list_to_atom(FW)
-	end,
+    FwMod = get_fw_mod(?MODULE),
     case collect_all_cases(TopCases, SkipCases) of
 	{error,Why} ->
 	    print(1, "Error starting: ~p", [Why]),
@@ -2129,17 +2137,17 @@ add_init_and_end_per_suite([{make,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
 add_init_and_end_per_suite([{skip_case,{{Mod,all},_}}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
-	do_add_end_per_suite_and_skip(LastMod, LastRef, Mod),
+	do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([{skip_case,{{Mod,_},_}}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
-	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([{skip_case,{conf,_,{Mod,_},_}}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod ->
     {PreCases, NextMod, NextRef} =
-	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([{skip_case,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
@@ -2151,7 +2159,7 @@ add_init_and_end_per_suite([{conf,Ref,Props,{FwMod,Func}}=Case|Cases], LastMod,
     case proplists:get_value(suite, Props) of
 	Suite when Suite =/= undefined, Suite =/= LastMod ->
 	    {PreCases, NextMod, NextRef} =
-		do_add_init_and_end_per_suite(LastMod, LastRef, Suite),
+		do_add_init_and_end_per_suite(LastMod, LastRef, Suite, FwMod),
 	    Case1 = {conf,Ref,proplists:delete(suite,Props),{FwMod,Func}},
 	    PreCases ++ [Case1|add_init_and_end_per_suite(Cases, NextMod,
 							  NextRef, FwMod)];
@@ -2161,19 +2169,19 @@ add_init_and_end_per_suite([{conf,Ref,Props,{FwMod,Func}}=Case|Cases], LastMod,
 add_init_and_end_per_suite([{conf,_,_,{Mod,_}}=Case|Cases], LastMod,
 			   LastRef, FwMod) when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
-	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([{conf,_,_,_}=Case|Cases], LastMod, LastRef, FwMod) ->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
 add_init_and_end_per_suite([{Mod,_}=Case|Cases], LastMod, LastRef, FwMod)
   when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
-	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([{Mod,_,_}=Case|Cases], LastMod, LastRef, FwMod)
   when Mod =/= LastMod, Mod =/= FwMod ->
     {PreCases, NextMod, NextRef} =
-	do_add_init_and_end_per_suite(LastMod, LastRef, Mod),
+	do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod),
     PreCases ++ [Case|add_init_and_end_per_suite(Cases, NextMod, NextRef, FwMod)];
 add_init_and_end_per_suite([Case|Cases], LastMod, LastRef, FwMod)->
     [Case|add_init_and_end_per_suite(Cases, LastMod, LastRef, FwMod)];
@@ -2181,10 +2189,23 @@ add_init_and_end_per_suite([], _LastMod, undefined, _FwMod) ->
     [];
 add_init_and_end_per_suite([], _LastMod, skipped_suite, _FwMod) ->
     [];
-add_init_and_end_per_suite([], LastMod, LastRef, _FwMod) ->
-    [{conf,LastRef,[],{LastMod,end_per_suite}}].
+add_init_and_end_per_suite([], LastMod, LastRef, FwMod) ->
+    %% we'll add end_per_suite here even if it's not exported
+    %% (and simply let the call fail if it's missing)
+    case erlang:function_exported(LastMod, end_per_suite, 1) of
+	true ->
+	    [{conf,LastRef,[],{LastMod,end_per_suite}}];
+	false ->
+	    %% let's call a "fake" end_per_suite if it exists			
+	    case erlang:function_exported(FwMod, end_per_suite, 1) of
+		true ->					
+		    [{conf,LastRef,[{suite,LastMod}],{FwMod,end_per_suite}}];
+		false ->		
+		    [{conf,LastRef,[],{LastMod,end_per_suite}}]
+	    end
+    end.    
 
-do_add_init_and_end_per_suite(LastMod, LastRef, Mod) ->
+do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
     case code:is_loaded(Mod) of
 	false -> code:load_file(Mod);
 	_ -> ok
@@ -2195,7 +2216,16 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod) ->
 		Ref = make_ref(),
 		{[{conf,Ref,[],{Mod,init_per_suite}}],Mod,Ref};
 	    false ->
-		{[],Mod,undefined}
+		%% let's call a "fake" init_per_suite if it exists
+		case erlang:function_exported(FwMod, init_per_suite, 1) of
+		    true ->
+			Ref = make_ref(),
+			{[{conf,Ref,[{suite,Mod}],
+			   {FwMod,init_per_suite}}],Mod,Ref};
+		    false ->
+			{[],Mod,undefined}
+		end
+
 	end,
     Cases =
 	if LastRef==undefined ->
@@ -2203,20 +2233,44 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod) ->
 	   LastRef==skipped_suite ->
 		Init;
 	   true ->
-		%% Adding end_per_suite here without checking if the
-		%% function is actually exported. This is because a
-		%% conf case must have an end case - so if it doesn't
-		%% exist, it will only fail...
-		[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
+		%% we'll add end_per_suite here even if it's not exported
+		%% (and simply let the call fail if it's missing)
+		case erlang:function_exported(LastMod, end_per_suite, 1) of
+		    true ->
+			[{conf,LastRef,[],{LastMod,end_per_suite}}|Init];
+		    false ->
+			%% let's call a "fake" end_per_suite if it exists
+			case erlang:function_exported(FwMod, end_per_suite, 1) of
+			    true ->				
+				[{conf,LastRef,[{suite,Mod}],
+				  {FwMod,end_per_suite}}|Init];
+			    false ->
+				[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
+			end
+		end
 	end,
     {Cases,NextMod,NextRef}.
 
-do_add_end_per_suite_and_skip(LastMod, LastRef, Mod) ->
+do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
     case LastRef of
 	No when No==undefined ; No==skipped_suite ->
 	    {[],Mod,skipped_suite};
 	_Ref ->
-	    {[{conf,LastRef,[],{LastMod,end_per_suite}}],Mod,skipped_suite}
+	    case erlang:function_exported(LastMod, end_per_suite, 1) of
+		true ->
+		    {[{conf,LastRef,[],{LastMod,end_per_suite}}],
+		     Mod,skipped_suite};
+		false ->
+		    case erlang:function_exported(FwMod, end_per_suite, 1) of
+			true ->				
+			    %% let's call "fake" end_per_suite if it exists
+			    {[{conf,LastRef,[],{FwMod,end_per_suite}}],
+			     Mod,skipped_suite};
+			false ->
+			    {[{conf,LastRef,[],{LastMod,end_per_suite}}],
+			     Mod,skipped_suite}
+		    end
+	    end    	    
     end.
 
 
@@ -2794,7 +2848,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 					  end, Mode0),
 		update_config(hd(Config), 
 			      TSDirs ++ [{tc_group_path,GroupPath} | CfgProps])
-	end,	   
+	end,
+
     CurrMode = curr_mode(Ref, Mode0, Mode),
     ConfCaseResult = run_test_case(Ref, 0, Mod, Func, [ActualCfg], skip_init, target,
 				   TimetrapData, CurrMode),
@@ -3289,7 +3344,7 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
     print(major, "=started         ~s", [lists:flatten(timestamp_get(""))]),
     print(major, "=result          skipped: ~s", [Comment1]),
     print(2,"*** Skipping test case #~w ~p ***", [CaseNum,{Mod,Func}]),
-    TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),
+    TR = xhtml("<tr valign=\"top\">", ["<tr class=\"",odd_or_even(),"\">"]),	       
     GroupName =	case get_name(Mode) of
 		    undefined -> "";
 		    Name      -> cast_to_list(Name)
@@ -3303,7 +3358,7 @@ skip_case1(Type, CaseNum, Mod, Func, Comment, Mode) ->
 	  "<td>" ++ Col0 ++ "0.000s" ++ Col1 ++ "</td>"
 	  "<td><font color=\"~s\">SKIPPED</font></td>"
 	  "<td>~s</td></tr>\n",
-	  [num2str(CaseNum),Mod,GroupName,Func,ResultCol,Comment1]),
+	  [num2str(CaseNum),fw_name(Mod),GroupName,Func,ResultCol,Comment1]),
     if CaseNum > 0 ->
 	    {US,AS} = get(test_server_skipped),
 	    case Type of
@@ -3742,7 +3797,8 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	  "<td>" ++ Col0 ++ "~s" ++ Col1 ++ "</td>"
 	  "<td><a href=\"~s\">~p</a></td>"
 	  "<td><a href=\"~s#top\"><</a> <a href=\"~s#end\">></a></td>",
-	  [num2str(Num),Mod,GroupName,MinorBase,Func,MinorBase,MinorBase]),
+	  [num2str(Num),fw_name(Mod),GroupName,MinorBase,Func,
+	   MinorBase,MinorBase]),
 
     do_if_parallel(Main, ok, fun erlang:yield/0),
     %% run the test case
@@ -4189,6 +4245,46 @@ progress(ok, _CaseNum, Mod, Func, _Loc, RetVal, Time,
 %%--------------------------------------------------------------------
 %% various help functions
 
+get_fw_mod(Mod) ->
+    case get(test_server_framework) of
+	undefined ->
+	    case os:getenv("TEST_SERVER_FRAMEWORK") of
+		FW when FW =:= false; FW =:= "undefined" ->
+		    Mod;
+		FW ->
+		    list_to_atom(FW)
+	    end;
+	'$none' -> Mod;
+	FW      -> FW
+    end.
+
+fw_name(?MODULE) ->
+    test_server;
+fw_name(Mod) ->
+    case get(test_server_framework_name) of
+	undefined ->
+	    case get_fw_mod(undefined) of
+		undefined ->
+		    Mod;
+		Mod ->
+		    case os:getenv("TEST_SERVER_FRAMEWORK_NAME") of
+			FWName when FWName =:= false; FWName =:= "undefined" ->
+			    Mod;
+			FWName ->
+			    list_to_atom(FWName)
+		    end;
+		_ ->
+		    Mod
+	    end;
+	'$none' ->
+	    Mod;
+	FWName ->
+	    case get_fw_mod(Mod) of
+		Mod -> FWName;
+		_ -> Mod
+	    end	
+    end.
+
 if_auto_skip(Reason={failed,{_,init_per_testcase,_}}, True, _False) ->
     {Reason,True()};
 if_auto_skip({_T,{skip,Reason={failed,{_,init_per_testcase,_}}},_Opts}, True, _False) ->
@@ -4292,8 +4388,8 @@ get_font_style1(default) ->
 %% set to false.
 
 format_exception(Reason={_Error,Stack}) when is_list(Stack) ->
-    case os:getenv("TEST_SERVER_FRAMEWORK") of
-	FW when FW =:= false; FW =:= "undefined" ->
+    case get_fw_mod(undefined) of
+	undefined ->
 	    case application:get_env(test_server, format_exception) of
 		{ok,false} ->
 		    {"~p",Reason};
@@ -4301,7 +4397,7 @@ format_exception(Reason={_Error,Stack}) when is_list(Stack) ->
 		    do_format_exception(Reason)
 	    end;
 	FW ->
-	    case application:get_env(list_to_atom(FW), format_exception) of
+	    case application:get_env(FW, format_exception) of
 		{ok,false} ->
 		    {"~p",Reason};
 		_ ->
@@ -4897,8 +4993,8 @@ collect_case([Case | Cases], St, Acc) ->
     collect_case(Cases, NewSt, Acc ++ FlatCases).
 
 collect_case_invoke(Mod, Case, MFA, St) ->
-    case os:getenv("TEST_SERVER_FRAMEWORK") of
-	FW when FW =:= false; FW =:= "undefined" ->
+    case get_fw_mod(undefined) of
+	undefined ->
 	    case catch apply(Mod, Case, [suite]) of
 		{'EXIT',_} ->
 		    {ok,[MFA],St};
@@ -4906,7 +5002,9 @@ collect_case_invoke(Mod, Case, MFA, St) ->
 		    collect_subcases(Mod, Case, MFA, St, Suite)
 	    end;
 	_ ->
-	    Suite = test_server_sup:framework_call(get_suite, [?pl2a(Mod),Case], []),
+	    Suite = test_server_sup:framework_call(get_suite,
+						   [?pl2a(Mod),Case],
+						   []),
 	    collect_subcases(Mod, Case, MFA, St, Suite)
     end.
 

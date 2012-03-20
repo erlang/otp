@@ -83,10 +83,9 @@ all(suite) ->
        fail_post_suite_cth, skip_pre_suite_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        state_update_cth, options_cth, same_id_cth, 
-       fail_n_skip_with_minimal_cth, prio_cth
+       fail_n_skip_with_minimal_cth, prio_cth, no_config
       ]
-    )
-	.
+    ).
 
 
 %%--------------------------------------------------------------------
@@ -213,6 +212,10 @@ prio_cth(Config) when is_list(Config) ->
     do_test(prio_cth, "ct_cth_prio_SUITE.erl",
 	    [{empty_cth,[1000],1000},{empty_cth,[900],900},
 	     {prio_cth,[1100,100],100},{prio_cth,[1100]}],Config).
+
+no_config(Config) when is_list(Config) ->
+    do_test(no_config, "ct_no_config_SUITE.erl",
+	    [verify_config_cth],Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -1077,6 +1080,56 @@ test_events(prio_cth) ->
 	[{?eh,tc_done,{ct_cth_prio_SUITE,end_per_suite,ok}},
 	 {?eh,test_done,{'DEF','STOP_TIME'}},
 	 {?eh,stop_logging,[]}];
+
+test_events(no_config) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,cth,{empty_cth,init,[verify_config_cth,[]]}},
+     {?eh,start_info,{1,1,2}},
+     {?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,cth,{empty_cth,pre_init_per_suite,
+	       [ct_no_config_SUITE,'$proplist',[]]}},
+     {?eh,cth,{empty_cth,post_init_per_suite,
+	       [ct_no_config_SUITE,'$proplist','$proplist',[]]}},
+     {?eh,tc_done,{ct_framework,init_per_suite,ok}},
+     {?eh,tc_start,{ct_no_config_SUITE,test_case_1}},
+     {?eh,cth,{empty_cth,pre_init_per_testcase,
+	       [test_case_1,'$proplist',[]]}},
+     {?eh,cth,{empty_cth,post_end_per_testcase,
+	       [test_case_1,'$proplist',ok,[]]}},
+     {?eh,tc_done,{ct_no_config_SUITE,test_case_1,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
+     [{?eh,tc_start,{ct_framework,{init_per_group,test_group,'$proplist'}}},
+      {?eh,cth,{empty_cth,pre_init_per_group,
+		[test_group,'$proplist',[]]}},
+      {?eh,cth,{empty_cth,post_init_per_group,
+		[test_group,'$proplist','$proplist',[]]}},
+      {?eh,tc_done,{ct_framework,
+		    {init_per_group,test_group,'$proplist'},ok}},
+      {?eh,tc_start,{ct_no_config_SUITE,test_case_2}},
+      {?eh,cth,{empty_cth,pre_init_per_testcase,
+		[test_case_2,'$proplist',[]]}},
+      {?eh,cth,{empty_cth,post_end_per_testcase,
+		[test_case_2,'$proplist',ok,[]]}},
+      {?eh,tc_done,{ct_no_config_SUITE,test_case_2,ok}},
+      {?eh,test_stats,{2,0,{0,0}}},
+      {?eh,tc_start,{ct_framework,{end_per_group,test_group,'$proplist'}}},
+      {?eh,cth,{empty_cth,pre_end_per_group,
+		[test_group,'$proplist',[]]}},
+      {?eh,cth,{empty_cth,post_end_per_group,
+		[test_group,'$proplist',ok,[]]}},
+      {?eh,tc_done,{ct_framework,{end_per_group,test_group,'$proplist'},ok}}],
+     {?eh,tc_start,{ct_framework,end_per_suite}},
+     {?eh,cth,{empty_cth,pre_end_per_suite,
+	       [ct_no_config_SUITE,'$proplist',[]]}},
+     {?eh,cth,{empty_cth,post_end_per_suite,
+	       [ct_no_config_SUITE,'$proplist',ok,[]]}},
+     {?eh,tc_done,{ct_framework,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,cth,{empty_cth,terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
 
 test_events(ok) ->
     ok.
