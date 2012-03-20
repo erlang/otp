@@ -265,8 +265,7 @@ module_postorder(#callgraph{digraph = DG}) ->
   digraph_confirm_vertices(sets:to_list(Nodes), MDG),
   Foreach = fun({M1,M2}) -> digraph:add_edge(MDG, M1, M2) end,
   lists:foreach(Foreach, sets:to_list(Edges)),
-  PostOrder = digraph_utils:topsort(MDG),
-  {PostOrder, {'d', MDG}}.
+  {digraph_utils:topsort(MDG), {'d', MDG}}.
 
 edge_fold({{M1,_,_},{M2,_,_}}, Set) ->
   case M1 =/= M2 of

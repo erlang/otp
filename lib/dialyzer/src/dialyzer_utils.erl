@@ -43,7 +43,8 @@
 	 pp_hook/0,
 	 process_record_remote_types/1,
          sets_filter/2,
-	 src_compiler_opts/0
+	 src_compiler_opts/0,
+	 parallelism/0
 	]).
 
 -include("dialyzer.hrl").
@@ -536,3 +537,12 @@ pp_unit(Unit, Ctxt, Cont) ->
 pp_atom(Atom) ->
   String = atom_to_list(cerl:atom_val(Atom)),
   prettypr:text(String).
+
+%%------------------------------------------------------------------------------
+
+-spec parallelism() -> integer().
+
+parallelism() ->
+  CPUs = erlang:system_info(logical_processors_available),
+  Schedulers = erlang:system_info(schedulers),
+  min(CPUs, Schedulers).

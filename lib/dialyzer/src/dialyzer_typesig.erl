@@ -1743,7 +1743,7 @@ parallel_split(SCC) ->
   case Length > 2*?worth_it of
     false -> false;
     true ->
-      case min(erlang:system_info(logical_processors_available), 8) of
+      case min(dialyzer_utils:parallelism(), 8) of
 	1 -> false;
 	CPUs ->
 	  FullShare = Length div CPUs + 1,

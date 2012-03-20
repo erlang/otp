@@ -20,15 +20,16 @@
 
 -module(dialyzer_worker).
 
--export([launch/4]).
+-export([launch/4, sequential/4]).
 
 -export_type([worker/0]).
 
 -type worker() :: pid(). %%opaque
 
--type mode() :: dialyzer_coordinator:mode().
+-type mode()        :: dialyzer_coordinator:mode().
 -type coordinator() :: dialyzer_coordinator:coordinator().
--type init_data() :: dialyzer_coordinator:init_data().
+-type init_data()   :: dialyzer_coordinator:init_data().
+-type result()      :: dialyzer_coordinator:result().
 
 -record(state, {
 	  mode             :: mode(),
@@ -55,7 +56,7 @@
 launch(Mode, Job, InitData, Coordinator) ->
   State = #state{mode        = Mode,
 		 job         = Job,
-		 init_data     = InitData,
+		 init_data   = InitData,
 		 coordinator = Coordinator},
   InitState =
     case Mode of
@@ -89,7 +90,7 @@ loop(running, #state{mode = 'compile'} = State) ->
     case start_compilation(State) of
       {ok, EstimatedSize, Data} ->
 	Label = ask_coordinator_for_label(EstimatedSize, State),
-	dialyzer_analysis_callgraph:continue_compilation(Label, Data);
+	continue_compilation(Label, Data);
       {error, _Reason} = Error ->
 	Error
     end,
@@ -101,6 +102,7 @@ loop(running, #state{mode = 'warnings'} = State) ->
   report_to_coordinator(Result, State);
 loop(running, #state{mode = Mode} = State) when
     Mode =:= 'typesig'; Mode =:= 'dataflow' ->
+  request_activation(State),
   ?debug("Run: ~p\n",[State#state.job]),
   NotFixpoint = do_work(State),
   ok = broadcast_done(State),
@@ -140,6 +142,9 @@ wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
       State
   end.
 
+request_activation(#state{coordinator = Coordinator}) ->
+  dialyzer_coordinator:request_activation(Coordinator).
+
 do_work(#state{mode = Mode, job = Job, init_data = InitData}) ->
   case Mode of
     typesig -> dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
@@ -156,5 +161,27 @@ start_compilation(#state{job = Job, init_data = InitData}) ->
 ask_coordinator_for_label(EstimatedSize, #state{coordinator = Coordinator}) ->
   dialyzer_coordinator:get_next_label(EstimatedSize, Coordinator).
 
+continue_compilation(Label, Data) ->
+  dialyzer_analysis_callgraph:continue_compilation(Label, Data).
+
 collect_warnings(#state{job = Job, init_data = InitData}) ->
+  dialyzer_succ_typings:collect_warnings(Job, InitData).
+
+%%------------------------------------------------------------------------------
+
+-type extra() :: label() | 'unused'.
+
+-spec sequential(mode(), [mfa_or_funlbl()], init_data(), extra()) -> result().
+
+sequential('compile', Job, InitData, Extra) ->
+  case dialyzer_analysis_callgraph:start_compilation(Job, InitData) of
+    {ok, EstimatedSize, Data} ->
+      {EstimatedSize, continue_compilation(Extra, Data)};
+    {error, _Reason} = Error -> {0, Error}
+  end;
+sequential('typesig', Job, InitData, _Extra) ->
+  dialyzer_succ_typings:find_succ_types_for_scc(Job, InitData);
+sequential('dataflow', Job, InitData, _Extra) ->
+  dialyzer_succ_typings:refine_one_module(Job, InitData);
+sequential('warnings', Job, InitData, _Extra) ->
   dialyzer_succ_typings:collect_warnings(Job, InitData).
