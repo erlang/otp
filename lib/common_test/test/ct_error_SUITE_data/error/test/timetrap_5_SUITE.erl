@@ -108,7 +108,8 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [tc0,tc1,tc2,tc3,tc4,tc5,tc6,tc7].
+    [tc0,tc1,tc2,tc3,tc4,tc5,tc6,tc7,tc8,tc9,
+     tc10,tc11,tc12,tc13,tc14].
 
 tc0(_) ->
     ct:comment(io_lib:format("TO after ~w sec", [?TO])),
@@ -126,30 +127,89 @@ tc2(_) ->
     exit(this_should_not_execute).
 
 tc3() ->
-    [{timetrap,{timetrap_utils,timetrap_err_mfa,[]}}].
-tc3(_) ->
-    exit(this_should_not_execute).
+    [{timetrap,{timetrap_utils,timetrap_val,[{seconds,2}]}}].
+tc3(_) ->  
+    ct:comment("TO after ~2 sec"),
+    ct:sleep({seconds,10}),
+    ok.
 
 tc4() ->
-    [{timetrap,fun() -> timetrap_utils:timetrap_err_fun() end}].
-tc4(_) ->
-    exit(this_should_not_execute).
+    [{timetrap,fun() -> 500 end}].
+tc4(_) ->  
+    ct:comment("TO after 500 ms"),
+    ct:sleep({seconds,10}),
+    ok.
 
 tc5() ->
+   [{timetrap,{timetrap_utils,timetrap_timeout,[1000,ok]}}].
+tc5(_) ->    
+    ct:comment("TO after ~1 sec"),
+    ct:sleep({seconds,10}),
+    ok.
+
+tc6() ->
     [{timetrap,{timetrap_utils,timetrap_timeout,[{seconds,40},
 						 {seconds,1}]}}].
-tc5(_) ->    
+tc6(_) ->    
     ct:comment("TO after 40+1 sec"),
     ct:sleep({seconds,42}),
     ok.
 
-tc6() ->
-    [{timetrap,fun() -> ct:sleep(6000), 1000 end}].
-tc6(_) ->
-    ct:comment("TO after 6+1 sec"),
-    ct:sleep({seconds,10}).
-
+tc7() ->
+    [{timetrap,{timetrap_utils,timetrap_timeout,[1000,2000]}}].
 tc7(_) ->
+    ct:comment("TO after ~3 sec"),
+    ct:sleep({seconds,10}),
+    ok.
+
+tc8() ->
+    [{timetrap,fun() -> ct:sleep(6000), 1000 end}].
+tc8(_) ->
+    ct:comment("TO after 6+1 sec"),
+    ct:sleep({seconds,10}),
+    ok.
+
+tc9() ->
+    [{timetrap,{timetrap_utils,timetrap_timeout,
+		[500,fun() -> {seconds,2} end]}}].
+tc9(_) ->
+    ct:comment("TO after ~2 sec (2.5 sec in reality)"),
+    ct:sleep({seconds,10}),
+    ok.
+
+tc10() ->
+    [{timetrap,500}].
+tc10(_) ->
+    ct:timetrap({timetrap_utils,timetrap_val,[1500]}),   
+    ct:comment("TO after ~1.5 sec"),
+    ct:sleep({seconds,10}),
+    ok.
+
+tc11() ->
+    [{timetrap,2000}].
+tc11(_) ->
+    ct:timetrap(fun() -> 1500 end),
+    ct:comment("TO after ~1.5 sec"),
+    ct:sleep({seconds,10}),
+    ok.
+    
+tc12() ->
+    [{timetrap,500}].
+tc12(_) ->
+    ct:timetrap({timetrap_utils,timetrap_timeout,[1000,ok]}),   
+    ct:comment("TO after ~1 sec"),
+    ct:sleep({seconds,10}),
+    ok.
+
+tc13() ->
+    [{timetrap,2000}].
+tc13(_) ->
+    ct:timetrap(fun() -> ct:sleep(500), ok end),
+    ct:comment("TO after ~500 ms"),
+    ct:sleep({seconds,10}),
+    ok.
+
+tc14(_) ->
     ct:comment(io_lib:format("TO after ~w sec", [?TO])),
     ct:sleep({seconds,5}),
     ok.

@@ -1001,6 +1001,12 @@ result_match({SkipOrFail,{ErrorInd,{Why,'_'}}},
 result_match({SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,'_'}}}},
 	    {SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,_Stack}}}}) ->
     true;
+result_match({failed,{timetrap_timeout,{'$approx',Num}}},
+	     {failed,{timetrap_timeout,Value}}) ->
+    if Value >= trunc(Num-0.01*Num),
+       Value =< trunc(Num+0.01*Num) -> true;
+       true -> false
+    end;
 result_match(Result, Result) ->
     true;
 result_match(_, _) ->

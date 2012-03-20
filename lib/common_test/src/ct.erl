@@ -993,13 +993,21 @@ remove_config(Callback, Config) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec timetrap(Time) -> ok
-%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity
+%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity | Func
 %%%       Hours = integer()
 %%%       Mins = integer()
 %%%       Secs = integer()
 %%%       Millisecs = integer() | float()
+%%%       Func = {M,F,A} | fun()
+%%%       M = atom()
+%%%       F = atom()
+%%%       A = list()
 %%%
-%%% @doc <p>Use this function to set a new timetrap for the running test case.</p>
+%%% @doc <p>Use this function to set a new timetrap for the running test case.
+%%%      If the argument is <code>Func</code>, the timetrap will be triggered
+%%%      when this function returns. <code>Func</code> may also return a new
+%%%      <code>Time</code> value, which in that case will be the value for the
+%%%      new timetrap.</p>
 timetrap(Time) ->
     test_server:timetrap_cancel(),
     test_server:timetrap(Time).

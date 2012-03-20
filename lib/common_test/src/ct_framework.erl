@@ -212,7 +212,7 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	    {auto_skip,{require_failed,Reason}};
 	{'EXIT',Reason} ->
 	    {auto_skip,Reason};
-	{ok,FinalConfig} ->
+	{ok,Config1} ->
 	    case MergeResult of
 		{error,Reason} ->
 		    %% suite0 configure finished now, report that 
@@ -221,9 +221,9 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 		_ ->
 		    case get('$test_server_framework_test') of
 			undefined ->
-			    ct_suite_init(Suite, FuncSpec, FinalConfig);
+			    ct_suite_init(Mod, FuncSpec, Config1);
 			Fun ->
-			    case Fun(init_tc, FinalConfig) of
+			    case Fun(init_tc, Config1) of
 				NewConfig when is_list(NewConfig) ->
 				    {ok,NewConfig};
 				Else ->
