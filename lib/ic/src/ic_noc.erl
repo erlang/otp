@@ -289,6 +289,9 @@ emit_serv_std(G, N, X) ->
 	    emit(Fd, "terminate(Reason, State) ->\n"),
 	    emit(Fd, "    ~p:~p(Reason, State).\n", 
 		 [Impl, terminate]),
+            nl(Fd),
+	    emit(Fd, "code_change(_OldVsn, State, _Extra) ->\n"),
+	    emit(Fd, "    {ok, State}.\n"),
 	    nl(Fd), nl(Fd)
     end,
     Fd.
@@ -304,13 +307,13 @@ gen_end_of_call(G, _N, _X) ->
 	    Fd = ic_genobj:stubfiled(G),
 	    nl(Fd), nl(Fd),
 	    ic_codegen:mcomment_light(Fd, ["Standard gen_server call handle"]),
-	    emit(Fd, "handle_call(stop, From, State) ->\n"),
+	    emit(Fd, "handle_call(stop, _From, State) ->\n"),
 	    emit(Fd, "    {stop, normal, ok, State}"),
 	    case get_opt(G, serv_last_call) of
 		exception ->
 		    emit(Fd, ";\n"),
 		    nl(Fd),
-		    emit(Fd, "handle_call(Req, From, State) ->\n"),
+		    emit(Fd, "handle_call(_Req, _From, State) ->\n"),
 		    emit(Fd, "    {reply, ~p, State}.\n",[getCallErr()]);
 		exit ->
 		    emit(Fd, ".\n"),
@@ -335,7 +338,7 @@ gen_end_of_cast(G, _N, _X) ->
 		exception ->
 		    emit(Fd, ";\n"),
 		    nl(Fd),
-		    emit(Fd, "handle_cast(Req, State) ->\n"),
+		    emit(Fd, "handle_cast(_Req, State) ->\n"),
 		    emit(Fd, "    {reply, ~p, State}.\n",[getCastErr()]);
 		exit ->
 		    emit(Fd, ".\n"),
@@ -353,12 +356,13 @@ emit_skel_footer(G, N, X) ->
 	    Fd = ic_genobj:stubfiled(G),
 	    nl(Fd), nl(Fd),
 	    ic_codegen:mcomment_light(Fd, ["Standard gen_server handles"]),
-	    emit(Fd, "handle_info(X, State) ->\n"),
 	    case use_impl_handle_info(G, N, X) of
 		true ->
+                    emit(Fd, "handle_info(X, State) ->\n"),
 		    emit(Fd, "    ~p:handle_info(X, State).\n\n", 
 			 [list_to_atom(ic_genobj:impl(G))]);
 		false ->
+                    emit(Fd, "handle_info(_X, State) ->\n"),
 		    emit(Fd, "    {reply, ~p, State}.\n\n",[getInfoErr()])
 	    end
     end,
@@ -402,9 +406,8 @@ get_if_gen(G, N, X) ->
 					 [io_lib:format("Standard Operation: ~p",
 							[Name])]),
 
-		    emit(Fd, "handle_call({~s, ~p, []}, From, State) ->~n",
+		    emit(Fd, "handle_call({_~s, ~p, []}, _From, State) ->~n",
 			 [mk_name(G, "Ref"), Name]),
-
 		    emit(Fd, "    {reply, ~p, State};~n", [IFC_TKS]),
 		    nl(Fd),
 		    ok;
@@ -479,8 +482,8 @@ gen_head_special(G, N, X) when is_record(X, interface) ->
 	    nl(Fd),
 	    ic_codegen:comment(Fd, "gen server export stuff"),
 	    emit(Fd, "-behaviour(gen_server).\n"),
-	    ic_codegen:export(Fd, [{init, 1}, {terminate, 2}, {handle_call, 3}, 
-			      {handle_cast, 2}, {handle_info, 2}]),
+	    ic_codegen:export(Fd, [{init, 1}, {terminate, 2}, {code_change, 3},
+                                   {handle_call, 3}, {handle_cast, 2}, {handle_info, 2}]),
 	    nl(Fd), nl(Fd),
 	    ic_codegen:mcomment(Fd, ["Object interface functions."]),
 	    nl(Fd), nl(Fd), nl(Fd)
