@@ -26,7 +26,9 @@
 
 all() ->
     [t_sendfile_small
-     ,t_sendfile_big
+     ,t_sendfile_big_all
+     ,t_sendfile_big_size
+     ,t_sendfile_many_small
      ,t_sendfile_partial
      ,t_sendfile_offset
      ,t_sendfile_sendafter
@@ -38,20 +40,25 @@ all() ->
     ].
 
 init_per_suite(Config) ->
-    Priv = ?config(priv_dir, Config),
-    SFilename = filename:join(Priv, "sendfile_small.html"),
-    {ok, DS} = file:open(SFilename,[write,raw]),
-    file:write(DS,"yo baby yo"),
-    file:sync(DS),
-    file:close(DS),
-    BFilename = filename:join(Priv, "sendfile_big.html"),
-    {ok, DB} = file:open(BFilename,[write,raw]),
-    [file:write(DB,[<<0:(10*8*1024*1024)>>]) || _I <- lists:seq(1,51)],
-    file:sync(DB),
-    file:close(DB),
-    [{small_file, SFilename},
-     {file_opts,[raw,binary]},
-     {big_file, BFilename}|Config].
+    case {os:type(),os:version()} of
+	{{unix,sunos}, {5,8,_}} ->
+	    {skip, "Solaris 8 not supported for now"};
+	_ ->
+	    Priv = ?config(priv_dir, Config),
+	    SFilename = filename:join(Priv, "sendfile_small.html"),
+	    {ok, DS} = file:open(SFilename,[write,raw]),
+	    file:write(DS,"yo baby yo"),
+	    file:sync(DS),
+	    file:close(DS),
+	    BFilename = filename:join(Priv, "sendfile_big.html"),
+	    {ok, DB} = file:open(BFilename,[write,raw]),
+	    [file:write(DB,[<<0:(10*8*1024*1024)>>]) || _I <- lists:seq(1,51)],
+	    file:sync(DB),
+	    file:close(DB),
+	    [{small_file, SFilename},
+	     {file_opts,[raw,binary]},
+	     {big_file, BFilename}|Config]
+    end.
 
 end_per_suite(Config) ->
     file:delete(proplists:get_value(big_file, Config)).
@@ -91,7 +98,34 @@ t_sendfile_small(Config) when is_list(Config) ->
 
     ok = sendfile_send(Send).
 
-t_sendfile_big(Config) when is_list(Config) ->
+t_sendfile_many_small(Config) when is_list(Config) ->
+    Filename = proplists:get_value(small_file, Config),
+    FileOpts = proplists:get_value(file_opts, Config, []),
+
+    error_logger:add_report_handler(?MODULE,[self()]),
+
+    Send = fun(Sock) ->
+		   {Size,_} = sendfile_file_info(Filename),
+		   N = 10000,
+		   {ok,D} = file:open(Filename,[read|FileOpts]),
+		   [begin
+			{ok,Size} = file:sendfile(D,Sock,0,0,[])
+		    end || _I <- lists:seq(1,N)],
+		   file:close(D),
+		   Size*N
+	   end,
+
+    ok = sendfile_send({127,0,0,1}, Send, 0),
+
+    receive
+	{stolen,Reason} ->
+	    exit(Reason)
+    after 200 ->
+	    ok
+    end.
+
+
+t_sendfile_big_all(Config) when is_list(Config) ->
     Filename = proplists:get_value(big_file, Config),
 
     Send = fun(Sock) ->
@@ -102,6 +136,20 @@ t_sendfile_big(Config) when is_list(Config) ->
 	   end,
 
     ok = sendfile_send({127,0,0,1}, Send, 0).
+
+t_sendfile_big_size(Config) ->
+    Filename = proplists:get_value(big_file, Config),
+    FileOpts = proplists:get_value(file_opts, Config, []),
+
+    SendAll = fun(Sock) ->
+		      {ok, #file_info{size = Size}} =
+			  file:read_file_info(Filename),
+		      {ok,D} = file:open(Filename,[read|FileOpts]),
+		      {ok, Size} = file:sendfile(D, Sock,0,Size,[]),
+		      Size
+	      end,
+
+    ok = sendfile_send({127,0,0,1}, SendAll, 0).
 
 t_sendfile_partial(Config) ->
     Filename = proplists:get_value(small_file, Config),
@@ -310,6 +358,10 @@ sendfile_server(ClientPid, Orig) ->
 
 -define(SENDFILE_TIMEOUT, 10000).
 sendfile_do_recv(Sock, Bs) ->
+    TimeoutMul = case os:type() of
+		     {win32, _} -> 6;
+		     _ -> 1
+		 end,
     receive
 	stop when Bs /= 0,is_integer(Bs) ->
 	    gen_tcp:close(Sock),
@@ -333,7 +385,7 @@ sendfile_do_recv(Sock, Bs) ->
 	{tcp_closed, Sock} when is_integer(Bs) ->
 	    ct:log("Stopped due to close"),
 	    {ok, Bs}
-    after ?SENDFILE_TIMEOUT ->
+    after ?SENDFILE_TIMEOUT * TimeoutMul ->
 	    ct:log("Sendfile timeout"),
 	    timeout
     end.

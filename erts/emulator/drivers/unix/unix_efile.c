@@ -1426,6 +1426,14 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
  * you would have to emulate it in linux and on BSD/Darwin some complex
  * calculations have to be made when using a non blocking socket to figure
  * out how much of the header/file/trailer was sent in each command.
+ *
+ * The semantics of the API is this:
+ * Return value: 1 if all data was sent and the function does not need to
+ * be called again. 0 if an error occures OR if there is more data which
+ * has to be sent (EAGAIN or EINTR will be set appropriately)
+ *
+ * The amount of data written in a call is returned through nbytes.
+ *
  */
 
 int
@@ -1446,8 +1454,11 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	*nbytes -= retval;
       }
     } while (retval == SENDFILE_CHUNK_SIZE);
-    *nbytes = written;
-    return check_error(retval == -1 ? -1 : 0, errInfo);
+    if (written != 0) {
+      // -1 is not returned by the linux API so we have to simulate it
+      retval = -1;
+      errno = EAGAIN;
+    }
 #elif defined(__sun) && defined(__SVR4) && defined(HAVE_SENDFILEV)
     ssize_t retval;
     size_t len;
@@ -1469,8 +1480,6 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	written += len;
       }
     } while (len == SENDFILE_CHUNK_SIZE);
-    *nbytes = written;
-    return check_error(retval == -1 ? -1 : 0, errInfo);
 #elif defined(DARWIN)
     int retval;
     off_t len;
@@ -1487,8 +1496,6 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	written += len;
       }
     } while (len == SENDFILE_CHUNK_SIZE);
-    *nbytes = written;
-    return check_error(retval, errInfo);
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
     off_t len;
     int retval;
@@ -1504,8 +1511,8 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 	written += len;
       }
     } while(len == SENDFILE_CHUNK_SIZE);
+#endif
     *nbytes = written;
     return check_error(retval, errInfo);
-#endif
 }
 #endif /* HAVE_SENDFILE */
