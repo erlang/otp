@@ -23,13 +23,13 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,
-	 flat_size/1,flat_size_big/1,df/1,
+	 test_size/1,flat_size_big/1,df/1,
 	 instructions/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [flat_size, flat_size_big, df, instructions].
+    [test_size, flat_size_big, df, instructions].
 
 groups() -> 
     [].
@@ -55,15 +55,57 @@ end_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
 
-flat_size(Config) when is_list(Config) ->
-    0 = erts_debug:flat_size([]),
-    0 = erts_debug:flat_size(42),
-    2 = erts_debug:flat_size([a|b]),
-    1 = erts_debug:flat_size({}),
-    2 = erts_debug:flat_size({[]}),
-    3 = erts_debug:flat_size({a,b}),
-    7 = erts_debug:flat_size({a,[b,c]}),
+test_size(Config) when is_list(Config) ->
+    ConsCell1 = id([a|b]),
+    ConsCell2 = id(ConsCell1),
+    ConsCellSz = 2,
+
+    0 = do_test_size([]),
+    0 = do_test_size(42),
+    ConsCellSz = do_test_size(ConsCell1),
+    1 = do_test_size({}),
+    2 = do_test_size({[]}),
+    3 = do_test_size({a,b}),
+    7 = do_test_size({a,[b,c]}),
+
+    %% Test internal consistency of sizes, but without testing
+    %% exact sizes.
+    Const = id(42),
+    AnotherConst = id(7),
+
+    %% Fun environment size = 0 (the smallest fun possible)
+    SimplestFun = fun() -> ok end,
+    FunSz0 = do_test_size(SimplestFun),
+
+    %% Fun environment size = 1
+    FunSz1 = do_test_size(fun() -> Const end),
+    FunSz1 = FunSz0 + 1,
+
+    %% Fun environment size = 2
+    FunSz2 = do_test_size(fun() -> Const+AnotherConst end),
+    FunSz2 = FunSz1 + 1,
+
+    FunSz1 = do_test_size(fun() -> ConsCell1 end) - do_test_size(ConsCell1),
+
+    %% Test shared data structures.
+    do_test_size([ConsCell1|ConsCell1],
+		 3*ConsCellSz,
+		 2*ConsCellSz),
+    do_test_size(fun() -> {ConsCell1,ConsCell2} end,
+		 FunSz2 + 2*ConsCellSz,
+		 FunSz2 + ConsCellSz),
+    do_test_size({SimplestFun,SimplestFun},
+		 2*FunSz0+do_test_size({a,b}),
+		 FunSz0+do_test_size({a,b})),
     ok.
+
+do_test_size(Term) ->
+    Sz = erts_debug:flat_size(Term),
+    Sz = erts_debug:size(Term).
+
+do_test_size(Term, FlatSz, Sz) ->
+    FlatSz = erts_debug:flat_size(Term),
+    Sz = erts_debug:size(Term).
 
 flat_size_big(Config) when is_list(Config) ->
     %% Build a term whose external size only fits in a big num (on 32-bit CPU).
@@ -96,3 +138,6 @@ instructions(Config) when is_list(Config) ->
     ?line Is = erts_debug:instructions(),
     ?line _ = [list_to_atom(I) || I <- Is],
     ok.
+
+id(I) ->
+    I.

@@ -182,6 +182,11 @@ size(Tuple, Seen0, Sum0) when is_tuple(Tuple) ->
 	    Sum = Sum0 + 1 + tuple_size(Tuple),
 	    tuple_size(1, tuple_size(Tuple), Tuple, Seen, Sum)
     end;
+size(Fun, Seen0, Sum) when is_function(Fun) ->
+    case remember_term(Fun, Seen0) of
+	seen -> {Sum,Seen0};
+	Seen -> fun_size(Fun, Seen, Sum)
+    end;
 size(Term, Seen0, Sum) ->
     case erts_debug:flat_size(Term) of
 	0 -> {Sum,Seen0};
@@ -197,6 +202,21 @@ tuple_size(I, Sz, _, Seen, Sum) when I > Sz ->
 tuple_size(I, Sz, Tuple, Seen0, Sum0) ->
     {Sum,Seen} = size(element(I, Tuple), Seen0, Sum0),
     tuple_size(I+1, Sz, Tuple, Seen, Sum).
+
+fun_size(Fun, Seen, Sum) ->
+    case erlang:fun_info(Fun, type) of
+	{type,external} ->
+	    {Sum + erts_debug:flat_size(Fun),Seen};
+	{type,local} ->
+	    Sz = erts_debug:flat_size(fun() -> ok end),
+	    {env,Env} = erlang:fun_info(Fun, env),
+	    fun_size_1(Env, Seen, Sum+Sz+length(Env))
+    end.
+
+fun_size_1([H|T], Seen0, Sum0) ->
+    {Sum,Seen} = size(H, Seen0, Sum0),
+    fun_size_1(T, Seen, Sum);
+fun_size_1([], Seen, Sum) -> {Sum,Seen}.
 	    
 remember_term(Term, Seen) ->
     case gb_trees:lookup(Term, Seen) of
