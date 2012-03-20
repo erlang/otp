@@ -156,11 +156,11 @@ static ErlDrvSysInfo sys_info;
  * DARWIN. The testcase t_sendfile_crashduring reproduces
  * this error when using +A 10.
  */
-#if !defined(DARWIN)
-#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
-#else
+#if defined(__APPLE__) && defined(__MACH__)
 #define USE_THRDS_FOR_SENDFILE 0
-#endif /* !DARWIN */
+#else
+#define USE_THRDS_FOR_SENDFILE (sys_info.async_threads > 0)
+#endif /* defined(__APPLE__) && defined(__MACH__) */
 
 
 
@@ -259,6 +259,7 @@ static void file_stop_select(ErlDrvEvent event, void* _);
 enum e_timer {timer_idle, timer_again, timer_write};
 #ifdef HAVE_SENDFILE
 enum e_sendfile {sending, not_sending};
+static void free_sendfile(void *data);
 #endif /* HAVE_SENDFILE */
 
 struct t_data;
@@ -445,6 +446,8 @@ struct t_data
 	} fadvise;
 #ifdef HAVE_SENDFILE
 	struct {
+	    ErlDrvPort port;
+	    ErlDrvPDL q_mtx;
 	    int out_fd;
 	    off_t offset;
 	    Uint64 nbytes;
@@ -751,15 +754,6 @@ file_stop(ErlDrvData e)
     file_descriptor* desc = (file_descriptor*)e;
 
     TRACE_C('p');
-
-#ifdef HAVE_SENDFILE
-    if (desc->sendfile_state == sending && !USE_THRDS_FOR_SENDFILE) {
-	driver_select(desc->port,(ErlDrvEvent)(long)desc->d->c.sendfile.out_fd,
-		      ERL_DRV_WRITE|ERL_DRV_USE,0);
-    } else if (desc->sendfile_state == sending) {
-	SET_NONBLOCKING(desc->d->c.sendfile.out_fd);
-    }
-#endif /* HAVE_SENDFILE */
 
     if (desc->fd != FILE_FD_INVALID) {
 	do_close(desc->flags, desc->fd);
@@ -1783,26 +1777,31 @@ static void invoke_sendfile(void *data)
 
     d->c.sendfile.written += nbytes;
 
-    if (result == 1) {
-	if (USE_THRDS_FOR_SENDFILE) {
-	    d->result_ok = 0;
-	} else if (d->c.sendfile.nbytes == 0 && nbytes != 0) {
-	    d->result_ok = 1;
-	} else if ((d->c.sendfile.nbytes - nbytes) != 0) {
-	    d->result_ok = 1;
-	    d->c.sendfile.nbytes -= nbytes;
-	} else {
-	    d->result_ok = 0;
-	}
+ if (result == 1 || (result == 0 && USE_THRDS_FOR_SENDFILE)) {
+      d->result_ok = 0;
     } else if (result == 0 && (d->errInfo.posix_errno == EAGAIN
 				 || d->errInfo.posix_errno == EINTR)) {
+      if ((d->c.sendfile.nbytes - nbytes) != 0) {
 	d->result_ok = 1;
+	if (d->c.sendfile.nbytes != 0)
+	  d->c.sendfile.nbytes -= nbytes;
+      } else
+	d->result_ok = 0;
     } else {
 	d->result_ok = -1;
     }
 }
 
 static void free_sendfile(void *data) {
+    struct t_data *d = (struct t_data *)data;
+    if (USE_THRDS_FOR_SENDFILE) {
+	SET_NONBLOCKING(d->c.sendfile.out_fd);
+    } else {
+	MUTEX_LOCK(d->c.sendfile.q_mtx);
+	driver_deq(d->c.sendfile.port,1);
+	MUTEX_UNLOCK(d->c.sendfile.q_mtx);
+	driver_select(d->c.sendfile.port, (ErlDrvEvent)(long)d->c.sendfile.out_fd, ERL_DRV_USE_NO_CALLBACK|ERL_DRV_WRITE, 0);
+    }
     EF_FREE(data);
 }
 
@@ -1812,7 +1811,7 @@ static void file_ready_output(ErlDrvData data, ErlDrvEvent event)
 
     switch (fd->d->command) {
     case FILE_SENDFILE:
-	driver_select(fd->port, event,
+	driver_select(fd->d->c.sendfile.port, event,
 		      (int)ERL_DRV_WRITE,(int) 0);
 	invoke_sendfile((void *)fd->d);
 	file_async_ready(data, (ErlDrvThreadData)fd->d);
@@ -1825,6 +1824,15 @@ static void file_ready_output(ErlDrvData data, ErlDrvEvent event)
 static void file_stop_select(ErlDrvEvent event, void* _)
 {
 
+}
+
+static int flush_sendfile(file_descriptor *desc,void *_) {
+    if (desc->sendfile_state == sending) {
+	desc->d->result_ok = -1;
+	desc->d->errInfo.posix_errno = ECONNABORTED;
+	file_async_ready((ErlDrvData)desc,(ErlDrvThreadData)desc->d);
+    }
+    return 1;
 }
 #endif /* HAVE_SENDFILE */
 
@@ -2248,36 +2256,23 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
 #ifdef HAVE_SENDFILE
       case FILE_SENDFILE:
 	  if (d->result_ok == -1) {
-	      desc->sendfile_state = not_sending;
 	      if (d->errInfo.posix_errno == ECONNRESET ||
 		  d->errInfo.posix_errno == ENOTCONN ||
 		  d->errInfo.posix_errno == EPIPE)
 		  reply_string_error(desc,"closed");
 	      else
 		  reply_error(desc, &d->errInfo);
-	      if (USE_THRDS_FOR_SENDFILE) {
-		  SET_NONBLOCKING(d->c.sendfile.out_fd);
-		  free_sendfile(data);
-	      } else {
-		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
-			ERL_DRV_USE, 0);
-		free_sendfile(data);
-	      }
-	  } else if (d->result_ok == 0) {
 	      desc->sendfile_state = not_sending;
+	      free_sendfile(data);
+	  } else if (d->result_ok == 0) {
 	      reply_Sint64(desc, d->c.sendfile.written);
-	      if (USE_THRDS_FOR_SENDFILE) {
-		SET_NONBLOCKING(d->c.sendfile.out_fd);
-		free_sendfile(data);
-	      } else {
-		driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd, ERL_DRV_USE, 0);
-		free_sendfile(data);
-	      }
+	      desc->sendfile_state = not_sending;
+	      free_sendfile(data);
 	  } else if (d->result_ok == 1) { // If we are using select to send the rest of the data
 	      desc->sendfile_state = sending;
 	      desc->d = d;
 	      driver_select(desc->port, (ErlDrvEvent)(long)d->c.sendfile.out_fd,
-			    ERL_DRV_USE|ERL_DRV_WRITE, 1);
+			    ERL_DRV_USE_NO_CALLBACK|ERL_DRV_WRITE, 1);
 	  }
 	  break;
 #endif
@@ -2654,6 +2649,10 @@ file_flush(ErlDrvData e) {
 #endif
 
     TRACE_C('f');
+
+#ifdef HAVE_SENDFILE
+    flush_sendfile(desc, NULL);
+#endif
 
 #ifdef DEBUG
     r = 
@@ -3454,11 +3453,13 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 	d->fd = desc->fd;
 	d->command = command;
 	d->invoke = invoke_sendfile;
-	d->free = NULL;
+	d->free = free_sendfile;
 	d->level = 2;
 
 	d->c.sendfile.out_fd = (int) out_fd;
 	d->c.sendfile.written = 0;
+	d->c.sendfile.port = desc->port;
+	d->c.sendfile.q_mtx = desc->q_mtx;
 
     #if SIZEOF_OFF_T == 4
 	if (offsetH != 0) {
@@ -3474,6 +3475,19 @@ file_outputv(ErlDrvData e, ErlIOVec *ev) {
 
 	if (USE_THRDS_FOR_SENDFILE) {
 	    SET_BLOCKING(d->c.sendfile.out_fd);
+	} else {
+	    /**
+	     * Write a place holder to queue in order to force file_flush
+	     * to be called before the driver is closed.
+	     */
+	    char tmp[1] = "";
+	    MUTEX_LOCK(d->c.sendfile.q_mtx);
+	    if (driver_enq(d->c.sendfile.port, tmp, 1)) {
+	        MUTEX_UNLOCK(d->c.sendfile.q_mtx);
+		reply_posix_error(desc, ENOMEM);
+		goto done;
+	    }
+	    MUTEX_UNLOCK(d->c.sendfile.q_mtx);
 	}
 
 	cq_enq(desc, d);
