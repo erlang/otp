@@ -727,7 +727,7 @@ adjust_processor_nodes(erts_cpu_info_t *cpuinfo, int no_nodes)
 
 	prev = NULL;
 	this = &cpuinfo->topology[0];
-	last = &cpuinfo->topology[cpuinfo->configured-1];
+	last = &cpuinfo->topology[cpuinfo->topology_size-1];
 	while (1) {
 	    if (processor == this->processor) {
 		if (node != this->node)
@@ -939,7 +939,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
 	if (res > 1) {
 	    prev = this++;
-	    last = &cpuinfo->topology[cpuinfo->configured-1];
+	    last = &cpuinfo->topology[cpuinfo->topology_size-1];
 
 	    while (1) {
 		this->thread = ((this->node == prev->node
@@ -1094,7 +1094,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
 	if (res > 1) {
 	    prev = this++;
-	    last = &cpuinfo->topology[cpuinfo->configured-1];
+	    last = &cpuinfo->topology[cpuinfo->topology_size-1];
 
 	    while (1) {
 		this->thread = ((this->node == prev->node
