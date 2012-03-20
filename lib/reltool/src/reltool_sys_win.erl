@@ -1246,9 +1246,12 @@ handle_app_event(S, Event, ObjRef, UserData) ->
                         [?MODULE, self(), ObjRef, UserData, Event]),
     S.
 
-handle_app_button(#state{server_pid = ServerPid, app_wins = AppWins} = S,
+handle_app_button(#state{server_pid = ServerPid,
+			 status_bar = Bar,
+			 app_wins = AppWins} = S,
 		  Items,
 		  Action) ->
+    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
     NewApps = [move_app(S, Item, Action) || Item <- Items],
     case reltool_server:set_apps(ServerPid, NewApps) of
 	{ok, _Warnings} ->
@@ -1289,7 +1292,10 @@ move_app(S, {_ItemNo, AppBase}, Action) ->
         end,
     OldApp#app{incl_cond = AppCond}.
 
-do_set_app(#state{server_pid = ServerPid, app_wins = AppWins} = S, NewApp) ->
+do_set_app(#state{server_pid = ServerPid,
+		  status_bar = Bar,
+		  app_wins = AppWins} = S, NewApp) ->
+    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
     Result = reltool_server:set_app(ServerPid, NewApp),
     ReturnApp =
 	case Result of
@@ -1489,26 +1495,28 @@ save_config(#state{config_file = OldFile} = S, InclDefaults, InclDerivates) ->
             S
     end.
 
-gen_rel_files(#state{target_dir = OldDir} = S) ->
+gen_rel_files(#state{status_bar = Bar, target_dir = OldDir} = S) ->
     Style = ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT,
     case select_dir(S#state.frame,
 		    "Select a directory to generate rel, script and boot files to",
 		    OldDir,
 		    Style) of
         {ok, NewDir} ->
+	    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
             Status = reltool_server:gen_rel_files(S#state.server_pid, NewDir),
             check_and_refresh(S, Status);
         cancel ->
             S
     end.
 
-gen_target(#state{target_dir = OldDir} = S) ->
+gen_target(#state{status_bar = Bar, target_dir = OldDir} = S) ->
     Style = ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT,
     case select_dir(S#state.frame,
 		    "Select a directory to generate a target system to",
 		    OldDir,
 		    Style) of
         {ok, NewDir} ->
+	    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
             Status = reltool_server:gen_target(S#state.server_pid, NewDir),
             check_and_refresh(S#state{target_dir = NewDir}, Status);
         cancel ->
