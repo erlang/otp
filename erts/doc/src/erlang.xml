@@ -5744,6 +5744,29 @@ ok
               used by the runtime system. It will be on the form
               <seealso marker="erts:erl_driver#version_management">"&lt;major ver&gt;.&lt;minor ver&gt;"</seealso>.</p>
           </item>
+          <tag><c>dynamic_trace</c></tag>
+          <item>
+            <p>Returns an atom describing the dynamic trace framework
+            compiled into the virtual machine. It can currently be either
+            <c>dtrace</c>, <c>systemtap</c> or <c>none</c>. For a
+            commercial or standard build, this is always <c>none</c>,
+            the other return values indicate a custom configuration
+            (e.g. <c>./configure --with-dynamic-trace=dtrace</c>). See
+            the <seealso marker="runtime_tools:dyntrace">dyntrace
+            </seealso> manual page and the
+            <c>README.dtrace</c>/<c>README.systemtap</c> files in the
+            Erlang source code top directory for more information
+            about dynamic tracing.</p>
+          </item>
+          <tag><c>dynamic_trace_probes</c></tag>
+          <item>
+            <p>Returns a <c>boolean()</c> indicating if dynamic trace probes
+            (either dtrace or systemtap) are built into the
+            emulator. This can only be <c>true</c> if the virtual
+            machine was built for dynamic tracing
+            (i.e. <c>system_info(dynamic_trace)</c> returns
+            <c>dtrace</c> or <c>systemtap</c>).</p>
+          </item>
           <tag><c>elib_malloc</c></tag>
           <item>
             <p>This option will be removed in a future release.
