@@ -377,7 +377,8 @@ main(int argc, char** argv)
     last_opt = argv;
 
 #ifdef __WIN32__
-    if (_stricmp(basename, "escript.exe") == 0) {
+    if ( (_stricmp(basename, "escript.exe") == 0)
+       ||(_stricmp(basename, "escript") == 0)) {
 #else
     if (strcmp(basename, "escript") == 0) {
 #endif
