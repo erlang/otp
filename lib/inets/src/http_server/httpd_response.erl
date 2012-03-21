@@ -144,10 +144,14 @@ send_response(ModData, Header, Body) ->
 	    end
     end.
 
-send_header(#mod{socket_type = Type, socket = Sock, 
-		 http_version = Ver,  connection = Conn} = _ModData, 
+send_header(#mod{socket_type  = Type, 
+		 socket       = Sock, 
+		 http_version = Ver, 
+		 connection   = Conn,
+		 config_db    = ConfigDb} = _ModData, 
 	    StatusCode, KeyValueTupleHeaders) ->
-    Headers = create_header(lists:map(fun transform/1, KeyValueTupleHeaders)),
+    Headers = create_header(ConfigDb, 
+			    lists:map(fun transform/1, KeyValueTupleHeaders)),
     NewVer = case {Ver, StatusCode} of
 		 {[], _} ->
 		     %% May be implicit!
@@ -275,12 +279,19 @@ cache_headers(#mod{config_db = Db}) ->
 	    []
     end.
 
-create_header(KeyValueTupleHeaders) ->
-    NewHeaders = add_default_headers([{"date", httpd_util:rfc1123_date()},
-				      {"content-type", "text/html"},
-				      {"server", ?SERVER_SOFTWARE}], 
-				     KeyValueTupleHeaders),
+create_header(ConfigDb, KeyValueTupleHeaders) ->
+    Date        = httpd_util:rfc1123_date(), 
+    ContentType = "text/html", 
+    Server      = server(ConfigDb),
+    NewHeaders  = add_default_headers([{"date",         Date},
+				       {"content-type", ContentType},
+				       {"server",       Server}], 
+				       KeyValueTupleHeaders),
     lists:map(fun fix_header/1, NewHeaders).
+
+
+server(ConfigDb) ->
+    httpd_util:lookup(ConfigDb, server, ?SERVER_SOFTWARE).
 
 fix_header({Key0, Value}) ->
     %% make sure first letter is capital

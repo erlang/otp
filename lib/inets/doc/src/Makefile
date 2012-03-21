@@ -48,6 +48,7 @@ XML_REF3_FILES = \
 	inets.xml \
 	ftp.xml \
 	tftp.xml \
+	http_uri.xml\
 	httpc.xml\
 	httpd.xml \
 	httpd_conf.xml \

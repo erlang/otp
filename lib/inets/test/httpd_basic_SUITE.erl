@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,6 +20,8 @@
 -module(httpd_basic_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include("inets_test_lib.hrl").
+
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -184,6 +186,15 @@ escaped_url_in_error_body(doc) ->
 escaped_url_in_error_body(suite) ->
     [];
 escaped_url_in_error_body(Config) when is_list(Config) ->
+    %% <CONDITIONAL-SKIP>
+    %% This skip is due to a problem on windows with long path's
+    %% If a path is too long file:open fails with, for example, eio.
+    %% Until that problem is fixed, we skip this case...
+    Skippable = [win32],
+    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+    %% </CONDITIONAL-SKIP>
+
     tsp("escaped_url_in_error_body -> entry"),
     HttpdConf   = ?config(httpd_conf, Config),
     {ok, Pid}   = inets:start(httpd, [{port, 0} | HttpdConf]),
@@ -192,6 +203,7 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     _Address    = proplists:get_value(bind_address, Info),
 
     %% Request 1
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 1"),
     URL1        = ?URL_START ++ integer_to_list(Port),
     %% Make sure the server is ok, by making a request for a valid page
@@ -202,11 +214,12 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
 	{ok, {200, _}} ->
 	    %% Don't care about the the body, just that we get a ok response
 	    ok;
-	{ok, UnexpectedOK1} ->
-	    tsf({unexpected_ok_1, UnexpectedOK1})
+	{ok, {StatusCode1, Body1}} ->
+	    tsf({unexpected_ok_1, StatusCode1, Body1})
     end,
 
     %% Request 2
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 2"),
     %% Make sure the server is ok, by making a request for a valid page
     case httpc:request(get, {URL1 ++ "/dummy.html", []},
@@ -216,11 +229,12 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
 	{ok, {200, _}} ->
 	    %% Don't care about the the body, just that we get a ok response
 	    ok;
-	{ok, UnexpectedOK2} ->
-	    tsf({unexpected_ok_2, UnexpectedOK2})
+	{ok, {StatusCode2, Body2}} ->
+	    tsf({unexpected_ok_2, StatusCode2, Body2})
     end,
 
     %% Request 3
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 3"),
     %% Ask for a non-existing page(1)
     Path            = "/<b>this_is_bold<b>",
@@ -238,10 +252,11 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
 		    tsf({unexpected_path_3, HTMLEncodedPath, BadPath3})
 	    end;
 	{ok, UnexpectedOK3} ->
-	    tsf({unexpected_ok_1, UnexpectedOK3})
+	    tsf({unexpected_ok_3, UnexpectedOK3})
     end,
 
     %% Request 4
+    tss(1000), 
     tsp("escaped_url_in_error_body -> request 4"),
     %% Ask for a non-existing page(2)
     case httpc:request(get, {URL2, []}, 
@@ -253,11 +268,12 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
 		HTMLEncodedPath ->
 		    ok;
 		BadPath4 ->
-		    tsf({unexpected_path_2, HTMLEncodedPath, BadPath4})
+		    tsf({unexpected_path_4, HTMLEncodedPath, BadPath4})
 	    end;
 	{ok, UnexpectedOK4} ->
 	    tsf({unexpected_ok_4, UnexpectedOK4})
     end, 
+    tss(1000), 
     tsp("escaped_url_in_error_body -> stop inets"),
     inets:stop(httpd, Pid),
     tsp("escaped_url_in_error_body -> done"),    
@@ -277,7 +293,12 @@ tsp(F, A) ->
     inets_test_lib:tsp(F, A).
 
 tsf(Reason) ->
-    test_server:fail(Reason).
+    inets_test_lib:tsf(Reason).
+
+tss(Time) ->
+    inets_test_lib:tss(Time).
+
+
 
 
 skip(Reason) ->

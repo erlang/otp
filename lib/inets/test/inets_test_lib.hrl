@@ -50,6 +50,11 @@
 
 -define(OSCMD(Cmd), inets_test_lib:oscmd(Cmd)).
 
+-define(PRINT_SYSTEM_INFO(P), inets_test_lib:print_system_info(P)).
+
+-define(RUN_ON_OS(OS, FUN),  inets_test_lib:run_on_os(OS, FUN)).
+-define(RUN_ON_WINDOWS(FUN), inets_test_lib:run_on_windows(FUN)).
+
 
 %% - Test case macros -
 

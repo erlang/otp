@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2011</year>
+      <year>2004</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -540,6 +540,35 @@ apply(Module, Function, [ReplyInfo | Args])
             limit of 2 persistent connections per server, which is the
             default value of the <c>max_sessions</c> option. </p>
         </note>
+
+        <marker id="get_options"></marker>
+      </desc>
+    </func>
+    
+    <func>
+      <name>get_options(OptionItems) -> {ok, Values} | {error, Reason}</name>
+      <name>get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}</name>
+      <fsummary>Gets the currently used options.</fsummary>
+      <type>
+        <v>OptionItems = all | [option_item()]</v>
+	<v>option_item() = proxy | 
+                           max_sessions | 
+			   keep_alive_timeout | 
+	                   max_keep_alive_length | 
+			   pipeline_timeout | 
+			   max_pipeline_length | 
+			   cookies | 
+			   ipfamily | 
+			   ip | 
+			   port | 
+			   socket_opts | 
+	                   verbose</v>
+	<v>Profile = profile() | pid() (when started <c>stand_alone</c>)</v>
+        <v>Values = [{option_item(), term()}]</v>
+        <v>Reason = term() </v>
+      </type>
+      <desc>
+        <p>Retrieves the options currently used by the client.</p>
 
         <marker id="stream_next"></marker>
       </desc>
