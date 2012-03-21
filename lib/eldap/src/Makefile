@@ -35,11 +35,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/eldap-$(ELDAP_VSN)
 # Target Specs
 # ----------------------------------------------------
 
-MODULES= \
-	eldap_app \
-	eldap \
-	eldap_fsm \
-	eldap_sup
+MODULES= eldap
 
 ASN1_FILES = ELDAPv3.asn1
 ASN1_HRL = $(EBIN)/$(ASN1_FILES:%.asn1=%.hrl)
