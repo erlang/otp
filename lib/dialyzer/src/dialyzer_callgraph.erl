@@ -44,7 +44,6 @@
 	 %% module_postorder/1,
 	 module_postorder_from_funs/2,
 	 new/0,
-	 mini_callgraph/1,
 	 get_depends_on/2,
 	 get_required_by/2,
 	 in_neighbours/2,
@@ -128,25 +127,6 @@ new() ->
 	     rec_var_map    = ETSRecVarMap,
 	     self_rec       = ETSSelfRec,
 	     calls          = ETSCalls}.
-
--spec mini_callgraph(callgraph()) -> callgraph().
-
-mini_callgraph(#callgraph{digraph        = Digraph,
-			  active_digraph = ActiveDigraph,
-			  esc	         = Esc,
-			  name_map       = NameMap,
-			  rev_name_map   = RevNameMap,
-			  rec_var_map    = RecVarMap,
-			  self_rec       = SelfRecs,
-			  calls          = Calls}) ->
-  #callgraph{digraph        = Digraph,
-	     active_digraph = ActiveDigraph,
-	     esc	         = Esc,
-	     name_map       = NameMap,
-	     rev_name_map   = RevNameMap,
-	     rec_var_map    = RecVarMap,
-	     self_rec       = SelfRecs,
-	     calls          = Calls}.
 
 -spec delete(callgraph()) -> 'true'.
 
