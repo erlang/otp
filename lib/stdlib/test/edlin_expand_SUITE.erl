@@ -46,10 +46,10 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    true = code:delete(expand_test),
-    true = code:delete(expand_test1),
-    true = code:delete('ExpandTestCaps'),
-    true = code:delete('ExpandTestCaps1'),
+    (catch code:delete(expand_test)),
+    (catch code:delete(expand_test1)),
+    (catch code:delete('ExpandTestCaps')),
+    (catch code:delete('ExpandTestCaps1')),
     Config.
 
 end_per_suite(_Config) ->

@@ -50,7 +50,7 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
--define(debug, true).
+%%-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).

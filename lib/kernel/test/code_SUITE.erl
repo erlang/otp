@@ -1441,6 +1441,9 @@ filter_app("netconf",_) ->
 % Safe has the same kind of error in the .app file as ic
 filter_app("safe",_) ->
     false;
+% Comte cannot be started in the "usual" way
+filter_app("comte",_) ->
+    false;
 % OS_mon does not find it's port program when running cerl
 filter_app("os_mon",true) ->
     false;
