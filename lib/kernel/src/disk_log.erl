@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1034,10 +1034,9 @@ sync_loop(From, S) ->
 -define(MAX_LOOK_AHEAD, 64*1024).
 
 %% Inlined.
-log_loop(S, Pids, _Bins, _Sync, _Sz) when S#state.cache_error =/= ok ->
+log_loop(#state{cache_error = CE}=S, Pids, _Bins, _Sync, _Sz) when CE =/= ok ->
     loop(cache_error(S, Pids));
-log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz)
-            when Sz > ?MAX_LOOK_AHEAD ->
+log_loop(#state{}=S, Pids, Bins, Sync, Sz) when Sz > ?MAX_LOOK_AHEAD ->
     loop(log_end(S, Pids, Bins, Sync));
 log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz) ->
     receive 
@@ -1046,8 +1045,7 @@ log_loop(#state{messages = []}=S, Pids, Bins, Sync, Sz) ->
     after 0 ->
 	    loop(log_end(S, Pids, Bins, Sync))
     end;
-log_loop(S, Pids, Bins, Sync, Sz) ->
-    [M | Ms] = S#state.messages,
+log_loop(#state{messages = [M | Ms]}=S, Pids, Bins, Sync, Sz) ->
     S1 = S#state{messages = Ms},
     log_loop(M, Pids, Bins, Sync, Sz, S1, get(log)).
 
