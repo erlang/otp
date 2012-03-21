@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -7927,15 +7927,23 @@ run_test(Config, Extra, {cres, Body, Opts, ExpectedCompileReturn}) ->
             ok
     end,
 
-    Ms = erlang:process_info(self(),messages),
-    After = {get(), pps(), ets:all(), Ms},
-    code:purge(Mod),
-    case {R, After} of
-        {ok, Before} -> ok;
-        _ -> expected({ok,Before}, {R,After}, SourceFile)
-    end;
+    wait_for_expected(R, Before, SourceFile, true),
+    code:purge(Mod);
 run_test(Config, Extra, Body) ->
     run_test(Config, Extra, {cres,Body,[]}).
+
+wait_for_expected(R, Before, SourceFile, Wait) ->
+    Ms = erlang:process_info(self(),messages),
+    After = {get(), pps(), ets:all(), Ms},
+    case {R, After} of
+        {ok, Before} ->
+            ok;
+        _ when Wait ->
+            timer:sleep(1000),
+            wait_for_expected(R, Before, SourceFile, false);
+        _ ->
+            expected({ok,Before}, {R,After}, SourceFile)
+    end.
 
 unload_pt() ->
     erlang:garbage_collect(), % get rid of references to qlc_pt...
