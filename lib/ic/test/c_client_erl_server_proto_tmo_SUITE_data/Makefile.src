@@ -122,25 +122,33 @@ EBINS = $(ERL_FILES:.erl=.@EMULATOR@)
 
 all: $(PGMS) $(EBINS)
 
+$(GEN_ERL_FILES) $(GEN_HRL_FILES):  c_erl_test.built_erl
+$(GEN_C_FILES) $(GEN_H_FILES): c_erl_test.built_c
+$(OBJS): $(GEN_C_FILES) $(GEN_H_FILES)
+$(EBINS): $(GEN_ERL_FILES) $(GEN_HRL_FILES)
+
 clean:	
 	-rm -f $(OBJS) $(GEN_C_FILES) $(GEN_H_FILES) $(PGMS) \
-		$(EBINS) $(GEN_ERL_FILES) $(GEN_HRL_FILES)
+		$(EBINS) $(GEN_ERL_FILES) $(GEN_HRL_FILES) \
+		c_erl_test.built_erl c_erl_test.built_c
 	-del /F /Q $(OBJS) $(GEN_C_FILES) $(GEN_H_FILES) $(PGMS) \
-		$(EBINS) $(GEN_ERL_FILES) $(GEN_HRL_FILES)
+		$(EBINS) $(GEN_ERL_FILES) $(GEN_HRL_FILES) \
+		c_erl_test.built_erl c_erl_test.built_c
 
 $(PGMS): $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
-$(GEN_C_FILES) $(GEN_H_FILES): c_erl_test.idl
-	$(ERLC) -I $(IC_INCLUDE_PATH) "+{be,c_client}" \
-		"+{user_protocol,my}" "+{c_timeout,{5000,5000}}" c_erl_test.idl
+c_erl_test.built_c: c_erl_test.idl
+	$(ERLC) -I $(IC_INCLUDE_PATH) "+{be,c_client}" c_erl_test.idl
+	echo done > c_erl_test.built_c
 
-$(GEN_ERL_FILES) $(GEN_HRL_FILES): c_erl_test.idl
+c_erl_test.built_erl: c_erl_test.idl
 	$(ERLC) -I $(IC_INCLUDE_PATH) "+{be,erl_genserv}" c_erl_test.idl
+	echo done > c_erl_test.built_erl
 
-.c@obj@:
+.c@obj@: 
 	$(CC) -c -o $*@obj@ $(CFLAGS) $<
 
-.erl.@EMULATOR@:
+.erl.@EMULATOR@: 
 	$(ERLC) -I $(IC_INCLUDE_PATH) $<
 
