@@ -98,7 +98,7 @@ end_per_group(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 %% TEST CASES
 %%--------------------------------------------------------------------
-ct_master_test(Config) when is_list(Config)->
+ct_master_test(Config) when is_list(Config) ->
     NodeNames = proplists:get_value(node_names, Config),
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -106,19 +106,14 @@ ct_master_test(Config) when is_list(Config)->
     FileName = filename:join(PrivDir, "ct_master_spec.spec"),
     Suites = [master_SUITE],
     TSFile = make_spec(DataDir, FileName, NodeNames, Suites, Config),
-    ERPid = ct_test_support:start_event_receiver(Config),
-    spawn(ct@ancalagon,
-	  fun() ->
-		  dbg:tracer(),dbg:p(all,c),
-		  dbg:tpl(erlang, spawn_link, 4,x),
-		  receive ok -> ok end
-	  end),
 
-    [{TSFile, ok}] = run_test(ct_master_test, FileName, Config),
+    ERPid = ct_test_support:start_event_receiver(Config),
+
+    [{TSFile,ok}] = run_test(ct_master_test, FileName, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
 
-    ct_test_support:log_events(groups_suite_1, 
+    ct_test_support:log_events(ct_master_test, 
 			       reformat(Events, ?eh),
 			       PrivDir, []),
 
@@ -134,48 +129,59 @@ ct_master_test(Config) when is_list(Config)->
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
-make_spec(DataDir, FileName, NodeNames, Suites, Config)->
-    {ok, HostName} = inet:gethostname(),
+make_spec(DataDir, FileName, NodeNames, Suites, Config) ->
+    {ok,HostName} = inet:gethostname(),
 
-    N = lists:map(fun(NodeName)->
+    N = lists:map(fun(NodeName) ->
 	    {node, NodeName, list_to_atom(atom_to_list(NodeName)++"@"++HostName)}
 	end,
 	NodeNames),
 
-    C = lists:map(fun(NodeName)->
-	Rnd = random:uniform(2),
-	if Rnd == 1->
-	    {config, NodeName, filename:join(DataDir, "master/config.txt")};
-	true->
-	    {userconfig, NodeName, {ct_config_xml, filename:join(DataDir, "master/config.xml")}}
-        end
-	end,
-	NodeNames),
+    C = lists:map(
+	  fun(NodeName) ->
+		  Rnd = random:uniform(2),
+		  if Rnd == 1->
+			  {config,NodeName,filename:join(DataDir,
+							 "master/config.txt")};
+		     true ->
+			  {userconfig,NodeName,
+			   {ct_config_xml,filename:join(DataDir,
+							"master/config.xml")}}
+		  end
+	  end,
+	  NodeNames),
+    
+    CM = [{config,master,filename:join(DataDir,"master/config.txt")}],
 
-    NS = lists:map(fun(NodeName)->
-	     {init, NodeName, [
-				{node_start, [{startup_functions, []}, {monitor_master, true}]},
-				{eval, {erlang, nodes, []}}
-			      ]
-	     }
-	 end,
-	 NodeNames),
-
+    NS = lists:map(
+	   fun(NodeName) ->
+		   {init,NodeName,[
+				   {node_start,[{startup_functions,[]},
+						{monitor_master,true}]},
+				   {eval,{erlang,nodes,[]}}
+				  ]
+		   }
+	   end,
+	   NodeNames),
+    
     S = [{suites, NodeNames, filename:join(DataDir, "master"), Suites}],
-
+    
     PrivDir = ?config(priv_dir, Config),
-    LD = lists:map(fun(NodeName)->
-	     {logdir, NodeName, get_log_dir(os:type(),PrivDir, NodeName)}
-         end,
-	 NodeNames) ++ [{logdir, master, PrivDir}],
+
+    LD = lists:map(
+	   fun(NodeName) ->
+		   {logdir,NodeName,get_log_dir(os:type(),PrivDir, NodeName)}
+	   end,
+	   NodeNames) ++ [{logdir,master,PrivDir}],
+
     EvHArgs = [{cbm,ct_test_support},{trace_level,?config(trace_level,Config)}],
     EH = [{event_handler,master,[?eh],EvHArgs}],
-
+    
     Include = [{include,filename:join([DataDir,"master/include"])}],
+    
+    ct_test_support:write_testspec(N++Include++EH++C++CM++S++LD++NS, FileName).
 
-    ct_test_support:write_testspec(N++Include++EH++C++S++LD++NS, FileName).
-
-get_log_dir({win32,_}, _PrivDir, NodeName)->
+get_log_dir({win32,_}, _PrivDir, NodeName) ->
     case filelib:is_dir(?TEMP_DIR) of
 	false ->
 	    file:make_dir(?TEMP_DIR);
@@ -188,8 +194,15 @@ get_log_dir(_,PrivDir,NodeName) ->
     file:make_dir(LogDir),
     LogDir.
 
-run_test(_Name, FileName, Config)->
-    [{FileName, ok}] = ct_test_support:run(ct_master, run, [FileName], Config).
+run_test(_Name, FileName, Config) ->
+    %% run the test twice, using different html versions
+    [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
+					  [{ct_master,basic_html,[true]}],
+					  Config),
+    timer:sleep(5000),
+    [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
+					  [{ct_master,basic_html,[false]}],
+					  Config).
 
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
@@ -220,5 +233,5 @@ add_host(NodeName) ->
     {ok, HostName} = inet:gethostname(),
     list_to_atom(atom_to_list(NodeName)++"@"++HostName).
     
-expected_events(_)->
+expected_events(_) ->
     [].
