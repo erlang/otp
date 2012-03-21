@@ -486,15 +486,19 @@ app_set_config_only(Mods,#app{name                 = Name,
 				  vsn                  = Vsn,
 				  mods                 = Mods},
 
-    %% Some fields shall only be set if it is an escript, e.g. label
-    %% must never be set for any other applications since that will
-    %% prevent refreshing.
     if IsEscript ->
+	    %% Some fields shall only be set if it is an escript, e.g. label
+	    %% must never be set for any other applications since that will
+	    %% prevent refreshing.
 	    App#app{is_escript  = IsEscript,
 		    active_dir  = ActiveDir,
 		    sorted_dirs = SortedDirs,
 		    label       = Label,
 		    info        = Info};
+       UseSelectedVsn =:= dir ->
+	    %% Must not loose active_dir if it is configured to be used
+	    App#app{active_dir = ActiveDir,
+		    sorted_dirs = [ActiveDir]};
        true ->
 	    App
     end.
@@ -1280,11 +1284,11 @@ shrink_app(A) ->
             {Dir, Dirs, OptVsn} =
                 case A#app.use_selected_vsn of
                     undefined ->
-			{shrinked, [], undefined};
-                    false ->
-			{shrinked, [], undefined};
-                    true ->
-			{A#app.active_dir, [A#app.active_dir], A#app.vsn}
+			{undefined, [], undefined};
+                    vsn ->
+			{undefined, [], A#app.vsn};
+                    dir ->
+			{A#app.active_dir, [A#app.active_dir], undefined}
                 end,
             A#app{active_dir = Dir,
 		  sorted_dirs = Dirs,
@@ -1489,8 +1493,21 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
 			    dec_re(Key, Val, App#app.excl_archive_filters)};
             archive_opts when is_list(Val) ->
                 App#app{archive_opts = Val};
-            vsn when is_list(Val) ->
-                App#app{use_selected_vsn = true, vsn = Val};
+            vsn when is_list(Val), App#app.use_selected_vsn=:=undefined ->
+		App#app{use_selected_vsn = vsn, vsn = Val};
+	    lib_dir when is_list(Val), App#app.use_selected_vsn=:=undefined ->
+		case filelib:is_dir(Val) of
+		    true ->
+			App#app{use_selected_vsn = dir,
+				active_dir = Val,
+				sorted_dirs = [Val]};
+		    false ->
+			reltool_utils:throw_error("Illegal lib dir for ~p: ~p",
+						  [App#app.name, Val])
+		end;
+	    SelectVsn when SelectVsn=:=vsn; SelectVsn=:=lib_dir ->
+		reltool_utils:throw_error("Mutual exclusive options "
+					  "'vsn' and 'lib_dir'",[]);
             _ ->
 		reltool_utils:throw_error("Illegal option: ~p", [{Key, Val}])
         end,
@@ -1838,7 +1855,10 @@ merge_app_dirs([{Name, Dir} | Rest], Apps) ->
 merge_app_dirs([], Apps) ->
     set_active_dirs(Apps).
 
-%% First dir, i.e. the one with highest version, is set to active dir
+%% First dir, i.e. the one with highest version, is set to active dir,
+%% unless a specific dir is given in config
+set_active_dirs([#app{use_selected_vsn = dir} = App | Apps]) ->
+    [App | set_active_dirs(Apps)];
 set_active_dirs([#app{sorted_dirs = [ActiveDir|_]} = App | Apps]) ->
     [App#app{active_dir = ActiveDir} | set_active_dirs(Apps)];
 set_active_dirs([#app{sorted_dirs = []} = App | Apps]) ->
@@ -1902,6 +1922,8 @@ ensure_app_info(#app{name = Name, sorted_dirs = []}, _Status) ->
     reltool_utils:throw_error("~p: : Missing application directory.",[Name]);
 ensure_app_info(#app{name = Name,
 		     vsn = Vsn,
+		     use_selected_vsn = UseSelectedVsn,
+		     active_dir = ActiveDir,
 		     sorted_dirs = Dirs,
 		     info = undefined},
 		Status) ->
@@ -1929,19 +1951,28 @@ ensure_app_info(#app{name = Name,
     FirstInfo = hd(AllInfo),
     FirstDir = hd(Dirs),
     if
-        Vsn =:= undefined ->
-            {FirstInfo, FirstDir, Status3};
-        Vsn =:= FirstInfo#app_info.vsn ->
-            {FirstInfo, FirstDir, Status3};
-        true ->
-            case find_vsn(Vsn, AllInfo, Dirs) of
-                {Info, VsnDir} ->
-                    {Info, VsnDir, Status3};
-                false ->
-		    reltool_utils:throw_error(
-		      "~p: No application directory contains selected version ~p",
-		      [Name,Vsn])
-            end
+        UseSelectedVsn =:= dir ->
+	    if ActiveDir =:= FirstDir ->
+		    {FirstInfo, FirstDir, Status3};
+	       true ->
+		    Info = find_dir(ActiveDir, AllInfo, Dirs),
+		    {Info, ActiveDir, Status3}
+	    end;
+        UseSelectedVsn =:= vsn ->
+	    if Vsn =:= FirstInfo#app_info.vsn ->
+		    {FirstInfo, FirstDir, Status3};
+	       true ->
+		    case find_vsn(Vsn, AllInfo, Dirs) of
+			{Info, VsnDir} ->
+			    {Info, VsnDir, Status3};
+			false ->
+			    reltool_utils:throw_error(
+			      "~p: No application directory contains "
+			      "selected version ~p", [Name,Vsn])
+		    end
+	    end;
+	true ->
+            {FirstInfo, FirstDir, Status3}
     end;
 ensure_app_info(#app{active_dir = Dir, info = Info}, Status) ->
     {Info, Dir, Status}.
@@ -1952,6 +1983,11 @@ find_vsn(Vsn, [_ | MoreInfo], [_ | MoreDirs]) ->
     find_vsn(Vsn, MoreInfo, MoreDirs);
 find_vsn(_, [], []) ->
     false.
+
+find_dir(Dir, [Info | _], [Dir | _]) ->
+    Info;
+find_dir(Dir, [_ | MoreInfo], [_ | MoreDirs]) ->
+    find_dir(Dir, MoreInfo, MoreDirs).
 
 get_base(Name, Dir) ->
     case Name of

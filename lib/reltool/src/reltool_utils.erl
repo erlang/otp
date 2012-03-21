@@ -256,7 +256,7 @@ app_dir_test(Dir1, Dir2) ->
 	Name1 > Name2 -> false;
 	Vsn1 < Vsn2 -> false;
 	Vsn1 > Vsn2 -> true;
-	Parent1 < Parent2 -> true;
+	Parent1 =< Parent2 -> true;
 	true -> false
     end.
 

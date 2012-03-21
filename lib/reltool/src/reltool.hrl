@@ -63,6 +63,7 @@
 -type mod()              :: {incl_cond, incl_cond()}
                           | {debug_info, debug_info()}.
 -type app()              :: {vsn, app_vsn()}
+			  | {lib_dir, lib_dir()}
                           | {mod, mod_name(), [mod()]}
                           | {mod_cond, mod_cond()}
                           | {incl_cond, incl_cond()}
@@ -169,7 +170,7 @@
         { %% Static info
           name             :: app_name(),
           is_escript       :: boolean() | {inlined, escript_app_name()},
-          use_selected_vsn :: boolean() | undefined,
+          use_selected_vsn :: vsn | dir | undefined,
           active_dir       :: dir(),
           sorted_dirs      :: [dir()],
           vsn              :: app_vsn(),

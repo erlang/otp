@@ -88,7 +88,8 @@ all() ->
      reset_config_and_undo,
      gen_rel_files,
      save_config,
-     dependencies].
+     dependencies,
+     use_selected_vsn].
 
 groups() -> 
     [].
@@ -150,10 +151,15 @@ get_config(_Config) ->
     StdVsn = latest(stdlib),
     SaslVsn = latest(sasl),
 
+    LibDir = code:lib_dir(),
+    KLibDir = filename:join(LibDir,"kernel-"++KVsn),
+    StdLibDir = filename:join(LibDir,"stdlib-"++StdVsn),
+    SaslLibDir = filename:join(LibDir,"sasl-"++SaslVsn),
+
     Sys = {sys,[{incl_cond, exclude},
 		{app,kernel,[{incl_cond,include}]},
 		{app,sasl,[{incl_cond,include},{vsn,SaslVsn}]},
-		{app,stdlib,[{incl_cond,include}]}]},
+		{app,stdlib,[{incl_cond,include},{lib_dir,StdLibDir}]}]},
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
     ?m({ok, Sys}, reltool:get_config(Pid)),
     ?m({ok, Sys}, reltool:get_config(Pid,false,false)),
@@ -163,7 +169,8 @@ get_config(_Config) ->
 		    {erts,[]},
 		    {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
 		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},{mod,_,[]}|_]},
-		    {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}},
+		    {app,stdlib,[{incl_cond,include},{lib_dir,StdLibDir},
+				 {mod,_,[]}|_]}]}},
 	  reltool:get_config(Pid,false,true)),
 
     %% Include defaults
@@ -171,9 +178,12 @@ get_config(_Config) ->
 		    {lib_dirs,_},
 		    {mod_cond,all},
 		    {incl_cond,exclude},
-		    {app,kernel,[{incl_cond,include},{vsn,undefined}]},
-		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn}]},
-		    {app,stdlib,[{incl_cond,include},{vsn,undefined}]},
+		    {app,kernel,[{incl_cond,include},{vsn,undefined},
+				 {lib_dir,undefined}]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},
+			       {lib_dir,undefined}]},
+		    {app,stdlib,[{incl_cond,include},{vsn,undefined},
+				 {lib_dir,StdLibDir}]},
 		    {boot_rel,"start_clean"},
 		    {rel,"start_clean","1.0",[]},
 		    {rel,"start_sasl","1.0",[sasl]},
@@ -198,9 +208,12 @@ get_config(_Config) ->
 		    {mod_cond,all},
 		    {incl_cond,exclude},
 		    {erts,[]},
-		    {app,kernel,[{incl_cond,include},{vsn,KVsn},{mod,_,[]}|_]},
-		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},{mod,_,[]}|_]},
-		    {app,stdlib,[{incl_cond,include},{vsn,StdVsn},{mod,_,[]}|_]},
+		    {app,kernel,[{incl_cond,include},{vsn,KVsn},
+				 {lib_dir,KLibDir},{mod,_,[]}|_]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},
+				 {lib_dir,SaslLibDir},{mod,_,[]}|_]},
+		    {app,stdlib,[{incl_cond,include},{vsn,StdVsn},
+				 {lib_dir,StdLibDir},{mod,_,[]}|_]},
 		    {boot_rel,"start_clean"},
 		    {rel,"start_clean","1.0",[]},
 		    {rel,"start_sasl","1.0",[sasl]},
@@ -1804,9 +1817,12 @@ save_config(Config) ->
 		     {lib_dirs,_},
 		     {mod_cond,all},
 		     {incl_cond,exclude},
-		     {app,kernel,[{incl_cond,include},{vsn,undefined}]},
-		     {app,sasl,[{incl_cond,include},{vsn,undefined}]},
-		     {app,stdlib,[{incl_cond,include},{vsn,undefined}]},
+		     {app,kernel,[{incl_cond,include},{vsn,undefined},
+				  {lib_dir,undefined}]},
+		     {app,sasl,[{incl_cond,include},{vsn,undefined},
+				{lib_dir,undefined}]},
+		     {app,stdlib,[{incl_cond,include},{vsn,undefined},
+				  {lib_dir,undefined}]},
 		     {boot_rel,"start_clean"},
 		     {rel,"start_clean","1.0",[]},
 		     {rel,"start_sasl","1.0",[sasl]},
@@ -1827,6 +1843,12 @@ save_config(Config) ->
 
     KVsn = latest(kernel),
     StdVsn = latest(stdlib),
+    SaslVsn = latest(sasl),
+
+    LibDir = code:lib_dir(),
+    KLibDir = filename:join(LibDir,"kernel-"++KVsn),
+    StdLibDir = filename:join(LibDir,"stdlib-"++StdVsn),
+    SaslLibDir = filename:join(LibDir,"sasl-"++SaslVsn),
 
     All = filename:join(PrivDir,"save_all.reltool"),
     ?m(ok, reltool_server:save_config(Pid,All,true,true)),
@@ -1835,9 +1857,12 @@ save_config(Config) ->
 		     {mod_cond,all},
 		     {incl_cond,exclude},
 		     {erts,[]},
-		     {app,kernel,[{incl_cond,include},{vsn,KVsn},{mod,_,[]}|_]},
-		     {app,sasl,[{incl_cond,include},{vsn,_},{mod,_,[]}|_]},
-		     {app,stdlib,[{incl_cond,include},{vsn,StdVsn},{mod,_,[]}|_]},
+		     {app,kernel,[{incl_cond,include},{vsn,KVsn},
+				  {lib_dir,KLibDir},{mod,_,[]}|_]},
+		     {app,sasl,[{incl_cond,include},{vsn,SaslVsn},
+				{lib_dir,SaslLibDir},{mod,_,[]}|_]},
+		     {app,stdlib,[{incl_cond,include},{vsn,StdVsn},
+				  {lib_dir,StdLibDir},{mod,_,[]}|_]},
 		     {boot_rel,"start_clean"},
 		     {rel,"start_clean","1.0",[]},
 		     {rel,"start_sasl","1.0",[sasl]},
@@ -1993,6 +2018,110 @@ dependencies(Config) ->
 
     ?m(ok, reltool:stop(Pid)),
     ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+use_selected_vsn(Config) ->
+    LibDir1 = filename:join(datadir(Config),"use_selected_vsn"),
+    B1Dir = filename:join(LibDir1,"b-1.0"),
+    B3Dir = filename:join(LibDir1,"b-3.0"),
+
+    LibDir2 = filename:join(LibDir1,"lib2"),
+    B2Dir = filename:join(LibDir2,"b-2.0"),
+
+    %%-----------------------------------------------------------------
+    %% Pre-selected vsn of app b
+    Sys1 = {sys,[{lib_dirs,[LibDir1]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,b,[{incl_cond,include},{vsn,"1.0"}]}]},
+    {ok, Pid1} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    {ok,B11} = ?msym({ok,#app{vsn="1.0",active_dir=B1Dir}},
+		     reltool_server:get_app(Pid1,b)),
+
+    %% Change from a pre-selected vsn to use a specific dir
+    ?msym({ok, #app{vsn ="3.0", active_dir = B3Dir}, []},
+	  reltool_server:set_app(Pid1,
+				 B11#app{active_dir = B3Dir,
+					 use_selected_vsn = dir,
+					 label = undefined,
+					 vsn = undefined,
+					 info = undefined})),
+    ?m(ok, reltool:stop(Pid1)),
+
+
+    %%-----------------------------------------------------------------
+    %% Pre-selected vsn of app b
+    Sys2 = {sys,[{lib_dirs,[LibDir1]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,b,[{incl_cond,include},{vsn,"1.0"}]}]},
+    {ok, Pid2} = ?msym({ok, _}, reltool:start_server([{config, Sys2}])),
+    {ok,B21} = ?msym({ok,#app{vsn="1.0",active_dir=B1Dir}},
+		     reltool_server:get_app(Pid2,b)),
+
+    %% Change from a pre-selected vsn to use latest
+    ?msym({ok, #app{vsn ="3.0", active_dir = B3Dir}, []},
+	  reltool_server:set_app(Pid2,
+				 B21#app{use_selected_vsn=undefined,
+					 label = undefined,
+					 vsn = undefined,
+					 info = undefined})),
+    ?m(ok, reltool:stop(Pid2)),
+
+
+    %%-----------------------------------------------------------------
+    %% Pre-selected directory for app b
+    Sys3 = {sys,[{lib_dirs,[LibDir1]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,b,[{incl_cond,include},{lib_dir,B2Dir}]}]},
+    {ok, Pid3} = ?msym({ok, _}, reltool:start_server([{config, Sys3}])),
+%    test_server:break("Pid3 = list_to_pid(\""++pid_to_list(Pid3)++"\")."),
+    ?msym({ok,#app{vsn="2.0",active_dir=B2Dir}},reltool_server:get_app(Pid3,b)),
+    {ok,B31} = ?msym({ok,#app{vsn="2.0",active_dir=B2Dir}},
+		     reltool_server:get_app(Pid3,b)),
+    %% Change from a pre-selected dir to use latest
+    {ok,B32,_} = ?msym({ok, #app{vsn ="3.0", active_dir = B3Dir}, []},
+		       reltool_server:set_app(Pid3,
+					      B31#app{use_selected_vsn=undefined,
+						      label = undefined,
+						      vsn = undefined,
+						      info = undefined})),
+    %% Change back to use selected dir
+    {ok,B33,_} = ?msym({ok, #app{vsn ="3.0", active_dir = B3Dir}, []},
+		       reltool_server:set_app(Pid3,
+					      B32#app{use_selected_vsn = dir})),
+    %% use dir 1
+    {ok,B34,_} = ?msym({ok, #app{vsn ="1.0", active_dir = B1Dir}, []},
+		       reltool_server:set_app(Pid3,
+					      B33#app{active_dir = B1Dir,
+						      label = undefined,
+						      vsn = undefined,
+						      info = undefined})),
+    %% use dir 2
+    {ok,B35,_} = ?msym({ok, #app{vsn ="2.0", active_dir = B2Dir}, []},
+		       reltool_server:set_app(Pid3,
+					      B34#app{active_dir = B2Dir,
+						      label = undefined,
+						      vsn = undefined,
+						      info = undefined})),
+    %% use dir 3
+    ?msym({ok, #app{vsn ="3.0", active_dir = B3Dir}, []},
+	  reltool_server:set_app(Pid3,
+				 B35#app{active_dir = B3Dir,
+					 label = undefined,
+					 vsn = undefined,
+					 info = undefined})),
+    ?m(ok, reltool:stop(Pid3)),
+    ok.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
