@@ -213,22 +213,15 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
 	{'EXIT',Reason} ->
 	    {auto_skip,Reason};
 	{ok,FinalConfig} ->
-	    case MergeResult of
-		{error,Reason} ->
-		    %% suite0 configure finished now, report that 
-		    %% first test case actually failed		    
-		    {skip,Reason};
-		_ ->
-		    case get('$test_server_framework_test') of
-			undefined ->
-			    ct_suite_init(Suite, FuncSpec, FinalConfig);
-			Fun ->
-			    case Fun(init_tc, FinalConfig) of
-				NewConfig when is_list(NewConfig) ->
-				    {ok,NewConfig};
-				Else ->
-				    Else
-			    end
+	    case get('$test_server_framework_test') of
+		undefined ->
+		    ct_suite_init(Suite, FuncSpec, FinalConfig);
+		Fun ->
+		    case Fun(init_tc, FinalConfig) of
+			NewConfig when is_list(NewConfig) ->
+			    {ok,NewConfig};
+			Else ->
+			    Else
 		    end
 	    end
     end.
@@ -346,16 +339,12 @@ get_suite_name(Mod, _) ->
     Mod.
 
 %% Check that alias names are not already in use
-check_for_clashes(TCInfo, GrPathInfo, SuiteInfo) ->
-    {CurrGrInfo,SearchIn} = case GrPathInfo of
-				[] -> {[],[SuiteInfo]};
-				[Curr|Path] -> {Curr,[SuiteInfo|Path]}
-			    end,
+check_for_clashes(TCInfo, [CurrGrInfo|Path], SuiteInfo) ->
     ReqNames = fun(Info) -> [element(2,R) || R <- Info,
 					     size(R) == 3,
 					     require == element(1,R)]
 	       end,
-    ExistingNames = lists:flatten([ReqNames(L)  || L <- SearchIn]),
+    ExistingNames = lists:flatten([ReqNames(L)  || L <- [SuiteInfo|Path]]),
     CurrGrReqNs = ReqNames(CurrGrInfo),
     GrClashes = [Name || Name <- CurrGrReqNs,
 			 true == lists:member(Name, ExistingNames)],
