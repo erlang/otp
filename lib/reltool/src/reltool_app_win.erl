@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -271,8 +271,8 @@ create_apps_list_ctrl(Panel, Sizer, Text) ->
     ListItem  = wxListItem:new(),
     wxListItem:setAlign(ListItem, ?wxLIST_FORMAT_LEFT),
     wxListItem:setText(ListItem, Text),
+    wxListItem:setWidth(ListItem, reltool_utils:get_column_width(ListCtrl)),
     wxListCtrl:insertColumn(ListCtrl, ?APPS_APP_COL, ListItem),
-    %% wxListCtrl:setColumnWidth(ListCtrl, ?APPS_APP_COL, ?APPS_APP_COL_WIDTH),
     wxListItem:destroy(ListItem),
 
     wxSizer:add(Sizer, ListCtrl,
@@ -292,7 +292,7 @@ create_deps_page(S, Derived) ->
 
     UsedByCtrl = create_mods_list_ctrl(Panel,
 				       Main,
-				       "Modules used by others",
+				       "Modules using this",
 				       " and their applications",
 				       undefined,
 				       undefined),

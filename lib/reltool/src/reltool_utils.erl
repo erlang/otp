@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -23,14 +23,15 @@
 	 split_app_name/1, prim_consult/1,
 	 default_rels/0, choose_default/3,
 
-	 assign_image_list/1, get_latest_resize/1,
+	 assign_image_list/1, get_latest_resize/1, wait_for_stop_motion/2,
 	 mod_conds/0, list_to_mod_cond/1, mod_cond_to_index/1,
 	 incl_conds/0, list_to_incl_cond/1, incl_cond_to_index/1, elem_to_index/2,
 	 app_dir_test/2, split_app_dir/1,
 	 get_item/1, get_items/1, get_selected_items/3,
 	 select_items/3, select_item/2,
+	 get_column_width/1,
 
-	 safe_keysearch/5, print/4, return_first_error/2, add_warning/2,
+	 safe_keysearch/5, print/4, add_warning/3,
 
 	 create_dir/1, list_dir/1, read_file_info/1,
 	 write_file_info/2, read_file/1, write_file/2,
@@ -126,18 +127,14 @@ prim_parse(Tokens, Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 default_rels() ->
-    %%Kernel = #rel_app{name = kernel, incl_apps = []},
-    %%Stdlib = #rel_app{name = stdlib, incl_apps = []},
-    Sasl = #rel_app{name = sasl,   incl_apps = []},
+    %% kernel and stdlib are added automatically in every release
     [
      #rel{name = ?DEFAULT_REL_NAME,
 	  vsn = "1.0",
 	  rel_apps = []},
-	  %%rel_apps = [Kernel, Stdlib]},
      #rel{name = "start_sasl",
 	  vsn = "1.0",
-	  rel_apps = [Sasl]}
-	  %%rel_apps = [Kernel, Sasl, Stdlib]}
+	  rel_apps = [#rel_app{name = sasl}]}
     ].
 
 choose_default(Tag, Profile, InclDefs)
@@ -187,6 +184,16 @@ get_latest_resize(#wx{obj = ObjRef, event = #wxSize{}} = Wx) ->
 	    get_latest_resize(Wx2)
     after 10 ->
 	    Wx
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+wait_for_stop_motion(ObjRef, {_,_}=Pos) ->
+    receive
+	#wx{obj = ObjRef, event = #wxMouse{type = motion, x=X, y=Y}} ->
+	    wait_for_stop_motion(ObjRef, {X,Y})
+    after 100 ->
+	    Pos
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -377,6 +384,26 @@ select_item(ListCtrl, [{ItemNo, Text} | Items]) ->
 select_item(_ListCtrl, []) ->
     ok.
 
+get_column_width(ListCtrl) ->
+    wx:batch(fun() ->
+		     {Total, _} = wxWindow:getClientSize(ListCtrl),
+		     Total - scroll_size(ListCtrl)
+	     end).
+
+scroll_size(ObjRef) ->
+    case os:type() of
+	{win32, nt} -> 0;
+	{unix, darwin} ->
+	    %% I can't figure out is there is a visible scrollbar
+	    %% Always make room for it
+	    wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+	_ ->
+	    case wxWindow:hasScrollbar(ObjRef, ?wxVERTICAL) of
+		true -> wxSystemSettings:getMetric(?wxSYS_VSCROLL_X);
+		false -> 0
+	    end
+    end.
+
 safe_keysearch(Key, Pos, List, Mod, Line) ->
     case lists:keysearch(Key, Pos, List) of
         false ->
@@ -392,31 +419,13 @@ print(X, X, Format, Args) ->
 print(_, _, _, _) ->
     ok.
 
-%% -define(SAFE(M,F,A), safe(M, F, A, ?MODULE, ?LINE)).
-%%
-%% safe(M, F, A, Mod, Line) ->
-%%     case catch apply(M, F, A) of
-%%      {'EXIT', Reason} ->
-%%          io:format("~p(~p): ~p:~p~p -> ~p\n", [Mod, Line, M, F, A, Reason]),
-%%          timer:sleep(infinity);
-%%      Res ->
-%%          Res
-%%     end.
-
-return_first_error(Status, NewError) when is_list(NewError) ->
-    case Status of
-	{ok, _Warnings} ->
-	    {error, NewError};
-	{error, OldError} ->
-	    {error, OldError}
-    end.
-
-add_warning(Status, Warning) ->
-    case Status of
-	{ok, Warnings} ->
-	    {ok, [Warning | Warnings]};
-	{error, Error} ->
-	    {error, Error}
+add_warning(Format, Args, {ok,Warnings}) ->
+    Warning = lists:flatten(io_lib:format(Format,Args)),
+    case lists:member(Warning,Warnings) of
+	true ->
+	    {ok,Warnings};
+	false ->
+	    {ok,[Warning|Warnings]}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

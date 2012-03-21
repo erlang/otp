@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -56,7 +56,9 @@
          derived,
          fgraph_wins,
 	 app_box,
-	 mod_box
+	 mod_box,
+	 warning_list,
+	 warning_wins
         }).
 
 -define(WIN_WIDTH, 800).
@@ -87,6 +89,10 @@
 -define(whitelist, "Included").
 -define(blacklist, "Excluded").
 -define(derived, "Derived").
+
+-define(WARNING_COL, 0).
+-define(DEFAULT_WARNING_TIP, "Warnings are listed in this window").
+-define(WARNING_POPUP_SIZE, {400,150}).
 
 -define(safe_config,{sys,[{incl_cond,exclude},
 			  {app,kernel,[{incl_cond,include}]},
@@ -141,48 +147,44 @@ do_init([{safe_config, Safe}, {parent, Parent} | Options]) ->
             wx:debug(C#common.wx_debug),
 
             %% wx_misc:beginBusyCursor(),
-	    case reltool_server:get_status(ServerPid) of
-		{ok, Warnings} ->
-		    exit_dialog(Warnings),
-		    {ok, Sys}  = reltool_server:get_sys(ServerPid),
-		    S = #state{parent_pid = Parent,
-			       server_pid = ServerPid,
-			       common = C,
-			       config_file = filename:absname("config.reltool"),
-			       target_dir = filename:absname("reltool_target_dir"),
-			       app_wins = [],
-			       sys = Sys,
-			       fgraph_wins = []},
-		    S2 = create_window(S),
-		    S5 = wx:batch(fun() ->
-					  Title = atom_to_list(?APPLICATION),
-					  wxFrame:setTitle(S2#state.frame,
-							   Title),
-					  %% wxFrame:setMinSize(Frame,
-					  %% {?WIN_WIDTH, ?WIN_HEIGHT}),
-					  wxStatusBar:setStatusText(
-					    S2#state.status_bar,
-					    "Done."),
-					  S3 = redraw_apps(S2),
-					  S4 = redraw_libs(S3),
-					  redraw_config_page(S4)
-				  end),
-		    %% wx_misc:endBusyCursor(),
-		    %% wxFrame:destroy(Frame),
-		    proc_lib:init_ack(S#state.parent_pid, {ok, self()}),
-		    loop(S5);
-		{error, Reason} ->
-		    restart_server_safe_config(Safe,Parent,Reason)
-	    end;
+	    {ok, Warnings} = reltool_server:get_status(ServerPid),
+	    exit_dialog(Warnings),
+	    S = #state{parent_pid = Parent,
+		       server_pid = ServerPid,
+		       common = C,
+		       config_file = filename:absname("config.reltool"),
+		       target_dir = filename:absname("reltool_target_dir"),
+		       app_wins = [],
+		       sys = Sys,
+		       fgraph_wins = [],
+		       warning_wins = []},
+	    S2 = create_window(S),
+	    S5 = wx:batch(fun() ->
+				  Title = atom_to_list(?APPLICATION),
+				  wxFrame:setTitle(S2#state.frame,
+						   Title),
+				  %% wxFrame:setMinSize(Frame,
+				  %% {?WIN_WIDTH, ?WIN_HEIGHT}),
+				  wxStatusBar:setStatusText(
+				    S2#state.status_bar,
+				    "Done."),
+				  S3 = redraw_apps(S2),
+				  S4 = redraw_libs(S3),
+				  redraw_config_page(S4)
+			  end),
+	    %% wx_misc:endBusyCursor(),
+	    %% wxFrame:destroy(Frame),
+	    proc_lib:init_ack(S#state.parent_pid, {ok, self()}),
+	    loop(S5);
 	{error, Reason} ->
-	    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
-	    exit(Reason)
+	    restart_server_safe_config(Safe,Parent,Reason)
     end.
 
-restart_server_safe_config(true,_Parent,Reason) ->
+restart_server_safe_config(true,Parent,Reason) ->
     io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
-    exit(Reason);
+    proc_lib:init_ack(Parent, {error,Reason});
 restart_server_safe_config(false,Parent,Reason) ->
+    wx:new(),
     Strings =
 	[{?wxBLACK,"Could not start reltool server:\n\n"},
 	 {?wxRED,Reason++"\n\n"},
@@ -197,7 +199,7 @@ restart_server_safe_config(false,Parent,Reason) ->
 	    do_init([{safe_config,true},{parent,Parent},?safe_config]);
 	?wxID_CANCEL ->
 	    io:format("~p(~p): <ERROR> ~p\n", [?MODULE, ?LINE, Reason]),
-	    exit(Reason)
+	    proc_lib:init_ack(Parent,{error,Reason})
     end.
 
 exit_dialog([]) ->
@@ -240,10 +242,18 @@ loop(S) ->
 				lists:keydelete(ObjRef, #fgraph_win.frame, FWs),
                             ?MODULE:loop(S#state{fgraph_wins = FWs2});
                         false ->
-                            error_logger:format("~p~p got unexpected "
-						"message:\n\t~p\n",
-                                                [?MODULE, self(), Msg]),
-                            ?MODULE:loop(S)
+			    WWs = S#state.warning_wins,
+			    case lists:member(ObjRef, WWs) of
+				true ->
+				    wxFrame:destroy(ObjRef),
+				    WWs2 = lists:delete(ObjRef, WWs),
+				    ?MODULE:loop(S#state{warning_wins = WWs2});
+				false ->
+				    error_logger:format("~p~p got unexpected "
+							"message:\n\t~p\n",
+							[?MODULE, self(), Msg]),
+				    ?MODULE:loop(S)
+			    end
                     end
             end;
         #wx{id = ?CLOSE_ITEM,
@@ -297,8 +307,8 @@ handle_child_exit({'EXIT', Pid, _Reason} = Exit, FWs, AWs) ->
                     msg_warning(Exit, application_window),
                     {FWs, lists:keydelete(Pid, #app_win.pid, AWs)};
                 false ->
-                    msg_warning(Exit, unknown),
-                    {FWs, AWs}
+		    msg_warning(Exit, unknown),
+		    {FWs, AWs}
             end
     end.
 
@@ -340,8 +350,12 @@ create_window(S) ->
 		      fun create_main_release_page/1,
 		      fun create_config_page/1
 		     ]),
+
+    S4 = create_warning_list(S3),
+
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, Book, [{flag, ?wxEXPAND}, {proportion, 1}]),
+    wxSizer:add(Sizer, S4#state.warning_list, [{flag, ?wxEXPAND}]),
 
     wxPanel:setSizer(Panel, Sizer),
     wxSizer:fit(Sizer, Frame),
@@ -349,7 +363,7 @@ create_window(S) ->
     wxFrame:connect(Frame, close_window),
 
     wxFrame:show(Frame),
-    S3.
+    S4.
 
 create_menubar(Frame) ->
     MenuBar = wxMenuBar:new(),
@@ -444,6 +458,7 @@ create_app_list_ctrl(Panel, OuterSz, Title, Tick, Cross) ->
     ListItem  = wxListItem:new(),
     wxListItem:setAlign(ListItem, ?wxLIST_FORMAT_LEFT),
     wxListItem:setText(ListItem, Title),
+    wxListItem:setWidth(ListItem, reltool_utils:get_column_width(ListCtrl)),
     wxListCtrl:insertColumn(ListCtrl, ?APPS_APP_COL, ListItem),
     wxListItem:destroy(ListItem),
 
@@ -642,6 +657,49 @@ redraw_config_page(#state{sys = Sys, app_box = AppBox, mod_box = ModBox} = S) ->
     wxRadioBox:setSelection(ModBox, ModChoice),
     S.
 
+create_warning_list(#state{panel = Panel} = S) ->
+    ListCtrl = wxListCtrl:new(Panel,
+                              [{style,
+				?wxLC_REPORT bor
+				    ?wxLC_HRULES bor
+				    ?wxVSCROLL},
+			       {size, {?WIN_WIDTH,80}}]),
+    reltool_utils:assign_image_list(ListCtrl),
+    wxListCtrl:insertColumn(ListCtrl, ?WARNING_COL, "Warnings",
+			    [{format,?wxLIST_FORMAT_LEFT},
+			     {width,reltool_utils:get_column_width(ListCtrl)}]),
+    wxListCtrl:setToolTip(ListCtrl, ?DEFAULT_WARNING_TIP),
+    wxEvtHandler:connect(ListCtrl, size,
+			 [{skip, true}, {userData, warnings}]),
+    wxEvtHandler:connect(ListCtrl, command_list_item_activated,
+			 [{userData, warnings}]),
+    wxEvtHandler:connect(ListCtrl, motion, [{userData, warnings}]),
+    wxEvtHandler:connect(ListCtrl, enter_window),
+    S#state{warning_list=ListCtrl}.
+
+redraw_warnings(S) ->
+    {ok,Warnings} = reltool_server:get_status(S#state.server_pid),
+    redraw_warnings(S#state.warning_list,Warnings),
+    length(Warnings).
+
+redraw_warnings(ListCtrl, []) ->
+    wxListCtrl:deleteAllItems(ListCtrl),
+    ok;
+redraw_warnings(ListCtrl, Warnings) ->
+    wxListCtrl:deleteAllItems(ListCtrl),
+    Show = fun(Warning, Row) ->
+		   wxListCtrl:insertItem(ListCtrl, Row, ""),
+		   wxListCtrl:setItem(ListCtrl,
+				      Row,
+				      ?WARNING_COL,
+				      Warning,
+				      [{imageId, ?WARN_IMAGE}]),
+		   Row + 1
+	   end,
+    wx:foldl(Show, 0, Warnings),
+    ok.
+
+
 create_main_release_page(#state{book = Book} = S) ->
     Panel = wxPanel:new(Book, []),
     RelBook = wxNotebook:new(Panel, ?wxID_ANY, []),
@@ -783,6 +841,9 @@ escript_popup(S, File, Tree, Item) ->
 handle_event(S, #wx{id = Id, obj= ObjRef, userData = UserData, event = Event} = _Wx) ->
     %% io:format("wx: ~p\n", [Wx]),
     case Event of
+	_ when UserData =:= warnings;
+	       is_tuple(UserData), element(1,UserData)=:=warning ->
+	    handle_warning_event(S, ObjRef, UserData, Event);
 	#wxSize{type = size, size = {W, _H}} when UserData =:= app_list_ctrl ->
 	    wxListCtrl:setColumnWidth(ObjRef, ?APPS_APP_COL, W),
 	    S;
@@ -848,7 +909,9 @@ handle_event(S, #wx{id = Id, obj= ObjRef, userData = UserData, event = Event} = 
         when S#state.popup_menu =/= undefined ->
             handle_popup_event(S, Type, Id, ObjRef, UserData, Str);
 	#wxMouse{type = enter_window} ->
-	    wxWindow:setFocus(ObjRef),
+	    %% The following is commented out because it raises the
+	    %% main system window on top of popup windows.
+	    %% wxWindow:setFocus(ObjRef),
 	    S;
         _ ->
 	    case wxNotebook:getPageText(S#state.book,
@@ -859,6 +922,110 @@ handle_event(S, #wx{id = Id, obj= ObjRef, userData = UserData, event = Event} = 
 		?REL_PAGE -> handle_release_event(S, Event, ObjRef, UserData)
             end
     end.
+
+handle_warning_event(S, ObjRef, _, #wxSize{type = size}) ->
+    ColumnWidth = reltool_utils:get_column_width(ObjRef),
+    wxListCtrl:setColumnWidth(ObjRef, ?WARNING_COL, ColumnWidth),
+    S;
+handle_warning_event(S, ObjRef, _, #wxMouse{type = motion, x=X, y=Y}) ->
+    Pos = reltool_utils:wait_for_stop_motion(ObjRef, {X,Y}),
+    warning_list_set_tool_tip(os:type(),ObjRef,Pos),
+    S;
+handle_warning_event(S, ObjRef, _, #wxList{type = command_list_item_activated,
+					itemIndex = Pos}) ->
+    Text = wxListCtrl:getItemText(ObjRef, Pos),
+    S#state{warning_wins = [display_warning(S,Text) | S#state.warning_wins]};
+handle_warning_event(S, _ObjRef, {warning,Frame},
+		     #wxCommand{type = command_button_clicked}) ->
+    wxFrame:destroy(Frame),
+    S#state{warning_wins = lists:delete(Frame,S#state.warning_wins)}.
+
+warning_list_set_tool_tip({win32,_},ListCtrl,{_X,Y}) ->
+    case win_find_item(ListCtrl,Y,0) of
+	-1 ->
+	    wxListCtrl:setToolTip(ListCtrl,?DEFAULT_WARNING_TIP);
+	_Index ->
+	    %% The following is commented out because there seems to
+	    %% be an utomatic tooltip under Windows that shows the
+	    %% expanded list item in case it is truncated because it
+	    %% is too long for column width.
+	    %% Tip =
+	    %% 	case wxListCtrl:getItemText(ListCtrl,Index) of
+	    %% 	    "" ->
+	    %% 		?DEFAULT_WARNING_TIP;
+	    %% 	    Text ->
+	    %% 		"WARNING:\n" ++ Text
+	    %% 	end,
+	    %% wxListCtrl:setToolTip(ListCtrl,Tip),
+	    ok
+    end;
+warning_list_set_tool_tip(_,ListCtrl,Pos) ->
+    case wxListCtrl:findItem(ListCtrl,-1,Pos,0) of
+	Index when Index >= 0 ->
+	    Tip =
+		case wxListCtrl:getItemText(ListCtrl,Index) of
+		    "" ->
+			?DEFAULT_WARNING_TIP;
+		    Text ->
+			"WARNING:\n" ++ Text
+		end,
+	    wxListCtrl:setToolTip(ListCtrl, Tip);
+	_ ->
+	    ok
+    end.
+
+win_find_item(ListCtrl,YPos,Index) ->
+    case wxListCtrl:getItemRect(ListCtrl,Index) of
+	{true,{_,Y,_,H}} when YPos>=Y, YPos=<Y+H ->
+	    Index;
+	{true,_} ->
+	    win_find_item(ListCtrl,YPos,Index+1);
+	{false,_} ->
+	    -1
+    end.
+
+display_warning(S,Warning) ->
+    Pos = warning_popup_position(S,?WARNING_POPUP_SIZE),
+    Frame = wxFrame:new(wx:null(), ?wxID_ANY, "Warning",[{pos,Pos}]),
+    Panel = wxPanel:new(Frame, []),
+    TextStyle = ?wxTE_READONLY bor ?wxTE_WORDWRAP bor ?wxTE_MULTILINE,
+    Text = wxTextCtrl:new(Panel, ?wxID_ANY, [{value, Warning},
+					     {style, TextStyle},
+					     {size, ?WARNING_POPUP_SIZE}]),
+    Attr = wxTextAttr:new(),
+    wxTextAttr:setLeftIndent(Attr,10),
+    wxTextAttr:setRightIndent(Attr,10),
+    true = wxTextCtrl:setDefaultStyle(Text, Attr),
+    wxTextAttr:destroy(Attr),
+    Sizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:add(Sizer, Text, [{border, 2},
+			      {flag, ?wxEXPAND bor ?wxALL},
+			      {proportion, 1}]),
+
+    Close  = wxButton:new(Panel, ?wxID_ANY, [{label, "Close"}]),
+    wxButton:setToolTip(Close, "Close window."),
+    wxButton:connect(Close, command_button_clicked, [{userData,{warning,Frame}}]),
+    wxSizer:add(Sizer, Close, [{flag, ?wxALIGN_CENTER_HORIZONTAL}]),
+
+    wxPanel:setSizer(Panel, Sizer),
+    wxSizer:fit(Sizer, Frame),
+    wxSizer:setSizeHints(Sizer, Frame),
+    wxFrame:connect(Frame, close_window),
+
+    wxFrame:show(Frame),
+    Frame.
+
+warning_popup_position(#state{frame=MF,warning_list=WL},{WFW,WFH}) ->
+    {MFX,MFY} = wxWindow:getPosition(MF),
+    {MFW,MFH} = wxWindow:getSize(MF),
+    {_WLW,WLH} = wxWindow:getSize(WL),
+
+    %% Position the popup in the middle of the main frame, above the
+    %% warning list, and with a small offset from the exact middle...
+    Offset = 50,
+    X = MFX + (MFW-WFW) div 2 - Offset,
+    Y = MFY + (MFH-WLH-WFH) div 2 - Offset,
+    {X,Y}.
 
 handle_popup_event(S, _Type, 0, _ObjRef, _UserData, _Str) ->
     S#state{popup_menu = undefined};
@@ -1079,16 +1246,16 @@ handle_app_event(S, Event, ObjRef, UserData) ->
                         [?MODULE, self(), ObjRef, UserData, Event]),
     S.
 
-handle_app_button(#state{server_pid = ServerPid, app_wins = AppWins} = S,
+handle_app_button(#state{server_pid = ServerPid,
+			 status_bar = Bar,
+			 app_wins = AppWins} = S,
 		  Items,
 		  Action) ->
+    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
     NewApps = [move_app(S, Item, Action) || Item <- Items],
     case reltool_server:set_apps(ServerPid, NewApps) of
-	{ok, []} ->
+	{ok, _Warnings} ->
 	    ok;
-	{ok, Warnings} ->
-	    Msg = lists:flatten([[W, $\n] || W <- Warnings]),
-	    display_message(Msg, ?wxICON_WARNING);
 	{error, Reason} ->
 	    display_message(Reason, ?wxICON_ERROR)
     end,
@@ -1125,23 +1292,22 @@ move_app(S, {_ItemNo, AppBase}, Action) ->
         end,
     OldApp#app{incl_cond = AppCond}.
 
-do_set_app(#state{server_pid = ServerPid, app_wins = AppWins} = S, NewApp) ->
+do_set_app(#state{server_pid = ServerPid,
+		  status_bar = Bar,
+		  app_wins = AppWins} = S, NewApp) ->
+    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
     Result = reltool_server:set_app(ServerPid, NewApp),
-    [ok = reltool_app_win:refresh(AW#app_win.pid) || AW <- AppWins],
-    S2 = redraw_apps(S),
     ReturnApp =
 	case Result of
-	    {ok, AnalysedApp, []} ->
-		AnalysedApp;
-	    {ok, AnalysedApp, Warnings} ->
-		Msg = lists:flatten([[W, $\n] || W <- Warnings]),
-		display_message(Msg, ?wxICON_WARNING),
+	    {ok, AnalysedApp, _Warnings} ->
 		AnalysedApp;
 	    {error, Reason} ->
 		display_message(Reason, ?wxICON_ERROR),
 		{ok,OldApp} = reltool_server:get_app(ServerPid, NewApp#app.name),
 		OldApp
 	end,
+    [ok = reltool_app_win:refresh(AW#app_win.pid) || AW <- AppWins],
+    S2 = redraw_apps(S),
     {ok, ReturnApp, S2}.
 
 redraw_apps(#state{server_pid = ServerPid,
@@ -1164,8 +1330,14 @@ redraw_apps(#state{server_pid = ServerPid,
     WhiteN = redraw_apps(WhiteApps, WhiteCtrl, ?TICK_IMAGE, ?ERR_IMAGE),
     redraw_apps(BlackApps2, BlackCtrl, ?CROSS_IMAGE, ?WARN_IMAGE),
     DerivedN = redraw_apps(DerivedApps, DerivedCtrl, ?TICK_IMAGE, ?ERR_IMAGE),
+
+    WarningsN = redraw_warnings(S),
+    WarningText = if WarningsN==1 -> "warning";
+		     true -> "warnings"
+		  end,
     Status = lists:concat([WhiteN, " whitelisted modules and ",
-			   DerivedN, " derived modules."]),
+			   DerivedN, " derived modules, ",
+			   WarningsN, " ", WarningText, "."]),
     wxStatusBar:setStatusText(S#state.status_bar, Status),
     S.
 
@@ -1323,26 +1495,28 @@ save_config(#state{config_file = OldFile} = S, InclDefaults, InclDerivates) ->
             S
     end.
 
-gen_rel_files(#state{target_dir = OldDir} = S) ->
+gen_rel_files(#state{status_bar = Bar, target_dir = OldDir} = S) ->
     Style = ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT,
     case select_dir(S#state.frame,
 		    "Select a directory to generate rel, script and boot files to",
 		    OldDir,
 		    Style) of
         {ok, NewDir} ->
+	    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
             Status = reltool_server:gen_rel_files(S#state.server_pid, NewDir),
             check_and_refresh(S, Status);
         cancel ->
             S
     end.
 
-gen_target(#state{target_dir = OldDir} = S) ->
+gen_target(#state{status_bar = Bar, target_dir = OldDir} = S) ->
     Style = ?wxFD_SAVE bor ?wxFD_OVERWRITE_PROMPT,
     case select_dir(S#state.frame,
 		    "Select a directory to generate a target system to",
 		    OldDir,
 		    Style) of
         {ok, NewDir} ->
+	    wxStatusBar:setStatusText(Bar, "Processing libraries..."),
             Status = reltool_server:gen_target(S#state.server_pid, NewDir),
             check_and_refresh(S#state{target_dir = NewDir}, Status);
         cancel ->
@@ -1380,8 +1554,8 @@ check_and_refresh(S, Status) ->
     case Status of
         ok ->
             true;
-        {ok, Warnings} ->
-            undo_dialog(S, Warnings);
+        {ok, _Warnings} ->
+	    true;
         {error, Reason} when is_list(Reason) ->
             display_message(Reason, ?wxICON_ERROR),
 	    false;
@@ -1435,19 +1609,6 @@ question_dialog(Question, Details) ->
     wxDialog:destroy(Dialog),
     Answer.
 
-undo_dialog(_S, []) ->
-    true;
-undo_dialog(S, Warnings) ->
-    Question = "Do you want to perform the update despite these warnings?",
-    Details = lists:flatten([[W, $\n] || W <- Warnings]),
-    case question_dialog(Question, Details) of
-        ?wxID_OK ->
-            true;
-        ?wxID_CANCEL  ->
-            reltool_server:undo_config(S#state.server_pid),
-            false
-    end.
-
 display_message(Message, Icon) ->
     Dialog = wxMessageDialog:new(wx:null(),
                                  Message,
@@ -1489,8 +1650,6 @@ add_text(Text,Attr,[{Color,String}|Strings]) ->
     add_text(Text,Attr,Strings);
 add_text(_,_,[]) ->
     ok.
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

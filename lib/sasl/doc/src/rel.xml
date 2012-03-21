@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1997</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -88,7 +88,7 @@
         <p>The list must be a subset of the included applications
           specified in the application resource file
           (<c>Application.app</c>) and overrides this value. Defaults
-          to the empty list.</p>
+          to the same value as in the application resource file.</p>
       </item>
     </list>
     <note>

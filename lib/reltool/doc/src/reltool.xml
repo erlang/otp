@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -433,7 +433,7 @@ sys()               = {root_dir, root_dir()}
                     | {excl_archive_filters, excl_archive_filters()}
                     | {archive_opts, [archive_opt()]}
 app()               = {vsn, app_vsn()}
-                    | {mod, mod_name(), mod()}
+                    | {mod, mod_name(), [mod()]}
                     | {mod_cond, mod_cond()}
                     | {incl_cond, incl_cond()}
                     | {debug_info, debug_info()}
@@ -445,8 +445,7 @@ app()               = {vsn, app_vsn()}
                     | {incl_archive_filters, incl_archive_filters()}
                     | {excl_archive_filters, excl_archive_filters()}
                     | {archive_opts, [archive_opt()]}
-mod()               = {vsn, app_vsn()}
-                    | {incl_cond, incl_cond()}
+mod()               = {incl_cond, incl_cond()}
                     | {debug_info, debug_info()}
 rel_app()           = app_name()
                     | {app_name(), app_type()} 
@@ -664,10 +663,10 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
-      <name>install(Server, TargetDir) -> ok | {error, Reason}</name>
+      <name>install(RelName, TargetDir) -> ok | {error, Reason}</name>
       <fsummary>Install a target system</fsummary>
       <type>
-        <v>Server     = server()</v>
+        <v>RelName    = rel_name()</v>
         <v>TargetDir  = target_dir()</v>
         <v>Reason     = reason()</v>
       </type>

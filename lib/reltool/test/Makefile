@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2009-2011. All Rights Reserved.
+# Copyright Ericsson AB 2009-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -28,6 +28,7 @@ MODULES= \
 	reltool_app_SUITE \
 	reltool_wx_SUITE \
 	reltool_server_SUITE \
+	reltool_manual_gui_SUITE \
 	reltool_test_lib
 
 
