@@ -25,6 +25,8 @@
 	     ct_framework,
 	     ct_ftp,
 	     ct_gen_conn,
+             ct_hooks,
+             ct_hooks_lock,
 	     ct_logs,
 	     ct_make,
 	     ct_master,
@@ -45,7 +47,9 @@
 	     ct_config,
 	     ct_config_plain,
 	     ct_config_xml,
-	     ct_slave
+	     ct_slave,
+             cth_log_redirect,
+             cth_surefire
 	    ]},
   {registered, [ct_logs,
 		ct_util_server,
