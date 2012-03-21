@@ -1052,6 +1052,10 @@ init_emulator(void)
 #endif
 
 #ifdef USE_VM_PROBES
+#  define USE_VM_CALL_PROBES
+#endif
+
+#ifdef USE_VM_CALL_PROBES
 
 #define DTRACE_CALL(p, m, f, a)                                 \
     if (DTRACE_ENABLED(function_entry)) {                       \
@@ -1504,6 +1508,7 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_only_f): {
      SET_I((BeamInstr *) Arg(0));
+     DTRACE_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1515,6 +1520,7 @@ void process_main(void)
      RESTORE_CP(E);
      E = ADD_BYTE_OFFSET(E, Arg(1));
      SET_I((BeamInstr *) Arg(0));
+     DTRACE_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1526,6 +1532,7 @@ void process_main(void)
  OpCase(i_call_f): {
      SET_CP(c_p, I+2);
      SET_I((BeamInstr *) Arg(0));
+     DTRACE_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1542,6 +1549,12 @@ void process_main(void)
      * is not loaded, it points to code which will invoke the error handler
      * (see lb_call_error_handler below).
      */
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(function_entry)) {
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	DTRACE_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+    }
+#endif
     Dispatchx();
 
  OpCase(i_move_call_ext_cre): {
@@ -1551,6 +1564,12 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_ext_e):
     SET_CP(c_p, I+2);
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(function_entry)) {
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	DTRACE_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+    }
+#endif
     Dispatchx();
 
  OpCase(i_move_call_ext_only_ecr): {
@@ -1558,6 +1577,12 @@ void process_main(void)
  }
  /* FALL THROUGH */
  OpCase(i_call_ext_only_e):
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(function_entry)) {
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	DTRACE_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+    }
+#endif
     Dispatchx();
 
  OpCase(init_y): {
@@ -1593,12 +1618,12 @@ void process_main(void)
 
 
  OpCase(return): {
-#ifdef USE_VM_PROBES
+#ifdef USE_VM_CALL_PROBES
     BeamInstr* fptr;
 #endif
     SET_I(c_p->cp);
 
-#ifdef USE_VM_PROBES
+#ifdef USE_VM_CALL_PROBES
     if (DTRACE_ENABLED(function_return) && (fptr = find_function_from_pc(c_p->cp))) {
         DTRACE_RETURN(c_p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
     }
@@ -6087,12 +6112,10 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	save_calls(p, ep);
     }
 
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(function_entry) && ep->address) {
-        BeamInstr *fptr = find_function_from_pc(ep->address);
-        if (fptr) {
-            DTRACE_CALL(p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
-        }
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(function_entry)) {
+        BeamInstr *fptr = (BeamInstr *) ep->address;
+	DTRACE_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
     }
 #endif
     return ep->address;
@@ -6144,12 +6167,10 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
 	save_calls(p, ep);
     }
 
-#ifdef USE_VM_PROBES
+#ifdef USE_VM_CALL_PROBES
     if (DTRACE_ENABLED(function_entry)) {
-        BeamInstr *fptr = find_function_from_pc(ep->address);
-        if (fptr) {
-            DTRACE_CALL(p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
-        }
+        BeamInstr *fptr = (BeamInstr *) ep->address;
+	DTRACE_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
     }
 #endif
     return ep->address;
@@ -6284,16 +6305,10 @@ call_fun(Process* p,		/* Current process. */
 	code_ptr = fe->address;
 	actual_arity = (int) code_ptr[-1];
 
-#ifdef USE_VM_PROBES
-	if (DTRACE_ENABLED(function_entry)) {
-	    BeamInstr *fptr = find_function_from_pc(code_ptr);
-
-	    if (fptr) {
-		DTRACE_CALL(p, fe->module, (Eterm)fptr[1], actual_arity);
-	    }
-	}
-#endif
 	if (actual_arity == arity+num_free) {
+	    DTRACE_CALL(p, (Eterm)code_ptr[-3],
+			(Eterm)code_ptr[-2],
+			code_ptr[-1]);
 	    if (num_free == 0) {
 		return code_ptr;
 	    } else {
