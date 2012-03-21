@@ -94,7 +94,6 @@ MODULES = $(EDOC_MODULES) \
 
 HRL_FILES = \
 	../include/xmerl.hrl \
-	../include/xmerl_xlink.hrl \
 	../include/xmerl_xpath.hrl \
 	../include/xmerl_xsd.hrl
 
