@@ -252,7 +252,7 @@ addText(#wx_ref{type=ThisT,ref=ThisRef},Text)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrladdstyledtext">external documentation</a>.
 -spec addStyledText(This, Data) -> ok when
-	This::wxStyledTextCtrl(), Data::wxMemoryBuffer:wxMemoryBuffer().
+	This::wxStyledTextCtrl(), Data::wx:wx_object().
 addStyledText(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DataT,ref=DataRef}) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   ?CLASS(DataT,wxMemoryBuffer),
@@ -361,7 +361,7 @@ setSavePoint(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxstyledtextctrl.html#wxstyledtextctrlgetstyledtext">external documentation</a>.
--spec getStyledText(This, StartPos, EndPos) -> wxMemoryBuffer:wxMemoryBuffer() when
+-spec getStyledText(This, StartPos, EndPos) -> wx:wx_object() when
 	This::wxStyledTextCtrl(), StartPos::integer(), EndPos::integer().
 getStyledText(#wx_ref{type=ThisT,ref=ThisRef},StartPos,EndPos)
  when is_integer(StartPos),is_integer(EndPos) ->

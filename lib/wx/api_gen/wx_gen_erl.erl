@@ -177,7 +177,18 @@ parents_check([Parent|Ps]) ->
     w("parent_class(~s) -> true;~n",[Parent]),
     parents_check(Ps).
 
-check_class(#type{base={class,"wx"}}) -> ok;
+check_class(#type{name="wxObject", base={class,"wx"}}) ->
+    "wx:wx_object()";
+check_class(#type{name="wxIconLocation", base={class,"wx"}}) ->
+    "wx:wx_object()";
+check_class(#type{name="wxToolBarToolBase", base={class,"wx"}, mod=Mod}) ->
+    %% Implement this some day
+    "wx:wx_object()";
+check_class(#type{name="wxValidator", base={class,"wx"}, mod=Mod}) ->
+    %% Implement this some day
+    "wx:wx_object()";
+check_class(#type{name=Name, base={class,"wx"}}) ->
+    exit({class, Name});
 check_class(#type{base={class,Name},xml=Xml}) ->
     case get({class,Name}) of
 	undefined ->
@@ -190,12 +201,15 @@ check_class(#type{base={class,Name},xml=Xml}) ->
 			_ ->
 			    ?warning("~s:~s: Class ~p used but not defined~n   (see ~p)~n",
 				     [get(current_class),get(current_func),Name, Xml])
-		    end;
+		    end,
+		    "wx:wx_object()";
 		_ ->
 		    ?warning("~s:~s: Class ~p used is enum~n",
-			     [get(current_class),get(current_func),Name])
+			     [get(current_class),get(current_func),Name]),
+		    exit(class_enum)
 	    end;
-	_ -> ok
+	_ ->
+	    Name ++ ":" ++ Name ++ "()"
     end.
 
 gen_export(#class{name=Class,abstract=Abs},Ms0) ->
@@ -766,21 +780,21 @@ doc_arg_type3(#type{base=eventType}, _) ->  "atom()";
 doc_arg_type3(#type{base={ref,N}}, _) ->     N++"()";
 doc_arg_type3(#type{base={term,_N}}, _) ->  "term()";
 doc_arg_type3(T=#type{base={class,N}}, _) ->
-    check_class(T),
-    case get(current_class) of
-	N -> N ++ "()";
-	_ ->  N++":" ++ N++"()"
+    ClassType = check_class(T),
+    Current = get(current_class),
+    if N =:= Current -> N ++ "()";
+       true -> ClassType
     end;
 doc_arg_type3({merged,_,T1=#type{base={class,N1}},_,_,T2=#type{base={class,N2}},_}, _) ->
-    check_class(T1),
-    check_class(T2),
+    CT1 = check_class(T1),
+    CT2 = check_class(T2),
     Curr = get(current_class),
     if
-	N1 =:= Curr, N2 =:= Curr ->  N1++"() | "++ N2++"()";
-	N1 =:= Curr -> N1++"() | "++ N2++":" ++ N2++"()";
-	N2 =:= Curr -> N1++":" ++ N1++"() | "++ N2++"()";
+	N1 =:= Curr, N2 =:= Curr ->  N1++"()";
+	N1 =:= Curr -> N1++"() | "++ CT2;
+	N2 =:= Curr -> CT1 ++ " | "++ N2++"()";
 	true ->
-	    N1++":" ++ N1++"() | "++ N2++":" ++ N2++"()"
+	    CT1 ++ " | " ++ CT2
     end;
 %% doc_arg_type3(#type{base={enum,{_,N}}}, _) ->    uppercase(N);
 %% doc_arg_type3(#type{base={enum,N}}, _) ->    uppercase(N);
@@ -1010,12 +1024,13 @@ enum_name(Name) ->
 gen_enums_ints() ->
     %% open_write("../include/wx.hrl"), opened in gen_event_recs
     w("~n%% Hardcoded Records~n", []),
-    w("-record(wxMouseState, {x, y,  %% integer()~n"
-      "          leftDown, middleDown, rightDown, %% bool()~n"
-      "          controlDown, shiftDown, altDown, metaDown, cmdDown %% bool()~n"
+    w("-record(wxMouseState, {x :: integer(), y :: integer(),~n"
+      "          leftDown :: boolean(), middleDown :: boolean, rightDown :: boolean, ~n"
+      "          controlDown :: boolean(), shiftDown :: boolean(),~n"
+      "          altDown :: boolean(), metaDown :: boolean(), cmdDown :: boolean()~n"
       "        }).~n", []),
     w("-record(wxHtmlLinkInfo, {~n"
-      "          href, target %% unicode:chardata()~n"
+      "          href :: unicode:chardata(), target :: unicode:chardata()~n"
       "        }).~n", []),
     w("~n%% Hardcoded Defines~n", []),
     Enums = [E || {{enum,_},E = #enum{as_atom=false}} <- get()],
@@ -1045,16 +1060,16 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 
     Format = fun(#const{name="wxEVT_" ++ _}) ->
 		     ignore; %% Ignore event macros they are not valid in our event model
-		(#const{name=Name,val=Value,is_const=true}) when is_integer(Value) ->
+		(#const{name=Name,val=Value,is_const=true}) when is_number(Value) ->
 		     w("-define(~s, ~p).~n", [enum_name(Name),Value]);
-		(#const{name=Name,val=Value,is_const=false}) when is_integer(Value) ->
+		(#const{name=Name,val=Value,is_const=false}) when is_number(Value) ->
 		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),enum_name(Name)]);
 		(#const{name=Name,val={Str,0}}) ->
 		     case string:tokens(Str, " |()") of
 			 [Token] ->
-			     w("-define(~s, ?~s).~n", [enum_name(Name),Token]);
+			     w("-define(~s, ~s).~n", [enum_name(Name),const_value(Token)]);
 			 Tokens ->
-			     Def = args(fun(T) -> [$?|T] end, " bor ", Tokens),
+			     Def = args(fun(T) -> const_value(T) end, " bor ", Tokens),
 			     w("-define(~s, (~s)).~n", [enum_name(Name),Def])
 		     end;
 		(#const{name=Name,val={Str,N}}) ->
@@ -1078,6 +1093,17 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 		    end
 	    end,
     lists:foldl(Write, Done, Vals).
+
+const_value(V) when is_integer(V) -> integer_to_list(V);
+const_value(V = "16#" ++ IntList) ->
+    _ = http_util:hexlist_to_integer(IntList), %% ASSERT
+    V;
+const_value(V0) ->
+    try
+	_ = list_to_integer(V0),
+	V0
+    catch _:_ -> [$?|V0]
+    end.
 
 gen_event_recs() ->
     open_write("../include/wx.hrl"),

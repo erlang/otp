@@ -98,7 +98,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 %% 	Option :: {proportion, integer()}<br />
 %% 		 | {flag, integer()}<br />
 %% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx()}.<br />
+%% 		 | {userData, wx:wx_object()}.<br />
 %% 
 -spec add(This, Width, Height) -> wxSizerItem:wxSizerItem() when
 	This::wxGridBagSizer(), Width::integer(), Height::integer();
@@ -109,7 +109,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()}.
+		 | {userData, wx:wx_object()}.
 
 add(This,Width,Height)
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height) ->
@@ -143,13 +143,13 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Options
 %% 	Option :: {proportion, integer()}<br />
 %% 		 | {flag, integer()}<br />
 %% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx()};<br />
+%% 		 | {userData, wx:wx_object()};<br />
 %%       (This, Window, Pos, [Option]) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()},<br />
 %% 	Option :: {span, {RS::integer(), CS::integer()}}<br />
 %% 		 | {flag, integer()}<br />
 %% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx()}.<br />
+%% 		 | {userData, wx:wx_object()}.<br />
 %% 
 -spec add(This, Width, Height, Pos) -> wxSizerItem:wxSizerItem() when
 	This::wxGridBagSizer(), Width::integer(), Height::integer(), Pos::{R::integer(), C::integer()};
@@ -158,13 +158,13 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Options
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()};
+		 | {userData, wx:wx_object()};
       (This, Window, Pos, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxGridBagSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Pos::{R::integer(), C::integer()},
 	Option :: {span, {RS::integer(), CS::integer()}}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()}.
+		 | {userData, wx:wx_object()}.
 
 add(This,Width,Height,Pos={PosR,PosC})
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height),is_integer(PosR),is_integer(PosC) ->
@@ -204,7 +204,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},{PosR,Po
 	Option :: {span, {RS::integer(), CS::integer()}}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()}.
+		 | {userData, wx:wx_object()}.
 add(#wx_ref{type=ThisT,ref=ThisRef},Width,Height,{PosR,PosC}, Options)
  when is_integer(Width),is_integer(Height),is_integer(PosR),is_integer(PosC),is_list(Options) ->
   ?CLASS(ThisT,wxGridBagSizer),
@@ -305,7 +305,7 @@ findItemAtPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosR,PosC})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridbagsizer.html#wxgridbagsizerfinditemwithdata">external documentation</a>.
 -spec findItemWithData(This, UserData) -> wxGBSizerItem:wxGBSizerItem() when
-	This::wxGridBagSizer(), UserData::wx:wx().
+	This::wxGridBagSizer(), UserData::wx:wx_object().
 findItemWithData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=UserDataT,ref=UserDataRef}) ->
   ?CLASS(ThisT,wxGridBagSizer),
   ?CLASS(UserDataT,wx),
