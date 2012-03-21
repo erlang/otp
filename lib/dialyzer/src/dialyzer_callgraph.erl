@@ -785,9 +785,9 @@ to_ps(#callgraph{} = CG, File, Args) ->
 
 condensation(G) ->
   SCs = digraph_utils:strong_components(G),
-  V2I = ets:new(condensation, []),
-  I2C = ets:new(condensation, []),
-  I2I = ets:new(condensation, [bag]),
+  V2I = ets:new(condensation_v2i, []),
+  I2C = ets:new(condensation_i2c, []),
+  I2I = ets:new(condensation_i2i, [bag]),
   CFun =
     fun(SC, N) ->
 	lists:foreach(fun(V) -> true = ets:insert(V2I, {V,N}) end, SC),
@@ -813,7 +813,8 @@ condensation(G) ->
     end,
   {OutDict, InDict} = ets:foldl(Fun3, {dict:new(), dict:new()}, I2I),
   [OutETS, InETS] =
-    [ets:new(Name,[{read_concurrency, true}]) || Name <- [out, in]],
+    [ets:new(Name,[{read_concurrency, true}]) ||
+      Name <- [callgraph_deps_out, callgraph_deps_in]],
   ets:insert(OutETS, dict:to_list(OutDict)),
   ets:insert(InETS, dict:to_list(InDict)),
   ets:delete(V2I),
