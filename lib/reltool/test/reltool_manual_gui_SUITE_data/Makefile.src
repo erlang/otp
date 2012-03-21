@@ -1,0 +1,28 @@
+EFLAGS=+debug_info
+
+DEPENDENCIES= \
+     dependencies/x-1.0/ebin/x1.@EMULATOR@ \
+     dependencies/x-1.0/ebin/x2.@EMULATOR@ \
+     dependencies/x-1.0/ebin/x3.@EMULATOR@ \
+     dependencies/y-1.0/ebin/y1.@EMULATOR@ \
+     dependencies/y-1.0/ebin/y2.@EMULATOR@ \
+     dependencies/y-1.0/ebin/y3.@EMULATOR@ \
+     dependencies/z-1.0/ebin/z1.@EMULATOR@
+
+
+all: $(DEPENDENCIES)
+
+dependencies/x-1.0/ebin/x1.@EMULATOR@: dependencies/x-1.0/src/x1.erl
+	erlc $(EFLAGS) -odependencies/x-1.0/ebin dependencies/x-1.0/src/x1.erl
+dependencies/x-1.0/ebin/x2.@EMULATOR@: dependencies/x-1.0/src/x2.erl
+	erlc $(EFLAGS) -odependencies/x-1.0/ebin dependencies/x-1.0/src/x2.erl
+dependencies/x-1.0/ebin/x3.@EMULATOR@: dependencies/x-1.0/src/x3.erl
+	erlc $(EFLAGS) -odependencies/x-1.0/ebin dependencies/x-1.0/src/x3.erl
+dependencies/y-1.0/ebin/y1.@EMULATOR@: dependencies/y-1.0/src/y1.erl
+	erlc $(EFLAGS) -odependencies/y-1.0/ebin dependencies/y-1.0/src/y1.erl
+dependencies/y-1.0/ebin/y2.@EMULATOR@: dependencies/y-1.0/src/y2.erl
+	erlc $(EFLAGS) -odependencies/y-1.0/ebin dependencies/y-1.0/src/y2.erl
+dependencies/y-1.0/ebin/y3.@EMULATOR@: dependencies/y-1.0/src/y3.erl
+	erlc $(EFLAGS) -odependencies/y-1.0/ebin dependencies/y-1.0/src/y3.erl
+dependencies/z-1.0/ebin/z1.@EMULATOR@: dependencies/z-1.0/src/z1.erl
+	erlc $(EFLAGS) -odependencies/z-1.0/ebin dependencies/z-1.0/src/z1.erl

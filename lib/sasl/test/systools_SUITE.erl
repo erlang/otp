@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,7 +45,7 @@
 	 abnormal_script/1, src_tests_script/1, crazy_script/1,
 	 included_script/1, included_override_script/1,
 	 included_fail_script/1, included_bug_script/1, exref_script/1,
-	 otp_3065_circular_dependenies/1]).
+	 otp_3065_circular_dependenies/1, included_and_used_sort_script/1]).
 -export([tar_options/1, normal_tar/1, no_mod_vsn_tar/1, system_files_tar/1,
 	 system_files_tar/2, invalid_system_files_tar/1,
 	 invalid_system_files_tar/2, variable_tar/1,
@@ -80,7 +80,7 @@ groups() ->
        no_sasl_script, src_tests_script, crazy_script,
        included_script, included_override_script,
        included_fail_script, included_bug_script, exref_script,
-       otp_3065_circular_dependenies]},
+       otp_3065_circular_dependenies, included_and_used_sort_script]},
      {tar, [],
       [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
        invalid_system_files_tar, variable_tar,
@@ -597,6 +597,24 @@ otp_3065_circular_dependenies(Config) when is_list(Config) ->
     ok = check_include_script(LatestName,
 			      [aa12, chAts, chTraffic],
 			      [chTraffic]),
+    ok = file:set_cwd(OldDir),
+    ok.
+
+%% Test sorting of included applications and used applications
+included_and_used_sort_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    {LatestDir1, LatestName1} = create_include_files(sort_apps, Config),
+    ok = file:set_cwd(LatestDir1),
+    ok = systools:make_script(LatestName1),
+    ok = check_include_script(LatestName1,
+			      [t20,t19,t18,t17,t16,t15,t14],[t20,t19,t18,t14]),
+
+    {LatestDir2, LatestName2} = create_include_files(sort_apps_rev, Config),
+    ok = file:set_cwd(LatestDir2),
+    ok = systools:make_script(LatestName2),
+    ok = check_include_script(LatestName2,
+			      [t18,t19,t20,t15,t16,t17,t14],[t18,t19,t20,t14]),
+
     ok = file:set_cwd(OldDir),
     ok.
 
@@ -2301,7 +2319,52 @@ create_include_files(otp_3065_circular_dependenies, Config) ->
 	"  {chAts, \"1.0\"}, {aa12, \"1.0\"}, \n"
 	"  {chTraffic, \"1.0\"}]}.\n",
     file:write_file(Name ++ ".rel", list_to_binary(Rel)),
+    {filename:dirname(Name), filename:basename(Name)};
+
+create_include_files(sort_apps, Config) ->
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, sort_apps),
+    create_sort_apps(PrivDir),
+
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+
+    Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t14, \"1.0\"}, \n"
+	"  {t20, \"1.0\"}, \n"
+	"  {t19, \"1.0\"}, \n"
+	"  {t18, \"1.0\"}, \n"
+	"  {t17, \"1.0\"}, \n"
+	"  {t16, \"1.0\"}, \n"
+	"  {t15, \"1.0\"}]}.\n",
+    file:write_file(Name ++ ".rel", list_to_binary(Rel)),
+    {filename:dirname(Name), filename:basename(Name)};
+
+create_include_files(sort_apps_rev, Config) ->
+    PrivDir = ?privdir,
+    Name = fname(PrivDir, sort_apps_rev),
+    create_sort_apps(PrivDir),
+
+    Apps = application_controller:which_applications(),
+    {value,{_,_,KernelVer}} = lists:keysearch(kernel,1,Apps),
+    {value,{_,_,StdlibVer}} = lists:keysearch(stdlib,1,Apps),
+
+    Rel = "{release, {\"test\",\"R1A\"}, {erts, \"45\"},\n"
+	" [{kernel, \"" ++ KernelVer ++ "\"}, {stdlib, \""
+	++ StdlibVer ++ "\"},\n"
+	"  {t14, \"1.0\"}, \n"
+	"  {t18, \"1.0\"}, \n"
+	"  {t19, \"1.0\"}, \n"
+	"  {t20, \"1.0\"}, \n"
+	"  {t15, \"1.0\"}, \n"
+	"  {t16, \"1.0\"}, \n"
+	"  {t17, \"1.0\"}]}.\n",
+    file:write_file(Name ++ ".rel", list_to_binary(Rel)),
     {filename:dirname(Name), filename:basename(Name)}.
+
 
 create_apps(Dir) ->
     T1 = "{application, t1,\n"
@@ -2450,6 +2513,70 @@ create_apps_3065(Dir) ->
 	"  {included_applications, []},\n"
 	"  {registered, []}]}.\n",
     file:write_file(fname(Dir, 'aa12.app'), list_to_binary(T13)).
+
+create_sort_apps(Dir) ->
+    T14 = "{application, t14,\n"
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, [t18,t20,t19]},\n"
+	"  {included_applications, [t15,t17,t16]},\n"
+	"  {registered, []}]}.\n",
+    file:write_file(fname(Dir, 't14.app'), list_to_binary(T14)),
+
+    T15 = "{application, t15,\n"
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
+    file:write_file(fname(Dir, 't15.app'), list_to_binary(T15)),
+
+    T16 = "{application, t16,\n"
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
+    file:write_file(fname(Dir, 't16.app'), list_to_binary(T16)),
+
+    T17 = "{application, t17,\n"
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
+    file:write_file(fname(Dir, 't17.app'), list_to_binary(T17)),
+
+    T18 = "{application, t18,\n"
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
+    file:write_file(fname(Dir, 't18.app'), list_to_binary(T18)),
+
+    T19 = "{application, t19,\n"
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
+    file:write_file(fname(Dir, 't19.app'), list_to_binary(T19)),
+
+    T20 = "{application, t20,\n"
+	" [{vsn, \"1.0\"},\n"
+	"  {description, \"test\"},\n"
+	"  {modules, []},\n"
+	"  {applications, []},\n"
+	"  {included_applications, []},\n"
+	"  {registered, []}]}.\n",
+    file:write_file(fname(Dir, 't20.app'), list_to_binary(T20)).
 
 fname(N) ->
     filename:join(N).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -45,6 +45,7 @@
 -type profile()          :: development | embedded | standalone.
 -type relocatable()      :: boolean().
 -type escript_file()     :: file().
+-type escript_app_name() :: app_name().
 -type mod_name()         :: atom().
 -type app_name()         :: atom().
 -type app_vsn()          :: string(). % e.g. "4.7"
@@ -62,7 +63,7 @@
 -type mod()              :: {incl_cond, incl_cond()}
                           | {debug_info, debug_info()}.
 -type app()              :: {vsn, app_vsn()}
-                          | {mod, mod_name(), mod()}
+                          | {mod, mod_name(), [mod()]}
                           | {mod_cond, mod_cond()}
                           | {incl_cond, incl_cond()}
                           | {app_file, app_file()}
@@ -126,10 +127,7 @@
         {
           sys_debug 	  :: term(),
           wx_debug  	  :: term(),
-          trap_exit 	  :: boolean(),
-          app_tab   	  :: ets:tab(),
-          mod_tab   	  :: ets:tab(),
-          mod_used_by_tab :: ets:tab()
+          trap_exit 	  :: boolean()
 	}).
 
 -record(mod,
@@ -170,7 +168,7 @@
 -record(app,
         { %% Static info
           name             :: app_name(),
-          is_escript       :: boolean(),
+          is_escript       :: boolean() | {inlined, escript_app_name()},
           use_selected_vsn :: boolean() | undefined,
           active_dir       :: dir(),
           sorted_dirs      :: [dir()],
@@ -199,8 +197,8 @@
           used_by_mods    :: [mod_name()],
           uses_apps       :: [app_name()],
           used_by_apps    :: [app_name()],
-          is_pre_included :: boolean(),
-          is_included     :: boolean(),
+          is_pre_included :: boolean() | undefined,
+          is_included     :: boolean() | undefined,
           rels            :: [rel_name()]
 	}).
 
@@ -208,7 +206,7 @@
         {
           name           :: app_name(),
           app_type       :: app_type() | undefined,
-          incl_apps = [] :: [incl_app()]
+          incl_apps      :: [incl_app()] | undefined
         }).
 
 -record(rel,

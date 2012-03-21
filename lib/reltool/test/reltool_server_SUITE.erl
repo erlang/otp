@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,7 @@
 
 -compile(export_all).
 
+-include_lib("reltool/src/reltool.hrl").
 -include("reltool_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
@@ -51,10 +52,43 @@ end_per_testcase(Func,Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [start_server, set_config, create_release,
-     create_script, create_target, create_embedded,
-     create_standalone, create_old_target,
-     otp_9135, otp_9229_exclude_app, otp_9229_exclude_mod].
+    [start_server,
+     set_config,
+     get_config,
+     create_release,
+     create_release_sort,
+     create_script,
+     create_script_sort,
+     create_target,
+     create_embedded,
+     create_standalone,
+     create_standalone_beam,
+     create_standalone_app,
+     create_standalone_app_clash,
+     create_multiple_standalone,
+     create_old_target,
+     eval_target_spec,
+     otp_9135,
+     otp_9229_dupl_mod_exclude_app,
+     otp_9229_dupl_mod_exclude_mod,
+     dupl_mod_in_app_file,
+     get_apps,
+     get_mod,
+     get_sys,
+     set_app_and_undo,
+     set_apps_and_undo,
+     set_apps_inlined,
+     set_sys_and_undo,
+     load_config_and_undo,
+     load_config_fail,
+     load_config_escript_path,
+     load_config_same_escript_source,
+     load_config_same_escript_beam,
+     load_config_add_escript,
+     reset_config_and_undo,
+     gen_rel_files,
+     save_config,
+     dependencies].
 
 groups() -> 
     [].
@@ -71,8 +105,6 @@ end_per_group(_GroupName, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start a server process and check that it does not crash
 
-start_server(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 start_server(_Config) ->
     {ok, Pid} = ?msym({ok, _}, reltool:start_server([])),
     Libs = lists:sort(erl_libs()),
@@ -88,8 +120,6 @@ start_server(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start a server process and check that it does not crash
 
-set_config(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 set_config(_Config) ->
     Libs = lists:sort(erl_libs()),
     Default =
@@ -112,10 +142,90 @@ set_config(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Check that get_config returns the expected derivates and defaults
+%% as specified
+get_config(_Config) ->
+
+    KVsn = latest(kernel),
+    StdVsn = latest(stdlib),
+    SaslVsn = latest(sasl),
+
+    Sys = {sys,[{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include},{vsn,SaslVsn}]},
+		{app,stdlib,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+    ?m({ok, Sys}, reltool:get_config(Pid,false,false)),
+
+    %% Include derived info
+    ?msym({ok,{sys,[{incl_cond, exclude},
+		    {erts,[]},
+		    {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},{mod,_,[]}|_]},
+		    {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}},
+	  reltool:get_config(Pid,false,true)),
+
+    %% Include defaults
+    ?msym({ok,{sys,[{root_dir,_},
+		    {lib_dirs,_},
+		    {mod_cond,all},
+		    {incl_cond,exclude},
+		    {app,kernel,[{incl_cond,include},{vsn,undefined}]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn}]},
+		    {app,stdlib,[{incl_cond,include},{vsn,undefined}]},
+		    {boot_rel,"start_clean"},
+		    {rel,"start_clean","1.0",[]},
+		    {rel,"start_sasl","1.0",[sasl]},
+		    {emu_name,"beam"},
+		    {relocatable,true},
+		    {profile,development},
+		    {incl_sys_filters,[".*"]},
+		    {excl_sys_filters,[]},
+		    {incl_app_filters,[".*"]},
+		    {excl_app_filters,[]},
+		    {incl_archive_filters,[".*"]},
+		    {excl_archive_filters,["^include$","^priv$"]},
+		    {archive_opts,[]},
+		    {rel_app_type,permanent},
+		    {app_file,keep},
+		    {debug_info,keep}]}},
+	  reltool:get_config(Pid,true,false)),
+
+    %% Include both defaults and derived info
+    ?msym({ok,{sys,[{root_dir,_},
+		    {lib_dirs,_},
+		    {mod_cond,all},
+		    {incl_cond,exclude},
+		    {erts,[]},
+		    {app,kernel,[{incl_cond,include},{vsn,KVsn},{mod,_,[]}|_]},
+		    {app,sasl,[{incl_cond,include},{vsn,SaslVsn},{mod,_,[]}|_]},
+		    {app,stdlib,[{incl_cond,include},{vsn,StdVsn},{mod,_,[]}|_]},
+		    {boot_rel,"start_clean"},
+		    {rel,"start_clean","1.0",[]},
+		    {rel,"start_sasl","1.0",[sasl]},
+		    {emu_name,"beam"},
+		    {relocatable,true},
+		    {profile,development},
+		    {incl_sys_filters,[".*"]},
+		    {excl_sys_filters,[]},
+		    {incl_app_filters,[".*"]},
+		    {excl_app_filters,[]},
+		    {incl_archive_filters,[".*"]},
+		    {excl_archive_filters,["^include$","^priv$"]},
+		    {archive_opts,[]},
+		    {rel_app_type,permanent},
+		    {app_file,keep},
+		    {debug_info,keep}]}},
+	  reltool:get_config(Pid,true,true)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OTP-9135, test that app_file option can be set to all | keep | strip
 
-otp_9135(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 otp_9135(_Config) ->
     Libs = lists:sort(erl_libs()),
     StrippedDefaultSys = 
@@ -145,8 +255,6 @@ otp_9135(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate releases
 
-create_release(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_release(_Config) ->
     %% Configure the server
     RelName = "Just testing...",
@@ -170,10 +278,135 @@ create_release(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate releases and make sure order of applications specified in
+%% 'rel' parameter is preserved and that included applications are
+%% started before the including application.
+%% Circular dependencies shall also be detected and cause error.
+
+create_release_sort(_Config) -> {skip, "Two bugs related to sorting"};
+create_release_sort(Config) ->
+    DataDir = ?config(data_dir,Config),
+    %% Configure the server
+    RelName1 = "MnesiaFirst",
+    RelName2 = "SaslFirst",
+    RelName3 = "Include-both",
+    RelName4 = "Include-only-app",
+    RelName5 = "Include-only-rel",
+    RelName6 = "Include-missing-app",
+    RelName7 = "Circular",
+    RelName8 = "Include-both-missing-app",
+    RelName9 = "Include-overwrite",
+    RelName10= "Uses-order-as-rel",
+    RelVsn = "1.0",
+    %% Application z (.app file):
+    %%     includes [tools, mnesia]
+    %%     uses [kernel, stdlib, sasl, inets]
+    Sys =
+        {sys,
+         [
+          {lib_dirs, [filename:join(DataDir,"sort_apps")]},
+          {boot_rel, RelName1},
+          {rel, RelName1, RelVsn, [stdlib, kernel, mnesia, sasl]},
+          {rel, RelName2, RelVsn, [stdlib, kernel, sasl, mnesia]},
+          {rel, RelName3, RelVsn, [stdlib, kernel, {z,[tools]}, tools, mnesia]},
+          {rel, RelName4, RelVsn, [stdlib, kernel, z, mnesia, tools]},
+          {rel, RelName5, RelVsn, [stdlib, kernel, {sasl,[tools]}]},
+          {rel, RelName6, RelVsn, [stdlib, kernel, z]},
+	  {rel, RelName7, RelVsn, [stdlib, kernel, mnesia, y, sasl, x]},
+          {rel, RelName8, RelVsn, [stdlib, kernel, {z,[tools]}]},
+          {rel, RelName9, RelVsn, [stdlib, kernel, {z,[]}]},
+          {rel, RelName10, RelVsn, [stdlib, kernel, {z,[]}, inets, sasl]},
+	  {incl_cond,exclude},
+	  {mod_cond,app},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,mnesia,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]},
+	  {app,inets,[{incl_cond,include}]},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,include}]},
+	  {app,z,[{incl_cond,include}]},
+	  {app,tools,[{mod_cond,app},{incl_cond,include}]}
+         ]},
+    %% Generate release
+
+    ?msym({ok, {release, {RelName1, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {mnesia, _},
+		 {sasl, _}]}},
+	  reltool:get_rel([{config, Sys}], RelName1)),
+
+    ?msym({ok, {release, {RelName2, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {sasl, _},
+		 {mnesia, _}]}},
+	  reltool:get_rel([{config, Sys}], RelName2)),
+
+    ?msym({ok, {release, {RelName3, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {sasl, _},
+		 {inets, _},
+		 {tools, _},
+		 {z, _, [tools]},
+		 {mnesia, _}]}},
+	  reltool:get_rel([{config, Sys}], RelName3)),
+
+    %%! BUG: same as OTP-4121, but for reltool???? Or revert tools and mnesia
+    ?msym({ok, {release, {RelName4, RelVsn},
+		{erts, _},
+		[{kernel, _},
+		 {stdlib, _},
+		 {sasl, _},
+		 {inets, _},
+		 {mnesia, _},
+		 {tools, _},
+		 {z, _}]}},
+	  reltool:get_rel([{config, Sys}], RelName4)),
+
+    ?m({error,"sasl: These applications are used by release "
+	"Include-only-rel but are missing as included_applications "
+	"in the app file: [tools]"},
+       reltool:get_rel([{config, Sys}], RelName5)),
+
+    ?m({error, "Undefined applications: [tools,mnesia]"},
+       reltool:get_rel([{config, Sys}], RelName6)),
+
+    ?m({error,"Circular dependencies: [x,y]"},
+       reltool:get_rel([{config, Sys}], RelName7)),
+
+    ?m({error,"Undefined applications: [tools]"},
+       reltool:get_rel([{config, Sys}], RelName8)),
+
+    ?msym({ok,{release,{RelName9,RelVsn},
+	       {erts,_},
+	       [{kernel,_},
+		{stdlib,_},
+		{sasl, _},
+		{inets, _},
+		{z,_,[]}]}},
+	  reltool:get_rel([{config, Sys}], RelName9)),
+
+    %%! BUG: same as OTP-9984, but for reltool???? Or revert inets and sasl?
+    ?msym({ok,{release,{RelName10,RelVsn},
+	       {erts,_},
+	       [{kernel,_},
+		{stdlib,_},
+		{inets, _},
+		{sasl, _},
+		{z,_,[]}]}},
+	  reltool:get_rel([{config, Sys}], RelName10)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate boot scripts
 
-create_script(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_script(_Config) ->
     %% Configure the server
     RelName = "Just testing",
@@ -218,10 +451,197 @@ create_script(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test creation of .script with different sorting of applications and
+%% included applications.
+%% Test that result is equal to what systools produces
+create_script_sort(Config) ->
+    DataDir = ?config(data_dir,Config),
+    %% Configure the server
+    RelName1 = "MnesiaFirst",
+    RelName2 = "SaslFirst",
+    RelName3 = "Include-both",
+    RelName4 = "Include-only-app",
+    RelName5 = "Include-only-rel",
+    RelName6 = "Include-missing-app",
+    RelName7 = "Circular",
+    RelName8 = "Include-both-missing-app",
+    RelName9 = "Include-overwrite",
+    RelVsn = "1.0",
+    LibDir = filename:join(DataDir,"sort_apps"),
+    Sys =
+        {sys,
+         [
+          {lib_dirs, [LibDir]},
+          {boot_rel, RelName1},
+          {rel, RelName1, RelVsn, [stdlib, kernel, mnesia, sasl]},
+          {rel, RelName2, RelVsn, [stdlib, kernel, sasl, mnesia]},
+          {rel, RelName3, RelVsn, [stdlib, kernel, {z,[tools]}, tools, mnesia]},
+          {rel, RelName4, RelVsn, [stdlib, kernel, z, mnesia, tools]},
+          {rel, RelName5, RelVsn, [stdlib, kernel, {sasl,[tools]}]},
+          {rel, RelName6, RelVsn, [stdlib, kernel, z]},
+	  {rel, RelName7, RelVsn, [stdlib, kernel, mnesia, y, sasl, x]},
+          {rel, RelName8, RelVsn, [stdlib, kernel, {z,[tools]}]},
+          {rel, RelName9, RelVsn, [stdlib, kernel, {z,[]}]},
+	  {incl_cond,exclude},
+	  {mod_cond,app},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,mnesia,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]},
+	  {app,inets,[{incl_cond,include}]},
+	  {app,x,[{incl_cond,include}]},
+	  {app,y,[{incl_cond,include}]},
+	  {app,z,[{incl_cond,include}]},
+	  {app,tools,[{mod_cond,app},{incl_cond,include}]}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    %% Generate release files
+    application:load(sasl),
+    application:load(inets),
+    application:load(mnesia),
+    application:load(tools),
+    {ok,KernelVsn} = application:get_key(kernel,vsn),
+    {ok,StdlibVsn} = application:get_key(stdlib,vsn),
+    {ok,SaslVsn} = application:get_key(sasl,vsn),
+    {ok,InetsVsn} = application:get_key(inets,vsn),
+    {ok,MnesiaVsn} = application:get_key(mnesia,vsn),
+    {ok,ToolsVsn} = application:get_key(tools,vsn),
+    ErtsVsn = erlang:system_info(version),
+
+    Rel1 = {release, {RelName1,RelVsn}, {erts,ErtsVsn},
+	    [{kernel,KernelVsn},
+	     {stdlib,StdlibVsn},
+	     {mnesia,MnesiaVsn},
+	     {sasl,SaslVsn}]},
+    FullName1 = filename:join(?WORK_DIR,RelName1),
+    ?m(ok, file:write_file(FullName1 ++ ".rel", io_lib:format("~p.\n", [Rel1]))),
+    Rel2 = {release, {RelName2,RelVsn}, {erts,ErtsVsn},
+	    [{kernel,KernelVsn},
+	     {stdlib,StdlibVsn},
+	     {sasl,SaslVsn},
+	     {mnesia,MnesiaVsn}]},
+    FullName2 = filename:join(?WORK_DIR,RelName2),
+    ?m(ok, file:write_file(FullName2 ++ ".rel", io_lib:format("~p.\n", [Rel2]))),
+    Rel3 = {release, {RelName3,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0",[tools]},
+	      {tools,ToolsVsn},
+	      {mnesia,MnesiaVsn},
+	      {sasl,SaslVsn},
+	      {inets,InetsVsn}]},
+    FullName3 = filename:join(?WORK_DIR,RelName3),
+    ?m(ok, file:write_file(FullName3 ++ ".rel", io_lib:format("~p.\n", [Rel3]))),
+    Rel4 = {release, {RelName4,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0"},
+	      {tools,ToolsVsn},
+	      {mnesia,MnesiaVsn},
+	      {sasl,SaslVsn},
+	      {inets,InetsVsn}]},
+    FullName4 = filename:join(?WORK_DIR,RelName4),
+    ?m(ok, file:write_file(FullName4 ++ ".rel", io_lib:format("~p.\n", [Rel4]))),
+    Rel5 = {release, {RelName5,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {sasl,SaslVsn,[tools]},
+	      {tools,ToolsVsn}]},
+    FullName5 = filename:join(?WORK_DIR,RelName5),
+    ?m(ok, file:write_file(FullName5 ++ ".rel", io_lib:format("~p.\n", [Rel5]))),
+    Rel6 = {release, {RelName6,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0"}]},
+    FullName6 = filename:join(?WORK_DIR,RelName6),
+    ?m(ok, file:write_file(FullName6 ++ ".rel", io_lib:format("~p.\n", [Rel6]))),
+    Rel7 = {release, {RelName7,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {mnesia,MnesiaVsn},
+	      {y,"1.0"},
+	      {sasl,SaslVsn},
+	      {x,"1.0"}]},
+    FullName7 = filename:join(?WORK_DIR,RelName7),
+    ?m(ok, file:write_file(FullName7 ++ ".rel", io_lib:format("~p.\n", [Rel7]))),
+    Rel8 = {release, {RelName8,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0",[tools]}]},
+    FullName8 = filename:join(?WORK_DIR,RelName8),
+    ?m(ok, file:write_file(FullName8 ++ ".rel", io_lib:format("~p.\n", [Rel8]))),
+    Rel9 = {release, {RelName9,RelVsn}, {erts,ErtsVsn},
+	     [{kernel,KernelVsn},
+	      {stdlib,StdlibVsn},
+	      {z,"1.0",[]},
+	      {sasl,SaslVsn},
+	      {inets,InetsVsn}]},
+    FullName9 = filename:join(?WORK_DIR,RelName9),
+    ?m(ok, file:write_file(FullName9 ++ ".rel", io_lib:format("~p.\n", [Rel9]))),
+
+    %% Generate script files with systools and reltool and compare
+    ZPath = filename:join([LibDir,"*",ebin]),
+
+    ?msym({ok,_,_}, systools_make_script(FullName1,ZPath)),
+    {ok, [SystoolsScript1]} = ?msym({ok,[_]}, file:consult(FullName1++".script")),
+    {ok, Script1} = ?msym({ok, _}, reltool:get_script(Pid, RelName1)),
+    ?m(equal, diff_script(SystoolsScript1, Script1)),
+
+    ?msym({ok,_,_}, systools_make_script(FullName2,ZPath)),
+    {ok, [SystoolsScript2]} = ?msym({ok,[_]}, file:consult(FullName2++".script")),
+    {ok, Script2} = ?msym({ok, _}, reltool:get_script(Pid, RelName2)),
+    ?m(equal, diff_script(SystoolsScript2, Script2)),
+
+    ?msym({ok,_,_}, systools_make_script(FullName3,ZPath)),
+    {ok, [SystoolsScript3]} = ?msym({ok,[_]}, file:consult(FullName3++".script")),
+    {ok, Script3} = ?msym({ok, _}, reltool:get_script(Pid, RelName3)),
+    ?m(equal, diff_script(SystoolsScript3, Script3)),
+
+    ?msym({ok,_,_}, systools_make_script(FullName4,ZPath)),
+    {ok, [SystoolsScript4]} = ?msym({ok,[_]}, file:consult(FullName4++".script")),
+    {ok, Script4} = ?msym({ok, _}, reltool:get_script(Pid, RelName4)),
+    ?m(equal, diff_script(SystoolsScript4, Script4)),
+
+    ?msym({error,_,[{error_reading,{sasl,{override_include,_}}}]},
+	  systools_make_script(FullName5,ZPath)),
+    ?m({error,"sasl: These applications are used by release "
+	"Include-only-rel but are missing as included_applications "
+	"in the app file: [tools]"},
+       reltool:get_script(Pid, RelName5)),
+
+    ?msym({error,_,{undefined_applications,_}},
+	  systools_make_script(FullName6,ZPath)),
+    ?m({error, "Undefined applications: [tools,mnesia]"},
+       reltool:get_script(Pid, RelName6)),
+
+    ?msym({error,_,{circular_dependencies,_}},
+	  systools_make_script(FullName7,ZPath)),
+    ?m({error,"Circular dependencies: [x,y]"},
+       reltool:get_script(Pid, RelName7)),
+
+    ?msym({error,_,{undefined_applications,_}},
+	  systools_make_script(FullName8,ZPath)),
+    ?m({error, "Undefined applications: [tools]"},
+       reltool:get_script(Pid, RelName8)),
+
+    ?msym({ok,_,_}, systools_make_script(FullName9,ZPath)),
+    {ok, [SystoolsScript9]} = ?msym({ok,[_]}, file:consult(FullName9++".script")),
+    {ok, Script9} = ?msym({ok, _}, reltool:get_script(Pid, RelName9)),
+    ?m(equal, diff_script(SystoolsScript9, Script9)),
+
+    %% Stop server
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+systools_make_script(Name,Path) ->
+    systools:make_script(Name,[{path,[Path]},{outdir,?WORK_DIR},silent]).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate target system
 
-create_target(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_target(_Config) ->
     %% Configure the server
     RelName1 = "Just testing",
@@ -243,7 +663,7 @@ create_target(_Config) ->
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Config}])]),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
     
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -254,8 +674,6 @@ create_target(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate embedded target system
 
-create_embedded(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_embedded(_Config) ->
     %% Configure the server
     RelName1 = "Just testing",
@@ -276,7 +694,7 @@ create_embedded(_Config) ->
     TargetDir = filename:join([?WORK_DIR, "target_embedded"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -287,8 +705,6 @@ create_embedded(_Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate standalone system
 
-create_standalone(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
 create_standalone(_Config) ->
     %% Configure the server
     ExDir = code:lib_dir(reltool, examples),
@@ -306,30 +722,223 @@ create_standalone(_Config) ->
     TargetDir = filename:join([?WORK_DIR, "target_standalone"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
 
+    %% Start the target system and fetch root dir
     BinDir = filename:join([TargetDir, "bin"]),
     Erl = filename:join([BinDir, "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)), 
     RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
     ?msym(ok, stop_node(Node)),
     
+    %% Execute escript
     Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
 				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
 				  "Smp: false\n",
 				  "ExitCode:0"]),
     io:format("Expected: ~s\n", [Expected]),
-    ?m(Expected, run(BinDir, EscriptName ++ " -arg1 arg2 arg3")),
+    ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
     
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with inlined beam file
+
+create_standalone_beam(Config) ->
+    %% Read beam file
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+
+    %% Create the escript
+    EscriptName = "mymod.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_standalone_beam"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+
+    %% Start the target system and fetch root dir
+    BinDir = filename:join([TargetDir, "bin"]),
+    Erl = filename:join([BinDir, "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
+    ?msym(ok, stop_node(Node)),
+
+    %% Execute escript
+    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected: ~s\n", [Expected]),
+    ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with inlined archived application
+
+create_standalone_app(Config) ->
+    %% Create archive
+    DataDir = ?config(data_dir,Config),
+    EscriptDir = filename:join(DataDir,escript),
+    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
+				     [memory,
+				      {cwd,EscriptDir},
+				      {compress,all},
+				      {uncompress,[".beam",".app"]}]),
+
+    %% Create the escript
+    EscriptName = "someapp.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,
+				 {emu_args,"-escript main mymod"},
+				 {archive,Bin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_standalone_app"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+
+    %% Start the target system and fetch root dir
+    BinDir = filename:join([TargetDir, "bin"]),
+    Erl = filename:join([BinDir, "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
+    ?msym(ok, stop_node(Node)),
+
+    %% Execute escript
+    Expected =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected: ~s\n", [Expected]),
+    ?m(Expected, run(BinDir, EscriptName, "-arg1 arg2 arg3")),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with inlined archived application
+%% Check that the inlined app can not be explicitly configured
+
+create_standalone_app_clash(Config) ->
+    %% Create archive
+    DataDir = ?config(data_dir,Config),
+    EscriptDir = filename:join(DataDir,escript),
+    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
+				     [memory,
+				      {cwd,EscriptDir},
+				      {compress,all},
+				      {uncompress,[".beam",".app"]}]),
+
+    %% Create the escript
+    EscriptName = "someapp.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,
+				 {emu_args,"-escript main mymod"},
+				 {archive,Bin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone},
+	  {app, someapp, [{incl_cond,include}]}
+         ]},
+
+    ?msym({error,"someapp: Application name clash. Escript "++_},
+	  reltool:start_server([{config,Sys}])),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate standalone system with multiple escripts
+
+create_multiple_standalone(Config) ->
+    %% First escript
+    ExDir = code:lib_dir(reltool, examples),
+    EscriptName1 = "display_args",
+    Escript1 = filename:join([ExDir, EscriptName1]),
+
+    %% Second escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName2 = "mymod.escript",
+    Escript2 = filename:join(?WORK_DIR,EscriptName2),
+    ok = escript:create(Escript2,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript2,8#00744),
+
+    %% Configure server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript1, [{incl_cond, include}]},
+          {escript, Escript2, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    %% Generate target system
+    TargetDir = filename:join([?WORK_DIR, "target_multiple_standalone"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config,Sys}], TargetDir)),
+
+    %% Start the target system and fetch root dir
+    BinDir = filename:join([TargetDir, "bin"]),
+    Erl = filename:join([BinDir, "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    RootDir = ?ignore(rpc:call(Node, code, root_dir, [])),
+    ?msym(ok, stop_node(Node)),
+
+    %% Execute escript1
+    Expected1 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "Smp: false\n",
+				  "ExitCode:0"]),
+    io:format("Expected1: ~s\n", [Expected1]),
+    ?m(Expected1, run(BinDir, EscriptName1, "-arg1 arg2 arg3")),
+
+
+    %% Execute escript2
+    Expected2 =  iolist_to_binary(["Root dir: ", RootDir, "\n"
+				  "Script args: [\"-arg1\",\"arg2\",\"arg3\"]\n",
+				  "ExitCode:0"]),
+    io:format("Expected2: ~s\n", [Expected2]),
+    ?m(Expected2, run(BinDir, EscriptName2, "-arg1 arg2 arg3")),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate old type of target system
 
-create_old_target(TestInfo) when is_atom(TestInfo) -> 
-    reltool_test_lib:tc_info(TestInfo);
+create_old_target(_Config) -> {skip, "Old style of target"};
 create_old_target(_Config) ->
-    ?skip("Old style of target", []),
     
     %% Configure the server
     RelName1 = "Just testing",
@@ -350,10 +959,10 @@ create_old_target(_Config) ->
     TargetDir = filename:join([?WORK_DIR, "target_old_style"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
-    ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
+    ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
     
     %% io:format("Will fail on Windows (should patch erl.ini)\n", []),
-    ?m(ok, reltool:install(RelName2, TargetDir)),
+    ok = ?m(ok, reltool:install(RelName2, TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -362,11 +971,43 @@ create_old_target(_Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate target system with eval_target_spec/3
+
+eval_target_spec(_Config) ->
+    %% Configure the server
+    RelName1 = "Just testing",
+    RelName2 = "Just testing with SASL",
+    RelVsn = "1.0",
+    Config =
+        {sys,
+         [
+          {root_dir, code:root_dir()},
+          {lib_dirs, []},
+          {boot_rel, RelName2},
+          {rel, RelName1, RelVsn, [stdlib, kernel]},
+          {rel, RelName2, RelVsn, [sasl, stdlib, kernel]},
+          {app, sasl, [{incl_cond, include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "eval_target_spec"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    {ok, Spec} = ?msym({ok,_}, reltool:get_target_spec([{config, Config}])),
+    ok = ?m(ok, reltool:eval_target_spec(Spec, code:root_dir(), TargetDir)),
+
+    Erl = filename:join([TargetDir, "bin", "erl"]),
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
+    ?msym(ok, stop_node(Node)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% OTP-9229 - handle duplicated module names, i.e. same module name
 %% exists in two applications.
 
 %% Include on app, exclude the other
-otp_9229_exclude_app(Config) ->
+otp_9229_dupl_mod_exclude_app(Config) ->
     DataDir =  ?config(data_dir,Config),
     LibDir = filename:join(DataDir,"otp_9229"),
 
@@ -389,8 +1030,8 @@ otp_9229_exclude_app(Config) ->
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclApp}])]),
-    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclApp}]),
-    ?m(ok, reltool:create_target([{config, ExclApp}], TargetDir)),
+    ?m({ok,["Module mylib exists in applications x and y. Using module from application x."]}, reltool:get_status([{config, ExclApp}])),
+    ok = ?m(ok, reltool:create_target([{config, ExclApp}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -413,7 +1054,7 @@ otp_9229_exclude_app(Config) ->
     ok.
 
 %% Include both apps, but exclude common module from one app
-otp_9229_exclude_mod(Config) ->
+otp_9229_dupl_mod_exclude_mod(Config) ->
     DataDir =  ?config(data_dir,Config),
     LibDir = filename:join(DataDir,"otp_9229"),
 
@@ -436,8 +1077,8 @@ otp_9229_exclude_mod(Config) ->
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, ExclMod}])]),
-    {ok,["Module mylib exists in applications x and y. Using module from application x."]} = reltool:get_status([{config, ExclMod}]),
-    ?m(ok, reltool:create_target([{config, ExclMod}], TargetDir)),
+    ?m({ok,["Module mylib exists in applications x and y. Using module from application x."]}, reltool:get_status([{config, ExclMod}])),
+    ok = ?m(ok, reltool:create_target([{config, ExclMod}], TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
@@ -466,7 +1107,892 @@ otp_9229_exclude_mod(Config) ->
     ok.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that if a module is duplicated in a .app file, then a warning
+%% is produced, but target can still be created.
+dupl_mod_in_app_file(Config) ->
+    DataDir =  ?config(data_dir,Config),
+    LibDir = filename:join(DataDir,"dupl_mod"),
 
+    %% Configure the server
+    Sys =
+        {sys,
+         [
+          {lib_dirs, [LibDir]},
+	  {incl_cond,exclude},
+	  {app,a,[{incl_cond,include}]},
+	  {app,kernel,[{incl_cond,include}]},
+	  {app,stdlib,[{incl_cond,include}]},
+	  {app,sasl,[{incl_cond,include}]}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:join([?WORK_DIR, "target_dupl_mod_in_app_file"]),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
+    ?m({ok,["Module a duplicated in app file for application a."]},
+       reltool:get_status([{config, Sys}])),
+
+    %%! test that only one module installed (in spec)
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test the interface used by the GUI:
+%%  get_app
+%%  get_apps
+%%  set_app
+%%  set_apps
+%%  load_config
+%%  reset_config
+%%
+%% Also, for each operation which manipulates the config, test
+%% get_status and undo_config.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_apps(_Config) ->
+    Sys = {sys,[{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,derived}]},
+		{app,runtime_tools,[{incl_cond,exclude}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    {ok,Sasl} = ?msym({ok,#app{name=sasl}}, reltool_server:get_app(Pid,sasl)),
+    {ok,[#app{name=kernel},
+	 #app{name=sasl}=Sasl,
+	 #app{name=stdlib}] = White} =
+	?msym({ok,_}, reltool_server:get_apps(Pid,whitelist)),
+    {ok,[#app{name=runtime_tools}] = Black} =
+	?msym({ok,_}, reltool_server:get_apps(Pid,blacklist)),
+
+    {ok,Derived} = ?msym({ok,_}, reltool_server:get_apps(Pid,derived)),
+    true = lists:keymember(tools,#app.name,Derived),
+
+    {ok,Source} = ?msym({ok,_}, reltool_server:get_apps(Pid,source)),
+    true = lists:keymember(common_test,#app.name,Source),
+
+    %% Check that the four lists are disjoint
+    Number = length(White) + length(Black) + length(Derived) + length(Source),
+    WN = lists:usort([N || #app{name=N} <- White]),
+    BN = lists:usort([N || #app{name=N} <- Black]),
+    DN = lists:usort([N || #app{name=N} <- Derived]),
+    SN = lists:usort([N || #app{name=N} <- Source]),
+    AllN = lists:umerge([WN,BN,DN,SN]),
+    ?m(Number,length(AllN)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_mod(_Config) ->
+    Sys = {sys,[{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,derived}]},
+		{app,runtime_tools,[{incl_cond,exclude}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    %% Read app and get a module from the #app record
+    {ok,Tools} = ?msym({ok,#app{name=tools}}, reltool_server:get_app(Pid,tools)),
+    Cover = lists:keyfind(cover,#mod.name,Tools#app.mods),
+
+    %% get_mod - and check that it is equal to the one in #app.mods
+    ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+get_sys(_Config) ->
+    Sys = {sys,[{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,derived}]},
+		{app,runtime_tools,[{incl_cond,exclude}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    RootDir = code:root_dir(),
+    ?msym({ok,#sys{root_dir=RootDir,apps=undefined}},reltool_server:get_sys(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+set_app_and_undo(Config) ->
+    Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		{incl_cond, exclude},
+		{app,a,[{incl_cond,include}]},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    %% Get app and mod
+    {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    {ok,Cover} = ?msym({ok,#mod{name=cover, is_included=true}},
+		       reltool_server:get_mod(Pid,cover)),
+
+    %% Exclude one module with set_app
+    ExclCover = Cover#mod{incl_cond=exclude},
+    Mods = Tools#app.mods,
+    Tools1 = Tools#app{mods = lists:keyreplace(cover,#mod.name,Mods,ExclCover)},
+    {ok,ToolsNoCover,["a: Cannot parse app file"++_|_]} =
+	?msym({ok,_,["a: Cannot parse app file"++_|_]},
+	      reltool_server:set_app(Pid,Tools1)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
+
+    %% Check that the module is no longer included
+    ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
+    {ok,NoIncludeCover} = ?msym({ok,#mod{name=cover, is_included=false}},
+				reltool_server:get_mod(Pid,cover)),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?msym(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,ToolsNoCover}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+set_apps_and_undo(Config) ->
+    Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    %% Get app and mod
+    {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(true, Tools#app.is_pre_included),
+    ?m(true, Tools#app.is_included),
+    {ok,Cover} = ?msym({ok,#mod{name=cover, is_included=true}},
+		       reltool_server:get_mod(Pid,cover)),
+
+    %% Exclude one application with set_apps
+    ExclTools = Tools#app{incl_cond=exclude},
+    ?msym({ok,["a: Cannot parse app file"++_]},
+       reltool_server:set_apps(Pid,[ExclTools])),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
+
+    %% Check that the app and its modules (one of them) are no longer included
+    {ok,NoTools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(false, NoTools#app.is_pre_included),
+    ?m(false, NoTools#app.is_included),
+    {ok,NoIncludeCover} = ?msym({ok,#mod{name=cover, is_included=false}},
+				reltool_server:get_mod(Pid,cover)),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover}, reltool_server:get_mod(Pid,cover)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,NoTools}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,NoIncludeCover}, reltool_server:get_mod(Pid,cover)),
+    ?msym({ok,["a: Cannot parse app file"++_]}, reltool_server:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that escript can be configured, but not its inlined applications
+set_apps_inlined(Config) ->
+    %% Create archive
+    DataDir = ?config(data_dir,Config),
+    EscriptDir = filename:join(DataDir,escript),
+    {ok,{_Archive,Bin}} = zip:create("someapp-1.0.ez",["someapp-1.0"],
+				     [memory,
+				      {cwd,EscriptDir},
+				      {compress,all},
+				      {uncompress,[".beam",".app"]}]),
+
+    %% Create the escript
+    EscriptName = "someapp.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,
+				 {emu_args,"-escript main mymod"},
+				 {archive,Bin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Configure the server
+    Sys = {sys,[{incl_cond, exclude},
+		{escript,Escript,[]},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?msym({ok,[]},reltool_server:get_status(Pid)),
+
+    %% Get app and mod
+    {ok,EApp} = ?msym({ok,_}, reltool_server:get_app(Pid,'*escript* someapp')),
+    {ok,Someapp} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
+    ?m(undefined, EApp#app.incl_cond),
+    ?m(undefined, Someapp#app.incl_cond),
+    ?m(false, Someapp#app.is_included),
+    ?m(false, Someapp#app.is_pre_included),
+
+    %% Include escript
+    EApp1 = EApp#app{incl_cond=include},
+    ?m({ok,[]}, reltool_server:set_apps(Pid,[EApp1])),
+    ExpectedEApp = EApp1#app{is_included=true,is_pre_included=true},
+    ?m({ok,ExpectedEApp}, reltool_server:get_app(Pid,'*escript* someapp')),
+    {ok,Someapp1} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
+    ?m(include, Someapp1#app.incl_cond),
+    ?m(true, Someapp1#app.is_included),
+    ?m(true, Someapp1#app.is_pre_included),
+
+    %% Check that inlined app can not be configured
+    Someapp2 = Someapp1#app{incl_cond=exclude},
+    ?msym({error,
+	   "Application someapp is inlined in '*escript* someapp'. "
+	   "Can not change configuration for an inlined application."},
+	  reltool_server:set_apps(Pid,[Someapp2])),
+    ?m({ok,Someapp1}, reltool_server:get_app(Pid,someapp)),
+
+    %% Exclude escript
+    {ok,EApp2} = ?msym({ok,_}, reltool_server:get_app(Pid,'*escript* someapp')),
+    EApp3 = EApp2#app{incl_cond=exclude},
+    ?m({ok,[]}, reltool_server:set_apps(Pid,[EApp3])),
+    ExpectedEApp3 = EApp3#app{is_included=false,is_pre_included=false},
+    ?m({ok,ExpectedEApp3}, reltool_server:get_app(Pid,'*escript* someapp')),
+    {ok,Someapp3} = ?msym({ok,_}, reltool_server:get_app(Pid,someapp)),
+    ?m(exclude, Someapp3#app.incl_cond),
+    ?m(false, Someapp3#app.is_included),
+    ?m(false, Someapp3#app.is_pre_included),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+set_sys_and_undo(Config) ->
+    Sys1 = {sys,[{incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    ?m({ok,[]}, reltool_server:get_status(Pid)),
+
+    %% Read sys record
+    {ok, SysRec} = reltool_server:get_sys(Pid),
+
+    %% Set lib dirs by call to set_sys
+    NewLib = filename:join(datadir(Config),"faulty_app_file"),
+    NewLibDirs = [NewLib | SysRec#sys.lib_dirs],
+    NewSysRec = SysRec#sys{lib_dirs=NewLibDirs},
+    ?msym({ok,["a: Cannot parse app file"++_]},
+	  reltool_server:set_sys(Pid, NewSysRec)),
+    ?m({ok,NewSysRec}, reltool_server:get_sys(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,SysRec}, reltool_server:get_sys(Pid)),
+    ?m({ok,[]}, reltool_server:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok,reltool_server:undo_config(Pid)),
+    ?m({ok,NewSysRec}, reltool_server:get_sys(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+load_config_and_undo(Config) ->
+    Sys1 = {sys,[{incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    ?m({ok, Sys1}, reltool:get_config(Pid)),
+    ?m({ok,[]}, reltool_server:get_status(Pid)),
+
+    %% Get app and mod
+    {ok,Tools1} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(true, Tools1#app.is_pre_included),
+    ?m(true, Tools1#app.is_included),
+    {ok,Cover1} = ?msym({ok,#mod{name=cover,
+				 is_included=true,
+				 is_pre_included=true}},
+			reltool_server:get_mod(Pid,cover)),
+
+    %% Change tools from include to derived by loading new config
+    Sys2 = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		 {app,a,[{incl_cond,include}]},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,derived}]}]},
+    ?msym({ok,["a: Cannot parse app file"++_]},
+	  reltool_server:load_config(Pid,Sys2)),
+%%% OTP-0702, 15)    ?m({ok, Sys2}, reltool:get_config(Pid)),
+%%% Note that {incl_cond,exclude} is removed compared to Sys1 -
+%%% config is merged, not overwritten - is this correct???
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    %% Check that tools is included (since it is used by sasl) but not
+    %% pre-included (neither included or excluded => undefined)
+    {ok,Tools2} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(undefined, Tools2#app.is_pre_included),
+    ?m(true, Tools2#app.is_included),
+    {ok,Cover2} = ?msym({ok,#mod{name=cover,
+				 is_included=true,
+				 is_pre_included=undefined}},
+			reltool_server:get_mod(Pid,cover)),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
+    ?m({ok,[]}, reltool_server:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover2}, reltool_server:get_mod(Pid,cover)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that load_config is properly rolled back if it fails
+load_config_fail(_Config) ->
+    Sys1 = {sys,[{incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    ?m({ok, Sys1}, reltool:get_config(Pid)),
+    ?m({ok,[]}, reltool_server:get_status(Pid)),
+
+    %% Get app and mod
+    {ok,Tools} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+
+    %% Try to load a config with a faulty rel statement (includes a
+    %% non-existing application)
+    Sys2 = {sys,[{incl_cond, exclude},
+		 {boot_rel, "faulty_rel"},
+		 {rel, "faulty_rel", "1.0", [kernel, sasl, stdlib, xxx]},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]}]},
+    ?msym({error,"Release \"faulty_rel\" uses non existing application xxx"},
+	  reltool_server:load_config(Pid,Sys2)),
+
+    %% Check that a rollback is done to the old configuration
+    ?m({ok, Sys1}, reltool:get_config(Pid,false,false)),
+
+    %% and that tools is not changed (i.e. that the new configuration
+    %% is not applied)
+    ?m({ok,Tools}, reltool_server:get_app(Pid,tools)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with escript
+
+load_config_escript_path(Config) ->
+    %% Create escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName = "mymod.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Start reltool_server with one escript in configuration
+    EscriptSys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid1} = ?msym({ok, _}, reltool:start_server([{config, EscriptSys}])),
+    {ok,[#app{name='*escript* mymod'}=A]} =
+	?msym({ok,[_]}, reltool_server:get_apps(Pid1,whitelist)),
+    ?m(ok, reltool:stop(Pid1)),
+
+
+    %% Do same again, but now start reltool first with simple config,
+    %% then add escript by loading new configuration and check that
+    %% #app is the same
+    SimpleSys =
+        {sys,
+         [
+          {lib_dirs, []}
+         ]},
+
+    {ok, Pid2} = ?msym({ok, _}, reltool:start_server([{config, SimpleSys}])),
+    ?m({ok,[]}, reltool_server:get_apps(Pid2,whitelist)),
+    ?m({ok,[]}, reltool_server:load_config(Pid2,EscriptSys)),
+    ?m({ok,[A]}, reltool_server:get_apps(Pid2,whitelist)),
+
+    ?m(ok, reltool:stop(Pid2)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with same (source) escript twice and check that the
+%% application information is not changed.
+
+load_config_same_escript_source(_Config) ->
+    %% Create escript
+    ExDir = code:lib_dir(reltool, examples),
+    EscriptName = "display_args",
+    Escript = filename:join([ExDir, EscriptName]),
+
+    %% Start reltool_server with one escript in configuration
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+%    {ok,[#app{name='*escript* display_args'}]} =
+    ?msym({ok,[#app{name='*escript* display_args',mods=[_]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+
+    %% Load the same config again, then check that app is not changed
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys)),
+    ?msym({ok,[#app{name='*escript* display_args',mods=[_]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with same (beam) escript twice and check that the
+%% application information is not changed.
+
+load_config_same_escript_beam(Config) ->
+    %% Create escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName = "mymod.escript",
+    Escript = filename:join(?WORK_DIR,EscriptName),
+    ok = escript:create(Escript,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript,8#00744),
+
+    %% Start reltool_server with one escript in configuration
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    {ok,[#app{name='*escript* mymod'}=A]} =
+	?msym({ok,[_]}, reltool_server:get_apps(Pid,whitelist)),
+
+    %% Load the same config again, then check that app is not changed
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys)),
+    ?m({ok,[A]}, reltool_server:get_apps(Pid,whitelist)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Load config with escript
+
+load_config_add_escript(Config) ->
+    %% First escript
+    ExDir = code:lib_dir(reltool, examples),
+    EscriptName1 = "display_args",
+    Escript1 = filename:join([ExDir, EscriptName1]),
+
+    %% Second escript
+    DataDir = ?config(data_dir,Config),
+    BeamFile = filename:join([DataDir,escript,"someapp-1.0",ebin,"mymod.beam"]),
+    {ok,BeamBin} = file:read_file(BeamFile),
+    EscriptName2 = "mymod.escript",
+    Escript2 = filename:join(?WORK_DIR,EscriptName2),
+    ok = escript:create(Escript2,[shebang,{beam,BeamBin}]),
+    ok = file:change_mode(Escript2,8#00744),
+
+    %% Start reltool_server with one escript in configuration
+    Sys1 =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript2, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+
+    %% Add second escript by loading new configuration
+    Sys2 =
+        {sys,
+         [
+          {lib_dirs, []},
+          {escript, Escript1, [{incl_cond, include}]},
+          {escript, Escript2, [{incl_cond, include}]},
+          {profile, standalone}
+         ]},
+
+    {ok,[]} = ?m({ok,[]}, reltool_server:load_config(Pid,Sys2)),
+    {ok,[#app{name='*escript* display_args'},
+	 #app{name='*escript* mymod'}]} =
+	?msym({ok,[_,_]}, reltool_server:get_apps(Pid,whitelist)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+reset_config_and_undo(Config) ->
+    Sys1 = {sys,[{lib_dirs,[filename:join(datadir(Config),"faulty_app_file")]},
+		 {incl_cond, exclude},
+		 {app,a,[{incl_cond,include}]},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    ?m({ok, Sys1}, reltool:get_config(Pid)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    %% Get app and mod
+    {ok,Tools1} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(true, Tools1#app.is_pre_included),
+    ?m(true, Tools1#app.is_included),
+    {ok,Cover1} = ?msym({ok,#mod{name=cover,
+				 is_included=true,
+				 is_pre_included=true}},
+			reltool_server:get_mod(Pid,cover)),
+
+    %% Exclude tools by loading new config
+    Sys2 = {sys,[{incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,tools,[{incl_cond,exclude}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys2)),
+    ?m({ok,[]}, reltool_server:get_status(Pid)),
+
+    %% Check that tools is excluded
+    {ok,Tools2} = ?msym({ok,_}, reltool_server:get_app(Pid,tools)),
+    ?m(false, Tools2#app.is_pre_included),
+    ?m(false, Tools2#app.is_included),
+    {ok,Cover2} = ?msym({ok,#mod{name=cover,
+				 is_included=false,
+				 is_pre_included=false}},
+			reltool_server:get_mod(Pid,cover)),
+
+    %% Reset
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:reset_config(Pid)),
+    ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    %% Undo
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools2}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover2}, reltool_server:get_mod(Pid,cover)),
+    ?m({ok,[]}, reltool_server:get_status(Pid)),
+
+    %% Undo again, to check that it toggles
+    ?m(ok, reltool_server:undo_config(Pid)),
+    ?m({ok,Tools1}, reltool_server:get_app(Pid,tools)),
+    ?m({ok,Cover1}, reltool_server:get_mod(Pid,cover)),
+    ?msym({ok,["a: Cannot parse app file"++_]},reltool_server:get_status(Pid)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+gen_rel_files(_Config) ->
+    %% Configure the server
+    RelName = "gen_fel_files_test",
+    RelVsn = "1.0",
+    Sys =
+        {sys,
+         [
+          {lib_dirs, []},
+          {boot_rel, RelName},
+          {rel, RelName, RelVsn, [kernel, stdlib]}
+         ]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    %% Generate .rel, .script and .boot
+    Dir = filename:join(?WORK_DIR,"gen_rel_files"),
+    ok = file:make_dir(Dir),
+    ?m({ok,[]}, reltool_server:gen_rel_files(Pid,Dir)),
+
+    Script = RelName ++ ".script",
+    Rel = RelName ++ ".rel",
+    Boot = RelName ++ ".boot",
+    {ok,Files} = ?msym({ok,_}, file:list_dir(Dir)),
+    [Boot,Rel,Script] = lists:sort(Files),
+
+    %% Check that contents is reasonable
+    {ok,[S]} = ?msym({ok,[{script,_,_}]},file:consult(filename:join(Dir,Script))),
+    ?msym({ok,[{release,_,_,_}]}, file:consult(filename:join(Dir,Rel))),
+    {ok,Bin} = ?msym({ok,_}, file:read_file(filename:join(Dir,Boot))),
+    ?m(S,binary_to_term(Bin)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+save_config(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    Sys = {sys,[{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+    ?m({ok, Sys}, reltool:get_config(Pid)),
+
+    Simple = filename:join(PrivDir,"save_simple.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,Simple,false,false)),
+    ?m({ok,[Sys]}, file:consult(Simple)),
+
+    Derivates = filename:join(PrivDir,"save_derivates.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,Derivates,false,true)),
+    ?msym({ok,[{sys,[{incl_cond, exclude},
+		     {erts,[]},
+		     {app,kernel,[{incl_cond,include},{mod,_,[]}|_]},
+		     {app,sasl,[{incl_cond,include},{mod,_,[]}|_]},
+		     {app,stdlib,[{incl_cond,include},{mod,_,[]}|_]}]}]},
+	  file:consult(Derivates)),
+
+    Defaults = filename:join(PrivDir,"save_defaults.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,Defaults,true,false)),
+    ?msym({ok,[{sys,[{root_dir,_},
+		     {lib_dirs,_},
+		     {mod_cond,all},
+		     {incl_cond,exclude},
+		     {app,kernel,[{incl_cond,include},{vsn,undefined}]},
+		     {app,sasl,[{incl_cond,include},{vsn,undefined}]},
+		     {app,stdlib,[{incl_cond,include},{vsn,undefined}]},
+		     {boot_rel,"start_clean"},
+		     {rel,"start_clean","1.0",[]},
+		     {rel,"start_sasl","1.0",[sasl]},
+		     {emu_name,"beam"},
+		     {relocatable,true},
+		     {profile,development},
+		     {incl_sys_filters,[".*"]},
+		     {excl_sys_filters,[]},
+		     {incl_app_filters,[".*"]},
+		     {excl_app_filters,[]},
+		     {incl_archive_filters,[".*"]},
+		     {excl_archive_filters,["^include$","^priv$"]},
+		     {archive_opts,[]},
+		     {rel_app_type,permanent},
+		     {app_file,keep},
+		     {debug_info,keep}]}]},
+	  file:consult(Defaults)),
+
+    KVsn = latest(kernel),
+    StdVsn = latest(stdlib),
+
+    All = filename:join(PrivDir,"save_all.reltool"),
+    ?m(ok, reltool_server:save_config(Pid,All,true,true)),
+    ?msym({ok,[{sys,[{root_dir,_},
+		     {lib_dirs,_},
+		     {mod_cond,all},
+		     {incl_cond,exclude},
+		     {erts,[]},
+		     {app,kernel,[{incl_cond,include},{vsn,KVsn},{mod,_,[]}|_]},
+		     {app,sasl,[{incl_cond,include},{vsn,_},{mod,_,[]}|_]},
+		     {app,stdlib,[{incl_cond,include},{vsn,StdVsn},{mod,_,[]}|_]},
+		     {boot_rel,"start_clean"},
+		     {rel,"start_clean","1.0",[]},
+		     {rel,"start_sasl","1.0",[sasl]},
+		     {emu_name,"beam"},
+		     {relocatable,true},
+		     {profile,development},
+		     {incl_sys_filters,[".*"]},
+		     {excl_sys_filters,[]},
+		     {incl_app_filters,[".*"]},
+		     {excl_app_filters,[]},
+		     {incl_archive_filters,[".*"]},
+		     {excl_archive_filters,["^include$","^priv$"]},
+		     {archive_opts,[]},
+		     {rel_app_type,permanent},
+		     {app_file,keep},
+		     {debug_info,keep}]}]},
+	  file:consult(All)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test calculation of dependencies
+%% The following test applications are used
+%%
+%% x-1.0: x1.erl   x2.erl   x3.erl
+%%                   \        /         (x2 calls y1, x3 calls y2)
+%% y-1.0:          y1.erl   y2.erl
+%%                    \                 (y1 calls z1)
+%% z-1.0            z1.erl
+%%
+%% Test includes x and derives y and z.
+%%
+dependencies(Config) ->
+    %% Default: all modules included => y and z are included (derived)
+    Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,x,[{incl_cond,include}]},
+		{app,y,[{incl_cond,derived}]},
+		{app,z,[{incl_cond,derived}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der} = ?msym({ok,_},
+		      reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[z]},
+	   #app{name=z}],
+	  rm_missing_app(Der)),
+    ?msym({ok,[]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding x2 => y still included since y2 is used by x3
+    %%                 z still included since z1 is used by y1
+    Sys2 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include},{mod,x2,[{incl_cond,exclude}]}]},
+		 {app,y,[{incl_cond,derived}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys2)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der2} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[z]},
+	   #app{name=z}],
+	  rm_missing_app(Der2)),
+    ?msym({ok,[]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding x3 => y still included since y1 is used by x2
+    %%                 z still included since z1 is used by y1
+    Sys3 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include},{mod,x3,[{incl_cond,exclude}]}]},
+		 {app,y,[{incl_cond,derived}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys3)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der3} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[z]},
+	   #app{name=z}],
+	  rm_missing_app(Der3)),
+    ?msym({ok,[]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding x2 and x3 => y and z excluded
+    Sys4 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include},
+			 {mod,x2,[{incl_cond,exclude}]},
+			 {mod,x3,[{incl_cond,exclude}]}]},
+		 {app,y,[{incl_cond,derived}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys4)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der4} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([], rm_missing_app(Der4)),
+    ?msym({ok,[#app{name=y},
+	       #app{name=z}]},
+	  reltool_server:get_apps(Pid,source)),
+
+    %% Excluding y1 => y still included since y2 is used by x3
+    %%                 z excluded since not used by any other than y1
+    Sys5 = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,x,[{incl_cond,include}]},
+		 {app,y,[{incl_cond,derived},
+			 {mod,y1,[{incl_cond,exclude}]}]},
+		 {app,z,[{incl_cond,derived}]}]},
+    ?m({ok,[]}, reltool_server:load_config(Pid,Sys5)),
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der5} = ?msym({ok,_},
+		       reltool_server:get_apps(Pid,derived)),
+    ?msym([#app{name=y,uses_apps=[]}], rm_missing_app(Der5)),
+    ?msym({ok,[#app{name=z}]},
+	  reltool_server:get_apps(Pid,source)),
+
+    ?m(ok, reltool:stop(Pid)),
+    ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -477,6 +2003,20 @@ erl_libs() ->
         false  -> [];
         LibStr -> string:tokens(LibStr, ":;")
     end.
+
+datadir(Config) ->
+    %% Removes the trailing slash...
+    filename:nativename(?config(data_dir,Config)).
+
+latest(App) ->
+    AppStr = atom_to_list(App),
+    AppDirs = filelib:wildcard(filename:join(code:lib_dir(),AppStr++"-*")),
+    [LatestAppDir|_] = lists:reverse(AppDirs),
+    [_,Vsn] = string:tokens(filename:basename(LatestAppDir),"-"),
+    Vsn.
+
+rm_missing_app(Apps) ->
+    lists:keydelete(?MISSING_APP_NAME,#app.name,Apps).
 
 diff_script(Script, Script) ->
     equal;
@@ -610,14 +2150,16 @@ wait_for_process(Node, Name, N) when is_integer(N), N > 0 ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Run escript
 
-run(Dir, Cmd0) ->
+run(Dir, Script, Args) ->
+    Cmd0 = filename:rootname(Script) ++ " " ++ Args,
     Cmd = case os:type() of
               {win32,_} -> filename:nativename(Dir) ++ "\\" ++ Cmd0;
               _ -> Cmd0
           end,
     do_run(Dir, Cmd).
 
-run(Dir, Opts, Cmd0) ->
+run(Dir, Opts, Script, Args) ->
+    Cmd0 = filename:rootname(Script) ++ " " ++ Args,
     Cmd = case os:type() of
               {win32,_} -> Opts ++ " " ++ filename:nativename(Dir) ++ "\\" ++ Cmd0;
               _ -> Opts ++ " " ++ Dir ++ "/" ++ Cmd0
@@ -626,7 +2168,9 @@ run(Dir, Opts, Cmd0) ->
 
 do_run(Dir, Cmd) ->
     io:format("Run: ~p\n", [Cmd]),
-    Env = [{"PATH",Dir++":"++os:getenv("PATH")}],
+    Env = [{"PATH",Dir++":"++os:getenv("PATH")},
+	   {"ERL_FLAGS",""},   % Make sure no flags are set that can override
+	   {"ERL_ZFLAGS",""}], % any of the flags set in the escript.
     Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
     Res = get_data(Port, []),
     receive
