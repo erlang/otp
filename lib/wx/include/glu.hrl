@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -174,4 +174,4 @@
 -define(GLU_TESS_WINDING_POSITIVE, 100132).
 -define(GLU_TESS_WINDING_NEGATIVE, 100133).
 -define(GLU_TESS_WINDING_ABS_GEQ_TWO, 100134).
--define(GLU_TESS_MAX_COORD, ?1.0e150).
+-define(GLU_TESS_MAX_COORD, 1.0e150).

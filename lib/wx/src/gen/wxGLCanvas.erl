@@ -96,7 +96,7 @@ new(Parent)
 %% 		 | {palette, wxPalette:wxPalette()}.<br />
 %% 
 -spec new(Parent, Shared) -> wxGLCanvas() when
-	Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas();
+	Parent::wxWindow:wxWindow(), Shared::wx:wx_object() | wxGLCanvas();
       (Parent, [Option]) -> wxGLCanvas() when
 	Parent::wxWindow:wxWindow(),
 	Option :: {id, integer()}
@@ -128,7 +128,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef}, Options)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvaswxglcanvas">external documentation</a>.
 -spec new(Parent, Shared, [Option]) -> wxGLCanvas() when
-	Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas(),
+	Parent::wxWindow:wxWindow(), Shared::wx:wx_object() | wxGLCanvas(),
 	Option :: {id, integer()}
 		 | {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
@@ -159,7 +159,7 @@ new(#wx_ref{type=ParentT,ref=ParentRef},#wx_ref{type=SharedT,ref=SharedRef}, Opt
   <<ParentRef:32/?UI,SharedRef:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvasgetcontext">external documentation</a>.
--spec getContext(This) -> wxGLContext:wxGLContext() when
+-spec getContext(This) -> wx:wx_object() when
 	This::wxGLCanvas().
 getContext(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxGLCanvas),

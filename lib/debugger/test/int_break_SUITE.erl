@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -76,6 +76,9 @@ basic(Config) when list(Config) ->
     ?line S3 = [xxx,y] = ordsets1:add_element(y, S2),
     ?line ok = i:ib(ordsets1, union, 2),
     ?line [xxx,y,z] = ordsets1:union(S3, [z]),
+    All = [{{ordsets1,86}, _}, {{ordsets1,_},_}|_] = lists:sort(int:all_breaks()),
+    [] = lists:sort(int:all_breaks(foobar)),
+    All = lists:sort(int:all_breaks(ordsets1)),
     ok.
 
 cleanup(doc) -> "Make sure that the auto-attach flag is turned off.";

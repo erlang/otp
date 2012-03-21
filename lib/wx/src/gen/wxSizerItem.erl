@@ -72,7 +72,7 @@ new(Width,Height,#wx_ref{type=FlagsT,ref=FlagsRef})
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemwxsizeritem">external documentation</a>.
 -spec new(Window, Proportion, Flag, Border, UserData) -> wxSizerItem() when
-	Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Proportion::integer(), Flag::integer(), Border::integer(), UserData::wx:wx().
+	Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Proportion::integer(), Flag::integer(), Border::integer(), UserData::wx:wx_object().
 new(#wx_ref{type=WindowT,ref=WindowRef},Proportion,Flag,Border,#wx_ref{type=UserDataT,ref=UserDataRef})
  when is_integer(Proportion),is_integer(Flag),is_integer(Border) ->
   WindowOP = case ?CLASS_T(WindowT,wxWindow) of
@@ -88,7 +88,7 @@ new(#wx_ref{type=WindowT,ref=WindowRef},Proportion,Flag,Border,#wx_ref{type=User
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemwxsizeritem">external documentation</a>.
 -spec new(Width, Height, Proportion, Flag, Border, UserData) -> wxSizerItem() when
-	Width::integer(), Height::integer(), Proportion::integer(), Flag::integer(), Border::integer(), UserData::wx:wx().
+	Width::integer(), Height::integer(), Proportion::integer(), Flag::integer(), Border::integer(), UserData::wx:wx_object().
 new(Width,Height,Proportion,Flag,Border,#wx_ref{type=UserDataT,ref=UserDataRef})
  when is_integer(Width),is_integer(Height),is_integer(Proportion),is_integer(Flag),is_integer(Border) ->
   ?CLASS(UserDataT,wx),
@@ -200,7 +200,7 @@ getSpacer(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizeritem.html#wxsizeritemgetuserdata">external documentation</a>.
--spec getUserData(This) -> wx:wx() when
+-spec getUserData(This) -> wx:wx_object() when
 	This::wxSizerItem().
 getUserData(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxSizerItem),

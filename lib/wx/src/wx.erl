@@ -71,13 +71,17 @@
 	 retain_memory/1, release_memory/1]).
 
 -export([demo/0]).
--export_type([wx_colour/0, wx_datetime/0, wx_enum/0, wx_mouseState/0, wx_wxHtmlLinkInfo/0]).
+
+-export_type([wx_object/0, wx_env/0, wx_memory/0]).
+-export_type([wx_colour/0, wx_colour4/0, wx_datetime/0,
+	      wx_enum/0, wx_wxMouseState/0, wx_wxHtmlLinkInfo/0]).
+
 -include("wxe.hrl").
 -include("../include/wx.hrl").
 
--opaque wx_object() :: #wx_ref{}.  %% Opaque object reference
--opaque wx_env() :: #wx_env{}.     %% Opaque process environment
--opaque wx_memory() :: binary() | #wx_mem{}.     %% Opaque memory reference
+-type wx_object() :: #wx_ref{}.  %% Opaque object reference
+-type wx_env() :: #wx_env{}.     %% Opaque process environment
+-type wx_memory() :: binary() | #wx_mem{}.     %% Opaque memory reference
 
 -type wx_colour4() :: {R::byte(),G::byte(),B::byte(), A::byte()}.
 -type wx_colour()  :: {R::byte(),G::byte(),B::byte()}  | wx_colour4().
@@ -85,7 +89,7 @@
 -type wx_datetime() :: {{Year::integer(),Month::integer(),Day::integer()},
 			{Hour::integer(),Minute::integer(),Second::integer()}}. %% In Local Timezone
 
--type wx_mouseState() :: #wxMouseState{}.  %% See #wxMouseState{} defined in wx.hrl
+-type wx_wxMouseState() :: #wxMouseState{}.  %% See #wxMouseState{} defined in wx.hrl
 -type wx_enum() :: integer().      %% Constant defined in wx.hrl
 -type wx_wxHtmlLinkInfo() :: #wxHtmlLinkInfo{}.
 
@@ -311,14 +315,15 @@ debug(Level) when is_integer(Level) ->
     end.
 
 %% @doc Starts a wxErlang demo if examples directory exists and is compiled
--spec demo() -> ok.
+-spec demo() -> ok | {error, atom()}.
 demo() ->
     Priv = code:priv_dir(wx),
     Demo = filename:join([filename:dirname(Priv),examples,demo]),
     Mod  = list_to_atom("demo"), %% Fool xref tests
     case file:set_cwd(Demo) of
 	ok ->
-	    apply(Mod, start, []);
+	    apply(Mod, start, []),
+	    ok;
 	_  ->
 	    {error, no_demo_dir}
     end.

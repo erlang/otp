@@ -34,10 +34,10 @@
   deleteItem/2,destroy/1,editLabel/2,ensureVisible/2,findItem/3,findItem/4,
   getColumn/3,getColumnCount/1,getColumnWidth/2,getCountPerPage/1,getEditControl/1,
   getImageList/2,getItem/2,getItemBackgroundColour/2,getItemCount/1,
-  getItemData/2,getItemFont/2,getItemPosition/3,getItemRect/3,getItemRect/4,
+  getItemData/2,getItemFont/2,getItemPosition/2,getItemRect/2,getItemRect/3,
   getItemSpacing/1,getItemState/3,getItemText/2,getItemTextColour/2,
   getNextItem/2,getNextItem/3,getSelectedItemCount/1,getTextColour/1,
-  getTopItem/1,getViewRect/1,hitTest/2,insertColumn/3,insertColumn/4,
+  getTopItem/1,getViewRect/1,hitTest/3,insertColumn/3,insertColumn/4,
   insertItem/2,insertItem/3,insertItem/4,refreshItem/2,refreshItems/3,
   scrollList/3,setBackgroundColour/2,setColumn/3,setColumnWidth/3,setImageList/3,
   setItem/2,setItem/4,setItem/5,setItemBackgroundColour/3,setItemColumnImage/4,
@@ -391,34 +391,37 @@ getItemFont(#wx_ref{type=ThisT,ref=ThisRef},Item)
   <<ThisRef:32/?UI,Item:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemposition">external documentation</a>.
--spec getItemPosition(This, Item, Pos) -> boolean() when
-	This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}.
-getItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item,{PosX,PosY})
- when is_integer(Item),is_integer(PosX),is_integer(PosY) ->
+-spec getItemPosition(This, Item) -> Result when
+	Result ::{Res ::boolean(), Pos::{X::integer(), Y::integer()}},
+	This::wxListCtrl(), Item::integer().
+getItemPosition(#wx_ref{type=ThisT,ref=ThisRef},Item)
+ when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:call(?wxListCtrl_GetItemPosition,
-  <<ThisRef:32/?UI,Item:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
+  <<ThisRef:32/?UI,Item:32/?UI>>).
 
-%% @equiv getItemRect(This,Item,Rect, [])
--spec getItemRect(This, Item, Rect) -> boolean() when
-	This::wxListCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+%% @equiv getItemRect(This,Item, [])
+-spec getItemRect(This, Item) -> Result when
+	Result ::{Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
+	This::wxListCtrl(), Item::integer().
 
-getItemRect(This,Item,Rect={RectX,RectY,RectW,RectH})
- when is_record(This, wx_ref),is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
-  getItemRect(This,Item,Rect, []).
+getItemRect(This,Item)
+ when is_record(This, wx_ref),is_integer(Item) ->
+  getItemRect(This,Item, []).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemrect">external documentation</a>.
--spec getItemRect(This, Item, Rect, [Option]) -> boolean() when
-	This::wxListCtrl(), Item::integer(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()},
+-spec getItemRect(This, Item, [Option]) -> Result when
+	Result :: {Res ::boolean(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}},
+	This::wxListCtrl(), Item::integer(),
 	Option :: {code, integer()}.
-getItemRect(#wx_ref{type=ThisT,ref=ThisRef},Item,{RectX,RectY,RectW,RectH}, Options)
- when is_integer(Item),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_list(Options) ->
+getItemRect(#wx_ref{type=ThisT,ref=ThisRef},Item, Options)
+ when is_integer(Item),is_list(Options) ->
   ?CLASS(ThisT,wxListCtrl),
   MOpts = fun({code, Code}, Acc) -> [<<1:32/?UI,Code:32/?UI>>|Acc];
           (BadOpt, _) -> erlang:error({badoption, BadOpt}) end,
   BinOpt = list_to_binary(lists:foldl(MOpts, [<<0:32>>], Options)),
   wxe_util:call(?wxListCtrl_GetItemRect,
-  <<ThisRef:32/?UI,Item:32/?UI,RectX:32/?UI,RectY:32/?UI,RectW:32/?UI,RectH:32/?UI, BinOpt/binary>>).
+  <<ThisRef:32/?UI,Item:32/?UI, BinOpt/binary>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgetitemspacing">external documentation</a>.
 -spec getItemSpacing(This) -> {W::integer(), H::integer()} when
@@ -511,14 +514,13 @@ getViewRect(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlhittest">external documentation</a>.
--spec hitTest(This, Point) -> Result when
-	Result ::{Res ::integer(), Flags::integer()},
-	This::wxListCtrl(), Point::{X::integer(), Y::integer()}.
-hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
- when is_integer(PointX),is_integer(PointY) ->
+-spec hitTest(This, Point, Flags) -> integer() when
+	This::wxListCtrl(), Point::{X::integer(), Y::integer()}, Flags::integer().
+hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY},Flags)
+ when is_integer(PointX),is_integer(PointY),is_integer(Flags) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:call(?wxListCtrl_HitTest,
-  <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI>>).
+  <<ThisRef:32/?UI,PointX:32/?UI,PointY:32/?UI,Flags:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlinsertcolumn">external documentation</a>.
 %% <br /> Also:<br />

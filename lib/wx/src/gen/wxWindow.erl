@@ -526,7 +526,7 @@ getCursor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowgetdroptarget">external documentation</a>.
--spec getDropTarget(This) -> wxDropTarget:wxDropTarget() when
+-spec getDropTarget(This) -> wx:wx_object() when
 	This::wxWindow().
 getDropTarget(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
@@ -1384,7 +1384,7 @@ setOwnForegroundColour(#wx_ref{type=ThisT,ref=ThisRef},Colour)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetdroptarget">external documentation</a>.
 -spec setDropTarget(This, DropTarget) -> ok when
-	This::wxWindow(), DropTarget::wxDropTarget:wxDropTarget().
+	This::wxWindow(), DropTarget::wx:wx_object().
 setDropTarget(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DropTargetT,ref=DropTargetRef}) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(DropTargetT,wxDropTarget),

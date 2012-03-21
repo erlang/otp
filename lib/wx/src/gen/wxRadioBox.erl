@@ -93,7 +93,7 @@ new(Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]],
 	Option :: {majorDim, integer()}
 		 | {style, integer()}
-		 | {val, wx:wx()}.
+		 | {val, wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
  when is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),
@@ -121,7 +121,7 @@ create(This,Parent,Id,Title,Pos={PosX,PosY},Size={SizeW,SizeH},Choices)
 	This::wxRadioBox(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[[unicode:chardata()]],
 	Option :: {majorDim, integer()}
 		 | {style, integer()}
-		 | {val, wx:wx()}.
+		 | {val, wx:wx_object()}.
 create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Title,{PosX,PosY},{SizeW,SizeH},Choices, Options)
  when is_integer(Id),is_list(Title),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices),is_list(Options) ->
   ?CLASS(ThisT,wxRadioBox),

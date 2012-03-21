@@ -56,7 +56,7 @@ add(This,Window)
 %% 	Option :: {proportion, integer()}<br />
 %% 		 | {flag, integer()}<br />
 %% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx()};<br />
+%% 		 | {userData, wx:wx_object()};<br />
 %%       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
 %% 
@@ -67,7 +67,7 @@ add(This,Window)
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()};
+		 | {userData, wx:wx_object()};
       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().
 
@@ -110,7 +110,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#wx_ref{
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()}.
+		 | {userData, wx:wx_object()}.
 add(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -350,7 +350,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=ItemT,ref=ItemRef})
 %% 	Option :: {proportion, integer()}<br />
 %% 		 | {flag, integer()}<br />
 %% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx()};<br />
+%% 		 | {userData, wx:wx_object()};<br />
 %%       (This, Index, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
 %% 
@@ -361,7 +361,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=ItemT,ref=ItemRef})
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()};
+		 | {userData, wx:wx_object()};
       (This, Index, Window, Flags) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().
 
@@ -405,7 +405,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=WindowT,ref=WindowRef}
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()}.
+		 | {userData, wx:wx_object()}.
 insert(#wx_ref{type=ThisT,ref=ThisRef},Index,Width,Height, Options)
  when is_integer(Index),is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -497,7 +497,7 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 %% 	Option :: {proportion, integer()}<br />
 %% 		 | {flag, integer()}<br />
 %% 		 | {border, integer()}<br />
-%% 		 | {userData, wx:wx()};<br />
+%% 		 | {userData, wx:wx_object()};<br />
 %%       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when<br />
 %% 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().<br />
 %% 
@@ -508,7 +508,7 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()};
+		 | {userData, wx:wx_object()};
       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer(), Flags::wxSizerFlags:wxSizerFlags().
 
@@ -551,7 +551,7 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef},#wx_
 	Option :: {proportion, integer()}
 		 | {flag, integer()}
 		 | {border, integer()}
-		 | {userData, wx:wx()}.
+		 | {userData, wx:wx_object()}.
 prepend(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),

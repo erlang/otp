@@ -106,7 +106,7 @@ new(Parent,Id)
 		 | {size, {W::integer(), H::integer()}}
 		 | {choices, [[unicode:chardata()]]}
 		 | {style, integer()}
-		 | {validator, wx:wx()}.
+		 | {validator, wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
  when is_integer(Id),is_list(Options) ->
   ?CLASS(ParentT,wxWindow),

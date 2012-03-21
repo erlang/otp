@@ -350,7 +350,11 @@ declare_type(N,false,_,#type{name="wxDateTime"}) ->
     w(" wxDateTime ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxColour"}) ->
     w(" wxColour ~s;~n", [N]);
+declare_type(N,false,_,#type{name=Type, base=int, ref=reference}) ->
+    w(" ~s ~s;~n", [Type,N]);
 declare_type(N,false,_,#type{name=Type, base=int64, ref=reference}) ->
+    w(" ~s ~s;~n", [Type,N]);
+declare_type(N,false,_,#type{base={comp,_,_},single=true,name=Type,ref=reference}) ->
     w(" ~s ~s;~n", [Type,N]);
 declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=true})
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
@@ -812,6 +816,7 @@ call_arg(#param{name=N,in=false,type=#type{by_val=false, single=true}}) -> "&" +
 call_arg(#param{name=N,def=Def,type=#type{base={comp,_,_},ref={pointer,1},single=true}})
   when Def =:= none ->
     "&" ++N;
+call_arg(#param{name=N,type=#type{base=int, ref=reference, single=true}}) -> "*" ++ N;
 call_arg(#param{name=N,type=#type{by_val=false}}) -> N;
 call_arg(#param{name=N,type={merged,_,#type{base={class,_},single=true,
 					    by_val=ByVal,
@@ -888,7 +893,7 @@ build_return_vals(Type,Ps) ->
 
 build_ret_types(void,Ps) ->
     Calc = fun(#param{name=N,in=False,type=T}, Free) when False =/= true ->
-		   case build_ret(N, False, T) of
+		   case build_ret(N, {arg, False}, T) of
 		       ok -> Free;
 		       Other -> [Other|Free]
 		   end;
@@ -896,12 +901,12 @@ build_ret_types(void,Ps) ->
 	   end,
     lists:foldl(Calc, [], Ps);
 build_ret_types(Type,Ps) ->
-    Free = case build_ret("Result", out, Type) of
+    Free = case build_ret("Result", {ret, out}, Type) of
 	       ok -> [];
 	       FreeStr -> [FreeStr]
 	   end,
     Calc = fun(#param{name=N,in=False,type=T}, FreeAcc) when False =/= true ->
-		   case build_ret(N, False, T) of
+		   case build_ret(N, {arg, False}, T) of
 		       ok -> FreeAcc;
 		       FreeMe -> [FreeMe|FreeAcc]
 		   end;
@@ -927,13 +932,13 @@ build_ret(Name,_,#type{base={enum,_Type},single=true}) ->
     w(" rt.addInt(~s);~n",[Name]);
 build_ret(Name,_,#type{base={comp,_,{record, _}},single=true}) ->
     w(" rt.add(~s);~n", [Name]);
-build_ret(Name,_,#type{base={comp,_,_},single=true, ref=reference}) ->
+build_ret(Name,{ret,_},#type{base={comp,_,_},single=true, ref=reference}) ->
     w(" rt.add((*~s));~n",[Name]);
 build_ret(Name,_,#type{base={comp,_,_},single=true}) ->
     w(" rt.add(~s);~n",[Name]);
 build_ret(Name,_,#type{base=bool,single=true,by_val=true}) ->
     w(" rt.addBool(~s);~n",[Name]);
-build_ret(Name,both,#type{base=int,single=true,mod=M}) ->
+build_ret(Name,{arg, both},#type{base=int,single=true,mod=M}) ->
     case lists:member(unsigned, M) of
 	true ->  w(" rt.addUint(*~s);~n",[Name]);
 	false -> w(" rt.addInt(*~s);~n",[Name])
