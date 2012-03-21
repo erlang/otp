@@ -146,7 +146,8 @@ run(TestDirs) ->
 %%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
 %%%               {cover,CoverSpecFile} | {step,StepOpts} |
 %%%               {event_handler,EventHandlers} | {include,InclDirs} |
-%%%               {auto_compile,Bool} | {multiply_timetraps,M} | {scale_timetraps,Bool} |
+%%%               {auto_compile,Bool} | {create_priv_dir,CreatePrivDir}  |
+%%%               {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {logopts,LogOpts} | {basic_html,Bool} | 
@@ -171,6 +172,7 @@ run(TestDirs) ->
 %%%   EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
 %%%   InitArgs = [term()]
 %%%   InclDirs = [string()] | string()
+%%%   CreatePrivDir = auto_per_run | auto_per_tc | manual_per_tc
 %%%   M = integer()
 %%%   N = integer()
 %%%   DurTime = string(HHMMSS)
