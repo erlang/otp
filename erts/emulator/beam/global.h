@@ -2007,32 +2007,12 @@ dtrace_fun_decode(Process *process,
                   Eterm module, Eterm function, int arity,
                   char *process_buf, char *mfa_buf)
 {
-    char funbuf[DTRACE_TERM_BUF_SIZE];
-    char *funptr = funbuf;
-    char *p = NULL;
-
     if (process_buf) {
         dtrace_proc_str(process, process_buf);
     }
 
-    erts_snprintf(funbuf, sizeof(funbuf), "%T", function);
-    /*
-     * I'm not quite sure how these function names are synthesized,
-     *  but they almost always seem to be in the form of
-     *  '-name/arity-fun-0-' so I'm chopping them up when it's -fun-0-
-     *  (which seems to be the toplevel)
-     */
-    if (funbuf[0] == '\'' && funbuf[1] == '-'
-        && strlen(funbuf) > 3 && funbuf[strlen(funbuf) - 3] == '0') {
-        p = strchr(funbuf, '/');
-        if (p) {
-            *p = 0;
-        }
-        funptr += 2;
-    }
-
-    erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%s/%d",
-                  module, funptr, arity);
+    erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%T/%d",
+                  module, function, arity);
 }
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
