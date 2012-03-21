@@ -8,6 +8,7 @@
 	  base = [],             % Baseobject
 	  filter = [],           % Search conditions
 	  scope,                 % Search scope
+	  deref=derefAlways,     % Dereference
 	  attributes = [],       % Attributes to be returned
 	  types_only = false,    % Return types+values or types
 	  timeout = 0            % Timelimit for search

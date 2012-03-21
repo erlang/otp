@@ -105,12 +105,11 @@ api(Config) ->
 						   scope=eldap:singleLevel()})
 	     end,
     {ok, #eldap_search_result{entries=[_]}} = All(BasePath),
-    {error, {searchResDone, _}} = All("cn=Bar,"++BasePath),
+    {error, noSuchObject} = All("cn=Bar,"++BasePath),
 
-    {error, strongerAuthRequired}
-	= eldap:add(H, "cn=Jonas Jonsson," ++ BasePath,
-		    [{"objectclass", ["person"]},
-		     {"cn", ["Jonas Jonsson"]}, {"sn", ["Jonsson"]}]),
+    {error, _} = eldap:add(H, "cn=Jonas Jonsson," ++ BasePath,
+			   [{"objectclass", ["person"]},
+			    {"cn", ["Jonas Jonsson"]}, {"sn", ["Jonsson"]}]),
     eldap:simple_bind(H, "cn=Manager,dc=ericsson,dc=se", "hejsan"),
 
     %% Add
@@ -136,7 +135,6 @@ api(Config) ->
     {ok, #eldap_search_result{entries=[#eldap_entry{}]}} = Search(F_AND),
     F_NOT = eldap:'and'([eldap:present("objectclass"), eldap:'not'(eldap:present("ou"))]),
     {ok, #eldap_search_result{entries=[#eldap_entry{}, #eldap_entry{}]}} = Search(F_NOT),
-
 
     %% MODIFY
     Mod = [eldap:mod_replace("telephoneNumber", ["555-12345"]),

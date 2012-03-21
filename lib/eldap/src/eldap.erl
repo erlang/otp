@@ -17,6 +17,12 @@
 	 mod_replace/2, add/3, delete/2, modify_dn/5,parse_dn/1,
 	 parse_ldap_url/1]).
 
+-export([neverDerefAliases/0, derefInSearching/0,
+         derefFindingBaseObj/0, derefAlways/0]).
+
+%% for upgrades
+-export([loop/2]).
+
 -import(lists,[concat/1]).
 
 -include("ELDAPv3.hrl").
@@ -58,7 +64,7 @@
 %%%
 %%%    {port, Port}        - Port is the port number
 %%%    {log, F}            - F(LogLevel, FormatString, ListOfArgs)
-%%%    {timeout, milliSec} - request timeout
+%%%    {timeout, milliSec} - Server request timeout
 %%%
 %%% --------------------------------------------------------------------
 open(Hosts) ->
@@ -146,8 +152,8 @@ delete(Handle, Entry) when is_pid(Handle), is_list(Entry) ->
 %%%
 %%%  modify(Handle,
 %%%         "cn=Torbjorn Tornkvist, ou=people, o=Bluetail AB, dc=bluetail, dc=com",
-%%%         [replace("telephoneNumber", ["555 555 00"]),
-%%%          add("description", ["LDAP hacker"])]
+%%%         [mod_replace("telephoneNumber", ["555 555 00"]),
+%%%          mod_add("description", ["LDAP hacker"])]
 %%%        )
 %%% --------------------------------------------------------------------
 modify(Handle, Object, Mods) when is_pid(Handle), is_list(Object), is_list(Mods) ->
@@ -157,7 +163,7 @@ modify(Handle, Object, Mods) when is_pid(Handle), is_list(Object), is_list(Mods)
 %%%
 %%% Modification operations.
 %%% Example:
-%%%            replace("telephoneNumber", ["555 555 00"])
+%%%            mod_replace("telephoneNumber", ["555 555 00"])
 %%%
 mod_add(Type, Values) when is_list(Type), is_list(Values)     -> m(add, Type, Values).
 mod_delete(Type, Values) when is_list(Type), is_list(Values)  -> m(delete, Type, Values).
@@ -201,7 +207,7 @@ optional(Value) -> Value.
 %%%
 %%%  Example:
 %%%
-%%%	Filter = eldap:substrings("sn", [{any,"o"}]),
+%%%	Filter = eldap:substrings("cn", [{any,"o"}]),
 %%%	eldap:search(S, [{base, "dc=bluetail, dc=com"},
 %%%	                 {filter, Filter},
 %%%			 {attributes,["cn"]}])),
@@ -233,7 +239,9 @@ call_search(Handle, A) ->
     recv(Handle).
 
 parse_search_args(Args) ->
-    parse_search_args(Args, #eldap_search{scope = wholeSubtree}).
+    parse_search_args(Args,
+		      #eldap_search{scope = wholeSubtree,
+				    deref = derefAlways}).
 
 parse_search_args([{base, Base}|T],A) ->
     parse_search_args(T,A#eldap_search{base = Base});
@@ -241,6 +249,8 @@ parse_search_args([{filter, Filter}|T],A) ->
     parse_search_args(T,A#eldap_search{filter = Filter});
 parse_search_args([{scope, Scope}|T],A) ->
     parse_search_args(T,A#eldap_search{scope = Scope});
+parse_search_args([{deref, Deref}|T],A) ->
+    parse_search_args(T,A#eldap_search{deref = Deref});
 parse_search_args([{attributes, Attrs}|T],A) ->
     parse_search_args(T,A#eldap_search{attributes = Attrs});
 parse_search_args([{types_only, TypesOnly}|T],A) ->
@@ -258,6 +268,14 @@ parse_search_args([],A) ->
 baseObject()   -> baseObject.
 singleLevel()  -> singleLevel.
 wholeSubtree() -> wholeSubtree.
+
+%%
+%% The derefAliases parameter
+%%
+neverDerefAliases()   -> neverDerefAliases.
+derefInSearching()    -> derefInSearching.
+derefFindingBaseObj() -> derefFindingBaseObj.
+derefAlways()         -> derefAlways.
 
 %%%
 %%% Boolean filter operations
@@ -316,8 +334,7 @@ init(Hosts, Opts, Cpid) ->
     case try_connect(Hosts, Data) of
 	{ok,Data2} ->
 	    send(Cpid, {ok,self()}),
- 	    put(req_timeout, Data#eldap.timeout), % kludge...
-	    loop(Cpid, Data2);
+	    ?MODULE:loop(Cpid, Data2);
 	Else ->
  	    send(Cpid, Else),
 	    unlink(Cpid),
@@ -376,38 +393,38 @@ loop(Cpid, Data) ->
 	{From, {search, A}} ->
 	    {Res,NewData} = do_search(Data, A),
 	    send(From,Res),
-	    loop(Cpid, NewData);
+	    ?MODULE:loop(Cpid, NewData);
 
 	{From, {modify, Obj, Mod}} ->
 	    {Res,NewData} = do_modify(Data, Obj, Mod),
 	    send(From,Res),
-	    loop(Cpid, NewData);
+	    ?MODULE:loop(Cpid, NewData);
 
 	{From, {modify_dn, Obj, NewRDN, DelOldRDN, NewSup}} ->
 	    {Res,NewData} = do_modify_dn(Data, Obj, NewRDN, DelOldRDN, NewSup),
 	    send(From,Res),
-	    loop(Cpid, NewData);
+	    ?MODULE:loop(Cpid, NewData);
 
 	{From, {add, Entry, Attrs}} ->
 	    {Res,NewData} = do_add(Data, Entry, Attrs),
 	    send(From,Res),
-	    loop(Cpid, NewData);
+	    ?MODULE:loop(Cpid, NewData);
 
 	{From, {delete, Entry}} ->
 	    {Res,NewData} = do_delete(Data, Entry),
 	    send(From,Res),
-	    loop(Cpid, NewData);
+	    ?MODULE:loop(Cpid, NewData);
 
 	{From, {simple_bind, Dn, Passwd}} ->
 	    {Res,NewData} = do_simple_bind(Data, Dn, Passwd),
 	    send(From,Res),
-	    loop(Cpid, NewData);
+	    ?MODULE:loop(Cpid, NewData);
 
 	{From, {cnt_proc, NewCpid}} ->
 	    unlink(Cpid),
 	    send(From,ok),
 	    ?PRINT("New Cpid is: ~p~n",[NewCpid]),
-	    loop(NewCpid, Data);
+	    ?MODULE:loop(NewCpid, Data);
 
 	{_From, close} ->
 	    unlink(Cpid),
@@ -419,7 +436,7 @@ loop(Cpid, Data) ->
 
 	_XX ->
 	    ?PRINT("loop got: ~p~n",[_XX]),
-	    loop(Cpid, Data)
+	    ?MODULE:loop(Cpid, Data)
 
     end.
 
@@ -480,6 +497,7 @@ do_search(Data, A) ->
 	{error,Emsg}         -> {ldap_closed_p(Data, Emsg),Data};
 	{'EXIT',Error}       -> {ldap_closed_p(Data, Error),Data};
 	{ok,Res,Ref,NewData} -> {{ok,polish(Res, Ref)},NewData};
+	{{error,Reason},NewData} -> {{error,Reason},NewData};
 	Else                 -> {ldap_closed_p(Data, Else),Data}
     end.
 
@@ -506,7 +524,7 @@ polish_result([]) ->
 do_search_0(Data, A) ->
     Req = #'SearchRequest'{baseObject = A#eldap_search.base,
 			   scope = v_scope(A#eldap_search.scope),
-			   derefAliases = neverDerefAliases,
+			   derefAliases = v_deref(A#eldap_search.deref),
 			   sizeLimit = 0, % no size limit
 			   timeLimit = v_timeout(A#eldap_search.timeout),
 			   typesOnly = v_bool(A#eldap_search.types_only),
@@ -530,9 +548,14 @@ collect_search_responses(Data, Req, ID) ->
 collect_search_responses(Data, S, ID, {ok,Msg}, Acc, Ref)
   when is_record(Msg,'LDAPMessage') ->
     case Msg#'LDAPMessage'.protocolOp of
-	{'searchResDone',R} when R#'LDAPResult'.resultCode == success ->
-	    log2(Data, "search reply = searchResDone ~n", []),
-	    {ok,Acc,Ref,Data};
+	{'searchResDone',R} ->
+            case R#'LDAPResult'.resultCode of
+                success ->
+                    log2(Data, "search reply = searchResDone ~n", []),
+                    {ok,Acc,Ref,Data};
+                Reason ->
+                    {{error,Reason},Data}
+            end;
 	{'searchResEntry',R} when is_record(R,'SearchResultEntry') ->
 	    Resp = recv_response(S, Data),
 	    log2(Data, "search reply = ~p~n", [Resp]),
@@ -663,14 +686,13 @@ do_send(S, Data, Bytes) when Data#eldap.use_tls == false ->
 do_send(S, Data, Bytes) when Data#eldap.use_tls == true ->
     ssl:send(S, Bytes).
 
-do_recv(S, Data, Len, Timeout) when Data#eldap.use_tls == false ->
+do_recv(S, #eldap{use_tls=false, timeout=Timeout}, Len) ->
     gen_tcp:recv(S, Len, Timeout);
-do_recv(S, Data, Len, Timeout) when Data#eldap.use_tls == true ->
+do_recv(S, #eldap{use_tls=true, timeout=Timeout}, Len) ->
     ssl:recv(S, Len, Timeout).
 
 recv_response(S, Data) ->
-    Timeout = get(req_timeout), % kludge...
-    case do_recv(S, Data, 0, Timeout) of
+    case do_recv(S, Data, 0) of
 	{ok, Packet} ->
 	    check_tag(Packet),
 	    case asn1rt:decode('ELDAPv3', 'LDAPMessage', Packet) of
@@ -685,9 +707,9 @@ recv_response(S, Data) ->
 
 %%% Sanity check of received packet
 check_tag(Data) ->
-    case asn1rt_ber_bin:decode_tag(b2l(Data)) of
+    case asn1rt_ber_bin:decode_tag(l2b(Data)) of
 	{_Tag, Data1, _Rb} ->
-	    case asn1rt_ber_bin:decode_length(b2l(Data1)) of
+	    case asn1rt_ber_bin:decode_length(l2b(Data1)) of
 		{{_Len, _Data2}, _Rb2} -> ok;
 		_ -> throw({error,decoded_tag_length})
 	    end;
@@ -744,6 +766,11 @@ v_scope(singleLevel)  -> singleLevel;
 v_scope(wholeSubtree) -> wholeSubtree;
 v_scope(_Scope)       -> throw({error,concat(["unknown scope: ",_Scope])}).
 
+v_deref(DR = neverDerefAliases)   -> DR;
+v_deref(DR = derefInSearching)    -> DR;
+v_deref(DR = derefFindingBaseObj) -> DR;
+v_deref(DR = derefAlways )        -> DR.
+
 v_bool(true)  -> true;
 v_bool(false) -> false;
 v_bool(_Bool) -> throw({error,concat(["not Boolean: ",_Bool])}).
@@ -776,7 +803,12 @@ log(_, _, _, _) ->
 %%% --------------------------------------------------------------------
 
 send(To,Msg) -> To ! {self(),Msg}.
-recv(From)   -> receive {From,Msg} -> Msg end.
+recv(From)   ->
+    receive
+	{From,Msg} -> Msg;
+	{'EXIT', From, Reason} ->
+	    {error, {internal_error, Reason}}
+    end.
 
 ldap_closed_p(Data, Emsg) when Data#eldap.use_tls == true ->
     %% Check if the SSL socket seems to be alive or not
@@ -1078,6 +1110,6 @@ get_head(Str,Tail) ->
 get_head([H|Tail],Tail,Rhead) -> lists:reverse([H|Rhead]);
 get_head([H|Rest],Tail,Rhead) -> get_head(Rest,Tail,[H|Rhead]).
 
-b2l(B) when is_binary(B) -> B;
-b2l(L) when is_list(L)   -> list_to_binary(L).
+l2b(B) when is_binary(B) -> B;
+l2b(L) when is_list(L)   -> list_to_binary(L).
 
