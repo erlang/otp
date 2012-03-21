@@ -36,44 +36,22 @@ Supported platforms
 * Linux via SystemTap compatibility.  Please see the file
   `README.systemtap.md` for more details.
 
-Just add the `--enable-dtrace` option to your command when you run the
-`configure` script.
+Just add the `--with-dynamic-trace=dtrace` option to your command when you 
+run the `configure` script. If you are using systemtap, the configure option 
+is `--with-dynamic-trace=systemtap`
 
-Contributions
--------------
+Status
+------
 
-Code contributions are welcome!  This is a side project for me (SLF),
-so things would go faster if other people are willing to pitch in.
-Please use the GitHub pull request mechanism or send me an email
-message.
-
-To build from scratch, use this recipe.  If you're an experienced Git
-user and wish to add my repository as a remote repository, be my
-guest.  Just resume the recipe at command #4.
-
-NOTE: The `dtrace-experiment+michal2` branch is used for changes that
-can be applied to both R14B and R15 releases.
-
-    % git clone git://github.com/slfritchie/otp.git
-    % cd otp
-    % git checkout -b dtrace-experiment+michal2 origin/dtrace-experiment+michal2
-    % env ERL_TOP=`pwd` ./otp_build autoconf
-    % env ERL_TOP=`pwd` ./configure --enable-dtrace + whatever args you need
-    % env ERL_TOP=`pwd` make
-
-Then `make install` and then start an Erlang shell via
-`/path/to/installed/bin/erl +A 8`.  The Erlang shell's banner should
-include `[dtrace]`.
-
-Try using this (ugly) DTrace command to watch file I/O probes in use
-(tested on OS X only, sorry):
-
-    dtrace -Z -n 'erlang*:::efile_drv-entry {printf("%d %d %s | %d | %s %s , %d %d %d", arg0, arg1, arg2 == NULL ? "" : copyinstr(arg2), arg3, arg4 == NULL ? "" : copyinstr(arg4), arg5 == NULL ? "" : copyinstr(arg5), arg6, arg7, arg8)} erlang*:::efile_drv-int* {printf("%d %d %d | %d", arg0, arg1, arg2, arg3);} erlang*:::efile_drv-return {printf("%d %d %s | %d | %d %d %d", arg0, arg1, arg2 == NULL ? "" : copyinstr(arg2), arg3, arg4, arg5, arg6 ) ; }'
+As of R15B01, the dynamic trace code is included in the main OTP distribution,
+although it's considered experimental. The main development of the dtrace code 
+still happens outside of Ericsson, but there is no need to fetch a patched 
+version of OTP to get the basic funtionality. 
 
 Implementation summary
 ----------------------
 
-So far, most effort has been focused on the `efile_drv.erl` code,
+So far, most effort has been focused on the `efile_drv.c` code,
 which implements most file I/O on behalf of the Erlang virtual
 machine.  This driver also presents a big challenge: its use of an I/O
 worker pool (enabled by using the `erl +A 8` flag, for example) makes

@@ -35,7 +35,7 @@ Building Erlang
 
 Configure and build Erlang with SystemTap support:
 
-  # ./configure --enable-dtrace + whatever args you need
+  # ./configure --with-dynamic-trace=systemtap + whatever args you need
   # make
 
 Testing
