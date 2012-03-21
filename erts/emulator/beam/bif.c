@@ -4647,7 +4647,7 @@ BIF_RETTYPE get_module_info_2(BIF_ALIST_2)
     BIF_RET(ret);
 }
 
-BIF_RETTYPE put_utag_1(BIF_ALIST_1)
+BIF_RETTYPE dt_put_tag_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
     Eterm otag;
@@ -4675,7 +4675,7 @@ BIF_RETTYPE put_utag_1(BIF_ALIST_1)
 #endif
 }
 
-BIF_RETTYPE get_utag_0(BIF_ALIST_0)
+BIF_RETTYPE dt_get_tag_0(BIF_ALIST_0)
 {
 #ifdef USE_VM_PROBES
     BIF_RET((DT_UTAG(BIF_P) == NIL || !(DT_UTAG_FLAGS(BIF_P) & DT_UTAG_PERMANENT)) ? am_undefined : DT_UTAG(BIF_P));
@@ -4683,7 +4683,7 @@ BIF_RETTYPE get_utag_0(BIF_ALIST_0)
     BIF_RET(am_undefined);
 #endif
 }
-BIF_RETTYPE get_utag_data_0(BIF_ALIST_0)
+BIF_RETTYPE dt_get_tag_data_0(BIF_ALIST_0)
 {
 #ifdef USE_VM_PROBES
     BIF_RET((DT_UTAG(BIF_P) == NIL) ? am_undefined : DT_UTAG(BIF_P));
@@ -4691,7 +4691,7 @@ BIF_RETTYPE get_utag_data_0(BIF_ALIST_0)
     BIF_RET(am_undefined);
 #endif
 }
-BIF_RETTYPE prepend_vm_utag_data_1(BIF_ALIST_1)
+BIF_RETTYPE dt_prepend_vm_tag_data_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
     Eterm b; 
@@ -4718,7 +4718,7 @@ BIF_RETTYPE prepend_vm_utag_data_1(BIF_ALIST_1)
     BIF_RET(BIF_ARG_1);
 #endif
 }
-BIF_RETTYPE append_vm_utag_data_1(BIF_ALIST_1)
+BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
     Eterm b; 
@@ -4745,7 +4745,7 @@ BIF_RETTYPE append_vm_utag_data_1(BIF_ALIST_1)
     BIF_RET(BIF_ARG_1);
 #endif
 }
-BIF_RETTYPE spread_utag_1(BIF_ALIST_1)
+BIF_RETTYPE dt_spread_tag_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
     Eterm ret;
@@ -4779,7 +4779,7 @@ BIF_RETTYPE spread_utag_1(BIF_ALIST_1)
     BIF_RET(am_true);
 #endif
 }
-BIF_RETTYPE restore_utag_1(BIF_ALIST_1)
+BIF_RETTYPE dt_restore_tag_1(BIF_ALIST_1)
 {
 #ifdef USE_VM_PROBES
     Eterm *tpl;

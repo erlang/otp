@@ -820,16 +820,16 @@ bif erlang:posixtime_to_universaltime/1
 #
 
 # The dtrace BIF's are always present, but give dummy results if dynamic trace is not enabled in the build
-bif erlang:put_utag/1
-bif erlang:get_utag/0
-bif erlang:get_utag_data/0
-bif erlang:spread_utag/1
-bif erlang:restore_utag/1
+bif erlang:dt_put_tag/1
+bif erlang:dt_get_tag/0
+bif erlang:dt_get_tag_data/0
+bif erlang:dt_spread_tag/1
+bif erlang:dt_restore_tag/1
 
 # These are dummies even with enabled dynamic trace unless vm probes are enabled. 
 # They are also internal, for dtrace tags sent to the VM's own drivers (efile)
-bif erlang:prepend_vm_utag_data/1
-bif erlang:append_vm_utag_data/1
+bif erlang:dt_prepend_vm_tag_data/1
+bif erlang:dt_append_vm_tag_data/1
 
 #
 # Obsolete

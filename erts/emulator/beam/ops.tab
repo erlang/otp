@@ -884,86 +884,86 @@ call_ext_only u==3 u$func:erlang:hibernate/3 => i_hibernate
 
 #
 # If VM probes are not enabled, we want to short-circult calls to
-# the utag BIFs to make them as cheap as possible.
+# the dt tag BIFs to make them as cheap as possible.
 #
 
 %unless USE_VM_PROBES
 
-call_ext Arity u$func:erlang:get_utag/0 => \
+call_ext Arity u$func:erlang:dt_get_tag/0 => \
     move a=am_undefined r
-call_ext_last Arity u$func:erlang:get_utag/0 D => \
+call_ext_last Arity u$func:erlang:dt_get_tag/0 D => \
     move a=am_undefined r | deallocate D | return
-call_ext_only Arity u$func:erlang:get_utag/0 => \
+call_ext_only Arity u$func:erlang:dt_get_tag/0 => \
     move a=am_undefined r | return
 
-move Any r | call_ext Arity u$func:erlang:put_utag/1 => \
+move Any r | call_ext Arity u$func:erlang:dt_put_tag/1 => \
     move a=am_undefined r
-move Any r | call_ext_last Arity u$func:erlang:put_utag/1 D => \
+move Any r | call_ext_last Arity u$func:erlang:dt_put_tag/1 D => \
     move a=am_undefined r | deallocate D | return
-move Any r | call_ext_only Arity u$func:erlang:put_utag/1 => \
+move Any r | call_ext_only Arity u$func:erlang:dt_put_tag/1 => \
     move a=am_undefined r | return
-call_ext Arity u$func:erlang:put_utag/1 => \
+call_ext Arity u$func:erlang:dt_put_tag/1 => \
     move a=am_undefined r
-call_ext_last Arity u$func:erlang:put_utag/1 D => \
+call_ext_last Arity u$func:erlang:dt_put_tag/1 D => \
     move a=am_undefined r | deallocate D | return
-call_ext_only Arity u$func:erlang:put_utag/1 => \
-    move a=am_undefined r | return
-
-call_ext Arity u$func:erlang:get_utag_data/0 => \
-    move a=am_undefined r
-call_ext_last Arity u$func:erlang:get_utag_data/0 D => \
-    move a=am_undefined r | deallocate D | return
-call_ext_only Arity u$func:erlang:get_utag_data/0 => \
+call_ext_only Arity u$func:erlang:dt_put_tag/1 => \
     move a=am_undefined r | return
 
-move Any r | call_ext Arity u$func:erlang:spread_utag/1 => \
+call_ext Arity u$func:erlang:dt_get_tag_data/0 => \
+    move a=am_undefined r
+call_ext_last Arity u$func:erlang:dt_get_tag_data/0 D => \
+    move a=am_undefined r | deallocate D | return
+call_ext_only Arity u$func:erlang:dt_get_tag_data/0 => \
+    move a=am_undefined r | return
+
+move Any r | call_ext Arity u$func:erlang:dt_spread_tag/1 => \
     move a=am_true r
-move Any r | call_ext_last Arity u$func:erlang:spread_utag/1 D => \
+move Any r | call_ext_last Arity u$func:erlang:dt_spread_tag/1 D => \
     move a=am_true r | deallocate D | return
-move Any r | call_ext_only Arity u$func:erlang:spread_utag/1 => \
+move Any r | call_ext_only Arity u$func:erlang:dt_spread_tag/1 => \
     move a=am_true r | return
-call_ext Arity u$func:erlang:spread_utag/1 => \
+call_ext Arity u$func:erlang:dt_spread_tag/1 => \
     move a=am_true r
-call_ext_last Arity u$func:erlang:spread_utag/1 D => \
+call_ext_last Arity u$func:erlang:dt_spread_tag/1 D => \
     move a=am_true r | deallocate D | return
-call_ext_only Arity u$func:erlang:spread_utag/1 => \
+call_ext_only Arity u$func:erlang:dt_spread_tag/1 => \
     move a=am_true r | return
 
-move Any r | call_ext Arity u$func:erlang:restore_utag/1 => \
+move Any r | call_ext Arity u$func:erlang:dt_restore_tag/1 => \
     move a=am_true r
-move Any r | call_ext_last Arity u$func:erlang:restore_utag/1 D => \
+move Any r | call_ext_last Arity u$func:erlang:dt_restore_tag/1 D => \
     move a=am_true r | deallocate D | return
-move Any r | call_ext_only Arity u$func:erlang:restore_utag/1 => \
+move Any r | call_ext_only Arity u$func:erlang:dt_restore_tag/1 => \
     move a=am_true r | return
-call_ext Arity u$func:erlang:restore_utag/1 => \
+call_ext Arity u$func:erlang:dt_restore_tag/1 => \
     move a=am_true r
-call_ext_last Arity u$func:erlang:restore_utag/1 D => \
+call_ext_last Arity u$func:erlang:dt_restore_tag/1 D => \
     move a=am_true r | deallocate D | return
-call_ext_only Arity u$func:erlang:restore_utag/1 => \
+call_ext_only Arity u$func:erlang:dt_restore_tag/1 => \
     move a=am_true r | return
 
-move Any r | call_ext Arity u$func:erlang:prepend_vm_utag_data/1 => \
+move Any r | call_ext Arity u$func:erlang:dt_prepend_vm_tag_data/1 => \
     move Any r
-move Any r | call_ext_last Arity u$func:erlang:prepend_vm_utag_data/1 D => \
+move Any r | call_ext_last Arity u$func:erlang:dt_prepend_vm_tag_data/1 D => \
     move Any r | deallocate D | return
-move Any r | call_ext_only Arity u$func:erlang:prepend_vm_utag_data/1 => \
+move Any r | call_ext_only Arity u$func:erlang:dt_prepend_vm_tag_data/1 => \
     move Any r | return
-call_ext Arity u$func:erlang:prepend_vm_utag_data/1 =>
-call_ext_last Arity u$func:erlang:prepend_vm_utag_data/1 D => \
+call_ext Arity u$func:erlang:dt_prepend_vm_tag_data/1 =>
+call_ext_last Arity u$func:erlang:dt_prepend_vm_tag_data/1 D => \
     deallocate D | return
-call_ext_only Arity u$func:erlang:prepend_vm_utag_data/1 => \
+call_ext_only Arity u$func:erlang:dt_prepend_vm_tag_data/1 => \
     return
 
-move Any r | call_ext Arity u$func:erlang:append_vm_utag_data/1 => \
+move Any r | call_ext Arity u$func:erlang:dt_append_vm_tag_data/1 => \
     move Any r
-move Any r | call_ext_last Arity u$func:erlang:append_vm_utag_data/1 D => \
+move Any r | call_ext_last Arity u$func:erlang:dt_append_vm_tag_data/1 D => \
     move Any r | deallocate D | return
-move Any r | call_ext_only Arity u$func:erlang:append_vm_utag_data/1 => \
+move Any r | call_ext_only Arity u$func:erlang:dt_append_vm_tag_data/1 => \
     move Any r | return
-call_ext Arity u$func:erlang:append_vm_utag_data/1 =>
-call_ext_last Arity u$func:erlang:append_vm_utag_data/1 D => \
+call_ext Arity u$func:erlang:dt_append_vm_tag_data/1 =>
+call_ext_last Arity u$func:erlang:dt_append_vm_tag_data/1 D => \
     deallocate D | return
-call_ext_only Arity u$func:erlang:append_vm_utag_data/1 => \
+call_ext_only Arity u$func:erlang:dt_append_vm_tag_data/1 => \
     return
 
 # Can happen after one of the transformations above.

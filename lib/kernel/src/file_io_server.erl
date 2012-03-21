@@ -57,11 +57,11 @@ start_link(Owner, FileName, ModeList)
 do_start(Spawn, Owner, FileName, ModeList) ->
     Self = self(),
     Ref = make_ref(),
-    Utag = erlang:spread_utag(true),
+    Utag = erlang:dt_spread_tag(true),
     Pid = 
 	erlang:Spawn(
 	  fun() ->
-		  erlang:restore_utag(Utag),
+		  erlang:dt_restore_tag(Utag),
 		  %% process_flag(trap_exit, true),
 		  case parse_options(ModeList) of
 		      {ReadMode, UnicodeMode, Opts} ->
@@ -86,7 +86,7 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 			  exit(Reason1)
 		  end
 	  end),
-    erlang:restore_utag(Utag),
+    erlang:dt_restore_tag(Utag),
     Mref = erlang:monitor(process, Pid),
     receive
 	{Ref, {error, _Reason} = Error} ->

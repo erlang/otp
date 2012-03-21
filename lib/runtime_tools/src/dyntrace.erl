@@ -14,7 +14,7 @@
 %%% four integer arguments and four string arguments; the integer
 %%% argument(s) must come before any string argument.  For example:
 %%% ```
-%%% 1> dyntrace:put_utag("GGOOOAAALL!!!!!").
+%%% 1> dyntrace:put_tag("GGOOOAAALL!!!!!").
 %%% true
 %%% 2> dyntrace:init().
 %%% ok
@@ -39,7 +39,7 @@
 -export([available/0,
          user_trace_s1/1, % TODO: unify with pid & tag args like user_trace_i4s4
          p/0, p/1, p/2, p/3, p/4, p/5, p/6, p/7, p/8]).
--export([put_utag/1, get_utag/0, get_utag_data/0, spread_utag/1, restore_utag/1]).
+-export([put_tag/1, get_tag/0, get_tag_data/0, spread_tag/1, restore_tag/1]).
 
 -export([scaff/0]). % Development only
 -export([user_trace_i4s4/9]). % Know what you're doing!
@@ -210,7 +210,7 @@ p(I1, I2, I3, I4, S1, S2, S3, S4) when is_integer(I1), is_integer(I2), is_intege
       true | false | error | badarg.
 
 user_trace_int(I1, I2, I3, I4, S1, S2, S3, S4) ->
-    UTag = get_utag(),
+    UTag = get_tag(),
     try
         user_trace_i4s4(UTag, I1, I2, I3, I4, S1, S2, S3, S4)
     catch
@@ -218,28 +218,28 @@ user_trace_int(I1, I2, I3, I4, S1, S2, S3, S4) ->
             false
     end.
 
--spec put_utag(undefined | iodata()) -> binary() | undefined.
-put_utag(Data) ->
-    erlang:put_utag(unicode:characters_to_binary(Data)).
+-spec put_tag(undefined | iodata()) -> binary() | undefined.
+put_tag(Data) ->
+    erlang:dt_put_tag(unicode:characters_to_binary(Data)).
 
--spec get_utag() -> binary() | undefined.
-get_utag() ->
-    erlang:get_utag().
+-spec get_tag() -> binary() | undefined.
+get_tag() ->
+    erlang:dt_get_tag().
 
--spec get_utag_data() -> binary() | undefined.
-%% Gets utag if set, otherwise the spread utag data from last incoming message
-get_utag_data() ->
-    erlang:get_utag_data().
+-spec get_tag_data() -> binary() | undefined.
+%% Gets tag if set, otherwise the spread tag data from last incoming message
+get_tag_data() ->
+    erlang:dt_get_tag_data().
 
--spec spread_utag(boolean()) -> true | {non_neg_integer(), binary() | []}.
-%% Makes the utag behave as a sequential trace token, will spread with messages to be picked up by someone using
-%% get_utag_data or get_drv_utag_data. 
-spread_utag(B) ->			   
-    erlang:spread_utag(B).
+-spec spread_tag(boolean()) -> true | {non_neg_integer(), binary() | []}.
+%% Makes the tag behave as a sequential trace token, will spread with 
+%% messages to be picked up by someone using get_tag_data 
+spread_tag(B) ->			   
+    erlang:dt_spread_tag(B).
 
--spec restore_utag(true | {non_neg_integer(), binary() | []}) -> true.
-restore_utag(T) ->
-    erlang:restore_utag(T).
+-spec restore_tag(true | {non_neg_integer(), binary() | []}) -> true.
+restore_tag(T) ->
+    erlang:dt_restore_tag(T).
     
 
 %% Scaffolding to write tedious code: quick brute force and not 100% correct.

@@ -268,7 +268,7 @@ advise(#file_descriptor{module = ?MODULE, data = {Port, _}},
 
 %% Returns {error, Reason} | ok.
 write(#file_descriptor{module = ?MODULE, data = {Port, _}}, Bytes) ->
-    case drv_command_nt(Port, [?FILE_WRITE,erlang:prepend_vm_utag_data(Bytes)],false,undefined) of
+    case drv_command_nt(Port, [?FILE_WRITE,erlang:dt_prepend_vm_tag_data(Bytes)],false,undefined) of
 	{ok, _Size} ->
 	    ok;
 	Error ->
@@ -283,7 +283,7 @@ pwrite(#file_descriptor{module = ?MODULE, data = {Port, _}}, L)
 pwrite_int(_, [], 0, [], []) ->
     ok;
 pwrite_int(Port, [], N, Spec, Data) ->
-    Header = list_to_binary([?FILE_PWRITEV, erlang:prepend_vm_utag_data(<<N:32>>) | reverse(Spec)]),
+    Header = list_to_binary([?FILE_PWRITEV, erlang:dt_prepend_vm_tag_data(<<N:32>>) | reverse(Spec)]),
     case drv_command_nt(Port, [Header | reverse(Data)], false, undefined) of
 	{ok, _Size} ->
 	    ok;
@@ -402,7 +402,7 @@ pread(#file_descriptor{module = ?MODULE, data = {Port, _}}, L)
 pread_int(_, [], 0, []) ->
     {ok, []};
 pread_int(Port, [], N, Spec) ->
-    drv_command_nt(Port, [?FILE_PREADV, erlang:prepend_vm_utag_data(<<0:32, N:32>>) | reverse(Spec)],false, undefined);
+    drv_command_nt(Port, [?FILE_PREADV, erlang:dt_prepend_vm_tag_data(<<0:32, N:32>>) | reverse(Spec)],false, undefined);
 pread_int(Port, [{Offs, Size} | T], N, Spec)
   when is_integer(Offs), is_integer(Size), 0 =< Size ->
     if
@@ -424,7 +424,7 @@ pread(#file_descriptor{module = ?MODULE, data = {Port, _}}, Offs, Size)
 	-(?LARGEFILESIZE) =< Offs, Offs < ?LARGEFILESIZE,
 	Size < ?LARGEFILESIZE ->
 	    case drv_command_nt(Port, 
-				[?FILE_PREADV, erlang:prepend_vm_utag_data(<<0:32, 1:32,
+				[?FILE_PREADV, erlang:dt_prepend_vm_tag_data(<<0:32, 1:32,
 									     Offs:64/signed, Size:64>>)], false, undefined) of
 		{ok, [eof]} ->
 		    eof;
@@ -923,7 +923,7 @@ drv_open(Driver, Portopts) ->
 %% Closes a port in a safe way. Returns ok.
 
 drv_close(Port) ->
-    Save = erlang:spread_utag(false),
+    Save = erlang:dt_spread_tag(false),
     try
 	try erlang:port_close(Port) catch error:_ -> ok end,
 	receive %% Ugly workaround in case the caller==owner traps exits
@@ -933,7 +933,7 @@ drv_close(Port) ->
 		ok
 	end
     after
-	erlang:restore_utag(Save)
+	erlang:dt_restore_tag(Save)
     end.
 
 
@@ -958,8 +958,8 @@ drv_command(Port, Command, R) ->
     end.
 
 drv_command(Port, Command, Validated, R) when is_port(Port) ->
-    Save = erlang:spread_utag(false),
-    try erlang:port_command(Port, erlang:append_vm_utag_data(Command)) of
+    Save = erlang:dt_spread_tag(false),
+    try erlang:port_command(Port, erlang:dt_append_vm_tag_data(Command)) of
 	true ->
 	    drv_get_response(Port, R)
     catch
@@ -979,7 +979,7 @@ drv_command(Port, Command, Validated, R) when is_port(Port) ->
 	error:Reason ->
 	    {error, Reason}
     after
-	erlang:restore_utag(Save)
+	erlang:dt_restore_tag(Save)
     end;
 drv_command({Driver, Portopts}, Command, Validated, R) ->
     case drv_open(Driver, Portopts) of
@@ -991,7 +991,7 @@ drv_command({Driver, Portopts}, Command, Validated, R) ->
 	    Error
     end.
 drv_command_nt(Port, Command, Validated, R) when is_port(Port) ->
-    Save = erlang:spread_utag(false),
+    Save = erlang:dt_spread_tag(false),
     try erlang:port_command(Port, Command) of
 	true ->
 	    drv_get_response(Port, R)
@@ -1012,7 +1012,7 @@ drv_command_nt(Port, Command, Validated, R) when is_port(Port) ->
 	error:Reason ->
 	    {error, Reason}
     after
-	erlang:restore_utag(Save)
+	erlang:dt_restore_tag(Save)
     end.
 
 
