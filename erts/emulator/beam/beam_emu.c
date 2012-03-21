@@ -1061,8 +1061,7 @@ init_emulator(void)
     if (DTRACE_ENABLED(function_entry)) {                       \
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
         DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
-        int depth = (STACK_START(p) - STACK_TOP(p))             \
-            / sizeof(Eterm*);                                   \
+        int depth = STACK_START(p) - STACK_TOP(p);		\
         dtrace_fun_decode(p, m, f, a,                           \
                           process_name, mfa);                   \
         DTRACE3(function_entry, process_name, mfa, depth);      \
@@ -1072,8 +1071,7 @@ init_emulator(void)
     if (DTRACE_ENABLED(function_return)) {                      \
         DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
         DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
-        int depth = (STACK_START(p) - STACK_TOP(p))             \
-            / sizeof(Eterm*);                                   \
+        int depth = STACK_START(p) - STACK_TOP(p);              \
         dtrace_fun_decode(p, m, f, a,                           \
                           process_name, mfa);                   \
         DTRACE3(function_return, process_name, mfa, depth);     \
