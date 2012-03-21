@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -162,17 +162,30 @@ httpd_config([Value| _] = Config) when is_tuple(Value) ->
 
 httpd_child_spec([Value| _] = Config, AcceptTimeout, Debug)  
   when is_tuple(Value)  ->
+    ?hdrt("httpd_child_spec - entry", [{accept_timeout, AcceptTimeout}, 
+				       {debug,          Debug}]),
     Address = proplists:get_value(bind_address, Config, any),
     Port    = proplists:get_value(port, Config, 80),
     httpd_child_spec(Config, AcceptTimeout, Debug, Address, Port);
 
-httpd_child_spec(ConfigFile, AcceptTimeout, Debug) ->
+%% In this case the AcceptTimeout and Debug will only have default values...
+httpd_child_spec(ConfigFile, AcceptTimeoutDef, DebugDef) ->
+    ?hdrt("httpd_child_spec - entry", [{config_file,        ConfigFile}, 
+				       {accept_timeout_def, AcceptTimeoutDef}, 
+				       {debug_def,          DebugDef}]),
     case httpd_conf:load(ConfigFile) of
 	{ok, ConfigList} ->
+	    ?hdrt("httpd_child_spec - loaded", [{config_list, ConfigList}]),
 	    case (catch httpd_conf:validate_properties(ConfigList)) of
 		{ok, Config} ->
+		    ?hdrt("httpd_child_spec - validated", [{config, Config}]),
 		    Address = proplists:get_value(bind_address, Config, any), 
 		    Port    = proplists:get_value(port, Config, 80),
+		    AcceptTimeout = 
+			proplists:get_value(accept_timeout, Config, 
+					    AcceptTimeoutDef),
+		    Debug   = 
+			proplists:get_value(debug, Config, DebugDef),
 		    httpd_child_spec([{file, ConfigFile} | Config], 
 				     AcceptTimeout, Debug, Address, Port);
 		Error ->
@@ -183,7 +196,7 @@ httpd_child_spec(ConfigFile, AcceptTimeout, Debug) ->
     end.
 
 httpd_child_spec(Config, AcceptTimeout, Debug, Addr, Port) ->
-    case Port == 0 orelse proplists:is_defined(fd, Config) of
+    case (Port =:= 0) orelse proplists:is_defined(fd, Config) of
 	true ->
 	    httpd_child_spec_listen(Config, AcceptTimeout, Debug, Addr, Port);
 	false ->

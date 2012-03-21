@@ -50,29 +50,44 @@ create_env(ScriptType, ModData, ScriptElements) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+
+which_server(#mod{config_db = ConfigDb}) ->
+    httpd_util:lookup(ConfigDb, server, ?SERVER_SOFTWARE).
+
+which_port(#mod{config_db = ConfigDb}) ->
+    httpd_util:lookup(ConfigDb, port, 80).
+
+which_peername(#mod{init_data = #init_data{peername = {_, RemoteAddr}}}) ->
+    RemoteAddr.
+
+which_resolve(#mod{init_data = #init_data{resolve = Resolve}}) ->
+    Resolve.
+
+which_method(#mod{method = Method}) ->
+    Method.
+
+which_request_uri(#mod{request_uri = RUri}) ->
+    RUri.
+
 create_basic_elements(esi, ModData) ->
-    {_, RemoteAddr} = (ModData#mod.init_data)#init_data.peername,
-    [{server_software, ?SERVER_SOFTWARE},
-     {server_name, (ModData#mod.init_data)#init_data.resolve},
-     {gateway_interface,?GATEWAY_INTERFACE},
-     {server_protocol, ?SERVER_PROTOCOL},
-     {server_port, httpd_util:lookup(ModData#mod.config_db,port,80)},
-     {request_method, ModData#mod.method},
-     {remote_addr, RemoteAddr},
-     {script_name, ModData#mod.request_uri}];
+    [{server_software,   which_server(ModData)},
+     {server_name,       which_resolve(ModData)},
+     {gateway_interface, ?GATEWAY_INTERFACE},
+     {server_protocol,   ?SERVER_PROTOCOL},
+     {server_port,       which_port(ModData)},
+     {request_method,    which_method(ModData)},
+     {remote_addr,       which_peername(ModData)},
+     {script_name,       which_request_uri(ModData)}];
 
 create_basic_elements(cgi, ModData) ->
-    {_, RemoteAddr} = (ModData#mod.init_data)#init_data.peername,
-    [{"SERVER_SOFTWARE",?SERVER_SOFTWARE},
-     {"SERVER_NAME", (ModData#mod.init_data)#init_data.resolve},
-     {"GATEWAY_INTERFACE",?GATEWAY_INTERFACE},
-     {"SERVER_PROTOCOL",?SERVER_PROTOCOL},
-     {"SERVER_PORT",
-      integer_to_list(httpd_util:lookup(
-			ModData#mod.config_db, port, 80))},
-     {"REQUEST_METHOD", ModData#mod.method},
-     {"REMOTE_ADDR", RemoteAddr},
-     {"SCRIPT_NAME", ModData#mod.request_uri}].
+    [{"SERVER_SOFTWARE",   which_server(ModData)},
+     {"SERVER_NAME",       which_resolve(ModData)},
+     {"GATEWAY_INTERFACE", ?GATEWAY_INTERFACE},
+     {"SERVER_PROTOCOL",   ?SERVER_PROTOCOL},
+     {"SERVER_PORT",       integer_to_list(which_port(ModData))},
+     {"REQUEST_METHOD",    which_method(ModData)},
+     {"REMOTE_ADDR",       which_peername(ModData)},
+     {"SCRIPT_NAME",       which_request_uri(ModData)}].
 
 create_http_header_elements(ScriptType, Headers) ->
     create_http_header_elements(ScriptType, Headers, []).
@@ -80,7 +95,7 @@ create_http_header_elements(ScriptType, Headers) ->
 create_http_header_elements(_, [], Acc) ->
     Acc;
 create_http_header_elements(ScriptType, [{Name, [Value | _] = Values } | 
-					     Headers], Acc) 
+					 Headers], Acc) 
   when is_list(Value) ->
     NewName = lists:map(fun(X) -> if X == $- -> $_; true -> X end end, Name),
     Element = http_env_element(ScriptType, NewName, multi_value(Values)),

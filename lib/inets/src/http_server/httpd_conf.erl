@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -210,12 +210,32 @@ load("MaxBodySize " ++ MaxBodySize, []) ->
         {ok, Integer} ->
             {ok, [], {max_body_size,Integer}};
         {error, _} ->
-            {error, ?NICE(clean(MaxBodySize)++
+            {error, ?NICE(clean(MaxBodySize) ++
                           " is an invalid number of MaxBodySize")}
     end;
 
 load("ServerName " ++ ServerName, []) ->
-    {ok,[],{server_name,clean(ServerName)}};
+    {ok,[], {server_name, clean(ServerName)}};
+
+load("ServerTokens " ++ ServerTokens, []) ->
+    %% These are the valid *plain* server tokens: 
+    %%     sprod, major, minor, minimum, os, full
+    %% It can also be a "private" server token: private:<any string>
+    case string:tokens(ServerTokens, [$:]) of
+	["private", Private] ->
+	    {ok,[], {server_tokens, clean(Private)}};
+	[TokStr] ->
+	    Tok = list_to_atom(clean(TokStr)),
+	    case lists:member(Tok, [prod, major, minor, minimum, os, full]) of
+		true ->
+		    {ok,[], {server_tokens, Tok}};
+		false ->
+		    {error, ?NICE(clean(ServerTokens) ++ 
+				  " is an invalid ServerTokens")}
+	    end;
+	_ ->
+	    {error, ?NICE(clean(ServerTokens) ++ " is an invalid ServerTokens")}
+    end;
 
 load("SocketType " ++ SocketType, []) ->
     %% ssl is the same as HTTP_DEFAULT_SSL_KIND
@@ -475,7 +495,7 @@ validate_properties(Properties) ->
 validate_properties2(Properties) ->
     case proplists:get_value(bind_address, Properties) of
 	undefined ->
-	    case  proplists:get_value(sock_type, Properties, ip_comm) of
+	    case proplists:get_value(sock_type, Properties, ip_comm) of
 		ip_comm ->
 		    case proplists:get_value(ipfamily, Properties) of
 			undefined ->
@@ -536,6 +556,20 @@ validate_config_params([{server_name, Value} | Rest])
     validate_config_params(Rest);
 validate_config_params([{server_name, Value} | _]) ->
     throw({server_name, Value});
+
+validate_config_params([{server_tokens, Value} | Rest])  
+  when is_atom(Value) ->
+    case lists:member(Value, plain_server_tokens()) of
+	true ->
+	    validate_config_params(Rest);
+	false ->
+	    throw({server_tokens, Value})
+    end;
+validate_config_params([{server_tokens, {private, Value}} | Rest])  
+  when is_list(Value) ->
+    validate_config_params(Rest);
+validate_config_params([{server_tokens, Value} | _]) ->
+    throw({server_tokens, Value});
 
 validate_config_params([{socket_type, Value} | Rest]) 
   when (Value =:= ip_comm) orelse 
@@ -737,8 +771,72 @@ store({log_format, LogFormat}, _ConfigList)
 store({log_format, LogFormat}, _ConfigList) 
   when (LogFormat =:= compact) orelse (LogFormat =:= pretty) ->
     {ok, {log_format, LogFormat}};
+store({server_tokens, ServerTokens} = Entry, _ConfigList) ->
+    Server = server(ServerTokens), 
+    {ok, [Entry, {server, Server}]};
 store(ConfigListEntry, _ConfigList) ->
     {ok, ConfigListEntry}.
+
+
+%% The SERVER_SOFTWARE macro has the following structure: 
+%%       <product>/<version>
+%% Example: "inets/1.2.3"
+%% So, with this example (on a linux machine, with OTP R15B), 
+%% this will result in:
+%%   prod:    "inets"
+%%   major:   "inets/1"
+%%   minor:   "inets/1.2"
+%%   minimal: "inets/1.2.3"
+%%   os:      "inets/1.2.3 (unix)
+%%   full:    "inets/1.2.3 (unix/linux) OTP/R15B"
+%% Note that the format of SERVER_SOFTWARE is that of 'minimal'.
+%% Also, there will always be atleast two digits in a version: 
+%% Not just 1 but 1.0
+%% 
+%% We have already checked that the value is valid, 
+%% so there is no need to check enything here.
+%% 
+server(prod = _ServerTokens) ->
+    [Prod|_Version] = string:tokens(?SERVER_SOFTWARE, [$/]),
+    Prod;
+server(major = _ServerTokens) ->
+    [Prod|Version] = string:tokens(?SERVER_SOFTWARE, [$/]), 
+    [Major|_]      = string:tokens(Version, [$.]), 
+    Prod ++ "/" ++ Major;
+server(minor = _ServerTokens) ->
+    [Prod|Version]  = string:tokens(?SERVER_SOFTWARE, [$/]), 
+    [Major,Minor|_] = string:tokens(Version, [$.]), 
+    Prod ++ "/" ++ Major ++ "." ++ Minor;
+server(minimal = _ServerTokens) ->
+    %% This is the default
+    ?SERVER_SOFTWARE;
+server(os = _ServerTokens) ->
+    OS = os_info(partial), 
+    lists:flatten(io_lib:format("~s ~s", [?SERVER_SOFTWARE, OS]));
+server(full = _ServerTokens) ->
+    OTPRelease = otp_release(),
+    OS = os_info(full), 
+    lists:flatten(
+      io_lib:format("~s ~s OTP/~s", [?SERVER_SOFTWARE, OS, OTPRelease]));
+server({private, Server} = _ServerTokens) when is_list(Server) -> 
+    %% The user provide its own 
+    Server;
+server(_) -> 
+    ?SERVER_SOFTWARE.
+
+os_info(Info) ->
+    case os:type() of
+	{OsFamily, _OsName} when Info =:= partial ->
+	    lists:flatten(io_lib:format("(~w)", [OsFamily]));
+	{OsFamily, OsName} ->
+	    lists:flatten(io_lib:format("(~w/~w)", [OsFamily, OsName]));
+	OsFamily ->
+	    lists:flatten(io_lib:format("(~w)", [OsFamily]))
+    end.
+
+otp_release() ->
+    erlang:system_info(otp_release).
+
 
 %% Phase 3: Remove
 remove_all(ConfigDB) ->
@@ -1159,6 +1257,10 @@ ssl_ca_certificate_file(ConfigDB) ->
 	    [{cacertfile, File}]
     end.
 
+plain_server_tokens() ->
+    [prod, major, minor, minimum, os, full].
+
 error_report(Where,M,F,Error) ->
     error_logger:error_report([{?MODULE, Where}, 
 			       {apply, {M, F, []}}, Error]).
+

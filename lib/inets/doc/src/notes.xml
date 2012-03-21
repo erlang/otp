@@ -33,6 +33,96 @@
   </header>
   
 
+  <section><title>Inets 5.9</title>
+
+    <section><title>Improvements and New Features</title>
+<!--
+    <p>-</p>
+-->
+
+      <list>
+        <item>
+          <p>[httpd] Make the server header configurable with new config
+	  option 
+	  <seealso marker="httpd#prop_server_tokens">server_tokens</seealso>.
+	  The value of the server header, which was previously hard-coded 
+	  (at compile time), is now possible to manipulate through the means 
+	  of the 
+	  <seealso marker="httpd#prop_server_tokens">server_tokens</seealso> 
+	  config option. </p>
+	  <p>Own Id: OTP-9805</p>
+        </item>
+
+        <item>
+	  <p>Improve inets support for inets as an included application. </p>
+	  <p><c>inets_app</c> calls <c>supervisor:start_link/3</c> directly 
+	  rather than calling the root supervisor function 
+	  <c>inets_sup:start_link/0</c>. 
+	  This precludes using included_applications to start inets without 
+	  having a wrapper function. </p>
+	  <p>Jay Nelson</p>
+	  <p>Own Id: OTP-9960</p>
+        </item>
+
+        <item>
+          <p>[httpc] Add function for retrieving current options, 
+	  <seealso marker="httpc#get_options">get_options/1,2</seealso>. </p>
+	  <p>Own Id: OTP-9979</p>
+        </item>
+
+        <item>
+          <p>Utility module 
+	  <seealso marker="http_uri">http_uri</seealso>
+	  now officially supported. </p>
+	  <p>Also, the 
+	  <seealso marker="http_uri#parse">parse</seealso> 
+	  function has been extended with more
+	  scheme support and a way to provide your own scheme info. </p>
+	  <p>Own Id: OTP-9983</p>
+          <p>Aux Id: Seq 12022</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[httpd] Fix logging of content length in mod_log. </p>
+	  <p>Garrett Smith</p>
+	  <p>Own Id: OTP-9715</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list>
+        <item>
+          <p>[httpc|httpd] The old ssl implementation (based on OpenSSL), 
+	  has been deprecated. The config option that specified usage of 
+	  this version of the ssl app, <c>ossl</c>, has been removed. </p>
+	  <p>Own Id: OTP-9522</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 5.9 -->
+
+  
   <section><title>Inets 5.8.1</title>
     <section><title>Improvements and New Features</title>
     <p>-</p>
@@ -417,7 +507,7 @@
 	  <p><c>ossl</c> will work for as long as the ssl application 
 	  supports it. </p>
 	  <p>See the httpd 
-	  <seealso marker="httpd#comm_prop">socket_type</seealso> 
+	  <seealso marker="httpd#props_comm">socket_type</seealso> 
 	  communication property or the httpc 
 	  <seealso marker="httpc#request2">request/4,5</seealso> function
 	  for more info. </p>
@@ -436,7 +526,7 @@
       <list>
         <item>
           <p>[httpd] Wrong 
-	  <seealso marker="httpd#sec_prop">security property</seealso> 
+	  <seealso marker="httpd#props_sec">security property</seealso> 
 	  names used in documentation. </p>
 	  <p><c>security_data_file</c> used instead of <c>data_file</c>. </p>
 	  <p><c>security_max_retries</c> used instead of <c>max_retries</c>. </p>
@@ -620,7 +710,7 @@
             the <c>essl</c> tag instead. </p> 
           <p>See the <c>http_option</c> option in the 
             <seealso marker="httpc#request2">request/4,5</seealso> or 
-            the <seealso marker="httpd#comm_prop">socket-type</seealso>
+            the <seealso marker="httpd#props_comm">socket-type</seealso>
             section of the Communication properties chapter for more info, </p>
 	  <p>Own Id: OTP-7907</p>
         </item>
@@ -637,9 +727,9 @@
 	  <p>[httpd] - Improved mod_alias. 
             Now able to do better URL rewrites. </p> 
           <p>See 
-            <seealso marker="httpd#alias_prop">URL aliasing properties</seealso> 
+            <seealso marker="httpd#props_alias">URL aliasing properties</seealso> 
             and the 
-            <seealso marker="httpd#cgi_prop">CGI properties</seealso>
+            <seealso marker="httpd#props_cgi">CGI properties</seealso>
             section(s) for more info, </p>
 	  <p>Own Id: OTP-8573</p>
         </item>
@@ -1225,7 +1315,7 @@
             <p>Default is <c>inet6fb4</c> which emulates the 
               behaviour of the previous version. </p>
             <p>See the 
-	      <seealso marker="httpd#comm_prop">Communication properties</seealso> 
+	      <seealso marker="httpd#props_comm">Communication properties</seealso> 
               section for more info. </p>
 	    <p>Own Id: OTP-8069</p>
 	    <p>Aux Id: seq11086</p>

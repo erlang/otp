@@ -31,8 +31,10 @@
 -export([
 	 request/1, request/2, request/4, request/5,
 	 cancel_request/1, cancel_request/2,
-	 set_option/2, set_option/3,
+	 set_option/2,  set_option/3,
 	 set_options/1, set_options/2,
+	 get_option/1,  get_option/2,
+	 get_options/1, get_options/2,
 	 store_cookies/2, store_cookies/3, 
 	 cookie_header/1, cookie_header/2, cookie_header/3, 
 	 which_cookies/0, which_cookies/1, 
@@ -156,7 +158,7 @@ request(Method,
 		      {http_options, HTTPOptions}, 
 		      {options,      Options}, 
 		      {profile,      Profile}]),
-    case http_uri:parse(Url, Options) of
+    case uri_parse(Url, Options) of
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, ParsedUrl} ->
@@ -177,7 +179,7 @@ request(Method,
 		      {http_options, HTTPOptions}, 
 		      {options,      Options}, 
 		      {profile,      Profile}]),
-    case http_uri:parse(Url, Options) of
+    case uri_parse(Url, Options) of
 	{error, Reason} ->
 	    {error, Reason};
 	{ok, ParsedUrl} ->
@@ -230,7 +232,7 @@ cancel_request(RequestId, Profile)
 set_options(Options) ->
     set_options(Options, default_profile()).
 set_options(Options, Profile) when is_atom(Profile) orelse is_pid(Profile) ->
-    ?hcrt("set cookies", [{options, Options}, {profile, Profile}]),
+    ?hcrt("set options", [{options, Options}, {profile, Profile}]),
     case validate_options(Options) of
 	{ok, Opts} ->
 	    try 
@@ -250,6 +252,58 @@ set_option(Key, Value) ->
 
 set_option(Key, Value, Profile) ->
     set_options([{Key, Value}], Profile).
+
+
+%%--------------------------------------------------------------------------
+%% get_options(OptionItems) -> {ok, Values} | {error, Reason}
+%% get_options(OptionItems, Profile) -> {ok, Values} | {error, Reason}
+%%   OptionItems   - all | [option_item()]
+%%   option_item() - proxy | pipeline_timeout | max_pipeline_length | 
+%%                   keep_alive_timeout | max_keep_alive_length | 
+%%                   max_sessions | verbose | 
+%%                   cookies | ipfamily | ip | port | socket_opts
+%%   Profile       - atom()
+%%   Values - [{option_item(), term()}]
+%%   Reason - term()
+%% Description: Retrieves the current options. 
+%%-------------------------------------------------------------------------
+get_options() ->
+    record_info(fields, options).
+
+get_options(Options) ->
+    get_options(Options, default_profile()).
+
+get_options(all = _Options, Profile) ->
+    get_options(get_options(), Profile);
+get_options(Options, Profile) 
+  when (is_list(Options) andalso 
+	(is_atom(Profile) orelse is_pid(Profile))) ->
+    ?hcrt("get options", [{options, Options}, {profile, Profile}]),
+    case Options -- get_options() of
+	[] ->
+	    try 
+		begin
+		    {ok, httpc_manager:get_options(Options, 
+						   profile_name(Profile))}
+		end
+	    catch
+		exit:{noproc, _} ->
+		    {error, inets_not_started}
+	    end;
+	InvalidGetOptions ->
+	    {error, {invalid_options, InvalidGetOptions}}
+    end.
+
+get_option(Key) ->
+    get_option(Key, default_profile()).
+
+get_option(Key, Profile) ->
+    case get_options([Key], Profile) of
+	{ok, [{Key, Value}]} ->
+	    {ok, Value};
+	Error ->
+	    Error
+    end.
 
 
 %%--------------------------------------------------------------------------
@@ -274,7 +328,7 @@ store_cookies(SetCookieHeaders, Url, Profile)
 	    %% Since the Address part is not actually used
 	    %% by the manager when storing cookies, we dont
 	    %% care about ipv6-host-with-brackets.
-	    {ok, {_, _, Host, Port, Path, _}} = http_uri:parse(Url),
+	    {ok, {_, _, Host, Port, Path, _}} = uri_parse(Url),
 	    Address     = {Host, Port}, 
 	    ProfileName = profile_name(Profile),
 	    Cookies     = httpc_cookie:cookies(SetCookieHeaders, Path, Host),
@@ -347,7 +401,7 @@ which_cookies(Profile) ->
 %% info() -> list()
 %% info(Profile) -> list()
 %%               
-%% Description: Debug function, retreive info about the profile
+%% Description: Debug function, retrieve info about the profile
 %%-------------------------------------------------------------------------
 info() ->
     info(default_profile()).
@@ -1144,6 +1198,22 @@ validate_headers(RequestHeaders, _, _) ->
     RequestHeaders.
 
 
+%%--------------------------------------------------------------------------
+%% These functions is just simple wrappers to parse specifically HTTP URIs
+%%--------------------------------------------------------------------------
+
+scheme_defaults() ->
+    [{http, 80}, {https, 443}].
+
+uri_parse(URI) ->
+    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()}]).
+
+uri_parse(URI, Opts) ->
+    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
+
+
+%%--------------------------------------------------------------------------
+    
 child_name2info(undefined) ->
     {error, no_such_service};
 child_name2info(httpc_manager) ->
