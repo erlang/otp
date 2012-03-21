@@ -943,12 +943,23 @@ find_rel_suse_1(Rel, RootWc) ->
     end.
 
 find_rel_suse_2(Rel, RootWc) ->
-    Wc = RootWc ++ "_" ++ Rel,
-    case filelib:wildcard(Wc) of
-	[] ->
-	    [];
-	[R|_] ->
-	    [filename:join([R,"bin","erl"])]
+    RelDir = filename:dirname(RootWc),
+    Pat = filename:basename(RootWc ++ "_" ++ Rel) ++ ".*",
+    case file:list_dir(RelDir) of
+	{ok,Dirs} ->
+	    case lists:filter(fun(Dir) ->
+				      case re:run(Dir, Pat) of
+					  nomatch -> false;
+					  _       -> true
+				      end
+			      end, Dirs) of
+		[] ->
+		    [];
+		[R|_] ->
+		    [filename:join([RelDir,R,"bin","erl"])]
+	    end;
+	_ ->
+	    []
     end.
 
 %% suse_release() -> VersionString | none.
