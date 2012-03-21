@@ -18,9 +18,15 @@
  * %CopyrightEnd%
  */
 
-erlang*:::function-entry
+erlang*:::local-function-entry
 {
-    printf("pid %s enter  %s depth %d\n",
+    printf("pid %s enter (local)  %s depth %d\n",
+	   copyinstr(arg0), copyinstr(arg1), arg2);
+}
+
+erlang*:::global-function-entry
+{
+    printf("pid %s enter (global)  %s depth %d\n",
 	   copyinstr(arg0), copyinstr(arg1), arg2);
 }
 

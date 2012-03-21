@@ -28,9 +28,15 @@
  *       environment.
  */
 
-probe process("beam").mark("function-entry")
+probe process("beam").mark("local-function-entry")
 {
-    printf("pid %s enter  %s depth %d\n",
+    printf("pid %s enter (local) %s depth %d\n",
+	   user_string($arg1), user_string($arg2), $arg3);
+}
+
+probe process("beam").mark("global-function-entry")
+{
+    printf("pid %s enter (global)  %s depth %d\n",
 	   user_string($arg1), user_string($arg2), $arg3);
 }
 

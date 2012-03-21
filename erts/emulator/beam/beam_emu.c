@@ -1057,14 +1057,24 @@ init_emulator(void)
 
 #ifdef USE_VM_CALL_PROBES
 
-#define DTRACE_CALL(p, m, f, a)                                 \
-    if (DTRACE_ENABLED(function_entry)) {                       \
-        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
-        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
-        int depth = STACK_START(p) - STACK_TOP(p);		\
-        dtrace_fun_decode(p, m, f, a,                           \
-                          process_name, mfa);                   \
-        DTRACE3(function_entry, process_name, mfa, depth);      \
+#define DTRACE_LOCAL_CALL(p, m, f, a)					\
+    if (DTRACE_ENABLED(local_function_entry)) {				\
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);			\
+        int depth = STACK_START(p) - STACK_TOP(p);			\
+        dtrace_fun_decode(p, m, f, a,					\
+                          process_name, mfa);				\
+        DTRACE3(local_function_entry, process_name, mfa, depth);	\
+    }
+
+#define DTRACE_GLOBAL_CALL(p, m, f, a)					\
+    if (DTRACE_ENABLED(global_function_entry)) {			\
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);			\
+        int depth = STACK_START(p) - STACK_TOP(p);			\
+        dtrace_fun_decode(p, m, f, a,					\
+                          process_name, mfa);				\
+        DTRACE3(global_function_entry, process_name, mfa, depth);	\
     }
 
 #define DTRACE_RETURN(p, m, f, a)                               \
@@ -1115,12 +1125,13 @@ init_emulator(void)
 
 #else /* USE_VM_PROBES */
 
-#define DTRACE_CALL(p, m, f, a)       do {} while (0)
-#define DTRACE_RETURN(p, m, f, a)     do {} while (0)
-#define DTRACE_BIF_ENTRY(p, m, f, a)  do {} while (0)
-#define DTRACE_BIF_RETURN(p, m, f, a) do {} while (0)
-#define DTRACE_NIF_ENTRY(p, m, f, a)  do {} while (0)
-#define DTRACE_NIF_RETURN(p, m, f, a) do {} while (0)
+#define DTRACE_LOCAL_CALL(p, m, f, a)  do {} while (0)
+#define DTRACE_GLOBAL_CALL(p, m, f, a) do {} while (0)
+#define DTRACE_RETURN(p, m, f, a)      do {} while (0)
+#define DTRACE_BIF_ENTRY(p, m, f, a)   do {} while (0)
+#define DTRACE_BIF_RETURN(p, m, f, a)  do {} while (0)
+#define DTRACE_NIF_ENTRY(p, m, f, a)   do {} while (0)
+#define DTRACE_NIF_RETURN(p, m, f, a)  do {} while (0)
 
 #endif /* USE_VM_PROBES */
 
@@ -1506,7 +1517,7 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_only_f): {
      SET_I((BeamInstr *) Arg(0));
-     DTRACE_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
+     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1518,7 +1529,7 @@ void process_main(void)
      RESTORE_CP(E);
      E = ADD_BYTE_OFFSET(E, Arg(1));
      SET_I((BeamInstr *) Arg(0));
-     DTRACE_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
+     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1530,7 +1541,7 @@ void process_main(void)
  OpCase(i_call_f): {
      SET_CP(c_p, I+2);
      SET_I((BeamInstr *) Arg(0));
-     DTRACE_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
+     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1548,9 +1559,9 @@ void process_main(void)
      * (see lb_call_error_handler below).
      */
 #ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(function_entry)) {
+    if (DTRACE_ENABLED(global_function_entry)) {
 	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
-	DTRACE_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
     }
 #endif
     Dispatchx();
@@ -1563,9 +1574,9 @@ void process_main(void)
  OpCase(i_call_ext_e):
     SET_CP(c_p, I+2);
 #ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(function_entry)) {
+    if (DTRACE_ENABLED(global_function_entry)) {
 	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
-	DTRACE_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
     }
 #endif
     Dispatchx();
@@ -1576,9 +1587,9 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_ext_only_e):
 #ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(function_entry)) {
+    if (DTRACE_ENABLED(global_function_entry)) {
 	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
-	DTRACE_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
     }
 #endif
     Dispatchx();
@@ -6111,9 +6122,9 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
     }
 
 #ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(function_entry)) {
+    if (DTRACE_ENABLED(global_function_entry)) {
         BeamInstr *fptr = (BeamInstr *) ep->address;
-	DTRACE_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
+	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
     }
 #endif
     return ep->address;
@@ -6166,9 +6177,9 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
     }
 
 #ifdef USE_VM_CALL_PROBES
-    if (DTRACE_ENABLED(function_entry)) {
+    if (DTRACE_ENABLED(global_function_entry)) {
         BeamInstr *fptr = (BeamInstr *) ep->address;
-	DTRACE_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
+	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
     }
 #endif
     return ep->address;
@@ -6304,7 +6315,7 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = (int) code_ptr[-1];
 
 	if (actual_arity == arity+num_free) {
-	    DTRACE_CALL(p, (Eterm)code_ptr[-3],
+	    DTRACE_LOCAL_CALL(p, (Eterm)code_ptr[-3],
 			(Eterm)code_ptr[-2],
 			code_ptr[-1]);
 	    if (num_free == 0) {
@@ -6399,7 +6410,7 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = (int) ep->code[2];
 
 	if (arity == actual_arity) {
-	    DTRACE_CALL(p, ep->code[0], ep->code[1], (Uint)ep->code[2]);
+	    DTRACE_GLOBAL_CALL(p, ep->code[0], ep->code[1], (Uint)ep->code[2]);
 	    return ep->address;
 	} else {
 	    /*
@@ -6475,7 +6486,7 @@ call_fun(Process* p,		/* Current process. */
 	    reg[1] = function;
 	    reg[2] = args;
 	}
-	DTRACE_CALL(p, module, function, arity);
+	DTRACE_GLOBAL_CALL(p, module, function, arity);
 	return ep->address;
     } else {
     badfun:

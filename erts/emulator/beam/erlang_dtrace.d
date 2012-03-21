@@ -149,13 +149,23 @@ provider erlang {
     /* PID, Module, Function, Arity */
 
     /**
-     * Fired whenever a user function is being called.
+     * Fired whenever a user function is being called locally.
      *
      * @param p the PID (string form) of the process
      * @param mfa the m:f/a of the function
      * @param depth the stack depth
      */
-    probe function__entry(char *p, char *mfa, int depth);
+    probe local__function__entry(char *p, char *mfa, int depth);
+
+    /**
+     * Fired whenever a user function is called externally
+     * (through an export entry).
+     *
+     * @param p the PID (string form) of the process
+     * @param mfa the m:f/a of the function
+     * @param depth the stack depth
+     */
+    probe global__function__entry(char *p, char *mfa, int depth);
 
     /**
      * Fired whenever a user function returns.
