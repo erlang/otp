@@ -127,6 +127,7 @@
 		   use_contracts  = true           :: boolean(),
 		   race_detection = false	   :: boolean(),
 		   behaviours_chk = false          :: boolean(),
+		   timing         = false          :: boolean(),
 		   callgraph_file = ""             :: file:filename()}).
 
 -record(options, {files           = []		   :: [file:filename()],

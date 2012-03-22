@@ -64,12 +64,14 @@
 -spec start(pid(), [dial_warn_tag()], #analysis{}) -> 'ok'.
 
 start(Parent, LegalWarnings, Analysis) ->
+  dialyzer_timing:init(Analysis#analysis.timing),
   RacesOn = ordsets:is_element(?WARN_RACE_CONDITION, LegalWarnings),
   Analysis0 = Analysis#analysis{race_detection = RacesOn},
   Analysis1 = expand_files(Analysis0),
   Analysis2 = run_analysis(Analysis1),
   State = #server_state{parent = Parent, legal_warnings = LegalWarnings},
-  loop(State, Analysis2, none).
+  loop(State, Analysis2, none),
+  dialyzer_timing:stop().
 
 run_analysis(Analysis) ->
   Self = self(),

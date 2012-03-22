@@ -32,10 +32,6 @@
 
 init(Active) ->
   Pid = spawn_link(fun() -> loop_init(Active) end),
-  case whereis(?MODULE) of
-    undefined -> ok;
-    _ -> unregister(?MODULE)
-  end,
   register(?MODULE, Pid),
   ok.
 
@@ -72,6 +68,8 @@ loop(LastNow, Size, Unit) ->
       loop(LastNow, NewSize, NewUnit);
     {Pid, stop, Now} ->
       io:format("    ~-9s (+~5.2fs)\n", ["",diff(Now, LastNow)]),
+      Pid ! ok;
+    {Pid, stop} ->
       Pid ! ok
   end.
 

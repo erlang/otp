@@ -394,16 +394,15 @@ do_analysis(Files, Options, Plt, PltInfo) ->
 			   defines = Options#options.defines,
 			   include_dirs = Options#options.include_dirs,
 			   files = Files,
-			   start_from = Options#options.from, 
+			   start_from = Options#options.from,
+			   timing = Options#options.timing,
 			   plt = Plt,
 			   use_contracts = Options#options.use_contracts,
 			   callgraph_file = Options#options.callgraph_file},
   State3 = start_analysis(State2, InitAnalysis),
   {T1, _} = statistics(wall_clock),
-  ok = dialyzer_timing:init(Options#options.timing),
   Return = cl_loop(State3),
   {T2, _} = statistics(wall_clock),
-  ok = dialyzer_timing:stop(),
   report_elapsed_time(T1, T2, Options),
   Return.
 
