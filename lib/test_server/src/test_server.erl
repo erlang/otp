@@ -646,6 +646,9 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
     {Timeout,ReturnValue} =
 	case Terminate of
 	    {true, ReturnVal} ->
+		%% stop any timetrap timers for the test case
+		%% that have been started by this process
+		timetrap_cancel_all(Pid, false),
 		{20, ReturnVal};
 	    false ->
 		{infinity, should_never_appear}
@@ -1010,25 +1013,42 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 				  Comment,CurrConf,Status);
 
-	{user_timetrap,Pid,_TrapTime,Error={user_timetrap_error,_}} ->
-	    self() ! {abort_current_testcase,Error,Pid},
+	{user_timetrap,Pid,_TrapTime,StartTime,E={user_timetrap_error,_},_} ->
+	    case update_user_timetraps(Pid, StartTime) of
+		proceed ->
+		    self() ! {abort_current_testcase,E,Pid};
+		ignore ->
+		    ok
+	    end,
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 				  Comment,CurrConf,Status);
-	{user_timetrap,Pid,0,ElapsedTime} ->
-	    %% a user timetrap is triggered, use the test case execution
-	    %% time as timeout value for the error report
-	    timetrap(0, ElapsedTime, Pid),
+	{user_timetrap,Pid,TrapTime,StartTime,ElapsedTime,Scale} ->
+	    %% a user timetrap is triggered, ignore it if new
+	    %% timetrap has been started since
+	    case update_user_timetraps(Pid, StartTime) of
+		proceed ->
+		    TotalTime = if is_integer(TrapTime) -> 
+					TrapTime + ElapsedTime;
+				   true -> 
+					TrapTime
+				end,
+		    timetrap(TrapTime, TotalTime, Pid, Scale);
+		ignore ->
+		    ok
+	    end,
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 				  Comment,CurrConf,Status);
-	{user_timetrap,Pid,TrapTime,ElapsedTime} ->
-	    TotalTime = if is_integer(TrapTime) -> TrapTime + ElapsedTime;
-			   true -> TrapTime
-			end,
-	    timetrap(TrapTime, TotalTime, Pid),
+	{timetrap_cancel_one,Handle,_From} ->
+	    timetrap_cancel_one(Handle, false),
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 				  Comment,CurrConf,Status);
-	{user_timetrap,_OldPid,_TrapTime,_} ->
-	    %% a timetrap for a previous test case triggered, ignore
+	{timetrap_cancel_all,TCPid,_From} ->
+	    timetrap_cancel_all(TCPid, false),
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+				  Comment,CurrConf,Status);
+	{get_timetrap_info,TCPid,From} ->
+	    Info = get_timetrap_info(TCPid, false),
+	    From ! {self(),get_timetrap_info,Info},
 	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
 				  Comment,CurrConf,Status);
 	_Other when not is_tuple(_Other) ->
@@ -1273,7 +1293,6 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 		   TimetrapData, LogOpts, TCCallback) ->
     put(test_server_multiply_timetraps, TimetrapData),
     put(test_server_logopts, LogOpts),
-
     FWInitResult = test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
 						  {ok,Args0}),
     group_leader() ! {test_case_initialized,self()},
@@ -2120,45 +2139,55 @@ timetrap_scale_factor() ->
 %% Creates a time trap, that will kill the calling process if the
 %% trap is not cancelled with timetrap_cancel/1, within Timeout milliseconds.
 timetrap(Timeout) ->
-    timetrap(Timeout, self()).
+    MultAndScale =
+	case get(test_server_multiply_timetraps) of
+	    undefined -> {fun(T) -> T end, true};
+	    {undefined,false} -> {fun(T) -> T end, false};
+	    {undefined,_} -> {fun(T) -> T end, true};
+	    {infinity,_} -> {fun(_) -> infinity end, false};
+	    {Int,Scale} -> {fun(infinity) -> infinity;
+			       (T) -> T*Int end, Scale}
+	end,	    
+    timetrap(Timeout, Timeout, self(), MultAndScale).
 
-timetrap(Timeout, TCPid) ->
-    timetrap(Timeout, Timeout, TCPid).
+%% when the function is called from different process than
+%% the test case, the test_server_multiply_timetraps data
+%% is unknown and must be passed as argument
+timetrap(Timeout, TCPid, MultAndScale) ->
+    timetrap(Timeout, Timeout, TCPid, MultAndScale).
 
-timetrap(Timeout0, TimeToReport0, TCPid) ->
-    Timeout = time_ms(Timeout0, TCPid),
+timetrap(Timeout0, TimeToReport0, TCPid, MultAndScale = {Multiplier,Scale}) ->
+    %% the time_ms call will either convert Timeout to ms or spawn a
+    %% user timetrap which sends the result to the IO server process
+    Timeout = time_ms(Timeout0, TCPid, MultAndScale),
+    Timeout1 = Multiplier(Timeout),
     TimeToReport = if Timeout0 == TimeToReport0 ->
-			   Timeout;
+			   Timeout1;
 		      true ->
+			   %% only convert to ms, don't start a
+			   %% user timetrap
 			   time_ms_check(TimeToReport0)
 		   end,
-    cancel_default_timetrap(),
-    case get(test_server_multiply_timetraps) of
-	undefined -> timetrap1(Timeout, TimeToReport, TCPid, true);
-	{undefined,false} -> timetrap1(Timeout, TimeToReport, TCPid, false);
-	{undefined,_} -> timetrap1(Timeout, TimeToReport, TCPid, true);
-	{infinity,_} -> timetrap1(infinity, TimeToReport, TCPid, false);
-	{_Int,_Scale} when Timeout == infinity ->
-	    timetrap1(infinity, TimeToReport, TCPid, false);
-	{Int,Scale} -> timetrap1(Timeout*Int, TimeToReport*Int, TCPid, Scale)
-    end.
+    cancel_default_timetrap(self() == TCPid),
+    Handle = case Timeout1 of
+		 infinity ->
+		     infinity;
+		 _ ->
+		     spawn_link(test_server_sup,timetrap,[Timeout1,TimeToReport,
+							  Scale,TCPid])
+	     end,
 
-timetrap1(Timeout, TimeToReport, TCPid, Scale) ->
-    Ref = case Timeout of
-	      infinity ->
-		  infinity;
-	      _ ->
-		  spawn_link(test_server_sup,timetrap,[Timeout,TimeToReport,
-						       Scale,TCPid])
-	  end,
+    %% ERROR! This sets dict on IO process instead of testcase process
+    %% if Timeout is return value from previous user timetrap!!
+
     case get(test_server_timetraps) of
 	undefined ->
-	    put(test_server_timetraps,[{Ref,TCPid,{TimeToReport,Scale}}]);
+	    put(test_server_timetraps,[{Handle,TCPid,{TimeToReport,Scale}}]);
 	List ->
 	    List1 = lists:delete({infinity,TCPid,{infinity,false}}, List),
-	    put(test_server_timetraps,[{Ref,TCPid,{TimeToReport,Scale}}|List1])
+	    put(test_server_timetraps,[{Handle,TCPid,{TimeToReport,Scale}}|List1])
     end,
-    Ref.
+    Handle.
 
 ensure_timetrap(Config) ->
     case get(test_server_timetraps) of
@@ -2183,7 +2212,10 @@ ensure_timetrap(Config) ->
 	    put(test_server_default_timetrap, timetrap(seconds(DTmo)))
     end.
 
-cancel_default_timetrap() ->
+%% executing on IO process, no default timetrap ever set here
+cancel_default_timetrap(false) ->
+    ok;
+cancel_default_timetrap(true) ->
     case get(test_server_default_timetrap) of
 	undefined ->
 	    ok;
@@ -2201,40 +2233,44 @@ cancel_default_timetrap() ->
 	    error
     end.
 
-time_ms({hours,N}, _) -> hours(N);
-time_ms({minutes,N}, _) -> minutes(N);
-time_ms({seconds,N}, _) -> seconds(N);
-time_ms({Other,_N}, _) ->
+time_ms({hours,N}, _, _) -> hours(N);
+time_ms({minutes,N}, _, _) -> minutes(N);
+time_ms({seconds,N}, _, _) -> seconds(N);
+time_ms({Other,_N}, _, _) ->
     format("=== ERROR: Invalid time specification: ~p. "
 	   "Should be seconds, minutes, or hours.~n", [Other]),
     exit({invalid_time_format,Other});
-time_ms(Ms, _) when is_integer(Ms) -> Ms;
-time_ms(infinity, _) -> infinity;
-time_ms(Fun, TCPid) when is_function(Fun) ->
-    time_ms_apply(Fun, TCPid);
-time_ms({M,F,A}=MFA, TCPid) when is_atom(M), is_atom(F), is_list(A) ->
-    time_ms_apply(MFA, TCPid);
-time_ms(Other, _) -> exit({invalid_time_format,Other}).
+time_ms(Ms, _, _) when is_integer(Ms) -> Ms;
+time_ms(infinity, _, _) -> infinity;
+time_ms(Fun, TCPid, MultAndScale) when is_function(Fun) ->
+    time_ms_apply(Fun, TCPid, MultAndScale);
+time_ms({M,F,A}=MFA, TCPid, MultAndScale) when is_atom(M), is_atom(F), is_list(A) ->
+    time_ms_apply(MFA, TCPid, MultAndScale);
+time_ms(Other, _, _) -> exit({invalid_time_format,Other}).
 
 time_ms_check(MFA = {M,F,A}) when is_atom(M), is_atom(F), is_list(A) ->
     MFA;
 time_ms_check(Fun) when is_function(Fun) ->
     Fun;
 time_ms_check(Other) ->
-    time_ms(Other, undefined).
+    time_ms(Other, undefined, undefined).
 
-time_ms_apply(Func, TCPid) ->
+time_ms_apply(Func, TCPid, MultAndScale) ->
     {_,GL} = process_info(TCPid, group_leader),
     WhoAmI = self(),				% either TC or IO server
+    T0 = now(),
     UserTTSup = 
-	spawn_link(fun() -> 
-			   user_timetrap_supervisor(Func, WhoAmI, TCPid, GL)
-		   end),
+	spawn(fun() -> 
+		      user_timetrap_supervisor(Func, WhoAmI, TCPid,
+					       GL, T0, MultAndScale)
+	      end),
     receive
 	{UserTTSup,infinity} ->
+	    %% remember the user timetrap so that it can be cancelled
+	    save_user_timetrap(TCPid, UserTTSup, T0),
 	    %% we need to make sure the user timetrap function
 	    %% gets time to execute and return
-	    timetrap(infinity, TCPid)
+	    timetrap(infinity, TCPid, MultAndScale)
     after 5000 ->
 	    exit(UserTTSup, kill),
 	    if WhoAmI /= GL ->
@@ -2243,16 +2279,15 @@ time_ms_apply(Func, TCPid) ->
 		    format("=== ERROR: User timetrap execution failed!", []),
 		    ignore
 	    end
-    end.    
+    end.
 
-user_timetrap_supervisor(Func, Spawner, TCPid, GL) ->
+user_timetrap_supervisor(Func, Spawner, TCPid, GL, T0, MultAndScale) ->
     process_flag(trap_exit, true),
     Spawner ! {self(),infinity},
     MonRef = monitor(process, TCPid),
     UserTTSup = self(),
     group_leader(GL, UserTTSup),
     UserTT = spawn_link(fun() -> call_user_timetrap(Func, UserTTSup) end),
-    T0 = now(),
     receive
 	{UserTT,Result} ->
 	    demonitor(MonRef, [flush]),
@@ -2261,16 +2296,16 @@ user_timetrap_supervisor(Func, Spawner, TCPid, GL) ->
 		TimeVal ->
 		    %% this is the new timetrap value to set (return value
 		    %% from a fun or an MFA)
-		    GL ! {user_timetrap,TCPid,TimeVal,Elapsed}
+		    GL ! {user_timetrap,TCPid,TimeVal,T0,Elapsed,MultAndScale}
 	    catch _:_ ->		    
 		    %% when other than a legal timetrap value is returned
 		    %% which will be the normal case for user timetraps
-		    GL ! {user_timetrap,TCPid,0,Elapsed}
+		    GL ! {user_timetrap,TCPid,0,T0,Elapsed,MultAndScale}
 	    end;
 	{'EXIT',UserTT,Error} when Error /= normal ->
 	    demonitor(MonRef, [flush]),
-	    GL ! {user_timetrap,TCPid,0,{user_timetrap_error,Error}};
-
+	    GL ! {user_timetrap,TCPid,0,T0,{user_timetrap_error,Error},
+		  MultAndScale};
 	{'DOWN',MonRef,_,_,_} ->
 	    demonitor(MonRef, [flush]),
 	    exit(UserTT, kill)
@@ -2291,19 +2326,82 @@ call_user_timetrap({M,F,A}, Sup) ->
 	    exit({Error,erlang:get_stacktrace()})
     end.
 
+save_user_timetrap(TCPid, UserTTSup, StartTime) ->
+    %% save pid of user timetrap supervisor process so that
+    %% it may be stopped even before the timetrap func has returned
+    NewUserTT = {TCPid,{UserTTSup,StartTime}},
+    case get(test_server_user_timetrap) of
+	undefined ->
+	    put(test_server_user_timetrap, [NewUserTT]);
+	UserTTSups ->
+	    case proplists:get_value(TCPid, UserTTSups) of
+		undefined ->
+		    put(test_server_user_timetrap,
+			[NewUserTT | UserTTSups]);
+		PrevTTSup ->
+		    %% remove prev user timetrap
+		    remove_user_timetrap(PrevTTSup),
+		    put(test_server_user_timetrap,
+			[NewUserTT | proplists:delete(TCPid,
+						      UserTTSups)])
+	    end
+    end.
+    
+update_user_timetraps(TCPid, StartTime) ->
+    %% called when a user timetrap is triggered
+    case get(test_server_user_timetrap) of
+	undefined ->
+	    proceed;
+	UserTTs ->
+	    case proplists:get_value(TCPid, UserTTs) of
+		{_UserTTSup,StartTime} ->	% same timetrap
+		    put(test_server_user_timetrap,
+			proplists:delete(TCPid, UserTTs)),
+		    proceed;
+		{OtherUserTTSup,OtherStartTime} ->
+		    case timer:now_diff(OtherStartTime, StartTime) of
+			Diff when Diff >= 0 ->
+			    ignore;
+			_ ->
+			    exit(OtherUserTTSup, kill),
+			    put(test_server_user_timetrap,
+				proplists:delete(TCPid, UserTTs)),
+			    proceed
+		    end;
+		undefined ->
+		    proceed
+	    end
+    end.
+
+remove_user_timetrap(TTSup) ->
+    exit(TTSup, kill).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% timetrap_cancel(Handle) -> ok
 %% Handle = term()
 %%
 %% Cancels a time trap.
-timetrap_cancel(infinity) ->
-    ok;
 timetrap_cancel(Handle) ->
+    timetrap_cancel_one(Handle, true).
+
+timetrap_cancel_one(infinity, _SendToServer) ->
+    ok;
+timetrap_cancel_one(Handle, SendToServer) ->
     case get(test_server_timetraps) of
-	undefined -> ok;
-	[{Handle,_,_}] -> erase(test_server_timetraps);
-	Timers -> put(test_server_timetraps,
-		      lists:keydelete(Handle, 1, Timers))
+	undefined ->
+	    ok;
+	[{Handle,_,_}] ->
+	    erase(test_server_timetraps);
+	Timers ->
+	    case lists:keysearch(Handle, 1, Timers) of
+		{value,_} ->
+		    put(test_server_timetraps,
+			lists:keydelete(Handle, 1, Timers));
+		false when SendToServer == true ->
+		    group_leader() ! {timetrap_cancel_one,Handle,self()};
+		false ->
+		    ok
+	    end
     end,
     test_server_sup:timetrap_cancel(Handle).
 
@@ -2312,31 +2410,59 @@ timetrap_cancel(Handle) ->
 %%
 %% Cancels timetrap for current test case.
 timetrap_cancel() ->
+    timetrap_cancel_all(self(), true).
+
+timetrap_cancel_all(TCPid, SendToServer) ->
     case get(test_server_timetraps) of
 	undefined ->
 	    ok;
 	Timers ->
-	    case lists:keysearch(self(), 2, Timers) of
-		{value,{Handle,_,_}} ->
-		    timetrap_cancel(Handle);
-		_ ->
+	    [timetrap_cancel_one(Handle, false) ||
+		{Handle,Pid,_} <- Timers, Pid == TCPid]
+    end,
+    case get(test_server_user_timetrap) of
+	undefined ->
+	    ok;
+	UserTTs ->
+	    case proplists:get_value(TCPid, UserTTs) of
+		{UserTTSup,_StartTime} ->
+		    remove_user_timetrap(UserTTSup),
+		    put(test_server_user_timetrap,
+			proplists:delete(TCPid, UserTTs));
+		undefined ->
 		    ok
 	    end
-    end.
+    end,
+    if SendToServer == true ->
+	    group_leader() ! {timetrap_cancel_all,TCPid,self()};
+       true ->
+	    ok
+    end,
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% get_timetrap_info() -> {Timeout,Scale} | undefined
 %%
 %% Read timetrap info for current test case
 get_timetrap_info() ->
+    get_timetrap_info(self(), true).
+
+get_timetrap_info(TCPid, SendToServer) ->
     case get(test_server_timetraps) of
 	undefined ->
 	    undefined;
 	Timers ->
-	    case lists:keysearch(self(), 2, Timers) of
-		{value,{_,_,Info}} ->
-		    Info;
-		_ ->
+	    case [Info || {Handle,Pid,Info} <- Timers, 
+			  Pid == TCPid, Handle /= infinity] of
+		[I|_] ->
+		    I;
+		[] when SendToServer == true ->
+		    MsgLooper = group_leader(),
+		    MsgLooper ! {get_timetrap_info,TCPid,self()},
+		    receive
+			{MsgLooper,get_timetrap_info,I} -> I
+		    end;
+		[] ->
 		    undefined
 	    end
     end.

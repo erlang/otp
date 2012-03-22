@@ -100,8 +100,12 @@ timetrap_cancel(Handle) ->
     unlink(Handle),
     MonRef = erlang:monitor(process, Handle),
     exit(Handle, kill),
-    receive {'DOWN',MonRef,_,_,_} -> ok after 2000 -> ok end.
-
+    receive {'DOWN',MonRef,_,_,_} -> ok
+    after
+	2000 ->
+	    erlang:demonitor(MonRef, [flush]),
+	    ok
+    end.
 
 capture_get(Msgs) ->
     receive
@@ -111,7 +115,6 @@ capture_get(Msgs) ->
 	    lists:reverse(Msgs)
     end.
 
-
 messages_get(Msgs) ->
     receive
 	Msg ->
@@ -119,7 +122,6 @@ messages_get(Msgs) ->
     after 0 ->
 	    lists:reverse(Msgs)
     end.
-
 
 timecall(M, F, A) ->
     Befor = erlang:now(),
