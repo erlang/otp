@@ -1681,6 +1681,7 @@ case X$erl_xcomp_bigendian in
 esac
 
 AC_C_BIGENDIAN
+AC_C_DOUBLE_MIDDLE_ENDIAN
 
 dnl fdatasync syscall (Unix only)
 AC_CHECK_FUNCS([fdatasync])

@@ -59,6 +59,7 @@ AC_ARG_VAR(erl_xcomp_isysroot, [Absolute cross system root include path (only us
 
 dnl Cross compilation variables
 AC_ARG_VAR(erl_xcomp_bigendian, [big endian system: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_double_middle_endian, [double-middle-endian system: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_clock_gettime_correction, [clock_gettime() can be used for time correction: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_nptl, [have Native POSIX Thread Library: yes|no (only used when cross compiling)])
 AC_ARG_VAR(erl_xcomp_linux_usable_sigusrx, [SIGUSR1 and SIGUSR2 can be used: yes|no (only used when cross compiling)])
@@ -605,6 +606,60 @@ ifelse([$5], , , [$5
 ])dnl
 fi
 ])
+
+dnl ----------------------------------------------------------------------
+dnl
+dnl AC_DOUBLE_MIDDLE_ENDIAN
+dnl
+dnl Checks whether doubles are represented in "middle-endian" format.
+dnl Sets ac_cv_double_middle_endian={no,yes,unknown} accordingly,
+dnl as well as DOUBLE_MIDDLE_ENDIAN.
+dnl
+dnl
+
+AC_DEFUN([AC_C_DOUBLE_MIDDLE_ENDIAN],
+[AC_CACHE_CHECK(whether double word ordering is middle-endian, ac_cv_c_double_middle_endian,
+[# It does not; compile a test program.
+AC_RUN_IFELSE(
+[AC_LANG_SOURCE([[int
+main(void)
+{
+  int i = 0;
+  int zero = 0;
+  union
+  {
+    double d;
+    char c[sizeof (double)];
+  } v;
+  v.d = 1.0;
+  
+  
+  while (i < sizeof(double) / 2)
+    {
+      if (v.c[i] != 0)
+	zero = 1;
+      ++i;
+    }
+  exit (zero);
+}
+]])],
+	      [ac_cv_c_double_middle_endian=no],
+	      [ac_cv_c_double_middle_endian=yes],
+	      [ac_cv_c_double_middle=unknown])])
+case $ac_cv_c_double_middle_endian in
+  yes)
+    m4_default([$1],
+      [AC_DEFINE([DOUBLE_MIDDLE_ENDIAN], 1,
+	[Define to 1 if your processor stores the words in a double in
+	 middle-endian format (like some ARMs).])]) ;;
+  no)
+    $2 ;;
+  *)
+    m4_default([$3],
+      [AC_MSG_ERROR([unknown double endianness
+presetting ac_cv_c_double_middle_endian=no (or yes) will help])]) ;;
+esac
+])# AC_C_DOUBLE_MIDDLE_ENDIAN
 
 
 dnl ----------------------------------------------------------------------
@@ -1336,6 +1391,14 @@ AC_C_BIGENDIAN
 if test "$ac_cv_c_bigendian" = "yes"; then
     AC_DEFINE(ETHR_BIGENDIAN, 1, [Define if bigendian])
 fi
+
+case X$erl_xcomp_double_middle_endian in
+    X) ;;
+    Xyes|Xno) ac_cv_c_double_middle_endian=$erl_xcomp_double_middle_endian;;
+    *) AC_MSG_ERROR([Bad erl_xcomp_double_middle_endian value: $erl_xcomp_double_middle_endian]);;
+esac
+
+AC_C_DOUBLE_MIDDLE_ENDIAN
 
 AC_ARG_ENABLE(native-ethr-impls,
 	      AS_HELP_STRING([--disable-native-ethr-impls],
