@@ -1,16 +1,8 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
-  {"0.13", [{restart_application, public_key}]},
-  {"0.11", [{restart_application, public_key}]},
-  {"0.10", [{restart_application, public_key}]},
-  {"0.9",  [{restart_application, public_key}]},
-  {"0.8",  [{restart_application, public_key}]}
+  {<<"0\\.*">>,  [{restart_application, public_key}]}
  ],
  [
-  {"0.13", [{restart_application, public_key}]},
-  {"0.11", [{restart_application, public_key}]},
-  {"0.10", [{restart_application, public_key}]},
-  {"0.9",  [{restart_application, public_key}]},
-  {"0.8",  [{restart_application, public_key}]}
+  {<<"0\\.*">>,  [{restart_application, public_key}]}
  ]}.
