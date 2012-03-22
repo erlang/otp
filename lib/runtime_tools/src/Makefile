@@ -45,6 +45,7 @@ MODULES= \
 	runtime_tools \
 	runtime_tools_sup \
 	dbg \
+	dyntrace \
 	percept_profile \
 	observer_backend \
 	ttb_autostart
@@ -64,10 +65,15 @@ APPUP_FILE= runtime_tools.appup
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
+EXAMPLE_FILES= \
+	../examples/*
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I../include 
+ERL_COMPILE_FLAGS += \
+	-I../include \
+	-I ../../et/include \
+	-I ../../../libraries/et/include
 
 # ----------------------------------------------------
 # Targets
@@ -97,6 +103,8 @@ release_spec: opt
 	$(INSTALL_DATA) $(ERL_FILES) $(RELSYSDIR)/src
 	$(INSTALL_DIR) $(RELSYSDIR)/include
 	$(INSTALL_DATA) $(HRL_FILES) $(RELSYSDIR)/include
+	$(INSTALL_DIR) $(RELSYSDIR)/examples
+	$(INSTALL_DATA) $(EXAMPLE_FILES) $(RELSYSDIR)/examples
 	$(INSTALL_DIR) $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 

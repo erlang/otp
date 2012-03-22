@@ -276,6 +276,61 @@ else
               [Define to enable hrvtime() on Linux systems with perfctr extension])
 fi
 
+
+AC_ARG_WITH(dynamic-trace,
+AS_HELP_STRING([--with-dynamic-trace={dtrace|systemtap}],
+	       [specify use of dynamic trace framework, dtrace or systemtap])
+AS_HELP_STRING([--without-dynamic-trace], 
+               [don't enable any dynamic tracing (default)]))
+
+if test X"$with_dynamic_trace" = X""; then
+   with_dynamic_trace=no
+fi
+
+case "$with_dynamic_trace" in
+     no) DYNAMIC_TRACE_FRAMEWORK=;;
+     dtrace) 
+	    AC_DEFINE(USE_DTRACE,[1],
+		[Define if you want to use dtrace for dynamic tracing])
+     	     DYNAMIC_TRACE_FRAMEWORK=dtrace;;
+     systemtap) 
+	    AC_DEFINE(USE_SYSTEMTAP,[1],
+		[Define if you want to use systemtap for dynamic tracing])
+	    DYNAMIC_TRACE_FRAMEWORK=systemtap;;
+     *)	
+     	    AC_MSG_ERROR(Unknown dynamic tracing framework specified with --with-dynamic-trace!);;
+esac
+
+if test X"$DYNAMIC_TRACE_FRAMEWORK" != X""; then
+   AC_DEFINE(USE_DYNAMIC_TRACE,[1],
+		[Define if you want to use dynamic tracing])
+fi
+
+AC_ARG_ENABLE(vm-probes,
+AS_HELP_STRING([--enable-vm-probes],
+               [add dynamic trace probes to the Beam VM (only possible if --with-dynamic-trace is enabled, and then default)]),
+	       [ case "$enableval" in
+    	       	 no) use_vm_probes=no ;;
+    		 *)
+			if  test X"$DYNAMIC_TRACE_FRAMEWORK" != X""; then
+		 	    use_vm_probes=yes ;
+			else
+			    AC_MSG_ERROR(Can not enable VM probes without any dynamic tracing framework!);
+			fi;;  
+  		 esac ], if  test X"$DYNAMIC_TRACE_FRAMEWORK" != X""; then
+		 	    use_vm_probes=yes ;
+			else
+			    use_vm_probes=no
+			fi)
+
+AC_SUBST(USE_VM_PROBES)
+if test X"$use_vm_probes" = X"yes"; then
+   USE_VM_PROBES=yes
+   AC_DEFINE(USE_VM_PROBES,[1],
+	     [Define to enable VM dynamic trace probes])
+fi
+
+
 AC_ARG_ENABLE(clock-gettime,
 AS_HELP_STRING([--enable-clock-gettime],
                [use clock-gettime for time correction]),
@@ -3544,6 +3599,74 @@ dnl to be optimized
 dnl
 
 LM_FIND_EMU_CC
+
+dnl
+dnl DTrace
+dnl
+case $DYNAMIC_TRACE_FRAMEWORK in
+     dtrace|systemtap)
+        AC_CHECK_TOOL(DTRACE, dtrace, none)
+        test "$DTRACE" = "none" && AC_MSG_ERROR([No dtrace utility found.]);
+	enable_dtrace_test=yes;;
+     *) enable_dtrace_test=no;;
+esac        
+		     
+AC_SUBST(DTRACE)
+
+AC_SUBST(DTRACE_CPP)
+AC_SUBST(DTRACE_ENABLED)
+AC_SUBST(DTRACE_ENABLED_2STEP)
+DTRACE_CPP=-C
+DTRACE_ENABLED=
+DTRACE_ENABLED_2STEP=
+DTRACE_2STEP_TEST=./dtrace-test.o
+DTRACE_BITS_FLAG=
+case $OPSYS in
+    freebsd)
+	if test "$BITS64" = "yes" ; then
+		DTRACE_BITS_FLAG=-64
+	else
+		DTRACE_BITS_FLAG=-32
+	fi
+    ;;
+    *)
+	: # Nothing to do
+    ;;
+esac
+if test "$enable_dtrace_test" = "yes" ; then
+        if test "$DTRACE" = "dtrace" ; then
+                AC_CHECK_HEADERS(sys/sdt.h)
+                # The OS X version of dtrace prints a spurious line here.
+                if ! dtrace -h $DTRACE_CPP -Iemulator/beam -o ./foo-dtrace.h -s emulator/beam/erlang_dtrace.d; then
+                        AC_MSG_ERROR([Could not precompile erlang_dtrace.d: dtrace -h failed])
+                fi
+                rm -f foo-dtrace.h
+
+                $RM -f $DTRACE_2STEP_TEST
+                if dtrace -G $DTRACE_CPP $DTRACE_BITS_FLAG -Iemulator/beam -o $DTRACE_2STEP_TEST -s emulator/beam/erlang_dtrace.d 2> /dev/null && \
+                   test -f $DTRACE_2STEP_TEST ; then
+                        rm $DTRACE_2STEP_TEST
+                        DTRACE_ENABLED_2STEP=yes
+                        AC_MSG_NOTICE([dtrace precompilation for 2-stage DTrace successful])
+                else
+                        AC_MSG_NOTICE([dtrace precompilation for 1-stage DTrace successful])
+                fi
+                DTRACE_ENABLED=yes
+                case $OPSYS in
+                    linux)
+                        : # No extra libs to add to LIBS
+                    ;;
+                    freebsd)
+                        LIBS="$LIBS -lelf"
+                    ;;
+                    *)
+                        LIBS="$LIBS -ldtrace"
+                    ;;
+                esac
+        else
+                AC_MSG_ERROR([Dtrace preprocessing test failed.])
+        fi
+fi
 
 dnl
 dnl SSL, SSH and CRYPTO need the OpenSSL libraries

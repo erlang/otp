@@ -710,6 +710,27 @@ type(erlang, display_nl, 0, _) ->
   t_atom('true');
 type(erlang, dist_exit, 3, Xs) ->
   strict(arg_types(erlang, dist_exit, 3), Xs, fun (_) -> t_atom('true') end);
+type(erlang, dt_append_vm_tag_data, 1, Xs) ->
+  strict(arg_types(erlang, dt_append_vm_tag_data, 1), 
+	 Xs, 
+	 fun(_) -> t_iodata() end);
+type(erlang, dt_get_tag, 0, _) ->
+  t_sup(t_binary(), t_atom('undefined'));
+type(erlang, dt_get_tag_data, 0, _) ->
+  t_sup(t_binary(), t_atom('undefined'));
+type(erlang, dt_prepend_vm_tag_data, 1, Xs) ->
+  strict(arg_types(erlang, dt_prepend_vm_tag_data, 1), 
+	 Xs, 
+	 fun(_) -> t_iodata() end);
+type(erlang, dt_put_tag, 1, Xs) ->
+  strict(arg_types(erlang, dt_put_tag, 1), Xs, 
+	 fun(_) -> t_sup(t_binary(), t_atom('undefined')) end);
+type(erlang, dt_restore_tag, 1, Xs) ->
+  strict(arg_types(erlang, dt_restore_tag, 1), Xs, fun(_) -> t_atom('true') end);
+type(erlang, dt_spread_tag, 1, Xs) ->
+  strict(arg_types(erlang, dt_spread_tag, 1), Xs, 
+	 fun(_) -> t_sup(t_tuple([t_non_neg_integer(), t_sup(t_binary(), t_nil())]),
+			 t_atom('true')) end);
 type(erlang, element, 2, Xs) ->
   strict(arg_types(erlang, element, 2), Xs,
 	 fun ([X1, X2]) ->
@@ -3495,6 +3516,20 @@ arg_types(erlang, display_string, 1) ->
   [t_string()];
 arg_types(erlang, dist_exit, 3) ->
   [t_pid(), t_dist_exit(), t_sup(t_pid(), t_port())];
+arg_types(erlang, dt_append_vm_tag_data, 1) ->
+  [t_iodata()];
+arg_types(erlang, dt_get_tag, 0) ->
+  [];
+arg_types(erlang, dt_get_tag_data, 0) ->
+  [];
+arg_types(erlang, dt_prepend_vm_tag_data, 1) ->
+  [t_iodata()];
+arg_types(erlang, dt_put_tag, 1) ->
+  [t_sup(t_binary(), t_atom('undefined'))];
+arg_types(erlang, dt_restore_tag, 1) ->
+  [t_sup(t_tuple([t_non_neg_integer(), t_sup(t_binary(), t_nil())]), t_atom('true'))];
+arg_types(erlang, dt_spread_tag, 1) ->
+  [t_boolean()];
 arg_types(erlang, element, 2) ->
   [t_pos_fixnum(), t_tuple()];
 arg_types(erlang, erase, 0) ->

@@ -1697,7 +1697,11 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
 	erts_queue_error_logger_message(from, tuple3, bp);
     }
 #else
-    erts_queue_message(p, NULL /* only used for smp build */, bp, tuple3, NIL);
+    erts_queue_message(p, NULL /* only used for smp build */, bp, tuple3, NIL
+#ifdef USE_VM_PROBES
+		       , NIL
+#endif
+		       );
 #endif
     return 0;
 }

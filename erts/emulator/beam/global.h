@@ -1974,4 +1974,46 @@ erts_alloc_message_heap(Uint size,
 #  define UseTmpHeapNoproc(Size) /* Nothing */
 #  define UnUseTmpHeapNoproc(Size) /* Nothing */
 #endif /* HEAP_ON_C_STACK */
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+#include "dtrace-wrapper.h"
+
+ERTS_GLB_INLINE void
+dtrace_pid_str(Eterm pid, char *process_buf)
+{
+    erts_snprintf(process_buf, DTRACE_TERM_BUF_SIZE, "<%lu.%lu.%lu>",
+                  pid_channel_no(pid),
+                  pid_number(pid),
+                  pid_serial(pid));
+}
+
+ERTS_GLB_INLINE void
+dtrace_proc_str(Process *process, char *process_buf)
+{
+    dtrace_pid_str(process->id, process_buf);
+}
+
+ERTS_GLB_INLINE void
+dtrace_port_str(Port *port, char *port_buf)
+{
+    erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
+                  port_channel_no(port->id),
+                  port_number(port->id));
+}
+
+ERTS_GLB_INLINE void
+dtrace_fun_decode(Process *process,
+                  Eterm module, Eterm function, int arity,
+                  char *process_buf, char *mfa_buf)
+{
+    if (process_buf) {
+        dtrace_proc_str(process, process_buf);
+    }
+
+    erts_snprintf(mfa_buf, DTRACE_TERM_BUF_SIZE, "%T:%T/%d",
+                  module, function, arity);
+}
+#endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
 #endif /* !__GLOBAL_H__ */
