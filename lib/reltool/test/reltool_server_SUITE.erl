@@ -89,7 +89,8 @@ all() ->
      gen_rel_files,
      save_config,
      dependencies,
-     use_selected_vsn].
+     use_selected_vsn,
+     use_selected_vsn_relative_path].
 
 groups() -> 
     [].
@@ -2084,7 +2085,6 @@ use_selected_vsn(Config) ->
 		 {app,b,[{incl_cond,include},{lib_dir,B2Dir}]}]},
     {ok, Pid3} = ?msym({ok, _}, reltool:start_server([{config, Sys3}])),
 %    test_server:break("Pid3 = list_to_pid(\""++pid_to_list(Pid3)++"\")."),
-    ?msym({ok,#app{vsn="2.0",active_dir=B2Dir}},reltool_server:get_app(Pid3,b)),
     {ok,B31} = ?msym({ok,#app{vsn="2.0",active_dir=B2Dir}},
 		     reltool_server:get_app(Pid3,b)),
     %% Change from a pre-selected dir to use latest
@@ -2120,6 +2120,29 @@ use_selected_vsn(Config) ->
 					 vsn = undefined,
 					 info = undefined})),
     ?m(ok, reltool:stop(Pid3)),
+    ok.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+use_selected_vsn_relative_path(Config) ->
+    LibDir = filename:join([datadir(Config),"use_selected_vsn","b-1.0"]),
+    RelDir = filename:join(LibDir,"rel"),
+
+    {ok,Cwd} = file:get_cwd(),
+    ok = file:set_cwd(RelDir),
+
+    Sys = {sys,[{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,b,[{incl_cond,include},{lib_dir,".."}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    ?msym({ok,#app{vsn="1.0",active_dir=LibDir}},reltool_server:get_app(Pid,b)),
+
+    ?m(ok, reltool:stop(Pid)),
+
+    ok = file:set_cwd(Cwd),
     ok.
 
 

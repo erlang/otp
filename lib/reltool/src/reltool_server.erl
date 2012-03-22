@@ -1498,9 +1498,10 @@ decode(#app{} = App, [{Key, Val} | KeyVals]) ->
 	    lib_dir when is_list(Val), App#app.use_selected_vsn=:=undefined ->
 		case filelib:is_dir(Val) of
 		    true ->
+			Dir = reltool_utils:normalize_dir(Val),
 			App#app{use_selected_vsn = dir,
-				active_dir = Val,
-				sorted_dirs = [Val]};
+				active_dir = Dir,
+				sorted_dirs = [Dir]};
 		    false ->
 			reltool_utils:throw_error("Illegal lib dir for ~p: ~p",
 						  [App#app.name, Val])

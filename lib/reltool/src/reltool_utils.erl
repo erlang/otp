@@ -22,6 +22,7 @@
 -export([root_dir/0, erl_libs/0, lib_dirs/1,
 	 split_app_name/1, prim_consult/1,
 	 default_rels/0, choose_default/3,
+	 normalize_dir/1,
 
 	 assign_image_list/1, get_latest_resize/1, wait_for_stop_motion/2,
 	 mod_conds/0, list_to_mod_cond/1, mod_cond_to_index/1,
@@ -86,6 +87,21 @@ split_app_name(Name) ->
 	_ ->
 	    {list_to_atom(Name), ""}
     end.
+
+
+normalize_dir(RelDir) ->
+    Tokens = filename:split(filename:absname(RelDir)),
+    filename:join(lists:reverse(normalize_dir(Tokens, []))).
+
+normalize_dir([".."|Dirs], [_Dir|Path]) ->
+    normalize_dir(Dirs, Path);
+normalize_dir(["."|Dirs], Path) ->
+    normalize_dir(Dirs, Path);
+normalize_dir([Dir|Dirs], Path) ->
+    normalize_dir(Dirs, [Dir|Path]);
+normalize_dir([], Path) ->
+    Path.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
