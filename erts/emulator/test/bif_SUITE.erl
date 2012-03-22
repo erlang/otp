@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@
 	 specs/1,improper_bif_stubs/1,auto_imports/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
-	 atom_to_binary/1,min_max/1]).
+	 atom_to_binary/1,min_max/1, erlang_halt/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -40,7 +40,7 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display,
      atom_to_binary, binary_to_atom, binary_to_existing_atom,
-     min_max].
+     min_max, erlang_halt].
 
 groups() -> 
     [].
@@ -640,6 +640,47 @@ min_max(Config) when is_list(Config) ->
 
     ok.
 
+
+
+erlang_halt(Config) when is_list(Config) ->
+    try erlang:halt(undefined) of
+	_-> ?t:fail({erlang,halt,{undefined}})
+    catch error:badarg -> ok end,
+    try halt(undefined) of
+	_-> ?t:fail({halt,{undefined}})
+    catch error:badarg -> ok end,
+    try erlang:halt(undefined, []) of
+	_-> ?t:fail({erlang,halt,{undefined,[]}})
+    catch error:badarg -> ok end,
+    try halt(undefined, []) of
+	_-> ?t:fail({halt,{undefined,[]}})
+    catch error:badarg -> ok end,
+    try halt(0, undefined) of
+	_-> ?t:fail({halt,{0,undefined}})
+    catch error:badarg -> ok end,
+    try halt(0, [undefined]) of
+	_-> ?t:fail({halt,{0,[undefined]}})
+    catch error:badarg -> ok end,
+    try halt(0, [{undefined,true}]) of
+	_-> ?t:fail({halt,{0,[{undefined,true}]}})
+    catch error:badarg -> ok end,
+    try halt(0, [{flush,undefined}]) of
+	_-> ?t:fail({halt,{0,[{flush,undefined}]}})
+    catch error:badarg -> ok end,
+    try halt(0, [{flush,true,undefined}]) of
+	_-> ?t:fail({halt,{0,[{flush,true,undefined}]}})
+    catch error:badarg -> ok end,
+    H = hostname(),
+    {ok,N1} = slave:start(H, halt_node1),
+    {badrpc,nodedown} = rpc:call(N1, erlang, halt, []),
+    {ok,N2} = slave:start(H, halt_node2),
+    {badrpc,nodedown} = rpc:call(N2, erlang, halt, [0]),
+    {ok,N3} = slave:start(H, halt_node3),
+    {badrpc,nodedown} = rpc:call(N3, erlang, halt, [0,[]]),
+    ok.
+
+
+
 %% Helpers
     
 id(I) -> I.
@@ -671,3 +712,12 @@ extract_abstract(Mod, Path) ->
     {ok,{Mod,[{abstract_code,{raw_abstract_v1,Abstr}}]}} =
 	beam_lib:chunks(Beam, [abstract_code]),
     {Mod,Abstr}.
+
+
+hostname() ->
+    hostname(atom_to_list(node())).
+
+hostname([$@ | Hostname]) ->
+    list_to_atom(Hostname);
+hostname([_C | Cs]) ->
+    hostname(Cs).

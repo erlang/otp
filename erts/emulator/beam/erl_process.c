@@ -104,6 +104,9 @@ do {								\
 #define ERTS_EMPTY_RUNQ(RQ) \
   ((RQ)->len == 0 && (RQ)->misc.start == NULL)
 
+#define ERTS_EMPTY_RUNQ_PORTS(RQ) \
+  ((RQ)->ports.info.len == 0 && (RQ)->misc.start == NULL)
+
 extern BeamInstr beam_apply[];
 extern BeamInstr beam_exit[];
 extern BeamInstr beam_continue_exit[];
@@ -368,6 +371,9 @@ dbg_chk_aux_work_val(erts_aint32_t value)
 #endif
 #ifdef ERTS_SMP
     valid |= ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION;
+#endif
+#ifdef ERTS_SSI_AUX_WORK_REAP_PORTS
+    valid |= ERTS_SSI_AUX_WORK_REAP_PORTS;
 #endif
 
     if (~valid & value)
@@ -864,8 +870,6 @@ set_aux_work_flags_wakeup_nob(ErtsSchedulerSleepInfo *ssi,
     }
 }
 
-#ifdef ERTS_SMP
-
 static ERTS_INLINE void
 set_aux_work_flags_wakeup_relb(ErtsSchedulerSleepInfo *ssi,
 			       erts_aint32_t flgs)
@@ -884,8 +888,6 @@ set_aux_work_flags_wakeup_relb(ErtsSchedulerSleepInfo *ssi,
 #endif
     }
 }
-
-#endif /* ERTS_SMP */
 
 static ERTS_INLINE erts_aint32_t
 set_aux_work_flags(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flgs)
@@ -1392,6 +1394,65 @@ handle_check_children(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 
 #endif
 
+static void
+notify_reap_ports_relb(void)
+{
+    int i;
+    for (i = 0; i < erts_no_schedulers; i++) {
+	set_aux_work_flags_wakeup_relb(ERTS_SCHED_SLEEP_INFO_IX(i),
+				       ERTS_SSI_AUX_WORK_REAP_PORTS);
+    }
+}
+
+erts_smp_atomic32_t erts_halt_progress;
+int erts_halt_code;
+
+static ERTS_INLINE erts_aint32_t
+handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
+{
+    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_REAP_PORTS);
+    awdp->esdp->run_queue->halt_in_progress = 1;
+    if (erts_smp_atomic32_dec_read_acqb(&erts_halt_progress) == 0) {
+	int i;
+	erts_smp_atomic32_set_nob(&erts_halt_progress, 1);
+	for (i = 0; i < erts_max_ports; i++) {
+	    Port *prt = &erts_port[i];
+	    erts_smp_port_state_lock(prt);
+	    if ((prt->status & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+				| ERTS_PORT_SFLG_HALT))) {
+		erts_smp_port_state_unlock(prt);
+		continue;
+	    }
+	    /* We need to set the halt flag - get the port lock */
+#ifdef ERTS_SMP
+	    erts_smp_atomic_inc_nob(&prt->refc);
+#endif
+	    erts_smp_port_state_unlock(prt);
+#ifdef ERTS_SMP
+	    erts_smp_mtx_lock(prt->lock);
+#endif
+	    if ((prt->status & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+				| ERTS_PORT_SFLG_HALT))) {
+		erts_port_release(prt);
+		continue;
+	    }
+	    erts_port_status_bor_set(prt, ERTS_PORT_SFLG_HALT);
+	    erts_smp_atomic32_inc_nob(&erts_halt_progress);
+	    if (prt->status & (ERTS_PORT_SFLG_EXITING
+			       | ERTS_PORT_SFLG_CLOSING)) {
+		erts_port_release(prt);
+		continue;
+	    }
+	    erts_do_exit_port(prt, prt->id, am_killed);
+	    erts_port_release(prt);
+	}
+	if (erts_smp_atomic32_dec_read_nob(&erts_halt_progress) == 0) {
+	    erl_exit_flush_async(erts_halt_code, "");
+	}
+    }
+    return aux_work & ~ERTS_SSI_AUX_WORK_REAP_PORTS;
+}
+
 #if HAVE_ERTS_MSEG
 
 static ERTS_INLINE erts_aint32_t
@@ -1496,6 +1557,10 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work)
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION,
 		    handle_code_ix_activation);
 #endif
+
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_REAP_PORTS,
+		    handle_reap_ports);
+
     ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
 
     return aux_work;
@@ -2761,6 +2826,9 @@ try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq)
     ERTS_SMP_LC_CHK_RUNQ_LOCK(rq, *rq_lockedp);
     ERTS_SMP_LC_CHK_RUNQ_LOCK(vrq, vrq_locked);
 
+    if (rq->halt_in_progress)
+	goto try_steal_port;
+
     /*
      * Check for a runnable process to steal...
      */
@@ -2846,6 +2914,8 @@ try_steal_task_from_victim(ErtsRunQueue *rq, int *rq_lockedp, ErtsRunQueue *vrq)
 	    erts_smp_runq_lock(vrq);
 	vrq_locked = 1;
     }
+
+ try_steal_port:
 
     ERTS_SMP_LC_CHK_RUNQ_LOCK(rq, *rq_lockedp);
     ERTS_SMP_LC_CHK_RUNQ_LOCK(vrq, vrq_locked);
@@ -2962,7 +3032,8 @@ try_steal_task(ErtsRunQueue *rq)
 	erts_smp_runq_lock(rq);
 
     if (!res)
-	res = !ERTS_EMPTY_RUNQ(rq);
+	res = rq->halt_in_progress ?
+	    !ERTS_EMPTY_RUNQ_PORTS(rq) : !ERTS_EMPTY_RUNQ(rq);
 
     return res;
 }
@@ -3628,6 +3699,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online)
 	rq->len = 0;
 	rq->wakeup_other = 0;
 	rq->wakeup_other_reds = 0;
+	rq->halt_in_progress = 0;
 
 	rq->procs.len = 0;
 	rq->procs.pending_exiters = NULL;
@@ -3822,6 +3894,9 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online)
     ERTS_VERIFY_UNUSED_TEMP_ALLOC(NULL);
 #endif
 #endif
+
+    erts_smp_atomic32_init_relb(&erts_halt_progress, -1);
+    erts_halt_code = 0;
 }
 
 ErtsRunQueue *
@@ -6388,7 +6463,9 @@ Process *schedule(Process *p, int calls)
 
 	ASSERT(rq->len == rq->procs.len + rq->ports.info.len);
 
-	if (rq->len == 0 && !rq->misc.start) {
+	if ((rq->len == 0 && !rq->misc.start)
+	    || (rq->halt_in_progress
+		&& rq->ports.info.len == 0 && !rq->misc.start)) {
 
 #ifdef ERTS_SMP
 
@@ -6486,7 +6563,8 @@ Process *schedule(Process *p, int calls)
 	if (rq->ports.info.len) {
 	    int have_outstanding_io;
 	    have_outstanding_io = erts_port_task_execute(rq, &esdp->current_port);
-	    if (have_outstanding_io && fcalls > 2*input_reductions) {
+	    if ((have_outstanding_io && fcalls > 2*input_reductions)
+		|| rq->halt_in_progress) {
 		/*
 		 * If we have performed more than 2*INPUT_REDUCTIONS since
 		 * last call to erl_sys_schedule() and we still haven't
@@ -9907,3 +9985,30 @@ debug_processes_assert_error(char* expr, char* file, int line)
 /*                                                                           *\
  * End of the processes/0 BIF implementation.                                *
 \* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/*
+ * A nice system halt closing all open port goes as follows:
+ * 1) This function schedules the aux work ERTS_SSI_AUX_WORK_REAP_PORTS
+ *    on all schedulers, then schedules itself out.
+ * 2) All shedulers detect this and set the flag halt_in_progress
+ *    on their run queue. The last scheduler sets all non-closed ports
+ *    ERTS_PORT_SFLG_HALT. Global atomic erts_halt_progress is used
+ *    as refcount to determine which is last.
+ * 3) While the run ques has flag halt_in_progress no processes
+ *    will be scheduled, only ports.
+ * 4) When the last port closes that scheduler calls erlang:halt/1.
+ *    The same global atomic is used as refcount.
+ *
+ * A BIF that calls this should make sure to schedule out to never come back:
+ *    erl_halt((int)(- code));
+ *    ERTS_BIF_YIELD1(bif_export[BIF_erlang_halt_1], BIF_P, NIL);
+ */
+void erl_halt(int code)
+{
+    if (-1 == erts_smp_atomic32_cmpxchg_acqb(&erts_halt_progress,
+					     erts_no_schedulers,
+					     -1)) {
+	erts_halt_code = code;
+	notify_reap_ports_relb();
+    }
+}

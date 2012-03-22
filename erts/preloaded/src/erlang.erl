@@ -87,7 +87,7 @@
 -export([garbage_collect/0, garbage_collect/1]).
 -export([garbage_collect_message_area/0, get/0, get/1, get_keys/1]).
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
--export([group_leader/2, halt/0, halt/1, hash/2, hibernate/3]).
+-export([group_leader/2, halt/0, halt/1, halt/2, hash/2, hibernate/3]).
 -export([integer_to_list/1, iolist_size/1, iolist_to_binary/1]).
 -export([is_alive/0, is_builtin/3, is_process_alive/1, length/1, link/1]).
 -export([list_to_atom/1, list_to_binary/1, list_to_bitstr/1]).
@@ -748,8 +748,17 @@ halt() ->
 %% halt/1
 %% Shadowed by erl_bif_types: erlang:halt/1
 -spec halt(Status) -> no_return() when
-      Status :: non_neg_integer() | string().
+      Status :: non_neg_integer() | 'abort' | string().
 halt(_Status) ->
+    erlang:nif_error(undefined).
+
+%% halt/2
+%% Shadowed by erl_bif_types: erlang:halt/2
+-spec halt(Status, Options) -> no_return() when
+      Status :: non_neg_integer() | 'abort' | string(),
+      Options :: [Option],
+      Option :: {flush, boolean()}.
+halt(_Status, _Options) ->
     erlang:nif_error(undefined).
 
 %% hash/2

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -57,17 +57,7 @@ compile_cmdline(List) ->
     end.
 
 my_halt(Reason) ->
-    case process_info(group_leader(), status) of
-	{_,waiting} ->
-	    %% Now all output data is down in the driver.
-	    %% Give the driver some extra time before halting.
-	    receive after 1 -> ok end,
-	    halt(Reason);
-	_ ->
-	    %% Probably still processing I/O requests.
-	    erlang:yield(),
-	    my_halt(Reason)
-    end.
+    erlang:halt(Reason).
 
 %% Run the the compiler in a separate process, trapping EXITs.
 

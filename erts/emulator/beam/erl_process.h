@@ -265,6 +265,7 @@ typedef enum {
 #define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 9)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 10)
 #define ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION	(((erts_aint32_t) 1) << 11)
+#define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 12)
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -342,6 +343,7 @@ struct ErtsRunQueue_ {
     int len;
     int wakeup_other;
     int wakeup_other_reds;
+    int halt_in_progress;
 
     struct {
 	int len;
@@ -1669,4 +1671,6 @@ erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 #endif
 
 
-
+void erl_halt(int code);
+extern erts_smp_atomic32_t erts_halt_progress;
+extern int erts_halt_code;

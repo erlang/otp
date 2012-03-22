@@ -139,6 +139,7 @@ type(M, F, A) ->
 %%-- erlang -------------------------------------------------------------------
 type(erlang, halt, 0, _) -> t_none();
 type(erlang, halt, 1, _) -> t_none();
+type(erlang, halt, 2, _) -> t_none();
 type(erlang, exit, 1, _) -> t_none();
 type(erlang, error, 1, _) -> t_none();
 type(erlang, error, 2, _) -> t_none();
@@ -2195,7 +2196,10 @@ arg_types(erlang, disconnect_node, 1) ->
 arg_types(erlang, halt, 0) ->
   [];
 arg_types(erlang, halt, 1) ->
-  [t_sup(t_non_neg_fixnum(), t_string())];
+  [t_sup([t_non_neg_fixnum(), t_atom('abort'), t_string()])];
+arg_types(erlang, halt, 2) ->
+  [t_sup([t_non_neg_fixnum(), t_atom('abort'), t_string()]),
+   t_list(t_tuple([t_atom('flush'), t_boolean()]))];
 arg_types(erlang, error, 1) ->
   [t_any()];
 arg_types(erlang, error, 2) ->
