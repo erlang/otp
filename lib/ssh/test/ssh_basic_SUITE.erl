@@ -110,7 +110,8 @@ all() ->
      {group, rsa_pass_key},
      {group, internal_error},
      daemon_already_started,
-     server_password_option, server_userpassword_option].
+     server_password_option, server_userpassword_option,
+     close].
 
 groups() -> 
     [{dsa_key, [], [exec, exec_compressed, shell, known_hosts]},
@@ -507,7 +508,34 @@ internal_error(Config) when is_list(Config) ->
 				 {user_dir, UserDir},
 				 {user_interaction, false}]).
 
+%%--------------------------------------------------------------------
+close(doc) ->
+    ["Simulate that we try to close an already closed connection"];
+
+close(suite) ->
+    [];
+
+close(Config) when is_list(Config) ->
+    SystemDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config), 
+    UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
+    file:make_dir(UserDir),
+
+    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {user_passwords, [{"vego", "morot"}]},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    {ok, CM} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
+					   {user_dir, UserDir},
+					    {user, "vego"},
+					    {password, "morot"},
+					    {user_interaction, false}]),
     
+    exit(CM, {shutdown, normal}),
+    ok = ssh:close(CM).
+    
+
+
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
