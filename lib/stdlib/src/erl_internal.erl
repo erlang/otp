@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -287,6 +287,7 @@ bif(group_leader, 0) -> true;
 bif(group_leader, 2) -> true;
 bif(halt, 0) -> true;
 bif(halt, 1) -> true;
+bif(halt, 2) -> true;
 bif(hd, 1) -> true;
 bif(integer_to_list, 1) -> true;
 bif(integer_to_list, 2) -> true;

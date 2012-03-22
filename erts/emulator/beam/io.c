@@ -1837,6 +1837,7 @@ terminate_port(Port *prt)
     Eterm send_closed_port_id;
     Eterm connected_id = NIL /* Initialize to silence compiler */;
     erts_driver_t *drv;
+    int halt;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
@@ -1844,6 +1845,8 @@ terminate_port(Port *prt)
     ASSERT(!prt->nlinks);
     ASSERT(!prt->monitors);
 
+    /* prt->status may be altered by kill_port()below */
+    halt = (prt->status & ERTS_PORT_SFLG_HALT) != 0;
     if (prt->status & ERTS_PORT_SFLG_SEND_CLOSED) {
 	erts_port_status_band_set(prt, ~ERTS_PORT_SFLG_SEND_CLOSED);
 	send_closed_port_id = prt->id;
@@ -1895,6 +1898,10 @@ terminate_port(Port *prt)
      * We don't want to send the closed message until after the
      * port has been removed from the port table (in kill_port()).
      */
+    if (halt && (erts_smp_atomic32_dec_read_nob(&erts_halt_progress) == 0)) {
+	erts_smp_port_unlock(prt); /* We will exit and never return */
+	erl_exit_flush_async(erts_halt_code, "");
+    }
     if (is_internal_port(send_closed_port_id))
 	deliver_result(send_closed_port_id, connected_id, am_closed);
 

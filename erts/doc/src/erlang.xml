@@ -1432,29 +1432,69 @@ true
       <name>halt()</name>
       <fsummary>Halt the Erlang runtime system and indicate normal exit to the calling environment</fsummary>
       <desc>
-        <p>Halts the Erlang runtime system and indicates normal exit to
-          the calling environment. Has no return value.</p>
+	<p>The same as
+	  <seealso marker="#halt/2"><c>halt(0, [])</c></seealso>.</p>
         <pre>
 > <input>halt().</input>
-os_prompt%</pre>
+os_prompt% </pre>
       </desc>
     </func>
     <func>
       <name>halt(Status)</name>
       <fsummary>Halt the Erlang runtime system</fsummary>
       <type>
-        <v>Status = integer() >= 0 | string()</v>
+        <v>Status = integer() >= 0 | string() | abort</v>
       </type>
       <desc>
-        <p><c>Status</c> must be a non-negative integer, or a string.
-          Halts the Erlang runtime system. Has no return value.
-          If <c>Status</c> is an integer, it is returned as an exit
-          status of Erlang to the calling environment.
-          If <c>Status</c> is a string, produces an Erlang crash dump
-          with <c>String</c> as slogan, and then exits with a non-zero
-          status code.</p>
-        <p>Note that on many platforms, only the status codes 0-255 are
-          supported by the operating system.</p>
+	<p>The same as
+	  <seealso marker="#halt/2"><c>halt(Status, [])</c></seealso>.</p>
+        <pre>
+> <input>halt(17).</input>
+os_prompt% <input>echo $?</input>
+17
+os_prompt% </pre>
+      </desc>
+    </func>
+    <func>
+      <name>halt(Status, Options)</name>
+      <fsummary>Halt the Erlang runtime system</fsummary>
+      <type>
+        <v>Status = integer() >= 0 | string() | abort</v>
+	<v>Options = [Option]</v>
+	<v>Option = {flush,boolean()} | term()</v>
+      </type>
+      <desc>
+        <p><c>Status</c> must be a non-negative integer, a string,
+	  or the atom <c>abort</c>.
+	  Halts the Erlang runtime system. Has no return value.
+	  Depending on <c>Status</c>:
+	</p>
+	<taglist>
+	  <tag>integer()</tag>
+	  <item>The runtime system exits with the integer value <c>Status</c>
+	  as status code to the calling environment (operating system).
+	  </item>
+	  <tag>string()</tag>
+	  <item>An erlang crash dump is produced with <c>Status</c> as slogan,
+	  and then the runtime system exits with status code <c>1</c>.
+	  </item>
+	  <tag><c>abort</c></tag>
+	  <item>
+	    The runtime system aborts producing a core dump, if that is
+	    enabled in the operating system.
+	  </item>
+	</taglist>
+	<p>Note that on many platforms, only the status codes 0-255 are
+	  supported by the operating system.
+	</p>
+	<p>For integer <c>Status</c> the Erlang runtime system closes all ports
+	  and allows async threads to finish their operations before exiting.
+	  To exit without such flushing use
+	  <c>Option</c> as <c>{flush,false}</c>.
+	</p>
+	<p>For statuses <c>string()</c> and <c>abort</c> the <c>flush</c>
+	  option is ignored and flushing is <em>not</em> done.
+	</p>
       </desc>
     </func>
     <func>
