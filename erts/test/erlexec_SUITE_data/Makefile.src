@@ -20,6 +20,8 @@
 CC = @CC@
 CFLAGS = @ERTS_CFLAGS@
 LIBS = @ERTS_LIBS@
+CP=cp
+CHMOD=chmod
 
 ERLX_T_CFLAGS = -Wall $(ERLX_DEFS) $(CFLAGS) @DEFS@
 
@@ -29,8 +31,14 @@ PROGS = erlexec_tests@exe@
 
 all: $(PROGS)
 
+@IFEQ@ (@cross@, yes)
+gccifier@exe@:
+	$(CP) ..@DS@utils@DS@gccifier.sh gccifier@exe@
+	$(CHMOD) a+x gccifier@exe@
+@ELSE@
 gccifier@exe@: ..@DS@utils@DS@gccifier.c
 	$(CC) $(CFLAGS) -o gccifier@exe@ ..@DS@utils@DS@gccifier.c $(LIBS)
+@ENDIF@
 
 erlexec_tests@exe@: gccifier@exe@ erlexec_tests.c
 	$(GCC) $(ERLX_T_CFLAGS) -o erlexec_tests@exe@ erlexec_tests.c
