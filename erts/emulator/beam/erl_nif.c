@@ -66,6 +66,9 @@ static void add_readonly_check(ErlNifEnv*, unsigned char* ptr, unsigned sz);
 static int is_offheap(const ErlOffHeap* off_heap);
 #endif
 
+#ifdef USE_VM_PROBES
+void dtrace_nifenv_str(ErlNifEnv *, char *);
+#endif
 
 #define MIN_HEAP_FRAG_SZ 200
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp);
@@ -350,7 +353,11 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
     if (flush_me) {	
 	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
     }
-    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined);
+    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined
+#ifdef USE_VM_PROBES
+		       , NIL
+#endif
+		       );
     if (rp_locks) {	
 	ERTS_SMP_LC_ASSERT(rp_locks == (rp_had_locks | (ERTS_PROC_LOCK_MSGQ | 
 							ERTS_PROC_LOCK_STATUS)));
@@ -1786,6 +1793,13 @@ void erl_nif_init()
     resource_type_list.module = THE_NON_VALUE;
     resource_type_list.name = THE_NON_VALUE;
 }
+
+#ifdef USE_VM_PROBES
+void dtrace_nifenv_str(ErlNifEnv *env, char *process_buf)
+{
+    dtrace_pid_str(env->proc->id, process_buf);
+}
+#endif
 
 #ifdef READONLY_CHECK
 /* Use checksums to assert that NIFs do not write into inspected binaries

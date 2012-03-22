@@ -248,6 +248,7 @@ atom global_heaps_size
 atom Gt='>'
 atom grun
 atom group_leader
+atom have_dt_utag
 atom heap_block_size
 atom heap_size
 atom heap_sizes

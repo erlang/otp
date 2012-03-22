@@ -1759,9 +1759,17 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 	    return THE_NON_VALUE;
         }
 	if (build_result) {
+#ifdef USE_VM_PROBES
+	    old_value = (SEQ_TRACE_TOKEN(p) == am_have_dt_utag) ? NIL : SEQ_TRACE_TOKEN(p);
+#else
 	    old_value = SEQ_TRACE_TOKEN(p);
+#endif
 	}
+#ifdef USE_VM_PROBES
+        SEQ_TRACE_TOKEN(p) = (DT_UTAG(p) != NIL) ? am_have_dt_utag : NIL;
+#else
         SEQ_TRACE_TOKEN(p) = NIL;
+#endif
         return old_value;
     }
     else {
@@ -1774,7 +1782,11 @@ new_seq_trace_token(Process* p)
 {
     Eterm* hp;
 
-    if (SEQ_TRACE_TOKEN(p) == NIL) {
+    if (SEQ_TRACE_TOKEN(p) == NIL
+#ifdef USE_VM_PROBES
+	|| SEQ_TRACE_TOKEN(p) == am_have_dt_utag
+#endif
+	) {
 	hp = HAlloc(p, 6);
 	SEQ_TRACE_TOKEN(p) = TUPLE5(hp, make_small(0),		/* Flags  */ 
 				    make_small(0),		/* Label  */
@@ -1794,7 +1806,11 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
 	BIF_ERROR(p, BADARG);
     }
 
-    if (SEQ_TRACE_TOKEN(p) == NIL) {
+    if (SEQ_TRACE_TOKEN(p) == NIL
+#ifdef USE_VM_PROBES
+	|| SEQ_TRACE_TOKEN(p) == am_have_dt_utag
+#endif
+	) {
 	if ((item == am_send) || (item == am_receive) || 
 	    (item == am_print) || (item == am_timestamp)) {
 	    hp = HAlloc(p,3);
@@ -1851,8 +1867,13 @@ BIF_RETTYPE seq_trace_info_1(BIF_ALIST_1)
  */
 BIF_RETTYPE seq_trace_print_1(BIF_ALIST_1)    
 {
-    if (SEQ_TRACE_TOKEN(BIF_P) == NIL) 
+    if (SEQ_TRACE_TOKEN(BIF_P) == NIL 
+#ifdef USE_VM_PROBES
+	|| SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag
+#endif
+	) {
 	BIF_RET(am_false);
+    }
     seq_trace_update_send(BIF_P);
     seq_trace_output(SEQ_TRACE_TOKEN(BIF_P), BIF_ARG_1, 
 		     SEQ_TRACE_PRINT, NIL, BIF_P);
@@ -1869,8 +1890,13 @@ BIF_RETTYPE seq_trace_print_1(BIF_ALIST_1)
  */
 BIF_RETTYPE seq_trace_print_2(BIF_ALIST_2)    
 {
-    if (SEQ_TRACE_TOKEN(BIF_P) == NIL) 
+    if (SEQ_TRACE_TOKEN(BIF_P) == NIL
+#ifdef USE_VM_PROBES
+	|| SEQ_TRACE_TOKEN(BIF_P) == am_have_dt_utag
+#endif
+	) {
 	BIF_RET(am_false);
+    }
     if (!(is_atom(BIF_ARG_1) || is_small(BIF_ARG_1))) {
 	BIF_ERROR(BIF_P, BADARG);
     }

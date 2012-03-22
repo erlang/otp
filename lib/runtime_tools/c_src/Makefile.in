@@ -21,6 +21,11 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
 
 # ----------------------------------------------------
+# Items from top-level configure
+# ----------------------------------------------------
+DTRACE_ENABLED=@DTRACE_ENABLED@
+DTRACE_ENABLED_2STEP=@DTRACE_ENABLED_2STEP@
+# ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../vsn.mk
@@ -38,6 +43,8 @@ SHELL = /bin/sh
 LIBS = $(DED_LIBS)
 LDFLAGS += $(DED_LDFLAGS)
 
+DTRACE_LIBNAME = dyntrace
+
 SYSINCLUDE = $(DED_SYS_INCLUDE)
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 	SYSINCLUDE += -I$(ERL_TOP)/erts/etc/vxworks
@@ -45,15 +52,20 @@ endif
 
 TRACE_DRV_INCLUDES = $(SYSINCLUDE)
 
-ALL_CFLAGS = $(CFLAGS) @DEFS@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES)
-
+ALL_CFLAGS = $(CFLAGS) @DEFS@ $(TYPE_FLAGS) $(TRACE_DRV_INCLUDES) \
+	-I$(OBJDIR) -I$(ERL_TOP)/erts/emulator/$(TARGET)
 
 ifeq ($(TYPE),debug)
 TYPEMARKER = .debug
-TYPE_FLAGS = -g -DDEBUG @DEBUG_FLAGS@
+TYPE_FLAGS = $(subst -O3,,$(subst -O2,,$(CFLAGS))) -DDEBUG @DEBUG_FLAGS@
+else
+ifeq ($(TYPE),valgrind)
+TYPEMARKER = .valgrind
+TYPE_FLAGS = $(subst -O3,,$(subst -O2,,$(CFLAGS))) -DVALGRIND
 else
 TYPEMARKER =
-TYPE_FLAGS = -O2
+TYPE_FLAGS = $(CFLAGS)
+endif
 endif
 
 ROOTDIR = $(ERL_TOP)/lib
@@ -69,6 +81,16 @@ RELSYSDIR = $(RELEASE_PATH)/lib/runtime_tools-$(VSN)
 # ----------------------------------------------------
 # Misc Macros
 # ----------------------------------------------------
+before_DTrace_OBJS = $(OBJDIR)/dyntrace$(TYPEMARKER).o
+## NIF_MAKEFILE = $(PRIVDIR)/Makefile
+
+# Higher-level makefiles says that we can only compile on UNIX flavors
+NIF_LIB = $(LIBDIR)/dyntrace$(TYPEMARKER).@DED_EXT@
+
+ifeq ($(HOST_OS),)
+HOST_OS := $(shell $(ERL_TOP)/erts/autoconf/config.guess)
+endif
+
 TRACE_IP_DRV_OBJS = \
 	$(OBJDIR)/trace_ip_drv.o
 
@@ -91,7 +113,44 @@ endif
 
 _create_dirs := $(shell mkdir -p $(OBJDIR) $(LIBDIR))
 
-debug opt: $(SOLIBS)
+debug opt valgrind: $(SOLIBS) $(OBJDIR) $(LIBDIR) $(NIF_LIB)
+
+ifdef DTRACE_ENABLED
+DTRACE_USER_HEADER=$(OBJDIR)/dtrace_user.h
+$(OBJDIR)/dtrace_user.h: ./dtrace_user.d
+	dtrace -h -C $(INCLUDES) \
+	  -s ./dtrace_user.d \
+	  -o ./dtrace_user.tmp
+	sed -e '/^#define[ 	]*ERLANG_[A-Z0-9_]*(.*)/y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/' ./dtrace_user.tmp > $@
+	rm ./dtrace_user.tmp
+else
+DTRACE_USER_HEADER=
+endif
+
+DTRACE_OBJS =
+ifdef DTRACE_ENABLED_2STEP
+DTRACE_OBJS += $(OBJDIR)/dtrace_user.o
+$(OBJDIR)/dtrace_user.o: $(before_DTrace_OBJS) $(OBJDIR)/dtrace_user.h
+	dtrace -G -C \
+	  -s ./dtrace_user.d \
+	  -o $@ $(before_DTrace_OBJS)
+endif
+
+DYNTRACE_OBJS = $(before_DTrace_OBJS) $(DTRACE_OBJS)
+
+$(OBJDIR):
+	-@mkdir -p $(OBJDIR)
+
+$(LIBDIR):
+	-@mkdir -p $(LIBDIR)
+
+$(OBJDIR)/dyntrace$(TYPEMARKER).o: dyntrace.c $(DTRACE_USER_HEADER)
+	$(INSTALL_DIR) $(OBJDIR)
+	$(CC) -c -o $@ $(ALL_CFLAGS) $<
+
+$(NIF_LIB): $(DYNTRACE_OBJS)
+	$(INSTALL_DIR) $(LIBDIR)
+	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
 
 $(OBJDIR)/%.o: %.c
 	$(CC) -c -o $@ $(ALL_CFLAGS) $<
@@ -118,6 +177,12 @@ $(LIBDIR)/trace_file_drv.eld: $(TRACE_FILE_DRV_OBJS)
 
 clean:
 	rm -f $(SOLIBS) $(TRACE_IP_DRV_OBJS) $(TRACE_FILE_DRV_OBJS)
+	rm -f $(LIBDIR)/dyntrace.@DED_EXT@
+	rm -f $(LIBDIR)/dyntrace.debug.@DED_EXT@
+	rm -f $(LIBDIR)/dyntrace.valgrind.@DED_EXT@
+	rm -f $(OBJDIR)/dyntrace.o
+	rm -f $(OBJDIR)/dyntrace.debug.o
+	rm -f $(OBJDIR)/dyntrace.valgrind.o
 	rm -f core *~
 
 docs:
@@ -128,8 +193,10 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
+	$(INSTALL_DIR) $(RELSYSDIR)/priv/obj
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_PROGRAM) $(SOLIBS) $(RELSYSDIR)/priv/lib
+	$(INSTALL_PROGRAM) $(DYNTRACE_OBJS) $(RELSYSDIR)/priv/obj
+	$(INSTALL_PROGRAM) $(NIF_LIB) $(SOLIBS) $(RELSYSDIR)/priv/lib
 
 release_docs_spec:
 

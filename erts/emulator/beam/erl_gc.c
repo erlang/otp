@@ -35,6 +35,7 @@
 #include "hipe_stack.h"
 #include "hipe_mode_switch.h"
 #endif
+#include "dtrace-wrapper.h"
 
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
@@ -349,7 +350,9 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     Uint reclaimed_now = 0;
     int done = 0;
     Uint ms1, s1, us1;
-
+#ifdef USE_VM_PROBES
+    DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
+#endif
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, am_gc_start);
     }
@@ -369,15 +372,27 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
     if (GEN_GCS(p) >= MAX_GEN_GCS(p)) {
         FLAGS(p) |= F_NEED_FULLSWEEP;
     }
-
+#ifdef USE_VM_PROBES
+    *pidbuf = '\0';
+    if (DTRACE_ENABLED(gc_major_start)
+        || DTRACE_ENABLED(gc_major_end)
+        || DTRACE_ENABLED(gc_minor_start)
+        || DTRACE_ENABLED(gc_minor_end)) {
+        dtrace_proc_str(p, pidbuf);
+    }
+#endif
     /*
      * Test which type of GC to do.
      */
     while (!done) {
 	if ((FLAGS(p) & F_NEED_FULLSWEEP) != 0) {
+	    DTRACE2(gc_major_start, pidbuf, need);
 	    done = major_collection(p, need, objv, nobj, &reclaimed_now);
+	    DTRACE2(gc_major_end, pidbuf, reclaimed_now);
 	} else {
+	    DTRACE2(gc_minor_start, pidbuf, need);
 	    done = minor_collection(p, need, objv, nobj, &reclaimed_now);
+	    DTRACE2(gc_minor_end, pidbuf, reclaimed_now);
 	}
     }
 
@@ -1118,6 +1133,15 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     sys_memcpy(n_heap + new_sz - n, p->stop, n * sizeof(Eterm));
     p->stop = n_heap + new_sz - n;
 
+#ifdef USE_VM_PROBES
+    if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
+        DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
+
+        dtrace_proc_str(p, pidbuf);
+        DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
+    }
+#endif
+
     ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void*)HEAP_START(p),
 		   HEAP_SIZE(p) * sizeof(Eterm));
@@ -1338,6 +1362,15 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     n = HEAP_END(p) - p->stop;
     sys_memcpy(n_heap + new_sz - n, p->stop, n * sizeof(Eterm));
     p->stop = n_heap + new_sz - n;
+
+#ifdef USE_VM_PROBES
+    if (HEAP_SIZE(p) != new_sz && DTRACE_ENABLED(process_heap_grow)) {
+        DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
+
+        dtrace_proc_str(p, pidbuf);
+        DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
+    }
+#endif
 
     ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
 		   (void *) HEAP_START(p),
@@ -1907,7 +1940,13 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	roots[n].sz = 1;
 	n++;
     }
-
+#ifdef USE_VM_PROBES
+    if (is_not_immed(p->dt_utag)) {
+	roots[n].v = &p->dt_utag;
+	roots[n].sz = 1;
+	n++;
+    }
+#endif
     ASSERT(is_nil(p->tracer_proc) ||
 	   is_internal_pid(p->tracer_proc) ||
 	   is_internal_port(p->tracer_proc));
@@ -2009,6 +2048,16 @@ grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj)
         HEAP_TOP(p) = new_heap + heap_size;
         HEAP_START(p) = new_heap;
     }
+
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(process_heap_grow)) {
+	DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
+
+        dtrace_proc_str(p, pidbuf);
+	DTRACE3(process_heap_grow, pidbuf, HEAP_SIZE(p), new_sz);
+    }
+#endif
+
     HEAP_SIZE(p) = new_sz;
 }
 
@@ -2018,7 +2067,6 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
     Eterm* new_heap;
     Uint heap_size = HEAP_TOP(p) - HEAP_START(p);
     Sint offs;
-
     Uint stack_size = p->hend - p->stop;
 
     ASSERT(new_sz < p->heap_sz);
@@ -2047,6 +2095,16 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
         HEAP_TOP(p) = new_heap + heap_size;
         HEAP_START(p) = new_heap;
     }
+
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(process_heap_shrink)) {
+	DTRACE_CHARBUF(pidbuf, DTRACE_TERM_BUF_SIZE);
+
+        dtrace_proc_str(p, pidbuf);
+	DTRACE3(process_heap_shrink, pidbuf, HEAP_SIZE(p), new_sz);
+    }
+#endif
+
     HEAP_SIZE(p) = new_sz;
 }
 
@@ -2429,6 +2487,13 @@ offset_mqueue(Process *p, Sint offs, char* area, Uint area_size)
 	if (is_boxed(mesg) && in_area(ptr_val(mesg), area, area_size)) {
 	    ERL_MESSAGE_TOKEN(mp) = offset_ptr(mesg, offs);
         }
+#ifdef USE_VM_PROBES
+	mesg = ERL_MESSAGE_DT_UTAG(mp);
+	if (is_boxed(mesg) && in_area(ptr_val(mesg), area, area_size)) {
+	    ERL_MESSAGE_DT_UTAG(mp) = offset_ptr(mesg, offs);
+        }
+#endif	
+	
         ASSERT((is_nil(ERL_MESSAGE_TOKEN(mp)) ||
 		is_tuple(ERL_MESSAGE_TOKEN(mp)) ||
 		is_atom(ERL_MESSAGE_TOKEN(mp))));
@@ -2448,6 +2513,9 @@ offset_one_rootset(Process *p, Sint offs, char* area, Uint area_size,
     offset_heap_ptr(&p->fvalue, 1, offs, area, area_size);
     offset_heap_ptr(&p->ftrace, 1, offs, area, area_size);
     offset_heap_ptr(&p->seq_trace_token, 1, offs, area, area_size);
+#ifdef USE_VM_PROBES
+    offset_heap_ptr(&p->dt_utag, 1, offs, area, area_size);
+#endif
     offset_heap_ptr(&p->group_leader, 1, offs, area, area_size);
     offset_mqueue(p, offs, area, area_size);
     offset_heap_ptr(p->stop, (STACK_START(p) - p->stop), offs, area, area_size);

@@ -40,7 +40,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = dbg.xml erts_alloc_config.xml
+XML_REF3_FILES = dbg.xml dyntrace.xml erts_alloc_config.xml
 XML_REF6_FILES = runtime_tools_app.xml
 
 XML_PART_FILES = part_notes.xml part_notes_history.xml

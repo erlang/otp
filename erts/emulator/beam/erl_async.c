@@ -26,6 +26,7 @@
 #include "erl_threads.h"
 #include "erl_thr_queue.h"
 #include "erl_async.h"
+#include "dtrace-wrapper.h"
 
 #define ERTS_MAX_ASYNC_READY_CALLS_IN_SEQ 20
 
@@ -120,6 +121,14 @@ typedef struct {
     ErtsAlgndAsyncReadyQ *ready_queue;
 #endif
 } ErtsAsyncData;
+
+/*
+ * Some compilers, e.g. GCC 4.2.1 and -O3, will optimize away DTrace
+ * calls if they're the last thing in the function.  :-(
+ * Many thanks to Trond Norbye, via:
+ * https://github.com/memcached/memcached/commit/6298b3978687530bc9d219b6ac707a1b681b2a46
+ */
+static unsigned gcc_optimizer_hack = 0;
 
 int erts_async_max_threads; /* Initialized by erl_init.c */
 int erts_async_thread_suggested_stack_size; /* Initialized by erl_init.c */
@@ -244,6 +253,8 @@ erts_get_async_ready_queue(Uint sched_id)
 
 static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 {
+    int len;
+
     if (is_internal_port(a->port)) {
 #if ERTS_USE_ASYNC_READY_Q
 	ErtsAsyncReadyQ *arq = async_ready_q(a->sched_id);
@@ -259,6 +270,17 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 #endif
 
     erts_thr_q_enqueue(&q->thr_q, a);
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(aio_pool_add)) {
+        DTRACE_CHARBUF(port_str, 16);
+
+        erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+        /* DTRACE TODO: Get the queue length from erts_thr_q_enqueue() ? */
+        len = -1;
+        DTRACE2(aio_pool_add, port_str, len);
+    }
+#endif
+    gcc_optimizer_hack++;
 }
 
 static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
@@ -269,6 +291,7 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
     int saved_fin_deq = 0;
     ErtsThrQFinDeQ_t fin_deq;
 #endif
+    int len;
 
     while (1) {
 	ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);
@@ -280,7 +303,16 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 	    if (saved_fin_deq)
 		erts_thr_q_append_finalize_dequeue_data(&a->q.fin_deq, &fin_deq);
 #endif
+#ifdef USE_VM_PROBES
+            if (DTRACE_ENABLED(aio_pool_get)) {
+                DTRACE_CHARBUF(port_str, 16);
 
+                erts_snprintf(port_str, sizeof(port_str), "%T", a->port);
+                /* DTRACE TODO: Get the length from erts_thr_q_dequeue() ? */
+                len = -1;
+                DTRACE2(aio_pool_get, port_str, len);
+            }
+#endif
 	    return a;
 	}
 

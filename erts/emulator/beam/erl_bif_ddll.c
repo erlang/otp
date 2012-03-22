@@ -45,6 +45,7 @@
 #include "big.h"
 #include "dist.h"
 #include "erl_version.h"
+#include "dtrace-wrapper.h"
 
 #ifdef ERTS_SMP
 #define DDLL_SMP 1
@@ -1647,6 +1648,7 @@ static int do_unload_driver_entry(DE_Handle *dh, Eterm *save_name)
 	       diver_list lock here!*/
 	    if (q->finish) {
 		int fpe_was_unmasked = erts_block_fpe();
+		DTRACE1(driver_finish, q->name);
 		(*(q->finish))();
 		erts_unblock_fpe(fpe_was_unmasked);
 	    }
@@ -1760,7 +1762,11 @@ static void notify_proc(Process *proc, Eterm ref, Eterm driver_name, Eterm type,
 	hp += REF_THING_SIZE;
 	mess = TUPLE5(hp,type,r,am_driver,driver_name,tag);
     }
-    erts_queue_message(proc, &rp_locks, bp, mess, am_undefined);
+    erts_queue_message(proc, &rp_locks, bp, mess, am_undefined
+#ifdef USE_VM_PROBES
+		       , NIL
+#endif
+		       );
     erts_smp_proc_unlock(proc, rp_locks);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 }

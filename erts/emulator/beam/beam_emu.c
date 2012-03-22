@@ -41,6 +41,7 @@
 #include "hipe_mode_switch.h"
 #include "hipe_bif1.h"
 #endif
+#include "dtrace-wrapper.h"
 
 /* #define HARDDEBUG 1 */
 
@@ -1050,6 +1051,101 @@ init_emulator(void)
 #  define REG_tmp_arg2
 #endif
 
+#ifdef USE_VM_PROBES
+#  define USE_VM_CALL_PROBES
+#endif
+
+#ifdef USE_VM_CALL_PROBES
+
+#define DTRACE_LOCAL_CALL(p, m, f, a)					\
+    if (DTRACE_ENABLED(local_function_entry)) {				\
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);			\
+        int depth = STACK_START(p) - STACK_TOP(p);			\
+        dtrace_fun_decode(p, m, f, a,					\
+                          process_name, mfa);				\
+        DTRACE3(local_function_entry, process_name, mfa, depth);	\
+    }
+
+#define DTRACE_GLOBAL_CALL(p, m, f, a)					\
+    if (DTRACE_ENABLED(global_function_entry)) {			\
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);		\
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);			\
+        int depth = STACK_START(p) - STACK_TOP(p);			\
+        dtrace_fun_decode(p, m, f, a,					\
+                          process_name, mfa);				\
+        DTRACE3(global_function_entry, process_name, mfa, depth);	\
+    }
+
+#define DTRACE_RETURN(p, m, f, a)                               \
+    if (DTRACE_ENABLED(function_return)) {                      \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        int depth = STACK_START(p) - STACK_TOP(p);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE3(function_return, process_name, mfa, depth);     \
+    }
+
+#define DTRACE_BIF_ENTRY(p, m, f, a)                            \
+    if (DTRACE_ENABLED(bif_entry)) {                            \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(bif_entry, process_name, mfa);                  \
+    }
+
+#define DTRACE_BIF_RETURN(p, m, f, a)                           \
+    if (DTRACE_ENABLED(bif_return)) {                           \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(bif_return, process_name, mfa);                 \
+    }
+
+#define DTRACE_NIF_ENTRY(p, m, f, a)                            \
+    if (DTRACE_ENABLED(nif_entry)) {                            \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(nif_entry, process_name, mfa);                  \
+    }
+
+#define DTRACE_NIF_RETURN(p, m, f, a)                           \
+    if (DTRACE_ENABLED(nif_return)) {                           \
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);     \
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);              \
+        dtrace_fun_decode(p, m, f, a,                           \
+                          process_name, mfa);                   \
+        DTRACE2(nif_return, process_name, mfa);                 \
+    }
+
+#else /* USE_VM_PROBES */
+
+#define DTRACE_LOCAL_CALL(p, m, f, a)  do {} while (0)
+#define DTRACE_GLOBAL_CALL(p, m, f, a) do {} while (0)
+#define DTRACE_RETURN(p, m, f, a)      do {} while (0)
+#define DTRACE_BIF_ENTRY(p, m, f, a)   do {} while (0)
+#define DTRACE_BIF_RETURN(p, m, f, a)  do {} while (0)
+#define DTRACE_NIF_ENTRY(p, m, f, a)   do {} while (0)
+#define DTRACE_NIF_RETURN(p, m, f, a)  do {} while (0)
+
+#endif /* USE_VM_PROBES */
+
+#ifdef USE_VM_PROBES
+void
+dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
+{
+    Port *port = erts_drvport2port(drvport);
+
+    erts_snprintf(port_buf, DTRACE_TERM_BUF_SIZE, "#Port<%lu.%lu>",
+                  port_channel_no(port->id),
+                  port_number(port->id));
+}
+#endif
 /*
  * process_main() is called twice:
  * The first call performs some initialisation, including exporting
@@ -1221,6 +1317,30 @@ void process_main(void)
 #endif
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
+
+#ifdef USE_VM_PROBES
+        if (DTRACE_ENABLED(process_scheduled)) {
+            DTRACE_CHARBUF(process_buf, DTRACE_TERM_BUF_SIZE);
+            DTRACE_CHARBUF(fun_buf, DTRACE_TERM_BUF_SIZE);
+            dtrace_proc_str(c_p, process_buf);
+
+            if (ERTS_PROC_IS_EXITING(c_p)) {
+                strcpy(fun_buf, "<exiting>");
+            } else {
+                BeamInstr *fptr = find_function_from_pc(c_p->i);
+                if (fptr) {
+                    dtrace_fun_decode(c_p, (Eterm)fptr[0],
+                                      (Eterm)fptr[1], (Uint)fptr[2],
+                                      NULL, fun_buf);
+                } else {
+                    erts_snprintf(fun_buf, sizeof(fun_buf),
+                                  "<unknown/%p>", next);
+                }
+            }
+
+            DTRACE2(process_scheduled, process_buf, fun_buf);
+        }
+#endif
 	Goto(next);
     }
 
@@ -1397,6 +1517,7 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_only_f): {
      SET_I((BeamInstr *) Arg(0));
+     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1408,6 +1529,7 @@ void process_main(void)
      RESTORE_CP(E);
      E = ADD_BYTE_OFFSET(E, Arg(1));
      SET_I((BeamInstr *) Arg(0));
+     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1419,6 +1541,7 @@ void process_main(void)
  OpCase(i_call_f): {
      SET_CP(c_p, I+2);
      SET_I((BeamInstr *) Arg(0));
+     DTRACE_LOCAL_CALL(c_p, (Eterm)I[-3], (Eterm)I[-2], I[-1]);
      Dispatch();
  }
 
@@ -1435,6 +1558,12 @@ void process_main(void)
      * is not loaded, it points to code which will invoke the error handler
      * (see lb_call_error_handler below).
      */
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(global_function_entry)) {
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+    }
+#endif
     Dispatchx();
 
  OpCase(i_move_call_ext_cre): {
@@ -1444,6 +1573,12 @@ void process_main(void)
  /* FALL THROUGH */
  OpCase(i_call_ext_e):
     SET_CP(c_p, I+2);
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(global_function_entry)) {
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+    }
+#endif
     Dispatchx();
 
  OpCase(i_move_call_ext_only_ecr): {
@@ -1451,6 +1586,12 @@ void process_main(void)
  }
  /* FALL THROUGH */
  OpCase(i_call_ext_only_e):
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(global_function_entry)) {
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
+    }
+#endif
     Dispatchx();
 
  OpCase(init_y): {
@@ -1486,7 +1627,16 @@ void process_main(void)
 
 
  OpCase(return): {
+#ifdef USE_VM_CALL_PROBES
+    BeamInstr* fptr;
+#endif
     SET_I(c_p->cp);
+
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(function_return) && (fptr = find_function_from_pc(c_p->cp))) {
+        DTRACE_RETURN(c_p, (Eterm)fptr[0], (Eterm)fptr[1], (Uint)fptr[2]);
+    }
+#endif
     /*
      * We must clear the CP to make sure that a stale value do not
      * create a false module dependcy preventing code upgrading.
@@ -1755,6 +1905,7 @@ void process_main(void)
 	  * remove it...
 	  */
 	 ASSERT(!msgp->data.attached);
+         /* TODO: Add DTrace probe for this bad message situation? */
 	 UNLINK_MESSAGE(c_p, msgp);
 	 free_message(msgp);
 	 goto loop_rec__;
@@ -1780,24 +1931,88 @@ void process_main(void)
 	 save_calls(c_p, &exp_receive);
      }
      if (ERL_MESSAGE_TOKEN(msgp) == NIL) {
-	 SEQ_TRACE_TOKEN(c_p) = NIL;
+#ifdef USE_VM_PROBES
+	 if (DT_UTAG(c_p) != NIL) {
+	     if (DT_UTAG_FLAGS(c_p) & DT_UTAG_PERMANENT) {
+		 SEQ_TRACE_TOKEN(c_p) = am_have_dt_utag;
+#ifdef DTRACE_TAG_HARDDEBUG
+		 if (DT_UTAG_FLAGS(c_p) & DT_UTAG_SPREADING) 
+		     erts_fprintf(stderr,
+				  "Dtrace -> (%T) stop spreading "
+				  "tag %T with message %T\r\n",
+				  c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+#endif
+	     } else {
+#ifdef DTRACE_TAG_HARDDEBUG
+		 erts_fprintf(stderr,
+			      "Dtrace -> (%T) kill tag %T with "
+			      "message %T\r\n",
+			      c_p->id,DT_UTAG(c_p),ERL_MESSAGE_TERM(msgp));
+#endif
+		 DT_UTAG(c_p) = NIL;
+		 SEQ_TRACE_TOKEN(c_p) = NIL;
+	     }
+	 } else {
+#endif
+	     SEQ_TRACE_TOKEN(c_p) = NIL;
+#ifdef USE_VM_PROBES
+	 }
+	 DT_UTAG_FLAGS(c_p) &= ~DT_UTAG_SPREADING;
+#endif
      } else if (ERL_MESSAGE_TOKEN(msgp) != am_undefined) {
 	 Eterm msg;
 	 SEQ_TRACE_TOKEN(c_p) = ERL_MESSAGE_TOKEN(msgp);
-	 ASSERT(is_tuple(SEQ_TRACE_TOKEN(c_p)));
-	 ASSERT(SEQ_TRACE_TOKEN_ARITY(c_p) == 5);
-	 ASSERT(is_small(SEQ_TRACE_TOKEN_SERIAL(c_p)));
-	 ASSERT(is_small(SEQ_TRACE_TOKEN_LASTCNT(c_p)));
-	 ASSERT(is_small(SEQ_TRACE_TOKEN_FLAGS(c_p)));
-	 ASSERT(is_pid(SEQ_TRACE_TOKEN_SENDER(c_p)));
-	 c_p->seq_trace_lastcnt = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
-	 if (c_p->seq_trace_clock < unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p))) {
-	     c_p->seq_trace_clock = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
+#ifdef USE_VM_PROBES
+	 if (ERL_MESSAGE_TOKEN(msgp) == am_have_dt_utag) {
+	     if (DT_UTAG(c_p) == NIL) {
+		 DT_UTAG(c_p) = ERL_MESSAGE_DT_UTAG(msgp);
+	     }
+	     DT_UTAG_FLAGS(c_p) |= DT_UTAG_SPREADING;
+#ifdef DTRACE_TAG_HARDDEBUG
+	     erts_fprintf(stderr,
+			  "Dtrace -> (%T) receive tag (%T) "
+			  "with message %T\r\n",
+			  c_p->id, DT_UTAG(c_p), ERL_MESSAGE_TERM(msgp));
+#endif
+	 } else {
+#endif
+	     ASSERT(is_tuple(SEQ_TRACE_TOKEN(c_p)));
+	     ASSERT(SEQ_TRACE_TOKEN_ARITY(c_p) == 5);
+	     ASSERT(is_small(SEQ_TRACE_TOKEN_SERIAL(c_p)));
+	     ASSERT(is_small(SEQ_TRACE_TOKEN_LASTCNT(c_p)));
+	     ASSERT(is_small(SEQ_TRACE_TOKEN_FLAGS(c_p)));
+	     ASSERT(is_pid(SEQ_TRACE_TOKEN_SENDER(c_p)));
+	     c_p->seq_trace_lastcnt = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
+	     if (c_p->seq_trace_clock < unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p))) {
+		 c_p->seq_trace_clock = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
+	     }
+	     msg = ERL_MESSAGE_TERM(msgp);
+	     seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
+			      c_p->id, c_p);
+#ifdef USE_VM_PROBES
 	 }
-	 msg = ERL_MESSAGE_TERM(msgp);
-	 seq_trace_output(SEQ_TRACE_TOKEN(c_p), msg, SEQ_TRACE_RECEIVE, 
-			  c_p->id, c_p);
+#endif
      }
+#ifdef USE_VM_PROBES
+     if (DTRACE_ENABLED(message_receive)) {
+         Eterm token2 = NIL;
+         DTRACE_CHARBUF(receiver_name, DTRACE_TERM_BUF_SIZE);
+         Sint tok_label = 0;
+         Sint tok_lastcnt = 0;
+         Sint tok_serial = 0;
+
+         dtrace_proc_str(c_p, receiver_name);
+         token2 = SEQ_TRACE_TOKEN(c_p);
+         if (token2 != NIL && token2 != am_have_dt_utag) {
+             tok_label = signed_val(SEQ_TRACE_T_LABEL(token2));
+             tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token2));
+             tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token2));
+         }
+         DTRACE6(message_receive,
+                 receiver_name, size_object(ERL_MESSAGE_TERM(msgp)),
+                 c_p->msg.len - 1, tok_label, tok_lastcnt, tok_serial);
+     }
+#endif
      UNLINK_MESSAGE(c_p, msgp);
      JOIN_MESSAGE(c_p);
      CANCEL_TIMER(c_p);
@@ -3157,6 +3372,7 @@ void process_main(void)
 	     */
 	    BifFunction vbf;
 
+	    DTRACE_NIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    c_p->current = I-3; /* current and vbf set to please handle_error */ 
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
@@ -3178,6 +3394,8 @@ void process_main(void)
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(nif_bif_result));
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
+
+	    DTRACE_NIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 	    goto apply_bif_or_nif_epilogue;
 	 
 	OpCase(apply_bif):
@@ -3197,6 +3415,8 @@ void process_main(void)
 	    c_p->arity = 0;		/* To allow garbage collection on ourselves
 					 * (check_process_code/2).
 					 */
+	    DTRACE_BIF_ENTRY(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
+
 	    SWAPOUT;
 	    c_p->fcalls = FCALLS - 1;
 	    vbf = (BifFunction) Arg(0);
@@ -3215,6 +3435,8 @@ void process_main(void)
 		ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 		PROCESS_MAIN_CHK_LOCKS(c_p);
 	    }
+
+	    DTRACE_BIF_RETURN(c_p, (Eterm)I[-3], (Eterm)I[-2], (Uint)I[-1]);
 
 	apply_bif_or_nif_epilogue:
 	    ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
@@ -5900,6 +6122,12 @@ apply(Process* p, Eterm module, Eterm function, Eterm args, Eterm* reg)
 	save_calls(p, ep);
     }
 
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(global_function_entry)) {
+        BeamInstr *fptr = (BeamInstr *) ep->addressv[erts_active_code_ix()];
+	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
+    }
+#endif
     return ep->addressv[erts_active_code_ix()];
 }
 
@@ -5949,6 +6177,12 @@ fixed_apply(Process* p, Eterm* reg, Uint arity)
 	save_calls(p, ep);
     }
 
+#ifdef USE_VM_CALL_PROBES
+    if (DTRACE_ENABLED(global_function_entry)) {
+        BeamInstr *fptr = (BeamInstr *)  ep->addressv[erts_active_code_ix()];
+	DTRACE_GLOBAL_CALL(p, (Eterm)fptr[-3], (Eterm)fptr[-2], (Uint)fptr[-1]);
+    }
+#endif
     return ep->addressv[erts_active_code_ix()];
 }
 
@@ -5998,6 +6232,15 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	c_p->max_arg_reg = sizeof(c_p->def_arg_reg)/sizeof(c_p->def_arg_reg[0]);
     }
 
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(process_hibernate)) {
+        DTRACE_CHARBUF(process_name, DTRACE_TERM_BUF_SIZE);
+        DTRACE_CHARBUF(mfa, DTRACE_TERM_BUF_SIZE);
+        dtrace_fun_decode(c_p, module, function, arity,
+                          process_name, mfa);
+        DTRACE2(process_hibernate, process_name, mfa);
+    }
+#endif
     /*
      * Arrange for the process to be resumed at the given MFA with
      * the stack cleared.
@@ -6073,6 +6316,9 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = (int) code_ptr[-1];
 
 	if (actual_arity == arity+num_free) {
+	    DTRACE_LOCAL_CALL(p, (Eterm)code_ptr[-3],
+			(Eterm)code_ptr[-2],
+			code_ptr[-1]);
 	    if (num_free == 0) {
 		return code_ptr;
 	    } else {
@@ -6090,7 +6336,7 @@ call_fun(Process* p,		/* Current process. */
 	} else {
 	    /*
 	     * Something wrong here. First build a list of the arguments.
-	     */  
+	     */
 
 	    if (is_non_value(args)) {
 		Uint sz = 2 * arity;
@@ -6165,6 +6411,7 @@ call_fun(Process* p,		/* Current process. */
 	actual_arity = (int) ep->code[2];
 
 	if (arity == actual_arity) {
+	    DTRACE_GLOBAL_CALL(p, ep->code[0], ep->code[1], (Uint)ep->code[2]);
 	    return ep->addressv[erts_active_code_ix()];
 	} else {
 	    /*
@@ -6240,6 +6487,7 @@ call_fun(Process* p,		/* Current process. */
 	    reg[1] = function;
 	    reg[2] = args;
 	}
+	DTRACE_GLOBAL_CALL(p, module, function, arity);
 	return ep->addressv[erts_active_code_ix()];
     } else {
     badfun:

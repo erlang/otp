@@ -42,6 +42,7 @@
 #include "external.h"
 #include "erl_binary.h"
 #include "erl_thr_progress.h"
+#include "dtrace-wrapper.h"
 
 /* Turn this on to get printouts of all distribution messages
  * which go on the line
@@ -381,7 +382,11 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	    Eterm tup;
 	    Eterm *hp = erts_alloc_message_heap(3,&bp,&ohp,rp,&rp_locks);
 	    tup = TUPLE2(hp, am_nodedown, name);
-	    erts_queue_message(rp, &rp_locks, bp, tup, NIL);
+	    erts_queue_message(rp, &rp_locks, bp, tup, NIL
+#ifdef USE_VM_PROBES
+			       , NIL
+#endif
+			       );
 	}
 	erts_smp_proc_unlock(rp, rp_locks);
     }
@@ -740,19 +745,50 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
     Eterm token = NIL;
     Process *sender = dsdp->proc;
     int res;
+#ifdef USE_VM_PROBES
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
+    Uint msize = 0;
+    DTRACE_CHARBUF(node_name, 64);
+    DTRACE_CHARBUF(sender_name, 64);
+    DTRACE_CHARBUF(receiver_name, 64);
+#endif
 
     UseTmpHeapNoproc(5);
-    if (SEQ_TRACE_TOKEN(sender) != NIL) {
+    if (SEQ_TRACE_TOKEN(sender) != NIL 
+#ifdef USE_VM_PROBES
+	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
+#endif
+	) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote, sender);
     }
+#ifdef USE_VM_PROBES
+    *node_name = *sender_name = *receiver_name = '\0';
+    if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
+        erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(receiver_name, sizeof(receiver_name), "%T", remote);
+        msize = size_object(message);
+        if (token != NIL && token != am_have_dt_utag) {
+            tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
+            tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
+            tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
+        }
+    }
+#endif
 
     if (token != NIL)
 	ctl = TUPLE4(&ctl_heap[0],
 		     make_small(DOP_SEND_TT), am_Cookie, remote, token);
     else
 	ctl = TUPLE3(&ctl_heap[0], make_small(DOP_SEND), am_Cookie, remote);
+    DTRACE6(message_send, sender_name, receiver_name,
+            msize, tok_label, tok_lastcnt, tok_serial);
+    DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
+            msize, tok_label, tok_lastcnt, tok_serial);
     res = dsig_send(dsdp, ctl, message, 0);
     UnUseTmpHeapNoproc(5);
     return res;
@@ -766,13 +802,41 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     Eterm token = NIL;
     Process *sender = dsdp->proc;
     int res;
+#ifdef USE_VM_PROBES
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
+    Uint32 msize = 0;
+    DTRACE_CHARBUF(node_name, 64);
+    DTRACE_CHARBUF(sender_name, 64);
+    DTRACE_CHARBUF(receiver_name, 128);
+#endif
 
     UseTmpHeapNoproc(6);
-    if (SEQ_TRACE_TOKEN(sender) != NIL) {
+    if (SEQ_TRACE_TOKEN(sender) != NIL
+#ifdef USE_VM_PROBES
+	&& SEQ_TRACE_TOKEN(sender) != am_have_dt_utag 
+#endif
+	) {
 	seq_trace_update_send(sender);
 	token = SEQ_TRACE_TOKEN(sender);
 	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
     }
+#ifdef USE_VM_PROBES
+    *node_name = *sender_name = *receiver_name = '\0';
+    if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
+        erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(receiver_name, sizeof(receiver_name),
+                      "{%T,%s}", remote_name, node_name);
+        msize = size_object(message);
+        if (token != NIL && token != am_have_dt_utag) {
+            tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
+            tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
+            tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
+        }
+    }
+#endif
 
     if (token != NIL)
 	ctl = TUPLE5(&ctl_heap[0], make_small(DOP_REG_SEND_TT),
@@ -780,6 +844,10 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     else
 	ctl = TUPLE4(&ctl_heap[0], make_small(DOP_REG_SEND),
 		     sender->id, am_Cookie, remote_name);
+    DTRACE6(message_send, sender_name, receiver_name,
+            msize, tok_label, tok_lastcnt, tok_serial);
+    DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
+            msize, tok_label, tok_lastcnt, tok_serial);
     res = dsig_send(dsdp, ctl, message, 0);
     UnUseTmpHeapNoproc(6);
     return res;
@@ -793,9 +861,23 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     Eterm ctl;
     DeclareTmpHeapNoproc(ctl_heap,6);
     int res;
+#ifdef USE_VM_PROBES
+    Process *sender = dsdp->proc;
+    Sint tok_label = 0;
+    Sint tok_lastcnt = 0;
+    Sint tok_serial = 0;
+    DTRACE_CHARBUF(node_name, 64);
+    DTRACE_CHARBUF(sender_name, 64);
+    DTRACE_CHARBUF(remote_name, 128);
+    DTRACE_CHARBUF(reason_str, 128);
+#endif
 
     UseTmpHeapNoproc(6);
-    if (token != NIL) {	
+    if (token != NIL 
+#ifdef USE_VM_PROBES
+	&& token != am_have_dt_utag
+#endif
+	) {	
 	seq_trace_update_send(dsdp->proc);
 	seq_trace_output_exit(token, reason, SEQ_TRACE_SEND, remote, local);
 	ctl = TUPLE5(&ctl_heap[0],
@@ -803,6 +885,23 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     } else {
 	ctl = TUPLE4(&ctl_heap[0], make_small(DOP_EXIT), local, remote, reason);
     }
+#ifdef USE_VM_PROBES
+    *node_name = *sender_name = *remote_name = '\0';
+    if (DTRACE_ENABLED(process_exit_signal_remote)) {
+        erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(remote_name, sizeof(remote_name),
+                      "{%T,%s}", remote, node_name);
+        erts_snprintf(reason_str, sizeof(reason), "%T", reason);
+        if (token != NIL && token != am_have_dt_utag) {
+            tok_label = signed_val(SEQ_TRACE_T_LABEL(token));
+            tok_lastcnt = signed_val(SEQ_TRACE_T_LASTCNT(token));
+            tok_serial = signed_val(SEQ_TRACE_T_SERIAL(token));
+        }
+    }
+#endif
+    DTRACE7(process_exit_signal_remote, sender_name, node_name,
+            remote_name, reason_str, tok_label, tok_lastcnt, tok_serial);
     /* forced, i.e ignore busy */
     res = dsig_send(dsdp, ctl, THE_NON_VALUE, 1);
     UnUseTmpHeapNoproc(6);
@@ -1619,6 +1718,18 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 	    if (!(dep->qflgs & ERTS_DE_QFLG_BUSY)) {
 		if (suspended)
 		    resume = 1; /* was busy when we started, but isn't now */
+#ifdef USE_VM_PROBES
+                if (resume && DTRACE_ENABLED(dist_port_not_busy)) {
+                    DTRACE_CHARBUF(port_str, 64);
+                    DTRACE_CHARBUF(remote_str, 64);
+
+                    erts_snprintf(port_str, sizeof(port_str), "%T", cid);
+                    erts_snprintf(remote_str, sizeof(remote_str),
+                                  "%T", dep->sysname);
+                    DTRACE3(dist_port_not_busy, erts_this_node_sysname,
+                            port_str, remote_str);
+                }
+#endif
 	    }
 	    else {
 		/* Enqueue suspended process on dist entry */
@@ -1668,6 +1779,19 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
     }
 
     if (suspended) {
+#ifdef USE_VM_PROBES
+        if (!resume && DTRACE_ENABLED(dist_port_busy)) {
+            DTRACE_CHARBUF(port_str, 64);
+            DTRACE_CHARBUF(remote_str, 64);
+            DTRACE_CHARBUF(pid_str, 16);
+
+            erts_snprintf(port_str, sizeof(port_str), "%T", cid);
+            erts_snprintf(remote_str, sizeof(remote_str), "%T", dep->sysname);
+            erts_snprintf(pid_str, sizeof(pid_str), "%T", c_p->id);
+            DTRACE4(dist_port_busy, erts_this_node_sysname,
+                    port_str, remote_str, pid_str);
+        }
+#endif
 	if (!resume && erts_system_monitor_flags.busy_dist_port)
 	    monitor_generic(c_p, am_busy_dist_port, cid);
 	return ERTS_DSIG_SEND_YIELD;
@@ -1691,6 +1815,18 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
 		 "(%beu bytes) passed.\n",
 		 size);
 
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(dist_output)) {
+        DTRACE_CHARBUF(port_str, 64);
+        DTRACE_CHARBUF(remote_str, 64);
+
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(remote_str, sizeof(remote_str),
+                      "%T", prt->dist_entry->sysname);
+        DTRACE4(dist_output, erts_this_node_sysname, port_str,
+                remote_str, size);
+    }
+#endif
     prt->caller = NIL;
     fpe_was_unmasked = erts_block_fpe();
     (*prt->drv_ptr->output)((ErlDrvData) prt->drv_data,
@@ -1733,6 +1869,18 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 
     ASSERT(prt->drv_ptr->outputv);
 
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(dist_outputv)) {
+        DTRACE_CHARBUF(port_str, 64);
+        DTRACE_CHARBUF(remote_str, 64);
+
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(remote_str, sizeof(remote_str),
+                      "%T", prt->dist_entry->sysname);
+        DTRACE4(dist_outputv, erts_this_node_sysname, port_str,
+                remote_str, size);
+    }
+#endif
     prt->caller = NIL;
     fpe_was_unmasked = erts_block_fpe();
     (*prt->drv_ptr->outputv)((ErlDrvData) prt->drv_data, &eiov);
@@ -2052,6 +2200,18 @@ erts_dist_command(Port *prt, int reds_limit)
 void
 erts_dist_port_not_busy(Port *prt)
 {
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(dist_port_not_busy)) {
+        DTRACE_CHARBUF(port_str, 64);
+        DTRACE_CHARBUF(remote_str, 64);
+
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(remote_str, sizeof(remote_str),
+                      "%T", prt->dist_entry->sysname);
+        DTRACE3(dist_port_not_busy, erts_this_node_sysname,
+                port_str, remote_str);
+    }
+#endif
     erts_schedule_dist_command(prt, NULL);
 }
 
@@ -2972,7 +3132,11 @@ send_nodes_mon_msg(Process *rp,
     }
 
     ASSERT(hend == hp);
-    erts_queue_message(rp, rp_locksp, bp, msg, NIL);
+    erts_queue_message(rp, rp_locksp, bp, msg, NIL
+#ifdef USE_VM_PROBES
+		       , NIL
+#endif
+		       );
 }
 
 static void
@@ -2985,6 +3149,21 @@ send_nodes_mon_msgs(Process *c_p, Eterm what, Eterm node, Eterm type, Eterm reas
     ASSERT(is_immed(what));
     ASSERT(is_immed(node));
     ASSERT(is_immed(type));
+#ifdef USE_VM_PROBES
+    if (DTRACE_ENABLED(dist_monitor)) {
+        DTRACE_CHARBUF(what_str, 12);
+        DTRACE_CHARBUF(node_str, 64);
+        DTRACE_CHARBUF(type_str, 12);
+        DTRACE_CHARBUF(reason_str, 64);
+
+        erts_snprintf(what_str, sizeof(what_str), "%T", what);
+        erts_snprintf(node_str, sizeof(node_str), "%T", node);
+        erts_snprintf(type_str, sizeof(type_str), "%T", type);
+        erts_snprintf(reason_str, sizeof(reason_str), "%T", reason);
+        DTRACE5(dist_monitor, erts_this_node_sysname,
+                what_str, node_str, type_str, reason_str);
+    }
+#endif
 
     ERTS_SMP_LC_ASSERT(!c_p
 		       || (erts_proc_lc_my_proc_locks(c_p)

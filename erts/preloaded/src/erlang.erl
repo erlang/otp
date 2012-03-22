@@ -128,6 +128,8 @@
          term_to_binary/1, term_to_binary/2, tl/1, trace_pattern/2,
          trace_pattern/3, tuple_to_list/1, system_info/1,
          universaltime_to_localtime/1]).
+-export([dt_get_tag/0, dt_get_tag_data/0, dt_prepend_vm_tag_data/1, dt_append_vm_tag_data/1,
+	 dt_put_tag/1, dt_restore_tag/1, dt_spread_tag/1]). 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -570,6 +572,48 @@ display_string(_P1) ->
       P2 :: kill | noconnection | normal,
       P3 :: pid() | port().
 dist_exit(_P1, _P2, _P3) ->
+    erlang:nif_error(undefined).
+
+%% dt_append_vm_tag_data/1
+-spec dt_append_vm_tag_data(IoData) -> IoDataRet when
+      IoData :: iodata(),
+      IoDataRet :: iodata().
+dt_append_vm_tag_data(_IoData) ->
+    erlang:nif_error(undefined).
+
+%% dt_get_tag/0
+-spec erlang:dt_get_tag() -> binary() | undefined.
+dt_get_tag() ->
+    erlang:nif_error(undefined).
+
+%%  dt_get_tag_data/0
+-spec erlang:dt_get_tag_data() -> binary() | undefined.
+dt_get_tag_data() ->
+    erlang:nif_error(undefined).
+
+%% dt_prepend_vm_tag_data/1
+-spec dt_prepend_vm_tag_data(IoData) -> IoDataRet when
+      IoData :: iodata(),
+      IoDataRet :: iodata().
+dt_prepend_vm_tag_data(_IoData) ->
+    erlang:nif_error(undefined).
+
+%% dt_put_tag/1
+-spec erlang:dt_put_tag(IoData) -> binary() | undefined when
+      IoData :: iodata().
+dt_put_tag(_IoData) ->
+    erlang:nif_error(undefined).
+
+%% dt_restore_tag/1
+-spec erlang:dt_restore_tag(TagData) -> true when
+      TagData :: term().
+dt_restore_tag(_TagData) ->
+    erlang:nif_error(undefined).
+    
+%% dt_spread_tag/1
+-spec erlang:dt_spread_tag(boolean()) -> TagData when
+      TagData :: term().
+dt_spread_tag(_Bool) ->   
     erlang:nif_error(undefined).
 
 %% erase/0
@@ -2071,6 +2115,8 @@ tuple_to_list(_Tuple) ->
          (dist_ctrl) -> {Node :: node(),
                          ControllingEntity :: port() | pid()};
          (driver_version) -> string();
+	 (dynamic_trace) -> none | dtrace | systemtap;
+         (dynamic_trace_probes) -> boolean();
          (elib_malloc) -> false;
          (dist_buf_busy_limit) -> non_neg_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};
