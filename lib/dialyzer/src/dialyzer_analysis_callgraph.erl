@@ -463,8 +463,10 @@ default_includes(Dir) ->
 rcv_and_send_ext_types(Parent) ->
   Self = self(),
   Self ! {Self, done},
-  ExtTypes = rcv_ext_types(Self, []),
-  Parent ! {Self, ext_types, ExtTypes},
+  case rcv_ext_types(Self, []) of
+    [] -> ok;
+    ExtTypes -> Parent ! {Self, ext_types, ExtTypes}
+  end,
   ok.
 
 rcv_ext_types(Self, ExtTypes) ->
