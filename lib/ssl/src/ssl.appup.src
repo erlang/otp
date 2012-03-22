@@ -1,23 +1,13 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
-  {"4.1.6", [{restart_application, ssl}]},
-  {"4.1.5", [{restart_application, ssl}]},
-  {"4.1.4", [{restart_application, ssl}]},
-  {"4.1.3", [{restart_application, ssl}]},
-  {"4.1.2", [{restart_application, ssl}]},
-  {"4.1.1", [{restart_application, ssl}]},
-  {"4.1",   [{restart_application, ssl}]},
-  {"4.0.1", [{restart_application, ssl}]}
+  {"5.0", [{restart_application, ssl}]},
+  {<<"4\\.*">>, [{restart_application, ssl}]},
+  {<<"3\\.*">>, [{restart_application, ssl}]}
  ], 
  [
-  {"4.1.6", [{restart_application, ssl}]},
-  {"4.1.5", [{restart_application, ssl}]},
-  {"4.1.4", [{restart_application, ssl}]},
-  {"4.1.3", [{restart_application, ssl}]},
-  {"4.1.2", [{restart_application, ssl}]},
-  {"4.1.1", [{restart_application, ssl}]},
-  {"4.1",   [{restart_application, ssl}]},
-  {"4.0.1", [{restart_application, ssl}]}
+  {"5.0", [{restart_application, ssl}]},
+  {<<"4\\.*">>, [{restart_application, ssl}]},
+  {<<"3\\.*">>, [{restart_application, ssl}]}
  ]}.
 
