@@ -1257,7 +1257,7 @@ os_prompt% </pre>
       </desc>
     </func>
     <func>
-      <name>halt(Status, Options)</name>
+      <name name="halt" arity="2"/>
       <fsummary>Halt the Erlang runtime system</fsummary>
       <desc>
         <p><c><anno>Status</anno></c> must be a non-negative integer, a string,
