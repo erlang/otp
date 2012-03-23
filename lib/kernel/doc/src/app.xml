@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -75,7 +75,7 @@ MaxT         int()                infinity
 Names        [Name]               []
 Apps         [App]                []
 Env          [{Par,Val}]          []
-Start        {Module,StartArgs}   undefined
+Start        {Module,StartArgs}   []
 Phases       [{Phase,PhaseArgs}]  undefined
   Module = Name = App = Par = Phase = atom()
   Val = StartArgs = PhaseArgs = term()</code>

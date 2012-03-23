@@ -482,7 +482,7 @@ mandatory_applications([_|Apps],Kernel,Stdlib,Sasl) ->
 mandatory_applications([],Type,_,_) when Type=/=permanent ->
     error_mandatory_application(kernel,Type);
 mandatory_applications([],_,Type,_) when Type=/=permanent ->
-    error_mandatory_application(sasl,Type);
+    error_mandatory_application(stdlib,Type);
 mandatory_applications([],_,_,undefined) ->
     {ok, [{warning,missing_sasl}]};
 mandatory_applications([],_,_,_) ->
@@ -1468,15 +1468,18 @@ pack_app(#application{name=Name,vsn=V,id=Id,description=D,modules=M,
       {applications, App},
       {included_applications, Incs},
       {env, Env},
-      {start_phases, SF},
       {maxT, MaxT},
       {maxP, MaxP} |
-      behave(Mod)]}.
+      behave([{start_phases,SF},{mod,Mod}])]}.
 
+behave([{mod,[]}|T]) ->
+    behave(T);
+behave([{start_phases,undefined}|T]) ->
+    behave(T);
+behave([H|T]) ->
+    [H|behave(T)];
 behave([]) ->
-    [];
-behave(Mod) ->
-    [{mod, Mod}].
+    [].
 
 %%______________________________________________________________________
 %% mandatory modules; this modules must be loaded before processes

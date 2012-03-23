@@ -4,7 +4,7 @@
 <fileref>
   <header>
     <copyright>
-      <year>1997</year><year>2011</year>
+      <year>1997</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -56,12 +56,20 @@
           the application.</p>
       </item>
       <item>
-        <p><c>UpFromVsn = string()</c> is an earlier version of
-          the application to upgrade from.</p>
+        <p><c>UpFromVsn = string() | binary()</c> is an earlier
+          version of the application to upgrade from. If it is a
+          string, it will be interpreted as a specific version
+          number. If it is a binary, it will be interpreted as a
+          regular expression which can match multiple version
+          numbers.</p>
       </item>
       <item>
-        <p><c>DownToVsn = string()</c> is an earlier version of
-          the application to downgrade to.</p>
+        <p><c>DownToVsn = string() | binary()</c> is an earlier
+          version of the application to downgrade to. If it is a
+          string, it will be interpreted as a specific version
+          number. If it is a binary, it will be interpreted as a
+          regular expression which can match multiple version
+          numbers.</p>
       </item>
       <item>
         <p><c>Instructions</c> is a list of <em>release upgrade instructions</em>, see below. It is recommended to use
@@ -70,6 +78,12 @@
           creating the <c>relup</c> file.</p>
       </item>
     </list>
+    <p>In order to avoid duplication of upgrade instructions it is
+    allowed to use regular expressions to specify the <c>UpFromVsn</c>
+    and <c>DownToVsn</c>. To be considered a regular expression, the
+    version identifier must be specified as a binary, e.g.</p>
+    <code type="none">&lt;&lt;"2\\.1\\.[0-9]+">></code>
+    <p>will match all versions <c>2.1.x</c>, where x is any number.</p>
   </section>
 
   <section>

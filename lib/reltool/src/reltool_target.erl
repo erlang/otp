@@ -247,10 +247,15 @@ gen_app(#app{name = Name,
                               env = Env,
                               mod = StartMod,
                               start_phases = StartPhases}}) ->
-    StartMod2 =
-        case StartMod =:= undefined of
-            true  -> [];
-            false -> [{mod, StartMod}]
+    StartPhases2 =
+        case StartPhases of
+            undefined -> [];
+            _         -> [{start_phases, StartPhases}]
+        end,
+    Tail =
+        case StartMod of
+            undefined -> StartPhases2;
+            _         -> [{mod, StartMod} | StartPhases2]
         end,
     {application, Name,
      [{description, Desc},
@@ -261,10 +266,9 @@ gen_app(#app{name = Name,
       {applications, ReqApps},
       {included_applications, InclApps},
       {env, Env},
-      {start_phases, StartPhases},
       {maxT, MaxT},
       {maxP, MaxP} |
-      StartMod2]}.
+      Tail]}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate the contents of a rel file
