@@ -17,8 +17,12 @@ DEPENDENCIES= \
 ESCRIPT= \
      escript/someapp-1.0/ebin/mymod.@EMULATOR@
 
+SEL_VSN= \
+     use_selected_vsn/b-1.0/ebin/b.@EMULATOR@ \
+     use_selected_vsn/b-3.0/ebin/b.@EMULATOR@ \
+     use_selected_vsn/lib2/b-2.0/ebin/b.@EMULATOR@
 
-all: $(OTP9229) $(DEPENDENCIES) $(ESCRIPT)
+all: $(OTP9229) $(DEPENDENCIES) $(ESCRIPT) $(SEL_VSN)
 
 otp_9229/x-1.0/ebin/x.@EMULATOR@: otp_9229/x-1.0/src/x.erl
 	erlc $(EFLAGS) -ootp_9229/x-1.0/ebin otp_9229/x-1.0/src/x.erl
@@ -44,3 +48,10 @@ dependencies/z-1.0/ebin/z1.@EMULATOR@: dependencies/z-1.0/src/z1.erl
 
 escript/someapp-1.0/ebin/mymod.@EMULATOR@: escript/someapp-1.0/src/mymod.erl
 	erlc $(EFLAGS) -oescript/someapp-1.0/ebin escript/someapp-1.0/src/mymod.erl
+
+use_selected_vsn/b-1.0/ebin/b.@EMULATOR@: use_selected_vsn/b-1.0/src/b.erl
+	erlc $(EFLAGS) -ouse_selected_vsn/b-1.0/ebin use_selected_vsn/b-1.0/src/b.erl
+use_selected_vsn/b-3.0/ebin/b.@EMULATOR@: use_selected_vsn/b-3.0/src/b.erl
+	erlc $(EFLAGS) -ouse_selected_vsn/b-3.0/ebin use_selected_vsn/b-3.0/src/b.erl
+use_selected_vsn/lib2/b-2.0/ebin/b.@EMULATOR@: use_selected_vsn/lib2/b-2.0/src/b.erl
+	erlc $(EFLAGS) -ouse_selected_vsn/lib2/b-2.0/ebin use_selected_vsn/lib2/b-2.0/src/b.erl

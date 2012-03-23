@@ -322,8 +322,21 @@
       <item>
         <p>The version of the application. In an installed system there may
         exist several versions of an application. The <c>vsn</c> parameter
-        controls which version of the application will be chosen. If it
-        is omitted, the latest version will be chosen.</p>
+        controls which version of the application will be chosen.</p>
+	<p>This parameter is mutual exclusive with <c>lib_dir</c>. If
+	<c>vsn</c> and <c>lib_dir</c> are both omitted, the latest version
+	will be chosen.</p>
+      </item>
+      <tag><c>lib_dir</c></tag>
+      <item>
+	<p>The directory to read the application from. This parameter
+	can be used to point out a specific location to fetch the
+	application from. This is useful for instance if the parent
+	directory for some reason is no good as a library directory on
+	system level.</p>
+	<p>This parameter is mutual exclusive with <c>vsn</c>. If
+	<c>vsn</c> and <c>lib_dir</c> are both omitted, the latest version
+	will be chosen.</p>
       </item>
       <tag><c>mod</c></tag>
       <item>
@@ -433,6 +446,7 @@ sys()               = {root_dir, root_dir()}
                     | {excl_archive_filters, excl_archive_filters()}
                     | {archive_opts, [archive_opt()]}
 app()               = {vsn, app_vsn()}
+                    | {lib_dir, lib_dir()}
                     | {mod, mod_name(), [mod()]}
                     | {mod_cond, mod_cond()}
                     | {incl_cond, incl_cond()}

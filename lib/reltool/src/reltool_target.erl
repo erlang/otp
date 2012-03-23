@@ -155,6 +155,7 @@ do_gen_config(#app{name = Name,
 		   archive_opts = ArchiveOpts,
 		   use_selected_vsn  = UseSelected,
 		   vsn = Vsn,
+		   active_dir = ActiveDir,
 		   mods = Mods,
 		   is_included = IsIncl},
 	      InclDefs) ->
@@ -170,9 +171,10 @@ do_gen_config(#app{name = Name,
 	 emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs),
 	 emit(archive_opts, ArchiveOpts, undefined, InclDefs),
 	 if
-	     IsIncl, InclDefs -> [{vsn, Vsn}];
-	     UseSelected      -> [{vsn, Vsn}];
-	     true             -> []
+	     IsIncl, InclDefs    -> [{vsn, Vsn}, {lib_dir, ActiveDir}];
+	     UseSelected =:= vsn -> [{vsn, Vsn}];
+	     UseSelected =:= dir -> [{lib_dir, ActiveDir}];
+	     true                -> []
 	 end,
 	 [do_gen_config(M, InclDefs) || M <- Mods]
 	],
