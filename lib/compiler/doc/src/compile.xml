@@ -294,6 +294,12 @@ module.beam: module.erl \
               describing what it is doing.</p>
           </item>
 
+	  <tag><c>{source,FileName}</c></tag>
+          <item>
+            <p>Sets the value of the source, as returned by
+              <c>module_info(compile)</c>.</p>
+          </item>
+
 	  <tag><c>{outdir,Dir}</c></tag>
           <item>
             <p>Sets a new directory for the object code. The current

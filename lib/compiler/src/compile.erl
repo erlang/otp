@@ -247,10 +247,12 @@ internal(Master, Input, Opts) ->
 		      catch error:Reason -> {error, Reason}
 		      end}.
 
-internal({forms,Forms}, Opts) ->
-    {_,Ps} = passes(forms, Opts),
-    internal_comp(Ps, "", "", #compile{code=Forms,options=Opts,
-				       mod_options=Opts});
+internal({forms,Forms}, Opts0) ->
+    {_,Ps} = passes(forms, Opts0),
+    Source = proplists:get_value(source, Opts0, ""),
+    Opts1 = proplists:delete(source, Opts0),
+    Compile = #compile{code=Forms,options=Opts1,mod_options=Opts1},
+    internal_comp(Ps, Source, "", Compile);
 internal({file,File}, Opts) ->
     {Ext,Ps} = passes(file, Opts),
     Compile = #compile{options=Opts,mod_options=Opts},
