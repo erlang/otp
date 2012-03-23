@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -60,7 +60,8 @@
 	 			%% integer() | infinity.
 	 mod = [],		%% [] | {Mod, StartArgs}, Mod= atom(), 
 				%% StartArgs = list().
-	 start_phases = [],	%% [] | {Phase, PhaseArgs}, Phase = atom(),
+	 start_phases,          %% [{Phase, PhaseArgs}] | undefined,
+	                        %% Phase = atom(),
 				%% PhaseArgs = list().
          dir = ""		%% The directory where the .app file was 
 				%% found (internal use).
