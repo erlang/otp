@@ -816,7 +816,9 @@ check({true,M},File,OutFile,Includes,EncodingRule,DbFile,Options,InputMods) ->
 		    asn1_db:dbsave(DbFile,M#module.name),
 		    verbose("--~p--~n",[{generated,DbFile}],Options),
 		    {true,{M,NewM,GenTypeOrVal}}
-	    end
+	    end;
+	ErrorList = {error,_} ->
+	    {false,ErrorList}
     end;
 check({false,M},_,_,_,_,_,_,_) ->
     {false,M}.

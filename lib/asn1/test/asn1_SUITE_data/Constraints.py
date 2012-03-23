@@ -51,6 +51,7 @@ Thing ::= INTEGER {fred (0),fred2 (1),fred3 (2)}
 AnotherThing ::= Thing (fred | fred2)
 
 I ::= INTEGER (0|15..269) -- OTP-5457
+X1 ::= INTEGER (1..4 | 8 | 10 | 20) -- OTP-9946
 
 -- OTP-5511
 
