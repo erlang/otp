@@ -57,7 +57,7 @@
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
-	       enable_builtin_hooks = true,
+	       enable_builtin_hooks,
 	       include = [],
 	       silent_connections,
 	       stylesheet,
@@ -187,8 +187,8 @@ script_start1(Parent, Args) ->
     CTHooks = ct_hooks_args2opts(Args),
     EnableBuiltinHooks = get_start_opt(enable_builtin_hooks,
 				       fun([CT]) -> list_to_atom(CT);
-					  ([]) -> true
-				       end, true, Args),
+					  ([]) -> undefined
+				       end, undefined, Args),
 
     %% check flags and set corresponding application env variables
 
@@ -782,7 +782,7 @@ run_test2(StartOpts) ->
 				       fun(EBH) when EBH == true;
 						     EBH == false ->
 					       EBH
-				       end, true, StartOpts),
+				       end, undefined, StartOpts),
 
     %% silent connections
     SilentConns = get_start_opt(silent_connections,
