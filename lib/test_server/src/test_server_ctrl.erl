@@ -2831,12 +2831,13 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 					  {failed,TcFail}]}]
 	       end,
 
+    SuiteName = proplists:get_value(suite, Props),
     case get(test_server_create_priv_dir) of
 	auto_per_run ->				% use common priv_dir
 	    TSDirs = [{priv_dir,get(test_server_priv_dir)},
-		      {data_dir,get_data_dir(Mod)}];
+		      {data_dir,get_data_dir(Mod, SuiteName)}];    
 	_ ->
-	    TSDirs = [{data_dir,get_data_dir(Mod)}]
+	    TSDirs = [{data_dir,get_data_dir(Mod, SuiteName)}]
     end,
 
     ActualCfg = 
@@ -3001,13 +3002,13 @@ run_test_cases_loop([{conf,_Ref,_Props,_X}=Conf|_Cases0],
 
 run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
     ActualCfg =
-    case get(test_server_create_priv_dir) of
-	auto_per_run ->
-	    update_config(hd(Config), [{priv_dir,get(test_server_priv_dir)},
-				       {data_dir,get_data_dir(Mod)}]);
-	_ ->
-	    update_config(hd(Config), [{data_dir,get_data_dir(Mod)}])
-    end,
+	case get(test_server_create_priv_dir) of
+	    auto_per_run ->
+		update_config(hd(Config), [{priv_dir,get(test_server_priv_dir)},
+					   {data_dir,get_data_dir(Mod)}]);
+	    _ ->
+		update_config(hd(Config), [{data_dir,get_data_dir(Mod)}])
+	end,
     run_test_cases_loop([{Mod,Case,[ActualCfg]}|Cases], Config,
 			TimetrapData, Mode, Status);
 
@@ -3172,13 +3173,20 @@ conf_start(Ref, Mode) ->
 	false -> 0
     end.
 
+
 get_data_dir(Mod) ->
-    case code:which(Mod) of
+    get_data_dir(Mod, undefined).
+
+get_data_dir(Mod, Suite) ->
+    UseMod = if Suite == undefined -> Mod;
+		true               -> Suite
+	     end,
+    case code:which(UseMod) of
 	non_existing ->
 	    print(12, "The module ~p is not loaded", [Mod]),
 	    [];
 	FullPath ->
-	    filename:dirname(FullPath) ++ "/" ++ cast_to_list(Mod) ++
+	    filename:dirname(FullPath) ++ "/" ++ cast_to_list(UseMod) ++
 		?data_dir_suffix
     end.
 
@@ -5158,7 +5166,9 @@ init_props(Props) ->
     end.
 
 keep_name(Props) ->
-    lists:filter(fun({name,_}) -> true; (_) -> false end, Props).
+    lists:filter(fun({name,_}) -> true;
+		    ({suite,_}) -> true;
+		    (_) -> false end, Props).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                 Target node handling functions                   %%
