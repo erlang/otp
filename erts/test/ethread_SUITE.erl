@@ -33,7 +33,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
-	 init_per_testcase/2, fin_per_testcase/2]).
+	 init_per_testcase/2, end_per_testcase/2]).
 
 -export([create_join_thread/1,
 	 equal_tids/1,
@@ -250,7 +250,7 @@ init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     [{watchdog, Dog}|Config].
 
-fin_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
