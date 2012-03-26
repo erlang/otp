@@ -30,7 +30,7 @@
 	 controlling_process/2, listen/2, pid/1, peername/1, peercert/1,
 	 recv/2, recv/3, send/2, getopts/2, setopts/2, sockname/1,
 	 versions/0, session_info/1, format_error/1,
-	 renegotiate/1]).
+	 renegotiate/1, prf/5]).
 
 -deprecated({pid, 1, next_major_release}).
 
@@ -67,7 +67,7 @@
 -type ssl_imp()      :: new | old.
 
 -type transport_option() :: {cb_info, {CallbackModule::atom(), DataTag::atom(), ClosedTag::atom()}}.
-
+-type prf_random() :: client_random | server_random.
 
 %%--------------------------------------------------------------------
 -spec start() -> ok  | {error, reason()}.
@@ -413,6 +413,17 @@ versions() ->
 %%--------------------------------------------------------------------
 renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) ->
     ssl_connection:renegotiation(Pid).
+
+%%--------------------------------------------------------------------
+-spec prf(#sslsocket{}, binary() | 'master_secret', binary(),
+	  binary() | prf_random(), non_neg_integer()) ->
+		 {ok, binary()} | {error, reason()}.
+%%
+%% Description: use a ssl sessions TLS PRF to generate key material
+%%--------------------------------------------------------------------
+prf(#sslsocket{pid = Pid, fd = new_ssl},
+    Secret, Label, Seed, WantedLength) ->
+    ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength).
 
 %%---------------------------------------------------------------
 -spec format_error({error, term()}) -> list().

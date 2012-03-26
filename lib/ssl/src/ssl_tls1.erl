@@ -29,7 +29,7 @@
 -include("ssl_record.hrl"). 			
 
 -export([master_secret/3, finished/3, certificate_verify/2, mac_hash/7, 
-	 setup_keys/6, suites/0]).
+	 setup_keys/6, suites/0, prf/4]).
 
 %%====================================================================
 %% Internal application API
