@@ -144,27 +144,21 @@ adjust_window(ConnectionManager, Channel, Bytes) ->
     cast(ConnectionManager, {adjust_window, Channel, Bytes}).
 
 close(ConnectionManager, ChannelId) ->
-    try call(ConnectionManager, {close, ChannelId}) of
-	  ok ->
-	    ok;
-	  {error, channel_closed} ->
-	    ok
-    catch
-	exit:{noproc, _} ->
-	    ok
-    end.
-
-stop(ConnectionManager) ->
-    try call(ConnectionManager, stop) of
+    case call(ConnectionManager, {close, ChannelId}) of
 	ok ->
 	    ok;
 	{error, channel_closed} ->
 	    ok
-    catch
-	exit:{noproc, _} ->
+    end.	
+
+stop(ConnectionManager) ->
+    case call(ConnectionManager, stop) of
+	ok ->
+	    ok;
+	{error, channel_closed} ->
 	    ok
     end.
-
+			
 send(ConnectionManager, ChannelId, Type, Data, Timeout) ->
     call(ConnectionManager, {data, ChannelId, Type, Data}, Timeout).
 
@@ -591,7 +585,9 @@ call(Pid, Msg, Timeout) ->
     catch
 	exit:{timeout, _} ->
 	    {error, timeout};
-	exit:{normal, _} ->
+	exit:{normal} ->
+	    {error, channel_closed};
+	exit:{{shutdown, _}, _} ->
 	    {error, channel_closed};
 	exit:{noproc,_} ->
 	    {error, channel_closed}
