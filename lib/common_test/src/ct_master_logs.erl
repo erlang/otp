@@ -23,7 +23,8 @@
 %%% node.</p>
 -module(ct_master_logs).
 
--export([start/2, make_all_runs_index/0, log/3, nodedir/2, stop/0]).
+-export([start/2, make_all_runs_index/0, log/3, nodedir/2,
+	 stop/0]).
 
 -record(state, {log_fd, start_time, logdir, rundir, 
 		nodedir_ix_fd, nodes, nodedirs=[]}).
@@ -32,6 +33,7 @@
 -define(all_runs_name, "master_runs.html").
 -define(nodedir_index_name, "index.html").
 -define(details_file_name,"details.info").
+-define(css_default, "ct_default.css").
 -define(table_color,"lightblue").
 
 %%%--------------------------------------------------------------------
@@ -87,6 +89,40 @@ init(Parent,LogDir,Nodes) ->
     RunDirAbs = filename:join(LogDir,RunDir),
     file:make_dir(RunDirAbs),
     write_details_file(RunDirAbs,{node(),Nodes}),
+
+    case basic_html() of
+	true ->
+	    put(basic_html, true);
+	BasicHtml ->
+	    put(basic_html, BasicHtml),
+	    %% copy stylesheet to log dir (both top dir and test run
+	    %% dir) so logs are independent of Common Test installation
+	    CTPath = code:lib_dir(common_test),
+	    CSSFileSrc = filename:join(filename:join(CTPath, "priv"),
+				       ?css_default),
+	    CSSFileDestTop = filename:join(LogDir, ?css_default),
+	    CSSFileDestRun = filename:join(RunDirAbs, ?css_default),
+	    case file:copy(CSSFileSrc, CSSFileDestTop) of
+		{error,Reason0} ->
+		    io:format(user, "ERROR! "++
+			      "CSS file ~p could not be copied to ~p. "++
+			      "Reason: ~p~n",
+			      [CSSFileSrc,CSSFileDestTop,Reason0]),
+		    exit({css_file_error,CSSFileDestTop});
+		_ ->
+		    case file:copy(CSSFileSrc, CSSFileDestRun) of
+			{error,Reason1} ->
+			    io:format(user, "ERROR! "++
+				      "CSS file ~p could not be copied to ~p. "++
+				      "Reason: ~p~n",
+				      [CSSFileSrc,CSSFileDestRun,Reason1]),
+			    exit({css_file_error,CSSFileDestRun});
+			_ ->
+			    ok
+		    end
+	    end
+    end,
+
     make_all_runs_index(LogDir),
     CtLogFd = open_ct_master_log(RunDirAbs),
     NodeStr = 
@@ -164,8 +200,9 @@ open_ct_master_log(Dir) ->
 	      "</style>\n",
 	      []),
     io:format(Fd, 
-	      "<br><h2>Progress Log</h2>\n"
-	      "<pre>\n",[]),
+	      xhtml("<br><h2>Progress Log</h2>\n<pre>\n",
+		    "<br /><h2>Progress Log</h2>\n<pre>\n"),
+	      []),
     Fd.
 
 close_ct_master_log(Fd) ->
@@ -178,17 +215,9 @@ config_table(Vars) ->
 
 config_table_header() ->
     ["<h2>Configuration</h2>\n",
-     "<table border=\"3\" cellpadding=\"5\" bgcolor=\"",?table_color,
-     "\"\n",
+     xhtml(["<table border=\"3\" cellpadding=\"5\" "
+	    "bgcolor=\"",?table_color,"\"\n"], "<table>\n"),
      "<tr><th>Key</th><th>Value</th></tr>\n"].
-
-%%
-%% keep for possible later use
-%%
-%%config_table1([{Key,Value}|Vars]) ->
-%%    ["<tr><td>", atom_to_list(Key), "</td>\n",
-%%     "<td><pre>",io_lib:format("~p",[Value]),"</pre></td></tr>\n" | 
-%%     config_table1(Vars)];
 
 config_table1([]) ->
     ["</table>\n"].
@@ -210,10 +239,10 @@ open_nodedir_index(Dir,StartTime) ->
 print_nodedir(Node,RunDir,Fd) ->
     Index = filename:join(RunDir,"index.html"),
     io:format(Fd,
-	      ["<TR>\n"
-	       "<TD ALIGN=center>",atom_to_list(Node),"</TD>\n",
-	       "<TD ALIGN=left><A HREF=\"",Index,"\">",Index,"</A></TD>\n",
-	       "</TR>\n"],[]),
+	      ["<tr>\n"
+	       "<td align=center>",atom_to_list(Node),"</td>\n",
+	       "<td align=left><a href=\"",Index,"\">",Index,"</a></td>\n",
+	       "</tr>\n"],[]),
     ok.
 
 close_nodedir_index(Fd) ->
@@ -222,12 +251,12 @@ close_nodedir_index(Fd) ->
 
 nodedir_index_header(StartTime) ->
     [header("Log Files " ++ format_time(StartTime)) |
-     ["<CENTER>\n",
-      "<P><A HREF=\"",?ct_master_log_name,"\">Common Test Master Log</A></P>",
-      "<TABLE border=\"3\" cellpadding=\"5\" ",
-      "BGCOLOR=\"",?table_color,"\">\n",
-      "<th><B>Node</B></th>\n",
-      "<th><B>Log</B></th>\n",
+     ["<center>\n",
+      "<p><a href=\"",?ct_master_log_name,"\">Common Test Master Log</a></p>",
+      xhtml(["<table border=\"3\" cellpadding=\"5\" "
+	     "bgcolor=\"",?table_color,"\">\n"], "<table>\n"),
+      "<th><b>Node</b></th>\n",
+      "<th><b>Log</b></th>\n",
       "\n"]].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -279,20 +308,20 @@ runentry(Dir) ->
 		{"unknown",""}
 	end,
     Index = filename:join(Dir,?nodedir_index_name),
-    ["<TR>\n"
-     "<TD ALIGN=center><A HREF=\"",Index,"\">",timestamp(Dir),"</A></TD>\n",
-     "<TD ALIGN=center>",MasterStr,"</TD>\n",
-     "<TD ALIGN=center>",NodesStr,"</TD>\n",
-     "</TR>\n"].
+    ["<tr>\n"
+     "<td align=center><a href=\"",Index,"\">",timestamp(Dir),"</a></td>\n",
+     "<td align=center>",MasterStr,"</td>\n",
+     "<td align=center>",NodesStr,"</td>\n",
+     "</tr>\n"].
 
 all_runs_header() ->
     [header("Master Test Runs") |
-     ["<CENTER>\n",
-      "<TABLE border=\"3\" cellpadding=\"5\" "
-      "BGCOLOR=\"",?table_color,"\">\n"
-      "<th><B>History</B></th>\n"
-      "<th><B>Master Host</B></th>\n"
-      "<th><B>Test Nodes</B></th>\n"
+     ["<center>\n",
+      xhtml(["<table border=\"3\" cellpadding=\"5\" "
+	     "bgcolor=\"",?table_color,"\">\n"], "<table>\n"),
+      "<th><b>History</b></th>\n"
+      "<th><b>Master Host</b></th>\n"
+      "<th><b>Test Nodes</b></th>\n"
       "\n"]].
 
 timestamp(Dir) ->
@@ -318,44 +347,46 @@ read_details_file(Dir) ->
 %%%--------------------------------------------------------------------
 
 header(Title) ->
-    ["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n"
-     "<!-- autogenerated by '"++atom_to_list(?MODULE)++"'. -->\n"
-     "<HTML>\n",
-     "<HEAD>\n",
-
-     "<TITLE>" ++ Title ++ "</TITLE>\n",
-     "<META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">\n",
-
-     "</HEAD>\n",
-
+    CSSFile = xhtml(fun() -> "" end, 
+		    fun() -> make_relative(locate_default_css_file()) end),
+    [xhtml(["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
+	    "<html>\n"],
+	   ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
+	    "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
+	    "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n"]),
+     "<!-- autogenerated by '"++atom_to_list(?MODULE)++"' -->\n",
+     "<head>\n",
+     "<title>" ++ Title ++ "</title>\n",
+     "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
+     xhtml("",
+	   ["<link rel=\"stylesheet\" href=\"",CSSFile,"\" type=\"text/css\">"]),
+     "</head>\n",
      body_tag(),
-
-     "<!-- ---- DOCUMENT TITLE  ---- -->\n",
-
-     "<CENTER>\n",
-     "<H1>" ++ Title ++ "</H1>\n",
-     "</CENTER>\n",
-
-     "<!-- ---- CONTENT ---- -->\n"].
+     "<center>\n",
+     "<h1>" ++ Title ++ "</h1>\n",
+     "</center>\n"].
 
 index_footer() ->
-    ["</TABLE>\n"
-     "</CENTER>\n" | footer()].
+    ["</table>\n"
+     "</center>\n" | footer()].
 
 footer() ->
-     ["<P><CENTER>\n"
-     "<HR>\n"
-     "<P><FONT SIZE=-1>\n"
+    ["<center>\n",
+     xhtml("<br><hr>\n", "<br />\n"),
+     xhtml("<p><font size=\"-1\">\n", "<div class=\"copyright\">"),
      "Copyright &copy; ", year(),
-     " <A HREF=\"http://erlang.ericsson.se\">Open Telecom Platform</A><BR>\n"
-     "Updated: <!date>", current_time(), "<!/date><BR>\n"
-     "</FONT>\n"
-     "</CENTER>\n"
+     " <a href=\"http://www.erlang.org\">Open Telecom Platform</a>",
+     xhtml("<br>\n", "<br />\n"),
+     "Updated: <!date>", current_time(), "<!/date>",
+     xhtml("<br>\n", "<br />\n"),
+     xhtml("</font></p>\n", "</div>\n"),
+     "</center>\n"
      "</body>\n"].
 
 body_tag() ->
-    "<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\""
-	"vlink=\"#800080\" alink=\"#FF0000\">\n".
+    xhtml("<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
+	  "vlink=\"#800080\" alink=\"#FF0000\">\n",
+	  "<body>\n").
 
 current_time() ->
     format_time(calendar:local_time()).
@@ -403,6 +434,23 @@ log_timestamp(Now) ->
     {_,{H,M,S}} = calendar:now_to_local_time(Now),
     lists:flatten(io_lib:format("~2.2.0w:~2.2.0w:~2.2.0w",
 				[H,M,S])).
+
+basic_html() ->
+    case application:get_env(common_test_master, basic_html) of
+	{ok,true} ->
+	    true;
+	_ ->
+	    false
+    end.
+
+xhtml(HTML, XHTML) ->
+    ct_logs:xhtml(HTML, XHTML).
+
+locate_default_css_file() ->
+    ct_logs:locate_default_css_file().
+
+make_relative(Dir) ->
+    ct_logs:make_relative(Dir).
 
 force_write_file(Name,Contents) ->
     force_delete(Name),
@@ -452,3 +500,4 @@ cast(Msg) ->
 	_Pid ->
 	    ?MODULE ! Msg
     end.
+

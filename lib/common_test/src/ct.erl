@@ -146,7 +146,8 @@ run(TestDirs) ->
 %%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
 %%%               {cover,CoverSpecFile} | {step,StepOpts} |
 %%%               {event_handler,EventHandlers} | {include,InclDirs} |
-%%%               {auto_compile,Bool} | {multiply_timetraps,M} | {scale_timetraps,Bool} |
+%%%               {auto_compile,Bool} | {create_priv_dir,CreatePrivDir}  |
+%%%               {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {logopts,LogOpts} | {basic_html,Bool} | 
@@ -171,6 +172,7 @@ run(TestDirs) ->
 %%%   EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
 %%%   InitArgs = [term()]
 %%%   InclDirs = [string()] | string()
+%%%   CreatePrivDir = auto_per_run | auto_per_tc | manual_per_tc
 %%%   M = integer()
 %%%   N = integer()
 %%%   DurTime = string(HHMMSS)
@@ -993,13 +995,21 @@ remove_config(Callback, Config) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec timetrap(Time) -> ok
-%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity
+%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity | Func
 %%%       Hours = integer()
 %%%       Mins = integer()
 %%%       Secs = integer()
 %%%       Millisecs = integer() | float()
+%%%       Func = {M,F,A} | fun()
+%%%       M = atom()
+%%%       F = atom()
+%%%       A = list()
 %%%
-%%% @doc <p>Use this function to set a new timetrap for the running test case.</p>
+%%% @doc <p>Use this function to set a new timetrap for the running test case.
+%%%      If the argument is <code>Func</code>, the timetrap will be triggered
+%%%      when this function returns. <code>Func</code> may also return a new
+%%%      <code>Time</code> value, which in that case will be the value for the
+%%%      new timetrap.</p>
 timetrap(Time) ->
     test_server:timetrap_cancel(),
     test_server:timetrap(Time).

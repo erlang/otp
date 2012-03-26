@@ -29,7 +29,7 @@
 -export([init_per_suite/1, init_per_suite/2, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
 	 write_testspec/2, write_testspec/3,
-	 run/2, run/4, get_opts/1, wait_for_ct_stop/1]).
+	 run/2, run/3, run/4, get_opts/1, wait_for_ct_stop/1]).
 
 -export([handle_event/2, start_event_receiver/1, get_events/2,
 	 verify_events/3, reformat/2, log_events/4,
@@ -223,7 +223,7 @@ get_opts(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% 
-run(Opts, Config) ->
+run(Opts, Config) when is_list(Opts) ->
     CTNode = proplists:get_value(ct_node, Config),
     Level = proplists:get_value(trace_level, Config),
     %% use ct interface
@@ -256,9 +256,19 @@ run(Opts, Config) ->
     end.
 
 run(M, F, A, Config) ->
+    run({M,F,A}, [], Config).
+
+run({M,F,A}, InitCalls, Config) ->
     CTNode = proplists:get_value(ct_node, Config),
     Level = proplists:get_value(trace_level, Config),
-    test_server:format(Level, "~nCalling ~w:~w(~p) on ~p~n",
+    lists:foreach(
+      fun({IM,IF,IA}) ->
+	      test_server:format(Level, "~nInit call ~w:~w(~p) on ~p...~n",
+				 [IM, IF, IA, CTNode]),
+	      Result = rpc:call(CTNode, IM, IF, IA),
+	      test_server:format(Level, "~n...with result: ~p~n", [Result])
+      end, InitCalls),
+    test_server:format(Level, "~nStarting test with ~w:~w(~p) on ~p~n",
 		       [M, F, A, CTNode]),
     rpc:call(CTNode, M, F, A).
 
@@ -1001,6 +1011,12 @@ result_match({SkipOrFail,{ErrorInd,{Why,'_'}}},
 result_match({SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,'_'}}}},
 	    {SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,_Stack}}}}) ->
     true;
+result_match({failed,{timetrap_timeout,{'$approx',Num}}},
+	     {failed,{timetrap_timeout,Value}}) ->
+    if Value >= trunc(Num-0.01*Num),
+       Value =< trunc(Num+0.01*Num) -> true;
+       true -> false
+    end;
 result_match(Result, Result) ->
     true;
 result_match(_, _) ->
