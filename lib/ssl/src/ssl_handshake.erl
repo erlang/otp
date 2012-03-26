@@ -37,7 +37,7 @@
 	 finished/4, verify_connection/5, get_tls_handshake/2,
 	 decode_client_key/3, server_hello_done/0,
 	 encode_handshake/2, init_hashes/0, update_hashes/2,
-	 decrypt_premaster_secret/2]).
+	 decrypt_premaster_secret/2, prf/5]).
 
 -export([dec_hello_extensions/2]).
 
@@ -541,6 +541,18 @@ server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
 
 server_key_exchange_hash(dhe_dss, Value) ->
     crypto:sha(Value).
+
+%%--------------------------------------------------------------------
+-spec prf(tls_version(), binary(), binary(), binary(), non_neg_integer()) ->
+		 {ok, binary()} | {error, undefined}.
+%%
+%% Description: use the TLS PRF to generate key material
+%%--------------------------------------------------------------------
+prf({3,0}, _, _, _, _) ->
+    {error, undefined};
+prf({3,N}, Secret, Label, Seed, WantedLength)
+  when N == 1; N == 2 ->
+    {ok, ssl_tls1:prf(Secret, Label, Seed, WantedLength)}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
