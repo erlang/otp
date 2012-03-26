@@ -21,7 +21,8 @@
 %%% Purpose: Test server support functions.
 %%%-------------------------------------------------------------------
 -module(test_server_sup).
--export([timetrap/2, timetrap/3, timetrap_cancel/1, capture_get/1, messages_get/1,
+-export([timetrap/2, timetrap/3, timetrap/4,
+	 timetrap_cancel/1, capture_get/1, messages_get/1,
 	 timecall/3, call_crash/5, app_test/2, check_new_crash_dumps/0,
 	 cleanup_crash_dumps/0, crash_dump_dir/0, tar_crash_dumps/0,
 	 get_username/0, get_os_family/0, 
@@ -44,9 +45,12 @@
 %% delays during the test (e.g. if cover is running).
 
 timetrap(Timeout0, Pid) ->
-    timetrap(Timeout0, true, Pid).
+    timetrap(Timeout0, Timeout0, true, Pid).
 
 timetrap(Timeout0, Scale, Pid) ->
+    timetrap(Timeout0, Timeout0, Scale, Pid).
+
+timetrap(Timeout0, ReportTVal, Scale, Pid) ->
     process_flag(priority, max),
     Timeout = if not Scale -> Timeout0;
 		 true -> test_server:timetrap_scale_factor() * Timeout0
@@ -54,28 +58,36 @@ timetrap(Timeout0, Scale, Pid) ->
     TruncTO = trunc(Timeout),
     receive
     after TruncTO ->
-	    MFLs = test_server:get_loc(Pid),
-	    Mon = erlang:monitor(process, Pid),
-	    Trap = 
-		case get(test_server_init_or_end_conf) of
-		    undefined ->
-			{timetrap_timeout,TruncTO,MFLs};
-		    InitOrEnd ->
-			{timetrap_timeout,TruncTO,MFLs,InitOrEnd}
-		end,
-	    exit(Pid, Trap),
-	    receive
-		{'DOWN', Mon, process, Pid, _} ->
+	    case is_process_alive(Pid) of
+		true ->
+		    TimeToReport = if Timeout0 == ReportTVal -> TruncTO;
+				      true -> ReportTVal end,
+		    MFLs = test_server:get_loc(Pid),
+		    Mon = erlang:monitor(process, Pid),
+		    Trap = 
+			case get(test_server_init_or_end_conf) of
+			    undefined ->
+				{timetrap_timeout,TimeToReport,MFLs};
+			    InitOrEnd ->
+				{timetrap_timeout,TimeToReport,MFLs,InitOrEnd}
+			end,
+		    exit(Pid, Trap),
+		    receive
+			{'DOWN', Mon, process, Pid, _} ->
+			    ok
+		    after 10000 ->
+			    %% Pid is probably trapping exits, hit it harder...
+			    catch error_logger:warning_msg(
+				    "Testcase process ~p not "
+				    "responding to timetrap "
+				    "timeout:~n"
+				    "  ~p.~n"
+				    "Killing testcase...~n",
+				    [Pid, Trap]),
+			    exit(Pid, kill)
+		    end;
+		false ->
 		    ok
-	    after 10000 ->
-		    %% Pid is probably trapping exits, hit it harder...
-		    catch error_logger:warning_msg("Testcase process ~p not "
-						   "responding to timetrap "
-						   "timeout:~n"
-						   "  ~p.~n"
-						   "Killing testcase...~n",
-						   [Pid, Trap]),
-		    exit(Pid, kill)
 	    end
     end.
 
@@ -88,8 +100,12 @@ timetrap_cancel(Handle) ->
     unlink(Handle),
     MonRef = erlang:monitor(process, Handle),
     exit(Handle, kill),
-    receive {'DOWN',MonRef,_,_,_} -> ok after 2000 -> ok end.
-
+    receive {'DOWN',MonRef,_,_,_} -> ok
+    after
+	2000 ->
+	    erlang:demonitor(MonRef, [flush]),
+	    ok
+    end.
 
 capture_get(Msgs) ->
     receive
@@ -99,7 +115,6 @@ capture_get(Msgs) ->
 	    lists:reverse(Msgs)
     end.
 
-
 messages_get(Msgs) ->
     receive
 	Msg ->
@@ -107,7 +122,6 @@ messages_get(Msgs) ->
     after 0 ->
 	    lists:reverse(Msgs)
     end.
-
 
 timecall(M, F, A) ->
     Befor = erlang:now(),

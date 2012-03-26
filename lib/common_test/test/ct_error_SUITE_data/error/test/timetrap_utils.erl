@@ -20,19 +20,11 @@
 -module(timetrap_utils).
 
 -export([timetrap_val/1,
-	 timetrap_err_fun/0,
-	 timetrap_err_mfa/0,
 	 timetrap_exit/1,
 	 timetrap_timeout/2]).
 
 timetrap_val(Val) ->
     Val.
-
-timetrap_err_fun() ->
-    fun() -> 5000 end.
-
-timetrap_err_mfa() ->
-    {?MODULE,timetrap_val,[5000]}.
 
 timetrap_exit(Reason) ->
     exit(Reason).
@@ -40,4 +32,3 @@ timetrap_exit(Reason) ->
 timetrap_timeout(Sleep, Val) ->
     ct:sleep(Sleep),
     Val.
-	    

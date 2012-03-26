@@ -114,7 +114,7 @@ all() ->
 
 tc0(_) ->
     ct:comment(io_lib:format("TO after ~w+~w sec", [?HANG,?TO])),
-    ct:sleep({seconds,5}),
+    ct:sleep({seconds,10}),
     ok.
 
 tc1() ->
@@ -133,5 +133,5 @@ tc2(_) ->
 
 tc3(_) ->
     ct:comment(io_lib:format("TO after ~w+~w sec", [?HANG,?TO])),
-    ct:sleep({seconds,5}),
+    ct:sleep({seconds,10}),
     ok.
