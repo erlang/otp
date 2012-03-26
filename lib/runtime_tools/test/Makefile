@@ -3,6 +3,7 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES =  \
+	dyntrace_SUITE \
 	runtime_tools_SUITE \
 	inviso_testmodule1_foo \
 	inviso_SUITE \
