@@ -246,9 +246,16 @@ dw_atomic_massage(Config) ->
 %%
 %%
 
-init_per_testcase(_Case, Config) ->
-    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
-    [{watchdog, Dog}|Config].
+init_per_testcase(Case, Config) ->
+    case inet:gethostname() of
+	{ok,"fenris"} when Case == max_threads ->
+	    %% Cannot use os:type+os:version as not all
+	    %% solaris10 machines are buggy.
+	    {skip, "This machine is buggy"};
+	_Else ->
+	    Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
+	    [{watchdog, Dog}|Config]
+    end.
 
 fin_per_testcase(_Case, Config) ->
     Dog = ?config(watchdog, Config),
