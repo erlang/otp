@@ -83,7 +83,8 @@ all(suite) ->
        fail_post_suite_cth, skip_pre_suite_cth,
        skip_post_suite_cth, recover_post_suite_cth, update_config_cth,
        state_update_cth, options_cth, same_id_cth, 
-       fail_n_skip_with_minimal_cth, prio_cth, no_config
+       fail_n_skip_with_minimal_cth, prio_cth, no_config,
+       data_dir
       ]
     ).
 
@@ -216,6 +217,12 @@ prio_cth(Config) when is_list(Config) ->
 no_config(Config) when is_list(Config) ->
     do_test(no_config, "ct_no_config_SUITE.erl",
 	    [verify_config_cth],Config).
+
+data_dir(Config) when is_list(Config) ->
+    do_test(data_dir, "ct_data_dir_SUITE.erl",
+	    [verify_data_dir_cth],Config).
+
+    
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -1128,6 +1135,55 @@ test_events(no_config) ->
      {?eh,tc_done,{ct_framework,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth,{empty_cth,terminate,[[]]}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(data_dir) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,cth,{empty_cth,init,[verify_data_dir_cth,[]]}},
+     {?eh,start_info,{1,1,2}},
+     {?eh,tc_start,{ct_framework,init_per_suite}},
+     {?eh,cth,{empty_cth,pre_init_per_suite,
+	       [ct_data_dir_SUITE,'$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+     {?eh,cth,{empty_cth,post_init_per_suite,
+	       [ct_data_dir_SUITE,'$proplist','$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+     {?eh,tc_done,{ct_framework,init_per_suite,ok}},
+     {?eh,tc_start,{ct_data_dir_SUITE,test_case_1}},
+     {?eh,cth,{empty_cth,pre_init_per_testcase,
+	       [test_case_1,'$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+     {?eh,cth,{empty_cth,post_end_per_testcase,
+	       [test_case_1,'$proplist',ok,[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+     {?eh,tc_done,{ct_data_dir_SUITE,test_case_1,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
+     [{?eh,tc_start,{ct_framework,{init_per_group,test_group,'$proplist'}}},
+      {?eh,cth,{empty_cth,pre_init_per_group,
+		[test_group,'$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+      {?eh,cth,{empty_cth,post_init_per_group,
+		[test_group,'$proplist','$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+      {?eh,tc_done,{ct_framework,
+		    {init_per_group,test_group,'$proplist'},ok}},
+      {?eh,tc_start,{ct_data_dir_SUITE,test_case_2}},
+      {?eh,cth,{empty_cth,pre_init_per_testcase,
+		[test_case_2,'$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+      {?eh,cth,{empty_cth,post_end_per_testcase,
+		[test_case_2,'$proplist',ok,[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+      {?eh,tc_done,{ct_data_dir_SUITE,test_case_2,ok}},
+      {?eh,test_stats,{2,0,{0,0}}},
+      {?eh,tc_start,{ct_framework,{end_per_group,test_group,'$proplist'}}},
+      {?eh,cth,{empty_cth,pre_end_per_group,
+		[test_group,'$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+      {?eh,cth,{empty_cth,post_end_per_group,
+		[test_group,'$proplist',ok,[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+      {?eh,tc_done,{ct_framework,{end_per_group,test_group,'$proplist'},ok}}],
+     {?eh,tc_start,{ct_framework,end_per_suite}},
+     {?eh,cth,{empty_cth,pre_end_per_suite,
+	       [ct_data_dir_SUITE,'$proplist',[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+     {?eh,cth,{empty_cth,post_end_per_suite,
+	       [ct_data_dir_SUITE,'$proplist',ok,[{data_dir_name,"ct_data_dir_SUITE_data"}]]}},
+     {?eh,tc_done,{ct_framework,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
 
