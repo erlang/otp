@@ -2143,7 +2143,7 @@ ERTS_POLL_EXPORT(erts_poll_wait)(ErtsPollSet ps,
 void
 ERTS_POLL_EXPORT(erts_poll_interrupt)(ErtsPollSet ps, int set)
 {
-#if defined(USE_THREADS)
+#if defined(USE_THREADS) || ERTS_POLL_ASYNC_INTERRUPT_SUPPORT
     if (!set)
 	reset_wakeup_state(ps);
     else
