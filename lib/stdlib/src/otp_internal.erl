@@ -78,89 +78,89 @@ obsolete_1(snmp, N, A) ->
     end;
 
 obsolete_1(snmpm, agent_info, 3) ->
-    {deprecated, {snmpm, agent_info, 2}, "R16B"};
+    {removed, {snmpm, agent_info, 2}, "R16B"};
 obsolete_1(snmpm, update_agent_info, 5) ->
-    {deprecated, {snmpm, update_agent_info, 4}, "R16B"};
+    {removed, {snmpm, update_agent_info, 4}, "R16B"};
 obsolete_1(snmpm, g, 3) ->
-    {deprecated, {snmpm, sync_get, 3}, "R16B"};
+    {removed, {snmpm, sync_get, 3}, "R16B"};
 obsolete_1(snmpm, g, 4) ->
-    {deprecated, {snmpm, sync_get, [3,4]}, "R16B"};
+    {removed, {snmpm, sync_get, [3,4]}, "R16B"};
 obsolete_1(snmpm, g, 5) ->
-    {deprecated, {snmpm, sync_get, [4,5]}, "R16B"};
+    {removed, {snmpm, sync_get, [4,5]}, "R16B"};
 obsolete_1(snmpm, g, 6) ->
-    {deprecated, {snmpm, sync_get, [5,6]}, "R16B"};
+    {removed, {snmpm, sync_get, [5,6]}, "R16B"};
 obsolete_1(snmpm, g, 7) ->
-    {deprecated, {snmpm, sync_get, 6}, "R16B"};
+    {removed, {snmpm, sync_get, 6}, "R16B"};
 obsolete_1(snmpm, ag, 3) ->
-    {deprecated, {snmpm, async_get, 3}, "R16B"};
+    {removed, {snmpm, async_get, 3}, "R16B"};
 obsolete_1(snmpm, ag, 4) ->
-    {deprecated, {snmpm, async_get, [3,4]}, "R16B"};
+    {removed, {snmpm, async_get, [3,4]}, "R16B"};
 obsolete_1(snmpm, ag, 5) ->
-    {deprecated, {snmpm, async_get, [4,5]}, "R16B"};
+    {removed, {snmpm, async_get, [4,5]}, "R16B"};
 obsolete_1(snmpm, ag, 6) ->
-    {deprecated, {snmpm, async_get, [5,6]}, "R16B"};
+    {removed, {snmpm, async_get, [5,6]}, "R16B"};
 obsolete_1(snmpm, ag, 7) ->
-    {deprecated, {snmpm, async_get, 6}, "R16B"};
+    {removed, {snmpm, async_get, 6}, "R16B"};
 obsolete_1(snmpm, gn, 3) ->
-    {deprecated, {snmpm, sync_get_next, 3}, "R16B"};
+    {removed, {snmpm, sync_get_next, 3}, "R16B"};
 obsolete_1(snmpm, gn, 4) ->
-    {deprecated, {snmpm, sync_get_next, [3,4]}, "R16B"};
+    {removed, {snmpm, sync_get_next, [3,4]}, "R16B"};
 obsolete_1(snmpm, gn, 5) ->
-    {deprecated, {snmpm, sync_get_next, [4,5]}, "R16B"};
+    {removed, {snmpm, sync_get_next, [4,5]}, "R16B"};
 obsolete_1(snmpm, gn, 6) ->
-    {deprecated, {snmpm, sync_get_next, [5,6]}, "R16B"};
+    {removed, {snmpm, sync_get_next, [5,6]}, "R16B"};
 obsolete_1(snmpm, gn, 7) ->
-    {deprecated, {snmpm, sync_get_next, 6}, "R16B"};
+    {removed, {snmpm, sync_get_next, 6}, "R16B"};
 obsolete_1(snmpm, agn, 3) ->
-    {deprecated, {snmpm, async_get_next, 3}, "R16B"};
+    {removed, {snmpm, async_get_next, 3}, "R16B"};
 obsolete_1(snmpm, agn, 4) ->
-    {deprecated, {snmpm, async_get_next, [3,4]}, "R16B"};
+    {removed, {snmpm, async_get_next, [3,4]}, "R16B"};
 obsolete_1(snmpm, agn, 5) ->
-    {deprecated, {snmpm, async_get_next, [4,5]}, "R16B"};
+    {removed, {snmpm, async_get_next, [4,5]}, "R16B"};
 obsolete_1(snmpm, agn, 6) ->
-    {deprecated, {snmpm, async_get_next, [5,6]}, "R16B"};
+    {removed, {snmpm, async_get_next, [5,6]}, "R16B"};
 obsolete_1(snmpm, agn, 7) ->
-    {deprecated, {snmpm, async_get_next, 6}, "R16B"};
+    {removed, {snmpm, async_get_next, 6}, "R16B"};
 obsolete_1(snmpm, s, 3) ->
-    {deprecated, {snmpm, sync_set, 3}, "R16B"};
+    {removed, {snmpm, sync_set, 3}, "R16B"};
 obsolete_1(snmpm, s, 4) ->
-    {deprecated, {snmpm, sync_set, [3,4]}, "R16B"};
+    {removed, {snmpm, sync_set, [3,4]}, "R16B"};
 obsolete_1(snmpm, s, 5) ->
-    {deprecated, {snmpm, sync_set, [4,5]}, "R16B"};
+    {removed, {snmpm, sync_set, [4,5]}, "R16B"};
 obsolete_1(snmpm, s, 6) ->
-    {deprecated, {snmpm, sync_set, [5,6]}, "R16B"};
+    {removed, {snmpm, sync_set, [5,6]}, "R16B"};
 obsolete_1(snmpm, s, 7) ->
-    {deprecated, {snmpm, sync_set, 6}, "R16B"};
+    {removed, {snmpm, sync_set, 6}, "R16B"};
 obsolete_1(snmpm, as, 3) ->
-    {deprecated, {snmpm, async_set, 3}, "R16B"};
+    {removed, {snmpm, async_set, 3}, "R16B"};
 obsolete_1(snmpm, as, 4) ->
-    {deprecated, {snmpm, async_set, [3,4]}, "R16B"};
+    {removed, {snmpm, async_set, [3,4]}, "R16B"};
 obsolete_1(snmpm, as, 5) ->
-    {deprecated, {snmpm, async_set, [4,5]}, "R16B"};
+    {removed, {snmpm, async_set, [4,5]}, "R16B"};
 obsolete_1(snmpm, as, 6) ->
-    {deprecated, {snmpm, async_set, [5,6]}, "R16B"};
+    {removed, {snmpm, async_set, [5,6]}, "R16B"};
 obsolete_1(snmpm, as, 7) ->
-    {deprecated, {snmpm, async_set, 6}, "R16B"};
+    {removed, {snmpm, async_set, 6}, "R16B"};
 obsolete_1(snmpm, gb, 5) ->
-    {deprecated, {snmpm, sync_get_bulk, 5}, "R16B"};
+    {removed, {snmpm, sync_get_bulk, 5}, "R16B"};
 obsolete_1(snmpm, gb, 6) ->
-    {deprecated, {snmpm, sync_get_bulk, [5,6]}, "R16B"};
+    {removed, {snmpm, sync_get_bulk, [5,6]}, "R16B"};
 obsolete_1(snmpm, gb, 7) ->
-    {deprecated, {snmpm, sync_get_bulk, [6,7]}, "R16B"};
+    {removed, {snmpm, sync_get_bulk, [6,7]}, "R16B"};
 obsolete_1(snmpm, gb, 8) ->
-    {deprecated, {snmpm, sync_get_bulk, [7,8]}, "R16B"};
+    {removed, {snmpm, sync_get_bulk, [7,8]}, "R16B"};
 obsolete_1(snmpm, gb, 9) ->
-    {deprecated, {snmpm, sync_get_bulk, 8}, "R16B"};
+    {removed, {snmpm, sync_get_bulk, 8}, "R16B"};
 obsolete_1(snmpm, agb, 5) ->
-    {deprecated, {snmpm, async_get_bulk, 5}, "R16B"};
+    {removed, {snmpm, async_get_bulk, 5}, "R16B"};
 obsolete_1(snmpm, agb, 6) ->
-    {deprecated, {snmpm, async_get_bulk, [5,6]}, "R16B"};
+    {removed, {snmpm, async_get_bulk, [5,6]}, "R16B"};
 obsolete_1(snmpm, agb, 7) ->
-    {deprecated, {snmpm, async_get_bulk, [6,7]}, "R16B"};
+    {removed, {snmpm, async_get_bulk, [6,7]}, "R16B"};
 obsolete_1(snmpm, agb, 8) ->
-    {deprecated, {snmpm, async_get_bulk, [7,8]}, "R16B"};
+    {removed, {snmpm, async_get_bulk, [7,8]}, "R16B"};
 obsolete_1(snmpm, agb, 9) ->
-    {deprecated, {snmpm, async_get_bulk, 8}, "R16B"};
+    {removed, {snmpm, async_get_bulk, 8}, "R16B"};
 
 
 %% *** MEGACO ***
