@@ -40,39 +40,38 @@
 
 %%------------------------------------------------------------------------
 
--type wx_object() :: any().  %% XXX: should be imported from wx
+-record(menu, {file                   :: wx:wx_object(),
+	       warnings               :: wx:wx_object(),
+	       plt                    :: wx:wx_object(),
+	       options                :: wx:wx_object(),
+	       help                   :: wx:wx_object()}).
+-type menu() :: #menu{}.
 
--record(menu, {file                   :: wx_object(),
-	       warnings               :: wx_object(),
-	       plt                    :: wx_object(),
-	       options                :: wx_object(),
-	       help                   :: wx_object()}).
-
--record(gui_state, {add               :: wx_object(),
-		    add_dir           :: wx_object(),
-		    add_rec           :: wx_object(),
-		    chosen_box        :: wx_object(),
+-record(gui_state, {add               :: wx:wx_object(),
+		    add_dir           :: wx:wx_object(),
+		    add_rec           :: wx:wx_object(),
+		    chosen_box        :: wx:wx_object(),
 		    analysis_pid      :: pid(),
-		    del_file          :: wx_object(),
+		    del_file          :: wx:wx_object(),
 		    doc_plt           :: dialyzer_plt:plt(),
-		    clear_chosen      :: wx_object(),
-		    clear_log         :: wx_object(),
-		    explain_warn      :: wx_object(),
-		    clear_warn        :: wx_object(),
+		    clear_chosen      :: wx:wx_object(),
+		    clear_log         :: wx:wx_object(),
+		    explain_warn      :: wx:wx_object(),
+		    clear_warn        :: wx:wx_object(),
 		    init_plt          :: dialyzer_plt:plt(),
-		    dir_entry         :: wx_object(),
-		    file_box          :: wx_object(),
+		    dir_entry         :: wx:wx_object(),
+		    file_box          :: wx:wx_object(),
 		    files_to_analyze  :: ordset(string()),
-		    gui               :: wx_object(),
-		    log               :: wx_object(),
-		    menu              :: #menu{},
-		    mode              :: wx_object(),
+		    gui               :: wx:wx_object(),
+		    log               :: wx:wx_object(),
+		    menu              :: menu(),
+		    mode              :: wx:wx_object(),
 		    options           :: #options{},
-		    run               :: wx_object(),
-		    stop              :: wx_object(),
-		    frame             :: wx_object(),
-		    warnings_box      :: wx_object(),
-		    explanation_box   :: wx_object(),
+		    run               :: wx:wx_object(),
+		    stop              :: wx:wx_object(),
+		    frame             :: wx:wx_object(),
+		    warnings_box      :: wx:wx_object(),
+		    explanation_box   :: wx:wx_object(),
 		    wantedWarnings    :: list(),
 		    rawWarnings       :: list(),
 		    backend_pid       :: pid(),
@@ -824,7 +823,7 @@ build_analysis_record(#gui_state{mode = Mode, menu = Menu, options = Options,
       1 -> src_code
     end,
   InitPlt =
-    case wxMenu:isChecked(Menu#menu.plt,?menuID_PLT_INIT_EMPTY) of
+    case wxMenu:isChecked(Menu#menu.plt, ?menuID_PLT_INIT_EMPTY) of
       true -> dialyzer_plt:new();
       false -> InitPlt0
     end,
