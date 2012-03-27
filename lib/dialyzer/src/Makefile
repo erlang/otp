@@ -86,7 +86,7 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 ifeq ($(NATIVE_LIBS_ENABLED),yes)
 ERL_COMPILE_FLAGS += +native
 endif
-ERL_COMPILE_FLAGS += +warn_exported_vars +warn_unused_import +warn_untyped_record +warn_missing_spec
+ERL_COMPILE_FLAGS += +warn_exported_vars +warn_unused_import +warn_untyped_record +warn_missing_spec +warnings_as_errors
 
 # ----------------------------------------------------
 # Targets
