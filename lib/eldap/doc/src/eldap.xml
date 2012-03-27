@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2012</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>eldap</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2000-06-20</date>
+    <rev>B</rev>
+  </header>
+  <module>eldap</module>
+  <modulesummary>Eldap Functions</modulesummary>
+  <description>
+    <p>This module provides a client api to the Lightweight Directory Access Protocol (LDAP).
+    </p>
+    <p>References:</p>
+    <list type="bulleted">
+      <item> <p>RFC 4510 - RFC 4519</p> </item>
+    </list>
+    <p>The above publications can be found at <url href="http://www.ietf.org">IETF</url>.
+    </p>
+    <p><em>Types</em></p>
+    <pre>
+handle()    Connection handle
+attribute() {Type = string(), Values=[string()]}
+modify_op() See mod_add/2, mod_delete/2, mod_replace/2
+scope()     See baseObject/0, singleLevel/0, wholeSubtree/0
+dereference() See neverDerefAliases/0, derefInSearching/0, derefFindingBaseObj/0, derefAlways/0
+filter()    See present/1, substrings/2,
+                equalityMatch/2, greaterOrEqual/2, lessOrEqual/2,
+                approxMatch/2,
+                'and'/1, 'or'/1, 'not'/1.
+    </pre>
+    <p></p>
+  </description>
+  <funcs>
+    <func>
+      <name>open([Host]) -> {ok, Handle} | {error, Reason}</name>
+      <fsummary>Open a connection to an LDAP server.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+      </type>
+      <desc>
+        <p>Setup a connection to an LDAP server, the <c>HOST</c>'s are tried in order. </p>
+      </desc>
+    </func>
+    <func>
+      <name>open([Host], [Option]) -> {ok, Handle} | {error, Reason}</name>
+      <fsummary>Open a connection to an LDAP server.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+	<v>Option = {port, integer()} | {log, function()} | {timeout, integer()} | {ssl, boolean()}</v>
+      </type>
+      <desc>
+        <p>Setup a connection to an LDAP server, the <c>HOST</c>'s are tried in order.</p>
+	<p>The log function takes three arguments, <c>fun(Level, FormatString, [FormatArg]) end</c>.</p>
+	<p>Timeout set the maximum time in milliseconds that each server request may take.</p>
+      </desc>
+    </func>
+    <func>
+      <name>close(Handle) -> ok</name>
+      <fsummary>Shutdown the connection.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+      </type>
+      <desc>
+        <p>Shutdown the connection.</p>
+      </desc>
+    </func>
+    <func>
+      <name>simple_bind(Handle, Dn, Password) -> ok | {error, Reason}</name>
+      <fsummary>Authenticate the connection.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+        <v>Dn = string()</v>
+        <v>Password = string()</v>
+      </type>
+      <desc>
+        <p>Authenticate the connection using simple authentication.</p>
+      </desc>
+    </func>
+    <func>
+      <name>add(Handle, Dn, [Attribute]) -> ok | {error, Reason}</name>
+      <fsummary>Add an entry.</fsummary>
+      <type>
+	<v>Handle = handle()</v>
+        <v>Dn = string()</v>
+	<v>Attribute = attribute()</v>
+      </type>
+      <desc>
+	<p> Add an entry. The entry must not exist.</p>
+	<pre>
+  add(Handle,
+      "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+       [{"objectclass", ["person"]},
+        {"cn", ["Bill Valentine"]},
+        {"sn", ["Valentine"]},
+        {"telephoneNumber", ["545 555 00"]}]
+     )
+	</pre>
+      </desc>
+    </func>
+    <func>
+      <name>delete(Handle, Dn) -> ok | {error, Reason}</name>
+      <fsummary>Delete an entry.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+      </type>
+      <desc>
+	<p> Delete an entry.</p>
+	<pre>
+  delete(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com")
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name>mod_add(Type, [Value]) -> modify_op()</name>
+      <fsummary>Create a modification operation.</fsummary>
+      <type>
+        <v>Type = string()</v>
+        <v>Value = string()</v>
+      </type>
+      <desc> <p> Create an add modification operation.</p> </desc>
+    </func>
+    <func>
+      <name>mod_delete(Type, [Value]) -> modify_op()</name>
+      <fsummary>Create a modification operation.</fsummary>
+      <type>
+        <v>Type = string()</v>
+        <v>Value = string()</v>
+      </type>
+      <desc> <p> Create a delete modification operation.</p> </desc>
+    </func>
+    <func>
+      <name>mod_replace(Type, [Value]) -> modify_op()</name>
+      <fsummary>Create a modification operation.</fsummary>
+      <type>
+        <v>Type = string()</v>
+        <v>Value = string()</v>
+      </type>
+      <desc> <p> Create a replace modification operation.</p> </desc>
+    </func>
+
+    <func>
+      <name>modify(Handle, Dn, [ModifyOp]) -> ok | {error, Reason}</name>
+      <fsummary>Modify an entry.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>ModifyOp = modify_op()</v>
+      </type>
+      <desc>
+	<p> Modify an entry.</p>
+	<pre>
+  modify(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com",
+         [eldap:mod_replace("telephoneNumber", ["555 555 00"]),
+	  eldap:mod_add("description", ["LDAP Hacker"]) ])
+	</pre>
+      </desc>
+    </func>
+    <func>
+      <name>modify_dn(Handle, Dn, NewRDN, DeleteOldRDN, NewSupDN) -> ok | {error, Reason}</name>
+      <fsummary>Modify the DN of an entry.</fsummary>
+      <type>
+        <v>Dn = string()</v>
+        <v>NewRDN = string()</v>
+        <v>DeleteOldRDN = boolean()</v>
+        <v>NewSupDN = string()</v>
+      </type>
+      <desc>
+	<p> Modify the DN of an entry. <c>DeleteOldRDN</c> indicates
+	whether the current RDN should be removed after operation.
+	<c>NewSupDN</c> should be "" if the RDN should not be moved or the new parent which
+	the RDN will be moved to.</p>
+	<pre>
+  modify_dn(Handle, "cn=Bill Valentine, ou=people, o=Example Org, dc=example, dc=com ",
+            "cn=Bill Jr Valentine", true, "")
+	</pre>
+      </desc>
+    </func>
+    <func>
+      <name>search(Handle, SearchOptions) -> {ok, #eldap_search_result{}} | {error, Reason}</name>
+      <fsummary>Search the Directory</fsummary>
+      <type>
+        <v>SearchOptions = #eldap_search{} | [SearchOption]</v>
+        <v>SearchOption = {base, string()} | {filter, filter()} | {scope, scope()}
+	| {attributes, [string()]} | {deref, dereference()} |
+	| {types_only, boolean()} | {timeout, integer()}
+	</v>
+      </type>
+      <desc>
+	<p>Search the directory with the supplied the SearchOptions.
+	The base and filter options must be supplied.
+	Default values: scope is <c>wholeSubtree()</c>, deref is <c>derefAlways()</c>,
+	types_only is <c>false</c> and timeout is <c>0</c> (meaning infinity).
+	</p>
+	<pre>
+  Filter = eldap:substrings("cn", [{any,"V"}]),
+  search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
+	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name>baseObject() -> scope()</name>
+      <fsummary>Create search scope.</fsummary>
+      <desc> <p> Search baseobject only.</p> </desc>
+    </func>
+    <func>
+      <name>singleLevel() -> scope()</name>
+      <fsummary>Create search scope.</fsummary>
+      <desc> <p> Search the specified level only, i.e. do not recurse.</p> </desc>
+    </func>
+    <func>
+      <name>wholeSubtree() -> scope()</name>
+      <fsummary>Create search scope.</fsummary>
+      <desc> <p> Search the entire subtree.</p> </desc>
+    </func>
+
+    <func>
+      <name>neverDerefAliases() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Never derefrence aliases, treat aliases as entries.</p> </desc>
+    </func>
+    <func>
+      <name>derefAlways() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Always derefrence aliases.</p> </desc>
+    </func>
+    <func>
+      <name> derefInSearching() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Derefrence aliases only when searching.</p> </desc>
+    </func>
+    <func>
+      <name> derefFindingBaseObj() -> dereference()</name>
+      <fsummary>Create search option.</fsummary>
+      <desc> <p>Derefrence aliases only in finding the base.</p> </desc>
+    </func>
+
+    <func>
+      <name>present(Type) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+      </type>
+      <desc> <p>Create a filter which filters on attribute type presence.</p> </desc>
+    </func>
+    <func>
+      <name>substrings(Type, [SubString]) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>SubString = {StringPart, string()}</v>
+	<v>StringPart = initial | any | final</v>
+      </type>
+      <desc> <p>Create a filter which filters on substrings.</p> </desc>
+    </func>
+    <func>
+      <name>equalityMatch(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a equality filter.</p> </desc>
+    </func>
+    <func>
+      <name>greaterOrEqual(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a greater or equal filter.</p> </desc>
+    </func>
+    <func>
+      <name>lessOrEqual(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a less or equal filter.</p> </desc>
+    </func>
+    <func>
+      <name>approxMatch(Type, Value) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Type = string()</v>
+	<v>Value = string()</v>
+      </type>
+      <desc> <p>Create a approximation match filter.</p> </desc>
+    </func>
+    <func>
+      <name>'and'([Filter]) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Filter = filter()</v>
+      </type>
+      <desc> <p>Creates a filter where all <c>Filter</c> must be true.</p> </desc>
+    </func>
+    <func>
+      <name>'or'([Filter]) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Filter = filter()</v>
+      </type>
+      <desc> <p>Create a filter where at least one of the <c>Filter</c> must be true.</p> </desc>
+    </func>
+    <func>
+      <name>'not'(Filter) -> filter()</name>
+      <fsummary>Create search filter option.</fsummary>
+      <type>
+	<v>Filter = filter()</v>
+      </type>
+      <desc> <p>Negate a filter.</p> </desc>
+    </func>
+
+  </funcs>
+
+</erlref>
+
