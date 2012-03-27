@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -44,20 +44,20 @@
 	 info/0, 
 	 system_info/0, 
 	 simulate_crash/1,
-	 register_agent/2, register_agent/3, 
-	 unregister_agent/1, unregister_agent/2, 
-	 agent_info/2, agent_info/3, 
-	 update_agent_info/3, update_agent_info/4, 
+	 register_agent/2, 
+	 unregister_agent/1, 
+	 agent_info/2, 
+	 update_agent_info/3, 
 	 which_all_agents/0, which_own_agents/0, 
 	 load_mib/1, unload_mib/1, 
-	 sync_get/1,       sync_get/2,       sync_get/3,       sync_get2/3, 
-	 async_get/1,      async_get/2,      async_get/3,      async_get2/3,
-	 sync_get_next/1,  sync_get_next/2,  sync_get_next/3,  sync_get_next2/3,
-	 async_get_next/1, async_get_next/2, async_get_next/3, async_get_next2/3,
-	 sync_set/1,       sync_set/2,       sync_set/3,       sync_set2/3, 
-	 async_set/1,      async_set/2,      async_set/3,      async_set2/3, 
-	 sync_get_bulk/3,  sync_get_bulk/4,  sync_get_bulk/5,  sync_get_bulk2/5,
-	 async_get_bulk/3, async_get_bulk/4, async_get_bulk/5, async_get_bulk2/5,
+	 sync_get/1,       sync_get/2,       sync_get2/3, 
+	 async_get/1,      async_get/2,      async_get2/3,
+	 sync_get_next/1,  sync_get_next/2,  sync_get_next2/3,
+	 async_get_next/1, async_get_next/2, async_get_next2/3,
+	 sync_set/1,       sync_set/2,       sync_set2/3, 
+	 async_set/1,      async_set/2,      async_set2/3, 
+	 sync_get_bulk/3,  sync_get_bulk/4,  sync_get_bulk2/5,
+	 async_get_bulk/3, async_get_bulk/4, async_get_bulk2/5,
 	 name_to_oid/1, oid_to_name/1, 
 	 purify_oid/1	 
         ]).
@@ -73,15 +73,11 @@
 
 -export([
 	 handle_error/3,
-         handle_agent/4,
+         handle_agent/5,
          handle_pdu/4,
          handle_trap/3,
          handle_inform/3,
-         handle_report/3, 
-         handle_pdu/5,    % For backwards compatibillity 
-         handle_trap/4,   % For backwards compatibillity 
-         handle_inform/4, % For backwards compatibillity 
-         handle_report/4  % For backwards compatibillity 
+         handle_report/3
 	]).
 
 
@@ -126,27 +122,16 @@ simulate_crash(Reason) ->
 
 register_agent(TargetName, Config) 
   when is_list(TargetName) andalso is_list(Config) ->
-    call({register_agent, TargetName, Config});
-register_agent(Addr, Port) ->
-    register_agent(Addr, Port, []).
-
-register_agent(Addr, Port, Conf) ->
-    call({register_agent, Addr, Port, Conf}).
+    call({register_agent, TargetName, Config}).
 
 unregister_agent(TargetName) ->
     call({unregister_agent, TargetName}).
-unregister_agent(Addr, Port) ->
-    call({unregister_agent, Addr, Port}).
 
 agent_info(TargetName, Item) ->
     call({agent_info, TargetName, Item}).
-agent_info(Addr, Port, Item) ->
-    call({agent_info, Addr, Port, Item}).
 
 update_agent_info(TargetName, Item, Val) ->
     call({update_agent_info, TargetName, Item, Val}).
-update_agent_info(Addr, Port, Item, Val) ->
-    call({update_agent_info, Addr, Port, Item, Val}).
 
 which_all_agents() ->
     call(which_all_agents).
@@ -165,11 +150,8 @@ unload_mib(Mib) ->
 sync_get(Oids) ->
     call({sync_get, Oids}).
 
-sync_get(Addr_or_TargetName, Oids) ->
-    call({sync_get, Addr_or_TargetName, Oids}).
-
-sync_get(Addr, Port, Oids) ->
-    call({sync_get, Addr, Port, Oids}).
+sync_get(TargetName, Oids) ->
+    call({sync_get, TargetName, Oids}).
 
 sync_get2(TargetName, Oids, SendOpts) ->
     call({sync_get2, TargetName, Oids, SendOpts}).
@@ -180,11 +162,8 @@ sync_get2(TargetName, Oids, SendOpts) ->
 async_get(Oids) ->
     call({async_get, Oids}).
 
-async_get(Addr_or_TargetName, Oids) ->
-    call({async_get, Addr_or_TargetName, Oids}).
-
-async_get(Addr, Port, Oids) ->
-    call({async_get, Addr, Port, Oids}).
+async_get(TargetName, Oids) ->
+    call({async_get, TargetName, Oids}).
 
 async_get2(TargetName, Oids, SendOpts) ->
     call({async_get2, TargetName, Oids, SendOpts}).
@@ -194,11 +173,8 @@ async_get2(TargetName, Oids, SendOpts) ->
 sync_get_next(Oids) ->
     call({sync_get_next, Oids}).
 
-sync_get_next(Addr_or_TargetName, Oids) ->
-    call({sync_get_next, Addr_or_TargetName, Oids}).
-
-sync_get_next(Addr, Port, Oids) ->
-    call({sync_get_next, Addr, Port, Oids}).
+sync_get_next(TargetName, Oids) ->
+    call({sync_get_next, TargetName, Oids}).
 
 sync_get_next2(TargetName, Oids, SendOpts) ->
     call({sync_get_next2, TargetName, Oids, SendOpts}).
@@ -208,11 +184,8 @@ sync_get_next2(TargetName, Oids, SendOpts) ->
 async_get_next(Oids) ->
     call({async_get_next, Oids}).
 
-async_get_next(Addr_or_TargetName, Oids) ->
-    call({async_get_next, Addr_or_TargetName, Oids}).
-
-async_get_next(Addr, Port, Oids) ->
-    call({async_get_next, Addr, Port, Oids}).
+async_get_next(TargetName, Oids) ->
+    call({async_get_next, TargetName, Oids}).
 
 async_get_next2(TargetName, Oids, SendOpts) ->
     call({async_get_next2, TargetName, Oids, SendOpts}).
@@ -222,11 +195,8 @@ async_get_next2(TargetName, Oids, SendOpts) ->
 sync_set(VAV) ->
     call({sync_set, VAV}).
 
-sync_set(Addr_or_TargetName, VAV) ->
-    call({sync_set, Addr_or_TargetName, VAV}).
-
-sync_set(Addr, Port, VAV) ->
-    call({sync_set, Addr, Port, VAV}).
+sync_set(TargetName, VAV) ->
+    call({sync_set, TargetName, VAV}).
 
 sync_set2(TargetName, VAV, SendOpts) ->
     call({sync_set2, TargetName, VAV, SendOpts}).
@@ -236,11 +206,8 @@ sync_set2(TargetName, VAV, SendOpts) ->
 async_set(VAV) ->
     call({async_set, VAV}).
 
-async_set(Addr_or_TargetName, VAV) ->
-    call({async_set, Addr_or_TargetName, VAV}).
-
-async_set(Addr, Port, VAV) ->
-    call({async_set, Addr, Port, VAV}).
+async_set(TargetName, VAV) ->
+    call({async_set, TargetName, VAV}).
 
 async_set2(TargetName, VAV, SendOpts) ->
     call({async_set2, TargetName, VAV, SendOpts}).
@@ -250,11 +217,8 @@ async_set2(TargetName, VAV, SendOpts) ->
 sync_get_bulk(NonRep, MaxRep, Oids) ->
     call({sync_get_bulk, NonRep, MaxRep, Oids}).
 
-sync_get_bulk(Addr_or_TargetName, NonRep, MaxRep, Oids) ->
-    call({sync_get_bulk, Addr_or_TargetName, NonRep, MaxRep, Oids}).
-
-sync_get_bulk(Addr, Port, NonRep, MaxRep, Oids) ->
-    call({sync_get_bulk, Addr, Port, NonRep, MaxRep, Oids}).
+sync_get_bulk(TargetName, NonRep, MaxRep, Oids) ->
+    call({sync_get_bulk, TargetName, NonRep, MaxRep, Oids}).
 
 sync_get_bulk2(TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({sync_get_bulk2, TargetName, NonRep, MaxRep, Oids, SendOpts}).
@@ -264,11 +228,8 @@ sync_get_bulk2(TargetName, NonRep, MaxRep, Oids, SendOpts) ->
 async_get_bulk(NonRep, MaxRep, Oids) ->
     call({async_get_bulk, NonRep, MaxRep, Oids}).
 
-async_get_bulk(Addr_or_TargetName, NonRep, MaxRep, Oids) ->
-    call({async_get_bulk, Addr_or_TargetName, NonRep, MaxRep, Oids}).
-
-async_get_bulk(Addr, Port, NonRep, MaxRep, Oids) ->
-    call({async_get_bulk, Addr, Port, NonRep, MaxRep, Oids}).
+async_get_bulk(TargetName, NonRep, MaxRep, Oids) ->
+    call({async_get_bulk, TargetName, NonRep, MaxRep, Oids}).
 
 async_get_bulk2(TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({async_get_bulk2, TargetName, NonRep, MaxRep, Oids, SendOpts}).
@@ -340,21 +301,9 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{register_agent, Addr, Port, Conf}, From, Ref} ->
-	    d("loop -> received register_agent request"),
-	    Res = snmpm:register_agent(Id, Addr, Port, Conf),
-	    reply(From, Res, Ref),
-	    loop(S);
-
 	{{unregister_agent, TargetName}, From, Ref} ->
 	    d("loop -> received unregister_agent request"),
 	    Res = snmpm:unregister_agent(Id, TargetName),
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{unregister_agent, Addr, Port}, From, Ref} ->
-	    d("loop -> received unregister_agent request"),
-	    Res = snmpm:unregister_agent(Id, Addr, Port),
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -368,31 +317,12 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{agent_info, Addr, Port, Item}, From, Ref} ->
-	   d("loop -> received agent_info request with"
-	     "~n   Addr: ~p"
-	     "~n   Port: ~p"
-	     "~n   Item: ~p", [Addr, Port, Item]), 
-	    Res = snmpm:agent_info(Addr, Port, Item),
-	    reply(From, Res, Ref),
-	    loop(S);
-
 	{{update_agent_info, TargetName, Item, Val}, From, Ref} ->
 	   d("loop -> received update_agent_info request with"
 	     "~n   TargetName: ~p"
 	     "~n   Item:       ~p"
 	     "~n   Val:        ~p", [TargetName, Item, Val]), 
 	    Res = snmpm:update_agent_info(Id, TargetName, Item, Val),
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{update_agent_info, Addr, Port, Item, Val}, From, Ref} ->
-	   d("loop -> received update_agent_info request with"
-	     "~n   Addr: ~p"
-	     "~n   Port: ~p"
-	     "~n   Item: ~p"
-	     "~n   Val: ~p", [Addr, Port, Item, Val]), 
-	    Res = snmpm:update_agent_info(Id, Addr, Port, Item, Val),
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -452,23 +382,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{sync_get, Addr, Oids}, From, Ref} ->
-	    d("loop -> received sync_get request with"
-	      "~n   Addr: ~p"
-	      "~n   Oids: ~p", [Addr, Oids]),
-	    Res = snmpm:g(Id, Addr, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_get, Addr, Port, Oids}, From, Ref} ->
-	    d("loop -> received sync_get request with"
-	      "~n   Addr: ~p"
-	      "~n   Port: ~p"
-	      "~n   Oids: ~p", [Addr, Port, Oids]),
-	    Res = snmpm:g(Id, Addr, Port, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) get-request --
@@ -497,18 +410,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	      "~n   TargetName: ~p"
 	      "~n   Oids:       ~p", [TargetName, Oids]),
 	    Res = snmpm:async_get(Id, TargetName, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get, Addr, Oids}, From, Ref} ->
-	    d("loop -> received async_get request"),
-	    Res = snmpm:ag(Id, Addr, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get, Addr, Port, Oids}, From, Ref} ->
-	    d("loop -> received async_get request"),
-	    Res = snmpm:ag(Id, Addr, Port, Oids), 
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -543,18 +444,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{sync_get_next, Addr, Oids}, From, Ref} ->
-	    d("loop -> received sync_get_next request"),
-	    Res = snmpm:gn(Id, Addr, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_get_next, Addr, Port, Oids}, From, Ref} ->
-	    d("loop -> received sync_get_next request"),
-	    Res = snmpm:gn(Id, Addr, Port, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) get_next-request --
@@ -586,18 +475,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{async_get_next, Addr, Oids}, From, Ref} ->
-	    d("loop -> received async_get_next request"),
-	    Res = snmpm:agn(Id, Addr, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get_next, Addr, Port, Oids}, From, Ref} ->
-	    d("loop -> received async_get_next request"),
-	    Res = snmpm:agn(Id, Addr, Port, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (sync) set-request --
@@ -626,18 +503,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{sync_set, Addr, VAV}, From, Ref} ->
-	    d("loop -> received sync_set request"),
-	    Res = snmpm:s(Id, Addr, VAV), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_set, Addr, Port, VAV}, From, Ref} ->
-	    d("loop -> received sync_set request"),
-	    Res = snmpm:s(Id, Addr, Port, VAV), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) set-request --
@@ -663,18 +528,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	{{async_set, TargetName, VAV}, From, Ref} when is_list(TargetName) ->
 	    d("loop -> received async_set request"),
 	    Res = snmpm:async_set(Id, TargetName, VAV), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_set, Addr, VAV}, From, Ref} ->
-	    d("loop -> received async_set request"),
-	    Res = snmpm:as(Id, Addr, VAV), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_set, Addr, Port, VAV}, From, Ref} ->
-	    d("loop -> received async_set request"),
-	    Res = snmpm:as(Id, Addr, Port, VAV), 
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -718,27 +571,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    reply(From, Res, Ref),
 	    loop(S);
 
-	{{sync_get_bulk, Addr, NonRep, MaxRep, Oids}, From, Ref} ->
-	    d("loop -> received sync_get_bulk request with"
-	      "~n   Addr:   ~p"
-	      "~n   NonRep: ~w"
-	      "~n   MaxRep: ~w"
-	      "~n   Oids:   ~p", [Addr, NonRep, MaxRep, Oids]),
-	    Res = snmpm:gb(Id, Addr, NonRep, MaxRep, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{sync_get_bulk, Addr, Port, NonRep, MaxRep, Oids}, From, Ref} ->
-	    d("loop -> received sync_get_bulk request with"
-	      "~n   Addr:   ~p"
-	      "~n   Port:   ~w"
-	      "~n   NonRep: ~w"
-	      "~n   MaxRep: ~w"
-	      "~n   Oids:   ~p", [Addr, Port, NonRep, MaxRep, Oids]),
-	    Res = snmpm:gb(Id, Addr, Port, NonRep, MaxRep, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
 
 	%% 
 	%% -- (async) get-bulk-request --
@@ -776,27 +608,6 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	      "~n   MaxRep:     ~w"
 	      "~n   Oids:       ~p", [TargetName, NonRep, MaxRep, Oids]),
 	    Res = snmpm:async_get_bulk(Id, TargetName, NonRep, MaxRep, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get_bulk, Addr, NonRep, MaxRep, Oids}, From, Ref} ->
-	    d("loop -> received async_get_bulk request with"
-	      "~n   Addr:   ~p"
-	      "~n   NonRep: ~w"
-	      "~n   MaxRep: ~w"
-	      "~n   Oids:   ~p", [Addr, NonRep, MaxRep, Oids]),
-	    Res = snmpm:agb(Id, Addr, NonRep, MaxRep, Oids), 
-	    reply(From, Res, Ref),
-	    loop(S);
-
-	{{async_get_bulk, Addr, Port, NonRep, MaxRep, Oids}, From, Ref} ->
-	    d("loop -> received async_get_bulk request with"
-	      "~n   Addr:   ~p"
-	      "~n   Port:   ~w"
-	      "~n   NonRep: ~w"
-	      "~n   MaxRep: ~w"
-	      "~n   Oids:   ~p", [Addr, Port, NonRep, MaxRep, Oids]),
-	    Res = snmpm:agb(Id, Addr, Port, NonRep, MaxRep, Oids), 
 	    reply(From, Res, Ref),
 	    loop(S);
 
@@ -846,27 +657,12 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    Parent ! {async_event, ReqId, {pdu, SnmpResponse}},
 	    loop(S);
 
-	%% For backwards compatibillity 
-	{handle_pdu, _Pid, _Addr, _Port, ReqId, SnmpResponse} ->
-	    d("loop -> received pdu callback from manager for ~w", [ReqId]),
-	    Parent ! {async_event, ReqId, {pdu, SnmpResponse}},
-	    loop(S);
-
 	{handle_trap, _Pid, TargetName, SnmpTrap} ->
 	    d("loop -> received trap callback from manager for "
 	      "~n   ~p", 
 	      "~n   ~p", 
 	      [TargetName, SnmpTrap]),
 	    Parent ! {async_event, TargetName, {trap, SnmpTrap}}, 
-	    loop(S);
-
-	%% For backwards compatibillity 
-	{handle_trap, _Pid, Addr, Port, SnmpTrap} ->
-	    d("loop -> received trap callback from manager for "
-	      "~n   ~p:~w", 
-	      "~n   ~p", 
-	      [Addr, Port, SnmpTrap]),
-	    Parent ! {async_event, {Addr, Port}, {trap, SnmpTrap}}, 
 	    loop(S);
 
 	{handle_inform, Pid, TargetName, SnmpInform} ->
@@ -877,30 +673,12 @@ loop(#state{parent = Parent, id = Id} = S) ->
 	    Parent ! {async_event, TargetName, {inform, Pid, SnmpInform}}, 
 	    loop(S);
 
-	%% For backwards compatibillity 
-	{handle_inform, Pid, Addr, Port, SnmpInform} ->
-	    d("loop -> received inform callback from manager for "
-	      "~n   ~p:~w", 
-	      "~n   ~p", 
-	      [Addr, Port, SnmpInform]),
-	    Parent ! {async_event, {Addr, Port}, {inform, Pid, SnmpInform}}, 
-	    loop(S);
-
 	{handle_report, _Pid, TargetName, SnmpReport} ->
 	    d("loop -> received report callback from manager for "
 	      "~n   ~p", 
 	      "~n   ~p", 
 	      [TargetName, SnmpReport]),
 	    Parent ! {async_event, TargetName, {report, SnmpReport}}, 
-	    loop(S);
-
-	%% For backwards compatibillity 
-	{handle_report, _Pid, Addr, Port, SnmpReport} ->
-	    d("loop -> received report callback from manager for "
-	      "~n   ~p:~w", 
-	      "~n   ~p", 
-	      [Addr, Port, SnmpReport]),
-	    Parent ! {async_event, {Addr, Port}, {report, SnmpReport}}, 
 	    loop(S);
 
 	{'EXIT', Parent, Reason} ->
@@ -981,8 +759,8 @@ handle_error(ReqId, Reason, UserPid) ->
     ignore.
  
  
-handle_agent(Addr, Port, SnmpInfo, UserPid) ->
-    UserPid ! {handle_agent, self(), Addr, Port, SnmpInfo},
+handle_agent(Addr, Port, SnmpInfo, UserPid, UserData) ->
+    UserPid ! {handle_agent, self(), Addr, Port, SnmpInfo, UserData},
     ignore.
  
  
@@ -990,21 +768,9 @@ handle_pdu(TargetName, ReqId, SnmpResponse, UserPid) ->
     UserPid ! {handle_pdu, self(), TargetName, ReqId, SnmpResponse},
     ignore.
  
-%% For backwards compatibillity 
-handle_pdu(Addr, Port, ReqId, SnmpResponse, UserPid) ->
-    UserPid ! {handle_pdu, self(), Addr, Port, ReqId, SnmpResponse},
-    ignore.
- 
- 
 handle_trap(TargetName, SnmpTrap, UserPid) ->
     UserPid ! {handle_trap, self(), TargetName, SnmpTrap},
     ok.
- 
-%% For backwards compatibillity 
-handle_trap(Addr, Port, SnmpTrap, UserPid) ->
-    UserPid ! {handle_trap, self(), Addr, Port, SnmpTrap},
-    ok.
- 
  
 handle_inform(TargetName, SnmpInform, UserPid) ->
     UserPid ! {handle_inform, self(), TargetName, SnmpInform},
@@ -1015,24 +781,8 @@ handle_inform(TargetName, SnmpInform, UserPid) ->
 	    ok
     end.
 
-%% For backwards compatibillity 
-handle_inform(Addr, Port, SnmpInform, UserPid) ->
-    UserPid ! {handle_inform, self(), Addr, Port, SnmpInform},
-    receive
-	{handle_inform_no_response, {Addr, Port}} ->
-	    no_reply;
-	{handle_inform_response, {Addr, Port}} ->
-	    ok
-    end.
-
-
 handle_report(TargetName, SnmpReport, UserPid) ->
     UserPid ! {handle_report, self(), TargetName, SnmpReport},
-    ok.
-
-%% For backwards compatibillity 
-handle_report(Addr, Port, SnmpReport, UserPid) ->
-    UserPid ! {handle_report, self(), Addr, Port, SnmpReport},
     ok.
 
 

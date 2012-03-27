@@ -43,7 +43,7 @@
 %% Manager callback API:
 -export([
 	 handle_error/3,
-         handle_agent/4,
+         handle_agent/5,
          handle_pdu/4,
          handle_trap/3,
          handle_inform/3,
@@ -239,7 +239,7 @@ handle_info({snmp_error, ReqId, Reason},
     P ! {snmp_error, ReqId, Reason}, 
     {noreply, State};
 
-handle_info({snmp_agent, Addr, Port, Info, Pid}, 
+handle_info({snmp_agent, Addr, Port, Info, Pid, _UserData}, 
 	    #state{parent = P} = State) ->
     error_msg("detected new agent: "
 	      "~n   Addr: ~w"
@@ -326,8 +326,8 @@ handle_error(ReqId, Reason, Pid) ->
     ignore.
 
 
-handle_agent(Addr, Port, SnmpInfo, Pid) ->
-    Pid ! {snmp_agent, Addr, Port, SnmpInfo, self()},
+handle_agent(Addr, Port, SnmpInfo, Pid, UserData) ->
+    Pid ! {snmp_agent, Addr, Port, SnmpInfo, self(), UserData},
     receive
 	{snmp_agent_reply, Reply, Pid} ->
 	    Reply
