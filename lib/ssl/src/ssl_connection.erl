@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -276,7 +276,7 @@ renegotiation(ConnectionPid) ->
 
 %%--------------------------------------------------------------------
 -spec prf(pid(), binary() | 'master_secret', binary(),
-	  binary() | ssl:prf_secret(), non_neg_integer()) ->
+	  binary() | ssl:prf_random(), non_neg_integer()) ->
 		 {ok, binary()} | {error, reason()} | {'EXIT', term()}.
 %%
 %% Description: use a ssl sessions TLS PRF to generate key material
