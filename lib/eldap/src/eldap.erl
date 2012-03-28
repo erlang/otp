@@ -1077,9 +1077,8 @@ parse_hostport(Str) ->
     end.
 
 parse_port(Rest,Sport) ->
-    case list_to_integer(Sport) of
-	Port when is_integer(Port) -> Port;
-	_ -> parse_error(parsing_port,Rest)
+    try	list_to_integer(Sport)
+    catch _:_ -> parse_error(parsing_port,Rest)
     end.
 
 parse_host(Rest,Shost) ->
