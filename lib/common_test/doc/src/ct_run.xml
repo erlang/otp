@@ -103,6 +103,7 @@
 	[-no_auto_compile]
 	[-muliply_timetraps Multiplier]
 	[-scale_timetraps]
+	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
         [-repeat N [-force_stop]] |
         [-duration HHMMSS [-force_stop]] |
         [-until [YYMoMoDD]HHMMSS [-force_stop]]
@@ -130,6 +131,7 @@
 	[-no_auto_compile]
 	[-muliply_timetraps Multiplier]
 	[-scale_timetraps]
+	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
         [-repeat N [-force_stop]] |
         [-duration HHMMSS [-force_stop]] |
         [-until [YYMoMoDD]HHMMSS [-force_stop]]
@@ -150,6 +152,7 @@
 	[-no_auto_compile]
 	[-muliply_timetraps Multiplier]
 	[-scale_timetraps]
+	[-create_priv_dir auto_per_run | auto_per_tc | manual_per_tc]
 	[-basic_html]</pre>
   </section>
   <section>

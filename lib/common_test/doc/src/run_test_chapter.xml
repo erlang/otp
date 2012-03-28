@@ -466,6 +466,9 @@
       
       {logdir, LogDir}.                                        
       {logdir, NodeRefs, LogDir}.
+
+      {create_priv_dir, PrivDirOption}.
+      {create_priv_dir, NodeRefs, PrivDirOption}.
       
       {event_handler, EventHandlers}.
       {event_handler, NodeRefs, EventHandlers}.
@@ -493,6 +496,9 @@
 
       {skip_suites, DirRef, Suites, Comment}.
       {skip_suites, NodeRefs, DirRef, Suites, Comment}.
+
+      {skip_groups, DirRef, Suite, GroupNames, Comment}.
+      {skip_groups, NodeRefs, DirRef, Suite, GroupNames, Comment}.
       
       {skip_cases, DirRef, Suite, Cases, Comment}.
       {skip_cases, NodeRefs, DirRef, Suite, Cases, Comment}.
@@ -512,6 +518,7 @@
       DirAlias      = atom()
       Dir           = string()
       LogDir        = string()
+      PrivDirOption = auto_per_run | auto_per_tc | manual_per_tc
       EventHandlers = atom() | [atom()]
       InitArgs      = [term()]
       CTHModules    = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]
@@ -521,8 +528,9 @@
       Suites        = atom() | [atom()] | all
       Suite         = atom()
       Groups        = GroupSpec | [GroupSpec] | all
-      GroupSpec     = Group | {Group,Properties} | {Group,Properties,GroupSpec}
-      Group         = atom()
+      GroupSpec     = GroupName | {GroupName,Properties} | {GroupName,Properties,GroupSpec}
+      GroupName     = atom()
+      GroupNames    = GroupName | [GroupName]
       Cases         = atom() | [atom()] | all
       Comment       = string() | ""
     </pre>
