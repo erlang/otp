@@ -396,13 +396,13 @@ nodeB@hostB> orber:start().
       <row>
         <cell align="left" valign="middle">ssl_server_options</cell>
         <cell align="left" valign="middle">list()</cell>
-        <cell align="left" valign="middle">See the <seealso marker="ssl:ssl">SSL</seealso> application 
+        <cell align="left" valign="middle">See the <seealso marker="ssl:ssl">SSL application</seealso> 
 	for valid options.</cell>
       </row>
       <row>
         <cell align="left" valign="middle">ssl_client_options</cell>
         <cell align="left" valign="middle">list()</cell>
-        <cell align="left" valign="middle">See the <seealso marker="ssl:ssl">SSL</seealso> application 
+        <cell align="left" valign="middle">See the <seealso marker="ssl:ssl">SSL application</seealso> 
 	for valid options.</cell>
       </row>
       <row>
@@ -631,9 +631,19 @@ nodeB@hostB> orber:start().
       <c>{local, DefaultNATPort, [{Port, NATPort}]}</c>. See also
       <seealso marker="ch_install#firewall">Firewall Configuration</seealso>.</item>
       <tag><em>ssl_server_options</em></tag>
-      <item>the file path to a server side CA certificate.</item>
+      <item>A list of the SSL options when Orber is the server. 
+        In general it's just to remove the 'ssl_server_' prefix from the old options,
+	i.e. <c>ssl_server_verify</c> will just be <c>verify</c> in this option list.
+        See the <seealso marker="ssl:ssl">SSL application</seealso> for the correct list of possible 
+        options and their values.
+      </item>
       <tag><em>ssl_client_options</em></tag>
-      <item>The path to a file containing a chain of PEM encoded certificates.</item>
+      <item>A list of the SSL options when Orber is the client. 
+        In general it's just to remove the <c>ssl_client_</c> prefix from the old options,
+	i.e. <c>ssl_client_depth</c> will just be <c>depth</c> in this option list.
+        See the <seealso marker="ssl:ssl">SSL application</seealso> for the correct list of possible 
+        options and their values.
+      </item>
       <tag><em>iiop_ssl_out_keepalive</em></tag>
       <item>Enables periodic transmission on a connected socket, when no other 
        data is being exchanged. If the other end does not respond, the 
