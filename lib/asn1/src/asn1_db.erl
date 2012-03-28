@@ -48,11 +48,19 @@ dbstop()                   -> Resp = req(stop), erase(?MODULE), Resp.
 
 %% Internal functions
 req(Request) ->
-    get(?MODULE) ! {self(), Request},
-    receive {?MODULE, Reply} -> Reply after 5000 -> exit(db_timeout) end.
+    DbPid = get(?MODULE),
+    Ref = erlang:monitor(process,DbPid),
+    get(?MODULE) ! {{Ref, self()}, Request},
+    receive 
+	{{Ref,?MODULE}, Reply} ->
+	    erlang:demonitor(Ref,[flush]),
+	    Reply; 
+	{'DOWN',Ref,_,_,Info} -> 
+	    exit({db_error,Info}) 
+    end.
 
-reply(From, Response) ->
-    From ! {?MODULE, Response}.
+reply({Ref,From}, Response) ->
+    From ! {{Ref,?MODULE}, Response}.
 
 init(Parent, Includes) ->
     MRef = erlang:monitor(process, Parent),
