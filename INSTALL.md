@@ -63,7 +63,7 @@ At Ericsson we have a "Daily Build and Test" that runs on:
     *   x86
 *   OpenBSD 5.0
     *   x86\_64
-*   Mac OS X 10.5.8 (Leopard), 10.6.0 (Snow Leopard), 10.7.2 (Lion)
+*   Mac OS X 10.5.8 (Leopard), 10.6.0 (Snow Leopard), 10.7.3 (Lion)
     *   x86
 *   Windows XP SP3, 2003, Vista, 7
     *   x86
@@ -645,9 +645,6 @@ Use `hipe:help_options/0` to print out the available options.
 Mac OS X (Darwin)
 -----------------
 
-We test Mac OS X 10.4.11 (Tiger) and Mac OS X 10.5.x (Leopard) in our daily
-builds (but only on Intel processors).
-
 Make sure that the command `hostname` returns a valid fully qualified host
 name (this is configured in `/etc/hostconfig`).
 
@@ -655,6 +652,15 @@ If you develop linked-in drivers (shared library) you need to link using
 `gcc` and the flags `-bundle -flat_namespace -undefined suppress`. You also
 include `-fno-common` in `CFLAGS` when compiling. Use `.so` as the library
 suffix.
+
+Use the `--enable-darwin-64bit` configure flag to build a 64-bit
+binaries on Mac OS X.
+
+Building universal binaries on Mac OS X (obsolete information)
+--------------------------------------------------------------
+
+(This information was written when Mac OS X Leopard was the current
+release. It may no longer work.)
 
 Universal 32bit binaries can be built on an Intel Mac using the
 `--enable-darwin-universal` configure option. There still may occur
