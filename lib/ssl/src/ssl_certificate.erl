@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -111,7 +111,7 @@ file_to_certificats(File, DbHandle) ->
     {ok, List} = ssl_manager:cache_pem_file(File, DbHandle),
     [Bin || {'Certificate', Bin, not_encrypted} <- List].
 %%--------------------------------------------------------------------
--spec validate_extension(term(), #'Extension'{} | {bad_cert, atom()} | valid,
+-spec validate_extension(term(), {extension, #'Extension'{}} | {bad_cert, atom()} | valid,
 			 term()) -> {valid, term()} |
 				    {fail, tuple()} |
 				    {unknown, term()}.

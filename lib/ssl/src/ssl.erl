@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -39,6 +39,12 @@
 -include("ssl_cipher.hrl").
 
 -include_lib("public_key/include/public_key.hrl"). 
+
+%% Visible in API
+-export_type([connect_option/0, listen_option/0, ssl_option/0, transport_option/0,
+	      erl_cipher_suite/0, %% From ssl_cipher.hrl 
+	      tls_atom_version/0, %% From ssl_internal.hrl
+	      prf_random/0]).
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options

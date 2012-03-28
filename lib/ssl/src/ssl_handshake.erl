@@ -543,7 +543,7 @@ server_key_exchange_hash(dhe_dss, Value) ->
     crypto:sha(Value).
 
 %%--------------------------------------------------------------------
--spec prf(tls_version(), binary(), binary(), binary(), non_neg_integer()) ->
+-spec prf(tls_version(), binary(), binary(), [binary()], non_neg_integer()) ->
 		 {ok, binary()} | {error, undefined}.
 %%
 %% Description: use the TLS PRF to generate key material
