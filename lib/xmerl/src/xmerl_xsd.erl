@@ -2338,6 +2338,8 @@ complexity([]) ->
     undefined;
 complexity([#xmlText{}|T]) ->
     complexity(T);
+complexity([#xmlComment{}|T]) ->
+    complexity(T);
 complexity([H|T]) ->
     case kind(H) of
 	simpleContent ->
