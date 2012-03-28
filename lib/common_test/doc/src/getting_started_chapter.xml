@@ -98,7 +98,8 @@
     <section>
     <title>A simple test suite</title>
     <p>As you've seen in the basics chapter, the test suite module implements
-      callback functions (mandatory or optional) for various purposes, e.g:
+      <seealso marker="common_test">callback functions</seealso>
+      (mandatory or optional) for various purposes, e.g:
       <list>
 	<item>Init/end configuration function for the test suite</item>
 	<item>Init/end configuration function for a test case</item>
