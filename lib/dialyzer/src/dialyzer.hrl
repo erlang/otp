@@ -127,14 +127,14 @@
 		   use_contracts  = true           :: boolean(),
 		   race_detection = false	   :: boolean(),
 		   behaviours_chk = false          :: boolean(),
-		   timing         = false          :: boolean(),
+		   timing         = false          :: boolean() | 'debug',
 		   timing_server             :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename()}).
 
 -record(options, {files           = []		   :: [file:filename()],
 		  files_rec       = []		   :: [file:filename()],
 		  analysis_type   = succ_typings   :: anal_type1(),
-		  timing          = false          :: boolean(),
+		  timing          = false          :: boolean() | 'debug',
 		  defines         = []		   :: [dial_define()],
 		  from            = byte_code	   :: start_from(),
 		  get_warnings    = maybe          :: boolean() | 'maybe',

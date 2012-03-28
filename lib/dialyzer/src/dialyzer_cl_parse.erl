@@ -167,6 +167,10 @@ cl(["--no_spec"|T]) ->
 cl(["--statistics"|T]) ->
   put(dialyzer_timing, true),
   cl(T);
+cl(["--resources"|T]) ->
+  put(dialyzer_options_report_mode, quiet),
+  put(dialyzer_timing, debug),
+  cl(T);
 cl(["-v"|_]) ->
   io:format("Dialyzer version "++?VSN++"\n"),
   erlang:halt(?RET_NOTHING_SUSPICIOUS);

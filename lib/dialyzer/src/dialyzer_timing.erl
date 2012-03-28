@@ -32,13 +32,16 @@
 
 -type timing_server() :: pid() | 'none'.
 
--spec init(boolean()) -> timing_server().
+-spec init(boolean() | 'debug') -> timing_server().
 
 init(Active) ->
   case Active of
     true ->
       io:format("\n"),
       spawn_link(fun() -> loop(now(), 0, "") end);
+    debug ->
+      io:format("\n"),
+      spawn_link(fun() -> debug_loop("") end);
     false -> none
   end.
 
@@ -65,6 +68,38 @@ loop(LastNow, Size, Unit) ->
     {Pid, stop} ->
       Pid ! ok
   end.
+
+debug_loop(Phase) ->
+  receive
+    Message ->
+      {Runtime,_} = statistics(wall_clock),
+      Procs = erlang:system_info(process_count),
+      ProcMem = erlang:memory(total),
+      Status = io_lib:format("~12w ~6w ~20w", [Runtime, Procs, ProcMem]),
+      case Message of
+	{stamp, Msg, _Now} ->
+	  io:format("~s ~s_start\n", [Status, Msg]),
+	  debug_loop(Msg);
+	{stamp, _Now} ->
+	  io:format("~s ~s_stop\n", [Status, Phase]),
+	  debug_loop("");
+	{Pid, stop, _Now} ->
+	  Pid ! ok;
+	{Pid, stop} ->
+	  Pid ! ok;
+	_ ->
+	  debug_loop(Phase)
+      end
+  after
+    50 ->
+      {Runtime,_} = statistics(wall_clock),
+      Procs = erlang:system_info(process_count),
+      ProcMem = erlang:memory(total),
+      Status = io_lib:format("~12w ~6w ~20w", [Runtime, Procs, ProcMem]),
+      io:format("~s\n", [Status]),
+      debug_loop(Phase)
+  end.
+
 
 -spec start_stamp(timing_server(), string()) -> ok.
 
