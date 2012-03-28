@@ -867,6 +867,17 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.</p>
           </item>
+	  <tag><marker id="+sws"><c>+sws default|legacy|proposal</c></marker></tag>
+	  <item>
+             <p>Set scheduler wakeup strategy. Default is <c>legacy</c> (has been
+	        used since OTP-R13B). The <c>proposal</c> strategy is the currently
+		proposed strategy for OTP-R16. Note that the <c>proposal</c> strategy
+		might change during OTP-R15.
+	     </p>
+             <p><em>NOTE:</em> This flag may be removed or changed at any time
+	        without prior notice.
+	     </p>
+	  </item>
 	  <tag><marker id="+swt"><c>+swt very_low|low|medium|high|very_high</c></marker></tag>
 	  <item>
              <p>Set scheduler wakeup threshold. Default is <c>medium</c>.
