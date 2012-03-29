@@ -32,7 +32,7 @@
 -export([wait_activation/0, job_done/3]).
 
 %%% Exports for the typesig and dataflow analysis workers
--export([sccs_to_pids/1, request_activation/1]).
+-export([sccs_to_pids/2, request_activation/1]).
 
 %%% Exports for the compilation workers
 -export([get_next_label/2]).
@@ -41,9 +41,11 @@
 
 %%--------------------------------------------------------------------
 
--define(MAP, dialyzer_coordinator_map).
+-type collector()  :: pid().
+-type regulator()  :: pid().
+-type scc_to_pid() :: ets:tid() | 'unused'.
 
--type coordinator() :: {pid(), pid()}. %%opaque
+-type coordinator() :: {collector(), regulator(), scc_to_pid()}. %%opaque
 -type timing() :: dialyzer_timing:timing_server().
 
 -type scc()     :: [mfa_or_funlbl()].
@@ -79,7 +81,8 @@
 		result         :: result(),
 		next_label = 0 :: integer(),
 		init_data      :: init_data(),
-		regulator      :: pid()
+		regulator      :: regulator(),
+		scc_to_pid     :: scc_to_pid()
 	       }).
 
 -include("dialyzer.hrl").
@@ -102,18 +105,18 @@ parallel_job(Mode, Jobs, InitData, Timing) ->
 spawn_jobs(Mode, Jobs, InitData, Timing) ->
   Collector = self(),
   Regulator = spawn_regulator(),
-  Coordinator = {Collector, Regulator},
   TypesigOrDataflow = (Mode =:= 'typesig') orelse (Mode =:= 'dataflow'),
-  case TypesigOrDataflow of
-    true ->
-      ?MAP = ets:new(?MAP, [named_table, {read_concurrency, true}]);
-    false -> ok
-  end,
+  SCCtoPID =
+    case TypesigOrDataflow of
+      true  -> ets:new(scc_to_pid, [{read_concurrency, true}]);
+      false -> unused
+    end,
+  Coordinator = {Collector, Regulator, SCCtoPID},
   Fold =
     fun(Job, Count) ->
 	Pid = dialyzer_worker:launch(Mode, Job, InitData, Coordinator),
 	case TypesigOrDataflow of
-	  true  -> true = ets:insert(?MAP, {Job, Pid});
+	  true  -> true = ets:insert(SCCtoPID, {Job, Pid});
 	  false -> request_activation(Regulator, Pid)
 	end,
 	Count + 1
@@ -131,11 +134,11 @@ spawn_jobs(Mode, Jobs, InitData, Timing) ->
       _ -> []
     end,
   #state{mode = Mode, active = JobCount, result = InitResult, next_label = 0,
-	 init_data = InitData, regulator = Regulator}.
+	 init_data = InitData, regulator = Regulator, scc_to_pid = SCCtoPID}.
 
 collect_result(#state{mode = Mode, active = Active, result = Result,
 		      next_label = NextLabel, init_data = InitData,
-		      regulator = Regulator} = State) ->
+		      regulator = Regulator, scc_to_pid = SCCtoPID} = State) ->
   receive
     {next_label_request, Estimation, Pid} ->
       Pid ! {next_label_reply, NextLabel},
@@ -149,7 +152,7 @@ collect_result(#state{mode = Mode, active = Active, result = Result,
 	    'compile' ->
 	      {NewResult, NextLabel};
 	    X when X =:= 'typesig'; X =:= 'dataflow' ->
-	      ets:delete(?MAP),
+	      ets:delete(SCCtoPID),
 	      NewResult;
 	    'warnings' ->
 	      NewResult
@@ -170,29 +173,30 @@ update_result(Mode, InitData, Job, Data, Result) ->
       Data ++ Result
   end.
 
--spec sccs_to_pids([scc() | module()]) ->
+-spec sccs_to_pids([scc() | module()], coordinator()) ->
         {[dialyzer_worker:worker()], [scc() | module()]}.
 
-sccs_to_pids(SCCs) ->
-  lists:foldl(fun pid_partition/2, {[], []}, SCCs).
-
-pid_partition(SCC, {Pids, Unknown}) ->
-  try ets:lookup_element(?MAP, SCC, 2) of
-      Result -> {[Result|Pids], Unknown}
-  catch
-    _:_ -> {Pids, [SCC|Unknown]}
-  end.
+sccs_to_pids(SCCs, {_Collector, _Regulator, SCCtoPID}) ->
+  Fold =
+    fun(SCC, {Pids, Unknown}) ->
+	try ets:lookup_element(SCCtoPID, SCC, 2) of
+	    Result -> {[Result|Pids], Unknown}
+	catch
+	  _:_ -> {Pids, [SCC|Unknown]}
+	end
+    end,
+  lists:foldl(Fold, {[], []}, SCCs).
 
 -spec job_done(job(), job_result(), coordinator()) -> ok.
 
-job_done(Job, Result, {Collector, Regulator}) ->
+job_done(Job, Result, {Collector, Regulator, _SCCtoPID}) ->
   Regulator ! done,
   Collector ! {done, Job, Result},
   ok.
 
 -spec get_next_label(integer(), coordinator()) -> integer().
 
-get_next_label(EstimatedSize, {Collector, _Regulator}) ->
+get_next_label(EstimatedSize, {Collector, _Regulator, _SCCtoPID}) ->
   Collector ! {next_label_request, EstimatedSize, self()},
   receive
     {next_label_reply, NextLabel} -> NextLabel
@@ -208,7 +212,7 @@ activate_pid(Pid) ->
 
 -spec request_activation(coordinator()) -> ok.
 
-request_activation({_Collector, Regulator}) ->
+request_activation({_Collector, Regulator, _SCCtoPID}) ->
   Regulator ! {req, self()},
   wait_activation().
 

@@ -111,25 +111,27 @@ loop(running, #state{mode = Mode} = State) when
 waits_more_success_typings(#state{depends_on = Depends}) ->
   Depends =/= [].
 
-broadcast_done(#state{job = SCC, init_data = InitData}) ->
+broadcast_done(#state{job = SCC, init_data = InitData,
+		      coordinator = Coordinator}) ->
   RequiredBy = dialyzer_succ_typings:find_required_by(SCC, InitData),
-  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids(RequiredBy),
+  {Callers, Unknown} =
+    dialyzer_coordinator:sccs_to_pids(RequiredBy, Coordinator),
   send_done(Callers, SCC),
-  continue_broadcast_done(Unknown, SCC).
+  continue_broadcast_done(Unknown, SCC, Coordinator).
 
 send_done(Callers, SCC) ->
   ?debug("Sending ~p: ~p\n",[SCC, Callers]),
   SendSTFun = fun(PID) -> PID ! {done, SCC} end,
   lists:foreach(SendSTFun, Callers).
 
-continue_broadcast_done([], _SCC) -> ok;
-continue_broadcast_done(Rest, SCC) ->
+continue_broadcast_done([], _SCC, _Coordinator) -> ok;
+continue_broadcast_done(Rest, SCC, Coordinator) ->
   %% This time limit should be greater than the time required
   %% by the coordinator to spawn all processes.
   timer:sleep(500),
-  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids(Rest),
+  {Callers, Unknown} = dialyzer_coordinator:sccs_to_pids(Rest, Coordinator),
   send_done(Callers, SCC),
-  continue_broadcast_done(Unknown, SCC).
+  continue_broadcast_done(Unknown, SCC, Coordinator).
 
 wait_for_success_typings(#state{depends_on = DependsOn} = State) ->
   receive
