@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1996-2011. All Rights Reserved.
+# Copyright Ericsson AB 1996-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -31,7 +31,7 @@ ifdef BUILD_ALL
           cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
 	  xmerl edoc eunit ssh inviso typer erl_docgen \
-	  percept dialyzer hipe
+	  percept eldap dialyzer hipe
   EXTRA_FILE := $(wildcard EXTRA-APPLICATIONS)
   EXTRA_APPLICATIONS := $(if $(EXTRA_FILE),$(shell cat $(EXTRA_FILE)))
 endif
