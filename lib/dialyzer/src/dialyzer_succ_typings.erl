@@ -28,8 +28,8 @@
 -module(dialyzer_succ_typings).
 
 -export([analyze_callgraph/3, 
-	 analyze_callgraph/4,
-	 get_warnings/6
+	 analyze_callgraph/5,
+	 get_warnings/7
 	]).
 
 -export([
@@ -74,6 +74,7 @@
 	     codeserver     :: dialyzer_codeserver:codeserver(),
 	     no_warn_unused :: set(),
 	     parent = none  :: parent(),
+	     timing_server  :: dialyzer_timing:timing_server(),
 	     plt            :: dialyzer_plt:plt()}).
 
 %%--------------------------------------------------------------------
@@ -83,33 +84,38 @@
 	 dialyzer_plt:plt().
 
 analyze_callgraph(Callgraph, Plt, Codeserver) ->
-  analyze_callgraph(Callgraph, Plt, Codeserver, none).
+  analyze_callgraph(Callgraph, Plt, Codeserver, none, none).
 
 -spec analyze_callgraph(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
-			dialyzer_codeserver:codeserver(), parent()) ->
+			dialyzer_codeserver:codeserver(),
+			dialyzer_timing:timing_server(), parent()) ->
          dialyzer_plt:plt().
 
-analyze_callgraph(Callgraph, Plt, Codeserver, Parent) ->
+analyze_callgraph(Callgraph, Plt, Codeserver, TimingServer, Parent) ->
   NewState =
-    init_state_and_get_success_typings(Callgraph, Plt, Codeserver, Parent),
+    init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
+				       TimingServer, Parent),
   dialyzer_plt:restore_full_plt(NewState#st.plt, Plt).
 
 %%--------------------------------------------------------------------
 
-init_state_and_get_success_typings(Callgraph, Plt, Codeserver, Parent) ->
+init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
+				   TimingServer, Parent) ->
   {SCCs, Callgraph1} =
-    ?timing("order", dialyzer_callgraph:finalize(Callgraph)),
+    ?timing(TimingServer, "order", dialyzer_callgraph:finalize(Callgraph)),
   State = #st{callgraph = Callgraph1, plt = dialyzer_plt:get_mini_plt(Plt),
-	      codeserver = Codeserver, parent = Parent},
+	      codeserver = Codeserver, parent = Parent,
+	      timing_server = TimingServer},
   get_refined_success_typings(SCCs, State).
 
-get_refined_success_typings(SCCs, #st{callgraph = Callgraph} = State) ->
+get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
+				      timing_server = TimingServer} = State) ->
   case find_succ_typings(SCCs, State) of
     {fixpoint, State1} -> State1;
     {not_fixpoint, NotFixpoint1, State1} ->
       {ModulePostorder, ModCallgraph} =
 	?timing(
-	   "order", _C1,
+	   TimingServer, "order", _C1,
 	   dialyzer_callgraph:module_postorder_from_funs(NotFixpoint1,
 							 Callgraph)),
       ModState = State1#st{callgraph = ModCallgraph},
@@ -119,7 +125,7 @@ get_refined_success_typings(SCCs, #st{callgraph = Callgraph} = State) ->
 	{not_fixpoint, NotFixpoint2, State2} ->
 	  %% Need to reset the callgraph.
 	  {NewSCCs, Callgraph2} =
-	    ?timing("order", _C2,
+	    ?timing(TimingServer, "order", _C2,
 		    dialyzer_callgraph:reset_from_funs(NotFixpoint2,
 						       ModCallgraph)),
 	  NewState = State2#st{callgraph = Callgraph2},
@@ -130,12 +136,14 @@ get_refined_success_typings(SCCs, #st{callgraph = Callgraph} = State) ->
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
 -spec get_warnings(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
 		   doc_plt(), dialyzer_codeserver:codeserver(), set(),
-		   pid()) ->
+		   dialyzer_timing:timing_server(), pid()) ->
 	 {[dial_warning()], dialyzer_plt:plt(), doc_plt()}.
 
-get_warnings(Callgraph, Plt, DocPlt, Codeserver, NoWarnUnused, Parent) ->
+get_warnings(Callgraph, Plt, DocPlt, Codeserver,
+	     NoWarnUnused, TimingServer, Parent) ->
   InitState =
-    init_state_and_get_success_typings(Callgraph, Plt, Codeserver, Parent),
+    init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
+				       TimingServer, Parent),
   NewState = InitState#st{no_warn_unused = NoWarnUnused},
   Mods = dialyzer_callgraph:modules(NewState#st.callgraph),
   MiniPlt = NewState#st.plt,
@@ -143,22 +151,22 @@ get_warnings(Callgraph, Plt, DocPlt, Codeserver, NoWarnUnused, Parent) ->
     dialyzer_contracts:get_invalid_contract_warnings(Mods, Codeserver, MiniPlt),
   MiniDocPlt = dialyzer_plt:get_mini_plt(DocPlt),
   ModWarns =
-    ?timing("warning", get_warnings_from_modules(Mods, NewState, MiniDocPlt)),
+    ?timing(TimingServer, "warning",
+	    get_warnings_from_modules(Mods, NewState, MiniDocPlt)),
   {postprocess_warnings(CWarns ++ ModWarns, Codeserver),
    dialyzer_plt:restore_full_plt(MiniPlt, Plt),
    dialyzer_plt:restore_full_plt(MiniDocPlt, DocPlt)}.
 
 get_warnings_from_modules(Mods, State, DocPlt) ->
   #st{callgraph = Callgraph, codeserver = Codeserver,
-      no_warn_unused = NoWarnUnused, plt = Plt} = State,
-  Init = {Callgraph, Codeserver, NoWarnUnused, Plt, DocPlt},
-  dialyzer_coordinator:parallel_job(warnings, Mods, Init).
+      no_warn_unused = NoWarnUnused, plt = Plt,
+      timing_server = TimingServer} = State,
+  Init = {Codeserver, Callgraph, NoWarnUnused, Plt, DocPlt},
+  dialyzer_coordinator:parallel_job(warnings, Mods, Init, TimingServer).
 
--type warning_servers() :: term().
+-spec collect_warnings(module(), warnings_init_data()) -> [dial_warning()].
 
--spec collect_warnings(module(), warning_servers()) -> [dial_warning()].
-
-collect_warnings(M, {Callgraph, Codeserver, NoWarnUnused, Plt, DocPlt}) ->
+collect_warnings(M, {Codeserver, Callgraph, NoWarnUnused, Plt, DocPlt}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, Codeserver),
   Records = dialyzer_codeserver:lookup_mod_records(M, Codeserver),
   Contracts = dialyzer_codeserver:lookup_mod_contracts(M, Codeserver),
@@ -212,13 +220,14 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
   end.
   
 refine_succ_typings(Modules, #st{codeserver = Codeserver,
-				 callgraph = Callgraph,
-				 plt = Plt} = State) ->
-  ?debug("Module postorder: ~p\n", [ModulePostorder]),
+                                 callgraph = Callgraph,
+                                 plt = Plt,
+				 timing_server = Timing} = State) ->
+  ?debug("Module postorder: ~p\n", [Modules]),
   Init = {Codeserver, Callgraph, Plt},
   NotFixpoint =
-    ?timing("refine",
-	    dialyzer_coordinator:parallel_job(dataflow, Modules, Init)),
+    ?timing(Timing, "refine",
+	    dialyzer_coordinator:parallel_job(dataflow, Modules, Init, Timing)),
   ?debug("==================== Dataflow done ====================\n\n", []),
   case NotFixpoint =:= [] of
     true -> {fixpoint, State};
@@ -313,11 +322,11 @@ compare_types_1([], [], _Strict, NotFixpoint) ->
   end.
 
 find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
-			    plt = Plt} = State) ->
+			    plt = Plt, timing_server = Timing} = State) ->
   Init = {Codeserver, Callgraph, Plt},
   NotFixpoint =
-    ?timing("typesig",
-	    dialyzer_coordinator:parallel_job(typesig, SCCs, Init)),
+    ?timing(Timing, "typesig",
+	    dialyzer_coordinator:parallel_job(typesig, SCCs, Init, Timing)),
   ?debug("==================== Typesig done ====================\n\n", []),
   case NotFixpoint =:= [] of
     true -> {fixpoint, State};

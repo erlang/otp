@@ -83,7 +83,7 @@ start() ->
   {Args, Analysis} = process_cl_args(),
   %% io:format("Args: ~p\n", [Args]),
   %% io:format("Analysis: ~p\n", [Analysis]),
-  dialyzer_timing:init(false),
+  Timer = dialyzer_timing:init(false),
   TrustedFiles = filter_fd(Args#args.trusted, [], fun is_erl_file/1),
   Analysis2 = extract(Analysis, TrustedFiles),
   All_Files = get_all_files(Args),
@@ -92,7 +92,7 @@ start() ->
   Analysis4 = collect_info(Analysis3),
   %% io:format("Final: ~p\n", [Analysis4#analysis.fms]),
   TypeInfo = get_type_info(Analysis4),
-  dialyzer_timing:stop(),
+  dialyzer_timing:stop(Timer),
   show_or_annotate(TypeInfo),
   %% io:format("\nTyper analysis finished\n"),
   erlang:halt(0).

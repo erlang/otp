@@ -52,7 +52,8 @@
 	  parent                        :: pid(),
 	  plt                           :: dialyzer_plt:plt(),
 	  start_from     = byte_code    :: start_from(),
-	  use_contracts  = true         :: boolean()
+	  use_contracts  = true         :: boolean(),
+	  timing_server                 :: dialyzer_timing:timing_server()
 	 }).
 
 -record(server_state, {parent :: pid(), legal_warnings :: [dial_warn_tag()]}).
@@ -64,14 +65,15 @@
 -spec start(pid(), [dial_warn_tag()], #analysis{}) -> 'ok'.
 
 start(Parent, LegalWarnings, Analysis) ->
-  dialyzer_timing:init(Analysis#analysis.timing),
+  TimingServer = dialyzer_timing:init(Analysis#analysis.timing),
   RacesOn = ordsets:is_element(?WARN_RACE_CONDITION, LegalWarnings),
-  Analysis0 = Analysis#analysis{race_detection = RacesOn},
+  Analysis0 =
+    Analysis#analysis{race_detection = RacesOn, timing_server = TimingServer},
   Analysis1 = expand_files(Analysis0),
   Analysis2 = run_analysis(Analysis1),
   State = #server_state{parent = Parent, legal_warnings = LegalWarnings},
   loop(State, Analysis2, none),
-  dialyzer_timing:stop().
+  dialyzer_timing:stop(TimingServer).
 
 run_analysis(Analysis) ->
   Self = self(),
@@ -133,7 +135,8 @@ analysis_start(Parent, Analysis) ->
 			  plt = Plt,
 			  parent = Parent,
 			  start_from = Analysis#analysis.start_from,
-			  use_contracts = Analysis#analysis.use_contracts
+			  use_contracts = Analysis#analysis.use_contracts,
+			  timing_server = Analysis#analysis.timing_server
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
@@ -157,7 +160,7 @@ analysis_start(Parent, Analysis) ->
         dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
                                                        TmpCServer1),
       TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
-      ?timing("remote",
+      ?timing(State#analysis_state.timing_server, "remote",
 	      dialyzer_contracts:process_contract_remote_types(TmpCServer3))
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
@@ -186,22 +189,23 @@ analysis_start(Parent, Analysis) ->
   send_codeserver_plt(Parent, CServer, State3#analysis_state.plt),
   send_analysis_done(Parent, Plt2, State3#analysis_state.doc_plt).
 
-analyze_callgraph(Callgraph, State) ->
-  Codeserver = State#analysis_state.codeserver,
-  Parent = State#analysis_state.parent,
-  DocPlt = State#analysis_state.doc_plt,
+analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
+					     doc_plt = DocPlt,
+					     timing_server = TimingServer,
+					     parent = Parent} = State) ->
   Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
   {NewPlt, NewDocPlt} =
     case State#analysis_state.analysis_type of
       plt_build ->
-	{dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt,
-						 Codeserver, Parent),
-	 DocPlt};
+	NewPlt0 =
+	  dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
+						  TimingServer, Parent),
+	{NewPlt0, DocPlt};
       succ_typings ->
 	NoWarn = State#analysis_state.no_warn_unused,
 	{Warnings, NewPlt0, NewDocPlt0} =
-	  dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt,
-					     Codeserver, NoWarn, Parent),
+	  dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
+					     NoWarn, TimingServer, Parent),
 	send_warnings(State#analysis_state.parent, Warnings),
 	{NewPlt0, NewDocPlt0}
     end,
@@ -234,14 +238,16 @@ make_compile_init(#analysis_state{codeserver = Codeserver,
 		start_from = StartFrom}.
 
 compile_and_store(Files, #analysis_state{codeserver = CServer,
+					 timing_server = Timing,
 					 parent = Parent} = State) ->
   send_log(Parent, "Reading files and computing callgraph... "),
   {T1, _} = statistics(runtime),
   Callgraph = dialyzer_callgraph:new(),
   CompileInit = make_compile_init(State, Callgraph),
   {{Failed, NoWarn, Modules}, NextLabel} =
-    ?timing("compile",
-	    dialyzer_coordinator:parallel_job(compile, Files, CompileInit)),
+    ?timing(Timing, "compile", _C1,
+	    dialyzer_coordinator:parallel_job(compile, Files,
+					      CompileInit, Timing)),
   CServer2 = dialyzer_codeserver:set_next_core_label(NextLabel, CServer),
   case Failed =:= [] of
     true ->
@@ -259,7 +265,7 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   Msg1 = io_lib:format("done in ~.2f secs\nRemoving edges... ", [(T2-T1)/1000]),
   send_log(Parent, Msg1),
   Callgraph =
-    ?timing("clean", _C3,
+    ?timing(Timing, "clean", _C2,
 	    cleanup_callgraph(State, CServer2, Callgraph, Modules)),
   {T3, _} = statistics(runtime),
   Msg2 = io_lib:format("done in ~.2f secs\n", [(T3-T2)/1000]),

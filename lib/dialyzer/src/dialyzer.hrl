@@ -128,6 +128,7 @@
 		   race_detection = false	   :: boolean(),
 		   behaviours_chk = false          :: boolean(),
 		   timing         = false          :: boolean(),
+		   timing_server             :: dialyzer_timing:timing_server(),
 		   callgraph_file = ""             :: file:filename()}).
 
 -record(options, {files           = []		   :: [file:filename()],
@@ -156,11 +157,11 @@
 
 %%--------------------------------------------------------------------
 
--define(timing(Msg,Var,Expr),
+-define(timing(Server, Msg, Var, Expr),
 	begin
-	    dialyzer_timing:start_stamp(Msg),
+	    dialyzer_timing:start_stamp(Server, Msg),
 	    Var = Expr,
-	    dialyzer_timing:end_stamp(),
+	    dialyzer_timing:end_stamp(Server),
 	    Var
 	end).
--define(timing(Msg,Expr),?timing(Msg,_T,Expr)).
+-define(timing(Server, Msg, Expr),?timing(Server, Msg, _T, Expr)).

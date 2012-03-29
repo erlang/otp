@@ -26,7 +26,7 @@
 -module(dialyzer_coordinator).
 
 %%% Export for dialyzer main process
--export([parallel_job/3]).
+-export([parallel_job/4]).
 
 %%% Exports for all possible workers
 -export([wait_activation/0, job_done/3]).
@@ -44,6 +44,7 @@
 -define(MAP, dialyzer_coordinator_map).
 
 -type coordinator() :: {pid(), pid()}. %%opaque
+-type timing() :: dialyzer_timing:timing_server().
 
 -type scc()     :: [mfa_or_funlbl()].
 -type mode()    :: 'typesig' | 'dataflow' | 'compile' | 'warnings'.
@@ -85,20 +86,20 @@
 
 %%--------------------------------------------------------------------
 
--spec parallel_job('compile', compile_jobs(), compile_init_data()) ->
+-spec parallel_job('compile', compile_jobs(), compile_init_data(), timing()) ->
 		      {compile_result(), integer()};
-		  ('typesig', typesig_jobs(), typesig_init_data()) ->
+		  ('typesig', typesig_jobs(), typesig_init_data(), timing()) ->
 		      typesig_result();
-		  ('dataflow', dataflow_jobs(), dataflow_init_data()) ->
-		      dataflow_result();
-		  ('warnings', warnings_jobs(), warnings_init_data()) ->
-		      warnings_result().
+		  ('dataflow', dataflow_jobs(), dataflow_init_data(),
+		   timing()) -> dataflow_result();
+		  ('warnings', warnings_jobs(), warnings_init_data(),
+		   timing()) -> warnings_result().
 
-parallel_job(Mode, Jobs, InitData) ->
-  State = spawn_jobs(Mode, Jobs, InitData),
+parallel_job(Mode, Jobs, InitData, Timing) ->
+  State = spawn_jobs(Mode, Jobs, InitData, Timing),
   collect_result(State).
 
-spawn_jobs(Mode, Jobs, InitData) ->
+spawn_jobs(Mode, Jobs, InitData, Timing) ->
   Collector = self(),
   Regulator = spawn_regulator(),
   Coordinator = {Collector, Regulator},
@@ -123,7 +124,7 @@ spawn_jobs(Mode, Jobs, InitData) ->
       'typesig'  -> "SCCs";
       _          -> "modules"
     end,
-  dialyzer_timing:send_size_info(JobCount, Unit),
+  dialyzer_timing:send_size_info(Timing, JobCount, Unit),
   InitResult =
     case Mode of
       'compile' -> dialyzer_analysis_callgraph:compile_init_result();

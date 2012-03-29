@@ -26,27 +26,20 @@
 
 -module(dialyzer_timing).
 
--export([init/1, start_stamp/1, send_size_info/2, end_stamp/0, stop/0]).
+-export([init/1, start_stamp/2, send_size_info/3, end_stamp/1, stop/1]).
 
--spec init(boolean()) -> ok.
+-export_type([timing_server/0]).
+
+-type timing_server() :: pid() | 'none'.
+
+-spec init(boolean()) -> timing_server().
 
 init(Active) ->
-  Pid = spawn_link(fun() -> loop_init(Active) end),
-  register(?MODULE, Pid),
-  ok.
-
-loop_init(Active) ->
   case Active of
     true ->
       io:format("\n"),
-      loop(now(), 0, "");
-    false -> dummy_loop()
-  end.
-
-dummy_loop() ->
-  receive
-    {Pid, stop, _Now} -> Pid ! ok;
-    _ -> dummy_loop()
+      spawn_link(fun() -> loop(now(), 0, "") end);
+    false -> none
   end.
 
 loop(LastNow, Size, Unit) ->
@@ -73,28 +66,32 @@ loop(LastNow, Size, Unit) ->
       Pid ! ok
   end.
 
--spec start_stamp(string()) -> ok.
+-spec start_stamp(timing_server(), string()) -> ok.
 
-start_stamp(Msg) ->
-  ?MODULE ! {stamp, Msg, now()},
+start_stamp(none, _) -> ok;
+start_stamp(Pid, Msg) ->
+  Pid ! {stamp, Msg, now()},
   ok.
 
--spec end_stamp() -> ok.
+-spec end_stamp(timing_server()) -> ok.
 
-end_stamp() ->
-  ?MODULE ! {stamp, now()},
+end_stamp(none) -> ok;
+end_stamp(Pid) ->
+  Pid ! {stamp, now()},
   ok.
 
--spec send_size_info(integer(), string()) -> ok.
+-spec send_size_info(timing_server(), integer(), string()) -> ok.
 
-send_size_info(Size, Unit) ->
-  ?MODULE ! {size, Size, Unit},
+send_size_info(none, _, _) -> ok;
+send_size_info(Pid, Size, Unit) ->
+  Pid ! {size, Size, Unit},
   ok.
 
--spec stop() -> ok.
+-spec stop(timing_server()) -> ok.
 
-stop() ->
-  ?MODULE ! {self(), stop, now()},
+stop(none) -> ok;
+stop(Pid) ->
+  Pid ! {self(), stop, now()},
   receive ok -> ok end.
 
 diff(T2, T1) ->
