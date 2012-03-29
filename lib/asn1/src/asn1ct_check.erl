@@ -4399,22 +4399,22 @@ constraint_union(_S,C) ->
 
 constraint_union1(S,[A={'ValueRange',_},union,B={'ValueRange',_}|Rest],Acc) ->
     AunionB = constraint_union_vr([A,B]),
-    constraint_union1(S,Rest,AunionB++Acc);
+    constraint_union1(S,Rest,Acc ++ AunionB);
 constraint_union1(S,[A={'SingleValue',_},union,B={'SingleValue',_}|Rest],Acc) ->
     AunionB = constraint_union_sv(S,[A,B]),
-    constraint_union1(S,Rest,AunionB++Acc);
+    constraint_union1(S,Rest,Acc ++ AunionB);
 constraint_union1(S,[A={'SingleValue',_},union,B={'ValueRange',_}|Rest],Acc) ->
     AunionB = union_sv_vr(S,A,B),
-    constraint_union1(S,Rest,AunionB++Acc);
+    constraint_union1(S,Rest,Acc ++ AunionB);
 constraint_union1(S,[A={'ValueRange',_},union,B={'SingleValue',_}|Rest],Acc) ->
     AunionB = union_sv_vr(S,B,A),
-    constraint_union1(S,Rest,AunionB++Acc);
+    constraint_union1(S,Rest,Acc ++ AunionB);
 constraint_union1(S,[union|Rest],Acc) -> %skip when unsupported constraints
     constraint_union1(S,Rest,Acc);
 constraint_union1(S,[A|Rest],Acc) ->
     constraint_union1(S,Rest,[A|Acc]);
 constraint_union1(_S,[],Acc) ->
-    lists:reverse(Acc).
+    Acc.
 
 constraint_union_sv(_S,SV) ->
     Values=lists:map(fun({_,V})->V end,SV),
@@ -4467,63 +4467,33 @@ constraint_union_vr([{_,{_,Ub2}}|Rest],A=[{_,{_,Ub1}}|_Acc]) when Ub2=<Ub1->
 constraint_union_vr([VR|Rest],Acc) ->
     constraint_union_vr(Rest,[VR|Acc]).
 
-union_sv_vr(_S,C1={'SingleValue',SV},C2={'ValueRange',VR={Lb,Ub}}) 
+union_sv_vr(_S,{'SingleValue',SV},VR) 
   when is_integer(SV) ->
-    case is_int_in_vr(SV,C2) of
-	true -> [C2];
-	_ ->
-	    case VR of
-		{'MIN',Ub} when SV==Ub+1 -> [{'ValueRange',{'MIN',SV}}];
-		{Lb,'MAX'} when SV==Lb-1 -> [{'ValueRange',{SV,'MAX'}}];
-		{Lb,Ub} when SV==Ub+1 -> [{'ValueRange',{Lb,SV}}];
-		{Lb,Ub} when SV==Lb-1 -> [{'ValueRange',{SV,Ub}}];
-		_ ->
-		    [C1,C2]
-	    end
-    end;
-union_sv_vr(_S,C1={'SingleValue',SV},C2={'ValueRange',{_Lb,_Ub}}) 
+    union_sv_vr(_S,{'SingleValue',[SV]},VR);
+union_sv_vr(_S,{'SingleValue',SV},{'ValueRange',{VLb,VUb}}) 
   when is_list(SV) ->
-    case lists:filter(fun(X)->is_int_in_vr(X,C2) end,SV) of
-	[] -> [C2];
-	L -> 
-	    case expand_vr(L,C2) of
-		{[],C3} -> [C3];
-		{L,C2} -> [C1,C2];
-		{[Val],C3} -> [{'SingleValue',Val},C3];
-		{L2,C3} -> [{'SingleValue',L2},C3]
-	    end
-    end.
+    L = lists:sort(SV++[VLb,VUb]),
+    {Lb,L1} = case lists:member('MIN',L) of 
+		  true -> {'MIN',L--['MIN']}; % remove 'MIN' so it does not disturb
+		  false -> {hd(L),tl(L)}
+	      end,
+    Ub = case lists:member('MAX',L1) of
+	     true -> 'MAX';
+	     false -> lists:last(L1)
+	 end,
+    case SV of
+	[H] -> H;
+	_ -> SV
+    end,
+    %% for now we through away the Singlevalues so that they don't disturb
+    %% in the code generating phase (the effective Valuerange is already
+    %% calculated. If we want to keep the Singlevalues as well for
+    %% use in code gen phases we need to introduce a new representation
+    %% like {'ValueRange',{Lb,Ub},[ListOfRanges|AntiValues|Singlevalues]
+    %% These could be used to generate guards which allows only the specific
+    %% values , not the full range
+    [{'ValueRange',{Lb,Ub}}]. 
 
-expand_vr(L,VR={_,{Lb,Ub}}) ->
-    case lower_Lb(L,Lb) of
-	false ->
-	    case higher_Ub(L,Ub) of
-		false ->
-		    {L,VR};
-		{L1,UbNew} ->
-		    expand_vr(L1,{'ValueRange',{Lb,UbNew}})
-	    end;
-	{L1,LbNew} ->
-	    expand_vr(L1,{'ValueRange',{LbNew,Ub}})
-    end.
-
-lower_Lb(_,'MIN') ->
-    false;
-lower_Lb(L,Lb) ->
-    remove_val_from_list(Lb - 1,L).
-
-higher_Ub(_,'MAX') ->
-    false;
-higher_Ub(L,Ub) ->
-    remove_val_from_list(Ub + 1,L).
-
-remove_val_from_list(Val,List) ->
-    case lists:member(Val,List) of
-	true ->
-	    {lists:delete(Val,List),Val};
-	false ->
-	    false
-    end.
 		    
 %% get_constraints/2  
 %% Arguments are a list of constraints, which has the format {key,value},

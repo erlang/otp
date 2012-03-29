@@ -127,17 +127,26 @@ int_constraints(Rules) ->
     ?line {ok,0} = asn1_wrapper:decode('Constraints','I',Bytes12),
     ?line {ok,Bytes13} = asn1_wrapper:encode('Constraints','I',20),
     ?line {ok,20} = asn1_wrapper:decode('Constraints','I',Bytes13),
-    
+
+    %%==========================================================
+    %%  Constraint Combinations (Duboisson p. 285)
+    %%  X1 ::= INTEGER (1..4|8|10|20)
+    %%==========================================================
+
+    ?line {ok,Bytes14} = asn1_wrapper:encode('Constraints','X1',1),
+    ?line {ok,1} = asn1_wrapper:decode('Constraints','X1',Bytes14),
+    ?line {ok,Bytes15} = asn1_wrapper:encode('Constraints','X1',20),
+    ?line {ok,20} = asn1_wrapper:decode('Constraints','X1',Bytes15),   
     %%==========================================================
     %%  SIZE Constraint (Duboisson p. 268)
     %%  T ::=  IA5String (SIZE (1|2, ..., SIZE (1|2|3)))
     %%  T2 ::= IA5String (SIZE (1|2, ..., 3))
     %%==========================================================
 
-    ?line {ok,Bytes14} = asn1_wrapper:encode('Constraints','T',"IA"),
-    ?line {ok,"IA"} = asn1_wrapper:decode('Constraints','T',Bytes14),
-    ?line {ok,Bytes15} = asn1_wrapper:encode('Constraints','T2',"IA"),
-    ?line {ok,"IA"} = asn1_wrapper:decode('Constraints','T2',Bytes15).
+    ?line {ok,Bytes16} = asn1_wrapper:encode('Constraints','T',"IA"),
+    ?line {ok,"IA"} = asn1_wrapper:decode('Constraints','T',Bytes16),
+    ?line {ok,Bytes17} = asn1_wrapper:encode('Constraints','T2',"IA"),
+    ?line {ok,"IA"} = asn1_wrapper:decode('Constraints','T2',Bytes17).
 
 
 refed_NNL_name(_Erule) ->
