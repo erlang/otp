@@ -247,12 +247,12 @@ filter()    See present/1, substrings/2,
       <desc> <p>Always derefrence aliases.</p> </desc>
     </func>
     <func>
-      <name> derefInSearching() -> dereference()</name>
+      <name>derefInSearching() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Derefrence aliases only when searching.</p> </desc>
     </func>
     <func>
-      <name> derefFindingBaseObj() -> dereference()</name>
+      <name>derefFindingBaseObj() -> dereference()</name>
       <fsummary>Create search option.</fsummary>
       <desc> <p>Derefrence aliases only in finding the base.</p> </desc>
     </func>
