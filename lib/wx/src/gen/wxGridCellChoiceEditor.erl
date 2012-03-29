@@ -41,7 +41,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 -type wxGridCellChoiceEditor() :: wx:wx_object().
 %% @equiv new(Choices, [])
 -spec new(Choices) -> wxGridCellChoiceEditor() when
-	Choices::[[unicode:chardata()]].
+	Choices::[unicode:chardata()].
 
 new(Choices)
  when is_list(Choices) ->
@@ -49,7 +49,7 @@ new(Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellchoiceeditor.html#wxgridcellchoiceeditorwxgridcellchoiceeditor">external documentation</a>.
 -spec new(Choices, [Option]) -> wxGridCellChoiceEditor() when
-	Choices::[[unicode:chardata()]],
+	Choices::[unicode:chardata()],
 	Option :: {allowOthers, boolean()}.
 new(Choices, Options)
  when is_list(Choices),is_list(Options) ->
