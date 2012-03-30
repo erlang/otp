@@ -872,34 +872,63 @@
     <marker id="timetraps"></marker>
     <title>Timetrap timeouts</title>
     <p>The default time limit for a test case is 30 minutes, unless a
-      <c>timetrap</c> is specified either by the suite info function
-      or a test case info function. The timetrap timeout value defined
-      in <c>suite/0</c> is the value that will be used for each test case
-      in the suite (as well as for the configuration functions
-      <c>init_per_suite/1</c> and <c>end_per_suite</c>). A timetrap timeout
-      value set with the test case info function will override the value set
-      by <c>suite/0</c>, but only for that particular test case.</p>
-    <p>It is also possible to set/reset a timetrap during test case (or
-      configuration function) execution. This is done by calling
-      <c>ct:timetrap/1</c>. This function will cancel the current timetrap
-      and start a new one.</p>
+    <c>timetrap</c> is specified either by the suite-, group-,
+    or test case info function. The timetrap timeout value defined by
+    <c>suite/0</c> is the value that will be used for each test case
+    in the suite (as well as for the configuration functions
+    <c>init_per_suite/1</c>, <c>end_per_suite/1</c>, <c>init_per_group/2</c>,
+    and <c>end_per_group/2</c>). A timetrap value defined by
+    <c>group(GroupName)</c> overrides one defined by <c>suite()</c>
+    and will be used for each test case in group <c>GroupName</c>, and any
+    of its sub-groups. If a timetrap value is defined by <c>group/1</c>
+    for a sub-group, it overrides that of its higher level groups. Timetrap
+    values set by individual test cases (by means of the test case info
+    function) overrides both group- and suite- level timetraps.</p>
+    
+    <p>It is also possible to dynamically set/reset a timetrap during the
+    excution of a test case, or configuration function. This is done by calling
+    <c>ct:timetrap/1</c>. This function cancels the current timetrap
+    and starts a new one (that stays active until timeout, or end of the
+    current function).</p>
+    
     <p>Timetrap values can be extended with a multiplier value specified at
-      startup with the <c>multiply_timetraps</c> option. It is also possible
-      to let Test Server decide to scale up timetrap timeout values
-      automatically, e.g. if tools such as cover or trace are running during
-      the test. This feature is disabled by default and can be enabled with
-      the <c>scale_timetraps</c> start option.</p>
+    startup with the <c>multiply_timetraps</c> option. It is also possible
+    to let the test server decide to scale up timetrap timeout values
+    automatically, e.g. if tools such as cover or trace are running during
+    the test. This feature is disabled by default and can be enabled with
+    the <c>scale_timetraps</c> start option.</p>
+    
     <p>If a test case needs to suspend itself for a time that also gets
-      multipled by <c>multiply_timetraps</c>, and possibly scaled up if
-      <c>scale_timetraps</c> is enabled, the function <c>ct:sleep/1</c>
-      may be called.</p>
-    <p>A function (<c>fun</c> or <c>MFA</c>) may be specified as timetrap value
-      in the suite- and test case info function, e.g:</p>
-      <p><c>{timetrap,{test_utils,get_timetrap_value,[?MODULE,system_start]}}</c></p>
-      <p>The function will be called initially by Common Test (before execution
-	of the suite or the test case) and must return a time value such as an
-	integer (millisec), or a <c>{SecMinOrHourTag,Time}</c> tuple. More
-	information can be found in the <c>common_test</c> reference manual.</p>
+    multipled by <c>multiply_timetraps</c> (and possibly also scaled up if
+    <c>scale_timetraps</c> is enabled), the function <c>ct:sleep/1</c>
+    may be used (instead of e.g. <c>timer:sleep/1</c>).</p>
+    
+    <p>A function (<c>fun/0</c> or <c>MFA</c>) may be specified as
+    timetrap value in the suite-, group- and test case info function, as
+    well as argument to the <c>ct:timetrap/1</c> function. Examples:</p>
+
+    <p><c>{timetrap,{my_test_utils,timetrap,[?MODULE,system_start]}}</c></p>
+    <p><c>ct:timetrap(fun() -> my_timetrap(TestCaseName, Config) end)</c></p>
+
+    <p>The user timetrap function may be used for two things:</p>
+    <list>
+      <item>To act as a timetrap - the timeout is triggered when the
+      function returns.</item>
+      <item>To return a timetrap time value (other than a function).</item>
+    </list>
+    <p>Before execution of the timetrap function (which is performed
+    on a parallel, dedicated timetrap process), Common Test cancels
+    any previously set timer for the test case or configuration function.    
+    When the timetrap function returns, the timeout is triggered, <em>unless</em>
+    the return value is a valid timetrap time, such as an integer,
+    or a <c>{SecMinOrHourTag,Time}</c> tuple (see the
+    <seealso marker="common_test">common_test reference manual</seealso> for
+    details). If a time value is returned, a new timetrap is started
+    to generate a timeout after the specified time.</p>
+
+    <p>The user timetrap function may of course return a time value after a delay,
+    and if so, the effective timetrap time is the delay time <em>plus</em> the
+    returned time.</p>
   </section>
 
   <section>
