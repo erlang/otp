@@ -103,7 +103,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Item,ClientData)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcontrolwithitems.html#wxcontrolwithitemsappend">external documentation</a>.
 -spec appendStrings(This, Strings) -> ok when
-	This::wxControlWithItems(), Strings::[[unicode:chardata()]].
+	This::wxControlWithItems(), Strings::[unicode:chardata()].
 appendStrings(#wx_ref{type=ThisT,ref=ThisRef},Strings)
  when is_list(Strings) ->
   ?CLASS(ThisT,wxControlWithItems),

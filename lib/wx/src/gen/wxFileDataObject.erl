@@ -55,7 +55,7 @@ addFile(#wx_ref{type=ThisT,ref=ThisRef},Filename)
   <<ThisRef:32/?UI,(byte_size(Filename_UC)):32/?UI,(Filename_UC)/binary, 0:(((8- ((0+byte_size(Filename_UC)) band 16#7)) band 16#7))/unit:8>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html#wxfiledataobjectgetfilenames">external documentation</a>.
--spec getFilenames(This) -> [[unicode:charlist()]] when
+-spec getFilenames(This) -> [unicode:charlist()] when
 	This::wxFileDataObject().
 getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDataObject),

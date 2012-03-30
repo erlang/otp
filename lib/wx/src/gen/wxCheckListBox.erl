@@ -104,7 +104,7 @@ new(Parent,Id)
 	Parent::wxWindow:wxWindow(), Id::integer(),
 	Option :: {pos, {X::integer(), Y::integer()}}
 		 | {size, {W::integer(), H::integer()}}
-		 | {choices, [[unicode:chardata()]]}
+		 | {choices, [unicode:chardata()]}
 		 | {style, integer()}
 		 | {validator, wx:wx_object()}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Id, Options)
