@@ -43,8 +43,8 @@
       to the runtime system at driver initialization, and some new
       driver API functions.      </p>
     <note>
-      <p>As of erts version 5.9 old drivers has to be recompiled
-      and has to use the extended interface. They also has to be
+      <p>As of erts version 5.9 old drivers have to be recompiled
+      and have to use the extended interface. They also have to be
       adjusted to the
       <seealso marker="#rewrites_for_64_bits">64-bit capable driver interface.
       </seealso>
@@ -283,7 +283,7 @@
 	  called return garbage sizes to the emulator causing it
 	  to read random memory and create huge incorrect result blobs.</p>
 	<p>Therefore it is not enough to just recompile drivers written with
-	  version management for pre-R15B types; the types has to be changed
+	  version management for pre-R15B types; the types have to be changed
 	  in the driver suggesting other rewrites especially regarding
 	  size variables. Investigate all warnings when recompiling!</p>
 	<p>Also, the API driver functions <c>driver_output*</c>,
@@ -356,19 +356,19 @@
 	<p>
 	  Driver callback
 	  <c><seealso marker="driver_entry#output">output</seealso></c>
-	  now gets <c>ErlDrvSizeT</c> as 3:rd argument instead
+	  now gets <c>ErlDrvSizeT</c> as 3rd argument instead
 	  of previously <c>int</c>.
 	</p>
 	<p>
 	  Driver callback
 	  <c><seealso marker="driver_entry#control">control</seealso></c>
-	  now gets <c>ErlDrvSizeT</c> as 4:th and 6:th arguments instead
+	  now gets <c>ErlDrvSizeT</c> as 4th and 6th arguments instead
 	  of previously <c>int</c>.
 	</p>
 	<p>
 	  Driver callback
 	  <c><seealso marker="driver_entry#call">call</seealso></c>
-	  now gets <c>ErlDrvSizeT</c> as 4:th and 6:th arguments instead
+	  now gets <c>ErlDrvSizeT</c> as 4th and 6th arguments instead
 	  of previously <c>int</c>.
 	</p>
 	<p>
@@ -410,54 +410,54 @@
       <tag>Arguments and return values in the driver API</tag>
       <item>
 	<p>
-	  Many driver API functions has changed argument type
+	  Many driver API functions have changed argument type
 	  and/or return value to <c>ErlDrvSizeT</c> from mostly <c>int</c>.
 	  Automatic type casting probably makes these changes necessary only
 	  for a driver that encounters sizes larger than 32 bits.
 	</p>
 	<taglist>
 	  <tag><seealso marker="#driver_output">driver_output</seealso></tag>
-	  <item>3:rd argument</item>
+	  <item>3rd argument</item>
 	  <tag><seealso marker="#driver_output2">driver_output2</seealso></tag>
-	  <item>3:rd and 5:th arguments</item>
+	  <item>3rd and 5th arguments</item>
 	  <tag>
 	  <seealso marker="#driver_output_binary">driver_output_binary</seealso>
 	  </tag>
-	  <item>3:rd 5:th and 6:th arguments</item>
+	  <item>3rd 5th and 6th arguments</item>
 	  <tag><seealso marker="#driver_outputv">driver_outputv</seealso></tag>
-	  <item>3:rd and 5:th arguments</item>
+	  <item>3rd and 5th arguments</item>
 	  <tag>
 	  <seealso marker="#driver_vec_to_buf">driver_vec_to_buf</seealso>
 	  </tag>
-	  <item>3:rd argument and return value</item>
+	  <item>3rd argument and return value</item>
 	  <tag><seealso marker="#driver_alloc">driver_alloc</seealso></tag>
-	  <item>1:st argument</item>
+	  <item>1st argument</item>
 	  <tag><seealso marker="#driver_realloc">driver_realloc</seealso></tag>
-	  <item>2:nd argument</item>
+	  <item>2nd argument</item>
 	  <tag>
 	  <seealso marker="#driver_alloc_binary">driver_alloc_binary</seealso>
 	  </tag>
-	  <item>1:st argument</item>
+	  <item>1st argument</item>
 	  <tag>
 	  <seealso marker="#driver_realloc_binary">driver_realloc_binary</seealso>
 	  </tag>
-	  <item>2:nd argument</item>
+	  <item>2nd argument</item>
 	  <tag><seealso marker="#driver_enq">driver_enq</seealso></tag>
-	  <item>3:rd argument</item>
+	  <item>3rd argument</item>
 	  <tag><seealso marker="#driver_pushq">driver_pushq</seealso></tag>
-	  <item>3:rd argument</item>
+	  <item>3rd argument</item>
 	  <tag><seealso marker="#driver_deq">driver_deq</seealso></tag>
-	  <item>2:nd argument and return value</item>
+	  <item>2nd argument and return value</item>
 	  <tag><seealso marker="#driver_sizeq">driver_sizeq</seealso></tag>
 	  <item>return value</item>
 	  <tag><seealso marker="#driver_enq_bin">driver_enq_bin</seealso></tag>
-	  <item>3:rd and 4:th argument</item>
+	  <item>3rd and 4th argument</item>
 	  <tag><seealso marker="#driver_pushq_bin">driver_pushq_bin</seealso></tag>
-	  <item>3:rd and 4:th argument</item>
+	  <item>3rd and 4th argument</item>
 	  <tag><seealso marker="#driver_enqv">driver_enqv</seealso></tag>
-	  <item>3:rd argument</item>
+	  <item>3rd argument</item>
 	  <tag><seealso marker="#driver_pushqv">driver_pushqv</seealso></tag>
-	  <item>3:rd argument</item>
+	  <item>3rd argument</item>
 	  <tag><seealso marker="#driver_peekqv">driver_peekqv</seealso></tag>
 	  <item>return value</item>
 	</taglist>
