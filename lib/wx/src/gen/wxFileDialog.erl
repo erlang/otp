@@ -138,7 +138,7 @@ getFilename(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetfilenames">external documentation</a>.
--spec getFilenames(This) -> [[unicode:charlist()]] when
+-spec getFilenames(This) -> [unicode:charlist()] when
 	This::wxFileDialog().
 getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -170,7 +170,7 @@ getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetpaths">external documentation</a>.
--spec getPaths(This) -> [[unicode:charlist()]] when
+-spec getPaths(This) -> [unicode:charlist()] when
 	This::wxFileDialog().
 getPaths(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),

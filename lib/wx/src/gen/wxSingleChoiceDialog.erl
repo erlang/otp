@@ -94,7 +94,7 @@ new() ->
 
 %% @equiv new(Parent,Message,Caption,Choices, [])
 -spec new(Parent, Message, Caption, Choices) -> wxSingleChoiceDialog() when
-	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[[unicode:chardata()]].
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()].
 
 new(Parent,Message,Caption,Choices)
  when is_record(Parent, wx_ref),is_list(Message),is_list(Caption),is_list(Choices) ->
@@ -102,7 +102,7 @@ new(Parent,Message,Caption,Choices)
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsinglechoicedialog.html#wxsinglechoicedialogwxsinglechoicedialog">external documentation</a>.
 -spec new(Parent, Message, Caption, Choices, [Option]) -> wxSingleChoiceDialog() when
-	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[[unicode:chardata()]],
+	Parent::wxWindow:wxWindow(), Message::unicode:chardata(), Caption::unicode:chardata(), Choices::[unicode:chardata()],
 	Option :: {style, integer()}
 		 | {pos, {X::integer(), Y::integer()}}.
 new(#wx_ref{type=ParentT,ref=ParentRef},Message,Caption,Choices, Options)
