@@ -2167,7 +2167,7 @@ load_code(LoaderState* stp)
 	    case 's':	/* Any source (tagged constant or register) */
 		switch (tag) {
 		case TAG_r:
-		    code[ci++] = make_rreg();
+		    code[ci++] = make_xreg(0);
 		    break;
 		case TAG_x:
 		    code[ci++] = make_xreg(tmp_op->a[arg].val);
@@ -2193,7 +2193,7 @@ load_code(LoaderState* stp)
 	    case 'd':	/* Destination (x(0), x(N), y(N) */
 		switch (tag) {
 		case TAG_r:
-		    code[ci++] = make_rreg();
+		    code[ci++] = make_xreg(0);
 		    break;
 		case TAG_x:
 		    code[ci++] = make_xreg(tmp_op->a[arg].val);
@@ -2357,10 +2357,6 @@ load_code(LoaderState* stp)
 		ci++;
 		break;
 	    case TAG_r:
-		CodeNeed(1);
-		code[ci++] = (R_REG_DEF << _TAG_PRIMARY_SIZE) |
-		    TAG_PRIMARY_HEADER;
-		break;
 	    case TAG_x:
 		CodeNeed(1);
 		code[ci++] = (tmp_op->a[arg].val << _TAG_IMMED1_SIZE) |

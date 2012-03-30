@@ -160,8 +160,6 @@ do {                                     \
     stb_reg = (DestDesc);                           \
     CHECK_TERM(Result);                             \
     switch (beam_reg_tag(stb_reg)) {                \
-    case R_REG_DEF:                                 \
-      r(0) = (Result); break;                       \
     case X_REG_DEF:                                 \
       xb(x_reg_offset(stb_reg)) = (Result); break;  \
     default:                                        \
@@ -186,8 +184,6 @@ do {                                     \
     stb_next = (BeamInstr *) *I;                                 \
     CHECK_TERM(Result);                                      \
     switch (beam_reg_tag(stb_reg)) {                         \
-    case R_REG_DEF:                                          \
-      r(0) = (Result); Goto(stb_next);                       \
     case X_REG_DEF:                                          \
       xb(x_reg_offset(stb_reg)) = (Result); Goto(stb_next);  \
     default:                                                 \
@@ -521,7 +517,6 @@ void** beam_ops;
    do { \
      tr = Arg(pos); \
      switch (beam_reg_tag(tr)) { \
-     case R_REG_DEF: tr = r(0); break; \
      case X_REG_DEF: tr = xb(x_reg_offset(tr)); break; \
      case Y_REG_DEF: ASSERT(y_reg_offset(tr) >= 1); tr = yb(y_reg_offset(tr)); break; \
      } \
@@ -2391,9 +2386,6 @@ void process_main(void)
      do {
 	 Eterm term = *I++;
 	 switch (term & _TAG_IMMED1_MASK) {
-	 case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
-	     *hp++ = r(0);
-	     break;
 	 case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:
 	     *hp++ = x(term >> _TAG_IMMED1_SIZE);
 	     break;
@@ -2422,9 +2414,6 @@ void process_main(void)
 #define PUT_TERM_REG(term, desc)				\
 do {								\
     switch ((desc) & _TAG_IMMED1_MASK) {			\
-    case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
-	r(0) = (term);						\
-	break;							\
     case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
 	x((desc) >> _TAG_IMMED1_SIZE) = (term);			\
 	break;							\
@@ -6502,9 +6491,6 @@ static Eterm get_map_element_hash(Eterm map, Eterm key, Uint32 hx)
 do {								\
     Eterm src = (Eterm)(term);					\
     switch (src & _TAG_IMMED1_MASK) {				\
-    case (R_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
-	dest = x(0);						\
-	break;							\
     case (X_REG_DEF << _TAG_PRIMARY_SIZE) | TAG_PRIMARY_HEADER:	\
 	dest = x(src >> _TAG_IMMED1_SIZE);			\
 	break;							\

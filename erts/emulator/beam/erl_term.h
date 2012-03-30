@@ -1037,11 +1037,9 @@ _ET_DECLARE_CHECKED(Uint,catch_val,Eterm)
 
 #define X_REG_DEF	0
 #define Y_REG_DEF	1
-#define R_REG_DEF	2
 
 #define beam_reg_tag(x)	((x) & 3)
 
-#define make_rreg()	R_REG_DEF
 #define make_xreg(ix)	(((ix) * sizeof(Eterm)) | X_REG_DEF)
 #define make_yreg(ix)	(((ix) * sizeof(Eterm)) | Y_REG_DEF)
 
