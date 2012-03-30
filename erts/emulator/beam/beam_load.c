@@ -4322,7 +4322,7 @@ gen_has_map_fields(LoaderState* stp, GenOpArg Fail, GenOpArg Src,
     for (i = 0; i < n; i++) {
 	op->a[3+2*i] = Rest[i];
 	op->a[3+2*i+1].type = TAG_x;
-	op->a[3+2*i+1].val = 0;	/* x(0); normally not used */
+	op->a[3+2*i+1].val = SCRATCH_X_REG; /* Ignore result */
     }
     return op;
 }

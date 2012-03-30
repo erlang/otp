@@ -601,6 +601,7 @@ sub emulator_output {
     print "#define MAX_GENERIC_OPCODE ", $num_file_opcodes-1, "\n";
     print "#define NUM_GENERIC_OPS ", scalar(@gen_opname), "\n";
     print "#define NUM_SPECIFIC_OPS ", scalar(@op_to_name), "\n";
+    print "#define SCRATCH_X_REG 1023\n";
     print "\n";
     print "#ifdef ARCH_64\n";
     print "#  define BEAM_WIDE_MASK 0xFFFFUL\n";
@@ -1341,7 +1342,10 @@ sub tr_parse_op {
     }
 
     # Get an optional value. (In destination.)
+    $type_val = $type eq 'x' ? 1023 : 0;
     if (/^=(.*)/) {
+	error("value not allowed in source: $op")
+	    if $src;
 	$type_val = $1;
 	$_ = '';
     }
@@ -1360,11 +1364,6 @@ sub tr_parse_op {
 	    if $var && $type;
     }
 
-    # Test that source has no values.
-    if ($src) {
-	error("value not allowed in source: $op")
-	    if $type_val;
-    }
     ($var,$type,$type_val,$cond,$cond_val);
 }
 
