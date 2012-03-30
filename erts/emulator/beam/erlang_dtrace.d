@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011.
+ * Copyright Dustin Sallings, Michal Ptaszek, Scott Lystig Fritchie 2011-2012.
  * All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
