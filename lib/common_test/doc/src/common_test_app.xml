@@ -187,9 +187,13 @@
 	  test case is allowed to execute (including <c>init_per_testcase/2</c>
 	  and <c>end_per_testcase/2</c>). If the timetrap time is
 	  exceeded, the test case fails with reason
-	  <c>timetrap_timeout</c>. If a <c>TimeFunc</c> function is specified,
-	  it will be called initially and must return a value on
-	  <c>TimeVal</c> format.</p>
+	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
+	  set a new timetrap by returning a <c>TimeVal</c>. It may also be
+	  used to trigger a timetrap timeout by, at some point, returning a
+	  value other than a <c>TimeVal</c>. (See the
+	  <seealso marker="write_test_chapter#timetraps">User's Guide</seealso>
+	  for details).
+	</p>
 	
 	<p>The <c>require</c> tag specifies configuration variables
 	  that are required by test cases (and/or configuration functions)
@@ -313,9 +317,12 @@
 	  test case is allowed to execute (including <c>init_per_testcase/2</c>
 	  and <c>end_per_testcase/2</c>). If the timetrap time is
 	  exceeded, the test case fails with reason
-	  <c>timetrap_timeout</c>. If a <c>TimeFunc</c> function is specified,
-	  it will be called initially and must return a value on
-	  <c>TimeVal</c> format.</p>
+	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
+	  set a new timetrap by returning a <c>TimeVal</c>. It may also be
+	  used to trigger a timetrap timeout by, at some point, returning a
+	  value other than a <c>TimeVal</c>. (See the
+	  <seealso marker="write_test_chapter#timetraps">User's Guide</seealso>
+	  for details).</p>
 	
 	<p>The <c>require</c> tag specifies configuration variables
 	  that are required by test cases (and/or configuration functions)
@@ -494,9 +501,12 @@
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. <c>init_per_testcase/2</c>
 	  and <c>end_per_testcase/2</c> are included in the
-	  timetrap time. If a <c>TimeFunc</c> function is specified,
-	  it will be called before the test case (or <c>init_per_testcase/2</c>)
-	  and must return a value on <c>TimeVal</c> format.</p>
+	  timetrap time. A <c>TimeFunc</c> function can be used to
+	  set a new timetrap by returning a <c>TimeVal</c>. It may also be
+	  used to trigger a timetrap timeout by, at some point, returning a
+	  value other than a <c>TimeVal</c>. (See the
+	  <seealso marker="write_test_chapter#timetraps">User's Guide</seealso>
+	  for details).</p>
 	
 	<p>The <c>require</c> tag specifies configuration variables
 	  that are required by the test case (and/or <c>init/end_per_testcase/2</c>).
