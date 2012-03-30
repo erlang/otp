@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -318,7 +318,7 @@ browse_file(Port,File) ->
 
     %% The page where a filename can be entered
     title(Port,"read_file_frame","Read File"),
-    
+
     %% Load a file
     Url = "http://localhost:"++Port++"/cdv_erl/crashdump_viewer/read_file",
     Html = request_sync(post,{Url,[],[],"path="++File}),
@@ -711,6 +711,7 @@ rel_opt(Rel) ->
 	r11b -> [{erl,[{release,"r11b_patched"}]}];
 	r12b -> [{erl,[{release,"r12b_patched"}]}];
 	r13b -> [{erl,[{release,"r13b_patched"}]}];
+	r14b -> [{erl,[{release,"r14b_latest"}]}]; %naming convention changed
 	current -> []
     end.
 
@@ -734,6 +735,6 @@ compat_rel(Rel) ->
 	r11b -> "+R11 ";
 	r12b -> "+R12 ";
 	r13b -> "+R13 ";
-	r14b -> "+R13 ";
+	r14b -> "+R14 ";
 	current -> ""
     end.
