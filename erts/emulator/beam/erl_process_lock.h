@@ -958,8 +958,6 @@ erts_pid2proc_opt(Process *c_p,
 		if (flags & ERTS_P2P_FLG_TRY_LOCK)
 		    proc = ERTS_PROC_LOCK_BUSY;
 		else {
-		    if (flags & ERTS_P2P_FLG_SMP_INC_REFC)
-			proc->lock.refc++;
 #ifdef ERTS_ENABLE_LOCK_COUNT
 		    erts_lcnt_proc_lock_unaquire(&proc->lock, lcnt_locks);
 #endif
@@ -969,6 +967,8 @@ erts_pid2proc_opt(Process *c_p,
 					   pid_need_locks,
 					   pix_lock,
 					   flags);
+		    if (proc && (flags & ERTS_P2P_FLG_SMP_INC_REFC))
+			proc->lock.refc++;
 		}
 	    }
         }
