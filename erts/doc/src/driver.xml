@@ -31,7 +31,7 @@
 
   <note><p>This document was written a long time ago. A lot of it is still
            interesting since it explains important concepts, but it was
-	   written for an older driver interface so the examples does not
+	   written for an older driver interface so the examples do not
 	   work anymore. The reader is encouraged to read
 	   <seealso marker="erl_driver">erl_driver</seealso> and the
 	   <seealso marker="driver_entry">driver_entry</seealso> documentation.
