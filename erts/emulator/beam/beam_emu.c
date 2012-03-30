@@ -99,10 +99,7 @@ do {									\
 do {                                     \
   int i_;                                \
   int Arity_ = PC[-1];                   \
-  if (Arity_ > 0) {                      \
-	CHECK_TERM(r(0));                \
-  }                                      \
-  for (i_ = 1; i_ < Arity_; i_++) {      \
+  for (i_ = 0; i_ < Arity_; i_++) {      \
 	CHECK_TERM(x(i_));               \
   }                                      \
 } while (0)
@@ -293,7 +290,7 @@ void** beam_ops;
 #define Ib(N) (N)
 #define x(N) reg[N]
 #define y(N) E[N]
-#define r(N) x##N
+#define r(N) x(N)
 
 /*
  * Makes sure that there are StackNeed + HeapNeed + 1 words available
@@ -309,12 +306,10 @@ void** beam_ops;
      needed = (StackNeed) + 1; \
      if (E - HTOP < (needed + (HeapNeed))) { \
            SWAPOUT; \
-           reg[0] = r(0); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
            FCALLS -= erts_garbage_collect(c_p, needed + (HeapNeed), reg, (M)); \
            ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p); \
            PROCESS_MAIN_CHK_LOCKS(c_p); \
-           r(0) = reg[0]; \
            SWAPIN; \
      } \
      E -= needed; \
@@ -363,12 +358,10 @@ void** beam_ops;
     unsigned need = (Nh);                                       		\
     if ((E - HTOP < need) || (MSO(c_p).overhead + (VNh) >= BIN_VHEAP_SZ(c_p))) {\
        SWAPOUT;                                                 		\
-       reg[0] = r(0);                                           		\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
        FCALLS -= erts_garbage_collect(c_p, need, reg, (Live));  		\
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);					\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             		\
-       r(0) = reg[0];                                           		\
        SWAPIN;                                                  		\
     }                                                           		\
     HEAP_SPACE_VERIFIED(need);                                                  \
@@ -386,12 +379,10 @@ void** beam_ops;
     unsigned need = (Nh);                                       \
     if (E - HTOP < need) {                                      \
        SWAPOUT;                                                 \
-       reg[0] = r(0);                                           \
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
        FCALLS -= erts_garbage_collect(c_p, need, reg, (Live));  \
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);			\
        PROCESS_MAIN_CHK_LOCKS(c_p);                             \
-       r(0) = reg[0];                                           \
        SWAPIN;                                                  \
     }                                                           \
     HEAP_SPACE_VERIFIED(need);                             \
@@ -408,15 +399,11 @@ void** beam_ops;
     unsigned need = (Nh);						\
     if (E - HTOP < need) {						\
        SWAPOUT;								\
-       reg[0] = r(0);							\
        reg[Live] = Extra;						\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
        FCALLS -= erts_garbage_collect(c_p, need, reg, (Live)+1);	\
        ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);				\
        PROCESS_MAIN_CHK_LOCKS(c_p);					\
-       if (Live > 0) {							\
-	   r(0) = reg[0];						\
-       }								\
        Extra = reg[Live];						\
        SWAPIN;								\
     }									\
@@ -439,7 +426,6 @@ void** beam_ops;
 #define MakeFun(FunP, NumFree)					\
   do {								\
      SWAPOUT;							\
-     reg[0] = r(0);						\
      r(0) = new_fun(c_p, reg, (ErlFunEntry *) FunP, NumFree);	\
      SWAPIN;							\
   } while (0)
@@ -992,7 +978,6 @@ init_emulator(void)
  */
 
 #if defined(__GNUC__) && defined(sparc) && !defined(DEBUG)
-#  define REG_x0 asm("%l0")
 #  define REG_xregs asm("%l1")
 #  define REG_htop asm("%l2")
 #  define REG_stop asm("%l3")
@@ -1001,7 +986,6 @@ init_emulator(void)
 #  define REG_tmp_arg1 asm("%l6")
 #  define REG_tmp_arg2 asm("%l7")
 #else
-#  define REG_x0
 #  define REG_xregs
 #  define REG_htop
 #  define REG_stop
@@ -1125,11 +1109,6 @@ void process_main(void)
 #ifdef DEBUG
     ERTS_DECLARE_DUMMY(Eterm pid);
 #endif
-
-    /*
-     * X register zero; also called r(0)
-     */
-    register Eterm x0 REG_x0 = NIL;
 
     /* Pointer to X registers: x(1)..x(N); reg[0] is used when doing GC,
      * in all other cases x0 is used.
@@ -1262,7 +1241,7 @@ void process_main(void)
 	int i;
 
 	argp = c_p->arg_reg;
-	for (i = c_p->arity - 1; i > 0; i--) {
+	for (i = c_p->arity - 1; i >= 0; i--) {
 	    reg[i] = argp[i];
 	    CHECK_TERM(reg[i]);
 	}
@@ -1286,12 +1265,6 @@ void process_main(void)
 	}
 
 	next = (BeamInstr *) *I;
-	r(0) = c_p->arg_reg[0];
-#ifdef HARDDEBUG
-	if (c_p->arity > 0) {
-	    CHECK_TERM(r(0));
-	}
-#endif
 	SWAPIN;
 	ASSERT(VALID_INSTR(next));
 
@@ -1365,11 +1338,9 @@ void process_main(void)
 
 	    live = Arg(2);
 	    SWAPOUT;
-	    reg[0] = r(0);
 	    reg[live] = increment_reg_val;
 	    reg[live+1] = make_small(increment_val);
 	    result = erts_gc_mixed_plus(c_p, reg, live);
-	    r(0) = reg[0];
 	    SWAPIN;
 	    ERTS_HOLE_CHECK(c_p);
 	    if (is_value(result)) {
@@ -1383,11 +1354,9 @@ void process_main(void)
     do {                                 \
         Uint live = Arg(1);              \
         SWAPOUT;                         \
-        reg[0] = r(0);                   \
         reg[live] = (Arg1);              \
         reg[live+1] = (Arg2);            \
         result = (Func)(c_p, reg, live); \
-        r(0) = reg[0];                   \
         SWAPIN;                          \
         ERTS_HOLE_CHECK(c_p);            \
         if (is_value(result)) {          \
@@ -1706,7 +1675,6 @@ void process_main(void)
 
      PRE_BIF_SWAPOUT(c_p);
      c_p->fcalls = FCALLS - 1;
-     reg[0] = r(0);
      result = erl_send(c_p, r(0), x(1));
      PreFetch(0, next);
      ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -1714,7 +1682,6 @@ void process_main(void)
      PROCESS_MAIN_CHK_LOCKS(c_p);
      if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
 	 result = erts_gc_after_bif_call(c_p, result, reg, 2);
-	 r(0) = reg[0];
 	 E = c_p->stop;
      }
      HTOP = HEAP_TOP(c_p);
@@ -1727,7 +1694,6 @@ void process_main(void)
 	 SET_CP(c_p, I+1);
 	 SET_I(c_p->i);
 	 SWAPIN;
-	 r(0) = reg[0];
 	 Dispatch();
      }
      goto find_func_info;
@@ -1935,13 +1901,11 @@ void process_main(void)
      ErtsMoveMsgAttachmentIntoProc(msgp, c_p, E, HTOP, FCALLS,
 				   {
 				       SWAPOUT;
-				       reg[0] = r(0);
 				       PROCESS_MAIN_CHK_LOCKS(c_p);
 				   },
 				   {
 				       ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 				       PROCESS_MAIN_CHK_LOCKS(c_p);
-				       r(0) = reg[0];
 				       SWAPIN;
 				   });
      if (is_non_value(ERL_MESSAGE_TERM(msgp))) {
@@ -2448,11 +2412,9 @@ void process_main(void)
  OpCase(new_map_dII): {
      Eterm res;
 
-     x(0) = r(0);
      SWAPOUT;
      res = new_map(c_p, reg, I-1);
      SWAPIN;
-     r(0) = x(0);
      StoreResult(res, Arg(0));
      Next(3+Arg(2));
  }
@@ -2543,12 +2505,10 @@ do {								\
      Eterm map;
 
      GetArg1(1, map);
-     x(0) = r(0);
      SWAPOUT;
      res = update_map_assoc(c_p, reg, map, I);
      SWAPIN;
      if (is_value(res)) {
-	 r(0) = x(0);
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
      } else {
@@ -2567,12 +2527,10 @@ do {								\
      Eterm map;
 
      GetArg1(1, map);
-     x(0) = r(0);
      SWAPOUT;
      res = update_map_exact(c_p, reg, map, I);
      SWAPIN;
      if (is_value(res)) {
-	 r(0) = x(0);
 	 StoreResult(res, Arg(2));
 	 Next(5+Arg(4));
      } else {
@@ -2659,7 +2617,6 @@ do {								\
 	Uint live = (Uint) Arg(3);
 
 	GetArg1(2, arg);
-	reg[0] = r(0);
 	reg[live] = arg;
 	bf = (GcBifFunction) Arg(1);
 	c_p->fcalls = FCALLS;
@@ -2671,7 +2628,6 @@ do {								\
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
-	r(0) = reg[0];
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
@@ -2694,7 +2650,6 @@ do {								\
 	Eterm result;
 	Uint live = (Uint) Arg(2);
 
-	reg[0] = r(0);
 	reg[live++] = tmp_arg1;
 	reg[live] = tmp_arg2;
 	bf = (GcBifFunction) Arg(1);
@@ -2707,7 +2662,6 @@ do {								\
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
-	r(0) = reg[0];
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
@@ -2732,7 +2686,6 @@ do {								\
 	Uint live = (Uint) Arg(3);
 
 	GetArg1(2, arg);
-	reg[0] = r(0);
 	reg[live++] = arg;
 	reg[live++] = tmp_arg1;
 	reg[live] = tmp_arg2;
@@ -2746,7 +2699,6 @@ do {								\
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	SWAPIN;
-	r(0) = reg[0];
 	ERTS_HOLE_CHECK(c_p);
 	FCALLS = c_p->fcalls;
 	if (is_value(result)) {
@@ -2835,7 +2787,6 @@ do {								\
 	PreFetch(1, next);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	reg[0] = r(0);
 	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
@@ -2857,7 +2808,6 @@ do {								\
 	    SET_CP(c_p, I+2);
 	    SET_I(c_p->i);
 	    SWAPIN;
-	    r(0) = reg[0];
 	    Dispatch();
 	}
 
@@ -2967,11 +2917,9 @@ do {								\
      Uint live = Arg(1);
 
      SWAPOUT;
-     reg[0] = r(0);
      reg[live] = tmp_arg1;
      reg[live+1] = tmp_arg2;
      result = arith_func(c_p, reg, live);
-     r(0) = reg[0];
      SWAPIN;
      ERTS_HOLE_CHECK(c_p);
      if (is_value(result)) {
@@ -3166,10 +3114,8 @@ do {								\
      } else {
 	 Uint live = Arg(2);
 	 SWAPOUT;
-	 reg[0] = r(0);
 	 reg[live] = bnot_val;
 	 bnot_val = erts_gc_bnot(c_p, reg, live);
-	 r(0) = reg[0];
 	 SWAPIN;
 	 ERTS_HOLE_CHECK(c_p);
 	 if (is_nil(bnot_val)) {
@@ -3189,7 +3135,6 @@ do {								\
      next = apply(c_p, r(0), x(1), x(2), reg);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_CP(c_p, I+1);
 	 SET_I(next);
 	 Dispatch();
@@ -3204,7 +3149,6 @@ do {								\
      next = apply(c_p, r(0), x(1), x(2), reg);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
 	 SET_I(next);
@@ -3220,7 +3164,6 @@ do {								\
      next = apply(c_p, r(0), x(1), x(2), reg);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_I(next);
 	 Dispatch();
      }
@@ -3231,12 +3174,10 @@ do {								\
  OpCase(apply_I): {
      BeamInstr *next;
 
-     reg[0] = r(0);
      SWAPOUT;
      next = fixed_apply(c_p, reg, Arg(0));
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_CP(c_p, I+2);
 	 SET_I(next);
 	 Dispatch();
@@ -3248,12 +3189,10 @@ do {								\
  OpCase(apply_last_IP): {
      BeamInstr *next;
 
-     reg[0] = r(0);
      SWAPOUT;
      next = fixed_apply(c_p, reg, Arg(0));
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(1));
 	 SET_I(next);
@@ -3270,7 +3209,6 @@ do {								\
      next = apply_fun(c_p, r(0), x(1), reg);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_CP(c_p, I+1);
 	 SET_I(next);
 	 Dispatchfun();
@@ -3285,7 +3223,6 @@ do {								\
      next = apply_fun(c_p, r(0), x(1), reg);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_CP(c_p, (BeamInstr *) E[0]);
 	 E = ADD_BYTE_OFFSET(E, Arg(0));
 	 SET_I(next);
@@ -3301,7 +3238,6 @@ do {								\
      next = apply_fun(c_p, r(0), x(1), reg);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_I(next);
 	 Dispatchfun();
      }
@@ -3312,12 +3248,9 @@ do {								\
      BeamInstr *next;
 
      SWAPOUT;
-     reg[0] = r(0);
-
      next = call_fun(c_p, Arg(0), reg, THE_NON_VALUE);
      SWAPIN;
      if (next != NULL) {
-	 r(0) = reg[0];
 	 SET_CP(c_p, I+2);
 	 SET_I(next);
 	 Dispatchfun();
@@ -3329,11 +3262,9 @@ do {								\
      BeamInstr *next;
 
      SWAPOUT;
-     reg[0] = r(0);
      next = call_fun(c_p, Arg(0), reg, THE_NON_VALUE);
      SWAPIN;
      if (next != NULL) {
-	r(0) = reg[0];
 	SET_CP(c_p, (BeamInstr *) E[0]);
 	E = ADD_BYTE_OFFSET(E, Arg(1));
 	SET_I(next);
@@ -3418,10 +3349,9 @@ do {								\
       */
 
      argp = c_p->arg_reg;
-     for (i = c_p->arity - 1; i > 0; i--) {
+     for (i = c_p->arity - 1; i >= 0; i--) {
 	 argp[i] = reg[i];
      }
-     c_p->arg_reg[0] = r(0);
      SWAPOUT;
      c_p->i = I;
      goto do_schedule1;
@@ -3531,7 +3461,6 @@ do {								\
  /* Fall through here */
 
  find_func_info: {
-     reg[0] = r(0);
      SWAPOUT;
      I = handle_error(c_p, I, reg, NULL);
      goto post_error_handling;
@@ -3549,9 +3478,7 @@ do {								\
      * code[4]: Not used
      */
     SWAPOUT;
-    reg[0] = r(0);
     I = call_error_handler(c_p, I-3, reg, am_undefined_function);
-    r(0) = reg[0];
     SWAPIN;
     if (I) {
 	Goto(*I);
@@ -3560,14 +3487,12 @@ do {								\
  /* Fall through */
  OpCase(error_action_code): {
     handle_error:
-     reg[0] = r(0);
      SWAPOUT;
      I = handle_error(c_p, NULL, reg, NULL);
  post_error_handling:
      if (I == 0) {
 	 goto do_schedule;
      } else {
-	 r(0) = reg[0];
 	 ASSERT(!is_value(r(0)));
 	 if (c_p->mbuf) {
 	     erts_garbage_collect(c_p, 0, reg+1, 3);
@@ -3610,7 +3535,6 @@ do {								\
 		NifF* fp = vbf = (NifF*) I[1];
 		struct enif_environment_t env;
 		erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
-		reg[0] = r(0);
 		nif_bif_result = (*fp)(&env, bif_nif_arity, reg);
 		if (env.exception_thrown)
 		    nif_bif_result = THE_NON_VALUE;
@@ -3649,7 +3573,7 @@ do {								\
 	    bif_nif_arity = I[-1];
             ASSERT(bif_nif_arity <= 4);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	    reg[0] = r(0);
+	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    {
 		Eterm (*bf)(Process*, Eterm*, BeamInstr*) = vbf;
 		ASSERT(!ERTS_PROC_IS_EXITING(c_p));
@@ -3679,7 +3603,6 @@ do {								\
 		Goto(*I);
 	    } else if (c_p->freason == TRAP) {
 		SET_I(c_p->i);
-		r(0) = reg[0];
 		if (c_p->flags & F_HIBERNATE_SCHED) {
 		    c_p->flags &= ~F_HIBERNATE_SCHED;
 		    goto do_schedule;
@@ -4126,10 +4049,8 @@ do {								\
      Uint res;
 
      SWAPOUT;
-     reg[0] = r(0);
      reg[live] = tmp_arg2;
      res = erts_bs_append(c_p, reg, live, tmp_arg1, Arg(1), Arg(3));
-     r(0) = reg[0];
      SWAPIN;
      if (is_non_value(res)) {
 	 /* c_p->freason is already set (may be either BADARG or SYSTEM_LIMIT). */
@@ -4706,7 +4627,7 @@ do {								\
      Uint hole_size;
 
      OpCase(bs_context_to_binary_r): {
-	 context_to_binary_context = x0;
+	 context_to_binary_context = r(0);
 	 I -= 2;
 	 goto do_context_to_binary;
      }
@@ -4737,7 +4658,7 @@ do {								\
      Next(2);
 
      OpCase(i_bs_get_binary_all_reuse_rfI): {
-	 context_to_binary_context = x0;
+	 context_to_binary_context = r(0);
 	 goto do_bs_get_binary_all_reuse;
      }
 
@@ -4883,9 +4804,7 @@ do {								\
      BeamInstr real_I;
      ASSERT(I[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
      SWAPOUT;
-     reg[0] = r(0);
      real_I = erts_generic_breakpoint(c_p, I, reg);
-     r(0) = reg[0];
      SWAPIN;
      ASSERT(VALID_INSTR(real_I));
      Goto(real_I);
@@ -5103,7 +5022,6 @@ do {								\
      SWAPOUT;
      c_p->fcalls = FCALLS;
      c_p->def_arg_reg[4] = -neg_o_reds;
-     reg[0] = r(0);
      c_p = hipe_mode_switch(c_p, cmd, reg);
      reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
      freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
@@ -5120,7 +5038,6 @@ do {								\
 	 /*fall through*/
        case HIPE_MODE_SWITCH_RES_CALL_BEAM:
 	 SET_I(c_p->i);
-	 r(0) = reg[0];
 	 Dispatch();
        case HIPE_MODE_SWITCH_RES_CALL_CLOSURE:
 	 /* This can be used to call any function value, but currently it's
@@ -5131,7 +5048,6 @@ do {								\
 	     next = call_fun(c_p, c_p->arity - 1, reg, THE_NON_VALUE);
 	     SWAPIN;
 	     if (next != NULL) {
-		 r(0) = reg[0];
 		 SET_I(next);
 		 Dispatchfun();
 	     }
@@ -5191,9 +5107,7 @@ do {								\
 
  OpCase(i_debug_breakpoint): {
      SWAPOUT;
-     reg[0] = r(0);
      I = call_error_handler(c_p, I-3, reg, am_breakpoint);
-     r(0) = reg[0];
      SWAPIN;
      if (I) {
 	 Goto(*I);
