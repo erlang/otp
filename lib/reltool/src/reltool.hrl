@@ -131,21 +131,22 @@
           trap_exit 	  :: boolean()
 	}).
 
+%% Types '$1','$2' and '_' are needed for match specs to ets:select
 -record(mod,
         { %% Static
-          name        :: mod_name(),
-          app_name    :: app_name(),
-          incl_cond   :: incl_cond() | undefined,
-          debug_info  :: debug_info() | undefined,
-          is_app_mod  :: boolean(),
-          is_ebin_mod :: boolean(),
-          uses_mods   :: [mod_name()],
-          exists      :: boolean(),
+          name        :: '$1' | mod_name(),
+          app_name    :: '_'  | app_name(),
+          incl_cond   :: '_'  | incl_cond() | undefined,
+          debug_info  :: '_'  | debug_info() | undefined,
+          is_app_mod  :: '_'  | boolean(),
+          is_ebin_mod :: '_'  | boolean(),
+          uses_mods   :: '$2' | [mod_name()],
+          exists      :: '_'  | boolean(),
           %% Dynamic
-          status          :: status(),
-          used_by_mods    :: [mod_name()],
-          is_pre_included :: boolean() | undefined,
-          is_included     :: boolean() | undefined
+          status          :: '_' | status(),
+          used_by_mods    :: '_' | [mod_name()],
+          is_pre_included :: '_' | boolean() | undefined,
+          is_included     :: '_' | boolean() | undefined
 	}).
 
 -record(app_info,
@@ -166,41 +167,42 @@
 
 -record(regexp, {source, compiled}).
 
+%% Types '$1','$2' and '_' are needed for match specs to ets:select
 -record(app,
         { %% Static info
-          name             :: app_name(),
-          is_escript       :: boolean() | {inlined, escript_app_name()},
-          use_selected_vsn :: vsn | dir | undefined,
-          active_dir       :: dir(),
-          sorted_dirs      :: [dir()],
-          vsn              :: app_vsn(),
-          label            :: app_label(),
-          info             :: #app_info{} | undefined,
-          mods             :: [#mod{}],
+          name             :: '_' | app_name(),
+          is_escript       :: '_' | boolean() | {inlined, escript_app_name()},
+          use_selected_vsn :: '_' | vsn | dir | undefined,
+          active_dir       :: '_' | dir(),
+          sorted_dirs      :: '_' | [dir()],
+          vsn              :: '_' | app_vsn(),
+          label            :: '_' | app_label(),
+          info             :: '_' | #app_info{} | undefined,
+          mods             :: '_' | [#mod{}],
 
           %% Static source cond
-          mod_cond  :: mod_cond()  | undefined,
-          incl_cond :: incl_cond() | undefined,
+          mod_cond  :: '_' | mod_cond()  | undefined,
+          incl_cond :: '_' | incl_cond() | undefined,
 
           %% Static target cond
-          debug_info            :: debug_info() | undefined,
-          app_file              :: app_file() | undefined,
-          app_type              :: app_type() | undefined,
-          incl_app_filters      :: [#regexp{}],
-          excl_app_filters      :: [#regexp{}],
-          incl_archive_filters  :: [#regexp{}],
-          excl_archive_filters  :: [#regexp{}],
-          archive_opts          :: [archive_opt()],
+          debug_info            :: '_' | debug_info() | undefined,
+          app_file              :: '_' | app_file() | undefined,
+          app_type              :: '_' | app_type() | undefined,
+          incl_app_filters      :: '_' | [#regexp{}],
+          excl_app_filters      :: '_' | [#regexp{}],
+          incl_archive_filters  :: '_' | [#regexp{}],
+          excl_archive_filters  :: '_' | [#regexp{}],
+          archive_opts          :: '_' | [archive_opt()],
 
           %% Dynamic
-          status          :: status(),
-          uses_mods       :: [mod_name()],
-          used_by_mods    :: [mod_name()],
-          uses_apps       :: [app_name()],
-          used_by_apps    :: [app_name()],
-          is_pre_included :: boolean() | undefined,
-          is_included     :: boolean() | undefined,
-          rels            :: [rel_name()]
+          status          :: '_' | status(),
+          uses_mods       :: '_' | [mod_name()],
+          used_by_mods    :: '_' | [mod_name()],
+          uses_apps       :: '_' | [app_name()],
+          used_by_apps    :: '_' | [app_name()],
+          is_pre_included :: '_' | '$2' | boolean() | undefined,
+          is_included     :: '_' | '$1' | boolean() | undefined,
+          rels            :: '_' | [rel_name()]
 	}).
 
 -record(rel_app,
@@ -224,7 +226,7 @@
           escripts  :: [file()],
           mod_cond  :: mod_cond(),
           incl_cond :: incl_cond(),
-          apps      :: [#app{}],
+          apps      :: [#app{}] | undefined,
 
           %% Target cond
           boot_rel 	       :: boot_rel(),
