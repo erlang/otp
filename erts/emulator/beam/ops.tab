@@ -477,7 +477,7 @@ i_is_ne_exact_literal f x c
 i_is_ne_exact_literal f y c
 
 is_eq_exact Lbl Y=y X=x => is_eq_exact Lbl X Y
-%macro: is_eq_exact EqualExact -fail_action
+%macro: is_eq_exact EqualExact -fail_action -pack
 is_eq_exact f x x
 is_eq_exact f x y
 is_eq_exact f s s

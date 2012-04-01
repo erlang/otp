@@ -917,6 +917,7 @@ sub basic_generator {
     my($var_decls) = '';
     my($gen_dest_arg) = 'StoreSimpleDest';
     my($i);
+    my($no_prefetch) = 0;
 
     # The following argument types should be included as macro arguments.
     my(%incl_arg) = ('c' => 1,
@@ -1015,6 +1016,7 @@ sub basic_generator {
     #
 
     $flags =~ /-fail_action/ and do {
+	$no_prefetch = 1;
 	if (!defined $fail_type) {
 	    my($i);
 	    for ($i = 0; $i < @f_types; $i++) {
@@ -1061,6 +1063,12 @@ sub basic_generator {
 			 "I += $size + 1;",
 			 "goto $goto;",
 			 "}");
+	} elsif ($no_prefetch) {
+	    $code = join("\n",
+			 "{ $var_decls",
+			 $macro_code,
+			 "Next($size);",
+			 "}", "");
 	} else {
 	    $code = join("\n",
 			 "{ $var_decls",
