@@ -30,6 +30,52 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    References to <c>is_constant/1</c> (which was removed in
+	    the R12 release) has been removed from documentation and
+	    code.</p>
+          <p>
+	    Own Id: OTP-6454 Aux Id: seq10407 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a discrepancy in compile_info</p>
+          <p>
+	    The BEAM disassembler used the atom 'none' to signify the
+	    absence of a compile_info chunk in a .beam file. This
+	    clashed with the type declaration of the compile_info
+	    field of a #beam_file{} record as containing a list. Now
+	    [] signifies the absence of this chunk. This simplifies
+	    the code and avoids a dialyzer warning.</p>
+          <p>
+	    Own Id: OTP-9917</p>
+        </item>
+        <item>
+          <p>
+	    Make dialyzer recognize the process_flag option sensitive
+	    add missing specs to documentation (Thanks to Tobias
+	    Schlager)</p>
+          <p>
+	    Own Id: OTP-9923</p>
+        </item>
+        <item>
+          <p>
+	    Remove hipe_ceach from hipe.app.src to fix
+	    reltool-generated release startup. (Thanks to Tim
+	    Stewart)</p>
+          <p>
+	    Own Id: OTP-9939</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

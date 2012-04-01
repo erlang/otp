@@ -30,6 +30,102 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If sys.config existed, but was not readable or parseable,
+	    this would not be detected until after the upgrade and at
+	    the next node restart. The possibility for this to happen
+	    is now reduced by adding a check to systools:make_tar
+	    which fails the creation of the tar file if sys.config or
+	    relup does not have reasonable contents. Note that there
+	    are no detailed checks, only parsing and erlang term
+	    format check.</p>
+          <p>
+	    Own Id: OTP-9539</p>
+        </item>
+        <item>
+          <p>
+	    systools:make_script would allow {kernel,Vsn,load} in the
+	    .rel file, causing a .boot file which only loaded kernel
+	    and did not start it. This has been corrected. Only start
+	    type 'permanent', which is the default, is now allowed
+	    for kernel and stdlib.</p>
+          <p>
+	    Own Id: OTP-9652</p>
+        </item>
+        <item>
+          <p>
+	    release_handler:remove_release/1 now handles symlinked
+	    files properly</p>
+          <p>
+	    Own Id: OTP-9864</p>
+        </item>
+        <item>
+          <p>
+	    If stdlib was stated with a start type different from
+	    <c>permanent</c> in a .rel file, systools would
+	    incorrectly say that sasl had faulty start type. This has
+	    been corrected.</p>
+          <p>
+	    Own Id: OTP-9888</p>
+        </item>
+        <item>
+          <p>
+	    Sasl documentation earlier said that the InclApps
+	    parameters in a .rel file defaults to the empty list.
+	    This is not correct. It defaults to the same value as
+	    specified in the .app file. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9980</p>
+        </item>
+        <item>
+          <p>
+	    Applications that are listed in
+	    <c>{applications,Apps}</c> in the .app file were not
+	    sorted correctly by <c>systools:make_script/1,2</c>. They
+	    got the reverse order of how they were listed in the .app
+	    file. This is corrected so they are now sorted
+	    (internally between each other) in the same order as they
+	    are listed in the .rel file (i.e. the order they are
+	    listed in the .app file does no longer matter).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9984</p>
+        </item>
+        <item>
+          <p>
+	    Documentation of .appup files now also states that
+	    <c>UpFromVsn</c> and <c>DownToVsn</c> can be specified as
+	    regular expressions in order to avoid duplicated upgrade
+	    instructions.</p>
+          <p>
+	    Own Id: OTP-10001</p>
+        </item>
+        <item>
+          <p>
+	    Reltool would sometimes generate a .app file containing
+	    <c>{start_phases,undefined}</c>, which would cause an
+	    exception in systools at parse time. This has been
+	    corrected so reltool now omits the <c>start_phases</c>
+	    entry if the value is <c>undefined</c>. (Thanks to Juan
+	    Jose Comellas)</p>
+          <p>
+	    In order to align with reltool, sasl will also omit
+	    <c>start_phases</c> entries with value <c>undefined</c>
+	    in .script files.</p>
+          <p>
+	    Own Id: OTP-10003</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.99.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Fix errors in wxDC and wxGraphicsContext api.</p>
+	    <p>Add wxTaskBarIcon.</p> <p>Add
+	    wxStyledTextControl:setEdgeMode/2.</p> <p>Add type and
+	    specs for all functions and records.</p>
+          <p>
+	    Own Id: OTP-9947</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.99.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

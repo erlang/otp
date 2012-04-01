@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.5.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Handle <c>nowarn_unused_function</c> the same way as
+	    the compiler does. </p>
+          <p>
+	    Own Id: OTP-9833</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

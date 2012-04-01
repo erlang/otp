@@ -34,6 +34,35 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.15</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changed ssh implementation to use the public_key
+	    application for all public key handling. This is also a
+	    first step for enabling a callback API for supplying
+	    public keys and handling keys protected with password
+	    phrases. </p>
+          <p>
+	    Additionally the test suites where improved so that they
+	    do not copy the users keys to test server directories as
+	    this is a security liability. Also ipv6 and file access
+	    issues found in the process has been fixed.</p>
+          <p>
+	    This change also solves OTP-7677 and OTP-7235</p>
+          <p>
+	    This changes also involves some updates to public_keys
+	    ssh-functions.</p>
+          <p>
+	    Own Id: OTP-9911</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.14</title>
 
     <section><title>Improvements and New Features</title>

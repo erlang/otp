@@ -30,6 +30,39 @@
   </header>
   <p>This document describes the changes made to the Jinterface application.</p>
 
+<section><title>Jinterface 1.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct spelling of registered (Thanks to Richard
+	    Carlsson)</p>
+          <p>
+	    Own Id: OTP-9925</p>
+        </item>
+        <item>
+          <p>
+	    Java 1.5 has a bug where detecting codepoint offsets in
+	    strings that are created by String.substring() gives
+	    wrong results. The new implementation uses a different
+	    method, avoinding the issue. (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-9927</p>
+        </item>
+        <item>
+          <p>
+	    Improve error message when creating a too long
+	    OtpErlangAtom. Also print the value that we tried to use
+	    for the atom. (Thanks to Vlad Dumitrescu)</p>
+          <p>
+	    Own Id: OTP-9928</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Jinterface 1.5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

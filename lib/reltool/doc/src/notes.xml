@@ -37,7 +37,149 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.5.7.1</title>
+  <section><title>Reltool 0.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous corrections: <list> <item> Start of reltool
+	    GUI would sometimes crash with a badmatch in
+	    reltool_sys_win:do_init. This has been corrected. </item>
+	    <item> Minor corrections of documentation and type
+	    specifications of app() and mod() are done. </item>
+	    <item> If a module name is duplicated in an app file
+	    reltool would return an error. This is now changed to a
+	    warning. </item> <item> Reltool would earlier not
+	    necessarily keep the order of applications as listed in
+	    the rel specification in the configuration. This has been
+	    corrected. </item> <item> Reltool would earlier set the
+	    default for included applications to an empty list if it
+	    was not set in the rel specification in the
+	    configuration. This was correct according to
+	    sasl/systools documentation, but not according to
+	    sasl/systools implementation. We decided to change the
+	    documentation and reltool to use the value of
+	    included_applications from the .app file as default
+	    instead of the empty list, since this seems more
+	    intuitive and since systools always has done the same.
+	    </item> <item> The value of included applications in the
+	    rel specification in the configuration did not overwrite
+	    included_applications in the .app file if it was set to
+	    an empty list. This has been corrected. </item> <item>
+	    Reltool would earlier add load instructions in the
+	    script/boot files for ALL modules in the ebin directory
+	    of an application even if mod_cond was set to app
+	    (include only modules listed in the .app file). This has
+	    been corrected. </item> <item> Reltool would earlier add
+	    start instructions in the script/boot file for included
+	    applications. This has been corrected - included
+	    applications shall only be loaded since the including
+	    application is responsible for starting them. </item>
+	    <item> Status bar now indicates that reltool is working
+	    (Processing libraries...) for all configuration changes,
+	    and when generating target system. </item> <item> Title
+	    of dependecies column in app and mod window is changed
+	    from "Modules used by others" to "Modules using this".
+	    </item> </list></p>
+          <p>
+	    Own Id: OTP-9792</p>
+        </item>
+        <item>
+          <p>
+	    Configuration changes via the GUI had a few bugs related
+	    to error handling, rollback and undo. A major re-write of
+	    the reltool_server has been done in order to align the
+	    way reltool_server updates and uses its state and tables
+	    for all different kinds of configuration change. </p>
+          <p>
+	    All configuration changes (except undo) now cause a
+	    re-read of the file system, meaning that if something has
+	    changed in the file system it will be reflected in the
+	    result of the configuration change.</p>
+          <p>
+	    When loading a new configuration file via the GUI, the
+	    old configuration is now completely scratched, and only
+	    the new is valid.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9794</p>
+        </item>
+        <item>
+          <p>
+	    Some bug fixes related to the handling of escripts:
+	    <list> <item> Reltool could not handle escripts with
+	    inlined applications. This has been corrected. Inlined
+	    applications will be visible in the GUI, but not possible
+	    to include/exclude separately. </item> <item> Loading a
+	    config which contains an escript via the GUI menu did not
+	    produce the same result as when using the same
+	    configuration at reltool start. Paths, version and label
+	    could differ. This has been corrected. </item> <item>
+	    Loading config with same escript (source) twice caused
+	    reltool to add same module twice. This has been
+	    corrected. </item> <item> Loading config with same
+	    escript (inlined beam) twice caused reltool to fail
+	    saying module is included by two different applications.
+	    This has been corrected. </item> <item> Loading config
+	    which in addition to an existing escript also adds
+	    another escript, for which the name sorts before the
+	    existing one, would cause reltool to fail saying
+	    "Application name clash". This has been corrected.
+	    </item> </list></p>
+          <p>
+	    Own Id: OTP-9968</p>
+        </item>
+        <item>
+          <p>
+	    Reltool would sometimes generate a .app file containing
+	    <c>{start_phases,undefined}</c>, which would cause an
+	    exception in systools at parse time. This has been
+	    corrected so reltool now omits the <c>start_phases</c>
+	    entry if the value is <c>undefined</c>. (Thanks to Juan
+	    Jose Comellas)</p>
+          <p>
+	    In order to align with reltool, sasl will also omit
+	    <c>start_phases</c> entries with value <c>undefined</c>
+	    in .script files.</p>
+          <p>
+	    Own Id: OTP-10003</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A warning list is added to the sys window of the reltool
+	    GUI. This list will continuously show all warnings
+	    produced by the current configuration.</p>
+          <p>
+	    Own Id: OTP-9967</p>
+        </item>
+        <item>
+          <p>
+	    As a way of specifying one specific version of an
+	    application, the following configuration parameter is
+	    added on application level:</p>
+          <p>
+	    {lib_dir,Dir}, Dir = string()</p>
+          <p>
+	    This can be useful if the parent directory of the
+	    application directory is not suitable to use as a lib dir
+	    on system level.</p>
+          <p>
+	    Own Id: OTP-9977</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.5.7.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

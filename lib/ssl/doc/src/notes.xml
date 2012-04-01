@@ -30,7 +30,53 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
   
-  <section><title>SSL 5.0</title>
+  <section><title>SSL 5.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Robustness and improvement to distribution over SSL</p>
+          <p>
+	    Fix a bug where ssl_tls_dist_proxy would crash at caller
+	    timeout. Fix a bug where a timeout from the SSL layer
+	    would block the distribution indefinately. Run the proxy
+	    exclusively on the loopback interface. (Thanks to Paul
+	    Guyot)</p>
+          <p>
+	    Own Id: OTP-9915</p>
+        </item>
+        <item>
+          <p>
+	    Fix setup loop of SSL TLS dist proxy</p>
+          <p>
+	    Fix potential leak of processes waiting indefinately for
+	    data from closed sockets during socket setup phase.
+	    (Thanks to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-9916</p>
+        </item>
+        <item>
+          <p>
+	    Correct spelling of registered (Thanks to Richard
+	    Carlsson)</p>
+          <p>
+	    Own Id: OTP-9925</p>
+        </item>
+        <item>
+          <p>
+	    Added TLS PRF function to the SSL API for generation of
+	    additional key material from a TLS session. (Thanks to
+	    Andreas Schultz)</p>
+          <p>
+	    Own Id: OTP-10024</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SSL 5.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -30,6 +30,26 @@
   </header>
   <p>This document describes the changes made to the TV application.</p>
 
+<section><title>TV 2.1.4.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The GS applications is now deprecated and will be
+	    removed in the R16 release. The following GS-based
+	    applications have been superseded by the Observer
+	    application and will removed in R16: Appmon, Pman,
+	    Tv.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9907</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>TV 2.1.4.8</title>
 
     <section><title>Improvements and New Features</title>

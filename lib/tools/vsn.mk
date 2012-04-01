@@ -1,1 +1,1 @@
-TOOLS_VSN = 2.6.6.6
+TOOLS_VSN = 2.6.7

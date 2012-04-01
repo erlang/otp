@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 3.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed disappearing breakpoints bug, reported by Ricardo
+	    Catalinas Jiménez.</p>
+          <p>
+	    Own Id: OTP-9950</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 3.2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

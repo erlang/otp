@@ -30,6 +30,31 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Makefiles in erts, hipe and tools have been corrected to
+	    enable parallel make, i.e MAKEFLAGS=-jX where X is the
+	    parallelity number. As a result of this dependencies were
+	    corrected since that is what is needed for parallel make
+	    to work.</p>
+          <p>
+	    Own Id: OTP-9857 Aux Id: OTP-9451 </p>
+        </item>
+        <item>
+	    <p>Minor suppressions and fixes of compilation
+	    warnings</p>
+          <p>
+	    Own Id: OTP-10016</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.6.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

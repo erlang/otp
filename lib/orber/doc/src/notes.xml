@@ -32,7 +32,29 @@
     <file>notes.xml</file>
   </header>
 
-  <section><title>Orber 3.6.23</title>
+  <section><title>Orber 3.6.24</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix number of arguments in orber dbg printout</p>
+          <p>
+	    Own Id: OTP-9887</p>
+        </item>
+        <item>
+	    <p> The descriptions of <c>ssl_server_options</c> and
+	    <c>ssl_client_options</c> are corrected.<br/> Seq. Id:
+	    seq12018 </p>
+          <p>
+	    Own Id: OTP-9966 Aux Id: OTP-9773 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Orber 3.6.23</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
