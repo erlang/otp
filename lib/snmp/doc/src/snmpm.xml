@@ -279,7 +279,6 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
       <fsummary>Register this agent</fsummary>
       <type>
         <v>UserId = term()</v>
-        <v>Addr = ip_address()</v>
         <v>TargetName = target_name()</v>
         <v>Config = [agent_config()]</v>
         <v>agent_config() = {Item, Val}</v>

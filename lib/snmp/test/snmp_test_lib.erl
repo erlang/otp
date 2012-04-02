@@ -324,7 +324,7 @@ fail(Reason, Mod, Line) ->
 skip(Reason, Module, Line) ->
     String = lists:flatten(io_lib:format("Skipping ~p(~p): ~p~n", 
 					 [Module, Line, Reason])),
-    exit({skipped, String}).
+    exit({skip, String}).
     
 
 %% ----------------------------------------------------------------

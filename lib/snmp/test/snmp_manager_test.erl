@@ -174,7 +174,26 @@ end_per_suite(Config) when is_list(Config) ->
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
-    init_per_testcase2(Case, Config).
+    %% This version of the API, based on Addr and Port, has been deprecated
+    DeprecatedApiCases = 
+	[
+	 simple_sync_get1, 
+	 simple_async_get1, 
+	 simple_sync_get_next1, 
+	 simple_async_get_next1, 
+	 simple_sync_set1, 
+	 simple_async_set1, 
+	 simple_sync_get_bulk1, 
+	 simple_async_get_bulk1,
+	 misc_async1
+	],
+    case lists:member(Case, DeprecatedApiCases) of
+	true ->
+	    %% ?SKIP(api_no_longer_supported);
+	    {skip, api_no_longer_supported};
+	false ->
+	    init_per_testcase2(Case, Config)
+    end.
 
 init_per_testcase2(Case, Config) ->
     ?DBG("init_per_testcase2 -> ~p", [erlang:nodes()]),
@@ -226,18 +245,6 @@ init_per_testcase2(Case, Config) ->
     Conf2.
 
 init_per_testcase3(Case, Config) ->
-    ApiCases01 = 
-	[
-	 simple_sync_get1, 
-	 simple_async_get1, 
-	 simple_sync_get_next1, 
-	 simple_async_get_next1, 
-	 simple_sync_set1, 
-	 simple_async_set1, 
-	 simple_sync_get_bulk1, 
-	 simple_async_get_bulk1,
-	 misc_async1
-	],
     ApiCases02 = 
 	[
 	 simple_sync_get2, 
@@ -273,7 +280,6 @@ init_per_testcase3(Case, Config) ->
 	 inform_swarm,
 	 report
 	] ++ 
-	ApiCases01 ++ 
 	ApiCases02 ++
 	ApiCases03,
     case lists:member(Case, Cases) of
@@ -319,18 +325,6 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     Conf2.
 
 end_per_testcase2(Case, Config) ->
-    ApiCases01 = 
-	[
-	 simple_sync_get1, 
-	 simple_async_get1, 
-	 simple_sync_get_next1, 
-	 simple_async_get_next1, 
-	 simple_sync_set1, 
-	 simple_async_set1, 
-	 simple_sync_get_bulk1, 
-	 simple_async_get_bulk1,
-	 misc_async1
-	],
     ApiCases02 = 
 	[
 	 simple_sync_get2, 
@@ -366,7 +360,6 @@ end_per_testcase2(Case, Config) ->
 	 inform_swarm,
 	 report
 	] ++ 
-	ApiCases01 ++ 
 	ApiCases02 ++ 
 	ApiCases03,
     case lists:member(Case, Cases) of
@@ -1596,12 +1589,14 @@ register_agent3(Config) when is_list(Config) ->
 simple_sync_get1(doc) -> ["Simple sync get-request - Old style (Addr & Port)"];
 simple_sync_get1(suite) -> [];
 simple_sync_get1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, ssg1),
     p("starting with Config: ~p~n", [Config]),
 
     Node  = ?config(manager_node, Config),
-    Addr  = ?config(ip, Config),
+    Addr  = ?config(manager_agent_target_name, Config),
     Port  = ?AGENT_PORT,
 
     p("issue get-request without loading the mib"),
@@ -1757,6 +1752,8 @@ simple_async_get1(doc) ->
     ["Simple (async) get-request - Old style (Addr & Port)"];
 simple_async_get1(suite) -> [];
 simple_async_get1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, sag1),
     p("starting with Config: ~p~n", [Config]),
@@ -1972,6 +1969,8 @@ simple_sync_get_next1(doc) -> ["Simple (sync) get_next-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_next1(suite) -> [];
 simple_sync_get_next1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, ssgn1),
     p("starting with Config: ~p~n", [Config]),
@@ -2264,6 +2263,8 @@ simple_async_get_next1(doc) -> ["Simple (async) get_next-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_next1(suite) -> [];
 simple_async_get_next1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, ssgn1),
     p("starting with Config: ~p~n", [Config]),
@@ -2516,6 +2517,8 @@ simple_sync_set1(doc) -> ["Simple (sync) set-request - "
 			  "Old style (Addr & Port)"];
 simple_sync_set1(suite) -> [];
 simple_sync_set1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, sss1),
     p("starting with Config: ~p~n", [Config]),
@@ -2686,6 +2689,8 @@ simple_async_set1(doc) -> ["Simple (async) set-request - "
 			   "Old style (Addr & Port)"];
 simple_async_set1(suite) -> [];
 simple_async_set1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, sas1),
     p("starting with Config: ~p~n", [Config]),
@@ -2896,6 +2901,8 @@ simple_sync_get_bulk1(doc) -> ["Simple (sync) get_bulk-request - "
 			       "Old style (Addr & Port)"];
 simple_sync_get_bulk1(suite) -> [];
 simple_sync_get_bulk1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, ssgb1),
     p("starting with Config: ~p~n", [Config]),
@@ -3261,6 +3268,8 @@ simple_async_get_bulk1(doc) -> ["Simple (async) get_bulk-request - "
 				"Old style (Addr & Port)"];
 simple_async_get_bulk1(suite) -> [];
 simple_async_get_bulk1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, sagb1),
     p("starting with Config: ~p~n", [Config]),
@@ -3605,6 +3614,8 @@ misc_async1(doc) -> ["Misc (async) request(s) - "
 		     "Old style (Addr & Port)"];
 misc_async1(suite) -> [];
 misc_async1(Config) when is_list(Config) ->
+    ?SKIP(api_no_longer_supported), 
+
     process_flag(trap_exit, true),
     put(tname, ms1),
     p("starting with Config: ~p~n", [Config]),
@@ -5591,29 +5602,35 @@ fin_mgr_user(Conf) ->
 
 init_mgr_user_data1(Conf) ->
     Node = ?config(manager_node, Conf),
-    Addr = ?config(ip, Conf),
-    Port = ?AGENT_PORT,
-    ?line ok = mgr_user_register_agent(Node, Addr, Port),
+    TargetName = ?config(manager_agent_target_name, Conf),
+    Addr       = ?config(ip, Conf),
+    Port       = ?AGENT_PORT,
+    ?line ok = mgr_user_register_agent(Node, TargetName, 
+				       [{address,   Addr},
+					{port,      Port},
+					{engine_id, "agentEngine"}]),
     Agents = mgr_user_which_own_agents(Node),
     ?DBG("Own agents: ~p", [Agents]),
 
-    ?line {ok, DefAgentConf} = mgr_user_agent_info(Node, Addr, Port, all),
+    ?line {ok, DefAgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Default agent config: ~n~p", [DefAgentConf]),
 
-    ?line ok = mgr_user_update_agent_info(Node, Addr, Port, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  community, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, Addr, Port, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  sec_name, "all-rights"),
-    ?line ok = mgr_user_update_agent_info(Node, Addr, Port, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  engine_id, "agentEngine"),
-    ?line ok = mgr_user_update_agent_info(Node, Addr, Port, 
+    ?line ok = mgr_user_update_agent_info(Node, TargetName, 
 					  max_message_size, 1024),
 
-    ?line {ok, AgentConf} = mgr_user_agent_info(Node, Addr, Port, all),
+    ?line {ok, AgentConf} = mgr_user_agent_info(Node, TargetName, all),
     ?DBG("Updated agent config: ~n~p", [AgentConf]),
     Conf.
 
 init_mgr_user_data2(Conf) ->
+    ?DBG("init_mgr_user_data2 -> entry with"
+	 "~n   Conf: ~p", [Conf]),
     Node       = ?config(manager_node, Conf),
     TargetName = ?config(manager_agent_target_name, Conf),
     Addr       = ?config(ip, Conf),
@@ -5641,9 +5658,8 @@ init_mgr_user_data2(Conf) ->
 
 fin_mgr_user_data1(Conf) ->
     Node = ?config(manager_node, Conf),
-    Addr = ?config(ip, Conf),
-    Port = ?AGENT_PORT,
-    mgr_user_unregister_agent(Node, Addr, Port),
+    TargetName = ?config(manager_agent_target_name, Conf),
+    mgr_user_unregister_agent(Node, TargetName),
     mgr_user_which_own_agents(Node),
     Conf.
 
@@ -5670,33 +5686,41 @@ mgr_user_stop(Node) ->
 %%     mgr_user_register_agent(Node, Addr, ?AGENT_PORT, []).
 mgr_user_register_agent(Node, TargetName, Conf) 
   when is_list(TargetName) andalso is_list(Conf) ->
-    rcall(Node, snmp_manager_user, register_agent, [TargetName, Conf]);
-mgr_user_register_agent(Node, Addr, Port) ->
-    mgr_user_register_agent(Node, Addr, Port, []).
-mgr_user_register_agent(Node, Addr, Port, Conf) ->
-    rcall(Node, snmp_manager_user, register_agent, [Addr, Port, Conf]).
+    rcall(Node, snmp_manager_user, register_agent, [TargetName, Conf]).
+%% <REMOVED-IN-R16B>
+%% mgr_user_register_agent(Node, Addr, Port) ->
+%%     mgr_user_register_agent(Node, Addr, Port, []).
+%% mgr_user_register_agent(Node, Addr, Port, Conf) ->
+%%     rcall(Node, snmp_manager_user, register_agent, [Addr, Port, Conf]).
+%% </REMOVED-IN-R16B>
 
 %% mgr_user_unregister_agent(Node) ->
 %%     mgr_user_unregister_agent(Node, ?LOCALHOST(), ?AGENT_PORT).
-mgr_user_unregister_agent(Node, Addr_or_TargetName) ->
-    rcall(Node, snmp_manager_user, unregister_agent, [Addr_or_TargetName]).
-mgr_user_unregister_agent(Node, Addr, Port) ->
-    rcall(Node, snmp_manager_user, unregister_agent, [Addr, Port]).
+mgr_user_unregister_agent(Node, TargetName) when is_list(TargetName) ->
+    rcall(Node, snmp_manager_user, unregister_agent, [TargetName]).
+%% <REMOVED-IN-R16B>
+%% mgr_user_unregister_agent(Node, Addr, Port) ->
+%%     rcall(Node, snmp_manager_user, unregister_agent, [Addr, Port]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_agent_info(Node, Addr_or_TargetName, Item) when is_atom(Item) ->
-    rcall(Node, snmp_manager_user, agent_info, [Addr_or_TargetName, Item]).
-mgr_user_agent_info(Node, Addr, Port, Item) when is_atom(Item) ->
-    rcall(Node, snmp_manager_user, agent_info, [Addr, Port, Item]).
+mgr_user_agent_info(Node, TargetName, Item) 
+  when is_list(TargetName) andalso is_atom(Item) ->
+    rcall(Node, snmp_manager_user, agent_info, [TargetName, Item]).
+%% <REMOVED-IN-R16B>
+%% mgr_user_agent_info(Node, Addr, Port, Item) when is_atom(Item) ->
+%%     rcall(Node, snmp_manager_user, agent_info, [Addr, Port, Item]).
+%% </REMOVED-IN-R16B>
 
 %% mgr_user_update_agent_info(Node, Item, Val) when atom(Item) ->
 %%     mgr_user_update_agent_info(Node, ?LOCALHOST(), ?AGENT_PORT, Item, Val).
-mgr_user_update_agent_info(Node, Addr_or_TargetName, Item, Val) 
-  when is_atom(Item) ->
-    rcall(Node, snmp_manager_user, update_agent_info, 
-	  [Addr_or_TargetName, Item, Val]).
-mgr_user_update_agent_info(Node, Addr, Port, Item, Val) when is_atom(Item) ->
-    rcall(Node, snmp_manager_user, update_agent_info, 
-	  [Addr, Port, Item, Val]).
+mgr_user_update_agent_info(Node, TargetName, Item, Val) 
+  when is_list(TargetName) andalso is_atom(Item) ->
+    rcall(Node, snmp_manager_user, update_agent_info, [TargetName, Item, Val]).
+%% <REMOVED-IN-R16B>
+%% mgr_user_update_agent_info(Node, Addr, Port, Item, Val) when is_atom(Item) ->
+%%     rcall(Node, snmp_manager_user, update_agent_info, 
+%% 	  [Addr, Port, Item, Val]).
+%% </REMOVED-IN-R16B>
 
 %% mgr_user_which_all_agents(Node) ->
 %%     rcall(Node, snmp_manager_user, which_all_agents, []).
@@ -5709,89 +5733,112 @@ mgr_user_load_mib(Node, Mib) ->
 
 %% mgr_user_sync_get(Node, Oids) ->
 %%     mgr_user_sync_get(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-mgr_user_sync_get(Node, Addr_or_TargetName, Oids) ->
-    rcall(Node, snmp_manager_user, sync_get, [Addr_or_TargetName, Oids]).
+mgr_user_sync_get(Node, TargetName, Oids) when is_list(TargetName) ->
+    rcall(Node, snmp_manager_user, sync_get, [TargetName, Oids]).
+%% <REMOVED-IN-R16B>
 mgr_user_sync_get(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, sync_get, [Addr, Port, Oids]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_sync_get2(Node, TargetName, Oids, SendOpts) ->
+mgr_user_sync_get2(Node, TargetName, Oids, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get2, [TargetName, Oids, SendOpts]).
 
 %% mgr_user_async_get(Node, Oids) ->
 %%     mgr_user_async_get(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-mgr_user_async_get(Node, Addr_or_TargetName, Oids) ->
-    rcall(Node, snmp_manager_user, async_get, [Addr_or_TargetName, Oids]).
+mgr_user_async_get(Node, TargetName, Oids) when is_list(TargetName) ->
+    rcall(Node, snmp_manager_user, async_get, [TargetName, Oids]).
+%% <REMOVED-IN-R16B>
 mgr_user_async_get(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, async_get, [Addr, Port, Oids]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_async_get2(Node, TargetName, Oids, SendOpts) ->
+mgr_user_async_get2(Node, TargetName, Oids, SendOpts) 
+  when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get2, [TargetName, Oids, SendOpts]).
 
 %% mgr_user_sync_get_next(Node, Oids) ->
 %%     mgr_user_sync_get_next(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-mgr_user_sync_get_next(Node, Addr_or_TargetName, Oids) ->
-    rcall(Node, snmp_manager_user, sync_get_next, [Addr_or_TargetName, Oids]).
+mgr_user_sync_get_next(Node, TargetName, Oids) when is_list(TargetName) ->
+    rcall(Node, snmp_manager_user, sync_get_next, [TargetName, Oids]).
+%% <REMOVED-IN-R16B>
 mgr_user_sync_get_next(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, sync_get_next, [Addr, Port, Oids]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts) ->
+mgr_user_sync_get_next2(Node, TargetName, Oids, SendOpts) 
+  when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get_next2, [TargetName, Oids, SendOpts]).
 
 %% mgr_user_async_get_next(Node, Oids) ->
 %%     mgr_user_async_get_next(Node, ?LOCALHOST(), ?AGENT_PORT, Oids).
-mgr_user_async_get_next(Node, Addr_or_TargetName, Oids) ->
-    rcall(Node, snmp_manager_user, async_get_next, [Addr_or_TargetName, Oids]).
+mgr_user_async_get_next(Node, TargetName, Oids) when is_list(TargetName) ->
+    rcall(Node, snmp_manager_user, async_get_next, [TargetName, Oids]).
+%% <REMOVED-IN-R16B>
 mgr_user_async_get_next(Node, Addr, Port, Oids) ->
     rcall(Node, snmp_manager_user, async_get_next, [Addr, Port, Oids]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts) ->
+mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts) 
+  when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get_next2, [TargetName, Oids, SendOpts]).
 
 %% mgr_user_sync_set(Node, VAV) ->
 %%     mgr_user_sync_set(Node, ?LOCALHOST(), ?AGENT_PORT, VAV).
-mgr_user_sync_set(Node, Addr_or_TargetName, VAV) ->
-    rcall(Node, snmp_manager_user, sync_set, [Addr_or_TargetName, VAV]).
+mgr_user_sync_set(Node, TargetName, VAV) when is_list(TargetName) ->
+    rcall(Node, snmp_manager_user, sync_set, [TargetName, VAV]).
+%% <REMOVED-IN-R16B>
 mgr_user_sync_set(Node, Addr, Port, VAV) ->
     rcall(Node, snmp_manager_user, sync_set, [Addr, Port, VAV]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_sync_set2(Node, TargetName, VAV, SendOpts) ->
+mgr_user_sync_set2(Node, TargetName, VAV, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_set2, [TargetName, VAV, SendOpts]).
 
 %% mgr_user_async_set(Node, VAV) ->
 %%     mgr_user_async_set(Node, ?LOCALHOST(), ?AGENT_PORT, VAV).
-mgr_user_async_set(Node, Addr_or_TargetName, VAV) ->
-    rcall(Node, snmp_manager_user, async_set, [Addr_or_TargetName, VAV]).
+mgr_user_async_set(Node, TargetName, VAV) when is_list(TargetName) ->
+    rcall(Node, snmp_manager_user, async_set, [TargetName, VAV]).
+%% <REMOVED-IN-R16B>
 mgr_user_async_set(Node, Addr, Port, VAV) ->
     rcall(Node, snmp_manager_user, async_set, [Addr, Port, VAV]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_async_set2(Node, TargetName, VAV, SendOpts) ->
+mgr_user_async_set2(Node, TargetName, VAV, SendOpts) when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_set2, [TargetName, VAV, SendOpts]).
 
 %% mgr_user_sync_get_bulk(Node, NonRep, MaxRep, Oids) ->
 %%     mgr_user_sync_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
 %% 			   NonRep, MaxRep, Oids).
-mgr_user_sync_get_bulk(Node, Addr_or_TargetName, NonRep, MaxRep, Oids) ->
+mgr_user_sync_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
+  when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get_bulk, 
-	  [Addr_or_TargetName, NonRep, MaxRep, Oids]).
+	  [TargetName, NonRep, MaxRep, Oids]).
+%% <REMOVED-IN-R16B>
 mgr_user_sync_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) ->
     rcall(Node, snmp_manager_user, sync_get_bulk, 
 	     [Addr, Port, NonRep, MaxRep, Oids]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+mgr_user_sync_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
+  when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, sync_get_bulk2, 
 	  [TargetName, NonRep, MaxRep, Oids, SendOpts]).
 
 %% mgr_user_async_get_bulk(Node, NonRep, MaxRep, Oids) ->
 %%     mgr_user_async_get_bulk(Node, ?LOCALHOST(), ?AGENT_PORT, 
 %% 			   NonRep, MaxRep, Oids).
-mgr_user_async_get_bulk(Node, Addr_or_TargetName, NonRep, MaxRep, Oids) ->
+mgr_user_async_get_bulk(Node, TargetName, NonRep, MaxRep, Oids) 
+  when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get_bulk, 
-	  [Addr_or_TargetName, NonRep, MaxRep, Oids]).
+	  [TargetName, NonRep, MaxRep, Oids]).
+%% <REMOVED-IN-R16B>
 mgr_user_async_get_bulk(Node, Addr, Port, NonRep, MaxRep, Oids) ->
     rcall(Node, snmp_manager_user, async_get_bulk, 
 	     [Addr, Port, NonRep, MaxRep, Oids]).
+%% </REMOVED-IN-R16B>
 
-mgr_user_async_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+mgr_user_async_get_bulk2(Node, TargetName, NonRep, MaxRep, Oids, SendOpts) 
+  when is_list(TargetName) ->
     rcall(Node, snmp_manager_user, async_get_bulk2, 
 	  [TargetName, NonRep, MaxRep, Oids, SendOpts]).
 
