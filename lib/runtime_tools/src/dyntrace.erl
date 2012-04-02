@@ -6,23 +6,22 @@
 %%% work on any operating system platform where user-space DTrace/Systemtap 
 %%% (and in the future LttNG UST) probes are supported.
 %%%
-%%% Use the `dyntrace:init()' function to load the NIF shared library and
-%%% to initialize library's private state.
-%%%
 %%% It is recommended that you use the `dyntrace:p()' function to add
 %%% Dynamic trace probes to your Erlang code.  This function can accept up to
 %%% four integer arguments and four string arguments; the integer
-%%% argument(s) must come before any string argument.  For example:
+%%% argument(s) must come before any string argument.
+%%%
+%%% If using DTrace, enable the dynamic trace probe using the 'dtrace'
+%%% command, for example:
+%%%
+%%%    dtrace -s /your/path/to/lib/runtime_tools-1.8.7/examples/user-probe.d
+%%%
+%%% Then, back at the Erlang shell, try this example:
 %%% ```
 %%% 1> dyntrace:put_tag("GGOOOAAALL!!!!!").
 %%% true
-%%% 2> dyntrace:init().
-%%% ok
 %%%
-%%% % % % If using dtrace, enable the Dynamic trace probe using the 'dtrace' 
-%%% % % % command.
-%%%
-%%% 3> dyntrace:p(7, 8, 9, "one", "four").
+%%% 2> dyntrace:p(7, 8, 9, "one", "four").
 %%% true
 %%% '''
 %%%
@@ -41,7 +40,6 @@
          p/0, p/1, p/2, p/3, p/4, p/5, p/6, p/7, p/8]).
 -export([put_tag/1, get_tag/0, get_tag_data/0, spread_tag/1, restore_tag/1]).
 
--export([scaff/0]). % Development only
 -export([user_trace_i4s4/9]). % Know what you're doing!
 -on_load(on_load/0).
 
@@ -242,38 +240,3 @@ restore_tag(T) ->
     erlang:dt_restore_tag(T).
     
 
-%% Scaffolding to write tedious code: quick brute force and not 100% correct.
-
-scaff_int_args(N) ->
-    L = lists:sublist(["I1", "I2", "I3", "I4"], N),
-    [string:join(L, ", ")].
-
-scaff_int_guards(N) ->
-    L = lists:sublist(["is_integer(I1)", "is_integer(I2)", "is_integer(I3)",
-                       "is_integer(I4)"], N),
-    lists:flatten(string:join(L, ", ")).
-
-scaff_char_args(N) ->
-    L = lists:sublist(["S1", "S2", "S3", "S4"], N),
-    [string:join(L, ", ")].
-
-scaff_fill(N) ->
-    [string:join(lists:duplicate(N, "undef"), ", ")].
-
-scaff() ->
-    L = [begin
-             IntArgs = scaff_int_args(N_int),
-             IntGuards = scaff_int_guards(N_int),
-             IntFill = scaff_fill(4 - N_int),
-             CharArgs = scaff_char_args(N_char),
-             CharFill = scaff_fill(4 - N_char),
-             InArgs = string:join(IntArgs ++ CharArgs, ", "),
-             OutArgs = string:join(IntArgs ++ IntFill ++ CharArgs ++ CharFill,
-                                   ", "),
-             {N_int + N_char,
-              lists:flatten([io_lib:format("p(~s) when ~s ->\n",
-                                           [InArgs, IntGuards]),
-                             io_lib:format("    user_trace_int(~s);\n", [OutArgs])
-                            ])}
-         end || N_int <- [0,1,2,3,4], N_char <- [0,1,2,3,4]],
-    [io:format("%%~p\n~s", [N, Str]) || {N, Str} <- lists:sort(L)].
