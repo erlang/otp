@@ -52,10 +52,20 @@
 
 #define ERTS_SCHED_SPIN_UNTIL_YIELD 100
 
-#define ERTS_SCHED_SYS_SLEEP_SPINCOUNT 10
+#define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_VERY_LONG 40
+#define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_VERY_LONG 1000
+#define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_LONG 20
+#define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_LONG 1000
+#define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM 10
+#define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_MEDIUM 1000
+#define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_SHORT 10
+#define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_SHORT 0
+#define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_VERY_SHORT 5
+#define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_VERY_SHORT 0
+#define ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE 0
+#define ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_NONE 0
+
 #define ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT 1000
-#define ERTS_SCHED_TSE_SLEEP_SPINCOUNT \
-  (ERTS_SCHED_SYS_SLEEP_SPINCOUNT*ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT)
 #define ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT 0
 
 #define ERTS_WAKEUP_OTHER_LIMIT_VERY_HIGH (200*CONTEXT_REDS)
@@ -130,6 +140,12 @@ int erts_sched_thread_suggested_stack_size = -1;
 #ifdef ERTS_ENABLE_LOCK_CHECK
 ErtsLcPSDLocks erts_psd_required_locks[ERTS_PSD_SIZE];
 #endif
+
+static struct {
+    int aux_work;
+    int tse;
+    int sys_schedule;
+} sched_busy_wait;
 
 #ifdef ERTS_SMP
 int erts_disable_proc_not_running_opt;
@@ -2046,7 +2062,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 
 	erts_smp_runq_unlock(rq);
 
-	spincount = ERTS_SCHED_TSE_SLEEP_SPINCOUNT;
+	spincount = sched_busy_wait.tse;
 
     tse_wait:
 
@@ -2097,7 +2113,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	    }
 
 	    flgs = sched_prep_cont_spin_wait(ssi);
-	    spincount = ERTS_SCHED_TSE_SLEEP_SPINCOUNT;
+	    spincount = sched_busy_wait.aux_work;
 
 	    if (!(flgs & ERTS_SSI_FLG_WAITING)) {
 		ASSERT(!(flgs & ERTS_SSI_FLG_SLEEPING));
@@ -2134,7 +2150,9 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 	ASSERT(working);
 	sched_wall_time_change(esdp, working = 0);
 
-	spincount = ERTS_SCHED_SYS_SLEEP_SPINCOUNT;
+	spincount = sched_busy_wait.sys_schedule;
+	if (spincount == 0)
+	    goto sys_aux_work;
 
 	while (spincount-- > 0) {
 
@@ -3565,6 +3583,12 @@ erts_early_init_scheduling(int no_schedulers)
 {
     aux_work_timeout_early_init(no_schedulers);
     wakeup_other_limit = ERTS_WAKEUP_OTHER_LIMIT_MEDIUM;
+
+    sched_busy_wait.sys_schedule = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM;
+    sched_busy_wait.tse = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
+			   * ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT);
+    sched_busy_wait.aux_work = (ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM
+				* ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_MEDIUM);
 }
 
 int
@@ -3585,6 +3609,46 @@ erts_sched_set_wakeup_limit(char *str)
     return 0;
 }
 
+int
+erts_sched_set_busy_wait_threshold(char *str)
+{
+    int sys_sched;
+    int aux_work_fact;
+
+    if (sys_strcmp(str, "very_long") == 0) {
+	sys_sched = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_VERY_LONG;
+	aux_work_fact = ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_VERY_LONG;
+    }
+    else if (sys_strcmp(str, "long") == 0) {
+	sys_sched = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_LONG;
+	aux_work_fact = ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_LONG;
+    }
+    else if (sys_strcmp(str, "medium") == 0) {
+	sys_sched = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_MEDIUM;
+	aux_work_fact = ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_MEDIUM;
+    }
+    else if (sys_strcmp(str, "short") == 0) {
+	sys_sched = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_SHORT;
+	aux_work_fact = ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_SHORT;
+    }
+    else if (sys_strcmp(str, "very_short") == 0) {
+	sys_sched = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_VERY_SHORT;
+	aux_work_fact = ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_VERY_SHORT;
+    }
+    else if (sys_strcmp(str, "none") == 0) {
+	sys_sched = ERTS_SCHED_SYS_SLEEP_SPINCOUNT_NONE;
+	aux_work_fact = ERTS_SCHED_AUX_WORK_SLEEP_SPINCOUNT_FACT_NONE;
+    }
+    else {
+	return EINVAL;
+    }
+
+    sched_busy_wait.sys_schedule = sys_sched;
+    sched_busy_wait.tse = sys_sched*ERTS_SCHED_TSE_SLEEP_SPINCOUNT_FACT;
+    sched_busy_wait.aux_work = sys_sched*aux_work_fact;
+
+    return 0;
+}
 static void
 init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp)
 {
