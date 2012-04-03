@@ -30,6 +30,133 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Driver output has been corrected so output of large
+	    binaries (> 4 GiB) now does not silently fail or crash
+	    the emulator, but either outputs the binary or fails the
+	    call. This means that writing a binary > 4 Gib to file
+	    now works but on e.g 64-bit Windows (that has
+	    scatter/gather I/O buffer segment lengths of 32 bits)
+	    fails. The behaviour may change in the future to always
+	    write the binary, in parts if necessary.</p>
+          <p>
+	    Own Id: OTP-9820 Aux Id: OTP-9795 </p>
+        </item>
+        <item>
+          <p>
+	    erts: minor fix for unnecessary condition erts: change
+	    SENDFILE_CHUNK_SIZE from signed to unsigned (Thanks to
+	    jovi zhang)</p>
+          <p>
+	    Own Id: OTP-9872</p>
+        </item>
+        <item>
+	    <p> Two contracts in <c>gen_sctp</c> have been corrected.
+	    </p>
+          <p>
+	    Own Id: OTP-9874</p>
+        </item>
+        <item>
+	    <p>If a process calls a module with an running on_load
+	    handler, the process is supposed to be suspended. But if
+	    the module with the on_load handler was loading used
+	    <c>code:load_binary/3</c>, the call would instead fail
+	    with an <c>undef</c> exception.</p>
+          <p>
+	    Own Id: OTP-9875</p>
+        </item>
+        <item>
+          <p>
+	    File name and error reason is now returned if creation of
+	    a cookie fails. (Thanks to Magnus Henoch)</p>
+          <p>
+	    Own Id: OTP-9954</p>
+        </item>
+        <item>
+          <p>
+	    Fix port leak in <c>zlib</c> when passing invalid data to
+	    <c>compress,uncompress,zip,unzip,gzip,gunzip</c>.</p>
+          <p>
+	    Own Id: OTP-9981</p>
+        </item>
+        <item>
+          <p>
+	    Various typographical errors corrected in documentation
+	    for the global, error_logger, etop, lists, ets and
+	    supervisor modules and in the c_portdriver and kernel_app
+	    documentation. (Thanks to Ricardo Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9987</p>
+        </item>
+        <item>
+	    <p> Fix returned error from gen_tcp:accept/1,2 when
+	    running out of ports
+          <p>
+	    The {error, enfile} return value is badly misleading and
+	    confusing for this case, since the Posix ENFILE errno
+	    value has a well-defined meaning that has nothing to do
+	    with Erlang ports. The fix changes the return value to
+	    {error, system_limit}, which is consistent with e.g.
+	    various file(3) functions. inet:format_error/1 has also
+	    been updated to support system_limit in the same manner
+	    as file:format_error/1. (Thanks to Per Hedeland)</p></p>
+          <p>
+	    Own Id: OTP-9990</p>
+        </item>
+        <item>
+	    <p><c>erts_debug:size/1</c> has been corrected to take
+	    sharing in the environment of funs into account. For funs
+	    it used to always give the same result as
+	    <c>erts_debug:flat_size/1</c>.</p>
+          <p>
+	    Own Id: OTP-9991</p>
+        </item>
+        <item>
+          <p>
+	    In some cases when the process doing file:sendfile
+	    crashes while sending the file the efile_drv code would
+	    not clean up after itself correctly. This has now been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-9993</p>
+        </item>
+        <item>
+          <p>
+	    On BSD based platforms file:sendfile would sometime go
+	    into an infinite loop when sending big files. This has
+	    now been fixed.</p>
+          <p>
+	    Own Id: OTP-9994</p>
+        </item>
+        <item>
+	    <p>While <c>disk_log</c> eagerly collects logged terms
+	    for better performance, collecting too much data may
+	    choke the system and cause huge binaries to be
+	    written.</p>
+	    <p>The problem was addressed in OTP-9764, but the
+	    situation was not improved in all cases.</p>
+	    <p>(Thanks to Richard Carlsson.)</p>
+          <p>
+	    Own Id: OTP-9999 Aux Id: OTP-9764 </p>
+        </item>
+        <item>
+          <p>
+	    The documentation of .app files incorrectly said that the
+	    default value for the <c>mod</c> parameter is
+	    <c>undefined</c>. This is now corrected to <c>[]</c>.</p>
+          <p>
+	    Own Id: OTP-10002</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.15</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

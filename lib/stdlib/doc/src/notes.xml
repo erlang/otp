@@ -30,6 +30,171 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.18.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    References to <c>is_constant/1</c> (which was removed in
+	    the R12 release) has been removed from documentation and
+	    code.</p>
+          <p>
+	    Own Id: OTP-6454 Aux Id: seq10407 </p>
+        </item>
+        <item>
+          <p>
+	    Leave control back to gen_server during supervisor's
+	    restart loop</p>
+          <p>
+	    When an attempt to restart a child failed, supervisor
+	    would earlier keep the execution flow and try to restart
+	    the child over and over again until it either succeeded
+	    or the restart frequency limit was reached. If none of
+	    these happened, supervisor would hang forever in this
+	    loop.</p>
+          <p>
+	    This commit adds a timer of 0 ms where the control is
+	    left back to the gen_server which implements the
+	    supervisor. This way any incoming request to the
+	    supervisor will be handled - which could help breaking
+	    the infinite loop - e.g. shutdown request for the
+	    supervisor or for the problematic child.</p>
+          <p>
+	    This introduces some incompatibilities in stdlib due to
+	    new return values from supervisor: <list>
+	    <item>restart_child/2 can now return
+	    {error,restarting}</item> <item>delete_child/2 can now
+	    return {error,restarting}</item> <item>which_children/1
+	    returns a list of {Id,Child,Type,Mods}, where Child, in
+	    addition to the old pid() or 'undefined', now also can be
+	    'restarting'.</item> </list></p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9549</p>
+        </item>
+        <item>
+          <p>
+	    If a temporary child's start function returned 'ignore',
+	    then the supervisor would keep it's child specification.
+	    This has been corrected. Child specifications for
+	    non-existing temporary children shall never be kept.</p>
+          <p>
+	    Own Id: OTP-9782 Aux Id: seq11964 </p>
+        </item>
+        <item>
+	    <p> Use universal time as base in error logger
+          <p>
+	    Previous conversion used the deprecated
+	    calendar:local_time_to_universal_time/1 </p></p>
+          <p>
+	    Own Id: OTP-9854</p>
+        </item>
+        <item>
+	    <p>Calling a guard test (such as is_list/1) from the
+	    top-level in a guard, would cause a compiler crash if
+	    there was a local definition with the same name.
+	    Corrected to reject the program with an error
+	    message.</p>
+          <p>
+	    Own Id: OTP-9866</p>
+        </item>
+        <item>
+          <p>
+	    Fix the type spec from the doc of binary:part/3 (Thanks
+	    to Ricardo Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9920</p>
+        </item>
+        <item>
+          <p>
+	    Correct spelling of registered (Thanks to Richard
+	    Carlsson)</p>
+          <p>
+	    Own Id: OTP-9925</p>
+        </item>
+        <item>
+          <p>
+	    Put gb_trees documentation into alphabetical order
+	    (Thanks to Aidan Hobson Sayers)</p>
+          <p>
+	    Own Id: OTP-9929</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in ETS with <c>compressed</c> option and
+	    insertion of term containing large integers (>2G) on
+	    64-bit machines. Seen to cause emulator crash. (Thanks to
+	    Diego Llarrull for excellent bug report)</p>
+          <p>
+	    Own Id: OTP-9932</p>
+        </item>
+        <item>
+          <p>
+	    Add plugin support for alternative name lookup This patch
+	    introduces a new way of locating a behaviour instance:
+	    {via, Module, Name}. (Thanks to Ulf Wiger)</p>
+          <p>
+	    Own Id: OTP-9945</p>
+        </item>
+        <item>
+	    <p> The function <c>digraph_utils:condensation/1</c> used
+	    to create a digraph containing loops contradicting the
+	    documentation which states that the created digraph is
+	    free of cycles. This bug has been fixed. (Thanks to
+	    Kostis Sagonas for finding the bug.) </p>
+          <p>
+	    Own Id: OTP-9953</p>
+        </item>
+        <item>
+	    <p> When an escript ends now all printout to standard
+	    output and standard error gets out on the terminal. This
+	    bug has been corrected by changing the behaviour of
+	    erlang:halt/0,1, which should fix the same problem for
+	    other escript-like applications, i.e that data stored in
+	    the output port driver buffers got lost when printing on
+	    a TTY and exiting through erlang:halt/0,1. </p>
+	    <p> The BIF:s erlang:halt/0,1 has gotten improved
+	    semantics and there is a new BIF erlang:halt/2 to
+	    accomplish something like the old semantics. See the
+	    documentation. </p>
+	    <p> Now erlang:halt/0 and erlang:halt/1 with an integer
+	    argument will close all ports and allow all pending async
+	    threads operations to finish before exiting the emulator.
+	    Previously erlang:halt/0 and erlang:halt(0) would just
+	    wait for pending async threads operations but not close
+	    ports. And erlang:halt/1 with a non-zero integer argument
+	    would not even wait for pending async threads operations.
+	    </p>
+	    <p> To roughly the old behaviour, to not wait for ports
+	    and async threads operations when you exit the emulator,
+	    you use erlang:halt/2 with an integer first argument and
+	    an option list containing {flush,false} as the second
+	    argument. Note that now is flushing not dependant of the
+	    exit code, and you can not only flush async threads
+	    operations which we deemed as a strange behaviour anyway.
+	    </p>
+	    <p>Also, erlang:halt/1,2 has gotten a new feature: If the
+	    first argument is the atom 'abort' the emulator is
+	    aborted producing a core dump, if the operating system so
+	    allows. </p>
+          <p>
+	    Own Id: OTP-9985</p>
+        </item>
+        <item>
+          <p>
+	    Add escript win32 alternative invocation. escript can now
+	    be started as both "escript.exe" and "escript" (Thanks to
+	    Pierre Rouleau)</p>
+          <p>
+	    Own Id: OTP-9997</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.18</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

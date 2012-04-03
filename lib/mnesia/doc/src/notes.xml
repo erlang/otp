@@ -38,7 +38,37 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.6</title>
+  <section><title>Mnesia 4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Returns the same value for
+	    mnesia_loader:disc_load_table/2 as
+	    mnesia_loader:net_load_table/4 if a table copy can not be
+	    found. (Thanks to Uwe Dauernheim)</p>
+          <p>
+	    Own Id: OTP-10015</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved table lock algorithm.</p>
+          <p>
+	    Own Id: OTP-9890</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

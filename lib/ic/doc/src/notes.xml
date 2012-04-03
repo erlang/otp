@@ -30,7 +30,23 @@
     <file>notes.xml</file>
   </header>
 
-   <section><title>IC 4.2.29</title>
+   <section><title>IC 4.2.30</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add generation of Erlang callback functions to generated
+	    Erlang source code to avoid compiler warnings.</p>
+          <p>
+	    Own Id: OTP-9998</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>IC 4.2.29</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -32,6 +32,155 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    After a test case timeout or abortion, the
+	    end_per_testcase function executes on a new dedicated
+	    process. The group leader for this process should be set
+	    to the IO server for the test case, which was not done
+	    properly. The result of this error was that no warnings
+	    about end_per_testcase failing or timing out were ever
+	    printed in the test case log. Also, help functions such
+	    as e.g. test_server:stop_node/1, attempting to
+	    synchronize with the IO server, would hang. The fault has
+	    been corrected.</p>
+          <p>
+	    Own Id: OTP-9666</p>
+        </item>
+        <item>
+          <p>
+	    A deadlock situation could occur if Common Test is
+	    forwarding error_handler printouts to Test Server at the
+	    same time a new test case is starting. This error has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-9894</p>
+        </item>
+        <item>
+          <p>
+	    When a test case was killed because of a timetrap
+	    timeout, the current location (suite, case and line) was
+	    not printed correctly in the log files. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-9930 Aux Id: seq12002 </p>
+        </item>
+        <item>
+          <p>
+	    Test Server and Common Test would add new error handlers
+	    with each test run and fail to remove previously added
+	    ones. In the case of Test Server, this would only happen
+	    if SASL was not running on the test node. This has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-9941 Aux Id: seq12009 </p>
+        </item>
+        <item>
+          <p>
+	    If a test case process was terminated due to an exit
+	    signal from a linked process, Test Server failed to
+	    report the correct name of the suite and case to the
+	    framework. This has been corrected.</p>
+          <p>
+	    Own Id: OTP-9958 Aux Id: OTP-9855 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new optional feature has been introduced that enables
+	    Common Test to generate priv_dir directory names that are
+	    unique for each test case or config function. The name of
+	    the option/flag is 'create_priv_dir' and it can be set to
+	    value 'auto_per_run' (which is the default, existing,
+	    behaviour), or 'auto_per_tc' or 'manual_per_tc'. If
+	    'auto_per_tc' is used, Test Server creates a dedicated
+	    priv_dir automatically for each test case (which can be
+	    very expensive in case of many and/or repeated cases). If
+	    'manual_per_tc' is used, the user needs to create the
+	    priv_dir explicitly by calling the new function
+	    ct:make_priv_dir/0.</p>
+          <p>
+	    Own Id: OTP-9659 Aux Id: seq11930 </p>
+        </item>
+        <item>
+          <p>
+	    A column for test case group name has been added to the
+	    suite overview HTML log file.</p>
+          <p>
+	    Own Id: OTP-9730 Aux Id: seq11952 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to use the post_end_per_testcase CT
+	    hook function to print a comment for a test case in the
+	    overview log file, even if the test case gets killed by a
+	    timetrap or unknown exit signal, or if the
+	    end_per_testcase function times out.</p>
+          <p>
+	    Own Id: OTP-9855 Aux Id: seq11979 </p>
+        </item>
+        <item>
+          <p>
+	    Common Test will now print error information (with a time
+	    stamp) in the test case log file immediately when a test
+	    case fails. This makes it easier to see when, in time,
+	    the fault actually occured, and aid the job of locating
+	    relevant trace and debug printouts in the log.</p>
+          <p>
+	    Own Id: OTP-9904 Aux Id: seq11985, OTP-9900 </p>
+        </item>
+        <item>
+          <p>
+	    Test Server has been modified to check the SASL
+	    errlog_type parameter when receiving an error logger
+	    event, so that it doesn't print reports of type that the
+	    user has disabled.</p>
+          <p>
+	    Own Id: OTP-9955 Aux Id: seq12013 </p>
+        </item>
+        <item>
+          <p>
+	    If an application cannot be found by ts it is
+	    automatically skipped when testing.</p>
+          <p>
+	    Own Id: OTP-9971</p>
+        </item>
+        <item>
+          <p>
+	    By specifying a user defined function ({M,F,A} or fun) as
+	    timetrap value, either by means of an info function or by
+	    calling ct:timetrap/1, it is now possible to set a
+	    timetrap that will be triggered when the user function
+	    returns.</p>
+          <p>
+	    Own Id: OTP-9988 Aux Id: OTP-9501, seq11894 </p>
+        </item>
+        <item>
+          <p>
+	    If the optional configuration functions init_per_suite/1
+	    and end_per_suite/1 are not implemented in the test
+	    suite, local Common Test versions of these functions are
+	    called instead, and will be displayed in the overview log
+	    file. Any printouts made by the pre- or
+	    post_init_per_suite and pre- or post_end_per_suite hook
+	    functions are saved in the log files for these functions.</p>
+          <p>
+	    Own Id: OTP-9992</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.5</title>
 
     <section><title>Improvements and New Features</title>

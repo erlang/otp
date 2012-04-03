@@ -30,6 +30,194 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>erlang:system_profile</c> errorneous profiled the
+	    profiler process when observing runnable processes. This
+	    has been corrected. </p>
+          <p>
+	    Own Id: OTP-9849</p>
+        </item>
+        <item>
+	    <p>Calling trace_info/2 asking for information about a
+	    function that had native could could crash the run-time
+	    system.</p>
+          <p>
+	    Own Id: OTP-9886</p>
+        </item>
+        <item>
+          <p>
+	    reduce smp locking time range in erts_garbage_collect
+	    (thanks to Jovi Zhang)</p>
+          <p>
+	    Own Id: OTP-9912</p>
+        </item>
+        <item>
+          <p>
+	    Fix typo in supervisor behaviour doc (Thanks to Ricardo
+	    Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9924</p>
+        </item>
+        <item>
+          <p>
+	    Correct spelling of registered (Thanks to Richard
+	    Carlsson)</p>
+          <p>
+	    Own Id: OTP-9925</p>
+        </item>
+        <item>
+          <p>
+	    erts: Remove unused variable (Thanks to Jovi Zhang)</p>
+          <p>
+	    Own Id: OTP-9926</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in ETS with <c>compressed</c> option and
+	    insertion of term containing large integers (>2G) on
+	    64-bit machines. Seen to cause emulator crash. (Thanks to
+	    Diego Llarrull for excellent bug report)</p>
+          <p>
+	    Own Id: OTP-9932</p>
+        </item>
+        <item>
+          <p>
+	    Handle Linux OS where /sys/devices/system/node is only
+	    readable by root. Fallback to /sys/devices/system/cpu for
+	    topology info.</p>
+          <p>
+	    Own Id: OTP-9978</p>
+        </item>
+        <item>
+	    <p> When an escript ends now all printout to standard
+	    output and standard error gets out on the terminal. This
+	    bug has been corrected by changing the behaviour of
+	    erlang:halt/0,1, which should fix the same problem for
+	    other escript-like applications, i.e that data stored in
+	    the output port driver buffers got lost when printing on
+	    a TTY and exiting through erlang:halt/0,1. </p>
+	    <p> The BIF:s erlang:halt/0,1 has gotten improved
+	    semantics and there is a new BIF erlang:halt/2 to
+	    accomplish something like the old semantics. See the
+	    documentation. </p>
+	    <p> Now erlang:halt/0 and erlang:halt/1 with an integer
+	    argument will close all ports and allow all pending async
+	    threads operations to finish before exiting the emulator.
+	    Previously erlang:halt/0 and erlang:halt(0) would just
+	    wait for pending async threads operations but not close
+	    ports. And erlang:halt/1 with a non-zero integer argument
+	    would not even wait for pending async threads operations.
+	    </p>
+	    <p> To roughly the old behaviour, to not wait for ports
+	    and async threads operations when you exit the emulator,
+	    you use erlang:halt/2 with an integer first argument and
+	    an option list containing {flush,false} as the second
+	    argument. Note that now is flushing not dependant of the
+	    exit code, and you can not only flush async threads
+	    operations which we deemed as a strange behaviour anyway.
+	    </p>
+	    <p>Also, erlang:halt/1,2 has gotten a new feature: If the
+	    first argument is the atom 'abort' the emulator is
+	    aborted producing a core dump, if the operating system so
+	    allows. </p>
+          <p>
+	    Own Id: OTP-9985</p>
+        </item>
+        <item>
+          <p>
+	    Added check to inet driver to avoid building on operating
+	    systems that do not yet have IPv6 compatible socket API.
+	    (Thanks to Peer Stritzinger)</p>
+          <p>
+	    Own Id: OTP-9996</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug when the number of CPUs actually found is lower
+	    than the configured value. (Thanks to Benjamin
+	    Herrenschmidt)</p>
+          <p>
+	    Own Id: OTP-10004</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system without SMP support and without thread
+	    support erroneously busy waited when no work was present.
+	    This bug first appeared in <c>erts-5.9</c>.</p>
+          <p>
+	    Own Id: OTP-10019</p>
+        </item>
+        <item>
+          <p>
+	    Various typographical errors corrected in documentation
+	    for common_test, driver, erl_driver and windows
+	    installation instructions. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-10037</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory leak caused by race on exiting process</p>
+          <p>
+	    Own Id: OTP-10041</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Add <c>erlang:statistics(scheduler_wall_time)</c> to
+	    ensure correct determination of scheduler utilization.
+	    Measuring scheduler utilization is strongly preferred
+	    over CPU utilization, since CPU utilization gives very
+	    poor indications of actual scheduler/vm usage.</p>
+          <p>
+	    Own Id: OTP-9858</p>
+        </item>
+        <item>
+          <p>
+	    ERTS internal API improvements. In some cases the amount
+	    of atomic read operations needed have been reduced due to
+	    this.</p>
+          <p>
+	    Own Id: OTP-9922</p>
+        </item>
+        <item>
+          <p>
+	    The DTrace source patch from Scott Lystig Fritchie is
+	    integrated in the source tree. Using an emulator with
+	    dtrace probe is still not supported for production use,
+	    but may be a valuable debugging tool. Configure with
+	    --with-dynamic-trace=dtrace (or
+	    --with-dynamic-trace=systemtap) to create a build with
+	    dtrace probes enabled. See runtime_tools for
+	    documentation and examples.</p>
+          <p>
+	    Own Id: OTP-10017</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+	    enif_make_copy may invalidate enif_inspect_binary.</p>
+          <p>
+	    Own Id: OTP-9828</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

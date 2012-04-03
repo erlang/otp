@@ -31,6 +31,32 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Some ASN.1 INTEGER type and SEQUENCE constructor variants
+	    previously not handled by the ASN.1 compiler are now
+	    correctly handled</p>
+          <p>
+	    Own Id: OTP-9688</p>
+        </item>
+        <item>
+          <p>
+	    An INTEGER with a value constraint where unions are used
+	    e.g. X1 ::= INTEGER (1..4 | 6 | 8 | 10 | 20) is not
+	    handled correctly. For PER the value is encoded in wrong
+	    number of bits.</p>
+          <p>
+	    Own Id: OTP-9946</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.19</title>
 
     <section><title>Improvements and New Features</title>

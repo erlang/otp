@@ -30,7 +30,60 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.3</title>
+  <section><title>Erl_Docgen 0.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Some links in C libraries were not generated
+	    correctly. This bug has been fixed. </p>
+          <p>
+	    Own Id: OTP-9832</p>
+        </item>
+        <item>
+          <p>
+	    Set `font-family: Courier, monospace' in OTP doc CSS</p>
+          <p>
+	    left Courier as the primary original font and also added
+	    monospace as secondary for people which in Linux does not
+	    have it installed.</p>
+          <p>
+	    Also adds minor cosmetic changes to the CSS. (Thanks to
+	    Ricardo Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9918</p>
+        </item>
+        <item>
+          <p>
+	    When generating from edoc it is now possible to use
+	    ranges in specs and &lt;img&gt; tags in the description.</p>
+          <p>
+	    Own Id: OTP-9970</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Optimize and improve handling of multiple func:s.
+	    </p>
+          <p>
+	    Own Id: OTP-9877</p>
+        </item>
+        <item>
+	    <p> The generation of the libraries' HTML documentation
+	    has been optimized. </p>
+          <p>
+	    Own Id: OTP-9893</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -31,6 +31,28 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The DTrace source patch from Scott Lystig Fritchie is
+	    integrated in the source tree. Using an emulator with
+	    dtrace probe is still not supported for production use,
+	    but may be a valuable debugging tool. Configure with
+	    --with-dynamic-trace=dtrace (or
+	    --with-dynamic-trace=systemtap) to create a build with
+	    dtrace probes enabled. See runtime_tools for
+	    documentation and examples.</p>
+          <p>
+	    Own Id: OTP-10017</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Minor suppressions and fixes of compilation
+	    warnings</p>
+          <p>
+	    Own Id: OTP-10016</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

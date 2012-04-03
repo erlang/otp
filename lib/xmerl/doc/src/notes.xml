@@ -31,6 +31,49 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing spaces in xmerl doc (Thanks to Ricardo
+	    Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-9873</p>
+        </item>
+        <item>
+	    <p> Fixed a continuation error in the sax parser and
+	    added latin1 as recognized encoding (not only the
+	    iso-8859 variants). </p>
+          <p>
+	    Own Id: OTP-9961</p>
+        </item>
+        <item>
+	    <p> Removed the unused file xmerl_xlink.hrl. Thanks to
+	    Vlad Dumitrescu for informing us about it. </p>
+          <p>
+	    Own Id: OTP-9965</p>
+        </item>
+        <item>
+	    <p> xmerl couldn't handle comments inside a type
+	    specification. </p>
+          <p>
+	    Own Id: OTP-10023</p>
+        </item>
+        <item>
+	    <p> Fix some small errors in the sax parser: error
+	    message bug, removal of trailing blanks in DTD element
+	    definitions and an documentation error of the startDTD
+	    event in xmerl_sax_parser module. </p>
+          <p>
+	    Own Id: OTP-10026</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

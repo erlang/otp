@@ -31,6 +31,21 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Minor suppressions and fixes of compilation
+	    warnings</p>
+          <p>
+	    Own Id: OTP-10016</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.7.2</title>
 
     <section><title>Improvements and New Features</title>
