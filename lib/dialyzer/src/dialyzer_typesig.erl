@@ -1908,13 +1908,17 @@ solve_ref_or_list(#constraint_list{type=Type, list = Cs, deps = Deps, id = Id},
       {ok, M} -> {M, true}
     end,
   ?debug("Checking ref to list: ~w\n", [Id]),
-  case Check andalso maps_are_equal(OldLocalMap, Map, Deps) of
+  if
+    OldLocalMap =:= error -> {error, MapDict};
     true ->
-      ?debug("~w equal ~w\n", [Type, Id]),
-      {ok, MapDict, Map};
-    false ->
-      ?debug("~w not equal: ~w. Solving\n", [Type, Id]),
-      solve_clist(Cs, Type, Id, Deps, MapDict, Map, State)
+      case Check andalso maps_are_equal(OldLocalMap, Map, Deps) of
+        true ->
+          ?debug("~w equal ~w\n", [Type, Id]),
+          {ok, MapDict, Map};
+        false ->
+          ?debug("~w not equal: ~w. Solving\n", [Type, Id]),
+          solve_clist(Cs, Type, Id, Deps, MapDict, Map, State)
+      end
   end.
 
 solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
@@ -1923,7 +1927,7 @@ solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
   ?debug("OldRecType ~s\n", [format_type(RecType0)]),
   RecType = t_limit(RecType0, ?TYPE_LIMIT),
   Map1 = enter_type(RecVar, RecType, dict:erase(t_var_name(Id), Map)),
-  ?debug("\tMap in: ~p\n",[[{X, format_type(Y)}||{X, Y}<-dict:to_list(Map1)]]),
+  pp_map("Map1", Map1),
   case solve_ref_or_list(Cs, Map1, MapDict, State) of
     {error, _} = Error ->
       case t_is_none(RecType0) of
@@ -1936,8 +1940,7 @@ solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
 	  Error
       end;
     {ok, NewMapDict, NewMap} ->
-      ?debug("\tMap: ~p\n",
-	     [[{X, format_type(Y)} || {X, Y} <- dict:to_list(NewMap)]]),
+      pp_map("NewMap", NewMap),
       NewRecType = unsafe_lookup_type(Id, NewMap),
       case t_is_equal(NewRecType, RecType0) of
 	true ->
@@ -1949,7 +1952,8 @@ solve_self_recursive(Cs, Map, MapDict, Id, RecType0, State) ->
 
 solve_clist(Cs, conj, Id, Deps, MapDict, Map, State) ->
   case solve_cs(Cs, Map, MapDict, State) of
-    {error, _} = Error -> Error;
+    {error, NewMapDict} ->
+      {error, dict:store(Id, error, NewMapDict)};
     {ok, NewMapDict, NewMap} = Ret ->
       case Cs of
 	[_] ->
@@ -1971,7 +1975,7 @@ solve_clist(Cs, disj, Id, _Deps, MapDict, Map, State) ->
 	end,
   {Maps, NewMapDict} = lists:mapfoldl(Fun, MapDict, Cs),
   case [X || {ok, X} <- Maps] of
-    [] -> {error, NewMapDict};
+    [] -> {error, dict:store(Id, error, NewMapDict)};
     MapList ->
       NewMap = join_maps(MapList),
       {ok, dict:store(Id, NewMap, NewMapDict), NewMap}
@@ -2047,6 +2051,8 @@ solve_subtype(Type, Inf, Map, Opaques) ->
 %%
 %% ============================================================================
 
+join_maps([Map]) ->
+  Map;
 join_maps(Maps) ->
   Keys = lists:foldl(fun(TmpMap, AccKeys) ->
 			 [Key || Key <- AccKeys, dict:is_key(Key, TmpMap)]
@@ -2199,6 +2205,12 @@ mk_var_no_lit(Var) ->
 
 mk_var_no_lit_list(List) ->
   [mk_var_no_lit(X) || X <- List].
+
+pp_map(_S, _Map) ->
+  ?debug("\t~s: ~p\n",
+            [_S, [{X, lists:flatten(format_type(Y))} ||
+                  {X, Y} <- lists:keysort(1, dict:to_list(_Map))]]).
+
 
 %% ============================================================================
 %%
@@ -2655,19 +2667,21 @@ enumerate_constraints([#constraint_ref{id = Id} = C|Tail], N, Acc, State) ->
 enumerate_constraints([#constraint_list{type = conj, list = List} = C|Tail],
 		      N, Acc, State) ->
   %% Separate the flat constraints from the deep ones to make a
-  %% separate fixpoint interation over the flat ones for speed.
-  {Flat, Deep} = lists:splitwith(fun(#constraint{}) -> true;
+  %% separate fixpoint iteration over the flat ones for speed.
+  {Flat, Deep} = lists:partition(fun(#constraint{}) -> true;
 				    (#constraint_list{}) -> false;
 				    (#constraint_ref{}) -> false
 				 end, List),
   {NewFlat, N1, State1} = enumerate_constraints(Flat, N, [], State),
   {NewDeep, N2, State2} = enumerate_constraints(Deep, N1, [], State1),
   {NewList, N3} =
-    case shorter_than_two(NewFlat) orelse (NewDeep =:= []) of
-      true -> {NewFlat ++ NewDeep, N2};
-      false ->
-	{NewCLists, TmpN} = group_constraints_in_components(NewFlat, N2),
-	{NewCLists ++ NewDeep, TmpN}
+    if
+      NewFlat =:= [] -> {NewDeep, N2};
+      NewDeep =:= [] -> {NewFlat, N2};
+      true ->
+        TmpCList = mk_conj_constraint_list(NewFlat),
+        {[TmpCList#constraint_list{id = {list, N2}} |  NewDeep],
+         N2 + 1}
     end,
   NewAcc = [C#constraint_list{list = NewList, id = {list, N3}}|Acc],
   enumerate_constraints(Tail, N3+1, NewAcc, State2);
@@ -2680,42 +2694,6 @@ enumerate_constraints([#constraint{} = C|Tail], N, Acc, State) ->
   enumerate_constraints(Tail, N, [C|Acc], State);
 enumerate_constraints([], N, Acc, State) ->
   {lists:reverse(Acc), N, State}.
-
-shorter_than_two([]) -> true;
-shorter_than_two([_]) -> true;
-shorter_than_two([_|_]) -> false.
-
-group_constraints_in_components(Cs, N) ->
-  DepList = [Deps || #constraint{deps = Deps} <- Cs],
-  case find_dep_components(DepList, []) of
-    [_] -> {Cs, N};
-    [_|_] = Components ->
-      ConstrComp = [[C || #constraint{deps = D} = C <- Cs,
-			  ordsets:is_subset(D, Comp)]
-		    || Comp <- Components],
-      lists:mapfoldl(fun(CComp, TmpN) ->
-			 TmpCList = mk_conj_constraint_list(CComp),
-			 {TmpCList#constraint_list{id = {list, TmpN}},
-			  TmpN + 1}
-		     end, N, ConstrComp)
-  end.
-
-find_dep_components([Set|Left], AccComponents) ->
-  {Component, Ungrouped} = find_dep_components(Left, Set, []),
-  case Component =:= Set of
-    true -> find_dep_components(Ungrouped, [Component|AccComponents]);
-    false -> find_dep_components([Component|Ungrouped], AccComponents)
-  end;
-find_dep_components([], AccComponents) ->
-  AccComponents.
-
-find_dep_components([Set|Left], AccSet, Ungrouped) ->
-  case ordsets:intersection(Set, AccSet) of
-    [] -> find_dep_components(Left, AccSet, [Set|Ungrouped]);
-    [_|_] -> find_dep_components(Left, ordsets:union(Set, AccSet), Ungrouped)
-  end;
-find_dep_components([], AccSet, Ungrouped) ->
-  {AccSet, Ungrouped}.
 
 %% Put the fun ref constraints last in any conjunction since we need
 %% to separate the environment from the interior of the function.
@@ -2846,12 +2824,23 @@ lookup_record(Records, Tag, Arity) ->
 
 -ifdef(DEBUG).
 format_type(#fun_var{deps = Deps, origin = Origin}) ->
-  io_lib:format("Fun@L~p(~s)",
-		[Origin, lists:flatten([format_type(t_var(X))||X<-Deps])]);
+  L = [format_type(t_var(X)) || X <- Deps],
+  io_lib:format("Fun@L~p(~s)", [Origin, join_chars(L, ",")]);
 format_type(Type) ->
   case cerl:is_literal(Type) of
     true -> io_lib:format("~w", [cerl:concrete(Type)]);
     false -> erl_types:t_to_string(Type)
+  end.
+
+join_chars([], _Sep) ->
+  [];
+join_chars([H | T], Sep) ->
+  [H | [[Sep,X] || X <- T]].
+
+debug_lookup_name(Var) ->
+  case dict:find(t_var_name(Var), get(dialyzer_typesig_map)) of
+    error -> Var;
+    {ok, Name} -> Name
   end.
 -endif.
 
@@ -2871,12 +2860,6 @@ debug_make_name_map([Var|VarLeft], [Fun|FunLeft], Map) ->
 debug_make_name_map([], [], Map) ->
   Map.
 
-debug_lookup_name(Var) ->
-  case dict:find(t_var_name(Var), get(dialyzer_typesig_map)) of
-    error -> Var;
-    {ok, Name} -> Name
-  end.
-
 -else.
 debug_make_name_map(_Vars, _Funs) ->
   ok.
@@ -2887,51 +2870,55 @@ pp_constrs_scc(SCC, State) ->
   [pp_constrs(Fun, state__get_cs(Fun, State), State) || Fun <- SCC].
 
 pp_constrs(Fun, Cs, State) ->
-  io:format("Constraints for fun: ~w\n", [debug_lookup_name(Fun)]),
+  io:format("Constraints for fun: ~w", [debug_lookup_name(Fun)]),
   MaxDepth = pp_constraints(Cs, State),
   io:format("Depth: ~w\n", [MaxDepth]).
 
 pp_constraints(Cs, State) ->
-  Res = pp_constraints([Cs], none, 0, 0, State),
+  Res = pp_constraints([Cs], 0, 0, State),
   io:nl(),
   Res.
 
-pp_constraints([List|Tail], Separator, Level, MaxDepth,
-	       State) when is_list(List) ->
-  pp_constraints(List++Tail, Separator, Level, MaxDepth, State);
-pp_constraints([#constraint_ref{id = Id}|Left], Separator,
-	       Level, MaxDepth, State) ->
+pp_constraints([List|Tail], Level, MaxDepth, State) when is_list(List) ->
+  pp_constraints(List++Tail, Level, MaxDepth, State);
+pp_constraints([#constraint_ref{id = Id}|Left], Level, MaxDepth, State) ->
   Cs = state__get_cs(Id, State),
+  pp_indent(Level),
   io:format("%Ref ~w%", [t_var_name(Id)]),
-  pp_constraints([Cs|Left], Separator, Level, MaxDepth, State);
-pp_constraints([#constraint{lhs = Lhs, op = Op, rhs = Rhs}], _Separator,
-	       Level, MaxDepth, _State) ->
-  io:format("~s ~w ~s", [format_type(Lhs), Op, format_type(Rhs)]),
+  pp_constraints([Cs|Left], Level, MaxDepth, State);
+pp_constraints([#constraint{}=C], Level, MaxDepth, _State) ->
+  pp_op(C, Level),
   erlang:max(Level, MaxDepth);
-pp_constraints([#constraint{lhs = Lhs, op = Op, rhs = Rhs}|Tail], Separator,
-	       Level, MaxDepth, State) ->
-  io:format("~s ~w ~s ~s ", [format_type(Lhs), Op, format_type(Rhs),Separator]),
-  pp_constraints(Tail, Separator, Level, MaxDepth, State);
+pp_constraints([#constraint{}=C|Tail], Level, MaxDepth, State) ->
+  pp_op(C, Level),
+  pp_constraints(Tail, Level, MaxDepth, State);
 pp_constraints([#constraint_list{type = Type, list = List, id = Id}],
-	       _Separator, Level, MaxDepth, State) ->
-  io:format("%List ~w(", [Id]),
-  NewSeparator = case Type of
-		   conj -> "*";
-		   disj -> "+"
-		 end,
-  NewMaxDepth = pp_constraints(List, NewSeparator, Level + 1, MaxDepth, State),
+	       Level, MaxDepth, State) ->
+  pp_indent(Level),
+  case Type of
+    conj -> io:format("Conj ~w (", [Id]);
+    disj -> io:format("Disj ~w (", [Id])
+  end,
+  NewMaxDepth = pp_constraints(List, Level + 1, MaxDepth, State),
   io:format(")", []),
   NewMaxDepth;
 pp_constraints([#constraint_list{type = Type, list = List, id = Id}|Tail],
-	       Separator, Level, MaxDepth, State) ->
-  io:format("List ~w(", [Id]),
-  NewSeparator = case Type of
-		   conj -> "*";
-		   disj -> "+"
-		 end,
-  NewMaxDepth = pp_constraints(List, NewSeparator, Level+1, MaxDepth, State),
-  io:format(") ~s\n~s ", [Separator, Separator]),
-  pp_constraints(Tail, Separator, Level, NewMaxDepth, State).
+	       Level, MaxDepth, State) ->
+  pp_indent(Level),
+  case Type of
+    conj -> io:format("Conj ~w (", [Id]);
+    disj -> io:format("Disj ~w (", [Id])
+  end,
+  NewMaxDepth = pp_constraints(List, Level+1, MaxDepth, State),
+  io:format(")", []),
+  pp_constraints(Tail, Level, NewMaxDepth, State).
+
+pp_op(#constraint{lhs = Lhs, op = Op, rhs = Rhs}, Level) ->
+  pp_indent(Level),
+  io:format("~s ~w ~s", [format_type(Lhs), Op, format_type(Rhs)]).
+
+pp_indent(Level) ->
+  io:format("\n~*s", [Level*2, ""]).
 -else.
 pp_constrs_scc(_SCC, _State) ->
   ok.
