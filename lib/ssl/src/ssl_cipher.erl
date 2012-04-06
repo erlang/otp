@@ -32,7 +32,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([security_parameters/2, suite_definition/1,
-	 decipher/5, cipher/4, 
+	 decipher/5, cipher/5,
 	 suite/1, suites/1, anonymous_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2]).
 
@@ -59,16 +59,16 @@ security_parameters(CipherSuite, SecParams) ->
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
--spec cipher(cipher_enum(), #cipher_state{}, binary(), binary()) -> 
+-spec cipher(cipher_enum(), #cipher_state{}, binary(), binary(), tls_version()) ->
 		    {binary(), #cipher_state{}}. 
 %%
 %% Description: Encrypts the data and the MAC using chipher described
 %% by cipher_enum() and updating the cipher state
 %%-------------------------------------------------------------------
-cipher(?NULL, CipherState, <<>>, Fragment) ->
+cipher(?NULL, CipherState, <<>>, Fragment, _Version) ->
     GenStreamCipherList = [Fragment, <<>>],
     {GenStreamCipherList, CipherState};
-cipher(?RC4, CipherState, Mac, Fragment) ->
+cipher(?RC4, CipherState, Mac, Fragment, _Version) ->
     State0 = case CipherState#cipher_state.state of
                  undefined -> crypto:rc4_set_key(CipherState#cipher_state.key);
                  S -> S
@@ -76,30 +76,34 @@ cipher(?RC4, CipherState, Mac, Fragment) ->
     GenStreamCipherList = [Fragment, Mac],
     {State1, T} = crypto:rc4_encrypt_with_state(State0, GenStreamCipherList),
     {T, CipherState#cipher_state{state = State1}};
-cipher(?DES, CipherState, Mac, Fragment) ->
+cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
 			 crypto:des_cbc_encrypt(Key, IV, T)
-		 end, block_size(des_cbc), CipherState, Mac, Fragment);
-cipher(?'3DES', CipherState, Mac, Fragment) ->
+		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
+cipher(?'3DES', CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			 crypto:des3_cbc_encrypt(K1, K2, K3, IV, T)
-		 end, block_size(des_cbc), CipherState, Mac, Fragment);
-cipher(?AES, CipherState, Mac, Fragment) ->
+		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
+cipher(?AES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
 			 crypto:aes_cbc_128_encrypt(Key, IV, T);
 		    (Key, IV, T) when byte_size(Key) =:= 32 ->
 			 crypto:aes_cbc_256_encrypt(Key, IV, T)
-		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment).
+		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
 %% cipher(?IDEA, CipherState, Mac, Fragment) ->
 %%     block_cipher(fun(Key, IV, T) ->
 %% 			 crypto:idea_cbc_encrypt(Key, IV, T)
 %% 		 end, block_size(idea_cbc), CipherState, Mac, Fragment);
 
-block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0, 
-	     Mac, Fragment) ->
+build_cipher_block(BlockSz, Mac, Fragment) ->
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
     {PaddingLength, Padding} = get_padding(TotSz, BlockSz),
-    L = [Fragment, Mac, PaddingLength, Padding],
+    [Fragment, Mac, PaddingLength, Padding].
+
+block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
+	     Mac, Fragment, {3, N})
+  when N == 0; N == 1 ->
+    L = build_cipher_block(BlockSz, Mac, Fragment),
     T = Fun(Key, IV, L),
     NextIV = next_iv(T, IV),
     {T, CS0#cipher_state{iv=NextIV}}.
@@ -156,10 +160,11 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 	       HashSz, Fragment, Version) ->
     try 
 	Text = Fun(Key, IV, Fragment),
-	GBC = generic_block_cipher_from_bin(Text, HashSz),
+	NextIV = next_iv(Fragment, IV),
+	GBC = generic_block_cipher_from_bin(Version, Text, NextIV, HashSz),
 	Content = GBC#generic_block_cipher.content,
 	Mac = GBC#generic_block_cipher.mac,
-	CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
+	CipherState1 = CipherState0#cipher_state{iv=GBC#generic_block_cipher.next_iv},
 	case is_correct_padding(GBC, Version) of
 	    true ->
 		{Content, Mac, CipherState1};
@@ -525,7 +530,8 @@ hash_size(sha) ->
 %%   We return the original (possibly invalid) PadLength in any case.
 %%   An invalid PadLength will be caught by is_correct_padding/2
 %%
-generic_block_cipher_from_bin(T, HashSize) ->
+generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
+  when N == 0; N == 1 ->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength0)>> = T,
     PadLength = if
@@ -536,7 +542,8 @@ generic_block_cipher_from_bin(T, HashSize) ->
     <<Content:CompressedLength/binary, Mac:HashSize/binary,
      Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
-			  padding=Padding, padding_length=PadLength0}.
+			  padding=Padding, padding_length=PadLength0,
+			  next_iv = IV}.
 
 generic_stream_cipher_from_bin(T, HashSz) ->
     Sz = byte_size(T),

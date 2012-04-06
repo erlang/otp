@@ -633,7 +633,7 @@ cipher(Type, Version, Fragment, CS0) ->
 						      BCA}
 				}} = 
 	hash_and_bump_seqno(CS0, Type, Version, Length, Fragment),
-    {Ciphered, CipherS1} = ssl_cipher:cipher(BCA, CipherS0, MacHash, Fragment),
+    {Ciphered, CipherS1} = ssl_cipher:cipher(BCA, CipherS0, MacHash, Fragment, Version),
     CS2 = CS1#connection_state{cipher_state=CipherS1},
     {Ciphered, CS2}.
 

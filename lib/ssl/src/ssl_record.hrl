@@ -176,7 +176,8 @@
           content, % opaque content[TLSCompressed.length];
           mac,     % opaque MAC[CipherSpec.hash_size];
           padding, % unit 8 padding[GenericBlockCipher.padding_length];
-          padding_length % uint8 padding_length;
+          padding_length, % uint8 padding_length;
+          next_iv  % opaque IV[SecurityParameters.record_iv_length];
          }). 
 
 -endif. % -ifdef(ssl_record).
