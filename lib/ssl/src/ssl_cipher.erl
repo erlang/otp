@@ -106,6 +106,15 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
     L = build_cipher_block(BlockSz, Mac, Fragment),
     T = Fun(Key, IV, L),
     NextIV = next_iv(T, IV),
+    {T, CS0#cipher_state{iv=NextIV}};
+
+block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
+	     Mac, Fragment, {3, N})
+  when N == 2; N == 3 ->
+    NextIV = random_iv(IV),
+    L0 = build_cipher_block(BlockSz, Mac, Fragment),
+    L = [NextIV|L0],
+    T = Fun(Key, IV, L),
     {T, CS0#cipher_state{iv=NextIV}}.
 
 %%--------------------------------------------------------------------
@@ -543,7 +552,19 @@ generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
      Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
 			  padding=Padding, padding_length=PadLength0,
-			  next_iv = IV}.
+			  next_iv = IV};
+
+generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
+  when N == 2; N == 3 ->
+    Sz1 = byte_size(T) - 1,
+    <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
+    IVLength = byte_size(IV),
+    CompressedLength = byte_size(T) - IVLength - PadLength - 1 - HashSize,
+    <<NextIV:IVLength/binary, Content:CompressedLength/binary, Mac:HashSize/binary,
+      Padding:PadLength/binary, ?BYTE(PadLength)>> = T,
+    #generic_block_cipher{content=Content, mac=Mac,
+			  padding=Padding, padding_length=PadLength,
+			  next_iv = NextIV}.
 
 generic_stream_cipher_from_bin(T, HashSz) ->
     Sz = byte_size(T),
@@ -573,6 +594,10 @@ get_padding_aux(_, 0) ->
 get_padding_aux(BlockSize, PadLength) ->
     N = BlockSize - PadLength,
     {N, list_to_binary(lists:duplicate(N, N))}.
+
+random_iv(IV) ->
+    IVSz = byte_size(IV),
+    crypto:rand_bytes(IVSz).
 
 next_iv(Bin, IV) ->
     BinSz = byte_size(Bin),
