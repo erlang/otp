@@ -1933,7 +1933,7 @@ next_state(Current, Next, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
    	   (_, StopState) -> StopState
    	end,
     try
-	{Packets, Buf} = ssl_handshake:get_tls_handshake(Data,Buf0),
+	{Packets, Buf} = ssl_handshake:get_tls_handshake(Version,Data,Buf0),
 	State = State0#state{tls_packets = Packets, tls_handshake_buffer = Buf},
 	handle_tls_handshake(Handle, Next, State)
     catch throw:#alert{} = Alert ->

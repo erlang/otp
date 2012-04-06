@@ -48,7 +48,8 @@ decode_hello_handshake(_Config) ->
 	16#00, 16#00, 16#33, 16#74, 16#00, 16#07, 16#06, 16#73,
 	16#70, 16#64, 16#79, 16#2f, 16#32>>,
 	
-	{Records, _Buffer} = ssl_handshake:get_tls_handshake(HelloPacket, <<>>),
+	Version = {3, 0},
+	{Records, _Buffer} = ssl_handshake:get_tls_handshake(Version, HelloPacket, <<>>),
 	
 	{Hello, _Data} = hd(Records),
 	#renegotiation_info{renegotiated_connection = <<0>>} = Hello#server_hello.renegotiation_info.
