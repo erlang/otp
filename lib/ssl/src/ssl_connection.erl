@@ -1571,7 +1571,8 @@ handle_server_key(
 					 dh_g = G,
 					 dh_y = ServerPublicDhKey}, 
 		       signed_params = Signed}, 
-  #state{public_key_info = PubKeyInfo,
+  #state{negotiated_version = Version,
+	 public_key_info = PubKeyInfo,
 	 key_algorithm = KeyAlgo,
 	 connection_states = ConnectionStates} = State) ->
      
@@ -1592,14 +1593,17 @@ handle_server_key(
 						   ?UINT16(YLen),
 						   ServerPublicDhKey/binary>>),
     
-    case verify_dh_params(Signed, Hash, PubKeyInfo) of
+    case verify_dh_params(Version, Signed, Hash, PubKeyInfo) of
 	true ->
 	    dh_master_secret(P, G, ServerPublicDhKey, undefined, State);
 	false ->
 	    ?ALERT_REC(?FATAL, ?DECRYPT_ERROR)
     end.
 
-verify_dh_params(Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams}) ->
+verify_dh_params({3, Minor}, Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams})
+  when Minor >= 3 ->
+    public_key:verify({digest, Hashes}, sha, Signed, PubKey);
+verify_dh_params(_Version, Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams}) ->
     case public_key:decrypt_public(Signed, PubKey, 
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Hashes ->
@@ -1607,8 +1611,8 @@ verify_dh_params(Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams}) ->
 	_ ->
 	    false
     end;
-verify_dh_params(Signed, Hash, {?'id-dsa', PublicKey, PublicKeyParams}) ->
-    public_key:verify(Hash, none, Signed, {PublicKey, PublicKeyParams}). 
+verify_dh_params(_Version, Signed, Hash, {?'id-dsa', PublicKey, PublicKeyParams}) ->
+    public_key:verify({digest, Hash}, sha, Signed, {PublicKey, PublicKeyParams}).
 
 dh_master_secret(Prime, Base, PublicDhKey, undefined, State) ->
     PMpint = mpint_binary(Prime),
