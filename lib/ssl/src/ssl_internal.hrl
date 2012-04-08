@@ -34,7 +34,7 @@
 -type host()		  :: inet:ip_address() | inet:hostname().
 -type session_id()        :: 0 | binary().
 -type tls_version()       :: {integer(), integer()}.
--type tls_atom_version()  :: sslv3 | tlsv1.
+-type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2'.
 -type certdb_ref()        :: reference().
 -type db_handle()         :: term().
 -type key_algo()          :: null | rsa | dhe_rsa | dhe_dss | dh_anon.
@@ -69,11 +69,11 @@
 -define(TRUE, 0).
 -define(FALSE, 1).
 
--define(DEFAULT_SUPPORTED_VERSIONS, [tlsv1, sslv3]). % TODO: This is temporary
-%-define(DEFAULT_SUPPORTED_VERSIONS, ['tlsv1.1', tlsv1, sslv3]).
+-define(DEFAULT_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]). % TODO: This is temporary
+%-define(DEFAULT_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
 
 -record(ssl_options, {
-	  versions,   % 'tlsv1.1' | tlsv1 | sslv3
+	  versions,   % 'tlsv1.2' | 'tlsv1.1' | tlsv1 | sslv3
 	  verify,     %   verify_none | verify_peer
 	  verify_fun, % fun(CertVerifyErrors) -> boolean()
 	  fail_if_no_peer_cert, % boolean()

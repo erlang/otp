@@ -719,7 +719,8 @@ validate_option(Opt, Value) ->
     
 validate_versions([], Versions) ->
     Versions;
-validate_versions([Version | Rest], Versions) when Version == 'tlsv1.1'; 
+validate_versions([Version | Rest], Versions) when Version == 'tlsv1.2';
+                                                   Version == 'tlsv1.1';
                                                    Version == tlsv1; 
                                                    Version == sslv3 ->
     validate_versions(Rest, Versions);					   

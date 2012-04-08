@@ -383,6 +383,8 @@ get_tls_records_aux(Data, Acc) ->
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
 %%--------------------------------------------------------------------
+protocol_version('tlsv1.2') ->
+    {3, 3};
 protocol_version('tlsv1.1') ->
     {3, 2};
 protocol_version(tlsv1) ->
@@ -391,6 +393,8 @@ protocol_version(sslv3) ->
     {3, 0};
 protocol_version(sslv2) -> %% Backwards compatibility
     {2, 0};
+protocol_version({3, 3}) ->
+    'tlsv1.2';
 protocol_version({3, 2}) ->
     'tlsv1.1';
 protocol_version({3, 1}) ->
