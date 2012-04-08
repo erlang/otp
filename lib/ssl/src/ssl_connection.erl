@@ -77,6 +77,7 @@
           supported_protocol_versions, % [atom()]
           client_certificate_requested = false,
 	  key_algorithm,       % atom as defined by cipher_suite
+	  hashsign_algorithm,  % atom as defined by cipher_suite
           public_key_info,     % PKIX: {Algorithm, PublicKey, PublicKeyParams}
           private_key,         % PKIX: #'RSAPrivateKey'{}
 	  diffie_hellman_params, % PKIX: #'DHParameter'{} relevant for server side
@@ -380,6 +381,7 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	    PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
 	    
 	    State = State0#state{key_algorithm = KeyAlgorithm,
+				 hashsign_algorithm = default_hashsign(Version, KeyAlgorithm),
 				 negotiated_version = Version,
 				 connection_states = ConnectionStates,
 				 premaster_secret = PremasterSecret},
@@ -643,10 +645,11 @@ cipher(#certificate_verify{signature = Signature},
 	      public_key_info = PublicKeyInfo,
 	      negotiated_version = Version,
 	      session = #session{master_secret = MasterSecret},
+	      hashsign_algorithm = HashSign,
 	      tls_handshake_history = Handshake
 	     } = State0) -> 
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
-					  Version, MasterSecret, Handshake) of
+					  Version, HashSign, MasterSecret, Handshake) of
 	valid ->
 	    {Record, State} = next_record(State0),
 	    next_state(cipher, cipher, Record, State);
@@ -1247,10 +1250,11 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 			  private_key = PrivateKey,
 			  session = #session{master_secret = MasterSecret,
 					     own_certificate = OwnCert},
+			  hashsign_algorithm = HashSign,
 			  tls_handshake_history = Handshake0} = State) ->
 
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret, 
-						 Version, PrivateKey, Handshake0) of
+						 Version, HashSign, PrivateKey, Handshake0) of
         #certificate_verify{} = Verified ->
             {BinVerified, ConnectionStates, Handshake} =
                 encode_handshake(Verified, Version,
@@ -1391,7 +1395,8 @@ server_hello(ServerHello, #state{transport_cb = Transport,
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates1,
                 tls_handshake_history = Handshake1,
-                key_algorithm = KeyAlgorithm}.
+                key_algorithm = KeyAlgorithm,
+                hashsign_algorithm = default_hashsign(Version, KeyAlgorithm)}.
    
 server_hello_done(#state{transport_cb = Transport,
                          socket = Socket,
@@ -1433,6 +1438,7 @@ certify_server(#state{transport_cb = Transport,
 key_exchange(#state{role = server, key_algorithm = rsa} = State) ->
     State;
 key_exchange(#state{role = server, key_algorithm = Algo,
+		    hashsign_algorithm = {HashAlgo, _},
 		    diffie_hellman_params = #'DHParameter'{prime = P, base = G} = Params,
 		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0,
@@ -1451,7 +1457,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
     Msg =  ssl_handshake:key_exchange(server, Version, {dh, Keys, Params,
-					       Algo, ClientRandom, 
+					       HashAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
     {BinMsg, ConnectionStates, Handshake} =
@@ -1577,22 +1583,23 @@ handle_server_key(
 		       #server_dh_params{dh_p = P,
 					 dh_g = G,
 					 dh_y = ServerPublicDhKey}, 
-		       signed_params = Signed}, 
+		       signed_params = Signed,
+		       hashsign = HashSign},
   #state{negotiated_version = Version,
 	 public_key_info = PubKeyInfo,
-	 key_algorithm = KeyAlgo,
 	 connection_states = ConnectionStates} = State) ->
      
     PLen = size(P),
     GLen = size(G),
     YLen = size(ServerPublicDhKey),
+    HashAlgo = connection_hash_algo(HashSign, State),
 
     ConnectionState = 
 	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
-    Hash = ssl_handshake:server_key_exchange_hash(KeyAlgo,
+    Hash = ssl_handshake:server_key_exchange_hash(HashAlgo,
 						  <<ClientRandom/binary, 
 						   ServerRandom/binary, 
 						   ?UINT16(PLen), P/binary, 

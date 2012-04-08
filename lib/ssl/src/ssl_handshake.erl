@@ -32,7 +32,7 @@
 
 -export([master_secret/4, client_hello/8, server_hello/4, hello/4,
 	 hello_request/0, certify/7, certificate/4,
-	 client_certificate_verify/5, certificate_verify/5,
+	 client_certificate_verify/6, certificate_verify/6,
 	 certificate_request/3, key_exchange/3, server_key_exchange_hash/2,
 	 finished/5, verify_connection/6, get_tls_handshake/3,
 	 decode_client_key/3, server_hello_done/0,
@@ -258,31 +258,31 @@ certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
 
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
-				tls_version(), private_key(),
+				tls_version(), term(), private_key(),
 				tls_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
 %%--------------------------------------------------------------------
-client_certificate_verify(undefined, _, _, _, _) ->
+client_certificate_verify(undefined, _, _, _, _, _) ->
     ignore;
-client_certificate_verify(_, _, _, undefined, _) ->
+client_certificate_verify(_, _, _, _, undefined, _) ->
     ignore;
 client_certificate_verify(OwnCert, MasterSecret, Version,
+			  {HashAlgo, SignAlgo},
 			  PrivateKey, {Handshake, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
 	true ->
 	    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
-	false ->	    
-	    Hashes = 
-		calc_certificate_verify(Version, MasterSecret,
-					alg_oid(PrivateKey), Handshake),
-	    Signed = digitally_signed(Hashes, PrivateKey),
-	    #certificate_verify{signature = Signed}
+	false ->
+	    Hashes =
+		calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
+	    Signed = digitally_signed(Version, Hashes, HashAlgo, PrivateKey),
+	    #certificate_verify{signature = Signed, hashsign_algorithm = {HashAlgo, SignAlgo}}
     end.
 
 %%--------------------------------------------------------------------
--spec certificate_verify(binary(), public_key_info(), tls_version(),
+-spec certificate_verify(binary(), public_key_info(), tls_version(), term(),
 			 binary(), tls_handshake_history()) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
@@ -296,18 +296,25 @@ certificate_verify_rsa(Hashes, HashAlgo, Signature, PublicKey, {Major, Minor})
 certificate_verify_rsa(Hashes, _HashAlgo, Signature, PublicKey, _Version) ->
     case public_key:decrypt_public(Signature, PublicKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
-	Hashes ->
+	Hashes -> true;
+	_      -> false
+    end.
+
+certificate_verify(Signature, {?'rsaEncryption', PublicKey, _}, Version,
+		   {HashAlgo, _SignAlgo}, MasterSecret, {_, Handshake}) ->
+    Hashes = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
+    case certificate_verify_rsa(Hashes, HashAlgo, Signature, PublicKey, Version) of
+	true ->
 	    valid;
 	_ ->
 	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end;
-certificate_verify(Signature, {?'id-dsa' = Algorithm, PublicKey, PublicKeyParams}, Version,
-		   MasterSecret, {_, Handshake}) ->
-    Hashes = calc_certificate_verify(Version, MasterSecret,
-				     Algorithm, Handshake),
+certificate_verify(Signature, {?'id-dsa', PublicKey, PublicKeyParams}, Version,
+		   {HashAlgo, _SignAlgo}, MasterSecret, {_, Handshake}) ->
+    Hashes = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
     case public_key:verify(Hashes, none, Signature, {PublicKey, PublicKeyParams}) of
-    	true ->
-    	    valid;
+	true ->
+	    valid;
     	false ->
     	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end.
@@ -324,9 +331,11 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 		      #security_parameters{cipher_suite = CipherSuite}} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     Types = certificate_types(CipherSuite),
+    HashSigns = hashsign_algorithms(CipherSuite),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
+		    hashsign_algorithms = HashSigns,
 		    certificate_authorities = Authorities
 		   }.
 
@@ -334,7 +343,7 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 -spec key_exchange(client | server, tls_version(),
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
-		   {dh, {binary(), binary()}, #'DHParameter'{}, key_algo(),
+		   {dh, {binary(), binary()}, #'DHParameter'{}, hash_algo(),
 		   binary(), binary(), private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 %%
@@ -351,9 +360,9 @@ key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
 		dh_public = PublicKey}
 	       };
 
-key_exchange(server, _Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
+key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 		      #'DHParameter'{prime = P, base = G},
-		      KeyAlgo, ClientRandom, ServerRandom, PrivateKey}) ->
+		      HashAlgo, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
     <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
     PLen = byte_size(PBin),
@@ -362,20 +371,22 @@ key_exchange(server, _Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
     ServerDHParams = #server_dh_params{dh_p = PBin, 
 				       dh_g = GBin, dh_y = PublicKey},    
 
-    case KeyAlgo of
-	dh_anon ->
+    case HashAlgo of
+	null ->
 	    #server_key_exchange{params = ServerDHParams,
-				 signed_params = <<>>};
+				 signed_params = <<>>,
+				 hashsign = {null, anon}};
 	_ ->
 	    Hash =
-		server_key_exchange_hash(KeyAlgo, <<ClientRandom/binary,
+		server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
 						    ServerRandom/binary,
 						    ?UINT16(PLen), PBin/binary,
 						    ?UINT16(GLen), GBin/binary,
 						    ?UINT16(YLen), PublicKey/binary>>),
-	    Signed = digitally_signed(Hash, PrivateKey),
+	    Signed = digitally_signed(Version, Hash, HashAlgo, PrivateKey),
 	    #server_key_exchange{params = ServerDHParams,
-				 signed_params = Signed}
+				 signed_params = Signed,
+				 hashsign = {HashAlgo, digitally_signed_alg(PrivateKey)}}
     end.
 
 %%--------------------------------------------------------------------
@@ -527,6 +538,7 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
 				   [{rsa_pad, rsa_pkcs1_padding}])
     catch
 	_:_ ->
+			io:format("decrypt_premaster_secret error"),
 	    throw(?ALERT_REC(?FATAL, ?DECRYPT_ERROR))
     end.
 
@@ -535,14 +547,13 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
 %%
 %% Description: Calculate server key exchange hash
 %%--------------------------------------------------------------------
-server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
-						Algorithm == dhe_rsa ->
+server_key_exchange_hash(md5sha, Value) ->
     MD5 = crypto:md5(Value),
-    SHA =  crypto:sha(Value),
+    SHA = crypto:sha(Value),
     <<MD5/binary, SHA/binary>>;
 
-server_key_exchange_hash(dhe_dss, Value) ->
-    crypto:sha(Value).
+server_key_exchange_hash(Hash, Value) ->
+    crypto:hash(Hash, Value).
 
 %%--------------------------------------------------------------------
 -spec prf(tls_version(), binary(), binary(), [binary()], non_neg_integer()) ->
@@ -878,14 +889,14 @@ dec_hs(_Version, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			       ?UINT16(0)>>) -> %% May happen if key_algorithm is dh_anon
     #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G,
 						    dh_y = Y},
-			 signed_params = <<>>};
+			 signed_params = <<>>, hashsign = {null, anon}};
 dec_hs(_Version, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
 			      ?UINT16(Len), Sig:Len/binary>>) ->
     #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, 
 						    dh_y = Y},
-			 signed_params = Sig};
+			 signed_params = Sig, hashsign = undefined};
 dec_hs(_Version, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>) ->
@@ -894,7 +905,7 @@ dec_hs(_Version, ?CERTIFICATE_REQUEST,
 dec_hs(_Version, ?SERVER_HELLO_DONE, <<>>) ->
     #server_hello_done{};
 dec_hs(_Version, ?CERTIFICATE_VERIFY,<<?UINT16(SignLen), Signature:SignLen/binary>>)->
-    #certificate_verify{signature = Signature};
+    #certificate_verify{hashsign_algorithm = {unknown, unknown}, signature = Signature};
 dec_hs(_Version, ?CLIENT_KEY_EXCHANGE, PKEPMS) ->
     #client_key_exchange{exchange_keys = PKEPMS};
 dec_hs(_Version, ?FINISHED, VerifyData) ->
@@ -1005,15 +1016,15 @@ enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version) ->
     {?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>};
 enc_hs(#server_key_exchange{params = #server_dh_params{
 			      dh_p = P, dh_g = G, dh_y = Y},
-	signed_params = SignedParams}, _Version) ->
+	signed_params = SignedParams, hashsign = HashSign}, Version) ->
     PLen = byte_size(P),
     GLen = byte_size(G),
     YLen = byte_size(Y),
-    SignedLen = byte_size(SignedParams),
+    Signature = enc_sign(HashSign, SignedParams, Version),
     {?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P/binary, 
 			    ?UINT16(GLen), G/binary,
 			    ?UINT16(YLen), Y/binary,
-			    ?UINT16(SignedLen), SignedParams/binary>>
+			    Signature/binary>>
     };
 enc_hs(#certificate_request{certificate_types = CertTypes,
 			    certificate_authorities = CertAuths}, 
@@ -1028,8 +1039,8 @@ enc_hs(#server_hello_done{}, _Version) ->
     {?SERVER_HELLO_DONE, <<>>};
 enc_hs(#client_key_exchange{exchange_keys = ExchangeKeys}, Version) ->
     {?CLIENT_KEY_EXCHANGE, enc_cke(ExchangeKeys, Version)};
-enc_hs(#certificate_verify{signature = BinSig}, _) ->
-    EncSig = enc_bin_sig(BinSig),
+enc_hs(#certificate_verify{signature = BinSig, hashsign_algorithm = HashSign}, Version) ->
+    EncSig = enc_sign(HashSign, BinSig, Version),
     {?CERTIFICATE_VERIFY, EncSig};
 enc_hs(#finished{verify_data = VerifyData}, _Version) ->
     {?FINISHED, VerifyData}.
@@ -1043,9 +1054,9 @@ enc_cke(#client_diffie_hellman_public{dh_public = DHPublic}, _) ->
     Len = byte_size(DHPublic),
     <<?UINT16(Len), DHPublic/binary>>.
 
-enc_bin_sig(BinSig) ->
-    Size = byte_size(BinSig),
-    <<?UINT16(Size), BinSig/binary>>.
+enc_sign(_HashSign, Sign, _Version) ->
+	SignLen = byte_size(Sign),
+	<<?UINT16(SignLen), Sign/binary>>.
 
 %% Renegotiation info, only current extension
 hello_extensions(#renegotiation_info{renegotiated_connection = undefined}) ->
@@ -1125,7 +1136,7 @@ certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
 			      [Cert | Acc];
 			 (_, Acc) ->
 			      Acc
-		      end,	
+		      end,
     ssl_certificate_db:foldl(ConnectionCerts, [], CertDbHandle).
 
 
@@ -1135,10 +1146,11 @@ digitally_signed(_Version, Hash, _HashAlgo, #'DSAPrivateKey'{} = Key) ->
     public_key:sign({digest, Hash}, sha, Key);
 digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
-			       [{rsa_pad, rsa_pkcs1_padding}]);
-digitally_signed(Hash, #'DSAPrivateKey'{} = Key) ->
-    public_key:sign(Hash, none, Key).
-    
+			       [{rsa_pad, rsa_pkcs1_padding}]).
+
+digitally_signed_alg(#'RSAPrivateKey'{} = _Key) -> rsa;
+digitally_signed_alg(#'DSAPrivateKey'{} = _Key) -> dsa.
+
 calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_ssl3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
 
@@ -1182,8 +1194,3 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
     end.
-
-alg_oid(#'RSAPrivateKey'{}) ->
-    ?'rsaEncryption';
-alg_oid(#'DSAPrivateKey'{}) ->
-    ?'id-dsa'.

@@ -35,7 +35,8 @@
 -export([security_parameters/3, suite_definition/1,
 	 decipher/5, cipher/5,
 	 suite/1, suites/1, anonymous_suites/0,
-	 openssl_suite/1, openssl_suite_name/1, filter/2]).
+	 openssl_suite/1, openssl_suite_name/1, filter/2,
+	 hash_algorithm/1, sign_algorithm/1]).
 
 -compile(inline).
 
@@ -608,7 +609,7 @@ hash_algorithm(sha512) -> ?SHA512;
 hash_algorithm(?NULL) -> null;
 hash_algorithm(?MD5) -> md5;
 hash_algorithm(?SHA) -> sha;
-%%hash_algorithm(?SHA224) -> sha224;
+hash_algorithm(?SHA224) -> sha224;
 hash_algorithm(?SHA256) -> sha256;
 hash_algorithm(?SHA384) -> sha384;
 hash_algorithm(?SHA512) -> sha512.

@@ -76,7 +76,7 @@ finished(Role, MasterSecret, Handshake) ->
 
 -spec certificate_verify(md5sha | sha, binary(), [binary()]) -> binary().
 
-certificate_verify(?'rsaEncryption', MasterSecret, Handshake) ->
+certificate_verify(md5sha, MasterSecret, Handshake) ->
      %% md5_hash
      %%           MD5(master_secret + pad_2 +
      %%               MD5(handshake_messages + master_secret + pad_1));

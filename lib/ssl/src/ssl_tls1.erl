@@ -28,7 +28,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 
--export([master_secret/4, finished/5, certificate_verify/2, mac_hash/7,
+-export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
 	 setup_keys/8, suites/1, prf/5]).
 
 %%====================================================================
@@ -75,7 +75,7 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
 
 -spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
 
-certificate_verify(?'rsaEncryption', Handshake) ->
+certificate_verify(md5sha, _Version, Handshake) ->
     MD5 = crypto:md5(Handshake),
     SHA = crypto:sha(Handshake),
     <<MD5/binary, SHA/binary>>;

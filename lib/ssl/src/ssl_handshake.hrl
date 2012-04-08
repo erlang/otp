@@ -32,6 +32,7 @@
 -type public_key_params() :: #'Dss-Parms'{} | term().
 -type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
 -type tls_handshake_history() :: {[binary()], [binary()]}.
+-type hash_algo()         :: atom().
 
 %% Signature algorithms
 -define(ANON, 0).
@@ -136,7 +137,8 @@
   
 -record(server_key_exchange, {
 	  params, %% #server_rsa_params{} | #server_dh_params{}
-	  signed_params %% #signature{}
+	  signed_params, %% #signature{}
+	  hashsign %% term(atom(), atom())
 	 }).
 	
 %% enum { anonymous, rsa, dsa } SignatureAlgorithm;
@@ -166,6 +168,7 @@
 
 -record(certificate_request, {
 	  certificate_types,        %ClientCertificateType   <1..2^8-1>
+	  hashsign_algorithms,      %%SignatureAndHashAlgorithm <2^16-1>;
 	  certificate_authorities   %DistinguishedName       <0..2^16-1>
 	 }).
 
@@ -200,6 +203,7 @@
 %%% Certificate verify - RFC 4346 section 7.4.8
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(certificate_verify, {
+	  hashsign_algorithm,
 	  signature % binary()
 	 }).
 
