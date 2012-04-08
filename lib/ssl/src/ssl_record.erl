@@ -687,6 +687,6 @@ mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     ssl_ssl3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
 mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
-  when N =:= 1; N =:= 2 ->
+  when N =:= 1; N =:= 2; N =:= 3 ->
     ssl_tls1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version, 
 		      Length, Fragment).
