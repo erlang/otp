@@ -28,25 +28,27 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl"). 			
 
--export([master_secret/3, finished/3, certificate_verify/2, mac_hash/7, 
-	 setup_keys/6, suites/0, prf/4]).
+-export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
+	 setup_keys/8, suites/0, prf/5]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
 
--spec master_secret(binary(), binary(), binary()) -> binary().
+-spec master_secret(integer(), binary(), binary(), binary()) -> binary().
 
-master_secret(PreMasterSecret, ClientRandom, ServerRandom) ->
-    %% RFC 2246 & 4346 - 8.1 %% master_secret = PRF(pre_master_secret,
-    %%                           "master secret", ClientHello.random +
-    %%                           ServerHello.random)[0..47];
-    prf(PreMasterSecret, <<"master secret">>, 
+master_secret(PrfAlgo, PreMasterSecret, ClientRandom, ServerRandom) ->
+    %% RFC 2246 & 4346 && RFC 5246 - 8.1 %% master_secret = PRF(pre_master_secret,
+    %%                                      "master secret", ClientHello.random +
+    %%                                      ServerHello.random)[0..47];
+
+    prf(PrfAlgo, PreMasterSecret, <<"master secret">>,
 	[ClientRandom, ServerRandom], 48).
 
--spec finished(client | server, binary(), [binary()]) -> binary().
+-spec finished(client | server, integer(), integer(), binary(), [binary()]) -> binary().
 
-finished(Role, MasterSecret, Handshake) ->
+finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
+  when Version == 1; Version == 2; PrfAlgo == ?MD5SHA ->
     %% RFC 2246 & 4346 - 7.4.9. Finished
     %% struct {
     %%          opaque verify_data[12];
@@ -57,7 +59,7 @@ finished(Role, MasterSecret, Handshake) ->
     %%          SHA-1(handshake_messages)) [0..11];
     MD5 = crypto:md5(Handshake),
     SHA = crypto:sha(Handshake),
-    prf(MasterSecret, finished_label(Role), [MD5, SHA], 12).
+    prf(?MD5SHA, MasterSecret, finished_label(Role), [MD5, SHA], 12);
 
 -spec certificate_verify(OID::tuple(), [binary()]) -> binary().
 
@@ -69,12 +71,13 @@ certificate_verify(?'rsaEncryption', Handshake) ->
 certificate_verify(?'id-dsa', Handshake) ->
     crypto:sha(Handshake).
 
--spec setup_keys(binary(), binary(), binary(), integer(), 
+-spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
 		 integer(), integer()) -> {binary(), binary(), binary(), 
 					  binary(), binary(), binary()}.  
 
-setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize,
-	   KeyMatLen, IVSize) ->
+setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize)
+  when Version == 1 ->
     %% RFC 2246 - 6.3. Key calculation
     %% key_block = PRF(SecurityParameters.master_secret,
     %%                      "key expansion",
@@ -88,7 +91,7 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize,
     %%  client_write_IV[SecurityParameters.IV_size]
     %%  server_write_IV[SecurityParameters.IV_size]
     WantedLength = 2 * (HashSize + KeyMatLen + IVSize),
-    KeyBlock = prf(MasterSecret, "key expansion",
+    KeyBlock = prf(?MD5SHA, MasterSecret, "key expansion",
 		   [ServerRandom, ClientRandom], WantedLength),
     <<ClientWriteMacSecret:HashSize/binary, 
      ServerWriteMacSecret:HashSize/binary,
@@ -182,7 +185,7 @@ p_hash(_Secret, _Seed, WantedLength, _Method, _N, [Last | Acc])
   when WantedLength =< 0 ->
     Keep = byte_size(Last) + WantedLength,
     <<B:Keep/binary, _/binary>> = Last,
-    lists:reverse(Acc, [B]);
+    list_to_binary(lists:reverse(Acc, [B]));
 p_hash(Secret, Seed, WantedLength, Method, N, Acc) ->
     N1 = N+1,
     Bin = hmac_hash(Method, Secret, [a(N1, Secret, Seed, Method), Seed]),
@@ -214,7 +217,8 @@ split_secret(BinSecret) ->
     <<_:Div/binary, Secret2:EvenLength/binary>> = BinSecret,
     {Secret1, Secret2}.
 
-prf(Secret, Label, Seed, WantedLength) -> 
+prf(MAC, Secret, Label, Seed, WantedLength)
+  when MAC == ?MD5SHA ->
     %% PRF(secret, label, seed) = P_MD5(S1, label + seed) XOR
     %%                            P_SHA-1(S2, label + seed);
     {S1, S2} = split_secret(Secret),

@@ -25,7 +25,8 @@
 
 -export([start/0, start/1, stop/0, transport_accept/1,
 	 transport_accept/2, ssl_accept/1, ssl_accept/2, ssl_accept/3,
-	 cipher_suites/0, cipher_suites/1, close/1, shutdown/2,
+	 cipher_suites/0, cipher_suites/1, suite_definition/1,
+	 close/1, shutdown/2,
 	 connect/3, connect/2, connect/4, connection_info/1,
 	 controlling_process/2, listen/2, pid/1, peername/1, peercert/1,
 	 recv/2, recv/3, send/2, getopts/2, setopts/2, sockname/1,
@@ -304,6 +305,15 @@ peercert(#sslsocket{pid = Pid}) ->
     end.
 
 %%--------------------------------------------------------------------
+-spec suite_definition(cipher_suite()) -> erl_cipher_suite().
+%%
+%% Description: Return erlang cipher suite definition.
+%%--------------------------------------------------------------------
+suite_definition(S) ->
+    {KeyExchange, Cipher, Hash, _} = ssl_cipher:suite_definition(S),
+    {KeyExchange, Cipher, Hash}.
+
+%%--------------------------------------------------------------------
 -spec cipher_suites() -> [erl_cipher_suite()].
 -spec cipher_suites(erlang | openssl) -> [erl_cipher_suite()] | [string()].
 			   
@@ -314,7 +324,7 @@ cipher_suites() ->
   
 cipher_suites(erlang) ->
     Version = ssl_record:highest_protocol_version([]),
-    [ssl_cipher:suite_definition(S) || S <- ssl_cipher:suites(Version)];    
+    [suite_definition(S) || S <- ssl_cipher:suites(Version)];
 
 cipher_suites(openssl) ->
     Version = ssl_record:highest_protocol_version([]),

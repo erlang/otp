@@ -374,7 +374,7 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	     ssl_options = SslOptions} = State0) ->
     case ssl_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	{Version, NewId, ConnectionStates} ->
-	    {KeyAlgorithm, _, _} =
+	    {KeyAlgorithm, _, _, _} =
 		ssl_cipher:suite_definition(CipherSuite),
 	    
 	    PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
@@ -435,8 +435,9 @@ abbreviated(#finished{verify_data = Data} = Finished,
 		   session = #session{master_secret = MasterSecret},
 		  connection_states = ConnectionStates0} = 
 	    State) ->
-%%CHECKME
+%%CHECKME: the connection state prf logic is pure guess work!
     case ssl_handshake:verify_connection(Version, Finished, client,
+					 get_current_connection_state_prf(ConnectionStates0, read),
 					 MasterSecret, Handshake) of
         verified ->  
 	    ConnectionStates = ssl_record:set_client_verify_data(current_both, Data, ConnectionStates0),
@@ -452,7 +453,9 @@ abbreviated(#finished{verify_data = Data} = Finished,
 		   session = #session{master_secret = MasterSecret},
 		   negotiated_version = Version,
 		   connection_states = ConnectionStates0} = State) ->
+%%CHECKME: the connection state prf logic is pure guess work!
     case ssl_handshake:verify_connection(Version, Finished, server,
+					 get_pending_connection_state_prf(ConnectionStates0, write),
 					 MasterSecret, Handshake0) of
         verified ->
 	    ConnectionStates1 = ssl_record:set_server_verify_data(current_read, Data, ConnectionStates0),
@@ -661,9 +664,12 @@ cipher(#finished{verify_data = Data} = Finished,
 	      role = Role,
 	      session = #session{master_secret = MasterSecret} 
 	      = Session0,
+		  connection_states = ConnectionStates0,
 	      tls_handshake_history = Handshake0} = State) ->
+%%CHECKME: the connection state prf logic is pure guess work!
     case ssl_handshake:verify_connection(Version, Finished, 
 					 opposite_role(Role), 
+					 get_current_connection_state_prf(ConnectionStates0, read),
 					 MasterSecret, Handshake0) of
         verified ->
 	    Session = register_session(Role, Host, Port, Session0),
@@ -909,14 +915,14 @@ handle_sync_event(info, _, StateName,
 			 session = #session{cipher_suite = Suite}} = State) ->
     
     AtomVersion = ssl_record:protocol_version(Version),
-    {reply, {ok, {AtomVersion, ssl_cipher:suite_definition(Suite)}}, 
+    {reply, {ok, {AtomVersion, ssl:suite_definition(Suite)}},
      StateName, State, get_timeout(State)};
 
 handle_sync_event(session_info, _, StateName, 
 		  #state{session = #session{session_id = Id,
 					    cipher_suite = Suite}} = State) ->
     {reply, [{session_id, Id}, 
-	     {cipher_suite, ssl_cipher:suite_definition(Suite)}], 
+	     {cipher_suite, ssl:suite_definition(Suite)}],
      StateName, State, get_timeout(State)};
 
 handle_sync_event(peer_certificate, _, StateName, 
@@ -1381,7 +1387,7 @@ server_hello(ServerHello, #state{transport_cb = Transport,
                                  connection_states = ConnectionStates0,
                                  tls_handshake_history = Handshake0} = State) ->
     CipherSuite = ServerHello#server_hello.cipher_suite,
-    {KeyAlgorithm, _, _} = ssl_cipher:suite_definition(CipherSuite),
+    {KeyAlgorithm, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
     {BinMsg, ConnectionStates1, Handshake1} =
         encode_handshake(ServerHello, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
@@ -1541,7 +1547,10 @@ finished(#state{role = Role, socket = Socket, negotiated_version = Version,
                 connection_states = ConnectionStates0,
                 tls_handshake_history = Handshake0}, StateName) ->
     MasterSecret = Session#session.master_secret,
-    Finished = ssl_handshake:finished(Version, Role, MasterSecret, Handshake0),
+%%CHECKME: the connection state prf logic is pure guess work!
+    Finished = ssl_handshake:finished(Version, Role,
+				       get_current_connection_state_prf(ConnectionStates0, write),
+				       MasterSecret, Handshake0),
     ConnectionStates1 = save_verify_data(Role, Finished, ConnectionStates0, StateName),
     {BinFinished, ConnectionStates, Handshake} =
         encode_handshake(Finished, Version, ConnectionStates1, Handshake0),
@@ -2398,3 +2407,10 @@ handle_trusted_certs_db(#state{cert_db_ref = Ref,
 	_ ->
 	    ok
     end.
+
+get_current_connection_state_prf(CStates, Direction) ->
+	CS = ssl_record:current_connection_state(CStates, Direction),
+	CS#connection_state.security_parameters#security_parameters.prf_algorithm.
+get_pending_connection_state_prf(CStates, Direction) ->
+	CS = ssl_record:pending_connection_state(CStates, Direction),
+	CS#connection_state.security_parameters#security_parameters.prf_algorithm.

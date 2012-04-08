@@ -34,7 +34,7 @@
 	 hello_request/0, certify/7, certificate/4,
 	 client_certificate_verify/5, certificate_verify/5,
 	 certificate_request/3, key_exchange/3, server_key_exchange_hash/2,
-	 finished/4, verify_connection/5, get_tls_handshake/3,
+	 finished/5, verify_connection/6, get_tls_handshake/3,
 	 decode_client_key/3, server_hello_done/0,
 	 encode_handshake/2, init_handshake_history/0, update_handshake_history/2,
 	 decrypt_premaster_secret/2, prf/5]).
@@ -401,10 +401,11 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     ConnectionState = 
 	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
-    #security_parameters{client_random = ClientRandom,
+    #security_parameters{prf_algorithm = PrfAlgo,
+			 client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
     try master_secret(Version, 
-		      calc_master_secret(Version,PremasterSecret,
+		      calc_master_secret(Version,PrfAlgo,PremasterSecret,
 				       ClientRandom, ServerRandom),
 		      SecParams, ConnectionStates, Role) 
     catch
@@ -416,26 +417,26 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     end.
 
 %%--------------------------------------------------------------------
--spec finished(tls_version(), client | server, binary(), tls_handshake_history()) ->
+-spec finished(tls_version(), client | server, integer(), binary(), tls_handshake_history()) ->
     #finished{}.
 %%
 %% Description: Creates a handshake finished message
 %%-------------------------------------------------------------------
-finished(Version, Role, MasterSecret, {Handshake, _}) -> % use the current hashes
+finished(Version, Role, PrfAlgo, MasterSecret, {Handshake, _}) -> % use the current handshake
     #finished{verify_data = 
-	      calc_finished(Version, Role, MasterSecret, Handshake)}.
+	      calc_finished(Version, Role, PrfAlgo, MasterSecret, Handshake)}.
 
 %%--------------------------------------------------------------------
--spec verify_connection(tls_version(), #finished{}, client | server, binary(), 
+-spec verify_connection(tls_version(), #finished{}, client | server, integer(), binary(),
 			tls_handshake_history()) -> verified | #alert{}.
 %%
 %% Description: Checks the ssl handshake finished message to verify
 %%              the connection.
 %%-------------------------------------------------------------------
 verify_connection(Version, #finished{verify_data = Data}, 
-		  Role, MasterSecret, {_, Handshake}) ->
+		  Role, PrfAlgo, MasterSecret, {_, Handshake}) ->
     %% use the previous hashes
-    case calc_finished(Version, Role, MasterSecret, Handshake) of
+    case calc_finished(Version, Role, PrfAlgo, MasterSecret, Handshake) of
 	Data ->
 	    verified;
 	_ ->
@@ -782,13 +783,14 @@ master_secret(Version, MasterSecret, #security_parameters{
 			 client_random = ClientRandom,
 			 server_random = ServerRandom,
 			 hash_size = HashSize,
+			 prf_algorithm = PrfAlgo,
 			 key_material_length = KML,
 			 expanded_key_material_length = EKML,
 			 iv_size = IVS},
 	      ConnectionStates, Role) ->
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV} =
-	setup_keys(Version, MasterSecret, ServerRandom, 
+	setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom,
 		   ClientRandom, HashSize, KML, EKML, IVS),
 
     ConnStates1 = ssl_record:set_master_secret(MasterSecret, ConnectionStates),
@@ -1117,34 +1119,35 @@ digitally_signed(Hash, #'RSAPrivateKey'{} = Key) ->
 digitally_signed(Hash, #'DSAPrivateKey'{} = Key) ->
     public_key:sign(Hash, none, Key).
     
-calc_master_secret({3,0}, PremasterSecret, ClientRandom, ServerRandom) ->
+calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_ssl3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
 
-calc_master_secret({3,N},PremasterSecret, ClientRandom, ServerRandom) 
+calc_master_secret({3,N}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
   when N == 1; N == 2 ->
-    ssl_tls1:master_secret(PremasterSecret, ClientRandom, ServerRandom).
+    ssl_tls1:master_secret(?MD5SHA, PremasterSecret, ClientRandom, ServerRandom).
 
-setup_keys({3,0}, MasterSecret,
+setup_keys({3,0}, _PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
     ssl_ssl3:setup_keys(MasterSecret, ServerRandom, 
 			ClientRandom, HashSize, KML, EKML, IVS);
 
-setup_keys({3,1}, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
-    ssl_tls1:setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize, 
+setup_keys({3,N}, _PrfAlgo, MasterSecret,
+	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS)
+  when N == 1; N == 2 ->
+    ssl_tls1:setup_keys(N, ?MD5SHA, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
 
-calc_finished({3, 0}, Role, MasterSecret, Handshake) ->
+calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
     ssl_ssl3:finished(Role, MasterSecret, lists:reverse(Handshake));
-calc_finished({3, N}, Role, MasterSecret, Handshake)
+calc_finished({3, N}, Role, _PrfAlgo, MasterSecret, Handshake)
   when  N == 1; N == 2 ->
-    ssl_tls1:finished(Role, MasterSecret, lists:reverse(Handshake)).
+    ssl_tls1:finished(Role, N, ?MD5SHA, MasterSecret, lists:reverse(Handshake)).
 
-calc_certificate_verify({3, 0}, MasterSecret, Algorithm, Handshake) ->
-    ssl_ssl3:certificate_verify(Algorithm, MasterSecret, lists:reverse(Handshake));
-calc_certificate_verify({3, N}, _, Algorithm, Handshake)
+calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
+    ssl_ssl3:certificate_verify(HashAlgo, MasterSecret, lists:reverse(Handshake));
+calc_certificate_verify({3, N}, HashAlgo, _MasterSecret, Handshake)
   when  N == 1; N == 2 ->
-    ssl_tls1:certificate_verify(Algorithm, lists:reverse(Handshake)).
+    ssl_tls1:certificate_verify(HashAlgo, N, lists:reverse(Handshake)).
 
 key_exchange_alg(rsa) ->
     ?KEY_EXCHANGE_RSA;

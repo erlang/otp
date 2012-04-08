@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,7 @@
 %% cipher values has been updated according to <CipherSuite> 
 %%-------------------------------------------------------------------
 security_parameters(CipherSuite, SecParams) ->
-    { _, Cipher, Hash} = suite_definition(CipherSuite),
+    { _, Cipher, Hash, PrfHash} = suite_definition(CipherSuite),
     SecParams#security_parameters{
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
@@ -56,6 +56,7 @@ security_parameters(CipherSuite, SecParams) ->
       key_material_length = key_material(Cipher),
       iv_size = iv_size(Cipher),
       mac_algorithm = mac_algorithm(Hash),
+      prf_algorithm = prf_algorithm(PrfHash),
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
@@ -218,7 +219,7 @@ anonymous_suites() ->
      ?TLS_DH_anon_WITH_AES_256_CBC_SHA].
 
 %%--------------------------------------------------------------------
--spec suite_definition(cipher_suite()) -> erl_cipher_suite().
+-spec suite_definition(cipher_suite()) -> int_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition.
 %% Note: Currently not supported suites are commented away.
@@ -226,56 +227,56 @@ anonymous_suites() ->
 %%-------------------------------------------------------------------
 %% TLS v1.1 suites
 suite_definition(?TLS_NULL_WITH_NULL_NULL) ->
-    {null, null, null};
+    {null, null, null, null};
 %% suite_definition(?TLS_RSA_WITH_NULL_MD5) ->
-%%     {rsa, null, md5};
+%%     {rsa, null, md5, default_prf};
 %% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
-%%     {rsa, null, sha};	
+%%     {rsa, null, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_RC4_128_MD5) ->	
-    {rsa, rc4_128, md5};
+    {rsa, rc4_128, md5, default_prf};
 suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->	
-    {rsa, rc4_128, sha};
+    {rsa, rc4_128, sha, default_prf};
 %% suite_definition(?TLS_RSA_WITH_IDEA_CBC_SHA) -> 
-%%     {rsa, idea_cbc, sha};
+%%     {rsa, idea_cbc, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->	
-    {rsa, des_cbc, sha}; 
+    {rsa, des_cbc, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    {rsa, '3des_ede_cbc', sha}; 
+    {rsa, '3des_ede_cbc', sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_DES_CBC_SHA) ->
-    {dhe_dss, des_cbc, sha};
+    {dhe_dss, des_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    {dhe_dss, '3des_ede_cbc', sha};
+    {dhe_dss, '3des_ede_cbc', sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
-    {dhe_rsa, des_cbc, sha};
+    {dhe_rsa, des_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    {dhe_rsa, '3des_ede_cbc', sha}; 
+    {dhe_rsa, '3des_ede_cbc', sha, default_prf};
 
 %%% TSL V1.1 AES suites
 suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA) -> 
-    {rsa, aes_128_cbc, sha};
+    {rsa, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA) ->
-    {dhe_dss, aes_128_cbc, sha};
+    {dhe_dss, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA) ->
-    {dhe_rsa, aes_128_cbc, sha};
+    {dhe_rsa, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA) -> 
-    {rsa, aes_256_cbc, sha};
+    {rsa, aes_256_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
-    {dhe_dss, aes_256_cbc, sha};
+    {dhe_dss, aes_256_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
-    {dhe_rsa, aes_256_cbc, sha};
+    {dhe_rsa, aes_256_cbc, sha, default_prf};
 
 %%% DH-ANON deprecated by TLS spec and not available
 %%% by default, but good for testing purposes.
 suite_definition(?TLS_DH_anon_WITH_RC4_128_MD5) ->
-    {dh_anon, rc4_128, md5};
+    {dh_anon, rc4_128, md5, default_prf};
 suite_definition(?TLS_DH_anon_WITH_DES_CBC_SHA) ->
-    {dh_anon, des_cbc, sha};
+    {dh_anon, des_cbc, sha, default_prf};
 suite_definition(?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA) ->
-    {dh_anon, '3des_ede_cbc', sha};
+    {dh_anon, '3des_ede_cbc', sha, default_prf};
 suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA) ->
-    {dh_anon, aes_128_cbc, sha};
+    {dh_anon, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA) ->
-    {dh_anon, aes_256_cbc, sha}.
+    {dh_anon, aes_256_cbc, sha, default_prf}.
 
 %%--------------------------------------------------------------------
 -spec suite(erl_cipher_suite()) -> cipher_suite().
@@ -510,14 +511,35 @@ mac_algorithm(null) ->
 mac_algorithm(md5) ->
     ?MD5;
 mac_algorithm(sha) ->
-    ?SHA.
+    ?SHA;
+mac_algorithm(sha256) ->
+    ?SHA256;
+mac_algorithm(sha384) ->
+    ?SHA384.
+
+prf_algorithm(default_prf) ->
+    ?SHA256;
+prf_algorithm(null) ->
+    ?NULL;
+prf_algorithm(md5) ->
+    ?MD5;
+prf_algorithm(sha) ->
+    ?SHA;
+prf_algorithm(sha256) ->
+    ?SHA256;
+prf_algorithm(sha384) ->
+    ?SHA384.
 
 hash_size(null) ->
     0;
 hash_size(md5) ->
     16;
 hash_size(sha) ->
-    20.
+    20;
+hash_size(sha256) ->
+    32;
+hash_size(sha384) ->
+    48.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,8 +28,9 @@
 
 -type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc.
--type hash()              :: null | sha | md5.
+-type hash()              :: null | sha | md5 | sha256 | sha384 | sha512.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
+-type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash()}.
 -type cipher_suite()      :: binary().
 -type cipher_enum()        :: integer().
 -type openssl_cipher_suite()  :: string().

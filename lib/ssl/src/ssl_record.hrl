@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,6 +47,7 @@
           key_material_length,			% unit 8 
           expanded_key_material_length,		% unit 8 
           mac_algorithm,			% unit 8  
+          prf_algorithm,			% unit 8
           hash_size,				% unit 8
           compression_algorithm,		% unit 8 
           master_secret,			% opaque 48
@@ -101,6 +102,10 @@
 %-define(NULL, 0). %% Already defined by ssl_internal.hrl
 -define(MD5, 1).
 -define(SHA, 2).
+-define(MD5SHA, 3).
+-define(SHA256, 4).
+-define(SHA384, 5).
+-define(SHA512, 6).
 
 %% CompressionMethod
 % -define(NULL, 0). %% Already defined by ssl_internal.hrl
