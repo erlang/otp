@@ -61,6 +61,18 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     SHA = crypto:sha(Handshake),
     prf(?MD5SHA, MasterSecret, finished_label(Role), [MD5, SHA], 12);
 
+finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
+  when Version == 3 ->
+    %% RFC 5246 - 7.4.9. Finished
+    %% struct {
+    %%          opaque verify_data[12];
+    %%      } Finished;
+    %%
+    %%      verify_data
+    %%          PRF(master_secret, finished_label, Hash(handshake_messages)) [0..11];
+    Hash = crypto:hash(mac_algo(PrfAlgo), Handshake),
+    prf(PrfAlgo, MasterSecret, finished_label(Role), Hash, 12).
+
 -spec certificate_verify(OID::tuple(), [binary()]) -> binary().
 
 certificate_verify(?'rsaEncryption', Handshake) ->
@@ -98,29 +110,60 @@ setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize
      ClientWriteKey:KeyMatLen/binary, ServerWriteKey:KeyMatLen/binary,
      ClientIV:IVSize/binary, ServerIV:IVSize/binary>> = KeyBlock,
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
-     ServerWriteKey, ClientIV, ServerIV}.
+     ServerWriteKey, ClientIV, ServerIV};
 
-%% TLS v1.1 uncomment when supported.
-%% setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize, KeyMatLen) ->
-%%     %% RFC 4346 - 6.3. Key calculation
-%%     %% key_block = PRF(SecurityParameters.master_secret,
-%%     %%                      "key expansion",
-%%     %%                      SecurityParameters.server_random +
-%%     %%                      SecurityParameters.client_random);
-%%     %% Then the key_block is partitioned as follows:
-%%     %%  client_write_MAC_secret[SecurityParameters.hash_size]
-%%     %%  server_write_MAC_secret[SecurityParameters.hash_size]
-%%     %%  client_write_key[SecurityParameters.key_material_length]
-%%     %%  server_write_key[SecurityParameters.key_material_length]
-%%     WantedLength = 2 * (HashSize + KeyMatLen),
-%%     KeyBlock = prf(MasterSecret, "key expansion",
-%% 		   [ServerRandom, ClientRandom], WantedLength),
-%%     <<ClientWriteMacSecret:HashSize/binary, 
-%%      ServerWriteMacSecret:HashSize/binary,
-%%      ClientWriteKey:KeyMatLen/binary, ServerWriteKey:KeyMatLen/binary>> 
-%% 	= KeyBlock,
-%%     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
-%%      ServerWriteKey, undefined, undefined}.
+%% TLS v1.1
+setup_keys(Version, _PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize)
+  when Version == 2 ->
+    %% RFC 4346 - 6.3. Key calculation
+    %% key_block = PRF(SecurityParameters.master_secret,
+    %%                      "key expansion",
+    %%                      SecurityParameters.server_random +
+    %%                      SecurityParameters.client_random);
+    %% Then the key_block is partitioned as follows:
+    %%  client_write_MAC_secret[SecurityParameters.hash_size]
+    %%  server_write_MAC_secret[SecurityParameters.hash_size]
+    %%  client_write_key[SecurityParameters.key_material_length]
+    %%  server_write_key[SecurityParameters.key_material_length]
+    %%
+    %% RFC 4346 is incomplete, the client and server IVs have to
+    %% be generated just like for TLS 1.0
+    WantedLength = 2 * (HashSize + KeyMatLen + IVSize),
+    KeyBlock = prf(?MD5SHA, MasterSecret, "key expansion",
+		   [ServerRandom, ClientRandom], WantedLength),
+    <<ClientWriteMacSecret:HashSize/binary,
+     ServerWriteMacSecret:HashSize/binary,
+     ClientWriteKey:KeyMatLen/binary, ServerWriteKey:KeyMatLen/binary,
+     ClientIV:IVSize/binary, ServerIV:IVSize/binary>> = KeyBlock,
+    {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
+     ServerWriteKey, ClientIV, ServerIV};
+
+%% TLS v1.2
+setup_keys(Version, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
+	   KeyMatLen, IVSize)
+  when Version == 3 ->
+    %% RFC 5246 - 6.3. Key calculation
+    %% key_block = PRF(SecurityParameters.master_secret,
+    %%                      "key expansion",
+    %%                      SecurityParameters.server_random +
+    %%                      SecurityParameters.client_random);
+    %% Then the key_block is partitioned as follows:
+    %%  client_write_MAC_secret[SecurityParameters.hash_size]
+    %%  server_write_MAC_secret[SecurityParameters.hash_size]
+    %%  client_write_key[SecurityParameters.key_material_length]
+    %%  server_write_key[SecurityParameters.key_material_length]
+    %%  client_write_IV[SecurityParameters.fixed_iv_length]
+    %%  server_write_IV[SecurityParameters.fixed_iv_length]
+    WantedLength = 2 * (HashSize + KeyMatLen + IVSize),
+    KeyBlock = prf(PrfAlgo, MasterSecret, "key expansion",
+		   [ServerRandom, ClientRandom], WantedLength),
+    <<ClientWriteMacSecret:HashSize/binary,
+     ServerWriteMacSecret:HashSize/binary,
+     ClientWriteKey:KeyMatLen/binary, ServerWriteKey:KeyMatLen/binary,
+     ClientIV:IVSize/binary, ServerIV:IVSize/binary>> = KeyBlock,
+    {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
+     ServerWriteKey, ClientIV, ServerIV}.
 
 -spec mac_hash(integer(), binary(), integer(), integer(), tls_version(),
 	       integer(), binary()) -> binary(). 
@@ -166,7 +209,22 @@ hmac_hash(?NULL, _, _) ->
 hmac_hash(?MD5, Key, Value) ->
     crypto:md5_mac(Key, Value);
 hmac_hash(?SHA, Key, Value) ->
-    crypto:sha_mac(Key, Value).
+    crypto:sha_mac(Key, Value);
+hmac_hash(?MD5SHA, Key, Value) ->
+    crypto:sha256_mac(Key, Value);
+hmac_hash(?SHA256, Key, Value) ->
+    crypto:sha256_mac(Key, Value);
+hmac_hash(?SHA384, Key, Value) ->
+    crypto:sha384_mac(Key, Value);
+hmac_hash(?SHA512, Key, Value) ->
+    crypto:sha512_mac(Key, Value).
+
+mac_algo(?MD5)    -> md5;
+mac_algo(?SHA)    -> sha;
+mac_algo(?MD5SHA) -> sha256;  %% RFC 5246 defines minimum hash for TLS 1.2
+mac_algo(?SHA256) -> sha256;
+mac_algo(?SHA384) -> sha384;
+mac_algo(?SHA512) -> sha512.
 
 % First, we define a data expansion function, P_hash(secret, data) that
 % uses a single hash function to expand a secret and seed into an
@@ -224,7 +282,12 @@ prf(MAC, Secret, Label, Seed, WantedLength)
     {S1, S2} = split_secret(Secret),
     LS = list_to_binary([Label, Seed]),
     crypto:exor(p_hash(S1, LS, WantedLength, ?MD5),
-		p_hash(S2, LS, WantedLength, ?SHA)).
+		p_hash(S2, LS, WantedLength, ?SHA));
+
+prf(MAC, Secret, Label, Seed, WantedLength) ->
+    %% PRF(secret, label, seed) = P_SHA256(secret, label + seed);
+    LS = list_to_binary([Label, Seed]),
+    p_hash(Secret, LS, WantedLength, MAC).
 
 %%%% Misc help functions %%%%
 

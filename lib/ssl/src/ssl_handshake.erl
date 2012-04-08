@@ -549,9 +549,10 @@ server_key_exchange_hash(dhe_dss, Value) ->
 %%--------------------------------------------------------------------
 prf({3,0}, _, _, _, _) ->
     {error, undefined};
-prf({3,N}, Secret, Label, Seed, WantedLength)
-  when N == 1; N == 2 ->
-    {ok, ssl_tls1:prf(Secret, Label, Seed, WantedLength)}.
+prf({3,1}, Secret, Label, Seed, WantedLength) ->
+    {ok, ssl_tls1:prf(?MD5SHA, Secret, Label, Seed, WantedLength)};
+prf({3,N}, Secret, Label, Seed, WantedLength) ->
+    {ok, ssl_tls1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1124,7 +1125,12 @@ calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
 
 calc_master_secret({3,N}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
   when N == 1; N == 2 ->
-    ssl_tls1:master_secret(?MD5SHA, PremasterSecret, ClientRandom, ServerRandom).
+    ssl_tls1:master_secret(?MD5SHA, PremasterSecret, ClientRandom, ServerRandom);
+
+calc_master_secret({3,N}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
+  when N == 3 ->
+    %% only from TLS 1.2 onwards the selection of a PrfAlgo is supported
+    ssl_tls1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 
 setup_keys({3,0}, _PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
@@ -1135,13 +1141,22 @@ setup_keys({3,N}, _PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS)
   when N == 1; N == 2 ->
     ssl_tls1:setup_keys(N, ?MD5SHA, MasterSecret, ServerRandom, ClientRandom, HashSize,
+			KML, IVS);
+
+setup_keys({3,N}, PrfAlgo, MasterSecret,
+	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS)
+  when N == 3 ->
+    ssl_tls1:setup_keys(N, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
 
 calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
     ssl_ssl3:finished(Role, MasterSecret, lists:reverse(Handshake));
 calc_finished({3, N}, Role, _PrfAlgo, MasterSecret, Handshake)
   when  N == 1; N == 2 ->
-    ssl_tls1:finished(Role, N, ?MD5SHA, MasterSecret, lists:reverse(Handshake)).
+    ssl_tls1:finished(Role, N, ?MD5SHA, MasterSecret, lists:reverse(Handshake));
+calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake)
+  when  N == 3 ->
+    ssl_tls1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
 calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
     ssl_ssl3:certificate_verify(HashAlgo, MasterSecret, lists:reverse(Handshake));
