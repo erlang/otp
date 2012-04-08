@@ -202,8 +202,8 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %%--------------------------------------------------------------------
 suites({3, 0}) ->
     ssl_ssl3:suites();
-suites({3, N}) when N == 1; N == 2 ->
-    ssl_tls1:suites().
+suites({3, N}) ->
+    ssl_tls1:suites(N).
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites() -> [cipher_suite()].
@@ -216,7 +216,9 @@ anonymous_suites() ->
      ?TLS_DH_anon_WITH_DES_CBC_SHA,
      ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
      ?TLS_DH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_256_CBC_SHA].
+     ?TLS_DH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
+     ?TLS_DH_anon_WITH_AES_256_CBC_SHA256].
 
 %%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> int_cipher_suite().
@@ -265,6 +267,29 @@ suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
 suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
     {dhe_rsa, aes_256_cbc, sha, default_prf};
 
+%% TLS v1.2 suites
+
+%% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
+%%     {rsa, null, sha, default_prf};
+suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA256) ->
+    {rsa, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA256) ->
+    {rsa, aes_256_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256) ->
+    {dhe_dss, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256) ->
+    {dhe_rsa, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256) ->
+    {dhe_dss, aes_256_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256) ->
+    {dhe_rsa, aes_256_cbc, sha256, default_prf};
+
+%% not defined YET:
+%%   TLS_DH_DSS_WITH_AES_128_CBC_SHA256      DH_DSS       AES_128_CBC  SHA256
+%%   TLS_DH_RSA_WITH_AES_128_CBC_SHA256      DH_RSA       AES_128_CBC  SHA256
+%%   TLS_DH_DSS_WITH_AES_256_CBC_SHA256      DH_DSS       AES_256_CBC  SHA256
+%%   TLS_DH_RSA_WITH_AES_256_CBC_SHA256      DH_RSA       AES_256_CBC  SHA256
+
 %%% DH-ANON deprecated by TLS spec and not available
 %%% by default, but good for testing purposes.
 suite_definition(?TLS_DH_anon_WITH_RC4_128_MD5) ->
@@ -276,7 +301,11 @@ suite_definition(?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA) ->
 suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA) ->
     {dh_anon, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA) ->
-    {dh_anon, aes_256_cbc, sha, default_prf}.
+    {dh_anon, aes_256_cbc, sha, default_prf};
+suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA256) ->
+    {dh_anon, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA256) ->
+    {dh_anon, aes_256_cbc, sha256, default_prf}.
 
 %%--------------------------------------------------------------------
 -spec suite(erl_cipher_suite()) -> cipher_suite().
@@ -330,7 +359,28 @@ suite({dhe_dss, aes_256_cbc, sha}) ->
 suite({dhe_rsa, aes_256_cbc, sha}) ->
     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
 suite({dh_anon, aes_256_cbc, sha}) ->
-    ?TLS_DH_anon_WITH_AES_256_CBC_SHA.
+    ?TLS_DH_anon_WITH_AES_256_CBC_SHA;
+
+%% TLS v1.2 suites
+
+%% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
+%%     {rsa, null, sha, sha256};
+suite({rsa, aes_128_cbc, sha256}) ->
+    ?TLS_RSA_WITH_AES_128_CBC_SHA256;
+suite({rsa, aes_256_cbc, sha256}) ->
+    ?TLS_RSA_WITH_AES_256_CBC_SHA256;
+suite({dhe_dss, aes_128_cbc, sha256}) ->
+    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256;
+suite({dhe_rsa, aes_128_cbc, sha256}) ->
+    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256;
+suite({dhe_dss, aes_256_cbc, sha256}) ->
+    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256;
+suite({dhe_rsa, aes_256_cbc, sha256}) ->
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
+suite({dh_anon, aes_128_cbc, sha256}) ->
+    ?TLS_DH_anon_WITH_AES_128_CBC_SHA256;
+suite({dh_anon, aes_256_cbc, sha256}) ->
+    ?TLS_DH_anon_WITH_AES_256_CBC_SHA256.
 
 %%--------------------------------------------------------------------
 -spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
@@ -338,6 +388,18 @@ suite({dh_anon, aes_256_cbc, sha}) ->
 %% Description: Return TLS cipher suite definition.
 %%--------------------------------------------------------------------
 %% translate constants <-> openssl-strings
+openssl_suite("DHE-RSA-AES256-SHA256") ->
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
+openssl_suite("DHE-DSS-AES256-SHA256") ->
+    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256;
+openssl_suite("AES256-SHA256") ->
+    ?TLS_RSA_WITH_AES_256_CBC_SHA256;
+openssl_suite("DHE-RSA-AES128-SHA256") ->
+    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256;
+openssl_suite("DHE-DSS-AES128-SHA256") ->
+    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256;
+openssl_suite("AES128-SHA256") ->
+    ?TLS_RSA_WITH_AES_128_CBC_SHA256;
 openssl_suite("DHE-RSA-AES256-SHA") ->
     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
 openssl_suite("DHE-DSS-AES256-SHA") ->
@@ -399,6 +461,28 @@ openssl_suite_name(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
     "EDH-RSA-DES-CBC-SHA";
 openssl_suite_name(?TLS_RSA_WITH_DES_CBC_SHA) ->
     "DES-CBC-SHA";
+openssl_suite_name(?TLS_RSA_WITH_NULL_SHA256) ->
+    "NULL-SHA256";
+openssl_suite_name(?TLS_RSA_WITH_AES_128_CBC_SHA256) ->
+    "AES128-SHA256";
+openssl_suite_name(?TLS_RSA_WITH_AES_256_CBC_SHA256) ->
+    "AES256-SHA256";
+openssl_suite_name(?TLS_DH_DSS_WITH_AES_128_CBC_SHA256) ->
+    "DH-DSS-AES128-SHA256";
+openssl_suite_name(?TLS_DH_RSA_WITH_AES_128_CBC_SHA256) ->
+    "DH-RSA-AES128-SHA256";
+openssl_suite_name(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256) ->
+    "DHE-DSS-AES128-SHA256";
+openssl_suite_name(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256) ->
+    "DHE-RSA-AES128-SHA256";
+openssl_suite_name(?TLS_DH_DSS_WITH_AES_256_CBC_SHA256) ->
+    "DH-DSS-AES256-SHA256";
+openssl_suite_name(?TLS_DH_RSA_WITH_AES_256_CBC_SHA256) ->
+    "DH-RSA-AES256-SHA256";
+openssl_suite_name(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256) ->
+    "DHE-DSS-AES256-SHA256";
+openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256) ->
+    "DHE-RSA-AES256-SHA256";
 %% No oppenssl name
 openssl_suite_name(Cipher) ->
     suite_definition(Cipher).
@@ -632,14 +716,18 @@ rsa_signed_suites() ->
     dhe_rsa_suites() ++ rsa_suites().
 
 dhe_rsa_suites() ->
-    [?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+    [?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
      ?TLS_DHE_RSA_WITH_DES_CBC_SHA].
 
 rsa_suites() ->
-    [?TLS_RSA_WITH_AES_256_CBC_SHA,
+    [?TLS_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA,
      %%?TLS_RSA_WITH_IDEA_CBC_SHA,
      ?TLS_RSA_WITH_RC4_128_SHA,
@@ -650,8 +738,10 @@ dsa_signed_suites() ->
     dhe_dss_suites().
 
 dhe_dss_suites()  ->
-    [?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+    [?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
      ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA].
 

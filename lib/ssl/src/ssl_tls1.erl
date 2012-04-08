@@ -26,10 +26,10 @@
 
 -include("ssl_cipher.hrl").
 -include("ssl_internal.hrl").
--include("ssl_record.hrl"). 			
+-include("ssl_record.hrl").
 
 -export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
-	 setup_keys/8, suites/0, prf/5]).
+	 setup_keys/8, suites/1, prf/5]).
 
 %%====================================================================
 %% Internal application API
@@ -180,9 +180,9 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
 		     Fragment]),
     Mac.
 
--spec suites() -> [cipher_suite()].
+-spec suites(1|2|3) -> [cipher_suite()].
     
-suites() ->
+suites(Minor) when Minor == 1; Minor == 2->
     [ 
       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
       ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
@@ -198,7 +198,19 @@ suites() ->
       ?TLS_RSA_WITH_RC4_128_MD5,
       ?TLS_DHE_RSA_WITH_DES_CBC_SHA,
       ?TLS_RSA_WITH_DES_CBC_SHA
-     ].
+     ];
+
+suites(Minor) when Minor == 3 ->
+    [
+     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+     ?TLS_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
+     ?TLS_RSA_WITH_AES_128_CBC_SHA256
+     %% ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
+     %% ?TLS_DH_anon_WITH_AES_256_CBC_SHA256
+	] ++ suites(2).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
