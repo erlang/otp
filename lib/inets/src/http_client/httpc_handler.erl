@@ -55,7 +55,7 @@
 	  status_line,               % {Version, StatusCode, ReasonPharse}
 	  headers,                   % #http_response_h{}
 	  body,                      % binary()
-	  mfa,                       % {Moduel, Function, Args}
+	  mfa,                       % {Module, Function, Args}
 	  pipeline = queue:new(),    % queue() 
 	  keep_alive = queue:new(),  % queue() 
 	  status,   % undefined | new | pipeline | keep_alive | close | ssl_tunnel

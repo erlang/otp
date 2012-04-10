@@ -351,7 +351,7 @@ static int clock_resolution;
 /*
 ** The clock resolution should really be the resolution of the 
 ** time function in use, which on most platforms 
-** is 1. On VxWorks the resolution shold be 
+** is 1. On VxWorks the resolution should be
 ** the number of ticks per second (or 1, which would work nicely to).
 **
 ** Setting lower resolutions is mostly interesting when timers are used
