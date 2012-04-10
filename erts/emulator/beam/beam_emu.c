@@ -4681,7 +4681,12 @@ do {						\
 
 #ifdef HIPE
  {
-     unsigned cmd;
+#define HIPE_MODE_SWITCH(Cmd)			\
+     SWAPOUT;					\
+     c_p->fcalls = FCALLS;			\
+     c_p->def_arg_reg[4] = -neg_o_reds;		\
+     c_p = hipe_mode_switch(c_p, Cmd, reg);     \
+     goto L_post_hipe_mode_switch
 
      OpCase(hipe_trap_call): {
 	 /*
@@ -4695,38 +4700,31 @@ do {						\
 	  */
 	 ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
 	 c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
-	 cmd = HIPE_MODE_SWITCH_CMD_CALL | (I[-1] << 8);
 	 ++hipe_trap_count;
-	 goto L_hipe_mode_switch;
+	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL | (I[-1] << 8));
      }
      OpCase(hipe_trap_call_closure): {
        ASSERT(I[-5] == (Uint) OpCode(i_func_info_IaaI));
        c_p->hipe.u.ncallee = (void(*)(void)) I[-4];
-       cmd = HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (I[-1] << 8);
        ++hipe_trap_count;
-       goto L_hipe_mode_switch;
+       HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_CALL_CLOSURE | (I[-1] << 8));
      }
      OpCase(hipe_trap_return): {
-	 cmd = HIPE_MODE_SWITCH_CMD_RETURN;
-	 goto L_hipe_mode_switch;
+	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_RETURN);
      }
      OpCase(hipe_trap_throw): {
-	 cmd = HIPE_MODE_SWITCH_CMD_THROW;
-	 goto L_hipe_mode_switch;
+	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_THROW);
      }
      OpCase(hipe_trap_resume): {
-	 cmd = HIPE_MODE_SWITCH_CMD_RESUME;
-	 goto L_hipe_mode_switch;
+	 HIPE_MODE_SWITCH(HIPE_MODE_SWITCH_CMD_RESUME);
      }
- L_hipe_mode_switch:
-     /* XXX: this abuse of def_arg_reg[] is horrid! */
-     SWAPOUT;
-     c_p->fcalls = FCALLS;
-     c_p->def_arg_reg[4] = -neg_o_reds;
-     c_p = hipe_mode_switch(c_p, cmd, reg);
+#undef HIPE_MODE_SWITCH
+
+ L_post_hipe_mode_switch:
      reg = ERTS_PROC_GET_SCHDATA(c_p)->x_reg_array;
      freg = ERTS_PROC_GET_SCHDATA(c_p)->f_reg_array;
      ERL_BITS_RELOAD_STATEP(c_p);
+     /* XXX: this abuse of def_arg_reg[] is horrid! */
      neg_o_reds = -c_p->def_arg_reg[4];
      FCALLS = c_p->fcalls;
      SWAPIN;
