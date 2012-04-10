@@ -4051,11 +4051,6 @@ static Eterm lcnt_build_result_term(Eterm **hpp, Uint *szp, erts_lcnt_data_t *da
 }    
 #endif
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
-void enable_io_lock_count(int enable);
-void enable_proc_lock_count(int enable);
-#endif
-
 BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 {
 #ifdef ERTS_ENABLE_LOCK_COUNT
@@ -4147,13 +4142,15 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 		} else {
 		    res = erts_lcnt_clear_rt_opt(opt) ? am_true : am_false;
 		}
+#ifdef ERTS_SMP
 		if (res != tp[2]) {
 		    if (opt == ERTS_LCNT_OPT_PORTLOCK) {
-			enable_io_lock_count(val);
+			erts_lcnt_enable_io_lock_count(val);
 		    } else if (opt == ERTS_LCNT_OPT_PROCLOCK) {
-			enable_proc_lock_count(val);
+			erts_lcnt_enable_proc_lock_count(val);
 		    }
 		}
+#endif
 		erts_smp_thr_progress_unblock();
 		erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		BIF_RET(res);

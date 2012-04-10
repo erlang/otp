@@ -1396,12 +1396,8 @@ void init_io(void)
     erts_smp_mtx_unlock(&erts_driver_list_lock);
 }
 
-#ifdef ERTS_ENABLE_LOCK_COUNT
-void enable_io_lock_count (int enable);
-
-void
-enable_io_lock_count (int enable)
-{
+#if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
+void erts_lcnt_enable_io_lock_count(int enable) {
     int i;
 
     for (i = 0; i < erts_max_ports; i++) {

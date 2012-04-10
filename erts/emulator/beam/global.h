@@ -1187,6 +1187,10 @@ void erts_fire_port_monitor(Port *prt, Eterm ref);
 void erts_smp_xports_unlock(Port *);
 #endif
 
+#if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_COUNT)
+void erts_lcnt_enable_io_lock_count(int enable);
+#endif
+
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_lc_is_port_locked(Port *);
 #endif

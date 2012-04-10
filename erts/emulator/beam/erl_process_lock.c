@@ -1114,11 +1114,8 @@ void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res
     }
 }
 
-void enable_proc_lock_count (int enable);
 
-void
-enable_proc_lock_count (int enable)
-{
+void erts_lcnt_enable_proc_lock_count(int enable) {
     int i;
 
     for (i = 0; i < erts_max_processes; ++i) {
