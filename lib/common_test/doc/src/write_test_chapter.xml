@@ -883,7 +883,7 @@
     of its sub-groups. If a timetrap value is defined by <c>group/1</c>
     for a sub-group, it overrides that of its higher level groups. Timetrap
     values set by individual test cases (by means of the test case info
-    function) overrides both group- and suite- level timetraps.</p>
+    function) override both group- and suite- level timetraps.</p>
     
     <p>It is also possible to dynamically set/reset a timetrap during the
     excution of a test case, or configuration function. This is done by calling
