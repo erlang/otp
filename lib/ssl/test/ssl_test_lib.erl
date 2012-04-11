@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -673,3 +673,24 @@ cipher_result(Socket, Result) ->
 
 session_info_result(Socket) ->
     ssl:session_info(Socket).
+
+
+receive_rizzo_duong_beast() ->
+    receive 
+	{ssl, _, "ello\n"} ->
+	    receive 
+		{ssl, _, " "} ->
+		    receive
+			{ssl, _, "world\n"} ->
+			    ok
+		    end
+	    end
+    end.
+
+state([{data,[{"State", State}]} | _]) ->
+    State;
+state([{data,[{"StateData", State}]} | _]) ->
+    State;
+state([_ | Rest]) ->
+    state(Rest).
+
