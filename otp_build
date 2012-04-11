@@ -84,7 +84,7 @@ usage ()
 	    ;;
 	git)
 	    echo ""
-	    echo "update_primary - build and commit a new primary bootstrap"
+	    echo "update_primary [--no-commit] - build and maybe commit a new primary bootstrap"
 	    ;;
     esac
 
@@ -93,7 +93,7 @@ usage ()
 	    ;;
 	git)
 	    echo ""
-	    echo "update_preloaded - build and commit the preloaded modules"
+	    echo "update_preloaded [--no-commit] - build and maybe commit the preloaded modules"
 	    ;;
     esac
 }
@@ -1094,33 +1094,61 @@ setup_make ()
     fi
     export MAKE
 }
-    
+
+get_do_commit ()
+{
+    if [ "x$1" = "x" ]; then
+	do_commit=true
+    elif [ "$1" = "--no-commit" ]; then
+	do_commit=false
+    else
+	echo "Unknown option '$1'" 1>&2
+	exit 1
+    fi
+}
+  
 do_primary_git ()
 {
+    get_do_commit $1
     setup_make
     if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
 	do_primary_cross
     else
 	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET primary_bootstrap || exit 1;
     fi
-    git add -A bootstrap/lib/kernel \
-        bootstrap/lib/stdlib \
-	bootstrap/lib/compiler \
-	bootstrap/bin
-    find bootstrap -name egen -o -name '*.script' -o \
-	-name '*.app' -o -name '*.appup' |
+    if [ $do_commit = true ]; then
+	git add -A bootstrap/lib/kernel \
+            bootstrap/lib/stdlib \
+	    bootstrap/lib/compiler \
+	    bootstrap/bin
+	find bootstrap -name egen -o -name '*.script' -o \
+	    -name '*.app' -o -name '*.appup' |
         xargs git reset HEAD
-    git commit --no-verify -m 'Update primary bootstrap'
+	git commit --no-verify -m 'Update primary bootstrap'
+	echo "Primary bootstrap updated and commited."
+    else
+	echo ""
+	echo "Primary bootstrap rebuilt. Use \"git add bootstrap/...\" to stage changed files."
+	echo ""
+    fi
 }
 
 do_update_prel_git ()
 {
+    get_do_commit $1
     setup_make
     (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET clean)
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET preloaded || exit 1
     (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET copy)
-    git add -A $ERL_TOP/erts/preloaded/ebin/*.beam
-    git commit -m 'Update preloaded modules'
+    if [ $do_commit = true ]; then
+	git add -A $ERL_TOP/erts/preloaded/ebin/*.beam
+	git commit -m 'Update preloaded modules'
+	echo "Preloaded updated and commited."
+    else
+	echo ""
+	echo "Preloaded rebuilt. Use \"git add erts/preloaded/ebin/...\" to stage changed beam files."
+	echo ""
+    fi
 }
 
 do_boot ()
@@ -1401,12 +1429,12 @@ case "$1" in
 		do_boot;;
 	update_primary)
 		case $version_controller in
-		    git) do_primary_git ;;
+		    git) do_primary_git "$2";;
 		    none) git_required ;;
 		esac ;;
 	update_preloaded)
 		case $version_controller in
-		    git) do_update_prel_git ;;
+		    git) do_update_prel_git "$2";;
 		    none) git_required ;;
 		esac ;;
         primary)
