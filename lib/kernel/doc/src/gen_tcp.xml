@@ -96,37 +96,42 @@ do_recv(Sock, Bs) ->
           can be either a hostname, or an IP address.</p>
         <p>The available options are:</p>
         <taglist>
-          <tag><c>list</c></tag>
-          <item>
-            <p>Received <c>Packet</c> is delivered as a list.</p>
-          </item>
-          <tag><c>binary</c></tag>
-          <item>
-            <p>Received <c>Packet</c> is delivered as a binary.</p>
-          </item>
-          <tag><c>{ip, ip_address()}</c></tag>
+         <tag><c>{ip, ip_address()}</c></tag>
           <item>
             <p>If the host has several network interfaces, this option
               specifies which one to use.</p>
           </item>
-          <tag><c>{port, Port}</c></tag>
-          <item>
-            <p>Specify which local port number to use.</p>
-          </item>
+
           <tag><c>{fd, integer() >= 0}</c></tag>
           <item>
             <p>If a socket has somehow been connected without using
               <c>gen_tcp</c>, use this option to pass the file
               descriptor for it.</p>
           </item>
-          <tag><c>inet6</c></tag>
-          <item>
-            <p>Set up the socket for IPv6.</p>
-          </item>
+
+		  <tag><c>{ifaddr, ip_address()}</c></tag>
+          <item> <p>TODO: Document</p>
+		  </item>
+
           <tag><c>inet</c></tag>
           <item>
             <p>Set up the socket for IPv4.</p>
           </item>
+
+		  <tag><c>inet6</c></tag>
+		  <item>
+            <p>Set up the socket for IPv6.</p>
+          </item>
+
+          <tag><c>{port, Port}</c></tag>
+          <item>
+            <p>Specify which local port number to use.</p>
+          </item>
+
+		  <tag><c>{tcp_module, module()}</c></tag>
+          <item> <p>TODO: Document</p>
+		  </item>
+
           <tag><c>Opt</c></tag>
           <item>
             <p>See

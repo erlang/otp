@@ -86,6 +86,44 @@
           <item>
             <p>Set up the socket for IPv4.</p>
           </item>
+
+          <tag><c>{multicast_if, Address}</c></tag>
+          <item>
+			  <p>Set the local device for a multicast socket.</p>
+          </item>
+ 
+          <tag><c>{multicast_loop, true | false}</c></tag>
+          <item>
+			  <p>
+				  When <c>true</c> sent multicast packets will be looped back to the local
+				  sockets.
+			  </p>
+          </item>
+
+          <tag><c>{multicast_ttl, Integer}</c></tag>
+          <item>
+			  <p>
+				  The <c>multicast_ttl</c> option changes the time-to-live (TTL) for
+				  outgoing multicast datagrams in order to control the scope of the 
+				  multicasts.
+			  </p>
+			  <p>
+				  Datagrams with a TTL of 1 are not forwarded beyond the local
+				  network.
+				  <br />Default: 1
+			  </p>
+          </item>
+
+		  <tag><c>{add_membership, {MultiAddress, InterfaceAddress}}</c></tag>
+          <item>
+			  <p>Join a multicast group. </p>
+          </item>
+
+		  <tag><c>{drop_membership, {MultiAddress, InterfaceAddress}}</c></tag>
+          <item>
+			  <p>Leave multicast group.</p>
+          </item>
+
           <tag><c>Opt</c></tag>
           <item>
             <p>See
