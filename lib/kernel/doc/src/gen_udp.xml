@@ -72,6 +72,14 @@
             <p>If the host has several network interfaces, this option
               specifies which one to use.</p>
           </item>
+
+		  <tag><c>{ifaddr, ip_address()}</c></tag>
+          <item>
+			  <p>Same as <c>{ip, ip_address()}</c>. If the host has several network interfaces, this option
+              specifies which one to use.</p>
+		  </item>
+
+
           <tag><c>{fd, integer() >= 0}</c></tag>
           <item>
             <p>If a socket has somehow been opened without using

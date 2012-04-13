@@ -102,16 +102,18 @@ do_recv(Sock, Bs) ->
               specifies which one to use.</p>
           </item>
 
+		  <tag><c>{ifaddr, ip_address()}</c></tag>
+          <item>
+			  <p>Same as <c>{ip, ip_address()}</c>. If the host has several network interfaces, this option
+              specifies which one to use.</p>
+		  </item>
+
           <tag><c>{fd, integer() >= 0}</c></tag>
           <item>
             <p>If a socket has somehow been connected without using
               <c>gen_tcp</c>, use this option to pass the file
               descriptor for it.</p>
           </item>
-
-		  <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item> <p>TODO: Document</p>
-		  </item>
 
           <tag><c>inet</c></tag>
           <item>
@@ -207,7 +209,9 @@ do_recv(Sock, Bs) ->
           </item>
 
 		  <tag><c>{ifaddr, ip_address()}</c></tag>
-          <item> <p>TODO: Document</p>
+          <item>
+			  <p>Same as <c>{ip, ip_address()}</c>. If the host has several network interfaces, this option
+              specifies which one to use.</p>
 		  </item>
 
           <tag><c>inet6</c></tag>
