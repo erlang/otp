@@ -571,6 +571,15 @@
           <c>val(sndbuf)</c>. Setting this option also adjusts
           the size of the driver buffer (see <c>buffer</c> above).</p>
       </item>
+
+		  <tag><c>{sctp_module, module()}</c></tag>
+		  <item> <p>
+				  Override which callback module used. Defaults to
+				  <c>inet_sctp</c> for IPv4 and <c>inet6_sctp</c> for IPv6.
+			  </p>
+		  </item>
+
+
       <tag><c>{sctp_rtoinfo, #sctp_rtoinfo{}}</c></tag>
       <item>
 <pre>  #sctp_rtoinfo{

@@ -87,6 +87,13 @@
             <p>Set up the socket for IPv4.</p>
           </item>
 
+		  <tag><c>{udp_module, module()}</c></tag>
+		  <item> <p>
+				  Override which callback module used. Defaults to
+				  <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.
+			  </p>
+		  </item>
+
           <tag><c>{multicast_if, Address}</c></tag>
           <item>
 			  <p>Set the local device for a multicast socket.</p>
