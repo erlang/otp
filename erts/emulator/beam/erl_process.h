@@ -1400,10 +1400,14 @@ ERTS_GLB_INLINE Eterm erts_get_current_pid(void);
 ERTS_GLB_INLINE Uint erts_get_scheduler_id(void);
 ERTS_GLB_INLINE ErtsRunQueue *erts_get_runq_proc(Process *p);
 ERTS_GLB_INLINE ErtsRunQueue *erts_get_runq_current(ErtsSchedulerData *esdp);
+#ifndef ERTS_ENABLE_LOCK_COUNT
 ERTS_GLB_INLINE void erts_smp_runq_lock(ErtsRunQueue *rq);
+#endif
 ERTS_GLB_INLINE int erts_smp_runq_trylock(ErtsRunQueue *rq);
 ERTS_GLB_INLINE void erts_smp_runq_unlock(ErtsRunQueue *rq);
+#ifndef ERTS_ENABLE_LOCK_COUNT
 ERTS_GLB_INLINE void erts_smp_xrunq_lock(ErtsRunQueue *rq, ErtsRunQueue *xrq);
+#endif
 ERTS_GLB_INLINE void erts_smp_xrunq_unlock(ErtsRunQueue *rq, ErtsRunQueue *xrq);
 ERTS_GLB_INLINE void erts_smp_runqs_lock(ErtsRunQueue *rq1, ErtsRunQueue *rq2);
 ERTS_GLB_INLINE void erts_smp_runqs_unlock(ErtsRunQueue *rq1, ErtsRunQueue *rq2);
@@ -1492,6 +1496,12 @@ erts_get_runq_current(ErtsSchedulerData *esdp)
 #endif
 }
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+#define erts_smp_runq_lock(rq)	erts_smp_mtx_lock_x(&(rq)->mtx, __FILE__, __LINE__)
+
+#else
+
 ERTS_GLB_INLINE void
 erts_smp_runq_lock(ErtsRunQueue *rq)
 {
@@ -1499,6 +1509,8 @@ erts_smp_runq_lock(ErtsRunQueue *rq)
     erts_smp_mtx_lock(&rq->mtx);
 #endif
 }
+
+#endif
 
 ERTS_GLB_INLINE int
 erts_smp_runq_trylock(ErtsRunQueue *rq)
@@ -1518,6 +1530,31 @@ erts_smp_runq_unlock(ErtsRunQueue *rq)
 #endif
 }
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+#define erts_smp_xrunq_lock(rq, xrq)	erts_smp_xrunq_lock_x((rq), (xrq), __FILE__, __LINE__)
+
+ERTS_GLB_INLINE void
+erts_smp_xrunq_lock_x(ErtsRunQueue *rq, ErtsRunQueue *xrq, char* file, int line)
+{
+#ifdef ERTS_SMP
+    ERTS_SMP_LC_ASSERT(erts_smp_lc_mtx_is_locked(&rq->mtx));
+    if (xrq != rq) {
+	if (erts_smp_mtx_trylock(&xrq->mtx) == EBUSY) {
+	    if (rq < xrq)
+		erts_smp_mtx_lock_x(&xrq->mtx, file, line);
+	    else {
+		erts_smp_mtx_unlock(&rq->mtx);
+		erts_smp_mtx_lock_x(&xrq->mtx, file, line);
+		erts_smp_mtx_lock_x(&rq->mtx, file, line);
+	    }
+	}
+    }
+#endif
+}
+
+#else
+
 ERTS_GLB_INLINE void
 erts_smp_xrunq_lock(ErtsRunQueue *rq, ErtsRunQueue *xrq)
 {
@@ -1536,6 +1573,8 @@ erts_smp_xrunq_lock(ErtsRunQueue *rq, ErtsRunQueue *xrq)
     }
 #endif
 }
+
+#endif
 
 ERTS_GLB_INLINE void
 erts_smp_xrunq_unlock(ErtsRunQueue *rq, ErtsRunQueue *xrq)

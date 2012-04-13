@@ -215,6 +215,8 @@ void erts_lcnt_proc_lock_unaquire(erts_proc_lock_t *lock, ErtsProcLocks locks);
 void erts_lcnt_proc_unlock(erts_proc_lock_t *lock, ErtsProcLocks locks);
 void erts_lcnt_proc_trylock(erts_proc_lock_t *lock, ErtsProcLocks locks, int res);
 
+void erts_lcnt_enable_proc_lock_count(int enable);
+
 #endif /* ERTS_ENABLE_LOCK_COUNT*/
 
 

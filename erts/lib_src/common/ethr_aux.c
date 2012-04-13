@@ -40,7 +40,7 @@
 #include <unistd.h>
 #endif
 
-#define ERTS_TS_EV_ALLOC_DEFAULT_POOL_SIZE 100
+#define ERTS_TS_EV_ALLOC_DEFAULT_POOL_SIZE 4000
 #define ERTS_TS_EV_ALLOC_POOL_SIZE 25
 
 erts_cpu_info_t *ethr_cpu_info__;
