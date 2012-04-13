@@ -119,6 +119,7 @@ JAVADOC-GENERATED
 /bootstrap/lib/syntax_tools
 /bootstrap/lib/test_server
 /bootstrap/lib/wx
+/bootstrap/lib/xmerl
 
 /Makefile
 /configure
