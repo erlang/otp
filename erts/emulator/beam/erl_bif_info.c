@@ -4124,48 +4124,52 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 	Eterm* tp = tuple_val(BIF_ARG_1);
 
 	switch (arityval(tp[0])) {
-	    case 2:
+	    case 2: {
+		int opt = 0;
+		int val = 0;
 		if (ERTS_IS_ATOM_STR("copy_save", tp[1])) {
-		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_thr_progress_block();
-		    if (tp[2] == am_true) {
-
-			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_COPYSAVE) ? am_true : am_false;
-
-		    } else if (tp[2] == am_false) {
-
-			res = erts_lcnt_clear_rt_opt(ERTS_LCNT_OPT_COPYSAVE) ? am_true : am_false;
-
-		    } else {
-			erts_smp_thr_progress_unblock();
-			erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-			BIF_ERROR(BIF_P, BADARG);
-		    }
-		    erts_smp_thr_progress_unblock();
-		    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    BIF_RET(res);
-
+		    opt = ERTS_LCNT_OPT_COPYSAVE;
 		} else if (ERTS_IS_ATOM_STR("process_locks", tp[1])) {
-		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    erts_smp_thr_progress_block();
-		    if (tp[2] == am_true) {
+		    opt = ERTS_LCNT_OPT_PROCLOCK;
+		} else if (ERTS_IS_ATOM_STR("port_locks", tp[1])) {
+		    opt = ERTS_LCNT_OPT_PORTLOCK;
+		} else if (ERTS_IS_ATOM_STR("suspend", tp[1])) {
+		    opt = ERTS_LCNT_OPT_SUSPEND;
+		} else if (ERTS_IS_ATOM_STR("location", tp[1])) {
+		    opt = ERTS_LCNT_OPT_LOCATION;
+		} else {
+		    BIF_ERROR(BIF_P, BADARG);
+		}
+		if (tp[2] == am_true) {
+		    val = 1;
+		} else if (tp[2] == am_false) {
+		    val = 0;
+		} else {
+		    BIF_ERROR(BIF_P, BADARG);
+		}
 
-			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_PROCLOCK) ? am_true : am_false;
-
-		    } else if (tp[2] == am_false) {
-
-			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_PROCLOCK) ? am_true : am_false;
-
-		    } else {
-			erts_smp_thr_progress_unblock();
-			erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-			BIF_ERROR(BIF_P, BADARG);
+		erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		erts_smp_thr_progress_block();
+		
+		if (val) {
+		    res = erts_lcnt_set_rt_opt(opt) ? am_true : am_false;
+		} else {
+		    res = erts_lcnt_clear_rt_opt(opt) ? am_true : am_false;
+		}
+#ifdef ERTS_SMP
+		if (res != tp[2]) {
+		    if (opt == ERTS_LCNT_OPT_PORTLOCK) {
+			erts_lcnt_enable_io_lock_count(val);
+		    } else if (opt == ERTS_LCNT_OPT_PROCLOCK) {
+			erts_lcnt_enable_proc_lock_count(val);
 		    }
-		    erts_smp_thr_progress_unblock();
-		    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-		    BIF_RET(res);
-		 }
-	    break;
+		}
+#endif
+		erts_smp_thr_progress_unblock();
+		erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		BIF_RET(res);
+		break;
+	    }
      
 	    default:
 	    break;
