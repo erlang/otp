@@ -3124,6 +3124,7 @@ static int tcp_message(inet_descriptor* desc, const char* buf, int len)
     int i = 0;
 
     DEBUGF(("tcp_message(%ld): len = %d\r\n", (long)desc->port, len));    
+    /* XXX fprintf(stderr,"tcp_message send.\r\n"); */
 
     i = LOAD_ATOM(spec, i, am_tcp);
     i = LOAD_PORT(spec, i, desc->dport);
@@ -5426,6 +5427,7 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     if (IS_SCTP(desc))
 	return sctp_set_opts(desc, ptr, len);
 #endif
+    /* XXX { int i; for(i=0;i<len;++i) fprintf(stderr,"0x%02X, ", (unsigned) ptr[i]); fprintf(stderr,"\r\n");} */
 
     while(len >= 5) {
 	opt = *ptr++;
@@ -5755,10 +5757,16 @@ skip_os_setopt:
 	if (desc->active != old_active)
 	    sock_select(desc, (FD_READ|FD_CLOSE), (desc->active>0));
 
+	/* XXX: UDP sockets could also trigger immediate read here NIY */
 	if ((desc->stype==SOCK_STREAM) && desc->active) {
 	    if (!old_active || (desc->htype != old_htype)) {
 		/* passive => active change OR header type change in active mode */
-		return 1;
+		/* Return > 1 if only active changed to INET_ONCE -> direct read if
+		   header type is unchanged. */
+		/* XXX fprintf(stderr,"desc->htype == %d, old_htype == %d, 
+		   desc->active == %d, old_active == %d\r\n",(int)desc->htype, 
+		   (int) old_htype, (int) desc->active, (int) old_active );*/
+		return 1+(desc->htype == old_htype && desc->active == INET_ONCE);
 	    }
 	    return 0;
 	}
@@ -7592,16 +7600,26 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 
     case INET_REQ_SETOPTS:  {   /* set options */
 	DEBUGF(("inet_ctl(%ld): SETOPTS\r\n", (long)desc->port)); 
+	/* XXX fprintf(stderr,"inet_ctl(%ld): SETOPTS (len = %d)\r\n", (long)desc->port,(int) len); */
 	switch(inet_set_opts(desc, buf, len)) {
 	case -1: 
 	    return ctl_error(EINVAL, rbuf, rsize);
 	case 0: 
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
-	default:  /* active/passive change!! */
+	case 1:
 	    /*
 	     * Let's hope that the descriptor really is a tcp_descriptor here.
 	     */
+	    /* fprintf(stderr,"Triggered tcp_deliver by setopt.\r\n"); */
 	    tcp_deliver((tcp_descriptor *) desc, 0);
+	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
+	default:  
+	    /* fprintf(stderr,"Triggered tcp_recv by setopt.\r\n"); */
+	    /*
+	     * Same as above, but active changed to once w/o header type
+	     * change, so try a read instead of just deliver. 
+	     */
+	    tcp_recv((tcp_descriptor *) desc, 0);
 	    return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
 	}
     }
@@ -9196,6 +9214,7 @@ static int tcp_inet_input(tcp_descriptor* desc, HANDLE event)
 #endif
     ASSERT(!INETP(desc)->is_ignored);
     DEBUGF(("tcp_inet_input(%ld) {s=%d\r\n", port, desc->inet.s));
+    /* XXX fprintf(stderr,"tcp_inet_input(%ld) {s=%d}\r\n",(long) desc->inet.port, desc->inet.s); */
     if (desc->inet.state == INET_STATE_ACCEPTING) {
 	SOCKET s;
 	unsigned int len;
