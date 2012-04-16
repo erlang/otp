@@ -530,19 +530,8 @@
               SCTP data interleaved with other inter-process messages.</p>
           </item>
         </list>
-        <marker id="option-buffer"></marker>
       </item>
-      <tag><c>{buffer, integer()}</c></tag>
-      <item>
-        <p>Determines the size of the user-level software buffer used by
-          the SCTP driver. Not to be confused with <c>sndbuf</c>
-          and <c>recbuf</c> options which correspond to
-          the kernel socket buffers. It is recommended
-          to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c>.
-          In fact, the <c>val(buffer)</c> is automatically set to
-          the above maximum when <c>sndbuf</c> or <c>recbuf</c> values are set.</p>
-      </item>
-      <tag><c>{tos, integer()}</c></tag>
+     <tag><c>{tos, integer()}</c></tag>
       <item>
         <p>Sets the Type-Of-Service field on the IP datagrams being sent,
           to the given value, which effectively determines a prioritization
@@ -567,19 +556,8 @@
           <c>{IP,Port}</c> of the socket can be re-used immediately:
           no waiting in the CLOSE_WAIT state is performed (may be
           required for high-throughput servers).</p>
-        <marker id="option-linger"></marker>
       </item>
-      <tag><c>{linger, {true|false, integer()}</c></tag>
-      <item>
-        <p>Determines the timeout in seconds for flushing unsent data in the
-          <c>gen_sctp:close/1</c> socket call. If the 1st component of the value
-          tuple is <c>false</c>, the 2nd one is ignored, which means that
-          <c>gen_sctp:close/1</c> returns immediately not waiting
-          for data to be flushed. Otherwise, the 2nd component is
-          the flushing time-out in seconds.</p>
-        <marker id="option-sndbuf"></marker>
-      </item>
-      <tag><c>{sndbuf, integer()}</c></tag>
+	  <tag><c>{sndbuf, integer()}</c></tag>
       <item>
         <p>The size, in bytes, of the *kernel* send buffer for this socket.
           Sending errors would occur for datagrams larger than
@@ -593,6 +571,15 @@
           <c>val(sndbuf)</c>. Setting this option also adjusts
           the size of the driver buffer (see <c>buffer</c> above).</p>
       </item>
+
+		  <tag><c>{sctp_module, module()}</c></tag>
+		  <item> <p>
+				  Override which callback module used. Defaults to
+				  <c>inet_sctp</c> for IPv4 and <c>inet6_sctp</c> for IPv6.
+			  </p>
+		  </item>
+
+
       <tag><c>{sctp_rtoinfo, #sctp_rtoinfo{}}</c></tag>
       <item>
 <pre>  #sctp_rtoinfo{

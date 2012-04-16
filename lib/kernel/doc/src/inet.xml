@@ -445,10 +445,33 @@ fe80::204:acff:fe17:bf38
               flow control; the other side will not be able send
               faster than the receiver can read.</p>
           </item>
+
+		  <tag><c>{bit8, clear | set | on | off}</c></tag>
+		  <item>
+			  <p>
+				  Scans every byte in received data-packets and checks if the 8 bit
+				  is set in any of them. Information is retrieved with
+				  <c>inet:getopts/2</c>.
+				  <note>Deprecated! Will be removed in Erlang/OTP R16.</note>
+			  </p>
+		  </item>
+
           <tag><c>{broadcast, Boolean}</c>(UDP sockets)</tag>
           <item>
             <p>Enable/disable permission to send broadcasts.</p>
           </item>
+
+		  <tag><c>{buffer, Size}</c></tag>
+		  <item>
+			  <p>Determines the size of the user-level software buffer used by
+				  the driver. Not to be confused with <c>sndbuf</c>
+				  and <c>recbuf</c> options which correspond to
+				  the kernel socket buffers. It is recommended
+				  to have <c>val(buffer) &gt;= max(val(sndbuf),val(recbuf))</c>.
+				  In fact, the <c>val(buffer)</c> is automatically set to
+				  the above maximum when <c>sndbuf</c> or <c>recbuf</c> values are set.</p>
+		  </item>
+
           <tag><c>{delay_send, Boolean}</c></tag>
           <item>
             <p>Normally, when an Erlang process sends to a socket,
@@ -463,10 +486,19 @@ fe80::204:acff:fe17:bf38
               real property of the socket. Needless to say it is an
               implementation specific option. Default is <c>false</c>.</p>
           </item>
+
+		  <tag><c>{deliver, port | term}</c></tag>
+		  <item> <p> When <c>{active, true}</c> delivers data on the forms
+				  <c>port</c> : <c>{S, {data, [H1,..Hsz | Data]}}</c> or
+				  <c>term</c> : <c>{tcp, S, [H1..Hsz | Data]}</c>.
+				  </p>
+		  </item>
+
           <tag><c>{dontroute, Boolean}</c></tag>
           <item>
             <p>Enable/disable routing bypass for outgoing messages.</p>
           </item>
+
           <tag><c>{exit_on_close, Boolean}</c></tag>
           <item>
             <p>By default this option is set to <c>true</c>.</p>
@@ -476,6 +508,7 @@ fe80::204:acff:fe17:bf38
               <seealso marker="gen_tcp#shutdown/2">gen_tcp:shutdown/2</seealso>
               to shutdown the write side.</p>
           </item>
+
           <tag><c>{header, Size}</c></tag>
           <item>
             <p>This option is only meaningful if the <c>binary</c>
@@ -487,6 +520,15 @@ fe80::204:acff:fe17:bf38
               example <c>Size == 2</c>, the data received will match
               <c>[Byte1,Byte2|Binary]</c>.</p>
           </item>
+
+		  <tag><c>{high_watermark, Size}</c></tag>
+		  <item> <p>
+				  Sender is forced busy if sent and equeued data
+				  readched the highwater mark.
+				  <br /> Default: 8192 kB. 
+			  </p>
+		  </item>
+
           <tag><c>{keepalive, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
             <p>Enables/disables periodic transmission on a connected
@@ -495,6 +537,41 @@ fe80::204:acff:fe17:bf38
               considered broken and an error message will be sent to
               the controlling process. Default disabled.</p>
           </item>
+
+		  <tag><c>{linger, {true|false, Seconds}}</c></tag>
+		  <item>
+			  <p>Determines the timeout in seconds for flushing unsent data in the
+				  <c>close/1</c> socket call. If the 1st component of the value
+				  tuple is <c>false</c>, the 2nd one is ignored, which means that
+				  <c>close/1</c> returns immediately not waiting
+				  for data to be flushed. Otherwise, the 2nd component is
+				  the flushing time-out in seconds.</p>
+		  </item>
+
+		  <tag><c>{low_watermark, Size}</c></tag>
+		  <item> <p>
+				  If the port has reached its <c>high_watermark</c> it will
+				  force busy onto senders. When the port data queue reaches the
+				  <c>low_watermark</c> callers are no longer forced busy.
+				  <br /> Default: 4096 kB. 
+			  </p>
+		  </item>
+
+		  <tag><c>{mode, Mode :: binary | list}</c></tag>
+          <item>
+			  <p>Received <c>Packet</c> is delivered as defined by Mode.</p>
+		  </item>
+
+		  <tag><c>list</c></tag>
+          <item>
+			  <p>Received <c>Packet</c> is delivered as a list.</p>
+		  </item>
+
+		  <tag><c>binary</c></tag>
+          <item>
+			  <p>Received <c>Packet</c> is delivered as a binary.</p>
+		  </item>
+
           <tag><c>{nodelay, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
             <p>If <c>Boolean == true</c>, the <c>TCP_NODELAY</c> option
@@ -578,6 +655,16 @@ fe80::204:acff:fe17:bf38
 	    indicated length are accepted and not considered invalid due
 	    to internal buffer limitations.</p>
           </item>
+
+		  <tag><c>{priority, Priority}</c></tag>
+          <item> <p>Set the protocol-defined priority for all packets to be sent
+			  on this socket.</p>
+		  </item>
+
+		  <tag><c>{raw, Protocol, OptionNum, ValueBin}</c></tag>
+          <item> <p>See below.</p>
+		  </item>
+
           <tag><c>{read_packets, Integer}</c>(UDP sockets)</tag>
           <item>
             <p>Sets the max number of UDP packets to read without
@@ -589,7 +676,7 @@ fe80::204:acff:fe17:bf38
               high the system can become unresponsive due to
               UDP packet flooding.</p>
           </item>
-          <tag><c>{recbuf, Integer}</c></tag>
+          <tag><c>{recbuf, Size}</c></tag>
           <item>
             <p>Gives the size of the receive buffer to use for
               the socket.</p>
@@ -620,7 +707,7 @@ fe80::204:acff:fe17:bf38
               Default is <c>false</c> due to backward compatibility.</p>
           </item>
 
-          <tag><c>{sndbuf, Integer}</c></tag>
+          <tag><c>{sndbuf, Size}</c></tag>
           <item>
             <p>Gives the size of the send buffer to use for the socket.</p>
           </item>
@@ -639,6 +726,7 @@ fe80::204:acff:fe17:bf38
               not implemented. Use with caution.</p>
           </item>
         </taglist>
+
         <p>In addition to the options mentioned above, <em>raw</em>
           option specifications can be used. The raw options are
           specified as a tuple of arity four, beginning with the tag
