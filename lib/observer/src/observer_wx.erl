@@ -58,7 +58,8 @@
 	 perf_panel,
 	 active_tab,
 	 node,
-	 nodes
+	 nodes,
+	 prev_node=""
 	}).
 
 start() ->
@@ -258,20 +259,21 @@ handle_event(#wx{id = ?ID_CONNECT, event = #wxCommand{type = command_menu_select
 handle_event(#wx{id = ?ID_PING, event = #wxCommand{type = command_menu_selected}},
 	     #state{frame = Frame} = State) ->
     UpdState = case create_connect_dialog(ping, State) of
-		   cancel ->  State;
+		   cancel -> State;
 		   {value, Value} when is_list(Value) ->
 		       try
 			   Node = list_to_atom(Value),
 			   case net_adm:ping(Node) of
 			       pang ->
 				   create_txt_dialog(Frame, "Connect failed", "Pang", ?wxICON_EXCLAMATION),
-				   State;
+				   State#state{prev_node=Value};
 			       pong ->
-				   change_node_view(Node, State)
+				   State1 = change_node_view(Node, State),
+				   State1#state{prev_node=Value}
 			   end
 		       catch _:_ ->
 			       create_txt_dialog(Frame, "Connect failed", "Pang", ?wxICON_EXCLAMATION),
-			       State
+			       State#state{prev_node=Value}
 		       end
 	       end,
     {noreply, UpdState};
@@ -439,8 +441,8 @@ pid2panel(Pid, #state{pro_panel=Pro, sys_panel=Sys,
     end.
 
 
-create_connect_dialog(ping, #state{frame = Frame}) ->
-    Dialog = wxTextEntryDialog:new(Frame, "Connect to node"),
+create_connect_dialog(ping, #state{frame = Frame, prev_node=Prev}) ->
+    Dialog = wxTextEntryDialog:new(Frame, "Connect to node", [{value, Prev}]),
     case wxDialog:showModal(Dialog) of
 	?wxID_OK ->
 	    Value = wxTextEntryDialog:getValue(Dialog),
@@ -560,13 +562,26 @@ remove_menu_items([], _MB) ->
     ok.
 
 get_nodes() ->
-    Nodes = [node()| nodes()],
+    Nodes0 = case erlang:is_alive() of
+		false -> [];
+		true  ->
+		    case net_adm:names() of
+			{error, _} -> nodes();
+			{ok, Names} ->
+			    epmd_nodes(Names) ++ nodes()
+		    end
+	     end,
+    Nodes = lists:usort(Nodes0),
     {_, Menues} =
 	lists:foldl(fun(Node, {Id, Acc}) when Id < ?LAST_NODES_MENU_ID ->
 			    {Id + 1, [#create_menu{id=Id + ?FIRST_NODES_MENU_ID,
 						   text=atom_to_list(Node)} | Acc]}
 		    end, {1, []}, Nodes),
     {Nodes, lists:reverse(Menues)}.
+
+epmd_nodes(Names) ->
+    [_, Host] = string:tokens(atom_to_list(node()),"@"),
+    [list_to_atom(Name ++ [$@|Host]) || {Name, _} <- Names].
 
 update_node_list(State = #state{menubar=MenuBar}) ->
     {Nodes, NodesMenuItems} = get_nodes(),
