@@ -134,7 +134,6 @@
 -define(INET_LOPT_EXITONCLOSE,   26).
 -define(INET_LOPT_TCP_HIWTRMRK,  27).
 -define(INET_LOPT_TCP_LOWTRMRK,  28).
--define(INET_LOPT_BIT8,          29).
 -define(INET_LOPT_TCP_SEND_TIMEOUT, 30).
 -define(INET_LOPT_TCP_DELAY_SEND,   31).
 -define(INET_LOPT_PACKET_SIZE,   32).
@@ -185,12 +184,6 @@
 -define(TCP_PB_SSL_TLS, 12).
 -define(TCP_PB_HTTP_BIN,13).
 -define(TCP_PB_HTTPH_BIN,14).
-
-%% bit options, INET_LOPT_BIT8
--define(INET_BIT8_CLEAR, 0).
--define(INET_BIT8_SET,   1).
--define(INET_BIT8_ON,    2).
--define(INET_BIT8_OFF,   3).
 
 
 %% getstat, INET_REQ_GETSTAT

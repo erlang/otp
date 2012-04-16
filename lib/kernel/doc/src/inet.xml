@@ -446,16 +446,6 @@ fe80::204:acff:fe17:bf38
               faster than the receiver can read.</p>
           </item>
 
-		  <tag><c>{bit8, clear | set | on | off}</c></tag>
-		  <item>
-			  <p>
-				  Scans every byte in received data-packets and checks if the 8 bit
-				  is set in any of them. Information is retrieved with
-				  <c>inet:getopts/2</c>.
-				  <note>Deprecated! Will be removed in Erlang/OTP R16.</note>
-			  </p>
-		  </item>
-
           <tag><c>{broadcast, Boolean}</c>(UDP sockets)</tag>
           <item>
             <p>Enable/disable permission to send broadcasts.</p>

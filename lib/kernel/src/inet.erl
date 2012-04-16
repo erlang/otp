@@ -535,7 +535,7 @@ options() ->
      buffer, header, active, packet, deliver, mode,
      multicast_if, multicast_ttl, multicast_loop,
      exit_on_close, high_watermark, low_watermark,
-     bit8, send_timeout, send_timeout_close
+     send_timeout, send_timeout_close
     ].
 
 %% Return a list of statistics options
@@ -552,7 +552,7 @@ stats() ->
 connect_options() ->
     [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, packet_size, buffer, mode, deliver,
-     exit_on_close, high_watermark, low_watermark, bit8, send_timeout,
+     exit_on_close, high_watermark, low_watermark, send_timeout,
      send_timeout_close, delay_send,raw].
     
 connect_options(Opts, Family) ->
@@ -608,7 +608,7 @@ con_add(Name, Val, R, Opts, AllOpts) ->
 listen_options() ->
     [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
      header, active, packet, buffer, mode, deliver, backlog,
-     exit_on_close, high_watermark, low_watermark, bit8, send_timeout,
+     exit_on_close, high_watermark, low_watermark, send_timeout,
      send_timeout_close, delay_send, packet_size,raw].
 
 listen_options(Opts, Family) ->
