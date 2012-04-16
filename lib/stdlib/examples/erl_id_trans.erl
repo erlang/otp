@@ -189,9 +189,9 @@ pattern_grp([]) ->
 
 bit_types([]) ->
     [];
-bit_types([Atom | Rest]) when atom(Atom) ->
+bit_types([Atom | Rest]) when is_atom(Atom) ->
     [Atom | bit_types(Rest)];
-bit_types([{Atom, Integer} | Rest]) when atom(Atom), integer(Integer) ->
+bit_types([{Atom, Integer} | Rest]) when is_atom(Atom), is_integer(Integer) ->
     [{Atom, Integer} | bit_types(Rest)].
 
 
