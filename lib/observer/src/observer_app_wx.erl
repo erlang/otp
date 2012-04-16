@@ -267,24 +267,16 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 %%%%%%%%%%
-handle_info({active, Node}, State = #state{parent=Parent, current=Curr, appmon=Appmon}) ->
+handle_info({active, Node}, State = #state{parent=Parent, current=Curr}) ->
     create_menus(Parent, []),
     {ok, Pid} = appmon_info:start_link(Node, self(), []),
-    case Appmon of
-	undefined -> ok;
-	Pid -> ok;
-	_ -> %% Deregister me as client (and stop appmon if last)
-	    exit(Appmon, normal)
-    end,
     appmon_info:app_ctrl(Pid, Node, true, []),
     (Curr =/= undefined) andalso appmon_info:app(Pid, Curr, true, []),
     {noreply, State#state{appmon=Pid}};
-
-handle_info(not_active, State = #state{appmon=AppMon, current=Prev}) ->
+handle_info(not_active, State = #state{appmon=AppMon}) ->
     appmon_info:app_ctrl(AppMon, node(AppMon), false, []),
-    (Prev =/= undefined) andalso appmon_info:app(AppMon, Prev, false, []),
-    {noreply, State};
-
+    lists:member(node(AppMon), nodes()) andalso exit(AppMon, normal),
+    {noreply, State#state{appmon=undefined}};
 handle_info({delivery, Pid, app_ctrl, _, Apps0},
 	    State = #state{appmon=Pid, apps_w=LBox, current=Curr0}) ->
     Apps = [atom_to_list(App) || {_, App, {_, _, _}} <- Apps0],
