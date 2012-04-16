@@ -31,7 +31,6 @@
 
 -type option() ::
         {active,          true | false | once} |
-        {bit8,            clear | set | on | off} |
         {buffer,          non_neg_integer()} |
         {delay_send,      boolean()} |
         {deliver,         port | term} |
@@ -61,7 +60,6 @@
         {tos,             non_neg_integer()}.
 -type option_name() ::
         active |
-        bit8 |
         buffer |
         delay_send |
         deliver |
