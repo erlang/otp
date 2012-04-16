@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -191,13 +191,20 @@ dump_to_file(Parent, FileName, Holder) ->
 start_procinfo(undefined, _Frame, Opened) ->
     Opened;
 start_procinfo(Pid, Frame, Opened) ->
-    case lists:member(Pid, Opened) of
-	true ->
-	    Opened;
-	false ->
-	    observer_procinfo:start(Pid, Frame, self()),
-	    [Pid | Opened]
+    %% This code doesn't work until we collect which windows have been
+    %% closed maybe it should moved to observer_wx.erl
+    %% and add a global menu which remembers windows.
+    %% case lists:keyfind(Pid, 1, Opened) of
+    %% 	false ->
+    case observer_procinfo:start(Pid, Frame, self()) of
+	{error, _} -> Opened;
+	PI -> [{Pid, PI} | Opened]
     end.
+    %%;
+    %% 	{_, PI} ->
+    %% 	    wxFrame:raise(PI),
+    %% 	    Opened
+    %% end.
 
 call(Holder, What) ->
     Ref = erlang:monitor(process, Holder),
