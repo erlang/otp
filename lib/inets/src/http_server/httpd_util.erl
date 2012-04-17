@@ -233,7 +233,7 @@ message(501,{Method, RequestURI, HTTPVersion}, _ConfigDB) ->
     end;
 
 message(503, String, _ConfigDB) ->
-    "This service in unavailable due to: " ++ html_encode(String).
+    "This service is unavailable due to: " ++ html_encode(String).
 
 maybe_encode(URI) ->
     Decoded = try http_uri:decode(URI) of
