@@ -3573,6 +3573,10 @@ os_prompt% </pre>
             <p><c>Bytes</c> is the total number of bytes written to
               the port.</p>
           </item>
+          <tag><c>{os_pid, Integer | undefined}</c></tag>
+          <item>
+            <p><c>Integer</c> is the process identifier (or equivalent) of an OS process created with <c>open_port({spawn | spawn_executable, Command}, Options)</c>. If the port is not the result of spawning an OS process, the value is <c>undefined</c>.</p>
+          </item>
         </taglist>
         <p>Failure: <c>badarg</c> if <c>Port</c> is not a local port.</p>
       </desc>
