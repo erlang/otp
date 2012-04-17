@@ -574,7 +574,7 @@
 
 		  <tag><c>{sctp_module, module()}</c></tag>
 		  <item> <p>
-				  Override which callback module used. Defaults to
+				  Override which callback module is used. Defaults to
 				  <c>inet_sctp</c> for IPv4 and <c>inet6_sctp</c> for IPv6.
 			  </p>
 		  </item>

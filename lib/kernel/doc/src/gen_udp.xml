@@ -97,7 +97,7 @@
 
 		  <tag><c>{udp_module, module()}</c></tag>
 		  <item> <p>
-				  Override which callback module used. Defaults to
+				  Override which callback module is used. Defaults to
 				  <c>inet_udp</c> for IPv4 and <c>inet6_udp</c> for IPv6.
 			  </p>
 		  </item>
