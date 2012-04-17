@@ -21,8 +21,7 @@
 
 -module(eunit_test).
 
--export([run_testfun/1, function_wrapper/2, enter_context/4,
-	 multi_setup/1]).
+-export([run_testfun/1, mf_wrapper/2, enter_context/4, multi_setup/1]).
 
 
 -include("eunit.hrl").
@@ -262,7 +261,7 @@ macro_test_() ->
 %% @type wrapperError() = {no_such_function, mfa()}
 %%                      | {module_not_found, moduleName()}
 
-function_wrapper(M, F) ->
+mf_wrapper(M, F) ->
     fun () ->
  	    try M:F()
  	    catch
@@ -293,12 +292,12 @@ fail(Term) ->
 wrapper_test_() ->
     {"error handling in function wrapper",
      [?_assertException(throw, {module_not_found, eunit_nonexisting},
-  			run_testfun(function_wrapper(eunit_nonexisting,test))),
+  			run_testfun(mf_wrapper(eunit_nonexisting,test))),
       ?_assertException(throw,
   			{no_such_function, {?MODULE,nonexisting_test,0}},
-  			run_testfun(function_wrapper(?MODULE,nonexisting_test))),
+  			run_testfun(mf_wrapper(?MODULE,nonexisting_test))),
       ?_test({error, {error, undef, _T}}
-  	     = run_testfun(function_wrapper(?MODULE,wrapper_test_exported_)))
+  	     = run_testfun(mf_wrapper(?MODULE,wrapper_test_exported_)))
      ]}.
 
 %% this must be exported (done automatically by the autoexport transform)
@@ -323,6 +322,17 @@ enter_context(Setup, Cleanup, Instantiate, Callback) ->
 	R ->
 	    try Instantiate(R) of
 		T ->
+                    case eunit_lib:is_not_test(T) of
+                        true ->
+                            catch throw(error),  % generate a stack trace
+                            {module,M} = erlang:fun_info(Instantiate, module),
+                            {name,N} = erlang:fun_info(Instantiate, name),
+                            {arity,A} = erlang:fun_info(Instantiate, arity),
+                            context_error({bad_instantiator, {{M,N,A},T}},
+                                          error, badarg);
+                        false ->
+                            ok
+                    end,
 		    try Callback(T)  %% call back to client code
 		    after
 			%% Always run cleanup; client may be an idiot

@@ -30,7 +30,8 @@
 -export([dlist_next/1, uniq/1, fun_parent/1, is_string/1, command/1,
 	 command/2, command/3, trie_new/0, trie_store/2, trie_match/2,
 	 split_node/1, consult_file/1, list_dir/1, format_exit_term/1,
-	 format_exception/1, format_exception/2, format_error/1]).
+	 format_exception/1, format_exception/2, format_error/1,
+         is_not_test/1]).
 
 
 %% Type definitions for describing exceptions
@@ -158,9 +159,13 @@ is_op(_M, _F, _A) ->
 
 format_error({bad_test, Term}) ->
     error_msg("bad test descriptor", "~P", [Term, 15]);
-format_error({generator_failed, Exception}) ->
-    error_msg("test generator failed", "~s",
-	      [format_exception(Exception)]);
+format_error({bad_generator, {{M,F,A}, Term}}) ->
+    error_msg(io_lib:format("result from generator ~w:~w/~w is not a test",
+                            [M,F,A]),
+              "~P", [Term, 15]);
+format_error({generator_failed, {{M,F,A}, Exception}}) ->
+    error_msg(io_lib:format("test generator ~w:~w/~w failed",[M,F,A]),
+              "~s", [format_exception(Exception)]);
 format_error({no_such_function, {M,F,A}})
   when is_atom(M), is_atom(F), is_integer(A) ->
     error_msg(io_lib:format("no such function: ~w:~w/~w", [M,F,A]),
@@ -177,6 +182,10 @@ format_error({setup_failed, Exception}) ->
 format_error({cleanup_failed, Exception}) ->
     error_msg("context cleanup failed", "~s",
 	      [format_exception(Exception)]);
+format_error({{bad_instantiator, {{M,F,A}, Term}}, _DummyException}) ->
+    error_msg(io_lib:format("result from instantiator ~w:~w/~w is not a test",
+                            [M,F,A]),
+              "~P", [Term, 15]);
 format_error({instantiation_failed, Exception}) ->
     error_msg("instantiation of subtests failed", "~s",
 	      [format_exception(Exception)]).
@@ -200,6 +209,28 @@ format_exception_test_() ->
                            catch C:R -> {C, R, erlang:get_stacktrace()}
                            end))))].
 -endif.
+
+%% ---------------------------------------------------------------------
+%% detect common return values that are definitely not tests
+
+is_not_test(T) ->
+    case T of
+        ok -> true;
+        error -> true;
+        true -> true;
+        false -> true;
+        undefined -> true;
+        {ok, _} -> true;
+        {error, _} -> true;
+        {'EXIT', _} -> true;
+        N when is_number(N) -> true;
+        [N|_] when is_number(N) -> true;
+        X when is_binary(X) -> true;
+        X when is_pid(X) -> true;
+        X when is_port(X) -> true;
+        X when is_reference(X) -> true;
+        _ -> false
+    end.
 
 %% ---------------------------------------------------------------------
 %% Deep list iterator; accepts improper lists/sublists, and also accepts
