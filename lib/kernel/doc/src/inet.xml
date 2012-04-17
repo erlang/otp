@@ -523,8 +523,8 @@ fe80::204:acff:fe17:bf38
 
 		  <tag><c>{high_watermark, Size}</c></tag>
 		  <item> <p>
-				  Sender is forced busy if sent and equeued data
-				  readched the highwater mark.
+				  Sender is forced busy if sent and enqueued data
+				  reaches the highwater mark.
 				  <br /> Default: 8192 kB. 
 			  </p>
 		  </item>
