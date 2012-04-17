@@ -691,7 +691,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_LOPT_EXITONCLOSE 26  /* exit port on active close or not ! */
 #define INET_LOPT_TCP_HIWTRMRK     27  /* set local high watermark */
 #define INET_LOPT_TCP_LOWTRMRK     28  /* set local low watermark */
-#define INET_LOPT_BIT8             29  /* set 8 bit detection */
+                                /* 29  unused */
 #define INET_LOPT_TCP_SEND_TIMEOUT 30  /* set send timeout */
 #define INET_LOPT_TCP_DELAY_SEND   31  /* Delay sends until next poll */
 #define INET_LOPT_PACKET_SIZE      32  /* Max packet size */
@@ -725,12 +725,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INET_IFOPT_NETMASK    5
 #define INET_IFOPT_FLAGS      6
 #define INET_IFOPT_HWADDR     7
-
-/* INET_LOPT_BIT8 options */
-#define INET_BIT8_CLEAR 0
-#define INET_BIT8_SET   1
-#define INET_BIT8_ON    2
-#define INET_BIT8_OFF   3
 
 /* INET_REQ_GETSTAT enumeration */
 #define INET_STAT_RECV_CNT   1
@@ -927,7 +921,6 @@ typedef struct {
     int   mode;                 /* BINARY | LIST
 				   (affect how to interpret hsz) */
     int   exitf;                /* exit port on close or not */
-    int   bit8f;                /* check if data has bit number 7 set */
     int   deliver;              /* Delivery mode, TERM or PORT */
 
     ErlDrvTermData caller;      /* recipient of sync reply */
@@ -946,8 +939,6 @@ typedef struct {
     int   sfamily;              /* address family */
     enum PacketParseType htype; /* header type (TCP only?) */
     unsigned int psize;         /* max packet size (TCP only?) */
-    int   bit8;                 /* set if bit8f==true and data some data
-				   seen had the 7th bit set */
     inet_address remote;        /* remote address for connected sockets */
     inet_address peer_addr;     /* fake peer address */
     inet_address name_addr;     /* fake local address */
@@ -3347,17 +3338,6 @@ static int packet_error_message(udp_descriptor* udesc, int err)
 }
 
 
-/* scan buffer for bit 7 */
-static void scanbit8(inet_descriptor* desc, const char* buf, int len)
-{
-    int c;
-
-    if (!desc->bit8f || desc->bit8) return;
-    c = 0;
-    while(len--) c |= *buf++;
-    desc->bit8 = ((c & 0x80) != 0);
-}
-
 /* 
 ** active=TRUE:
 **  (NOTE! distribution MUST use active=TRUE, deliver=PORT)
@@ -3374,8 +3354,6 @@ static int tcp_reply_data(tcp_descriptor* desc, char* buf, int len)
     int bodylen = len;
     
     packet_get_body(desc->inet.htype, &body, &bodylen);
-
-    scanbit8(INETP(desc), body, bodylen);
 
     if (desc->inet.deliver == INET_DELIVER_PORT) {
         code = inet_port_data(INETP(desc), body, bodylen);
@@ -3408,8 +3386,6 @@ tcp_reply_binary_data(tcp_descriptor* desc, ErlDrvBinary* bin, int offs, int len
     packet_get_body(desc->inet.htype, &body, &bodylen);
     offs = body - bin->orig_bytes; /* body offset now */
 
-    scanbit8(INETP(desc), body, bodylen);
-
     if (desc->inet.deliver == INET_DELIVER_PORT)
         code = inet_port_binary_data(INETP(desc), bin, offs, bodylen);
     else if ((code=packet_parse(desc->inet.htype, buf, len, &desc->http_state,
@@ -3434,8 +3410,6 @@ packet_reply_binary_data(inet_descriptor* desc, unsigned  int hsz,
 			 void * extra)
 {
     int code;
-
-    scanbit8(desc, bin->orig_bytes+offs, len);
 
     if (desc->active == INET_PASSIVE)
 	/* "inet" is actually for both UDP and SCTP, as well as TCP! */
@@ -5498,29 +5472,6 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    desc->exitf = ival;
 	    continue;
 
-	case INET_LOPT_BIT8:
-	    DEBUGF(("inet_set_opts(%ld): s=%d, BIT8=%d\r\n",
-		    (long)desc->port, desc->s, ival));
-	    switch(ival) {
-	    case INET_BIT8_ON:
-		desc->bit8f = 1;
-		desc->bit8  = 0;
-		break;
-	    case INET_BIT8_OFF:
-		desc->bit8f = 0;
-		desc->bit8  = 0;
-		break;
-	    case INET_BIT8_CLEAR:
-		desc->bit8f = 1;
-		desc->bit8  = 0;
-		break;
-	    case INET_BIT8_SET:
-		desc->bit8f = 1;
-		desc->bit8  = 1;
-		break;
-	    }
-	    continue;
-
 	case INET_LOPT_TCP_HIWTRMRK:
 	    if (desc->stype == SOCK_STREAM) {
 		tcp_descriptor* tdesc = (tcp_descriptor*) desc;
@@ -6395,15 +6346,6 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	case INET_LOPT_EXITONCLOSE:
 	    *ptr++ = opt;
 	    put_int32(desc->exitf, ptr);
-	    continue;
-
-	case INET_LOPT_BIT8:
-	    *ptr++ = opt;
-	    if (desc->bit8f) {
-		put_int32(desc->bit8, ptr);
-	    } else {
-		put_int32(INET_BIT8_OFF, ptr);
-	    }
 	    continue;
 
 	case INET_LOPT_TCP_HIWTRMRK:
@@ -7464,8 +7406,6 @@ static ErlDrvData inet_start(ErlDrvPort port, int size, int protocol)
     desc->mode    = INET_MODE_LIST;    /* list mode */
     desc->exitf   = 1;                 /* exit port when close on active 
 					  socket */
-    desc->bit8f   = 0;
-    desc->bit8    = 0;
     desc->deliver = INET_DELIVER_TERM; /* standard term format */
     desc->active  = INET_PASSIVE;      /* start passive */
     desc->oph = NULL;
@@ -8083,7 +8023,6 @@ static tcp_descriptor* tcp_inet_copy(tcp_descriptor* desc,SOCKET s,
     /* Some flags must be inherited at this point */
     copy_desc->inet.mode     = desc->inet.mode;
     copy_desc->inet.exitf    = desc->inet.exitf;
-    copy_desc->inet.bit8f    = desc->inet.bit8f;
     copy_desc->inet.deliver  = desc->inet.deliver;
     copy_desc->inet.htype    = desc->inet.htype; 
     copy_desc->inet.psize    = desc->inet.psize; 
@@ -9787,7 +9726,6 @@ static udp_descriptor* sctp_inet_copy(udp_descriptor* desc, SOCKET s, int* err)
     /* Some flags must be inherited at this point */
     copy_desc->inet.mode     = desc->inet.mode;
     copy_desc->inet.exitf    = desc->inet.exitf;
-    copy_desc->inet.bit8f    = desc->inet.bit8f;
     copy_desc->inet.deliver  = desc->inet.deliver;
     copy_desc->inet.htype    = desc->inet.htype;
     copy_desc->inet.psize    = desc->inet.psize;
