@@ -782,6 +782,7 @@ type(erlang, port_info, 2, Xs) ->
 		     ['links'] -> t_tuple([Item, t_list(t_pid())]);
 		     ['name'] -> t_tuple([Item, t_string()]);
 		     ['output'] -> t_tuple([Item, t_integer()]);
+		     ['os_pid'] -> t_tuple([Item, t_sup(t_non_neg_integer(),t_atom('undefined'))]);
 		     ['registered_name'] -> t_tuple([Item, t_atom()]);
 		     List when is_list(List) ->
 		       t_tuple([t_sup([t_atom(A) || A <- List]),
@@ -2286,7 +2287,7 @@ arg_types(erlang, port_info, 1) ->
 arg_types(erlang, port_info, 2) ->
   [t_sup(t_port(), t_atom()),
    t_atoms(['registered_name', 'id', 'connected',
-	    'links', 'name', 'input', 'output'])];
+	    'links', 'name', 'input', 'output', 'os_pid'])];
 %% Guard bif, needs to be here.
 arg_types(erlang, round, 1) ->
   [t_number()];

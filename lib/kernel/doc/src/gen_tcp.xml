@@ -132,7 +132,7 @@ do_recv(Sock, Bs) ->
 
 		  <tag><c>{tcp_module, module()}</c></tag>
 		  <item> <p>
-				  Override which callback module used. Defaults to
+				  Override which callback module is used. Defaults to
 				  <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.
 			  </p>
 		  </item>
@@ -225,7 +225,7 @@ do_recv(Sock, Bs) ->
 
 		  <tag><c>{tcp_module, module()}</c></tag>
 		  <item> <p>
-				  Override which callback module used. Defaults to
+				  Override which callback module is used. Defaults to
 				  <c>inet_tcp</c> for IPv4 and <c>inet6_tcp</c> for IPv6.
 			  </p>
 		  </item>

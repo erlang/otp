@@ -440,6 +440,7 @@ setup_port(Port* prt, Eterm pid, erts_driver_t *driver,
     sys_strcpy(new_name, name);
     erts_smp_runq_lock(runq);
     erts_smp_port_state_lock(prt);    
+    prt->os_pid = -1;
     prt->status = ERTS_PORT_SFLG_CONNECTED | xstatus;
     prt->snapshot = erts_smp_atomic32_read_nob(&erts_ports_snapshot);    
     old_name = prt->name;

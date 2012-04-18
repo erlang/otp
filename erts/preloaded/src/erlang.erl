@@ -1725,7 +1725,8 @@ port_call(_Port, _Operation, _Data) ->
       links |
       name |
       input |
-      output.
+      output |
+      os_pid.
 
 -type port_info_result_item() ::
       {registered_name, RegName :: atom()} |
@@ -1734,7 +1735,8 @@ port_call(_Port, _Operation, _Data) ->
       {links, Pids :: [pid()]} |
       {name, String :: string()} |
       {input, Bytes :: non_neg_integer()} |
-      {output, Bytes :: non_neg_integer()}.
+      {output, Bytes :: non_neg_integer()} |
+      {os_pid, OsPid :: non_neg_integer() | 'undefined'}.
 
 %% Shadowed by erl_bif_types: erlang:port_info/1
 -spec erlang:port_info(Port) -> Result when
