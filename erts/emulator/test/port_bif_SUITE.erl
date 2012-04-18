@@ -24,7 +24,6 @@
 	 init_per_group/2,end_per_group/2, command/1,
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
-	 port_info_os_pid/1,
 	 connect/1, control/1, echo_to_busy/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
@@ -42,7 +41,7 @@ all() ->
 groups() -> 
     [{command_e, [],
       [command_e_1, command_e_2, command_e_3, command_e_4]},
-     {port_info, [], [port_info1, port_info2, port_info_os_pid]}].
+     {port_info, [], [port_info1, port_info2]}].
 
 init_per_suite(Config) ->
     Config.
@@ -197,7 +196,6 @@ port_info1(Config) when is_list(Config) ->
     ?line {value,{connected,_}}=lists:keysearch(connected, 1, A),
     ?line {value,{input,0}}=lists:keysearch(input, 1, A),
     ?line {value,{output,0}}=lists:keysearch(output, 1, A),
-    ?line {value,{os_pid,undefined}}=lists:keysearch(os_pid, 1, A),  % linked-in driver doesn't have a OS pid
     ?line true=erlang:port_close(P),
     ok.
 
@@ -217,7 +215,6 @@ port_info2(Config) when is_list(Config) ->
     ?line {connected, Me} = erlang:port_info(P, connected),
     ?line {input, 0}=erlang:port_info(P, input),
     ?line {output,0}=erlang:port_info(P, output),
-    ?line {os_pid, undefined}=erlang:port_info(P, os_pid),  % linked-in driver doesn't have a OS pid
 
     ?line erlang:port_control(P, $i, "abc"),
     ?line receive
@@ -229,29 +226,6 @@ port_info2(Config) when is_list(Config) ->
     ?line Bin = list_to_binary(lists:duplicate(2047, 42)),
     ?line output_test(P, Bin, 3, 0),
     
-    ?line true = erlang:port_close(P),
-    ok.
-
-%% Tests the port_info/1,2 os_pid option BIF
-port_info_os_pid(Config) when is_list(Config) ->
-    case os:type() of
-	{unix,_} ->
-	    do_port_info_os_pid();
-	_ ->
-	    {skip,"Only on Unix."}
-    end.
-
-do_port_info_os_pid() ->
-    ?line P = open_port({spawn, "echo $$"}, [eof]),
-    ?line A = erlang:port_info(P),
-    ?line {os_pid, InfoOSPid} = erlang:port_info(P, os_pid),
-    ?line EchoPidStr = receive
-	    {P, {data, EchoPidStr0}} -> EchoPidStr0
-	    after 10000 -> ?line test_server:fail(timeout)
-    end,
-    ?line {ok, [EchoPid], []} = io_lib:fread("~u\n", EchoPidStr),
-    ?line {value,{os_pid, InfoOSPid}}=lists:keysearch(os_pid, 1, A),
-    ?line EchoPid = InfoOSPid,
     ?line true = erlang:port_close(P),
     ok.
 
