@@ -790,6 +790,10 @@ early_init(int *argc, char **argv) /*
 	}
     }
 
+#ifndef USE_THREADS
+    erts_async_max_threads = 0;
+#endif
+
 #ifdef ERTS_SMP
     no_schedulers = schdlrs;
     no_schedulers_online = schdlrs_onln;
