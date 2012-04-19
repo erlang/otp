@@ -1560,7 +1560,7 @@ void process_main(void)
      */
 #ifdef USE_VM_CALL_PROBES
     if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
     }
 #endif
@@ -1575,7 +1575,7 @@ void process_main(void)
     SET_CP(c_p, I+2);
 #ifdef USE_VM_CALL_PROBES
     if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
     }
 #endif
@@ -1588,7 +1588,7 @@ void process_main(void)
  OpCase(i_call_ext_only_e):
 #ifdef USE_VM_CALL_PROBES
     if (DTRACE_ENABLED(global_function_entry)) {
-	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->address);
+	BeamInstr* fp = (BeamInstr *) (((Export *) Arg(0))->addressv[erts_active_code_ix()]);
 	DTRACE_GLOBAL_CALL(c_p, (Eterm)fp[-3], (Eterm)fp[-2], fp[-1]);
     }
 #endif
