@@ -575,7 +575,7 @@ dist_exit(_P1, _P2, _P3) ->
     erlang:nif_error(undefined).
 
 %% dt_append_vm_tag_data/1
--spec dt_append_vm_tag_data(IoData) -> IoDataRet when
+-spec erlang:dt_append_vm_tag_data(IoData) -> IoDataRet when
       IoData :: iodata(),
       IoDataRet :: iodata().
 dt_append_vm_tag_data(_IoData) ->
@@ -592,7 +592,7 @@ dt_get_tag_data() ->
     erlang:nif_error(undefined).
 
 %% dt_prepend_vm_tag_data/1
--spec dt_prepend_vm_tag_data(IoData) -> IoDataRet when
+-spec erlang:dt_prepend_vm_tag_data(IoData) -> IoDataRet when
       IoData :: iodata(),
       IoDataRet :: iodata().
 dt_prepend_vm_tag_data(_IoData) ->
