@@ -691,8 +691,8 @@ pkix(Config) when is_list(Config) ->
 		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"ERLANGCA"}}],
 		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString," erlang  ca "}}]]},
     VerifyStr = {rdnSequence, 
-		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}],
-		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlangca"}}]]},
+		 [[{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlangca"}}],
+		  [{'AttributeTypeAndValue', {2,5,4,3},{printableString,"erlang ca"}}]]},
     VerifyStr = public_key:pkix_normalize_name(TestStr),
 
     ok.

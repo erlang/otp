@@ -22,10 +22,11 @@
 -include("public_key.hrl").
 
 -export([validate/7, init_revokation_state/0, fresh_crl/3, verify_crl_signature/4,
-	 is_delta_crl/1, combines/2]).
+	 is_delta_crl/1, combines/2, match_one/2]).
 
--record(userstate, {dpcrls
-	  }).
+-record(userstate, {dpcrls,
+		    idp
+		   }).
 
 validate(OtpCert, OtherDPCRLs, DP, {DerCRL, CRL}, {DerDeltaCRL, DeltaCRL},
 	     Options, RevokedState0) ->
@@ -172,7 +173,7 @@ verify_mask_and_signatures(Revoked, DeltaRevoked, RevokedState, CRL, DerCRL, Del
     try
 	verify_interim_reasons_mask(RevokedState),
 	true = verify_crl_signatures(CRL, DerCRL, DeltaCRL, DerDeltaCRL,
-				     TrustedOtpCert, Path, IssuerFun, OtherDPCRLs),
+				     TrustedOtpCert, Path, IssuerFun, OtherDPCRLs, IDP),
 	{valid, Revoked, DeltaRevoked, RevokedState#revoke_state{reasons_mask = ReasonsMask}, IDP}
     catch
 	throw:_ ->
@@ -183,7 +184,7 @@ verify_mask_and_signatures(Revoked, DeltaRevoked, RevokedState, CRL, DerCRL, Del
 
 
 verify_crl_signatures(CRL, DerCRL, DeltaCRL, DerDeltaCRL, TrustedOtpCert, Path,
-		      IssuerFun, OtherDPCRLs) ->
+		      IssuerFun, OtherDPCRLs, IDP) ->
     try
 	VerifyFunAndState =
 	    {fun(_, {bad_cert, _} = Reason, _UserState) ->
@@ -195,11 +196,11 @@ verify_crl_signatures(CRL, DerCRL, DeltaCRL, DerDeltaCRL, TrustedOtpCert, Path,
 		(Cert, valid_peer, UserState) ->
 		     case verify_crl_keybit(Cert, cRLSign) of
 			 true ->
-			     handle_signer(Cert, IssuerFun, UserState);
+			     handle_crlsigner(Cert, IssuerFun, UserState);
 			 false ->
 			     {fail, crl_sign_bit_not_set}
 		     end
-	     end, #userstate{dpcrls = OtherDPCRLs}},
+	     end, #userstate{dpcrls = OtherDPCRLs, idp = IDP}},
 
 	{ok, {{_,Key, KeyParams},_}} =
 	    public_key:pkix_path_validation(TrustedOtpCert, Path,
@@ -211,17 +212,22 @@ verify_crl_signatures(CRL, DerCRL, DeltaCRL, DerDeltaCRL, TrustedOtpCert, Path,
 	    false
     end.
 
-handle_signer(OtpCert, IssuerFun, UserState) ->
+handle_crlsigner(OtpCert, IssuerFun, #userstate{idp = IDP} = UserState) ->
     case verify_crl_keybit(OtpCert, keyCertSign) of
 	true ->
 	    {valid, UserState};
 	false ->
-	    handle_crlsigner(OtpCert, IssuerFun, UserState)
+	    case not is_indirect_crl(IDP) andalso not public_key:pkix_is_self_signed(OtpCert) of
+		true ->
+		    validate_crl_signing_cert(OtpCert, IssuerFun, UserState);
+		false ->
+		    {valid, UserState}
+	    end
     end.
 
-handle_crlsigner(_, _,#userstate{dpcrls = []} = UserState) ->
+validate_crl_signing_cert(_, _,#userstate{dpcrls = []} = UserState) ->
     {valid, UserState};
-handle_crlsigner(OtpCert, IssuerFun, #userstate{dpcrls = CRLInfo} = UserState) ->
+validate_crl_signing_cert(OtpCert, IssuerFun, #userstate{dpcrls = CRLInfo} = UserState) ->
     case public_key:pkix_crls_validate(OtpCert, CRLInfo, [{issuer_fun, IssuerFun}]) of
 	valid ->
 	    {valid, UserState};
@@ -301,9 +307,9 @@ verify_issuer_and_scope(#'OTPCertificate'{tbsCertificate = TBSCert} = Cert,
 	    issuer_id(Cert, CRL);
 	false ->
 	    %% otherwise verify that the CRL issuer matches the certificate issuer
-	    verify_issuer_and_scope(Cert, DP#'DistributionPoint'{distributionPoint =
-								     [TBSCert#'OTPTBSCertificate'.issuer],
-								 cRLIssuer = asn1_NOVALUE},
+	    verify_issuer_and_scope(Cert, DP#'DistributionPoint'{
+					    distributionPoint = [TBSCert#'OTPTBSCertificate'.issuer],
+					    cRLIssuer = asn1_NOVALUE},
 				    IDP, CRL)
     end;
 verify_issuer_and_scope(#'OTPCertificate'{tbsCertificate = TBSCert}= Cert,
@@ -332,13 +338,18 @@ verify_scope(_,_, undefined) ->
     ok;
 verify_scope(#'OTPCertificate'{tbsCertificate = TBSCert}, #'DistributionPoint'{cRLIssuer = DPIssuer} = DP, IDP) ->
     CertIssuer = TBSCert#'OTPTBSCertificate'.issuer,
-    Names = gen_names(DPIssuer),
+    Names = case gen_names(DPIssuer) of
+		[{directoryName, TNames}] ->
+		    TNames;
+		Other ->
+		    Other
+	    end,
     DPName =  dp_names(DP#'DistributionPoint'.distributionPoint, Names, CertIssuer),
     IDPName = dp_names(IDP#'IssuingDistributionPoint'.distributionPoint, Names, CertIssuer),
     verify_scope(DPName, IDPName, Names, TBSCert, IDP).
 
 verify_scope(asn1_NOVALUE, _, asn1_NOVALUE, _, _) ->
-    throw({bad_crl, scope_error});
+    throw({bad_crl, scope_error1});
 verify_scope(asn1_NOVALUE, IDPName, DPIssuerNames, TBSCert, IDP) ->
     verify_dp_name(IDPName, DPIssuerNames),
     verify_dp_bools(TBSCert, IDP);
@@ -350,44 +361,43 @@ verify_scope(DPName, IDPName, _, TBSCert, IDP) ->
 dp_names(asn1_NOVALUE, _, _) ->
     asn1_NOVALUE;
 dp_names({fullName, Name}, _, _) ->
-    {fullName, gen_names(Name)};
+     gen_names(Name);
 dp_names({nameRelativeToCRLIssuer, Fragment}, asn1_NOVALUE, {rdnSequence, RelativeDestinguistNames}) ->
-    {nameRelativeToCRLIssuer, [{directoryName, {rdnSequence, RelativeDestinguistNames ++
-						    lists:map(fun(AttrAndValue) ->
-								      pubkey_cert_records:transform(AttrAndValue, decode)
-							      end, Fragment)}}]};
+    [{directoryName, {rdnSequence, RelativeDestinguistNames ++
+			  [lists:map(fun(AttrAndValue) ->
+					     pubkey_cert_records:transform(AttrAndValue, decode)
+				     end, Fragment)]}}];
 dp_names({nameRelativeToCRLIssuer, Fragment},{rdnSequence, RelativeDestinguistNames}, _) ->
-    {nameRelativeToCRLIssuer, [{directoryName, {rdnSequence, RelativeDestinguistNames ++
-						    lists:map(fun(AttrAndValue) ->
-								      pubkey_cert_records:transform(AttrAndValue, decode)
-							      end, Fragment)}}]};
+     [{directoryName, {rdnSequence, RelativeDestinguistNames ++
+			   [lists:map(fun(AttrAndValue) ->
+					      pubkey_cert_records:transform(AttrAndValue, decode)
+				      end, Fragment)]}}];
 dp_names([{rdnSequence, _}] = Name0, _,_) ->
     [Name] = pubkey_cert_records:transform(Name0, decode),
-    {fullName, [{directoryName, Name}]}.
+    [{directoryName, Name}].
 
 gen_names(asn1_NOVALUE) ->
     asn1_NOVALUE;
 gen_names([]) ->
     [];
 gen_names([{NameType, Name} | Rest]) ->
-    [{NameType,  pubkey_cert_records:transform(Name, decode)} | gen_names(Rest)].
+    [ {NameType, pubkey_cert_records:transform(Name, decode)} | gen_names(Rest)].
 
 verify_dp_name(asn1_NOVALUE, _) ->
     ok;
-verify_dp_name({Type, IDPNames}, {Type, DPorIssuerNames}) ->
-    case match_one(IDPNames, DPorIssuerNames) of
+
+verify_dp_name(IDPNames, DPorIssuerNames) ->
+    case match_one(DPorIssuerNames, IDPNames) of
 	true ->
 	    ok;
 	false ->
 	    throw({bad_crl, scope_error})
-    end;
-verify_dp_name(_,_) ->
-    throw({bad_crl, scope_error}).
+    end.
 
 match_one([], _) ->
     false;
-match_one([{Type, Name} | RestIDP], DPorIssuerNames) ->
-    Candidates = [NameName || {NameType, NameName} <- DPorIssuerNames, NameType == Type],
+match_one([{Type, Name} | Names], CandidateNames) ->
+    Candidates = [NameName || {NameType, NameName} <- CandidateNames, NameType == Type],
     case Candidates of
 	[] ->
 	    false;
@@ -395,7 +405,7 @@ match_one([{Type, Name} | RestIDP], DPorIssuerNames) ->
 		     true ->
 			 true;
 		 false ->
-			 match_one(RestIDP, DPorIssuerNames)
+			 match_one(Names, CandidateNames)
 		 end
     end.
 
