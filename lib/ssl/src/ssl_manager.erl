@@ -30,7 +30,7 @@
 -export([start_link/1, start_link_dist/1,
 	 connection_init/2, cache_pem_file/2,
 	 lookup_trusted_cert/4,
-	 server_session_id/4,
+	 new_session_id/1,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
@@ -56,6 +56,7 @@
 
 -define('24H_in_msec', 8640000).
 -define('24H_in_sec', 8640).
+-define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
 -define(CERTIFICATE_CACHE_CLEANUP, 30000).
 -define(CLEAN_SESSION_DB, 60000).
@@ -95,12 +96,10 @@ connection_init(Trustedcerts, Role) ->
 %% Description: Cach a pem file and return its content.
 %%--------------------------------------------------------------------
 cache_pem_file(File, DbHandle) ->
-    try file:read_file_info(File) of
+    case file:read_file_info(File) of
 	{ok, #file_info{mtime = LastWrite}} ->
-	    cache_pem_file(File, LastWrite, DbHandle)
-    catch
-	_:Reason ->
-	    {error, Reason}
+	    cache_pem_file(File, LastWrite, DbHandle);
+	Error -> Error
     end.
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(term(), reference(), serialnumber(), issuer()) ->
@@ -114,13 +113,12 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
     ssl_certificate_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
 
 %%--------------------------------------------------------------------
--spec server_session_id(host(), inet:port_number(), #ssl_options{},
-			der_cert()) -> session_id().
+-spec new_session_id(integer()) -> session_id().
 %%
-%% Description: Select a session id for the server.
+%% Description: Creates a session id for the server.
 %%--------------------------------------------------------------------
-server_session_id(Port, SuggestedSessionId, SslOpts, OwnCert) ->
-    call({server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}).
+new_session_id(Port) ->
+    call({new_session_id, Port}).
 
 %%--------------------------------------------------------------------
 -spec register_session(inet:port_number(), #session{}) -> ok.
@@ -206,12 +204,10 @@ handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
 	end,
     {reply, Result, State};
 
-handle_call({{server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}, _},
+handle_call({{new_session_id,Port}, _},
 	    _, #state{session_cache_cb = CacheCb,
-		      session_cache = Cache,
-		      session_lifetime = LifeTime} = State) ->
-    Id = ssl_session:id(Port, SuggestedSessionId, SslOpts,
-			Cache, CacheCb, LifeTime, OwnCert),
+		      session_cache = Cache} = State) ->
+    Id = new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb),
     {reply, Id, State};
 
 handle_call({{cache_pem, File, LastWrite}, Pid}, _, 
@@ -433,3 +429,28 @@ last_delay_timer({{_,_},_}, TRef, {LastServer, _}) ->
     {LastServer, TRef};
 last_delay_timer({_,_}, TRef, {_, LastClient}) ->
     {TRef, LastClient}.
+
+%% If we can not generate a not allready in use session ID in
+%% ?GEN_UNIQUE_ID_MAX_TRIES we make the new session uncacheable The
+%% value of ?GEN_UNIQUE_ID_MAX_TRIES is stolen from open SSL which
+%% states : "If we can not find a session id in
+%% ?GEN_UNIQUE_ID_MAX_TRIES either the RAND code is broken or someone
+%% is trying to open roughly very close to 2^128 (or 2^256) SSL
+%% sessions to our server"
+new_id(_, 0, _, _) ->
+    <<>>;
+new_id(Port, Tries, Cache, CacheCb) ->
+    Id = crypto:rand_bytes(?NUM_OF_SESSION_ID_BYTES),
+    case CacheCb:lookup(Cache, {Port, Id}) of
+	undefined ->
+	    Now =  calendar:datetime_to_gregorian_seconds({date(), time()}),
+	    %% New sessions can not be set to resumable
+	    %% until handshake is compleate and the
+	    %% other session values are set.
+	    CacheCb:update(Cache, {Port, Id}, #session{session_id = Id,
+						       is_resumable = false,
+						       time_stamp = Now}),
+	    Id;
+	_ ->
+	    new_id(Port, Tries - 1, Cache, CacheCb)
+    end.

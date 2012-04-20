@@ -70,7 +70,7 @@ client_hello(Host, Port, ConnectionStates,
     SecParams = Pending#connection_state.security_parameters,
     Ciphers = available_suites(UserSuites, Version),
 
-    Id = ssl_session:id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
+    Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
 
     #client_hello{session_id = Id,
 		  client_version = Version,
@@ -587,24 +587,23 @@ path_validation_alert({bad_cert, unknown_ca}) ->
 path_validation_alert(_) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE).
 
-select_session(Hello, Port, Session, Version, 
+select_session(Hello, Port, Session, Version,
 	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb, Cert) ->
     SuggestedSessionId = Hello#client_hello.session_id,
-    SessionId = ssl_manager:server_session_id(Port, SuggestedSessionId, 
-					      SslOpts, Cert),
-    
-    Suites = available_suites(Cert, UserSuites, Version), 
-    case ssl_session:is_new(SuggestedSessionId, SessionId) of
-        true ->
-	    CipherSuite = 
-		select_cipher_suite(Hello#client_hello.cipher_suites, Suites),
+    {SessionId, Resumed} = ssl_session:server_id(Port, SuggestedSessionId,
+						 SslOpts, Cert,
+						 Cache, CacheCb),
+    Suites = available_suites(Cert, UserSuites, Version),
+    case Resumed of
+        undefined ->
+	    CipherSuite = select_cipher_suite(Hello#client_hello.cipher_suites, Suites),
 	    Compressions = Hello#client_hello.compression_methods,
 	    Compression = select_compression(Compressions),
 	    {new, Session#session{session_id = SessionId,
 				  cipher_suite = CipherSuite,
 				  compression_method = Compression}};
-	false ->	    
-	    {resumed, CacheCb:lookup(Cache, {Port, SessionId})}
+	_ ->
+	    {resumed, Resumed}
     end.
 
 available_suites(UserSuites, Version) ->
