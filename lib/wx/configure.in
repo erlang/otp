@@ -571,7 +571,7 @@ if test X"$WX_HAVE_STATIC_LIBS" = X"true" ; then
    LIBS=$WX_LIBS_STATIC   
 fi
 
-AC_LINK_IFELSE([
+AC_LINK_IFELSE([AC_LANG_SOURCE([
 		#ifdef WIN32
 		# include <windows.h>
 	        # include <gl/gl.h>
@@ -583,6 +583,7 @@ AC_LINK_IFELSE([
                 #include "wx/wx.h"
 		#include "wx/stc/stc.h"
 		#include "wx/glcanvas.h"
+		])
 
 		class MyApp : public wxApp
 		{
