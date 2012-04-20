@@ -253,7 +253,9 @@ erts_get_async_ready_queue(Uint sched_id)
 
 static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
 {
+#ifdef USE_VM_PROBES
     int len;
+#endif
 
     if (is_internal_port(a->port)) {
 #if ERTS_USE_ASYNC_READY_Q
@@ -291,7 +293,9 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
     int saved_fin_deq = 0;
     ErtsThrQFinDeQ_t fin_deq;
 #endif
+#ifdef USE_VM_PROBES
     int len;
+#endif
 
     while (1) {
 	ErtsAsync *a = (ErtsAsync *) erts_thr_q_dequeue(q);
