@@ -346,8 +346,9 @@ handle_option([{role, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{compression, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{allow_user_interaction, _} = Opt | Rest], SocketOptions, SshOptions) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+%%Backwards compatibility
+handle_option([{allow_user_interaction, Value}  | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option({user_interaction, Value}) | SshOptions]);
 handle_option([{infofun, _} = Opt | Rest],SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{connectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
@@ -365,6 +366,8 @@ handle_option([{subsystems, _} = Opt | Rest], SocketOptions, SshOptions) ->
 handle_option([{ssh_cli, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{shell, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
@@ -401,8 +404,9 @@ handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
     Opt;
 handle_ssh_option({compression, Value} = Opt) when is_atom(Value) ->
     Opt;
-handle_ssh_option({allow_user_interaction, Value} = Opt) when Value == true;
-							      Value == false ->
+handle_ssh_option({exec, {Module, Function, _}} = Opt) when is_atom(Module), 
+							    is_atom(Function) ->
+
     Opt;
 handle_ssh_option({infofun, Value} = Opt)  when is_function(Value) ->
     Opt;
@@ -412,11 +416,12 @@ handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
     Opt;
 handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
     Opt;
-handle_ssh_option({ip_v6_disabled, Value} = Opt) when is_function(Value) ->
+handle_ssh_option({ip_v6_disabled, Value} = Opt) when Value == true;
+						      Value == false ->
     Opt;
 handle_ssh_option({transport, {Protocol, Cb, ClosTag}} = Opt) when is_atom(Protocol),
-							     is_atom(Cb),
-							     is_atom(ClosTag) ->
+								   is_atom(Cb),
+								   is_atom(ClosTag) ->
     Opt;
 handle_ssh_option({subsystems, Value} = Opt) when is_list(Value) ->
     Opt;
@@ -495,4 +500,3 @@ verify_data(Data, Signature, Algorithm) when is_binary(Data), is_binary(Signatur
 	Error ->
 	    Error
     end.
-
