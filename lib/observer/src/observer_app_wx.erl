@@ -147,11 +147,11 @@ setup_scrollbar({CW, CH}, AppWin, #app{dim={W0,H0}}) ->
     H = max(H0,CH),
     PPC = 20,
     if W0 =< CW, H0 =< CH ->
-	    wxScrolledWindow:setScrollbars(AppWin, W, H, 1, 1);
+	    wxScrolledWindow:setScrollbars(AppWin, W, H, 0, 0);
        H0 =< CH ->
-	    wxScrolledWindow:setScrollbars(AppWin, PPC, H, W div PPC+1, 1);
+	    wxScrolledWindow:setScrollbars(AppWin, PPC, H, W div PPC+1, 0);
        W0 =< CW ->
-	    wxScrolledWindow:setScrollbars(AppWin, W, PPC, 1, H div PPC+1);
+	    wxScrolledWindow:setScrollbars(AppWin, W, PPC, 0, H div PPC+1);
        true ->
 	    wxScrolledWindow:setScrollbars(AppWin, PPC, PPC, W div PPC+1, H div PPC+1)
     end;
