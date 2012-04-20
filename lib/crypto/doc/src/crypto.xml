@@ -870,10 +870,15 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <fsummary>Sign the data using rsa with the given key.</fsummary>
       <type>
         <v>Data = Mpint</v>
-        <v>Key = [E, N, D]</v>
+        <v>Key = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
         <v>E, N, D = Mpint</v>
         <d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
 	  <c>D</c> is the private exponent.</d>
+	<v>P1, P2, E1, E2, C = Mpint</v>
+	<d>The longer key format contains redundant information that will make
+	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
+           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
+           Terminology is taken from RFC 3447.</d>
 	<v>DigestType = md5 | sha</v>
 	<d>The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
@@ -943,10 +948,15 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <fsummary>Decrypts ChipherText using the private Key.</fsummary>
       <type>
 	<v>ChipherText = binary()</v>
-	<v>PrivateKey = [E, N, D]</v>
+	<v>PrivateKey = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
 	<v>E, N, D = Mpint</v>
 	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus  and 
 	  <c>D</c> is the private exponent.</d>
+	<v>P1, P2, E1, E2, C = Mpint</v>
+	<d>The longer key format contains redundant information that will make
+	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
+           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
+           Terminology is taken from RFC 3447.</d>
 	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
         <v>PlainText = binary()</v>
       </type>
@@ -965,10 +975,15 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <fsummary>Encrypts Msg using the private Key.</fsummary>
       <type>
 	<v>PlainText = binary()</v>
-	<v>PrivateKey = [E, N, D]</v>
-	<v>E, N, D = Mpint</v>	
+	<v>PrivateKey = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
+	<v>E, N, D = Mpint</v>
 	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
 	  <c>D</c> is the private exponent.</d>
+	<v>P1, P2, E1, E2, C = Mpint</v>
+	<d>The longer key format contains redundant information that will make
+	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
+           <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
+           Terminology is taken from RFC 3447.</d>
 	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
         <v>ChipherText = binary()</v>
       </type>

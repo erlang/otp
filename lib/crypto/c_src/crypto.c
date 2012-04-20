@@ -1456,10 +1456,37 @@ static ERL_NIF_TERM rc2_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     return ret;
 }
 
-static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type,Data,Key=[E,N,D]) */
-    ErlNifBinary data_bin, ret_bin;
+static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
+{
+    /* key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C] */
     ERL_NIF_TERM head, tail;
+
+    if (!enif_get_list_cell(env, key, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->d)
+	|| (!enif_is_empty_list(env, tail) &&
+	    (!enif_get_list_cell(env, tail, &head, &tail)
+	     || !get_bn_from_mpint(env, head, &rsa->p)
+	     || !enif_get_list_cell(env, tail, &head, &tail)
+	     || !get_bn_from_mpint(env, head, &rsa->q)
+	     || !enif_get_list_cell(env, tail, &head, &tail)
+	     || !get_bn_from_mpint(env, head, &rsa->dmp1)
+	     || !enif_get_list_cell(env, tail, &head, &tail)
+	     || !get_bn_from_mpint(env, head, &rsa->dmq1)
+	     || !enif_get_list_cell(env, tail, &head, &tail)
+	     || !get_bn_from_mpint(env, head, &rsa->iqmp)
+	     || !enif_is_empty_list(env, tail)))) {
+	return 0;
+    }
+    return 1;
+}
+
+static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type,Data,Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C]) */
+    ErlNifBinary data_bin, ret_bin;
     unsigned char hmacbuf[SHA_DIGEST_LENGTH];
     unsigned rsa_s_len;
     RSA *rsa = RSA_new();
@@ -1470,13 +1497,7 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     else goto badarg;
 
     if (!inspect_mpint(env,argv[1],&data_bin)
-	|| !enif_get_list_cell(env, argv[2], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->d)
-	|| !enif_is_empty_list(env,tail)) {
+	|| !get_rsa_private_key(env, argv[2], rsa)) {
     badarg:
 	RSA_free(rsa);
 	return enif_make_badarg(env);
@@ -1623,20 +1644,13 @@ static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TER
 }
 
 static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data, PublKey=[E,N,D], Padding, IsEncrypt) */
+{/* (Data, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C], Padding, IsEncrypt) */
     ErlNifBinary data_bin, ret_bin;
-    ERL_NIF_TERM head, tail;
     int padding, i;
     RSA* rsa = RSA_new();
 
     if (!enif_inspect_binary(env, argv[0], &data_bin)
-	|| !enif_get_list_cell(env, argv[1], &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->e)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->n)
-	|| !enif_get_list_cell(env, tail, &head, &tail)
-	|| !get_bn_from_mpint(env, head, &rsa->d)
-	|| !enif_is_empty_list(env,tail)
+	|| !get_rsa_private_key(env, argv[1], rsa)
 	|| !rsa_pad(argv[2], &padding)) {
 
 	RSA_free(rsa);

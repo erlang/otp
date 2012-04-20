@@ -241,15 +241,15 @@ pkix_encode(Asn1Type, Term0, otp) when is_atom(Asn1Type) ->
 decrypt_private(CipherText, Key) ->
     decrypt_private(CipherText, Key, []).
 
-decrypt_private(CipherText, 
-		#'RSAPrivateKey'{modulus = N,publicExponent = E,
-				 privateExponent = D}, 
-		Options)  when is_binary(CipherText), 
-			       is_list(Options) ->
+decrypt_private(CipherText,
+		#'RSAPrivateKey'{modulus = N, publicExponent = E,
+				 privateExponent = D} = Key,
+		Options)
+  when is_binary(CipherText),
+       is_integer(N), is_integer(E), is_integer(D),  
+       is_list(Options) ->
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_decrypt(CipherText, 
-			       [crypto:mpint(E), crypto:mpint(N),
-				crypto:mpint(D)], Padding).
+    crypto:rsa_private_decrypt(CipherText, format_rsa_private_key(Key), Padding).
 
 %%--------------------------------------------------------------------
 -spec decrypt_public(CipherText :: binary(), rsa_public_key() | rsa_private_key()) ->
@@ -307,14 +307,29 @@ encrypt_public(PlainText, #'RSAPrivateKey'{modulus=N,publicExponent=E},
 encrypt_private(PlainText, Key) ->
     encrypt_private(PlainText, Key, []).
 
-encrypt_private(PlainText, #'RSAPrivateKey'{modulus = N,
-					    publicExponent = E, 
-					    privateExponent = D}, 
-		Options) when is_binary(PlainText), is_list(Options) ->		
+encrypt_private(PlainText,
+		#'RSAPrivateKey'{modulus = N, publicExponent = E,
+				 privateExponent = D} = Key,
+		Options)
+  when is_binary(PlainText),
+       is_integer(N), is_integer(E), is_integer(D),
+       is_list(Options) ->		
     Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
-    crypto:rsa_private_encrypt(PlainText, [crypto:mpint(E), 
-					   crypto:mpint(N), 
-					   crypto:mpint(D)], Padding).
+    crypto:rsa_private_encrypt(PlainText, format_rsa_private_key(Key), Padding).
+
+
+format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
+					privateExponent = D,
+					prime1 = P1, prime2 = P2,
+					exponent1 = E1, exponent2 = E2,
+					coefficient = C})
+  when is_integer(P1), is_integer(P2), 
+       is_integer(E1), is_integer(E2), is_integer(C) ->
+   [crypto:mpint(K) || K <- [E, N, D, P1, P2, E1, E2, C]];
+
+format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
+					privateExponent = D}) ->
+   [crypto:mpint(K) || K <- [E, N, D]].
 
 %%--------------------------------------------------------------------
 -spec sign(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type(), 
@@ -323,15 +338,13 @@ encrypt_private(PlainText, #'RSAPrivateKey'{modulus = N,
 %%
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
-sign(PlainText, DigestType,  #'RSAPrivateKey'{modulus = N,  publicExponent = E,
-					      privateExponent = D}) 
+sign(PlainText, DigestType,
+     #'RSAPrivateKey'{modulus = N, publicExponent = E, privateExponent = D} = Key)
   when is_binary(PlainText),
-       (DigestType == md5 orelse
-	DigestType == sha) ->
-    
-    crypto:rsa_sign(DigestType, sized_binary(PlainText), [crypto:mpint(E),
-							  crypto:mpint(N),
-							  crypto:mpint(D)]);
+       (DigestType == md5 orelse DigestType == sha),
+       is_integer(N), is_integer(E), is_integer(D)  ->
+    crypto:rsa_sign(DigestType, sized_binary(PlainText),
+                    format_rsa_private_key(Key));
 
 sign(Digest, none, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) 
   when is_binary(Digest)->
