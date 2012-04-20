@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -215,7 +215,7 @@ handle_info({ssh_cm, ConnectionManager, {closed, ChannelId}},
 		   close_sent = false} = State) ->
     %% To be on the safe side, i.e. the manager has already been terminated.
     (catch ssh_connection:close(ConnectionManager, ChannelId)),
-    {stop, normal, State};
+    {stop, normal, State#state{close_sent = true}};
 
 handle_info({ssh_cm, _, _} = Msg, #state{cm = ConnectionManager,
 			channel_cb = Module, 
