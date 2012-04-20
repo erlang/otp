@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -167,8 +167,10 @@ module_selector(Parent, Node) ->
 
 function_selector(Parent, Node, Module) ->
     Functions = observer_wx:try_rpc(Node, Module, module_info, [functions]),
-    Choices = lists:sort([{Name, Arity} || {Name, Arity} <- Functions,
-					   not(erl_internal:guard_bif(Name, Arity))]),
+    Externals = observer_wx:try_rpc(Node, Module, module_info, [exports]),
+
+    Choices = lists:usort([{Name, Arity} || {Name, Arity} <- Externals ++ Functions,
+					    not(erl_internal:guard_bif(Name, Arity))]),
     ParsedChoices = parse_function_names(Choices),
     case check_selector(Parent, ParsedChoices) of
 	[] -> [{Module, '_', '_'}];
