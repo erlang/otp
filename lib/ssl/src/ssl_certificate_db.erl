@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -73,7 +73,7 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
     end.
 
 lookup_cached_certs(DbHandle, File) ->
-    ets:lookup(DbHandle, {file, File}).
+    ets:lookup(DbHandle, {file, crypto:md5(File)}).
 
 %%--------------------------------------------------------------------
 -spec add_trusted_certs(pid(), string() | {der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
@@ -87,17 +87,18 @@ add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
     add_certs_from_der(DerList, NewRef, CerDb),
     {ok, NewRef};
 add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
-    Ref = case lookup(File, FileToRefDb) of
+    MD5 = crypto:md5(File),
+    Ref = case lookup(MD5, FileToRefDb) of
 	      undefined ->
 		  NewRef = make_ref(),
 		  add_certs_from_file(File, NewRef, CertsDb),
-		  insert(File, NewRef, 1, FileToRefDb),
+		  insert(MD5, NewRef, 1, FileToRefDb),
 		  NewRef;
 	      [OldRef] ->
-		  ref_count(File,FileToRefDb,1),
+		  ref_count(MD5,FileToRefDb,1),
 		  OldRef
 	  end,
-    insert(Pid, File, PidToFileDb),
+    insert(Pid, MD5, PidToFileDb),
     {ok, Ref}.
 %%--------------------------------------------------------------------
 -spec cache_pem_file(pid(), string(), time(), [db_handle()]) -> term().
@@ -107,8 +108,9 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
 cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
     {ok, PemBin} = file:read_file(File), 
     Content = public_key:pem_decode(PemBin),
-    insert({file, File}, {Time, Content}, CertsDb),
-    insert(Pid, File, PidToFileDb),
+    MD5 = crypto:md5(File),
+    insert({file, MD5}, {Time, Content}, CertsDb),
+    insert(Pid, MD5, PidToFileDb),
     {ok, Content}.
 
 %--------------------------------------------------------------------
@@ -122,7 +124,7 @@ cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
 %% but with different content.
 %% --------------------------------------------------------------------
 uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
-    Pids = select(PidToFileDb, [{{'$1', File},[],['$$']}]),
+    Pids = select(PidToFileDb, [{{'$1', crypto:md5(File)},[],['$$']}]),
     lists:foreach(fun([Pid]) ->
 			  exit(Pid, shutdown)
 		  end, Pids).
@@ -135,26 +137,26 @@ uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
 %% the file associated to Pid from the runtime database.  
 %%--------------------------------------------------------------------
 remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
-    Files = lookup(Pid, PidToFileDb),
+    FileMD5s = lookup(Pid, PidToFileDb),
     delete(Pid, PidToFileDb),
-    Clear = fun(File) ->
-		    delete({file,File}, CertsDb),
+    Clear = fun(MD5) ->
+		    delete({file,MD5}, CertsDb),
 		    try
-			0 = ref_count(File, FileToRefDb, -1),
-			case lookup(File, FileToRefDb) of
+			0 = ref_count(MD5, FileToRefDb, -1),
+			case lookup(MD5, FileToRefDb) of
 			    [Ref] when is_reference(Ref) ->
 				remove_certs(Ref, CertsDb);
 			    _ -> ok
 			end,
-			delete(File, FileToRefDb)
+			delete(MD5, FileToRefDb)
 		    catch _:_ ->
 			    ok
 		    end
 	    end,
-    case Files of 
+    case FileMD5s of
 	undefined -> ok;
-	_ -> 
-	    [Clear(File) || File <- Files],
+	_ ->
+	    [Clear(FileMD5) || FileMD5 <- FileMD5s],
 	    ok
     end.
 

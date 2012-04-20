@@ -320,14 +320,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
 	throw:Error ->
 	    gen_fsm:enter_loop(?MODULE, [], error, {Error,State0}, get_timeout(State0))
     end.
-   
-%%--------------------------------------------------------------------
-%% Description:There should be one instance of this function for each
-%% possible state name. Whenever a gen_fsm receives an event sent
-%% using gen_fsm:send_event/2, the instance of this function with the
-%% same name as the current state name StateName is called to handle
-%% the event. It is also called if a timeout occurs.
-%%
+
 %%--------------------------------------------------------------------
 %% Description:There should be one instance of this function for each
 %% possible state name. Whenever a gen_fsm receives an event sent
