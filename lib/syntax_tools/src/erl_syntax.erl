@@ -2061,11 +2061,17 @@ revert_nil(Node) ->
 
 list_prefix(Node) ->
     case unwrap(Node) of
-	{cons, _, Head, _} ->
-	    [Head];
+	{cons, _, Head, Tail} ->
+	    [Head | cons_prefix(Tail)];
 	Node1 ->
 	    (data(Node1))#list.prefix
     end.
+
+%% collects sequences of conses; cf. cons_suffix/1 below
+cons_prefix({cons, _, Head, Tail}) ->
+    [Head | cons_prefix(Tail)];
+cons_prefix(_) ->
+    [].
 
 
 %% =====================================================================
@@ -2090,17 +2096,21 @@ list_prefix(Node) ->
 list_suffix(Node) ->
     case unwrap(Node) of
 	{cons, _, _, Tail} ->
-	    %% If there could be comments/annotations on the tail node,
-	    %% we should not return `none' even if it has type `nil'.
-	    case Tail of
+	    case cons_suffix(Tail) of
 		{nil, _} ->
-		    none;    % no interesting information is lost
-		_ ->
-		    Tail
+		    none;
+		Tail1 ->
+		    Tail1
 	    end;
 	Node1 ->
 	    (data(Node1))#list.suffix
     end.
+
+%% skips sequences of conses; cf. cons_prefix/1 above
+cons_suffix({cons, _, _, Tail}) ->
+    cons_suffix(Tail);
+cons_suffix(Tail) ->
+    Tail.
 
 
 %% =====================================================================
