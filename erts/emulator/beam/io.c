@@ -1364,7 +1364,7 @@ void init_io(void)
 #else
 				 "port_state",
 #endif
-				 0);
+				 make_small(0));
 #endif
 	erts_port[i].tracer_proc = NIL;
 	erts_port[i].trace_flags = 0;
