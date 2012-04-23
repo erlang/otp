@@ -1,0 +1,31 @@
+
+contracts_with_subtypes.erl:106: The call contracts_with_subtypes:rec_arg({'a','b'}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
+contracts_with_subtypes.erl:107: The call contracts_with_subtypes:rec_arg({'b','a'}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
+contracts_with_subtypes.erl:108: The call contracts_with_subtypes:rec_arg({'a',{'b','a'}}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
+contracts_with_subtypes.erl:109: The call contracts_with_subtypes:rec_arg({'b',{'a','b'}}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
+contracts_with_subtypes.erl:110: The call contracts_with_subtypes:rec_arg({'a',{'b',{'a','b'}}}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
+contracts_with_subtypes.erl:111: The call contracts_with_subtypes:rec_arg({'b',{'a',{'b','a'}}}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
+contracts_with_subtypes.erl:142: The pattern 1 can never match the type binary() | string()
+contracts_with_subtypes.erl:145: The pattern 'alpha' can never match the type {'ok',X} | {'ok',X,binary() | string()}
+contracts_with_subtypes.erl:147: The pattern 42 can never match the type {'ok',_} | {'ok',_,binary() | string()}
+contracts_with_subtypes.erl:163: The pattern 'alpha' can never match the type {'ok',X}
+contracts_with_subtypes.erl:165: The pattern 42 can never match the type {'ok',X}
+contracts_with_subtypes.erl:183: The pattern 'alpha' can never match the type {'ok',X}
+contracts_with_subtypes.erl:185: The pattern 42 can never match the type {'ok',X}
+contracts_with_subtypes.erl:202: The pattern 1 can never match the type binary() | string()
+contracts_with_subtypes.erl:205: The pattern {'ok', _} can never match the type {'ok',X,binary() | string()}
+contracts_with_subtypes.erl:206: The pattern 'alpha' can never match the type {'ok',X,binary() | string()}
+contracts_with_subtypes.erl:207: The pattern {'ok', 42} can never match the type {'ok',X,binary() | string()}
+contracts_with_subtypes.erl:208: The pattern 42 can never match the type {'ok',X,binary() | string()}
+contracts_with_subtypes.erl:234: Function flat_ets_new_t/0 has no local return
+contracts_with_subtypes.erl:235: The call contracts_with_subtypes:flat_ets_new(12,[]) breaks the contract (Name,Options) -> atom() when is_subtype(Name,atom()), is_subtype(Options,[Option]), is_subtype(Option,'set' | 'ordered_set' | 'bag' | 'duplicate_bag' | 'public' | 'protected' | 'private' | 'named_table' | {'keypos',integer()} | {'heir',pid(),term()} | {'heir','none'} | {'write_concurrency',boolean()} | {'read_concurrency',boolean()} | 'compressed')
+contracts_with_subtypes.erl:23: Invalid type specification for function contracts_with_subtypes:extract2/0. The success typing is () -> 'something'
+contracts_with_subtypes.erl:261: Function factored_ets_new_t/0 has no local return
+contracts_with_subtypes.erl:262: The call contracts_with_subtypes:factored_ets_new(12,[]) breaks the contract (Name,Options) -> atom() when is_subtype(Name,atom()), is_subtype(Options,[Option]), is_subtype(Option,Type | Access | 'named_table' | {'keypos',Pos} | {'heir',Pid::pid(),HeirData} | {'heir','none'} | Tweaks), is_subtype(Type,type()), is_subtype(Access,access()), is_subtype(Tweaks,{'write_concurrency',boolean()} | {'read_concurrency',boolean()} | 'compressed'), is_subtype(Pos,pos_integer()), is_subtype(HeirData,term())
+contracts_with_subtypes.erl:77: The call contracts_with_subtypes:foo1(5) breaks the contract (Arg1) -> Res when is_subtype(Arg1,atom()), is_subtype(Res,atom())
+contracts_with_subtypes.erl:78: The call contracts_with_subtypes:foo2(5) breaks the contract (Arg1) -> Res when is_subtype(Arg1,Arg2), is_subtype(Arg2,atom()), is_subtype(Res,atom())
+contracts_with_subtypes.erl:79: The call contracts_with_subtypes:foo3(5) breaks the contract (Arg1) -> Res when is_subtype(Arg2,atom()), is_subtype(Arg1,Arg2), is_subtype(Res,atom())
+contracts_with_subtypes.erl:7: Invalid type specification for function contracts_with_subtypes:extract/0. The success typing is () -> 'something'
+contracts_with_subtypes.erl:80: The call contracts_with_subtypes:foo4(5) breaks the contract (Type) -> Type when is_subtype(Type,atom())
+contracts_with_subtypes.erl:81: The call contracts_with_subtypes:foo5(5) breaks the contract (Type::atom()) -> Type::atom()
+contracts_with_subtypes.erl:82: The call contracts_with_subtypes:foo6(5) breaks the contract (Type) -> Type when is_subtype(Type,atom())
