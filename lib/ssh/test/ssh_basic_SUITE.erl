@@ -183,7 +183,29 @@ app_test(doc) ->
 app_test(Config) when is_list(Config) ->
     ?t:app_test(ssh),
     ok.
+%%--------------------------------------------------------------------
+misc_ssh_options(doc) ->
+    ["Test that we can set some misc options not tested elsewhere, "
+     "some options not yet present are not decided if we should support or "
+     "if they need thier own test case."];
+misc_ssh_options(suite) ->
+    [];
+misc_ssh_options(Config) when is_list(Config) ->  
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    
+    CMiscOpt0 = [{connecect_timeout, 1000}, {ip_v6_disable, false}, {user_dir, UserDir}],
+    CMiscOpt1 = [{connecect_timeout, infinity}, {ip_v6_disable, true}, {user_dir, UserDir}],
+    SMiscOpt0 =  [{ip_v6_disable, false}, {user_dir, UserDir}, {system_dir, SystemDir}],
+    SMiscOpt1 =  [{ip_v6_disable, true}, {user_dir, UserDir}, {system_dir, SystemDir}],
+    
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
 
+    basic_test([{client_opts, CMiscOpt0 ++ ClientOpts}, {server_opts, SMiscOpt0 ++ ServerOpts}]),
+    basic_test([{client_opts, CMiscOpt1 ++ ClientOpts}, {server_opts, SMiscOpt1 ++ ServerOpts}]).
+
+%%--------------------------------------------------------------------
 exec(doc) ->
     ["Test api function ssh_connection:exec"];
 
@@ -500,13 +522,14 @@ internal_error(Config) when is_list(Config) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
     
-    {_Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     {error,"Internal error"} =
 	ssh:connect(Host, Port, [{silently_accept_hosts, true},
 				 {user_dir, UserDir},
-				 {user_interaction, false}]).
+				 {user_interaction, false}]),
+    ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
 close(doc) ->
@@ -539,3 +562,12 @@ close(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
+  
+basic_test(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    
+    {Pid, Host, Port} = ssh_test_lib:daemon(ServerOpts),
+    {ok, CM} = ssh:connect(Host, Port, ClientOpts),
+    ok = ssh:close(CM),
+    ssh:stop_daemon(Pid).
