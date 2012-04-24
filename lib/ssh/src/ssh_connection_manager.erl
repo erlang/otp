@@ -384,9 +384,10 @@ handle_call({close, ChannelId}, _,
 	    #state{connection = Pid, connection_state = 
 		   #connection{channel_cache = Cache}} = State) ->
     case ssh_channel:cache_lookup(Cache, ChannelId) of			 
-	#channel{remote_id = Id} ->
+	#channel{remote_id = Id} = Channel ->
 	    send_msg({connection_reply, Pid, 
 		      ssh_connection:channel_close_msg(Id)}),
+	    ssh_channel:cache_update(Cache, Channel#channel{sent_close = true}),
 	    {reply, ok, State};
 	undefined -> 
 	    {reply, ok, State}
