@@ -71,7 +71,7 @@ password_msg([#ssh{opts = Opts, io_cb = IoCb,
     ssh_bits:install_messages(userauth_passwd_messages()),
     Password = case proplists:get_value(password, Opts) of
 		   undefined -> 
-		       user_interaction(Opts, IoCb);
+		       user_interaction(IoCb);
 		   PW -> 
 		       PW
 	       end,
@@ -89,13 +89,10 @@ password_msg([#ssh{opts = Opts, io_cb = IoCb,
 	      Ssh)
     end.
 
-user_interaction(Opts, IoCb) ->
-    case proplists:get_value(allow_user_interaction, Opts, true) of
-	true ->
-	    IoCb:read_password("ssh password: ");
-	false ->
-	    not_ok
-    end.
+user_interaction(ssh_no_io) ->
+    not_ok;
+user_interaction(IoCb) ->
+    IoCb:read_password("ssh password: ").
 
 
 %% See RFC 4256 for info on keyboard-interactive
@@ -124,8 +121,7 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 	    FirstAlg = algorithm(proplists:get_value(public_key_alg, Opts,
 					  ?PREFERRED_PK_ALG)),
 	    SecondAlg = other_alg(FirstAlg),
-	    AllowUserInt =  proplists:get_value(allow_user_interaction, Opts,
-						true),
+	    AllowUserInt =  proplists:get_value(user_interaction, Opts, true),
 	    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
 	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
 					    userauth_preference = Prefs,
