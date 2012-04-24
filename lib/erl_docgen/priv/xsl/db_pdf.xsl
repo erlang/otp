@@ -1564,7 +1564,7 @@
     </xsl:variable>
 
     <fo:block xsl:use-attribute-sets="image">
-      <fo:external-graphic content-width="60%" src="{@file}"/>
+      <fo:external-graphic content-width="scale-down-to-fit" inline-progression-dimension.maximum="100%" src="{@file}"/>
 
       <xsl:apply-templates>
         <xsl:with-param name="chapnum" select="$chapnum"/>
