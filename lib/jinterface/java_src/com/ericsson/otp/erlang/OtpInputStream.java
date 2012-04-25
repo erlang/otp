@@ -1112,12 +1112,16 @@ public class OtpInputStream extends ByteArrayInputStream {
 	final int size = read4BE();
 	final byte[] buf = new byte[size];
 	final java.util.zip.InflaterInputStream is = 
-	    new java.util.zip.InflaterInputStream(this);
+	    new java.util.zip.InflaterInputStream(this, new java.util.zip.Inflater(), size);
+	int curPos = 0;
 	try {
-	    final int dsize = is.read(buf, 0, size);
-	    if (dsize != size) {
+	    int curRead;
+	    while(curPos < size && (curRead = is.read(buf, curPos, size - curPos)) != -1) {
+		curPos += curRead;
+	    }
+	    if (curPos != size) {
 		throw new OtpErlangDecodeException("Decompression gave "
-			+ dsize + " bytes, not " + size);
+			+ curPos + " bytes, not " + size);
 	    }
 	} catch (final IOException e) {
 	    throw new OtpErlangDecodeException("Cannot read from input stream");
