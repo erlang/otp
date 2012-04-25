@@ -97,9 +97,11 @@ undefined_functions(Config) when is_list(Config) ->
 	    Fd = open_log(Config, "undefined_functions"),
 	    foreach(fun ({MFA1,MFA2}) ->
 			    io:format("~s calls undefined ~s",
-				      [format_mfa(MFA1),format_mfa(MFA2)]),
+				      [format_mfa(Server, MFA1),
+				       format_mfa(MFA2)]),
 			    io:format(Fd, "~s ~s\n",
-				      [format_mfa(MFA1),format_mfa(MFA2)])
+				      [format_mfa(Server, MFA1),
+				       format_mfa(MFA2)])
 		    end, Undef),
 	    close_log(Fd),
 	    ?line ?t:fail({length(Undef),undefined_functions_in_otp})
@@ -215,9 +217,9 @@ deprecated_not_in_obsolete(Config) when is_list(Config) ->
 	_ ->
 	    io:put_chars("The following functions have -deprecated() attributes,\n"
 			 "but are not listed in otp_internal:obsolete/3.\n"),
-	    ?line print_mfas(group_leader(), L),
+	    print_mfas(group_leader(), Server, L),
 	    Fd = open_log(Config, "deprecated_not_obsolete"),
-	    print_mfas(Fd, L),
+	    print_mfas(Fd, Server, L),
 	    close_log(Fd),
 	    ?line ?t:fail({length(L),deprecated_but_not_obsolete})
     end.
@@ -239,9 +241,9 @@ obsolete_but_not_deprecated(Config) when is_list(Config) ->
 	    io:put_chars("The following functions are listed "
 			 "in otp_internal:obsolete/3,\n"
 			 "but don't have -deprecated() attributes.\n"),
-	    ?line print_mfas(group_leader(), L),
+	    print_mfas(group_leader(), Server, L),
 	    Fd = open_log(Config, "obsolete_not_deprecated"),
-	    print_mfas(Fd, L),
+	    print_mfas(Fd, Server, L),
 	    close_log(Fd),
 	    ?line ?t:fail({length(L),obsolete_but_not_deprecated})
     end.
@@ -310,14 +312,21 @@ strong_components(Config) when is_list(Config) ->
 %%% Common help functions.
 %%%
     
-
-print_mfas(Fd, [MFA|T]) ->
-    io:format(Fd, "~s\n", [format_mfa(MFA)]),
-    print_mfas(Fd, T);
-print_mfas(_, []) -> ok.
+print_mfas(Fd, Server, MFAs) ->
+    [io:format(Fd, "~s\n", [format_mfa(Server, MFA)]) || MFA <- MFAs],
+    ok.
 
 format_mfa({M,F,A}) ->
     lists:flatten(io_lib:format("~s:~s/~p", [M,F,A])).
+
+format_mfa(Server, MFA) ->
+    MFAString = format_mfa(MFA),
+    AQ = "(App)" ++ MFAString,
+    AppPrefix = case xref:q(Server, AQ) of
+		    {ok,[App]} -> "[" ++ atom_to_list(App) ++ "]";
+		    _ -> ""
+		end,
+    AppPrefix ++ MFAString.
 
 open_log(Config, Name) ->
     PrivDir = ?config(priv_dir, Config),
