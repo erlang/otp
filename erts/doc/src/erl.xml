@@ -766,6 +766,16 @@
 	       <seealso marker="erlang#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
           </item>
+	  <tag><marker id="+sbwt"><c>+sbwt none|very_short|short|medium|long|very_long</c></marker></tag>
+	  <item>
+             <p>Set scheduler busy wait threshold. Default is <c>medium</c>.
+	        The threshold determines how long schedulers should busy
+		wait when running out of work before going to sleep.
+	     </p>
+             <p><em>NOTE:</em> This flag may be removed or changed at any time
+	        without prior notice.
+	     </p>
+	  </item>
           <tag><marker id="+scl"><c>+scl true|false</c></marker></tag>
           <item>
 	    <p>Enable or disable scheduler compaction of load. By default
