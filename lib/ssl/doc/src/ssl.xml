@@ -193,13 +193,13 @@
       </item>
 
       <tag>{depth, integer()}</tag>
-      <item>Specifies the maximum
-      verification depth, i.e. how far in a chain of certificates the
-      verification process can proceed before the verification is
-      considered to fail. Peer certificate = 0, CA certificate = 1,
-      higher level CA certificate = 2, etc.  The value 2 thus means
-      that a chain can at most contain peer cert, CA cert, next CA
-      cert, and an additional CA cert. The default value is 1.
+      <item>
+	The depth is the maximum number of non-self-issued
+	intermediate certificates that may follow the peer certificate
+	in a valid certification path.  So if depth is 0 the PEER must
+	be signed by the trusted ROOT-CA directly, if 1 the path can
+	be PEER, CA, ROOT-CA, if it is 2 PEER, CA, CA, ROOT-CA and so
+	on.  The default value is 1.
       </item>
 
       <tag>{verify_fun, {Verifyfun :: fun(), InitialUserState :: term()}}</tag>
