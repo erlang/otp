@@ -769,9 +769,11 @@ resolve_module(_Type, Current, undefined) ->
     Current;
 resolve_module(Type, Current, Imports) ->
     case [Mod || #'SymbolsFromModule'{symbols = S, module = Mod} <- Imports,
-                 #'Externaltypereference'{type = T} <- S,
+                 #'Externaltypereference'{type = T} <- S, 
                  Type == T] of
-        [#'Externaltypereference'{type = Mod}] -> Mod;
+        [#'Externaltypereference'{type = Mod}|_] -> Mod; 
+	%% This allows the same symbol to be imported several times
+	%% which ought to be checked elsewhere and flagged as an error
         []  -> Current
     end.
 

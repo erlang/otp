@@ -1808,19 +1808,21 @@ dec_enumerated_cases([],_,_) ->
 %% have been specified within a SEQUENCE, therefore we construct a fake sequence type here
 %% so that we can generate code for it
 extaddgroup2sequence(ExtList) ->
-    extaddgroup2sequence(ExtList,[]).
+    extaddgroup2sequence(ExtList,0,[]).
 
-extaddgroup2sequence([{'ExtensionAdditionGroup',Number0}|T],Acc) ->
+extaddgroup2sequence([{'ExtensionAdditionGroup',Number0}|T],ExtNum,Acc) ->
     Number = case Number0 of undefined -> 1; _ -> Number0 end,
     {ExtGroupComps,['ExtensionAdditionGroupEnd'|T2]} =
      lists:splitwith(fun(Elem) -> is_record(Elem,'ComponentType') end,T),
-    extaddgroup2sequence(T2,[#'ComponentType'{
-                                  name='ExtAddGroup',
-                                  typespec=#type{def=#'SEQUENCE'{
-						   extaddgroup=Number,
-						   components=ExtGroupComps}},
-				  prop='OPTIONAL'}|Acc]);
-extaddgroup2sequence([C|T],Acc) ->
-    extaddgroup2sequence(T,[C|Acc]);
-extaddgroup2sequence([],Acc) ->
+    extaddgroup2sequence(T2,ExtNum+1,
+			 [#'ComponentType'{
+			     name=list_to_atom("ExtAddGroup"++ 
+						   integer_to_list(ExtNum+1)),
+			     typespec=#type{def=#'SEQUENCE'{
+					      extaddgroup=Number,
+					      components=ExtGroupComps}},
+			     prop='OPTIONAL'}|Acc]);
+extaddgroup2sequence([C|T],ExtNum,Acc) ->
+    extaddgroup2sequence(T,ExtNum,[C|Acc]);
+extaddgroup2sequence([],_,Acc) ->
     lists:reverse(Acc).
