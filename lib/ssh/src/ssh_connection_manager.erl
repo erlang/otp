@@ -267,7 +267,7 @@ handle_call({ssh_msg, Pid, Msg}, From,
 	    disconnect_fun(Reason, SSHOpts),
 	    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
 	catch
-	    _:Reason ->
+	    _:Error ->
 		{disconnect, Reason, {{replies, Replies}, Connection}} =
 		    ssh_connection:handle_msg(
 		      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
@@ -277,7 +277,7 @@ handle_call({ssh_msg, Pid, Msg}, From,
 		lists:foreach(fun send_msg/1, Replies),
 		SSHOpts = proplists:get_value(ssh_opts, Opts),
 		disconnect_fun(Reason, SSHOpts),
-		{stop, {shutdown, Reason}, State#state{connection_state = Connection}}
+		{stop, {shutdown, Error}, State#state{connection_state = Connection}}
 	end;
 
 handle_call({global_request, Pid, _, _, _} = Request, From, 
