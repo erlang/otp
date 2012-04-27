@@ -123,7 +123,7 @@
         <p>Completely closes the socket and all associations on it. The unsent
           data is flushed as in <c>eof/2</c>. The <c>close/1</c> call 
           is blocking or otherwise depending of the value of
-          the <seealso marker="#option-linger">linger</seealso> socket
+          the <seealso marker="inet#option-linger">linger</seealso> socket
           <seealso marker="#options">option</seealso>.
           If <c>close</c> does not linger or linger timeout expires,
           the call returns and the data is flushed in the background.</p>
@@ -309,8 +309,8 @@
           <seealso marker="#option-active">passive</seealso> mode,
 	  with <anno>SockType</anno> <c>seqpacket</c>,
           and with reasonably large
-          <seealso marker="#option-sndbuf">kernel</seealso> and driver
-          <seealso marker="#option-buffer">buffers.</seealso></p>
+          <seealso marker="inet#option-sndbuf">kernel</seealso> and driver
+          <seealso marker="inet#option-buffer">buffers.</seealso></p>
       </desc>
     </func>
     <func>

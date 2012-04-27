@@ -38,15 +38,17 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 
 # Behaviour (api) modules are first so they are compiled when
 # the compiler reaches a callback module using them.
-MODULES= \
+BEHAVIOUR_MODULES= \
 	ssh_sftpd_file_api \
-	ssh_key_api \
+        ssh_channel \
+	ssh_key_api
+
+MODULES= \
 	ssh \
 	ssh_sup \
 	sshc_sup \
 	sshd_sup \
 	ssh_connection_sup \
-        ssh_channel \
 	ssh_connection \
 	ssh_connection_handler \
 	ssh_connection_manager \
@@ -73,11 +75,14 @@ MODULES= \
 
 PUBLIC_HRL_FILES= ssh.hrl ssh_userauth.hrl ssh_xfer.hrl
 
-ERL_FILES= $(MODULES:%=%.erl)
+ERL_FILES= \
+	$(MODULES:%=%.erl) \
+	$(BEHAVIOUR_MODULES:%=%.erl)
 
-ALL_MODULES= $(MODULES)
 
-TARGET_FILES= $(ALL_MODULES:%=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
+TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+
+BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 APP_FILE= ssh.app
 APPUP_FILE= ssh.appup
@@ -93,29 +98,29 @@ INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa$(EBIN)\
-	-pz $(ERL_TOP)/lib/public_key/ebin
+EXTRA_ERLC_FLAGS = +warn_unused_vars
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
+	-pz $(EBIN) \
+	-pz $(ERL_TOP)/lib/public_key/ebin \
+	$(EXTRA_ERLC_FLAGS)
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-debug opt: $(TARGET_FILES)
+$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
-debug: ERLC_FLAGS += -Ddebug
+debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:
-	rm -f $(TARGET_FILES)
+	rm -f $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 	rm -f errs core *~
 
-$(TARGET_FILES): ssh.hrl
-
-# $(EBIN)/ssh_sftpd_file.$(EMULATOR): ERLC_FLAGS += -pa$(EBIN)
-# $(EBIN)/ssh_sftpd_file.$(EMULATOR): $(EBIN)/ssh_sftpd_file_api.$(EMULATOR)
-
-$(APP_TARGET): $(APP_SRC) ../vsn.mk
+$(APP_TARGET):	$(APP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
-$(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
+$(APPUP_TARGET):	$(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 
 
@@ -130,7 +135,8 @@ release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/src
 	$(INSTALL_DATA) $(INTERNAL_HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src
 	$(INSTALL_DIR) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
+	$(INSTALL_DATA) $(BEHAVIOUR_TARGET_FILES) $(TARGET_FILES) $(APP_TARGET) \
+	$(APPUP_TARGET) $(RELSYSDIR)/ebin
 	$(INSTALL_DIR) $(RELSYSDIR)/include
 	$(INSTALL_DATA) $(PUBLIC_HRL_FILES) $(RELSYSDIR)/include
 

@@ -28,6 +28,9 @@ ERL_COMPILE_FLAGS += -pa $(EBIN) -I$(INCLUDE) +warn_unused_vars +nowarn_shadow_v
 
 PARSE_TRANSFORM = eunit_autoexport.erl
 
+BEHAVIOUR_SOURCES= \
+	eunit_listener.erl
+
 SOURCES= \
 	eunit_striptests.erl \
 	eunit.erl \
@@ -40,13 +43,16 @@ SOURCES= \
 	eunit_data.erl \
 	eunit_tty.erl \
 	eunit_surefire.erl \
-	eunit_listener.erl
 
 INCLUDE_FILES = eunit.hrl
 
 PARSE_TRANSFORM_BIN = $(PARSE_TRANSFORM:%.erl=$(EBIN)/%.$(EMULATOR))
 
-OBJECTS=$(SOURCES:%.erl=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
+TARGET_FILES= $(SOURCES:%.erl=$(EBIN)/%.$(EMULATOR))
+
+BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_SOURCES:%.erl=$(EBIN)/%.$(EMULATOR))
+
+OBJECTS= $(TARGET_FILES) $(BEHAVIOUR_TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 INCLUDE_DELIVERABLES = $(INCLUDE_FILES:%=$(INCLUDE)/%)
 
@@ -61,6 +67,8 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+
+$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
 debug opt: $(PARSE_TRANSFORM_BIN) $(OBJECTS)
 

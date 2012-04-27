@@ -23,7 +23,6 @@ BEHAVIOUR_MODULES = \
 	megaco_transport
 
 MODULES = \
-	$(BEHAVIOUR_MODULES) \
 	megaco_config_misc \
 	megaco_config \
 	megaco_digit_map \
