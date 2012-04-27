@@ -449,6 +449,7 @@ fe80::204:acff:fe17:bf38
           <tag><c>{broadcast, Boolean}</c>(UDP sockets)</tag>
           <item>
             <p>Enable/disable permission to send broadcasts.</p>
+			<marker id="option-buffer"></marker>
           </item>
 
 		  <tag><c>{buffer, Size}</c></tag>
@@ -526,6 +527,7 @@ fe80::204:acff:fe17:bf38
               the other end does not respond, the connection is
               considered broken and an error message will be sent to
               the controlling process. Default disabled.</p>
+			<marker id="option-linger"></marker>
           </item>
 
 		  <tag><c>{linger, {true|false, Seconds}}</c></tag>
@@ -695,6 +697,7 @@ fe80::204:acff:fe17:bf38
               returns <c>{error,timeout}</c>. The recommended setting is
               <c>true</c> which will automatically close the socket.
               Default is <c>false</c> due to backward compatibility.</p>
+			<marker id="option-sndbuf"></marker>
           </item>
 
           <tag><c>{sndbuf, Size}</c></tag>

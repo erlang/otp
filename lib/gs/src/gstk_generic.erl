@@ -323,7 +323,7 @@ handle_external_opt_call([Opt|Options],Gstkid,TkW,DB,ExtraArg,ExtRes,S,P,C) ->
     end.
 
 handle_external_read(Res) ->
-    case Res of 
+    _ = case Res of 
 	{bad_result,{Objtype,Reason,Option}} ->
 	    {error,{Objtype,Reason,Option}};
 	_ -> ok
