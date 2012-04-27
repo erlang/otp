@@ -105,7 +105,20 @@
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
-#define SEGTAB(tb) ((struct segment**)erts_smp_atomic_read_ddrb(&(tb)->segtab))
+#ifdef ERTS_SMP
+#  define DB_USING_FINE_LOCKING(TB) (((TB))->common.type & DB_FINE_LOCKED)
+#else
+#  define DB_USING_FINE_LOCKING(TB) 0
+#endif
+
+#ifdef ETHR_ORDERED_READ_DEPEND
+#define SEGTAB(tb) ((struct segment**) erts_smp_atomic_read_nob(&(tb)->segtab))
+#else
+#define SEGTAB(tb)							\
+    (DB_USING_FINE_LOCKING(tb)						\
+     ? ((struct segment**) erts_smp_atomic_read_ddrb(&(tb)->segtab))	\
+     : ((struct segment**) erts_smp_atomic_read_nob(&(tb)->segtab)))
+#endif
 #define NACTIVE(tb) ((int)erts_smp_atomic_read_nob(&(tb)->nactive))
 #define NITEMS(tb) ((int)erts_smp_atomic_read_nob(&(tb)->common.nitems))
 
@@ -122,7 +135,9 @@
 */
 static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
 {
-    Uint mask = erts_smp_atomic_read_acqb(&tb->szm);
+    Uint mask = (DB_USING_FINE_LOCKING(tb)
+		 ? erts_smp_atomic_read_acqb(&tb->szm)
+		 : erts_smp_atomic_read_nob(&tb->szm));
     Uint ix = hval & mask; 
     if (ix >= erts_smp_atomic_read_nob(&tb->nactive)) {
 	ix &= mask>>1;
@@ -319,7 +334,10 @@ struct ext_segment {
 static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
 				   struct segment** segtab)
 {
-    erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t) segtab);
+    if (DB_USING_FINE_LOCKING(tb))
+	erts_smp_atomic_set_wb(&tb->segtab, (erts_aint_t) segtab);
+    else
+	erts_smp_atomic_set_nob(&tb->segtab, (erts_aint_t) segtab);
 #ifdef VALGRIND
     tb->top_ptr_to_segment_with_active_segtab = EXTSEG(segtab);
 #endif
@@ -2501,6 +2519,28 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
     return list;
 }
 
+static ERTS_INLINE int
+begin_resizing(DbTableHash* tb)
+{
+    if (DB_USING_FINE_LOCKING(tb))
+	return !erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1);
+    else {
+	if (erts_smp_atomic_read_nob(&tb->is_resizing))
+	    return 0;
+	erts_smp_atomic_set_nob(&tb->is_resizing, 1);
+	return 1;
+    }
+}
+
+static ERTS_INLINE void
+done_resizing(DbTableHash* tb)
+{
+    if (DB_USING_FINE_LOCKING(tb))
+	erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    else
+	erts_smp_atomic_set_nob(&tb->is_resizing, 0);
+}
+
 /* Grow table with one new bucket.
 ** Allocate new segment if needed.
 */
@@ -2513,9 +2553,8 @@ static void grow(DbTableHash* tb, int nactive)
     int from_ix;
     int szm;
 
-    if (erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1)) { 
+    if (!begin_resizing(tb))
 	return; /* already in progress */
-    }
     if (NACTIVE(tb) != nactive) {
 	goto abort; /* already done (race) */
     }
@@ -2547,9 +2586,12 @@ static void grow(DbTableHash* tb, int nactive)
     }
     erts_smp_atomic_inc_nob(&tb->nactive);
     if (from_ix == 0) {
-	erts_smp_atomic_set_relb(&tb->szm, szm);
+	if (DB_USING_FINE_LOCKING(tb))
+	    erts_smp_atomic_set_relb(&tb->szm, szm);
+	else
+	    erts_smp_atomic_set_nob(&tb->szm, szm);
     }
-    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    done_resizing(tb);
 
     /* Finally, let's split the bucket. We try to do it in a smart way
        to keep link order and avoid unnecessary updates of next-pointers */
@@ -2581,7 +2623,7 @@ static void grow(DbTableHash* tb, int nactive)
     return;
    
 abort:
-    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    done_resizing(tb);
 }
 
 
@@ -2590,9 +2632,8 @@ abort:
 */
 static void shrink(DbTableHash* tb, int nactive)
 {     
-    if (erts_smp_atomic_xchg_acqb(&tb->is_resizing, 1)) {
+    if (!begin_resizing(tb))
 	return; /* already in progress */
-    }
     if (NACTIVE(tb) == nactive) {
 	erts_smp_rwmtx_t* lck;
 	int src_ix = nactive - 1;
@@ -2639,7 +2680,7 @@ static void shrink(DbTableHash* tb, int nactive)
 
     }
     /*else already done */
-    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    done_resizing(tb);
 }
 
 

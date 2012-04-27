@@ -511,10 +511,14 @@ void erts_usage(void)
     erts_fprintf(stderr, "-rg amount  set reader groups limit\n");
     erts_fprintf(stderr, "-sbt type   set scheduler bind type, valid types are:\n");
     erts_fprintf(stderr, "            u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
+    erts_fprintf(stderr, "-sbwt val   set scheduler busy wait threshold, valid values are:\n");
+    erts_fprintf(stderr, "            none|very_short|short|medium|long|very_long.\n");
     erts_fprintf(stderr, "-scl bool   enable/disable compaction of scheduler load,\n");
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
     erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
     erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
+    erts_fprintf(stderr, "-sws val    set scheduler wakeup strategy, valid values are:\n");
+    erts_fprintf(stderr, "            default|legacy|proposal.\n");
     erts_fprintf(stderr, "-swt val    set scheduler wakeup threshold, valid values are:\n");
     erts_fprintf(stderr, "            very_low|low|medium|high|very_high.\n");
     erts_fprintf(stderr, "-sss size   suggested stack size in kilo words for scheduler threads,\n");
@@ -789,6 +793,10 @@ early_init(int *argc, char **argv) /*
 	    i++;
 	}
     }
+
+#ifndef USE_THREADS
+    erts_async_max_threads = 0;
+#endif
 
 #ifdef ERTS_SMP
     no_schedulers = schdlrs;
@@ -1198,6 +1206,16 @@ erl_start(int argc, char **argv)
 		    erts_usage();
 		}
 	    }
+	    else if (has_prefix("bwt", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if (erts_sched_set_busy_wait_threshold(arg) != 0) {
+		    erts_fprintf(stderr, "bad scheduler busy wait threshold: %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("scheduler wakup threshold: %s\n", arg));
+	    }
 	    else if (has_prefix("cl", sub_param)) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
 		if (sys_strcmp("true", arg) == 0)
@@ -1258,13 +1276,23 @@ erl_start(int argc, char **argv)
 		erts_use_sender_punish = 0;
 	    else if (sys_strcmp("wt", sub_param) == 0) {
 		arg = get_arg(sub_param+2, argv[i+1], &i);
-		if (erts_sched_set_wakeup_limit(arg) != 0) {
+		if (erts_sched_set_wakeup_other_thresold(arg) != 0) {
 		    erts_fprintf(stderr, "scheduler wakeup threshold: %s\n",
 				 arg);
 		    erts_usage();
 		}
 		VERBOSE(DEBUG_SYSTEM,
-			("scheduler wakup threshold: %s\n", arg));
+			("scheduler wakeup threshold: %s\n", arg));
+	    }
+	    else if (sys_strcmp("ws", sub_param) == 0) {
+		arg = get_arg(sub_param+2, argv[i+1], &i);
+		if (erts_sched_set_wakeup_other_type(arg) != 0) {
+		    erts_fprintf(stderr, "scheduler wakeup strategy: %s\n",
+				 arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM,
+			("scheduler wakeup threshold: %s\n", arg));
 	    }
 	    else if (has_prefix("ss", sub_param)) {
 		/* suggested stack size (Kilo Words) for scheduler threads */
