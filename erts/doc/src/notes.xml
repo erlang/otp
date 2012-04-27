@@ -30,6 +30,74 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If threads support for the runtime system had been
+	    disabled at compile time (<c>--disable-threads</c> had
+	    been passed to <c>configure</c>), and the <c>+A</c>
+	    command line argument of <c>erl</c> was passed when
+	    starting the runtime system, <seealso
+	    marker="erl_driver#driver_system_info">driver_system_info()</seealso>
+	    erroneously claimed that the runtime system had async
+	    threads even though it had not.</p>
+          <p>
+	    Due to this bug the file driver did not split tasks into
+	    smaller chunks, but instead completed the whole task at
+	    once, i.e., the scheduler got occupied with I/O for a
+	    longer time than intended.</p>
+          <p>
+	    Own Id: OTP-10059</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A proposal for a new scheduler wakeup strategy has been
+	    implemented. For more information see the documentation
+	    of the <seealso marker="erl#+sws">+sws</seealso> command
+	    line argument of <c>erl</c>.</p>
+          <p>
+	    Own Id: OTP-10033 Aux Id: Seq12025 </p>
+        </item>
+        <item>
+          <p>
+	    A switch for configuration of busy wait length for
+	    scheduler threads has been added. For more information
+	    see the documentation of the <seealso
+	    marker="erl#+sbwt">+sbwt</seealso> command line argument
+	    of <c>erl</c>.</p>
+          <p>
+	    Own Id: OTP-10044 Aux Id: Seq11976 </p>
+        </item>
+        <item>
+          <p>
+	    The extra memory barriers introduced by bug-fix OTP-9281
+	    were unnecessarily used also on tables without the
+	    <c>write_concurrency</c> option enabled. This could
+	    unnecessarily degrade performance of ETS tables without
+	    <c>write_concurrency</c> on some hardware (e.g. PowerPC)
+	    while not effecting performance at all on other hardware
+	    (e.g. x86/x86_64).</p>
+          <p>
+	    OTP-9281 (R14B03): ETS tables using the
+	    <c>write_concurrency</c> option could potentially get
+	    into an internally inconsistent state.</p>
+          <p>
+	    Own Id: OTP-10048 Aux Id: OTP-9281 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

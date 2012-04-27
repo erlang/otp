@@ -1178,7 +1178,9 @@ ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
 int erts_proclist_same(ErtsProcList *, Process *);
 
-int erts_sched_set_wakeup_limit(char *str);
+int erts_sched_set_wakeup_other_thresold(char *str);
+int erts_sched_set_wakeup_other_type(char *str);
+int erts_sched_set_busy_wait_threshold(char *str);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_dbg_check_halloc_lock(Process *p);

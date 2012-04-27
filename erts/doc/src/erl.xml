@@ -768,6 +768,16 @@
 	       <seealso marker="erlang#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
           </item>
+	  <tag><marker id="+sbwt"><c>+sbwt none|very_short|short|medium|long|very_long</c></marker></tag>
+	  <item>
+             <p>Set scheduler busy wait threshold. Default is <c>medium</c>.
+	        The threshold determines how long schedulers should busy
+		wait when running out of work before going to sleep.
+	     </p>
+             <p><em>NOTE:</em> This flag may be removed or changed at any time
+	        without prior notice.
+	     </p>
+	  </item>
           <tag><marker id="+scl"><c>+scl true|false</c></marker></tag>
           <item>
 	    <p>Enable or disable scheduler compaction of load. By default
@@ -903,6 +913,17 @@
 	    <p>For more information, see
 	    <seealso marker="erlang#system_info_cpu_topology">erlang:system_info(cpu_topology)</seealso>.</p>
           </item>
+	  <tag><marker id="+sws"><c>+sws default|legacy|proposal</c></marker></tag>
+	  <item>
+             <p>Set scheduler wakeup strategy. Default is <c>legacy</c> (has been
+	        used since OTP-R13B). The <c>proposal</c> strategy is the currently
+		proposed strategy for OTP-R16. Note that the <c>proposal</c> strategy
+		might change during OTP-R15.
+	     </p>
+             <p><em>NOTE:</em> This flag may be removed or changed at any time
+	        without prior notice.
+	     </p>
+	  </item>
 	  <tag><marker id="+swt"><c>+swt very_low|low|medium|high|very_high</c></marker></tag>
 	  <item>
              <p>Set scheduler wakeup threshold. Default is <c>medium</c>.
