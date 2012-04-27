@@ -402,14 +402,17 @@ int main(int argc, char **argv)
 	    sfd = dup(sfd);
 	}
     }
-#if defined(HAVE_OPENPTY)
-    /* sfd is from open_pty_master 
-     * openpty -> fork -> login_tty (forkpty)
-     * 
-     * It would be preferable to implement a portable 
-     * forkpty instead of open_pty_master / open_pty_slave
-     */
-     /* login_tty(sfd);  <- FAIL */
+#if defined(HAVE_OPENPTY) && defined(TIOCSCTTY)
+    else {
+	/* sfd is from open_pty_master 
+	 * openpty -> fork -> login_tty (forkpty)
+	 * 
+	 * It would be preferable to implement a portable 
+	 * forkpty instead of open_pty_master / open_pty_slave
+	 */
+	/* login_tty(sfd);  <- FAIL */
+	ioctl(sfd, TIOCSCTTY, (char *)NULL);
+    }
 #endif
 
 #ifndef NO_SYSLOG
