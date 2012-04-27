@@ -590,7 +590,9 @@
       <item>
         <p>Sets the maximum number of concurrent processes for this
           system. <c><![CDATA[Number]]></c> must be in the range 16..134217727.
-          Default is 32768.</p>
+	  Default is 32768.</p>
+        <p><em>NOTE</em>: It is possible to choose any value in the range
+	  but powers of 2 perform best.</p>
       </item>
       <tag><marker id="compat_rel"><c><![CDATA[+R ReleaseNumber]]></c></marker></tag>
       <item>

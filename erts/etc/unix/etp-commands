@@ -1264,7 +1264,684 @@ document etpf-stackdump
 %---------------------------------------------------------------------------
 end
 
+define etp-pix2proc
+# Args: Eterm
+#
+   set $proc = (Process *) *((UWord *) &erts_proc.tab[((int) $arg0)])
+   printf "(Process *) %p\n", $proc
+end
 
+define etp-pid2proc-1
+# Args: Eterm
+#
+  set $pix = (int) ($arg0 >> 4)
+  
+  if (erts_proc.pix_cl_mask != 0)
+     set $proc = (Process *) *((UWord *) &erts_proc.tab[(((($pix) & erts_proc.pix_cl_mask) << erts_proc.pix_cl_shift) + ((($pix) >> erts_proc.pix_cli_shift) & erts_proc.pix_cli_mask))])
+  else
+      set $proc =(Process *) *((UWord *) &erts_proc.tab[((($pix) % erts_proc.max) % erts_proc.tab_cache_lines + (($pix) % erts_proc.max) / erts_proc.tab_cache_lines)])
+  end
+end
+
+define etp-pid2proc
+# Args: Eterm
+#
+   etp-pid2proc-1 $arg0
+   printf "(Process *) %p\n", $proc
+end
+
+define etp-proc-state-int
+# Args: int
+#
+  if ($arg0 & 0xfffff000)
+    printf "GARBAGE | "
+  end
+  if ($arg0 & 0x800)
+    printf "trapping-exit | "
+  end
+  if ($arg0 & 0x400)
+    printf "bound | "
+  end
+  if ($arg0 & 0x200)
+    printf "garbage-collecting | "
+  end
+  if ($arg0 & 0x100)
+    printf "suspended | "
+  end
+  if ($arg0 & 0x80)
+    printf "running | "
+  end
+  if ($arg0 & 0x40)
+    printf "in-run-queue | "
+  end
+  if ($arg0 & 0x20)
+    printf "active | "
+  end
+  if ($arg0 & 0x10)
+    printf "pending-exit | "
+  end
+  if ($arg0 & 0x8)
+    printf "exiting | "
+  end
+  if ($arg0 & 0x4)
+    printf "free | "
+  end
+  if ($arg0 & 0x3) == 0
+    printf "prio-max\n"
+  else
+    if ($arg0 & 0x3) == 1
+    printf "prio-high\n"
+    else
+      if ($arg0 & 0x3) == 2
+        printf "prio-normal\n"
+      else
+        printf "prio-low\n"
+      end
+    end
+  end
+end
+
+document etp-proc-state-int
+%---------------------------------------------------------------------------
+% etp-proc-state-int int
+% 
+% Print state of process state value
+%---------------------------------------------------------------------------
+end
+
+
+define etp-proc-state
+# Args: Process*
+#
+  set $state_int = *(((Uint32 *) &(((Process *) $arg0)->state)))
+  etp-proc-state-int $state_int
+end
+
+document etp-proc-state
+%---------------------------------------------------------------------------
+% etp-proc-state Process*
+% 
+% Print state of process
+%---------------------------------------------------------------------------
+end
+
+define etp-process-info
+# Args: Process*
+#
+  printf "  Pid: "
+  etp-1 $arg0->id
+  printf "\n  State: "
+  etp-proc-state $arg0
+  if ($arg0->reg)
+    printf "  Registered name: "
+    etp-1 $arg0->reg->name
+    printf "\n"
+  end
+  if ($arg0->current)
+    printf "  Current function: "
+    etp-1 $arg0->current[0]
+    printf ":"
+    etp-1 $arg0->current[1]
+    printf "/%d\n", $arg0->current[2]
+  end
+  if ($arg0->cp)
+    printf "  CP: "
+    etp-cp-1 $arg0->cp
+    printf "\n"
+  end
+  if ($arg0->i)
+    printf "  I: "
+    etp-cp-1 $arg0->i
+    printf "\n"
+  end
+  printf "  Heap size: %ld\n", $arg0->heap_sz
+  if ($arg0->old_heap)
+    printf "  Old-heap size: %ld\n", $arg0->old_hend - $arg0->old_heap
+  end
+  printf "  Mbuf size: %ld\n", $arg0->mbuf_sz
+  if (etp_smp_compiled)
+    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($arg0->msg.len + $arg0->msg_inq.len), $arg0->msg.len, $arg0->msg_inq.len
+  else
+    printf "  Msgq len: %d\n", $arg0->msg.len
+  end
+  printf "  Parent: "
+  etp-1 $arg0->parent
+  printf "\n  Pointer: (Process *) %p\n", $arg0
+end
+
+document etp-process-info
+%---------------------------------------------------------------------------
+% etp-process-info Process*
+% 
+% Print info about process
+%---------------------------------------------------------------------------
+end
+
+define etp-processes
+  if (!erts_initialized)
+    printf "No processes, since system isn't initialized!\n"
+  else
+    set $proc_ix = 0
+    while $proc_ix < erts_proc.max
+      set $proc = (Process *) *((UWord *) &erts_proc.tab[$proc_ix])
+      if ($proc != (Process *) 0)
+        printf "---\n"
+        printf "  Pix: %d\n", $proc_ix
+        etp-process-info $proc
+      end
+      set $proc_ix++
+    end
+    printf "---\n",
+  end
+end
+
+document etp-processes
+%---------------------------------------------------------------------------
+% etp-processes
+% 
+% Print misc info about all processes
+%---------------------------------------------------------------------------
+end
+
+
+define etp-port-status-int
+# Args: int
+#
+  if ($arg0 & 0x1)
+    printf " connected"
+  end
+  if ($arg0 & 0x2)
+    printf " exiting"
+  end
+  if ($arg0 & 0x4)
+    printf " distribution"
+  end
+  if ($arg0 & 0x8)
+    printf " binary-io"
+  end
+  if ($arg0 & 0x10)
+    printf " soft-eof"
+  end
+  if ($arg0 & 0x20)
+    printf " port-busy"
+  end
+  if ($arg0 & 0x40)
+    printf " closing"
+  end
+  if ($arg0 & 0x80)
+    printf " send-closed"
+  end
+  if ($arg0 & 0x100)
+    printf " linebuf-io"
+  end
+  if ($arg0 & 0x200)
+    printf " immortal"
+  end
+  if ($arg0 & 0x400)
+    printf " free"
+  end
+  if ($arg0 & 0x800)
+    printf " free-scheduled"
+  end
+  if ($arg0 & 0x1000)
+    printf " initializing"
+  end
+  if ($arg0 & 0x2000)
+    printf " port-specific-lock"
+  end
+  if ($arg0 & 0x4000)
+    printf " invalid"
+  end
+  if (etp_debug_compiled)
+    if ($arg0 & 0x7fff8000)
+      printf " GARBAGE"
+    end
+  else
+    if ($arg0 & 0xffff8000)
+      printf " GARBAGE"
+    end
+  end
+  printf "\n"
+end
+
+document etp-port-status-int
+%---------------------------------------------------------------------------
+% etp-proc-state-int int
+% 
+% Print port status
+%---------------------------------------------------------------------------
+end
+
+
+define etp-port-status
+# Args: Port*
+#
+  set $status_int = *(((Uint32 *) &(((Port *) $arg0)->status)))
+  etp-port-status-int $status_int
+end
+
+document etp-port-status
+%---------------------------------------------------------------------------
+% etp-proc-state-int Port *
+% 
+% Print port status
+%---------------------------------------------------------------------------
+end
+
+define etp-port-info
+# Args: Port*
+#
+  printf "  Port: "
+  etp-1 $arg0->id
+  printf "\n  Name: %s\n", $arg0->name
+  printf "  Status:"
+  etp-port-status $arg0
+  if ($arg0->reg)
+    printf "  Registered name: "
+    etp-1 $arg0->reg->name
+    printf "\n"
+  end
+  printf "  Connected: "
+  etp-1 $arg0->connected
+  printf "\n  Pointer: (Port *) %p\n", $arg0
+end
+
+document etp-port-info
+%---------------------------------------------------------------------------
+% etp-port-info Port*
+% 
+% Print info about port
+%---------------------------------------------------------------------------
+end
+
+
+define etp-ports
+  if (!erts_initialized)
+    printf "No ports, since system isn't initialized!\n"
+  else
+    set $port_ix = 0
+    while $port_ix < erts_max_ports
+      set $port = &erts_port[$port_ix]
+      if ($port->status & 0x400) == 0
+        # I.e, not free
+        printf "---\n"
+        printf "  Pix: %d\n", $port_ix
+        etp-port-info $port
+      end
+      set $port_ix++
+    end
+    printf "---\n",
+  end
+end
+
+document etp-ports
+%---------------------------------------------------------------------------
+% etp-ports
+% 
+% Print misc info about all ports
+%---------------------------------------------------------------------------
+end
+
+define etp-rq-flags-int
+# Args: int
+#
+  if ($arg0 & 0x1f)
+    printf "  Queue Mask:"
+    if ($arg0 & 0x1)
+      printf " max"
+    end
+    if ($arg0 & 0x2)
+      printf " high"
+    end
+    if ($arg0 & 0x4)
+      printf " normal"
+    end
+    if ($arg0 & 0x8)
+      printf " low"
+    end
+    if ($arg0 & 0x10)
+      printf " ports"
+    end
+    printf "\n"
+  end
+
+  if ($arg0 & 0x3fe0)
+    printf "  Emigrate Mask:"
+    if ($arg0 & 0x20)
+      printf " max"
+    end
+    if ($arg0 & 0x40)
+      printf " high"
+    end
+    if ($arg0 & 0x80)
+      printf " normal"
+    end
+    if ($arg0 & 0x100)
+      printf " low"
+    end
+    if ($arg0 & 0x200)
+      printf " ports"
+    end
+    printf "\n"
+  end
+
+  if ($arg0 & 0x7fc00)
+    printf "  Immigrate Mask:"
+    if ($arg0 & 0x400)
+      printf " max"
+    end
+    if ($arg0 & 0x800)
+      printf " high"
+    end
+    if ($arg0 & 0x1000)
+      printf " normal"
+    end
+    if ($arg0 & 0x2000)
+      printf " low"
+    end
+    if ($arg0 & 0x4000)
+      printf " ports"
+    end
+    printf "\n"
+  end
+
+  if ($arg0 & 0xf8000)
+    printf "  Evaquate Mask:"
+    if ($arg0 & 0x8000)
+      printf " max"
+    end
+    if ($arg0 & 0x10000)
+      printf " high"
+    end
+    if ($arg0 & 0x20000)
+      printf " normal"
+    end
+    if ($arg0 & 0x40000)
+      printf " low"
+    end
+    if ($arg0 & 0x80000)
+      printf " ports"
+    end
+    printf "\n"
+  end
+
+  if ($arg0 & ~0xfffff)
+    printf "  Misc Flags:"
+    if ($arg0 & 0x100000)
+      printf " out-of-work"
+    end
+    if ($arg0 & 0x200000)
+      printf " halftime-out-of-work"
+    end
+    if ($arg0 & 0x400000)
+      printf " suspended"
+    end
+    if ($arg0 & 0x800000)
+      printf " check-cpu-bind"
+    end
+    if ($arg0 & 0x1000000)
+      printf " inactive"
+    end
+    if ($arg0 & 0x2000000)
+      printf " non-empty"
+    end
+    if ($arg0 & 0x4000000)
+      printf " protected"
+    end
+    if ($arg0 & ~0x7ffffff)
+      printf " GARBAGE(0x%x)", ($arg0 & ~0x3ffffff)
+    end
+    printf "\n"
+  end
+end
+
+document etp-rq-flags-int
+%---------------------------------------------------------------------------
+% etp-rq-flags-int
+% 
+% Print run queue flags
+%---------------------------------------------------------------------------
+end
+
+define etp-ssi-flags
+# Args: int
+#
+  if ($arg0 & 0x1)
+    printf " sleeping"
+  end
+  if ($arg0 & 0x2)
+    printf " poll"
+  end
+  if ($arg0 & 0x4)
+    printf " tse"
+  end
+  if ($arg0 & 0x8)
+    printf " waiting"
+  end
+  if ($arg0 & 0x10)
+    printf " suspended"
+  end
+  printf "\n"
+end
+
+document etp-ssi-flags
+%---------------------------------------------------------------------------
+% etp-ssi-flags
+% Arg int
+% 
+% Print aux work flags
+%---------------------------------------------------------------------------
+end
+
+define etp-aux-work-flags
+# Args: int
+#
+  if ($arg0 & 0x1)
+    printf " delayed-dealloc"
+  end
+  if ($arg0 & 0x2)
+    printf " delayed-dealloc-thr-prgr"
+  end
+  if ($arg0 & 0x4)
+    printf " fix-alloc-dealloc"
+  end
+  if ($arg0 & 0x8)
+    printf " fix-alloc-lower-lim"
+  end
+  if ($arg0 & 0x10)
+    printf " async-ready"
+  end
+  if ($arg0 & 0x20)
+    printf " async-ready-clean"
+  end
+  if ($arg0 & 0x40)
+    printf " misc-work-thr-prgr"
+  end
+  if ($arg0 & 0x80)
+    printf " misc-work"
+  end
+  if ($arg0 & 0x100)
+    printf " check-children"
+  end
+  if ($arg0 & 0x200)
+    printf " set-tmo"
+  end
+  if ($arg0 & 0x400)
+    printf " mseg-cached-check"
+  end
+  if ($arg0 & ~0x7ff)
+    printf " GARBAGE"
+  end
+  printf "\n"
+end
+
+document etp-aux-work-flags
+%---------------------------------------------------------------------------
+% etp-aux-work-flags
+% Arg int
+% 
+% Print aux work flags
+%---------------------------------------------------------------------------
+end
+
+define etp-schedulers
+  if (!erts_initialized)
+    printf "No schedulers, since system isn't initialized!\n"
+  else
+    set $sched_ix = 0
+    while $sched_ix < erts_no_schedulers
+      printf "--- Scheduler %d ---\n", $sched_ix+1
+      printf " IX: %d\n", $sched_ix
+      if (erts_aligned_scheduler_data[$sched_ix].esd.cpu_id < 0)
+        printf " CPU Binding: unbound\n"
+      else
+        printf " CPU Binding: %d\n", erts_aligned_scheduler_data[$sched_ix].esd.cpu_id
+      end
+      printf " Aux work Flags:"
+      set $aux_work_flags = *((Uint32 *) &erts_aligned_scheduler_data[$sched_ix].esd.ssi->aux_work)
+      etp-aux-work-flags $aux_work_flags
+      printf " Sleep Info Flags:"
+      set $ssi_flags = *((Uint32 *) &erts_aligned_scheduler_data[$sched_ix].esd.ssi->flags)
+      etp-ssi-flags $ssi_flags
+      printf " Pointer: (ErtsSchedulerData *) %p\n", &erts_aligned_scheduler_data[$sched_ix].esd
+      printf " - Run Queue -\n"
+      if (etp_smp_compiled)
+        set $runq = erts_aligned_scheduler_data[$sched_ix].esd.run_queue
+      else
+        set $runq = &erts_aligned_run_queues[0].runq
+      end
+      printf "  Length: total=%d", *((Uint32 *) &($runq->len))
+      printf ", max=%d", *((Uint32 *) &($runq->procs.prio_info[0].len))
+      printf ", high=%d", *((Uint32 *) &($runq->procs.prio_info[1].len))
+      printf ", normal=%d", *((Uint32 *) &($runq->procs.prio_info[2].len))
+      printf ", low=%d", *((Uint32 *) &($runq->procs.prio_info[3].len))
+      printf ", port=%d\n", *((Uint32 *) &($runq->ports.info.len))
+      if ($runq->misc.start)
+        printf "  Misc Jobs: yes\n"
+      else
+        printf "  Misc Jobs: no\n"
+      end
+      set $rq_flags = *((Uint32 *) &($runq->flags))
+      etp-rq-flags-int $rq_flags
+      printf "  Pointer: (ErtsRunQueue *) %p\n", $runq
+
+      set $sched_ix++
+    end
+    printf "-------------------\n",
+  end
+end
+
+document etp-schedulers
+%---------------------------------------------------------------------------
+% etp-schedulers
+% 
+% Print misc info about all schedulers
+%---------------------------------------------------------------------------
+end
+
+define etp-migration-info
+  set $minfo = (ErtsMigrationPaths *) *((UWord *) &erts_migration_paths)
+  set $rq_ix = 0
+  while $rq_ix < erts_no_run_queues
+    if ($minfo->mpath[$rq_ix])
+      printf "---\n"
+      printf "Run Queue Ix: %d\n", $rq_ix
+      etp-rq-flags-int $minfo->mpath[$rq_ix].flags
+    end
+    set $rq_ix++
+  end
+end
+
+document etp-migration-info
+%---------------------------------------------------------------------------
+% etp-migration-info
+% 
+% Print migration information
+%---------------------------------------------------------------------------
+end
+
+define etp-system-info
+  printf "--------------- System Information ---------------\n"
+  printf "OTP release: %s\n", etp_otp_release
+  printf "ERTS version: %s\n", etp_erts_version
+  printf "Compile date: %s\n", etp_compile_date
+  printf "Arch: %s\n", etp_arch
+  printf "Word size: %d-bit\n", etp_arch_bits
+  printf "Halfword: "
+  if (etp_halfword)
+    printf "yes\n"
+  else
+    printf "no\n"
+  end
+  printf "HiPE support: "
+  if (etp_hipe)
+    printf "yes\n"
+  else
+    printf "no\n"
+  end
+  if (etp_smp_compiled)
+    printf "SMP support: yes\n"
+  else
+    printf "SMP support: no\n"
+  end
+  printf "Thread support: "
+  if (etp_thread_compiled)
+    printf "yes\n"
+  else
+    printf "no\n"
+  end
+  printf "Kernel poll: "
+  if (etp_kernel_poll_support)
+    if (!erts_initialized)
+        printf "Supported\n"
+    else
+      if (erts_use_kernel_poll)
+        printf "Supported and used\n"
+      else
+        printf "Supported but not used\n"
+      end
+    end
+  else
+    printf "No support\n"
+  end
+  printf "Debug compiled: "
+  if (etp_debug_compiled)
+    printf "yes\n"
+  else
+    printf "no\n"
+  end
+  printf "Lock checking: "
+  if (etp_lock_check)
+    printf "yes\n"
+  else
+    printf "no\n"
+  end
+  printf "Lock counting: "
+  if (etp_lock_count)
+    printf "yes\n"
+  else
+    printf "no\n"
+  end
+
+  if (!erts_initialized)
+    printf "System not initialized\n"
+  else
+    printf "Node name: "
+    etp-1 erts_this_node->sysname
+    printf "\n"
+    printf "Number of schedulers: %d\n", erts_no_schedulers
+    printf "Number of async-threads: %d\n", erts_async_max_threads
+  end
+  printf "--------------------------------------------------\n"
+end
+
+document etp-system-info
+%---------------------------------------------------------------------------
+% etp-system-info
+% 
+% Print general information about the system
+%---------------------------------------------------------------------------
+end
 
 define etp-dictdump
 # Args: ProcDict*
@@ -1408,69 +2085,6 @@ document etpf-offheapdump
 %---------------------------------------------------------------------------
 end
 
-define etp-print-procs
-# Args: Eterm
-#
-# Non-reentrant
-#
-  etp-print-procs-1
-end
-
-define etp-print-procs-1
-# Args: Eterm*
-#
-# Non-reentrant
-#
-  set $etp_print_procs_q = erts_max_processes / 10
-  set $etp_print_procs_r = erts_max_processes % 10
-  set $etp_print_procs_t = 10
-  set $etp_print_procs_m = $etp_print_procs_q
-  if $etp_print_procs_r > 0
-    set $etp_print_procs_m++
-    set $etp_print_procs_r--
-  end
-  set $etp_print_procs_i = 0
-  set $etp_print_procs_found = 0
-  while $etp_print_procs_i < erts_max_processes
-    if process_tab[$etp_print_procs_i]
-      printf "%d: ", $etp_print_procs_i
-      etp-1 process_tab[$etp_print_procs_i]->id
-      printf " "
-      etp-1 ((Eterm)(process_tab[$etp_print_procs_i]->i))
-      printf " heap=%d/%d(%d)", process_tab[$etp_print_procs_i]->htop - process_tab[$etp_print_procs_i]->heap, \
-	        process_tab[$etp_print_procs_i]->hend - process_tab[$etp_print_procs_i]->heap, \
-		process_tab[$etp_print_procs_i]->hend - process_tab[$etp_print_procs_i]->stop
-      printf " old=%d/%d ", process_tab[$etp_print_procs_i]->old_htop - process_tab[$etp_print_procs_i]->old_heap, \
-                process_tab[$etp_print_procs_i]->old_hend - process_tab[$etp_print_procs_i]->old_heap
-      printf " mbuf_sz=%d ", process_tab[$etp_print_procs_i]->mbuf_sz
-      printf " min=%d ", process_tab[$etp_print_procs_i]->min_heap_size
-      printf " flags=%x ", process_tab[$etp_print_procs_i]->flags
-      printf " msgs=%d ", process_tab[$etp_print_procs_i]->msg.len
-      printf "\n"
-    end
-    set $etp_print_procs_i++
-    if $etp_print_procs_i > $etp_print_procs_m
-      printf "%% %d%%...\n", $etp_print_procs_t
-      set $etp_print_procs_t += 10
-      set $etp_print_procs_m += $etp_print_procs_q
-      if $etp_print_procs_r > 0
-        set $etp_print_procs_m++
-        set $etp_print_procs_r--
-      end
-    end
-  end
-  printf "%% 100%%.\n"
-end
-
-document etp-print-procs
-%---------------------------------------------------------------------------
-% etp-print-procs Eterm
-% 
-% Print some information about ALL processes.
-%---------------------------------------------------------------------------
-end
-
-
 define etp-search-heaps
 # Args: Eterm
 #
@@ -1499,20 +2113,21 @@ define etp-search-heaps-1
   end
   set $etp_search_heaps_i = 0
   set $etp_search_heaps_found = 0
-  while $etp_search_heaps_i < erts_max_processes
-    if process_tab[$etp_search_heaps_i]
-      if (process_tab[$etp_search_heaps_i]->heap <= ($arg0)) && \
-         (($arg0) < process_tab[$etp_search_heaps_i]->hend)
+  while $etp_search_heaps_i < erts_proc.max
+    set $proc = (Process *) *((UWord *) &erts_proc.tab[$proc_ix])
+    if $proc
+      if ($proc->heap <= ($arg0)) && \
+         (($arg0) < $proc->hend)
         printf "process_tab[%d]->heap+%d\n", $etp_search_heaps_i, \
-               ($arg0)-process_tab[$etp_search_heaps_i]->heap
+               ($arg0)-$proc->heap
       end
-      if (process_tab[$etp_search_heaps_i]->old_heap <= ($arg0)) && \
-         (($arg0) <= process_tab[$etp_search_heaps_i]->old_hend)
+      if ($proc->old_heap <= ($arg0)) && \
+         (($arg0) <= $proc->old_hend)
         printf "process_tab[%d]->old_heap+%d\n", $etp_search_heaps_i, \
-               ($arg0)-process_tab[$etp_search_heaps_i]->old_heap
+               ($arg0)-$proc->old_heap
       end
       set $etp_search_heaps_cnt = 0
-      set $etp_search_heaps_p = process_tab[$etp_search_heaps_i]->mbuf
+      set $etp_search_heaps_p = $proc->mbuf
       while $etp_search_heaps_p && ($etp_search_heaps_cnt < $etp_max_depth)
         set $etp_search_heaps_cnt++
         if (&($etp_search_heaps_p->mem) <= ($arg0)) && \
@@ -1524,7 +2139,7 @@ define etp-search-heaps-1
         set $etp_search_heaps_p = $etp_search_heaps_p->next
       end
       if $etp_search_heaps_p
-        printf "process_tab[%d] %% Too many HeapFragments\n", \
+        printf "Process ix=%d %% Too many HeapFragments\n", \
                $etp_search_heaps_i
       end
     end
@@ -2071,7 +2686,7 @@ document etp-init
 %---------------------------------------------------------------------------
 end
 
-
 etp-init
 help etp-init
 etp-show
+etp-system-info

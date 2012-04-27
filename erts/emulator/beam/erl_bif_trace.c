@@ -655,8 +655,7 @@ Eterm trace_3(BIF_ALIST_3)
 	    if (procs || mods) {
 		/* tracing of processes */
 		for (i = 0; i < erts_max_processes; i++) {
-		    Process* tracee_p = process_tab[i];
-
+		    Process* tracee_p = erts_pix2proc(i);
 		    if (! tracee_p) 
 			continue;
 		    if (tracer != NIL) {
@@ -776,8 +775,7 @@ static int port_already_traced(Process *c_p, Port *tracee_port, Eterm tracer)
 		return 1;
 	}
 	else if(is_internal_pid(tracee_port->tracer_proc)) {
-	    Process *tracer_p = erts_pid2proc(c_p, ERTS_PROC_LOCK_MAIN,
-					      tracee_port->tracer_proc, 0);
+	    Process *tracer_p = erts_proc_lookup(tracee_port->tracer_proc);
 	    if (!tracer_p) {
 		/* Current trace process now invalid
 		 * - discard it and approve the new. */
@@ -817,8 +815,7 @@ static int already_traced(Process *c_p, Process *tracee_p, Eterm tracer)
 		return 1;
 	}
 	else if(is_internal_pid(tracee_p->tracer_proc)) {
-	    Process *tracer_p = erts_pid2proc(c_p, ERTS_PROC_LOCK_MAIN,
-					      tracee_p->tracer_proc, 0);
+	    Process *tracer_p = erts_proc_lookup(tracee_p->tracer_proc);
 	    if (!tracer_p) {
 		/* Current trace process now invalid
 		 * - discard it and approve the new. */
@@ -880,7 +877,7 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 	}
 
 	if (is_internal_pid(tracer)) {
-	    if (!erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, tracer, 0)) {
+	    if (!erts_proc_lookup(tracer)) {
 	    reset_tracer:
 		tracee->trace_flags &= ~TRACEE_FLAGS;
 		trace_flags = tracee->trace_flags;
@@ -2157,9 +2154,9 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	/* Check if valid process, no locks are taken */
 
 	if (is_internal_pid(profiler)) {
-	    if (internal_pid_index(profiler) >= erts_max_processes) goto error;
-	    profiler_p = process_tab[internal_pid_index(profiler)];
-	    if (INVALID_PID(profiler_p, profiler)) goto error;
+	    profiler_p = erts_proc_lookup(profiler);
+	    if (!profiler_p)
+		goto error;
 	} else if (is_internal_port(profiler)) {
 	    if (internal_port_index(profiler) >= erts_max_ports) goto error;
 	    profiler_port = &erts_port[internal_port_index(profiler)];

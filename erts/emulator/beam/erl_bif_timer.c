@@ -324,10 +324,9 @@ bif_timer_timeout(ErtsBifTimer* btm)
 	ASSERT(!erts_get_current_process());
 
 	if (btm->flags & BTM_FLG_BYNAME)
-	    rp = erts_whereis_process(NULL,0,btm->receiver.name,0,ERTS_P2P_FLG_SMP_INC_REFC);
+	    rp = erts_whereis_process(NULL, 0, btm->receiver.name, 0, 0);
 	else {
 	    rp = btm->receiver.proc.ess;
-	    erts_smp_proc_inc_refc(rp);
 	    unlink_proc(btm);
 	}
 
@@ -379,7 +378,6 @@ bif_timer_timeout(ErtsBifTimer* btm)
 #endif
 			       );
 	    erts_smp_proc_unlock(rp, rp_locks);
-	    erts_smp_proc_dec_refc(rp);
 	}
     }
 

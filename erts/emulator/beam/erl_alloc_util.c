@@ -832,14 +832,14 @@ init_dd_queue(ErtsAllctrDDQueue_t *ddq)
 static ERTS_INLINE erts_aint_t
 ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr)
 {
-    erts_aint_t ilast, itmp;
+    erts_aint_t first_ilast, ilast, itmp;
     ErtsAllctrDDBlock_t *this = ptr;
 
     erts_atomic_init_nob(&this->atmc_next, ERTS_AINT_NULL);
 
     /* Enqueue at end of list... */
 
-    ilast = erts_atomic_read_nob(&ddq->tail.data.last);
+    first_ilast = ilast = erts_atomic_read_nob(&ddq->tail.data.last);
     while (1) {
 	ErtsAllctrDDBlock_t *last = (ErtsAllctrDDBlock_t *) ilast;
 	itmp = erts_atomic_cmpxchg_mb(&last->atmc_next,
@@ -853,8 +853,11 @@ ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr)
     /* Move last pointer forward... */
     while (1) {
 	if (erts_atomic_read_rb(&this->atmc_next) != ERTS_AINT_NULL) {
-	    /* Someone else will move it forward */
-	    return erts_atomic_read_rb(&ddq->tail.data.last);
+	    ilast = erts_atomic_read_rb(&ddq->tail.data.last);
+	    if (first_ilast != ilast) {
+		/* Someone else will move it forward */
+		return ilast;
+	    }
 	}
 	itmp = erts_atomic_cmpxchg_mb(&ddq->tail.data.last,
 				      (erts_aint_t) this,

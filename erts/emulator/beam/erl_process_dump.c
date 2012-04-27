@@ -65,14 +65,11 @@ erts_deep_process_dump(int to, void *to_arg)
     all_binaries = NULL;
     
     for (i = 0; i < erts_max_processes; i++) {
-	if ((process_tab[i] != NULL) && (process_tab[i]->i != ENULL)) {
-	   if (process_tab[i]->status != P_EXITING) {
-	       Process* p = process_tab[i];
-
-	       if (p->status != P_GARBING) {
-		   dump_process_info(to, to_arg, p);
-	       }
-	   }
+	Process *p = erts_pix2proc(i);
+	if (p && p->i != ENULL) {
+	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
+	    if (!(state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_GC)))
+		dump_process_info(to, to_arg, p);
        }
     }
 

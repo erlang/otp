@@ -1355,13 +1355,15 @@ process_info_aux(Process *BIF_P,
 	hp = HAlloc(BIF_P, 3);
 	break;
 
-    case am_trap_exit:
+    case am_trap_exit: {
+	erts_aint32_t state = erts_smp_atomic32_read_nob(&rp->state);
 	hp = HAlloc(BIF_P, 3);
-	if (rp->flags  & F_TRAPEXIT)
+	if (state & ERTS_PSFLG_TRAP_EXIT)
 	    res = am_true;
 	else
 	    res = am_false;
 	break;
+    }
 
     case am_error_handler:
 	hp = HAlloc(BIF_P, 3);
@@ -3153,15 +3155,13 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
        if(internal_pid_index(BIF_ARG_1) >= erts_max_processes)
 	   BIF_ERROR(BIF_P, BADARG);
 
-       rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
-			  BIF_ARG_1, ERTS_PROC_LOCK_STATUS);
+       rp = erts_proc_lookup(BIF_ARG_1);
        if (!rp) {
 	   BIF_RET(am_false);
        }
        else {
-	   int have_pending_exit = ERTS_PROC_PENDING_EXIT(rp);
-	   erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_STATUS);
-	   if (have_pending_exit)
+	   if (erts_smp_atomic32_read_acqb(&rp->state)
+		 & (ERTS_PSFLG_PENDING_EXIT|ERTS_PSFLG_EXITING))
 	       ERTS_BIF_AWAIT_X_DATA_TRAP(BIF_P, BIF_ARG_1, am_false);
 	   else
 	       BIF_RET(am_true);
@@ -3765,9 +3765,8 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		    && is_internal_pid(tp[2])) {
 		    int xres;
 		    ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-		    Process *rp = erts_pid2proc_opt(BIF_P, ERTS_PROC_LOCK_MAIN,
-						    tp[2], rp_locks,
-						    ERTS_P2P_FLG_SMP_INC_REFC);
+		    Process *rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
+						tp[2], rp_locks);
 		    if (!rp) {
 			DECL_AM(dead);
 			BIF_RET(AM_dead);
@@ -3793,7 +3792,6 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 			rp_locks &= ~ERTS_PROC_LOCK_MAIN;
 #endif
 		    erts_smp_proc_unlock(rp, rp_locks);
-		    erts_smp_proc_dec_refc(rp);
 		    if (xres > 1) {
 			DECL_AM(message);
 			BIF_RET(AM_message);
@@ -4004,7 +4002,7 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_t *lock
 	id    = am_atom_put(ltype, strlen(ltype));
     } else if (lock->flag & ERTS_LCNT_LT_PROCLOCK) {
 	/* use registered names as id's for process locks if available */
-	proc  = erts_pid2proc_unlocked(lock->id);
+	proc  = erts_proc_lookup(lock->id);
 	if (proc && proc->reg) {
 	    id = proc->reg->name;
 	} else {

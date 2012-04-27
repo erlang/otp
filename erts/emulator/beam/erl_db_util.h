@@ -219,7 +219,7 @@ typedef struct db_table_common {
     Eterm owner;              /* Pid of the creator */
     Eterm heir;               /* Pid of the heir */
     UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
-    SysTimeval heir_started;  /* To further identify the heir */
+    Uint64 heir_started_interval;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
     Eterm id;                 /* atom | integer */
     DbTableMethod* meth;      /* table methods */

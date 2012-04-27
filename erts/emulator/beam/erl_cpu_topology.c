@@ -486,7 +486,7 @@ erts_sched_check_cpu_bind_post_suspend(ErtsSchedulerData *esdp)
 	erts_thr_set_main_status(1, (int) esdp->no);
 
     /* Make sure we check if we should bind to a cpu or not... */
-    esdp->run_queue->flags |= ERTS_RUNQ_FLG_CHK_CPU_BIND;
+    ERTS_RUNQ_FLGS_SET(esdp->run_queue, ERTS_RUNQ_FLG_CHK_CPU_BIND);
 }
 
 #endif
@@ -498,9 +498,6 @@ erts_sched_check_cpu_bind(ErtsSchedulerData *esdp)
     erts_cpu_groups_map_t *cgm;
     erts_cpu_groups_callback_list_t *cgcl;
     erts_cpu_groups_callback_call_t *cgcc;
-#ifdef ERTS_SMP
-    esdp->run_queue->flags &= ~ERTS_RUNQ_FLG_CHK_CPU_BIND;
-#endif
     erts_smp_runq_unlock(esdp->run_queue);
     erts_smp_rwmtx_rwlock(&cpuinfo_rwmtx);
     cpu_id = scheduler2cpu_map[esdp->no].bind_id;

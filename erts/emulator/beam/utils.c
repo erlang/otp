@@ -268,16 +268,42 @@ list_length(Eterm list)
     return i;
 }
 
-Uint erts_fit_in_bits(Uint n)
-{
-   Uint i;
+static const struct {
+    Sint64 mask;
+    int bits;
+} fib_data[] = {{ERTS_I64_LITERAL(0x2), 1},
+		{ERTS_I64_LITERAL(0xc), 2},
+		{ERTS_I64_LITERAL(0xf0), 4},
+		{ERTS_I64_LITERAL(0xff00), 8},
+		{ERTS_I64_LITERAL(0xffff0000), 16},
+		{ERTS_I64_LITERAL(0xffffffff00000000), 32}};
 
-   i = 0;
-   while (n > 0) {
-      i++;
-      n >>= 1;
-   }
-   return i;
+static ERTS_INLINE int
+fit_in_bits(Sint64 value, int start)
+{
+    int bits = 0;
+    int i;
+
+    for (i = start; i >= 0; i--) {
+	if (value & fib_data[i].mask) {
+	    value >>= fib_data[i].bits;
+	    bits |= fib_data[i].bits;
+	}
+    }
+
+    bits++;
+
+    return bits;
+}
+
+int erts_fit_in_bits_int64(Sint64 value)
+{
+    return fit_in_bits(value, 5);
+}
+
+int erts_fit_in_bits_int32(Sint32 value)
+{
+    return fit_in_bits((Sint64) (Uint32) value, 4);
 }
 
 int
@@ -1640,12 +1666,20 @@ static int do_send_to_logger(Eterm tag, Eterm gleader, char *buf, int len)
     }
 
 #ifndef ERTS_SMP
-    if (
 #ifdef USE_THREADS
-	!erts_get_scheduler_data() || /* Must be scheduler thread */
+    p = NULL;
+    if (erts_get_scheduler_data()) /* Must be scheduler thread */
 #endif
-	(p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0)) == NULL
-	|| p->status == P_RUNNING) {
+    {
+	p = erts_whereis_process(NULL, 0, am_error_logger, 0, 0);
+	if (p) {
+	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
+	    if (state & ERTS_PSFLG_RUNNING)
+		p = NULL;
+	}
+    }
+
+    if (!p) {
 	/* buf *always* points to a null terminated string */
 	erts_fprintf(stderr, "(no error logger present) %T: \"%s\"\n",
 		     tag, buf);
@@ -3240,7 +3274,7 @@ ptimer_timeout(ErtsSmpPTimer *ptimer)
 			      ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
 			      ERTS_P2P_FLG_ALLOW_OTHER_X);
 	if (p) {
-	    if (!p->is_exiting
+	    if (!ERTS_PROC_IS_EXITING(p)
 		&& !(ptimer->timer.flags & ERTS_PTMR_FLG_CANCELLED)) {
 		ASSERT(*ptimer->timer.timer_ref == ptimer);
 		*ptimer->timer.timer_ref = NULL;
@@ -3458,6 +3492,254 @@ void erts_silence_warn_unused_result(long unused)
 
 }
 
+/*
+ * Interval counts
+ */
+void
+erts_interval_init(erts_interval_t *icp)
+{
+#ifdef ARCH_64
+    erts_atomic_init_nob(&icp->counter.atomic, 0);
+#else
+    erts_dw_aint_t dw;
+#ifdef ETHR_SU_DW_NAINT_T__
+    dw.dw_sint = 0;
+#else
+    dw.sint[ERTS_DW_AINT_HIGH_WORD] = 0;
+    dw.sint[ERTS_DW_AINT_LOW_WORD] = 0;
+#endif
+    erts_dw_atomic_init_nob(&icp->counter.atomic, &dw);
+
+#endif
+#ifdef DEBUG
+    icp->smp_api = 0;
+#endif
+}
+
+void
+erts_smp_interval_init(erts_interval_t *icp)
+{
+#ifdef ERTS_SMP
+    erts_interval_init(icp);
+#else
+    icp->counter.not_atomic = 0;
+#endif
+#ifdef DEBUG
+    icp->smp_api = 1;
+#endif
+}
+
+static ERTS_INLINE Uint64
+step_interval_nob(erts_interval_t *icp)
+{
+#ifdef ARCH_64
+    return (Uint64) erts_atomic_inc_read_nob(&icp->counter.atomic);
+#else
+    erts_dw_aint_t exp;
+
+    erts_dw_atomic_read_nob(&icp->counter.atomic, &exp);
+    while (1) {
+	erts_dw_aint_t new = exp;
+
+#ifdef ETHR_SU_DW_NAINT_T__
+	new.dw_sint++;
+#else
+	new.sint[ERTS_DW_AINT_LOW_WORD]++;
+	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
+	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
+#endif
+
+	if (erts_dw_atomic_cmpxchg_nob(&icp->counter.atomic, &new, &exp))
+	    return erts_interval_dw_aint_to_val__(&new);
+
+    }
+#endif
+}
+
+static ERTS_INLINE Uint64
+step_interval_relb(erts_interval_t *icp)
+{
+#ifdef ARCH_64
+    return (Uint64) erts_atomic_inc_read_relb(&icp->counter.atomic);
+#else
+    erts_dw_aint_t exp;
+
+    erts_dw_atomic_read_nob(&icp->counter.atomic, &exp);
+    while (1) {
+	erts_dw_aint_t new = exp;
+
+#ifdef ETHR_SU_DW_NAINT_T__
+	new.dw_sint++;
+#else
+	new.sint[ERTS_DW_AINT_LOW_WORD]++;
+	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
+	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
+#endif
+
+	if (erts_dw_atomic_cmpxchg_relb(&icp->counter.atomic, &new, &exp))
+	    return erts_interval_dw_aint_to_val__(&new);
+
+    }
+#endif
+}
+
+
+static ERTS_INLINE Uint64
+ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
+{
+    Uint64 curr_ic;
+#ifdef ARCH_64
+    curr_ic = (Uint64) erts_atomic_read_nob(&icp->counter.atomic);
+    if (curr_ic > ic)
+	return curr_ic;
+    return (Uint64) erts_atomic_inc_read_nob(&icp->counter.atomic);
+#else
+    erts_dw_aint_t exp;
+
+    erts_dw_atomic_read_nob(&icp->counter.atomic, &exp);
+    curr_ic = erts_interval_dw_aint_to_val__(&exp);
+    if (curr_ic > ic)
+	return curr_ic;
+
+    while (1) {
+	erts_dw_aint_t new = exp;
+
+#ifdef ETHR_SU_DW_NAINT_T__
+	new.dw_sint++;
+#else
+	new.sint[ERTS_DW_AINT_LOW_WORD]++;
+	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
+	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
+#endif
+
+	if (erts_dw_atomic_cmpxchg_nob(&icp->counter.atomic, &new, &exp))
+	    return erts_interval_dw_aint_to_val__(&new);
+
+	curr_ic = erts_interval_dw_aint_to_val__(&exp);
+	if (curr_ic > ic)
+	    return curr_ic;
+    }
+#endif
+}
+
+
+static ERTS_INLINE Uint64
+ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
+{
+    Uint64 curr_ic;
+#ifdef ARCH_64
+    curr_ic = (Uint64) erts_atomic_read_acqb(&icp->counter.atomic);
+    if (curr_ic > ic)
+	return curr_ic;
+    return (Uint64) erts_atomic_inc_read_acqb(&icp->counter.atomic);
+#else
+    erts_dw_aint_t exp;
+
+    erts_dw_atomic_read_acqb(&icp->counter.atomic, &exp);
+    curr_ic = erts_interval_dw_aint_to_val__(&exp);
+    if (curr_ic > ic)
+	return curr_ic;
+
+    while (1) {
+	erts_dw_aint_t new = exp;
+
+#ifdef ETHR_SU_DW_NAINT_T__
+	new.dw_sint++;
+#else
+	new.sint[ERTS_DW_AINT_LOW_WORD]++;
+	if (new.sint[ERTS_DW_AINT_LOW_WORD] == 0)
+	    new.sint[ERTS_DW_AINT_HIGH_WORD]++;
+#endif
+
+	if (erts_dw_atomic_cmpxchg_acqb(&icp->counter.atomic, &new, &exp))
+	    return erts_interval_dw_aint_to_val__(&new);
+
+	curr_ic = erts_interval_dw_aint_to_val__(&exp);
+	if (curr_ic > ic)
+	    return curr_ic;
+    }
+#endif
+}
+
+Uint64
+erts_step_interval_nob(erts_interval_t *icp)
+{
+    ASSERT(!icp->smp_api);
+    return step_interval_nob(icp);
+}
+
+Uint64
+erts_step_interval_relb(erts_interval_t *icp)
+{
+    ASSERT(!icp->smp_api);
+    return step_interval_relb(icp);
+}
+
+Uint64
+erts_smp_step_interval_nob(erts_interval_t *icp)
+{
+    ASSERT(icp->smp_api);
+#ifdef ERTS_SMP
+    return step_interval_nob(icp);
+#else
+    return ++icp->counter.not_atomic;
+#endif
+}
+
+Uint64
+erts_smp_step_interval_relb(erts_interval_t *icp)
+{
+    ASSERT(icp->smp_api);
+#ifdef ERTS_SMP
+    return step_interval_relb(icp);
+#else
+    return ++icp->counter.not_atomic;
+#endif
+}
+
+Uint64
+erts_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
+{
+    ASSERT(!icp->smp_api);
+    return ensure_later_interval_nob(icp, ic);
+}
+
+Uint64
+erts_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
+{
+    ASSERT(!icp->smp_api);
+    return ensure_later_interval_acqb(icp, ic);
+}
+
+Uint64
+erts_smp_ensure_later_interval_nob(erts_interval_t *icp, Uint64 ic)
+{
+    ASSERT(icp->smp_api);
+#ifdef ERTS_SMP
+    return ensure_later_interval_nob(icp, ic);
+#else
+    if (icp->counter.not_atomic > ic)
+	return icp->counter.not_atomic;
+    else
+	return ++icp->counter.not_atomic;
+#endif
+}
+
+Uint64
+erts_smp_ensure_later_interval_acqb(erts_interval_t *icp, Uint64 ic)
+{
+    ASSERT(icp->smp_api);
+#ifdef ERTS_SMP
+    return ensure_later_interval_acqb(icp, ic);
+#else
+    if (icp->counter.not_atomic > ic)
+	return icp->counter.not_atomic;
+    else
+	return ++icp->counter.not_atomic;
+#endif
+}
+
+
 #ifdef DEBUG
 /*
  * Handy functions when using a debugger - don't use in the code!
@@ -3490,7 +3772,7 @@ Process *p;
     
 void ppi(Eterm pid)
 {
-    pp(erts_pid2proc_unlocked(pid));
+    pp(erts_proc_lookup(pid));
 }
 
 void td(Eterm x)

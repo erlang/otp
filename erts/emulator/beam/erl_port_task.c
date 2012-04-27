@@ -56,12 +56,6 @@
 #define ERTS_PORT_IS_IN_RUNQ(RQ, P) \
   ((P)->sched.next || (P)->sched.prev || (RQ)->ports.start == (P))
 
-#define ERTS_PORT_NOT_IN_RUNQ(P)	\
-do {					\
-    (P)->sched.prev = NULL;		\
-    (P)->sched.next = NULL;		\
-} while (0)
-
 #ifdef USE_VM_PROBES
 #define DTRACE_DRIVER(PROBE_NAME, PP)                              \
     if (DTRACE_ENABLED(driver_ready_input)) {                      \
@@ -167,7 +161,7 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
 {
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
     pp->sched.next = NULL;
-    pp->sched.prev = runq->ports.end;
+    pp->sched.in_runq = 1;
     if (runq->ports.end) {
 	ASSERT(runq->ports.start);
 	runq->ports.end->sched.next = pp;
@@ -177,39 +171,10 @@ enqueue_port(ErtsRunQueue *runq, Port *pp)
 	runq->ports.start = pp;
     }
 
-    runq->ports.info.len++;
-    if (runq->ports.info.max_len < runq->ports.info.len)
-	runq->ports.info.max_len = runq->ports.info.len;
-    runq->len++;
-    if (runq->max_len < runq->len)
-	runq->max_len = runq->len;
     runq->ports.end = pp;
     ASSERT(runq->ports.start && runq->ports.end);
-}
 
-static ERTS_INLINE void
-dequeue_port(ErtsRunQueue *runq, Port *pp)
-{
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
-    if (pp->sched.next)
-	pp->sched.next->sched.prev = pp->sched.prev;
-    else {
-	ASSERT(runq->ports.end == pp);
-	runq->ports.end = pp->sched.prev;
-    }
-    if (pp->sched.prev)
-	pp->sched.prev->sched.next = pp->sched.next;
-    else {
-	ASSERT(runq->ports.start == pp);
-	runq->ports.start = pp->sched.next;
-    }
-
-    ASSERT(runq->ports.info.len > 0);
-    runq->ports.info.len--;
-    ASSERT(runq->len > 0);
-    runq->len--;
-    ASSERT(runq->ports.start || !runq->ports.end);
-    ASSERT(runq->ports.end || !runq->ports.start);
+    erts_smp_inc_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
 }
 
 static ERTS_INLINE Port *
@@ -222,16 +187,11 @@ pop_port(ErtsRunQueue *runq)
     }
     else {
 	runq->ports.start = runq->ports.start->sched.next;
-	if (runq->ports.start)
-	    runq->ports.start->sched.prev = NULL;
-	else {
+	if (!runq->ports.start) {
 	    ASSERT(runq->ports.end == pp);
 	    runq->ports.end = NULL;
 	}
-	ASSERT(runq->ports.info.len > 0);
-	runq->ports.info.len--;
-	ASSERT(runq->len > 0);
-	runq->len--;
+	erts_smp_dec_runq_len(runq, &runq->ports.info, ERTS_PORT_PRIO_LEVEL);
     }
 
     ASSERT(runq->ports.start || !runq->ports.end);
@@ -285,7 +245,7 @@ check_port_queue(ErtsRunQueue *runq, Port *chk_pp, int inq)
 	}
 	ASSERT(no_forward == no_backward);
     }
-    ASSERT(no_forward == runq->ports.info.len);
+    ASSERT(no_forward == RUNQ_READ_LEN(&runq->ports.info.len));
     if (chk_pp) {
 	if (chk_pp->sched.taskq || chk_pp->sched.exe_taskq) {
 	    ASSERT(chk_pp->sched.taskq != chk_pp->sched.exe_taskq);
@@ -467,10 +427,11 @@ erts_port_task_abort(Eterm id, ErtsPortTaskHandle *pthp)
     ErtsPortTaskQueue *ptqp;
     ErtsPortTask *ptp;
     Port *pp;
-    int port_is_dequeued = 0;
 
     pp = &erts_port[internal_port_index(id)];
     runq = erts_port_runq(pp);
+    if (!runq)
+	return 1;
 
     ptp = handle2task(pthp);
 
@@ -505,22 +466,12 @@ erts_port_task_abort(Eterm id, ErtsPortTaskHandle *pthp)
 
     if (ptqp->first || pp->sched.taskq != ptqp)
 	ptqp = NULL;
-    else {
+    else
 	pp->sched.taskq = NULL;
-	if (!pp->sched.exe_taskq) {
-	    dequeue_port(runq, pp);
-	    ERTS_PORT_NOT_IN_RUNQ(pp);
-	    port_is_dequeued = 1;
-	}
-    }
 
     ERTS_PT_CHK_PRES_PORTQ(runq, pp);
 
     erts_smp_runq_unlock(runq);
-    
-    if (erts_system_profile_flags.runnable_ports && port_is_dequeued) {
-    	profile_runnable_port(pp, am_inactive);
-    }
 
     port_task_free(ptp);
     if (ptqp)
@@ -575,7 +526,7 @@ erts_port_task_schedule(Eterm id,
 
     if (!pp->sched.taskq) {
 	pp->sched.taskq = port_taskq_init(port_taskq_alloc(), pp);
-	enq_port = !pp->sched.exe_taskq;
+	enq_port = !pp->sched.in_runq && !pp->sched.exe_taskq;
     }
 
 #ifdef ERTS_SMP
@@ -585,12 +536,12 @@ erts_port_task_schedule(Eterm id,
 	    /* Port emigrated ... */
 	    erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
 	    erts_smp_runq_unlock(runq);
-	    runq = xrunq;
+	    runq = erts_port_runq(pp);
+	    if (!runq)
+		return -1;
 	}
     }
 #endif
-
-    ASSERT(!enq_port || !(runq->flags & ERTS_RUNQ_FLG_SUSPENDED));
 
     ASSERT(pp->sched.taskq);
     ASSERT(ptp);
@@ -633,7 +584,7 @@ erts_port_task_schedule(Eterm id,
 #elif defined(DEBUG)
     if (!enq_port && !pp->sched.exe_taskq) {
 	/* We should be in port run q */
-	ASSERT(pp->sched.prev || runq->ports.start == pp);
+	ASSERT(pp->sched.in_runq);
     }
 #endif
 #endif
@@ -661,63 +612,54 @@ void
 erts_port_task_free_port(Port *pp)
 {
     ErtsRunQueue *runq;
-    int port_is_dequeued = 0;
+    ErtsPortTaskQueue *ptqp;
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
     ASSERT(!(pp->status & ERTS_PORT_SFLGS_DEAD));
     runq = erts_port_runq(pp);
     ASSERT(runq);
     ERTS_PT_CHK_PRES_PORTQ(runq, pp);
-    if (pp->sched.exe_taskq) {
+    ptqp = pp->sched.exe_taskq;
+    if (ptqp) {
 	/* I (this thread) am currently executing this port, free it
 	   when scheduled out... */
-	ErtsPortTask *ptp = port_task_alloc();
+	ErtsPortTask *ptp;
+    enqueue_free:
+	ptp = port_task_alloc();
 	erts_smp_port_state_lock(pp);
 	pp->status &= ~ERTS_PORT_SFLG_CLOSING;
 	pp->status |= ERTS_PORT_SFLG_FREE_SCHEDULED;
 	erts_may_save_closed_port(pp);
 	erts_smp_port_state_unlock(pp);
-	ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 1);
+	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 1);
 	ptp->type = ERTS_PORT_TASK_FREE;
 	ptp->event = (ErlDrvEvent) -1;
 	ptp->event_data = NULL;
 	set_handle(ptp, NULL);
-	push_task(pp->sched.exe_taskq, ptp);
+	push_task(ptqp, ptp);
 	ERTS_PT_CHK_PRES_PORTQ(runq, pp);
 	erts_smp_runq_unlock(runq);
     }
     else {
-	ErtsPortTaskQueue *ptqp = pp->sched.taskq;
-	if (ptqp) {
-	    dequeue_port(runq, pp);
-	    ERTS_PORT_NOT_IN_RUNQ(pp);
-	    port_is_dequeued = 1;
+	if (pp->sched.in_runq) {
+	    ptqp = pp->sched.taskq;
+	    if (!ptqp)
+		pp->sched.taskq = ptqp = port_taskq_init(port_taskq_alloc(), pp);
+	    goto enqueue_free;
 	}
+	ASSERT(!pp->sched.taskq);
 	erts_smp_port_state_lock(pp);
 	pp->status &= ~ERTS_PORT_SFLG_CLOSING;
 	pp->status |= ERTS_PORT_SFLG_FREE_SCHEDULED;
 	erts_may_save_closed_port(pp);
 	erts_smp_port_state_unlock(pp);
-#ifdef ERTS_SMP
 	erts_smp_atomic_dec_nob(&pp->refc); /* Not alive */
-#endif
-	ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 0); /* Lock */
+	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 0); /* Lock */
 	handle_remaining_tasks(runq, pp); /* May release runq lock */
 	ASSERT(!pp->sched.exe_taskq && (!ptqp || !ptqp->first));
 	pp->sched.taskq = NULL;
 	ERTS_PT_CHK_PRES_PORTQ(runq, pp);
-#ifndef ERTS_SMP
-	ASSERT(pp->status & ERTS_PORT_SFLG_PORT_DEBUG);
-	erts_port_status_set(pp, ERTS_PORT_SFLG_FREE);	
-#endif
 	erts_smp_runq_unlock(runq);
-
-	if (erts_system_profile_flags.runnable_ports && port_is_dequeued) {
-    	    profile_runnable_port(pp, am_inactive);
-    	}
-
-	if (ptqp)
-	    port_taskq_free(ptqp);
     }
 }
 
@@ -738,7 +680,6 @@ typedef struct {
 int
 erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 {
-    int port_was_enqueued = 0;
     Port *pp;
     ErtsPortTaskQueue *ptqp;
     ErtsPortTask *ptp;
@@ -757,11 +698,18 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	goto done;
     }
 
-    ERTS_PORT_NOT_IN_RUNQ(pp);
+    ASSERT(pp->sched.in_runq);
+    pp->sched.in_runq = 0;
+    if (!pp->sched.taskq) {
+	if (erts_system_profile_flags.runnable_ports)
+	    profile_runnable_port(pp, am_inactive);
+	res = (erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
+	       != (erts_aint_t) 0);
+	goto done;
+    }
 
     *curr_port_pp = pp;
 
-    ASSERT(pp->sched.taskq);
     ASSERT(pp->sched.taskq->first);
     ptqp = pp->sched.taskq;
     pp->sched.taskq = NULL;
@@ -823,12 +771,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		handle_remaining_tasks(runq, pp);
 	    ASSERT(!ptqp->first
 		   && (!pp->sched.taskq || !pp->sched.taskq->first));
-#ifdef ERTS_SMP
 	    erts_smp_atomic_dec_nob(&pp->refc); /* Not alive */
-	    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 0); /* Lock */
-#else
-	    erts_port_status_bor_set(pp, ERTS_PORT_SFLG_FREE);	    
-#endif
+	    ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 0); /* Lock */
 
 	    port_task_free(ptp);
 	    if (pp->sched.taskq)
@@ -918,6 +862,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     if (!pp->sched.taskq) {
 	ASSERT(pp->sched.exe_taskq);
 	pp->sched.exe_taskq = NULL;
+	if (erts_system_profile_flags.runnable_ports)
+	    profile_runnable_port(pp, am_inactive);
     }
     else {
 #ifdef ERTS_SMP
@@ -940,14 +886,20 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	else {
 	    /* Port emigrated ... */
 	    erts_smp_atomic_set_nob(&pp->run_queue, (erts_aint_t) xrunq);
-	    enqueue_port(xrunq, pp);
-	    ASSERT(pp->sched.exe_taskq);
-	    pp->sched.exe_taskq = NULL;
-	    erts_smp_runq_unlock(xrunq);
-	    erts_smp_notify_inc_runq(xrunq);
+	    erts_smp_runq_unlock(runq);
+
+	    xrunq = erts_port_runq(pp);
+	    if (xrunq) {
+		enqueue_port(xrunq, pp);
+		ASSERT(pp->sched.exe_taskq);
+		pp->sched.exe_taskq = NULL;
+		erts_smp_runq_unlock(xrunq);
+		erts_smp_notify_inc_runq(xrunq);
+	    }
+
+	    erts_smp_runq_lock(runq);
 	}
 #endif
-	port_was_enqueued = 1;
     }
 
     res = (erts_smp_atomic_read_nob(&erts_port_task_outstanding_io_tasks)
@@ -956,10 +908,6 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     ERTS_PT_CHK_PRES_PORTQ(runq, pp);
 
     port_taskq_free(ptqp);
-
-    if (erts_system_profile_flags.runnable_ports && (port_was_enqueued != 1)) {
-    	profile_runnable_port(pp, am_inactive);
-    }
 
     /* trace port scheduling, out */
     if (IS_TRACED_FL(pp, F_TRACE_SCHED_PORTS)) {
@@ -1049,63 +997,33 @@ erts_port_is_scheduled(Port *pp)
 {
     int res;
     ErtsRunQueue *runq = erts_port_runq(pp);
+    if (!runq)
+	return 0;
     res = pp->sched.taskq || pp->sched.exe_taskq;
     erts_smp_runq_unlock(runq);
     return res;
 }
 
 #ifdef ERTS_SMP
-
-ErtsMigrateResult
-erts_port_migrate(Port *prt, int *prt_locked,
-		  ErtsRunQueue *from_rq, int *from_locked,
-		  ErtsRunQueue *to_rq, int *to_locked)
+void
+erts_enqueue_port(ErtsRunQueue *rq, Port *pp)
 {
-    ERTS_SMP_LC_ASSERT(*from_locked);
-    ERTS_SMP_LC_CHK_RUNQ_LOCK(from_rq, *from_locked);
-    ERTS_SMP_LC_CHK_RUNQ_LOCK(to_rq, *to_locked);
+    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
+    ASSERT(rq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
+    ASSERT(pp->sched.in_runq);
+    enqueue_port(rq, pp);
+}
 
-    if (!*from_locked || !*to_locked) {
-	if (from_rq < to_rq) {
-	    if (!*to_locked) {
-		if (!*from_locked)
-		    erts_smp_runq_lock(from_rq);
-		erts_smp_runq_lock(to_rq);
-	    }
-	    else if (erts_smp_runq_trylock(from_rq) == EBUSY) {
-		erts_smp_runq_unlock(to_rq);
-		erts_smp_runq_lock(from_rq);
-		erts_smp_runq_lock(to_rq);
-	    }
-	}
-	else {
-	    if (!*from_locked) {
-		if (!*to_locked)
-		    erts_smp_runq_lock(to_rq);
-		erts_smp_runq_lock(from_rq);
-	    }
-	    else if (erts_smp_runq_trylock(to_rq) == EBUSY) {
-		erts_smp_runq_unlock(from_rq);
-		erts_smp_runq_lock(to_rq);
-		erts_smp_runq_lock(from_rq);
-	    }
-	}
-	*to_locked = *from_locked = 1;
-    }
-    ERTS_SMP_LC_CHK_RUNQ_LOCK(from_rq, *from_locked);
-    ERTS_SMP_LC_CHK_RUNQ_LOCK(to_rq, *to_locked);
-
-    /* Refuse to migrate to a suspended run queue */
-    if (to_rq->flags & ERTS_RUNQ_FLG_SUSPENDED)
-	return ERTS_MIGRATE_FAILED_RUNQ_SUSPENDED;
-    if (from_rq != (ErtsRunQueue *) erts_smp_atomic_read_nob(&prt->run_queue))
-	return ERTS_MIGRATE_FAILED_RUNQ_CHANGED;
-    if (!ERTS_PORT_IS_IN_RUNQ(from_rq, prt))
-	return ERTS_MIGRATE_FAILED_NOT_IN_RUNQ;
-    dequeue_port(from_rq, prt);
-    erts_smp_atomic_set_nob(&prt->run_queue, (erts_aint_t) to_rq);
-    enqueue_port(to_rq, prt);
-    return ERTS_MIGRATE_SUCCESS;
+Port *
+erts_dequeue_port(ErtsRunQueue *rq)
+{
+    Port *pp;
+    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
+    pp = pop_port(rq);
+    ASSERT(!pp
+	   || rq == (ErtsRunQueue *) erts_smp_atomic_read_nob(&pp->run_queue));
+    ASSERT(!pp || pp->sched.in_runq);
+    return pp;
 }
 
 #endif

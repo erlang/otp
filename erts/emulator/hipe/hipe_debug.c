@@ -188,8 +188,6 @@ void hipe_print_pcb(Process *p)
     U("old_htop   ", old_htop);
     U("old_head   ", old_heap);
     U("min_heap_..", min_heap_size);
-    U("status     ", status);
-    U("rstatus    ", rstatus);
     U("rcount     ", rcount);
     U("id         ", id);
     U("prio       ", prio);

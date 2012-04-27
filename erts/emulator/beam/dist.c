@@ -1312,7 +1312,7 @@ int erts_net_message(Port *prt,
 	if (is_not_pid(from) || is_not_atom(to)){
 	    goto invalid_message;
 	}
-	rp = erts_whereis_process(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC);
+	rp = erts_whereis_process(NULL, 0, to, 0, 0);
 	if (rp) {
 	    Uint xsize = (type == DOP_REG_SEND
 			  ? 0
@@ -1338,7 +1338,6 @@ int erts_net_message(Port *prt,
 	    erts_queue_dist_message(rp, &locks, ede_copy, token);
 	    if (locks)
 		erts_smp_proc_unlock(rp, locks);
-	    erts_smp_proc_dec_refc(rp);
 	}
 	break;
 
@@ -1364,7 +1363,7 @@ int erts_net_message(Port *prt,
 	if (is_not_pid(to)) {
 	    goto invalid_message;
 	}
-	rp = erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC);
+	rp = erts_proc_lookup(to);
 	if (rp) {
 	    Uint xsize = type == DOP_SEND ? 0 : ERTS_HEAP_FRAG_SIZE(token_size);
 	    ErtsProcLocks locks = 0;
@@ -1388,7 +1387,6 @@ int erts_net_message(Port *prt,
 	    erts_queue_dist_message(rp, &locks, ede_copy, token);
 	    if (locks)
 		erts_smp_proc_unlock(rp, locks);
-	    erts_smp_proc_dec_refc(rp);
 	}
 	break;
 
@@ -1544,8 +1542,7 @@ int erts_net_message(Port *prt,
 	if (is_not_pid(from) || is_not_internal_pid(to)) {
 	    goto invalid_message;
 	}
-	rp = erts_pid2proc_opt(NULL, 0, to, rp_locks,
-			       ERTS_P2P_FLG_SMP_INC_REFC);
+	rp = erts_pid2proc(NULL, 0, to, rp_locks);
 	if (rp) {
 	    (void) erts_send_exit_signal(NULL,
 					 from,
@@ -1556,7 +1553,6 @@ int erts_net_message(Port *prt,
 					 NULL,
 					 0);
 	    erts_smp_proc_unlock(rp, rp_locks);
-	    erts_smp_proc_dec_refc(rp);
 	}
 	break;
     }
@@ -2246,7 +2242,7 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
     void *arg = ((struct print_to_data *) vptdp)->arg;
     Process *rp;
     ErtsMonitor *rmon;
-    rp = erts_pid2proc_unlocked(mon->pid);
+    rp = erts_proc_lookup(mon->pid);
     if (!rp || (rmon = erts_lookup_monitor(rp->monitors, mon->ref)) == NULL) {
 	erts_print(to, arg, "Warning, stray monitor for: %T\n", mon->pid);
     } else if (mon->type == MON_ORIGIN) {
@@ -2285,7 +2281,7 @@ static void doit_print_link_info2(ErtsLink *lnk, void *vpplc)
 
 static void doit_print_link_info(ErtsLink *lnk, void *vptdp)
 {
-    if (is_internal_pid(lnk->pid) && erts_pid2proc_unlocked(lnk->pid)) {
+    if (is_internal_pid(lnk->pid) && erts_proc_lookup(lnk->pid)) {
 	PrintLinkContext plc = {(struct print_to_data *) vptdp, lnk->pid};
 	erts_doforall_links(ERTS_LINK_ROOT(lnk), &doit_print_link_info2, &plc);
     } 
@@ -2307,7 +2303,7 @@ static void doit_print_nodelink_info(ErtsLink *lnk, void *vpcontext)
 {
     PrintNodeLinkContext *pcontext = vpcontext;
 
-    if (is_internal_pid(lnk->pid) && erts_pid2proc_unlocked(lnk->pid))
+    if (is_internal_pid(lnk->pid) && erts_proc_lookup(lnk->pid))
 	erts_print(pcontext->ptd.to, pcontext->ptd.arg,
 		   "Remote monitoring: %T %T\n", lnk->pid, pcontext->sysname);
 }
@@ -2710,9 +2706,8 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 	}
 	else {
 	    lp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-	    lp = erts_pid2proc_opt(BIF_P, ERTS_PROC_LOCK_MAIN,
-				   local, lp_locks,
-				   ERTS_P2P_FLG_SMP_INC_REFC);
+	    lp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
+			       local, lp_locks);
 	    if (!lp) {
 		BIF_RET(am_true); /* ignore */
 	    }
@@ -2731,9 +2726,7 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 	    lp_locks &= ~ERTS_PROC_LOCK_MAIN;
 #endif
 	erts_smp_proc_unlock(lp, lp_locks);
-	if (lp != BIF_P)
-	    erts_smp_proc_dec_refc(lp);
-	else {
+	if (lp == BIF_P) {
 	    /*
 	     * We may have exited current process and may have to take action.
 	     */

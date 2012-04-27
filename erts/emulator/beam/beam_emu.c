@@ -64,11 +64,7 @@
 #    define PROCESS_MAIN_CHK_LOCKS(P)					\
 do {									\
     if ((P)) {								\
-	erts_pix_lock_t *pix_lock__ = ERTS_PIX2PIXLOCK(internal_pid_index((P)->id));\
 	erts_proc_lc_chk_only_proc_main((P));				\
-	erts_pix_lock(pix_lock__);					\
-	ASSERT(0 < (P)->lock.refc && (P)->lock.refc < erts_no_schedulers*5);\
-	erts_pix_unlock(pix_lock__);					\
     }									\
     else								\
 	erts_lc_check_exact(NULL, 0);					\
@@ -1879,13 +1875,12 @@ void process_main(void)
 	 msgp = PEEK_MESSAGE(c_p);
 	 if (msgp)
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
-	 else {
+	 else
 #endif
+	 {
 	     SET_I((BeamInstr *) Arg(0));
 	     Goto(*I);		/* Jump to a wait or wait_timeout instruction */
-#ifdef ERTS_SMP
 	 }
-#endif
      }
      ErtsMoveMsgAttachmentIntoProc(msgp, c_p, E, HTOP, FCALLS,
 				   {
@@ -2114,11 +2109,11 @@ void process_main(void)
 	 OpCase(wait_f):
 
 	 wait2: {
-	     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	     c_p->i = (BeamInstr *) Arg(0); /* L1 */
 	     SWAPOUT;
 	     c_p->arity = 0;
-	     c_p->status = P_WAITING;
+	     erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
+	     ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	     c_p->current = NULL;
 	     goto do_schedule;
@@ -3197,10 +3192,6 @@ void process_main(void)
      c_p->arg_reg[0] = r(0);
      SWAPOUT;
      c_p->i = I;
-     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
-     if (c_p->status != P_SUSPENDED)
-	 erts_add_to_runq(c_p);
-     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
      goto do_schedule1;
  }
 
@@ -5163,9 +5154,6 @@ void process_main(void)
      c_p->arity = 1; /* One living register (the 'true' return value) */
      SWAPOUT;
      c_p->i = I + 1; /* Next instruction */
-     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
-     erts_add_to_runq(c_p);
-     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
      c_p->current = NULL;
      goto do_schedule;
  }
@@ -6260,9 +6248,7 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
      */
     erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-    if (c_p->msg.len > 0) {
-	erts_add_to_runq(c_p);
-    } else {
+    if (!c_p->msg.len) {
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
 	c_p->fvalue = NIL;
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -6270,14 +6256,12 @@ erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* re
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
-	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 #ifdef ERTS_SMP
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(c_p);
-	if (c_p->msg.len > 0)
-	    erts_add_to_runq(c_p);
-	else
+	if (!c_p->msg.len)
 #endif
-	    c_p->status = P_WAITING;
+	    erts_smp_atomic32_read_band_relb(&c_p->state, ~ERTS_PSFLG_ACTIVE);
+	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
     }
     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_STATUS);
     c_p->current = bif_export[BIF_hibernate_3]->code;

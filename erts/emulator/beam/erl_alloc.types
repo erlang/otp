@@ -265,6 +265,7 @@ type	CPU_GRPS_MAP	LONG_LIVED	SYSTEM		cpu_groups_map
 type	AUX_WORK_TMO	LONG_LIVED	SYSTEM		aux_work_timeouts
 type	MISC_AUX_WORK_Q	LONG_LIVED	SYSTEM		misc_aux_work_q
 type	CODE_IX_LOCK_Q  SHORT_LIVED	SYSTEM		code_ix_lock_q
+type	PROC_INTERVAL	LONG_LIVED	SYSTEM		process_interval
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;
@@ -337,6 +338,8 @@ type	SL_PTIMER	SHORT_LIVED	SYSTEM		ptimer_sl
 type	LL_PTIMER	STANDARD	SYSTEM		ptimer_ll
 type	SYS_MSG_Q	SHORT_LIVED	PROCESSES	system_messages_queue
 type	FP_EXCEPTION	LONG_LIVED	SYSTEM		fp_exception
+type	LL_MPATHS	LONG_LIVED	SYSTEM		ll_migration_paths
+type	SL_MPATHS	SHORT_LIVED	SYSTEM		sl_migration_paths
 +endif
 
 +if hipe

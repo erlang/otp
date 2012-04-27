@@ -368,13 +368,11 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
 #endif
 	for (j = 0; j < erts_max_ports; j++) {
 	    Port* prt = &erts_port[j];
-#ifdef DDLL_SMP
 	    erts_smp_port_state_lock(prt);
-#endif 
 	    if (!(prt->status & FREE_PORT_FLAGS) &&
 		prt->drv_ptr->handle == dh) {
-#if DDLL_SMP
 		erts_smp_atomic_inc_nob(&prt->refc);
+#if DDLL_SMP
 		/* Extremely rare spinlock */
 		while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
 		       erts_smp_port_state_unlock(prt);
@@ -598,13 +596,11 @@ done:
 #endif
 	for (j = 0; j < erts_max_ports; j++) {
 	    Port* prt = &erts_port[j];
-#if DDLL_SMP
 	    erts_smp_port_state_lock(prt);
-#endif
 	    if (!(prt->status &  FREE_PORT_FLAGS) 
 		&& prt->drv_ptr->handle == dh) {
-#if DDLL_SMP
 		erts_smp_atomic_inc_nob(&prt->refc);
+#if DDLL_SMP
 		/* Extremely rare spinlock */
 		while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
 		       erts_smp_port_state_unlock(prt);
@@ -1060,13 +1056,11 @@ void erts_ddll_proc_dead(Process *p, ErtsProcLocks plocks)
 #endif
 		    for (j = 0; j < erts_max_ports; j++) {
 			Port* prt = &erts_port[j];
-#if DDLL_SMP
 			erts_smp_port_state_lock(prt);
-#endif
 			if (!(prt->status & FREE_PORT_FLAGS) &&
 			    prt->drv_ptr->handle == dh) {
-#if DDLL_SMP
 			    erts_smp_atomic_inc_nob(&prt->refc);
+#if DDLL_SMP
 			    while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
 				erts_smp_port_state_unlock(prt);
 				erts_smp_port_state_lock(prt);

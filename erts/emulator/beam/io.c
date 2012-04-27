@@ -259,10 +259,8 @@ get_free_port(void)
 	}
     }
     port->status = ERTS_PORT_SFLG_INITIALIZING;
-#ifdef ERTS_SMP
-    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 0);
+    ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 0);
     erts_smp_atomic_set_nob(&port->refc, 2); /* Port alive + lock */
-#endif	
     erts_smp_port_state_unlock(port);
     return num & port_num_mask;
 }
@@ -340,10 +338,14 @@ port_cleanup(Port *prt)
     prt->drv_ptr = NULL;
     ASSERT(driver);
 
-#ifdef ERTS_SMP
-
     ASSERT(prt->status & ERTS_PORT_SFLG_FREE_SCHEDULED);
-    ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&prt->refc) == 0);
+    ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&prt->refc) == 0);
+
+    ASSERT(prt->status & ERTS_PORT_SFLG_PORT_DEBUG);
+    ASSERT(!(prt->status & ERTS_PORT_SFLG_FREE));
+    prt->status = ERTS_PORT_SFLG_FREE;
+
+#ifdef ERTS_SMP
 
     port_specific = (prt->status & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK);
 
@@ -351,10 +353,6 @@ port_cleanup(Port *prt)
     ASSERT(mtx);
 
     prt->lock = NULL;
-
-    ASSERT(prt->status & ERTS_PORT_SFLG_PORT_DEBUG);
-    ASSERT(!(prt->status & ERTS_PORT_SFLG_FREE));
-    prt->status = ERTS_PORT_SFLG_FREE;
 
     erts_smp_port_state_unlock(prt);    
     erts_smp_mtx_unlock(mtx);
@@ -606,10 +604,8 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	/* Need to mark the port as free again */
 	erts_smp_port_state_lock(port);
 	port->status = ERTS_PORT_SFLG_FREE;
-#ifdef ERTS_SMP
-	ERTS_SMP_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 2);
+	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&port->refc) == 2);
 	erts_smp_atomic_set_nob(&port->refc, 0); 
-#endif	
 	erts_smp_port_state_unlock(port);
 	return -3;
     }
@@ -1330,7 +1326,7 @@ void init_io(void)
 	    erts_max_ports = ERTS_MAX_R9_PORTS;
     }
 
-    port_extra_shift = erts_fit_in_bits(erts_max_ports - 1);
+    port_extra_shift = erts_fit_in_bits_int32(erts_max_ports - 1);
     port_num_mask = (1 << ports_bits) - 1;
 
     erts_port_tab_index_mask = ~(~((Uint) 0) << port_extra_shift);
@@ -1354,8 +1350,8 @@ void init_io(void)
 
     for (i = 0; i < erts_max_ports; i++) {
 	erts_port_task_init_sched(&erts_port[i].sched);
-#ifdef ERTS_SMP
 	erts_smp_atomic_init_nob(&erts_port[i].refc, 0);
+#ifdef ERTS_SMP
 	erts_port[i].lock = NULL;
 	erts_port[i].xports = NULL;
 	erts_smp_spinlock_init_x(&erts_port[i].state_lck,
@@ -1594,6 +1590,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 {
     Process *rp;
     ErtsProcLocks rp_locks = 0;
+    int scheduler = erts_get_scheduler_id() != 0;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -1601,7 +1598,9 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 	   && is_internal_pid(pid)
 	   && internal_pid_index(pid) < erts_max_processes);
 
-    rp = erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_SMP_INC_REFC);
+    rp = (scheduler
+	  ? erts_proc_lookup(pid)
+	  : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_SMP_INC_REFC));
 
     if (rp) {
 	Eterm tuple;
@@ -1619,7 +1618,9 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 #endif
 			   );
 	erts_smp_proc_unlock(rp, rp_locks);
-	erts_smp_proc_dec_refc(rp);
+	if (!scheduler)
+	    erts_smp_proc_dec_refc(rp);
+
     }
 }
 
@@ -1644,6 +1645,7 @@ static void deliver_read_message(Port* prt, Eterm to,
     ErlHeapFragment *bp;
     ErlOffHeap *ohp;
     ErtsProcLocks rp_locks = 0;
+    int scheduler = erts_get_scheduler_id() != 0;
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));    
     ERTS_SMP_CHK_NO_PROC_LOCKS;
@@ -1658,7 +1660,10 @@ static void deliver_read_message(Port* prt, Eterm to,
 	need += 2*len;
     }
 
-    rp = erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC);
+    rp = (scheduler
+	  ? erts_proc_lookup(to)
+	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC));
+
     if (!rp)
 	return;
 
@@ -1711,8 +1716,10 @@ static void deliver_read_message(Port* prt, Eterm to,
 			   , NIL
 #endif
 		       );
-    erts_smp_proc_unlock(rp, rp_locks);
-    erts_smp_proc_dec_refc(rp);
+    if (rp_locks)
+	erts_smp_proc_unlock(rp, rp_locks);
+    if (!scheduler)
+	erts_smp_proc_dec_refc(rp);
 }
 
 /* 
@@ -1779,6 +1786,7 @@ deliver_vec_message(Port* prt,			/* Port */
     ErlHeapFragment *bp;
     ErlOffHeap *ohp;
     ErtsProcLocks rp_locks = 0;
+    int scheduler = erts_get_scheduler_id() != 0;
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
     ERTS_SMP_CHK_NO_PROC_LOCKS;
@@ -1787,7 +1795,10 @@ deliver_vec_message(Port* prt,			/* Port */
      * Check arguments for validity.
      */
 
-    rp = erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC);
+
+    rp = (scheduler
+	  ? erts_proc_lookup(to)
+	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC));
     if (!rp)
 	return;
 
@@ -1869,7 +1880,8 @@ deliver_vec_message(Port* prt,			/* Port */
 #endif
 		       );
     erts_smp_proc_unlock(rp, rp_locks);
-    erts_smp_proc_dec_refc(rp);
+    if (!scheduler)
+	erts_smp_proc_dec_refc(rp);
 }
 
 
@@ -2277,9 +2289,8 @@ void erts_port_command(Process *proc,
 
     {
 	ErtsProcLocks rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
-	Process* rp = erts_pid2proc_opt(NULL, 0,
-					port->connected, rp_locks,
-					ERTS_P2P_FLG_SMP_INC_REFC);
+	Process* rp = erts_pid2proc(NULL, 0,
+				    port->connected, rp_locks);
 	if (rp) {
 	    (void) erts_send_exit_signal(NULL,
 					 port->id,
@@ -2290,7 +2301,6 @@ void erts_port_command(Process *proc,
 					 NULL,
 					 0);
 	    erts_smp_proc_unlock(rp, rp_locks);
-	    erts_smp_proc_dec_refc(rp);
 	}
 
     }
@@ -2841,13 +2851,17 @@ void driver_report_exit(int ix, int status)
    ErlHeapFragment *bp = NULL;
    ErlOffHeap *ohp;
    ErtsProcLocks rp_locks = 0;
+   int scheduler = erts_get_scheduler_id() != 0;
 
    ERTS_SMP_CHK_NO_PROC_LOCKS;
    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
 
    pid = prt->connected;
    ASSERT(is_internal_pid(pid));
-   rp = erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_SMP_INC_REFC);
+
+   rp = (scheduler
+	 ? erts_proc_lookup(pid)
+	 : erts_pid2proc_opt(NULL, 0, pid, 0, ERTS_P2P_FLG_SMP_INC_REFC));
    if (!rp)
        return;
 
@@ -2864,7 +2878,8 @@ void driver_report_exit(int ix, int status)
 		      );
 
    erts_smp_proc_unlock(rp, rp_locks);
-   erts_smp_proc_dec_refc(rp);
+   if (!scheduler)
+       erts_smp_proc_dec_refc(rp);
 }
 
 
@@ -2995,6 +3010,7 @@ driver_deliver_term(ErlDrvPort port,
     ErlOffHeap *ohp;
     ErtsProcLocks rp_locks = 0;
     struct b2t_states__ b2t;
+    int scheduler = 1; /* Silence erroneous warning... */
 
     init_b2t_states(&b2t);
 
@@ -3186,7 +3202,13 @@ driver_deliver_term(ErlDrvPort port,
     if (res <= 0)
 	goto done;
 
-    rp = erts_pid2proc_opt(NULL, 0, to, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC);
+    /*
+     * Increase refc on proc if done from a non-scheduler thread.
+     */
+    scheduler = erts_get_scheduler_id() != 0;
+    rp = (scheduler
+	  ? erts_proc_lookup(to)
+	  : erts_pid2proc_opt(NULL, 0, to, 0, ERTS_P2P_FLG_SMP_INC_REFC));
     if (!rp) {
 	res = 0;
 	goto done;
@@ -3432,7 +3454,8 @@ driver_deliver_term(ErlDrvPort port,
     if (rp) {
 	if (rp_locks)
 	    erts_smp_proc_unlock(rp, rp_locks);
-	erts_smp_proc_dec_refc(rp);
+	if (!scheduler)
+	    erts_smp_proc_dec_refc(rp);
     }
 #endif
     cleanup_b2t_states(&b2t);

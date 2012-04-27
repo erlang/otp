@@ -62,7 +62,7 @@ typedef struct ErtsPortTaskQueue_ ErtsPortTaskQueue;
 
 typedef struct {
     Port *next;
-    Port *prev;
+    int in_runq;
     ErtsPortTaskQueue *taskq;
     ErtsPortTaskQueue *exe_taskq;
 } ErtsPortTaskSched;
@@ -92,7 +92,7 @@ ERTS_GLB_INLINE void
 erts_port_task_init_sched(ErtsPortTaskSched *ptsp)
 {
     ptsp->next = NULL;
-    ptsp->prev = NULL;
+    ptsp->in_runq = 0;
     ptsp->taskq = NULL;
     ptsp->exe_taskq = NULL;
 }
@@ -123,13 +123,10 @@ int erts_port_task_schedule(Eterm,
 			    ErlDrvEventData);
 void erts_port_task_free_port(Port *);
 int erts_port_is_scheduled(Port *);
+
 #ifdef ERTS_SMP
-ErtsMigrateResult erts_port_migrate(Port *,
-				    int *,
-				    ErtsRunQueue *,
-				    int *,
-				    ErtsRunQueue *,
-				    int *);
+void erts_enqueue_port(ErtsRunQueue *rq, Port *pp);
+Port *erts_dequeue_port(ErtsRunQueue *rq);
 #endif
 #undef ERTS_INCLUDE_SCHEDULER_INTERNALS
 #endif /* ERL_PORT_TASK_H__ */

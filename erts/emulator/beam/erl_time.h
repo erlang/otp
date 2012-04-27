@@ -118,9 +118,11 @@ ERTS_GLB_INLINE void erts_do_time_add(erts_short_time_t elapsed)
 void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec);
 #endif
 
+typedef UWord erts_approx_time_t;
+erts_approx_time_t erts_get_approx_time(void);
+
 void erts_get_timeval(SysTimeval *tv);
 erts_time_t erts_get_time(void);
-void erts_get_emu_time(SysTimeval *);
 
 ERTS_GLB_INLINE int erts_cmp_timeval(SysTimeval *t1p, SysTimeval *t2p);
 

@@ -2849,7 +2849,7 @@ void init_db(void)
     else
 	db_max_tabs = user_requested_db_max_tabs;
 
-    bits = erts_fit_in_bits(db_max_tabs-1);
+    bits = erts_fit_in_bits_int32(db_max_tabs-1);
     if (bits > SMALL_BITS) {
 	erl_exit(1,"Max limit for ets tabled too high %u (max %u).",
 		 db_max_tabs, ((Uint)1)<<SMALL_BITS);
@@ -3098,7 +3098,7 @@ retry:
     if (to_proc == NULL) {
 	return 0; /* heir not alive, table still mine */
     }
-    if (erts_cmp_timeval(&to_proc->started, &tb->common.heir_started) != 0) {
+    if (to_proc->started_interval != tb->common.heir_started_interval) {
 	erts_smp_proc_unlock(to_proc, to_locks);
 	return 0; /* heir dead and pid reused, table still mine */
     }
@@ -3494,14 +3494,14 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 	return;
     }
     if (heir == me->id) {
-	tb->common.heir_started = me->started;
+	erts_ensure_later_proc_interval(me->started_interval);
+	tb->common.heir_started_interval = me->started_interval;
     }
     else {
-	Process* heir_proc= erts_pid2proc_opt(me, ERTS_PROC_LOCK_MAIN, heir,
-					      0, ERTS_P2P_FLG_SMP_INC_REFC);
+	Process* heir_proc= erts_proc_lookup(heir);
 	if (heir_proc != NULL) {
-	    tb->common.heir_started = heir_proc->started;
-	    erts_smp_proc_dec_refc(heir_proc);
+	    erts_ensure_later_proc_interval(heir_proc->started_interval);
+	    tb->common.heir_started_interval = heir_proc->started_interval;
 	} else {
 	    tb->common.heir = am_none;
 	}

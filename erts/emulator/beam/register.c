@@ -93,18 +93,13 @@ reg_safe_write_lock(Process *c_p, ErtsProcLocks *c_p_locks)
     reg_write_lock();
 }
 
+#endif
+
 static ERTS_INLINE int
 is_proc_alive(Process *p)
 {
-    int res;
-    erts_pix_lock_t *pixlck = ERTS_PID2PIXLOCK(p->id);
-    erts_pix_lock(pixlck);
-    res = !p->is_exiting;
-    erts_pix_unlock(pixlck);
-    return res;
+    return !ERTS_PROC_IS_EXITING(p);
 }
-
-#endif
 
 void register_info(int to, void *to_arg)
 {
@@ -389,8 +384,7 @@ erts_whereis_name(Process *c_p,
 	    }
 #else
 	    if (rp->p
-		&& ((flags & ERTS_P2P_FLG_ALLOW_OTHER_X)
-		    || rp->p->status != P_EXITING))
+		&& ((flags & ERTS_P2P_FLG_ALLOW_OTHER_X) || is_proc_alive(rp->p)))
 		*proc = rp->p;
 	    else
 		*proc = NULL;
@@ -402,7 +396,9 @@ erts_whereis_name(Process *c_p,
 	if (!rp || !rp->pt)
 	    *port = NULL;
 	else {
-#ifdef ERTS_SMP
+#ifndef ERTS_SMP
+	    erts_smp_atomic_inc_nob(&rp->pt->refc);
+#else
 	    if (pending_port == rp->pt)
 		pending_port = NULL;
 	    else {
@@ -509,9 +505,11 @@ int erts_unregister_name(Process *c_p,
     if ((rp = (RegProc*) hash_get(&process_reg, (void*) &r)) != NULL) {
 	if (rp->pt) {
 	    if (port != rp->pt) {
-#ifdef ERTS_SMP
+#ifndef ERTS_SMP
+		erts_smp_atomic_inc_nob(&rp->pt->refc);
+#else
 		if (port) {
-		    ERTS_SMP_LC_ASSERT(port != c_prt);
+		    ASSERT(port != c_prt);
 		    erts_smp_port_unlock(port);
 		    port = NULL;
 		}

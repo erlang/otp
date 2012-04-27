@@ -714,7 +714,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
     BpDataTime *pbdt = NULL;
 
     ASSERT(p);
-    ASSERT(p->status == P_RUNNING);
+    ASSERT(ERTS_PSFLG_RUNNING & erts_smp_atomic32_read_acqb(&p->state));
 
     /* get previous timestamp and breakpoint
      * from the process psd  */
@@ -1258,7 +1258,7 @@ static int clear_function_break(Module *m, BeamInstr *pc, int bif, BeamInstr bre
 		    for (j = 0; j < bdt->hash[i].n; ++j) {
 			item = &(bdt->hash[i].item[j]);
 			if (item->pid != NIL) {
-			    h_p = process_tab[internal_pid_index(item->pid)];
+			    h_p = erts_proc_lookup(item->pid);
 			    if (h_p) {
 				pbt = ERTS_PROC_SET_CALL_TIME(h_p, ERTS_PROC_LOCK_MAIN, NULL);
 				if (pbt) {

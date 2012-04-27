@@ -258,10 +258,6 @@
 
 #include "sys.h"
 
-typedef struct { SWord sint[2]; } erts_no_dw_atomic_t;
-typedef SWord erts_no_atomic_t;
-typedef Sint32 erts_no_atomic32_t;
-
 #ifdef USE_THREADS
 
 #define ETHR_TRY_INLINE_FUNCS
@@ -411,18 +407,29 @@ typedef struct {
 typedef int erts_rwmtx_t;
 typedef int erts_tsd_key_t;
 typedef int erts_tse_t;
-#define erts_dw_aint_t erts_no_dw_atomic_t
-#define erts_dw_atomic_t erts_no_dw_atomic_t
-#define erts_aint_t SWord
-#define erts_atomic_t erts_no_atomic_t
-#define erts_aint32_t Sint32
-#define erts_atomic32_t erts_no_atomic32_t
+
+typedef struct { SWord sint[2]; } erts_dw_aint_t;
+typedef SWord erts_aint_t;
+typedef Sint32 erts_aint32_t;
+
+#define erts_dw_atomic_t erts_dw_aint_t
+#define erts_atomic_t erts_aint_t
+#define erts_atomic32_t erts_aint32_t
+
 #if __GNUC__ > 2
 typedef struct { } erts_spinlock_t;
 typedef struct { } erts_rwlock_t;
 #else
 typedef struct { int gcc_is_buggy; } erts_spinlock_t;
 typedef struct { int gcc_is_buggy; } erts_rwlock_t;
+#endif
+
+#ifdef WORDS_BIGENDIAN
+#define ERTS_DW_AINT_LOW_WORD 1
+#define ERTS_DW_AINT_HIGH_WORD 0
+#else
+#define ERTS_DW_AINT_LOW_WORD 0
+#define ERTS_DW_AINT_HIGH_WORD 1
 #endif
 
 #define ERTS_MTX_INITER			0
@@ -432,6 +439,10 @@ typedef struct { int gcc_is_buggy; } erts_rwlock_t;
 #define ERTS_HAVE_REC_MTX_INIT		1
 
 #endif /* #ifdef USE_THREADS */
+
+#define erts_no_dw_atomic_t erts_dw_aint_t
+#define erts_no_atomic_t erts_aint_t
+#define erts_no_atomic32_t erts_aint32_t
 
 #define ERTS_AINT_NULL ((erts_aint_t) NULL)
 

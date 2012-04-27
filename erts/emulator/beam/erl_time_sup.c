@@ -91,6 +91,41 @@ static SysTimeval then; /* Used in get_now */
 static SysTimeval last_emu_time; /* Used in erts_get_emu_time() */
 SysTimeval erts_first_emu_time; /* Used in erts_get_emu_time() */
 
+union {
+    erts_smp_atomic_t time;
+    char align[ERTS_CACHE_LINE_SIZE];
+} approx erts_align_attribute(ERTS_CACHE_LINE_SIZE);
+
+static void
+init_approx_time(void)
+{
+    erts_smp_atomic_init_nob(&approx.time, 0);
+}
+
+static ERTS_INLINE erts_approx_time_t
+get_approx_time(void)
+{
+    return (erts_approx_time_t) erts_smp_atomic_read_nob(&approx.time);
+}
+
+static ERTS_INLINE void
+update_approx_time(SysTimeval *tv)
+{
+    erts_approx_time_t new_secs = (erts_approx_time_t) tv->tv_sec;
+    erts_approx_time_t old_secs = get_approx_time();
+    if (old_secs != new_secs)
+	erts_smp_atomic_set_nob(&approx.time, new_secs);
+}
+
+/*
+ * erts_get_approx_time() returns an *approximate* time
+ * in seconds. NOTE that this time may jump backwards!!!
+ */
+erts_approx_time_t
+erts_get_approx_time(void)
+{
+    return get_approx_time();
+}
 
 #ifdef HAVE_GETHRTIME
 
@@ -398,6 +433,8 @@ erts_init_time_sup(void)
 {
     erts_smp_mtx_init(&erts_timeofday_mtx, "timeofday");
 
+    init_approx_time();
+
     last_emu_time.tv_sec = 0;
     last_emu_time.tv_usec = 0;
 
@@ -417,7 +454,7 @@ erts_init_time_sup(void)
     gtv = inittv;
     then.tv_sec = then.tv_usec = 0;
 
-    erts_get_emu_time(&erts_first_emu_time);
+    erts_deliver_time();
 
     return CLOCK_RESOLUTION;
 }    
@@ -873,6 +910,8 @@ get_now(Uint* megasec, Uint* sec, Uint* microsec)
     *megasec = (Uint) (now.tv_sec / 1000000);
     *sec = (Uint) (now.tv_sec % 1000000);
     *microsec = (Uint) (now.tv_usec);
+
+    update_approx_time(&now);
 }
 
 void
@@ -885,6 +924,8 @@ get_sys_now(Uint* megasec, Uint* sec, Uint* microsec)
     *megasec = (Uint) (now.tv_sec / 1000000);
     *sec = (Uint) (now.tv_sec % 1000000);
     *microsec = (Uint) (now.tv_usec);
+
+    update_approx_time(&now);
 }
 
 
@@ -901,6 +942,8 @@ void erts_deliver_time(void) {
     do_erts_deliver_time(&now);
     
     erts_smp_mtx_unlock(&erts_timeofday_mtx);
+
+    update_approx_time(&now);
 }
 
 /* get *real* time (not ticks) remaining until next timeout - if there
@@ -949,6 +992,7 @@ void erts_get_timeval(SysTimeval *tv)
     erts_smp_mtx_lock(&erts_timeofday_mtx);
     get_tolerant_timeofday(tv);
     erts_smp_mtx_unlock(&erts_timeofday_mtx);
+    update_approx_time(tv);
 }
 
 erts_time_t
@@ -961,7 +1005,9 @@ erts_get_time(void)
     get_tolerant_timeofday(&sys_tv);
     
     erts_smp_mtx_unlock(&erts_timeofday_mtx);
-    
+
+    update_approx_time(&sys_tv);
+
     return sys_tv.tv_sec;
 }
 
@@ -977,38 +1023,3 @@ void erts_get_now_cpu(Uint* megasec, Uint* sec, Uint* microsec) {
   *sec = (Uint)(tp.tv_sec % 1000000);
 }
 #endif
-
-
-/*
- * erts_get_emu_time() is similar to get_now(). You will
- * always get different times from erts_get_emu_time(), but they
- * may equal a time from get_now().
- *
- * erts_get_emu_time() is only used internally in the emulator in
- * order to order emulator internal events.
- */
-
-void
-erts_get_emu_time(SysTimeval *this_emu_time_p)
-{
-    erts_smp_mtx_lock(&erts_timeofday_mtx);
-    
-    get_tolerant_timeofday(this_emu_time_p);
-
-    /* Make sure time is later than last */
-    if (last_emu_time.tv_sec > this_emu_time_p->tv_sec ||
-	(last_emu_time.tv_sec == this_emu_time_p->tv_sec
-	 && last_emu_time.tv_usec >= this_emu_time_p->tv_usec)) {
-	*this_emu_time_p = last_emu_time;
-	this_emu_time_p->tv_usec++;
-    }
-    /* Check for carry from above + general reasonability */
-    if (this_emu_time_p->tv_usec >= 1000000) {
-	this_emu_time_p->tv_usec = 0;
-	this_emu_time_p->tv_sec++;
-    }
-
-    last_emu_time = *this_emu_time_p;
-    
-    erts_smp_mtx_unlock(&erts_timeofday_mtx);
-}

@@ -357,11 +357,7 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
         trace_gc(p, am_gc_start);
     }
 
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    p->gcstatus = p->status;
-    p->status = P_GARBING;
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-
+    erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     if (erts_system_monitor_long_gc != 0) {
 	get_now(&ms1, &s1, &us1);
     }
@@ -404,9 +400,8 @@ erts_garbage_collect(Process* p, int need, Eterm* objv, int nobj)
 
     ErtsGcQuickSanityCheck(p);
 
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    p->status = p->gcstatus;
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
+
     if (IS_TRACED_FL(p, F_TRACE_GC)) {
         trace_gc(p, am_gc_end);
     }
@@ -490,10 +485,7 @@ erts_garbage_collect_hibernate(Process* p)
     /*
      * Preliminaries.
      */
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    p->gcstatus = p->status;
-    p->status = P_GARBING;
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
     ErtsGcQuickSanityCheck(p);
     ASSERT(p->mbuf_sz == 0);
     ASSERT(p->mbuf == 0);
@@ -604,9 +596,7 @@ erts_garbage_collect_hibernate(Process* p)
 
     ErtsGcQuickSanityCheck(p);
 
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    p->status = p->gcstatus;
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 }
 
 
@@ -630,10 +620,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * Set GC state.
      */
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    p->gcstatus = p->status;
-    p->status = P_GARBING;
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_smp_atomic32_read_bor_nob(&p->state, ERTS_PSFLG_GC);
 
     /*
      * We assume that the caller has already done a major collection
@@ -775,9 +762,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
     /*
      * Restore status.
      */
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    p->status = p->gcstatus;
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_smp_atomic32_read_band_nob(&p->state, ~ERTS_PSFLG_GC);
 }
 
 static int
