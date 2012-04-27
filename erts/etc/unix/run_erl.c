@@ -126,7 +126,7 @@
 /* prototypes */
 static void usage(char *);
 static int create_fifo(char *name, int perm);
-static int open_pty_master(char **name);
+static int open_pty_master(char **name, int *sfd);
 static int open_pty_slave(char *name);
 static void pass_on(pid_t);
 static void exec_shell(char **);
@@ -220,7 +220,7 @@ static char* outbuf_in;
 int main(int argc, char **argv)
 {
   int childpid;
-  int sfd;
+  int sfd = -1;
   int fd;
   char *p, *ptyslave=NULL;
   int i = 1;
@@ -365,7 +365,7 @@ int main(int argc, char **argv)
    * Open master pseudo-terminal
    */
 
-  if ((mfd = open_pty_master(&ptyslave)) < 0) {
+  if ((mfd = open_pty_master(&ptyslave, &sfd)) < 0) {
     ERRNO_ERR0(LOG_ERR,"Could not open pty master");
     exit(1);
   }
@@ -390,15 +390,27 @@ int main(int argc, char **argv)
     setsid();
 #endif
     /* Open the slave pty */
-    if ((sfd = open_pty_slave(ptyslave)) < 0) {
-      ERRNO_ERR1(LOG_ERR,"Could not open pty slave '%s'", ptyslave);
-      exit(1);
+    if (sfd < 0) {
+	/* not allocated by open_pty_master */
+	if ((sfd = open_pty_slave(ptyslave)) < 0) {
+	    ERRNO_ERR1(LOG_ERR,"Could not open pty slave '%s'", ptyslave);
+	    exit(1);
+	}
+	/* But sfd may be one of the stdio fd's now, and we should be unmodern and not use dup2... */
+	/* easiest to dup it up... */
+	while (sfd < 3) {
+	    sfd = dup(sfd);
+	}
     }
-    /* But sfd may be one of the stdio fd's now, and we should be unmodern and not use dup2... */
-    /* easiest to dup it up... */
-    while (sfd < 3) {
-	sfd = dup(sfd);
-    }
+#if defined(HAVE_OPENPTY)
+    /* sfd is from open_pty_master 
+     * openpty -> fork -> login_tty (forkpty)
+     * 
+     * It would be preferable to implement a portable 
+     * forkpty instead of open_pty_master / open_pty_slave
+     */
+     /* login_tty(sfd);  <- FAIL */
+#endif
 
 #ifndef NO_SYSLOG
     /* Before fiddling with file descriptors we make sure syslog is turned off
@@ -876,7 +888,7 @@ static int create_fifo(char *name, int perm)
  * Find a master device, open and return fd and slave device name.
  */
 
-static int open_pty_master(char **ptyslave)
+static int open_pty_master(char **ptyslave, int *sfdp)
 {
   int mfd;
 
@@ -901,7 +913,7 @@ static int open_pty_master(char **ptyslave)
   /* fallback to openpty if it exist */
 #endif
 
-#ifdef HAVE_OPENPTY
+#if defined(HAVE_OPENPTY)
 #  ifdef PATH_MAX
 #    define SLAVE_SIZE PATH_MAX
 #  else
@@ -909,11 +921,8 @@ static int open_pty_master(char **ptyslave)
 #  endif
   {
       static char slave[SLAVE_SIZE];
-      int sfd;
 #  undef SLAVE_SIZE
-
-      if (openpty(&mfd, &sfd, slave, NULL, NULL) == 0) {
-	  sf_close(sfd);
+      if (openpty(&mfd, sfdp, slave, NULL, NULL) == 0) {
 	  *ptyslave = slave;
 	  return mfd;
       }
