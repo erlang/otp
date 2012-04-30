@@ -3260,6 +3260,8 @@ driver_deliver_term(ErlDrvPort port,
 	    Uint size = ptr[1];
 	    Uint offset = ptr[2];
 
+	    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) size);
+
 	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
 		ErlHeapBin* hbp = (ErlHeapBin *) hp;
 		hp += heap_bin_size(size);
@@ -3291,6 +3293,9 @@ driver_deliver_term(ErlDrvPort port,
 	case ERL_DRV_BUF2BINARY: { /* char*, size */
 	    byte *bufp = (byte *) ptr[0];
 	    Uint size = (Uint) ptr[1];
+
+	    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) size);
+
 	    if (size <= ERL_ONHEAP_BIN_LIMIT) {
 		ErlHeapBin* hbp = (ErlHeapBin *) hp;
 		hp += heap_bin_size(size);
@@ -3327,6 +3332,7 @@ driver_deliver_term(ErlDrvPort port,
 	}
 
 	case ERL_DRV_STRING: /* char*, length */
+	    erts_smp_atomic_add_nob(&erts_bytes_in, (erts_aint_t) ptr[1]);
 	    mess = buf_to_intlist(&hp, (char*)ptr[0], ptr[1], NIL);
 	    ptr += 2;
 	    break;
