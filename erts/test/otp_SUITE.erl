@@ -88,7 +88,8 @@ undefined_functions(Config) when is_list(Config) ->
     ?line Undef1 = hipe_filter(Undef0),
     ?line Undef2 = ssl_crypto_filter(Undef1),
     ?line Undef3 = edoc_filter(Undef2),
-    ?line Undef = eunit_filter(Undef3),
+    Undef4 = eunit_filter(Undef3),
+    Undef = dialyzer_filter(Undef4),
 
     case Undef of
 	[] -> ok;
@@ -171,6 +172,21 @@ eunit_filter(Undef) ->
 		{eunit_test,nonexisting_function,0}}) -> false;
 	      (_) -> true
 	   end, Undef).
+
+dialyzer_filter(Undef) ->
+    case code:lib_dir(dialyzer) of
+	{error,bad_name} ->
+	    filter(fun({_,{dialyzer_callgraph,_,_}}) -> false;
+		      ({_,{dialyzer_codeserver,_,_}}) -> false;
+		      ({_,{dialyzer_contracts,_,_}}) -> false;
+		      ({_,{dialyzer_cl_parse,_,_}}) -> false;
+		      ({_,{dialyzer_plt,_,_}}) -> false;
+		      ({_,{dialyzer_succ_typings,_,_}}) -> false;
+		      ({_,{dialyzer_utils,_,_}}) -> false;
+		      (_) -> true
+		   end, Undef);
+	_ -> Undef
+    end.
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
     ?line Server = ?config(xref_server, Config),
