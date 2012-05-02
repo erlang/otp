@@ -89,7 +89,6 @@ undefined_functions(Config) when is_list(Config) ->
     ?line Undef2 = ssl_crypto_filter(Undef1),
     ?line Undef3 = edoc_filter(Undef2),
     ?line Undef = eunit_filter(Undef3),
-    ?line Undef = megaco_filter(Undef),
 
     case Undef of
 	[] -> ok;
@@ -170,35 +169,6 @@ edoc_filter(Undef) ->
 eunit_filter(Undef) ->
     filter(fun({{eunit_test,wrapper_test_exported_,0},
 		{eunit_test,nonexisting_function,0}}) -> false;
-	      (_) -> true
-	   end, Undef).
-
-megaco_filter(Undef) ->
-    %% Intentional calls to undefined functions.
-    filter(fun({{megaco_compact_text_encoder,encode_action_reply,3},
-		{megaco_compact_text_encoder_v3,encode_action_reply,2}}) -> false;
-	      ({{megaco_compact_text_encoder,encode_action_request,3},
-		{megaco_compact_text_encoder_v3,encode_action_request,2}}) -> false;
-	      ({{megaco_compact_text_encoder,encode_action_requests,3},
-		{megaco_compact_text_encoder_v3,encode_action_requests,2}}) -> false;
-	      ({{megaco_compact_text_encoder,encode_command_request,3},
-		{megaco_compact_text_encoder_v3,encode_command_request,2}}) -> false;
-	      ({{megaco_compact_text_encoder,encode_message,3},
-		{megaco_compact_text_encoder_v3,encode_message,2}}) -> false;
-	      ({{megaco_compact_text_encoder,encode_transaction,3},
-		{megaco_compact_text_encoder_v3,encode_transaction,2}}) -> false;
-	      ({{megaco_pretty_text_encoder,encode_action_reply,3},
-		{megaco_pretty_text_encoder_v3,encode_action_reply,2}}) -> false;
-	      ({{megaco_pretty_text_encoder,encode_action_request,3},
-		{megaco_pretty_text_encoder_v3,encode_action_request,2}}) -> false;
-	      ({{megaco_pretty_text_encoder,encode_action_requests,3},
-		{megaco_pretty_text_encoder_v3,encode_action_requests,2}}) -> false;
-	      ({{megaco_pretty_text_encoder,encode_command_request,3},
-		{megaco_pretty_text_encoder_v3,encode_command_request,2}}) -> false;
-	      ({{megaco_pretty_text_encoder,encode_message,3},
-		{megaco_pretty_text_encoder_v3,encode_message,2}}) -> false;
-	      ({{megaco_pretty_text_encoder,encode_transaction,3},
-		{megaco_pretty_text_encoder_v3,encode_transaction,2}}) -> false;
 	      (_) -> true
 	   end, Undef).
 
