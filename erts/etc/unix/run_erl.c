@@ -126,7 +126,7 @@
 /* prototypes */
 static void usage(char *);
 static int create_fifo(char *name, int perm);
-static int open_pty_master(char **name);
+static int open_pty_master(char **name, int *sfd);
 static int open_pty_slave(char *name);
 static void pass_on(pid_t);
 static void exec_shell(char **);
@@ -150,6 +150,10 @@ static int write_all(int fd, const char* buf, int len);
 static int extract_ctrl_seq(char* buf, int len);
 static void set_window_size(unsigned col, unsigned row);
 
+static ssize_t sf_write(int fd, const void *buffer, size_t len);
+static ssize_t sf_read(int fd, void *buffer, size_t len);
+static int sf_open(const char *path, int flags, mode_t mode);
+static int sf_close(int fd);
 
 #ifdef DEBUG
 static void show_terminal_settings(struct termios *t);
@@ -216,7 +220,7 @@ static char* outbuf_in;
 int main(int argc, char **argv)
 {
   int childpid;
-  int sfd;
+  int sfd = -1;
   int fd;
   char *p, *ptyslave=NULL;
   int i = 1;
@@ -338,9 +342,9 @@ int main(int argc, char **argv)
       strn_cat(fifo2, sizeof(fifo2), ".w");
       
       /* Check that nobody is running run_erl already */
-      if ((fd = open (fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
+      if ((fd = sf_open(fifo2, O_WRONLY|DONT_BLOCK_PLEASE, 0)) >= 0) {
 	  /* Open as client succeeded -- run_erl is already running! */
-	  close(fd);
+	  sf_close(fd);
 	  if (calculated_pipename) {
 	      ++highest_pipe_num;
 	      strn_catf(pipename, sizeof(pipename), "%s.%d",
@@ -361,7 +365,7 @@ int main(int argc, char **argv)
    * Open master pseudo-terminal
    */
 
-  if ((mfd = open_pty_master(&ptyslave)) < 0) {
+  if ((mfd = open_pty_master(&ptyslave, &sfd)) < 0) {
     ERRNO_ERR0(LOG_ERR,"Could not open pty master");
     exit(1);
   }
@@ -376,7 +380,7 @@ int main(int argc, char **argv)
   }
   if (childpid == 0) {
     /* Child */
-    close(mfd);
+    sf_close(mfd);
     /* disassociate from control terminal */
 #ifdef USE_SETPGRP_NOARGS       /* SysV */
     setpgrp();
@@ -386,15 +390,30 @@ int main(int argc, char **argv)
     setsid();
 #endif
     /* Open the slave pty */
-    if ((sfd = open_pty_slave(ptyslave)) < 0) {
-      ERRNO_ERR1(LOG_ERR,"Could not open pty slave '%s'", ptyslave);
-      exit(1);
+    if (sfd < 0) {
+	/* not allocated by open_pty_master */
+	if ((sfd = open_pty_slave(ptyslave)) < 0) {
+	    ERRNO_ERR1(LOG_ERR,"Could not open pty slave '%s'", ptyslave);
+	    exit(1);
+	}
+	/* But sfd may be one of the stdio fd's now, and we should be unmodern and not use dup2... */
+	/* easiest to dup it up... */
+	while (sfd < 3) {
+	    sfd = dup(sfd);
+	}
     }
-    /* But sfd may be one of the stdio fd's now, and we should be unmodern and not use dup2... */
-    /* easiest to dup it up... */
-    while (sfd < 3) {
-	sfd = dup(sfd);
+#if defined(HAVE_OPENPTY) && defined(TIOCSCTTY)
+    else {
+	/* sfd is from open_pty_master 
+	 * openpty -> fork -> login_tty (forkpty)
+	 * 
+	 * It would be preferable to implement a portable 
+	 * forkpty instead of open_pty_master / open_pty_slave
+	 */
+	/* login_tty(sfd);  <- FAIL */
+	ioctl(sfd, TIOCSCTTY, (char *)NULL);
     }
+#endif
 
 #ifndef NO_SYSLOG
     /* Before fiddling with file descriptors we make sure syslog is turned off
@@ -407,14 +426,14 @@ int main(int argc, char **argv)
 #endif
 
     /* Close stdio */
-    close(0);
-    close(1);
-    close(2);
+    sf_close(0);
+    sf_close(1);
+    sf_close(2);
 
     if (dup(sfd) != 0 || dup(sfd) != 1 || dup(sfd) != 2) {
       status("Cannot dup\n");
     }
-    close(sfd);
+    sf_close(sfd);
     exec_shell(argv+off_argv); /* exec_shell expects argv[2] to be */
                         /* the command name, so we have to */
                         /* adjust. */
@@ -466,7 +485,7 @@ static void pass_on(pid_t childpid)
      * We can't open the writing side because nobody is reading and 
      * we'd either hang or get an error.
      */
-    if ((rfd = open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
+    if ((rfd = sf_open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
 	ERRNO_ERR1(LOG_ERR,"Could not open FIFO '%s' for reading.", fifo2);
 	exit(1);
     }
@@ -559,7 +578,7 @@ static void pass_on(pid_t childpid)
 	    char* buf = outbuf_first();
 
 	    len = outbuf_size();
-	    written = write(wfd, buf, len);
+	    written = sf_write(wfd, buf, len);
 	    if (written < 0 && errno == EAGAIN) {
 		/*
 		 * Nothing was written - this is really strange because
@@ -570,7 +589,7 @@ static void pass_on(pid_t childpid)
 		 * A write error. Assume that to_erl has terminated.
 		 */
 		clear_outbuf();
-		close(wfd);
+		sf_close(wfd);
 		wfd = 0;
 	    } else {
 		/* Delete the written part (or all) from the buffer. */
@@ -585,10 +604,10 @@ static void pass_on(pid_t childpid)
 #ifdef DEBUG
 	    status("Pty master read; ");
 #endif
-	    if ((len = read(mfd, buf, BUFSIZ)) <= 0) {
-		close(rfd);
-		if(wfd) close(wfd);
-		close(mfd);
+	    if ((len = sf_read(mfd, buf, BUFSIZ)) <= 0) {
+		sf_close(rfd);
+		if(wfd) sf_close(wfd);
+		sf_close(mfd);
 		unlink(fifo1);
 		unlink(fifo2);
 		if (len < 0) {
@@ -619,10 +638,10 @@ static void pass_on(pid_t childpid)
 #ifdef DEBUG
 	    status("FIFO read; ");
 #endif
-	    if ((len = read(rfd, buf, BUFSIZ)) < 0) {
-		close(rfd);
-		if(wfd) close(wfd);
-		close(mfd);
+	    if ((len = sf_read(rfd, buf, BUFSIZ)) < 0) {
+		sf_close(rfd);
+		if(wfd) sf_close(wfd);
+		sf_close(mfd);
 		unlink(fifo1);
 		unlink(fifo2);
 		ERRNO_ERR0(LOG_ERR,"Error in reading from FIFO.");
@@ -631,8 +650,8 @@ static void pass_on(pid_t childpid)
 
 	    if(!len) {
 		/* to_erl closed its end of the pipe */
-		close(rfd);
-		rfd = open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0);
+		sf_close(rfd);
+		rfd = sf_open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0);
 		if (rfd < 0) {
 		    ERRNO_ERR1(LOG_ERR,"Could not open FIFO '%s' for reading.", fifo2);
 		    exit(1);
@@ -645,11 +664,11 @@ static void pass_on(pid_t childpid)
 		     * from to_erl, to_erl should already be reading this pipe - open
 		     * should succeed. But in case of error, we just ignore it.
 		     */
-		    if ((wfd = open(fifo1, O_WRONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
+		    if ((wfd = sf_open(fifo1, O_WRONLY|DONT_BLOCK_PLEASE, 0)) < 0) {
 			status("Client expected on FIFO %s, but can't open (len=%d)\n",
 			       fifo1, len);
-			close(rfd);
-			rfd = open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0);
+			sf_close(rfd);
+			rfd = sf_open(fifo2, O_RDONLY|DONT_BLOCK_PLEASE, 0);
 			if (rfd < 0) {
 			    ERRNO_ERR1(LOG_ERR,"Could not open FIFO '%s' for reading.", fifo2);
 			    exit(1);
@@ -683,9 +702,9 @@ static void pass_on(pid_t childpid)
 		} 
 		else if (len>0 && write_all(mfd, buf, len) != len) {
 		    ERRNO_ERR0(LOG_ERR,"Error in writing to terminal.");
-		    close(rfd);
-		    if(wfd) close(wfd);
-		    close(mfd);
+		    sf_close(rfd);
+		    if(wfd) sf_close(wfd);
+		    sf_close(mfd);
 		    exit(1);
 		}
 	    }
@@ -797,7 +816,7 @@ static int open_log(int log_num, int flags)
 
   /* Create or continue on the current log file */
   sn_printf(buf, sizeof(buf), "%s/%s%d", log_dir, LOG_STUBNAME, log_num);
-  if((lfd = open(buf, flags, LOG_PERM))<0){
+  if((lfd = sf_open(buf, flags, LOG_PERM))<0){
       ERRNO_ERR1(LOG_ERR,"Can't open log file '%s'.", buf);
     exit(1);
   }
@@ -841,7 +860,7 @@ static void write_to_log(int* lfd, int* log_num, char* buf, int len)
   
   size = lseek(*lfd,0,SEEK_END);
   if(size+len > log_maxsize) {
-    close(*lfd);
+    sf_close(*lfd);
     *log_num = next_log(*log_num);
     *lfd = open_log(*log_num, O_RDWR|O_CREAT|O_TRUNC|O_SYNC); 
   }
@@ -872,7 +891,7 @@ static int create_fifo(char *name, int perm)
  * Find a master device, open and return fd and slave device name.
  */
 
-static int open_pty_master(char **ptyslave)
+static int open_pty_master(char **ptyslave, int *sfdp)
 {
   int mfd;
 
@@ -882,7 +901,9 @@ static int open_pty_master(char **ptyslave)
 #  ifdef HAVE_WORKING_POSIX_OPENPT
   if ((mfd = posix_openpt(O_RDWR)) >= 0) {
 #  elif defined(__sun) && defined(__SVR4)
-  if ((mfd = open("/dev/ptmx", O_RDWR)) >= 0) {
+  mfd = sf_open("/dev/ptmx", O_RDWR, 0);
+
+  if (mfd >= 0) {
 #  endif
       if ((*ptyslave = ptsname(mfd)) != NULL &&
 	  grantpt(mfd) == 0 && 
@@ -890,12 +911,12 @@ static int open_pty_master(char **ptyslave)
 
 	  return mfd;
       }
-      close(mfd);
+      sf_close(mfd);
   }
   /* fallback to openpty if it exist */
 #endif
 
-#ifdef HAVE_OPENPTY
+#if defined(HAVE_OPENPTY)
 #  ifdef PATH_MAX
 #    define SLAVE_SIZE PATH_MAX
 #  else
@@ -903,11 +924,8 @@ static int open_pty_master(char **ptyslave)
 #  endif
   {
       static char slave[SLAVE_SIZE];
-      int sfd;
 #  undef SLAVE_SIZE
-
-      if (openpty(&mfd, &sfd, slave, NULL, NULL) == 0) {
-	  close(sfd);
+      if (openpty(&mfd, sfdp, slave, NULL, NULL) == 0) {
 	  *ptyslave = slave;
 	  return mfd;
       }
@@ -939,7 +957,8 @@ static int open_pty_master(char **ptyslave)
 
     for (minor = minorchars; *minor; minor++) {
       ptyname[10] = *minor;
-      if ((mfd = open(ptyname, O_RDWR, 0)) >= 0) {
+
+      if ((mfd = sf_open(ptyname, O_RDWR, 0)) >= 0) {
 	ptyname[9] = 's';
 	*ptyslave = ptyname;
 	return mfd;
@@ -957,7 +976,7 @@ static int open_pty_master(char **ptyslave)
       ptyname[13] = *major;
       for (minor = minorchars; *minor; minor++) {
 	ptyname[14] = *minor;
-	if ((mfd = open(ptyname, O_RDWR, 0)) >= 0) {
+	if ((mfd = sf_open(ptyname, O_RDWR, 0)) >= 0) {
 	  ttyname[12] = *major;
 	  ttyname[13] = *minor;
 	  *ptyslave = ttyname;
@@ -976,7 +995,7 @@ static int open_pty_master(char **ptyslave)
       ptyname[8] = *major;
       for (minor = minorchars; *minor; minor++) {
 	ptyname[9] = *minor;
-	if ((mfd = open(ptyname, O_RDWR, 0)) >= 0) {
+	if ((mfd = sf_open(ptyname, O_RDWR, 0)) >= 0) {
 	  ptyname[5] = 't';
 	  *ptyslave = ptyname;
 	  return mfd;
@@ -993,7 +1012,7 @@ static int open_pty_slave(char *name)
   int sfd;
   struct termios tty_rmode;
 
-  if ((sfd = open(name, O_RDWR, 0)) < 0) {
+  if ((sfd = sf_open(name, O_RDWR, 0)) < 0) {
     return -1;
   }
 
@@ -1120,7 +1139,7 @@ static void daemon_init(void)
        would be backward incompatible */
 
     for (i = 0; i < maxfd; ++i ) {
-	close(i);
+	sf_close(i);
     }
 
     OPEN_SYSLOG();
@@ -1246,7 +1265,7 @@ static int write_all(int fd, const char* buf, int len)
     int left = len;
     int written;
     for (;;) {
-	written = write(fd,buf,left);
+	written = sf_write(fd,buf,left);
 	if (written == left) {
 	    return len;
 	}
@@ -1258,6 +1277,36 @@ static int write_all(int fd, const char* buf, int len)
     }
 }
 
+static ssize_t sf_read(int fd, void *buffer, size_t len) {
+    ssize_t n = 0;
+
+    do { n = read(fd, buffer, len); } while (n < 0 && errno == EINTR);
+
+    return n;
+}
+
+static ssize_t sf_write(int fd, const void *buffer, size_t len) {
+    ssize_t n = 0;
+
+    do { n = write(fd, buffer, len); } while (n < 0 && errno == EINTR);
+
+    return n;
+}
+
+static int sf_open(const char *path, int type, mode_t mode) {
+    int fd = 0;
+
+    do { fd = open(path, type, mode); } while(fd < 0 && errno == EINTR);
+
+    return fd;
+}
+static int sf_close(int fd) {
+    int res = 0;
+
+    do { res = close(fd); } while(fd < 0 && errno == EINTR);
+
+    return res;
+}
 /* Extract any control sequences that are ment only for run_erl
  * and should not be forwarded to the pty.
  */
