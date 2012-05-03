@@ -48,8 +48,7 @@ run1(Name) ->
 generate(TcName, Cases) ->
     Hrl = TcName ++ "_cases.hrl",
     {ok, HrlFile} = file:open(Hrl, write),
-    {ok, Dir} = file:get_cwd(),
-    generate_hrl(Cases, HrlFile, {filename:join(Dir, TcName), 0}),
+    generate_hrl(Cases, HrlFile, {TcName, 0}),
     file:close(HrlFile),
     C = TcName ++ "_decl.c",
     {ok, CFile} = file:open(C, write),
@@ -57,7 +56,7 @@ generate(TcName, Cases) ->
     file:close(CFile).
 
 generate_hrl([Case|Rest], File, {Name, Number}) ->
-    io:format(File, "-define(~s, {\"~s\", ~w}).~n", [Case, Name, Number]),
+    io:format(File, "-define(~s, {filename:join(proplists:get_value(data_dir,Config),\"~s\"), ~w}).~n", [Case, Name, Number]),
     generate_hrl(Rest, File, {Name, Number+1});
 generate_hrl([], _, _) ->
     ok.

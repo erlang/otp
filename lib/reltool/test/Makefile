@@ -49,7 +49,7 @@ RELSYSDIR = $(RELEASE_PATH)/reltool_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-#ERL_COMPILE_FLAGS +=
+ERL_COMPILE_FLAGS += -pa $(ERL_TOP)/lib/reltool/ebin/
 
 EBIN = .
 

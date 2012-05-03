@@ -27,9 +27,10 @@
 -export([run/0, run/1, run/2, run/3, run/4,
 	 clean/0, clean/1,
 	 tests/0, tests/1,
-	 install/0, install/1, install/2, index/0,
+	 install/0, install/1, index/0,
 	 estone/0, estone/1,
 	 cross_cover_analyse/1,
+	 compile_testcases/0, compile_testcases/1,
 	 help/0]).
 -export([i/0, l/1, r/0, r/1, r/2, r/3]).
 
@@ -88,35 +89,25 @@
 -define(
    install_help,
    [
-    "  ts:install()      - Install TS for local target with no Options.\n"
-    "  ts:install([Options])\n",
-    "                    - Install TS for local target with Options\n"
-    "  ts:install({Architecture, Target_name})\n",
-    "                    - Install TS for a remote target architecture.\n",
-    "                      and target network name (e.g. {vxworks_cpu32, sauron}).\n",
-    "  ts:install({Architecture, Target_name}, [Options])\n",
-    "                    - Install TS as above, and with Options.\n",
+    "  ts:install()           - Install TS with no Options.\n"
+    "  ts:install([Options])  - Install TS with Options\n"
     "\n",
     "Installation options supported:\n",
     "  {longnames, true} - Use fully qualified hostnames\n",
-    "  {hosts, [HostList]}\n"
-    "                    - Use theese hosts for distributed testing.\n"
     "  {verbose, Level}  - Sets verbosity level for TS output (0,1,2), 0 is\n"
     "                      quiet(default).\n"
-    "  {slavetargets, SlaveTarges}\n"
-    "                    - Available hosts for starting slave nodes for\n"
-    "                      platforms which cannot have more than one erlang\n"
-    "                      node per host.\n"
-    "  {crossroot, TargetErlRoot}\n"
-    "                    - Erlang root directory on target host\n"
-    "                      Mandatory for remote targets\n"
-    "  {master, {MasterHost, MasterCookie}}\n"
-    "                    - Master host and cookie for targets which are\n"
-    "                      started as slave nodes.\n"
-    "                      erl_boot_server must be started on master before\n"
-    "                      test is run.\n"
-    "                      Optional, default is controller host and then\n"
-    "                      erl_boot_server is started autmatically\n"
+    "  {crossroot, ErlTop}\n"
+    "                    - Erlang root directory on build host, ~n"
+    "                      normally same value as $ERL_TOP\n"
+    "  {crossenv, [{Key,Val}]}\n"
+    "                    - Environmentals used by test configure on build host\n"
+    "  {crossflags, FlagsString}\n"
+    "                    - Flags used by test configure on build host\n"
+    "  {xcomp, XCompFile}\n"
+    "                    - The xcomp file to use for cross compiling the~n"
+    "                      testcases. Using this option will override any~n"
+    "                      cross* configurations given to ts. Note that you~n"
+    "                      have to have a correct ERL_TOP as well.~n"
    ]).
 
 help() ->
@@ -183,26 +174,24 @@ help(installed) ->
 	 "                      cover_details. Analyses modules specified in\n"
 	 "                      cross.cover.\n"
 	 "                      Level can be 'overview' or 'details'.\n",
+	 "  ts:compile_testcases()~n"
+	 "  ts:compile_testcases(Apps)~n"
+	 "                    - Compile all testcases for usage in a cross ~n"
+	 "                      compile environment."
 	 " \n"
 	 "Installation (already done):\n"
 	],
     show_help([H,?install_help]).
 
 show_help(H) ->
-    io:put_chars(lists:flatten(H)).
+    io:format(lists:flatten(H)).
 
 
 %% Installs tests.
 install() ->
     ts_install:install(install_local,[]).
-install({Architecture, Target_name})  ->
-    ts_install:install({ts_lib:maybe_atom_to_list(Architecture), 
-			ts_lib:maybe_atom_to_list(Target_name)}, []);
 install(Options) when is_list(Options) ->
     ts_install:install(install_local,Options).
-install({Architecture, Target_name}, Options) when is_list(Options)->
-    ts_install:install({ts_lib:maybe_atom_to_list(Architecture), 
-			ts_lib:maybe_atom_to_list(Target_name)}, Options).
 
 %% Updates the local index page.
 
@@ -728,3 +717,23 @@ cover_type(cover_details) -> details.
 do_load(Mod) ->
     code:purge(Mod),
     code:load_file(Mod).
+
+
+compile_testcases() ->
+    compile_datadirs("../*/*_data").
+
+compile_testcases(App) when is_atom(App) ->
+    compile_testcases([App]);
+compile_testcases([App | T]) ->
+    compile_datadirs(io_lib:format("../~s_test/*_data", [App])),
+    compile_testcases(T);
+compile_testcases([]) ->
+    ok.
+
+compile_datadirs(DataDirs) ->
+    {ok,Variables} = file:consult("variables"),
+
+    lists:foreach(fun(Dir) ->
+			  ts_lib:make_non_erlang(Dir, Variables)
+		  end,
+		  filelib:wildcard(DataDirs)).

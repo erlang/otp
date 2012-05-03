@@ -128,6 +128,7 @@ ERL_COMPILE_FLAGS +=  \
 	$(ERL_IDL_FLAGS) \
 	-pa $(ERL_TOP)/lib/orber/include \
 	-pa $(ERL_TOP)/internal_tools/test_server/ebin \
+	-pa $(ERL_TOP)/lib/cosEvent/ebin \
 	-pa $(ERL_TOP)/lib/cosNotification/ebin \
 	-pa $(ERL_TOP)/lib/cosNotification/test/idl_output \
 	-pa $(ERL_TOP)/lib/cosTime/ebin \

@@ -108,7 +108,7 @@ AC_CHECK_HEADER(poll.h, AC_DEFINE(HAVE_POLL_H))
 # for the system.
 
 AC_MSG_CHECKING([system version (for dynamic loading)])
-system=`uname -s`-`uname -r`
+system=`./config.sub $host`
 AC_MSG_RESULT($system)
 
 # Step 2: check for existence of -ldl library.  This is needed because
@@ -119,10 +119,9 @@ AC_CHECK_LIB(dl, dlopen, have_dl=yes, have_dl=no)
 # Step 3: set configuration options based on system name and version.
 
 SHLIB_LDLIBS=
-
 fullSrcDir=`cd $srcdir; pwd`
 case $system in
-    Linux*)
+    *-linux-*)
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_SUFFIX=".so"
 	if test "$have_dl" = yes; then
@@ -136,7 +135,7 @@ case $system in
 	fi
 	SHLIB_EXTRACT_ALL=""
 	;;
-    NetBSD-*|FreeBSD-*|OpenBSD-*|DragonFly*)
+    *-netbsd*|*-freebsd*|*-openbsd*|*-dragonfly*)
 	# Not available on all versions:  check for include file.
 	AC_CHECK_HEADER(dlfcn.h, [
 	    SHLIB_CFLAGS="-fpic"
@@ -153,28 +152,21 @@ case $system in
 	])
 	SHLIB_EXTRACT_ALL=""
 	;;
-    SunOS-4*)
-	SHLIB_CFLAGS="-PIC"
-	SHLIB_LD="ld"
-	SHLIB_LDFLAGS="$LDFLAGS"
-	SHLIB_SUFFIX=".so"
-	SHLIB_EXTRACT_ALL=""
-	;;
-    SunOS-5*|UNIX_SV-4.2*)
+    *-solaris2*|*-sysv4*)
 	SHLIB_CFLAGS="-KPIC"
 	SHLIB_LD="/usr/ccs/bin/ld"
 	SHLIB_LDFLAGS="$LDFLAGS -G -z text"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL="-z allextract"
 	;;
-    Darwin*)
+    *darwin*)
 	SHLIB_CFLAGS="-fno-common"
 	SHLIB_LD="cc"
 	SHLIB_LDFLAGS="$LDFLAGS -bundle -flat_namespace -undefined suppress"
 	SHLIB_SUFFIX=".so"
 	SHLIB_EXTRACT_ALL=""
 	;;
-    OSF1*)
+    *osf1*)
 	SHLIB_CFLAGS="-fPIC"
 	SHLIB_LD="ld"
 	SHLIB_LDFLAGS="$LDFLAGS -shared"
@@ -206,19 +198,19 @@ esac
 
 if test "$CC" = "gcc" -o `$CC -v 2>&1 | grep -c gcc` != "0" ; then
 	case $system in
-	    AIX-*)
+	    *-aix)
 		;;
-	    BSD/OS*)
+	    *-bsd*)
 		;;
-	    IRIX*)
+	    *-irix)
 		;;
-	    NetBSD-*|FreeBSD-*|OpenBSD-*)
+	    *-netbsd|*-freebsd|*-openbsd)
 		;;
-	    RISCos-*)
+	    *-riscos)
 		;;
-	    ULTRIX-4.*)
+	    *ultrix4.*)
 		;;
-	    Darwin*)
+	    *darwin*)
 		;;
 	    *)
 		SHLIB_CFLAGS="-fPIC"

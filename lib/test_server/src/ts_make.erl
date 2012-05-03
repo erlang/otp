@@ -25,12 +25,12 @@
 %% Functions to be called from make test cases.
 
 make(Config) when is_list(Config) ->
-    DataDir = ?config(data_dir, Config),
-    Makefile = ?config(makefile, Config),
-    Make = ?config(make_command, Config),
+    DataDir = proplists:get_value(data_dir, Config),
+    Makefile = proplists:get_value(makefile, Config),
+    Make = proplists:get_value(make_command, Config),
     case make(Make, DataDir, Makefile) of
 	ok -> ok;
-	{error,Reason} -> ?t:fail({make_failed,Reason})
+	{error,Reason} -> exit({make_failed,Reason})
     end.
 
 unmake(Config) when is_list(Config) ->

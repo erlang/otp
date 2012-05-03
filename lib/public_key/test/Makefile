@@ -21,7 +21,7 @@ include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 
-INCLUDES= -I. -I ../include
+INCLUDES= -I. -I ../include -pa $(ERL_TOP)/lib/public_key/ebin
 
 # ----------------------------------------------------
 # Target Specs

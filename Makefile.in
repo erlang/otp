@@ -175,12 +175,14 @@ BOOTSTRAP_ONLY = @BOOTSTRAP_ONLY@
 CROSS_COMPILING = @CROSS_COMPILING@
 ifeq ($(CROSS_COMPILING),yes)
 INSTALL_CROSS = -cross
+TARGET_HOST=$(shell $(ERL_TOP)/erts/autoconf/config.guess)
 else
 ifneq ($(DESTDIR),)
 INSTALL_CROSS = -cross
 else
 INSTALL_CROSS = 
 endif
+TARGET_HOST=
 endif
 
 # A BSD compatible install program
@@ -228,10 +230,10 @@ BOOTSTRAP_ROOT = $(ERL_TOP)
 LOCAL_PATH     = $(ERL_TOP)/erts/bin/$(TARGET):$(ERL_TOP)/erts/bin
 ifeq ($(TARGET),win32)
 BOOT_PREFIX=$(WIN32_WRAPPER_PATH):$(BOOTSTRAP_ROOT)/bootstrap/bin:
-TEST_PATH_PREFIX=$(WIN32_WRAPPER_PATH):$(ERL_TOP)/bin:
+TEST_PATH_PREFIX=$(WIN32_WRAPPER_PATH):$(ERL_TOP)/bin/win32:
 else
 BOOT_PREFIX=$(BOOTSTRAP_ROOT)/bootstrap/bin:
-TEST_PATH_PREFIX=$(ERL_TOP)/bin:
+TEST_PATH_PREFIX=$(ERL_TOP)/bin/$(TARGET_HOST):
 endif
 
 # ----------------------------------------------------------------------
@@ -651,6 +653,8 @@ tertiary_bootstrap_copy:
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include ; fi
 	for x in lib/ic/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin/$$BN; \
@@ -728,9 +732,21 @@ tertiary_bootstrap_copy:
 		true; \
 	done
 
+#	copy test includes to be able to compile tests with bootstrap compiler
 	for x in lib/test_server/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+
+	for x in lib/common_test/include/*.hrl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/common_test/include/$$BN; \
 		test -f  $$TF && \
 		test '!' -z "`find $$x -newer $$TF -print`" && \
 			cp $$x $$TF; \
