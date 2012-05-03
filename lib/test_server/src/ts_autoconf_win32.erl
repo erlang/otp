@@ -67,6 +67,7 @@ system_type(Vars) ->
 		     {5,1,_} -> "Windows XP";
 		     {5,2,_} -> "Windows 2003";
 		     {6,0,_} -> "Windows Vista";
+		     {6,1,_} -> "Windows 7";
 		     {_,_,_} -> "Windows NCC-1701-D"
 		 end;
 	     {win32, windows} -> 
