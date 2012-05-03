@@ -32,7 +32,7 @@ all: $(ALL_OBJS)
 
 $(EI_COMMON_OBJS): gccifier@exe@
 
-@IFEQ@ (@erl_interface_cross_compile@, true)
+@IFEQ@ (@cross@, yes)
 gccifier@exe@:
 	$(CP) gccifier.sh gccifier@exe@
 	$(CHMOD) a+x gccifier@exe@

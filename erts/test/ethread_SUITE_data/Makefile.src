@@ -23,6 +23,8 @@ include @erts_lib_include_internal_generated@@DS@erts_internal.mk
 CC = @CC@
 CFLAGS = @ERTS_CFLAGS@
 LIBS = @ERTS_LIBS@
+CP=cp
+CHMOD=chmod
 
 ETHR_T_CFLAGS = -Wall $(ETHR_DEFS) $(CFLAGS) @DEFS@ -I@erts_lib_include_internal@ -I@erts_lib_include_internal_generated@
 ETHR_T_LIBS = $(LIBS) -L@erts_lib_internal_path@ $(ETHR_LIBS) $(ERTS_INTERNAL_X_LIBS)
@@ -33,8 +35,14 @@ PROGS = ethread_tests@exe@
 
 all: $(PROGS)
 
+@IFEQ@ (@cross@, yes)
+gccifier@exe@:
+	$(CP) ..@DS@utils@DS@gccifier.sh gccifier@exe@
+	$(CHMOD) a+x gccifier@exe@
+@ELSE@
 gccifier@exe@: ..@DS@utils@DS@gccifier.c
 	$(CC) $(CFLAGS) -o gccifier@exe@ ..@DS@utils@DS@gccifier.c $(LIBS)
+@ENDIF@
 
 ethread_tests@exe@: gccifier@exe@ ethread_tests.c
 	$(GCC) $(ETHR_T_CFLAGS) -o ethread_tests@exe@ ethread_tests.c -lerts_internal_r $(ETHR_T_LIBS)

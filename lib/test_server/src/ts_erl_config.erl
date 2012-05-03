@@ -220,10 +220,6 @@ erl_interface(Vars,OsType) ->
 		    _ -> 
 			"" % VxWorks
 		end,
-    CrossCompile = case OsType of
-		       vxworks -> "true";
-		       _ ->       "false"
-		   end,
     [{erl_interface_libpath, filename:nativename(LibPath)},
      {erl_interface_sock_libs, sock_libraries(OsType)},
      {erl_interface_lib, Lib},
@@ -232,8 +228,8 @@ erl_interface(Vars,OsType) ->
      {erl_interface_eilib_drv, Lib1Drv},
      {erl_interface_threadlib, ThreadLib},
      {erl_interface_include, filename:nativename(Incl)},
-     {erl_interface_mk_include, filename:nativename(MkIncl)},
-     {erl_interface_cross_compile, CrossCompile} | Vars].
+     {erl_interface_mk_include, filename:nativename(MkIncl)}
+     | Vars].
 
 ic(Vars, OsType) ->
     {ClassPath, LibPath, Incl} =
@@ -276,8 +272,6 @@ lib_dir(Vars, Lib) ->
     case {get_var(crossroot, Vars), LibLibDir} of
 	{{error, _}, _} ->			%no crossroot
 	    LibLibDir;
-	{_, {error, _}} ->			%no lib
-	    LibLibDir;
 	{CrossRoot, _} ->
 	    %% XXX: Ugly. So ugly I won't comment it
 	    %% /Patrik
@@ -299,18 +293,16 @@ lib_dir(Vars, Lib) ->
     end.
 
 erl_root(Vars) ->
-    Root = code:root_dir(),
-    case ts_lib:erlang_type() of
+    Root = case get_var(crossroot,Vars) of
+	       {error, notfound} -> code:root_dir();
+	       CrossRoot -> CrossRoot
+	   end,
+    case ts_lib:erlang_type(Root) of
 	{srctree, _Version} ->
 	    Target = get_var(target, Vars),
 	    {srctree, Root, Target};
 	{_, _Version} ->
-	    case get_var(crossroot,Vars) of
-		{error, notfound} ->
-		    {installed, Root};
-		CrossRoot ->
-		    {installed, CrossRoot}
-	    end
+	    {installed, Root}
     end.
 
 
