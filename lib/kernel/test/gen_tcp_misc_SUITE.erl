@@ -2044,7 +2044,7 @@ send_timeout_active(Config) when is_list(Config) ->
 		?line {error,timeout} = 
 		    Loop(fun() ->
 				 receive
-				     {tcp, Sock, _Data} ->
+				     {tcp, _Sock, _Data} ->
 					 inet:setopts(A, [{active, once}]),
 					 Res = gen_tcp:send(A,lists:duplicate(1000, $a)),
 					 %erlang:display(Res),
@@ -2536,7 +2536,7 @@ otp_8102_do(LSocket, PortNum, {Bin,PType}) ->
 otp_9389(doc) -> ["Verify packet_size handles long HTTP header lines"];
 otp_9389(suite) -> [];
 otp_9389(Config) when is_list(Config) ->
-    ?line {ok, LS} = gen_tcp:listen(0, []),
+    ?line {ok, LS} = gen_tcp:listen(0, [{active,false}]),
     ?line {ok, {_, PortNum}} = inet:sockname(LS),
     io:format("Listening on ~w with port number ~p\n", [LS, PortNum]),
     OrigLinkHdr = "/" ++ string:chars($S, 8192),
