@@ -30,7 +30,7 @@ ifdef BUILD_ALL
           diameter \
           cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer erl_docgen \
+	  xmerl edoc eunit ssh typer erl_docgen \
 	  percept eldap dialyzer hipe
   EXTRA_FILE := $(wildcard EXTRA-APPLICATIONS)
   EXTRA_APPLICATIONS := $(if $(EXTRA_FILE),$(shell cat $(EXTRA_FILE)))

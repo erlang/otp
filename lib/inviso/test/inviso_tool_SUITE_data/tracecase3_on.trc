@@ -1,9 +1,0 @@
-%% TRACECASE3_ON.TRC
-%% -----------------------------------------------------------------------------
-%% This is a test trace case to be used by the inviso_tool_SUITE.
-%% It is faulty and meant to cause a crash!
-%% -----------------------------------------------------------------------------
-
-1=2.
-%% END-OF-TRACE-CASE
-

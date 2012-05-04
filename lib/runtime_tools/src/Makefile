@@ -36,12 +36,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/runtime_tools-$(VSN)
 
 MODULES= \
 	erts_alloc_config \
-	inviso_rt \
-	inviso_rt_meta \
-	inviso_rt_lib \
-	inviso_as_lib \
-	inviso_autostart \
-	inviso_autostart_server \
 	runtime_tools \
 	runtime_tools_sup \
 	dbg \
