@@ -125,7 +125,7 @@ end_tc(_Mod, TC, Config, Result, _Return) ->
 on_tc_skip(How, {Suite, Case, Reason}) ->
     call(fun call_cleanup/3, {How, Reason}, [on_tc_skip, Suite, Case]).
 
-on_tc_fail(_How, {Suite, Case, Reason}) ->
+on_tc_fail(How, {Suite, Case, Reason}) ->
     call(fun call_cleanup/3, Reason, [on_tc_fail, Suite, Case]).
 
 %% -------------------------------------------------------------------------
@@ -351,7 +351,6 @@ pos(Id,[#ct_hook_config{ id = Id}|_],Num) ->
     Num;
 pos(Id,[_|Rest],Num) ->
     pos(Id,Rest,Num+1).
-
 
 
 catch_apply(M,F,A, Default) ->
