@@ -31,14 +31,16 @@
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
-    basic_stream/1, xfer_stream_min/1, peeloff/1, buffers/1]).
+    basic_stream/1, xfer_stream_min/1, peeloff/1, buffers/1,
+    open_multihoming_ipv4_socket/1, open_multihoming_ipv6_socket/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, api_open_close, api_listen, api_connect_init,
      api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
-     basic_stream, xfer_stream_min, peeloff, buffers].
+     basic_stream, xfer_stream_min, peeloff, buffers,
+     open_multihoming_ipv4_socket, open_multihoming_ipv6_socket].
 
 groups() -> 
     [].
@@ -1104,6 +1106,91 @@ mk_data(N, Bytes, Bin) when N < Bytes ->
     mk_data(N+4, Bytes, <<Bin/binary,N:32>>);
 mk_data(_, _, Bin) ->
     Bin.
+
+
+
+open_multihoming_ipv4_socket(doc) ->
+    "Test opening a multihoming ipv4 socket";
+open_multihoming_ipv4_socket(suite) ->
+    [];
+open_multihoming_ipv4_socket(Config) when is_list(Config) ->
+    ?line IfAddrs = ok(inet:getifaddrs()),
+    ?line
+	case filter_addrs_by_family(IfAddrs, inet) of
+	    [Addr1, Addr2 | _] ->
+		?line io:format("using ipv4 addresses ~p and ~p~n",
+				[Addr1, Addr2]),
+		?line S = ok(gen_sctp:open(0, [{ip,Addr1},{ip,Addr2},inet])),
+		?line ok = gen_sctp:listen(S, true),
+		?line setup_connection(S, Addr1, inet),
+		?line ok = gen_sctp:close(S);
+	    X ->
+		{skip, f("Need 2 IPv4 addresses, found only ~p", [X])}
+	end.
+
+open_multihoming_ipv6_socket(doc) ->
+    "Test opening a multihoming ipv6 socket";
+open_multihoming_ipv6_socket(suite) ->
+    [];
+open_multihoming_ipv6_socket(Config) when is_list(Config) ->
+    ?line IfAddrs = ok(inet:getifaddrs()),
+    ?line
+	case inet:getaddr(localhost, inet6) of
+	    {error,eafnosupport} ->
+		{skip, "No IPv6 support"};
+	    {ok, _} ->
+		?line
+		    case filter_addrs_by_family(IfAddrs, inet6) of
+			[Addr1, Addr2 | _] ->
+			    ?line io:format("using ipv6 addresses ~p and ~p~n",
+					    [Addr1, Addr2]),
+			    ?line S = ok(gen_sctp:open(
+					   0, [{ip,Addr1},{ip,Addr2}, inet6])),
+			    ?line ok = gen_sctp:listen(S, true),
+			    ?line setup_connection(S, Addr1, inet6),
+			    ?line ok = gen_sctp:close(S);
+			X ->
+			    {skip, f("Need 2 IPv6 addresses, found ~p", [X])}
+		    end
+	end.
+
+filter_addrs_by_family(IfAddrs, Family) ->
+    lists:flatten([[Addr || {addr, Addr} <- Info,
+			    is_good_addr(Addr, Family)]
+		   || {_IfName, Info} <- IfAddrs]).
+
+is_good_addr(Addr, inet) when tuple_size(Addr) =:= 4 ->
+    true;
+is_good_addr({0,0,0,0,0,16#ffff,_,_}, inet6) ->
+    false; %% ipv4 mapped
+is_good_addr({16#fe80,_,_,_,_,_,_,_}, inet6) ->
+    false; %% link-local
+is_good_addr(Addr, inet6) when tuple_size(Addr) =:= 8 ->
+    true;
+is_good_addr(_Addr, _Family) ->
+    false.
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+setup_connection(S1, Addr, IpFamily) ->
+    ?line P1 = ok(inet:port(S1)),
+    ?line S2 = ok(gen_sctp:open(0, [IpFamily])),
+    ?line P2 = ok(inet:port(S2)),
+    ?line #sctp_assoc_change{state=comm_up} =
+	ok(gen_sctp:connect(S2, Addr, P1, [])),
+    ?line case ok(gen_sctp:recv(S1)) of
+	      {Addr,P2,_,#sctp_assoc_change{state=comm_up}} ->
+		  ok;
+	      {Addr,P2,_,#sctp_paddr_change{state=addr_confirmed,
+					    addr={Addr,P2}}} ->
+		  ?line case ok(gen_sctp:recv(S1)) of
+			    {Addr,P2,_,#sctp_assoc_change{state=comm_up}} ->
+				ok
+			end
+	  end,
+    ?line ok = gen_sctp:close(S2).
+
 
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light

@@ -10148,12 +10148,13 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
     case SCTP_REQ_BINDX:
 	{   /* Multi-homing bind for SCTP: */
-	    /* Construct the list of addresses we bind to. The curr limit is
-	       256 addrs. Buff structure: Flags(1), ListItem,...:
+	    /* Add additional addresses by calling sctp_bindx with one address
+	       at a time, since this is what some OSes promise will work.
+	       Buff structure: Flags(1), ListItem,...:
 	    */
-	    struct sockaddr addrs[256];
+	    inet_address addr;
 	    char* curr;
-	    int   add_flag, n, rflag;
+	    int   add_flag, rflag;
 	    
 	    if (!IS_SCTP(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
@@ -10162,27 +10163,23 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    add_flag = get_int8(curr);
 	    curr++;
 
-	    for(n=0; n < 256 && curr < buf+len; n++)
-		{
-		    /* List item format: Port(2), IP(4|16) -- compatible with
-		       "inet_set_address": */
-		    inet_address tmp;
-		    ErlDrvSizeT alen  = buf + len - curr;
-		    curr = inet_set_address(desc->sfamily, &tmp, curr, &alen);
-		    if (curr == NULL)
-			return ctl_error(EINVAL, rbuf, rsize);
-
-		    /* Now: we need to squeeze "tmp" into the size of "sockaddr",
-		       which is smaller than "tmp" for IPv6 (extra IN6 info will
-		       be cut off): */
-		    memcpy(addrs + n, &tmp, sizeof(struct sockaddr));
-		}
 	    /* Make the real flags: */
 	    rflag = add_flag ? SCTP_BINDX_ADD_ADDR : SCTP_BINDX_REM_ADDR;
 
-	    /* Invoke the call: */
-	    if (p_sctp_bindx(desc->s, addrs, n, rflag) < 0)
-		return ctl_error(sock_errno(), rbuf, rsize);
+	    while (curr < buf+len)
+		{
+		    /* List item format: Port(2), IP(4|16) -- compatible with
+		       "inet_set_address": */
+		    ErlDrvSizeT alen  = buf + len - curr;
+		    curr = inet_set_address(desc->sfamily, &addr, curr, &alen);
+		    if (curr == NULL)
+			return ctl_error(EINVAL, rbuf, rsize);
+
+		    /* Invoke the call: */
+		    if (p_sctp_bindx(desc->s, (struct sockaddr *)&addr, 1,
+				     rflag) < 0)
+			return ctl_error(sock_errno(), rbuf, rsize);
+		}
 
 	    desc->state = INET_STATE_BOUND;
 
