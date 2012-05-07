@@ -20,7 +20,7 @@
 -behaviour(wx_object).
 
 -export([start/0]).
--export([create_menus/2, get_attrib/1, get_tracer/0,
+-export([create_menus/2, get_attrib/1, get_tracer/0, set_status/1,
 	 create_txt_dialog/4, try_rpc/4, return_to_localnode/2]).
 
 -export([init/1, handle_event/2, handle_cast/2, terminate/2, code_change/3,
@@ -73,6 +73,9 @@ create_menus(Object, Menus) when is_list(Menus) ->
 
 get_attrib(What) ->
     wx_object:call(observer, {get_attrib, What}).
+
+set_status(What) ->
+    wx_object:cast(observer, {status_bar, What}).
 
 get_tracer() ->
     wx_object:call(observer, get_tracer).
@@ -289,6 +292,10 @@ handle_event(Event, State) ->
     Pid = get_active_pid(State),
     Pid ! Event,
     {noreply, State}.
+
+handle_cast({status_bar, Msg}, State=#state{status_bar=SB}) ->
+    wxStatusBar:setStatusText(SB, Msg),
+    {noreply, State};
 
 handle_cast(_Cast, State) ->
     {noreply, State}.
