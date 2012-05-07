@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
 -compile(export_all).
 
 -export([start/4, stop/1]).
--export([call/2, do_within_time/2]).
+-export([call/2, call/3, return/2, do_within_time/2]).
 
 -ifdef(debug).
 -define(dbg,true).
@@ -39,17 +39,24 @@
 		  name,
 		  address,
 		  init_data,
+		  reconnect    = true,
+		  forward      = false,
+		  use_existing = true,
+		  old          = false,
 		  conn_pid,
 		  cb_state,
 		  ct_util_server}).
 
 %%%-----------------------------------------------------------------
-%%% @spec start(Name,Address,InitData,CallbackMod) -> 
+%%% @spec start(Address,InitData,CallbackMod,Opts) ->
 %%%                                     {ok,Handle} | {error,Reason}
 %%%      Name = term()
 %%%      CallbackMod = atom()
 %%%      InitData = term()
 %%%      Address = term()
+%%%      Opts = [Opt]
+%%%      Opt = {name,Name} | {use_existing_connection,boolean()} |
+%%%            {reconnect,boolean()} | {forward_messages,boolean()}
 %%%
 %%% @doc Open a connection and start the generic connection owner process.
 %%%
@@ -60,42 +67,59 @@
 %%% <code>InitData</code> and returna
 %%% <code>{ok,ConnectionPid,State}</code> or
 %%% <code>{error,Reason}</code>.</p>
+%%%
+%%% If no name is given, the <code>Name</code> argument in init/3 will
+%%% have the value <code>undefined</code>.
+%%%
+%%% The callback modules must also export
+%%% ```
+%%% handle_msg(Msg,From,State) -> {reply,Reply,State} |
+%%%                               {noreply,State} |
+%%%                               {stop,Reply,State}
+%%% terminate(ConnectionPid,State) -> term()
+%%% close(Handle) -> term()
+%%% '''
+%%%
+%%% The <code>close/1</code> callback function is actually a callback
+%%% for ct_util, for closing registered connections when
+%%% ct_util_server is terminated. <code>Handle</code> is the Pid of
+%%% the ct_gen_conn process.
+%%%
+%%% If option <code>reconnect</code> is <code>true</code>, then the
+%%% callback must also export
+%%% ```
+%%% reconnect(Address,State) -> {ok,ConnectionPid,State}
+%%% '''
+%%%
+%%% If option <code>forward_messages</code> is <ocde>true</code>, then
+%%% the callback must also export
+%%% ```
+%%% handle_msg(Msg,State) -> {noreply,State} | {stop,State}
+%%% '''
+%%%
+%%% An old interface still exists. This is used by ct_telnet, ct_ftp
+%%% and ct_ssh. The start function then has an explicit
+%%% <code>Name</code> argument, and no <code>Opts</code> argument. The
+%%% callback must export:
+%%%
+%%% ```
+%%% init(Name,Address,InitData) -> {ok,ConnectionPid,State}
+%%% handle_msg(Msg,State) -> {Reply,State}
+%%% reconnect(Address,State) -> {ok,ConnectionPid,State}
+%%% terminate(ConnectionPid,State) -> term()
+%%% close(Handle) -> term()
+%%% '''
+%%%
+start(Address,InitData,CallbackMod,Opts) when is_list(Opts) ->
+    do_start(Address,InitData,CallbackMod,Opts);
 start(Name,Address,InitData,CallbackMod) ->
-    case ct_util:does_connection_exist(Name,Address,CallbackMod) of
-	{ok,Pid} ->
-	    log("ct_gen_conn:start","Using existing connection!\n",[]),
-	    {ok,Pid};
-	false ->
-	    Self = self(),
-	    Pid = spawn(fun() -> 
-				init_gen(Self, #gen_opts{callback=CallbackMod,
-							 name=Name,
-							 address=Address,
-							 init_data=InitData})
-			end),
-	    MRef = erlang:monitor(process,Pid),
-	    receive 
-		{connected,Pid} -> 
-		    erlang:demonitor(MRef, [flush]),
-		    ct_util:register_connection(Name,Address,CallbackMod,Pid),
-		    {ok,Pid};
-		{Error,Pid} ->
-		    receive {'DOWN',MRef,process,_,_} -> ok end,
-		    Error;
-		{'DOWN',MRef,process,_,Reason} ->
-		    log("ct_gen_conn:start",
-			"Connection process died: ~p\n",
-			[Reason]),
-		    {error,{connection_process_died,Reason}}
-	    end
-    end.
-
+    do_start(Address,InitData,CallbackMod,[{name,Name},{old,true}]).
 
 %%%-----------------------------------------------------------------
 %%% @spec stop(Handle) -> ok
 %%%      Handle = handle()
 %%%
-%%% @doc Close the telnet connection and stop the process managing it.
+%%% @doc Close the connection and stop the process managing it.
 stop(Pid) ->
     call(Pid,stop).
 
@@ -103,7 +127,7 @@ stop(Pid) ->
 %%% @spec log(Heading,Format,Args) -> ok
 %%%
 %%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:log/3 
+%%% @see ct_logs:log/3
 log(Heading,Format,Args) ->
     log(log,[Heading,Format,Args]).
 
@@ -111,7 +135,7 @@ log(Heading,Format,Args) ->
 %%% @spec start_log(Heading) -> ok
 %%%
 %%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:start_log/1 
+%%% @see ct_logs:start_log/1
 start_log(Heading) ->
     log(start_log,[Heading]).
 
@@ -119,7 +143,7 @@ start_log(Heading) ->
 %%% @spec cont_log(Format,Args) -> ok
 %%%
 %%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:cont_log/2 
+%%% @see ct_logs:cont_log/2
 cont_log(Format,Args) ->
     log(cont_log,[Format,Args]).
 
@@ -127,7 +151,7 @@ cont_log(Format,Args) ->
 %%% @spec end_log() -> ok
 %%%
 %%% @doc Log activities on the current connection (tool-internal use only).
-%%% @see ct_logs:end_log/0 
+%%% @see ct_logs:end_log/0
 end_log() ->
     log(end_log,[]).
 
@@ -148,10 +172,10 @@ do_within_time(Fun,Timeout) ->
     Silent = get(silent),
     TmpPid = spawn_link(fun() -> put(silent,Silent),
 				 R = Fun(),
-				 Self ! {self(),R} 
+				 Self ! {self(),R}
 			end),
     ConnPid = get(conn_pid),
-    receive 
+    receive
 	{TmpPid,Result} ->
 	    Result;
 	{'EXIT',ConnPid,_Reason}=M ->
@@ -159,7 +183,7 @@ do_within_time(Fun,Timeout) ->
 	    exit(TmpPid,kill),
 	    self() ! M,
 	    {error,connection_closed}
-    after 
+    after
 	Timeout ->
 	    exit(TmpPid,kill),
 	    receive
@@ -176,12 +200,68 @@ do_within_time(Fun,Timeout) ->
 
 %%%=================================================================
 %%% Internal functions
+do_start(Address,InitData,CallbackMod,Opts0) ->
+    Opts = check_opts(Opts0,#gen_opts{callback=CallbackMod,
+				      address=Address,
+				      init_data=InitData}),
+    case Opts#gen_opts.use_existing of
+	true ->
+	    case ct_util:does_connection_exist(Opts#gen_opts.name,
+					       Address,CallbackMod) of
+		{ok,Pid} ->
+		    log("ct_gen_conn:start","Using existing connection!\n",[]),
+		    {ok,Pid};
+		false ->
+		    do_start(Opts)
+	    end;
+	false ->
+	    do_start(Opts)
+    end.
+
+do_start(Opts) ->
+    Self = self(),
+    Pid = spawn(fun() -> init_gen(Self, Opts) end),
+    MRef = erlang:monitor(process,Pid),
+    receive
+	{connected,Pid} ->
+	    erlang:demonitor(MRef, [flush]),
+	    ct_util:register_connection(Opts#gen_opts.name, Opts#gen_opts.address,
+					Opts#gen_opts.callback, Pid),
+	    {ok,Pid};
+	{Error,Pid} ->
+	    receive {'DOWN',MRef,process,_,_} -> ok end,
+	    Error;
+	{'DOWN',MRef,process,_,Reason} ->
+	    log("ct_gen_conn:start",
+		"Connection process died: ~p\n",
+		[Reason]),
+	    {error,{connection_process_died,Reason}}
+    end.
+
+check_opts(Opts0) ->
+    check_opts(Opts0,#gen_opts{}).
+
+check_opts([{name,Name}|T],Opts) ->
+    check_opts(T,Opts#gen_opts{name=Name});
+check_opts([{reconnect,Bool}|T],Opts) ->
+    check_opts(T,Opts#gen_opts{reconnect=Bool});
+check_opts([{forward_messages,Bool}|T],Opts) ->
+    check_opts(T,Opts#gen_opts{forward=Bool});
+check_opts([{use_existing_connection,Bool}|T],Opts) ->
+    check_opts(T,Opts#gen_opts{use_existing=Bool});
+check_opts([{old,Bool}|T],Opts) ->
+    check_opts(T,Opts#gen_opts{old=Bool});
+check_opts([],Opts) ->
+    Opts.
+
 call(Pid,Msg) ->
+    call(Pid,Msg,infinity).
+call(Pid,Msg,Timeout) ->
     MRef = erlang:monitor(process,Pid),
     Ref = make_ref(),
     Pid ! {Msg,{self(),Ref}},
     receive
-	{Ref, Result} -> 
+	{Ref, Result} ->
 	    erlang:demonitor(MRef, [flush]),
 	    case Result of
 		{retry,_Data} ->
@@ -189,8 +269,11 @@ call(Pid,Msg) ->
 		Other ->
 		    Other
 	    end;
-	{'DOWN',MRef,process,_,Reason}  -> 
+	{'DOWN',MRef,process,_,Reason}  ->
 	    {error,{process_down,Pid,Reason}}
+    after Timeout ->
+	    erlang:demonitor(MRef, [flush]),
+	    exit(timeout)
     end.
 
 return({To,Ref},Result) ->
@@ -201,9 +284,9 @@ init_gen(Parent,Opts) ->
     CtUtilServer = whereis(ct_util_server),
     link(CtUtilServer),
     put(silent,false),
-    case catch (Opts#gen_opts.callback):init(Opts#gen_opts.name,
-					     Opts#gen_opts.address,
-					     Opts#gen_opts.init_data) of
+    try (Opts#gen_opts.callback):init(Opts#gen_opts.name,
+				      Opts#gen_opts.address,
+				      Opts#gen_opts.init_data) of
 	{ok,ConnPid,State} when is_pid(ConnPid) ->
 	    link(ConnPid),
 	    put(conn_pid,ConnPid),
@@ -213,21 +296,32 @@ init_gen(Parent,Opts) ->
 			       ct_util_server=CtUtilServer});
 	{error,Reason} ->
 	    Parent ! {{error,Reason},self()}
+    catch
+	throw:{error,Reason} ->
+	    Parent ! {{error,Reason},self()}
     end.
 
 loop(Opts) ->
     receive
 	{'EXIT',Pid,Reason} when Pid==Opts#gen_opts.conn_pid ->
-	    log("Connection down!\nOpening new!","Reason: ~p\nAddress: ~p\n",
-		[Reason,Opts#gen_opts.address]),
-	    case reconnect(Opts) of
-		{ok, NewPid, NewState} ->
-		    link(NewPid),
-		    put(conn_pid,NewPid),
-		    loop(Opts#gen_opts{conn_pid=NewPid,cb_state=NewState});
-		Error ->
+	    case Opts#gen_opts.reconnect of
+		true ->
+		    log("Connection down!\nOpening new!",
+			"Reason: ~p\nAddress: ~p\n",
+			[Reason,Opts#gen_opts.address]),
+		    case reconnect(Opts) of
+			{ok, NewPid, NewState} ->
+			    link(NewPid),
+			    put(conn_pid,NewPid),
+			    loop(Opts#gen_opts{conn_pid=NewPid,cb_state=NewState});
+			Error ->
+			    ct_util:unregister_connection(self()),
+			    log("Reconnect failed. Giving up!","Reason: ~p\n",
+				[Error])
+		    end;
+		false ->
 		    ct_util:unregister_connection(self()),
-		    log("Reconnect failed. Giving up!","Reason: ~p\n",[Error])
+		    log("Connection closed!","Reason: ~p\n",[Reason])
 	    end;
 	{'EXIT',Pid,Reason} ->
 	    case Opts#gen_opts.ct_util_server of
@@ -252,23 +346,39 @@ loop(Opts) ->
 	    loop(Opts);
 	{{retry,{_Error,_Name,_CPid,Msg}}, From} ->
 	    log("Rerunning command","Connection reestablished. Rerunning command...",[]),
-	    {Return,NewState} = 
+	    {Return,NewState} =
 		(Opts#gen_opts.callback):handle_msg(Msg,Opts#gen_opts.cb_state),
 	    return(From, Return),
-	    loop(Opts#gen_opts{cb_state=NewState});	    
+	    loop(Opts#gen_opts{cb_state=NewState});
+	{Msg,From={Pid,_Ref}} when is_pid(Pid), Opts#gen_opts.old==true ->
+	    {Return,NewState} =
+		(Opts#gen_opts.callback):handle_msg(Msg,Opts#gen_opts.cb_state),
+	    return(From, Return),
+	    loop(Opts#gen_opts{cb_state=NewState});
 	{Msg,From={Pid,_Ref}} when is_pid(Pid) ->
-	    {Return,NewState} = 
-		(Opts#gen_opts.callback):handle_msg(Msg,Opts#gen_opts.cb_state),
-	    return(From, Return),
-	    loop(Opts#gen_opts{cb_state=NewState})
+	    case (Opts#gen_opts.callback):handle_msg(Msg,From,
+						     Opts#gen_opts.cb_state) of
+		{reply,Reply,NewState} ->
+		    return(From,Reply),
+		    loop(Opts#gen_opts{cb_state=NewState});
+		{noreply,NewState} ->
+		    loop(Opts#gen_opts{cb_state=NewState});
+		{stop,Reply,NewState} ->
+		    ct_util:unregister_connection(self()),
+		    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
+						       NewState),
+		    return(From,Reply)
+	    end;
+	Msg when Opts#gen_opts.forward==true ->
+	    case (Opts#gen_opts.callback):handle_msg(Msg,Opts#gen_opts.cb_state) of
+		{noreply,NewState} ->
+		    loop(Opts#gen_opts{cb_state=NewState});
+		{stop,NewState} ->
+		    ct_util:unregister_connection(self()),
+		    (Opts#gen_opts.callback):terminate(Opts#gen_opts.conn_pid,
+						       NewState)
+	    end
     end.
-
-nozero({ok,S}) when is_list(S) ->
-    {ok,[C || C <- S,
-	      C=/=0,
-	      C=/=13]};
-nozero(M) ->
-    M.
 
 reconnect(Opts) ->
     (Opts#gen_opts.callback):reconnect(Opts#gen_opts.address,
@@ -277,10 +387,8 @@ reconnect(Opts) ->
 
 log(Func,Args) ->
     case get(silent) of
-	true when not ?dbg-> 
+	true when not ?dbg->
 	    ok;
 	_ ->
 	    apply(ct_logs,Func,Args)
     end.
-
-

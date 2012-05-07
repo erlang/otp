@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2003-2011. All Rights Reserved.
+# Copyright Ericsson AB 2003-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,8 @@ CT_MODULES = \
 	ct_rpc \
 	ct_snmp \
 	unix_telnet \
-	ct_slave
+	ct_slave \
+	ct_netconfc
 
 CT_XML_FILES = $(CT_MODULES:=.xml)
 
@@ -123,7 +124,7 @@ $(HTMLDIR)/%.gif: %.gif
 
 docs: pdf html man
 
-$(CT_XML_FILES): 
+$(CT_XML_FILES): %.xml: ../../src/%.erl
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -preprocess true -i $(XMERL_DIR)/include \
 		-i ../../../test_server/include -i  ../../include \
 		-i ../../../../erts/lib/kernel/include -i ../../../../lib/kernel/include \

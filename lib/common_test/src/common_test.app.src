@@ -33,6 +33,8 @@
 	     ct_master_event,
 	     ct_master_logs,
 	     ct_master_status,
+	     ct_netconfc,
+	     ct_conn_log_h,
 	     ct_repeat,
 	     ct_rpc,
 	     ct_run,
@@ -49,6 +51,7 @@
 	     ct_config_xml,
 	     ct_slave,
              cth_log_redirect,
+	     cth_conn_log,
              cth_surefire
 	    ]},
   {registered, [ct_logs,
