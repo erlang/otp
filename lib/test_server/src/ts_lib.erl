@@ -108,8 +108,16 @@ interesting_logs(Dir) ->
 
 specs(Dir) ->
     Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
-					    "*_test", "*.{dyn,}spec"])), 
-    sort_tests([filename_to_atom(Name) || Name <- Specs]).
+					    "*_test", "*.{dyn,}spec"])),
+    % Filter away all spec which end with _bench.spec
+    NoBench = fun(SpecName) ->
+		      case lists:reverse(SpecName) of
+			  "ceps.hcneb_"++_ -> false;
+			  _ -> true
+		      end
+	      end,
+
+    sort_tests([filename_to_atom(Name) || Name <- Specs, NoBench(Name)]).
 
 suites(Dir, Spec) ->
     Glob=filename:join([filename:dirname(Dir), Spec++"_test",
