@@ -138,10 +138,7 @@ TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 EMAKEFILE=Emakefile
 
-TEST_SPEC_FILES =	emulator.spec \
-			emulator.spec.win \
-			emulator.spec.vxworks \
-			emulator.spec.ose
+TEST_SPEC_FILES =	emulator.spec emulator_bench.spec
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
