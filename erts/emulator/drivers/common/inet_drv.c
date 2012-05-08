@@ -3706,6 +3706,9 @@ static char* inet_set_address(int family, inet_address* dst,
     if ((family == AF_INET) && (*len >= 2+4)) {
 	sys_memzero((char*)dst, sizeof(struct sockaddr_in));
 	port = get_int16(src);
+#ifndef NO_SA_LEN
+	dst->sai.sin_len    = sizeof(struct sockaddr_in);
+#endif
 	dst->sai.sin_family = family;
 	dst->sai.sin_port   = sock_htons(port);
 	sys_memcpy(&dst->sai.sin_addr, src+2, 4);
@@ -3716,6 +3719,9 @@ static char* inet_set_address(int family, inet_address* dst,
     else if ((family == AF_INET6) && (*len >= 2+16)) {
 	sys_memzero((char*)dst, sizeof(struct sockaddr_in6));
 	port = get_int16(src);
+#ifndef NO_SA_LEN
+	dst->sai6.sin6_len    = sizeof(struct sockaddr_in6);
+#endif
 	dst->sai6.sin6_family = family;
 	dst->sai6.sin6_port   = sock_htons(port);
 	dst->sai6.sin6_flowinfo = 0;   /* XXX this may be set as well ?? */
@@ -3770,6 +3776,9 @@ static char *inet_set_faddress(int family, inet_address* dst,
 		return NULL;
 	    }
 	    sys_memzero((char*)dst, sizeof(struct sockaddr_in));
+#ifndef NO_SA_LEN
+	    dst->sai.sin_len         = sizeof(struct sockaddr_in6);
+#endif
 	    dst->sai.sin_family      = family;
 	    dst->sai.sin_port        = sock_htons(port);
 	    dst->sai.sin_addr.s_addr = addr.s_addr;
@@ -3789,6 +3798,9 @@ static char *inet_set_faddress(int family, inet_address* dst,
 		return NULL;
 	    }
 	    sys_memzero((char*)dst, sizeof(struct sockaddr_in6));
+#ifndef NO_SA_LEN
+	    dst->sai6.sin6_len    = sizeof(struct sockaddr_in6);
+#endif
 	    dst->sai6.sin6_family = family;
 	    dst->sai6.sin6_port   = sock_htons(port);
 	    dst->sai6.sin6_flowinfo = 0;   /* XXX this may be set as well ?? */
