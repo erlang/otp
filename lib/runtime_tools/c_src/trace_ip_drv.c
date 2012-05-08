@@ -590,8 +590,8 @@ static void *my_alloc(size_t size)
     void *ret;
     if ((ret = driver_alloc(size)) == NULL) {
 	/* May or may not work... */
-	fprintf(stderr, "Could not allocate %d bytes of memory in %s.",
-		(int) size, __FILE__);
+	fprintf(stderr, "Could not allocate %lu bytes of memory in %s.",
+		(unsigned long) size, __FILE__);
 	exit(1);
     }
     return ret;
@@ -605,8 +605,8 @@ static ErlDrvBinary *my_alloc_binary(int size)
     ErlDrvBinary *ret;
     if ((ret = driver_alloc_binary(size)) == NULL) {
 	/* May or may not work... */
-	fprintf(stderr, "Could not allocate a binary of %d bytes in %s.",
-		(int) size, __FILE__);
+	fprintf(stderr, "Could not allocate a binary of %lu bytes in %s.",
+		(unsigned long) size, __FILE__);
 	exit(1);
     }
     return ret;
