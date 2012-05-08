@@ -344,7 +344,7 @@ insert_constraints([{subtype, Type1, Type2}|Left], Dict) ->
     false ->
       %% A lot of things should change to add supertypes
       throw({error, io_lib:format("First argument of is_subtype constraint "
-				  "must be a type variable\n", [])})
+				  "must be a type variable: ~p\n", [Type1])})
   end;
 insert_constraints([], Dict) -> Dict.
 
@@ -385,9 +385,8 @@ contract_from_form([{type, _L1, bounded_fun,
 		   RecDict, FileLine, TypeAcc, FormAcc) ->
   TypeFun =
     fun(ExpTypes, AllRecords) ->
-	Constr1 = [constraint_from_form(C, RecDict, ExpTypes, AllRecords)
-                   || C <- Constr],
-	VarDict = insert_constraints(Constr1, dict:new()),
+	{Constr1, VarDict} =
+	  process_constraints(Constr, RecDict, ExpTypes, AllRecords),
 	Type = erl_types:t_from_form(Form, RecDict, VarDict),
 	NewType = erl_types:t_solve_remote(Type, ExpTypes, AllRecords),
 	{NewType, Constr1}
@@ -398,18 +397,66 @@ contract_from_form([{type, _L1, bounded_fun,
 contract_from_form([], _RecDict, _FileLine, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
 
-constraint_from_form({type, _, constraint, [{atom, _, is_subtype},
-					    [Type1, Type2]]}, RecDict,
-                     ExpTypes, AllRecords) ->
-  T1 = erl_types:t_from_form(Type1, RecDict),
-  T2 = erl_types:t_from_form(Type2, RecDict),
-  T3 = erl_types:t_solve_remote(T1, ExpTypes, AllRecords),
-  T4 = erl_types:t_solve_remote(T2, ExpTypes, AllRecords),
-  {subtype, T3, T4};
-constraint_from_form({type, _, constraint, [{atom,_,Name}, List]}, _RecDict,
-                     _ExpTypes, _AllRecords) ->
-  N = length(List),
-  throw({error, io_lib:format("Unsupported type guard ~w/~w\n", [Name, N])}).
+process_constraints(Constrs, RecDict, ExpTypes, AllRecords) ->
+  Init = initialize_constraints(Constrs, RecDict, ExpTypes, AllRecords),
+  constraints_fixpoint(Init, RecDict, ExpTypes, AllRecords).
+
+initialize_constraints(Constrs, RecDict, ExpTypes, AllRecords) ->
+  initialize_constraints(Constrs, RecDict, ExpTypes, AllRecords, []).
+
+initialize_constraints([], _RecDict, _ExpTypes, _AllRecords, Acc) ->
+  Acc;
+initialize_constraints([Constr|Rest], RecDict, ExpTypes, AllRecords, Acc) ->
+  case Constr of
+    {type, _, constraint, [{atom, _, is_subtype}, [Type1, Type2]]} ->
+      T1 = final_form(Type1, RecDict, ExpTypes, AllRecords, dict:new()),
+      Entry = {T1, Type2},
+      initialize_constraints(Rest, RecDict, ExpTypes, AllRecords, [Entry|Acc]);
+    {type, _, constraint, [{atom,_,Name}, List]} ->
+      N = length(List),
+      throw({error,
+	     io_lib:format("Unsupported type guard ~w/~w\n", [Name, N])})
+  end.
+
+constraints_fixpoint(Constrs, RecDict, ExpTypes, AllRecords) ->
+  VarDict =
+    constraints_to_dict(Constrs, RecDict, ExpTypes, AllRecords, dict:new()),
+  constraints_fixpoint(VarDict, Constrs, RecDict, ExpTypes, AllRecords).
+
+constraints_fixpoint(OldVarDict, Constrs, RecDict, ExpTypes, AllRecords) ->
+  NewVarDict =
+    constraints_to_dict(Constrs, RecDict, ExpTypes, AllRecords, OldVarDict),
+  case NewVarDict of
+    OldVarDict ->
+      DictFold =
+	fun(Key, Value, Acc) ->
+	    [{subtype, erl_types:t_var(Key), Value}|Acc]
+	end,
+      FinalConstrs = dict:fold(DictFold, [], NewVarDict),
+      {FinalConstrs, NewVarDict};
+    _Other ->
+      constraints_fixpoint(NewVarDict, Constrs, RecDict, ExpTypes, AllRecords)
+  end.
+
+-define(TYPE_LIMIT, 4).
+
+final_form(Form, RecDict, ExpTypes, AllRecords, VarDict) ->
+  T1 = erl_types:t_from_form(Form, RecDict, VarDict),
+  T2 = erl_types:t_solve_remote(T1, ExpTypes, AllRecords),
+  erl_types:t_limit(T2, ?TYPE_LIMIT).
+
+constraints_to_dict(Constrs, RecDict, ExpTypes, AllRecords, VarDict) ->
+  Subtypes =
+    constraints_to_subs(Constrs, RecDict, ExpTypes, AllRecords, VarDict, []),
+  insert_constraints(Subtypes, dict:new()).
+
+constraints_to_subs([], _RecDict, _ExpTypes, _AllRecords, _VarDict, Acc) ->
+  Acc;
+constraints_to_subs([C|Rest], RecDict, ExpTypes, AllRecords, VarDict, Acc) ->
+  {T1, Form2} = C,
+  T2 = final_form(Form2, RecDict, ExpTypes, AllRecords, VarDict),
+  NewAcc = [{subtype, T1, T2}|Acc],
+  constraints_to_subs(Rest, RecDict, ExpTypes, AllRecords, VarDict, NewAcc).
 
 %% Gets the most general domain of a list of domains of all
 %% the overloaded contracts
