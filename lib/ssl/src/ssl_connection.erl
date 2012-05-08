@@ -47,8 +47,8 @@
 -export([start_link/7]). 
 
 %% gen_fsm callbacks
--export([init/1, hello/2, certify/2, cipher/2, connection/2, 
-	 abbreviated/2, handle_event/3,
+-export([init/1, hello/2, certify/2, cipher/2,
+	 abbreviated/2, connection/2, handle_event/3,
          handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
 -record(state, {
@@ -297,19 +297,10 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 %% does not return until Module:init/1 has returned.  
 %%--------------------------------------------------------------------
 start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
-    gen_fsm:start_link(?MODULE, [Role, Host, Port, Socket, Options,
-				 User, CbInfo], []).
+    proc_lib:start_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]]).
 
-%%====================================================================
-%% gen_fsm callbacks
-%%====================================================================
-%%--------------------------------------------------------------------
-%% Description:Whenever a gen_fsm is started using gen_fsm:start/[3,4] or
-%% gen_fsm:start_link/3,4, this function is called by the new process to 
-%% initialize. 
-%%--------------------------------------------------------------------
-init([Role, Host, Port, Socket, {SSLOpts0, _} = Options, 
-      User, CbInfo]) ->
+init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
+    proc_lib:init_ack({ok, self()}),
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     Hashes0 = ssl_handshake:init_hashes(),    
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
@@ -324,10 +315,10 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 				 session_cache = CacheHandle,
 				 private_key = Key,
 				 diffie_hellman_params = DHParams},
-	    {ok, hello, State, get_timeout(State)}
-    catch   
+	    gen_fsm:enter_loop(?MODULE, [], hello, State, get_timeout(State))
+    catch
 	throw:Error ->
-	    {stop, Error}
+	    gen_fsm:enter_loop(?MODULE, [], error, {Error,State0}, get_timeout(State0))
     end.
    
 %%--------------------------------------------------------------------
@@ -338,18 +329,26 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 %% the event. It is also called if a timeout occurs.
 %%
 %%--------------------------------------------------------------------
+%% Description:There should be one instance of this function for each
+%% possible state name. Whenever a gen_fsm receives an event sent
+%% using gen_fsm:send_event/2, the instance of this function with the
+%% same name as the current state name StateName is called to handle
+%% the event. It is also called if a timeout occurs.
+%%
+
+%%--------------------------------------------------------------------
 -spec hello(start | #hello_request{} | #client_hello{} | #server_hello{} | term(),
 	    #state{}) -> gen_fsm_state_return().    
 %%--------------------------------------------------------------------
 hello(start, #state{host = Host, port = Port, role = client,
 		    ssl_options = SslOpts, 
 		    session = #session{own_certificate = Cert} = Session0,
+		    session_cache = Cache, session_cache_cb = CacheCb,
 		    transport_cb = Transport, socket = Socket,
 		    connection_states = ConnectionStates,
 		    renegotiation = {Renegotiation, _}} = State0) ->
-    Hello = ssl_handshake:client_hello(Host, Port, 
-				       ConnectionStates, 
-				       SslOpts, Renegotiation, Cert),
+    Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
+				       Renegotiation, Cert),
 
     Version = Hello#client_hello.client_version,
     Hashes0 = ssl_handshake:init_hashes(),
@@ -357,7 +356,7 @@ hello(start, #state{host = Host, port = Port, role = client,
         encode_handshake(Hello, Version, ConnectionStates, Hashes0),
     Transport:send(Socket, BinMsg),
     State1 = State0#state{connection_states = CS2,
-			 negotiated_version = Version, %% Requested version
+			  negotiated_version = Version, %% Requested version
 			  session =
 			      Session0#session{session_id = Hello#client_hello.session_id},
 			  tls_handshake_hashes = Hashes1},
@@ -692,14 +691,15 @@ cipher(Msg, State) ->
 connection(#hello_request{}, #state{host = Host, port = Port,
 				    socket = Socket,
 				    session = #session{own_certificate = Cert},
+				    session_cache = Cache, session_cache_cb = CacheCb,
 				    ssl_options = SslOpts,
 				    negotiated_version = Version,
 				    transport_cb = Transport,
 				    connection_states = ConnectionStates0,
 				    renegotiation = {Renegotiation, _},
 				    tls_handshake_hashes = Hashes0} = State0) ->
-    Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates0,
-				       SslOpts, Renegotiation, Cert),
+    Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
+				       Renegotiation, Cert),
   
     {BinMsg, ConnectionStates1, Hashes1} =
         encode_handshake(Hello, Version, ConnectionStates0, Hashes0),
@@ -732,6 +732,7 @@ connection(timeout, State) ->
 
 connection(Msg, State) ->
     handle_unexpected_message(Msg, connection, State).
+
 %%--------------------------------------------------------------------
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:send_all_state_event/2, this function is called to handle
@@ -774,6 +775,8 @@ handle_sync_event(start, From, hello, State) ->
 %% they upgrade a active socket. 
 handle_sync_event(start, _, connection, State) ->
     {reply, connected, connection, State, get_timeout(State)};
+handle_sync_event(start, _From, error, {Error, State = #state{}}) ->
+    {stop, {shutdown, Error}, {error, Error}, State};
 handle_sync_event(start, From, StateName, State) ->
     {next_state, StateName, State#state{from = From}, get_timeout(State)};
 
