@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -30,7 +30,7 @@
 -export([start_link/1, start_link_dist/1,
 	 connection_init/2, cache_pem_file/2,
 	 lookup_trusted_cert/4,
-	 client_session_id/4, server_session_id/4,
+	 server_session_id/4,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
@@ -112,15 +112,6 @@ cache_pem_file(File, DbHandle) ->
 %% --------------------------------------------------------------------
 lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
     ssl_certificate_db:lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer).
-
-%%--------------------------------------------------------------------
--spec client_session_id(host(), inet:port_number(), #ssl_options{},
-			der_cert() | undefined) -> session_id().
-%%
-%% Description: Select a session id for the client.
-%%--------------------------------------------------------------------
-client_session_id(Host, Port, SslOpts, OwnCert) ->
-    call({client_session_id, Host, Port, SslOpts, OwnCert}).
 
 %%--------------------------------------------------------------------
 -spec server_session_id(host(), inet:port_number(), #ssl_options{},
@@ -214,12 +205,6 @@ handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
 		{error, Reason}
 	end,
     {reply, Result, State};
-
-handle_call({{client_session_id, Host, Port, SslOpts, OwnCert}, _}, _,
-	    #state{session_cache = Cache,
-		  session_cache_cb = CacheCb} = State) ->
-    Id = ssl_session:id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
-    {reply, Id, State};
 
 handle_call({{server_session_id, Port, SuggestedSessionId, SslOpts, OwnCert}, _},
 	    _, #state{session_cache_cb = CacheCb,

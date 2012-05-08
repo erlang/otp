@@ -348,7 +348,7 @@ hello(start, #state{host = Host, port = Port, role = client,
 		    connection_states = ConnectionStates,
 		    renegotiation = {Renegotiation, _}} = State0) ->
     Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
-				       Renegotiation, Cert),
+				       Cache, CacheCb, Renegotiation, Cert),
 
     Version = Hello#client_hello.client_version,
     Hashes0 = ssl_handshake:init_hashes(),
@@ -393,7 +393,7 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	    
 	    case ssl_session:is_new(OldId, NewId) of
 		true ->
-		    handle_new_session(NewId, CipherSuite, Compression, State);
+		    handle_new_session(NewId, CipherSuite, Compression, State#state{connection_states = ConnectionStates});
 		false ->
 		    handle_resumed_session(NewId, State#state{connection_states = ConnectionStates}) 
 	    end;
@@ -699,7 +699,7 @@ connection(#hello_request{}, #state{host = Host, port = Port,
 				    renegotiation = {Renegotiation, _},
 				    tls_handshake_hashes = Hashes0} = State0) ->
     Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
-				       Renegotiation, Cert),
+				       Cache, CacheCb, Renegotiation, Cert),
   
     {BinMsg, ConnectionStates1, Hashes1} =
         encode_handshake(Hello, Version, ConnectionStates0, Hashes0),

@@ -30,7 +30,7 @@
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([master_secret/4, client_hello/6, server_hello/4, hello/4,
+-export([master_secret/4, client_hello/8, server_hello/4, hello/4,
 	 hello_request/0, certify/7, certificate/4,
 	 client_certificate_verify/5, certificate_verify/5,
 	 certificate_request/3, key_exchange/2, server_key_exchange_hash/2,
@@ -51,14 +51,17 @@
 %%====================================================================
 %%--------------------------------------------------------------------
 -spec client_hello(host(), inet:port_number(), #connection_states{},
-		   #ssl_options{}, boolean(), der_cert()) -> #client_hello{}.
+		   #ssl_options{}, integer(), atom(), boolean(), der_cert()) ->
+			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
-client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
-							ciphers = UserSuites} 
-	     = SslOpts, Renegotiation, OwnCert) ->
-    
+client_hello(Host, Port, ConnectionStates,
+	     #ssl_options{versions = Versions,
+			  ciphers = UserSuites
+			 } = SslOpts,
+	     Cache, CacheCb, Renegotiation, OwnCert) ->
+
     Fun = fun(Version) ->
 		  ssl_record:protocol_version(Version)
 	  end,
@@ -67,15 +70,15 @@ client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
     SecParams = Pending#connection_state.security_parameters,
     Ciphers = available_suites(UserSuites, Version),
 
-    Id = ssl_manager:client_session_id(Host, Port, SslOpts, OwnCert),
+    Id = ssl_session:id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
 
-    #client_hello{session_id = Id, 
+    #client_hello{session_id = Id,
 		  client_version = Version,
 		  cipher_suites = cipher_suites(Ciphers, Renegotiation),
 		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
-		  renegotiation_info  = 
-		  renegotiation_info(client, ConnectionStates, Renegotiation)
+		  renegotiation_info =
+		      renegotiation_info(client, ConnectionStates, Renegotiation)
 		 }.
 
 %%--------------------------------------------------------------------
