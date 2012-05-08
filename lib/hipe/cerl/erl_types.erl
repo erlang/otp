@@ -2555,8 +2555,8 @@ t_subst_dict(?list(Contents, Termination, Size), Dict) ->
 	?nil -> ?list(NewContents, ?nil, Size);
 	?any -> ?list(NewContents, ?any, Size);
 	Other ->
-	  ?list(NewContents, NewTermination, _) = t_cons(NewContents, Other),
-	  ?list(NewContents, NewTermination, Size)
+	  ?list(NewContents2, NewTermination, _) = t_cons(NewContents, Other),
+	  ?list(NewContents2, NewTermination, Size)
       end
   end;
 t_subst_dict(?function(Domain, Range), Dict) ->
@@ -2597,8 +2597,8 @@ t_subst_aux(?list(Contents, Termination, Size), VarMap) ->
 	?nil -> ?list(NewContents, ?nil, Size);
 	?any -> ?list(NewContents, ?any, Size);
 	Other ->
-	  ?list(NewContents, NewTermination, _) = t_cons(NewContents, Other),
-	  ?list(NewContents, NewTermination, Size)
+	  ?list(NewContents2, NewTermination, _) = t_cons(NewContents, Other),
+	  ?list(NewContents2, NewTermination, Size)
       end
   end;
 t_subst_aux(?function(Domain, Range), VarMap) ->
@@ -3186,8 +3186,8 @@ t_abstract_records(?list(Contents, Termination, Size), RecDict) ->
 	?nil -> ?list(NewContents, ?nil, Size);
 	?any -> ?list(NewContents, ?any, Size);
 	Other ->
-	  ?list(NewContents, NewTermination, _) = t_cons(NewContents, Other),
-	  ?list(NewContents, NewTermination, Size)
+	  ?list(NewContents2, NewTermination, _) = t_cons(NewContents, Other),
+	  ?list(NewContents2, NewTermination, Size)
       end
   end;
 t_abstract_records(?function(Domain, Range), RecDict) ->

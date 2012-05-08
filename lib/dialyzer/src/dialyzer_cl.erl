@@ -188,6 +188,7 @@ plt_common(#options{init_plts = [InitPlt]} = Opts, RemoveFiles, AddFiles) ->
     ok ->
       case Opts#options.output_plt of
 	none -> ok;
+	InitPlt -> ok;
 	OutPlt ->
 	  {ok, Binary} = file:read_file(InitPlt),
 	  ok = file:write_file(OutPlt, Binary)
