@@ -1967,8 +1967,8 @@ sched_waiting_sys(Uint no, ErtsRunQueue *rq)
 {
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
     ASSERT(rq->waiting >= 0);
-    ERTS_RUNQ_FLGS_SET(rq, (ERTS_RUNQ_FLG_OUT_OF_WORK
-			    | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
+    (void) ERTS_RUNQ_FLGS_SET(rq, (ERTS_RUNQ_FLG_OUT_OF_WORK
+				   | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
     rq->waiting++;
     rq->waiting *= -1;
     rq->woken = 0;
@@ -2044,8 +2044,8 @@ static ERTS_INLINE void
 sched_waiting(Uint no, ErtsRunQueue *rq)
 {
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
-    ERTS_RUNQ_FLGS_SET(rq, (ERTS_RUNQ_FLG_OUT_OF_WORK
-			    | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
+    (void) ERTS_RUNQ_FLGS_SET(rq, (ERTS_RUNQ_FLG_OUT_OF_WORK
+				   | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
     if (rq->waiting < 0)
 	rq->waiting--;
     else
@@ -2719,7 +2719,7 @@ chk_wake_sched(ErtsRunQueue *crq, int ix, int activate)
     if (!(flags & (ERTS_RUNQ_FLG_SUSPENDED|ERTS_RUNQ_FLG_NONEMPTY))) {
 	if (activate) {
 	    if (try_inc_no_active_runqs(ix+1))
-		ERTS_RUNQ_FLGS_UNSET(wrq, ERTS_RUNQ_FLG_INACTIVE);
+		(void) ERTS_RUNQ_FLGS_UNSET(wrq, ERTS_RUNQ_FLG_INACTIVE);
 	}
 	wake_scheduler(wrq, 0);
 	return 1;
@@ -2786,7 +2786,7 @@ erts_sched_notify_check_cpu_bind(void)
     int ix;
     for (ix = 0; ix < erts_no_run_queues; ix++) {
 	ErtsRunQueue *rq = ERTS_RUNQ_IX(ix);
-	ERTS_RUNQ_FLGS_SET(rq, ERTS_RUNQ_FLG_CHK_CPU_BIND);
+	(void) ERTS_RUNQ_FLGS_SET(rq, ERTS_RUNQ_FLG_CHK_CPU_BIND);
 	wake_scheduler(rq, 0);
     }
 #else
@@ -3052,7 +3052,7 @@ suspend_run_queue(ErtsRunQueue *rq)
 {
     erts_smp_atomic32_read_bor_nob(&rq->scheduler->ssi->flags,
 				   ERTS_SSI_FLG_SUSPENDED);
-    ERTS_RUNQ_FLGS_SET(rq, ERTS_RUNQ_FLG_SUSPENDED);
+    (void) ERTS_RUNQ_FLGS_SET(rq, ERTS_RUNQ_FLG_SUSPENDED);
 
     wake_scheduler(rq, 0);
 }
@@ -3119,7 +3119,7 @@ evacuate_run_queue(ErtsRunQueue *rq,
 
     ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(rq));
 
-    ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
+    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 
     mps = erts_get_migration_paths_managed();
     mp = &mps->mpath[rq->ix];
@@ -3624,9 +3624,9 @@ check_balance(ErtsRunQueue *c_rq)
 	ERTS_FOREACH_RUNQ(rq,
 	{
 	    if (rq->waiting)
-		ERTS_RUNQ_FLGS_SET(rq, ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK);
+		(void) ERTS_RUNQ_FLGS_SET(rq, ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK);
 	    else
-		ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK);
+		(void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK);
 	    rq->check_balance_reds = ERTS_RUNQ_CALL_CHECK_BALANCE_REDS;
 	});
 
@@ -4269,7 +4269,7 @@ wakeup_other_check(ErtsRunQueue *rq, Uint32 flags)
 		int empty_rqs =
 		    erts_smp_atomic32_read_acqb(&no_empty_run_queues);
 		if (flags & ERTS_RUNQ_FLG_PROTECTED)
-		    ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
+		    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 		if (empty_rqs != 0)
 		    wake_scheduler_on_empty_runq(rq);
 		rq->wakeup_other = 0;
@@ -4328,7 +4328,7 @@ wakeup_other_check_legacy(ErtsRunQueue *rq, Uint32 flags)
 	    rq->wakeup_other += len*wo_reds + ERTS_WAKEUP_OTHER_FIXED_INC_LEGACY;
 	else {
 	    if (flags & ERTS_RUNQ_FLG_PROTECTED)
-		ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
+		(void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 	    if (erts_smp_atomic32_read_acqb(&no_empty_run_queues) != 0) {
 		wake_scheduler_on_empty_runq(rq);
 		rq->wakeup_other = 0;
@@ -6892,7 +6892,7 @@ Process *schedule(Process *p, int calls)
 		    goto continue_check_activities_to_run;
 		}
 
-		ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
+		(void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 
 		/*
 		 * Check for ERTS_RUNQ_FLG_SUSPENDED has to be done
@@ -7041,7 +7041,7 @@ Process *schedule(Process *p, int calls)
 	erts_smp_runq_unlock(rq);
 
 	if (flags & ERTS_RUNQ_FLG_PROTECTED)
-	    ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
+	    (void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_PROTECTED);
 
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
 
