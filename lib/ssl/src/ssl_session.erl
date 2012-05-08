@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -94,26 +94,24 @@ valid_session(#session{time_stamp = TimeStamp}, LifeTime) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+select_session({_, _, #ssl_options{reuse_sessions=false}}, _Cache, _CacheCb, _OwnCert) ->
+    no_session;
 select_session({HostIP, Port, SslOpts}, Cache, CacheCb, OwnCert) ->
     Sessions = CacheCb:select_session(Cache, {HostIP, Port}),
     select_session(Sessions, SslOpts, OwnCert).
 
 select_session([], _, _) ->
     no_session;
-
-select_session(Sessions, #ssl_options{ciphers = Ciphers,
-				      reuse_sessions = ReuseSession}, OwnCert) ->
-    IsResumable =
-	fun(Session) ->
-		ReuseSession andalso resumable(Session#session.is_resumable) andalso
- 		    lists:member(Session#session.cipher_suite, Ciphers)
-		    andalso (OwnCert == Session#session.own_certificate)
+select_session(Sessions, #ssl_options{ciphers = Ciphers}, OwnCert) ->
+    IsNotResumable =
+	fun([_Id, Session]) ->
+		not (resumable(Session#session.is_resumable) andalso
+		     lists:member(Session#session.cipher_suite, Ciphers)
+		     andalso (OwnCert == Session#session.own_certificate))
  	end,
-    case [Id || [Id, Session] <- Sessions, IsResumable(Session)] of
- 	[] ->
- 	    no_session;
- 	List ->
- 	    hd(List)
+    case lists:dropwhile(IsNotResumable, Sessions) of
+	[] ->   no_session;
+	[[Id, _]|_] -> Id
     end.
 
 %% If we can not generate a not allready in use session ID in
@@ -141,7 +139,9 @@ new_id(Port, Tries, Cache, CacheCb) ->
 	    new_id(Port, Tries - 1, Cache, CacheCb)
     end.
 
-is_resumable(SuggestedSessionId, Port, ReuseEnabled, ReuseFun, Cache, 
+is_resumable(_, _, false, _, _, _, _, _) ->
+    false;
+is_resumable(SuggestedSessionId, Port, true, ReuseFun, Cache,
 	     CacheCb, SecondLifeTime, OwnCert) ->
     case CacheCb:lookup(Cache, {Port, SuggestedSessionId}) of
 	#session{cipher_suite = CipherSuite,
@@ -149,11 +149,10 @@ is_resumable(SuggestedSessionId, Port, ReuseEnabled, ReuseFun, Cache,
 		 compression_method = Compression,
 		 is_resumable = IsResumable,
 		 peer_certificate = PeerCert} = Session ->
-	    ReuseEnabled 
-		andalso resumable(IsResumable)
+	    resumable(IsResumable)
 		andalso (OwnCert == SessionOwnCert)
-		andalso valid_session(Session, SecondLifeTime) 
-		andalso ReuseFun(SuggestedSessionId, PeerCert, 
+		andalso valid_session(Session, SecondLifeTime)
+		andalso ReuseFun(SuggestedSessionId, PeerCert,
 				 Compression, CipherSuite);
 	undefined ->
 	    false
