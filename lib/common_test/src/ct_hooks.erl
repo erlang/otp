@@ -125,7 +125,7 @@ end_tc(_Mod, TC, Config, Result, _Return) ->
 on_tc_skip(How, {Suite, Case, Reason}) ->
     call(fun call_cleanup/3, {How, Reason}, [on_tc_skip, Suite, Case]).
 
-on_tc_fail(How, {Suite, Case, Reason}) ->
+on_tc_fail(_How, {Suite, Case, Reason}) ->
     call(fun call_cleanup/3, Reason, [on_tc_fail, Suite, Case]).
 
 %% -------------------------------------------------------------------------
@@ -356,7 +356,7 @@ pos(Id,[_|Rest],Num) ->
 catch_apply(M,F,A, Default) ->
     try
 	apply(M,F,A)
-    catch error:Reason ->
+    catch _:Reason ->
 	    case erlang:get_stacktrace() of
             %% Return the default if it was the CTH module which did not have the function.
 		[{M,F,A,_}|_] when Reason == undef ->
