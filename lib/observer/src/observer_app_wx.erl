@@ -147,11 +147,11 @@ setup_scrollbar({CW, CH}, AppWin, #app{dim={W0,H0}}) ->
     H = max(H0,CH),
     PPC = 20,
     if W0 =< CW, H0 =< CH ->
-	    wxScrolledWindow:setScrollbars(AppWin, W, H, 1, 1);
+	    wxScrolledWindow:setScrollbars(AppWin, W, H, 0, 0);
        H0 =< CH ->
-	    wxScrolledWindow:setScrollbars(AppWin, PPC, H, W div PPC+1, 1);
+	    wxScrolledWindow:setScrollbars(AppWin, PPC, H, W div PPC+1, 0);
        W0 =< CW ->
-	    wxScrolledWindow:setScrollbars(AppWin, W, PPC, 1, H div PPC+1);
+	    wxScrolledWindow:setScrollbars(AppWin, W, PPC, 0, H div PPC+1);
        true ->
 	    wxScrolledWindow:setScrollbars(AppWin, PPC, PPC, W div PPC+1, H div PPC+1)
     end;
@@ -204,7 +204,7 @@ handle_event(#wx{id=?ID_PROC_MSG, event=#wxCommand{type=command_menu_selected}},
 
 handle_event(#wx{id=?ID_PROC_KILL, event=#wxCommand{type=command_menu_selected}},
 	     State = #state{panel=Panel, sel={#box{s1=#str{pid=Pid}},_}}) ->
-    case observer_lib:user_term(Panel, "Enter Exit Reason", "") of
+    case observer_lib:user_term(Panel, "Enter Exit Reason", "kill") of
 	cancel ->         ok;
 	{ok, Term} ->     exit(Pid, Term);
 	{error, Error} -> observer_lib:display_info_dialog(Error)
@@ -267,24 +267,17 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 %%%%%%%%%%
-handle_info({active, Node}, State = #state{parent=Parent, current=Curr, appmon=Appmon}) ->
+handle_info({active, Node}, State = #state{parent=Parent, current=Curr}) ->
     create_menus(Parent, []),
     {ok, Pid} = appmon_info:start_link(Node, self(), []),
-    case Appmon of
-	undefined -> ok;
-	Pid -> ok;
-	_ -> %% Deregister me as client (and stop appmon if last)
-	    exit(Appmon, normal)
-    end,
     appmon_info:app_ctrl(Pid, Node, true, []),
     (Curr =/= undefined) andalso appmon_info:app(Pid, Curr, true, []),
     {noreply, State#state{appmon=Pid}};
-
-handle_info(not_active, State = #state{appmon=AppMon, current=Prev}) ->
+handle_info(not_active, State = #state{appmon=AppMon}) ->
     appmon_info:app_ctrl(AppMon, node(AppMon), false, []),
-    (Prev =/= undefined) andalso appmon_info:app(AppMon, Prev, false, []),
-    {noreply, State};
-
+    lists:member(node(AppMon), nodes()) andalso exit(AppMon, normal),
+    observer_wx:set_status(""),
+    {noreply, State#state{appmon=undefined}};
 handle_info({delivery, Pid, app_ctrl, _, Apps0},
 	    State = #state{appmon=Pid, apps_w=LBox, current=Curr0}) ->
     Apps = [atom_to_list(App) || {_, App, {_, _, _}} <- Apps0],
@@ -341,6 +334,7 @@ handle_mouse_click(Node = {#box{s1=#str{pid=Pid}},_}, Type,
 	right_down ->    popup_menu(Panel);
 	_ ->           ok
     end,
+    observer_wx:set_status(io_lib:format("Pid: ~p", [Pid])),
     wxWindow:refresh(AppWin),
     State#state{sel=Node};
 handle_mouse_click(_, _, State = #state{sel=undefined}) ->
@@ -349,6 +343,7 @@ handle_mouse_click(_, right_down, State=#state{panel=Panel}) ->
     popup_menu(Panel),
     State;
 handle_mouse_click(_, _, State=#state{app_w=AppWin}) ->
+    observer_wx:set_status(""),
     wxWindow:refresh(AppWin),
     State#state{sel=undefined}.
 
@@ -376,9 +371,10 @@ popup_menu(Panel) ->
     wxMenu:append(Menu, ?ID_TRACE_NAME, "Trace named process"),
     wxMenu:append(Menu, ?ID_TRACE_TREE_PIDS, "Trace process tree"),
     wxMenu:append(Menu, ?ID_TRACE_TREE_NAMES, "Trace named process tree"),
+    wxMenu:append(Menu, ?ID_PROC_MSG,   "Send Msg"),
+    wxMenu:append(Menu, ?ID_PROC_KILL,  "Kill process"),
     wxWindow:popupMenu(Panel, Menu),
     wxMenu:destroy(Menu).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 locate_node(X, _Y, [{Box=#box{x=BX}, _Chs}|_Rest])
