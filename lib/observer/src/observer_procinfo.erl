@@ -49,7 +49,8 @@ init([Pid, ParentFrame, Parent]) ->
     try
 	Title=case observer_wx:try_rpc(node(Pid), erlang, process_info, [Pid, registered_name]) of
 		  [] -> io_lib:format("~p",[Pid]);
-		  {registered_name, Registered} -> atom_to_list(Registered)
+		  {registered_name, Registered} -> io_lib:format("~p (~p)",[Registered, Pid]);
+		  undefined -> throw(process_undefined)
 	      end,
 	Frame=wxFrame:new(ParentFrame, ?wxID_ANY, [atom_to_list(node(Pid)), $:, Title],
 			  [{style, ?wxDEFAULT_FRAME_STYLE}, {size, {850,600}}]),
@@ -75,7 +76,10 @@ init([Pid, ParentFrame, Parent]) ->
 		      }}
     catch error:{badrpc, _} ->
 	    observer_wx:return_to_localnode(ParentFrame, node(Pid)),
-	    {stop, badrpc, #state{parent=Parent, pid=Pid}}
+	    {stop, badrpc};
+	  process_undefined ->
+	    observer_lib:display_info_dialog("No such alive process"),
+	    {stop, normal}
     end.
 
 init_panel(Notebook, Str, Pid, Fun) ->
@@ -94,8 +98,11 @@ handle_event(#wx{event=#wxClose{type=close_window}}, State) ->
 handle_event(#wx{id=?wxID_CLOSE, event=#wxCommand{type=command_menu_selected}}, State) ->
     {stop, normal, State};
 
-handle_event(#wx{id=?REFRESH}, #state{pages=Pages}=State) ->
-    [(W#worker.callback)() || W <- Pages],
+handle_event(#wx{id=?REFRESH}, #state{frame=Frame, pid=Pid, pages=Pages}=State) ->
+    try [(W#worker.callback)() || W <- Pages]
+    catch process_undefined ->
+	    wxFrame:setTitle(Frame, io_lib:format("*DEAD* ~p",[Pid]))
+    end,
     {noreply, State};
 
 handle_event(Event, _State) ->
@@ -162,7 +169,8 @@ init_message_page(Parent, Pid) ->
 				 false ->
 				     wxTextCtrl:writeText(Text, Messages)
 			     end;
-			 _ -> ok
+			 _ ->
+			     throw(process_undefined)
 		     end
 	     end,
     Update(),
@@ -178,7 +186,8 @@ init_dict_page(Parent, Pid) ->
 			     Last = wxTextCtrl:getLastPosition(Text),
 			     wxTextCtrl:remove(Text, 0, Last),
 			     wxTextCtrl:writeText(Text, Dict);
-			 _ -> ok
+			 _ ->
+			     throw(process_undefined)
 		     end
 	     end,
     Update(),
@@ -216,7 +225,8 @@ init_stack_page(Parent, Pid) ->
 					      wxListCtrl:setItem(LCtrl, Row, 1, FileLine),
 					      Row+1
 				      end, 0, RawBt);
-			 _ -> ok
+			 _ ->
+			     throw(process_undefined)
 		     end
 	     end,
     Resize = fun(#wx{event=#wxSize{size={W,_}}},Ev) ->
@@ -266,7 +276,7 @@ process_info_fields(Pid) ->
 	RawInfo when is_list(RawInfo) ->
 	    observer_lib:fill_info(Struct, RawInfo);
 	_ ->
-	    ok
+	    throw(process_undefined)
     end.
 
 item_list() ->
