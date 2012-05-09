@@ -690,7 +690,7 @@ cipher(Msg, State) ->
 %%--------------------------------------------------------------------
 connection(#hello_request{}, #state{host = Host, port = Port,
 				    socket = Socket,
-				    session = #session{own_certificate = Cert},
+				    session = #session{own_certificate = Cert} = Session0,
 				    session_cache = Cache, session_cache_cb = CacheCb,
 				    ssl_options = SslOpts,
 				    negotiated_version = Version,
@@ -706,6 +706,7 @@ connection(#hello_request{}, #state{host = Host, port = Port,
     Transport:send(Socket, BinMsg),
     {Record, State} = next_record(State0#state{connection_states =  
 					       ConnectionStates1,
+					       session = Session0#session{session_id = Hello#client_hello.session_id},
 					       tls_handshake_hashes = Hashes1}),
     next_state(connection, hello, Record, State);
 connection(#client_hello{} = Hello, #state{role = server, allow_renegotiate = true} = State) ->
