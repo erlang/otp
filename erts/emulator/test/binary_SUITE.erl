@@ -1135,15 +1135,8 @@ sleeper() ->
     ?line receive after infinity -> ok end.
 
 
-gc_test(doc) -> "Test that binaries are garbage collected properly.";
-gc_test(suite) -> [];
+%% Test that binaries are garbage collected properly.
 gc_test(Config) when is_list(Config) ->
-    case erlang:system_info(heap_type) of
-	private -> gc_test_1();
-	hybrid -> {skip,"Hybrid heap"}
-    end.
-
-gc_test_1() ->
     %% Note: This test is only relevant for REFC binaries.
     %% Therefore, we take care that all binaries are REFC binaries.
     B = list_to_binary(lists:seq(0, ?heap_binary_size)),

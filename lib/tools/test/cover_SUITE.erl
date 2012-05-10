@@ -574,14 +574,7 @@ otp_5418(Config) when is_list(Config) ->
 
     ok.
 
-otp_6115(suite) -> [];
 otp_6115(Config) when is_list(Config) ->
-    case erlang:system_info(heap_type) of
-	hybrid -> {skip,"Hybrid-heap emulator doesn't keep track of funs"};
-	_ -> otp_6115_1(Config)
-    end.
-
-otp_6115_1(Config) ->
     ?line {ok, CWD} = file:get_cwd(),
     ?line Dir = filename:join(?config(data_dir, Config), otp_6115),
     ?line ok = file:set_cwd(Dir),

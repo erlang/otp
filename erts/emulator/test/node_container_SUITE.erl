@@ -459,10 +459,6 @@ make_node_garbage(_, _, _, Ps) ->
 	  end,
     lists:foreach(fun (P) -> wait_until(fun () -> ProcIsCleanedUp(P) end) end,
 		  Ps),
-    ?line case erlang:system_info(heap_type) of
-	      shared -> ?line garbage_collect();
-	      _ -> ?line ok
-	  end,
     ?line ok.
 
 
@@ -605,17 +601,7 @@ node_controller_refc(Config) when is_list(Config) ->
     % Get rid of all references to Node
     ?line exec(P, fun () -> exit(normal) end),
     ?line wait_until(fun () -> not is_process_alive(P) end),
-    ?line case erlang:system_info(heap_type) of
-	      shared ->
-		  ?line garbage_collect();
-	      hybrid ->
-		  ?line lists:foreach(fun (Proc) -> garbage_collect(Proc) end,
-				      processes()),
-		  ?line erlang:garbage_collect_message_area();
-	      _ ->
-		  ?line lists:foreach(fun (Proc) -> garbage_collect(Proc) end,
-				       processes())
-	  end,
+    lists:foreach(fun (Proc) -> garbage_collect(Proc) end, processes()),
     ?line false = get_node_references({Node,Creation}),
     ?line false = get_dist_references(Node),
     ?line false = lists:member(Node, nodes(known)),
