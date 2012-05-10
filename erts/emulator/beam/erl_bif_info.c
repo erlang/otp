@@ -2354,36 +2354,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 #endif
     } else if (BIF_ARG_1 == am_heap_sizes) {
 	return erts_heap_sizes(BIF_P);
-    } else if (BIF_ARG_1 == am_global_heaps_size) {
-#ifdef HYBRID
-	Uint hsz = 0;
-	Uint sz = 0;
-
-	sz += global_heap_sz;
-#ifdef INCREMENTAL
-        /* The size of the old generation is a bit hard to define here...
-         * The amount of live data in the last collection perhaps..? */
-        sz = 0;
-#else
-	if (global_old_hend && global_old_heap)
-	    sz += global_old_hend - global_old_heap;
-#endif
-
-	sz *= sizeof(Eterm);
-
-	(void) erts_bld_uint(NULL, &hsz, sz);
-	hp = hsz ? HAlloc(BIF_P, hsz) : NULL;
-	res = erts_bld_uint(&hp, NULL, sz);
-#else
-	res = make_small(0);
-#endif
-	return res;
     } else if (BIF_ARG_1 == am_heap_type) {
-#if defined(HYBRID)
-        return am_hybrid;
-#else
 	return am_private;
-#endif
     } else if (ERTS_IS_ATOM_STR("cpu_topology", BIF_ARG_1)) {
 	res = erts_get_cpu_topology_term(BIF_P, am_used);
 	BIF_TRAP1(erts_format_cpu_topology_trap, BIF_P, res);
