@@ -1269,7 +1269,6 @@ type(erlang, process_info, 2, Xs) ->
 			 ['links'] -> t_tuple([InfoItem, t_list(t_pid())]);
 			 ['memory'] ->
 			   t_tuple([InfoItem, t_non_neg_integer()]);
-			 ['message_binary'] -> t_tuple([InfoItem,  t_list()]);
 			 ['message_queue_len'] ->
 			   t_tuple([InfoItem, t_non_neg_integer()]);
 			 ['messages'] -> t_tuple([InfoItem, t_list()]);
@@ -1594,14 +1593,10 @@ type(erlang, system_info, 1, Xs) ->
 		     t_tuple([t_atom('fullsweep_after'), t_non_neg_integer()]);
 		   ['garbage_collection'] ->
 		     t_list();
-		   ['global_heaps_size'] ->
-		     t_non_neg_integer();
 		   ['heap_sizes'] ->
 		     t_list(t_integer());
 		   ['heap_type'] ->
-		     t_sup([t_atom('private'),
-                            t_atom('shared'),
-                            t_atom('hybrid')]);
+		     t_atom('private');
 		   ['hipe_architecture'] ->
 		     t_atoms(['amd64', 'arm', 'powerpc', 'ppc64',
 			      'undefined', 'ultrasparc', 'x86']);
@@ -4743,7 +4738,6 @@ t_pinfo_item() ->
 	 t_atom('last_calls'),
 	 t_atom('links'),
 	 t_atom('memory'),
-	 t_atom('message_binary'),     % for hybrid heap only
 	 t_atom('message_queue_len'),
 	 t_atom('messages'),
 	 t_atom('monitored_by'),

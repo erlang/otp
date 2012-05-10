@@ -32,7 +32,7 @@ include $(ERL_TOP)/make/target.mk
 opt debug purify quantify purecov valgrind gcov gprof lcnt:
 	$(MAKE) -f $(TARGET)/Makefile TYPE=$@
 
-plain smp hybrid frag smp_frag:
+plain smp frag smp_frag:
 	$(MAKE) -f $(TARGET)/Makefile FLAVOR=$@
 
 clean generate depend docs release release_spec release_docs release_docs_spec \

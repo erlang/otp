@@ -265,7 +265,7 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
     Eterm res;
     Sint result_size;
     Eterm *hp;
-    Eterm *hp_end;              /* To satisfy hybrid heap architecture */
+    Eterm *hp_end;
     unsigned ret_flags = 0U;
     int fpe_was_unmasked;
 

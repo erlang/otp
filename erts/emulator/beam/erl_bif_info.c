@@ -25,7 +25,6 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
-#include "erl_nmgc.h"
 #include "error.h"
 #include "erl_driver.h"
 #include "bif.h"
@@ -89,12 +88,6 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 #ifdef ERTS_ENABLE_KERNEL_POLL
 				     " [kernel-poll:%s]"
 #endif	
-#ifdef HYBRID
-				     " [hybrid heap]"
-#endif
-#ifdef INCREMENTAL
-				     " [incremental GC]"
-#endif
 #ifdef ET_DEBUG
 #if ET_DEBUG
 				     " [type-assertions]"
@@ -576,9 +569,6 @@ static Eterm pi_args[] = {
     am_min_bin_vheap_size,
     am_current_location,
     am_current_stacktrace,
-#ifdef HYBRID
-    am_message_binary
-#endif
 };    
 
 #define ERTS_PI_ARGS ((int) (sizeof(pi_args)/sizeof(Eterm)))
@@ -626,9 +616,6 @@ pi_arg2ix(Eterm arg)
     case am_min_bin_vheap_size:			return 28;
     case am_current_location:			return 29;
     case am_current_stacktrace:			return 30;
-#ifdef HYBRID
-    case am_message_binary:			return 31;
-#endif
     default:					return -1;
     }
 }
@@ -1081,12 +1068,8 @@ process_info_aux(Process *BIF_P,
 		if (rp != BIF_P) {
 		    Eterm msg = ERL_MESSAGE_TERM(mq[i].msgp);
 		    if (is_value(msg)) {
-			mq[i].copy_struct_size = (is_immed(msg)
-#ifdef HYBRID
-						  || NO_COPY(msg)
-#endif
-						  ? 0
-						  : size_object(msg));
+			mq[i].copy_struct_size = (is_immed(msg)? 0 :
+						  size_object(msg));
 		    }
 		    else if (mq[i].msgp->data.attached) {
 			mq[i].copy_struct_size
@@ -1525,16 +1508,6 @@ process_info_aux(Process *BIF_P,
 	res = bld_bin_list(&hp, NULL, &MSO(rp));
 	break;
     }
-
-#ifdef HYBRID
-    case am_message_binary: {
-	Uint sz = 3;
-	(void) bld_bin_list(NULL, &sz, erts_global_offheap.mso);
-	hp = HAlloc(BIF_P, sz);
-	res = bld_bin_list(&hp, NULL, erts_global_offheap.mso);
-	break;
-    }
-#endif
 
     case am_sequential_trace_token:
 	res = copy_object(rp->seq_trace_token, BIF_P);

@@ -31,21 +31,10 @@ ifeq ($(NO_START_SCRIPTS),)
 ERTSDIRS += start_scripts
 endif
 
-# Until hybrid is nofrag, don't build it.
-#BUILD_HYBRID_EMU=@ERTS_BUILD_HYBRID_EMU@
-BUILD_HYBRID_EMU=no
-
 EXTRA_FLAVORS=smp
-ifeq ($(BUILD_HYBRID_EMU),yes)
-EXTRA_FLAVORS += hybrid
-endif
 
 .PHONY: all
-ifneq ($(BUILD_HYBRID_EMU),yes)
 all: smp opt
-else
-all: hybrid smp opt
-endif
 
 .PHONY: docs
 docs:
@@ -67,13 +56,6 @@ debug opt clean:
 .PHONY: $(EXTRA_FLAVORS)
 $(EXTRA_FLAVORS):
 	( cd emulator && $(MAKE) opt FLAVOR=$@ )
-
-ifneq ($(BUILD_HYBRID_EMU),yes)
-.PHONY: hybrid
-hybrid:
-	@echo '*** Omitted build of hybrid heap emulator'
-	@echo '*** since target is $(TARGET)'
-endif
 
 # Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version
 # Note that erlc is not a script and requires extra handling on cygwin.

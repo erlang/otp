@@ -26,7 +26,6 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
-#include "erl_nmgc.h"
 #include "error.h"
 #include "bif.h"
 #include "big.h"
@@ -253,20 +252,6 @@ void** beam_ops;
 extern int count_instructions;
 #endif
 
-#if defined(HYBRID)
-#define SWAPIN             \
-    g_htop = global_htop;  \
-    g_hend = global_hend;  \
-    HTOP = HEAP_TOP(c_p);  \
-    E = c_p->stop
-
-#define SWAPOUT            \
-    global_htop = g_htop;  \
-    global_hend = g_hend;  \
-    HEAP_TOP(c_p) = HTOP;  \
-    c_p->stop = E
-
-#else
 #define SWAPIN             \
     HTOP = HEAP_TOP(c_p);  \
     E = c_p->stop
@@ -293,8 +278,6 @@ extern int count_instructions;
  */
 
 #define LIGHT_SWAPIN HTOP = HEAP_TOP(c_p)
-
-#endif
 
 #ifdef FORCE_HEAP_FRAGS
 #  define HEAP_SPACE_VERIFIED(Words) do { \
@@ -456,36 +439,6 @@ extern int count_instructions;
      PutList(Reg, r(0), r(0), StoreSimpleDest);	\
      CHECK_TERM(r(0));				\
   } while (0)
-
-#ifdef HYBRID
-#ifdef INCREMENTAL
-#define TestGlobalHeap(Nh, Live, hp)                                    \
-  do {                                                                  \
-    unsigned need = (Nh);                                               \
-    ASSERT(global_heap <= g_htop && g_htop <= global_hend);             \
-    SWAPOUT;                                                            \
-    reg[0] = r(0);                                                      \
-    FCALLS -= need;                                                     \
-    (hp) = IncAlloc(c_p,need,reg,(Live));                               \
-    r(0) = reg[0];                                                      \
-    SWAPIN;                                                             \
-  } while (0)
-#else
-#define TestGlobalHeap(Nh, Live, hp)                                    \
-  do {                                                                  \
-    unsigned need = (Nh);                                               \
-    ASSERT(global_heap <= g_htop && g_htop <= global_hend);             \
-    if (g_hend - g_htop < need) {                                       \
-       SWAPOUT;                                                         \
-       reg[0] = r(0);                                                   \
-       FCALLS -= erts_global_garbage_collect(c_p, need, reg, (Live));   \
-       r(0) = reg[0];                                                   \
-       SWAPIN;                                                          \
-    }                                                                   \
-    (hp) = global_htop;                                                 \
-  } while (0)
-#endif
-#endif /* HYBRID */
 
 #define Init(N) make_blank(yb(N))
 
@@ -1177,12 +1130,6 @@ void process_main(void)
      * Top of heap (next free location); grows upwards.
      */
     register Eterm* HTOP REG_htop = NULL;
-
-
-#ifdef HYBRID
-     Eterm *g_htop;
-     Eterm *g_hend;
-#endif
 
     /* Stack pointer.  Grows downwards; points
      * to last item pushed (normally a saved
@@ -6549,10 +6496,8 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     hp = funp->env;
     erts_refc_inc(&fe->refc, 2);
     funp->thing_word = HEADER_FUN;
-#ifndef HYBRID /* FIND ME! */
     funp->next = MSO(p).first;
     MSO(p).first = (struct erl_off_heap_header*) funp;
-#endif
     funp->fe = fe;
     funp->num_free = num_free;
     funp->creator = p->id;

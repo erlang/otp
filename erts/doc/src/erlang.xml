@@ -4009,14 +4009,6 @@ os_prompt% </pre>
             <p><c>Size</c> is the size in bytes of the process. This
               includes call stack, heap and internal structures.</p>
           </item>
-          <tag><c>{message_binary, BinInfo}</c></tag>
-          <item>
-            <p><c>BinInfo</c> is a list containing miscellaneous information
-	      about binaries currently being referred to by the message
-	      area. This <c>InfoTuple</c> is only valid on an emulator
-	      using the hybrid heap type. This <c>InfoTuple</c> may be
-	      changed or removed without prior notice.</p>
-          </item>
           <tag><c>{message_queue_len, MessageQueueLen}</c></tag>
           <item>
             <p><c>MessageQueueLen</c> is the number of messages
@@ -5803,10 +5795,6 @@ ok
               can spawn a process that does not use the default
               settings.</p>
           </item>
-          <tag><c>global_heaps_size</c></tag>
-          <item>
-            <p>Returns the current size of the shared (global) heap.</p>
-          </item>
           <tag><c>heap_sizes</c></tag>
           <item>
             <p>Returns a list of integers representing valid heap sizes 
@@ -5816,7 +5804,7 @@ ok
           <tag><c>heap_type</c></tag>
           <item>
             <p>Returns the heap type used by the current emulator.
-              Currently the following heap types exist:</p>
+              Currently only the following heap type exists:</p>
             <taglist>
               <tag><c>private</c></tag>
               <item>
@@ -5824,17 +5812,6 @@ ok
                   references between heaps of different processes are
                   allowed. Messages passed between processes are copied
                   between heaps.</p>
-              </item>
-              <tag><c>shared</c></tag>
-              <item>
-                <p>One heap for use by all processes. Messages passed
-                  between processes are passed by reference.</p>
-              </item>
-              <tag><c>hybrid</c></tag>
-              <item>
-                <p>A hybrid of the <c>private</c> and <c>shared</c> heap
-                  types. A shared heap as well as private heaps are
-                  used.</p>
               </item>
             </taglist>
           </item>
