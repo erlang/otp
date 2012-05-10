@@ -3753,7 +3753,7 @@ static char* inet_set_address(int family, inet_address* dst,
 #endif
     return NULL;
 }
-#ifdef HAVE_SCTP
+
 /*
 ** Set an inaddr structure, address family comes from source data,
 ** or from argument if source data specifies constant address.
@@ -3839,7 +3839,7 @@ static char *inet_set_faddress(int family, inet_address* dst,
     }
     return inet_set_address(family, dst, src, len);
 }
-#endif /* HAVE_SCTP */
+
 
 /* Get a inaddr structure
 ** src = inaddr structure
@@ -7804,7 +7804,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	if (desc->state != INET_STATE_OPEN)
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 
-	if (inet_set_address(desc->sfamily, &local, buf, &len) == NULL)
+	if (inet_set_faddress(desc->sfamily, &local, buf, &len) == NULL)
 	    return ctl_error(EINVAL, rbuf, rsize);
 
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
@@ -10189,10 +10189,9 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
 	    while (curr < buf+len)
 		{
-		    /* List item format: Port(2), IP(4|16) -- compatible with
-		       "inet_set_address": */
+		    /* List item format: see "inet_set_faddress": */
 		    ErlDrvSizeT alen  = buf + len - curr;
-		    curr = inet_set_address(desc->sfamily, &addr, curr, &alen);
+		    curr = inet_set_faddress(desc->sfamily, &addr, curr, &alen);
 		    if (curr == NULL)
 			return ctl_error(EINVAL, rbuf, rsize);
 
