@@ -720,12 +720,17 @@ handle_msg(#ssh_msg_channel_request{request_type = "env"},
 
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
 				    request_type = _Other,
-				    want_reply = WantReply}, Connection,
+				    want_reply = WantReply},  #connection{channel_cache = Cache} = Connection,
 	   ConnectionPid, _) ->
     if WantReply == true ->
-	    FailMsg = channel_failure_msg(ChannelId),
-	    {{replies, [{connection_reply, ConnectionPid, FailMsg}]}, 
-	     Connection};
+		case ssh_channel:cache_lookup(Cache, ChannelId) of
+		    #channel{remote_id = RemoteId}  -> 
+			FailMsg = channel_failure_msg(RemoteId),
+			{{replies, [{connection_reply, ConnectionPid, FailMsg}]}, 
+			 Connection};
+		    undefined -> %% Chanel has been closed
+			{noreply, Connection}
+		end;
        true ->
 	    {noreply, Connection}
     end;
