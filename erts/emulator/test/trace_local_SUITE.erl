@@ -90,7 +90,15 @@ end_per_testcase(_Case, Config) ->
     shutdown(),
     Dog=?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
-    ok.
+
+    %% Reloading the module will clear all trace patterns, and
+    %% in a debug-compiled emulator run assertions of the counters
+    %% for the number of functions with breakpoints.
+
+    c:l(?MODULE).
+
+
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
@@ -352,7 +360,8 @@ same(A, B) ->
 
 basic_test() ->
     ?line setup([call]),
-    ?line erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
+    NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
+    NumMatches = erlang:trace_pattern({?MODULE,'_','_'},[],[local]),
     ?line erlang:trace_pattern({?MODULE,slave,'_'},false,[local]),
     ?line [1,1,1,1] = apply_slave(?MODULE,exported_wrap,[1]),
     ?line ?CT(?MODULE,exported_wrap,[1]),

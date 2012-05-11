@@ -78,7 +78,13 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 
 end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
-    ?t:timetrap_cancel(Dog).
+    ?t:timetrap_cancel(Dog),
+
+    %% Reloading the module will clear all trace patterns, and
+    %% in a debug-compiled emulator run assertions of the counters
+    %% for the number of traced exported functions in this module.
+
+    c:l(?MODULE).
 
 hipe(Config) when is_list(Config) ->
     ?line 0 = erlang:trace_pattern({?MODULE,worker_foo,1}, true),
@@ -187,7 +193,12 @@ basic() ->
     %% Trace some functions...
 
     ?line trace_func({lists,'_','_'}, []),
+
+    %% Make sure that tracing the same functions more than once
+    %% does not cause any problems.
     ?line 3 = trace_func({?MODULE,foo,'_'}, true),
+    ?line 3 = trace_func({?MODULE,foo,'_'}, true),
+    ?line 1 = trace_func({?MODULE,bar,0}, true),
     ?line 1 = trace_func({?MODULE,bar,0}, true),
     ?line {traced,global} = trace_info({?MODULE,bar,0}, traced),
     ?line 1 = trace_func({erlang,list_to_integer,1}, true),
