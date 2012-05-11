@@ -1550,7 +1550,8 @@ native_early_modules_1(Architecture) ->
         true ->
             ?line true = lists:all(fun code:is_module_native/1,
 				   [ets,file,filename,gb_sets,gb_trees,
-				    hipe_unified_loader,lists,os,packages]),
+				    %%hipe_unified_loader, no_native as workaround
+				    lists,os,packages]),
             ok
     end.
 
