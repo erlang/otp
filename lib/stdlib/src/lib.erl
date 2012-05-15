@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -209,7 +209,7 @@ explain_reason(badarg, error, [], _PF, _S) ->
 explain_reason({badarg,V}, error=Cl, [], PF, S) -> % orelse, andalso
     format_value(V, <<"bad argument: ">>, Cl, PF, S);
 explain_reason(badarith, error, [], _PF, _S) ->
-    <<"bad argument in an arithmetic expression">>;
+    <<"an error occurred when evaluating an arithmetic expression">>;
 explain_reason({badarity,{Fun,As}}, error, [], _PF, _S) 
                                       when is_function(Fun) ->
     %% Only the arity is displayed, not the arguments As.

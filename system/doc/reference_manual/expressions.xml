@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2011</year>
+      <year>2003</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -685,7 +685,7 @@ Expr1 <input>op</input> Expr2</pre>
 8> <input>2#10 bor 2#01.</input>
 3
 9> <input>a + 10.</input>
-** exception error: bad argument in an arithmetic expression
+** exception error: an error occurred when evaluating an arithmetic expression
      in operator  +/2
         called as a + 10
 10> <input>1 bsl (1 bsl 64).</input>
