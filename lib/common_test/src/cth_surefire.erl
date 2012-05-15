@@ -97,6 +97,8 @@ on_tc_skip(_Tc, Res, State) ->
 		  {skipped,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
+init_tc(State, Config) when is_list(Config) == false ->
+    State#state{ timer = now(), tc_log =  "" };
 init_tc(State, Config) ->
     State#state{ timer = now(),
 		 tc_log =  proplists:get_value(tc_logfile, Config)}.
