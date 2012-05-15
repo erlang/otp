@@ -231,6 +231,9 @@ main(int argc, char *argv[])
 	    CHECK_FIRST_LINK_ARG;
 	    save_arg(&link_args, "-libpath:", arg, NULL);
 	}
+	else if (strcmp("-link",arg) == 0) {
+	  CHECK_FIRST_LINK_ARG;
+	}
 #endif /* #ifdef __WIN32__ */
 	else if (is_prefix("-l", &arg)) {
 	    CHECK_FIRST_LINK_ARG;
