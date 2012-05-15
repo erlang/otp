@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1394,7 +1394,7 @@ timers_table(Timer) ->
        td("ALIGN=right",Time)]).
 
 loaded_mods_table(#loaded_mod{mod=Mod,current_size=CS,old_size=OS}) ->
-    tr([td(href(["loaded_mod_details?mod=",Mod],Mod)),
+    tr([td(href(["loaded_mod_details?mod=",http_uri:encode(Mod)],Mod)),
 	td("ALIGN=right",CS),
 	td("ALIGN=right",OS)]).
 
