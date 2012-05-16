@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -89,9 +89,7 @@ dbg(_, _, _) ->
 
 apply({M, F}, Args) 
   when is_atom(M), is_atom(F), is_list(Args) ->
-    Arity = length(Args),
-    Function = fun M:F/Arity,
-    apply_1(Function, Args, []);
+    apply_1(M, F, Args, []);
 apply(Fun, Args) 
   when is_function(Fun), is_list(Args) ->
     apply_1(Fun, Args, []);
@@ -99,26 +97,25 @@ apply(A, B) ->
     erlang:error(badarg, [A, B]).
 
 apply(M, F, Args) when is_atom(M), is_atom(F), is_list(Args) ->
-    apply_1({M, F}, Args, []);
+    apply_1(M, F, Args, []);
 apply({M, F}, Args, Options) 
   when is_atom(M), is_atom(F), is_list(Args), is_list(Options) ->
-    Arity = length(Args),
-    Function = fun M:F/Arity,
-    apply_1(Function, Args, Options);
+    apply_1(M, F, Args, Options);
 apply(Fun, Args, Options) 
   when is_function(Fun), is_list(Args), is_list(Options) ->
     apply_1(Fun, Args, Options);
 apply(A, B, C) ->
     erlang:error(badarg, [A, B, C]).
 
-apply(Module, Function, Args, Options) 
-  when is_atom(Module), is_atom(Function), is_list(Args), is_list(Options) ->
-    Arity = length(Args),
-    Fun = fun Module:Function/Arity,
-    apply_1(Fun, Args, Options);
+apply(M, F, Args, Options)
+  when is_atom(M), is_atom(F), is_list(Args), is_list(Options) ->
+    apply_1(M, F, Args, Options);
 apply(A, B, C, D) ->
     erlang:error(badarg, [A, B, C, D]).
 
+apply_1(M, F, Args, Options) ->
+    Arity = length(Args),
+    apply_1(fun M:F/Arity, Args, Options).
 
 apply_1(Function, Args, Options) ->        
     {[_, Procs, Continue], Options_1} =
