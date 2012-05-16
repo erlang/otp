@@ -21,6 +21,8 @@
 %% Have explicit productions for annotated phrases named anno_XXX.
 %% This just does an XXX and adds the annotation.
 
+Expect 1.
+
 Nonterminals
 
 module_definition module_export module_attribute module_defs
@@ -44,6 +46,9 @@ receive_expr timeout try_expr
 sequence catch_expr
 variable clause clause_pattern
 
+map_expr map_pairs map_pair
+map_pattern map_pair_patterns map_pair_pattern
+
 annotation anno_fun anno_expression anno_expressions
 anno_variable anno_variables anno_pattern anno_patterns
 anno_function_name
@@ -53,7 +58,7 @@ Terminals
 
 %% Separators
 
-'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#'
+'(' ')' '{' '}' '[' ']' '|' ',' '->' '=' '/' '<' '>' ':' '-|' '#' '~'
 
 %% Keywords (atoms are assumed to always be single-quoted).
 
@@ -166,6 +171,7 @@ anno_patterns -> anno_pattern : ['$1'].
 
 other_pattern -> atomic_pattern : '$1'.
 other_pattern -> tuple_pattern : '$1'.
+other_pattern -> map_pattern : '$1'.
 other_pattern -> cons_pattern : '$1'.
 other_pattern -> binary_pattern : '$1'.
 other_pattern -> anno_variable '=' anno_pattern :
@@ -175,6 +181,16 @@ atomic_pattern -> atomic_literal : '$1'.
 
 tuple_pattern -> '{' '}' : c_tuple([]).
 tuple_pattern -> '{' anno_patterns '}' : c_tuple('$2').
+
+map_pattern -> '~' '{' '}' '~' : #c_map{es=[]}.
+map_pattern -> '~' '{' map_pair_patterns '}' '~' :
+		   #c_map{es=lists:sort('$3')}.
+
+map_pair_patterns -> map_pair_pattern : ['$1'].
+map_pair_patterns -> map_pair_pattern ',' map_pair_patterns : ['$1' | '$3'].
+
+map_pair_pattern -> '~' '<' anno_pattern ',' anno_pattern '>' :
+			#c_map_pair{key='$3',val='$5'}.
 
 cons_pattern -> '[' anno_pattern tail_pattern :
 		    #c_cons{hd='$2',tl='$3'}.
@@ -240,6 +256,7 @@ single_expression -> primop_expr : '$1'.
 single_expression -> try_expr : '$1'.
 single_expression -> sequence : '$1'.
 single_expression -> catch_expr : '$1'.
+single_expression -> map_expr : '$1'.
 
 literal -> atomic_literal : '$1'.
 literal -> tuple_literal : '$1'.
@@ -266,6 +283,17 @@ tail_literal -> ',' literal tail_literal : #c_cons{hd='$2',tl='$3'}.
 
 tuple -> '{' '}' : c_tuple([]).
 tuple -> '{' anno_expressions '}' : c_tuple('$2').
+
+map_expr -> '~' '{' '}' '~' : #c_map{es=[]}.
+map_expr -> '~' '{' map_pairs  '}' '~' : #c_map{es='$3'}.
+map_expr -> variable '~' '{' '}' '~' : #c_map{var='$',es=[]}.
+map_expr -> variable '~' '{' map_pairs  '}' '~' : #c_map{var='$1',es='$4'}.
+
+map_pairs -> map_pair : ['$1'].
+map_pairs -> map_pair ',' map_pairs : ['$1' | '$3'].
+
+map_pair -> '~' '<' anno_expression ',' anno_expression'>' :
+		#c_map_pair{key='$3',val='$5'}.
 
 cons -> '[' anno_expression tail : c_cons('$2', '$3').
 
