@@ -528,3 +528,10 @@ BEAM_FORMAT_NUMBER=0
 # R15A
 
 153: line/1
+
+# R16
+
+154: put_map/5
+155: is_map/2
+156: has_map_field/3
+157: get_map_element/4

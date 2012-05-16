@@ -1466,6 +1466,15 @@ apply I
 apply_last I P
 
 #
+# Map instructions in R16.
+#
+
+put_map Fail Src Dst Live Size Rest=* => jump Fail
+is_map Fail Src => jump Fail
+has_map_field Fail Src Key => jump Fail
+get_map_element Fail Src Key Dst => jump Fail
+
+#
 # Optimize addition and subtraction of small literals using
 # the i_increment/4 instruction (in bodies, not in guards).
 #

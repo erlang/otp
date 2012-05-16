@@ -272,6 +272,10 @@ expr(#c_cons{anno=A,hd=Ch,tl=Ct}, Sub, St0) ->
 expr(#c_tuple{anno=A,es=Ces}, Sub, St0) ->
     {Kes,Ep,St1} = atomic_list(Ces, Sub, St0),
     {#k_tuple{anno=A,es=Kes},Ep,St1};
+expr(#c_map{anno=A,var=Var0,es=Ces}, Sub, St0) ->
+    {Var,[],St1} = expr(Var0, Sub, St0),
+    {Kes,Ep,St2} = map_pairs(Ces, Sub, St1),
+    {#k_map{anno=A,var=Var,es=Kes},Ep,St2};
 expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
     try atomic_bin(Cv, Sub, St0) of
 	{Kv,Ep,St1} ->
@@ -493,6 +497,13 @@ translate_match_fail_1(Anno, As, Sub, #kern{ff=FF}) ->
 translate_fc(Args) ->
     [#c_literal{val=function_clause},make_list(Args)].
 
+map_pairs(Es, Sub, St) ->
+    foldr(fun(#c_map_pair{key=K0,val=V0}, {Kes,Esp,St0}) ->
+		  {K,[],St1} = expr(K0, Sub, St0),
+		  {V,Ep,St2} = atomic(V0, Sub, St1),
+		  {[#k_map_pair{key=K,val=V}|Kes],Ep ++ Esp,St2}
+	  end, {[],[],St}, Es).
+
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
 %%  Classify the call.
 call_type(#c_literal{val=M}, #c_literal{val=F}, Ar) when is_atom(M), is_atom(F) ->
@@ -648,6 +659,13 @@ pattern(#c_cons{anno=A,hd=Ch,tl=Ct}, Isub, Osub0, St0) ->
 pattern(#c_tuple{anno=A,es=Ces}, Isub, Osub0, St0) ->
     {Kes,Osub1,St1} = pattern_list(Ces, Isub, Osub0, St0),
     {#k_tuple{anno=A,es=Kes},Osub1,St1};
+pattern(#c_map{anno=A,es=Ces}, Isub, Osub0, St0) ->
+    {Kes,Osub1,St1} = pattern_list(Ces, Isub, Osub0, St0),
+    {#k_map{anno=A,es=Kes},Osub1,St1};
+pattern(#c_map_pair{anno=A,key=Kk0,val=Cv},Isub, Osub0, St0) ->
+    Kk = #k_atom{val=Kk0#c_literal.val},
+    {Kv,Osub1,St1} = pattern(Cv, Isub, Osub0, St0),
+    {#k_map_pair{anno=A,key=Kk,val=Kv},Osub1,St1};
 pattern(#c_binary{anno=A,segments=Cv}, Isub, Osub0, St0) ->
     {Kv,Osub1,St1} = pattern_bin(Cv, Isub, Osub0, St0),
     {#k_binary{anno=A,segs=Kv},Osub1,St1};
@@ -1015,7 +1033,8 @@ match_con_1([U|_Us] = L, Cs, Def, St0) ->
     %% Extract clauses for different constructors (types).
     %%ok = io:format("match_con ~p~n", [Cs]),
     Ttcs = select_types([k_binary], Cs) ++ select_bin_con(Cs) ++
-	select_types([k_cons,k_tuple,k_atom,k_float,k_int,k_nil,k_literal], Cs),
+	select_types([k_cons,k_tuple,k_map,k_atom,k_float,k_int,
+		      k_nil,k_literal], Cs),
     %%ok = io:format("ttcs = ~p~n", [Ttcs]),
     {Scs,St1} =
 	mapfoldl(fun ({T,Tcs}, St) ->
@@ -1255,6 +1274,8 @@ group_value(k_bin_seg, Cs) ->
     group_bin_seg(Cs);
 group_value(k_bin_int, Cs) ->
     [Cs];
+group_value(k_map, Cs) ->
+    group_map(Cs);
 group_value(_, Cs) ->
     %% group_value(Cs).
     Cd = foldl(fun (C, Gcs0) -> dict:append(clause_val(C), C, Gcs0) end,
@@ -1266,6 +1287,12 @@ group_bin_seg([C1|Cs]) ->
     {More,Rest} = splitwith(fun (C) -> clause_val(C) == V1 end, Cs),
     [[C1|More]|group_bin_seg(Rest)];
 group_bin_seg([]) -> [].
+
+group_map([C1|Cs]) ->
+    V1 = clause_val(C1),
+    {More,Rest} = splitwith(fun (C) -> clause_val(C) =:= V1 end, Cs),
+    [[C1|More]|group_map(Rest)];
+group_map([]) -> [].
 
 %% Profiling shows that this quadratic implementation account for a big amount
 %% of the execution time if there are many values.
@@ -1315,6 +1342,12 @@ get_match(#k_bin_int{}=BinInt, St0) ->
 get_match(#k_tuple{es=Es}, St0) ->
     {Mes,St1} = new_vars(length(Es), St0),
     {#k_tuple{es=Mes},Mes,St1};
+get_match(#k_map{es=Es0}, St0) ->
+    {Mes,St1} = new_vars(length(Es0), St0),
+    {Es,_} = mapfoldl(fun(#k_map_pair{}=Pair, [V|Vs]) ->
+			      {Pair#k_map_pair{val=V},Vs}
+		      end, Mes, Es0),
+    {#k_map{es=Es},Mes,St1};
 get_match(M, St) ->
     {M,[],St}.
 
@@ -1331,7 +1364,11 @@ new_clauses(Cs0, U, St) ->
 				     [S,N|As];
 				 #k_bin_int{next=N} ->
 				     [N|As];
-				 _Other -> As
+				 #k_map{es=Es} ->
+				     Vals = [V || #k_map_pair{val=V} <- Es],
+				     Vals ++ As;
+				 _Other ->
+				     As
 			     end,
 		      Vs = arg_alias(Arg),
 		      Osub1 = foldl(fun (#k_var{name=V}, Acc) ->
@@ -1406,6 +1443,7 @@ arg_con(Arg) ->
 	#k_nil{} -> k_nil;
 	#k_cons{} -> k_cons; 
 	#k_tuple{} -> k_tuple;
+	#k_map{} -> k_map;
 	#k_binary{} -> k_binary;
 	#k_bin_end{} -> k_bin_end;
 	#k_bin_seg{} -> k_bin_seg;
@@ -1426,7 +1464,13 @@ arg_val(Arg, C) ->
 		    {#k_var{name=get_vsub(V, Isub)},U,T,Fs};
 		_ ->
 		    {set_kanno(S, []),U,T,Fs}
-	    end
+	    end;
+	#k_map{es=Es} ->
+	    Keys = [begin
+			#k_map_pair{key=#k_atom{val=Key}} = Pair,
+			Key
+		    end || Pair <- Es],
+	    ordsets:from_list(Keys)
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]
@@ -1795,6 +1839,10 @@ lit_vars(#k_atom{}) -> [];
 lit_vars(#k_nil{}) -> [];
 lit_vars(#k_cons{hd=H,tl=T}) ->
     union(lit_vars(H), lit_vars(T));
+lit_vars(#k_map{var=Var,es=Es}) ->
+    lit_list_vars([Var|Es]);
+lit_vars(#k_map_pair{key=K,val=V}) ->
+    union(lit_vars(K), lit_vars(V));
 lit_vars(#k_binary{segs=V}) -> lit_vars(V);
 lit_vars(#k_bin_end{}) -> [];
 lit_vars(#k_bin_seg{size=Size,seg=S,next=N}) ->
@@ -1830,7 +1878,11 @@ pat_vars(#k_bin_int{size=Size}) ->
     {U,[]};
 pat_vars(#k_bin_end{}) -> {[],[]};
 pat_vars(#k_tuple{es=Es}) ->
-    pat_list_vars(Es).
+    pat_list_vars(Es);
+pat_vars(#k_map{es=Es}) ->
+    pat_list_vars(Es);
+pat_vars(#k_map_pair{val=V}) ->
+    pat_vars(V).
 
 pat_list_vars(Ps) ->
     foldl(fun (P, {Used0,New0}) ->

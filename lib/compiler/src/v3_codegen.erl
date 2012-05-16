@@ -210,6 +210,8 @@ need_heap_0([], H, Acc) ->
 
 need_heap_1(#l{ke={set,_,{binary,_}},i=I}, H) ->
     {need_heap_need(I, H),0};
+need_heap_1(#l{ke={set,_,{map,_,_}},i=I}, H) ->
+    {need_heap_need(I, H),0};
 need_heap_1(#l{ke={set,_,Val}}, H) ->
     %% Just pass through adding to needed heap.
     {[],H + case Val of
@@ -623,6 +625,8 @@ select_cg(#l{ke={type_clause,bin_int,S}}, {var,V}, Tf, _Vf, Bef, St) ->
     select_bin_segs(S, V, Tf, Bef, St);
 select_cg(#l{ke={type_clause,bin_end,[S]}}, {var,V}, Tf, _Vf, Bef, St) ->
     select_bin_end(S, V, Tf, Bef, St);
+select_cg(#l{ke={type_clause,map,S}}, {var,V}, Tf, Vf, Bef, St) ->
+    select_map(S, V, Tf, Vf, Bef, St);
 select_cg(#l{ke={type_clause,Type,Scs}}, {var,V}, Tf, Vf, Bef, St0) ->
     {Vis,{Aft,St1}} =
 	mapfoldl(fun (S, {Int,Sta}) ->
@@ -637,6 +641,10 @@ select_val_cg(tuple, R, [Arity,{f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
     [{test,is_tuple,{f,Tf},[R]},{test,test_arity,{f,Vf},[R,Arity]}|Sis];
 select_val_cg(tuple, R, Vls, Tf, Vf, Sis) ->
     [{test,is_tuple,{f,Tf},[R]},{select_tuple_arity,R,{f,Vf},{list,Vls}}|Sis];
+select_val_cg(map, R, [_Val,{f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
+    [{test,is_map,{f,Fail},[R]}|Sis];
+select_val_cg(map, R, [_Val,{f,Lbl}|_], Tf, _Vf, [{label,Lbl}|Sis]) ->
+    [{test,is_map,{f,Tf},[R]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Fail, Fail, [{label,Lbl}|Sis]) ->
     [{test,is_eq_exact,{f,Fail},[R,{Type,Val}]}|Sis];
 select_val_cg(Type, R, [Val, {f,Lbl}], Tf, Vf, [{label,Lbl}|Sis]) ->
@@ -913,6 +921,36 @@ select_extract_tuple(Src, Vs, I, Vdb, Bef, St) ->
 		end
 	end,
     {Es,{Aft,_}} = flatmapfoldl(F, {Bef,0}, Vs),
+    {Es,Aft,St}.
+
+select_map(Scs, V, Tf, Vf, Bef, St0) ->
+    Reg = fetch_var(V, Bef),
+    {Is,Aft,St1} =
+	match_fmf(fun(#l{ke={val_clause,{map,Es},B},i=I,vdb=Vdb}, Fail, St1) ->
+			  select_map_val(V, Es, B, Fail, I, Vdb, Bef, St1)
+		  end, Vf, St0, Scs),
+    {[{test,is_map,{f,Tf},[Reg]}|Is],Aft,St1}.
+
+select_map_val(V, Es, B, Fail, I, Vdb, Bef, St0) ->
+    {Eis,Int,St1} = select_extract_map(V, Es, Fail, I, Vdb, Bef, St0),
+    {Bis,Aft,St2} = match_cg(B, Fail, Int, St1),
+    {Eis++Bis,Aft,St2}.
+
+select_extract_map(Src, Vs, Fail, I, Vdb, Bef, St) ->
+    F = fun ({map_pair,Key,{var,V}}, Int0) ->
+		Rsrc = fetch_var(Src, Int0),
+		case vdb_find(V, Vdb) of
+		    {V,_,L} when L =< I ->
+			{[{test,has_map_field,{f,Fail},[Rsrc,Key]}],Int0};
+		    _Other ->
+			Reg1 = put_reg(V, Int0#sr.reg),
+			Int1 = Int0#sr{reg=Reg1},
+			{[{get_map_element,{f,Fail},
+			   Rsrc,Key,fetch_reg(V, Reg1)}],
+			 Int1}
+		end
+	end,
+    {Es,Aft} = flatmapfoldl(F, Bef, Vs),
     {Es,Aft,St}.
 
 select_extract_cons(Src, [{var,Hd}, {var,Tl}], I, Vdb, Bef, St) ->
@@ -1408,7 +1446,7 @@ catch_cg(C, {var,R}, Le, Vdb, Bef, St0) ->
 %%  annotation must reflect this and make sure that the return
 %%  variable is allocated first.
 %%
-%%  put_list for constructing a cons is an atomic instruction
+%%  put_list and put_map are atomic instructions, both of
 %%  which can safely resuse one of the source registers as target.
 
 set_cg([{var,R}], {cons,Es}, Le, Vdb, Bef, St) ->
@@ -1447,6 +1485,30 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
 
     %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
+    {Sis++Code,Aft,St};
+set_cg([{var,R}], {map,SrcMap,Es}, Le, Vdb, Bef,
+       #cg{in_catch=InCatch,bfail=Bfail}=St) ->
+    Fail = {f,Bfail},
+    {Sis,Int0} =
+	case InCatch of
+	    true -> adjust_stack(Bef, Le#l.i, Le#l.i+1, Vdb);
+	    false -> {[],Bef}
+	end,
+    Line = line(Le#l.a),
+    SrcReg = case SrcMap of
+		 {var,SrcVar} -> fetch_var(SrcVar, Int0);
+		 _ -> SrcMap
+	     end,
+    List = flatmap(fun({map_pair,K,{var,V}}) ->
+			   [K,fetch_var(V, Int0)];
+		      ({map_pair,K,E}) ->
+			   [K,E]
+		   end, sort(Es)),
+    Live = max_reg(Bef#sr.reg),
+    Int1 = clear_dead(Int0, Le#l.i, Vdb),
+    Aft = Bef#sr{reg=put_reg(R, Int1#sr.reg)},
+    Target = fetch_reg(R, Aft#sr.reg),
+    Code = [Line,{put_map,Fail,SrcReg,Target,Live,{list,List}}],
     {Sis++Code,Aft,St};
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     %% Find a place for the return register first.

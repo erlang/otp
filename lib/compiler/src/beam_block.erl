@@ -152,6 +152,10 @@ collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
 collect(remove_message)      -> {set,[],[],remove_message};
+collect({put_map,F,S,D,R,{list,Puts}}) ->
+    {set,[D],[S|Puts],{alloc,R,{put_map,F}}};
+collect({get_map_element,F,S,K,D}) ->
+    {set,[D],[S],{get_map_element,K,F}};
 collect({'catch',R,L})       -> {set,[R],[],{'catch',L}};
 collect(fclearerror)         -> {set,[],[],fclearerror};
 collect({fcheckerror,{f,0}}) -> {set,[],[],fcheckerror};
@@ -383,6 +387,7 @@ gen_init(Fs, Regs, Y, Acc) ->
 
 init_yreg([{set,_,_,{bif,_,_}}|_], Reg) -> Reg;
 init_yreg([{set,_,_,{alloc,_,{gc_bif,_,_}}}|_], Reg) -> Reg;
+init_yreg([{set,_,_,{alloc,_,{put_map,_}}}|_], Reg) -> Reg;
 init_yreg([{set,Ds,_,_}|Is], Reg) -> init_yreg(Is, add_yregs(Ds, Reg));
 init_yreg(_Is, Reg) -> Reg.
 

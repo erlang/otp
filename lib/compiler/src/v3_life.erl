@@ -323,7 +323,9 @@ type(k_tuple) -> tuple;
 type(k_binary) -> binary;
 type(k_bin_seg) -> bin_seg;
 type(k_bin_int) -> bin_int;
-type(k_bin_end) -> bin_end.
+type(k_bin_end) -> bin_end;
+type(k_map) -> map;
+type(k_map_pair) -> map_pair.
 
 %% variable(Klit) -> Lit.
 %% var_list([Klit]) -> [Lit].
@@ -365,6 +367,10 @@ literal(#k_bin_end{}, Ctxt) ->
     {bin_end,Ctxt};
 literal(#k_tuple{es=Es}, Ctxt) ->
     {tuple,literal_list(Es, Ctxt)};
+literal(#k_map{var=Var,es=Es}, Ctxt) ->
+    {map,literal(Var, Ctxt),literal_list(Es, Ctxt)};
+literal(#k_map_pair{key=K,val=V}, Ctxt) ->
+    {map_pair,literal(K, Ctxt),literal(V, Ctxt)};
 literal(#k_literal{val=V}, _Ctxt) ->
     {literal,V}.
 
@@ -393,7 +399,11 @@ literal2(#k_bin_int{size=S,unit=U,flags=Fs,val=Int,next=N}, Ctxt) ->
 literal2(#k_bin_end{}, Ctxt) ->
     {bin_end,Ctxt};
 literal2(#k_tuple{es=Es}, Ctxt) ->
-    {tuple,literal_list2(Es, Ctxt)}.
+    {tuple,literal_list2(Es, Ctxt)};
+literal2(#k_map{es=Es}, Ctxt) ->
+    {map,literal_list2(Es, Ctxt)};
+literal2(#k_map_pair{key=K,val=V}, Ctxt) ->
+    {map_pair,literal2(K, Ctxt),literal2(V, Ctxt)}.
 
 literal_list2(Ks, Ctxt) ->
     [literal2(K, Ctxt) || K <- Ks].

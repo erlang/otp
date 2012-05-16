@@ -49,6 +49,12 @@ split_block([{set,[R],As,{bif,N,{f,Lbl}=Fail}}|Is], Bl, Acc) when Lbl =/= 0 ->
 split_block([{set,[R],As,{alloc,Live,{gc_bif,N,{f,Lbl}=Fail}}}|Is], Bl, Acc)
   when Lbl =/= 0 ->
     split_block(Is, [], [{gc_bif,N,Fail,Live,As,R}|make_block(Bl, Acc)]);
+split_block([{set,[D],[S|Puts],{alloc,R,{put_map,{f,Lbl}=Fail}}}|Is], Bl, Acc)
+  when Lbl =/= 0 ->
+    split_block(Is, [], [{put_map,Fail,S,D,R,{list,Puts}}|make_block(Bl, Acc)]);
+split_block([{set,[D],[S],{get_map_element,K,{f,Lbl}=Fail}}|Is], Bl, Acc)
+  when Lbl =/= 0 ->
+    split_block(Is, [], [{get_map_element,Fail,S,K,D}|make_block(Bl, Acc)]);
 split_block([{set,[R],[],{'catch',L}}|Is], Bl, Acc) ->
     split_block(Is, [], [{'catch',R,L}|make_block(Bl, Acc)]);
 split_block([{set,[],[],{line,_}=Line}|Is], Bl, Acc) ->
