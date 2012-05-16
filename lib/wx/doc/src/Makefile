@@ -95,13 +95,13 @@ ref_man.xml: ref_man.xml.src
 	@echo "</application>" >> ref_man.xml
 	@echo
 
-$(ErlMods:%.erl=%.xml):
+$(ErlMods:%.erl=%.xml): ../../src/$(@:%.xml=%.erl)
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -preprocess true -sort_functions false ../../src/$(@:%.xml=%.erl)
 
-$(GenMods:%.erl=%.xml):
+$(GenMods:%.erl=%.xml): ../../src/gen/$(@:%.xml=%.erl)
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -i ../../src -preprocess true -sort_functions false ../../src/gen/$(@:%.xml=%.erl)
 
-$(XML_CHAPTER_FILES):
+$(XML_CHAPTER_FILES): ../overview.edoc
 	escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) -chapter ../overview.edoc
 
 debug opt:
