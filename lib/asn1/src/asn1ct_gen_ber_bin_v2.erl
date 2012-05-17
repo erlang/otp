@@ -419,7 +419,7 @@ gen_decode_selected(Erules,Type,FuncName) ->
 	  "      {Tlv,_} = ?RT_BER:decode(Bin2",asn1ct_gen:nif_parameter(),"),",nl]),
     emit("{ok,"),
     gen_decode_selected_type(Erules,Type),
-    emit(["};",nl,"    Err -> exit({error,{selctive_decode,Err}})",nl,
+    emit(["};",nl,"    Err -> exit({error,{selective_decode,Err}})",nl,
 	  "  end.",nl]).
 
 gen_decode_selected_type(_Erules,TypeDef) ->
