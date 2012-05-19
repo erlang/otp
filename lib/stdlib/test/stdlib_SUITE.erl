@@ -33,7 +33,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 % Test cases must be exported.
--export([app_test/1, appup_test/1]).
+-export([app_test/1, appup_test/1, assert_test/1]).
 
 %%
 %% all/1
@@ -41,7 +41,7 @@
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_test, appup_test].
+    [app_test, appup_test, assert_test].
 
 groups() -> 
     [].
@@ -135,4 +135,29 @@ check_appup([Vsn|Vsns],Instrs,Expected) ->
 	Other -> ct:fail({unexpected_result_for_vsn,Vsn,Other})
     end;
 check_appup([],_,_) ->
+    ok.
+
+-include_lib("stdlib/include/assert.hrl").
+-include_lib("stdlib/include/assert.hrl"). % test repeated inclusion
+assert_test(suite) ->
+    [];
+assert_test(doc) ->
+    ["Assert macros test."];
+assert_test(_Config) ->
+    ?assert(1 =:= 1),
+    ?assertNot(1 =:= 1.0),
+    ?assertMatch({foo,_}, {foo,bar}),
+    ?assertNotMatch({foo,_}, {foo,bar,baz}),
+    ?assertMatch({foo,N} when N > 0, {foo,1}),
+    ?assertNotMatch({foo,N} when N > 0, {foo,0}),
+    ?assertEqual(1.0, 1.0),
+    ?assertNotEqual(1, 1.0),
+    ?assertException(error, badarith, 1/0),
+    ?assertException(exit, foo, exit(foo)),
+    ?assertException(throw, foo, throw(foo)),
+    ?assertException(throw, {foo,_}, throw({foo,bar})),
+    ?assertNotException(throw, {foo,baz}, throw({foo,bar})),
+    ?assertError(badarith, 1/0),
+    ?assertExit(foo, exit(foo)),
+    ?assertThrow(foo, throw(foo)),
     ok.

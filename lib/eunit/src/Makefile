@@ -24,7 +24,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/eunit-$(VSN)
 EBIN = ../ebin
 INCLUDE=../include
 
-ERL_COMPILE_FLAGS += -pa $(EBIN) -I$(INCLUDE) +warn_unused_vars +nowarn_shadow_vars +warn_unused_import +warn_obsolete_guard
+ERL_COMPILE_FLAGS += -pa $(EBIN) -pa ../../stdlib/ebin -I$(INCLUDE) +warn_unused_vars +nowarn_shadow_vars +warn_unused_import +warn_obsolete_guard
 
 PARSE_TRANSFORM = eunit_autoexport.erl
 
