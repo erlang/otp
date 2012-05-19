@@ -35,6 +35,7 @@
   </description>
   <xi:include href="stdlib_app.xml"/>
   <xi:include href="array.xml"/>
+  <xi:include href="assert_hrl.xml"/>
   <xi:include href="base64.xml"/>
   <xi:include href="beam_lib.xml"/>
   <xi:include href="binary.xml"/>
