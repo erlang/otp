@@ -29,7 +29,7 @@
 	 bind/1, integers/1, floats/1, binaries/1, strings/1]).
 
 %% For interactive running of matcher.
--export([start_matcher/0, erl_match/3]).
+-export([start_matcher/1, erl_match/3]).
 
 %% This test suite tests the erl_match() function.
 
@@ -57,7 +57,7 @@ end_per_group(_GroupName, Config) ->
 
 atoms(suite) -> [];
 atoms(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
 
     ?line eq(P, '', ''),
     ?line eq(P, a, a),
@@ -74,7 +74,7 @@ atoms(Config) when is_list(Config) ->
 
 lists(suite) -> [];
 lists(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
     ?line eq(P, [], []),
 
     ?line ne(P, [], [a]),
@@ -101,7 +101,7 @@ lists(Config) when is_list(Config) ->
 
 tuples(suite) -> [];
 tuples(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
 
     ?line ne(P, {}, {a, b}),
     ?line ne(P, {a, b}, {}),
@@ -129,7 +129,7 @@ tuples(Config) when is_list(Config) ->
 
 references(suite) -> [];
 references(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
     ?line Ref1 = make_ref(),
     ?line Ref2 = make_ref(),
     
@@ -144,7 +144,7 @@ references(Config) when is_list(Config) ->
 
 pids(suite) -> [];
 pids(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
     ?line Pid1 = c:pid(0,1,2),
     ?line Pid2 = c:pid(0,1,3),
     
@@ -163,8 +163,8 @@ ports(Config) when is_list(Config) ->
 	vxworks ->
 	    {skipped,"not on vxworks, pucko"};
 	_ ->
-	    ?line P = start_matcher(),
-	    ?line P2 = start_matcher(),
+	    ?line P = start_matcher(Config),
+	    ?line P2 = start_matcher(Config),
     
 	    ?line eq(P, P, P),
 	    ?line ne(P, P, P2),
@@ -176,7 +176,7 @@ ports(Config) when is_list(Config) ->
 
 integers(suite) -> [];
 integers(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
     ?line I1 = 123,
     ?line I2 = 12345,
     ?line I3 = -123,
@@ -195,7 +195,7 @@ integers(Config) when is_list(Config) ->
 
 floats(suite) -> [];
 floats(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
     ?line F1 = 3.1414,
     ?line F2 = 3.1415,
     ?line F3 = 3.1416,
@@ -218,7 +218,7 @@ floats(Config) when is_list(Config) ->
 
 binaries(suite) -> [];
 binaries(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
     ?line Bin1 = term_to_binary({kalle, 146015, {kungsgatan, 23}}),
     ?line Bin2 = term_to_binary(sune),
     ?line Bin3 = list_to_binary("sune"),
@@ -237,7 +237,7 @@ binaries(Config) when is_list(Config) ->
 
 strings(suite) -> [];
 strings(Config) when is_list(Config) ->
-    ?line P = start_matcher(),
+    ?line P = start_matcher(Config),
 
     ?line S1 = "string",
     ?line S2 = "streng",
@@ -254,7 +254,7 @@ strings(Config) when is_list(Config) ->
 
 bind(suite) -> [];
 bind(Config) when is_list(Config) ->
-    ?line P = start_bind(),
+    ?line P = start_bind(Config),
     ?line S = "[X,Y,Z]",
     ?line L1 = [301,302,302],
     ?line L2 = [65,66,67],
@@ -265,7 +265,7 @@ bind(Config) when is_list(Config) ->
     ?line runner:finish(P),
     ok.
 
-start_bind() ->
+start_bind(Config) ->
     runner:start(?erl_match_bind).
 
 bind_ok(Port, Bind, Term) ->
@@ -287,7 +287,7 @@ erl_bind(Port, Pattern, Term) ->
 
 
 
-start_matcher() ->
+start_matcher(Config) ->
     runner:start(?erl_match_server).
 
 eq(Port, Pattern, Term) ->

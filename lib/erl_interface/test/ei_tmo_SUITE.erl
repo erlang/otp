@@ -88,12 +88,12 @@ ei_recv_tmo(doc) ->
 ei_recv_tmo(suite) ->
     [];
 ei_recv_tmo(Config) when is_list(Config) ->
-    ?line do_one_recv(c_node_recv_tmo_1),
-    ?line do_one_recv_failure(c_node_recv_tmo_2),
+    ?line do_one_recv(Config,c_node_recv_tmo_1),
+    ?line do_one_recv_failure(Config,c_node_recv_tmo_2),
     ok.
 
 
-do_one_recv(CNode) ->
+do_one_recv(Config,CNode) ->
     ?line {_,Host} = split(node()),
     ?line P1 = runner:start(?recv_tmo),
     ?line runner:send_term(P1,{CNode,
@@ -107,7 +107,7 @@ do_one_recv(CNode) ->
     ?line {term, Term1} = runner:get_term(P1, 10000),
     ?line runner:recv_eot(P1).
     
-do_one_recv_failure(CNode) ->
+do_one_recv_failure(Config,CNode) ->
     ?line P1 = runner:start(?recv_tmo),
     ?line runner:send_term(P1,{CNode,
 			       erlang:get_cookie(),
@@ -128,14 +128,14 @@ ei_send_tmo(Config) when is_list(Config) ->
     %dbg:p(self()),
     VxSim = ?config(vxsim, Config),
     ?line register(ei_send_tmo_1,self()),
-    ?line do_one_send(self(),c_node_send_tmo_1),
-    ?line do_one_send(ei_send_tmo_1,c_node_send_tmo_2),
-    ?line do_one_send_failure(self(),cccc1,c_nod_send_tmo_3,VxSim),
-    ?line do_one_send_failure(ei_send_tmo_1,cccc2,c_nod_send_tmo_4,VxSim),
+    ?line do_one_send(Config,self(),c_node_send_tmo_1),
+    ?line do_one_send(Config,ei_send_tmo_1,c_node_send_tmo_2),
+    ?line do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3,VxSim),
+    ?line do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4,VxSim),
     ok.
     
 
-do_one_send(From,CNode) ->
+do_one_send(Config,From,CNode) ->
     ?line {_,Host} = split(node()),
     ?line P1 = runner:start(?send_tmo),
     ?line runner:send_term(P1,{CNode,
@@ -155,7 +155,7 @@ do_one_send(From,CNode) ->
     ?line {term, 0} = runner:get_term(P1, 10000),
     ?line runner:recv_eot(P1).
 
-do_one_send_failure(From,FakeName,CName,VxSim) ->
+do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     ?line {_,Host} = split(node()),
     ?line OurName = join(FakeName,Host),
     ?line Node = join(CName,Host),
