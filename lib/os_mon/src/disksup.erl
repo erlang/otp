@@ -43,24 +43,24 @@ start_link() ->
     gen_server:start_link({local, disksup}, disksup, [], []).
 
 get_disk_data() ->
-    os_mon:call(disksup, get_disk_data).
+    os_mon:call(disksup, get_disk_data, infinity).
 
 get_check_interval() ->
-    os_mon:call(disksup, get_check_interval).
+    os_mon:call(disksup, get_check_interval, infinity).
 set_check_interval(Minutes) ->
     case param_type(disk_space_check_interval, Minutes) of
 	true ->
-	    os_mon:call(disksup, {set_check_interval, Minutes});
+	    os_mon:call(disksup, {set_check_interval, Minutes}, infinity);
 	false ->
 	    erlang:error(badarg)
     end.
 
 get_almost_full_threshold() ->
-    os_mon:call(disksup, get_almost_full_threshold).
+    os_mon:call(disksup, get_almost_full_threshold, infinity).
 set_almost_full_threshold(Float) ->
     case param_type(disk_almost_full_threshold, Float) of
 	true ->
-	    os_mon:call(disksup, {set_almost_full_threshold, Float});
+	    os_mon:call(disksup, {set_almost_full_threshold, Float}, infinity);
 	false ->
 	    erlang:error(badarg)
     end.
