@@ -18,6 +18,11 @@
 
 {"%VSN%",
  [
+  {"5.9", 
+   [
+    {update, httpc_handler, soft, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.8.1", 
    [
     {load_module, http_uri,      soft_purge, soft_purge, []}, 
@@ -74,6 +79,11 @@
   }
  ],
  [
+  {"5.9", 
+   [
+    {update, httpc_handler, soft, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"5.8.1",
    [
     {load_module, http_uri,      soft_purge, soft_purge, []}, 
