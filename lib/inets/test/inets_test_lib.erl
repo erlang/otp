@@ -31,6 +31,7 @@
 	 send/3, close/2]).
 -export([copy_file/3, copy_files/2, copy_dirs/2, del_dirs/1]).
 -export([info/4, log/4, debug/4, print/4]).
+-export([timestamp/0, formated_timestamp/0]).
 -export([tsp/1, tsp/2, tsf/1, tss/1]).
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
@@ -641,6 +642,9 @@ tsf(Reason) ->
 
 tss(Time) ->
     test_server:sleep(Time).
+
+timestamp() ->
+    http_util:timestamp().
 
 formated_timestamp() ->
     format_timestamp( os:timestamp() ).

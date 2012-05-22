@@ -768,120 +768,83 @@ test_pipeline(URL) ->
     
     p("test_pipeline -> issue (async) request 1"
       "~n   when profile info: ~p", [httpc:info()]),
-    {ok, RequestId1} =
+    {ok, RequestIdA1} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    tsp("RequestId1: ~p", [RequestId1]),
-    p("test_pipeline -> RequestId1: ~p"
-      "~n   when profile info: ~p", [RequestId1, httpc:info()]),
+    tsp("RequestIdA1: ~p", [RequestIdA1]),
+    p("test_pipeline -> RequestIdA1: ~p"
+      "~n   when profile info: ~p", [RequestIdA1, httpc:info()]),
     
     %% Make sure pipeline is initiated
     p("test_pipeline -> sleep some", []),
     test_server:sleep(4000),
     
-    p("test_pipeline -> issue (async) request 2"
+    p("test_pipeline -> issue (async) request A2, A3 and A4"
       "~n   when profile info: ~p", [httpc:info()]),
-    {ok, RequestId2} =
+    {ok, RequestIdA2} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    tsp("RequestId2: ~p", [RequestId2]),
-    p("test_pipeline -> RequestId2: ~p"
-      "~n   when profile info: ~p", [RequestId2, httpc:info()]),
+    {ok, RequestIdA3} =
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
+    {ok, RequestIdA4} =
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
+    tsp("RequestIdAs => A2: ~p, A3: ~p and A4: ~p", 
+	[RequestIdA2, RequestIdA3, RequestIdA4]),
+    p("test_pipeline -> RequestIds => A2: ~p, A3: ~p and A4: ~p"
+      "~n   when profile info: ~p", 
+      [RequestIdA2, RequestIdA3, RequestIdA4, httpc:info()]),
     
     p("test_pipeline -> issue (sync) request 3"),
     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, []}, [], []),
     
-    p("test_pipeline -> expect reply for (async) request 1 or 2"
+    p("test_pipeline -> expect reply for (async) request A1, A2, A3 and A4"
       "~n   when profile info: ~p", [httpc:info()]),
-    receive
-	{http, {RequestId1, {{_, 200, _}, _, _}}} ->
-	    p("test_pipeline -> "
-	      "received reply for (async) request 1 - now wait for 2"
-	      "~n   when profile info: ~p", [httpc:info()]),
-	    receive
-		{http, {RequestId2, {{_, 200, _}, _, _}}} ->
-		    p("test_pipeline -> "
-		      "received reply for (async) request 2"
-		      "~n   when profile info: ~p", [httpc:info()]),
-		    ok;
-		{http, Msg1} ->
-		    tsf(Msg1)
-	    end;
-	{http, {RequestId2, {{_, 200, _}, _, _}}} ->
-	    io:format("test_pipeline -> "
-		      "received reply for (async) request 2 - now wait for 1"
-		      "~n   when profile info: ~p", [httpc:info()]),
-	    receive
-		{http, {RequestId1, {{_, 200, _}, _, _}}} ->
-		    io:format("test_pipeline -> "
-			      "received reply for (async) request 1"
-			      "~n   when profile info: ~p", [httpc:info()]),
-		    ok;
-		{http, Msg2} ->
-		    tsf(Msg2)
-	    end;
-	{http, Msg3} ->
-	    tsf(Msg3)
-    after 60000 ->
-	    receive Any1 ->
-		    tsp("received crap after timeout: ~n   ~p", [Any1]),
-		    tsf({error, {timeout, Any1}})
-	    end
-    end,
-    
+    pipeline_await_async_reply([{RequestIdA1, a1, 200}, 
+				{RequestIdA2, a2, 200}, 
+				{RequestIdA3, a3, 200}, 
+				{RequestIdA4, a4, 200}], ?MINS(1)),
+
     p("test_pipeline -> sleep some"
       "~n   when profile info: ~p", [httpc:info()]),
     test_server:sleep(4000),
     
-    p("test_pipeline -> issue (async) request 4"
+    p("test_pipeline -> issue (async) request B1, B2, B3 and B4"
       "~n   when profile info: ~p", [httpc:info()]),
-    {ok, RequestId3} =
+    {ok, RequestIdB1} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    tsp("RequestId3: ~p", [RequestId3]),
-    p("test_pipeline -> RequestId3: ~p"
-      "~n   when profile info: ~p", [RequestId3, httpc:info()]),
-    
-    p("test_pipeline -> issue (async) request 5"
-      "~n   when profile info: ~p", [httpc:info()]),
-    {ok, RequestId4} =
+    {ok, RequestIdB2} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-    tsp("RequestId4: ~p", [RequestId4]),
-    p("test_pipeline -> RequestId4: ~p"
-      "~n   when profile info: ~p", [RequestId4, httpc:info()]),
+    {ok, RequestIdB3} =
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
+    {ok, RequestIdB4} =
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
+    tsp("RequestIdBs => B1: ~p, B2: ~p, B3: ~p and B4: ~p", 
+	[RequestIdB1, RequestIdB2, RequestIdB3, RequestIdB4]),
+    p("test_pipeline -> RequestIdBs => B1: ~p, B2: ~p, B3: ~p and B4: ~p"
+      "~n   when profile info: ~p", 
+      [RequestIdB1, RequestIdB2, RequestIdB3, RequestIdB4, httpc:info()]),
     
-    p("test_pipeline -> cancel (async) request 4"
+    p("test_pipeline -> cancel (async) request B2"
       "~n   when profile info: ~p", [httpc:info()]),
-    ok = httpc:cancel_request(RequestId3),
+    ok = httpc:cancel_request(RequestIdB2),
     
     p("test_pipeline -> "
-      "expect *no* reply for cancelled (async) request 4 (for 3 secs)"
+      "expect *no* reply for cancelled (async) request B2 (for 3 secs)"
       "~n   when profile info: ~p", [httpc:info()]),
     receive
-	{http, {RequestId3, _}} ->
+	{http, {RequestIdB2, _}} ->
 	    tsf(http_cancel_request_failed)
     after 3000 ->
 	    ok
     end,
     
-    p("test_pipeline -> expect reply for (async) request 4"
+    p("test_pipeline -> expect reply for (async) request B1, B3 and B4"
       "~n   when profile info: ~p", [httpc:info()]),
-    Body =
-	receive
-	    {http, {RequestId4, {{_, 200, _}, _, BinBody4}}} = Res ->
-		p("test_pipeline -> "
-		  "received reply for (async) request 5"
-		  "~n   when profile info: ~p", [httpc:info()]),
-		tsp("Receive : ~p", [Res]),
-		BinBody4;
-	    {http, Msg4} ->
-		tsf(Msg4)
-	after 60000 ->
-		receive Any2 ->
-			tsp("received crap after timeout: ~n   ~p", [Any2]),
-			tsf({error, {timeout, Any2}})
-		end
-	end,
-    
-    p("test_pipeline -> check reply for (async) request 5"
+    Bodies = pipeline_await_async_reply([{RequestIdB1, b1, 200}, 
+					 {RequestIdB3, b3, 200}, 
+					 {RequestIdB4, b4, 200}], ?MINS(1)),
+    [{b1, Body}|_] = Bodies, 
+
+    p("test_pipeline -> check reply for (async) request B1"
       "~n   when profile info: ~p", [httpc:info()]),
     inets_test_lib:check_body(binary_to_list(Body)),
     
@@ -898,6 +861,58 @@ test_pipeline(URL) ->
       "~n   when profile info: ~p", [httpc:info()]),
     ok.
 
+pipeline_await_async_reply(ReqIds, Timeout) ->
+    pipeline_await_async_reply(ReqIds, Timeout, []).
+
+pipeline_await_async_reply([], _, Acc) ->
+    lists:keysort(1, Acc);
+pipeline_await_async_reply(ReqIds, Timeout, Acc) when Timeout > 0 ->
+    T1 = inets_test_lib:timestamp(), 
+    p("pipeline_await_async_reply -> await replies"
+      "~n   ReqIds:  ~p"
+      "~n   Timeout: ~p", [ReqIds, Timeout]),
+    receive
+	{http, {RequestId, {{_, Status, _}, _, Body}}} ->
+	    p("pipeline_await_async_reply -> received reply for"
+	      "~n   RequestId: ~p"
+	      "~n   Status:    ~p", [RequestId, Status]),
+	    case lists:keysearch(RequestId, 1, ReqIds) of
+		{value, {RequestId, N, Status}} ->
+		    p("pipeline_await_async_reply -> "
+		      "found expected request ~w", [N]),
+		    ReqIds2 = lists:keydelete(RequestId, 1, ReqIds),
+		    NewTimeout = Timeout - (inets_test_lib:timestamp()-T1), 
+		    pipeline_await_async_reply(ReqIds2, NewTimeout, 
+					      [{N, Body} | Acc]);
+		{value, {RequestId, N, WrongStatus}} ->
+		    p("pipeline_await_async_reply -> "
+		      "found request ~w with wrong status", [N]),
+		    tsf({reply_with_unexpected_status, 
+			 {RequestId, N, WrongStatus}});
+		false ->
+		    tsf({unexpected_reply, {RequestId, Status}})
+	    end;
+	{http, Msg} ->
+	    tsf({unexpected_reply, Msg})
+    after Timeout ->
+	    receive 
+		Any ->
+		    tsp("pipeline_await_async_reply -> "
+			"received unknown data after timeout: "
+			"~n   ~p", [Any]),
+		    tsf({timeout, {unknown, Any}})
+	    end
+    end;
+pipeline_await_async_reply(ReqIds, _, Acc) ->
+    tsp("pipeline_await_async_reply -> "
+	"timeout: "
+	"~n   ~p"
+	"~nwhen"
+	"~n   ~p", [ReqIds, Acc]),
+    tsf({timeout, ReqIds, Acc}).
+    
+
+    
 %%-------------------------------------------------------------------------
 http_trace(doc) ->
     ["Perform a TRACE request that goes through a proxy."];
