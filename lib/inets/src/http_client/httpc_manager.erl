@@ -34,8 +34,11 @@
 	 retry_request/2, 
 	 redirect_request/2,
 	 insert_session/2, 
+	 lookup_session/2, 
 	 update_session/4, 
 	 delete_session/2, 
+	 which_sessions/1, 
+	 which_session_info/1, 
 	 set_options/2, 
 	 get_options/2, 
 	 store_cookies/3,
@@ -187,13 +190,28 @@ insert_session(Session, ProfileName) ->
 
 
 %%--------------------------------------------------------------------
+%% Function: lookup_session(SessionId, ProfileName) -> _
+%%      SessionId - term()
+%%      ProfileName - atom()
+%%
+%% Description: Looks up a session record in the httpc manager
+%% table <ProfileName>__session_db. 
+%%--------------------------------------------------------------------
+
+lookup_session(SessionId, ProfileName) ->
+    SessionDbName = session_db_name(ProfileName), 
+    ?hcrt("lookup session", [{session_id, SessionId}, {profile, ProfileName}]),
+    ets:lookup(SessionDbName, SessionId).
+
+
+%%--------------------------------------------------------------------
 %% Function: update_session(ProfileName, SessionId, Pos, Value) -> _
 %%	Session - #session{}
 %%      ProfileName - atom()
 %%
 %% Description: Update, only one field (Pos) of the session record
 %%              identified by the SessionId, the session information 
-%%              of the httpc manager table <ProfileName>_session_db. 
+%%              of the httpc manager table <ProfileName>__session_db. 
 %%              Intended to be called by the httpc request handler process.
 %%--------------------------------------------------------------------
 
@@ -208,12 +226,12 @@ update_session(ProfileName, SessionId, Pos, Value) ->
 
 
 %%--------------------------------------------------------------------
-%% Function: delete_session(SessionId, ProfileName) -> _
+%% Function: delete_session(SessionId, ProfileName) -> void()
 %%	SessionId -  {{Host, Port}, HandlerPid}
 %%      ProfileName - atom()
 %% 
 %% Description: Deletes session information from the httpc manager
-%% table httpc_manager_session_db_<Profile>. Intended to be called by
+%% table <ProfileName>__session_db. Intended to be called by
 %% the httpc request handler process.
 %%--------------------------------------------------------------------
 
@@ -221,6 +239,57 @@ delete_session(SessionId, ProfileName) ->
     SessionDbName = session_db_name(ProfileName), 
     ?hcrt("delete session", [{session_is, SessionId}, {profile, ProfileName}]),
     ets:delete(SessionDbName, SessionId).
+
+
+%%--------------------------------------------------------------------
+%% Function: which sessions(ProfileName) -> SessionsInfo
+%%      ProfileName - atom()
+%%      SessionsInfo - {GoodSessions, BadSessions, NonSessions}
+%%      GoodSessions - [#session{}]
+%%      BadSessions  - [tuple()]
+%%      NonSessions  - [term()]
+%%
+%% Description: Produces a list of all sessions in the session db.
+%% Used for debugging and since that is the intent, there is some
+%% checking and transforming done, which produces the results.
+%%--------------------------------------------------------------------
+
+which_sessions(ProfileName) ->
+    ?hcrt("which_sessions", [{profile, ProfileName}]),
+    SessionDbName = session_db_name(ProfileName), 
+    which_sessions2(SessionDbName).
+
+which_sessions2(SessionDbName) ->
+    Sessions     = which_sessions_order(ets:tab2list(SessionDbName)),
+    GoodSessions = [GoodSession || {good_session, GoodSession} <- Sessions],
+    BadSessions  = [BadSession  || {bad_session,  BadSession}  <- Sessions],
+    NonSessions  = [NonSession  || {non_session,  NonSession}  <- Sessions],
+    {lists:keysort(#session.id, GoodSessions), 
+     lists:keysort(#session.id, BadSessions), 
+     lists:sort(NonSessions)}.
+
+which_sessions_order([]) ->
+    [];
+which_sessions_order([Session|Sessions]) when is_record(Session, session) ->
+    [{good_session, Session} | which_sessions_order(Sessions)];
+which_sessions_order([BadSession|Sessions]) 
+  when is_tuple(BadSession) andalso 
+       (element(1, BadSession) =:= session) ->
+    [{bad_session, BadSession} | which_sessions_order(Sessions)];
+which_sessions_order([NonSession|Sessions]) ->
+    [{non_session, NonSession} | which_sessions_order(Sessions)].
+
+
+%%--------------------------------------------------------------------
+%% Function: which session_info(ProfileName) -> list()
+%%
+%% Description: Produces a ets table info list of the sessions table
+%%--------------------------------------------------------------------
+
+which_session_info(ProfileName) ->
+    SessionDbName = session_db_name(ProfileName), 
+    ?hcrt("which_session_info", [{profile, ProfileName}]),
+    ets:info(SessionDbName).
 
 
 %%--------------------------------------------------------------------
@@ -449,8 +518,8 @@ handle_call({which_cookies, Url, Options}, _,
 
 handle_call({get_options, OptionItems}, _, #state{options = Options} = State) ->
     ?hcrv("get options", [{option_items, OptionItems}]),
-    Reply = [{OptionItem, get_option(OptionItem, Options)} || OptionItem <- 
-								  OptionItems], 
+    Reply = [{OptionItem, get_option(OptionItem, Options)} || 
+		OptionItem <- OptionItems], 
     {reply, Reply, State};
 
 handle_call(info, _, State) ->
@@ -665,10 +734,19 @@ update_session_table(SessionDB, Key, Transform) ->
 %%--------------------------------------------------------------------
 
 get_manager_info(#state{handler_db = HDB, 
-			cookie_db  = CDB} = _State) ->
+			session_db = SDB, 
+			cookie_db  = CDB, 
+			options    = Options} = _State) ->
     HandlerInfo = get_handler_info(HDB),
+    SessionInfo = which_sessions2(SDB), 
+    OptionsInfo = 
+	[{Item, get_option(Item, Options)} || 
+	    Item <- record_info(fields, options)], 
     CookieInfo  = httpc_cookie:which_cookies(CDB),
-    [{handlers, HandlerInfo}, {cookies, CookieInfo}].
+    [{handlers, HandlerInfo}, 
+     {sessions, SessionInfo}, 
+     {options,  OptionsInfo}, 
+     {cookies,  CookieInfo}].
 
 sort_handlers(Unsorted) ->
     sort_handlers2(lists:keysort(1, Unsorted)).
