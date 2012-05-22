@@ -761,47 +761,60 @@ http_inets_pipe(Config) when is_list(Config) ->
 
 
 test_pipeline(URL) ->
-     p("test_pipeline -> entry with"
-       "~n   URL: ~p", [URL]),
-
-     httpc:set_options([{pipeline_timeout, 50000}]),
-
-     p("test_pipeline -> issue (async) request 1"),
-     {ok, RequestId1} =
+    p("test_pipeline -> entry with"
+      "~n   URL: ~p", [URL]),
+    
+    httpc:set_options([{pipeline_timeout, 50000}]),
+    
+    p("test_pipeline -> issue (async) request 1"
+      "~n   when profile info: ~p", [httpc:info()]),
+    {ok, RequestId1} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-     test_server:format("RequestId1: ~p~n", [RequestId1]),
-     p("test_pipeline -> RequestId1: ~p", [RequestId1]),
-
-     %% Make sure pipeline is initiated
-     p("test_pipeline -> sleep some", []),
-     test_server:sleep(4000),
-
-     p("test_pipeline -> issue (async) request 2"),
-     {ok, RequestId2} =
+    tsp("RequestId1: ~p", [RequestId1]),
+    p("test_pipeline -> RequestId1: ~p"
+      "~n   when profile info: ~p", [RequestId1, httpc:info()]),
+    
+    %% Make sure pipeline is initiated
+    p("test_pipeline -> sleep some", []),
+    test_server:sleep(4000),
+    
+    p("test_pipeline -> issue (async) request 2"
+      "~n   when profile info: ~p", [httpc:info()]),
+    {ok, RequestId2} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-     tsp("RequestId2: ~p", [RequestId2]),
-     p("test_pipeline -> RequestId2: ~p", [RequestId2]),
-
-     p("test_pipeline -> issue (sync) request 3"),
-     {ok, {{_,200,_}, [_ | _], [_ | _]}} =
+    tsp("RequestId2: ~p", [RequestId2]),
+    p("test_pipeline -> RequestId2: ~p"
+      "~n   when profile info: ~p", [RequestId2, httpc:info()]),
+    
+    p("test_pipeline -> issue (sync) request 3"),
+    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
 	httpc:request(get, {URL, []}, [], []),
-
-    p("test_pipeline -> expect reply for (async) request 1 or 2"),
+    
+    p("test_pipeline -> expect reply for (async) request 1 or 2"
+      "~n   when profile info: ~p", [httpc:info()]),
     receive
 	{http, {RequestId1, {{_, 200, _}, _, _}}} ->
-	    p("test_pipeline -> received reply for (async) request 1 - now wait for 2"),
+	    p("test_pipeline -> "
+	      "received reply for (async) request 1 - now wait for 2"
+	      "~n   when profile info: ~p", [httpc:info()]),
 	    receive
 		{http, {RequestId2, {{_, 200, _}, _, _}}} ->
-		    p("test_pipeline -> received reply for (async) request 2"),
+		    p("test_pipeline -> "
+		      "received reply for (async) request 2"
+		      "~n   when profile info: ~p", [httpc:info()]),
 		    ok;
 		{http, Msg1} ->
 		    tsf(Msg1)
 	    end;
 	{http, {RequestId2, {{_, 200, _}, _, _}}} ->
-	    io:format("test_pipeline -> received reply for (async) request 2 - now wait for 1"),
+	    io:format("test_pipeline -> "
+		      "received reply for (async) request 2 - now wait for 1"
+		      "~n   when profile info: ~p", [httpc:info()]),
 	    receive
 		{http, {RequestId1, {{_, 200, _}, _, _}}} ->
-		    io:format("test_pipeline -> received reply for (async) request 1"),
+		    io:format("test_pipeline -> "
+			      "received reply for (async) request 1"
+			      "~n   when profile info: ~p", [httpc:info()]),
 		    ok;
 		{http, Msg2} ->
 		    tsf(Msg2)
@@ -814,38 +827,49 @@ test_pipeline(URL) ->
 		    tsf({error, {timeout, Any1}})
 	    end
     end,
-
-     p("test_pipeline -> sleep some"),
-     test_server:sleep(4000),
-
-     p("test_pipeline -> issue (async) request 4"),
-     {ok, RequestId3} =
+    
+    p("test_pipeline -> sleep some"
+      "~n   when profile info: ~p", [httpc:info()]),
+    test_server:sleep(4000),
+    
+    p("test_pipeline -> issue (async) request 4"
+      "~n   when profile info: ~p", [httpc:info()]),
+    {ok, RequestId3} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-     tsp("RequestId3: ~p", [RequestId3]),
-     p("test_pipeline -> RequestId3: ~p", [RequestId3]),
-
-     p("test_pipeline -> issue (async) request 5"),
-     {ok, RequestId4} =
+    tsp("RequestId3: ~p", [RequestId3]),
+    p("test_pipeline -> RequestId3: ~p"
+      "~n   when profile info: ~p", [RequestId3, httpc:info()]),
+    
+    p("test_pipeline -> issue (async) request 5"
+      "~n   when profile info: ~p", [httpc:info()]),
+    {ok, RequestId4} =
 	httpc:request(get, {URL, []}, [], [{sync, false}]),
-     tsp("RequestId4: ~p~n", [RequestId4]),
-     p("test_pipeline -> RequestId4: ~p", [RequestId4]),
-
-     p("test_pipeline -> cancel (async) request 4"),
-     ok = httpc:cancel_request(RequestId3),
-
-     p("test_pipeline -> expect *no* reply for cancelled (async) request 4 (for 3 secs)"),
-     receive
-	 {http, {RequestId3, _}} ->
-	     tsf(http_cancel_request_failed)
-     after 3000 ->
-	     ok
-     end,
-
-     p("test_pipeline -> expect reply for (async) request 4"),
-     Body =
+    tsp("RequestId4: ~p", [RequestId4]),
+    p("test_pipeline -> RequestId4: ~p"
+      "~n   when profile info: ~p", [RequestId4, httpc:info()]),
+    
+    p("test_pipeline -> cancel (async) request 4"
+      "~n   when profile info: ~p", [httpc:info()]),
+    ok = httpc:cancel_request(RequestId3),
+    
+    p("test_pipeline -> "
+      "expect *no* reply for cancelled (async) request 4 (for 3 secs)"
+      "~n   when profile info: ~p", [httpc:info()]),
+    receive
+	{http, {RequestId3, _}} ->
+	    tsf(http_cancel_request_failed)
+    after 3000 ->
+	    ok
+    end,
+    
+    p("test_pipeline -> expect reply for (async) request 4"
+      "~n   when profile info: ~p", [httpc:info()]),
+    Body =
 	receive
 	    {http, {RequestId4, {{_, 200, _}, _, BinBody4}}} = Res ->
-		p("test_pipeline -> received reply for (async) request 5"),
+		p("test_pipeline -> "
+		  "received reply for (async) request 5"
+		  "~n   when profile info: ~p", [httpc:info()]),
 		tsp("Receive : ~p", [Res]),
 		BinBody4;
 	    {http, Msg4} ->
@@ -856,19 +880,22 @@ test_pipeline(URL) ->
 			tsf({error, {timeout, Any2}})
 		end
 	end,
-
-    p("test_pipeline -> check reply for (async) request 5"),
+    
+    p("test_pipeline -> check reply for (async) request 5"
+      "~n   when profile info: ~p", [httpc:info()]),
     inets_test_lib:check_body(binary_to_list(Body)),
-
-    p("test_pipeline -> ensure no unexpected incomming"),
+    
+    p("test_pipeline -> ensure no unexpected incomming"
+      "~n   when profile info: ~p", [httpc:info()]),
     receive
 	{http, Any} ->
 	    tsf({unexpected_message, Any})
     after 500 ->
 	    ok
     end,
-
-    p("test_pipeline -> done"),
+    
+    p("test_pipeline -> done"
+      "~n   when profile info: ~p", [httpc:info()]),
     ok.
 
 %%-------------------------------------------------------------------------
