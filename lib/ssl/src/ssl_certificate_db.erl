@@ -24,12 +24,17 @@
 -module(ssl_certificate_db).
 -include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include_lib("kernel/include/file.hrl").
 
 -export([create/0, remove/1, add_trusted_certs/3, 
-	 remove_trusted_certs/2, lookup_trusted_cert/4, foldl/3, 
-	 lookup_cached_certs/2, cache_pem_file/4, uncache_pem_file/2, lookup/2]).
+	 remove_trusted_certs/2, insert/3, remove/2, clean/1,
+	 ref_count/3, lookup_trusted_cert/4, foldl/3,
+	 lookup_cached_pem/2, cache_pem_file/3, cache_pem_file/4,
+	 lookup/2]).
 
 -type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
+
+-define(NOT_TO_BIG, 10).
 
 %%====================================================================
 %% Internal application API
@@ -43,9 +48,14 @@
 %% the process that called create may call the other functions.
 %%--------------------------------------------------------------------
 create() ->
-    [ets:new(ssl_otp_certificate_db, [set, protected]),
-     ets:new(ssl_file_to_ref, [set, protected]),
-     ets:new(ssl_pid_to_file, [bag, private])]. 
+    [%% Let connection process delete trusted certs
+     %% that can only belong to one connection. (Supplied directly
+     %% on DER format to ssl:connect/listen.)
+     ets:new(ssl_otp_cacertificate_db, [set, public]),
+     %% Let connection processes call ref_count/3 directly
+     ets:new(ssl_otp_ca_file_ref, [set, public]),
+     ets:new(ssl_otp_pem_cache, [set, protected])
+    ].
 
 %%--------------------------------------------------------------------
 -spec remove([db_handle()]) -> term().
@@ -53,7 +63,9 @@ create() ->
 %% Description: Removes database db  
 %%--------------------------------------------------------------------
 remove(Dbs) ->
-    lists:foreach(fun(Db) -> true = ets:delete(Db) end, Dbs).
+    lists:foreach(fun(Db) ->
+			  true = ets:delete(Db)
+		  end, Dbs).
 
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(db_handle(), certdb_ref(), serialnumber(), issuer()) ->
@@ -72,8 +84,10 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
 	    {ok, Certs}
     end.
 
-lookup_cached_certs(DbHandle, File) ->
-    ets:lookup(DbHandle, {file, crypto:md5(File)}).
+lookup_cached_pem([_, _, PemChache], MD5) ->
+    lookup_cached_pem(PemChache, MD5);
+lookup_cached_pem(PemChache, MD5) ->
+    lookup(MD5, PemChache).
 
 %%--------------------------------------------------------------------
 -spec add_trusted_certs(pid(), string() | {der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
@@ -86,84 +100,68 @@ add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
     NewRef = make_ref(),
     add_certs_from_der(DerList, NewRef, CerDb),
     {ok, NewRef};
-add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
+
+add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
+    {ok, #file_info{mtime = LastWrite}} = file:read_file_info(File),
     MD5 = crypto:md5(File),
-    Ref = case lookup(MD5, FileToRefDb) of
-	      undefined ->
-		  NewRef = make_ref(),
-		  add_certs_from_file(File, NewRef, CertsDb),
-		  insert(MD5, NewRef, 1, FileToRefDb),
-		  NewRef;
-	      [OldRef] ->
-		  ref_count(MD5,FileToRefDb,1),
-		  OldRef
-	  end,
-    insert(Pid, MD5, PidToFileDb),
-    {ok, Ref}.
+    case lookup_cached_pem(Db, MD5) of
+	[{Mtime, Content}] ->
+	    case LastWrite of
+		Mtime ->
+		    Ref0 = make_ref(),
+		    insert(Ref0, [], 1, RefDb),
+		    insert(MD5, {Mtime, Content, Ref0}, PemChache),
+		    add_certs_from_pem(Content, Ref0, CertsDb),
+		    {ok, Ref0};
+		_ ->
+		    new_trusted_cert_entry(File, LastWrite, Db)
+	    end;
+	[{Mtime, _Content, Ref0}] ->
+	    case LastWrite of
+		Mtime ->
+		    ref_count(Ref0, RefDb, 1),
+		    {ok, Ref0};
+		_ ->
+		    new_trusted_cert_entry(File, LastWrite, Db)
+	    end;
+	undefined ->
+	    new_trusted_cert_entry(File, LastWrite, Db)
+    end.
 %%--------------------------------------------------------------------
--spec cache_pem_file(pid(), string(), time(), [db_handle()]) -> term().
+-spec cache_pem_file(string(), time(), [db_handle()]) -> term().
+-spec cache_pem_file(reference(), string(), time(), [db_handle()]) -> term().
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
-cache_pem_file(Pid, File, Time, [CertsDb, _FileToRefDb, PidToFileDb]) ->
+cache_pem_file(File, Time, [_CertsDb, _RefDb, PemChache]) ->
     {ok, PemBin} = file:read_file(File), 
     Content = public_key:pem_decode(PemBin),
     MD5 = crypto:md5(File),
-    insert({file, MD5}, {Time, Content}, CertsDb),
-    insert(Pid, MD5, PidToFileDb),
+    insert(MD5, {Time, Content}, PemChache),
     {ok, Content}.
 
-%--------------------------------------------------------------------
--spec uncache_pem_file(string(), [db_handle()]) -> no_return().
-%%
-%% Description: If a cached file is no longer valid (changed on disk)
-%% we must terminate the connections using the old file content, and
-%% when those processes are finish the cache will be cleaned. It is
-%% a rare but possible case a new ssl client/server is started with
-%% a filename with the same name as previously started client/server
-%% but with different content.
-%% --------------------------------------------------------------------
-uncache_pem_file(File, [_CertsDb, _FileToRefDb, PidToFileDb]) ->
-    Pids = select(PidToFileDb, [{{'$1', crypto:md5(File)},[],['$$']}]),
-    lists:foreach(fun([Pid]) ->
-			  exit(Pid, shutdown)
-		  end, Pids).
+cache_pem_file(Ref, File, Time, [_CertsDb, _RefDb, PemChache]) ->
+    {ok, PemBin} = file:read_file(File),
+    Content = public_key:pem_decode(PemBin),
+    MD5 = crypto:md5(File),
+    insert(MD5, {Time, Content, Ref}, PemChache),
+    {ok, Content}.
+
+remove_trusted_certs(Ref, CertsDb) ->
+    remove_certs(Ref, CertsDb).
 
 %%--------------------------------------------------------------------
--spec remove_trusted_certs(pid(), [db_handle()]) -> term().
-				  
+-spec remove(term(), db_handle()) -> term().
 %%
-%% Description: Removes trusted certs originating from 
-%% the file associated to Pid from the runtime database.  
+%% Description: Removes an element in a <Db>.
 %%--------------------------------------------------------------------
-remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
-    FileMD5s = lookup(Pid, PidToFileDb),
-    delete(Pid, PidToFileDb),
-    Clear = fun(MD5) ->
-		    delete({file,MD5}, CertsDb),
-		    try
-			0 = ref_count(MD5, FileToRefDb, -1),
-			case lookup(MD5, FileToRefDb) of
-			    [Ref] when is_reference(Ref) ->
-				remove_certs(Ref, CertsDb);
-			    _ -> ok
-			end,
-			delete(MD5, FileToRefDb)
-		    catch _:_ ->
-			    ok
-		    end
-	    end,
-    case FileMD5s of
-	undefined -> ok;
-	_ ->
-	    [Clear(FileMD5) || FileMD5 <- FileMD5s],
-	    ok
-    end.
+remove(Key, Db) ->
+    _ = ets:delete(Db, Key).
 
 %%--------------------------------------------------------------------
 -spec lookup(term(), db_handle()) -> term() | undefined.
 %%
-%% Description: Looks up an element in a certificat <Db>.
+%% Description: Looks up an element in a <Db>.
 %%--------------------------------------------------------------------
 lookup(Key, Db) ->
     case ets:lookup(Db, Key) of
@@ -186,24 +184,42 @@ lookup(Key, Db) ->
 %%--------------------------------------------------------------------
 foldl(Fun, Acc0, Cache) ->
     ets:foldl(Fun, Acc0, Cache).
-  
+
 %%--------------------------------------------------------------------
-%%% Internal functions
+-spec ref_count(term(), db_handle(), integer()) -> integer().
+%%
+%% Description: Updates a reference counter in a <Db>.
+%%--------------------------------------------------------------------
+ref_count(Key, Db, N) ->
+    ets:update_counter(Db,Key,N).
+
+%%--------------------------------------------------------------------
+-spec clean(db_handle()) -> term().
+%%
+%% Description: Updates a reference counter in a <Db>.
+%%--------------------------------------------------------------------
+clean(Db) ->
+    case ets:info(Db, size) of
+	N  when N < ?NOT_TO_BIG ->
+	    ok;
+	_ ->
+	    ets:delete_all_objects(Db)
+    end.
+%%--------------------------------------------------------------------
+%%-spec insert(Key::term(), Data::term(), Db::db_handle()) -> no_return().
+%%
+%% Description: Inserts data into <Db>
 %%--------------------------------------------------------------------
 insert(Key, Data, Db) ->
     true = ets:insert(Db, {Key, Data}).
 
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
+insert(Key, [], Count, Db) ->
+    true = ets:insert(Db, {Key, Count});
 insert(Key, Data, Count, Db) ->
     true = ets:insert(Db, {Key, Count, Data}).
-
-ref_count(Key, Db,N) ->
-    ets:update_counter(Db,Key,N).
-
-delete(Key, Db) ->
-    _ = ets:delete(Db, Key).
-
-select(Db, MatchSpec)->
-    ets:select(Db, MatchSpec).
 
 remove_certs(Ref, CertsDb) ->
     ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}).
@@ -212,10 +228,8 @@ add_certs_from_der(DerList, Ref, CertsDb) ->
     Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
      [Add(Cert) || Cert <- DerList].
 
-add_certs_from_file(File, Ref, CertsDb) ->   
+add_certs_from_pem(PemEntries, Ref, CertsDb) ->
     Add = fun(Cert) -> add_certs(Cert, Ref, CertsDb) end,
-    {ok, PemBin} = file:read_file(File),
-    PemEntries = public_key:pem_decode(PemBin),
     [Add(Cert) || {'Certificate', Cert, not_encrypted} <- PemEntries].
     
 add_certs(Cert, Ref, CertsDb) ->
@@ -231,3 +245,10 @@ add_certs(Cert, Ref, CertsDb) ->
 				   "it could not be correctly decoded.~n", []),
 	    error_logger:info_report(Report)
     end.
+
+new_trusted_cert_entry(File, LastWrite, [CertsDb,RefDb,PemChache] = Db) ->
+    Ref = make_ref(),
+    insert(Ref, [], 1, RefDb),
+    {ok, Content} = cache_pem_file(Ref, File, LastWrite, Db),
+    add_certs_from_pem(Content, Ref, CertsDb),
+    {ok, Ref}.

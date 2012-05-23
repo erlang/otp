@@ -30,7 +30,7 @@
 -export([start_link/1, start_link_dist/1,
 	 connection_init/2, cache_pem_file/2,
 	 lookup_trusted_cert/4,
-	 new_session_id/1,
+	 new_session_id/1, clean_cert_db/2,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
@@ -58,8 +58,9 @@
 -define('24H_in_sec', 8640).
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
--define(CERTIFICATE_CACHE_CLEANUP, 30000).
+-define(PEM_CACHE_CLEANUP, 120000).
 -define(CLEAN_SESSION_DB, 60000).
+-define(CLEAN_CERT_DB, 500).
 
 %%====================================================================
 %% API
@@ -120,6 +121,9 @@ lookup_trusted_cert(DbHandle, Ref, SerialNumber, Issuer) ->
 new_session_id(Port) ->
     call({new_session_id, Port}).
 
+clean_cert_db(Ref, File) ->
+    erlang:send_after(?CLEAN_CERT_DB, self(), {clean_cert_db, Ref, File}).
+
 %%--------------------------------------------------------------------
 -spec register_session(inet:port_number(), #session{}) -> ok.
 -spec register_session(host(), inet:port_number(), #session{}) -> ok.
@@ -166,6 +170,7 @@ init([Name, Opts]) ->
     SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
     Timer = erlang:send_after(SessionLifeTime * 1000, 
 			      self(), validate_sessions),
+    erlang:send_after(?PEM_CACHE_CLEANUP, self(), clean_pem_cache),
     {ok, #state{certificate_db = CertDb,
 		session_cache = SessionCache,
 		session_cache_cb = CacheCb,
@@ -183,21 +188,19 @@ init([Name, Opts]) ->
 %%
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({{connection_init, "", _Role}, Pid}, _From, 
-	    #state{certificate_db = [CertDb |_],
+handle_call({{connection_init, "", _Role}, _Pid}, _From,
+	    #state{certificate_db = [CertDb, FileRefDb, PemChace],
 		   session_cache = Cache} = State) ->
-    erlang:monitor(process, Pid),
-    Result = {ok, make_ref(),CertDb, Cache},
+    Result = {ok, make_ref(),CertDb, FileRefDb, PemChace, Cache},
     {reply, Result, State};
 
 handle_call({{connection_init, Trustedcerts, _Role}, Pid}, _From,
-	    #state{certificate_db = [CertDb|_] =Db,
+	    #state{certificate_db = [CertDb, FileRefDb, PemChace] = Db,
 		   session_cache = Cache} = State) ->
-    erlang:monitor(process, Pid),
     Result = 
 	try
 	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, Trustedcerts, Db),
-	    {ok, Ref, CertDb, Cache}
+	    {ok, Ref, CertDb, FileRefDb, PemChace, Cache}
 	catch
 	    _:Reason ->
 		{error, Reason}
@@ -210,20 +213,16 @@ handle_call({{new_session_id,Port}, _},
     Id = new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb),
     {reply, Id, State};
 
-handle_call({{cache_pem, File, LastWrite}, Pid}, _, 
+
+handle_call({{cache_pem, File, LastWrite}, _Pid}, _,
 	    #state{certificate_db = Db} = State) ->
-    try ssl_certificate_db:cache_pem_file(Pid, File, LastWrite, Db) of
+    try ssl_certificate_db:cache_pem_file(File, LastWrite, Db) of
 	Result ->
 	    {reply, Result, State}
     catch 
 	_:Reason ->
 	    {reply, {error, Reason}, State}
-    end;
-handle_call({{recache_pem, File, LastWrite}, Pid}, From,
-	    #state{certificate_db = Db} = State) ->
-    ssl_certificate_db:uncache_pem_file(File, Db),
-    cast({recache_pem, File, LastWrite, Pid, From}),
-    {noreply, State}.
+    end.
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
@@ -259,22 +258,7 @@ handle_cast({invalidate_session, Host, Port,
 handle_cast({invalidate_session, Port, #session{session_id = ID} = Session},
 	    #state{session_cache = Cache,
 		   session_cache_cb = CacheCb} = State) ->
-    invalidate_session(Cache, CacheCb, {Port, ID}, Session, State);
-
-handle_cast({recache_pem, File, LastWrite, Pid, From},
-	    #state{certificate_db = [_, FileToRefDb, _]} = State0) ->
-    case ssl_certificate_db:lookup(File, FileToRefDb) of
-	undefined ->
-	    {reply, Msg, State} =
-		handle_call({{cache_pem, File, LastWrite}, Pid}, From, State0),
-	    gen_server:reply(From, Msg),
-	    {noreply, State};
-	_ -> %% Send message to self letting cleanup messages be handled
-	     %% first so that no reference to the old version of file
-             %% exists when we cache the new one.
-	    cast({recache_pem, File, LastWrite, Pid, From}),
-	    {noreply, State0}
-    end.
+    invalidate_session(Cache, CacheCb, {Port, ID}, Session, State).
 
 %%--------------------------------------------------------------------
 -spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
@@ -299,23 +283,32 @@ handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
     CacheCb:delete(Cache, Key),
     {noreply, State};
 
+handle_info(clean_pem_cache, #state{certificate_db = [_,_,PemChace]} = State) ->
+    ssl_certificate_db:clean(PemChace),
+    erlang:send_after(?PEM_CACHE_CLEANUP, self(), clean_pem_cache),
+    {noreply, State};
+
+handle_info({clean_cert_db, Ref, File},
+	    #state{certificate_db = [CertDb,RefDb, PemCache]} = State) ->
+    case ssl_certificate_db:ref_count(Ref, RefDb, 0) of
+	0 ->
+	    MD5 = crypto:md5(File),
+	    case ssl_certificate_db:lookup_cached_pem(MD5, PemCache) of
+		[{Mtime, Content, Ref}] ->
+		    ssl_certificate_db:insert(MD5, {Mtime, Content}, PemCache);
+		undefined ->
+		    ok
+	    end,
+	    ssl_certificate_db:remove(Ref, RefDb),
+	    ssl_certificate_db:remove_trusted_certs(Ref, CertDb);
+	_ ->
+	    ok
+    end,
+    {noreply, State};
+
 handle_info({'EXIT', _, _}, State) ->
     %% Session validator died!! Do we need to take any action?
     %% maybe error log
-    {noreply, State};
-
-handle_info({'DOWN', _Ref, _Type, _Pid, ecacertfile}, State) ->
-    {noreply, State};
-
-handle_info({'DOWN', _Ref, _Type, Pid, shutdown}, State) ->
-    handle_info({remove_trusted_certs, Pid}, State);
-handle_info({'DOWN', _Ref, _Type, Pid, _Reason}, State) ->
-    erlang:send_after(?CERTIFICATE_CACHE_CLEANUP, self(), 
-		      {remove_trusted_certs, Pid}),
-    {noreply, State};
-handle_info({remove_trusted_certs, Pid}, 
-	    #state{certificate_db = Db} = State) ->
-    ssl_certificate_db:remove_trusted_certs(Pid, Db),
     {noreply, State};
 
 handle_info(_Info, State) ->
@@ -388,15 +381,20 @@ session_validation({{Port, _}, Session}, LifeTime) ->
     LifeTime.
 
 cache_pem_file(File, LastWrite, DbHandle) ->
-    case ssl_certificate_db:lookup_cached_certs(DbHandle,File) of
-	[{_, {Mtime, Content}}] ->
-	    case LastWrite of
-		Mtime ->
-		    {ok, Content};
-		_ ->
-		    call({recache_pem, File, LastWrite})
-	    end;
-	[] ->
+    case ssl_certificate_db:lookup_cached_pem(DbHandle,crypto:md5(File)) of
+	[{Mtime, Content}] ->
+	    handle_cached_entry(File, LastWrite, Mtime, Content);
+	[{Mtime, Content,_}] ->
+	     handle_cached_entry(File, LastWrite, Mtime, Content);
+	undefined ->
+	    call({cache_pem, File, LastWrite})
+    end.
+
+handle_cached_entry(File, LastWrite, Time, Content) ->
+    case LastWrite of
+	Time ->
+	    {ok, Content};
+	_ ->
 	    call({cache_pem, File, LastWrite})
     end.
 

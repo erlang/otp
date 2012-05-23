@@ -83,7 +83,8 @@
 	  diffie_hellman_params, % PKIX: #'DHParameter'{} relevant for server side
 	  diffie_hellman_keys, % {PublicKey, PrivateKey}
           premaster_secret,    %
-          cert_db_ref,         % ets_table()
+	  file_ref_db,         % ets()
+          cert_db_ref,         % ref()
           from,                % term(), where to reply
           bytes_to_read,       % integer(), # bytes to read in passive mode
           user_data_buffer,    % binary()
@@ -305,11 +306,12 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
     Hashes0 = ssl_handshake:init_hashes(),    
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
     try ssl_init(SSLOpts0, Role) of
-	{ok, Ref, CertDbHandle, CacheHandle, OwnCert, Key, DHParams} ->
+	{ok, Ref, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, Key, DHParams} ->
 	    Session = State0#state.session,
 	    State = State0#state{tls_handshake_hashes = Hashes0,
 				 session = Session#session{own_certificate = OwnCert,
 							   time_stamp = TimeStamp},
+				 file_ref_db = FileRefHandle,
 				 cert_db_ref = Ref,
 				 cert_db = CertDbHandle,
 				 session_cache = CacheHandle,
@@ -1000,16 +1002,19 @@ terminate(Reason, connection, #state{negotiated_version = Version,
 				      connection_states = ConnectionStates,
 				      transport_cb = Transport,
 				      socket = Socket, send_queue = SendQueue,
-				      renegotiation = Renegotiate}) ->
+				      renegotiation = Renegotiate} = State) ->
+    handle_trusted_certs_db(State),
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
     BinAlert = terminate_alert(Reason, Version, ConnectionStates),
     Transport:send(Socket, BinAlert),
     workaround_transport_delivery_problems(Socket, Transport, Reason),
     Transport:close(Socket);
+
 terminate(Reason, _StateName, #state{transport_cb = Transport,
 				      socket = Socket, send_queue = SendQueue,
-				      renegotiation = Renegotiate}) ->
+				      renegotiation = Renegotiate} = State) ->
+    handle_trusted_certs_db(State),
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
     workaround_transport_delivery_problems(Socket, Transport, Reason),
@@ -1057,12 +1062,12 @@ ssl_init(SslOpts, Role) ->
     
     init_manager_name(SslOpts#ssl_options.erl_dist),
 
-    {ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert} = init_certificates(SslOpts, Role),
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, OwnCert} = init_certificates(SslOpts, Role),
     PrivateKey =
-	init_private_key(CertDbHandle, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
+	init_private_key(PemCacheHandle, SslOpts#ssl_options.key, SslOpts#ssl_options.keyfile,
 			 SslOpts#ssl_options.password, Role),
-    DHParams = init_diffie_hellman(CertDbHandle, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
-    {ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert, PrivateKey, DHParams}.
+    DHParams = init_diffie_hellman(PemCacheHandle, SslOpts#ssl_options.dh, SslOpts#ssl_options.dhfile, Role),
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, CacheHandle, OwnCert, PrivateKey, DHParams}.
 
 init_manager_name(false) ->
     put(ssl_manager, ssl_manager);
@@ -1073,7 +1078,7 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 			       cacertfile = CACertFile,
 			       certfile = CertFile,
 			       cert = Cert}, Role) ->
-    {ok, CertDbRef, CertDbHandle, CacheHandle} =
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle} =
 	try 
 	    Certs = case CaCerts of
 			undefined ->
@@ -1081,36 +1086,36 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 			_ ->
 			    {der, CaCerts}
 		    end,
-	    {ok, _, _, _} = ssl_manager:connection_init(Certs, Role)
+	    {ok, _, _, _, _, _} = ssl_manager:connection_init(Certs, Role)
 	catch
 	    Error:Reason ->
 		handle_file_error(?LINE, Error, Reason, CACertFile, ecacertfile,
 				  erlang:get_stacktrace())
 	end,
-    init_certificates(Cert, CertDbRef, CertDbHandle, CacheHandle, CertFile, Role).
+    init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, Role).
 
-init_certificates(undefined, CertDbRef, CertDbHandle, CacheHandle, "", _) ->
-    {ok, CertDbRef, CertDbHandle, CacheHandle, undefined};
+init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, "", _) ->
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, undefined};
 
-init_certificates(undefined, CertDbRef, CertDbHandle, CacheHandle, CertFile, client) ->
+init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, client) ->
     try 
-	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, CertDbHandle),
-	{ok, CertDbRef, CertDbHandle, CacheHandle, OwnCert}
+	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
+	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, OwnCert}
     catch _Error:_Reason  ->
-	    {ok, CertDbRef, CertDbHandle, CacheHandle, undefined}
+	    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, undefined}
     end;
 
-init_certificates(undefined, CertDbRef, CertDbHandle, CacheRef, CertFile, server) ->
+init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, CertFile, server) ->
     try
-	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, CertDbHandle),
-	{ok, CertDbRef, CertDbHandle, CacheRef, OwnCert}
+	[OwnCert] = ssl_certificate:file_to_certificats(CertFile, PemCacheHandle),
+	{ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, OwnCert}
     catch
 	Error:Reason ->
 	    handle_file_error(?LINE, Error, Reason, CertFile, ecertfile,
 			      erlang:get_stacktrace())
     end;
-init_certificates(Cert, CertDbRef, CertDbHandle, CacheRef, _, _) ->
-    {ok, CertDbRef, CertDbHandle, CacheRef, Cert}.
+init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, _, _) ->
+    {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, Cert}.
 
 init_private_key(_, undefined, "", _Password, _Client) ->
     undefined;
@@ -1259,7 +1264,7 @@ verify_client_cert(#state{client_certificate_requested = false} = State) ->
     State.
 
 do_server_hello(Type, #state{negotiated_version = Version,
-			     session = #session{session_id = SessId} = Session,
+			     session = #session{session_id = SessId},
 			     connection_states = ConnectionStates0,
 			     renegotiation = {Renegotiation, _}} 
 		= State0) when is_atom(Type) -> 
@@ -1273,7 +1278,7 @@ do_server_hello(Type, #state{negotiated_version = Version,
 	new ->
 	    new_server_hello(ServerHello, State);
 	resumed ->
-	 resumed_server_hello(State)
+	    resumed_server_hello(State)
     end.
 
 new_server_hello(#server_hello{cipher_suite = CipherSuite,
@@ -2367,3 +2372,25 @@ get_timeout(#state{ssl_options=#ssl_options{hibernate_after = undefined}}) ->
     infinity;
 get_timeout(#state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}}) ->
     HibernateAfter.
+
+handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = ""}}) ->
+    %% No trusted certs specified
+    ok;
+handle_trusted_certs_db(#state{cert_db_ref = Ref,
+			       cert_db = CertDb,
+			       ssl_options = #ssl_options{cacertfile = undefined}}) ->
+    %% Certs provided as DER directly can not be shared
+    %% with other connections and it is safe to delete them when the connection ends.
+    ssl_certificate_db:remove_trusted_certs(Ref, CertDb);
+handle_trusted_certs_db(#state{file_ref_db = undefined}) ->
+    %% Something went wrong early (typically cacertfile does not exist) so there is nothing to handle
+    ok;
+handle_trusted_certs_db(#state{cert_db_ref = Ref,
+			       file_ref_db = RefDb,
+			       ssl_options = #ssl_options{cacertfile = File}}) ->
+    case ssl_certificate_db:ref_count(Ref, RefDb, -1) of
+	0 ->
+	    ssl_manager:clean_cert_db(Ref, File);
+	_ ->
+	    ok
+    end.
