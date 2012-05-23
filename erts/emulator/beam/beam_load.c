@@ -4376,6 +4376,7 @@ transform_engine(LoaderState* st)
     Uint* restart;		/* Where to restart if current match fails. */
     GenOpArg def_vars[TE_MAX_VARS]; /* Default buffer for variables. */
     GenOpArg* var = def_vars;
+    int num_vars = 0;
     int i;			/* General index. */
     Uint mask;
     GenOp* instr;
@@ -4578,9 +4579,9 @@ transform_engine(LoaderState* st)
 	    {
 		int n = *pc++;
 		int formal_arity = gen_opc[instr->op].arity;
-		int num_vars = n + (instr->arity - formal_arity);
 		int j = formal_arity;
 
+		num_vars = n + (instr->arity - formal_arity);
 		var = erts_alloc(ERTS_ALC_T_LOADER_TMP,
 				 num_vars * sizeof(GenOpArg));
 		for (i = 0; i < n; i++) {
@@ -4592,7 +4593,6 @@ transform_engine(LoaderState* st)
 	    }
 	    break;
 #endif
-
 	case TOP_next_arg:
 	    ap++;
 	    break;
@@ -4680,6 +4680,20 @@ transform_engine(LoaderState* st)
 	    instr->a[ap].val = var[i].val;
 	    ap++;
 	    break;
+#if defined(TOP_store_rest_args)
+	case TOP_store_rest_args:
+	    {
+		int n = *pc++;
+		int num_extra = num_vars - n;
+
+		ASSERT(n <= num_vars);
+		GENOP_ARITY(instr, instr->arity+num_extra);
+		memcpy(instr->a, instr->def_args, ap*sizeof(GenOpArg));
+		memcpy(instr->a+ap, var+n, num_extra*sizeof(GenOpArg));
+		ap += num_extra;
+	    }
+	    break;
+#endif
 	case TOP_try_me_else:
 	    restart = pc + 1;
 	    restart += *pc++;
