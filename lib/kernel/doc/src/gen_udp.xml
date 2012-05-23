@@ -189,7 +189,9 @@
       <desc>
         <p>Assigns a new controlling process <c><anno>Pid</anno></c> to
           <c><anno>Socket</anno></c>. The controlling process is the process which
-          receives messages from the socket.</p>
+          receives messages from the socket. If called by any other
+          process than the current controlling process,
+          <c>{error, not_owner}</c> is returned.</p>
       </desc>
     </func>
     <func>

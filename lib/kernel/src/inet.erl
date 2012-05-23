@@ -1246,6 +1246,8 @@ udp_close(S) when is_port(S) ->
 %% Set controlling process for TCP socket.
 tcp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
     case erlang:port_info(S, connected) of
+	{connected, NewOwner} ->
+	    ok;
 	{connected, Pid} when Pid =/= self() ->
 	    {error, not_owner};
 	undefined ->
@@ -1297,6 +1299,8 @@ tcp_sync_input(S, Owner, Flag) ->
 %% Set controlling process for UDP or SCTP socket.
 udp_controlling_process(S, NewOwner) when is_port(S), is_pid(NewOwner) ->
     case erlang:port_info(S, connected) of
+	{connected, NewOwner} ->
+	    ok;
 	{connected, Pid} when Pid =/= self() ->
 	    {error, not_owner};
 	_ ->

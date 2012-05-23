@@ -425,9 +425,10 @@ error_string(X) ->
     erlang:error(badarg, [X]).
 
 
--spec controlling_process(Socket, Pid) -> ok when
+-spec controlling_process(Socket, Pid) -> ok | {error, Reason} when
       Socket :: sctp_socket(),
-      Pid :: pid().
+      Pid :: pid(),
+      Reason :: closed | not_owner | inet:posix().
 
 controlling_process(S, Pid) when is_port(S), is_pid(Pid) ->
     inet:udp_controlling_process(S, Pid);

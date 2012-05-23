@@ -24,7 +24,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
-	 controlling_process/1, no_accept/1, close_with_pending_output/1,
+	 controlling_process/1, controlling_process_self/1,
+	 no_accept/1, close_with_pending_output/1,
 	 data_before_close/1, iter_max_socks/1, get_status/1,
 	 passive_sockets/1, accept_closed_by_other_process/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -58,7 +59,7 @@ end_per_testcase(_Func, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [controlling_process, no_accept,
+    [controlling_process, controlling_process_self, no_accept,
      close_with_pending_output, data_before_close,
      iter_max_socks, passive_sockets,
      accept_closed_by_other_process, otp_3924, closed_socket,
@@ -306,6 +307,32 @@ not_owner(S) ->
     after 1000 ->
 	    ok
     end.
+
+controlling_process_self(doc) ->
+    ["Open a listen port and assign the controlling process to "
+     "it self, then exit and make sure the port is closed properly."];
+controlling_process_self(Config) when is_list(Config) ->
+    S = self(),
+    process_flag(trap_exit,true),
+    spawn_link(fun() ->
+		       {ok,Sock} = gen_tcp:listen(0,[]),
+		       S ! {socket, Sock},
+		       ok = gen_tcp:controlling_process(Sock,self()),
+		       S ! done
+	       end),
+    receive
+	done ->
+	    receive
+		{socket,Sock} ->
+		    process_flag(trap_exit,false),
+		    %% Make sure the port is invalid after process crash
+		    {error,einval} = inet:port(Sock)
+	    end;
+	Msg when element(1,Msg) /= socket ->
+	    process_flag(trap_exit,false),
+	    exit({unknown_msg,Msg})
+    end.
+    
 
 no_accept(doc) ->
     ["Open a listen port and connect to it, then close the listen port ",
