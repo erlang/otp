@@ -639,9 +639,9 @@ provider erlang {
      * Entry into the efile_drv.c file I/O driver
      *
      * For a list of command numbers used by this driver, see the section
-     * "Guide to probe arguments" in ../../../README.md.  That section
-     * also contains explanation of the various integer and string
-     * arguments that may be present when any particular probe fires.
+     * "Guide to efile_drv.c probe arguments" in ../../../HOWTO/DTRACE.md.
+     * That section also contains explanation of the various integer and
+     * string arguments that may be present when any particular probe fires.
      *
      * NOTE: Not all Linux platforms (using SystemTap) can support
      *       arguments beyond arg9.

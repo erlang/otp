@@ -5,7 +5,7 @@ Introduction
 ------------
 
 If you are looking for information on how to build and install Erlang/OTP you
-want to read the [$ERL_TOP/INSTALL.md][] document instead of this document
+want to read the [$ERL_TOP/HOWTO/INSTALL.md][] document instead of this document
 (where `$ERL_TOP` is the top source directory in the source tree).
 
 All files with the `.md` suffix (as well as this file) are ordinary text files
@@ -258,7 +258,7 @@ under the License.
 
 
 
-   [$ERL_TOP/INSTALL.md]: doc/installation_guide:INSTALL
+   [$ERL_TOP/HOWTO/INSTALL.md]: INSTALL.md
    [github]: http://github.com
    [our github repository]: http://github.com/erlang/otp
 

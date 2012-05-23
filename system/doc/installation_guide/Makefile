@@ -58,7 +58,8 @@ XML_FILES = \
 GENERATED_XML_FILES = \
 	INSTALL.xml \
 	INSTALL-CROSS.xml \
-	INSTALL-WIN32.xml
+	INSTALL-WIN32.xml \
+	MARKDOWN.xml
 
 # ----------------------------------------------------
 
@@ -73,7 +74,8 @@ REDIRECT_HTML_DIR = $(HTMLDIR)/source
 REDIRECT_HTML_FILES = \
 	$(REDIRECT_HTML_DIR)/INSTALL.html \
 	$(REDIRECT_HTML_DIR)/INSTALL-CROSS.html \
-	$(REDIRECT_HTML_DIR)/INSTALL-WIN32.html
+	$(REDIRECT_HTML_DIR)/INSTALL-WIN32.html \
+	$(REDIRECT_HTML_DIR)/MARKDOWN.html
 
 # ----------------------------------------------------
 # FLAGS 
@@ -85,7 +87,7 @@ DVIPS_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-%.xml: $(ERL_TOP)/%.md $(ERL_TOP)/make/emd2exml
+%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
 
 $(REDIRECT_HTML_DIR)/%.html: Makefile

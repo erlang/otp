@@ -21,4 +21,5 @@ INST_GUIDE_CHAPTER_FILES = \
 	verification.xml \
 	INSTALL.xml \
 	INSTALL-CROSS.xml \
-	INSTALL-WIN32.xml
+	INSTALL-WIN32.xml \
+	MARKDOWN.xml

@@ -5,7 +5,7 @@ History
 -------
 
 The first implementation of DTrace probes for the Erlang virtual
-machine was presented at the [2008 Erlang User Conference] [4].  That
+machine was presented at the [2008 Erlang User Conference] [1].  That
 work, based on the Erlang/OTP R12 release, was discontinued due to
 what appears to be miscommunication with the original developers.
 
@@ -33,8 +33,8 @@ Supported platforms
   OpenIndiana release 151a, and both appear to work.
 * FreeBSD 9.0, though please see the "FreeBSD 9.0 Release Notes"
   section below!
-* Linux via SystemTap compatibility.  Please see the file
-  `README.systemtap.md` for more details.
+* Linux via SystemTap compatibility.  Please see
+  [$ERL_TOP/HOWTO/SYSTEMTAP.md][] for more details.
 
 Just add the `--with-dynamic-trace=dtrace` option to your command when you 
 run the `configure` script. If you are using systemtap, the configure option 
@@ -391,3 +391,4 @@ Guide to efile_drv.c probe arguments
             probe arg9 = C driver dt_i4 = advise_type;
 
    [1]: http://www.erlang.org/euc/08/
+   [$ERL_TOP/HOWTO/SYSTEMTAP.md]: SYSTEMTAP.md

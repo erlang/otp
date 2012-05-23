@@ -994,7 +994,7 @@ resolve_link([_|Cs], start, "", "", "") ->
     resolve_link(Cs, start, "", "", "");
 resolve_link("]:" ++ Rest, key, Yek, "", "") ->
     resolve_link(Rest, url, Yek, "", "");
-resolve_link([C|Cs], url, Yek, Lru, "") when C == $"; C == $' ->
+resolve_link([C|Cs], url, Yek, Lru, "") when C == $"; C == $' -> %"
     resolve_link(Cs, {title, C}, Yek, Lru, "");
 resolve_link([$(|Cs], url, Yek, Lru, "") ->
     resolve_link(Cs, {title, $)}, Yek, Lru, "");
@@ -1010,8 +1010,20 @@ resolve_link([_|Cs], drop, Yek, Lru, Eltit) ->
     resolve_link(Cs, drop, Yek, Lru, Eltit);
 resolve_link([], _, Yek, Lru, Eltit) ->
     {ws_strip(lists:reverse(Yek)),
-     ws_strip(lists:reverse(Lru)),
+     ws_strip(md_strip_n_reverse(Lru)),
      ws_strip(lists:reverse(Eltit))}.
+
+%% Remove .md at end of references.
+md_strip_n_reverse(Lru) ->
+    md_strip_n_reverse(Lru,[]).
+md_strip_n_reverse("\ndm."++Lru,Acc) ->
+    md_strip_n_reverse(Lru,Acc);
+md_strip_n_reverse("#dm."++Lru,Acc) ->
+    md_strip_n_reverse(Lru,[$#|Acc]);
+md_strip_n_reverse([C|T],Acc) ->
+    md_strip_n_reverse(T,[C|Acc]);
+md_strip_n_reverse([], Acc) ->
+    Acc.
 
 %%
 %% Misc

@@ -6,7 +6,7 @@ Introduction
 
 SystemTap is DTrace for Linux. In fact Erlang's SystemTap support
 is build using SystemTap's DTrace compatibility's layer. For an
-introduction to Erlang DTrace support read README.dtrace.md.
+introduction to Erlang DTrace support read [$ERL_TOP/HOWTO/DTRACE.md][].
 
 Requisites
 ----------
@@ -15,8 +15,8 @@ Requisites
 
   check for UTRACE support in your current kernel:
 
-    # grep CONFIG_UTRACE /boot/config-`uname -r`
-    CONFIG_UTRACE=y
+        # grep CONFIG_UTRACE /boot/config-`uname -r`
+        CONFIG_UTRACE=y
 
   Fedora 16 is known to contain UTRACE, for most other Linux distributions
   a custom build kernel will be required.
@@ -35,8 +35,8 @@ Building Erlang
 
 Configure and build Erlang with SystemTap support:
 
-  # ./configure --with-dynamic-trace=systemtap + whatever args you need
-  # make
+    # ./configure --with-dynamic-trace=systemtap + whatever args you need
+    # make
 
 Testing
 -------
@@ -52,16 +52,16 @@ binary is in the search path.
 
 All available probes can be listed like this:
 
-   # stap -L 'process("beam").mark("*")'
+    # stap -L 'process("beam").mark("*")'
 
 or:
 
-   # PATH=/path/to/beam:$PATH stap -L 'process("beam").mark("*")'
+    # PATH=/path/to/beam:$PATH stap -L 'process("beam").mark("*")'
 
 
 Probes in the dtrace.so NIF library like this:
 
-  # PATH=/path/to/dtrace/priv/lib:$PATH stap -L 'process("dtrace.so").mark("*")'
+    # PATH=/path/to/dtrace/priv/lib:$PATH stap -L 'process("dtrace.so").mark("*")'
 
 Running SystemTap scripts
 -------------------------
@@ -69,4 +69,7 @@ Running SystemTap scripts
 Adjust the process("beam") reference to your beam version and attach the script
 to a running "beam" instance:
 
-  # stap /path/to/probe/script/port1.systemtap -x <pid of beam>
+    # stap /path/to/probe/script/port1.systemtap -x <pid of beam>
+
+
+   [$ERL_TOP/HOWTO/DTRACE.md]: DTRACE.md
