@@ -20,6 +20,8 @@
  [
   {"5.9", 
    [
+    {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
+    {load_module, inets_service, soft_purge, soft_purge, []}, 
     {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
     {update,      httpc_handler, soft, soft_purge, soft_purge, [httpc_manager]},
     {update,      httpc_manager, soft, soft_purge, soft_purge, []}
@@ -27,6 +29,9 @@
   }, 
   {"5.8.1", 
    [
+    {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
+    {load_module, inets_service, soft_purge, soft_purge, []}, 
+
     {load_module, http_uri,      soft_purge, soft_purge, []}, 
     {load_module, httpc_response, soft_purge, soft_purge, [http_uri]}, 
 
@@ -61,6 +66,8 @@
  [
   {"5.9", 
    [
+    {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
+    {load_module, inets_service, soft_purge, soft_purge, []}, 
     {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
     {update,      httpc_handler, soft, soft_purge, soft_purge, [httpc_manager]},
     {update,      httpc_manager, soft, soft_purge, soft_purge, []}
@@ -68,6 +75,9 @@
   }, 
   {"5.8.1",
    [
+    {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
+    {load_module, inets_service, soft_purge, soft_purge, []}, 
+
     {load_module, http_uri,      soft_purge, soft_purge, []}, 
     {load_module, httpc_response, soft_purge, soft_purge, [http_uri]}, 
 

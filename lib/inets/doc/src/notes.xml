@@ -42,14 +42,20 @@
 
       <list>
         <item>
-          <p>Better handling of errorI(s) during update of the session 
+          <p>Better handling of error(s) during update of the session 
 	  database. </p>
 	  <p>Also added and updated some debugging functions 
-	  <seealso marker="httpc#which_sessions">which_sessions/10,1</seealso>
+	  <seealso marker="httpc#which_sessions">which_sessions/0,1</seealso>
 	  and 
 	  <seealso marker="httpc#info">info/0</seealso>. </p>
 	  <p>Own Id: OTP-10093</p>
           <p>Aux Id: Seq 12062</p>
+        </item>
+
+        <item>
+          <p>Removed R14B compatible version of (inets-service and
+	  tftp) behaviour definition. </p>
+	  <p>Own Id: OTP-10095</p>
         </item>
 
       </list>

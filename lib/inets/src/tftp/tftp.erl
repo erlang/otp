@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -224,20 +224,6 @@
 	 service_info/1
 	]).
 
--ifdef('OTP-R14B-COMPILER').
-
--export([behaviour_info/1]).
-
-behaviour_info(callbacks) ->
-    [{prepare, 6}, 
-     {open,    6}, 
-     {read,    1}, 
-     {write,   2}, 
-     {abort,   3}];
-behaviour_info(_) ->
-    undefined.
-
--else.
 
 -type peer() :: {PeerType :: inet | inet6,
 		 PeerHost :: inet:ip_address(),
@@ -279,8 +265,6 @@ behaviour_info(_) ->
     {error, {Code :: error_code(), string()}}.
 
 -callback abort(Code :: error_code(), string(), State :: term()) -> 'ok'.
-
--endif.
 
 -include("tftp.hrl").
 
