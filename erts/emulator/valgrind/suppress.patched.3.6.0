@@ -346,3 +346,14 @@ fun:erl_start
 fun:main
 }
 
+{
+Harmless leak of ErtsThrPrgrData from async threads in exiting emulator
+Memcheck:Leak
+...
+fun:erts_alloc
+fun:erts_thr_progress_register_unmanaged_thread
+fun:async_thread_init
+fun:async_main
+...
+}
+
