@@ -4,6 +4,25 @@
 ; Original example written by Joost Verburg
 ; Modified for Erlang by Patrik
 
+;
+; %CopyrightBegin%
+;
+; Copyright Ericsson AB 2012. All Rights Reserved.
+;
+; The contents of this file are subject to the Erlang Public License,
+; Version 1.1, (the "License"); you may not use this file except in
+; compliance with the License. You should have received a copy of the
+; Erlang Public License along with this software. If not, it can be
+; retrieved online at http://www.erlang.org/.
+;
+; Software distributed under the License is distributed on an "AS IS"
+; basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+; the License for the specific language governing rights and limitations
+; under the License.
+;
+; %CopyrightEnd%
+;
+
 ; Verbosity does not come naturally with MUI, have to set it back now and then.
 	!verbose 1
 	!define MUI_MANUALVERBOSE 1
@@ -109,8 +128,11 @@ Section "Microsoft redistributable libraries." SecMSRedist
   
 ; Set back verbosity...
   	!verbose 1
-; Run the setup program  
-  	ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}"'
+; Run the setup program
+	IfSilent +3
+	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}"'
+	Goto +2
+	    ExecWait '"$INSTDIR\${REDIST_EXECUTABLE}" /q'
 
   	!verbose 1
 SectionEnd ; MSRedist
@@ -317,24 +339,32 @@ Function DllVersionGoodEnough
 FunctionEnd
 
 Function .onInit
-   SectionGetFlags 0 $MYTEMP 
-   ;MessageBox MB_YESNO "Found $SYSDIR\${REDIST_DLL_NAME}" IDYES FoundLbl
-   IfFileExists $SYSDIR\${REDIST_DLL_NAME} MaybeFoundInSystemLbl
-   SearchSxsLbl:	
-        FindFirst $0 $1 $WINDIR\WinSxS\x86*
+   Var /GLOBAL archprefix
+   Var /GLOBAL sysnativedir
+   SectionGetFlags 0 $MYTEMP
+   StrCmpS ${WINTYPE} "win64" +1 +4
+	StrCpy $archprefix "amd64"
+	StrCpy $sysnativedir "$WINDIR\sysnative"
+   Goto +3
+	StrCpy $archprefix "x86"
+	StrCpy $sysnativedir $SYSDIR
+   ;MessageBox MB_YESNO "Found $sysnativedir\${REDIST_DLL_NAME}" IDYES FoundLbl
+   IfFileExists $sysnativedir\${REDIST_DLL_NAME} MaybeFoundInSystemLbl
+   SearchSxSLbl:	
+        FindFirst $0 $1 $WINDIR\WinSxS\$archprefix*
         LoopLbl:
 	    StrCmp $1 "" NotFoundLbl
-	    IfFileExists $WINDIR\WinSxS\$1\${REDIST_DLL_NAME} MaybeFoundInSxsLbl
+	    IfFileExists $WINDIR\WinSxS\$1\${REDIST_DLL_NAME} MaybeFoundInSxSLbl
 	    FindNext $0 $1
 	    Goto LoopLbl
-        MaybeFoundInSxsLbl:
+        MaybeFoundInSxSLbl:
 	    GetDllVersion $WINDIR\WinSxS\$1\${REDIST_DLL_NAME} $R0 $R1
 	    Call DllVersionGoodEnough
 	    FindNext $0 $1
 	    IntCmp 2 $R0 LoopLbl
 	    Goto FoundLbl  
    MaybeFoundInSystemLbl:
-	GetDllVersion $SYSDIR\${REDIST_DLL_NAME} $R0 $R1
+	GetDllVersion $sysnativedir\${REDIST_DLL_NAME} $R0 $R1
 	Call DllVersionGoodEnough
 	IntCmp 2 $R0 SearchSxSLbl  
    FoundLbl:
