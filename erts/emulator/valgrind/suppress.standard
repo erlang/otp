@@ -54,18 +54,16 @@
    fun:putenv
    fun:erts_sys_putenv
    fun:os_putenv_2
-   fun:process_main
+   ...
 }
 {
-Leak in libc putenv
-Memcheck:Leak
-fun:malloc
-fun:erts_sys_alloc
-...
-fun:erts_alloc
-fun:erts_sys_putenv
-fun:os_putenv_2
-fun:process_main
+   Leak in libc putenv
+   Memcheck:Leak
+   ...
+   fun:erts_alloc
+   fun:erts_sys_putenv
+   fun:os_putenv_2
+   ...
 }
 {
    erronous warning
