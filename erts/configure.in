@@ -1949,6 +1949,64 @@ AC_CHECK_FUNCS([openpty])
 AC_CHECK_HEADERS(net/if_dl.h ifaddrs.h netpacket/packet.h)
 AC_CHECK_FUNCS([getifaddrs])
 
+dnl Checks for variables in6addr_any and in6addr_loopback,
+dnl
+dnl They normally declared by netinet/in.h, according to POSIX,
+dnl but not on Windows 7 (Windows SDK 7.1).  I would have liked
+dnl to just write AC_CHECK_DECL([in6addr_any], ...) but if doing so,
+dnl the configure check fails erroneously on Linux with the error
+dnl "cannot convert to a pointer type", on a line looking like
+dnl "char *p = (char *) in6addr_any;", so work around that
+dnl with some more code. 
+AC_CACHE_CHECK(
+    [whether in6addr_any is declared],
+    [erts_cv_have_in6addr_any],
+    [AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM(
+	    [[
+		#include <sys/types.h>
+		#include <sys/socket.h>
+		#include <netinet/in.h>
+	    ]],
+	    [[printf("%d", in6addr_any.s6_addr[16]);]]
+	)],
+	[erts_cv_have_in6addr_any=yes],
+	[erts_cv_have_in6addr_any=no]
+    )]
+)
+
+case "$erts_cv_have_in6addr_any" in
+ yes)
+   AC_DEFINE([HAVE_IN6ADDR_ANY], [1],
+             [Define to 1 if you have the variable in6addr_any declared.])
+esac
+
+AC_CACHE_CHECK(
+    [whether in6addr_loopback is declared],
+    [erts_cv_have_in6addr_loopback],
+    [AC_LINK_IFELSE(
+	[AC_LANG_PROGRAM(
+	    [[
+		#include <sys/types.h>
+		#include <sys/socket.h>
+		#include <netinet/in.h>
+	    ]],
+	    [[printf("%d", in6addr_loopback.s6_addr[16]);]]
+	)],
+	[erts_cv_have_in6addr_loopback=yes],
+	[erts_cv_have_in6addr_loopback=no]
+    )]
+)
+
+case "$erts_cv_have_in6addr_loopback" in
+ yes)
+   AC_DEFINE([HAVE_IN6ADDR_LOOPBACK], [1],
+             [Define to 1 if you have the variable in6addr_loopback declared.])
+esac
+
+AC_CHECK_DECLS([IN6ADDR_ANY_INIT, IN6ADDR_LOOPBACK_INIT], [], [],
+	       [#include <netinet/in.h>])
+
 dnl ----------------------------------------------------------------------
 dnl Checks for features/quirks in the system that affects Erlang.
 dnl ----------------------------------------------------------------------
