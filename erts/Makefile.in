@@ -106,6 +106,7 @@ local_setup:
 	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
 			 $(ERL_TOP)/bin/werl.exe; \
 		make_local_ini.sh $(ERL_TOP); \
+		cp $(ERL_TOP)/bin/erl.ini $(ERL_TOP)/bin/$(TARGET)/erl.ini; \
 	else \
 	sed	-e "s;%FINAL_ROOTDIR%;$(ERL_TOP);"   \
 		-e "s;erts-.*/bin;bin/$(TARGET);"    \
