@@ -89,7 +89,12 @@ on_tc_fail(_TC, Res, State) ->
 			     {fail,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
+on_tc_skip(Tc,{Type,Reason} = Res, State) when Type == tc_auto_skip ->
+    do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(State,[])));
 on_tc_skip(_Tc, Res, State) ->
+    do_tc_skip(Res, State).
+
+do_tc_skip(Res, State) ->
     TCs = State#state.test_cases,
     TC = hd(State#state.test_cases),
     NewTC = TC#testcase{
@@ -101,7 +106,7 @@ init_tc(State, Config) when is_list(Config) == false ->
     State#state{ timer = now(), tc_log =  "" };
 init_tc(State, Config) ->
     State#state{ timer = now(),
-		 tc_log =  proplists:get_value(tc_logfile, Config)}.
+		 tc_log =  proplists:get_value(tc_logfile, Config, [])}.
 
 end_tc(Func, Config, Res, State) when is_atom(Func) ->
     end_tc(atom_to_list(Func), Config, Res, State);
@@ -138,7 +143,7 @@ close_suite(#state{ test_cases = TCs } = State) ->
 		 test_suites = [Suite | State#state.test_suites]}.
 
 terminate(State = #state{ test_cases = [] }) ->
-    {ok,D} = file:open(State#state.filepath,[write]),
+    {ok,D} = file:open(State#state.filepath,[write,{encoding,utf8}]),
     io:format(D, "<?xml version=\"1.0\" encoding= \"UTF-8\" ?>", []),
     io:format(D, to_xml(State), []),
     catch file:sync(D),
