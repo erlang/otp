@@ -1276,7 +1276,7 @@ sendfile_fallback_int(File, Sock, Bytes, ChunkSize, BytesSent)
   when Bytes > BytesSent; Bytes == 0 ->
     Size = if Bytes == 0 ->
 		   ChunkSize;
-	       (Bytes - BytesSent + ChunkSize) > 0 ->
+	       (Bytes - BytesSent) < ChunkSize ->
 		   Bytes - BytesSent;
 	      true ->
 		   ChunkSize
