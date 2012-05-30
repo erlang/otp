@@ -451,7 +451,7 @@ init(Args) ->
     %% Start the port program (a c program) that utilizes the odbc driver 
     case os:find_executable(?SERVERPROG, ?SERVERDIR) of
 	FileName when is_list(FileName)->
-	    Port  = open_port({spawn, FileName},
+	    Port  = open_port({spawn, "\""++FileName++"\""},
 			      [{packet, ?LENGTH_INDICATOR_SIZE}, binary,
 			       exit_status]),
 	    State = #state{listen_sockets = 

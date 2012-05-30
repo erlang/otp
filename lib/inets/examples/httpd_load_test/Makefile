@@ -34,7 +34,7 @@ VSN=$(INETS_VSN)
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR         = $(RELEASE_PATH)/lib/inets-$(VSN)
-EXAMPLE_RELSYSDIR = $(RELSYSDIR)/examples
+EXAMPLE_RELSYSDIR = "$(RELSYSDIR)/examples"
 HDLT_RELSYSDIR    = $(EXAMPLE_RELSYSDIR)/httpd_load_test
 
 

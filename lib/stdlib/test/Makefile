@@ -135,10 +135,10 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: make_emakefile
-	$(INSTALL_DIR) $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) stdlib.spec $(EMAKEFILE) \
-		$(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
-	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
+		$(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

@@ -130,11 +130,11 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(BEAM_TARGET_FILES) $(RELSYSDIR)/ebin
-	$(INSTALL_DIR)  $(RELSYSDIR)/src
-	$(INSTALL_DIR)  $(RELSYSDIR)/src/text
-	$(INSTALL_DATA) $(ERL_FILES) $(INTERNAL_YRL_FILES) $(INTERNAL_HRL_FILES) $(RELSYSDIR)/src/text
+	$(INSTALL_DIR)  "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(BEAM_TARGET_FILES) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR)  "$(RELSYSDIR)/src"
+	$(INSTALL_DIR)  "$(RELSYSDIR)/src/text"
+	$(INSTALL_DATA) $(ERL_FILES) $(INTERNAL_YRL_FILES) $(INTERNAL_HRL_FILES) "$(RELSYSDIR)/src/text"
 
 
 release_docs_spec:

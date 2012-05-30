@@ -149,9 +149,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples
-	$(INSTALL_DATA) $(ERL_FILES) $(JAVA_FILES) $(IDL_FILES) $(RELSYSDIR)/examples
-	$(INSTALL_DATA) $(INETRC_EXAMPLE) $(RELSYSDIR)/examples
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
+	$(INSTALL_DATA) $(ERL_FILES) $(JAVA_FILES) $(IDL_FILES) "$(RELSYSDIR)/examples"
+	$(INSTALL_DATA) $(INETRC_EXAMPLE) "$(RELSYSDIR)/examples"
 	@tar cf - java_output | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:

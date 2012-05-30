@@ -153,16 +153,16 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) $(RELSYSDIR)/ebin
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(APP_SRC) $(APPUP_SRC) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/examples
-	$(INSTALL_DATA) $(EXAMPLES) $(RELSYSDIR)/examples
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(APP_SRC) $(APPUP_SRC) "$(RELSYSDIR)/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
+	$(INSTALL_DATA) $(EXAMPLES) "$(RELSYSDIR)/examples"
 
 # there are no include files to be used by the user
-#$(INSTALL_DIR) $(RELSYSDIR)/include
-#$(INSTALL_DATA) $(HRL_FILES) $(RELSYSDIR)/include
+#$(INSTALL_DIR) "$(RELSYSDIR)/include"
+#$(INSTALL_DATA) $(HRL_FILES) "$(RELSYSDIR)/include"
 
 release_docs_spec:
 

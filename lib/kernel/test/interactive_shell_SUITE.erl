@@ -251,7 +251,7 @@ rtnode(Commands,Nodename,ErlPrefix) ->
 				?line {skip, Reason2};
 			    Tempdir ->
 				?line SPid = 
-				    start_runerl_node(RunErl,ErlPrefix++Erl,
+				    start_runerl_node(RunErl,ErlPrefix++"\\\""++Erl++"\\\"",
 						      Tempdir,Nodename),
 				?line CPid = start_toerl_server(ToErl,Tempdir),
 				?line erase(getline_skipped),
@@ -487,7 +487,7 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename) ->
 		       " -setcookie "++atom_to_list(erlang:get_cookie())
 	   end,
     spawn(fun() ->
-		  os:cmd(RunErl++" "++Tempdir++"/ "++Tempdir++" \""++
+		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++" \""++
 			 Erl++XArg++"\"")
 	  end).
 
@@ -518,7 +518,7 @@ try_to_erl(Command, N) ->
     end.
 
 toerl_server(Parent,ToErl,Tempdir) ->
-    Port = try_to_erl(ToErl++" "++Tempdir++"/ 2>/dev/null",8),
+    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null",8),
     case Port of
 	P when is_port(P) ->
 	    Parent ! {self(),started};

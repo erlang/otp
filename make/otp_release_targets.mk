@@ -110,12 +110,12 @@ endif
 ifeq ($(TESTROOT),)
 
 release release_docs release_tests release_html:
-	$(MAKE) $(MFLAGS) RELEASE_PATH=$(ERL_TOP)/release/$(TARGET) \
+	$(MAKE) $(MFLAGS) RELEASE_PATH="$(ERL_TOP)/release/$(TARGET)" \
 		$(TARGET_MAKEFILE)  $@_spec
 
 else
 
 release release_docs release_tests release_html:
-	$(MAKE) $(MFLAGS) RELEASE_PATH=$(TESTROOT) $(TARGET_MAKEFILE)  $@_spec 
+	$(MAKE) $(MFLAGS) RELEASE_PATH="$(TESTROOT)" $(TARGET_MAKEFILE)  $@_spec 
 
 endif

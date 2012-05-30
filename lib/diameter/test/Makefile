@@ -141,7 +141,7 @@ log:
 # ---------------------------------------------------- 
 
 /%: % force
-	sed -f release.sed $< > $(RELSYSDIR)$@
+	sed -f release.sed $< > "$(RELSYSDIR)$@"
 
 ifeq ($(ERL_TOP),)
 include $(DIAMETER_TOP)/make/release_targets.mk
@@ -152,17 +152,17 @@ endif
 release_spec release_docs_spec:
 
 release_tests_spec:
-	$(INSTALL_DIR)  $(RELSYSDIR)
+	$(INSTALL_DIR)  "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(TEST_SPEC_FILE) \
 	                $(COVER_SPEC_FILE) \
 	                $(HRL_FILES) \
-	                $(RELSYSDIR)
+	                "$(RELSYSDIR)"
 	$(MAKE) $(DATA_DIRS:%/=release_data_%)
 	$(MAKE) $(ERL_FILES:%=/%)
 
 $(DATA_DIRS:%/=release_data_%): release_data_%:
-	$(INSTALL_DIR) $(RELSYSDIR)/$*
-	$(INSTALL_DATA) $(filter $*/%, $(DATA)) $(RELSYSDIR)/$*
+	$(INSTALL_DIR) "$(RELSYSDIR)/$*"
+	$(INSTALL_DATA) $(filter $*/%, $(DATA)) "$(RELSYSDIR)/$*"
 
 force:
 

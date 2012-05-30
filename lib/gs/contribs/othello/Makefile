@@ -89,12 +89,12 @@ $(EBIN)/$(TOOLNAME).tool: $(TOOLNAME).tool
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
-	$(INSTALL_DIR) $(RELSYSDIR)/othello
-	$(INSTALL_DATA) $(ERL_FILES) $(EXTRA_FILES) $(RELSYSDIR)/othello
-	$(INSTALL_DIR) $(RELSYSDIR)/othello/priv
-	$(INSTALL_DATA) $(BITMAPS) $(TOOLBOX_FILES) $(RELSYSDIR)/othello/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/othello"
+	$(INSTALL_DATA) $(ERL_FILES) $(EXTRA_FILES) "$(RELSYSDIR)/othello"
+	$(INSTALL_DIR) "$(RELSYSDIR)/othello/priv"
+	$(INSTALL_DATA) $(BITMAPS) $(TOOLBOX_FILES) "$(RELSYSDIR)/othello/priv"
 
 release_docs_spec:
 

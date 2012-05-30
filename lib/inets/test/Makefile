@@ -234,7 +234,7 @@ endif
 # Release directory specification
 # ----------------------------------------------------
 
-RELTESTSYSDIR        = $(RELEASE_PATH)/inets_test
+RELTESTSYSDIR        = "$(RELEASE_PATH)/inets_test"
 RELTESTSYSALLDATADIR = $(RELTESTSYSDIR)/all_SUITE_data
 RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 
@@ -284,9 +284,9 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR)  $(RELSYSDIR)/test
-	$(INSTALL_DATA) $(HRL_FILES)   $(ERL_FILES) $(RELSYSDIR)/test
-	$(INSTALL_DATA) $(INETS_FILES) $(RELSYSDIR)/test
+	$(INSTALL_DIR)  "$(RELSYSDIR)/test"
+	$(INSTALL_DATA) $(HRL_FILES)   $(ERL_FILES) "$(RELSYSDIR)/test"
+	$(INSTALL_DATA) $(INETS_FILES) "$(RELSYSDIR)/test"
 	@for d in $(DATADIRS); do \
             echo "installing data dir $$d"; \
             if test -f $$d/TAR.exclude; then \
@@ -299,9 +299,9 @@ release_spec: opt
                 find $$d -name 'erl_crash.dump' >> $$d/TAR.exclude2; \
                 find $$d -name 'core'           >> $$d/TAR.exclude2; \
                 find $$d -name '.cmake.state'   >> $$d/TAR.exclude2; \
-                tar cfX - $$d/TAR.exclude2 $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+                tar cfX - $$d/TAR.exclude2 $$d | (cd "$(RELSYSDIR)/test"; tar xf -); \
             else \
-                tar cf - $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+                tar cf - $$d | (cd "$(RELSYSDIR)/test"; tar xf -); \
             fi; \
         done
 
@@ -330,8 +330,8 @@ info:
 	@echo "INETS_SPECS       = $(INETS_SPECS)"
 	@echo "INETS_FILES       = $(INETS_FILES)"
 	@echo ""
-	@echo "RELEASE_PATH      = $(RELEASE_PATH)"
-	@echo "RELSYSDIR         = $(RELSYSDIR)"
+	@echo "RELEASE_PATH      = "$(RELEASE_PATH)""
+	@echo "RELSYSDIR         = "$(RELSYSDIR)""
 	@echo "RELTESTSYSDIR     = $(RELTESTSYSDIR)"
 	@echo "RELTESTSYSALLDATADIR = $(RELTESTSYSALLDATADIR)"
 	@echo "RELTESTSYSBINDIR     = $(RELTESTSYSBINDIR)"

@@ -128,14 +128,14 @@ info:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/src/agent
-	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)/src/agent
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
+	$(INSTALL_DIR) "$(RELSYSDIR)/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/agent"
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)/src/agent"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) \
-		$(RELSYSDIR)/ebin
-# 	$(INSTALL_DIR) $(RELSYSDIR)/include
-# 	$(INSTALL_DATA) $(EXT_HRL_FILES) $(RELSYSDIR)/include
+		"$(RELSYSDIR)/ebin"
+# 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+# 	$(INSTALL_DATA) $(EXT_HRL_FILES) "$(RELSYSDIR)/include"
 
 release_docs_spec:
 

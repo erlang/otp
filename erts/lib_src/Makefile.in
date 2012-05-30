@@ -473,31 +473,31 @@ INTERNAL_RELEASE_LIBS= \
 .PHONY: release_spec
 release_spec: all
 ifneq ($(strip $(RELEASE_INCLUDES)),)
-	$(INSTALL_DIR) $(RELSYSDIR)/include
-	$(INSTALL_DIR) $(RELEASE_PATH)/usr/include
-	$(INSTALL_DATA) $(RELEASE_INCLUDES) $(RELSYSDIR)/include
-	$(INSTALL_DATA) $(RELEASE_INCLUDES) $(RELEASE_PATH)/usr/include
+	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
+	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(RELEASE_INCLUDES) "$(RELEASE_PATH)/usr/include"
 endif
 ifneq ($(strip $(INTERNAL_RELEASE_INCLUDES)),)
-	$(INSTALL_DIR) $(RELSYSDIR)/include/internal
-	$(INSTALL_DATA) $(INTERNAL_RELEASE_INCLUDES) $(RELSYSDIR)/include/internal
+	$(INSTALL_DIR) "$(RELSYSDIR)/include/internal"
+	$(INSTALL_DATA) $(INTERNAL_RELEASE_INCLUDES) "$(RELSYSDIR)/include/internal"
 endif
 ifneq ($(strip $(INTERNAL_X_RELEASE_INCLUDE_DIRS)),)
 	for xdir in $(INTERNAL_X_RELEASE_INCLUDE_DIRS); do \
-		$(INSTALL_DIR) $(RELSYSDIR)/include/internal/$$xdir; \
+		$(INSTALL_DIR) "$(RELSYSDIR)/include/internal/$$xdir"; \
 		$(INSTALL_DATA) $(ERTS_INCL_INT)/$$xdir/*.h \
-			$(RELSYSDIR)/include/internal/$$xdir; \
+			"$(RELSYSDIR)/include/internal/$$xdir"; \
 	done
 endif
 ifneq ($(strip $(RELEASE_LIBS)),)
-	$(INSTALL_DIR) $(RELSYSDIR)/lib
-	$(INSTALL_DIR) $(RELEASE_PATH)/usr/lib
-	$(INSTALL_DATA) $(RELEASE_LIBS) $(RELSYSDIR)/lib
-	$(INSTALL_DATA) $(RELEASE_LIBS) $(RELEASE_PATH)/usr/lib
+	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/lib"
+	$(INSTALL_DATA) $(RELEASE_LIBS) "$(RELSYSDIR)/lib"
+	$(INSTALL_DATA) $(RELEASE_LIBS) "$(RELEASE_PATH)/usr/lib"
 endif
 ifneq ($(strip $(INTERNAL_RELEASE_LIBS)),)
-	$(INSTALL_DIR) $(RELSYSDIR)/lib/internal
-	$(INSTALL_DATA) $(INTERNAL_RELEASE_LIBS) $(RELSYSDIR)/lib/internal
+	$(INSTALL_DIR) "$(RELSYSDIR)/lib/internal"
+	$(INSTALL_DATA) $(INTERNAL_RELEASE_LIBS) "$(RELSYSDIR)/lib/internal"
 endif
 
 .PHONY: docs

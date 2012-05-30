@@ -55,9 +55,9 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/conf
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/conf/agent
-	$(INSTALL_DATA) $(CONF_FILES) $(RELSYSDIR)/priv/conf/agent
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/conf"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/conf/agent"
+	$(INSTALL_DATA) $(CONF_FILES) "$(RELSYSDIR)/priv/conf/agent"
 
 release_docs_spec:
 

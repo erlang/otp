@@ -49,7 +49,7 @@ docs:
 run: opt
 	erl -smp -detached -pa $(TOPDIR)/ebin -s xrc 
 
-EXRELSYSDIR = $(RELSYSDIR)/examples/xrc
+EXRELSYSDIR = "$(RELSYSDIR)/examples/xrc"
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 docs: 

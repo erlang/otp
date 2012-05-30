@@ -68,8 +68,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/xsl
-	$(INSTALL_DATA) $(XSL_FILES) $(RELSYSDIR)/priv/xsl
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/xsl"
+	$(INSTALL_DATA) $(XSL_FILES) "$(RELSYSDIR)/priv/xsl"
 
 
 release_docs_spec:

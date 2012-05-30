@@ -118,8 +118,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/Stack
-	$(INSTALL_DATA) $(ERL_FILES) $(JAVA_FILES) $(CPP_FILES) $(IDL_FILES) $(RELSYSDIR)/examples/Stack
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/Stack"
+	$(INSTALL_DATA) $(ERL_FILES) $(JAVA_FILES) $(CPP_FILES) $(IDL_FILES) "$(RELSYSDIR)/examples/Stack"
 
 
 release_docs_spec:

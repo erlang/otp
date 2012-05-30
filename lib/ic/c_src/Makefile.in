@@ -140,12 +140,12 @@ $(OBJDIR)/%.o: %.c
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/c_src
-	$(INSTALL_DIR) $(RELSYSDIR)/include
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_DATA) ic.c ic_tmo.c $(RELSYSDIR)/c_src
-	$(INSTALL_DATA) $(IDL_FILES) $(H_FILES) $(RELSYSDIR)/include
-	$(INSTALL_DATA) $(LIBRARY) $(RELSYSDIR)/priv/lib
+	$(INSTALL_DIR) "$(RELSYSDIR)/c_src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
+	$(INSTALL_DATA) ic.c ic_tmo.c "$(RELSYSDIR)/c_src"
+	$(INSTALL_DATA) $(IDL_FILES) $(H_FILES) "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(LIBRARY) "$(RELSYSDIR)/priv/lib"
 
 release_docs_spec:
 

@@ -1178,7 +1178,7 @@ start_epmd(char *epmd)
 	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd", bindir);
 	arg1 = "-daemon";
 #else
-	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd -daemon", bindir);
+	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "\"%s" DIRSEP "epmd\" -daemon", bindir);
 #endif
     } 
 #ifdef __WIN32__

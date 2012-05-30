@@ -195,27 +195,27 @@ endif
 
 release_spec: opt
 	for d in bin ebin include src/dict; do \
-	    $(INSTALL_DIR) $(RELSYSDIR)/$$d; \
+	    $(INSTALL_DIR) "$(RELSYSDIR)/$$d"; \
 	done
-	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) $(RELSYSDIR)/bin
-	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
+	$(INSTALL_SCRIPT) $(BINS:%=../bin/%) "$(RELSYSDIR)/bin"
+	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
 	$(INSTALL_DATA) $(EXTERNAL_HRLS:%=../include/%) $(DICT_HRLS) \
-	                $(RELSYSDIR)/include
-	$(INSTALL_DATA) $(DICTS:%=dict/%.dia) $(RELSYSDIR)/src/dict
+	                "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(DICTS:%=dict/%.dia) "$(RELSYSDIR)/src/dict"
 	$(MAKE) $(TARGET_DIRS:%/=release_src_%)
 	$(MAKE) $(EXAMPLE_DIRS:%/=release_examples_%)
 
 $(TARGET_DIRS:%/=release_src_%): release_src_%:
-	$(INSTALL_DIR) $(RELSYSDIR)/src/$*
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/$*"
 	$(INSTALL_DATA) $(filter $*/%, $(TARGET_MODULES:%=%.erl) \
 	                               $(INTERNAL_HRLS)) \
 	                $(filter $*/%, compiler/$(DICT_YRL).yrl) \
-	                $(RELSYSDIR)/src/$*
+	                "$(RELSYSDIR)/src/$*"
 
 $(EXAMPLE_DIRS:%/=release_examples_%): release_examples_%:
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/$*
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/$*"
 	$(INSTALL_DATA) $(patsubst %, ../examples/%, $(filter $*/%, $(EXAMPLES))) \
-	                $(RELSYSDIR)/examples/$*
+	                "$(RELSYSDIR)/examples/$*"
 
 release_docs_spec:
 

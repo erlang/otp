@@ -128,12 +128,12 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 ifdef EXE_TARGET
-	$(INSTALL_DIR) $(RELSYSDIR)/c_src
-	$(INSTALL_DATA) $(C_FILES) $(H_FILES) $(RELSYSDIR)/c_src
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/bin
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/obj
-	$(INSTALL_PROGRAM) $(EXE_TARGET) $(RELSYSDIR)/priv/bin
+	$(INSTALL_DIR) "$(RELSYSDIR)/c_src"
+	$(INSTALL_DATA) $(C_FILES) $(H_FILES) "$(RELSYSDIR)/c_src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/bin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
+	$(INSTALL_PROGRAM) $(EXE_TARGET) "$(RELSYSDIR)/priv/bin"
 endif
 
 release_docs_spec:

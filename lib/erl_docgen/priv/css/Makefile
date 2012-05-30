@@ -64,13 +64,13 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/css
-	$(INSTALL_DATA) $(CSS_FILES) $(RELSYSDIR)/priv/css
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/css"
+	$(INSTALL_DATA) $(CSS_FILES) "$(RELSYSDIR)/priv/css"
 
 
 release_docs_spec:
-	$(INSTALL_DIR) $(RELEASE_PATH)/doc
-	$(INSTALL_DATA) $(CSS_FILES) ../nyi.html $(RELEASE_PATH)/doc
+	$(INSTALL_DIR) "$(RELEASE_PATH)/doc"
+	$(INSTALL_DATA) $(CSS_FILES) ../nyi.html "$(RELEASE_PATH)/doc"
 
 release_tests_spec:
 

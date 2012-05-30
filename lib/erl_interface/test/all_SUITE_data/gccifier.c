@@ -74,17 +74,23 @@ save_arg(args_t *args, char *arg1, ...)
 	    args->vec = (char **) (args->no
 				   ? realloc((void *) args->vec,
 					     (sizeof(char *)
-					      *(args->no + ARGS_INCR + 1)))
+					      *(args->no + ARGS_INCR + 2)))
 				   : malloc((sizeof(char *)
-					     *(args->no + ARGS_INCR + 1))));
+					     *(args->no + ARGS_INCR + 2))));
 	    if (!args->vec)
 		enomem();
 	    args->no += ARGS_INCR;
+	}
+	if (carg == arg1) {
+	  args->vec[args->ix++] = "\"";
+	  args->chars++;
 	}
 	args->vec[args->ix++] = carg;
 	args->chars += strlen(carg);
 	carg = va_arg(argp, char *);
     }
+    args->vec[args->ix++] = "\"";
+    args->chars++;
     args->vec[args->ix++] = " ";
     args->chars++;
     va_end(argp);

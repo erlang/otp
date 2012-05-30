@@ -47,8 +47,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/kernel-$(KERNEL_VSN)/examples
 EXAMPLES  = uds_dist
 
 release_spec:
-	$(INSTALL_DIR) $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
 	tar cf - $(EXAMPLES) | \
-	(cd $(RELSYSDIR); tar xf - ; chmod -R ug+w $(EXAMPLES) )
+	(cd "$(RELSYSDIR)"; tar xf - ; chmod -R ug+w $(EXAMPLES) )
 
 release_docs_spec:

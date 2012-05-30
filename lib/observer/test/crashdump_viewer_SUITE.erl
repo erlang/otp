@@ -589,7 +589,7 @@ create_dumps(DataDir,[Rel|Rels],Acc) ->
     Fun = fun() -> do_create_dumps(DataDir,Rel) end,
     Pa = filename:dirname(code:which(?MODULE)),
     {SlAllocDumps,Dumps,DosDump} = 
-	?t:run_on_shielded_node(Fun, compat_rel(Rel) ++ "-pa " ++ Pa),
+	?t:run_on_shielded_node(Fun, compat_rel(Rel) ++ "-pa \"" ++ Pa ++ "\""),
     create_dumps(DataDir,Rels,SlAllocDumps ++ Dumps ++ Acc ++ DosDump);
 create_dumps(_DataDir,[],Acc) ->
     Acc.
@@ -625,7 +625,7 @@ do_create_dumps(DataDir,Rel) ->
 %% not connected node, and with monitors and links between nodes.
 full_dist_dump(DataDir,Rel) ->
     Opt = rel_opt(Rel),
-    Pz = "-pz " ++ filename:dirname(code:which(?MODULE)),
+    Pz = "-pz \"" ++ filename:dirname(code:which(?MODULE)) ++ "\"",
     PzOpt = [{args,Pz}],
     {ok,N1} = ?t:start_node(n1,peer,Opt ++ PzOpt),
     {ok,N2} = ?t:start_node(n2,peer,Opt ++ PzOpt),

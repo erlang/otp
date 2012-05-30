@@ -49,8 +49,8 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec:
-	$(INSTALL_DIR) $(RELSYSDIR)/examples
-	$(INSTALL_DATA) $(EXAMPLE_FILES) $(RELSYSDIR)/examples
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
+	$(INSTALL_DATA) $(EXAMPLE_FILES) "$(RELSYSDIR)/examples"
 
 release_docs_spec:
 

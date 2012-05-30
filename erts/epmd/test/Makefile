@@ -71,10 +71,10 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec:
 
 release_tests_spec: opt
-	$(INSTALL_DIR) $(RELEPMDDIR)
+	$(INSTALL_DIR) "$(RELEPMDDIR)"
 	$(INSTALL_DATA) epmd.spec epmd.spec.vxworks $(ERL_FILES) \
-		$(EMAKEFILE) $(RELEPMDDIR)
-	chmod -R u+w $(RELEPMDDIR)
+		$(EMAKEFILE) "$(RELEPMDDIR)"
+	chmod -R u+w "$(RELEPMDDIR)"
 
 release_docs_spec:
 

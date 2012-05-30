@@ -54,8 +54,8 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/certs
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/certs"
 	tar cf - etc | \
-		(cd $(RELSYSDIR)/examples/certs; tar xf -)
-	chmod -R ug+rw $(RELSYSDIR)/examples
+		(cd "$(RELSYSDIR)/examples/certs"; tar xf -)
+	chmod -R ug+rw "$(RELSYSDIR)/examples"
 release_docs_spec:

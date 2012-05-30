@@ -1890,7 +1890,7 @@ start_node(Name, Args, Rel) when is_atom(Name), is_list(Rel) ->
 	     end,
     test_server:start_node(Name, slave, 
 			   [{args,
-			     Args++" -setcookie "++Cookie++" -pa "++Pa}
+			     Args++" -setcookie "++Cookie++" -pa \""++Pa++"\""}
 			    | RelArg]);
 start_node(Config, Args, Rel) when is_list(Config), is_list(Rel) ->
     Name = list_to_atom((atom_to_list(?MODULE)

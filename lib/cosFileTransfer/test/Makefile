@@ -126,8 +126,8 @@ release_spec:
 release_docs_spec:
 
 release_tests_spec: tests
-	$(INSTALL_DIR) $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(IDL_FILES)  $(TEST_SPEC_FILE) \
-		$(COVER_FILE) $(ERL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SUITE_TARGET_FILES) $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
+		$(COVER_FILE) $(ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(SUITE_TARGET_FILES) "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"

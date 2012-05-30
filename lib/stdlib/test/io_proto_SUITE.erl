@@ -137,7 +137,7 @@ unicode_prompt(Config) when is_list(Config) ->
 		  {putline, "io:get_line('')."},
 		  {putline, "hej"},
 		  {getline, "<<\"hej\\n\">>"}
-		  ],[],[],"-pa "++ PA),
+		  ],[],[],"-pa \""++ PA++"\""),
     %% And one with oldshell
      ?line rtnode([{putline,""},
 		   {putline, "2."},
@@ -153,7 +153,7 @@ unicode_prompt(Config) when is_list(Config) ->
 		   {putline, "io:get_line('')."},
 		   {putline, "hej"},
 		   {getline_re, ".*<<\"hej\\\\n\">>"}
-		  ],[],[],"-oldshell -pa "++PA),
+		  ],[],[],"-oldshell -pa \""++PA++"\""),
     ok.
     
 
@@ -732,7 +732,7 @@ bc_with_r12_1(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
     Name1 = io_proto_r12_1,
     ?line N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    ?line ?t:start_node(Name1, peer, [{args, "-pz "++PA},{erl,[{release,"r12b"}]}]),
+    ?line ?t:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},{erl,[{release,"r12b"}]}]),
     DataDir = ?config(data_dir,Config),
     %PrivDir = ?config(priv_dir,Config),
     FileName1 = filename:join([DataDir,"testdata_latin1.dat"]),
@@ -908,7 +908,7 @@ bc_with_r12_gl_1(_Config,Machine) ->
     PA = filename:dirname(code:which(?MODULE)),
     Name1 = io_proto_r12_gl_1,
     ?line N1 = list_to_atom(atom_to_list(Name1) ++ "@" ++ hostname()),
-    ?line ?t:start_node(Name1, peer, [{args, "-pz "++PA},{erl,[{release,"r12b"}]}]),
+    ?line ?t:start_node(Name1, peer, [{args, "-pz \""++PA++"\""},{erl,[{release,"r12b"}]}]),
     TestDataLine1 = [229,228,246],
     TestDataLine1BinUtf = unicode:characters_to_binary(TestDataLine1),
     TestDataLine1BinLatin = list_to_binary(TestDataLine1),
@@ -1290,7 +1290,7 @@ eof_on_pipe(Config) when is_list(Config) ->
 				   end
 			   end,
 		CommandLine1 = EchoLine ++
-		Erl++" -noshell -eval  "
+		"\""++Erl++"\" -noshell -eval  "
 		"'io:format(\"~p\",[io:get_line(\"\")]),"
 		"io:format(\"~p\",[io:get_line(\"\")]),"
 		"io:format(\"~p\",[io:get_line(\"\")]).' -run init stop",
@@ -1301,7 +1301,7 @@ eof_on_pipe(Config) when is_list(Config) ->
 			exit({unexpected1,Other1})
 		end,
 		CommandLine2 = EchoLine ++
-		Erl++" -noshell -eval  "
+		"\""++Erl++"\" -noshell -eval  "
 		"'io:setopts([binary]),io:format(\"~p\",[io:get_line(\"\")]),"
 		"io:format(\"~p\",[io:get_line(\"\")]),"
 		"io:format(\"~p\",[io:get_line(\"\")]).' -run init stop",
@@ -1340,7 +1340,8 @@ rtnode(Commands,Nodename,ErlPrefix,Extra) ->
 				?line {skip, Reason2};
 			    Tempdir ->
 				?line SPid = 
-				    start_runerl_node(RunErl,ErlPrefix++Erl,
+				    start_runerl_node(RunErl,ErlPrefix++
+							  "\\\""++Erl++"\\\"",
 						      Tempdir,Nodename, Extra),
 				?line CPid = start_toerl_server(ToErl,Tempdir),
 				?line erase(getline_skipped),
@@ -1607,10 +1608,10 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Extra) ->
 		    " "++Extra
 	    end,
     spawn(fun() ->
-		  ?dbg(RunErl++" "++Tempdir++"/ "++Tempdir++" \""++
-			 Erl++XArg++XXArg++"\""),
-		  os:cmd(RunErl++" "++Tempdir++"/ "++Tempdir++" \""++
-			 Erl++XArg++XXArg++"\"")
+		  ?dbg("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
+		       " \""++Erl++XArg++XXArg++"\""),
+		  os:cmd("\""++RunErl++"\" "++Tempdir++"/ "++Tempdir++
+			 " \""++Erl++XArg++XXArg++"\"")
 	  end).
 
 start_toerl_server(ToErl,Tempdir) ->
@@ -1640,7 +1641,7 @@ try_to_erl(Command, N) ->
     end.
 
 toerl_server(Parent,ToErl,Tempdir) ->
-    Port = try_to_erl(ToErl++" "++Tempdir++"/ 2>/dev/null",8),
+    Port = try_to_erl("\""++ToErl++"\" "++Tempdir++"/ 2>/dev/null",8),
     case Port of
 	P when is_port(P) ->
 	    Parent ! {self(),started};

@@ -30,7 +30,7 @@ APPLICATION=otp-system-documentation
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/doc/installation_guide
+RELSYSDIR = "$(RELEASE_PATH)/doc/installation_guide"
 REDIRECT_HTML_RELSYSDIR = $(RELSYSDIR)/source
 
 # ----------------------------------------------------

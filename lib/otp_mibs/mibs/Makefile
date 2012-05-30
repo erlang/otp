@@ -76,13 +76,13 @@ v1/%.mib.v1: %.mib
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/mibs
-	$(INSTALL_DIR) $(RELSYSDIR)/mibs/v1
-	$(INSTALL_DATA) $(MIB_FILES) $(FUNCS_FILES) $(RELSYSDIR)/mibs
-	$(INSTALL_DATA) $(V1_MIB_FILES) $(RELSYSDIR)/mibs/v1
-	$(INSTALL_DIR) $(RELSYSDIR)/include
-	$(INSTALL_DATA) $(HRL_TARGETS) $(RELSYSDIR)/include
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/mibs
-	$(INSTALL_DATA) $(BIN_TARGETS) $(RELSYSDIR)/priv/mibs
+	$(INSTALL_DIR) "$(RELSYSDIR)/mibs"
+	$(INSTALL_DIR) "$(RELSYSDIR)/mibs/v1"
+	$(INSTALL_DATA) $(MIB_FILES) $(FUNCS_FILES) "$(RELSYSDIR)/mibs"
+	$(INSTALL_DATA) $(V1_MIB_FILES) "$(RELSYSDIR)/mibs/v1"
+	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(HRL_TARGETS) "$(RELSYSDIR)/include"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/mibs"
+	$(INSTALL_DATA) $(BIN_TARGETS) "$(RELSYSDIR)/priv/mibs"
 
 release_docs_spec:

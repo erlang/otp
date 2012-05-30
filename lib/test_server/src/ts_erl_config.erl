@@ -128,15 +128,15 @@ erts_lib(Vars,OsType) ->
 		   ErtsLibInternal}
 	  end,
     [{erts_lib_include,
-      filename:nativename(ErtsLibInclude)},
+      quote(filename:nativename(ErtsLibInclude))},
      {erts_lib_include_generated,
-      filename:nativename(ErtsLibIncludeGenerated)},
+      quote(filename:nativename(ErtsLibIncludeGenerated))},
      {erts_lib_include_internal,
-      filename:nativename(ErtsLibIncludeInternal)},
+      quote(filename:nativename(ErtsLibIncludeInternal))},
      {erts_lib_include_internal_generated,
-      filename:nativename(ErtsLibIncludeInternalGenerated)},
-     {erts_lib_path, filename:nativename(ErtsLibPath)},
-     {erts_lib_internal_path, filename:nativename(ErtsLibInternalPath)},
+      quote(filename:nativename(ErtsLibIncludeInternalGenerated))},
+     {erts_lib_path, quote(filename:nativename(ErtsLibPath))},
+     {erts_lib_internal_path, quote(filename:nativename(ErtsLibInternalPath))},
      {erts_lib_multi_threaded, erts_lib_name(multi_threaded, OsType)},
      {erts_lib_single_threaded, erts_lib_name(single_threaded, OsType)}
      | Vars].
@@ -145,13 +145,13 @@ erl_include(Vars) ->
     Include = 
 	case erl_root(Vars) of
 	    {installed, Root} ->
-		filename:join([Root, "usr", "include"]);
+		quote(filename:join([Root, "usr", "include"]));
 	    {srctree, Root, Target} ->
-		filename:join([Root, "erts", "emulator", "beam"])
-		    ++ " -I" ++ filename:join([Root, "erts", "emulator"])
+		quote(filename:join([Root, "erts", "emulator", "beam"]))
+		    ++ " -I" ++ quote(filename:join([Root, "erts", "emulator"]))
 		    ++ system_include(Root, Vars)
-		    ++ " -I" ++ filename:join([Root, "erts", "include"])
-		    ++ " -I" ++ filename:join([Root, "erts", "include", Target])
+		    ++ " -I" ++ quote(filename:join([Root, "erts", "include"]))
+		    ++ " -I" ++ quote(filename:join([Root, "erts", "include", Target]))
 	end,
     [{erl_include, filename:nativename(Include)}|Vars].
 
@@ -163,7 +163,7 @@ system_include(Root, Vars) ->
 	    "VxWorks" -> "sys.vxworks";
 	    _ -> "sys/unix"
 	end,
-    " -I" ++ filename:nativename(filename:join([Root, "erts", "emulator", SysDir])).
+    " -I" ++ quote(filename:nativename(filename:join([Root, "erts", "emulator", SysDir]))).
 
 erl_interface(Vars,OsType) ->
     {Incl, {LibPath, MkIncl}} =
@@ -220,15 +220,15 @@ erl_interface(Vars,OsType) ->
 		    _ -> 
 			"" % VxWorks
 		end,
-    [{erl_interface_libpath, filename:nativename(LibPath)},
+    [{erl_interface_libpath, quote(filename:nativename(LibPath))},
      {erl_interface_sock_libs, sock_libraries(OsType)},
      {erl_interface_lib, Lib},
      {erl_interface_eilib, Lib1},
      {erl_interface_lib_drv, LibDrv},
      {erl_interface_eilib_drv, Lib1Drv},
      {erl_interface_threadlib, ThreadLib},
-     {erl_interface_include, filename:nativename(Incl)},
-     {erl_interface_mk_include, filename:nativename(MkIncl)}
+     {erl_interface_include, quote(filename:nativename(Incl))},
+     {erl_interface_mk_include, quote(filename:nativename(MkIncl))}
      | Vars].
 
 ic(Vars, OsType) ->
@@ -246,10 +246,10 @@ ic(Vars, OsType) ->
 		 end,
 		 filename:join(Dir, "include")}
 	end,
-    [{ic_classpath, filename:nativename(ClassPath)},
-     {ic_libpath, filename:nativename(LibPath)},
+    [{ic_classpath, quote(filename:nativename(ClassPath))},
+     {ic_libpath, quote(filename:nativename(LibPath))},
      {ic_lib, link_library("ic", OsType)},
-     {ic_include_path, filename:nativename(Incl)}|Vars].
+     {ic_include_path, quote(filename:nativename(Incl))}|Vars].
 
 jinterface(Vars, _OsType) ->
     ClassPath =
@@ -259,7 +259,7 @@ jinterface(Vars, _OsType) ->
 	    Dir ->
 		filename:join([Dir, "priv", "OtpErlang.jar"])
 	end,
-    [{jinterface_classpath, filename:nativename(ClassPath)}|Vars].
+    [{jinterface_classpath, quote(filename:nativename(ClassPath))}|Vars].
 
 lib_dir(Vars, Lib) ->
     LibLibDir = case Lib of
@@ -354,10 +354,17 @@ ssl(Vars, _OsType) ->
 	{error, bad_name} ->
 	    throw({cannot_find_app, ssl});
 	Dir ->
-	    [{ssl_libdir, filename:nativename(Dir)}| Vars]
+	    [{ssl_libdir, quote(filename:nativename(Dir))}| Vars]
     end.
 
 separators(Vars, {win32,_}) ->
     [{'DS',"\\"},{'PS',";"}|Vars];
 separators(Vars, _) ->
     [{'DS',"/"},{'PS',":"}|Vars].
+
+quote([$ |R]) ->
+    "\\ "++quote(R);
+quote([C|R]) ->
+    [C|quote(R)];
+quote([]) ->
+    [].

@@ -131,10 +131,10 @@ ifeq ($(findstring vxworks_simso,$(TARGET)),vxworks_simso)
 release_spec:
 else
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(C_FILES) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/bin
-	$(INSTALL_PROGRAM) $(TARGET_FILES) $(RELSYSDIR)/priv/bin
+	$(INSTALL_DIR) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(C_FILES) "$(RELSYSDIR)/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/bin"
+	$(INSTALL_PROGRAM) $(TARGET_FILES) "$(RELSYSDIR)/priv/bin"
 endif
 
 release_docs_spec:

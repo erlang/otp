@@ -49,11 +49,14 @@ VSN=$(MEGACO_VSN)
 
 DIR_NAME = megaco_src-$(VSN)$(PRE_VSN)
 
+nullstring :=
+space := $(nullstring) # a space at the end
+
 ifndef APP_RELEASE_DIR
   ifndef TESTROOT
     APP_RELEASE_DIR = /tmp
   else
-    APP_RELEASE_DIR = $(TESTROOT)
+    APP_RELEASE_DIR = $(subst $(space),\ ,$(TESTROOT))
   endif
 endif
 
@@ -151,7 +154,7 @@ version:
 # Application install (of a app built from source) targets
 # ----------------------------------------------------
 app_install:
-	$(MAKE) TESTROOT=$(APP_INSTALL_DIR) release 
+	$(MAKE) TESTROOT="$(APP_INSTALL_DIR)" release 
 
 
 # ----------------------------------------------------
@@ -185,20 +188,20 @@ TAR.exclude2: Makefile TAR.exclude
 	(cd ..; find megaco -name '.cmake.state' >> megaco/TAR.exclude2)
 
 $(APP_DIR): tar_exclude
-	mkdir -p $(APP_DIR); \
+	mkdir -p "$(subst $(space),\ ,$@)"; \
         (cd ..; tar cfX - megaco/TAR.exclude2 megaco) | \
-        (cd $(APP_DIR); tar xf -); \
-        mv $(APP_DIR)/megaco/* $(APP_DIR)/; \
-	mkdir $(APP_DIR)/autoconf; \
-        cp autoconf/config.guess $(APP_DIR)/autoconf/; \
-        cp autoconf/config.sub $(APP_DIR)/autoconf/; \
-        cp autoconf/install-sh $(APP_DIR)/autoconf/; \
-        rmdir $(APP_DIR)/megaco
+        (cd "$(subst $(space),\ ,$@)"; tar xf -); \
+        mv "$(subst $(space),\ ,$@)"/megaco/* "$(subst $(space),\ ,$@)"/; \
+	mkdir $(subst $(space),\ ,$@)/autoconf; \
+        cp autoconf/config.guess "$(subst $(space),\ ,$@)"/autoconf/; \
+        cp autoconf/config.sub "$(subst $(space),\ ,$@)"/autoconf/; \
+        cp autoconf/install-sh "$(subst $(space),\ ,$@)"/autoconf/; \
+        rmdir "$(subst $(space),\ ,$@)"/megaco
 
 tar: $(APP_TAR_FILE)
 
 $(APP_TAR_FILE): $(APP_DIR)
-	(cd $(APP_RELEASE_DIR); gtar zcf $(APP_TAR_FILE) $(DIR_NAME))
+	(cd "$(APP_RELEASE_DIR)"; gtar zcf "$(subst $(space),\ ,$@)" $(DIR_NAME))
 
 dialyzer_plt: $(DIA_PLT)
 
