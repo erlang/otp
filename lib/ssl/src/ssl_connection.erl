@@ -1094,7 +1094,7 @@ init_certificates(#ssl_options{cacerts = CaCerts,
 	end,
     init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, Role).
 
-init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, "", _) ->
+init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, <<>>, _) ->
     {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, undefined};
 
 init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheHandle, CertFile, client) ->
@@ -1117,7 +1117,7 @@ init_certificates(undefined, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHan
 init_certificates(Cert, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, _, _) ->
     {ok, CertDbRef, CertDbHandle, FileRefHandle, PemCacheHandle, CacheRef, Cert}.
 
-init_private_key(_, undefined, "", _Password, _Client) ->
+init_private_key(_, undefined, <<>>, _Password, _Client) ->
     undefined;
 init_private_key(DbHandle, undefined, KeyFile, Password, _) ->
     try
@@ -2373,7 +2373,7 @@ get_timeout(#state{ssl_options=#ssl_options{hibernate_after = undefined}}) ->
 get_timeout(#state{ssl_options=#ssl_options{hibernate_after = HibernateAfter}}) ->
     HibernateAfter.
 
-handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = ""}}) ->
+handle_trusted_certs_db(#state{ssl_options = #ssl_options{cacertfile = <<>>}}) ->
     %% No trusted certs specified
     ok;
 handle_trusted_certs_db(#state{cert_db_ref = Ref,

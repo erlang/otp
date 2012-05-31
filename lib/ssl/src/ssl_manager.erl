@@ -32,7 +32,7 @@
 	 lookup_trusted_cert/4,
 	 new_session_id/1, clean_cert_db/2,
 	 register_session/2, register_session/3, invalidate_session/2,
-	 invalidate_session/3]).
+	 invalidate_session/3, clear_pem_cache/0]).
 
 % Spawn export
 -export([init_session_validator/1]).
@@ -58,9 +58,10 @@
 -define('24H_in_sec', 8640).
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 -define(SESSION_VALIDATION_INTERVAL, 60000).
--define(PEM_CACHE_CLEANUP, 120000).
+-define(CLEAR_PEM_CACHE, 120000).
 -define(CLEAN_SESSION_DB, 60000).
 -define(CLEAN_CERT_DB, 500).
+-define(NOT_TO_BIG, 10).
 
 %%====================================================================
 %% API
@@ -84,24 +85,46 @@ start_link_dist(Opts) ->
     gen_server:start_link({local, ssl_manager_dist}, ?MODULE, [ssl_manager_dist, Opts], []).
 
 %%--------------------------------------------------------------------
--spec connection_init(string()| {der, list()}, client | server) ->
+-spec connection_init(binary()| {der, list()}, client | server) ->
 			     {ok, certdb_ref(), db_handle(), db_handle()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
+connection_init({der, _} = Trustedcerts, Role) ->
+    call({connection_init, Trustedcerts, Role});
+
+connection_init(<<>> = Trustedcerts, Role) ->
+    call({connection_init, Trustedcerts, Role});
+
 connection_init(Trustedcerts, Role) ->
     call({connection_init, Trustedcerts, Role}).
+
 %%--------------------------------------------------------------------
--spec cache_pem_file(string(), term()) -> {ok, term()} | {error, reason()}.
+-spec cache_pem_file(binary(), term()) -> {ok, term()} | {error, reason()}.
 %%		    
 %% Description: Cach a pem file and return its content.
 %%--------------------------------------------------------------------
 cache_pem_file(File, DbHandle) ->
-    case file:read_file_info(File) of
-	{ok, #file_info{mtime = LastWrite}} ->
-	    cache_pem_file(File, LastWrite, DbHandle);
-	Error -> Error
+    MD5 = crypto:md5(File),
+    case ssl_certificate_db:lookup_cached_pem(DbHandle, MD5) of
+	[Content] ->
+	   {ok, Content};
+	[{Content,_}] ->
+	    {ok, Content};
+	undefined ->
+	    call({cache_pem, {MD5, File}})
     end.
+
+%%--------------------------------------------------------------------
+-spec clear_pem_cache() -> ok.
+%%
+%% Description: Clear the PEM cache
+%%--------------------------------------------------------------------
+clear_pem_cache() ->
+    %% Not supported for distribution at the moement, should it be?
+    put(ssl_manager, ssl_manager),
+    call(unconditionally_clear_pem_cache).
+
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(term(), reference(), serialnumber(), issuer()) ->
 				 undefined | 
@@ -170,7 +193,7 @@ init([Name, Opts]) ->
     SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
     Timer = erlang:send_after(SessionLifeTime * 1000, 
 			      self(), validate_sessions),
-    erlang:send_after(?PEM_CACHE_CLEANUP, self(), clean_pem_cache),
+    erlang:send_after(?CLEAR_PEM_CACHE, self(), clear_pem_cache),
     {ok, #state{certificate_db = CertDb,
 		session_cache = SessionCache,
 		session_cache_cb = CacheCb,
@@ -188,7 +211,7 @@ init([Name, Opts]) ->
 %%
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
-handle_call({{connection_init, "", _Role}, _Pid}, _From,
+handle_call({{connection_init, <<>>, _Role}, _Pid}, _From,
 	    #state{certificate_db = [CertDb, FileRefDb, PemChace],
 		   session_cache = Cache} = State) ->
     Result = {ok, make_ref(),CertDb, FileRefDb, PemChace, Cache},
@@ -214,15 +237,18 @@ handle_call({{new_session_id,Port}, _},
     {reply, Id, State};
 
 
-handle_call({{cache_pem, File, LastWrite}, _Pid}, _,
+handle_call({{cache_pem, File}, _Pid}, _,
 	    #state{certificate_db = Db} = State) ->
-    try ssl_certificate_db:cache_pem_file(File, LastWrite, Db) of
+    try ssl_certificate_db:cache_pem_file(File, Db) of
 	Result ->
 	    {reply, Result, State}
     catch 
 	_:Reason ->
 	    {reply, {error, Reason}, State}
-    end.
+    end;
+handle_call({unconditionally_clear_pem_cache, _},_, #state{certificate_db = [_,_,PemChace]} = State) ->
+    ssl_certificate_db:clear(PemChace),
+    {reply, ok,  State}.
 
 %%--------------------------------------------------------------------
 -spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
@@ -283,10 +309,16 @@ handle_info({delayed_clean_session, Key}, #state{session_cache = Cache,
     CacheCb:delete(Cache, Key),
     {noreply, State};
 
-handle_info(clean_pem_cache, #state{certificate_db = [_,_,PemChace]} = State) ->
-    ssl_certificate_db:clean(PemChace),
-    erlang:send_after(?PEM_CACHE_CLEANUP, self(), clean_pem_cache),
+handle_info(clear_pem_cache, #state{certificate_db = [_,_,PemChace]} = State) ->
+    case ssl_certificate_db:db_size(PemChace) of
+	N  when N < ?NOT_TO_BIG ->
+	    ok;
+	_ ->
+	    ssl_certificate_db:clear(PemChace)
+    end,
+    erlang:send_after(?CLEAR_PEM_CACHE, self(), clear_pem_cache),
     {noreply, State};
+
 
 handle_info({clean_cert_db, Ref, File},
 	    #state{certificate_db = [CertDb,RefDb, PemCache]} = State) ->
@@ -294,8 +326,8 @@ handle_info({clean_cert_db, Ref, File},
 	0 ->
 	    MD5 = crypto:md5(File),
 	    case ssl_certificate_db:lookup_cached_pem(MD5, PemCache) of
-		[{Mtime, Content, Ref}] ->
-		    ssl_certificate_db:insert(MD5, {Mtime, Content}, PemCache);
+		[{Content, Ref}] ->
+		    ssl_certificate_db:insert(MD5, Content, PemCache);
 		undefined ->
 		    ok
 	    end,
@@ -379,24 +411,6 @@ session_validation({{{Host, Port}, _}, Session}, LifeTime) ->
 session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
-
-cache_pem_file(File, LastWrite, DbHandle) ->
-    case ssl_certificate_db:lookup_cached_pem(DbHandle,crypto:md5(File)) of
-	[{Mtime, Content}] ->
-	    handle_cached_entry(File, LastWrite, Mtime, Content);
-	[{Mtime, Content,_}] ->
-	     handle_cached_entry(File, LastWrite, Mtime, Content);
-	undefined ->
-	    call({cache_pem, File, LastWrite})
-    end.
-
-handle_cached_entry(File, LastWrite, Time, Content) ->
-    case LastWrite of
-	Time ->
-	    {ok, Content};
-	_ ->
-	    call({cache_pem, File, LastWrite})
-    end.
 
 delay_time() ->
     case application:get_env(ssl, session_delay_cleanup_time) of

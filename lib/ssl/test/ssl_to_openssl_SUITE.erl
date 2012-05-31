@@ -112,6 +112,9 @@ special_init(TestCase, Config)
 special_init(ssl2_erlang_server_openssl_client, Config) ->
     check_sane_openssl_sslv2(Config);
 
+special_init(ciphers_dsa_signed_certs, Config) ->
+    check_sane_openssl_dsa(Config);
+
 special_init(_, Config) ->
     Config.
     
@@ -1440,14 +1443,24 @@ check_sane_openssl_renegotaite(Config) ->
 	    {skip, "Known renegotiation bug in OppenSSL"};
 	"OpenSSL 0.9.7" ++ _ ->
 	    {skip, "Known renegotiation bug in OppenSSL"};
+	"OpenSSL 1.0.1c" ++ _ ->
+	    {skip, "Known renegotiation bug in OppenSSL"};
 	_ ->
 	    Config
     end.
 
 check_sane_openssl_sslv2(Config) ->
     case os:cmd("openssl version") of
-	"OpenSSL 1.0.0" ++ _ ->
+	"OpenSSL 1." ++ _ ->
 	    {skip, "sslv2 by default turned of in 1.*"};
+	_ ->
+	    Config
+    end.
+
+check_sane_openssl_dsa(Config) ->
+    case os:cmd("openssl version") of
+	"OpenSSL 1.0.1" ++ _ ->
+	    {skip, "known dsa bug in openssl"};
 	_ ->
 	    Config
     end.

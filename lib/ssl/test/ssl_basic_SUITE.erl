@@ -3649,6 +3649,8 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client0),
 
+    ssl:clear_pem_cache(),
+
     NewServerOpts = new_config(PrivDir, DsaServerOpts),
 
     Server1 =

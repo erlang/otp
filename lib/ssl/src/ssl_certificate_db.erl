@@ -27,14 +27,10 @@
 -include_lib("kernel/include/file.hrl").
 
 -export([create/0, remove/1, add_trusted_certs/3, 
-	 remove_trusted_certs/2, insert/3, remove/2, clean/1,
+	 remove_trusted_certs/2, insert/3, remove/2, clear/1, db_size/1,
 	 ref_count/3, lookup_trusted_cert/4, foldl/3,
-	 lookup_cached_pem/2, cache_pem_file/3, cache_pem_file/4,
+	 lookup_cached_pem/2, cache_pem_file/2, cache_pem_file/3,
 	 lookup/2]).
-
--type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
-
--define(NOT_TO_BIG, 10).
 
 %%====================================================================
 %% Internal application API
@@ -90,7 +86,8 @@ lookup_cached_pem(PemChache, MD5) ->
     lookup(MD5, PemChache).
 
 %%--------------------------------------------------------------------
--spec add_trusted_certs(pid(), string() | {der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
+-spec add_trusted_certs(pid(), {erlang:timestamp(), string()} |
+			{der, list()}, [db_handle()]) -> {ok, [db_handle()]}.
 %%
 %% Description: Adds the trusted certificates from file <File> to the
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
@@ -102,49 +99,36 @@ add_trusted_certs(_Pid, {der, DerList}, [CerDb, _,_]) ->
     {ok, NewRef};
 
 add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
-    {ok, #file_info{mtime = LastWrite}} = file:read_file_info(File),
     MD5 = crypto:md5(File),
     case lookup_cached_pem(Db, MD5) of
-	[{Mtime, Content}] ->
-	    case LastWrite of
-		Mtime ->
-		    Ref0 = make_ref(),
-		    insert(Ref0, [], 1, RefDb),
-		    insert(MD5, {Mtime, Content, Ref0}, PemChache),
-		    add_certs_from_pem(Content, Ref0, CertsDb),
-		    {ok, Ref0};
-		_ ->
-		    new_trusted_cert_entry(File, LastWrite, Db)
-	    end;
-	[{Mtime, _Content, Ref0}] ->
-	    case LastWrite of
-		Mtime ->
-		    ref_count(Ref0, RefDb, 1),
-		    {ok, Ref0};
-		_ ->
-		    new_trusted_cert_entry(File, LastWrite, Db)
-	    end;
+	[{_Content, Ref}] ->
+	    ref_count(Ref, RefDb, 1),
+	    {ok, Ref};
+	[Content] ->
+	    Ref = make_ref(),
+	    insert(Ref, [], 1, RefDb),
+	    insert(MD5, {Content, Ref}, PemChache),
+	    add_certs_from_pem(Content, Ref, CertsDb),
+	    {ok, Ref};
 	undefined ->
-	    new_trusted_cert_entry(File, LastWrite, Db)
+	    new_trusted_cert_entry({MD5, File}, Db)
     end.
 %%--------------------------------------------------------------------
--spec cache_pem_file(string(), time(), [db_handle()]) -> term().
--spec cache_pem_file(reference(), string(), time(), [db_handle()]) -> term().
+-spec cache_pem_file(string(), [db_handle()]) -> term().
+-spec cache_pem_file(reference(), string(), [db_handle()]) -> term().
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
-cache_pem_file(File, Time, [_CertsDb, _RefDb, PemChache]) ->
-    {ok, PemBin} = file:read_file(File), 
-    Content = public_key:pem_decode(PemBin),
-    MD5 = crypto:md5(File),
-    insert(MD5, {Time, Content}, PemChache),
-    {ok, Content}.
-
-cache_pem_file(Ref, File, Time, [_CertsDb, _RefDb, PemChache]) ->
+cache_pem_file({MD5, File}, [_CertsDb, _RefDb, PemChache]) ->
     {ok, PemBin} = file:read_file(File),
     Content = public_key:pem_decode(PemBin),
-    MD5 = crypto:md5(File),
-    insert(MD5, {Time, Content, Ref}, PemChache),
+    insert(MD5, Content, PemChache),
+    {ok, Content}.
+
+cache_pem_file(Ref, {MD5, File}, [_CertsDb, _RefDb, PemChache]) ->
+    {ok, PemBin} = file:read_file(File),
+    Content = public_key:pem_decode(PemBin),
+    insert(MD5, {Content, Ref}, PemChache),
     {ok, Content}.
 
 remove_trusted_certs(Ref, CertsDb) ->
@@ -194,17 +178,21 @@ ref_count(Key, Db, N) ->
     ets:update_counter(Db,Key,N).
 
 %%--------------------------------------------------------------------
--spec clean(db_handle()) -> term().
+-spec clear(db_handle()) -> term().
 %%
-%% Description: Updates a reference counter in a <Db>.
+%% Description: Clears the cache
 %%--------------------------------------------------------------------
-clean(Db) ->
-    case ets:info(Db, size) of
-	N  when N < ?NOT_TO_BIG ->
-	    ok;
-	_ ->
-	    ets:delete_all_objects(Db)
-    end.
+clear(Db) ->
+    ets:delete_all_objects(Db).
+
+%%--------------------------------------------------------------------
+-spec db_size(db_handle()) -> integer().
+%%
+%% Description: Returns the size of the db
+%%--------------------------------------------------------------------
+db_size(Db) ->
+    ets:info(Db, size).
+
 %%--------------------------------------------------------------------
 %%-spec insert(Key::term(), Data::term(), Db::db_handle()) -> no_return().
 %%
@@ -246,9 +234,9 @@ add_certs(Cert, Ref, CertsDb) ->
 	    error_logger:info_report(Report)
     end.
 
-new_trusted_cert_entry(File, LastWrite, [CertsDb,RefDb,PemChache] = Db) ->
+new_trusted_cert_entry(FileRef, [CertsDb, RefDb, _] = Db) ->
     Ref = make_ref(),
     insert(Ref, [], 1, RefDb),
-    {ok, Content} = cache_pem_file(Ref, File, LastWrite, Db),
+    {ok, Content} = cache_pem_file(Ref, FileRef, Db),
     add_certs_from_pem(Content, Ref, CertsDb),
     {ok, Ref}.
