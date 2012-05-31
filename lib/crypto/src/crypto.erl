@@ -43,8 +43,8 @@
 -export([exor/2]).
 -export([rc4_encrypt/2, rc4_set_key/1, rc4_encrypt_with_state/2]).
 -export([rc2_cbc_encrypt/3, rc2_cbc_decrypt/3, rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
--export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
--export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
+-export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4, rsa_verify_hash/4]).
+-export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3, dss_sign_hash/3, rsa_sign_hash/3]).
 -export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
 -export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
 -export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
@@ -80,8 +80,8 @@
 		    strong_rand_mpint,
 		    rand_uniform,
 		    mod_exp,
-		    dss_verify,dss_sign,
-		    rsa_verify,rsa_sign,
+		    dss_verify,dss_sign,dss_sign_hash,
+		    rsa_verify,rsa_verify_hash,rsa_sign,rsa_sign_hash,
 		    rsa_public_encrypt,rsa_private_decrypt, 
 		    rsa_private_encrypt,rsa_public_decrypt,
 		    dh_generate_key, dh_compute_key,
@@ -581,6 +581,8 @@ mod_exp_nif(_Base,_Exp,_Mod) -> ?nif_stub.
 -spec rsa_verify(binary(), binary(), [binary()]) -> boolean().
 -spec rsa_verify(rsa_digest_type(), binary(), binary(), [binary()]) ->
 			boolean().
+-spec rsa_verify_hash(rsa_digest_type(), binary(), binary(), [binary()]) ->
+			boolean().
 
 %% Key = [P,Q,G,Y]   P,Q,G=DSSParams  Y=PublicKey
 dss_verify(Data,Signature,Key) ->
@@ -595,8 +597,14 @@ rsa_verify(Type, Data, Signature, Key) ->
     	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
+rsa_verify_hash(Type, Hash, Signature, Key) ->
+    case rsa_verify_hash_nif(Type, Hash, Signature, Key) of
+	notsup -> erlang:error(notsup);
+	Bool -> Bool
+    end.
 
 rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
+rsa_verify_hash_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 
 
 %%
@@ -605,8 +613,10 @@ rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 %% Key = [P,Q,G,X]   P,Q,G=DSSParams  X=PrivateKey
 -spec dss_sign(binary(), [binary()]) -> binary().
 -spec dss_sign(dss_digest_type(), binary(), [binary()]) -> binary().
+-spec dss_sign_hash(dss_digest_type(), binary(), [binary()]) -> binary().
 -spec rsa_sign(binary(), [binary()]) -> binary().
 -spec rsa_sign(rsa_digest_type(), binary(), [binary()]) -> binary().
+-spec rsa_sign_hash(rsa_digest_type(), binary(), [binary()]) -> binary().
 
 dss_sign(Data,Key) ->
     dss_sign(sha,Data,Key).
@@ -615,8 +625,14 @@ dss_sign(Type, Data, Key) ->
 	error -> erlang:error(badkey, [Data, Key]);
 	Sign -> Sign
     end.
+dss_sign_hash(Type, Hash, Key) ->
+    case dss_sign_hash_nif(Type,Hash,Key) of
+	error -> erlang:error(badkey, [Hash, Key]);
+	Sign -> Sign
+    end.
 
 dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
+dss_sign_hash_nif(_Type,_Data,_Key) -> ?nif_stub.
 
 %% Key = [E,N,D]  E=PublicExponent N=PublicModulus  D=PrivateExponent
 rsa_sign(Data,Key) ->
@@ -626,8 +642,14 @@ rsa_sign(Type, Data, Key) ->
 	error -> erlang:error(badkey, [Type,Data,Key]);
 	Sign -> Sign
     end.
+rsa_sign_hash(Type, Hash, Key) ->
+    case rsa_sign_hash_nif(Type,Hash,Key) of
+	error -> erlang:error(badkey, [Type,Hash,Key]);
+	Sign -> Sign
+    end.
 
 rsa_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
+rsa_sign_hash_nif(_Type,_Data,_Key) -> ?nif_stub.
 
 
 %%

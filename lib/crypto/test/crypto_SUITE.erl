@@ -61,7 +61,9 @@
 	 rsa_verify_test/1,
 	 dsa_verify_test/1,
 	 rsa_sign_test/1,
+	 rsa_sign_hash_test/1,
 	 dsa_sign_test/1,	 
+	 dsa_sign_hash_test/1,
 	 rsa_encrypt_decrypt/1,
 	 dh/1,
 	 exor_test/1,
@@ -88,7 +90,8 @@ groups() ->
        aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
        rand_uniform_test, strong_rand_test,
        rsa_verify_test, dsa_verify_test, rsa_sign_test,
-       dsa_sign_test, rsa_encrypt_decrypt, dh, exor_test,
+       rsa_sign_hash_test, dsa_sign_test, dsa_sign_hash_test,
+       rsa_encrypt_decrypt, dh, exor_test,
        rc4_test, rc4_stream_test, mod_exp_test, blowfish_cfb64,
        smp]}].
 
@@ -1207,6 +1210,33 @@ rsa_sign_test(Config) when is_list(Config) ->
   
     ok.
     
+rsa_sign_hash_test(doc) ->
+    "rsa_sign_hash testing";
+rsa_sign_hash_test(suite) ->
+    [];
+rsa_sign_hash_test(Config) when is_list(Config) ->
+    PubEx  = 65537,
+    PrivEx = 7531712708607620783801185371644749935066152052780368689827275932079815492940396744378735701395659435842364793962992309884847527234216715366607660219930945,
+    Mod = 7919488123861148172698919999061127847747888703039837999377650217570191053151807772962118671509138346758471459464133273114654252861270845708312601272799123,
+    Msg = <<"7896345786348756234 Hejsan Svejsan, erlang crypto debugger"
+	   "09812312908312378623487263487623412039812 huagasd">>,
+
+    PrivKey = [crypto:mpint(PubEx), crypto:mpint(Mod), crypto:mpint(PrivEx)],
+    PubKey  = [crypto:mpint(PubEx), crypto:mpint(Mod)],
+    MD5 = crypto:md5(sized_binary(Msg)),
+    SHA = crypto:sha(sized_binary(Msg)),
+    ?line Sig1 = crypto:rsa_sign_hash(sha, SHA, PrivKey),
+    ?line m(crypto:rsa_verify_hash(sha, SHA, sized_binary(Sig1),PubKey), true),
+
+    ?line Sig2 = crypto:rsa_sign_hash(md5, MD5, PrivKey),
+    ?line m(crypto:rsa_verify_hash(md5, MD5, sized_binary(Sig2),PubKey), true),
+
+    ?line m(Sig1 =:= Sig2, false),
+    ?line m(crypto:rsa_verify_hash(md5, MD5, sized_binary(Sig1),PubKey), false),
+    ?line m(crypto:rsa_verify_hash(sha, SHA, sized_binary(Sig2),PubKey), false),
+
+    ok.
+
 dsa_sign_test(doc) ->
     "dsa_sign testing";
 dsa_sign_test(suite) ->
@@ -1235,6 +1265,37 @@ dsa_sign_test(Config) when is_list(Config) ->
 
     %%?line Bad = crypto:dss_sign(sized_binary(Msg), [Params, crypto:mpint(PubKey)]),
     
+    ok.
+
+dsa_sign_hash_test(doc) ->
+    "dsa_sign_hash testing";
+dsa_sign_hash_test(suite) ->
+    [];
+dsa_sign_hash_test(Config) when is_list(Config) ->
+    Msg = <<"7896345786348756234 Hejsan Svejsan, erlang crypto debugger"
+	   "09812312908312378623487263487623412039812 huagasd">>,
+    SHA = crypto:sha(sized_binary(Msg)),
+
+    PubKey = _Y = 25854665488880835237281628794585130313500176551981812527054397586638455298000483144002221850980183404910190346416063318160497344811383498859129095184158800144312512447497510551471331451396405348497845813002058423110442376886564659959543650802132345311573634832461635601376738282831340827591903548964194832978,
+    PrivKey = _X = 441502407453038284293378221372000880210588566361,
+    ParamP = 109799869232806890760655301608454668257695818999841877165019612946154359052535682480084145133201304812979481136659521529774182959764860329095546511521488413513097576425638476458000255392402120367876345280670101492199681798674053929238558140260669578407351853803102625390950534052428162468100618240968893110797,
+    ParamQ = 1349199015905534965792122312016505075413456283393,
+    ParamG = 18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669,
+
+    Params = [crypto:mpint(ParamP), crypto:mpint(ParamQ), crypto:mpint(ParamG)],
+    ?line Sig1 = crypto:dss_sign_hash(sha, SHA, Params ++ [crypto:mpint(PrivKey)]),
+
+    ?line m(crypto:dss_verify(none, SHA, sized_binary(Sig1),
+			      Params ++ [crypto:mpint(PubKey)]), true),
+
+    ?line m(crypto:dss_verify(sized_binary(one_bit_wrong(Msg)), sized_binary(Sig1),
+			      Params ++ [crypto:mpint(PubKey)]), false),
+
+    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(one_bit_wrong(Sig1)),
+			      Params ++ [crypto:mpint(PubKey)]), false),
+
+    %%?line Bad = crypto:dss_sign(sized_binary(Msg), [Params, crypto:mpint(PubKey)]),
+
     ok.
 
 

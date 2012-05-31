@@ -168,6 +168,7 @@ static ERL_NIF_TERM rand_uniform_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 static ERL_NIF_TERM mod_exp_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM rsa_verify_hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM exor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc4_encrypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -175,7 +176,9 @@ static ERL_NIF_TERM rc4_set_key(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 static ERL_NIF_TERM rc4_encrypt_with_state(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rc2_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM rsa_sign_hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM dss_sign_hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM dh_generate_parameters_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -256,6 +259,7 @@ static ErlNifFunc nif_funcs[] = {
     {"mod_exp_nif", 3, mod_exp_nif},
     {"dss_verify", 4, dss_verify},
     {"rsa_verify_nif", 4, rsa_verify_nif},
+    {"rsa_verify_hash_nif", 4, rsa_verify_hash_nif},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
     {"exor", 2, exor},
     {"rc4_encrypt", 2, rc4_encrypt},
@@ -263,7 +267,9 @@ static ErlNifFunc nif_funcs[] = {
     {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
     {"rc2_cbc_crypt", 4, rc2_cbc_crypt},
     {"rsa_sign_nif", 3, rsa_sign_nif},
+    {"rsa_sign_hash_nif", 3, rsa_sign_hash_nif},
     {"dss_sign_nif", 3, dss_sign_nif},
+    {"dss_sign_hash_nif", 3, dss_sign_hash_nif},
     {"rsa_public_crypt", 4, rsa_public_crypt},
     {"rsa_private_crypt", 4, rsa_private_crypt},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
@@ -1327,6 +1333,46 @@ done:
     return ret;
 }
 
+static ERL_NIF_TERM rsa_verify_hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type, Data, Signature, Key=[E,N]) */
+    ErlNifBinary data_bin, sign_bin;
+    ERL_NIF_TERM head, tail, ret;
+    int i, type;
+    RSA* rsa = RSA_new();
+
+    if (!enif_inspect_binary(env,argv[1],&data_bin)) {
+	ret = enif_make_badarg(env);
+	goto done;
+    }
+
+    if (argv[0] == atom_sha && data_bin.size == SHA_DIGEST_LENGTH) type = NID_sha1;
+    else if (argv[0] == atom_sha256 && data_bin.size == SHA256_DIGEST_LENGTH) type = NID_sha256;
+    else if (argv[0] == atom_sha512 && data_bin.size == SHA512_DIGEST_LENGTH) type = NID_sha512;
+    else if (argv[0] == atom_md5 && data_bin.size == MD5_DIGEST_LENGTH) type = NID_md5;
+    else {
+	ret = enif_make_badarg(env);
+	goto done;
+    }
+
+    if (!inspect_mpint(env, argv[2], &sign_bin)
+	|| !enif_get_list_cell(env, argv[3], &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !enif_is_empty_list(env, tail)) {
+
+	ret = enif_make_badarg(env);
+    }
+    else {
+	i = RSA_verify(type, data_bin.data, data_bin.size,
+		       sign_bin.data+4, sign_bin.size-4, rsa);
+	ret = (i==1 ? atom_true : atom_false);
+    }
+done:
+    RSA_free(rsa);
+    return ret;
+}
+
 static ERL_NIF_TERM aes_cbc_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, IVec, Data, IsEncrypt) */
     ErlNifBinary key_bin, ivec_bin, data_bin;
@@ -1530,6 +1576,52 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     }
 }
 
+static ERL_NIF_TERM rsa_sign_hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Type,Data,Key=[E,N,D]) */
+    ErlNifBinary data_bin, ret_bin;
+    ERL_NIF_TERM head, tail;
+    unsigned rsa_s_len;
+    RSA *rsa = RSA_new();
+    int i, type;
+
+    if (!enif_inspect_binary(env,argv[1],&data_bin))
+	goto badarg;
+
+    if (argv[0] == atom_sha && data_bin.size == SHA_DIGEST_LENGTH) type = NID_sha1;
+    else if (argv[0] == atom_sha256 && data_bin.size == SHA256_DIGEST_LENGTH) type = NID_sha256;
+    else if (argv[0] == atom_sha512 && data_bin.size == SHA512_DIGEST_LENGTH) type = NID_sha512;
+    else if (argv[0] == atom_md5 && data_bin.size == MD5_DIGEST_LENGTH) type = NID_md5;
+    else goto badarg;
+
+    if (!enif_get_list_cell(env, argv[2], &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->e)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->n)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &rsa->d)
+	|| !enif_is_empty_list(env,tail)) {
+    badarg:
+	RSA_free(rsa);
+	return enif_make_badarg(env);
+    }
+    enif_alloc_binary(RSA_size(rsa), &ret_bin);
+    i =  RSA_sign(type, data_bin.data, data_bin.size,
+		  ret_bin.data, &rsa_s_len, rsa);
+    RSA_free(rsa);
+    if (i) {
+	ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, rsa_s_len);
+	if (rsa_s_len != data_bin.size) {
+	    enif_realloc_binary(&ret_bin, rsa_s_len);
+	    ERL_VALGRIND_ASSERT_MEM_DEFINED(ret_bin.data, rsa_s_len);
+	}
+	return enif_make_binary(env,&ret_bin);
+    }
+    else {
+	enif_release_binary(&ret_bin);
+	return atom_error;
+    }
+}
+
 static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (DigesType, Data, Key=[P,Q,G,PrivKey]) */
     ErlNifBinary data_bin, ret_bin;
@@ -1566,6 +1658,53 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     enif_alloc_binary(DSA_size(dsa), &ret_bin);
     i =  DSA_sign(NID_sha1, hmacbuf, SHA_DIGEST_LENGTH,
+		  ret_bin.data, &dsa_s_len, dsa);
+    DSA_free(dsa);
+    if (i) {
+	if (dsa_s_len != ret_bin.size) {
+	    enif_realloc_binary(&ret_bin, dsa_s_len);
+	}
+	return enif_make_binary(env, &ret_bin);
+    }
+    else {
+	return atom_error;
+    }
+}
+
+static ERL_NIF_TERM dss_sign_hash_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (DigesType, Data, Key=[P,Q,G,PrivKey]) */
+    ErlNifBinary data_bin, ret_bin;
+    ERL_NIF_TERM head, tail;
+    unsigned int dsa_s_len;
+    DSA* dsa = DSA_new();
+    int i, type;
+
+    if (!enif_inspect_binary(env,argv[1],&data_bin))
+	goto badarg;
+
+    if (argv[0] == atom_sha && data_bin.size == SHA_DIGEST_LENGTH) type = NID_sha1;
+    else if (argv[0] == atom_sha256 && data_bin.size == SHA256_DIGEST_LENGTH) type = NID_sha256;
+    else if (argv[0] == atom_sha512 && data_bin.size == SHA512_DIGEST_LENGTH) type = NID_sha512;
+    else if (argv[0] == atom_md5 && data_bin.size == MD5_DIGEST_LENGTH) type = NID_md5;
+    else goto badarg;
+
+    dsa->pub_key  = NULL;
+    if (!enif_get_list_cell(env, argv[2], &head, &tail)
+	|| !get_bn_from_mpint(env, head, &dsa->p)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &dsa->q)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &dsa->g)
+	|| !enif_get_list_cell(env, tail, &head, &tail)
+	|| !get_bn_from_mpint(env, head, &dsa->priv_key)
+	|| !enif_is_empty_list(env,tail)) {
+    badarg:
+	    DSA_free(dsa);
+	    return enif_make_badarg(env);
+    }
+
+    enif_alloc_binary(DSA_size(dsa), &ret_bin);
+    i =  DSA_sign(type, data_bin.data, data_bin.size,
 		  ret_bin.data, &dsa_s_len, dsa);
     DSA_free(dsa);
     if (i) {
