@@ -83,6 +83,7 @@ start() ->
   {Args, Analysis} = process_cl_args(),
   %% io:format("Args: ~p\n", [Args]),
   %% io:format("Analysis: ~p\n", [Analysis]),
+  Timer = dialyzer_timing:init(false),
   TrustedFiles = filter_fd(Args#args.trusted, [], fun is_erl_file/1),
   Analysis2 = extract(Analysis, TrustedFiles),
   All_Files = get_all_files(Args),
@@ -91,6 +92,7 @@ start() ->
   Analysis4 = collect_info(Analysis3),
   %% io:format("Final: ~p\n", [Analysis4#analysis.fms]),
   TypeInfo = get_type_info(Analysis4),
+  dialyzer_timing:stop(Timer),
   show_or_annotate(TypeInfo),
   %% io:format("\nTyper analysis finished\n"),
   erlang:halt(0).
@@ -181,7 +183,6 @@ get_type_info(#analysis{callgraph = CallGraph,
 
 remove_external(CallGraph, PLT) ->
   {StrippedCG0, Ext} = dialyzer_callgraph:remove_external(CallGraph),
-  StrippedCG = dialyzer_callgraph:finalize(StrippedCG0),
   case get_external(Ext, PLT) of
     [] -> ok;
     Externals ->
@@ -192,7 +193,7 @@ remove_external(CallGraph, PLT) ->
         _ -> msg(io_lib:format(" Unknown types: ~p\n", [ExtTypes]))
       end
   end,
-  StrippedCG.
+  StrippedCG0.
 
 -spec get_external([{mfa(), mfa()}], plt()) -> [mfa()].
 
@@ -901,8 +902,9 @@ analyze_core_tree(Core, Records, SpecInfo, CbInfo, ExpTypes, Analysis, File) ->
   MergedExpTypes = sets:union(ExpTypes, OldExpTypes),
   CS6 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes, CS5),
   Ex_Funcs = [{0,F,A} || {_,_,{F,A}} <- cerl:module_exports(Tree)],
-  TmpCG = Analysis#analysis.callgraph,
-  CG = dialyzer_callgraph:scan_core_tree(Tree, TmpCG),
+  CG = Analysis#analysis.callgraph,
+  {V, E} = dialyzer_callgraph:scan_core_tree(Tree, CG),
+  dialyzer_callgraph:add_edges(E, V, CG),
   Fun = fun analyze_one_function/2,
   All_Defs = cerl:module_defs(Tree),
   Acc = lists:foldl(Fun, #tmpAcc{file = File, module = Module}, All_Defs),

@@ -63,7 +63,10 @@ MODULES =  \
 	dialyzer_plt \
 	dialyzer_races \
 	dialyzer_succ_typings \
+	dialyzer_timing \
 	dialyzer_typesig \
+	dialyzer_coordinator \
+	dialyzer_worker \
 	dialyzer_utils
 
 HRL_FILES= dialyzer.hrl dialyzer_gui_wx.hrl
