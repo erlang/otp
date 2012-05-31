@@ -112,7 +112,7 @@ get_helper_timeout() ->
 set_helper_timeout(Seconds) ->
     case param_type(memsup_helper_timeout, Seconds) of
 	true ->
-	    os_mon:call(memsup, {set_helper_timeout, Seconds});
+	    os_mon:call(memsup, {set_helper_timeout, Seconds}, infinity);
 	false ->
 	    erlang:error(badarg)
     end.
