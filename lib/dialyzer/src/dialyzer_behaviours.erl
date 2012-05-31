@@ -30,7 +30,7 @@
 
 -module(dialyzer_behaviours).
 
--export([check_callbacks/4, get_behaviour_apis/1,
+-export([check_callbacks/5, get_behaviour_apis/1,
 	 translate_behaviour_api_call/5, translatable_behaviours/1,
 	 translate_callgraph/3]).
 
@@ -47,15 +47,16 @@
 -record(state, {plt        :: dialyzer_plt:plt(),
 		codeserver :: dialyzer_codeserver:codeserver(),
 		filename   :: file:filename(),
-		behlines   :: [{behaviour(), non_neg_integer()}]}).
+		behlines   :: [{behaviour(), non_neg_integer()}],
+		records    :: dict()}).
 
 %%--------------------------------------------------------------------
 
--spec check_callbacks(module(), [{cerl:cerl(), cerl:cerl()}],
+-spec check_callbacks(module(), [{cerl:cerl(), cerl:cerl()}], dict(),
 		      dialyzer_plt:plt(),
 		      dialyzer_codeserver:codeserver()) -> [dial_warning()].
 
-check_callbacks(Module, Attrs, Plt, Codeserver) ->
+check_callbacks(Module, Attrs, Records, Plt, Codeserver) ->
   {Behaviours, BehLines} = get_behaviours(Attrs),
   case Behaviours of
     [] -> [];
@@ -64,7 +65,7 @@ check_callbacks(Module, Attrs, Plt, Codeserver) ->
       {_Var,Code} = dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
       File = get_file(cerl:get_ann(Code)),
       State = #state{plt = Plt, filename = File, behlines = BehLines,
-		     codeserver = Codeserver},
+		     codeserver = Codeserver, records = Records},
       Warnings = get_warnings(Module, Behaviours, State),
       [add_tag_file_line(Module, W, State) || W <- Warnings]
   end.
@@ -92,24 +93,21 @@ get_warnings(Module, [Behaviour|Rest], State, Acc) ->
 
 check_behaviour(Module, Behaviour, #state{plt = Plt} = State, Acc) ->
   case dialyzer_plt:lookup_callbacks(Plt, Behaviour) of
-    [] -> [{callback_info_missing, [Behaviour]}|Acc];
-    Callbacks -> check_all_callbacks(Module, Behaviour, Callbacks, State, Acc)
+    none -> [{callback_info_missing, [Behaviour]}|Acc];
+    {value, Callbacks} ->
+      check_all_callbacks(Module, Behaviour, Callbacks, State, Acc)
   end.
 
 check_all_callbacks(_Module, _Behaviour, [], _State, Acc) ->
   Acc;
 check_all_callbacks(Module, Behaviour, [Cb|Rest],
-		    #state{plt = Plt, codeserver = Codeserver} = State, Acc) ->
+		    #state{plt = Plt, codeserver = Codeserver,
+			   records = Records} = State, Acc) ->
   {{Behaviour, Function, Arity},
    {{_BehFile, _BehLine}, Callback}} = Cb,
   CbMFA = {Module, Function, Arity},
   CbReturnType = dialyzer_contracts:get_contract_return(Callback),
   CbArgTypes = dialyzer_contracts:get_contract_args(Callback),
-  Records =
-    case dict:find(Module, dialyzer_codeserver:get_records(Codeserver)) of
-      {ok, V} -> V;
-      error -> dict:new()
-    end,
   Acc0 = Acc,
   Acc1 = 
     case dialyzer_plt:lookup(Plt, CbMFA) of
@@ -282,8 +280,8 @@ translate_callgraph([{Behaviour,_}|Behaviours], Module, Callgraph) ->
   DirectCalls = [{From, {Module, Fun, Arity}} ||
 		  {From, To} <- UsedCalls,{API, {Fun, Arity, _Ord}} <- Calls,
 		  To =:= API],
-  NewCallgraph = dialyzer_callgraph:add_edges(DirectCalls, Callgraph),
-  translate_callgraph(Behaviours, Module, NewCallgraph);
+  dialyzer_callgraph:add_edges(DirectCalls, Callgraph),
+  translate_callgraph(Behaviours, Module, Callgraph);
 translate_callgraph([], _Module, Callgraph) ->
   Callgraph.
 

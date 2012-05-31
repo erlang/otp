@@ -32,12 +32,10 @@
 
 %% Data structure interfaces.
 -export([state__add_warning/2, state__cleanup/1,
+	 state__duplicate/1, dispose_state/1,
          state__get_callgraph/1, state__get_races/1,
          state__get_records/1, state__put_callgraph/2,
          state__put_races/2, state__records_only/1]).
-
-%% Debug and test interfaces.
--export([get_top_level_signatures/2, pp/1]).
 
 -export_type([state/0]).
 
@@ -67,7 +65,7 @@
 
 %%-define(DEBUG, true).
 %%-define(DEBUG_PP, true).
-%%-define(DOT, true).
+%%-define(DEBUG_TIME, true).
 
 -ifdef(DEBUG).
 -import(erl_types, [t_to_string/1]).
@@ -111,7 +109,7 @@
 
 -spec get_warnings(cerl:c_module(), dialyzer_plt:plt(),
                    dialyzer_callgraph:callgraph(), dict(), set()) ->
-	{[dial_warning()], dict(), dict(), [label()], [string()]}.
+	{[dial_warning()], dict()}.
 
 get_warnings(Tree, Plt, Callgraph, Records, NoWarnUnused) ->
   State1 = analyze_module(Tree, Plt, Callgraph, Records, true),
@@ -119,145 +117,14 @@ get_warnings(Tree, Plt, Callgraph, Records, NoWarnUnused) ->
   State3 =
     state__renew_warnings(state__get_warnings(State2, NoWarnUnused), State2),
   State4 = state__get_race_warnings(State3),
-  Callgraph1 = State2#state.callgraph,
-  {State4#state.warnings, state__all_fun_types(State4),
-   dialyzer_callgraph:get_race_code(Callgraph1),
-   dialyzer_callgraph:get_public_tables(Callgraph1),
-   dialyzer_callgraph:get_named_tables(Callgraph1)}.
+  {State4#state.warnings, state__all_fun_types(State4)}.
 
 -spec get_fun_types(cerl:c_module(), dialyzer_plt:plt(),
-                    dialyzer_callgraph:callgraph(), dict()) ->
-	{dict(), dict(), [label()], [string()]}.
+                    dialyzer_callgraph:callgraph(), dict()) -> dict().
 
 get_fun_types(Tree, Plt, Callgraph, Records) ->
   State = analyze_module(Tree, Plt, Callgraph, Records, false),
-  Callgraph1 = State#state.callgraph,
-  {state__all_fun_types(State),
-   dialyzer_callgraph:get_race_code(Callgraph1),
-   dialyzer_callgraph:get_public_tables(Callgraph1),
-   dialyzer_callgraph:get_named_tables(Callgraph1)}.
-
-%%--------------------------------------------------------------------
-
--spec pp(file:filename()) -> 'ok'.
-
-pp(File) ->
-  {ok, Code} = dialyzer_utils:get_core_from_src(File, [no_copt]),
-  Plt = get_def_plt(),
-  AnnTree = annotate_module(Code, Plt),
-  io:put_chars(cerl_prettypr:format(AnnTree, [{hook, cerl_typean:pp_hook()}])),
-  io:nl().
-
-%%--------------------------------------------------------------------
-%% This is used in the testsuite.
-
--spec get_top_level_signatures(cerl:c_module(), dict()) ->
-        [{{atom(), arity()}, erl_types:erl_type()}].
-
-get_top_level_signatures(Code, Records) ->
-  {Tree, _} = cerl_trees:label(cerl:from_records(Code)),
-  Callgraph0 = dialyzer_callgraph:new(),
-  Callgraph1 = dialyzer_callgraph:scan_core_tree(Tree, Callgraph0),
-  {Callgraph2, _} = dialyzer_callgraph:remove_external(Callgraph1),
-  Callgraph = dialyzer_callgraph:finalize(Callgraph2),
-  to_dot(Callgraph),
-  Plt = get_def_plt(),
-  FunTypes = get_fun_types(Tree, Plt, Callgraph, Records),
-  FunTypes1 = lists:foldl(fun({V, F}, Acc) ->
-			      Label = get_label(F),
-			      case dict:find(Label, Acc) of
-				error ->
-				  Arity = cerl:fname_arity(V),
-				  Type = t_fun(lists:duplicate(Arity,
-							       t_none()),
-					       t_none()),
-				  dict:store(Label, Type, Acc);
-				{ok, _} -> Acc
-			      end
-			  end, FunTypes, cerl:module_defs(Tree)),
-  dialyzer_callgraph:delete(Callgraph),
-  Sigs = [{{cerl:fname_id(V), cerl:fname_arity(V)},
-	   dict:fetch(get_label(F), FunTypes1)}
-	  || {V, F} <- cerl:module_defs(Tree)],
-  ordsets:from_list(Sigs).
-
-get_def_plt() ->
-  try
-    dialyzer_plt:from_file(dialyzer_plt:get_default_plt())
-  catch
-    throw:{dialyzer_error, _} -> dialyzer_plt:new()
-  end.
-
-%%% ===========================================================================
-%%%
-%%%  Annotate all top level funs.
-%%%
-%%% ===========================================================================
-
-annotate_module(Code, Plt) ->
-  {Tree, _} = cerl_trees:label(cerl:from_records(Code)),
-  Callgraph0 = dialyzer_callgraph:new(),
-  Callgraph1 = dialyzer_callgraph:scan_core_tree(Tree, Callgraph0),
-  {Callgraph2, _} = dialyzer_callgraph:remove_external(Callgraph1),
-  Callgraph = dialyzer_callgraph:finalize(Callgraph2),
-  State = analyze_module(Tree, Plt, Callgraph),
-  Res = annotate(Tree, State),
-  dialyzer_callgraph:delete(Callgraph),
-  Res.
-
-annotate(Tree, State) ->
-  case cerl:subtrees(Tree) of
-    [] -> set_type(Tree, State);
-    List ->
-      NewSubTrees = [[annotate(Subtree, State) || Subtree <- Group]
-		     || Group <- List],
-      NewTree = cerl:update_tree(Tree, NewSubTrees),
-      set_type(NewTree, State)
-  end.
-
-set_type(Tree, State) ->
-  case cerl:type(Tree) of
-    'fun' ->
-      Type = state__fun_type(Tree, State),
-      case t_is_any(Type) of
-	true ->
-	  cerl:set_ann(Tree, delete_ann(typesig, cerl:get_ann(Tree)));
-	false ->
-	  cerl:set_ann(Tree, append_ann(typesig, Type, cerl:get_ann(Tree)))
-      end;
-    apply ->
-      case state__find_apply_return(Tree, State) of
-	unknown -> Tree;
-	ReturnType ->
-	  case t_is_any(ReturnType) of
-	    true ->
-	      cerl:set_ann(Tree, delete_ann(type, cerl:get_ann(Tree)));
-	    false ->
-	      cerl:set_ann(Tree, append_ann(type, ReturnType,
-					    cerl:get_ann(Tree)))
-	  end
-      end;
-    _ ->
-      Tree
-  end.
-
-append_ann(Tag, Val, [X | Xs]) ->
-  if tuple_size(X) >= 1, element(1, X) =:= Tag ->
-      append_ann(Tag, Val, Xs);
-     true ->
-      [X | append_ann(Tag, Val, Xs)]
-  end;
-append_ann(Tag, Val, []) ->
-  [{Tag, Val}].
-
-delete_ann(Tag, [X | Xs]) ->
-  if tuple_size(X) >= 1, element(1, X) =:= Tag ->
-      delete_ann(Tag, Xs);
-     true ->
-      [X | delete_ann(Tag, Xs)]
-  end;
-delete_ann(_, []) ->
-  [].
+  state__all_fun_types(State).
 
 %%% ===========================================================================
 %%%
@@ -265,56 +132,46 @@ delete_ann(_, []) ->
 %%%
 %%% ===========================================================================
 
-analyze_module(Tree, Plt, Callgraph) ->
-  analyze_module(Tree, Plt, Callgraph, dict:new(), false).
-
 analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
   debug_pp(Tree, false),
   Module = cerl:atom_val(cerl:module_name(Tree)),
   RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
-  RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
   BehaviourTranslations =
     case RaceDetection of
       true -> dialyzer_behaviours:translatable_behaviours(Tree);
       false -> []
     end,
   TopFun = cerl:ann_c_fun([{label, top}], [], Tree),
-  State = state__new(dialyzer_callgraph:race_code_new(Callgraph),
-		     TopFun, Plt, Module, Records, BehaviourTranslations),
+  State =
+    state__new(Callgraph, TopFun, Plt, Module, Records, BehaviourTranslations),
   State1 = state__race_analysis(not GetWarnings, State),
   State2 = analyze_loop(State1),
   case GetWarnings of
     true ->
       State3 = state__set_warning_mode(State2),
       State4 = analyze_loop(State3),
-      State5 = state__restore_race_code(RaceCode, State4),
 
       %% EXPERIMENTAL: Turn all behaviour API calls into calls to the
       %%               respective callback module's functions.
 
       case BehaviourTranslations of
-	[] -> dialyzer_races:race(State5);
+	[] -> dialyzer_races:race(State4);
 	Behaviours ->
-          Callgraph2 = State5#state.callgraph,
-          Digraph = dialyzer_callgraph:get_digraph(Callgraph2),
+          Digraph = dialyzer_callgraph:get_digraph(State4#state.callgraph),
 	  TranslatedCallgraph =
 	    dialyzer_behaviours:translate_callgraph(Behaviours, Module,
-						    Callgraph2),
+						    Callgraph),
           St =
-            dialyzer_races:race(State5#state{callgraph = TranslatedCallgraph}),
-          Callgraph3 = dialyzer_callgraph:put_digraph(Digraph,
-                                                      St#state.callgraph),
-          St#state{callgraph = Callgraph3}
+            dialyzer_races:race(State4#state{callgraph = TranslatedCallgraph}),
+          FinalCallgraph = dialyzer_callgraph:put_digraph(Digraph,
+							   St#state.callgraph),
+          St#state{callgraph = FinalCallgraph}
       end;
     false ->
-      Callgraph1 = State2#state.callgraph,
-      RaceCode1 = dialyzer_callgraph:get_race_code(Callgraph1),
-      state__restore_race_code(
-        dict:merge(fun (_K, V1, _V2) -> V1 end,
-                   RaceCode, RaceCode1), State2)
+      State2
   end.
 
-analyze_loop(#state{callgraph = Callgraph, races = Races} = State) ->
+analyze_loop(State) ->
   case state__get_work(State) of
     none -> State;
     {Fun, NewState1} ->
@@ -340,10 +197,9 @@ analyze_loop(#state{callgraph = Callgraph, races = Races} = State) ->
 	      Map1 = enter_type_lists(Vars, ArgTypes, Map),
 	      Body = cerl:fun_body(Fun),
               FunLabel = get_label(Fun),
-              RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
-              RaceAnalysis = dialyzer_races:get_race_analysis(Races),
+	      IsRaceAnalysisEnabled = is_race_analysis_enabled(State),
               NewState3 =
-                case RaceDetection andalso RaceAnalysis of
+                case IsRaceAnalysisEnabled of
                   true ->
                     NewState2 = state__renew_curr_fun(
                       state__lookup_name(FunLabel, NewState1), FunLabel,
@@ -357,17 +213,8 @@ analyze_loop(#state{callgraph = Callgraph, races = Races} = State) ->
 		     [state__lookup_name(get_label(Fun), State),
 		      t_to_string(t_fun(ArgTypes, BodyType))]),
               NewState5 =
-                case RaceDetection andalso RaceAnalysis of
-                  true ->
-		    Races1 = NewState4#state.races,
-                    Code = lists:reverse(dialyzer_races:get_race_list(Races1)),
-                    Callgraph1 =
-                      renew_code(dialyzer_races:get_curr_fun(Races1),
-                                 dialyzer_races:get_curr_fun_args(Races1),
-                                 Code,
-                                 state__warning_mode(NewState4),
-                                 NewState4#state.callgraph),
-                    NewState4#state{callgraph = Callgraph1};
+                case IsRaceAnalysisEnabled of
+                  true -> renew_race_code(NewState4);
                   false -> NewState4
                 end,
               NewState6 =
@@ -582,9 +429,7 @@ handle_apply_or_call([{local, external}|Left], Args, ArgTypes, Map, Tree, State,
 		       ArgTypes, t_any());
 handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
 		     Args, ArgTypes, Map, Tree,
-                     #state{callgraph = Callgraph, races = Races,
-			    opaques = Opaques} = State,
-                     AccArgTypes, AccRet) ->
+                     #state{opaques = Opaques} = State, AccArgTypes, AccRet) ->
   Any = t_any(),
   AnyArgs = [Any || _ <- Args],
   GenSig = {AnyArgs, fun(_) -> t_any() end},
@@ -680,8 +525,7 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
   ?debug("ContrRet: ~s\n", [erl_types:t_to_string(CRange(TmpArgTypes))]),
   ?debug("SigRet: ~s\n", [erl_types:t_to_string(SigRange)]),
   State1 =
-    case dialyzer_callgraph:get_race_detection(Callgraph) andalso
-         dialyzer_races:get_race_analysis(Races) of
+    case is_race_analysis_enabled(State) of
       true ->
         Ann = cerl:get_ann(Tree),
         File = get_file(Ann),
@@ -1047,20 +891,17 @@ handle_call(Tree, Map, State) ->
 
 %%----------------------------------------
 
-handle_case(Tree, Map, #state{callgraph = Callgraph} = State) ->
+handle_case(Tree, Map, State) ->
   Arg = cerl:case_arg(Tree),
   Clauses = filter_match_fail(cerl:case_clauses(Tree)),
   {State1, Map1, ArgType} = SMA = traverse(Arg, Map, State),
   case t_is_none_or_unit(ArgType) of
     true -> SMA;
     false ->
-      Races = State1#state.races,
       State2 =
-        case dialyzer_callgraph:get_race_detection(Callgraph) andalso
-             dialyzer_races:get_race_analysis(Races) of
+        case is_race_analysis_enabled(State) of
           true ->
-	    RaceList = dialyzer_races:get_race_list(Races),
-            RaceListSize = dialyzer_races:get_race_list_size(Races),
+	    {RaceList, RaceListSize} = get_race_list_and_size(State1),
             state__renew_race_list([beg_case|RaceList],
                                    RaceListSize + 1, State1);
           false -> State1
@@ -1094,9 +935,8 @@ handle_cons(Tree, Map, State) ->
 
 %%----------------------------------------
 
-handle_let(Tree, Map, #state{callgraph = Callgraph, races = Races} = State) ->
-  RaceAnalysis = dialyzer_races:get_race_analysis(Races),
-  RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
+handle_let(Tree, Map, State) ->
+  IsRaceAnalysisEnabled = is_race_analysis_enabled(State),
   Arg = cerl:let_arg(Tree),
   Vars = cerl:let_vars(Tree),
   {Map0, State0} =
@@ -1104,10 +944,9 @@ handle_let(Tree, Map, #state{callgraph = Callgraph, races = Races} = State) ->
       true ->
 	[Var] = Vars,
 	{enter_subst(Var, Arg, Map),
-         case RaceDetection andalso RaceAnalysis of
+         case IsRaceAnalysisEnabled of
            true ->
-             RaceList = dialyzer_races:get_race_list(Races),
-             RaceListSize = dialyzer_races:get_race_list_size(Races),
+	    {RaceList, RaceListSize} = get_race_list_and_size(State),
              state__renew_race_list(
                [dialyzer_races:let_tag_new(Var, Arg)|RaceList],
                RaceListSize + 1, State);
@@ -1117,9 +956,8 @@ handle_let(Tree, Map, #state{callgraph = Callgraph, races = Races} = State) ->
     end,
   Body = cerl:let_body(Tree),
   {State1, Map1, ArgTypes} = SMA = traverse(Arg, Map0, State0),
-  Callgraph1 = State1#state.callgraph,
-  Callgraph2 =
-    case RaceDetection andalso RaceAnalysis andalso cerl:is_c_call(Arg) of
+  State2 =
+    case IsRaceAnalysisEnabled andalso cerl:is_c_call(Arg) of
       true ->
         Mod = cerl:call_module(Arg),
         Name = cerl:call_name(Arg),
@@ -1127,16 +965,11 @@ handle_let(Tree, Map, #state{callgraph = Callgraph, races = Races} = State) ->
              cerl:concrete(Mod) =:= ets andalso
              cerl:is_literal(Name) andalso
              cerl:concrete(Name) =:= new of
-          true ->
-            NewTable = dialyzer_races:get_new_table(State1#state.races),
-            renew_public_tables(Vars, NewTable,
-                                state__warning_mode(State1),
-                                Callgraph1);
-          false -> Callgraph1
+          true -> renew_race_public_tables(Vars, State1);
+          false -> State1
         end;
-      false -> Callgraph1
+      false -> State1
     end,
-  State2 = State1#state{callgraph = Callgraph2},
   case t_is_none_or_unit(ArgTypes) of
     true -> SMA;
     false ->
@@ -1167,16 +1000,13 @@ handle_module(Tree, Map, State) ->
 
 %%----------------------------------------
 
-handle_receive(Tree, Map,
-               #state{callgraph = Callgraph, races = Races} = State) ->
+handle_receive(Tree, Map, State) ->
   Clauses = filter_match_fail(cerl:receive_clauses(Tree)),
   Timeout = cerl:receive_timeout(Tree),
   State1 =
-    case dialyzer_callgraph:get_race_detection(Callgraph) andalso
-         dialyzer_races:get_race_analysis(Races) of
+    case is_race_analysis_enabled(State) of
       true ->
-	RaceList = dialyzer_races:get_race_list(Races),
-        RaceListSize = dialyzer_races:get_race_list_size(Races),
+	{RaceList, RaceListSize} = get_race_list_and_size(State),
         state__renew_race_list([beg_case|RaceList],
                                RaceListSize + 1, State);
       false -> State
@@ -1299,16 +1129,13 @@ handle_tuple(Tree, Map, State) ->
 %%----------------------------------------
 %% Clauses
 %%
-handle_clauses([C|Left], Arg, ArgType, OrigArgType,
-               #state{callgraph = Callgraph, races = Races} = State,
-               CaseTypes, MapIn, Acc, ClauseAcc) ->
-  RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
-  RaceAnalysis = dialyzer_races:get_race_analysis(Races),
+handle_clauses([C|Left], Arg, ArgType, OrigArgType, State, CaseTypes, MapIn,
+	       Acc, ClauseAcc) ->
+  IsRaceAnalysisEnabled = is_race_analysis_enabled(State),
   State1 =
-    case RaceDetection andalso RaceAnalysis of
+    case IsRaceAnalysisEnabled of
       true ->
-	RaceList = dialyzer_races:get_race_list(Races),
-        RaceListSize = dialyzer_races:get_race_list_size(Races),
+	{RaceList, RaceListSize} = get_race_list_and_size(State),
         state__renew_race_list(
           [dialyzer_races:beg_clause_new(Arg, cerl:clause_pats(C),
                                          cerl:clause_guard(C))|
@@ -1319,11 +1146,9 @@ handle_clauses([C|Left], Arg, ArgType, OrigArgType,
   {State2, ClauseMap, BodyType, NewArgType} =
     do_clause(C, Arg, ArgType, OrigArgType, MapIn, State1),
   {NewClauseAcc, State3} =
-    case RaceDetection andalso RaceAnalysis of
+    case IsRaceAnalysisEnabled of
       true ->
-        Races1 = State2#state.races,
-        RaceList1 = dialyzer_races:get_race_list(Races1),
-        RaceListSize1 = dialyzer_races:get_race_list_size(Races1),
+	{RaceList1, RaceListSize1} = get_race_list_and_size(State2),
         EndClause = dialyzer_races:end_clause_new(Arg, cerl:clause_pats(C),
                                                   cerl:clause_guard(C)),
         {[EndClause|ClauseAcc],
@@ -1338,30 +1163,25 @@ handle_clauses([C|Left], Arg, ArgType, OrigArgType,
     end,
   handle_clauses(Left, Arg, NewArgType, OrigArgType, State3,
                  NewCaseTypes, MapIn, NewAcc, NewClauseAcc);
-handle_clauses([], _Arg, _ArgType, _OrigArgType,
-	       #state{callgraph = Callgraph, races = Races} = State,
-               CaseTypes, _MapIn, Acc, ClauseAcc) ->
+handle_clauses([], _Arg, _ArgType, _OrigArgType, State, CaseTypes, _MapIn, Acc,
+	       ClauseAcc) ->
   State1 =
-    case dialyzer_callgraph:get_race_detection(Callgraph) andalso
-         dialyzer_races:get_race_analysis(Races) of
+    case is_race_analysis_enabled(State) of
       true ->
+	{RaceList, RaceListSize} = get_race_list_and_size(State),
         state__renew_race_list(
-          [dialyzer_races:end_case_new(ClauseAcc)|
-           dialyzer_races:get_race_list(Races)],
-          dialyzer_races:get_race_list_size(Races) + 1, State);
+          [dialyzer_races:end_case_new(ClauseAcc)|RaceList],
+	  RaceListSize + 1, State);
       false -> State
     end,
   {lists:reverse(Acc), State1, t_sup(CaseTypes)}.
 
-do_clause(C, Arg, ArgType0, OrigArgType, Map,
-          #state{callgraph = Callgraph, races = Races} = State) ->
+do_clause(C, Arg, ArgType0, OrigArgType, Map, State) ->
   Pats = cerl:clause_pats(C),
   Guard = cerl:clause_guard(C),
   Body = cerl:clause_body(C),
-  RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
-  RaceAnalysis = dialyzer_races:get_race_analysis(Races),
   State1 =
-    case RaceDetection andalso RaceAnalysis of
+    case is_race_analysis_enabled(State) of
       true ->
         state__renew_fun_args(Pats, State);
       false -> State
@@ -2914,10 +2734,6 @@ state__set_warning_mode(#state{tree_map = TreeMap, fun_tab = FunTab,
 	      fun_tab = FunTab, warning_mode = true,
               races = dialyzer_races:put_race_analysis(true, Races)}.
 
-state__restore_race_code(RaceCode, #state{callgraph = Callgraph} = State) ->
-  State#state{callgraph = dialyzer_callgraph:put_race_code(RaceCode,
-                                                           Callgraph)}.
-
 state__race_analysis(Analysis, #state{races = Races} = State) ->
   State#state{races = dialyzer_races:put_race_analysis(Analysis, Races)}.
 
@@ -3260,21 +3076,6 @@ state__fun_info(Fun, #state{callgraph = CG, fun_tab = FunTab, plt = PLT}) ->
   ?debug("LocalRet: ~s\n", [t_to_string(LocalRet)]),
   {Fun, Sig, Contract, LocalRet}.
 
-state__find_apply_return(Tree, #state{callgraph = Callgraph} = State) ->
-  Apply = get_label(Tree),
-  case dialyzer_callgraph:lookup_call_site(Apply, Callgraph) of
-    error ->
-      unknown;
-    {ok, List} ->
-      case lists:member(external, List) of
-	true -> t_any();
-	false ->
-	  FunTypes = [state__fun_type(F, State) || F <- List],
-	  Returns = [t_fun_range(F) || F <- FunTypes],
-	  t_sup(Returns)
-      end
-  end.
-
 forward_args(Fun, ArgTypes, #state{work = Work, fun_tab = FunTab} = State) ->
   {OldArgTypes, OldOut, Fixpoint} =
     case dict:find(Fun, FunTab) of
@@ -3304,6 +3105,16 @@ state__cleanup(#state{callgraph = Callgraph,
   #state{callgraph = dialyzer_callgraph:cleanup(Callgraph),
          races = dialyzer_races:cleanup(Races),
          records = Records}.
+
+-spec state__duplicate(state()) -> state().
+
+state__duplicate(#state{callgraph = Callgraph} = State) ->
+  State#state{callgraph = dialyzer_callgraph:duplicate(Callgraph)}.
+
+-spec dispose_state(state()) -> ok.
+
+dispose_state(#state{callgraph = Callgraph}) ->
+  dialyzer_callgraph:dispose_race_server(Callgraph).
 
 -spec state__get_callgraph(state()) -> dialyzer_callgraph:callgraph().
 
@@ -3342,26 +3153,36 @@ state__records_only(#state{records = Records}) ->
 %%%
 %%% ===========================================================================
 
-renew_code(Fun, FunArgs, Code, WarningMode, Callgraph) ->
+is_race_analysis_enabled(#state{races = Races, callgraph = Callgraph}) ->
+  RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
+  RaceAnalysis = dialyzer_races:get_race_analysis(Races),
+  RaceDetection andalso RaceAnalysis.
+
+get_race_list_and_size(#state{races = Races}) ->
+  dialyzer_races:get_race_list_and_size(Races).
+
+renew_race_code(#state{races = Races, callgraph = Callgraph,
+		       warning_mode = WarningMode} = State) ->
   case WarningMode of
-    true -> Callgraph;
+    true -> State;
     false ->
-      RaceCode = dialyzer_callgraph:get_race_code(Callgraph),
-      dialyzer_callgraph:put_race_code(
-        dict:store(Fun, [FunArgs, Code], RaceCode), Callgraph)
+      NewCallgraph = dialyzer_callgraph:renew_race_code(Races, Callgraph),
+      State#state{callgraph = NewCallgraph}
   end.
 
-renew_public_tables([Var], Table, WarningMode, Callgraph) ->
+renew_race_public_tables([Var], #state{races = Races, callgraph = Callgraph,
+				      warning_mode = WarningMode} = State) ->
   case WarningMode of
-    true -> Callgraph;
+    true -> State;
     false ->
+      Table = dialyzer_races:get_new_table(Races),
       case Table of
-        no_t -> Callgraph;
-        _Other ->
-          VarLabel = get_label(Var),
-          PTables = dialyzer_callgraph:get_public_tables(Callgraph),
-          dialyzer_callgraph:put_public_tables(
-            lists:usort([VarLabel|PTables]), Callgraph)
+	no_t -> State;
+	_Other ->
+	  VarLabel = get_label(Var),
+	  NewCallgraph =
+	    dialyzer_callgraph:renew_race_public_tables(VarLabel, Callgraph),
+	  State#state{callgraph = NewCallgraph}
       end
   end.
 
@@ -3688,17 +3509,3 @@ strip_annotations(Tree) ->
 debug_pp(_Tree, _UseHook) ->
   ok.
 -endif.
-
-%%----------------------------------------------------------------------------
-
--spec to_dot(dialyzer_callgraph:callgraph()) -> 'ok'.
-
--ifdef(DOT).
-to_dot(CG) ->
-  dialyzer_callgraph:to_dot(CG).
--else.
-to_dot(_CG) ->
-  ok.
--endif.
-
-%%----------------------------------------------------------------------------

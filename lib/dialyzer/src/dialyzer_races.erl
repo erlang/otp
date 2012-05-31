@@ -36,6 +36,7 @@
 -export([beg_clause_new/3, cleanup/1, end_case_new/1, end_clause_new/3,
          get_curr_fun/1, get_curr_fun_args/1, get_new_table/1,
          get_race_analysis/1, get_race_list/1, get_race_list_size/1,
+	 get_race_list_and_size/1,
          let_tag_new/2, new/0, put_curr_fun/3, put_fun_args/2,
          put_race_analysis/2, put_race_list/3]).
 
@@ -346,6 +347,7 @@ fixup_race_list(RaceWarnTag, WarnVarArgs, State) ->
   DepList2 =
     fixup_race_list_helper(NewParents, Calls, CurrFun, WarnVarArgs,
                            RaceWarnTag, NewState),
+  dialyzer_dataflow:dispose_state(CleanState),
   lists:usort(cleanup_dep_calls(DepList1 ++ DepList2)).
 
 fixup_race_list_helper(Parents, Calls, CurrFun, WarnVarArgs, RaceWarnTag,
@@ -380,13 +382,15 @@ fixup_race_forward_pullout(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                            InitFun, WarnVarArgs, RaceWarnTag, RaceVarMap,
                            FunDefVars, FunCallVars, FunArgTypes, NestingLevel,
                            State) ->
+  TState = dialyzer_dataflow:state__duplicate(State),
   {DepList, NewCurrFun, NewCurrFunLabel, NewCalls,
    NewCode, NewRaceList, NewRaceVarMap, NewFunDefVars,
    NewFunCallVars, NewFunArgTypes, NewNestingLevel} =
     fixup_race_forward(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                        InitFun, WarnVarArgs, RaceWarnTag, RaceVarMap,
                        FunDefVars, FunCallVars, FunArgTypes, NestingLevel,
-                       cleanup_race_code(State)),
+                       cleanup_race_code(TState)),
+  dialyzer_dataflow:dispose_state(TState),
   case NewCode of
     [] -> DepList;
     [#fun_call{caller = NewCurrFun, callee = Call, arg_types = FunTypes,
@@ -2433,6 +2437,12 @@ get_race_list(#races{race_list = RaceList}) ->
 
 get_race_list_size(#races{race_list_size = RaceListSize}) ->
   RaceListSize.
+
+-spec get_race_list_and_size(races()) -> {code(), non_neg_integer()}.
+
+get_race_list_and_size(#races{race_list = RaceList,
+			      race_list_size = RaceListSize}) ->
+  {RaceList, RaceListSize}.
 
 -spec let_tag_new(var_to_map1(), var_to_map1()) -> #let_tag{}.
 

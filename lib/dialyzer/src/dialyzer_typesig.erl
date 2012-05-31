@@ -91,23 +91,25 @@
 -type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, dict()}].
 -type typesig_funmap() :: [{type_var(), type_var()}]. %% Orddict
 
--record(state, {callgraph                :: dialyzer_callgraph:callgraph(),
-		cs          = []         :: [constr()],
-		cmap        = dict:new() :: dict(),
-		fun_map     = []         :: typesig_funmap(),
-		fun_arities = dict:new() :: dict(),
-		in_match    = false      :: boolean(),
-		in_guard    = false      :: boolean(),
-		module                   :: module(),
-		name_map    = dict:new() :: dict(),
-		next_label               :: label(),
-		self_recs                :: [label()],
-		plt                      :: dialyzer_plt:plt(),
-		prop_types  = dict:new() :: dict(),
-		records     = dict:new() :: dict(),
-		opaques     = []         :: [erl_types:erl_type()],
-		scc         = []         :: [type_var()],
-		mfas        = []         :: [dialyzer_callgraph:mfa_or_funlbl()]
+-type dict_or_ets() :: {'d', dict()} | {'e', ets:tid()}.
+
+-record(state, {callgraph                    :: dialyzer_callgraph:callgraph(),
+		cs          = []                :: [constr()],
+		cmap        = {'d', dict:new()} :: dict_or_ets(),
+		fun_map     = []                :: typesig_funmap(),
+		fun_arities = dict:new()        :: dict(),
+		in_match    = false             :: boolean(),
+		in_guard    = false             :: boolean(),
+		module                          :: module(),
+		name_map    = dict:new()        :: dict(),
+		next_label  = 0                 :: label(),
+		self_rec                        :: erl_types:erl_type(),
+		plt                             :: dialyzer_plt:plt(),
+		prop_types  = {'d', dict:new()} :: dict_or_ets(),
+		records     = dict:new()        :: dict(),
+		opaques     = []                :: [erl_types:erl_type()],
+		scc         = []                :: [type_var()],
+		mfas                            :: [tuple()]
 	       }).
 
 %%-----------------------------------------------------------------------------
@@ -1665,7 +1667,12 @@ solve([Fun], State) ->
 solve([_|_] = SCC, State) ->
   ?debug("============ Analyzing SCC: ~w ===========\n",
 	 [[debug_lookup_name(F) || F <- SCC]]),
-  solve_scc(SCC, dict:new(), State, false).
+  {Parallel, NewState} =
+    case parallel_split(SCC) of
+      false -> {false, State};
+      SplitSCC -> {SplitSCC, minimize_state(State)}
+    end,
+  solve_scc(SCC, Parallel, dict:new(), NewState, false).
 
 solve_fun(Fun, FunMap, State) ->
   Cs = state__get_cs(Fun, State),
@@ -1680,8 +1687,7 @@ solve_fun(Fun, FunMap, State) ->
 	       end,
   enter_type(Fun, NewType, NewFunMap1).
 
-solve_scc(SCC, Map, State, TryingUnit) ->
-  State1 = state__mark_as_non_self_rec(SCC, State),
+solve_scc(SCC, Parallel, Map, State, TryingUnit) ->
   Vars0 = [{Fun, state__get_rec_var(Fun, State)} || Fun <- SCC],
   Vars = [Var || {_, {ok, Var}} <- Vars0],
   Funs = [Fun || {Fun, {ok, _}} <- Vars0],
@@ -1692,9 +1698,12 @@ solve_scc(SCC, Map, State, TryingUnit) ->
 			 end, Map, SCC),
   Map1 = enter_type_lists(Vars, RecTypes, CleanMap),
   ?debug("Checking SCC: ~w\n", [[debug_lookup_name(F) || F <- SCC]]),
-  SolveFun = fun(X, Y) -> scc_fold_fun(X, Y, State1) end,
-  Map2 = lists:foldl(SolveFun, Map1, SCC),
   FunSet = ordsets:from_list([t_var_name(F) || F <- SCC]),
+  Map2 =
+    case Parallel of
+      false -> solve_whole_scc(SCC, Map1, State);
+      SplitSCC -> solve_whole_scc_parallel(SplitSCC, Map1, State)
+    end,
   case maps_are_equal(Map2, Map, FunSet) of
     true ->
       ?debug("SCC ~w reached fixpoint\n", [SCC]),
@@ -1708,14 +1717,126 @@ solve_scc(SCC, Map, State, TryingUnit) ->
 	       true -> t_fun(t_fun_args(T), t_unit())
 	     end || T <- NewTypes],
 	  Map3 = enter_type_lists(Funs, UnitTypes, Map2),
-	  solve_scc(SCC, Map3, State, true);
+	  solve_scc(SCC, Parallel, Map3, State, true);
 	false ->
+	  case Parallel of
+	    false -> true;
+	    _ -> dispose_state(State)
+	  end,
 	  Map2
       end;
     false ->
       ?debug("SCC ~w did not reach fixpoint\n", [SCC]),
-      solve_scc(SCC, Map2, State, TryingUnit)
+      solve_scc(SCC, Parallel, Map2, State, TryingUnit)
   end.
+
+solve_whole_scc(SCC, Map, State) ->
+  SolveFun = fun(X, Y) -> scc_fold_fun(X, Y, State) end,
+  lists:foldl(SolveFun, Map, SCC).
+
+%%------------------------------------------------------------------------------
+
+-define(worth_it, 42).
+
+parallel_split(SCC) ->
+  Length = length(SCC),
+  case Length > 2*?worth_it of
+    false -> false;
+    true ->
+      case min(dialyzer_utils:parallelism(), 8) of
+	1 -> false;
+	CPUs ->
+	  FullShare = Length div CPUs + 1,
+	  Unit = max(FullShare, ?worth_it),
+	  split(SCC, Unit, [])
+      end
+  end.
+
+minimize_state(#state{
+		  cmap        = {d, CMap},
+		  fun_map     = FunMap,
+		  fun_arities = FunArities,
+		  self_rec    = SelfRec,
+		  prop_types  = {d, PropTypes},
+		  opaques     = Opaques
+		 }) ->
+  ETSCMap = ets:new(cmap,[{read_concurrency, true}]),
+  ETSPropTypes = ets:new(prop_types,[{read_concurrency, true}]),
+  true = ets:insert(ETSCMap, dict:to_list(CMap)),
+  true = ets:insert(ETSPropTypes, dict:to_list(PropTypes)),
+  #state
+    {cmap        = {e, ETSCMap},
+     fun_map     = FunMap,
+     fun_arities = FunArities,
+     self_rec    = SelfRec,
+     prop_types  = {e, ETSPropTypes},
+     opaques     = Opaques
+    }.
+
+dispose_state(#state{cmap = {e, ETSCMap},
+		     prop_types = {e, ETSPropTypes}}) ->
+  true = ets:delete(ETSCMap),
+  true = ets:delete(ETSPropTypes).
+
+solve_whole_scc_parallel(SplitSCC, Map, State) ->
+  Workers = spawn_workers(SplitSCC, Map, State),
+  wait_results(Workers, Map, fold_res_fun(State)).
+
+spawn_workers(SplitSCC, Map, State) ->
+  Spawner = solve_scc_spawner(self(), Map, State),
+  lists:foreach(Spawner, SplitSCC),
+  length(SplitSCC).
+
+wait_results(0, Map, _FoldResFun) ->
+  Map;
+wait_results(Pending, Map, FoldResFun) ->
+  Res = receive_scc_result(),
+  NewMap = lists:foldl(FoldResFun, Map, Res),
+  wait_results(Pending-1, NewMap, FoldResFun).
+
+solve_scc_spawner(Parent, Map, State) ->
+  fun(SCCPart) ->
+      spawn_link(fun() -> solve_scc_worker(Parent, SCCPart, Map, State) end)
+  end.
+
+split([], _Unit, Acc) ->
+  Acc;
+split(List, Unit, Acc) ->
+  {Taken, Rest} =
+    try
+      lists:split(Unit, List)
+    catch
+      _:_ -> {List, []}
+    end,
+  split(Rest, Unit, [Taken|Acc]).
+
+solve_scc_worker(Parent, SCCPart, Map, State) ->
+  SolveFun = fun(X, Y) -> scc_fold_fun(X, Y, State) end,
+  FinalMap = lists:foldl(SolveFun, Map, SCCPart),
+  Res =
+    [{F, t_limit(unsafe_lookup_type(F, FinalMap), ?TYPE_LIMIT)} ||
+      F <- SCCPart],
+  send_scc_result(Parent, Res).
+
+fold_res_fun(State) ->
+  fun({F, Type}, Map) ->
+      case state__get_rec_var(F, State) of
+	{ok, R} ->
+	  enter_type(R, Type, enter_type(F, Type, Map));
+	error ->
+	  enter_type(F, Type, Map)
+      end
+  end.
+
+receive_scc_result() ->
+    receive
+      {scc_fun, Res} -> Res
+    end.
+
+send_scc_result(Parent, Res) ->
+  Parent ! {scc_fun, Res}.
+
+%%------------------------------------------------------------------------------
 
 scc_fold_fun(F, FunMap, State) ->
   Deps = get_deps(state__get_cs(F, State)),
@@ -2090,11 +2211,19 @@ new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes) ->
   NameMap = dict:from_list(List),
   MFAs = [MFA || {MFA, _Var} <- List],
   SCC = [mk_var(Fun) || {_MFA, {_Var, Fun}, _Rec} <- SCC0],
-  SelfRecs = [F || F <- SCC,
-		   dialyzer_callgraph:is_self_rec(t_var_name(F), CallGraph)],
+  SelfRec =
+    case SCC of
+      [OneF] ->
+	Label = t_var_name(OneF),
+	case dialyzer_callgraph:is_self_rec(Label, CallGraph) of
+	  true -> OneF;
+	  false -> false
+	end;
+      _Many -> false
+    end,
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
-	 prop_types = PropTypes, plt = Plt, scc = ordsets:from_list(SCC),
-	 mfas = MFAs, self_recs = ordsets:from_list(SelfRecs)}.
+	 prop_types = {d, PropTypes}, plt = Plt, scc = ordsets:from_list(SCC),
+	 mfas = MFAs, self_rec = SelfRec}.
 
 state__set_rec_dict(State, RecDict) ->
   State#state{records = RecDict}.
@@ -2193,14 +2322,21 @@ state__plt(#state{plt = PLT}) ->
 state__new_constraint_context(State) ->
   State#state{cs = []}.
 
-state__prop_domain(FunLabel, #state{prop_types = PropTypes}) ->
+state__prop_domain(FunLabel, #state{prop_types = {e, ETSPropTypes}}) ->
+  try ets:lookup_element(ETSPropTypes, FunLabel, 2) of
+      {_Range_Fun, Dom} -> {ok, Dom};
+      FunType -> {ok, t_fun_args(FunType)}
+  catch
+    _:_ -> error
+  end;
+state__prop_domain(FunLabel, #state{prop_types = {d, PropTypes}}) ->
  case dict:find(FunLabel, PropTypes) of
     error -> error;
     {ok, {_Range_Fun, Dom}} -> {ok, Dom};
     {ok, FunType} -> {ok, t_fun_args(FunType)}
   end.
 
-state__add_prop_constrs(Tree, #state{prop_types = PropTypes} = State) ->
+state__add_prop_constrs(Tree, #state{prop_types = {d, PropTypes}} = State) ->
   Label = cerl_trees:get_label(Tree),
   case dict:find(Label, PropTypes) of
     error -> State;
@@ -2263,21 +2399,17 @@ state__mk_vars(N, #state{next_label = NL} = State) ->
   Vars = [t_var(X) || X <- lists:seq(NL, NewLabel-1)],
   {State#state{next_label = NewLabel}, Vars}.
 
-state__store_constrs(Id, Cs, #state{cmap = Dict} = State) ->
+state__store_constrs(Id, Cs, #state{cmap = {d, Dict}} = State) ->
   NewDict = dict:store(Id, Cs, Dict),
-  State#state{cmap = NewDict}.
+  State#state{cmap = {d, NewDict}}.
 
-state__get_cs(Var, #state{cmap = Dict}) ->
+state__get_cs(Var, #state{cmap = {e, ETSDict}}) ->
+  ets:lookup_element(ETSDict, Var, 2);
+state__get_cs(Var, #state{cmap = {d, Dict}}) ->
   dict:fetch(Var, Dict).
 
-%% The functions here will not be treated as self recursive.
-%% These functions will need to be handled as such manually.
-state__mark_as_non_self_rec(SCC, #state{self_recs = SelfRecs} = State) ->
-  %% TODO: Check if the result is always empty and just set it to [] if so.
-  State#state{self_recs = ordsets:subtract(SelfRecs, ordsets:from_list(SCC))}.
-
-state__is_self_rec(Fun, #state{self_recs = SelfRecs}) ->
-  ordsets:is_element(Fun, SelfRecs).
+state__is_self_rec(Fun, #state{self_rec = SelfRec}) ->
+  Fun =:= SelfRec.
 
 state__store_funs(Vars0, Funs0, #state{fun_map = Map} = State) ->
   debug_make_name_map(Vars0, Funs0),

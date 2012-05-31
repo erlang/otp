@@ -52,9 +52,7 @@
 	 new/0,
 	 set_next_core_label/2,
 	 set_temp_records/2,
-	 store_records/3,
 	 store_temp_records/3,
-	 store_contracts/3,
 	 store_temp_contracts/4]).
 
 -export_type([codeserver/0]).
@@ -63,85 +61,159 @@
 
 %%--------------------------------------------------------------------
 
--record(codeserver, {table_pid		              :: pid(),
-                     exported_types      = sets:new() :: set(), % set(mfa())
-                     temp_exported_types = sets:new() :: set(), % set(mfa())
-		     exports             = sets:new() :: set(), % set(mfa())
-		     next_core_label     = 0          :: label(),
-		     records             = dict:new() :: dict(),
-		     temp_records        = dict:new() :: dict(),
-		     contracts           = dict:new() :: dict(),
-		     callbacks           = dict:new() :: dict(),
-		     temp_contracts      = dict:new() :: dict(),
-		     temp_callbacks      = dict:new() :: dict()
+-type dict_ets() :: ets:tid().
+-type  set_ets() :: ets:tid().
+
+-record(codeserver, {next_core_label = 0 :: label(),
+		     code		 :: dict_ets(),
+                     exported_types      :: set_ets(), % set(mfa())
+		     records             :: dict_ets(),
+		     contracts           :: dict_ets(),
+		     callbacks           :: dict_ets(),
+		     exports             :: 'clean' | set_ets(), % set(mfa())
+                     temp_exported_types :: 'clean' | set_ets(), % set(mfa())
+		     temp_records        :: 'clean' | dict_ets(),
+		     temp_contracts      :: 'clean' | dict_ets(),
+		     temp_callbacks      :: 'clean' | dict_ets()
 		    }).
 
 -opaque codeserver() :: #codeserver{}.
 
 %%--------------------------------------------------------------------
 
+ets_dict_find(Key, Table) ->
+  try ets:lookup_element(Table, Key, 2) of
+      Val -> {ok, Val}
+  catch
+    _:_ -> error
+  end.
+
+ets_dict_store(Key, Element, Table) ->
+  true = ets:insert(Table, {Key, Element}),
+  Table.
+
+ets_dict_store_dict(Dict, Table) ->
+  true = ets:insert(Table, dict:to_list(Dict)).
+
+ets_dict_to_dict(Table) ->
+  Fold = fun({Key,Value}, Dict) -> dict:store(Key, Value, Dict) end,
+  ets:foldl(Fold, dict:new(), Table).
+
+ets_set_is_element(Key, Table) ->
+  case ets:lookup(Table, Key) of
+      [] -> false;
+      _ -> true
+  end.
+
+ets_set_insert_set(Set, Table) ->
+  ets_set_insert_list(sets:to_list(Set), Table).
+
+ets_set_insert_list(List, Table) ->
+  true = ets:insert(Table, [{E} || E <- List]).
+
+ets_set_to_set(Table) ->
+  Fold = fun({E}, Set) -> sets:add_element(E, Set) end,
+  ets:foldl(Fold, sets:new(), Table).
+
+ets_read_concurrent_table(Name) ->
+  ets:new(Name,[{read_concurrency, true}]).
+
+%%--------------------------------------------------------------------
+
 -spec new() -> codeserver().
 
 new() ->
-  #codeserver{table_pid = table__new()}.
+  CodeOptions = [compressed, public, {read_concurrency, true}],
+  Code = ets:new(dialyzer_codeserver_code, CodeOptions),
+  TempOptions = [public, {write_concurrency, true}],
+  [Exports, TempExportedTypes, TempRecords, TempContracts, TempCallbacks] =
+    [ets:new(Name, TempOptions) ||
+      Name <-
+	[dialyzer_codeserver_exports, dialyzer_codeserver_temp_exported_types,
+	 dialyzer_codeserver_temp_records, dialyzer_codeserver_temp_contracts,
+	 dialyzer_codeserver_temp_callbacks]],
+  #codeserver{code                = Code,
+	      exports             = Exports,
+	      temp_exported_types = TempExportedTypes,
+	      temp_records        = TempRecords,
+	      temp_contracts      = TempContracts,
+	      temp_callbacks      = TempCallbacks}.
 
 -spec delete(codeserver()) -> 'ok'.
 
-delete(#codeserver{table_pid = TablePid}) ->
-  table__delete(TablePid).
+delete(#codeserver{code = Code, exported_types = ExportedTypes,
+		   records = Records, contracts = Contracts,
+		   callbacks = Callbacks}) ->
+  lists:foreach(fun ets:delete/1,
+		[Code, ExportedTypes, Records, Contracts, Callbacks]).
 
 -spec insert(atom(), cerl:c_module(), codeserver()) -> codeserver().
 
 insert(Mod, ModCode, CS) ->
-  NewTablePid = table__insert(CS#codeserver.table_pid, Mod, ModCode),
-  CS#codeserver{table_pid = NewTablePid}.
-
--spec insert_temp_exported_types(set(), codeserver()) -> codeserver().
-
-insert_temp_exported_types(Set, CS) ->
-  CS#codeserver{temp_exported_types = Set}.
-
--spec insert_exports([mfa()], codeserver()) -> codeserver().
-
-insert_exports(List, #codeserver{exports = Exports} = CS) ->
-  Set = sets:from_list(List),
-  NewExports = sets:union(Exports, Set),
-  CS#codeserver{exports = NewExports}.
-
--spec is_exported(mfa(), codeserver()) -> boolean().
-
-is_exported(MFA, #codeserver{exports = Exports}) ->
-  sets:is_element(MFA, Exports).
-
--spec get_exported_types(codeserver()) -> set(). % set(mfa())
-
-get_exported_types(#codeserver{exported_types = ExpTypes}) ->
-  ExpTypes.
+  Name = cerl:module_name(ModCode),
+  Exports = cerl:module_exports(ModCode),
+  Attrs = cerl:module_attrs(ModCode),
+  Defs = cerl:module_defs(ModCode),
+  As = cerl:get_ann(ModCode),
+  Funs =
+    [{{Mod, cerl:fname_id(Var), cerl:fname_arity(Var)},
+      Val} || Val = {Var, _Fun} <- Defs],
+  Keys = [Key || {Key, _Value} <- Funs],
+  ModEntry = {Mod, {Name, Exports, Attrs, Keys, As}},
+  true = ets:insert(CS#codeserver.code, [ModEntry|Funs]),
+  CS.
 
 -spec get_temp_exported_types(codeserver()) -> set().
 
 get_temp_exported_types(#codeserver{temp_exported_types = TempExpTypes}) ->
-  TempExpTypes.
+  ets_set_to_set(TempExpTypes).
+
+-spec insert_temp_exported_types(set(), codeserver()) -> codeserver().
+
+insert_temp_exported_types(Set, CS) ->
+  TempExportedTypes = CS#codeserver.temp_exported_types,
+  true = ets_set_insert_set(Set, TempExportedTypes),
+  CS.
+
+-spec insert_exports([mfa()], codeserver()) -> codeserver().
+
+insert_exports(List, #codeserver{exports = Exports} = CS) ->
+  true = ets_set_insert_list(List, Exports),
+  CS.
+
+-spec is_exported(mfa(), codeserver()) -> boolean().
+
+is_exported(MFA, #codeserver{exports = Exports}) ->
+  ets_set_is_element(MFA, Exports).
+
+-spec get_exported_types(codeserver()) -> set(). % set(mfa())
+
+get_exported_types(#codeserver{exported_types = ExpTypes}) ->
+  ets_set_to_set(ExpTypes).
 
 -spec get_exports(codeserver()) -> set().  % set(mfa())
 
 get_exports(#codeserver{exports = Exports}) ->
-  Exports.
+  ets_set_to_set(Exports).
 
 -spec finalize_exported_types(set(), codeserver()) -> codeserver().
 
 finalize_exported_types(Set, CS) ->
-  CS#codeserver{exported_types = Set, temp_exported_types = sets:new()}.
+  ExportedTypes = ets_read_concurrent_table(dialyzer_codeserver_exported_types),
+  true = ets_set_insert_set(Set, ExportedTypes),
+  TempExpTypes = CS#codeserver.temp_exported_types,
+  true = ets:delete(TempExpTypes),
+  CS#codeserver{exported_types = ExportedTypes, temp_exported_types = clean}.
 
 -spec lookup_mod_code(atom(), codeserver()) -> cerl:c_module().
 
 lookup_mod_code(Mod, CS) when is_atom(Mod) ->
-  table__lookup(CS#codeserver.table_pid, Mod).
+  table__lookup(CS#codeserver.code, Mod).
 
 -spec lookup_mfa_code(mfa(), codeserver()) -> {cerl:c_var(), cerl:c_fun()}.
 
 lookup_mfa_code({_M, _F, _A} = MFA, CS) ->
-  table__lookup(CS#codeserver.table_pid, MFA).
+  table__lookup(CS#codeserver.code, MFA).
 
 -spec get_next_core_label(codeserver()) -> label().
 
@@ -153,20 +225,10 @@ get_next_core_label(#codeserver{next_core_label = NCL}) ->
 set_next_core_label(NCL, CS) ->
   CS#codeserver{next_core_label = NCL}.
 
--spec store_records(atom(), dict(), codeserver()) -> codeserver().
-
-store_records(Mod, Dict, #codeserver{records = RecDict} = CS)
-  when is_atom(Mod) ->
-  case dict:size(Dict) =:= 0 of
-    true -> CS;
-    false -> CS#codeserver{records = dict:store(Mod, Dict, RecDict)}
-  end.
-
 -spec lookup_mod_records(atom(), codeserver()) -> dict().
 
-lookup_mod_records(Mod, #codeserver{records = RecDict})
-  when is_atom(Mod) ->
-  case dict:find(Mod, RecDict) of
+lookup_mod_records(Mod, #codeserver{records = RecDict}) when is_atom(Mod) ->
+  case ets_dict_find(Mod, RecDict) of
     error -> dict:new();
     {ok, Dict} -> Dict
   end.
@@ -174,7 +236,7 @@ lookup_mod_records(Mod, #codeserver{records = RecDict})
 -spec get_records(codeserver()) -> dict().
 
 get_records(#codeserver{records = RecDict}) ->
-  RecDict.
+  ets_dict_to_dict(RecDict).
 
 -spec store_temp_records(atom(), dict(), codeserver()) -> codeserver().
 
@@ -182,59 +244,58 @@ store_temp_records(Mod, Dict, #codeserver{temp_records = TempRecDict} = CS)
   when is_atom(Mod) ->
   case dict:size(Dict) =:= 0 of
     true -> CS;
-    false -> CS#codeserver{temp_records = dict:store(Mod, Dict, TempRecDict)}
+    false -> CS#codeserver{temp_records = ets_dict_store(Mod, Dict, TempRecDict)}
   end.
 
 -spec get_temp_records(codeserver()) -> dict().
 
 get_temp_records(#codeserver{temp_records = TempRecDict}) ->
-  TempRecDict.
+  ets_dict_to_dict(TempRecDict).
 
 -spec set_temp_records(dict(), codeserver()) -> codeserver().
 
 set_temp_records(Dict, CS) ->
-  CS#codeserver{temp_records = Dict}.
+  true = ets:delete(CS#codeserver.temp_records),
+  TempRecords = ets:new(dialyzer_codeserver_temp_records,[]),
+  true = ets_dict_store_dict(Dict, TempRecords),
+  CS#codeserver{temp_records = TempRecords}.
 
 -spec finalize_records(dict(), codeserver()) -> codeserver().
 
 finalize_records(Dict, CS) ->
-  CS#codeserver{records = Dict, temp_records = dict:new()}.
-
--spec store_contracts(atom(), dict(), codeserver()) -> codeserver().
-
-store_contracts(Mod, Dict, #codeserver{contracts = C} = CS) when is_atom(Mod) ->
-  case dict:size(Dict) =:= 0 of
-    true -> CS;
-    false -> CS#codeserver{contracts = dict:store(Mod, Dict, C)}
-  end.
+  true = ets:delete(CS#codeserver.temp_records),
+  Records = ets_read_concurrent_table(dialyzer_codeserver_records),
+  true = ets_dict_store_dict(Dict, Records),
+  CS#codeserver{records = Records, temp_records = clean}.
 
 -spec lookup_mod_contracts(atom(), codeserver()) -> dict().
 
 lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
-  case dict:find(Mod, ContDict) of
+  case ets_dict_find(Mod, ContDict) of
     error -> dict:new();
-    {ok, Dict} -> Dict
+    {ok, Keys} ->
+      dict:from_list([get_contract_pair(Key, ContDict)|| Key <- Keys])
   end.
+
+get_contract_pair(Key, ContDict) ->
+  {Key, ets:lookup_element(ContDict, Key, 2)}.
 
 -spec lookup_mfa_contract(mfa(), codeserver()) ->
          'error' | {'ok', dialyzer_contracts:file_contract()}.
 
-lookup_mfa_contract({M,_F,_A} = MFA, #codeserver{contracts = ContDict}) ->
-  case dict:find(M, ContDict) of
-    error -> error;
-    {ok, Dict} -> dict:find(MFA, Dict)
-  end.
+lookup_mfa_contract(MFA, #codeserver{contracts = ContDict}) ->
+  ets_dict_find(MFA, ContDict).
 
 -spec get_contracts(codeserver()) -> dict().
 
 get_contracts(#codeserver{contracts = ContDict}) ->
-  ContDict.
+  ets_dict_to_dict(ContDict).
 
--spec get_callbacks(codeserver()) -> dict().
+-spec get_callbacks(codeserver()) -> list().
 
 get_callbacks(#codeserver{callbacks = CallbDict}) ->
-  CallbDict.
+  ets:tab2list(CallbDict).
 
 -spec store_temp_contracts(atom(), dict(), dict(), codeserver()) ->
 	 codeserver().
@@ -246,91 +307,44 @@ store_temp_contracts(Mod, SpecDict, CallbackDict,
   CS1 =
     case dict:size(SpecDict) =:= 0 of
       true -> CS;
-      false -> CS#codeserver{temp_contracts = dict:store(Mod, SpecDict, Cn)}
+      false ->
+	CS#codeserver{temp_contracts = ets_dict_store(Mod, SpecDict, Cn)}
     end,
   case dict:size(CallbackDict) =:= 0 of
     true -> CS1;
-    false -> CS1#codeserver{temp_callbacks = dict:store(Mod, CallbackDict, Cb)}
+    false ->
+      CS1#codeserver{temp_callbacks = ets_dict_store(Mod, CallbackDict, Cb)}
   end.
 
 -spec get_temp_contracts(codeserver()) -> {dict(), dict()}.
 
 get_temp_contracts(#codeserver{temp_contracts = TempContDict,
 			       temp_callbacks = TempCallDict}) ->
-  {TempContDict, TempCallDict}.
+  {ets_dict_to_dict(TempContDict), ets_dict_to_dict(TempCallDict)}.
 
 -spec finalize_contracts(dict(), dict(), codeserver()) -> codeserver().
 
-finalize_contracts(CnDict, CbDict, CS)  ->
-  CS#codeserver{contracts = CnDict,
-		callbacks = CbDict,
-		temp_contracts = dict:new(),
-		temp_callbacks = dict:new()
-	       }.
+finalize_contracts(SpecDict, CallbackDict, CS)  ->
+  Contracts = ets_read_concurrent_table(dialyzer_codeserver_contracts),
+  Callbacks = ets_read_concurrent_table(dialyzer_codeserver_callbacks),
+  Contracts = dict:fold(fun decompose_spec_dict/3, Contracts, SpecDict),
+  Callbacks = dict:fold(fun decompose_cb_dict/3, Callbacks, CallbackDict),
+  CS#codeserver{contracts = Contracts, callbacks = Callbacks,
+		temp_contracts = clean, temp_callbacks = clean}.
 
-table__new() ->
-  spawn_link(fun() -> table__loop(none, dict:new()) end).
+decompose_spec_dict(Mod, Dict, Table) ->
+  Keys = dict:fetch_keys(Dict),
+  true = ets:insert(Table, dict:to_list(Dict)),
+  true = ets:insert(Table, {Mod, Keys}),
+  Table.
 
-table__delete(TablePid) ->
-  TablePid ! stop,
-  ok.
+decompose_cb_dict(_Mod, Dict, Table) ->
+  true = ets:insert(Table, dict:to_list(Dict)),
+  Table.
 
-table__lookup(TablePid, Key) ->
-  TablePid ! {self(), lookup, Key},
-  receive
-    {TablePid, Key, Ans} -> Ans
-  end.
-
-table__insert(TablePid, Key, Val) ->
-  TablePid ! {insert, [{Key, term_to_binary(Val, [compressed])}]},
-  TablePid.
-
-table__loop(Cached, Map) ->
-  receive
-    stop -> ok;
-    {Pid, lookup, {M, F, A} = MFA} ->
-      {NewCached, Ans} =
-	case Cached of
-	  {M, Tree} ->
-	    Val = find_fun(F, A, Tree),
-	    {Cached, Val};
-	  _ ->
-	    Tree = fetch_and_expand(M, Map),
-	    Val = find_fun(F, A, Tree),
-	    {{M, Tree}, Val}
-	end,
-      Pid ! {self(), MFA, Ans},
-      table__loop(NewCached, Map);
-    {Pid, lookup, Mod} when is_atom(Mod) ->
-      Ans = case Cached of
-	      {Mod, Tree} -> Tree;
-	      _ -> fetch_and_expand(Mod, Map)
-	    end,
-      Pid ! {self(), Mod, Ans},
-      table__loop({Mod, Ans}, Map);
-    {insert, List} ->
-      NewMap = lists:foldl(fun({Key, Val}, AccMap) ->
-			       dict:store(Key, Val, AccMap)
-			   end, Map, List),
-      table__loop(Cached, NewMap)
-  end.
-
-fetch_and_expand(Mod, Map) ->
-  try
-    Bin = dict:fetch(Mod, Map),
-    binary_to_term(Bin)
-  catch
-    _:_ ->
-      S = atom_to_list(Mod),
-      Msg = "found no module named '" ++ S ++ "' in the analyzed files",
-      exit({error, Msg})
-  end.
-
-find_fun(F, A, Tree) ->
-  Pred =
-    fun({Var, _Fun}) ->
-	(cerl:fname_id(Var) =/= F) orelse
-	  (cerl:fname_arity(Var) =/= A)
-    end,
-  [Val|_] = lists:dropwhile(Pred, cerl:module_defs(Tree)),
-  Val.
+table__lookup(TablePid, M) when is_atom(M) ->
+  {Name, Exports, Attrs, Keys, As} = ets:lookup_element(TablePid, M, 2),
+  Defs = [table__lookup(TablePid, Key) || Key <- Keys],
+  cerl:ann_c_module(As, Name, Exports, Attrs, Defs);
+table__lookup(TablePid, MFA) ->
+  ets:lookup_element(TablePid, MFA, 2).

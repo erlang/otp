@@ -189,6 +189,18 @@ main(int argc, char** argv)
 	argc--, argv++;
     }
 
+    if (argc > 2 && strcmp(argv[1], "+P") == 0) {
+	PUSH2("+P", argv[2]);
+	argc--, argv++;
+	argc--, argv++;
+    } else PUSH2("+P", "1000000");
+
+    if (argc > 2 && strcmp(argv[1], "+sbt") == 0) {
+	PUSH2("+sbt", argv[2]);
+	argc--, argv++;
+	argc--, argv++;
+    }
+
     PUSH("+B");
     PUSH2("-boot", "start_clean");
     PUSH3("-run", "dialyzer", "plain_cl");
