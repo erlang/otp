@@ -333,7 +333,8 @@ module.beam: module.erl \
           <tag><c>{d,Macro,Value}</c></tag>
           <item>
             <p>Defines a macro <c>Macro</c> to have the value
-	      <c>Value</c>. The default is <c>true</c>.</p>
+            <c>Value</c>. <c>Macro</c> is of type atom, and <c>Value</c> can be any term.
+            The default <c>Value</c> is <c>true</c>.</p>
           </item>
 
 	  <tag><c>{parse_transform,Module}</c></tag>
