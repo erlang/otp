@@ -62,7 +62,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(1)),
+    ?line Dog = ?t:timetrap(?t:minutes(2)),
     [{watchdog,Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
