@@ -264,6 +264,9 @@ ensure_dir(F) ->
     case do_is_dir(Dir, file) of
 	true ->
 	    ok;
+	false when Dir =:= F ->
+	    %% Protect against infinite loop
+	    {error,einval};
 	false ->
 	    ensure_dir(Dir),
 	    case file:make_dir(Dir) of
