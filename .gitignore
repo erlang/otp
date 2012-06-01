@@ -110,6 +110,7 @@ JAVADOC-GENERATED
 !/bootstrap/bin/*.boot
 
 /bootstrap/lib/asn1
+/bootstrap/lib/common_test
 /bootstrap/lib/hipe
 /bootstrap/lib/ic
 /bootstrap/lib/orber

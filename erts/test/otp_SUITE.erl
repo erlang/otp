@@ -89,7 +89,8 @@ undefined_functions(Config) when is_list(Config) ->
     ?line Undef2 = ssl_crypto_filter(Undef1),
     ?line Undef3 = edoc_filter(Undef2),
     Undef4 = eunit_filter(Undef3),
-    Undef = dialyzer_filter(Undef4),
+    Undef5 = dialyzer_filter(Undef4),
+    Undef = wx_filter(Undef5),
 
     case Undef of
 	[] -> ok;
@@ -187,6 +188,19 @@ dialyzer_filter(Undef) ->
 		   end, Undef);
 	_ -> Undef
     end.
+
+wx_filter(Undef) ->
+    case code:lib_dir(wx) of
+	{error,bad_name} ->
+	    filter(fun({_,{MaybeWxModule,_,_}}) ->
+			   case atom_to_list(MaybeWxModule) of
+			       "wx"++_ -> false;
+			       _ -> true
+			   end
+		   end, Undef);
+	_ -> Undef
+    end.
+				   
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
     ?line Server = ?config(xref_server, Config),
