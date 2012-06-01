@@ -67,9 +67,9 @@
         <p><c>Rootset</c> is a list of pids and registered names.</p>
         <p>The function returns <c>profiling</c> if tracing could be enabled
           for all processes in <c>Rootset</c>, or <c>error</c> otherwise.</p>
-        <p>A pattern can be selected to narrow the profiling. For instance ca a specific
-	    module be selected and only the code processes executes in that module will be
-	    profiled.</p>
+        <p>A pattern can be selected to narrow the profiling. For instance a
+          specific module can be selected, and only the code executed in that
+          module will be profiled.</p>
       </desc>
     </func>
     <func>
@@ -147,8 +147,8 @@
       </type>
       <desc>
         <p>This function ensures that the results displayed by
-			<c>analyze/0,1,2</c> are printed both to
-          the file <c>File</c> and the screen.</p>
+          <c>analyze/0,1,2</c> are printed both to the file
+          <c>File</c> and the screen.</p>
       </desc>
     </func>
     <func>
