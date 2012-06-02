@@ -1193,6 +1193,10 @@ cipher(CipherSuite, Version, Config, ClientOpts, ServerOpts) ->
 
 version_flag(tlsv1) ->
     " -tls1 ";
+version_flag('tlsv1.1') ->
+    " -tls1_1 ";
+version_flag('tlsv1.2') ->
+    " -tls1_2 ";
 version_flag(sslv3) ->
     " -ssl3 ".
 
