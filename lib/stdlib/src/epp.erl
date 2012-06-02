@@ -20,9 +20,9 @@
 
 %% An Erlang code preprocessor.
 
--export([open/2,open/3,open/5,close/1,format_error/1]).
+-export([open/2,open/3,open/4, open/5,close/1,format_error/1]).
 -export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
--export([parse_file/1, parse_file/3]).
+-export([parse_file/1, parse_file/3, parse_file/4]).
 -export([interpret_file_attribute/1]).
 -export([normalize_typed_record_fields/1,restore_typed_record_fields/1]).
 
@@ -54,12 +54,14 @@
 
 %% open(FileName, IncludePath)
 %% open(FileName, IncludePath, PreDefMacros)
+%% open(FileName, StartLocation, IncludePath, PredefMacros)
 %% open(FileName, IoDevice, StartLocation, IncludePath, PreDefMacros)
 %% close(Epp)
 %% scan_erl_form(Epp)
 %% parse_erl_form(Epp)
 %% parse_file(Epp)
 %% parse_file(FileName, IncludePath, PreDefMacros)
+%% parse_file(FileName, StartLocation, IncludePath, PreDefMacros)
 %% macro_defs(Epp)
 
 -spec open(FileName, IncludePath) ->
@@ -81,8 +83,20 @@ open(Name, Path) ->
       ErrorDescriptor :: term().
 
 open(Name, Path, Pdm) ->
+    open(Name, 1, Path, Pdm).
+
+-spec open(FileName, StartLocation, IncludePath, PredefMacros) ->
+	{'ok', Epp} | {'error', ErrorDescriptor} when
+      FileName :: file:name(),
+      StartLocation :: erl_scan:location(),
+      IncludePath :: [DirectoryName :: file:name()],
+      PredefMacros :: macros(),
+      Epp :: epp_handle(),
+      ErrorDescriptor :: term().
+
+open(Name, StartLocation, Path, Pdm) ->
     Self = self(),
-    Epp = spawn(fun() -> server(Self, Name, Path, Pdm) end),
+    Epp = spawn(fun() -> server(Self, Name, StartLocation, Path, Pdm) end),
     epp_request(Epp).
 
 open(Name, File, StartLocation, Path, Pdm) ->
@@ -105,10 +119,10 @@ scan_erl_form(Epp) ->
     epp_request(Epp, scan_erl_form).
 
 -spec parse_erl_form(Epp) ->
-        {'ok', AbsForm} | {'eof', Line} | {error, ErrorInfo} when
+        {'ok', AbsForm} | {'eof', Loc} | {error, ErrorInfo} when
       Epp :: epp_handle(),
       AbsForm :: erl_parse:abstract_form(),
-      Line :: erl_scan:line(),
+      Loc :: erl_scan:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info().
 
 parse_erl_form(Epp) ->
@@ -171,14 +185,28 @@ format_error(E) -> file:format_error(E).
                 {'ok', [Form]} | {error, OpenError} when
       FileName :: file:name(),
       IncludePath :: [DirectoryName :: file:name()],
-      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof', Loc},
       PredefMacros :: macros(),
-      Line :: erl_scan:line(),
+      Loc :: erl_scan:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       OpenError :: file:posix() | badarg | system_limit.
 
 parse_file(Ifile, Path, Predefs) ->
-    case open(Ifile, Path, Predefs) of
+    parse_file(Ifile, 1, Path, Predefs).
+
+-spec parse_file(FileName, StartLocation, IncludePath, PredefMacros) ->
+                {'ok', [Form]} | {error, OpenError} when
+      FileName :: file:name(),
+      StartLocation :: erl_scan:location(),
+      IncludePath :: [DirectoryName :: file:name()],
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof', Loc},
+      PredefMacros :: macros(),
+      Loc :: erl_scan:location(),
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
+      OpenError :: file:posix() | badarg | system_limit.
+
+parse_file(Ifile, StartLocation, Path, Predefs) ->
+    case open(Ifile, StartLocation, Path, Predefs) of
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
 	    close(Epp),
@@ -245,14 +273,12 @@ restore_typed_record_fields([{attribute,La,type,{{record,Record},Fields,[]}}|
 restore_typed_record_fields([Form|Forms]) ->
     [Form|restore_typed_record_fields(Forms)].
 
-%% server(StarterPid, FileName, Path, PreDefMacros)
-
-server(Pid, Name, Path, Pdm) ->
+%% server(StarterPid, FileName, Location, Path, PreDefMacros)
+server(Pid, Name, AtLocation, Path, Pdm) ->
     process_flag(trap_exit, true),
     case file:open(Name, [read]) of
 	{ok,File} ->
-            Location = 1,
-	    init_server(Pid, Name, File, Location, Path, Pdm, false);
+	    init_server(Pid, Name, File, AtLocation, Path, Pdm, false);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
     end.
@@ -400,10 +426,11 @@ enter_file2(NewF, Pname, From, St, AtLocation) ->
          sstk=[St|St#epp.sstk],path=Path,macs=Ms}.
 
 enter_file_reply(From, Name, Location, AtLocation) ->
-    Attr = loc_attr(AtLocation),
+    {line,Attr} = erl_scan:attributes_info(AtLocation, line),
+    {line,Line} = erl_scan:attributes_info(Location, line),
     Rep = {ok, [{'-',Attr},{atom,Attr,file},{'(',Attr},
 		{string,Attr,file_name(Name)},{',',Attr},
-		{integer,Attr,get_line(Location)},{')',Location},
+		{integer,Attr,Line},{')',Location},
                 {dot,Attr}]},
     epp_reply(From, Rep).
 
@@ -814,7 +841,8 @@ scan_file([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
     Ms = dict:store({atom,'FILE'}, {none,[{string,1,Name}]}, St#epp.macs),
     Locf = loc(Tf),
     NewLoc = new_location(Ln, St#epp.location, Locf),
-    Delta = abs(get_line(element(2, Tf)))-Ln + St#epp.delta, 
+    {line, Line} = erl_scan:token_info(Tf, line),
+    Delta = abs(Line) - Ln + St#epp.delta,
     wait_req_scan(St#epp{name2=Name,location=NewLoc,delta=Delta,macs=Ms});
 scan_file(_Toks, Tf, From, St) ->
     epp_reply(From, {error,{loc(Tf),epp,{bad,file}}}),
@@ -1165,18 +1193,13 @@ fname_join(["." | [_|_]=Rest]) ->
 fname_join(Components) ->
     filename:join(Components).
 
-%% The line only. (Other tokens may have the column and text as well...)
-loc_attr(Line) when is_integer(Line) ->
-    Line;
-loc_attr({Line,_Column}) ->
-    Line.
-
 loc(Token) ->
     {location,Location} = erl_scan:token_info(Token, location),
     Location.
 
 abs_loc(Token) ->
-    loc(setelement(2, Token, abs_line(element(2, Token)))).
+    {location,Loc} = erl_scan:token_info(Token, location),
+    abs_line(Loc).
 
 neg_line(L) ->
     erl_scan:set_attribute(line, L, fun(Line) -> -abs(Line) end).
@@ -1191,11 +1214,6 @@ start_loc(Line) when is_integer(Line) ->
     1;
 start_loc({_Line, _Column}) ->
     {1,1}.
-
-get_line(Line) when is_integer(Line) ->
-    Line;
-get_line({Line,_Column}) ->
-    Line.
 
 %% epp has always output -file attributes when entering and leaving
 %% included files (-include, -include_lib). Starting with R11B the

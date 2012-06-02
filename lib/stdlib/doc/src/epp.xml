@@ -51,6 +51,7 @@
     <func>
       <name name="open" arity="2"/>
       <name name="open" arity="3"/>
+      <name name="open" arity="4"/>
       <fsummary>Open a file for preprocessing</fsummary>
       <desc>
         <p>Opens a file for preprocessing.</p>
@@ -68,17 +69,18 @@
       <fsummary>Return the next Erlang form from the opened Erlang source file</fsummary>
       <desc>
         <p>Returns the next Erlang form from the opened Erlang source file.
-          The tuple <c>{eof, <anno>Line</anno>}</c> is returned at end-of-file. The first
+          The tuple <c>{eof, <anno>Loc</anno>}</c> is returned at end-of-file. The first
           form corresponds to an implicit attribute <c>-file(File,1).</c>, where
           <c>File</c> is the name of the file.</p>
       </desc>
     </func>
     <func>
       <name name="parse_file" arity="3"/>
+      <name name="parse_file" arity="4"/>
       <fsummary>Preprocess and parse an Erlang source file</fsummary>
       <desc>
         <p>Preprocesses and parses an Erlang source file.
-          Note that the tuple <c>{eof, <anno>Line</anno>}</c> returned at end-of-file is
+          Note that the tuple <c>{eof, <anno>Loc</anno>}</c> returned at end-of-file is
           included as a "form".</p>
       </desc>
     </func>
