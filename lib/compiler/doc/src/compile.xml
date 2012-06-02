@@ -108,6 +108,11 @@
 	    See the <em>Efficiency Guide</em> for further information.</p>
           </item>
 
+          <tag><c>column</c></tag>
+          <item>
+            <p>The compiler will keep the column numbers while parsing.</p>
+          </item>
+
           <tag><c>compressed</c></tag>
           <item>
             <p>The compiler will compress the generated object code,
