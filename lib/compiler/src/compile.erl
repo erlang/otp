@@ -1420,7 +1420,7 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
     end.
 
 format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~s:~w:~w ~s~s\n",
+    M = {{F,Loc},io_lib:format("~s:~w:~w: ~s~s\n",
                                 [F,Line,Column,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{Line,Mod,E}|Es]) ->
