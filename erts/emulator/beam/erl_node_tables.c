@@ -1384,7 +1384,8 @@ setup_reference_table(void)
 
     /* Insert all ports */
     for (i = 0; i < erts_max_ports; i++) {
-	if (erts_port[i].status & ERTS_PORT_SFLGS_DEAD)
+	erts_aint32_t state = erts_smp_atomic32_read_nob(&erts_port[i].state);
+	if (state & ERTS_PORT_SFLGS_DEAD)
 	    continue;
 
 	/* Insert links */

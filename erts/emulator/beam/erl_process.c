@@ -1486,29 +1486,29 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 	erts_smp_atomic32_set_nob(&erts_halt_progress, 1);
 	for (i = 0; i < erts_max_ports; i++) {
 	    Port *prt = &erts_port[i];
-	    erts_smp_port_state_lock(prt);
-	    if ((prt->status & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
-				| ERTS_PORT_SFLG_HALT))) {
-		erts_smp_port_state_unlock(prt);
+	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&prt->state);
+	    if (state & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+			 | ERTS_PORT_SFLG_HALT))
 		continue;
-	    }
+	    erts_smp_port_minor_lock(prt);
 	    /* We need to set the halt flag - get the port lock */
 #ifdef ERTS_SMP
 	    erts_smp_atomic_inc_nob(&prt->refc);
 #endif
-	    erts_smp_port_state_unlock(prt);
+	    erts_smp_port_minor_unlock(prt);
 #ifdef ERTS_SMP
 	    erts_smp_mtx_lock(prt->lock);
 #endif
-	    if ((prt->status & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
-				| ERTS_PORT_SFLG_HALT))) {
+	    state = erts_smp_atomic32_read_acqb(&prt->state);
+	    if (state & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+			 | ERTS_PORT_SFLG_HALT)) {
 		erts_port_release(prt);
 		continue;
 	    }
-	    erts_port_status_bor_set(prt, ERTS_PORT_SFLG_HALT);
+	    state = erts_smp_atomic32_read_bor_relb(&prt->state,
+						    ERTS_PORT_SFLG_HALT);
 	    erts_smp_atomic32_inc_nob(&erts_halt_progress);
-	    if (prt->status & (ERTS_PORT_SFLG_EXITING
-			       | ERTS_PORT_SFLG_CLOSING)) {
+	    if (state & (ERTS_PORT_SFLG_EXITING|ERTS_PORT_SFLG_CLOSING)) {
 		erts_port_release(prt);
 		continue;
 	    }
@@ -2885,12 +2885,12 @@ resume_run_queue(ErtsRunQueue *rq)
 
     erts_smp_runq_lock(rq);
 
-    (void) ERTS_RUNQ_FLGS_MASK_SET(rq,
-				   (ERTS_RUNQ_FLG_OUT_OF_WORK
-				    | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK
-				    | ERTS_RUNQ_FLG_SUSPENDED),
-				   (ERTS_RUNQ_FLG_OUT_OF_WORK
-				    | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
+    (void) ERTS_RUNQ_FLGS_READ_BSET(rq,
+				    (ERTS_RUNQ_FLG_OUT_OF_WORK
+				     | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK
+				     | ERTS_RUNQ_FLG_SUSPENDED),
+				    (ERTS_RUNQ_FLG_OUT_OF_WORK
+				     | ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK));
 
     rq->check_balance_reds = ERTS_RUNQ_CALL_CHECK_BALANCE_REDS;
     for (pix = 0; pix < ERTS_NO_PROC_PRIO_LEVELS; pix++) {
@@ -3912,7 +3912,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 	ERTS_DBG_CHK_FULL_REDS_HISTORY(rq);
 
 	rq->out_of_work_count = 0;
-	(void) ERTS_RUNQ_FLGS_MASK_SET(rq, ERTS_RUNQ_FLGS_MIGRATION_INFO, flags);
+	(void) ERTS_RUNQ_FLGS_READ_BSET(rq, ERTS_RUNQ_FLGS_MIGRATION_INFO, flags);
 
 	rq->max_len = rq->len;
 	for (pix = 0; pix < ERTS_NO_PRIO_LEVELS; pix++) {

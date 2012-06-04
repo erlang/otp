@@ -164,7 +164,7 @@ do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
 	ERTS_BIF_PREP_ERROR(res, BIF_P, EXC_NOTSUP);
     }
     else if (!(flags & ERTS_PORT_COMMAND_FLAG_FORCE)
-	     && p->status & ERTS_PORT_SFLG_PORT_BUSY) {
+	     && (erts_smp_atomic32_read_nob(&p->state) & ERTS_PORT_SFLG_PORT_BUSY)) {
 	if (flags & ERTS_PORT_COMMAND_FLAG_NOSUSPEND) {
 	    ERTS_BIF_PREP_RET(res, am_false);
 	}
@@ -637,11 +637,10 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     erts_driver_t* driver;
     char* name_buf = NULL;
     SysDriverOpts opts;
-    int binary_io;
-    int soft_eof;
     Sint linebuf;
     Eterm edir = NIL;
     byte dir[MAXPATHLEN];
+    erts_aint32_t sflgs = 0;
 
     /* These are the defaults */
     opts.packet_bytes = 0;
@@ -655,8 +654,6 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     opts.overlapped_io = 0; 
     opts.spawn_type = ERTS_SPAWN_ANY; 
     opts.argv = NULL;
-    binary_io = 0;
-    soft_eof = 0;
     linebuf = 0;
 
     *err_nump = 0;
@@ -748,13 +745,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 	    } else if (*nargs == am_nouse_stdio) {
 		opts.use_stdio = 0;
 	    } else if (*nargs == am_binary) {
-		binary_io = 1;
+		sflgs |= ERTS_PORT_SFLG_BINARY_IO;
 	    } else if (*nargs == am_in) {
 		opts.read_write |= DO_READ;
 	    } else if (*nargs == am_out) {
 		opts.read_write |= DO_WRITE;
 	    } else if (*nargs == am_eof) {
-		soft_eof = 1;
+		sflgs |= ERTS_PORT_SFLG_SOFT_EOF;
 	    } else if (*nargs == am_hide) {
 		opts.hide_window = 1;
 	    } else if (*nargs == am_exit_status) {
@@ -951,19 +948,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
         trace_virtual_sched(p, am_in);
     }
 
-    if (binary_io) {
-	erts_port_status_bor_set(&erts_port[port_num],
-				 ERTS_PORT_SFLG_BINARY_IO);
-    }
-    if (soft_eof) {
-	erts_port_status_bor_set(&erts_port[port_num],
-				 ERTS_PORT_SFLG_SOFT_EOF);
-    }
     if (linebuf && erts_port[port_num].linebuf == NULL){
-	erts_port[port_num].linebuf = allocate_linebuf(linebuf); 
-	erts_port_status_bor_set(&erts_port[port_num],
-				 ERTS_PORT_SFLG_LINEBUF_IO);
+	erts_port[port_num].linebuf = allocate_linebuf(linebuf);
+	sflgs |= ERTS_PORT_SFLG_LINEBUF_IO;
     }
+
+    if (sflgs)
+	erts_smp_atomic32_read_bor_relb(&erts_port[port_num].state, sflgs);
  
  do_return:
     if (name_buf)

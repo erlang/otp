@@ -2975,7 +2975,8 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
 #ifndef ERTS_SMP
 	res = am_false;
 #else
-	if (prt->status & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
+	if (erts_smp_atomic32_read_nob(&prt->state)
+	    & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
 	    DECL_AM(port_level);
 	    ASSERT(prt->drv_ptr->flags
 		   & ERL_DRV_FLAG_USE_PORT_LOCKING);

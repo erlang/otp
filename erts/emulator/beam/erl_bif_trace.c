@@ -680,7 +680,9 @@ Eterm trace_3(BIF_ALIST_3)
 		/* tracing of ports */
 		for (i = 0; i < erts_max_ports; i++) {
 		    Port *tracee_port = &erts_port[i];
-		    if (tracee_port->status & ERTS_PORT_SFLGS_DEAD) continue;
+		    erts_aint32_t state;
+		    state = erts_smp_atomic32_read_nob(&tracee_port->state);
+		    if (state & ERTS_PORT_SFLGS_DEAD) continue;
 		    if (tracer != NIL) {
 			if (tracee_port->id == tracer) continue;
 			if (port_already_traced(NULL, tracee_port, tracer)) continue;

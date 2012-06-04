@@ -599,7 +599,7 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
 	sched_id = 1;
 #endif
 
-    prt = erts_drvport2port(ix);
+    prt = erts_drvport2port(ix, NULL);
     if (!prt)
 	return -1;
 

@@ -204,7 +204,7 @@ static void steal_pending_stop_select(erts_dsprintf_buf_t*, ErlDrvPort,
 static ERTS_INLINE Eterm
 drvport2id(ErlDrvPort dp)
 {
-    Port *pp = erts_drvport2port(dp);
+    Port *pp = erts_drvport2port(dp, NULL);
     if (pp)
 	return pp->id;
     else {
@@ -502,8 +502,8 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
     DTRACE_CHARBUF(name, 64);
 #endif
     
-    ERTS_SMP_LC_ASSERT(erts_drvport2port(ix)
-		       && erts_lc_is_port_locked(erts_drvport2port(ix)));
+    ERTS_SMP_LC_ASSERT(erts_drvport2port(ix, NULL)
+		       && erts_lc_is_port_locked(erts_drvport2port(ix, NULL)));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if ((unsigned)fd >= (unsigned)erts_smp_atomic_read_nob(&drv_ev_state_len)) {
@@ -529,9 +529,9 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
     if (!on && (mode&ERL_DRV_USE_NO_CALLBACK) == ERL_DRV_USE) {
 	if (IS_FD_UNKNOWN(state)) {
 	    /* fast track to stop_select callback */
-	    stop_select_fn = erts_drvport2port(ix)->drv_ptr->stop_select;
+	    stop_select_fn = erts_drvport2port(ix, NULL)->drv_ptr->stop_select;
 #ifdef USE_VM_PROBES
-	    strncpy(name, erts_drvport2port(ix)->drv_ptr->name, sizeof(name)-1);
+	    strncpy(name, erts_drvport2port(ix, NULL)->drv_ptr->name, sizeof(name)-1);
 	    name[sizeof(name)-1] = '\0';
 #endif
 	    ret = 0;
@@ -664,14 +664,14 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 		}
 	    }
 	    if ((mode & ERL_DRV_USE_NO_CALLBACK) == ERL_DRV_USE) {
-		erts_driver_t* drv_ptr = erts_drvport2port(ix)->drv_ptr;
+		erts_driver_t* drv_ptr = erts_drvport2port(ix, NULL)->drv_ptr;
 		ASSERT(new_events==0);
 		if (state->remove_cnt == 0 || !wake_poller) {
 		    /* Safe to close fd now as it is not in pollset
 		       or there was no need to eject fd (kernel poll) */
 		    stop_select_fn = drv_ptr->stop_select;
 #ifdef USE_VM_PROBES
-		    strncpy(name, erts_drvport2port(ix)->drv_ptr->name, sizeof(name)-1);
+		    strncpy(name, erts_drvport2port(ix, NULL)->drv_ptr->name, sizeof(name)-1);
 		    name[sizeof(name)-1] = '\0';
 #endif
 		}
@@ -723,8 +723,8 @@ ERTS_CIO_EXPORT(driver_event)(ErlDrvPort ix,
     int do_wake = 0;
     int ret;
 
-    ERTS_SMP_LC_ASSERT(erts_drvport2port(ix)
-		       && erts_lc_is_port_locked(erts_drvport2port(ix)));
+    ERTS_SMP_LC_ASSERT(erts_drvport2port(ix, NULL)
+		       && erts_lc_is_port_locked(erts_drvport2port(ix, NULL)));
 
 #ifdef ERTS_SYS_CONTINOUS_FD_NUMBERS
     if ((unsigned)fd >= (unsigned)erts_smp_atomic_read_nob(&drv_ev_state_len)) {
@@ -959,7 +959,7 @@ static void
 print_select_op(erts_dsprintf_buf_t *dsbufp,
 		ErlDrvPort ix, ErtsSysFdType fd, int mode, int on)
 {
-    Port *pp = erts_drvport2port(ix);
+    Port *pp = erts_drvport2port(ix, NULL);
     erts_dsprintf(dsbufp,
 		  "driver_select(%p, %d,%s%s%s%s, %d) "
 		  "by ",
@@ -1030,7 +1030,7 @@ steal_pending_stop_select(erts_dsprintf_buf_t *dsbufp, ErlDrvPort ix,
 	state->driver.drv_ptr = NULL;
     }
     else if ((mode & ERL_DRV_USE_NO_CALLBACK) == ERL_DRV_USE) {
-	erts_driver_t* drv_ptr = erts_drvport2port(ix)->drv_ptr;
+	erts_driver_t* drv_ptr = erts_drvport2port(ix, NULL)->drv_ptr;
 	if (drv_ptr != state->driver.drv_ptr) {
 	    /* Some other driver wants the stop_select callback */
 	    if (state->driver.drv_ptr->handle) {
@@ -1052,7 +1052,7 @@ static void
 print_event_op(erts_dsprintf_buf_t *dsbufp,
 	       ErlDrvPort ix, ErtsSysFdType fd, ErlDrvEventData event_data)
 {
-    Port *pp = erts_drvport2port(ix);
+    Port *pp = erts_drvport2port(ix, NULL);
     erts_dsprintf(dsbufp, "driver_event(%p, %d, ", ix, (int) fd);
     if (!event_data)
 	erts_dsprintf(dsbufp, "NULL");

@@ -183,7 +183,7 @@ struct port {
     ErtsProcList *suspended;	 /* List of suspended processes. */
     LineBuf *linebuf;            /* Buffer to hold data not ready for
 				    process to get (line oriented I/O)*/
-    Uint32 status;		 /* Status and type flags */
+    erts_smp_atomic32_t state;	 /* Status and type flags */
     int control_flags;		 /* Flags for port_control()  */
     erts_aint32_t snapshot;      /* Next snapshot that port should be part of */
     struct reg_proc *reg;
@@ -1202,8 +1202,8 @@ void erts_smp_xports_unlock(Port *);
 int erts_lc_is_port_locked(Port *);
 #endif
 
-ERTS_GLB_INLINE void erts_smp_port_state_lock(Port*);
-ERTS_GLB_INLINE void erts_smp_port_state_unlock(Port*);
+ERTS_GLB_INLINE void erts_smp_port_minor_lock(Port*);
+ERTS_GLB_INLINE void erts_smp_port_minor_unlock(Port*);
 
 ERTS_GLB_INLINE int erts_smp_port_trylock(Port *prt);
 ERTS_GLB_INLINE void erts_smp_port_lock(Port *prt);
@@ -1212,7 +1212,7 @@ ERTS_GLB_INLINE void erts_smp_port_unlock(Port *prt);
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE void
-erts_smp_port_state_lock(Port* prt)
+erts_smp_port_minor_lock(Port* prt)
 {
 #ifdef ERTS_SMP
     erts_smp_spin_lock(&prt->state_lck);
@@ -1220,7 +1220,7 @@ erts_smp_port_state_lock(Port* prt)
 }
 
 ERTS_GLB_INLINE void
-erts_smp_port_state_unlock(Port *prt)
+erts_smp_port_minor_unlock(Port *prt)
 {
 #ifdef ERTS_SMP
     erts_smp_spin_unlock(&prt->state_lck);
@@ -1274,8 +1274,10 @@ erts_smp_port_unlock(Port *prt)
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 
-#define ERTS_INVALID_PORT_OPT(PP, ID, FLGS) \
-  (!(PP) || ((PP)->status & (FLGS)) || (PP)->id != (ID))
+#define ERTS_INVALID_PORT_OPT(PP, ID, FLGS)			\
+    (!(PP)							\
+     || (erts_smp_atomic32_read_nob(&(PP)->state) & (FLGS))	\
+     || (PP)->id != (ID))
 
 /* port lookup */
 
@@ -1300,16 +1302,11 @@ Port *erts_de2port(DistEntry *, Process *, ErtsProcLocks);
 
 ERTS_GLB_INLINE Port*erts_id2port_sflgs(Eterm, Process *, ErtsProcLocks, Uint32);
 ERTS_GLB_INLINE void erts_port_release(Port *);
-ERTS_GLB_INLINE Port*erts_drvport2port(ErlDrvPort);
+ERTS_GLB_INLINE Port*erts_drvport2port(ErlDrvPort, erts_aint32_t *);
 ERTS_GLB_INLINE Port*erts_drvportid2port(Eterm);
 ERTS_GLB_INLINE Uint32 erts_portid2status(Eterm id);
 ERTS_GLB_INLINE int erts_is_port_alive(Eterm id);
 ERTS_GLB_INLINE int erts_is_valid_tracer_port(Eterm id);
-ERTS_GLB_INLINE void erts_port_status_bandor_set(Port *, Uint32, Uint32);
-ERTS_GLB_INLINE void erts_port_status_band_set(Port *, Uint32);
-ERTS_GLB_INLINE void erts_port_status_bor_set(Port *, Uint32);
-ERTS_GLB_INLINE void erts_port_status_set(Port *, Uint32);
-ERTS_GLB_INLINE Uint32 erts_port_status_get(Port *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -1326,14 +1323,14 @@ erts_id2port_sflgs(Eterm id, Process *c_p, ErtsProcLocks c_p_locks, Uint32 sflgs
 
     prt = &erts_port[internal_port_index(id)];
 
-    erts_smp_port_state_lock(prt);
+    erts_smp_port_minor_lock(prt);
     if (ERTS_INVALID_PORT_OPT(prt, id, sflgs)) {
-	erts_smp_port_state_unlock(prt);
+	erts_smp_port_minor_unlock(prt);
 	prt = NULL;
     }
     else {
 	erts_smp_atomic_inc_nob(&prt->refc);
-	erts_smp_port_state_unlock(prt);
+	erts_smp_port_minor_unlock(prt);
 
 #ifdef ERTS_SMP
  	if (no_proc_locks)
@@ -1347,8 +1344,8 @@ erts_id2port_sflgs(Eterm id, Process *c_p, ErtsProcLocks c_p_locks, Uint32 sflgs
 
 	/* The id may not have changed... */
 	ERTS_SMP_LC_ASSERT(prt->id == id);
-	/* ... but status may have... */
-	if (prt->status & sflgs) {
+	/* ... but state may have... */
+	if (erts_smp_atomic32_read_nob(&prt->state) & sflgs) {
 	    erts_smp_port_unlock(prt); /* Also decrements refc... */
 	    prt = NULL;
 	}
@@ -1366,14 +1363,18 @@ erts_port_release(Port *prt)
 }
 
 ERTS_GLB_INLINE Port*
-erts_drvport2port(ErlDrvPort drvport)
+erts_drvport2port(ErlDrvPort drvport, erts_aint32_t *statep)
 {
     int ix = (int) drvport;
+    erts_aint32_t state;
     if (ix < 0 || erts_max_ports <= ix)
 	return NULL;
-    if (erts_port[ix].status & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
+    state = erts_smp_atomic32_read_nob(&erts_port[ix].state);
+    if (state & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
 	return NULL;
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(&erts_port[ix]));
+    if (statep)
+	*statep = state;
     return &erts_port[ix];
 }
 
@@ -1381,12 +1382,14 @@ ERTS_GLB_INLINE Port*
 erts_drvportid2port(Eterm id)
 {
     int ix;
+    erts_aint32_t state;
     if (is_not_internal_port(id))
 	return NULL;
     ix = (int) internal_port_index(id);
     if (erts_max_ports <= ix)
 	return NULL;
-    if (erts_port[ix].status & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
+    state = erts_smp_atomic32_read_nob(&erts_port[ix].state);
+    if (state & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
 	return NULL;
     if (erts_port[ix].id != id)
 	return NULL;
@@ -1400,17 +1403,14 @@ erts_portid2status(Eterm id)
     if (is_not_internal_port(id))
 	return ERTS_PORT_SFLG_INVALID;
     else {
-	Uint32 status;
+	erts_aint32_t state;
 	int ix = internal_port_index(id);
 	if (erts_max_ports <= ix)
 	    return ERTS_PORT_SFLG_INVALID;
-	erts_smp_port_state_lock(&erts_port[ix]);
-	if (erts_port[ix].id == id)
-	    status = erts_port[ix].status;
-	else
-	    status = ERTS_PORT_SFLG_INVALID;
-	erts_smp_port_state_unlock(&erts_port[ix]);
-	return status;
+	state = erts_smp_atomic32_read_ddrb(&erts_port[ix].state);
+	if (erts_port[ix].id != id)
+	    return ERTS_PORT_SFLG_INVALID;
+	return state;
     }
 }
 
@@ -1425,50 +1425,6 @@ ERTS_GLB_INLINE int
 erts_is_valid_tracer_port(Eterm id)
 {
     return !(erts_portid2status(id) & ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
-}
-
-ERTS_GLB_INLINE void erts_port_status_bandor_set(Port *prt,
-						 Uint32 band_status,
-						 Uint32 bor_status)
-{
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-    erts_smp_port_state_lock(prt);
-    prt->status &= band_status;
-    prt->status |= bor_status;
-    erts_smp_port_state_unlock(prt);
-}
-
-ERTS_GLB_INLINE void erts_port_status_band_set(Port *prt, Uint32 status)
-{
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-    erts_smp_port_state_lock(prt);
-    prt->status &= status;
-    erts_smp_port_state_unlock(prt);
-}
-
-ERTS_GLB_INLINE void erts_port_status_bor_set(Port *prt, Uint32 status)
-{
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-    erts_smp_port_state_lock(prt);
-    prt->status |= status;
-    erts_smp_port_state_unlock(prt);
-}
-
-ERTS_GLB_INLINE void erts_port_status_set(Port *prt, Uint32 status)
-{
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-    erts_smp_port_state_lock(prt);
-    prt->status = status;
-    erts_smp_port_state_unlock(prt);
-}
-
-ERTS_GLB_INLINE Uint32 erts_port_status_get(Port *prt)
-{
-    Uint32 res;
-    erts_smp_port_state_lock(prt);
-    res = prt->status;
-    erts_smp_port_state_unlock(prt);
-    return res;
 }
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 

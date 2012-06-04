@@ -114,6 +114,54 @@ static void ddll_no_more_references(void *vdh);
 
 #define FREE_PORT_FLAGS (ERTS_PORT_SFLGS_DEAD & (~ERTS_PORT_SFLG_INITIALIZING))
 
+static void
+kill_ports_driver_unloaded(DE_Handle *dh)
+{
+    int ix;
+
+    for (ix = 0; ix < erts_max_ports; ix++) {
+	Port* prt = &erts_port[ix];
+	erts_aint32_t state;
+	state = erts_smp_atomic32_read_acqb(&prt->state);
+	if (state & FREE_PORT_FLAGS)
+	    continue;
+
+	erts_smp_port_minor_lock(prt);
+
+	if (prt->drv_ptr->handle != dh) {
+	    erts_smp_port_minor_unlock(prt);
+	    continue;
+	}
+
+	erts_smp_atomic_inc_nob(&prt->refc);
+	erts_smp_port_minor_unlock(prt);
+
+	state = erts_smp_atomic32_read_acqb(&prt->state);
+	if (!(state & FREE_PORT_FLAGS)) {
+#if DDLL_SMP
+	    if (state & ERTS_PORT_SFLG_INITIALIZING) {
+		/* Extremely rare busy wait */
+		do {
+		    ERTS_SPIN_BODY;
+		    state = erts_smp_atomic32_read_acqb(&prt->state);
+		} while (state & ERTS_PORT_SFLG_INITIALIZING);
+	    }
+
+	    erts_smp_mtx_lock(prt->lock);
+
+	    if (prt->drv_ptr->handle == dh) {
+		state = erts_smp_atomic32_read_acqb(&prt->state);
+		if (!(state & ERTS_PORT_SFLGS_DEAD))
+		    driver_failure_atom(ix, "driver_unloaded");
+	    }
+#else
+	    driver_failure_atom(ix, "driver_unloaded");
+#endif
+	    erts_port_release(prt);
+	}
+    }
+}
+
 /*
  *    try_load(Path, Name, OptionList) -> {ok,Status} | 
  *                                        {ok, PendingStatus, Ref} | 
@@ -358,38 +406,14 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
     }
     assert_drv_list_locked();
     if (kill_ports) {
-	int j;
-	/* Avoid closing the driver by referencing it */
+ 	/* Avoid closing the driver by referencing it */
 	erts_ddll_reference_driver(dh);
 	ASSERT(dh->status == ERL_DE_RELOAD);
 	dh->status = ERL_DE_FORCE_RELOAD;
 #if DDLL_SMP
 	unlock_drv_list();
 #endif
-	for (j = 0; j < erts_max_ports; j++) {
-	    Port* prt = &erts_port[j];
-	    erts_smp_port_state_lock(prt);
-	    if (!(prt->status & FREE_PORT_FLAGS) &&
-		prt->drv_ptr->handle == dh) {
-		erts_smp_atomic_inc_nob(&prt->refc);
-#if DDLL_SMP
-		/* Extremely rare spinlock */
-		while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
-		       erts_smp_port_state_unlock(prt);
-		       erts_smp_port_state_lock(prt);
-	        }
-		erts_smp_port_state_unlock(prt);
-		erts_smp_mtx_lock(prt->lock);
-		if (!(prt->status & ERTS_PORT_SFLGS_DEAD)) {
-		    driver_failure_atom(j, "driver_unloaded");
-		}
-#else
-		driver_failure_atom(j, "driver_unloaded");
-#endif
-		erts_port_release(prt);
-	    }
-	    else erts_smp_port_state_unlock(prt);
-	}
+	kill_ports_driver_unloaded(dh);
 	/* Dereference, eventually causing driver destruction */
 #if DDLL_SMP
 	lock_drv_list(); 
@@ -587,37 +611,13 @@ Eterm erl_ddll_try_unload_2(BIF_ALIST_2)
 done:
     assert_drv_list_locked();
     if (kill_ports > 1) {
-	int j;
 	/* Avoid closing the driver by referencing it */
 	erts_ddll_reference_driver(dh);
 	dh->status = ERL_DE_FORCE_UNLOAD;
 #if DDLL_SMP
 	unlock_drv_list();
 #endif
-	for (j = 0; j < erts_max_ports; j++) {
-	    Port* prt = &erts_port[j];
-	    erts_smp_port_state_lock(prt);
-	    if (!(prt->status &  FREE_PORT_FLAGS) 
-		&& prt->drv_ptr->handle == dh) {
-		erts_smp_atomic_inc_nob(&prt->refc);
-#if DDLL_SMP
-		/* Extremely rare spinlock */
-		while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
-		       erts_smp_port_state_unlock(prt);
-		       erts_smp_port_state_lock(prt);
-	        }
-		erts_smp_port_state_unlock(prt);
-		erts_smp_mtx_lock(prt->lock);
-		if (!(prt->status & ERTS_PORT_SFLGS_DEAD)) {
-		    driver_failure_atom(j, "driver_unloaded");
-		}
-#else
-		driver_failure_atom(j, "driver_unloaded");
-#endif
-		erts_port_release(prt);
-	    }
-	    else erts_smp_port_state_unlock(prt);
-	}
+	kill_ports_driver_unloaded(dh);
 #if DDLL_SMP
 	lock_drv_list(); 
 #endif
@@ -1047,36 +1047,13 @@ void erts_ddll_proc_dead(Process *p, ErtsProcLocks plocks)
 	    }
 	    if (!left && drv->handle->port_count > 0) {
 		if (kill_ports) {
-		    int j;
 		    DE_Handle *dh = drv->handle;
 		    erts_ddll_reference_driver(dh);
 		    dh->status = ERL_DE_FORCE_UNLOAD;
 #if DDLL_SMP
 		    unlock_drv_list();
 #endif
-		    for (j = 0; j < erts_max_ports; j++) {
-			Port* prt = &erts_port[j];
-			erts_smp_port_state_lock(prt);
-			if (!(prt->status & FREE_PORT_FLAGS) &&
-			    prt->drv_ptr->handle == dh) {
-			    erts_smp_atomic_inc_nob(&prt->refc);
-#if DDLL_SMP
-			    while(prt->status & ERTS_PORT_SFLG_INITIALIZING) {
-				erts_smp_port_state_unlock(prt);
-				erts_smp_port_state_lock(prt);
-			    }
-			    erts_smp_port_state_unlock(prt);
-			    erts_smp_mtx_lock(prt->lock);
-			    if (!(prt->status & ERTS_PORT_SFLGS_DEAD)) {
-				driver_failure_atom(j, "driver_unloaded");
-			    }
-#else
-			    driver_failure_atom(j, "driver_unloaded");
-#endif
-			    erts_port_release(prt);
-			}
-			else erts_smp_port_state_unlock(prt);
-		    } 
+		    kill_ports_driver_unloaded(dh);
 #if DDLL_SMP
 		    lock_drv_list(); /* Needed for future list operations */
 #endif

@@ -205,32 +205,10 @@ extern int erts_sched_thread_suggested_stack_size;
     ((Uint32) erts_smp_atomic32_read_nob(&(RQ)->flags))
 #define ERTS_RUNQ_FLGS_GET_MB(RQ)					\
     ((Uint32) erts_smp_atomic32_read_mb(&(RQ)->flags))
-#define ERTS_RUNQ_FLGS_MASK_SET(RQ, MSK, FLGS)		  		\
-    ((Uint32) erts_smp_atomic32_mask_set_relb(&(RQ)->flags, 		\
-					      (erts_aint32_t) (MSK),	\
-					      (erts_aint32_t) (FLGS)))
-
-ERTS_GLB_INLINE erts_aint32_t
-erts_smp_atomic32_mask_set_relb(erts_smp_atomic32_t *a32p,
-				erts_aint32_t mask,
-				erts_aint32_t set);
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-ERTS_GLB_INLINE erts_aint32_t
-erts_smp_atomic32_mask_set_relb(erts_smp_atomic32_t *a32p,
-				erts_aint32_t mask,
-				erts_aint32_t set)
-{
-    erts_aint32_t act = erts_smp_atomic32_read_nob(a32p);
-    while (1) {
-	erts_aint32_t exp = act;
-	erts_aint32_t new = exp & ~mask;
-	new |= (mask & set);
-	act = erts_smp_atomic32_cmpxchg_relb(a32p, new, exp);
-	if (act == exp)
-	    return act;
-    }
-}	
-#endif
+#define ERTS_RUNQ_FLGS_READ_BSET(RQ, MSK, FLGS)		  		\
+    ((Uint32) erts_smp_atomic32_read_bset_relb(&(RQ)->flags, 		\
+					       (erts_aint32_t) (MSK),	\
+					       (erts_aint32_t) (FLGS)))
 
 typedef enum {
     ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED,

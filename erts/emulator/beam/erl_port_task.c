@@ -51,7 +51,8 @@
 
 
 #define ERTS_PORT_TASK_INVALID_PORT(P, ID) \
-  ((erts_port_status_get((P)) & ERTS_PORT_SFLGS_DEAD) || (P)->id != (ID))
+  ((erts_smp_atomic32_read_acqb(&(P)->state) & ERTS_PORT_SFLGS_DEAD) \
+   || (P)->id != (ID))
 
 #define ERTS_PORT_IS_IN_RUNQ(RQ, P) \
   ((P)->sched.next || (P)->sched.prev || (RQ)->ports.start == (P))
@@ -615,7 +616,7 @@ erts_port_task_free_port(Port *pp)
     ErtsPortTaskQueue *ptqp;
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
-    ASSERT(!(pp->status & ERTS_PORT_SFLGS_DEAD));
+    ASSERT(!(erts_smp_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
     runq = erts_port_runq(pp);
     ASSERT(runq);
     ERTS_PT_CHK_PRES_PORTQ(runq, pp);
@@ -626,11 +627,13 @@ erts_port_task_free_port(Port *pp)
 	ErtsPortTask *ptp;
     enqueue_free:
 	ptp = port_task_alloc();
-	erts_smp_port_state_lock(pp);
-	pp->status &= ~ERTS_PORT_SFLG_CLOSING;
-	pp->status |= ERTS_PORT_SFLG_FREE_SCHEDULED;
+	erts_smp_port_minor_lock(pp);
+	erts_smp_atomic32_read_bset_relb(&pp->state,
+					 (ERTS_PORT_SFLG_CLOSING
+					  | ERTS_PORT_SFLG_FREE_SCHEDULED),
+					 ERTS_PORT_SFLG_FREE_SCHEDULED);
 	erts_may_save_closed_port(pp);
-	erts_smp_port_state_unlock(pp);
+	erts_smp_port_minor_unlock(pp);
 	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 1);
 	ptp->type = ERTS_PORT_TASK_FREE;
 	ptp->event = (ErlDrvEvent) -1;
@@ -648,11 +651,13 @@ erts_port_task_free_port(Port *pp)
 	    goto enqueue_free;
 	}
 	ASSERT(!pp->sched.taskq);
-	erts_smp_port_state_lock(pp);
-	pp->status &= ~ERTS_PORT_SFLG_CLOSING;
-	pp->status |= ERTS_PORT_SFLG_FREE_SCHEDULED;
+	erts_smp_port_minor_lock(pp);
+	erts_smp_atomic32_read_bset_relb(&pp->state,
+					 (ERTS_PORT_SFLG_CLOSING
+					  | ERTS_PORT_SFLG_FREE_SCHEDULED),
+					 ERTS_PORT_SFLG_FREE_SCHEDULED);
 	erts_may_save_closed_port(pp);
-	erts_smp_port_state_unlock(pp);
+	erts_smp_port_minor_unlock(pp);
 	erts_smp_atomic_dec_nob(&pp->refc); /* Not alive */
 	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 0); /* Lock */
 	handle_remaining_tasks(runq, pp); /* May release runq lock */
@@ -766,7 +771,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    erts_smp_runq_lock(runq);
 
 	    erts_unblock_fpe(fpe_was_unmasked);
-	    ASSERT(pp->status & ERTS_PORT_SFLG_FREE_SCHEDULED);
+	    ASSERT(erts_smp_atomic32_read_nob(&pp->state)
+		   & ERTS_PORT_SFLG_FREE_SCHEDULED);
 	    if (ptqp->first || (pp->sched.taskq && pp->sched.taskq->first))
 		handle_remaining_tasks(runq, pp);
 	    ASSERT(!ptqp->first
@@ -782,14 +788,15 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    goto tasks_done;
 	case ERTS_PORT_TASK_TIMEOUT:
 	    reds += ERTS_PORT_REDS_TIMEOUT;
-	    if (!(pp->status & ERTS_PORT_SFLGS_DEAD)) {
+	    if (!(erts_smp_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD)) {
                 DTRACE_DRIVER(driver_timeout, pp);
 		(*pp->drv_ptr->timeout)((ErlDrvData) pp->drv_data);
             }
 	    break;
 	case ERTS_PORT_TASK_INPUT:
 	    reds += ERTS_PORT_REDS_INPUT;
-	    ASSERT((pp->status & ERTS_PORT_SFLGS_DEAD) == 0);
+	    ASSERT((erts_smp_atomic32_read_nob(&pp->state)
+		    & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_input, pp);
 	    /* NOTE some windows drivers use ->ready_input for input and output */
 	    (*pp->drv_ptr->ready_input)((ErlDrvData) pp->drv_data, ptp->event);
@@ -797,14 +804,16 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    break;
 	case ERTS_PORT_TASK_OUTPUT:
 	    reds += ERTS_PORT_REDS_OUTPUT;
-	    ASSERT((pp->status & ERTS_PORT_SFLGS_DEAD) == 0);
+	    ASSERT((erts_smp_atomic32_read_nob(&pp->state)
+		    & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_ready_output, pp);
 	    (*pp->drv_ptr->ready_output)((ErlDrvData) pp->drv_data, ptp->event);
 	    io_tasks_executed++;
 	    break;
 	case ERTS_PORT_TASK_EVENT:
 	    reds += ERTS_PORT_REDS_EVENT;
-	    ASSERT((pp->status & ERTS_PORT_SFLGS_DEAD) == 0);
+	    ASSERT((erts_smp_atomic32_read_nob(&pp->state)
+		    & ERTS_PORT_SFLGS_DEAD) == 0);
             DTRACE_DRIVER(driver_event, pp);
 	    (*pp->drv_ptr->event)((ErlDrvData) pp->drv_data, ptp->event, ptp->event_data);
 	    io_tasks_executed++;
@@ -819,7 +828,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    break;
 	}
 
-	if ((pp->status & ERTS_PORT_SFLG_CLOSING)
+	if ((erts_smp_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLG_CLOSING)
 	    && erts_is_port_ioq_empty(pp)) {
 	    reds += ERTS_PORT_REDS_TERMINATE;
 	    erts_terminate_port(pp);
@@ -870,7 +879,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	ErtsRunQueue *xrunq;
 #endif
 
-	ASSERT(!(pp->status & ERTS_PORT_SFLGS_DEAD));
+	ASSERT(!(erts_smp_atomic32_read_nob(&pp->state) & ERTS_PORT_SFLGS_DEAD));
 	ASSERT(pp->sched.taskq->first);
 
 #ifdef ERTS_SMP

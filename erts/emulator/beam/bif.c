@@ -1899,30 +1899,34 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 	ERTS_SMP_LC_ASSERT(!pt || erts_lc_is_port_locked(pt));
         
 	/* We have waited for locks, trace schedule ports */
-	if (pt && IS_TRACED_FL(pt, F_TRACE_SCHED_PORTS)) {
-	    trace_sched_ports_where(pt, am_in, am_command);
-	}
-	if (pt && erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(pt)) {
-	    profile_runnable_port(pt, am_active);
-	}
-	
-	/* XXX let port_command handle the busy stuff !!! */
-	if (pt && (pt->status & ERTS_PORT_SFLG_PORT_BUSY)) {
-	    if (suspend) {
-		erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
-		if (erts_system_monitor_flags.busy_port) {
-		    monitor_generic(p, am_busy_port, portid);
-		}
-	    }
-	    /* Virtually schedule out the port before releasing */
+	if (pt) {
+	    erts_aint32_t state;
 	    if (IS_TRACED_FL(pt, F_TRACE_SCHED_PORTS)) {
-	    	trace_sched_ports_where(pt, am_out, am_command);
+		trace_sched_ports_where(pt, am_in, am_command);
 	    }
 	    if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(pt)) {
-	    	profile_runnable_port(pt, am_inactive);
+		profile_runnable_port(pt, am_active);
 	    }
-	    erts_port_release(pt);
-	    return SEND_YIELD;
+	
+	    state = erts_smp_atomic32_read_nob(&pt->state);
+	    /* XXX let port_command handle the busy stuff !!! */
+	    if (state & ERTS_PORT_SFLG_PORT_BUSY) {
+		if (suspend) {
+		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
+		    if (erts_system_monitor_flags.busy_port) {
+			monitor_generic(p, am_busy_port, portid);
+		    }
+		}
+		/* Virtually schedule out the port before releasing */
+		if (IS_TRACED_FL(pt, F_TRACE_SCHED_PORTS)) {
+		    trace_sched_ports_where(pt, am_out, am_command);
+		}
+		if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(pt)) {
+		    profile_runnable_port(pt, am_inactive);
+		}
+		erts_port_release(pt);
+		return SEND_YIELD;
+	    }
 	}
 	
 	if (IS_TRACED(p)) 	/* trace once only !! */
@@ -3534,14 +3538,17 @@ BIF_RETTYPE ports_0(BIF_ALIST_0)
 
     for (i = erts_max_ports-1; i >= 0; i--) {
 	Port* prt = &erts_port[i];
-	erts_smp_port_state_lock(prt);
-	if (!(prt->status & ERTS_PORT_SFLGS_DEAD)
-	    && prt->snapshot != next_ss) {
-	    ASSERT(prt->snapshot == next_ss - 1);
-	    *pp++ = prt->id;		
-	    prt->snapshot = next_ss; /* Consumed by this snapshot */
+	erts_aint32_t state = erts_smp_atomic32_read_acqb(&prt->state);
+	if (!(state & ERTS_PORT_SFLGS_DEAD)) {
+	    erts_smp_port_minor_lock(prt);
+	    state = erts_smp_atomic32_read_nob(&prt->state);
+	    if (!(state & ERTS_PORT_SFLGS_DEAD) && prt->snapshot != next_ss) {
+		ASSERT(prt->snapshot == next_ss - 1);
+		*pp++ = prt->id;
+		prt->snapshot = next_ss; /* Consumed by this snapshot */
+	    }
+	    erts_smp_port_minor_unlock(prt);
 	}
-	erts_smp_port_state_unlock(prt);
     }
 
     dead_ports = (Eterm*)erts_smp_atomic_xchg_nob(&erts_dead_ports_ptr,
