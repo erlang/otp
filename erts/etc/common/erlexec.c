@@ -159,20 +159,13 @@ static char *plusz_val_switches[] = {
 #endif
 
 #define SMP_SUFFIX	  ".smp"
-#define HYBRID_SUFFIX	  ".hybrid"
-
-#ifdef __WIN32__
 #define DEBUG_SUFFIX      ".debug"
-#define EMU_TYPE_SUFFIX_LENGTH  (strlen(HYBRID_SUFFIX)+(strlen(DEBUG_SUFFIX)))
-#else
-/* The length of the longest memory architecture suffix. */
-#define EMU_TYPE_SUFFIX_LENGTH  strlen(HYBRID_SUFFIX)
-#endif
+#define EMU_TYPE_SUFFIX_LENGTH  strlen(DEBUG_SUFFIX)
+
 /*
  * Define flags for different memory architectures.
  */
 #define EMU_TYPE_SMP		0x0001
-#define EMU_TYPE_HYBRID		0x0002
 
 #ifdef __WIN32__
 #define EMU_TYPE_DEBUG		0x0004
@@ -186,7 +179,7 @@ void error(char* format, ...);
  * Local functions.
  */
 
-#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_HYBRID_EMU)
+#if !defined(ERTS_HAVE_SMP_EMU)
 static void usage_notsup(const char *switchname);
 #endif
 static void usage_msg(const char *msg);
@@ -369,9 +362,6 @@ add_extra_suffixes(char *prog, int type)
    if (type == EMU_TYPE_SMP) {
        p = write_str(p, SMP_SUFFIX);
    }
-   else if (type == EMU_TYPE_HYBRID) {
-       p = write_str(p, HYBRID_SUFFIX);
-   }
 #ifdef __WIN32__
    if (dll) {
        p = write_str(p, DLL_EXT);
@@ -537,13 +527,6 @@ int main(int argc, char **argv)
 		emu_type_passed |= EMU_TYPE_DEBUG;
 		emu_type |= EMU_TYPE_DEBUG;
 #endif
-	    } else if (strcmp(argv[i], "-hybrid") == 0) {
-		emu_type_passed |= EMU_TYPE_HYBRID;
-#ifdef ERTS_HAVE_HYBRID_EMU
-		emu_type |= EMU_TYPE_HYBRID;
-#else
-		usage_notsup("-hybrid");
-#endif
 	    } else if (strcmp(argv[i], "-extra") == 0) {
 		break;
 	    }
@@ -553,19 +536,6 @@ int main(int argc, char **argv)
 
     erts_cpu_info_destroy(cpuinfo);
     cpuinfo = NULL;
-
-    if ((emu_type & EMU_TYPE_HYBRID) && (emu_type & EMU_TYPE_SMP)) {
-	/*
-	 * We have a conflict. Only using explicitly passed arguments
-	 * may solve it...
-	 */
-	emu_type &= emu_type_passed;
-	if ((emu_type & EMU_TYPE_HYBRID) && (emu_type & EMU_TYPE_SMP)) {
-	    usage_msg("Hybrid heap emulator with SMP support selected. The "
-		      "combination hybrid heap and SMP support is currently "
-		      "not supported.");
-	}
-    }
 
     if (malloc_lib) {
 	if (strcmp(malloc_lib, "libc") != 0)
@@ -1117,9 +1087,6 @@ usage_aux(void)
 	  "]"
 #endif
 	  "] "
-#ifdef ERTS_HAVE_HYBRID_EMU
-	  "[-hybrid] "
-#endif
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] "
 	  "[-args_file FILENAME] [+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] "
 	  "[+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
@@ -1137,7 +1104,7 @@ usage(const char *switchname)
     usage_aux();
 }
 
-#if !defined(ERTS_HAVE_SMP_EMU) || !defined(ERTS_HAVE_HYBRID_EMU)
+#if !defined(ERTS_HAVE_SMP_EMU)
 static void
 usage_notsup(const char *switchname)
 {

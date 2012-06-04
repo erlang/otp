@@ -1093,10 +1093,8 @@ BIF_RETTYPE hipe_bifs_make_fun_3(BIF_ALIST_3)
     if (is_not_nil(free_vars))
 	BIF_ERROR(BIF_P, BADARG);
 
-#ifndef HYBRID /* FIND ME! */
     funp->next = MSO(BIF_P).funs;
     MSO(BIF_P).funs = funp;
-#endif
 
     BIF_RET(make_fun(funp));
 }

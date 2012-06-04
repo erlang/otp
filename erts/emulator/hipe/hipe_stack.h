@@ -116,13 +116,4 @@ extern int hipe_fill_stacktrace(Process*, int, Eterm**);
 extern Eterm *fullsweep_nstack(Process *p, Eterm *n_htop);
 extern void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop);
 
-#ifdef HYBRID
-#ifdef INCREMENTAL
-extern Eterm *ma_fullsweep_nstack(Process *p, Eterm *n_htop, Eterm *n_hend);
-#else
-extern Eterm *ma_fullsweep_nstack(Process *p, Eterm *n_htop);
-#endif
-extern void ma_gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop);
-#endif /* HYBRID */
-
 #endif /* HIPE_STACK_H */

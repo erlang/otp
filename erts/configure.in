@@ -157,14 +157,6 @@ AS_HELP_STRING([--without-termcap],
 [],
 [with_termcap=yes])
 
-
-AC_ARG_ENABLE(hybrid-heap,
-AS_HELP_STRING([--enable-hybrid-heap], [enable hybrid heap]),
-[ case "$enableval" in
-    no) enable_hybrid_heap=no ;;
-    *)  enable_hybrid_heap=yes ;;
-  esac ], enable_hybrid_heap=unknown)
-
 AC_ARG_ENABLE(lock-checking,
 AS_HELP_STRING([--enable-lock-checking], [enable lock checking]),
 [ case "$enableval" in
@@ -3132,33 +3124,6 @@ if test X${enable_tsp} = Xyes; then
   TSP_APP=tsp
 fi
 AC_SUBST(TSP_APP)
-
-#
-# Check if we should build hybrid emulator
-#
-
-AC_MSG_CHECKING([whether a hybrid heap emulator should be built])
-case $enable_hybrid_heap-$host_os in
-    yes-*)
-	AC_MSG_RESULT([yes; enabled by user])
-	ERTS_BUILD_HYBRID_EMU=yes;;
-    no-*)
-	AC_MSG_RESULT([no; disabled by user])
-	ERTS_BUILD_HYBRID_EMU=no;;
-    *-win32|*-vxworks) # vxworks have their own "configure scripts"...
-	AC_MSG_RESULT([no; default on this platform])
-	ERTS_BUILD_HYBRID_EMU=no;;
-    *)
-	AC_MSG_RESULT([yes; default on this platform])
-	ERTS_BUILD_HYBRID_EMU=yes;;
-esac
-
-
-if test $ERTS_BUILD_HYBRID_EMU = yes; then
-    AC_DEFINE(ERTS_HAVE_HYBRID_EMU, 1, [Define if the hybrid emulator is built])
-fi
-
-AC_SUBST(ERTS_BUILD_HYBRID_EMU)
 
 #
 # Check if we should enable HiPE.

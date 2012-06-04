@@ -477,7 +477,6 @@ mem_leak(0, _) -> ok;
 mem_leak(N, B) ->
     ?line big_bin(B, <<23>>),
     ?line {'EXIT',{badarg,_}} = (catch big_bin(B, bad)),
-    maybe_gc(),
     mem_leak(N-1, B).
 
 big_bin(B1, B2) ->
@@ -489,13 +488,6 @@ big_bin(B1, B2) ->
 
 make_bin(0, Acc) -> Acc;
 make_bin(N, Acc) -> make_bin(N-1, <<Acc/binary,Acc/binary>>).
-
-maybe_gc() ->
-    case erlang:system_info(heap_type) of
-	shared -> erlang:garbage_collect();
-	hybrid -> erlang:garbage_collect();
-	private -> ok
-    end.
 
 -define(COF(Int0),
 	?line (fun(Int) ->

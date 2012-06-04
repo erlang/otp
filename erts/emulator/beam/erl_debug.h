@@ -42,12 +42,11 @@
 #define DEBUG_DEFAULT      0x0000    /* No flags are set per default         */
 #define DEBUG_SYSTEM       0x0001    /* Misc system info at startup and end  */
 #define DEBUG_PRIVATE_GC   0x0002    /* GC of private heaps                  */
-#define DEBUG_HYBRID_GC    0x0004    /* GC of the message area               */
-#define DEBUG_ALLOCATION   0x0008    /* HAlloc. To find holes in the heap    */
-#define DEBUG_MESSAGES     0x0010    /* Message passing                      */
-#define DEBUG_THREADS      0x0020    /* Thread-related stuff                 */
-#define DEBUG_PROCESSES    0x0040    /* Process creation and removal         */
-#define DEBUG_MEMORY       0x0080    /* Display results of memory checks     */
+#define DEBUG_ALLOCATION   0x0004    /* HAlloc. To find holes in the heap    */
+#define DEBUG_MESSAGES     0x0008    /* Message passing                      */
+#define DEBUG_THREADS      0x0010    /* Thread-related stuff                 */
+#define DEBUG_PROCESSES    0x0020    /* Process creation and removal         */
+#define DEBUG_MEMORY       0x0040    /* Display results of memory checks     */
 
 extern Uint32 verbose;
 
@@ -88,7 +87,6 @@ extern void erts_check_stack(Process *p);
 extern void erts_check_heap(Process *p);
 extern void erts_check_memory(Process *p, Eterm *start, Eterm *end);
 extern void verify_process(Process *p);
-extern void verify_everything(void);
 extern void print_tagged_memory(Eterm *start, Eterm *end);
 extern void print_untagged_memory(Eterm *start, Eterm *end);
 extern void print_memory(Process *p);
@@ -97,12 +95,6 @@ extern void print_memory_info(Process *p);
 extern Eterm *erts_debug_allocate_tmp_heap(int, Process *);
 extern void erts_debug_use_tmp_heap(int, Process *);
 extern void erts_debug_unuse_tmp_heap(int, Process *);
-#endif
-
-#ifdef HYBRID
-extern void print_ma_info(void);
-extern void print_message_area(void);
-extern void check_message_area(void);
 #endif
 
 #endif /* _ERL_DEBUG_H_ */

@@ -29,17 +29,8 @@
 /* #define FORCE_HEAP_FRAGS */
 
 
-#if defined(HYBRID)
-/* # define CHECK_FOR_HOLES */
-#endif
-
 #if defined(DEBUG) && !defined(CHECK_FOR_HOLES) && !defined(__WIN32__)
 # define CHECK_FOR_HOLES
-#endif
-
-#if defined(HYBRID)
-/* #  define INCREMENTAL 1    */ /* Incremental garbage collection */
-/* #  define INC_TIME_BASED 1 */ /* Time-based incremental GC (vs Work-based) */
 #endif
 
 #define BEAM 1
@@ -69,16 +60,6 @@
 
 #define H_DEFAULT_SIZE  233        /* default (heap + stack) min size */
 #define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
-
-#ifdef HYBRID
-#  define SH_DEFAULT_SIZE  2629425 /* default message area min size */
-#endif
-
-#ifdef INCREMENTAL
-#  define INC_NoPAGES       256   /* Number of pages in the old generation */
-#  define INC_PAGESIZE      32768 /* The size of each page */
-#  define INC_STORAGE_SIZE  1024  /* The size of gray stack and similar */
-#endif
 
 #define CP_SIZE 1
 

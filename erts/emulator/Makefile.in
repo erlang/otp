@@ -136,13 +136,6 @@ ENABLE_ALLOC_TYPE_VARS += smp nofrag
 M4FLAGS += -DERTS_SMP=1
 else
 
-ifeq ($(FLAVOR),hybrid)
-FLAVOR_MARKER=.hybrid
-FLAVOR_FLAGS=-DHYBRID
-ENABLE_ALLOC_TYPE_VARS += hybrid
-else
-
-
 # If flavor isn't one of the above, it *is* plain flavor...
 override FLAVOR=plain
 FLAVOR_MARKER=
@@ -150,7 +143,6 @@ FLAVOR_FLAGS=
 ENABLE_ALLOC_TYPE_VARS += nofrag
 M4FLAGS +=
 
-endif
 endif
 
 TF_MARKER=$(TYPEMARKER)$(FLAVOR_MARKER)
@@ -748,7 +740,7 @@ RUN_OBJS = \
 	$(OBJDIR)/register.o		$(OBJDIR)/break.o \
 	$(OBJDIR)/erl_async.o		$(OBJDIR)/erl_lock_check.o \
 	$(OBJDIR)/erl_gc.o 		$(OBJDIR)/erl_lock_count.o \
-	$(OBJDIR)/erl_nmgc.o		$(OBJDIR)/erl_posix_str.o \
+	$(OBJDIR)/erl_posix_str.o \
 	$(OBJDIR)/erl_bits.o 		$(OBJDIR)/erl_math.o \
 	$(OBJDIR)/erl_fun.o             $(OBJDIR)/erl_bif_port.o \
 	$(OBJDIR)/erl_term.o 		$(OBJDIR)/erl_node_tables.o \

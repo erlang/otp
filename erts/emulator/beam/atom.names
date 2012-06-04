@@ -244,7 +244,6 @@ atom gather_sched_wall_time_result
 atom getting_linked
 atom getting_unlinked
 atom global
-atom global_heaps_size
 atom Gt='>'
 atom grun
 atom group_leader
@@ -259,7 +258,6 @@ atom hide
 atom high
 atom hipe_architecture
 atom http httph https http_response http_request http_header http_eoh http_error http_bin httph_bin
-atom hybrid
 atom id
 atom if_clause
 atom imports

@@ -34,7 +34,6 @@
 #include "erl_binary.h"
 #include "dist.h"
 #include "erl_mseg.h"
-#include "erl_nmgc.h"
 #include "erl_threads.h"
 #include "erl_bif_timer.h"
 #include "erl_instrument.h"
@@ -154,28 +153,6 @@ Export *erts_delay_trap = NULL;
 
 int erts_use_r9_pids_ports;
 
-#ifdef HYBRID
-Eterm *global_heap;
-Eterm *global_hend;
-Eterm *global_htop;
-Eterm *global_saved_htop;
-Eterm *global_old_heap;
-Eterm *global_old_hend;
-ErlOffHeap erts_global_offheap;
-Uint   global_heap_sz = SH_DEFAULT_SIZE;
-
-#ifndef INCREMENTAL
-Eterm *global_high_water;
-Eterm *global_old_htop;
-#endif
-
-Uint16 global_gen_gcs;
-Uint16 global_max_gen_gcs;
-Uint   global_gc_flags;
-
-Uint   global_heap_min_sz = SH_DEFAULT_SIZE;
-#endif
-
 int ignore_break;
 int replace_intr;
 
@@ -281,7 +258,6 @@ erl_init(int ncpu)
     erl_drv_thr_init();
     erts_init_async();
     init_io();
-    init_copy();
     init_load();
     erts_init_bif();
     erts_init_bif_chksum();
@@ -299,45 +275,6 @@ erl_init(int ncpu)
 #endif
     packet_parser_init();
     erl_nif_init();
-}
-
-static void
-init_shared_memory(int argc, char **argv)
-{
-#ifdef HYBRID
-    int arg_size = 0;
-
-    global_heap_sz = erts_next_heap_size(global_heap_sz,0);
-
-    /* Make sure arguments will fit on the heap, no one else will check! */
-    while (argc--)
-        arg_size += 2 + strlen(argv[argc]);
-    if (global_heap_sz < arg_size)
-        global_heap_sz = erts_next_heap_size(arg_size,1);
-
-#ifndef INCREMENTAL
-    global_heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
-					    sizeof(Eterm) * global_heap_sz);
-    global_hend = global_heap + global_heap_sz;
-    global_htop = global_heap;
-    global_high_water = global_heap;
-    global_old_hend = global_old_htop = global_old_heap = NULL;
-#endif
-
-    global_gen_gcs = 0;
-    global_max_gen_gcs = (Uint16) erts_smp_atomic32_read_nob(&erts_max_gen_gcs);
-    global_gc_flags = erts_default_process_flags;
-
-    erts_global_offheap.mso = NULL;
-#ifndef HYBRID /* FIND ME! */
-    erts_global_offheap.funs = NULL;
-#endif
-    erts_global_offheap.overhead = 0;
-#endif
-
-#ifdef INCREMENTAL
-    erts_init_incgc();
-#endif
 }
 
 static void
@@ -999,7 +936,6 @@ erl_start(int argc, char **argv)
 		    switch (*ch) {
 		    case 's': verbose |= DEBUG_SYSTEM; break;
 		    case 'g': verbose |= DEBUG_PRIVATE_GC; break;
-		    case 'h': verbose |= DEBUG_HYBRID_GC; break;
 		    case 'M': verbose |= DEBUG_MEMORY; break;
 		    case 'a': verbose |= DEBUG_ALLOCATION; break;
 		    case 't': verbose |= DEBUG_THREADS; break;
@@ -1012,7 +948,6 @@ erl_start(int argc, char **argv)
             erts_printf("Verbose level: ");
             if (verbose & DEBUG_SYSTEM) erts_printf("SYSTEM ");
             if (verbose & DEBUG_PRIVATE_GC) erts_printf("PRIVATE_GC ");
-            if (verbose & DEBUG_HYBRID_GC) erts_printf("HYBRID_GC ");
             if (verbose & DEBUG_MEMORY) erts_printf("PARANOID_MEMORY ");
 	    if (verbose & DEBUG_ALLOCATION) erts_printf("ALLOCATION ");
 	    if (verbose & DEBUG_THREADS) erts_printf("THREADS ");
@@ -1039,12 +974,6 @@ erl_start(int argc, char **argv)
 #endif
 #ifdef HIPE
 		strcat(tmp, ",HIPE");
-#endif
-#ifdef INCREMENTAL
-		strcat(tmp, ",INCREMENTAL_GC");
-#endif
-#ifdef HYBRID
-                strcat(tmp, ",HYBRID");
 #endif
 		erts_fprintf(stderr, "Erlang ");
 		if (tmp[1]) {
@@ -1497,7 +1426,6 @@ erl_start(int argc, char **argv)
 
     erl_init(ncpu);
 
-    init_shared_memory(boot_argc, boot_argv);
     load_preloaded();
 
     erts_initialized = 1;
@@ -1582,32 +1510,6 @@ system_cleanup(int flush_async)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_check_exact(NULL, 0);
 #endif
-#endif
-
-#ifdef HYBRID
-    if (ma_src_stack) erts_free(ERTS_ALC_T_OBJECT_STACK,
-                                (void *)ma_src_stack);
-    if (ma_dst_stack) erts_free(ERTS_ALC_T_OBJECT_STACK,
-                                (void *)ma_dst_stack);
-    if (ma_offset_stack) erts_free(ERTS_ALC_T_OBJECT_STACK,
-                                   (void *)ma_offset_stack);
-    ma_src_stack = NULL;
-    ma_dst_stack = NULL;
-    ma_offset_stack = NULL;
-    erts_cleanup_offheap(&erts_global_offheap);
-#endif
-
-#if defined(HYBRID) && !defined(INCREMENTAL)
-    if (global_heap) {
-	ERTS_HEAP_FREE(ERTS_ALC_T_HEAP,
-		       (void*) global_heap,
-		       sizeof(Eterm) * global_heap_sz);
-    }
-    global_heap = NULL;
-#endif
-
-#ifdef INCREMENTAL
-    erts_cleanup_incgc();
 #endif
 
     erts_exit_flush_async();

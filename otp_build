@@ -51,7 +51,6 @@ usage ()
     echo "    release <target_dir> - creates a small release to <target_dir>"
     echo "    release [-a] <target_dir> - creates full release to <target_dir>"
     echo "    smp [-a] - build an Erlang system, smp flavor only"
-    echo "    hybrid [-a] - build an Erlang system, hybrid flavor only"
     echo "    tests <dir> - Build testsuites to <dir>"
     echo ""
     echo "These are for cleaning up an open source distribution"
@@ -1309,8 +1308,8 @@ cd $ERL_TOP
 
 determine_version_controller
 
-# Unset ERL_FLAGS and ERL_<Release>_FLAGS to prevent, for instance,
-# a value of "-hybrid" to run the hybrid emulator during bootstrap.
+# Unset ERL_FLAGS and ERL_<Release>_FLAGS during bootstrap to
+# prevent potential problems
 sys_vsn=`awk '/SYSTEM_VSN = / {print $3}' < erts/vsn.mk`
 sys_erl_flags="ERL_${sys_vsn}_FLAGS"
 unset ERL_FLAGS
@@ -1420,7 +1419,7 @@ case "$1" in
 		do_lazy_configure_target_clean;;
 	opt)
 		do_boot;;
-	plain|smp|hybrid)
+	plain|smp)
 		if [ $minus_a_flag = false ]; then 
 		    TYPE=opt
 		fi;

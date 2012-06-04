@@ -24,7 +24,6 @@
   {modules, [cerl_cconv,
 	     cerl_closurean,
 	     cerl_hipeify,
-	     cerl_hybrid_transform,
 	     cerl_lib,
 	     cerl_messagean,
 	     cerl_pmatch,

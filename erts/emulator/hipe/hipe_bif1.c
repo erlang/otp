@@ -449,7 +449,7 @@ BIF_RETTYPE hipe_bifs_gc_info_0(BIF_ALIST_0)
 BIF_RETTYPE hipe_bifs_shared_gc_info_0(BIF_ALIST_0)
 {
 #ifdef __BENCHMARK__
-#if !(defined(BM_COUNTERS) && defined(HYBRID))
+#if !(defined(BM_COUNTERS))
     Uint minor_global_gc = 0;
     Uint major_global_gc = 0;
 #endif
@@ -459,17 +459,9 @@ BIF_RETTYPE hipe_bifs_shared_gc_info_0(BIF_ALIST_0)
 #endif
     Eterm *hp;
 
-#if defined(HYBRID)
-    Uint tmp_used_heap = (Uint)((BIF_P->htop - BIF_P->heap) +
-				(OLD_HTOP(BIF_P) - OLD_HEAP(BIF_P)) +
-				MBUF_SIZE(BIF_P));
-    Uint tmp_allocated_heap = (Uint)((BIF_P->hend - BIF_P->heap) +
-				     (OLD_HEND(BIF_P) - OLD_HEAP(BIF_P)) +
-				     MBUF_SIZE(BIF_P));
-#else
     Uint tmp_used_heap = 0;
     Uint tmp_allocated_heap = 0;
-#endif
+
     hp = HAlloc(BIF_P, 7);
     BIF_RET(TUPLE6(hp,
 		   make_small((uint)minor_global_gc),
@@ -486,7 +478,7 @@ BIF_RETTYPE hipe_bifs_shared_gc_info_0(BIF_ALIST_0)
 BIF_RETTYPE hipe_bifs_incremental_gc_info_0(BIF_ALIST_0)
 {
 #ifdef __BENCHMARK__
-#if !(defined(BM_COUNTERS) && defined(INCREMENTAL))
+#if !defined(BM_COUNTERS)
     Uint minor_gc_cycles = 0;
     Uint major_gc_cycles = 0;
     Uint minor_gc_stages = 0;
@@ -512,17 +504,6 @@ BIF_RETTYPE hipe_bifs_gc_info_clear_0(BIF_ALIST_0)
 #ifdef BM_COUNTERS
     minor_gc	    = 0;
     major_gc	    = 0;
-#ifdef HYBRID
-    minor_global_gc = 0;
-    major_global_gc = 0;
-    gc_in_copy	    = 0;
-#ifdef INCREMENTAL
-    minor_gc_cycles = 0;
-    major_gc_cycles = 0;
-    minor_gc_stages = 0;
-    major_gc_stages = 0;
-#endif
-#endif
 #endif
 
 #ifdef BM_HEAP_SIZES

@@ -749,24 +749,6 @@ struct process {
 #endif
 #endif
 
-#ifdef HYBRID
-    Eterm *rrma;                /* Remembered roots to Message Area */
-    Eterm **rrsrc;              /* The source of the root */
-    Uint nrr;                   /* Number of remembered roots */
-    Uint rrsz;                  /* Size of root array */
-#endif
-
-#ifdef HYBRID
-    Uint active;                /* Active since last major collection? */
-    Uint active_index;          /* Index in the active process array */
-#endif
- 
-#ifdef INCREMENTAL
-    Process *active_next; /* Active processes to scan for roots */
-    Process *active_prev; /* in collection of the message area  */
-    Eterm *scan_top;
-#endif
-
 #ifdef CHECK_FOR_HOLES
     Eterm* last_htop;		/* No need to scan the heap below this point. */
     ErlHeapFragment* last_mbuf;	/* No need to scan beyond this mbuf. */
@@ -888,10 +870,6 @@ Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
 #endif
 
 extern Process** process_tab;
-#ifdef HYBRID
-extern Uint erts_num_active_procs;
-extern Process** erts_active_procs;
-#endif
 extern Uint erts_max_processes;
 extern Uint erts_process_tab_index_mask;
 extern Uint erts_default_process_flags;

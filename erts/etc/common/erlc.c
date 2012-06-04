@@ -252,13 +252,6 @@ main(int argc, char** argv)
 		    }
 		}
 		break;
-	    case 'h':
-		if (strcmp(argv[1], "-hybrid") == 0) {
-		    UNSHIFT(argv[1]);
-		} else {
-		    usage();
-		}
-		break;
 	    case 'I':
 		PUSH2("@i", process_opt(&argc, &argv, 0));
 		break;
@@ -649,7 +642,6 @@ usage(void)
 	{"-d", "turn on debugging of erlc itself"},
 	{"-Dname", "define name"},
 	{"-Dname=value", "define name to have value"},
-	{"-hybrid", "compile using hybrid-heap emulator"},
 	{"-help", "shows this help text"},
 	{"-I path", "where to search for include files"},
 	{"-M", "generate a rule for make(1) describing the dependencies"},

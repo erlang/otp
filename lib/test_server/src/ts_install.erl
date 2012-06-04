@@ -280,12 +280,11 @@ platform(Vars) ->
     LC = lock_checking(),
     MT = modified_timing(),
     AsyncThreads = async_threads(),
-    HeapType = heap_type_label(),
     Debug = debug(),
     CpuBits = word_size(),
     Common = lists:concat([Hostname,"/",OsType,"/",CpuType,CpuBits,LinuxDist,
 			   Schedulers,BindType,KP,IOTHR,LC,MT,AsyncThreads,
-			   HeapType,Debug,ExtraLabel]),
+			   Debug,ExtraLabel]),
     PlatformId = lists:concat([ErlType, " ", Version, Common]),
     PlatformLabel = ErlType ++ Common,
     PlatformFilename = platform_as_filename(PlatformId),
@@ -341,12 +340,6 @@ hostname() ->
 	    "/" ++ lists:takewhile(fun (C) -> C /= $. end, Hostname);
 	_ ->
 	    "/localhost"
-    end.
-
-heap_type_label() ->
-    case catch erlang:system_info(heap_type) of
-	hybrid -> "/Hybrid";
-	_ -> "" %private
     end.
 
 async_threads() ->
