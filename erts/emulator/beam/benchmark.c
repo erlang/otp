@@ -33,17 +33,6 @@ unsigned long long messages_copied;
 unsigned long long messages_ego;
 unsigned long long minor_gc;
 unsigned long long major_gc;
-#ifdef HYBRID
-unsigned long long minor_global_gc;
-unsigned long long major_global_gc;
-unsigned long long gc_in_copy;
-#ifdef INCREMENTAL
-unsigned long long minor_gc_cycles;
-unsigned long long major_gc_cycles;
-unsigned long long minor_gc_stages;
-unsigned long long major_gc_stages;
-#endif
-#endif
 #endif /* BM_COUNTERS */
 
 #ifdef BM_TIMERS
@@ -191,17 +180,6 @@ void init_benchmarking()
     messages_ego       = 0;
     minor_gc           = 0;
     major_gc           = 0;
-#ifdef HYBRID
-    minor_global_gc    = 0;
-    major_global_gc    = 0;
-    gc_in_copy         = 0;
-#ifdef INCREMENTAL
-    minor_gc_cycles    = 0;
-    major_gc_cycles    = 0;
-    minor_gc_stages    = 0;
-    major_gc_stages    = 0;
-#endif
-#endif
 #endif /* BM_COUNTERS */
 
 #ifdef BM_HEAP_SIZES
@@ -243,16 +221,6 @@ void save_statistics()
         erts_fprintf(file,"Number of processes spawned: %lld\n",processes_spawned);
         erts_fprintf(file,"Number of local minor GCs: %lld\n",minor_gc);
         erts_fprintf(file,"Number of local major GCs: %lld\n",major_gc);
-#ifdef HYBRID
-        erts_fprintf(file,"Number of global minor GCs: %lld\n",minor_global_gc);
-        erts_fprintf(file,"Number of global major GCs: %lld\n",major_global_gc);
-#ifdef INCREMENTAL
-        erts_fprintf(file,"Number of minor GC-cycles: %lld\n",minor_gc_cycles);
-        erts_fprintf(file,"Number of major GC-cycles: %lld\n",major_gc_cycles);
-        erts_fprintf(file,"Number of minor GC-stages: %lld\n",minor_gc_stages);
-        erts_fprintf(file,"Number of major GC-stages: %lld\n",major_gc_stages);
-#endif
-#endif
         erts_fprintf(file,"Number of messages sent: %lld\n",messages_sent);
         erts_fprintf(file,"Number of messages copied: %lld\n",messages_copied);
         erts_fprintf(file,"Number of messages sent to self: %lld\n",messages_ego);

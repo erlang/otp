@@ -570,92 +570,6 @@ extern erts_smp_atomic32_t erts_max_gen_gcs;
 
 extern int erts_disable_tolerant_timeofday;
 
-#ifdef HYBRID
-
-/* Message Area heap pointers */
-extern Eterm *global_heap;             /* Heap start */
-extern Eterm *global_hend;             /* Heap end */
-extern Eterm *global_htop;             /* Heap top (heap pointer) */
-extern Eterm *global_saved_htop;       /* Saved heap top (heap pointer) */
-extern Uint   global_heap_sz;          /* Heap size, in words */
-extern Eterm *global_old_heap;         /* Old generation */
-extern Eterm *global_old_hend;
-extern ErlOffHeap erts_global_offheap; /* Global MSO (OffHeap) list */
-
-extern Uint16 global_gen_gcs;
-extern Uint16 global_max_gen_gcs;
-extern Uint   global_gc_flags;
-
-#ifdef INCREMENTAL
-#define ACTIVATE(p)
-#define DEACTIVATE(p)
-#define IS_ACTIVE(p) 1
-
-#define INC_ACTIVATE(p) do {                                           \
-    if ((p)->active) {                                                 \
-        if ((p)->active_next != NULL) {                                \
-            (p)->active_next->active_prev = (p)->active_prev;          \
-            if ((p)->active_prev) {                                    \
-                (p)->active_prev->active_next = (p)->active_next;      \
-            } else {                                                   \
-                inc_active_proc = (p)->active_next;                    \
-            }                                                          \
-            inc_active_last->active_next = (p);                        \
-            (p)->active_next = NULL;                                   \
-            (p)->active_prev = inc_active_last;                        \
-            inc_active_last = (p);                                     \
-        }                                                              \
-    } else {                                                           \
-        (p)->active_next = NULL;                                       \
-        (p)->active_prev = inc_active_last;                            \
-        if (inc_active_last) {                                         \
-            inc_active_last->active_next = (p);                        \
-        } else {                                                       \
-            inc_active_proc = (p);                                     \
-        }                                                              \
-        inc_active_last = (p);                                         \
-        (p)->active = 1;                                               \
-    }                                                                  \
-} while(0);
-
-#define INC_DEACTIVATE(p) do {                                         \
-    ASSERT((p)->active == 1);                                          \
-    if ((p)->active_next == NULL) {                                    \
-        inc_active_last = (p)->active_prev;                            \
-    } else {                                                           \
-        (p)->active_next->active_prev = (p)->active_prev;              \
-    }                                                                  \
-    if ((p)->active_prev == NULL) {                                    \
-        inc_active_proc = (p)->active_next;                            \
-    } else {                                                           \
-        (p)->active_prev->active_next = (p)->active_next;              \
-    }                                                                  \
-    (p)->active = 0;                                                   \
-} while(0);
-
-#define INC_IS_ACTIVE(p)  ((p)->active != 0)
-
-#else
-extern Eterm *global_old_htop;
-extern Eterm *global_high_water;
-#define ACTIVATE(p)   (p)->active = 1;
-#define DEACTIVATE(p) (p)->active = 0;
-#define IS_ACTIVE(p)  ((p)->active != 0)
-#define INC_ACTIVATE(p)
-#define INC_IS_ACTIVE(p) 1
-#endif /* INCREMENTAL */
-
-#else
-#  define ACTIVATE(p)
-#  define DEACTIVATE(p)
-#  define IS_ACTIVE(p) 1
-#  define INC_ACTIVATE(p)
-#endif /* HYBRID */
-
-#ifdef HYBRID
-extern Uint global_heap_min_sz;
-#endif
-
 extern int bif_reductions;      /* reductions + fcalls (when doing call_bif) */
 extern int stackdump_on_exit;
 
@@ -922,7 +836,6 @@ __decl_noreturn void __noreturn erl_exit_flush_async(int n, char*, ...);
 void erl_error(char*, va_list);
 
 /* copy.c */
-void init_copy(void);
 Eterm copy_object(Eterm, Process*);
 
 #if HALFWORD_HEAP
@@ -951,116 +864,6 @@ Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
 
 void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
 		      Eterm* refs, unsigned nrefs);
-
-#ifdef HYBRID
-#define RRMA_DEFAULT_SIZE 256
-#define RRMA_STORE(p,ptr,src) do {                                      \
-  ASSERT((p)->rrma != NULL);                                            \
-  ASSERT((p)->rrsrc != NULL);                                           \
-  (p)->rrma[(p)->nrr] = (ptr);                                          \
-  (p)->rrsrc[(p)->nrr++] = (src);                                       \
-  if ((p)->nrr == (p)->rrsz)                                            \
-  {                                                                     \
-      (p)->rrsz *= 2;                                                   \
-      (p)->rrma = (Eterm *) erts_realloc(ERTS_ALC_T_ROOTSET,            \
-                                         (void*)(p)->rrma,              \
-                                         sizeof(Eterm) * (p)->rrsz);    \
-      (p)->rrsrc = (Eterm **) erts_realloc(ERTS_ALC_T_ROOTSET,          \
-                                           (void*)(p)->rrsrc,           \
-                                            sizeof(Eterm) * (p)->rrsz); \
-  }                                                                     \
-} while(0)
-
-/* Note that RRMA_REMOVE decreases the given index after deletion. 
- * This is done so that a loop with an increasing index can call
- * remove without having to decrease the index to see the element
- * placed in the hole after the deleted element.
- */
-#define RRMA_REMOVE(p,index) do {                                 \
-        p->rrsrc[index] = p->rrsrc[--p->nrr];                     \
-        p->rrma[index--] = p->rrma[p->nrr];                       \
-    } while(0);
-
-
-/* The MessageArea STACKs are used while copying messages to the
- * message area.
- */
-#define MA_STACK_EXTERNAL_DECLARE(type,_s_)     \
-    typedef type ma_##_s_##_type;               \
-    extern ma_##_s_##_type *ma_##_s_##_stack;   \
-    extern Uint ma_##_s_##_top;                 \
-    extern Uint ma_##_s_##_size;
-
-#define MA_STACK_DECLARE(_s_)                                           \
-    ma_##_s_##_type *ma_##_s_##_stack; Uint ma_##_s_##_top; Uint ma_##_s_##_size;
-
-#define MA_STACK_ALLOC(_s_) do {                                        \
-    ma_##_s_##_top = 0;                                                 \
-    ma_##_s_##_size = 512;                                              \
-    ma_##_s_##_stack = (ma_##_s_##_type*)erts_alloc(ERTS_ALC_T_OBJECT_STACK, \
-                       sizeof(ma_##_s_##_type) * ma_##_s_##_size);      \
-} while(0)
-
-
-#define MA_STACK_PUSH(_s_,val) do {                                     \
-    ma_##_s_##_stack[ma_##_s_##_top++] = (val);                         \
-    if (ma_##_s_##_top == ma_##_s_##_size)                              \
-    {                                                                   \
-        ma_##_s_##_size *= 2;                                           \
-        ma_##_s_##_stack =                                              \
-            (ma_##_s_##_type*) erts_realloc(ERTS_ALC_T_OBJECT_STACK,    \
-                                           (void*)ma_##_s_##_stack,     \
-                            sizeof(ma_##_s_##_type) * ma_##_s_##_size); \
-    }                                                                   \
-} while(0)
-
-#define MA_STACK_POP(_s_) (ma_##_s_##_top != 0 ? ma_##_s_##_stack[--ma_##_s_##_top] : 0)
-#define MA_STACK_TOP(_s_) (ma_##_s_##_stack[ma_##_s_##_top - 1])
-#define MA_STACK_UPDATE(_s_,offset,value)                               \
-  *(ma_##_s_##_stack[ma_##_s_##_top - 1] + (offset)) = (value)
-#define MA_STACK_SIZE(_s_) (ma_##_s_##_top)
-#define MA_STACK_ELM(_s_,i) ma_##_s_##_stack[i]
-
-MA_STACK_EXTERNAL_DECLARE(Eterm,src);
-MA_STACK_EXTERNAL_DECLARE(Eterm*,dst);
-MA_STACK_EXTERNAL_DECLARE(Uint,offset);
-
-
-#ifdef INCREMENTAL
-extern Eterm *ma_pending_stack;
-extern Uint ma_pending_top;
-extern Uint ma_pending_size;
-
-#define NO_COPY(obj) (IS_CONST(obj) ||                         \
-                      (((ptr_val(obj) >= global_heap) &&       \
-                        (ptr_val(obj) < global_htop)) ||       \
-                       ((ptr_val(obj) >= inc_fromspc) &&       \
-                        (ptr_val(obj) < inc_fromend)) ||       \
-                       ((ptr_val(obj) >= global_old_heap) &&   \
-                        (ptr_val(obj) < global_old_hend))))
-
-#else
-
-#define NO_COPY(obj) (IS_CONST(obj) ||                        \
-                      (((ptr_val(obj) >= global_heap) &&      \
-                        (ptr_val(obj) < global_htop)) ||      \
-                       ((ptr_val(obj) >= global_old_heap) &&  \
-                        (ptr_val(obj) < global_old_hend))))
-
-#endif /* INCREMENTAL */
-
-#define LAZY_COPY(from,obj) do {                     \
-  if (!NO_COPY(obj)) {                               \
-      BM_LAZY_COPY_START;                            \
-      BM_COUNT(messages_copied);                     \
-      obj = copy_struct_lazy(from,obj,0);            \
-      BM_LAZY_COPY_STOP;                             \
-  }                                                  \
-} while(0)
-
-Eterm copy_struct_lazy(Process*, Eterm, Uint);
-
-#endif /* HYBRID */
 
 /* Utilities */
 extern void erts_delete_nodes_monitors(Process *, ErtsProcLocks);
@@ -1154,10 +957,6 @@ void erts_offset_off_heap(ErlOffHeap *, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_free_heap_frags(Process* p);
-
-#ifdef HYBRID
-int erts_global_garbage_collect(Process*, int, Eterm*, int);
-#endif
 
 /* io.c */
 

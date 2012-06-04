@@ -129,12 +129,6 @@
           This option will be ignored by compilers that have a
           a single output format.</p>
       </item>
-      <tag>-hybrid</tag>
-      <item>
-        <p>Compile using the hybrid-heap emulator. This is mainly useful
-          for compiling native code, which needs to be compiled with the same
-          run-time system that it should be run on.</p>
-      </item>
       <tag>-smp</tag>
       <item>
         <p>Compile using the SMP emulator. This is mainly useful

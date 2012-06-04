@@ -320,19 +320,6 @@ type	ACTIVE_PROCS	STANDARD	PROCESSES	active_procs
 
 +endif
 
-+if hybrid
-
-type	ACTIVE_PROCS	STANDARD	PROCESSES	active_procs
-
-# Used for all memory involved in incremental gc of the message area
-# that is, young (x2) and old generation, forwarding pointers and blackmap
-type	MESSAGE_AREA	LONG_LIVED	PROCESSES	message_area
-
-# Used in MA_STACK (global.h) and INC_STORAGE (erl_nmgc.h)
-type	OBJECT_STACK	STANDARD	PROCESSES	object_stack
-
-+endif
-
 +if smp
 type	SL_PTIMER	SHORT_LIVED	SYSTEM		ptimer_sl
 type	LL_PTIMER	STANDARD	SYSTEM		ptimer_ll

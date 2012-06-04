@@ -28,7 +28,6 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
-#include "erl_nmgc.h"
 #include "error.h"
 #include "bif.h"
 #include "erl_db.h"
@@ -404,11 +403,6 @@ struct erts_system_monitor_flags_t erts_system_monitor_flags;
 Eterm erts_system_profile;
 struct erts_system_profile_flags_t erts_system_profile_flags;
 
-#ifdef HYBRID
-Uint erts_num_active_procs;
-Process** erts_active_procs;
-#endif
-
 #if ERTS_MAX_PROCESSES > 0x7fffffff
 #error "Need to store process_count in another type"
 #endif
@@ -697,12 +691,6 @@ erts_init_process(int ncpu)
 	erts_smp_atomic_init_nob(proc_entry, ERTS_AINT_NULL);
 	proc_entry++;
     }
-#ifdef HYBRID
-    erts_active_procs = (Process**)
-        erts_alloc(ERTS_ALC_T_ACTIVE_PROCS,
-                   erts_proc.max * sizeof(Process*));
-    erts_num_active_procs = 0;
-#endif
 
     erts_smp_rwmtx_init_opt(&erts_proc_tab_rwmtx,
 			    &proc_tab_rwmtx_opts,
@@ -7078,7 +7066,6 @@ Process *schedule(Process *p, int calls)
 	/* Never run a suspended process */
 	ASSERT(!(ERTS_PSFLG_SUSPENDED & erts_smp_atomic32_read_nob(&p->state)));
 
-        ACTIVATE(p);
 	reds = context_reds;
 
 	if (IS_TRACED(p)) {
@@ -7114,7 +7101,6 @@ Process *schedule(Process *p, int calls)
 	}
 	    
 	p->fcalls = reds;
-	ASSERT(IS_ACTIVE(p));
 	ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 	return p;
     }
@@ -7515,9 +7501,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     ErtsRunQueue *rq = NULL;
     Process *p;
     Sint arity;			/* Number of arguments. */
-#ifndef HYBRID
     Uint arg_size;		/* Size of arguments. */
-#endif
     Uint sz;			/* Needed words on heap. */
     Uint heap_need;		/* Size needed on heap. */
     Eterm res = THE_NON_VALUE;
@@ -7528,17 +7512,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     erts_smp_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
 #endif
 
-#ifdef HYBRID
-    /*
-     * Copy the arguments to the global heap
-     * Since global GC might occur we want to do this before adding the
-     * new process to the erts_proc.tab.
-     */
-    BM_SWAP_TIMER(system,copy);
-    LAZY_COPY(parent,args);
-    BM_SWAP_TIMER(copy,system);
-    heap_need = 0;
-#endif /* HYBRID */
     /*
      * Check for errors.
      */
@@ -7577,12 +7550,10 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #endif
     BM_COUNT(processes_spawned);
 
-#ifndef HYBRID
     BM_SWAP_TIMER(system,size);
     arg_size = size_object(args);
     BM_SWAP_TIMER(size,system);
     heap_need = arg_size;
-#endif
 
     p->flags = erts_default_process_flags;
 
@@ -7627,9 +7598,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->heap = (Eterm *) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP, sizeof(Eterm)*sz);
     p->old_hend = p->old_htop = p->old_heap = NULL;
     p->high_water = p->heap;
-#ifdef INCREMENTAL
-    p->scan_top = p->high_water;
-#endif
     p->gen_gcs = 0;
     p->stop = p->hend = p->heap + sz;
     p->htop = p->heap;
@@ -7655,19 +7623,10 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     BM_STOP_TIMER(system);
     BM_MESSAGE(args,p,parent);
     BM_START_TIMER(system);
-#ifdef HYBRID
-    p->arg_reg[2] = args;
-#ifdef INCREMENTAL
-    p->active = 0;
-    if (ptr_val(args) >= inc_fromspc && ptr_val(args) < inc_fromend)
-        INC_ACTIVATE(p);
-#endif
-#else
     BM_SWAP_TIMER(system,copy);
     p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
     BM_MESSAGE_COPIED(arg_size);
     BM_SWAP_TIMER(copy,system);
-#endif
     p->arity = 3;
 
     p->fvalue = NIL;
@@ -7723,13 +7682,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     DT_UTAG_FLAGS(p) = 0;
 #endif
     p->parent = parent->id == ERTS_INVALID_PID ? NIL : parent->id;
-
-#ifdef HYBRID
-    p->rrma  = NULL;
-    p->rrsrc = NULL;
-    p->nrr   = 0;
-    p->rrsz  = 0;
-#endif
 
     INIT_HOLE_CHECK(p);
 #ifdef DEBUG
@@ -7798,15 +7750,6 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	erts_add_monitor(&(p->monitors), MON_TARGET, mref, parent->id, NIL);
 	so->mref = mref;
     }
-
-#ifdef HYBRID
-    /*
-     * Add process to the array of active processes.
-     */
-    ACTIVATE(p);
-    p->active_index = erts_num_active_procs++;
-    erts_active_procs[p->active_index] = p;
-#endif
 
 #ifdef ERTS_SMP
     p->scheduler_data = NULL;
@@ -7891,9 +7834,6 @@ void erts_init_empty_process(Process *p)
     p->reg = NULL;
     p->heap_sz = 0;
     p->high_water = NULL;
-#ifdef INCREMENTAL
-    p->scan_top = NULL;
-#endif
     p->old_hend = NULL;
     p->old_htop = NULL;
     p->old_heap = NULL;
@@ -7945,14 +7885,6 @@ void erts_init_empty_process(Process *p)
 #endif
 #endif
 
-    ACTIVATE(p);
-
-#ifdef HYBRID
-    p->rrma  = NULL;
-    p->rrsrc = NULL;
-    p->nrr   = 0;
-    p->rrsz  = 0;
-#endif
     INIT_HOLE_CHECK(p);
 #ifdef DEBUG
     p->last_old_htop = NULL;
@@ -7998,9 +7930,6 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->reg == NULL);
     ASSERT(p->heap_sz == 0);
     ASSERT(p->high_water == NULL);
-#ifdef INCREMENTAL
-    ASSERT(p->scan_top == NULL);
-#endif
     ASSERT(p->old_hend == NULL);
     ASSERT(p->old_htop == NULL);
     ASSERT(p->old_heap == NULL);
@@ -8148,22 +8077,6 @@ delete_process(Process* p)
     ASSERT(!p->suspend_monitors);
 
     p->fvalue = NIL;
-
-#ifdef HYBRID
-    erts_active_procs[p->active_index] =
-        erts_active_procs[--erts_num_active_procs];
-    erts_active_procs[p->active_index]->active_index = p->active_index;
-#ifdef INCREMENTAL
-    if (INC_IS_ACTIVE(p))
-         INC_DEACTIVATE(p);
-#endif
-
-    if (p->rrma != NULL) {
-        erts_free(ERTS_ALC_T_ROOTSET,p->rrma);
-        erts_free(ERTS_ALC_T_ROOTSET,p->rrsrc);
-    }
-#endif
-
 }
 
 static ERTS_INLINE erts_aint32_t
@@ -8552,7 +8465,6 @@ send_exit_signal(Process *c_p,		/* current process if and only
 			      ? rsn
 			      : copy_object(rsn, rp)),
 			     NULL);
-	    ACTIVATE(rp);
 	}
 #endif
 	return -1; /* Receiver will exit */

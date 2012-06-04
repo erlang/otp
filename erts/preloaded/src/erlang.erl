@@ -1800,7 +1800,6 @@ process_flag(_Flag, _Value) ->
       links |
       last_calls |
       memory |
-      message_binary |
       message_que_len |
       messages |
       min_heap_size |
@@ -1840,7 +1839,6 @@ process_flag(_Flag, _Value) ->
       {links, Pids :: [pid()]} |
       {last_calls, false | (Calls :: [mfa()])} |
       {memory, Size :: non_neg_integer()} |
-      {message_binary, BinInfo :: term()} |
       {message_que_len, MessageQueueLen :: non_neg_integer()} |
       {messages, MessageQueue :: [term()]} |
       {min_heap_size, MinHeapSize :: non_neg_integer()} |
@@ -2123,9 +2121,8 @@ tuple_to_list(_Tuple) ->
          (dist_buf_busy_limit) -> non_neg_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};
          (garbage_collection) -> [{atom(), integer()}];
-         (global_heaps_size) -> non_neg_integer();
          (heap_sizes) -> [non_neg_integer()];
-         (heap_type) -> private | shared | hybrid;
+         (heap_type) -> private;
          (info) -> binary();
          (kernel_poll) -> boolean();
          (loaded) -> binary();

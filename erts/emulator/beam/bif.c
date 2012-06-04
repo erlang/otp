@@ -3507,22 +3507,6 @@ BIF_RETTYPE garbage_collect_0(BIF_ALIST_0)
 }
 
 /**********************************************************************/
-/* Perform garbage collection of the message area */
-
-BIF_RETTYPE garbage_collect_message_area_0(BIF_ALIST_0)
-{
-#if defined(HYBRID) && !defined(INCREMENTAL)
-    int reds = 0;
-
-    FLAGS(BIF_P) |= F_NEED_FULLSWEEP;
-    reds = erts_global_garbage_collect(BIF_P, 0, NULL, 0);
-    BIF_RET2(am_true, reds);
-#else
-    BIF_RET(am_false);
-#endif
-}
-
-/**********************************************************************/
 /* Return a list of active ports */
 
 BIF_RETTYPE ports_0(BIF_ALIST_0)

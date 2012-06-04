@@ -467,15 +467,11 @@ static const struct rts_param {
     int value;
 } rts_params[] = {
     { 1, "P_OFF_HEAP_FUNS",
-#if !defined(HYBRID)
       1, offsetof(struct process, off_heap.first)
-#endif
     },
 
     { 4, "EFT_NEXT",
-#if !defined(HYBRID)
       1, offsetof(struct erl_fun_thing, next)
-#endif
     },
 
     /* These are always defined, but their values depend on the

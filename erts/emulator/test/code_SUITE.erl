@@ -135,14 +135,7 @@ new_binary_types(Config) when is_list(Config) ->
 						      bit_sized_binary(Bin))),
     ok.
 
-t_check_process_code(doc) -> "Test check_process_code/2.";
 t_check_process_code(Config) when is_list(Config) ->
-    case erlang:system_info(heap_type) of
-	private -> t_check_process_code_1(Config);
-	hybrid -> {skip,"Hybrid heap"}
-    end.
-
-t_check_process_code_1(Config) ->
     ?line Priv = ?config(priv_dir, Config),
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
@@ -247,12 +240,10 @@ gc1() -> ok.
 t_check_process_code_ets(doc) ->
     "Test check_process_code/2 in combination with a fun obtained from an ets table.";
 t_check_process_code_ets(Config) when is_list(Config) ->
-    case {test_server:is_native(?MODULE),erlang:system_info(heap_type)} of
-	{true,_} ->
-	    {skipped,"Native code"};
-	{_,hybrid} ->
-	    {skipped,"Hybrid heap"};
-	{false,private} ->
+    case test_server:is_native(?MODULE) of
+	true ->
+	    {skip,"Native code"};
+	false ->
 	    do_check_process_code_ets(Config)
     end.
 
@@ -397,9 +388,7 @@ module_md5_ok(Code) ->
 
 
 make_stub(Config) when is_list(Config) ->
-    %% No old code to purge if hybrid heap because of skipped test cases,
-    %% so we'll need a catch here.
-    ?line (catch erlang:purge_module(my_code_test)),
+    catch erlang:purge_module(my_code_test),
 
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "my_code_test"),
@@ -433,9 +422,7 @@ make_stub(Config) when is_list(Config) ->
     ok.
 
 make_stub_many_funs(Config) when is_list(Config) ->
-    %% No old code to purge if hybrid heap because of skipped test cases,
-    %% so we'll need a catch here.
-    ?line (catch erlang:purge_module(many_funs)),
+    catch erlang:purge_module(many_funs),
 
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "many_funs"),

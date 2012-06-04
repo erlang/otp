@@ -539,12 +539,6 @@ bad_md5(Bad) ->
     {'EXIT',{badarg,_}} = (catch erlang:md5(Bad)).
 
 refc(Config) when is_list(Config) ->
-    case erlang:system_info(heap_type) of
-	private -> refc_1();
-	hybrid -> {skip,"Hybrid heap"}
-    end.
-
-refc_1() ->
     ?line F1 = fun_factory(2),
     ?line {refc,2} = erlang:fun_info(F1, refc),
     ?line F2 = fun_factory(42),
@@ -570,12 +564,6 @@ fun_factory(Const) ->
     fun(X) -> X + Const end.
 
 refc_ets(Config) when is_list(Config) ->
-    case erlang:system_info(heap_type) of
-	private -> refc_ets_1();
-	hybrid -> {skip,"Hybrid heap"}
-    end.
-
-refc_ets_1() ->
     ?line F = fun(X) -> X + 33 end,
     ?line {refc,2} = erlang:fun_info(F, refc),
 
@@ -622,12 +610,6 @@ refc_ets_bag(F1, Options) ->
     ok.
 
 refc_dist(Config) when is_list(Config) ->
-    case erlang:system_info(heap_type) of
-	private -> refc_dist_1();
-	hybrid -> {skip,"Hybrid heap"}
-    end.
-
-refc_dist_1() ->
     ?line {ok,Node} = start_node(fun_SUITE_refc_dist),
     ?line process_flag(trap_exit, true),
     ?line Pid = spawn_link(Node,

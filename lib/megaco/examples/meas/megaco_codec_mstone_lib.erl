@@ -100,7 +100,6 @@ display_system_info() ->
     OtpRel        = otp_release(),
     SysVer        = system_version(),
     SysHT         = heap_type(),
-    SysGHSz       = global_heaps_size(),
     SysSMP        = smp_support(),
     SysNumSched   = schedulers(),
     SysProcLimit  = process_limit(),
@@ -113,7 +112,6 @@ display_system_info() ->
     io:format("OTP release:         ~s~n", [OtpRel]),
     io:format("System version:      ~s~n", [SysVer]),
     io:format("Heap type:           ~s~n", [SysHT]),
-    io:format("Global heap size:    ~s~n", [SysGHSz]),
     io:format("Thread support:      ~s~n", [SysThreads]),
     io:format("Thread pool size:    ~s~n", [SysTPSz]),
     io:format("Process limit:       ~s~n", [SysProcLimit]),
@@ -136,9 +134,6 @@ system_version() ->
 
 heap_type() ->
     system_info(heap_type, any).
-
-global_heaps_size() ->
-    system_info(global_heaps_size, any).
 
 smp_support() ->
     system_info(smp_support, any).

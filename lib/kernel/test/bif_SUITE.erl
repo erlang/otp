@@ -260,23 +260,15 @@ spawn_opt2(Config) when is_list(Config) ->
      ?line P1 = spawn_opt(fun() ->
  				 Parent ! {self(), fetch_proc_vals(self())}
  			 end,
- 			  case heap_type() of
-			      separate ->
-				  [{fullsweep_after, 0},{min_heap_size, 1000}];
-			      shared ->
-				  []
-			  end
-			  ++ [link, {priority, max}]),
+			  [{fullsweep_after, 0},{min_heap_size, 1000},
+			   link, {priority, max}]),
      ?line receive
  	      {P1, PV1} ->
  		  ?line Node = node(P1),
  		  ?line check_proc_vals(true, max, 0, 1000, PV1)
  	  end,
     ?line P2 = spawn_opt(fun() -> Parent ! {self(), fetch_proc_vals(self())} end,
-			 case heap_type() of
-			     separate -> [{min_heap_size, 10}];
-			     shared -> []
-			 end),
+			 [{min_heap_size, 10}]),
     ?line receive
 	      {P2, PV2} ->
 		  ?line Node = node(P2),
@@ -295,13 +287,8 @@ spawn_opt3(Config) when is_list(Config) ->
 			 fun() ->
 				 Parent ! {self(), fetch_proc_vals(self())}
 			 end,
-			 case heap_type() of
-			     separate ->
-				 [{fullsweep_after,0}, {min_heap_size,1000}];
-			     shared ->
-				 []
-			 end
-			 ++ [link, {priority, max}]),
+			 [{fullsweep_after,0}, {min_heap_size,1000},
+			  link, {priority, max}]),
     ?line receive
 	      {P1, PV1} ->
 		  ?line Node = node(P1),
@@ -309,10 +296,7 @@ spawn_opt3(Config) when is_list(Config) ->
 	  end,
     ?line P2 = spawn_opt(Node,
 			fun() -> Parent ! {self(), fetch_proc_vals(self())} end,
-			case heap_type() of
-			     separate -> [{min_heap_size, 10}];
-			     shared -> []
-			end),
+			 [{min_heap_size, 10}]),
     ?line receive
 	      {P2, PV2} ->
 		  ?line Node = node(P2),
@@ -333,13 +317,8 @@ spawn_opt4(Config) when is_list(Config) ->
 			 [fun() ->
 				  Parent ! {self(), fetch_proc_vals(self())}
 			  end],
-			 case heap_type() of
-			     separate ->
-				 [{fullsweep_after,0}, {min_heap_size,1000}];
-			     shared ->
-				 []
-			 end
-			 ++ [link, {priority, max}]),
+			 [{fullsweep_after,0}, {min_heap_size,1000},
+			  link, {priority, max}]),
     ?line receive
 	      {P1, PV1} ->
 		  ?line Node = node(P1),
@@ -350,10 +329,7 @@ spawn_opt4(Config) when is_list(Config) ->
 			 [fun() ->
 				  Parent ! {self(), fetch_proc_vals(self())}
 			  end],
-			 case heap_type() of
-			     separate -> [{min_heap_size, 10}];
-			     shared -> []
-			 end),
+			     [{min_heap_size, 10}]),
     ?line receive
 	      {P2, PV2} ->
 		  ?line Node = node(P2),
@@ -374,13 +350,8 @@ spawn_opt5(Config) when is_list(Config) ->
 			 [fun() ->
 				  Parent ! {self(), fetch_proc_vals(self())}
 			  end],
-			 case heap_type() of
-			     separate ->
-				 [{fullsweep_after,0}, {min_heap_size,1000}];
-			     shared ->
-				 []
-			 end
-			 ++ [link, {priority, max}]),
+			 [{fullsweep_after,0}, {min_heap_size,1000},
+			  link, {priority, max}]),
     ?line receive
 	      {P1, PV1} ->
 		  ?line Node = node(P1),
@@ -392,10 +363,7 @@ spawn_opt5(Config) when is_list(Config) ->
 			 [fun() ->
 				  Parent ! {self(), fetch_proc_vals(self())}
 			  end],
-			 case heap_type() of
-			     separate -> [{min_heap_size, 10}];
-			     shared -> []
-			 end),
+			  [{min_heap_size, 10}]),
     ?line receive
 	      {P2, PV2} ->
 		  ?line Node = node(P2),
@@ -532,34 +500,19 @@ spawn_failures(Config) when is_list(Config) ->
 check_proc_vals(Link, Priority, FullsweepAfter, MinHeapSize, {Ls, P, FA, HS}) ->
     ?line Link = lists:member(self(), Ls),
     ?line Priority = P,
-    ?line case heap_type() of
-	      separate ->
-		  ?line FullsweepAfter = FA,
-		  ?line true = (HS >= MinHeapSize);
-	      shared ->
-		  ?line ok
-	  end,
+    FullsweepAfter = FA,
+    true = (HS >= MinHeapSize),
     ?line ok.
 
 fetch_proc_vals(Pid) ->
     ?line PI = process_info(Pid),
     ?line {value,{links, Ls}} = lists:keysearch(links, 1, PI),
     ?line {value,{priority,P}} = lists:keysearch(priority, 1, PI),
-    ?line {FA, HS}
-	= case heap_type() of
-	      separate ->
-		  ?line {value,
-			 {garbage_collection,
-			  Gs}} = lists:keysearch(garbage_collection, 1, PI),
-		  ?line {value,
-			 {fullsweep_after,
-			  Fa}} = lists:keysearch(fullsweep_after, 1, Gs),
-		  ?line {value,
-			 {heap_size,Hs}} = lists:keysearch(heap_size, 1, PI),
-		  ?line {Fa, Hs};
-	      shared ->
-		  {undefined, undefined}
-	  end,
+    {value,{garbage_collection,Gs}} =
+	lists:keysearch(garbage_collection, 1, PI),
+    {value,{fullsweep_after,FA}} =
+	lists:keysearch(fullsweep_after, 1, Gs),
+    {value,{heap_size,HS}} = lists:keysearch(heap_size, 1, PI),
     ?line {Ls, P, FA, HS}.
      
 % This testcase should probably be moved somewhere else
@@ -650,12 +603,3 @@ stop_node(Node) ->
 
 run_fun(Fun) ->
     Fun().
-
-heap_type() ->
-    case catch erlang:system_info(heap_type) of
-	shared   -> shared;
-	unified  -> shared;
-	_        -> separate
-    end.
-    
-

@@ -25,7 +25,6 @@
 #include "erl_vm.h"
 #include "global.h"
 #include "erl_process.h"
-#include "erl_nmgc.h"
 #include "big.h"
 #include "bif.h"
 #include "beam_catches.h"
@@ -33,34 +32,9 @@
 
 #define WITHIN(ptr, x, y) ((x) <= (ptr) && (ptr) < (y))
 
-#if defined(HYBRID)
-#if defined(INCREMENTAL)
-/* Hybrid + Incremental */
-#define IN_HEAP(p, ptr)                                                 \
-    (WITHIN((ptr), p->heap, p->hend) ||                                 \
-     (OLD_HEAP(p) && WITHIN((ptr), OLD_HEAP(p), OLD_HEND(p))) ||        \
-     WITHIN((ptr), global_heap, global_hend) ||                         \
-     (inc_fromspc && WITHIN((ptr), inc_fromspc, inc_fromend)) ||        \
-     WITHIN((ptr), global_old_heap, global_old_hend))
-
-#define IN_MA(ptr)                                                      \
-    (WITHIN((ptr), global_heap, global_hend) ||                         \
-     (inc_fromspc && WITHIN((ptr), inc_fromspc, inc_fromend)) ||        \
-     WITHIN((ptr), global_old_heap, global_old_hend))
-#else
-/* Hybrid */
-#define IN_HEAP(p, ptr)                                                 \
-    (WITHIN((ptr), p->heap, p->hend) ||                                 \
-     (OLD_HEAP(p) && WITHIN((ptr), OLD_HEAP(p), OLD_HEND(p))) ||        \
-     WITHIN((ptr), global_heap, global_hend) ||                         \
-     (global_old_heap && WITHIN((ptr),global_old_heap,global_old_hend)))
-#endif
-#else
-/* Private */
 #define IN_HEAP(p, ptr)                                                 \
     (WITHIN((ptr), p->heap, p->hend) ||                                 \
      (OLD_HEAP(p) && WITHIN((ptr), OLD_HEAP(p), OLD_HEND(p))))
-#endif
 
 
 #ifdef __GNUC__
@@ -266,13 +240,6 @@ static int verify_eterm(Process *p,Eterm element)
             }
         }
     }
-#ifdef INCREMENTAL
-    else {
-        if (IN_MA(ptr))
-            return 1;
-    }
-#endif
-
     return 0;
 }
 
@@ -447,49 +414,10 @@ void verify_process(Process *p)
     VERIFY_ETERM("fvalue",p->fvalue);
     VERIFY_ETERM("ftrace",p->ftrace);
 
-#ifdef HYBRID
-    VERIFY_AREA("rrma",p->rrma,p->nrr);
-#endif
-
     VERBOSE(DEBUG_MEMORY,("...done\n"));
 
 #undef VERIFY_AREA
 #undef VERIFY_ETERM
-}
-
-void verify_everything()
-{
-#ifdef HYBRID
-    Uint i;
-    Uint n = erts_num_active_procs;
-
-#ifdef INCREMENTAL_FREE_SIZES_NEEDS_TO_BE_TAGGED_AS_HEADERS_WITH_ARITY
-    INC_Page *page = inc_used_mem;
-#endif
-
-    for (i = 0; i < n; i++) {
-	verify_process(erts_active_procs[i]);
-    }
-
-    erts_check_memory(NULL,global_heap,global_htop);
-
-#ifdef INCREMENTAL_FREE_SIZES_NEEDS_TO_BE_TAGGED_AS_HEADERS_WITH_ARITY
-    while (page)
-    {
-	Eterm *end = page + INC_PAGE_SIZE;
-	Eterm *pos = page->start;
-
-	while( pos <  end) {
-	    Eterm val = *pos++;
-	    if(is_header(val))
-		pos += thing_arityval(val);
-	    else
-		verify_eterm(NULL,val);
-	}
-	page = page->next;
-    }
-#endif
-#endif /* HYBRID */
 }
 
 /*
@@ -582,83 +510,6 @@ void print_tagged_memory(Eterm *pos, Eterm *end)
     erts_printf("+-%s-+-%s-+\n",dashes,dashes);
 }
 
-#ifdef HYBRID
-void print_ma_info(void)
-{
-    erts_printf("Message Area (start - top - end): "
-                "0x%0*lx - 0x%0*lx - 0x%0*lx\n",
-                PTR_SIZE, (unsigned long)global_heap,
-                PTR_SIZE, (unsigned long)global_htop,
-                PTR_SIZE, (unsigned long)global_hend);
-#ifndef INCREMENTAL
-    erts_printf("  High water: 0x%0*lx   "
-                "Old gen: 0x%0*lx - 0x%0*lx - 0x%0*lx\n",
-                PTR_SIZE, (unsigned long)global_high_water,
-                PTR_SIZE, (unsigned long)global_old_heap,
-                PTR_SIZE, (unsigned long)global_old_htop,
-                PTR_SIZE, (unsigned long)global_old_hend);
-#endif
-}
-
-void print_message_area(void)
-{
-    Eterm *pos = global_heap;
-    Eterm *end = global_htop;
-
-    erts_printf("From: 0x%0*lx  to  0x%0*lx\n",
-                PTR_SIZE,(unsigned long)pos,PTR_SIZE,(unsigned long)end);
-    erts_printf("(Old generation: 0x%0*lx  to 0x%0*lx\n",
-                PTR_SIZE, (unsigned long)global_old_heap,
-                PTR_SIZE, (unsigned long)global_old_hend);
-    erts_printf("| %-*s | %-*s |\n",PTR_SIZE,"Address",PTR_SIZE,"Contents");
-    erts_printf("|-%s-|-%s-|\n",dashes,dashes);
-    while( pos < end ) {
-	Eterm val = pos[0];
-	erts_printf("| 0x%0*lx | 0x%0*lx | ",
-                    PTR_SIZE,(unsigned long)pos,PTR_SIZE,(unsigned long)val);
-	++pos;
-	if( is_arity_value(val) ) {
-	    erts_printf("Arity(%lu)", arityval(val));
-	} else if( is_thing(val) ) {
-	    unsigned int ari = thing_arityval(val);
-	    erts_printf("Thing Arity(%u) Tag(%lu)", ari, thing_subtag(val));
-	    while( ari ) {
-		erts_printf("\n| 0x%0*lx | 0x%0*lx | THING",
-                            PTR_SIZE, (unsigned long)pos,
-                            PTR_SIZE, (unsigned long)*pos);
-		++pos;
-		--ari;
-	    }
-	} else
-	    erts_printf("%.30T", val);
-	erts_printf("\n");
-    }
-    erts_printf("+-%s-+-%s-+\n",dashes,dashes);
-}
-
-void check_message_area()
-{
-    Eterm *pos = global_heap;
-    Eterm *end = global_htop;
-
-    while( pos < end ) {
-	Eterm val = *pos++;
-	if(is_header(val))
-	    pos += thing_arityval(val);
-	else if(!is_immed(val))
-	    if ((ptr_val(val) < global_heap || ptr_val(val) >= global_htop) &&
-                (ptr_val(val) < global_old_heap ||
-                 ptr_val(val) >= global_old_hend))
-            {
-		erts_printf("check_message_area: Stray pointer found\n");
-                print_message_area();
-                erts_printf("Crashing to make it look real...\n");
-                pos = 0;
-            }
-    }
-}
-#endif /* HYBRID */
-
 static void print_process_memory(Process *p);
 static void print_process_memory(Process *p)
 {
@@ -703,19 +554,6 @@ static void print_process_memory(Process *p)
     erts_printf("  Fvalue: 0x%0*lx\n",PTR_SIZE,p->fvalue);
     erts_printf("  Ftrace: 0x%0*lx\n",PTR_SIZE,p->ftrace);
 
-#ifdef HYBRID
-    if (p->nrr > 0) {
-        int i;
-        erts_printf("  Remembered Roots:\n");
-        for (i = 0; i < p->nrr; i++)
-            if (p->rrsrc[i] != NULL)
-                erts_printf("0x%0*lx -> 0x%0*lx\n",
-                            PTR_SIZE, (unsigned long)p->rrsrc[i],
-                            PTR_SIZE, (unsigned long)p->rrma[i]);
-        erts_printf("\n");
-    }
-#endif
-
     erts_printf("+- %-*s -+ 0x%0*lx 0x%0*lx %s-%s-+\n",
                 PTR_SIZE, "Stack",
                 PTR_SIZE, (unsigned long)STACK_TOP(p),
@@ -757,92 +595,6 @@ void print_memory(Process *p)
     if (p != NULL) {
         print_process_memory(p);
     }
-#ifdef HYBRID
-    else {
-        Uint i;
-        Uint n = erts_num_active_procs;
-
-        for (i = 0; i < n; i++) {
-            Process *p = erts_active_procs[i];
-            print_process_memory(p);
-        }
-
-        erts_printf("==================\n");
-        erts_printf("|| Message area ||\n");
-        erts_printf("==================\n");
-        erts_printf("+-%s-+-%s-%s-%s-%s-+\n",
-                    dashes,dashes,dashes,dashes,dashes);
-        erts_printf("| %-*s   | 0x%0*lx - 0x%0*lx - 0x%0*lx%*s|\n",
-                    PTR_SIZE, "Young",
-                    PTR_SIZE, (unsigned long)global_heap,
-                    PTR_SIZE, (unsigned long)global_htop,
-                    PTR_SIZE, (unsigned long)global_hend,
-                    PTR_SIZE, "");
-        erts_printf("+-%s-+-%s-%s-%s-%s-+\n",
-                    dashes,dashes,dashes,dashes,dashes);
-
-        print_untagged_memory(global_heap,global_htop);
-
-
-        erts_printf("+-%s-+-%s-%s-%s-%s-+\n",
-                    dashes,dashes,dashes,dashes,dashes);
-        erts_printf("| %-*s   | 0x%0*lx - 0x%0*lx %*s    |\n",
-                    PTR_SIZE, "Old",
-                    PTR_SIZE, (unsigned long)global_old_heap,
-                    PTR_SIZE, (unsigned long)global_old_hend,
-                    2 * PTR_SIZE, "");
-        erts_printf("+-%s-+-%s-%s-%s-%s-+\n",
-                    dashes,dashes,dashes,dashes,dashes);
-
-#ifdef INCREMENTAL
-        {
-            INC_Page *page = inc_used_mem;
-            /* Genom att gå igenom fri-listan först kan vi markera de
-               områden som inte är allokerade och bara skriva ut de som
-               lever.
-               char markarea[INC_PAGESIZE];
-            */
-
-            while (page) {
-                Eterm *ptr = (Eterm*)page->start;
-                Eterm *end = (Eterm*)page->start + INC_PAGESIZE;
-
-                erts_printf("| %*s   | This: 0x%0*lx   Next: 0x%0*lx %*s|\n",
-                            PTR_SIZE, "",
-                            PTR_SIZE, (unsigned long)page,
-                            PTR_SIZE, (unsigned long)page->next,
-                            2 * PTR_SIZE - 8, "");
-                print_untagged_memory(ptr,end);
-                page = page->next;
-            }
-        }
-
-        {
-            INC_MemBlock *this = inc_free_list;
-
-            erts_printf("-- %-*s --%s-%s-%s-%s-\n",PTR_SIZE+2,"Free list",
-                        dashes,dashes,dashes,dashes);
-            while (this) {
-                erts_printf("Block @ 0x%0*lx sz: %8d prev: 0x%0*lx next: 0x%0*lx\n",
-                            PTR_SIZE, (unsigned long)this,this->size,
-                            PTR_SIZE, (unsigned long)this->prev,
-                            PTR_SIZE, (unsigned long)this->next);
-                this = this->next;
-            }
-            erts_printf("--%s---%s-%s-%s-%s--\n",
-                        dashes,dashes,dashes,dashes,dashes);
-        }
-
-        if (inc_fromspc != NULL) {
-            erts_printf("-- fromspace - 0x%0*lx 0x%0*lx "
-                        "------------------------------\n",
-                        PTR_SIZE, (unsigned long)inc_fromspc,
-                        PTR_SIZE, (unsigned long)inc_fromend);
-            print_untagged_memory(inc_fromspc,inc_fromend);
-        }
-#endif /* INCREMENTAL */
-    }
-#endif /* HYBRID */
 }
 
 void print_memory_info(Process *p)
@@ -869,26 +621,6 @@ void print_memory_info(Process *p)
         erts_printf("|| Memory info ||\n");
         erts_printf("=================\n");
     }
-#ifdef HYBRID
-    erts_printf("|- message area --%s-%s-%s-%s-|\n",
-                dashes,dashes,dashes,dashes);
-    erts_printf("| Young | 0x%0*lx - 0x%0*lx - 0x%0*lx   %*s     |\n",
-                PTR_SIZE, (unsigned long)global_heap,
-                PTR_SIZE, (unsigned long)global_htop,
-                PTR_SIZE, (unsigned long)global_hend,
-                PTR_SIZE, "");
-    erts_printf("| Old   | 0x%0*lx - 0x%0*lx      %*s       |\n",
-                PTR_SIZE, (unsigned long)global_old_heap,
-                PTR_SIZE, (unsigned long)global_old_hend,
-                2 * PTR_SIZE, "");
-#endif
-#ifdef INCREMENTAL
-    if (inc_fromspc != NULL)
-        erts_printf("| Frmsp | 0x%0*lx - 0x%0*lx      %*s  |\n",
-                    PTR_SIZE, (unsigned long)inc_fromspc,
-                    PTR_SIZE, (unsigned long)inc_fromend,
-                    2 * PTR_SIZE, "");
-#endif
     erts_printf("+-----------------%s-%s-%s-%s-+\n",dashes,dashes,dashes,dashes);
 }
 #if !HEAP_ON_C_STACK && defined(DEBUG)

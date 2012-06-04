@@ -1578,11 +1578,9 @@ int erts_net_message(Port *prt,
     }
 
     erts_cleanup_offheap(&off_heap);
-#ifndef HYBRID /* FIND ME! */
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
-#endif
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return 0;
@@ -1595,11 +1593,9 @@ int erts_net_message(Port *prt,
  data_error:
     PURIFY_MSG("data error");
     erts_cleanup_offheap(&off_heap);
-#ifndef HYBRID /* FIND ME! */
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
-#endif
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     erts_do_exit_port(prt, dep->cid, am_killed);
     ERTS_SMP_CHK_NO_PROC_LOCKS;

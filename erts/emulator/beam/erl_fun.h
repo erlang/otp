@@ -54,9 +54,7 @@ typedef struct erl_fun_entry {
 typedef struct erl_fun_thing {
     Eterm thing_word;		/* Subtag FUN_SUBTAG. */
     ErlFunEntry* fe;		/* Pointer to fun entry. */
-#ifndef HYBRID /* FIND ME! */
     struct erl_off_heap_header* next;
-#endif
 #ifdef HIPE
     UWord* native_address;	/* Native code for the fun. */
 #endif
@@ -81,9 +79,7 @@ ErlFunEntry* erts_put_fun_entry2(Eterm mod, int old_uniq, int old_index,
 				byte* uniq, int index, int arity);
 
 void erts_erase_fun_entry(ErlFunEntry* fe);
-#ifndef HYBRID /* FIND ME! */
 void erts_cleanup_funs(ErlFunThing* funp);
-#endif
 void erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end);
 void erts_dump_fun_entries(int, void *);
 

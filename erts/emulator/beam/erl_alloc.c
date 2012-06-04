@@ -2138,9 +2138,6 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	    tmp = alcu_size(ERTS_ALC_A_EHEAP, NULL, 0);
 	}
 	tmp += erts_max_processes*sizeof(Process*);
-#ifdef HYBRID
-	tmp += erts_max_processes*sizeof(Process*);
-#endif
 	tmp += erts_bif_timer_memory_size();
 	tmp += erts_tot_link_lh_size();
 

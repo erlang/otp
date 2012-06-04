@@ -883,7 +883,7 @@ type(erlang, system_info, 1, Xs) ->
 		   ['dist'] ->
 		     t_binary();
 		   ['dist_ctrl'] ->
-		     t_list(t_tuple([t_atom(), t_sup([t_pid(), t_port])]));
+		     t_list(t_tuple([t_atom(), t_sup([t_pid(), t_port()])]));
 		   %% elib_malloc is intentionally not included,
 		   %% because it scheduled for removal in R15.
 		   ['endian'] ->
@@ -892,12 +892,10 @@ type(erlang, system_info, 1, Xs) ->
 		     t_tuple([t_atom('fullsweep_after'), t_non_neg_integer()]);
 		   ['garbage_collection'] ->
 		     t_list();
-		   ['global_heaps_size'] ->
-		     t_non_neg_integer();
 		   ['heap_sizes'] ->
 		     t_list(t_integer());
 		   ['heap_type'] ->
-		     t_sup([t_atom('private'), t_atom('hybrid')]);
+		     t_atom('private');
 		   ['hipe_architecture'] ->
 		     t_atoms(['amd64', 'arm', 'powerpc', 'ppc64',
 			      'undefined', 'ultrasparc', 'x86']);

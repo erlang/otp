@@ -29,7 +29,6 @@
 #include "global.h"
 #include "erl_message.h"
 #include "erl_process.h"
-#include "erl_nmgc.h"
 #include "erl_binary.h"
 #include "dtrace-wrapper.h"
 
@@ -1005,53 +1004,6 @@ erts_send_message(Process* sender,
 #endif
 			   );
         BM_SWAP_TIMER(send,system);
-#ifdef HYBRID
-    } else {
-        ErlMessage* mp = message_alloc();
-        BM_SWAP_TIMER(send,copy);
-#ifdef INCREMENTAL
-        /* TODO: During GC activate processes if the message relies in
-         * the fromspace and the sender is active. During major
-         * collections add the message to the gray stack if it relies
-         * in the old generation and the sender is active and the
-         * receiver is inactive.
-
-        if (!IS_CONST(message) && (ma_gc_flags & GC_CYCLE) &&
-            (ptr_val(message) >= inc_fromspc &&
-            ptr_val(message) < inc_fromend) && INC_IS_ACTIVE(sender))
-            INC_ACTIVATE(receiver);
-        else if (!IS_CONST(message) && (ma_gc_flags & GC_CYCLE) &&
-            (ptr_val(message) >= global_old_heap &&
-            ptr_val(message) < global_old_hend) &&
-            INC_IS_ACTIVE(sender) && !INC_IS_ACTIVE(receiver))
-            Mark message in blackmap and add it to the gray stack
-        */
-
-         if (!IS_CONST(message))
-            INC_ACTIVATE(receiver);
-#endif
-        LAZY_COPY(sender,message);
-        BM_SWAP_TIMER(copy,send);
-        DTRACE6(message_send, sender_name, receiver_name,
-                size_object(message)msize, tok_label, tok_lastcnt, tok_serial);
-        ERL_MESSAGE_TERM(mp) = message;
-        ERL_MESSAGE_TOKEN(mp) = NIL;
-#ifdef USE_VM_PROBES
-	ERL_MESSAGE_DT_UTAG(mp) = NIL;
-#endif
-        mp->next = NULL;
-	LINK_MESSAGE(receiver, mp);
-        ACTIVATE(receiver);
-
-	erts_proc_notify_new_message(receiver);
-
-        if (IS_TRACED_FL(receiver, F_TRACE_RECEIVE)) {
-            trace_receive(receiver, message);
-        }
-
-        BM_SWAP_TIMER(send,system);
-        return;
-#else
     } else if (sender == receiver) {
 	/* Drop message if receiver has a pending exit ... */
 #ifdef ERTS_SMP
@@ -1169,7 +1121,7 @@ erts_send_message(Process* sender,
 	}
         BM_SWAP_TIMER(send,system);
 #endif /* #ifndef ERTS_SMP */
-#endif /* HYBRID */
+	return;
     }
 }
 
