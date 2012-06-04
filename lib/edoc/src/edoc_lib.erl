@@ -469,6 +469,10 @@ uri_get("ftp:" ++ Path) ->
 uri_get("//" ++ Path) ->
     Msg = io_lib:format("cannot access network-path: '//~s'.", [Path]),
     {error, Msg};
+uri_get([C, $:, $/ | _]=Path) when C >= $A, C =< $Z; C >= $a, C =< $z ->
+    uri_get_file(Path);  % special case for Windows
+uri_get([C, $:, $\ | _]=Path) when C >= $A, C =< $Z; C >= $a, C =< $z ->
+    uri_get_file(Path);  % special case for Windows
 uri_get(URI) ->
     case is_relative_uri(URI) of
 	true ->
