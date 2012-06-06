@@ -824,23 +824,6 @@ pi() -> 3.1416.
   </section>
 
   <section>
-    <title>Error Information</title>
-
-    <p>The <c>ErrorInfo</c> mentioned above is the standard
-      <c>ErrorInfo</c> structure which is returned from all IO modules.
-      It has the following format:</p>
-    <code>
-{ErrorLine, Module, ErrorDescriptor}
-    </code>
-
-    <p>A string describing the error is obtained with the following
-      call:</p>
-    <code>
-Module:format_error(ErrorDescriptor)
-    </code>
-  </section>
-
-  <section>
     <title>See Also</title>
     <p>
       <seealso marker="stdlib:epp">epp(3)</seealso>,

@@ -60,14 +60,6 @@
       functions separately unless you have written your own Erlang
       compiler.</p>
   </description>
-  <datatypes>
-    <datatype>
-      <name name="error_info"/>
-    </datatype>
-    <datatype>
-      <name name="error_description"/>
-    </datatype>
-  </datatypes>
   <funcs>
     <func>
       <name name="module" arity="1"/>
@@ -125,29 +117,17 @@
         <p>Takes an <c><anno>ErrorDescriptor</anno></c> and returns a string which
           describes the error or warning. This function is usually
           called implicitly when processing an <c>ErrorInfo</c>
-          structure (see below).</p>
+          structure (see
+          <seealso marker="erl_scan#error_information">erl_scan(3)</seealso>).
+        </p>
       </desc>
     </func>
   </funcs>
 
   <section>
-    <title>Error Information</title>
-    <p>The <c>ErrorInfo</c> mentioned above is the standard
-      <c>ErrorInfo</c> structure which is returned from all IO
-      modules. It has the following format:
-      </p>
-    <code type="none">
-    {ErrorLine, Module, ErrorDescriptor}    </code>
-    <p>A string which describes the error is obtained with the following call:
-      </p>
-    <code type="none">
-    Module:format_error(ErrorDescriptor)    </code>
-  </section>
-
-  <section>
     <title>See Also</title>
     <p><seealso marker="erl_parse">erl_parse(3)</seealso>,
-      <seealso marker="epp">epp(3)</seealso></p>
+      <seealso marker="epp">epp(3)</seealso>, <seealso marker="erl_scan">erl_scan(3)</seealso></p>
   </section>
 </erlref>
 

@@ -403,6 +403,7 @@
   </funcs>
 
   <section>
+    <marker id="error_information"/>
     <title>Error Information</title>
     <p>The <c>ErrorInfo</c> mentioned above is the standard
       <c>ErrorInfo</c> structure which is returned from all IO

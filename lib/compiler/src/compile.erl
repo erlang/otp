@@ -41,7 +41,7 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type err_info() :: {erl_scan:line(), module(), term()}. %% ErrorDescriptor
+-type err_info() :: erl_scan:error_info(). %% ErrorDescriptor
 -type errors()   :: [{file:filename(), [err_info()]}].
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}

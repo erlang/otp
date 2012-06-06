@@ -129,14 +129,12 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
               }).
 
 -type lint_state() :: #lint{}.
--type error_description() :: term().
--type error_info() :: {erl_scan:line(), module(), error_description()}.
 
 %% format_error(Error)
 %%  Return a string describing the error.
 
 -spec format_error(ErrorDescriptor) -> io_lib:chars() when
-      ErrorDescriptor :: error_description().
+      ErrorDescriptor :: erl_scan:error_description().
 
 format_error(undefined_module) ->
     "no module definition";
@@ -436,7 +434,7 @@ used_vars(Exprs, BindingsList) ->
       AbsForms :: [erl_parse:abstract_form()],
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
-      ErrorInfo :: error_info()).
+      ErrorInfo :: erl_scan:error_info()).
 
 module(Forms) ->
     Opts = compiler_options(Forms),
@@ -449,7 +447,7 @@ module(Forms) ->
       FileName :: atom() | string(),
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
-      ErrorInfo :: error_info()).
+      ErrorInfo :: erl_scan:error_info()).
 
 module(Forms, FileName) ->
     Opts = compiler_options(Forms),
@@ -463,7 +461,7 @@ module(Forms, FileName) ->
       CompileOptions :: [compile:option()],
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
-      ErrorInfo :: error_info()).
+      ErrorInfo :: erl_scan:error_info()).
 
 module(Forms, FileName, Opts0) ->
     %% We want the options given on the command line to take

@@ -524,8 +524,7 @@ Erlang code.
 -type abstract_clause() :: term().
 -type abstract_expr() :: term().
 -type abstract_form() :: term().
--type error_description() :: term().
--type error_info() :: {erl_scan:line(), module(), error_description()}.
+-type error_info() :: erl_scan:error_info().
 -type token() :: {Tag :: atom(), Line :: erl_scan:line()}.
 
 %% mkop(Op, Arg) -> {op,Line,Op,Arg}.
