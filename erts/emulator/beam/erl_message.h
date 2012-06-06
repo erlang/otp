@@ -125,23 +125,23 @@ typedef struct {
 #ifdef ERTS_SMP
 
 /* Move in message queue to end of private message queue */
-#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(P)			\
-do {							\
-    if ((P)->msg_inq.first) {				\
-	*(P)->msg.last = (P)->msg_inq.first;		\
-	(P)->msg.last = (P)->msg_inq.last;		\
-	(P)->msg.len += (P)->msg_inq.len;		\
-	(P)->msg_inq.first = NULL;			\
-	(P)->msg_inq.last = &(P)->msg_inq.first;	\
-	(P)->msg_inq.len = 0;				\
-    }							\
+#define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(P)					\
+do {									\
+    if ((P)->u.alive.msg_inq.first) {					\
+	*(P)->msg.last = (P)->u.alive.msg_inq.first;			\
+	(P)->msg.last = (P)->u.alive.msg_inq.last;			\
+	(P)->msg.len += (P)->u.alive.msg_inq.len;			\
+	(P)->u.alive.msg_inq.first = NULL;				\
+	(P)->u.alive.msg_inq.last = &(P)->u.alive.msg_inq.first;	\
+	(P)->u.alive.msg_inq.len = 0;					\
+    }									\
 } while (0)
 
 /* Add message last in message queue */
 #define LINK_MESSAGE(p, mp) do { \
-    *(p)->msg_inq.last = (mp); \
-    (p)->msg_inq.last = &(mp)->next; \
-    (p)->msg_inq.len++; \
+    *(p)->u.alive.msg_inq.last = (mp); \
+    (p)->u.alive.msg_inq.last = &(mp)->next; \
+    (p)->u.alive.msg_inq.len++; \
 } while(0)
 
 #else

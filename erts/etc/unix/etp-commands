@@ -1399,7 +1399,7 @@ define etp-process-info
   end
   printf "  Mbuf size: %ld\n", $arg0->mbuf_sz
   if (etp_smp_compiled)
-    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($arg0->msg.len + $arg0->msg_inq.len), $arg0->msg.len, $arg0->msg_inq.len
+    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($arg0->msg.len + $arg0->u.alive.msg_inq.len), $arg0->msg.len, $arg0->u.alive.msg_inq.len
   else
     printf "  Msgq len: %d\n", $arg0->msg.len
   end

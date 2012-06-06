@@ -522,6 +522,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
     valid |= ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
     valid |= ERTS_SSI_AUX_WORK_DD;
     valid |= ERTS_SSI_AUX_WORK_DD_THR_PRGR;
+    valid |= ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP;
 #endif
 #if HAVE_ERTS_MSEG
     valid |= ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK;
@@ -1523,6 +1524,74 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     return aux_work & ~ERTS_SSI_AUX_WORK_DD_THR_PRGR;
 }
 
+/*
+ * Handle scheduled thread progress later operations.
+ */
+#define ERTS_MAX_THR_PRGR_LATER_OPS 50
+
+static ERTS_INLINE erts_aint32_t
+handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
+{
+    int lops;
+    ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
+
+    for (lops = 0; lops < ERTS_MAX_THR_PRGR_LATER_OPS; lops++) {
+	ErtsThrPrgrLaterOp *lop = awdp->later_op.first;
+	if (!erts_thr_progress_has_reached_this(current, lop->later))
+	    return aux_work & ~ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP;
+	awdp->later_op.first = lop->next;
+	lop->func(lop->data);
+	if (!awdp->later_op.first) {
+	    awdp->later_op.last = NULL;
+	    unset_aux_work_flags(awdp->ssi,
+				 ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
+	    return aux_work & ~ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP;
+	}
+    }
+
+    return aux_work;
+}
+
+#endif /* ERTS_SMP */
+
+void
+erts_schedule_thr_prgr_later_op(void (*later_func)(void *),
+				void *later_data,
+				ErtsThrPrgrLaterOp *lop)
+{
+#ifndef ERTS_SMP
+    later_func(later_data);
+#else
+    ErtsSchedulerData *esdp;
+    ErtsAuxWorkData *awdp;
+    int request_wakeup = 1;
+
+    esdp = erts_get_scheduler_data();
+    ASSERT(esdp);
+    awdp = &esdp->aux_work_data;
+
+    lop->func = later_func;
+    lop->data = later_data;
+    lop->later = erts_thr_progress_later(esdp);
+    lop->next = NULL;
+    if (!awdp->later_op.last)
+	awdp->later_op.first = lop;
+    else {
+	ErtsThrPrgrLaterOp *last = awdp->later_op.last;
+	last->next = lop;
+	if (erts_thr_progress_equal(last->later, lop->later))
+	    request_wakeup = 0;
+    }
+    awdp->later_op.last = lop;
+    set_aux_work_flags_wakeup_nob(awdp->ssi,
+				  ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP);
+    if (request_wakeup)
+	erts_thr_progress_wakeup(esdp, lop->later);
+#endif
+}
+
+#ifdef ERTS_SMP
+
 static erts_atomic32_t completed_dealloc_count;
 
 static void
@@ -1745,6 +1814,11 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
     HANDLE_AUX_WORK((ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM
 		     | ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC),
 		    handle_fix_alloc);
+
+#ifdef ERTS_SMP
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP,
+		    handle_thr_prgr_later_op);
+#endif
 
 #if ERTS_USE_ASYNC_READY_Q
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_ASYNC_READY,
@@ -3549,7 +3623,7 @@ retire_mpaths(ErtsMigrationPaths *mps)
     if (!mpaths.retired.first)
 	mpaths.retired.last = NULL;
 
-    mps->thr_prgr = erts_thr_progress_later_than(current);
+    mps->thr_prgr = erts_thr_progress_later(NULL);
     mps->next = NULL;
 
     if (mpaths.retired.last)
@@ -4198,6 +4272,8 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp)
     awdp->dd.thr_prgr = ERTS_THR_PRGR_VAL_WAITING;
     awdp->dd.completed_callback = NULL;
     awdp->dd.completed_arg = NULL;
+    awdp->later_op.first = NULL;
+    awdp->later_op.last = NULL;
 #endif
 #ifdef ERTS_USE_ASYNC_READY_Q
 #ifdef ERTS_SMP
@@ -7398,9 +7474,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->reds = 0;
 
 #ifdef ERTS_SMP
-    p->u.ptimer = NULL;
+    p->u.alive.ptimer = NULL;
 #else
-    sys_memset(&p->u.tm, 0, sizeof(ErlTimer));
+    sys_memset(&p->u.alive.tm, 0, sizeof(ErlTimer));
 #endif
 
     p->reg = NULL;
@@ -7428,9 +7504,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->msg.save = &p->msg.first;
     p->msg.len = 0;
 #ifdef ERTS_SMP
-    p->msg_inq.first = NULL;
-    p->msg_inq.last = &p->msg_inq.first;
-    p->msg_inq.len = 0;
+    p->u.alive.msg_inq.first = NULL;
+    p->u.alive.msg_inq.last = &p->u.alive.msg_inq.first;
+    p->u.alive.msg_inq.len = 0;
 #endif
     p->bif_timers = NULL;
     p->mbuf = NULL;
@@ -7534,8 +7610,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->scheduler_data = NULL;
     p->suspendee = NIL;
     p->pending_suspenders = NULL;
-    p->pending_exit.reason = THE_NON_VALUE;
-    p->pending_exit.bp = NULL;
+    p->u.alive.pending_exit.reason = THE_NON_VALUE;
+    p->u.alive.pending_exit.bp = NULL;
 #endif
 
 #if !defined(NO_FPE_SIGNALS) || defined(HIPE)
@@ -7603,9 +7679,9 @@ void erts_init_empty_process(Process *p)
     p->bin_old_vheap = 0;
     p->bin_vheap_mature = 0;
 #ifdef ERTS_SMP
-    p->u.ptimer = NULL;
+    p->u.alive.ptimer = NULL;
 #else
-    memset(&(p->u.tm), 0, sizeof(ErlTimer));
+    memset(&(p->u.alive.tm), 0, sizeof(ErlTimer));
 #endif
     p->next = NULL;
     p->off_heap.first = NULL;
@@ -7684,13 +7760,13 @@ void erts_init_empty_process(Process *p)
 
 #ifdef ERTS_SMP
     p->scheduler_data = NULL;
-    p->msg_inq.first = NULL;
-    p->msg_inq.last = &p->msg_inq.first;
-    p->msg_inq.len = 0;
+    p->u.alive.msg_inq.first = NULL;
+    p->u.alive.msg_inq.last = &p->u.alive.msg_inq.first;
+    p->u.alive.msg_inq.len = 0;
     p->suspendee = NIL;
     p->pending_suspenders = NULL;
-    p->pending_exit.reason = THE_NON_VALUE;
-    p->pending_exit.bp = NULL;
+    p->u.alive.pending_exit.reason = THE_NON_VALUE;
+    p->u.alive.pending_exit.bp = NULL;
     erts_proc_lock_init(p);
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
     RUNQ_SET_RQ(&p->run_queue, ERTS_RUNQ_IX(0));
@@ -7743,12 +7819,12 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->parent == NIL);
 
 #ifdef ERTS_SMP
-    ASSERT(p->msg_inq.first == NULL);
-    ASSERT(p->msg_inq.len == 0);
+    ASSERT(p->u.alive.msg_inq.first == NULL);
+    ASSERT(p->u.alive.msg_inq.len == 0);
     ASSERT(p->suspendee == NIL);
     ASSERT(p->pending_suspenders == NULL);
-    ASSERT(p->pending_exit.reason == THE_NON_VALUE);
-    ASSERT(p->pending_exit.bp == NULL);
+    ASSERT(p->u.alive.pending_exit.reason == THE_NON_VALUE);
+    ASSERT(p->u.alive.pending_exit.bp == NULL);
 #endif
 
     /* Thing that erts_cleanup_empty_process() cleans up */
@@ -7945,7 +8021,7 @@ void
 erts_handle_pending_exit(Process *c_p, ErtsProcLocks locks)
 {
     ErtsProcLocks xlocks;
-    ASSERT(is_value(c_p->pending_exit.reason));
+    ASSERT(is_value(c_p->u.alive.pending_exit.reason));
     ERTS_SMP_LC_ASSERT(erts_proc_lc_my_proc_locks(c_p) == locks);
     ERTS_SMP_LC_ASSERT(locks & ERTS_PROC_LOCK_MAIN);
     ERTS_SMP_LC_ASSERT(!((ERTS_PSFLG_EXITING|ERTS_PSFLG_FREE)
@@ -7964,10 +8040,10 @@ erts_handle_pending_exit(Process *c_p, ErtsProcLocks locks)
 
     set_proc_exiting(c_p,
 		     erts_smp_atomic32_read_acqb(&c_p->state),
-		     c_p->pending_exit.reason,
-		     c_p->pending_exit.bp);
-    c_p->pending_exit.reason = THE_NON_VALUE;
-    c_p->pending_exit.bp = NULL;
+		     c_p->u.alive.pending_exit.reason,
+		     c_p->u.alive.pending_exit.bp);
+    c_p->u.alive.pending_exit.reason = THE_NON_VALUE;
+    c_p->u.alive.pending_exit.bp = NULL;
 
     if (xlocks)
 	erts_smp_proc_unlock(c_p, xlocks);
@@ -8188,7 +8264,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
     else if (reason != am_normal || (flags & ERTS_XSIG_FLG_NO_IGN_NORMAL)) {
 #ifdef ERTS_SMP
 	if (!(state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT))) {
-	    ASSERT(!rp->pending_exit.bp);
+	    ASSERT(!rp->u.alive.pending_exit.bp);
 
 	    if (rp == c_p && (*rp_locks & ERTS_PROC_LOCK_MAIN)) {
 		/* Ensure that all locks on c_p are locked before
@@ -8238,7 +8314,7 @@ send_exit_signal(Process *c_p,		/* current process if and only
 
 	    set_pending_exit:
 		if (is_immed(rsn)) {
-		    rp->pending_exit.reason = rsn;
+		    rp->u.alive.pending_exit.reason = rsn;
 		}
 		else {
 		    Eterm *hp;
@@ -8246,11 +8322,11 @@ send_exit_signal(Process *c_p,		/* current process if and only
 		    ErlHeapFragment *bp = new_message_buffer(sz);
 
 		    hp = &bp->mem[0];
-		    rp->pending_exit.reason = copy_struct(rsn,
-							  sz,
-							  &hp,
-							  &bp->off_heap);
-		    rp->pending_exit.bp = bp;
+		    rp->u.alive.pending_exit.reason = copy_struct(rsn,
+								  sz,
+								  &hp,
+								  &bp->off_heap);
+		    rp->u.alive.pending_exit.bp = bp;
 		}
 		erts_smp_atomic32_read_bor_relb(&rp->state,
 						ERTS_PSFLG_PENDING_EXIT);
@@ -8623,10 +8699,10 @@ erts_do_exit_process(Process* p, Eterm reason)
     state = set_proc_exiting_state(p, erts_smp_atomic32_read_nob(&p->state));
     if (state & ERTS_PSFLG_PENDING_EXIT) {
 	/* Process exited before pending exit was received... */
-	p->pending_exit.reason = THE_NON_VALUE;
-	if (p->pending_exit.bp) {
-	    free_message_buffer(p->pending_exit.bp);
-	    p->pending_exit.bp = NULL;
+	p->u.alive.pending_exit.reason = THE_NON_VALUE;
+	if (p->u.alive.pending_exit.bp) {
+	    free_message_buffer(p->u.alive.pending_exit.bp);
+	    p->u.alive.pending_exit.bp = NULL;
 	}
     }
 
@@ -8873,21 +8949,9 @@ erts_continue_exit_process(Process *p)
     delete_process(p);
 
 #ifdef ERTS_SMP
-    /*
-     * Each scheduler will decrease refc by one via misc aux work;
-     * we have one refc for reference from process table which we
-     * now want to remove, i.e. we increase refc with schedulers-1.
-     *
-     * Process struct wont be deallocated until (earliest) when
-     * all schedulers have decreased refc via misc aux work...
-     */
-    if (erts_no_schedulers != 1)
-	erts_smp_proc_add_refc(p, (Sint32) erts_no_schedulers-1);
-    erts_schedule_multi_misc_aux_work(0,
-				      erts_no_schedulers,
-				      proc_dec_refc,
-				      (void *) p);
-
+    erts_schedule_thr_prgr_later_op(proc_dec_refc,
+				    (void *) p,
+				    &p->u.release_data);
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 #endif
@@ -8939,9 +9003,9 @@ cancel_timer(Process* p)
     ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p));
     p->flags &= ~(F_INSLPQUEUE|F_TIMO);
 #ifdef ERTS_SMP
-    erts_cancel_smp_ptimer(p->u.ptimer);
+    erts_cancel_smp_ptimer(p->u.alive.ptimer);
 #else
-    erts_cancel_timer(&p->u.tm);
+    erts_cancel_timer(&p->u.alive.tm);
 #endif
 }
 
@@ -8962,12 +9026,12 @@ set_timer(Process* p, Uint timeout)
     p->flags &= ~F_TIMO;
 
 #ifdef ERTS_SMP
-    erts_create_smp_ptimer(&p->u.ptimer,
+    erts_create_smp_ptimer(&p->u.alive.ptimer,
 			   p->id,
 			   (ErlTimeoutProc) timeout_proc,
 			   timeout);
 #else
-    erts_set_timer(&p->u.tm,
+    erts_set_timer(&p->u.alive.tm,
 		  (ErlTimeoutProc) timeout_proc,
 		  NULL,
 		  (void*) p,

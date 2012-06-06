@@ -209,7 +209,7 @@ typedef struct db_fixation {
  */
 
 typedef struct db_table_common {
-    erts_refc_t ref;          /* fixation counter and delete counter */
+    erts_refc_t ref;          /* fixation counter */
 #ifdef ERTS_SMP
     erts_smp_rwmtx_t rwlock;  /* rw lock on table */
     erts_smp_mtx_t fixlock;   /* Protects fixations,megasec,sec,microsec */

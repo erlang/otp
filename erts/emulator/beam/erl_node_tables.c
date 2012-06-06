@@ -1344,7 +1344,7 @@ setup_reference_table(void)
 				   proc->id);
 	    }
 #ifdef ERTS_SMP
-	    for (msg = proc->msg_inq.first; msg; msg = msg->next) {
+	    for (msg = proc->u.alive.msg_inq.first; msg; msg = msg->next) {
 		ErlHeapFragment *heap_frag = NULL;
 		if (msg->data.attached) {
 		    if (is_value(ERL_MESSAGE_TERM(msg)))
