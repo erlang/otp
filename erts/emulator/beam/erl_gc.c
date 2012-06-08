@@ -42,8 +42,6 @@
 #include "dtrace-wrapper.h"
 #include "erl_bif_unique.h"
 
-#undef SHCOPY_DEBUG
-
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
 #define ERTS_INACT_WR_PB_LEAVE_LIMIT 10
