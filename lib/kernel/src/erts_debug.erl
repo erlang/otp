@@ -33,7 +33,8 @@
 -export([breakpoint/2, disassemble/1, display/1, dist_ext_to_term/2,
          dump_monitors/1, dump_links/1, flat_size/1,
          get_internal_state/1, instructions/0, lock_counters/1,
-         same/2, set_internal_state/2]).
+         same/2, set_internal_state/2,
+         size_shared/1]).
 
 -spec breakpoint(MFA, Flag) -> non_neg_integer() when
       MFA :: {Module :: module(),
@@ -83,6 +84,12 @@ dump_links(_) ->
       Term :: term().
 
 flat_size(_) ->
+    erlang:nif_error(undef).
+
+-spec size_shared(Term) -> non_neg_integer() when
+      Term :: term().
+
+size_shared(_) ->
     erlang:nif_error(undef).
 
 -spec get_internal_state(W) -> term() when

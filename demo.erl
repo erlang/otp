@@ -10,7 +10,7 @@
 	 mkimfunny1/1, mkimfunny2/1, mkimfunny3/1, mkimfunny4/1, mkimfunny5/1,
          mkimlist/1, mkbin/1, mkbin2/1,
          sanity/0, sanity/1, sanity/2, sanity/3, term_sanity/1,
-         sanity_report/2, sanity_check/1
+         sanity_report/2, sanity_check/1, sanity_size_check/1
 	 ]).
 
 
@@ -180,6 +180,21 @@ test(N, [_|L], Fun) -> test(N-1, L, Fun).
 the_test({apply, F, Args}) -> apply(?MODULE, F, Args);
 the_test(T) -> T.
 
+% Sanity checking for size_shared
+
+sanity_size_check(X) ->
+    io:format("checking just size ~40P: ", [X, 3]),
+    T = the_test(X),
+    Real = erts_debug:size(T),
+    Flat = erts_debug:flat_size(T),
+    Shared = erts_debug:size_shared(T),
+    case Real =:= Shared of
+        true ->
+            io:format("OK~n");
+        false ->
+            io:format("MISMATCH~n")
+    end,
+    io:format("  real = ~w, shared = ~w, flat = ~w~n", [Real, Shared, Flat]).
 
 % Sanity checker function
 

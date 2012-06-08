@@ -72,6 +72,20 @@ erts_debug_flat_size_1(BIF_ALIST_1)
     }
 }
 
+BIF_RETTYPE
+erts_debug_size_shared_1(BIF_ALIST_1)
+{
+    Process* p = BIF_P;
+    Eterm term = BIF_ARG_1;
+    Uint size = size_shared(term);
+
+    if (IS_USMALL(0, size)) {
+	BIF_RET(make_small(size));
+    } else {
+	Eterm* hp = HAlloc(p, BIG_UINT_HEAP_SIZE);
+	BIF_RET(uint_to_big(size, hp));
+    }
+}
 
 BIF_RETTYPE
 erts_debug_breakpoint_2(BIF_ALIST_2)
