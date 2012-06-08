@@ -223,6 +223,31 @@ erl_grow_wstack(ErtsWStack* s, UWord* default_wstack)
     s->wsp = s->wstart + sp_offs;
 }
 
+/*
+ * Helper function for the EQUEUE macros defined in global.h.
+ */
+void
+erl_grow_equeue(ErtsEQueue* q, Eterm* default_equeue)
+{
+    Uint old_size = (q->end - q->start);
+    Uint new_size = old_size * 2;
+    Uint first_part = (q->end - q->front);
+    Uint second_part = (q->back - q->start);
+    Eterm* new_ptr = erts_alloc(q->alloc_type, new_size*sizeof(Eterm));
+    ASSERT(q->back == q->front);   // of course the queue is full now!
+    if (first_part > 0)
+      sys_memcpy(new_ptr, q->front, first_part*sizeof(Eterm));
+    if (second_part > 0)
+      sys_memcpy(new_ptr+first_part, q->start, second_part*sizeof(Eterm));
+    if (q->start != default_equeue)
+      erts_free(q->alloc_type, q->start);
+    q->start = new_ptr;
+    q->end = q->start + new_size;
+    q->front = q->start;
+    q->back = q->start + old_size;
+}
+
+
 /* CTYPE macros */
 
 #define LATIN1

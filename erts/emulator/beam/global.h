@@ -352,7 +352,7 @@ extern int bif_reductions;      /* reductions + fcalls (when doing call_bif) */
 extern int stackdump_on_exit;
 
 /*
- * Here is an implementation of a lightweiht stack.
+ * Here is an implementation of a lightweight stack.
  *
  * Use it like this:
  *
@@ -601,6 +601,88 @@ do {						\
 #define WSTACK_ISEMPTY(s) (s.wsp == s.wstart)
 #define WSTACK_POP(s) (*(--s.wsp))
 
+
+/*
+ *  An implementation of lightweight unbounded queues,
+ *  using a circular dynamic array.
+ *  It does not include support for change_allocator.
+ *
+ *  Use it like this:
+ *
+ *  DECLARE_EQUEUE(Queue)	(At the start of a block)
+ *  ...
+ *  EQUEUE_PUT(Queue, Term)
+ *  ...
+ *  if (EQUEUE_ISEMPTY(Queue)) {
+ *     Queue is empty
+ *  } else {
+ *     Term = EQUEUE_GET(Stack);
+ *     Process popped Term here
+ *  }
+ *  ...
+ *  DESTROY_EQUEUE(Queue)
+ */
+
+typedef struct {
+    Eterm* start;
+    Eterm* front;
+    Eterm* back;
+    int possibly_empty;
+    Eterm* end;
+    ErtsAlcType_t alloc_type;
+}ErtsEQueue;
+
+#define DEF_EQUEUE_SIZE (16)
+
+void erl_grow_equeue(ErtsEQueue*, Eterm* def_queue);
+#define EQUE_CONCAT(a,b) a##b
+#define EQUE_DEF_QUEUE(q) EQUE_CONCAT(q,_default_equeue)
+
+#define DECLARE_EQUEUE(q)				\
+    UWord EQUE_DEF_QUEUE(q)[DEF_EQUEUE_SIZE];     	\
+    ErtsEQueue q = {					\
+        EQUE_DEF_QUEUE(q), /* start */			\
+        EQUE_DEF_QUEUE(q), /* front */			\
+        EQUE_DEF_QUEUE(q), /* back */			\
+        1,                 /* possibly_empty */		\
+        EQUE_DEF_QUEUE(q) + DEF_EQUEUE_SIZE, /* end */	\
+        ERTS_ALC_T_ESTACK  /* alloc_type */		\
+    }
+
+#define DESTROY_EQUEUE(q)				\
+do {							\
+    if (q.start != EQUE_DEF_QUEUE(q)) {			\
+      erts_free(q.alloc_type, q.start);			\
+    }							\
+} while(0)
+
+#define EQUEUE_PUT_UNCHECKED(q, x)			\
+do {							\
+    q.possibly_empty = 0;				\
+    *(q.back) = (x);                    		\
+    if (++(q.back) == q.end) {				\
+	q.back = q.start;				\
+    }							\
+} while(0)
+
+#define EQUEUE_PUT(q, x)				\
+do {							\
+    if (q.back == q.front && !q.possibly_empty) {	\
+        erl_grow_equeue(&q, EQUE_DEF_QUEUE(q));		\
+    }							\
+    EQUEUE_PUT_UNCHECKED(q, x);				\
+} while(0)
+
+#define EQUEUE_ISEMPTY(q) (q.back == q.front && q.possibly_empty)
+
+#define EQUEUE_GET(q) ({				\
+    q.possibly_empty = 1;				\
+    UWord x = *(q.front);				\
+    if (++(q.front) == q.end) {				\
+        q.front = q.start;				\
+    }							\
+    x;							\
+})
 
 /* binary.c */
 
