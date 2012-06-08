@@ -298,10 +298,9 @@ prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
 %% does not return until Module:init/1 has returned.  
 %%--------------------------------------------------------------------
 start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
-    proc_lib:start_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]]).
+    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Host, Port, Socket, Options, User, CbInfo]])}.
 
 init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
-    proc_lib:init_ack({ok, self()}),
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     Hashes0 = ssl_handshake:init_hashes(),    
     TimeStamp = calendar:datetime_to_gregorian_seconds({date(), time()}),
