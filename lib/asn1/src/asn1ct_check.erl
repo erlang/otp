@@ -5991,17 +5991,25 @@ generate_automatic_tags1([H|T],[TagNo|TagNos]) when is_record(H,'ComponentType')
 			     type={default,'IMPLICIT'},
 			     form= 0 }]}, % PRIMITIVE
     [H#'ComponentType'{typespec=NewTs}|generate_automatic_tags1(T,[TagNo+1|TagNos])];
-generate_automatic_tags1([ExtMark|T],[_TagNo|TagNos]) -> % EXTENSIONMARK
+generate_automatic_tags1([ExtMark = #'EXTENSIONMARK'{}|T],[_TagNo|TagNos]) -> 
     [ExtMark | generate_automatic_tags1(T,TagNos)];
+generate_automatic_tags1([H|T],TagList) -> % ExtensionAdditionGroup etc are just ignored
+    [H | generate_automatic_tags1(T,TagList)];
 generate_automatic_tags1([],_) ->
     [].
 
-any_manual_tag([#'ComponentType'{typespec=#type{tag=[]}}|Rest]) ->
-    any_manual_tag(Rest);
-any_manual_tag([#'EXTENSIONMARK'{}|Rest]) ->
-    any_manual_tag(Rest);
-any_manual_tag([_|_Rest]) ->
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Returns true if there is at least one ComponentType with a manually 
+%% specified tag. No manual tag is indicated by typespec=#type{tag=[]}
+%% so we check if we find a tag =/= [] and return true in that case
+%% all other things in the componentlist like (EXTENSIONMARK, 
+%% ExtensionAdditionGroup,...) except ComponentType is simply
+%% ignored/skipped
+any_manual_tag([#'ComponentType'{typespec=#type{tag=Tag}}|_Rest]) 
+  when Tag =/= []->
     true;
+any_manual_tag([_|Rest]) ->
+    any_manual_tag(Rest);
 any_manual_tag([]) ->
     false.
 

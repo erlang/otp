@@ -79,4 +79,22 @@ Ax3 ::= SEQUENCE {
 }
 
 -- { a 253, b TRUE, s {sa 17, sb TRUE, sextaddgroup 11}}
+
+-- This is to test the case with more than one ExtensionAdditionGroup
+-- which did not work before
+
+AS-Config ::=				SEQUENCE {
+        a INTEGER,
+        b BOOLEAN,
+        c OCTET STRING,
+	...,
+	[[	sourceSystemInformationBlockType1Ext	OCTET STRING OPTIONAL,
+		sourceOtherConfig-r9			INTEGER
+	]],
+	[[	sourceSCellConfigList-r10	OCTET STRING OPTIONAL
+	]]
+}
+
+
+
 END
