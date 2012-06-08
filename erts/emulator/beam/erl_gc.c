@@ -38,6 +38,8 @@
 #endif
 #include "dtrace-wrapper.h"
 
+#undef SHCOPY_DEBUG
+
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_LIMIT 1
 #define ERTS_INACT_WR_PB_LEAVE_MUCH_PERCENTAGE 20
 #define ERTS_INACT_WR_PB_LEAVE_LIMIT 10
@@ -1010,6 +1012,10 @@ do_minor(Process *p, Uint new_sz, Eterm* objv, int nobj)
     Eterm* old_htop = OLD_HTOP(p);
     Eterm* n_heap;
 
+#ifdef SHCOPY_DEBUG
+    VERBOSE_DEBUG("[pid=%T] MINOR GC: %p %p %p %p\n", p->common.id, HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p));
+#endif
+
     n_htop = n_heap = (Eterm*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP,
 					       sizeof(Eterm)*new_sz);
 
@@ -1225,6 +1231,10 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     ErlMessage *msgp;
 
     size_before = fragments + (HEAP_TOP(p) - HEAP_START(p));
+
+#ifdef SHCOPY_DEBUG
+    VERBOSE_DEBUG("[pid=%T] MAJOR GC: %p %p %p %p\n", p->common.id, HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p));
+#endif
 
     /*
      * Do a fullsweep GC. First figure out the size of the heap
