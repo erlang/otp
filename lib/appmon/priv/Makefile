@@ -57,8 +57,8 @@ clean:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DATA) $(HELP_FILES) $(TOOLBAR_FILES) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(HELP_FILES) $(TOOLBAR_FILES) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
 

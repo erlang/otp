@@ -124,8 +124,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/pre_post_condition
-	$(INSTALL_DATA) $(ERL_FILES) $(IDL_FILES) $(TXT_FILES) $(RELSYSDIR)/examples/pre_post_condition
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/pre_post_condition"
+	$(INSTALL_DATA) $(ERL_FILES) $(IDL_FILES) $(TXT_FILES) "$(RELSYSDIR)/examples/pre_post_condition"
 
 
 release_docs_spec:

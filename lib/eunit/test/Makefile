@@ -74,9 +74,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: make_emakefile
-	$(INSTALL_DIR) $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) eunit.spec $(EMAKEFILE) \
 		$(COVERFILE) $(ERL_FILES) \
-		$(RELSYSDIR)
+		"$(RELSYSDIR)"
 
 release_docs_spec:

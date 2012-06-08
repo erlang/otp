@@ -66,12 +66,12 @@ then
     exit 1
 fi
 
-if [ ! -d $ERL_ROOT/bin ]
+if [ ! -d "$ERL_ROOT/bin" ]
 then
-    mkdir $ERL_ROOT/bin
+    mkdir "$ERL_ROOT/bin"
 fi
 
-cd $ERL_ROOT/erts-%I_VSN%/bin
+cd "$ERL_ROOT/erts-%I_VSN%/bin"
 
 sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" erl.src > erl
 chmod 755 erl
@@ -79,18 +79,18 @@ chmod 755 erl
 #
 # Create start file for embedded system use,
 #
-(cd $ERL_ROOT/erts-%I_VSN%/bin;
+(cd "$ERL_ROOT/erts-%I_VSN%/bin";
   sed -e "s;%FINAL_ROOTDIR%;$TARGET_ERL_ROOT;" start.src > start;
   chmod 755 start)
 
-cd $ERL_ROOT/bin
+cd "$ERL_ROOT/bin"
 
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/erl .
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/erlc .
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/dialyzer .
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/typer .
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/ct_run .
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/escript .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/erl" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/erlc" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/dialyzer" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/typer" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/ct_run" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/escript" .
 
 # Remove in R16B
 ln -s ct_run run_test
@@ -107,15 +107,15 @@ fi
 
 ln -s ../erts-%I_VSN%/bin/epmd epmd
 
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/run_erl .
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/to_erl .
-cp -p $ERL_ROOT/erts-%I_VSN%/bin/start .
-sed -e "s;%EMU%;%EMULATOR%%EMULATOR_NUMBER%;" $ERL_ROOT/erts-%I_VSN%/bin/start_erl.src > start_erl
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/run_erl" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/to_erl" .
+cp -p "$ERL_ROOT/erts-%I_VSN%/bin/start" .
+sed -e "s;%EMU%;%EMULATOR%%EMULATOR_NUMBER%;" "$ERL_ROOT/erts-%I_VSN%/bin/start_erl.src" > start_erl
 chmod 755 start_erl
 echo ""
 
-echo %I_VSN% %I_SYSTEM_VSN% > $ERL_ROOT/releases/start_erl.data
-sed -e "s;%ERL_ROOT%;$TARGET_ERL_ROOT;" $ERL_ROOT/releases/RELEASES.src > $ERL_ROOT/releases/RELEASES
+echo %I_VSN% %I_SYSTEM_VSN% > "$ERL_ROOT/releases/start_erl.data"
+sed -e "s;%ERL_ROOT%;$TARGET_ERL_ROOT;" "$ERL_ROOT/releases/RELEASES.src" > "$ERL_ROOT/releases/RELEASES"
 
 if [ "$start_option" = "query" ]
 then
@@ -147,10 +147,10 @@ cp -p ../releases/%I_SYSTEM_VSN%/$Name.script start.script
 # Fixing the man pages
 #
 
-if [ -d $ERL_ROOT/man ]
+if [ -d "$ERL_ROOT/man" ]
 then
-    cd $ERL_ROOT
-    ./misc/format_man_pages $ERL_ROOT
+    cd "$ERL_ROOT"
+    ./misc/format_man_pages "$ERL_ROOT"
 fi
 
 exit 0

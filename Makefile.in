@@ -335,7 +335,7 @@ all: cross_check_erl depend emulator libs start_scripts
 endif
 
 cross_check_erl:
-	@PATH=$(BOOT_PREFIX)$${PATH} $(ERL_TOP)/make/cross_check_erl \
+	@PATH=$(BOOT_PREFIX)"$${PATH}" $(ERL_TOP)/make/cross_check_erl \
            -target $(TARGET) -otp $(OTP) -erl_top $(ERL_TOP) \
            -force $(ERL_XCOMP_FORCE_DIFFERENT_OTP)
 
@@ -382,16 +382,16 @@ noboot_install:
 release: $(INST_DEP)
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd $(ERL_TOP)/lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-	    $(MAKE) TESTROOT=$(RELEASE_ROOT) release
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	    $(MAKE) TESTROOT="$(RELEASE_ROOT)" release
 else
 	cd $(ERL_TOP)/lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-	    $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
 endif
 	cd $(ERL_TOP)/erts && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-	    $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	    $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" release
 
 # ---------------------------------------------------------------
 # Target only used when building commercial ERTS patches
@@ -399,22 +399,22 @@ endif
 release_docs docs: mod2app
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd $(ERL_TOP)/lib && \
-	  PATH=$(ERL_TOP)/bin:$${PATH} ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
+	  PATH=$(ERL_TOP)/bin:"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) TESTROOT="$(RELEASE_ROOT)" $@
 else
 	cd $(ERL_TOP)/lib && \
-	  PATH=$(ERL_TOP)/bin:$${PATH} ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
+	  PATH=$(ERL_TOP)/bin:"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" $@
 endif
 	cd $(ERL_TOP)/erts && \
-	  PATH=$(ERL_TOP)/bin:$${PATH} ERL_TOP=$(ERL_TOP) \
-	  $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
+	  PATH=$(ERL_TOP)/bin:"$${PATH}" ERL_TOP=$(ERL_TOP) \
+	  $(MAKE) BUILD_ALL=1 TESTROOT="$(RELEASE_ROOT)" $@
 	cd $(ERL_TOP)/system/doc && \
-	  PATH=$(ERL_TOP)/bin:$${PATH} \
-	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
+	  PATH=$(ERL_TOP)/bin:"$${PATH}" \
+	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT="$(RELEASE_ROOT)" $@
 
 mod2app: 
-	PATH=$(ERL_TOP)/bin:$${PATH} escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
+	PATH=$(ERL_TOP)/bin:"$${PATH}" escript $(ERL_TOP)/lib/erl_docgen/priv/bin/xref_mod_app.escript -topdir $(ERL_TOP) -outfile $(ERL_TOP)/make/$(TARGET)/mod2app.xml
 
 # ----------------------------------------------------------------------
 ERLANG_EARS=$(BOOTSTRAP_ROOT)/bootstrap/erts
@@ -431,46 +431,46 @@ emulator:
 libs:
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt
 else
 	cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 endif
 kernel:
 	cd lib/kernel && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 stdlib:
 	cd lib/stdlib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 compiler:
 	cd lib/compiler && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 hipe:
 	cd lib/hipe && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true
 
 typer:
 	cd lib/typer && \
-	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 	    $(MAKE) opt BUILD_ALL=true
 
 syntax_tools:
 	cd lib/syntax_tools && \
-	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 	    $(MAKE) opt BUILD_ALL=true
 
 preloaded:
 	cd erts/preloaded/src && \
-	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt BUILD_ALL=true	
 
 dep depend:
@@ -531,7 +531,7 @@ bootstrap_setup_target:
 
 secondary_bootstrap_build:
 	cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt SECONDARY_BOOTSTRAP=true
 
 secondary_bootstrap_copy:
@@ -624,7 +624,7 @@ secondary_bootstrap_copy:
 
 tertiary_bootstrap_build:
 	cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) opt TERTIARY_BOOTSTRAP=true
 
 tertiary_bootstrap_copy:
@@ -876,13 +876,13 @@ KERNEL_PRELOAD_BEAMS=$(KERNEL_PRELOAD:%=$(BOOTSTRAP_TOP)/lib/kernel/ebin/%.beam)
 
 start_scripts:
 	@cd erts/start_scripts \
-	     && ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} $(MAKE) script
+	     && ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" $(MAKE) script
 
 # Creates "erl" and "erlc" scripts in bin/erl which uses the libraries in lib
 local_setup:
 	@rm -f bin/erl bin/erlc bin/cerl
 	@cd erts && \
-		ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) local_setup
 
 
@@ -904,8 +904,8 @@ tests release_tests: $(TEST_DIRS)
 
 $(TEST_DIRS):
 	if test -f $@/Makefile; then \
-	    (cd $@; $(MAKE) TESTROOT=$(TESTSUITE_ROOT) \
-	    PATH=$(TEST_PATH_PREFIX)$(BOOT_PREFIX)$${PATH} release_tests) || exit $$?; \
+	    (cd $@; $(MAKE) TESTROOT="$(TESTSUITE_ROOT)" \
+	    PATH=$(TEST_PATH_PREFIX)$(BOOT_PREFIX)"$${PATH}" release_tests) || exit $$?; \
 	fi
 
 #
@@ -918,29 +918,29 @@ INST_DEP += install.dirs install.emulator install.libs install.Install install.b
 install: $(INST_DEP)
 
 install-docs: 
-	ERL_TOP=$(ERL_TOP) INSTALLROOT=$(ERLANG_LIBDIR) PATH=$(BOOT_PREFIX)$${PATH} \
-	$(MAKE) RELEASE_ROOT=$(ERLANG_LIBDIR) release_docs
+	ERL_TOP=$(ERL_TOP) INSTALLROOT="$(ERLANG_LIBDIR)" PATH=$(BOOT_PREFIX)"$${PATH}" \
+	$(MAKE) RELEASE_ROOT="$(ERLANG_LIBDIR)" release_docs
 
 
 install.emulator:
 	cd erts && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-	  $(MAKE) TESTROOT=$(ERLANG_LIBDIR) release
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	  $(MAKE) TESTROOT="$(ERLANG_LIBDIR)" release
 
 install.libs:
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-	  $(MAKE) TESTROOT=$(ERLANG_LIBDIR) release 
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	  $(MAKE) TESTROOT="$(ERLANG_LIBDIR)" release 
 else
 	cd lib && \
-	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)$${PATH} \
-	  $(MAKE) TESTROOT=$(ERLANG_LIBDIR) BUILD_ALL=true release
+	  ERL_TOP=$(ERL_TOP) PATH=$(INST_PATH_PREFIX)"$${PATH}" \
+	  $(MAKE) TESTROOT="$(ERLANG_LIBDIR)" BUILD_ALL=true release
 endif
 
 install.Install:
-	(cd $(ERLANG_LIBDIR) \
-	 && ./Install $(INSTALL_CROSS) -minimal $(ERLANG_INST_LIBDIR))
+	(cd "$(ERLANG_LIBDIR)" \
+	 && ./Install $(INSTALL_CROSS) -minimal "$(ERLANG_INST_LIBDIR)")
 
 #
 # Install erlang base public files
@@ -959,9 +959,9 @@ install.bin:
 # Directories needed before we can install
 #
 install.dirs:
-	test -d $(BINDIR) || ${MKSUBDIRS} $(BINDIR)
-	${MKSUBDIRS} $(ERLANG_LIBDIR)
-	${MKSUBDIRS} $(ERLANG_LIBDIR)/usr/lib
+	test -d "$(BINDIR)" || ${MKSUBDIRS} "$(BINDIR)"
+	${MKSUBDIRS} "$(ERLANG_LIBDIR)"
+	${MKSUBDIRS} "$(ERLANG_LIBDIR)/usr/lib"
 
 .PHONY: strict_install
 

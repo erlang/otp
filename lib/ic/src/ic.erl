@@ -250,7 +250,7 @@ make_erl_options(Opts) ->
     Optimize = Opts#options.optimize,
     PreProc = 
 	lists:flatten(
-	  lists:map(fun(D) -> io_lib:format("-I~s ", [ic_util:to_list(D)]) end, 
+	  lists:map(fun(D) -> io_lib:format("-I\"~s\" ", [ic_util:to_list(D)]) end,
 		    Includes1)++
 	  lists:map(
 	    fun ({Name, Value}) ->

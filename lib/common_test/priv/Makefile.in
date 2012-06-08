@@ -85,12 +85,12 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 ifeq ($(XNIX),true)
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) "$(RELSYSDIR)/priv"
 else
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) "$(RELSYSDIR)/priv"
 endif
 
 release_docs_spec:
@@ -125,8 +125,8 @@ clean:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
 

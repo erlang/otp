@@ -29,7 +29,7 @@ APPLICATION=otp-system-documentation
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/doc/design_principles
+RELSYSDIR = "$(RELEASE_PATH)/doc/design_principles"
 
 # ----------------------------------------------------
 # Target Specs
@@ -105,8 +105,8 @@ clean clean_docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
-#	$(INSTALL_DIR) $(RELEASE_PATH)/pdf
-#	$(INSTALL_DATA) $(TOP_PDF_FILE) $(RELEASE_PATH)/pdf
+#	$(INSTALL_DIR) "$(RELEASE_PATH)/pdf"
+#	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELEASE_PATH)/pdf"
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)

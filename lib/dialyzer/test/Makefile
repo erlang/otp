@@ -25,10 +25,10 @@ RELSYSDIR = $(RELEASE_PATH)/dialyzer_test
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_tests_spec:
-	$(INSTALL_DIR) $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
-	$(INSTALL_DATA) $(AUXILIARY_FILES) $(RELSYSDIR)
-	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	cd $(RELSYSDIR);\
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(AUXILIARY_FILES) "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	cd "$(RELSYSDIR)";\
 	erlc dialyzer_common.erl file_utils.erl;\
 	erl -noshell -run dialyzer_common create_all_suites -s erlang halt

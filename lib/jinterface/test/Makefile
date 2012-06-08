@@ -80,6 +80,6 @@ release_spec:
 release_docs_spec:
 
 release_tests_spec: tests
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(TEST_SPEC_FILE) $(COVER_FILE) $(ERL_FILES) $(RELSYSDIR)
-	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(TEST_SPEC_FILE) $(COVER_FILE) $(ERL_FILES) "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)

@@ -227,7 +227,7 @@ done
 PATH=$BINDIR:$ROOTDIR/bin:$PATH
 EXEC=$BINDIR/erlexec
 
-PROGNAME="$PROGNAME $cargs"
+PROGNAME="$PROGNAME$cargs"
 EMU="$EMU$TYPE"
 EMU_NAME=`$EXEC -emu_name_exit $eeargs`
 

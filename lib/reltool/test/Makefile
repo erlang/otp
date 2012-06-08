@@ -73,12 +73,12 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) reltool.spec reltool.cover $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
-	$(INSTALL_SCRIPT) rtt $(INSTALL_PROGS) $(RELSYSDIR)
-	$(INSTALL_DATA) $(INSTALL_PROGS) $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
-	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) reltool.spec reltool.cover $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_SCRIPT) rtt $(INSTALL_PROGS) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(INSTALL_PROGS) "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
 

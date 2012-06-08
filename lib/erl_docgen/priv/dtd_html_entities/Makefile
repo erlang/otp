@@ -63,8 +63,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/dtd_html_entities
-	$(INSTALL_DATA) $(ENTITY_FILES) $(RELSYSDIR)/priv/dtd_html_entities
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/dtd_html_entities"
+	$(INSTALL_DATA) $(ENTITY_FILES) "$(RELSYSDIR)/priv/dtd_html_entities"
 
 
 release_docs_spec:

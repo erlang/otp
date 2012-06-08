@@ -74,7 +74,7 @@ display(doc) ->
 display(Config) when is_list(Config) ->
     Pa = filename:dirname(code:which(?MODULE)),
     {ok, Node} = test_server:start_node(display_huge_term,peer,
-					[{args, "-pa "++Pa}]),
+					[{args, "-pa \""++Pa++"\""}]),
     true = rpc:call(Node,?MODULE,display_huge,[]),
     test_server:stop_node(Node),
     ok.

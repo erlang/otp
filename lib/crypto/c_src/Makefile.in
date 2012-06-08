@@ -133,11 +133,11 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/obj
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_DATA) $(NIF_MAKEFILE) $(RELSYSDIR)/priv/obj
-	$(INSTALL_PROGRAM) $(OBJS) $(RELSYSDIR)/priv/obj
-	$(INSTALL_PROGRAM) $(NIF_LIB) $(RELSYSDIR)/priv/lib
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/obj"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
+	$(INSTALL_DATA) $(NIF_MAKEFILE) "$(RELSYSDIR)/priv/obj"
+	$(INSTALL_PROGRAM) $(OBJS) "$(RELSYSDIR)/priv/obj"
+	$(INSTALL_PROGRAM) $(NIF_LIB) "$(RELSYSDIR)/priv/lib"
 
 release_docs_spec:
 

@@ -59,14 +59,14 @@ opt debug all clean depend:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec:
-	$(INSTALL_DIR) $(RELSYSDIR)/bin
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(ROOTSYSDIR)/usr/include
-	$(INSTALL_DIR) $(ROOTSYSDIR)/usr/lib
-	$(INSTALL_DIR) $(ROOTSYSDIR)/usr/lib/icons
-	$(INSTALL_PROGRAM) $(INSTALL_PROGS) $(RELSYSDIR)/bin
-	$(INSTALL_DATA) $(INSTALL_SRC) $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(INSTALL_ICONS) $(ROOTSYSDIR)/usr/lib/icons
+	$(INSTALL_DIR) "$(RELSYSDIR)/bin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src"
+	$(INSTALL_DIR) "$(ROOTSYSDIR)/usr/include"
+	$(INSTALL_DIR) "$(ROOTSYSDIR)/usr/lib"
+	$(INSTALL_DIR) "$(ROOTSYSDIR)/usr/lib/icons"
+	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELSYSDIR)/bin"
+	$(INSTALL_DATA) $(INSTALL_SRC) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(INSTALL_ICONS) "$(ROOTSYSDIR)/usr/lib/icons"
 
 release_docs release_docs_spec docs:
 

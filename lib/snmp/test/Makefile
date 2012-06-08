@@ -79,7 +79,7 @@ COVER_SPEC_FILE = snmp.cover
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/snmp_test 
+RELSYSDIR = $(RELEASE_PATH)/snmp_test
 
 
 # ----------------------------------------------------
@@ -235,10 +235,10 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec:
 
 release_tests_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(RELTEST_FILES) $(COVER_SPEC_FILE) $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
-	tar cf - snmp_test_data | (cd $(RELSYSDIR); tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(RELTEST_FILES) $(COVER_SPEC_FILE) "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"
+	tar cf - snmp_test_data | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
 
@@ -254,7 +254,7 @@ info:
 	@echo ""
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
 	@echo ""
-	@echo "RELSYSDIR         = $(RELSYSDIR)"
+	@echo "RELSYSDIR         = "$(RELSYSDIR)""
 	@echo ""
 	@echo "SOURCE            = $(SOURCE)"
 	@echo ""

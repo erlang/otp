@@ -30,7 +30,7 @@ APPLICATION=otp-system-documentation
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/doc/programming_examples
+RELSYSDIR = "$(RELEASE_PATH)/doc/programming_examples"
 
 # ----------------------------------------------------
 # Target Specs

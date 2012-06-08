@@ -63,10 +63,10 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/src
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/ebin
-	(cd ..; tar cf - src ebin  | (cd $(RELSYSDIR)/examples; tar xf -))
-	chmod -R ug+w $(RELSYSDIR)/examples
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/ebin"
+	(cd ..; tar cf - src ebin  | (cd "$(RELSYSDIR)/examples"; tar xf -))
+	chmod -R ug+w "$(RELSYSDIR)/examples"
 
 release_docs_spec:
 

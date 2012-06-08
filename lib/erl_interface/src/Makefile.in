@@ -843,32 +843,32 @@ EXTRA = \
 	$(TARGET)/eidefs.mk
 
 release: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/include
-	$(INSTALL_DIR) $(RELSYSDIR)/lib
-	$(INSTALL_DIR) $(RELSYSDIR)/bin
-	$(INSTALL_DIR) $(RELSYSDIR)/src/auxdir
-	$(INSTALL_DIR) $(RELSYSDIR)/src/connect
-	$(INSTALL_DIR) $(RELSYSDIR)/src/decode
-	$(INSTALL_DIR) $(RELSYSDIR)/src/encode
-	$(INSTALL_DIR) $(RELSYSDIR)/src/epmd
-	$(INSTALL_DIR) $(RELSYSDIR)/src/legacy
-	$(INSTALL_DIR) $(RELSYSDIR)/src/misc
-	$(INSTALL_DIR) $(RELSYSDIR)/src/prog
-	$(INSTALL_DIR) $(RELSYSDIR)/src/registry
-	$(INSTALL_DATA) $(HEADERS)     $(RELSYSDIR)/include
-	$(INSTALL_DATA) $(OBJ_TARGETS) $(RELSYSDIR)/lib
+	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+	$(INSTALL_DIR) "$(RELSYSDIR)/lib"
+	$(INSTALL_DIR) "$(RELSYSDIR)/bin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/auxdir"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/connect"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/decode"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/encode"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/epmd"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/legacy"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/misc"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/prog"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/registry"
+	$(INSTALL_DATA) $(HEADERS)     "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(OBJ_TARGETS) "$(RELSYSDIR)/lib"
 ifneq ($(EXE_TARGETS),)
-	$(INSTALL_PROGRAM) $(EXE_TARGETS) $(RELSYSDIR)/bin
+	$(INSTALL_PROGRAM) $(EXE_TARGETS) "$(RELSYSDIR)/bin"
 endif
-	$(INSTALL_DATA) $(EXTRA)        $(RELSYSDIR)/src
-	$(INSTALL_DATA) connect/*.[ch]  $(RELSYSDIR)/src/connect
-	$(INSTALL_DATA) decode/*.[ch]   $(RELSYSDIR)/src/decode
-	$(INSTALL_DATA) encode/*.[ch]   $(RELSYSDIR)/src/encode
-	$(INSTALL_DATA) epmd/*.[ch]     $(RELSYSDIR)/src/epmd
-	$(INSTALL_DATA) misc/*.[ch]     $(RELSYSDIR)/src/misc
-	$(INSTALL_DATA) registry/*.[ch] $(RELSYSDIR)/src/registry
-	$(INSTALL_DATA) legacy/*.[ch]   $(RELSYSDIR)/src/legacy
-	$(INSTALL_DATA) prog/*.[ch]     $(RELSYSDIR)/src/prog
+	$(INSTALL_DATA) $(EXTRA)        "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) connect/*.[ch]  "$(RELSYSDIR)/src/connect"
+	$(INSTALL_DATA) decode/*.[ch]   "$(RELSYSDIR)/src/decode"
+	$(INSTALL_DATA) encode/*.[ch]   "$(RELSYSDIR)/src/encode"
+	$(INSTALL_DATA) epmd/*.[ch]     "$(RELSYSDIR)/src/epmd"
+	$(INSTALL_DATA) misc/*.[ch]     "$(RELSYSDIR)/src/misc"
+	$(INSTALL_DATA) registry/*.[ch] "$(RELSYSDIR)/src/registry"
+	$(INSTALL_DATA) legacy/*.[ch]   "$(RELSYSDIR)/src/legacy"
+	$(INSTALL_DATA) prog/*.[ch]     "$(RELSYSDIR)/src/prog"
 
 release_docs:
 

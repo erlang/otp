@@ -139,9 +139,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/simple
-	$(INSTALL_DATA) $(ERL_FILES) $(TARGET_FILES) $(RELSYSDIR)/examples/simple
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/simple"
+	$(INSTALL_DATA) $(ERL_FILES) $(TARGET_FILES) "$(RELSYSDIR)/examples/simple"
 
 
 release_docs_spec:

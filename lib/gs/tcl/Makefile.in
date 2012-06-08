@@ -74,10 +74,10 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec:
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DATA) $(TCL_FILES) $(EXTRA_FILES) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(TCL_FILES) $(EXTRA_FILES) "$(RELSYSDIR)/priv"
 ifneq ($(TCL_TAR),)
-	gzip -dc $(TCL_TAR) | (cd $(RELSYSDIR)/priv && tar -xf -)
+	gzip -dc $(TCL_TAR) | (cd "$(RELSYSDIR)/priv" && tar -xf -)
 endif
 
 release_docs_spec:

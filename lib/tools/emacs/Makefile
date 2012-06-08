@@ -71,9 +71,9 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/emacs
+	$(INSTALL_DIR) "$(RELSYSDIR)/emacs"
 	$(INSTALL_DATA) $(EL_FILES) $(README_FILES) $(TEST_FILES) \
-		$(RELSYSDIR)/emacs
+		"$(RELSYSDIR)/emacs"
 
 ifeq ($(DOCTYPE),pdf)
 release_docs_spec:
@@ -82,7 +82,7 @@ ifeq ($(DOCTYPE),ps)
 release_docs_spec:
 else
 release_docs_spec: docs
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
-	$(INSTALL_DATA) $(MAN_FILES) $(RELEASE_PATH)/man/man3
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DATA) $(MAN_FILES) "$(RELEASE_PATH)/man/man3"
 endif
 endif

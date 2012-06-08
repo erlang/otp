@@ -188,11 +188,11 @@ include ../vsn.mk
 RELSYSDIR = $(RELEASE_PATH)/lib/tools-$(TOOLS_VSN)
 
 release_spec: all
-	$(INSTALL_DIR) $(RELSYSDIR)/c_src
-	$(INSTALL_DATA) $(EMEM_SRCS) $(EMEM_HEADERS) $(RELSYSDIR)/c_src
+	$(INSTALL_DIR) "$(RELSYSDIR)/c_src"
+	$(INSTALL_DATA) $(EMEM_SRCS) $(EMEM_HEADERS) "$(RELSYSDIR)/c_src"
 ifneq ($(PROGS),)
-	$(INSTALL_DIR) $(RELSYSDIR)/bin
-	$(INSTALL_PROGRAM) $(PROGS) $(RELSYSDIR)/bin
+	$(INSTALL_DIR) "$(RELSYSDIR)/bin"
+	$(INSTALL_PROGRAM) $(PROGS) "$(RELSYSDIR)/bin"
 endif
 
 release_docs_spec:

@@ -45,9 +45,9 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DATA) $(PRIV_FILES) $(RELSYSDIR)/priv
-	$(INSTALL_SCRIPT) $(GEN_SCRIPT) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(PRIV_FILES) "$(RELSYSDIR)/priv"
+	$(INSTALL_SCRIPT) $(GEN_SCRIPT) "$(RELSYSDIR)/priv"
 
 
 release_docs_spec:

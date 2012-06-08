@@ -30,7 +30,7 @@ APPLICATION=otp-system-documentation
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/doc
+RELSYSDIR = "$(RELEASE_PATH)/doc"
 
 GIF_FILES = 
 
@@ -233,8 +233,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_docs_spec: docs
-	$(INSTALL_DIR)  $(RELEASE_PATH)
-	$(INSTALL_DATA) $(INFO_FILES) $(RELEASE_PATH)
+	$(INSTALL_DIR)  "$(RELEASE_PATH)"
+	$(INSTALL_DATA) $(INFO_FILES) "$(RELEASE_PATH)"
 	$(INSTALL_DIR)  $(RELSYSDIR)
 	$(INSTALL_DIR)  $(RELSYSDIR)/pdf
 	$(INSTALL_DATA)  \

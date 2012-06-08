@@ -1894,23 +1894,37 @@ include_dir(Flags) when is_list(Flags)->
 include_dir(_Flags) ->
     [].
     
-include_dir(Flags,IncDir) ->
+include_dir(Flags,IncDirs) ->
     case string:str(Flags,"-I") of
 	0 ->
-	    lists:reverse(IncDir);
+	    lists:reverse(IncDirs);
 	X ->
-	    Rem2 = string:sub_string(Flags, X+2),
-	    Rem = string:strip(Rem2, left),
-	    Y = string:str(Rem," "),
-	    case string:str(Rem," ") of
-		0 ->
-		    lists:reverse([string:sub_string(Rem, Y+1)|IncDir]);
-		Y ->
-		    include_dir(string:sub_string(Rem, Y+1), 
-				[string:sub_string(Rem,1,Y-1)|IncDir])
-	    end
+	    {NewDir, RemainingFlags} =
+		gobble_inc_dir(string:sub_string(Flags, X+2),nq,[]),
+	    include_dir(RemainingFlags, [NewDir|IncDirs])
     end.
 
+% nq = not-quoted, q = quoted.
+% Possible strange scenarios:
+%  /usr/test\ ing/
+%  "/usr/test ing/"
+%  /usr/test\"ing/
+%  "/usr/test\"ing/"
+gobble_inc_dir([],nq,Acc) ->
+    % Only accept nq here, if we end up here in q mode the user has missed a "
+    {lists:reverse(Acc),[]};
+gobble_inc_dir([$\\,$"|R],Q,Acc) ->
+    gobble_inc_dir(R,Q,[$"|Acc]);
+gobble_inc_dir([$"|R],nq,Acc) ->
+    gobble_inc_dir(R,q,Acc);
+gobble_inc_dir([$"|R],q,Acc) ->
+    gobble_inc_dir(R,nq,Acc);
+gobble_inc_dir([$\\,$ |R],nq,Acc) ->
+    gobble_inc_dir(R,nq,[$ |Acc]);
+gobble_inc_dir([$ |R],nq,Acc) ->
+    {lists:reverse(Acc),R};
+gobble_inc_dir([C|R],Q,Acc) ->
+    gobble_inc_dir(R,Q,[C|Acc]).
 
 
 %%===============================================================
@@ -1954,7 +1968,6 @@ find_inc_file2(FileName, [D|Rem]) ->
 	      _ ->
 		  D++"/"
 	  end,
-
     case catch file:read_file_info(Dir++FileName) of
 	{ok, _} ->
 	    {ok, Dir++FileName};

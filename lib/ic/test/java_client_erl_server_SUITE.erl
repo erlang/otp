@@ -249,7 +249,7 @@ marshal_any_2(Config) when is_list(Config) ->
 
 
 java(Java, Dir, ClassAndArgs) ->
-    cmd(Java++" -classpath "++classpath(Dir)++" "++ClassAndArgs).
+    cmd(Java++" -classpath \""++classpath(Dir)++"\" "++ClassAndArgs).
 
 java(Java, Dir, Class, Args) ->
     java(Java, Dir, Class++" "++to_string(Args)).

@@ -110,11 +110,11 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(ERL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) ssh.spec ssh.cover $(RELSYSDIR)
-	$(INSTALL_DATA) $(HRL_FILES_NEEDED_IN_TEST) $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
-	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) ssh.spec ssh.cover "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(HRL_FILES_NEEDED_IN_TEST) "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:

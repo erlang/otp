@@ -47,6 +47,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/stdlib-$(STDLIB_VSN)/examples
 EXAMPLES  = erl_id_trans.erl
 
 release_spec:
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(EXAMPLES) $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(EXAMPLES) "$(RELSYSDIR)"
 release_docs_spec:

@@ -369,7 +369,7 @@ mk_node_cmdline(ListenPort, Name, Args) ->
 		 _ -> "-name "
 	     end,
     {ok, Pwd} = file:get_cwd(),
-    Prog ++ " "
+    "\"" ++ Prog ++ "\" "
 	++ Static ++ " "
 	++ NameSw ++ " " ++ Name ++ " "
 	++ "-pa " ++ Pa ++ " "
@@ -729,7 +729,7 @@ add_ssl_opts_config(Config) ->
 	[{ssl_opts, "-boot " ++ Script} | Config]
     catch
 	_:_ ->
-	    [{ssl_opts, "-pa " ++ filename:dirname(code:which(ssl))}
+	    [{ssl_opts, "-pa \"" ++ filename:dirname(code:which(ssl))++"\""}
 	     | add_comment_config(
 		 "Bootscript wasn't used since the test wasn't run on an "
 		 "installed OTP system.",

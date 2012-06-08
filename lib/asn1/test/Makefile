@@ -156,13 +156,13 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DIR) $(RELSYSDIR)/asn1_SUITE_data
-	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) asn1.spec asn1.cover $(INSTALL_PROGS) $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
-	cd asn1_SUITE_data; tar cfh $(RELSYSDIR)/asn1_SUITE_data.tar *
-	cd $(RELSYSDIR)/asn1_SUITE_data; tar xf $(RELSYSDIR)/asn1_SUITE_data.tar
-	rm $(RELSYSDIR)/asn1_SUITE_data.tar
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DIR) "$(RELSYSDIR)/asn1_SUITE_data"
+	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) asn1.spec asn1.cover $(INSTALL_PROGS) "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"
+	cd asn1_SUITE_data; tar cfh "$(RELSYSDIR)/asn1_SUITE_data.tar" *
+	cd "$(RELSYSDIR)/asn1_SUITE_data"; tar xf "$(RELSYSDIR)/asn1_SUITE_data.tar"
+	rm "$(RELSYSDIR)/asn1_SUITE_data.tar"
 
 release_docs_spec:

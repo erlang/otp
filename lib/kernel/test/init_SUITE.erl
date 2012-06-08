@@ -608,7 +608,7 @@ boot2(Config) when is_list(Config) ->
 	    %% Absolute boot file name
 	    Boot = filename:join([code:root_dir(), "bin", "start_sasl"]),
 
-	    Args = args() ++ " -boot " ++ Boot,
+	    Args = args() ++ " -boot \"" ++ Boot++"\"",
 	    ?line {ok, Node} = start_node(init_test, Args),
 	    ?line stop_node(Node),
 
@@ -618,7 +618,7 @@ boot2(Config) when is_list(Config) ->
 		    %% converted to backslashes.
 		    Win_boot = lists:map(fun($/) -> $\\; (C) -> C end,
 					 Boot),
-		    Args2 = args() ++ " -boot " ++ Win_boot,
+		    Args2 = args() ++ " -boot \"" ++ Win_boot ++ "\"",
 		    ?line {ok, Node2} = start_node(init_test, Args2),
 		    ?line stop_node(Node2);
 		_ ->
