@@ -483,10 +483,6 @@ function.")
   "*Non-nil means TAB in Erlang mode should always re-indent the current line,
 regardless of where in the line point is when the TAB command is used.")
 
-(defvar erlang-error-regexp-alist
-  '(("^\\([^:( \t\n]+\\)[:(][ \t]*\\([0-9]+\\)[:) \t]" . (1 2)))
-  "*Patterns for matching Erlang errors.")
-
 (defvar erlang-man-inhibit (eq system-type 'windows-nt)
   "Inhibit the creation of the Erlang Manual Pages menu.
 
@@ -1327,7 +1323,6 @@ Other commands:
   (erlang-menu-init)
   (erlang-mode-variables)
   (erlang-check-module-name-init)
-  (erlang-add-compilation-alist erlang-error-regexp-alist)
   (erlang-man-init)
   (erlang-tags-init)
   (erlang-font-lock-init)
@@ -1443,31 +1438,6 @@ Other commands:
   (set (make-local-variable 'outline-level) (lambda () 1))
   (set (make-local-variable 'add-log-current-defun-function)
        'erlang-current-defun))
-
-
-;; Compilation.
-;;
-;; The following code is compatible with the standard package `compilation',
-;; making it possible to go to errors using `erlang-next-error' (or just
-;; `next-error' in Emacs 21).
-;;
-;; The normal `compile' command works of course.  For best result, please
-;; execute `make' with the `-w' flag.
-;;
-;; Please see the variables named `compiling-..' above.
-
-(defun erlang-add-compilation-alist (alist)
-  (require 'compile)
-  (cond ((boundp 'compilation-error-regexp-alist) ; Emacs 19
-	 (while alist
-	   (or (assoc (car (car alist)) compilation-error-regexp-alist)
-	       (setq compilation-error-regexp-alist
-		     (cons (car alist) compilation-error-regexp-alist)))
-	   (setq alist (cdr alist))))
-	((boundp 'compilation-error-regexp)
-	 ;; Emacs 18,  Only one regexp is allowed.
-	 (funcall (symbol-function 'set)
-		  'compilation-error-regexp (car (car alist))))))
 
 (defun erlang-font-lock-init ()
   "Initialize Font Lock for Erlang mode."
@@ -4860,7 +4830,6 @@ The following special commands are available:
     (set (make-local-variable 'compilation-old-error-list) nil))
   ;; Needed when compiling directly from the Erlang shell.
   (setq compilation-last-buffer (current-buffer))
-  (erlang-add-compilation-alist erlang-error-regexp-alist)
   (setq comint-prompt-regexp "^[^>=]*> *")
   (setq comint-eol-on-send t)
   (setq comint-input-ignoredups t)
