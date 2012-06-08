@@ -931,7 +931,7 @@ epmdrun(Epmd,Args0) ->
 	       O ->
 		   " "++O
 	   end,
-  osrun(Epmd ++ Args ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT)).
+  osrun("\"" ++ Epmd ++ "\"" ++ Args ++ " " ?EPMDARGS " -port " ++ integer_to_list(?PORT)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

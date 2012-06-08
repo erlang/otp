@@ -89,23 +89,23 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 ifeq ($(findstring win32,$(TARGET)),win32)
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/src
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/include
-	$(INSTALL_PROGRAM) $(CC_FILES) $(RELSYSDIR)/priv/src
-	$(INSTALL_PROGRAM) $(HH_FILES) $(RELSYSDIR)/priv/include
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/include"
+	$(INSTALL_PROGRAM) $(CC_FILES) "$(RELSYSDIR)/priv/src"
+	$(INSTALL_PROGRAM) $(HH_FILES) "$(RELSYSDIR)/priv/include"
 else
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 release_spec:
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/src
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/include
-	$(INSTALL_PROGRAM) $(CC_FILES) $(RELSYSDIR)/priv/src
-	$(INSTALL_PROGRAM) $(HH_FILES) $(RELSYSDIR)/priv/include
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/include"
+	$(INSTALL_PROGRAM) $(CC_FILES) "$(RELSYSDIR)/priv/src"
+	$(INSTALL_PROGRAM) $(HH_FILES) "$(RELSYSDIR)/priv/include"
 else
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/src
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/include
-	$(INSTALL_DATA) $(CC_FILES) $(RELSYSDIR)/priv/src
-	$(INSTALL_DATA) $(HH_FILES) $(RELSYSDIR)/priv/include
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/include"
+	$(INSTALL_DATA) $(CC_FILES) "$(RELSYSDIR)/priv/src"
+	$(INSTALL_DATA) $(HH_FILES) "$(RELSYSDIR)/priv/include"
 endif
 endif
 

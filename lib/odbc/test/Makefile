@@ -101,8 +101,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(SPEC_FILES) $(COVER_FILE) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
 
 
 release_docs_spec:

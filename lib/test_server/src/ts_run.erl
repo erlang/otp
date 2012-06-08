@@ -229,7 +229,7 @@ make_command(Vars, Spec, State) ->
 	   %% uncomment the line below to disable exception formatting 
 	   %%	   " -test_server_format_exception false",
 	   " -boot start_sasl -sasl errlog_type error",
-	   " -pz ",Cwd,
+	   " -pz \"",Cwd,"\"",
 	   " -ct_test_vars ",TestVars,
 	   " -eval \"file:set_cwd(\\\"",TestDir,"\\\")\" "
 	   " -eval \"ct:run_test(", 

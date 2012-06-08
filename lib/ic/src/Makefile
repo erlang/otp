@@ -196,23 +196,23 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(RELSYSDIR)/ebin
-	$(INSTALL_DIR) $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(ERL_FILES) $(YRL_FILE) $(INTERNAL_HRL_FILES) $(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/examples
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/c-client
-	$(INSTALL_DATA) $(CCL_EX_FILES) $(RELSYSDIR)/examples/c-client	
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/c-server
-	$(INSTALL_DATA) $(CSRV_EX_FILES) $(RELSYSDIR)/examples/c-server	
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/erl-plain
-	$(INSTALL_DATA) $(EPL_EX_FILES) $(RELSYSDIR)/examples/erl-plain
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/erl-genserv
-	$(INSTALL_DATA) $(ESRV_EX_FILES) $(RELSYSDIR)/examples/erl-genserv	
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/java-client-server
-	$(INSTALL_DATA) $(JAVA_EX_FILES) $(RELSYSDIR)/examples/java-client-server
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/all-against-all
-	$(INSTALL_DATA) $(MIXED_EX_FILES) $(RELSYSDIR)/examples/all-against-all
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src"
+	$(INSTALL_DATA) $(ERL_FILES) $(YRL_FILE) $(INTERNAL_HRL_FILES) "$(RELSYSDIR)/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/c-client"
+	$(INSTALL_DATA) $(CCL_EX_FILES) "$(RELSYSDIR)/examples/c-client"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/c-server"
+	$(INSTALL_DATA) $(CSRV_EX_FILES) "$(RELSYSDIR)/examples/c-server"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/erl-plain"
+	$(INSTALL_DATA) $(EPL_EX_FILES) "$(RELSYSDIR)/examples/erl-plain"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/erl-genserv"
+	$(INSTALL_DATA) $(ESRV_EX_FILES) "$(RELSYSDIR)/examples/erl-genserv"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/java-client-server"
+	$(INSTALL_DATA) $(JAVA_EX_FILES) "$(RELSYSDIR)/examples/java-client-server"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/all-against-all"
+	$(INSTALL_DATA) $(MIXED_EX_FILES) "$(RELSYSDIR)/examples/all-against-all"
 
 release_docs_spec:
 

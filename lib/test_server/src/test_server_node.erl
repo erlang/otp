@@ -407,7 +407,7 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     % Support for erl_crash_dump files..
     CrashFile = filename:join([TI#target_info.test_server_dir,
 			       "erl_crash_dump."++cast_to_list(SlaveName)]),
-    CrashArgs = lists:concat([" -env ERL_CRASH_DUMP ",CrashFile," "]),
+    CrashArgs = lists:concat([" -env ERL_CRASH_DUMP \"",CrashFile,"\" "]),
     FailOnError = start_node_get_option_value(fail_on_error, OptList, true),
     Pa = TI#target_info.test_server_dir,
     Prog0 = start_node_get_option_value(erl, OptList, default),
@@ -420,7 +420,7 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     Cmd = lists:concat([Prog,
 			" -detached ",
 			TI#target_info.naming, " ", SlaveName,
-			" -pa ", Pa,
+			" -pa \"", Pa,"\"",
 			NodeStarted,
 			CrashArgs,
 			" ", Args]),
@@ -472,9 +472,9 @@ start_node_slave(SlaveName, OptList, From, TI) ->
 
     CrashFile = filename:join([TI#target_info.test_server_dir,
 			       "erl_crash_dump."++cast_to_list(SlaveName)]),
-    CrashArgs = lists:concat([" -env ERL_CRASH_DUMP ",CrashFile," "]),
+    CrashArgs = lists:concat([" -env ERL_CRASH_DUMP \"",CrashFile,"\" "]),
     Pa = TI#target_info.test_server_dir,
-    Args = lists:concat([" -pa ", Pa, " ", SuppliedArgs, CrashArgs]),
+    Args = lists:concat([" -pa \"", Pa, "\" ", SuppliedArgs, CrashArgs]),
 
     Prog0 = start_node_get_option_value(erl, OptList, default),
     Prog = pick_erl_program(Prog0),

@@ -113,15 +113,15 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA)  $(SUITE_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) xmerl.spec xmerl.cover $(RELSYSDIR)
-	cp $(XML_FILES) $(RELSYSDIR)
-	@tar cfh - xmerl_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	@tar cfh - xmerl_std_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	@tar cfh - xmerl_xsd_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	@tar cfh - xmerl_xsd_MS2002-01-16_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	@tar cfh - xmerl_xsd_NIST2002-01-16_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	@tar cfh - xmerl_xsd_Sun2002-01-16_SUITE_data | (cd $(RELSYSDIR); tar xf -)
-	chmod -R u+w $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA)  $(SUITE_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) xmerl.spec xmerl.cover "$(RELSYSDIR)"
+	cp $(XML_FILES) "$(RELSYSDIR)"
+	@tar cfh - xmerl_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_std_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_xsd_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_xsd_MS2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_xsd_NIST2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cfh - xmerl_xsd_Sun2002-01-16_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	chmod -R u+w "$(RELSYSDIR)"

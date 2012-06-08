@@ -132,7 +132,7 @@ unix_autoconf(XConf) ->
 	    OSXEnv = macosx_cflags(),
 	    io:format("Running ~sEnv: ~p~n",
 		      [lists:flatten(Configure ++ Args),Env++OSXEnv]),
-	    Port = open_port({spawn, lists:flatten(Configure ++ Args)},
+	    Port = open_port({spawn, lists:flatten(["\"",Configure,"\"",Args])},
 			     [stream, eof, {env,Env++OSXEnv}]),
 	    ts_lib:print_data(Port);
 	false ->

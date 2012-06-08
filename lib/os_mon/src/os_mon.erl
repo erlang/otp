@@ -85,13 +85,13 @@ open_port(Name, Opts) ->
     %% Check os_mon*/priv/bin/Name
     case filelib:is_regular(ReleasedPath) of
 	true ->
-	    erlang:open_port({spawn, ReleasedPath}, Opts);
+	    erlang:open_port({spawn, "\""++ReleasedPath++"\""}, Opts);
 	false ->
 	    %% Use os_mon*/priv/bin/Arch/Name
 	    ArchPath =
 		filename:join(
 		  [PrivDir,"bin",erlang:system_info(system_architecture),Name]),
-	    erlang:open_port({spawn, ArchPath}, Opts)
+	    erlang:open_port({spawn, "\""++ArchPath++"\""}, Opts)
     end.
 
 

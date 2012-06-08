@@ -211,7 +211,7 @@ info:
 	@echo ""
 	@echo "SNMP_VSN    = $(SNMP_VSN)"
 	@echo "VSN         = $(VSN)"
-	@echo "RELSYSDIR   = $(RELSYSDIR)"
+	@echo "RELSYSDIR   = "$(RELSYSDIR)""
 
 v1/%.mib.v1: %.mib $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1
 	$(ERL_TOP)/lib/snmp/bin/snmp-v2tov1 -o $@ $<
@@ -223,17 +223,17 @@ v1/%.mib.v1: %.mib $(ERL_TOP)/lib/snmp/bin/snmp-v2tov1
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/mibs
-	$(INSTALL_DIR) $(RELSYSDIR)/mibs/v1
-	$(INSTALL_DATA) $(MIB_FILES) $(RELSYSDIR)/mibs
-	$(INSTALL_DATA) $(STD_v2_MIB_FILES) $(RELSYSDIR)/mibs
-	$(INSTALL_DATA) $(FUNCS_FILES) $(RELSYSDIR)/mibs
-	$(INSTALL_DATA) $(STD_v1_MIB_FILES) $(RELSYSDIR)/mibs/v1
-	$(INSTALL_DATA) $(V1_MIB_FILES) $(RELSYSDIR)/mibs/v1
-	$(INSTALL_DIR) $(RELSYSDIR)/include
-	$(INSTALL_DATA) $(HRL_FILES) $(RELSYSDIR)/include
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/mibs
-	$(INSTALL_DATA) $(BIN_TARGETS) $(RELSYSDIR)/priv/mibs
+	$(INSTALL_DIR) "$(RELSYSDIR)/mibs"
+	$(INSTALL_DIR) "$(RELSYSDIR)/mibs/v1"
+	$(INSTALL_DATA) $(MIB_FILES) "$(RELSYSDIR)/mibs"
+	$(INSTALL_DATA) $(STD_v2_MIB_FILES) "$(RELSYSDIR)/mibs"
+	$(INSTALL_DATA) $(FUNCS_FILES) "$(RELSYSDIR)/mibs"
+	$(INSTALL_DATA) $(STD_v1_MIB_FILES) "$(RELSYSDIR)/mibs/v1"
+	$(INSTALL_DATA) $(V1_MIB_FILES) "$(RELSYSDIR)/mibs/v1"
+	$(INSTALL_DIR) "$(RELSYSDIR)/include"
+	$(INSTALL_DATA) $(HRL_FILES) "$(RELSYSDIR)/include"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/mibs"
+	$(INSTALL_DATA) $(BIN_TARGETS) "$(RELSYSDIR)/priv/mibs"
 
 release_docs_spec:
 

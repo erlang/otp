@@ -78,9 +78,9 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples
-	$(INSTALL_DATA) $(ERL_FILES) $(DATA_FILES) $(HRL_FILES) $(RELSYSDIR)/examples
-	$(INSTALL_DIR) $(RELSYSDIR)/examples/bench
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples"
+	$(INSTALL_DATA) $(ERL_FILES) $(DATA_FILES) $(HRL_FILES) "$(RELSYSDIR)/examples"
+	$(INSTALL_DIR) "$(RELSYSDIR)/examples/bench"
 	(cd bench; $(INSTALL_DATA) \
           Makefile \
           README \
@@ -96,8 +96,8 @@ release_spec: opt
           bench.config5 \
           bench.config6 \
           bench.config7 \
-          $(RELSYSDIR)/examples/bench)
-	(cd bench; $(INSTALL_SCRIPT) bench.sh $(RELSYSDIR)/examples/bench)
+          "$(RELSYSDIR)/examples/bench")
+	(cd bench; $(INSTALL_SCRIPT) bench.sh "$(RELSYSDIR)/examples/bench")
 
 release_docs_spec:
 

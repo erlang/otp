@@ -29,7 +29,7 @@ APPLICATION=otp-system-documentation
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/doc/oam
+RELSYSDIR = "$(RELEASE_PATH)/doc/oam"
 
 # ----------------------------------------------------
 # Target Specs

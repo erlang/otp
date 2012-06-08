@@ -89,8 +89,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/dtd
-	$(INSTALL_DATA) $(DTD_FILES)  $(ENT_FILES) $(RELSYSDIR)/priv/dtd
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/dtd"
+	$(INSTALL_DATA) $(DTD_FILES)  $(ENT_FILES) "$(RELSYSDIR)/priv/dtd"
 
 
 release_docs_spec:

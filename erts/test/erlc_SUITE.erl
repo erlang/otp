@@ -253,7 +253,7 @@ erlc() ->
 	false ->
 	    test_server:fail("Can't find erlc");
 	Erlc ->
-	    Erlc
+	    "\"" ++ Erlc ++ "\""
     end.
 	    
 %% Runs a command.

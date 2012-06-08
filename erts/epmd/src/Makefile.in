@@ -139,8 +139,8 @@ $(ERTS_LIB):
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: all
-	$(INSTALL_DIR)     $(RELEASE_PATH)/erts-$(VSN)/bin
-	$(INSTALL_PROGRAM) $(INSTALL_PROGS) $(RELEASE_PATH)/erts-$(VSN)/bin
+	$(INSTALL_DIR)     "$(RELEASE_PATH)/erts-$(VSN)/bin"
+	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 
 
 release_docs_spec:

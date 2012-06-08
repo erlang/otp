@@ -57,9 +57,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 
 release_tests_spec: make_emakefile
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) syntax_tools.spec syntax_tools.cover $(RELSYSDIR)
-	chmod -R u+w $(RELSYSDIR)
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) syntax_tools.spec syntax_tools.cover "$(RELSYSDIR)"
+	chmod -R u+w "$(RELSYSDIR)"
 
 release_docs_spec:

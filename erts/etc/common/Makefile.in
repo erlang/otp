@@ -545,48 +545,48 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 .PHONY: release_spec
 release_spec: etc
 ifneq ($(INSTALL_OBJS),)
-	$(INSTALL_DIR) $(RELEASE_PATH)/erts-$(VSN)/obj
-	$(INSTALL_DATA) $(INSTALL_OBJS) $(RELEASE_PATH)/erts-$(VSN)/obj
+	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/obj"
+	$(INSTALL_DATA) $(INSTALL_OBJS) "$(RELEASE_PATH)/erts-$(VSN)/obj"
 endif
-	$(INSTALL_DIR) $(RELEASE_PATH)/erts-$(VSN)/bin
+	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifneq ($(TARGET), win32)
 ifneq ($(findstring vxworks,$(TARGET)), vxworks)
 ifneq ($(findstring ose,$(TARGET)), ose)
-	$(INSTALL_SCRIPT) erl.src $(RELEASE_PATH)/erts-$(VSN)/bin
+	$(INSTALL_SCRIPT) erl.src "$(RELEASE_PATH)/erts-$(VSN)/bin"
 endif
 endif
 endif
 ifneq ($(INSTALL_PROGS),)
-	$(INSTALL_PROGRAM) $(INSTALL_PROGS) $(RELEASE_PATH)/erts-$(VSN)/bin
+	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 endif
 ifneq ($(INSTALL_TOP),)
-	$(INSTALL_SCRIPT) $(INSTALL_TOP) $(RELEASE_PATH)
+	$(INSTALL_SCRIPT) $(INSTALL_TOP) "$(RELEASE_PATH)"
 endif
 ifneq ($(INSTALL_TOP_BIN),)
-	$(INSTALL_PROGRAM) $(INSTALL_TOP_BIN) $(RELEASE_PATH)
+	$(INSTALL_PROGRAM) $(INSTALL_TOP_BIN) "$(RELEASE_PATH)"
 endif
 ifneq ($(INSTALL_MISC),)
-	$(INSTALL_DIR) $(RELEASE_PATH)/misc
-	$(INSTALL_SCRIPT) $(INSTALL_MISC) $(RELEASE_PATH)/misc
+	$(INSTALL_DIR) "$(RELEASE_PATH)/misc"
+	$(INSTALL_SCRIPT) $(INSTALL_MISC) "$(RELEASE_PATH)/misc"
 endif
 ifneq ($(INSTALL_ERL_OSE),)
-	$(INSTALL_DIR) $(RELEASE_PATH)/build_erl_ose
+	$(INSTALL_DIR) "$(RELEASE_PATH)/build_erl_ose"
 	cd $(OSEETC) && $(TAR) erl_ose_$(SYSTEM_VSN).tar $(INSTALL_ERL_OSE)
-	cd $(OSEETC) && $(INSTALL_SCRIPT) erl_ose_$(SYSTEM_VSN).tar $(RELEASE_PATH)/build_erl_ose
+	cd $(OSEETC) && $(INSTALL_SCRIPT) erl_ose_$(SYSTEM_VSN).tar "$(RELEASE_PATH)/build_erl_ose"
 endif
 ifneq ($(INSTALL_SRC),)
-	$(INSTALL_DIR) $(RELEASE_PATH)/erts-$(VSN)/src
-	$(INSTALL_DATA) $(INSTALL_SRC) $(RELEASE_PATH)/erts-$(VSN)/src
+	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/src"
+	$(INSTALL_DATA) $(INSTALL_SRC) "$(RELEASE_PATH)/erts-$(VSN)/src"
 endif
 ifneq ($(INSTALL_EMBEDDED_DATA),)
-	$(INSTALL_DATA) $(INSTALL_EMBEDDED_DATA) $(RELEASE_PATH)/erts-$(VSN)/bin
+	$(INSTALL_DATA) $(INSTALL_EMBEDDED_DATA) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 endif
 ifneq ($(INSTALL_LIBS),)
-	$(INSTALL_DATA) $(INSTALL_LIBS) $(RELEASE_PATH)/erts-$(VSN)/bin
+	$(INSTALL_DATA) $(INSTALL_LIBS) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 endif
 ifneq ($(INSTALL_INCLUDES),)
-	$(INSTALL_DIR) $(RELEASE_PATH)/erts-$(VSN)/include
-	$(INSTALL_DATA) $(INSTALL_INCLUDES) $(RELEASE_PATH)/erts-$(VSN)/include
+	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/include"
+	$(INSTALL_DATA) $(INSTALL_INCLUDES) "$(RELEASE_PATH)/erts-$(VSN)/include"
 endif
 
 .PHONY: release_docs_spec

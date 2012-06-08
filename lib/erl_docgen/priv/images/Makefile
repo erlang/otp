@@ -66,13 +66,13 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/images
-	$(INSTALL_DATA) $(GIF_FILES) $(PNG_FILES) $(RELSYSDIR)/priv/images
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/images"
+	$(INSTALL_DATA) $(GIF_FILES) $(PNG_FILES) "$(RELSYSDIR)/priv/images"
 
 
 release_docs_spec:
-	$(INSTALL_DIR) $(RELEASE_PATH)/doc
-	$(INSTALL_DATA) $(PNG_FILES) $(RELEASE_PATH)/doc
+	$(INSTALL_DIR) "$(RELEASE_PATH)/doc"
+	$(INSTALL_DATA) $(PNG_FILES) "$(RELEASE_PATH)/doc"
 
 release_tests_spec:
 

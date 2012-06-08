@@ -239,39 +239,39 @@ release_spec:
 release_docs_spec:
 
 release_tests_spec: tests
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DIR) $(RELSYSDIR)/ic_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/ic_register_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/ic_pragma_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/ic_pp_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/ic_be_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/c_client_erl_server_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/c_client_erl_server_proto_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/c_client_erl_server_proto_tmo_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/erl_client_c_server_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/erl_client_c_server_proto_SUITE_data
-	$(INSTALL_DIR) $(RELSYSDIR)/java_client_erl_server_SUITE_data
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ic_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ic_register_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ic_pragma_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ic_pp_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ic_be_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/c_client_erl_server_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/c_client_erl_server_proto_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/c_client_erl_server_proto_tmo_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/erl_client_c_server_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/erl_client_c_server_proto_SUITE_data"
+	$(INSTALL_DIR) "$(RELSYSDIR)/java_client_erl_server_SUITE_data"
 	$(INSTALL_DATA) $(IDL_FILES)  ic.cover $(TEST_SPEC_FILE) $(ERL_FILES) \
-		$(RELSYSDIR)
-	$(INSTALL_DATA) $(COMPILER_TEST_FILES) $(RELSYSDIR)/ic_SUITE_data
+		"$(RELSYSDIR)"
+	$(INSTALL_DATA) $(COMPILER_TEST_FILES) "$(RELSYSDIR)/ic_SUITE_data"
 	$(INSTALL_DATA) $(COMPILER_TEST_FILES2) \
-		$(RELSYSDIR)/ic_register_SUITE_data
+		"$(RELSYSDIR)/ic_register_SUITE_data"
 	$(INSTALL_DATA) $(COMPILER_TEST_FILES3) \
-		$(RELSYSDIR)/ic_pragma_SUITE_data
+		"$(RELSYSDIR)/ic_pragma_SUITE_data"
 	$(INSTALL_DATA) $(COMPILER_TEST_FILES4) \
-		$(RELSYSDIR)/ic_be_SUITE_data	
+		"$(RELSYSDIR)/ic_be_SUITE_data"
 	$(INSTALL_DATA) $(PREPROCESSOR_TEST_FILES) \
-		$(RELSYSDIR)/ic_pp_SUITE_data	
+		"$(RELSYSDIR)/ic_pp_SUITE_data"
 	$(INSTALL_DATA) $(C_CLIENT_ERL_SERVER_TEST_FILES) \
-		$(RELSYSDIR)/c_client_erl_server_SUITE_data	
+		"$(RELSYSDIR)/c_client_erl_server_SUITE_data"
 	$(INSTALL_DATA) $(C_CLIENT_ERL_SERVER_PROTO_TEST_FILES) \
-		$(RELSYSDIR)/c_client_erl_server_proto_SUITE_data	
+		"$(RELSYSDIR)/c_client_erl_server_proto_SUITE_data"
 	$(INSTALL_DATA) $(C_CLIENT_ERL_SERVER_PROTO_TMO_TEST_FILES) \
-		$(RELSYSDIR)/c_client_erl_server_proto_tmo_SUITE_data	
+		"$(RELSYSDIR)/c_client_erl_server_proto_tmo_SUITE_data"
 	$(INSTALL_DATA) $(ERL_CLIENT_C_SERVER_TEST_FILES) \
-		$(RELSYSDIR)/erl_client_c_server_SUITE_data	
+		"$(RELSYSDIR)/erl_client_c_server_SUITE_data"
 	$(INSTALL_DATA) $(ERL_CLIENT_C_SERVER_PROTO_TEST_FILES) \
-		$(RELSYSDIR)/erl_client_c_server_proto_SUITE_data	
-	$(INSTALL_DATA) $(SUITE_TARGET_FILES) $(RELSYSDIR)
+		"$(RELSYSDIR)/erl_client_c_server_proto_SUITE_data"
+	$(INSTALL_DATA) $(SUITE_TARGET_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(JAVA_CLIENT_ERL_SERVER_TEST_FILES) \
-		$(RELSYSDIR)/java_client_erl_server_SUITE_data
+		"$(RELSYSDIR)/java_client_erl_server_SUITE_data"

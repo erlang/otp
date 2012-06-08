@@ -67,14 +67,14 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR)  $(RELSYSDIR)/priv
-	$(INSTALL_DIR)  $(RELSYSDIR)/priv/root
-	$(INSTALL_DIR)  $(RELSYSDIR)/priv/root/conf
-	$(INSTALL_DIR)  $(RELSYSDIR)/priv/root/doc
-	$(INSTALL_DATA) $(HTDOCS_FILES) $(RELSYSDIR)/priv/root/doc
-	$(INSTALL_DATA) $(WEBSERVER_CONFIG_FILES) $(RELSYSDIR)/priv/root/conf
-	$(INSTALL_DIR)  $(RELSYSDIR)/priv/bin
-	$(INSTALL_SCRIPT)  $(SCRIPTS) $(RELSYSDIR)/priv/bin
+	$(INSTALL_DIR)  "$(RELSYSDIR)/priv"
+	$(INSTALL_DIR)  "$(RELSYSDIR)/priv/root"
+	$(INSTALL_DIR)  "$(RELSYSDIR)/priv/root/conf"
+	$(INSTALL_DIR)  "$(RELSYSDIR)/priv/root/doc"
+	$(INSTALL_DATA) $(HTDOCS_FILES) "$(RELSYSDIR)/priv/root/doc"
+	$(INSTALL_DATA) $(WEBSERVER_CONFIG_FILES) "$(RELSYSDIR)/priv/root/conf"
+	$(INSTALL_DIR)  "$(RELSYSDIR)/priv/bin"
+	$(INSTALL_SCRIPT)  $(SCRIPTS) "$(RELSYSDIR)/priv/bin"
 
 release_docs_spec:
 

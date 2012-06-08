@@ -63,8 +63,8 @@ docs:
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/java_src/Orber
-	$(INSTALL_DATA) $(JAVA_FILES) $(RELSYSDIR)/java_src/Orber
+	$(INSTALL_DIR) "$(RELSYSDIR)/java_src/Orber"
+	$(INSTALL_DATA) $(JAVA_FILES) "$(RELSYSDIR)/java_src/Orber"
 
 release_docs_spec:
 

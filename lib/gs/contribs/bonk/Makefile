@@ -94,14 +94,14 @@ $(EBIN)/$(TOOLNAME).tool: $(TOOLNAME).tool
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
-	$(INSTALL_DIR) $(RELSYSDIR)/bonk/bitmaps
-	$(INSTALL_DATA) $(BITMAPS) $(TOOLBOX_FILES) $(RELSYSDIR)/bonk/bitmaps
-	$(INSTALL_DIR) $(RELSYSDIR)/bonk/sounds
-	$(INSTALL_DATA) $(SOUNDS) $(RELSYSDIR)/bonk/sounds
-	$(INSTALL_DIR) $(RELSYSDIR)/bonk
-	$(INSTALL_DATA) $(ERL_FILES) $(EXTRA_FILES) $(RELSYSDIR)/bonk
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(TARGET_FILES) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DIR) "$(RELSYSDIR)/bonk/bitmaps"
+	$(INSTALL_DATA) $(BITMAPS) $(TOOLBOX_FILES) "$(RELSYSDIR)/bonk/bitmaps"
+	$(INSTALL_DIR) "$(RELSYSDIR)/bonk/sounds"
+	$(INSTALL_DATA) $(SOUNDS) "$(RELSYSDIR)/bonk/sounds"
+	$(INSTALL_DIR) "$(RELSYSDIR)/bonk"
+	$(INSTALL_DATA) $(ERL_FILES) $(EXTRA_FILES) "$(RELSYSDIR)/bonk"
 
 
 release_docs_spec:

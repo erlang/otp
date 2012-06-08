@@ -68,13 +68,13 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/js/flipmenu
-	$(INSTALL_DATA) $(JS_FILES) $(GIF_FILES) $(RELSYSDIR)/priv/js/flipmenu
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/js/flipmenu"
+	$(INSTALL_DATA) $(JS_FILES) $(GIF_FILES) "$(RELSYSDIR)/priv/js/flipmenu"
 
 
 release_docs_spec:
-	$(INSTALL_DIR) $(RELEASE_PATH)/doc/js/flipmenu
-	$(INSTALL_DATA) $(JS_FILES) $(GIF_FILES) $(RELEASE_PATH)/doc/js/flipmenu
+	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/js/flipmenu"
+	$(INSTALL_DATA) $(JS_FILES) $(GIF_FILES) "$(RELEASE_PATH)/doc/js/flipmenu"
 
 release_tests_spec:
 

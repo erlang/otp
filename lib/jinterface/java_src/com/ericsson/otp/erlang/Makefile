@@ -66,7 +66,7 @@ JARFLAGS=-cvf
 JAVA_OPTIONS = 
 
 ifeq ($(TESTROOT),)
-RELEASE_PATH=$(ERL_TOP)/release/$(TARGET)
+RELEASE_PATH="$(ERL_TOP)/release/$(TARGET)"
 else
 RELEASE_PATH=$(TESTROOT)
 endif
@@ -96,13 +96,13 @@ docs:
 # include $(ERL_TOP)/make/otp_release_targets.mk
 
 release release_docs release_tests release_html:
-	$(MAKE) $(MFLAGS) RELEASE_PATH=$(RELEASE_PATH) $(TARGET_MAKEFILE)  $@_spec
+	$(MAKE) $(MFLAGS) RELEASE_PATH="$(RELEASE_PATH)" $(TARGET_MAKEFILE)  $@_spec
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/java_src/com/ericsson/otp/erlang
-	$(INSTALL_DATA) $(JAVA_SRC) $(RELSYSDIR)/java_src/com/ericsson/otp/erlang
-	$(INSTALL_DIR) $(RELSYSDIR)/priv
-	$(INSTALL_DATA) $(JAVA_DEST_ROOT)$(JARFILE) $(RELSYSDIR)/priv
+	$(INSTALL_DIR) "$(RELSYSDIR)/java_src/com/ericsson/otp/erlang"
+	$(INSTALL_DATA) $(JAVA_SRC) "$(RELSYSDIR)/java_src/com/ericsson/otp/erlang"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(JAVA_DEST_ROOT)$(JARFILE) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
 

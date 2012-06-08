@@ -155,10 +155,10 @@ $(EBIN)/dialyzer_utils.beam: dialyzer.hrl
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/src
+	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(EXTRA_FILES) \
-		$(RELSYSDIR)/src
-	$(INSTALL_DIR) $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(INSTALL_FILES) $(RELSYSDIR)/ebin
+		"$(RELSYSDIR)/src"
+	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
+	$(INSTALL_DATA) $(INSTALL_FILES) "$(RELSYSDIR)/ebin"
 
 release_docs_spec:

@@ -77,20 +77,20 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	# Finished
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/logs
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/server_root
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/server_root/htdocs
-	$(INSTALL_DATA) $(HTDOCS_FILES) $(RELSYSDIR)/priv/server_root/htdocs
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/server_root/conf
-	$(INSTALL_DATA) $(CONF_FILES) $(RELSYSDIR)/priv/server_root/conf
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/server_root/scripts
-	$(INSTALL_DATA) $(SCRIPT_FILES) $(RELSYSDIR)/priv/server_root/scripts
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/server_root/css
-	$(INSTALL_DATA) $(CSS_FILES) $(RELSYSDIR)/priv/server_root/css
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/server_root/images
-	$(INSTALL_DATA) $(IMAGE_FILES) $(RELSYSDIR)/priv/server_root/images
-	$(INSTALL_DIR) $(RELSYSDIR)/priv/fonts
-	$(INSTALL_DATA) $(FONT_FILES) $(RELSYSDIR)/priv/fonts
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/logs"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/server_root"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/server_root/htdocs"
+	$(INSTALL_DATA) $(HTDOCS_FILES) "$(RELSYSDIR)/priv/server_root/htdocs"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/server_root/conf"
+	$(INSTALL_DATA) $(CONF_FILES) "$(RELSYSDIR)/priv/server_root/conf"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/server_root/scripts"
+	$(INSTALL_DATA) $(SCRIPT_FILES) "$(RELSYSDIR)/priv/server_root/scripts"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/server_root/css"
+	$(INSTALL_DATA) $(CSS_FILES) "$(RELSYSDIR)/priv/server_root/css"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/server_root/images"
+	$(INSTALL_DATA) $(IMAGE_FILES) "$(RELSYSDIR)/priv/server_root/images"
+	$(INSTALL_DIR) "$(RELSYSDIR)/priv/fonts"
+	$(INSTALL_DATA) $(FONT_FILES) "$(RELSYSDIR)/priv/fonts"
 	
 release_docs_spec:
 

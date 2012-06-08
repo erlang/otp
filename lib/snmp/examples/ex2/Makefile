@@ -47,7 +47,7 @@ ERL_COMPILE_FLAGS += -I../include \
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR         = $(RELEASE_PATH)/lib/snmp-$(VSN)
-EXAMPLE_RELSYSDIR = $(RELSYSDIR)/examples
+EXAMPLE_RELSYSDIR = "$(RELSYSDIR)/examples"
 EX2_RELSYSDIR     = $(EXAMPLE_RELSYSDIR)/ex2
 
 # ----------------------------------------------------

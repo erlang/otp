@@ -162,18 +162,18 @@ include $(DIAMETER_TOP)/make/release_targets.mk
 endif
 
 release_docs_spec: $(LOCAL)docs
-	$(INSTALL_DIR) $(RELSYSDIR)/doc/pdf
-	$(INSTALL_DIR) $(RELSYSDIR)/doc/html
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man1
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
-	$(INSTALL_DIR) $(RELEASE_PATH)/man/man4
-	$(INSTALL_DATA) $(TOP_PDF_FILE) $(RELSYSDIR)/doc/pdf
-	$(INSTALL_DATA) $(HTMLDIR)/*.* $(RELSYSDIR)/doc/html
-	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
-	$(INSTALL_DATA) $(MAN1_FILES) $(RELEASE_PATH)/man/man1
-	$(INSTALL_DATA) $(MAN3_FILES) $(RELEASE_PATH)/man/man3
-	$(INSTALL_DATA) $(MAN4_FILES) $(RELEASE_PATH)/man/man4
-	[ -z "$(LOCAL)" ] || cp -r $(HTMLDIR)/js $(RELSYSDIR)/doc/html
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
+	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man4"
+	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
+	$(INSTALL_DATA) $(HTMLDIR)/*.* "$(RELSYSDIR)/doc/html"
+	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(MAN1_FILES) "$(RELEASE_PATH)/man/man1"
+	$(INSTALL_DATA) $(MAN3_FILES) "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DATA) $(MAN4_FILES) "$(RELEASE_PATH)/man/man4"
+	[ -z "$(LOCAL)" ] || cp -r $(HTMLDIR)/js "$(RELSYSDIR)/doc/html"
 	echo $(LOCAL)
 
 release_spec:
