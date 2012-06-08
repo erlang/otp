@@ -1,0 +1,31 @@
+This is taken from the ErLLVM Benchmark Suite
+
+  git://github.com/chris-fren/erllvm-bench.git
+
+by Christos Stavrakakis and Yiannis Tsiouris,
+further adapted by Nikos Papaspyrou.
+
+
+Usage: ./run.sh options OTP_ROOT
+
+This script runs the benchmarks using the provided OTP directory
+(first non-option argument) as root and creates the corresponding
+diagrams.
+
+In the OTP directory provided there should be subdirectories (or links)
+including complete OTP installations.  There should also be files with
+extension ".flags" specifying the compilation flags appropriate for each
+OTP installation.
+
+OPTIONS:
+  -h    Show help message
+  -a    Run all available benchmarks (default)
+  -c    Benchmark class to run
+  -b    Benchmark to run
+  -n    Number of iterations (default=2)
+
+Examples:
+  1) ./run.sh -c shootout -n 15 /data/nickie/bench/otp
+  2) ./run.sh -c shootout -b mandelbrot -n 3 /data/nickie/bench/otp
+  3) ./run.sh -a /data/nickie/bench/otp
+  4) ./run.sh -a -n 5 /data/nickie/bench/otp

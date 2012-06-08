@@ -1,0 +1,4 @@
+#!/bin/sh
+make fasta > /dev/null 2>&1
+./fasta 25000000 > revcomp-input.txt
+echo ""
