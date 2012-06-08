@@ -10500,6 +10500,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     Eterm res = THE_NON_VALUE;
     erts_aint32_t state = 0;
     erts_aint32_t prio = (erts_aint32_t) PRIORITY_NORMAL;
+#ifdef SHCOPY_SPAWN
+    unsigned shflags = 0;	/* could be taken from so->flags, if necessary */
+    shcopy_info info;
+    INITIALIZE_INFO(info);
+#endif
 
 #ifdef ERTS_SMP
     erts_smp_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -10545,7 +10550,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     BM_COUNT(processes_spawned);
 
     BM_SWAP_TIMER(system,size);
+#ifdef SHCOPY_SPAWN
+    arg_size = copy_shared_calculate(args, &info, shflags);
+#else
     arg_size = size_object(args);
+#endif
     BM_SWAP_TIMER(size,system);
     heap_need = arg_size;
 
@@ -10619,7 +10628,12 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     BM_MESSAGE(args,p,parent);
     BM_START_TIMER(system);
     BM_SWAP_TIMER(system,copy);
+#ifdef SHCOPY_SPAWN
+    p->arg_reg[2] = copy_shared_perform(args, arg_size, &info, &p->htop, &p->off_heap, shflags);
+    DESTROY_INFO(info);
+#else
     p->arg_reg[2] = copy_struct(args, arg_size, &p->htop, &p->off_heap);
+#endif
     BM_MESSAGE_COPIED(arg_size);
     BM_SWAP_TIMER(copy,system);
     p->arity = 3;
@@ -10997,6 +11011,8 @@ delete_process(Process* p)
     ErlMessage* mp;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
+    VERBOSE_DEBUG("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
+                  HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p));
 
     /* Cleanup psd */
 
