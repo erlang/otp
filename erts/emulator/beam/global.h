@@ -832,6 +832,13 @@ typedef struct shcopy_info {
     ErtsAlcType_t shtable_alloc_type;
 } shcopy_info;
 
+#define INITIALIZE_INFO(info)						\
+do {									\
+    info.queue_start = info.queue_default;				\
+    info.bitstore_start = info.bitstore_default;			\
+    info.shtable_start = info.shtable_default;				\
+} while(0)
+
 #define DESTROY_INFO(info)						\
 do {									\
     if (info.queue_start != info.queue_default) {			\
