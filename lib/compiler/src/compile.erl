@@ -359,7 +359,17 @@ messages_per_file(Ms) ->
                                                   (_) -> false
                                                end, A)
                        end, T, PrioMs),
-    Prio = lists:sort(fun({_,{L1,_,_}}, {_,{L2,_,_}}) -> L1 =< L2 end,
+    Prio = lists:sort(fun({_,{As1,_,_}}, {_,{As2,_,_}}) ->
+                              {location, Loc1} =
+                                  erl_scan:attributes_info(As1, location),
+                              {location, Loc2} =
+                                  erl_scan:attributes_info(As2, location),
+                              case {Loc1, Loc2} of
+                                  {{L1, _}, L2} when is_integer(L2) -> L1 < L2;
+                                  {L1, {L2, _}} when is_integer(L1) -> L1 =< L2;
+                                  {_, _} -> Loc1 =< Loc2
+                              end
+                      end,
                       lists:append(Prio0)),
     flatmap(fun mpf/1, [Prio, Rest]).
 
