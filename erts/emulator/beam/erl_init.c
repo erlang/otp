@@ -1352,6 +1352,7 @@ erl_start(int argc, char **argv)
 		    case 't': verbose |= DEBUG_THREADS; break;
 		    case 'p': verbose |= DEBUG_PROCESSES; break;
 		    case 'm': verbose |= DEBUG_MESSAGES; break;
+		    case 'c': verbose |= DEBUG_SHCOPY; break;
 		    default : erts_fprintf(stderr,"Unknown verbose option: %c\n",*ch);
 		    }
 		}
@@ -1364,6 +1365,7 @@ erl_start(int argc, char **argv)
 	    if (verbose & DEBUG_THREADS) erts_printf("THREADS ");
 	    if (verbose & DEBUG_PROCESSES) erts_printf("PROCESSES ");
 	    if (verbose & DEBUG_MESSAGES) erts_printf("MESSAGES ");
+	    if (verbose & DEBUG_SHCOPY) erts_printf("SHCOPY ");
             erts_printf("\n");
 #else
 	    erts_fprintf(stderr, "warning: -v (only in debug compiled code)\n");

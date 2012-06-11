@@ -74,9 +74,7 @@ new_message_buffer(Uint size)
     bp = (ErlHeapFragment*) ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP_FRAG,
 					    ERTS_HEAP_FRAG_SIZE(size));
     ERTS_INIT_HEAP_FRAG(bp, size);
-#ifdef SHCOPY_DEBUG
-    VERBOSE_DEBUG("[pid=%T] new message buffer %p\n", erts_get_current_pid(), bp->mem);
-#endif
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] new message buffer %p\n", erts_get_current_pid(), bp->mem));
     return bp;
 }
 
@@ -867,9 +865,7 @@ erts_msg_attached_data_size_aux(ErlMessage *msg)
 void
 erts_move_msg_attached_data_to_heap(Eterm **hpp, ErlOffHeap *ohp, ErlMessage *msg)
 {
-#ifdef SHCOPY_DEBUG
-    VERBOSE_DEBUG("[pid=%T] moving message buffer %p\n", erts_get_current_pid(), msg->data.heap_frag);
-#endif
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] moving message buffer %p\n", erts_get_current_pid(), msg->data.heap_frag));
     if (is_value(ERL_MESSAGE_TERM(msg)))
 	erts_move_msg_mbuf_to_heap(hpp, ohp, msg);
     else if (msg->data.dist_ext) {

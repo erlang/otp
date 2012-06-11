@@ -803,16 +803,6 @@ void erl_error(char*, va_list);
 #define SHCOPY
 /* Use this if you want sharing-preserving copy to be initially disabled */
 #undef SHCOPY_DISABLE
-/* Use this with care, it is *very* verbose! */
-#undef SHCOPY_DEBUG
-#endif
-
-#ifdef SHCOPY_DEBUG
-#define VERBOSE_DEBUG(...) do {		\
-    erts_fprintf(stderr, __VA_ARGS__);	\
-  } while(0)
-#else
-#define VERBOSE_DEBUG(...)
 #endif
 
 #define ERTS_SHCOPY_FLG_MASK	(((unsigned) 3) << 0)
