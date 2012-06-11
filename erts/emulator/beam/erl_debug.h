@@ -48,6 +48,7 @@
 #define DEBUG_THREADS      0x0010    /* Thread-related stuff                 */
 #define DEBUG_PROCESSES    0x0020    /* Process creation and removal         */
 #define DEBUG_MEMORY       0x0040    /* Display results of memory checks     */
+#define DEBUG_SHCOPY       0x0080    /* Sharing-preserving copying of terms  */
 
 extern Uint32 verbose;
 

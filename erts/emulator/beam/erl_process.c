@@ -11274,8 +11274,8 @@ static void
 delete_process(Process* p)
 {
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
-    VERBOSE_DEBUG("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
-                  HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p));
+    VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
+                           HEAP_START(p), HEAP_END(p), OLD_HEAP(p), OLD_HEND(p)));
 
     /* Cleanup psd */
 
