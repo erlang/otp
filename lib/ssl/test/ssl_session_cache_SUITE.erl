@@ -49,6 +49,7 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
+    catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    application:start(public_key),
