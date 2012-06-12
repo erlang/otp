@@ -34,7 +34,6 @@
 	 decrypt_private/2, decrypt_private/3, 
 	 encrypt_public/2, encrypt_public/3, 
 	 decrypt_public/2, decrypt_public/3,
-	 sign_hash/3, verify_hash/4,
 	 sign/3, verify/4,
 	 pkix_sign/2, pkix_verify/2,	 
 	 pkix_is_self_signed/1, 
@@ -50,7 +49,7 @@
 			      | 'rsa_no_padding'.
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
 -type rsa_digest_type()      :: 'md5' | 'sha'| 'sha256' | 'sha512'.
--type dss_digest_type()      :: 'none' | 'sha'.
+-type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
 
 -define(UINT32(X), X:32/unsigned-big-integer).
 -define(DER_NULL, <<5, 0>>).
@@ -333,76 +332,55 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
    [crypto:mpint(K) || K <- [E, N, D]].
 
 %%--------------------------------------------------------------------
--spec sign_hash(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type(),
-		rsa_private_key() |
-		dsa_private_key()) -> Signature :: binary().
-%%
-%% Description: Create a PKCS digital signature.
-%%--------------------------------------------------------------------
-sign_hash(Hash, DigestType,  #'RSAPrivateKey'{modulus = N,  publicExponent = E,
-					      privateExponent = D})
-  when is_binary(Hash) ->
-    crypto:rsa_sign_hash(DigestType, Hash, [crypto:mpint(E),
-					    crypto:mpint(N),
-					    crypto:mpint(D)]);
-sign_hash(Hash, DigestType, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X})
-  when is_binary(Hash)->
-    crypto:dss_sign_hash(DigestType, Hash,
-			 [crypto:mpint(P), crypto:mpint(Q),
-			  crypto:mpint(G), crypto:mpint(X)]).
-
-%%--------------------------------------------------------------------
--spec sign(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type(), 
-	   rsa_private_key() | 
+-spec sign(PlainTextOrDigest :: binary(),  rsa_digest_type() | dss_digest_type() |
+	   {digest, rsa_digest_type() | dss_digest_type()},
+	   rsa_private_key() |
 	   dsa_private_key()) -> Signature :: binary().
-%%
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
-sign(PlainText, DigestType,
-     #'RSAPrivateKey'{modulus = N, publicExponent = E, privateExponent = D} = Key)
+sign(Digest, {digest, DigestType},  #'RSAPrivateKey'{modulus = N, publicExponent = E,
+						     privateExponent = D})
+  when is_binary(Digest),
+       (DigestType == sha orelse
+	DigestType == sh256 orelse
+	DigestType == sha512 orelse
+	DigestType == md5) ->
+    crypto:rsa_sign_hash(DigestType, Digest, [crypto:mpint(E), crypto:mpint(N), crypto:mpint(D)]);
+
+sign(PlainText,DigestType, #'RSAPrivateKey'{modulus = N, publicExponent = E,
+					    privateExponent = D})
   when is_binary(PlainText),
-       (DigestType == md5 orelse DigestType == sha),
-       is_integer(N), is_integer(E), is_integer(D)  ->
-    crypto:rsa_sign(DigestType, sized_binary(PlainText),
-                    format_rsa_private_key(Key));
+       (DigestType == sha orelse
+	DigestType == sh256 orelse
+	DigestType == sha512 orelse
+	DigestType == md5) ->
+    crypto:rsa_sign(DigestType, sized_binary(PlainText), [crypto:mpint(E),
+							  crypto:mpint(N),
+							 crypto:mpint(D)]);
 
-sign(Digest, none, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) 
-  when is_binary(Digest)->
-    crypto:dss_sign(none, Digest, 
-		    [crypto:mpint(P), crypto:mpint(Q), 
-		     crypto:mpint(G), crypto:mpint(X)]);
-  
-sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) 
+sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X})
   when is_binary(PlainText) ->
-    crypto:dss_sign(sized_binary(PlainText), 
-		    [crypto:mpint(P), crypto:mpint(Q), 
-		     crypto:mpint(G), crypto:mpint(X)]).
+    crypto:dss_sign(sized_binary(PlainText),
+          [crypto:mpint(P), crypto:mpint(Q),
+           crypto:mpint(G), crypto:mpint(X)]);
+
+sign(Digest, {digest, DigestType}, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X})
+  when is_binary(Digest)->
+    crypto:dss_sign_hash(DigestType, Digest,
+			 [crypto:mpint(P), crypto:mpint(Q),
+			  crypto:mpint(G), crypto:mpint(X)]);
+%% Backwards compatible
+sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
+    sign(Digest, {digest, sha}, Key).
 
 %%--------------------------------------------------------------------
--spec verify_hash(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type(),
-		  Signature :: binary(), rsa_public_key()
-		  | dsa_public_key()) -> boolean().
-%%
-%% Description: Verifies a PKCS digital signature.
-%%--------------------------------------------------------------------
-verify_hash(Hash, DigestType, Signature,
-	    #'RSAPublicKey'{modulus = Mod, publicExponent = Exp})
-  when is_binary (Hash) and (DigestType == sha orelse
-			     DigestType == sha256 orelse
-			     DigestType == sha512 orelse
-			     DigestType == md5) ->
-    crypto:rsa_verify_hash(DigestType, Hash,
-			   sized_binary(Signature),
-			   [crypto:mpint(Exp), crypto:mpint(Mod)]).
-
-%%--------------------------------------------------------------------
--spec verify(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type(), 
-	     Signature :: binary(), rsa_public_key() 
+-spec verify(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type() |
+	     {digest, rsa_digest_type() | dss_digest_type()},
+	     Signature :: binary(), rsa_public_key()
 	     | dsa_public_key()) -> boolean().
-%%
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
-verify(PlainText, DigestType, Signature, 
+verify(PlainText, DigestType, Signature,
        #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) 
   when is_binary (PlainText) and (DigestType == sha orelse
 				  DigestType == sha256 orelse 
@@ -413,14 +391,26 @@ verify(PlainText, DigestType, Signature,
 		      sized_binary(Signature), 
 		      [crypto:mpint(Exp), crypto:mpint(Mod)]);
 
-verify(Digest, none, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) 
+verify(Digest, {digest, DigestType}, Signature, #'RSAPublicKey'{modulus = Mod, publicExponent = Exp})
+  when is_binary (Digest) and (DigestType == sha orelse
+			       DigestType == sha256 orelse
+			       DigestType == sha512 orelse
+			       DigestType == md5) ->
+    crypto:rsa_verify_hash(DigestType, Digest,
+			   sized_binary(Signature),
+			   [crypto:mpint(Exp), crypto:mpint(Mod)]);
+
+verify(Digest, {digest, sha}, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
   when is_integer(Key),  is_binary(Digest), is_binary(Signature) ->
     crypto:dss_verify(none, 
 		      Digest, 
 		      sized_binary(Signature), 
 		      [crypto:mpint(P), crypto:mpint(Q), 
 		       crypto:mpint(G), crypto:mpint(Key)]);
-    
+%% Backwards compatibility
+verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
+    verify(Digest, {digest, sha}, Signature, Key);
+
 verify(PlainText, sha, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) 
   when is_integer(Key),  is_binary(PlainText), is_binary(Signature) ->
     crypto:dss_verify(sized_binary(PlainText), 

@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -84,7 +84,7 @@
     
     <p><code> rsa_digest_type()  = 'md5' | 'sha' </code></p>
 
-    <p><code> dss_digest_type()  = 'none' | 'sha' </code></p>
+    <p><code> dss_digest_type()  = 'sha' </code></p>
 
     <p><code> ssh_file()  = openssh_public_key | rfc4716_public_key |
     known_hosts | auth_keys </code></p>
@@ -398,9 +398,9 @@
     <type>
        <v>Msg = binary()</v>
        <d>The msg is either the binary "plain text" data to be
-       signed or in the case that digest type is <c>none</c>
+       signed or in the case that digest type is <c>{digest, DigestType}</c>
        it is the hashed value of "plain text" i.e. the digest.</d>
-       <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
+       <v>DigestType = rsa_digest_type() | dsa_digest_type() | {digest, rsa_digest_type() | dsa_digest_type()}</v>
        <v>Key = rsa_private_key() | dsa_private_key()</v>
   </type> 
   <desc> 
@@ -463,9 +463,9 @@
     <type>
       <v>Msg = binary()</v>
        <d>The msg is either the binary "plain text" data 
-        or in the case that digest type is <c>none</c>
+        or in the case that digest type is <c>{digest, DigestType}</c>
 	it is the hashed value of "plain text" i.e. the digest.</d>
-      <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
+      <v>DigestType = rsa_digest_type() | dsa_digest_type() | {digest, rsa_digest_type() | dsa_digest_type()}</v>
       <v>Signature = binary()</v>
       <v>Key = rsa_public_key() | dsa_public_key()</v> 
   </type> 
