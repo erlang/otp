@@ -89,7 +89,7 @@ end_per_suite(Config) ->
 init_per_testcase(Case, Config) ->
     T = case atom_to_list(Case) of
 	    "unicode"++_ -> 240;
-	    _ -> 20
+	    _ -> 30
 	end,
     WatchDog = test_server:timetrap(test_server:seconds(T)),
     [{watchdog, WatchDog}| Config].
@@ -187,10 +187,18 @@ binary_roundtrip(Config) when is_list(Config) ->
 decompress_roundtrip(doc) -> [];
 decompress_roundtrip(suite) -> [];
 decompress_roundtrip(Config) when is_list(Config) ->
+	RandomBin = erlang:term_to_binary(lists:seq(1, 5 * 1024 * 1024)), % roughly 26MB
+	<<RandomBin1k:1024/binary,_/binary>> = RandomBin,
+	<<RandomBin1M:1048576/binary,_/binary>> = RandomBin,
+	<<RandomBin10M:10485760/binary,_/binary>> = RandomBin,
     Terms =
 	[0.0,
 	 math:sqrt(2),
 	 <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,31:5>>,
+	 RandomBin1k,
+	 RandomBin1M,
+	 RandomBin10M,
+	 RandomBin,
 	 make_ref()],
     OutTrans =
 	fun (D) ->
@@ -205,10 +213,18 @@ decompress_roundtrip(Config) when is_list(Config) ->
 compress_roundtrip(doc) -> [];
 compress_roundtrip(suite) -> [];
 compress_roundtrip(Config) when is_list(Config) ->
+	RandomBin = erlang:term_to_binary(lists:seq(1, 5 * 1024 * 1024)), % roughly 26MB
+	<<RandomBin1k:1024/binary,_/binary>> = RandomBin,
+	<<RandomBin1M:1048576/binary,_/binary>> = RandomBin,
+	<<RandomBin10M:10485760/binary,_/binary>> = RandomBin,
     Terms =
 	[0.0,
 	 math:sqrt(2),
 	 <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,31:5>>,
+	 RandomBin1k,
+	 RandomBin1M,
+	 RandomBin10M,
+	 RandomBin,
 	 make_ref()],
     OutTrans =
 	fun (D) ->
