@@ -586,7 +586,7 @@ call(Pid, Msg, Timeout) ->
     catch
 	exit:{timeout, _} ->
 	    {error, timeout};
-	exit:{normal} ->
+	exit:{normal, _} ->
 	    {error, channel_closed};
 	exit:{{shutdown, _}, _} ->
 	    {error, channel_closed};
