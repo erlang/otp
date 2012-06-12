@@ -28,7 +28,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start/0, init_port/0, init_opengl/0]).
+-export([start/1, init_port/1, init_opengl/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -47,20 +47,20 @@
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
+%% Function: start(SilentStart) -> {ok,Pid} | ignore | {error,Error}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
-start() ->
-    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+start(SilentStart) ->
+    gen_server:start({local, ?MODULE}, ?MODULE, [SilentStart], []).
 
 %%--------------------------------------------------------------------
-%% Function: init_port() -> {UserPort,CallBackPort} | error(Error)
+%% Function: init_port(SilentStart) -> {UserPort,CallBackPort} | error(Error)
 %% Description: Creates the port
 %%--------------------------------------------------------------------
-init_port() ->
+init_port(SilentStart) ->
     case whereis(?MODULE) of
 	undefined ->
-	    case start() of
+	    case start(SilentStart) of
 		{ok,Pid} -> Pid;
 		{error,{already_started,Pid}} -> Pid;
 		{error, {Reason,Stack}} ->
@@ -93,14 +93,17 @@ init_opengl() ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([]) ->
+init([SilentStart]) ->
     DriverName = ?DRIVER,
-    PrivDir = wxe_util:priv_dir(?DRIVER),
+    PrivDir = wxe_util:priv_dir(?DRIVER, SilentStart),
     erlang:group_leader(whereis(init), self()),
     case catch erlang:system_info(smp_support) of
 	true -> ok;
 	_ -> 
-	    error_logger:format("WX ERROR: SMP emulator required (start with erl -smp)", []),
+	    wxe_util:opt_error_log(SilentStart,
+                                   "WX ERROR: SMP emulator required"
+                                   " (start with erl -smp)",
+                                   []),
 	    erlang:error(not_smp)
     end,
 
@@ -114,7 +117,9 @@ init([]) ->
     case erl_ddll:load_driver(PrivDir,DriverName) of
 	ok -> ok;
 	{error, What} -> 
-	    error_logger:format("WX Failed loading ~p@~p ~n", [DriverName,PrivDir]),
+	    wxe_util:opt_error_log(SilentStart,
+                                   "WX Failed loading ~p@~p ~n",
+                                   [DriverName,PrivDir]),
 	    Str = erl_ddll:format_error(What),
 	    erlang:error({load_driver,Str})
     end,
@@ -210,4 +215,3 @@ debug_ping(Port) ->
     _R = (catch erlang:port_call(Port, 0, [])),
 %%    io:format("Erlang ping ~p ~n", [_R]),
     debug_ping(Port).
-
