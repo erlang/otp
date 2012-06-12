@@ -47,7 +47,7 @@ end_per_testcase(Func,Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [create_window, several_apps, wx_api, wx_misc,
+    [silent_start, create_window, several_apps, wx_api, wx_misc,
      data_types, wx_object].
 
 groups() -> 
@@ -61,6 +61,23 @@ end_per_group(_GroupName, Config) ->
 
   
 %% The test cases
+
+%% test silent start of wx
+silent_start(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+silent_start(_Config) ->
+    ?mr(wx_ref, wx:new([])),
+    wx:destroy(),
+
+    ?mr(wx_ref, wx:new([{silent_start, true}])),
+    wx:destroy(),
+
+    ?mr(wx_ref, wx:new([{silent_start, true}, {debug, verbose}])),
+    wx:destroy(),
+
+    ?mr(wx_ref, wx:new([{silent_start, false}])),
+    wx:destroy(),
+
+    ?mr('EXIT', catch wx:new([{silent_start, foo}])).
 
 %% create and test creating a window
 create_window(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);

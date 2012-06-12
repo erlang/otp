@@ -32,7 +32,7 @@
 	 get_const/1,colour_bin/1,datetime_bin/1,
 	 to_bool/1,from_bool/1]).
 
--export([wxgl_dl/0, priv_dir/1]).
+-export([wxgl_dl/0, priv_dir/2, opt_error_log/3]).
 
 -include("wxe.hrl").
 
@@ -205,7 +205,7 @@ check_previous() ->
 
 wxgl_dl() ->
     DynLib0 = "erl_gl",
-    PrivDir = priv_dir(DynLib0),
+    PrivDir = priv_dir(DynLib0, false),
     DynLib = case os:type() of
 		 {win32,_} ->
 		     DynLib0 ++ ".dll";
@@ -214,7 +214,7 @@ wxgl_dl() ->
 	     end,
     filename:join(PrivDir, DynLib).
 
-priv_dir(Driver0) ->
+priv_dir(Driver0, Silent) ->
     {file, Path} = code:is_loaded(?MODULE),
     Priv = case filelib:is_regular(Path) of
 	       true ->
@@ -229,13 +229,13 @@ priv_dir(Driver0) ->
 		 _ ->
 		     Driver0 ++ ".so"
 	     end,
-
     case file:read_file_info(filename:join(Priv, Driver)) of
 	{ok, _} ->
 	    Priv;
 	{error, _} ->
-	    error_logger:format("ERROR: Could not find \'~s\' in: ~s~n",
-				[Driver, Priv]),
+	    opt_error_log(Silent,
+                          "ERROR: Could not find \'~s\' in: ~s~n",
+                          [Driver, Priv]),
 	    erlang:error({load_driver, "No driver found"})
     end.
 
@@ -244,3 +244,7 @@ strip(Src, Src) ->
 strip([H|R], Src) ->
     [H| strip(R, Src)].
 
+opt_error_log(false, Format, Args) ->
+    error_logger:format(Format, Args);
+opt_error_log(true, _Format, _Args) ->
+    ok.
