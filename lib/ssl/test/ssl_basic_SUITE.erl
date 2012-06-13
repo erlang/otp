@@ -50,6 +50,7 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     Dog = ssl_test_lib:timetrap(?LONG_TIMEOUT *2),
+    catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    application:start(public_key),
@@ -3648,6 +3649,8 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     test_server:sleep(?SLEEP* 2),
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client0),
+
+    ssl:clear_pem_cache(),
 
     NewServerOpts = new_config(PrivDir, DsaServerOpts),
 
