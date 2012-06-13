@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,6 +53,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    application:start(public_key),

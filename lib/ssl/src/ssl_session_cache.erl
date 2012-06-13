@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,7 @@
 %% Description: Return table reference. Called by ssl_manager process. 
 %%--------------------------------------------------------------------
 init(_) ->
-    ets:new(cache_name(), [set, protected]).
+    ets:new(cache_name(), [ordered_set, protected]).
 
 %%--------------------------------------------------------------------
 %% Description: Handles cache table at termination of ssl manager. 

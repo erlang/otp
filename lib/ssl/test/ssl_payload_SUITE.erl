@@ -37,6 +37,7 @@
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    catch crypto:stop(),
     try crypto:start() of
 	ok ->
 	    application:start(public_key),

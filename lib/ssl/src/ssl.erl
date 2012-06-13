@@ -30,7 +30,7 @@
 	 controlling_process/2, listen/2, pid/1, peername/1, peercert/1,
 	 recv/2, recv/3, send/2, getopts/2, setopts/2, sockname/1,
 	 versions/0, session_info/1, format_error/1,
-	 renegotiate/1, prf/5]).
+	 renegotiate/1, prf/5, clear_pem_cache/0]).
 
 -deprecated({pid, 1, next_major_release}).
 
@@ -431,6 +431,15 @@ prf(#sslsocket{pid = Pid, fd = new_ssl},
     Secret, Label, Seed, WantedLength) ->
     ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength).
 
+
+%%--------------------------------------------------------------------
+-spec clear_pem_cache() -> ok.
+%%
+%% Description: Clear the PEM cache
+%%--------------------------------------------------------------------
+clear_pem_cache() ->
+    ssl_manager:clear_pem_cache().
+
 %%---------------------------------------------------------------
 -spec format_error({error, term()}) -> list().
 %%
@@ -532,7 +541,7 @@ handle_options(Opts0, _Role) ->
 		throw({error, {eoptions, {verify, Value}}})
 	end,
 
-    CertFile = handle_option(certfile, Opts, ""),
+    CertFile = handle_option(certfile, Opts, <<>>),
     
     SSLOptions = #ssl_options{
       versions   = handle_option(versions, Opts, []),
@@ -619,8 +628,12 @@ validate_option(depth, Value) when is_integer(Value),
 validate_option(cert, Value) when Value == undefined;
                                  is_binary(Value) ->
     Value;
-validate_option(certfile, Value) when Value == undefined; is_list(Value) ->
+validate_option(certfile, undefined = Value) ->
     Value;
+validate_option(certfile, Value) when is_binary(Value) ->
+    Value;
+validate_option(certfile, Value) when is_list(Value) ->
+    list_to_binary(Value);
 
 validate_option(key, undefined) ->
     undefined;
@@ -631,8 +644,13 @@ validate_option(key, {KeyType, Value}) when is_binary(Value),
 					    KeyType == 'DSAPrivateKey';
 					    KeyType == 'PrivateKeyInfo' ->
     {KeyType, Value};
-validate_option(keyfile, Value) when is_list(Value) ->
+
+validate_option(keyfile, undefined) ->
+   <<>>;
+validate_option(keyfile, Value) when is_binary(Value) ->
     Value;
+validate_option(keyfile, Value) when is_list(Value), Value =/= "" ->
+    list_to_binary(Value);
 validate_option(password, Value) when is_list(Value) ->
     Value;
 
@@ -642,16 +660,20 @@ validate_option(cacerts, Value) when Value == undefined;
 %% certfile must be present in some cases otherwhise it can be set
 %% to the empty string.
 validate_option(cacertfile, undefined) ->
-    "";
-validate_option(cacertfile, Value) when is_list(Value), Value =/= "" ->
+   <<>>;
+validate_option(cacertfile, Value) when is_binary(Value) ->
     Value;
+validate_option(cacertfile, Value) when is_list(Value), Value =/= ""->
+    list_to_binary(Value);
 validate_option(dh, Value) when Value == undefined;
 				is_binary(Value) ->
     Value;
 validate_option(dhfile, undefined = Value)  ->
     Value;
-validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
+validate_option(dhfile, Value) when is_binary(Value) ->
     Value;
+validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
+    list_to_binary(Value);
 validate_option(ciphers, Value)  when is_list(Value) ->
     Version = ssl_record:highest_protocol_version([]),
     try cipher_suites(Version, Value)
