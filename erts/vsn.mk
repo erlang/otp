@@ -17,7 +17,7 @@
 # %CopyrightEnd%
 # 
 
-VSN = 5.7.5.2
+VSN = 5.7.5.3
 SYSTEM_VSN = R13B04
 
 # Port number 4365 in 4.2
