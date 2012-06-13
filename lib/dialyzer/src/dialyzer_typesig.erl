@@ -28,7 +28,7 @@
 
 -module(dialyzer_typesig).
 
--export([analyze_scc/5]).
+-export([analyze_scc/6]).
 -export([get_safe_underapprox/2]).
 
 -import(erl_types,
@@ -112,7 +112,7 @@
 		opaques     = []                :: [erl_types:erl_type()],
 		scc         = []                :: [type_var()],
 		mfas                            :: [tuple()],
-                solvers     = [v2]              :: ['v1' | 'v2']
+                solvers     = []                :: [solver()]
 	       }).
 
 %%-----------------------------------------------------------------------------
@@ -146,7 +146,7 @@
 %%-----------------------------------------------------------------------------
 %% Analysis of strongly connected components.
 %%
-%% analyze_scc(SCC, NextLabel, CallGraph, PLT, PropTypes) -> FunTypes
+%% analyze_scc(SCC, NextLabel, CallGraph, PLT, PropTypes, Solvers) -> FunTypes
 %%
 %% SCC       - [{MFA, Def, Records}]
 %%             where Def = {Var, Fun} as in the Core Erlang module definitions.
@@ -159,16 +159,17 @@
 %%             about functions that can be called by this SCC.
 %% PropTypes - A dictionary.
 %% FunTypes  - A dictionary.
+%% Solvers   - User specified solvers.
 %%-----------------------------------------------------------------------------
 
 -spec analyze_scc(typesig_scc(), label(),
 		  dialyzer_callgraph:callgraph(),
-		  dialyzer_plt:plt(), dict()) -> dict().
+		  dialyzer_plt:plt(), dict(), [solver()]) -> dict().
 
-analyze_scc(SCC, NextLabel, CallGraph, Plt, PropTypes) ->
-  %% FIXME. Solvers as an option and argument. Save in 'state.
+analyze_scc(SCC, NextLabel, CallGraph, Plt, PropTypes, Solvers0) ->
+  Solvers = solvers(Solvers0),
   assert_format_of_scc(SCC),
-  State1 = new_state(SCC, NextLabel, CallGraph, Plt, PropTypes),
+  State1 = new_state(SCC, NextLabel, CallGraph, Plt, PropTypes, Solvers),
   DefSet = add_def_list([Var || {_MFA, {Var, _Fun}, _Rec} <- SCC], sets:new()),
   State2 = traverse_scc(SCC, DefSet, State1),
   State3 = state__finalize(State2),
@@ -181,6 +182,9 @@ assert_format_of_scc([{_MFA, {_Var, _Fun}, _Records}|Left]) ->
   assert_format_of_scc(Left);
 assert_format_of_scc([]) ->
   ok.
+
+solvers([]) -> [v2];
+solvers(Solvers) -> Solvers.
 
 %% ============================================================================
 %%
@@ -1764,7 +1768,8 @@ minimize_state(#state{
 		  fun_arities = FunArities,
 		  self_rec    = SelfRec,
 		  prop_types  = {d, PropTypes},
-		  opaques     = Opaques
+		  opaques     = Opaques,
+                  solvers     = Solvers
 		 }) ->
   ETSCMap = ets:new(cmap,[{read_concurrency, true}]),
   ETSPropTypes = ets:new(prop_types,[{read_concurrency, true}]),
@@ -1776,7 +1781,8 @@ minimize_state(#state{
      fun_arities = FunArities,
      self_rec    = SelfRec,
      prop_types  = {e, ETSPropTypes},
-     opaques     = Opaques
+     opaques     = Opaques,
+     solvers     = Solvers
     }.
 
 dispose_state(#state{cmap = {e, ETSCMap},
@@ -1901,6 +1907,8 @@ check_solutions([{S1,Map1,_Time1}|Maps], Fun, S, Map) ->
       ?debug("Constraint solvers do not agree on ~w\n", [Fun]),
       pp_map(atom_to_list(S), Map),
       pp_map(atom_to_list(S1), Map1),
+      io:format("A bug was found. Please report it, and use the option "
+                "`--solver v1' until the bug has been fixed.\n"),
       throw(error)
   end.
 
@@ -2680,7 +2688,7 @@ pp_map(_S, _Map) ->
 %%
 %% ============================================================================
 
-new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes) ->
+new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes, Solvers) ->
   List = [{MFA, Var} || {MFA, {Var, _Fun}, _Rec} <- SCC0],
   NameMap = dict:from_list(List),
   MFAs = [MFA || {MFA, _Var} <- List],
@@ -2697,7 +2705,7 @@ new_state(SCC0, NextLabel, CallGraph, Plt, PropTypes) ->
     end,
   #state{callgraph = CallGraph, name_map = NameMap, next_label = NextLabel,
 	 prop_types = {d, PropTypes}, plt = Plt, scc = ordsets:from_list(SCC),
-	 mfas = MFAs, self_rec = SelfRec}.
+	 mfas = MFAs, self_rec = SelfRec, solvers = Solvers}.
 
 state__set_rec_dict(State, RecDict) ->
   State#state{records = RecDict}.

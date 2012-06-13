@@ -2,7 +2,7 @@
 %%%
 %%% %CopyrightBegin%
 %%%
-%%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%%
 %%% The contents of this file are subject to the Erlang Public License,
 %%% Version 1.1, (the "License"); you may not use this file except in
@@ -111,6 +111,7 @@
 -type rep_mode()      :: 'quiet' | 'normal' | 'verbose'.
 -type start_from()    :: 'byte_code' | 'src_code'.
 -type mfa_or_funlbl() :: label() | mfa().
+-type solver()        :: 'v1' | 'v2'.
 
 %%--------------------------------------------------------------------
 %% Record declarations used by various files
@@ -129,7 +130,8 @@
 		   behaviours_chk = false          :: boolean(),
 		   timing         = false          :: boolean() | 'debug',
 		   timing_server             :: dialyzer_timing:timing_server(),
-		   callgraph_file = ""             :: file:filename()}).
+		   callgraph_file = ""             :: file:filename(),
+                   solvers                         :: [solver()]}).
 
 -record(options, {files           = []		   :: [file:filename()],
 		  files_rec       = []		   :: [file:filename()],
@@ -149,7 +151,8 @@
 		  output_format   = formatted      :: format(),
 		  filename_opt	  = basename       :: fopt(),
 		  callgraph_file  = ""             :: file:filename(),
-		  check_plt       = true           :: boolean()}).
+		  check_plt       = true           :: boolean(),
+                  solvers         = []             :: [solver()]}).
 
 -record(contract, {contracts	  = []		   :: [contract_pair()],
 		   args		  = []		   :: [erl_types:erl_type()],
