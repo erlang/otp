@@ -321,7 +321,7 @@ handle_event(#wx{id=?SEARCH_ENTRY, event=#wxCommand{type=command_text_enter,cmdS
 	    wxStatusBar:setStatusText(SB, "Not found"),
 	    Pid ! {mark_search_hit, Find#find.start},
 	    wxListCtrl:refreshItem(Grid, Find#find.start),
-	    {noreply, State#state{search=Search#search{find=#find{found=false}}}};
+	    {noreply, State#state{search=Search#search{find=Find#find{found=false}}}};
 	Row ->
 	    wxListCtrl:ensureVisible(Grid, Row),
 	    wxListCtrl:refreshItem(Grid, Row),
