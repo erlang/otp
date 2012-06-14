@@ -613,7 +613,7 @@ search([Str, Row, Dir0, CaseSens],
 
 search(Row, Dir, Re, Table) ->
     Res = try lists:nth(Row+1, Table) of
-	      Term ->
+	      [Term|_] ->
 		  Str = format(Term),
 		  re:run(Str, Re)
 	  catch _:_ -> no_more
