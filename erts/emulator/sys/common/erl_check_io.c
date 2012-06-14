@@ -340,7 +340,7 @@ grow_drv_ev_state(int min_ix)
 	new_len = max_fds;
 
     erts_smp_mtx_lock(&drv_ev_state_grow_lock);
-    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= new_len) {
+    if (erts_smp_atomic_read_nob(&drv_ev_state_len) <= min_ix) {
 	for (i=0; i<DRV_EV_STATE_LOCK_CNT; i++) { /* lock all fd's */
 	    erts_smp_mtx_lock(&drv_ev_state_locks[i].lck);
 	}
