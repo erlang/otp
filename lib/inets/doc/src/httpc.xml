@@ -488,7 +488,7 @@ apply(Module, Function, [ReplyInfo | Args])
         <v>KeepAliveTimeout = integer() </v>
         <d>Default is <c>120000</c> (= 2 min).
           If a persistent connection is idle longer than the 
-          <c>keep_alive_timeout</c> the client will close the connection.
+          <c>keep_alive_timeout</c> in milliseconds, the client will close the connection.
           The server may also have such a time out but you should
           not count on it!</d>
 	<v>MaxPipeline = integer() </v>
@@ -498,7 +498,7 @@ apply(Module, Function, [ReplyInfo | Args])
         <d>Default is <c>0</c>,
           which will result in pipelining not being used. 
           If a persistent connection is idle longer than the 
-          <c>pipeline_timeout</c> the client will close the connection. </d>
+          <c>pipeline_timeout</c> in milliseconds the client will close the connection. </d>
         <v>CookieMode = enabled | disabled | verify </v>
         <d>Default is <c>disabled</c>.
           If Cookies are enabled all valid cookies will automatically be 
