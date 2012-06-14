@@ -61,6 +61,9 @@ LD        = @LD@
 LIBS      = @LIBS@
 LDFLAGS   = @LDFLAGS@
 
+# For clock_gettime in heart
+RTLIBS = @LIBRT@
+
 ifeq ($(TARGET),win32)
 ifeq ($(TYPE),debug)
 CFLAGS = $(subst -O2,-g,@CFLAGS@ @DEFS@ $(TYPE_FLAGS) @WFLAGS@ -I$(SYSDIR) \
@@ -467,7 +470,7 @@ else
 
 $(BINDIR)/heart@EXEEXT@: $(OBJDIR)/heart.o $(ENTRY_OBJ)
 	$(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/heart.o \
-		$(ENTRY_OBJ) $(WINDSOCK)
+		$(RTLIBS) $(ENTRY_OBJ) $(WINDSOCK)
 
 $(OBJDIR)/heart.o: heart.c
 	$(CC) $(CFLAGS) -o $@ -c heart.c
