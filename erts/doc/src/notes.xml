@@ -30,6 +30,52 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    On Linux systems using heart (erl -heart) and a
+	    HEAR_BEAT_TIMEOUT less than default, heart could fire
+	    even though Erlang was running fine after approx 298 to
+	    497 days (depending on kernel config). This was due to
+	    the behaviour of the times(2) system call. Usage of
+	    times(2) is now replaced with clock_gettime(2) and the
+	    CLOCK_MONOTONIC clock, resulting in a more stable
+	    solution. The Erlang VM itself has used clock_gettime(2)
+	    on linux since before R12B, so this only affects the
+	    heart program.</p>
+          <p>
+	    Own Id: OTP-10111 Aux Id: seq12075 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The extra memory barriers introduced by bug-fix OTP-9281
+	    were unnecessarily used also on tables without the
+	    <c>write_concurrency</c> option enabled. This could
+	    unnecessarily degrade performance of ETS tables without
+	    <c>write_concurrency</c> on some hardware (e.g. PowerPC)
+	    while not effecting performance at all on other hardware
+	    (e.g. x86/x86_64).</p>
+          <p>
+	    OTP-9281 (R14B03): ETS tables using the
+	    <c>write_concurrency</c> option could potentially get
+	    into an internally inconsistent state.</p>
+          <p>
+	    Own Id: OTP-10048 Aux Id: OTP-9281 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.8.5.1</title>
 
     <section><title>Improvements and New Features</title>
