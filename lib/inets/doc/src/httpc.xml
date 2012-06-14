@@ -480,66 +480,69 @@ apply(Module, Function, [ReplyInfo | Args])
         <d>ex: "134.138" or "[FEDC:BA98" (all IP-addresses starting with 134.138 or FEDC:BA98), "66.35.250.150" or "[2010:836B:4179::836B:4179]" (a complete IP-address).</d>
         <v>MaxSessions = integer() </v>
         <d>Default is <c>2</c>.
-          Maximum number of persistent connections to a host.</d>
+	Maximum number of persistent connections to a host.</d>
 	<v>MaxKeepAlive = integer() </v>
-        <d>Default is <c>5</c>.
-          Maximum number of outstanding requests on the same connection to 
-          a host.</d>
-        <v>KeepAliveTimeout = integer() </v>
-        <d>Default is <c>120000</c> (= 2 min).
-          If a persistent connection is idle longer than the 
-          <c>keep_alive_timeout</c> in milliseconds, the client will close the connection.
-          The server may also have such a time out but you should
-          not count on it!</d>
+	<d>Default is <c>5</c>.
+	Maximum number of outstanding requests on the same connection to 
+	a host.</d>
+	<v>KeepAliveTimeout = integer() </v>
+	<d>Default is <c>120000</c> (= 2 min).
+	If a persistent connection is idle longer than the 
+	<c>keep_alive_timeout</c> in milliseconds, 
+	the client will close the connection.
+	The server may also have such a time out but you should
+	not count on it!</d>
 	<v>MaxPipeline = integer() </v>
-        <d>Default is <c>2</c>.
-          Maximum number of outstanding requests on a pipelined connection to a host.</d>
-        <v>PipelineTimeout = integer() </v>
-        <d>Default is <c>0</c>,
-          which will result in pipelining not being used. 
-          If a persistent connection is idle longer than the 
-          <c>pipeline_timeout</c> in milliseconds the client will close the connection. </d>
+	<d>Default is <c>2</c>.
+	Maximum number of outstanding requests on a pipelined connection 
+	to a host.</d>
+	<v>PipelineTimeout = integer() </v>
+	<d>Default is <c>0</c>,
+	which will result in pipelining not being used. 
+	If a persistent connection is idle longer than the 
+	<c>pipeline_timeout</c> in milliseconds, 
+	the client will close the connection. </d>
         <v>CookieMode = enabled | disabled | verify </v>
         <d>Default is <c>disabled</c>.
-          If Cookies are enabled all valid cookies will automatically be 
-          saved in the client manager's cookie database. 
-          If the option <c>verify</c> is used the function <c>store_cookies/2</c>
-          has to be called for the cookies to be saved.</d>
-        <v>IpFamily = inet | inet6 | inet6fb4 </v>
-        <d>By default <c>inet</c>.
-          When it is set to <c>inet6fb4</c> you can use both ipv4 and ipv6. 
-          It first tries <c>inet6</c> and if that does not works falls back to <c>inet</c>. 
-          The option is here to provide a workaround for buggy ipv6 stacks to ensure that 
-          ipv4 will always work.</d>
+	If Cookies are enabled all valid cookies will automatically be 
+	saved in the client manager's cookie database. 
+	If the option <c>verify</c> is used the function <c>store_cookies/2</c>
+	has to be called for the cookies to be saved.</d>
+	<v>IpFamily = inet | inet6 | inet6fb4 </v>
+	<d>By default <c>inet</c>.
+	When it is set to <c>inet6fb4</c> you can use both ipv4 and ipv6. 
+	It first tries <c>inet6</c> and if that does not works falls back to <c>inet</c>. 
+	The option is here to provide a workaround for buggy ipv6 stacks to ensure that 
+	ipv4 will always work.</d>
 	<v>IpAddress = ip_address() </v>
-        <d>If the host has several network interfaces, this option specifies which one to use. 
-          See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> for more info. </d>
+	<d>If the host has several network interfaces, this option specifies which one to use. 
+	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> for more info. </d>
 	<v>Port = integer() </v>
-        <d>Specify which local port number to use. 
-          See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> for more info. </d>
-        <v>VerboseMode = false | verbose | debug | trace </v>
-        <d>Default is <c>false</c>.
-          This option is used to switch on (or off) 
-          different levels of erlang trace on the client. 
-          It is a debug feature.</d>
+	<d>Specify which local port number to use. 
+	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> for more info. </d>
+	<v>VerboseMode = false | verbose | debug | trace </v>
+	<d>Default is <c>false</c>.
+	This option is used to switch on (or off) 
+	different levels of erlang trace on the client. 
+	It is a debug feature.</d>
 	<v>Profile = profile() | pid() (when started <c>stand_alone</c>)</v>
       </type>
       <desc>
-        <p>Sets options to be used for subsequent requests.</p>
-        <note>
-          <p>If possible the client will keep its connections
-            alive and use persistent connections
-	    with  or without pipeline depending on configuration
-	    and current circumstances. The HTTP/1.1 specification does not
-            provide a guideline for how many requests would be
-            ideal to be sent on a persistent connection,
-	    this very much depends on the
-            application. Note that a very long queue of requests may cause a
-            user perceived delay as earlier requests may take a long time
-            to complete. The HTTP/1.1 specification does suggest a
-            limit of 2 persistent connections per server, which is the
-            default value of the <c>max_sessions</c> option. </p>
-        </note>
+	<p>Sets options to be used for subsequent requests.</p>
+	<note>
+	  <p>If possible the client will keep its connections
+	  alive and use persistent connections
+	  with  or without pipeline depending on configuration
+	  and current circumstances. The HTTP/1.1 specification does not
+	  provide a guideline for how many requests would be
+	  ideal to be sent on a persistent connection,
+	  this very much depends on the
+	  application. Note that a very long queue of requests may cause a
+	  user perceived delay as earlier requests may take a long time
+	  to complete. The HTTP/1.1 specification does suggest a
+	  limit of 2 persistent connections per server, which is the
+	  default value of the <c>max_sessions</c> option. </p>
+	</note>
 
         <marker id="get_options"></marker>
       </desc>
