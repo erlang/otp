@@ -105,7 +105,16 @@
 #define NSEG_2   256 /* Size of second segment table */
 #define NSEG_INC 128 /* Number of segments to grow after that */
 
-#define SEGTAB(tb) ((struct segment**)erts_smp_atomic_read_acqb(&(tb)->segtab))
+#ifdef ERTS_SMP
+#  define DB_USING_FINE_LOCKING(TB) (((TB))->common.type & DB_FINE_LOCKED)
+#else
+#  define DB_USING_FINE_LOCKING(TB) 0
+#endif
+
+#define SEGTAB(tb)							\
+    (DB_USING_FINE_LOCKING(tb)						\
+     ? ((struct segment**) erts_smp_atomic_read_acqb(&(tb)->segtab))	\
+     : ((struct segment**) erts_smp_atomic_read(&(tb)->segtab)))
 #define NACTIVE(tb) ((int)erts_smp_atomic_read(&(tb)->nactive))
 #define NITEMS(tb) ((int)erts_smp_atomic_read(&(tb)->common.nitems))
 
@@ -122,7 +131,9 @@
 */
 static ERTS_INLINE Uint hash_to_ix(DbTableHash* tb, HashValue hval)
 {
-    Uint mask = erts_smp_atomic_read_acqb(&tb->szm);
+    Uint mask = (DB_USING_FINE_LOCKING(tb)
+		 ? erts_smp_atomic_read_acqb(&tb->szm)
+		 : erts_smp_atomic_read(&tb->szm));
     Uint ix = hval & mask;
     if (ix >= erts_smp_atomic_read(&tb->nactive)) {
 	ix &= mask>>1;
@@ -2350,7 +2361,10 @@ static int alloc_seg(DbTableHash *tb)
 	    struct ext_segment* eseg;
 	    eseg = (struct ext_segment*) SEGTAB(tb)[seg_ix-1];
 	    MY_ASSERT(eseg!=NULL && eseg->s.is_ext_segment);
-	    erts_smp_atomic_set_relb(&tb->segtab, (erts_aint_t) eseg->segtab);
+	    if (DB_USING_FINE_LOCKING(tb))
+		erts_smp_atomic_set_relb(&tb->segtab, (erts_aint_t) eseg->segtab);
+	    else
+		erts_smp_atomic_set(&tb->segtab, (erts_aint_t) eseg->segtab);
 	    tb->nsegs = eseg->nsegs;
 	}
 	ASSERT(seg_ix < tb->nsegs);
@@ -2422,7 +2436,12 @@ static int free_seg(DbTableHash *tb, int free_records)
 	    MY_ASSERT(newtop->s.is_ext_segment);
 	    if (newtop->prev_segtab != NULL) {
 		/* Time to use a smaller segtab */
-		erts_smp_atomic_set_relb(&tb->segtab, (erts_aint_t)newtop->prev_segtab);
+		if (DB_USING_FINE_LOCKING(tb))
+		    erts_smp_atomic_set_relb(&tb->segtab,
+					     (erts_aint_t)newtop->prev_segtab);
+		else
+		    erts_smp_atomic_set(&tb->segtab,
+					(erts_aint_t) newtop->prev_segtab);
 		tb->nsegs = seg_ix;
 		ASSERT(tb->nsegs == EXTSEG(SEGTAB(tb))->nsegs);
 	    }
@@ -2488,6 +2507,28 @@ static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
     return list;
 }
 
+static ERTS_INLINE int
+begin_resizing(DbTableHash* tb)
+{
+    if (DB_USING_FINE_LOCKING(tb))
+	return !erts_smp_atomic_xchg(&tb->is_resizing, 1);
+    else {
+	if (erts_smp_atomic_read(&tb->is_resizing))
+	    return 0;
+	erts_smp_atomic_set(&tb->is_resizing, 1);
+	return 1;
+    }
+}
+
+static ERTS_INLINE void
+done_resizing(DbTableHash* tb)
+{
+    if (DB_USING_FINE_LOCKING(tb))
+	erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    else
+	erts_smp_atomic_set(&tb->is_resizing, 0);
+}
+
 /* Grow table with one new bucket.
 ** Allocate new segment if needed.
 */
@@ -2500,9 +2541,8 @@ static void grow(DbTableHash* tb, int nactive)
     int from_ix;
     int szm;
 
-    if (erts_smp_atomic_xchg(&tb->is_resizing, 1)) { 
+    if (!begin_resizing(tb))
 	return; /* already in progress */
-    }
     if (NACTIVE(tb) != nactive) {
 	goto abort; /* already done (race) */
     }
@@ -2534,9 +2574,12 @@ static void grow(DbTableHash* tb, int nactive)
     }
     erts_smp_atomic_inc(&tb->nactive);
     if (from_ix == 0) {
-	erts_smp_atomic_set_relb(&tb->szm, szm);
+	if (DB_USING_FINE_LOCKING(tb))
+	    erts_smp_atomic_set_relb(&tb->szm, szm);
+	else
+	    erts_smp_atomic_set(&tb->szm, szm);
     }
-    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    done_resizing(tb);
 
     /* Finally, let's split the bucket. We try to do it in a smart way
        to keep link order and avoid unnecessary updates of next-pointers */
@@ -2568,7 +2611,7 @@ static void grow(DbTableHash* tb, int nactive)
     return;
    
 abort:
-    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    done_resizing(tb);
 }
 
 
@@ -2577,9 +2620,8 @@ abort:
 */
 static void shrink(DbTableHash* tb, int nactive)
 {     
-    if (erts_smp_atomic_xchg(&tb->is_resizing, 1)) {
+    if (!begin_resizing(tb))
 	return; /* already in progress */
-    }
     if (NACTIVE(tb) == nactive) {
 	erts_smp_rwmtx_t* lck;
 	int src_ix = nactive - 1;
@@ -2626,7 +2668,7 @@ static void shrink(DbTableHash* tb, int nactive)
 
     }
     /*else already done */
-    erts_smp_atomic_set_relb(&tb->is_resizing, 0);
+    done_resizing(tb);
 }
 
 
