@@ -173,7 +173,8 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
-	bl	$2
+	/* ignore empty BIF__ARGS */
+	CALL_BIF($2)
 	TEST_GOT_MBUF(0)
 
 	/* Restore registers. */
@@ -195,7 +196,9 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
-	bl	$2
+        str     r1, [r0, #P_ARG0]       /* Store BIF__ARGS in def_arg_reg[] */
+        add     r1, r0, #P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF(1)
 
 	/* Restore registers. Check for exception. */
@@ -220,7 +223,10 @@ $1:
 
 	/* Save caller-save registers and call the C function. */
 	SAVE_CONTEXT_GC
-	bl	$2
+        str     r1, [r0, #P_ARG0]       /* Store BIF__ARGS in def_arg_reg[] */
+        str     r2, [r0, #P_ARG1]
+        add     r1, r0, #P_ARG0
+	CALL_BIF($2)
 	TEST_GOT_MBUF(2)
 
 	/* Restore registers. Check for exception. */
