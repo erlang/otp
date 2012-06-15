@@ -1446,7 +1446,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
-    Msg =  ssl_handshake:key_exchange(server, {dh, Keys, Params,
+    Msg =  ssl_handshake:key_exchange(server, Version, {dh, Keys, Params,
 					       Algo, ClientRandom, 
 					       ServerRandom,
 					       PrivateKey}),
@@ -1465,7 +1465,7 @@ key_exchange(#state{role = client,
 		    premaster_secret = PremasterSecret,
 		    socket = Socket, transport_cb = Transport,
 		    tls_handshake_history = Handshake0} = State) ->
-    Msg = rsa_key_exchange(PremasterSecret, PublicKeyInfo),    
+    Msg = rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
@@ -1481,22 +1481,22 @@ key_exchange(#state{role = client,
   when Algorithm == dhe_dss;
        Algorithm == dhe_rsa;
        Algorithm == dh_anon ->
-    Msg =  ssl_handshake:key_exchange(client, {dh, DhPubKey}),
+    Msg =  ssl_handshake:key_exchange(client, Version, {dh, DhPubKey}),
     {BinMsg, ConnectionStates, Handshake} =
         encode_handshake(Msg, Version, ConnectionStates0, Handshake0),
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates,
                 tls_handshake_history = Handshake}.
 
-rsa_key_exchange(PremasterSecret, PublicKeyInfo = {Algorithm, _, _})  
+rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
   when Algorithm == ?rsaEncryption;
        Algorithm == ?md2WithRSAEncryption;
        Algorithm == ?md5WithRSAEncryption;
        Algorithm == ?sha1WithRSAEncryption ->
-    ssl_handshake:key_exchange(client,
+    ssl_handshake:key_exchange(client, Version,
 			       {premaster_secret, PremasterSecret,
 				PublicKeyInfo});
-rsa_key_exchange(_, _) ->
+rsa_key_exchange(_, _, _) ->
     throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},

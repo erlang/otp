@@ -33,7 +33,7 @@
 -export([master_secret/4, client_hello/8, server_hello/4, hello/4,
 	 hello_request/0, certify/7, certificate/4,
 	 client_certificate_verify/5, certificate_verify/5,
-	 certificate_request/3, key_exchange/2, server_key_exchange_hash/2,
+	 certificate_request/3, key_exchange/3, server_key_exchange_hash/2,
 	 finished/4, verify_connection/5, get_tls_handshake/2,
 	 decode_client_key/3, server_hello_done/0,
 	 encode_handshake/2, init_handshake_history/0, update_handshake_history/2,
@@ -327,7 +327,7 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 		   }.
 
 %%--------------------------------------------------------------------
--spec key_exchange(client | server, 
+-spec key_exchange(client | server, tls_version(),
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, key_algo(),
@@ -336,18 +336,18 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 %%
 %% Description: Creates a keyexchange message.
 %%--------------------------------------------------------------------
-key_exchange(client, {premaster_secret, Secret, {_, PublicKey, _}}) ->
+key_exchange(client, _Version, {premaster_secret, Secret, {_, PublicKey, _}}) ->
     EncPremasterSecret =
 	encrypted_premaster_secret(Secret, PublicKey),
     #client_key_exchange{exchange_keys = EncPremasterSecret};
 
-key_exchange(client, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
+key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
     #client_key_exchange{
 	      exchange_keys = #client_diffie_hellman_public{
 		dh_public = PublicKey}
 	       };
 
-key_exchange(server, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _}, 
+key_exchange(server, _Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 		      #'DHParameter'{prime = P, base = G},
 		      KeyAlgo, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
