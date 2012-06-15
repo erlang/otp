@@ -27,7 +27,7 @@ include(`hipe/hipe_arm_asm.m4')
 	.p2align 2
 
 `#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
-#  define CALL_BIF(F)	mov r14, #F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
+#  define CALL_BIF(F)	ldr r14, =F; str r14, [r0, #P_BIF_CALLEE]; bl hipe_debug_bif_wrapper
 #else
 #  define CALL_BIF(F)	bl	F
 #endif'
@@ -67,6 +67,7 @@ $1:
 	RESTORE_CONTEXT_BIF
 	beq	nbif_1_simple_exception
 	NBIF_RET(1)
+	.ltorg		/* needed by LDR in debug version of `CALL_BIF' */
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -95,6 +96,7 @@ $1:
 	RESTORE_CONTEXT_BIF
 	beq	nbif_2_simple_exception
 	NBIF_RET(2)
+	.ltorg
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -125,6 +127,7 @@ $1:
 	RESTORE_CONTEXT_BIF
 	beq	nbif_3_simple_exception
 	NBIF_RET(3)
+	.ltorg
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
@@ -149,6 +152,7 @@ $1:
 	RESTORE_CONTEXT_BIF
 	beq	nbif_0_simple_exception
 	NBIF_RET(0)
+	.ltorg
 	.size	$1, .-$1
 	.type	$1, %function
 #endif')
