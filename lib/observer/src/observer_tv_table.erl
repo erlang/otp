@@ -218,8 +218,8 @@ search_area(Parent) ->
 	    search=TC1,goto=TC2,radio={Nbtn,Pbtn,Cbtn}}.
 
 edit(Index, #state{pid=Pid, frame=Frame}) ->
-    Str = get_row(Pid, Index, all),
-    case observer_lib:user_term(Frame, "Edit object:", Str) of
+    Str = get_row(Pid, Index, all_multiline),
+    case observer_lib:user_term_multiline(Frame, "Edit object:", Str) of
 	cancel -> ok;
 	{ok, Term} -> Pid ! {edit, Index, Term};
 	Err = {error, _} -> self() ! Err
@@ -628,6 +628,8 @@ get_row(From, Row, Col, Table) ->
     case lists:nth(Row+1, Table) of
 	[Object|_] when Col =:= all ->
 	    From ! {self(), format(Object)};
+	[Object|_] when Col =:= all_multiline ->
+	    From ! {self(), io_lib:format("~p", [Object])};
 	[Object|_] when tuple_size(Object) >= Col ->
 	    From ! {self(), format(element(Col, Object))};
 	_ ->
