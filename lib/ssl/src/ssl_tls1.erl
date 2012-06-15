@@ -44,9 +44,9 @@ master_secret(PreMasterSecret, ClientRandom, ServerRandom) ->
     prf(PreMasterSecret, <<"master secret">>, 
 	[ClientRandom, ServerRandom], 48).
 
--spec finished(client | server, binary(), {binary(), binary()}) -> binary().
+-spec finished(client | server, binary(), [binary()]) -> binary().
 
-finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
+finished(Role, MasterSecret, Handshake) ->
     %% RFC 2246 & 4346 - 7.4.9. Finished
     %% struct {
     %%          opaque verify_data[12];
@@ -55,19 +55,19 @@ finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     %%      verify_data
     %%          PRF(master_secret, finished_label, MD5(handshake_messages) +
     %%          SHA-1(handshake_messages)) [0..11];
-    MD5 = hash_final(?MD5, MD5Hash),
-    SHA = hash_final(?SHA, SHAHash),
+    MD5 = crypto:md5(Handshake),
+    SHA = crypto:sha(Handshake),
     prf(MasterSecret, finished_label(Role), [MD5, SHA], 12).
 
--spec certificate_verify(OID::tuple(), {binary(), binary()}) -> binary().
+-spec certificate_verify(OID::tuple(), [binary()]) -> binary().
 
-certificate_verify(?'rsaEncryption', {MD5Hash, SHAHash}) ->
-    MD5 = hash_final(?MD5, MD5Hash),
-    SHA = hash_final(?SHA, SHAHash),
+certificate_verify(?'rsaEncryption', Handshake) ->
+    MD5 = crypto:md5(Handshake),
+    SHA = crypto:sha(Handshake),
     <<MD5/binary, SHA/binary>>;
 
-certificate_verify(?'id-dsa', {_, SHAHash}) ->
-    hash_final(?SHA, SHAHash).
+certificate_verify(?'id-dsa', Handshake) ->
+    crypto:sha(Handshake).
 
 -spec setup_keys(binary(), binary(), binary(), integer(), 
 		 integer(), integer()) -> {binary(), binary(), binary(), 
@@ -228,8 +228,3 @@ finished_label(client) ->
     <<"client finished">>;
 finished_label(server) ->
     <<"server finished">>.
-
-hash_final(?MD5, Conntext) -> 
-    crypto:md5_final(Conntext);
-hash_final(?SHA, Conntext) -> 
-    crypto:sha_final(Conntext).

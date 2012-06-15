@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,7 @@
 -type algo_oid()          :: ?'rsaEncryption' | ?'id-dsa'.
 -type public_key_params() :: #'Dss-Parms'{} | term().
 -type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
+-type tls_handshake_history() :: {[binary()], [binary()]}.
 
 -record(session, {
 	  session_id,

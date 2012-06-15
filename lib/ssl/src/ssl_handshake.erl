@@ -36,7 +36,7 @@
 	 certificate_request/3, key_exchange/2, server_key_exchange_hash/2,
 	 finished/4, verify_connection/5, get_tls_handshake/2,
 	 decode_client_key/3, server_hello_done/0,
-	 encode_handshake/2, init_hashes/0, update_hashes/2,
+	 encode_handshake/2, init_handshake_history/0, update_handshake_history/2,
 	 decrypt_premaster_secret/2, prf/5]).
 
 -export([dec_hello_extensions/2]).
@@ -258,7 +258,7 @@ certificate(OwnCert, CertDbHandle, CertDbRef, server) ->
 %%--------------------------------------------------------------------
 -spec client_certificate_verify(undefined | der_cert(), binary(),
 				tls_version(), private_key(),
-				{{binary(), binary()},{binary(), binary()}}) ->  
+				tls_handshake_history()) ->
     #certificate_verify{} | ignore | #alert{}.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
@@ -268,28 +268,28 @@ client_certificate_verify(undefined, _, _, _, _) ->
 client_certificate_verify(_, _, _, undefined, _) ->
     ignore;
 client_certificate_verify(OwnCert, MasterSecret, Version,
-			  PrivateKey, {Hashes0, _}) ->
+			  PrivateKey, {Handshake, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
 	true ->
 	    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
 	false ->	    
 	    Hashes = 
 		calc_certificate_verify(Version, MasterSecret,
-					alg_oid(PrivateKey), Hashes0),
+					alg_oid(PrivateKey), Handshake),
 	    Signed = digitally_signed(Hashes, PrivateKey),
 	    #certificate_verify{signature = Signed}
     end.
 
 %%--------------------------------------------------------------------
 -spec certificate_verify(binary(), public_key_info(), tls_version(),
-			 binary(), {_, {binary(), binary()}}) -> valid | #alert{}.
+			 binary(), tls_handshake_history()) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
 certificate_verify(Signature, {?'rsaEncryption'= Algorithm, PublicKey, _}, Version,
-		   MasterSecret, {_, Hashes0}) ->
+		   MasterSecret, {_, Handshake}) ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
-					   Algorithm, Hashes0),
+					   Algorithm, Handshake),
     case public_key:decrypt_public(Signature, PublicKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Hashes ->
@@ -298,9 +298,9 @@ certificate_verify(Signature, {?'rsaEncryption'= Algorithm, PublicKey, _}, Versi
 	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end;
 certificate_verify(Signature, {?'id-dsa' = Algorithm, PublicKey, PublicKeyParams}, Version,
-		   MasterSecret, {_, Hashes0}) ->
+		   MasterSecret, {_, Handshake}) ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
-				     Algorithm, Hashes0),
+				     Algorithm, Handshake),
     case public_key:verify(Hashes, none, Signature, {PublicKey, PublicKeyParams}) of
     	true ->
     	    valid;
@@ -416,26 +416,26 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     end.
 
 %%--------------------------------------------------------------------
--spec finished(tls_version(), client | server, binary(), {{binary(), binary()},_}) ->
+-spec finished(tls_version(), client | server, binary(), tls_handshake_history()) ->
     #finished{}.
 %%
 %% Description: Creates a handshake finished message
 %%-------------------------------------------------------------------
-finished(Version, Role, MasterSecret, {Hashes, _}) -> % use the current hashes
+finished(Version, Role, MasterSecret, {Handshake, _}) -> % use the current hashes
     #finished{verify_data = 
-	      calc_finished(Version, Role, MasterSecret, Hashes)}.
+	      calc_finished(Version, Role, MasterSecret, Handshake)}.
 
 %%--------------------------------------------------------------------
 -spec verify_connection(tls_version(), #finished{}, client | server, binary(), 
-			{_, {binary(), binary()}}) -> verified | #alert{}.
+			tls_handshake_history()) -> verified | #alert{}.
 %%
 %% Description: Checks the ssl handshake finished message to verify
 %%              the connection.
 %%-------------------------------------------------------------------
 verify_connection(Version, #finished{verify_data = Data}, 
-		  Role, MasterSecret, {_, {MD5, SHA}}) -> 
+		  Role, MasterSecret, {_, Handshake}) ->
     %% use the previous hashes
-    case calc_finished(Version, Role, MasterSecret, {MD5, SHA}) of
+    case calc_finished(Version, Role, MasterSecret, Handshake) of
 	Data ->
 	    verified;
 	_ ->
@@ -482,39 +482,34 @@ decode_client_key(ClientKey, Type, Version) ->
     dec_client_key(ClientKey, key_exchange_alg(Type), Version).
 
 %%--------------------------------------------------------------------
--spec init_hashes() ->{{binary(), binary()}, {binary(), binary()}}.
+-spec init_handshake_history() -> tls_handshake_history().
 
 %%
-%% Description: Calls crypto hash (md5 and sha) init functions to
-%% initalize the hash context.
+%% Description: Initialize the empty handshake history buffer.
 %%--------------------------------------------------------------------
-init_hashes() ->
-    T = {crypto:md5_init(), crypto:sha_init()},
-    {T, T}.
+init_handshake_history() ->
+    {[], []}.
 
 %%--------------------------------------------------------------------
--spec update_hashes({{binary(), binary()}, {binary(), binary()}}, Data ::term()) ->
-			   {{binary(), binary()}, {binary(), binary()}}.
+-spec update_handshake_history(tls_handshake_history(), Data ::term()) ->
+				      tls_handshake_history().
 %%
-%% Description: Calls crypto hash (md5 and sha) update functions to
-%% update the hash context with Data.
+%% Description: Update the handshake history buffer with Data.
 %%--------------------------------------------------------------------
-update_hashes(Hashes, % special-case SSL2 client hello
-	      <<?CLIENT_HELLO, ?UINT24(_), ?BYTE(Major), ?BYTE(Minor),
-		?UINT16(CSLength), ?UINT16(0),
-		?UINT16(CDLength),
-	       CipherSuites:CSLength/binary,
-	       ChallengeData:CDLength/binary>>) ->
-    update_hashes(Hashes,
-		  <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
-		   ?UINT16(CSLength), ?UINT16(0),
-		   ?UINT16(CDLength),
-		   CipherSuites:CSLength/binary,
-		   ChallengeData:CDLength/binary>>);
-update_hashes({{MD50, SHA0}, _Prev}, Data) ->
-    {MD51, SHA1} = {crypto:md5_update(MD50, Data),
-		    crypto:sha_update(SHA0, Data)},
-    {{MD51, SHA1}, {MD50, SHA0}}.
+update_handshake_history(Handshake, % special-case SSL2 client hello
+			 <<?CLIENT_HELLO, ?UINT24(_), ?BYTE(Major), ?BYTE(Minor),
+			   ?UINT16(CSLength), ?UINT16(0),
+			   ?UINT16(CDLength),
+			   CipherSuites:CSLength/binary,
+			   ChallengeData:CDLength/binary>>) ->
+    update_handshake_history(Handshake,
+			     <<?CLIENT_HELLO, ?BYTE(Major), ?BYTE(Minor),
+			       ?UINT16(CSLength), ?UINT16(0),
+			       ?UINT16(CDLength),
+			       CipherSuites:CSLength/binary,
+			       ChallengeData:CDLength/binary>>);
+update_handshake_history({Handshake0, _Prev}, Data) ->
+    {[Data|Handshake0], Handshake0}.
 
 %%--------------------------------------------------------------------
 -spec decrypt_premaster_secret(binary(), #'RSAPrivateKey'{}) -> binary().
@@ -1139,17 +1134,17 @@ setup_keys({3,1}, MasterSecret,
     ssl_tls1:setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize, 
 			KML, IVS).
 
-calc_finished({3, 0}, Role, MasterSecret, Hashes) ->
-    ssl_ssl3:finished(Role, MasterSecret, Hashes);
-calc_finished({3, N}, Role, MasterSecret, Hashes) 
+calc_finished({3, 0}, Role, MasterSecret, Handshake) ->
+    ssl_ssl3:finished(Role, MasterSecret, lists:reverse(Handshake));
+calc_finished({3, N}, Role, MasterSecret, Handshake)
   when  N == 1; N == 2 ->
-    ssl_tls1:finished(Role, MasterSecret, Hashes).
+    ssl_tls1:finished(Role, MasterSecret, lists:reverse(Handshake)).
 
-calc_certificate_verify({3, 0}, MasterSecret, Algorithm, Hashes) ->
-    ssl_ssl3:certificate_verify(Algorithm, MasterSecret, Hashes);
-calc_certificate_verify({3, N}, _, Algorithm, Hashes) 
+calc_certificate_verify({3, 0}, MasterSecret, Algorithm, Handshake) ->
+    ssl_ssl3:certificate_verify(Algorithm, MasterSecret, lists:reverse(Handshake));
+calc_certificate_verify({3, N}, _, Algorithm, Handshake)
   when  N == 1; N == 2 ->
-    ssl_tls1:certificate_verify(Algorithm, Hashes).
+    ssl_tls1:certificate_verify(Algorithm, lists:reverse(Handshake)).
 
 key_exchange_alg(rsa) ->
     ?KEY_EXCHANGE_RSA;
