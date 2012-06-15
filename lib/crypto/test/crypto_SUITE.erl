@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,6 +33,8 @@
 	 sha_update/1,
          hmac_update_sha/1,
          hmac_update_sha_n/1,
+         hmac_update_sha256/1,
+         hmac_update_sha512/1,
          hmac_update_md5/1,
          hmac_update_md5_io/1,
          hmac_update_md5_n/1,
@@ -84,8 +86,8 @@ groups() ->
      {rest, [],
       [md5, md5_update, md4, md4_update, md5_mac,
        md5_mac_io, sha, sha_update,
-       hmac_update_sha, hmac_update_sha_n, hmac_update_md5_n,
-       hmac_update_md5_io, hmac_update_md5,
+       hmac_update_sha, hmac_update_sha_n, hmac_update_sha256, hmac_update_sha512,
+       hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
        des_cbc, aes_cfb, aes_cbc,
        aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
        rand_uniform_test, strong_rand_test,
@@ -337,6 +339,44 @@ hmac_update_sha(Config) when is_list(Config) ->
     ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
     ?line Mac = crypto:hmac_final(Ctx3),
     ?line Exp = crypto:sha_mac(Key, lists:flatten([Data, Data2])), 
+    ?line m(Exp, Mac).
+
+hmac_update_sha256(doc) ->
+    ["Generate an SHA256 HMAC using hmac_init, hmac_update, and hmac_final. "
+     "Expected values for examples are generated using crypto:sha256_mac." ];
+hmac_update_sha256(suite) ->
+    [];
+hmac_update_sha256(Config) when is_list(Config) ->
+    ?line Key = hexstr2bin("00010203101112132021222330313233"
+                           "04050607141516172425262734353637"
+                           "08090a0b18191a1b28292a2b38393a3b"
+                           "0c0d0e0f1c1d1e1f2c2d2e2f3c3d3e3f"),
+    ?line Data = "Sampl",
+    ?line Data2 = "e #1",
+    ?line Ctx = crypto:hmac_init(sha256, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
+    ?line Mac = crypto:hmac_final(Ctx3),
+    ?line Exp = crypto:sha256_mac(Key, lists:flatten([Data, Data2])),
+    ?line m(Exp, Mac).
+
+hmac_update_sha512(doc) ->
+    ["Generate an SHA512 HMAC using hmac_init, hmac_update, and hmac_final. "
+     "Expected values for examples are generated using crypto:sha512_mac." ];
+hmac_update_sha512(suite) ->
+    [];
+hmac_update_sha512(Config) when is_list(Config) ->
+    ?line Key = hexstr2bin("00010203101112132021222330313233"
+                           "04050607141516172425262734353637"
+                           "08090a0b18191a1b28292a2b38393a3b"
+                           "0c0d0e0f1c1d1e1f2c2d2e2f3c3d3e3f"),
+    ?line Data = "Sampl",
+    ?line Data2 = "e #1",
+    ?line Ctx = crypto:hmac_init(sha512, Key),
+    ?line Ctx2 = crypto:hmac_update(Ctx, Data),
+    ?line Ctx3 = crypto:hmac_update(Ctx2, Data2),
+    ?line Mac = crypto:hmac_final(Ctx3),
+    ?line Exp = crypto:sha512_mac(Key, lists:flatten([Data, Data2])),
     ?line m(Exp, Mac).
     
 hmac_update_md5(doc) ->
@@ -1482,7 +1522,8 @@ worker_loop(N, Config) ->
     Funcs = { md5, md5_update, md5_mac, md5_mac_io, sha, sha_update, des_cbc,
 	      aes_cfb, aes_cbc, des_cbc_iter, rand_uniform_test, strong_rand_test,
 	      rsa_verify_test, exor_test, rc4_test, rc4_stream_test, mod_exp_test,
-              hmac_update_md5, hmac_update_sha, aes_ctr_stream },
+              hmac_update_md5, hmac_update_sha, hmac_update_sha256, hmac_update_sha512,
+	      aes_ctr_stream },
 
     F = element(random:uniform(size(Funcs)),Funcs),
     %%io:format("worker ~p calling ~p\n",[self(),F]),

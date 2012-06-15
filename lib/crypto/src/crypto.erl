@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,12 +22,14 @@
 -module(crypto).
 
 -export([start/0, stop/0, info/0, info_lib/0, version/0]).
+-export([hash/2]).
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
 -export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
 -export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
+-export([sha256_mac/2, sha256_mac_96/2, sha512_mac/2, sha512_mac/3, sha512_mac_96/2]).
 -export([hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
 -export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
@@ -68,6 +70,8 @@
  		    sha512, sha512_init, sha512_update, sha512_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
+		    sha256_mac,  sha256_mac_96,
+		    sha512_mac,  sha512_mac_96,
                     sha_mac_init, sha_mac_update, sha_mac_final,
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
@@ -172,13 +176,22 @@ info_lib() -> ?nif_stub.
 %% (no version): Driver implementation
 %% 2.0         : NIF implementation, requires OTP R14
 version() -> ?CRYPTO_VSN.
-     
+
 %% Below Key and Data are binaries or IO-lists. IVec is a binary.
 %% Output is always a binary. Context is a binary.
 
 %%
 %%  MESSAGE DIGESTS
 %%
+
+-spec hash(_, iodata()) -> binary().
+hash(md5, Data)    -> md5(Data);
+hash(md4, Data)    -> md4(Data);
+hash(sha, Data)    -> sha(Data);
+hash(sha1, Data)   -> sha(Data);
+hash(sha256, Data) -> sha256(Data);
+hash(sha512, Data) -> sha512(Data).
+
 
 %%
 %%  MD5
@@ -335,6 +348,52 @@ sha_mac_96(Key, Data) ->
     sha_mac_n(Key,Data,12).
 
 sha_mac_n(_Key,_Data,_MacSz) -> ?nif_stub.
+
+%%
+%%  SHA256_MAC
+%%
+-spec sha256_mac(iodata(), iodata()) -> binary().
+-spec sha256_mac_96(iodata(), iodata()) -> binary().
+
+sha256_mac(Key, Data) ->
+    sha256_mac_n(Key,Data,32).
+
+sha256_mac(Key, Data, Size) ->
+    sha256_mac_n(Key, Data, Size).
+
+sha256_mac_96(Key, Data) ->
+    sha256_mac_n(Key,Data,12).
+
+sha256_mac_n(Key, Data, MacSz) ->
+   case sha256_mac_n_nif(Key, Data, MacSz) of
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
+sha256_mac_n_nif(_Key,_Data,_MacSz) -> ?nif_stub.
+
+%%
+%%  SHA512_MAC
+%%
+-spec sha512_mac(iodata(), iodata()) -> binary().
+-spec sha512_mac_96(iodata(), iodata()) -> binary().
+
+sha512_mac(Key, Data) ->
+    sha512_mac_n(Key,Data,64).
+
+sha512_mac(Key, Data, Size) ->
+    sha512_mac_n(Key, Data, Size).
+
+sha512_mac_96(Key, Data) ->
+    sha512_mac_n(Key,Data,12).
+
+sha512_mac_n(Key, Data, MacSz) ->
+   case sha512_mac_n_nif(Key, Data, MacSz) of
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
+sha512_mac_n_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
 %%
 %% CRYPTO FUNCTIONS

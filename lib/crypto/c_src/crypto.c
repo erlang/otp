@@ -1,7 +1,7 @@
 /* 
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2010-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2010-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -149,6 +149,8 @@ static ERL_NIF_TERM md4_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ERL_NIF_TERM md4_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM md5_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha256_mac_n_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha512_mac_n_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -208,6 +210,16 @@ static void hmac_md5(unsigned char *key, int klen,
 static void hmac_sha1(unsigned char *key, int klen,
 		      unsigned char *dbuf, int dlen, 
 		      unsigned char *hmacbuf);
+#ifdef HAVE_SHA256
+static void hmac_sha256(unsigned char *key, int klen,
+			unsigned char *dbuf, int dlen,
+			unsigned char *hmacbuf);
+#endif
+#ifdef HAVE_SHA512
+static void hmac_sha512(unsigned char *key, int klen,
+			unsigned char *dbuf, int dlen,
+			unsigned char *hmacbuf);
+#endif
 
 static int library_refc = 0; /* number of users of this dynamic library */
 
@@ -235,6 +247,8 @@ static ErlNifFunc nif_funcs[] = {
     {"md4_final", 1, md4_final},
     {"md5_mac_n", 3, md5_mac_n},
     {"sha_mac_n", 3, sha_mac_n},
+    {"sha256_mac_n_nif", 3, sha256_mac_n_nif},
+    {"sha512_mac_n_nif", 3, sha512_mac_n_nif},
     {"hmac_init", 2, hmac_init},
     {"hmac_update", 2, hmac_update},
     {"hmac_final", 1, hmac_final},
@@ -292,6 +306,7 @@ ERL_NIF_INIT(crypto,nif_funcs,load,reload,upgrade,unload)
 #define SHA384_LEN	(384/8)
 #define SHA512_LEN	(512/8)
 #define HMAC_INT_LEN    64
+#define HMAC_INT2_LEN   128
 
 #define HMAC_IPAD       0x36
 #define HMAC_OPAD       0x5c
@@ -765,6 +780,50 @@ static ERL_NIF_TERM sha_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     return ret;
 }
 
+static ERL_NIF_TERM sha256_mac_n_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Data, MacSize) */
+#ifdef HAVE_SHA256
+    unsigned char hmacbuf[SHA256_DIGEST_LENGTH];
+    ErlNifBinary key, data;
+    unsigned mac_sz;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
+	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA256_DIGEST_LENGTH) {
+	return enif_make_badarg(env);
+    }
+    hmac_sha256(key.data, key.size, data.data, data.size, hmacbuf);
+    memcpy(enif_make_new_binary(env, mac_sz, &ret),
+	   hmacbuf, mac_sz);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+static ERL_NIF_TERM sha512_mac_n_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Data, MacSize) */
+#ifdef HAVE_SHA512
+    unsigned char hmacbuf[SHA512_DIGEST_LENGTH];
+    ErlNifBinary key, data;
+    unsigned mac_sz;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
+	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA512_DIGEST_LENGTH) {
+	return enif_make_badarg(env);
+    }
+    hmac_sha512(key.data, key.size, data.data, data.size, hmacbuf);
+    memcpy(enif_make_new_binary(env, mac_sz, &ret),
+	   hmacbuf, mac_sz);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
 static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Key) */
     ErlNifBinary key;
@@ -773,6 +832,8 @@ static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     const EVP_MD *md;
     
     if (argv[0] == atom_sha) md = EVP_sha1();
+    else if (argv[0] == atom_sha256) md = EVP_sha256();
+    else if (argv[0] == atom_sha512) md = EVP_sha512();
     else if (argv[0] == atom_md5) md = EVP_md5();
     else if (argv[0] == atom_ripemd160) md = EVP_ripemd160();
     else goto badarg;
@@ -2184,3 +2245,84 @@ static void hmac_sha1(unsigned char *key, int klen,
     SHA1_Final((unsigned char *) hmacbuf, &ctx);
 }
 
+#ifdef HAVE_SHA256
+static void hmac_sha256(unsigned char *key, int klen,
+			unsigned char *dbuf, int dlen,
+			unsigned char *hmacbuf)
+{
+    SHA256_CTX ctx;
+    char ipad[HMAC_INT_LEN];
+    char opad[HMAC_INT_LEN];
+    unsigned char nkey[SHA256_DIGEST_LENGTH];
+    int i;
+
+    /* Change key if longer than 64 bytes */
+    if (klen > HMAC_INT_LEN) {
+	SHA256(key, klen, nkey);
+	key = nkey;
+	klen = SHA256_DIGEST_LENGTH;
+    }
+
+    memset(ipad, '\0', sizeof(ipad));
+    memset(opad, '\0', sizeof(opad));
+    memcpy(ipad, key, klen);
+    memcpy(opad, key, klen);
+
+    for (i = 0; i < HMAC_INT_LEN; i++) {
+	ipad[i] ^= HMAC_IPAD;
+	opad[i] ^= HMAC_OPAD;
+    }
+
+    /* inner SHA */
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, ipad, HMAC_INT_LEN);
+    SHA256_Update(&ctx, dbuf, dlen);
+    SHA256_Final((unsigned char *) hmacbuf, &ctx);
+    /* outer SHA */
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, opad, HMAC_INT_LEN);
+    SHA256_Update(&ctx, hmacbuf, SHA256_DIGEST_LENGTH);
+    SHA256_Final((unsigned char *) hmacbuf, &ctx);
+}
+#endif
+
+#ifdef HAVE_SHA512
+static void hmac_sha512(unsigned char *key, int klen,
+			unsigned char *dbuf, int dlen,
+			unsigned char *hmacbuf)
+{
+    SHA512_CTX ctx;
+    char ipad[HMAC_INT2_LEN];
+    char opad[HMAC_INT2_LEN];
+    unsigned char nkey[SHA512_DIGEST_LENGTH];
+    int i;
+
+    /* Change key if longer than 64 bytes */
+    if (klen > HMAC_INT2_LEN) {
+	SHA512(key, klen, nkey);
+	key = nkey;
+	klen = SHA512_DIGEST_LENGTH;
+    }
+
+    memset(ipad, '\0', sizeof(ipad));
+    memset(opad, '\0', sizeof(opad));
+    memcpy(ipad, key, klen);
+    memcpy(opad, key, klen);
+
+    for (i = 0; i < HMAC_INT2_LEN; i++) {
+	ipad[i] ^= HMAC_IPAD;
+	opad[i] ^= HMAC_OPAD;
+    }
+
+    /* inner SHA */
+    SHA512_Init(&ctx);
+    SHA512_Update(&ctx, ipad, HMAC_INT2_LEN);
+    SHA512_Update(&ctx, dbuf, dlen);
+    SHA512_Final((unsigned char *) hmacbuf, &ctx);
+    /* outer SHA */
+    SHA512_Init(&ctx);
+    SHA512_Update(&ctx, opad, HMAC_INT2_LEN);
+    SHA512_Update(&ctx, hmacbuf, SHA512_DIGEST_LENGTH);
+    SHA512_Final((unsigned char *) hmacbuf, &ctx);
+}
+#endif
