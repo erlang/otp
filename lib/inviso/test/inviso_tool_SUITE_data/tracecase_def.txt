@@ -1,8 +1,0 @@
-{tracecase_init,on,[],"./tracecase_init.trc"}.
-{tracecase1,on_off,['ProcessName'],"./tracecase1_on.trc","./tracecase1_off.trc"}.
-{tracecase2,on_off,[],"./tracecase2_on.trc","./tracecase2_off.trc"}.
-{tracecase3,on,[],"./tracecase3_on.trc"}.
-{tracecase4,on,[],"./tracecase4_on.trc"}.
-{tracecase5,on_off,[],"./tracecase5_on.trc","./tracecase5_off.trc"}.
-
-

@@ -20,8 +20,6 @@
    [{description,  "RUNTIME_TOOLS version 1"},
     {vsn,          "%VSN%"},
     {modules,      [dbg,observer_backend,percept_profile,
-		    inviso_rt,inviso_rt_lib,inviso_rt_meta,
-		    inviso_as_lib,inviso_autostart,inviso_autostart_server,
 		    runtime_tools,runtime_tools_sup,erts_alloc_config,
 		    ttb_autostart,dyntrace]},
     {registered,   [runtime_tools_sup,inviso_rt,inviso_rt_meta]},

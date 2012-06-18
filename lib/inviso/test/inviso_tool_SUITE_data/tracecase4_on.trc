@@ -1,9 +1,0 @@
-%% TRACECASE4_ON.TRC
-%% -----------------------------------------------------------------------------
-%% This is a test trace case to be used by the inviso_tool_SUITE.
-%% It contains an infinity timer in order for the tracecase executer to hang.
-%% -----------------------------------------------------------------------------
-
-timer:sleep(infinity).
-%% END-OF-TRACE-CASE
-
