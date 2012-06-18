@@ -295,6 +295,8 @@ do_wildcard_2([File|Rest], Pattern, Result, Mod) ->
 do_wildcard_2([], _, Result, _Mod) ->
     Result.
 
+do_wildcard_3(Base, [[double_star]|Rest], Result, Mod) ->
+    lists:sort(do_double_star(current, [Base], Rest, Result, Mod, true));
 do_wildcard_3(Base, [Pattern|Rest], Result, Mod) ->
     case do_list_dir(Base, Mod) of
 	{ok, Files0} ->
@@ -328,6 +330,8 @@ wildcard_5([question|Rest1], [_|Rest2]) ->
     wildcard_5(Rest1, Rest2);
 wildcard_5([accept], _) ->
     true;
+wildcard_5([double_star], _) ->
+    true;
 wildcard_5([star|Rest], File) ->
     do_star(Rest, File);
 wildcard_5([{one_of, Ordset}|Rest], [C|File]) ->
@@ -347,6 +351,21 @@ wildcard_5([], [_|_]) ->
     false;
 wildcard_5([_|_], []) ->
     false.
+
+do_double_star(Base, [H|T], Rest, Result, Mod, Root) ->
+    Full = join(Base, H),
+    Result1 = case do_list_dir(Full, Mod) of
+        {ok, Files} ->
+            do_double_star(Full, Files, Rest, Result, Mod, false);
+        _ -> Result
+    end,
+    Result2 = case Root andalso Rest == [] of
+        true  -> Result1;
+        false -> do_wildcard_3(Full, Rest, Result1, Mod)
+    end,
+    do_double_star(Base, T, Rest, Result2, Mod, Root);
+do_double_star(_Base, [], _Rest, Result, _Mod, _Root) ->
+    Result.
 
 do_star(Pattern, [X|Rest]) ->
     case wildcard_5(Pattern, [X|Rest]) of
@@ -416,6 +435,10 @@ compile_part([$}|Rest], true, Result) ->
     {ok, $}, lists:reverse(Result), Rest};
 compile_part([$?|Rest], Upto, Result) ->
     compile_part(Rest, Upto, [question|Result]);
+compile_part([$*,$*], Upto, Result) ->
+    compile_part([], Upto, [double_star|Result]);
+compile_part([$*,$*|Rest], Upto, Result) ->
+    compile_part(Rest, Upto, [star|Result]);
 compile_part([$*], Upto, Result) ->
     compile_part([], Upto, [accept|Result]);
 compile_part([$*|Rest], Upto, Result) ->
