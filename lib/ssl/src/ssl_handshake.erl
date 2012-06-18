@@ -312,10 +312,10 @@ certificate_verify(Signature, {?'rsaEncryption', PublicKey, _}, Version,
 certificate_verify(Signature, {?'id-dsa', PublicKey, PublicKeyParams}, Version,
 		   {HashAlgo, _SignAlgo}, MasterSecret, {_, Handshake}) ->
     Hashes = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
-    case public_key:verify(Hashes, none, Signature, {PublicKey, PublicKeyParams}) of
+    case public_key:verify({digest, Hashes}, sha, Signature, {PublicKey, PublicKeyParams}) of
 	true ->
 	    valid;
-    	false ->
+	false ->
     	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end.
 
@@ -890,6 +890,16 @@ dec_hs(_Version, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
     #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G,
 						    dh_y = Y},
 			 signed_params = <<>>, hashsign = {null, anon}};
+dec_hs({Major, Minor}, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
+			      ?UINT16(GLen), G:GLen/binary,
+			      ?UINT16(YLen), Y:YLen/binary,
+			      ?BYTE(HashAlgo), ?BYTE(SignAlgo),
+			      ?UINT16(Len), Sig:Len/binary>>)
+  when Major == 3, Minor >= 3 ->
+    #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G,
+						    dh_y = Y},
+			 signed_params = Sig,
+			 hashsign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)}};
 dec_hs(_Version, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
@@ -897,6 +907,14 @@ dec_hs(_Version, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
     #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, 
 						    dh_y = Y},
 			 signed_params = Sig, hashsign = undefined};
+dec_hs({Major, Minor}, ?CERTIFICATE_REQUEST,
+       <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
+	?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
+	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>)
+  when Major == 3, Minor >= 3 ->
+    #certificate_request{certificate_types = CertTypes,
+			 hashsign_algorithms = HashSigns,
+			 certificate_authorities = CertAuths};
 dec_hs(_Version, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>) ->
@@ -904,6 +922,9 @@ dec_hs(_Version, ?CERTIFICATE_REQUEST,
 			 certificate_authorities = CertAuths};
 dec_hs(_Version, ?SERVER_HELLO_DONE, <<>>) ->
     #server_hello_done{};
+dec_hs({Major, Minor}, ?CERTIFICATE_VERIFY,<<HashSign:2/binary, ?UINT16(SignLen), Signature:SignLen/binary>>)
+  when Major == 3, Minor >= 3 ->
+    #certificate_verify{hashsign_algorithm = hashsign_dec(HashSign), signature = Signature};
 dec_hs(_Version, ?CERTIFICATE_VERIFY,<<?UINT16(SignLen), Signature:SignLen/binary>>)->
     #certificate_verify{hashsign_algorithm = {unknown, unknown}, signature = Signature};
 dec_hs(_Version, ?CLIENT_KEY_EXCHANGE, PKEPMS) ->
@@ -1027,6 +1048,19 @@ enc_hs(#server_key_exchange{params = #server_dh_params{
 			    Signature/binary>>
     };
 enc_hs(#certificate_request{certificate_types = CertTypes,
+			    hashsign_algorithms = HashSigns,
+			    certificate_authorities = CertAuths},
+       {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    CertTypesLen = byte_size(CertTypes),
+    HashSignsLen = byte_size(HashSigns),
+    CertAuthsLen = byte_size(CertAuths),
+    {?CERTIFICATE_REQUEST,
+       <<?BYTE(CertTypesLen), CertTypes/binary,
+	?UINT16(HashSignsLen), HashSigns/binary,
+	?UINT16(CertAuthsLen), CertAuths/binary>>
+    };
+enc_hs(#certificate_request{certificate_types = CertTypes,
 			    certificate_authorities = CertAuths}, 
        _Version) ->
     CertTypesLen = byte_size(CertTypes),
@@ -1054,6 +1088,11 @@ enc_cke(#client_diffie_hellman_public{dh_public = DHPublic}, _) ->
     Len = byte_size(DHPublic),
     <<?UINT16(Len), DHPublic/binary>>.
 
+enc_sign({HashAlg, SignAlg}, Signature, _Version = {Major, Minor})
+  when Major == 3, Minor >= 3->
+	SignLen = byte_size(Signature),
+	HashSign = hashsign_enc(HashAlg, SignAlg),
+	<<HashSign/binary, ?UINT16(SignLen), Signature/binary>>;
 enc_sign(_HashSign, Sign, _Version) ->
 	SignLen = byte_size(Sign),
 	<<?UINT16(SignLen), Sign/binary>>.
