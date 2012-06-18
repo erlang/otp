@@ -1017,7 +1017,7 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		    file_name_length = FileNameLength,
 		    extra_field_length = ExtraFieldLength,
 		    file_comment_length = 0, % FileCommentLength,
-		    disk_num_start = 1, % DiskNumStart,
+		    disk_num_start = 0, % DiskNumStart,
 		    internal_attr = 0, % InternalAttr,
 		    external_attr = 0, % ExternalAttr,
 		    local_header_offset = Pos}.
