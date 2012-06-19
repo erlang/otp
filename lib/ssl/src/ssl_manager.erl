@@ -107,10 +107,10 @@ connection_init(Trustedcerts, Role) ->
 cache_pem_file(File, DbHandle) ->
     MD5 = crypto:md5(File),
     case ssl_certificate_db:lookup_cached_pem(DbHandle, MD5) of
-	[Content] ->
-	   {ok, Content};
 	[{Content,_}] ->
 	    {ok, Content};
+	[Content] ->
+	   {ok, Content};
 	undefined ->
 	    call({cache_pem, {MD5, File}})
     end.
