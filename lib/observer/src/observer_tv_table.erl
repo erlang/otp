@@ -265,7 +265,8 @@ handle_event(#wx{id=?ID_DELETE},
     wxStatusBar:setStatusText(StatusBar, io_lib:format("Deleted object: ~s",[Str])),
     {noreply, State};
 
-handle_event(#wx{id=?wxID_CLOSE}, State) ->
+handle_event(#wx{id=?wxID_CLOSE}, State = #state{frame=Frame}) ->
+    wxFrame:destroy(Frame),
     {stop, normal, State};
 
 handle_event(Help = #wx{id=?wxID_HELP}, State) ->

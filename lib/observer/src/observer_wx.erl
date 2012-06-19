@@ -195,10 +195,13 @@ setup(#state{frame = Frame} = State) ->
 %%Callbacks
 handle_event(#wx{event=#wxNotebook{type=command_notebook_page_changing}},
 	     #state{active_tab=Previous, node=Node} = State) ->
-    Pid = get_active_pid(State),
-    Previous ! not_active,
-    Pid ! {active, Node},
-    {noreply, State#state{active_tab=Pid}};
+    case get_active_pid(State) of
+	Previous -> {noreply, State};
+	Pid ->
+	    Previous ! not_active,
+	    Pid ! {active, Node},
+	    {noreply, State#state{active_tab=Pid}}
+    end;
 
 handle_event(#wx{event = #wxClose{}}, State) ->
     {stop, normal, State};
@@ -410,7 +413,9 @@ connect2(NodeName, Opts, Cookie) ->
     end.
 
 change_node_view(Node, State) ->
-    get_active_pid(State) ! {active, Node},
+    Tab = get_active_pid(State),
+    Tab ! not_active,
+    Tab ! {active, Node},
     StatusText = ["Observer - " | atom_to_list(Node)],
     wxFrame:setTitle(State#state.frame, StatusText),
     wxStatusBar:setStatusText(State#state.status_bar, StatusText),

@@ -267,9 +267,15 @@ handle_call(Event, From, _State) ->
 handle_cast(Event, _State) ->
     error({unhandled_cast, Event}).
 %%%%%%%%%%
-handle_info({active, Node}, State = #state{parent=Parent, current=Curr}) ->
+handle_info({active, Node}, State = #state{parent=Parent, current=Curr, appmon=Appmon}) ->
     create_menus(Parent, []),
-    {ok, Pid} = appmon_info:start_link(Node, self(), []),
+    Pid = try
+	      Node = node(Appmon),
+	      Appmon
+	  catch _:_ ->
+		  {ok, P} = appmon_info:start_link(Node, self(), []),
+		  P
+	  end,
     appmon_info:app_ctrl(Pid, Node, true, []),
     (Curr =/= undefined) andalso appmon_info:app(Pid, Curr, true, []),
     {noreply, State#state{appmon=Pid}};
