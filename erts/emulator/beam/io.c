@@ -51,7 +51,7 @@ extern ErlDrvEntry spawn_driver_entry;
 extern ErlDrvEntry *driver_tab[]; /* table of static drivers, only used during initialization */
 
 erts_driver_t *driver_list; /* List of all drivers, static and dynamic. */
-erts_smp_mtx_t erts_driver_list_lock; /* Mutex for driver list */
+erts_smp_rwmtx_t erts_driver_list_lock; /* Mutex for driver list */
 static erts_smp_tsd_key_t driver_list_lock_status_key; /*stop recursive locks when calling 
 							 driver init */
 static erts_smp_tsd_key_t driver_list_last_error_key;  /* Save last DDLL error on a 
@@ -532,14 +532,14 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-    erts_smp_mtx_lock(&erts_driver_list_lock);
+    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
     if (!driver) {
 	for (driver = driver_list; driver; driver = driver->next) {
 	    if (sys_strcmp(driver->name, name) == 0)
 		break;
 	}
 	if (!driver) { 
-	    erts_smp_mtx_unlock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 	    ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
 	}
     }
@@ -584,7 +584,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     }
 
     if (driver == NULL || (driver != &spawn_driver && opts->exit_status)) {
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 	ERTS_OPEN_DRIVER_RET(NULL, -3, BADARG);
     }
 
@@ -596,7 +596,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	erts_ddll_increment_port_count(driver->handle);
 	erts_ddll_reference_driver(driver->handle);
     }
-    erts_smp_mtx_unlock(&erts_driver_list_lock);
+    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 
     /*
      * We'll set up the port before calling the start function,
@@ -606,9 +606,9 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
     port = create_port(name, driver, driver_lock, pid, &port_errno);
     if (!port) {
 	if (driver->handle) {
-	    erts_smp_mtx_lock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_mtx_unlock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 	    erts_ddll_dereference_driver(driver->handle);
 	}
 	if (port_errno)
@@ -681,9 +681,9 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	    port->linebuf = NULL;
 	}
 	if (driver->handle != NULL) {
-	    erts_smp_mtx_lock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_mtx_unlock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 	}
 	kill_port(port);
 	erts_port_release(port);
@@ -740,9 +740,9 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(creator_port));
 
     driver = creator_port->drv_ptr;
-    erts_smp_mtx_lock(&erts_driver_list_lock);
+    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
     if (!erts_ddll_driver_ok(driver->handle)) {
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 	return ERTS_INVALID_ERL_DRV_PORT;
     }
 
@@ -755,14 +755,14 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
     driver_lock = driver->lock;
 #endif
 
-    erts_smp_mtx_unlock(&erts_driver_list_lock);
+    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 
     port = create_port(name, driver, driver_lock, pid, NULL);
     if (!port) {
 	if (driver->handle) {
-	    erts_smp_mtx_lock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_mtx_unlock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 	    erts_ddll_dereference_driver(driver->handle);
 	}
 	return ERTS_INVALID_ERL_DRV_PORT;
@@ -773,9 +773,9 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
     if (ERTS_PROC_IS_EXITING(rp)) {
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	if (driver->handle) {
-	    erts_smp_mtx_lock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_rlock(&erts_driver_list_lock);
 	    erts_ddll_decrement_port_count(driver->handle);
-	    erts_smp_mtx_unlock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_runlock(&erts_driver_list_lock);
 	}
 	kill_port(port);
 	erts_port_release(port);
@@ -1285,6 +1285,9 @@ void erts_init_io(int port_tab_size,
 		  int port_tab_size_ignore_files)
 {
     ErlDrvEntry** dp;
+    erts_smp_rwmtx_opt_t drv_list_rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
+    drv_list_rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
+    drv_list_rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
 #ifdef ERTS_SMP
     init_xports_list_alloc();
@@ -1303,7 +1306,9 @@ void erts_init_io(int port_tab_size,
     else if (port_tab_size < ERTS_MIN_PORTS)
 	port_tab_size = ERTS_MIN_PORTS;
 
-    erts_smp_mtx_init(&erts_driver_list_lock,"driver_list");
+    erts_smp_rwmtx_init_opt(&erts_driver_list_lock,
+			    &drv_list_rwmtx_opts,
+			    "driver_list");
     driver_list = NULL;
     erts_smp_tsd_key_create(&driver_list_lock_status_key);
     erts_smp_tsd_key_create(&driver_list_last_error_key);
@@ -1321,7 +1326,7 @@ void erts_init_io(int port_tab_size,
     sys_init_io();
 
     erts_smp_tsd_set(driver_list_lock_status_key, (void *) 1);
-    erts_smp_mtx_lock(&erts_driver_list_lock);
+    erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
 
     init_driver(&fd_driver, &fd_driver_entry, NULL);
     init_driver(&vanilla_driver, &vanilla_driver_entry, NULL);
@@ -1330,7 +1335,7 @@ void erts_init_io(int port_tab_size,
 	erts_add_driver_entry(*dp, NULL, 1);
 
     erts_smp_tsd_set(driver_list_lock_status_key, NULL);
-    erts_smp_mtx_unlock(&erts_driver_list_lock);
+    erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
 }
 
 /*
@@ -1921,9 +1926,9 @@ terminate_port(Port *prt)
 #endif
     }
     if(drv->handle != NULL) {
-	erts_smp_mtx_lock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rlock(&erts_driver_list_lock);
 	erts_ddll_decrement_port_count(drv->handle); 
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_runlock(&erts_driver_list_lock);
     }
     stopq(prt);        /* clear queue memory */
     if(prt->linebuf != NULL){
@@ -4725,20 +4730,20 @@ int driver_lock_driver(ErlDrvPort ix)
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-    erts_smp_mtx_lock(&erts_driver_list_lock);
+    erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
 
     if (prt == NULL) {
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
 	return -1;
     }
 
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
     if ((dh = (DE_Handle*)prt->drv_ptr->handle ) == NULL) {
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
 	return -1;
     }
     erts_ddll_lock_driver(dh, prt->drv_ptr->name);
-    erts_smp_mtx_unlock(&erts_driver_list_lock);
+    erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
     return 0;
 }
 
@@ -4748,7 +4753,7 @@ static int maybe_lock_driver_list(void)
     void *rec_lock;
     rec_lock = erts_smp_tsd_get(driver_list_lock_status_key);
     if (rec_lock == 0) {
-	erts_smp_mtx_lock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
 	return 1;
     }
     return 0;
@@ -4756,7 +4761,7 @@ static int maybe_lock_driver_list(void)
 static void maybe_unlock_driver_list(int doit)
 {
     if (doit) {
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
     }
 }
 /* 
@@ -5055,7 +5060,7 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
     int res;
 
     if (!driver_list_locked) {
-	erts_smp_mtx_lock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
     }
 
     dp->next = driver_list;
@@ -5084,7 +5089,7 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle, int driver_list_lo
 	
     if (!driver_list_locked) {
 	erts_smp_tsd_set(driver_list_lock_status_key, NULL);
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
     }
     return res;
 }
@@ -5097,7 +5102,7 @@ int remove_driver_entry(ErlDrvEntry *drv)
     
     rec_lock = erts_smp_tsd_get(driver_list_lock_status_key);
     if (rec_lock == NULL) {
-	erts_smp_mtx_lock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwlock(&erts_driver_list_lock);
     }
     dp = driver_list;
     while (dp && dp->entry != drv)
@@ -5105,7 +5110,7 @@ int remove_driver_entry(ErlDrvEntry *drv)
     if (dp) {
 	if (dp->handle) {
 	    if (rec_lock == NULL) {
-		erts_smp_mtx_unlock(&erts_driver_list_lock);
+		erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
 	    }
 	    return -1;
 	}
@@ -5119,12 +5124,12 @@ int remove_driver_entry(ErlDrvEntry *drv)
 	}
 	erts_destroy_driver(dp);
 	if (rec_lock == NULL) {
-	    erts_smp_mtx_unlock(&erts_driver_list_lock);
+	    erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
 	}
 	return 1;
     }
     if (rec_lock == NULL) {
-	erts_smp_mtx_unlock(&erts_driver_list_lock);
+	erts_smp_rwmtx_rwunlock(&erts_driver_list_lock);
     }
     return 0;
 }

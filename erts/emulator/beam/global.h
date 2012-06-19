@@ -110,7 +110,7 @@ typedef struct {
 				         or that wait for it to change state */
     erts_refc_t  refc;                /* Number of ports/processes having
 					 references to the driver */
-    Uint         port_count;          /* Number of ports using the driver */
+    erts_smp_atomic32_t port_count;   /* Number of ports using the driver */
     Uint         flags;               /* ERL_DE_FL_KILL_PORTS */
     int          status;              /* ERL_DE_xxx */
     char         *full_path;          /* Full path of the driver */
@@ -162,7 +162,7 @@ struct erts_driver_t_ {
 };
 
 extern erts_driver_t *driver_list;
-extern erts_smp_mtx_t erts_driver_list_lock;
+extern erts_smp_rwmtx_t erts_driver_list_lock;
 
 extern void erts_ddll_init(void);
 extern void erts_ddll_lock_driver(DE_Handle *dh, char *name);
