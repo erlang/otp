@@ -169,6 +169,7 @@ groups() ->
 		    header_decode_two_bytes_two_sent]}].
 
 init_per_group(header, Config) ->
+    %% Does not work when N < 2 due to rizzo/duong countermeasure
     case ssl_record:highest_protocol_version(ssl_record:supported_protocol_versions()) of
 	{3, N} when N < 2 ->
 	    {skip, ""};

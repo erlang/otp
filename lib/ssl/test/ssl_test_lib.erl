@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -708,3 +708,20 @@ state([{data,[{"StateData", State}]} | _]) ->
     State;
 state([_ | Rest]) ->
     state(Rest).
+
+is_tls_version('tlsv1.2') ->
+    true;
+is_tls_version('tlsv1.1') ->
+    true;
+is_tls_version('tlsv1') ->
+    true;
+is_tls_version('sslv3') ->
+    true;
+is_tls_version(_) ->
+    false.
+
+init_tls_version(Version) ->
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, protocol_version, Version),
+    ssl:start().
