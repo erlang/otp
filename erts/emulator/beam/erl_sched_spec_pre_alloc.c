@@ -227,7 +227,7 @@ fetch_remote(erts_sspa_chunk_header_t *chdr, int max)
 		    ERTS_THR_MEMORY_BARRIER;
 		else {
 		    chdr->head.next.unref_end = (erts_sspa_blk_t *) ilast;
-		    chdr->head.next.thr_progress = erts_thr_progress_later();
+		    chdr->head.next.thr_progress = erts_thr_progress_later(NULL);
 		    erts_atomic32_set_relb(&chdr->tail.data.um_refc_ix,
 					   um_refc_ix);
 		    chdr->head.next.um_refc_ix = um_refc_ix == 0 ? 1 : 0;
