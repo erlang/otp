@@ -596,9 +596,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
 #endif
 
 #ifdef HARD_DEBUG
-    ProcBin *dbg_mso_start = off_heap->mso;
-    ErlFunThing *dbg_fun_start = off_heap->funs;
-    ExternalThing *dbg_external_start = off_heap->externals;
+    struct erl_off_heap_header* dbg_oh_start = off_heap->first;
     Eterm dbg_term, dbg_token;
     ErlHeapFragment *dbg_bp;
     Uint *dbg_hp, *dbg_thp_start;
@@ -772,48 +770,16 @@ copy_done:
 	int i, j;
 	ErlHeapFragment* frag;
 	{
-	    ProcBin *mso = off_heap->mso;
+	    struct erl_off_heap_header* dbg_oh = off_heap->first;
 	    i = j = 0;
-	    while (mso != dbg_mso_start) {
-		mso = mso->next;
+	    while (dbg_oh != dbg_oh_start) {
+		dbg_oh = dbg_oh->next;
 		i++;
 	    }
 	    for (frag=bp; frag; frag=frag->next) {
-		mso = frag->off_heap.mso;
-		while (mso) {
-		    mso = mso->next;
-		    j++;
-		}
-	    }
-	    ASSERT(i == j);
-	}
-	{
-	    ErlFunThing *fun = off_heap->funs;
-	    i = j = 0;
-	    while (fun != dbg_fun_start) {
-		fun = fun->next;
-		i++;
-	    }
-	    for (frag=bp; frag; frag=frag->next) {
-		fun = frag->off_heap.funs;
-		while (fun) {
-		    fun = fun->next;
-		    j++;
-		}
-	    }
-	    ASSERT(i == j);
-	}
-	{
-	    ExternalThing *external = off_heap->externals;
-	    i = j = 0;
-	    while (external != dbg_external_start) {
-		external = external->next;
-		i++;
-	    }
-	    for (frag=bp; frag; frag=frag->next) {
-		external = frag->off_heap.externals;
-		while (external) {
-		    external = external->next;
+		dbg_oh = frag->off_heap.first;
+		while (dbg_oh) {
+		    dbg_oh = dbg_oh->next;
 		    j++;
 		}
 	    }
