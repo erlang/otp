@@ -361,7 +361,7 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	 * without any memory barriers at all. 
 	 */
     
-	later = erts_thr_progress_later(); 
+	later = erts_thr_progress_later(c_p->scheduler_data);
 	erts_thr_progress_wakeup(c_p->scheduler_data, later);
 	erts_notify_code_ix_activation(c_p, later);
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);

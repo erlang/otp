@@ -952,7 +952,7 @@ ddq_check_incoming(ErtsAllctrDDQueue_t *ddq)
 		ERTS_THR_MEMORY_BARRIER;
 	    else {
 		ddq->head.next.unref_end = (ErtsAllctrDDBlock_t *) ilast;
-		ddq->head.next.thr_progress = erts_thr_progress_later();
+		ddq->head.next.thr_progress = erts_thr_progress_later(NULL);
 		erts_atomic32_set_relb(&ddq->tail.data.um_refc_ix,
 				       um_refc_ix);
 		ddq->head.next.um_refc_ix = um_refc_ix == 0 ? 1 : 0;

@@ -422,7 +422,7 @@ clean(ErtsThrQ_t *q, int max_ops, int do_notify)
 	    else {
 		q->head.next.unref_end = (ErtsThrQElement_t *) ilast;
 #ifdef ERTS_SMP
-		q->head.next.thr_progress = erts_thr_progress_later();
+		q->head.next.thr_progress = erts_thr_progress_later(NULL);
 #endif
 		erts_atomic32_set_relb(&q->tail.data.um_refc_ix,
 				       um_refc_ix);

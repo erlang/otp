@@ -891,16 +891,16 @@ has_reached_wakeup(ErtsThrPrgrVal wakeup)
 	ErtsThrPrgrVal limit;
 	/*
 	 * erts_thr_progress_later() returns values which are
-	 * equal to 'current + 2'. That is, users should never
-	 * get a hold of values larger than that.
+	 * equal to 'current + 2', or 'current + 3'. That is, users
+	 * should never get a hold of values larger than that.
 	 *
-	 * That is, valid values are values less than 'current + 3'.
+	 * That is, valid values are values less than 'current + 4'.
 	 *
 	 * Values larger than this won't work with the wakeup
 	 * algorithm.
 	 */
 
-	limit = current + 3;
+	limit = current + 4;
 	if (limit == ERTS_THR_PRGR_VAL_WAITING)
 	    limit = 0;
 	else if (limit < current) /* Wrapped */

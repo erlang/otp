@@ -139,11 +139,12 @@ ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_prgr_read_mb__(ERTS_THR_PRGR_ATOMIC *atm
 
 ERTS_GLB_INLINE int erts_thr_progress_is_managed_thread(void);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current_to_later__(ErtsThrPrgrVal val);
-ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later_than(ErtsThrPrgrVal val);
-ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later(void);
+ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_later(ErtsSchedulerData *);
 ERTS_GLB_INLINE ErtsThrPrgrVal erts_thr_progress_current(void);
 ERTS_GLB_INLINE int erts_thr_progress_has_passed__(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2);
 ERTS_GLB_INLINE int erts_thr_progress_has_reached_this(ErtsThrPrgrVal this, ErtsThrPrgrVal val);
+ERTS_GLB_INLINE int erts_thr_progress_equal(ErtsThrPrgrVal val1,
+					    ErtsThrPrgrVal val2);
 ERTS_GLB_INLINE int erts_thr_progress_cmp(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2);
 ERTS_GLB_INLINE int erts_thr_progress_has_reached(ErtsThrPrgrVal val);
 
@@ -230,16 +231,23 @@ erts_thr_progress_current_to_later__(ErtsThrPrgrVal val)
 }
 
 ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_progress_later_than(ErtsThrPrgrVal val)
+erts_thr_progress_later(ErtsSchedulerData *esdp)
 {
-    ERTS_THR_MEMORY_BARRIER;
-    return erts_thr_progress_current_to_later__(val);
-}
-
-ERTS_GLB_INLINE ErtsThrPrgrVal
-erts_thr_progress_later(void)
-{
-    ErtsThrPrgrVal val = erts_thr_prgr_read_mb__(&erts_thr_prgr__.current);
+    ErtsThrPrgrData *tpd;
+    ErtsThrPrgrVal val;
+    if (esdp) {
+	tpd = &esdp->thr_progress_data;
+    managed_thread:
+	val = tpd->previous.local;
+	ERTS_THR_MEMORY_BARRIER;
+    }
+    else {
+	tpd = erts_tsd_get(erts_thr_prgr_data_key__);
+	if (tpd && tpd->is_managed)
+	    goto managed_thread;
+	val = erts_thr_prgr_read_mb__(&erts_thr_prgr__.current);
+    }
+    ASSERT(val != ERTS_THR_PRGR_VAL_WAITING);
     return erts_thr_progress_current_to_later__(val);
 }
 
@@ -276,6 +284,12 @@ erts_thr_progress_has_reached_this(ErtsThrPrgrVal this, ErtsThrPrgrVal val)
     if (this == val)
 	return 1;
     return erts_thr_progress_has_passed__(this, val);
+}
+
+ERTS_GLB_INLINE int
+erts_thr_progress_equal(ErtsThrPrgrVal val1, ErtsThrPrgrVal val2)
+{
+    return val1 == val2 && val1 != ERTS_THR_PRGR_INVALID;
 }
 
 ERTS_GLB_INLINE int
