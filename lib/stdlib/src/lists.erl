@@ -29,7 +29,7 @@
 	 sort/1, merge/1, merge/2, rmerge/2, merge3/3, rmerge3/3,
 	 usort/1, umerge/1, umerge3/3, umerge/2, rumerge3/3, rumerge/2,
 	 concat/1, flatten/1, flatten/2, flatlength/1,
-	 keydelete/3, keyreplace/4, keytake/3, keystore/4,
+	 keydelete/3, keycount/3, keyreplace/4, keytake/3, keystore/4,
 	 keysort/2, keymerge/3, rkeymerge/3, rukeymerge/3, 
 	 ukeysort/2, ukeymerge/3, keymap/3]).
 
@@ -583,6 +583,7 @@ flatlength([], L) -> L.
 %% keymember(Key, Index, [Tuple]) Now a BIF!
 %% keysearch(Key, Index, [Tuple]) Now a BIF!
 %% keydelete(Key, Index, [Tuple])
+%% keycount(Key, Index, [Tuple])
 %% keyreplace(Key, Index, [Tuple], NewTuple)
 %% keytake(Key, Index, [Tuple])
 %% keystore(Key, Index, [Tuple], NewTuple)
@@ -624,6 +625,23 @@ keydelete3(Key, N, [H|T]) when element(N, H) == Key -> T;
 keydelete3(Key, N, [H|T]) ->
     [H|keydelete3(Key, N, T)];
 keydelete3(_, _, []) -> [].
+
+-spec keycount(Key, N, TupleList) -> Count when
+      Key :: term(),
+      N :: pos_integer(),
+      Count :: integer(),
+      TupleList :: [Tuple],
+      Tuple :: tuple().
+
+keycount(Key, N, TupleList) when is_integer(N), N > 0 ->
+      keycount(Key, N, TupleList, 0).
+
+keycount(Key, N, [H|T], Count) when element(N, H) == Key ->
+      keycount(Key, N, T, Count + 1);
+keycount(Key, N, [H|T], Count) ->
+      keycount(Key, N, T, Count);
+keycount(Key, N, [], Count) ->
+      Count.
 
 -spec keyreplace(Key, N, TupleList1, NewTuple) -> TupleList2 when
       Key :: term(),
