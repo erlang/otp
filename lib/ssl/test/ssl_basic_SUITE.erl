@@ -262,7 +262,8 @@ all() ->
      no_reuses_session_server_restart_new_cert_file, reuseaddr,
      hibernate, connect_twice, renegotiate_dos_mitigate_active,
      renegotiate_dos_mitigate_passive,
-     tcp_error_propagation_in_active_mode, rizzo, no_rizzo_rc4
+     tcp_error_propagation_in_active_mode, rizzo, no_rizzo_rc4,
+     recv_error_handling
     ].
 
 groups() -> 
@@ -3875,16 +3876,16 @@ tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
-					  {from, self()},
-					  {mfa, {ssl_test_lib, no_result, []}},
-					  {options, ServerOpts}]),
+					 {from, self()},
+					 {mfa, {ssl_test_lib, no_result, []}},
+					 {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     {Client, #sslsocket{pid=Pid} = SslSocket} = ssl_test_lib:start_client([return_socket,
-							       {node, ClientNode}, {port, Port},
-							       {host, Hostname},
-							       {from, self()},
-							       {mfa, {?MODULE, receive_msg, []}},
-							       {options, ClientOpts}]),
+									   {node, ClientNode}, {port, Port},
+									   {host, Hostname},
+									   {from, self()},
+									   {mfa, {?MODULE, receive_msg, []}},
+									   {options, ClientOpts}]),
 
     {status, _, _, StatusInfo} = sys:get_status(Pid),
     [_, _,_, _, Prop] = StatusInfo,
@@ -3895,6 +3896,32 @@ tcp_error_propagation_in_active_mode(Config) when is_list(Config) ->
     Pid ! {tcp_error, Socket, etimedout},
 
     ssl_test_lib:check_result(Client, {ssl_closed, SslSocket}).
+
+
+%%--------------------------------------------------------------------
+
+recv_error_handling(doc) ->
+    ["Special case of call error handling"];
+recv_error_handling(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server  = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					  {from, self()},
+					  {mfa, {?MODULE, recv_close, []}},
+					 {options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {Client, #sslsocket{pid=Pid} = SslSocket} = ssl_test_lib:start_client([return_socket,
+									   {node, ClientNode}, {port, Port},
+									   {host, Hostname},
+									   {from, self()},
+									   {mfa, {ssl_test_lib, no_result, []}},
+									   {options, ClientOpts}]),
+    ssl:close(SslSocket),
+    ssl_test_lib:check_result(Server, ok).
+
+
 %%--------------------------------------------------------------------
 
 rizzo(doc) -> ["Test that there is a 1/n-1-split for non RC4 in 'TLS < 1.1' as it is
@@ -3906,7 +3933,7 @@ rizzo(Config) when is_list(Config) ->
 			 {?MODULE, send_recv_result_active_rizzo, []}),
     run_send_recv_rizzo(Ciphers, Config, tlsv1,
 			 {?MODULE, send_recv_result_active_rizzo, []}).
-
+%%--------------------------------------------------------------------
 no_rizzo_rc4(doc) -> 
     ["Test that there is no 1/n-1-split for RC4 as it is not vunrable to Rizzo/Dungon attack"];
 
@@ -3917,6 +3944,7 @@ no_rizzo_rc4(Config) when is_list(Config) ->
     run_send_recv_rizzo(Ciphers, Config, tlsv1,
 			{?MODULE, send_recv_result_active_no_rizzo, []}).
 
+%%--------------------------------------------------------------------
 run_send_recv_rizzo(Ciphers, Config, Version, Mfa) ->
     Result =  lists:map(fun(Cipher) -> 
 				rizzo_test(Cipher, Config, Version, Mfa) end,
@@ -3969,6 +3997,15 @@ send_recv_result(Socket) ->
     ssl:send(Socket, "Hello world"),
     {ok,"Hello world"} = ssl:recv(Socket, 11),
     ok.
+
+recv_close(Socket) ->
+    {error, closed} = ssl:recv(Socket, 11),
+    receive
+	{_,{error,closed}} ->
+	    error_extra_close_sent_to_user_process
+    after 500 ->
+	    ok
+    end.
 
 send_recv_result_active(Socket) ->
     ssl:send(Socket, "Hello world"),

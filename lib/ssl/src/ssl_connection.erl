@@ -85,12 +85,11 @@
           premaster_secret,    %
 	  file_ref_db,         % ets()
           cert_db_ref,         % ref()
-          from,                % term(), where to reply
           bytes_to_read,       % integer(), # bytes to read in passive mode
           user_data_buffer,    % binary()
 	  log_alert,           % boolean() 
 	  renegotiation,       % {boolean(), From | internal | peer}
-	  recv_from,           %
+	  start_or_recv_from,  % "gen_fsm From"
 	  send_queue,          % queue()
 	  terminated = false,  %
 	  allow_renegotiate = true
@@ -758,8 +757,8 @@ handle_sync_event({application_data, Data}, From, StateName,
      State#state{send_queue = queue:in({From, Data}, Queue)},
      get_timeout(State)};
 
-handle_sync_event(start, From, hello, State) ->
-    hello(start, State#state{from = From});
+handle_sync_event(start, StartFrom, hello, State) ->
+    hello(start, State#state{start_or_recv_from = StartFrom});
 
 %% The two clauses below could happen if a server upgrades a socket in
 %% active mode. Note that in this case we are lucky that
@@ -773,8 +772,8 @@ handle_sync_event(start, _, connection, State) ->
     {reply, connected, connection, State, get_timeout(State)};
 handle_sync_event(start, _From, error, {Error, State = #state{}}) ->
     {stop, {shutdown, Error}, {error, Error}, State};
-handle_sync_event(start, From, StateName, State) ->
-    {next_state, StateName, State#state{from = From}, get_timeout(State)};
+handle_sync_event(start, StartFrom, StateName, State) ->
+    {next_state, StateName, State#state{start_or_recv_from = StartFrom}, get_timeout(State)};
 
 handle_sync_event(close, _, StateName, State) ->
     %% Run terminate before returning
@@ -805,13 +804,13 @@ handle_sync_event({shutdown, How0}, _, StateName,
 	    {stop, normal, Error, State}
     end;
     
-handle_sync_event({recv, N}, From, connection = StateName, State0) ->
-    passive_receive(State0#state{bytes_to_read = N, recv_from = From}, StateName);
+handle_sync_event({recv, N}, RecvFrom, connection = StateName, State0) ->
+    passive_receive(State0#state{bytes_to_read = N, start_or_recv_from = RecvFrom}, StateName);
 
 %% Doing renegotiate wait with handling request until renegotiate is
 %% finished. Will be handled by next_state_is_connection/2.
-handle_sync_event({recv, N}, From, StateName, State) ->
-    {next_state, StateName, State#state{bytes_to_read = N, recv_from = From},
+handle_sync_event({recv, N}, RecvFrom, StateName, State) ->
+    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom},
      get_timeout(State)};
 
 handle_sync_event({new_user, User}, _From, StateName, 
@@ -962,9 +961,9 @@ handle_info({CloseTag, Socket}, StateName,
     {stop, normal, State};
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
-	    #state{socket = Socket, from = User, role = Role, 
+	    #state{socket = Socket, start_or_recv_from = StartFrom, role = Role,
 		   error_tag = ErrorTag} = State)  when StateName =/= connection ->
-    alert_user(User, ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Role),
+    alert_user(StartFrom, ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE), Role),
     {stop, normal, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{socket = Socket,
@@ -1704,7 +1703,7 @@ passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) ->
 read_application_data(Data, #state{user_application = {_Mon, Pid},
                               socket_options = SOpts,
                               bytes_to_read = BytesToRead,
-                              recv_from = From,
+                              start_or_recv_from = RecvFrom,
                               user_data_buffer = Buffer0} = State0) ->
     Buffer1 = if 
 		  Buffer0 =:= <<>> -> Data;
@@ -1713,9 +1712,9 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	      end,
     case get_data(SOpts, BytesToRead, Buffer1) of
 	{ok, ClientData, Buffer} -> % Send data
-	    SocketOpt = deliver_app_data(SOpts, ClientData, Pid, From),
+	    SocketOpt = deliver_app_data(SOpts, ClientData, Pid, RecvFrom),
 	    State = State0#state{user_data_buffer = Buffer,
-				 recv_from = undefined,
+				 start_or_recv_from = undefined,
 				 bytes_to_read = 0,
 				 socket_options = SocketOpt 
 				},
@@ -1730,7 +1729,7 @@ read_application_data(Data, #state{user_application = {_Mon, Pid},
 	{more, Buffer} -> % no reply, we need more data
 	    next_record(State0#state{user_data_buffer = Buffer});
 	{error,_Reason} -> %% Invalid packet in packet mode
-	    deliver_packet_error(SOpts, Buffer1, Pid, From),
+	    deliver_packet_error(SOpts, Buffer1, Pid, RecvFrom),
 	    {stop, normal, State0}
     end.
 
@@ -2016,9 +2015,9 @@ next_state_connection(StateName, #state{send_queue = Queue0,
 %% premaster_secret and public_key_info (only needed during handshake)
 %% to reduce memory foot print of a connection.
 next_state_is_connection(_, State = 
-		      #state{recv_from = From,
+		      #state{start_or_recv_from = RecvFrom,
 			     socket_options =
-			     #socket_options{active = false}}) when From =/= undefined ->
+			     #socket_options{active = false}}) when RecvFrom =/= undefined ->
     passive_receive(State#state{premaster_secret = undefined,
 				public_key_info = undefined,
 				tls_handshake_hashes = {<<>>, <<>>}}, connection);
@@ -2081,7 +2080,7 @@ initial_state(Role, Host, Port, Socket, {SSLOptions, SocketOptions}, User,
 	   log_alert = true,
 	   session_cache_cb = SessionCacheCb,
 	   renegotiation = {false, first},
-	   recv_from = undefined,
+	   start_or_recv_from = undefined,
 	   send_queue = queue:new()
 	  }.
 
@@ -2185,7 +2184,7 @@ handle_alerts([Alert | Alerts], {next_state, StateName, State, _Timeout}) ->
     handle_alerts(Alerts, handle_alert(Alert, StateName, State)).
 
 handle_alert(#alert{level = ?FATAL} = Alert, StateName,
-	     #state{from = From, host = Host, port = Port, session = Session,
+	     #state{start_or_recv_from = From, host = Host, port = Port, session = Session,
 		    user_application = {_Mon, Pid},
 		    log_alert = Log, role = Role, socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
@@ -2267,13 +2266,13 @@ handle_own_alert(Alert, Version, StateName,
 	    ok
     end.
 
-handle_normal_shutdown(Alert, _, #state{from = User, role = Role, renegotiation = {false, first}}) ->
-    alert_user(User, Alert, Role);
+handle_normal_shutdown(Alert, _, #state{start_or_recv_from = StartFrom, role = Role, renegotiation = {false, first}}) ->
+    alert_user(StartFrom, Alert, Role);
 
 handle_normal_shutdown(Alert, StateName, #state{socket_options = Opts,
 						user_application = {_Mon, Pid},
-						from = User, role = Role}) ->
-    alert_user(StateName, Opts, Pid, User, Alert, Role).
+						start_or_recv_from = RecvFrom, role = Role}) ->
+    alert_user(StateName, Opts, Pid, RecvFrom, Alert, Role).
 
 handle_unexpected_message(Msg, Info, #state{negotiated_version = Version} = State) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
@@ -2299,9 +2298,9 @@ ack_connection(#state{renegotiation = {true, From}} = State) ->
     gen_fsm:reply(From, ok),
     State#state{renegotiation = undefined};
 ack_connection(#state{renegotiation = {false, first}, 
-				  from = From} = State) when From =/= undefined ->
-    gen_fsm:reply(From, connected),
-    State#state{renegotiation = undefined};
+		      start_or_recv_from = StartFrom} = State) when StartFrom =/= undefined ->
+    gen_fsm:reply(StartFrom, connected),
+    State#state{renegotiation = undefined, start_or_recv_from = undefined};
 ack_connection(State) ->
     State.
 
