@@ -726,6 +726,8 @@ nativename(Name0) ->
 	_          -> Name
     end.
 
+win32_nativename(Name) when is_binary(Name) ->
+    binary:replace(Name, <<"/">>, <<"\\">>, [global]);
 win32_nativename([$/|Rest]) ->
     [$\\|win32_nativename(Rest)];
 win32_nativename([C|Rest]) ->
