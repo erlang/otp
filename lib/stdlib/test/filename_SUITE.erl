@@ -25,7 +25,7 @@
 -export([pathtype/1,rootname/1,split/1,find_src/1]).
 -export([absname_bin/1, absname_bin_2/1, 
 	 basename_bin_1/1, basename_bin_2/1,
-	 dirname_bin/1, extension_bin/1, join_bin/1]).
+	 dirname_bin/1, extension_bin/1, join_bin/1, t_nativename_bin/1]).
 -export([pathtype_bin/1,rootname_bin/1,split_bin/1]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -38,7 +38,7 @@ all() ->
      join, pathtype, rootname, split, t_nativename, find_src,
      absname_bin, absname_bin_2, basename_bin_1, basename_bin_2, dirname_bin,
      extension_bin,
-     join_bin, pathtype_bin, rootname_bin, split_bin].
+     join_bin, pathtype_bin, rootname_bin, split_bin, t_nativename_bin].
 
 groups() -> 
     [].
@@ -802,5 +802,16 @@ split_bin(Config) when is_list(Config) ->
 	    ok;
        _ ->
 	    ok
+    end.
+
+t_nativename_bin(Config) when is_list(Config) ->
+    ?line <<"abcedf">> = filename:nativename(<<"abcedf">>),
+    case os:type() of
+	{win32, _} ->
+	    ?line <<"a:\\temp\\arne.exe">> =
+		filename:nativename(<<"A:/temp//arne.exe/">>);
+	_ ->
+	    ?line <<"/usr/tmp/arne">> =
+		filename:nativename(<<"/usr/tmp//arne/">>)
     end.
 
