@@ -40,8 +40,8 @@
   ports or files.</p>
 
   <section>
-    <title>Scope and Purpose</title>'
-    
+    <title>Scope and Purpose</title>
+
     <p>This manual describes the <c>Event Tracer (ET)</c> application,
     as a component of the Erlang/Open Telecom Platform development
     environment. It is assumed that the reader is familiar with the
