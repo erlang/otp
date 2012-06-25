@@ -693,20 +693,27 @@ Universal binaries and 64bit binaries are mutually exclusive options.
 Building a fast Erlang VM on Mac OS Lion
 ----------------------------------------
 
-Starting with XCode 4.2, Apple no longer includes a "real" `gcc`
+Starting with Xcode 4.2, Apple no longer includes a "real" `gcc`
 compiler (not based on the LLVM).  Building with `llvm-gcc` or `clang`
 will work, but the performance of the Erlang run-time system will not
 be the best possible.
 
 Note that if you have `gcc-4.2` installed and included in `PATH`
-(from a previous version of XCode), `configure` will automatically
+(from a previous version of Xcode), `configure` will automatically
 make sure that `gcc-4.2` will be used to compile `beam_emu.c`
 (the source file most in need of `gcc`).
 
 If you don't have `gcc-4.2.` and want to build a run-time system with
 the best possible performance, do like this:
 
-Install XCode from the AppStore if it is not already installed.
+Install Xcode from the AppStore if it is not already installed.
+
+For Xcode 4.3 you will also need to download "Command Line Tools"
+via the Downloads preference pane i Xcode.
+
+Some tools may still be lacking or out-of-date, we recommend using
+[Homebrew](https://github.com/mxcl/homebrew/wiki/installation) or
+Macports update those tools.
 
 Install MacPorts (<http://www.macports.org/>). Then:
 
@@ -717,7 +724,23 @@ If you want to build the `wx` application, get wxMac-2.8.12
 (`wxMac-2.8.12.tar.gz` from
 <http://sourceforge.net/projects/wxwindows/files/2.8.12/>) and build:
 
-    $ arch_flags="-arch i386" ./configure CFLAGS="$arch_flags" CXXFLAGS="$arch_flags" CPPFLAGS="$arch_flags" LDFLAGS="$arch_flags" OBJCFLAGS="$arch_flags" OBJCXXFLAGS="$arch_flags" --prefix=/usr/local --with-macosx-sdk=/Developer/SDKs/MacOSX10.6.sdk --with-macosx-version-min=10.6 --enable-unicode --with-opengl --disable-shared
+Export the path for MacOSX10.6.sdk,
+
+    $ export SDK=/Developer/SDKs/MacOSX10.6.sdk
+
+In Xcode 4.3 the path has changed so use the following instead,
+
+    $ export SDK=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.6.sdk
+
+Then configure and build wx,
+
+    $ arch_flags="-arch i386" ./configure CFLAGS="$arch_flags" CXXFLAGS="$arch_flags" CPPFLAGS="$arch_flags" LDFLAGS="$arch_flags" OBJCFLAGS="$arch_flags" OBJCXXFLAGS="$arch_flags" --prefix=/usr/local --with-macosx-sdk="$SDK" --with-macosx-version-min=10.6 --enable-unicode --with-opengl --disable-shared
+    $ make
+    $ sudo make install
+
+To link wx properly we will also need to build and install `wxStyledTextCtrl`
+
+    $ cd contrib/src/stc
     $ make
     $ sudo make install
 
