@@ -42,7 +42,7 @@
                  compile=[],                    %Compile flags
                  attributes=[],                 %Attributes
                  callbacks=[],                  %Callbacks
-                 defined=[],                    %Defined functions
+                 defined,			%Defined functions (gb_set)
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
                  arity=[],                      %Arity for current function
@@ -83,7 +83,7 @@ module(Fs0, Opts0) ->
     {Efs,St2} = expand_pmod(Tfs, St1),
     %% Get the correct list of exported functions.
     Exports = case member(export_all, St2#expand.compile) of
-                  true -> St2#expand.defined;
+                  true -> gb_sets:to_list(St2#expand.defined);
                   false -> St2#expand.exports
               end,
     %% Generate all functions from stored info.
@@ -106,10 +106,11 @@ expand_pmod(Fs0, St0) ->
 		    true ->
 			 Ps0
 		 end,
+	    Def = gb_sets:to_list(St0#expand.defined),
             {Fs1,Xs,Ds} = sys_expand_pmod:forms(Fs0, Ps,
                                                 St0#expand.exports,
-                                                St0#expand.defined),
-	    St1 = St0#expand{exports=Xs, defined=Ds},
+						Def),
+	    St1 = St0#expand{exports=Xs,defined=gb_sets:from_list(Ds)},
 	    {Fs2,St2} = add_instance(Ps, Fs1, St1),
 	    {Fs3,St3} = ensure_new(Base, Ps0, Fs2, St2),
             {Fs3,St3#expand{attributes = [{abstract, 0, [true]}
@@ -159,7 +160,7 @@ add_func(Name, Args, Body, Fs, St) ->
     F = {function,0,Name,A,[{clause,0,Args,[],Body}]},
     NA = {Name,A},
     {[F|Fs],St#expand{exports=add_element(NA, St#expand.exports),
-		      defined=add_element(NA, St#expand.defined)}}.
+		      defined=gb_sets:add_element(NA, St#expand.defined)}}.
 
 %% define_function(Form, State) -> State.
 %%  Add function to defined if form is a function.
@@ -168,7 +169,7 @@ define_functions(Forms, #expand{defined=Predef}=St) ->
     Fs = foldl(fun({function,_,N,A,_Cs}, Acc) -> [{N,A}|Acc];
                   (_, Acc) -> Acc
                end, Predef, Forms),
-    St#expand{defined=ordsets:from_list(Fs)}.
+    St#expand{defined=gb_sets:from_list(Fs)}.
 
 module_attrs(#expand{attributes=Attributes}=St) ->
     Attrs = [{attribute,Line,Name,Val} || {Name,Line,Val} <- Attributes],
@@ -187,7 +188,7 @@ module_predef_func_beh_info(#expand{callbacks=Callbacks,defined=Defined,
     PreDef=[{behaviour_info,1}],
     PreExp=PreDef,
     {[gen_beh_info(Callbacks)],
-     St#expand{defined=union(from_list(PreDef), Defined),
+     St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef), Defined),
 	       exports=union(from_list(PreExp), Exports)}}.
 
 gen_beh_info(Callbacks) ->
@@ -215,7 +216,8 @@ module_predef_funcs_mod_info(St) ->
        [{clause,0,[{var,0,'X'}],[],
         [{call,0,{remote,0,{atom,0,erlang},{atom,0,get_module_info}},
           [{atom,0,St#expand.module},{var,0,'X'}]}]}]}],
-     St#expand{defined=union(from_list(PreDef), St#expand.defined),
+     St#expand{defined=gb_sets:union(gb_sets:from_list(PreDef),
+				     St#expand.defined),
                exports=union(from_list(PreExp), St#expand.exports)}}.
 
 %% forms(Forms, State) ->
@@ -721,4 +723,4 @@ imported(F, A, St) ->
     end.
 
 defined(F, A, St) ->
-    ordsets:is_element({F,A}, St#expand.defined).
+    gb_sets:is_element({F,A}, St#expand.defined).
