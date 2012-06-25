@@ -194,10 +194,10 @@ misc_ssh_options(Config) when is_list(Config) ->
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
     
-    CMiscOpt0 = [{connecect_timeout, 1000}, {ip_v6_disable, false}, {user_dir, UserDir}],
-    CMiscOpt1 = [{connecect_timeout, infinity}, {ip_v6_disable, true}, {user_dir, UserDir}],
-    SMiscOpt0 =  [{ip_v6_disable, false}, {user_dir, UserDir}, {system_dir, SystemDir}],
-    SMiscOpt1 =  [{ip_v6_disable, true}, {user_dir, UserDir}, {system_dir, SystemDir}],
+    CMiscOpt0 = [{connecect_timeout, 1000}, {ip_v6_disabled, false}, {user_dir, UserDir}],
+    CMiscOpt1 = [{connecect_timeout, infinity}, {ip_v6_disabled, true}, {user_dir, UserDir}],
+    SMiscOpt0 =  [{ip_v6_disabled, false}, {user_dir, UserDir}, {system_dir, SystemDir}],
+    SMiscOpt1 =  [{ip_v6_disabled, true}, {user_dir, UserDir}, {system_dir, SystemDir}],
     
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
