@@ -84,13 +84,14 @@ undefined_functions(Config) when is_list(Config) ->
 		      "ExcludedFrom = ~p:_/_,"
 		      "Undef - Undef | ExcludedFrom", 
 		      [UndefS,ExcludeFrom]),
-    ?line {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
-    ?line Undef1 = hipe_filter(Undef0),
-    ?line Undef2 = ssl_crypto_filter(Undef1),
-    ?line Undef3 = edoc_filter(Undef2),
+    {ok,Undef0} = xref:q(Server, lists:flatten(Q)),
+    Undef1 = hipe_filter(Undef0),
+    Undef2 = ssl_crypto_filter(Undef1),
+    Undef3 = edoc_filter(Undef2),
     Undef4 = eunit_filter(Undef3),
     Undef5 = dialyzer_filter(Undef4),
-    Undef = wx_filter(Undef5),
+    Undef6 = wx_filter(Undef5),
+    Undef  = gs_filter(Undef6),
 
     case Undef of
 	[] -> ok;
@@ -202,6 +203,16 @@ wx_filter(Undef) ->
 	_ -> Undef
     end.
 				   
+gs_filter(Undef) ->
+    case code:lib_dir(gs) of
+	{error,bad_name} ->
+	    filter(fun({_,{gs,_,_}}) -> false;
+		      ({_,{gse,_,_}}) -> false;
+                      ({_,{tool_utils,_,_}}) -> false;
+		      (_) -> true
+		   end, Undef);
+	_ -> Undef
+    end.
 
 deprecated_not_in_obsolete(Config) when is_list(Config) ->
     ?line Server = ?config(xref_server, Config),
