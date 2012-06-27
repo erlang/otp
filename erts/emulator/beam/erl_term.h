@@ -21,6 +21,7 @@
 #define __ERL_TERM_H
 
 #include "sys.h" /* defines HALFWORD_HEAP */
+#include "erl_hashmap.h"
 
 typedef UWord Wterm;  /* Full word terms */
 
@@ -141,6 +142,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define HEAP_BINARY_SUBTAG	(0x9 << _TAG_PRIMARY_SIZE) /* BINARY */
 #define SUB_BINARY_SUBTAG	(0xA << _TAG_PRIMARY_SIZE) /* BINARY */
 /*   _BINARY_XXX_MASK depends on 0xB being unused */
+#define HASHMAP_SUBTAG		(0xB << _TAG_PRIMARY_SIZE) /* HASHMAP */
 #define EXTERNAL_PID_SUBTAG	(0xC << _TAG_PRIMARY_SIZE) /* EXTERNAL_PID */
 #define EXTERNAL_PORT_SUBTAG	(0xD << _TAG_PRIMARY_SIZE) /* EXTERNAL_PORT */
 #define EXTERNAL_REF_SUBTAG	(0xE << _TAG_PRIMARY_SIZE) /* EXTERNAL_REF */
@@ -162,6 +164,7 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 #define _TAG_HEADER_EXTERNAL_REF  (TAG_PRIMARY_HEADER|EXTERNAL_REF_SUBTAG)
 #define _TAG_HEADER_BIN_MATCHSTATE (TAG_PRIMARY_HEADER|BIN_MATCHSTATE_SUBTAG)
 #define _TAG_HEADER_MAP	 	(TAG_PRIMARY_HEADER|MAP_SUBTAG)
+#define _TAG_HEADER_HASHMAP	(TAG_PRIMARY_HEADER|HASHMAP_SUBTAG)
 
 
 #define _TAG_HEADER_MASK	0x3F
@@ -298,7 +301,9 @@ _ET_DECLARE_CHECKED(Uint,atom_val,Eterm)
 /* header (arityval or thing) access methods */
 #define _make_header(sz,tag)  ((Uint)(((sz) << _HEADER_ARITY_OFFS) + (tag)))
 #define is_header(x)	(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_HEADER)
-#define _unchecked_header_arity(x)	((x) >> _HEADER_ARITY_OFFS)
+//#define _unchecked_header_arity(x)	((x) >> _HEADER_ARITY_OFFS)
+#define _unchecked_header_arity(x) \
+    (is_hashmap_header(x) ? MAP_HEADER_ARITY(x) : ((x) >> _HEADER_ARITY_OFFS))
 _ET_DECLARE_CHECKED(Uint,header_arity,Eterm)
 #define header_arity(x)	_ET_APPLY(header_arity,(x))
 
@@ -361,6 +366,7 @@ _ET_DECLARE_CHECKED(Uint,thing_subtag,Eterm)
 	((((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_REFC_BIN) || \
 	 (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_HEAP_BIN) || \
 	 (((x) & (_TAG_HEADER_MASK)) == _TAG_HEADER_SUB_BIN))
+
 #define make_binary(x)	make_boxed((Eterm*)(x))
 #define is_binary(x)	(is_boxed((x)) && is_binary_header(*boxed_val((x))))
 #define is_not_binary(x) (!is_binary((x)))
@@ -1095,6 +1101,7 @@ _ET_DECLARE_CHECKED(Uint,y_reg_index,Uint)
 #define FLOAT_DEF		0xe
 #define BIG_DEF			0xf
 #define SMALL_DEF		0x10
+#define HASHMAP_DEF		0x11
 
 #if ET_DEBUG
 extern unsigned tag_val_def_debug(Wterm, const char*, unsigned);

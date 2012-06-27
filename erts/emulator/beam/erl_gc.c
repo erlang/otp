@@ -31,6 +31,7 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "erl_map.h"
+#include "erl_hashmap.h"
 #include "error.h"
 #include "big.h"
 #include "erl_gc.h"

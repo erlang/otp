@@ -2801,6 +2801,7 @@ get_map_elements_fail:
 	}
 	PreFetch(1, next);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	reg[0] = r(0);
 	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));

@@ -33,6 +33,7 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
+#include "erl_hashmap.h"
 
 static void move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap*);
 
@@ -127,6 +128,35 @@ Uint size_object(Eterm obj)
 			obj = *bptr;
 			break;
 		    }
+		case HASHMAP_SUBTAG:
+		    switch (MAP_HEADER_TYPE(hdr)) {
+			case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+			case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			    {
+				Eterm *head;
+				Uint sz;
+				head  = hashmap_val_rel(obj, base);
+				sz    = hashmap_bitcount(MAP_HEADER_VAL(hdr));
+				sum  += 1 + sz + header_arity(hdr);
+				head += 1 + header_arity(hdr);
+
+				if (sz == 0) {
+				    goto pop_next;
+				}
+				while(sz-- > 1) {
+				    obj = head[sz];
+				    if (!IS_CONST(obj)) {
+					ESTACK_PUSH(s, obj);
+				    }
+				}
+				obj = head[0];
+			    }
+			    break;
+			default:
+			    erl_exit(ERTS_ABORT_EXIT, "size_object: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
+		    }
+		    break;
 		case SUB_BINARY_SUBTAG:
 		    {
 			Eterm real_bin;
@@ -459,7 +489,7 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		{
 		  ExternalThing *etp = (ExternalThing *) htop;
 
-		  i =  thing_arityval(hdr) + 1;
+		  i  = thing_arityval(hdr) + 1;
 		  tp = htop;
 
 		  while (i--)  {
@@ -471,6 +501,21 @@ Eterm copy_struct(Eterm obj, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
 		  erts_refc_inc(&etp->node->refc, 2);
 
 		  *argp = make_external_rel(tp, dst_base);
+		}
+		break;
+	    case HASHMAP_SUBTAG:
+		tp = htop;
+		switch (MAP_HEADER_TYPE(hdr)) {
+		    case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
+		    case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
+			*htop++ = *objp++;
+		    case MAP_HEADER_TAG_HAMT_NODE_BITMAP :
+			i = 1 + hashmap_bitcount(MAP_HEADER_VAL(hdr));
+			while (i--)  { *htop++ = *objp++; }
+			*argp = make_hashmap_rel(tp, dstbase);
+			break;
+		    default:
+			erl_exit(ERTS_ABORT_EXIT, "copy_struct: bad hashmap type %d\n", MAP_HEADER_TYPE(hdr));
 		}
 		break;
 	    case BIN_MATCHSTATE_SUBTAG:

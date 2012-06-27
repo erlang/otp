@@ -539,6 +539,12 @@ do {							\
     }							\
 } while(0)
 
+#define WSTACK_DEBUG(s) \
+    do { \
+	fprintf(stderr, "wstack size   = %ld\r\n", s.wsp - s.wstart); \
+	fprintf(stderr, "wstack wstart = %p\r\n", s.wstart); \
+	fprintf(stderr, "wstack wsp    = %p\r\n", s.wsp); \
+    } while(0)
 
 /*
  * Do not free the stack after this, it may have pointers into what
@@ -581,7 +587,7 @@ do {						\
     ASSERT(s.wsp <= s.wend);			\
 } while (0)
 
-#define WSTACK_IS_STATIC(s) (s.wstart == WSTK_DEF_STACK(s)))
+#define WSTACK_IS_STATIC(s) (s.wstart == WSTK_DEF_STACK(s))
 
 #define WSTACK_PUSH(s, x)				\
 do {							\
@@ -648,7 +654,7 @@ do {						\
 
 #define WSTACK_COUNT(s) (s.wsp - s.wstart)
 #define WSTACK_ISEMPTY(s) (s.wsp == s.wstart)
-#define WSTACK_POP(s) (*(--s.wsp))
+#define WSTACK_POP(s) ((ASSERT(s.wsp > s.wstart)),*(--s.wsp))
 
 
 /* binary.c */

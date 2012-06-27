@@ -117,9 +117,9 @@
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
 #if HALFWORD_HEAP
-# define ERTS_HOLE_MARKER (0xaf5e78ccU)
+# define ERTS_HOLE_MARKER (0xdeadbeef)
 #else
-# define ERTS_HOLE_MARKER (((0xaf5e78ccUL << 24) << 8) | 0xaf5e78ccUL)
+# define ERTS_HOLE_MARKER (((0xdeadbeef << 24) << 8) | 0xdeadbeef)
 #endif
 #endif
 
