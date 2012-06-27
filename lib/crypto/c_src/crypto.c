@@ -139,6 +139,10 @@ static ERL_NIF_TERM sha256_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ERL_NIF_TERM sha256_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha256_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha384_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha384_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha384_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha384_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha512_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha512_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -150,6 +154,7 @@ static ERL_NIF_TERM md4_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 static ERL_NIF_TERM md5_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha_mac_n(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha256_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+static ERL_NIF_TERM sha384_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM sha512_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM hmac_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -215,6 +220,11 @@ static void hmac_sha256(unsigned char *key, int klen,
 			unsigned char *dbuf, int dlen,
 			unsigned char *hmacbuf);
 #endif
+#ifdef HAVE_SHA384
+static void hmac_sha384(unsigned char *key, int klen,
+			unsigned char *dbuf, int dlen,
+			unsigned char *hmacbuf);
+#endif
 #ifdef HAVE_SHA512
 static void hmac_sha512(unsigned char *key, int klen,
 			unsigned char *dbuf, int dlen,
@@ -237,6 +247,10 @@ static ErlNifFunc nif_funcs[] = {
     {"sha256_init_nif", 0, sha256_init_nif},
     {"sha256_update_nif", 2, sha256_update_nif},
     {"sha256_final_nif", 1, sha256_final_nif},
+    {"sha384_nif", 1, sha384_nif},
+    {"sha384_init_nif", 0, sha384_init_nif},
+    {"sha384_update_nif", 2, sha384_update_nif},
+    {"sha384_final_nif", 1, sha384_final_nif},
     {"sha512_nif", 1, sha512_nif},
     {"sha512_init_nif", 0, sha512_init_nif},
     {"sha512_update_nif", 2, sha512_update_nif},
@@ -248,6 +262,7 @@ static ErlNifFunc nif_funcs[] = {
     {"md5_mac_n", 3, md5_mac_n},
     {"sha_mac_n", 3, sha_mac_n},
     {"sha256_mac_nif", 3, sha256_mac_nif},
+    {"sha384_mac_nif", 3, sha384_mac_nif},
     {"sha512_mac_nif", 3, sha512_mac_nif},
     {"hmac_init", 2, hmac_init},
     {"hmac_update", 2, hmac_update},
@@ -638,6 +653,67 @@ static ERL_NIF_TERM sha256_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 #endif
 }
 
+static ERL_NIF_TERM sha384_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Data) */
+#ifdef HAVE_SHA384
+    ErlNifBinary ibin;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &ibin)) {
+	return enif_make_badarg(env);
+    }
+    SHA384((unsigned char *) ibin.data, ibin.size,
+	 enif_make_new_binary(env,SHA384_LEN, &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha384_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* () */
+#ifdef HAVE_SHA384
+    ERL_NIF_TERM ret;
+    SHA384_Init((SHA512_CTX *) enif_make_new_binary(env, sizeof(SHA512_CTX), &ret));
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha384_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context, Data) */
+#ifdef HAVE_SHA384
+    SHA512_CTX* new_ctx;
+    ErlNifBinary ctx_bin, data_bin;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data_bin)) {
+	return enif_make_badarg(env);
+    }
+    new_ctx = (SHA512_CTX*) enif_make_new_binary(env,sizeof(SHA512_CTX), &ret);
+    memcpy(new_ctx, ctx_bin.data, sizeof(SHA512_CTX));
+    SHA384_Update(new_ctx, data_bin.data, data_bin.size);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+static ERL_NIF_TERM sha384_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) */
+#ifdef HAVE_SHA384
+    ErlNifBinary ctx_bin;
+    SHA512_CTX ctx_clone;
+    ERL_NIF_TERM ret;
+    if (!enif_inspect_binary(env, argv[0], &ctx_bin) || ctx_bin.size != sizeof(SHA512_CTX)) {
+	return enif_make_badarg(env);
+    }
+    memcpy(&ctx_clone, ctx_bin.data, sizeof(SHA512_CTX)); /* writable */
+    SHA384_Final(enif_make_new_binary(env, SHA384_LEN, &ret), &ctx_clone);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
 static ERL_NIF_TERM sha512_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Data) */
 #ifdef HAVE_SHA512
@@ -802,6 +878,29 @@ static ERL_NIF_TERM sha256_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 #endif
 }
 
+static ERL_NIF_TERM sha384_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Key, Data, MacSize) */
+#ifdef HAVE_SHA384
+    unsigned char hmacbuf[SHA384_DIGEST_LENGTH];
+    ErlNifBinary key, data;
+    unsigned mac_sz;
+    ERL_NIF_TERM ret;
+
+    if (!enif_inspect_iolist_as_binary(env, argv[0], &key)
+	|| !enif_inspect_iolist_as_binary(env, argv[1], &data)
+	|| !enif_get_uint(env,argv[2],&mac_sz) || mac_sz > SHA384_DIGEST_LENGTH) {
+	return enif_make_badarg(env);
+    }
+    hmac_sha384(key.data, key.size, data.data, data.size, hmacbuf);
+    memcpy(enif_make_new_binary(env, mac_sz, &ret),
+	   hmacbuf, mac_sz);
+    return ret;
+#else
+    return atom_notsup;
+#endif
+}
+
+
 static ERL_NIF_TERM sha512_mac_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Key, Data, MacSize) */
 #ifdef HAVE_SHA512
@@ -834,6 +933,9 @@ static ERL_NIF_TERM hmac_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     if (argv[0] == atom_sha) md = EVP_sha1();
 #ifdef HAVE_SHA256
     else if (argv[0] == atom_sha256) md = EVP_sha256();
+#endif
+#ifdef HAVE_SHA384
+    else if (argv[0] == atom_sha384) md = EVP_sha384();
 #endif
 #ifdef HAVE_SHA512
     else if (argv[0] == atom_sha512) md = EVP_sha512();
@@ -2287,6 +2389,47 @@ static void hmac_sha256(unsigned char *key, int klen,
     SHA256_Update(&ctx, opad, HMAC_INT_LEN);
     SHA256_Update(&ctx, hmacbuf, SHA256_DIGEST_LENGTH);
     SHA256_Final((unsigned char *) hmacbuf, &ctx);
+}
+#endif
+
+#ifdef HAVE_SHA384
+static void hmac_sha384(unsigned char *key, int klen,
+			unsigned char *dbuf, int dlen,
+			unsigned char *hmacbuf)
+{
+    SHA512_CTX ctx;
+    char ipad[HMAC_INT_LEN];
+    char opad[HMAC_INT_LEN];
+    unsigned char nkey[SHA384_DIGEST_LENGTH];
+    int i;
+
+    /* Change key if longer than 64 bytes */
+    if (klen > HMAC_INT_LEN) {
+	SHA384(key, klen, nkey);
+	key = nkey;
+	klen = SHA384_DIGEST_LENGTH;
+    }
+
+    memset(ipad, '\0', sizeof(ipad));
+    memset(opad, '\0', sizeof(opad));
+    memcpy(ipad, key, klen);
+    memcpy(opad, key, klen);
+
+    for (i = 0; i < HMAC_INT_LEN; i++) {
+	ipad[i] ^= HMAC_IPAD;
+	opad[i] ^= HMAC_OPAD;
+    }
+
+    /* inner SHA */
+    SHA384_Init(&ctx);
+    SHA384_Update(&ctx, ipad, HMAC_INT_LEN);
+    SHA384_Update(&ctx, dbuf, dlen);
+    SHA384_Final((unsigned char *) hmacbuf, &ctx);
+    /* outer SHA */
+    SHA384_Init(&ctx);
+    SHA384_Update(&ctx, opad, HMAC_INT_LEN);
+    SHA384_Update(&ctx, hmacbuf, SHA384_DIGEST_LENGTH);
+    SHA384_Final((unsigned char *) hmacbuf, &ctx);
 }
 #endif
 
