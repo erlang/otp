@@ -29,7 +29,8 @@
 -export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
 -export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
--export([sha256_mac/2, sha256_mac_96/2, sha512_mac/2, sha512_mac/3, sha512_mac_96/2]).
+-export([sha256_mac/2, sha256_mac/3]).
+-export([sha512_mac/2, sha512_mac/3]).
 -export([hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
 -export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
@@ -70,8 +71,7 @@
  		    sha512, sha512_init, sha512_update, sha512_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
-		    sha256_mac,  sha256_mac_96,
-		    sha512_mac,  sha512_mac_96,
+		    sha256_mac, sha512_mac,
                     sha_mac_init, sha_mac_update, sha_mac_final,
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
@@ -353,47 +353,38 @@ sha_mac_n(_Key,_Data,_MacSz) -> ?nif_stub.
 %%  SHA256_MAC
 %%
 -spec sha256_mac(iodata(), iodata()) -> binary().
--spec sha256_mac_96(iodata(), iodata()) -> binary().
 
 sha256_mac(Key, Data) ->
-    sha256_mac_n(Key,Data,32).
+    sha256_mac(Key, Data, 256 div 8).
 
 sha256_mac(Key, Data, Size) ->
-    sha256_mac_n(Key, Data, Size).
-
-sha256_mac_96(Key, Data) ->
-    sha256_mac_n(Key,Data,12).
-
-sha256_mac_n(Key, Data, MacSz) ->
-   case sha256_mac_n_nif(Key, Data, MacSz) of
+   case sha256_mac_nif(Key, Data, Size) of
        notsup -> erlang:error(notsup);
        Bin -> Bin
    end.
 
-sha256_mac_n_nif(_Key,_Data,_MacSz) -> ?nif_stub.
+sha256_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
+
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
 
 %%
 %%  SHA512_MAC
 %%
 -spec sha512_mac(iodata(), iodata()) -> binary().
--spec sha512_mac_96(iodata(), iodata()) -> binary().
 
 sha512_mac(Key, Data) ->
-    sha512_mac_n(Key,Data,64).
+    sha512_mac(Key, Data, 512 div 8).
 
-sha512_mac(Key, Data, Size) ->
-    sha512_mac_n(Key, Data, Size).
-
-sha512_mac_96(Key, Data) ->
-    sha512_mac_n(Key,Data,12).
-
-sha512_mac_n(Key, Data, MacSz) ->
-   case sha512_mac_n_nif(Key, Data, MacSz) of
+sha512_mac(Key, Data, MacSz) ->
+   case sha512_mac_nif(Key, Data, MacSz) of
        notsup -> erlang:error(notsup);
        Bin -> Bin
    end.
 
-sha512_mac_n_nif(_Key,_Data,_MacSz) -> ?nif_stub.
+sha512_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
 %%
 %% CRYPTO FUNCTIONS
