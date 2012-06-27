@@ -93,10 +93,6 @@ cipher(?AES, CipherState, Mac, Fragment, Version) ->
 		    (Key, IV, T) when byte_size(Key) =:= 32 ->
 			 crypto:aes_cbc_256_encrypt(Key, IV, T)
 		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
-%% cipher(?IDEA, CipherState, Mac, Fragment) ->
-%%     block_cipher(fun(Key, IV, T) ->
-%% 			 crypto:idea_cbc_encrypt(Key, IV, T)
-%% 		 end, block_size(idea_cbc), CipherState, Mac, Fragment);
 
 build_cipher_block(BlockSz, Mac, Fragment) ->
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
@@ -163,10 +159,6 @@ decipher(?AES, HashSz, CipherState, Fragment, Version) ->
 		      (Key, IV, T) when byte_size(Key) =:= 32 ->
 			   crypto:aes_cbc_256_decrypt(Key, IV, T)
 		   end, CipherState, HashSz, Fragment, Version).
-%% decipher(?IDEA, HashSz, CipherState, Fragment, Version) ->
-%%     block_decipher(fun(Key, IV, T) ->
-%%  			   crypto:idea_cbc_decrypt(Key, IV, T)
-%%  		   end, CipherState, HashSz, Fragment, Version);
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
 	       HashSz, Fragment, Version) ->
@@ -238,11 +230,9 @@ suite_definition(?TLS_NULL_WITH_NULL_NULL) ->
 %%     {rsa, null, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_RC4_128_MD5) ->	
     {rsa, rc4_128, md5, default_prf};
-suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->	
+suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->
     {rsa, rc4_128, sha, default_prf};
-%% suite_definition(?TLS_RSA_WITH_IDEA_CBC_SHA) -> 
-%%     {rsa, idea_cbc, sha, default_prf};
-suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->	
+suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->
     {rsa, des_cbc, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_3DES_EDE_CBC_SHA) ->
     {rsa, '3des_ede_cbc', sha, default_prf};
@@ -324,8 +314,6 @@ suite({rsa, rc4_128, md5}) ->
     ?TLS_RSA_WITH_RC4_128_MD5;
 suite({rsa, rc4_128, sha}) ->
     ?TLS_RSA_WITH_RC4_128_SHA;
-%% suite({rsa, idea_cbc, sha}) -> 
-%%     ?TLS_RSA_WITH_IDEA_CBC_SHA;
 suite({rsa, des_cbc, sha}) ->
     ?TLS_RSA_WITH_DES_CBC_SHA; 
 suite({rsa, '3des_ede_cbc', sha}) ->
@@ -420,8 +408,6 @@ openssl_suite("DHE-DSS-AES128-SHA") ->
     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA;
 openssl_suite("AES128-SHA") ->
     ?TLS_RSA_WITH_AES_128_CBC_SHA;
-%%openssl_suite("IDEA-CBC-SHA") ->
-%%    ?TLS_RSA_WITH_IDEA_CBC_SHA;
 openssl_suite("RC4-SHA") ->
     ?TLS_RSA_WITH_RC4_128_SHA;
 openssl_suite("RC4-MD5") -> 
@@ -453,8 +439,6 @@ openssl_suite_name(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA) ->
     "DHE-DSS-AES128-SHA";
 openssl_suite_name(?TLS_RSA_WITH_AES_128_CBC_SHA) ->
     "AES128-SHA";
-%% openssl_suite_name(?TLS_RSA_WITH_IDEA_CBC_SHA) ->
-%%     "IDEA-CBC-SHA";
 openssl_suite_name(?TLS_RSA_WITH_RC4_128_SHA) ->
     "RC4-SHA";
 openssl_suite_name(?TLS_RSA_WITH_RC4_128_MD5) -> 
@@ -512,9 +496,6 @@ filter(DerCert, Ciphers) ->
 
 bulk_cipher_algorithm(null) ->
     ?NULL;
-%% Not supported yet
-%% bulk_cipher_algorithm(idea_cbc) ->
-%%     ?IDEA;
 bulk_cipher_algorithm(rc4_128) ->
     ?RC4;
 bulk_cipher_algorithm(des_cbc) ->
@@ -529,8 +510,7 @@ type(Cipher) when Cipher == null;
 		  Cipher == rc4_128 ->
     ?STREAM;
 
-type(Cipher) when Cipher == idea_cbc;
-		  Cipher == des_cbc;
+type(Cipher) when Cipher == des_cbc;
 		  Cipher == '3des_ede_cbc';
 		  Cipher == aes_128_cbc;
 		  Cipher == aes_256_cbc ->
@@ -538,8 +518,7 @@ type(Cipher) when Cipher == idea_cbc;
 
 key_material(null) ->
     0;
-key_material(Cipher) when Cipher == idea_cbc;
- 			  Cipher == rc4_128 ->
+key_material(rc4_128) ->
     16;
 key_material(des_cbc) ->
     8;
@@ -552,8 +531,7 @@ key_material(aes_256_cbc) ->
 
 expanded_key_material(null) ->
     0;
-expanded_key_material(Cipher) when Cipher == idea_cbc;
- 				   Cipher == rc4_128 ->
+expanded_key_material(rc4_128) ->
     16;
 expanded_key_material(Cipher) when Cipher == des_cbc ->
     8;
@@ -568,8 +546,7 @@ effective_key_bits(null) ->
     0;
 effective_key_bits(des_cbc) ->
     56;
-effective_key_bits(Cipher) when Cipher == idea_cbc;
-				Cipher == rc4_128;
+effective_key_bits(Cipher) when Cipher == rc4_128;
 				Cipher == aes_128_cbc ->
     128;
 effective_key_bits('3des_ede_cbc') ->
@@ -583,8 +560,7 @@ iv_size(Cipher) when Cipher == null;
 iv_size(Cipher) ->
     block_size(Cipher).
 
-block_size(Cipher) when Cipher == idea_cbc;
-			Cipher == des_cbc;
+block_size(Cipher) when Cipher == des_cbc;
 			Cipher == '3des_ede_cbc' -> 
     8;
 
@@ -736,7 +712,6 @@ rsa_suites() ->
      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
      ?TLS_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA,
-     %%?TLS_RSA_WITH_IDEA_CBC_SHA,
      ?TLS_RSA_WITH_RC4_128_SHA,
      ?TLS_RSA_WITH_RC4_128_MD5,
      ?TLS_RSA_WITH_DES_CBC_SHA].
