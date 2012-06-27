@@ -1225,15 +1225,15 @@ rsa_sign_hash_test(Config) when is_list(Config) ->
     PubKey  = [crypto:mpint(PubEx), crypto:mpint(Mod)],
     MD5 = crypto:md5(sized_binary(Msg)),
     SHA = crypto:sha(sized_binary(Msg)),
-    ?line Sig1 = crypto:rsa_sign_hash(sha, SHA, PrivKey),
-    ?line m(crypto:rsa_verify_hash(sha, SHA, sized_binary(Sig1),PubKey), true),
+    ?line Sig1 = crypto:rsa_sign(sha, {digest,SHA}, PrivKey),
+    ?line m(crypto:rsa_verify(sha, {digest,SHA}, sized_binary(Sig1),PubKey), true),
 
-    ?line Sig2 = crypto:rsa_sign_hash(md5, MD5, PrivKey),
-    ?line m(crypto:rsa_verify_hash(md5, MD5, sized_binary(Sig2),PubKey), true),
+    ?line Sig2 = crypto:rsa_sign(md5, {digest,MD5}, PrivKey),
+    ?line m(crypto:rsa_verify(md5, {digest,MD5}, sized_binary(Sig2),PubKey), true),
 
     ?line m(Sig1 =:= Sig2, false),
-    ?line m(crypto:rsa_verify_hash(md5, MD5, sized_binary(Sig1),PubKey), false),
-    ?line m(crypto:rsa_verify_hash(sha, SHA, sized_binary(Sig2),PubKey), false),
+    ?line m(crypto:rsa_verify(md5, {digest,MD5}, sized_binary(Sig1),PubKey), false),
+    ?line m(crypto:rsa_verify(sha, {digest,SHA}, sized_binary(Sig2),PubKey), false),
 
     ok.
 
@@ -1283,7 +1283,7 @@ dsa_sign_hash_test(Config) when is_list(Config) ->
     ParamG = 18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669,
 
     Params = [crypto:mpint(ParamP), crypto:mpint(ParamQ), crypto:mpint(ParamG)],
-    ?line Sig1 = crypto:dss_sign_hash(sha, SHA, Params ++ [crypto:mpint(PrivKey)]),
+    ?line Sig1 = crypto:dss_sign(sha, {digest,SHA}, Params ++ [crypto:mpint(PrivKey)]),
 
     ?line m(crypto:dss_verify(none, SHA, sized_binary(Sig1),
 			      Params ++ [crypto:mpint(PubKey)]), true),
