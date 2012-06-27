@@ -396,11 +396,11 @@
     <name>sign(Msg, DigestType, Key) -> binary()</name>
     <fsummary> Create digital signature.</fsummary>
     <type>
-       <v>Msg = binary()</v>
+       <v>Msg = binary() | {digest,binary()}</v>
        <d>The msg is either the binary "plain text" data to be
-       signed or in the case that digest type is <c>{digest, DigestType}</c>
-       it is the hashed value of "plain text" i.e. the digest.</d>
-       <v>DigestType = rsa_digest_type() | dsa_digest_type() | {digest, rsa_digest_type() | dsa_digest_type()}</v>
+       signed or it is the hashed value of "plain text" i.e. the
+       digest.</d>
+       <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
        <v>Key = rsa_private_key() | dsa_private_key()</v>
   </type> 
   <desc> 
@@ -461,11 +461,10 @@
     <name>verify(Msg, DigestType, Signature, Key) -> boolean()</name>
     <fsummary>Verifies a digital signature.</fsummary>
     <type>
-      <v>Msg = binary()</v>
+      <v>Msg = binary() | {digest,binary()}</v>
        <d>The msg is either the binary "plain text" data 
-        or in the case that digest type is <c>{digest, DigestType}</c>
-	it is the hashed value of "plain text" i.e. the digest.</d>
-      <v>DigestType = rsa_digest_type() | dsa_digest_type() | {digest, rsa_digest_type() | dsa_digest_type()}</v>
+        or it is the hashed value of "plain text" i.e. the digest.</d>
+      <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
       <v>Signature = binary()</v>
       <v>Key = rsa_public_key() | dsa_public_key()</v> 
   </type> 
