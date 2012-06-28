@@ -1682,10 +1682,10 @@ struct trace_pattern_flags {
 };
 extern const struct trace_pattern_flags erts_trace_pattern_flags_off;
 extern int erts_call_time_breakpoint_tracing;
-int erts_set_trace_pattern(Eterm* mfa, int specified, 
+int erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 			   Binary* match_prog_set, Binary *meta_match_prog_set,
 			   int on, struct trace_pattern_flags,
-			   Eterm meta_tracer_pid);
+			   Eterm meta_tracer_pid, int is_blocking);
 void
 erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       Binary **match_spec,
@@ -1694,6 +1694,7 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       Eterm *meta_tracer_pid);
 int erts_is_default_trace_enabled(void);
 void erts_bif_trace_init(void);
+int erts_finish_breakpointing(void);
 
 /*
 ** Call_trace uses this API for the parameter matching functions
@@ -1739,14 +1740,6 @@ extern void erts_match_prog_foreach_offheap(Binary *b,
 					   breakpoint functions */
 #define MATCH_SET_EXCEPTION_TRACE (0x4) /* exception trace requested */
 #define MATCH_SET_RX_TRACE (MATCH_SET_RETURN_TRACE|MATCH_SET_EXCEPTION_TRACE)
-/*
- * Flag values when tracing bif
- * Future note: flag field is 8 bits
- */
-#define BIF_TRACE_AS_LOCAL      (0x1)
-#define BIF_TRACE_AS_GLOBAL     (0x2)
-#define BIF_TRACE_AS_META       (0x4)
-#define BIF_TRACE_AS_CALL_TIME  (0x8)
 
 extern erts_driver_t vanilla_driver;
 extern erts_driver_t spawn_driver;

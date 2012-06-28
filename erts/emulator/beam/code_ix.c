@@ -44,6 +44,10 @@ struct code_ix_queue_item {
 static struct code_ix_queue_item* the_code_ix_queue = NULL;
 static erts_smp_mtx_t the_code_ix_queue_lock;
 
+#ifdef ERTS_ENABLE_LOCK_CHECK
+static erts_tsd_key_t has_code_write_permission;
+#endif
+
 void erts_code_ix_init(void)
 {
     /* We start emulator by initializing preloaded modules
@@ -53,6 +57,9 @@ void erts_code_ix_init(void)
     erts_smp_atomic32_init_nob(&the_active_code_index, 0);
     erts_smp_atomic32_init_nob(&the_staging_code_index, 0);
     erts_smp_mtx_init(&the_code_ix_queue_lock, "code_ix_queue");
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    erts_tsd_key_create(&has_code_write_permission);
+#endif
     CIX_TRACE("init");
 }
 
@@ -112,6 +119,9 @@ int erts_try_seize_code_write_permission(Process* c_p)
     success = !the_code_ix_lock;
     if (success) {
 	the_code_ix_lock = 1;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+	erts_tsd_set(has_code_write_permission, (void *) 1);
+#endif
     }
     else { /* Already locked */
 	struct code_ix_queue_item* qitem;
@@ -128,6 +138,7 @@ int erts_try_seize_code_write_permission(Process* c_p)
 
 void erts_release_code_write_permission(void)
 {
+    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
     erts_smp_mtx_lock(&the_code_ix_queue_lock);
     while (the_code_ix_queue != NULL) { /* unleash the entire herd */
 	struct code_ix_queue_item* qitem = the_code_ix_queue;
@@ -141,12 +152,15 @@ void erts_release_code_write_permission(void)
 	erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
     }
     the_code_ix_lock = 0;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    erts_tsd_set(has_code_write_permission, (void *) 0);
+#endif
     erts_smp_mtx_unlock(&the_code_ix_queue_lock);
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 int erts_is_code_ix_locked(void)
 {
-    return the_code_ix_lock;
+    return the_code_ix_lock && erts_tsd_get(has_code_write_permission);
 }
 #endif

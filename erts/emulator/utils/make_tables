@@ -167,7 +167,6 @@ typedef struct bif_entry {
 
 extern BifEntry bif_table[];
 extern Export* bif_export[];
-extern unsigned char erts_bif_trace_flags[];
 
 #define BIF_SIZE $bif_size
 
@@ -197,7 +196,6 @@ includes("export.h", "sys.h", "erl_vm.h", "erl_process.h", "bif.h",
 	 "erl_bif_table.h", "erl_atom_table.h");
 
 print "\nExport* bif_export[BIF_SIZE];\n";
-print "unsigned char erts_bif_trace_flags[BIF_SIZE];\n\n";
 
 print "BifEntry bif_table[] = {\n";
 for ($i = 0; $i < @bif; $i++) {

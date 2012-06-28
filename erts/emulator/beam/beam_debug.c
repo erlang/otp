@@ -84,6 +84,7 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     int i;
     int specified = 0;
     Eterm res;
+    BpFunctions f;
 
     if (bool != am_true && bool != am_false)
 	goto error;
@@ -121,11 +122,19 @@ erts_debug_breakpoint_2(BIF_ALIST_2)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
 
+    erts_bp_match_functions(&f, mfa, specified);
     if (bool == am_true) {
-	res = make_small(erts_set_debug_break(mfa, specified));
+	erts_set_debug_break(&f);
+	erts_install_breakpoints(&f);
+	erts_commit_staged_bp();
     } else {
-	res = make_small(erts_clear_debug_break(mfa, specified));
+	erts_clear_debug_break(&f);
+	erts_commit_staged_bp();
+	erts_uninstall_breakpoints(&f);
     }
+    erts_consolidate_bp_data(&f, 1);
+    res = make_small(f.matched);
+    erts_bp_free_matched_functions(&f);
 
     erts_smp_thr_progress_unblock();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);

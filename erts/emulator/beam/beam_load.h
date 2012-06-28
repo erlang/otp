@@ -49,7 +49,6 @@ extern void** beam_ops;
 extern BeamInstr beam_debug_apply[];
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_apply_bif;
-extern BeamInstr* em_call_traced_function;
 
 /*
  * The following variables keep a sorted list of address ranges for

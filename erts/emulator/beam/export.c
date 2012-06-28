@@ -137,7 +137,6 @@ export_alloc(struct export_entry* tmpl_e)
 	obj->code[2] = tmpl->code[2];
 	obj->code[3] = (BeamInstr) em_call_error_handler;
 	obj->code[4] = 0;
-	obj->match_prog_set = NULL;
 
 	for (ix=0; ix<ERTS_NUM_CODE_IX; ix++) {
 	    obj->addressv[ix] = obj->code+3;
@@ -260,8 +259,9 @@ erts_find_function(Eterm m, Eterm f, unsigned int a, ErtsCodeIndex code_ix)
     struct export_entry* ee;
 
     ee = hash_get(&export_tables[code_ix].htable, init_template(&templ, m, f, a));
-    if (ee == NULL || (ee->ep->addressv[code_ix] == ee->ep->code+3 &&
-		       ee->ep->code[3] != (BeamInstr) em_call_traced_function)) {
+    if (ee == NULL ||
+	(ee->ep->addressv[code_ix] == ee->ep->code+3 &&
+	 ee->ep->code[3] != (BeamInstr) BeamOp(op_i_generic_breakpoint))) {
 	return NULL;
     }
     return ee->ep;
