@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -489,7 +489,7 @@ terminate(_Reason, #state{nodes=_Nodes}) ->
     ok.
 
 code_change(_, _, State) ->
-    {stop, not_yet_implemented, State}.
+    {ok, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 do_add_patterns({Module, NewPs}, State=#state{tpatterns=TPs0, m_view=Mview, f_view=Fview}) ->

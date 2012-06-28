@@ -353,7 +353,7 @@ terminate(_Reason, #state{frame = Frame}) ->
     ok.
 
 code_change(_, _, State) ->
-    {stop, not_yet_implemented, State}.
+    {ok, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
