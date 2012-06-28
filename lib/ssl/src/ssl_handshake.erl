@@ -131,7 +131,7 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 					   Renegotiation, SecureRenegotation, []) of
 		{ok, ConnectionStates1} ->
 		    ConnectionStates =
-			hello_pending_connection_states(client, CipherSuite, Random, 
+			hello_pending_connection_states(client, Version, CipherSuite, Random,
 							Compression, ConnectionStates1),
 		    {Version, SessionId, ConnectionStates};
 		#alert{} = Alert ->
@@ -164,6 +164,7 @@ hello(#client_hello{client_version = ClientVersion, random = Random,
 			{ok, ConnectionStates1} ->
 			    ConnectionStates =
 				hello_pending_connection_states(server, 
+								Version,
 								CipherSuite,
 								Random, 
 								Compression,
@@ -286,10 +287,13 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
-certificate_verify(Signature, {?'rsaEncryption'= Algorithm, PublicKey, _}, Version,
-		   MasterSecret, {_, Handshake}) ->
-    Hashes = calc_certificate_verify(Version, MasterSecret,
-					   Algorithm, Handshake),
+certificate_verify_rsa(Hashes, sha, Signature, PublicKey, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    public_key:verify({digest, Hashes}, sha, Signature, PublicKey);
+certificate_verify_rsa(Hashes, HashAlgo, Signature, PublicKey, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    public_key:verify({digest, Hashes}, HashAlgo, Signature, PublicKey);
+certificate_verify_rsa(Hashes, _HashAlgo, Signature, PublicKey, _Version) ->
     case public_key:decrypt_public(Signature, PublicKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Hashes ->
@@ -527,8 +531,7 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
     end.
 
 %%--------------------------------------------------------------------
--spec server_key_exchange_hash(rsa | dhe_rsa| dhe_dss | dh_anon, binary()) -> binary().
-
+-spec server_key_exchange_hash(md5sha1 | md5 | sha | sha256 | sha384 | sha512, binary()) -> binary().
 %%
 %% Description: Calculate server key exchange hash
 %%--------------------------------------------------------------------
@@ -551,7 +554,7 @@ prf({3,0}, _, _, _, _) ->
     {error, undefined};
 prf({3,1}, Secret, Label, Seed, WantedLength) ->
     {ok, ssl_tls1:prf(?MD5SHA, Secret, Label, Seed, WantedLength)};
-prf({3,N}, Secret, Label, Seed, WantedLength) ->
+prf({3,_N}, Secret, Label, Seed, WantedLength) ->
     {ok, ssl_tls1:prf(?SHA256, Secret, Label, Seed, WantedLength)}.
 
 %%--------------------------------------------------------------------
@@ -719,7 +722,7 @@ handle_renegotiation_info(ConnectionStates, SecureRenegotation) ->
 %% hello messages
 %% NOTE : Role is the role of the receiver of the hello message
 %%        currently being processed.
-hello_pending_connection_states(Role, CipherSuite, Random, Compression,
+hello_pending_connection_states(Role, Version, CipherSuite, Random, Compression,
 				 ConnectionStates) ->    
     ReadState =  
 	ssl_record:pending_connection_state(ConnectionStates, read),
@@ -727,30 +730,30 @@ hello_pending_connection_states(Role, CipherSuite, Random, Compression,
 	ssl_record:pending_connection_state(ConnectionStates, write),
     
     NewReadSecParams = 
-	hello_security_parameters(Role, ReadState, CipherSuite, 
+	hello_security_parameters(Role, Version, ReadState, CipherSuite,
 			    Random, Compression),
     
     NewWriteSecParams =
-	hello_security_parameters(Role, WriteState, CipherSuite,
+	hello_security_parameters(Role, Version, WriteState, CipherSuite,
 			    Random, Compression),
  
     ssl_record:update_security_params(NewReadSecParams,
 				    NewWriteSecParams,
 				    ConnectionStates).
 
-hello_security_parameters(client, ConnectionState, CipherSuite, Random,
+hello_security_parameters(client, Version, ConnectionState, CipherSuite, Random,
 			  Compression) ->   
     SecParams = ConnectionState#connection_state.security_parameters,
-    NewSecParams = ssl_cipher:security_parameters(CipherSuite, SecParams),
+    NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
     NewSecParams#security_parameters{
       server_random = Random,
       compression_algorithm = Compression
      };
 
-hello_security_parameters(server, ConnectionState, CipherSuite, Random, 
+hello_security_parameters(server, Version, ConnectionState, CipherSuite, Random,
 			  Compression) ->
     SecParams = ConnectionState#connection_state.security_parameters,
-    NewSecParams = ssl_cipher:security_parameters(CipherSuite, SecParams),
+    NewSecParams = ssl_cipher:security_parameters(Version, CipherSuite, SecParams),
     NewSecParams#security_parameters{
       client_random = Random,
       compression_algorithm = Compression
@@ -1093,6 +1096,17 @@ certificate_types({KeyExchange, _, _, _})
 certificate_types(_) ->
     <<?BYTE(?RSA_SIGN)>>.
 
+hashsign_dec(<<?BYTE(HashAlgo), ?BYTE(SignAlgo)>>) ->
+    {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)}.
+
+hashsign_enc(HashAlgo, SignAlgo) ->
+    Hash = ssl_cipher:hash_algorithm(HashAlgo),
+    Sign = ssl_cipher:sign_algorithm(SignAlgo),
+    <<?BYTE(Hash), ?BYTE(Sign)>>.
+
+hashsign_algorithms(_) ->
+    hashsign_enc(sha, rsa).
+
 certificate_authorities(CertDbHandle, CertDbRef) ->
     Authorities = certificate_authorities_from_db(CertDbHandle, CertDbRef),
     Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
@@ -1114,7 +1128,12 @@ certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
 		      end,	
     ssl_certificate_db:foldl(ConnectionCerts, [], CertDbHandle).
 
-digitally_signed(Hash, #'RSAPrivateKey'{} = Key) ->
+
+digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
+    public_key:sign({digest, Hash}, HashAlgo, Key);
+digitally_signed(_Version, Hash, _HashAlgo, #'DSAPrivateKey'{} = Key) ->
+    public_key:sign({digest, Hash}, sha, Key);
+digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
 digitally_signed(Hash, #'DSAPrivateKey'{} = Key) ->
@@ -1123,45 +1142,27 @@ digitally_signed(Hash, #'DSAPrivateKey'{} = Key) ->
 calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_ssl3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
 
-calc_master_secret({3,N}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
-  when N == 1; N == 2 ->
-    ssl_tls1:master_secret(?MD5SHA, PremasterSecret, ClientRandom, ServerRandom);
-
-calc_master_secret({3,N}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom)
-  when N == 3 ->
-    %% only from TLS 1.2 onwards the selection of a PrfAlgo is supported
+calc_master_secret({3,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_tls1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 
 setup_keys({3,0}, _PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
-    ssl_ssl3:setup_keys(MasterSecret, ServerRandom, 
+    ssl_ssl3:setup_keys(MasterSecret, ServerRandom,
 			ClientRandom, HashSize, KML, EKML, IVS);
 
-setup_keys({3,N}, _PrfAlgo, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS)
-  when N == 1; N == 2 ->
-    ssl_tls1:setup_keys(N, ?MD5SHA, MasterSecret, ServerRandom, ClientRandom, HashSize,
-			KML, IVS);
-
 setup_keys({3,N}, PrfAlgo, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS)
-  when N == 3 ->
+	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
     ssl_tls1:setup_keys(N, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
 
 calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
     ssl_ssl3:finished(Role, MasterSecret, lists:reverse(Handshake));
-calc_finished({3, N}, Role, _PrfAlgo, MasterSecret, Handshake)
-  when  N == 1; N == 2 ->
-    ssl_tls1:finished(Role, N, ?MD5SHA, MasterSecret, lists:reverse(Handshake));
-calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake)
-  when  N == 3 ->
+calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     ssl_tls1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
 calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
     ssl_ssl3:certificate_verify(HashAlgo, MasterSecret, lists:reverse(Handshake));
-calc_certificate_verify({3, N}, HashAlgo, _MasterSecret, Handshake)
-  when  N == 1; N == 2 ->
+calc_certificate_verify({3, N}, HashAlgo, _MasterSecret, Handshake) ->
     ssl_tls1:certificate_verify(HashAlgo, N, lists:reverse(Handshake)).
 
 key_exchange_alg(rsa) ->

@@ -435,9 +435,8 @@ abbreviated(#finished{verify_data = Data} = Finished,
 		   session = #session{master_secret = MasterSecret},
 		  connection_states = ConnectionStates0} = 
 	    State) ->
-%%CHECKME: the connection state prf logic is pure guess work!
     case ssl_handshake:verify_connection(Version, Finished, client,
-					 get_current_connection_state_prf(ConnectionStates0, read),
+					 get_current_connection_state_prf(ConnectionStates0, write),
 					 MasterSecret, Handshake) of
         verified ->  
 	    ConnectionStates = ssl_record:set_client_verify_data(current_both, Data, ConnectionStates0),
@@ -453,7 +452,6 @@ abbreviated(#finished{verify_data = Data} = Finished,
 		   session = #session{master_secret = MasterSecret},
 		   negotiated_version = Version,
 		   connection_states = ConnectionStates0} = State) ->
-%%CHECKME: the connection state prf logic is pure guess work!
     case ssl_handshake:verify_connection(Version, Finished, server,
 					 get_pending_connection_state_prf(ConnectionStates0, write),
 					 MasterSecret, Handshake0) of
@@ -2414,3 +2412,41 @@ get_current_connection_state_prf(CStates, Direction) ->
 get_pending_connection_state_prf(CStates, Direction) ->
 	CS = ssl_record:pending_connection_state(CStates, Direction),
 	CS#connection_state.security_parameters#security_parameters.prf_algorithm.
+
+connection_hash_algo({HashAlgo, _}, _State) ->
+    HashAlgo;
+connection_hash_algo(_, #state{hashsign_algorithm = {HashAlgo, _}}) ->
+    HashAlgo.
+
+%% RFC 5246, Sect. 7.4.1.4.1.  Signature Algorithms
+%% If the client does not send the signature_algorithms extension, the
+%% server MUST do the following:
+%%
+%% -  If the negotiated key exchange algorithm is one of (RSA, DHE_RSA,
+%%    DH_RSA, RSA_PSK, ECDH_RSA, ECDHE_RSA), behave as if client had
+%%    sent the value {sha1,rsa}.
+%%
+%% -  If the negotiated key exchange algorithm is one of (DHE_DSS,
+%%    DH_DSS), behave as if the client had sent the value {sha1,dsa}.
+%%
+%% -  If the negotiated key exchange algorithm is one of (ECDH_ECDSA,
+%%    ECDHE_ECDSA), behave as if the client had sent value {sha1,ecdsa}.
+
+default_hashsign(_Version = {Major, Minor}, KeyExchange)
+  when Major == 3 andalso Minor >= 3 andalso
+       (KeyExchange == rsa orelse
+	KeyExchange == dhe_rsa orelse
+	KeyExchange == dh_rsa) ->
+    {sha, rsa};
+default_hashsign(_Version, KeyExchange)
+  when KeyExchange == rsa;
+       KeyExchange == dhe_rsa;
+       KeyExchange == dh_rsa ->
+    {md5sha, rsa};
+default_hashsign(_Version, KeyExchange)
+  when KeyExchange == dhe_dss;
+       KeyExchange == dh_dss ->
+    {sha, dsa};
+default_hashsign(_Version, KeyExchange)
+  when KeyExchange == dh_anon ->
+    {null, anon}.

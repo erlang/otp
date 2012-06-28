@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -561,14 +561,14 @@ highest_protocol_version() ->
 
 initial_connection_state(ConnectionEnd) ->
     #connection_state{security_parameters =
-                      initial_security_params(ConnectionEnd),
+			  initial_security_params(ConnectionEnd),
                       sequence_number = 0
                      }.
 
 initial_security_params(ConnectionEnd) ->
     SecParams = #security_parameters{connection_end = ConnectionEnd,
 				     compression_algorithm = ?NULL},
-    ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, 
+    ssl_cipher:security_parameters(highest_protocol_version(), ?TLS_NULL_WITH_NULL_NULL,
 				   SecParams).
 
 empty_connection_state(ConnectionEnd) ->

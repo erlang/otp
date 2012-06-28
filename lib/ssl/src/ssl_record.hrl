@@ -98,11 +98,12 @@
 %-define(TRUE, 0).  %% Already defined by ssl_internal.hrl
 %-define(FALSE, 1). %% Already defined by ssl_internal.hrl
 
-%% MACAlgorithm
+%% MAC and PRF Algorithms
 %-define(NULL, 0). %% Already defined by ssl_internal.hrl
 -define(MD5, 1).
 -define(SHA, 2).
--define(MD5SHA, 3).
+-define(MD5SHA, 4711). %% Not defined in protocol used to represent old prf
+-define(SHA224, 3).
 -define(SHA256, 4).
 -define(SHA384, 5).
 -define(SHA512, 6).

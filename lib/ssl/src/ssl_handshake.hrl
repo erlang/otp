@@ -33,6 +33,12 @@
 -type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
 -type tls_handshake_history() :: {[binary()], [binary()]}.
 
+%% Signature algorithms
+-define(ANON, 0).
+-define(RSA, 1).
+-define(DSA, 2).
+-define(ECDSA, 3).
+
 -record(session, {
 	  session_id,
 	  peer_certificate,

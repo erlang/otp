@@ -28,7 +28,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 
--export([master_secret/4, finished/5, certificate_verify/3, mac_hash/7,
+-export([master_secret/4, finished/5, certificate_verify/2, mac_hash/7,
 	 setup_keys/8, suites/1, prf/5]).
 
 %%====================================================================
@@ -73,14 +73,14 @@ finished(Role, Version, PrfAlgo, MasterSecret, Handshake)
     Hash = crypto:hash(mac_algo(PrfAlgo), Handshake),
     prf(PrfAlgo, MasterSecret, finished_label(Role), Hash, 12).
 
--spec certificate_verify(OID::tuple(), [binary()]) -> binary().
+-spec certificate_verify(md5sha | sha, integer(), [binary()]) -> binary().
 
 certificate_verify(?'rsaEncryption', Handshake) ->
     MD5 = crypto:md5(Handshake),
     SHA = crypto:sha(Handshake),
     <<MD5/binary, SHA/binary>>;
 
-certificate_verify(?'id-dsa', Handshake) ->
+certificate_verify(sha, _Version, Handshake) ->
     crypto:sha(Handshake).
 
 -spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
@@ -233,7 +233,6 @@ hmac_hash(?SHA512, Key, Value) ->
 
 mac_algo(?MD5)    -> md5;
 mac_algo(?SHA)    -> sha;
-mac_algo(?MD5SHA) -> sha256;  %% RFC 5246 defines minimum hash for TLS 1.2
 mac_algo(?SHA256) -> sha256;
 mac_algo(?SHA384) -> sha384;
 mac_algo(?SHA512) -> sha512.
@@ -287,8 +286,7 @@ split_secret(BinSecret) ->
     <<_:Div/binary, Secret2:EvenLength/binary>> = BinSecret,
     {Secret1, Secret2}.
 
-prf(MAC, Secret, Label, Seed, WantedLength)
-  when MAC == ?MD5SHA ->
+prf(?MD5SHA, Secret, Label, Seed, WantedLength) ->
     %% PRF(secret, label, seed) = P_MD5(S1, label + seed) XOR
     %%                            P_SHA-1(S2, label + seed);
     {S1, S2} = split_secret(Secret),

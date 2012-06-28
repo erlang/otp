@@ -28,10 +28,11 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
+-include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([security_parameters/2, suite_definition/1,
+-export([security_parameters/3, suite_definition/1,
 	 decipher/5, cipher/5,
 	 suite/1, suites/1, anonymous_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2]).
@@ -39,14 +40,14 @@
 -compile(inline).
 
 %%--------------------------------------------------------------------
--spec security_parameters(cipher_suite(), #security_parameters{}) -> 
+-spec security_parameters(tls_version(), cipher_suite(), #security_parameters{}) ->
 				 #security_parameters{}.
 %%
 %% Description: Returns a security parameters record where the
 %% cipher values has been updated according to <CipherSuite> 
 %%-------------------------------------------------------------------
-security_parameters(CipherSuite, SecParams) ->
-    { _, Cipher, Hash, PrfHash} = suite_definition(CipherSuite),
+security_parameters(Version, CipherSuite, SecParams) ->
+    { _, Cipher, Hash, PrfHashAlg} = suite_definition(CipherSuite),
     SecParams#security_parameters{
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
@@ -55,8 +56,8 @@ security_parameters(CipherSuite, SecParams) ->
       expanded_key_material_length = expanded_key_material(Cipher),
       key_material_length = key_material(Cipher),
       iv_size = iv_size(Cipher),
-      mac_algorithm = mac_algorithm(Hash),
-      prf_algorithm = prf_algorithm(PrfHash),
+      mac_algorithm = hash_algorithm(Hash),
+      prf_algorithm = prf_algorithm(PrfHashAlg, Version),
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
@@ -590,29 +591,36 @@ block_size(Cipher) when Cipher == aes_128_cbc;
 			Cipher == aes_256_cbc ->
     16.
 
-mac_algorithm(null) ->
-    ?NULL;
-mac_algorithm(md5) ->
-    ?MD5;
-mac_algorithm(sha) ->
-    ?SHA;
-mac_algorithm(sha256) ->
+prf_algorithm(default_prf, {3, N}) when N >= 3 ->
     ?SHA256;
-mac_algorithm(sha384) ->
-    ?SHA384.
+prf_algorithm(default_prf, {3, _}) ->
+    ?MD5SHA;
+prf_algorithm(Algo, _) ->
+    hash_algorithm(Algo).
 
-prf_algorithm(default_prf) ->
-    ?SHA256;
-prf_algorithm(null) ->
-    ?NULL;
-prf_algorithm(md5) ->
-    ?MD5;
-prf_algorithm(sha) ->
-    ?SHA;
-prf_algorithm(sha256) ->
-    ?SHA256;
-prf_algorithm(sha384) ->
-    ?SHA384.
+hash_algorithm(null)   -> ?NULL;
+hash_algorithm(md5)    -> ?MD5;
+hash_algorithm(sha)   -> ?SHA; %% Only sha always refers to "SHA-1"
+hash_algorithm(sha224) -> ?SHA224;
+hash_algorithm(sha256) -> ?SHA256;
+hash_algorithm(sha384) -> ?SHA384;
+hash_algorithm(sha512) -> ?SHA512;
+hash_algorithm(?NULL) -> null;
+hash_algorithm(?MD5) -> md5;
+hash_algorithm(?SHA) -> sha;
+%%hash_algorithm(?SHA224) -> sha224;
+hash_algorithm(?SHA256) -> sha256;
+hash_algorithm(?SHA384) -> sha384;
+hash_algorithm(?SHA512) -> sha512.
+
+sign_algorithm(anon)  -> ?ANON;
+sign_algorithm(rsa)   -> ?RSA;
+sign_algorithm(dsa)   -> ?DSA;
+sign_algorithm(ecdsa) -> ?ECDSA;
+sign_algorithm(?ANON) -> anon;
+sign_algorithm(?RSA) -> rsa;
+sign_algorithm(?DSA) -> dsa;
+sign_algorithm(?ECDSA) -> ecdsa.
 
 hash_size(null) ->
     0;
@@ -621,9 +629,7 @@ hash_size(md5) ->
 hash_size(sha) ->
     20;
 hash_size(sha256) ->
-    32;
-hash_size(sha384) ->
-    48.
+    32.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

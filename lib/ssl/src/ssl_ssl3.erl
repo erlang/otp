@@ -74,7 +74,7 @@ finished(Role, MasterSecret, Handshake) ->
     SHA = handshake_hash(?SHA, MasterSecret, Sender, Handshake),
     <<MD5/binary, SHA/binary>>.
 
--spec certificate_verify(OID::tuple(), binary(), [binary()]) -> binary().
+-spec certificate_verify(md5sha | sha, binary(), [binary()]) -> binary().
 
 certificate_verify(?'rsaEncryption', MasterSecret, Handshake) ->
      %% md5_hash
@@ -88,7 +88,7 @@ certificate_verify(?'rsaEncryption', MasterSecret, Handshake) ->
     SHA = handshake_hash(?SHA, MasterSecret, undefined, Handshake),
     <<MD5/binary, SHA/binary>>;
 
-certificate_verify(?'id-dsa', MasterSecret, Handshake) ->
+certificate_verify(sha, MasterSecret, Handshake) ->
      %% sha_hash
      %%           SHA(master_secret + pad_2 +
      %%               SHA(handshake_messages + master_secret + pad_1));
@@ -153,26 +153,17 @@ suites() ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-hash(?MD5, Data) -> 
+hash(?MD5, Data) ->
     crypto:md5(Data);
-hash(?SHA, Data) -> 
-    crypto:sha(Data);
-hash(?SHA256, Data) ->
-    crypto:sha256(Data);
-hash(?SHA384, Data) ->
-    crypto:sha384(Data).
+hash(?SHA, Data) ->
+    crypto:sha(Data).
 
 %%pad_1(?NULL) ->
 %%    "";
 pad_1(?MD5) ->
     <<"666666666666666666666666666666666666666666666666">>;
 pad_1(?SHA) ->
-    <<"6666666666666666666666666666666666666666">>;
-pad_1(?SHA256) ->
-    <<"66666666666666666666666666666666">>;
-pad_1(?SHA384) ->
-    <<"666666666666666666666666666666666666666666666666">>.
-
+    <<"6666666666666666666666666666666666666666">>.
 %%pad_2(?NULL) ->
 %%    "";
 pad_2(?MD5) ->
@@ -180,14 +171,7 @@ pad_2(?MD5) ->
      "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\">>;
 pad_2(?SHA) ->
     <<"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
-     "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\">>;
-pad_2(?SHA256) ->
-    <<"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
-      "\\\\\\\\\\\\\\\\\\\\\\\\">>;
-pad_2(?SHA384) ->
-    <<"\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
-      "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\"
-      "\\\\\\\\\\\\\\\\">>.
+     "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\">>.
 
 mac_hash(?NULL, _Secret, _Data) ->
     <<>>;
