@@ -287,19 +287,6 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
-certificate_verify_rsa(Hashes, sha, Signature, PublicKey, {Major, Minor})
-  when Major == 3, Minor >= 3 ->
-    public_key:verify({digest, Hashes}, sha, Signature, PublicKey);
-certificate_verify_rsa(Hashes, HashAlgo, Signature, PublicKey, {Major, Minor})
-  when Major == 3, Minor >= 3 ->
-    public_key:verify({digest, Hashes}, HashAlgo, Signature, PublicKey);
-certificate_verify_rsa(Hashes, _HashAlgo, Signature, PublicKey, _Version) ->
-    case public_key:decrypt_public(Signature, PublicKey,
-				   [{rsa_pad, rsa_pkcs1_padding}]) of
-	Hashes -> true;
-	_      -> false
-    end.
-
 certificate_verify(Signature, {?'rsaEncryption', PublicKey, _}, Version,
 		   {HashAlgo, _SignAlgo}, MasterSecret, {_, Handshake}) ->
     Hashes = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
@@ -386,7 +373,7 @@ key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 	    Signed = digitally_signed(Version, Hash, HashAlgo, PrivateKey),
 	    #server_key_exchange{params = ServerDHParams,
 				 signed_params = Signed,
-				 hashsign = {HashAlgo, digitally_signed_alg(PrivateKey)}}
+				 hashsign = {HashAlgo, dsa}}
     end.
 
 %%--------------------------------------------------------------------
@@ -543,7 +530,7 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
     end.
 
 %%--------------------------------------------------------------------
--spec server_key_exchange_hash(md5sha1 | md5 | sha | sha256 | sha384 | sha512, binary()) -> binary().
+-spec server_key_exchange_hash(md5sha | md5 | sha | sha256 | sha384 | sha512, binary()) -> binary().
 %%
 %% Description: Calculate server key exchange hash
 %%--------------------------------------------------------------------
@@ -1187,9 +1174,6 @@ digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]).
 
-digitally_signed_alg(#'RSAPrivateKey'{} = _Key) -> rsa;
-digitally_signed_alg(#'DSAPrivateKey'{} = _Key) -> dsa.
-
 calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_ssl3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
 
@@ -1232,4 +1216,17 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
 	    Fail;
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
+    end.
+
+certificate_verify_rsa(Hashes, sha, Signature, PublicKey, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    public_key:verify({digest, Hashes}, sha, Signature, PublicKey);
+certificate_verify_rsa(Hashes, HashAlgo, Signature, PublicKey, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    public_key:verify({digest, Hashes}, HashAlgo, Signature, PublicKey);
+certificate_verify_rsa(Hashes, _HashAlgo, Signature, PublicKey, _Version) ->
+    case public_key:decrypt_public(Signature, PublicKey,
+				   [{rsa_pad, rsa_pkcs1_padding}]) of
+	Hashes -> true;
+	_      -> false
     end.

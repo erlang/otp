@@ -103,7 +103,7 @@ certificate_chain(OwnCert, CertDbHandle, CertsDbRef) ->
     ErlCert = public_key:pkix_decode_cert(OwnCert, otp),
     certificate_chain(ErlCert, OwnCert, CertDbHandle, CertsDbRef, [OwnCert]).
 %%--------------------------------------------------------------------
--spec file_to_certificats(string(), term()) -> [der_cert()].
+-spec file_to_certificats(binary(), term()) -> [der_cert()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------
