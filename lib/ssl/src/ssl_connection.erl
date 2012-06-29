@@ -100,6 +100,7 @@
 	#'DHParameter'{prime = ?DEFAULT_DIFFIE_HELLMAN_PRIME,
 		       base = ?DEFAULT_DIFFIE_HELLMAN_GENERATOR}).
 -define(WAIT_TO_ALLOW_RENEGOTIATION, 12000).
+-define(CLOSE_TIMEOUT, 5000).
 
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
 -type gen_fsm_state_return() :: {next_state, state_name(), #state{}} |
@@ -2355,7 +2356,7 @@ workaround_transport_delivery_problems(Socket, Transport, _) ->
     %% get a correct error message.
     inet:setopts(Socket, [{active, false}]),
     Transport:shutdown(Socket, write),
-    Transport:recv(Socket, 0).
+    Transport:recv(Socket, 0, ?CLOSE_TIMEOUT).
 
 linux_workaround_transport_delivery_problems(#alert{level = ?FATAL}, Socket) ->
     case os:type() of
