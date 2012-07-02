@@ -106,6 +106,7 @@ all() ->
 	     receive_chunked_data,
 	     timeout_receive_chunked_data,
 	     close_while_waiting_for_chunked_data,
+	     connection_crash,
 	     get_event_streams,
 	     create_subscription,
 	     receive_event]
@@ -764,6 +765,18 @@ close_while_waiting_for_chunked_data(Config) ->
     %% sure the rpc-reply is sent - but only a part of it - then close.
     ?NS:expect('get'),
     {error,closed} = ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]},2000),
+    ok.
+
+connection_crash(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,Client} = open_success(DataDir),
+
+    %% Test that if the test survives killing the connection
+    %% process. Earlier this caused ct_util_server to terminate, and
+    %% this aborting the complete test run.
+    spawn(fun() -> timer:sleep(500),exit(Client,kill) end),
+    ?NS:expect(get),
+    {error,{closed,killed}}=ct_netconfc:get(Client,{server,[{xmlns,"myns"}],[]}),
     ok.
 
 get_event_streams(Config) ->

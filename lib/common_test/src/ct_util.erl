@@ -369,11 +369,23 @@ loop(Mode,TestData,StartDir) ->
 	{'EXIT',_Pid,normal} ->
 	    loop(Mode,TestData,StartDir);
 	{'EXIT',Pid,Reason} ->
-	    %% Let process crash in case of error, this shouldn't happen!
-	    io:format("\n\nct_util_server got EXIT from ~p: ~p\n\n",
-		      [Pid,Reason]),
-	    file:set_cwd(StartDir),
-	    exit(Reason)
+	    case ets:lookup(?conn_table,Pid) of
+		[#conn{address=A,callback=CB}] ->
+		    %% A connection crashed - remove the connection but don't die
+		    ct_logs:tc_log_async(ct_error_notify,
+					 "Connection process died: "
+					 "Pid: ~p, Address: ~p, Callback: ~p\n"
+					 "Reason: ~p\n\n",
+					 [Pid,A,CB,Reason]),
+		    catch CB:close(Pid),
+		    loop(Mode,TestData,StartDir);
+		_ ->
+		    %% Let process crash in case of error, this shouldn't happen!
+		    io:format("\n\nct_util_server got EXIT from ~p: ~p\n\n",
+			      [Pid,Reason]),
+		    file:set_cwd(StartDir),
+		    exit(Reason)
+	    end
     end.
 
 
