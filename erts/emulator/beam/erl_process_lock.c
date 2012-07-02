@@ -1272,7 +1272,7 @@ void erts_lcnt_enable_proc_lock_count(int enable) {
     int i;
 
     for (i = 0; i < erts_max_processes; ++i) {
-	Process* p = process_tab[i];
+	Process* p = erts_pix2proc(i);
 	if (p) {
 	    if (enable) {
 		if (!ERTS_LCNT_LOCK_TYPE(&(p->lock.lcnt_main))) {
