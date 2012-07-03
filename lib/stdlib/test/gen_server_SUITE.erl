@@ -37,7 +37,8 @@
 
 % spawn export
 -export([spec_init_local/2, spec_init_global/2, spec_init_via/2,
-	 spec_init_default_timeout/2, spec_init_anonymous/1,
+	 spec_init_default_timeout/2, spec_init_global_default_timeout/2,
+         spec_init_anonymous/1,
 	 spec_init_anonymous_default_timeout/1,
 	 spec_init_not_proc_lib/1, cast_fast_messup/0]).
 
@@ -749,7 +750,7 @@ spec_init(suite) ->
 spec_init(Config) when is_list(Config) ->
     
     OldFlag = process_flag(trap_exit, true),
-    
+
     ?line {ok, Pid0} = start_link(spec_init_local, [{ok, my_server}, []]),
     ?line ok = gen_server:call(Pid0, started_p),
     ?line ok = gen_server:call(Pid0, stop),
@@ -817,6 +818,20 @@ spec_init(Config) when is_list(Config) ->
  	    ok
     after 5000 ->
 	    test_server:fail(gen_server_did_not_die)
+    end,
+
+    %% There is probably a better way to test this.
+    %% Before the OTP-10130 fix this failed because a timeout message
+    %% was generated as the spawned process crashed because a {global, Name}
+    %% was matched as a timeout value instead of matching on scope.
+    {ok, _PidHurra} =
+	start_link(spec_init_global_default_timeout, [{ok, hurra}, []]),
+    receive
+         _Anything ->
+            ct:log("OTP-10130, received: ~p~n", [_Anything]),
+	    test_server:fail(init_of_global_default_timeout_failed)
+    after 5000 ->
+            ok
     end,
 
     ?line Pid5 = 
@@ -1124,6 +1139,15 @@ spec_init_default_timeout({ok, Name}, Options) ->
     proc_lib:init_ack({ok, self()}),
     %% Supervised init can occur here  ...
     gen_server:enter_loop(?MODULE, Options, {}, {local, Name}).
+
+%% OTP-10130, A bug was introduced where global scope was not matched when
+%% enter_loop/4 was called (no timeout).
+spec_init_global_default_timeout({ok, Name}, Options) ->
+    process_flag(trap_exit, true),
+    global:register_name(Name, self()),
+    proc_lib:init_ack({ok, self()}),
+    %% Supervised init can occur here  ...
+    gen_server:enter_loop(?MODULE, Options, {}, {global, Name}).
 
 spec_init_anonymous(Options) ->
     process_flag(trap_exit, true),
