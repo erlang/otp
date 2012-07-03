@@ -282,7 +282,8 @@ change_notify(Log, Pid, NewNotify) ->
 
 -spec change_header(Log, Header) -> 'ok' | {'error', Reason} when
       Log :: log(),
-      Header :: {head, dlog_head_opt()} | {head_func, mfa()},
+      Header :: {head, dlog_head_opt()}
+              | {head_func, MFA :: {atom(), atom(), list()}},
       Reason :: no_such_log | nonode | {read_only_mode, Log}
               | {blocked_log, Log} | {badarg, head}.
 change_header(Log, NewHead) ->
@@ -336,7 +337,9 @@ format_error(Error) ->
                         ok | {blocked, QueueLogRecords :: boolean()}}
                    | {node, Node :: node()}
                    | {distributed, Dist :: local | [node()]}
-                   | {head, Head :: none | {head, term()} | mfa()}
+                   | {head, Head :: none
+                                  | {head, term()}
+                                  | (MFA :: {atom(), atom(), list()})}
                    | {no_written_items, NoWrittenItems ::non_neg_integer()}
                    | {full, Full :: boolean}
                    | {no_current_bytes, non_neg_integer()}

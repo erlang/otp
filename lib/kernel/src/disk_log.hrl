@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -74,7 +74,7 @@
                           | {distributed, Nodes :: [node()]}
                           | {notify, boolean()}
                           | {head, Head :: dlog_head_opt()}
-                          | {head_func, mfa()}
+                          | {head_func, MFA :: {atom(), atom(), list()}}
                           | {mode, Mode :: dlog_mode()}.
 -type dlog_options()     :: [dlog_option()].
 -type dlog_repair()      :: 'truncate' | boolean().
