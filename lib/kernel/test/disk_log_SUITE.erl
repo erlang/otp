@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -90,7 +90,7 @@
 
          evil/1,
 
-         otp_6278/1]).
+         otp_6278/1, otp_10131/1]).
 
 -export([head_fun/1, hf/0, lserv/1, 
 	 measure/0, init_m/1, xx/0, head_exit/0, slow_header/1]).
@@ -124,7 +124,7 @@
 	[halt_int, wrap_int, halt_ext, wrap_ext, read_mode, head,
 	 notif, new_idx_vsn, reopen, block, unblock, open, close,
 	 error, chunk, truncate, many_users, info, change_size,
-	 change_attribute, distribution, evil, otp_6278]).
+	 change_attribute, distribution, evil, otp_6278, otp_10131]).
 
 %% The following two lists should be mutually exclusive. To skip a case
 %% on VxWorks altogether, use the kernel.spec.vxworks file instead.
@@ -153,7 +153,7 @@ all() ->
      {group, open}, {group, close}, {group, error}, chunk,
      truncate, many_users, {group, info},
      {group, change_size}, change_attribute,
-     {group, distribution}, evil, otp_6278].
+     {group, distribution}, evil, otp_6278, otp_10131].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
@@ -4914,6 +4914,22 @@ otp_6278(Conf) when is_list(Conf) ->
             ok
     end,
     ?line error_logger:delete_report_handler(?MODULE).
+
+otp_10131(suite) -> [];
+otp_10131(doc) -> ["OTP-10131. head_func type."];
+otp_10131(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = otp_10131,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+    HeadFunc = {?MODULE, head_fun, [{ok,"head"}]},
+    {ok, Log} = disk_log:open([{name,Log},{file,File},
+                               {head_func, HeadFunc}]),
+    HeadFunc = info(Log, head, undef),
+    HeadFunc2 = {?MODULE, head_fun, [{ok,"head2"}]},
+    ok = disk_log:change_header(Log, {head_func, HeadFunc2}),
+    HeadFunc2 = info(Log, head, undef),
+    ok = disk_log:close(Log),
+    ok.
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),
