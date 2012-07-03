@@ -695,10 +695,10 @@ encode_constrained_number({Lb,Ub},Val) when Val >= Lb, Ub >= Val ->
 	Range  =< 65536 ->
 	    {octets,<<Val2:16>>};
 	Range =< (1 bsl (255*8))  ->
-            Octs = binary:bin_to_list(binary:encode_unsigned(Val2)),
-            RangeOcts = binary:bin_to_list(binary:encode_unsigned(Range - 1)),
-            OctsLen = length(Octs),
-            RangeOctsLen = length(RangeOcts),
+            Octs = binary:encode_unsigned(Val2),
+            RangeOcts = binary:encode_unsigned(Range - 1),
+            OctsLen = erlang:byte_size(Octs),
+            RangeOctsLen = erlang:byte_size(RangeOcts),
             LengthBitsNeeded = minimum_bits(RangeOctsLen - 1),
             [{bits, LengthBitsNeeded, OctsLen - 1}, {octets, Octs}];
 	true  ->
