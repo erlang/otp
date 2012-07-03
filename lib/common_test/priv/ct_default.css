@@ -136,7 +136,18 @@ th {
 }
 
 thead th {
-    background: #2C5755; text-align: center;
+    background: #3F3F3F; color: #fff; 
+    font-family: arial, sans-serif; font-size: 120%;
+    letter-spacing: -0.5px;
+    font-weight: bold; text-align: center; 
+    padding-right: .5em; vertical-align: top;
+    text-decoration: underline;
+}
+
+tfoot td {
+    font-family: arial, sans-serif; font-size: 110%;
+    letter-spacing: -0.5px;
+    font-weight: bold;
 }
 
 .odd td {
@@ -165,10 +176,6 @@ td a:hover, td a:focus {
 
 th a, td a:active {
     color: #85ABD5;
-}
-
-tfoot th, tfoot td {
-    background: #3F3F3F; color: #fff;
 }
 
 th + td {
