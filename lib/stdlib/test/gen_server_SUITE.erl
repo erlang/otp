@@ -820,20 +820,14 @@ spec_init(Config) when is_list(Config) ->
 	    test_server:fail(gen_server_did_not_die)
     end,
 
-    %% There is probably a better way to test this.
     %% Before the OTP-10130 fix this failed because a timeout message
     %% was generated as the spawned process crashed because a {global, Name}
     %% was matched as a timeout value instead of matching on scope.
     {ok, _PidHurra} =
 	start_link(spec_init_global_default_timeout, [{ok, hurra}, []]),
-    receive
-         _Anything ->
-            ct:log("OTP-10130, received: ~p~n", [_Anything]),
-	    test_server:fail(init_of_global_default_timeout_failed)
-    after 5000 ->
-            ok
-    end,
-
+    timer:sleep(1000),
+    ok = gen_server:call(_PidHurra, started_p),
+    
     ?line Pid5 = 
 	erlang:spawn_link(?MODULE, spec_init_not_proc_lib, [[]]),
     receive 
