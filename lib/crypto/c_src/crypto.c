@@ -954,8 +954,7 @@ static ERL_NIF_TERM aes_cfb_128_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
     if (!enif_inspect_iolist_as_binary(env, argv[0], &key) || key.size != 16
 	|| !enif_inspect_binary(env, argv[1], &ivec) || ivec.size != 16
-	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)
-	|| text.size % 16 != 0) {
+	|| !enif_inspect_iolist_as_binary(env, argv[2], &text)) {
 	return enif_make_badarg(env);
     }
 

@@ -643,16 +643,14 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 
     <func>
       <name>aes_cfb_128_encrypt(Key, IVec, Text) -> Cipher</name>
-      <name>aes_cbc_128_encrypt(Key, IVec, Text) -> Cipher</name>
-      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Feedback  mode or Cipher Block Chaining mode</fsummary>
+      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Feedback mode</fsummary>
       <type>
         <v>Key = Text = iolist() | binary()</v>
         <v>IVec = Cipher = binary()</v>
       </type>
       <desc>
         <p>Encrypts <c>Text</c> according to AES in Cipher Feedback 
-          mode (CFB) or Cipher Block Chaining mode (CBC). <c>Text</c>
-          must be a multiple of 128 bits (16 bytes). <c>Key</c> is the
+          mode (CFB). <c>Key</c> is the
           AES key, and <c>IVec</c> is an arbitrary initializing vector.
           The lengths of <c>Key</c> and <c>IVec</c> must be 128 bits
           (16 bytes).</p>
@@ -660,15 +658,45 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
     <func>
       <name>aes_cfb_128_decrypt(Key, IVec, Cipher) -> Text</name>
-      <name>aes_cbc_128_decrypt(Key, IVec, Cipher) -> Text</name>
-      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Feedback  mode or Cipher Block Chaining mode</fsummary>
+      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Feedback mode</fsummary>
       <type>
         <v>Key = Cipher = iolist() | binary()</v>
         <v>IVec = Text = binary()</v>
       </type>
       <desc>
-        <p>Decrypts <c>Cipher</c> according to Cipher Feedback Mode (CFB)
-          or Cipher Block Chaining mode (CBC).
+        <p>Decrypts <c>Cipher</c> according to AES in Cipher Feedback Mode (CFB).
+          <c>Key</c> is the AES key, and <c>IVec</c> is an arbitrary
+          initializing vector. <c>Key</c> and <c>IVec</c> must have
+          the same values as those used when encrypting. The lengths of
+          <c>Key</c> and <c>IVec</c> must be 128 bits (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>aes_cbc_128_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Block Chaining mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+          <p>Encrypts <c>Text</c> according to AES in Cipher Block Chaining
+          mode (CBC). <c>Text</c>
+          must be a multiple of 128 bits (16 bytes). <c>Key</c> is the
+          AES key, and <c>IVec</c> is an arbitrary initializing vector.
+          The lengths of <c>Key</c> and <c>IVec</c> must be 128 bits
+          (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>aes_cbc_128_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Block Chaining mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+          <p>Decrypts <c>Cipher</c> according to AES in Cipher Block
+          Chaining mode (CBC).
           <c>Key</c> is the AES key, and <c>IVec</c> is an arbitrary
           initializing vector. <c>Key</c> and <c>IVec</c> must have
           the same values as those used when encrypting. <c>Cipher</c>
