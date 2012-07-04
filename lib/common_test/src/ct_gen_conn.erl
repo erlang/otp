@@ -204,16 +204,13 @@ do_start(Address,InitData,CallbackMod,Opts0) ->
     Opts = check_opts(Opts0,#gen_opts{callback=CallbackMod,
 				      address=Address,
 				      init_data=InitData}),
-    case Opts#gen_opts.use_existing of
-	true ->
-	    case ct_util:does_connection_exist(Opts#gen_opts.name,
-					       Address,CallbackMod) of
-		{ok,Pid} ->
-		    log("ct_gen_conn:start","Using existing connection!\n",[]),
-		    {ok,Pid};
-		false ->
-		    do_start(Opts)
-	    end;
+    case ct_util:does_connection_exist(Opts#gen_opts.name,
+				       Address,CallbackMod) of
+	{ok,Pid} when Opts#gen_opts.use_existing ->
+	    log("ct_gen_conn:start","Using existing connection!\n",[]),
+	    {ok,Pid};
+	{ok,Pid} when not Opts#gen_opts.use_existing ->
+	    {error,{connection_exists,Pid}};
 	false ->
 	    do_start(Opts)
     end.

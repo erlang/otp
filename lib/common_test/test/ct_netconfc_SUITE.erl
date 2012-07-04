@@ -68,6 +68,7 @@ all() ->
 	     hello_configured,
 	     hello_configured_extraopts,
 	     hello_required,
+	     hello_required_exists,
 	     hello_global_pwd,
 	     hello_no_session_id,
 	     hello_incomp_base_vsn,
@@ -93,9 +94,6 @@ all() ->
 	     lock,
 	     unlock,
 	     kill_session,
-	     get_required,
-	     get_config_required,
-	     edit_config_required,
 	     get_no_such_client,
 	     action,
 	     send_any_rpc,
@@ -202,6 +200,25 @@ hello_required() ->
 hello_required(Config) ->
     DataDir = ?config(data_dir,Config),
     {ok,_Client} = open_configured_success(my_named_connection,DataDir),
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(my_named_connection),
+    ok.
+
+hello_required_exists() ->
+    [{require, my_named_connection, netconf1}].
+hello_required_exists(Config) ->
+    DataDir = ?config(data_dir,Config),
+    {ok,_Client1} = open_configured_success(my_named_connection,DataDir),
+
+    %% Check that same name can not be used twice
+    {error,{connection_exists,_Client1}} =
+	ct_netconfc:open(my_named_connection,[{user_dir,DataDir}]),
+
+    ?NS:expect_do_reply('close-session',close,ok),
+    ?ok = ct_netconfc:close_session(my_named_connection),
+
+    %% Then check that it can be used again after the first is closed
+    {ok,_Client2} = open_configured_success(my_named_connection,DataDir),
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(my_named_connection),
     ok.
@@ -427,50 +444,6 @@ kill_session(Config) ->
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(Client),
 
-    ok.
-
-%% get_required, get_config_required and edit_config_required shall
-%% test that the same named connection can be used in multiple test
-%% cases. Earlier, there was a bug in ct_gen_conn related to this:
-%% Connections were not unregistered on close-connection, so
-%% ct_netconfc would not find the correct pid for a named connection
-%% the second time the name was used.
-get_required() ->
-    [{require, my_named_connection, netconf1}].
-get_required(Config) ->
-    DataDir = ?config(data_dir,Config),
-    {ok,_Client} = open_configured_success(my_named_connection,DataDir),
-    Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
-    ?NS:expect_reply('get',{data,Data}),
-    {ok,Data} = ct_netconfc:get(my_named_connection,{server,[{xmlns,"myns"}],[]}),
-    ?NS:expect_do_reply('close-session',close,ok),
-    ?ok = ct_netconfc:close_session(my_named_connection),
-    ok.
-
-get_config_required() ->
-    [{require, my_named_connection, netconf1}].
-get_config_required(Config) ->
-    DataDir = ?config(data_dir,Config),
-    {ok,_Client} = open_configured_success(my_named_connection,DataDir),
-    Data = [{server,[{xmlns,"myns"}],[{name,[],["myserver"]}]}],
-    ?NS:expect_reply('get-config',{data,Data}),
-    {ok,Data} = ct_netconfc:get_config(my_named_connection,running,
-				       {server,[{xmlns,"myns"}],[]}),
-    ?NS:expect_do_reply('close-session',close,ok),
-    ?ok = ct_netconfc:close_session(my_named_connection),
-    ok.
-
-edit_config_required() ->
-    [{require, my_named_connection, netconf1}].
-edit_config_required(Config) ->
-    DataDir = ?config(data_dir,Config),
-    {ok,_Client} = open_configured_success(my_named_connection,DataDir),
-    ?NS:expect_reply('edit-config',ok),
-    ?ok = ct_netconfc:edit_config(my_named_connection,running,
-				  {server,[{xmlns,"myns"}],
-				   [{name,["myserver"]}]}),
-    ?NS:expect_do_reply('close-session',close,ok),
-    ?ok = ct_netconfc:close_session(my_named_connection),
     ok.
 
 get_no_such_client(Config) ->
