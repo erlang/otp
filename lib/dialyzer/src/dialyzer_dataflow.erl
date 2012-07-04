@@ -2468,14 +2468,18 @@ join_maps(Maps, MapOut) ->
   Keys = ordsets:from_list(dict:fetch_keys(Dict) ++ dict:fetch_keys(Subst)),
   join_maps(Keys, Maps, MapOut).
 
-join_maps([Key|Left], Maps, MapOut) ->
+join_maps(Keys, Maps, MapOut) ->
+  KTs = join_maps_collect(Keys, Maps, MapOut),
+  lists:foldl(fun({K, T}, M) -> enter_type(K, T, M) end, MapOut, KTs).
+
+join_maps_collect([Key|Left], Maps, MapOut) ->
   Type = join_maps_one_key(Maps, Key, t_none()),
   case t_is_equal(lookup_type(Key, MapOut), Type) of
-    true ->  join_maps(Left, Maps, MapOut);
-    false -> join_maps(Left, Maps, enter_type(Key, Type, MapOut))
+    true ->  join_maps_collect(Left, Maps, MapOut);
+    false -> [{Key, Type} | join_maps_collect(Left, Maps, MapOut)]
   end;
-join_maps([], _Maps, MapOut) ->
-  MapOut.
+join_maps_collect([], _Maps, _MapOut) ->
+  [].
 
 join_maps_one_key([Map|Left], Key, AccType) ->
   case t_is_any(AccType) of
