@@ -926,6 +926,11 @@ $(TTF_DIR)/hipe_arm_bifs.S:	hipe/hipe_arm_bifs.m4 hipe/hipe_arm_asm.m4 \
 $(OBJDIR)/hipe_arm_bifs.o:	$(TTF_DIR)/hipe_arm_bifs.S \
 	$(TTF_DIR)/hipe_literals.h
 
+# Use -fomit-frame-pointer to work around gcc (v4.5.2) bug causing
+# "error: r7 cannot be used in asm here" for DEBUG build.
+$(OBJDIR)/hipe_arm.o:           hipe/hipe_arm.c
+	$(CC) $(subst O2,O3, $(CFLAGS)) -fomit-frame-pointer $(INCLUDES) -c $< -o $@
+
 # end of HiPE section
 ########################################
 

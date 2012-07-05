@@ -181,11 +181,9 @@ void *hipe_alloc_code(Uint nrbytes, Eterm callees, Eterm *trampolines, Process *
 	curseg.base = base;
 	curseg.code_pos = base;
 	curseg.tramp_pos = (unsigned int*)((char*)base + SEGMENT_NRBYTES);
-#if defined(__arm__)
 	curseg.tramp_pos -= 2;
 	curseg.tramp_pos[0] = 0xE51FF004;	/* ldr pc, [pc,#-4] */
 	curseg.tramp_pos[1] = (unsigned int)&nbif_callemu;
-#endif
 
 	address = try_alloc(nrwords, nrcallees, callees, trampvec);
 	if (!address) {
@@ -214,11 +212,9 @@ static unsigned int *alloc_stub(Uint nrwords, unsigned int **tramp_callemu)
 	curseg.base = base;
 	curseg.code_pos = base;
 	curseg.tramp_pos = (unsigned int*)((char*)base + SEGMENT_NRBYTES);
-#if defined(__arm__)
 	curseg.tramp_pos -= 2;
 	curseg.tramp_pos[0] = 0xE51FF004;	/* ldr pc, [pc,#-4] */
 	curseg.tramp_pos[1] = (unsigned int)&nbif_callemu;
-#endif
 
 	address = try_alloc(nrwords, 0, NIL, NULL);
 	if (!address) {
@@ -269,10 +265,8 @@ int hipe_patch_insn(void *address, Uint32 value, Eterm type)
 void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 {
     unsigned int *code;
-#if defined(__arm__)
     unsigned int *tramp_callemu;
     int callemu_offset;
-#endif
 
     /*
      * Native code calls BEAM via a stub looking as follows:
@@ -288,13 +282,6 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
      * (Trampolines are allowed to modify r12, but they don't.)
      */
 
-#if !defined(__arm__)
-    /* verify that 'ba' can reach nbif_callemu */
-    if ((unsigned long)&nbif_callemu & ~0x01FFFFFCUL)
-	abort();
-#endif
-
-#if defined(__arm__)
     code = alloc_stub(4, &tramp_callemu);
     callemu_offset = ((int)&nbif_callemu - ((int)&code[2] + 8)) >> 2;
     if (!(callemu_offset >= -0x00800000 && callemu_offset <= 0x007FFFFF)) {
@@ -302,11 +289,7 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 	if (!(callemu_offset >= -0x00800000 && callemu_offset <= 0x007FFFFF))
 	    abort();
     }
-#else
-    code = alloc_stub(4, &trampoline);
-#endif
 
-#if defined(__arm__)
     /* mov r0, #beamArity */
     code[0] = 0xE3A00000 | (beamArity & 0xFF);
     /* ldr r8, [pc,#0] // beamAddress */
@@ -315,16 +298,6 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
     code[2] = 0xEA000000 | (callemu_offset & 0x00FFFFFF);
     /* .long beamAddress */
     code[3] = (unsigned int)beamAddress;
-#else
-    /* addi r12,0,beamAddress@l */
-    code[0] = 0x39800000 | ((unsigned long)beamAddress & 0xFFFF);
-    /* addi r0,0,beamArity */
-    code[1] = 0x38000000 | (beamArity & 0x7FFF);
-    /* addis r12,r12,beamAddress@ha */
-    code[2] = 0x3D8C0000 | at_ha((unsigned long)beamAddress);
-    /* ba nbif_callemu */
-    code[3] = 0x48000002 | (unsigned long)&nbif_callemu;
-#endif
 
     hipe_flush_icache_range(code, 4*sizeof(int));
 
@@ -334,60 +307,32 @@ void *hipe_make_native_stub(void *beamAddress, unsigned int beamArity)
 static void patch_b(Uint32 *address, Sint32 offset, Uint32 AA)
 {
     Uint32 oldI = *address;
-#if defined(__arm__)
     Uint32 newI = (oldI & 0xFF000000) | (offset & 0x00FFFFFF);
-#else
-    Uint32 newI = (oldI & 0xFC000001) | ((offset & 0x00FFFFFF) << 2) | (AA & 2);
-#endif
     *address = newI;
     hipe_flush_icache_word(address);
 }
 
 int hipe_patch_call(void *callAddress, void *destAddress, void *trampoline)
 {
-#if !defined(__arm__)
-    if ((Uint32)destAddress == ((Uint32)destAddress & 0x01FFFFFC)) {
-	/* The destination is in the [0,32MB[ range.
-	   We can reach it with a ba/bla instruction.
-	   This is the typical case for BIFs and primops.
-	   It's also common for trap-to-BEAM stubs (on ppc32). */
-	patch_b((Uint32*)callAddress, (Uint32)destAddress >> 2, 2);
+    Sint32 destOffset = ((Sint32)destAddress - ((Sint32)callAddress+8)) >> 2;
+    if (destOffset >= -0x800000 && destOffset <= 0x7FFFFF) {
+	/* The destination is within a [-32MB,+32MB[ range from us.
+	   We can reach it with a b/bl instruction.
+	   This is typical for nearby Erlang code. */
+	patch_b((Uint32*)callAddress, destOffset, 0);
     } else {
-#endif
-#if defined(__arm__)
-	Sint32 destOffset = ((Sint32)destAddress - ((Sint32)callAddress+8)) >> 2;
-#else
-	Sint32 destOffset = ((Sint32)destAddress - (Sint32)callAddress) >> 2;
-#endif
-	if (destOffset >= -0x800000 && destOffset <= 0x7FFFFF) {
-	    /* The destination is within a [-32MB,+32MB[ range from us.
-	       We can reach it with a b/bl instruction.
-	       This is typical for nearby Erlang code. */
-	    patch_b((Uint32*)callAddress, destOffset, 0);
-	} else {
-	    /* The destination is too distant for b/bl/ba/bla.
-	       Must do a b/bl to the trampoline. */
-#if defined(__arm__)
-	    Sint32 trampOffset = ((Sint32)trampoline - ((Sint32)callAddress+8)) >> 2;
-#else
-	    Sint32 trampOffset = ((Sint32)trampoline - (Sint32)callAddress) >> 2;
-#endif
-	    if (trampOffset >= -0x800000 && trampOffset <= 0x7FFFFF) {
-		/* Update the trampoline's address computation.
-		   (May be redundant, but we can't tell.) */
-#if defined(__arm__)
-		patch_imm32((Uint32*)trampoline+1, (Uint32)destAddress);
-#else
-		patch_li((Uint32*)trampoline, (Uint32)destAddress);
-#endif
-		/* Update this call site. */
-		patch_b((Uint32*)callAddress, trampOffset, 0);
-	    } else
-		return -1;
-	}
-#if !defined(__arm__)
+	/* The destination is too distant for b/bl.
+	   Must do a b/bl to the trampoline. */
+	Sint32 trampOffset = ((Sint32)trampoline - ((Sint32)callAddress+8)) >> 2;
+	if (trampOffset >= -0x800000 && trampOffset <= 0x7FFFFF) {
+	    /* Update the trampoline's address computation.
+	       (May be redundant, but we can't tell.) */
+	    patch_imm32((Uint32*)trampoline+1, (Uint32)destAddress);
+	    /* Update this call site. */
+	    patch_b((Uint32*)callAddress, trampOffset, 0);
+	} else
+	    return -1;
     }
-#endif
     return 0;
 }
 
