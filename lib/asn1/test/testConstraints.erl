@@ -86,7 +86,21 @@ int_constraints(Rules) ->
 		      asn1_wrapper:encode('Constraints','SingleValue',1000)
 	  end,
 
+    %%==========================================================
+    %% SingleValue3 ::=  INTEGER (Predefined | 5 | 10)
+    %% Testcase for OTP-10139. A single value subtyping of an integer type
+    %% where one value is predefined.
+    %%==========================================================
 
+    ?line {ok,BytesSV3} = asn1_wrapper:encode('Constraints','SingleValue3',1),
+    ?line {ok,1} = asn1_wrapper:decode('Constraints','SingleValue3',
+                                       lists:flatten(BytesSV3)),
+    ?line {ok,BytesSV3_2} = asn1_wrapper:encode('Constraints','SingleValue3',5),
+    ?line {ok,5} = asn1_wrapper:decode('Constraints','SingleValue3',
+                                       lists:flatten(BytesSV3_2)),
+    ?line {ok,BytesSV3_3} = asn1_wrapper:encode('Constraints','SingleValue3',10),
+    ?line {ok,10} = asn1_wrapper:decode('Constraints','SingleValue3',
+                                        lists:flatten(BytesSV3_3)),
 
     %%==========================================================
     %% Range2to19 ::=  INTEGER (1<..<20) 
