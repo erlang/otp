@@ -105,7 +105,14 @@ static ErlTimer *tiw_min_ptr;
 /* END tiw_lock protected variables */
 
 /* Actual interval time chosen by sys_init_time() */
-static int itime; /* Constant after init */
+
+#if SYS_CLOCK_RESOLUTION == 1
+#  define TIW_ITIME 1
+#  define TIW_ITIME_IS_CONSTANT
+#else
+static int tiw_itime; /* Constant after init */
+#  define TIW_ITIME tiw_itime
+#endif
 
 erts_smp_atomic32_t do_time;	/* set at clock interrupt */
 static ERTS_INLINE erts_short_time_t do_time_read(void)
@@ -123,7 +130,7 @@ static ERTS_INLINE void do_time_init(void)
     erts_smp_atomic32_init_nob(&do_time, 0);
 }
 
-/* get the time (in units of itime) to the next timeout,
+/* get the time (in units of TIW_ITIME) to the next timeout,
    or -1 if there are no timeouts                     */
 
 static erts_short_time_t next_time_internal(void) /* PRE: tiw_lock taken by caller */
@@ -305,11 +312,18 @@ erts_timer_wheel_memory_size(void)
 void
 erts_init_time(void)
 {
-    int i;
+    int i, itime;
 
     /* system dependent init; must be done before do_time_init()
        if timer thread is enabled */
     itime = erts_init_time_sup();
+#ifdef TIW_ITIME_IS_CONSTANT 
+    if (itime != TIW_ITIME) {
+	erl_exit(ERTS_ABORT_EXIT, "timer resolution mismatch %d != %d", itime, TIW_ITIME);
+    }
+#else
+    tiw_itime = itime;
+#endif
 
     erts_smp_mtx_init(&tiw_lock, "timer_wheel");
 
@@ -340,7 +354,7 @@ insert_timer(ErlTimer* p, Uint t)
      *
      * (x + y - 1)/y is precisely the "number of bins" formula.
      */
-    ticks = (t + itime - 1) / itime;
+    ticks = (t + (TIW_ITIME - 1)) / TIW_ITIME;
 
     /* 
      * Ticks must be a Uint64, or the addition may overflow here,
@@ -455,7 +469,7 @@ erts_time_left(ErlTimer *p)
 
     erts_smp_mtx_unlock(&tiw_lock);
 
-    return (Uint) left * itime;
+    return (Uint) left * TIW_ITIME;
 }
 
 #ifdef DEBUG
