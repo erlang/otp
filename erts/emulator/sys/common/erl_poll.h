@@ -246,4 +246,6 @@ void		ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet,
 								ErtsPollEvents [],
 								int);
 
+int		ERTS_POLL_EXPORT(erts_poll_get_table_len)(int);
+
 #endif /* #ifndef ERL_POLL_H__ */
