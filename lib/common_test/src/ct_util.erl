@@ -508,7 +508,7 @@ close_connections() ->
 %%%
 %%% @doc 
 override_silence_all_connections() ->
-    Protocols = [telnet,ftp,rpc,snmp],
+    Protocols = [telnet,ftp,rpc,snmp,ssh],
     override_silence_connections(Protocols),
     Protocols.
 
