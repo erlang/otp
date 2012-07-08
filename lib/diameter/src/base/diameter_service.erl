@@ -953,7 +953,12 @@ init_conn(Id, Alias, TC, {SvcName, Apps}) ->
     peer_cb({ModX, peer_up, [SvcName, TC]}, Alias).
 
 find_app(Alias, Apps) ->
-    lists:keyfind(Alias, #diameter_app.alias, Apps).
+    case lists:keyfind(Alias, #diameter_app.alias, Apps) of
+        #diameter_app{options = E} = A when is_atom(E) ->  %% upgrade
+            A#diameter_app{options = [{answer_errors, E}]};
+        A ->
+            A
+    end.
 
 %% A failing peer callback brings down the service. In the case of
 %% peer_up we could just kill the transport and emit an error but for
@@ -1352,7 +1357,7 @@ send_request(Pkt, TPid, Caps, App, Opts, Caller, SvcName) ->
     #diameter_app{alias = Alias,
                   dictionary = Dict,
                   module = ModX,
-                  answer_errors = AE}
+                  options = [{answer_errors, AE} | _]}
         = App,
 
     EPkt = encode(Dict, Pkt),

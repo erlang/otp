@@ -600,7 +600,7 @@ app_acc({application, Opts}, Acc) ->
                    module = init_mod(Mod),
                    init_state = ModS,
                    mutable = init_mutable(M),
-                   answer_errors = init_answers(A)}
+                   options = [{answer_errors, init_answers(A)}]}
      | Acc];
 app_acc(_, Acc) ->
     Acc.
