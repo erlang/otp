@@ -760,13 +760,13 @@ check_config_files(Configs) ->
     end,
     lists:keysearch(error, 1, lists:flatten(lists:map(ConfigChecker, Configs))).
 
-prepare_user_configs([ConfigString|UserConfigs], Acc, new) ->
+prepare_user_configs([CallbackMod|UserConfigs], Acc, new) ->
     prepare_user_configs(UserConfigs,
-			 [{list_to_atom(ConfigString), []}|Acc],
+			 [{list_to_atom(CallbackMod),[]}|Acc],
 			 cur);
 prepare_user_configs(["and"|UserConfigs], Acc, _) ->
     prepare_user_configs(UserConfigs, Acc, new);
-prepare_user_configs([ConfigString|UserConfigs], [{LastMod, LastList}|Acc], cur) ->
+prepare_user_configs([ConfigString|UserConfigs], [{LastMod,LastList}|Acc], cur) ->
     prepare_user_configs(UserConfigs,
 			 [{LastMod, [ConfigString|LastList]}|Acc],
 			 cur);

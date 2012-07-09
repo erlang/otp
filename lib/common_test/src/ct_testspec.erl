@@ -505,6 +505,33 @@ add_tests([{logopts,Node,Opts}|Ts],Spec) ->
 add_tests([{logopts,Opts}|Ts],Spec) ->
     add_tests([{logopts,all_nodes,Opts}|Ts],Spec);
 
+%% --- verbosity ---
+add_tests([{verbosity,all_nodes,VLvls}|Ts],Spec) ->
+    VLvls0 = Spec#testspec.verbosity,
+    Tests = [{verbosity,N,VLvls} ||
+		N <- list_nodes(Spec),
+		lists:keymember(ref2node(N,Spec#testspec.nodes),1,
+				VLvls0) == false],
+    add_tests(Tests++Ts,Spec);
+add_tests([{verbosity,Nodes,VLvls}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,verbosity,[VLvls],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{verbosity,Node,VLvls}|Ts],Spec) ->
+    VLvls0 = Spec#testspec.verbosity,
+    VLvls1 =
+	if is_integer(VLvls) ->
+		[{'$unspecified',VLvls}];
+	   is_list(VLvls) ->
+		lists:map(fun(VLvl = {_Cat,_Lvl}) -> VLvl;
+			     (Lvl) -> {'$unspecified',Lvl} end, VLvls)
+	end,
+    Verbosity = [{ref2node(Node,Spec#testspec.nodes),VLvls1} |
+		  lists:keydelete(ref2node(Node,Spec#testspec.nodes),
+				  1,VLvls0)],
+    add_tests(Ts,Spec#testspec{verbosity=Verbosity});
+add_tests([{verbosity,VLvls}|Ts],Spec) ->
+    add_tests([{verbosity,all_nodes,VLvls}|Ts],Spec);
+
 %% --- label ---
 add_tests([{label,all_nodes,Lbl}|Ts],Spec) ->
     Labels = Spec#testspec.label,
@@ -1146,6 +1173,8 @@ valid_terms() ->
      {logdir,3},
      {logopts,2},
      {logopts,3},
+     {verbosity,2},
+     {verbosity,3},
      {label,2},
      {label,3},
      {event_handler,2},

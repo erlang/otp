@@ -34,6 +34,7 @@
 		   profile=[],
 		   logdir=["."],
 		   logopts=[],
+		   verbosity=[],
 		   cover=[],
 		   config=[],
 		   userconfig=[],

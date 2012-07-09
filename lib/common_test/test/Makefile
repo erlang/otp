@@ -45,7 +45,8 @@ MODULES= \
 	ct_config_SUITE \
 	ct_master_SUITE \
 	ct_misc_1_SUITE \
-	ct_hooks_SUITE
+	ct_hooks_SUITE \
+	ct_verbosity_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 

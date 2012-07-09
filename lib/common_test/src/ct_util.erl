@@ -25,7 +25,8 @@
 %%%
 -module(ct_util).
 
--export([start/0,start/1,start/2,stop/1,update_last_run_index/0]).
+-export([start/0,start/1,start/2,start/3,
+	 stop/1,update_last_run_index/0]).
 
 -export([register_connection/4,unregister_connection/1,
 	 does_connection_exist/3,get_key_from_name/1]).
@@ -64,8 +65,12 @@
 -export([get_profile_data/0, get_profile_data/1,
 	 get_profile_data/2, open_url/3]).
 
+-include("ct.hrl").
 -include("ct_event.hrl").
 -include("ct_util.hrl").
+
+-define(default_verbosity, [{default,?MAX_VERBOSITY},
+			    {'$unspecified',?MAX_VERBOSITY}]).
 
 -record(suite_data, {key,name,value}).
 
@@ -85,18 +90,21 @@
 %%%
 %%% @see ct
 start() ->
-    start(normal,".").
+    start(normal, ".", ?default_verbosity).
 
 start(LogDir) when is_list(LogDir) ->
-    start(normal,LogDir);
+    start(normal, LogDir, ?default_verbosity);
 start(Mode) ->
-    start(Mode,".").
+    start(Mode, ".", ?default_verbosity).
 
-start(Mode,LogDir) ->
+start(LogDir, Verbosity) when is_list(LogDir) ->
+    start(normal, LogDir, Verbosity).
+
+start(Mode, LogDir, Verbosity) ->
     case whereis(ct_util_server) of
 	undefined ->
 	    S = self(),
-	    Pid = spawn_link(fun() -> do_start(S,Mode,LogDir) end),
+	    Pid = spawn_link(fun() -> do_start(S, Mode, LogDir, Verbosity) end),
 	    receive 
 		{Pid,started} -> Pid;
 		{Pid,Error} -> exit(Error);
@@ -113,7 +121,7 @@ start(Mode,LogDir) ->
 	    end
     end.
 
-do_start(Parent,Mode,LogDir) ->
+do_start(Parent, Mode, LogDir, Verbosity) ->
     process_flag(trap_exit,true),
     register(ct_util_server,self()),
     create_table(?conn_table,#conn.handle),
@@ -173,7 +181,7 @@ do_start(Parent,Mode,LogDir) ->
 	false ->
 	    ok
     end,
-    {StartTime,TestLogDir} = ct_logs:init(Mode),
+    {StartTime,TestLogDir} = ct_logs:init(Mode, Verbosity),
 
     ct_event:notify(#event{name=test_start,
 			   node=node(),
@@ -193,7 +201,7 @@ do_start(Parent,Mode,LogDir) ->
 	    self() ! {{stop,{self(),{user_error,CTHReason}}},
 		      {Parent,make_ref()}}
     end,
-    loop(Mode,[],StartDir).
+    loop(Mode, [{{verbosity,Cat},Lvl} || {Cat,Lvl} <- Verbosity], StartDir).
 
 create_table(TableName,KeyPos) ->
     create_table(TableName,set,KeyPos).

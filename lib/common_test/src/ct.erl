@@ -51,6 +51,8 @@
 
 -module(ct).
 
+-include("ct.hrl").
+
 %% Command line user interface for running tests
 -export([install/1, run/1, run/2, run/3,
 	 run_test/1, run_testspec/1, step/3, step/4,
@@ -60,9 +62,9 @@
 -export([require/1, require/2,
 	 get_config/1, get_config/2, get_config/3,
 	 reload_config/1,
-	 log/1, log/2, log/3,
-	 print/1, print/2, print/3,
-	 pal/1, pal/2, pal/3,
+	 log/1, log/2, log/3, log/4,
+	 print/1, print/2, print/3, print/4,
+	 pal/1, pal/2, pal/3, pal/4,
 	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
 	 fail/1, fail/2, comment/1, comment/2, make_priv_dir/0,
 	 testcases/2, userdata/2, userdata/3,
@@ -150,7 +152,8 @@ run(TestDirs) ->
 %%%               {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
-%%%               {refresh_logs,LogDir} | {logopts,LogOpts} | {basic_html,Bool} | 
+%%%               {refresh_logs,LogDir} | {logopts,LogOpts} | 
+%%%               {verbosity,VLevels} | {basic_html,Bool} | 
 %%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool}
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | [atom()] | string() | atom()
@@ -182,6 +185,9 @@ run(TestDirs) ->
 %%%   DecryptFile = string()
 %%%   LogOpts = [LogOpt]
 %%%   LogOpt = no_nl | no_src
+%%%   VLevels = VLevel | [{Category,VLevel}]
+%%%   VLevel = integer()
+%%%   Category = atom()
 %%%   CTHs = [CTHModule | {CTHModule, CTHInitArgs}]
 %%%   CTHModule = atom()
 %%%   CTHInitArgs = term()
@@ -421,25 +427,41 @@ reload_config(Required)->
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Format) -> ok
-%%% @equiv log(default,Format,[])
+%%% @equiv log(default,?STD_IMPORTANCE,Format,[])
 log(Format) ->
-    log(default,Format,[]).
+    log(default,?STD_IMPORTANCE,Format,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(X1,X2) -> ok
-%%%      X1 = Category | Format
+%%%      X1 = Category | Importance | Format
 %%%      X2 = Format | Args
-%%% @equiv log(Category,Format,Args)
+%%% @equiv log(Category,Importance,Format,Args)
 log(X1,X2) ->
-    {Category,Format,Args} = 
-	if is_atom(X1) -> {X1,X2,[]};
-	   is_list(X1) -> {default,X1,X2}
+    {Category,Importance,Format,Args} = 
+	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
+	   is_integer(X1) -> {default,X1,X2,[]};
+	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    log(Category,Format,Args).
+    log(Category,Importance,Format,Args).
 
 %%%-----------------------------------------------------------------
-%%% @spec log(Category,Format,Args) -> ok
+%%% @spec log(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance
+%%%      X2 = Importance | Format
+%%%      X3 = Format | Args
+%%% @equiv log(Category,Importance,Format,Args)
+log(X1,X2,X3) ->
+    {Category,Importance,Format,Args} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
+	   is_integer(X1)              -> {default,X1,X2,X3}
+	end,
+    log(Category,Importance,Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec log(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
+%%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -448,30 +470,52 @@ log(X1,X2) ->
 %%% <p>This function is meant for printing a string directly from a
 %%% test case to the test case log file.</p>
 %%%
-%%% <p>Default <code>Category</code> is <code>default</code> and
-%%% default <code>Args</code> is <code>[]</code>.</p>
-log(Category,Format,Args) ->
-    ct_logs:tc_log(Category,Format,Args).
+%%% <p>Default <code>Category</code> is <code>default</code>,
+%%% default <code>Importance</code> is <code>?STD_IMPORTANCE</code>,
+%%% and default value for <code>Args</code> is <code>[]</code>.</p>
+%%% <p>Please see the User's Guide for details on <code>Category</code>
+%%% and <code>Importance</code>.</p>
+log(Category,Importance,Format,Args) ->
+    ct_logs:tc_log(Category,Importance,Format,Args).
 
 
 %%%-----------------------------------------------------------------
 %%% @spec print(Format) -> ok
-%%% @equiv print(default,Format,[])
+%%% @equiv print(default,?STD_IMPORTANCE,Format,[])
 print(Format) ->
-    print(default,Format,[]).
+    print(default,?STD_IMPORTANCE,Format,[]).
 
 %%%-----------------------------------------------------------------
-%%% @equiv print(Category,Format,Args)
+%%% @spec print(X1,X2) -> ok
+%%%      X1 = Category | Importance | Format
+%%%      X2 = Format | Args
+%%% @equiv print(Category,Importance,Format,Args)
 print(X1,X2) ->
-    {Category,Format,Args} = 
-	if is_atom(X1) -> {X1,X2,[]};
-	   is_list(X1) -> {default,X1,X2}
+    {Category,Importance,Format,Args} = 
+	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
+	   is_integer(X1) -> {default,X1,X2,[]};
+	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    print(Category,Format,Args).
+    print(Category,Importance,Format,Args).
 
 %%%-----------------------------------------------------------------
-%%% @spec print(Category,Format,Args) -> ok
+%%% @spec print(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance
+%%%      X2 = Importance | Format
+%%%      X3 = Format | Args
+%%% @equiv print(Category,Importance,Format,Args)
+print(X1,X2,X3) ->
+    {Category,Importance,Format,Args} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
+	   is_integer(X1)              -> {default,X1,X2,X3}
+	end,
+    print(Category,Importance,Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec print(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
+%%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -480,33 +524,52 @@ print(X1,X2) ->
 %%% <p>This function is meant for printing a string from a test case
 %%% to the console.</p>
 %%%
-%%% <p>Default <code>Category</code> is <code>default</code> and
-%%% default <code>Args</code> is <code>[]</code>.</p>
-print(Category,Format,Args) ->
-    ct_logs:tc_print(Category,Format,Args).
+%%% <p>Default <code>Category</code> is <code>default</code>,
+%%% default <code>Importance</code> is <code>?STD_IMPORTANCE</code>,
+%%% and default value for <code>Args</code> is <code>[]</code>.</p>
+%%% <p>Please see the User's Guide for details on <code>Category</code>
+%%% and <code>Importance</code>.</p>
+print(Category,Importance,Format,Args) ->
+    ct_logs:tc_print(Category,Importance,Format,Args).
 
 
 %%%-----------------------------------------------------------------
 %%% @spec pal(Format) -> ok
-%%% @equiv pal(default,Format,[])
+%%% @equiv pal(default,?STD_IMPORTANCE,Format,[])
 pal(Format) ->
-    pal(default,Format,[]).
+    pal(default,?STD_IMPORTANCE,Format,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec pal(X1,X2) -> ok
-%%%      X1 = Category | Format
+%%%      X1 = Category | Importance | Format
 %%%      X2 = Format | Args
-%%% @equiv pal(Category,Format,Args)
+%%% @equiv pal(Category,Importance,Format,Args)
 pal(X1,X2) ->
-    {Category,Format,Args} = 
-	if is_atom(X1) -> {X1,X2,[]};
-	   is_list(X1) -> {default,X1,X2}
+    {Category,Importance,Format,Args} = 
+	if is_atom(X1)    -> {X1,?STD_IMPORTANCE,X2,[]};
+	   is_integer(X1) -> {default,X1,X2,[]};
+	   is_list(X1)    -> {default,?STD_IMPORTANCE,X1,X2}
 	end,
-    pal(Category,Format,Args).
+    pal(Category,Importance,Format,Args).
 
 %%%-----------------------------------------------------------------
-%%% @spec pal(Category,Format,Args) -> ok
+%%% @spec pal(X1,X2,X3) -> ok
+%%%      X1 = Category | Importance
+%%%      X2 = Importance | Format
+%%%      X3 = Format | Args
+%%% @equiv pal(Category,Importance,Format,Args)
+pal(X1,X2,X3) ->
+    {Category,Importance,Format,Args} = 
+	if is_atom(X1), is_integer(X2) -> {X1,X2,X3,[]};
+	   is_atom(X1), is_list(X2)    -> {X1,?STD_IMPORTANCE,X2,X3};
+	   is_integer(X1)              -> {default,X1,X2,X3}
+	end,
+    pal(Category,Importance,Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec pal(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
+%%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -515,10 +578,13 @@ pal(X1,X2) ->
 %%% <p>This function is meant for printing a string from a test case,
 %%% both to the test case log file and to the console.</p>
 %%%
-%%% <p>Default <code>Category</code> is <code>default</code> and
-%%% default <code>Args</code> is <code>[]</code>.</p>
-pal(Category,Format,Args) ->
-    ct_logs:tc_pal(Category,Format,Args).
+%%% <p>Default <code>Category</code> is <code>default</code>,
+%%% default <code>Importance</code> is <code>?STD_IMPORTANCE</code>,
+%%% and default value for <code>Args</code> is <code>[]</code>.</p>
+%%% <p>Please see the User's Guide for details on <code>Category</code>
+%%% and <code>Importance</code>.</p>
+pal(Category,Importance,Format,Args) ->
+    ct_logs:tc_pal(Category,Importance,Format,Args).
 
 %%%-----------------------------------------------------------------
 %%% @spec capture_start() -> ok
