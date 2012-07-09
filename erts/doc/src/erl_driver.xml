@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2011</year>
+      <year>2001</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1067,7 +1067,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>ErlDrvBinary*</ret><nametext>driver_alloc_binary(ErlDrvSizeT size)</nametext></name>
+      <name><ret>ErlDrvBinary *</ret><nametext>driver_alloc_binary(ErlDrvSizeT size)</nametext></name>
       <fsummary>Allocate a driver binary</fsummary>
       <desc>
         <marker id="driver_alloc_binary"></marker>
@@ -1087,7 +1087,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>ErlDrvBinary*</ret><nametext>driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size)</nametext></name>
+      <name><ret>ErlDrvBinary *</ret><nametext>driver_realloc_binary(ErlDrvBinary *bin, ErlDrvSizeT size)</nametext></name>
       <fsummary>Resize a driver binary</fsummary>
       <desc>
         <marker id="driver_realloc_binary"></marker>
@@ -1277,7 +1277,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>SysIOVec*</ret><nametext>driver_peekq(ErlDrvPort port, int *vlen)</nametext></name>
+      <name><ret>SysIOVec *</ret><nametext>driver_peekq(ErlDrvPort port, int *vlen)</nametext></name>
       <fsummary>Get the driver queue as a vector</fsummary>
       <desc>
         <marker id="driver_peekq"></marker>
@@ -1481,7 +1481,7 @@ typedef struct ErlIOVec {
       </desc>
     </func>
     <func>
-      <name><ret>char*</ret><nametext>erl_errno_id(int error)</nametext></name>
+      <name><ret>char *</ret><nametext>erl_errno_id(int error)</nametext></name>
       <fsummary>Get erlang error atom name from error number</fsummary>
       <desc>
         <marker id="erl_errno_id"></marker>
