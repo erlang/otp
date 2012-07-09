@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -41,7 +41,7 @@
   </section>
   <funcs>
     <func>
-      <name><ret>CORBA_Environment*</ret><nametext>CORBA_Environment_alloc(int inbufsz, int outbufsz)</nametext></name>
+      <name><ret>CORBA_Environment *</ret><nametext>CORBA_Environment_alloc(int inbufsz, int outbufsz)</nametext></name>
       <fsummary>Allocate environment data.</fsummary>
       <desc>
         <p>This function is used to allocate and initiate the
@@ -79,14 +79,14 @@
       </desc>
     </func>
     <func>
-      <name><ret>CORBA_char*</ret><nametext>CORBA_string_alloc(CORBA_unsigned_long len)</nametext></name>
+      <name><ret>CORBA_char *</ret><nametext>CORBA_string_alloc(CORBA_unsigned_long len)</nametext></name>
       <fsummary>Allocate a string.</fsummary>
       <desc>
         <p>Allocates a (simple) CORBA character string of length <c>len + 1</c>.</p>
       </desc>
     </func>
     <func>
-      <name><ret>CORBA_wchar*</ret><nametext>CORBA_wstring_alloc(CORBA_unsigned_long len)</nametext></name>
+      <name><ret>CORBA_wchar *</ret><nametext>CORBA_wstring_alloc(CORBA_unsigned_long len)</nametext></name>
       <fsummary>Allocate a wide string.</fsummary>
       <desc>
         <p>Allocates a CORBA wide string of length <c>len + 1</c>.</p>
@@ -101,7 +101,7 @@
   </section>
   <funcs>
     <func>
-      <name><ret>CORBA_char*</ret><nametext>CORBA_exception_id(CORBA_Environment *env)</nametext></name>
+      <name><ret>CORBA_char *</ret><nametext>CORBA_exception_id(CORBA_Environment *env)</nametext></name>
       <fsummary>Get exception identity.</fsummary>
       <desc>
         <p>Returns the exception identity if an exception is set, otherwise
@@ -109,7 +109,7 @@
       </desc>
     </func>
     <func>
-      <name><ret>void*</ret><nametext>CORBA_exception_value(CORBA_Environment *env)</nametext></name>
+      <name><ret>void *</ret><nametext>CORBA_exception_value(CORBA_Environment *env)</nametext></name>
       <fsummary>Get exception value.</fsummary>
       <desc>
         <p>Returns the exception value, if an exception is set, otherwise
@@ -160,7 +160,7 @@
       </desc>
     </func>
     <func>
-      <name><ret>oe_map_t*</ret><nametext>oe_merge_maps(oe_map_t *maps, int size)</nametext></name>
+      <name><ret>oe_map_t *</ret><nametext>oe_merge_maps(oe_map_t *maps, int size)</nametext></name>
       <fsummary>Merge an array of server maps to one single map.</fsummary>
       <desc>
         <p>Merge an array of server maps to one single map.</p>
