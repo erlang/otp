@@ -27,7 +27,7 @@
 -compile(export_all).
 
 -export([start/4, stop/1]).
--export([call/2, do_within_time/2]).
+-export([call/2, call/3, do_within_time/2]).
 
 -ifdef(debug).
 -define(dbg,true).
@@ -97,7 +97,7 @@ start(Name,Address,InitData,CallbackMod) ->
 %%%
 %%% @doc Close the telnet connection and stop the process managing it.
 stop(Pid) ->
-    call(Pid,stop).
+    call(Pid,stop,5000).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Heading,Format,Args) -> ok
@@ -176,7 +176,10 @@ do_within_time(Fun,Timeout) ->
 
 %%%=================================================================
 %%% Internal functions
-call(Pid,Msg) ->
+call(Pid, Msg) ->
+    call(Pid, Msg, infinity).
+
+call(Pid, Msg, Timeout) ->
     MRef = erlang:monitor(process,Pid),
     Ref = make_ref(),
     Pid ! {Msg,{self(),Ref}},
@@ -191,6 +194,12 @@ call(Pid,Msg) ->
 	    end;
 	{'DOWN',MRef,process,_,Reason}  -> 
 	    {error,{process_down,Pid,Reason}}
+    after Timeout ->
+	    log("ct_gen_conn",
+		"Connection process ~p not responding. Killing now!",
+		[Pid]),
+	    exit(Pid, kill),
+	    {error,{process_down,Pid,forced_termination}}
     end.
 
 return({To,Ref},Result) ->

@@ -235,7 +235,7 @@ connect(KeyOrName, ConnType, ExtraOpts) ->
 disconnect(SSH) ->
     case get_handle(SSH) of
 	{ok,Pid} ->
-	    try_log(heading(disconnect,SSH), "Handle: ~p", [Pid]),
+	    try_log(heading(disconnect,SSH), "Handle: ~p", [Pid], 5000),
 	    case ct_gen_conn:stop(Pid) of
 		{error,{process_down,Pid,noproc}} ->
 		    {error,already_closed};
@@ -1228,11 +1228,11 @@ terminate(SSHRef, State) ->
     case State#state.conn_type of
 	ssh ->
 	    try_log(heading(disconnect_ssh,State#state.target),
-		    "SSH Ref: ~p",[SSHRef]),
+		    "SSH Ref: ~p",[SSHRef], 5000),
 	    ssh:close(SSHRef);
 	sftp ->
 	    try_log(heading(disconnect_sftp,State#state.target),
-		    "SFTP Ref: ~p",[SSHRef]),
+		    "SFTP Ref: ~p",[SSHRef], 5000),
 	    ssh_sftp:stop_channel(SSHRef)
     end.
 
@@ -1337,9 +1337,12 @@ get_handle(SSH) ->
 %%%-----------------------------------------------------------------
 %%% 
 call(SSH, Msg) ->
+    call(SSH, Msg, infinity).
+	
+call(SSH, Msg, Timeout) ->
     case get_handle(SSH) of
 	{ok,Pid} ->
-	    ct_gen_conn:call(Pid, Msg);
+	    ct_gen_conn:call(Pid, Msg, Timeout);
 	Error ->
 	    Error
     end.
@@ -1368,11 +1371,16 @@ log(Heading, Str, Args) ->
 %%%-----------------------------------------------------------------
 %%% 
 try_log(Heading, Str, Args) ->
-    case ct_util:is_silenced(ssh) of
+    try_log(Heading, Str, Args, infinity).
+
+try_log(Heading, Str, Args, Timeout) ->
+    case ct_util:is_silenced(ssh, Timeout) of
 	true ->
 	    ok;
 	false ->
-	    ct_gen_conn:log(Heading, Str, Args)
+	    ct_gen_conn:log(Heading, Str, Args);
+	_Error ->
+	    ok
     end.
 
 %%%-----------------------------------------------------------------
