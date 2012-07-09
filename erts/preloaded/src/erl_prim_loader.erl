@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -824,10 +824,11 @@ prim_set_primary_archive(PS, undefined, undefined, undefined) ->
             debug(PS2, {return, Res}),
             {Res, PS2}
     end;
-prim_set_primary_archive(PS, ArchiveFile, ArchiveBin, #file_info{} = FileInfo)
-  when is_list(ArchiveFile), is_binary(ArchiveBin) ->
+prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin, #file_info{} = FileInfo)
+  when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
     %% Try the archive file
-    debug(PS, {set_primary_archive, ArchiveFile, byte_size(ArchiveBin)}),
+    debug(PS, {set_primary_archive, ArchiveFile0, byte_size(ArchiveBin)}),
+    ArchiveFile = absname(ArchiveFile0),
     {Res3, PS3} =
         case PS#prim_state.primary_archive of
             undefined ->
@@ -1084,6 +1085,8 @@ open_archive(Archive, FileInfo, Acc, Fun) ->
 
 ensure_virtual_dirs(Funny, Fun, FakeFI, Includes, FunnyDirs, Acc) ->
     case Funny of
+	[_] ->
+	    {Includes, FunnyDirs, Acc};
 	[_ | FunnyDir] ->
 	    case lists:member(FunnyDir, FunnyDirs) of % BIF
 		false ->
@@ -1096,11 +1099,9 @@ ensure_virtual_dirs(Funny, Fun, FakeFI, Includes, FunnyDirs, Acc) ->
 		    {_Continue, Acc3} = Fun({VirtualDir, GetInfo, GetBin}, Acc2),
 		    {I, F, Acc3};
 		true ->
-		    {reverse(Includes), FunnyDirs, Acc}
-	    end;
-	[] ->
-	    {reverse(Includes), FunnyDirs, Acc}
-    end.
+		    ensure_virtual_dirs(FunnyDir,Fun,FakeFI,Includes,FunnyDirs,Acc)
+	    end
+   end.
 
 foldl_archive(PrimZip, Acc, Fun) ->
     Wrapper =
@@ -1235,26 +1236,22 @@ do_name_split(undefined, File) ->
 	    %% False match. Assume plain file
             {file, File}
     end;
-do_name_split(ArchiveFile0, File) ->
+do_name_split(ArchiveFile, File) ->
     %% Look first in primary archive
-    ArchiveFile = absname(ArchiveFile0),
     case string_match(File, ArchiveFile, []) of
         no_match ->
             %% Archive or plain file
             do_name_split(undefined, File);
         {match, _RevPrimArchiveFile, FileInArchive} ->
             %% Primary archive
-            case FileInArchive of
-                [$/ | FileInArchive2] ->
-                    {archive, ArchiveFile, FileInArchive2};
-                _ ->
-                    {archive, ArchiveFile, FileInArchive}
-            end
+	    {archive, ArchiveFile, FileInArchive}
     end.
 
 string_match([Char | File], [Char | Archive], RevTop) ->
     string_match(File, Archive, [Char | RevTop]);
-string_match(File, [], RevTop) ->
+string_match([] = File, [], RevTop) ->
+    {match, RevTop, File};
+string_match([$/ | File], [], RevTop) ->
     {match, RevTop, File};
 string_match(_File, _Archive, _RevTop) ->
     no_match.
@@ -1307,24 +1304,26 @@ ipv4_addr([], D, [C,B,A]) when D < 256 -> {A,B,C,D}.
 %% A simplified version of filename:absname/1
 absname(Name) ->
     Name2 = normalize(Name, []),
-    case pathtype(Name2) of
-	absolute ->
-	    Name2;
-	relative ->
-	    case prim_file:get_cwd() of
-		{ok, Cwd} ->
-		    Cwd ++ "/" ++ Name2;
-		{error, _} -> 
-		    Name2
-	    end;
-	volumerelative ->
-	    case prim_file:get_cwd() of
-		{ok, Cwd} ->
-		    absname_vr(Name2, Cwd);
-		{error, _} -> 
-		    Name2
-	    end
-    end.
+    Name3 =
+	case pathtype(Name2) of
+	    absolute ->
+		Name2;
+	    relative ->
+		case prim_file:get_cwd() of
+		    {ok, Cwd} ->
+			Cwd ++ "/" ++ Name2;
+		    {error, _} ->
+			Name2
+		end;
+	    volumerelative ->
+		case prim_file:get_cwd() of
+		    {ok, Cwd} ->
+			absname_vr(Name2, Cwd);
+		    {error, _} ->
+			Name2
+		end
+	end,
+    path_flatten(Name3).
 
 %% Assumes normalized name
 absname_vr([$/ | NameRest], [Drive, $\: | _]) ->
@@ -1380,21 +1379,11 @@ win32_pathtype(Name) ->
 	    win32_pathtype([Char | List++Rest]);
 	[$/, $/|_] -> 
 	    absolute;
-	[$\\, $/|_] -> 
-	    absolute;
-	[$/, $\\|_] ->
-	    absolute;
-	[$\\, $\\|_] -> 
-	    absolute;
 	[$/|_] -> 
 	    volumerelative;
-	[$\\|_] -> 
-	    volumerelative;
 	[C1, C2, List | Rest] when is_list(List) ->
-	    pathtype([C1, C2|List ++ Rest]);
+	    win32_pathtype([C1, C2|List ++ Rest]);
 	[_Letter, $:, $/|_] -> 
-	    absolute;
-	[_Letter, $:, $\\|_] ->
 	    absolute;
 	[_Letter, $:|_] -> 
 	    volumerelative;
@@ -1408,8 +1397,6 @@ vxworks_first(Name) ->
 	    {not_device, [], []};
 	[$/ | T] ->
 	    vxworks_first2(device, T, [$/]);
-	[$\\ | T] ->
-	    vxworks_first2(device, T, [$/]);
 	[H | T] when is_list(H) ->
 	    vxworks_first(H ++ T);
 	[H | T] ->
@@ -1421,8 +1408,6 @@ vxworks_first2(Devicep, Name, FirstComp) ->
 	[] ->
     {Devicep, [], FirstComp};
 	[$/ |T ] ->
-	    {Devicep, [$/ | T], FirstComp};
-	[$\\ | T] ->
 	    {Devicep, [$/ | T], FirstComp};
 	[$: | T]->
 	    {device, T, [$: | FirstComp]};
@@ -1445,3 +1430,25 @@ normalize(Name, Acc) ->
 	[] ->
 	    reverse(Acc)
     end.
+
+%% Remove .. and . from the path, e.g.
+%% /path/./to/this/../file -> /path/to/file
+path_flatten(Name) ->
+    path_flatten(Name,[],[]).
+
+path_flatten([$/,$.,$.,$/|Rest],_RevLast,RevTop) ->
+    path_flatten(Rest,[],RevTop);
+path_flatten([$/,$.,$/|Rest],RevLast,RevTop) ->
+    path_flatten([$/|Rest],RevLast,RevTop);
+path_flatten([$/,$.,$.],_RevLast,RevTop) ->
+    path_flatten([],[],RevTop);
+path_flatten([$/,$.],RevLast,RevTop) ->
+    path_flatten([],RevLast,RevTop);
+path_flatten([$/],RevLast,RevTop) ->
+    path_flatten([],RevLast,RevTop);
+path_flatten([$/|Rest],RevLast,RevTop) ->
+    path_flatten(Rest,[],[$/|RevLast++RevTop]);
+path_flatten([Ch|Rest],RevLast,RevTop) ->
+    path_flatten(Rest,[Ch|RevLast],RevTop);
+path_flatten([],RevLast,RevTop) ->
+    reverse(RevLast++RevTop).
