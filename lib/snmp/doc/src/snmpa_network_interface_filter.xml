@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd">
 
 <erlref>
@@ -84,7 +84,9 @@
     <title>DATA TYPES</title>
     <code type="none">
 port() = integer() > 0
-pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 'set-request' | trap | 'get-bulk-request' | 'inform-request' | report
+pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 
+             'set-request' | trap | 'get-bulk-request' | 'inform-request' | 
+             report
     </code>
     <marker id="accept_recv"></marker>
   </section>
