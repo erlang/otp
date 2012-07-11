@@ -36,53 +36,23 @@
   <section><title>Inets 5.9.1</title>
 
     <section><title>Improvements and New Features</title>
-    <p>-</p>
-
 <!--
+    <p>-</p>
+-->
+
       <list>
         <item>
-          <p>[httpd] Make the server header configurable with new config
-	  option 
-	  <seealso marker="httpd#prop_server_tokens">server_tokens</seealso>.
-	  The value of the server header, which was previously hard-coded 
-	  (at compile time), is now possible to manipulate through the means 
-	  of the 
-	  <seealso marker="httpd#prop_server_tokens">server_tokens</seealso> 
-	  config option. </p>
-	  <p>Own Id: OTP-9805</p>
-        </item>
-
-        <item>
-	  <p>Improve inets support for inets as an included application. </p>
-	  <p><c>inets_app</c> calls <c>supervisor:start_link/3</c> directly 
-	  rather than calling the root supervisor function 
-	  <c>inets_sup:start_link/0</c>. 
-	  This precludes using included_applications to start inets without 
-	  having a wrapper function. </p>
-	  <p>Jay Nelson</p>
-	  <p>Own Id: OTP-9960</p>
-        </item>
-
-        <item>
-          <p>[httpc] Add function for retrieving current options, 
-	  <seealso marker="httpc#get_options">get_options/1,2</seealso>. </p>
-	  <p>Own Id: OTP-9979</p>
-        </item>
-
-        <item>
-          <p>Utility module 
-	  <seealso marker="http_uri">http_uri</seealso>
-	  now officially supported. </p>
-	  <p>Also, the 
-	  <seealso marker="http_uri#parse">parse</seealso> 
-	  function has been extended with more
-	  scheme support and a way to provide your own scheme info. </p>
-	  <p>Own Id: OTP-9983</p>
-          <p>Aux Id: Seq 12022</p>
+          <p>Better handling of errorI(s) during update of the session 
+	  database. </p>
+	  <p>Also added and updated some debugging functions 
+	  <seealso marker="httpc#which_sessions">which_sessions/10,1</seealso>
+	  and 
+	  <seealso marker="httpc#info">info/0</seealso>. </p>
+	  <p>Own Id: OTP-10093</p>
+          <p>Aux Id: Seq 12062</p>
         </item>
 
       </list>
--->
 
     </section>
 
@@ -103,11 +73,11 @@
 
     </section>
 
+<!--
     <section>
       <title>Incompatibilities</title>
       <p>-</p>
 
-<!--
       <list>
         <item>
           <p>[httpc|httpd] The old ssl implementation (based on OpenSSL), 
@@ -117,9 +87,9 @@
         </item>
 
       </list>
--->
 
     </section>
+-->
 
   </section> <!-- 5.9.1 -->
 
@@ -193,11 +163,11 @@
 
     </section>
 
+<!--
     <section>
       <title>Incompatibilities</title>
       <p>-</p>
 
-<!--
       <list>
         <item>
           <p>[httpc|httpd] The old ssl implementation (based on OpenSSL), 
@@ -207,9 +177,9 @@
         </item>
 
       </list>
--->
 
     </section>
+-->
 
   </section> <!-- 5.9 -->
 
@@ -376,31 +346,6 @@
 
     </section>
 
-    <section>
-      <title>Incompatibilities</title>
-<!--
-      <p>-</p>
--->
-
-      <list>
-        <item>
-          <p>[httpc] Deprecated interface module <c>http</c> has been removed. 
-	  It has (long) been replaced by http client interface module 
-	  <seealso marker="httpc#">httpc</seealso>. </p>
-	  <p>Own Id: OTP-9359</p>
-        </item>
-
-        <item>
-          <p>[httpc|httpd] The old ssl implementation (based on OpenSSL), 
-	  has been deprecated. The config option that specified usage of 
-	  this version of the ssl app, <c>ossl</c>, has been removed. </p>
-	  <p>Own Id: OTP-9522</p>
-        </item>
-
-      </list>
-
-    </section>
-
     <section><title>Fixed Bugs and Malfunctions</title>
 <!--
     <p>-</p>
@@ -423,6 +368,24 @@
       </list>
     </section>
   
+<!--
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+      <list>
+        <item>
+          <p>[httpc] Deprecated interface module <c>http</c> has been removed. 
+	  It has (long) been replaced by http client interface module 
+	  <seealso marker="httpc#">httpc</seealso>. </p>
+	  <p>Own Id: OTP-9359</p>
+        </item>
+
+      </list>
+
+    </section>
+-->
+
   </section> <!-- 5.7.2 -->
 
 

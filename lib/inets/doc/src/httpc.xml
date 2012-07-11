@@ -651,6 +651,8 @@ apply(Module, Function, [ReplyInfo | Args])
         <p>Resets (clears) the cookie database for the specified 
 	<c>Profile</c>. If no profile is specified the default profile 
 	will be used. </p>
+
+        <marker id="which_cookies"></marker>
       </desc>
     </func>
 
@@ -669,6 +671,42 @@ apply(Module, Function, [ReplyInfo | Args])
       <desc>
         <p>This function produces a list of the entire cookie database.
 	It is intended for debugging/testing purposes. 
+	If no profile is specified the default profile will be used. </p>
+
+        <marker id="which_sessions"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>which_sessions() -> session_info()</name>
+      <name>which_sessions(Profile) -> session_info()</name>
+      <fsummary>Produces a slightly processed dump of the sessions database.</fsummary>
+      <type>
+	<v>Profile = profile() | pid() (when started <c>stand_alone</c>)</v>
+	<v>session_info() = {GoodSessions, BadSessions, NonSessions}</v>
+	<v>GoodSessions = session()</v>
+	<v>BadSessions = tuple()</v>
+	<v>NonSessions = term()</v>
+      </type>
+      <desc>
+        <p>This function produces a slightly processed dump of the session 
+	database. It is intended for debugging. 
+	If no profile is specified the default profile will be used. </p>
+
+        <marker id="info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>info() -> list()</name>
+      <name>info(Profile) -> list()</name>
+      <fsummary>Produces a list of miscelleneous info</fsummary>
+      <type>
+	<v>Profile = profile() | pid() (when started <c>stand_alone</c>)</v>
+      </type>
+      <desc>
+        <p>This function produces a list of miscelleneous info. 
+	It is intended for debugging. 
 	If no profile is specified the default profile will be used. </p>
       </desc>
     </func>

@@ -20,7 +20,9 @@
  [
   {"5.9", 
    [
-    {update, httpc_manager, soft, soft_purge, soft_purge, []}
+    {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
+    {update,      httpc_handler, soft, soft_purge, soft_purge, [httpc_manager]},
+    {update,      httpc_manager, soft, soft_purge, soft_purge, []}
    ]
   }, 
   {"5.8.1", 
@@ -30,7 +32,6 @@
 
     {load_module, httpc,         soft_purge, soft_purge, 
      [http_uri, httpc_manager]}, 
-    {update,      httpc_manager, soft, soft_purge, soft_purge, [http_uri]},
 
     {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
     {update,      inets_sup,     soft, soft_purge, soft_purge, []},
@@ -40,37 +41,15 @@
     {load_module, httpd_script_env, soft_purge, soft_purge, []}, 
 
     {load_module, inets,         soft_purge, soft_purge, [inets_trace]},
-    {update,      httpc_manager, soft, soft_purge, soft_purge, []}, 
-    {update,      httpc_handler, soft, soft_purge, soft_purge, []},
+    {update,      httpc_manager, soft, soft_purge, soft_purge, [http_uri]},
+    {update,      httpc_handler, soft, soft_purge, soft_purge, [httpc_manager]},
     {update,      httpd_sup,     soft, soft_purge, soft_purge, []},
     {add_module,  inets_trace}
    ]
   }, 
-  {"5.8",
+  {"5.8", 
    [
-    {load_module, http_uri,      soft_purge, soft_purge, []}, 
-    {load_module, httpc_response, soft_purge, soft_purge, [http_uri]}, 
-
-    {load_module, httpc, soft_purge, soft_purge, 
-     [http_uri, httpc_manager]}, 
-
-    {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
-    {update,      inets_sup,     soft, soft_purge, soft_purge, []},
-
-    {load_module, inets, soft_purge, soft_purge, [inets_trace]},
-
-    {load_module, httpd_conf, soft_purge, soft_purge, []}, 
-    {load_module, httpd_response, soft_purge, soft_purge, []}, 
-    {load_module, httpd_script_env, soft_purge, soft_purge, []}, 
-
-    {load_module, ftp, soft_purge, soft_purge, []}, 
-    {update, httpc_handler, {advanced, upgrade_from_pre_5_8_1}, 
-     soft_purge, soft_purge, []}, 
-    {update, httpc_manager, {advanced, upgrade_from_pre_5_8_1}, 
-     soft_purge, soft_purge, [http_uri, httpc_handler]},
-    {update,      httpd_sup, soft, soft_purge, soft_purge, []},
-
-    {add_module,  inets_trace}
+    {restart_application, inets}
    ]
   }, 
   {"5.7.2", 
@@ -82,7 +61,9 @@
  [
   {"5.9", 
    [
-    {update, httpc_manager, soft, soft_purge, soft_purge, []}
+    {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
+    {update,      httpc_handler, soft, soft_purge, soft_purge, [httpc_manager]},
+    {update,      httpc_manager, soft, soft_purge, soft_purge, []}
    ]
   }, 
   {"5.8.1",
@@ -92,7 +73,6 @@
 
     {load_module, httpc,         soft_purge, soft_purge, 
      [http_uri, httpc_manager]}, 
-    {update,      httpc_manager, soft, soft_purge, soft_purge, [http_uri]},
 
     {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
     {update,      inets_sup,     soft, soft_purge, soft_purge, []},
@@ -102,37 +82,15 @@
     {load_module, httpd_script_env, soft_purge, soft_purge, []}, 
 
     {load_module, inets,         soft_purge, soft_purge, []},
-    {update,      httpc_manager, soft, soft_purge, soft_purge, []}, 
-    {update,      httpc_handler, soft, soft_purge, soft_purge, []},
+    {update,      httpc_manager, soft, soft_purge, soft_purge, [http_uri]},
+    {update,      httpc_handler, soft, soft_purge, soft_purge, [httpc_manager]},
     {update,      httpd_sup,     soft, soft_purge, soft_purge, []},
     {remove,      {inets_trace, soft_purge, brutal_purge}}
    ]
   }, 
   {"5.8",
    [
-    {load_module, http_uri,      soft_purge, soft_purge, []}, 
-    {load_module, httpc_response, soft_purge, soft_purge, [http_uri]}, 
-
-    {load_module, httpc,         soft_purge, soft_purge, 
-     [http_uri, httpc_manager]}, 
-
-    {load_module, inets_app, soft_purge, soft_purge, [inets_sup]}, 
-    {update,      inets_sup,     soft, soft_purge, soft_purge, []},
-
-    {load_module, inets, soft_purge, soft_purge, []},
-
-    {load_module, httpd_conf, soft_purge, soft_purge, []}, 
-    {load_module, httpd_response, soft_purge, soft_purge, []}, 
-    {load_module, httpd_script_env, soft_purge, soft_purge, []}, 
-
-    {load_module, ftp, soft_purge, soft_purge, []}, 
-    {update, httpc_handler, {advanced, upgrade_from_pre_5_8_1}, 
-     soft_purge, soft_purge, []}, 
-    {update, httpc_manager, {advanced, upgrade_from_pre_5_8_1}, 
-     soft_purge, soft_purge, [http_uri, httpc_handler]},
-    {update,      httpd_sup, soft, soft_purge, soft_purge, []},
-
-    {remove,      {inets_trace, soft_purge, brutal_purge}}
+    {restart_application, inets}
    ]
   }, 
   {"5.7.2", 
