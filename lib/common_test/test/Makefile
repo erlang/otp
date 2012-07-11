@@ -28,7 +28,6 @@ MODULES= \
 	ct_test_support \
 	ct_test_support_eh \
 	ct_userconfig_callback \
-	ct_test_netconf_server \
 	ct_smoke_test_SUITE \
 	ct_priv_dir_SUITE \
 	ct_event_handler_SUITE \
@@ -102,7 +101,6 @@ release_tests_spec:
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(ERL_FILES) $(COVERFILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) common_test.spec "$(RELSYSDIR)"
-	$(INSTALL_DATA) ct_netconfc.cfg "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
 	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 

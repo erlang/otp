@@ -18,7 +18,7 @@
 %%
 %%----------------------------------------------------------------------
 %% A netconf server used for testing of netconfc
--module(ct_test_netconf_server).
+-module(ns).
 
 %-compile(export_all).
 -include_lib("common_test/src/ct_netconfc.hrl").
