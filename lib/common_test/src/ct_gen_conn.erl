@@ -278,8 +278,6 @@ return({To,Ref},Result) ->
 
 init_gen(Parent,Opts) ->
     process_flag(trap_exit,true),
-    CtUtilServer = whereis(ct_util_server),
-    link(CtUtilServer),
     put(silent,false),
     try (Opts#gen_opts.callback):init(Opts#gen_opts.name,
 				      Opts#gen_opts.address,
@@ -287,6 +285,8 @@ init_gen(Parent,Opts) ->
 	{ok,ConnPid,State} when is_pid(ConnPid) ->
 	    link(ConnPid),
 	    put(conn_pid,ConnPid),
+	    CtUtilServer = whereis(ct_util_server),
+	    link(CtUtilServer),
 	    Parent ! {connected,self()},
 	    loop(Opts#gen_opts{conn_pid=ConnPid,
 			       cb_state=State,
