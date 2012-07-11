@@ -1238,18 +1238,25 @@ testName2Number(Config) ->
     'unknown-PLMN' = 'S1AP-IEs':num2name_CauseMisc(5),
 
     %% OTP-10144
-    %% Test that n2n option generates name2num and num2name functions that
-    %% do not crash on values not within the extension root if the enumeration
-    %% type has an extension marker.
-    %% Also, previously name2num and num2name was only generated if the type
-    %% had an extension marker. So we also tests to check this.
+    %% Test that n2n option generates name2num and num2name functions supporting
+    %% values not within the extension root if the enumeration type has an
+    %% extension marker.
     N2NOptionsExt = [{n2n, 'NoExt'}, {n2n, 'Ext'}, {n2n, 'Ext2'}],
     asn1_test_lib:compile("EnumN2N", Config, N2NOptionsExt),
+    %% Previously, name2num and num2name was not generated if the type didn't
+    %% have an extension marker:
     0 = 'EnumN2N':name2num_NoExt('blue'),
     2 = 'EnumN2N':name2num_NoExt('green'),
     blue = 'EnumN2N':num2name_NoExt(0),
     green = 'EnumN2N':num2name_NoExt(2),
-    
+
+    %% Test enumeration extension:
+    7 = 'EnumN2N':name2num_Ext2('orange'),
+    orange = 'EnumN2N':num2name_Ext2(7),
+    %% 7 is not defined in Ext, only in Ext2.
+    {asn1_enum, 7} = 'EnumN2N':num2name_Ext(7),
+    7 = 'EnumN2N':name2num_Ext({asn1_enum, 7}),
+    42 = 'EnumN2N':name2num_Ext2({asn1_enum, 42}),
     ok.
 
 ticket_7407(Config) ->

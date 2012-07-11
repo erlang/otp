@@ -129,31 +129,39 @@ pgen_types(Rtmod,Erules,N2nConvEnums,Module,[H|T]) ->
     end,
     pgen_types(Rtmod,Erules,N2nConvEnums,Module,T).
 
+%% Enumerated type with extension marker
 pgen_n2nconversion(_Erules,#typedef{name=TypeName,typespec=#type{def={'ENUMERATED',{NN1,NN2}}}}) ->
     NN = NN1 ++ NN2,
-    pgen_name2numfunc(TypeName,NN),
-    pgen_num2namefunc(TypeName,NN);
+    pgen_name2numfunc(TypeName,NN, extension_marker),
+    pgen_num2namefunc(TypeName,NN, extension_marker);
+%% Without extension marker
 pgen_n2nconversion(_Erules,#typedef{name=TypeName,typespec=#type{def={'ENUMERATED',NN}}}) ->
-    pgen_name2numfunc(TypeName,NN),
-    pgen_num2namefunc(TypeName,NN);
+    pgen_name2numfunc(TypeName,NN, no_extension_marker),
+    pgen_num2namefunc(TypeName,NN, no_extension_marker);
 pgen_n2nconversion(_Erules,_) ->
     true.
 
-pgen_name2numfunc(_TypeName,[]) ->
+pgen_name2numfunc(_TypeName,[], _) ->
     true;
-pgen_name2numfunc(TypeName,[{Atom,Number}]) ->
-    emit(["name2num_",TypeName,"(",{asis,Atom},") ->",Number,".",nl,nl]);
-pgen_name2numfunc(TypeName,[{Atom,Number}|NNRest]) ->
+pgen_name2numfunc(TypeName,[{Atom,Number}], extension_marker) ->
     emit(["name2num_",TypeName,"(",{asis,Atom},") ->",Number,";",nl]),
-    pgen_name2numfunc(TypeName,NNRest).
+    emit(["name2num_",TypeName,"({asn1_enum, Num}) -> Num.",nl,nl]);
+pgen_name2numfunc(TypeName,[{Atom,Number}], _) ->
+    emit(["name2num_",TypeName,"(",{asis,Atom},") ->",Number,".",nl,nl]);
+pgen_name2numfunc(TypeName,[{Atom,Number}|NNRest], EM) ->
+    emit(["name2num_",TypeName,"(",{asis,Atom},") ->",Number,";",nl]),
+    pgen_name2numfunc(TypeName,NNRest, EM).
 
-pgen_num2namefunc(_TypeName,[]) ->
+pgen_num2namefunc(_TypeName,[], _) ->
     true;
-pgen_num2namefunc(TypeName,[{Atom,Number}]) ->
-    emit(["num2name_",TypeName,"(",Number,") ->",{asis,Atom},".",nl,nl]);
-pgen_num2namefunc(TypeName,[{Atom,Number}|NNRest]) ->
+pgen_num2namefunc(TypeName,[{Atom,Number}], extension_marker) ->
     emit(["num2name_",TypeName,"(",Number,") ->",{asis,Atom},";",nl]),
-    pgen_num2namefunc(TypeName,NNRest).
+    emit(["num2name_",TypeName,"(ExtensionNum) -> {asn1_enum, ExtensionNum}.",nl,nl]);
+pgen_num2namefunc(TypeName,[{Atom,Number}], _) ->
+    emit(["num2name_",TypeName,"(",Number,") ->",{asis,Atom},".",nl,nl]);
+pgen_num2namefunc(TypeName,[{Atom,Number}|NNRest], EM) ->
+    emit(["num2name_",TypeName,"(",Number,") ->",{asis,Atom},";",nl]),
+    pgen_num2namefunc(TypeName,NNRest, EM).
 
 pgen_objects(_,_,_,[]) ->
     true;
