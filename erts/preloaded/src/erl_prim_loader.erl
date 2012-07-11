@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -824,16 +824,17 @@ prim_set_primary_archive(PS, undefined, undefined, undefined) ->
             debug(PS2, {return, Res}),
             {Res, PS2}
     end;
-prim_set_primary_archive(PS, ArchiveFile, ArchiveBin, #file_info{} = FileInfo)
-  when is_list(ArchiveFile), is_binary(ArchiveBin) ->
+prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin, #file_info{} = FileInfo)
+  when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
     %% Try the archive file
-    debug(PS, {set_primary_archive, ArchiveFile, byte_size(ArchiveBin)}),
+    debug(PS, {set_primary_archive, ArchiveFile0, byte_size(ArchiveBin)}),
+    ArchiveFile = absname(ArchiveFile0),
     {Res3, PS3} =
         case PS#prim_state.primary_archive of
             undefined ->
                 Fun =
-                    fun({Funny, _GI, _GB}, A) ->
-                            case Funny of
+                    fun({Components, _GI, _GB}, A) ->
+                            case Components of
                                 ["", "nibe", RevApp] -> % Reverse ebin
                                     %% Collect ebin directories in archive
                                     Ebin = reverse(RevApp) ++ "/ebin",
@@ -873,11 +874,11 @@ prim_get_file(PS, File) ->
                 {Res, PS};
             {archive, ArchiveFile, FileInArchive} ->
                 debug(PS, {archive_get_file, ArchiveFile, FileInArchive}),
-                FunnyFile = funny_split(FileInArchive, $/),
+                FileComponents = path_split(FileInArchive),
                 Fun =
-                    fun({Funny, _GetInfo, GetBin}, Acc) ->
+                    fun({Components, _GetInfo, GetBin}, Acc) ->
                             if
-                                Funny =:= FunnyFile ->
+                                Components =:= FileComponents ->
                                     {false, {ok, GetBin()}};
                                 true ->
                                     {true, Acc}
@@ -900,11 +901,11 @@ prim_list_dir(PS, Dir) ->
                 {Res, PS};
             {archive, ArchiveFile, FileInArchive} ->
                 debug(PS, {archive_list_dir, ArchiveFile, FileInArchive}),
-                FunnyDir = funny_split(FileInArchive, $/),
+                DirComponents = path_split(FileInArchive),
                 Fun =
-                    fun({Funny, _GetInfo, _GetBin}, {Status, Names} = Acc) ->
-                            case Funny of
-                                [RevName | FD] when FD =:= FunnyDir ->
+                    fun({Components, _GetInfo, _GetBin}, {Status, Names} = Acc) ->
+                            case Components of
+                                [RevName | DC] when DC =:= DirComponents ->
                                     case RevName of
                                         "" ->
                                             %% The listed directory
@@ -914,16 +915,16 @@ prim_list_dir(PS, Dir) ->
                                             Name = reverse(RevName),
                                             {true, {Status, [Name | Names]}}
                                     end;
-                                ["", RevName | FD] when FD =:= FunnyDir ->
+                                ["", RevName | DC] when DC =:= DirComponents ->
                                     %% Directory
                                     Name = reverse(RevName),
                                     {true, {Status, [Name | Names]}};
-                                [RevName] when FunnyDir =:= [""] ->
-                                    %% Top file
+                                [RevName] when DirComponents =:= [""] ->
+                                    %% File in top directory
                                     Name = reverse(RevName),
                                     {true, {ok, [Name | Names]}};
-                                ["", RevName] when FunnyDir =:= [""] ->
-                                    %% Top file
+                                ["", RevName] when DirComponents =:= [""] ->
+                                    %% Directory in top directory
                                     Name = reverse(RevName),
                                     {true, {ok, [Name | Names]}};
                                 _ ->
@@ -962,15 +963,14 @@ prim_read_file_info(PS, File) ->
                 end;
             {archive, ArchiveFile, FileInArchive} ->
                 debug(PS, {archive_read_file_info, File}),
-                FunnyFile = funny_split(FileInArchive, $/),
+                FileComponents = path_split(FileInArchive),
                 Fun =
-                    fun({Funny, GetInfo, _GetBin}, Acc)  ->
-			    case Funny of
-				[H | T] when  H =:= "",
-					      T =:= FunnyFile ->
+                    fun({Components, GetInfo, _GetBin}, Acc)  ->
+			    case Components of
+				["" | F] when F =:= FileComponents ->
                                     %% Directory
                                     {false, {ok, GetInfo()}};
-                                F when F =:= FunnyFile ->
+                                F when F =:= FileComponents ->
                                     %% Plain file
                                     {false, {ok, GetInfo()}};
                                 _ ->
@@ -1063,50 +1063,69 @@ open_archive(Archive, Acc, Fun) ->
 	    {error, Reason}
     end.
 
+%% Open the given archive and iterate through all files with an own
+%% wrapper fun in order to identify each file as a component list as
+%% returned from path_split/1.
+%%
+%% In the archive (zip) file, directory elements might or might not be
+%% present. To ensure consistency, a directory element is added if it
+%% does not already exist (ensure_virual_dir/6). NOTE that there will
+%% be no such directory element for the top directory of the archive.
 open_archive(Archive, FileInfo, Acc, Fun) ->
     FakeFI = FileInfo#file_info{type = directory},
     Wrapper =
-	fun({N, GI, GB}, {A, I, FunnyDirs}) -> % Full iteration at open
-		Funny = funny_split(N, $/),
-		FunnyDirs2 =
-		    case Funny of
-			["" | FunnyDir] ->
-			    [FunnyDir | FunnyDirs];
+	fun({N, GI, GB}, {A, I, Dirs}) ->
+		Components = path_split(N),
+		Dirs2 =
+		    case Components of
+			["" | Dir] ->
+			    %% This is a directory
+			    [Dir | Dirs];
 			_ ->
-			    FunnyDirs
+			    %% This is a regular file
+			    Dirs
 		    end,
-		{Includes, FunnyDirs3, A2} = 
-		    ensure_virtual_dirs(Funny, Fun, FakeFI, [{true, Funny}], FunnyDirs2, A),
-		{_Continue, A3} = Fun({Funny, GI, GB}, A2),
-		{true, Includes, {A3, I, FunnyDirs3}}
+		{Includes, Dirs3, A2} =
+		    ensure_virtual_dirs(Components, Fun, FakeFI,
+					[{true, Components}], Dirs2, A),
+		{_Continue, A3} = Fun({Components, GI, GB}, A2),
+		{true, Includes, {A3, I, Dirs3}}
 	end,
     prim_zip:open(Wrapper, {Acc, FakeFI, []}, Archive).
 
-ensure_virtual_dirs(Funny, Fun, FakeFI, Includes, FunnyDirs, Acc) ->
-    case Funny of
-	[_ | FunnyDir] ->
-	    case lists:member(FunnyDir, FunnyDirs) of % BIF
+ensure_virtual_dirs(Components, Fun, FakeFI, Includes, Dirs, Acc) ->
+    case Components of
+	[_] ->
+	    %% Don't add virtual dir for top directory
+	    {Includes, Dirs, Acc};
+	[_ | Dir] ->
+	    case lists:member(Dir, Dirs) of % BIF
 		false ->
+		    %% The directory does not yet exist - add it
 		    GetInfo = fun() -> FakeFI end,
 		    GetBin = fun() -> <<>> end,
-		    VirtualDir = ["" | FunnyDir],
+		    VirtualDir = ["" | Dir],
 		    Includes2 = [{true, VirtualDir, GetInfo, GetBin} | Includes],
-		    FunnyDirs2 = [FunnyDir | FunnyDirs],
-		    {I, F, Acc2} = ensure_virtual_dirs(FunnyDir, Fun, FakeFI, Includes2, FunnyDirs2, Acc),
+		    Dirs2 = [Dir | Dirs],
+
+		    %% Recursively ensure dir elements on all levels
+		    {I, F, Acc2} = ensure_virtual_dirs(Dir, Fun, FakeFI,
+						       Includes2, Dirs2, Acc),
+
 		    {_Continue, Acc3} = Fun({VirtualDir, GetInfo, GetBin}, Acc2),
 		    {I, F, Acc3};
 		true ->
-		    {reverse(Includes), FunnyDirs, Acc}
-	    end;
-	[] ->
-	    {reverse(Includes), FunnyDirs, Acc}
+		    %% The directory element does already exist
+		    %% Recursivly ensure dir elements on all levels
+		    ensure_virtual_dirs(Dir,Fun,FakeFI,Includes,Dirs,Acc)
+	    end
     end.
 
 foldl_archive(PrimZip, Acc, Fun) ->
     Wrapper =
-        fun({Funny, GI, GB}, A) ->
+        fun({Components, GI, GB}, A) ->
                 %% Allow partial iteration at foldl
-                {Continue, A2} = Fun({Funny, GI, GB}, A),
+                {Continue, A2} = Fun({Components, GI, GB}, A),
                 {Continue, true, A2}
         end,                        
     prim_zip:foldl(Wrapper, Acc, PrimZip).
@@ -1202,15 +1221,19 @@ reverse([A, B]) ->
 reverse([A, B | L]) ->
     lists:reverse(L, [B, A]). % BIF
                         
-%% Returns all lists in reverse order
-funny_split(List, Sep) ->
-   funny_split(List, Sep, [], []).
+%% Returns a reversed list of path components, each component itself a
+%% reversed list (string), e.g.
+%% /path/to/file -> ["elif","ot","htap",""]
+%% /path/to/dir/ -> ["","rid","ot","htap",""]
+%% Note the "" marking leading and trailing / (slash).
+path_split(List) ->
+   path_split(List, [], []).
 
-funny_split([Sep | Tail], Sep, Path, Paths) ->
-    funny_split(Tail, Sep, [], [Path | Paths]);
-funny_split([Head | Tail], Sep, Path, Paths) ->
-    funny_split(Tail, Sep, [Head | Path], Paths);
-funny_split([], _Sep, Path, Paths) ->
+path_split([$/ | Tail], Path, Paths) ->
+    path_split(Tail, [], [Path | Paths]);
+path_split([Head | Tail], Path, Paths) ->
+    path_split(Tail, [Head | Path], Paths);
+path_split([], Path, Paths) ->
     [Path | Paths].
 
 name_split(ArchiveFile, File0) ->
@@ -1235,26 +1258,22 @@ do_name_split(undefined, File) ->
 	    %% False match. Assume plain file
             {file, File}
     end;
-do_name_split(ArchiveFile0, File) ->
+do_name_split(ArchiveFile, File) ->
     %% Look first in primary archive
-    ArchiveFile = absname(ArchiveFile0),
     case string_match(File, ArchiveFile, []) of
         no_match ->
             %% Archive or plain file
             do_name_split(undefined, File);
         {match, _RevPrimArchiveFile, FileInArchive} ->
             %% Primary archive
-            case FileInArchive of
-                [$/ | FileInArchive2] ->
-                    {archive, ArchiveFile, FileInArchive2};
-                _ ->
-                    {archive, ArchiveFile, FileInArchive}
-            end
+	    {archive, ArchiveFile, FileInArchive}
     end.
 
 string_match([Char | File], [Char | Archive], RevTop) ->
     string_match(File, Archive, [Char | RevTop]);
-string_match(File, [], RevTop) ->
+string_match([] = File, [], RevTop) ->
+    {match, RevTop, File};
+string_match([$/ | File], [], RevTop) ->
     {match, RevTop, File};
 string_match(_File, _Archive, _RevTop) ->
     no_match.
@@ -1307,24 +1326,26 @@ ipv4_addr([], D, [C,B,A]) when D < 256 -> {A,B,C,D}.
 %% A simplified version of filename:absname/1
 absname(Name) ->
     Name2 = normalize(Name, []),
-    case pathtype(Name2) of
-	absolute ->
-	    Name2;
-	relative ->
-	    case prim_file:get_cwd() of
-		{ok, Cwd} ->
-		    Cwd ++ "/" ++ Name2;
-		{error, _} -> 
-		    Name2
-	    end;
-	volumerelative ->
-	    case prim_file:get_cwd() of
-		{ok, Cwd} ->
-		    absname_vr(Name2, Cwd);
-		{error, _} -> 
-		    Name2
-	    end
-    end.
+    Name3 =
+	case pathtype(Name2) of
+	    absolute ->
+		Name2;
+	    relative ->
+		case prim_file:get_cwd() of
+		    {ok, Cwd} ->
+			Cwd ++ "/" ++ Name2;
+		    {error, _} ->
+			Name2
+		end;
+	    volumerelative ->
+		case prim_file:get_cwd() of
+		    {ok, Cwd} ->
+			absname_vr(Name2, Cwd);
+		    {error, _} ->
+			Name2
+		end
+	end,
+    path_flatten(Name3).
 
 %% Assumes normalized name
 absname_vr([$/ | NameRest], [Drive, $\: | _]) ->
@@ -1380,21 +1401,11 @@ win32_pathtype(Name) ->
 	    win32_pathtype([Char | List++Rest]);
 	[$/, $/|_] -> 
 	    absolute;
-	[$\\, $/|_] -> 
-	    absolute;
-	[$/, $\\|_] ->
-	    absolute;
-	[$\\, $\\|_] -> 
-	    absolute;
 	[$/|_] -> 
 	    volumerelative;
-	[$\\|_] -> 
-	    volumerelative;
 	[C1, C2, List | Rest] when is_list(List) ->
-	    pathtype([C1, C2|List ++ Rest]);
+	    win32_pathtype([C1, C2|List ++ Rest]);
 	[_Letter, $:, $/|_] -> 
-	    absolute;
-	[_Letter, $:, $\\|_] ->
 	    absolute;
 	[_Letter, $:|_] -> 
 	    volumerelative;
@@ -1408,8 +1419,6 @@ vxworks_first(Name) ->
 	    {not_device, [], []};
 	[$/ | T] ->
 	    vxworks_first2(device, T, [$/]);
-	[$\\ | T] ->
-	    vxworks_first2(device, T, [$/]);
 	[H | T] when is_list(H) ->
 	    vxworks_first(H ++ T);
 	[H | T] ->
@@ -1421,8 +1430,6 @@ vxworks_first2(Devicep, Name, FirstComp) ->
 	[] ->
     {Devicep, [], FirstComp};
 	[$/ |T ] ->
-	    {Devicep, [$/ | T], FirstComp};
-	[$\\ | T] ->
 	    {Devicep, [$/ | T], FirstComp};
 	[$: | T]->
 	    {device, T, [$: | FirstComp]};
@@ -1445,3 +1452,25 @@ normalize(Name, Acc) ->
 	[] ->
 	    reverse(Acc)
     end.
+
+%% Remove .. and . from the path, e.g.
+%% /path/./to/this/../file -> /path/to/file
+path_flatten(Name) ->
+    path_flatten(Name,[],[]).
+
+path_flatten([$/,$.,$.,$/|Rest],_RevLast,RevTop) ->
+    path_flatten(Rest,[],RevTop);
+path_flatten([$/,$.,$/|Rest],RevLast,RevTop) ->
+    path_flatten([$/|Rest],RevLast,RevTop);
+path_flatten([$/,$.,$.],_RevLast,RevTop) ->
+    path_flatten([],[],RevTop);
+path_flatten([$/,$.],RevLast,RevTop) ->
+    path_flatten([],RevLast,RevTop);
+path_flatten([$/],RevLast,RevTop) ->
+    path_flatten([],RevLast,RevTop);
+path_flatten([$/|Rest],RevLast,RevTop) ->
+    path_flatten(Rest,[],[$/|RevLast++RevTop]);
+path_flatten([Ch|Rest],RevLast,RevTop) ->
+    path_flatten(Rest,[Ch|RevLast],RevTop);
+path_flatten([],RevLast,RevTop) ->
+    reverse(RevLast++RevTop).
