@@ -133,6 +133,9 @@ pgen_n2nconversion(_Erules,#typedef{name=TypeName,typespec=#type{def={'ENUMERATE
     NN = NN1 ++ NN2,
     pgen_name2numfunc(TypeName,NN),
     pgen_num2namefunc(TypeName,NN);
+pgen_n2nconversion(_Erules,#typedef{name=TypeName,typespec=#type{def={'ENUMERATED',NN}}}) ->
+    pgen_name2numfunc(TypeName,NN),
+    pgen_num2namefunc(TypeName,NN);
 pgen_n2nconversion(_Erules,_) ->
     true.
 
