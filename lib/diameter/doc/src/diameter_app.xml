@@ -257,12 +257,8 @@ call to <seealso marker="#peer_up">peer_up/3</seealso>.</p>
 <p>
 Invoked as a consequence of a call to <seealso
 marker="diameter#call">diameter:call/4</seealso> to select a destination
-peer for an outgoing request, the return value indicating the selected peer.
-A new application state can also be returned but only if the Diameter
-application in question was
-configured with the option <c>call_mutates_state</c> set to
-<c>true</c>, as documented for <seealso
-marker="diameter#start_service">diameter:start_service/2</seealso>.</p>
+peer for an outgoing request, the return value indicating the selected
+peer.</p>
 
 <p>
 The candidate peers list will only include those
@@ -300,6 +296,19 @@ that the initial <seealso
 marker="#pick_peer">pick_peer/4</seealso> will be, since a
 retransmission to an alternate peer is abandoned if an answer is
 received from a previously selected peer.</p>
+
+<note>
+<p>
+<c>{Peer, NewState}</c> and its equivalents can only be returned if
+the Diameter application in question was
+configured with the option <c>{call_mutates_state, true}</c>,
+as documented for <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>.
+Otherwise, the <c>State</c> argument is always
+the intial value as configured on the application, not any subsequent
+value returned by a <seealso marker="#peer_up">peer_up/3</seealso>
+or <seealso marker="#peer_down">peer_down/3</seealso> callback.</p>
+</note>
 
 <marker id="prepare_request"/>
 </desc>
