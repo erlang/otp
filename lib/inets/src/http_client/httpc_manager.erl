@@ -59,16 +59,8 @@
 	  options = #options{}
 	 }).
 
--record(handler_info, 
-	{
-	  id,      % Id of the request:          request_id()
-	  starter, % Pid of the handler starter process (temp): pid()
-	  handler, % Pid of the handler process: pid()
-	  from,    % From for the request:  from()
-	  state    % State of the handler: initiating | started | operational | canceled
-	 }).
-
 -define(DELAY, 500).
+
 
 %%====================================================================
 %% Internal Application API
@@ -379,8 +371,7 @@ do_init(ProfileName, CookiesDir) ->
     %% Create handler db
     ?hcrt("create handler/request db", []),
     HandlerDbName = handler_db_name(ProfileName), 
-    ets:new(HandlerDbName, 
-	    [protected, set, named_table, {keypos, #handler_info.id}]),
+    ets:new(HandlerDbName, [protected, set, named_table, {keypos, 1}]),
 
     %% Cookie DB
     ?hcrt("create cookie db", []),
@@ -414,9 +405,10 @@ handle_call({request, Request}, _, State) ->
 	    {stop, Error, httpc_response:error(Request, Error), State}
     end;
 
-handle_call({cancel_request, RequestId}, From, State) ->
+handle_call({cancel_request, RequestId}, From, 
+	    #state{handler_db = HandlerDb} = State) ->
     ?hcri("cancel_request", [{request_id, RequestId}]),
-    case ets:lookup(State#state.handler_db, RequestId) of
+    case ets:lookup(HandlerDb, RequestId) of
 	[] ->
 	    %% The request has allready compleated make sure
 	    %% it is deliverd to the client process queue so
@@ -428,9 +420,9 @@ handle_call({cancel_request, RequestId}, From, State) ->
 	    {noreply, State};
 	[{_, Pid, _}] ->
 	    httpc_handler:cancel(RequestId, Pid, From),
-	    {noreply, State#state{cancel = 
-				  [{RequestId, Pid, From} |
-				   State#state.cancel]}}
+	    {noreply, 
+	     State#state{cancel = 
+			 [{RequestId, Pid, From} | State#state.cancel]}}
     end;
 
 handle_call(reset_cookies, _, #state{cookie_db = CookieDb} = State) ->
@@ -645,7 +637,7 @@ code_change(_,
 code_change(_, State, _) ->
     {ok, State}.
 
-%% This function is to catch everything that calls through the cracks...
+%% This function is used to catch everything that falls through the cracks...
 update_session_table(SessionDB, Transform) ->
     ets:safe_fixtable(SessionDB, true),
     update_session_table(SessionDB, ets:first(SessionDB), Transform),
@@ -678,34 +670,41 @@ get_manager_info(#state{handler_db = HDB,
     CookieInfo  = httpc_cookie:which_cookies(CDB),
     [{handlers, HandlerInfo}, {cookies, CookieInfo}].
 
+sort_handlers(Unsorted) ->
+    sort_handlers2(lists:keysort(1, Unsorted)).
+
+sort_handlers2([]) ->
+    [];
+sort_handlers2([{HandlerPid, RequestId}|L]) ->
+    {Handler, Rest} = sort_handlers2(HandlerPid, [RequestId], L),
+    [Handler | sort_handlers2(Rest)].
+
+sort_handlers2(HandlerPid, Reqs, []) ->
+    {{HandlerPid, lists:sort(Reqs)}, []};
+sort_handlers2(HandlerPid, Reqs, [{HandlerPid, ReqId}|Rest]) ->
+    sort_handlers2(HandlerPid, [ReqId|Reqs], Rest);
+sort_handlers2(HandlerPid1, Reqs, [{HandlerPid2, _}|_] = Rest) 
+  when HandlerPid1 =/= HandlerPid2 ->
+    {{HandlerPid1, lists:sort(Reqs)}, Rest}.
+
 get_handler_info(Tab) ->
-    Pattern = #handler_info{handler = '$1',
-			    state   = '$2', 
-			    _ = '_'},
-    Handlers1 = [{Pid, State} || [Pid, State] <- ets:match(Tab, Pattern)],
-    F = fun({Pid, State} = Elem, Acc) when State =/= canceled -> 
-		case lists:keymember(Pid, 1, Acc) of
-		    true ->
-			Acc;
-		    false ->
-			[Elem | Acc]
-		end;
-	   (_, Acc) ->
-		Acc
-	end,
-    Handlers2 = lists:foldl(F, [], Handlers1),
-    Handlers3 = [{Pid, State, 
-		  case (catch httpc_handler:info(Pid)) of
-		      {'EXIT', _} -> 
+    Pattern   = {'$2', '$1', '_'},
+    Handlers1 = [{Pid, Id} || [Pid, Id] <- ets:match(Tab, Pattern)],
+    Handlers2 = sort_handlers(Handlers1), 
+    Handlers3 = [{Pid, Reqs, 
+		  try
+		      begin
+			  httpc_handler:info(Pid)
+		      end
+		  catch
+		      _:_ ->
 			  %% Why would this crash? 
 			  %% Only if the process has died, but we don't 
 			  %% know about it?
-			  [];
-		      Else ->
-			  Else
-		  end} || 
-		    {Pid, State} <- Handlers2],
+			  []
+		  end} || {Pid, Reqs} <- Handlers2],
     Handlers3.
+
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/0.9"}} = Request,
@@ -758,19 +757,21 @@ handle_request(Request, State = #state{options = Options}) ->
     {reply, {ok, NewRequest#request.id}, State}.
 
 
-start_handler(Request, State) ->
+start_handler(#request{id   = Id, 
+		       from = From} = Request, 
+	      #state{profile_name = ProfileName, 
+		     handler_db   = HandlerDb, 
+		     options      = Options}) ->
     {ok, Pid} =
 	case is_inets_manager() of
 	    true ->
 		httpc_handler_sup:start_child([whereis(httpc_handler_sup),
-					       Request, State#state.options,
-					       State#state.profile_name]);
+					       Request, Options, ProfileName]);
 	    false ->
-		httpc_handler:start_link(self(), Request, State#state.options,
-					 State#state.profile_name)
+		httpc_handler:start_link(self(), Request, Options, ProfileName)
 	end,
-    ets:insert(State#state.handler_db, {Request#request.id,
-					Pid, Request#request.from}),
+    HandlerInfo = {Id, Pid, From}, 
+    ets:insert(HandlerDb, HandlerInfo), 
     erlang:monitor(process, Pid).
 
 
@@ -827,12 +828,14 @@ select_session(Candidates, Max) ->
 	    {ok, HandlerPid}
     end.
 
-pipeline_or_keep_alive(Request, HandlerPid, State) ->
+pipeline_or_keep_alive(#request{id   = Id, 
+				from = From} = Request, 
+		       HandlerPid, 
+		       #state{handler_db = HandlerDb} = State) ->
     case (catch httpc_handler:send(Request, HandlerPid)) of
 	ok ->
-	    ets:insert(State#state.handler_db, {Request#request.id,
-						HandlerPid,
-						Request#request.from});
+	    HandlerInfo = {Id, HandlerPid, From}, 
+	    ets:insert(HandlerDb, HandlerInfo);
 	_  -> % timeout pipelining failed
 	    start_handler(Request, State)
     end.
