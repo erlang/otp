@@ -717,6 +717,11 @@ int univ_to_seconds(Sint year, Sint month, Sint day, Sint hour, Sint minute, Sin
     return 1;
 }
 
+#if defined(HAVE_TIME2POSIX) && defined(HAVE_DECL_TIME2POSIX) && \
+    !HAVE_DECL_TIME2POSIX
+extern time_t time2posix(time_t);
+#endif
+
 int 
 local_to_univ(Sint *year, Sint *month, Sint *day, 
 	      Sint *hour, Sint *minute, Sint *second, int isdst)
@@ -766,6 +771,11 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
 	    return 0;
 	}
     }
+
+#ifdef HAVE_TIME2POSIX
+    the_clock = time2posix(the_clock);
+#endif
+
 #ifdef HAVE_GMTIME_R
     tm = gmtime_r(&the_clock, &tmbuf);
 #else
