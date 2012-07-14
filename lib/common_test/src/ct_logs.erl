@@ -378,11 +378,11 @@ tc_print(Category,Format,Args) ->
     ok.
 
 get_heading(default) ->
-    io_lib:format("-----------------------------"
+    io_lib:format("\n-----------------------------"
 		  "-----------------------\n~s\n",
 		  [log_timestamp(now())]);
 get_heading(Category) ->
-    io_lib:format("-----------------------------"
+    io_lib:format("\n-----------------------------"
 		  "-----------------------\n~s  ~w\n",
 		  [log_timestamp(now()),Category]).    
     
