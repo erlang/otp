@@ -25,11 +25,6 @@
 #  define NO_FPE_SIGNALS
 #endif
 
-/* xxxP __VXWORKS__ */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #ifdef DISABLE_CHILD_WAITER_THREAD
 #undef ENABLE_CHILD_WAITER_THREAD
 #endif
@@ -43,8 +38,6 @@
 
 #if defined (__WIN32__)
 #  include "erl_win_sys.h"
-#elif defined (VXWORKS) 
-#  include "erl_vxworks_sys.h"
 #else 
 #  include "erl_unix_sys.h"
 #ifndef UNIX
@@ -180,12 +173,6 @@ void erl_assert_error(char* expr, char* file, int line);
 
 #if !defined(__STDC__) && !defined(_MSC_VER)
 #  define const
-#endif
-
-#ifdef VXWORKS
-/* Replace VxWorks' printf with a real one that does fprintf(stdout, ...) */
-int real_printf(const char *fmt, ...);
-#  define printf real_printf
 #endif
 
 #undef __deprecated
@@ -486,38 +473,28 @@ static unsigned long zero_value = 0, one_value = 1;
 #    define SET_NONBLOCKING(fd)	ioctlsocket((fd), FIONBIO, &one_value)
 
 #  else
-#    ifdef VXWORKS
-#      include <fcntl.h> /* xxxP added for O_WRONLY etc ... macro:s ... */
-#      include <ioLib.h>
-static const int zero_value = 0, one_value = 1;
-#      define SET_BLOCKING(fd)	ioctl((fd), FIONBIO, (int)&zero_value)
-#      define SET_NONBLOCKING(fd)	ioctl((fd), FIONBIO, (int)&one_value)
-#      define ERRNO_BLOCK EWOULDBLOCK
-
-#    else
-#      ifdef NB_FIONBIO		/* Old BSD */
-#        include <sys/ioctl.h>
+#    ifdef NB_FIONBIO		/* Old BSD */
+#      include <sys/ioctl.h>
   static const int zero_value = 0, one_value = 1;
-#        define SET_BLOCKING(fd)	ioctl((fd), FIONBIO, &zero_value)
-#        define SET_NONBLOCKING(fd)	ioctl((fd), FIONBIO, &one_value)
-#        define ERRNO_BLOCK EWOULDBLOCK
-#      else /* !NB_FIONBIO */
-#        include <fcntl.h>
-#        ifdef NB_O_NDELAY		/* Nothing needs this? */
-#          define NB_FLAG O_NDELAY
-#          ifndef ERRNO_BLOCK		/* allow override (e.g. EAGAIN) via Makefile */
-#            define ERRNO_BLOCK EWOULDBLOCK
-#          endif
-#        else  /* !NB_O_NDELAY */	/* The True Way - POSIX!:-) */
-#          define NB_FLAG O_NONBLOCK
-#          define ERRNO_BLOCK EAGAIN
-#        endif /* !NB_O_NDELAY */
-#        define SET_BLOCKING(fd)	fcntl((fd), F_SETFL, \
-	  			      fcntl((fd), F_GETFL, 0) & ~NB_FLAG)
-#        define SET_NONBLOCKING(fd)	fcntl((fd), F_SETFL, \
-				      fcntl((fd), F_GETFL, 0) | NB_FLAG)
-#      endif /* !NB_FIONBIO */
-#    endif /* _WXWORKS_ */
+#      define SET_BLOCKING(fd)         ioctl((fd), FIONBIO, &zero_value)
+#      define SET_NONBLOCKING(fd)      ioctl((fd), FIONBIO, &one_value)
+#      define ERRNO_BLOCK EWOULDBLOCK
+#    else /* !NB_FIONBIO */
+#      include <fcntl.h>
+#      ifdef NB_O_NDELAY               /* Nothing needs this? */
+#        define NB_FLAG O_NDELAY
+#        ifndef ERRNO_BLOCK            /* allow override (e.g. EAGAIN) via Makefile */
+#          define ERRNO_BLOCK EWOULDBLOCK
+#        endif
+#      else  /* !NB_O_NDELAY */	/* The True Way - POSIX!:-) */
+#        define NB_FLAG O_NONBLOCK
+#        define ERRNO_BLOCK EAGAIN
+#      endif /* !NB_O_NDELAY */
+#      define SET_BLOCKING(fd)         fcntl((fd), F_SETFL, \
+                                           fcntl((fd), F_GETFL, 0) & ~NB_FLAG)
+#      define SET_NONBLOCKING(fd)      fcntl((fd), F_SETFL, \
+                                           fcntl((fd), F_GETFL, 0) | NB_FLAG)
+#    endif /* !NB_FIONBIO */
 #  endif /* !__WIN32__ */
 #endif /* WANT_NONBLOCKING */
 
@@ -870,13 +847,6 @@ erts_refc_read(erts_refc_t *refcp, erts_aint_t min_val)
 extern int erts_use_kernel_poll;
 #endif
 
-#if defined(VXWORKS)
-/* NOTE! sys_calloc2 does not exist on other 
-   platforms than VxWorks and OSE */
-void* sys_calloc2(Uint, Uint);
-#endif /* VXWORKS || OSE */
-
-
 #define sys_memcpy(s1,s2,n)  memcpy(s1,s2,n)
 #define sys_memmove(s1,s2,n) memmove(s1,s2,n)
 #define sys_memcmp(s1,s2,n)  memcmp(s1,s2,n)
@@ -983,43 +953,6 @@ void erl_bin_write(unsigned char *, int, int);
 #  define DEBUGF(x)
 #endif
 
-
-#ifdef VXWORKS
-/* This includes redefines of malloc etc 
-   this should be done after sys_alloc, etc, above */
-#  include "reclaim.h"
-/*********************Malloc and friends************************
- * There is a problem with the naming of malloc and friends, 
- * malloc is used throughout sys.c and the resolver to mean save_alloc,
- * but it should actually mean either sys_alloc or sys_alloc2,
- * so the definitions from reclaim_master.h are not any
- * good, i redefine the malloc family here, although it's quite 
- * ugly, actually it would be preferrable to use the
- * names sys_alloc and so on throughout the offending code, but
- * that will be saved as an later exercise...
- * I also add an own calloc, to make the BSD resolver source happy.
- ***************************************************************/
-/* Undefine malloc and friends */
-#  ifdef malloc
-#    undef malloc
-#  endif
-#  ifdef calloc
-#    undef calloc
-#  endif
-#  ifdef realloc
-#    undef realloc
-#  endif
-#  ifdef free
-#    undef free
-#  endif
-/* Redefine malloc and friends */
-#  define malloc sys_alloc
-#  define calloc  sys_calloc
-#  define realloc  sys_realloc
-#  define free sys_free
-
-#endif
-
 #ifdef __WIN32__
 #ifdef ARCH_64
 #define ERTS_ALLOC_ALIGN_BYTES 16
@@ -1035,23 +968,20 @@ void erl_bin_write(unsigned char *, int, int);
 
 
 #ifdef __WIN32__
-
 void call_break_handler(void);
 char* last_error(void);
 char* win32_errorstr(int);
-
-
 #endif
 
 /************************************************************************
  * Find out the native filename encoding of the process (look at locale of 
  * Unix processes and just do UTF16 on windows 
  ************************************************************************/
-#define ERL_FILENAME_UNKNOWN 0
-#define ERL_FILENAME_LATIN1 1
-#define ERL_FILENAME_UTF8 2
-#define ERL_FILENAME_UTF8_MAC 3
-#define ERL_FILENAME_WIN_WCHAR 4
+#define ERL_FILENAME_UNKNOWN   (0)
+#define ERL_FILENAME_LATIN1    (1)
+#define ERL_FILENAME_UTF8      (2)
+#define ERL_FILENAME_UTF8_MAC  (3)
+#define ERL_FILENAME_WIN_WCHAR (4)
 
 int erts_get_native_filename_encoding(void);
 /* The set function is only to be used by erl_init! */
@@ -1061,4 +991,3 @@ int erts_get_user_requested_filename_encoding(void);
 void erts_init_sys_common_misc(void);
 
 #endif
-

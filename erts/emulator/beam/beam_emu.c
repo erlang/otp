@@ -960,16 +960,9 @@ static void save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg,
 static struct StackTrace * get_trace_from_exc(Eterm exc);
 static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 
-#if defined(VXWORKS)
-static int init_done;
-#endif
-
 void
 init_emulator(void)
 {
-#if defined(VXWORKS)
-    init_done = 0;
-#endif
     erts_smp_atomic_init_nob(&warned_for_tuple_funs, (erts_aint_t) 0);
     process_main();
 }
@@ -1102,9 +1095,7 @@ dtrace_drvport_str(ErlDrvPort drvport, char *port_buf)
  */
 void process_main(void)
 {
-#if !defined(VXWORKS)
     static int init_done = 0;
-#endif
     Process* c_p = NULL;
     int reds_used;
 #ifdef DEBUG

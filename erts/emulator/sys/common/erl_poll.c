@@ -55,17 +55,12 @@
 #  ifdef SYS_SELECT_H
 #    include <sys/select.h>
 #  endif
-#  ifdef VXWORKS
-#    include <selectLib.h>
-#  endif
 #endif
-#ifndef VXWORKS
-#  ifdef NO_SYSCONF
-#    if ERTS_POLL_USE_SELECT
-#      include <sys/param.h>
-#    else
-#      include <limits.h>
-#    endif
+#ifdef NO_SYSCONF
+#  if ERTS_POLL_USE_SELECT
+#    include <sys/param.h>
+#  else
+#    include <limits.h>
 #  endif
 #endif
 #include "erl_thr_progress.h"
@@ -2222,10 +2217,6 @@ ERTS_POLL_EXPORT(erts_poll_max_fds)(void)
  * --- Initialization --------------------------------------------------------
  */
 
-#ifdef VXWORKS
-extern int erts_vxworks_max_files;
-#endif
-
 void
 ERTS_POLL_EXPORT(erts_poll_init)(void)
 {
@@ -2234,9 +2225,7 @@ ERTS_POLL_EXPORT(erts_poll_init)(void)
 
     errno = 0;
 
-#if defined(VXWORKS)
-    max_fds = erts_vxworks_max_files;
-#elif !defined(NO_SYSCONF)
+#if !defined(NO_SYSCONF)
     max_fds = sysconf(_SC_OPEN_MAX);
 #elif ERTS_POLL_USE_SELECT
     max_fds = NOFILE;
