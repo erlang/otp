@@ -140,7 +140,6 @@ EMAKEFILE=Emakefile
 
 TEST_SPEC_FILES =	emulator.spec \
 			emulator.spec.win \
-			emulator.spec.vxworks \
 			emulator.spec.ose
 # ----------------------------------------------------
 # Release directory specification

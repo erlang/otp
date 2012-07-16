@@ -157,16 +157,16 @@ win_massive(Config) when is_list(Config) ->
     end.
 
 do_win_massive() ->
-    ?line Dog = test_server:timetrap(test_server:seconds(360)),
-    ?line SuiteDir = filename:dirname(code:which(?MODULE)),
-    ?line Env = " -env ERL_MAX_PORTS 8192",
-    ?line {ok, Node} = 
+    Dog = test_server:timetrap(test_server:seconds(360)),
+    SuiteDir = filename:dirname(code:which(?MODULE)),
+    Env = " -env ERL_MAX_PORTS 8192",
+    {ok, Node} = 
 	test_server:start_node(win_massive,
 			       slave,
 			       [{args, " -pa " ++ SuiteDir ++ Env}]),
-    ?line ok = rpc:call(Node,?MODULE,win_massive_client,[3000]),
-    ?line test_server:stop_node(Node),
-    ?line test_server:timetrap_cancel(Dog),
+    ok = rpc:call(Node,?MODULE,win_massive_client,[3000]),
+    test_server:stop_node(Node),
+    test_server:timetrap_cancel(Dog),
     ok.
     
 win_massive_client(N) ->
@@ -208,11 +208,11 @@ win_massive_loop(P,N) ->
 %% We will send only a small amount of data, to avoid deadlock.
 
 stream_small(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line stream_ping(Config, 512, "", []),
-    ?line stream_ping(Config, 1777, "", []),
-    ?line stream_ping(Config, 1777, "-s512", []),
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    stream_ping(Config, 512, "", []),
+    stream_ping(Config, 1777, "", []),
+    stream_ping(Config, 1777, "-s512", []),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Send big amounts of data (much bigger than the buffer size in port test).
@@ -220,30 +220,22 @@ stream_small(Config) when is_list(Config) ->
 %% non-blocking reads and writes.
 
 stream_big(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(180)),
-    case os:type() of 
-	vxworks ->
-	    %% Don't stress VxWorks too much
-	    ?line stream_ping(Config, 43755, "", []),
-	    ?line stream_ping(Config, 51255, "", []),
-	    ?line stream_ping(Config, 52345, " -s40000", []);
-	_ ->
-	    ?line stream_ping(Config, 43755, "", []),
-	    ?line stream_ping(Config, 100000, "", []),
-	    ?line stream_ping(Config, 77777, " -s40000", [])
-    end,
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(180)),
+    stream_ping(Config, 43755, "", []),
+    stream_ping(Config, 100000, "", []),
+    stream_ping(Config, 77777, " -s40000", []),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Sends packet with header size of 1, 2, and 4, with packets of various
 %% sizes.
 
 basic_ping(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(120)),
-    ?line ping(Config, sizes(1), 1, "", []),
-    ?line ping(Config, sizes(2), 2, "", []),
-    ?line ping(Config, sizes(4), 4, "", []),
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(120)),
+    ping(Config, sizes(1), 1, "", []),
+    ping(Config, sizes(2), 2, "", []),
+    ping(Config, sizes(4), 4, "", []),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Let the port program insert delays between characters sent back to
@@ -251,30 +243,29 @@ basic_ping(Config) when is_list(Config) ->
 %% small chunks rather than all at once.
 
 slow_writes(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(20)),
-    ?line ping(Config, [8], 4, "-s1", []),
-    ?line ping(Config, [10], 2, "-s2", []),
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(20)),
+    ping(Config, [8], 4, "-s1", []),
+    ping(Config, [10], 2, "-s2", []),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 bad_packet(doc) ->
     ["Test that we get {'EXIT', Port, einval} if we try to send a bigger "
      "packet than the packet header allows."];
 bad_packet(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line PortTest = port_test(Config),
-    ?line process_flag(trap_exit, true),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    PortTest = port_test(Config),
+    process_flag(trap_exit, true),
 
-    ?line bad_packet(PortTest, 1, 256),
-    ?line bad_packet(PortTest, 1, 257),
-    ?line bad_packet(PortTest, 2, 65536),
-    ?line bad_packet(PortTest, 2, 65537),
+    bad_packet(PortTest, 1, 256),
+    bad_packet(PortTest, 1, 257),
+    bad_packet(PortTest, 2, 65536),
+    bad_packet(PortTest, 2, 65537),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 bad_packet(PortTest, HeaderSize, PacketSize) ->
-    %% Intentionally no ?line macros.
     P = open_port({spawn, PortTest}, [{packet, HeaderSize}]),
     P ! {self(), {command, make_zero_packet(PacketSize)}},
     receive
@@ -292,16 +283,16 @@ make_zero_packet(N) ->
 
 %% Test sending bad messages to a port.
 bad_port_messages(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line PortTest = port_test(Config),
-    ?line process_flag(trap_exit, true),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    PortTest = port_test(Config),
+    process_flag(trap_exit, true),
 
-    ?line bad_message(PortTest, {a,b}),
-    ?line bad_message(PortTest, {a}),
-    ?line bad_message(PortTest, {self(),{command,bad_command}}),
-    ?line bad_message(PortTest, {self(),{connect,no_pid}}),
+    bad_message(PortTest, {a,b}),
+    bad_message(PortTest, {a}),
+    bad_message(PortTest, {self(),{command,bad_command}}),
+    bad_message(PortTest, {self(),{connect,no_pid}}),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 bad_message(PortTest, Message) ->    
@@ -319,108 +310,97 @@ bad_message(PortTest, Message) ->
 %% Tests the 'binary' option for a port.
 
 t_binary(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(300)),
+    Dog = test_server:timetrap(test_server:seconds(300)),
 
     %% Packet mode.
-    ?line ping(Config, sizes(1), 1, "", [binary]),
-    ?line ping(Config, sizes(2), 2, "", [binary]),
-    ?line ping(Config, sizes(4), 4, "", [binary]),
+    ping(Config, sizes(1), 1, "", [binary]),
+    ping(Config, sizes(2), 2, "", [binary]),
+    ping(Config, sizes(4), 4, "", [binary]),
 
     %% Stream mode.
-    case os:type() of
-	vxworks ->
-	    %% don't stress VxWorks too much
-	    ?line stream_ping(Config, 435, "", [binary]),
-	    ?line stream_ping(Config, 43755, "", [binary]),
-	    ?line stream_ping(Config, 50000, "", [binary]);
-	_ ->
-	    ?line stream_ping(Config, 435, "", [binary]),
-	    ?line stream_ping(Config, 43755, "", [binary]),
-	    ?line stream_ping(Config, 100000, "", [binary])
-    end,
+    stream_ping(Config, 435, "", [binary]),
+    stream_ping(Config, 43755, "", [binary]),
+    stream_ping(Config, 100000, "", [binary]),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 name1(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(100)),
-    ?line PortTest = port_test(Config),
-    ?line Command = lists:concat([PortTest, " "]),
-    ?line P = open_port({spawn, Command}, []),
-    ?line register(myport, P),
-    ?line P = whereis(myport),
+    Dog = test_server:timetrap(test_server:seconds(100)),
+    PortTest = port_test(Config),
+    Command = lists:concat([PortTest, " "]),
+    P = open_port({spawn, Command}, []),
+    register(myport, P),
+    P = whereis(myport),
     Text = "hej",
-    ?line myport ! {self(), {command, Text}},
-    ?line receive
-	      {P, {data, Text}} ->
-		  ok
-	  end,
-    ?line myport ! {self(), close},
-    ?line receive
-	      {P, closed} -> ok
-	  end,
-    ?line undefined = whereis(myport),
-    ?line test_server:timetrap_cancel(Dog),
+    myport ! {self(), {command, Text}},
+    receive
+        {P, {data, Text}} ->
+            ok
+    end,
+    myport ! {self(), close},
+    receive
+        {P, closed} -> ok
+    end,
+    undefined = whereis(myport),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test that the 'eof' option works.
 
 eof(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(100)),
-    ?line PortTest = port_test(Config),
-    ?line Command = lists:concat([PortTest, " -h0 -q"]),
-    ?line P = open_port({spawn, Command}, [eof]),
-    ?line receive
-	      {P, eof} ->
-		  ok
-	  end,
-    ?line P ! {self(), close},
-    ?line receive
-	      {P, closed} -> ok
-	  end,
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(100)),
+    PortTest = port_test(Config),
+    Command = lists:concat([PortTest, " -h0 -q"]),
+    P = open_port({spawn, Command}, [eof]),
+    receive
+        {P, eof} ->
+            ok
+    end,
+    P ! {self(), close},
+    receive
+        {P, closed} -> ok
+    end,
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that the 'in' option for a port works.
 
 input_only(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(300)),
-    ?line expect_input(Config, [0, 1, 10, 13, 127, 128, 255], 1, "", [in]),
-    ?line expect_input(Config, [0, 1, 255, 2048], 2, "", [in]),
-    ?line expect_input(Config, [0, 1, 255, 2048], 4, "", [in]),
-    ?line expect_input(Config, [0, 1, 10, 13, 127, 128, 255],
-		       1, "", [in, binary]),
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(300)),
+    expect_input(Config, [0, 1, 10, 13, 127, 128, 255], 1, "", [in]),
+    expect_input(Config, [0, 1, 255, 2048], 2, "", [in]),
+    expect_input(Config, [0, 1, 255, 2048], 4, "", [in]),
+    expect_input(Config, [0, 1, 10, 13, 127, 128, 255],
+                 1, "", [in, binary]),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that the 'out' option for a port works.
 
 output_only(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(100)),
-    ?line Dir = ?config(priv_dir, Config),
-    ?line Filename = filename:join(Dir, "output_only_stream"),
-    ?line output_and_verify(Config, Filename, "-h0",
-			    random_packet(35777, "echo")),
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(100)),
+    Dir = ?config(priv_dir, Config),
+    Filename = filename:join(Dir, "output_only_stream"),
+    output_and_verify(Config, Filename, "-h0",
+          	    random_packet(35777, "echo")),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 output_and_verify(Config, Filename, Options, Data) ->
-    ?line PortTest = port_test(Config),
-    ?line Command = lists:concat([PortTest, " ",
-				  Options, " -o", Filename]),
-    ?line Port = open_port({spawn, Command}, [out]),
-    ?line Port ! {self(), {command, Data}},
-    ?line Port ! {self(), close},
-    ?line receive
-	      {Port, closed} -> ok
-	  end,
-    Wait_time = case os:type() of
-		    vxworks -> 5000;
-		    _ -> 500
-		end,
-    ?line test_server:sleep(Wait_time),
-    ?line {ok, Written} = file:read_file(Filename),
-    ?line Data = binary_to_list(Written),
+    PortTest = port_test(Config),
+    Command = lists:concat([PortTest, " ",
+          		  Options, " -o", Filename]),
+    Port = open_port({spawn, Command}, [out]),
+    Port ! {self(), {command, Data}},
+    Port ! {self(), close},
+    receive
+        {Port, closed} -> ok
+    end,
+    Wait_time = 500,
+    test_server:sleep(Wait_time),
+    {ok, Written} = file:read_file(Filename),
+    Data = binary_to_list(Written),
     ok.
 
 %% Test that receiving several packages written in the same
@@ -430,19 +410,11 @@ output_and_verify(Config, Filename, Options, Data) ->
 %% Basic test of receiving multiple packages, written in
 %% one operation by the other end.
 mul_basic(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(600)),
-    case os:type() of
-	vxworks ->
-	    %% don't stress vxworks too much
-	    ?line expect_input(Config, [0, 1, 255, 10, 13], 1, "", []),
-	    ?line expect_input(Config, [0, 10, 13, 1600, 8191, 16383], 2, "", []),
-	    ?line expect_input(Config, [10, 35000], 4, "", []);
-	_ ->
-	    ?line expect_input(Config, [0, 1, 255, 10, 13], 1, "", []),
-	    ?line expect_input(Config, [0, 10, 13, 1600, 32767, 65535], 2, "", []),
-	    ?line expect_input(Config, [10, 70000], 4, "", [])
-    end,
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(600)),
+    expect_input(Config, [0, 1, 255, 10, 13], 1, "", []),
+    expect_input(Config, [0, 10, 13, 1600, 32767, 65535], 2, "", []),
+    expect_input(Config, [10, 70000], 4, "", []),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Test reading a buffer consisting of several packets, some
@@ -451,9 +423,9 @@ mul_basic(Config) when is_list(Config) ->
 %% delays in between.)
 
 mul_slow_writes(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(250)),
-    ?line expect_input(Config, [0, 20, 255, 10, 1], 1, "-s64", []),
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(250)),
+    expect_input(Config, [0, 20, 255, 10, 1], 1, "-s64", []),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Runs several port tests in parallell.  Each individual test
@@ -461,27 +433,27 @@ mul_slow_writes(Config) when is_list(Config) ->
 %% should also finish in about 5 seconds.
 
 parallell(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(300)),
-    ?line Testers =
-	[fun() -> stream_ping(Config, 1007, "-s100", []) end,
-	 fun() -> stream_ping(Config, 10007, "-s1000", []) end,
-	 fun() -> stream_ping(Config, 10007, "-s1000", []) end,
+    Dog = test_server:timetrap(test_server:seconds(300)),
+    Testers = [
+	fun() -> stream_ping(Config, 1007, "-s100", []) end,
+	fun() -> stream_ping(Config, 10007, "-s1000", []) end,
+	fun() -> stream_ping(Config, 10007, "-s1000", []) end,
 
-	 fun() -> expect_input(Config, [21, 22, 23, 24, 25], 1,
-			       "-s10", [in]) end,
+	fun() -> expect_input(Config, [21, 22, 23, 24, 25], 1,
+		    "-s10", [in]) end,
 
-	 fun() -> ping(Config, [10], 1, "-d", []) end,
-	 fun() -> ping(Config, [20000], 2, "-d", []) end,
-	 fun() -> ping(Config, [101], 1, "-s10", []) end,
-	 fun() -> ping(Config, [1001], 2, "-s100", []) end,
-	 fun() -> ping(Config, [10001], 4, "-s1000", []) end,
+	fun() -> ping(Config, [10], 1, "-d", []) end,
+	fun() -> ping(Config, [20000], 2, "-d", []) end,
+	fun() -> ping(Config, [101], 1, "-s10", []) end,
+	fun() -> ping(Config, [1001], 2, "-s100", []) end,
+	fun() -> ping(Config, [10001], 4, "-s1000", []) end,
 
-	 fun() -> ping(Config, [501, 501], 2, "-s100", []) end,
-	 fun() -> ping(Config, [11, 12, 13, 14, 11], 1, "-s5", []) end],
-    ?line process_flag(trap_exit, true),
-    ?line Pids = lists:map(fun fun_spawn/1, Testers),
-    ?line wait_for(Pids),
-    ?line test_server:timetrap_cancel(Dog),
+	fun() -> ping(Config, [501, 501], 2, "-s100", []) end,
+	fun() -> ping(Config, [11, 12, 13, 14, 11], 1, "-s5", []) end],
+    process_flag(trap_exit, true),
+    Pids = lists:map(fun fun_spawn/1, Testers),
+    wait_for(Pids),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 wait_for([]) ->
@@ -500,29 +472,29 @@ wait_for(Pids) ->
 
 dying_port(suite) -> [];
 dying_port(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(150)),
-    ?line process_flag(trap_exit, true),
+    Dog = test_server:timetrap(test_server:seconds(150)),
+    process_flag(trap_exit, true),
 
-    ?line P1 = make_dying_port(Config),
-    ?line P2 = make_dying_port(Config),
-    ?line P3 = make_dying_port(Config),
-    ?line P4 = make_dying_port(Config),
-    ?line P5 = make_dying_port(Config),
+    P1 = make_dying_port(Config),
+    P2 = make_dying_port(Config),
+    P3 = make_dying_port(Config),
+    P4 = make_dying_port(Config),
+    P5 = make_dying_port(Config),
 
     %% This should be big enough to be sure to block in the write.
-    ?line Garbage = random_packet(16384),
+    Garbage = random_packet(16384),
 
-    ?line P1 ! {self(), {command, Garbage}},
-    ?line P3 ! {self(), {command, Garbage}},
-    ?line P5 ! {self(), {command, Garbage}},
+    P1 ! {self(), {command, Garbage}},
+    P3 ! {self(), {command, Garbage}},
+    P5 ! {self(), {command, Garbage}},
 
-    ?line wait_for_port_exit(P1),
-    ?line wait_for_port_exit(P2),
-    ?line wait_for_port_exit(P3),
-    ?line wait_for_port_exit(P4),
-    ?line wait_for_port_exit(P5),
+    wait_for_port_exit(P1),
+    wait_for_port_exit(P2),
+    wait_for_port_exit(P3),
+    wait_for_port_exit(P4),
+    wait_for_port_exit(P5),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 wait_for_port_exit(Port) ->
@@ -549,9 +521,9 @@ make_dying_port(Config) when is_list(Config) ->
 
 port_program_with_path(suite) -> [];
 port_program_with_path(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(100)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line PrivDir = ?config(priv_dir, Config),
+    Dog = test_server:timetrap(test_server:seconds(100)),
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
     
     %% Create a copy of the port test program in a directory not
     %% included in PATH (i.e. in priv_dir), with the name 'my_port_test.exe'.
@@ -560,36 +532,31 @@ port_program_with_path(Config) when is_list(Config) ->
     %% (On Unix, there will be a single file created, which will be
     %% a copy of the port program.)
     
-    ?line PortTest = os:find_executable("port_test", DataDir),
+    PortTest = os:find_executable("port_test", DataDir),
     io:format("os:find_executable(~p, ~p) returned ~p",
 	      ["port_test", DataDir, PortTest]),
-    ?line {ok, PortTestPgm} = file:read_file(PortTest),
-    ?line NewName = filename:join(PrivDir, filename:basename(PortTest)),
-    ?line RedHerring = filename:rootname(NewName),
-    ?line ok = file:write_file(RedHerring, "I'm just here to confuse.\n"),
-    ?line ok = file:write_file(NewName, PortTestPgm),
-    ?line ok = file:write_file_info(NewName, #file_info{mode=8#111}),
-    ?line PgmWithPathAndNoExt = filename:rootname(NewName),
+    {ok, PortTestPgm} = file:read_file(PortTest),
+    NewName = filename:join(PrivDir, filename:basename(PortTest)),
+    RedHerring = filename:rootname(NewName),
+    ok = file:write_file(RedHerring, "I'm just here to confuse.\n"),
+    ok = file:write_file(NewName, PortTestPgm),
+    ok = file:write_file_info(NewName, #file_info{mode=8#111}),
+    PgmWithPathAndNoExt = filename:rootname(NewName),
     
     %% Open the port using the path to the copied port test program,
     %% but without the .exe extension, and verified that it was started.
     %%
     %% If the bug is present the open_port call will fail with badarg.
     
-    ?line Command = lists:concat([PgmWithPathAndNoExt, " -h2"]),
-    %% allow VxWorks time to write file
-    case os:type() of	
-	vxworks -> test_server:sleep(2500);
-	_ -> time
+    Command = lists:concat([PgmWithPathAndNoExt, " -h2"]),
+    P = open_port({spawn, Command}, [{packet, 2}]),
+    Message = "echo back to me",
+    P ! {self(), {command, Message}},
+    receive
+        {P, {data, Message}} ->
+            ok
     end,
-    ?line P = open_port({spawn, Command}, [{packet, 2}]),
-    ?line Message = "echo back to me",
-    ?line P ! {self(), {command, Message}},
-    ?line receive
-	      {P, {data, Message}} ->
-		  ok
-	  end,
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -597,56 +564,46 @@ port_program_with_path(Config) when is_list(Config) ->
 %% This used to fail on Windows.
 open_input_file_port(suite) -> [];
 open_input_file_port(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line PrivDir = ?config(priv_dir, Config),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    PrivDir = ?config(priv_dir, Config),
     
     %% Create a file with the file driver and read it back using
     %% open_port/2.
 
-    ?line MyFile1 = filename:join(PrivDir, "my_input_file"),
-    ?line FileData1 = "An input file",
-    ?line ok = file:write_file(MyFile1, FileData1),
-    case os:type() of
-	vxworks ->
-	    %% Can't open input file with vanilla driver on VxWorks
-	    ?line process_flag(trap_exit, true),
-	    ?line case catch open_port(MyFile1, [in]) of
-		      {'EXIT', {badarg, _}} ->
-			  ok
-		  end;
-	_ ->
-	    ?line case open_port(MyFile1, [in]) of
-		      InputPort when is_port(InputPort) ->
-			  ?line receive
-				    {InputPort, {data, FileData1}} ->
-					ok
-				end
-		  end
+    MyFile1 = filename:join(PrivDir, "my_input_file"),
+    FileData1 = "An input file",
+    ok = file:write_file(MyFile1, FileData1),
+    case open_port(MyFile1, [in]) of
+	InputPort when is_port(InputPort) ->
+	    receive
+		{InputPort, {data, FileData1}} ->
+		    ok
+	    end
     end,
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %% Tests that files can be written using open_port(Filename, [out]).
 open_output_file_port(suite) -> [];
 open_output_file_port(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(100)),
-    ?line PrivDir = ?config(priv_dir, Config),
+    Dog = test_server:timetrap(test_server:seconds(100)),
+    PrivDir = ?config(priv_dir, Config),
 
     %% Create a file with open_port/2 and read it back with
     %% the file driver.
 
-    ?line MyFile2 = filename:join(PrivDir, "my_output_file"),
-    ?line FileData2_0 = "A file created ",
-    ?line FileData2_1 = "with open_port/2.\n",
-    ?line FileData2 = FileData2_0 ++ FileData2_1,
-    ?line OutputPort = open_port(MyFile2, [out]),
-    ?line OutputPort ! {self(), {command, FileData2_0}},
-    ?line OutputPort ! {self(), {command, FileData2_1}},
-    ?line OutputPort ! {self(), close},
-    ?line {ok, Bin} = file:read_file(MyFile2),
-    ?line FileData2 = binary_to_list(Bin),
+    MyFile2 = filename:join(PrivDir, "my_output_file"),
+    FileData2_0 = "A file created ",
+    FileData2_1 = "with open_port/2.\n",
+    FileData2 = FileData2_0 ++ FileData2_1,
+    OutputPort = open_port(MyFile2, [out]),
+    OutputPort ! {self(), {command, FileData2_0}},
+    OutputPort ! {self(), {command, FileData2_1}},
+    OutputPort ! {self(), close},
+    {ok, Bin} = file:read_file(MyFile2),
+    FileData2 = binary_to_list(Bin),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %%
@@ -670,17 +627,17 @@ iter_max_ports(Config) when is_list(Config) ->
     
     
 iter_max_ports_test(Config) ->
-    ?line Dog = test_server:timetrap(test_server:minutes(20)),
-    ?line PortTest = port_test(Config),
-    ?line Command = lists:concat([PortTest, " -h0 -q"]),
-    ?line Iters = case os:type() of
+    Dog = test_server:timetrap(test_server:minutes(20)),
+    PortTest = port_test(Config),
+    Command = lists:concat([PortTest, " -h0 -q"]),
+    Iters = case os:type() of
 		      {win32,_} -> 4;
 		      _ -> 10
 		  end,
-    ?line L = do_iter_max_ports(Iters, Command),
+    L = do_iter_max_ports(Iters, Command),
     io:format("Result: ~p",[L]),
-    ?line all_equal(L),
-    ?line test_server:timetrap_cancel(Dog),
+    all_equal(L),
+    test_server:timetrap_cancel(Dog),
     {comment, "Max ports: " ++ integer_to_list(hd(L))}.
 
 do_iter_max_ports(N, Command) when N > 0 ->
@@ -695,9 +652,9 @@ all_equal([]) -> ok.
 
 max_ports(Command) ->
     test_server:sleep(500),
-    ?line Ps = open_ports({spawn, Command}, [eof]),
-    ?line N = length(Ps),
-    ?line close_ports(Ps),
+    Ps = open_ports({spawn, Command}, [eof]),
+    N = length(Ps),
+    close_ports(Ps),
     io:format("Got ~p ports\n",[N]),
     N.
 
@@ -727,105 +684,105 @@ open_ports(Name, Settings) ->
 		enomem ->
 		    [];
 		Other ->
-		    ?line test_server:fail({open_ports, Other})
+		    test_server:fail({open_ports, Other})
 	    end;
 	Other ->
-	    ?line test_server:fail({open_ports, Other})
+	    test_server:fail({open_ports, Other})
     end.
 
 %% Tests that exit(Port, Term) works (has been known to crash the emulator).
 
 t_exit(suite) -> [];
 t_exit(Config) when is_list(Config) ->
-    ?line process_flag(trap_exit, true),
-    ?line Pid = fun_spawn(fun suicide_port/1, [Config]),
-    ?line receive
-	      {'EXIT', Pid, die} ->
-		  ok;
-	      Other ->
-		  test_server:fail({bad_message, Other})
-	  end.
+    process_flag(trap_exit, true),
+    Pid = fun_spawn(fun suicide_port/1, [Config]),
+    receive
+	{'EXIT', Pid, die} ->
+	    ok;
+	Other ->
+	    test_server:fail({bad_message, Other})
+    end.
 
 suicide_port(Config) when is_list(Config) ->
-    ?line Port = port_expect(Config, [], 0, "", []),
-    ?line exit(Port, die),
-    ?line receive after infinity -> ok end.
+    Port = port_expect(Config, [], 0, "", []),
+    exit(Port, die),
+    receive after infinity -> ok end.
 
 
 tps_16_bytes(doc) -> "";
 tps_16_bytes(suite) -> [];
 tps_16_bytes(Config) when is_list(Config) ->
-    ?line tps(16, Config).
+    tps(16, Config).
 
 tps_1K(doc) -> "";
 tps_1K(suite) -> [];
 tps_1K(Config) when is_list(Config) ->
-    ?line tps(1024, Config).
+    tps(1024, Config).
 
 tps(Size, Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(300)),
-    ?line PortTest = port_test(Config),
-    ?line Packet = list_to_binary(random_packet(Size, "e")),
-    ?line Port = open_port({spawn, PortTest}, [binary, {packet, 2}]),
-    ?line Transactions = 10000,
-    ?line {Elapsed, ok} = test_server:timecall(?MODULE, tps,
+    Dog = test_server:timetrap(test_server:seconds(300)),
+    PortTest = port_test(Config),
+    Packet = list_to_binary(random_packet(Size, "e")),
+    Port = open_port({spawn, PortTest}, [binary, {packet, 2}]),
+    Transactions = 10000,
+    {Elapsed, ok} = test_server:timecall(?MODULE, tps,
 					       [Port, Packet, Transactions]),
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     {comment, integer_to_list(trunc(Transactions/Elapsed+0.5)) ++ " transactions/s"}.
 
 tps(_Port, _Packet, 0) -> ok;
 tps(Port, Packet, N) ->
-    ?line port_command(Port, Packet),
-    ?line receive
-	      {Port, {data, Packet}} ->
-		  ?line tps(Port, Packet, N-1);
-	      Other ->
-		  ?line test_server:fail({bad_message, Other})
-	  end.
+    port_command(Port, Packet),
+    receive
+	{Port, {data, Packet}} ->
+	    tps(Port, Packet, N-1);
+	Other ->
+	    test_server:fail({bad_message, Other})
+    end.
 
 %% Line I/O test
 line(Config) when is_list(Config) ->
-    ?line Siz = 110,
-    ?line Dog = test_server:timetrap(test_server:seconds(300)),
-    ?line Packet1 = random_packet(Siz),
-    ?line Packet2 = random_packet(Siz div 2),
+    Siz = 110,
+    Dog = test_server:timetrap(test_server:seconds(300)),
+    Packet1 = random_packet(Siz),
+    Packet2 = random_packet(Siz div 2),
     %% Test that packets are split into lines
-    ?line port_expect(Config,[{lists:append([Packet1, io_lib:nl(), Packet2,
+    port_expect(Config,[{lists:append([Packet1, io_lib:nl(), Packet2,
 					     io_lib:nl()]),
 			       [{eol, Packet1}, {eol, Packet2}]}],
 		      0, "", [{line,Siz}]),
     %% Test the same for binaries
-    ?line port_expect(Config,[{lists:append([Packet1, io_lib:nl(), Packet2,
+    port_expect(Config,[{lists:append([Packet1, io_lib:nl(), Packet2,
 					     io_lib:nl()]),
 			       [{eol, Packet1}, {eol, Packet2}]}],
 		      0, "", [{line,Siz},binary]),
     %% Test that too long lines get split
-    ?line port_expect(Config,[{lists:append([Packet1, io_lib:nl(), Packet1,
+    port_expect(Config,[{lists:append([Packet1, io_lib:nl(), Packet1,
 					     Packet2, io_lib:nl()]),
 			       [{eol, Packet1}, {noeol, Packet1},
 				{eol, Packet2}]}], 0, "", [{line,Siz}]),
     %% Test that last output from closing port program gets received.
-    ?line L1 = lists:append([Packet1, io_lib:nl(), Packet2]),
-    ?line S1 = lists:flatten(io_lib:format("-l~w", [length(L1)])),
+    L1 = lists:append([Packet1, io_lib:nl(), Packet2]),
+    S1 = lists:flatten(io_lib:format("-l~w", [length(L1)])),
     io:format("S1 = ~w, L1 = ~w~n", [S1,L1]),
-    ?line port_expect(Config,[{L1,
+    port_expect(Config,[{L1,
 			       [{eol, Packet1}, {noeol, Packet2}, eof]}], 0, 
 		      S1, [{line,Siz},eof]),
     %% Test that lonely <CR> Don't get treated as newlines
-    ?line port_expect(Config,[{lists:append([Packet1, [13], Packet2,
+    port_expect(Config,[{lists:append([Packet1, [13], Packet2,
 					     io_lib:nl()]),
 			       [{noeol, Packet1}, {eol, [13 |Packet2]}]}],
 		      0, "", [{line,Siz}]),
     %% Test that packets get built up to lines (delayed output from
     %% port program)
-    ?line port_expect(Config,[{Packet2,[]},
+    port_expect(Config,[{Packet2,[]},
 			      {lists:append([Packet2, io_lib:nl(),
 					     Packet1, io_lib:nl()]),
 			       [{eol, lists:append(Packet2, Packet2)},
 				{eol, Packet1}]}], 0, "-d", [{line,Siz}]),
     %% Test that we get badarg if trying both packet and line
-    ?line bad_argument(Config, [{packet, 5}, {line, 5}]),
-    ?line test_server:timetrap_cancel(Dog),
+    bad_argument(Config, [{packet, 5}, {line, 5}]),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 %%% Redirection of stderr test
@@ -834,15 +791,15 @@ stderr_to_stdout(suite) ->
 stderr_to_stdout(doc) ->
     "Test that redirection of standard error to standard output works.";
 stderr_to_stdout(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
+    Dog = test_server:timetrap(test_server:seconds(60)),
     %% See that it works
-    ?line Packet = random_packet(10),
-    ?line port_expect(Config,[{Packet,[Packet]}], 0, "-e -l10",
+    Packet = random_packet(10),
+    port_expect(Config,[{Packet,[Packet]}], 0, "-e -l10",
 		      [stderr_to_stdout]),
-    %% ?line stream_ping(Config, 10, "-e", [stderr_to_stdout]),
+    %% stream_ping(Config, 10, "-e", [stderr_to_stdout]),
     %% See that it doesn't always happen (will generate garbage on stderr)
-    ?line port_expect(Config,[{Packet,[eof]}], 0, "-e -l10", [line,eof]),
-    ?line test_server:timetrap_cancel(Dog),
+    port_expect(Config,[{Packet,[eof]}], 0, "-e -l10", [line,eof]),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -862,47 +819,39 @@ env(suite) ->
 env(doc) ->
     ["Test that the 'env' option works"];
 env(Config)  when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {skipped,"Environments not implemented on VxWorks (could be...)"};
-	_ ->
-	    env2(Config)
-    end.
-
-env2(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line Priv = ?config(priv_dir, Config),
-    ?line Temp = filename:join(Priv, "env_fun.bin"),
+    Dog = test_server:timetrap(test_server:seconds(60)),
+    Priv = ?config(priv_dir, Config),
+    Temp = filename:join(Priv, "env_fun.bin"),
 
     PluppVal = "dirty monkey",
-    ?line env_slave(Temp, [{"plupp",PluppVal}]),
+    env_slave(Temp, [{"plupp",PluppVal}]),
 
     Long = "LongAndBoringEnvName",
-    ?line os:putenv(Long, "nisse"),
-    
-    ?line env_slave(Temp, [{"plupp",PluppVal},
-			   {"DIR_PLUPP","###glurfrik"}],
-		    fun() ->
-			    PluppVal = os:getenv("plupp"),
-			    "###glurfrik" = os:getenv("DIR_PLUPP"),
-			    "nisse" = os:getenv(Long)
-		    end),
+    os:putenv(Long, "nisse"),
 
-    
-    ?line env_slave(Temp, [{"must_define_something","some_value"},
-			    {"certainly_not_existing",false},
-                           {"ends_with_equal", "value="},
-			   {Long,false},
-			   {"glurf","a glorfy string"}]),
+    env_slave(Temp, [{"plupp",PluppVal},
+	    {"DIR_PLUPP","###glurfrik"}],
+	fun() ->
+		PluppVal = os:getenv("plupp"),
+		"###glurfrik" = os:getenv("DIR_PLUPP"),
+		"nisse" = os:getenv(Long)
+	end),
+
+
+    env_slave(Temp, [{"must_define_something","some_value"},
+	    {"certainly_not_existing",false},
+	    {"ends_with_equal", "value="},
+	    {Long,false},
+	    {"glurf","a glorfy string"}]),
 
     %% A lot of non existing variables (mingled with existing)
     NotExistingList = [{lists:flatten(io_lib:format("V~p_not_existing",[X])),false} 
                         ||  X <- lists:seq(1,150)],
     ExistingList = [{lists:flatten(io_lib:format("V~p_existing",[X])),"a_value"} 
                         ||  X <- lists:seq(1,150)],
-    ?line env_slave(Temp, lists:sort(ExistingList ++ NotExistingList)),
+    env_slave(Temp, lists:sort(ExistingList ++ NotExistingList)),
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 env_slave(File, Env) ->
@@ -946,23 +895,15 @@ env_slave_main([File]) ->
 %% 'env' option
 %%   Test bad environments.
 bad_env(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {skipped,"Environments not implemented on VxWorks"};
-	_ ->
-	    bad_env_1()
-    end.
-
-bad_env_1() ->
-    ?line try_bad_env([abbb]),
-    ?line try_bad_env([{"key","value"}|{"another","value"}]),
-    ?line try_bad_env([{"key","value","value2"}]),
-    ?line try_bad_env([{"key",[a,b,c]}]),
-    ?line try_bad_env([{"key",value}]),
-    ?line try_bad_env({a,tuple}),
-    ?line try_bad_env(42),
-    ?line try_bad_env([a|b]),
-    ?line try_bad_env(self()),
+    try_bad_env([abbb]),
+    try_bad_env([{"key","value"}|{"another","value"}]),
+    try_bad_env([{"key","value","value2"}]),
+    try_bad_env([{"key",[a,b,c]}]),
+    try_bad_env([{"key",value}]),
+    try_bad_env({a,tuple}),
+    try_bad_env(42),
+    try_bad_env([a|b]),
+    try_bad_env(self()),
     ok.
 
 try_bad_env(Env) ->
@@ -979,36 +920,29 @@ cd(suite) ->
 cd(doc) ->
     ["Test that the 'cd' option works"];
 cd(Config)  when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {skipped,"Task specific directories does not exist on VxWorks"};
-	_ ->
-	    cd2(Config)
-    end.
-cd2(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
+    Dog = test_server:timetrap(test_server:seconds(60)),
 
-    ?line Program = atom_to_list(lib:progname()),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line TestDir = filename:join(DataDir, "dir"),
-    ?line Cmd = Program ++ " -pz " ++ DataDir ++
-	" -noshell -s port_test pwd -s erlang halt",
-    ?line _ = open_port({spawn, Cmd},
-			[{cd, TestDir},
-			 {line, 256}]),
-    ?line receive
-	      {_, {data, {eol, String}}} ->
-		  case filename_equal(String, TestDir) of
-		      true ->
-			  ok;
-		      false ->
-			  ?line test_server:fail({cd, String})
-		  end;
-	      Other2 ->
-		  ?line test_server:fail({env, Other2})
-	  end,
+    Program = atom_to_list(lib:progname()),
+    DataDir = ?config(data_dir, Config),
+    TestDir = filename:join(DataDir, "dir"),
+    Cmd = Program ++ " -pz " ++ DataDir ++
+        " -noshell -s port_test pwd -s erlang halt",
+    _ = open_port({spawn, Cmd},
+	[{cd, TestDir},
+	    {line, 256}]),
+    receive
+	{_, {data, {eol, String}}} ->
+	    case filename_equal(String, TestDir) of
+		true ->
+		    ok;
+		false ->
+		    test_server:fail({cd, String})
+	    end;
+	Other2 ->
+	    test_server:fail({env, Other2})
+    end,
 
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 filename_equal(A, B) ->
@@ -1059,8 +993,8 @@ otp_3906(Config)  when is_list(Config) ->
 -define(OTP_3906_MAX_CONC_OSP, 50).
 
 otp_3906(Config, OSName) ->
-    ?line DataDir = filename:dirname(proplists:get_value(data_dir,Config)),
-    ?line {ok, Variables} = file:consult(
+    DataDir = filename:dirname(proplists:get_value(data_dir,Config)),
+    {ok, Variables} = file:consult(
 			      filename:join([DataDir,"..","..",
 					     "test_server","variables"])),
     case lists:keysearch('CC', 1, Variables) of
@@ -1105,7 +1039,7 @@ otp_3906(Config, OSName) ->
 		succeded ->
 		    ok;
 		_ ->
-		    ?line test_server:fail(Result)
+		    test_server:fail(Result)
 	    end;
 	_ ->
 	    {skipped, "No C compiler found"}
@@ -1246,15 +1180,15 @@ otp_4389(doc) -> [];
 otp_4389(Config)  when is_list(Config) ->
     case os:type() of
 	{unix, _} ->
-	    ?line Dog = test_server:timetrap(test_server:seconds(240)),
-	    ?line TCR = self(),
+	    Dog = test_server:timetrap(test_server:seconds(240)),
+	    TCR = self(),
 	    case get_true_cmd() of
 		True when is_list(True) ->
-		    ?line lists:foreach(
+		    lists:foreach(
 			    fun (P) ->
-				    ?line receive
-					      {P, ok} ->  ?line ok;
-					      {P, Err} -> ?line ?t:fail(Err)
+				    receive
+					      {P, ok} ->  ok;
+					      {P, Err} -> ?t:fail(Err)
 					  end
 			    end,
 			    lists:map(
@@ -1283,14 +1217,14 @@ otp_4389(Config)  when is_list(Config) ->
 					end)
 			      end,
 			      lists:duplicate(1000,[]))),
-		    ?line test_server:timetrap_cancel(Dog),
+		    test_server:timetrap_cancel(Dog),
 		    {comment,
 		     "This test case doesn't always fail when the bug that "
 		     "it tests for is present (it is most likely to fail on"
 		     " a multi processor machine). If the test case fails it"
 		     " will fail by deadlocking the emulator."};
 		_ ->
-		    ?line {skipped, "\"true\" command not found"}
+		    {skipped, "\"true\" command not found"}
 	    end;
 	_ ->
 	    {skip,"Only run on Unix"}
@@ -1320,11 +1254,11 @@ exit_status(suite) ->
 exit_status(doc) ->
     ["Test that the 'exit_status' option works"];
 exit_status(Config)  when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(60)),
-    ?line port_expect(Config,[{"x",
+    Dog = test_server:timetrap(test_server:seconds(60)),
+    port_expect(Config,[{"x",
 			       [{exit_status, 5}]}],
 		      1, "", [exit_status]),
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 spawn_driver(suite) ->
@@ -1332,36 +1266,36 @@ spawn_driver(suite) ->
 spawn_driver(doc) ->
     ["Test spawning a driver specifically"];
 spawn_driver(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line Path = ?config(data_dir, Config),
-    ?line ok = load_driver(Path, "echo_drv"),
-    ?line Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
-    ?line Port ! {self(), {command, "Hello port!"}},
-    ?line receive 
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    Path = ?config(data_dir, Config),
+    ok = load_driver(Path, "echo_drv"),
+    Port = erlang:open_port({spawn_driver, "echo_drv"}, []),
+    Port ! {self(), {command, "Hello port!"}},
+    receive 
 	      {Port, {data, "Hello port!"}} = Msg1 -> 
 		  io:format("~p~n", [Msg1]),
 		  ok; 
 	      Other ->
 		  test_server:fail({unexpected, Other})
 	  end,
-    ?line Port ! {self(), close},
-    ?line receive {Port, closed} -> ok end,
+    Port ! {self(), close},
+    receive {Port, closed} -> ok end,
 
-    ?line Port2 = erlang:open_port({spawn_driver, "echo_drv -Hello port?"}, 
+    Port2 = erlang:open_port({spawn_driver, "echo_drv -Hello port?"}, 
 				   []),
-    ?line receive 
+    receive 
 	      {Port2, {data, "Hello port?"}} = Msg2 -> 
 		  io:format("~p~n", [Msg2]),
 		  ok; 
 	      Other2 ->
 		  test_server:fail({unexpected2, Other2})
 	  end,
-    ?line Port2 ! {self(), close},
-    ?line receive {Port2, closed} -> ok end,
-    ?line {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "ls"}, [])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "cmd"}, [])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, os:find_executable("erl")}, [])),
-    ?line test_server:timetrap_cancel(Dog),
+    Port2 ! {self(), close},
+    receive {Port2, closed} -> ok end,
+    {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "ls"}, [])),
+    {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "cmd"}, [])),
+    {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, os:find_executable("erl")}, [])),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 spawn_executable(suite) ->
@@ -1369,48 +1303,48 @@ spawn_executable(suite) ->
 spawn_executable(doc) ->
     ["Test spawning an executable specifically"];
 spawn_executable(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line EchoArgs1 = filename:join([DataDir,"echo_args"]),
-    ?line ExactFile1 = filename:nativename(os:find_executable(EchoArgs1)),
-    ?line [ExactFile1] = run_echo_args(DataDir,[]),
-    ?line ["echo_args"] = run_echo_args(DataDir,["echo_args"]),
-    ?line ["echo_arguments"] = run_echo_args(DataDir,["echo_arguments"]),
-    ?line [ExactFile1,"hello world","dlrow olleh"] = 
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    DataDir = ?config(data_dir, Config),
+    EchoArgs1 = filename:join([DataDir,"echo_args"]),
+    ExactFile1 = filename:nativename(os:find_executable(EchoArgs1)),
+    [ExactFile1] = run_echo_args(DataDir,[]),
+    ["echo_args"] = run_echo_args(DataDir,["echo_args"]),
+    ["echo_arguments"] = run_echo_args(DataDir,["echo_arguments"]),
+    [ExactFile1,"hello world","dlrow olleh"] = 
 	run_echo_args(DataDir,[ExactFile1,"hello world","dlrow olleh"]),
-    ?line [ExactFile1] = run_echo_args(DataDir,[default]),
-    ?line [ExactFile1,"hello world","dlrow olleh"] = 
+    [ExactFile1] = run_echo_args(DataDir,[default]),
+    [ExactFile1,"hello world","dlrow olleh"] = 
 	run_echo_args(DataDir,[switch_order,ExactFile1,"hello world",
 			       "dlrow olleh"]),
-    ?line [ExactFile1,"hello world","dlrow olleh"] = 
+    [ExactFile1,"hello world","dlrow olleh"] = 
 	run_echo_args(DataDir,[default,"hello world","dlrow olleh"]),
 
-    ?line [ExactFile1,"hello world","dlrow olleh"] = 
+    [ExactFile1,"hello world","dlrow olleh"] = 
 	run_echo_args_2("\""++ExactFile1++"\" "++"\"hello world\" \"dlrow olleh\""),
 
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line SpaceDir =filename:join([PrivDir,"With Spaces"]),
-    ?line file:make_dir(SpaceDir),
-    ?line Executable = filename:basename(ExactFile1),
-    ?line file:copy(ExactFile1,filename:join([SpaceDir,Executable])),
-    ?line ExactFile2 = filename:nativename(filename:join([SpaceDir,Executable])),
-    ?line chmodplusx(ExactFile2),
+    PrivDir = ?config(priv_dir, Config),
+    SpaceDir =filename:join([PrivDir,"With Spaces"]),
+    file:make_dir(SpaceDir),
+    Executable = filename:basename(ExactFile1),
+    file:copy(ExactFile1,filename:join([SpaceDir,Executable])),
+    ExactFile2 = filename:nativename(filename:join([SpaceDir,Executable])),
+    chmodplusx(ExactFile2),
     io:format("|~s|~n",[ExactFile2]),
-    ?line [ExactFile2] = run_echo_args(SpaceDir,[]),
-    ?line ["echo_args"] = run_echo_args(SpaceDir,["echo_args"]),
-    ?line ["echo_arguments"] = run_echo_args(SpaceDir,["echo_arguments"]),
-    ?line [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2] = run_echo_args(SpaceDir,[]),
+    ["echo_args"] = run_echo_args(SpaceDir,["echo_args"]),
+    ["echo_arguments"] = run_echo_args(SpaceDir,["echo_arguments"]),
+    [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[ExactFile2,"hello world","dlrow olleh"]),
-    ?line [ExactFile2] = run_echo_args(SpaceDir,[default]),
-    ?line [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2] = run_echo_args(SpaceDir,[default]),
+    [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[switch_order,ExactFile2,"hello world",
 			       "dlrow olleh"]),
-    ?line [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,[default,"hello world","dlrow olleh"]),
-    ?line [ExactFile2,"hello world","dlrow olleh"] = 
+    [ExactFile2,"hello world","dlrow olleh"] = 
 	run_echo_args_2("\""++ExactFile2++"\" "++"\"hello world\" \"dlrow olleh\""),
 
-    ?line ExeExt = 
+    ExeExt = 
 	case string:to_lower(lists:last(string:tokens(ExactFile2,"."))) of
 	    "exe" ->
 		".exe";
@@ -1418,47 +1352,47 @@ spawn_executable(Config) when is_list(Config) ->
 		""
 	end,
     Executable2 = "spoky name"++ExeExt,
-    ?line file:copy(ExactFile1,filename:join([SpaceDir,Executable2])),
-    ?line ExactFile3 = filename:nativename(filename:join([SpaceDir,Executable2])),
-    ?line chmodplusx(ExactFile3),
-    ?line [ExactFile3] = run_echo_args(SpaceDir,Executable2,[]),
-    ?line ["echo_args"] = run_echo_args(SpaceDir,Executable2,["echo_args"]),
-    ?line ["echo_arguments"] = run_echo_args(SpaceDir,Executable2,["echo_arguments"]),
-    ?line [ExactFile3,"hello world","dlrow olleh"] = 
+    file:copy(ExactFile1,filename:join([SpaceDir,Executable2])),
+    ExactFile3 = filename:nativename(filename:join([SpaceDir,Executable2])),
+    chmodplusx(ExactFile3),
+    [ExactFile3] = run_echo_args(SpaceDir,Executable2,[]),
+    ["echo_args"] = run_echo_args(SpaceDir,Executable2,["echo_args"]),
+    ["echo_arguments"] = run_echo_args(SpaceDir,Executable2,["echo_arguments"]),
+    [ExactFile3,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,Executable2,[ExactFile3,"hello world","dlrow olleh"]),
-    ?line [ExactFile3] = run_echo_args(SpaceDir,Executable2,[default]),
-    ?line [ExactFile3,"hello world","dlrow olleh"] = 
+    [ExactFile3] = run_echo_args(SpaceDir,Executable2,[default]),
+    [ExactFile3,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,Executable2,
 		      [switch_order,ExactFile3,"hello world",
 		       "dlrow olleh"]),
-    ?line [ExactFile3,"hello world","dlrow olleh"] = 
+    [ExactFile3,"hello world","dlrow olleh"] = 
 	run_echo_args(SpaceDir,Executable2,
 		      [default,"hello world","dlrow olleh"]),
-    ?line [ExactFile3,"hello world","dlrow olleh"] = 
+    [ExactFile3,"hello world","dlrow olleh"] = 
 	run_echo_args_2("\""++ExactFile3++"\" "++"\"hello world\" \"dlrow olleh\""),
-    ?line {'EXIT',{enoent,_}} = (catch run_echo_args(SpaceDir,"fnurflmonfi",
+    {'EXIT',{enoent,_}} = (catch run_echo_args(SpaceDir,"fnurflmonfi",
 						     [default,"hello world",
 						      "dlrow olleh"])),
     NonExec = "kronxfrt"++ExeExt,
-    ?line file:write_file(filename:join([SpaceDir,NonExec]),
+    file:write_file(filename:join([SpaceDir,NonExec]),
 			  <<"Not an executable">>),
-    ?line {'EXIT',{eacces,_}} = (catch run_echo_args(SpaceDir,NonExec,
+    {'EXIT',{eacces,_}} = (catch run_echo_args(SpaceDir,NonExec,
 						     [default,"hello world",
 						      "dlrow olleh"])),
-    ?line {'EXIT',{enoent,_}} = (catch open_port({spawn_executable,"cmd"},[])),
-    ?line {'EXIT',{enoent,_}} = (catch open_port({spawn_executable,"sh"},[])),
+    {'EXIT',{enoent,_}} = (catch open_port({spawn_executable,"cmd"},[])),
+    {'EXIT',{enoent,_}} = (catch open_port({spawn_executable,"sh"},[])),
     case os:type() of
 	{win32,_} ->
 	    test_bat_file(SpaceDir);
 	{unix,_} ->
 	    test_sh_file(SpaceDir)
     end,
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 unregister_name(Config) when is_list(Config) ->
-    ?line true = register(crash, open_port({spawn, "sleep 100"}, [])),
-    ?line true = unregister(crash).
+    true = register(crash, open_port({spawn, "sleep 100"}, [])),
+    true = unregister(crash).
 
 test_bat_file(Dir) ->
     FN = "tf.bat",
@@ -1478,16 +1412,16 @@ test_bat_file(Dir) ->
 	 <<"\r\n">>,
 	 <<":done\r\n">>,
 	 <<"\r\n">>],
-    ?line file:write_file(Full,list_to_binary(D)),
-    ?line EF = filename:basename(FN),
-    ?line [DN,"hello","world"] = 
+    file:write_file(Full,list_to_binary(D)),
+    EF = filename:basename(FN),
+    [DN,"hello","world"] = 
 	run_echo_args(Dir,FN,
 		      [default,"hello","world"]),
     %% The arg0 argumant should be ignored when running batch files
-    ?line [DN,"hello","world"] = 
+    [DN,"hello","world"] = 
 	run_echo_args(Dir,FN,
 		      ["knaskurt","hello","world"]),
-    ?line EF = filename:basename(DN),
+    EF = filename:basename(DN),
     ok.
 
 test_sh_file(Dir) ->
@@ -1501,20 +1435,20 @@ test_sh_file(Dir) ->
 	 <<"    shift\n">>,
 	 <<"    i=`expr $i + 1`\n">>,
 	 <<"done\n">>],
-    ?line file:write_file(Full,list_to_binary(D)),
-    ?line chmodplusx(Full),
-    ?line [Full,"hello","world"] = 
+    file:write_file(Full,list_to_binary(D)),
+    chmodplusx(Full),
+    [Full,"hello","world"] = 
 	run_echo_args(Dir,FN,
 		      [default,"hello","world"]),
-    ?line [Full,"hello","world of spaces"] = 
+    [Full,"hello","world of spaces"] = 
 	run_echo_args(Dir,FN,
 		      [default,"hello","world of spaces"]),
-    ?line file:write_file(filename:join([Dir,"testfile1"]),<<"testdata1">>),
-    ?line file:write_file(filename:join([Dir,"testfile2"]),<<"testdata2">>),
-    ?line Pattern = filename:join([Dir,"testfile*"]),
-    ?line L = filelib:wildcard(Pattern),
-    ?line 2 = length(L),
-    ?line [Full,"hello",Pattern] = 
+    file:write_file(filename:join([Dir,"testfile1"]),<<"testdata1">>),
+    file:write_file(filename:join([Dir,"testfile2"]),<<"testdata2">>),
+    Pattern = filename:join([Dir,"testfile*"]),
+    L = filelib:wildcard(Pattern),
+    2 = length(L),
+    [Full,"hello",Pattern] = 
 	run_echo_args(Dir,FN,
 		      [default,"hello",Pattern]),
      ok.
@@ -1574,25 +1508,25 @@ mix_up_ports(suite) ->
 mix_up_ports(doc) ->
     ["Test that the emulator does not mix up ports when the port table wraps"];
 mix_up_ports(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line Path = ?config(data_dir, Config),
-    ?line ok = load_driver(Path, "echo_drv"),
-    ?line Port = erlang:open_port({spawn, "echo_drv"}, []),
-    ?line Port ! {self(), {command, "Hello port!"}},
-    ?line receive 
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    Path = ?config(data_dir, Config),
+    ok = load_driver(Path, "echo_drv"),
+    Port = erlang:open_port({spawn, "echo_drv"}, []),
+    Port ! {self(), {command, "Hello port!"}},
+    receive 
 	      {Port, {data, "Hello port!"}} = Msg1 -> 
 		  io:format("~p~n", [Msg1]),
 		  ok; 
 	      Other ->
 		  test_server:fail({unexpected, Other})
 	  end,
-    ?line Port ! {self(), close},
-    ?line receive {Port, closed} -> ok end,
-    ?line loop(start, done,
+    Port ! {self(), close},
+    receive {Port, closed} -> ok end,
+    loop(start, done,
 	       fun(P) ->
-		       ?line Q = 
+		       Q = 
 			   (catch erlang:open_port({spawn, "echo_drv"}, [])),
-%%		       ?line io:format("~p ", [Q]),
+%%		       io:format("~p ", [Q]),
 		       if is_port(Q) ->
 			       Q;
 			  true ->
@@ -1600,14 +1534,14 @@ mix_up_ports(Config) when is_list(Config) ->
 			       done
 		       end
 	       end),
-    ?line Port ! {self(), {command, "Hello again port!"}},
-    ?line receive 
+    Port ! {self(), {command, "Hello again port!"}},
+    receive 
 	      Msg2 ->
 		  test_server:fail({unexpected, Msg2})
 	  after 1000 ->
 		  ok
 	  end,
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 loop(Stop, Stop, Fun) when is_function(Fun) ->
@@ -1622,45 +1556,45 @@ otp_5112(doc) ->
     ["Test that link to connected process is taken away when port calls",
      "driver_exit() also when the port index has wrapped"];
 otp_5112(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line Path = ?config(data_dir, Config),
-    ?line ok = load_driver(Path, "exit_drv"),
-    ?line Port = otp_5112_get_wrapped_port(),
-    ?line ?t:format("Max ports: ~p~n",[max_ports()]),
-    ?line ?t:format("Port: ~p~n",[Port]),
-    ?line {links, Links1} = process_info(self(),links),
-    ?line ?t:format("Links1: ~p~n",[Links1]),
-    ?line true = lists:member(Port, Links1),
-    ?line Port ! {self(), {command, ""}},
-    ?line {links, Links2} = process_info(self(),links),
-    ?line ?t:format("Links2: ~p~n",[Links2]),
-    ?line false = lists:member(Port, Links2), %% This used to fail
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    Path = ?config(data_dir, Config),
+    ok = load_driver(Path, "exit_drv"),
+    Port = otp_5112_get_wrapped_port(),
+    ?t:format("Max ports: ~p~n",[max_ports()]),
+    ?t:format("Port: ~p~n",[Port]),
+    {links, Links1} = process_info(self(),links),
+    ?t:format("Links1: ~p~n",[Links1]),
+    true = lists:member(Port, Links1),
+    Port ! {self(), {command, ""}},
+    {links, Links2} = process_info(self(),links),
+    ?t:format("Links2: ~p~n",[Links2]),
+    false = lists:member(Port, Links2), %% This used to fail
+    test_server:timetrap_cancel(Dog),
     ok.
 
 otp_5112_get_wrapped_port() ->
-    ?line P1 = erlang:open_port({spawn, "exit_drv"}, []),
-    ?line case port_ix(P1) < max_ports() of
+    P1 = erlang:open_port({spawn, "exit_drv"}, []),
+    case port_ix(P1) < max_ports() of
 	      true ->
-		  ?line ?t:format("Need to wrap port index (~p)~n", [P1]),
-		  ?line otp_5112_wrap_port_ix([P1]),
-		  ?line P2 = erlang:open_port({spawn, "exit_drv"}, []),
-		  ?line false = port_ix(P2) < max_ports(),
-		  ?line P2;
+		  ?t:format("Need to wrap port index (~p)~n", [P1]),
+		  otp_5112_wrap_port_ix([P1]),
+		  P2 = erlang:open_port({spawn, "exit_drv"}, []),
+		  false = port_ix(P2) < max_ports(),
+		  P2;
 	      false ->
-		  ?line ?t:format("Port index already wrapped (~p)~n", [P1]),
-		  ?line P1
+		  ?t:format("Port index already wrapped (~p)~n", [P1]),
+		  P1
 	  end.
 
 otp_5112_wrap_port_ix(Ports) ->
-    ?line case (catch erlang:open_port({spawn, "exit_drv"}, [])) of
+    case (catch erlang:open_port({spawn, "exit_drv"}, [])) of
 	      Port when is_port(Port) ->
-		  ?line otp_5112_wrap_port_ix([Port|Ports]);
+		  otp_5112_wrap_port_ix([Port|Ports]);
 	      _ ->
 		  %% Port table now full; empty port table
-		  ?line lists:foreach(fun (P) ->  P ! {self(), close} end,
+		  lists:foreach(fun (P) ->  P ! {self(), close} end,
 				      Ports),
-		  ?line ok
+		  ok
 	  end.
 
 
@@ -1669,106 +1603,105 @@ otp_5119(suite) ->
 otp_5119(doc) ->
     ["Test that port index is not unnecessarily wrapped"];
 otp_5119(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line Path = ?config(data_dir, Config),
-    ?line ok = load_driver(Path, "exit_drv"),
-    ?line PI1 = port_ix(otp_5119_fill_empty_port_tab([])),
-    ?line PI2 = port_ix(erlang:open_port({spawn, "exit_drv"}, [])),
-    ?line {PortIx1, PortIx2}
-	= case PI2 > PI1 of
-	      true ->
-		  ?line {PI1, PI2};
-	      false ->
-		  ?line {port_ix(otp_5119_fill_empty_port_tab([PI2])),
-			 port_ix(erlang:open_port({spawn, "exit_drv"}, []))}
-	  end,
-    ?line MaxPorts = max_ports(),
-    ?line ?t:format("PortIx1 = ~p ~p~n", [PI1, PortIx1]),
-    ?line ?t:format("PortIx2 = ~p ~p~n", [PI2, PortIx2]),
-    ?line ?t:format("MaxPorts = ~p~n", [MaxPorts]),
-    ?line true = PortIx2 > PortIx1,
-    ?line true = PortIx2 =< PortIx1 + MaxPorts,
-    ?line test_server:timetrap_cancel(Dog),
-    ?line ok.
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    Path = ?config(data_dir, Config),
+    ok = load_driver(Path, "exit_drv"),
+    PI1 = port_ix(otp_5119_fill_empty_port_tab([])),
+    PI2 = port_ix(erlang:open_port({spawn, "exit_drv"}, [])),
+    {PortIx1, PortIx2} = case PI2 > PI1 of
+	true ->
+	    {PI1, PI2};
+	false ->
+	    {port_ix(otp_5119_fill_empty_port_tab([PI2])),
+		port_ix(erlang:open_port({spawn, "exit_drv"}, []))}
+    end,
+    MaxPorts = max_ports(),
+    ?t:format("PortIx1 = ~p ~p~n", [PI1, PortIx1]),
+    ?t:format("PortIx2 = ~p ~p~n", [PI2, PortIx2]),
+    ?t:format("MaxPorts = ~p~n", [MaxPorts]),
+    true = PortIx2 > PortIx1,
+    true = PortIx2 =< PortIx1 + MaxPorts,
+    test_server:timetrap_cancel(Dog),
+    ok.
 
 otp_5119_fill_empty_port_tab(Ports) ->
-    ?line case (catch erlang:open_port({spawn, "exit_drv"}, [])) of
+    case (catch erlang:open_port({spawn, "exit_drv"}, [])) of
 	      Port when is_port(Port) ->
-		  ?line otp_5119_fill_empty_port_tab([Port|Ports]);
+		  otp_5119_fill_empty_port_tab([Port|Ports]);
 	      _ ->
 		  %% Port table now full; empty port table
-		  ?line lists:foreach(fun (P) ->  P ! {self(), close} end,
+		  lists:foreach(fun (P) ->  P ! {self(), close} end,
 				      Ports),
-		  ?line [LastPort|_] = Ports,
-		  ?line LastPort
+		  [LastPort|_] = Ports,
+		  LastPort
 	  end.
 
 -define(DEF_MAX_PORTS, 1024).
 
 max_ports_env() ->
-    ?line case os:getenv("ERL_MAX_PORTS") of
+    case os:getenv("ERL_MAX_PORTS") of
 	      EMP when is_list(EMP) ->
 		  case catch list_to_integer(EMP) of
-		      Int when is_integer(Int) -> ?line Int;
-		      _ -> ?line false
+		      Int when is_integer(Int) -> Int;
+		      _ -> false
 		  end;
-	      _ -> ?line false
+	      _ -> false
 	  end.
 
 max_ports() ->
-    ?line PreMaxPorts
+    PreMaxPorts
 	= case max_ports_env() of
-	      Env when is_integer(Env) -> ?line Env;
+	      Env when is_integer(Env) -> Env;
 	      _ ->
-		  ?line case os:type() of
+		  case os:type() of
 			    {unix, _} ->
-				?line UlimStr = string:strip(os:cmd("ulimit -n")
+				UlimStr = string:strip(os:cmd("ulimit -n")
 							     -- "\n"),
-				?line case catch list_to_integer(UlimStr) of
-					  Ulim when is_integer(Ulim) -> ?line Ulim;
-					  _ -> ?line ?DEF_MAX_PORTS
+				case catch list_to_integer(UlimStr) of
+					  Ulim when is_integer(Ulim) -> Ulim;
+					  _ -> ?DEF_MAX_PORTS
 				      end;
-			    _ -> ?line ?DEF_MAX_PORTS
+			    _ -> ?DEF_MAX_PORTS
 			end
 	  end,
-    ?line case PreMaxPorts > ?DEF_MAX_PORTS of
-	      true -> ?line PreMaxPorts;
-	      false -> ?line ?DEF_MAX_PORTS
+    case PreMaxPorts > ?DEF_MAX_PORTS of
+	      true -> PreMaxPorts;
+	      false -> ?DEF_MAX_PORTS
 	  end.
 
 port_ix(Port) when is_port(Port) ->
-    ?line ["#Port",_,PortIxStr] = string:tokens(erlang:port_to_list(Port),
+    ["#Port",_,PortIxStr] = string:tokens(erlang:port_to_list(Port),
 						"<.>"),
-    ?line list_to_integer(PortIxStr).
+    list_to_integer(PortIxStr).
 
 
 otp_6224(doc) -> ["Check that port command failure doesn't crash the emulator"];
 otp_6224(suite) -> [];
 otp_6224(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-    ?line Path = ?config(data_dir, Config),
-    ?line ok = load_driver(Path, "failure_drv"),
-    ?line Go = make_ref(),
-    ?line Failer = spawn(fun () ->
+    Dog = test_server:timetrap(test_server:seconds(10)),
+    Path = ?config(data_dir, Config),
+    ok = load_driver(Path, "failure_drv"),
+    Go = make_ref(),
+    Failer = spawn(fun () ->
 				 receive Go -> ok end,
-				 ?line Port = open_port({spawn, "failure_drv"},
+				 Port = open_port({spawn, "failure_drv"},
 							[]),
 				 Port ! {self(), {command, "Fail, please!"}},
 				 otp_6224_loop()
 			 end),
-    ?line Mon = erlang:monitor(process, Failer),
-    ?line Failer ! Go,
-    ?line receive
+    Mon = erlang:monitor(process, Failer),
+    Failer ! Go,
+    receive
 	      {'DOWN', Mon, process, Failer, Reason} ->
-		  ?line case Reason of
-			    {driver_failed, _} -> ?line ok;
-			    driver_failed -> ?line ok;
-			    _ -> ?line ?t:fail({unexpected_exit_reason,
+		  case Reason of
+			    {driver_failed, _} -> ok;
+			    driver_failed -> ok;
+			    _ -> ?t:fail({unexpected_exit_reason,
 						Reason})
 			end
 	  end,
-    ?line test_server:timetrap_cancel(Dog),
-    ?line ok.
+    test_server:timetrap_cancel(Dog),
+    ok.
     
 otp_6224_loop() ->
     receive _ -> ok after 0 -> ok end,
@@ -1781,11 +1714,11 @@ otp_6224_loop() ->
 exit_status_multi_scheduling_block(doc) -> [];
 exit_status_multi_scheduling_block(suite) -> [];
 exit_status_multi_scheduling_block(Config) when is_list(Config) ->
-    ?line Repeat = 3,
-    ?line case ?t:os_type() of
+    Repeat = 3,
+    case ?t:os_type() of
 	      {unix, _} ->
-		  ?line Dog = ?t:timetrap(test_server:minutes(2*Repeat)),
-		  ?line SleepSecs = 6,
+		  Dog = ?t:timetrap(test_server:minutes(2*Repeat)),
+		  SleepSecs = 6,
 		  try
 		      lists:foreach(fun (_) ->
 					    exit_status_msb_test(Config,
@@ -1799,7 +1732,7 @@ exit_status_multi_scheduling_block(Config) when is_list(Config) ->
 		      ?t:timetrap_cancel(Dog),
 		      receive after SleepSecs+500 -> ok end
 		  end;
-	      _ -> ?line {skip, "Not implemented for this OS"}
+	      _ -> {skip, "Not implemented for this OS"}
 	  end.
 
 exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
@@ -1808,22 +1741,22 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
     %% and we want these port programs to terminate while multi-scheduling
     %% is blocked.
     %% 
-    ?line NoSchedsOnln = erlang:system_info(schedulers_online),
-    ?line Parent = self(),
-    ?line ?t:format("SleepSecs = ~p~n", [SleepSecs]),
-    ?line PortProg = "sleep " ++ integer_to_list(SleepSecs),
-    ?line Start = now(),
-    ?line NoProcs = case NoSchedsOnln of
+    NoSchedsOnln = erlang:system_info(schedulers_online),
+    Parent = self(),
+    ?t:format("SleepSecs = ~p~n", [SleepSecs]),
+    PortProg = "sleep " ++ integer_to_list(SleepSecs),
+    Start = now(),
+    NoProcs = case NoSchedsOnln of
 			NProcs when NProcs < ?EXIT_STATUS_MSB_MAX_PROCS ->
 			    NProcs;
 			_ ->
 			    ?EXIT_STATUS_MSB_MAX_PROCS
 		    end,
-    ?line NoPortsPerProc = case 20*NoProcs of
+    NoPortsPerProc = case 20*NoProcs of
 			       TNPorts when TNPorts < ?EXIT_STATUS_MSB_MAX_PORTS -> 20;
 			       _ -> ?EXIT_STATUS_MSB_MAX_PORTS div NoProcs
 			   end,
-    ?line ?t:format("NoProcs = ~p~nNoPortsPerProc = ~p~n",
+    ?t:format("NoProcs = ~p~nNoPortsPerProc = ~p~n",
 		    [NoProcs, NoPortsPerProc]),
     ProcFun
 	= fun () ->
@@ -1873,32 +1806,32 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
 		    PrtSIds),
 		  Parent ! {self(), done}
 	  end,
-    ?line Procs = lists:map(fun (N) ->
+    Procs = lists:map(fun (N) ->
 				    spawn_opt(ProcFun,
 					      [link,
 					       {scheduler,
 						(N rem NoSchedsOnln)+1}])
 			    end,
 			    lists:seq(1, NoProcs)),
-    ?line SIds = lists:map(fun (P) ->
+    SIds = lists:map(fun (P) ->
 				   receive {P, started, SIds} -> SIds end
 			   end,
 			   Procs),
-    ?line StartedTime = timer:now_diff(now(), Start)/1000000,
-    ?line ?t:format("StartedTime = ~p~n", [StartedTime]),
-    ?line true = StartedTime < SleepSecs,
-    ?line erlang:system_flag(multi_scheduling, block),
-    ?line lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
-    ?line DoneTime = timer:now_diff(now(), Start)/1000000,
-    ?line ?t:format("DoneTime = ~p~n", [DoneTime]),
-    ?line true = DoneTime > SleepSecs,
-    ?line ok = verify_multi_scheduling_blocked(),
-    ?line erlang:system_flag(multi_scheduling, unblock),
-    ?line case {length(lists:usort(lists:flatten(SIds))), NoSchedsOnln} of
+    StartedTime = timer:now_diff(now(), Start)/1000000,
+    ?t:format("StartedTime = ~p~n", [StartedTime]),
+    true = StartedTime < SleepSecs,
+    erlang:system_flag(multi_scheduling, block),
+    lists:foreach(fun (P) -> receive {P, done} -> ok end end, Procs),
+    DoneTime = timer:now_diff(now(), Start)/1000000,
+    ?t:format("DoneTime = ~p~n", [DoneTime]),
+    true = DoneTime > SleepSecs,
+    ok = verify_multi_scheduling_blocked(),
+    erlang:system_flag(multi_scheduling, unblock),
+    case {length(lists:usort(lists:flatten(SIds))), NoSchedsOnln} of
 	      {N, N} ->
-		  ?line ok;
+		  ok;
 	      {N, M} ->
-		  ?line ?t:fail("Failed to create ports on all"
+		  ?t:fail("Failed to create ports on all"
 				++ integer_to_list(M) ++ " available"
 				"schedulers. Only created ports on "
 				++ integer_to_list(N) ++ " schedulers.")
@@ -1921,18 +1854,18 @@ sid_proc(SIds) ->
     end.
 
 verify_multi_scheduling_blocked() ->
-    ?line Procs = lists:map(fun (_) ->
+    Procs = lists:map(fun (_) ->
 				    spawn_link(fun () -> sid_proc([]) end)
 			    end,
 			    lists:seq(1, 3*erlang:system_info(schedulers_online))),
-    ?line receive after 1000 -> ok end,
-    ?line SIds = lists:map(fun (P) ->
+    receive after 1000 -> ok end,
+    SIds = lists:map(fun (P) ->
 				   P ! {self(), want_sids},
 				   receive {P, sids, PSIds} -> PSIds end
 			   end,
 			   Procs),
-    ?line 1 = length(lists:usort(lists:flatten(SIds))),
-    ?line ok.
+    1 = length(lists:usort(lists:flatten(SIds))),
+    ok.
 		      
     
 %%% Pinging functions.
@@ -1993,30 +1926,30 @@ build_cmd_line(FixedCmdLine, [], Result) ->
 port_expect(Config, Actions, HSize, CmdLine, Options0) ->
 %    io:format("port_expect(~p, ~p, ~p, ~p)",
 %		[Actions, HSize, CmdLine, Options0]),
-    ?line PortTest = port_test(Config),
-    ?line Cmd = lists:concat([PortTest, " -h", HSize, " ", CmdLine]),
-    ?line PortType =
+    PortTest = port_test(Config),
+    Cmd = lists:concat([PortTest, " -h", HSize, " ", CmdLine]),
+    PortType =
 	case HSize of
 	    0 -> stream;
 	    _ -> {packet, HSize}
 	end,
-    ?line Options = [PortType|Options0],
-    ?line io:format("open_port({spawn, ~p}, ~p)", [Cmd, Options]),
-    ?line Port = open_port({spawn, Cmd}, Options),
-    ?line port_expect(Port, Actions, Options),
+    Options = [PortType|Options0],
+    io:format("open_port({spawn, ~p}, ~p)", [Cmd, Options]),
+    Port = open_port({spawn, Cmd}, Options),
+    port_expect(Port, Actions, Options),
     Port.
 
 port_expect(Port, [{Send, Expects}|Rest], Options) when is_list(Expects) ->
-    ?line port_send(Port, Send),
-    ?line IsBinaryPort = lists:member(binary, Options),
-    ?line Receiver =
+    port_send(Port, Send),
+    IsBinaryPort = lists:member(binary, Options),
+    Receiver =
 	case {lists:member(stream, Options), line_option(Options)} of
 	    {false, _} -> fun receive_all/2;
 	    {true,false}  -> fun stream_receive_all/2;
 	    {_, true} -> fun receive_all/2
 	end,
-    ?line Receiver(Port, maybe_to_binary(Expects, IsBinaryPort)),
-    ?line port_expect(Port, Rest, Options);
+    Receiver(Port, maybe_to_binary(Expects, IsBinaryPort)),
+    port_expect(Port, Rest, Options);
 port_expect(_, [], _) ->
     ok.
 
@@ -2068,7 +2001,7 @@ receive_all(Port, [Expect|Rest]) ->
 		_ ->
 %%%	            io:format("Unexpected message: ~s", [format(Other)]),
 		    io:format("Unexpected message: ~w", [Other]),
-		    ?line test_server:fail(unexpected_message)
+		    test_server:fail(unexpected_message)
 	    end
     end,
     receive_all(Port, Rest);
@@ -2157,15 +2090,8 @@ build_packet(Left, Result, NextChar0) ->
     build_packet(Left-1, [NextChar0|Result], NextChar).
 
 sizes() ->
-    case os:type() of
-	vxworks ->
-	    % don't stress VxWorks too much 
-	    [10, 13, 64, 127, 128, 255, 256, 1023, 1024,
-	     8191, 8192, 16383, 16384];
-	_ ->
-	    [10, 13, 64, 127, 128, 255, 256, 1023, 1024,
-	     32767, 32768, 65535, 65536]
-    end.
+    [10, 13, 64, 127, 128, 255, 256, 1023, 1024,
+	32767, 32768, 65535, 65536].
 
 sizes(Header_Size) ->
     sizes(Header_Size, sizes(), []).
@@ -2203,18 +2129,18 @@ fun_spawn(Fun, Args) ->
     spawn_link(erlang, apply, [Fun, Args]).
 
 port_test(Config) when is_list(Config) ->
-    ?line filename:join(?config(data_dir, Config), "port_test").
+    filename:join(?config(data_dir, Config), "port_test").
 
 
 ports(doc) -> "Test that erlang:ports/0 returns a consistent snapshot of ports";
 ports(suite) -> [];
 ports(Config) when is_list(Config) ->
-    ?line Path = ?config(data_dir, Config),
-    ?line ok = load_driver(Path, "exit_drv"),
+    Path = ?config(data_dir, Config),
+    ok = load_driver(Path, "exit_drv"),
 
     receive after 1000 -> ok end, % Wait for other ports to stabilize
 
-    ?line OtherPorts = erlang:ports(),
+    OtherPorts = erlang:ports(),
     io:format("Other ports: ~p\n",[OtherPorts]),
     MaxPorts = 1024 - length(OtherPorts),
 
@@ -2222,7 +2148,7 @@ ports(Config) when is_list(Config) ->
 
     ports_snapshots(100, TrafficPid, OtherPorts),
     TrafficPid ! {self(),die},
-    ?line receive {TrafficPid, dead} -> ok end,
+    receive {TrafficPid, dead} -> ok end,
     ok.
 
 ports_snapshots(0, _, _) ->
@@ -2230,12 +2156,12 @@ ports_snapshots(0, _, _) ->
 ports_snapshots(Iter, TrafficPid, OtherPorts) ->
 
     TrafficPid ! start,    
-    ?line receive after 1 -> ok end,
+    receive after 1 -> ok end,
 
     Snapshot = erlang:ports(),
 
     TrafficPid ! {self(), stop},
-    ?line receive {TrafficPid, EventList, TrafficPorts} -> ok end,
+    receive {TrafficPid, EventList, TrafficPorts} -> ok end,
     
     %%io:format("Snapshot=~p\n", [Snapshot]),
     ports_verify(Snapshot, OtherPorts ++ TrafficPorts, EventList),
@@ -2252,7 +2178,7 @@ ports_traffic_stopped(MaxPorts, {PortList, PortCnt}) ->
 	    %%io:format("Traffic started in ~p\n",[self()]),
 	    ports_traffic_started(MaxPorts, {PortList, PortCnt}, []);
 	{Pid,die} ->
-	    ?line lists:foreach(fun(Port)-> erlang:port_close(Port) end,
+	    lists:foreach(fun(Port)-> erlang:port_close(Port) end,
 				PortList),
 	    Pid ! {self(),dead}
     end.
@@ -2272,15 +2198,15 @@ ports_traffic_do(MaxPorts, {PortList, PortCnt}, EventList) ->
     N = uniform(MaxPorts),
     case N > PortCnt of
 	true -> % Open port	    
-	    ?line P = open_port({spawn, "exit_drv"}, []),
+	    P = open_port({spawn, "exit_drv"}, []),
 	    %%io:format("Created port ~p\n",[P]),
 	    ports_traffic_started(MaxPorts, {[P|PortList], PortCnt+1},
 				  [{open,P}|EventList]);
 	
 	false -> % Close port
-	    ?line P = lists:nth(N, PortList),
+	    P = lists:nth(N, PortList),
 	    %%io:format("Close port ~p\n",[P]),
-	    ?line true = erlang:port_close(P),
+	    true = erlang:port_close(P),
 	    ports_traffic_started(MaxPorts, {lists:delete(P,PortList), PortCnt-1},
 				  [{close,P}|EventList])
     end.
@@ -2301,7 +2227,7 @@ ports_verify(Ports, PortsAfter, EventList) ->
 		    ports_verify(Ports, [P | PortsAfter], Tail);		    
 
 		[] ->
-		    ?line test_server:fail("Inconsistent snapshot from erlang:ports()")
+		    test_server:fail("Inconsistent snapshot from erlang:ports()")
 	    end
     end.
 
@@ -2318,27 +2244,27 @@ close_deaf_port(doc) -> ["Send data to port program that does not read it, then 
 			 "Primary targeting Windows to test threaded_handle_closer in sys.c"];
 close_deaf_port(suite) -> [];
 close_deaf_port(Config) when is_list(Config) ->
-    ?line Dog = test_server:timetrap(test_server:seconds(100)),
-    ?line DataDir = ?config(data_dir, Config),
-    ?line DeadPort = os:find_executable("dead_port", DataDir),
-    ?line Port = open_port({spawn,DeadPort++" 60"},[]),
-    ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
-    ?line port_close(Port),
+    Dog = test_server:timetrap(test_server:seconds(100)),
+    DataDir = ?config(data_dir, Config),
+    DeadPort = os:find_executable("dead_port", DataDir),
+    Port = open_port({spawn,DeadPort++" 60"},[]),
+    erlang:port_command(Port,"Hello, can you hear me!?!?"),
+    port_close(Port),
 
     Res = close_deaf_port_1(0, DeadPort),
     io:format("Waiting for OS procs to terminate...\n"),
     receive after 5*1000 -> ok end,
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     Res.
 
 close_deaf_port_1(1000, _) ->
     ok;
 close_deaf_port_1(N, Cmd) ->
     Timeout = integer_to_list(random:uniform(5*1000)),
-    ?line try open_port({spawn_executable,Cmd},[{args,[Timeout]}]) of
+    try open_port({spawn_executable,Cmd},[{args,[Timeout]}]) of
     	Port ->
-	    ?line erlang:port_command(Port,"Hello, can you hear me!?!?"),
-	    ?line port_close(Port),
+	    erlang:port_command(Port,"Hello, can you hear me!?!?"),
+	    port_close(Port),
 	    close_deaf_port_1(N+1, Cmd)
     catch
     	_:eagain ->

@@ -472,14 +472,9 @@ default_tracer(Config) when is_list(Config) ->
     ?line M = N,
     ok.
 
-
 %%% Help functions.
 
-huge_data() ->
-    case os:type() of
-	vxworks -> huge_data(4711);
-	_ -> huge_data(16384)
-    end.
+huge_data() -> huge_data(16384).
 huge_data(0) -> [];
 huge_data(N) when N rem 2 == 0 ->
     P = huge_data(N div 2),

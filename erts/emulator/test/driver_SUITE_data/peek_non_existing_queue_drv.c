@@ -28,7 +28,7 @@
  */
 
 #ifndef UNIX
-#if !defined(__WIN32__) && !defined(VXWORKS)
+#if !defined(__WIN32__)
 #define UNIX 1
 #endif
 #endif

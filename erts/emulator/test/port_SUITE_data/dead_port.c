@@ -17,15 +17,6 @@
  * %CopyrightEnd%
  */
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <taskVarLib.h>
-#include <taskLib.h>
-#include <sysLib.h>
-#include <string.h>
-#include <ioLib.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,12 +28,7 @@
 #ifndef __WIN32__
 #include <unistd.h>
 
-#ifdef VXWORKS
-#include "reclaim.h"
-#include <sys/times.h>
-#else
 #include <sys/time.h>
-#endif
 
 #define O_BINARY 0
 #define _setmode(fd, mode)
@@ -53,13 +39,7 @@
 #include "winbase.h"
 #endif
 
-
-#ifdef VXWORKS
-#define MAIN(argc, argv) port_test(argc, argv)
-#else
 #define MAIN(argc, argv) main(argc, argv)
-#endif
-
 
 extern int errno;
 
@@ -86,9 +66,6 @@ char *argv[];
 static void
 delay(unsigned ms)
 {
-#ifdef VXWORKS
-  taskDelay((sysClkRateGet() * ms) / 1000);
-#else
 #ifdef __WIN32__
   Sleep(ms);
 #else
@@ -97,6 +74,5 @@ delay(unsigned ms)
   t.tv_usec = (ms % 1000) * 1000;
 
   select(0, NULL, NULL, NULL, &t);
-#endif
 #endif
 }

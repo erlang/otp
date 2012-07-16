@@ -54,17 +54,12 @@ grow_heap(doc) -> ["Produce a growing list of elements, ",
 		   "for X calls, then drop one item per call",
 		   "until the list is empty."];
 grow_heap(Config) when is_list(Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(40)),
-    ?line ok=grow_heap1(256),
-    case os:type() of 
-	vxworks ->
-	    stop_here;
-	_ ->
-	    ?line ok=grow_heap1(512),
-	    ?line ok=grow_heap1(1024),
-	    ?line ok=grow_heap1(2048)
-    end,
-    ?line test_server:timetrap_cancel(Dog),
+    Dog = test_server:timetrap(test_server:minutes(40)),
+    ok  = grow_heap1(256),
+    ok  = grow_heap1(512),
+    ok  = grow_heap1(1024),
+    ok  = grow_heap1(2048),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 grow_heap1(Len) ->
@@ -82,10 +77,10 @@ grow_heap1(List, MaxLen, CurLen, up) ->
 grow_heap1([], _MaxLen, _, down) ->
     ok;
 grow_heap1([_|List], MaxLen, CurLen, down) ->
-    ?line {_,_,C}=erlang:now(),
-    ?line Num=C rem (length(List))+1,
-    ?line Elem=lists:nth(Num, List),
-    ?line NewList=lists:delete(Elem, List),
+    {_,_,C} = erlang:now(),
+    Num     = C rem (length(List))+1,
+    Elem    = lists:nth(Num, List),
+    NewList = lists:delete(Elem, List),
     grow_heap1(NewList, MaxLen, CurLen-1, down).
 
 
@@ -93,16 +88,11 @@ grow_heap1([_|List], MaxLen, CurLen, down) ->
 grow_stack(doc) -> ["Increase and decrease stack size, and ",
 		    "drop off some garbage from time to time."];
 grow_stack(Config) when is_list(Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(80)),
+    Dog = test_server:timetrap(test_server:minutes(80)),
     show_heap("before:"),
-    case os:type() of
-	vxworks ->
-	    ?line grow_stack1(25, 0);
-	_ ->
-	    ?line grow_stack1(200, 0)
-    end,
+    grow_stack1(200, 0),
     show_heap("after:"),
-    ?line test_server:timetrap_cancel(Dog),
+    test_server:timetrap_cancel(Dog),
     ok.
 
 grow_stack1(0, _) ->
@@ -123,16 +113,11 @@ grow_stack_heap(doc) -> ["While growing the heap, bounces the size ",
 			 "of the stack, and while reducing the heap",
 			 "bounces the stack usage."];
 grow_stack_heap(Config) when is_list(Config) ->
-    case os:type() of 
-	vxworks ->
-	    {comment, "Takes too long to run on VxWorks/cpu32"};
-	_ ->
-	    ?line Dog=test_server:timetrap(test_server:minutes(40)),
-	    ?line grow_stack_heap1(16),
-	    ?line grow_stack_heap1(32),
-	    ?line test_server:timetrap_cancel(Dog),
-	    ok
-    end.
+    Dog = test_server:timetrap(test_server:minutes(40)),
+    grow_stack_heap1(16),
+    grow_stack_heap1(32),
+    test_server:timetrap_cancel(Dog),
+    ok.
 
 grow_stack_heap1(MaxLen) ->
     io:format("~ngrow_stack_heap with ~p items.",[MaxLen]),
@@ -151,10 +136,10 @@ grow_stack_heap1(List, MaxLen, CurLen, up) ->
 grow_stack_heap1([], _MaxLen, _, down) -> ok;
 grow_stack_heap1([_|List], MaxLen, CurLen, down) ->
     grow_stack1(CurLen*2,0),
-    ?line {_,_,C}=erlang:now(),
-    ?line Num=C rem (length(List))+1,
-    ?line Elem=lists:nth(Num, List),
-    ?line NewList=lists:delete(Elem, List),
+    {_,_,C}=erlang:now(),
+    Num=C rem (length(List))+1,
+    Elem=lists:nth(Num, List),
+    NewList=lists:delete(Elem, List),
     grow_stack_heap1(NewList, MaxLen, CurLen-1, down),
     ok.
 

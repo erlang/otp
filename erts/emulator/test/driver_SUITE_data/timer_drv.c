@@ -1,11 +1,3 @@
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <taskVarLib.h>
-#include <taskLib.h>
-#include <sysLib.h>
-#include <string.h>
-#include <ioLib.h>
-#endif
 #include <stdio.h>
 #include "erl_driver.h"
 
@@ -84,11 +76,7 @@ static void timer_read(ErlDrvData p, char *buf, ErlDrvSizeT len)
 	driver_output(port, reply, 1);
     } else if (buf[0] == DELAY_START_TIMER) {
 #ifndef __WIN32__
-#ifdef VXWORKS
-	taskDelay(sysClkRateGet());
-#else
 	sleep(1);
-#endif
 #endif
 	driver_set_timer(port, get_int32(buf + 1));
     }

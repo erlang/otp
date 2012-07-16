@@ -714,16 +714,10 @@ exception_test(Opts) ->
     ?line ok.
 
 exceptions() ->
-    ?line Ref = make_ref(),
-    ?line N = case os:type() of
-		  vxworks ->
-		      ?line 2000; % Limited memory on themachines, not actually
-		                  % VxWorks' fault /PaN
-		  _ ->
-		      ?line 200000
-	      end,
-    ?line LiL = seq(1, N-1, N),	% Long Improper List
-    ?line LL = seq(1, N, []),  	% Long List
+    Ref = make_ref(),
+    N   = 200000,
+    LiL = seq(1, N-1, N),	% Long Improper List
+    LL  = seq(1, N, []),  	% Long List
     [{{erlang,exit},  [done]},
      {{erlang,error}, [1.0]},
      {{erlang,error}, [Ref,[]]},

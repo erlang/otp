@@ -280,15 +280,7 @@ kb_128() ->
      big_binary()}.
 
 eight_kb() ->
-    %%% This is really much more than eight kb, so vxworks platforms
-    %%% gets away with 1/8 of the other platforms (due to limited
-    %%% memory resources). 
-    B64 = case os:type() of
-	      vxworks ->
-		  ?line lists:seq(1, 8);
-	      _ ->
-		  ?line lists:seq(1, 64)
-	  end,
+    B64 = lists:seq(1, 64),
     ?line B512 = {<<1>>,B64,<<2,3>>,B64,make_unaligned_sub_binary(<<4,5,6,7,8,9>>),
 		  B64,make_sub_binary([1,2,3,4,5,6]),
 		  B64,make_sub_binary(lists:seq(1, ?heap_binary_size+1)),
