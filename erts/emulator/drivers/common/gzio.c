@@ -21,11 +21,6 @@
 #include "erl_driver.h"
 #include "sys.h"
 
-#ifdef VXWORKS
-/* pull in FOPEN from zutil.h instead */
-#undef F_OPEN
-#endif
-
 #ifdef __WIN32__
 #ifndef HAVE_CONFLICTING_FREAD_DECLARATION
 #define HAVE_CONFLICTING_FREAD_DECLARATION

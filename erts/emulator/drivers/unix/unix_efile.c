@@ -45,23 +45,6 @@
 #include <fcntl.h>
 #endif /* DARWIN */
 
-#ifdef VXWORKS
-#include <ioLib.h>
-#include <dosFsLib.h>
-#include <nfsLib.h>
-#include <sys/stat.h>
-/*
-** Not nice to include usrLib.h as MANY normal variable names get reported
-** as shadowing globals, like 'i' for example.
-** Instead we declare the only function we use here
-*/
-/*
- * #include <usrLib.h>
- */
-extern STATUS copy(char *, char *);
-#include <errno.h>
-#endif
-
 #ifdef SUNOS4
 #  define getcwd(buf, size) getwd(buf)
 #endif
@@ -93,61 +76,8 @@ extern STATUS copy(char *, char *);
 #define DIR_MODE  0777
 #endif
 
-#ifdef VXWORKS /* Currently only used on vxworks */
-
-#define EF_ALLOC(S)		driver_alloc((S))
-#define EF_REALLOC(P, S)	driver_realloc((P), (S))
-#define EF_SAFE_ALLOC(S)	ef_safe_alloc((S))
-#define EF_SAFE_REALLOC(P, S)	ef_safe_realloc((P), (S))
-#define EF_FREE(P)		do { if((P)) driver_free((P)); } while(0)
-
-void erl_exit(int n, char *fmt, ...);
-
-static void *ef_safe_alloc(Uint s)
-{
-    void *p = EF_ALLOC(s);
-    if (!p) erl_exit(1,
-		     "unix efile drv: Can't allocate %lu bytes of memory\n",
-		     (unsigned long)s);
-    return p;
-}
-
-#if 0 /* Currently not used */
-
-static void *ef_safe_realloc(void *op, Uint s)
-{
-    void *p = EF_REALLOC(op, s);
-    if (!p) erl_exit(1,
-		     "unix efile drv: Can't reallocate %lu bytes of memory\n",
-		     (unsigned long)s);
-    return p;
-}
-
-#endif /* #if 0 */
-#endif /* #ifdef VXWORKS */
-
 #define IS_DOT_OR_DOTDOT(s) \
     (s[0] == '.' && (s[1] == '\0' || (s[1] == '.' && s[2] == '\0')))
-
-#ifdef VXWORKS
-static int vxworks_to_posix(int vx_errno);
-#endif
-
-/*
-** VxWorks (not) strikes again. Too long RESULTING paths
-** may give the infamous bus error. Have to check ALL
-** filenames and pathnames. No wonder the emulator is slow on
-** these cards...
-*/
-#ifdef VXWORKS
-#define CHECK_PATHLEN(Name, ErrInfo)		\
-   if (path_size(Name) > PATH_MAX) {		\
-       errno = ENAMETOOLONG;			\
-       return check_error(-1, ErrInfo);		\
-   }
-#else
-#define CHECK_PATHLEN(X,Y) /* Nothing */
-#endif
 
 static int check_error(int result, Efile_error* errInfo);
 
@@ -155,214 +85,18 @@ static int
 check_error(int result, Efile_error *errInfo)
 {
     if (result < 0) {
-#ifdef VXWORKS
-	errInfo->posix_errno = errInfo->os_errno = vxworks_to_posix(errno);
-#else
 	errInfo->posix_errno = errInfo->os_errno = errno;
-#endif
 	return 0;
     }
     return 1;
 }
 
-#ifdef VXWORKS
-
-/*
- * VxWorks has different error codes for different file systems.
- * We map those to POSIX ones.
- */
-static int
-vxworks_to_posix(int vx_errno)
-{
-    DEBUGF(("[vxworks_to_posix] vx_errno: %08x\n", vx_errno));
-    switch (vx_errno) {
-	/* dosFsLib mapping */
-#ifdef S_dosFsLib_FILE_ALREADY_EXISTS    
-    case S_dosFsLib_FILE_ALREADY_EXISTS: return EEXIST;
-#else
-    case S_dosFsLib_FILE_EXISTS: return EEXIST;
-#endif
-#ifdef S_dosFsLib_BAD_DISK
-    case S_dosFsLib_BAD_DISK: return EIO;
-#endif
-#ifdef S_dosFsLib_CANT_CHANGE_ROOT
-    case S_dosFsLib_CANT_CHANGE_ROOT: return EINVAL;
-#endif
-#ifdef S_dosFsLib_NO_BLOCK_DEVICE
-    case S_dosFsLib_NO_BLOCK_DEVICE: return ENOTBLK;
-#endif
-#ifdef S_dosFsLib_BAD_SEEK
-    case S_dosFsLib_BAD_SEEK: return ESPIPE;
-#endif
-    case S_dosFsLib_VOLUME_NOT_AVAILABLE: return ENXIO;
-    case S_dosFsLib_DISK_FULL: return ENOSPC;
-    case S_dosFsLib_FILE_NOT_FOUND: return ENOENT;
-    case S_dosFsLib_NO_FREE_FILE_DESCRIPTORS: return ENFILE;
-    case S_dosFsLib_INVALID_NUMBER_OF_BYTES: return EINVAL;
-    case S_dosFsLib_ILLEGAL_NAME: return EINVAL;
-    case S_dosFsLib_CANT_DEL_ROOT: return EACCES;
-    case S_dosFsLib_NOT_FILE: return EISDIR;
-    case S_dosFsLib_NOT_DIRECTORY: return ENOTDIR;
-    case S_dosFsLib_NOT_SAME_VOLUME: return EXDEV;
-    case S_dosFsLib_READ_ONLY: return EACCES;
-    case S_dosFsLib_ROOT_DIR_FULL: return ENOSPC;
-    case S_dosFsLib_DIR_NOT_EMPTY: return EEXIST;
-    case S_dosFsLib_NO_LABEL: return ENXIO;
-    case S_dosFsLib_INVALID_PARAMETER: return EINVAL;
-    case S_dosFsLib_NO_CONTIG_SPACE: return ENOSPC;
-    case S_dosFsLib_FD_OBSOLETE: return EBADF;
-    case S_dosFsLib_DELETED: return EINVAL;
-    case S_dosFsLib_INTERNAL_ERROR: return EIO;
-    case S_dosFsLib_WRITE_ONLY: return EACCES;
-	/* nfsLib mapping - is needed since Windriver has used */
-	/* inconsistent error codes (errno.h/nfsLib.h). */
-    case S_nfsLib_NFS_OK: return 0;
-    case S_nfsLib_NFSERR_PERM: return EPERM;
-    case S_nfsLib_NFSERR_NOENT: return ENOENT;
-    case S_nfsLib_NFSERR_IO: return EIO;
-    case S_nfsLib_NFSERR_NXIO: return ENXIO;
-#ifdef S_nfsLib_NFSERR_ACCES
-    case S_nfsLib_NFSERR_ACCES: return EACCES;
-#else
-    case S_nfsLib_NFSERR_ACCESS: return EACCES;
-#endif
-    case S_nfsLib_NFSERR_EXIST: return EEXIST;
-    case S_nfsLib_NFSERR_NODEV: return ENODEV;
-    case S_nfsLib_NFSERR_NOTDIR: return ENOTDIR;
-    case S_nfsLib_NFSERR_ISDIR: return EISDIR;
-    case S_nfsLib_NFSERR_FBIG: return EFBIG;
-    case S_nfsLib_NFSERR_NOSPC: return ENOSPC;
-    case S_nfsLib_NFSERR_ROFS: return EROFS;
-    case S_nfsLib_NFSERR_NAMETOOLONG: return ENAMETOOLONG;
-    case S_nfsLib_NFSERR_NOTEMPTY: return EEXIST;
-    case S_nfsLib_NFSERR_DQUOT: return ENOSPC;
-    case S_nfsLib_NFSERR_STALE: return EINVAL;
-    case S_nfsLib_NFSERR_WFLUSH: return ENXIO;
-	/* And sometimes (...) the error codes are from ioLib (as in the */
-	/* case of the (for nfsLib) unimplemented rename function) */
-    case  S_ioLib_DISK_NOT_PRESENT: return EIO;
-#if S_ioLib_DISK_NOT_PRESENT != S_ioLib_NO_DRIVER
-    case S_ioLib_NO_DRIVER: return ENXIO;
-#endif
-    case S_ioLib_UNKNOWN_REQUEST: return ENOSYS;
-    case  S_ioLib_DEVICE_TIMEOUT: return EIO;
-#ifdef S_ioLib_UNFORMATED
-	/* Added (VxWorks 5.2 -> 5.3.1) */
-  #if S_ioLib_UNFORMATED != S_ioLib_DEVICE_TIMEOUT
-    case S_ioLib_UNFORMATED: return EIO;
-  #endif
-#endif
-#if S_ioLib_DEVICE_TIMEOUT != S_ioLib_DEVICE_ERROR
-    case S_ioLib_DEVICE_ERROR: return ENXIO;
-#endif
-    case S_ioLib_WRITE_PROTECTED: return EACCES;
-    case S_ioLib_NO_FILENAME: return EINVAL;
-    case S_ioLib_CANCELLED: return EINTR;
-    case  S_ioLib_NO_DEVICE_NAME_IN_PATH: return EINVAL;
-    case  S_ioLib_NAME_TOO_LONG: return ENAMETOOLONG;
-#ifdef S_objLib_OBJ_UNAVAILABLE
-    case S_objLib_OBJ_UNAVAILABLE: return ENOENT;
-#endif
-
-      /* Temporary workaround for a weird error in passFs 
-	 (VxWorks Simsparc only). File operation fails because of
-	 ENOENT, but errno is not set. */
-#ifdef SIMSPARCSOLARIS
-    case 0: return ENOENT;
-#endif
-
-    }
-    /* If the error code matches none of the above, assume */
-    /* it is a POSIX one already. The upper bits (>=16) are */
-    /* cleared since VxWorks uses those bits to indicate in */
-    /* what module the error occured. */
-    return vx_errno & 0xffff;
-}
-
-static int 
-vxworks_enotsup(Efile_error *errInfo) 
-{
-    errInfo->posix_errno = errInfo->os_errno = ENOTSUP;
-    return 0;
-}
-
-static int 
-count_path_length(char *pathname, char *pathname2)
-{
-    static int stack[PATH_MAX / 2 + 1];
-    int sp = 0;
-    char *tmp;
-    char *cpy = NULL;
-    int i;
-    int sum;
-    for(i = 0;i < 2;++i) {
-	if (!i) {
-	    cpy = EF_SAFE_ALLOC(strlen(pathname)+1);
-	    strcpy(cpy, pathname);
-	} else if (pathname2 != NULL) {
-	    EF_FREE(cpy);
-	    cpy = EF_SAFE_ALLOC(strlen(pathname2)+1);
-	    strcpy(cpy, pathname2);
-	} else 
-	    break;
-	    
-	for (tmp = strtok(cpy,"/"); tmp != NULL; tmp = strtok(NULL,"/")) {
-	    if (!strcmp(tmp,"..") && sp > 0)
-		--sp;
-	    else if (strcmp(tmp,".")) 
-		stack[sp++] = strlen(tmp);
-	}
-    }
-    if (cpy != NULL)
-	EF_FREE(cpy);
-    sum = 0;
-    for(i = 0;i < sp; ++i)
-	sum += stack[i]+1;
-    return (sum) ? sum : 1;
-}
-
-static int 
-path_size(char *pathname) 
-{
-    static char currdir[PATH_MAX+2];
-    if (*pathname == '/') 
-	return count_path_length(pathname,NULL);
-    ioDefPathGet(currdir);
-    strcat(currdir,"/");
-    return count_path_length(currdir,pathname);
-}
-    
-#endif /* VXWORKS */
-
 int
 efile_mkdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to create. */
 {
-    CHECK_PATHLEN(name,errInfo);
 #ifdef NO_MKDIR_MODE
-#ifdef VXWORKS
-	/* This is a VxWorks/nfs workaround for erl_tar to create
-	 * non-existant directories. (of some reason (...) VxWorks
-	 * returns, the *non-module-prefixed*, 0xd code when
-	 * trying to create a directory in a directory that doesn't exist).
-	 * (see efile_openfile)
-	 */
-    if (mkdir(name) < 0) {
-	struct stat sb;
-	if (name[0] == '\0') {
-	/* Return the correct error code enoent */ 
-	    errno = S_nfsLib_NFSERR_NOENT;
-	} else if (stat(name, &sb) == OK) {
-	    errno = S_nfsLib_NFSERR_EXIST;
-	} else if((strchr(name, '/') != NULL) && (errno == 0xd)) {
-	/* Return the correct error code enoent */ 
-	    errno = S_nfsLib_NFSERR_NOENT;
-	}
-	return check_error(-1, errInfo);
-    } else return 1;
-#else
     return check_error(mkdir(name), errInfo);
-#endif
 #else
     return check_error(mkdir(name, DIR_MODE), errInfo);
 #endif
@@ -372,16 +106,9 @@ int
 efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
 	    char* name)			/* Name of directory to delete. */
 {
-    CHECK_PATHLEN(name, errInfo);
     if (rmdir(name) == 0) {
 	return 1;
     }
-#ifdef VXWORKS
-    if (name[0] == '\0') {
-	/* Return the correct error code enoent */ 
-	errno = S_nfsLib_NFSERR_NOENT;
-    }
-#else
     if (errno == ENOTEMPTY) {
 	errno = EEXIST;
     }
@@ -401,7 +128,6 @@ efile_rmdir(Efile_error* errInfo,	/* Where to return error codes. */
 	}
 	errno = saved_errno;
     }
-#endif
     return check_error(-1, errInfo);
 }
 
@@ -409,7 +135,6 @@ int
 efile_delete_file(Efile_error* errInfo,	/* Where to return error codes. */
 		  char* name)		/* Name of file to delete. */
 {
-    CHECK_PATHLEN(name,errInfo);
     if (unlink(name) == 0) {
 	return 1;
     }
@@ -457,32 +182,13 @@ efile_rename(Efile_error* errInfo,	/* Where to return error codes. */
 	     char* src,		        /* Original name. */
 	     char* dst)			/* New name. */
 {
-    CHECK_PATHLEN(src,errInfo);
-    CHECK_PATHLEN(dst,errInfo);
-#ifdef VXWORKS
-	
-    /* First check if src == dst, if so, just return. */
-    /* VxWorks dos file system destroys the file otherwise, */
-    /* VxWorks nfs file system rename doesn't work at all. */
-    if(strcmp(src, dst) == 0)
-	return 1;
-#endif
     if (rename(src, dst) == 0) {
 	return 1;
     }
-#ifdef VXWORKS
-    /* nfs for VxWorks doesn't support rename. We try to emulate it */
-    /* (by first copying src to dst and then deleting src). */
-    if(errno == S_ioLib_UNKNOWN_REQUEST &&     /* error code returned 
-						  by ioLib (!) */ 
-       copy(src, dst) == OK &&
-       unlink(src) == OK)
-	return 1;
-#endif
     if (errno == ENOTEMPTY) {
 	errno = EEXIST;
     }
-#if defined (sparc) && !defined(VXWORKS)
+#if defined (sparc)
     /*
      * SunOS 4.1.4 reports overwriting a non-empty directory with a
      * directory as EINVAL instead of EEXIST (first rule out the correct
@@ -543,7 +249,6 @@ int
 efile_chdir(Efile_error* errInfo,   /* Where to return error codes. */
 	    char* name)		    /* Name of directory to make current. */
 {
-    CHECK_PATHLEN(name, errInfo);
     return check_error(chdir(name), errInfo);
 }
 
@@ -600,8 +305,6 @@ efile_readdir(Efile_error* errInfo,	/* Where to return error codes. */
      * If this is the first call, we must open the directory.
      */
 
-    CHECK_PATHLEN(name, errInfo);
-
     if (*p_dir_handle == NULL) {
 	dp = opendir(name);
 	if (dp == NULL)
@@ -641,26 +344,8 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
     struct stat statbuf;
     int fd;
     int mode;			/* Open mode. */
-#ifdef VXWORKS
-    char pathbuff[PATH_MAX+2];
-    char sbuff[PATH_MAX*2];
-    char *totbuff = sbuff;
-    int nameneed;
-#endif
-
-
-    CHECK_PATHLEN(name, errInfo);
-
-#ifdef VXWORKS
-    /* Have to check that it's not a directory. */
-    if (stat(name,&statbuf) != ERROR && ISDIR(statbuf)) {
-	errno = EISDIR;
-	return check_error(-1, errInfo);
-    }	
-#endif	
 
     if (stat(name, &statbuf) >= 0 && !ISREG(statbuf)) {
-#if !defined(VXWORKS) && !defined(OSE)
 	/*
 	 * For UNIX only, here is some ugly code to allow
 	 * /dev/null to be opened as a file.
@@ -677,12 +362,9 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 	    }
 	}
 	if (!(dev_null_ino && statbuf.st_ino == dev_null_ino)) {
-#endif
 	    errno = EISDIR;
 	    return check_error(-1, errInfo);
-#if !defined(VXWORKS) && !defined(OSE)
 	}
-#endif
     }
 
     switch (flags & (EFILE_MODE_READ|EFILE_MODE_WRITE)) {
@@ -706,49 +388,14 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 
     if (flags & EFILE_MODE_APPEND) {
 	mode &= ~O_TRUNC;
-#ifndef VXWORKS
-	mode |= O_APPEND; /* Dont make VxWorks think things it shouldn't */
-#endif
+	mode |= O_APPEND;
     }
 
     if (flags & EFILE_MODE_EXCL) {
 	mode |= O_EXCL;
     }
 
-#ifdef VXWORKS
-    if (*name != '/') {
-	/* Make sure it is an absolute pathname, because ftruncate needs it */
-	ioDefPathGet(pathbuff);
-	strcat(pathbuff,"/");
-	nameneed = strlen(pathbuff) + strlen(name) + 1;
-	if (nameneed > PATH_MAX*2)
-	    totbuff = EF_SAFE_ALLOC(nameneed);
-	strcpy(totbuff,pathbuff);
-	strcat(totbuff,name);
-	fd = open(totbuff, mode, FILE_MODE);
-	if (totbuff != sbuff)
-	    EF_FREE(totbuff);
-    } else {
-	fd = open(name, mode, FILE_MODE);
-    }
-#else
     fd = open(name, mode, FILE_MODE);
-#endif
-
-#ifdef VXWORKS
-
-	/* This is a VxWorks/nfs workaround for erl_tar to create 
-	 * non-existant directories. (of some reason (...) VxWorks
-	 * returns, the *non-module-prefixed*, 0xd code when
-	 * trying to write a file in a directory that doesn't exist).
-	 * (see efile_mkdir)
-	 */
-    if ((fd < 0) && (strchr(name, '/') != NULL) && (errno == 0xd)) {
-	/* Return the correct error code enoent */ 
-	errno = S_nfsLib_NFSERR_NOENT;
-	return check_error(-1, errInfo);
-    }
-#endif
 
     if (!check_error(fd, errInfo))
 	return 0;
@@ -797,11 +444,7 @@ efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
 	    int fd)               /* File descriptor for file to sync. */
 {
 #ifdef NO_FSYNC
-#ifdef VXWORKS
-    return check_error(ioctl(fd, FIOSYNC, 0), errInfo); 
-#else
-  undefined fsync
-#endif /* VXWORKS */
+  undefined fsync /* XXX: Really? */
 #else
 #if defined(DARWIN) && defined(F_FULLFSYNC)
     return check_error(fcntl(fd, F_FULLFSYNC), errInfo);
@@ -818,21 +461,8 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
     struct stat statbuf;	/* Information about the file */
     int result;
 
-#ifdef VXWORKS
-    if (*name == '\0') {
-	errInfo->posix_errno = errInfo->os_errno = ENOENT;
-	return 0;
-    }
-#endif
-
-    CHECK_PATHLEN(name, errInfo);
-
     if (info_for_link) {
-#if (defined(VXWORKS))
-	result = stat(name, &statbuf);
-#else
 	result = lstat(name, &statbuf);
-#endif
     } else {
 	result = stat(name, &statbuf);
     }	
@@ -849,19 +479,9 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 
 #ifdef NO_ACCESS
     /* Just look at read/write access for owner. */
-#ifdef VXWORKS
-
-    pInfo->access = FA_NONE;
-    if(statbuf.st_mode & S_IRUSR)
-        pInfo->access |= FA_READ;
-    if(statbuf.st_mode & S_IWUSR)
-        pInfo->access |= FA_WRITE;
-    
-#else
 
     pInfo->access = ((statbuf.st_mode >> 6) & 07) >> 1;
 
-#endif /* VXWORKS */
 #else
     pInfo->access = FA_NONE;
     if (access(name, R_OK) == 0)
@@ -902,35 +522,6 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 {
     struct utimbuf tval;
 
-    CHECK_PATHLEN(name, errInfo);
-
-#ifdef VXWORKS
-
-    if (pInfo->mode != -1) {
-	int fd;
-	struct stat statbuf;
-
-	fd = open(name, O_RDONLY, 0);
-	if (!check_error(fd, errInfo))
-	    return 0;
-	if (fstat(fd, &statbuf) < 0) {
-	    close(fd);
-	    return check_error(-1, errInfo);
-	}
-	if (pInfo->mode & S_IWUSR) {
-	    /* clear read only bit */
-	    statbuf.st_attrib &= ~DOS_ATTR_RDONLY;
-	} else {
-	    /* set read only bit */
-	    statbuf.st_attrib |= DOS_ATTR_RDONLY;
-	}
-	/* This should work for dos files but not for nfs ditos, so don't 
-	 * report errors (to avoid problems when running e.g. erl_tar)
-	 */
-	ioctl(fd, FIOATTRIBSET, statbuf.st_attrib);
-	close(fd);
-    }
-#else
     /*
      * On some systems chown will always fail for a non-root user unless
      * POSIX_CHOWN_RESTRICTED is not set.  Others will succeed as long as 
@@ -952,20 +543,10 @@ efile_write_info(Efile_error *errInfo, Efile_info *pInfo, char *name)
 	}
     }
 
-#endif /* !VXWORKS */
-
     tval.actime  = pInfo->accessTime;
     tval.modtime = pInfo->modifyTime;
 
-#ifdef VXWORKS
-    /* VxWorks' utime doesn't work when the file is a nfs mounted
-     * one, don't report error if utime fails.
-     */
-    utime(name, &tval);
-    return 1;
-#else
     return check_error(utime(name, &tval), errInfo);
-#endif
 }
 
 
@@ -979,11 +560,6 @@ efile_write(Efile_error* errInfo,	/* Where to return error codes. */
 {
     ssize_t written;			/* Bytes written in last operation. */
 
-#ifdef VXWORKS
-    if (flags & EFILE_MODE_APPEND) {
-	lseek(fd, 0, SEEK_END); /* Naive append emulation on VXWORKS */
-    }
-#endif
     while (count > 0) {
 	if ((written = write(fd, buf, count)) < 0) {
 	    if (errno != EINTR)
@@ -1012,12 +588,6 @@ efile_writev(Efile_error* errInfo,   /* Where to return error codes */
 
     ASSERT(iovcnt >= 0);
     
-#ifdef VXWORKS
-    if (flags & EFILE_MODE_APPEND) {
-	lseek(fd, 0, SEEK_END);      /* Naive append emulation on VXWORKS */
-    }
-#endif
-
     while (cnt < iovcnt) {
 	if ((! iov[cnt].iov_base) || (iov[cnt].iov_len <= 0)) {
 	    /* Empty buffer - skip */
@@ -1226,118 +796,6 @@ efile_seek(Efile_error* errInfo,      /* Where to return error codes. */
 int
 efile_truncate_file(Efile_error* errInfo, int *fd, int flags)
 {
-#ifdef VXWORKS
-    off_t offset;
-    char namebuf[PATH_MAX+1];
-    char namebuf2[PATH_MAX+10];
-    int new;
-    int dummy;
-    int i;
-    int left;
-    static char buff[1024];
-    struct stat st;
-    Efile_error tmperr;
-
-    if ((offset = lseek(*fd, 0, 1)) < 0) {
-	return check_error((int) offset,errInfo);
-    }
-    if (ftruncate(*fd, offset) < 0) {
-	if (vxworks_to_posix(errno) != EINVAL) {
-	    return check_error(-1, errInfo);
-	}
-	/*
-	** Kludge
-	*/
-	if(ioctl(*fd,FIOGETNAME,(int) namebuf) < 0) {
-	    return check_error(-1, errInfo);
-	}
-	for(i=0;i<1000;++i) {
-	    sprintf(namebuf2,"%s%d",namebuf,i);
-	    CHECK_PATHLEN(namebuf2,errInfo);
-	    if (stat(namebuf2,&st) < 0) {
-		break;
-	    }
-	}
-	if (i > 1000) {
-	    errno = EINVAL;
-	    return check_error(-1, errInfo);
-	}
-	if (close(*fd) < 0) {
-	    return check_error(-1, errInfo);
-	}
-	if (efile_rename(&tmperr,namebuf,namebuf2) < 0) {
-	    i = check_error(-1,&tmperr);
-	    if (!efile_openfile(errInfo,namebuf,flags | EFILE_NO_TRUNCATE,
-				fd,&dummy)) {
-		*fd = -1;
-	    } else {
-		*errInfo = tmperr;
-	    }
-	    return i;
-	}
-	if ((*fd = open(namebuf2, O_RDONLY, 0)) < 0) {
-	    i = check_error(-1,errInfo);
-	    efile_rename(&tmperr,namebuf2,namebuf); /* at least try */
-	    if (!efile_openfile(errInfo,namebuf,flags | EFILE_NO_TRUNCATE,
-				fd,&dummy)) {
-		*fd = -1;
-	    } else {
-		lseek(*fd,offset,SEEK_SET);
-	    }
-	    return i;
-	}
-	/* Point of no return... */
-
-	if ((new = open(namebuf,O_RDWR | O_CREAT, FILE_MODE)) < 0) {
-	    close(*fd);
-	    *fd = -1;
-	    return 0;
-	}
-	left = offset;
-	
-	while (left) {
-	    if ((i = read(*fd,buff,(left > 1024) ? 1024 : left)) < 0) {
-		i = check_error(-1,errInfo);
-		close(new);
-		close(*fd);
-		unlink(namebuf);
-		efile_rename(&tmperr,namebuf2,namebuf); /* at least try */
-		if (!efile_openfile(errInfo,namebuf,flags | EFILE_NO_TRUNCATE,
-				    fd,&dummy)) {
-		    *fd = -1;
-		} else {
-		    lseek(*fd,offset,SEEK_SET);
-		}
-		return i;
-	    }
-	    left -= i;
-	    if (write(new,buff,i) < 0) {
-		i = check_error(-1,errInfo);
-		close(new);
-		close(*fd);
-		unlink(namebuf);
-		rename(namebuf2,namebuf); /* at least try */
-		if (!efile_openfile(errInfo,namebuf,flags | EFILE_NO_TRUNCATE,
-				    fd,&dummy)) {
-		    *fd = -1;
-		} else {
-		    lseek(*fd,offset,SEEK_SET);
-		}
-		return i;
-	    }
-	}
-	close(*fd);
-	unlink(namebuf2);
-	close(new);
-	i = efile_openfile(errInfo,namebuf,flags | EFILE_NO_TRUNCATE,fd,
-			   &dummy);
-	if (i) {
-	    lseek(*fd,offset,SEEK_SET);
-	}
-	return i;
-    }
-    return 1;
-#else
 #ifndef NO_FTRUNCATE
     off_t offset;
 
@@ -1347,15 +805,11 @@ efile_truncate_file(Efile_error* errInfo, int *fd, int flags)
 #else
     return 1;
 #endif
-#endif
 }
 
 int
 efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 {
-#ifdef VXWORKS
-    return vxworks_enotsup(errInfo);
-#else
     int len;
     ASSERT(size > 0);
     len = readlink(name, buffer, size-1);
@@ -1364,7 +818,6 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
     }
     buffer[len] = '\0';
     return 1;
-#endif
 }
 
 int
@@ -1377,21 +830,13 @@ efile_altname(Efile_error* errInfo, char* name, char* buffer, size_t size)
 int
 efile_link(Efile_error* errInfo, char* old, char* new)
 {
-#ifdef VXWORKS
-    return vxworks_enotsup(errInfo);
-#else
     return check_error(link(old, new), errInfo);
-#endif
 }
 
 int
 efile_symlink(Efile_error* errInfo, char* old, char* new)
 {
-#ifdef VXWORKS
-    return vxworks_enotsup(errInfo);
-#else
     return check_error(symlink(old, new), errInfo);
-#endif
 }
 
 int
