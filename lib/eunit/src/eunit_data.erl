@@ -83,6 +83,7 @@
 %% SimpleTest = TestFunction | {Line::integer(), SimpleTest}
 %%
 %% TestFunction = () -> any()
+%%              | {test, M::moduleName(), F::functionName()}
 %%              | {M::moduleName(), F::functionName()}.
 %%
 %% AbstractTestFunction = (X::any()) -> any()
@@ -432,8 +433,11 @@ parse_simple(F) ->
 parse_function(F) when is_function(F) ->
     check_arity(F, 0, F),
     #test{f = F, location = eunit_lib:fun_parent(F)};
-parse_function({M,F}) when is_atom(M), is_atom(F) ->
+parse_function({test, M, F}) when is_atom(M), is_atom(F) ->
     #test{f = eunit_test:mf_wrapper(M, F), location = {M, F, 0}};
+parse_function({M, F}) when is_atom(M), is_atom(F) ->
+    %% {M,F} is now considered obsolete; use {test,M,F} instead
+    parse_function({test, M, F});
 parse_function(F) ->
     bad_test(F).
 
@@ -591,7 +595,7 @@ testfuns(Es, M, TestSuffix, GeneratorSuffix) ->
 		  N = atom_to_list(F),
 		  case lists:suffix(TestSuffix, N) of
 		      true ->
-			  [{M,F} | Fs];
+			  [{test, M, F} | Fs];
 		      false ->
 			  case lists:suffix(GeneratorSuffix, N) of
 			      true ->
@@ -734,6 +738,7 @@ data_test_() ->
     Tests = [T,T,T],
     [?_assertMatch(ok, eunit:test(T)),
      ?_assertMatch(error, eunit:test(Fail)),
+     ?_assertMatch(ok, eunit:test({test, ?MODULE, trivial_test})),
      ?_assertMatch(ok, eunit:test({generator, fun () -> Tests end})),
      ?_assertMatch(ok, eunit:test({generator, fun generator/0})),
      ?_assertMatch(ok, eunit:test({generator, ?MODULE, generator_exported_})),
@@ -750,6 +755,12 @@ data_test_() ->
 
      %%?_test({foreach, Setup, [T, T, T]})
     ].
+
+trivial_test() ->
+    ok.
+
+trivial_generator_test_() ->
+    [?_test(ok)].
 
 lazy_test_() ->
     {spawn, [?_test(undefined = put(count, 0)),
