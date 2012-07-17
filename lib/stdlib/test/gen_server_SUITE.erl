@@ -231,14 +231,6 @@ start(Config) when is_list(Config) ->
 	  end,
     test_server:messages_get(),
 
-    %% Must wait for all error messages before going to next test.
-    %% (otherwise it interferes too much with real time characteristics).
-    case os:type() of
-	vxworks ->
-	    receive after 5000 -> ok end;
-	_ ->
-	    ok
-    end,
     process_flag(trap_exit, OldFl),
     ok.
 
