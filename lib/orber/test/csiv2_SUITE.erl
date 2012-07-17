@@ -668,67 +668,57 @@ code_OpenSSL509_api(_Config) ->
 ssl_server_peercert_api(doc) -> ["Test ssl:peercert (server side)"];
 ssl_server_peercert_api(suite) -> [];
 ssl_server_peercert_api(_Config) ->
-    case os:type() of
-	vxworks ->
- 	    {skipped, "No SSL-support for VxWorks."};
-	_ ->
- 	    Options = orber_test_lib:get_options(iiop_ssl, server,
- 						 2, [{iiop_ssl_port, 0}]),
- 	    {ok, ServerNode, ServerHost} =
- 		?match({ok,_,_}, orber_test_lib:js_node(Options)),
- 	    ServerPort = orber_test_lib:remote_apply(ServerNode, orber, iiop_ssl_port, []),
- 	    SSLOptions = orber_test_lib:get_options(ssl, client),
-  	    {ok, Socket} =
- 		?match({ok, _}, fake_client_ORB(ssl, ServerHost, ServerPort, SSLOptions)),
- 	    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
-	    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
-	    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
-						%	    ?match({ok, #'Certificate'{}},
-						%		   'OrberCSIv2':decode('Certificate', PeerCert)),
- 	    destroy_fake_ORB(ssl, Socket),
- 	    ok
-    end.
+    Options = orber_test_lib:get_options(iiop_ssl, server,
+	2, [{iiop_ssl_port, 0}]),
+    {ok, ServerNode, ServerHost} =
+    ?match({ok,_,_}, orber_test_lib:js_node(Options)),
+    ServerPort = orber_test_lib:remote_apply(ServerNode, orber, iiop_ssl_port, []),
+    SSLOptions = orber_test_lib:get_options(ssl, client),
+    {ok, Socket} =
+    ?match({ok, _}, fake_client_ORB(ssl, ServerHost, ServerPort, SSLOptions)),
+    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
+    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
+    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
+    %	    ?match({ok, #'Certificate'{}},
+    %		   'OrberCSIv2':decode('Certificate', PeerCert)),
+    destroy_fake_ORB(ssl, Socket),
+    ok.
 
 ssl_client_peercert_api(doc) -> ["Test ssl:peercert (client side)"];
 ssl_client_peercert_api(suite) -> [];
 ssl_client_peercert_api(_Config) ->
-    case os:type() of
-	vxworks ->
- 	    {skipped, "No SSL-support for VxWorks."};
-	_ ->
- 	    Options = orber_test_lib:get_options(iiop_ssl, client,
- 						 2, [{iiop_ssl_port, 0}]),
- 	    {ok, ClientNode, _ClientHost} =
- 		?match({ok,_,_}, orber_test_lib:js_node(Options)),
- 	    crypto:start(),
- 	    ssl:start(),
- 	    SSLOptions = orber_test_lib:get_options(ssl, server),
- 	    {ok, LSock} = ?match({ok, _}, ssl:listen(0, SSLOptions)),
- 	    {ok, {_Address, LPort}} = ?match({ok, {_, _}}, ssl:sockname(LSock)),
- 	    IOR = ?match({'IOP_IOR',_,_},
- 			 iop_ior:create_external({1, 2}, "IDL:FAKE:1.0",
- 						 "localhost", 6004, "FAKE",
- 						 [#'IOP_TaggedComponent'
- 						  {tag=?TAG_SSL_SEC_TRANS,
- 						   component_data=#'SSLIOP_SSL'
- 						   {target_supports = 2,
- 						    target_requires = 2,
- 						    port = LPort}}])),
- 	    spawn(orber_test_lib, remote_apply,
- 		  [ClientNode, corba_object, non_existent, [IOR]]),
- 	    {ok, Socket} = ?match({ok, _}, ssl:transport_accept(LSock)),
- 	    ?match(ok, ssl:ssl_accept(Socket)),
+    Options = orber_test_lib:get_options(iiop_ssl, client,
+	2, [{iiop_ssl_port, 0}]),
+    {ok, ClientNode, _ClientHost} =
+    ?match({ok,_,_}, orber_test_lib:js_node(Options)),
+    crypto:start(),
+    ssl:start(),
+    SSLOptions = orber_test_lib:get_options(ssl, server),
+    {ok, LSock} = ?match({ok, _}, ssl:listen(0, SSLOptions)),
+    {ok, {_Address, LPort}} = ?match({ok, {_, _}}, ssl:sockname(LSock)),
+    IOR = ?match({'IOP_IOR',_,_},
+	iop_ior:create_external({1, 2}, "IDL:FAKE:1.0",
+	    "localhost", 6004, "FAKE",
+	    [#'IOP_TaggedComponent'
+		{tag=?TAG_SSL_SEC_TRANS,
+		    component_data=#'SSLIOP_SSL'
+		    {target_supports = 2,
+			target_requires = 2,
+			port = LPort}}])),
+    spawn(orber_test_lib, remote_apply,
+	[ClientNode, corba_object, non_existent, [IOR]]),
+    {ok, Socket} = ?match({ok, _}, ssl:transport_accept(LSock)),
+    ?match(ok, ssl:ssl_accept(Socket)),
 
- 	    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
-	    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
-	    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
-						%	    ?match({ok, #'Certificate'{}},
-						%		   'OrberCSIv2':decode('Certificate', PeerCert)),
- 	    ssl:close(Socket),
- 	    ssl:close(LSock),
- 	    ssl:stop(),
- 	    ok
-    end.
+    {ok, _PeerCert} = ?match({ok, _}, orber_socket:peercert(ssl, Socket)),
+    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [pkix, subject])),
+    %% 	    ?match({ok, {rdnSequence, _}}, orber_socket:peercert(ssl, Socket, [ssl, subject])),
+    %	    ?match({ok, #'Certificate'{}},
+    %		   'OrberCSIv2':decode('Certificate', PeerCert)),
+    ssl:close(Socket),
+    ssl:close(LSock),
+    ssl:stop(),
+    ok.
 
 %%-----------------------------------------------------------------
 %% Local functions.
