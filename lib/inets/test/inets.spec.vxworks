@@ -1,5 +1,0 @@
-{topcase, {dir, "../inets_test"}}.
-{skip, {inets_SUITE, ip_mod_cgi, "Requires processes"}}.
-{skip, {inets_SUITE, ip_mod_all_modules, "Requires processes"}}.
-{skip, {inets_SUITE, ssl, "Requires SSL"}}.
-

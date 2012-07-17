@@ -762,14 +762,9 @@ ip_mod_cgi(doc) ->
 ip_mod_cgi(suite) ->
     [];
 ip_mod_cgi(Config) when is_list(Config) ->
-    case test_server:os_type() of
-	vxworks ->
-	    {skip, cgi_not_supported_on_vxwoks};
-	_ ->
-	    httpd_mod:cgi(ip_comm, ?IP_PORT, 
-			  ?config(host, Config), ?config(node, Config)),
-	    ok
-    end.
+    httpd_mod:cgi(ip_comm, ?IP_PORT, 
+	?config(host, Config), ?config(node, Config)),
+    ok.
 %%-------------------------------------------------------------------------
 ip_mod_esi(doc) ->
     ["Module test: mod_esi"];
@@ -1275,16 +1270,11 @@ essl_mod_cgi(Config) when is_list(Config) ->
     ssl_mod_cgi(essl, Config).
 
 ssl_mod_cgi(Tag, Config) ->
-    case test_server:os_type() of
-	vxworks ->
-	    {skip, cgi_not_supported_on_vxwoks};
-	_ ->
-	    httpd_mod:cgi(Tag, 
-			  ?SSL_PORT, 
-			  ?config(host, Config), 
-			  ?config(node, Config)),
-	    ok
-    end.
+    httpd_mod:cgi(Tag, 
+	?SSL_PORT, 
+	?config(host, Config), 
+	?config(node, Config)),
+    ok.
 
 
 %%-------------------------------------------------------------------------
@@ -2698,11 +2688,6 @@ dos_hostname_request(Host) ->
 get_nof_clients(Mode, Load) ->
     get_nof_clients(test_server:os_type(), Mode, Load).
 
-get_nof_clients(vxworks, _,       light)  -> 1;
-get_nof_clients(vxworks, ip_comm, medium) -> 3;
-get_nof_clients(vxworks, ssl,     medium) -> 3;
-get_nof_clients(vxworks, ip_comm, heavy)  -> 5;
-get_nof_clients(vxworks, ssl,     heavy)  -> 5;
 get_nof_clients(_,       ip_comm, light)  -> 5;
 get_nof_clients(_,       ssl,     light)  -> 2;
 get_nof_clients(_,       ip_comm, medium) -> 10;
