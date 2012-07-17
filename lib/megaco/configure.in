@@ -145,7 +145,7 @@ AC_ARG_ENABLE(megaco_flex_scanner_lineno,
 AC_SUBST(ENABLE_MEGACO_FLEX_SCANNER_LINENO)
 
 
-dnl This is the os flavour, should be unix, vxworks or win32
+dnl This is the os flavour, should be unix or win32
 if test "X$host" = "Xwin32"; then
 	ERLANG_OSTYPE=win32
 else
