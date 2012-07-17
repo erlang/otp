@@ -185,7 +185,6 @@ init([]) ->
 		   {unix, irix} -> true;
 		   {unix, sunos} -> true;
 		   {win32, _OSname} -> false;
-		   vxworks -> true;
 		   _ ->
 		       exit({unsupported_os, OS})
 	       end,
@@ -617,8 +616,7 @@ code_change(Vsn, PrevState, "1.8") ->
 			   {unix, openbsd} -> true;
 			   {unix, netbsd} -> true;
 			   {unix, sunos} -> true;
-			   {win32, _OSname} -> false;
-			   vxworks -> true
+			   {win32, _OSname} -> false
 		       end,
 	    Pid = if
 		      PortMode -> spawn_link(fun() -> port_init() end);

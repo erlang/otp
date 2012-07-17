@@ -177,8 +177,6 @@ services({unix, _}) -> % Other unix.
     [cpu_sup, disksup, memsup];
 services({win32, _}) ->
     [disksup, memsup, os_sup, sysinfo];
-services(vxworks) ->
-    [memsup];
 services(_) ->
     [].
 
