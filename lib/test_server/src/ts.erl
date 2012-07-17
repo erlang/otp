@@ -40,8 +40,8 @@
 %%% the modules:
 %%%
 %%%       +-- ts_install --+------  ts_autoconf_win32
-%%%       |                |
-%%%       |                +------  ts_autoconf_vxworks
+%%%       |
+%%%       |
 %%%       |
 %%% ts ---+                +------  ts_erl_config
 %%%       |                |				     ts_lib
@@ -63,8 +63,7 @@
 %%% ts			 Frontend to the test server framework.  Contains all
 %%%			 interface functions.
 %%% ts_install		 Installs the test suite.  On Unix, `autoconf' is
-%%%			 is used; on Windows, ts_autoconf_win32 is used,
-%%%                      on VxWorks, ts_autoconf_vxworks is used.
+%%%			 is used; on Windows, ts_autoconf_win32 is used.
 %%%			 The result is written to the file `variables'.
 %%% ts_run		 Supervises running of the tests.
 %%% ts_autconf_win32	 An `autoconf' for Windows.

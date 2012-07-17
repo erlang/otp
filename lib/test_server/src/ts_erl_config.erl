@@ -160,7 +160,6 @@ system_include(Root, Vars) ->
     SysDir =
 	case ts_lib:var(os, Vars) of
 	    "Windows" ++ _T -> "sys/win32";
-	    "VxWorks" -> "sys.vxworks";
 	    _ -> "sys/unix"
 	end,
     " -I" ++ quote(filename:nativename(filename:join([Root, "erts", "emulator", SysDir]))).
@@ -176,9 +175,6 @@ erl_interface(Vars,OsType) ->
 		     {installed, _Root} ->
 			 {filename:join(Dir, "lib"),
 			  filename:join(Dir, "src")};
-		     {srctree, _Root, _Target} when OsType =:= vxworks ->
-			 {filename:join(Dir, "lib"),
-			  filename:join([Dir, "src"])};
 		     {srctree, _Root, Target} ->
 			 {filename:join([Dir, "obj", Target]),
 			  filename:join([Dir, "src", Target])}
@@ -218,7 +214,7 @@ erl_interface(Vars,OsType) ->
 		    {unix,_} ->
 			"-lpthread";
 		    _ -> 
-			"" % VxWorks
+			""
 		end,
     [{erl_interface_libpath, quote(filename:nativename(LibPath))},
      {erl_interface_sock_libs, sock_libraries(OsType)},
@@ -318,15 +314,11 @@ get_var(Key, Vars) ->
 sock_libraries({win32, _}) ->
     "ws2_32.lib";
 sock_libraries({unix, _}) ->
-    "";	% Included in general libraries if needed.
-sock_libraries(vxworks) ->
-    "".
+    "".	% Included in general libraries if needed.
 
 link_library(LibName,{win32, _}) ->
     LibName ++ ".lib";
 link_library(LibName,{unix, _}) ->
-    "lib" ++ LibName ++ ".a";
-link_library(LibName,vxworks) ->
     "lib" ++ LibName ++ ".a";
 link_library(_LibName,_Other) ->
     exit({link_library, not_supported}).

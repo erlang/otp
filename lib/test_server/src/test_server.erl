@@ -2118,14 +2118,10 @@ timetrap_scale_factor() ->
 	     {false,true} -> 2 * F0;
 	     {false,false} -> F0
 	 end,
-    F2 = case has_superfluous_schedulers() of
+    F = case has_superfluous_schedulers() of
 	     true -> 3*F1;
 	     false -> F1
 	 end,
-    F = case test_server_sup:get_os_family() of
-	    vxworks -> 5 * F2;
-	    _ -> F2
-	end,
     case test_server:is_cover() of
 	true -> 10 * F;
 	false -> F

@@ -429,14 +429,6 @@ run_test(CommandLine) ->
     testcase_callback(TCCB),
     add_job(Name, {command_line,SpecList}),
 
-    %% adding of jobs involves file i/o which may take long time
-    %% when running a nfs mounted file system (VxWorks).
-    case controller_call(get_target_info) of
-	#target_info{os_family=vxworks} ->
-	    receive after 30000 -> ready_to_wait end;
-	_ ->
-	    wait_now
-    end,
     wait_finish().
 
 %% Converted CoverFile to a string unless it is 'none'

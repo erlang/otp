@@ -44,8 +44,7 @@ MODULES= test_server_ctrl \
 	 test_server \
 	 test_server_sup \
 	 test_server_h \
-	 erl2html2 \
-	 vxworks_client
+	 erl2html2
 
 TS_MODULES= \
 	ts \
@@ -55,7 +54,6 @@ TS_MODULES= \
 	ts_make \
 	ts_erl_config \
 	ts_autoconf_win32 \
-        ts_autoconf_vxworks \
 	ts_install \
 	ts_install_cth
 
