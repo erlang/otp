@@ -40,13 +40,10 @@
 %%
 %% @type exceptionClass() = error | exit | throw
 %%
-%% @type stackTrace() = [{moduleName(), functionName(),
-%%			  arity() | argList()}]
+%% @type stackTrace() = [{moduleName(), functionName(), arity() | argList()}]
 %%
 %% @type moduleName() = atom()
 %% @type functionName() = atom()
-%% @type arity() = integer()
-%% @type mfa() = {moduleName(), functionName(), arity()}
 %% @type argList() = [term()]
 %% @type fileName() = string()
 

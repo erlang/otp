@@ -726,8 +726,9 @@ A <em>simple test object</em> is one of the following:
   <li>A tuple `{test, ModuleName, FunctionName}', where `ModuleName' and
       `FunctionName' are atoms, referring to the function
       `ModuleName:FunctionName/0'</li>
-  <li>Obsolete: a pair of atoms `{ModuleName, FunctionName}', equivalent to
-      `{test, ModuleName, FunctionName}' if nothing else matches first. </li>
+  <li>(Obsolete) A pair of atoms `{ModuleName, FunctionName}', equivalent to
+      `{test, ModuleName, FunctionName}' if nothing else matches first. This
+      might be removed in a future version.</li>
   <li>A pair `{LineNumber, SimpleTest}', where `LineNumber' is a
       nonnegative integer and `SimpleTest' is another simple test
       object. `LineNumber' should indicate the source line of the test.

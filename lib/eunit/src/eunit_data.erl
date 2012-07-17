@@ -96,7 +96,6 @@
 %%
 %% @type moduleName() = atom()
 %% @type functionName() = atom()
-%% @type arity() = integer()
 %% @type appName() = atom()
 %% @type fileName() = string()
 
@@ -159,7 +158,7 @@ iter_prev(#iter{prev = [T | Ts]} = I) ->
 %% @throws {bad_test, term()}
 %%       | {generator_failed, {{M::atom(),F::atom(),A::integer()},
 %%                             exception()}}
-%%       | {no_such_function, eunit_lib:mfa()}
+%%       | {no_such_function, mfa()}
 %%       | {module_not_found, moduleName()}
 %%       | {application_not_found, appName()}
 %%       | {file_read_error, {Reason::atom(), Message::string(),
