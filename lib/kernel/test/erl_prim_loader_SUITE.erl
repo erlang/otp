@@ -110,56 +110,46 @@ get_file(Config) when is_list(Config) ->
 inet_existing(doc) -> ["Start a node using the 'inet' loading method, ",
 		       "from an already started boot server."];
 inet_existing(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {comment, "VxWorks: tested separately"};
-	_ ->
-	    ?line Name = erl_prim_test_inet_existing,
-	    ?line Host = host(),
-	    ?line Cookie = atom_to_list(erlang:get_cookie()),
-	    ?line IpStr = ip_str(Host),
-	    ?line LFlag = get_loader_flag(os:type()),
-	    ?line Args = LFlag ++ " -hosts " ++ IpStr ++
-		" -setcookie " ++ Cookie,
-	    ?line {ok, BootPid} = erl_boot_server:start_link([Host]),
-	    ?line {ok, Node} = start_node(Name, Args),
-	    ?line {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-	    ?line stop_node(Node),
-	    ?line unlink(BootPid),
-	    ?line exit(BootPid, kill),
-	    ok
-    end.
+    Name = erl_prim_test_inet_existing,
+    Host = host(),
+    Cookie = atom_to_list(erlang:get_cookie()),
+    IpStr = ip_str(Host),
+    LFlag = get_loader_flag(os:type()),
+    Args = LFlag ++ " -hosts " ++ IpStr ++
+	" -setcookie " ++ Cookie,
+    {ok, BootPid} = erl_boot_server:start_link([Host]),
+    {ok, Node} = start_node(Name, Args),
+    {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
+    stop_node(Node),
+    unlink(BootPid),
+    exit(BootPid, kill),
+    ok.
 
 inet_coming_up(doc) -> ["Start a node using the 'inet' loading method, ",
 			"but start the boot server afterwards."];
 inet_coming_up(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {comment, "VxWorks: tested separately"};
-	_ ->
-	    ?line Name = erl_prim_test_inet_coming_up,
-	    ?line Cookie = atom_to_list(erlang:get_cookie()),
-	    ?line Host = host(),
-	    ?line IpStr = ip_str(Host),
-	    ?line LFlag = get_loader_flag(os:type()),
-	    ?line Args = LFlag ++ 
-		" -hosts " ++ IpStr ++
-		" -setcookie " ++ Cookie,
-	    ?line {ok, Node} = start_node(Name, Args, [{wait, false}]),
+    Name = erl_prim_test_inet_coming_up,
+    Cookie = atom_to_list(erlang:get_cookie()),
+    Host = host(),
+    IpStr = ip_str(Host),
+    LFlag = get_loader_flag(os:type()),
+    Args = LFlag ++ 
+	" -hosts " ++ IpStr ++
+	" -setcookie " ++ Cookie,
+    {ok, Node} = start_node(Name, Args, [{wait, false}]),
 
-	    %% Wait a while, then start boot server, and wait for node to start.
-	    ?line test_server:sleep(test_server:seconds(6)),
-	    io:format("erl_boot_server:start_link([~p]).", [Host]),
-	    ?line {ok, BootPid} = erl_boot_server:start_link([Host]),
-	    ?line wait_really_started(Node, 25),
+    %% Wait a while, then start boot server, and wait for node to start.
+    test_server:sleep(test_server:seconds(6)),
+    io:format("erl_boot_server:start_link([~p]).", [Host]),
+    {ok, BootPid} = erl_boot_server:start_link([Host]),
+    wait_really_started(Node, 25),
 
-	    %% Check loader argument, then cleanup.
-	    ?line {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
-	    ?line stop_node(Node),
-	    ?line unlink(BootPid),
-	    ?line exit(BootPid, kill),
-	    ok
-    end.
+    %% Check loader argument, then cleanup.
+    {ok,[["inet"]]} = rpc:call(Node, init, get_argument, [loader]),
+    stop_node(Node),
+    unlink(BootPid),
+    exit(BootPid, kill),
+    ok.
 
 wait_really_started(Node, 0) ->
     test_server:fail({not_booted,Node});
@@ -249,8 +239,6 @@ multiple_slaves(doc) ->
      "verify that the boot server manages"];
 multiple_slaves(Config) when is_list(Config) ->
     case os:type() of
-	vxworks ->
-	    {comment, "VxWorks: tested separately"};
 	{ose,_} ->
 	    {comment, "OSE: multiple nodes not supported"};
 	_ ->

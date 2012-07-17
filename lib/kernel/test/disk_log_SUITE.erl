@@ -126,11 +126,6 @@
 	 error, chunk, truncate, many_users, info, change_size,
 	 change_attribute, distribution, evil, otp_6278, otp_10131]).
 
-%% The following two lists should be mutually exclusive. To skip a case
-%% on VxWorks altogether, use the kernel.spec.vxworks file instead.
-%% PLEASE don't skip out of laziness, the goal is to make every
-%% testcase runnable on VxWorks.
-
 %% These test cases should be skipped if the VxWorks card is 
 %% configured without NFS cache.
 -define(SKIP_NO_CACHE,[distribution]).
@@ -5126,33 +5121,8 @@ stop_node(Node) ->
 %% If the board is configured without NFS, the port program will fail to load
 %% and this will return 0, which may or may not be the wrong thing to do.
 
-check_nfs(Config) ->
-    case (catch check_cache(Config)) of
-	N when is_integer(N) ->
-	    N;
-	_ ->
-	    0
-    end.
-
-check_cache(Config) ->
-    ?line Check = filename:join(?datadir(Config), "nfs_check"),
-    ?line P = open_port({spawn, Check}, [{line,100}, eof]),
-    ?line Size = receive
-		     {P,{data,{eol,S}}} ->
-			 list_to_integer(S)
-		 after 1000 ->
-			 erlang:display(got_timeout),
-			 exit(timeout)
-		 end,
-    ?line receive
-	      {P, eof} ->
-		  ok
-	  end,
-    ?line P ! {self(), close},
-    ?line receive
-	      {P, closed} -> ok
-	  end,
-    Size.
+check_nfs(_Config) ->
+    0.
 
 skip_expand([]) ->
     [];
@@ -5175,13 +5145,8 @@ skip_list(Config) ->
 	    skip_expand(?SKIP_LARGE_CACHE)
     end.
 
-should_skip(Test,Config) ->
-    case os:type() of
-	vxworks ->
-	    lists:member(Test, skip_list(Config));
-	_ ->
-	    false
-    end.
+should_skip(_Test,_Config) ->
+    false.
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used.

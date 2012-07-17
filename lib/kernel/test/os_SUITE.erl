@@ -202,8 +202,6 @@ find_executable(Config) when is_list(Config) ->
 
 	    %% Never return a directory name.
 	    ?line false = os:find_executable("unix", [DataDir]),
-	    ok;
-	vxworks -> 
 	    ok
     end.
 

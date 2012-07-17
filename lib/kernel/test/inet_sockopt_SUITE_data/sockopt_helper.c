@@ -1,12 +1,3 @@
-#if defined(VXWORKS)
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-int sockopt_helper(void){
-    return 0;
-}
-#else
-
 #if defined(__WIN32__)
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
@@ -215,5 +206,3 @@ int main(void){
     } while (x != C_QUIT);
     return 0;
 }
-#endif
-      
