@@ -1817,7 +1817,14 @@
 
     <xsl:choose>
       <xsl:when test="ancestor::cref">
-        <a name="{substring-before(nametext, '(')}"><span class="bold_code"><xsl:value-of select="ret"/><xsl:text> </xsl:text><xsl:value-of select="nametext"/></span></a><br/>
+        <a name="{substring-before(nametext, '(')}">
+          <span class="bold_code">
+            <xsl:value-of select="ret"/>
+            <xsl:call-template name="maybe-space-after-ret">
+              <xsl:with-param name="s" select="ret"/>
+            </xsl:call-template>
+            <xsl:value-of select="nametext"/>
+          </span></a><br/>
       </xsl:when>
       <xsl:when test="ancestor::erlref">
         <xsl:variable name="fname">
@@ -1844,6 +1851,18 @@
     </xsl:choose>
 
   </xsl:template>
+
+  <xsl:template name="maybe-space-after-ret">
+    <xsl:param name="s"/>
+    <xsl:variable name="last_char"
+	          select="substring($s, string-length($s), 1)"/>
+    <xsl:choose>
+      <xsl:when test="$last_char != '*'">
+        <xsl:text> </xsl:text>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
 
   <!-- Type -->
   <xsl:template match="type">
