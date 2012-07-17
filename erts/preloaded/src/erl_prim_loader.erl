@@ -1376,14 +1376,7 @@ pathtype(Name) when is_list(Name) ->
 	{unix, _}  -> 
 	    unix_pathtype(Name);
 	{win32, _} ->
-	    win32_pathtype(Name);
-	{vxworks, _} ->
-	    case vxworks_first(Name) of
-		{device, _Rest, _Dev} ->
-		    absolute;
-		_ ->
-		    relative
-	    end
+	    win32_pathtype(Name)
     end.
 
 unix_pathtype(Name) ->
@@ -1418,32 +1411,6 @@ win32_pathtype(Name) ->
 	    volumerelative;
 	_ -> 
 	    relative
-    end.
-
-vxworks_first(Name) ->
-    case Name of
-	[] ->
-	    {not_device, [], []};
-	[$/ | T] ->
-	    vxworks_first2(device, T, [$/]);
-	[H | T] when is_list(H) ->
-	    vxworks_first(H ++ T);
-	[H | T] ->
-	    vxworks_first2(not_device, T, [H])
-    end.
-
-vxworks_first2(Devicep, Name, FirstComp) ->
-    case Name of 
-	[] ->
-    {Devicep, [], FirstComp};
-	[$/ |T ] ->
-	    {Devicep, [$/ | T], FirstComp};
-	[$: | T]->
-	    {device, T, [$: | FirstComp]};
-	[H | T] when is_list(H) ->
-	    vxworks_first2(Devicep, H ++ T, FirstComp);
-	[H | T] ->
-	    vxworks_first2(Devicep, T, [H | FirstComp])
     end.
 
 normalize(Name, Acc) ->
