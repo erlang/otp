@@ -100,8 +100,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           environment. <c><anno>Value</anno></c> is returned as a string containing
           the (usually) numerical identifier for a process. On Unix,
           this is typically the return value of the <c>getpid()</c>
-          system call. On VxWorks, <c><anno>Value</anno></c> contains the task id
-          (decimal notation) of the Erlang task. On Windows,
+          system call. On Windows,
           the process id as returned by the <c>GetCurrentProcessId()</c>
           system call is used.</p>
       </desc>
@@ -154,8 +153,6 @@ format_utc_timestamp() ->
           Solaris 1 and 2, it will be <c>sunos</c>.</p>
         <p>In Windows, <c><anno>Osname</anno></c> will be either <c>nt</c> (on
           Windows NT), or <c>windows</c> (on Windows 95).</p>
-        <p>On VxWorks the OS family alone is returned, that is
-          <c>vxworks</c>.</p>
         <note>
           <p>Think twice before using this function. Use the
             <c>filename</c> module if you want to inspect or build

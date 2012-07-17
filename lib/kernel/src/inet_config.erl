@@ -197,16 +197,6 @@ do_load_resolv({win32,Type}, longnames) ->
     win32_load_from_registry(Type),
     inet_db:set_lookup([native]);
 
-do_load_resolv(vxworks, _) ->	
-    vxworks_load_hosts(),
-    inet_db:set_lookup([file, dns]),
-    case os:getenv("ERLRESCONF") of
-	false ->
-	    no_ERLRESCONF;
-	Resolv ->
-	    load_resolv(Resolv, resolv)
-    end;
-
 do_load_resolv(_, _) ->
     inet_db:set_lookup([native]).
 
@@ -407,55 +397,6 @@ win32_get_strings(Reg, [Name|Rest], Result) ->
     end;
 win32_get_strings(_, [], Result) ->
     lists:reverse(Result).
-
-%%
-%% Load host data from VxWorks hostShow command
-%%
-
-vxworks_load_hosts() ->
-    HostShow = os:cmd("hostShow"),
-    case check_hostShow(HostShow) of
-	Hosts when is_list(Hosts) ->
-	    case inet_parse:hosts_vxworks({chars, Hosts}) of
-		{ok, Ls} ->
-		    foreach(
-		      fun({IP, Name, Aliases}) -> 
-			      inet_db:add_host(IP, [Name|Aliases])
-		      end,
-		      Ls);
-		{error,Reason} ->
-		    error("parser error VxWorks hostShow ~s", [Reason])
-	    end;
-	_Error ->
-	    error("error in VxWorks hostShow~s~n", [HostShow])
-    end.
-
-%%
-%% Check if hostShow yields at least two line; the first one
-%% starting with "hostname", the second one starting with
-%% "--------".
-%% Returns: list of hosts in VxWorks notation
-%% rows of 'Name          IP                [Aliases]  \n'
-%% if hostShow yielded these two lines, false otherwise.
-check_hostShow(HostShow) ->
-    check_hostShow(["hostname", "--------"], HostShow).
-
-check_hostShow([], HostShow) ->
-    HostShow;
-check_hostShow([String_match|Rest], HostShow) ->
-    case lists:prefix(String_match, HostShow) of
-	true ->
-	    check_hostShow(Rest, next_line(HostShow));
-	false ->
-	    false
-    end.
-
-next_line([]) ->
-    [];
-next_line([$\n|Rest]) ->
-    Rest;
-next_line([_First|Rest]) ->
-    next_line(Rest).
 
 read_rc() ->
     {RcFile,CfgList} = read_inetrc(),
