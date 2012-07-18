@@ -79,5 +79,5 @@ MIB_FILES = \
 	Test2.mib \
 	Test3.mib
 
-SPECS = snmp.spec snmp.spec.vxworks 
+SPECS = snmp.spec
 

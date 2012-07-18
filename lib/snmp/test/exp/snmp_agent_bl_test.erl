@@ -95,24 +95,13 @@ end_per_testcase(_Case, Config) when list(Config) ->
     Config.
 
 cases() ->
-    case ?OSTYPE() of
-	vxworks ->
-	    %% No crypto app, so skip v3 testcases
- 	    [
-	     app_info, 
-	     test_v1, test_v2, test_v1_v2, 
-	     test_multi_threaded, 
- 	     mib_storage, 
-	     tickets];
-	_Else ->
-  	    [
-	     app_info, 
- 	     test_v1, test_v2, test_v1_v2, test_v3, 
-   	     test_multi_threaded, 
-	     mib_storage, 
-	     tickets
-	    ]
-    end.
+    [
+	app_info, 
+	test_v1, test_v2, test_v1_v2, test_v3, 
+	test_multi_threaded, 
+	mib_storage, 
+	tickets
+    ].
 
 
 %%%-----------------------------------------------------------------
@@ -1187,21 +1176,16 @@ init_v3(Config) when list(Config) ->
     %% and we will be stuck with a bunch of mnesia tables for
     %% the rest of this suite...
     ?DBG("start_agent -> start crypto app",[]),
-    case os:type() of
-	vxworks ->
-	    no_crypto;
-	_ ->
-	    case ?CRYPTO_START() of
-		ok ->
-		    case ?CRYPTO_SUPPORT() of
-			{no, Reason} ->
-			    ?SKIP({unsupported_encryption, Reason});
-			yes ->
-			    ok
-		    end;
-		{error, Reason} ->
-		    ?SKIP({failed_starting_crypto, Reason})
-	    end
+    case ?CRYPTO_START() of
+	ok ->
+	    case ?CRYPTO_SUPPORT() of
+		{no, Reason} ->
+		    ?SKIP({unsupported_encryption, Reason});
+		yes ->
+		    ok
+	    end;
+	{error, Reason} ->
+	    ?SKIP({failed_starting_crypto, Reason})
     end,
     SaNode = ?config(snmp_sa, Config),
     create_tables(SaNode),
@@ -5071,12 +5055,7 @@ run(F, A, Opts) ->
     CtxEngineID = snmp_misc:get_option(context_engine_id, Opts, EngineID),
     Community = snmp_misc:get_option(community, Opts, "all-rights"),
     ?DBG("run -> start crypto app",[]),
-    Crypto = case os:type() of
-		 vxworks ->
-		     no_crypto;
-		 _ ->
-		     ?CRYPTO_START()
-	     end,
+    Crypto = ?CRYPTO_START(),
     ?DBG("run -> Crypto: ~p",[Crypto]),
     catch snmp_test_mgr:stop(), % If we had a running mgr from a failed case
     StdM = filename:join(code:priv_dir(snmp), "mibs") ++ "/",

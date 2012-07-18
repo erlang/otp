@@ -516,8 +516,6 @@ warning_msg(F, A) ->
 timeout(T) ->
     trunc(timeout(T, os:type())).
 
-timeout(T, vxworks) ->
-    5 * T * timetrap_scale_factor();
 timeout(T, _) ->
     T * timetrap_scale_factor().
             

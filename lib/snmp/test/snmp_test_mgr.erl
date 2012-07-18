@@ -161,7 +161,6 @@ get_timeout() ->
 	    get_timeout(os:type())
     end.
 
-get_timeout(vxworks) -> 7000;
 get_timeout(_)       -> 3500.
 
 %%----------------------------------------------------------------------

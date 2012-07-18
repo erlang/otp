@@ -338,12 +338,7 @@ run(Mod, Func, Args, Opts) ->
     CtxEngineID = snmp_misc:get_option(context_engine_id, Opts, EngineID),
     Community = snmp_misc:get_option(community, Opts, "all-rights"),
     ?DBG("run -> start crypto app",[]),
-    Crypto = case os:type() of
-		 vxworks ->
-		     no_crypto;
-		 _ ->
-		     ?CRYPTO_START()
-	     end,
+    Crypto = ?CRYPTO_START(),
     ?DBG("run -> Crypto: ~p", [Crypto]),
     catch snmp_test_mgr:stop(), % If we had a running mgr from a failed case
     StdM = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
@@ -729,7 +724,6 @@ expect2(Id, F) ->
 get_timeout() ->
     get_timeout(os:type()).
 
-get_timeout(vxworks) -> 7000;
 get_timeout(_)       -> 3500.
 
 receive_pdu(To) ->
@@ -1540,7 +1534,6 @@ rpc(Node, F, A) ->
 %% timeout() ->
 %%     timeout(os:type()).
 %% 
-%% timeout(vxworks) -> 7000;
 %% timeout(_)       -> 3500.
     
 
