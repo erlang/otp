@@ -11,24 +11,24 @@ introduction to Erlang DTrace support read [$ERL_TOP/HOWTO/DTRACE.md][].
 Requisites
 ----------
 
-* Linux Kernel with UTRACE support
-
-  check for UTRACE support in your current kernel:
+*   Linux Kernel with UTRACE support
+    
+    check for UTRACE support in your current kernel:
 
         # grep CONFIG_UTRACE /boot/config-`uname -r`
         CONFIG_UTRACE=y
 
-  Fedora 16 is known to contain UTRACE, for most other Linux distributions
-  a custom build kernel will be required.
-  Check Fedora's SystemTap documentation for additional required packages
-  (e.g. Kernel Debug Symbols)
+    Fedora 16 is known to contain UTRACE, for most other Linux distributions
+    a custom build kernel will be required.
+    Check Fedora's SystemTap documentation for additional required packages
+    (e.g. Kernel Debug Symbols)
 
-* SystemTap > 1.6
-
-  A the time of writing this, the latest released version of SystemTap is
-  version 1.6. Erlang's DTrace support requires a MACRO that was introduced
-  after that release. So either get a newer release or build SystemTap from
-  git yourself (see: http://sourceware.org/systemtap/getinvolved.html)
+*   SystemTap > 1.6
+  
+    A the time of writing this, the latest released version of SystemTap is
+    version 1.6. Erlang's DTrace support requires a MACRO that was introduced
+    after that release. So either get a newer release or build SystemTap from
+    git yourself (see: http://sourceware.org/systemtap/getinvolved.html)
 
 Building Erlang
 ---------------
