@@ -21,6 +21,8 @@
 
 -export([main/1]).
 
+-include_lib("kernel/include/file.hrl").
+
 -define(DUMMY, archive_script_dummy).
 -define(DICT, archive_script_dict).
 
@@ -32,7 +34,7 @@ main(MainArgs) ->
     io:format("dummy:~p\n",[[E || E <- ErlArgs, element(1, E) =:= ?DUMMY]]),
 
     %% Start the applications
-    {error, {not_started, ?DICT}} = application:start(archive_script_dummy),
+    {error, {not_started, ?DICT}} = application:start(?DUMMY),
     ok = application:start(?DICT),
     ok = application:start(?DUMMY),
     
@@ -57,4 +59,17 @@ main(MainArgs) ->
     ok = ?DICT:erase(Tab, Key),
     error = ?DICT:find(Tab, Key),
     ok = ?DICT:erase(Tab),
+
+    %% Check mtime related caching bug with escript/primary archive files
+    Escript = escript:script_name(),
+    {ok, FileInfo} = file:read_file_info(Escript),
+    %% Modify mtime of archive file and try to reload module
+    FileInfo2 = FileInfo#file_info{mtime=calendar:now_to_local_time(now())},
+    ok = file:write_file_info(Escript, FileInfo2),
+    Module = ?DICT,
+    {file, _} = code:is_loaded(Module),
+    true = code:delete(Module),
+    false = code:is_loaded(Module),
+    {module, Module} = code:ensure_loaded(Module),
+
     ok.

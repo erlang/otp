@@ -967,7 +967,7 @@ static void *my_malloc(size_t size)
     void *ptr;
 
     if ((ptr = driver_alloc(size)) == NULL) {
-	erl_exit(1,"Could not allocate %d bytes of memory",(int) size);
+	erl_exit(1,"Could not allocate %lu bytes of memory",(unsigned long) size);
     }
     return ptr;
 }
@@ -977,7 +977,7 @@ static void *my_realloc(void *ptr, size_t size)
     void erl_exit(int, char *, ...);
     void *nptr;
     if ((nptr = driver_realloc(ptr, size)) == NULL) {
-	erl_exit(1,"Could not reallocate %d bytes of memory",(int) size);
+	erl_exit(1,"Could not reallocate %lu bytes of memory",(unsigned long) size);
     }
     return nptr;
 }

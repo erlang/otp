@@ -522,7 +522,7 @@ static void *ef_safe_alloc(Uint s)
 static void *ef_safe_realloc(void *op, Uint s)
 {
     void *p = EF_REALLOC(op, s);
-    if (!p) erl_exit(1, "efile drv: Can't reallocate %d bytes of memory\n", s);
+    if (!p) erl_exit(1, "efile drv: Can't reallocate %lu bytes of memory\n", (unsigned long)s);
     return p;
 }
 

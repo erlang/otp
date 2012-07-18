@@ -426,7 +426,9 @@ primary_archive(Config) when is_list(Config) ->
     ExpectedEbins = [Archive, DictDir ++ "/ebin", DummyDir ++ "/ebin"],
     io:format("ExpectedEbins: ~p\n", [ExpectedEbins]),
     ?line {ok, FileInfo} = prim_file:read_file_info(Archive),
-    ?line {ok, Ebins} = rpc:call(Node, erl_prim_loader, set_primary_archive, [Archive, ArchiveBin, FileInfo]),
+    ?line {ok, Ebins} = rpc:call(Node, erl_prim_loader, set_primary_archive,
+				 [Archive, ArchiveBin, FileInfo,
+				  fun escript:parse_file/1]),
     ?line ExpectedEbins = lists:sort(Ebins), % assert
     
     ?line {ok, TopFiles2} = rpc:call(Node, erl_prim_loader, list_dir, [Archive]),
@@ -435,7 +437,9 @@ primary_archive(Config) when is_list(Config) ->
     ?line ok = test_archive(Node, Archive, DictDir, BeamName),
     
     %% Cleanup
-    ?line {ok, []} = rpc:call(Node, erl_prim_loader, set_primary_archive, [undefined, undefined, undefined]),
+    ?line {ok, []} = rpc:call(Node, erl_prim_loader, set_primary_archive,
+			      [undefined, undefined, undefined,
+			       fun escript:parse_file/1]),
     ?line stop_node(Node),
     ?line ok = file:delete(Archive),
     ok.
