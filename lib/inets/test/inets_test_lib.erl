@@ -536,25 +536,15 @@ connect(ip_comm, Host, Port, Opts, Type) ->
 	    tsp("connect success"),
 	    {ok, Socket};
 
-	{error, nxdomain} when Type =:= inet6 ->
-	    tsp("connect error nxdomain when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, eafnosupport} when Type =:= inet6 ->
-	    tsp("connect error eafnosupport when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, econnreset} when Type =:= inet6 ->
-	    tsp("connect error econnreset when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, enetunreach} when Type =:= inet6 ->
-	    tsp("connect error eafnosupport when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, econnrefused} when Type =:= inet6 ->
-	    tsp("connect error econnrefused when"
-		"~n   Opts: ~p", [Opts]),
+	{error, Reason} when ((Type =:= inet6) andalso 
+			      ((Reason =:= nxdomain) orelse 
+			       (Reason =:= eafnosupport) orelse 
+			       (Reason =:= econnreset) orelse 
+			       (Reason =:= enetunreach) orelse 
+			       (Reason =:= econnrefused) orelse 
+			       (Reason =:= ehostunreach))) ->
+	    tsp("connect error ~w when"
+		"~n   Opts: ~p", [Reason, Opts]),
 	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
 
 	Error ->
