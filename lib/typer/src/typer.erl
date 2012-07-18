@@ -1007,7 +1007,7 @@ msg(Msg) ->
       port_command(P, Msg),
       true = port_close(P),
       ok;
-    _ ->  % win32, vxworks
+    _ ->  % win32
       io:format("~s", [Msg])
   end.
 
