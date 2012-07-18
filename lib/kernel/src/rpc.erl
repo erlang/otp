@@ -286,7 +286,7 @@ call(N,M,F,A) ->
       Reason :: term(),
       Timeout :: timeout().
 
-call(N,M,F,A,_Timeout) when node() =:= N ->  %% Optimize local call
+call(N,M,F,A,infinity) when node() =:= N ->  %% Optimize local call
     local_call(M,F,A);
 call(N,M,F,A,infinity) ->
     do_call(N, {call,M,F,A,group_leader()}, infinity);
