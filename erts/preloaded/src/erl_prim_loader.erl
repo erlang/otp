@@ -49,7 +49,7 @@
          prim_read_file_info/2, prim_get_cwd/2]).
 
 %% Used by escript and code
--export([set_primary_archive/3, release_archives/0]).
+-export([set_primary_archive/4, release_archives/0]).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -222,15 +222,16 @@ get_cwd(Drive) ->
     check_file_result(get_cwd, Drive, request({get_cwd,[Drive]})).
 
 -spec set_primary_archive(File :: string() | 'undefined', 
-                          ArchiveBin :: binary() | 'undefined',
-			  FileInfo :: #file_info{} | 'undefined')
+			  ArchiveBin :: binary() | 'undefined',
+			  FileInfo :: #file_info{} | 'undefined',
+			  ParserFun :: fun())
 			 -> {ok, [string()]} | {error,_}.
 
-set_primary_archive(undefined, undefined, undefined) ->
-    request({set_primary_archive, undefined, undefined, undefined});
-set_primary_archive(File, ArchiveBin, FileInfo)
+set_primary_archive(undefined, undefined, undefined, ParserFun) ->
+    request({set_primary_archive, undefined, undefined, undefined, ParserFun});
+set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
   when is_list(File), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
-    request({set_primary_archive, File, ArchiveBin, FileInfo}).
+    request({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}).
 
 -spec release_archives() -> 'ok' | {'error', _}.
 
@@ -318,8 +319,11 @@ loop(State, Parent, Paths) ->
                     {get_cwd,[_]=Args} ->
                         {Res,State1} = handle_get_cwd(State, Args),
                         {Res,State1,Paths};
-                    {set_primary_archive,File,Bin,FileInfo} ->
-                        {Res,State1} = handle_set_primary_archive(State, File, Bin, FileInfo),
+                    {set_primary_archive,File,ArchiveBin,FileInfo,ParserFun} ->
+                        {Res,State1} =
+			    handle_set_primary_archive(State, File,
+						       ArchiveBin, FileInfo,
+						       ParserFun),
                         {Res,State1,Paths};
                     release_archives ->
                         {Res,State1} = handle_release_archives(State),
@@ -359,8 +363,8 @@ handle_get_file(State = #state{loader = efile}, Paths, File) ->
 handle_get_file(State = #state{loader = inet}, Paths, File) ->
     ?SAFE2(inet_get_file_from_port(State, File, Paths), State).
 
-handle_set_primary_archive(State= #state{loader = efile}, File, Bin, FileInfo) ->
-    ?SAFE2(efile_set_primary_archive(State, File, Bin, FileInfo), State).
+handle_set_primary_archive(State= #state{loader = efile}, File, ArchiveBin, FileInfo, ParserFun) ->
+    ?SAFE2(efile_set_primary_archive(State, File, ArchiveBin, FileInfo, ParserFun), State).
 
 handle_release_archives(State= #state{loader = efile}) ->
     ?SAFE2(efile_release_archives(State), State).
@@ -484,8 +488,10 @@ efile_get_file_from_port3(State, File, [P | Paths]) ->
 efile_get_file_from_port3(State, _File, []) ->
     {{error,enoent},State}.
 
-efile_set_primary_archive(#state{prim_state = PS} = State, File, Bin, FileInfo) ->
-    {Res, PS2} = prim_set_primary_archive(PS, File, Bin, FileInfo),
+efile_set_primary_archive(#state{prim_state = PS} = State, File,
+			  ArchiveBin, FileInfo, ParserFun) ->
+    {Res, PS2} = prim_set_primary_archive(PS, File, ArchiveBin,
+					  FileInfo, ParserFun),
     {Res,State#state{prim_state = PS2}}.
 
 efile_release_archives(#state{prim_state = PS} = State) ->
@@ -791,7 +797,7 @@ prim_release_archives(PS) ->
 prim_do_release_archives(PS, [{ArchiveFile, DictVal} | KeyVals], Acc) ->
     Res = 
 	case DictVal of
-	    {primary, _PrimZip, _FI} ->
+	    {primary, _PrimZip, _FI, _ParserFun} ->
 		ok; % Keep primary archive
 	    {Cache, _FI} ->
 		debug(PS, {release, cache, ArchiveFile}),
@@ -809,7 +815,7 @@ prim_do_release_archives(PS, [], []) ->
 prim_do_release_archives(PS, [], Errors) ->
     {{error, Errors}, PS#prim_state{primary_archive = undefined}}.
 
-prim_set_primary_archive(PS, undefined, undefined, undefined) ->
+prim_set_primary_archive(PS, undefined, undefined, undefined, _ParserFun) ->
     debug(PS, {set_primary_archive, clean}),
     case PS#prim_state.primary_archive of
         undefined ->
@@ -817,14 +823,16 @@ prim_set_primary_archive(PS, undefined, undefined, undefined) ->
             debug(PS, {return, Res}),
             {Res, PS};
         ArchiveFile ->
-            {primary, PrimZip, _FI} = erase(ArchiveFile),
+            {primary, PrimZip, _FI, _ParserFun2} = erase(ArchiveFile),
             ok = prim_zip:close(PrimZip),
             PS2 = PS#prim_state{primary_archive = undefined},
             Res = {ok, []},
             debug(PS2, {return, Res}),
             {Res, PS2}
     end;
-prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin, #file_info{} = FileInfo)
+
+prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin,
+			 #file_info{} = FileInfo, ParserFun)
   when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
     %% Try the archive file
     debug(PS, {set_primary_archive, ArchiveFile0, byte_size(ArchiveBin)}),
@@ -832,34 +840,23 @@ prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin, #file_info{} = FileInfo)
     {Res3, PS3} =
         case PS#prim_state.primary_archive of
             undefined ->
-                Fun =
-                    fun({Components, _GI, _GB}, A) ->
-                            case Components of
-                                ["", "nibe", RevApp] -> % Reverse ebin
-                                    %% Collect ebin directories in archive
-                                    Ebin = reverse(RevApp) ++ "/ebin",
-				    {true, [Ebin | A]};
-                                _ ->
-                                    {true, A}
-                            end
-                    end,
-                Ebins0 = [ArchiveFile],
-                case open_archive({ArchiveFile, ArchiveBin}, FileInfo, Ebins0, Fun) of
-                    {ok, PrimZip, {RevEbins, FI, _}} ->
-                        Ebins = reverse(RevEbins),
+                case load_prim_archive(ArchiveFile, ArchiveBin, FileInfo) of
+                    {ok, PrimZip, FI, Ebins} ->
                         debug(PS, {set_primary_archive, Ebins}),
-                        put(ArchiveFile, {primary, PrimZip, FI}),
-                        {{ok, Ebins}, PS#prim_state{primary_archive = ArchiveFile}};
+                        put(ArchiveFile, {primary, PrimZip, FI, ParserFun}),
+                        {{ok, Ebins},
+                         PS#prim_state{primary_archive = ArchiveFile}};
                     Error ->
                         debug(PS, {set_primary_archive, Error}),
                         {Error, PS}
                 end;
             OldArchiveFile ->
                 debug(PS, {set_primary_archive, clean}),
-                {primary, PrimZip, _FI} = erase(OldArchiveFile),
+                {primary, PrimZip, _FI, _ParserFun} = erase(OldArchiveFile),
                 ok = prim_zip:close(PrimZip),
                 PS2 = PS#prim_state{primary_archive = undefined},
-                prim_set_primary_archive(PS2, ArchiveFile, ArchiveBin, FileInfo)
+                prim_set_primary_archive(PS2, ArchiveFile, ArchiveBin,
+					 FileInfo, ParserFun)
         end,
     debug(PS3, {return, Res3}),
     {Res3, PS3}.
@@ -1011,7 +1008,7 @@ apply_archive(PS, Fun, Acc, Archive) ->
 		    %% put(Archive, {Error, FI}),
 		    {Error, PS}
 	    end;
-        {primary, PrimZip, FI} ->
+        {primary, PrimZip, FI, ParserFun} ->
 	    case prim_file:read_file_info(Archive) of
                 {ok, FI2} 
 		  when FI#file_info.mtime =:= FI2#file_info.mtime ->
@@ -1022,6 +1019,16 @@ apply_archive(PS, Fun, Acc, Archive) ->
 			    debug(PS, {primary, Error}),
 			    {Error, PS}
 		    end;
+		{ok, FI2} ->
+		    ok = clear_cache(Archive, {ok, PrimZip}),
+		    case load_prim_archive(Archive, FI2, ParserFun) of
+			{ok, PrimZip2, FI3, _Ebins} ->
+			    debug(PS, {cache, {update, Archive}}),
+			    put(Archive, {primary, PrimZip2, FI3, ParserFun});
+			Error2 ->
+			    debug(PS, {cache, {clear, Error2}})
+		    end,
+		    apply_archive(PS, Fun, Acc, Archive);
 		Error ->
 		    debug(PS, {cache, {clear, Error}}),
 		    clear_cache(Archive, {ok, PrimZip}),
@@ -1474,3 +1481,31 @@ path_flatten([Ch|Rest],RevLast,RevTop) ->
     path_flatten(Rest,[Ch|RevLast],RevTop);
 path_flatten([],RevLast,RevTop) ->
     reverse(RevLast++RevTop).
+
+load_prim_archive(ArchiveFile, ArchiveBin, #file_info{}=FileInfo) ->
+    Fun = fun({Components, _GI, _GB}, A) ->
+		  case Components of
+		      ["", "nibe", RevApp] -> % Reverse ebin
+			  %% Collect ebin directories in archive
+			  Ebin = lists:reverse(RevApp, "/ebin"),
+			  {true, [Ebin | A]};
+		      _ ->
+			  {true, A}
+		  end
+	  end,
+    Ebins0 = [ArchiveFile],
+    case open_archive({ArchiveFile, ArchiveBin}, FileInfo,
+		      Ebins0, Fun) of
+	{ok, PrimZip, {RevEbins, FI, _}} ->
+	    Ebins = reverse(RevEbins),
+	    {ok, PrimZip, FI, Ebins};
+	Error ->
+	    Error
+    end;
+load_prim_archive(ArchiveFile, FileInfo, ParserFun) ->
+    case ParserFun(ArchiveFile) of
+	{ok, ArchiveBin} ->
+	    load_prim_archive(ArchiveFile, ArchiveBin, FileInfo);
+	Error ->
+	    Error
+    end.

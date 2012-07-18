@@ -63,7 +63,7 @@
 	 which/1,
 	 where_is_file/1,
 	 where_is_file/2,
-	 set_primary_archive/3,
+	 set_primary_archive/4,
 	 clash/0]).
 
 -export_type([load_error_rsn/0, load_ret/0]).
@@ -107,7 +107,7 @@
 %% unstick_mod(Module)           -> true
 %% is_sticky(Module)             -> boolean()
 %% which(Module)                 -> Filename | loaded_ret_atoms() | non_existing
-%% set_primary_archive((FileName, Bin, FileInfo) -> ok | {error, Reason}
+%% set_primary_archive((FileName, ArchiveBin, FileInfo, ParserFun) -> ok | {error, Reason}
 %% clash()                       -> ok         prints out number of clashes
 
 %%----------------------------------------------------------------------------
@@ -481,13 +481,16 @@ where_is_file(Path, File) when is_list(Path), is_list(File) ->
 
 -spec set_primary_archive(ArchiveFile :: file:filename(),
 			  ArchiveBin :: binary(),
-			  FileInfo :: file:file_info())
+			  FileInfo :: file:file_info(),
+			  ParserFun :: fun())
 			 -> 'ok' | {'error', atom()}.
 
-set_primary_archive(ArchiveFile0, ArchiveBin, #file_info{} = FileInfo)
+set_primary_archive(ArchiveFile0, ArchiveBin, #file_info{} = FileInfo,
+		    ParserFun)
   when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
     ArchiveFile = filename:absname(ArchiveFile0),
-    case call({set_primary_archive, ArchiveFile, ArchiveBin, FileInfo}) of
+    case call({set_primary_archive, ArchiveFile, ArchiveBin, FileInfo,
+	       ParserFun}) of
 	{ok, []} ->
 	    ok;
 	{ok, _Mode, Ebins} ->

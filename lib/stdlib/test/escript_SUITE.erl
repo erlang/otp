@@ -358,7 +358,7 @@ beam_script(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Create an archive file containing two entire applications plus two
 %% alternate main modules. Generate a new escript containing the archive
-%% (with .app and .beam files and ) and the escript header.
+%% (with .app and .beam files and) and the escript header.
 
 archive_script(Config) when is_list(Config) ->
     %% Copy the orig files to priv_dir
