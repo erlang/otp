@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -99,8 +99,12 @@
 	 replica_test/1,
 	 sticky_replica_test/1,
 	 remote_test/1,
-	 remote_frag2_test/1
+	 remote_frag2_test/1,
+
+	 conflict_benchmark/1
 	]).
+
+-include_lib("common_test/include/ct_event.hrl").
 
 -define(SECOND, 1000000).
 
@@ -191,8 +195,10 @@
 	  driver_nodes = [node()],
 	  n_drivers_per_node = 1,
 	  use_running_mnesia = false,
+	  seed,
 	  stop_after = timer:minutes(15), % Minimum 15 min
 	  report_interval = timer:minutes(1),
+	  send_bench_report = false,
 	  use_sticky_locks = false,
 	  spawn_near_branch = false,
 	  activity_type = transaction,
@@ -397,7 +403,29 @@ config(remote_frag2_test, ReplicaType) ->
      {stop_after, timer:minutes(1)},
      {report_interval, timer:seconds(10)},
      {reuse_history_id, true}
+    ];
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Ten drivers per node, tables replicated to all nodes, single branch
+
+config(conflict_benchmark, ReplicaType) ->
+    Remote = nodes(),
+    Local = node(),
+    Nodes = [Local | Remote], 
+    [{seed, {1326,448637,337711}},
+     {db_nodes, Nodes},
+     {driver_nodes, Nodes},
+     {replica_nodes, Nodes},
+     {n_drivers_per_node, 10},
+     {n_branches, 1},
+     {n_accounts_per_branch, 10},
+     {replica_type, ReplicaType},
+     {stop_after, timer:minutes(1)},
+     {report_interval, timer:seconds(10)},
+     {send_bench_report, true},
+     {reuse_history_id, true}
     ].
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -421,6 +449,9 @@ remote_test(ReplicaType) ->
 
 remote_frag2_test(ReplicaType) ->
     start(remote_frag2_test, ReplicaType).
+
+conflict_benchmark(ReplicaType) ->
+    start(config(conflict_benchmark, ReplicaType)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Args is a list of {Key, Val} tuples where Key is a field name
@@ -866,6 +897,7 @@ add_time(Acc, New) ->
 show_report(State) ->
     Now    = now_to_micros(erlang:now()),
     Iters  = State#reporter_state.n_iters,
+    Cfg    = State#reporter_state.run_config,
     Time   = State#reporter_state.curr,
     Max    = Time#time.max_time,
     N      = Time#time.n_trans,
@@ -888,7 +920,17 @@ show_report(State) ->
 		      "duration of longest transaction was ~p milliseconds~n",
 		      [Tps, BruttoTps, Max div 1000])
     end,
-    State#reporter_state{prev_tps = Tps, prev_micros = Now}.
+    case Cfg#run_config.send_bench_report of
+	true ->
+	    ct_event:notify(
+	      #event{name = benchmark_data, 
+		     data = [{suite,"mnesia_tpcb"},
+			     {value,Tps}]});
+	_ ->
+	    ok
+    end,
+
+    State#reporter_state{prev_tps = Tps, prev_micros = Now}.	    
 
 signed_diff(Iters, Curr, Prev) ->
     case Iters > 1 of
@@ -955,7 +997,13 @@ alloc_local_branches([], Specs, OrphanBranches) ->
     {Specs, OrphanBranches}.
     
 driver_init(DS, AllBranches) ->
-    Seed = erlang:now(),
+    case (DS#driver_state.run_config)#run_config.seed of
+	undefined ->
+	    Seed = erlang:now();
+	Seed ->
+	    Seed
+    end,
+    
     DS2 =
 	if
 	    DS#driver_state.n_local_branches =:= 0 ->

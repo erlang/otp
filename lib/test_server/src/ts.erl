@@ -28,6 +28,7 @@
 	 clean/0, clean/1,
 	 tests/0, tests/1,
 	 install/0, install/1, index/0,
+	 bench/0, bench/1, bench/2, benchmarks/0,
 	 estone/0, estone/1,
 	 cross_cover_analyse/1,
 	 compile_testcases/0, compile_testcases/1,
@@ -48,12 +49,12 @@
 %%%       |                +------  ts_make
 %%%       |                |
 %%%       +-- ts_run  -----+
-%%%                        |	    			     ts_filelib
-%%%                        +------  ts_make_erl
-%%%                        |
-%%%                        +------  ts_reports (indirectly)
-%%%       
-%%%       
+%%%       |                |	    			     ts_filelib
+%%%       |                +------  ts_make_erl
+%%%       |                |
+%%%       |                +------  ts_reports (indirectly)
+%%%       |
+%%%       +-- ts_benchmark
 %%%
 %%% The modules ts_lib and ts_filelib contains utilities used by
 %%% the other modules.
@@ -81,6 +82,7 @@
 %%%			 of the tests run.
 %%% ts_lib		 Miscellanous utility functions, each used by several
 %%%			 other modules.
+%%% ts_benchmark         Supervises otp benchmarks and collects results.
 %%%----------------------------------------------------------------------
 
 -include_lib("kernel/include/file.hrl").
@@ -128,7 +130,7 @@ help(installed) ->
 	 "  ts:run(Spec, Mod) - Run a single test suite.\n",
 	 "  ts:run(Spec, Mod, Case)\n",
 	 "                    - Run a single test case.\n",
-	 "  All above run functions can have the additional Options argument\n",
+	 "  All above run functions can have an additional Options argument\n",
 	 "  which is a list of options.\n",
 	 "\n",
 	 "Run options supported:\n",
@@ -158,7 +160,7 @@ help(installed) ->
 	 "  {ctp | ctpl, Mod, Func}\n",
 	 "  {ctp | ctpl, Mod, Func, Arity}\n",
 	 "\n",
-	 "Support functions\n",
+	 "Support functions:\n",
 	 "  ts:tests()        - Shows all available families of tests.\n",
 	 "  ts:tests(Spec)    - Shows all available test modules in Spec,\n",
 	 "                      i.e. ../Spec_test/*_SUITE.erl\n",
@@ -179,6 +181,13 @@ help(installed) ->
 	 "                    - Compile all testcases for usage in a cross ~n"
 	 "                      compile environment."
 	 " \n"
+	 "Benchmark functions:\n"
+	 "  ts:benchmarks()   - Get all available families of benchmarks\n"
+	 "  ts:bench()        - Runs all benchmarks\n"
+	 "  ts:bench(Spec)    - Runs all benchmarks in the given spec file.\n"
+	 "                      The spec file is actually ../*_test/Spec_bench.spec\n\n"
+	 "                      ts:bench can take the same Options argument as ts:run.\n"
+	 "\n"
 	 "Installation (already done):\n"
 	],
     show_help([H,?install_help]).
@@ -490,6 +499,25 @@ tests() ->
 tests(Spec) ->
     {ok, Cwd} = file:get_cwd(),
     ts_lib:suites(Cwd, atom_to_list(Spec)).
+
+%% Benchmark related functions
+
+bench() ->
+    bench([]).
+
+bench(Opts) when is_list(Opts) ->
+    bench(benchmarks(),Opts);
+bench(Spec) ->
+    bench([Spec],[]).
+
+bench(Spec, Opts) when is_atom(Spec) ->
+    bench([Spec],Opts);
+bench(Specs, Opts) ->
+    check_and_run(fun(Vars) -> ts_benchmark:run(Specs, Opts, Vars) end).
+
+benchmarks() ->
+    ts_benchmark:benchmarks().
+
 
 
 %% 

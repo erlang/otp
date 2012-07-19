@@ -1,0 +1,1 @@
+{suites,"../mnesia_test",[mnesia_bench_SUITE]}.
