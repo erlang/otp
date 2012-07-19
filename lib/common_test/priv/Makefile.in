@@ -108,6 +108,7 @@ else
 FILES = vts.tool 
 IMAGES = tile1.jpg
 CSS = ct_default.css
+JS = jquery-latest.js jquery.tablesorter.min.js 
 
 #
 # Rules
