@@ -49,7 +49,6 @@
   <xi:include href="escript.xml"/>
   <xi:include href="erlsrv.xml"/>
   <xi:include href="start_erl.xml"/>
-  <xi:include href="erl_set_memory_block.xml"/>
   <xi:include href="run_erl.xml"/>
   <xi:include href="start.xml"/>
   <xi:include href="erl_driver.xml"/>
