@@ -77,19 +77,13 @@ OTP_RELEASE = @OTP_RELEASE@
 #	Erlang language section
 # ----------------------------------------------------
 EMULATOR = beam
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-# VxWorks object files should be compressed.
-# Other object files should have debug_info.
-  ERL_COMPILE_FLAGS += +compressed
+ifeq ($(findstring ose_ppc750,$(TARGET)),ose_ppc750)
+ERL_COMPILE_FLAGS += +compressed
 else
-  ifeq ($(findstring ose_ppc750,$(TARGET)),ose_ppc750)
-    ERL_COMPILE_FLAGS += +compressed
+  ifdef BOOTSTRAP
+    ERL_COMPILE_FLAGS += +slim
   else
-    ifdef BOOTSTRAP
-      ERL_COMPILE_FLAGS += +slim
-    else
-      ERL_COMPILE_FLAGS += +debug_info
-    endif
+    ERL_COMPILE_FLAGS += +debug_info
   endif
 endif
 ERLC_WFLAGS = -W
