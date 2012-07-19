@@ -49,9 +49,12 @@ init(Path, Opts) ->
 	    properties = proplists:get_value(properties,Opts,[]),
 	    timer = now() }.
 
-pre_init_per_suite(Suite,Config,State) ->
+pre_init_per_suite(Suite,Config,#state{ test_cases = [] } = State) ->
     {Config, init_tc(State#state{ curr_suite = Suite, curr_suite_ts = now() },
-		     Config) }.
+		     Config) };
+pre_init_per_suite(Suite,Config,State) ->
+    %% Have to close the previous suite
+    pre_init_per_suite(Suite,Config,close_suite(State)).
 
 post_init_per_suite(_Suite,Config, Result, State) ->
     {Result, end_tc(init_per_suite,Config,Result,State)}.
@@ -59,11 +62,7 @@ post_init_per_suite(_Suite,Config, Result, State) ->
 pre_end_per_suite(_Suite,Config,State) -> {Config, init_tc(State, Config)}.
 
 post_end_per_suite(_Suite,Config,Result,State) ->
-    NewState = end_tc(end_per_suite,Config,Result,State),
-    TCs = NewState#state.test_cases,
-    Suite = get_suite(NewState, TCs),
-    {Result, State#state{ test_cases = [],
-			  test_suites = [Suite | State#state.test_suites]}}.
+    {Result, end_tc(end_per_suite,Config,Result,State)}.
 
 pre_init_per_group(Group,Config,State) ->
     {Config, init_tc(State#state{ curr_group = [Group|State#state.curr_group]},
@@ -90,7 +89,12 @@ on_tc_fail(_TC, Res, State) ->
 			     {fail,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
+on_tc_skip(Tc,{Type,Reason} = Res, State) when Type == tc_auto_skip ->
+    do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(State,[])));
 on_tc_skip(_Tc, Res, State) ->
+    do_tc_skip(Res, State).
+
+do_tc_skip(Res, State) ->
     TCs = State#state.test_cases,
     TC = hd(State#state.test_cases),
     NewTC = TC#testcase{
@@ -98,9 +102,11 @@ on_tc_skip(_Tc, Res, State) ->
 		  {skipped,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
+init_tc(State, Config) when is_list(Config) == false ->
+    State#state{ timer = now(), tc_log =  "" };
 init_tc(State, Config) ->
     State#state{ timer = now(),
-		 tc_log =  proplists:get_value(tc_logfile, Config)}.
+		 tc_log =  proplists:get_value(tc_logfile, Config, [])}.
 
 end_tc(Func, Config, Res, State) when is_atom(Func) ->
     end_tc(atom_to_list(Func), Config, Res, State);
@@ -118,26 +124,35 @@ end_tc(Name, _Config, _Res, State = #state{ curr_suite = Suite,
 					  name = Name,
 					  time = TimeTakes,
 					  failure = passed }| State#state.test_cases]}.
-
-get_suite(State, TCs) ->
+close_suite(#state{ test_cases = [] } = State) ->
+    State;
+close_suite(#state{ test_cases = TCs } = State) ->
     Total = length(TCs),
     Succ = length(lists:filter(fun(#testcase{ failure = F }) ->
 				       F == passed
 			       end,TCs)),
     Fail = Total - Succ,
     TimeTaken = timer:now_diff(now(),State#state.curr_suite_ts) / 1000000,
-    #testsuite{ name = atom_to_list(State#state.curr_suite),
-		package = State#state.package,
-		time = io_lib:format("~f",[TimeTaken]),
-		timestamp = now_to_string(State#state.curr_suite_ts),
-		errors = Fail, tests = Total, testcases = lists:reverse(TCs) }.
+    Suite = #testsuite{ name = atom_to_list(State#state.curr_suite),
+			package = State#state.package,
+			time = io_lib:format("~f",[TimeTaken]),
+			timestamp = now_to_string(State#state.curr_suite_ts),
+			errors = Fail, tests = Total,
+			testcases = lists:reverse(TCs) },
+    State#state{ test_cases = [],
+		 test_suites = [Suite | State#state.test_suites]}.
 
-terminate(State) ->
-    {ok,D} = file:open(State#state.filepath,[write]),
+terminate(State = #state{ test_cases = [] }) ->
+    {ok,D} = file:open(State#state.filepath,[write,{encoding,utf8}]),
     io:format(D, "<?xml version=\"1.0\" encoding= \"UTF-8\" ?>", []),
     io:format(D, to_xml(State), []),
     catch file:sync(D),
-    catch file:close(D).
+    catch file:close(D);
+terminate(State) ->
+    %% Have to close the last suite
+    terminate(close_suite(State)).
+
+
 
 to_xml(#testcase{ group = Group, classname = CL, log = L, name = N, time = T, timestamp = TS, failure = F}) ->
     ["<testcase ",
