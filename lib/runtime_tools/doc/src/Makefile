@@ -43,8 +43,10 @@ XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = dbg.xml dyntrace.xml erts_alloc_config.xml
 XML_REF6_FILES = runtime_tools_app.xml
 
-XML_PART_FILES = part_notes.xml part_notes_history.xml
+XML_PART_FILES = part_notes.xml part_notes_history.xml part.xml
 XML_CHAPTER_FILES = notes.xml notes_history.xml
+
+GENERATED_XML_FILES = DTRACE.xml SYSTEMTAP.xml
 
 BOOK_FILES = book.xml
 
@@ -78,6 +80,11 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+$(XML_FILES): $(GENERATED_XML_FILES)
+
+%.xml: $(ERL_TOP)/HOWTO/%.md $(ERL_TOP)/make/emd2exml
+	$(ERL_TOP)/make/emd2exml $< $@
+
 $(HTMLDIR)/%.gif: %.gif
 	$(INSTALL_DATA) $< $@
 

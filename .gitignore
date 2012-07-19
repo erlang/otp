@@ -86,6 +86,8 @@ lib/os_mon/priv/obj/win32/
 lib/runtime_tools/c_src/win32/
 lib/runtime_tools/priv/lib/
 lib/runtime_tools/priv/obj/
+lib/runtime_tools/doc/src/DTRACE.xml
+lib/runtime_tools/doc/src/SYSTEMTAP.xml
 lib/tools/bin/win32/
 lib/tools/c_src/win32/
 lib/tools/obj/win32/

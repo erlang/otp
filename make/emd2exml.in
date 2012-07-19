@@ -266,8 +266,11 @@ parse(#state{code = true, type = blank, line = CB, code_blank = CBs} = S)  ->
 parse(#state{code = true,
 	     code_blank = CB,
 	     list_lvl = Lvl,
-	     type = {text, TxtLvl},
-	     line = Line} = S) when TxtLvl > Lvl ->
+	     type = {Type, TxtLvl},
+	     line = Line} = S) when TxtLvl > Lvl,
+				    (Type == text orelse 
+				     Type == uolist orelse
+				     Type == olist)  ->
     Data = code(strip_lvls(Lvl+1, Line)),
     parse(get_line(put_chars(S#state{code_blank = []},
 			    [strip_code_blank(Lvl+1, CB), Data])));

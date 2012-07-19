@@ -16,13 +16,13 @@ e.g. `foo_module:dtrace_probe("message goes here!")`.
 Goals
 -----
 
-1. Annotate as much of the Erlang VM as is practical.
+* Annotate as much of the Erlang VM as is practical.
    * The initial goal is to trace file I/O operations.
-2. Support all platforms that implement DTrace: OS X, Solaris,
-   and (I hope) FreeBSD and NetBSD.
-3. To the extent that it's practical, support SystemTap on Linux
-   via DTrace provider compatibility.
-4. Allow Erlang code to supply annotations.
+* Support all platforms that implement DTrace: OS X, Solaris,
+  and (I hope) FreeBSD and NetBSD.
+* To the extent that it's practical, support SystemTap on Linux
+  via DTrace provider compatibility.
+* Allow Erlang code to supply annotations.
 
 Supported platforms
 -------------------
@@ -43,10 +43,10 @@ is `--with-dynamic-trace=systemtap`
 Status
 ------
 
-As of R15B01, the dynamic trace code is included in the main OTP distribution,
+As of R15B01, the dynamic trace code is included in the OTP source distribution,
 although it's considered experimental. The main development of the dtrace code 
 still happens outside of Ericsson, but there is no need to fetch a patched 
-version of OTP to get the basic funtionality. 
+version of the OTP source to get the basic funtionality.
 
 Implementation summary
 ----------------------
@@ -66,9 +66,7 @@ following may be executed in a different Pthread:
 * `efile_drv` command execution (C code)
 * `efile_drv` status return (C code)
 
-**TODO: keep this description up-to-date.**
-
-Example output from `lib/dtrace/examples/efile_drv.d` while executing
+Example output from `lib/runtime_tools/examples/efile_drv.d` while executing
 `file:rename("old-name", "new-name")`:
 
     efile_drv enter tag={3,84} user tag some-user-tag | RENAME (12) | args: old-name new-name , 0 0 (port #Port<0.59>)
@@ -83,7 +81,7 @@ Example output from `lib/dtrace/examples/efile_drv.d` while executing
   these two numbers form a unique ID for the I/O operation.
 * `12` is the command number for the rename operation.  See the
   definition for `FILE_RENAME` in the source code file `efile_drv.c`
-  or the `BEGIN` section of the D script `lib/dtrace/examples/efile_drv.d`.
+  or the `BEGIN` section of the D script `lib/runtime_tools/examples/efile_drv.d`.
 * `old-name` and `new-name` are the two string arguments for the
   source and destination of the `rename(2)` system call.
   The two integer arguments are unused; the simple formatting code
@@ -101,8 +99,8 @@ So, where does the `some-user-tag` string come from?
 
 At the moment, the user tag comes from code like the following:
 
-    put(dtrace_utag, "some-user-tag"),
-    file:rename("old-name", "new-name").
+    dyntrace:put_tag("some-user-tag"),
+    file:rename("old-name", "new-name"),
 
 This method of tagging I/O at the Erlang level is subject to change.
 

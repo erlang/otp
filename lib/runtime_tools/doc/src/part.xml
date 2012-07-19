@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE book SYSTEM "book.dtd">
+<!DOCTYPE part SYSTEM "part.dtd">
 
-<book xmlns:xi="http://www.w3.org/2001/XInclude">
-  <header titlestyle="normal">
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>2012</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -21,29 +21,22 @@
     
     </legalnotice>
 
-    <title>Runtime_Tools</title>
-    <prepared>Patrik Nyblom</prepared>
+    <title>Runtime Tools User's Guide</title>
+    <prepared>Lukas Larsson</prepared>
     <docno></docno>
-    <date>1999-05-31</date>
-    <rev>A</rev>
-    <file>book.sgml</file>
+    <date>2012-07-18</date>
+    <rev></rev>
+    <file>part.xml</file>
   </header>
-  <insidecover>
-  </insidecover>
-  <pagetext>Runtime_Tools</pagetext>
-  <preamble>
-    <contents level="2"></contents>
-  </preamble>
-  <parts lift="no">
-    <xi:include href="part.xml"/>
-  </parts>
-  <applications>
-    <xi:include href="ref_man.xml"/>
-  </applications>
-  <releasenotes>
-    <xi:include href="notes.xml"/>
-  </releasenotes>
-  <listofterms></listofterms>
-  <index></index>
-</book>
+  
+  <description>
+      <p><em>Runtime Tools</em></p>
+  </description>
+
+  <xi:include href="DTRACE.xml"/>
+  <xi:include href="SYSTEMTAP.xml"/>
+</part>
+          
+
+
 
