@@ -55,7 +55,6 @@ XML_REF3_EFILES = \
 XML_REF3_FILES = \
 	driver_entry.xml \
 	erl_nif.xml \
-	erl_set_memory_block.xml \
 	erl_driver.xml \
 	erl_prim_loader.xml \
 	erlang.xml \
@@ -158,9 +157,6 @@ $(SPECDIR)/specs_driver_entry.xml:
 $(SPECDIR)/specs_erl_nif.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module erl_nif
-$(SPECDIR)/specs_erl_set_memory_block.xml:
-	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
-                -o$(dir $@) -module erl_set_memory_block
 $(SPECDIR)/specs_erl_driver.xml:
 	escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module erl_driver
