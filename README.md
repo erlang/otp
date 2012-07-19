@@ -18,7 +18,7 @@ Building and Installing
 -----------------------
 
 Information on building and installing Erlang/OTP can be found
-in the `INSTALL.md` document.
+in the [$ERL_TOP/HOWTO/INSTALL.md][] document.
 
 Contributing to Erlang/OTP
 --------------------------
@@ -74,3 +74,4 @@ Copyright and License
    [1]: http://www.erlang.org
    [2]: http://wiki.github.com/erlang/otp/submitting-patches
    [3]: http://www.erlang.org/faq.html
+   [$ERL_TOP/HOWTO/INSTALL.md]: HOWTO/INSTALL.md

@@ -18,10 +18,10 @@ Erlang/OTP should be possible to build from source on any Unix system,
 including Mac OS X. This document describes how to native compile Erlang/OTP
 on Unix. For detailed instructions on how to
 
-*   cross compile Erlang/OTP, see the [$ERL_TOP/INSTALL-CROSS.md][]
+*   cross compile Erlang/OTP, see the [$ERL_TOP/HOWTO/INSTALL-CROSS.md][]
     document.
 
-*   build Erlang/OTP on Windows, see the [$ERL_TOP/INSTALL-WIN32.md][]
+*   build Erlang/OTP on Windows, see the [$ERL_TOP/HOWTO/INSTALL-WIN32.md][]
     document.
 
     Binary releases for Windows can be found at
@@ -821,12 +821,12 @@ Modifying This Document
 -----------------------
 
 Before modifying this document you need to have a look at the
-`$ERL_TOP/README.md.txt` document.
+[$ERL_TOP/HOWTO/MARKDOWN.md][] document.
 
 
 
-   [$ERL_TOP/INSTALL-CROSS.md]: INSTALL-CROSS
-   [$ERL_TOP/INSTALL-WIN32.md]: INSTALL-WIN32
+   [$ERL_TOP/HOWTO/INSTALL-CROSS.md]: INSTALL-CROSS.md
+   [$ERL_TOP/HOWTO/INSTALL-WIN32.md]: INSTALL-WIN32.md
    [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
    [Building in Git]: #How-to-Build-and-Install-ErlangOTP_Building-in-Git
    [Pre-built Source Release]: #How-to-Build-and-Install-ErlangOTP_Prebuilt-Source-Release
@@ -834,5 +834,6 @@ Before modifying this document you need to have a look at the
    [html documentation]: http://www.erlang.org/download/otp_doc_html_%OTP-REL%.tar.gz
    [man pages]: http://www.erlang.org/download/otp_doc_man_%OTP-REL%.tar.gz
    [the released source tar ball]: http://www.erlang.org/download/otp_src_%OTP-REL%.tar.gz
+   [$ERL_TOP/HOWTO/MARKDOWN.md]: MARKDOWN.md
 
    [?TOC]: true
