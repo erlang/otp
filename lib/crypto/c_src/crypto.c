@@ -2398,13 +2398,13 @@ static void hmac_sha384(unsigned char *key, int klen,
 			unsigned char *hmacbuf)
 {
     SHA512_CTX ctx;
-    char ipad[HMAC_INT_LEN];
-    char opad[HMAC_INT_LEN];
+    char ipad[HMAC_INT2_LEN];
+    char opad[HMAC_INT2_LEN];
     unsigned char nkey[SHA384_DIGEST_LENGTH];
     int i;
 
     /* Change key if longer than 64 bytes */
-    if (klen > HMAC_INT_LEN) {
+    if (klen > HMAC_INT2_LEN) {
 	SHA384(key, klen, nkey);
 	key = nkey;
 	klen = SHA384_DIGEST_LENGTH;
@@ -2415,19 +2415,19 @@ static void hmac_sha384(unsigned char *key, int klen,
     memcpy(ipad, key, klen);
     memcpy(opad, key, klen);
 
-    for (i = 0; i < HMAC_INT_LEN; i++) {
+    for (i = 0; i < HMAC_INT2_LEN; i++) {
 	ipad[i] ^= HMAC_IPAD;
 	opad[i] ^= HMAC_OPAD;
     }
 
     /* inner SHA */
     SHA384_Init(&ctx);
-    SHA384_Update(&ctx, ipad, HMAC_INT_LEN);
+    SHA384_Update(&ctx, ipad, HMAC_INT2_LEN);
     SHA384_Update(&ctx, dbuf, dlen);
     SHA384_Final((unsigned char *) hmacbuf, &ctx);
     /* outer SHA */
     SHA384_Init(&ctx);
-    SHA384_Update(&ctx, opad, HMAC_INT_LEN);
+    SHA384_Update(&ctx, opad, HMAC_INT2_LEN);
     SHA384_Update(&ctx, hmacbuf, SHA384_DIGEST_LENGTH);
     SHA384_Final((unsigned char *) hmacbuf, &ctx);
 }
