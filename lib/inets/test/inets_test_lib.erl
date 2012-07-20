@@ -543,12 +543,14 @@ connect(ip_comm, Host, Port, Opts, Type) ->
 			       (Reason =:= enetunreach) orelse 
 			       (Reason =:= econnrefused) orelse 
 			       (Reason =:= ehostunreach))) ->
-	    tsp("connect error ~w when"
-		"~n   Opts: ~p", [Reason, Opts]),
+	    tsp("connect(ip_comm) -> Connect error: "
+		"~n   Reason: ~p"
+		"~n   Type:   ~p"
+		"~n   Opts:   ~p", [Reason, Type, Opts]),
 	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
 
 	Error ->
-	    tsp("connect(ip_conn) -> Fatal connect error: "
+	    tsp("connect(ip_comm) -> Fatal connect error: "
 		"~n   Error: ~p"
 		"~nwhen"
 		"~n   Host:  ~p"
