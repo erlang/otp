@@ -177,7 +177,7 @@ close(ConnectionManager, ChannelId) ->
 %% Description: Send status replies to requests that want such replies.
 %%--------------------------------------------------------------------
 reply_request(ConnectionManager, true, Status, ChannelId) ->
-    ConnectionManager ! {ssh_cm, self(), {Status, ChannelId}},
+    ssh_connection_manager:reply_request(ConnectionManager, Status, ChannelId),
     ok;
 reply_request(_,false, _, _) ->
     ok.
