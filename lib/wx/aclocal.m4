@@ -621,25 +621,68 @@ AC_DEFUN([AC_C_DOUBLE_MIDDLE_ENDIAN],
 [AC_CACHE_CHECK(whether double word ordering is middle-endian, ac_cv_c_double_middle_endian,
 [# It does not; compile a test program.
 AC_RUN_IFELSE(
-[AC_LANG_SOURCE([[int
+[AC_LANG_SOURCE([[#include <stdlib.h>
+
+int
 main(void)
 {
   int i = 0;
   int zero = 0;
+  int bigendian;
+  int zero_index = 0;
+
+  union
+  {
+    long int l;
+    char c[sizeof (long int)];
+  } u;
+
+  /* we'll use the one with 32-bit words */
   union
   {
     double d;
-    char c[sizeof (double)];
-  } v;
-  v.d = 1.0;
-  
-  
-  while (i < sizeof(double) / 2)
+    unsigned int c[2];
+  } vint;
+
+  union
+  {
+    double d;
+    unsigned long c[2];
+  } vlong;
+
+  union
+  {
+    double d;
+    unsigned short c[2];
+  } vshort;
+
+
+  /* Are we little or big endian?  From Harbison&Steele.  */
+  u.l = 1;
+  bigendian = (u.c[sizeof (long int) - 1] == 1);
+
+  zero_index = bigendian ? 1 : 0;
+
+  vint.d = 1.0;
+  vlong.d = 1.0;
+  vshort.d = 1.0;
+
+  if (sizeof(unsigned int) == 4)
     {
-      if (v.c[i] != 0)
+      if (vint.c[zero_index] != 0)
 	zero = 1;
-      ++i;
     }
+  else if (sizeof(unsigned long) == 4)
+    {
+      if (vlong.c[zero_index] != 0)
+	zero = 1;
+    }
+  else if (sizeof(unsigned short) == 4)
+    {
+      if (vshort.c[zero_index] != 0)
+	zero = 1;
+    }
+
   exit (zero);
 }
 ]])],
@@ -656,7 +699,7 @@ case $ac_cv_c_double_middle_endian in
     $2 ;;
   *)
     m4_default([$3],
-      [AC_MSG_ERROR([unknown double endianness
+      [AC_MSG_WARN([unknown double endianness
 presetting ac_cv_c_double_middle_endian=no (or yes) will help])]) ;;
 esac
 ])# AC_C_DOUBLE_MIDDLE_ENDIAN
@@ -1394,7 +1437,7 @@ fi
 
 case X$erl_xcomp_double_middle_endian in
     X) ;;
-    Xyes|Xno) ac_cv_c_double_middle_endian=$erl_xcomp_double_middle_endian;;
+    Xyes|Xno|Xunknown) ac_cv_c_double_middle_endian=$erl_xcomp_double_middle_endian;;
     *) AC_MSG_ERROR([Bad erl_xcomp_double_middle_endian value: $erl_xcomp_double_middle_endian]);;
 esac
 
