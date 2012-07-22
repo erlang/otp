@@ -295,7 +295,7 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           terminates with reason <c>Term</c>.</p>
         <p>If any child process start function fails or returns an error
           tuple or an erroneous value, the function returns
-          <c>{error,shutdown}</c> and the supervisor terminates all
+          <c>{error, {shutdown, Reason}}</c> and the supervisor terminates all
           started child processes and then itself with reason
           <c>shutdown</c>.</p>
       </desc>

@@ -46,6 +46,7 @@
 	  temporary_normal/1,
 	  permanent_shutdown/1, transient_shutdown/1,
 	  temporary_shutdown/1,
+          faulty_application_shutdown/1,
 	  permanent_abnormal/1, transient_abnormal/1,
 	  temporary_abnormal/1, temporary_bystander/1]).
 
@@ -98,7 +99,8 @@ groups() ->
      {normal_termination, [],
       [permanent_normal, transient_normal, temporary_normal]},
      {shutdown_termination, [],
-      [permanent_shutdown, transient_shutdown, temporary_shutdown]},
+      [permanent_shutdown, transient_shutdown, temporary_shutdown,
+       faulty_application_shutdown]},
      {abnormal_termination, [],
       [permanent_abnormal, transient_abnormal,
        temporary_abnormal]},
@@ -657,6 +659,32 @@ temporary_shutdown(Config) when is_list(Config) ->
 
     [] = supervisor:which_children(sup_test),
     [0,0,0,0] = get_child_counts(sup_test).
+
+%%-------------------------------------------------------------------------
+%% Faulty application should shutdown and pass on errors
+faulty_application_shutdown(Config) when is_list(Config) ->
+
+    %% Set some paths
+    AppDir  = filename:join(?config(data_dir, Config), "app_faulty"),
+    EbinDir = filename:join(AppDir, "ebin"),
+
+    %% Start faulty app
+    code:add_patha(EbinDir),
+
+    % {error,
+    %   {{shutdown,
+    %     {undef,[
+    %       {an_undefined_module_with,an_undefined_function,[argument1,argument2],[]},
+    %       {app_faulty_server,init,1,[{file,"app_faulty/src/app_faulty_server.erl"},{line,16}]},
+    %       {gen_server,init_it,6,[{file,"gen_server.erl"},{line,304}]},
+    %       {proc_lib,init_p_do_apply,3,[{file,"proc_lib.erl"},{line,227}]}
+    %   ]}},{app_faulty,start,[normal,[]]}}}
+
+    {error, Error} = application:start(app_faulty),
+    {{shutdown, {undef, CallStack}},{app_faulty,start,_}} = Error,
+    [{an_undefined_module_with,an_undefined_function,_,_}|_] = CallStack,
+    ok = application:unload(app_faulty),
+    ok.
 
 %%-------------------------------------------------------------------------
 %% A permanent child should always be restarted.
