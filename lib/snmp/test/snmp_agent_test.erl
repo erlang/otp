@@ -346,9 +346,15 @@ end_per_group(_GroupName, Config) ->
 
 
 
+%% ---- Init Per TestCase ---- 
+
 init_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
-	 "~n   Agant Info: ~p", [snmpa:info()]),
+	 "~n   Config: ~p", [Config]),
+
+    p("Agent Info: "
+      "~n   ~p", [snmpa:info()]),
+
     init_per_testcase1(Case, Config).
 
 init_per_testcase1(otp8395 = Case, Config) when is_list(Config) ->
@@ -386,11 +392,16 @@ init_per_testcase1(_Case, Config) when is_list(Config) ->
     Dog = ?WD_START(?MINS(6)),
     [{watchdog, Dog}| Config ].
 
+
+%% ---- End Per TestCase ---- 
+
 end_per_testcase(Case, Config) when is_list(Config) ->
     ?DBG("end_per_testcase -> entry with"
-	 "~n   Agant Info: ~p", [snmpa:info()]),
+	 "~n   Config: ~p", [Config]),
 
-    p("Display log"),
+    p("Agent Info: "
+      "~n   ~p", [snmpa:info()]),
+
     display_log(Config),
     
     end_per_testcase1(Case, Config).
