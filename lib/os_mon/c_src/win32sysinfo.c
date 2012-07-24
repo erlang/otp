@@ -89,6 +89,7 @@ typedef BOOL (WINAPI *tfpGetDiskFreeSpaceEx)(LPCTSTR, PULARGE_INTEGER,PULARGE_IN
 
 static  tfpGetDiskFreeSpaceEx fpGetDiskFreeSpaceEx;
 
+static void print_error(const char *msg);
 static void
 return_answer(char* value)
 {
@@ -98,7 +99,7 @@ return_answer(char* value)
 
     res = write(1,(char*) &bytes,1);
     if (res != 1) {
-	fprintf(stderr,"win32sysinfo:Error writing to pipe");
+	print_error("Error writing to pipe");
 	exit(1);
     }
 
@@ -107,9 +108,8 @@ return_answer(char* value)
     while (left > 0)
     {
 	res = write(1, value+bytes-left, left);
-	if (res <= 0)
-	{
-	    fprintf(stderr,"win32sysinfo:Error writing to pipe");
+	if (res <= 0) {
+	    print_error("Error writing to pipe");
 	    exit(1);
 	}
 	left -= res;
@@ -248,7 +248,6 @@ message_loop()
     char cmd[512];
     int res;
     
-    fprintf(stderr,"in message_loop\n");
     /* Startup ACK. */
     return_answer(OK);
     while (1)
@@ -257,12 +256,12 @@ message_loop()
 	 *  Wait for command from Erlang
 	 */
 	if ((res = read(0, &cmdLen, 1)) < 0) {
-	    fprintf(stderr,"win32sysinfo:Error reading from Erlang.");
+	    print_error("Error reading from Erlang");
 	    return;
 	}
 	
 	if (res != 1){	/* Exactly one byte read ? */ 
-	    fprintf(stderr,"win32sysinfo:Erlang has closed.");
+	    print_error("Erlang has closed");
 	    return;
 	}
 	if ((res = read(0, &cmd, cmdLen)) == cmdLen){
@@ -291,11 +290,11 @@ message_loop()
 		    return_answer("xEND");
 	}    
 	else if (res == 0) {
-	    fprintf(stderr,"win32sysinfo:Erlang has closed.");
+	    print_error("Erlang has closed");
 	    return;
 	}
 	else {
-	    fprintf(stderr,"win32sysinfo:Error reading from Erlang.");
+	    print_error("Error reading from Erlang");
 	    return;
 	} 
     }
@@ -309,10 +308,9 @@ int main(int argc, char ** argv){
     message_loop();
     return 0;    
 }
-
-
-
-
-
-
-
+static void
+print_error(const char *msg) {
+  /* try to use one write only */
+  fprintf(stderr, "[os_mon] win32 supervisor port (win32sysinfo): %s\r\n", msg);
+  fflush(stderr);
+}
