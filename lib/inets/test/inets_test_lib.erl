@@ -531,7 +531,7 @@ connect(ip_comm, Host, Port, Opts, Type) ->
 	"~n   Opts: ~p"
 	"~n   Type: ~p", [Host, Port, Opts, Type]),
     
-    case gen_tcp:connect(Host, Port, Opts) of
+    case gen_tcp:connect(Host, Port, Opts, timer:seconds(10)) of
 	{ok, Socket} ->
 	    tsp("connect success"),
 	    {ok, Socket};
