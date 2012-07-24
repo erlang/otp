@@ -452,8 +452,8 @@ fe80::204:acff:fe17:bf38
 				  Scans every byte in received data-packets and checks if the 8 bit
 				  is set in any of them. Information is retrieved with
 				  <c>inet:getopts/2</c>.
-				  <note>Deprecated! Will be removed in Erlang/OTP R16.</note>
 			  </p>
+			  <p>Note that the <c>bit8</c> option is deprecated and will be removed in Erlang/OTP R16.</p>
 		  </item>
 
           <tag><c>{broadcast, Boolean}</c>(UDP sockets)</tag>
