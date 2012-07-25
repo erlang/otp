@@ -68,6 +68,6 @@ At the moment of writing this HOWTO the tool for viewing benchmark results is
 not available as opensource. This will hopefully change in the near future.
 
 
-   [release the tests]: README.testing.md#releasing-tests
-   [install the tests]: README.testing.md#configuring-the-test-environment
+   [release the tests]: TESTING.md#releasing-tests
+   [install the tests]: TESTING.md#configuring-the-test-environment
 
