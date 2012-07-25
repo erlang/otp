@@ -56,15 +56,13 @@
 
 typedef erts_aint32_t ErtsProcLocks;
 
-typedef struct erts_proc_lock_queues_t_ erts_proc_lock_queues_t;
-
 typedef struct erts_proc_lock_t_ {
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
     erts_smp_atomic32_t flags;
 #else
     ErtsProcLocks flags;
 #endif
-    erts_proc_lock_queues_t *queues;
+    erts_tse_t *queue[ERTS_PROC_LOCK_MAX_BIT+1];
     Sint32 refc;
 #ifdef ERTS_PROC_LOCK_DEBUG
     erts_smp_atomic32_t locked[ERTS_PROC_LOCK_MAX_BIT+1];
