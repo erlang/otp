@@ -145,6 +145,7 @@ typedef struct {
 
 typedef struct {
     SQLCHAR sqlState[SQL_STATE_SIZE];
+    SQLINTEGER nativeError;
     byte error_msg[MAX_ERR_MSG];
 } diagnos;
 
@@ -179,6 +180,7 @@ typedef struct {
     Boolean exists_more_result_sets;
     Boolean param_query;
     Boolean out_params;
+    Boolean extended_errors;
 } db_state;
 
 typedef enum {
@@ -198,3 +200,5 @@ typedef enum {
 #define exists_more_result_sets(db_state) (db_state -> exists_more_result_sets)
 #define param_query(db_state) (db_state -> param_query)
 #define out_params(db_state) (db_state -> out_params)
+#define extended_errors(db_state) (db_state -> extended_errors)
+#define extended_error(db_state, errorcode) ( extended_errors(state) ? errorcode : NULL )

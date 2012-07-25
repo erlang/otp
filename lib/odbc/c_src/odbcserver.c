@@ -153,7 +153,7 @@ static db_result_msg db_describe_table(byte *sql, db_state *state);
 /* ------------- Encode/decode functions -------- ------------------------*/
 
 static db_result_msg encode_empty_message(void);
-static db_result_msg encode_error_message(char *reason);
+static db_result_msg encode_error_message(char *reason, char *errCode, SQLINTEGER nativeError);
 static db_result_msg encode_atom_message(char *atom);
 static db_result_msg encode_result(db_state *state);
 static db_result_msg encode_result_set(SQLSMALLINT num_of_columns,
@@ -230,7 +230,7 @@ static void init_param_statement(int cols,
 
 static void map_dec_num_2_c_column(col_type *type, int precision,
 				   int scale);
-static db_result_msg map_sql_2_c_column(db_column* column);
+static db_result_msg map_sql_2_c_column(db_column* column, db_state *state);
 
 
 static param_array * bind_parameter_arrays(byte *buffer, int *index,
@@ -246,7 +246,7 @@ static db_result_msg retrive_scrollable_cursor_support_info(db_state
 static int num_out_params(int num_of_params, param_array* params);
 /* ------------- Error handling functions --------------------------------*/
 
-static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle);
+static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean extendedErrors);
 
 /* ------------- Boolean functions ---------------------------------------*/
 
@@ -349,7 +349,7 @@ DWORD WINAPI database_handler(const char *port)
     byte *request_buffer = NULL;
     db_state state =
     {NULL, NULL, NULL, NULL, 0, {NULL, 0, 0},
-     FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};
+     FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};
     byte request_id;
 #ifdef WIN32
     SOCKET socket;
@@ -438,14 +438,16 @@ static db_result_msg db_connect(byte *args, db_state *state)
     diagnos diagnos;
     byte *connStrIn; 
     int erl_auto_commit_mode, erl_trace_driver,
-	    use_srollable_cursors, tuple_row_state, binary_strings;
+	    use_srollable_cursors, tuple_row_state, binary_strings,
+	    extended_errors;
   
     erl_auto_commit_mode = args[0];
     erl_trace_driver = args[1];
     use_srollable_cursors = args[2];
     tuple_row_state = args[3];
     binary_strings = args[4];
-    connStrIn = args + 5 * sizeof(byte);
+    extended_errors = args[5];
+    connStrIn = args + 6 * sizeof(byte);
 
     if(tuple_row_state == ON) {
 	    tuple_row(state) = TRUE;  
@@ -465,6 +467,12 @@ static db_result_msg db_connect(byte *args, db_state *state)
 	    use_srollable_cursors(state) = FALSE;
     }
 
+    if(extended_errors == ON) {
+	    extended_errors(state) = TRUE;
+    } else {
+	    extended_errors(state) = FALSE;
+    }
+
     init_driver(erl_auto_commit_mode, erl_trace_driver, state); 
       
     connlen = (SQLSMALLINT)strlen((const char*)connStrIn);
@@ -475,10 +483,10 @@ static db_result_msg db_connect(byte *args, db_state *state)
 			      &stringlength2ptr, SQL_DRIVER_NOPROMPT);
   
     if (!sql_success(result)) {
-	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state));
+	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
 	strcat((char *)diagnos.error_msg,
 	       " Connection to database failed.");
-	msg = encode_error_message(diagnos.error_msg);
+	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError );
     
 	if(!sql_success(SQLFreeHandle(SQL_HANDLE_DBC,
 				      connection_handle(state))))
@@ -509,8 +517,8 @@ static db_result_msg db_close_connection(db_state *state)
     result = SQLDisconnect(connection_handle(state));
                        
     if (!sql_success(result)) {
-	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state));
-	return encode_error_message(diagnos.error_msg);
+	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
+	return encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
     }
 
     if(!sql_success(SQLFreeHandle(SQL_HANDLE_DBC,
@@ -536,8 +544,8 @@ static db_result_msg db_end_tran(byte compleationtype, db_state *state)
 			(SQLSMALLINT)compleationtype);
 
     if (!sql_success(result)) {
-	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state));
-	return encode_error_message(diagnos.error_msg);
+	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
+	return encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
     } else {
 	return encode_atom_message("ok");
     }
@@ -572,7 +580,7 @@ static db_result_msg db_query(byte *sql, db_state *state)
     
     /* SQL_SUCCESS_WITH_INFO at this point may indicate an error in user input. */
     if (result != SQL_SUCCESS && result != SQL_NO_DATA_FOUND) {
-	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	    if(strcmp((char *)diagnos.sqlState, INFO) == 0) { 
 		    is_error[0] = 0;
 		    strncat((char *)is_error, (char *)diagnos.error_msg, 
@@ -583,12 +591,12 @@ static db_result_msg db_query(byte *sql, db_state *state)
 		       it as we want a nice and clean Erlang API  */
 		    if((strcmp((char *)is_error, "error") == 0))
 		    { 
- 			    msg = encode_error_message((char *)diagnos.error_msg); 
+			    msg = encode_error_message((char *)diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
  			    clean_state(state); 
 			    return msg;
 		    }  
 	    } else {
-		    msg = encode_error_message((char *)diagnos.error_msg); 
+		    msg = encode_error_message((char *)diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 		    clean_state(state); 
 		    return msg;   
 	    }	    
@@ -661,9 +669,9 @@ static db_result_msg db_select_count(byte *sql, db_state *state)
     }
     
     if(!sql_success(SQLExecDirect(statement_handle(state), sql, SQL_NTS))) {
-	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	clean_state(state);
-	return encode_error_message(diagnos.error_msg);
+	return encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
     }
   
     if(!sql_success(SQLNumResultCols(statement_handle(state),
@@ -803,13 +811,13 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
 
 	result = SQLExecDirect(statement_handle(state), sql, SQL_NTS);
 	if (!sql_success(result) || result == SQL_NO_DATA) {
-		diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+		diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	}
 	/* SQL_NO_DATA and SQLSTATE 00000 indicate success for
 	   updates/deletes that affect no rows */
 	if(!sql_success(result) &&
 	   !(result == SQL_NO_DATA && !strcmp((char *)diagnos.sqlState, INFO))) {
-		msg = encode_error_message(diagnos.error_msg);
+		msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 	} else {
 	    for (i = 0; i < param_status.params_processed; i++) {
 		switch (param_status.param_status_array[i]) {
@@ -823,8 +831,8 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
 		break;
 		default:
 		    diagnos =
-			get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
-		    msg = encode_error_message(diagnos.error_msg);
+			get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
+		    msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 		    i = param_status.params_processed;
 		    break;
 		}
@@ -893,16 +901,16 @@ static db_result_msg db_describe_table(byte *sql, db_state *state)
 	DO_EXIT(EXIT_ALLOC);
     
     if (!sql_success(SQLPrepare(statement_handle(state), sql, SQL_NTS))){
-	diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
-	msg = encode_error_message(diagnos.error_msg);
+	diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
+	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 	clean_state(state);
 	return msg;
     }
     
     if(!sql_success(SQLNumResultCols(statement_handle(state),
 				     &num_of_columns))) {
-	diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
-	msg = encode_error_message(diagnos.error_msg);
+	diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
+	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 	clean_state(state);
 	return msg;
     }
@@ -951,7 +959,7 @@ static db_result_msg encode_empty_message(void)
 }
 
 /* Description: Encode an error-message to send back to erlang*/
-static db_result_msg encode_error_message(char *reason)
+static db_result_msg encode_error_message(char *reason, char *errCode, SQLINTEGER nativeError )
 {
     int index;
     db_result_msg msg;
@@ -960,6 +968,12 @@ static db_result_msg encode_error_message(char *reason)
     ei_encode_version(NULL, &index);
     ei_encode_tuple_header(NULL, &index, 2);
     ei_encode_atom(NULL, &index, "error");
+    if (errCode)
+    {
+        ei_encode_tuple_header(NULL, &index, 3);
+        ei_encode_string(NULL, &index, errCode);
+        ei_encode_long(NULL, &index, nativeError);
+    }
     ei_encode_string(NULL, &index, reason);
   
     msg.length = index;
@@ -970,6 +984,12 @@ static db_result_msg encode_error_message(char *reason)
     ei_encode_version((char *)msg.buffer, &index);
     ei_encode_tuple_header((char *)msg.buffer, &index, 2);
     ei_encode_atom((char *)msg.buffer, &index, "error");
+    if (errCode)
+    {
+        ei_encode_tuple_header((char *)msg.buffer, &index, 3);
+        ei_encode_string((char *)msg.buffer, &index, errCode);
+        ei_encode_long((char *)msg.buffer, &index, nativeError);
+    }
     ei_encode_string((char *)msg.buffer, &index, reason);
   
     return msg;
@@ -1013,8 +1033,8 @@ static db_result_msg encode_result(db_state *state)
     
     if(!sql_success(SQLNumResultCols(statement_handle(state), 
   				     &num_of_columns))) { 
-	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
-	    msg = encode_error_message(diagnos.error_msg);
+	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
+	    msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 	    clean_state(state);
 	    return msg;
     } 
@@ -1030,8 +1050,8 @@ static db_result_msg encode_result(db_state *state)
     }
     
     if(!sql_success(SQLRowCount(statement_handle(state), &RowCountPtr))) { 
-	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
-	    msg = encode_error_message(diagnos.error_msg);
+	    diagnos =  get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
+	    msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 	    clean_state(state);
 	    return msg;
     }
@@ -1239,7 +1259,7 @@ static db_result_msg encode_column_name_list(SQLSMALLINT num_of_columns,
 	(columns(state)[i]).type.sql = sql_type;
 	(columns(state)[i]).type.col_size = size;
       
-	msg = map_sql_2_c_column(&columns(state)[i]);
+	msg = map_sql_2_c_column(&columns(state)[i], state);
 	if (msg.length > 0) {
 	    return msg; /* An error has occurred */
 	} else {
@@ -2346,7 +2366,7 @@ static void map_dec_num_2_c_column(col_type *type, int precision, int scale)
 
 /* Description: Transform SQL columntype to C columntype. Returns a dummy
  db_result_msg with length 0 on success and an errormessage otherwise.*/
-static db_result_msg map_sql_2_c_column(db_column* column)
+static db_result_msg map_sql_2_c_column(db_column* column, db_state *state)
 {
     db_result_msg msg;
 
@@ -2415,10 +2435,10 @@ static db_result_msg map_sql_2_c_column(db_column* column)
 	column -> type.strlen_or_indptr = (SQLLEN)NULL;
 	break;
     case SQL_UNKNOWN_TYPE:
-	msg = encode_error_message("Unknown column type");
+	msg = encode_error_message("Unknown column type", extended_error(state, ""), 0);
 	break;
     default:
-	msg = encode_error_message("Column type not supported");
+	msg = encode_error_message("Column type not supported", extended_error(state, ""), 0);
 	break;
     }
     return msg;
@@ -2527,7 +2547,7 @@ static db_column retrive_binary_data(db_column column, int column_nr,
 
     while (result == SQL_SUCCESS_WITH_INFO) {
 
-	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
     
 	if(strcmp((char *)diagnos.sqlState, TRUNCATED) == 0) {
 	    outputlen = column.type.len - 1;
@@ -2614,10 +2634,10 @@ static db_result_msg more_result_sets(db_state *state)
 	/* As we found an error we do not care about any potential more result
 	   sets */
 	exists_more_result_sets(state) = FALSE;
-	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
 	strcat((char *)diagnos.error_msg,
 	       "Failed to create on of the result sets");
-	msg = encode_error_message(diagnos.error_msg);
+	msg = encode_error_message(diagnos.error_msg, extended_error(state, diagnos.sqlState), diagnos.nativeError);
 	return msg;
     }
 }
@@ -2634,7 +2654,7 @@ static Boolean sql_success(SQLRETURN result)
    diagnostic records scaning for error messages and the sqlstate.
    If this function is called when no error has ocurred only the sqlState
    field may be referenced.*/
-static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle)
+static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean extendedErrors)
 {
     diagnos diagnos;
     SQLINTEGER nativeError;
@@ -2658,17 +2678,16 @@ static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle)
         result = SQLGetDiagRec(handleType, handle, record_nr, current_sql_state,
 			 &nativeError, current_errmsg_pos,
 							   (SQLSMALLINT)errmsg_buffer_size, &errmsg_size);
-	if(result != SQL_SUCCESS && result != SQL_NO_DATA) {
-
-      
-	    break;
-	} else {
+	if(result == SQL_SUCCESS) {
 	    /* update the sqlstate in the diagnos record, because the SQLGetDiagRec
 	       call succeeded */
 	    memcpy(diagnos.sqlState, current_sql_state, SQL_STATE_SIZE);
+	    diagnos.nativeError = nativeError;
 	    errmsg_buffer_size = errmsg_buffer_size - errmsg_size;
 	    acc_errmsg_size = acc_errmsg_size + errmsg_size;
 	    current_errmsg_pos = current_errmsg_pos + errmsg_size;
+	} else {
+	    break;
 	}
     }
     
@@ -2676,7 +2695,7 @@ static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle)
 	strcat((char *)diagnos.error_msg,
 	       "No SQL-driver information available.");
     }
-    else {
+    else if (!extendedErrors){
 	strcat(strcat((char *)diagnos.error_msg, " SQLSTATE IS: "),
 	       (char *)diagnos.sqlState);
     }
