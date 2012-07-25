@@ -708,23 +708,25 @@ the best possible performance, do like this:
 
 Install Xcode from the AppStore if it is not already installed.
 
-For Xcode 4.3 you will also need to download "Command Line Tools"
-via the Downloads preference pane i Xcode.
+If you have Xcode 4.3, or later, you will also need to download 
+"Command Line Tools" via the Downloads preference pane in Xcode.
 
 Some tools may still be lacking or out-of-date, we recommend using
 [Homebrew](https://github.com/mxcl/homebrew/wiki/installation) or
-Macports update those tools.
+Macports to update those tools.
 
 Install MacPorts (<http://www.macports.org/>). Then:
 
     $ sudo port selfupdate
     $ sudo port install gcc45 +universal
 
-If you want to build the `wx` application, get wxMac-2.8.12
-(`wxMac-2.8.12.tar.gz` from
-<http://sourceforge.net/projects/wxwindows/files/2.8.12/>) and build:
+### Building with wxErlang ###
 
-Export the path for MacOSX10.6.sdk,
+If you want to build the `wx` application, you will need to get wxMac-2.8.12
+(`wxMac-2.8.12.tar.gz` from
+<http://sourceforge.net/projects/wxwindows/files/2.8.12/>) and install it.
+
+Export the path for MacOSX10.6.sdk:
 
     $ export SDK=/Developer/SDKs/MacOSX10.6.sdk
 
@@ -732,17 +734,19 @@ In Xcode 4.3 the path has changed so use the following instead,
 
     $ export SDK=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.6.sdk
 
-Then configure and build wx,
+Then configure and build wxMac:
 
     $ arch_flags="-arch i386" ./configure CFLAGS="$arch_flags" CXXFLAGS="$arch_flags" CPPFLAGS="$arch_flags" LDFLAGS="$arch_flags" OBJCFLAGS="$arch_flags" OBJCXXFLAGS="$arch_flags" --prefix=/usr/local --with-macosx-sdk="$SDK" --with-macosx-version-min=10.6 --enable-unicode --with-opengl --disable-shared
     $ make
     $ sudo make install
 
-To link wx properly we will also need to build and install `wxStyledTextCtrl`
+To link wx properly you will also need to build and install `wxStyledTextCtrl`:
 
     $ cd contrib/src/stc
     $ make
     $ sudo make install
+
+### Finish up ###
 
 Build Erlang with the MacPorts GCC as the main compiler (using `clang`
 for the Objective-C Cocoa code in the `wx` application):
