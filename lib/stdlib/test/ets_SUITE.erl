@@ -4204,21 +4204,13 @@ heavy_lookup_element(Config) when is_list(Config) ->
     repeat_for_opts(heavy_lookup_element_do).
 
 heavy_lookup_element_do(Opts) ->
-    ?line EtsMem = etsmem(),
-    ?line Tab = ets_new(foobar_table, [set, protected, {keypos, 2} | Opts]),
-    ?line ok = fill_tab2(Tab, 0, 7000),
-    case os:type() of
-	vxworks ->
-	    ?line ?t:do_times(5, ?MODULE, do_lookup_element,
-				       [Tab, 6999, 1]);
-						% lookup ALL elements 5 times.
-	_ ->
-	    ?line ?t:do_times(50, ?MODULE, do_lookup_element,
-				       [Tab, 6999, 1])
-						% lookup ALL elements 50 times.
-    end,
-    ?line true = ets:delete(Tab),
-    ?line verify_etsmem(EtsMem).
+    EtsMem = etsmem(),
+    Tab = ets_new(foobar_table, [set, protected, {keypos, 2} | Opts]),
+    ok = fill_tab2(Tab, 0, 7000),
+    % lookup ALL elements 50 times
+    ?t:do_times(50, ?MODULE, do_lookup_element, [Tab, 6999, 1]),
+    true = ets:delete(Tab),
+    verify_etsmem(EtsMem).
 
 do_lookup_element(_Tab, 0, _) -> ok;
 do_lookup_element(Tab, N, M) ->

@@ -152,7 +152,6 @@ heavy(Config) when is_list(Config) ->
     time(5000),
     ?M([],get()),
     case {os:type(),?t:is_debug()} of
-	{vxworks,_} -> ok;
 	{_,true} -> ok;	    
 	_ ->
 	    time(50000),

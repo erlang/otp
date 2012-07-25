@@ -256,47 +256,42 @@ get_plain_arguments(Config) when is_list(Config) ->
 boot_var(doc) -> [];
 boot_var(suite) -> {req, [distribution, {local_slave_nodes, 1}]};
 boot_var(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {comment, "Not run on VxWorks"};
-	_ ->
-	    ?line Dog = ?t:timetrap(?t:seconds(100)),
-	    
-	    {BootScript, TEST_VAR, KernelVsn, StdlibVsn} = create_boot(Config),
+    ?line Dog = ?t:timetrap(?t:seconds(100)),
 
-	    %% Should fail as we have not given -boot_var TEST_VAR
-	    ?line {error, timeout} =
-		start_node(init_test, "-boot " ++ BootScript),
-	    
-	    case is_real_system(KernelVsn, StdlibVsn) of
-		true ->
-		    %% Now it should work !!
-		    ?line {ok, Node} =
-			start_node(init_test,
-				   "-boot " ++ BootScript ++
-				   " -boot_var TEST_VAR " ++ TEST_VAR),
-		    stop_node(Node),
-		    Res = ok;
-		_ ->
-%% What we need is not so much version numbers on the directories, but
-%% for the boot var TEST_VAR to appear in the boot script, and it doesn't
-%% if we give the 'local' option to systools:make_script.
-		    ?t:format(
-		       "Test case not complete as we are not~n"
-		       "running in a real system!~n"
-		       "Probably this test is performed in a "
-		       "clearcase view or source tree.~n"
-		       "Need version numbers on the kernel and "
-		       "stdlib directories!~n",
-		       []),
-		    Res = {skip,
-			   "Test case only partially run since it is run "
-			   "in a clearcase view or in a source tree. "
-			   "Need an installed system to complete this test."}
-	    end,
-	    ?line ?t:timetrap_cancel(Dog),
-	    Res
-    end.
+    {BootScript, TEST_VAR, KernelVsn, StdlibVsn} = create_boot(Config),
+
+    %% Should fail as we have not given -boot_var TEST_VAR
+    ?line {error, timeout} =
+    start_node(init_test, "-boot " ++ BootScript),
+
+    case is_real_system(KernelVsn, StdlibVsn) of
+	true ->
+	    %% Now it should work !!
+	    ?line {ok, Node} =
+	    start_node(init_test,
+		"-boot " ++ BootScript ++
+		" -boot_var TEST_VAR " ++ TEST_VAR),
+	    stop_node(Node),
+	    Res = ok;
+	_ ->
+	    %% What we need is not so much version numbers on the directories, but
+	    %% for the boot var TEST_VAR to appear in the boot script, and it doesn't
+	    %% if we give the 'local' option to systools:make_script.
+	    ?t:format(
+		"Test case not complete as we are not~n"
+		"running in a real system!~n"
+		"Probably this test is performed in a "
+		"clearcase view or source tree.~n"
+		"Need version numbers on the kernel and "
+		"stdlib directories!~n",
+		[]),
+	    Res = {skip,
+		"Test case only partially run since it is run "
+		"in a clearcase view or in a source tree. "
+		"Need an installed system to complete this test."}
+    end,
+    ?line ?t:timetrap_cancel(Dog),
+    Res.
 
 create_boot(Config) ->
     ?line {ok, OldDir} = file:get_cwd(),
@@ -579,55 +574,47 @@ script_id(Config) when is_list(Config) ->
 boot1(doc) -> [];
 boot1(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};
 boot1(Config) when is_list(Config) ->
-    case os:type() of 
-	vxworks ->
-	    {comment, "Not run on VxWorks"};
-	_ ->
-	    ?line Dog = ?t:timetrap(?t:seconds(80)),
-	    Args = args() ++ " -boot start_sasl",
-	    ?line {ok, Node} = start_node(init_test, Args),
-	    ?line stop_node(Node),
+    ?line Dog = ?t:timetrap(?t:seconds(80)),
+    Args = args() ++ " -boot start_sasl",
+    ?line {ok, Node} = start_node(init_test, Args),
+    ?line stop_node(Node),
 
-	    %% Try to start with non existing boot file.
-	    Args1 = args() ++ " -boot dummy_script",
-	    ?line {error, timeout} = start_node(init_test, Args1),
-	    
-	    ?line ?t:timetrap_cancel(Dog),
-	    ok
-    end.
+    %% Try to start with non existing boot file.
+    Args1 = args() ++ " -boot dummy_script",
+    ?line {error, timeout} = start_node(init_test, Args1),
+
+    ?line ?t:timetrap_cancel(Dog),
+    ok.
 
 boot2(doc) -> [];
 boot2(suite) -> {req, [distribution, {local_slave_nodes, 1}, {time, 35}]};
 boot2(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:seconds(80)),
+
+    %% Absolute boot file name
+    Boot = filename:join([code:root_dir(), "bin", "start_sasl"]),
+
+    Args = args() ++ " -boot \"" ++ Boot++"\"",
+    {ok, Node} = start_node(init_test, Args),
+    stop_node(Node),
+
     case os:type() of 
-	vxworks ->
-	    {comment, "Not run on VxWorks"};
+	{win32, _} ->
+	    %% Absolute boot file name for Windows -- all slashes are
+	    %% converted to backslashes.
+	    Win_boot = lists:map(fun
+		    ($/) -> $\\;
+		    (C) -> C 
+		end, Boot),
+	    Args2 = args() ++ " -boot \"" ++ Win_boot ++ "\"",
+	    {ok, Node2} = start_node(init_test, Args2),
+	    stop_node(Node2);
 	_ ->
-	    ?line Dog = ?t:timetrap(?t:seconds(80)),
-
-	    %% Absolute boot file name
-	    Boot = filename:join([code:root_dir(), "bin", "start_sasl"]),
-
-	    Args = args() ++ " -boot \"" ++ Boot++"\"",
-	    ?line {ok, Node} = start_node(init_test, Args),
-	    ?line stop_node(Node),
-
-	    case os:type() of 
-		{win32, _} ->
-		    %% Absolute boot file name for Windows -- all slashes are
-		    %% converted to backslashes.
-		    Win_boot = lists:map(fun($/) -> $\\; (C) -> C end,
-					 Boot),
-		    Args2 = args() ++ " -boot \"" ++ Win_boot ++ "\"",
-		    ?line {ok, Node2} = start_node(init_test, Args2),
-		    ?line stop_node(Node2);
-		_ ->
-		    ok
-	    end,
-
-	    ?line ?t:timetrap_cancel(Dog),
 	    ok
-    end.
+    end,
+
+    ?t:timetrap_cancel(Dog),
+    ok.
 
 %% Misc. functions    
 

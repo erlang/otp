@@ -112,19 +112,6 @@ absname(Config) when is_list(Config) ->
 	    ?line "/erlang/src" = filename:absname(["/erl",'a','ng',"/",'s',"rc"]),
 	    ?line "/erlang/src" = filename:absname("/erlang///src"),
 	    ?line "/file_sorter.erl" = filename:absname([file_sorter|'.erl']),
-	    ok;
-	vxworks ->
-	    Test_dir = ?config(priv_dir, Config),
-	    Test1 = Test_dir ++ "/foo",
-	    Test2 = Test_dir ++ "/ebin",
-	    ?line ok = file:set_cwd(Test_dir),
-	    ?line Test1 = filename:absname(foo),
-	    ?line Test1= filename:absname("foo"),
-	    ?line Test2 = filename:absname("foo/../ebin"),
-	    ?line "/erlang" = filename:absname("/erlang"),
-	    ?line "/erlang/src" = filename:absname("/erlang/src"),
-	    ?line "/erlang/src" = filename:absname(["/erlan",'g/s',"rc"]),
-	    ?line "/erlang/src" = filename:absname("/erlang///src"),
 	    ok
     end.
 
@@ -179,15 +166,6 @@ absname_2(Config) when is_list(Config) ->
 	    ?line "/erlang" = filename:absname("/erlang", "/"),
 	    ?line "/erlang/src" = filename:absname("/erlang/src", "/"),
 	    ?line "/erlang/src" = filename:absname("/erlang///src", "/"),
-	    ok;
-	vxworks ->
-	    ?line "/usr/foo" = filename:absname(foo, "/usr"),
-	    ?line "/usr/foo" = filename:absname("foo", "/usr"),
-	    ?line "/usr/ebin" = filename:absname("../ebin", "/usr"),
-	    ?line "/usr/ebin" = filename:absname("../ebin", "/usr/src"),
-	    ?line "/erlang" = filename:absname("/erlang", "/usr"),
-	    ?line "/erlang/src" = filename:absname("/erlang/src", "/usr"),
-	    ?line "/erlang/src" = filename:absname("/erlang///src", "/usr"),
 	    ok
     end.
 
@@ -213,11 +191,7 @@ basename_1(Config) when is_list(Config) ->
 		  ?line "foo" = filename:basename("A:foo");
 	      {unix, _} ->
 		  ?line "strange\\but\\true" =
-		      filename:basename("strange\\but\\true");
-	      vxworks -> 
-		  ?line "foo" =  filename:basename(["usr\\foo\\"]),
-		  ?line "foo" =  filename:basename("elrond:usr\\foo\\"),
-		  ?line "foo" =  filename:basename("disk:/foo")
+		      filename:basename("strange\\but\\true")
 	  end,
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -249,15 +223,7 @@ basename_2(Config) when is_list(Config) ->
 		  ?line "strange\\but\\true" =
 		      filename:basename("strange\\but\\true.erl", ".erl"),
 		  ?line "strange\\but\\true" =
-		      filename:basename("strange\\but\\true", ".erl");
-	      vxworks ->
-		  ?line "foo" = filename:basename("net:foo", ".erl"),
-		  ?line "foo.erl" = filename:basename("net:\\usr\\foo.erl",
-						      ".hrl"),
-		  ?line "foo.erl" =
-		      filename:basename("/disk0:\\usr.hrl\\foo.erl",
-						      ".hrl"),
-		  ?line "foo" = filename:basename("/home\\usr\\foo", ".hrl")
+		      filename:basename("strange\\but\\true", ".erl")
 	  end,
     ?line test_server:timetrap_cancel(Dog),
     ok.
@@ -267,37 +233,25 @@ basename_2(Config) when is_list(Config) ->
 dirname(Config) when is_list(Config) ->
     case os:type() of
        {win32,_} ->
-	    ?line "A:/usr" = filename:dirname("A:/usr/foo.erl"),
-	    ?line "A:usr" = filename:dirname("A:usr/foo.erl"),
-	    ?line "/usr" = filename:dirname("\\usr\\foo.erl"),
-	    ?line "/" = filename:dirname("\\usr"),
-	    ?line "A:" = filename:dirname("A:");
-       vxworks ->
-	    ?line "net:/usr" = filename:dirname("net:/usr/foo.erl"),
-	    ?line "/disk0:/usr" = filename:dirname("/disk0:/usr/foo.erl"),
-	    ?line "/usr" = filename:dirname("\\usr\\foo.erl"),
-	    ?line "/usr" = filename:dirname("\\usr"),
-	    ?line "net:" = filename:dirname("net:");
+	    "A:/usr" = filename:dirname("A:/usr/foo.erl"),
+	    "A:usr" = filename:dirname("A:usr/foo.erl"),
+	    "/usr" = filename:dirname("\\usr\\foo.erl"),
+	    "/" = filename:dirname("\\usr"),
+	    "A:" = filename:dirname("A:");
 	_ -> true
     end,
-    ?line "usr" = filename:dirname("usr///foo.erl"),
-    ?line "." = filename:dirname("foo.erl"),
-    ?line "." = filename:dirname("."),
-    ?line "usr" = filename:dirname('usr/foo.erl'),
-    ?line "usr" = filename:dirname(['usr','/foo.erl']),
-    ?line "usr" = filename:dirname(['us','r/foo.erl']),
-    ?line "usr" = filename:dirname(['usr/','/foo.erl']),
-    ?line "usr" = filename:dirname(['usr/','foo.erl']),
-    ?line "usr" = filename:dirname(['usr/'|'foo.erl']),
-    ?line "usr" = filename:dirname(['usr/f','oo.erl']),
-    case os:type() of
-	vxworks -> 
-	    ?line "/" = filename:dirname("/"),
-	    ?line "/usr" = filename:dirname("/usr");
-	_ ->
-	    ?line "/" = filename:dirname("/"),
-	    ?line "/" = filename:dirname("/usr")
-    end,
+    "usr" = filename:dirname("usr///foo.erl"),
+    "." = filename:dirname("foo.erl"),
+    "." = filename:dirname("."),
+    "usr" = filename:dirname('usr/foo.erl'),
+    "usr" = filename:dirname(['usr','/foo.erl']),
+    "usr" = filename:dirname(['us','r/foo.erl']),
+    "usr" = filename:dirname(['usr/','/foo.erl']),
+    "usr" = filename:dirname(['usr/','foo.erl']),
+    "usr" = filename:dirname(['usr/'|'foo.erl']),
+    "usr" = filename:dirname(['usr/f','oo.erl']),
+    "/" = filename:dirname("/"),
+    "/" = filename:dirname("/usr"),
     ok.
     
 
@@ -318,12 +272,6 @@ extension(Config) when is_list(Config) ->
 		  ?line ".erl" =
 		      filename:extension("A:/usr.bar/foo.nisse.erl"),
 		  ?line "" = filename:extension("A:/usr.bar/foo"),
-		  ok;
-	      vxworks ->
-		  ?line "" = filename:extension("/disk0:\\usr\\foo"),
-		  ?line ".erl" =
-		      filename:extension("net:/usr.bar/foo.nisse.erl"),
-		  ?line "" = filename:extension("net:/usr.bar/foo"),
 		  ok;
 	      _ -> ok
 	  end.
@@ -369,25 +317,6 @@ join(Config) when is_list(Config) ->
 		      filename:join(["A:","C:usr","foo.erl"]),
 		  ?line "d:/foo" = filename:join([$D, $:, $/, []], "foo"),
 		  ok;
-	      vxworks ->
-		  ?line "Net:" = filename:join(["Net:/"]),
-		  ?line "net:" = filename:join(["net:\\"]),
-		  ?line "net:/abc" = filename:join(["net:/", "abc"]),
-		  ?line "net:/abc" = filename:join(["net:", "abc"]),
-		  ?line "a/b/c/d/e/f/g" =
-		      filename:join(["a//b\\c//\\/\\d/\\e/f\\g"]),
-		  ?line "net:/usr/foo.erl" =
-		      filename:join(["net:","usr","foo.erl"]),
-		  ?line "/usr/foo.erl" =
-		      filename:join(["net:","/usr","foo.erl"]),
-		  ?line "/target:usr" = filename:join("net:","/target:usr"),
-		  ?line "kernel:/usr" = filename:join("net:", "kernel:/usr"),
-		  ?line "foo:/usr/foo.erl" =
-		      filename:join(["A:","foo:/usr","foo.erl"]),
-		  ?line "/disk0:usr/foo.erl" =
-		      filename:join(["kalle:","/disk0:usr","foo.erl"]),
-		  ?line "D:/foo" = filename:join([$D, $:, $/, []], "foo"),
-		  ok;
 	      {unix, _} ->
 		  ok
 	  end.
@@ -406,10 +335,6 @@ pathtype(Config) when is_list(Config) ->
 	{unix, _} ->
 	    ?line absolute = filename:pathtype("/"),
 	    ?line absolute = filename:pathtype("/usr/local/bin"),
-	    ok;
-	vxworks ->
-	    ?line absolute = filename:pathtype("/usr/local/bin"),
-	    ?line absolute = filename:pathtype("net:usr/local/bin"),
 	    ok
     end.
 
@@ -424,12 +349,7 @@ rootname(Config) when is_list(Config) ->
     ok.
 
 split(Config) when is_list(Config) ->
-    case os:type() of 
-	vxworks ->
-	    ?line ["/usr","local","bin"] = filename:split("/usr/local/bin");
-	_ ->
-	    ?line ["/","usr","local","bin"] = filename:split("/usr/local/bin")
-    end,
+    ?line ["/","usr","local","bin"] = filename:split("/usr/local/bin"),
     ?line ["foo","bar"]= filename:split("foo/bar"),
     ?line ["foo", "bar", "hello"]= filename:split("foo////bar//hello"),
     ?line ["foo", "bar", "hello"]= filename:split(["foo//",'//bar//h',"ello"]),
@@ -444,18 +364,6 @@ split(Config) when is_list(Config) ->
 		filename:split("msdev\\include"),
 	    ?line ["a:/","msdev","include"] =
 		filename:split("a:\\msdev\\include"),
-	    ?line ["a:","msdev","include"] =
-		filename:split("a:msdev\\include"),
-	    ok;
-	vxworks ->
-	    ?line ["net:","msdev","include"] =
-		filename:split("net:/msdev/include"),
-	    ?line ["Target:","msdev","include"] =
-		filename:split("Target:/msdev/include"),
-	    ?line ["msdev","include"] =
-		filename:split("msdev\\include"),
-	    ?line ["/disk0:","msdev","include"] =
-		filename:split("/disk0:\\msdev\\include"),
 	    ?line ["a:","msdev","include"] =
 		filename:split("a:msdev\\include"),
 	    ok;
@@ -657,56 +565,38 @@ basename_bin_2(Config) when is_list(Config) ->
 dirname_bin(Config) when is_list(Config) ->
     case os:type() of
        {win32,_} ->
-	    ?line <<"A:/usr">> = filename:dirname(<<"A:/usr/foo.erl">>),
-	    ?line <<"A:usr">> = filename:dirname(<<"A:usr/foo.erl">>),
-	    ?line <<"/usr">> = filename:dirname(<<"\\usr\\foo.erl">>),
-	    ?line <<"/">> = filename:dirname(<<"\\usr">>),
-	    ?line <<"A:">> = filename:dirname(<<"A:">>);
-       vxworks ->
-	    ?line <<"net:/usr">> = filename:dirname(<<"net:/usr/foo.erl">>),
-	    ?line <<"/disk0:/usr">> = filename:dirname(<<"/disk0:/usr/foo.erl">>),
-	    ?line <<"/usr">> = filename:dirname(<<"\\usr\\foo.erl">>),
-	    ?line <<"/usr">> = filename:dirname(<<"\\usr">>),
-	    ?line <<"net:">> = filename:dirname(<<"net:">>);
+	    <<"A:/usr">> = filename:dirname(<<"A:/usr/foo.erl">>),
+	    <<"A:usr">> = filename:dirname(<<"A:usr/foo.erl">>),
+	    <<"/usr">> = filename:dirname(<<"\\usr\\foo.erl">>),
+	    <<"/">> = filename:dirname(<<"\\usr">>),
+	    <<"A:">> = filename:dirname(<<"A:">>);
 	_ -> true
     end,
-    ?line <<"usr">> = filename:dirname(<<"usr///foo.erl">>),
-    ?line <<".">> = filename:dirname(<<"foo.erl">>),
-    ?line <<".">> = filename:dirname(<<".">>),
-    case os:type() of
-	vxworks -> 
-	    ?line <<"/">> = filename:dirname(<<"/">>),
-	    ?line <<"/usr">> = filename:dirname(<<"/usr">>);
-	_ ->
-	    ?line <<"/">> = filename:dirname(<<"/">>),
-	    ?line <<"/">> = filename:dirname(<<"/usr">>)
-    end,
+    <<"usr">> = filename:dirname(<<"usr///foo.erl">>),
+    <<".">> = filename:dirname(<<"foo.erl">>),
+    <<".">> = filename:dirname(<<".">>),
+    <<"/">> = filename:dirname(<<"/">>),
+    <<"/">> = filename:dirname(<<"/usr">>),
     ok.
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 extension_bin(Config) when is_list(Config) ->
-    ?line <<".erl">> = filename:extension(<<"A:/usr/foo.erl">>),
-    ?line <<".erl">> = filename:extension(<<"A:/usr/foo.nisse.erl">>),
-    ?line <<".erl">> = filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
-    ?line <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
-    ?line <<"">> = filename:extension(<<"A:/usr/foo">>),
-    ?line case os:type() of
-	      {win32, _} ->
-		  ?line <<"">> = filename:extension(<<"A:\\usr\\foo">>),
-		  ?line <<".erl">> =
-		      filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
-		  ?line <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
-		  ok;
-	      vxworks ->
-		  ?line <<"">> = filename:extension(<<"/disk0:\\usr\\foo">>),
-		  ?line <<".erl">> =
-		      filename:extension(<<"net:/usr.bar/foo.nisse.erl">>),
-		  ?line <<"">> = filename:extension(<<"net:/usr.bar/foo">>),
-		  ok;
-	      _ -> ok
-	  end.
+    <<".erl">> = filename:extension(<<"A:/usr/foo.erl">>),
+    <<".erl">> = filename:extension(<<"A:/usr/foo.nisse.erl">>),
+    <<".erl">> = filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
+    <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
+    <<"">> = filename:extension(<<"A:/usr/foo">>),
+    case os:type() of
+        {win32, _} ->
+            ?line <<"">> = filename:extension(<<"A:\\usr\\foo">>),
+            ?line <<".erl">> =
+                filename:extension(<<"A:/usr.bar/foo.nisse.erl">>),
+            ?line <<"">> = filename:extension(<<"A:/usr.bar/foo">>),
+            ok;
+        _ -> ok
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
@@ -754,53 +644,47 @@ join_bin(Config) when is_list(Config) ->
 	  end.
 
 pathtype_bin(Config) when is_list(Config) ->
-    ?line relative = filename:pathtype(<<"..">>),
-    ?line relative = filename:pathtype(<<"foo">>),
-    ?line relative = filename:pathtype(<<"foo/bar">>),
-    ?line relative = filename:pathtype('foo/bar'),
+    relative = filename:pathtype(<<"..">>),
+    relative = filename:pathtype(<<"foo">>),
+    relative = filename:pathtype(<<"foo/bar">>),
+    relative = filename:pathtype('foo/bar'),
     case os:type() of
 	{win32, _} ->
-	    ?line volumerelative = filename:pathtype(<<"/usr/local/bin">>),
-	    ?line volumerelative = filename:pathtype(<<"A:usr/local/bin">>),
+	    volumerelative = filename:pathtype(<<"/usr/local/bin">>),
+	    volumerelative = filename:pathtype(<<"A:usr/local/bin">>),
 	    ok;
 	{unix, _} ->
-	    ?line absolute = filename:pathtype(<<"/">>),
-	    ?line absolute = filename:pathtype(<<"/usr/local/bin">>),
+	    absolute = filename:pathtype(<<"/">>),
+	    absolute = filename:pathtype(<<"/usr/local/bin">>),
 	    ok
     end.
 
 rootname_bin(Config) when is_list(Config) ->
-    ?line <<"/jam.src/kalle">> = filename:rootname(<<"/jam.src/kalle">>),
-    ?line <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>),
-    ?line <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>, <<".erl">>),
-    ?line <<"/jam.src/foo.jam">> = filename:rootname(<<"/jam.src/foo.jam">>, <<".erl">>),
-    ?line <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j',"am"],<<".erl">>),
-    ?line <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j'|am],<<".erl">>),
+    <<"/jam.src/kalle">> = filename:rootname(<<"/jam.src/kalle">>),
+    <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>),
+    <<"/jam.src/foo">> = filename:rootname(<<"/jam.src/foo.erl">>, <<".erl">>),
+    <<"/jam.src/foo.jam">> = filename:rootname(<<"/jam.src/foo.jam">>, <<".erl">>),
+    <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j',"am"],<<".erl">>),
+    <<"/jam.src/foo.jam">> = filename:rootname(["/jam.sr",'c/foo.j'|am],<<".erl">>),
     ok.
 
 split_bin(Config) when is_list(Config) ->
-    case os:type() of 
-	vxworks ->
-	    ?line [<<"/usr">>,<<"local">>,<<"bin">>] = filename:split(<<"/usr/local/bin">>);
-	_ ->
-	    ?line [<<"/">>,<<"usr">>,<<"local">>,<<"bin">>] = filename:split(<<"/usr/local/bin">>)
-    end,
-    ?line [<<"foo">>,<<"bar">>]= filename:split(<<"foo/bar">>),
-    ?line [<<"foo">>, <<"bar">>, <<"hello">>]= filename:split(<<"foo////bar//hello">>),
+    [<<"/">>,<<"usr">>,<<"local">>,<<"bin">>] = filename:split(<<"/usr/local/bin">>),
+    [<<"foo">>,<<"bar">>]= filename:split(<<"foo/bar">>),
+    [<<"foo">>, <<"bar">>, <<"hello">>]= filename:split(<<"foo////bar//hello">>),
     case os:type() of
        {win32,_} ->
-	    ?line [<<"a:/">>,<<"msdev">>,<<"include">>] =
+	    [<<"a:/">>,<<"msdev">>,<<"include">>] =
 		filename:split(<<"a:/msdev/include">>),
-	    ?line [<<"a:/">>,<<"msdev">>,<<"include">>] =
+	    [<<"a:/">>,<<"msdev">>,<<"include">>] =
 		filename:split(<<"A:/msdev/include">>),
-	    ?line [<<"msdev">>,<<"include">>] =
+	    [<<"msdev">>,<<"include">>] =
 		filename:split(<<"msdev\\include">>),
-	    ?line [<<"a:/">>,<<"msdev">>,<<"include">>] =
+	    [<<"a:/">>,<<"msdev">>,<<"include">>] =
 		filename:split(<<"a:\\msdev\\include">>),
-	    ?line [<<"a:">>,<<"msdev">>,<<"include">>] =
+	    [<<"a:">>,<<"msdev">>,<<"include">>] =
 		filename:split(<<"a:msdev\\include">>),
 	    ok;
        _ ->
 	    ok
     end.
-

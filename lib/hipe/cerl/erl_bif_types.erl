@@ -915,7 +915,6 @@ type(erlang, system_info, 1, Xs) ->
 		     t_list(t_pid());
 		   ['os_type'] ->
 		     t_tuple([t_sup([t_atom('unix'),
-				     t_atom('vxworks'),
 				     t_atom('win32')]),
 			      t_atom()]);
 		   ['os_version'] ->

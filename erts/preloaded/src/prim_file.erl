@@ -674,25 +674,7 @@ set_cwd(Dir) ->
 set_cwd(Port, Dir) when is_port(Port) ->
     set_cwd_int(Port, Dir).
 
-set_cwd_int(Port, Dir0) ->
-    Dir = 
-	(catch
-	 case os:type() of
-	     vxworks -> 
-		 %% chdir on vxworks doesn't support
-		 %% relative paths
-		 %% must call get_cwd from here and use
-		 %% absname/2, since
-		 %% absname/1 uses file:get_cwd ...
-		 case get_cwd_int(Port, 0) of
-		     {ok, AbsPath} ->
-			 filename:absname(Dir0, AbsPath);
-		     _Badcwd ->
-			 Dir0
-		 end;
-	     _Else ->
-		 Dir0
-	 end),
+set_cwd_int(Port, Dir) ->
     %% Dir is now either a string or an EXIT tuple.
     %% An EXIT tuple will fail in the following catch.
     drv_command(Port, [?FILE_CHDIR, pathname(Dir)]).

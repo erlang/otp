@@ -85,8 +85,7 @@
     <p><c>ts:install/1</c> or <c>ts:install/2</c> is used if the
         target platform is different from the controller host, i.e. if
         you run on "remote target" or if special options are required
-        for your system. VxWorks is currently supported
-        as remote target platform.
+        for your system.
         </p>
       <p>See the reference manual for detailed information about
         <c>ts:install/0/1/2</c>.
@@ -249,9 +248,8 @@
         <p>Installs and configures the Test Server Framework for
           running test suites. If a remote host is to be used, the
           <c>TargetSystem</c> argument must be given so that "cross
-          installation" can be done. This should be used for testing on
-          VxWorks. Installation is required for any of the
-          functions in <c>ts</c> to work.
+		  installation" can be done. Installation is required for
+		  any of the functions in <c>ts</c> to work.
           </p>
         <p>Opts may be one or more of
           </p>

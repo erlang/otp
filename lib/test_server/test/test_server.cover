@@ -11,12 +11,11 @@
 			  test_server_node,
 			  test_server_sup,
 			  ts,
-			  ts_autoconf_vxworks,
 			  ts_autoconf_win32,
 			  ts_erl_config,
 			  ts_install,
 			  ts_lib,
 			  ts_make,
-			  ts_run,
-			  vxworks_client]}.
+			  ts_run
+		      ]}.
 

@@ -12,11 +12,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#ifdef VXWORKS
-estone_cat(argc, argv)
-#else
 main(argc, argv)
-#endif
 int argc;
 char *argv[];
 {

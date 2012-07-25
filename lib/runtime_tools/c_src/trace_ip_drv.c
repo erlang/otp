@@ -34,21 +34,12 @@
 #include <stdlib.h>
 #include <string.h>
 #ifndef __WIN32__
-#    ifdef VXWORKS
-#        include <sockLib.h>
-#        include <sys/times.h>
-#        include <iosLib.h>
-#        include <taskLib.h>
-#        include <selectLib.h>
-#        include <ioLib.h>
-#        include "reclaim.h"
-#    endif 
-#        include <unistd.h>
-#        include <errno.h>
-#        include <sys/types.h>
-#        include <sys/socket.h>
-#        include <netinet/in.h>
-#        include <fcntl.h>
+# include <unistd.h>
+# include <errno.h>
+# include <sys/types.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+# include <fcntl.h>
 #endif
 
 #ifdef DEBUG
@@ -910,7 +901,7 @@ static void stop_select(ErlDrvEvent event, void* _)
     WSACloseEvent((HANDLE)event);
 }
 
-#else /* UNIX/VXWORKS */
+#else /* UNIX */
 
 static int my_driver_select(TraceIpData *desc, SOCKET fd, int flags, enum MySelectOp op)
 {

@@ -63,13 +63,9 @@ ENTRY_OBJ=$(ERL_TOP)/erts/obj/$(TARGET)/port_entry.o
 PORT_ENTRY_POINT=erl_port_entry
 ENTRY_LDFLAGS=-entry:$(PORT_ENTRY_POINT)
 else
-ifeq ($(findstring vxworks_simso,$(TARGET)),vxworks_simso)
-PROGRAMS =
-else
 PROGRAMS = \
 	memsup @os_mon_programs@
 C_FILES= $(PROGRAMS:%=%.c)
-endif
 endif
 
 TARGET_FILES= $(PROGRAMS:%=$(BINDIR)/%)
@@ -127,14 +123,10 @@ $(OBJDIR)/memsup.o: memsup.h
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-ifeq ($(findstring vxworks_simso,$(TARGET)),vxworks_simso)
-release_spec:
-else
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src"
 	$(INSTALL_DATA) $(C_FILES) "$(RELSYSDIR)/src"
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/bin"
 	$(INSTALL_PROGRAM) $(TARGET_FILES) "$(RELSYSDIR)/priv/bin"
-endif
 
 release_docs_spec:

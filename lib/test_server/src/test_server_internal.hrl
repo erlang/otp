@@ -25,7 +25,7 @@
 %% test_server_ctrl:contact_main_target/2
 %% Once initiated, this information will never change!!
 -record(target_info, {where,           % local | Socket
-		      os_family,       % atom(); win32 | unix | vxworks | ose
+		      os_family,       % atom(); win32 | unix
 		      os_type,         % result of os:type()
 		      host,            % string(); the name of the target machine
 		      version,         % string()

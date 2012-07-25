@@ -29,10 +29,6 @@ PERL   = perl
 #	Erlang language section
 # ----------------------------------------------------
 EMULATOR = beam
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-# VxWorks jam object files should be compressed
-ERL_COMPILE_FLAGS += +compressed
-endif
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)
 ERL.beam =  erl.beam -boot start_clean

@@ -23,7 +23,6 @@
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
 -compile({no_auto_import,[error/2]}).
 -export([hosts/1, hosts/2]).
--export([hosts_vxworks/1]).
 -export([protocols/1, protocols/2]).
 -export([netmasks/1, netmasks/2]).
 -export([networks/1, networks/2]).
@@ -105,18 +104,6 @@ hosts(Fname,File) ->
 		 end
 	 end,
     parse_file(Fname, File, Fn).
-
-%% --------------------------------------------------------------------------
-%% Parse hostShow vxworks style
-%% Syntax:
-%%      Name          IP                [Aliases]  \n 
-%% --------------------------------------------------------------------------
-hosts_vxworks(Hosts) ->
-    Fn = fun([Name, Address | Aliases]) ->
-		 {ok,IP} = address(Address),
-		 {IP, Name, Aliases}
-	 end,
-    parse_file(Hosts, Fn).
 
 %% --------------------------------------------------------------------------
 %% Parse resolv file unix style
@@ -290,9 +277,6 @@ networks(Fname, File) ->
 %% Simple Line by Line parser
 %%
 %% --------------------------------------------------------------------------
-
-parse_file(File, Fn) ->
-    parse_file(noname, File, Fn).
 
 parse_file(Fname, {fd,Fd}, Fn) ->
     parse_fd(Fname,Fd, 1, Fn, []);

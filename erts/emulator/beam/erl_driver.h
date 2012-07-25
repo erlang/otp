@@ -87,10 +87,7 @@
 #include <stdlib.h>
 #include <string.h>		/* ssize_t on Mac OS X */
 
-#if defined(VXWORKS)
-#  include <ioLib.h>
-typedef struct iovec SysIOVec;
-#elif defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)
+#if defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_)
 #ifndef STATIC_ERLANG_DRIVER
    /* Windows dynamic drivers, everything is different... */
 #define ERL_DRIVER_TYPES_ONLY
@@ -370,11 +367,7 @@ typedef struct erl_drv_entry {
 /* For windows dynamic drivers */
 #ifndef ERL_DRIVER_TYPES_ONLY
 
-#if defined(VXWORKS)
-#  define DRIVER_INIT(DRIVER_NAME) \
-    ErlDrvEntry* DRIVER_NAME  ## _init(void); \
-    ErlDrvEntry* DRIVER_NAME  ## _init(void)
-#elif defined(__WIN32__)
+#if defined(__WIN32__)
 #  define DRIVER_INIT(DRIVER_NAME) \
     __declspec(dllexport) ErlDrvEntry* driver_init(void); \
     __declspec(dllexport) ErlDrvEntry* driver_init(void)

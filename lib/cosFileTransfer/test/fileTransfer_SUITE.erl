@@ -292,13 +292,8 @@ fts_ftp_file_api(Config) ->
 fts_ftp_file_ssl_api(doc) -> ["CosFileTransfer FTP FileTransferSession API tests.", ""];
 fts_ftp_file_ssl_api(suite) -> [];
 fts_ftp_file_ssl_api(Config) ->
-    case os:type() of
-        vxworks ->
-	    {skipped, "No SSL-support for VxWorks."};
-        _ ->
-	    ?line {ok, Node} = create_node("ftp_file_api_ssl", {4005, 1}, ssl),
-	    file_helper(Config, 'FTP', ?TEST_DIR, Node, 4005, "ftp_file_api_ssl", ssl)
-    end.
+    ?line {ok, Node} = create_node("ftp_file_api_ssl", {4005, 1}, ssl),
+    file_helper(Config, 'FTP', ?TEST_DIR, Node, 4005, "ftp_file_api_ssl", ssl).
 
 fts_native_file_api(doc) -> ["CosFileTransfer NATIVE FileTransferSession API tests.", ""];
 fts_native_file_api(suite) -> [];
@@ -311,15 +306,10 @@ fts_native_file_api(Config) ->
 fts_native_file_ssl_api(doc) -> ["CosFileTransfer NATIVE FileTransferSession API tests.", ""];
 fts_native_file_ssl_api(suite) -> [];
 fts_native_file_ssl_api(Config) ->
-    case os:type() of
-        vxworks ->
-	    {skipped, "No SSL-support for VxWorks."};
-        _ ->
-	    ?line {ok, Node} = create_node("native_file_ssl_api", {4007, 1}, ssl),
-	    {ok, Pwd} = file:get_cwd(),
-	    file_helper(Config,{'NATIVE', 'cosFileTransferNATIVE_file'},filename:split(Pwd),
-			Node, 4007, "native_file_ssl_api", ssl)
-    end.   
+    ?line {ok, Node} = create_node("native_file_ssl_api", {4007, 1}, ssl),
+    {ok, Pwd} = file:get_cwd(),
+    file_helper(Config,{'NATIVE', 'cosFileTransferNATIVE_file'},filename:split(Pwd),
+	Node, 4007, "native_file_ssl_api", ssl).
 				 
 
 
@@ -817,23 +807,13 @@ create_node(Name, Port, Retries, Type, Args, Options) ->
     end.
 
 starter(Host, Name, Args) ->
-    case os:type() of
-        vxworks ->
-            test_server:start_node(Name, slave, [{args,Args}]);
-        _ ->
-            slave:start(Host, Name, Args)
-    end.
+    slave:start(Host, Name, Args).
 
 slave_sup() ->
     process_flag(trap_exit, true),
     receive
         {'EXIT', _, _} -> 
-            case os:type() of
-                vxworks ->
-                    erlang:halt();
-                _  ->
-                    ignore
-            end
+	    ignore
     end.
 
 
@@ -850,12 +830,7 @@ destroy_node(Node, Type) ->
 
 stopper(Node, Type) ->
     catch stop_orber_remote(Node, Type),
-    case os:type() of
-        vxworks ->
-            test_server:stop_node(Node);
-        _ ->
-            slave:stop(Node)
-    end.
+    slave:stop(Node).
 -endif.
   
 %%------------------------------------------------------------

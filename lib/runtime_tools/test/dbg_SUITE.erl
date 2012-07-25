@@ -394,41 +394,36 @@ file_port2(suite) ->
 file_port2(doc) ->
     ["Test tracing to file port with 'follow_file'"];
 file_port2(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {skipped, "VxWorks NFS cache ruins it all."};
-	_ ->
-	    ?line stop(),
-	    ?line {A,B,C} = erlang:now(),
-	    ?line FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
-		"-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
-	    ?line FName = filename:join([?config(data_dir, Config), FTMP]),
-	    %% Ok, lets try with flush and follow_file, not a chance on VxWorks
-	    %% with NFS caching...
-	    ?line Port2 = dbg:trace_port(file, FName),
-	    ?line {ok, _} = dbg:tracer(port, Port2),
-	    try
-		?line {ok, [{matched, _node, 1}]} = dbg:p(self(),call),
-		?line {ok, _} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
-		?line {ok, _} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
-		?line ok = dbg:ltp(),
-		?line ok = dbg:flush_trace_port(),
-		?line dbg:trace_client(follow_file, FName,
-				       {fun myhandler/2, self()}),
-		?line S = self(),
-		?line [{trace,S,call,{dbg,ltp,[]},S}] = flush(),
-		?line ok = dbg:ln(),
-		?line ok = dbg:flush_trace_port(),
-		?line receive after 1000 -> ok end, %% Polls every second...
-		?line [{trace,S,call,{dbg,ln,[]},hej}] = flush(),
-		?line stop(),
-		?line [] = flush()
-	    after
-		?line stop(),
-		?line file:delete(FName)
-	    end,
-	    ok
-    end.
+    stop(),
+    {A,B,C} = erlang:now(),
+    FTMP =  atom_to_list(?MODULE) ++ integer_to_list(A) ++
+	"-" ++ integer_to_list(B) ++ "-" ++ integer_to_list(C),
+    FName = filename:join([?config(data_dir, Config), FTMP]),
+    %% Ok, lets try with flush and follow_file, not a chance on VxWorks
+    %% with NFS caching...
+    Port2 = dbg:trace_port(file, FName),
+    {ok, _} = dbg:tracer(port, Port2),
+    try
+	{ok, [{matched, _node, 1}]} = dbg:p(self(),call),
+	{ok, _} = dbg:tp(dbg, ltp,[{'_',[],[{message, {self}}]}]),
+	{ok, _} = dbg:tp(dbg, ln, [{'_',[],[{message, hej}]}]),
+	ok = dbg:ltp(),
+	ok = dbg:flush_trace_port(),
+	dbg:trace_client(follow_file, FName,
+	  	       {fun myhandler/2, self()}),
+	S = self(),
+	[{trace,S,call,{dbg,ltp,[]},S}] = flush(),
+	ok = dbg:ln(),
+	ok = dbg:flush_trace_port(),
+	receive after 1000 -> ok end, %% Polls every second...
+	[{trace,S,call,{dbg,ln,[]},hej}] = flush(),
+	stop(),
+	[] = flush()
+    after
+	stop(),
+	file:delete(FName)
+    end,
+    ok.
 
 file_port_schedfix(suite) ->
     [];

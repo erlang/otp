@@ -2300,11 +2300,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
     values[i].name = "static";
     values[i].ui[0] = 
 	erts_max_ports*sizeof(Port)		/* Port table */
-	+ erts_timer_wheel_memory_size()	/* Timer wheel */
-#ifdef SYS_TMP_BUF_SIZE
-	+ SYS_TMP_BUF_SIZE		/* tmp_buf in sys on vxworks & ose */
-#endif
-	;
+	+ erts_timer_wheel_memory_size();	/* Timer wheel */
     i++;
 
     erts_atom_get_text_space_sizes(&reserved_atom_space, &atom_space);

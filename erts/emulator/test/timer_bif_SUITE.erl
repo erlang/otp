@@ -71,38 +71,23 @@ end_per_group(_GroupName, Config) ->
 
 start_timer_1(doc) -> ["Basic start_timer/3 functionality"];
 start_timer_1(Config) when is_list(Config) ->
-    ?line Ref1 = erlang:start_timer(1000, self(), plopp),
-    ?line ok = get(1100, {timeout, Ref1, plopp}),
+    Ref1 = erlang:start_timer(1000, self(), plopp),
+    ok   = get(1100, {timeout, Ref1, plopp}),
 
-    ?line false = erlang:read_timer(Ref1),
-    ?line false = erlang:cancel_timer(Ref1),
-    ?line false = erlang:read_timer(Ref1),
+    false = erlang:read_timer(Ref1),
+    false = erlang:cancel_timer(Ref1),
+    false = erlang:read_timer(Ref1),
 
-    ?line Ref2 = erlang:start_timer(1000, self(), plapp),
-    ?line Left2 = erlang:cancel_timer(Ref2),
-    UpperLimit = case os:type() of
-	vxworks ->
-	    %% The ticks of vxworks have a far lesser granularity
-	    %% than what is expected in this testcase, in
-	    %% fact the Left2 variable can get a little more than 1000...
-	    1100;
-	_ ->
-	    1000
-    end,
-    ?line RetVal = case os:type() of
-	vxworks ->
-		{comment, "VxWorks behaves slightly unexpected, should be fixed,"};
-	_ ->
-		ok
-    end,
-    ?line true = (Left2 > 900) and (Left2 =< UpperLimit),
-    ?line empty = get_msg(),
-    ?line false = erlang:cancel_timer(Ref2),
+    Ref2  = erlang:start_timer(1000, self(), plapp),
+    Left2 = erlang:cancel_timer(Ref2),
+    UpperLimit = 1000,
+    true = (Left2 > 900) and (Left2 =< UpperLimit),
+    empty = get_msg(),
+    false = erlang:cancel_timer(Ref2),
 
-    ?line Ref3 = erlang:start_timer(1000, self(), plopp),
-    ?line no_message = get(900, {timeout, Ref3, plopp}),
-
-    RetVal.
+    Ref3 = erlang:start_timer(1000, self(), plopp),
+    no_message = get(900, {timeout, Ref3, plopp}),
+    ok.
 
 send_after_1(doc) -> ["Basic send_after/3 functionality"];
 send_after_1(Config) when is_list(Config) ->
@@ -153,19 +138,11 @@ send_after_2(Config) when is_list(Config) ->
 
 send_after_3(doc) -> ["send_after/3: messages in the right order, worse than send_after_2"];
 send_after_3(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {skipped, "VxWorks timer granularity and order is not working good, this is subject to change!"};
-	_ ->
-	    do_send_after_3()
-    end.
-
-do_send_after_3() ->
-    ?line _ = erlang:send_after(100, self(), b1),
-    ?line _ = erlang:send_after(101, self(), b2),
-    ?line _ = erlang:send_after(102, self(), b3),
-    ?line _ = erlang:send_after(103, self(), last),
-    ?line [b1, b2, b3, last] = collect(last),
+    _ = erlang:send_after(100, self(), b1),
+    _ = erlang:send_after(101, self(), b2),
+    _ = erlang:send_after(102, self(), b3),
+    _ = erlang:send_after(103, self(), last),
+    [b1, b2, b3, last] = collect(last),
 
 % This behaviour is not guaranteed:
 %    ?line _ = erlang:send_after(100, self(), c1),

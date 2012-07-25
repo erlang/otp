@@ -46,9 +46,6 @@ LDFLAGS += $(DED_LDFLAGS)
 DTRACE_LIBNAME = dyntrace
 
 SYSINCLUDE = $(DED_SYS_INCLUDE)
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-	SYSINCLUDE += -I$(ERL_TOP)/erts/etc/vxworks
-endif
 
 TRACE_DRV_INCLUDES = $(SYSINCLUDE)
 
@@ -101,11 +98,7 @@ ifeq ($(findstring win32,$(TARGET)), win32)
 SOLIBS = $(LIBDIR)/trace_ip_drv.dll $(LIBDIR)/trace_file_drv.dll
 LN=cp
 else
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-SOLIBS = $(LIBDIR)/trace_ip_drv.eld $(LIBDIR)/trace_file_drv.eld
-else
 SOLIBS = $(LIBDIR)/trace_ip_drv.so $(LIBDIR)/trace_file_drv.so
-endif
 endif
 # ----------------------------------------------------
 # Targets
@@ -165,15 +158,6 @@ $(LIBDIR)/trace_ip_drv.dll: $(TRACE_IP_DRV_OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)
 $(LIBDIR)/trace_file_drv.dll: $(TRACE_FILE_DRV_OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)
-#
-# VxWorks is simply to different from Unix in this sense.
-# Here are the inference rules for VxWorks
-#
-$(LIBDIR)/trace_ip_drv.eld: $(TRACE_IP_DRV_OBJS)
-	$(LD) $(LDFLAGS) -o $@ $^ 
-
-$(LIBDIR)/trace_file_drv.eld: $(TRACE_FILE_DRV_OBJS)
-	$(LD) $(LDFLAGS) -o $@ $^ 
 
 clean:
 	rm -f $(SOLIBS) $(TRACE_IP_DRV_OBJS) $(TRACE_FILE_DRV_OBJS)

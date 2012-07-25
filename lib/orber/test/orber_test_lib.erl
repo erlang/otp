@@ -278,24 +278,13 @@ check_options(Options) ->
     end.
 
 starter(Host, Name, Args) ->
-    case os:type() of
-        vxworks ->
-            test_server:start_node(Name, slave, [{args,Args}]);
-        _ ->
-	    io:format("slave:start_link(~p,~p,~p).~n",[Host,Name,Args]),
-            slave:start_link(Host, Name, Args)
-    end.
+    io:format("slave:start_link(~p,~p,~p).~n",[Host,Name,Args]),
+    slave:start_link(Host, Name, Args).
 
 slave_sup() ->
     process_flag(trap_exit, true),
     receive
-        {'EXIT', _, _} ->
-            case os:type() of
-                vxworks ->
-                    erlang:halt();
-                _  ->
-                    ignore
-            end
+        {'EXIT', _, _} -> ignore
     end.
 
 start_ssl(true, Node) ->
@@ -419,12 +408,7 @@ destroy_node(Node, Type) ->
     stopper(Node, Type).
 
 stopper(Node, _Type) ->
-    case os:type() of
-        vxworks ->
-            test_server:stop_node(Node);
-        _ ->
-            slave:stop(Node)
-    end.
+    slave:stop(Node).
 
 
 %%------------------------------------------------------------

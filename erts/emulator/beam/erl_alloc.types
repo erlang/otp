@@ -420,28 +420,4 @@ type	CON_VPRINTF_BUF	TEMPORARY	SYSTEM		con_vprintf_buf
 
 +endif
 
-+if vxworks
-
-type	SYS_TMP_BUF	LONG_LIVED	SYSTEM		sys_tmp_buf
-type	PEND_DATA	SYSTEM		SYSTEM		pending_data
-type	FD_TAB		LONG_LIVED	SYSTEM		fd_tab
-type	FD_ENTRY_BUF	SYSTEM		SYSTEM		fd_entry_buf
-
-+endif
-
-+if ose
-
-type	SYS_TMP_BUF	LONG_LIVED	SYSTEM		sys_tmp_buf
-type	PUTENV_STR	SYSTEM		SYSTEM		putenv_string
-type	GETENV_STR	SYSTEM		SYSTEM		getenv_string
-type	GETENV_STATE	SYSTEM		SYSTEM		getenv_state
-type	SIG_ENTRY	SYSTEM		SYSTEM		sig_entry
-type	DRIVER_DATA	SYSTEM		SYSTEM		driver_data
-type	PGM_TAB		SYSTEM		SYSTEM		pgm_tab
-type	PGM_ENTRY	SYSTEM		SYSTEM		pgm_entry
-type	PRT_TAB		SYSTEM		SYSTEM		prt_tab
-type	PRT_ENTRY	SYSTEM		SYSTEM		prt_entry
-
-+endif
-
 # ----------------------------------------------------------------------------

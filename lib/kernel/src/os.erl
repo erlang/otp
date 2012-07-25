@@ -60,16 +60,12 @@ timestamp() ->
 
 %%% End of BIFs
 
--spec type() -> vxworks | {Osfamily, Osname} when
+-spec type() -> {Osfamily, Osname} when
       Osfamily :: unix | win32,
       Osname :: atom().
 
 type() ->
-    case erlang:system_info(os_type) of
-	{vxworks, _} ->
-	    vxworks;
-	Else -> Else
-    end.
+    erlang:system_info(os_type).
 
 -spec version() -> VersionString | {Major, Minor, Release} when
       VersionString :: string(),
@@ -119,25 +115,14 @@ find_executable1(_Name, [], _Extensions) ->
 
 verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
     Name1 = Name0 ++ Ext,
-    case os:type() of
-	vxworks ->
-	    %% We consider all existing VxWorks files to be executable
-	    case file:read_file_info(Name1) of
-		{ok, _} ->
-		    {ok, Name1};
-		_ ->
-		    verify_executable(Name0, Rest, OrigExtensions)
-	    end;
+    case file:read_file_info(Name1) of
+	{ok, #file_info{type=regular,mode=Mode}}
+	when Mode band 8#111 =/= 0 ->
+	    %% XXX This test for execution permission is not fool-proof
+	    %% on Unix, since we test if any execution bit is set.
+	    {ok, Name1};
 	_ ->
-	    case file:read_file_info(Name1) of
-		{ok, #file_info{type=regular,mode=Mode}}
-		when Mode band 8#111 =/= 0 ->
-		    %% XXX This test for execution permission is not fool-proof
-		    %% on Unix, since we test if any execution bit is set.
-		    {ok, Name1};
-		_ ->
-		    verify_executable(Name0, Rest, OrigExtensions)
-	    end
+	    verify_executable(Name0, Rest, OrigExtensions)
     end;
 verify_executable(Name, [], OrigExtensions) when OrigExtensions =/= [""] -> %% Windows
     %% Will only happen on windows, hence case insensitivity
@@ -190,8 +175,7 @@ reverse_element(List) ->
 extensions() ->
     case type() of
 	{win32, _} -> [".exe",".com",".cmd",".bat"];
-	{unix, _} -> [""];
-	vxworks -> [""]
+	{unix, _} -> [""]
     end.
 
 %% Executes the given command in the default shell for the operating system.
@@ -209,11 +193,6 @@ cmd(Cmd) ->
 			  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
 		      end,
 	    Port = open_port({spawn, Command}, [stream, in, eof, hide]),
-	    get_data(Port, []);
-	%% VxWorks uses a 'sh -c hook' in 'vxcall.c' to run os:cmd.
-	vxworks ->
-	    Command = lists:concat(["sh -c '", Cmd, "'"]),
-	    Port = open_port({spawn, Command}, [stream, in, eof]),
 	    get_data(Port, [])
     end.
 

@@ -33,11 +33,7 @@ else
 ifeq ($(TYPE),purify)
 PURIFY = purify
 TYPEMARKER =
-ifeq ($(findstring ose,$(TARGET)),ose)
-TYPE_FLAGS = -g -XO -DPURIFY
-else
 TYPE_FLAGS = -g -O2 -DPURIFY
-endif
 else
 
 override TYPE=opt
@@ -77,24 +73,14 @@ EMUDIR    = $(ERL_TOP)/erts/emulator/beam
 EMUOSDIR  = $(ERL_TOP)/erts/emulator/@ERLANG_OSTYPE@
 SYSDIR    = $(ERL_TOP)/erts/emulator/sys/@ERLANG_OSTYPE@
 DRVDIR    = $(ERL_TOP)/erts/emulator/drivers/@ERLANG_OSTYPE@
-VXETC     = ../vxworks
 UXETC     = ../unix
 OSEETC	  = ../ose
 WINETC	  = ../win32
 
-ifeq ($(findstring vxworks,$(TARGET)), vxworks)
-ERLEXEC = erl.exec
-else 
-ifeq ($(findstring ose,$(TARGET)), ose)
-ERLEXEC =
-TAR	= @TAR@
-else
 ifeq ($(TARGET), win32)
 ERLEXEC = erlexec.dll
 else
 ERLEXEC = erlexec
-endif
-endif
 endif
 
 # On windows we always need reentrant libraries.
@@ -110,42 +96,6 @@ ERTS_LIB = $(ERL_TOP)/erts/lib_src/obj/$(TARGET)/$(TYPE)/MADE
 # Release directory specification
 # ----------------------------------------------------
 
-ifeq ($(findstring vxworks,$(TARGET)), vxworks)
-INSTALL_EMBEDDED_PROGS = $(BINDIR)/erl_io $(BINDIR)/rdate $(BINDIR)/vxcall
-INSTALL_EMBEDDED_DATA = $(BINDIR)/erl_script.sam $(VXETC)/resolv.conf
-INSTALL_INCLUDES = $(VXETC)/reclaim.h
-INSTALL_TOP = $(VXETC)/README.VxWorks
-INSTALL_MISC =
-INSTALL_SRC = heart.c $(VXETC)/heart_config.h $(VXETC)/heart_config.c  \
-		$(VXETC)/erl.exec.c $(VXETC)/rdate.c $(VXETC)/vxcall.c \
-		$(VXETC)/erl_io.c
-ERLEXECDIR = $(VXETC)
-INSTALL_LIBS = $(OBJDIR)/reclaim.o
-INSTALL_OBJS = $(OBJDIR)/heart.o
-TEXTFILES = $(BINDIR)/erl_script.sam
-ERLSRV_OBJECTS= 
-MC_OUTPUTS=
-ENTRY_LDFLAGS=
-ENTRY_OBJ=
-INSTALL_PROGS =              \
-	$(INET_GETHOST)      \
-	$(BINDIR)/heart      \
-	$(BINDIR)/$(ERLEXEC) \
-	$(INSTALL_EMBEDDED_PROGS)
-else
-ifeq ($(findstring ose,$(TARGET)), ose)
-INSTALL_TOP = $(OSEETC)/README.OSE
-INSTALL_ERL_OSE = monolith lm erl_utils drivers port_progs host
-INSTALL_SRC =
-INSTALL_LIBS =
-INSTALL_OBJS =
-INSTALL_INCLUDES =
-INSTALL_PROGS = 
-ERLSRV_OBJECTS= 
-MC_OUTPUTS=
-ENTRY_LDFLAGS=
-ENTRY_OBJ=
-else
 ifeq ($(TARGET),win32)
 CFLAGS += -I$(EMUOSDIR) -I$(WINETC)
 RC=rc.sh
@@ -207,7 +157,7 @@ endif
 PORT_ENTRY_POINT=erl_port_entry
 ENTRY_LDFLAGS=-entry:$(PORT_ENTRY_POINT)
 
-else
+else # UNIX (!win32)
 ENTRY_LDFLAGS=
 ENTRY_OBJ=
 ERLSRV_OBJECTS= 
@@ -231,8 +181,6 @@ INSTALL_PROGS =              \
 	$(BINDIR)/heart@EXEEXT@      \
 	$(BINDIR)/$(ERLEXEC) \
 	$(INSTALL_EMBEDDED_PROGS)
-endif
-endif
 endif
 
 .PHONY: etc
@@ -396,55 +344,12 @@ endif
 # End of windows specific targets.
 #---------------------------------------------------------
 
-ifeq ($(findstring vxworks,$(TARGET)), vxworks)
-$(BINDIR)/heart: $(OBJDIR)/heart.o $(OBJDIR)/heart_config.o 
-	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/heart.o $(OBJDIR)/heart_config.o
-
-$(OBJDIR)/heart_config.o: $(VXETC)/heart_config.c
-	$(CC) $(CFLAGS) -o $@ -c $(VXETC)/heart_config.c
-
-$(OBJDIR)/reclaim.o: $(VXETC)/reclaim.c
-	$(CC) $(CFLAGS) -o $@ -c $(VXETC)/reclaim.c
-
-$(OBJDIR)/heart.o: heart.c
-	$(CC) $(CFLAGS) -I$(VXETC) -o $@ -c heart.c
-
-$(BINDIR)/erl_script.sam: $(VXETC)/erl_script.sam.in ../../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' \
-		$(VXETC)/erl_script.sam.in > $(BINDIR)/erl_script.sam
-else
-
 $(BINDIR)/heart@EXEEXT@: $(OBJDIR)/heart.o $(ENTRY_OBJ)
 	$(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/heart.o \
 		$(ENTRY_OBJ) $(WINDSOCK)
 
 $(OBJDIR)/heart.o: heart.c $(RC_GENERATED)
 	$(CC) $(CFLAGS) -o $@ -c heart.c
-
-endif
-
-
-# VxWorks specific executables and objects ...
-
-$(BINDIR)/erl_io: $(OBJDIR)/erl_io.o
-	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erl_io.o
-
-$(OBJDIR)/erl_io.o: $(VXETC)/erl_io.c
-	$(CC) $(CFLAGS) -o $@ -c $(VXETC)/erl_io.c
-
-$(BINDIR)/rdate: $(OBJDIR)/rdate.o
-	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/rdate.o
-
-$(OBJDIR)/rdate.o: $(VXETC)/rdate.c
-	$(CC) $(CFLAGS) -o $@ -c $(VXETC)/rdate.c
-
-$(BINDIR)/vxcall: $(OBJDIR)/vxcall.o
-	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/vxcall.o
-
-$(OBJDIR)/vxcall.o: $(VXETC)/vxcall.c
-	$(CC) $(CFLAGS) -o $@ -c $(VXETC)/vxcall.c
-
-
 
 #
 # Objects & executables

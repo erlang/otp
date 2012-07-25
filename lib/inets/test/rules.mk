@@ -17,16 +17,11 @@ DEFAULT_TARGETS =  opt debug instr release release_docs clean docs
 #	Erlang language section
 # ----------------------------------------------------
 EMULATOR = beam
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-# VxWorks object files should be compressed.
-# Other object files should have debug_info.
-ERL_COMPILE_FLAGS += +compressed
-else
+
 ifdef BOOTSTRAP
 ERL_COMPILE_FLAGS += +slim
 else
 ERL_COMPILE_FLAGS += +debug_info
-endif
 endif
 ERLC_WFLAGS = -W
 ERLC = erlc $(ERLC_WFLAGS) $(ERLC_FLAGS)

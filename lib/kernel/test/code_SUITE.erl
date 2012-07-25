@@ -579,30 +579,25 @@ sticky_compiler(File) ->
 pa_pz_option(suite) -> [];
 pa_pz_option(doc) -> ["Test that the -pa and -pz options work as expected"];
 pa_pz_option(Config) when is_list(Config) ->
-    case os:type() of
-	vxworks ->
-	    {comment, "Slave nodes not supported on VxWorks"};
-	_ ->
-	    DDir = ?config(data_dir,Config),
-	    PaDir = filename:join(DDir,"pa"),
-	    PzDir = filename:join(DDir,"pz"),
-	    ?line {ok, Node}=?t:start_node(pa_pz1, slave,
-					   [{args,
-					     "-pa " ++ PaDir
-					     ++ " -pz " ++ PzDir}]),
-	    ?line Ret=rpc:call(Node, code, get_path, []),
-	    ?line [PaDir|Paths] = Ret,
-	    ?line [PzDir|_] = lists:reverse(Paths),
-	    ?t:stop_node(Node),
-	    ?line {ok, Node2}=?t:start_node(pa_pz2, slave,
-					    [{args,
-					      "-mode embedded " ++ "-pa "
-					      ++ PaDir ++ " -pz " ++ PzDir}]),
-	    ?line Ret2=rpc:call(Node2, code, get_path, []),
-	    ?line [PaDir|Paths2] = Ret2,
-	    ?line [PzDir|_] = lists:reverse(Paths2),
-	    ?t:stop_node(Node2)
-    end.
+    DDir = ?config(data_dir,Config),
+    PaDir = filename:join(DDir,"pa"),
+    PzDir = filename:join(DDir,"pz"),
+    {ok, Node}=?t:start_node(pa_pz1, slave,
+	[{args,
+		"-pa " ++ PaDir
+		++ " -pz " ++ PzDir}]),
+    Ret=rpc:call(Node, code, get_path, []),
+    [PaDir|Paths] = Ret,
+    [PzDir|_] = lists:reverse(Paths),
+    ?t:stop_node(Node),
+    {ok, Node2}=?t:start_node(pa_pz2, slave,
+	[{args,
+		"-mode embedded " ++ "-pa "
+		++ PaDir ++ " -pz " ++ PzDir}]),
+    Ret2=rpc:call(Node2, code, get_path, []),
+    [PaDir|Paths2] = Ret2,
+    [PzDir|_] = lists:reverse(Paths2),
+    ?t:stop_node(Node2).
 
 add_del_path(suite) ->
     [];

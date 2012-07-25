@@ -2606,8 +2606,8 @@ os_prompt% </pre>
             <p>This is only valid for <c>{spawn, <anno>Command</anno>}</c> and
 	    <c>{spawn_executable, <anno>FileName</anno>}</c>.
               The external program starts using <c><anno>Dir</anno></c> as its
-              working directory. <c><anno>Dir</anno></c> must be a string. Not
-              available on VxWorks.</p>
+              working directory. <c><anno>Dir</anno></c> must be a string.
+		  </p>
           </item>
           <tag><c>{env, <anno>Env</anno>}</c></tag>
           <item>
@@ -2621,8 +2621,8 @@ os_prompt% </pre>
               port process. Both <c><anno>Name</anno></c> and <c><anno>Val</anno></c> must be
               strings. The one exception is <c><anno>Val</anno></c> being the atom
               <c>false</c> (in analogy with <c>os:getenv/1</c>), which
-              removes the environment variable. Not available on
-              VxWorks.</p>
+              removes the environment variable.
+		  </p>
           </item>
 	  <tag><c>{args, [ string() | binary() ]}</c></tag>
           <item>

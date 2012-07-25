@@ -104,10 +104,6 @@ ENABLE_MEGACO_FLEX_SCANNER_LINENO = @ENABLE_MEGACO_FLEX_SCANNER_LINENO@
 endif
 endif
 
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-        DED_INCLUDES += -I$(ERL_TOP)/erts/etc/vxworks
-endif
-
 PRIVDIR = ../../priv
 LIBDIR  = $(PRIVDIR)/lib/$(TARGET)
 OBJDIR  = $(PRIVDIR)/obj/$(TARGET)
@@ -146,14 +142,9 @@ ifeq ($(findstring win32,$(TARGET)), win32)
 FLEX_SCANNER_SO = 
 SOLIBS = $(FLEX_SCANNER_SO)
 else
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-FLEX_SCANNER_SO = 
-SOLIBS = $(FLEX_SCANNER_SO)
-else
 FLEX_SCANNER_SO = $(LIBDIR)/$(STD_DRV).$(DED_EXT) 
 FLEX_SCANNER_MT_SO = $(LIBDIR)/$(MT_DRV).$(DED_EXT) 
 SOLIBS = $(FLEX_SCANNER_SO) $(FLEX_SCANNER_MT_SO) 
-endif
 endif
 
 

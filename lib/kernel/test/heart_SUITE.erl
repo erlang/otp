@@ -266,13 +266,8 @@ dont_drop(doc) ->
      "set just before halt on very high I/O load."];
 dont_drop(Config) when is_list(Config) ->
     %%% Have to do it some times to make it happen...
-    case os:type() of
-	vxworks ->
-	    {comment, "No use to run with slaves on other nodes..."};
-	_ ->
-	    [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok] = do_dont_drop(Config,10),
-	    ok
-    end.
+    [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok] = do_dont_drop(Config,10),
+    ok.
 
 do_dont_drop(_,0) ->
     [];
@@ -333,13 +328,7 @@ kill_pid(doc) ->
     ["Tests that heart kills the old erlang node before executing ",
      "heart command."];
 kill_pid(Config) when is_list(Config) ->
-    %%% Have to do it some times to make it happen...
-    case os:type() of
-	vxworks ->
-	    {comment, "No use to run with slaves on other nodes..."};
-	_ ->
-	    ok = do_kill_pid(Config)
-    end.
+    ok = do_kill_pid(Config).
 
 do_kill_pid(_Config) ->
     Name = heart_test,

@@ -55,8 +55,7 @@ build_install(TargetSystem, Options) ->
     end.
 
 os_type({unix,_}=OsType) -> OsType;
-os_type({win32,_}=OsType) -> OsType;
-os_type(_Other) -> vxworks.
+os_type({win32,_}=OsType) -> OsType.
 
 target_install(CrossVars) ->
     io:format("Cross installation detected, skipping configure and data_dir make~n"),
@@ -76,7 +75,6 @@ target_install(CrossVars) ->
 %% Autoconf for various platforms.
 %% unix uses the configure script
 %% win32 uses ts_autoconf_win32
-%% VxWorks uses ts_autoconf_vxworks.
 
 autoconf(TargetSystem, XComp) ->
     case autoconf1(TargetSystem, XComp) of
@@ -90,8 +88,6 @@ autoconf1({win32, _},[{cross,"no"}]) ->
     ts_autoconf_win32:configure();
 autoconf1({unix, _},XCompFile) ->
     unix_autoconf(XCompFile);
-autoconf1(Other,[{cross,"no"}]) ->
-    ts_autoconf_vxworks:configure(Other);
 autoconf1(_,_) ->
     io:format("cross compilation not supported for that this platform~n"),
     throw(cross_installation_failed).

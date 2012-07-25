@@ -56,70 +56,60 @@ end_per_group(_GroupName, Config) ->
 
 log(suite) -> [];
 log(Config) when is_list(Config) ->
-    ?line {ok,_Server} = start(),
-    ?line ok = sys:log(?server,true),
-    ?line {ok,-44} = public_call(44),
-    ?line ok = sys:log(?server,false),
-    ?line ok = sys:log(?server,print),
-    ?line stop(),
+    {ok,_Server} = start(),
+    ok = sys:log(?server,true),
+    {ok,-44} = public_call(44),
+    ok = sys:log(?server,false),
+    ok = sys:log(?server,print),
+    stop(),
     ok.
 
 log_to_file(suite) -> [];
 log_to_file(Config) when is_list(Config) ->
     TempName = test_server:temp_name(?config(priv_dir,Config) ++ "sys."),
-    ?line {ok,_Server} = start(),
-    ?line ok = sys:log_to_file(?server,TempName),
-    ?line {ok,-44} = public_call(44),
-    ?line ok = sys:log_to_file(?server,false),
-    ?line {ok,Fd} = file:open(TempName,[read]),
-    ?line Msg1 = io:get_line(Fd,''),
-    ?line Msg2 = io:get_line(Fd,''),
-    ?line file:close(Fd),
-    ?line lists:prefix("*DBG* sys_SUITE_server got call {req,44} from ",Msg1),
-    ?line lists:prefix("*DBG* sys_SUITE_server sent {ok,-44} to ",Msg2),
-    ?line stop(),
+    {ok,_Server} = start(),
+    ok = sys:log_to_file(?server,TempName),
+    {ok,-44} = public_call(44),
+    ok = sys:log_to_file(?server,false),
+    {ok,Fd} = file:open(TempName,[read]),
+    Msg1 = io:get_line(Fd,''),
+    Msg2 = io:get_line(Fd,''),
+    file:close(Fd),
+    lists:prefix("*DBG* sys_SUITE_server got call {req,44} from ",Msg1),
+    lists:prefix("*DBG* sys_SUITE_server sent {ok,-44} to ",Msg2),
+    stop(),
     ok.
 
 stats(suite) -> [];
 stats(Config) when is_list(Config) ->
-    ?line Self = self(),
-    ?line {ok,_Server} = start(),
-    ?line ok = sys:statistics(?server,true),
-    ?line {ok,-44} = public_call(44),
-    ?line {ok,Stats} = sys:statistics(?server,get),
-    ?line lists:member({messages_in,1},Stats),
-    ?line lists:member({messages_out,1},Stats),
-    ?line ok = sys:statistics(?server,false),
-    ?line {status,_Pid,{module,_Mod},[_PDict,running,Self,_,_]} =
+    Self = self(),
+    {ok,_Server} = start(),
+    ok = sys:statistics(?server,true),
+    {ok,-44} = public_call(44),
+    {ok,Stats} = sys:statistics(?server,get),
+    lists:member({messages_in,1},Stats),
+    lists:member({messages_out,1},Stats),
+    ok = sys:statistics(?server,false),
+    {status,_Pid,{module,_Mod},[_PDict,running,Self,_,_]} =
 	sys:get_status(?server),
-    ?line {ok,no_statistics} = sys:statistics(?server,get),
-    ?line stop(),
+    {ok,no_statistics} = sys:statistics(?server,get),
+    stop(),
     ok.
 
 trace(suite) -> [];
 trace(Config) when is_list(Config) ->
-    ?line {ok,_Server} = start(),
-    case os:type() of
-	vxworks ->
-	    ?line test_server:sleep(20000);
-	_ ->
-	    ?line test_server:sleep(2000)
-    end,
-    ?line test_server:capture_start(),
-    ?line sys:trace(?server,true),
-    ?line {ok,-44} = public_call(44),
+    {ok,_Server} = start(),
+    test_server:sleep(2000),
+    test_server:capture_start(),
+    sys:trace(?server,true),
+    {ok,-44} = public_call(44),
     %% ho, hum, allow for the io to reach us..
-    case os:type() of
-	vxworks ->
-	    ?line test_server:sleep(10000);
-	_ ->
-	    ?line test_server:sleep(1000)
-    end,
-    ?line test_server:capture_stop(),
-    ?line [Msg1,Msg2] = test_server:capture_get(),
-    ?line lists:prefix("*DBG* sys_SUITE_server got call {req,44} from ",Msg1),
-    ?line lists:prefix("*DBG* sys_SUITE_server sent {ok,-44} to ",Msg2),
-    ?line stop(),
+    test_server:sleep(1000),
+    test_server:capture_stop(),
+    [Msg1,Msg2] = test_server:capture_get(),
+    lists:prefix("*DBG* sys_SUITE_server got call {req,44} from ",Msg1),
+    lists:prefix("*DBG* sys_SUITE_server sent {ok,-44} to ",Msg2),
+    stop(),
     ok.
 
 suspend(suite) -> [];

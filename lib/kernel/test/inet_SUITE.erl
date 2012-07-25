@@ -66,7 +66,7 @@ required(v6) ->
      {require, test_dummy_ipv6_host}];
 required(hosts) ->
     case os:type() of
-	{OS, _} when OS =:= win32; OS =:= vxworks ->
+	{OS, _} when OS =:= win32 ->
 	    [{require, hardcoded_hosts},
 	     {require, hardcoded_ipv6_hosts}];
 	_Else ->
@@ -614,17 +614,12 @@ t_gethostnative(Config) when is_list(Config) ->
 %% this will result in 26 bytes sent which causes problem in Windows
 %% if the port-program has not assured stdin to be read in BINARY mode
 %% OTP-2555
-    case os:type() of
-	vxworks ->
-	    {skipped, "VxWorks has no native gethostbyname()"};
-	_ ->
-	    ?line case inet_gethost_native:gethostbyname(
-			 "a23456789012345678901234") of
-		      {error,notfound} ->
-			  ?line ok;
-		      {error,no_data} ->
-			  ?line ok
-		  end
+    ?line case inet_gethost_native:gethostbyname(
+	    "a23456789012345678901234") of
+	{error,notfound} ->
+	    ?line ok;
+	{error,no_data} ->
+	    ?line ok
     end.
 
 gethostnative_parallell(suite) ->    

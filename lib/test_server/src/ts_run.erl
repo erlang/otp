@@ -157,7 +157,6 @@ get_config_files() ->
     [TSConfig | case os:type() of
 		    {unix,_} -> ["ts.unix.config"];
 		    {win32,_} -> ["ts.win32.config"];
-		    vxworks -> ["ts.vxworks.config"];
 		    _ -> []
 		end].
 
@@ -329,8 +328,7 @@ start_xterm(Command) ->
 path_separator() ->
     case os:type() of
 	{win32, _} -> ";";
-	{unix, _}  -> ":";
-	vxworks ->    ":"
+	{unix, _}  -> ":"
     end.
 
 

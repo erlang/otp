@@ -406,9 +406,6 @@ cur_dir_1(Config, Handle) ->
 	      {unix, _} ->
 		  ?line {error, enotsup} = 
 		      ?PRIM_FILE_call(get_cwd, Handle, ["d:"]);
-	      vxworks ->
-		  ?line {error, enotsup} = 
-		      ?PRIM_FILE_call(get_cwd, Handle,  ["d:"]);
 	      {win32, _} ->
 		  win_cur_dir_1(Config, Handle)
 	  end,
@@ -843,10 +840,7 @@ file_info_basic_directory(Config, Handle) ->
 		  ?line test_directory("c:/", read_write, Handle),
 		  ?line test_directory("c:\\", read_write, Handle);
 	      {unix, _} ->
-		  ?line test_directory("/", read, Handle);
-	      vxworks ->
-		  %% Check is just done for owner
-		  ?line test_directory("/", read_write, Handle)
+		  ?line test_directory("/", read, Handle)
 	  end,
     ?line test_server:timetrap_cancel(Dog).
 
@@ -1508,9 +1502,7 @@ e_delete(Config) when is_list(Config) ->
 			   Base, #file_info {mode=8#600});
 	      {win32, _} ->
 		  %% Remove a character device.
-		  ?line {error, eacces} = ?PRIM_FILE:delete("nul");
-	      vxworks ->
-		  ok
+		  ?line {error, eacces} = ?PRIM_FILE:delete("nul")
 	  end,
 
     ?line test_server:timetrap_cancel(Dog),
@@ -1524,110 +1516,105 @@ e_delete(Config) when is_list(Config) ->
 e_rename(suite) -> [];
 e_rename(doc) -> [];
 e_rename(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ?line RootDir = ?config(priv_dir, Config),
+    ?line Base = filename:join(RootDir,
+	atom_to_list(?MODULE)++"_e_rename"),
+    ?line ok = ?PRIM_FILE:make_dir(Base),
+
+    %% Create an empty directory.
+    ?line EmptyDir = filename:join(Base, "empty_dir"),
+    ?line ok = ?PRIM_FILE:make_dir(EmptyDir),
+
+    %% Create a non-empty directory.
+    ?line NonEmptyDir = filename:join(Base, "non_empty_dir"),
+    ?line ok = ?PRIM_FILE:make_dir(NonEmptyDir),
+    ?line ok = ?PRIM_FILE:write_file(
+	filename:join(NonEmptyDir, "a_file"),
+	"hello\n"),
+
+    %% Create another non-empty directory.
+    ?line ADirectory = filename:join(Base, "a_directory"),
+    ?line ok = ?PRIM_FILE:make_dir(ADirectory),
+    ?line ok = ?PRIM_FILE:write_file(
+	filename:join(ADirectory, "a_file"),
+	"howdy\n\n"),
+
+    %% Create a data file.
+    ?line File = filename:join(Base, "just_a_file"),
+    ?line ok = ?PRIM_FILE:write_file(File, "anything goes\n\n"),
+
+    %% Move an existing directory to a non-empty directory.
+    ?line {error, eexist} = 
+    ?PRIM_FILE:rename(ADirectory, NonEmptyDir),
+
+    %% Move a root directory.
+    ?line {error, einval} = ?PRIM_FILE:rename("/", "arne"),
+
+    %% Move Base into Base/new_name.
+    ?line {error, einval} = 
+    ?PRIM_FILE:rename(Base, filename:join(Base, "new_name")),
+
+    %% Overwrite a directory with a file.
+    ?line expect({error, eexist}, % FreeBSD (?)
+	{error, eisdir},
+	?PRIM_FILE:rename(File, EmptyDir)),
+    ?line expect({error, eexist}, % FreeBSD (?)
+	{error, eisdir},
+	?PRIM_FILE:rename(File, NonEmptyDir)),
+
+    %% Move a non-existing file.
+    ?line NonExistingFile = filename:join(
+	Base, "non_existing_file"),
+    ?line {error, enoent} = 
+    ?PRIM_FILE:rename(NonExistingFile, NonEmptyDir),
+
+    %% Overwrite a file with a directory.
+    ?line expect({error, eexist}, % FreeBSD (?)
+	{error, enotdir},
+	?PRIM_FILE:rename(ADirectory, File)),
+
+    %% Move a file to another filesystem.
+    %% XXX - This test case is bogus. We cannot be guaranteed that
+    %%       the source and destination are on 
+    %%       different filesystems.
+    %%
+    %% XXX - Gross hack!
+    ?line Comment = 
     case os:type() of
-	vxworks ->
-	    {comment, "Windriver: dosFs must be fixed first!"};
-	_ ->
-	    ?line Dog = test_server:timetrap(test_server:seconds(10)),
-	    ?line RootDir = ?config(priv_dir, Config),
-	    ?line Base = filename:join(RootDir,
-				       atom_to_list(?MODULE)++"_e_rename"),
-	    ?line ok = ?PRIM_FILE:make_dir(Base),
-	
-	    %% Create an empty directory.
-	    ?line EmptyDir = filename:join(Base, "empty_dir"),
-	    ?line ok = ?PRIM_FILE:make_dir(EmptyDir),
-
-	    %% Create a non-empty directory.
-	    ?line NonEmptyDir = filename:join(Base, "non_empty_dir"),
-	    ?line ok = ?PRIM_FILE:make_dir(NonEmptyDir),
-	    ?line ok = ?PRIM_FILE:write_file(
-			  filename:join(NonEmptyDir, "a_file"),
-			  "hello\n"),
-
-	    %% Create another non-empty directory.
-	    ?line ADirectory = filename:join(Base, "a_directory"),
-	    ?line ok = ?PRIM_FILE:make_dir(ADirectory),
-	    ?line ok = ?PRIM_FILE:write_file(
-			  filename:join(ADirectory, "a_file"),
-			  "howdy\n\n"),
-
-	    %% Create a data file.
-	    ?line File = filename:join(Base, "just_a_file"),
-	    ?line ok = ?PRIM_FILE:write_file(File, "anything goes\n\n"),
-	
-	    %% Move an existing directory to a non-empty directory.
-	    ?line {error, eexist} = 
-		?PRIM_FILE:rename(ADirectory, NonEmptyDir),
-
-	    %% Move a root directory.
-	    ?line {error, einval} = ?PRIM_FILE:rename("/", "arne"),
-
-	    %% Move Base into Base/new_name.
-	    ?line {error, einval} = 
-		?PRIM_FILE:rename(Base, filename:join(Base, "new_name")),
-
-	    %% Overwrite a directory with a file.
-	    ?line expect({error, eexist}, % FreeBSD (?)
-			 {error, eisdir},
-			 ?PRIM_FILE:rename(File, EmptyDir)),
-	    ?line expect({error, eexist}, % FreeBSD (?)
-			 {error, eisdir},
-			 ?PRIM_FILE:rename(File, NonEmptyDir)),
-
-	    %% Move a non-existing file.
-	    ?line NonExistingFile = filename:join(
-				      Base, "non_existing_file"),
-	    ?line {error, enoent} = 
-		?PRIM_FILE:rename(NonExistingFile, NonEmptyDir),
-
-	    %% Overwrite a file with a directory.
-	    ?line expect({error, eexist}, % FreeBSD (?)
-			 {error, enotdir},
-			 ?PRIM_FILE:rename(ADirectory, File)),
-
-	    %% Move a file to another filesystem.
-	    %% XXX - This test case is bogus. We cannot be guaranteed that
-	    %%       the source and destination are on 
-	    %%       different filesystems.
-	    %%
-	    %% XXX - Gross hack!
-	    ?line Comment = 
-		case os:type() of
-		    {unix, _} ->
-			OtherFs = "/tmp",
-			?line NameOnOtherFs =
-			    filename:join(OtherFs, 
-					  filename:basename(File)),
-			?line {ok, Com} = 
-			    case ?PRIM_FILE:rename(
-				    File, NameOnOtherFs) of
-				{error, exdev} ->
-				    %% The file could be in 
-				    %% the same filesystem!
-				    {ok, ok};
-				ok ->
-				    {ok, {comment, 
-					  "Moving between filesystems "
-					  "suceeded, files are probably "
-					  "in the same filesystem!"}};
-				{error, eperm} ->
-				    {ok, {comment, "SBS! You don't "
-					  "have the permission to do "
-					  "this test!"}};
-				Else ->
-				    Else
-			    end,
-			Com;
-		    {win32, _} ->
-			%% At least Windows NT can 
-			%% successfully move a file to
-			%% another drive.
-			ok
-		end,
-	    ?line test_server:timetrap_cancel(Dog),
-	    Comment
-    end.
+	{unix, _} ->
+	    OtherFs = "/tmp",
+	    ?line NameOnOtherFs =
+	    filename:join(OtherFs, 
+		filename:basename(File)),
+	    ?line {ok, Com} = 
+	    case ?PRIM_FILE:rename(
+		    File, NameOnOtherFs) of
+		{error, exdev} ->
+		    %% The file could be in 
+		    %% the same filesystem!
+		    {ok, ok};
+		ok ->
+		    {ok, {comment, 
+			    "Moving between filesystems "
+			    "suceeded, files are probably "
+			    "in the same filesystem!"}};
+		{error, eperm} ->
+		    {ok, {comment, "SBS! You don't "
+			    "have the permission to do "
+			    "this test!"}};
+		Else ->
+		    Else
+	    end,
+	    Com;
+	{win32, _} ->
+	    %% At least Windows NT can 
+	    %% successfully move a file to
+	    %% another drive.
+	    ok
+    end,
+    ?line test_server:timetrap_cancel(Dog),
+    Comment.
 
 e_make_dir(suite) -> [];
 e_make_dir(doc) -> [];
@@ -1660,8 +1647,6 @@ e_make_dir(Config) when is_list(Config) ->
 	    ?line 
 		?PRIM_FILE:write_file_info(Base, #file_info {mode=8#600});
 	{win32, _} ->
-	    ok;
-	vxworks ->
 	    ok
     end,
     ?line test_server:timetrap_cancel(Dog),
@@ -1716,8 +1701,6 @@ e_del_dir(Config) when is_list(Config) ->
 	    ?line ?PRIM_FILE:write_file_info(
 		     Base, #file_info {mode=8#600});
 	{win32, _} ->
-	    ok;
-	vxworks ->
 	    ok
     end,
     ?line test_server:timetrap_cancel(Dog),

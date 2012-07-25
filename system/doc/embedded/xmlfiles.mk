@@ -18,5 +18,4 @@
 #
 EMBEDDED_CHAPTER_FILES = \
 	embedded_solaris.xml \
-	embedded_nt.xml \
-	vxworks.xml
+	embedded_nt.xml

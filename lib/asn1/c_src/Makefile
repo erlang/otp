@@ -66,13 +66,8 @@ NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.dll
 CLIB_FLAGS =
 LN=cp
 else
-ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.eld
-CLIB_FLAGS =
-else
 NIF_SHARED_OBJ_FILE = $(LIBDIR)/asn1_erl_nif.so
 CLIB_FLAGS = -lc
-endif
 LN= ln -s
 endif
 
