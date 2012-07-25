@@ -2863,6 +2863,10 @@ os_prompt% </pre>
         <p>It can only be used to check the local time of day if
           the time-zone info of the underlying operating system is
           properly configured.</p>
+        <p>If you do not need the return value to be unique and
+          monotonically increasing, use
+          <seealso marker="kernel:os#timestamp/0">os:timestamp/0</seealso>
+          instead to avoid some overhead.</p>
       </desc>
     </func>
     <func>
