@@ -18,7 +18,7 @@ Building and Installing
 -----------------------
 
 Information on building and installing Erlang/OTP can be found
-in the [$ERL_TOP/HOWTO/INSTALL.md][] document.
+in the [$ERL_TOP/HOWTO/INSTALL.md] [5] document.
 
 Contributing to Erlang/OTP
 --------------------------
@@ -46,7 +46,7 @@ In short:
     may suggest improvements that are needed before the change can be accepted
     and merged.
 
-*   Once or twice a week, a status email called "What's cooking in Erlang/OTP"
+*   Once or twice a week, a status email called ["What's cooking in Erlang/OTP"] [4]
     will be sent to the [`erlang-patches`] [3] mailing list.
 
 Copyright and License
@@ -73,5 +73,6 @@ Copyright and License
 
    [1]: http://www.erlang.org
    [2]: http://wiki.github.com/erlang/otp/submitting-patches
-   [3]: http://www.erlang.org/faq.html
-   [$ERL_TOP/HOWTO/INSTALL.md]: HOWTO/INSTALL.md
+   [3]: http://www.erlang.org/faq/faq.html
+   [4]: http://erlang.github.com/otp/
+   [5]: HOWTO/INSTALL.md
