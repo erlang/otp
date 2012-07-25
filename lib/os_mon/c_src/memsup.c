@@ -437,7 +437,7 @@ get_basic_mem(unsigned long *tot, unsigned long *used, unsigned long *pagesize){
 #elif defined(__linux__) && !defined(_SC_AVPHYS_PAGES)
     memory_ext me;
     if (get_mem_procfs(&me) < 0) {
-        print_error("ProcFS read error.");
+        print_error("ProcFS read error");
         exit(1);
     }
     *tot      = me.total;
@@ -517,7 +517,7 @@ message_loop(int erlin_fd)
 	 *  Wait for command from Erlang
 	 */
 	if ((res = read(erlin_fd, &cmdLen, 1)) < 0) {
-	    print_error("Error reading from Erlang.");
+	    print_error("Error reading from Erlang");
 	    return;
 	}
 
@@ -538,19 +538,19 @@ message_loop(int erlin_fd)
 		  break;
 		  
 		case 0:
-		  print_error("Erlang has closed.");
+		  print_error("Erlang has closed");
 		  return;
 
 		default:
-		  print_error("Error reading from Erlang.");
+		  print_error("Error reading from Erlang");
 		  return;
 		} /* switch() */
 	    } else { /* cmdLen != 1 */
-		print_error("Invalid command length (%d) received.", cmdLen);
+		print_error("Invalid command length (%d) received", cmdLen);
 		return;
 	    }
 	} else {		/* Erlang end closed */
-	    print_error("Erlang has closed.");
+	    print_error("Erlang has closed");
 	    return;
 	}
     }
@@ -576,15 +576,12 @@ static void
 print_error(const char *format,...)
 {
   va_list args;
+  char buffer[256];
 
   va_start(args, format);
-  fprintf(stderr, "%s: ", program_name);
-  vfprintf(stderr, format, args);
+  vsnprintf(buffer, 256, format, args);
   va_end(args);
-  fprintf(stderr, " \n");
+  /* try to use one write only */
+  fprintf(stderr, "[os_mon] memory supervisor port (memsup): %s\r\n", buffer);
+  fflush(stderr);
 }
-
-
-
-
-
