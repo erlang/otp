@@ -537,7 +537,8 @@ connect(ip_comm, Host, Port, Opts, Type) ->
 	    {ok, Socket};
 
 	{error, Reason} when ((Type =:= inet6) andalso 
-			      ((Reason =:= nxdomain) orelse 
+			      ((Reason =:= timeout) orelse 
+			       (Reason =:= nxdomain) orelse 
 			       (Reason =:= eafnosupport) orelse 
 			       (Reason =:= econnreset) orelse 
 			       (Reason =:= enetunreach) orelse 
