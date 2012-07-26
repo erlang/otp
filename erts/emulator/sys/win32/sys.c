@@ -1204,9 +1204,7 @@ spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
      */
 
     DEBUGF(("Spawning \"%s\"\n", name));
-    envir = win_build_environment(envir); /* Still an ansi environment, could be
-					     converted to unicode for spawn_executable, but
-					     that is not done (yet) */ 
+    envir = win_build_environment(envir); /* Always a unicode environment */ 
     ok = create_child_process(name, 
 			    hChildStdin, 
 			    hChildStdout,
@@ -1485,7 +1483,8 @@ create_child_process
 			    NULL, 
 			    NULL, 
 			    TRUE, 
-			    createFlags | staticCreateFlags, 
+			    createFlags | staticCreateFlags | 
+			    CREATE_UNICODE_ENVIRONMENT, 
 			    env, 
 			    wd, 
 			    &siStartInfo, 
@@ -1613,7 +1612,8 @@ create_child_process
 			    NULL, 
 			    NULL, 
 			    TRUE, 
-			    createFlags | staticCreateFlags, 
+			    createFlags | staticCreateFlags | 
+			    CREATE_UNICODE_ENVIRONMENT, 
 			    env, 
 			    (WCHAR *) wd, 
 			    &siStartInfo, 

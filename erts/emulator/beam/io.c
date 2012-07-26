@@ -1314,7 +1314,7 @@ void init_io(void)
 
     pdl_init();
 
-    if (erts_sys_getenv("ERL_MAX_PORTS", maxports, &maxportssize) == 0) 
+    if (erts_sys_getenv_raw("ERL_MAX_PORTS", maxports, &maxportssize) == 0) 
 	erts_max_ports = atoi(maxports);
     else
 	erts_max_ports = sys_max_files();
@@ -5227,11 +5227,11 @@ int null_func(void)
 int
 erl_drv_putenv(char *key, char *value)
 {
-    return erts_write_env(key, value);
+    return erts_sys_putenv_raw(key, value);
 }
 
 int
 erl_drv_getenv(char *key, char *value, size_t *value_size)
 {
-    return erts_sys_getenv(key, value, value_size);
+    return erts_sys_getenv_raw(key, value, value_size);
 }

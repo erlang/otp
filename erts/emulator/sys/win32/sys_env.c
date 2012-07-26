@@ -25,10 +25,10 @@
 #include "erl_sys_driver.h"
 #include "erl_alloc.h"
 
-static char* merge_environment(char *current, char *add);
-static char* arg_to_env(char **arg);
-static char** env_to_arg(char *env);
-static char** find_arg(char **arg, char *str);
+static WCHAR *merge_environment(WCHAR *current, WCHAR *add);
+static WCHAR *arg_to_env(WCHAR **arg);
+static WCHAR **env_to_arg(WCHAR *env);
+static WCHAR **find_arg(WCHAR **arg, WCHAR *str);
 static int compare(const void *a, const void *b);
 
 static erts_smp_rwmtx_t environ_rwmtx;
@@ -40,20 +40,52 @@ erts_sys_env_init(void)
 }
 
 int
-erts_sys_putenv(char *key_value, int sep_ix)
+erts_sys_putenv_raw(char *key, char *value)
 {
     int res;
-    char sep = key_value[sep_ix];
-    ASSERT(sep == '=');
-    key_value[sep_ix] = '\0';
     erts_smp_rwmtx_rwlock(&environ_rwmtx);
-    res = (SetEnvironmentVariable((LPCTSTR) key_value,
-				  (LPCTSTR) &key_value[sep_ix+1]) ? 0 : 1);
+    res = (SetEnvironmentVariable((LPCTSTR) key,
+				  (LPCTSTR) value) ? 0 : 1);
     erts_smp_rwmtx_rwunlock(&environ_rwmtx);
-    key_value[sep_ix] = sep;
     return res;
 }
 
+int
+erts_sys_putenv(char *key, char *value)
+{
+    int res;
+    WCHAR *wkey = (WCHAR *) key;
+    WCHAR *wvalue = (WCHAR *) value;
+    erts_smp_rwmtx_rwlock(&environ_rwmtx);
+    res = (SetEnvironmentVariableW(wkey,
+				   wvalue) ? 0 : 1);
+    erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+    return res;
+}
+
+int
+erts_sys_getenv(char *key, char *value, size_t *size)
+{
+    size_t req_size = 0;
+    int res = 0;
+    DWORD new_size;
+    WCHAR *wkey = (WCHAR *) key;
+    WCHAR *wvalue = (WCHAR *) value;
+    DWORD wsize = *size / (sizeof(WCHAR) / sizeof(char));
+
+    SetLastError(0);
+    erts_smp_rwmtx_rlock(&environ_rwmtx);
+    new_size = GetEnvironmentVariableW(wkey,
+				       wvalue,
+				      (DWORD) wsize);
+    res = !new_size && GetLastError() == ERROR_ENVVAR_NOT_FOUND ? -1 : 0;
+    erts_smp_rwmtx_runlock(&environ_rwmtx);
+    if (res < 0)
+	return res;
+    res = new_size > wsize ? 1 : 0;
+    *size = new_size * (sizeof(WCHAR) / sizeof(char));
+    return res;
+}
 int
 erts_sys_getenv__(char *key, char *value, size_t *size)
 {
@@ -74,7 +106,7 @@ erts_sys_getenv__(char *key, char *value, size_t *size)
 }
 
 int
-erts_sys_getenv(char *key, char *value, size_t *size)
+erts_sys_getenv_raw(char *key, char *value, size_t *size)
 {
     int res;
     erts_smp_rwmtx_rlock(&environ_rwmtx);
@@ -83,34 +115,28 @@ erts_sys_getenv(char *key, char *value, size_t *size)
     return res;
 }
 
-struct win32_getenv_state {
-    char *env;
-    char *next;
-};
-
-
 void init_getenv_state(GETENV_STATE *state)
 {
     erts_smp_rwmtx_rlock(&environ_rwmtx);
-    state->environment_strings = (char *) GetEnvironmentStrings();
+    state->environment_strings = GetEnvironmentStringsW();
     state->next_string = state->environment_strings;
 }
 
 char *getenv_string(GETENV_STATE *state)
 {
     ERTS_SMP_LC_ASSERT(erts_smp_lc_rwmtx_is_rlocked(&environ_rwmtx));
-    if (state->next_string[0] == '\0')
+    if (state->next_string[0] == L'\0') {
 	return NULL;
-    else {
-	char *res = state->next_string;
-	state->next_string += sys_strlen(res) + 1;
-	return res;
+    } else {
+	WCHAR *res = state->next_string;
+	state->next_string += wcslen(res) + 1;
+	return (char *) res;
     }
 }
 
 void fini_getenv_state(GETENV_STATE *state)
 {
-    FreeEnvironmentStrings(state->environment_strings);
+    FreeEnvironmentStringsW(state->environment_strings);
     state->environment_strings = state->next_string = NULL;
     erts_smp_rwmtx_runlock(&environ_rwmtx);
 }
@@ -121,24 +147,26 @@ win_build_environment(char* new_env)
     if (new_env == NULL) {
 	return NULL;
     } else {
-	char *tmp, *merged;
+	WCHAR *tmp, *merged, *tmp_new;
+
+	tmp_new = (WCHAR *) new_env;
 	
 	erts_smp_rwmtx_rlock(&environ_rwmtx);
-	tmp = GetEnvironmentStrings();
-	merged = merge_environment(tmp, new_env);
+	tmp = GetEnvironmentStringsW();
+	merged = merge_environment(tmp, tmp_new);
 
-	FreeEnvironmentStrings(tmp);
+	FreeEnvironmentStringsW(tmp);
 	erts_smp_rwmtx_runlock(&environ_rwmtx);
-	return merged;
+	return (char *) merged;
     }
 }
 
-static char*
-merge_environment(char *old, char *add)
+static WCHAR *
+merge_environment(WCHAR *old, WCHAR *add)
 {
-    char **a_arg = env_to_arg(add);
-    char **c_arg = env_to_arg(old);
-    char *ret;
+    WCHAR **a_arg = env_to_arg(add);
+    WCHAR **c_arg = env_to_arg(old);
+    WCHAR *ret;
     int i, j;
     
     for(i = 0; c_arg[i] != NULL; ++i)
@@ -148,13 +176,13 @@ merge_environment(char *old, char *add)
 	;
 
     c_arg = erts_realloc(ERTS_ALC_T_TMP,
-			 c_arg, (i+j+1) * sizeof(char *));
+			 c_arg, (i+j+1) * sizeof(WCHAR *));
 
     for(j = 0; a_arg[j] != NULL; ++j){
-	char **tmp;
-	char *current = a_arg[j];
-	char *eq_p = strchr(current,'=');
-	int unset = (eq_p!=NULL && eq_p[1]=='\0');
+	WCHAR **tmp;
+	WCHAR *current = a_arg[j];
+	WCHAR *eq_p = wcschr(current,L'=');
+	int unset = (eq_p!=NULL && eq_p[1]==L'\0');
 
 	if ((tmp = find_arg(c_arg, current)) != NULL) {
 	    if (!unset) {
@@ -174,17 +202,17 @@ merge_environment(char *old, char *add)
     return ret;
 }
 
-static char**
-find_arg(char **arg, char *str)
+static WCHAR**
+find_arg(WCHAR **arg, WCHAR *str)
 {
-    char *tmp;
+    WCHAR *tmp;
     int len;
 
-    if ((tmp = strchr(str, '=')) != NULL) {
+    if ((tmp = wcschr(str, L'=')) != NULL) {
 	tmp++;
 	len = tmp - str;
 	while (*arg != NULL){
-	    if (_strnicmp(*arg, str, len) == 0){
+	    if (_wcsnicmp(*arg, str, len) == 0){
 		return arg;
 	    }
 	    ++arg;
@@ -196,74 +224,74 @@ find_arg(char **arg, char *str)
 static int
 compare(const void *a, const void *b)
 {
-    char *s1 = *((char **) a);
-    char *s2 = *((char **) b);
-    char *e1 = strchr(s1,'=');
-    char *e2 = strchr(s2,'=');
+    WCHAR *s1 = *((WCHAR **) a);
+    WCHAR *s2 = *((WCHAR **) b);
+    WCHAR *e1 = wcschr(s1,L'=');
+    WCHAR *e2 = wcschr(s2,L'=');
     int ret;
     int len;
   
     if(!e1)
-	e1 = s1 + strlen(s1);
+	e1 = s1 + wcslen(s1);
     if(!e2)
-	e2 = s2 + strlen(s2);
+	e2 = s2 + wcslen(s2);
   
     if((e1 - s1) > (e2 - s2))
 	len = (e2 - s2);
     else
 	len = (e1 - s1);
   
-    ret = _strnicmp(s1,s2,len);
+    ret = _wcsnicmp(s1,s2,len);
     if (ret == 0)
 	return ((e1 - s1) - (e2 - s2));
     else
 	return ret;
 }
 
-static char**
-env_to_arg(char *env)
+static WCHAR**
+env_to_arg(WCHAR *env)
 {
-    char **ret;
-    char *tmp;
+    WCHAR **ret;
+    WCHAR *tmp;
     int i;
     int num_strings = 0;
 
-    for(tmp = env; *tmp != '\0'; tmp += strlen(tmp)+1) {
+    for(tmp = env; *tmp != '\0'; tmp += wcslen(tmp)+1) {
 	++num_strings;
     }
-    ret = erts_alloc(ERTS_ALC_T_TMP, sizeof(char *) * (num_strings + 1));
+    ret = erts_alloc(ERTS_ALC_T_TMP, sizeof(WCHAR *) * (num_strings + 1));
     i = 0;
-    for(tmp = env; *tmp != '\0'; tmp += strlen(tmp)+1){
+    for(tmp = env; *tmp != '\0'; tmp += wcslen(tmp)+1){
 	ret[i++] = tmp;
     }
     ret[i] = NULL;
     return ret;
 }
 
-static char*
-arg_to_env(char **arg)
+static WCHAR *
+arg_to_env(WCHAR **arg)
 {
-    char *block;
-    char *ptr;
+    WCHAR *block;
+    WCHAR *ptr;
     int i;
     int totlen = 1;		/* extra '\0' */
 
     for(i = 0; arg[i] != NULL; ++i) {
-	totlen += strlen(arg[i])+1;
+	totlen += wcslen(arg[i])+1;
     }
 
     /* sort the environment vector */
-    qsort(arg, i, sizeof(char *), &compare);
+    qsort(arg, i, sizeof(WCHAR *), &compare);
 
     if (totlen == 1){
-	block = erts_alloc(ERTS_ALC_T_ENVIRONMENT, 2);
+	block = erts_alloc(ERTS_ALC_T_ENVIRONMENT, 2 * sizeof(WCHAR));
 	block[0] = block[1] = '\0'; 
     } else {
-	block = erts_alloc(ERTS_ALC_T_ENVIRONMENT, totlen);
+	block = erts_alloc(ERTS_ALC_T_ENVIRONMENT, totlen * sizeof(WCHAR));
 	ptr = block;
 	for(i=0; arg[i] != NULL; ++i){
-	    strcpy(ptr, arg[i]);
-	    ptr += strlen(ptr)+1;
+	    wcscpy(ptr, arg[i]);
+	    ptr += wcslen(ptr)+1;
 	}
 	*ptr = '\0';
     }

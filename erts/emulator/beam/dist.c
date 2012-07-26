@@ -968,16 +968,16 @@ erts_dsig_send_group_leader(ErtsDSigData *dsdp, Eterm leader, Eterm remote)
 #define VALGRIND_PRINTF_XML VALGRIND_PRINTF
 #endif
 
-#  define PURIFY_MSG(msg)                                                \
-    do {								 \
-	char buf__[1]; size_t bufsz__ = sizeof(buf__);			 \
-	if (erts_sys_getenv("VALGRIND_LOG_XML", buf__, &bufsz__) >= 0) { \
-	    VALGRIND_PRINTF_XML("<erlang_error_log>"			 \
-			    "%s, line %d: %s</erlang_error_log>\n",	 \
-			    __FILE__, __LINE__, msg);			 \
-	} else {							 \
-	    VALGRIND_PRINTF("%s, line %d: %s", __FILE__, __LINE__, msg); \
-	}								 \
+#  define PURIFY_MSG(msg)                                                    \
+    do {								     \
+	char buf__[1]; size_t bufsz__ = sizeof(buf__);			     \
+	if (erts_sys_getenv_raw("VALGRIND_LOG_XML", buf__, &bufsz__) >= 0) { \
+	    VALGRIND_PRINTF_XML("<erlang_error_log>"			     \
+			    "%s, line %d: %s</erlang_error_log>\n",	     \
+			    __FILE__, __LINE__, msg);			     \
+	} else {							     \
+	    VALGRIND_PRINTF("%s, line %d: %s", __FILE__, __LINE__, msg);     \
+	}								     \
     } while (0)
 #else
 #  define PURIFY_MSG(msg)
