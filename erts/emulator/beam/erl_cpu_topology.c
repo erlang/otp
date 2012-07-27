@@ -486,7 +486,7 @@ erts_sched_check_cpu_bind_post_suspend(ErtsSchedulerData *esdp)
 	erts_thr_set_main_status(1, (int) esdp->no);
 
     /* Make sure we check if we should bind to a cpu or not... */
-    ERTS_RUNQ_FLGS_SET(esdp->run_queue, ERTS_RUNQ_FLG_CHK_CPU_BIND);
+    (void) ERTS_RUNQ_FLGS_SET(esdp->run_queue, ERTS_RUNQ_FLG_CHK_CPU_BIND);
 }
 
 #endif

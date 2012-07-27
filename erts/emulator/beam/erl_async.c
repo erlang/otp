@@ -122,6 +122,8 @@ typedef struct {
 #endif
 } ErtsAsyncData;
 
+#if defined(USE_THREADS) && defined(USE_VM_PROBES)
+
 /*
  * Some compilers, e.g. GCC 4.2.1 and -O3, will optimize away DTrace
  * calls if they're the last thing in the function.  :-(
@@ -129,6 +131,7 @@ typedef struct {
  * https://github.com/memcached/memcached/commit/6298b3978687530bc9d219b6ac707a1b681b2a46
  */
 static unsigned gcc_optimizer_hack = 0;
+#endif
 
 int erts_async_max_threads; /* Initialized by erl_init.c */
 int erts_async_thread_suggested_stack_size; /* Initialized by erl_init.c */
@@ -281,8 +284,8 @@ static ERTS_INLINE void async_add(ErtsAsync *a, ErtsAsyncQ* q)
         len = -1;
         DTRACE2(aio_pool_add, port_str, len);
     }
-#endif
     gcc_optimizer_hack++;
+#endif
 }
 
 static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
