@@ -302,7 +302,7 @@ else
     # Set annotation level for gdb in emacs 22 and higher.
     emacs_major=`$EMACS --version | head -1 | sed 's,^[^0-9]*\([0-9]*\).*,\1,g'`
     if [ '!' -z "$emacs_major" -a $emacs_major -gt 21 ]; then
-	GDBARGS="--annotate=3 "
+	GDBARGS="--annotate=1 "
     fi
     gdbcmd="$gdbcmd $GDBBP \
             (insert-string \"source $ROOTDIR/erts/etc/unix/etp-commands\") \
