@@ -1024,13 +1024,11 @@ list_users(Node, Root, _Host, Port, Dir) ->
 
 
 receive_security_event(Event, Node, Port) ->
-    %% io:format(user, "~w:receive_security_event -> entry with"
-    %% 	      "~n   Event: ~p"
-    %% 	      "~n   Node:  ~p"
-    %% 	      "~n   Port:  ~p"
-    %% 	      "~n", [?MODULE, Event, Node, Port]),
+    tsp("receive_security_event -> await ~w event", [element(2, Event)]),
     receive 
 	Event ->
+	    tsp("receive_security_event -> "
+		"received expected ~w event", [element(2, Event)]),
 	    ok;
 	{'EXIT', _, _} ->
 	    receive_security_event(Event, Node, Port)
