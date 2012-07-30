@@ -531,34 +531,27 @@ connect(ip_comm, Host, Port, Opts, Type) ->
 	"~n   Opts: ~p"
 	"~n   Type: ~p", [Host, Port, Opts, Type]),
     
-    case gen_tcp:connect(Host, Port, Opts) of
+    case gen_tcp:connect(Host, Port, Opts, timer:seconds(10)) of
 	{ok, Socket} ->
 	    tsp("connect success"),
 	    {ok, Socket};
 
-	{error, nxdomain} when Type =:= inet6 ->
-	    tsp("connect error nxdomain when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, eafnosupport} when Type =:= inet6 ->
-	    tsp("connect error eafnosupport when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, econnreset} when Type =:= inet6 ->
-	    tsp("connect error econnreset when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, enetunreach} when Type =:= inet6 ->
-	    tsp("connect error eafnosupport when"
-		"~n   Opts: ~p", [Opts]),
-	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
-	{error, econnrefused} when Type =:= inet6 ->
-	    tsp("connect error econnrefused when"
-		"~n   Opts: ~p", [Opts]),
+	{error, Reason} when ((Type =:= inet6) andalso 
+			      ((Reason =:= timeout) orelse 
+			       (Reason =:= nxdomain) orelse 
+			       (Reason =:= eafnosupport) orelse 
+			       (Reason =:= econnreset) orelse 
+			       (Reason =:= enetunreach) orelse 
+			       (Reason =:= econnrefused) orelse 
+			       (Reason =:= ehostunreach))) ->
+	    tsp("connect(ip_comm) -> Connect error: "
+		"~n   Reason: ~p"
+		"~n   Type:   ~p"
+		"~n   Opts:   ~p", [Reason, Type, Opts]),
 	    connect(ip_comm, Host, Port, Opts -- [inet6], inet);
 
 	Error ->
-	    tsp("connect(ip_conn) -> Fatal connect error: "
+	    tsp("connect(ip_comm) -> Fatal connect error: "
 		"~n   Error: ~p"
 		"~nwhen"
 		"~n   Host:  ~p"
