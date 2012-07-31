@@ -294,7 +294,6 @@ type	PORT_LOCK	STANDARD	SYSTEM		port_lock
 type	DRIVER_LOCK	STANDARD	SYSTEM		driver_lock
 type	XPORTS_LIST	SHORT_LIVED	SYSTEM		extra_port_list
 type	PROC_LCK_WTR	LONG_LIVED	SYSTEM		proc_lock_waiter
-type	PROC_LCK_QS	LONG_LIVED	SYSTEM		proc_lock_queues
 type	RUNQ_BLNS	LONG_LIVED	SYSTEM		run_queue_balancing
 type	THR_PRGR_IDATA	LONG_LIVED	SYSTEM		thr_prgr_internal_data
 type	THR_PRGR_DATA	LONG_LIVED	SYSTEM		thr_prgr_data

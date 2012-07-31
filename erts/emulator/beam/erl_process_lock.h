@@ -69,8 +69,6 @@
 
 typedef erts_aint32_t ErtsProcLocks;
 
-typedef struct erts_proc_lock_queues_t_ erts_proc_lock_queues_t;
-
 typedef struct erts_proc_lock_t_ {
 #if ERTS_PROC_LOCK_OWN_IMPL
 #if ERTS_PROC_LOCK_ATOMIC_IMPL
@@ -78,7 +76,7 @@ typedef struct erts_proc_lock_t_ {
 #else
     ErtsProcLocks flags;
 #endif
-    erts_proc_lock_queues_t *queues;
+    erts_tse_t *queue[ERTS_PROC_LOCK_MAX_BIT+1];
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock_t lcnt_main;
     erts_lcnt_lock_t lcnt_link;

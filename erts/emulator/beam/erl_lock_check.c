@@ -177,9 +177,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"sched_stat",				NULL			},
 #endif
     {	"async_init_mtx",			NULL			},
-#ifdef ERTS_SMP
-    {	"proc_lck_qs_alloc",			NULL 			},
-#endif
 #ifdef __WIN32__
 #ifdef DEBUG
     {   "save_ops_lock",                        NULL                    },
