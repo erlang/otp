@@ -359,6 +359,7 @@ dbg_chk_aux_work_val(erts_aint32_t value)
     valid |= ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
 #endif
 #ifdef ERTS_SMP
+    valid |= ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP;
     valid |= ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
     valid |= ERTS_SSI_AUX_WORK_DD;
     valid |= ERTS_SSI_AUX_WORK_DD_THR_PRGR;
@@ -930,6 +931,45 @@ haw_thr_prgr_current_check_progress(ErtsAuxWorkData *awdp)
     }
 }
 
+static ERTS_INLINE erts_aint32_t
+handle_delayed_aux_work_wakeup(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
+{
+    int jix, max_jix;
+    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP);
+
+    ERTS_THR_MEMORY_BARRIER;
+
+    max_jix = awdp->delayed_wakeup.jix;
+    awdp->delayed_wakeup.jix = -1;
+    for (jix = 0; jix <= max_jix; jix++) {
+	int sched = awdp->delayed_wakeup.job[jix].sched;
+	erts_aint32_t aux_work = awdp->delayed_wakeup.job[jix].aux_work;
+
+	ASSERT(awdp->delayed_wakeup.sched2jix[sched] == jix);
+	awdp->delayed_wakeup.sched2jix[sched] = -1;
+	set_aux_work_flags_wakeup_nob(ERTS_SCHED_SLEEP_INFO_IX(sched-1),
+				      aux_work);
+    }
+    return aux_work & ~ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP;
+}
+
+static ERTS_INLINE void
+schedule_aux_work_wakeup(ErtsAuxWorkData *awdp, int sched, erts_aint32_t aux_work)
+{
+    int jix = awdp->delayed_wakeup.sched2jix[sched];
+    if (jix >= 0) {
+	ASSERT(awdp->delayed_wakeup.job[jix].sched == sched);
+	awdp->delayed_wakeup.job[jix].aux_work |= aux_work;
+    }
+    else {
+	jix = ++awdp->delayed_wakeup.jix;
+	awdp->delayed_wakeup.sched2jix[sched] = jix;
+	awdp->delayed_wakeup.job[jix].sched = sched;
+	awdp->delayed_wakeup.job[jix].aux_work = aux_work;
+    }
+    set_aux_work_flags_wakeup_nob(awdp->ssi, ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP);
+}
+
 #endif
 
 typedef struct erts_misc_aux_work_t_ erts_misc_aux_work_t;
@@ -1186,8 +1226,14 @@ handle_fix_alloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 void
 erts_alloc_notify_delayed_dealloc(int ix)
 {
-    set_aux_work_flags_wakeup_nob(ERTS_SCHED_SLEEP_INFO_IX(ix-1),
-				  ERTS_SSI_AUX_WORK_DD);
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    if (esdp)
+	schedule_aux_work_wakeup(&esdp->aux_work_data,
+				 ix,
+				 ERTS_SSI_AUX_WORK_DD);
+    else
+	set_aux_work_flags_wakeup_relb(ERTS_SCHED_SLEEP_INFO_IX(ix-1),
+				       ERTS_SSI_AUX_WORK_DD);
 }
 
 static ERTS_INLINE erts_aint32_t
@@ -1485,6 +1531,8 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
      * eachother. Most frequent first.
      */
 #ifdef ERTS_SMP
+    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP,
+		    handle_delayed_aux_work_wakeup);
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_DD,
 		    handle_delayed_dealloc);
     /* DD must be before DD_THR_PRGR */
@@ -1963,7 +2011,7 @@ thr_prgr_fin_wait(void *vssi)
 				      | ERTS_SSI_FLG_TSE_SLEEPING));
 }
 
-static void init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp);
+static void init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp);
 
 static void *
 aux_thread(void *unused)
@@ -1983,7 +2031,7 @@ aux_thread(void *unused)
     callbacks.finalize_wait = thr_prgr_fin_wait;
 
     erts_thr_progress_register_managed_thread(NULL, &callbacks, 1);
-    init_aux_work_data(awdp, NULL);
+    init_aux_work_data(awdp, NULL, NULL);
     awdp->ssi = ssi;
 
     sched_prep_spin_wait(ssi);
@@ -3850,7 +3898,7 @@ erts_sched_set_busy_wait_threshold(char *str)
     return 0;
 }
 static void
-init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp)
+init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp, char *dawwp)
 {
     awdp->sched_id = esdp ? (int) esdp->no : 0;
     awdp->esdp = esdp;
@@ -3868,12 +3916,32 @@ init_aux_work_data(ErtsAuxWorkData *awdp, ErtsSchedulerData *esdp)
 #endif
     awdp->async_ready.queue = NULL;
 #endif
+#ifdef ERTS_SMP
+    if (!dawwp) {
+	awdp->delayed_wakeup.job = NULL;
+	awdp->delayed_wakeup.sched2jix = NULL;
+	awdp->delayed_wakeup.jix = -1;
+    }
+    else {
+	int i;
+	awdp->delayed_wakeup.job = (ErtsDelayedAuxWorkWakeupJob *) dawwp;
+	dawwp += sizeof(ErtsDelayedAuxWorkWakeupJob)*(erts_no_schedulers+1);
+	awdp->delayed_wakeup.sched2jix = (int *) dawwp;
+	awdp->delayed_wakeup.jix = -1;
+	for (i = 0; i <= erts_no_schedulers; i++)
+	    awdp->delayed_wakeup.sched2jix[i] = -1;
+    }
+#endif
 }
 
 void
 erts_init_scheduling(int no_schedulers, int no_schedulers_online)
 {
     int ix, n, no_ssi;
+    char *daww_ptr;
+#ifdef ERTS_SMP
+    size_t daww_sz;
+#endif
 
     init_misc_op_list_alloc();
 
@@ -4006,6 +4074,15 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online)
 
     /* Create and initialize scheduler specific data */
 
+#ifdef ERTS_SMP
+    daww_sz = ERTS_ALC_CACHE_LINE_ALIGN_SIZE((sizeof(ErtsDelayedAuxWorkWakeupJob)
+					      + sizeof(int))*(n+1));
+    daww_ptr = erts_alloc_permanent_cache_aligned(ERTS_ALC_T_SCHDLR_DATA,
+						  daww_sz*n);
+#else
+    daww_ptr = NULL;
+#endif
+
     erts_aligned_scheduler_data = 
 	erts_alloc_permanent_cache_aligned(ERTS_ALC_T_SCHDLR_DATA,
 					   n*sizeof(ErtsAlignedSchedulerData));					   
@@ -4040,7 +4117,10 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online)
 	esdp->run_queue = ERTS_RUNQ_IX(ix);
 	esdp->run_queue->scheduler = esdp;
 
-	init_aux_work_data(&esdp->aux_work_data, esdp);
+	init_aux_work_data(&esdp->aux_work_data, esdp, daww_ptr);
+#ifdef ERTS_SMP
+	daww_ptr += daww_sz;
+#endif
 	init_sched_wall_time(&esdp->sched_wall_time);
     }
 

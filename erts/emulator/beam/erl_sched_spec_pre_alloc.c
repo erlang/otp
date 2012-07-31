@@ -116,54 +116,84 @@ erts_sspa_create(size_t blk_sz, int pa_size)
     return data;
 }
 
-static ERTS_INLINE erts_aint_t
+static ERTS_INLINE void
 enqueue_remote_managed_thread(erts_sspa_chunk_header_t *chdr,
 			      erts_sspa_blk_t *this,
-			      int want_last)
+			      int cinit)
 {
-    erts_aint_t ilast, itmp;
+    erts_aint_t itmp;
+    erts_sspa_blk_t *enq;
 
     erts_atomic_init_nob(&this->next_atmc, ERTS_AINT_NULL);
-
     /* Enqueue at end of list... */
 
-    ilast = erts_atomic_read_nob(&chdr->tail.data.last);
-    while (1) {
-	erts_sspa_blk_t *last = (erts_sspa_blk_t *) ilast;
-	itmp = erts_atomic_cmpxchg_mb(&last->next_atmc,
-				       (erts_aint_t) this,
-				       ERTS_AINT_NULL);
-	if (itmp == ERTS_AINT_NULL)
-	    break;
-	ilast = itmp;
+    enq = (erts_sspa_blk_t *) erts_atomic_read_nob(&chdr->tail.data.last);
+    itmp = erts_atomic_cmpxchg_relb(&enq->next_atmc,
+				    (erts_aint_t) this,
+				    ERTS_AINT_NULL);
+    if (itmp == ERTS_AINT_NULL) {
+	/* We are required to move last pointer */
+#ifdef DEBUG
+	ASSERT(ERTS_AINT_NULL == erts_atomic_read_nob(&this->next_atmc));
+	ASSERT(((erts_aint_t) enq)
+	       == erts_atomic_xchg_relb(&chdr->tail.data.last,
+				      (erts_aint_t) this));
+#else
+	erts_atomic_set_relb(&chdr->tail.data.last, (erts_aint_t) this);
+#endif
     }
+    else {
+	/*
+	 * We *need* to insert element somewhere in between the
+	 * last element we read earlier and the actual last element.
+	 */
+	int i = cinit;
 
-    /* Move last pointer forward... */
-    while (1) {
-	erts_aint_t itmp;
-	if (want_last) {
-	    if (erts_atomic_read_rb(&this->next_atmc) != ERTS_AINT_NULL) {
-		/* Someone else will move it forward */
-		return erts_atomic_read_nob(&chdr->tail.data.last);
+	while (1) {
+	    erts_aint_t itmp2;
+	    erts_atomic_set_nob(&this->next_atmc, itmp);
+	    itmp2 = erts_atomic_cmpxchg_relb(&enq->next_atmc,
+					     (erts_aint_t) this,
+					     itmp);
+	    if (itmp == itmp2)
+		break; /* inserted this */
+	    if ((i & 1) == 0)
+		itmp = itmp2;
+	    else {
+		enq = (erts_sspa_blk_t *) itmp;
+		itmp = erts_atomic_read_acqb(&enq->next_atmc);
+		ASSERT(itmp != ERTS_AINT_NULL);
 	    }
+	    i++;
 	}
-	else {
-	    if (erts_atomic_read_nob(&this->next_atmc) != ERTS_AINT_NULL) {
-		/* Someone else will move it forward */
-		return ERTS_AINT_NULL;
-	    }
-	}
-	itmp = erts_atomic_cmpxchg_mb(&chdr->tail.data.last,
-				      (erts_aint_t) this,
-				      ilast);
-	if (ilast == itmp)
-	    return want_last ? (erts_aint_t) this : ERTS_AINT_NULL;
-	ilast = itmp;
     }
 }
 
+static ERTS_INLINE erts_aint_t
+check_insert_marker(erts_sspa_chunk_header_t *chdr, erts_aint_t ilast)
+{
+    if (!chdr->head.used_marker
+	&& chdr->head.unref_end == (erts_sspa_blk_t *) ilast) {
+	erts_aint_t itmp;
+	erts_sspa_blk_t *last = (erts_sspa_blk_t *) ilast;
+
+	erts_atomic_init_nob(&chdr->tail.data.marker.next_atmc, ERTS_AINT_NULL);
+	itmp = erts_atomic_cmpxchg_relb(&last->next_atmc,
+					(erts_aint_t) &chdr->tail.data.marker,
+					ERTS_AINT_NULL);
+	if (itmp == ERTS_AINT_NULL) {
+	    ilast = (erts_aint_t) &chdr->tail.data.marker;
+	    chdr->head.used_marker = !0;
+	    erts_atomic_set_relb(&chdr->tail.data.last, ilast);
+	}
+    }
+    return ilast;
+}
+
 void
-erts_sspa_remote_free(erts_sspa_chunk_header_t *chdr, erts_sspa_blk_t *blk)
+erts_sspa_remote_free(erts_sspa_chunk_header_t *chdr,
+		      erts_sspa_blk_t *blk,
+		      int cinit)
 {
     int um_refc_ix = 0;
     int managed_thread = erts_thr_progress_is_managed_thread();
@@ -180,7 +210,7 @@ erts_sspa_remote_free(erts_sspa_chunk_header_t *chdr, erts_sspa_blk_t *blk)
 	}
     }
 
-    (void) enqueue_remote_managed_thread(chdr, blk, 0);
+    enqueue_remote_managed_thread(chdr, blk, cinit);
 
     if (!managed_thread)
 	erts_atomic_dec_relb(&chdr->tail.data.um_refc[um_refc_ix]);
@@ -208,24 +238,17 @@ fetch_remote(erts_sspa_chunk_header_t *chdr, int max)
 	    int um_refc_ix;
 	    chdr->head.next.thr_progress_reached = 1;
 	    um_refc_ix = chdr->head.next.um_refc_ix;
-	    if (erts_atomic_read_acqb(&chdr->tail.data.um_refc[um_refc_ix]) == 0) {
+	    if (erts_atomic_read_nob(&chdr->tail.data.um_refc[um_refc_ix]) == 0) {
+
+		ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
 
 		/* Move unreferenced end pointer forward... */
 
 		chdr->head.unref_end = chdr->head.next.unref_end;
 
-		if (!chdr->head.used_marker
-		    && chdr->head.unref_end == (erts_sspa_blk_t *) ilast) {
-		    /* Need to equeue marker */
-		    chdr->head.used_marker = 1;
-		    ilast = enqueue_remote_managed_thread(chdr,
-							  &chdr->tail.data.marker,
-							  1);
-		}
+		ilast = check_insert_marker(chdr, ilast);
 
-		if (chdr->head.unref_end == (erts_sspa_blk_t *) ilast)
-		    ERTS_THR_MEMORY_BARRIER;
-		else {
+		if (chdr->head.unref_end != (erts_sspa_blk_t *) ilast) {
 		    chdr->head.next.unref_end = (erts_sspa_blk_t *) ilast;
 		    chdr->head.next.thr_progress = erts_thr_progress_later(NULL);
 		    erts_atomic32_set_relb(&chdr->tail.data.um_refc_ix,

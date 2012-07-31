@@ -253,18 +253,19 @@ typedef enum {
  * eachother. Most frequent - lowest bit number.
  */
 
-#define ERTS_SSI_AUX_WORK_DD			(((erts_aint32_t) 1) << 0)
-#define ERTS_SSI_AUX_WORK_DD_THR_PRGR		(((erts_aint32_t) 1) << 1)
-#define ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC	(((erts_aint32_t) 1) << 2)
-#define ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM	(((erts_aint32_t) 1) << 3)
-#define ERTS_SSI_AUX_WORK_ASYNC_READY		(((erts_aint32_t) 1) << 4)
-#define ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN	(((erts_aint32_t) 1) << 5)
-#define ERTS_SSI_AUX_WORK_MISC_THR_PRGR		(((erts_aint32_t) 1) << 6)
-#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 7)
-#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 8)
-#define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 9)
-#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 10)
-#define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 11)
+#define ERTS_SSI_AUX_WORK_DELAYED_AW_WAKEUP	(((erts_aint32_t) 1) << 0)
+#define ERTS_SSI_AUX_WORK_DD			(((erts_aint32_t) 1) << 1)
+#define ERTS_SSI_AUX_WORK_DD_THR_PRGR		(((erts_aint32_t) 1) << 2)
+#define ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC	(((erts_aint32_t) 1) << 3)
+#define ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM	(((erts_aint32_t) 1) << 4)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY		(((erts_aint32_t) 1) << 5)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN	(((erts_aint32_t) 1) << 6)
+#define ERTS_SSI_AUX_WORK_MISC_THR_PRGR		(((erts_aint32_t) 1) << 7)
+#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 8)
+#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 9)
+#define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 10)
+#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 11)
+#define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 12)
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -403,6 +404,11 @@ typedef struct {
 } ErtsSchedWallTime;
 
 typedef struct {
+    int sched;
+    erts_aint32_t aux_work;
+} ErtsDelayedAuxWorkWakeupJob;
+
+typedef struct {
     int sched_id;
     ErtsSchedulerData *esdp;
     ErtsSchedulerSleepInfo *ssi;
@@ -430,6 +436,13 @@ typedef struct {
 #endif
 	void *queue;
     } async_ready;
+#endif
+#ifdef ERTS_SMP
+    struct {
+	int *sched2jix;
+	int jix;
+	ErtsDelayedAuxWorkWakeupJob *job;
+    } delayed_wakeup;
 #endif
 } ErtsAuxWorkData;
 
@@ -464,7 +477,6 @@ struct ErtsSchedulerData_ {
     int virtual_reds;
     int cpu_id;			/* >= 0 when bound */
     ErtsAuxWorkData aux_work_data;
-
     ErtsAtomCacheMap atom_cache_map;
 
     ErtsSchedAllocData alloc_data;
