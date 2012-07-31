@@ -357,11 +357,12 @@ The environment of an Erlang machine started
       the console subsystem and programs running as window
       applications. An application which runs in the console subsystem
       (normal for port programs) uses the win32 function
-      <c><![CDATA[SetConsoleCtrlHandler]]></c> to a control handler that returns
-      TRUE in answer to the <c><![CDATA[CTRL_LOGOFF_EVENT]]></c>. Other
-      applications just forward <c><![CDATA[WM_ENDSESSION]]></c> and
-      <c><![CDATA[WM_QUERYENDSESSION]]></c> to the default window procedure. Here
-      is a brief example in C of how to set the console control
+      <c><![CDATA[SetConsoleCtrlHandler]]></c> to register a control handler
+      that returns TRUE in answer to the <c><![CDATA[CTRL_LOGOFF_EVENT]]></c>
+      and <c><![CDATA[CTRL_SHUTDOWN_EVENT]]></c> events. Other applications
+      just forward <c><![CDATA[WM_ENDSESSION]]></c> and
+      <c><![CDATA[WM_QUERYENDSESSION]]></c> to the default window procedure.
+      Here is a brief example in C of how to set the console control
       handler:</p>
     <code type="none"><![CDATA[
 #include <windows.h>
@@ -371,6 +372,8 @@ The environment of an Erlang machine started
 */   
 BOOL WINAPI service_aware_handler(DWORD ctrl){
     if(ctrl == CTRL_LOGOFF_EVENT)
+        return TRUE;
+    if(ctrl == CTRL_SHUTDOWN_EVENT)
         return TRUE;
     return FALSE;
 }

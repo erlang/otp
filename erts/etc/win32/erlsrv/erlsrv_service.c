@@ -104,10 +104,9 @@ static VOID WINAPI handler(DWORD control){
   log_debug(buffer);
   switch(control){
   case SERVICE_CONTROL_STOP:
+  case SERVICE_CONTROL_SHUTDOWN:
     set_stop_pending(30000,1);
     SetEvent(eventStop);
-    return;
-  case SERVICE_CONTROL_SHUTDOWN:
     return;
   default:
     reset_current();
