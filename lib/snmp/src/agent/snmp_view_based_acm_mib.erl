@@ -774,10 +774,15 @@ do_vacmAccessTable_set(RowIndex, Cols) ->
 	    
 	    
 %% Cols are sorted, and all columns are > 3.
+do_get_next(_RowIndex, []) ->
+    % Cols can be empty because we're called for each
+    % output of split_cols(); and one of that may well
+    % be empty.
+    [];
 do_get_next(RowIndex, Cols) ->
     case snmpa_vacm:get_next_row(RowIndex) of
 	{NextIndex, Row} ->
-	    F1 = fun(Col) when Col < ?vacmAccessStatus -> 
+	    F1 = fun(Col) when Col =< ?vacmAccessStatus ->
 			 {[Col | NextIndex], element(Col-3, Row)};
 		    (_) -> 
 			 endOfTable
@@ -785,9 +790,9 @@ do_get_next(RowIndex, Cols) ->
 	    lists:map(F1, Cols);
 	false ->
 	    case snmpa_vacm:get_next_row([]) of
-		{_NextIndex, Row} ->
+		{NextIndex2, Row} ->
 		    F2 = fun(Col) when Col < ?vacmAccessStatus -> 
-				 {[Col+1 | RowIndex], element(Col-2, Row)};
+				 {[Col+1 | NextIndex2], element(Col-2, Row)};
 			    (_) ->
 				 endOfTable
 			 end,
