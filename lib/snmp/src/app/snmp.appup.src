@@ -24,8 +24,9 @@
  [
   {"4.22", 
    [
-    {load_module, snmpm,     soft_purge, soft_purge, []}, 
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}
+    {load_module, snmpm,                   soft_purge, soft_purge, []}, 
+    {load_module, snmp_pdus,               soft_purge, soft_purge, []}, 
+    {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []}
    ]
   }, 
   {"4.21.7", 
@@ -312,8 +313,9 @@
  [
   {"4.22", 
    [
-    {load_module, snmpm,     soft_purge, soft_purge, []}, 
-    {load_module, snmp_pdus, soft_purge, soft_purge, []}
+    {load_module, snmpm,                   soft_purge, soft_purge, []}, 
+    {load_module, snmp_pdus,               soft_purge, soft_purge, []}, 
+    {load_module, snmp_view_based_acm_mib, soft_purge, soft_purge, []}
    ]
   }, 
   {"4.21.7", 

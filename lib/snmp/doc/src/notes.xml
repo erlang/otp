@@ -41,18 +41,27 @@
 
     <section>
       <title>Improvements and new features</title>
-      <p>-</p>
-
 <!--
+      <p>-</p>
+-->
+
       <list type="bulleted">
         <item>
-          <p>[agent] Improve error handling while reading agent config files. 
-	  Some files contain mandatory information and is therefor themself
-	  mandatory. </p>
-	  <p>Own Id: OTP-9943</p>
+          <p>[agent] Errors in vacmAccessTable RowStatus handling.
+	  There are problems with the handling of vacmAccessTableStatus 
+	  that cause some SNMP test suites to report errors.
+	  Most notably, erroneous set operations frequently cause "genErr" 
+	  errors to be returned. These "genErr" errors are usually caused 
+	  by badmatch exceptions coming from 
+	  <c>{ok, Row} = snmpa_vacm:get_row(RowIndex)</c> 
+	  if the row does not exist. </p>
+	  <p>The semantics of the RowStatus handling in that table has 
+	  been adjusted to be compliant with the RowStatus
+	  textual description of SNPMv2-TC MIB. </p>
+	  <p>Stefan Zegenhagen</p>
+	  <p>Own Id: OTP-10164</p>
         </item>
       </list>
--->
 
     </section>
 
