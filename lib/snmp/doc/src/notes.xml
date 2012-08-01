@@ -70,6 +70,13 @@
           <p>Own Id: OTP-10066</p>
         </item>
 
+        <item>
+          <p>Incorrect TimeTicks decode. Also bad handling of 
+	  invalid encode (value outside of value range) for both
+	  <c>TimeTicks</c> and <c>Unsigned32</c>. </p>
+          <p>Own Id: OTP-10132</p>
+        </item>
+
       </list>
 
     </section>
