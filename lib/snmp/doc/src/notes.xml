@@ -34,6 +34,55 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.22.1</title>
+    <p>Version 4.22.1 supports code replacement in runtime from/to
+    version 4.22, 4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 
+    4.21. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[agent] Improve error handling while reading agent config files. 
+	  Some files contain mandatory information and is therefor themself
+	  mandatory. </p>
+	  <p>Own Id: OTP-9943</p>
+        </item>
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[manager] 
+	  <seealso marker="snmpm#log_to_io">snmpm:log_to_io/6</seealso> 
+	  did not use the LogName argument. </p>
+          <p>Own Id: OTP-10066</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.22.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.22</title>
     <p>Version 4.22 supports code replacement in runtime from/to
     version 4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 4.21. </p>
