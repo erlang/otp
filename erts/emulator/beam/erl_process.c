@@ -1149,13 +1149,13 @@ unset_aux_work_flags(ErtsSchedulerSleepInfo *ssi, erts_aint32_t flgs)
 #ifdef ERTS_SMP
 
 static ERTS_INLINE void
-thr_prgr_current_reset(ErtsAuxWorkData *awdp)
+haw_thr_prgr_current_reset(ErtsAuxWorkData *awdp)
 {
     awdp->current_thr_prgr = ERTS_THR_PRGR_INVALID;
 }
 
 static ERTS_INLINE ErtsThrPrgrVal
-thr_prgr_current(ErtsAuxWorkData *awdp)
+haw_thr_prgr_current(ErtsAuxWorkData *awdp)
 {
     ErtsThrPrgrVal current = awdp->current_thr_prgr;
     if (current == ERTS_THR_PRGR_INVALID) {
@@ -1163,6 +1163,21 @@ thr_prgr_current(ErtsAuxWorkData *awdp)
 	awdp->current_thr_prgr = current;
     }
     return current;
+}
+
+static ERTS_INLINE void
+haw_thr_prgr_current_check_progress(ErtsAuxWorkData *awdp)
+{
+    ErtsThrPrgrVal current = awdp->current_thr_prgr;
+    if (current != ERTS_THR_PRGR_INVALID
+	&& !erts_thr_progress_equal(current, erts_thr_progress_current())) {
+	/*
+	 * We have used a previouly read current value that isn't the
+	 * latest; need to poke ourselfs in order to guarantee no loss
+	 * of wakeups.
+	 */
+	erts_sched_poke(awdp->ssi);
+    }
 }
 
 #endif
@@ -1263,7 +1278,7 @@ static ERTS_INLINE erts_aint32_t
 handle_misc_aux_work_thr_prgr(ErtsAuxWorkData *awdp,
 			      erts_aint32_t aux_work)
 {
-    if (!erts_thr_progress_has_reached_this(thr_prgr_current(awdp),
+    if (!erts_thr_progress_has_reached_this(haw_thr_prgr_current(awdp),
 					    awdp->misc.thr_prgr))
 	return aux_work & ~ERTS_SSI_AUX_WORK_MISC_THR_PRGR;
 
@@ -1368,7 +1383,7 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 
 #ifdef ERTS_SMP
     if (awdp->async_ready.need_thr_prgr
-	&& !erts_thr_progress_has_reached_this(thr_prgr_current(awdp),
+	&& !erts_thr_progress_has_reached_this(haw_thr_prgr_current(awdp),
 					       awdp->async_ready.thr_prgr)) {
 	return aux_work & ~ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN;
     }
@@ -1449,7 +1464,7 @@ handle_delayed_dealloc(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 
     if (need_thr_progress) {
 	if (wakeup == ERTS_THR_PRGR_INVALID)
-	    wakeup = erts_thr_progress_later_than(thr_prgr_current(awdp));
+	    wakeup = erts_thr_progress_later(awdp->esdp);
 	awdp->dd.thr_prgr = wakeup;
 	set_aux_work_flags(ssi, ERTS_SSI_AUX_WORK_DD_THR_PRGR);
 	awdp->dd.thr_prgr = wakeup;
@@ -1470,7 +1485,7 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     int need_thr_progress;
     int more_work;
     ErtsThrPrgrVal wakeup = ERTS_THR_PRGR_INVALID;
-    ErtsThrPrgrVal current = thr_prgr_current(awdp);
+    ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
 
     if (!erts_thr_progress_has_reached_this(current, awdp->dd.thr_prgr))
 	return aux_work & ~ERTS_SSI_AUX_WORK_DD_THR_PRGR;
@@ -1492,7 +1507,7 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 
     if (need_thr_progress) {
 	if (wakeup == ERTS_THR_PRGR_INVALID)
-	    wakeup = erts_thr_progress_later_than(current);
+	    wakeup = erts_thr_progress_later(awdp->esdp);
 	awdp->dd.thr_prgr = wakeup;
 	erts_thr_progress_wakeup(awdp->esdp, wakeup);
     }
@@ -1681,7 +1696,7 @@ handle_setup_aux_work_timer(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 }
 
 static erts_aint32_t
-handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work)
+handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
 {
 #undef HANDLE_AUX_WORK
 #define HANDLE_AUX_WORK(FLG, HNDLR) \
@@ -1699,7 +1714,7 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work)
     erts_aint32_t ignore = 0;
 
 #ifdef ERTS_SMP
-    thr_prgr_current_reset(awdp);
+    haw_thr_prgr_current_reset(awdp);
 #endif
 
     ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
@@ -1764,6 +1779,11 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work)
 		    handle_reap_ports);
 
     ERTS_DBG_CHK_AUX_WORK_VAL(aux_work);
+
+#ifdef ERTS_SMP
+    if (waiting && !aux_work)
+	haw_thr_prgr_current_check_progress(awdp);
+#endif
 
     return aux_work;
 
@@ -2223,7 +2243,7 @@ aux_thread(void *unused)
 	if (aux_work) {
 	    if (!thr_prgr_active)
 		erts_thr_progress_active(NULL, thr_prgr_active = 1);
-	    aux_work = handle_aux_work(awdp, aux_work);
+	    aux_work = handle_aux_work(awdp, aux_work, 1);
 	    if (aux_work && erts_thr_progress_update(NULL))
 		erts_thr_progress_leader_update(NULL);
 	}
@@ -2302,7 +2322,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		    erts_thr_progress_active(esdp, thr_prgr_active = 1);
 		    sched_wall_time_change(esdp, 1);
 		}
-		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work);
+		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
 		if (aux_work && erts_thr_progress_update(esdp))
 		    erts_thr_progress_leader_update(esdp);
 	    }
@@ -2404,7 +2424,7 @@ scheduler_wait(int *fcalls, ErtsSchedulerData *esdp, ErtsRunQueue *rq)
 		if (!thr_prgr_active)
 		    erts_thr_progress_active(esdp, thr_prgr_active = 1);
 #endif
-		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work);
+		aux_work = handle_aux_work(&esdp->aux_work_data, aux_work, 1);
 #ifdef ERTS_SMP
 		if (aux_work && erts_thr_progress_update(esdp))
 		    erts_thr_progress_leader_update(esdp);
@@ -4857,7 +4877,9 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			sched_wall_time_change(esdp, 1);
 		    }
 		    if (aux_work)
-			aux_work = handle_aux_work(&esdp->aux_work_data, aux_work);
+			aux_work = handle_aux_work(&esdp->aux_work_data,
+						   aux_work,
+						   1);
 		    if (aux_work && erts_thr_progress_update(esdp))
 			erts_thr_progress_leader_update(esdp);
 		    if (qmask) {
@@ -6529,7 +6551,7 @@ Process *schedule(Process *p, int calls)
 		if (leader_update)
 		    erts_thr_progress_leader_update(esdp);
 		if (aux_work)
-		    handle_aux_work(&esdp->aux_work_data, aux_work);
+		    handle_aux_work(&esdp->aux_work_data, aux_work, 0);
 		erts_smp_runq_lock(rq);
 	    }
 	}
@@ -6542,7 +6564,7 @@ Process *schedule(Process *p, int calls)
 	    erts_aint32_t aux_work;
 	    aux_work = erts_atomic32_read_acqb(&esdp->ssi->aux_work);
 	    if (aux_work)
-		handle_aux_work(&esdp->aux_work_data, aux_work);
+		handle_aux_work(&esdp->aux_work_data, aux_work, 0);
 	}
 #endif /* ERTS_SMP */
 
