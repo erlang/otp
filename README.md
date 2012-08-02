@@ -73,4 +73,4 @@ Copyright and License
 
    [1]: http://www.erlang.org
    [2]: http://wiki.github.com/erlang/otp/submitting-patches
-   [3]: http://www.erlang.org/faq.html
+   [3]: http://www.erlang.org/static/doc/mailinglist.html
