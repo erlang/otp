@@ -4560,23 +4560,13 @@ schedule_process(Process *p, erts_aint32_t state, int active_enq)
 	    return; /* Someone else activated process ... */
     }
 
-#ifdef RRR_DEBUG
-    if (active_enq)
-	erts_fprintf(stderr, "! state=0x%x\n", n);
-#endif
-
     if (erts_system_profile_flags.runnable_procs
 	&& !(a & (ERTS_PSFLG_ACTIVE|ERTS_PSFLG_SUSPENDED))) {
     	profile_runnable_proc(p, am_active);
     }
 
-    if ((n & ERTS_PSFLG_IN_RUNQ) && !(a & ERTS_PSFLG_IN_RUNQ)) {
-#ifdef RRR_DEBUG
-	if (active_enq)
-	    erts_fprintf(stderr, "-->\n");
-#endif
+    if ((n & ERTS_PSFLG_IN_RUNQ) && !(a & ERTS_PSFLG_IN_RUNQ))
 	add2runq(p, n);
-    }
 }
 
 void
@@ -4646,9 +4636,6 @@ resume_process(Process *p)
 
     state = erts_smp_atomic32_read_band_mb(&p->state, ~ERTS_PSFLG_SUSPENDED);
     state &= ~ERTS_PSFLG_SUSPENDED;
-#ifdef RRR_DEBUG
-    erts_fprintf(stderr, "%T - state=0x%x\n", p->id, state);
-#endif
     if ((state & (ERTS_PSFLG_EXITING
 		  | ERTS_PSFLG_ACTIVE
 		  | ERTS_PSFLG_IN_RUNQ
