@@ -745,7 +745,7 @@ do_validate_is_set_ok(RowIndex, Cols) ->
 pre_set(RowIndex, Cols) ->
     %% Remove the ?is_cloning member again; it must no longer be
     %% present.
-    Cols0 = lists:keydelete(?is_cloning, 1, Cols),
+    Cols0 = key1delete(?is_cloning, Cols),
     %% Possibly initialize the usmUserSecurityName and privacy keys
     case snmp_generic:table_row_exists(db(usmUserTable), RowIndex) of
 	true -> Cols0;
@@ -782,7 +782,7 @@ validate_set(Error, _RowIndex, _Cols) ->
 %% no further checks.
 %%-----------------------------------------------------------------
 validate_clone_from(RowIndex, Cols) ->
-    case lists:keysearch(?usmUserCloneFrom, 1, Cols) of
+    case key1search(?usmUserCloneFrom, Cols) of
 	{value, {_Col, RowPointer}} ->
 	    RowIndex2 = extract_row(RowPointer),
 	    OldCloneFrom = snmp_generic:table_get_element(db(usmUserTable),
@@ -826,18 +826,18 @@ get_cloned_cols(CloneFromRow, Cols) ->
         {?is_cloning, true}
     ],
     Func = fun({Col, _} = Item, NCols) ->
-            lists:keystore(Col, 1, NCols, Item)
+            key1store(Col, NCols, Item)
     end,
     Cols1 = lists:foldl(Func, ClonedCols, Cols),
-    lists:keysort(1, Cols1).
+    key1sort(Cols1).
 
 no_cloning(Cols0) ->
-    Cols1 = lists:keydelete(?usmUserCloneFrom, Cols0),
-    lists:keydelete(?is_cloning, Cols1).
+    Cols1 = key1delete(?usmUserCloneFrom, Cols0),
+    key1delete(?is_cloning, Cols1).
 
 
 validate_auth_protocol(RowIndex, Cols) ->
-    case lists:keysearch(?usmUserAuthProtocol, 1, Cols) of
+    case key1search(?usmUserAuthProtocol, Cols) of
 	{value, {_Col, AuthProtocol}} ->
 	    %% Check if the row is being cloned; we can't check the
 	    %% old value of authProtocol, because if the row was
@@ -908,7 +908,7 @@ validate_own_priv_key_change(RowIndex, Cols) ->
 
 %% Check that the requesting user is the same as the modified user
 validate_requester(RowIndex, Cols, KeyChangeCol) ->
-    case lists:keysearch(KeyChangeCol, 1, Cols) of
+    case key1search(KeyChangeCol, Cols) of
 	{value, _} ->
 	    case get(sec_model) of % Check the securityModel in the request
 		?SEC_USM -> ok;
@@ -931,7 +931,7 @@ validate_requester(RowIndex, Cols, KeyChangeCol) ->
     end.
 
 validate_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
-    case lists:keysearch(KeyChangeCol, 1, Cols) of
+    case key1search(KeyChangeCol, Cols) of
 	{value, {_Col, KeyC}} ->
 	    %% Check if the row has been cloned; or if it is cloned in
 	    %% this set-operation.
@@ -977,7 +977,7 @@ validate_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
     end.
 
 validate_priv_protocol(RowIndex, Cols) ->
-    case lists:keysearch(?usmUserPrivProtocol, 1, Cols) of
+    case key1search(?usmUserPrivProtocol, Cols) of
 	{value, {_Col, PrivProtocol}} ->
 	    %% Check if the row has been cloned; we can't check the
 	    %% old value of privhProtocol, because if the row was
@@ -1054,7 +1054,7 @@ set_own_priv_key_change(RowIndex, Cols) ->
     set_key_change(RowIndex, Cols, ?usmUserOwnPrivKeyChange, priv).
 
 set_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
-    case lists:keysearch(KeyChangeCol, 1, Cols) of
+    case key1search(KeyChangeCol, Cols) of
 	{value, {_Col, KeyChange}} ->
 	    KeyCol = case Type of
 			 auth -> ?usmUserAuthKey;
@@ -1086,7 +1086,7 @@ extract_row(_, _) -> wrongValue(?usmUserCloneFrom).
 get_auth_proto(RowIndex, Cols) ->
     %% The protocol can be changed by the request too, otherwise,
     %% check the stored protocol.
-    case lists:keysearch(?usmUserAuthProtocol, 1, Cols) of
+    case key1search(?usmUserAuthProtocol, Cols) of
 	{value, {_, Protocol}} ->
 	    Protocol;
 	false ->
@@ -1105,7 +1105,7 @@ get_auth_proto(RowIndex, Cols) ->
 get_priv_proto(RowIndex, Cols) ->
     %% The protocol can be changed by the request too, otherwise,
     %% check the stored protocol.
-    case lists:keysearch(?usmUserPrivProtocol, 1, Cols) of
+    case key1search(?usmUserPrivProtocol, Cols) of
 	{value, {_, Protocol}} ->
 	    Protocol;
 	false ->
@@ -1242,6 +1242,27 @@ set_sname(_) -> %% Keep it, if already set.
 
 error(Reason) ->
     throw({error, Reason}).
+
+
+%%-----------------------------------------------------------------
+%%     lists key-function(s) wrappers 
+
+-compile({inline,key1delete/2}).
+key1delete(Key, List) ->
+    lists:keydelete(Key, 1, List).
+
+-compile({inline,key1search/2}).
+key1search(Key, List) ->
+    lists:keysearch(Key, 1, List).
+
+-compile({inline,key1store/3}).
+key1store(Key, List, Elem) ->
+    lists:keystore(Key, 1, List, Elem).
+
+-compile({inline,key1sort/1}).
+key1sort(List) ->
+    lists:keysort(1, List).
+
 
 %%-----------------------------------------------------------------
 
