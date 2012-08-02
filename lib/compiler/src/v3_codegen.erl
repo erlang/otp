@@ -1385,7 +1385,6 @@ catch_cg(C, {var,R}, Le, Vdb, Bef, St0) ->
 %%
 %%  put_list for constructing a cons is an atomic instruction
 %%  which can safely resuse one of the source registers as target.
-%%  Also binaries can reuse a source register as target.
 
 set_cg([{var,R}], {cons,Es}, Le, Vdb, Bef, St) ->
     [S1,S2] = cg_reg_args(Es, Bef),
@@ -1395,10 +1394,23 @@ set_cg([{var,R}], {cons,Es}, Le, Vdb, Bef, St) ->
     {[{put_list,S1,S2,Ret}], Int1, St};
 set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
        #cg{in_catch=InCatch, bfail=Bfail}=St) ->
+    %% At run-time, binaries are constructed in three stages:
+    %% 1) First the size of the binary is calculated.
+    %% 2) Then the binary is allocated.
+    %% 3) Then each field in the binary is constructed.
+    %% For simplicity, we use the target register to also hold the
+    %% size of the binary. Therefore the target register must *not*
+    %% be one of the source registers.
+
+    %% First allocate the target register.
     Int0 = Bef#sr{reg=put_reg(R, Bef#sr.reg)},
     Target = fetch_reg(R, Int0#sr.reg),
-    Fail = {f,Bfail},
+
+    %% Also allocate a scratch register for size calculations.
     Temp = find_scratch_reg(Int0#sr.reg),
+
+    %% First generate the code that constructs each field.
+    Fail = {f,Bfail},
     PutCode = cg_bin_put(Segs, Fail, Bef),
     {Sis,Int1} =
 	case InCatch of
@@ -1407,6 +1419,8 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
 	end,
     MaxRegs = max_reg(Bef#sr.reg),
     Aft = clear_dead(Int1, Le#l.i, Vdb),
+
+    %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
@@ -1571,8 +1585,7 @@ cg_gen_binsize([], _, _, _, _, Acc) -> Acc.
 %% cg_bin_opt(Code0) -> Code
 %%  Optimize the size calculations for binary construction.
 
-cg_bin_opt([{move,Size,D},{bs_append,Fail,D,Extra,Regs0,U,Bin,Flags,D}|Is]) ->
-    Regs = cg_bo_newregs(Regs0, D),
+cg_bin_opt([{move,Size,D},{bs_append,Fail,D,Extra,Regs,U,Bin,Flags,D}|Is]) ->
     cg_bin_opt([{bs_append,Fail,Size,Extra,Regs,U,Bin,Flags,D}|Is]);
 cg_bin_opt([{move,Size,D},{bs_private_append,Fail,D,U,Bin,Flags,D}|Is]) ->
     cg_bin_opt([{bs_private_append,Fail,Size,U,Bin,Flags,D}|Is]);
@@ -1580,20 +1593,14 @@ cg_bin_opt([{move,{integer,0},D},{bs_add,_,[D,{integer,_}=S,1],Dst}|Is]) ->
     cg_bin_opt([{move,S,Dst}|Is]);
 cg_bin_opt([{move,{integer,0},D},{bs_add,Fail,[D,S,U],Dst}|Is]) ->
     cg_bin_opt([{bs_add,Fail,[{integer,0},S,U],Dst}|Is]);
-cg_bin_opt([{move,{integer,Bytes},D},{Op,Fail,D,Extra,Regs0,Flags,D}|Is])
+cg_bin_opt([{move,{integer,Bytes},D},{Op,Fail,D,Extra,Regs,Flags,D}|Is])
   when Op =:= bs_init2; Op =:= bs_init_bits ->
-    Regs = cg_bo_newregs(Regs0, D),
     cg_bin_opt([{Op,Fail,Bytes,Extra,Regs,Flags,D}|Is]);
 cg_bin_opt([{move,Src1,Dst},{bs_add,Fail,[Dst,Src2,U],Dst}|Is]) ->
     cg_bin_opt([{bs_add,Fail,[Src1,Src2,U],Dst}|Is]);
 cg_bin_opt([I|Is]) ->
     [I|cg_bin_opt(Is)];
 cg_bin_opt([]) -> [].
-
-cg_bo_newregs(R, {x,X}) when R-1 =:= X -> R-1;
-cg_bo_newregs(R, _) -> R.
-
-%% Common for new and old binary code generation.
 
 cg_bin_put({bin_seg,[],S0,U,T,Fs,[E0,Next]}, Fail, Bef) ->
     S1 = cg_reg_arg(S0, Bef),
