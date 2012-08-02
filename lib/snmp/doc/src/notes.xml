@@ -47,7 +47,23 @@
 
       <list type="bulleted">
         <item>
-          <p>[agent] Errors in vacmAccessTable RowStatus handling.
+          <p>[agent] Sematic fixes to SNMP-USER-BASED-SM-MIB.
+	  The semantics allow the <c>usmUserAuthKeyChange</c> and 
+	  <c>usmUserPrivKeyChange</c> objects to be written to in the 
+	  same set requests that also creates and clones the user. 
+	  This was not possible beforehand, causing test tools checking 
+	  semantic SNMPv3 behaviour to fail on a lot of test cases. </p>
+	  <p>Furthermore, once the user has been cloned by writing to an 
+	  instance of <c>usmUserCloneFrom</c>, further set-operations to 
+	  the same object will not return an error, but be no-ops. 
+	  Especially, it must be avoided to copy security parameters 
+	  again (possibly even from a different user). </p>
+	  <p>Stefan Zegenhagen</p>
+	  <p>Own Id: OTP-10166</p>
+        </item>
+
+        <item>
+          <p>[agent] Errors in <c>vacmAccessTable</c> RowStatus handling.
 	  There are problems with the handling of vacmAccessTableStatus 
 	  that cause some SNMP test suites to report errors.
 	  Most notably, erroneous set operations frequently cause "genErr" 
