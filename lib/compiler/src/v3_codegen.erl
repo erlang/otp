@@ -1894,27 +1894,13 @@ fetch_var(V, Sr) ->
 	error -> fetch_stack(V, Sr#sr.stk)
     end.
 
-% find_var(V, Sr) ->
-%     case find_reg(V, Sr#sr.reg) of
-% 	{ok,R} -> {ok,R};
-% 	error ->
-% 	    case find_stack(V, Sr#sr.stk) of
-% 		{ok,S} -> {ok,S};
-% 		error -> error
-% 	    end
-%     end.
-
 load_vars(Vs, Regs) ->
     foldl(fun ({var,V}, Rs) -> put_reg(V, Rs) end, Regs, Vs).
 
 %% put_reg(Val, Regs) -> Regs.
-%% free_reg(Val, Regs) -> Regs.
 %% find_reg(Val, Regs) -> ok{r{R}} | error.
 %% fetch_reg(Val, Regs) -> r{R}.
 %%  Functions to interface the registers.
-%%  put_reg puts a value into a free register,
-%%  load_reg loads a value into a fixed register
-%%  free_reg frees a register containing a specific value.
 
 % put_regs(Vs, Rs) -> foldl(fun put_reg/2, Rs, Vs).
 
@@ -1924,10 +1910,6 @@ put_reg_1(V, [free|Rs], I) -> [{I,V}|Rs];
 put_reg_1(V, [{reserved,I,V}|Rs], I) -> [{I,V}|Rs];
 put_reg_1(V, [R|Rs], I) -> [R|put_reg_1(V, Rs, I+1)];
 put_reg_1(V, [], I) -> [{I,V}].
-
-% free_reg(V, [{I,V}|Rs]) -> [free|Rs];
-% free_reg(V, [R|Rs]) -> [R|free_reg(V, Rs)];
-% free_reg(V, []) -> [].
 
 fetch_reg(V, [{I,V}|_]) -> {x,I};
 fetch_reg(V, [_|SRs]) -> fetch_reg(V, SRs).
@@ -1944,9 +1926,6 @@ find_scratch_reg(Rs) -> find_scratch_reg(Rs, 0).
 find_scratch_reg([free|_], I) -> {x,I};
 find_scratch_reg([_|Rs], I) -> find_scratch_reg(Rs, I+1);
 find_scratch_reg([], I) -> {x,I}.
-
-%%copy_reg(Val, R, Regs) -> load_reg(Val, R, Regs).
-%%move_reg(Val, R, Regs) -> load_reg(Val, R, free_reg(Val, Regs)).
 
 replace_reg_contents(Old, New, [{I,Old}|Rs]) -> [{I,New}|Rs];
 replace_reg_contents(Old, New, [R|Rs]) -> [R|replace_reg_contents(Old, New, Rs)].
