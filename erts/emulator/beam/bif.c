@@ -83,8 +83,10 @@ static int insert_internal_link(Process* p, Eterm rpid)
     ASSERT(is_internal_pid(rpid));
 
 #ifdef ERTS_SMP
-    if (IS_TRACED(p) && (p->trace_flags & (F_TRACE_SOL|F_TRACE_SOL1)))
+    if (IS_TRACED(p)
+	&& (ERTS_TRACE_FLAGS(p) & (F_TRACE_SOL|F_TRACE_SOL1))) {
 	rp_locks = ERTS_PROC_LOCKS_ALL;
+    }
 
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_LINK);
 #endif
@@ -103,18 +105,18 @@ static int insert_internal_link(Process* p, Eterm rpid)
 	erts_add_link(&(p->nlinks), LINK_PID, rp->id);
 	erts_add_link(&(rp->nlinks), LINK_PID, p->id);
 
-	ASSERT(is_nil(p->tracer_proc)
-	       || is_internal_pid(p->tracer_proc)
-	       || is_internal_port(p->tracer_proc));
+	ASSERT(is_nil(ERTS_TRACER_PROC(p))
+	       || is_internal_pid(ERTS_TRACER_PROC(p))
+	       || is_internal_port(ERTS_TRACER_PROC(p)));
 
 	if (IS_TRACED(p)) {
-	    if (p->trace_flags & (F_TRACE_SOL|F_TRACE_SOL1))  {
-		rp->trace_flags |= (p->trace_flags & TRACEE_FLAGS);
-		rp->tracer_proc = p->tracer_proc; /* maybe steal */
+	    if (ERTS_TRACE_FLAGS(p) & (F_TRACE_SOL|F_TRACE_SOL1))  {
+		ERTS_TRACE_FLAGS(rp) |= (ERTS_TRACE_FLAGS(p) & TRACEE_FLAGS);
+		ERTS_TRACER_PROC(rp) = ERTS_TRACER_PROC(p); /* maybe steal */
 
-		if (p->trace_flags & F_TRACE_SOL1)  { /* maybe override */
-		    rp->trace_flags &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
-		    p->trace_flags &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
+		if (ERTS_TRACE_FLAGS(p) & F_TRACE_SOL1) { /* maybe override */
+		    ERTS_TRACE_FLAGS(rp) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
+		    ERTS_TRACE_FLAGS(p) &= ~(F_TRACE_SOL1 | F_TRACE_SOL);
 		}
 	    }
 	}
@@ -144,10 +146,6 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     /* check that the pid or port which is our argument is OK */
 
     if (is_internal_pid(BIF_ARG_1)) {
-	if (internal_pid_index(BIF_ARG_1) >= erts_max_processes) {
-	    BIF_ERROR(BIF_P, BADARG);
-	}
-
 	if (insert_internal_link(BIF_P, BIF_ARG_1)) {
 	    BIF_RET(am_true);
 	}
@@ -1037,10 +1035,6 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 
     /* Internal pid... */
 
-     /* process ok ? */
-    if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
-	BIF_ERROR(BIF_P, BADARG);
-
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK|ERTS_PROC_LOCK_STATUS);
 
     /* get process struct */
@@ -1397,8 +1391,6 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	  */
 	 ErtsProcLocks rp_locks;
 
-	 if (internal_pid_index(BIF_ARG_1) >= erts_max_processes)
-	     BIF_ERROR(BIF_P, BADARG);
 	 if (BIF_ARG_1 == BIF_P->id) {
 	     rp_locks = ERTS_PROC_LOCKS_ALL;
 	     rp = BIF_P;
@@ -1617,11 +1609,13 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	   goto error;
        }
        erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
-       old_value = BIF_P->trace_flags & F_SENSITIVE ? am_true : am_false;
+       old_value = (ERTS_TRACE_FLAGS(BIF_P) & F_SENSITIVE
+		    ? am_true
+		    : am_false);
        if (is_sensitive) {
-	   BIF_P->trace_flags |= F_SENSITIVE;
+	   ERTS_TRACE_FLAGS(BIF_P) |= F_SENSITIVE;
        } else {
-	   BIF_P->trace_flags &= ~F_SENSITIVE;
+	   ERTS_TRACE_FLAGS(BIF_P) &= ~F_SENSITIVE;
        }
        erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
        BIF_RET(old_value);
@@ -1815,9 +1809,6 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(p))
 	    save_calls(p, &exp_send);
 	
-	if (internal_pid_index(to) >= erts_max_processes)
-	    return SEND_BADARG;
-
 	rp = erts_proc_lookup_raw(to);
 	
 	if (!rp) {
@@ -4209,12 +4200,13 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	    BIF_RET(old_value);
 	}
     } else if (BIF_ARG_1 == make_small(1)) {
-	Uint i;
+	int i, max;
 	ErlMessage* mp;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	erts_smp_thr_progress_block();
 
-	for (i = 0; i < erts_max_processes; i++) {
+	max = erts_ptab_max(&erts_proc);
+	for (i = 0; i < max; i++) {
 	    Process *p = erts_pix2proc(i);
 	    if (p) {
 #ifdef USE_VM_PROBES

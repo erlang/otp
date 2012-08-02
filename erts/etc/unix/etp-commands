@@ -1371,9 +1371,9 @@ define etp-process-info
   etp-1 $arg0->id
   printf "\n  State: "
   etp-proc-state $arg0
-  if ($arg0->reg)
+  if ($arg0->common.u.alive.reg)
     printf "  Registered name: "
-    etp-1 $arg0->reg->name
+    etp-1 $arg0->common.u.alive.reg->name
     printf "\n"
   end
   if ($arg0->current)
@@ -1399,7 +1399,7 @@ define etp-process-info
   end
   printf "  Mbuf size: %ld\n", $arg0->mbuf_sz
   if (etp_smp_compiled)
-    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($arg0->msg.len + $arg0->u.alive.msg_inq.len), $arg0->msg.len, $arg0->u.alive.msg_inq.len
+    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($arg0->msg.len + $arg0->msg_inq.len), $arg0->msg.len, $arg0->msg_inq.len
   else
     printf "  Msgq len: %d\n", $arg0->msg.len
   end

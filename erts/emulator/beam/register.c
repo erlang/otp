@@ -204,7 +204,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	r.p = proc;
 	if (!proc)
 	    goto done;
-	if (proc->reg)
+	if (proc->common.u.alive.reg)
 	    goto done;
 	r.pt = NULL;
     }
@@ -224,7 +224,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	if (IS_TRACED_FL(proc, F_TRACE_PROCS)) {
 	    trace_proc(c_p, proc, am_register, name);
 	}
-	proc->reg = rp;
+	proc->common.u.alive.reg = rp;
     }
     else if (port && rp->pt == port) {
     	if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
@@ -493,8 +493,8 @@ int erts_unregister_name(Process *c_p,
 	    current_c_p_locks = c_p_locks;
 	}
 #endif
-	if (c_p->reg) {
-	    r.name = c_p->reg->name;
+	if (c_p->common.u.alive.reg) {
+	    r.name = c_p->common.u.alive.reg->name;
 	} else {
 	    /* Name got unregistered while main lock was released */
 	    res = 0;
@@ -549,7 +549,7 @@ int erts_unregister_name(Process *c_p,
 			       ERTS_PROC_LOCK_MAIN);
 	    current_c_p_locks = c_p_locks;
 #endif
-	    rp->p->reg = NULL;
+	    rp->p->common.u.alive.reg = NULL;
 	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
 		trace_proc(c_p, rp->p, am_unregister, r.name);
 	    }

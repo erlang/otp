@@ -1274,7 +1274,7 @@ setup_reference_table(void)
     ErlHeapFragment *hfp;
     DistEntry *dep;
     HashInfo hi;
-    int i;
+    int i, max_processes;
     DeclareTmpHeapNoproc(heap,3);
 
     inserted_bins = NULL;
@@ -1309,8 +1309,9 @@ setup_reference_table(void)
 #endif
     UnUseTmpHeapNoproc(3);
 
+    max_processes = erts_ptab_max(&erts_proc);
     /* Insert all processes */
-    for (i = 0; i < erts_max_processes; i++) {
+    for (i = 0; i < max_processes; i++) {
 	Process *proc = erts_pix2proc(i);
 	if (proc) {
 	    ErlMessage *msg;
@@ -1344,7 +1345,7 @@ setup_reference_table(void)
 				   proc->id);
 	    }
 #ifdef ERTS_SMP
-	    for (msg = proc->u.alive.msg_inq.first; msg; msg = msg->next) {
+	    for (msg = proc->msg_inq.first; msg; msg = msg->next) {
 		ErlHeapFragment *heap_frag = NULL;
 		if (msg->data.attached) {
 		    if (is_value(ERL_MESSAGE_TERM(msg)))

@@ -723,8 +723,9 @@ struct ErtsPendingSuspend_ {
 #  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
 
 struct process {
-    Eterm id;			/* The pid of this process
-				   (need to be first in struct) */
+    ErtsPTabElementCommon common; /* *Need* to be first in struct */
+
+    Eterm id;			/* Duplicate (to be removed) */
     /* All fields in the PCB that differs between different heap
      * architectures, have been moved to the end of this struct to
      * make sure that as few offsets as possible differ. Different
@@ -771,9 +772,6 @@ struct process {
     int  prio;			/* Priority of process */
     int  schedule_count;	/* Times left to reschedule a low prio process */
     Uint reds;			/* No of reductions for this process  */
-    Eterm tracer_proc;		/* If proc is traced, this is the tracer
-				   (can NOT be boxed) */
-    Uint trace_flags;		/* Trace flags (used to be in flags) */
     Eterm group_leader;		/* Pid in charge
 				   (can be boxed) */
     Uint flags;			/* Trap exit, etc (no trace flags anymore) */
@@ -783,7 +781,6 @@ struct process {
 
     Process *next;		/* Pointer to next process in run queue */
 
-    struct reg_proc *reg;	/* NULL iff not registered */
     ErtsLink *nlinks;
     ErtsMonitor *monitors;      /* The process monitors, both ends */
 
@@ -795,7 +792,10 @@ struct process {
 
     ErlMessageQueue msg;	/* Message queue */
 
-    ErtsBifTimer *bif_timers;	/* Bif timers aiming at this process */
+    union {
+	ErtsBifTimer *bif_timers;	/* Bif timers aiming at this process */
+	void *terminate;
+    } u;
 
     ProcDict  *dictionary;       /* Process dictionary, may be NULL */
 
@@ -820,7 +820,6 @@ struct process {
      */
     Eterm parent;		/* Pid of process that created this process. */
     erts_approx_time_t approx_started; /* Time when started. */
-    Uint64 started_interval;
 
     /* This is the place, where all fields that differs between memory
      * architectures, have gone to.
@@ -842,25 +841,11 @@ struct process {
     Uint64 bin_old_vheap_sz;	/* Virtual old heap block size for binaries */
     Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
-    union {
-	struct {
-#ifdef ERTS_SMP
-	    ErtsSmpPTimer *ptimer;
-	    ErlMessageInQueue msg_inq;
-	    ErtsPendExit pending_exit;
-#else
-	    ErlTimer tm;		/* Timer entry */
-#endif
-	} alive; /* when process is alive */
-#ifdef ERTS_SMP
-	ErtsThrPrgrLaterOp release_data; /* when releasing process struct */
-#endif
-	void *exit_data;	/* Misc data referred during termination */
-    } u;
-
     erts_smp_atomic32_t state;  /* Process state flags (see ERTS_PSFLG_*) */
 
 #ifdef ERTS_SMP
+    ErlMessageInQueue msg_inq;
+    ErtsPendExit pending_exit;
     erts_proc_lock_t lock;
     ErtsSchedulerData *scheduler_data;
     Eterm suspendee;
@@ -907,6 +892,8 @@ struct process {
     Eterm* space_verified_from; /* we rely on available heap space (TestHeap) */
 #endif
 };
+
+extern const Process erts_invalid_process;
 
 #ifdef CHECK_FOR_HOLES
 # define INIT_HOLE_CHECK(p)			\
@@ -1032,8 +1019,6 @@ Eterm* erts_heap_alloc(Process* p, Uint need, Uint xtra);
 Eterm* erts_set_hole_marker(Eterm* ptr, Uint sz);
 #endif
 
-extern erts_smp_rwmtx_t erts_proc_tab_rwmtx;
-extern erts_smp_atomic_t *erts_proc_tab;
 #ifdef HYBRID
 extern Uint erts_num_active_procs;
 extern Process** erts_active_procs;
@@ -1065,10 +1050,6 @@ struct erts_system_profile_flags_t {
     unsigned int exclusive : 1;
 };
 extern struct erts_system_profile_flags_t erts_system_profile_flags;
- 
-#define IS_TRACED(p)             ( (p)->tracer_proc != NIL )
-#define ARE_TRACE_FLAGS_ON(p,tf) ( ((p)->trace_flags & (tf|F_SENSITIVE)) == (tf) )
-#define IS_TRACED_FL(p,tf)       ( IS_TRACED(p) && ARE_TRACE_FLAGS_ON(p,tf) )
 
 /* process flags */
 #define F_HIBERNATE_SCHED    (1 <<  0) /* Schedule out after hibernate op */
@@ -1223,7 +1204,7 @@ void erts_schedule_multi_misc_aux_work(int ignore_self,
 erts_aint32_t erts_set_aux_work_timeout(int, erts_aint32_t, int);
 void erts_sched_notify_check_cpu_bind(void);
 Uint erts_active_schedulers(void);
-void erts_init_process(int);
+void erts_init_process(int, int);
 Eterm erts_process_status(Process *, ErtsProcLocks, Process *, Eterm);
 Uint erts_run_queues_len(Uint *);
 void erts_add_to_runq(Process *);
@@ -1242,7 +1223,6 @@ void set_timer(Process*, Uint);
 void cancel_timer(Process*);
 /* Begin System profile */
 Uint erts_runnable_process_count(void);
-Uint erts_process_count(void);
 /* End System profile */
 void erts_init_empty_process(Process *p);
 void erts_cleanup_empty_process(Process* p);
@@ -1291,9 +1271,6 @@ void erts_deep_process_dump(int, void *);
 Eterm erts_get_reader_groups_map(Process *c_p);
 Eterm erts_debug_reader_groups_map(Process *c_p, int groups);
 
-Sint erts_test_next_pid(int, Uint);
-Eterm erts_debug_processes(Process *c_p);
-Eterm erts_debug_processes_bif_info(Process *c_p);
 Uint erts_debug_nbalance(void);
 int erts_debug_wait_deallocations(Process *c_p);
 
@@ -1601,7 +1578,7 @@ ERTS_GLB_INLINE
 Eterm erts_get_current_pid(void)
 {
     Process *proc = erts_get_current_process();
-    return proc ? proc->id : THE_NON_VALUE;
+    return proc ? proc->common.id : THE_NON_VALUE;
 }
 
 ERTS_GLB_INLINE

@@ -1296,7 +1296,7 @@ void process_main(void)
 
 	reds = c_p->fcalls;
 	if (ERTS_PROC_GET_SAVED_CALLS_BUF(c_p)
-	    && (c_p->trace_flags & F_SENSITIVE) == 0) {
+	    && (ERTS_TRACE_FLAGS(c_p) & F_SENSITIVE) == 0) {
 	    neg_o_reds = -reds;
 	    FCALLS = REDS_IN(c_p) = 0;
 	} else {
@@ -4645,7 +4645,7 @@ void process_main(void)
 	 PROCESS_MAIN_CHK_LOCKS(c_p);
 	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	 flags = erts_call_trace(c_p, ep->code, ep->match_prog_set, reg,
-				 0, &c_p->tracer_proc);
+				 0, &ERTS_TRACER_PROC(c_p));
 	 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	 PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -4666,15 +4666,15 @@ void process_main(void)
 	     E -= 3;
 	     ASSERT(c_p->htop <= E && E <= c_p->hend);
 	     ASSERT(is_CP((BeamInstr)(ep->code)));
-	     ASSERT(is_internal_pid(c_p->tracer_proc) || 
-		    is_internal_port(c_p->tracer_proc));
+	     ASSERT(is_internal_pid(ERTS_TRACER_PROC(c_p)) || 
+		    is_internal_port(ERTS_TRACER_PROC(c_p)));
 	     E[2] = make_cp(c_p->cp); /* Code in lower range on halfword */
 	     E[1] = am_true; /* Process tracer */
 	     E[0] = make_cp(ep->code);
 	     c_p->cp = (flags & MATCH_SET_EXCEPTION_TRACE)
 		 ? beam_exception_trace : beam_return_trace;
 	     erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-	     c_p->trace_flags |= F_EXCEPTION_TRACE;
+	     ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
 	     erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 	 }
      }
@@ -4879,7 +4879,7 @@ void process_main(void)
 	     (flags & MATCH_SET_EXCEPTION_TRACE)
 		     ? beam_exception_trace : beam_return_trace;
 	 erts_smp_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
-	 c_p->trace_flags |= F_EXCEPTION_TRACE;
+	 ERTS_TRACE_FLAGS(c_p) |= F_EXCEPTION_TRACE;
 	 erts_smp_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
      }
      Goto(real_I);

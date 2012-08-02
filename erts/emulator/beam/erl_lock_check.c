@@ -93,7 +93,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
     {	"proc_status",				"pid"			},
-    {	"proc_tab",				NULL			},
     {   "ports_snapshot",                       NULL                    },
     {	"meta_name_tab",	         	"address"		},
     {	"meta_main_tab_slot",			"address"		},
@@ -125,6 +124,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"schdlr_sspnd",				NULL			},
     {	"migration_info_update",		NULL			},
     {	"run_queue",				"address"		},
+    {	"process_table",			NULL			},
     {	"cpu_info",				NULL			},
     {	"pollset",				"address"		},
 #ifdef __WIN32__

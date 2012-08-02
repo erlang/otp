@@ -20,7 +20,7 @@
 #ifndef ERL_NODE_CONTAINER_UTILS_H__
 #define ERL_NODE_CONTAINER_UTILS_H__
 
-#include "erl_term.h"
+#include "erl_ptab.h"
 
 /*
  * Note regarding node containers:
@@ -128,47 +128,10 @@ extern int erts_use_r9_pids_ports;
  * Pids                                                                    *
 \*                                                                         */
 
-#define erts_max_processes erts_proc.max
+extern ErtsPTab erts_proc;
 
-typedef struct {
-    erts_smp_atomic_t *tab;
-    int max;
-    int tab_cache_lines;
-    int pix_per_cache_line;
-    int pix_cl_mask;
-    int pix_cl_shift;
-    int pix_cli_mask;
-    int pix_cli_shift;
-} ErtsProcTab;
-
-extern ErtsProcTab erts_proc;
-
-ERTS_GLB_INLINE int erts_pid_data2ix(Eterm pid_data);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-ERTS_GLB_INLINE int erts_pid_data2ix(Eterm pid_data)
-{
-    int n, pix;
-
-    n = (int) pid_data;
-    if (erts_proc.pix_cl_mask) {
-	pix = ((n & erts_proc.pix_cl_mask) << erts_proc.pix_cl_shift);
-	pix += ((n >> erts_proc.pix_cli_shift) & erts_proc.pix_cli_mask);
-    }
-    else {
-	n %= erts_proc.max;
-	pix = n % erts_proc.tab_cache_lines;
-	pix *= erts_proc.pix_per_cache_line;
-	pix += n / erts_proc.tab_cache_lines;
-    }
-    ASSERT(0 <= pix && pix < erts_proc.max);
-    return pix;
-}
-
-#endif
-
-#define internal_pid_index(x)		erts_pid_data2ix(internal_pid_data((x)))
+#define internal_pid_index(x)		erts_ptab_data2ix(&erts_proc, \
+							  internal_pid_data((x)))
 
 #define internal_pid_node_name(x)	(internal_pid_node((x))->sysname)
 #define external_pid_node_name(x)	(external_pid_node((x))->sysname)

@@ -424,7 +424,6 @@ atom priority
 atom private
 atom process
 atom processes
-atom processes_trap
 atom processes_used
 atom process_count
 atom process_display
@@ -434,6 +433,7 @@ atom procs
 atom profile
 atom protected
 atom protection
+atom ptab_list_continue
 atom public
 atom purify
 atom quantify

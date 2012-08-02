@@ -69,8 +69,8 @@ port_info(int to, void *to_arg)
 void
 process_info(int to, void *to_arg)
 {
-    int i;
-    for (i = 0; i < erts_max_processes; i++) {
+    int i, max = erts_ptab_max(&erts_proc);
+    for (i = 0; i < max; i++) {
 	Process *p = erts_pix2proc(i);
 	if (p && p->i != ENULL) {
 	    if (!ERTS_PROC_IS_EXITING(p))
@@ -84,12 +84,12 @@ process_info(int to, void *to_arg)
 static void
 process_killer(void)
 {
-    int i, j;
+    int i, j, max = erts_ptab_max(&erts_proc);
     Process* rp;
 
     erts_printf("\n\nProcess Information\n\n");
     erts_printf("--------------------------------------------------\n");
-    for (i = erts_max_processes-1; i >= 0; i--) {
+    for (i = max-1; i >= 0; i--) {
 	rp = erts_pix2proc(i);
 	if (rp && rp->i != ENULL) {
 	    int br;
@@ -226,8 +226,8 @@ print_process_info(int to, void *to_arg, Process *p)
      * If the process is registered as a global process, display the
      * registered name
      */
-    if (p->reg != NULL)
-	erts_print(to, to_arg, "Name: %T\n", p->reg->name);
+    if (p->common.u.alive.reg)
+	erts_print(to, to_arg, "Name: %T\n", p->common.u.alive.reg->name);
 
     /*
      * Display the initial function name
@@ -618,9 +618,9 @@ bin_check(void)
 {
     Process  *rp;
     struct erl_off_heap_header* hdr;
-    int i, printed = 0;
+    int i, printed = 0, max = erts_ptab_max(&erts_proc);
 
-    for (i=0; i < erts_max_processes; i++) {
+    for (i=0; i < max; i++) {
 	rp = erts_pix2proc(i);
 	if (!rp)
 	    continue;
@@ -710,7 +710,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_print_nif_taints(fd, NULL);
     erts_fdprintf(fd, "Atoms: %d\n", atom_table_size());
     info(fd, NULL); /* General system info */
-    if (erts_proc.tab)
+    if (erts_ptab_initialized(&erts_proc))
 	process_info(fd, NULL); /* Info about each process and port */
     db_info(fd, NULL, 0);
     erts_print_bif_timer_info(fd, NULL);

@@ -127,21 +127,21 @@ typedef struct {
 /* Move in message queue to end of private message queue */
 #define ERTS_SMP_MSGQ_MV_INQ2PRIVQ(P)					\
 do {									\
-    if ((P)->u.alive.msg_inq.first) {					\
-	*(P)->msg.last = (P)->u.alive.msg_inq.first;			\
-	(P)->msg.last = (P)->u.alive.msg_inq.last;			\
-	(P)->msg.len += (P)->u.alive.msg_inq.len;			\
-	(P)->u.alive.msg_inq.first = NULL;				\
-	(P)->u.alive.msg_inq.last = &(P)->u.alive.msg_inq.first;	\
-	(P)->u.alive.msg_inq.len = 0;					\
+    if ((P)->msg_inq.first) {						\
+	*(P)->msg.last = (P)->msg_inq.first;				\
+	(P)->msg.last = (P)->msg_inq.last;				\
+	(P)->msg.len += (P)->msg_inq.len;				\
+	(P)->msg_inq.first = NULL;					\
+	(P)->msg_inq.last = &(P)->msg_inq.first;			\
+	(P)->msg_inq.len = 0;						\
     }									\
 } while (0)
 
 /* Add message last in message queue */
 #define LINK_MESSAGE(p, mp) do { \
-    *(p)->u.alive.msg_inq.last = (mp); \
-    (p)->u.alive.msg_inq.last = &(mp)->next; \
-    (p)->u.alive.msg_inq.len++; \
+    *(p)->msg_inq.last = (mp); \
+    (p)->msg_inq.last = &(mp)->next; \
+    (p)->msg_inq.len++; \
 } while(0)
 
 #else
@@ -244,6 +244,9 @@ void erts_move_msg_attached_data_to_heap(Eterm **, ErlOffHeap *, ErlMessage *);
 
 Eterm erts_msg_distext2heap(Process *, ErtsProcLocks *, ErlHeapFragment **,
 			    Eterm *, ErtsDistExternal *);
+
+void erts_cleanup_offheap(ErlOffHeap *offheap);
+
 
 ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg);
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg);

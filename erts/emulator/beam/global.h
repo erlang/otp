@@ -38,6 +38,7 @@
 #include "erl_sys_driver.h"
 #include "erl_debug.h"
 #include "error.h"
+#include "erl_utils.h"
 
 typedef struct port Port;
 #include "erl_port_task.h"
@@ -165,8 +166,14 @@ struct port {
     ErlTimer tm;                 /* Timer entry */
 #endif
     
-    Eterm tracer_proc;		/* If the port is traced, this is the tracer */
-    Uint trace_flags;		/* Trace flags */
+    struct {
+	union {
+	    struct {
+		Eterm tracer_proc;		/* If the port is traced, this is the tracer */
+		Uint trace_flags;		/* Trace flags */
+	    } alive;
+	} u;
+    } common;
 
     ErlIOQueue ioq;              /* driver accessible i/o queue */
     DistEntry *dist_entry;       /* Dist entry used in DISTRIBUTION */
@@ -1468,163 +1475,7 @@ ERTS_GLB_INLINE Uint32 erts_port_status_get(Port *prt)
 /* erl_drv_thread.c */
 void erl_drv_thr_init(void);
 
-/* time.c */
-
 /* utils.c */
-
-typedef struct {
-#ifdef DEBUG
-    int smp_api;
-#endif
-    union {
-	Uint64 not_atomic;
-#ifdef ARCH_64
-	erts_atomic_t atomic;
-#else
-	erts_dw_atomic_t atomic;
-#endif
-    } counter;
-} erts_interval_t;
-
-void erts_interval_init(erts_interval_t *);
-void erts_smp_interval_init(erts_interval_t *);
-Uint64 erts_step_interval_nob(erts_interval_t *);
-Uint64 erts_step_interval_relb(erts_interval_t *);
-Uint64 erts_smp_step_interval_nob(erts_interval_t *);
-Uint64 erts_smp_step_interval_relb(erts_interval_t *);
-Uint64 erts_ensure_later_interval_nob(erts_interval_t *, Uint64);
-Uint64 erts_ensure_later_interval_acqb(erts_interval_t *, Uint64);
-Uint64 erts_smp_ensure_later_interval_nob(erts_interval_t *, Uint64);
-Uint64 erts_smp_ensure_later_interval_acqb(erts_interval_t *, Uint64);
-#ifdef ARCH_32
-ERTS_GLB_INLINE Uint64 erts_interval_dw_aint_to_val__(erts_dw_aint_t *);
-#endif
-ERTS_GLB_INLINE Uint64 erts_current_interval_nob__(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_current_interval_acqb__(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_current_interval_nob(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_current_interval_acqb(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_smp_current_interval_nob(erts_interval_t *);
-ERTS_GLB_INLINE Uint64 erts_smp_current_interval_acqb(erts_interval_t *);
-
-#if ERTS_GLB_INLINE_INCL_FUNC_DEF
-
-#ifdef ARCH_32
-
-ERTS_GLB_INLINE Uint64
-erts_interval_dw_aint_to_val__(erts_dw_aint_t *dw)
-{
-#ifdef ETHR_SU_DW_NAINT_T__
-    return (Uint64) dw->dw_sint;
-#else
-    Uint64 res;
-    res = (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_HIGH_WORD]);
-    res <<= 32;
-    res |= (Uint64) ((Uint32) dw->sint[ERTS_DW_AINT_LOW_WORD]);
-    return res;
-#endif
-}
-
-#endif
-
-ERTS_GLB_INLINE Uint64
-erts_current_interval_nob__(erts_interval_t *icp)
-{
-#ifdef ARCH_64
-    return (Uint64) erts_atomic_read_nob(&icp->counter.atomic);
-#else
-    erts_dw_aint_t dw;
-    erts_dw_atomic_read_nob(&icp->counter.atomic, &dw);
-    return erts_interval_dw_aint_to_val__(&dw);
-#endif
-}
-
-ERTS_GLB_INLINE Uint64
-erts_current_interval_acqb__(erts_interval_t *icp)
-{
-#ifdef ARCH_64
-    return (Uint64) erts_atomic_read_acqb(&icp->counter.atomic);
-#else
-    erts_dw_aint_t dw;
-    erts_dw_atomic_read_acqb(&icp->counter.atomic, &dw);
-    return erts_interval_dw_aint_to_val__(&dw);
-#endif
-}
-
-ERTS_GLB_INLINE Uint64
-erts_current_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(!icp->smp_api);
-    return erts_current_interval_nob__(icp);
-}
-
-ERTS_GLB_INLINE Uint64
-erts_current_interval_acqb(erts_interval_t *icp)
-{
-    ASSERT(!icp->smp_api);
-    return erts_current_interval_acqb__(icp);
-}
-
-ERTS_GLB_INLINE Uint64
-erts_smp_current_interval_nob(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return erts_current_interval_nob__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
-}
-
-ERTS_GLB_INLINE Uint64
-erts_smp_current_interval_acqb(erts_interval_t *icp)
-{
-    ASSERT(icp->smp_api);
-#ifdef ERTS_SMP
-    return erts_current_interval_acqb__(icp);
-#else
-    return icp->counter.not_atomic;
-#endif
-}
-
-#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
-
-/*
- * To be used to silence unused result warnings, but do not abuse it.
- */
-void erts_silence_warn_unused_result(long unused);
-
-void erts_cleanup_offheap(ErlOffHeap *offheap);
-
-int erts_fit_in_bits_int64(Sint64);
-int erts_fit_in_bits_int32(Sint32);
-int list_length(Eterm);
-Export* erts_find_function(Eterm, Eterm, unsigned int);
-int erts_is_builtin(Eterm, Eterm, int);
-Uint32 make_broken_hash(Eterm);
-Uint32 block_hash(byte *, unsigned, Uint32);
-Uint32 make_hash2(Eterm);
-Uint32 make_hash(Eterm);
-
-
-Eterm erts_bld_atom(Uint **hpp, Uint *szp, char *str);
-Eterm erts_bld_uint(Uint **hpp, Uint *szp, Uint ui);
-Eterm erts_bld_uword(Uint **hpp, Uint *szp, UWord uw);
-Eterm erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64);
-Eterm erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64);
-Eterm erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr);
-Eterm erts_bld_tuple(Uint **hpp, Uint *szp, Uint arity, ...);
-Eterm erts_bld_tuplev(Uint **hpp, Uint *szp, Uint arity, Eterm terms[]);
-Eterm erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len);
-#define erts_bld_string(hpp,szp,str) erts_bld_string_n(hpp,szp,str,strlen(str))
-Eterm erts_bld_list(Uint **hpp, Uint *szp, Sint length, Eterm terms[]);
-Eterm erts_bld_2tup_list(Uint **hpp, Uint *szp,
-			 Sint length, Eterm terms1[], Uint terms2[]);
-Eterm
-erts_bld_atom_uint_2tup_list(Uint **hpp, Uint *szp,
-			     Sint length, Eterm atoms[], Uint uints[]);
-Eterm
-erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
-			      Eterm atoms[], Uint uints1[], Uint uints2[]);
 
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
 Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
@@ -1638,42 +1489,6 @@ Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
 #define STORE_NC_IN_PROC(Pp, NC) \
  (ASSERT_EXPR(is_node_container((NC))), \
   IS_CONST((NC)) ? (NC) : store_external_or_ref_in_proc_((Pp), (NC)))
-
-void erts_init_utils(void);
-void erts_init_utils_mem(void);
-
-erts_dsprintf_buf_t *erts_create_tmp_dsbuf(Uint);
-void erts_destroy_tmp_dsbuf(erts_dsprintf_buf_t *);
-
-#if HALFWORD_HEAP
-int eq_rel(Eterm a, Eterm* a_base, Eterm b, Eterm* b_base);
-#  define eq(A,B) eq_rel(A,NULL,B,NULL)
-#else
-int eq(Eterm, Eterm);
-#  define eq_rel(A,A_BASE,B,B_BASE) eq(A,B)
-#endif
-
-#define EQ(x,y) (((x) == (y)) || (is_not_both_immed((x),(y)) && eq((x),(y))))
-
-#if HALFWORD_HEAP
-Sint cmp_rel(Eterm, Eterm*, Eterm, Eterm*);
-#define CMP(A,B) cmp_rel(A,NULL,B,NULL)
-#else
-Sint cmp(Eterm, Eterm);
-#define cmp_rel(A,A_BASE,B,B_BASE) cmp(A,B)
-#define CMP(A,B) cmp(A,B)
-#endif
-#define cmp_lt(a,b)	(CMP((a),(b)) < 0)
-#define cmp_le(a,b)	(CMP((a),(b)) <= 0)
-#define cmp_eq(a,b)	(CMP((a),(b)) == 0)
-#define cmp_ne(a,b)	(CMP((a),(b)) != 0)
-#define cmp_ge(a,b)	(CMP((a),(b)) >= 0)
-#define cmp_gt(a,b)	(CMP((a),(b)) > 0)
-
-#define CMP_LT(a,b)	((a) != (b) && cmp_lt((a),(b)))
-#define CMP_GE(a,b)	((a) == (b) || cmp_ge((a),(b)))
-#define CMP_EQ(a,b)	((a) == (b) || cmp_eq((a),(b)))
-#define CMP_NE(a,b)	((a) != (b) && cmp_ne((a),(b)))
 
 /* duplicates from big.h */
 int term_to_Uint(Eterm term, Uint *up);

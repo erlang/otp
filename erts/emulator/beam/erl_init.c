@@ -45,6 +45,7 @@
 #include "erl_thr_progress.h"
 #include "erl_thr_queue.h"
 #include "erl_async.h"
+#include "erl_ptab.h"
 
 #ifdef HIPE
 #include "hipe_mode_switch.h"	/* for hipe_mode_switch_init() */
@@ -122,7 +123,7 @@ extern void ConNormalExit(void);
 extern void ConWaitForExit(void);
 #endif
 
-static void erl_init(int ncpu);
+static void erl_init(int ncpu, int proc_tab_sz);
 
 #define ERTS_MIN_COMPAT_REL 7
 
@@ -294,12 +295,12 @@ void
 erts_short_init(void)
 {
     int ncpu = early_init(NULL, NULL);
-    erl_init(ncpu);
+    erl_init(ncpu, ERTS_DEFAULT_MAX_PROCESSES);
     erts_initialized = 1;
 }
 
 static void
-erl_init(int ncpu)
+erl_init(int ncpu, int proc_tab_sz)
 {
     init_benchmarking();
 
@@ -307,7 +308,7 @@ erl_init(int ncpu)
     erts_init_gc();
     erts_init_time();
     erts_init_sys_common_misc();
-    erts_init_process(ncpu);
+    erts_init_process(ncpu, proc_tab_sz);
     erts_init_scheduling(no_schedulers,
 			 no_schedulers_online);
     erts_init_cpu_topology(); /* Must be after init_scheduling */
@@ -328,6 +329,7 @@ erl_init(int ncpu)
     erts_bif_info_init();
     erts_ddll_init();
     init_emulator();
+    erts_ptab_init(); /* Must be after init_emulator() */
     erts_bp_init();
     init_db(); /* Must be after init_emulator */
     erts_bif_timer_init();
@@ -669,7 +671,6 @@ early_init(int *argc, char **argv) /*
     erts_printf_eterm_func = erts_printf_term;
     erts_disable_tolerant_timeofday = 0;
     display_items = 200;
-    erts_proc.max = ERTS_DEFAULT_MAX_PROCESSES;
     erts_backtrace_depth = DEFAULT_BACKTRACE_SIZE;
     erts_async_max_threads = 0;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
@@ -955,6 +956,7 @@ erl_start(int argc, char **argv)
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
     int ncpu = early_init(&argc, argv);
+    int proc_tab_sz = ERTS_DEFAULT_MAX_PROCESSES;
 
     envbufsz = sizeof(envbuf);
     if (erts_sys_getenv(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 0)
@@ -1216,7 +1218,7 @@ erl_start(int argc, char **argv)
 	case 'P':
 	    /* set maximum number of processes */
 	    Parg = get_arg(argv[i]+2, argv[i+1], &i);
-	    erts_proc.max = atoi(Parg);
+	    proc_tab_sz = atoi(Parg);
 	    /* Check of result is delayed until later. This is because +R
 	       may be given after +P. */
 	    break;
@@ -1495,10 +1497,10 @@ erl_start(int argc, char **argv)
     }
 
     /* Delayed check of +P flag */
-    if (erts_proc.max < ERTS_MIN_PROCESSES
-	|| erts_proc.max > ERTS_MAX_PROCESSES
+    if (proc_tab_sz < ERTS_MIN_PROCESSES
+	|| proc_tab_sz > ERTS_MAX_PROCESSES
 	|| (erts_use_r9_pids_ports
-	    && erts_proc.max > ERTS_MAX_R9_PROCESSES)) {
+	    && proc_tab_sz > ERTS_MAX_R9_PROCESSES)) {
 	erts_fprintf(stderr, "bad number of processes %s\n", Parg);
 	erts_usage();
     }
@@ -1523,7 +1525,7 @@ erl_start(int argc, char **argv)
     boot_argc = argc - i;  /* Number of arguments to init */
     boot_argv = &argv[i];
 
-    erl_init(ncpu);
+    erl_init(ncpu, proc_tab_sz);
 
     init_shared_memory(boot_argc, boot_argv);
     load_preloaded();

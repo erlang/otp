@@ -2557,8 +2557,8 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     if (!(DFLAG_EXTENDED_REFERENCES & flags)) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
 	erts_dsprintf(dsbufp, "%T", BIF_P->id);
-	if (BIF_P->reg)
-	    erts_dsprintf(dsbufp, " (%T)", BIF_P->reg->name);
+	if (BIF_P->common.u.alive.reg)
+	    erts_dsprintf(dsbufp, " (%T)", BIF_P->common.u.alive.reg->name);
 	erts_dsprintf(dsbufp,
 		      " attempted to enable connection to node %T "
 		      "which is not able to handle extended references.\n",

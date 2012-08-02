@@ -3104,7 +3104,7 @@ retry:
     if (to_proc == NULL) {
 	return 0; /* heir not alive, table still mine */
     }
-    if (to_proc->started_interval != tb->common.heir_started_interval) {
+    if (to_proc->common.u.alive.started_interval != tb->common.heir_started_interval) {
 	erts_smp_proc_unlock(to_proc, to_locks);
 	return 0; /* heir dead and pid reused, table still mine */
     }
@@ -3138,7 +3138,7 @@ retry:
 /*
  * erts_db_process_exiting() is called when a process terminates.
  * It returns 0 when completely done, and !0 when it wants to
- * yield. c_p->u.exit_data can hold a pointer to a state while
+ * yield. c_p->u.terminate can hold a pointer to a state while
  * yielding.
  */
 #define ERTS_DB_INTERNAL_ERROR(LSTR) \
@@ -3148,7 +3148,7 @@ retry:
 int
 erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 {
-    ErtsDbProcCleanupState *state = (ErtsDbProcCleanupState *) c_p->u.exit_data;
+    ErtsDbProcCleanupState *state = (ErtsDbProcCleanupState *) c_p->u.terminate;
     Eterm pid = c_p->id;
     ErtsDbProcCleanupState default_state;
     int ret;
@@ -3330,7 +3330,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 
 	    if (state != &default_state)
 		erts_free(ERTS_ALC_T_DB_PROC_CLEANUP, state);
-	    c_p->u.exit_data = NULL;
+	    c_p->u.terminate = NULL;
 	    return 0;
 
 	default:
@@ -3351,13 +3351,13 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 	break;
     }
 
-    ASSERT(c_p->u.exit_data == (void *) state
+    ASSERT(c_p->u.terminate == (void *) state
 	   || state == &default_state);
 
     if (state == &default_state) {
-	c_p->u.exit_data = erts_alloc(ERTS_ALC_T_DB_PROC_CLEANUP,
+	c_p->u.terminate = erts_alloc(ERTS_ALC_T_DB_PROC_CLEANUP,
 				      sizeof(ErtsDbProcCleanupState));
-	sys_memcpy(c_p->u.exit_data,
+	sys_memcpy(c_p->u.terminate,
 		   (void*) state,
 		   sizeof(ErtsDbProcCleanupState));
     }
@@ -3500,14 +3500,14 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 	return;
     }
     if (heir == me->id) {
-	erts_ensure_later_proc_interval(me->started_interval);
-	tb->common.heir_started_interval = me->started_interval;
+	erts_ensure_later_proc_interval(me->common.u.alive.started_interval);
+	tb->common.heir_started_interval = me->common.u.alive.started_interval;
     }
     else {
 	Process* heir_proc= erts_proc_lookup(heir);
 	if (heir_proc != NULL) {
-	    erts_ensure_later_proc_interval(heir_proc->started_interval);
-	    tb->common.heir_started_interval = heir_proc->started_interval;
+	    erts_ensure_later_proc_interval(heir_proc->common.u.alive.started_interval);
+	    tb->common.heir_started_interval = heir_proc->common.u.alive.started_interval;
 	} else {
 	    tb->common.heir = am_none;
 	}

@@ -41,6 +41,8 @@
 #include "erl_cpu_topology.h"
 #include "erl_async.h"
 #include "erl_thr_progress.h"
+#define ERTS_PTAB_WANT_DEBUG_FUNCS__
+#include "erl_ptab.h"
 #ifdef HIPE
 #include "hipe_arch.h"
 #endif
@@ -886,8 +888,7 @@ BIF_RETTYPE process_info_1(BIF_ALIST_1)
 	&& external_pid_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
 	BIF_RET(am_undefined);
 	
-    if (is_not_internal_pid(BIF_ARG_1)
-	|| internal_pid_index(BIF_ARG_1) >= erts_max_processes) {
+    if (is_not_internal_pid(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
 
@@ -922,8 +923,7 @@ BIF_RETTYPE process_info_2(BIF_ALIST_2)
 	&& external_pid_dist_entry(pid) == erts_this_dist_entry)
 	BIF_RET(am_undefined);
 	
-    if (is_not_internal_pid(pid)
-	|| internal_pid_index(BIF_ARG_1) >= erts_max_processes) {
+    if (is_not_internal_pid(pid)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
 
@@ -1015,9 +1015,9 @@ process_info_aux(Process *BIF_P,
     switch (item) {
 
     case am_registered_name:
-	if (rp->reg != NULL) {
+	if (rp->common.u.alive.reg) {
 	    hp = HAlloc(BIF_P, 3);
-	    res = rp->reg->name;
+	    res = rp->common.u.alive.reg->name;
 	} else {
 	    if (always_wrap) {
 		hp = HAlloc(BIF_P, 3);
@@ -1063,7 +1063,7 @@ process_info_aux(Process *BIF_P,
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
 	n = rp->msg.len;
 
-	if (n == 0 || rp->trace_flags & F_SENSITIVE) {
+	if (n == 0 || ERTS_TRACE_FLAGS(rp) & F_SENSITIVE) {
 	    hp = HAlloc(BIF_P, 3);
 	} else {
 	    int remove_bad_messages = 0;
@@ -1347,7 +1347,7 @@ process_info_aux(Process *BIF_P,
     }
 
     case am_dictionary:
-	if (rp->trace_flags & F_SENSITIVE) {
+	if (ERTS_TRACE_FLAGS(rp) & F_SENSITIVE) {
 	    res = NIL;
 	} else {
 	    res = erts_dictionary_copy(BIF_P, rp->dictionary);
@@ -1517,7 +1517,7 @@ process_info_aux(Process *BIF_P,
 
     case am_trace:
 	hp = HAlloc(BIF_P, 3);
-	res = make_small(rp->trace_flags & TRACEE_FLAGS);
+	res = make_small(ERTS_TRACE_FLAGS(rp) & TRACEE_FLAGS);
 	break;
 
     case am_binary: {
@@ -2186,9 +2186,9 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	res = TUPLE2(hp, am_min_bin_vheap_size,make_small(BIN_VH_MIN_SIZE));
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_process_count) {
-	BIF_RET(make_small(erts_process_count()));
+	BIF_RET(make_small(erts_ptab_count(&erts_proc)));
     } else if (BIF_ARG_1 == am_process_limit) {
-	BIF_RET(make_small(erts_max_processes));
+	BIF_RET(make_small(erts_ptab_max(&erts_proc)));
     } else if (BIF_ARG_1 == am_info
 	       || BIF_ARG_1 == am_procs
 	       || BIF_ARG_1 == am_loaded
@@ -3138,9 +3138,6 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
        if (BIF_ARG_1 == BIF_P->id)
 	   BIF_RET(am_true);
 
-       if(internal_pid_index(BIF_ARG_1) >= erts_max_processes)
-	   BIF_ERROR(BIF_P, BADARG);
-
        rp = erts_proc_lookup(BIF_ARG_1);
        if (!rp) {
 	   BIF_RET(am_false);
@@ -3358,7 +3355,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    /* Used by node_container_SUITE (emulator) */
 	    Eterm res;
 	    if (ERTS_IS_ATOM_STR("next_pid", BIF_ARG_1))
-		res = erts_test_next_pid(0, 0);
+		res = erts_ptab_test_next_id(&erts_proc, 0, 0);
 	    else {
 		res = erts_test_next_port(0, 0);
 	    }
@@ -3397,11 +3394,11 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	}
 	else if (ERTS_IS_ATOM_STR("processes", BIF_ARG_1)) {
 	    /* Used by process_SUITE (emulator) */
-	    BIF_RET(erts_debug_processes(BIF_P));
+	    BIF_RET(erts_debug_ptab_list(BIF_P, &erts_proc));
 	}
 	else if (ERTS_IS_ATOM_STR("processes_bif_info", BIF_ARG_1)) {
 	    /* Used by process_SUITE (emulator) */
-	    BIF_RET(erts_debug_processes_bif_info(BIF_P));
+	    BIF_RET(erts_debug_ptab_list_bif_info(BIF_P, &erts_proc));
 	}
 	else if (ERTS_IS_ATOM_STR("max_atom_out_cache_index", BIF_ARG_1)) {
 	    /* Used by distribution_SUITE (emulator) */
@@ -3715,7 +3712,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 		Eterm res;
 
 		if (ERTS_IS_ATOM_STR("next_pid", BIF_ARG_1))
-		    res = erts_test_next_pid(1, next);
+		    res = erts_ptab_test_next_id(&erts_proc, 1, next);
 		else {
 		    res = erts_test_next_port(1, next);
 		}
@@ -3989,8 +3986,8 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_t *lock
     } else if (lock->flag & ERTS_LCNT_LT_PROCLOCK) {
 	/* use registered names as id's for process locks if available */
 	proc  = erts_proc_lookup(lock->id);
-	if (proc && proc->reg) {
-	    id = proc->reg->name;
+	if (proc && proc->common.u.alive.reg) {
+	    id = proc->common.u.alive.reg->name;
 	} else {
 	    /* otherwise use process id */
 	    id = lock->id;

@@ -1932,9 +1932,9 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	n++;
     }
 #endif
-    ASSERT(is_nil(p->tracer_proc) ||
-	   is_internal_pid(p->tracer_proc) ||
-	   is_internal_port(p->tracer_proc));
+    ASSERT(is_nil(ERTS_TRACER_PROC(p)) ||
+	   is_internal_pid(ERTS_TRACER_PROC(p)) ||
+	   is_internal_port(ERTS_TRACER_PROC(p)));
 
     ASSERT(is_pid(follow_moved(p->group_leader)));
     if (is_not_immed(p->group_leader)) {

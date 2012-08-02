@@ -70,6 +70,7 @@ Export *export_list(int);
 int export_list_size(void);
 int export_table_sz(void);
 Export *export_get(Export*);
+Export* erts_find_function(Eterm, Eterm, unsigned int);
 
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\

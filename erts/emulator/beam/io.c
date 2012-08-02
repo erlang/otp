@@ -477,7 +477,7 @@ setup_port(Port* prt, Eterm pid, erts_driver_t *driver,
     prt->bp = NULL;
     prt->data = am_undefined;
     /* Set default tracing */
-    erts_get_default_tracing(&(prt->trace_flags), &(prt->tracer_proc));
+    erts_get_default_tracing(&ERTS_TRACE_FLAGS(prt), &ERTS_TRACER_PROC(prt));
 
     prt->psd = NULL;
 
@@ -1345,8 +1345,8 @@ void init_io(void)
 	erts_port[i].xports = NULL;
 	erts_smp_spinlock_init_x(&erts_port[i].state_lck, "port_state", make_small(i));
 #endif
-	erts_port[i].tracer_proc = NIL;
-	erts_port[i].trace_flags = 0;
+	ERTS_TRACER_PROC(&erts_port[i]) = NIL;
+	ERTS_TRACE_FLAGS(&erts_port[i]) = 0;
 
 	erts_port[i].drv_ptr = NULL;
 	erts_port[i].status = ERTS_PORT_SFLG_FREE;
@@ -1556,9 +1556,7 @@ deliver_result(Eterm sender, Eterm pid, Eterm res)
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
-    ASSERT(is_internal_port(sender)
-	   && is_internal_pid(pid)
-	   && internal_pid_index(pid) < erts_max_processes);
+    ASSERT(is_internal_port(sender) && is_internal_pid(pid));
 
     rp = (scheduler
 	  ? erts_proc_lookup(pid)
