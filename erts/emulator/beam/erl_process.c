@@ -4547,7 +4547,9 @@ schedule_process(Process *p, erts_aint32_t state, int active_enq)
     while (1) {
 	erts_aint32_t e;
 	n = e = a;
-	ASSERT(!(a & ERTS_PSFLG_FREE));
+
+	if (a & ERTS_PSFLG_FREE)
+	    return; /* We don't want to schedule free processes... */
 	n |= ERTS_PSFLG_ACTIVE;
 	if (!(a & (ERTS_PSFLG_SUSPENDED|ERTS_PSFLG_RUNNING)))
 	    n |= ERTS_PSFLG_IN_RUNQ;
