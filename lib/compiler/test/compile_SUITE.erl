@@ -106,19 +106,23 @@ file_1(Config) when is_list(Config) ->
     ok.
 
 forms_2(Config) when is_list(Config) ->
-  {ok, simple, Binary} = compile:forms([{attribute,1,module,simple}], [binary, {source,"/foo/bar"}]),
-  code:load_binary(simple, "/foo/bar", Binary),
-  Info = simple:module_info(compile),
+    Src = "/foo/bar",
+    AbsSrc = filename:absname(Src),
+    {ok,simple,Binary} = compile:forms([{attribute,1,module,simple}],
+				       [binary,{source,Src}]),
+    code:load_binary(simple, Src, Binary),
+    Info = simple:module_info(compile),
 
-  %% Test proper source is returned.
-  "/foo/bar" = proplists:get_value(source, Info),
-  %% Ensure options is not polluted with the source.
-  [] = proplists:get_value(options, Info),
+    %% Test that the proper source is returned.
+    AbsSrc = proplists:get_value(source, Info),
 
-  %% Cleanup.
-  true = code:delete(simple),
-  false = code:purge(simple),
-  ok.
+    %% Ensure that the options are not polluted with 'source'.
+    [] = proplists:get_value(options, Info),
+
+    %% Cleanup.
+    true = code:delete(simple),
+    false = code:purge(simple),
+    ok.
 
 module_mismatch(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
