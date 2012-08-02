@@ -1388,9 +1388,7 @@ catch_cg(C, {var,R}, Le, Vdb, Bef, St0) ->
 %%  Also binaries can reuse a source register as target.
 
 set_cg([{var,R}], {cons,Es}, Le, Vdb, Bef, St) ->
-    [S1,S2] = map(fun ({var,V}) -> fetch_var(V, Bef);
-		      (Other) -> Other
-		  end, Es),
+    [S1,S2] = cg_reg_args(Es, Bef),
     Int0 = clear_dead(Bef, Le#l.i, Vdb),
     Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
     Ret = fetch_reg(R, Int1#sr.reg),
@@ -1418,10 +1416,8 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     Ais = case Con of
 	      {tuple,Es} ->
 		  [{put_tuple,length(Es),Ret}] ++ cg_build_args(Es, Bef);
-	      {var,V} ->	  % Normally removed by kernel optimizer.
-		  [{move,fetch_var(V, Int),Ret}];
 	      Other ->
-		  [{move,Other,Ret}]
+		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
 
@@ -1600,14 +1596,8 @@ cg_bo_newregs(R, _) -> R.
 %% Common for new and old binary code generation.
 
 cg_bin_put({bin_seg,[],S0,U,T,Fs,[E0,Next]}, Fail, Bef) ->
-    S1 = case S0 of
-	     {var,Sv} -> fetch_var(Sv, Bef);
-	     _ -> S0
-	 end,
-    E1 = case E0 of
-	     {var,V} -> fetch_var(V, Bef);
-	     Other ->   Other
-	 end,
+    S1 = cg_reg_arg(S0, Bef),
+    E1 = cg_reg_arg(E0, Bef),
     {Format,Op} = case T of
 		      integer -> {plain,bs_put_integer};
 		      utf8 ->    {utf,bs_put_utf8};
@@ -1625,9 +1615,7 @@ cg_bin_put({bin_seg,[],S0,U,T,Fs,[E0,Next]}, Fail, Bef) ->
 cg_bin_put({bin_end,[]}, _, _) -> [].
 
 cg_build_args(As, Bef) ->
-    map(fun ({var,V}) -> {put,fetch_var(V, Bef)};
-	    (Other) -> {put,Other}
-	end, As).
+    [{put,cg_reg_arg(A, Bef)} || A <- As].
 
 %% return_cg([Val], Le, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
 %% break_cg([Val], Le, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
