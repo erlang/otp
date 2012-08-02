@@ -157,7 +157,7 @@ expr(Config) when is_list(Config) ->
              One = 1 = fun f/1(1),
              2 = fun(X) -> X end(One + One),
              3 = fun exprec_test:f/1(3),
-             4 = {exprec_test,f}(4),
+             4 = exprec_test:f(4),
              5 = ''.f(5),
              L = receive 
                      {a,message,L0} ->

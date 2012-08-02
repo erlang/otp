@@ -26,7 +26,6 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 error_handler/1,error_handler_apply/1,
 	 error_handler_fixed_apply/1,error_handler_fun/1,
-	 error_handler_tuple_fun/1,
 	 debug_breakpoint/1]).
 
 %% Exported functions for an error_handler module.
@@ -37,7 +36,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [error_handler, error_handler_apply,
      error_handler_fixed_apply, error_handler_fun,
-     error_handler_tuple_fun, debug_breakpoint].
+     debug_breakpoint].
 
 groups() -> 
     [].
@@ -177,29 +176,6 @@ collect_fun(N, Fun) ->
 
 undefined_lambda(foobarblurf, Fun, Args) when is_function(Fun) ->
     Args.
-
-error_handler_tuple_fun(Config) when is_list(Config) ->
-    ?line process_flag(error_handler, ?MODULE),
-    ?line Term = collect_tuple_fun(1024, {?MODULE,very_undefined_function}),
-    ?line Term = binary_to_term(term_to_binary(Term)),
-    ?line 1024 = length(Term),
-    ?line [[{foo,bar},42.0,[e,f,g]]] = lists:usort(Term),
-    ok.
-
-collect_tuple_fun(0, _) ->
-    [];
-collect_tuple_fun(N, Fun) ->
-    %% The next line calls the error handle function, which is
-    %% ?MODULE:undefined_function/3 (it simply returns the list
-    %% of args).
-    C = Fun({foo,id(bar)}, 42.0, [e,f,id(g)]),
-
-    %% The variable C will be saved onto the stack frame; if C
-    %% points into a heap fragment the garbage collector will reach
-    %% it and the emulator will crash sooner or later (sooner if
-    %% the emulator is debug-compiled).
-    Res = collect_tuple_fun(N-1, Fun),
-    [C|Res].
 
 debug_breakpoint(Config) when is_list(Config) ->
     ?line process_flag(error_handler, ?MODULE),

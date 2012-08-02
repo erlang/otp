@@ -817,9 +817,6 @@ otp_5916(Config) when is_list(Config) ->
         true = if is_record(#r1{},r1,3) -> true; true ->  false end,
         false = if is_record(#r2{},r1,3) -> true; true ->  false end,
 
-        true = if {erlang,is_record}(#r1{},r1,3) -> true; true ->  false end,
-        false = if {erlang,is_record}(#r2{},r1,3) -> true; true ->  false end,
-
         ok.">>,
     [ok] = scan(C),
     ok.
@@ -2281,12 +2278,6 @@ otp_5990(doc) ->
     "OTP-5990. {erlang,is_record}.";
 otp_5990(suite) -> [];
 otp_5990(Config) when is_list(Config) ->
-    ?line [true] = 
-        scan(<<"rd(foo,{bar}), {erlang,is_record}(#foo{}, foo).">>),
-    ?line [3] =
-        scan(<<"rd(foo,{bar}), A = #foo{}, "
-               "{if {erlang,is_record}(A, foo) -> erlang; "
-               "true -> not_a_module end, length}([1,2,3]).">>),
     ?line [true] = 
         scan(<<"rd('OrdSet', {orddata = {},ordtype = type}), "
                "S = #'OrdSet'{ordtype = {}}, "

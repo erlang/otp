@@ -1583,14 +1583,6 @@ BIF_RETTYPE hipe_nonclosure_address(BIF_ALIST_2)
 	    goto badfun;
 	m = ep->code[0];
 	f = ep->code[1];
-    } else if (hdr == make_arityval(2)) {
-	Eterm *tp = tuple_val(BIF_ARG_1);
-	m = tp[1];
-	f = tp[2];
-	if (is_not_atom(m) || is_not_atom(f))
-	    goto badfun;
-	if (!erts_active_export_entry(m, f, BIF_ARG_2))
-	    goto badfun;
     } else
 	goto badfun;
     address = hipe_get_na_nofail(m, f, BIF_ARG_2, 1);

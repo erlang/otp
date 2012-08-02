@@ -236,10 +236,6 @@ Fun1 = fun(X) -> X+1 end
 Fun1(3)
 => 4
 
-Fun2 = {lists,append}
-Fun2([1,2], [3,4])
-=> [1,2,3,4]
-
 fun lists:append/2([1,2], [3,4])
 => [1,2,3,4]</code>
 
@@ -1000,13 +996,6 @@ fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
       <c>Module</c>. A fun defined in this way will not be dependent on
       the code for module in which it is defined.
       </p>
-    <p>When applied to a number N of arguments, a tuple
-      <c>{Module,FunctionName}</c> is interpreted as a fun, referring
-      to the function <c>FunctionName</c> with arity N in the module
-      <c>Module</c>. The function must be exported.
-      <em>This usage is deprecated.</em> Use <c>fun Module:Name/Arity</c>
-      instead.
-      See <seealso marker="#calls">Function Calls</seealso> for an example.</p>
     <p>More examples can be found in <em>Programming Examples</em>.</p>
   </section>
 

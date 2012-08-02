@@ -454,9 +454,6 @@ expr({call,Line,{remote,Lr,M,F},As0}, St0) ->
     M1 = expand_package(M, St0),
     {[M2,F1|As1],St1} = expr_list([M1,F|As0], St0),
     {{call,Line,{remote,Lr,M2,F1},As1},St1};
-expr({call,Line,{tuple,_,[{atom,_,_}=M,{atom,_,_}=F]},As}, St) ->
-    %% Rewrite {Mod,Function}(Args...) to Mod:Function(Args...).
-    expr({call,Line,{remote,Line,M,F},As}, St);
 expr({call,Line,F,As0}, St0) ->
     {[Fun1|As1],St1} = expr_list([F|As0], St0),
     {{call,Line,Fun1,As1},St1};

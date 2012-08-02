@@ -231,11 +231,6 @@ BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 
 /*
- * We should warn only once for tuple funs.
- */
-static erts_smp_atomic_t warned_for_tuple_funs;
-
-/*
  * All Beam instructions in numerical order.
  */
 
@@ -963,7 +958,6 @@ static Eterm make_arglist(Process* c_p, Eterm* reg, int a);
 void
 init_emulator(void)
 {
-    erts_smp_atomic_init_nob(&warned_for_tuple_funs, (erts_aint_t) 0);
     process_main();
 }
 
@@ -5990,7 +5984,6 @@ call_fun(Process* p,		/* Current process. */
     Eterm fun = reg[arity];
     Eterm hdr;
     int i;
-    Eterm function;
     Eterm* hp;
 
     if (!is_boxed(fun)) {
@@ -6128,63 +6121,6 @@ call_fun(Process* p,		/* Current process. */
 	    p->fvalue = TUPLE2(hp, fun, args);
 	    return NULL;
 	}
-    } else if (hdr == make_arityval(2)) {
-	Eterm* tp;
-	Export* ep;
-	Eterm module;
-
-	tp = tuple_val(fun);
-	module = tp[1];
-	function = tp[2];
-	if (!is_atom(module) || !is_atom(function)) {
-	    goto badfun;
-	}
-
-	/*
-	 * If this is the first time a tuple fun is used,
-	 * send a warning to the logger.
-	 */
-	if (erts_smp_atomic_xchg_nob(&warned_for_tuple_funs,
-				     (erts_aint_t) 1) == 0) {
-	    erts_dsprintf_buf_t* dsbufp;
-
-	    dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(dsbufp, "Call to tuple fun {%T,%T}.\n\n"
-			  "Tuple funs are deprecated and will be removed "
-			  "in R16. Use \"fun M:F/A\" instead, for example "
-			  "\"fun %T:%T/%d\".\n\n"
-			  "(This warning will only be shown the first time "
-			  "a tuple fun is called.)\n",
-			  module, function, module, function, arity);
-	    erts_send_warning_to_logger(p->group_leader, dsbufp);
-	}
-
-	if ((ep = erts_active_export_entry(module, function, arity)) == NULL) {
-	    ep = erts_active_export_entry(erts_proc_get_error_handler(p),
-					am_undefined_function, 3);
-	    if (ep == NULL) {
-		p->freason = EXC_UNDEF;
-		return 0;
-	    }
-	    if (is_non_value(args)) {
-		Uint sz = 2 * arity;
-		if (HeapWordsLeft(p) < sz) {
-		    erts_garbage_collect(p, sz, reg, arity);
-		}
-		hp = HEAP_TOP(p);
-		HEAP_TOP(p) += sz;
-		args = NIL;
-		while (arity-- > 0) {
-		    args = CONS(hp, reg[arity], args);
-		    hp += 2;
-		}
-	    }
-	    reg[0] = module;
-	    reg[1] = function;
-	    reg[2] = args;
-	}
-	DTRACE_GLOBAL_CALL(p, module, function, arity);
-	return ep->addressv[erts_active_code_ix()];
     } else {
     badfun:
 	p->current = NULL;
