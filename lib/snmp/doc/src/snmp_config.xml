@@ -963,7 +963,8 @@ Manager snmp config:
 7b. User name? hobbes
 7c. Security name? [hobbes] 
 7d. Authentication protocol (no/sha/md5)? [no] sha
-7e  Authentication [sha] key (length 0 or 20)? [""] [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+7e  Authentication [sha] key (length 0 or 20)? [""] [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16, \
+    17,18,19,20]
 7d. Priv protocol (no/des/aes)? [no] des
 7f  Priv [des] key (length 0 or 16)? [""] 10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
 7. Configure an usm user handled by this manager (y/n)? [y] n

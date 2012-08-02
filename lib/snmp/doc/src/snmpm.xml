@@ -173,16 +173,16 @@ sec_level() = noAuthNoPriv | authNoPriv | authPriv
       </type>
       <desc>
         <p>Register the manager entity (=user) responsible for specific 
-          agent(s). </p>
+	agent(s). </p>
 
         <p><c>Module</c> is the callback module (snmpm_user behaviour) which 
-          will be called whenever something happens (detected 
-          agent, incoming reply or incoming trap/notification).
-          Note that this could have already been done as a 
-          consequence of the node config. (see users.conf).</p>
+	will be called whenever something happens (detected 
+	agent, incoming reply or incoming trap/notification).
+	Note that this could have already been done as a 
+	consequence of the node config. (see users.conf).</p>
 
-        <p>The argument <c>DefaultAgentConfig</c> is used as default values when 
-          this user register agents.</p>
+        <p>The argument <c>DefaultAgentConfig</c> is used as default 
+	values when this user register agents.</p>
 
         <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
 <code type="none"><![CDATA[

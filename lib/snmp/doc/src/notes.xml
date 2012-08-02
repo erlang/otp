@@ -34,6 +34,98 @@
 
 
   <section>
+    <title>SNMP Development Toolkit 4.22.1</title>
+    <p>Version 4.22.1 supports code replacement in runtime from/to
+    version 4.22, 4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 
+    4.21. </p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Sematic fixes to SNMP-USER-BASED-SM-MIB.
+	  The semantics allow the <c>usmUserAuthKeyChange</c> and 
+	  <c>usmUserPrivKeyChange</c> objects to be written to in the 
+	  same set requests that also creates and clones the user. 
+	  This was not possible beforehand, causing test tools checking 
+	  semantic SNMPv3 behaviour to fail on a lot of test cases. </p>
+	  <p>Furthermore, once the user has been cloned by writing to an 
+	  instance of <c>usmUserCloneFrom</c>, further set-operations to 
+	  the same object will not return an error, but be no-ops. 
+	  Especially, it must be avoided to copy security parameters 
+	  again (possibly even from a different user). </p>
+	  <p>Stefan Zegenhagen</p>
+	  <p>Own Id: OTP-10166</p>
+        </item>
+
+        <item>
+          <p>[agent] Errors in <c>vacmAccessTable</c> RowStatus handling.
+	  There are problems with the handling of vacmAccessTableStatus 
+	  that cause some SNMP test suites to report errors.
+	  Most notably, erroneous set operations frequently cause "genErr" 
+	  errors to be returned. These "genErr" errors are usually caused 
+	  by badmatch exceptions coming from 
+	  <c>{ok, Row} = snmpa_vacm:get_row(RowIndex)</c> 
+	  if the row does not exist. </p>
+	  <p>The semantics of the RowStatus handling in that table has 
+	  been adjusted to be compliant with the RowStatus
+	  textual description of SNPMv2-TC MIB. </p>
+	  <p>Stefan Zegenhagen</p>
+	  <p>Own Id: OTP-10164</p>
+        </item>
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[agent] Fix walk over vacmAccessTable.
+	  Fix the get_next implementation of vacmAccessTable to 
+	  return all table entries. </p>
+	  <p>The get_next implementation of vacmAccessTable did not return 
+	  all available table data. Instead, it only returned the first 
+	  column for each row, and all columns for the last row available. </p>
+	  <p>Stefan Zegenhagen</p>
+          <p>Own Id: OTP-10165</p>
+        </item>
+
+        <item>
+          <p>[manager] 
+	  <seealso marker="snmpm#log_to_io">snmpm:log_to_io/6</seealso> 
+	  did not use the LogName argument. </p>
+          <p>Own Id: OTP-10066</p>
+        </item>
+
+        <item>
+          <p>Incorrect TimeTicks decode. Also bad handling of 
+	  invalid encode (value outside of value range) for both
+	  <c>TimeTicks</c> and <c>Unsigned32</c>. </p>
+          <p>Own Id: OTP-10132</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+
+  </section> <!-- 4.22.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.22</title>
     <p>Version 4.22 supports code replacement in runtime from/to
     version 4.21.7 4.21.6 4.21.5, 4.21.4, 4.21.3, 4.21.2, 4.21.1 and 4.21. </p>
