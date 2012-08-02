@@ -2051,18 +2051,11 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 	    rp_locks |= ERTS_PROC_LOCK_MAIN;
 #endif
 	/* send to local process */
-	erts_send_message(p, rp, &rp_locks, msg, 0);
-	if (!erts_use_sender_punish)
+	res = erts_send_message(p, rp, &rp_locks, msg, 0);
+	if (erts_use_sender_punish)
+	    res *= 4;
+	else
 	    res = 0;
-	else {
-#ifdef ERTS_SMP
-	    res = rp->msg_inq.len*4;
-	    if (ERTS_PROC_LOCK_MAIN & rp_locks)
-		res += rp->msg.len*4;
-#else
-	    res = rp->msg.len*4;
-#endif
-	}
 	erts_smp_proc_unlock(rp,
 			     p == rp
 			     ? (rp_locks & ~ERTS_PROC_LOCK_MAIN)
