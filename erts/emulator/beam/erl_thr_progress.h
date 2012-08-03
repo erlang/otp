@@ -78,6 +78,16 @@ void erts_thr_progress_fatal_error_block(SWord timeout,
 
 #endif /* ERTS_SMP */
 
+typedef struct ErtsThrPrgrLaterOp_ ErtsThrPrgrLaterOp;
+struct ErtsThrPrgrLaterOp_ {
+#ifdef ERTS_SMP
+    ErtsThrPrgrVal later;
+#endif
+    void (*func)(void *);
+    void *data;
+    ErtsThrPrgrLaterOp *next;
+};
+
 #endif
 
 #if !defined(ERL_THR_PROGRESS_H__) && !defined(ERL_THR_PROGRESS_TSD_TYPE_ONLY)

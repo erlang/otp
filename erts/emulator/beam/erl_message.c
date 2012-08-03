@@ -495,7 +495,7 @@ queue_message(Process *c_p,
 #ifndef ERTS_SMP
     res = receiver->msg.len;
 #else
-    res = receiver->msg_inq.len;
+    res = receiver->u.alive.msg_inq.len;
     if (*receiver_locks & ERTS_PROC_LOCK_MAIN) {
 	/*
 	 * We move 'in queue' to 'private queue' and place

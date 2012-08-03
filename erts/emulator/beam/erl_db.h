@@ -27,6 +27,10 @@
 #define __DB_H__
 
 #include "sys.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#define ERL_THR_PROGRESS_TSD_TYPE_ONLY
+#include "erl_thr_progress.h"
+#undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "bif.h"
 
 #include "erl_db_util.h" /* Flags */
@@ -36,6 +40,11 @@
 
 Uint erts_get_ets_misc_mem_size(void);
 
+typedef struct {
+    DbTableCommon common;
+    ErtsThrPrgrLaterOp data;
+} DbTableRelease;
+
 /*
  * So, the structure for a database table, NB this is only
  * interesting in db.c.
@@ -44,6 +53,7 @@ union db_table {
     DbTableCommon common; /* Any type of db table */
     DbTableHash hash;     /* Linear hash array specific data */
     DbTableTree tree;     /* AVL tree specific data */
+    DbTableRelease release;
     /*TT*/
 };
 

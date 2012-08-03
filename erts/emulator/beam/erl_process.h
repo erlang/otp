@@ -275,16 +275,17 @@ typedef enum {
 #define ERTS_SSI_AUX_WORK_DD_THR_PRGR		(((erts_aint32_t) 1) << 2)
 #define ERTS_SSI_AUX_WORK_FIX_ALLOC_DEALLOC	(((erts_aint32_t) 1) << 3)
 #define ERTS_SSI_AUX_WORK_FIX_ALLOC_LOWER_LIM	(((erts_aint32_t) 1) << 4)
-#define ERTS_SSI_AUX_WORK_ASYNC_READY		(((erts_aint32_t) 1) << 5)
-#define ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN	(((erts_aint32_t) 1) << 6)
-#define ERTS_SSI_AUX_WORK_MISC_THR_PRGR		(((erts_aint32_t) 1) << 7)
-#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 8)
-#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 9)
-#define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 10)
-#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 11)
-#define ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION	(((erts_aint32_t) 1) << 12)
-#define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 13)
-#define ERTS_SSI_AUX_WORK_FINISH_BP	        (((erts_aint32_t) 1) << 14)
+#define ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP	(((erts_aint32_t) 1) << 5)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY		(((erts_aint32_t) 1) << 6)
+#define ERTS_SSI_AUX_WORK_ASYNC_READY_CLEAN	(((erts_aint32_t) 1) << 7)
+#define ERTS_SSI_AUX_WORK_MISC_THR_PRGR		(((erts_aint32_t) 1) << 8)
+#define ERTS_SSI_AUX_WORK_MISC			(((erts_aint32_t) 1) << 9)
+#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((erts_aint32_t) 1) << 10)
+#define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 11)
+#define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 12)
+#define ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION	(((erts_aint32_t) 1) << 13)
+#define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 14)
+#define ERTS_SSI_AUX_WORK_FINISH_BP	        (((erts_aint32_t) 1) << 15)
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -463,6 +464,10 @@ typedef struct {
 	void (*completed_callback)(void *);
 	void (*completed_arg)(void *);
     } dd;
+    struct {
+	ErtsThrPrgrLaterOp *first;
+	ErtsThrPrgrLaterOp *last;
+    } later_op;
 #endif
 #ifdef ERTS_USE_ASYNC_READY_Q
     struct {
@@ -860,10 +865,17 @@ struct process {
     Uint64 bin_old_vheap;	/* Virtual old heap size for binaries */
 
     union {
+	struct {
 #ifdef ERTS_SMP
-	ErtsSmpPTimer *ptimer;
+	    ErtsSmpPTimer *ptimer;
+	    ErlMessageInQueue msg_inq;
+	    ErtsPendExit pending_exit;
 #else
-	ErlTimer tm;		/* Timer entry */
+	    ErlTimer tm;		/* Timer entry */
+#endif
+	} alive; /* when process is alive */
+#ifdef ERTS_SMP
+	ErtsThrPrgrLaterOp release_data; /* when releasing process struct */
 #endif
 	void *exit_data;	/* Misc data referred during termination */
     } u;
@@ -873,10 +885,8 @@ struct process {
 #ifdef ERTS_SMP
     erts_proc_lock_t lock;
     ErtsSchedulerData *scheduler_data;
-    ErlMessageInQueue msg_inq;
     Eterm suspendee;
     ErtsPendingSuspend *pending_suspenders;
-    ErtsPendExit pending_exit;
     erts_smp_atomic_t run_queue;
 #ifdef HIPE
     struct hipe_process_state_smp hipe_smp;
@@ -1174,6 +1184,10 @@ int erts_proclist_same(ErtsProcList *, Process *);
 int erts_sched_set_wakeup_other_thresold(char *str);
 int erts_sched_set_wakeup_other_type(char *str);
 int erts_sched_set_busy_wait_threshold(char *str);
+
+void erts_schedule_thr_prgr_later_op(void (*)(void *),
+				     void *,
+				     ErtsThrPrgrLaterOp *);
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
 int erts_dbg_check_halloc_lock(Process *p);
