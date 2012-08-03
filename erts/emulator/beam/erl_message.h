@@ -90,7 +90,7 @@ typedef struct {
     ErlMessage* first;
     ErlMessage** last;  /* point to the last next pointer */
     ErlMessage** save;
-    int len;            /* queue length */
+    Sint len;            /* queue length */
 
     /*
      * The following two fields are used by the recv_mark/1 and
@@ -105,7 +105,7 @@ typedef struct {
 typedef struct {
     ErlMessage* first;
     ErlMessage** last;  /* point to the last next pointer */
-    int len;            /* queue length */
+    Sint len;            /* queue length */
 } ErlMessageInQueue;
 
 #endif
@@ -234,7 +234,7 @@ void erts_queue_message(Process*, ErtsProcLocks*, ErlHeapFragment*, Eterm, Eterm
 #endif
 );
 void erts_deliver_exit_message(Eterm, Process*, ErtsProcLocks *, Eterm, Eterm);
-void erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
+Sint erts_send_message(Process*, Process*, ErtsProcLocks*, Eterm, unsigned);
 void erts_link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp);
 
 void erts_move_msg_mbuf_to_heap(Eterm**, ErlOffHeap*, ErlMessage *);
