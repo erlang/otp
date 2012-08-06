@@ -215,6 +215,11 @@ highlighting(X)			  % Function definitions should be highlighted
  
  "char $in string", atom, 
 
+ 'atom$', atom,  'atom$', atom,
+ 'atom\$', atom,
+
+ 'char $in atom', atom,
+
  $[, ${, $\\, atom,
  ?MACRO_1,
  ?MACRO_2(foo),
