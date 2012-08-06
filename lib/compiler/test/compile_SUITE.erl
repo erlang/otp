@@ -76,6 +76,9 @@ app_test(Config) when is_list(Config) ->
 
 file_1(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(5)),
+
+    process_flag(trap_exit, true),
+
     ?line {Simple, Target} = files(Config, "file_1"),
     ?line {ok, Cwd} = file:get_cwd(),
     ?line ok = file:set_cwd(filename:dirname(Target)),
@@ -102,6 +105,15 @@ file_1(Config) when is_list(Config) ->
     %% Cleanup.
     ?line ok = file:delete(Target),
     ?line ok = file:del_dir(filename:dirname(Target)),
+
+    %% There should not be any messages in the messages.
+    receive
+	Any ->
+	    ?t:fail({unexpected,Any})
+    after 10 ->
+	    ok
+    end,
+
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
