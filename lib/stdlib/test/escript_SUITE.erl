@@ -469,22 +469,23 @@ archive_script(Config) when is_list(Config) ->
 %% Test the correction of OTP-10071
 %% The errors identified are
 %%
-%% * If primary archive was named "xxx", then a file in the same
-%%   directory named "xxxyyy" would be interpreted as a file named yyy
-%%   inside the archive.
+%% a) If primary archive was named "xxx", then a file in the same
+%%    directory named "xxxyyy" would be interpreted as a file named yyy
+%%    inside the archive.
 %%
-%% * erl_prim_loader did not correctly create and normalize absolute
-%%   paths for primary archive and files inside it, so unless given
-%%   with exact same path files inside the archive would not be
-%%   found. E.g. if escript was started as ./xxx then "xxx/file" would
-%%   not be found since erl_prim_loader would try to match
-%%   /full/path/to/xxx with /full/path/to/./xxx. Same problem with
-%%   ../
+%% b) erl_prim_loader did not correctly create and normalize absolute
+%%    paths for primary archive and files inside it, so unless given
+%%    with exact same path files inside the archive would not be
+%%    found. E.g. if escript was started as ./xxx then "xxx/file"
+%%    would not be found since erl_prim_loader would try to match
+%%    /full/path/to/xxx with /full/path/to/./xxx. Same problem with
+%%    ../. Also, the use of symlinks in the path to the archive would
+%%    cause problems.
 %%
-%% * Depending on how the primary archive was built,
-%%   erl_prim_loader:list_dir/1 would sometimes return an empty string
-%%   inside the file list. This was a virtual element representing the
-%%   top directory of the archive. This shall not occur.
+%% c) Depending on how the primary archive was built,
+%%    erl_prim_loader:list_dir/1 would sometimes return an empty string
+%%    inside the file list. This was a virtual element representing the
+%%    top directory of the archive. This shall not occur.
 %%
 archive_script_file_access(Config) when is_list(Config) ->
     %% Copy the orig files to priv_dir
@@ -542,18 +543,22 @@ archive_script_file_access(Config) when is_list(Config) ->
     ok = escript:create(Script1,[shebang,{emu_args,Flags},{archive,Bin1}]),
     ok = file:change_mode(Script1,8#00744),
 
+    %% If supported, create a symlink to the script. This is used to
+    %% test error b) described above this test case.
+    SymlinkName1 = "symlink_to_"++ScriptName1,
+    Symlink1 = filename:join([PrivDir, SymlinkName1]),
+    file:make_symlink(ScriptName1,Symlink1), % will fail if not supported
+
     %% Also add a dummy file in the same directory with the same name
     %% as the script except is also has an extension. This used to
-    %% cause erl_prim_loader to believe it was a file inside the
-    %% script.
+    %% test error a) described above this test case.
     ok = file:write_file(Script1 ++ ".extension",
 			 <<"same name as script, but with extension">>),
 
     %% Change to script's directory and run it as "./<script_name>"
     ok = file:set_cwd(PrivDir),
-    do_run(PrivDir, "./" ++ ScriptName1,
-	   [<<"file_access:[]\n",
-	      "ExitCode:0">>]),
+    do_run(PrivDir, "./" ++ ScriptName1 ++ " " ++ ScriptName1,
+	   [<<"ExitCode:0">>]),
     ok = file:set_cwd(TopDir),
 
 
@@ -574,17 +579,33 @@ archive_script_file_access(Config) when is_list(Config) ->
 
     %% Also add a dummy file in the same directory with the same name
     %% as the script except is also has an extension. This used to
-    %% cause erl_prim_loader to believe it was a file inside the
-    %% script.
+    %% test error a) described above this test case.
     ok = file:write_file(Script2 ++ ".extension",
 			 <<"same name as script, but with extension">>),
 
+    %% If supported, create a symlink to the script. This is used to
+    %% test error b) described above this test case.
+    SymlinkName2 = "symlink_to_"++ScriptName2,
+    Symlink2 = filename:join([PrivDir, SymlinkName2]),
+    file:make_symlink(ScriptName2,Symlink2), % will fail if not supported
+
     %% Change to script's directory and run it as "./<script_name>"
     ok = file:set_cwd(PrivDir),
-    do_run(PrivDir, "./" ++ ScriptName2,
-	   [<<"file_access:[]\n",
-	      "ExitCode:0">>]),
+    do_run(PrivDir, "./" ++ ScriptName2 ++ " " ++ ScriptName2,
+	   [<<"ExitCode:0">>]),
+
+    %% 3. If symlinks are supported, run one of the scripts via a symlink.
+    %%
+    %% This is in order to test error b) described above this test case.
+    case file:read_link(Symlink2) of
+	{ok,_} ->
+	    do_run(PrivDir, "./" ++ SymlinkName2 ++ " " ++ ScriptName2,
+		   [<<"ExitCode:0">>]);
+	_ -> % not supported
+	    ok
+    end,
     ok = file:set_cwd(OldDir).
+
 
 compile_app(TopDir, AppName) ->
     AppDir = filename:join([TopDir, AppName]),

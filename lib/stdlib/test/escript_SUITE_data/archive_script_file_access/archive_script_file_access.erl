@@ -23,12 +23,9 @@
 
 -include_lib("kernel/include/file.hrl").
 
-main(MainArgs) ->
-    io:format("file_access:~p\n", [MainArgs]),
-    ArchiveFile = escript:script_name(),
+main([RelArchiveFile]) ->
 
-    AbsArchiveFile = filename:absname(ArchiveFile),
-    RelArchiveFile = filename:basename(ArchiveFile),
+    AbsArchiveFile = filename:absname(RelArchiveFile),
     DotSlashArchiveFile = "./" ++ RelArchiveFile,
 
     Beam = atom_to_list(?MODULE) ++ ".beam",
@@ -39,6 +36,10 @@ main(MainArgs) ->
     AbsDir = filename:join(AbsArchiveFile,Dir),
     RelDir = filename:join(RelArchiveFile,Dir),
     DotSlashDir = filename:join(DotSlashArchiveFile,Dir),
+    SubDir = "subdir1",
+    AbsSubDir = filename:join(AbsDir,SubDir),
+    RelSubDir = filename:join(RelDir,SubDir),
+    DotSlashSubDir = filename:join(DotSlashDir,SubDir),
 
     {ok,List1} = erl_prim_loader:list_dir(AbsArchiveFile),
     {ok,List1} = erl_prim_loader:list_dir(RelArchiveFile),
@@ -48,7 +49,25 @@ main(MainArgs) ->
     {ok,List1} = erl_prim_loader:list_dir(filename:join([AbsDir,".."])),
     {ok,List1} = erl_prim_loader:list_dir(filename:join([RelDir,".."])),
     {ok,List1} = erl_prim_loader:list_dir(filename:join([DotSlashDir,".."])),
+    {ok,List1} = erl_prim_loader:list_dir(filename:join([AbsSubDir,"..",".."])),
+    {ok,List1} = erl_prim_loader:list_dir(filename:join([RelSubDir,"..",".."])),
+    {ok,List1} = erl_prim_loader:list_dir(filename:join([DotSlashSubDir,"..",".."])),
     false = lists:member([],List1),
+
+    %% If symlinks are supported on this platform...
+    RelSymlinkArchiveFile = "symlink_to_" ++ RelArchiveFile,
+    case file:read_link(RelSymlinkArchiveFile) of
+	{ok,_} ->
+	    DotSlashSymlinkArchiveFile = "./" ++ RelSymlinkArchiveFile,
+	    AbsSymlinkArchiveFile=filename:join(filename:dirname(AbsArchiveFile),
+						RelSymlinkArchiveFile),
+	    {ok,List1} = erl_prim_loader:list_dir(AbsSymlinkArchiveFile),
+	    {ok,List1} = erl_prim_loader:list_dir(RelSymlinkArchiveFile),
+	    {ok,List1} = erl_prim_loader:list_dir(DotSlashSymlinkArchiveFile);
+	_ -> % not supported
+	    ok
+    end,
+
 
     {ok,List2} = erl_prim_loader:list_dir(AbsDir),
     {ok,List2} = erl_prim_loader:list_dir(RelDir),
