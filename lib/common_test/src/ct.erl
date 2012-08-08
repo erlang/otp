@@ -427,7 +427,7 @@ reload_config(Required)->
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Format) -> ok
-%%% @equiv log(default,?STD_IMPORTANCE,Format,[])
+%%% @equiv log(default,50,Format,[])
 log(Format) ->
     log(default,?STD_IMPORTANCE,Format,[]).
 
@@ -481,7 +481,7 @@ log(Category,Importance,Format,Args) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec print(Format) -> ok
-%%% @equiv print(default,?STD_IMPORTANCE,Format,[])
+%%% @equiv print(default,50,Format,[])
 print(Format) ->
     print(default,?STD_IMPORTANCE,Format,[]).
 
@@ -535,7 +535,7 @@ print(Category,Importance,Format,Args) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec pal(Format) -> ok
-%%% @equiv pal(default,?STD_IMPORTANCE,Format,[])
+%%% @equiv pal(default,50,Format,[])
 pal(Format) ->
     pal(default,?STD_IMPORTANCE,Format,[]).
 
