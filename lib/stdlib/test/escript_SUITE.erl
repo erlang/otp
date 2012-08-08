@@ -557,8 +557,8 @@ archive_script_file_access(Config) when is_list(Config) ->
 
     %% Change to script's directory and run it as "./<script_name>"
     ok = file:set_cwd(PrivDir),
-    do_run(PrivDir, "./" ++ ScriptName1 ++ " " ++ ScriptName1,
-	   [<<"ExitCode:0">>]),
+    run(PrivDir, "./" ++ ScriptName1 ++ " " ++ ScriptName1,
+	[<<"ExitCode:0">>]),
     ok = file:set_cwd(TopDir),
 
 
@@ -591,16 +591,16 @@ archive_script_file_access(Config) when is_list(Config) ->
 
     %% Change to script's directory and run it as "./<script_name>"
     ok = file:set_cwd(PrivDir),
-    do_run(PrivDir, "./" ++ ScriptName2 ++ " " ++ ScriptName2,
-	   [<<"ExitCode:0">>]),
+    run(PrivDir, "./" ++ ScriptName2 ++ " " ++ ScriptName2,
+	[<<"ExitCode:0">>]),
 
     %% 3. If symlinks are supported, run one of the scripts via a symlink.
     %%
     %% This is in order to test error b) described above this test case.
     case file:read_link(Symlink2) of
 	{ok,_} ->
-	    do_run(PrivDir, "./" ++ SymlinkName2 ++ " " ++ ScriptName2,
-		   [<<"ExitCode:0">>]);
+	    run(PrivDir, "./" ++ SymlinkName2 ++ " " ++ ScriptName2,
+		[<<"ExitCode:0">>]);
 	_ -> % not supported
 	    ok
     end,
