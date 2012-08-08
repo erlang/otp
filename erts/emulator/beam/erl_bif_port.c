@@ -74,9 +74,9 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
 
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
 
-    port_val = erts_port[port_num].id;
-    erts_add_link(&(erts_port[port_num].nlinks), LINK_PID, BIF_P->id);
-    erts_add_link(&(BIF_P->nlinks), LINK_PID, port_val);
+    port_val = erts_port[port_num].common.id;
+    erts_add_link(&ERTS_P_LINKS(&erts_port[port_num]), LINK_PID, BIF_P->common.id);
+    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port_val);
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
 
@@ -171,7 +171,7 @@ do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
 	else {
 	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, p);
 	    if (erts_system_monitor_flags.busy_port) {
-		monitor_generic(BIF_P, am_busy_port, p->id);
+		monitor_generic(BIF_P, am_busy_port, p->common.id);
 	    }
 	    ERTS_BIF_PREP_YIELD3(res, bif_export[BIF_port_command_3], BIF_P,
 				 arg1, arg2, arg3);
@@ -180,7 +180,7 @@ do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
 	int wres;
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	ERTS_SMP_CHK_NO_PROC_LOCKS;
-	wres = erts_write_to_port(BIF_P->id, p, arg2);
+	wres = erts_write_to_port(BIF_P->common.id, p, arg2);
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	if (wres != 0) {
 	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
@@ -321,7 +321,7 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
     if (!term_to_Uint(arg2, &op)) {
 	goto error;
     }
-    p->caller = c_p->id;
+    p->caller = c_p->common.id;
     
     /* Lock taken, virtual schedule of port */
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
@@ -543,8 +543,8 @@ BIF_RETTYPE port_connect_2(BIF_ALIST_2)
 	goto error;
     }
 
-    erts_add_link(&(rp->nlinks), LINK_PID, prt->id);
-    erts_add_link(&(prt->nlinks), LINK_PID, pid);
+    erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, prt->common.id);
+    erts_add_link(&ERTS_P_LINKS(prt), LINK_PID, pid);
 
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 
@@ -923,7 +923,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 
-    port_num = erts_open_driver(driver, p->id, name_buf, &opts, err_nump);
+    port_num = erts_open_driver(driver, p->common.id, name_buf, &opts, err_nump);
 #ifdef USE_VM_PROBES
     if (port_num >= 0 && DTRACE_ENABLED(port_open)) {
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);

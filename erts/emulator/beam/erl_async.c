@@ -611,7 +611,7 @@ long driver_async(ErlDrvPort ix, unsigned int* key,
     a->sched_id = sched_id;
 #endif
     a->hndl = (DE_Handle*)prt->drv_ptr->handle;
-    a->port = prt->id;
+    a->port = prt->common.id;
     a->pdl = NULL;
     a->async_data = async_data;
     a->async_invoke = async_invoke;

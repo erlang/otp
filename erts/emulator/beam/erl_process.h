@@ -703,7 +703,6 @@ struct ErtsPendingSuspend_ {
 struct process {
     ErtsPTabElementCommon common; /* *Need* to be first in struct */
 
-    Eterm id;			/* Duplicate (to be removed) */
     /* All fields in the PCB that differs between different heap
      * architectures, have been moved to the end of this struct to
      * make sure that as few offsets as possible differ. Different
@@ -747,7 +746,6 @@ struct process {
 				 * Only valid for the current process.
 				 */
     Uint32 rcount;		/* suspend count */
-    int  prio;			/* Priority of process */
     int  schedule_count;	/* Times left to reschedule a low prio process */
     Uint reds;			/* No of reductions for this process  */
     Eterm group_leader;		/* Pid in charge
@@ -758,9 +756,6 @@ struct process {
     Eterm ftrace;		/* Latest exception stack trace dump */
 
     Process *next;		/* Pointer to next process in run queue */
-
-    ErtsLink *nlinks;
-    ErtsMonitor *monitors;      /* The process monitors, both ends */
 
     struct ErtsNodesMonitor_ *nodes_monitors;
 

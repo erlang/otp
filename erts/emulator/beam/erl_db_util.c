@@ -2178,7 +2178,7 @@ restart:
 	    pc += n;
 	    break;
 	case matchSelf:
-	    *esp++ = c_p->id;
+	    *esp++ = c_p->common.id;
 	    break;
 	case matchWaste:
 	    --esp;

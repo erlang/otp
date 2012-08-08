@@ -196,7 +196,7 @@ print_process_info(int to, void *to_arg, Process *p)
     erts_aint32_t state;
 
     /* display the PID */
-    erts_print(to, to_arg, "=proc:%T\n", p->id);
+    erts_print(to, to_arg, "=proc:%T\n", p->common.id);
 
     /* Display the state */
     erts_print(to, to_arg, "State: ");
@@ -301,11 +301,11 @@ print_process_info(int to, void *to_arg, Process *p)
     }
 
     /* display the links only if there are any*/
-    if (p->nlinks != NULL || p->monitors != NULL) {
+    if (ERTS_P_LINKS(p) || ERTS_P_MONITORS(p)) {
 	PrintMonitorContext context = {1,to}; 
 	erts_print(to, to_arg,"Link list: [");
-	erts_doforall_links(p->nlinks, &doit_print_link, &context);	
-	erts_doforall_monitors(p->monitors, &doit_print_monitor, &context);
+	erts_doforall_links(ERTS_P_LINKS(p), &doit_print_link, &context);	
+	erts_doforall_monitors(ERTS_P_MONITORS(p), &doit_print_monitor, &context);
 	erts_print(to, to_arg,"]\n");
     }
 
@@ -628,7 +628,7 @@ bin_check(void)
 	    if (hdr->thing_word == HEADER_PROC_BIN) {
 		ProcBin *bp = (ProcBin*) hdr;
 		if (!printed) {
-		    erts_printf("Process %T holding binary data \n", rp->id);
+		    erts_printf("Process %T holding binary data \n", rp->common.id);
 		    printed = 1;
 		}
 		erts_printf("%p orig_size: %bpd, norefs = %bpd\n",

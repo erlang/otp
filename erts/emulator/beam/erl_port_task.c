@@ -52,7 +52,7 @@
 
 #define ERTS_PORT_TASK_INVALID_PORT(P, ID) \
   ((erts_smp_atomic32_read_acqb(&(P)->state) & ERTS_PORT_SFLGS_DEAD) \
-   || (P)->id != (ID))
+   || (P)->common.id != (ID))
 
 #define ERTS_PORT_IS_IN_RUNQ(RQ, P) \
   ((P)->sched.next || (P)->sched.prev || (RQ)->ports.start == (P))
@@ -634,7 +634,7 @@ erts_port_task_free_port(Port *pp)
 					 ERTS_PORT_SFLG_FREE_SCHEDULED);
 	erts_may_save_closed_port(pp);
 	erts_smp_port_minor_unlock(pp);
-	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 1);
+	ERTS_LC_ASSERT(erts_smp_atomic32_read_nob(&pp->common.refc) > 1);
 	ptp->type = ERTS_PORT_TASK_FREE;
 	ptp->event = (ErlDrvEvent) -1;
 	ptp->event_data = NULL;
@@ -658,8 +658,8 @@ erts_port_task_free_port(Port *pp)
 					 ERTS_PORT_SFLG_FREE_SCHEDULED);
 	erts_may_save_closed_port(pp);
 	erts_smp_port_minor_unlock(pp);
-	erts_smp_atomic_dec_nob(&pp->refc); /* Not alive */
-	ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 0); /* Lock */
+	erts_smp_atomic32_dec_nob(&pp->common.refc); /* Not alive */
+	ERTS_LC_ASSERT(erts_smp_atomic32_read_nob(&pp->common.refc) > 0); /* Lock */
 	handle_remaining_tasks(runq, pp); /* May release runq lock */
 	ASSERT(!pp->sched.exe_taskq && (!ptqp || !ptqp->first));
 	pp->sched.taskq = NULL;
@@ -777,8 +777,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 		handle_remaining_tasks(runq, pp);
 	    ASSERT(!ptqp->first
 		   && (!pp->sched.taskq || !pp->sched.taskq->first));
-	    erts_smp_atomic_dec_nob(&pp->refc); /* Not alive */
-	    ERTS_LC_ASSERT(erts_smp_atomic_read_nob(&pp->refc) > 0); /* Lock */
+	    erts_smp_atomic32_dec_nob(&pp->common.refc); /* Not alive */
+	    ERTS_LC_ASSERT(erts_smp_atomic32_read_nob(&pp->common.refc) > 0); /* Lock */
 
 	    port_task_free(ptp);
 	    if (pp->sched.taskq)
@@ -926,9 +926,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_port_release(pp);
 #else
     {
-	erts_aint_t refc;
+	erts_aint32_t refc;
 	erts_smp_mtx_unlock(pp->lock);
-	refc = erts_smp_atomic_dec_read_nob(&pp->refc);
+	refc = erts_smp_atomic32_dec_read_nob(&pp->common.refc);
 	ASSERT(refc >= 0);
 	if (refc == 0) {
 	    erts_smp_runq_unlock(runq);
@@ -975,13 +975,22 @@ handle_remaining_tasks(ErtsRunQueue *runq, Port *pp)
 	    case ERTS_PORT_TASK_TIMEOUT:
 		break;
 	    case ERTS_PORT_TASK_INPUT:
-		erts_stale_drv_select(pp->id, ptp->event, DO_READ, 1);
+		erts_stale_drv_select(pp->common.id,
+				      ptp->event,
+				      DO_READ,
+				      1);
 		break;
 	    case ERTS_PORT_TASK_OUTPUT:
-		erts_stale_drv_select(pp->id, ptp->event, DO_WRITE, 1);
+		erts_stale_drv_select(pp->common.id,
+				      ptp->event,
+				      DO_WRITE,
+				      1);
 		break;
 	    case ERTS_PORT_TASK_EVENT:
-		erts_stale_drv_select(pp->id, ptp->event, 0, 1);
+		erts_stale_drv_select(pp->common.id,
+				      ptp->event,
+				      0,
+				      1);
 		break;
 	    case ERTS_PORT_TASK_DIST_CMD:
 		break;

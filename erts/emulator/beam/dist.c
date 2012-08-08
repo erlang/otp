@@ -252,7 +252,7 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 
     if (mon->type == MON_ORIGIN) {
 	/* local pid is beeing monitored */
-	rmon = erts_remove_monitor(&(rp->monitors),mon->ref);
+	rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 	/* ASSERT(rmon != NULL); nope, can happen during process exit */
 	if (rmon != NULL) {
 	    erts_destroy_monitor(rmon);
@@ -262,7 +262,7 @@ static void doit_monitor_net_exits(ErtsMonitor *mon, void *vnecp)
 	Eterm watched;
 	UseTmpHeapNoproc(3);
 	ASSERT(mon->type == MON_TARGET);
-	rmon = erts_remove_monitor(&(rp->monitors),mon->ref);
+	rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 	/* ASSERT(rmon != NULL); can happen during process exit */
 	if (rmon != NULL) {
 	    ASSERT(is_atom(rmon->name) || is_nil(rmon->name));
@@ -311,7 +311,7 @@ static void doit_link_net_exits_sub(ErtsLink *sublnk, void *vlnecp)
 	    goto done;
 	}
 
-	rlnk = erts_remove_link(&(rp->nlinks), sublnk->pid);
+	rlnk = erts_remove_link(&ERTS_P_LINKS(rp), sublnk->pid);
 	xres = erts_send_exit_signal(NULL,
 				     sublnk->pid,
 				     rp,
@@ -370,7 +370,7 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
 	if (!rp) {
 	    goto done;
 	}
-	rlnk = erts_remove_link(&(rp->nlinks), name);
+	rlnk = erts_remove_link(&ERTS_P_LINKS(rp), name);
 	if (rlnk != NULL) {
 	    ASSERT(is_atom(rlnk->pid) && (rlnk->type == LINK_NODE));
 	    erts_destroy_link(rlnk);
@@ -770,7 +770,7 @@ erts_dsig_send_msg(ErtsDSigData *dsdp, Eterm remote, Eterm message)
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
         erts_snprintf(receiver_name, sizeof(receiver_name), "%T", remote);
         msize = size_object(message);
         if (token != NIL && token != am_have_dt_utag) {
@@ -827,7 +827,7 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
     *node_name = *sender_name = *receiver_name = '\0';
     if (DTRACE_ENABLED(message_send) || DTRACE_ENABLED(message_send_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
         erts_snprintf(receiver_name, sizeof(receiver_name),
                       "{%T,%s}", remote_name, node_name);
         msize = size_object(message);
@@ -841,10 +841,10 @@ erts_dsig_send_reg_msg(ErtsDSigData *dsdp, Eterm remote_name, Eterm message)
 
     if (token != NIL)
 	ctl = TUPLE5(&ctl_heap[0], make_small(DOP_REG_SEND_TT),
-		     sender->id, am_Cookie, remote_name, token);
+		     sender->common.id, am_Cookie, remote_name, token);
     else
 	ctl = TUPLE4(&ctl_heap[0], make_small(DOP_REG_SEND),
-		     sender->id, am_Cookie, remote_name);
+		     sender->common.id, am_Cookie, remote_name);
     DTRACE6(message_send, sender_name, receiver_name,
             msize, tok_label, tok_lastcnt, tok_serial);
     DTRACE7(message_send_remote, sender_name, node_name, receiver_name,
@@ -890,7 +890,7 @@ erts_dsig_send_exit_tt(ErtsDSigData *dsdp, Eterm local, Eterm remote,
     *node_name = *sender_name = *remote_name = '\0';
     if (DTRACE_ENABLED(process_exit_signal_remote)) {
         erts_snprintf(node_name, sizeof(node_name), "%T", dsdp->dep->sysname);
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
         erts_snprintf(remote_name, sizeof(remote_name),
                       "{%T,%s}", remote, node_name);
         erts_snprintf(reason_str, sizeof(reason), "%T", reason);
@@ -1142,7 +1142,7 @@ int erts_net_message(Port *prt,
 	}
 
 	erts_smp_de_links_lock(dep);
-	res = erts_add_link(&(rp->nlinks), LINK_PID, from);
+	res = erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, from);
 
 	if (res < 0) {
 	    /* It was already there! Lets skip the rest... */
@@ -1150,7 +1150,7 @@ int erts_net_message(Port *prt,
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	    break;
 	}
-	lnk = erts_add_or_lookup_link(&(dep->nlinks), LINK_PID, rp->id);
+	lnk = erts_add_or_lookup_link(&(dep->nlinks), LINK_PID, rp->common.id);
 	erts_add_link(&(ERTS_LINK_ROOT(lnk)), LINK_PID, from);
 	erts_smp_de_links_unlock(dep);
 
@@ -1177,7 +1177,7 @@ int erts_net_message(Port *prt,
 	if (!rp)
 	    break;
 
-	lnk = erts_remove_link(&(rp->nlinks), from);
+	lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
 
 	if (IS_TRACED_FL(rp, F_TRACE_PROCS) && lnk != NULL) {
 	    trace_proc(NULL, rp, am_getting_unlinked, from);
@@ -1234,10 +1234,10 @@ int erts_net_message(Port *prt,
 	}
 	else {
 	    if (is_atom(watched))
-		watched = rp->id;
+		watched = rp->common.id;
 	    erts_smp_de_links_lock(dep);
 	    erts_add_monitor(&(dep->monitors), MON_ORIGIN, ref, watched, name);
-	    erts_add_monitor(&(rp->monitors), MON_TARGET, ref, watcher, name);
+	    erts_add_monitor(&ERTS_P_MONITORS(rp), MON_TARGET, ref, watcher, name);
 	    erts_smp_de_links_unlock(dep);
 	    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	}
@@ -1276,7 +1276,7 @@ int erts_net_message(Port *prt,
 	if (!rp) {
 	    break;
 	}
-	mon = erts_remove_monitor(&(rp->monitors),ref);
+	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
 	erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 	ASSERT(mon != NULL);
 	if (mon == NULL) {
@@ -1433,7 +1433,7 @@ int erts_net_message(Port *prt,
 
 	erts_destroy_monitor(mon);
 
-	mon = erts_remove_monitor(&(rp->monitors),ref);
+	mon = erts_remove_monitor(&ERTS_P_MONITORS(rp), ref);
 
 	if (mon == NULL) {
 	    erts_smp_proc_unlock(rp, rp_locks);
@@ -1484,7 +1484,7 @@ int erts_net_message(Port *prt,
 	if (!rp)
 	    lnk = NULL;
 	else {
-	    lnk = erts_remove_link(&(rp->nlinks), from);
+	    lnk = erts_remove_link(&ERTS_P_LINKS(rp), from);
 
 	    /* If lnk == NULL, we have unlinked on this side, i.e.
 	     * ignore exit.
@@ -1784,7 +1784,7 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 
             erts_snprintf(port_str, sizeof(port_str), "%T", cid);
             erts_snprintf(remote_str, sizeof(remote_str), "%T", dep->sysname);
-            erts_snprintf(pid_str, sizeof(pid_str), "%T", c_p->id);
+            erts_snprintf(pid_str, sizeof(pid_str), "%T", c_p->common.id);
             DTRACE4(dist_port_busy, erts_this_node_sysname,
                     port_str, remote_str, pid_str);
         }
@@ -1817,7 +1817,7 @@ dist_port_command(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE4(dist_output, erts_this_node_sysname, port_str,
@@ -1871,7 +1871,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE4(dist_outputv, erts_this_node_sysname, port_str,
@@ -1930,7 +1930,7 @@ erts_dist_command(Port *prt, int reds_limit)
     erts_smp_de_runlock(dep);
 
     if (status & ERTS_DE_SFLG_EXITING) {
-	erts_do_exit_port(prt, prt->id, am_killed);
+	erts_do_exit_port(prt, prt->common.id, am_killed);
 	erts_deref_dist_entry(dep);
 	return reds + ERTS_PORT_REDS_DIST_CMD_EXIT;
     }
@@ -2203,7 +2203,7 @@ erts_dist_port_not_busy(Port *prt)
         DTRACE_CHARBUF(port_str, 64);
         DTRACE_CHARBUF(remote_str, 64);
 
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
+        erts_snprintf(port_str, sizeof(port_str), "%T", prt->common.id);
         erts_snprintf(remote_str, sizeof(remote_str),
                       "%T", prt->dist_entry->sysname);
         DTRACE3(dist_port_not_busy, erts_this_node_sysname,
@@ -2245,7 +2245,7 @@ static void doit_print_monitor_info(ErtsMonitor *mon, void *vptdp)
     Process *rp;
     ErtsMonitor *rmon;
     rp = erts_proc_lookup(mon->pid);
-    if (!rp || (rmon = erts_lookup_monitor(rp->monitors, mon->ref)) == NULL) {
+    if (!rp || (rmon = erts_lookup_monitor(ERTS_P_MONITORS(rp), mon->ref)) == NULL) {
 	erts_print(to, arg, "Warning, stray monitor for: %T\n", mon->pid);
     } else if (mon->type == MON_ORIGIN) {
 	/* Local pid is being monitored */
@@ -2558,7 +2558,7 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     /* DFLAG_EXTENDED_REFERENCES is compulsory from R9 and forward */
     if (!(DFLAG_EXTENDED_REFERENCES & flags)) {
 	erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	erts_dsprintf(dsbufp, "%T", BIF_P->id);
+	erts_dsprintf(dsbufp, "%T", BIF_P->common.id);
 	if (BIF_P->common.u.alive.reg)
 	    erts_dsprintf(dsbufp, " (%T)", BIF_P->common.u.alive.reg->name);
 	erts_dsprintf(dsbufp,
@@ -2702,7 +2702,7 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
     if (is_internal_pid(local)) {
 	Process *lp;
 	ErtsProcLocks lp_locks;
-	if (BIF_P->id == local) {
+	if (BIF_P->common.id == local) {
 	    lp_locks = ERTS_PROC_LOCKS_ALL;
 	    lp = BIF_P;
 	    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCKS_ALL_MINOR);
@@ -2932,23 +2932,23 @@ monitor_node(Process* p, Eterm Node, Eterm Bool, Eterm Options)
     if (Bool == am_true) {
 	ASSERT(dep->cid != NIL);
 	lnk = erts_add_or_lookup_link(&(dep->node_links), LINK_NODE, 
-				      p->id);
+				      p->common.id);
 	++ERTS_LINK_REFC(lnk);
-	lnk = erts_add_or_lookup_link(&(p->nlinks), LINK_NODE, Node);
+	lnk = erts_add_or_lookup_link(&ERTS_P_LINKS(p), LINK_NODE, Node);
 	++ERTS_LINK_REFC(lnk);
     }
     else  {
-	lnk = erts_lookup_link(dep->node_links, p->id);
+	lnk = erts_lookup_link(dep->node_links, p->common.id);
 	if (lnk != NULL) {
 	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
 		erts_destroy_link(erts_remove_link(&(dep->node_links), 
-						   p->id));
+						   p->common.id));
 	    }
 	}
-	lnk = erts_lookup_link(p->nlinks, Node);
+	lnk = erts_lookup_link(ERTS_P_LINKS(p), Node);
 	if (lnk != NULL) {
 	    if ((--ERTS_LINK_REFC(lnk)) == 0) {
-		erts_destroy_link(erts_remove_link(&(p->nlinks),
+		erts_destroy_link(erts_remove_link(&ERTS_P_LINKS(p),
 						   Node));
 	    }
 	}
@@ -3510,7 +3510,7 @@ erts_processes_monitoring_nodes(Process *c_p)
 		olist = erts_bld_cons(hpp, szp, am_nodedown_reason, olist);
 	    res = erts_bld_cons(hpp, szp,
 				erts_bld_tuple(hpp, szp, 2,
-					       nmp->proc->id,
+					       nmp->proc->common.id,
 					       olist),
 				res);
 	}

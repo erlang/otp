@@ -34,9 +34,13 @@
 #include "erl_thr_progress.h"
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 #include "erl_alloc.h"
+#include "erl_monitors.h"
 
-#define ERTS_TRACER_PROC(P) (P)->common.tracer_proc
-#define ERTS_TRACE_FLAGS(P) (P)->common.trace_flags
+#define ERTS_TRACER_PROC(P) 	((P)->common.tracer_proc)
+#define ERTS_TRACE_FLAGS(P)	((P)->common.trace_flags)
+
+#define ERTS_P_LINKS(P)		((P)->common.u.alive.links)
+#define ERTS_P_MONITORS(P)	((P)->common.u.alive.monitors)
 
 #define IS_TRACED(p) \
     (ERTS_TRACER_PROC((p)) != NIL)
@@ -49,6 +53,8 @@ typedef struct {
     Eterm id;
 #ifdef ERTS_SMP
     erts_atomic32_t refc;
+#else
+    erts_smp_atomic32_t refc; /* Temporary solution during dev; to be removed! */
 #endif
     Eterm tracer_proc;
     Uint trace_flags;
@@ -57,6 +63,8 @@ typedef struct {
 	struct {
 	    Uint64 started_interval;
 	    struct reg_proc *reg;
+	    ErtsLink *links;
+	    ErtsMonitor *monitors;
 #ifdef ERTS_SMP
 	    ErtsSmpPTimer *ptimer;
 #else

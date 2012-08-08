@@ -1226,7 +1226,7 @@ process_info_aux(Process *BIF_P,
 
 	INIT_MONITOR_INFOS(mic);
 
-	erts_doforall_links(rp->nlinks,&collect_one_link,&mic);
+	erts_doforall_links(ERTS_P_LINKS(rp),&collect_one_link,&mic);
 
 	hp = HAlloc(BIF_P, 3 + mic.sz);
 	res = NIL;
@@ -1244,7 +1244,7 @@ process_info_aux(Process *BIF_P,
 	int i;
 
 	INIT_MONITOR_INFOS(mic);
-	erts_doforall_monitors(rp->monitors,&collect_one_origin_monitor,&mic);
+	erts_doforall_monitors(ERTS_P_MONITORS(rp),&collect_one_origin_monitor,&mic);
 	hp = HAlloc(BIF_P, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
@@ -1281,7 +1281,7 @@ process_info_aux(Process *BIF_P,
 	Eterm item;
 
 	INIT_MONITOR_INFOS(mic);
-	erts_doforall_monitors(rp->monitors,&collect_one_target_monitor,&mic);
+	erts_doforall_monitors(ERTS_P_MONITORS(rp),&collect_one_target_monitor,&mic);
 	hp = HAlloc(BIF_P, 3 + mic.sz);
 
 	res = NIL;
@@ -1443,8 +1443,8 @@ process_info_aux(Process *BIF_P,
 
 	ERTS_SMP_MSGQ_MV_INQ2PRIVQ(rp);
 
-	erts_doforall_links(rp->nlinks, &one_link_size, &size);
-	erts_doforall_monitors(rp->monitors, &one_mon_size, &size);
+	erts_doforall_links(ERTS_P_LINKS(rp), &one_link_size, &size);
+	erts_doforall_monitors(ERTS_P_MONITORS(rp), &one_mon_size, &size);
 	size += (rp->heap_sz + rp->mbuf_sz) * sizeof(Eterm);
 	if (rp->old_hend && rp->old_heap)
 	    size += (rp->old_hend - rp->old_heap) * sizeof(Eterm);
@@ -1632,7 +1632,7 @@ current_function(Process* BIF_P, Process* rp, Eterm** hpp, int full_info)
 	}
     }
 
-    if (BIF_P->id == rp->id) {
+    if (BIF_P == rp) {
 	FunctionInfo fi2;
 
 	/*
@@ -2866,7 +2866,7 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
 
 	INIT_MONITOR_INFOS(mic);
 
-	erts_doforall_links(prt->nlinks, &collect_one_link, &mic);
+	erts_doforall_links(ERTS_P_LINKS(prt), &collect_one_link, &mic);
 
 	hp = HAlloc(p, 3 + mic.sz);
 	res = NIL;
@@ -2885,7 +2885,7 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
 
 	INIT_MONITOR_INFOS(mic);
 
-	erts_doforall_monitors(prt->monitors, &collect_one_origin_monitor, &mic);
+	erts_doforall_monitors(ERTS_P_MONITORS(prt), &collect_one_origin_monitor, &mic);
 
 	hp = HAlloc(p, 3 + mic.sz);
 	res = NIL;
@@ -2926,7 +2926,7 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
     }
     else if (item == am_registered_name) {
 	RegProc *reg;
-	reg = prt->reg;
+	reg = prt->common.u.alive.reg;
 	if (reg == NULL) {
 	    ERTS_BIF_PREP_RET(ret, NIL);
 	    goto done;
@@ -2945,7 +2945,7 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
 
 	hp = HAlloc(p, 3);
 
-	erts_doforall_links(prt->nlinks, &one_link_size, &size);
+	erts_doforall_links(ERTS_P_LINKS(prt), &one_link_size, &size);
 
 	for (bp = prt->bp; bp; bp = bp->next)
 	    size += sizeof(ErlHeapFragment) + (bp->alloc_size - 1)*sizeof(Eterm);
@@ -3136,7 +3136,7 @@ BIF_RETTYPE is_process_alive_1(BIF_ALIST_1)
    if(is_internal_pid(BIF_ARG_1)) {
        Process *rp;
 
-       if (BIF_ARG_1 == BIF_P->id)
+       if (BIF_ARG_1 == BIF_P->common.id)
 	   BIF_RET(am_true);
 
        rp = erts_proc_lookup(BIF_ARG_1);
@@ -3460,7 +3460,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			ERTS_SMP_ASSERT_IS_NOT_EXITING(BIF_P);
 			BIF_RET(am_undefined);
 		    }
-		    res = make_link_list(BIF_P, p->nlinks, NIL);
+		    res = make_link_list(BIF_P, ERTS_P_LINKS(p), NIL);
 		    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 		    BIF_RET(res);
 		}
@@ -3469,7 +3469,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		    Port *p = erts_id2port(tp[2], BIF_P, ERTS_PROC_LOCK_MAIN);
 		    if(!p)
 			BIF_RET(am_undefined);
-		    res = make_link_list(BIF_P, p->nlinks, NIL);
+		    res = make_link_list(BIF_P, ERTS_P_LINKS(p), NIL);
 		    erts_smp_port_unlock(p);
 		    BIF_RET(res);
 		}
@@ -3502,7 +3502,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 			ERTS_SMP_ASSERT_IS_NOT_EXITING(BIF_P);
 			BIF_RET(am_undefined);
 		    }
-		    res = make_monitor_list(BIF_P, p->monitors);
+		    res = make_monitor_list(BIF_P, ERTS_P_MONITORS(p));
 		    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 		    BIF_RET(res);
 		} else if(is_node_name_atom(tp[2])) {
@@ -3645,7 +3645,7 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	erts_aint_t prev_on = erts_smp_atomic_xchg_nob(&available_internal_state, on);
 	if (on) {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
-	    erts_dsprintf(dsbufp, "Process %T ", BIF_P->id);
+	    erts_dsprintf(dsbufp, "Process %T ", BIF_P->common.id);
 	    if (erts_is_alive)
 		erts_dsprintf(dsbufp, "on node %T ", erts_this_node->sysname);
 	    erts_dsprintf(dsbufp,

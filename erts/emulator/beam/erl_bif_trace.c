@@ -106,7 +106,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     struct trace_pattern_flags flags = erts_trace_pattern_flags_off;
     int is_global;
     Process *meta_tracer_proc = p;
-    Eterm meta_tracer_pid = p->id;
+    Eterm meta_tracer_pid = p->common.id;
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
@@ -469,7 +469,7 @@ Eterm trace_3(BIF_ALIST_3)
     if (is_nil(tracer) || is_internal_pid(tracer)) {
 	Process *tracer_proc = erts_pid2proc(p,
 					     ERTS_PROC_LOCK_MAIN,
-					     is_nil(tracer) ? p->id : tracer,
+					     is_nil(tracer) ? p->common.id : tracer,
 					     ERTS_PROC_LOCKS_ALL);
 	if (!tracer_proc)
 	    goto error;
@@ -497,7 +497,7 @@ Eterm trace_3(BIF_ALIST_3)
     case am_true: 
 	on = 1;
 	if (is_nil(tracer))
-	    tracer = p->id;
+	    tracer = p->common.id;
 	break;
     default: 
 	goto error;
@@ -658,7 +658,7 @@ Eterm trace_3(BIF_ALIST_3)
 		    if (! tracee_p) 
 			continue;
 		    if (tracer != NIL) {
-			if (tracee_p->id == tracer)
+			if (tracee_p->common.id == tracer)
 			    continue;
 			if (already_traced(NULL, tracee_p, tracer))
 			    continue;
@@ -684,7 +684,7 @@ Eterm trace_3(BIF_ALIST_3)
 		    state = erts_smp_atomic32_read_nob(&tracee_port->state);
 		    if (state & ERTS_PORT_SFLGS_DEAD) continue;
 		    if (tracer != NIL) {
-			if (tracee_port->id == tracer) continue;
+			if (tracee_port->common.id == tracer) continue;
 			if (port_already_traced(NULL, tracee_port, tracer)) continue;
 		    }
 
@@ -1777,7 +1777,7 @@ new_seq_trace_token(Process* p)
 	SEQ_TRACE_TOKEN(p) = TUPLE5(hp, make_small(0),		/* Flags  */ 
 				    make_small(0),		/* Label  */
 				    make_small(0),		/* Serial */
-				    p->id, /* Internal pid */	/* From   */
+				    p->common.id, /* Internal pid */	/* From   */
 				    make_small(p->seq_trace_lastcnt));
     }
 }
@@ -2232,7 +2232,7 @@ trace_delivered_1(BIF_ALIST_1)
     msg = TUPLE3(hp, AM_trace_delivered, BIF_ARG_1, msg_ref);
 
 #ifdef ERTS_SMP
-    erts_send_sys_msg_proc(BIF_P->id, BIF_P->id, msg, bp);
+    erts_send_sys_msg_proc(BIF_P->common.id, BIF_P->common.id, msg, bp);
     if (p)
 	erts_smp_proc_unlock(p,
 			     (BIF_P == p

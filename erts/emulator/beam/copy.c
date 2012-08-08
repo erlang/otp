@@ -64,7 +64,7 @@ copy_object(Eterm obj, Process* to)
     if (DTRACE_ENABLED(copy_object)) {
         DTRACE_CHARBUF(proc_name, 64);
 
-        erts_snprintf(proc_name, sizeof(proc_name), "%T", to->id);
+        erts_snprintf(proc_name, sizeof(proc_name), "%T", to->common.id);
         DTRACE2(copy_object, proc_name, size);
     }
 #endif
@@ -575,7 +575,7 @@ Eterm copy_struct_lazy(Process *from, Eterm orig, Uint offs)
 
     VERBOSE(DEBUG_MESSAGES,
             ("COPY START; %T is sending a message @ 0x%016x\n%T\n",
-             from->id, orig, orig));
+             from->common.id, orig, orig));
 
 #ifndef INCREMENTAL
  copy_start:

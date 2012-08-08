@@ -86,7 +86,7 @@ dump_process_info(int to, void *to_arg, Process *p)
     ERTS_SMP_MSGQ_MV_INQ2PRIVQ(p);
 
     if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0 && p->msg.first) {
-	erts_print(to, to_arg, "=proc_messages:%T\n", p->id);
+	erts_print(to, to_arg, "=proc_messages:%T\n", p->common.id);
 	for (mp = p->msg.first; mp != NULL; mp = mp->next) {
 	    Eterm mesg = ERL_MESSAGE_TERM(mp);
 	    if (is_value(mesg))
@@ -102,19 +102,19 @@ dump_process_info(int to, void *to_arg, Process *p)
 
     if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
 	if (p->dictionary) {
-	    erts_print(to, to_arg, "=proc_dictionary:%T\n", p->id);
+	    erts_print(to, to_arg, "=proc_dictionary:%T\n", p->common.id);
 	    erts_deep_dictionary_dump(to, to_arg,
 				      p->dictionary, dump_element_nl);
 	}
     }
 
     if ((ERTS_TRACE_FLAGS(p) & F_SENSITIVE) == 0) {
-	erts_print(to, to_arg, "=proc_stack:%T\n", p->id);
+	erts_print(to, to_arg, "=proc_stack:%T\n", p->common.id);
 	for (sp = p->stop; sp < STACK_START(p); sp++) {
 	    yreg = stack_element_dump(to, to_arg, p, sp, yreg);
 	}
 
-	erts_print(to, to_arg, "=proc_heap:%T\n", p->id);
+	erts_print(to, to_arg, "=proc_heap:%T\n", p->common.id);
 	for (sp = p->stop; sp < STACK_START(p); sp++) {
 	    Eterm term = *sp;
 	    

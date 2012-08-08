@@ -1153,7 +1153,7 @@ static int set_driver_data(int port_num,
 	report_exit = erts_alloc(ERTS_ALC_T_PRT_REP_EXIT,
 				 sizeof(ErtsSysReportExit));
 	report_exit->next = report_exit_list;
-	report_exit->port = erts_port[port_num].id;
+	report_exit->port = erts_port[port_num].common.id;
 	report_exit->pid = pid;
 	report_exit->ifd = read_write & DO_READ ? ifd : -1;
 	report_exit->ofd = read_write & DO_WRITE ? ofd : -1;
@@ -2570,7 +2570,7 @@ report_exit_status(ErtsSysReportExit *rep, int status)
 	if (rep->ifd >= 0) {
 	    driver_data[rep->ifd].alive = 0;
 	    driver_data[rep->ifd].status = status;
-	    (void) driver_select((ErlDrvPort) internal_port_index(pp->id),
+	    (void) driver_select((ErlDrvPort) internal_port_index(pp->common.id),
 				 rep->ifd,
 				 (ERL_DRV_READ|ERL_DRV_USE),
 				 1);
@@ -2578,7 +2578,7 @@ report_exit_status(ErtsSysReportExit *rep, int status)
 	if (rep->ofd >= 0) {
 	    driver_data[rep->ofd].alive = 0;
 	    driver_data[rep->ofd].status = status;
-	    (void) driver_select((ErlDrvPort) internal_port_index(pp->id),
+	    (void) driver_select((ErlDrvPort) internal_port_index(pp->common.id),
 				 rep->ofd,
 				 (ERL_DRV_WRITE|ERL_DRV_USE),
 				 1);

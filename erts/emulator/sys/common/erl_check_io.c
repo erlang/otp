@@ -206,7 +206,7 @@ drvport2id(ErlDrvPort dp)
 {
     Port *pp = erts_drvport2port(dp, NULL);
     if (pp)
-	return pp->id;
+	return pp->common.id;
     else {
 	ASSERT(0);
 	return am_undefined;
@@ -970,8 +970,8 @@ print_select_op(erts_dsprintf_buf_t *dsbufp,
 		  mode & ERL_DRV_USE ? " ERL_DRV_USE" : "",
 		  mode & (ERL_DRV_USE_NO_CALLBACK & ~ERL_DRV_USE) ? "_NO_CALLBACK" : "",
 		  on);
-    print_driver_name(dsbufp, pp->id);
-    erts_dsprintf(dsbufp, "driver %T ", pp ? pp->id : NIL);
+    print_driver_name(dsbufp, pp->common.id);
+    erts_dsprintf(dsbufp, "driver %T ", pp ? pp->common.id : NIL);
 }
 
 static void
@@ -1061,8 +1061,8 @@ print_event_op(erts_dsprintf_buf_t *dsbufp,
 		      (unsigned int) event_data->events,
 		      (unsigned int) event_data->revents);
     erts_dsprintf(dsbufp, ") by ");
-    print_driver_name(dsbufp, pp->id);
-    erts_dsprintf(dsbufp, "driver %T ", pp ? pp->id : NIL);
+    print_driver_name(dsbufp, pp->common.id);
+    erts_dsprintf(dsbufp, "driver %T ", pp ? pp->common.id : NIL);
 }
 
 static void

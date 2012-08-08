@@ -613,7 +613,7 @@ erts_print_bif_timer_info(int to, void *to_arg)
 	for (btm = bif_timer_tab[i]; btm; btm = btm->tab.next) {
 	    Eterm receiver = (btm->flags & BTM_FLG_BYNAME
 			      ? btm->receiver.name
-			      : btm->receiver.proc.ess->id);
+			      : btm->receiver.proc.ess->common.id);
 	    erts_print(to, to_arg, "=timer:%T\n", receiver);
 	    erts_print(to, to_arg, "Message: %T\n", btm->message);
 	    erts_print(to, to_arg, "Time left: %u ms\n",
@@ -696,7 +696,7 @@ erts_bif_timer_foreach(void (*func)(Eterm, Eterm, ErlHeapFragment *, void *),
 	for (btm = bif_timer_tab[i]; btm; btm = btm->tab.next) {
 	    (*func)((btm->flags & BTM_FLG_BYNAME
 		     ? btm->receiver.name
-		     : btm->receiver.proc.ess->id),
+		     : btm->receiver.proc.ess->common.id),
 		    btm->message,
 		    btm->bp,
 		    arg);

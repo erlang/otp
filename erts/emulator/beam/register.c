@@ -175,7 +175,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     if (is_not_atom(name) || name == am_undefined)
 	return res;
 
-    if (c_p->id == id) /* A very common case I think... */
+    if (c_p->common.id == id) /* A very common case I think... */
 	proc = c_p;
     else {
 	if (is_not_internal_pid(id) && is_not_internal_port(id))
@@ -212,7 +212,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	ASSERT(!INVALID_PORT(port, id));
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
 	r.pt = port;
-	if (r.pt->reg)
+	if (r.pt->common.u.alive.reg)
 	    goto done;
 	r.p = NULL;
     }
@@ -230,10 +230,11 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
     	if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
 		trace_port(port, am_register, name);
 	}
-	port->reg = rp;
+	port->common.u.alive.reg = rp;
     }
 
-    if ((rp->p && rp->p->id == id) || (rp->pt && rp->pt->id == id)) {
+    if ((rp->p && rp->p->common.id == id)
+	|| (rp->pt && rp->pt->common.id == id)) {
 	res = 1;
     }
 
@@ -291,9 +292,9 @@ erts_whereis_name_to_id(Process *c_p, Eterm name)
 	     * is read only.
 	     */
 	    if (rp->p)
-		res = rp->p->id;
+		res = rp->p->common.id;
 	    else if (rp->pt)
-		res = rp->pt->id;
+		res = rp->pt->common.id;
 	    break;
 	}
 	b = b->next;
@@ -397,7 +398,7 @@ erts_whereis_name(Process *c_p,
 	    *port = NULL;
 	else {
 #ifndef ERTS_SMP
-	    erts_smp_atomic_inc_nob(&rp->pt->refc);
+	    erts_smp_atomic32_inc_nob(&rp->pt->common.refc);
 #else
 	    if (pending_port == rp->pt)
 		pending_port = NULL;
@@ -410,7 +411,7 @@ erts_whereis_name(Process *c_p,
 		}
 		    
 		if (erts_smp_port_trylock(rp->pt) == EBUSY) {
-		    Eterm id = rp->pt->id; /* id read only... */
+		    Eterm id = rp->pt->common.id; /* id read only... */
 		    /* Unlock all locks, acquire port lock, and restart... */
 		    if (current_c_p_locks) {
 			erts_smp_proc_unlock(c_p, current_c_p_locks);
@@ -506,7 +507,7 @@ int erts_unregister_name(Process *c_p,
 	if (rp->pt) {
 	    if (port != rp->pt) {
 #ifndef ERTS_SMP
-		erts_smp_atomic_inc_nob(&rp->pt->refc);
+		erts_smp_atomic32_inc_nob(&rp->pt->common.refc);
 #else
 		if (port) {
 		    ASSERT(port != c_prt);
@@ -515,7 +516,7 @@ int erts_unregister_name(Process *c_p,
 		}
 
 		if (erts_smp_port_trylock(rp->pt) == EBUSY) {
-		    Eterm id = rp->pt->id; /* id read only... */
+		    Eterm id = rp->pt->common.id; /* id read only... */
 		    /* Unlock all locks, acquire port lock, and restart... */
 		    if (current_c_p_locks) {
 			erts_smp_proc_unlock(c_p, current_c_p_locks);
@@ -532,7 +533,7 @@ int erts_unregister_name(Process *c_p,
 	    ASSERT(rp->pt == port);
 	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
 
-	    rp->pt->reg = NULL;
+	    rp->pt->common.u.alive.reg = NULL;
 	    
 	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
 		trace_port(port, am_unregister, r.name);

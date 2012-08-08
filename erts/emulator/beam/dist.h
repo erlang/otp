@@ -192,7 +192,7 @@ void erts_schedule_dist_command(Port *prt, DistEntry *dist_entry)
 	ASSERT(prt->dist_entry);
 
 	dep = prt->dist_entry;
-	id = prt->id;
+	id = prt->common.id;
     }
     else {
 	ASSERT(dist_entry);

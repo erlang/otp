@@ -190,12 +190,9 @@ void hipe_print_pcb(Process *p)
     U("min_heap_..", min_heap_size);
     U("rcount     ", rcount);
     U("id         ", common.id);
-    U("prio       ", prio);
     U("reds       ", reds);
-#if 0
-    U("tracer_pr..", tracer_proc);
-    U("trace_fla..", trace_flags);
-#endif
+    U("tracer_pr..", common.tracer_proc);
+    U("trace_fla..", common.trace_flags);
     U("group_lea..", group_leader);
     U("flags      ", flags);
     U("fvalue     ", fvalue);
@@ -204,10 +201,8 @@ void hipe_print_pcb(Process *p)
     /*XXX: ErlTimer tm; */
     U("next       ", next);
     /*XXX: ErlOffHeap off_heap; */
-#if 0
-    U("reg        ", reg);
-#endif
-    U("nlinks     ", nlinks);
+    U("reg        ", common.u.alive.reg);
+    U("nlinks     ", common.u.alive.links);
     /*XXX: ErlMessageQueue msg; */
     U("mbuf       ", mbuf);
     U("mbuf_sz    ", mbuf_sz);

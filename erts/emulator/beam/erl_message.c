@@ -929,8 +929,8 @@ erts_send_message(Process* sender,
  #ifdef USE_VM_PROBES
     *sender_name = *receiver_name = '\0';
    if (DTRACE_ENABLED(message_send)) {
-        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->id);
-        erts_snprintf(receiver_name, sizeof(receiver_name), "%T", receiver->id);
+        erts_snprintf(sender_name, sizeof(sender_name), "%T", sender->common.id);
+        erts_snprintf(receiver_name, sizeof(receiver_name), "%T", receiver->common.id);
     }
 #endif
     if (SEQ_TRACE_TOKEN(sender) != NIL && !(flags & ERTS_SND_FLG_NO_SEQ_TRACE)) {
@@ -952,7 +952,7 @@ erts_send_message(Process* sender,
 
 	    seq_trace_update_send(sender);
 	    seq_trace_output(stoken, message, SEQ_TRACE_SEND, 
-			     receiver->id, sender);
+			     receiver->common.id, sender);
 	    seq_trace_size = 6; /* TUPLE5 */
 #ifdef USE_VM_PROBES
 	}
@@ -983,7 +983,7 @@ erts_send_message(Process* sender,
 #ifdef DTRACE_TAG_HARDDEBUG
 	    erts_fprintf(stderr,
 			 "Dtrace -> (%T) Spreading tag (%T) with "
-			 "message %T!\r\n",sender->id, utag, message);
+			 "message %T!\r\n",sender->common.id, utag, message);
 #endif
 	}
 #endif
@@ -1220,7 +1220,7 @@ erts_deliver_exit_message(Eterm from, Process *to, ErtsProcLocks *to_locksp,
 	save = TUPLE3(hp, am_EXIT, from_copy, mess);
 	hp += 4;
 	/* the trace token must in this case be updated by the caller */
-	seq_trace_output(token, save, SEQ_TRACE_SEND, to->id, NULL);
+	seq_trace_output(token, save, SEQ_TRACE_SEND, to->common.id, NULL);
 	temptoken = copy_struct(token, sz_token, &hp, &bp->off_heap);
 	erts_queue_message(to, to_locksp, bp, save, temptoken
 #ifdef USE_VM_PROBES

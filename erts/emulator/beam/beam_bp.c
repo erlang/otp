@@ -658,7 +658,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	    if (pbdt) {
 		get_sys_now(&ms,&s,&us);
 		bp_time_diff(&sitem, pbt, ms, s, us);
-		sitem.pid   = p->id;
+		sitem.pid   = p->common.id;
 		sitem.count = 0;
 
 		h = &(pbdt->hash[bp_sched2ix_proc(p)]);
@@ -735,7 +735,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		ASSERT(pbt->pc);
 		/* add time to previous code */
 		bp_time_diff(&sitem, pbt, ms, s, us);
-		sitem.pid   = p->id;
+		sitem.pid   = p->common.id;
 		sitem.count = 0;
 
 		/* previous breakpoint */
@@ -762,7 +762,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		(void *) ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCK_MAIN, pbt);
 	    }
 	    /* add count to this code */
-	    sitem.pid     = p->id;
+	    sitem.pid     = p->common.id;
 	    sitem.count   = 1;
 	    sitem.s_time  = 0;
 	    sitem.us_time = 0;
@@ -792,7 +792,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 	     * lookup bdt from code
 	     * timestamp = t1
 	     * get ts0 from pbt
-	     * get item from bdt->hash[bp_hash(p->id)]
+	     * get item from bdt->hash[bp_hash(p->common.id)]
 	     * ack diff (t1, t0) to item
 	     */
 
@@ -803,7 +803,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		ASSERT(pbt->pc);
 
 		bp_time_diff(&sitem, pbt, ms, s, us);
-		sitem.pid   = p->id;
+		sitem.pid   = p->common.id;
 		sitem.count = 0;
 
 		/* previous breakpoint */

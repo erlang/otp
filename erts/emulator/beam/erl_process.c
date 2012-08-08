@@ -760,7 +760,7 @@ proclist_create(Process *p)
 {
     ErtsProcList *plp = proclist_alloc();
     ensure_later_proc_interval(p->common.u.alive.started_interval);
-    plp->pid = p->id;
+    plp->pid = p->common.id;
     plp->started_interval = p->common.u.alive.started_interval;
     return plp;
 }
@@ -774,7 +774,7 @@ proclist_destroy(ErtsProcList *plp)
 static ERTS_INLINE int
 proclist_same(ErtsProcList *plp, Process *p)
 {
-    return (plp->pid == p->id
+    return (plp->pid == p->common.id
 	    && (plp->started_interval
 		== p->common.u.alive.started_interval));
 }
@@ -1493,7 +1493,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 	    erts_smp_port_minor_lock(prt);
 	    /* We need to set the halt flag - get the port lock */
 #ifdef ERTS_SMP
-	    erts_smp_atomic_inc_nob(&prt->refc);
+	    erts_smp_atomic32_inc_nob(&prt->common.refc);
 #endif
 	    erts_smp_port_minor_unlock(prt);
 #ifdef ERTS_SMP
@@ -1512,7 +1512,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 		erts_port_release(prt);
 		continue;
 	    }
-	    erts_do_exit_port(prt, prt->id, am_killed);
+	    erts_do_exit_port(prt, prt->common.id, am_killed);
 	    erts_port_release(prt);
 	}
 	if (erts_smp_atomic32_dec_read_nob(&erts_halt_progress) == 0) {
@@ -5429,7 +5429,7 @@ handle_pend_sync_suspend(Process *suspendee,
 	ASSERT(is_nil(suspender->suspendee));
 	if (suspendee_alive) {
 	    erts_suspend(suspendee, suspendee_locks, NULL);
-	    suspender->suspendee = suspendee->id;
+	    suspender->suspendee = suspendee->common.id;
 	}
 	/* suspender is suspended waiting for suspendee to suspend;
 	   resume suspender */
@@ -5450,7 +5450,7 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
     ERTS_SMP_LC_ASSERT(c_p_locks & ERTS_PROC_LOCK_MAIN);
     ERTS_SMP_LC_ASSERT(pid_locks & (ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS));
 
-    if (c_p->id == pid)
+    if (c_p->common.id == pid)
 	return erts_pid2proc(c_p, c_p_locks, pid, pid_locks);
 
     if (c_p_locks & ERTS_PROC_LOCK_STATUS)
@@ -5502,7 +5502,7 @@ pid2proc_not_running(Process *c_p, ErtsProcLocks c_p_locks,
 	 */
 	if (!c_p->pending_suspenders) {
 	    /* Mark rp pending for suspend by c_p */
-	    add_pend_suspend(rp, c_p->id, handle_pend_sync_suspend);
+	    add_pend_suspend(rp, c_p->common.id, handle_pend_sync_suspend);
 	    ASSERT(is_nil(c_p->suspendee));
 
 	    /* Suspend c_p; when rp is suspended c_p will be resumed. */
@@ -5608,20 +5608,20 @@ handle_pend_bif_sync_suspend(Process *suspendee,
 	ASSERT(is_nil(suspender->suspendee));
 	if (!suspendee_alive)
 	    erts_delete_suspend_monitor(&suspender->suspend_monitors,
-					suspendee->id);
+					suspendee->common.id);
 	else {
 #ifdef DEBUG
 	    int res;
 #endif
 	    ErtsSuspendMonitor *smon;
 	    smon = erts_lookup_suspend_monitor(suspender->suspend_monitors,
-					       suspendee->id);
+					       suspendee->common.id);
 #ifdef DEBUG
 	    res =
 #endif
 		do_bif_suspend_process(suspendee, smon, suspendee);
 	    ASSERT(!smon || res != 0);
-	    suspender->suspendee = suspendee->id;
+	    suspender->suspendee = suspendee->common.id;
 	}
 	/* suspender is suspended waiting for suspendee to suspend;
 	   resume suspender */
@@ -5650,14 +5650,14 @@ handle_pend_bif_async_suspend(Process *suspendee,
 	ASSERT(is_nil(suspender->suspendee));
 	if (!suspendee_alive)
 	    erts_delete_suspend_monitor(&suspender->suspend_monitors,
-					suspendee->id);
+					suspendee->common.id);
 	else {
 #ifdef DEBUG
 	    int res;
 #endif
 	    ErtsSuspendMonitor *smon;
 	    smon = erts_lookup_suspend_monitor(suspender->suspend_monitors,
-					       suspendee->id);
+					       suspendee->common.id);
 #ifdef DEBUG
 	    res =
 #endif
@@ -5702,7 +5702,7 @@ suspend_process_2(BIF_ALIST_2)
     int unless_suspending = 0;
 
 
-    if (BIF_P->id == BIF_ARG_1)
+    if (BIF_P->common.id == BIF_ARG_1)
 	goto badarg; /* We are not allowed to suspend ourselves */
 
     if (is_not_nil(BIF_ARG_2)) {
@@ -5798,7 +5798,7 @@ suspend_process_2(BIF_ALIST_2)
 
 		if (!do_bif_suspend_process(BIF_P, smon, suspendee))
 		    add_pend_suspend(suspendee,
-				     BIF_P->id,
+				     BIF_P->common.id,
 				     handle_pend_bif_async_suspend);
 
 		res = am_true;
@@ -5861,7 +5861,7 @@ suspend_process_2(BIF_ALIST_2)
 	    else {
 		/* Mark suspendee pending for suspend by BIF_P */
 		add_pend_suspend(suspendee,
-				 BIF_P->id,
+				 BIF_P->common.id,
 				 handle_pend_bif_sync_suspend);
 
 		ASSERT(is_nil(BIF_P->suspendee));
@@ -5935,7 +5935,7 @@ resume_process_1(BIF_ALIST_1)
     Process *suspendee;
     int is_active;
  
-    if (BIF_P->id == BIF_ARG_1)
+    if (BIF_P->common.id == BIF_ARG_1)
 	BIF_ERROR(BIF_P, BADARG);
 
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
@@ -6060,7 +6060,8 @@ erts_process_status(Process *c_p, ErtsProcLocks c_p_locks,
 	for (i = 0; i < erts_no_schedulers; i++) {
 	    esdp = ERTS_SCHEDULER_IX(i);
 	    erts_smp_runq_lock(esdp->run_queue);
-	    if (esdp->free_process && esdp->free_process->id == rpid) {
+	    if (esdp->free_process
+		&& esdp->free_process->common.id == rpid) {
 		res = am_free;
 		erts_smp_runq_unlock(esdp->run_queue);
 		break;
@@ -6900,7 +6901,6 @@ static void early_init_process_struct(void *varg, Eterm data)
     Process *proc = arg->proc;
 
     proc->common.id = make_internal_pid(data);
-    proc->id = proc->common.id; /* to be removed */
     erts_smp_atomic32_init_relb(&proc->state, arg->state);
 
 #ifdef ERTS_SMP
@@ -7130,15 +7130,15 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 #endif
 
     p->common.u.alive.reg = NULL;
-    p->nlinks = NULL;
-    p->monitors = NULL;
+    ERTS_P_LINKS(p) = NULL;
+    ERTS_P_MONITORS(p) = NULL;
     p->nodes_monitors = NULL;
     p->suspend_monitors = NULL;
 
     ASSERT(is_pid(parent->group_leader));
 
     if (parent->group_leader == ERTS_INVALID_PID)
-	p->group_leader = p->id;
+	p->group_leader = p->common.id;
     else {
 	/* Needs to be done after the heap has been set up */
 	p->group_leader =
@@ -7170,7 +7170,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     DT_UTAG(p) = NIL;
     DT_UTAG_FLAGS(p) = 0;
 #endif
-    p->parent = parent->id == ERTS_INVALID_PID ? NIL : parent->id;
+    p->parent = (parent->common.id == ERTS_INVALID_PID
+		 ? NIL
+		 : parent->common.id);
 
 #ifdef HYBRID
     p->rrma  = NULL;
@@ -7190,7 +7192,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	    ERTS_TRACER_PROC(p) = ERTS_TRACER_PROC(parent);
 	}
 	if (ARE_TRACE_FLAGS_ON(parent, F_TRACE_PROCS)) {
-	    trace_proc_spawn(parent, p->id, mod, func, args);
+	    trace_proc_spawn(parent, p->common.id, mod, func, args);
 	}
 	if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS1) {
 	    /* Overrides TRACE_CHILDREN */
@@ -7210,17 +7212,17 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	int ret;
 #endif
 	if (IS_TRACED_FL(parent, F_TRACE_PROCS)) {
-	    trace_proc(parent, parent, am_link, p->id);
+	    trace_proc(parent, parent, am_link, p->common.id);
 	}
 
 #ifdef DEBUG
-	ret = erts_add_link(&(parent->nlinks),  LINK_PID, p->id);
+	ret = erts_add_link(&ERTS_P_LINKS(parent),  LINK_PID, p->common.id);
 	ASSERT(ret == 0);
-	ret = erts_add_link(&(p->nlinks), LINK_PID, parent->id);
+	ret = erts_add_link(&ERTS_P_LINKS(p), LINK_PID, parent->common.id);
 	ASSERT(ret == 0);
 #else	
-	erts_add_link(&(parent->nlinks), LINK_PID, p->id);
-	erts_add_link(&(p->nlinks), LINK_PID, parent->id);
+	erts_add_link(&ERTS_P_LINKS(parent), LINK_PID, p->common.id);
+	erts_add_link(&ERTS_P_LINKS(p), LINK_PID, parent->common.id);
 #endif
 
 	if (IS_TRACED(parent)) {
@@ -7243,8 +7245,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	Eterm mref;
 
 	mref = erts_make_ref(parent);
-	erts_add_monitor(&(parent->monitors), MON_ORIGIN, mref, p->id, NIL);
-	erts_add_monitor(&(p->monitors), MON_TARGET, mref, parent->id, NIL);
+	erts_add_monitor(&ERTS_P_MONITORS(parent), MON_ORIGIN, mref, p->common.id, NIL);
+	erts_add_monitor(&ERTS_P_MONITORS(p), MON_TARGET, mref, parent->common.id, NIL);
 	so->mref = mref;
     }
 
@@ -7271,7 +7273,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
 
-    res = p->id;
+    res = p->common.id;
 
     /*
      * Schedule process for execution.
@@ -7279,7 +7281,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     schedule_process(p, state, 0);
 
-    VERBOSE(DEBUG_PROCESSES, ("Created a new process: %T\n",p->id));
+    VERBOSE(DEBUG_PROCESSES, ("Created a new process: %T\n",p->common.id));
 
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(process_spawn)) {
@@ -7314,7 +7316,7 @@ void erts_init_empty_process(Process *p)
     p->min_heap_size = 0;
     p->min_vheap_size = 0;
     p->rcount = 0;
-    p->id = ERTS_INVALID_PID;
+    p->common.id = ERTS_INVALID_PID;
     p->reds = 0;
     ERTS_TRACER_PROC(p) = NIL;
     ERTS_TRACE_FLAGS(p) = F_INITIAL_TRACE_FLAGS;
@@ -7349,8 +7351,8 @@ void erts_init_empty_process(Process *p)
     p->mbuf = NULL;
     p->mbuf_sz = 0;
     p->psd = NULL;
-    p->monitors = NULL;
-    p->nlinks = NULL;         /* List of links */
+    ERTS_P_MONITORS(p) = NULL;
+    ERTS_P_LINKS(p) = NULL;         /* List of links */
     p->nodes_monitors = NULL;
     p->suspend_monitors = NULL;
     p->msg.first = NULL;
@@ -7439,7 +7441,7 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->stop == NULL);
     ASSERT(p->hend == NULL);
     ASSERT(p->heap == NULL);
-    ASSERT(p->id == ERTS_INVALID_PID);
+    ASSERT(p->common.id == ERTS_INVALID_PID);
     ASSERT(ERTS_TRACER_PROC(p) == NIL);
     ASSERT(ERTS_TRACE_FLAGS(p) == F_INITIAL_TRACE_FLAGS);
     ASSERT(p->group_leader == ERTS_INVALID_PID);
@@ -7454,8 +7456,8 @@ erts_debug_verify_clean_empty_process(Process* p)
     ASSERT(p->old_htop == NULL);
     ASSERT(p->old_heap == NULL);
 
-    ASSERT(p->monitors == NULL);
-    ASSERT(p->nlinks == NULL);
+    ASSERT(ERTS_P_MONITORS(p) == NULL);
+    ASSERT(ERTS_P_LINKS(p) == NULL);
     ASSERT(p->nodes_monitors == NULL);
     ASSERT(p->suspend_monitors == NULL);
     ASSERT(p->msg.first == NULL);
@@ -7517,7 +7519,7 @@ delete_process(Process* p)
 {
     ErlMessage* mp;
 
-    VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->id));
+    VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
 
     /* Cleanup psd */
 
@@ -7591,8 +7593,6 @@ delete_process(Process* p)
 	mp = next_mp;
     }
 
-    ASSERT(!p->monitors);
-    ASSERT(!p->nlinks);
     ASSERT(!p->nodes_monitors);
     ASSERT(!p->suspend_monitors);
 
@@ -7785,7 +7785,7 @@ send_exit_message(Process *to, ErtsProcLocks *to_locksp,
 	hp = bp->mem;
 	mess = copy_struct(exit_term, term_size, &hp, &bp->off_heap);
 	/* the trace token must in this case be updated by the caller */
-	seq_trace_output(token, mess, SEQ_TRACE_SEND, to->id, NULL);
+	seq_trace_output(token, mess, SEQ_TRACE_SEND, to->common.id, NULL);
 	temp_token = copy_struct(token, sz_token, &hp, &bp->off_heap);
 	erts_queue_message(to, to_locksp, bp, mess, temp_token
 #ifdef USE_VM_PROBES
@@ -8077,7 +8077,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		if (!rp) {
 		    goto done;
 		}
-		rmon = erts_remove_monitor(&(rp->monitors),mon->ref);
+		rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 		erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 		if (rmon == NULL) {
 		    goto done;
@@ -8128,13 +8128,13 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		goto done;
 	    }
 	    UseTmpHeapNoproc(3);
-	    rmon = erts_remove_monitor(&(rp->monitors),mon->ref);
+	    rmon = erts_remove_monitor(&ERTS_P_MONITORS(rp), mon->ref);
 	    if (rmon) {
 		erts_destroy_monitor(rmon);
 		watched = (is_atom(mon->name)
 			   ? TUPLE2(lhp, mon->name, 
 				    erts_this_dist_entry->sysname)
-			   : pcontext->p->id);
+			   : pcontext->p->common.id);
 		erts_queue_monitor_message(rp, &rp_locks, mon->ref, am_process, 
 					   watched, pcontext->reason);
 	    }
@@ -8201,10 +8201,10 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 	if(is_internal_port(item)) {
 	    Port *prt = erts_id2port(item, NULL, 0);
 	    if (prt) {
-		rlnk = erts_remove_link(&prt->nlinks, p->id);
+		rlnk = erts_remove_link(&ERTS_P_LINKS(prt), p->common.id);
 		if (rlnk)
 		    erts_destroy_link(rlnk);
-		erts_do_exit_port(prt, p->id, reason);
+		erts_do_exit_port(prt, p->common.id, reason);
 		erts_port_release(prt);
 	    }
 	}
@@ -8213,7 +8213,7 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 	    erts_dsprintf(dsbufp,
 			  "Erroneous link between %T and external port %T "
 			  "found\n",
-			  p->id,
+			  p->common.id,
 			  item);
 	    erts_send_error_to_logger_nogl(dsbufp);
 	    ASSERT(0); /* It isn't possible to setup such a link... */
@@ -8223,14 +8223,14 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 				      | ERTS_PROC_LOCKS_XSIG_SEND);
 	    rp = erts_pid2proc(NULL, 0, item, rp_locks);
 	    if (rp) {
-		rlnk = erts_remove_link(&(rp->nlinks), p->id);
+		rlnk = erts_remove_link(&ERTS_P_LINKS(rp), p->common.id);
 		/* If rlnk == NULL, we got unlinked while exiting,
 		   i.e., do nothing... */
 		if (rlnk) {
 		    int xres;
 		    erts_destroy_link(rlnk);
 		    xres = send_exit_signal(NULL,
-					    p->id,
+					    p->common.id,
 					    rp,
 					    &rp_locks, 
 					    reason,
@@ -8242,7 +8242,7 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 		    if (xres >= 0 && IS_TRACED_FL(rp, F_TRACE_PROCS)) {
 			/* We didn't exit the process and it is traced */
 			if (IS_TRACED_FL(rp, F_TRACE_PROCS)) {
-			    trace_proc(p, rp, am_getting_unlinked, p->id);
+			    trace_proc(p, rp, am_getting_unlinked, p->common.id);
 			}
 		    }
 		}
@@ -8256,12 +8256,12 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 		ErtsDSigData dsd;
 		int code;
 		ErtsDistLinkData dld;
-		erts_remove_dist_link(&dld, p->id, item, dep);
+		erts_remove_dist_link(&dld, p->common.id, item, dep);
 		erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 		code = erts_dsig_prepare(&dsd, dep, p, ERTS_DSP_NO_LOCK, 0);
 		if (code == ERTS_DSIG_PREP_CONNECTED) {
-		    code = erts_dsig_send_exit_tt(&dsd, p->id, item, reason,
-						  SEQ_TRACE_TOKEN(p));
+		    code = erts_dsig_send_exit_tt(&dsd, p->common.id, item,
+						  reason, SEQ_TRACE_TOKEN(p));
 		    ASSERT(code == ERTS_DSIG_SEND_OK);
 		}
 		erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
@@ -8276,7 +8276,7 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
 	    /* dist entries have node links in a separate structure to 
 	       avoid confusion */
 	    erts_smp_de_links_lock(dep);
-	    rlnk = erts_remove_link(&(dep->node_links), p->id);
+	    rlnk = erts_remove_link(&(dep->node_links), p->common.id);
 	    erts_smp_de_links_unlock(dep);
 	    if (rlnk)
 		erts_destroy_link(rlnk);
@@ -8361,7 +8361,7 @@ erts_do_exit_process(Process* p, Eterm reason)
 	    trace_proc(p, p, am_exit, reason);
     }
 
-    erts_trace_check_exiting(p->id);
+    erts_trace_check_exiting(p->common.id);
 
     ASSERT((ERTS_TRACE_FLAGS(p) & F_INITIAL_TRACE_FLAGS)
 	   == F_INITIAL_TRACE_FLAGS);
@@ -8467,6 +8467,13 @@ erts_continue_exit_process(Process *p)
     yield_allowed = 0;
 #endif
 
+    /*
+     * Note! The monitor and link fields will be overwritten 
+     * by erts_ptab_delete_element() below.
+     */
+    mon = ERTS_P_MONITORS(p);
+    lnk = ERTS_P_LINKS(p);
+
     {
 	/* Do *not* use erts_get_runq_proc() */
 	ErtsRunQueue *rq;
@@ -8495,12 +8502,6 @@ erts_continue_exit_process(Process *p)
      * be sure that all interesting resources have been deallocated
      * when the monitors and/or links hit.
      */
-
-    mon = p->monitors;
-    p->monitors = NULL; /* to avoid recursive deletion during traversal */
-
-    lnk = p->nlinks;
-    p->nlinks = NULL;
 
     {
 	/* Inactivate and notify free */
@@ -8545,7 +8546,7 @@ erts_continue_exit_process(Process *p)
 	UseTmpHeap(4,p);
 	hp = &tmp_heap[0];
 
-	exit_tuple = TUPLE3(hp, am_EXIT, p->id, reason);
+	exit_tuple = TUPLE3(hp, am_EXIT, p->common.id, reason);
 
 	exit_tuple_sz = size_object(exit_tuple);
 
@@ -8646,7 +8647,7 @@ set_timer(Process* p, Uint timeout)
 
 #ifdef ERTS_SMP
     erts_create_smp_ptimer(&p->common.u.alive.ptimer,
-			   p->id,
+			   p->common.id,
 			   (ErlTimeoutProc) timeout_proc,
 			   timeout);
 #else
@@ -8797,7 +8798,7 @@ erts_dbg_check_halloc_lock(Process *p)
 {
     if (ERTS_PROC_LOCK_MAIN & erts_proc_lc_my_proc_locks(p))
 	return 1;
-    if (p->id == ERTS_INVALID_PID)
+    if (p->common.id == ERTS_INVALID_PID)
 	return 1;
     if (p->scheduler_data && p == p->scheduler_data->match_pseudo_process)
 	return 1;

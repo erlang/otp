@@ -267,7 +267,7 @@ static const struct literal {
     { "P_HP_LIMIT", offsetof(struct process, stop) },
     { "P_OFF_HEAP_FIRST", offsetof(struct process, off_heap.first) },
     { "P_MBUF", offsetof(struct process, mbuf) },
-    { "P_ID", offsetof(struct process, id) },
+    { "P_ID", offsetof(struct process, common.id) },
     { "P_FLAGS", offsetof(struct process, flags) },
     { "P_FVALUE", offsetof(struct process, fvalue) },
     { "P_FREASON", offsetof(struct process, freason) },

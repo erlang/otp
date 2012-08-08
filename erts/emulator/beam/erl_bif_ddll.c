@@ -133,7 +133,7 @@ kill_ports_driver_unloaded(DE_Handle *dh)
 	    continue;
 	}
 
-	erts_smp_atomic_inc_nob(&prt->refc);
+	erts_smp_atomic32_inc_nob(&prt->common.refc);
 	erts_smp_port_minor_unlock(prt);
 
 	state = erts_smp_atomic32_read_acqb(&prt->state);
@@ -1892,7 +1892,7 @@ static int build_proc_info(DE_Handle *dh, ProcEntryInfo **out_pei, Uint filter)
     assert_drv_list_locked();
 
     for (pe = dh->procs; pe != NULL; pe = pe->next) {
-	Eterm id = pe->proc->id;
+	Eterm id = pe->proc->common.id;
 	Uint stat = pe->awaiting_status;
 	if (stat == ERL_DE_PROC_AWAIT_UNLOAD_ONLY) {
 	    stat = ERL_DE_PROC_AWAIT_UNLOAD;
