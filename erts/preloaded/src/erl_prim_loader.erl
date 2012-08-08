@@ -836,7 +836,7 @@ prim_set_primary_archive(PS, ArchiveFile0, ArchiveBin,
   when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
     %% Try the archive file
     debug(PS, {set_primary_archive, ArchiveFile0, byte_size(ArchiveBin)}),
-    ArchiveFile = absname(ArchiveFile0),
+    ArchiveFile = real_path(absname(ArchiveFile0)),
     {Res3, PS3} =
         case PS#prim_state.primary_archive of
             undefined ->
@@ -1076,7 +1076,7 @@ open_archive(Archive, Acc, Fun) ->
 %%
 %% In the archive (zip) file, directory elements might or might not be
 %% present. To ensure consistency, a directory element is added if it
-%% does not already exist (ensure_virual_dir/6). NOTE that there will
+%% does not already exist (ensure_virtual_dirs/6). NOTE that there will
 %% be no such directory element for the top directory of the archive.
 open_archive(Archive, FileInfo, Acc, Fun) ->
     FakeFI = FileInfo#file_info{type = directory},
@@ -1243,6 +1243,17 @@ path_split([Head | Tail], Path, Paths) ->
 path_split([], Path, Paths) ->
     [Path | Paths].
 
+%% The opposite of path_split/1
+path_join(Paths) ->
+    path_join(Paths,[]).
+
+path_join([""],Acc) ->
+    Acc;
+path_join([Path],Acc) ->
+    reverse(Path) ++ Acc;
+path_join([Path|Paths],Acc) ->
+    path_join(Paths,"/" ++ reverse(Path) ++ Acc).
+
 name_split(ArchiveFile, File0) ->
     File = absname(File0),
     do_name_split(ArchiveFile, File).
@@ -1267,7 +1278,7 @@ do_name_split(undefined, File) ->
     end;
 do_name_split(ArchiveFile, File) ->
     %% Look first in primary archive
-    case string_match(File, ArchiveFile, []) of
+    case string_match(real_path(File), ArchiveFile, []) of
         no_match ->
             %% Archive or plain file
             do_name_split(undefined, File);
@@ -1333,26 +1344,24 @@ ipv4_addr([], D, [C,B,A]) when D < 256 -> {A,B,C,D}.
 %% A simplified version of filename:absname/1
 absname(Name) ->
     Name2 = normalize(Name, []),
-    Name3 =
-	case pathtype(Name2) of
-	    absolute ->
-		Name2;
-	    relative ->
-		case prim_file:get_cwd() of
-		    {ok, Cwd} ->
-			Cwd ++ "/" ++ Name2;
-		    {error, _} ->
-			Name2
-		end;
-	    volumerelative ->
-		case prim_file:get_cwd() of
-		    {ok, Cwd} ->
-			absname_vr(Name2, Cwd);
-		    {error, _} ->
-			Name2
-		end
-	end,
-    path_flatten(Name3).
+    case pathtype(Name2) of
+	absolute ->
+	    Name2;
+	relative ->
+	    case prim_file:get_cwd() of
+		{ok, Cwd} ->
+		    Cwd ++ "/" ++ Name2;
+		{error, _} ->
+		    Name2
+	    end;
+	volumerelative ->
+	    case prim_file:get_cwd() of
+		{ok, Cwd} ->
+		    absname_vr(Name2, Cwd);
+		{error, _} ->
+		    Name2
+	    end
+    end.
 
 %% Assumes normalized name
 absname_vr([$/ | NameRest], [Drive, $\: | _]) ->
@@ -1429,25 +1438,42 @@ normalize(Name, Acc) ->
 
 %% Remove .. and . from the path, e.g.
 %% /path/./to/this/../file -> /path/to/file
-path_flatten(Name) ->
-    path_flatten(Name,[],[]).
+%% This includes resolving symlinks.
+%%
+%% This is done to ensure that paths are totally normalized before
+%% comparing to find out if a file is inside the primary archive or
+%% not.
+real_path(Name) ->
+    real_path(Name,reverse(path_split(Name)),[],[]).
 
-path_flatten([$/,$.,$.,$/|Rest],_RevLast,RevTop) ->
-    path_flatten(Rest,[],RevTop);
-path_flatten([$/,$.,$/|Rest],RevLast,RevTop) ->
-    path_flatten([$/|Rest],RevLast,RevTop);
-path_flatten([$/,$.,$.],_RevLast,RevTop) ->
-    path_flatten([],[],RevTop);
-path_flatten([$/,$.],RevLast,RevTop) ->
-    path_flatten([],RevLast,RevTop);
-path_flatten([$/],RevLast,RevTop) ->
-    path_flatten([],RevLast,RevTop);
-path_flatten([$/|Rest],RevLast,RevTop) ->
-    path_flatten(Rest,[],[$/|RevLast++RevTop]);
-path_flatten([Ch|Rest],RevLast,RevTop) ->
-    path_flatten(Rest,[Ch|RevLast],RevTop);
-path_flatten([],RevLast,RevTop) ->
-    reverse(RevLast++RevTop).
+real_path(_Name,[],Acc,_Links) ->
+    path_join(Acc);
+real_path(Name,["."|Paths],Acc,Links) ->
+    real_path(Name,Paths,Acc,Links);
+real_path(Name,[".."|Paths],[""]=Acc,Links) ->
+    %% /.. -> / (can't get higher than root)
+    real_path(Name,Paths,Acc,Links);
+real_path(Name,[".."|Paths],[Prev|Acc],Links) when Prev=/=".." ->
+    real_path(Name,Paths,Acc,Links);
+real_path(Name,[Path|Paths],Acc,Links) ->
+    This = [Path|Acc],
+    ThisFile = path_join(This),
+    case lists:member(ThisFile,Links) of
+	true -> % circular!!
+	    Name;
+	false ->
+	    case prim_file:read_link(ThisFile) of
+		{ok,Link} ->
+		    case reverse(path_split(Link)) of
+			[""|_] = LinkPaths ->
+			    real_path(Name,LinkPaths++Paths,[],[ThisFile|Links]);
+			LinkPaths ->
+			    real_path(Name,LinkPaths++Paths,Acc,[ThisFile|Links])
+		    end;
+		_ ->
+		    real_path(Name,Paths,This,Links)
+	    end
+    end.
 
 load_prim_archive(ArchiveFile, ArchiveBin, #file_info{}=FileInfo) ->
     Fun = fun({Components, _GI, _GB}, A) ->
