@@ -146,10 +146,17 @@ env_default_opts() ->
 
 do_compile(Input, Opts0) ->
     Opts = expand_opts(Opts0),
-    Self = self(),
-    Serv = spawn_link(fun() -> internal(Self, Input, Opts) end),
+    {Pid,Ref} =
+	spawn_monitor(fun() ->
+			      exit(try
+				       internal(Input, Opts)
+				   catch
+				       error:Reason ->
+					   {error,Reason}
+				   end)
+		      end),
     receive
-	{Serv,Rep} -> Rep
+	{'DOWN',Ref,process,Pid,Rep} -> Rep
     end.
 
 expand_opts(Opts0) ->
@@ -241,11 +248,6 @@ format_error({module_name,Mod,Filename}) ->
 		  mod_options=[]  :: [option()], %Options for module_info
 		  errors=[],
 		  warnings=[]}).
-
-internal(Master, Input, Opts) ->
-    Master ! {self(), try internal(Input, Opts)
-		      catch error:Reason -> {error, Reason}
-		      end}.
 
 internal({forms,Forms}, Opts0) ->
     {_,Ps} = passes(forms, Opts0),
