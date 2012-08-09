@@ -112,7 +112,9 @@ special_init(TestCase, Config)
 special_init(ssl2_erlang_server_openssl_client, Config) ->
     check_sane_openssl_sslv2(Config);
 
-special_init(ciphers_dsa_signed_certs, Config) ->
+special_init(TestCase, Config) when TestCase == erlang_client_openssl_server_dsa_cert;
+				    TestCase == erlang_server_openssl_client_dsa_cert;
+				    TestCase == ciphers_dsa_signed_certs ->
     check_sane_openssl_dsa(Config);
 
 special_init(_, Config) ->
@@ -1186,7 +1188,7 @@ check_sane_openssl_renegotaite(Config) ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 0.9.7" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
-	"OpenSSL 1.0.1c" ++ _ -> 
+	"OpenSSL 1.0.1" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	_ ->
 	    Config

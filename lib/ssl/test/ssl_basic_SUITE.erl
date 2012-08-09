@@ -198,11 +198,18 @@ all_versions_groups ()->
 init_per_group(GroupName, Config) ->
     case ssl_test_lib:is_tls_version(GroupName) of
 	true ->
-	    ssl_test_lib:init_tls_version(GroupName);
+	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl_test_lib:init_tls_version(GroupName),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end;
 	_ ->
-	    ssl:start()
-    end,
-    Config.
+	    ssl:start(),
+	    Config
+    end.
+
 
 end_per_group(_GroupName, Config) ->
     Config.

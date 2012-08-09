@@ -222,8 +222,6 @@ hmac_hash(?MD5, Key, Value) ->
     crypto:md5_mac(Key, Value);
 hmac_hash(?SHA, Key, Value) ->
     crypto:sha_mac(Key, Value);
-hmac_hash(?MD5SHA, Key, Value) ->
-    crypto:sha256_mac(Key, Value);
 hmac_hash(?SHA256, Key, Value) ->
     crypto:sha256_mac(Key, Value);
 hmac_hash(?SHA384, Key, Value) ->
