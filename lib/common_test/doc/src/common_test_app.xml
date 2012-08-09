@@ -162,7 +162,7 @@
 	<v> Func = atom()</v>
 	<v> Args = list()</v>
 	<v> Fun = fun()</v>
-	<v> Required = Key | {Key,SubKeys}</v>
+	<v> Required = Key | {Key,SubKeys} | {Key,SubKey} | {Key,SubKey,SubKeys}</v>
 	<v> Key = atom()</v>
 	<v> SubKeys = SubKey | [SubKey]</v>
 	<v> SubKey = atom()</v>
@@ -289,7 +289,7 @@
 	<v> Func = atom()</v>
 	<v> Args = list()</v>
 	<v> Fun = fun()</v>
-	<v> Required = Key | {Key,SubKeys}</v>
+	<v> Required = Key | {Key,SubKeys} | {Key,Subkey} | {Key,Subkey,SubKeys}</v>
 	<v> Key = atom()</v>
 	<v> SubKeys = SubKey | [SubKey]</v>
 	<v> SubKey = atom()</v>
@@ -476,7 +476,7 @@
 	<v> Func = atom()</v>
 	<v> Args = list()</v>
 	<v> Fun = fun()</v>
-	<v> Required = Key | {Key,SubKeys}</v>
+	<v> Required = Key | {Key,SubKeys} | {Key,Subkey} | {Key,Subkey,SubKeys}</v>
 	<v> Key = atom()</v>
 	<v> SubKeys = SubKey | [SubKey]</v>
 	<v> SubKey = atom()</v>

@@ -155,6 +155,8 @@ open(KeyOrName,ConnType,TargetMod) ->
 %%% <p><code>TargetMod</code> is a module which exports the functions
 %%% <code>connect(Ip,Port,KeepAlive,Extra)</code> and <code>get_prompt_regexp()</code>
 %%% for the given <code>TargetType</code> (e.g. <code>unix_telnet</code>).</p>
+%%%
+%%% @see ct:require/2
 open(KeyOrName,ConnType,TargetMod,Extra) ->
     case ct:get_config({KeyOrName,ConnType}) of
 	undefined ->

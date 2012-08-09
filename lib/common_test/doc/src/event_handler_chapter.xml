@@ -205,7 +205,7 @@
 	                   {error,{RunTimeError,StackTrace}} | 
                            {timetrap_timeout,integer()} | 
 			   {failed,{Suite,end_per_testcase,FailInfo}}</c>, reason for failure.</p>	
-        <p><c>RequireInfo = {not_available,atom()}</c>, why require has failed.</p>
+        <p><c>RequireInfo = {not_available,atom() | tuple()}</c>, why require has failed.</p>
         <p><c>FailInfo = {timetrap_timeout,integer()} | 
 	                 {RunTimeError,StackTrace} | 
 			 UserTerm</c>, 
@@ -233,7 +233,7 @@
 	      reason for auto skipping <c>Func</c>.</p>
         <p><c>FailReason = {Suite,ConfigFunc,FailInfo}} | 
 	                   {Suite,FailedCaseInSequence}</c>, reason for failure.</p>	
-        <p><c>RequireInfo = {not_available,atom()}</c>, why require has failed.</p>
+        <p><c>RequireInfo = {not_available,atom() | tuple()}</c>, why require has failed.</p>
         <p><c>ConfigFunc = init_per_suite | init_per_group</c></p>
         <p><c>FailInfo = {timetrap_timeout,integer()} | 
 	                 {RunTimeError,StackTrace} |

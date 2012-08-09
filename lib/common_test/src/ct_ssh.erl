@@ -136,7 +136,8 @@ connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
 %%%      associated with <code>Name</code>. If <code>Key</code> is 
 %%%      used, the returned handle must be used for subsequent calls
 %%%      (multiple connections may be opened using the config
-%%%      data specified by <code>Key</code>).</p>
+%%%      data specified by <code>Key</code>). See <c>ct:require/3</c>
+%%%      for how to create a new <c>Name</c></p>
 %%%
 %%%      <p><code>ConnType</code> will always override the type
 %%%      specified in the address tuple in the configuration data (and
@@ -152,6 +153,8 @@ connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
 %%%      The extra options will override any existing options with the
 %%%      same key in the config data. For details on valid SSH
 %%%      options, see the documentation for the OTP ssh application.</p>
+%%%
+%%% @see ct:require/3
 connect(KeyOrName, ConnType, ExtraOpts) ->
     case ct:get_config(KeyOrName) of
 	undefined ->

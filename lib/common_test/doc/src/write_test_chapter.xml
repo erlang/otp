@@ -338,7 +338,8 @@
 
 	  <pre>
 	    testcase2() -> 
-	        [{require, unix_telnet, {unix, [telnet, username, password]}},
+	        [{require, unix_telnet, unix},
+		 {require, {unix, [telnet, username, password]}},
 	         {default_config, unix, [{telnet, "my_telnet_host"},
 	                                 {username, "aladdin"},
 	                                 {password, "sesame"}]}}].</pre>

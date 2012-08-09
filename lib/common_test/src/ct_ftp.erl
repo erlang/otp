@@ -66,6 +66,7 @@
 %%% {unix,[{ftp,IpAddr},
 %%%        {username,Username},
 %%%        {password,Password}]}.</pre>
+%%% @see ct:require/3
 put(KeyOrName,LocalFile,RemoteFile) ->
     Fun = fun(Ftp) -> send(Ftp,LocalFile,RemoteFile) end,
     open_and_do(KeyOrName,Fun).
@@ -85,6 +86,7 @@ put(KeyOrName,LocalFile,RemoteFile) ->
 %%%
 %%% <p>The config file must be as for put/3.</p>
 %%% @see put/3
+%%% @see ct:require/3
 get(KeyOrName,RemoteFile,LocalFile) ->
     Fun = fun(Ftp) -> recv(Ftp,RemoteFile,LocalFile) end,
     open_and_do(KeyOrName,Fun).
@@ -105,6 +107,10 @@ get(KeyOrName,RemoteFile,LocalFile) ->
 %%% simply use <code>Key</code>, the configuration variable name, to 
 %%% specify the target. Note that a connection that has no associated target 
 %%% name can only be closed with the handle value.</p>
+%%%
+%%% <p>See <c>ct:require/3</c> for how to create a new <c>Name</c></p>
+%%%
+%%% @see ct:require/3
 open(KeyOrName) ->
     case ct_util:get_key_from_name(KeyOrName) of
 	{ok,node} ->

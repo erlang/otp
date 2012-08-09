@@ -295,7 +295,7 @@
 
       <pre>
         [{ftp_host, [{ftp, "targethost"}, {username, "tester"}, {password, "letmein"}]},
-        {lm_directory, "/test/loadmodules"}]</pre>
+         {lm_directory, "/test/loadmodules"}]</pre>
 
     </section>
 
