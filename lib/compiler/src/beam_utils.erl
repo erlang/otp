@@ -810,8 +810,10 @@ live_opt([{select_tuple_arity,Src,Fail,{list,List}}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src], Regs0),
     Regs = live_join_labels([Fail|List], D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{'try',_,Fail}=I|Is], Regs0, D, Acc) ->
-    Regs = live_join_label(Fail, D, Regs0),
+live_opt([{'try',_,_}=I|Is], Regs, D, Acc) ->
+    %% If an exeption happens, all x registers will be killed.
+    %% Therefore, we should only base liveness of the code inside
+    %% the try.
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{try_case,_}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(1), D, [I|Acc]);
