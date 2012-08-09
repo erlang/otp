@@ -668,18 +668,30 @@ live_opt([{bs_add,Fail,[Src1,Src2,_],Dst}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src1,Src2], x_dead([Dst], Regs0)),
     Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_init2,Fail,_,_,Live,_,_}=I|Is], _, D, Acc) ->
-    Regs1 = live_call(Live),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_init_bits,Fail,Src1,_,Live,_,Src2}=I|Is], _, D, Acc) ->
-    Regs1 = live_call(Live),
-    Regs2 = x_live([Src1,Src2], Regs1),
+live_opt([{bs_init2,Fail,Sz,Extra,Live0,Fl,Dst}|Is], Regs0, D, Acc) ->
+    Regs1 = x_dead([Dst], Regs0),
+    Live = live_regs(Regs1),
+    true = Live =< Live0,	%Assertion.
+    Regs2 = live_call(Live),
     Regs = live_join_label(Fail, D, Regs2),
+    I = {bs_init2,Fail,Sz,Extra,Live,Fl,Dst},
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_append,Fail,Src1,_,Live,_,Src2,_,Dst}=I|Is], _Regs0, D, Acc) ->
-    Regs1 = x_dead([Dst], x_live([Src1,Src2], live_call(Live))),
-    Regs = live_join_label(Fail, D, Regs1),
+live_opt([{bs_init_bits,Fail,Sz,Extra,Live0,Fl,Dst}|Is], Regs0, D, Acc) ->
+    Regs1 = x_dead([Dst], Regs0),
+    Live = live_regs(Regs1),
+    true = Live =< Live0,	%Assertion.
+    Regs2 = live_call(Live),
+    Regs = live_join_label(Fail, D, Regs2),
+    I = {bs_init_bits,Fail,Sz,Extra,Live,Fl,Dst},
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{bs_append,Fail,Bits,Extra,Live0,Unit,Src,Fl,Dst}|Is],
+	 Regs0, D, Acc) ->
+    Regs1 = x_live([Src], x_dead([Dst], Regs0)),
+    Live = live_regs(Regs1),
+    true = Live =< Live0,	%Assertion.
+    Regs2 = live_call(Live),
+    Regs = live_join_label(Fail, D, Regs2),
+    I = {bs_append,Fail,Bits,Extra,Live,Unit,Src,Fl,Dst},
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{bs_private_append,Fail,Src1,_,Src2,_,Dst}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src1,Src2], x_dead([Dst], Regs0)),
@@ -837,13 +849,24 @@ live_opt([{allocate_heap,_,_,Live}=I|Is], _, D, Acc) ->
 
 live_opt([], _, _, Acc) -> Acc.
 
-live_opt_block([{set,[],[],{alloc,Live,_}}=I|Is], _, D, Acc) ->
-    live_opt_block(Is, live_call(Live), D, [I|Acc]);
-live_opt_block([{set,Ds,Ss,Op}=I|Is], Regs0, D, Acc) ->
-    Regs = case Op of
-	       {alloc,Live,_} -> live_call(Live);
-	       _ -> x_live(Ss, x_dead(Ds, Regs0))
-	   end,
+live_opt_block([{set,Ds,Ss,Op}=I0|Is], Regs0, D, Acc) ->
+    Regs1 = x_live(Ss, x_dead(Ds, Regs0)),
+    {I,Regs} = case Op of
+		   {alloc,Live0,Alloc} ->
+		       %% The life-time analysis used by the code generator
+		       %% is sometimes too conservative, so it may be
+		       %% possible to lower the number of live registers
+		       %% based on the exact liveness information.
+		       %% The main benefit is that more optimizations that
+		       %% depend on liveness information (such as the
+		       %% beam_bool and beam_dead passes) may be applied.
+		       Live = live_regs(Regs1),
+		       true = Live =< Live0,	%Assertion.
+		       I1 = {set,Ds,Ss,{alloc,Live,Alloc}},
+		       {I1,live_call(Live)};
+		   _ ->
+		       {I0,Regs1}
+	       end,
     case Ds of
 	[{x,X}] ->
 	    case (not is_live(X, Regs0)) andalso Op =:= move of
