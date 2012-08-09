@@ -472,6 +472,16 @@ check_liveness(R, [{make_fun2,_,_,_,NumFree}|Is], St) ->
 	{x,_} -> {killed,St};
 	_ -> check_liveness(R, Is, St)
     end;
+check_liveness({x,_}=R, [{'catch',_,_}|Is], St) ->
+    %% All x registers will be killed if an exception occurs.
+    %% Therefore we only need to check the liveness for the
+    %% instructions following the catch instruction.
+    check_liveness(R, Is, St);
+check_liveness({x,_}=R, [{'try',_,_}|Is], St) ->
+    %% All x registers will be killed if an exception occurs.
+    %% Therefore we only need to check the liveness for the
+    %% instructions inside the 'try' block.
+    check_liveness(R, Is, St);
 check_liveness(R, [{try_end,Y}|Is], St) ->
     case R of
 	Y ->
