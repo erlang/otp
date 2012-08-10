@@ -139,7 +139,7 @@ test(Tests, Options) ->
 %% @private
 %% @doc See {@link test/2}.
 test(Server, Tests, Options) ->
-    Listeners = [eunit_tty:start(Options) | listeners(Options)],
+    Listeners = listeners(Options),
     Serial = eunit_serial:start(Listeners),
     case eunit_server:start_test(Server, Serial, Tests, Options) of
 	{ok, Reference} -> test_run(Reference, Listeners);
@@ -194,7 +194,10 @@ submit(Server, T, Options) ->
     eunit_server:start_test(Server, Dummy, T, Options).
 
 listeners(Options) ->
-    Ps = start_listeners(proplists:get_all_values(report, Options)),
+    %% note that eunit_tty must always run, because it sends the final
+    %% {result,...} message that the test_run() function is waiting for
+    Ls = [{eunit_tty, Options} | proplists:get_all_values(report, Options)],
+    Ps = start_listeners(Ls),
     %% the event_log option is for debugging, to view the raw events
     case proplists:get_value(event_log, Options) of
 	undefined ->
