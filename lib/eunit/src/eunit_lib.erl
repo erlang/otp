@@ -30,7 +30,8 @@
 -export([dlist_next/1, uniq/1, fun_parent/1, is_string/1, command/1,
 	 command/2, command/3, trie_new/0, trie_store/2, trie_match/2,
 	 split_node/1, consult_file/1, list_dir/1, format_exit_term/1,
-	 format_exception/1, format_exception/2, format_error/1]).
+	 format_exception/1, format_exception/2, format_error/1,
+         is_not_test/1]).
 
 
 %% Type definitions for describing exceptions
@@ -39,13 +40,10 @@
 %%
 %% @type exceptionClass() = error | exit | throw
 %%
-%% @type stackTrace() = [{moduleName(), functionName(),
-%%			  arity() | argList()}]
+%% @type stackTrace() = [{moduleName(), functionName(), arity() | argList()}]
 %%
 %% @type moduleName() = atom()
 %% @type functionName() = atom()
-%% @type arity() = integer()
-%% @type mfa() = {moduleName(), functionName(), arity()}
 %% @type argList() = [term()]
 %% @type fileName() = string()
 
@@ -59,8 +57,9 @@ format_exception({Class,Term,Trace}, Depth)
   when is_atom(Class), is_list(Trace) ->
     case is_stacktrace(Trace) of
 	true ->
-	    io_lib:format("~w:~P\n~s",
-			  [Class, Term, Depth, format_stacktrace(Trace)]);
+	    io_lib:format("~s**~w:~s",
+			  [format_stacktrace(Trace), Class,
+                           format_term(Term, Depth)]);
 	false ->
 	    format_term(Term, Depth)
     end;
@@ -86,6 +85,12 @@ analyze_exit_term(Term) ->
 
 is_stacktrace([]) ->
     true;
+is_stacktrace([{M,F,A,L}|Fs])
+  when is_atom(M), is_atom(F), is_integer(A), is_list(L) ->
+    is_stacktrace(Fs);
+is_stacktrace([{M,F,As,L}|Fs])
+  when is_atom(M), is_atom(F), is_list(As), is_list(L) ->
+    is_stacktrace(Fs);
 is_stacktrace([{M,F,A}|Fs]) when is_atom(M), is_atom(F), is_integer(A) ->
     is_stacktrace(Fs);
 is_stacktrace([{M,F,As}|Fs]) when is_atom(M), is_atom(F), is_list(As) ->
@@ -96,10 +101,11 @@ is_stacktrace(_) ->
 format_stacktrace(Trace) ->
     format_stacktrace(Trace, "in function", "in call from").
 
-format_stacktrace([{M,F,A}|Fs], Pre, Pre1) when is_integer(A) ->
-    [io_lib:fwrite("  ~s ~w:~w/~w\n", [Pre, M, F, A])
+format_stacktrace([{M,F,A,L}|Fs], Pre, Pre1) when is_integer(A) ->
+    [io_lib:fwrite("~s ~w:~w/~w~s\n",
+                   [Pre, M, F, A, format_stacktrace_location(L)])
      | format_stacktrace(Fs, Pre1, Pre1)];
-format_stacktrace([{M,F,As}|Fs], Pre, Pre1) when is_list(As) ->
+format_stacktrace([{M,F,As,L}|Fs], Pre, Pre1) when is_list(As) ->
     A = length(As),
     C = case is_op(M,F,A) of
 	    true when A =:= 1 ->
@@ -112,11 +118,22 @@ format_stacktrace([{M,F,As}|Fs], Pre, Pre1) when is_list(As) ->
 	    false ->
 		io_lib:fwrite("~w(~s)", [F,format_arglist(As)])
 	end,
-    [io_lib:fwrite("  ~s ~w:~w/~w\n    called as ~s\n",
-		   [Pre,M,F,A,C])
+    [io_lib:fwrite("~s ~w:~w/~w~s\n  called as ~s\n",
+		   [Pre,M,F,A,format_stacktrace_location(L),C])
      | format_stacktrace(Fs,Pre1,Pre1)];
+format_stacktrace([{M,F,As}|Fs], Pre, Pre1) ->
+    format_stacktrace([{M,F,As,[]}|Fs], Pre, Pre1);
 format_stacktrace([],_Pre,_Pre1) ->
     "".
+
+format_stacktrace_location(Location) ->
+    File = proplists:get_value(file, Location),
+    Line = proplists:get_value(line, Location),
+    if File =/= undefined, Line =/= undefined ->
+            io_lib:format(" (~s, line ~w)", [File, Line]);
+       true ->
+            ""
+    end.
 
 format_arg(A) ->
     io_lib:format("~P",[A,15]).
@@ -139,9 +156,13 @@ is_op(_M, _F, _A) ->
 
 format_error({bad_test, Term}) ->
     error_msg("bad test descriptor", "~P", [Term, 15]);
-format_error({generator_failed, Exception}) ->
-    error_msg("test generator failed", "~s",
-	      [format_exception(Exception)]);
+format_error({bad_generator, {{M,F,A}, Term}}) ->
+    error_msg(io_lib:format("result from generator ~w:~w/~w is not a test",
+                            [M,F,A]),
+              "~P", [Term, 15]);
+format_error({generator_failed, {{M,F,A}, Exception}}) ->
+    error_msg(io_lib:format("test generator ~w:~w/~w failed",[M,F,A]),
+              "~s", [format_exception(Exception)]);
 format_error({no_such_function, {M,F,A}})
   when is_atom(M), is_atom(F), is_integer(A) ->
     error_msg(io_lib:format("no such function: ~w:~w/~w", [M,F,A]),
@@ -158,14 +179,55 @@ format_error({setup_failed, Exception}) ->
 format_error({cleanup_failed, Exception}) ->
     error_msg("context cleanup failed", "~s",
 	      [format_exception(Exception)]);
+format_error({{bad_instantiator, {{M,F,A}, Term}}, _DummyException}) ->
+    error_msg(io_lib:format("result from instantiator ~w:~w/~w is not a test",
+                            [M,F,A]),
+              "~P", [Term, 15]);
 format_error({instantiation_failed, Exception}) ->
     error_msg("instantiation of subtests failed", "~s",
 	      [format_exception(Exception)]).
 
 error_msg(Title, Fmt, Args) ->
-    Msg = io_lib:format("::"++Fmt, Args),    % gets indentation right
+    Msg = io_lib:format("**"++Fmt, Args),    % gets indentation right
     io_lib:fwrite("*** ~s ***\n~s\n\n", [Title, Msg]).
 
+-ifdef(TEST).
+format_exception_test_() ->
+    [?_assertMatch(
+        "\nymmud:rorre"++_,
+        lists:reverse(lists:flatten(
+          format_exception(try erlang:error(dummy)
+                           catch C:R -> {C, R, erlang:get_stacktrace()}
+                           end)))),
+     ?_assertMatch(
+        "\nymmud:rorre"++_,
+        lists:reverse(lists:flatten(
+          format_exception(try erlang:error(dummy, [a])
+                           catch C:R -> {C, R, erlang:get_stacktrace()}
+                           end))))].
+-endif.
+
+%% ---------------------------------------------------------------------
+%% detect common return values that are definitely not tests
+
+is_not_test(T) ->
+    case T of
+        ok -> true;
+        error -> true;
+        true -> true;
+        false -> true;
+        undefined -> true;
+        {ok, _} -> true;
+        {error, _} -> true;
+        {'EXIT', _} -> true;
+        N when is_number(N) -> true;
+        [N|_] when is_number(N) -> true;
+        X when is_binary(X) -> true;
+        X when is_pid(X) -> true;
+        X when is_port(X) -> true;
+        X when is_reference(X) -> true;
+        _ -> false
+    end.
 
 %% ---------------------------------------------------------------------
 %% Deep list iterator; accepts improper lists/sublists, and also accepts

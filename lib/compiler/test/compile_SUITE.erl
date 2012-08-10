@@ -25,7 +25,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 app_test/1,
-	 file_1/1, module_mismatch/1, big_file/1, outdir/1, 
+	 file_1/1, forms_2/1, module_mismatch/1, big_file/1, outdir/1,
 	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, package_forms/1, encrypted_abstr/1,
 	 bad_record_use1/1, bad_record_use2/1, strict_record/1,
@@ -42,7 +42,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [app_test, file_1, module_mismatch, big_file, outdir,
+    [app_test, file_1, forms_2, module_mismatch, big_file, outdir,
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, package_forms, encrypted_abstr,
      {group, bad_record_use}, strict_record,
@@ -76,6 +76,9 @@ app_test(Config) when is_list(Config) ->
 
 file_1(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:minutes(5)),
+
+    process_flag(trap_exit, true),
+
     ?line {Simple, Target} = files(Config, "file_1"),
     ?line {ok, Cwd} = file:get_cwd(),
     ?line ok = file:set_cwd(filename:dirname(Target)),
@@ -102,7 +105,35 @@ file_1(Config) when is_list(Config) ->
     %% Cleanup.
     ?line ok = file:delete(Target),
     ?line ok = file:del_dir(filename:dirname(Target)),
+
+    %% There should not be any messages in the messages.
+    receive
+	Any ->
+	    ?t:fail({unexpected,Any})
+    after 10 ->
+	    ok
+    end,
+
     ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+forms_2(Config) when is_list(Config) ->
+    Src = "/foo/bar",
+    AbsSrc = filename:absname(Src),
+    {ok,simple,Binary} = compile:forms([{attribute,1,module,simple}],
+				       [binary,{source,Src}]),
+    code:load_binary(simple, Src, Binary),
+    Info = simple:module_info(compile),
+
+    %% Test that the proper source is returned.
+    AbsSrc = proplists:get_value(source, Info),
+
+    %% Ensure that the options are not polluted with 'source'.
+    [] = proplists:get_value(options, Info),
+
+    %% Cleanup.
+    true = code:delete(simple),
+    false = code:purge(simple),
     ok.
 
 module_mismatch(Config) when is_list(Config) ->

@@ -66,7 +66,8 @@
 	 capture_start/0, capture_stop/0, capture_get/0, capture_get/1,
 	 fail/1, fail/2, comment/1, comment/2, make_priv_dir/0,
 	 testcases/2, userdata/2, userdata/3,
-	 timetrap/1, get_timetrap_info/0, sleep/1]).
+	 timetrap/1, get_timetrap_info/0, sleep/1,
+	 notify/2, sync_notify/2]).
 
 %% New API for manipulating with config handlers
 -export([add_config/2, remove_config/2]).
@@ -1047,3 +1048,27 @@ sleep({seconds,Ss}) ->
     sleep(trunc(Ss * 1000));
 sleep(Time) ->
     test_server:adjusted_sleep(Time).
+
+%%%-----------------------------------------------------------------
+%%% @spec notify(Name,Data) -> ok
+%%%       Name = atom()
+%%%       Data = term()
+%%%
+%%% @doc <p>Sends a asynchronous notification of type <c>Name</c> with
+%%%      <c>Data</c>to the common_test event manager. This can later be
+%%%      caught by any installed event manager. </p>
+%%% @see //stdlib/gen_event
+notify(Name,Data) ->
+    ct_event:notify(Name, Data).
+
+%%%-----------------------------------------------------------------
+%%% @spec sync_notify(Name,Data) -> ok
+%%%       Name = atom()
+%%%       Data = term()
+%%%
+%%% @doc <p>Sends a synchronous notification of type <c>Name</c> with
+%%%      <c>Data</c>to the common_test event manager. This can later be
+%%%      caught by any installed event manager. </p>
+%%% @see //stdlib/gen_event
+sync_notify(Name,Data) ->
+    ct_event:sync_notify(Name, Data).

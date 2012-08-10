@@ -4,7 +4,7 @@
 <cref>
   <header>
     <copyright>
-      <year>2001</year><year>2011</year>
+      <year>2001</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -472,7 +472,7 @@ typedef enum {
   </section>
 
   <funcs>
-    <func><name><ret>void*</ret><nametext>enif_alloc(size_t size)</nametext></name>
+    <func><name><ret>void *</ret><nametext>enif_alloc(size_t size)</nametext></name>
       <fsummary>Allocate dynamic memory.</fsummary>
       <desc><p>Allocate memory of <c>size</c> bytes. Return NULL if allocation failed.</p></desc>
     </func>
@@ -489,7 +489,7 @@ typedef enum {
         <p>Return true on success or false if allocation failed.</p>
       </desc>
     </func>
-    <func><name><ret>ErlNifEnv*</ret><nametext>enif_alloc_env()</nametext></name>
+    <func><name><ret>ErlNifEnv *</ret><nametext>enif_alloc_env()</nametext></name>
       <fsummary>Create a new environment</fsummary>
       <desc><p>Allocate a new process independent environment. The environment can
       be used to hold terms that is not bound to any process. Such terms can
@@ -499,7 +499,7 @@ typedef enum {
       <p>Return pointer to the new environment.</p>
       </desc>
     </func>
-    <func><name><ret>void*</ret><nametext>enif_alloc_resource(ErlNifResourceType* type, unsigned size)</nametext></name>
+    <func><name><ret>void *</ret><nametext>enif_alloc_resource(ErlNifResourceType* type, unsigned size)</nametext></name>
       <fsummary>Allocate a memory managed resource object</fsummary>
       <desc><p>Allocate a memory managed resource object of type <c>type</c> and size <c>size</c> bytes.</p></desc>
     </func>
@@ -522,7 +522,7 @@ typedef enum {
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_broadcast">erl_drv_cond_broadcast</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>ErlNifCond*</ret><nametext>enif_cond_create(char *name)</nametext></name>
+    <func><name><ret>ErlNifCond *</ret><nametext>enif_cond_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_create">erl_drv_cond_create</seealso>.
           </p></desc>
@@ -840,7 +840,7 @@ typedef enum {
       <fsummary>Create an integer term from a long int</fsummary>
       <desc><p>Create an integer term from a <c>long int</c>.</p></desc>
     </func>
-    <func><name><ret>unsigned char*</ret><nametext>enif_make_new_binary(ErlNifEnv* env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
+    <func><name><ret>unsigned char *</ret><nametext>enif_make_new_binary(ErlNifEnv* env, size_t size, ERL_NIF_TERM* termp)</nametext></name>
       <fsummary>Allocate and create a new binary term</fsummary>
       <desc><p>Allocate a binary of size <c>size</c> bytes and create an owning
       term. The binary data is mutable until the calling NIF returns. This is a
@@ -951,7 +951,7 @@ typedef enum {
       <fsummary>Create an integer term from an unsigned long int</fsummary>
       <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
     </func>
-    <func><name><ret>ErlNifMutex*</ret><nametext>enif_mutex_create(char *name)</nametext></name>
+    <func><name><ret>ErlNifMutex *</ret><nametext>enif_mutex_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_create">erl_drv_mutex_create</seealso>.
     </p></desc>
@@ -976,7 +976,7 @@ typedef enum {
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_unlock">erl_drv_mutex_unlock</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>ErlNifResourceType*</ret><nametext>enif_open_resource_type(ErlNifEnv* env,
+    <func><name><ret>ErlNifResourceType *</ret><nametext>enif_open_resource_type(ErlNifEnv* env,
                              const char* module_str, const char* name,
                              ErlNifResourceDtor* dtor, ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext></name>
       <fsummary>Create or takeover a resource type</fsummary>
@@ -1005,7 +1005,7 @@ typedef enum {
        and <seealso marker="#upgrade">upgrade</seealso>.</p>
       </desc>
     </func>
-    <func><name><ret>void*</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
+    <func><name><ret>void *</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
       <fsummary>Get the private data of a NIF library</fsummary>
       <desc><p>Return the pointer to the private data that was set by <c>load</c>,
       <c>reload</c> or <c>upgrade</c>.</p>
@@ -1033,7 +1033,7 @@ typedef enum {
       References made by <seealso marker="#enif_make_resource">enif_make_resource</seealso>
       can only be removed by the garbage collector.</p></desc>
     </func>
-    <func><name><ret>ErlNifRWLock*</ret><nametext>enif_rwlock_create(char *name)</nametext></name>
+    <func><name><ret>ErlNifRWLock *</ret><nametext>enif_rwlock_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_create">erl_drv_rwlock_create</seealso>.
           </p></desc>
@@ -1073,7 +1073,7 @@ typedef enum {
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrwlock">erl_drv_rwlock_tryrwlock</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>ErlNifPid*</ret><nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext></name>
+    <func><name><ret>ErlNifPid *</ret><nametext>enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)</nametext></name>
       <fsummary>Get the pid of the calling process.</fsummary>
       <desc><p>Initialize the pid variable <c>*pid</c> to represent the
       calling process. Return <c>pid</c>.</p></desc>
@@ -1129,7 +1129,7 @@ typedef enum {
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_join">erl_drv_thread_join </seealso>.
           </p></desc>
     </func>
-    <func><name><ret>ErlNifThreadOpts*</ret><nametext>enif_thread_opts_create(char *name)</nametext></name>
+    <func><name><ret>ErlNifThreadOpts *</ret><nametext>enif_thread_opts_create(char *name)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_opts_create">erl_drv_thread_opts_create</seealso>.
           </p></desc>
@@ -1154,7 +1154,7 @@ typedef enum {
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_destroy">erl_drv_tsd_key_destroy</seealso>.
           </p></desc>
     </func>
-    <func><name><ret>void*</ret><nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
+    <func><name><ret>void *</ret><nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
     <fsummary></fsummary>
     <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get</seealso>.
           </p></desc>

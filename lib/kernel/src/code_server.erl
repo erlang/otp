@@ -394,8 +394,8 @@ handle_call(stop,{_From,_Tag}, S) ->
 handle_call({is_cached,_File}, {_From,_Tag}, S=#state{cache=no_cache}) ->
     {reply, no, S};
 
-handle_call({set_primary_archive, File, ArchiveBin, FileInfo}, {_From,_Tag}, S=#state{mode=Mode}) ->
-    case erl_prim_loader:set_primary_archive(File, ArchiveBin, FileInfo) of
+handle_call({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}, {_From,_Tag}, S=#state{mode=Mode}) ->
+    case erl_prim_loader:set_primary_archive(File, ArchiveBin, FileInfo, ParserFun) of
 	{ok, Files} ->
 	    {reply, {ok, Mode, Files}, S};
 	{error, _Reason} = Error ->

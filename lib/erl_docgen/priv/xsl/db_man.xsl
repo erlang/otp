@@ -3,7 +3,7 @@
      #
      # %CopyrightBegin%
      #
-     # Copyright Ericsson AB 2009-2011. All Rights Reserved.
+     # Copyright Ericsson AB 2009-2012. All Rights Reserved.
      #
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
@@ -758,8 +758,30 @@
 
   <xsl:template name="name">
     <xsl:text>&#10;.B&#10;</xsl:text>
-    <xsl:apply-templates/>
+    <xsl:choose>
+      <xsl:when test="ancestor::cref">
+        <xsl:value-of select="ret"/>
+        <xsl:call-template name="maybe-space-after-ret">
+          <xsl:with-param name="s" select="ret"/>
+        </xsl:call-template>
+        <xsl:value-of select="nametext"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <xsl:apply-templates/>
+      </xsl:otherwise>
+    </xsl:choose>
     <xsl:text>&#10;.br</xsl:text>
+  </xsl:template>
+
+  <xsl:template name="maybe-space-after-ret">
+    <xsl:param name="s"/>
+    <xsl:variable name="last_char"
+	          select="substring($s, string-length($s), 1)"/>
+    <xsl:choose>
+      <xsl:when test="$last_char != '*'">
+        <xsl:text> </xsl:text>
+      </xsl:when>
+    </xsl:choose>
   </xsl:template>
 
 

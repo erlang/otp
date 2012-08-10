@@ -829,46 +829,83 @@ init_dd_queue(ErtsAllctrDDQueue_t *ddq)
     ddq->head.used_marker = 1;
 }
 
-static ERTS_INLINE erts_aint_t
-ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr)
+static ERTS_INLINE int
+ddq_managed_thread_enqueue(ErtsAllctrDDQueue_t *ddq, void *ptr, int cinit)
 {
-    erts_aint_t ilast, itmp;
-    ErtsAllctrDDBlock_t *this = ptr;
+    erts_aint_t itmp;
+    ErtsAllctrDDBlock_t *enq, *this = ptr;
 
     erts_atomic_init_nob(&this->atmc_next, ERTS_AINT_NULL);
-
     /* Enqueue at end of list... */
 
-    ilast = erts_atomic_read_nob(&ddq->tail.data.last);
-    while (1) {
-	ErtsAllctrDDBlock_t *last = (ErtsAllctrDDBlock_t *) ilast;
-	itmp = erts_atomic_cmpxchg_mb(&last->atmc_next,
-				       (erts_aint_t) this,
-				       ERTS_AINT_NULL);
-	if (itmp == ERTS_AINT_NULL)
-	    break;
-	ilast = itmp;
+    enq = (ErtsAllctrDDBlock_t *) erts_atomic_read_nob(&ddq->tail.data.last);
+    itmp = erts_atomic_cmpxchg_relb(&enq->atmc_next,
+				    (erts_aint_t) this,
+				    ERTS_AINT_NULL);
+    if (itmp == ERTS_AINT_NULL) {
+	/* We are required to move last pointer */
+#ifdef DEBUG
+	ASSERT(ERTS_AINT_NULL == erts_atomic_read_nob(&this->atmc_next));
+	ASSERT(((erts_aint_t) enq)
+	       == erts_atomic_xchg_relb(&ddq->tail.data.last,
+					(erts_aint_t) this));
+#else
+	erts_atomic_set_relb(&ddq->tail.data.last, (erts_aint_t) this);
+#endif
+	return 1;
     }
+    else {
+	/*
+	 * We *need* to insert element somewhere in between the
+	 * last element we read earlier and the actual last element.
+	 */
+	int i = cinit;
 
-    /* Move last pointer forward... */
-    while (1) {
-	if (erts_atomic_read_rb(&this->atmc_next) != ERTS_AINT_NULL) {
-	    /* Someone else will move it forward */
-	    return erts_atomic_read_rb(&ddq->tail.data.last);
+	while (1) {
+	    erts_aint_t itmp2;
+	    erts_atomic_set_nob(&this->atmc_next, itmp);
+	    itmp2 = erts_atomic_cmpxchg_relb(&enq->atmc_next,
+					     (erts_aint_t) this,
+					     itmp);
+	    if (itmp == itmp2)
+		return 0; /* inserted this */
+	    if ((i & 1) == 0)
+		itmp = itmp2;
+	    else {
+		enq = (ErtsAllctrDDBlock_t *) itmp2;
+		itmp = erts_atomic_read_acqb(&enq->atmc_next);
+		ASSERT(itmp != ERTS_AINT_NULL);
+	    }
+	    i++;
 	}
-	itmp = erts_atomic_cmpxchg_mb(&ddq->tail.data.last,
-				      (erts_aint_t) this,
-				      ilast);
-	if (ilast == itmp)
-	    return (erts_aint_t) this;
-	ilast = itmp;
     }
 }
 
-static ERTS_INLINE int
-ddq_enqueue(ErtsAlcType_t type, ErtsAllctrDDQueue_t *ddq, void *ptr)
+static ERTS_INLINE erts_aint_t
+check_insert_marker(ErtsAllctrDDQueue_t *ddq, erts_aint_t ilast)
 {
-    erts_aint_t ilast;
+    if (!ddq->head.used_marker
+	&& ddq->head.unref_end == (ErtsAllctrDDBlock_t *) ilast) {
+	erts_aint_t itmp;
+	ErtsAllctrDDBlock_t *last = (ErtsAllctrDDBlock_t *) ilast;
+
+	erts_atomic_init_nob(&ddq->tail.data.marker.atmc_next, ERTS_AINT_NULL);
+	itmp = erts_atomic_cmpxchg_relb(&last->atmc_next,
+					(erts_aint_t) &ddq->tail.data.marker,
+					ERTS_AINT_NULL);
+	if (itmp == ERTS_AINT_NULL) {
+	    ilast = (erts_aint_t) &ddq->tail.data.marker;
+	    ddq->head.used_marker = !0;
+	    erts_atomic_set_relb(&ddq->tail.data.last, ilast);
+	}
+    }
+    return ilast;
+}
+
+static ERTS_INLINE int
+ddq_enqueue(ErtsAlcType_t type, ErtsAllctrDDQueue_t *ddq, void *ptr, int cinit)
+{
+    int last_elem;
     int um_refc_ix = 0;
     int managed_thread = erts_thr_progress_is_managed_thread();
     if (!managed_thread) {
@@ -884,11 +921,11 @@ ddq_enqueue(ErtsAlcType_t type, ErtsAllctrDDQueue_t *ddq, void *ptr)
 	}
     }
 
-    ilast = ddq_managed_thread_enqueue(ddq, ptr);
+    last_elem = ddq_managed_thread_enqueue(ddq, ptr, cinit);
 
     if (!managed_thread)
 	erts_atomic_dec_relb(&ddq->tail.data.um_refc[um_refc_ix]);
-    return ilast == (erts_aint_t) ptr;
+    return last_elem;
 }
 
 static ERTS_INLINE void *
@@ -934,20 +971,16 @@ ddq_check_incoming(ErtsAllctrDDQueue_t *ddq)
 	int um_refc_ix;
 	ddq->head.next.thr_progress_reached = 1;
 	um_refc_ix = ddq->head.next.um_refc_ix;
-	if (erts_atomic_read_acqb(&ddq->tail.data.um_refc[um_refc_ix]) == 0) {
+	if (erts_atomic_read_nob(&ddq->tail.data.um_refc[um_refc_ix]) == 0) {
 	    /* Move unreferenced end pointer forward... */
+
+	    ETHR_MEMBAR(ETHR_LoadLoad|ETHR_LoadStore);
 
 	    ddq->head.unref_end = ddq->head.next.unref_end;
 
-	    if (!ddq->head.used_marker
-		&& ddq->head.unref_end == (ErtsAllctrDDBlock_t *) ilast) {
-		ddq->head.used_marker = 1;
-		ilast = ddq_managed_thread_enqueue(ddq, &ddq->tail.data.marker);
-	    }
+	    ilast = check_insert_marker(ddq, ilast);
 
-	    if (ddq->head.unref_end == (ErtsAllctrDDBlock_t *) ilast)
-		ERTS_THR_MEMORY_BARRIER;
-	    else {
+	    if (ddq->head.unref_end != (ErtsAllctrDDBlock_t *) ilast) {
 		ddq->head.next.unref_end = (ErtsAllctrDDBlock_t *) ilast;
 		ddq->head.next.thr_progress = erts_thr_progress_later(NULL);
 		erts_atomic32_set_relb(&ddq->tail.data.um_refc_ix,
@@ -1092,12 +1125,15 @@ handle_delayed_dealloc(Allctr_t *allctr,
 }
 
 static ERTS_INLINE void
-enqueue_dealloc_other_instance(ErtsAlcType_t type, Allctr_t *allctr, void *ptr)
+enqueue_dealloc_other_instance(ErtsAlcType_t type,
+			       Allctr_t *allctr,
+			       void *ptr,
+			       int cinit)
 {
     if (allctr->fix)
 	((UWord *) ptr)[ERTS_ALCU_DD_FIX_TYPE_OFFS] = (UWord) type;
 
-    if (ddq_enqueue(type, &allctr->dd.q, ptr))
+    if (ddq_enqueue(type, &allctr->dd.q, ptr, cinit))
 	erts_alloc_notify_delayed_dealloc(allctr->ix);
 }
 
@@ -3613,7 +3649,11 @@ erts_alcu_free_thr_pref(ErtsAlcType_t type, void *extra, void *p)
 	get_pref_allctr(extra, &pref_allctr);
 	ptr = get_used_allctr(extra, p, &used_allctr, NULL);
 	if (pref_allctr != used_allctr)
-	    enqueue_dealloc_other_instance(type, used_allctr, ptr);
+	    enqueue_dealloc_other_instance(type,
+					   used_allctr,
+					   ptr,
+					   (used_allctr->dd.ix
+					    - pref_allctr->dd.ix));
 	else {
 	    if (used_allctr->thread_safe)
 		erts_mtx_lock(&used_allctr->mutex);
@@ -3988,7 +4028,11 @@ realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size,
 	    sys_memcpy(res, p, cpy_size);
 
 	    if (!force_move || used_allctr != pref_allctr)
-		enqueue_dealloc_other_instance(type, used_allctr, ptr);
+		enqueue_dealloc_other_instance(type,
+					       used_allctr,
+					       ptr,
+					       (used_allctr->dd.ix
+						- pref_allctr->dd.ix));
 	    else {
 		do_erts_alcu_free(type, used_allctr, ptr);
 		ASSERT(pref_allctr == used_allctr);
@@ -4179,6 +4223,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 
 	allctr->dd.use = 1;
 	init_dd_queue(&allctr->dd.q);
+	allctr->dd.ix = init->ix;
     }
     else
 #endif

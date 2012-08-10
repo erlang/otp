@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -29,6 +29,7 @@
 	 module_script/1,
 	 beam_script/1,
 	 archive_script/1,
+	 archive_script_file_access/1,
 	 epp/1,
 	 create_and_extract/1,
 	 foldl/1,
@@ -44,7 +45,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     [basic, errors, strange_name, emulator_flags,
      module_script, beam_script, archive_script, epp,
-     create_and_extract, foldl, overflow].
+     create_and_extract, foldl, overflow,
+     archive_script_file_access].
 
 groups() -> 
     [].
@@ -356,7 +358,7 @@ beam_script(Config) when is_list(Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Create an archive file containing two entire applications plus two
 %% alternate main modules. Generate a new escript containing the archive
-%% (with .app and .beam files and ) and the escript header.
+%% (with .app and .beam files and) and the escript header.
 
 archive_script(Config) when is_list(Config) ->
     %% Copy the orig files to priv_dir
@@ -463,6 +465,147 @@ archive_script(Config) when is_list(Config) ->
 		"ExitCode:0">>]),
 
     ok.
+
+%% Test the correction of OTP-10071
+%% The errors identified are
+%%
+%% a) If primary archive was named "xxx", then a file in the same
+%%    directory named "xxxyyy" would be interpreted as a file named yyy
+%%    inside the archive.
+%%
+%% b) erl_prim_loader did not correctly create and normalize absolute
+%%    paths for primary archive and files inside it, so unless given
+%%    with exact same path files inside the archive would not be
+%%    found. E.g. if escript was started as ./xxx then "xxx/file"
+%%    would not be found since erl_prim_loader would try to match
+%%    /full/path/to/xxx with /full/path/to/./xxx. Same problem with
+%%    ../. Also, the use of symlinks in the path to the archive would
+%%    cause problems.
+%%
+%% c) Depending on how the primary archive was built,
+%%    erl_prim_loader:list_dir/1 would sometimes return an empty string
+%%    inside the file list. This was a virtual element representing the
+%%    top directory of the archive. This shall not occur.
+%%
+archive_script_file_access(Config) when is_list(Config) ->
+    %% Copy the orig files to priv_dir
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+
+    MainMod = "archive_script_file_access",
+    MainSrc = MainMod ++ ".erl",
+    MainBeam = MainMod ++ ".beam",
+
+    Archive = filename:join([PrivDir, "archive_script_file_access.zip"]),
+    ?line {ok, _} = zip:create(Archive, ["archive_script_file_access"],
+			       [{compress, []}, {cwd, DataDir}]),
+    ?line {ok, _} = zip:extract(Archive, [{cwd, PrivDir}]),
+    TopDir = filename:join([PrivDir, "archive_script_file_access"]),
+
+    %% Compile the code
+    ?line ok = compile_files([MainSrc], TopDir, TopDir),
+
+    %% First, create a file structure which will be included in the archive:
+    %%
+    %% dir1/
+    %% dir1/subdir1/
+    %% dir1/subdir1/file1
+    %%
+    {ok, OldDir} = file:get_cwd(),
+    ok = file:set_cwd(TopDir),
+    DummyDir = "dir1",
+    DummySubDir = filename:join(DummyDir, "subdir1"),
+    RelDummyFile = filename:join(DummySubDir, "file1"),
+    DummyFile = filename:join(TopDir,RelDummyFile),
+    ok = filelib:ensure_dir(DummyFile),
+    ok = file:write_file(DummyFile, ["foo\nbar\nbaz"]),
+
+    %% 1. Create zip archive by adding the dummy file and the beam
+    %%    file as binaries to zip.
+    %%
+    %% This used to provoke the following issues when the script was run as
+    %% "./<script_name>":
+    %% a. erl_prim_loader:read_file_info/1 returning 'error'
+    %% b. erl_prim_loader:list_dir/1 returning {ok, ["dir1", [], "file1"]}
+    %%    leading to an infinite loop in reltool_target:spec_dir/1
+    Files1 =
+	lists:map(fun(Filename) ->
+			  {ok, Bin} = file:read_file(Filename),
+			  {Filename,Bin}
+		  end,
+		  [RelDummyFile,MainBeam]),
+    {ok, {"mem", Bin1}} = zip:create("mem", Files1, [memory]),
+
+    %% Create the escript
+    ScriptName1 = "archive_script_file_access1",
+    Script1 = filename:join([PrivDir, ScriptName1]),
+    Flags = "-escript main " ++ MainMod,
+    ok = escript:create(Script1,[shebang,{emu_args,Flags},{archive,Bin1}]),
+    ok = file:change_mode(Script1,8#00744),
+
+    %% If supported, create a symlink to the script. This is used to
+    %% test error b) described above this test case.
+    SymlinkName1 = "symlink_to_"++ScriptName1,
+    Symlink1 = filename:join([PrivDir, SymlinkName1]),
+    file:make_symlink(ScriptName1,Symlink1), % will fail if not supported
+
+    %% Also add a dummy file in the same directory with the same name
+    %% as the script except is also has an extension. This used to
+    %% test error a) described above this test case.
+    ok = file:write_file(Script1 ++ ".extension",
+			 <<"same name as script, but with extension">>),
+
+    %% Change to script's directory and run it as "./<script_name>"
+    ok = file:set_cwd(PrivDir),
+    run(PrivDir, "./" ++ ScriptName1 ++ " " ++ ScriptName1,
+	[<<"ExitCode:0">>]),
+    ok = file:set_cwd(TopDir),
+
+
+    %% 2. Create zip archive by letting zip read the files from the file system
+    %%
+    %% The difference compared to the archive_script_file_access1 is
+    %% that this will have a file element for each directory in the
+    %% archive - while archive_script_file_access1 will only have a
+    %% file element per regular file.
+    Files2 = [DummyDir,MainBeam],
+    {ok, {"mem", Bin2}} = zip:create("mem", Files2, [memory]),
+
+    %% Create the escript
+    ScriptName2 = "archive_script_file_access2",
+    Script2 = filename:join([PrivDir, ScriptName2]),
+    ok = escript:create(Script2,[shebang,{emu_args,Flags},{archive,Bin2}]),
+    ok = file:change_mode(Script2,8#00744),
+
+    %% Also add a dummy file in the same directory with the same name
+    %% as the script except is also has an extension. This used to
+    %% test error a) described above this test case.
+    ok = file:write_file(Script2 ++ ".extension",
+			 <<"same name as script, but with extension">>),
+
+    %% If supported, create a symlink to the script. This is used to
+    %% test error b) described above this test case.
+    SymlinkName2 = "symlink_to_"++ScriptName2,
+    Symlink2 = filename:join([PrivDir, SymlinkName2]),
+    file:make_symlink(ScriptName2,Symlink2), % will fail if not supported
+
+    %% Change to script's directory and run it as "./<script_name>"
+    ok = file:set_cwd(PrivDir),
+    run(PrivDir, "./" ++ ScriptName2 ++ " " ++ ScriptName2,
+	[<<"ExitCode:0">>]),
+
+    %% 3. If symlinks are supported, run one of the scripts via a symlink.
+    %%
+    %% This is in order to test error b) described above this test case.
+    case file:read_link(Symlink2) of
+	{ok,_} ->
+	    run(PrivDir, "./" ++ SymlinkName2 ++ " " ++ ScriptName2,
+		[<<"ExitCode:0">>]);
+	_ -> % not supported
+	    ok
+    end,
+    ok = file:set_cwd(OldDir).
+
 
 compile_app(TopDir, AppName) ->
     AppDir = filename:join([TopDir, AppName]),
