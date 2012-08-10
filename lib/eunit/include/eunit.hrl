@@ -25,11 +25,12 @@
 %% will become undefined. NODEBUG also implies NOASSERT, unless testing
 %% is enabled.
 %%
-%% If including this file causes TEST to be defined, then NOASSERT will
-%% be undefined, even if it was previously defined and even if NODEBUG
-%% is defined. If both ASSERT and NOASSERT are defined before the file
-%% is included, then ASSERT takes precedence, and NOASSERT will become
-%% undefined regardless of TEST.
+%% Defining NOASSERT disables asserts. NODEBUG implies NOASSERT unless
+%% testing is enabled. If including this file causes TEST to be defined,
+%% then NOASSERT will be undefined, even if it was previously defined and
+%% even if NODEBUG is defined. If both ASSERT and NOASSERT are defined
+%% before the file is included, then ASSERT takes precedence, and NOASSERT
+%% will become undefined regardless of TEST.
 %% 
 %% After including this file, EUNIT will be defined if and only if TEST
 %% is defined.
@@ -127,9 +128,9 @@
 				       current_function)))).
 -endif.
 
--ifdef(NOASSERT).
 %% The plain assert macro should be defined to do nothing if this file
 %% is included when debugging/testing is turned off.
+-ifdef(NOASSERT).
 -ifndef(assert).
 -define(assert(BoolExpr),ok).
 -endif.

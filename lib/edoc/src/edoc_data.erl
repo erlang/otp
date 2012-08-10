@@ -167,7 +167,10 @@ callbacks(Es, Module, Env, Opts) ->
     case lists:any(fun (#entry{name = {behaviour_info, 1}}) -> true;
 		       (_) -> false
 		   end,
-		   Es) of
+		   Es)
+	orelse
+	lists:keymember(callback, 1, Module#module.attributes)
+    of
 	true ->
 	    try (Module#module.name):behaviour_info(callbacks) of
 		Fs ->
