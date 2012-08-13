@@ -2969,12 +2969,14 @@ lookup1(Config) when is_list(Config) ->
                 [3] = lookup_keys(Q)
         end, [{1,a},{3,3}])">>,
 
+      {cres,
        <<"A = 3,
           etsc(fun(E) ->
                 Q = qlc:q([X || X <- ets:table(E), A =:= {erlang,element}(1, X)]),
                 [{3,3}] = qlc:e(Q),
                 [3] = lookup_keys(Q)
         end, [{1,a},{3,3}])">>,
+       {warnings,[{3,erl_lint,deprecated_tuple_fun}]}},
 
        <<"etsc(fun(E) ->
                 A = 3,
@@ -3439,12 +3441,14 @@ lookup2(Config) when is_list(Config) ->
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
          end, [{keypos,1}], [#r{}])">>,
+       {cres,
        <<"etsc(fun(E) ->
                 Q = qlc:q([element(1, X) || X <- ets:table(E), 
                                             {erlang,is_record}(X, r, 2)]),
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
          end, [{keypos,1}], [#r{}])">>,
+        {warnings,[{4,erl_lint,deprecated_tuple_fun}]}},
        {cres,
         <<"etsc(fun(E) ->
                 Q = qlc:q([element(1, X) || X <- ets:table(E), 
@@ -3465,12 +3469,14 @@ lookup2(Config) when is_list(Config) ->
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
          end, [{keypos,1}], [#r{}])">>,
+       {cres,
        <<"etsc(fun(E) ->
                 Q = qlc:q([element(1, X) || X <- ets:table(E), 
                                             {erlang,is_record}(X, r)]),
                  [r] = qlc:e(Q),
                  [r] = lookup_keys(Q)
-         end, [{keypos,1}], [#r{}])">>
+         end, [{keypos,1}], [#r{}])">>,
+        {warnings,[{4,erl_lint,deprecated_tuple_fun}]}}
 
        ],
     ?line run(Config, <<"-record(r, {a}).\n">>, TsR),
