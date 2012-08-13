@@ -349,7 +349,7 @@ key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
 
 key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 		      #'DHParameter'{prime = P, base = G},
-		      HashAlgo, ClientRandom, ServerRandom, PrivateKey}) ->
+		      {HashAlgo, SignAlgo}, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
     <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
     PLen = byte_size(PBin),
@@ -373,7 +373,7 @@ key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 	    Signed = digitally_signed(Version, Hash, HashAlgo, PrivateKey),
 	    #server_key_exchange{params = ServerDHParams,
 				 signed_params = Signed,
-				 hashsign = {HashAlgo, dsa}}
+				 hashsign = {HashAlgo, SignAlgo}}
     end.
 
 %%--------------------------------------------------------------------

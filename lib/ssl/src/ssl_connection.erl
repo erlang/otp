@@ -1438,7 +1438,7 @@ certify_server(#state{transport_cb = Transport,
 key_exchange(#state{role = server, key_algorithm = rsa} = State) ->
     State;
 key_exchange(#state{role = server, key_algorithm = Algo,
-		    hashsign_algorithm = {HashAlgo, _},
+		    hashsign_algorithm = HashSignAlgo,
 		    diffie_hellman_params = #'DHParameter'{prime = P, base = G} = Params,
 		    private_key = PrivateKey,
 		    connection_states = ConnectionStates0,
@@ -1457,7 +1457,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
     Msg =  ssl_handshake:key_exchange(server, Version, {dh, Keys, Params,
-					       HashAlgo, ClientRandom,
+					       HashSignAlgo, ClientRandom,
 					       ServerRandom,
 					       PrivateKey}),
     {BinMsg, ConnectionStates, Handshake} =
