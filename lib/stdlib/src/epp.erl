@@ -20,9 +20,9 @@
 
 %% An Erlang code preprocessor.
 
--export([open/2,open/3,open/5,close/1,format_error/1]).
+-export([open/2,open/3,open/4, open/5,close/1,format_error/1]).
 -export([scan_erl_form/1,parse_erl_form/1,macro_defs/1]).
--export([parse_file/1, parse_file/3]).
+-export([parse_file/1, parse_file/3, parse_file/4]).
 -export([interpret_file_attribute/1]).
 -export([normalize_typed_record_fields/1,restore_typed_record_fields/1]).
 
@@ -54,12 +54,14 @@
 
 %% open(FileName, IncludePath)
 %% open(FileName, IncludePath, PreDefMacros)
+%% open(FileName, StartLocation, IncludePath, PredefMacros)
 %% open(FileName, IoDevice, StartLocation, IncludePath, PreDefMacros)
 %% close(Epp)
 %% scan_erl_form(Epp)
 %% parse_erl_form(Epp)
 %% parse_file(Epp)
 %% parse_file(FileName, IncludePath, PreDefMacros)
+%% parse_file(FileName, StartLocation, IncludePath, PreDefMacros)
 %% macro_defs(Epp)
 
 -spec open(FileName, IncludePath) ->
@@ -81,8 +83,20 @@ open(Name, Path) ->
       ErrorDescriptor :: term().
 
 open(Name, Path, Pdm) ->
+    open(Name, 1, Path, Pdm).
+
+-spec open(FileName, StartLocation, IncludePath, PredefMacros) ->
+	{'ok', Epp} | {'error', ErrorDescriptor} when
+      FileName :: file:name(),
+      StartLocation :: erl_scan:location(),
+      IncludePath :: [DirectoryName :: file:name()],
+      PredefMacros :: macros(),
+      Epp :: epp_handle(),
+      ErrorDescriptor :: term().
+
+open(Name, StartLocation, Path, Pdm) ->
     Self = self(),
-    Epp = spawn(fun() -> server(Self, Name, Path, Pdm) end),
+    Epp = spawn(fun() -> server(Self, Name, StartLocation, Path, Pdm) end),
     epp_request(Epp).
 
 open(Name, File, StartLocation, Path, Pdm) ->
@@ -178,7 +192,21 @@ format_error(E) -> file:format_error(E).
       OpenError :: file:posix() | badarg | system_limit.
 
 parse_file(Ifile, Path, Predefs) ->
-    case open(Ifile, Path, Predefs) of
+    parse_file(Ifile, 1, Path, Predefs).
+
+-spec parse_file(FileName, StartLocation, IncludePath, PredefMacros) ->
+                {'ok', [Form]} | {error, OpenError} when
+      FileName :: file:name(),
+      StartLocation :: erl_scan:location(),
+      IncludePath :: [DirectoryName :: file:name()],
+      Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
+      PredefMacros :: macros(),
+      Line :: erl_scan:line(),
+      ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
+      OpenError :: file:posix() | badarg | system_limit.
+
+parse_file(Ifile, StartLocation, Path, Predefs) ->
+    case open(Ifile, StartLocation, Path, Predefs) of
 	{ok,Epp} ->
 	    Forms = parse_file(Epp),
 	    close(Epp),
@@ -245,14 +273,12 @@ restore_typed_record_fields([{attribute,La,type,{{record,Record},Fields,[]}}|
 restore_typed_record_fields([Form|Forms]) ->
     [Form|restore_typed_record_fields(Forms)].
 
-%% server(StarterPid, FileName, Path, PreDefMacros)
-
-server(Pid, Name, Path, Pdm) ->
+%% server(StarterPid, FileName, Location, Path, PreDefMacros)
+server(Pid, Name, AtLocation, Path, Pdm) ->
     process_flag(trap_exit, true),
     case file:open(Name, [read]) of
 	{ok,File} ->
-            Location = 1,
-	    init_server(Pid, Name, File, Location, Path, Pdm, false);
+	    init_server(Pid, Name, File, AtLocation, Path, Pdm, false);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
     end.

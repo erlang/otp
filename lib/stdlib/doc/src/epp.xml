@@ -51,6 +51,7 @@
     <func>
       <name name="open" arity="2"/>
       <name name="open" arity="3"/>
+      <name name="open" arity="4"/>
       <fsummary>Open a file for preprocessing</fsummary>
       <desc>
         <p>Opens a file for preprocessing.</p>
@@ -75,6 +76,7 @@
     </func>
     <func>
       <name name="parse_file" arity="3"/>
+      <name name="parse_file" arity="4"/>
       <fsummary>Preprocess and parse an Erlang source file</fsummary>
       <desc>
         <p>Preprocesses and parses an Erlang source file.

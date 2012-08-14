@@ -55,7 +55,7 @@
          token_info/1,token_info/2,
          attributes_info/1,attributes_info/2,set_attribute/3]).
 
--export_type([error_info/0, line/0, tokens_result/0]).
+-export_type([error_info/0, line/0, location/0, tokens_result/0]).
 
 %%%
 %%% Defines and type definitions
