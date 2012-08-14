@@ -87,7 +87,7 @@ is_killed_at(R, Lbl, D) when is_integer(Lbl) ->
 %%  across branches.
 
 is_not_used(R, Is, D) ->
-    St = #live{bl=fun check_used_block/2,lbl=D,res=gb_trees:empty()},
+    St = #live{bl=check_used_block_fun(D),lbl=D,res=gb_trees:empty()},
     case check_liveness(R, Is, St) of
 	{killed,_} -> true;
 	{used,_} -> false;
@@ -102,7 +102,7 @@ is_not_used(R, Is, D) ->
 %%  across branches.
 
 is_not_used_at(R, Lbl, D) ->
-    St = #live{bl=fun check_used_block/2,lbl=D,res=gb_trees:empty()},
+    St = #live{bl=check_used_block_fun(D),lbl=D,res=gb_trees:empty()},
     case check_liveness_at(R, Lbl, St) of
 	{killed,_} -> true;
 	{used,_} -> false;
@@ -612,26 +612,50 @@ check_killed_block(_, []) -> transparent.
 %%  
 %%    (Unknown instructions will cause an exception.)
 
-check_used_block({x,X}=R, [{set,_,_,{alloc,Live,_}}|Is]) ->
+check_used_block_fun(D) ->
+    fun(R, Is) -> check_used_block(R, Is, D) end.
+
+check_used_block({x,X}=R, [{set,Ds,Ss,{alloc,Live,Op}}|Is], D) ->
     if 
 	X >= Live -> killed;
-	true -> check_used_block(R, Is)
+	true ->
+	    case member(R, Ss) orelse
+		is_reg_used_at(R, Op, D) of
+		true -> used;
+		false ->
+		    case member(R, Ds) of
+			true -> killed;
+			false -> check_used_block(R, Is, D)
+		    end
+	    end
     end;
-check_used_block(R, [{set,Ds,Ss,_Op}|Is]) ->
-    case member(R, Ss) of
+check_used_block(R, [{set,Ds,Ss,Op}|Is], D) ->
+    case member(R, Ss) orelse
+	is_reg_used_at(R, Op, D) of
 	true -> used;
 	false ->
 	    case member(R, Ds) of
 		true -> killed;
-		false -> check_used_block(R, Is)
+		false -> check_used_block(R, Is, D)
 	    end
     end;
-check_used_block(R, [{'%live',Live}|Is]) ->
+check_used_block(R, [{'%live',Live}|Is], D) ->
     case R of
 	{x,X} when X >= Live -> killed;
-	_ -> check_used_block(R, Is)
+	_ -> check_used_block(R, Is, D)
     end;
-check_used_block(_, []) -> transparent.
+check_used_block(_, [], _) -> transparent.
+
+is_reg_used_at(R, {gc_bif,_,{f,Lbl}}, D) ->
+    is_reg_used_at_1(R, Lbl, D);
+is_reg_used_at(R, {bif,_,{f,Lbl}}, D) ->
+    is_reg_used_at_1(R, Lbl, D);
+is_reg_used_at(_, _, _) -> false.
+
+is_reg_used_at_1(_, 0, _) ->
+    false;
+is_reg_used_at_1(R, Lbl, D) ->
+    not is_not_used_at(R, Lbl, D).
 
 index_labels_1([{label,Lbl}|Is0], Acc) ->
     Is = lists:dropwhile(fun({label,_}) -> true;
