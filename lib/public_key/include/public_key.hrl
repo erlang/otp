@@ -72,6 +72,10 @@
 	  valid_ext
 	 }).
 
+-record('ECPoint', {
+	  point
+	 }).
+
 
 -define(unspecified, 0).
 -define(keyCompromise, 1).

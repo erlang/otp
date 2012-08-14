@@ -95,6 +95,11 @@
    -- OID for ECDSA signatures with SHA-1
 
    ecdsa-with-SHA1 OBJECT IDENTIFIER ::= { id-ecSigType 1 }
+   ecdsa-with-SHA2 OBJECT IDENTIFIER ::= { id-ecSigType 3 }
+   ecdsa-with-SHA224 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 1 }
+   ecdsa-with-SHA256 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 2 }
+   ecdsa-with-SHA384 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 3 }
+   ecdsa-with-SHA512 OBJECT IDENTIFIER ::= { ecdsa-with-SHA2 4 }
 
    -- OID for an elliptic curve signature
    -- format for the value of an ECDSA signature value
@@ -196,40 +201,83 @@
 
    -- Named Elliptic Curves in ANSI X9.62.
 
-   ellipticCurve OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) }
+   --   ellipticCurve OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) }
 
-   c-TwoCurve OBJECT IDENTIFIER ::= {
-        ellipticCurve characteristicTwo(0) }
+   --   c-TwoCurve OBJECT IDENTIFIER ::= {
+   --        ansi-ellipticCurve characteristicTwo(0) }
 
-   c2pnb163v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  1 }
-   c2pnb163v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve  2 }
-   c2pnb163v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve  3 }
-   c2pnb176w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  4 }
-   c2tnb191v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  5 }
-   c2tnb191v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve  6 }
-   c2tnb191v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve  7 }
-   c2onb191v4  OBJECT IDENTIFIER  ::=  { c-TwoCurve  8 }
-   c2onb191v5  OBJECT IDENTIFIER  ::=  { c-TwoCurve  9 }
-   c2pnb208w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 10 }
-   c2tnb239v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 11 }
-   c2tnb239v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve 12 }
-   c2tnb239v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve 13 }
-   c2onb239v4  OBJECT IDENTIFIER  ::=  { c-TwoCurve 14 }
-   c2onb239v5  OBJECT IDENTIFIER  ::=  { c-TwoCurve 15 }
-   c2pnb272w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 16 }
-   c2pnb304w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 17 }
-   c2tnb359v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 18 }
-   c2pnb368w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 19 }
-   c2tnb431r1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 20 }
+   --   c2pnb163v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  1 }
+   --   c2pnb163v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve  2 }
+   --   c2pnb163v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve  3 }
+   --   c2pnb176w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  4 }
+   --   c2tnb191v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve  5 }
+   --   c2tnb191v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve  6 }
+   --   c2tnb191v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve  7 }
+   --   c2onb191v4  OBJECT IDENTIFIER  ::=  { c-TwoCurve  8 }
+   --   c2onb191v5  OBJECT IDENTIFIER  ::=  { c-TwoCurve  9 }
+   --   c2pnb208w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 10 }
+   --   c2tnb239v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 11 }
+   --   c2tnb239v2  OBJECT IDENTIFIER  ::=  { c-TwoCurve 12 }
+   --   c2tnb239v3  OBJECT IDENTIFIER  ::=  { c-TwoCurve 13 }
+   --   c2onb239v4  OBJECT IDENTIFIER  ::=  { c-TwoCurve 14 }
+   --   c2onb239v5  OBJECT IDENTIFIER  ::=  { c-TwoCurve 15 }
+   --   c2pnb272w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 16 }
+   --   c2pnb304w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 17 }
+   --   c2tnb359v1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 18 }
+   --   c2pnb368w1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 19 }
+   --   c2tnb431r1  OBJECT IDENTIFIER  ::=  { c-TwoCurve 20 }
 
-   primeCurve OBJECT IDENTIFIER ::= { ellipticCurve prime(1) }
+   --   primeCurve OBJECT IDENTIFIER ::= { ansi-ellipticCurve prime(1) }
 
-   prime192v1  OBJECT IDENTIFIER  ::=  { primeCurve  1 }
-   prime192v2  OBJECT IDENTIFIER  ::=  { primeCurve  2 }
-   prime192v3  OBJECT IDENTIFIER  ::=  { primeCurve  3 }
-   prime239v1  OBJECT IDENTIFIER  ::=  { primeCurve  4 }
-   prime239v2  OBJECT IDENTIFIER  ::=  { primeCurve  5 }
-   prime239v3  OBJECT IDENTIFIER  ::=  { primeCurve  6 }
-   prime256v1  OBJECT IDENTIFIER  ::=  { primeCurve  7 }
+   --   prime192v1  OBJECT IDENTIFIER  ::=  { primeCurve  1 }
+   --   prime192v2  OBJECT IDENTIFIER  ::=  { primeCurve  2 }
+   --   prime192v3  OBJECT IDENTIFIER  ::=  { primeCurve  3 }
+   --   prime239v1  OBJECT IDENTIFIER  ::=  { primeCurve  4 }
+   --   prime239v2  OBJECT IDENTIFIER  ::=  { primeCurve  5 }
+   --   prime239v3  OBJECT IDENTIFIER  ::=  { primeCurve  6 }
+   --   prime256v1  OBJECT IDENTIFIER  ::=  { primeCurve  7 }
+
+   certicom-arc OBJECT IDENTIFIER ::= {
+        iso(1) identified-organization(3) certicom(132)
+   }
+
+   ellipticCurve OBJECT IDENTIFIER ::= {
+        iso(1) identified-organization(3) certicom(132) curve(0)
+   }
+
+   secp192r1 OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) prime(1) 1 }
+   secp256r1 OBJECT IDENTIFIER ::= { ansi-X9-62 curves(3) prime(1) 7 }
+
+   sect163k1 OBJECT IDENTIFIER ::= { ellipticCurve 1 }
+   sect163r1 OBJECT IDENTIFIER ::= { ellipticCurve 2 }
+   sect239k1 OBJECT IDENTIFIER ::= { ellipticCurve 3 }
+   sect113r1 OBJECT IDENTIFIER ::= { ellipticCurve 4 }
+   sect113r2 OBJECT IDENTIFIER ::= { ellipticCurve 5 }
+   secp112r1 OBJECT IDENTIFIER ::= { ellipticCurve 6 }
+   secp112r2 OBJECT IDENTIFIER ::= { ellipticCurve 7 }
+   secp160r1 OBJECT IDENTIFIER ::= { ellipticCurve 8 }
+   secp160k1 OBJECT IDENTIFIER ::= { ellipticCurve 9 }
+   secp256k1 OBJECT IDENTIFIER ::= { ellipticCurve 10 }
+   sect163r2 OBJECT IDENTIFIER ::= { ellipticCurve 15 }
+   sect283k1 OBJECT IDENTIFIER ::= { ellipticCurve 16 }
+   sect283r1 OBJECT IDENTIFIER ::= { ellipticCurve 17 }
+   sect131r1 OBJECT IDENTIFIER ::= { ellipticCurve 22 }
+   sect131r2 OBJECT IDENTIFIER ::= { ellipticCurve 23 }
+   sect193r1 OBJECT IDENTIFIER ::= { ellipticCurve 24 }
+   sect193r2 OBJECT IDENTIFIER ::= { ellipticCurve 25 }
+   sect233k1 OBJECT IDENTIFIER ::= { ellipticCurve 26 }
+   sect233r1 OBJECT IDENTIFIER ::= { ellipticCurve 27 }
+   secp128r1 OBJECT IDENTIFIER ::= { ellipticCurve 28 }
+   secp128r2 OBJECT IDENTIFIER ::= { ellipticCurve 29 }
+   secp160r2 OBJECT IDENTIFIER ::= { ellipticCurve 30 }
+   secp192k1 OBJECT IDENTIFIER ::= { ellipticCurve 31 }
+   secp224k1 OBJECT IDENTIFIER ::= { ellipticCurve 32 }
+   secp224r1 OBJECT IDENTIFIER ::= { ellipticCurve 33 }
+   secp384r1 OBJECT IDENTIFIER ::= { ellipticCurve 34 }
+   secp521r1 OBJECT IDENTIFIER ::= { ellipticCurve 35 }
+   sect409k1 OBJECT IDENTIFIER ::= { ellipticCurve 36 }
+   sect409r1 OBJECT IDENTIFIER ::= { ellipticCurve 37 }
+   sect571k1 OBJECT IDENTIFIER ::= { ellipticCurve 38 }
+   sect571r1 OBJECT IDENTIFIER ::= { ellipticCurve 39 }
 
    END

@@ -105,7 +105,8 @@ IMPORTS
 	rsaEncryption, RSAPublicKey,
 	dhpublicnumber, DomainParameters, DHPublicKey,
 	id-keyExchangeAlgorithm, KEA-Parms-Id, --KEA-PublicKey,
-	ecdsa-with-SHA1, 
+	ecdsa-with-SHA1, ecdsa-with-SHA224,
+	ecdsa-with-SHA256, ecdsa-with-SHA384, ecdsa-with-SHA512,
 	prime-field, Prime-p, 
 	characteristic-two-field, --Characteristic-two, 
 	gnBasis, 
@@ -322,7 +323,11 @@ SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= {
 		    sha256-with-rsa-encryption |
 		    sha384-with-rsa-encryption |
 		    sha512-with-rsa-encryption |
-		    ecdsa-with-sha1 } 
+		    ecdsa-with-sha1 |
+		    ecdsa-with-sha224 |
+		    ecdsa-with-sha256 |
+		    ecdsa-with-sha384 |
+		    ecdsa-with-sha512 }
 
 SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= { 
 		    dsa | rsa-encryption | dh | kea | ec-public-key }
@@ -431,6 +436,22 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
        ID ecdsa-with-SHA1
        TYPE NULL }  -- XXX Must be empty and not NULL
 
+   ecdsa-with-sha224 SIGNATURE-ALGORITHM-CLASS ::= {
+       ID ecdsa-with-SHA224
+       TYPE NULL }  -- XXX Must be empty and not NULL
+
+   ecdsa-with-sha256 SIGNATURE-ALGORITHM-CLASS ::= {
+       ID ecdsa-with-SHA256
+       TYPE NULL }  -- XXX Must be empty and not NULL
+
+   ecdsa-with-sha384 SIGNATURE-ALGORITHM-CLASS ::= {
+       ID ecdsa-with-SHA384
+       TYPE NULL }  -- XXX Must be empty and not NULL
+
+   ecdsa-with-sha512 SIGNATURE-ALGORITHM-CLASS ::= {
+       ID ecdsa-with-SHA512
+       TYPE NULL }  -- XXX Must be empty and not NULL
+
    FIELD-ID-CLASS ::= CLASS {
 	&id OBJECT IDENTIFIER UNIQUE,
 	&Type }
@@ -480,6 +501,23 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
    pp-basis CHARACTERISTIC-TWO-CLASS ::= {
 	    ID ppBasis
 	    TYPE Pentanomial }
+
+   -- Elliptic Curve parameters may be specified explicitly,
+   -- specified implicitly through a "named curve", or
+   -- inherited from the CA
+
+   OTPEcpkParameters ::= CHOICE {
+      ecParameters  OTPECParameters,
+      namedCurve    OBJECT IDENTIFIER,
+      implicitlyCA  NULL }
+
+   OTPECParameters  ::= SEQUENCE {         -- Elliptic curve parameters
+      version   ECPVer,
+      fieldID   OTPFieldID,
+      curve     Curve,
+      base      ECPoint,                -- Base point G
+      order     INTEGER,                -- Order n of the base point
+      cofactor  INTEGER  OPTIONAL }     -- The integer h = #E(Fq)/n
 
    -- SubjectPublicKeyInfo.algorithm
 

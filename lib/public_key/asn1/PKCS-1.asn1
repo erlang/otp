@@ -50,7 +50,39 @@ id-md5 OBJECT IDENTIFIER ::= {
     iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 5
 }
 
+id-hmacWithSHA224 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 8
+}
+
+id-hmacWithSHA256 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 9
+}
+
+id-hmacWithSHA384 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 10
+}
+
+id-hmacWithSHA512 OBJECT IDENTIFIER ::= {
+    iso(1) member-body(2) us(840) rsadsi(113549) digestAlgorithm(2) 11
+}
+
 id-mgf1    OBJECT IDENTIFIER ::= { pkcs-1 8 }
+
+id-sha224  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 4 }
+
+id-sha256  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 1 }
+
+id-sha384  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 2 }
+
+id-sha512  OBJECT IDENTIFIER  ::=  { joint-iso-itu-t(2)
+        country(16) us(840) organization(1) gov(101) csor(3)
+        nistalgorithm(4) hashalgs(2) 3 }
 
 
 RSAPublicKey ::= SEQUENCE {
