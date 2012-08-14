@@ -298,22 +298,30 @@ dec_value([65 | Bytes]) ->
 %% Unsigned32
 dec_value([66 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
-    if 
-	(Value >= 0) andalso (Value =< 16#ffffffff) ->
-    	    {{'Unsigned32', Value}, Rest};
-    	true ->
-    	    exit({error, {bad_unsigned32, Value}})
-    end;
+    Value2 = 
+	if 
+	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
+		Value;
+	    (Value < 0) ->
+		16#ffffffff + Value + 1;
+	    true ->
+		exit({error, {bad_unsigned32, Value}})
+	end,
+    {{'Unsigned32', Value2}, Rest};
 
 %% TimeTicks
 dec_value([67 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
-    if
-	(Value >= 0) andalso (Value =< 16#ffffffff) ->
-	    {{'TimeTicks', Value}, Rest};
+    Value2 = 
+	if
+	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
+		Value;
+	    (Value < 0) ->
+		16#ffffffff + Value + 1;
 	true ->
 	    exit({error, {bad_timeticks, Value}})
-    end;
+	end,
+    {{'TimeTicks', Value2}, Rest};
 
 %% Opaque
 dec_value([68 | Bytes]) ->
