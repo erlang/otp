@@ -23,7 +23,8 @@
 
 -include("public_key.hrl").
 
--export([decode_cert/1, transform/2, supportedPublicKeyAlgorithms/1]).
+-export([decode_cert/1, transform/2, supportedPublicKeyAlgorithms/1,
+	 supportedCurvesTypes/1, namedCurves/1]).
 
 %%====================================================================
 %% Internal application API
@@ -101,6 +102,77 @@ supportedPublicKeyAlgorithms(?'dhpublicnumber') -> 'DHPublicKey';
 supportedPublicKeyAlgorithms(?'id-keyExchangeAlgorithm') -> 'KEA-PublicKey';
 supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint'.
 
+supportedCurvesTypes(?'characteristic-two-field') -> characteristic_two_field;
+supportedCurvesTypes(?'prime-field') -> prime_field.
+
+namedCurves(?'sect571r1') -> sect571r1;
+namedCurves(?'sect571k1') -> sect571k1;
+namedCurves(?'sect409r1') -> sect409r1;
+namedCurves(?'sect409k1') -> sect409k1;
+namedCurves(?'secp521r1') -> secp521r1;
+namedCurves(?'secp384r1') -> secp384r1;
+namedCurves(?'secp224r1') -> secp224r1;
+namedCurves(?'secp224k1') -> secp224k1;
+namedCurves(?'secp192k1') -> secp192k1;
+namedCurves(?'secp160r2') -> secp160r2;
+namedCurves(?'secp128r2') -> secp128r2;
+namedCurves(?'secp128r1') -> secp128r1;
+namedCurves(?'sect233r1') -> sect233r1;
+namedCurves(?'sect233k1') -> sect233k1;
+namedCurves(?'sect193r2') -> sect193r2;
+namedCurves(?'sect193r1') -> sect193r1;
+namedCurves(?'sect131r2') -> sect131r2;
+namedCurves(?'sect131r1') -> sect131r1;
+namedCurves(?'sect283r1') -> sect283r1;
+namedCurves(?'sect283k1') -> sect283k1;
+namedCurves(?'sect163r2') -> sect163r2;
+namedCurves(?'secp256k1') -> secp256k1;
+namedCurves(?'secp160k1') -> secp160k1;
+namedCurves(?'secp160r1') -> secp160r1;
+namedCurves(?'secp112r2') -> secp112r2;
+namedCurves(?'secp112r1') -> secp112r1;
+namedCurves(?'sect113r2') -> sect113r2;
+namedCurves(?'sect113r1') -> sect113r1;
+namedCurves(?'sect239k1') -> sect239k1;
+namedCurves(?'sect163r1') -> sect163r1;
+namedCurves(?'sect163k1') -> sect163k1;
+namedCurves(?'secp256r1') -> secp256r1;
+namedCurves(?'secp192r1') -> secp192r1;
+
+namedCurves(sect571r1) -> ?'sect571r1';
+namedCurves(sect571k1) -> ?'sect571k1';
+namedCurves(sect409r1) -> ?'sect409r1';
+namedCurves(sect409k1) -> ?'sect409k1';
+namedCurves(secp521r1) -> ?'secp521r1';
+namedCurves(secp384r1) -> ?'secp384r1';
+namedCurves(secp224r1) -> ?'secp224r1';
+namedCurves(secp224k1) -> ?'secp224k1';
+namedCurves(secp192k1) -> ?'secp192k1';
+namedCurves(secp160r2) -> ?'secp160r2';
+namedCurves(secp128r2) -> ?'secp128r2';
+namedCurves(secp128r1) -> ?'secp128r1';
+namedCurves(sect233r1) -> ?'sect233r1';
+namedCurves(sect233k1) -> ?'sect233k1';
+namedCurves(sect193r2) -> ?'sect193r2';
+namedCurves(sect193r1) -> ?'sect193r1';
+namedCurves(sect131r2) -> ?'sect131r2';
+namedCurves(sect131r1) -> ?'sect131r1';
+namedCurves(sect283r1) -> ?'sect283r1';
+namedCurves(sect283k1) -> ?'sect283k1';
+namedCurves(sect163r2) -> ?'sect163r2';
+namedCurves(secp256k1) -> ?'secp256k1';
+namedCurves(secp160k1) -> ?'secp160k1';
+namedCurves(secp160r1) -> ?'secp160r1';
+namedCurves(secp112r2) -> ?'secp112r2';
+namedCurves(secp112r1) -> ?'secp112r1';
+namedCurves(sect113r2) -> ?'sect113r2';
+namedCurves(sect113r1) -> ?'sect113r1';
+namedCurves(sect239k1) -> ?'sect239k1';
+namedCurves(sect163r1) -> ?'sect163r1';
+namedCurves(sect163k1) -> ?'sect163k1';
+namedCurves(secp256r1) -> ?'secp256r1';
+namedCurves(secp192r1) -> ?'secp192r1'.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -111,14 +183,24 @@ decode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
 						  #'PublicKeyAlgorithm'{algorithm=Algo},
 						  subjectPublicKey = {0,SPK0}}) ->
     Type = supportedPublicKeyAlgorithms(Algo),
-    {ok, SPK} = 'OTP-PUB-KEY':decode(Type, SPK0),
+    SPK = case Type of
+              'ECPoint' -> #'ECPoint'{point = SPK0};
+              _ -> {ok, SPK1} = 'OTP-PUB-KEY':decode(Type, SPK0),
+                   SPK1
+          end,
     #'OTPSubjectPublicKeyInfo'{subjectPublicKey = SPK, algorithm=PA}.
 
 encode_supportedPublicKey(#'OTPSubjectPublicKeyInfo'{algorithm= PA =
 						     #'PublicKeyAlgorithm'{algorithm=Algo},
 						     subjectPublicKey = SPK0}) ->
     Type = supportedPublicKeyAlgorithms(Algo),
-    {ok, SPK} = 'OTP-PUB-KEY':encode(Type, SPK0),
+    SPK = case Type of
+              'ECPoint' ->
+                  SPK0#'ECPoint'.point;
+              _ ->
+                  {ok, SPK1} = 'OTP-PUB-KEY':encode(Type, SPK0),
+                  SPK1
+          end,
     #'OTPSubjectPublicKeyInfo'{subjectPublicKey = {0,SPK}, algorithm=PA}.
 
 %%% Extensions
