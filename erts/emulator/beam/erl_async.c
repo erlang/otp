@@ -375,10 +375,15 @@ static ERTS_INLINE ErtsAsync *async_get(ErtsThrQ_t *q,
 
 static ERTS_INLINE void call_async_ready(ErtsAsync *a)
 {
+#if ERTS_USE_ASYNC_READY_Q
     Port *p = erts_id2port_sflgs(a->port,
 				 NULL,
 				 0,
 				 ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+#else
+    Port *p = erts_thr_id2port_sflgs(a->port,
+				     ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+#endif
     if (!p) {
 	if (a->async_free)
 	    a->async_free(a->async_data);
@@ -388,7 +393,11 @@ static ERTS_INLINE void call_async_ready(ErtsAsync *a)
 	    if (a->async_free)
 		a->async_free(a->async_data);
 	}
+#if ERTS_USE_ASYNC_READY_Q
 	erts_port_release(p);
+#else
+	erts_thr_port_release(p);
+#endif
     }
     if (a->hndl)
 	erts_ddll_dereference_driver(a->hndl);

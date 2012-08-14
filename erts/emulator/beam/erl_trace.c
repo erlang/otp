@@ -3442,10 +3442,8 @@ sys_msg_dispatcher_func(void *unused)
 		    goto queue_proc_msg;
 	    }
 	    else if (is_internal_port(receiver)) {
-		port = erts_id2port_sflgs(receiver,
-					  NULL,
-					  0,
-					  ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
+		port = erts_thr_id2port_sflgs(receiver,
+					      ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
 		if (!port)
 		    goto failure;
 		else {
@@ -3459,7 +3457,7 @@ sys_msg_dispatcher_func(void *unused)
 #ifdef DEBUG_PRINTOUTS
 		    erts_fprintf(stderr, "delivered\n");
 #endif
-		    erts_port_release(port);
+		    erts_thr_port_release(port);
 		    if (smqp->bp)
 			free_message_buffer(smqp->bp);
 		}

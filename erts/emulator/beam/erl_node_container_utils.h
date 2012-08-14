@@ -197,8 +197,10 @@ extern ErtsPTab erts_proc;
  * Ports                                                                   *
 \*                                                                         */
 
-#define internal_port_index(x)		(internal_port_data((x))	\
-					 & erts_port_tab_index_mask)
+extern ErtsPTab erts_port;
+
+#define internal_port_index(x)		erts_ptab_data2ix(&erts_port, \
+							  internal_port_data((x)))
 
 #define internal_port_node_name(x)	(internal_port_node((x))->sysname)
 #define external_port_node_name(x)	(external_port_node((x))->sysname)
@@ -237,7 +239,7 @@ extern ErtsPTab erts_proc;
 #define is_not_port(x)			(!is_port(x))
 
 /* Highest port-ID part in a term of type Port 
-   Not necessarily the same as the variable erts_max_ports
+   Not necessarily the same as current maximum port table size
    which defines the maximum number of simultaneous Ports
    in the Erlang node. ERTS_MAX_PORTS is a hard upper limit.
 */
@@ -249,6 +251,9 @@ extern ErtsPTab erts_proc;
 
 #define ERTS_R9_PORTS_BITS		(_PORT_R9_NUM_SIZE)
 #define ERTS_PORTS_BITS			(_PORT_NUM_SIZE)
+
+#define ERTS_INVALID_PORT		make_internal_port(ERTS_MAX_PORT_DATA)
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Refs                                                                    *
 \*                                                                         */

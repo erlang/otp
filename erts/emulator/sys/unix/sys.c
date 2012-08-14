@@ -1023,7 +1023,8 @@ void fini_getenv_state(GETENV_STATE *state)
 
 /* This data is shared by these drivers - initialized by spawn_init() */
 static struct driver_data {
-    int port_num, ofd, packet_bytes;
+    ErlDrvPort port_num;
+    int ofd, packet_bytes;
     ErtsSysReportExit *report_exit;
     int pid;
     int alive;
@@ -1137,7 +1138,7 @@ static RETSIGTYPE onchld(int signum)
 #endif
 }
 
-static int set_driver_data(int port_num,
+static int set_driver_data(ErlDrvPort port_num,
 			   int ifd,
 			   int ofd,
 			   int packet_bytes,
@@ -1153,7 +1154,7 @@ static int set_driver_data(int port_num,
 	report_exit = erts_alloc(ERTS_ALC_T_PRT_REP_EXIT,
 				 sizeof(ErtsSysReportExit));
 	report_exit->next = report_exit_list;
-	report_exit->port = erts_port[port_num].common.id;
+	report_exit->port = erts_drvport2id(port_num);
 	report_exit->pid = pid;
 	report_exit->ifd = read_write & DO_READ ? ifd : -1;
 	report_exit->ofd = read_write & DO_WRITE ? ofd : -1;
@@ -1234,7 +1235,7 @@ static void close_pipes(int ifd[2], int ofd[2], int read_write)
     }
 }
 
-static void init_fd_data(int fd, int prt)
+static void init_fd_data(int fd, ErlDrvPort port_num)
 {
     fd_data[fd].buf = NULL;
     fd_data[fd].cpos = NULL;
@@ -1922,7 +1923,7 @@ static void clear_fd_data(int fd)
     fd_data[fd].psz = 0;
 }
 
-static void nbio_stop_fd(int prt, int fd)
+static void nbio_stop_fd(ErlDrvPort prt, int fd)
 {
     driver_select(prt,fd,DO_READ|DO_WRITE,0);
     clear_fd_data(fd);
@@ -1970,7 +1971,8 @@ static ErlDrvData vanilla_start(ErlDrvPort port_num, char* name,
 
 static void stop(ErlDrvData fd)
 {
-    int prt, ofd;
+    ErlDrvPort prt;
+    int ofd;
 
     prt = driver_data[(int)(long)fd].port_num;
     nbio_stop_fd(prt, (int)(long)fd);
@@ -1983,7 +1985,7 @@ static void stop(ErlDrvData fd)
 
     CHLD_STAT_LOCK;
 
-    /* Mark as unused. Maybe resetting the 'port_num' slot is better? */
+    /* Mark as unused. */
     driver_data[(int)(long)fd].pid = -1;
 
     CHLD_STAT_UNLOCK;
@@ -1999,7 +2001,7 @@ static void stop(ErlDrvData fd)
 static void outputv(ErlDrvData e, ErlIOVec* ev)
 {
     int fd = (int)(long)e;
-    int ix = driver_data[fd].port_num;
+    ErlDrvPort ix = driver_data[fd].port_num;
     int pb = driver_data[fd].packet_bytes;
     int ofd = driver_data[fd].ofd;
     ssize_t n;
@@ -2049,7 +2051,7 @@ static void outputv(ErlDrvData e, ErlIOVec* ev)
 static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
 {
     int fd = (int)(long)e;
-    int ix = driver_data[fd].port_num;
+    ErlDrvPort ix = driver_data[fd].port_num;
     int pb = driver_data[fd].packet_bytes;
     int ofd = driver_data[fd].ofd;
     ssize_t n;
@@ -2100,7 +2102,7 @@ static void output(ErlDrvData e, char* buf, ErlDrvSizeT len)
     return; /* 0; */
 }
 
-static int port_inp_failure(int port_num, int ready_fd, int res)
+static int port_inp_failure(ErlDrvPort port_num, int ready_fd, int res)
 				/* Result: 0 (eof) or -1 (error) */
 {
     int err = errno;
@@ -2150,7 +2152,7 @@ static int port_inp_failure(int port_num, int ready_fd, int res)
 static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 {
     int fd = (int)(long)e;
-    int port_num;
+    ErlDrvPort port_num;
     int packet_bytes;
     int res;
     Uint h;
@@ -2273,7 +2275,7 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 static void ready_output(ErlDrvData e, ErlDrvEvent ready_fd)
 {
     int fd = (int)(long)e;
-    int ix = driver_data[fd].port_num;
+    ErlDrvPort ix = driver_data[fd].port_num;
     int n;
     struct iovec* iv;
     int vsize;
@@ -2558,19 +2560,20 @@ report_exit_status(ErtsSysReportExit *rep, int status)
     Port *pp;
 #ifdef ERTS_SMP
     CHLD_STAT_UNLOCK;
-#endif
+    pp = erts_thr_id2port_sflgs(rep->port,
+				ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
+    CHLD_STAT_LOCK;
+#else
     pp = erts_id2port_sflgs(rep->port,
 			    NULL,
 			    0,
 			    ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP);
-#ifdef ERTS_SMP
-    CHLD_STAT_LOCK;
 #endif
     if (pp) {
 	if (rep->ifd >= 0) {
 	    driver_data[rep->ifd].alive = 0;
 	    driver_data[rep->ifd].status = status;
-	    (void) driver_select((ErlDrvPort) internal_port_index(pp->common.id),
+	    (void) driver_select((ErlDrvPort) pp,
 				 rep->ifd,
 				 (ERL_DRV_READ|ERL_DRV_USE),
 				 1);
@@ -2578,12 +2581,16 @@ report_exit_status(ErtsSysReportExit *rep, int status)
 	if (rep->ofd >= 0) {
 	    driver_data[rep->ofd].alive = 0;
 	    driver_data[rep->ofd].status = status;
-	    (void) driver_select((ErlDrvPort) internal_port_index(pp->common.id),
+	    (void) driver_select((ErlDrvPort) pp,
 				 rep->ofd,
 				 (ERL_DRV_WRITE|ERL_DRV_USE),
 				 1);
 	}
+#ifdef ERTS_SMP
+	erts_thr_port_release(pp);
+#else
 	erts_port_release(pp);
+#endif
     }
     erts_free(ERTS_ALC_T_PRT_REP_EXIT, rep);
 }

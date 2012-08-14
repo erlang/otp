@@ -2189,6 +2189,10 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(make_small(erts_ptab_count(&erts_proc)));
     } else if (BIF_ARG_1 == am_process_limit) {
 	BIF_RET(make_small(erts_ptab_max(&erts_proc)));
+    } else if (BIF_ARG_1 == am_port_count) {
+	BIF_RET(make_small(erts_ptab_count(&erts_port)));
+    } else if (BIF_ARG_1 == am_port_limit) {
+	BIF_RET(make_small(erts_ptab_max(&erts_port)));
     } else if (BIF_ARG_1 == am_info
 	       || BIF_ARG_1 == am_procs
 	       || BIF_ARG_1 == am_loaded
@@ -2840,7 +2844,10 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
     int count;
 
     if (is_internal_port(portid))
-	prt = erts_id2port(portid, p, ERTS_PROC_LOCK_MAIN);
+	prt = erts_id2port_sflgs(portid,
+				 p,
+				 ERTS_PROC_LOCK_MAIN,
+				 ERTS_PORT_SFLGS_INVALID_LOOKUP);
     else if (is_atom(portid))
 	erts_whereis_name(p, ERTS_PROC_LOCK_MAIN,
 			  portid, NULL, 0, 0, &prt);
@@ -2975,7 +2982,7 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
 #ifndef ERTS_SMP
 	res = am_false;
 #else
-	if (erts_smp_atomic32_read_nob(&prt->state)
+	if (erts_atomic32_read_nob(&prt->state)
 	    & ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK) {
 	    DECL_AM(port_level);
 	    ASSERT(prt->drv_ptr->flags
@@ -2999,7 +3006,7 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
 
  done:
 
-    erts_smp_port_unlock(prt);
+    erts_port_release(prt);
 
     return ret;
 }
@@ -3357,9 +3364,8 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    Eterm res;
 	    if (ERTS_IS_ATOM_STR("next_pid", BIF_ARG_1))
 		res = erts_ptab_test_next_id(&erts_proc, 0, 0);
-	    else {
-		res = erts_test_next_port(0, 0);
-	    }
+	    else
+		res = erts_ptab_test_next_id(&erts_port, 0, 0);
 	    if (res < 0)
 		BIF_RET(am_false);
 	    BIF_RET(erts_make_integer(res, BIF_P));
@@ -3466,11 +3472,14 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		}
 		else if(is_internal_port(tp[2])) {
 		    Eterm res;
-		    Port *p = erts_id2port(tp[2], BIF_P, ERTS_PROC_LOCK_MAIN);
+		    Port *p = erts_id2port_sflgs(tp[2],
+						 BIF_P,
+						 ERTS_PROC_LOCK_MAIN,
+						 ERTS_PORT_SFLGS_INVALID_LOOKUP);
 		    if(!p)
 			BIF_RET(am_undefined);
 		    res = make_link_list(BIF_P, ERTS_P_LINKS(p), NIL);
-		    erts_smp_port_unlock(p);
+		    erts_port_release(p);
 		    BIF_RET(res);
 		}
 		else if(is_node_name_atom(tp[2])) {
@@ -3714,9 +3723,8 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 
 		if (ERTS_IS_ATOM_STR("next_pid", BIF_ARG_1))
 		    res = erts_ptab_test_next_id(&erts_proc, 1, next);
-		else {
-		    res = erts_test_next_port(1, next);
-		}
+		else
+		    res = erts_ptab_test_next_id(&erts_port, 1, next);
 		if (res < 0)
 		    BIF_RET(am_false);
 		BIF_RET(erts_make_integer(res, BIF_P));

@@ -146,6 +146,7 @@ class	SYSTEM		system_data
 
 type	SBMBC		SBMBC		SYSTEM		small_block_mbc
 type	PROC		FIXED_SIZE	PROCESSES	proc
+type	PORT		DRIVER		SYSTEM		port
 type	ATOM		LONG_LIVED	ATOM		atom_entry
 type	MODULE		LONG_LIVED	CODE		module_entry
 type	REG_PROC	STANDARD	PROCESSES	reg_proc
@@ -188,7 +189,7 @@ type	PORT_TABLE	LONG_LIVED	SYSTEM		port_tab
 type	TIMER_WHEEL	LONG_LIVED	SYSTEM		timer_wheel
 type	DRV		DRIVER		SYSTEM		drv_internal
 type	DRV_BINARY	BINARY		BINARIES	drv_binary
-type	DRIVER		STANDARD	SYSTEM		driver
+type	DRIVER		DRIVER		SYSTEM		driver
 type	NIF		DRIVER		SYSTEM		nif_internal
 type	BINARY		BINARY		BINARIES	binary
 type	NBIF_TABLE	SYSTEM		SYSTEM		nbif_tab
@@ -196,7 +197,6 @@ type	ARG_REG		STANDARD	PROCESSES	arg_reg
 type	PROC_DICT	STANDARD	PROCESSES	proc_dict
 type	CALLS_BUF	STANDARD	PROCESSES	calls_buf
 type	BPD		STANDARD	SYSTEM		bpd
-type	PORT_NAME	STANDARD	SYSTEM		port_name
 type	LINEBUF		STANDARD	SYSTEM		line_buf
 type	IOQ		STANDARD	SYSTEM		io_queue
 type	BITS_BUF	STANDARD	SYSTEM		bits_buf
@@ -236,7 +236,7 @@ type	PORT_TASK	SHORT_LIVED	SYSTEM		port_task
 type	PORT_TASKQ	SHORT_LIVED	SYSTEM		port_task_queue
 type	MISC_OP_LIST	SHORT_LIVED	SYSTEM		misc_op_list
 type	PORT_NAMES	SHORT_LIVED	SYSTEM		port_names
-type	PORT_DATA_LOCK	STANDARD	SYSTEM		port_data_lock
+type	PORT_DATA_LOCK	DRIVER		SYSTEM		port_data_lock
 type	NODES_MON	STANDARD	PROCESSES	nodes_monitor
 type	PTAB_LIST_DEL	SHORT_LIVED	PROCESSES	ptab_list_deleted_el
 type	PTAB_LIST_CNKI	SHORT_LIVED	PROCESSES	ptab_list_chunk_info

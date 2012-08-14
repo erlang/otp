@@ -985,12 +985,15 @@ Eterm erts_debug_dump_links_1(BIF_ALIST_1)
     Process *rp;
     DistEntry *dep;
     if (is_internal_port(pid)) {
-	Port *rport = erts_id2port(pid, p, ERTS_PROC_LOCK_MAIN);
+	Port *rport = erts_id2port_sflgs(pid,
+					 p,
+					 ERTS_PROC_LOCK_MAIN,
+					 ERTS_PORT_SFLGS_INVALID_LOOKUP);
 	if (rport) {
 	    erts_printf("Dumping port links----------------------\n");
 	    erts_dump_links(ERTS_P_LINKS(rport), 0);
 	    erts_printf("Links dumped----------------------------\n");
-	    erts_smp_port_unlock(rport);
+	    erts_port_release(rport);
 	    BIF_RET(am_true);
 	} else {
 	    BIF_ERROR(p,BADARG);

@@ -151,14 +151,12 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		}
 	    } else if (is_internal_port(meta_tracer_pid)) {
 		Port *meta_tracer_port;
-		meta_tracer_proc = NULL;		
-		if (internal_port_index(meta_tracer_pid) >= erts_max_ports)
+		meta_tracer_proc = NULL;
+		meta_tracer_port = (erts_port_lookup(
+					meta_tracer_pid,
+					ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP));
+		if (!meta_tracer_port)
 		    goto error;
-		meta_tracer_port = 
-		    &erts_port[internal_port_index(meta_tracer_pid)];
-		if (INVALID_TRACER_PORT(meta_tracer_port, meta_tracer_pid)) {
-		    goto error;
-		}
 	    } else {
 		goto error;
 	    }
@@ -479,14 +477,14 @@ Eterm trace_3(BIF_ALIST_3)
 			      ? ERTS_PROC_LOCKS_ALL_MINOR
 			      : ERTS_PROC_LOCKS_ALL));
     } else if (is_internal_port(tracer)) {
-	Port *tracer_port = erts_id2port(tracer, p, ERTS_PROC_LOCK_MAIN);
-	if (!erts_is_valid_tracer_port(tracer)) {
-	    if (tracer_port)
-		erts_smp_port_unlock(tracer_port);
+	Port *tracer_port = erts_id2port_sflgs(tracer,
+					       p,
+					       ERTS_PROC_LOCK_MAIN,
+					       ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
+	if (!tracer_port)
 	    goto error;
-	}
 	ERTS_TRACE_FLAGS(tracer_port) |= F_TRACER;
-	erts_smp_port_unlock(tracer_port);
+	erts_port_release(tracer_port);
     } else
 	goto error;
 
@@ -519,12 +517,15 @@ Eterm trace_3(BIF_ALIST_3)
 	if (pid_spec == tracer)
 	    goto error;
 
-	tracee_port = erts_id2port(pid_spec, p, ERTS_PROC_LOCK_MAIN);
+	tracee_port = erts_id2port_sflgs(pid_spec,
+					 p,
+					 ERTS_PROC_LOCK_MAIN,
+					 ERTS_PORT_SFLGS_INVALID_LOOKUP);
 	if (!tracee_port)
 	    goto error;
 	
 	if (tracer != NIL && port_already_traced(p, tracee_port, tracer)) {
-	    erts_smp_port_unlock(tracee_port);
+	    erts_port_release(tracee_port);
 	    goto already_traced;
 	}
 
@@ -538,7 +539,7 @@ Eterm trace_3(BIF_ALIST_3)
 	else if (tracer != NIL)
 	    ERTS_TRACER_PROC(tracee_port) = tracer;
 
-	erts_smp_port_unlock(tracee_port);
+	erts_port_release(tracee_port);
 
 	matches = 1;
     } else if (is_pid(pid_spec)) {
@@ -677,15 +678,21 @@ Eterm trace_3(BIF_ALIST_3)
 		}
 	    }
 	    if (ports || mods) {
+		int max = erts_ptab_max(&erts_port);
 		/* tracing of ports */
-		for (i = 0; i < erts_max_ports; i++) {
-		    Port *tracee_port = &erts_port[i];
+		for (i = 0; i < max; i++) {
 		    erts_aint32_t state;
-		    state = erts_smp_atomic32_read_nob(&tracee_port->state);
-		    if (state & ERTS_PORT_SFLGS_DEAD) continue;
+		    Port *tracee_port = erts_pix2port(i);
+		    if (!tracee_port)
+			continue;
+		    state = erts_atomic32_read_nob(&tracee_port->state);
+		    if (state & ERTS_PORT_SFLGS_DEAD)
+			continue;
 		    if (tracer != NIL) {
-			if (tracee_port->common.id == tracer) continue;
-			if (port_already_traced(NULL, tracee_port, tracer)) continue;
+			if (tracee_port->common.id == tracer)
+			    continue;
+			if (port_already_traced(NULL, tracee_port, tracer))
+			    continue;
 		    }
 
 		    if (on) ERTS_TRACE_FLAGS(tracee_port) |= mask;
@@ -2147,9 +2154,11 @@ BIF_RETTYPE system_profile_2(BIF_ALIST_2)
 	    if (!profiler_p)
 		goto error;
 	} else if (is_internal_port(profiler)) {
-	    if (internal_port_index(profiler) >= erts_max_ports) goto error;
-	    profiler_port = &erts_port[internal_port_index(profiler)];
-	    if (INVALID_TRACER_PORT(profiler_port, profiler)) goto error;
+	    profiler_port = (erts_port_lookup(
+				 profiler,
+				 ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP));
+	    if (!profiler_port)
+		goto error;
 	} else {
 	    goto error;
 	}

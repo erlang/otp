@@ -660,11 +660,9 @@ erts_ptab_delete_element(ErtsPTab *ptab,
 	erts_ptab_rwunlock(ptab);
     }
 
-#ifdef ERTS_SMP
     erts_schedule_thr_prgr_later_op(ptab->r.o.release_element,
 				    (void *) ptab_el,
 				    &ptab_el->u.release);
-#endif
 }
 
 /*
@@ -1151,16 +1149,18 @@ ptab_list_bif_engine(Process *c_p, Eterm *res_accp, Binary *mbp)
 		conses = ptlbdp->pid_ix;
 	    }
 
-	    hp = HAlloc(c_p, conses*2);
-	    ERTS_PTAB_LIST_DBG_SAVE_HEAP_ALLOC(ptlbdp, hp, conses*2);
+	    if (conses) {
+		hp = HAlloc(c_p, conses*2);
+		ERTS_PTAB_LIST_DBG_SAVE_HEAP_ALLOC(ptlbdp, hp, conses*2);
 
-	    for (ix = ptlbdp->pid_ix - 1; ix >= min_ix; ix--) {
-		ERTS_PTAB_LIST_ASSERT(erts_ptab_is_valid_id(ptlbdp->pid[ix]));
-		res = CONS(hp, ptlbdp->pid[ix], res);
-		hp += 2;
+		for (ix = ptlbdp->pid_ix - 1; ix >= min_ix; ix--) {
+		    ERTS_PTAB_LIST_ASSERT(erts_ptab_is_valid_id(ptlbdp->pid[ix]));
+		    res = CONS(hp, ptlbdp->pid[ix], res);
+		    hp += 2;
+		}
+
+		ERTS_PTAB_LIST_DBG_VERIFY_HEAP_ALLOC_USED(ptlbdp, hp);
 	    }
-
-	    ERTS_PTAB_LIST_DBG_VERIFY_HEAP_ALLOC_USED(ptlbdp, hp);
 
 	    ptlbdp->pid_ix = min_ix;
 	    if (min_ix == 0)

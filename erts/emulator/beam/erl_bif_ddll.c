@@ -117,48 +117,27 @@ static void ddll_no_more_references(void *vdh);
 static void
 kill_ports_driver_unloaded(DE_Handle *dh)
 {
-    int ix;
+    int ix, max = erts_ptab_max(&erts_port);
 
-    for (ix = 0; ix < erts_max_ports; ix++) {
-	Port* prt = &erts_port[ix];
+    for (ix = 0; ix < max; ix++) {
 	erts_aint32_t state;
-	state = erts_smp_atomic32_read_acqb(&prt->state);
+	Port* prt = erts_pix2port(ix);
+	if (!prt)
+	    continue;
+
+	ERTS_SMP_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+
+	state = erts_atomic32_read_nob(&prt->state);
 	if (state & FREE_PORT_FLAGS)
 	    continue;
 
-	erts_smp_port_minor_lock(prt);
+	erts_smp_port_lock(prt);
 
-	if (prt->drv_ptr->handle != dh) {
-	    erts_smp_port_minor_unlock(prt);
-	    continue;
-	}
+	state = erts_atomic32_read_nob(&prt->state);
+	if (!(state & ERTS_PORT_SFLGS_DEAD) && prt->drv_ptr->handle == dh)
+	    driver_failure_atom((ErlDrvPort) prt, "driver_unloaded");
 
-	erts_smp_atomic32_inc_nob(&prt->common.refc);
-	erts_smp_port_minor_unlock(prt);
-
-	state = erts_smp_atomic32_read_acqb(&prt->state);
-	if (!(state & FREE_PORT_FLAGS)) {
-#if DDLL_SMP
-	    if (state & ERTS_PORT_SFLG_INITIALIZING) {
-		/* Extremely rare busy wait */
-		do {
-		    ERTS_SPIN_BODY;
-		    state = erts_smp_atomic32_read_acqb(&prt->state);
-		} while (state & ERTS_PORT_SFLG_INITIALIZING);
-	    }
-
-	    erts_smp_mtx_lock(prt->lock);
-
-	    if (prt->drv_ptr->handle == dh) {
-		state = erts_smp_atomic32_read_acqb(&prt->state);
-		if (!(state & ERTS_PORT_SFLGS_DEAD))
-		    driver_failure_atom(ix, "driver_unloaded");
-	    }
-#else
-	    driver_failure_atom(ix, "driver_unloaded");
-#endif
-	    erts_port_release(prt);
-	}
+	erts_port_release(prt);
     }
 }
 

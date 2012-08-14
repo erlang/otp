@@ -1660,6 +1660,7 @@ void process_main(void)
      reg[0] = r(0);
      result = erl_send(c_p, r(0), x(1));
      PreFetch(0, next);
+     ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
      ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
      PROCESS_MAIN_CHK_LOCKS(c_p);
      if (c_p->mbuf || MSO(c_p).overhead >= BIN_VHEAP_SZ(c_p)) {
@@ -2636,6 +2637,7 @@ void process_main(void)
 	reg[0] = r(0);
 	result = (*bf)(c_p, reg, I);
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(result));
+	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
@@ -3370,7 +3372,6 @@ void process_main(void)
 	    PROCESS_MAIN_CHK_LOCKS(c_p);
 	    bif_nif_arity = I[-1];
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 
 	    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
 	    {
@@ -3415,7 +3416,6 @@ void process_main(void)
 	    bif_nif_arity = I[-1];
 	    ASSERT(bif_nif_arity <= 3);
 	    ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
-	    ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	    reg[0] = r(0);
 	    {
 		Eterm (*bf)(Process*, Eterm*, BeamInstr*) = vbf;
@@ -4646,7 +4646,6 @@ void process_main(void)
 	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
 	 flags = erts_call_trace(c_p, ep->code, ep->match_prog_set, reg,
 				 0, &ERTS_TRACER_PROC(c_p));
-	 ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
 	 ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	 PROCESS_MAIN_CHK_LOCKS(c_p);
 	 ASSERT(!ERTS_PROC_IS_EXITING(c_p));

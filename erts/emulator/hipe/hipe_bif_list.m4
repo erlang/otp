@@ -145,6 +145,7 @@
  * Zero-arity BIFs that can fail.
  */
 standard_bif_interface_0(nbif_processes_0, processes_0)
+standard_bif_interface_0(nbif_ports_0, ports_0)
 
 /*
  * BIFs and primops that may do a GC (change heap limit and walk the native stack).

@@ -43,7 +43,6 @@
 #include "erl_thr_queue.h"
 #include "erl_async.h"
 #include "dtrace-wrapper.h"
-#define ERTS_PTAB_WANT_BIF_IMPL__
 #include "erl_ptab.h"
 
 #define ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED (2000*CONTEXT_REDS)
@@ -1482,37 +1481,32 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
     unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_REAP_PORTS);
     awdp->esdp->run_queue->halt_in_progress = 1;
     if (erts_smp_atomic32_dec_read_acqb(&erts_halt_progress) == 0) {
-	int i;
+	int i, max = erts_ptab_max(&erts_port);
 	erts_smp_atomic32_set_nob(&erts_halt_progress, 1);
-	for (i = 0; i < erts_max_ports; i++) {
-	    Port *prt = &erts_port[i];
-	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&prt->state);
+	for (i = 0; i < max; i++) {
+	    erts_aint32_t state;
+	    Port *prt = erts_pix2port(i);
+	    if (!prt)
+		continue;
+	    state = erts_atomic32_read_acqb(&prt->state);
 	    if (state & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
 			 | ERTS_PORT_SFLG_HALT))
 		continue;
-	    erts_smp_port_minor_lock(prt);
+
 	    /* We need to set the halt flag - get the port lock */
-#ifdef ERTS_SMP
-	    erts_smp_atomic32_inc_nob(&prt->common.refc);
-#endif
-	    erts_smp_port_minor_unlock(prt);
-#ifdef ERTS_SMP
-	    erts_smp_mtx_lock(prt->lock);
-#endif
-	    state = erts_smp_atomic32_read_acqb(&prt->state);
-	    if (state & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
-			 | ERTS_PORT_SFLG_HALT)) {
-		erts_port_release(prt);
-		continue;
-	    }
-	    state = erts_smp_atomic32_read_bor_relb(&prt->state,
+
+	    erts_smp_port_lock(prt);
+
+	    state = erts_atomic32_read_nob(&prt->state);
+	    if (!(state & (ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP
+			   | ERTS_PORT_SFLG_HALT))) {
+		state = erts_atomic32_read_bor_relb(&prt->state,
 						    ERTS_PORT_SFLG_HALT);
-	    erts_smp_atomic32_inc_nob(&erts_halt_progress);
-	    if (state & (ERTS_PORT_SFLG_EXITING|ERTS_PORT_SFLG_CLOSING)) {
-		erts_port_release(prt);
-		continue;
+		erts_smp_atomic32_inc_nob(&erts_halt_progress);
+		if (!(state & (ERTS_PORT_SFLG_EXITING|ERTS_PORT_SFLG_CLOSING)))
+		    erts_do_exit_port(prt, prt->common.id, am_killed);
 	    }
-	    erts_do_exit_port(prt, prt->common.id, am_killed);
+
 	    erts_port_release(prt);
 	}
 	if (erts_smp_atomic32_dec_read_nob(&erts_halt_progress) == 0) {
@@ -4304,6 +4298,11 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online)
 
     erts_smp_atomic32_init_relb(&erts_halt_progress, -1);
     erts_halt_code = 0;
+
+#if !defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
+    erts_lc_set_thread_name("scheduler 1");
+#endif
+
 }
 
 ErtsRunQueue *
@@ -8112,7 +8111,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	ASSERT(mon->type == MON_TARGET);
 	ASSERT(is_pid(mon->pid) || is_internal_port(mon->pid));
 	if (is_internal_port(mon->pid)) {
-	    Port *prt = erts_id2port(mon->pid, NULL, 0);
+	    Port *prt = erts_id2port(mon->pid);
 	    if (prt == NULL) {
 		goto done;
 	    }
@@ -8199,7 +8198,7 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
     switch(lnk->type) {
     case LINK_PID:
 	if(is_internal_port(item)) {
-	    Port *prt = erts_id2port(item, NULL, 0);
+	    Port *prt = erts_id2port(item);
 	    if (prt) {
 		rlnk = erts_remove_link(&ERTS_P_LINKS(prt), p->common.id);
 		if (rlnk)
@@ -8755,14 +8754,6 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
 	erts_print(to, to_arg, "%T\n", x);
     }
     return yreg;
-}
-
-/*
- * The processes/0 BIF.
- */
-BIF_RETTYPE processes_0(BIF_ALIST_0)
-{
-    return erts_ptab_list(BIF_P, &erts_proc);
 }
 
 /*

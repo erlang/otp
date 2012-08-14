@@ -2273,6 +2273,7 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
     int i, length;
     Uint reserved_atom_space, atom_space;
     int max_processes = erts_ptab_max(&erts_proc);
+    int max_ports = erts_ptab_max(&erts_port);
 
     if (proc) {
 	ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN
@@ -2303,8 +2304,8 @@ erts_allocated_areas(int *print_to_p, void *print_to_arg, void *proc)
 
     values[i].arity = 2;
     values[i].name = "static";
-    values[i].ui[0] = 
-	erts_max_ports*sizeof(Port)		/* Port table */
+    values[i].ui[0] =
+	max_ports*sizeof(Port)		/* Port table */
 	+ erts_timer_wheel_memory_size()	/* Timer wheel */
 #ifdef SYS_TMP_BUF_SIZE
 	+ SYS_TMP_BUF_SIZE		/* tmp_buf in sys on vxworks & ose */

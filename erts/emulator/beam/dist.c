@@ -144,7 +144,7 @@ create_cache(DistEntry *dep)
 
     ERTS_SMP_LC_ASSERT(
 	is_internal_port(dep->cid)
-	&& erts_lc_is_port_locked(&erts_port[internal_port_index(dep->cid)]));
+	&& erts_lc_is_port_locked(erts_port_lookup_raw(dep->cid)));
     ASSERT(!dep->cache);
 
     dep->cache = cp = (ErtsAtomCache*) erts_alloc(ERTS_ALC_T_DCACHE,
@@ -421,9 +421,9 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	    ASSERT(is_internal_port(prt_id));
 	    erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
 
-	    prt = erts_id2port(prt_id, NULL, 0);
+	    prt = erts_id2port(prt_id);
 	    if (prt) {
-		ASSERT(erts_smp_atomic32_read_nob(&prt->state)
+		ASSERT(erts_atomic32_read_nob(&prt->state)
 		       & ERTS_PORT_SFLG_DISTRIBUTION);
 		ASSERT(prt->dist_entry);
 		/* will call do_net_exists !!! */
@@ -455,7 +455,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	erts_smp_de_rwlock(dep);
 
 	ERTS_SMP_LC_ASSERT(is_internal_port(dep->cid)
-			   && erts_lc_is_port_locked(&erts_port[internal_port_index(dep->cid)]));
+			   && erts_lc_is_port_locked(erts_port_lookup_raw(dep->cid)));
 
 	if (erts_port_task_is_scheduled(&dep->dist_cmd))
 	    erts_port_task_abort(dep->cid, &dep->dist_cmd);
@@ -1957,7 +1957,7 @@ erts_dist_command(Port *prt, int reds_limit)
     dep->finalized_out_queue.first = NULL;
     dep->finalized_out_queue.last = NULL;
 
-    state = erts_smp_atomic32_read_nob(&prt->state);
+    state = erts_atomic32_read_nob(&prt->state);
 
     if (reds > reds_limit)
 	goto preempted;
@@ -1978,7 +1978,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    obufsize += size_obuf(fob);
 	    foq.first = foq.first->next;
 	    free_dist_obuf(fob);
-	    state = erts_smp_atomic32_read_nob(&prt->state);
+	    state = erts_atomic32_read_nob(&prt->state);
 	    preempt = reds > reds_limit || (state & ERTS_PORT_SFLGS_DEAD);
 	    if (state & ERTS_PORT_SFLG_PORT_BUSY)
 		break;
@@ -2060,7 +2060,7 @@ erts_dist_command(Port *prt, int reds_limit)
 	    obufsize += size_obuf(fob);
 	    oq.first = oq.first->next;
 	    free_dist_obuf(fob);
-	    state = erts_smp_atomic32_read_nob(&prt->state);
+	    state = erts_atomic32_read_nob(&prt->state);
 	    preempt = reds > reds_limit || (state & ERTS_PORT_SFLGS_DEAD);
 	    if ((state & ERTS_PORT_SFLG_PORT_BUSY) && oq.first && !preempt)
 		goto finalize_only;
@@ -2580,10 +2580,13 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     else if (!dep)
 	goto system_limit; /* Should never happen!!! */
 
-    pp = erts_id2port(BIF_ARG_2, BIF_P, ERTS_PROC_LOCK_MAIN);
+    pp = erts_id2port_sflgs(BIF_ARG_2,
+			    BIF_P,
+			    ERTS_PROC_LOCK_MAIN,
+			    ERTS_PORT_SFLGS_INVALID_LOOKUP);
     erts_smp_de_rwlock(dep);
 
-    if (!pp || (erts_smp_atomic32_read_nob(&pp->state)
+    if (!pp || (erts_atomic32_read_nob(&pp->state)
 		& ERTS_PORT_SFLG_EXITING))
 	goto badarg;
 
@@ -2613,7 +2616,7 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     if (pp->dist_entry || is_not_nil(dep->cid))
 	goto badarg;
 
-    erts_smp_atomic32_read_bor_nob(&pp->state, ERTS_PORT_SFLG_DISTRIBUTION);
+    erts_atomic32_read_bor_nob(&pp->state, ERTS_PORT_SFLG_DISTRIBUTION);
 
     pp->dist_entry = dep;
 
@@ -2658,7 +2661,7 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     }
 
     if (pp)
-	erts_smp_port_unlock(pp);
+	erts_port_release(pp);
 
     return ret;
 

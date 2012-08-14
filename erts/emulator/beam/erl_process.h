@@ -42,6 +42,9 @@ typedef struct process Process;
 #include "erl_process_lock.h" /* Only pull out important types... */
 #undef ERTS_PROCESS_LOCK_ONLY_PROC_LOCK_TYPE__
 
+#define ERL_PORT_GET_PORT_TYPE_ONLY__
+#include "erl_port.h"
+#undef ERL_PORT_GET_PORT_TYPE_ONLY__
 #include "erl_vm.h"
 #include "erl_smp.h"
 #include "erl_message.h"
@@ -66,7 +69,6 @@ typedef struct process Process;
 #undef ERL_THR_PROGRESS_TSD_TYPE_ONLY
 
 struct ErtsNodesMonitor_;
-struct port;
 
 #define ERTS_MAX_NO_OF_SCHEDULERS 1024
 
@@ -378,8 +380,8 @@ struct ErtsRunQueue_ {
 
     struct {
 	ErtsRunQueueInfo info;
-	struct port *start;
-	struct port *end;
+	Port *start;
+	Port *end;
     } ports;
 };
 
@@ -476,7 +478,7 @@ struct ErtsSchedulerData_ {
     ErtsSchedulerSleepInfo *ssi;
     Process *current_process;
     Uint no;			/* Scheduler number */
-    struct port *current_port;
+    Port *current_port;
     ErtsRunQueue *run_queue;
     int virtual_reds;
     int cpu_id;			/* >= 0 when bound */
@@ -1219,7 +1221,7 @@ Eterm erts_sched_stat_term(Process *p, int total);
 
 void erts_free_proc(Process *);
 
-void erts_suspend(Process*, ErtsProcLocks, struct port*);
+void erts_suspend(Process*, ErtsProcLocks, Port*);
 void erts_resume(Process*, ErtsProcLocks);
 int erts_resume_processes(ErtsProcList *);
 

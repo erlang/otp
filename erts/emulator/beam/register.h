@@ -24,26 +24,19 @@
 #ifndef __REGPROC_H__
 #define __REGPROC_H__
 
-#ifndef __SYS_H__
 #include "sys.h"
-#endif
-
-#ifndef __HASH_H__
 #include "hash.h"
-#endif
-
-#ifndef __PROCESS_H__
 #include "erl_process.h"
-#endif
-
-struct port;
+#define ERL_PORT_GET_PORT_TYPE_ONLY__
+#include "erl_port.h"
+#undef ERL_PORT_GET_PORT_TYPE_ONLY__
 
 typedef struct reg_proc
 {
     HashBucket bucket;  /* MUST BE LOCATED AT TOP OF STRUCT!!! */
     Process *p;         /* The process registered (only one of this and
 			   'pt' is non-NULL */
-    struct port *pt;    /* The port registered */
+    Port *pt;		/* The port registered */
     Eterm name;         /* Atom name */
 } RegProc;
 
@@ -55,12 +48,12 @@ int erts_register_name(Process *, Eterm, Eterm);
 Eterm erts_whereis_name_to_id(Process *, Eterm);
 void erts_whereis_name(Process *, ErtsProcLocks,
 		       Eterm, Process**, ErtsProcLocks, int,
-		       struct port**);
+		       Port**);
 Process *erts_whereis_process(Process *,
 			      ErtsProcLocks,
 			      Eterm,
 			      ErtsProcLocks,
 			      int);
-int erts_unregister_name(Process *, ErtsProcLocks, struct port *, Eterm);
+int erts_unregister_name(Process *, ErtsProcLocks, Port *, Eterm);
 
 #endif

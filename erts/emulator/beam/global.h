@@ -884,11 +884,6 @@ int erts_global_garbage_collect(Process*, int, Eterm*, int);
 
 /* io.c */
 
-struct erl_drv_port_data_lock {
-    erts_mtx_t mtx;
-    erts_atomic_t refc;
-};
-
 typedef struct {
     char *name;
     char *driver_name;
@@ -901,22 +896,18 @@ typedef struct {
 int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked);
 void erts_destroy_driver(erts_driver_t *drv);
 void erts_wake_process_later(Port*, Process*);
-int erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *);
+Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
 int erts_is_port_ioq_empty(Port *);
 void erts_terminate_port(Port *);
-void close_port(Eterm);
 void init_io(void);
-void cleanup_io(void);
 void erts_do_exit_port(Port *, Eterm, Eterm);
 void erts_port_command(Process *, Eterm, Port *, Eterm);
 Eterm erts_port_control(Process*, Port*, Uint, Eterm);
 int erts_write_to_port(Eterm caller_id, Port *p, Eterm list);
-void print_port_info(int, void *, int);
 void erts_raw_port_command(Port*, byte*, Uint);
-void driver_report_exit(int, int);
+void driver_report_exit(ErlDrvPort, int);
 LineBuf* allocate_linebuf(int);
 int async_ready(Port *, void*);
-Sint erts_test_next_port(int, Uint);
 ErtsPortNames *erts_get_port_names(Eterm);
 void erts_free_port_names(ErtsPortNames *);
 Uint erts_port_ioq_size(Port *pp);

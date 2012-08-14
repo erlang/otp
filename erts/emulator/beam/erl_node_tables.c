@@ -1274,7 +1274,7 @@ setup_reference_table(void)
     ErlHeapFragment *hfp;
     DistEntry *dep;
     HashInfo hi;
-    int i, max_processes;
+    int i, max;
     DeclareTmpHeapNoproc(heap,3);
 
     inserted_bins = NULL;
@@ -1309,9 +1309,9 @@ setup_reference_table(void)
 #endif
     UnUseTmpHeapNoproc(3);
 
-    max_processes = erts_ptab_max(&erts_proc);
+    max = erts_ptab_max(&erts_proc);
     /* Insert all processes */
-    for (i = 0; i < max_processes; i++) {
+    for (i = 0; i < max; i++) {
 	Process *proc = erts_pix2proc(i);
 	if (proc) {
 	    ErlMessage *msg;
@@ -1383,25 +1383,33 @@ setup_reference_table(void)
 #endif
 
     /* Insert all ports */
-    for (i = 0; i < erts_max_ports; i++) {
-	erts_aint32_t state = erts_smp_atomic32_read_nob(&erts_port[i].state);
+    max = erts_ptab_max(&erts_port);
+    for (i = 0; i < max; i++) {
+	erts_aint32_t state;
+	Port *prt;
+
+	prt = erts_pix2port(i);
+	if (!prt)
+	    continue;
+
+	state = erts_atomic32_read_nob(&prt->state);
 	if (state & ERTS_PORT_SFLGS_DEAD)
 	    continue;
 
 	/* Insert links */
-	if (ERTS_P_LINKS(&erts_port[i]))
-	    insert_links(ERTS_P_LINKS(&erts_port[i]), erts_port[i].common.id);
+	if (ERTS_P_LINKS(prt))
+	    insert_links(ERTS_P_LINKS(prt), prt->common.id);
 	/* Insert monitors */
-	if (ERTS_P_MONITORS(&erts_port[i]))
-	    insert_monitors(ERTS_P_MONITORS(&erts_port[i]), erts_port[i].common.id);
+	if (ERTS_P_MONITORS(prt))
+	    insert_monitors(ERTS_P_MONITORS(prt), prt->common.id);
 	/* Insert port data */
-	for(hfp = erts_port[i].bp; hfp; hfp = hfp->next)
-	    insert_offheap(&(hfp->off_heap), HEAP_REF, erts_port[i].common.id);
+	for(hfp = prt->bp; hfp; hfp = hfp->next)
+	    insert_offheap(&(hfp->off_heap), HEAP_REF, prt->common.id);
 	/* Insert controller */
-	if (erts_port[i].dist_entry)
-	    insert_dist_entry(erts_port[i].dist_entry,
+	if (prt->dist_entry)
+	    insert_dist_entry(prt->dist_entry,
 			      CTRL_REF,
-			      erts_port[i].common.id,
+			      prt->common.id,
 			      0);
     }
 

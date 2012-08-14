@@ -42,7 +42,7 @@
 #include "erl_bits.h"
 #include "dtrace-wrapper.h"
 
-static int open_port(Process* p, Eterm name, Eterm settings, int *err_nump);
+static Port *open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump);
 static byte* convert_environment(Process* p, Eterm env);
 static char **convert_args(Eterm);
 static void free_args(char **);
@@ -54,16 +54,17 @@ port_call(Process* p, Eterm arg1, Eterm arg2, Eterm arg3);
 
 BIF_RETTYPE open_port_2(BIF_ALIST_2)
 {
-    int port_num;
-    Eterm port_val;
+    Port *port;
+    Eterm port_id;
     char *str;
-    int err_num;
+    int err_type, err_num;
 
-    if ((port_num = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_num)) < 0) {
-	if (port_num == -3) {
+    port = open_port(BIF_P, BIF_ARG_1, BIF_ARG_2, &err_type, &err_num);
+    if (!port) {
+	if (err_type == -3) {
 	    ASSERT(err_num == BADARG || err_num == SYSTEM_LIMIT);
 	    BIF_ERROR(BIF_P, err_num);
-	} else if (port_num == -2) {
+	} else if (err_type == -2) {
 	    str = erl_errno_id(err_num);
 	} else {
 	    str = "einval";
@@ -74,15 +75,15 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
 
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_LINK);
 
-    port_val = erts_port[port_num].common.id;
-    erts_add_link(&ERTS_P_LINKS(&erts_port[port_num]), LINK_PID, BIF_P->common.id);
-    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port_val);
+    port_id = port->common.id;
+    erts_add_link(&ERTS_P_LINKS(port), LINK_PID, BIF_P->common.id);
+    erts_add_link(&ERTS_P_LINKS(BIF_P), LINK_PID, port_id);
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
 
-    erts_port_release(&erts_port[port_num]);
+    erts_port_release(port);
 
-    BIF_RET(port_val);
+    BIF_RET(port_id);
 }
 
 /****************************************************************************
@@ -112,7 +113,10 @@ id_or_name2port(Process *c_p, Eterm id)
 {
     Port *port;
     if (is_not_atom(id))
-	port = erts_id2port(id, c_p, ERTS_PROC_LOCK_MAIN);
+	port = erts_id2port_sflgs(id,
+				  c_p,
+				  ERTS_PROC_LOCK_MAIN,
+				  ERTS_PORT_SFLGS_INVALID_LOOKUP);
     else
 	erts_whereis_name(c_p, ERTS_PROC_LOCK_MAIN, id, NULL, 0, 0, &port);
     return port;
@@ -164,7 +168,7 @@ do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
 	ERTS_BIF_PREP_ERROR(res, BIF_P, EXC_NOTSUP);
     }
     else if (!(flags & ERTS_PORT_COMMAND_FLAG_FORCE)
-	     && (erts_smp_atomic32_read_nob(&p->state) & ERTS_PORT_SFLG_PORT_BUSY)) {
+	     && (erts_atomic32_read_nob(&p->state) & ERTS_PORT_SFLG_PORT_BUSY)) {
 	if (flags & ERTS_PORT_COMMAND_FLAG_NOSUSPEND) {
 	    ERTS_BIF_PREP_RET(res, am_false);
 	}
@@ -538,7 +542,7 @@ BIF_RETTYPE port_connect_2(BIF_ALIST_2)
     rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
 		       pid, ERTS_PROC_LOCK_LINK);
     if (!rp) {
-	erts_smp_port_unlock(prt);
+	erts_port_release(prt);
 	ERTS_SMP_ASSERT_IS_NOT_EXITING(BIF_P);
 	goto error;
     }
@@ -549,7 +553,7 @@ BIF_RETTYPE port_connect_2(BIF_ALIST_2)
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 
     prt->connected = pid; /* internal pid */
-    erts_smp_port_unlock(prt);
+    erts_port_release(prt);
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(port_connect)) {
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
@@ -591,7 +595,7 @@ BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
 	hp = bp->mem;
 	prt->data = copy_struct(data, size, &hp, &bp->off_heap);
     }
-    erts_smp_port_unlock(prt);
+    erts_port_release(prt);
     BIF_RET(am_true);
 }
 
@@ -612,7 +616,7 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
 	Eterm* hp = HAlloc(BIF_P, prt->bp->used_size);
 	res = copy_struct(prt->data, prt->bp->used_size, &hp, &MSO(BIF_P));
     }
-    erts_smp_port_unlock(prt);
+    erts_port_release(prt);
     BIF_RET(res);
 }
 
@@ -625,11 +629,10 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
  * either BADARG or SYSTEM_LIMIT).
  */
 
-static int
-open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
+static Port *
+open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 {
-#define OPEN_PORT_ERROR(VAL) do { port_num = (VAL); goto do_return; } while (0)
-    int i, port_num;
+    int i;
     Eterm option;
     Uint arity;
     Eterm* tp;
@@ -641,6 +644,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     Eterm edir = NIL;
     byte dir[MAXPATHLEN];
     erts_aint32_t sflgs = 0;
+    Port *port;
 
     /* These are the defaults */
     opts.packet_bytes = 0;
@@ -923,38 +927,40 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 
-    port_num = erts_open_driver(driver, p->common.id, name_buf, &opts, err_nump);
+    port = erts_open_driver(driver, p->common.id, name_buf, &opts, err_typep, err_nump);
 #ifdef USE_VM_PROBES
-    if (port_num >= 0 && DTRACE_ENABLED(port_open)) {
+    if (port && DTRACE_ENABLED(port_open)) {
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
 
         dtrace_proc_str(p, process_str);
-        erts_snprintf(port_str, sizeof(port_str), "%T", erts_port[port_num].id);
+        erts_snprintf(port_str, sizeof(port_str), "%T", port->common.id);
         DTRACE3(port_open, process_str, name_buf, port_str);
     }
 #endif
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
-    if (port_num < 0) {
-	DEBUGF(("open_driver returned %d(%d)\n", port_num, *err_nump));
+    if (!port) {
+	DEBUGF(("open_driver returned (%d:%d)\n",
+		err_typep ? *err_typep : 4711,
+		err_nump ? *err_nump : 4711));
     	if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
             trace_virtual_sched(p, am_in);
     	}
-	OPEN_PORT_ERROR(port_num);
+	goto do_return;
     }
     
     if (IS_TRACED_FL(p, F_TRACE_SCHED_PROCS)) {
         trace_virtual_sched(p, am_in);
     }
 
-    if (linebuf && erts_port[port_num].linebuf == NULL){
-	erts_port[port_num].linebuf = allocate_linebuf(linebuf);
+    if (linebuf && port->linebuf == NULL){
+	port->linebuf = allocate_linebuf(linebuf);
 	sflgs |= ERTS_PORT_SFLG_LINEBUF_IO;
     }
 
     if (sflgs)
-	erts_smp_atomic32_read_bor_relb(&erts_port[port_num].state, sflgs);
+	erts_atomic32_read_bor_relb(&port->state, sflgs);
  
  do_return:
     if (name_buf)
@@ -965,13 +971,15 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
     if (opts.wd && opts.wd != ((char *)dir)) {
 	erts_free(ERTS_ALC_T_TMP, (void *) opts.wd);
     }
-    return port_num;
+    return port;
     
  badarg:
-    *err_nump = BADARG;
-    OPEN_PORT_ERROR(-3);
+    if (err_typep)
+	*err_typep = -3;
+    if (err_nump)
+	*err_nump = BADARG;
+    port = NULL;
     goto do_return;
-#undef OPEN_PORT_ERROR
 }
 
 /* Arguments can be given i unicode and as raw binaries, convert filename is used to convert */

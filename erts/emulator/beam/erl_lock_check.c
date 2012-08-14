@@ -112,9 +112,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
 #if defined(ENABLE_CHILD_WAITER_THREAD) || defined(ERTS_SMP)
     {	"child_status",				NULL			},
 #endif
-#ifdef __WIN32__
-    {	"sys_driver_data_lock",			NULL 			},
-#endif
     {	"drv_ev_state_grow",			NULL,   		},
     {	"drv_ev_state",				"address"		},
     {	"safe_hash",				"address"		},
@@ -159,7 +156,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"port_taskq_pre_alloc_lock",		"address"		},
     {	"proclist_pre_alloc_lock",		"address"		},
     {	"port_tasks_lock",			NULL			},
-    {   "get_free_port",                        NULL                    },
+    {   "port_table",                           NULL                    },
     {	"port_state",			        "address"		},
     {	"xports_list_pre_alloc_lock",		"address"		},
     {	"inet_buffer_stack_lock",		NULL			},
@@ -248,6 +245,7 @@ typedef struct {
 typedef struct erts_lc_locked_locks_t_ erts_lc_locked_locks_t;
 struct erts_lc_locked_locks_t_ {
     char *thread_name;
+    int emu_thread;
     erts_tid_t tid;
     erts_lc_locked_locks_t *next;
     erts_lc_locked_locks_t *prev;
@@ -365,6 +363,7 @@ create_locked_locks(char *thread_name)
     if (!l_lcks->thread_name)
 	lc_abort();
 
+    l_lcks->emu_thread = 0;
     l_lcks->tid = erts_thr_self();
     l_lcks->required.first = NULL;
     l_lcks->required.last = NULL;
@@ -672,7 +671,7 @@ erts_lc_set_thread_name(char *thread_name)
 {
     erts_lc_locked_locks_t *l_lcks = get_my_locked_locks();
     if (!l_lcks)
-	(void) create_locked_locks(thread_name);
+	l_lcks = create_locked_locks(thread_name);
     else {
 	ASSERT(l_lcks->thread_name);
 	free((void *) l_lcks->thread_name);
@@ -680,6 +679,14 @@ erts_lc_set_thread_name(char *thread_name)
 	if (!l_lcks->thread_name)
 	    lc_abort();
     }
+    l_lcks->emu_thread = 1;
+}
+
+int
+erts_lc_is_emu_thr(void)
+{
+    erts_lc_locked_locks_t *l_lcks = get_my_locked_locks();
+    return l_lcks->emu_thread;
 }
 
 int

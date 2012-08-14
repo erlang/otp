@@ -61,9 +61,12 @@ extern char* erts_system_version[];
 static void
 port_info(int to, void *to_arg)
 {
-    int i;
-    for (i = 0; i < erts_max_ports; i++)
-	print_port_info(to, to_arg, i);
+    int i, max = erts_ptab_max(&erts_port);
+    for (i = 0; i < max; i++) {
+	Port *p = erts_pix2port(i);
+	if (p)
+	    print_port_info(p, to, to_arg);
+    }
 }
 
 void

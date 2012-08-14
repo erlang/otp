@@ -201,17 +201,6 @@ static void event_large_fd_error(ErlDrvPort, ErtsSysFdType, ErlDrvEventData);
 #endif
 static void steal_pending_stop_select(erts_dsprintf_buf_t*, ErlDrvPort,
 				      ErtsDrvEventState*, int mode, int on);
-static ERTS_INLINE Eterm
-drvport2id(ErlDrvPort dp)
-{
-    Port *pp = erts_drvport2port(dp, NULL);
-    if (pp)
-	return pp->common.id;
-    else {
-	ASSERT(0);
-	return am_undefined;
-    }
-}
 
 #ifdef ERTS_SMP
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(removed_fd, struct removed_fd, 64, ERTS_ALC_T_FD_LIST)
@@ -491,7 +480,7 @@ ERTS_CIO_EXPORT(driver_select)(ErlDrvPort ix,
 			       int on)
 {
     void (*stop_select_fn)(ErlDrvEvent, void*) = NULL;
-    Eterm id = drvport2id(ix);
+    Eterm id = erts_drvport2id(ix);
     ErtsSysFdType fd = (ErtsSysFdType) e;
     ErtsPollEvents ctl_events = (ErtsPollEvents) 0;
     ErtsPollEvents new_events, old_events;
@@ -718,7 +707,7 @@ ERTS_CIO_EXPORT(driver_event)(ErlDrvPort ix,
     ErtsPollEvents events;
     ErtsPollEvents add_events;
     ErtsPollEvents remove_events;
-    Eterm id = drvport2id(ix);
+    Eterm id = erts_drvport2id(ix);
     ErtsDrvEventState *state;
     int do_wake = 0;
     int ret;

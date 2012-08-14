@@ -182,7 +182,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
 	    return res;
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
 	if (is_internal_port(id)) {
-	    port = erts_id2port(id, NULL, 0);
+	    port = erts_id2port(id);
 	    if (!port)
 		goto done;
 	}
@@ -241,7 +241,7 @@ int erts_register_name(Process *c_p, Eterm name, Eterm id)
  done:
     reg_write_unlock();
     if (port)
-	erts_smp_port_unlock(port);
+	erts_port_release(port);
     if (c_p != proc) {
 	if (proc)
 	    erts_smp_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
@@ -397,16 +397,14 @@ erts_whereis_name(Process *c_p,
 	if (!rp || !rp->pt)
 	    *port = NULL;
 	else {
-#ifndef ERTS_SMP
-	    erts_smp_atomic32_inc_nob(&rp->pt->common.refc);
-#else
+#ifdef ERTS_SMP
 	    if (pending_port == rp->pt)
 		pending_port = NULL;
 	    else {
 		if (pending_port) {
 		    /* Ahh! Registered port changed while reg lock
 		       was unlocked... */
-		    erts_smp_port_unlock(pending_port);
+		    erts_port_release(pending_port);
 		    pending_port = NULL;
 		}
 		    
@@ -418,7 +416,7 @@ erts_whereis_name(Process *c_p,
 			current_c_p_locks = 0;
 		    }
 		    reg_read_unlock();
-		    pending_port = erts_id2port(id, NULL, 0);
+		    pending_port = erts_id2port(id);
 		    goto restart;
 		}
 	    }
@@ -432,7 +430,7 @@ erts_whereis_name(Process *c_p,
     if (c_p && !current_c_p_locks)
 	erts_smp_proc_lock(c_p, c_p_locks);
     if (pending_port)
-	erts_smp_port_unlock(pending_port);
+	erts_port_release(pending_port);
 #endif
 
     reg_read_unlock();
@@ -506,12 +504,10 @@ int erts_unregister_name(Process *c_p,
     if ((rp = (RegProc*) hash_get(&process_reg, (void*) &r)) != NULL) {
 	if (rp->pt) {
 	    if (port != rp->pt) {
-#ifndef ERTS_SMP
-		erts_smp_atomic32_inc_nob(&rp->pt->common.refc);
-#else
+#ifdef ERTS_SMP
 		if (port) {
 		    ASSERT(port != c_prt);
-		    erts_smp_port_unlock(port);
+		    erts_port_release(port);
 		    port = NULL;
 		}
 
@@ -523,7 +519,7 @@ int erts_unregister_name(Process *c_p,
 			current_c_p_locks = 0;
 		    }
 		    reg_write_unlock();
-		    port = erts_id2port(id, NULL, 0);
+		    port = erts_id2port(id);
 		    goto restart;
 		}
 #endif
@@ -569,7 +565,7 @@ int erts_unregister_name(Process *c_p,
     reg_write_unlock();
     if (c_prt != port) {
 	if (port) {
-	    erts_smp_port_unlock(port);
+	    erts_port_release(port);
 	}
 	if (c_prt) {
 	    erts_smp_port_lock(c_prt);

@@ -522,7 +522,8 @@ static Uint tmp_buf_size;
 
 /* This data is shared by these drivers - initialized by spawn_init() */
 static struct driver_data {
-    int port_num, ofd, packet_bytes, report_exit;
+    ErlDrvPort port_num;
+    int ofd, packet_bytes, report_exit;
     int exitcode, exit_reported; /* For returning of exit codes. */
 } *driver_data;			/* indexed by fd */
 
@@ -678,7 +679,7 @@ static int pre_set_driver_data(int ifd, int ofd,
 ** Set up the driver_data structure, it may have been initiated
 ** partly by the function above, but we dont care. 
 */
-static int set_driver_data(int port_num, int ifd, int ofd, 
+static int set_driver_data(ErlDrvPort port_num, int ifd, int ofd, 
 			   int packet_bytes, int read_write,
 			   int report_exit)
 {
@@ -908,7 +909,7 @@ static void close_pipes(int ifd[2], int ofd[2], int read_write)
   }
 }
 
-static void init_fd_data(int fd, int port_unused_argument)
+static void init_fd_data(int fd, ErlDrvPort port_unused_argument)
 {
   SET_NONBLOCKING(fd);
   fd_data[fd].pending = NULL;
@@ -1062,7 +1063,7 @@ static void clear_fd_data(int fd)
   fd_data[fd].cpos = NULL;
 }
 
-static void nbio_stop_fd(int port_num, int fd)
+static void nbio_stop_fd(ErlDrvPort port_num, int fd)
 {
   Pend *p, *p1;
     
@@ -1132,7 +1133,8 @@ vanilla_start(ErlDrvPort port_num, char *name, SysDriverOpts* opts)
 
 static void stop(ErlDrvData drv_data)
 {
-    int port_num, ofd;
+    ErlDrvPort port_num;
+    int ofd;
     int fd = (int) drv_data;
 
     port_num = driver_data[fd].port_num;
@@ -1146,7 +1148,7 @@ static void stop(ErlDrvData drv_data)
     }
 }
 
-static int sched_write(int port_num,int fd, char *buf, int len, int pb)
+static int sched_write(ErlDrvPort port_num,int fd, char *buf, int len, int pb)
 {
   Pend *p, *p2, *p3;
   int p_bytes = len;
@@ -1189,7 +1191,8 @@ static int sched_write(int port_num,int fd, char *buf, int len, int pb)
 /* Fd is the value returned as drv_data by the start func */
 static void output(ErlDrvData drv_data, char *buf, ErlDrvSizeT len)
 {
-    int buf_done, port_num, wval, pb, ofd;
+    ErlDrvPort port_num;
+    int buf_done, wval, pb, ofd;
     byte lb[4];
     struct iovec iv[2];
     int fd = (int) drv_data;
@@ -1271,7 +1274,7 @@ static int ensure_header(int fd,char *buf,int packet_size, int sofar)
   return(res);
 }
 
-static int port_inp_failure(int port_num, int ready_fd, int res)
+static int port_inp_failure(ErlDrvPort port_num, int ready_fd, int res)
 {
     (void) driver_select(port_num, ready_fd, ERL_DRV_READ|ERL_DRV_WRITE, 0); 
     clear_fd_data(ready_fd);
@@ -1302,7 +1305,8 @@ static int port_inp_failure(int port_num, int ready_fd, int res)
 
 static void ready_input(ErlDrvData drv_data, ErlDrvEvent drv_event)
 {
-  int port_num, packet_bytes, res;
+    ErlDrvPort port_num;
+  int packet_bytes, res;
   Uint h = 0;
   char *buf;
   int fd = (int) drv_data;

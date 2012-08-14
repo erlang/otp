@@ -210,8 +210,8 @@ typedef struct erl_drv_binary {
 typedef struct _erl_drv_data* ErlDrvData; /* Data to be used by the driver itself. */
 #ifndef ERL_SYS_DRV
 typedef struct _erl_drv_event* ErlDrvEvent; /* An event to be selected on. */
-typedef struct _erl_drv_port* ErlDrvPort; /* A port descriptor. */
 #endif
+typedef struct _erl_drv_port* ErlDrvPort; /* A port descriptor. */
 typedef struct _erl_drv_port* ErlDrvThreadData; /* Thread data. */
 
 #if !defined(__WIN32__) && !defined(_WIN32) && !defined(_WIN32_) && !defined(USE_SELECT)

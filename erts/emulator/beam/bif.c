@@ -37,6 +37,8 @@
 #include "erl_db_util.h"
 #include "register.h"
 #include "erl_thr_progress.h"
+#define ERTS_PTAB_WANT_BIF_IMPL__
+#include "erl_ptab.h"
 
 static Export* flush_monitor_message_trap = NULL;
 static Export* set_cpu_topology_trap = NULL;
@@ -155,7 +157,10 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
     }
 
     if (is_internal_port(BIF_ARG_1)) {
-	Port *pt = erts_id2port(BIF_ARG_1, BIF_P, ERTS_PROC_LOCK_MAIN);
+	Port *pt = erts_id2port_sflgs(BIF_ARG_1,
+				      BIF_P,
+				      ERTS_PROC_LOCK_MAIN,
+				      ERTS_PORT_SFLGS_INVALID_LOOKUP);
 	if (!pt) {
 	    goto res_no_proc;
 	}
@@ -167,7 +172,7 @@ BIF_RETTYPE link_1(BIF_ALIST_1)
 	/* else: already linked */
 
 	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_LINK);
-	erts_smp_port_unlock(pt);
+	erts_port_release(pt);
 	BIF_RET(am_true);
     }
     else if (is_external_port(BIF_ARG_1)
@@ -948,7 +953,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 #ifdef ERTS_SMP
 	if (ERTS_PROC_PENDING_EXIT(BIF_P)) {
 	    if (pt)
-		erts_smp_port_unlock(pt);
+		erts_port_release(pt);
 	    goto handle_pending_exit;
 	}
 #endif
@@ -959,7 +964,7 @@ BIF_RETTYPE unlink_1(BIF_ALIST_1)
 
 	if (pt) {
 	    rl = erts_remove_link(&ERTS_P_LINKS(pt), BIF_P->common.id);
-	    erts_smp_port_unlock(pt);
+	    erts_port_release(pt);
 	    if (rl)
 		erts_destroy_link(rl);
 	}
@@ -1341,7 +1346,7 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
      if (is_internal_port(BIF_ARG_1)) {
 	 Port *prt;
 	 erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	 prt = erts_id2port(BIF_ARG_1, NULL, 0);
+	 prt = erts_id2port(BIF_ARG_1);
 	 if (prt) {
 	     erts_do_exit_port(prt, BIF_P->common.id, BIF_ARG_2);
 	     erts_port_release(prt);
@@ -1894,7 +1899,10 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 	if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
 	    profile_runnable_proc(p, am_inactive);
 	}
-	pt = erts_id2port(to, p, ERTS_PROC_LOCK_MAIN);
+	pt = erts_id2port_sflgs(to,
+				p,
+				ERTS_PROC_LOCK_MAIN,
+				ERTS_PORT_SFLGS_INVALID_LOOKUP);
       port_common:
 	ERTS_SMP_LC_ASSERT(!pt || erts_lc_is_port_locked(pt));
         
@@ -1908,7 +1916,7 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 		profile_runnable_port(pt, am_active);
 	    }
 	
-	    state = erts_smp_atomic32_read_nob(&pt->state);
+	    state = erts_atomic32_read_nob(&pt->state);
 	    /* XXX let port_command handle the busy stuff !!! */
 	    if (state & ERTS_PORT_SFLG_PORT_BUSY) {
 		if (suspend) {
@@ -3510,75 +3518,25 @@ BIF_RETTYPE garbage_collect_message_area_0(BIF_ALIST_0)
 #endif
 }
 
+
 /**********************************************************************/
-/* Return a list of active ports */
+/*
+ * The erlang:processes/0 BIF.
+ */
+
+BIF_RETTYPE processes_0(BIF_ALIST_0)
+{
+    return erts_ptab_list(BIF_P, &erts_proc);
+}
+
+/**********************************************************************/
+/*
+ * The erlang:ports/0 BIF.
+ */
 
 BIF_RETTYPE ports_0(BIF_ALIST_0)
 {
-    Eterm res = NIL;
-    Eterm* port_buf = erts_alloc(ERTS_ALC_T_TMP,
-				 sizeof(Eterm)*erts_max_ports);
-    Eterm* pp = port_buf;
-    Eterm* dead_ports;
-    int alive, dead;
-    Uint32 next_ss;
-    int i;
-
-    /* To get a consistent snapshot... 
-     * We add alive ports from start of the buffer
-     * while dying ports are added from the other end by the killing threads.
-     */
-
-    erts_smp_mtx_lock(&ports_snapshot_mtx); /* One snapshot at a time */
-
-    erts_smp_atomic_set_nob(&erts_dead_ports_ptr,
-			    (erts_aint_t) (port_buf + erts_max_ports));
-
-    next_ss = erts_smp_atomic32_inc_read_relb(&erts_ports_snapshot);
-
-    for (i = erts_max_ports-1; i >= 0; i--) {
-	Port* prt = &erts_port[i];
-	erts_aint32_t state = erts_smp_atomic32_read_acqb(&prt->state);
-	if (!(state & ERTS_PORT_SFLGS_DEAD)) {
-	    erts_smp_port_minor_lock(prt);
-	    state = erts_smp_atomic32_read_nob(&prt->state);
-	    if (!(state & ERTS_PORT_SFLGS_DEAD) && prt->snapshot != next_ss) {
-		ASSERT(prt->snapshot == next_ss - 1);
-		*pp++ = prt->common.id;
-		prt->snapshot = next_ss; /* Consumed by this snapshot */
-	    }
-	    erts_smp_port_minor_unlock(prt);
-	}
-    }
-
-    dead_ports = (Eterm*)erts_smp_atomic_xchg_nob(&erts_dead_ports_ptr,
-						  (erts_aint_t) NULL);
-    erts_smp_mtx_unlock(&ports_snapshot_mtx);
-
-    ASSERT(pp <= dead_ports);
-
-    alive = pp - port_buf;
-    dead = port_buf + erts_max_ports - dead_ports;
-
-    ASSERT((alive+dead) <= erts_max_ports);
-
-    if (alive+dead > 0) {
-	erts_aint_t i;
-	Eterm *hp = HAlloc(BIF_P, (alive+dead)*2);
-
-	for (i = 0; i < alive; i++) {
-	    res = CONS(hp, port_buf[i], res);	    
-	    hp += 2;
-	}
-	for (i = 0; i < dead; i++) {
-	    res = CONS(hp, dead_ports[i], res);
-	    hp += 2;
-	}
-    }
-
-    erts_free(ERTS_ALC_T_TMP, port_buf);
-
-    BIF_RET(res);
+    return erts_ptab_list(BIF_P, &erts_port);
 }
 
 /**********************************************************************/

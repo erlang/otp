@@ -182,12 +182,13 @@ set_match_trace(Process *tracee_p, Eterm fail_term, Eterm tracer,
 	}
     } else if (is_internal_port(tracer)) {
 	Port *tracer_port = 
-	    erts_id2port(tracer, tracee_p, ERTS_PROC_LOCKS_ALL);
+	    erts_id2port_sflgs(tracer,
+			       tracee_p,
+			       ERTS_PROC_LOCKS_ALL,
+			       ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
 	if (tracer_port) {
-	    if (! INVALID_TRACER_PORT(tracer_port, tracer)) {
-		ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
-	    }
-	    erts_smp_port_unlock(tracer_port);
+	    ret = set_tracee_flags(tracee_p, tracer, d_flags, e_flags);
+	    erts_port_release(tracer_port);
 	}
     } else {
 	ASSERT(is_nil(tracer));

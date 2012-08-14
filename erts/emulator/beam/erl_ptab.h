@@ -53,8 +53,6 @@ typedef struct {
     Eterm id;
 #ifdef ERTS_SMP
     erts_atomic32_t refc;
-#else
-    erts_smp_atomic32_t refc; /* Temporary solution during dev; to be removed! */
 #endif
     Eterm tracer_proc;
     Uint trace_flags;
@@ -73,9 +71,7 @@ typedef struct {
 	} alive;
 
 	/* --- While being released --- */
-#ifdef ERTS_SMP
 	ErtsThrPrgrLaterOp release;
-#endif
     } u;
 } ErtsPTabElementCommon;
 
