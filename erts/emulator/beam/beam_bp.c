@@ -692,7 +692,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 					   * export entry */
     BeamInstr *cp = p->cp;
     GenericBp* g;
-    GenericBpData* bp;
+    GenericBpData* bp = NULL;
     Uint bp_flags = 0;
 
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);

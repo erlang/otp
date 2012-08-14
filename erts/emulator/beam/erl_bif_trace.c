@@ -118,7 +118,6 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     int is_global;
     Process *meta_tracer_proc = p;
     Eterm meta_tracer_pid = p->id;
-    int is_blocking = 0;
 
     if (!erts_try_seize_code_write_permission(p)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_trace_pattern_3], p, MFA, Pattern, flaglist);
