@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -69,8 +69,8 @@
 -define(TRUE, 0).
 -define(FALSE, 1).
 
--define(DEFAULT_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]). % TODO: This is temporary
-%-define(DEFAULT_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(DEFAULT_SUPPORTED_VERSIONS, [tlsv1, sslv3]). %% Add 'tlsv1.1' in R16
+-define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
 
 -record(ssl_options, {
 	  versions,   % 'tlsv1.2' | 'tlsv1.1' | tlsv1 | sslv3

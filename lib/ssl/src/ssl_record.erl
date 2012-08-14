@@ -449,9 +449,9 @@ supported_protocol_versions() ->
 	  end,
     case application:get_env(ssl, protocol_version) of
 	undefined ->
-	    lists:map(Fun, ?DEFAULT_SUPPORTED_VERSIONS);
+	    lists:map(Fun, supported_protocol_versions([]));
 	{ok, []} ->
-	    lists:map(Fun, ?DEFAULT_SUPPORTED_VERSIONS);
+	    lists:map(Fun, supported_protocol_versions([]));
 	{ok, Vsns} when is_list(Vsns) ->
 	    Versions = lists:filter(fun is_acceptable_version/1, lists:map(Fun, Vsns)),
 	    supported_protocol_versions(Versions);
@@ -461,7 +461,16 @@ supported_protocol_versions() ->
     end.
 
 supported_protocol_versions([]) ->
-    ?DEFAULT_SUPPORTED_VERSIONS;
+    Vsns = case sufficient_tlsv1_2_crypto_support() of
+	       true ->
+		   %%?ALL_SUPPORTED_VERSIONS; %% Add TlS-1.2 as default in R16
+		   ?DEFAULT_SUPPORTED_VERSIONS;
+	       false ->
+		   ?DEFAULT_SUPPORTED_VERSIONS
+	   end,
+    application:set_env(ssl, protocol_version, Vsns),
+    Vsns;
+
 supported_protocol_versions([_|_] = Vsns) ->
     Vsns.
 
@@ -694,3 +703,14 @@ mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)
   when N =:= 1; N =:= 2; N =:= 3 ->
     ssl_tls1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version, 
 		      Length, Fragment).
+
+sufficient_tlsv1_2_crypto_support() ->
+    Data = "Sampl",
+    Data2 = "e #1",
+    Key = <<0,1,2,3,16,17,18,19,32,33,34,35,48,49,50,51,4,5,6,7,20,21,22,23,36,37,38,39,
+	    52,53,54,55,8,9,10,11,24,25,26,27,40,41,42,43,56,57,58,59>>,
+    try
+	crypto:sha256_mac(Key, lists:flatten([Data, Data2])),
+	true
+    catch _:_ -> false
+    end.

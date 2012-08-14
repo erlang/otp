@@ -418,7 +418,7 @@ session_info(#sslsocket{pid = Pid, fd = new_ssl}) ->
 versions() ->
     Vsns = ssl_record:supported_protocol_versions(),
     SupportedVsns = [ssl_record:protocol_version(Vsn) || Vsn <- Vsns],
-    AvailableVsns = ?DEFAULT_SUPPORTED_VERSIONS,
+    AvailableVsns = ?ALL_SUPPORTED_VERSIONS,
     [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
 
 
