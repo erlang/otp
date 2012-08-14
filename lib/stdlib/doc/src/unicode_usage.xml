@@ -53,7 +53,7 @@
 <item>Basically the same as UTF-32, but without some Unicode semantics, defined by IEEE and has little use as a separate encoding standard. For all normal (and possibly abnormal) usages, UTF-32 and UCS-4 are interchangeable.</item>
 </taglist>
 <p>Certain ranges of characters are left unused and certain ranges are even deemed invalid. The most notable invalid range is 16#D800 - 16#DFFF, as the UTF-16 encoding does not allow for encoding of these numbers. It can be speculated that the UTF-16 encoding standard was, from the beginning, expected to be able to hold all Unicode characters in one 16-bit entity, but then had to be extended, leaving a hole in the Unicode range to cope with backward compatibility.</p>
-<p>Additionally, the codepoint 16#FEFF is used for byte order marks (BOM's) and use of that character is not encouraged in other contexts than that. It actually is valid though, as the character "ZWNBS" (Zero Width Non Breaking Space). BOM's are used to identify encodings and byte order for programs where such parameters are not known in advance. Byte order marks are more seldom used than one could expect, put their use is becoming more widely spread as they provide the means for programs to make educated guesses about the Unicode format of a certain file.</p>
+<p>Additionally, the codepoint 16#FEFF is used for byte order marks (BOM's) and use of that character is not encouraged in other contexts than that. It actually is valid though, as the character "ZWNBS" (Zero Width Non Breaking Space). BOM's are used to identify encodings and byte order for programs where such parameters are not known in advance. Byte order marks are more seldom used than one could expect, but their use is becoming more widely spread as they provide the means for programs to make educated guesses about the Unicode format of a certain file.</p>
 </section>
 <section>
 <title>Standard Unicode representation in Erlang</title>
@@ -208,6 +208,12 @@ Eshell V5.7  (abort with ^G)
 <p>MacOSXs vfs layer enforces UTF-8 file names in a quite aggressive way. Older versions did this by simply refusing to create non UTF-8 conforming file names, while newer versions replace offending bytes with the sequence &quot;%HH&quot;, where HH is the original character in hexadecimal notation. As Unicode translation is enabled by default on MacOSX, the only way to come up against this is to either start the VM with the <c>+fnl</c> flag or to use a raw file name in <c>latin1</c> encoding. In that case, the file can not be opened with the same name as the one used to create this. The problem is by design in newer versions of MacOSX.</p>
 <p>MacOSX also reorganizes the names of files so that the representation of accents etc is denormalized, i.e. the character <c>ö</c> is represented as the codepoints [111,776], where 111 is the character <c>o</c> and 776 is a special accent character. This type of denormalized Unicode is otherwise very seldom used and Erlang normalizes those file names on retrieval, so that denormalized file names is not passed up to the Erlang application. In Erlang the file name &quot;björn&quot; is retrieved as [98,106,246,114,110], not as [98,106,117,776,114,110], even though the file system might think differently.</p>
 </section>
+</section>
+<section>
+<title>Unicode in environment variables and parameters</title>
+<p>Environment variables and their interpretation is handled much in the same way as file names. If Unicode file names are enabled, environment variables as well as parameters to the Erlang VM are expected to be in Unicode.</p>
+<p>If Unicode file names are enabled, the calls to <seealso marker="kernel:os#os_getenv/0"><c>os:getenv/0</c></seealso>, <seealso marker="kernel:os#os_getenv/1"><c>os:getenv/1</c></seealso> and <seealso marker="kernel:os#os_putenv/2"><c>os:putenv/2</c></seealso> will handle Unicode strings. On Unix-like platforms, the built-in functions will translate environment variables in UTF-8 to/from Unicode strings, possibly with codepoints > 255. On Windows the Unicode versions of the environment system API will be used, also allowing for codepoints > 255.</p>
+<p>On Unix-like operating systems, parameters are expected to be UTF-8 without translation if Unicode file names are enabled.</p>
 </section>
 <section>
 <title>Unicode-aware modules</title>
