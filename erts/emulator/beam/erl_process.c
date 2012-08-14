@@ -531,7 +531,6 @@ dbg_chk_aux_work_val(erts_aint32_t value)
     valid |= ERTS_SSI_AUX_WORK_CHECK_CHILDREN;
 #endif
 #ifdef ERTS_SMP
-    valid |= ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION;
     valid |= ERTS_SSI_AUX_WORK_FINISH_BP;
 #endif
 #ifdef ERTS_SSI_AUX_WORK_REAP_PORTS
@@ -1450,43 +1449,6 @@ handle_async_ready_clean(ErtsAuxWorkData *awdp,
 
 #endif /* ERTS_USE_ASYNC_READY_Q */
 
-#ifdef ERTS_SMP
-void
-erts_notify_code_ix_activation(Process* p, ErtsThrPrgrVal later)
-{
-    ErtsAuxWorkData* awdp = &p->scheduler_data->aux_work_data;
-    ASSERT(awdp->code_ix_activation.code_stager == NULL);
-    awdp->code_ix_activation.code_stager = p;
-    awdp->code_ix_activation.thr_prgr = later;
-    erts_smp_proc_inc_refc(p);
-    set_aux_work_flags_wakeup_relb(p->scheduler_data->ssi,
-				   ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION);
-}
-
-static erts_aint32_t
-handle_code_ix_activation(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
-{
-    Process* p;
-    if (!erts_thr_progress_has_reached(awdp->code_ix_activation.thr_prgr)) {
-	return aux_work & ~ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION;
-    }
-    unset_aux_work_flags(awdp->ssi, ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION);
-    p = awdp->code_ix_activation.code_stager;
-    ASSERT(p);
-#ifdef DEBUG
-    awdp->code_ix_activation.code_stager = NULL;
-#endif
-    erts_commit_staging_code_ix();
-    erts_release_code_write_permission();
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    if (!ERTS_PROC_IS_EXITING(p)) {
-	erts_resume(p, ERTS_PROC_LOCK_STATUS);
-    }
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_dec_refc(p);
-    return aux_work & ~ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION;
-}
-#endif /* ERTS_SMP */
 
 #ifdef ERTS_SMP
 void
@@ -1979,11 +1941,6 @@ handle_aux_work(ErtsAuxWorkData *awdp, erts_aint32_t orig_aux_work, int waiting)
 #if HAVE_ERTS_MSEG
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK,
 		    handle_mseg_cache_check);
-#endif
-
-#ifdef ERTS_SMP
-    HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_CODE_IX_ACTIVATION,
-		    handle_code_ix_activation);
 #endif
 
     HANDLE_AUX_WORK(ERTS_SSI_AUX_WORK_REAP_PORTS,
