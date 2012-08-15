@@ -2585,7 +2585,7 @@ opts2args(EnvStartOpts) ->
 		     ({decrypt,{file,File}}) ->
 			  [{ct_decrypt_file,[File]}];
 		     ({basic_html,true}) ->
-			  ({basic_html,[]});
+			  [{basic_html,[]}];
 		     ({basic_html,false}) ->
 			  [];
 		     ({event_handler,EH}) when is_atom(EH) ->

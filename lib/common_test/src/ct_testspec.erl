@@ -48,16 +48,10 @@
 %%% Version 1 - extract and return all tests and skips for Node 
 %%%             (incl all_nodes)
 %%%-------------------------------------------------------------------
-prepare_tests(TestSpec,Node) when is_record(TestSpec,testspec) ->
-    Node1 = case Node of
-		{N,H} when is_atom(N), is_atom(H) ->
-		    list_to_atom(atom_to_list(N) ++ "@"
-				 ++ atom_to_list(H));
-		N when is_atom(N) ->
-		    N
-	    end,
-    case lists:keysearch(Node1,1,prepare_tests(TestSpec)) of
-	{value,{Node1,Run,Skip}} ->
+prepare_tests(TestSpec,Node) when is_record(TestSpec,testspec),
+				  is_atom(Node) ->
+    case lists:keysearch(Node,1,prepare_tests(TestSpec)) of
+	{value,{Node,Run,Skip}} ->
 	    {Run,Skip};
 	false ->
 	    {[],[]}
@@ -258,22 +252,23 @@ collect_tests_from_file1([Spec|Specs],TestSpec,Relaxed) ->
     SpecDir = filename:dirname(filename:absname(Spec)),
     case file:consult(Spec) of
 	{ok,Terms} ->	    
-	    TestSpec1 = collect_tests(Terms,
-				      TestSpec#testspec{spec_dir=SpecDir},
-				      Relaxed),
-	    collect_tests_from_file1(Specs,TestSpec1,Relaxed);
+	    case collect_tests(Terms,
+			       TestSpec#testspec{spec_dir=SpecDir},
+			       Relaxed) of
+		TS = #testspec{tests=Tests, logdir=LogDirs} when Specs == [] ->
+		    LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
+		    TS#testspec{tests=lists:flatten(Tests), logdir=LogDirs1};  
+		TS = #testspec{alias = As, nodes = Ns} ->
+		    TS1 = TS#testspec{alias = lists:reverse(As),
+				      nodes = lists:reverse(Ns)},
+		    collect_tests_from_file1(Specs,TS1,Relaxed)
+	    end;
 	{error,Reason} ->
 	    ReasonStr =
 		lists:flatten(io_lib:format("~s",
 					    [file:format_error(Reason)])),
 	    throw({error,{Spec,ReasonStr}})
-    end;
-collect_tests_from_file1([],TS=#testspec{config=Cfgs,event_handler=EvHs,
-					 include=Incl,tests=Tests},_) ->
-    TS#testspec{config=lists:reverse(Cfgs),
-		event_handler=lists:reverse(EvHs),
-		include=lists:reverse(Incl),
-		tests=lists:flatten(Tests)}.
+    end.
 
 collect_tests_from_list(Terms,Relaxed) ->
     collect_tests_from_list(Terms,[node()],Relaxed).
@@ -287,22 +282,14 @@ collect_tests_from_list(Terms,Nodes,Relaxed) when is_list(Nodes) ->
 	E = {error,_} ->
 	    E;
 	TS ->
-	    #testspec{config=Cfgs,event_handler=EvHs,
-		      include=Incl,tests=Tests} = TS,
-	    TS#testspec{config=lists:reverse(Cfgs),
-			event_handler=lists:reverse(EvHs),
-			include=lists:reverse(Incl),
-			tests=lists:flatten(Tests)}
+	    #testspec{tests=Tests, logdir=LogDirs} = TS,
+	    LogDirs1 = lists:delete(".",LogDirs) ++ ["."],
+	    TS#testspec{tests=lists:flatten(Tests), logdir=LogDirs1}
     end.
     
 collect_tests(Terms,TestSpec,Relaxed) ->
     put(relaxed,Relaxed),
     Terms1 = replace_names(Terms),
-
-    %%! --- Fri Aug 10 22:51:23 2012 --- peppe was here!
-    io:format(user, "~nTERMS:~n", []),
-    [io:format(user, "~p~n", [T]) || T <- Terms1],
-
     TestSpec1 = get_global(Terms1,TestSpec),
     TestSpec2 = get_all_nodes(Terms1,TestSpec1),
     {Terms2, TestSpec3} = filter_init_terms(Terms1, [], TestSpec2),
@@ -311,23 +298,49 @@ collect_tests(Terms,TestSpec,Relaxed) ->
 %% replace names (atoms) in the testspec matching those in 'define' terms by
 %% searching recursively through tuples and lists
 replace_names(Terms) ->
-    Defs = lists:flatmap(fun({define,Name,Replacement}) ->
-				 [{Name,Replacement}];
-			    (_) -> []
-			 end, Terms),
-    replace_names(Terms,[],Defs).
+    Defs =
+	lists:flatmap(fun(Def={define,Name,_Replacement}) ->
+			      %% check that name follows convention
+			      if not is_atom(Name) ->
+				      throw({illegal_name_in_testspec,Name});
+				 true ->
+				      [First|_] = atom_to_list(Name),
+				      if ((First == $?) or (First == $$)
+					  or (First == $_)
+					  or ((First >= $A)
+					      and (First =< $Z))) ->
+					      [Def];
+					 true ->
+					      throw({illegal_name_in_testspec,
+						     Name})
+				      end
+			      end;
+			 (_) -> []
+		      end, Terms),
+    DefProps = replace_names_in_defs(Defs,[]),
+    replace_names(Terms,[],DefProps).
 
-replace_names([{define,_,_}|Ts],Modified,Defs) ->
-    replace_names(Ts,Modified,Defs);
+replace_names_in_defs([Def|Left],ModDefs) ->
+    [{define,Name,Replacement}] = replace_names([Def],[],ModDefs),
+    replace_names_in_defs(Left,[{Name,Replacement}|ModDefs]);
+replace_names_in_defs([],ModDefs) ->
+    ModDefs.
+
 replace_names([Term|Ts],Modified,Defs) when is_tuple(Term) ->
     [TypeTag|Data] = tuple_to_list(Term),
     Term1 = list_to_tuple([TypeTag|replace_names_in_elems(Data,[],Defs)]),
     replace_names(Ts,[Term1|Modified],Defs);
 replace_names([Term|Ts],Modified,Defs) when is_atom(Term) ->
     case proplists:get_value(Term,Defs) of
-	undefined -> replace_names(Ts,[Term|Modified],Defs);
-	Replacement -> replace_names(Ts,[Replacement|Modified],Defs)
+	undefined ->
+	    replace_names(Ts,[Term|Modified],Defs);
+	Replacement ->
+	    replace_names(Ts,[Replacement|Modified],Defs)
     end;
+replace_names([Term=[Ch|_]|Ts],Modified,Defs) when is_integer(Ch) ->
+    %% Term *could* be a string, attempt to search through it
+    Term1 = replace_names_in_string(Term,Defs),
+    replace_names(Ts,[Term1|Modified],Defs);
 replace_names([Term|Ts],Modified,Defs) ->
     replace_names(Ts,[Term|Modified],Defs);
 replace_names([],Modified,_Defs) ->
@@ -338,11 +351,22 @@ replace_names_in_elems([Elem|Es],Modified,Defs) when is_tuple(Elem) ->
     replace_names_in_elems(Es,[Elem1|Modified],Defs);
 replace_names_in_elems([Elem|Es],Modified,Defs) when is_atom(Elem) ->
     case proplists:get_value(Elem,Defs) of
-	undefined -> replace_names_in_elems(Es,[Elem|Modified],Defs);
-	Replacement -> replace_names_in_elems(Es,[Replacement|Modified],Defs)
+	undefined ->
+	    %% if Term is a node name, check it for replacements as well
+	    Elem1 = replace_names_in_node(Elem,Defs),
+	    replace_names_in_elems(Es,[Elem1|Modified],Defs);
+	Replacement ->
+	    replace_names_in_elems(Es,[Replacement|Modified],Defs)
     end;
-replace_names_in_elems([Str=[Char|_]|Es],Modified,Defs) when is_integer(Char) ->
-    replace_names_in_elems(Es,[Str|Modified],Defs);
+replace_names_in_elems([Elem=[Ch|_]|Es],Modified,Defs) when is_integer(Ch) ->
+    %% Term *could* be a string, attempt to search through it
+    case replace_names_in_string(Elem,Defs) of
+	Elem ->
+	    List = replace_names_in_elems(Elem,[],Defs),
+	    replace_names_in_elems(Es,[List|Modified],Defs);
+	Elem1 ->
+	    replace_names_in_elems(Es,[Elem1|Modified],Defs)
+    end;
 replace_names_in_elems([Elem|Es],Modified,Defs) when is_list(Elem) ->
     List = replace_names_in_elems(Elem,[],Defs),
     replace_names_in_elems(Es,[List|Modified],Defs);
@@ -350,6 +374,51 @@ replace_names_in_elems([Elem|Es],Modified,Defs) ->
     replace_names_in_elems(Es,[Elem|Modified],Defs);
 replace_names_in_elems([],Modified,_Defs) ->
     lists:reverse(Modified).
+
+replace_names_in_string(Term,Defs=[{Name,Replacement=[Ch|_]}|Ds])
+  when is_integer(Ch) ->
+    try re:replace(Term,[$'|atom_to_list(Name)]++"'",
+		   Replacement,[{return,list}]) of
+	Term ->					% no match, proceed
+	    replace_names_in_string(Term,Ds);
+	Term1 ->
+	    replace_names_in_string(Term1,Defs)
+    catch
+	_:_ -> Term			% Term is not a string
+    end;
+replace_names_in_string(Term,[_|Ds]) ->
+    replace_names_in_string(Term,Ds);
+replace_names_in_string(Term,[]) ->
+    Term.
+
+replace_names_in_node(Node,Defs) ->
+    String = atom_to_list(Node),
+    case lists:member($@,String) of
+	true ->
+	    list_to_atom(replace_names_in_node1(String,Defs));
+	false ->
+	    Node
+    end.
+
+replace_names_in_node1(NodeStr,Defs=[{Name,Replacement}|Ds]) ->
+    ReplStr = case Replacement of
+		  [Ch|_] when is_integer(Ch) -> Replacement;
+		  _ when is_atom(Replacement) -> atom_to_list(Replacement);
+		  _ -> false
+	      end,
+    if ReplStr == false ->
+	    replace_names_in_node1(NodeStr,Ds);
+       true ->
+	    case re:replace(NodeStr,atom_to_list(Name),
+			    ReplStr,[{return,list}]) of
+		NodeStr ->			% no match, proceed
+		    replace_names_in_node1(NodeStr,Ds);
+		NodeStr1 ->
+		    replace_names_in_node1(NodeStr1,Defs)
+	    end
+    end;
+replace_names_in_node1(NodeStr,[]) ->
+    NodeStr.
 
 
 %% global terms that will be used for analysing all other terms in the spec
@@ -361,18 +430,13 @@ get_global([{merge_tests,Bool} | Ts], Spec) ->
 get_global([{alias,Ref,Dir}|Ts],Spec=#testspec{alias=Refs}) ->
     get_global(Ts,Spec#testspec{alias=[{Ref,get_absdir(Dir,Spec)}|Refs]});
 get_global([{node,Ref,Node}|Ts],Spec=#testspec{nodes=Refs}) ->
-    Node1 = case Node of
-		{N,H} when is_atom(N), is_atom(H) ->
-		    list_to_atom(atom_to_list(N) ++ "@"
-				 ++ atom_to_list(H));
-		_ ->
-		    Node
-	    end,
-    get_global(Ts,Spec#testspec{nodes=[{Ref,Node1} |
-				       lists:keydelete(Node1,2,Refs)]});
+    get_global(Ts,Spec#testspec{nodes=[{Ref,Node} |
+				       lists:keydelete(Node,2,Refs)]});
 
-get_global([_|Ts],Spec) -> get_global(Ts,Spec);
-get_global([],Spec) -> Spec.
+get_global([_|Ts],Spec) ->
+    get_global(Ts,Spec);
+get_global([],Spec=#testspec{nodes=Ns, alias=As}) ->
+    Spec#testspec{nodes=lists:reverse(Ns), alias=lists:reverse(As)}.
 
 get_absfile(Callback,FullName,#testspec{spec_dir=SpecDir}) ->
     % we need to temporary switch to new cwd here, because
@@ -394,40 +458,52 @@ get_absfile(Callback,FullName,#testspec{spec_dir=SpecDir}) ->
 	    FullName
     end.
 
-get_absfile(Split=[[Ch|_]|_],Spec) when is_integer(Ch) ->
-    get_absfile(filename:join(Split),Spec);
 get_absfile(FullName,#testspec{spec_dir=SpecDir}) ->
     File = filename:basename(FullName),
     Dir = get_absname(filename:dirname(FullName),SpecDir),
     filename:join(Dir,File).
 
-get_absdir(Split=[[Ch|_]|_],Spec) when is_integer(Ch) ->
-    get_absdir(filename:join(Split),Spec);
 get_absdir(Dir,#testspec{spec_dir=SpecDir}) ->
     get_absname(Dir,SpecDir).
 
-get_absname(TestDir,SpecDir) ->
-    AbsName = filename:absname(TestDir,SpecDir),
-    TestDirName = filename:basename(AbsName),
-    Path = filename:dirname(AbsName),
-    TopDir = filename:basename(Path),
-    Path1 =
-	case TopDir of
-	    "." ->
-		[_|Rev] = lists:reverse(filename:split(Path)),
-		filename:join(lists:reverse(Rev));
-	    ".." ->
-		[_,_|Rev] = lists:reverse(filename:split(Path)),
-		filename:join(lists:reverse(Rev));
-	    _ ->
-		Path
-	end,
-    filename:join(Path1,TestDirName).
+get_absname(Dir,SpecDir) ->
+    AbsName = filename:absname(Dir,SpecDir),
+    shorten_path(AbsName,SpecDir).
+
+shorten_path(Path,SpecDir) ->
+    case shorten_split_path(filename:split(Path),[]) of
+	[] ->
+	    [Root|_] = filename:split(SpecDir),
+	    Root;
+	Short ->	    
+	    filename:join(Short)
+    end.
+
+shorten_split_path([".."|Path],SoFar) ->
+    shorten_split_path(Path,tl(SoFar));
+shorten_split_path(["."|Path],SoFar) ->
+    shorten_split_path(Path,SoFar);
+shorten_split_path([Dir|Path],SoFar) ->
+    shorten_split_path(Path,[Dir|SoFar]);
+shorten_split_path([],SoFar) ->
+    lists:reverse(SoFar).
 
 %% go through all tests and register all nodes found
 get_all_nodes([{suites,Nodes,_,_}|Ts],Spec) when is_list(Nodes) ->
     get_all_nodes(Ts,save_nodes(Nodes,Spec));
 get_all_nodes([{suites,Node,_,_}|Ts],Spec) ->
+    get_all_nodes(Ts,save_nodes([Node],Spec));
+get_all_nodes([{groups,[Char|_],_,_,_}|Ts],Spec) when is_integer(Char) ->
+    get_all_nodes(Ts,Spec);
+get_all_nodes([{groups,Nodes,_,_,_}|Ts],Spec) when is_list(Nodes) ->
+    get_all_nodes(Ts,save_nodes(Nodes,Spec));
+get_all_nodes([{groups,Nodes,_,_,_,_}|Ts],Spec) when is_list(Nodes) ->
+    get_all_nodes(Ts,save_nodes(Nodes,Spec));
+get_all_nodes([{groups,_,_,_,{cases,_}}|Ts],Spec) ->
+    get_all_nodes(Ts,Spec);
+get_all_nodes([{groups,Node,_,_,_}|Ts],Spec) ->
+    get_all_nodes(Ts,save_nodes([Node],Spec));
+get_all_nodes([{groups,Node,_,_,_,_}|Ts],Spec) ->
     get_all_nodes(Ts,save_nodes([Node],Spec));
 get_all_nodes([{cases,Nodes,_,_,_}|Ts],Spec) when is_list(Nodes) ->
     get_all_nodes(Ts,save_nodes(Nodes,Spec));
@@ -437,80 +513,93 @@ get_all_nodes([{skip_suites,Nodes,_,_,_}|Ts],Spec) when is_list(Nodes) ->
     get_all_nodes(Ts,save_nodes(Nodes,Spec));
 get_all_nodes([{skip_suites,Node,_,_,_}|Ts],Spec) ->
     get_all_nodes(Ts,save_nodes([Node],Spec));
+get_all_nodes([{skip_groups,[Char|_],_,_,_,_}|Ts],Spec) when is_integer(Char) ->
+    get_all_nodes(Ts,Spec);
+get_all_nodes([{skip_groups,Nodes,_,_,_,_}|Ts],Spec) when is_list(Nodes) ->
+    get_all_nodes(Ts,save_nodes(Nodes,Spec));
+get_all_nodes([{skip_groups,Node,_,_,_,_}|Ts],Spec) ->
+    get_all_nodes(Ts,save_nodes([Node],Spec));
+get_all_nodes([{skip_groups,Nodes,_,_,_,_,_}|Ts],Spec) when is_list(Nodes) ->
+    get_all_nodes(Ts,save_nodes(Nodes,Spec));
+get_all_nodes([{skip_groups,Node,_,_,_,_,_}|Ts],Spec) ->
+    get_all_nodes(Ts,save_nodes([Node],Spec));
 get_all_nodes([{skip_cases,Nodes,_,_,_,_}|Ts],Spec) when is_list(Nodes) ->
     get_all_nodes(Ts,save_nodes(Nodes,Spec));
 get_all_nodes([{skip_cases,Node,_,_,_,_}|Ts],Spec) ->
     get_all_nodes(Ts,save_nodes([Node],Spec));
-get_all_nodes([_|Ts],Spec) ->
+get_all_nodes([_Other|Ts],Spec) ->
     get_all_nodes(Ts,Spec);
 get_all_nodes([],Spec) ->
     Spec.
 
-filter_init_terms([{init, InitOptions}|Ts], NewTerms, Spec)->
-    filter_init_terms([{init, list_nodes(Spec), InitOptions}|Ts],
-		      NewTerms, Spec);
-filter_init_terms([{init, NodeRef, InitOptions}|Ts],
-		  NewTerms, Spec) when is_atom(NodeRef)->
-    filter_init_terms([{init, [NodeRef], InitOptions}|Ts], NewTerms, Spec);
-filter_init_terms([{init, NodeRefs, InitOption}|Ts],
-		  NewTerms, Spec) when is_tuple(InitOption) ->
-    filter_init_terms([{init, NodeRefs, [InitOption]}|Ts], NewTerms, Spec);
-filter_init_terms([{init, [NodeRef|NodeRefs], InitOptions}|Ts],
-		  NewTerms, Spec=#testspec{init=InitData})->
+filter_init_terms([{init,InitOptions}|Ts],NewTerms,Spec) ->
+    filter_init_terms([{init,list_nodes(Spec),InitOptions}|Ts],
+		      NewTerms,Spec);
+filter_init_terms([{init,all_nodes,InitOptions}|Ts],NewTerms,Spec) ->
+    filter_init_terms([{init,list_nodes(Spec),InitOptions}|Ts],
+		      NewTerms,Spec);
+filter_init_terms([{init,NodeRef,InitOptions}|Ts],
+		  NewTerms,Spec) when is_atom(NodeRef) ->
+    filter_init_terms([{init,[NodeRef],InitOptions}|Ts],NewTerms,Spec);
+filter_init_terms([{init,NodeRefs,InitOption}|Ts],
+		  NewTerms,Spec) when is_tuple(InitOption) ->
+    filter_init_terms([{init,NodeRefs,[InitOption]}|Ts],NewTerms,Spec);
+filter_init_terms([{init,[NodeRef|NodeRefs],InitOptions}|Ts],
+		  NewTerms,Spec=#testspec{init=InitData}) ->
     NodeStartOptions =
-	case lists:keyfind(node_start, 1, InitOptions) of
-	    {node_start, NSOptions}->
-		case lists:keyfind(callback_module, 1, NSOptions) of
-		    {callback_module, _Callback}->
+	case lists:keyfind(node_start,1,InitOptions) of
+	    {node_start,NSOptions}->
+		case lists:keyfind(callback_module,1,NSOptions) of
+		    {callback_module,_Callback}->
 			NSOptions;
 		    false->
-			[{callback_module, ct_slave}|NSOptions]
+			[{callback_module,ct_slave}|NSOptions]
 		end;
 	    false->
 		[]
 	end,
-    EvalTerms = case lists:keyfind(eval, 1, InitOptions) of
-		    {eval, MFA} when is_tuple(MFA)->
+    EvalTerms = case lists:keyfind(eval,1,InitOptions) of
+		    {eval,MFA} when is_tuple(MFA) ->
 			[MFA];
-		    {eval, MFAs} when is_list(MFAs)->
+		    {eval,MFAs} when is_list(MFAs) ->
 			MFAs;
 		    false->
 			[]
 		end,
     Node = ref2node(NodeRef,Spec#testspec.nodes),
-    InitData2 = add_option({node_start, NodeStartOptions}, Node, InitData, true),
-    InitData3 = add_option({eval, EvalTerms}, Node, InitData2, false),
-    filter_init_terms([{init, NodeRefs, InitOptions}|Ts],
-		      NewTerms, Spec#testspec{init=InitData3});
-filter_init_terms([{init, [], _}|Ts], NewTerms, Spec)->
-    filter_init_terms(Ts, NewTerms, Spec);
-filter_init_terms([Term|Ts], NewTerms, Spec)->
-    filter_init_terms(Ts, [Term|NewTerms], Spec);
-filter_init_terms([], NewTerms, Spec)->
-    {lists:reverse(NewTerms), Spec}.
+    InitData2 = add_option({node_start,NodeStartOptions},Node,InitData,true),
+    InitData3 = add_option({eval,EvalTerms},Node,InitData2,false),
+    filter_init_terms([{init,NodeRefs,InitOptions}|Ts],
+		      NewTerms,Spec#testspec{init=InitData3});
+filter_init_terms([{init,[],_}|Ts],NewTerms,Spec) ->
+    filter_init_terms(Ts,NewTerms,Spec);
+filter_init_terms([Term|Ts],NewTerms,Spec) ->
+    filter_init_terms(Ts,[Term|NewTerms],Spec);
+filter_init_terms([],NewTerms,Spec) ->
+    {lists:reverse(NewTerms),Spec}.
 
-add_option({Key, Value}, Node, List, WarnIfExists) when is_list(Value)->
-    OldOptions = case lists:keyfind(Node, 1, List) of
-	{Node, Options}->
+add_option({Key,Value},Node,List,WarnIfExists) when is_list(Value) ->
+    OldOptions = case lists:keyfind(Node,1,List) of
+	{Node,Options}->
 	    Options;
 	false->
 	    []
     end,
-    NewOption = case lists:keyfind(Key, 1, OldOptions) of
-	{Key, OldOption} when WarnIfExists, OldOption/=[]->
+    NewOption = case lists:keyfind(Key,1,OldOptions) of
+	{Key,OldOption} when WarnIfExists,OldOption/=[]->
 	    io:format("There is an option ~w=~w already "
 		      "defined for node ~p, skipping new ~w~n",
-		[Key, OldOption, Node, Value]),
+		[Key,OldOption,Node,Value]),
 	    OldOption;
-	{Key, OldOption}->
+	{Key,OldOption}->
 	    OldOption ++ Value;
 	false->
 	    Value
     end,
-    lists:keystore(Node, 1, List,
-	{Node, lists:keystore(Key, 1, OldOptions, {Key, NewOption})});
-add_option({Key, Value}, Node, List, WarnIfExists)->
-    add_option({Key, [Value]}, Node, List, WarnIfExists).
+    lists:keystore(Node,1,List,
+	{Node,lists:keystore(Key,1,OldOptions,{Key,NewOption})});
+add_option({Key,Value},Node,List,WarnIfExists) ->
+    add_option({Key,[Value]},Node,List,WarnIfExists).
 
 save_nodes(Nodes,Spec=#testspec{nodes=NodeRefs}) ->
     NodeRefs1 =
@@ -553,7 +642,7 @@ add_tests([{suites,Nodes,Dir,Ss}|Ts],Spec) when is_list(Nodes) ->
 add_tests([{suites,Node,Dir,Ss}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_suites(ref2node(Node,Spec#testspec.nodes),
-			   ref2dir(Dir,Spec#testspec.alias),
+			   ref2dir(Dir,Spec),
 			   Ss,Tests, Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
@@ -581,14 +670,14 @@ add_tests([{groups,Nodes,Dir,Suite,Gs,{cases,TCs}}|Ts],
 add_tests([{groups,Node,Dir,Suite,Gs}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_groups(ref2node(Node,Spec#testspec.nodes),
-			   ref2dir(Dir,Spec#testspec.alias),
+			   ref2dir(Dir,Spec),
 			   Suite,Gs,all,Tests,
 			   Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 add_tests([{groups,Node,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_groups(ref2node(Node,Spec#testspec.nodes),
-			   ref2dir(Dir,Spec#testspec.alias),
+			   ref2dir(Dir,Spec),
 			   Suite,Gs,TCs,Tests,
 			   Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
@@ -604,7 +693,7 @@ add_tests([{cases,Nodes,Dir,Suite,Cs}|Ts],Spec) when is_list(Nodes) ->
 add_tests([{cases,Node,Dir,Suite,Cs}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = insert_cases(ref2node(Node,Spec#testspec.nodes),
-			  ref2dir(Dir,Spec#testspec.alias),
+			  ref2dir(Dir,Spec),
 			  Suite,Cs,Tests, Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
@@ -619,7 +708,7 @@ add_tests([{skip_suites,Nodes,Dir,Ss,Cmt}|Ts],Spec) when is_list(Nodes) ->
 add_tests([{skip_suites,Node,Dir,Ss,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_suites(ref2node(Node,Spec#testspec.nodes),
-			 ref2dir(Dir,Spec#testspec.alias),
+			 ref2dir(Dir,Spec),
 			 Ss,Cmt,Tests,
 			 Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
@@ -645,14 +734,14 @@ add_tests([{skip_groups,Nodes,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],
 add_tests([{skip_groups,Node,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_groups(ref2node(Node,Spec#testspec.nodes),
-			 ref2dir(Dir,Spec#testspec.alias),
+			 ref2dir(Dir,Spec),
 			 Suite,Gs,all,Cmt,Tests,
 			 Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 add_tests([{skip_groups,Node,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_groups(ref2node(Node,Spec#testspec.nodes),
-			 ref2dir(Dir,Spec#testspec.alias),
+			 ref2dir(Dir,Spec),
 			 Suite,Gs,TCs,Cmt,Tests,
 			 Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
@@ -668,7 +757,7 @@ add_tests([{skip_cases,Nodes,Dir,Suite,Cs,Cmt}|Ts],Spec) when is_list(Nodes) ->
 add_tests([{skip_cases,Node,Dir,Suite,Cs,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
     Tests1 = skip_cases(ref2node(Node,Spec#testspec.nodes),
-			ref2dir(Dir,Spec#testspec.alias),
+			ref2dir(Dir,Spec),
 			Suite,Cs,Cmt,Tests,Spec#testspec.merge_tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
@@ -694,6 +783,9 @@ add_tests([{noinput,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{noinput = Bool});
 
 %% --- handled/errors ---
+add_tests([{define,_,_}|Ts],Spec) ->		% handled
+    add_tests(Ts,Spec);
+
 add_tests([{alias,_,_}|Ts],Spec) ->		% handled
     add_tests(Ts,Spec);
 
@@ -712,10 +804,14 @@ add_tests([{merge_tests, _} | Ts], Spec) ->     % handled
 
 %% create one test entry per known node and reinsert
 add_tests([Term={Tag,all_nodes,Data}|Ts],Spec) ->
-    check_term(Term),
-    Tests = [{Tag,Node,Data} ||	Node <- list_nodes(Spec),
-				should_be_added(Tag,Node,Data,Spec)],
-    add_tests(Tests++Ts,Spec);
+    case check_term(Term) of
+	valid ->
+	    Tests = [{Tag,Node,Data} ||	Node <- list_nodes(Spec),
+					should_be_added(Tag,Node,Data,Spec)],
+	    add_tests(Tests++Ts,Spec);
+	invalid ->				% ignore term
+	    add_tests(Ts,Spec)
+    end;
 %% create one test entry per node in Nodes and reinsert
 add_tests([{Tag,[],Data}|Ts],Spec) ->
     add_tests([{Tag,all_nodes,Data}|Ts],Spec);
@@ -734,19 +830,27 @@ add_tests([{Tag,NodesOrOther,Data}|Ts],Spec) when is_list(NodesOrOther) ->
 add_tests([Term={Tag,NodeOrOther,Data}|Ts],Spec) ->
     case is_node(NodeOrOther,Spec#testspec.nodes) of
 	true ->
-	    check_term(Term),
-	    Node = ref2node(NodeOrOther,Spec#testspec.nodes),
-	    NodeIxData = 
-		handle_data(Tag,Node,Data,Spec) ++
-		update_recorded(Tag,Node,Spec),
-	    add_tests(Ts,mod_field(Spec,Tag,NodeIxData));
+	    case check_term(Term) of
+		valid ->
+		    Node = ref2node(NodeOrOther,Spec#testspec.nodes),
+		    NodeIxData =
+			update_recorded(Tag,Node,Spec) ++
+			handle_data(Tag,Node,Data,Spec),
+		    add_tests(Ts,mod_field(Spec,Tag,NodeIxData));
+		invalid ->			% ignore term
+		    add_tests(Ts,Spec)
+	    end;
 	false ->
 	    add_tests([{Tag,all_nodes,{NodeOrOther,Data}}|Ts],Spec)
     end;
 %% this test should be added for all known nodes
-add_tests([{Tag,Data}|Ts],Spec) ->
-    add_tests([{Tag,all_nodes,Data}|Ts],Spec);
-
+add_tests([Term={Tag,Data}|Ts],Spec) ->
+    case check_term(Term) of
+	valid ->
+	    add_tests([{Tag,all_nodes,Data}|Ts],Spec);
+	invalid ->
+	    add_tests(Ts,Spec)
+    end;
 %% some other data than a tuple
 add_tests([Other|Ts],Spec) ->	
     case get(relaxed) of
@@ -763,23 +867,32 @@ add_tests([],Spec) ->				% done
 %% have added something of his/her own, which we'll let pass if relaxed
 %% mode is enabled.
 check_term(Term) ->
+    Size = size(Term),
     [Name|_] = tuple_to_list(Term),
-    case lists:keymember(Name,1,valid_terms()) of
-	true ->					% halt
-	    throw({error,{bad_term_in_spec,Term}});
-	false ->				% ignore
-	    case get(relaxed) of
-		true ->
-		    %% warn if name resembles a CT term
-		    case resembles_ct_term(Name,size(Term)) of
+    Valid = valid_terms(),
+    case lists:member({Name,Size},Valid) of
+	true ->
+	    valid;
+	false ->
+	    case lists:keymember(Name,1,Valid) of
+		true ->					% halt
+		    throw({error,{bad_term_in_spec,Term}});
+		false ->				% ignore
+		    case get(relaxed) of
 			true ->
-			    io:format("~nSuspicious term, please check:~n"
-				      "~p~n", [Term]);
+			    %% warn if name resembles a CT term
+			    case resembles_ct_term(Name,size(Term)) of
+				true ->
+				    io:format("~nSuspicious term, "
+					      "please check:~n"
+					      "~p~n", [Term]),
+				    invalid;
+				false ->
+				    invalid
+			    end;
 			false ->
-			    ok
-		    end;
-		false ->
-		    throw({error,{undefined_term_in_spec,Term}})
+			    throw({error,{undefined_term_in_spec,Term}})
+		    end
 	    end
     end.
 
@@ -1082,22 +1195,16 @@ ref2node(all_nodes,_Refs) ->
 ref2node(master,_Refs) ->
     master;
 ref2node(RefOrNode,Refs) ->
-    case string:chr(atom_to_list(RefOrNode),$@) of
-	0 ->					% a ref	    
+    case lists:member($@,atom_to_list(RefOrNode)) of
+	false ->				% a ref	    
 	    case lists:keysearch(RefOrNode,1,Refs) of
 		{value,{RefOrNode,Node}} ->
 		    Node;
 		false ->
 		    throw({error,{noderef_missing,RefOrNode}})
 	    end;
-	_ ->					% a node
-	    case RefOrNode of
-		{TheNode,TheHost} ->
-		    list_to_atom(atom_to_list(TheNode) ++ "@"
-				 ++ atom_to_list(TheHost));
-		_ ->
-		    RefOrNode
-	    end
+	true ->					% a node
+	    RefOrNode
     end.
 
 ref2dir(Ref,Spec) ->
@@ -1111,7 +1218,9 @@ ref2dir(Ref,Refs,Spec) when is_atom(Ref) ->
 	    throw({error,{alias_missing,Ref}})
     end;
 ref2dir(Dir,_,Spec) when is_list(Dir) ->
-    get_absdir(Dir,Spec).
+    get_absdir(Dir,Spec);
+ref2dir(What,_,_) ->
+    throw({error,{invalid_directory_name,What}}).
 
 is_node(What,Nodes) when is_atom(What) ->
     is_node([What],Nodes);
@@ -1120,15 +1229,8 @@ is_node([master|_],_Nodes) ->
 is_node(What={N,H},Nodes) when is_atom(N), is_atom(H) ->
     is_node([What],Nodes);
 is_node([What|_],Nodes) ->
-    Nodename =	case What of
-		    {N,H} when is_atom(N), is_atom(H) ->
-			list_to_atom(atom_to_list(N) ++ "@"
-				     ++ atom_to_list(H));
-		    _ ->
-			What
-		end,
-    case lists:keymember(Nodename,1,Nodes) or
-	 lists:keymember(Nodename,2,Nodes) of
+    case lists:keymember(What,1,Nodes) or
+	 lists:keymember(What,2,Nodes) of
 	true ->					
 	    true;
 	false ->
@@ -1139,6 +1241,7 @@ is_node([],_) ->
 
 valid_terms() ->
     [
+     {define,3},
      {node,3},
      {cover,2},
      {cover,3},
@@ -1188,7 +1291,8 @@ valid_terms() ->
      {skip_groups,7},
      {skip_cases,5},
      {skip_cases,6},
-     {create_priv_dir,2}
+     {create_priv_dir,2},
+     {create_priv_dir,3}
     ].
 
 %% this function "guesses" if the user has misspelled a term name
