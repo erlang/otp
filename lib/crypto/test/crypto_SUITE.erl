@@ -717,10 +717,19 @@ aes_cfb(Config) when is_list(Config) ->
     ?line Key =  hexstr2bin("2b7e151628aed2a6abf7158809cf4f3c"),
     ?line IVec = hexstr2bin("000102030405060708090a0b0c0d0e0f"),
     ?line Plain = hexstr2bin("6bc1bee22e409f96e93d7e117393172a"),
-    ?line Cipher = crypto:aes_cfb_128_encrypt(Key, IVec, Plain),
-    ?line m(Cipher, hexstr2bin("3b3fd92eb72dad20333449f8e83cfb4a")),
-    ?line m(Plain, 
-	    crypto:aes_cfb_128_decrypt(Key, IVec, Cipher)).
+    ?line Cipher = hexstr2bin("3b3fd92eb72dad20333449f8e83cfb4a"),
+
+    %% Try all prefixes of plain and cipher.
+    aes_cfb_do(byte_size(Plain), Plain, Cipher, Key, IVec).
+
+aes_cfb_do(N, Plain, Cipher, Key, IVec) when N >= 0 ->
+    <<P:N/binary, _/binary>> = Plain,
+    <<C:N/binary, _/binary>> = Cipher,
+    ?line C = crypto:aes_cfb_128_encrypt(Key, IVec, P),
+    ?line P = crypto:aes_cfb_128_decrypt(Key, IVec, C),
+    aes_cfb_do(N-1, Plain, Cipher, Key, IVec);
+aes_cfb_do(_, _, _, _, _) -> ok.
+
 
 %%
 %%
