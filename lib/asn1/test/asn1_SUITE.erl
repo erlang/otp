@@ -773,6 +773,7 @@ per_open_type(Config, Rule, Opts) ->
 testConstraints(Config) -> test(Config, fun testConstraints/3).
 testConstraints(Config, Rule, Opts) ->
     asn1_test_lib:compile("Constraints", Config, [Rule|Opts]),
+    asn1_test_lib:compile("LargeConstraints", Config, [Rule|Opts]),
     testConstraints:int_constraints(Rule).
 
 
