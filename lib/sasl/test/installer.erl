@@ -876,7 +876,9 @@ trace_disallowed_calls(Node) ->
     MasterProc = self(),
     rpc:call(Node,dbg,tracer,[process,{fun(T,_) -> MasterProc ! T end,[]}]),
     rpc:call(Node,dbg,p,[all,call]),
-    rpc:call(Node,dbg,tp,[file,[{'_',[],[{message,{caller}}]}]]).
+    rpc:call(Node,dbg,tp,[file,[{'_',[],[{message,{caller}}]}]]),
+    %% File:native_name_encoding/0 is a BIF and OK to use
+    rpc:call(Node,dbg,ctp,[file,native_name_encoding,0]).
 
 check_disallowed_calls(TestNode,Line) ->
     receive
