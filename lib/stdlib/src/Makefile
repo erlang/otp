@@ -167,6 +167,7 @@ docs:
 # This is a trick so that the preloaded files will get the correct type
 # specifications.
 primary_bootstrap_compiler: \
+  $(BOOTSTRAP_COMPILER)/ebin/epp.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_scan.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam \
   $(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam \
