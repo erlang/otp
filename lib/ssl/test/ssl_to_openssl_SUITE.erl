@@ -1170,25 +1170,12 @@ version_flag('tlsv1.2') ->
     " -tls1_2 ";
 version_flag(sslv3) ->
     " -ssl3 ".
-	    
-check_sane_openssl_tls_client_renegotaite(Config) ->
-    case proplists:get_value(name, ?config(tc_group_properties, Config)) of
-	Version when Version == 'tlsv1.2'; Version == 'tlsv1.1' ->
-	    case os:cmd("openssl version") of
-		"OpenSSL 1.0.1 " ++ _ ->
-		    {skip, "Known renegotiation bug in OpenSSL"};
-		_ ->
-		    Config
-	    end
-    end.
 
 check_sane_openssl_renegotaite(Config) ->
     case os:cmd("openssl version") of
 	"OpenSSL 0.9.8" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 0.9.7" ++ _ ->
-	    {skip, "Known renegotiation bug in OpenSSL"};
-	"OpenSSL 1.0.1" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	_ ->
 	    Config

@@ -606,7 +606,11 @@ hash_size(md5) ->
 hash_size(sha) ->
     20;
 hash_size(sha256) ->
-    32.
+    32;
+hash_size(sha384) ->
+    48;
+hash_size(sha512) ->
+    64.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

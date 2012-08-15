@@ -97,7 +97,8 @@
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suites,      % cipher_suites<2..2^16-1>
 	  compression_methods, % compression_methods<1..2^8-1>,
-	  renegotiation_info
+	  renegotiation_info,
+	  hash_signs          % supported combinations of hashes/signature algos
 	 }).
 
 -record(server_hello, {
@@ -106,7 +107,8 @@
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suite,       % cipher_suites
 	  compression_method, % compression_method
-	  renegotiation_info
+	  renegotiation_info,
+	  hash_signs          % supported combinations of hashes/signature algos
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -222,6 +224,15 @@
 
 -record(renegotiation_info,{
 	  renegotiated_connection
+	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Signature Algorithms  RFC 5746 section 7.4.1.4.1.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(SIGNATURE_ALGORITHMS_EXT, 13).
+
+-record(hash_sign_algos, {
+	  hash_sign_algos
 	 }).
 
 -endif. % -ifdef(ssl_handshake).

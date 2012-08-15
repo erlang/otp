@@ -78,7 +78,8 @@ client_hello(Host, Port, ConnectionStates,
 		  compression_methods = ssl_record:compressions(),
 		  random = SecParams#security_parameters.client_random,
 		  renegotiation_info =
-		      renegotiation_info(client, ConnectionStates, Renegotiation)
+		      renegotiation_info(client, ConnectionStates, Renegotiation),
+		  hash_signs = default_hash_signs()
 		 }.
 
 %%--------------------------------------------------------------------
@@ -121,10 +122,11 @@ hello_request() ->
 %%--------------------------------------------------------------------
 hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 		    compression_method = Compression, random = Random,
-		    session_id = SessionId, renegotiation_info = Info},
+		    session_id = SessionId, renegotiation_info = Info,
+		    hash_signs = _HashSigns},
       #ssl_options{secure_renegotiate = SecureRenegotation},
       ConnectionStates0, Renegotiation) ->
-
+%%TODO: select hash and signature algorigthm
     case ssl_record:is_acceptable_version(Version) of
 	true ->
 	    case handle_renegotiation_info(client, Info, ConnectionStates0, 
@@ -143,10 +145,12 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 			       
 hello(#client_hello{client_version = ClientVersion, random = Random,
 		    cipher_suites = CipherSuites,
-		    renegotiation_info = Info} = Hello,
+		    renegotiation_info = Info,
+		    hash_signs = _HashSigns} = Hello,
       #ssl_options{versions = Versions, 
 		   secure_renegotiate = SecureRenegotation} = SslOpts,
       {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
+%% TODO: select hash and signature algorithm
     Version = select_version(ClientVersion, Versions),
     case ssl_record:is_acceptable_version(Version) of
 	true ->
@@ -830,16 +834,19 @@ dec_hs(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
 		       ?BYTE(Cm_length), Comp_methods:Cm_length/binary,
 		       Extensions/binary>>) ->
-    
-    RenegotiationInfo = proplists:get_value(renegotiation_info, dec_hello_extensions(Extensions),
-					   undefined),    
+    HelloExtensions = dec_hello_extensions(Extensions),
+    RenegotiationInfo = proplists:get_value(renegotiation_info, HelloExtensions,
+					   undefined),
+    HashSigns = proplists:get_value(hash_signs, HelloExtensions,
+					   undefined),
     #client_hello{
 	client_version = {Major,Minor},
 	random = Random,
 	session_id = Session_ID,
 	cipher_suites = from_2bytes(CipherSuites),
 	compression_methods = Comp_methods,
-	renegotiation_info = RenegotiationInfo 
+	renegotiation_info = RenegotiationInfo,
+	hash_signs = HashSigns
        };
 
 dec_hs(_Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
@@ -851,22 +858,27 @@ dec_hs(_Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 	session_id = Session_ID,
 	cipher_suite = Cipher_suite,
 	compression_method = Comp_method,
-	renegotiation_info = undefined};
+	renegotiation_info = undefined,
+	hash_signs = undefined};
 
 dec_hs(_Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		       ?BYTE(SID_length), Session_ID:SID_length/binary,
 		       Cipher_suite:2/binary, ?BYTE(Comp_method), 
 		       ?UINT16(ExtLen), Extensions:ExtLen/binary>>) ->
     
-    RenegotiationInfo = proplists:get_value(renegotiation_info, dec_hello_extensions(Extensions, []),
-					   undefined),   
+    HelloExtensions = dec_hello_extensions(Extensions, []),
+    RenegotiationInfo = proplists:get_value(renegotiation_info, HelloExtensions,
+					   undefined),
+    HashSigns = proplists:get_value(hash_signs, HelloExtensions,
+					   undefined),
     #server_hello{
 	server_version = {Major,Minor},
 	random = Random,
 	session_id = Session_ID,
 	cipher_suite = Cipher_suite,
 	compression_method = Comp_method,
-	renegotiation_info = RenegotiationInfo};
+	renegotiation_info = RenegotiationInfo,
+	hash_signs = HashSigns};
 dec_hs(_Version, ?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
 
@@ -952,6 +964,15 @@ dec_hello_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binar
     dec_hello_extensions(Rest, [{renegotiation_info, 
 			   #renegotiation_info{renegotiated_connection = RenegotiateInfo}} | Acc]);
 
+dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
+		       ExtData:Len/binary, Rest/binary>>, Acc) ->
+    SignAlgoListLen = Len - 2,
+    <<?UINT16(SignAlgoListLen), SignAlgoList/binary>> = ExtData,
+    HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
+			<<?BYTE(Hash), ?BYTE(Sign)>> <= SignAlgoList],
+    dec_hello_extensions(Rest, [{hash_signs,
+				 #hash_sign_algos{hash_sign_algos = HashSignAlgos}} | Acc]);
+
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 dec_hello_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Acc) ->
@@ -993,14 +1014,19 @@ enc_hs(#client_hello{client_version = {Major, Minor},
 		     session_id = SessionID,
 		     cipher_suites = CipherSuites,
 		     compression_methods = CompMethods, 
-		     renegotiation_info = RenegotiationInfo}, _Version) ->
+		     renegotiation_info = RenegotiationInfo,
+		     hash_signs = HashSigns}, _Version) ->
     SIDLength = byte_size(SessionID),
     BinCompMethods = list_to_binary(CompMethods),
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
-    Extensions  = hello_extensions(RenegotiationInfo),
-    ExtensionsBin = enc_hello_extensions(Extensions),
+    Extensions0 = hello_extensions(RenegotiationInfo),
+    Extensions1 = if
+		      Major == 3, Minor >=3 -> Extensions0 ++ hello_extensions(HashSigns);
+		      true -> Extensions0
+		  end,
+    ExtensionsBin = enc_hello_extensions(Extensions1),
     {?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 		     ?BYTE(SIDLength), SessionID/binary,
 		     ?UINT16(CsLength), BinCipherSuites/binary,
@@ -1084,10 +1110,14 @@ enc_sign(_HashSign, Sign, _Version) ->
 	SignLen = byte_size(Sign),
 	<<?UINT16(SignLen), Sign/binary>>.
 
-%% Renegotiation info, only current extension
+hello_extensions(undefined) ->
+    [];
+%% Renegotiation info
 hello_extensions(#renegotiation_info{renegotiated_connection = undefined}) ->
     [];
 hello_extensions(#renegotiation_info{} = Info) ->
+    [Info];
+hello_extensions(#hash_sign_algos{} = Info) ->
     [Info].
 
 enc_hello_extensions(Extensions) ->
@@ -1105,7 +1135,14 @@ enc_hello_extensions([#renegotiation_info{renegotiated_connection = ?byte(0) = I
 enc_hello_extensions([#renegotiation_info{renegotiated_connection = Info} | Rest], Acc) ->
     InfoLen = byte_size(Info),
     Len = InfoLen +1,
-    enc_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen), Info/binary, Acc/binary>>).
+    enc_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen), Info/binary, Acc/binary>>);
+
+enc_hello_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Acc) ->
+    SignAlgoList = << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
+		       {Hash, Sign} <- HashSignAlgos >>,
+    ListLen = byte_size(SignAlgoList),
+    Len = ListLen + 2,
+    enc_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>).
 
 
 from_3bytes(Bin3) ->
@@ -1230,3 +1267,17 @@ certificate_verify_rsa(Hashes, _HashAlgo, Signature, PublicKey, _Version) ->
 	Hashes -> true;
 	_      -> false
     end.
+
+-define(TLSEXT_SIGALG_RSA(MD), {MD, rsa}).
+-define(TLSEXT_SIGALG_DSA(MD), {MD, dsa}).
+
+-define(TLSEXT_SIGALG(MD), ?TLSEXT_SIGALG_RSA(MD)).
+
+default_hash_signs() ->
+    #hash_sign_algos{hash_sign_algos =
+			 [?TLSEXT_SIGALG(sha512),
+			  ?TLSEXT_SIGALG(sha384),
+			  ?TLSEXT_SIGALG(sha256),
+			  ?TLSEXT_SIGALG(sha),
+			  ?TLSEXT_SIGALG_DSA(sha),
+			  ?TLSEXT_SIGALG_RSA(md5)]}.
