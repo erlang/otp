@@ -4,6 +4,8 @@ BEGIN
 -- Single Value
 SingleValue ::= INTEGER (1)
 SingleValue2 ::= INTEGER (1..20)
+predefined INTEGER ::= 1
+SingleValue3 ::= INTEGER (predefined | 5 | 10)
 Range2to19 ::= INTEGER (1<..<20)
 Range10to20 ::= INTEGER (10..20)
 ContainedSubtype ::= INTEGER (INCLUDES Range10to20)

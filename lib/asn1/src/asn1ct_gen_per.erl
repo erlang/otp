@@ -321,19 +321,13 @@ effective_constr(_,[]) ->
     [];
 effective_constr('SingleValue',List) ->
     SVList = lists:flatten(lists:map(fun(X)->element(2,X)end,List)),
-    % sort and remove duplicates
-    SortedSVList = lists:sort(SVList),
-    RemoveDup = fun([],_) ->[];
-		   ([H],_) -> [H];
-		   ([H,H|T],F) -> F([H|T],F);
-		   ([H|T],F) -> [H|F(T,F)]
-		end,
-    
-    case RemoveDup(SortedSVList,RemoveDup) of
+    %% Sort and remove duplicates before generating SingleValue or ValueRange
+    %% In case of ValueRange, also check for 'MIN and 'MAX'
+    case lists:usort(SVList) of
 	[N] ->
 	    [{'SingleValue',N}];
-	L when is_list(L) -> 
-	    [{'ValueRange',{hd(L),lists:last(L)}}]
+	L when is_list(L) ->
+	    [{'ValueRange',{least_Lb(L),greatest_Ub(L)}}]
     end;
 effective_constr('ValueRange',List) ->
     LBs = lists:map(fun({_,{Lb,_}})-> Lb end,List),
