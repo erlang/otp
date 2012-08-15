@@ -322,7 +322,7 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 		      #security_parameters{cipher_suite = CipherSuite}} =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     Types = certificate_types(CipherSuite),
-    HashSigns = hashsign_algorithms(CipherSuite),
+    HashSigns = default_hash_signs(),
     Authorities = certificate_authorities(CertDbHandle, CertDbRef),
     #certificate_request{
 		    certificate_types = Types,
@@ -911,8 +911,10 @@ dec_hs({Major, Minor}, ?CERTIFICATE_REQUEST,
 	?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
 	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>)
   when Major == 3, Minor >= 3 ->
+    HashSignAlgos = [{ssl_cipher:hash_algorithm(Hash), ssl_cipher:sign_algorithm(Sign)} ||
+			<<?BYTE(Hash), ?BYTE(Sign)>> <= HashSigns],
     #certificate_request{certificate_types = CertTypes,
-			 hashsign_algorithms = HashSigns,
+			 hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
 			 certificate_authorities = CertAuths};
 dec_hs(_Version, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
@@ -1061,10 +1063,12 @@ enc_hs(#server_key_exchange{params = #server_dh_params{
 			    Signature/binary>>
     };
 enc_hs(#certificate_request{certificate_types = CertTypes,
-			    hashsign_algorithms = HashSigns,
+			    hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
 			    certificate_authorities = CertAuths},
        {Major, Minor})
   when Major == 3, Minor >= 3 ->
+    HashSigns= << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
+		   {Hash, Sign} <- HashSignAlgos >>,
     CertTypesLen = byte_size(CertTypes),
     HashSignsLen = byte_size(HashSigns),
     CertAuthsLen = byte_size(CertAuths),
@@ -1177,9 +1181,6 @@ hashsign_enc(HashAlgo, SignAlgo) ->
     Hash = ssl_cipher:hash_algorithm(HashAlgo),
     Sign = ssl_cipher:sign_algorithm(SignAlgo),
     <<?BYTE(Hash), ?BYTE(Sign)>>.
-
-hashsign_algorithms(_) ->
-    hashsign_enc(sha, rsa).
 
 certificate_authorities(CertDbHandle, CertDbRef) ->
     Authorities = certificate_authorities_from_db(CertDbHandle, CertDbRef),
