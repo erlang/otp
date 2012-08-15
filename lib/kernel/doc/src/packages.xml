@@ -204,11 +204,5 @@ ok
       Explicitly
       declaring each use of a module makes for safe code.</p>
   </description>
-  <funcs>
-    <func>
-      <name>no functions exported</name>
-      <fsummary>x</fsummary>
-    </func>
-  </funcs>
 </erlref>
 
