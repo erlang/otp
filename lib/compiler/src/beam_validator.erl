@@ -783,15 +783,27 @@ valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
 valfun_4({bs_bits_to_bytes,{f,Fail},Src,Dst}, Vst) ->
     assert_term(Src, Vst),
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
-valfun_4({bs_init2,{f,Fail},_,Heap,Live,_,Dst}, Vst0) ->
+valfun_4({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
+    if
+	is_integer(Sz) ->
+	    ok;
+	true ->
+	    assert_term(Sz, Vst0)
+    end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst3 = prune_x_regs(Live, Vst2),
     Vst = bs_zero_bits(Vst3),
     set_type_reg(binary, Dst, Vst);
-valfun_4({bs_init_bits,{f,Fail},_,Heap,Live,_,Dst}, Vst0) ->
+valfun_4({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
+    if
+	is_integer(Sz) ->
+	    ok;
+	true ->
+	    assert_term(Sz, Vst0)
+    end,
     Vst1 = heap_alloc(Heap, Vst0),
     Vst2 = branch_state(Fail, Vst1),
     Vst3 = prune_x_regs(Live, Vst2),

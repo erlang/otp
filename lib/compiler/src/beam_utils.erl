@@ -741,6 +741,9 @@ live_opt([{badmatch,Src}=I|Is], _, D, Acc) ->
 live_opt([{case_end,Src}=I|Is], _, D, Acc) ->
     Regs = x_live([Src], 0),
     live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{try_case_end,Src}=I|Is], _, D, Acc) ->
+    Regs = x_live([Src], 0),
+    live_opt(Is, Regs, D, [I|Acc]);
 live_opt([if_end=I|Is], _, D, Acc) ->
     Regs = 0,
     live_opt(Is, Regs, D, [I|Acc]);
@@ -801,8 +804,6 @@ live_opt([{bs_put_string,_,_}=I|Is], Regs, D, Acc) ->
 live_opt([{deallocate,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{kill,_}=I|Is], Regs, D, Acc) ->
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{try_case_end,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{try_end,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
