@@ -52,8 +52,6 @@ int_constraints(Rules) ->
 		  ?line {error,_Reason2} =
 		      asn1_wrapper:encode('Constraints','SingleValue',1000)
 	  end,
-    
-
 
     %%==========================================================
     %% SingleValue2 ::=  INTEGER (1..20) 
@@ -86,7 +84,21 @@ int_constraints(Rules) ->
 		      asn1_wrapper:encode('Constraints','SingleValue',1000)
 	  end,
 
+    %%==========================================================
+    %% SingleValue3 ::=  INTEGER (Predefined | 5 | 10)
+    %% Testcase for OTP-10139. A single value subtyping of an integer type
+    %% where one value is predefined.
+    %%==========================================================
 
+    ?line {ok,BytesSV3} = asn1_wrapper:encode('Constraints','SingleValue3',1),
+    ?line {ok,1} = asn1_wrapper:decode('Constraints','SingleValue3',
+                                       lists:flatten(BytesSV3)),
+    ?line {ok,BytesSV3_2} = asn1_wrapper:encode('Constraints','SingleValue3',5),
+    ?line {ok,5} = asn1_wrapper:decode('Constraints','SingleValue3',
+                                       lists:flatten(BytesSV3_2)),
+    ?line {ok,BytesSV3_3} = asn1_wrapper:encode('Constraints','SingleValue3',10),
+    ?line {ok,10} = asn1_wrapper:decode('Constraints','SingleValue3',
+                                        lists:flatten(BytesSV3_3)),
 
     %%==========================================================
     %% Range2to19 ::=  INTEGER (1<..<20) 
@@ -116,7 +128,65 @@ int_constraints(Rules) ->
 		  ?line {error,_Reason6} =
 		      asn1_wrapper:encode('Constraints','Range2to19',20)
 	  end,
+
+    %%==========================================================
+    %% Tests for Range above 16^4 up to maximum supported by asn1 assuming the
+    %% octet length field is encoded on max 8 bits
+    %%==========================================================
+    LastNumWithoutLengthEncoding = 65536,
+    ?line {ok,BytesFoo} = asn1_wrapper:encode('Constraints','Range256to65536',
+                                              LastNumWithoutLengthEncoding),
+    ?line {ok,LastNumWithoutLengthEncoding} = 
+        asn1_wrapper:decode('Constraints','Range256to65536',lists:flatten(BytesFoo)),
+
+    FirstNumWithLengthEncoding = 65537,
+    ?line {ok,BytesBar} = asn1_wrapper:encode('LargeConstraints','RangeMax',
+                                              FirstNumWithLengthEncoding),
+    ?line {ok,FirstNumWithLengthEncoding} =
+        asn1_wrapper:decode('LargeConstraints','RangeMax',lists:flatten(BytesBar)),
+
+    FirstNumOver16_6 = 16777217,
+    ?line {ok, BytesBaz} =
+        asn1_wrapper:encode('LargeConstraints','RangeMax', FirstNumOver16_6),
+    ?line {ok, FirstNumOver16_6} = 
+        asn1_wrapper:decode('LargeConstraints','RangeMax',lists:flatten(BytesBaz)),
     
+    FirstNumOver16_8 = 4294967297,
+    ?line {ok, BytesQux} =
+        asn1_wrapper:encode('LargeConstraints','RangeMax', FirstNumOver16_8),
+    ?line {ok, FirstNumOver16_8} = 
+        asn1_wrapper:decode('LargeConstraints','RangeMax',lists:flatten(BytesQux)),
+
+    FirstNumOver16_10 = 1099511627776,
+    ?line {ok, BytesBur} =
+        asn1_wrapper:encode('LargeConstraints','RangeMax', FirstNumOver16_10),
+    ?line {ok, FirstNumOver16_10} = 
+        asn1_wrapper:decode('LargeConstraints','RangeMax',lists:flatten(BytesBur)),
+
+    FirstNumOver16_10 = 1099511627776,
+    ?line {ok, BytesBur} =
+        asn1_wrapper:encode('LargeConstraints','RangeMax', FirstNumOver16_10),
+    ?line {ok, FirstNumOver16_10} =
+        asn1_wrapper:decode('LargeConstraints','RangeMax',lists:flatten(BytesBur)),
+
+    HalfMax = 1 bsl (128*8),
+    ?line {ok, BytesHalfMax} =
+        asn1_wrapper:encode('LargeConstraints','RangeMax', HalfMax),
+    ?line {ok, HalfMax} =
+        asn1_wrapper:decode('LargeConstraints','RangeMax',lists:flatten(BytesHalfMax)),
+
+    Max = 1 bsl (255*8),
+    ?line {ok, BytesMax} =
+        asn1_wrapper:encode('LargeConstraints','RangeMax', Max),
+    ?line {ok, Max} =
+        asn1_wrapper:decode('LargeConstraints','RangeMax',lists:flatten(BytesMax)),
+    
+    %% Random number within longlong range
+    LongLong = 12672809400538808320,
+    ?line {ok, BytesLongLong} =
+        asn1_wrapper:encode('Constraints','LongLong', LongLong),
+    ?line {ok, LongLong} =
+        asn1_wrapper:decode('Constraints','LongLong',lists:flatten(BytesLongLong)),
 
     %%==========================================================
     %%  Constraint Combinations (Duboisson p. 285)

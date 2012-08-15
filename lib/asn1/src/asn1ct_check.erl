@@ -4177,7 +4177,7 @@ check_constraint(S,{'SizeConstraint',Lb}) ->
 
 check_constraint(S,{'SingleValue', L}) when is_list(L) ->
     F = fun(A) -> resolv_value(S,A) end,
-    {'SingleValue',lists:map(F,L)};
+    {'SingleValue',lists:sort(lists:map(F,L))};
     
 check_constraint(S,{'SingleValue', V}) when is_integer(V) ->
     Val = resolv_value(S,V),
