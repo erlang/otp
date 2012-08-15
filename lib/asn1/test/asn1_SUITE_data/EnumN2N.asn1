@@ -1,0 +1,25 @@
+EnumN2N DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+NoExt ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2)
+}
+
+Ext ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2),
+	...
+}
+
+Ext2 ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2),
+	...,
+	orange(7)
+}
+
+END
