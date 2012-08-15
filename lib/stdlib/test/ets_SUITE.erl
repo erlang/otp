@@ -74,6 +74,7 @@
 -export([bad_table/1, types/1]).
 -export([otp_9932/1]).
 -export([otp_9423/1]).
+-export([otp_10182/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -146,6 +147,7 @@ all() ->
      exit_many_large_table_owner, exit_many_tables_owner,
      exit_many_many_tables_owner, write_concurrency, heir,
      give_away, setopts, bad_table, types,
+     otp_10182,
      otp_9932,
      otp_9423].
 
@@ -5462,6 +5464,20 @@ otp_9423(Config) when is_list(Config) ->
 	Skipped -> Skipped
     end.
 	    
+
+%% Corrupted binary in compressed table
+otp_10182(Config) when is_list(Config) ->
+    Bin = <<"aHR0cDovL2hvb3RzdWl0ZS5jb20vYy9wcm8tYWRyb2xsLWFi">>,
+    Key = {test, Bin},
+    Value = base64:decode(Bin),
+    In = {Key,Value},
+    Db = ets:new(undefined, [set, protected, {read_concurrency, true}, compressed]),
+    ets:insert(Db, In),
+    [Out] = ets:lookup(Db, Key),
+    io:format("In :  ~p\nOut: ~p\n", [In,Out]),
+    ets:delete(Db),
+    In = Out.
+
     
     
 

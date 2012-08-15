@@ -1889,7 +1889,9 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 			    *ep++ = BINARY_INTERNAL_REF;
 			}
 			if (pb->flags) {
+			    char* before_realloc = pb->val->orig_bytes; 
 			    erts_emasculate_writable_binary(pb);
+			    bytes += (pb->val->orig_bytes - before_realloc);
 			}
 			erts_refc_inc(&pb->val->refc, 2);
 
