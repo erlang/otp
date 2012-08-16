@@ -22,7 +22,7 @@
 -module(crypto).
 
 -export([start/0, stop/0, info/0, info_lib/0, version/0]).
--export([hash/2]).
+-export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
@@ -194,11 +194,40 @@ version() -> ?CRYPTO_VSN.
 hash(md5, Data)    -> md5(Data);
 hash(md4, Data)    -> md4(Data);
 hash(sha, Data)    -> sha(Data);
-hash(sha1, Data)   -> sha(Data);
+hash(sha224, Data) -> sha224(Data);
 hash(sha256, Data) -> sha256(Data);
 hash(sha384, Data) -> sha384(Data);
 hash(sha512, Data) -> sha512(Data).
 
+-spec hash_init('md5'|'md4'|'sha'|'sha224'|'sha256'|'sha384'|'sha512') -> any().
+
+hash_init(md5) -> {md5, md5_init()};
+hash_init(md4) -> {md4, md4_init()};
+hash_init(sha) -> {sha, sha_init()};
+hash_init(sha224) -> {sha224, sha224_init()};
+hash_init(sha256) -> {sha256, sha256_init()};
+hash_init(sha384) -> {sha384, sha384_init()};
+hash_init(sha512) -> {sha512, sha512_init()}.
+
+-spec hash_update(_, iodata()) -> any().
+
+hash_update({md5,Context}, Data) -> {md5, md5_update(Context,Data)};
+hash_update({md4,Context}, Data) -> {md4, md4_update(Context,Data)};
+hash_update({sha,Context}, Data) -> {sha, sha_update(Context,Data)};
+hash_update({sha224,Context}, Data) -> {sha224, sha224_update(Context,Data)};
+hash_update({sha256,Context}, Data) -> {sha256, sha256_update(Context,Data)};
+hash_update({sha384,Context}, Data) -> {sha384, sha384_update(Context,Data)};
+hash_update({sha512,Context}, Data) -> {sha512, sha512_update(Context,Data)}.
+
+-spec hash_final(_) -> binary().
+
+hash_final({md5,Context}) -> md5_final(Context);
+hash_final({md4,Context}) -> md4_final(Context);
+hash_final({sha,Context}) -> sha_final(Context);
+hash_final({sha224,Context}) -> sha224_final(Context);
+hash_final({sha256,Context}) -> sha256_final(Context);
+hash_final({sha384,Context}) -> sha384_final(Context);
+hash_final({sha512,Context}) -> sha512_final(Context).
 
 %%
 %%  MD5

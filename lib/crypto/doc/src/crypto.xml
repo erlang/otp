@@ -256,6 +256,57 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>hash(Type, Data) -> Digest</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type = md4 | md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Data = iodata()</v>
+	<v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hash_init(Type) -> Context</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type = md4 | md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+      </type>
+      <desc>
+        <p>Initializes the context for streaming hash operations. <c>Type</c> determines
+        which digest to use. The returned context should be used as argument
+	to <seealso marker="#hash_update/2">hash_update</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hash_update(Context, Data) -> NewContext</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Data = iodata()</v>
+      </type>
+      <desc>
+        <p>Updates the digest represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
+        must have been generated using <seealso marker="#hash_init/1">hash_init</seealso>
+	or a previous call to this function. <c>Data</c> can be any length. <c>NewContext</c>
+        must be passed into the next call to <c>hash_update</c>
+	or <seealso marker="#hash_final/1">hash_final</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hash_final(Context) -> Digest</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Finalizes the hash operation referenced by <c>Context</c> returned
+	from a previous call to <seealso marker="#hash_update/2">hash_update</seealso>.
+	The size of <c>Digest</c> is determined by the type of hash
+	function used to generate it.</p>
+      </desc>
+    </func>
+    <func>
       <name>md5_mac(Key, Data) -> Mac</name>
       <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
       <type>
