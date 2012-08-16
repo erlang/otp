@@ -3947,9 +3947,9 @@ rizzo(doc) -> ["Test that there is a 1/n-1-split for non RC4 in 'TLS < 1.1' as i
 
 rizzo(Config) when is_list(Config) ->
     Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
-    run_send_recv_rizzo(Ciphers, Config, sslv3,
-			 {?MODULE, send_recv_result_active_rizzo, []}),
-    run_send_recv_rizzo(Ciphers, Config, tlsv1,
+    Prop = ?config(tc_group_properties, Config),
+    Version = proplists:get_value(name, Prop),
+    run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_rizzo, []}).
 %%--------------------------------------------------------------------
 no_rizzo_rc4(doc) -> 
@@ -3957,9 +3957,9 @@ no_rizzo_rc4(doc) ->
 
 no_rizzo_rc4(Config) when is_list(Config) ->
     Ciphers = [X || X ={_,Y,_} <- ssl:cipher_suites(),Y == rc4_128],
-    run_send_recv_rizzo(Ciphers, Config, sslv3,
-			{?MODULE, send_recv_result_active_no_rizzo, []}),
-    run_send_recv_rizzo(Ciphers, Config, tlsv1,
+    Prop = ?config(tc_group_properties, Config),
+    Version = proplists:get_value(name, Prop),
+    run_send_recv_rizzo(Ciphers, Config, Version,
 			{?MODULE, send_recv_result_active_no_rizzo, []}).
 
 %%--------------------------------------------------------------------
