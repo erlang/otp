@@ -100,7 +100,7 @@ groups() ->
        {group, updates_during_checkpoint_iteration},
        {group, load_table_with_activated_checkpoint},
        {group,
-	add_table_copy_to_table_with_activated_checkpoint}]},
+	add_table_copy_to_table_checkpoint}]},
      {updates_during_checkpoint_activation, [],
       [updates_during_checkpoint_activation_2_ram,
        updates_during_checkpoint_activation_2_disc,
@@ -116,10 +116,10 @@ groups() ->
       [load_table_with_activated_checkpoint_ram,
        load_table_with_activated_checkpoint_disc,
        load_table_with_activated_checkpoint_disc_only]},
-     {add_table_copy_to_table_with_activated_checkpoint, [],
-      [add_table_copy_to_table_with_activated_checkpoint_ram,
-       add_table_copy_to_table_with_activated_checkpoint_disc,
-       add_table_copy_to_table_with_activated_checkpoint_disc_only]},
+     {add_table_copy_to_table_checkpoint, [],
+      [add_table_copy_to_table_checkpoint_ram,
+       add_table_copy_to_table_checkpoint_disc,
+       add_table_copy_to_table_checkpoint_disc_only]},
      {backup_consistency, [],
       [{group, interupted_install_fallback},
        {group, interupted_uninstall_fallback},
@@ -952,16 +952,16 @@ view(Source, Mod) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-add_table_copy_to_table_with_activated_checkpoint_ram(suite) -> [];
-add_table_copy_to_table_with_activated_checkpoint_ram(Config) when is_list(Config) ->
+add_table_copy_to_table_checkpoint_ram(suite) -> [];
+add_table_copy_to_table_checkpoint_ram(Config) when is_list(Config) ->
     add_table_copy_to_table_with_activated_checkpoint(ram_copies, Config).
 
-add_table_copy_to_table_with_activated_checkpoint_disc(suite) -> [];
-add_table_copy_to_table_with_activated_checkpoint_disc(Config) when is_list(Config) ->
+add_table_copy_to_table_checkpoint_disc(suite) -> [];
+add_table_copy_to_table_checkpoint_disc(Config) when is_list(Config) ->
     add_table_copy_to_table_with_activated_checkpoint(disc_copies, Config).
 
-add_table_copy_to_table_with_activated_checkpoint_disc_only(suite) -> [];
-add_table_copy_to_table_with_activated_checkpoint_disc_only(Config) when is_list(Config) ->
+add_table_copy_to_table_checkpoint_disc_only(suite) -> [];
+add_table_copy_to_table_checkpoint_disc_only(Config) when is_list(Config) ->
     add_table_copy_to_table_with_activated_checkpoint(disc_only_copies, Config).
 
 add_table_copy_to_table_with_activated_checkpoint(Type,Config) -> 
