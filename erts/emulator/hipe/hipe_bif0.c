@@ -1755,12 +1755,52 @@ BIF_RETTYPE hipe_bifs_mark_referred_from_1(BIF_ALIST_1) /* get_refs_from */
     BIF_RET(NIL);
 }
 
+/* Called by init:restart after unloading all hipe compiled modules
+ * to work around bug causing execution of deallocated beam code.
+ * Can be removed when delete/purge of native modules works better.
+ * Test: Do init:restart in debug compiled vm with hipe compiled kernel. 
+ */
+static void hipe_purge_all_refs(void)
+{
+    struct hipe_mfa_info **bucket;
+    unsigned int i, nrbuckets;
+
+    hipe_mfa_info_table_lock();
+
+    bucket = hipe_mfa_info_table.bucket;
+    nrbuckets = 1 << hipe_mfa_info_table.log2size;
+    for (i = 0; i < nrbuckets; ++i) {	
+	while (bucket[i] != NULL) {
+	    struct hipe_mfa_info* mfa = bucket[i];
+	    bucket[i] = mfa->bucket.next;
+
+	    while (mfa->refers_to) {
+		struct hipe_mfa_info_list *to = mfa->refers_to;
+		mfa->refers_to = to->next;
+		erts_free(ERTS_ALC_T_HIPE, to);
+	    }
+	    while (mfa->referred_from) {
+		struct ref* from = mfa->referred_from;
+		mfa->referred_from = from->next;
+		erts_free(ERTS_ALC_T_HIPE, from);
+	    }
+	    erts_free(ERTS_ALC_T_HIPE, mfa);
+	}
+    }
+    hipe_mfa_info_table_unlock();
+}
+
 BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
 {
     struct mfa mfa;
     struct hipe_mfa_info *caller_mfa, *callee_mfa;
     struct hipe_mfa_info_list *refers_to, *tmp_refers_to;
     struct ref **prev, *ref;
+
+    if (BIF_ARG_1 == am_all) {
+	hipe_purge_all_refs();
+	BIF_RET(NIL);
+    }
 
     if (!term_to_mfa(BIF_ARG_1, &mfa))
 	BIF_ERROR(BIF_P, BADARG);
@@ -1798,6 +1838,7 @@ BIF_RETTYPE hipe_bifs_remove_refs_from_1(BIF_ALIST_1)
     hipe_mfa_info_table_unlock();
     BIF_RET(NIL);
 }
+
 
 /* redirect_referred_from(CalleeMFA)
  * Redirect all pending-redirect refs in CalleeMFA's referred_from.
