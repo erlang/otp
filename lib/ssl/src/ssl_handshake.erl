@@ -927,7 +927,7 @@ dec_hs({Major, Minor}, ?CERTIFICATE_VERIFY,<<HashSign:2/binary, ?UINT16(SignLen)
   when Major == 3, Minor >= 3 ->
     #certificate_verify{hashsign_algorithm = hashsign_dec(HashSign), signature = Signature};
 dec_hs(_Version, ?CERTIFICATE_VERIFY,<<?UINT16(SignLen), Signature:SignLen/binary>>)->
-    #certificate_verify{hashsign_algorithm = {unknown, unknown}, signature = Signature};
+    #certificate_verify{signature = Signature};
 dec_hs(_Version, ?CLIENT_KEY_EXCHANGE, PKEPMS) ->
     #client_key_exchange{exchange_keys = PKEPMS};
 dec_hs(_Version, ?FINISHED, VerifyData) ->

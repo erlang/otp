@@ -640,14 +640,18 @@ cipher(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(cipher, hello, Record, State);
 
-cipher(#certificate_verify{signature = Signature}, 
+cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashSign},
        #state{role = server, 
 	      public_key_info = PublicKeyInfo,
 	      negotiated_version = Version,
 	      session = #session{master_secret = MasterSecret},
-	      hashsign_algorithm = HashSign,
+	      hashsign_algorithm = ConnectionHashSign,
 	      tls_handshake_history = Handshake
 	     } = State0) -> 
+    HashSign = case CertHashSign of
+		   {_, _} -> CertHashSign;
+		   _      -> ConnectionHashSign
+	       end,
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
 					  Version, HashSign, MasterSecret, Handshake) of
 	valid ->
@@ -1253,6 +1257,7 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 			  hashsign_algorithm = HashSign,
 			  tls_handshake_history = Handshake0} = State) ->
 
+    %%TODO: for TLS 1.2 we can choose a different/stronger HashSign combination for this.
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret, 
 						 Version, HashSign, PrivateKey, Handshake0) of
         #certificate_verify{} = Verified ->
