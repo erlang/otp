@@ -705,8 +705,6 @@ define etp-ct-name-1
   end
 end
 
-
-
 define etp-pid-1
 # Args: Eterm pid
 #
@@ -714,9 +712,17 @@ define etp-pid-1
 #
   set $etp_pid_1 = (Eterm)($arg0)
   if ($etp_pid_1 & 0xF) == 0x3
+    if (etp_arch_bits == 64 && etp_halfword == 0)
+      if (etp_big_endian)
+      	set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 36) & 0x0fffffff)
+      else
+        set $etp_pid_data = (unsigned) ((((Uint64) $etp_pid_1) >> 4) & 0x0fffffff)
+      end
+   else
+      set $etp_pid_data = (unsigned) (((((Uint32) $etp_pid_1) >> 4) & ~erts_proc.r.o.pix_mask) | ((((Uint32) $etp_pid_1) >> (erts_proc.r.o.pix_cl_shift + 4)) & erts_proc.r.o.pix_cl_mask) | (((((Uint32) $etp_pid_1) >> 4) & erts_proc.r.o.pix_cli_mask) << erts_proc.r.o.pix_cli_shift))
+   end
     # Internal pid
-    printf "<0.%u.%u>", (unsigned) ($etp_pid_1>>4)&0x7fff, \
-                        (unsigned) ($etp_pid_1>>19)&0x1fff
+    printf "<0.%u.%u>", $etp_pid_data & 0x7fff, ($etp_pid_data >> 15) & 0x1fff
   else
     printf "#NotPid<%#x>", ($arg0)
   end
@@ -759,7 +765,6 @@ define etp-extpid-1
 end
 
 
-
 define etp-port-1
 # Args: Eterm port
 #
@@ -767,8 +772,17 @@ define etp-port-1
 #
   set $etp_port_1 = (Eterm)($arg0)
   if ($etp_port_1 & 0xF) == 0x7
+    if (etp_arch_bits == 64 && etp_halfword == 0)
+      if (etp_big_endian)
+      	set $etp_port_data = (unsigned) ((((Uint64) $etp_port_1) >> 36) & 0x0fffffff)
+      else
+        set $etp_port_data = (unsigned) ((((Uint64) $etp_port_1) >> 4) & 0x0fffffff)
+      end
+   else
+      set $etp_port_data = (unsigned) (((((Uint32) $etp_port_1) >> 4) & ~erts_port.r.o.pix_mask) | ((((Uint32) $etp_port_1) >> (erts_port.r.o.pix_cl_shift + 4)) & erts_port.r.o.pix_cl_mask) | (((((Uint32) $etp_port_1) >> 4) & erts_port.r.o.pix_cli_mask) << erts_port.r.o.pix_cli_shift))
+   end
     # Internal port
-    printf "#Port<0.%u>", (unsigned) ($etp_port_1>>4)&0x3ffff
+    printf "#Port<0.%u>", $etp_port_data
   else
     printf "#NotPort<%#x>", ($arg0)
   end
@@ -1263,23 +1277,32 @@ document etpf-stackdump
 %---------------------------------------------------------------------------
 end
 
+define etp-pid2pix-1
+# Args: Eterm
+#
+   if (etp_arch_bits == 64 && etp_halfword == 0)
+      if (etp_big_endian)
+      	 set $etp_pix = (int) (((Uint64) $arg0) & 0x0fffffff)
+      else
+      	 set $etp_pix = (int) ((((Uint64) $arg0) >> 32) & 0x0fffffff)
+      end
+   else
+      set $etp_pix =  (int) ((((Uint32) $arg0) >> 4) & erts_proc.r.o.pix_mask)
+   end
+end
+
 define etp-pix2proc
 # Args: Eterm
 #
-   set $proc = (Process *) *((UWord *) &erts_proc.tab[((int) $arg0)])
+   set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[((int) $arg0)])
    printf "(Process *) %p\n", $proc
 end
 
 define etp-pid2proc-1
 # Args: Eterm
 #
-  set $pix = (int) ($arg0 >> 4)
-  
-  if (erts_proc.pix_cl_mask != 0)
-     set $proc = (Process *) *((UWord *) &erts_proc.tab[(((($pix) & erts_proc.pix_cl_mask) << erts_proc.pix_cl_shift) + ((($pix) >> erts_proc.pix_cli_shift) & erts_proc.pix_cli_mask))])
-  else
-      set $proc =(Process *) *((UWord *) &erts_proc.tab[((($pix) % erts_proc.max) % erts_proc.tab_cache_lines + (($pix) % erts_proc.max) / erts_proc.tab_cache_lines)])
-  end
+  etp-pid2pix-1 $arg0
+  set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$etp_pix])
 end
 
 define etp-pid2proc
@@ -1368,13 +1391,15 @@ define etp-process-info
 # Args: Process*
 #
   printf "  Pid: "
-  etp-1 $arg0->id
+  etp-1 $arg0->common.id
   printf "\n  State: "
   etp-proc-state $arg0
-  if ($arg0->common.u.alive.reg)
-    printf "  Registered name: "
-    etp-1 $arg0->common.u.alive.reg->name
-    printf "\n"
+  if (*(((Uint32 *) &(((Process *) $arg0)->state))) & 0x4) == 0
+    if ($arg0->common.u.alive.reg)
+      printf "  Registered name: "
+      etp-1 $arg0->common.u.alive.reg->name
+      printf "\n"
+    end
   end
   if ($arg0->current)
     printf "  Current function: "
@@ -1421,9 +1446,9 @@ define etp-processes
     printf "No processes, since system isn't initialized!\n"
   else
     set $proc_ix = 0
-    while $proc_ix < erts_proc.max
-      set $proc = (Process *) *((UWord *) &erts_proc.tab[$proc_ix])
-      if ($proc != (Process *) 0)
+    while $proc_ix < erts_proc.r.o.max
+      set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$proc_ix])
+      if ($proc != ((Process *) 0) && $proc != &erts_invalid_process)
         printf "---\n"
         printf "  Pix: %d\n", $proc_ix
         etp-process-info $proc
@@ -1442,8 +1467,108 @@ document etp-processes
 %---------------------------------------------------------------------------
 end
 
+define etp-port-id2pix-1
+# Args: Eterm
+#
+   if (etp_arch_bits == 64 && etp_halfword == 0)
+      if (etp_big_endian)
+      	 set $etp_pix = (int) (((Uint64) $arg0) & 0x0fffffff)
+      elser
+      	 set $etp_pix = (int) ((((Uint64) $arg0) >> 32) & 0x0fffffff)
+      end
+   else
+      set $etp_pix =  (int) ((((Uint32) $arg0) >> 4) & erts_port.r.o.pix_mask)
+   end
+end
 
-define etp-port-status-int
+define etp-pix2port
+# Args: Eterm
+#
+   set $port = (Port *) *((UWord *) &erts_port.r.o.tab[((int) $arg0)])
+   printf "(Port *) %p\n", $port
+end
+
+define etp-id2port-1
+# Args: Eterm
+#
+  etp-port-id2pix-1 $arg0
+  set $port = (Port *) *((UWord *) &erts_port.r.o.tab[((int) $etp_pix)])
+end
+
+define etp-id2port
+# Args: Eterm
+#
+   etp-id2port-1 $arg0
+   printf "(Port *) %p\n", $port
+end
+
+define etp-port-sched-flags-int
+# Args: int
+#
+  if ($arg0 & 0x1)
+    printf " in-run-queue"
+  end
+  if ($arg0 & 0x2)
+    printf " executing"
+  end
+  if ($arg0 & 0x4)
+    printf " have-tasks"
+  end
+  if ($arg0 & 0x8)
+    printf " exited"
+  end
+  if ($arg0 & 0x10)
+    printf " busy-port"
+  end
+  if ($arg0 & 0x20)
+    printf " busy-port-q"
+  end
+  if ($arg0 & 0x40)
+    printf " chk-unset-busy-port-q"
+  end
+  if ($arg0 & 0x80)
+    printf " have-busy-tasks"
+  end
+  if ($arg0 & 0x100)
+    printf " have-nosuspend-tasks"
+  end
+  if ($arg0 & 0x200)
+    printf " parallelism"
+  end
+  if ($arg0 & 0x400)
+    printf " force-sched"
+  end
+  if ($arg0 & 0xfffff800)
+    printf " GARBAGE"
+  end
+  printf "\n"
+end
+
+document etp-port-sched-flags-int
+%---------------------------------------------------------------------------
+% etp-proc-sched-flags-int int
+% 
+% Print port sched-flags
+%---------------------------------------------------------------------------
+end
+
+
+define etp-port-sched-flags
+# Args: Port*
+#
+  set $sched_flags_int = *(((Uint32 *) &(((Port *) $arg0)->sched.flags)))
+  etp-port-sched-flags-int $sched_flags_int
+end
+
+document etp-port-sched-flags
+%---------------------------------------------------------------------------
+% etp-proc-sched-flags-int Port *
+% 
+% Print port sched-flags
+%---------------------------------------------------------------------------
+end
+
+define etp-port-state-int
 # Args: int
 #
   if ($arg0 & 0x1)
@@ -1462,68 +1587,62 @@ define etp-port-status-int
     printf " soft-eof"
   end
   if ($arg0 & 0x20)
-    printf " port-busy"
-  end
-  if ($arg0 & 0x40)
     printf " closing"
   end
-  if ($arg0 & 0x80)
+  if ($arg0 & 0x40)
     printf " send-closed"
   end
-  if ($arg0 & 0x100)
+  if ($arg0 & 0x80)
     printf " linebuf-io"
   end
-  if ($arg0 & 0x200)
-    printf " immortal"
-  end
-  if ($arg0 & 0x400)
+  if ($arg0 & 0x100)
     printf " free"
   end
-  if ($arg0 & 0x800)
-    printf " free-scheduled"
-  end
-  if ($arg0 & 0x1000)
+  if ($arg0 & 0x200)
     printf " initializing"
   end
-  if ($arg0 & 0x2000)
+  if ($arg0 & 0x400)
     printf " port-specific-lock"
   end
-  if ($arg0 & 0x4000)
+  if ($arg0 & 0x800)
     printf " invalid"
   end
+  if ($arg0 & 0x1000)
+    printf " halt"
+  end
   if (etp_debug_compiled)
-    if ($arg0 & 0x7fff8000)
+    if ($arg0 & 0x7fffe000)
       printf " GARBAGE"
     end
   else
-    if ($arg0 & 0xffff8000)
+    if ($arg0 & 0xffffe000)
       printf " GARBAGE"
     end
   end
   printf "\n"
 end
 
-document etp-port-status-int
+document etp-port-state-int
 %---------------------------------------------------------------------------
 % etp-proc-state-int int
 % 
-% Print port status
+% Print port state
 %---------------------------------------------------------------------------
 end
 
 
-define etp-port-status
+define etp-port-state
 # Args: Port*
 #
-  set $status_int = *(((Uint32 *) &(((Port *) $arg0)->status)))
-  etp-port-status-int $status_int
+  set $state_int = *(((Uint32 *) &(((Port *) $arg0)->state)))
+  etp-port-state-int $state_int
 end
 
-document etp-port-status
+document etp-port-state
 %---------------------------------------------------------------------------
 % etp-proc-state-int Port *
 % 
-% Print port status
+% Print port state
 %---------------------------------------------------------------------------
 end
 
@@ -1531,17 +1650,22 @@ define etp-port-info
 # Args: Port*
 #
   printf "  Port: "
-  etp-1 $arg0->id
+  etp-1 $arg0->common.id
   printf "\n  Name: %s\n", $arg0->name
-  printf "  Status:"
-  etp-port-status $arg0
-  if ($arg0->reg)
-    printf "  Registered name: "
-    etp-1 $arg0->reg->name
-    printf "\n"
+  printf "  State:"
+  etp-port-state $arg0
+  printf "  Scheduler flags:"
+  etp-port-sched-flags $arg0
+  if (*(((Uint32 *) &(((Port *) $arg0)->state))) & 0x5C00) == 0
+    if ($arg0->common.u.alive.reg)
+      printf "  Registered name: "
+      etp-1 $arg0->common.u.alive.reg->name
+      printf "\n"
+    end
   end
   printf "  Connected: "
-  etp-1 $arg0->connected
+  set $connected = *(((Eterm *) &(((Port *) $arg0)->connected)))
+  etp-1 $connected
   printf "\n  Pointer: (Port *) %p\n", $arg0
 end
 
@@ -1559,13 +1683,15 @@ define etp-ports
     printf "No ports, since system isn't initialized!\n"
   else
     set $port_ix = 0
-    while $port_ix < erts_max_ports
-      set $port = &erts_port[$port_ix]
-      if ($port->status & 0x400) == 0
-        # I.e, not free
-        printf "---\n"
-        printf "  Pix: %d\n", $port_ix
-        etp-port-info $port
+    while $port_ix < erts_port.r.o.max
+      set $port = (Port *) *((UWord *) &erts_port.r.o.tab[$port_ix])
+      if ($port != ((Port *) 0) && $port != &erts_invalid_port)
+        if (*(((Uint32 *) &(((Port *) $port)->state))) & 0x100) == 0
+          # I.e, not free
+          printf "---\n"
+          printf "  Pix: %d\n", $port_ix
+          etp-port-info $port
+        end
       end
       set $port_ix++
     end
@@ -1865,6 +1991,12 @@ define etp-system-info
   printf "ERTS version: %s\n", etp_erts_version
   printf "Compile date: %s\n", etp_compile_date
   printf "Arch: %s\n", etp_arch
+  printf "Endianess: "
+  if (etp_big_endian)
+    printf "Big\n"
+  else
+    printf "Little\n"
+  end
   printf "Word size: %d-bit\n", etp_arch_bits
   printf "Halfword: "
   if (etp_halfword)
@@ -2112,8 +2244,8 @@ define etp-search-heaps-1
   end
   set $etp_search_heaps_i = 0
   set $etp_search_heaps_found = 0
-  while $etp_search_heaps_i < erts_proc.max
-    set $proc = (Process *) *((UWord *) &erts_proc.tab[$proc_ix])
+  while $etp_search_heaps_i < erts_proc.r.o.max
+    set $proc = (Process *) *((UWord *) &erts_proc.r.o.tab[$proc_ix])
     if $proc
       if ($proc->heap <= ($arg0)) && \
          (($arg0) < $proc->hend)
