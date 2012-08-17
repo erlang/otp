@@ -1713,7 +1713,32 @@ update_session(ProfileName, #session{id = SessionId} = Session, Pos, Value) ->
     catch
 	error:undef -> % This could happen during code upgrade
 	    Session2 = erlang:setelement(Pos, Session, Value),
-	    insert_session(Session2, ProfileName)
+	    insert_session(Session2, ProfileName);
+	  T:E ->
+            error_logger:error_msg("Failed updating session: "
+                                   "~n   ProfileName: ~p"
+                                   "~n   SessionId:   ~p"
+                                   "~n   Pos:         ~p"
+                                   "~n   Value:       ~p"
+                                   "~nwhen"
+                                   "~n   Session (db) info: ~p"
+                                   "~n   Session (db):      ~p"
+                                   "~n   Session (record):  ~p"
+                                   "~n   T: ~p"
+                                   "~n   E: ~p", 
+                                   [ProfileName, SessionId, Pos, Value, 
+                                    (catch httpc_manager:which_session_info(ProfileName)), 
+                                    Session, 
+                                    (catch httpc_manager:lookup_session(ProfileName, SessionId)), 
+                                    T, E]),
+            exit({failed_updating_session, 
+                  [{profile,    ProfileName}, 
+                   {session_id, SessionId}, 
+                   {pos,        Pos}, 
+                   {value,      Value}, 
+                   {etype,      T}, 
+                   {error,      E}, 
+                   {stacktrace, erlang:get_stacktrace()}]})	    
     end.
 
 
