@@ -82,7 +82,9 @@
     <title>DATA TYPES</title>
     <code type="none">
 port() = integer() > 0
-pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 'set-request' | trap | 'get-bulk-request' | 'inform-request' | report | trappdu
+pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 
+             'set-request' | trap | 'get-bulk-request' | 'inform-request' | 
+             report | trappdu
     </code>
     <marker id="accept_recv"></marker>
   </section>

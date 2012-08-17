@@ -254,68 +254,95 @@ strip(0, _Tail) ->
 %%----------------------------------------------------------------------
 %% Returns:{Type, Value}
 %%----------------------------------------------------------------------
+
+%% OBJECT IDENTIFIER
 dec_value([6 | Bytes]) ->
     {Value, Rest} = dec_oid_notag(Bytes),
     {{'OBJECT IDENTIFIER', Value}, Rest};
 dec_value([5,0 | T]) ->
     {{'NULL', 'NULL'}, T};
+
+%% INTEGER
 dec_value([2 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
     {{'INTEGER', Value}, Rest};
+
+%% OCTET STRING
 dec_value([4 | Bytes]) ->
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'OCTET STRING', Value}, Rest};
+
+%% IpAddress
 dec_value([64 | Bytes]) -> 
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'IpAddress', Value}, Rest};
+
+%% Counter32
 dec_value([65 | Bytes]) ->
     %% Counter32 is an unsigned 32 but is actually encoded as 
     %% a signed integer 32 (INTEGER).
     {Value, Rest} = dec_integer_notag(Bytes),
     Value2 = 
-	if
+    	if
+    	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
+    		%% We accept value above 16#7fffffff
+    		%% in order to be backward bug-compatible
+    		Value;
+    	    (Value < 0) ->
+    		16#ffffffff + Value + 1;
+    	    true ->
+    		exit({error, {bad_counter32, Value}})	
+    	end,
+    {{'Counter32', Value2}, Rest};
+
+%% Unsigned32
+dec_value([66 | Bytes]) ->
+    {Value, Rest} = dec_integer_notag(Bytes),
+    Value2 = 
+	if 
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
-		%% We accept value above 16#7fffffff
-		%% in order to be backward bug-compatible
 		Value;
 	    (Value < 0) ->
 		16#ffffffff + Value + 1;
 	    true ->
-		exit({error, {bad_counter32, Value}})	
+		exit({error, {bad_unsigned32, Value}})
 	end,
-    {{'Counter32', Value2}, Rest};
-dec_value([66 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes),
-    if 
-	(Value >= 0) andalso (Value =< 4294967295) ->
-	    {{'Unsigned32', Value}, Rest};
-	true ->
-	    exit({error, {bad_unsigned32, Value}})
-    end;
+    {{'Unsigned32', Value2}, Rest};
+
+%% TimeTicks
 dec_value([67 | Bytes]) ->
     {Value, Rest} = dec_integer_notag(Bytes),
-    if 
-	(Value >= 0) andalso (Value =< 4294967295) ->
-	    {{'TimeTicks', Value}, Rest};
+    Value2 = 
+	if
+	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
+		Value;
+	    (Value < 0) ->
+		16#ffffffff + Value + 1;
 	true ->
 	    exit({error, {bad_timeticks, Value}})
-    end;
+	end,
+    {{'TimeTicks', Value2}, Rest};
+
+%% Opaque
 dec_value([68 | Bytes]) ->
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'Opaque', Value}, Rest};
+
+%% Counter64
 dec_value([70 | Bytes]) ->
     %% Counter64 is an unsigned 64 but is actually encoded as 
     %% a signed integer 64.
     {Value, Rest} = dec_integer_notag(Bytes),
     Value2 = 
-	if
-	    (Value >= 0) andalso (Value < 16#8000000000000000) ->
-		Value;
-	    (Value < 0) ->
-		18446744073709551615 + Value + 1;
-	    true ->
-		exit({error, {bad_counter64, Value}})	end,
+    	if
+    	    (Value >= 0) andalso (Value < 16#8000000000000000) ->
+    		Value;
+    	    (Value < 0) ->
+    		16#ffffffffffffffff + Value + 1;
+    	    true ->
+    		exit({error, {bad_counter64, Value}})	end,
     {{'Counter64', Value2}, Rest};
+
 dec_value([128,0|T]) ->
     {{'NULL', noSuchObject}, T};
 dec_value([129,0|T]) ->
@@ -629,7 +656,7 @@ enc_VarBind_attributes(#varbind{oid = Oid, variabletype = Type,value = Val}) ->
     ValueBytes = enc_value(Type, Val),
     lists:append(OidBytes, ValueBytes).
 
-enc_value('INTEGER',Val) ->
+enc_value('INTEGER', Val) ->
     enc_integer_tag(Val);
 enc_value('OCTET STRING', Val) ->
     enc_oct_str_tag(Val);
@@ -637,7 +664,7 @@ enc_value('BITS', Val) ->
     enc_oct_str_tag(bits_to_str(Val));
 enc_value('OBJECT IDENTIFIER', Val) ->
     enc_oid_tag(Val);
-enc_value('IpAddress',Val) ->
+enc_value('IpAddress', Val) ->
     Bytes2 = enc_oct_str_notag(Val),
     Len2 = elength(length(Bytes2)),
     lists:append([64 | Len2],Bytes2);
@@ -668,6 +695,24 @@ enc_value('Counter32', Val) ->
     Bytes2 = enc_integer_notag(Val2),
     Len2 = elength(length(Bytes2)),
     lists:append([65 | Len2],Bytes2);
+enc_value('Unsigned32', Val) ->
+    if
+	(Val >= 0) andalso (Val =< 4294967295) ->
+	    Bytes2 = enc_integer_notag(Val),
+	    Len2 = elength(length(Bytes2)),
+	    lists:append([66 | Len2], Bytes2);
+	true ->
+	    exit({error, {bad_counter32, Val}}) 
+    end;
+enc_value('TimeTicks', Val) ->
+    if
+	(Val >= 0) andalso (Val =< 4294967295) ->
+	    Bytes2 = enc_integer_notag(Val),
+	    Len2 = elength(length(Bytes2)),
+	    lists:append([67 | Len2], Bytes2);
+	true ->
+	    exit({error, {bad_timeticks, Val}}) 
+    end;
 enc_value('Counter64', Val) ->
     Val2 = 
 	if
@@ -682,18 +727,7 @@ enc_value('Counter64', Val) ->
 	end,
     Bytes2 = enc_integer_notag(Val2),
     Len2 = elength(length(Bytes2)),
-    lists:append([70 | Len2],Bytes2);
-enc_value(Type, Val) ->
-    Bytes2 = enc_integer_notag(Val),
-    Len2 = elength(length(Bytes2)),
-    lists:append([enc_val_tag(Type,Val) | Len2],Bytes2).
-
-enc_val_tag('Counter32',Val) when (Val >= 0) andalso (Val =< 4294967295) ->
-    65;
-enc_val_tag('Unsigned32', Val) when (Val >= 0) andalso (Val =< 4294967295) ->
-    66;
-enc_val_tag('TimeTicks', Val) when (Val >= 0) andalso (Val =< 4294967295) ->
-    67.
+    lists:append([70 | Len2],Bytes2).
 
 
 %%----------------------------------------------------------------------

@@ -82,19 +82,23 @@ actions(Type, Port, Host, Node) ->
 				       [{statuscode, 200},
 				        {version, "HTTP/1.0"}]).
 
+
 %%-------------------------------------------------------------------------
 security(ServerRoot, Type, Port, Host, Node) ->
-    %% io:format(user, "~w:security -> entry with"
-    %% 	      "~n   ServerRoot: ~p"
-    %% 	      "~n   Type:       ~p"
-    %% 	      "~n   Port:       ~p"
-    %% 	      "~n   Host:       ~p"
-    %% 	      "~n   Node:       ~p"
-    %% 	      "~n", [?MODULE, ServerRoot, Type, Port, Host, Node]),
-    
-%%     io:format(user, "~w:security -> register~n", [?MODULE]), 
+    tsp("security -> "
+	"entry with"
+	"~n   ServerRoot: ~p"
+	"~n   Type:       ~p"
+	"~n   Port:       ~p"
+	"~n   Host:       ~p"
+	"~n   Node:       ~p", [ServerRoot, Type, Port, Host, Node]),
+
+    tsp("security -> "
+	"register - receive security events"),
     global:register_name(mod_security_test, self()),   % Receive events
 
+    tsp("security -> "
+	"sleep"), 
     test_server:sleep(5000),
 
     OpenDir = filename:join([ServerRoot, "htdocs", "open"]),
@@ -102,133 +106,240 @@ security(ServerRoot, Type, Port, Host, Node) ->
     %% Test blocking / unblocking of users.
 
     %% /open, require user one Aladdin
-%%     io:format(user, "~w:security -> remove user~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"remove all existing users"), 
     remove_users(Node, ServerRoot, Host, Port, "open"),
 
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request for nonex user 'one' - expect 401"), 
     auth_request(Type, Host, Port, Node, "/open/", "one", "onePassword", 
 		 [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "onePassword"}]},
 			   Node, Port),
     
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request for nonex user 'two' - expect 401"), 
     auth_request(Type,Host,Port,Node,"/open/", "two", "twoPassword",
 		 [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
+    
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "two"}, {password, "twoPassword"}]},
 			   Node, Port),
 
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request for nonex user 'Alladin' - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "Aladdin", 
 		 "AladdinPassword", [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "Aladdin"},
 			     {password, "AladdinPassword"}]},
 			   Node, Port),
 
-%%     io:format(user, "~w:security -> add users~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"add user 'one'"), 
     add_user(Node, ServerRoot, Port, "open", "one", "onePassword", []),
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"add user 'two'"), 
     add_user(Node, ServerRoot, Port, "open", "two", "twoPassword", []),
 
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request 1 for user 'one' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "WrongPassword"}]},
 			   Node, Port),
  
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request 2 for user 'one' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> await fail security event~n", [?MODULE]), 
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"await fail security event"), 
     receive_security_event({event, auth_fail, Port, OpenDir,
 			    [{user, "one"}, {password, "WrongPassword"}]},
 			   Node, Port),
     
-%%     io:format(user, "~w:security -> await block security event~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"await block security event (two failed attempts)"), 
     receive_security_event({event, user_block, Port, OpenDir,
 			    [{user, "one"}]}, Node, Port),
     
-%%     io:format(user, "~w:security -> unregister~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"unregister - no more security events"), 
     global:unregister_name(mod_security_test),   % No more events.
 
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request for user 'one' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "WrongPassword", 
 		 [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request for user 'one' with correct password - expect 403"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "onePassword",
 		 [{statuscode, 403}]),
 
     %% User "one" should be blocked now..
-    %% [{"one",_, Port, OpenDir,_}] = list_blocked_users(Node,Port),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"list blocked users - 'one' should be the only one"), 
     case list_blocked_users(Node, Port) of
 	[{"one",_, Port, OpenDir,_}] ->
 	    ok;
 	Blocked ->
-	    %% io:format(user, "~w:security -> Blocked: ~p"
-	    %% 	      "~n", [?MODULE, Blocked]),
+	    tsp(" *** unexpected blocked users ***"
+	      "~n     Blocked: ~p", [Blocked]),
 	    exit({unexpected_blocked, Blocked})
     end,
-	    
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
-    [{"one",_, Port, OpenDir,_}] = list_blocked_users(Node,Port,OpenDir),
 
-%%     io:format(user, "~w:security -> unblock user~n", [?MODULE]), 
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"list users blocked for dir '~p' - "
+	"user 'one' should be the only one", [OpenDir]),
+    [{"one",_, Port, OpenDir,_}] = list_blocked_users(Node, Port, OpenDir),
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"unblock user 'one' for dir '~p'", [OpenDir]), 
     true = unblock_user(Node, "one", Port, OpenDir),
-    %% User "one" should not be blocked any more..
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+    %% User "one" should not be blocked any more.
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"ensure user 'one' is no longer blocked"), 
     [] = list_blocked_users(Node, Port),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
-    [] = list_blocked_users(Node, Port, OpenDir),
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+
+
+    tsp("security -> "
+	"blocking and unblocking of users - "
+	"auth request for user 'one' with correct password - expect 200"), 
     auth_request(Type, Host, Port, Node,"/open/", "one", "onePassword", 
 		 [{statuscode, 200}]),
 
+
+
     %% Test list_auth_users & auth_timeout
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"list auth users - expect user 'one'"), 
     ["one"] = list_auth_users(Node, Port),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
-    ["one"] = list_auth_users(Node, Port, OpenDir),
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"auth request for user 'two' with wrong password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "onePassword", 
 		 [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"list auth users - expect user 'one'"),
     ["one"] = list_auth_users(Node, Port),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"list auth users for dir '~p' - expect user 'one'", [OpenDir]), 
     ["one"] = list_auth_users(Node, Port, OpenDir),
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"auth request for user 'two' with correct password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "twoPassword", 
 		 [{statuscode, 401}]),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"list auth users - expect user 'one'"), 
     ["one"] = list_auth_users(Node, Port),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"list auth users for dir '~p' - expect user 'one'", [OpenDir]), 
     ["one"] = list_auth_users(Node, Port, OpenDir),
+
     %% Wait for successful auth to timeout.
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"wait for successful auth to timeout"), 
     test_server:sleep(?AUTH_TIMEOUT*1001),  
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"list auth users - expect none"), 
     [] = list_auth_users(Node, Port),
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"list auth users for dir '~p'~n - expect none", [OpenDir]), 
     [] = list_auth_users(Node, Port, OpenDir),
+
     %% "two" is blocked.
-%%     io:format(user, "~w:security -> unblock user~n", [?MODULE]), 
+
+    tsp("security -> "
+	"list-auth-users and auth-timeout - "
+	"unblock user 'two' for dir '~p'", [OpenDir]), 
     true = unblock_user(Node, "two", Port, OpenDir),
+
+
     %% Test explicit blocking. Block user 'two'.
-%%     io:format(user, "~w:security -> list blocked users~n", [?MODULE]), 
+
+    tsp("security -> "
+	"explicit blocking - list blocked users - should be none"), 
     [] = list_blocked_users(Node,Port,OpenDir),
-%%     io:format(user, "~w:security -> block user~n", [?MODULE]), 
+
+    tsp("security -> "
+	"explicit blocking - "
+	"block user 'two' for dir '~p'", [OpenDir]), 
     true = block_user(Node, "two", Port, OpenDir, 10),
-%%     io:format(user, "~w:security -> auth request~n", [?MODULE]), 
+
+    tsp("security -> "
+	"explicit blocking - "
+	"auth request for user 'two' with correct password - expect 401"), 
     auth_request(Type, Host, Port, Node,"/open/", "two", "twoPassword", 
-		 [{statuscode, 401}]).
+		 [{statuscode, 401}]),
+    tsp("security -> "
+	"done").
+
 
 %%-------------------------------------------------------------------------
 auth(Type, Port, Host, Node) ->
+    tsp("auth -> "
+	"entry with"
+	"~n   Type:       ~p"
+	"~n   Port:       ~p"
+	"~n   Host:       ~p"
+	"~n   Node:       ~p", [Type, Port, Host, Node]),
+
     %% Authentication required!
     ok = httpd_test_lib:verify_request(Type,Host,Port,Node, 
 				       "GET /open/ HTTP/1.0\r\n\r\n",
@@ -913,13 +1024,11 @@ list_users(Node, Root, _Host, Port, Dir) ->
 
 
 receive_security_event(Event, Node, Port) ->
-    %% io:format(user, "~w:receive_security_event -> entry with"
-    %% 	      "~n   Event: ~p"
-    %% 	      "~n   Node:  ~p"
-    %% 	      "~n   Port:  ~p"
-    %% 	      "~n", [?MODULE, Event, Node, Port]),
+    tsp("receive_security_event -> await ~w event", [element(2, Event)]),
     receive 
 	Event ->
+	    tsp("receive_security_event -> "
+		"received expected ~w event", [element(2, Event)]),
 	    ok;
 	{'EXIT', _, _} ->
 	    receive_security_event(Event, Node, Port)
@@ -1027,8 +1136,14 @@ check_lists_members1(L1,L2) ->
     {error,{lists_not_equal,L1,L2}}.
 
 
-%% tsp(F) ->
-%%     inets_test_lib:tsp(F).
+%% p(F) ->
+%%     p(F, []).
+
+%% p(F, A) ->
+%%     io:format(user, "~w:" ++ F ++ "~n", [?MODULE|A]).
+
+tsp(F) ->
+    inets_test_lib:tsp(F).
 tsp(F, A) ->
     inets_test_lib:tsp(F, A).
 
