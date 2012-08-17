@@ -70,14 +70,18 @@ MODULES= \
         ct_hooks\
         ct_hooks_lock\
 	cth_log_redirect\
-	cth_surefire
+	cth_surefire \
+	ct_netconfc \
+	ct_conn_log_h \
+	cth_conn_log
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 BEAM_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 ERL_FILES= $(MODULES:=.erl)
 HRL_FILES = \
-	ct_util.hrl
+	ct_util.hrl \
+	ct_netconfc.hrl
 EXTERNAL_HRL_FILES = \
 	../include/ct.hrl \
 	../include/ct_event.hrl

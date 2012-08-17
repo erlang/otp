@@ -64,3 +64,6 @@
 -define(ct_config_txt, ct_config_plain).
 
 -define(ct_profile_file, ".common_test").
+
+%% Logging information for error handler
+-record(conn_log, {client, name, address, action, module}).

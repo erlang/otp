@@ -7,6 +7,7 @@
 /common_test/doc/src/ct_rpc.xml
 /common_test/doc/src/ct_snmp.xml
 /common_test/doc/src/ct_ssh.xml
+/common_test/doc/src/ct_netconfc.xml
 /common_test/doc/src/ct_telnet.xml
 /common_test/doc/src/unix_telnet.xml
 
