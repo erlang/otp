@@ -1411,7 +1411,7 @@ log_to_io(LogDir, Mibs, LogName, LogFile) ->
 log_to_io(LogDir, Mibs, LogName, LogFile, Start) -> 
     snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start).
 log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop) -> 
-    snmp:log_to_io(LogDir, Mibs, LogFile, Start, Stop).
+    snmp:log_to_io(LogDir, Mibs, LogName, LogFile, Start, Stop).
     
 
 change_log_size(NewSize) ->

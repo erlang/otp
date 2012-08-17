@@ -565,45 +565,85 @@ vacmAccessTable(is_set_ok, RowIndex, Cols0) ->
     case (catch verify_vacmAccessTable_cols(Cols0, [])) of
 	{ok, Cols} ->
 	    IsValidKey = is_valid_key(RowIndex),
-	    case lists:keysearch(?vacmAccessStatus, 1, Cols) of
-		%% Ok, if contextMatch is init
-		{value, {Col, ?'RowStatus_active'}} -> 
-	            {ok, Row} = snmpa_vacm:get_row(RowIndex),
-	            case element(?vacmAContextMatch, Row) of
-			noinit -> {inconsistentValue, Col};
-			_ -> {noError, 0}
-		    end;
-		{value, {Col, ?'RowStatus_notInService'}} -> % Ok, if not notReady
-		    {ok, Row} = snmpa_vacm:get_row(RowIndex),
-		    case element(?vacmAStatus, Row) of
-			?'RowStatus_notReady' -> {inconsistentValue, Col};
-			_ -> {noError, 0}
-		    end;
-		{value, {Col, ?'RowStatus_notReady'}} -> % never ok!
+	    StatusCol  = lists:keyfind(?vacmAccessStatus, 1, Cols),
+	    MaybeRow   = snmpa_vacm:get_row(RowIndex),
+	    case {StatusCol, MaybeRow} of
+		{{Col, ?'RowStatus_active'}, false} ->
+		    %% row does not yet exist => inconsistentValue
+		    %% (see SNMPv2-TC.mib, RowStatus textual convention)
 		    {inconsistentValue, Col};
-		{value, {Col, ?'RowStatus_createAndGo'}} -> % ok, if it doesn't exist
+		{{Col, ?'RowStatus_active'}, {ok, Row}} ->
+		    %% Ok, if contextMatch is init
+		    case element(?vacmAContextMatch, Row) of
+			noinit ->
+			    %% check whether ContextMatch is being set in
+			    %% the same operation
+			    case proplists:get_value(?vacmAccessContextMatch, 
+						     Cols) of
+				undefined ->
+				    %% no, we can't make this row active yet
+				    {inconsistentValue, Col};
+				_ ->
+				    %% ok, activate the row
+				    {noError, 0}
+			    end;
+			_ ->
+			    {noError, 0}
+		    end;
+		{{Col, ?'RowStatus_notInService'}, false} ->
+		    %% row does not yet exist => inconsistentValue
+		    %% (see SNMPv2-TC.mib, RowStatus textual convention)
+		    {inconsistentValue, Col};
+		{{Col, ?'RowStatus_notInService'}, {ok, Row}} ->
+		    %% Ok, if not notReady
+		    case element(?vacmAStatus, Row) of
+			?'RowStatus_notReady' ->
+			    {inconsistentValue, Col};
+			_ ->
+			    {noError, 0}
+		    end;
+		{{Col, ?'RowStatus_notReady'}, _} ->
+		    %% never ok!
+		    {inconsistentValue, Col};
+		{{Col, ?'RowStatus_createAndGo'}, false} ->
+		    %% ok, if it doesn't exist
 		    Res = lists:keysearch(?vacmAccessContextMatch, 1, Cols),
-		    case snmpa_vacm:get_row(RowIndex) of
-			false when (IsValidKey =:= true) andalso 
-				   is_tuple(Res) -> {noError, 0};
-			false -> {noCreation, Col}; % Bad RowIndex
-			_ -> {inconsistentValue, Col}
-		    end;
-		{value, {Col, ?'RowStatus_createAndWait'}} -> % ok, if it doesn't exist
-		    case snmpa_vacm:get_row(RowIndex) of
-			false when (IsValidKey =:= true) -> {noError, 0};
-			false -> {noCreation, Col}; % Bad RowIndex
-			_ -> {inconsistentValue, Col}
-		    end;
-		{value, {_Col, ?'RowStatus_destroy'}} -> % always ok!
-		    {noError, 0};
-		_ -> % otherwise, it's a change; it must exist
-		    case snmpa_vacm:get_row(RowIndex) of
-			{ok, _} ->
+		    if
+			IsValidKey =/= true ->
+			    %% bad RowIndex => noCreation
+			    {noCreation, Col};
+			is_tuple(Res) ->
+			    %% required field is present => noError
 			    {noError, 0};
-			false ->
-			    {inconsistentName, element(1, hd(Cols))}
-		    end
+			true ->
+			    %% required field is missing => inconsistentValue
+			    {inconsistentValue, Col}
+		    end;
+		{{Col, ?'RowStatus_createAndGo'}, _} ->
+		    %% row already exists => inconsistentValue
+		    {inconsistentValue, Col};
+		{{Col, ?'RowStatus_createAndWait'}, false} ->
+		    %% ok, if it doesn't exist
+		    if
+			IsValidKey =:= true ->
+			    %% RowIndex is valid => noError
+			    {noError, 0};
+			true ->
+			    {noCreation, Col}
+		    end;
+		{{Col, ?'RowStatus_createAndWait'}, _} ->
+		    %% Row already exists => inconsistentValue
+		    {inconsistentValue, Col};
+		{value, {_Col, ?'RowStatus_destroy'}} ->
+		    %% always ok!
+		    {noError, 0};
+		{_, false} ->
+		    %% otherwise, it's a row change; 
+		    %% row does not exist => inconsistentName
+		    {inconsistentName, element(1, hd(Cols))};
+		_ ->
+		    %% row change and row exists => noError
+		    {noError, 0}
 	    end;
 	Error ->
 	    Error
@@ -734,10 +774,15 @@ do_vacmAccessTable_set(RowIndex, Cols) ->
 	    
 	    
 %% Cols are sorted, and all columns are > 3.
+do_get_next(_RowIndex, []) ->
+    % Cols can be empty because we're called for each
+    % output of split_cols(); and one of that may well
+    % be empty.
+    [];
 do_get_next(RowIndex, Cols) ->
     case snmpa_vacm:get_next_row(RowIndex) of
 	{NextIndex, Row} ->
-	    F1 = fun(Col) when Col < ?vacmAccessStatus -> 
+	    F1 = fun(Col) when Col =< ?vacmAccessStatus ->
 			 {[Col | NextIndex], element(Col-3, Row)};
 		    (_) -> 
 			 endOfTable
@@ -745,9 +790,9 @@ do_get_next(RowIndex, Cols) ->
 	    lists:map(F1, Cols);
 	false ->
 	    case snmpa_vacm:get_next_row([]) of
-		{_NextIndex, Row} ->
+		{NextIndex2, Row} ->
 		    F2 = fun(Col) when Col < ?vacmAccessStatus -> 
-				 {[Col+1 | RowIndex], element(Col-2, Row)};
+				 {[Col+1 | NextIndex2], element(Col-2, Row)};
 			    (_) ->
 				 endOfTable
 			 end,

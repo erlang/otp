@@ -54,6 +54,7 @@
 %% Columns not accessible via SNMP
 -define(usmUserAuthKey, 14).
 -define(usmUserPrivKey, 15).
+-define(is_cloning, 16).
 
 
 %%%-----------------------------------------------------------------
@@ -564,7 +565,9 @@ usmUserTable(set, RowIndex, Cols0) ->
 	{ok, Cols} ->
 	    ?vtrace("usmUserTable(set) -> verified"
 		    "~n   Cols: ~p", [Cols]),
-	    NCols = pre_set(RowIndex, Cols),
+        % check whether we're cloning. if so, get cloned params and add a few
+        % defaults that might be needed.
+	    NCols = pre_set(RowIndex, validate_clone_from(RowIndex, Cols)),
 	    ?vtrace("usmUserTable(set) -> pre-set: "
 		    "~n   NCols: ~p", [NCols]),
 	    %% NOTE: The NCols parameter is sent to snmp_generic, but not to
@@ -730,30 +733,40 @@ validate_is_set_ok(Error, _RowIndex, _Cols) ->
     Error.
 
 do_validate_is_set_ok(RowIndex, Cols) ->
-    validate_clone_from(RowIndex, Cols),
-    validate_auth_protocol(RowIndex, Cols),
-    validate_auth_key_change(RowIndex, Cols),
-    validate_own_auth_key_change(RowIndex, Cols),
-    validate_priv_protocol(RowIndex, Cols),
-    validate_priv_key_change(RowIndex, Cols),
-    validate_own_priv_key_change(RowIndex, Cols),
+    NCols = validate_clone_from(RowIndex, Cols),
+    validate_auth_protocol(RowIndex, NCols),
+    validate_auth_key_change(RowIndex, NCols),
+    validate_own_auth_key_change(RowIndex, NCols),
+    validate_priv_protocol(RowIndex, NCols),
+    validate_priv_key_change(RowIndex, NCols),
+    validate_own_priv_key_change(RowIndex, NCols),
     ok.
     
 pre_set(RowIndex, Cols) ->
+    %% Remove the ?is_cloning member again; it must no longer be
+    %% present.
+    Cols0 = key1delete(?is_cloning, Cols),
     %% Possibly initialize the usmUserSecurityName and privacy keys
     case snmp_generic:table_row_exists(db(usmUserTable), RowIndex) of
-	true -> Cols;
+	true -> Cols0;
 	false ->
 	    SecName = get_user_name(RowIndex),
-	    [{?usmUserSecurityName, SecName} | Cols] ++
-		[{?usmUserAuthKey, ""},
-		 {?usmUserPrivKey, ""}]
+	    Cols1 = [{?usmUserSecurityName, SecName} | Cols0],
+        case proplists:get_value(?is_cloning, Cols) of
+            true ->
+                % the row is just being cloned. the cloned user's
+                % passwords are already present in Cols and must
+                % not be overwritten.
+                Cols1;
+            _ ->
+                Cols1 ++ [{?usmUserAuthKey, ""},
+                    {?usmUserPrivKey, ""}]
+        end
     end.
 
 validate_set({noError, 0}, RowIndex, Cols) ->
     %% Now, all is_set_ok validation steps have been executed.  So
     %% everything is ready for the set.
-    set_clone_from(RowIndex, Cols),
     set_auth_key_change(RowIndex, Cols),
     set_own_auth_key_change(RowIndex, Cols),
     set_priv_key_change(RowIndex, Cols),
@@ -769,7 +782,7 @@ validate_set(Error, _RowIndex, _Cols) ->
 %% no further checks.
 %%-----------------------------------------------------------------
 validate_clone_from(RowIndex, Cols) ->
-    case lists:keysearch(?usmUserCloneFrom, 1, Cols) of
+    case key1search(?usmUserCloneFrom, Cols) of
 	{value, {_Col, RowPointer}} ->
 	    RowIndex2 = extract_row(RowPointer),
 	    OldCloneFrom = snmp_generic:table_get_element(db(usmUserTable),
@@ -778,35 +791,63 @@ validate_clone_from(RowIndex, Cols) ->
 	    case OldCloneFrom of
 		{value, Val} when Val /= noinit ->
 		    %% This means that the cloning is already done...
-		    ok;
+		    no_cloning(Cols);
 		_ ->
-		    %% Otherwise, we must check the CloneFrom value
-		    case snmp_generic:table_get_element(db(usmUserTable),
-							RowIndex2,
-							?usmUserStatus) of
-			{value, ?'RowStatus_active'} -> ok;
-			_ -> inconsistentName(?usmUserCloneFrom)
-		    end
+		    %% Otherwise, we must check the CloneFrom value. It
+            %% must relate to a usmUserEntry that exists and is active.
+            case snmp_generic:table_get_row(db(usmUserTable), RowIndex2) of
+                CloneFromRow when is_tuple(CloneFromRow) ->
+                    case element(?usmUserStatus, CloneFromRow) of
+                        ?'RowStatus_active' ->
+                            get_cloned_cols(CloneFromRow, Cols);
+                        _ ->
+                            inconsistentName(?usmUserCloneFrom)
+                    end;
+                undefined ->
+                    inconsistentName(?usmUserCloneFrom)
+            end
 	    end;
 	false ->
-	    ok
+        % no ?usmUserCloneFrom specified, don't modify columns
+        no_cloning(Cols)
     end.
+
+get_cloned_cols(CloneFromRow, Cols) ->
+    % initialize cloned columns with data from CloneFromRow
+    % and overwrite that again with data found in Cols
+    AuthP = element(?usmUserAuthProtocol, CloneFromRow),
+    PrivP = element(?usmUserPrivProtocol, CloneFromRow),
+    AuthK = element(?usmUserAuthKey, CloneFromRow),
+    PrivK = element(?usmUserPrivKey, CloneFromRow),
+    ClonedCols = [{?usmUserAuthProtocol, AuthP},
+        {?usmUserPrivProtocol, PrivP},
+        {?usmUserAuthKey, AuthK},
+        {?usmUserPrivKey, PrivK},
+        {?is_cloning, true}
+    ],
+    Func = fun({Col, _} = Item, NCols) ->
+            key1store(Col, NCols, Item)
+    end,
+    Cols1 = lists:foldl(Func, ClonedCols, Cols),
+    key1sort(Cols1).
+
+no_cloning(Cols0) ->
+    Cols1 = key1delete(?usmUserCloneFrom, Cols0),
+    key1delete(?is_cloning, Cols1).
 
 
 validate_auth_protocol(RowIndex, Cols) ->
-    case lists:keysearch(?usmUserAuthProtocol, 1, Cols) of
+    case key1search(?usmUserAuthProtocol, Cols) of
 	{value, {_Col, AuthProtocol}} ->
-	    %% Check if the row has been cloned; we can't check the
+	    %% Check if the row is being cloned; we can't check the
 	    %% old value of authProtocol, because if the row was
 	    %% createAndWaited, the default value would have been
 	    %% written (usmNoAuthProtocol).
-	    OldCloneFrom = snmp_generic:table_get_element(db(usmUserTable),
-							  RowIndex,
-							  ?usmUserCloneFrom),
-	    case OldCloneFrom of
-		{value, Val} when Val /= noinit ->
-		    %% This means that the cloning is already done; set is ok
-		    %% if new protocol is usmNoAuthProtocol
+	    IsCloning = proplists:get_value(?is_cloning, Cols, false),
+	    if
+		not IsCloning ->
+		    %% This means that the row is not being cloned right
+            %% now; set is ok if new protocol is usmNoAuthProtocol
 		    case AuthProtocol of
 			?usmNoAuthProtocol ->
 			    %% Check that the Priv protocl is noPriv
@@ -821,7 +862,7 @@ validate_auth_protocol(RowIndex, Cols) ->
 			_ ->
 			    wrongValue(?usmUserAuthProtocol)
 		    end;
-		_ ->
+		true ->
 		    %% Otherwise, check that the new protocol is known,
 		    %% and that the system we're running supports the
 		    %% hash function.
@@ -867,7 +908,7 @@ validate_own_priv_key_change(RowIndex, Cols) ->
 
 %% Check that the requesting user is the same as the modified user
 validate_requester(RowIndex, Cols, KeyChangeCol) ->
-    case lists:keysearch(KeyChangeCol, 1, Cols) of
+    case key1search(KeyChangeCol, Cols) of
 	{value, _} ->
 	    case get(sec_model) of % Check the securityModel in the request
 		?SEC_USM -> ok;
@@ -890,17 +931,14 @@ validate_requester(RowIndex, Cols, KeyChangeCol) ->
     end.
 
 validate_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
-    case lists:keysearch(KeyChangeCol, 1, Cols) of
+    case key1search(KeyChangeCol, Cols) of
 	{value, {_Col, KeyC}} ->
 	    %% Check if the row has been cloned; or if it is cloned in
 	    %% this set-operation.
 	    OldCloneFrom = snmp_generic:table_get_element(db(usmUserTable),
 							  RowIndex,
 							  ?usmUserCloneFrom),
-	    IsClonePresent = case lists:keysearch(?usmUserCloneFrom, 1, Cols) of
-				 {value, _} -> true;
-				 false -> false
-			     end,
+	    IsClonePresent = proplists:get_value(?is_cloning, Cols, false),
 	    %% Set is ok if 1) the user already is created, 2) this is
 	    %% a new user, which has been cloned, or is about to be
 	    %% cloned.
@@ -912,7 +950,7 @@ validate_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
 		    %% The user is cloned in this operation
 		    ok;
 		_ ->
-		    %% The user doen't exist, or hasn't been cloned,
+		    %% The user doesn't exist, or hasn't been cloned,
 		    %% and is not cloned in this operation.
 		    inconsistentName(KeyChangeCol)
 	    end,
@@ -939,17 +977,15 @@ validate_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
     end.
 
 validate_priv_protocol(RowIndex, Cols) ->
-    case lists:keysearch(?usmUserPrivProtocol, 1, Cols) of
+    case key1search(?usmUserPrivProtocol, Cols) of
 	{value, {_Col, PrivProtocol}} ->
 	    %% Check if the row has been cloned; we can't check the
 	    %% old value of privhProtocol, because if the row was
 	    %% createAndWaited, the default value would have been
 	    %% written (usmNoPrivProtocol).
-	    OldCloneFrom = snmp_generic:table_get_element(db(usmUserTable),
-							  RowIndex,
-							  ?usmUserCloneFrom),
-	    case OldCloneFrom of
-		{value, Val} when Val /= noinit ->
+        IsCloning = proplists:get_value(?is_cloning, Cols, false),
+	    if
+        not IsCloning ->
 		    %% This means that the cloning is already done; set is ok
 		    %% if new protocol is usmNoPrivProtocol
 		    case PrivProtocol of
@@ -962,7 +998,7 @@ validate_priv_protocol(RowIndex, Cols) ->
 			_ ->
 			    wrongValue(?usmUserPrivProtocol)
 		    end;
-		_ ->
+		true ->
 		    %% Otherwise, check that the new protocol is known,
 		    %% and that the system we're running supports the
 		    %% crypto function.
@@ -1005,31 +1041,6 @@ validate_priv_protocol(RowIndex, Cols) ->
     end.
 
 
-set_clone_from(RowIndex, Cols) ->
-    %% If CloneFrom is modified, do the cloning.
-    case lists:keysearch(?usmUserCloneFrom, 1, Cols) of
-	{value, {_Col, RowPointer}} ->
-	    RowIndex2 = extract_row(RowPointer), % won't fail
-	    CloneRow = snmp_generic:table_get_row(db(usmUserTable), RowIndex2,
-						  foi(usmUserTable)),
-	    AuthP = element(?usmUserAuthProtocol, CloneRow),
-	    PrivP = element(?usmUserPrivProtocol, CloneRow),
-	    AuthK = element(?usmUserAuthKey, CloneRow),
-	    PrivK = element(?usmUserPrivKey, CloneRow),
-	    SCols = [{?usmUserAuthProtocol, AuthP},
-		     {?usmUserPrivProtocol, PrivP},
-		     {?usmUserAuthKey, AuthK},
-		     {?usmUserPrivKey, PrivK}],
-	    case snmp_generic:table_set_elements(db(usmUserTable),
-						 RowIndex,
-						 SCols) of
-		true -> ok;
-		false -> {commitFailed, ?usmUserCloneFrom}
-	    end;
-	false ->
-	    ok
-    end.
-
 set_auth_key_change(RowIndex, Cols) ->
     set_key_change(RowIndex, Cols, ?usmUserAuthKeyChange, auth).
 
@@ -1043,7 +1054,7 @@ set_own_priv_key_change(RowIndex, Cols) ->
     set_key_change(RowIndex, Cols, ?usmUserOwnPrivKeyChange, priv).
 
 set_key_change(RowIndex, Cols, KeyChangeCol, Type) ->
-    case lists:keysearch(KeyChangeCol, 1, Cols) of
+    case key1search(KeyChangeCol, Cols) of
 	{value, {_Col, KeyChange}} ->
 	    KeyCol = case Type of
 			 auth -> ?usmUserAuthKey;
@@ -1071,11 +1082,11 @@ extract_row([H | T], [H | T2])          -> extract_row(T, T2);
 extract_row([], [?usmUserSecurityName | T]) -> T;
 extract_row(_, _) -> wrongValue(?usmUserCloneFrom).
 
-%% Pre: the user exixt
+%% Pre: the user exists or is being cloned in this operation
 get_auth_proto(RowIndex, Cols) ->
-    %% The protocol can be chanegd by the request too, otherwise,
+    %% The protocol can be changed by the request too, otherwise,
     %% check the stored protocol.
-    case lists:keysearch(?usmUserAuthProtocol, 1, Cols) of
+    case key1search(?usmUserAuthProtocol, Cols) of
 	{value, {_, Protocol}} ->
 	    Protocol;
 	false ->
@@ -1090,11 +1101,11 @@ get_auth_proto(RowIndex, Cols) ->
 	    end
     end.
 
-%% Pre: the user exixt
+%% Pre: the user exists or is being cloned in this operation
 get_priv_proto(RowIndex, Cols) ->
-    %% The protocol can be chanegd by the request too, otherwise,
+    %% The protocol can be changed by the request too, otherwise,
     %% check the stored protocol.
-    case lists:keysearch(?usmUserPrivProtocol, 1, Cols) of
+    case key1search(?usmUserPrivProtocol, Cols) of
 	{value, {_, Protocol}} ->
 	    Protocol;
 	false ->
@@ -1231,6 +1242,27 @@ set_sname(_) -> %% Keep it, if already set.
 
 error(Reason) ->
     throw({error, Reason}).
+
+
+%%-----------------------------------------------------------------
+%%     lists key-function(s) wrappers 
+
+-compile({inline,key1delete/2}).
+key1delete(Key, List) ->
+    lists:keydelete(Key, 1, List).
+
+-compile({inline,key1search/2}).
+key1search(Key, List) ->
+    lists:keysearch(Key, 1, List).
+
+-compile({inline,key1store/3}).
+key1store(Key, List, Elem) ->
+    lists:keystore(Key, 1, List, Elem).
+
+-compile({inline,key1sort/1}).
+key1sort(List) ->
+    lists:keysort(1, List).
+
 
 %%-----------------------------------------------------------------
 
