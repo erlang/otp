@@ -67,6 +67,7 @@ all() ->
      create_standalone_app_clash,
      create_multiple_standalone,
      create_old_target,
+     create_slim,
      eval_target_spec,
      otp_9135,
      otp_9229_dupl_mod_exclude_app,
@@ -982,6 +983,56 @@ create_old_target(_Config) ->
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl)),
     ?msym(ok, stop_node(Node)),
     
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Generate target system
+
+create_slim(Config) ->
+    %% Configure the server
+    RelName = "slim",
+    RelVsn = "1.0",
+
+    DataDir =  ?config(data_dir,Config),
+    LibDir = filename:join(DataDir,"slim"),
+
+    Sys =
+        {sys,
+         [
+          {root_dir, code:root_dir()},
+          {lib_dirs, []},
+          {boot_rel, RelName},
+          {rel, RelName, RelVsn, [sasl, stdlib, kernel, a]},
+          {app, sasl, [{incl_cond, include}]},
+          {app, a, [{incl_cond, include},
+		    {lib_dir,filename:join(LibDir,"a-1.0")}]},
+	  {excl_lib,otp_root}
+         ]},
+
+    %% Generate target file
+    TargetDir = filename:absname(filename:join([?WORK_DIR, "target_slim"])),
+    ?m(ok, reltool_utils:recursive_delete(TargetDir)),
+    ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Sys}])]),
+    ok = ?m(ok, reltool:create_target([{config, Sys}], TargetDir)),
+
+    TargetLibDir = filename:join(TargetDir,"lib"),
+    TargetRelDir = filename:join(TargetDir,"releases"),
+    TargetRelVsnDir = filename:join(TargetRelDir,RelVsn),
+
+    {ok,["a-1.0.ez"]} = file:list_dir(TargetLibDir),
+
+    RootDir = code:root_dir(),
+    Erl = filename:join([RootDir, "bin", "erl"]),
+    Args = "-boot_var RELTOOL_EXT_LIB " ++ TargetLibDir ++
+	" -boot " ++ filename:join(TargetRelVsnDir,RelName) ++
+	" -sasl releases_dir \\\"" ++ TargetRelDir ++ "\\\"",
+    {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl, Args)),
+    ?msym(RootDir, rpc:call(Node, code, root_dir, [])),
+    ?msym([{RelName,RelVsn,_,permanent}],
+	  rpc:call(Node,release_handler,which_releases,[])),
+    ?msym(ok, stop_node(Node)),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2226,8 +2277,10 @@ mod_path(Node,Mod) ->
 %% Node handling
 
 start_node(Name, ErlPath) ->
+    start_node(Name, ErlPath, []).
+start_node(Name, ErlPath, Args) ->
     FullName = full_node_name(Name),
-    CmdLine = mk_node_cmdline(Name, ErlPath),
+    CmdLine = mk_node_cmdline(Name, ErlPath, Args),
     io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
     case open_port({spawn, CmdLine}, []) of
         Port when is_port(Port) ->
@@ -2246,14 +2299,7 @@ stop_node(Node) ->
     spawn(Node, fun () -> halt() end),
     receive {nodedown, Node} -> ok end.
 
-mk_node_cmdline(Name) ->
-    Prog = case catch init:get_argument(progname) of
-               {ok,[[P]]} -> P;
-               _ -> exit(no_progname_argument_found)
-           end,
-    mk_node_cmdline(Name, Prog).
-
-mk_node_cmdline(Name, Prog) ->
+mk_node_cmdline(Name, Prog, Args) ->
     Static = "-detached -noinput",
     Pa = filename:dirname(code:which(?MODULE)),
     NameSw = case net_kernel:longnames() of
@@ -2268,7 +2314,8 @@ mk_node_cmdline(Name, Prog) ->
         ++ NameSw ++ " " ++ NameStr ++ " "
         ++ "-pa " ++ Pa ++ " "
         ++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr ++ " "
-        ++ "-setcookie " ++ atom_to_list(erlang:get_cookie()).
+        ++ "-setcookie " ++ atom_to_list(erlang:get_cookie())
+	++ " " ++ Args.
 
 full_node_name(PreName) ->
     HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,

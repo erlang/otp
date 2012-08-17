@@ -687,6 +687,8 @@ strip_name_ebin(Dir, Name, Vsn) ->
     case lists:reverse(Dir) of
         ["ebin", Name     | D] -> {ok, lists:reverse(D)};
         ["ebin", FullName | D] -> {ok, lists:reverse(D)};
+        [Name     | D] -> {ok, lists:reverse(D)};
+        [FullName | D] -> {ok, lists:reverse(D)};
         _                      -> false
     end.
 
@@ -733,8 +735,20 @@ do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
     BootFile = RelName ++ ".boot",
     MergedApps = merge_apps(Rel, Sys),
     GenRel = do_gen_rel(Rel, Sys, MergedApps),
+    Variables =
+	case Sys#sys.excl_lib of
+	    otp_root ->
+		%% All applications that are fetched from somewhere
+		%% other than $OTP_ROOT/lib will get $RELTOOL_EXT_LIB
+		%% as path prefix in the .script file.
+		[{"RELTOOL_EXT_LIB",LibDir} ||  LibDir <- Sys#sys.lib_dirs] ++
+		    [{"RELTOOL_EXT_LIB",filename:dirname(AppLibDir)} ||
+			#app{active_dir=AppLibDir,use_selected_vsn=dir}
+			    <- MergedApps];
+	    _ ->
+		[]
+	end,
     PathFlag = true,
-    Variables = [],
     {ok, Script} = do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables),
     {ok, BootBin} = gen_boot(Script),
     Date = date(),
@@ -771,29 +785,34 @@ gen_spec(Sys) ->
     end.
 
 do_gen_spec(#sys{root_dir = RootDir,
+		 excl_lib = ExclLib,
                  incl_sys_filters = InclRegexps,
                  excl_sys_filters = ExclRegexps,
                  relocatable = Relocatable,
                  apps = Apps} = Sys) ->
-    {create_dir, _, SysFiles} = spec_dir(RootDir),
-    {ExclRegexps2, SysFiles2} =
-	strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps),
     RelFiles = spec_rel_files(Sys),
-    {InclRegexps2, BinFiles} =
-	spec_bin_files(Sys, SysFiles, SysFiles2, RelFiles, InclRegexps),
+    {SysFiles, InclRegexps2, ExclRegexps2, Mandatory} =
+	case ExclLib of
+	    otp_root ->
+		{[],InclRegexps,ExclRegexps,["lib"]};
+	    _ ->
+		{create_dir, _, SF} = spec_dir(RootDir),
+		{ER2, SF2} = strip_sys_files(Relocatable, SF, Apps, ExclRegexps),
+		{IR2, BinFiles} =
+		    spec_bin_files(Sys, SF, SF2, RelFiles, InclRegexps),
+		SF3 = [{create_dir, "bin", BinFiles}] ++ SF2,
+		{SF3,IR2,ER2,["bin","erts","lib"]}
+	end,
     LibFiles = spec_lib_files(Sys),
     {BootVsn, StartFile} = spec_start_file(Sys),
-    SysFiles3 =
-        [
-         {create_dir, "releases",
+    SysFiles2 =
+        [{create_dir, "releases",
 	  [StartFile,
-	   {create_dir,BootVsn, RelFiles}]},
-	 {create_dir, "bin", BinFiles}
-        ] ++ SysFiles2,
-    SysFiles4 = filter_spec(SysFiles3, InclRegexps2, ExclRegexps2),
-    SysFiles5 = SysFiles4 ++ [{create_dir, "lib", LibFiles}],
-    check_sys(["bin", "erts", "lib"], SysFiles5),
-    SysFiles5.
+	   {create_dir,BootVsn, RelFiles}]}] ++ SysFiles,
+    SysFiles3 = filter_spec(SysFiles2, InclRegexps2, ExclRegexps2),
+    SysFiles4 = SysFiles3 ++ [{create_dir, "lib", LibFiles}],
+    check_sys(Mandatory, SysFiles4),
+    SysFiles4.
 
 strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
     ExclRegexps2 =
@@ -967,22 +986,35 @@ safe_lookup_spec(Prefix, Specs) ->
 %% Specify applications
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-spec_lib_files(#sys{apps = Apps} = Sys) ->
+spec_lib_files(#sys{root_dir = RootDir,
+		    apps = Apps,
+		    excl_lib = ExclLib} = Sys) ->
     Filter = fun(#app{is_escript = IsEscript, is_included = IsIncl,
-                      is_pre_included = IsPre, name = Name}) ->
+                      is_pre_included = IsPre, name = Name,
+		      active_dir = ActiveDir}) ->
                      if
                          Name =:= ?MISSING_APP_NAME ->
                              false;
                          IsEscript =/= false ->
                              false;
                          IsIncl; IsPre ->
-                             true;
+			     case ExclLib of
+				 otp_root ->
+				     not lists:prefix(RootDir,ActiveDir);
+				 _ ->
+				     true
+			     end;
                          true ->
                              false
                      end
              end,
     SelectedApps = lists:filter(Filter, Apps),
-    check_apps([kernel, stdlib], SelectedApps),
+    case ExclLib of
+	otp_root ->
+	    ok;
+	_ ->
+	    check_apps([kernel, stdlib], SelectedApps)
+    end,
     lists:flatten([spec_app(App, Sys) || App <- SelectedApps]).
 
 check_apps([Mandatory | Names], Apps) ->

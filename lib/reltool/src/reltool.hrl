@@ -233,6 +233,7 @@
           rels     	       :: [#rel{}],
           emu_name 	       :: emu_name(),
           profile  	       :: profile(),
+	  excl_lib             :: otp_root,
           incl_sys_filters     :: [#regexp{}],
           excl_sys_filters     :: [#regexp{}],
           incl_app_filters     :: [#regexp{}],
