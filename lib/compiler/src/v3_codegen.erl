@@ -123,14 +123,23 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
 					   put_reg(V, Reg)
 				   end, [], Hvs),
 			 stk=[]}, 0, Vdb),
-    {B,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
+    {B0,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
 			  St3#cg{bfail=0,
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
+    B = fix_bs_match_strings(B0),
     {Name,Arity} = NameArity,
     Asm = [{label,Fi},line(Anno),{func_info,AtomMod,{atom,Name},Arity},
 	   {label,Fl}|B++[{label,UltimateMatchFail},if_end]],
     {Asm,Fl,St}.
+
+fix_bs_match_strings([{test,bs_match_string,F,[Ctx,BinList]}|Is])
+  when is_list(BinList) ->
+    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
+    [I|fix_bs_match_strings(Is)];
+fix_bs_match_strings([I|Is]) ->
+    [I|fix_bs_match_strings(Is)];
+fix_bs_match_strings([]) -> [].
 
 %% cg(Lkexpr, Vdb, StackReg, State) -> {[Ainstr],StackReg,State}.
 %%  Generate code for a kexpr.
@@ -713,7 +722,22 @@ select_bin_seg(#l{ke={val_clause,{bin_int,Ctx,Sz,U,Fs,Val,Es},B},i=I,vdb=Vdb},
 				       I, Vdb, Bef, Ctx, St0),
     {Bis,Aft,St2} = match_cg(B, Fail, Int, St1),
     CtxReg = fetch_var(Ctx, Bef),
-    {[{bs_restore2,CtxReg,{Ctx,Ivar}}|Mis] ++ Bis,Aft,St2}.
+    Is = case Mis ++ Bis of
+	     [{test,bs_match_string,F,[OtherCtx,Bin1]},
+	      {bs_save2,OtherCtx,_},
+	      {bs_restore2,OtherCtx,_},
+	      {test,bs_match_string,F,[OtherCtx,Bin2]}|Is0] ->
+		 %% We used to do this optimization later, but it
+		 %% turns out that in huge functions with many
+		 %% bs_match_string instructions, it's a big win
+		 %% to do the combination now. To avoid copying the
+		 %% binary data again and again, we'll combine bitstrings
+		 %% in a list and convert all of it to a bitstring later.
+		 [{test,bs_match_string,F,[OtherCtx,[Bin1,Bin2]]}|Is0];
+	     Is0 ->
+		 Is0
+	 end,
+    {[{bs_restore2,CtxReg,{Ctx,Ivar}}|Is],Aft,St2}.
 
 select_extract_int([{var,Tl}], Val, {integer,Sz}, U, Fs, Vf,
 		   I, Vdb, Bef, Ctx, St) ->

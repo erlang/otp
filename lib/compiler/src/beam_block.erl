@@ -615,10 +615,6 @@ bsm_opt_2([{test,bs_skip_bits2,F,[Ctx,{integer,I1},Unit1,_]}|Is],
 	  [{test,bs_skip_bits2,F,[Ctx,{integer,I2},Unit2,Flags]}|Acc]) ->
     bsm_opt_2(Is, [{test,bs_skip_bits2,F,
 		    [Ctx,{integer,I1*Unit1+I2*Unit2},1,Flags]}|Acc]);
-bsm_opt_2([{test,bs_match_string,F,[Ctx,Bin1]},
-	   {test,bs_match_string,F,[Ctx,Bin2]}|Is], Acc) ->
-    I = {test,bs_match_string,F,[Ctx,<<Bin1/bitstring,Bin2/bitstring>>]},
-    bsm_opt_2([I|Is], Acc);
 bsm_opt_2([I|Is], Acc) ->
     bsm_opt_2(Is, [I|Acc]);
 bsm_opt_2([], Acc) -> reverse(Acc).
