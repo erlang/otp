@@ -409,6 +409,8 @@ hmac_rfc4231(Config) when is_list(Config) ->
     %% Test Case 1
     Case1Key = binary:copy(<<16#0b>>, 20),
     Case1Data = <<"Hi There">>,
+    Case1Exp224 = hexstr2bin("896fb1128abbdf196832107cd49df33f"
+			     "47b4b1169912ba4f53684b22"),
     Case1Exp256 = hexstr2bin("b0344c61d8db38535ca8afceaf0bf12b"
 			     "881dc200c9833da726e9376c2e32cff7"),
     Case1Exp384 = hexstr2bin("afd03944d84895626b0825f4ab46907f"
@@ -418,6 +420,13 @@ hmac_rfc4231(Config) when is_list(Config) ->
 			     "2379f4e2ce4ec2787ad0b30545e17cde"
 			     "daa833b7d6b8a702038b274eaea3f4e4"
 			     "be9d914eeb61f1702e696c203a126854"),
+
+    ?line Case1Ctx224 = crypto:hmac_init(sha224, Case1Key),
+    ?line Case1Ctx224_2 = crypto:hmac_update(Case1Ctx224, Case1Data),
+    ?line Case1Mac224_1 = crypto:hmac_final(Case1Ctx224_2),
+    ?line Case1Mac224_2 = crypto:sha224_mac(Case1Key, Case1Data),
+    ?line m(Case1Exp224, Case1Mac224_1),
+    ?line m(Case1Exp224, Case1Mac224_2),
 
     ?line Case1Ctx256 = crypto:hmac_init(sha256, Case1Key),
     ?line Case1Ctx256_2 = crypto:hmac_update(Case1Ctx256, Case1Data),
@@ -443,6 +452,8 @@ hmac_rfc4231(Config) when is_list(Config) ->
     %% Test Case 2
     Case2Key = <<"Jefe">>,
     Case2Data = <<"what do ya want for nothing?">>,
+    Case2Exp224 = hexstr2bin("a30e01098bc6dbbf45690f3a7e9e6d0f"
+			     "8bbea2a39e6148008fd05e44"),
     Case2Exp256 = hexstr2bin("5bdcc146bf60754e6a042426089575c7"
 			     "5a003f089d2739839dec58b964ec3843"),
     Case2Exp384 = hexstr2bin("af45d2e376484031617f78d2b58a6b1b"
@@ -452,6 +463,13 @@ hmac_rfc4231(Config) when is_list(Config) ->
 			     "87bd64222e831fd610270cd7ea250554"
 			     "9758bf75c05a994a6d034f65f8f0e6fd"
 			     "caeab1a34d4a6b4b636e070a38bce737"),
+
+    ?line Case2Ctx224 = crypto:hmac_init(sha224, Case2Key),
+    ?line Case2Ctx224_2 = crypto:hmac_update(Case2Ctx224, Case2Data),
+    ?line Case2Mac224_1 = crypto:hmac_final(Case2Ctx224_2),
+    ?line Case2Mac224_2 = crypto:sha224_mac(Case2Key, Case2Data),
+    ?line m(Case2Exp224, Case2Mac224_1),
+    ?line m(Case2Exp224, Case2Mac224_2),
 
     ?line Case2Ctx256 = crypto:hmac_init(sha256, Case2Key),
     ?line Case2Ctx256_2 = crypto:hmac_update(Case2Ctx256, Case2Data),
@@ -477,6 +495,8 @@ hmac_rfc4231(Config) when is_list(Config) ->
     %% Test Case 3
     Case3Key = binary:copy(<<16#aa>>, 20),
     Case3Data = binary:copy(<<16#dd>>, 50),
+    Case3Exp224 = hexstr2bin("7fb3cb3588c6c1f6ffa9694d7d6ad264"
+			     "9365b0c1f65d69d1ec8333ea"),
     Case3Exp256 = hexstr2bin("773ea91e36800e46854db8ebd09181a7"
 			     "2959098b3ef8c122d9635514ced565fe"),
     Case3Exp384 = hexstr2bin("88062608d3e6ad8a0aa2ace014c8a86f"
@@ -486,6 +506,13 @@ hmac_rfc4231(Config) when is_list(Config) ->
 			     "b1b5dbdd8ee81a3655f83e33b2279d39"
 			     "bf3e848279a722c806b485a47e67c807"
 			     "b946a337bee8942674278859e13292fb"),
+
+    ?line Case3Ctx224 = crypto:hmac_init(sha224, Case3Key),
+    ?line Case3Ctx224_2 = crypto:hmac_update(Case3Ctx224, Case3Data),
+    ?line Case3Mac224_1 = crypto:hmac_final(Case3Ctx224_2),
+    ?line Case3Mac224_2 = crypto:sha224_mac(Case3Key, Case3Data),
+    ?line m(Case3Exp224, Case3Mac224_1),
+    ?line m(Case3Exp224, Case3Mac224_2),
 
     ?line Case3Ctx256 = crypto:hmac_init(sha256, Case3Key),
     ?line Case3Ctx256_2 = crypto:hmac_update(Case3Ctx256, Case3Data),
@@ -511,6 +538,8 @@ hmac_rfc4231(Config) when is_list(Config) ->
     %% Test Case 4
     Case4Key = list_to_binary(lists:seq(1, 16#19)),
     Case4Data = binary:copy(<<16#cd>>, 50),
+    Case4Exp224 = hexstr2bin("6c11506874013cac6a2abc1bb382627c"
+			     "ec6a90d86efc012de7afec5a"),
     Case4Exp256 = hexstr2bin("82558a389a443c0ea4cc819899f2083a"
 			     "85f0faa3e578f8077a2e3ff46729665b"),
     Case4Exp384 = hexstr2bin("3e8a69b7783c25851933ab6290af6ca7"
@@ -520,6 +549,13 @@ hmac_rfc4231(Config) when is_list(Config) ->
 			     "e576d97ff94b872de76f8050361ee3db"
 			     "a91ca5c11aa25eb4d679275cc5788063"
 			     "a5f19741120c4f2de2adebeb10a298dd"),
+
+    ?line Case4Ctx224 = crypto:hmac_init(sha224, Case4Key),
+    ?line Case4Ctx224_2 = crypto:hmac_update(Case4Ctx224, Case4Data),
+    ?line Case4Mac224_1 = crypto:hmac_final(Case4Ctx224_2),
+    ?line Case4Mac224_2 = crypto:sha224_mac(Case4Key, Case4Data),
+    ?line m(Case4Exp224, Case4Mac224_1),
+    ?line m(Case4Exp224, Case4Mac224_2),
 
     ?line Case4Ctx256 = crypto:hmac_init(sha256, Case4Key),
     ?line Case4Ctx256_2 = crypto:hmac_update(Case4Ctx256, Case4Data),
@@ -545,6 +581,8 @@ hmac_rfc4231(Config) when is_list(Config) ->
     %% Test Case 6
     Case6Key = binary:copy(<<16#aa>>, 131),
     Case6Data = <<"Test Using Larger Than Block-Size Key - Hash Key First">>,
+    Case6Exp224 = hexstr2bin("95e9a0db962095adaebe9b2d6f0dbce2"
+			     "d499f112f2d2b7273fa6870e"),
     Case6Exp256 = hexstr2bin("60e431591ee0b67f0d8a26aacbf5b77f"
 			     "8e0bc6213728c5140546040f0ee37f54"),
     Case6Exp384 = hexstr2bin("4ece084485813e9088d2c63a041bc5b4"
@@ -554,6 +592,13 @@ hmac_rfc4231(Config) when is_list(Config) ->
 			     "9b46d1f41b4aeec1121b013783f8f352"
 			     "6b56d037e05f2598bd0fd2215d6a1e52"
 			     "95e64f73f63f0aec8b915a985d786598"),
+
+    ?line Case6Ctx224 = crypto:hmac_init(sha224, Case6Key),
+    ?line Case6Ctx224_2 = crypto:hmac_update(Case6Ctx224, Case6Data),
+    ?line Case6Mac224_1 = crypto:hmac_final(Case6Ctx224_2),
+    ?line Case6Mac224_2 = crypto:sha224_mac(Case6Key, Case6Data),
+    ?line m(Case6Exp224, Case6Mac224_1),
+    ?line m(Case6Exp224, Case6Mac224_2),
 
     ?line Case6Ctx256 = crypto:hmac_init(sha256, Case6Key),
     ?line Case6Ctx256_2 = crypto:hmac_update(Case6Ctx256, Case6Data),
@@ -581,6 +626,8 @@ hmac_rfc4231(Config) when is_list(Config) ->
     Case7Data = <<"This is a test using a larger than block-size key and a larger t",
 		  "han block-size data. The key needs to be hashed before being use",
 		  "d by the HMAC algorithm.">>,
+    Case7Exp224 = hexstr2bin("3a854166ac5d9f023f54d517d0b39dbd"
+			     "946770db9c2b95c9f6f565d1"),
     Case7Exp256 = hexstr2bin("9b09ffa71b942fcb27635fbcd5b0e944"
 			     "bfdc63644f0713938a7f51535c3a35e2"),
     Case7Exp384 = hexstr2bin("6617178e941f020d351e2f254e8fd32c"
@@ -590,6 +637,13 @@ hmac_rfc4231(Config) when is_list(Config) ->
 			     "debd71f8867289865df5a32d20cdc944"
 			     "b6022cac3c4982b10d5eeb55c3e4de15"
 			     "134676fb6de0446065c97440fa8c6a58"),
+
+    ?line Case7Ctx224 = crypto:hmac_init(sha224, Case7Key),
+    ?line Case7Ctx224_2 = crypto:hmac_update(Case7Ctx224, Case7Data),
+    ?line Case7Mac224_1 = crypto:hmac_final(Case7Ctx224_2),
+    ?line Case7Mac224_2 = crypto:sha224_mac(Case7Key, Case7Data),
+    ?line m(Case7Exp224, Case7Mac224_1),
+    ?line m(Case7Exp224, Case7Mac224_2),
 
     ?line Case7Ctx256 = crypto:hmac_init(sha256, Case7Key),
     ?line Case7Ctx256_2 = crypto:hmac_update(Case7Ctx256, Case7Data),

@@ -26,10 +26,12 @@
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
+-export([sha224/1, sha224_init/0, sha224_update/2, sha224_final/1]).
 -export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
 -export([sha384/1, sha384_init/0, sha384_update/2, sha384_final/1]).
 -export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
+-export([sha224_mac/2, sha224_mac/3]).
 -export([sha256_mac/2, sha256_mac/3]).
 -export([sha384_mac/2, sha384_mac/3]).
 -export([sha512_mac/2, sha512_mac/3]).
@@ -69,12 +71,13 @@
 -define(FUNC_LIST, [md4, md4_init, md4_update, md4_final,
 		    md5, md5_init, md5_update, md5_final,
 		    sha, sha_init, sha_update, sha_final,
- 		    sha256, sha256_init, sha256_update, sha256_final,
+		    sha224, sha224_init, sha224_update, sha224_final,
+		    sha256, sha256_init, sha256_update, sha256_final,
 		    sha384, sha384_init, sha384_update, sha384_final,
- 		    sha512, sha512_init, sha512_update, sha512_final,
+		    sha512, sha512_init, sha512_update, sha512_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
-		    sha256_mac, sha384_mac, sha512_mac,
+		    sha224_mac, sha256_mac, sha384_mac, sha512_mac,
                     sha_mac_init, sha_mac_update, sha_mac_final,
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
@@ -238,6 +241,40 @@ sha_update(_Context, _Data) -> ?nif_stub.
 sha_final(_Context) -> ?nif_stub.
 
 %
+%% SHA224
+%%
+-spec sha224(iodata()) -> binary().
+-spec sha224_init() -> binary().
+-spec sha224_update(binary(), iodata()) -> binary().
+-spec sha224_final(binary()) -> binary().
+
+sha224(Data) ->
+    case sha224_nif(Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha224_init() ->
+    case sha224_init_nif() of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha224_update(Context, Data) ->
+    case sha224_update_nif(Context, Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha224_final(Context) ->
+    case sha224_final_nif(Context) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+sha224_nif(_Data) -> ?nif_stub.
+sha224_init_nif() -> ?nif_stub.
+sha224_update_nif(_Context, _Data) -> ?nif_stub.
+sha224_final_nif(_Context) -> ?nif_stub.
+
+%
 %% SHA256
 %%
 -spec sha256(iodata()) -> binary().
@@ -386,6 +423,22 @@ sha_mac_96(Key, Data) ->
     sha_mac_n(Key,Data,12).
 
 sha_mac_n(_Key,_Data,_MacSz) -> ?nif_stub.
+
+%%
+%%  SHA224_MAC
+%%
+-spec sha224_mac(iodata(), iodata()) -> binary().
+
+sha224_mac(Key, Data) ->
+    sha224_mac(Key, Data, 224 div 8).
+
+sha224_mac(Key, Data, Size) ->
+   case sha224_mac_nif(Key, Data, Size) of
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
+sha224_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
 %%
 %%  SHA256_MAC
