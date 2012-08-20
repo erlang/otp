@@ -92,9 +92,6 @@
  * that can simulate gethrtime with clock_gettime, no use implementing
  * a phony gethrtime in this file as the time questions are so infrequent.
  */
-#if defined(CORRET_USING_TIMES) || defined(GETHRTIME_WITH_CLOCK_GETTIME)
-#  define HEART_CORRECT_USING_TIMES 1
-#endif
 
 #include <stdio.h>
 #include <stddef.h>
@@ -112,7 +109,7 @@
 #  include <sys/time.h>
 #  include <unistd.h>
 #  include <signal.h>
-#  if defined(HEART_CORRECT_USING_TIMES)
+#  if defined(CORRECT_USING_TIMES)
 #    include <sys/times.h>
 #    include <limits.h>
 #  endif
@@ -425,7 +422,8 @@ message_loop(erlin_fd, erlout_fd)
      */
     timestamp(&now);
     if (now > last_received + heart_beat_timeout) {
-		print_error("heart-beat time-out.");
+	print_error("heart-beat time-out, no activity for %lu seconds", 
+		    (unsigned long) (now - last_received));
 		return R_TIMEOUT;
     }
     /*
@@ -1003,7 +1001,30 @@ time_t timestamp(time_t *res)
     return r;
 }
 
-#elif defined(HAVE_GETHRTIME) 
+#elif defined(HAVE_GETHRTIME)  || defined(GETHRTIME_WITH_CLOCK_GETTIME)
+
+#if defined(GETHRTIME_WITH_CLOCK_GETTIME)
+typedef long long SysHrTime;
+
+SysHrTime sys_gethrtime(void);
+
+SysHrTime sys_gethrtime(void)
+{
+    struct timespec ts;
+    long long result;
+    if (clock_gettime(CLOCK_MONOTONIC,&ts) != 0) {
+	print_error("Fatal, could not get clock_monotonic value, terminating! "
+		    "errno = %d\n", errno);
+	exit(1);
+    }
+    result = ((long long) ts.tv_sec) * 1000000000LL + 
+	((long long) ts.tv_nsec);
+    return (SysHrTime) result;
+}
+#else
+typedef hrtime_t SysHrTime;
+#define sys_gethrtime() gethrtime()
+#endif
 
 void init_timestamp(void)
 {
@@ -1011,14 +1032,14 @@ void init_timestamp(void)
 
 time_t timestamp(time_t *res)
 {
-    hrtime_t ht = gethrtime();
+    SysHrTime ht = sys_gethrtime();
     time_t r = (time_t) (ht / 1000000000);
     if (res != NULL)
 	*res = r;
     return r;
 }
 
-#elif defined(HEART_CORRECT_USING_TIMES)
+#elif defined(CORRECT_USING_TIMES)
 
 #  ifdef NO_SYSCONF
 #    include <sys/param.h>
