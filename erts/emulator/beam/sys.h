@@ -695,18 +695,21 @@ int sys_double_to_chars(double, char*);
 void sys_get_pid(char *);
 
 /* erts_sys_putenv() returns, 0 on success and a value != 0 on failure. */
-int erts_sys_putenv(char *key_value, int sep_ix);
+int erts_sys_putenv(char *key, char *value);
+/* Simple variant used from drivers, raw eightbit interface */
+int erts_sys_putenv_raw(char *key, char *value);
 /* erts_sys_getenv() returns 0 on success (length of value string in
    *size), a value > 0 if value buffer is too small (*size is set to needed
    size), and a value < 0 on failure. */
 int erts_sys_getenv(char *key, char *value, size_t *size);
+/* Simple variant used from drivers, raw eightbit interface */
+int erts_sys_getenv_raw(char *key, char *value, size_t *size);
 /* erts_sys_getenv__() is only allowed to be used in early init phase */
 int erts_sys_getenv__(char *key, char *value, size_t *size);
 
 /* Easier to use, but not as efficient, environment functions */
 char *erts_read_env(char *key);
 void erts_free_read_env(void *value);
-int erts_write_env(char *key, char *value);
 
 /* utils.c */
 

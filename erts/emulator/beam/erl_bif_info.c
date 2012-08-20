@@ -1699,7 +1699,7 @@ static int check_if_xml(void)
 {
     char buf[1];
     size_t bufsz = sizeof(buf);
-    return erts_sys_getenv("VALGRIND_LOG_XML", buf, &bufsz) >= 0;
+    return erts_sys_getenv_raw("VALGRIND_LOG_XML", buf, &bufsz) >= 0;
 }
 #else
 #define check_if_xml() 0

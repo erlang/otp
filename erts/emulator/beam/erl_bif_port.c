@@ -718,7 +718,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 		} else if (option == am_arg0) {
 		    char *a0;
 
-		    if ((a0 = erts_convert_filename_to_native(*tp, ERTS_ALC_T_TMP, 1)) == NULL) {
+		    if ((a0 = erts_convert_filename_to_native(*tp, NULL, 0, ERTS_ALC_T_TMP, 1, 1, NULL)) == NULL) {
 			goto badarg;
 		    }
 		    if (opts.argv == NULL) {
@@ -845,7 +845,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 		goto badarg;
 	    }
 	    name = tp[1];
-	    if ((name_buf = erts_convert_filename_to_native(name,ERTS_ALC_T_TMP,0)) == NULL) {
+	    if ((name_buf = erts_convert_filename_to_native(name, NULL, 0, ERTS_ALC_T_TMP,0,1, NULL)) == NULL) {
 		goto badarg;
 	    }
 	    opts.spawn_type = ERTS_SPAWN_EXECUTABLE;
@@ -909,7 +909,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 	    }
 	    opts.wd = (char *) dir;
 	} else {
-	    if ((opts.wd = erts_convert_filename_to_native(edir,ERTS_ALC_T_TMP,0)) == NULL) {
+	    if ((opts.wd = erts_convert_filename_to_native(edir, NULL, 0, ERTS_ALC_T_TMP,0,1,NULL)) == NULL) {
 		goto badarg;
 	    }
 	}
@@ -1000,7 +1000,7 @@ static char **convert_args(Eterm l)
     pp[i++] = erts_default_arg0;
     while (is_list(l)) {
 	str = CAR(list_val(l));
-	if ((b = erts_convert_filename_to_native(str,ERTS_ALC_T_TMP,1)) == NULL) {
+	if ((b = erts_convert_filename_to_native(str,NULL,0,ERTS_ALC_T_TMP,1,1,NULL)) == NULL) {
 	    int j;
 	    for (j = 1; j < i; ++j)
 		erts_free(ERTS_ALC_T_TMP, pp[j]);
@@ -1035,8 +1035,9 @@ static byte* convert_environment(Process* p, Eterm env)
     Eterm* hp;
     Uint heap_size;
     int n;
-    Uint size;
+    Sint size;
     byte* bytes;
+    int encoding = erts_get_native_filename_encoding();
 
     if ((n = list_length(env)) < 0) {
 	return NULL;
@@ -1079,7 +1080,8 @@ static byte* convert_environment(Process* p, Eterm env)
     if (is_not_nil(env)) {
 	goto done;
     }
-    if (erts_iolist_size(all, &size)) {
+
+    if ((size = erts_native_filename_need(all,encoding)) < 0) {
 	goto done;
     }
 
@@ -1087,7 +1089,7 @@ static byte* convert_environment(Process* p, Eterm env)
      * Put the result in a binary (no risk for a memory leak that way).
      */
     (void) erts_new_heap_binary(p, NULL, size, &bytes);
-    io_list_to_buf(all, (char*)bytes, size);
+    erts_native_filename_put(all,encoding,bytes);
 
  done:
     erts_free(ERTS_ALC_T_TMP, temp_heap);

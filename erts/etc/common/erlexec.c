@@ -245,7 +245,9 @@ static char* config_script = NULL; /* used by option -start_erl and -config */
 
 static HANDLE this_module_handle;
 static int run_werl;
-
+static WCHAR *utf8_to_utf16(unsigned char *bytes);
+static char *utf16_to_utf8(WCHAR *wstr);
+static WCHAR *latin1_to_utf16(char *str);
 #endif
 
 /*
@@ -263,8 +265,12 @@ static void
 set_env(char *key, char *value)
 {
 #ifdef __WIN32__
-    if (!SetEnvironmentVariable((LPCTSTR) key, (LPCTSTR) value))
+    WCHAR *wkey = latin1_to_utf16(key);
+    WCHAR *wvalue = utf8_to_utf16(value);
+    if (!SetEnvironmentVariableW(wkey, wvalue))
 	error("SetEnvironmentVariable(\"%s\", \"%s\") failed!", key, value);
+    efree(wkey);
+    efree(wvalue);
 #else
     size_t size = strlen(key) + 1 + strlen(value) + 1;
     char *str = emalloc(size);
@@ -277,25 +283,33 @@ set_env(char *key, char *value)
 #endif
 }
 
+
 static char *
 get_env(char *key)
 {
 #ifdef __WIN32__
     DWORD size = 32;
-    char *value = NULL;
+    WCHAR *value = NULL;
+    WCHAR *wkey = latin1_to_utf16(key);
+    char *res;
     while (1) {
 	DWORD nsz;
 	if (value)
 	    efree(value);
-	value = emalloc(size);
+	value = emalloc(size*sizeof(WCHAR));
 	SetLastError(0);
-	nsz = GetEnvironmentVariable((LPCTSTR) key, (LPTSTR) value, size);
+	nsz = GetEnvironmentVariableW(wkey, value, size);
 	if (nsz == 0 && GetLastError() == ERROR_ENVVAR_NOT_FOUND) {
 	    efree(value);
+	    efree(wkey);
 	    return NULL;
 	}
-	if (nsz <= size)
-	    return value;
+	if (nsz <= size) {
+	    efree(wkey);
+	    res = utf16_to_utf8(value);
+	    efree(value);
+	    return res;
+	}
 	size = nsz;
     }
 #else
@@ -2080,4 +2094,147 @@ possibly_quote(char* arg)
     return narg;
 }
 
+/*
+ * Unicode helpers to handle environment and command line parameters on
+ * Windows. We internally handle all environment variables in UTF8,
+ * but put and get the environment using the WCHAR (limited UTF16) interface
+ * 
+ * These are simplified to only handle Unicode characters that can fit in 
+ * Windows simplified UTF16, i.e. characters that fit in 16 bits.
+ */
+
+static int utf8_len(unsigned char first) 
+{
+    if ((first & ((unsigned char) 0x80)) == 0) {
+	return 1;
+    } else if ((first & ((unsigned char) 0xE0)) == 0xC0) {
+	return 2;
+    } else if ((first & ((unsigned char) 0xF0)) == 0xE0) {
+	return 3;
+    } else if ((first & ((unsigned char) 0xF8)) == 0xF0) {
+	return 4;
+    } 
+    return 1; /* will be a '?' */
+}
+
+static WCHAR *utf8_to_utf16(unsigned char *bytes)
+{
+    unsigned int unipoint;
+    unsigned char *tmp = bytes;
+    WCHAR *target, *res;
+    int num = 0;
+    
+    while (*tmp) {
+	num++;
+	tmp += utf8_len(*tmp);
+    }
+    res = target = emalloc((num + 1) * sizeof(WCHAR));
+    while (*bytes) {
+	if (((*bytes) & ((unsigned char) 0x80)) == 0) {
+	    unipoint = (Uint) *bytes;
+	    ++bytes;
+	} else if (((*bytes) & ((unsigned char) 0xE0)) == 0xC0) {
+	    unipoint = 
+		(((Uint) ((*bytes) & ((unsigned char) 0x1F))) << 6) |
+		((Uint) (bytes[1] & ((unsigned char) 0x3F))); 	
+	    bytes += 2;
+	} else if (((*bytes) & ((unsigned char) 0xF0)) == 0xE0) {
+	    unipoint = 
+		(((Uint) ((*bytes) & ((unsigned char) 0xF))) << 12) |
+		(((Uint) (bytes[1] & ((unsigned char) 0x3F))) << 6) |
+		((Uint) (bytes[2] & ((unsigned char) 0x3F)));
+	    if (unipoint > 0xFFFF) {
+		 unipoint = (unsigned int) '?';
+	    }
+	    bytes +=3;
+	} else if (((*bytes) & ((unsigned char) 0xF8)) == 0xF0) {
+	    unipoint = (unsigned int) '?'; /* Cannot put in a wchar */
+	    bytes += 4;
+	} else {
+	    unipoint = (unsigned int) '?';
+	}
+	*target++ = (WCHAR) unipoint;
+    }
+    *target = L'\0';
+    return res;
+}
+
+static int put_utf8(WCHAR ch, unsigned char *target, int sz, int *pos)
+{
+    Uint x = (Uint) ch;
+    if (x < 0x80) {
+    if (*pos >= sz) {
+	return -1;
+    }
+	target[(*pos)++] = (unsigned char) x;
+    }
+    else if (x < 0x800) {
+	if (((*pos) + 1) >= sz) {
+	    return -1;
+	}
+	target[(*pos)++] = (((unsigned char) (x >> 6)) | 
+			    ((unsigned char) 0xC0));
+	target[(*pos)++] = (((unsigned char) (x & 0x3F)) | 
+			    ((unsigned char) 0x80));
+    } else {
+	if ((x >= 0xD800 && x <= 0xDFFF) ||
+	    (x == 0xFFFE) ||
+	    (x == 0xFFFF)) { /* Invalid unicode range */
+	    return -1;
+	}
+	if (((*pos) + 2) >= sz) {
+	    return -1;
+	}
+
+	target[(*pos)++] = (((unsigned char) (x >> 12)) | 
+			    ((unsigned char) 0xE0));
+	target[(*pos)++] = ((((unsigned char) (x >> 6)) & 0x3F)  | 
+			    ((unsigned char) 0x80));
+	target[(*pos)++] = (((unsigned char) (x & 0x3F)) | 
+			    ((unsigned char) 0x80));
+    }
+    return 0;
+}
+
+static int need_bytes_for_utf8(WCHAR x)
+{
+    if (x < 0x80)
+	return 1;
+    else if (x < 0x800)
+	return 2;
+    else 
+	return 3;
+}
+
+static WCHAR *latin1_to_utf16(char *str)
+{
+    int len = strlen(str);
+    int i;
+    WCHAR *wstr = emalloc((len+1) * sizeof(WCHAR));
+    for(i=0;i<len;++i)
+	wstr[i] = (WCHAR) str[i];
+    wstr[len] = L'\0';
+    return wstr;
+}
+
+static char *utf16_to_utf8(WCHAR *wstr) 
+{
+    int len = wcslen(wstr);
+    char *result;
+    int i,pos;
+    int reslen = 0;
+    for(i=0;i<len;++i) {
+	reslen += need_bytes_for_utf8(wstr[i]);
+    }
+    result = emalloc(reslen+1);
+    pos = 0;
+    for(i=0;i<len;++i) {
+	if (put_utf8((int) wstr[i], result, reslen, &pos) < 0) {
+	    break;
+	}
+    }
+    result[pos] = '\0';
+    return result;
+}
+    
 #endif

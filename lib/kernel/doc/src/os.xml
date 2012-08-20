@@ -80,6 +80,10 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           Each environment variable is given as a single string on
           the format <c>"VarName=Value"</c>, where <c>VarName</c> is
           the name of the variable and <c>Value</c> its value.</p>
+	<p>If Unicode file name encoding is in effect (see the <seealso
+	marker="erts:erl#file_name_encoding">erl manual
+	page</seealso>), the strings may contain characters with
+	codepoints > 255.</p>
       </desc>
     </func>
     <func>
@@ -89,6 +93,10 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
         <p>Returns the <c><anno>Value</anno></c> of the environment variable
           <c><anno>VarName</anno></c>, or <c>false</c> if the environment variable
           is undefined.</p>
+	<p>If Unicode file name encoding is in effect (see the <seealso
+	marker="erts:erl#file_name_encoding">erl manual
+	page</seealso>), the strings (both <c><anno>VarName</anno></c> and
+	<c><anno>Value</anno></c>) may contain characters with codepoints > 255.</p>
       </desc>
     </func>
     <func>
@@ -111,6 +119,13 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       <desc>
         <p>Sets a new <c><anno>Value</anno></c> for the environment variable
           <c><anno>VarName</anno></c>.</p>
+	<p>If Unicode filename encoding is in effect (see the <seealso
+	marker="erts:erl#file_name_encoding">erl manual
+	page</seealso>), the strings (both <c><anno>VarName</anno></c> and
+	<c><anno>Value</anno></c>) may contain characters with codepoints > 255.</p>
+	<p>On Unix platforms, the environment will be set using UTF-8 encoding
+	if Unicode file name translation is in effect. On Windows the 
+	environment is set using wide character interfaces.</p>
       </desc>
     </func>
     <func>

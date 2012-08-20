@@ -28,14 +28,21 @@
  *       environment.
  */
 
-probe process("beam").mark("user_trace-s1")
+probe process("beam").mark("user_trace-n0")
 {
-    printf("%s\n", user_string($arg1));
+    printf("probe n0: %s %s %d %d %d %d '%s' '%s' '%s' '%s'\n",
+           user_string($arg1),
+           $arg2 == NULL ? "" : user_string($arg2),
+           $arg3, $arg4, $arg5, $arg6,
+           $arg7 == NULL ? "" : user_string($arg7),
+           $arg8 == NULL ? "" : user_string($arg8),
+           $arg9 == NULL ? "" : user_string($arg9),
+           $arg9 == NULL ? "" : user_string($arg9));
 }
 
-probe process("beam").mark("user_trace-i4s4")
+probe process("beam").mark("user_trace-n1")
 {
-    printf("%s %s %d %d %d %d '%s' '%s' '%s' '%s'\n",
+    printf("probe n1: %s %s %d %d %d %d '%s' '%s' '%s' '%s'\n",
            user_string($arg1),
            $arg2 == NULL ? "" : user_string($arg2),
            $arg3, $arg4, $arg5, $arg6,

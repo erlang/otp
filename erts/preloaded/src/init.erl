@@ -1252,7 +1252,11 @@ get_arguments([]) ->
     [].
 
 to_strings([H|T]) when is_atom(H) -> [atom_to_list(H)|to_strings(T)];
-to_strings([H|T]) when is_binary(H) -> [binary_to_list(H)|to_strings(T)];
+to_strings([H|T]) when is_binary(H) -> [try
+					    unicode:characters_to_list(H,file:native_name_encoding())
+					catch
+					    _:_ -> binary_to_list(H)
+					end|to_strings(T)];
 to_strings([])    -> [].
 
 get_argument(Arg,Flags) ->

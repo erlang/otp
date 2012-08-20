@@ -3443,7 +3443,7 @@ erts_read_env(char *key)
     char *value = erts_alloc(ERTS_ALC_T_TMP, value_len);
     int res;
     while (1) {
-	res = erts_sys_getenv(key, value, &value_len);
+	res = erts_sys_getenv_raw(key, value, &value_len);
 	if (res <= 0)
 	    break;
 	value = erts_realloc(ERTS_ALC_T_TMP, value, value_len);
@@ -3460,28 +3460,6 @@ erts_free_read_env(void *value)
 {
     if (value)
 	erts_free(ERTS_ALC_T_TMP, value);
-}
-
-int
-erts_write_env(char *key, char *value)
-{
-    int ix, res;
-    size_t key_len = sys_strlen(key), value_len = sys_strlen(value);
-    char *key_value = erts_alloc_fnf(ERTS_ALC_T_TMP,
-				     key_len + 1 + value_len + 1);
-    if (!key_value) {
-	errno = ENOMEM;
-	return -1;
-    }
-    sys_memcpy((void *) key_value, (void *) key, key_len);
-    ix = key_len;
-    key_value[ix++] = '=';
-    sys_memcpy((void *) key_value, (void *) value, value_len);
-    ix += value_len;
-    key_value[ix] = '\0';
-    res = erts_sys_putenv(key_value, key_len);
-    erts_free(ERTS_ALC_T_TMP, key_value);
-    return res;
 }
 
 /*

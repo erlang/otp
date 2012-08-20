@@ -681,7 +681,7 @@ early_init(int *argc, char **argv) /*
 
     envbufsz = sizeof(envbuf);
 
-    /* erts_sys_getenv() not initialized yet; need erts_sys_getenv__() */
+    /* erts_sys_getenv(_raw)() not initialized yet; need erts_sys_getenv__() */
     if (erts_sys_getenv__("ERL_THREAD_POOL_SIZE", envbuf, &envbufsz) == 0)
 	erts_async_max_threads = atoi(envbuf);
     else
@@ -904,13 +904,13 @@ erl_start(int argc, char **argv)
     int ncpu = early_init(&argc, argv);
 
     envbufsz = sizeof(envbuf);
-    if (erts_sys_getenv(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 0)
+    if (erts_sys_getenv_raw(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 0)
 	user_requested_db_max_tabs = atoi(envbuf);
     else
 	user_requested_db_max_tabs = 0;
 
     envbufsz = sizeof(envbuf);
-    if (erts_sys_getenv("ERL_FULLSWEEP_AFTER", envbuf, &envbufsz) == 0) {
+    if (erts_sys_getenv_raw("ERL_FULLSWEEP_AFTER", envbuf, &envbufsz) == 0) {
 	Uint16 max_gen_gcs = atoi(envbuf);
 	erts_smp_atomic32_set_nob(&erts_max_gen_gcs,
 				  (erts_aint32_t) max_gen_gcs);

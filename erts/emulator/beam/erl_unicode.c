@@ -1986,12 +1986,14 @@ BIF_RETTYPE binary_to_existing_atom_2(BIF_ALIST_2)
  * string routines, that will certainly fail on some OS.
  */
 
-char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int allow_empty)
+char *erts_convert_filename_to_native(Eterm name, char *statbuf, size_t statbuf_size, ErtsAlcType_t alloc_type, int allow_empty, int allow_atom, Sint *used)
 {
     int encoding = erts_get_native_filename_encoding();
     char* name_buf = NULL;
 
-    if (is_atom(name) || is_list(name) || (allow_empty && is_nil(name))) {
+    if ((allow_atom && is_atom(name)) || 
+	is_list(name) || 
+	(allow_empty && is_nil(name))) {
 	Sint need;
 	if ((need = erts_native_filename_need(name,encoding)) < 0) {
 	    return NULL;
@@ -2001,7 +2003,13 @@ char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int 
 	} else {
 	    ++need;
 	}
-	name_buf = (char *) erts_alloc(alloc_type, need);
+	if (used) 
+	    *used = (Sint) need;
+	if (need > statbuf_size) {
+	    name_buf = (char *) erts_alloc(alloc_type, need);
+	} else {
+	    name_buf = statbuf;
+	}
 	erts_native_filename_put(name,encoding,(byte *)name_buf); 
 	name_buf[need-1] = 0;
 	if (encoding == ERL_FILENAME_WIN_WCHAR) {
@@ -2017,14 +2025,26 @@ char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int 
 	bytes = erts_get_aligned_binary_bytes(name, &temp_alloc);
 	if (encoding != ERL_FILENAME_WIN_WCHAR) {
 	    /*Add 0 termination only*/
-	    name_buf = (char *) erts_alloc(alloc_type, size+1);
+	    if (used) 
+		*used = (Sint) size+1;
+	    if (size+1 > statbuf_size) {
+		name_buf = (char *) erts_alloc(alloc_type, size+1);
+	    } else {
+		name_buf = statbuf;
+	    }
 	    memcpy(name_buf,bytes,size);
 	    name_buf[size]=0;
 	} else if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK || 
 		   erts_get_user_requested_filename_encoding() ==  ERL_FILENAME_LATIN1) {
 	    byte *p;
 	    /* What to do now? Maybe latin1, so just take byte for byte instead */
-	    name_buf = (char *) erts_alloc(alloc_type, (size+1)*2);
+	    if (used) 
+		*used = (Sint) (size+1)*2;
+	    if ((size+1)*2 > statbuf_size) {
+		name_buf = (char *) erts_alloc(alloc_type, (size+1)*2);
+	    } else {
+		name_buf = statbuf;
+	    }
 	    p = (byte *) name_buf;
 	    while (size--) {
 		*p++ = *bytes++;
@@ -2033,7 +2053,13 @@ char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int 
 	    *p++ = 0;
 	    *p++ = 0;
 	} else { /* WIN_WCHAR and valid UTF8 */
-	    name_buf = (char *) erts_alloc(alloc_type, (num_chars+1)*2);
+	    if (used) 
+		*used = (Sint) (num_chars+1)*2;
+	    if ((num_chars+1)*2 > statbuf_size) {
+		name_buf = (char *) erts_alloc(alloc_type, (num_chars+1)*2);
+	    } else {
+		name_buf = statbuf;
+	    }
 	    erts_copy_utf8_to_utf16_little((byte *) name_buf, bytes, num_chars);
 	    name_buf[num_chars*2] = 0;
 	    name_buf[num_chars*2+1] = 0;
@@ -2043,6 +2069,71 @@ char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int 
 	return NULL;
     }
     return name_buf;
+}
+
+static int filename_len_16bit(byte *str) 
+{
+    byte *p = str;
+    while(*p != '\0' || p[1] != '\0') {
+	p += 2;
+    }
+    return (p - str);
+}
+Eterm erts_convert_native_to_filename(Process *p, byte *bytes)
+{
+    Uint size,num_chars;
+    Eterm *hp;
+    byte *err_pos;
+    Uint num_built; /* characters */
+    Uint num_eaten; /* bytes */
+    Eterm ret;
+    int mac = 0;
+
+    switch (erts_get_native_filename_encoding()) {
+    case ERL_FILENAME_LATIN1:
+	goto noconvert;
+    case ERL_FILENAME_UTF8_MAC:
+	mac = 1;
+    case ERL_FILENAME_UTF8:
+	size = strlen((char *) bytes);
+	if (erts_analyze_utf8(bytes,size,&err_pos,&num_chars,NULL) != ERTS_UTF8_OK) {
+	    goto noconvert;
+	}
+	num_built = 0;
+	num_eaten = 0;
+	if (mac) {
+	    ret = do_utf8_to_list_normalize(p, num_chars, bytes, size);
+	} else {
+	    ret = do_utf8_to_list(p, num_chars, bytes, size, num_chars, &num_built, &num_eaten, NIL);
+	} 
+	return ret;
+    case ERL_FILENAME_WIN_WCHAR:
+	size=filename_len_16bit(bytes);
+	if ((size % 2) != 0) { /* Panic fixup to avoid crashing the emulator */
+	    size--;
+	    hp = HAlloc(p, size+2);
+	    ret = CONS(hp,make_small((Uint) bytes[size]),NIL);
+	    hp += 2;
+	} else {
+	    hp = HAlloc(p, size);
+	    ret = NIL;
+	}
+	bytes += size-1;
+	while (size > 0) {
+	    Uint x = ((Uint) *bytes--) << 8;
+	    x |= ((Uint) *bytes--);
+	    size -= 2;
+	    ret = CONS(hp,make_small(x),ret);
+	    hp += 2;
+	}	    
+	return ret;
+    default:
+	goto noconvert;
+    }
+ noconvert:
+    size = strlen((char *) bytes);
+    hp = HAlloc(p, 2 * size);
+    return erts_bin_bytes_to_list(NIL, hp, bytes, size, 0);
 }
 
 
@@ -2578,3 +2669,4 @@ BIF_RETTYPE file_native_name_encoding_0(BIF_ALIST_0)
 	BIF_RET(am_undefined);
     }
 }
+

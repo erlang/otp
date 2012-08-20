@@ -2627,6 +2627,10 @@ os_prompt% </pre>
               <c>false</c> (in analogy with <c>os:getenv/1</c>), which
               removes the environment variable.
 		  </p>
+	      <p>If Unicode filename encoding is in effect (see the <seealso
+	      marker="erts:erl#file_name_encoding">erl manual
+	      page</seealso>), the strings (both <c>Name</c> and
+	      <c>Value</c>) may contain characters with codepoints > 255.</p>
           </item>
 	  <tag><c>{args, [ string() | binary() ]}</c></tag>
           <item>

@@ -74,7 +74,7 @@
 	 init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2]).
--export([normal/1,icky/1,very_icky/1,normalize/1]).
+-export([normal/1,icky/1,very_icky/1,normalize/1,home_dir/1]).
 
 
 init_per_testcase(_Func, Config) ->
@@ -88,7 +88,7 @@ end_per_testcase(_Func, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [normal, icky, very_icky, normalize].
+    [normal, icky, very_icky, normalize, home_dir].
 
 groups() -> 
     [].
@@ -104,6 +104,54 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
 	Config.
+
+home_dir(suite) ->
+    [];
+home_dir(doc) ->
+    ["Check that Erlang can be started with unicode named home directory"];
+home_dir(Config) when is_list(Config) ->
+    try
+	Name=[960,945,964,961,953,954],
+	Priv = ?config(priv_dir, Config),
+	UniMode = file:native_name_encoding() =/= latin1,
+	if 
+	    not UniMode ->
+		throw(need_unicode_mode);
+	    true ->
+		ok
+	end,
+	NewHome=filename:join(Priv,Name),
+	file:make_dir(NewHome),
+	{SaveOldName,SaveOldValue} = case os:type() of
+					 {win32,nt} ->
+					     HomePath=re:replace(filename:nativename(NewHome),"^[a-zA-Z]:","",[{return,list},unicode]),
+					     Save = os:getenv("HOMEPATH"),
+					     os:putenv("HOMEPATH",HomePath),
+					     {"HOMEPATH",Save};
+					 {unix,_} ->
+					     Save = os:getenv("HOME"),
+					     os:putenv("HOME",NewHome),
+					     {"HOME",Save};
+					 _ ->
+					     rm_rf(prim_file,NewHome),
+					     throw(unsupported_os)
+				     end,
+	try
+	    {ok,Node} = test_server:start_node(test_unicode_homedir,slave,[{args,"-setcookie "++atom_to_list(erlang:get_cookie())}]),
+	    test_server:stop_node(Node),
+	    ok
+	after
+	    os:putenv(SaveOldName,SaveOldValue),
+	    rm_rf(prim_file,NewHome)
+	end
+    catch
+	throw:need_unicode_mode ->
+	    io:format("Sorry, can only run in unicode mode.~n"),
+	    {skipped,"VM needs to be started in Unicode filename mode"};
+	throw:unsupported_os ->
+	    io:format("Sorry, can only run on Unix/Windows.~n"),
+	    {skipped,"Runs only on Unix/Windows"}
+    end.
 
 normalize(suite) ->
     [];

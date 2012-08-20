@@ -551,7 +551,7 @@ erl_sys_init(void)
     size_t bindirsz = sizeof(bindir);
     Uint csp_path_sz;
 
-    res = erts_sys_getenv("BINDIR", bindir, &bindirsz);
+    res = erts_sys_getenv_raw("BINDIR", bindir, &bindirsz);
     if (res != 0) {
 	if (res < 0)
 	    erl_exit(-1,
@@ -708,7 +708,7 @@ prepare_crash_dump(void)
     }
 
     envsz = sizeof(env);
-    i = erts_sys_getenv("ERL_CRASH_DUMP_NICE", env, &envsz);
+    i = erts_sys_getenv_raw("ERL_CRASH_DUMP_NICE", env, &envsz);
     if (i >= 0) {
 	int nice_val;
 	nice_val = i != 0 ? 0 : atoi(env);
@@ -719,7 +719,7 @@ prepare_crash_dump(void)
     }
     
     envsz = sizeof(env);
-    i = erts_sys_getenv("ERL_CRASH_DUMP_SECONDS", env, &envsz);
+    i = erts_sys_getenv_raw("ERL_CRASH_DUMP_SECONDS", env, &envsz);
     if (i >= 0) {
 	unsigned sec;
 	sec = (unsigned) i != 0 ? 0 : atoi(env);
@@ -1356,9 +1356,9 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
     int no_vfork;
     size_t no_vfork_sz = sizeof(no_vfork);
 
-    no_vfork = (erts_sys_getenv("ERL_NO_VFORK",
-				(char *) &no_vfork,
-				&no_vfork_sz) >= 0);
+    no_vfork = (erts_sys_getenv_raw("ERL_NO_VFORK",
+				    (char *) &no_vfork,
+				    &no_vfork_sz) >= 0);
 #endif
 
     switch (opts->read_write) {
@@ -2362,21 +2362,31 @@ void sys_get_pid(char *buffer){
 }
 
 int
-erts_sys_putenv(char *buffer, int sep_ix)
+erts_sys_putenv_raw(char *key, char *value) {
+    return erts_sys_putenv(key, value);
+}
+int
+erts_sys_putenv(char *key, char *value)
 {
     int res;
     char *env;
+    Uint need = strlen(key) + strlen(value) + 2;
+
 #ifdef HAVE_COPYING_PUTENV
-    env = buffer;
+    env = erts_alloc(ERTS_ALC_T_TMP, need);
 #else
-    Uint sz = strlen(buffer)+1;
-    env = erts_alloc(ERTS_ALC_T_PUTENV_STR, sz);
-    erts_smp_atomic_add_nob(&sys_misc_mem_sz, sz);
-    strcpy(env,buffer);
+    env = erts_alloc(ERTS_ALC_T_PUTENV_STR, need);
+    erts_smp_atomic_add_nob(&sys_misc_mem_sz, need);
 #endif
+    strcpy(env,key);
+    strcat(env,"=");
+    strcat(env,value);
     erts_smp_rwmtx_rwlock(&environ_rwmtx);
     res = putenv(env);
     erts_smp_rwmtx_rwunlock(&environ_rwmtx);
+#ifdef HAVE_COPYING_PUTENV
+    erts_free(ERTS_ALC_T_TMP, env);
+#endif
     return res;
 }
 
@@ -2400,6 +2410,11 @@ erts_sys_getenv__(char *key, char *value, size_t *size)
 	}
     }
     return res;
+}
+
+int
+erts_sys_getenv_raw(char *key, char *value, size_t *size) {
+    return erts_sys_getenv(key, value, size);
 }
 
 int
@@ -3001,7 +3016,7 @@ erl_sys_args(int* argc, char** argv)
     if (erts_use_kernel_poll) {
 	char no_kp[10];
 	size_t no_kp_sz = sizeof(no_kp);
-	int res = erts_sys_getenv("ERL_NO_KERNEL_POLL", no_kp, &no_kp_sz);
+	int res = erts_sys_getenv_raw("ERL_NO_KERNEL_POLL", no_kp, &no_kp_sz);
 	if (res > 0
 	    || (res == 0
 		&& sys_strcmp("false", no_kp) != 0

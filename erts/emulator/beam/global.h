@@ -1516,8 +1516,12 @@ Sint erts_native_filename_need(Eterm ioterm, int encoding);
 void erts_copy_utf8_to_utf16_little(byte *target, byte *bytes, int num_chars);
 int erts_analyze_utf8(byte *source, Uint size, 
 			byte **err_pos, Uint *num_chars, int *left);
-char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int allow_empty);
-
+char *erts_convert_filename_to_native(Eterm name, char *statbuf, 
+				      size_t statbuf_size, 
+				      ErtsAlcType_t alloc_type, 
+				      int allow_empty, int allow_atom,
+				      Sint *used /* out */);
+Eterm erts_convert_native_to_filename(Process *p, byte *bytes);
 #define ERTS_UTF8_OK 0
 #define ERTS_UTF8_INCOMPLETE 1
 #define ERTS_UTF8_ERROR 2
