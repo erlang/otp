@@ -415,11 +415,6 @@ last_data_cmp(Uint64 ld1, Uint64 ld2)
 #define ERTS_PTAB_LastData2EtermData(LD) \
     ((Eterm) ((LD) & ~(~((Uint64) 0) << ERTS_PTAB_ID_DATA_SIZE)))
 
-static void noop(void *unused)
-{
-
-}
-
 void
 erts_ptab_init_table(ErtsPTab *ptab,
 		     ErtsAlcType_t atype,
@@ -484,10 +479,6 @@ erts_ptab_init_table(ErtsPTab *ptab,
     ptab->r.o.invalid_element = invalid_element;
     ptab->r.o.invalid_data = erts_ptab_id2data(ptab, invalid_element->id);
     ptab->r.o.release_element = release_element;
-    if (release_element)
-	ptab->r.o.release_element = release_element;
-    else
-	ptab->r.o.release_element = noop;
 
     erts_smp_interval_init(&ptab->list.data.interval);
     ptab->list.data.deleted.start = NULL;
@@ -678,9 +669,10 @@ erts_ptab_delete_element(ErtsPTab *ptab,
 	erts_ptab_rwunlock(ptab);
     }
 
-    erts_schedule_thr_prgr_later_op(ptab->r.o.release_element,
-				    (void *) ptab_el,
-				    &ptab_el->u.release);
+    if (ptab->r.o.release_element)
+	erts_schedule_thr_prgr_later_op(ptab->r.o.release_element,
+					(void *) ptab_el,
+					&ptab_el->u.release);
 }
 
 /*

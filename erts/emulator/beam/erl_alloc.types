@@ -233,7 +233,6 @@ type	DDLL_HANDLE	STANDARD	SYSTEM		ddll_handle
 type	DDLL_ERRCODES	LONG_LIVED	SYSTEM		ddll_errcodes
 type	DDLL_TMP_BUF	TEMPORARY	SYSTEM		ddll_tmp_buf
 type	PORT_TASK	SHORT_LIVED	SYSTEM		port_task
-type	PORT_TASKQ	SHORT_LIVED	SYSTEM		port_task_queue
 type	MISC_OP_LIST	SHORT_LIVED	SYSTEM		misc_op_list
 type	PORT_NAMES	SHORT_LIVED	SYSTEM		port_names
 type	PORT_DATA_LOCK	DRIVER		SYSTEM		port_data_lock

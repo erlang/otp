@@ -224,13 +224,12 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 /* Immortal port (only certain system ports) */
 #define ERTS_PORT_SFLG_IMMORTAL		((Uint32) (1 <<  9))
 #define ERTS_PORT_SFLG_FREE		((Uint32) (1 << 10))
-#define ERTS_PORT_SFLG_FREE_SCHEDULED	((Uint32) (1 << 11))
-#define ERTS_PORT_SFLG_INITIALIZING	((Uint32) (1 << 12))
+#define ERTS_PORT_SFLG_INITIALIZING	((Uint32) (1 << 11))
 /* Port uses port specific locking (opposed to driver specific locking) */
-#define ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK ((Uint32) (1 << 13))
-#define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 14))
+#define ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK ((Uint32) (1 << 12))
+#define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 13))
 /* Last port to terminate halts the emulator */
-#define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 15))
+#define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 14))
 #ifdef DEBUG
 /* Only debug: make sure all flags aren't cleared unintentionally */
 #define ERTS_PORT_SFLG_PORT_DEBUG	((Uint32) (1 << 31))
@@ -239,7 +238,6 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 /* Combinations of port status flags */ 
 #define ERTS_PORT_SFLGS_DEAD						\
   (ERTS_PORT_SFLG_FREE							\
-   | ERTS_PORT_SFLG_FREE_SCHEDULED					\
    | ERTS_PORT_SFLG_INITIALIZING)
 #define ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP				\
   (ERTS_PORT_SFLGS_DEAD | ERTS_PORT_SFLG_INVALID)

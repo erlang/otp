@@ -197,19 +197,58 @@ erts_lc_is_port_locked(Port *prt)
 
 static void initq(Port* prt);
 
+#if defined(ERTS_ENABLE_LOCK_CHECK) || defined(ERTS_ENABLE_LOCK_COUNT)
+#define ERTS_PORT_INIT_INSTR_NEED_ID 1
+#else
+#define ERTS_PORT_INIT_INSTR_NEED_ID 0
+#endif
+
+static ERTS_INLINE void port_init_instr(Port *prt
+#if ERTS_PORT_INIT_INSTR_NEED_ID
+				   , Eterm id
+#endif
+    )
+{
+#if !ERTS_PORT_INIT_INSTR_NEED_ID
+    Eterm id = NIL; /* Not used */
+#endif
+
+    /*
+     * Stuff that need to be initialized with the port id
+     * in the instrumented case, but not in the normal case.
+     */
+#ifdef ERTS_SMP
+    ASSERT(prt->drv_ptr && prt->lock);
+    if (!prt->drv_ptr->lock)
+	erts_mtx_init_locked_x(prt->lock, "port_lock", id);
+#endif
+    erts_port_task_init_sched(&prt->sched, id);
+}
+
+#if !ERTS_PORT_INIT_INSTR_NEED_ID
+static ERTS_INLINE void port_init_instr_abort(Port *prt)
+{
+#ifdef ERTS_SMP
+    ASSERT(prt->drv_ptr && prt->lock);
+    if (!prt->drv_ptr->lock) {
+	erts_mtx_unlock(prt->lock);
+	erts_mtx_destroy(prt->lock);
+    }
+#endif
+    erts_port_task_fini_sched(&prt->sched);
+}
+#endif
+
 static void insert_port_struct(void *vprt, Eterm data)
 {
     Port *prt = (Port *) vprt;
     Eterm id = make_internal_port(data);
-#ifdef ERTS_SMP
-    ASSERT(prt->drv_ptr && prt->lock);
+#if ERTS_PORT_INIT_INSTR_NEED_ID
     /*
-     * We are breaking lock order in the port specific locking
-     * case. This is, however, safe since the lock has not been
-     * published, yet.
+     * This cannot be done earlier in the instrumented
+     * case since we don't now 'id' until now.
      */
-    if (!prt->drv_ptr->lock)
-	erts_mtx_init_locked_x(prt->lock, "port_lock", id);
+    port_init_instr(prt, id);
 #endif
     prt->common.id = id;
     erts_atomic32_init_relb(&prt->state, ERTS_PORT_SFLG_INITIALIZING);
@@ -292,7 +331,6 @@ static Port *create_port(char *name,
     sys_memset(&prt->common.u.alive.tm, 0, sizeof(ErlTimer));
 #endif
     erts_port_task_handle_init(&prt->timeout_task);
-    erts_port_task_init_sched(&prt->sched);
     prt->psd = NULL;
     prt->drv_data = (SWord) 0;
 
@@ -301,10 +339,23 @@ static Port *create_port(char *name,
 
     ASSERT(((char *) prt) == ((char *) &prt->common));
 
+#if !ERTS_PORT_INIT_INSTR_NEED_ID
+    /*
+     * When 'id' isn't needed (the normal case), it is better to
+     * do the initialization here avoiding unnecessary contention
+     * on table...
+     */
+    port_init_instr(prt);
+#endif
+
     if (!erts_ptab_new_element(&erts_port,
 			       &prt->common,
 			       (void *) prt,
 			       insert_port_struct)) {
+
+#if !ERTS_PORT_INIT_INSTR_NEED_ID
+	port_init_instr_abort(prt);
+#endif
 #ifdef ERTS_SMP
 	if (driver_lock)
 	    erts_mtx_unlock(driver_lock);
@@ -343,16 +394,17 @@ erts_port_free(Port *prt)
 #if defined(ERTS_SMP) || defined(ERTS_ENABLE_LOCK_CHECK)
     erts_aint32_t state = erts_atomic32_read_nob(&prt->state);
 #endif
-    ERTS_LC_ASSERT(state & (ERTS_PORT_SFLG_FREE_SCHEDULED
-			    | ERTS_PORT_SFLG_INITIALIZING));
+    ERTS_LC_ASSERT(state & (ERTS_PORT_SFLG_INITIALIZING
+			    | ERTS_PORT_SFLG_FREE));
     ASSERT(state & ERTS_PORT_SFLG_PORT_DEBUG);
-    ERTS_LC_ASSERT(!(state & ERTS_PORT_SFLG_FREE));
 
 #ifdef ERTS_SMP
     ERTS_LC_ASSERT(erts_atomic32_read_nob(&prt->common.refc) == 0);
 #else
     ERTS_LC_ASSERT(erts_atomic32_read_nob(&prt->refc) == 0);
 #endif
+
+    erts_port_task_fini_sched(&prt->sched);
 
 #ifdef ERTS_SMP
     ASSERT(prt->lock);
@@ -372,7 +424,6 @@ erts_port_free(Port *prt)
     if (prt->drv_ptr->handle)
 	erts_ddll_dereference_driver(prt->drv_ptr->handle);
 #endif
-    erts_atomic32_set_nob(&prt->state, ERTS_PORT_SFLG_FREE);
     erts_free(ERTS_ALC_T_PORT, prt);
 }
 
@@ -1230,14 +1281,6 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
     }
 }
 
-#ifdef ERTS_SMP
-static void
-release_port(void *vport)
-{
-    erts_port_dec_refc((Port *) vport);
-}
-#endif
-
 void erts_init_io(int port_tab_size,
 		  int port_tab_size_ignore_files)
 {
@@ -1267,11 +1310,7 @@ void erts_init_io(int port_tab_size,
 
     erts_ptab_init_table(&erts_port,
 			 ERTS_ALC_T_PORT_TABLE,
-#ifdef ERTS_SMP
-			 release_port,
-#else
 			 NULL,
-#endif
 			 (ErtsPTabElementCommon *) &erts_invalid_port.common,
 			 port_tab_size,
 			 "port_table");
@@ -2727,11 +2766,9 @@ static void schedule_port_timeout(Port *p)
      * /Rickard
      */
     ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
-    (void) erts_port_task_schedule(p->common.id,
-				   &p->timeout_task,
-				   ERTS_PORT_TASK_TIMEOUT,
-				   (ErlDrvEvent) -1,
-				   NULL);
+    erts_port_task_schedule(p->common.id,
+			    &p->timeout_task,
+			    ERTS_PORT_TASK_TIMEOUT);
 }
 
 ErlDrvTermData driver_mk_term_nil(void)
@@ -4198,7 +4235,7 @@ drv_cancel_timer(Port *prt)
     erts_cancel_timer(&prt->common.u.alive.tm);
 #endif
     if (erts_port_task_is_scheduled(&prt->timeout_task))
-	erts_port_task_abort(prt->common.id, &prt->timeout_task);
+	erts_port_task_abort(&prt->timeout_task);
 }
 
 int driver_set_timer(ErlDrvPort ix, unsigned long t)

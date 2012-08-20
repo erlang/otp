@@ -366,7 +366,7 @@ abort_task(Eterm id, ErtsPortTaskHandle *pthp, EventStateType type)
 	       || !erts_port_task_is_scheduled(pthp));
     }
     else if (erts_port_task_is_scheduled(pthp)) {
-	erts_port_task_abort(id, pthp);
+	erts_port_task_abort(pthp);
 	ASSERT(erts_is_port_alive(id));
     }
 }
@@ -1088,8 +1088,7 @@ iready(Eterm id, ErtsDrvEventState *state)
     if (erts_port_task_schedule(id,
 				&state->driver.select->intask,
 				ERTS_PORT_TASK_INPUT,
-				(ErlDrvEvent) state->fd,
-				NULL) != 0) {
+				(ErlDrvEvent) state->fd) != 0) {
 	stale_drv_select(id, state, ERL_DRV_READ);
     }
 }
@@ -1100,8 +1099,7 @@ oready(Eterm id, ErtsDrvEventState *state)
     if (erts_port_task_schedule(id,
 				&state->driver.select->outtask,
 				ERTS_PORT_TASK_OUTPUT,
-				(ErlDrvEvent) state->fd,
-				NULL) != 0) {
+				(ErlDrvEvent) state->fd) != 0) {
 	stale_drv_select(id, state, ERL_DRV_WRITE);
     }
 }

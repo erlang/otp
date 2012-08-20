@@ -152,12 +152,10 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"pmmap",				NULL			},
 #endif
 #ifdef ERTS_SMP
+    {	"port_sched_lock",			"port_id"		},
     {	"port_task_pre_alloc_lock",		"address"		},
-    {	"port_taskq_pre_alloc_lock",		"address"		},
     {	"proclist_pre_alloc_lock",		"address"		},
-    {	"port_tasks_lock",			NULL			},
     {   "port_table",                           NULL                    },
-    {	"port_state",			        "address"		},
     {	"xports_list_pre_alloc_lock",		"address"		},
     {	"inet_buffer_stack_lock",		NULL			},
     {	"gc_info",				NULL			},

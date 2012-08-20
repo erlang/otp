@@ -458,7 +458,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 			   && erts_lc_is_port_locked(erts_port_lookup_raw(dep->cid)));
 
 	if (erts_port_task_is_scheduled(&dep->dist_cmd))
-	    erts_port_task_abort(dep->cid, &dep->dist_cmd);
+	    erts_port_task_abort(&dep->dist_cmd);
 
 	if (dep->status & ERTS_DE_SFLG_EXITING) {
 #ifdef DEBUG

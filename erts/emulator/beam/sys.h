@@ -123,6 +123,16 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_DECLARE_DUMMY(X) X
 #endif
 
+#if !defined(__func__)
+#  if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 199901L
+#    if !defined(__GNUC__) ||  __GNUC__ < 2
+#      define __func__ "[unknown_function]"
+#    else
+#      define __func__ __FUNCTION__
+#    endif
+#  endif
+#endif
+
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
 #  undef ERTS_CAN_INLINE
 #  define ERTS_CAN_INLINE 0
@@ -552,6 +562,10 @@ __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 #define ERTS_INTR_EXIT	INT_MIN		/* called from signal handler */
 #define ERTS_ABORT_EXIT	(INT_MIN + 1)	/* no crash dump; only abort() */
 #define ERTS_DUMP_EXIT	(INT_MIN + 2)	/* crash dump; then exit() */
+
+#define ERTS_INTERNAL_ERROR(What) \
+    erl_exit(ERTS_ABORT_EXIT, "%s:%d:%s(): Internal error: %s",	\
+	     __FILE__, __LINE__, __func__, What)
 
 Eterm erts_check_io_info(void *p);
 

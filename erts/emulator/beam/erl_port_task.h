@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 2006-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2006-2012. All Rights Reserved.
  * 
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -44,7 +44,6 @@ typedef erts_smp_atomic_t ErtsPortTaskHandle;
 #endif
 
 typedef enum {
-    ERTS_PORT_TASK_FREE,
     ERTS_PORT_TASK_INPUT,
     ERTS_PORT_TASK_OUTPUT,
     ERTS_PORT_TASK_EVENT,
@@ -57,19 +56,36 @@ typedef enum {
 extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 #endif
 
+#define ERTS_PTS_FLG_IN_RUNQ		(((erts_aint32_t) 1) << 0)
+#define ERTS_PTS_FLG_EXEC		(((erts_aint32_t) 1) << 1)
+#define ERTS_PTS_FLG_HAVE_TASKS		(((erts_aint32_t) 1) << 2)
+#define ERTS_PTS_FLG_EXIT		(((erts_aint32_t) 1) << 3)
+
 typedef struct ErtsPortTask_ ErtsPortTask;
-typedef struct ErtsPortTaskQueue_ ErtsPortTaskQueue;
 
 typedef struct {
     Port *next;
-    int in_runq;
-    ErtsPortTaskQueue *taskq;
-    ErtsPortTaskQueue *exe_taskq;
+    struct {
+	ErtsPortTask *local;
+	struct {
+	    ErtsPortTask *first;
+	    ErtsPortTask *last;
+	} in;
+    } taskq;
+    erts_smp_atomic32_t flags;
+#ifdef ERTS_SMP
+    erts_mtx_t mtx;
+#endif
 } ErtsPortTaskSched;
 
 ERTS_GLB_INLINE void erts_port_task_handle_init(ErtsPortTaskHandle *pthp);
 ERTS_GLB_INLINE int erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp);
-ERTS_GLB_INLINE void erts_port_task_init_sched(ErtsPortTaskSched *ptsp);
+ERTS_GLB_INLINE void erts_port_task_init_sched(ErtsPortTaskSched *ptsp,
+					       Eterm id);
+ERTS_GLB_INLINE void erts_port_task_fini_sched(ErtsPortTaskSched *ptsp);
+ERTS_GLB_INLINE void erts_port_task_sched_lock(ErtsPortTaskSched *ptsp);
+ERTS_GLB_INLINE void erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp);
+
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
 ERTS_GLB_INLINE int erts_port_task_have_outstanding_io_tasks(void);
 #endif
@@ -89,12 +105,40 @@ erts_port_task_is_scheduled(ErtsPortTaskHandle *pthp)
 }
 
 ERTS_GLB_INLINE void
-erts_port_task_init_sched(ErtsPortTaskSched *ptsp)
+erts_port_task_init_sched(ErtsPortTaskSched *ptsp, Eterm instr_id)
 {
     ptsp->next = NULL;
-    ptsp->in_runq = 0;
-    ptsp->taskq = NULL;
-    ptsp->exe_taskq = NULL;
+    ptsp->taskq.local = NULL;
+    ptsp->taskq.in.first = NULL;
+    ptsp->taskq.in.last = NULL;
+    erts_smp_atomic32_init_nob(&ptsp->flags, 0);
+#ifdef ERTS_SMP
+    erts_mtx_init_x(&ptsp->mtx, "port_sched_lock", instr_id);
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_port_task_sched_lock(ErtsPortTaskSched *ptsp)
+{
+#ifdef ERTS_SMP
+    erts_mtx_lock(&ptsp->mtx);
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_port_task_sched_unlock(ErtsPortTaskSched *ptsp)
+{
+#ifdef ERTS_SMP
+    erts_mtx_unlock(&ptsp->mtx);
+#endif
+}
+
+ERTS_GLB_INLINE void
+erts_port_task_fini_sched(ErtsPortTaskSched *ptsp)
+{
+#ifdef ERTS_SMP
+    erts_mtx_destroy(&ptsp->mtx);
+#endif
 }
 
 #ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
@@ -115,12 +159,11 @@ int erts_port_task_execute(ErtsRunQueue *, Port **);
 void erts_port_task_init(void);
 #endif
 
-int erts_port_task_abort(Eterm id, ErtsPortTaskHandle *);
+int erts_port_task_abort(ErtsPortTaskHandle *);
 int erts_port_task_schedule(Eterm,
 			    ErtsPortTaskHandle *,
 			    ErtsPortTaskType,
-			    ErlDrvEvent,
-			    ErlDrvEventData);
+			    ...);
 void erts_port_task_free_port(Port *);
 int erts_port_is_scheduled(Port *);
 
