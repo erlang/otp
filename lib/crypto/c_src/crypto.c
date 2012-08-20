@@ -1564,6 +1564,12 @@ static void sha1_digest(unsigned char* in, unsigned int in_len, unsigned char* o
 {
     SHA1(in, in_len, out);
 }
+#ifdef HAVE_SHA224
+static void sha224_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
+{
+    SHA224(in, in_len, out);
+}
+#endif
 #ifdef HAVE_SHA256
 static void sha256_digest(unsigned char* in, unsigned int in_len, unsigned char* out)
 {
@@ -1595,6 +1601,13 @@ struct digest_type_t digest_types[] =
 {
     {"md5", MD5_DIGEST_LENGTH, NID_md5, md5_digest},
     {"sha", SHA_DIGEST_LENGTH, NID_sha1, sha1_digest},
+    {"sha224",
+#ifdef HAVE_SHA224
+     SHA224_LEN, NID_sha224, sha224_digest
+#else
+      0
+#endif
+    },
     {"sha256",
 #ifdef HAVE_SHA256
      SHA256_LEN, NID_sha256, sha256_digest

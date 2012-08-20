@@ -932,7 +932,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
            <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
            Terminology is taken from RFC 3447.</d>
-	<v>DigestType = md5 | sha | sha256 | sha384 | sha512</v>
+	<v>DigestType = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
 	<d>The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
         <v>Signature = binary()</v>
@@ -957,7 +957,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <v>Key = [E, N]</v>
         <v>E, N = Mpint</v>
         <d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
-	<v>DigestType = md5 | sha | sha256 | sha384 | sha512</v>
+	<v>DigestType = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
 	<d>The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
       </type>

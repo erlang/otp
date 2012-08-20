@@ -105,7 +105,7 @@
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
 		    info_lib]).
 
--type rsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
+-type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
 -type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
