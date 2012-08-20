@@ -221,6 +221,52 @@
         system.</p>
       </item>
 
+      <tag><c>excl_lib</c></tag>
+      <item>
+	<warning><p>This option is experimental.</p></warning>
+        <p>If the <c>excl_lib</c> option is set to <c>otp_root</c>
+        then reltool will not copy anything from the Erlang/OTP
+        installation ($OTP_ROOT) into the target structure. The goal
+        is to create a "slim" release which can be used together with
+        an existing Erlang/OTP installation. The target structure will
+        therefore only contain a <c>lib</c> directory with the
+        applications that were found outside of $OTP_ROOT (typically
+        your own applications), and a <c>releases</c> directory with
+        the generated <c>.rel,</c> <c>.script</c> and <c>.boot</c>
+        files.</p>
+
+	<p>When starting this release, three things must be specified:</p>
+	<taglist>
+	  <tag><b>Which <c>releases</c> directory to use</b></tag>
+	  <item>Tell the release handler to use the <c>releases</c>
+	  directory in our target structure instead of
+	  <c>$OTP_ROOT/releases</c>. This is done by setting the SASL
+	  environment variable <c>releases_dir</c>, either from the
+	  command line (<c>-sasl releases_dir
+	  &lt;target-dir&gt;/releases</c>) or in
+	  <c>sys.config</c>.</item>
+
+	  <tag><b>Which boot file to use</b></tag>
+	  <item>The default boot file is <c>$OTP_ROOT/bin/start</c>,
+	  but in this case we need to specify a boot file from our
+	  target structure, typically
+	  <c>&lt;target-dir&gt;/releases/&lt;vsn&gt;/&lt;RelName&gt;</c>. This
+	  is done with the <c>-boot</c> command line option to
+	  <c>erl</c></item>
+
+	  <tag><b>The location of our applications</b></tag>
+	  <item>The generated .script (and .boot) file uses the
+	  environment variable <c>$RELTOOL_EXT_LIB</c> as prefix for
+	  the paths to all applications. The <c>-boot_var</c> option
+	  to <c>erl</c> can be used for specifying the value of this
+	  variable, typically <c>-boot_var RELTOOL_EXT_LIB
+	  &lt;target-dir&gt;/lib</c>.</item>
+	</taglist>
+
+	<p>Example:</p>
+	<p><code>erl -sasl releases_dir \"mytarget/releases\" -boot mytarget/releases/1.0/myrel -boot_var RELTOOL_EXT_LIB mytarget/lib</code></p>
+      </item>
+
       <tag><c>incl_sys_filters</c></tag>
       <item>
         <p>This parameter normally contains a list of regular
@@ -452,6 +498,7 @@ app()               = {vsn, app_vsn()}
                     | {incl_cond, incl_cond()}
                     | {debug_info, debug_info()}
                     | {app_file, app_file()}
+		    | {excl_lib, excl_lib()}
                     | {incl_sys_filters, incl_sys_filters()}
                     | {excl_sys_filters, excl_sys_filters()}
                     | {incl_app_filters, incl_app_filters()}
@@ -477,6 +524,7 @@ escript()           = {incl_cond, incl_cond()}
 escript_file()      = file()
 excl_app_filters()  = regexps()
 excl_archive_filters() = regexps()
+excl_lib()          = otp_root
 excl_sys_filters()  = regexps()
 file()              = string()
 incl_app()          = app_name()
