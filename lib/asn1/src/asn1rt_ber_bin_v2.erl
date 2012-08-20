@@ -610,8 +610,8 @@ match_tags(Vlist = [{T,_V}|_], [T]) ->
     Vlist;
 match_tags(Tlv, []) ->
     Tlv;
-match_tags({Tag,_V},[T|_Tt]) ->
-    {error,{asn1,{wrong_tag,{Tag,T}}}}.
+match_tags(Tlv = {Tag,_V},[T|_Tt]) ->
+    exit({error,{asn1,{wrong_tag,{{expected,T},{got,Tag,Tlv}}}}}).
 
  
 cindex(Ix,Val,Cname) -> 
