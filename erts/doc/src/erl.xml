@@ -533,7 +533,7 @@
         <p>Force the <c>compressed</c> option on all ETS tables.
               Only intended for test and evaluation.</p>
       </item>
-      <tag><c><![CDATA[+fnl]]></c></tag>
+      <tag><marker id="file_name_encoding"></marker><c><![CDATA[+fnl]]></c></tag>
       <item>
         <p>The VM works with file names as if they are encoded using the ISO-latin-1 encoding, disallowing Unicode characters with codepoints beyond 255. This is default on operating systems that have transparent file naming, i.e. all Unixes except MacOSX.</p>
       </item>

@@ -678,7 +678,7 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
 
     erts_sys_prepare_crash_dump();
 
-    if (erts_sys_getenv("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 0)
+    if (erts_sys_getenv_raw("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 0)
 	dumpname = "erl_crash.dump";
     else
 	dumpname = &dumpnamebuf[0];
