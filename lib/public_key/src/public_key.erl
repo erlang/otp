@@ -48,7 +48,7 @@
 -type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
 			      | 'rsa_no_padding'.
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
--type rsa_digest_type()      :: 'md5' | 'sha'| 'sha256' | 'sha384' | 'sha512'.
+-type rsa_digest_type()      :: 'md5' | 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
 
 -define(UINT32(X), X:32/unsigned-big-integer).
