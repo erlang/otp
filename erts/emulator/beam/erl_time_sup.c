@@ -757,7 +757,7 @@ local_to_univ(Sint *year, Sint *month, Sint *day,
 	       refuses to give us a DST time, we simulate the Linux/Solaris
 	       behaviour of giving the same data as if is_dst was not set. */
 	    t.tm_isdst = 0;
-	    if (erl_mktime(&the_clock, &t)) {
+	    if (erl_mktime(&the_clock, &t) < 0) {
 		/* Failed anyway, something else is bad - will be a badarg */
 		return 0;
 	    }
