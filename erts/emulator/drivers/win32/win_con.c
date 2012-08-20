@@ -569,7 +569,7 @@ FrameWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
         return 1;
     case WM_SETFOCUS :
         CreateCaret(hClientWnd, NULL, cxChar, cyChar);
-        SetCaretPos(GetXFromCurrentY(GetDC(hwnd),0,cur_x), (cur_y-iVscrollPos)*cyChar);
+        SetCaretPos(GetXFromCurrentY(GetDC(hClientWnd),iHscrollPos,cur_x), (cur_y-iVscrollPos)*cyChar);
         ShowCaret(hClientWnd);
         return 0;
     case WM_KILLFOCUS:
