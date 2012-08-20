@@ -1381,7 +1381,7 @@ clause_arg(#iclause{pats=[Arg|_]}) -> Arg.
 
 clause_con(C) -> arg_con(clause_arg(C)).
 
-clause_val(C) -> arg_val(clause_arg(C)).
+clause_val(C) -> arg_val(clause_arg(C), C).
 
 is_var_clause(C) -> clause_con(C) =:= k_var.
 
@@ -1412,7 +1412,7 @@ arg_con(Arg) ->
 	#k_var{} -> k_var
     end.
 
-arg_val(Arg) ->
+arg_val(Arg, C) ->
     case arg_arg(Arg) of
 	#k_literal{val=Lit} -> Lit;
 	#k_int{val=I} -> I;
@@ -1420,7 +1420,13 @@ arg_val(Arg) ->
 	#k_atom{val=A} -> A;
 	#k_tuple{es=Es} -> length(Es);
 	#k_bin_seg{size=S,unit=U,type=T,flags=Fs} ->
-	    {set_kanno(S, []),U,T,Fs}
+	    case S of
+		#k_var{name=V} ->
+		    #iclause{isub=Isub} = C,
+		    {#k_var{name=get_vsub(V, Isub)},U,T,Fs};
+		_ ->
+		    {set_kanno(S, []),U,T,Fs}
+	    end
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]

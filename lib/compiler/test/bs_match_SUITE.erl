@@ -33,7 +33,7 @@
 	 matching_meets_construction/1,simon/1,matching_and_andalso/1,
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
 	 match_string/1,zero_width/1,bad_size/1,haystack/1,
-	 cover_beam_bool/1]).
+	 cover_beam_bool/1,matched_out_size/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -53,7 +53,7 @@ all() ->
      matching_meets_construction, simon,
      matching_and_andalso, otp_7188, otp_7233, otp_7240,
      otp_7498, match_string, zero_width, bad_size, haystack,
-     cover_beam_bool].
+     cover_beam_bool, matched_out_size].
 
 groups() -> 
     [].
@@ -1061,6 +1061,33 @@ do_cover_beam_bool(Bin, X) when X > 0 ->
     end;
 do_cover_beam_bool(<<_,Bin/binary>>, X) ->
     do_cover_beam_bool(Bin, X+1).
+
+matched_out_size(Config) when is_list(Config) ->
+    {253,16#DEADBEEF} = mos_int(<<8,253,16#DEADBEEF:32>>),
+    {6,16#BEEFDEAD} = mos_int(<<3,6:3,16#BEEFDEAD:32>>),
+    {53,16#CAFEDEADBEEFCAFE} = mos_int(<<16,53:16,16#CAFEDEADBEEFCAFE:64>>),
+    {23,16#CAFEDEADBEEFCAFE} = mos_int(<<5,23:5,16#CAFEDEADBEEFCAFE:64>>),
+
+    {<<1,2,3>>,4} = mos_bin(<<3,1,2,3,4,3>>),
+    {<<1,2,3,7>>,19,42} = mos_bin(<<4,1,2,3,7,19,4,42>>),
+    <<1,2,3,7>> = mos_bin(<<4,1,2,3,7,"abcdefghij">>),
+
+    ok.
+
+mos_int(<<L,I:L,X:32>>) ->
+    {I,X};
+mos_int(<<L,I:L,X:64>>) ->
+    {I,X}.
+
+mos_bin(<<L,Bin:L/binary,X:8,L>>) ->
+    L = byte_size(Bin),
+    {Bin,X};
+mos_bin(<<L,Bin:L/binary,X:8,L,Y:8>>) ->
+    L = byte_size(Bin),
+    {Bin,X,Y};
+mos_bin(<<L,Bin:L/binary,"abcdefghij">>) ->
+    L = byte_size(Bin),
+    Bin.
 
 check(F, R) ->
     R = F().
