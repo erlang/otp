@@ -400,10 +400,10 @@
        <d>The msg is either the binary "plain text" data to be
        signed or it is the hashed value of "plain text" i.e. the
        digest.</d>
-       <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
+       <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
        <v>Key = rsa_private_key() | dsa_private_key()</v>
-  </type> 
-  <desc> 
+  </type>
+  <desc>
     <p> Creates a digital signature.</p> 
   </desc> 
   </func>   
@@ -464,7 +464,7 @@
       <v>Msg = binary() | {digest,binary()}</v>
        <d>The msg is either the binary "plain text" data 
         or it is the hashed value of "plain text" i.e. the digest.</d>
-      <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
+      <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
       <v>Signature = binary()</v>
       <v>Key = rsa_public_key() | dsa_public_key()</v> 
   </type> 
