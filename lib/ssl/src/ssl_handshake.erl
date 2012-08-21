@@ -534,7 +534,7 @@ decrypt_premaster_secret(Secret, RSAPrivateKey) ->
     end.
 
 %%--------------------------------------------------------------------
--spec server_key_exchange_hash(md5sha | md5 | sha | sha256 | sha384 | sha512, binary()) -> binary().
+-spec server_key_exchange_hash(md5sha | md5 | sha | sha224 |sha256 | sha384 | sha512, binary()) -> binary().
 %%
 %% Description: Calculate server key exchange hash
 %%--------------------------------------------------------------------

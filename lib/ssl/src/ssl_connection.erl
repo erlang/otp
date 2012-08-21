@@ -671,7 +671,6 @@ cipher(#finished{verify_data = Data} = Finished,
 	      = Session0,
 		  connection_states = ConnectionStates0,
 	      tls_handshake_history = Handshake0} = State) ->
-%%CHECKME: the connection state prf logic is pure guess work!
     case ssl_handshake:verify_connection(Version, Finished, 
 					 opposite_role(Role), 
 					 get_current_connection_state_prf(ConnectionStates0, read),
@@ -1507,7 +1506,12 @@ rsa_key_exchange(Version, PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
   when Algorithm == ?rsaEncryption;
        Algorithm == ?md2WithRSAEncryption;
        Algorithm == ?md5WithRSAEncryption;
-       Algorithm == ?sha1WithRSAEncryption ->
+       Algorithm == ?sha1WithRSAEncryption;
+       Algorithm == ?sha224WithRSAEncryption;
+       Algorithm == ?sha256WithRSAEncryption;
+       Algorithm == ?sha384WithRSAEncryption;
+       Algorithm == ?sha512WithRSAEncryption
+       ->
     ssl_handshake:key_exchange(client, Version,
 			       {premaster_secret, PremasterSecret,
 				PublicKeyInfo});
@@ -1556,7 +1560,6 @@ finished(#state{role = Role, socket = Socket, negotiated_version = Version,
                 connection_states = ConnectionStates0,
                 tls_handshake_history = Handshake0}, StateName) ->
     MasterSecret = Session#session.master_secret,
-%%CHECKME: the connection state prf logic is pure guess work!
     Finished = ssl_handshake:finished(Version, Role,
 				       get_current_connection_state_prf(ConnectionStates0, write),
 				       MasterSecret, Handshake0),

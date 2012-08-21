@@ -172,7 +172,12 @@ extensions_list(Extensions) ->
 %% Description: 
 %%--------------------------------------------------------------------
 signature_type(RSA) when RSA == ?sha1WithRSAEncryption;
-			 RSA == ?md5WithRSAEncryption ->
+			 RSA == ?md5WithRSAEncryption;
+			 RSA == ?sha224WithRSAEncryption;
+			 RSA == ?sha256WithRSAEncryption;
+			 RSA == ?sha384WithRSAEncryption;
+			 RSA == ?sha512WithRSAEncryption
+			 ->
     rsa;
 signature_type(?'id-dsa-with-sha1') ->
     dsa.
