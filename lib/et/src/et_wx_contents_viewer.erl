@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -245,12 +245,7 @@ handle_event(#wx{id = Id,
         Data when is_record(Data, filter) ->
             F = Data,
             ChildState= S#state{active_filter = F#filter.name},
-            case wx_object:start_link(?MODULE, [ChildState], []) of
-                {ok, Pid} when S#state.parent_pid =/= self() ->
-		    unlink(Pid);
-                _ ->
-                    ignore
-            end;
+            wx_object:start_link(?MODULE, [ChildState], []);
         {hide, Actors} ->
             send_viewer_event(S, {delete_actors, Actors});
         {show, Actors} ->
@@ -356,12 +351,7 @@ handle_event(#wx{event = #wxKey{rawCode = KeyCode}}, S) ->
             case lists:keysearch(?DEFAULT_FILTER_NAME, #filter.name, S#state.filters) of
                 {value, F} when is_record(F, filter) ->
                     ChildState= S#state{active_filter = F#filter.name},
-                    case wx_object:start_link(?MODULE, [ChildState], []) of
-                        {ok, Pid} when S#state.parent_pid =/= self() ->
-                            unlink(Pid);
-                        _ ->
-                            ignore
-                    end;
+                    wx_object:start_link(?MODULE, [ChildState], []);
                 false ->
                     ignore
             end,
@@ -370,12 +360,7 @@ handle_event(#wx{event = #wxKey{rawCode = KeyCode}}, S) ->
             case catch lists:nth(Int-$0, S#state.filters) of
                 F when is_record(F, filter) ->
                     ChildState= S#state{active_filter = F#filter.name},
-                    case wx_object:start_link(?MODULE, [ChildState], []) of
-                        {ok, Pid} when S#state.parent_pid =/= self() ->
-                            unlink(Pid);
-                        _ ->
-                            ignore
-                    end;
+                    wx_object:start_link(?MODULE, [ChildState], []);
                 {'EXIT', _} ->
                     ignore
             end,

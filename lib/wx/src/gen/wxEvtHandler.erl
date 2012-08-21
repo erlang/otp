@@ -80,7 +80,7 @@ connect(This, EventType) ->
 %%    {userData, term()}    An erlang term that will be sent with the event. Default: [].
 -spec connect(This::wxEvtHandler(), EventType::wxEventType(), [Option]) -> ok when
       Option :: {id, integer()} | {lastId, integer()} | {skip, boolean()} |
-		{callback, function()} | {userData, term()}.
+		callback | {callback, function()} | {userData, term()}.
 connect(This=#wx_ref{type=ThisT}, EventType, Options) ->
     EvH = parse_opts(Options, #evh{et=EventType}),
     ?CLASS(ThisT,wxEvtHandler),
