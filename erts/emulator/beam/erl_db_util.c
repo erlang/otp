@@ -1233,7 +1233,7 @@ static Eterm erts_match_set_run_ets(Process *p, Binary *mpsp,
     Eterm ret;
 
     ret = db_prog_match(p, mpsp, args, NULL, NULL, num_args,
-			ERTS_PAM_CONTIGUOUS_TUPLE | ERTS_PAM_COPY_RESULT,
+			ERTS_PAM_COPY_RESULT,
 			return_flags);
 #if defined(HARDDEBUG)
     if (is_non_value(ret)) {
