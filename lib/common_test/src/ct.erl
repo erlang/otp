@@ -846,7 +846,7 @@ userdata(TestDir, Suite, Case) when is_atom(Case) ->
 %%%                    {failed,Failed} | {skipped,Skipped} | {total,Total}
 %%%       TestCaseInfo = {Suite,TestCase} | [{Suite,TestCase}]
 %%%       Suite = atom()
-%%%       TestCase = atom() | 
+%%%       TestCase = atom()
 %%%       Successful = integer()
 %%%       Failed = integer()
 %%%       Skipped = {UserSkipped,AutoSkipped}
