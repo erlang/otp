@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -198,6 +198,9 @@ cl(["--gui"|T]) ->
 cl(["--wx"|T]) ->
   put(dialyzer_options_mode, {gui, wx}),
   cl(T);
+cl(["--solver",Solver|T]) -> % not documented
+  append_var(dialyzer_solvers, [list_to_atom(Solver)]),
+  cl(T);
 cl([H|_] = L) ->
   case filelib:is_file(H) orelse filelib:is_dir(H) of
     true ->
@@ -258,6 +261,7 @@ init() ->
   put(dialyzer_filename_opt,      basename),
   put(dialyzer_options_check_plt, DefaultOpts#options.check_plt),
   put(dialyzer_timing,            DefaultOpts#options.timing),
+  put(dialyzer_solvers,           DefaultOpts#options.solvers),
   ok.
 
 append_defines([Def, Val]) ->
@@ -311,7 +315,8 @@ common_options() ->
    {report_mode, get(dialyzer_options_report_mode)},
    {use_spec, get(dialyzer_options_use_contracts)},
    {warnings, get(dialyzer_warnings)},
-   {check_plt, get(dialyzer_options_check_plt)}].
+   {check_plt, get(dialyzer_options_check_plt)},
+   {solvers, get(dialyzer_solvers)}].
 
 %%-----------------------------------------------------------------------
 

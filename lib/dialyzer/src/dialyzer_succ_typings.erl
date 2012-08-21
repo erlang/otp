@@ -28,8 +28,8 @@
 -module(dialyzer_succ_typings).
 
 -export([analyze_callgraph/3, 
-	 analyze_callgraph/5,
-	 get_warnings/7
+	 analyze_callgraph/6,
+	 get_warnings/8
 	]).
 
 -export([
@@ -75,6 +75,7 @@
 	     no_warn_unused :: set(),
 	     parent = none  :: parent(),
 	     timing_server  :: dialyzer_timing:timing_server(),
+             solvers        :: [solver()],
 	     plt            :: dialyzer_plt:plt()}).
 
 %%--------------------------------------------------------------------
@@ -84,28 +85,29 @@
 	 dialyzer_plt:plt().
 
 analyze_callgraph(Callgraph, Plt, Codeserver) ->
-  analyze_callgraph(Callgraph, Plt, Codeserver, none, none).
+  analyze_callgraph(Callgraph, Plt, Codeserver, none, [], none).
 
 -spec analyze_callgraph(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
 			dialyzer_codeserver:codeserver(),
-			dialyzer_timing:timing_server(), parent()) ->
+			dialyzer_timing:timing_server(),
+                        [solver()], parent()) ->
          dialyzer_plt:plt().
 
-analyze_callgraph(Callgraph, Plt, Codeserver, TimingServer, Parent) ->
+analyze_callgraph(Callgraph, Plt, Codeserver, TimingServer, Solvers, Parent) ->
   NewState =
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
-				       TimingServer, Parent),
+				       TimingServer, Solvers, Parent),
   dialyzer_plt:restore_full_plt(NewState#st.plt, Plt).
 
 %%--------------------------------------------------------------------
 
 init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
-				   TimingServer, Parent) ->
+				   TimingServer, Solvers, Parent) ->
   {SCCs, Callgraph1} =
     ?timing(TimingServer, "order", dialyzer_callgraph:finalize(Callgraph)),
   State = #st{callgraph = Callgraph1, plt = dialyzer_plt:get_mini_plt(Plt),
 	      codeserver = Codeserver, parent = Parent,
-	      timing_server = TimingServer},
+	      timing_server = TimingServer, solvers = Solvers},
   get_refined_success_typings(SCCs, State).
 
 get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
@@ -136,14 +138,14 @@ get_refined_success_typings(SCCs, #st{callgraph = Callgraph,
 -type doc_plt() :: 'undefined' | dialyzer_plt:plt().
 -spec get_warnings(dialyzer_callgraph:callgraph(), dialyzer_plt:plt(),
 		   doc_plt(), dialyzer_codeserver:codeserver(), set(),
-		   dialyzer_timing:timing_server(), pid()) ->
+		   dialyzer_timing:timing_server(), [solver()], pid()) ->
 	 {[dial_warning()], dialyzer_plt:plt(), doc_plt()}.
 
 get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-	     NoWarnUnused, TimingServer, Parent) ->
+	     NoWarnUnused, TimingServer, Solvers, Parent) ->
   InitState =
     init_state_and_get_success_typings(Callgraph, Plt, Codeserver,
-				       TimingServer, Parent),
+				       TimingServer, Solvers, Parent),
   NewState = InitState#st{no_warn_unused = NoWarnUnused},
   Mods = dialyzer_callgraph:modules(NewState#st.callgraph),
   MiniPlt = NewState#st.plt,
@@ -222,9 +224,10 @@ postprocess_dataflow_warns([{?WARN_CONTRACT_RANGE, {CallF, CallL}, Msg}|Rest],
 refine_succ_typings(Modules, #st{codeserver = Codeserver,
                                  callgraph = Callgraph,
                                  plt = Plt,
-				 timing_server = Timing} = State) ->
+				 timing_server = Timing,
+                                 solvers = Solvers} = State) ->
   ?debug("Module postorder: ~p\n", [Modules]),
-  Init = {Codeserver, Callgraph, Plt},
+  Init = {Codeserver, Callgraph, Plt, Solvers},
   NotFixpoint =
     ?timing(Timing, "refine",
 	    dialyzer_coordinator:parallel_job(dataflow, Modules, Init, Timing)),
@@ -236,22 +239,22 @@ refine_succ_typings(Modules, #st{codeserver = Codeserver,
 
 -spec find_depends_on(scc() | module(), fixpoint_init_data()) -> [scc()].
 
-find_depends_on(SCC, {_Codeserver, Callgraph, _Plt}) ->
+find_depends_on(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
   dialyzer_callgraph:get_depends_on(SCC, Callgraph).
 
 -spec find_required_by(scc() | module(), fixpoint_init_data()) -> [scc()].
 
-find_required_by(SCC, {_Codeserver, Callgraph, _Plt}) ->
+find_required_by(SCC, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
   dialyzer_callgraph:get_required_by(SCC, Callgraph).
 
 -spec lookup_names([label()], fixpoint_init_data()) -> [mfa_or_funlbl()].
 
-lookup_names(Labels, {_Codeserver, Callgraph, _Plt}) ->
+lookup_names(Labels, {_Codeserver, Callgraph, _Plt, _Solvers}) ->
   [lookup_name(F, Callgraph) || F <- Labels].
 
 -spec refine_one_module(module(), dataflow_init_data()) -> [label()]. % ordset
 
-refine_one_module(M, {CodeServer, Callgraph, Plt}) ->
+refine_one_module(M, {CodeServer, Callgraph, Plt, _Solvers}) ->
   ModCode = dialyzer_codeserver:lookup_mod_code(M, CodeServer),
   AllFuns = collect_fun_info([ModCode]),
   Records = dialyzer_codeserver:lookup_mod_records(M, CodeServer),
@@ -322,8 +325,9 @@ compare_types_1([], [], _Strict, NotFixpoint) ->
   end.
 
 find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
-			    plt = Plt, timing_server = Timing} = State) ->
-  Init = {Codeserver, Callgraph, Plt},
+			    plt = Plt, timing_server = Timing,
+                            solvers = Solvers} = State) ->
+  Init = {Codeserver, Callgraph, Plt, Solvers},
   NotFixpoint =
     ?timing(Timing, "typesig",
 	    dialyzer_coordinator:parallel_job(typesig, SCCs, Init, Timing)),
@@ -335,7 +339,7 @@ find_succ_typings(SCCs, #st{codeserver = Codeserver, callgraph = Callgraph,
 
 -spec find_succ_types_for_scc(scc(), typesig_init_data()) -> [mfa_or_funlbl()].
 
-find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt}) ->
+find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt, Solvers}) ->
   SCC_Info = [{MFA, 
 	       dialyzer_codeserver:lookup_mfa_code(MFA, Codeserver),
 	       dialyzer_codeserver:lookup_mod_records(M, Codeserver)}
@@ -348,8 +352,8 @@ find_succ_types_for_scc(SCC, {Codeserver, Callgraph, Plt}) ->
   AllFuns = collect_fun_info([Fun || {_MFA, {_Var, Fun}, _Rec} <- SCC_Info]),
   PropTypes = get_fun_types_from_plt(AllFuns, Callgraph, Plt),
   %% Assume that the PLT contains the current propagated types
-  FunTypes =
-    dialyzer_typesig:analyze_scc(SCC_Info, Label, Callgraph, Plt, PropTypes),
+  FunTypes = dialyzer_typesig:analyze_scc(SCC_Info, Label, Callgraph,
+                                          Plt, PropTypes, Solvers),
   AllFunSet = sets:from_list([X || {X, _} <- AllFuns]),
   FilteredFunTypes =
     dict:filter(fun(X, _) -> sets:is_element(X, AllFunSet) end, FunTypes),
