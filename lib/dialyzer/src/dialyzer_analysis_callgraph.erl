@@ -53,7 +53,8 @@
 	  plt                           :: dialyzer_plt:plt(),
 	  start_from     = byte_code    :: start_from(),
 	  use_contracts  = true         :: boolean(),
-	  timing_server                 :: dialyzer_timing:timing_server()
+	  timing_server                 :: dialyzer_timing:timing_server(),
+          solvers                       :: [solver()]
 	 }).
 
 -record(server_state, {parent :: pid(), legal_warnings :: [dial_warn_tag()]}).
@@ -136,7 +137,8 @@ analysis_start(Parent, Analysis) ->
 			  parent = Parent,
 			  start_from = Analysis#analysis.start_from,
 			  use_contracts = Analysis#analysis.use_contracts,
-			  timing_server = Analysis#analysis.timing_server
+			  timing_server = Analysis#analysis.timing_server,
+                          solvers = Analysis#analysis.solvers
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
@@ -192,20 +194,21 @@ analysis_start(Parent, Analysis) ->
 analyze_callgraph(Callgraph, #analysis_state{codeserver = Codeserver,
 					     doc_plt = DocPlt,
 					     timing_server = TimingServer,
-					     parent = Parent} = State) ->
+					     parent = Parent,
+                                             solvers = Solvers} = State) ->
   Plt = dialyzer_plt:insert_callbacks(State#analysis_state.plt, Codeserver),
   {NewPlt, NewDocPlt} =
     case State#analysis_state.analysis_type of
       plt_build ->
 	NewPlt0 =
 	  dialyzer_succ_typings:analyze_callgraph(Callgraph, Plt, Codeserver,
-						  TimingServer, Parent),
+						  TimingServer, Solvers, Parent),
 	{NewPlt0, DocPlt};
       succ_typings ->
 	NoWarn = State#analysis_state.no_warn_unused,
 	{Warnings, NewPlt0, NewDocPlt0} =
 	  dialyzer_succ_typings:get_warnings(Callgraph, Plt, DocPlt, Codeserver,
-					     NoWarn, TimingServer, Parent),
+					     NoWarn, TimingServer, Solvers, Parent),
 	send_warnings(State#analysis_state.parent, Warnings),
 	{NewPlt0, NewDocPlt0}
     end,

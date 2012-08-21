@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -196,6 +196,9 @@ build_options([{OptionName, Value} = Term|Rest], Options) ->
       build_options(Rest, Options#options{callgraph_file = Value});
     timing ->
       build_options(Rest, Options#options{timing = Value});
+    solvers ->
+      assert_solvers(Value),
+      build_options(Rest, Options#options{solvers = Value});
     _ ->
       bad_option("Unknown dialyzer command line option", Term)
   end;
@@ -256,6 +259,15 @@ is_plt_mode(plt_build)    -> true;
 is_plt_mode(plt_remove)   -> true;
 is_plt_mode(plt_check)    -> true;
 is_plt_mode(succ_typings) -> false.
+
+assert_solvers([]) ->
+  ok;
+assert_solvers([v1|Terms]) ->
+  assert_solvers(Terms);
+assert_solvers([v2|Terms]) ->
+  assert_solvers(Terms);
+assert_solvers([Term|_]) ->
+  bad_option("Illegal value for solver", Term).
 
 -spec build_warnings([atom()], [dial_warning()]) -> [dial_warning()].
 
