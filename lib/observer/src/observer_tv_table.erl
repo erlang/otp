@@ -24,6 +24,8 @@
 -export([init/1, handle_info/2, terminate/2, code_change/3, handle_call/3,
 	 handle_event/2, handle_sync_event/3, handle_cast/2]).
 
+-export([format/1]).
+
 -include("observer_defs.hrl").
 -import(observer_lib, [to_str/1]).
 
@@ -265,7 +267,8 @@ handle_event(#wx{id=?ID_DELETE},
     wxStatusBar:setStatusText(StatusBar, io_lib:format("Deleted object: ~s",[Str])),
     {noreply, State};
 
-handle_event(#wx{id=?wxID_CLOSE}, State) ->
+handle_event(#wx{id=?wxID_CLOSE}, State = #state{frame=Frame}) ->
+    wxFrame:destroy(Frame),
     {stop, normal, State};
 
 handle_event(Help = #wx{id=?wxID_HELP}, State) ->
@@ -747,6 +750,13 @@ format(List) when is_list(List) ->
     format_list(List);
 format(Bin) when is_binary(Bin), byte_size(Bin) > 100 ->
     io_lib:format("<<#Bin:~w>>", [byte_size(Bin)]);
+format(Bin) when is_binary(Bin) ->
+    try
+	true = printable_list(unicode:characters_to_list(Bin)),
+	io_lib:format("<<\"~ts\">>", [Bin])
+    catch _:_ ->
+	    io_lib:format("~w", [Bin])
+    end;
 format(Float) when is_float(Float) ->
     io_lib:format("~.3g", [Float]);
 format(Term) ->

@@ -123,7 +123,7 @@ init([Notebook, Parent]) ->
 		  }}
    catch _:Err ->
 	   io:format("~p crashed ~p: ~p~n",[?MODULE, Err, erlang:get_stacktrace()]),
-	   {error, Err}
+	   {stop, Err}
    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

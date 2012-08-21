@@ -127,17 +127,15 @@ terminate(_Reason, #state{parent=Parent,pid=Pid,frame=Frame}) ->
     ok.
 
 code_change(_, _, State) ->
-    {stop, not_yet_implemented, State}.
+    {ok, State}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 init_process_page(Panel, Pid) ->
     Fields0 = process_info_fields(Pid),
     {FPanel, _, UpFields} = observer_lib:display_info(Panel, Fields0),
-    {FPanel, fun() -> case process_info_fields(Pid) of
-			  Fields when is_list(Fields) ->
-			      observer_lib:update_info(UpFields, Fields);
-			  _ -> ok
-		      end
+    {FPanel, fun() ->
+		     Fields = process_info_fields(Pid),
+		     observer_lib:update_info(UpFields, Fields)
 	     end}.
 
 init_text_page(Parent) ->

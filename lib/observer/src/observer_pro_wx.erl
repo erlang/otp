@@ -258,8 +258,7 @@ terminate(_Reason, #state{holder=Holder}) ->
     ok.
 
 code_change(_, _, State) ->
-    {stop, not_yet_implemented, State}.
-
+    {ok, State}.
 
 handle_call(Msg, _From, State) ->
     io:format("~p:~p: Unhandled call ~p~n",[?MODULE, ?LINE, Msg]),
