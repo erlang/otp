@@ -2318,10 +2318,14 @@ t_inf(?product(_), _, _Mode) ->
   ?none;
 t_inf(_, ?product(_), _Mode) ->
   ?none;
-t_inf(?tuple(?any, ?any, ?any), ?tuple(_, _, _) = T, _Mode) -> T;
-t_inf(?tuple(_, _, _) = T, ?tuple(?any, ?any, ?any), _Mode) -> T;
-t_inf(?tuple(?any, ?any, ?any), ?tuple_set(_) = T, _Mode) -> T;
-t_inf(?tuple_set(_) = T, ?tuple(?any, ?any, ?any), _Mode) -> T;
+t_inf(?tuple(?any, ?any, ?any), ?tuple(_, _, _) = T, _Mode) ->
+  subst_all_vars_to_any(T);
+t_inf(?tuple(_, _, _) = T, ?tuple(?any, ?any, ?any), _Mode) ->
+  subst_all_vars_to_any(T);
+t_inf(?tuple(?any, ?any, ?any), ?tuple_set(_) = T, _Mode) ->
+  subst_all_vars_to_any(T);
+t_inf(?tuple_set(_) = T, ?tuple(?any, ?any, ?any), _Mode) ->
+  subst_all_vars_to_any(T);
 t_inf(?tuple(Elements1, Arity, _Tag1), ?tuple(Elements2, Arity, _Tag2), Mode) ->
   case t_inf_lists_strict(Elements1, Elements2, Mode) of
     bottom -> ?none;
