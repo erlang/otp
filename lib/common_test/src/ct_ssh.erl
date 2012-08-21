@@ -133,10 +133,10 @@ connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
 %%%      is used to identify the connection, this name may
 %%%      be used as connection reference for subsequent calls.
 %%%      It's only possible to have one open connection at a time 
-%%%      associated with <code>Name</code>. If <code>Key</code> is 
+%%%      associated with <code>Name</code>. If <code>Key</code> is
 %%%      used, the returned handle must be used for subsequent calls
 %%%      (multiple connections may be opened using the config
-%%%      data specified by <code>Key</code>). See <c>ct:require/3</c>
+%%%      data specified by <code>Key</code>). See <c>ct:require/2</c>
 %%%      for how to create a new <c>Name</c></p>
 %%%
 %%%      <p><code>ConnType</code> will always override the type
@@ -154,7 +154,7 @@ connect(KeyOrName, ExtraOpts) when is_list(ExtraOpts) ->
 %%%      same key in the config data. For details on valid SSH
 %%%      options, see the documentation for the OTP ssh application.</p>
 %%%
-%%% @see ct:require/3
+%%% @see ct:require/2
 connect(KeyOrName, ConnType, ExtraOpts) ->
     case ct:get_config(KeyOrName) of
 	undefined ->

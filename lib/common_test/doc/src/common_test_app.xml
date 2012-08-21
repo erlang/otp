@@ -99,11 +99,11 @@
 	  be executed by Common Test. A test case is represented by an atom,
 	  the name of the test case function. A test case group is
 	  represented by a <c>group</c> tuple, where <c>GroupName</c>,
-	  an atom, is the name of the group (defined in <c>groups/0</c>).
+	  an atom, is the name of the group (defined in <c><seealso marker="#Module:groups-0">groups/0</seealso></c>).
 	  Execution properties for groups may also be specified, both
 	  for a top level group and for any of its sub-groups.
 	  Group execution properties specified here, will override
-	  properties in the group definition (see <c>groups/0</c>).
+	  properties in the group definition (see <c><seealso marker="#Module:groups-0">groups/0</seealso></c>).
 	  (With value <c>default</c>, the group definition properties
 	  will be used).</p>
 	
@@ -184,8 +184,8 @@
 	  test cases in the suite).</p>
 	  
 	<p>The <c>timetrap</c> tag sets the maximum time each
-	  test case is allowed to execute (including <c>init_per_testcase/2</c>
-	  and <c>end_per_testcase/2</c>). If the timetrap time is
+	  test case is allowed to execute (including <c><seealso marker="#Module:init_per_testcase-2">init_per_testcase/2</seealso></c>
+	  and <c><seealso marker="#Module:end_per_testcase-2">end_per_testcase/2</seealso></c>). If the timetrap time is
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It may also be
@@ -201,11 +201,11 @@
 	  in any of the configuration files, all test cases are skipped. For more
 	  information about the 'require' functionality, see the
 	  reference manual for the function
-	  <c>ct:require/[1,2]</c>.</p>
+	  <c><seealso marker="ct#require-1">ct:require/1/2</seealso></c>.</p>
 
 	<p>With <c>userdata</c>, it is possible for the user to
 	  specify arbitrary test suite related information which can be 
-	  read by calling <c>ct:userdata/2</c>.</p>
+	  read by calling <c><seealso marker="ct#userdata-2">ct:userdata/2</seealso></c>.</p>
 
 	  <p>The <c>ct_hooks</c> tag specifies which 
 	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
@@ -264,7 +264,7 @@
 	
 	<p>This function is called as the last test case in the
 	  suite. It is meant to be used for cleaning up after
-	  <c>init_per_suite/1</c>.
+	  <c><seealso marker="#Module:init_per_suite-1">init_per_suite/1</seealso></c>.
 	  For information on <c>save_config</c>, please see 
 	  <seealso marker="dependencies_chapter#save_config">Dependencies
 	    between Test Cases and Suites</seealso> in the User's Guide.</p>
@@ -309,13 +309,14 @@
 	<p>This is the test case group info function. It is supposed to 
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of a test case group (i.e. its test cases
-	  and sub-groups). Properties set by <c>groups/1</c> override
+	  and sub-groups). Properties set by
+	  <c><seealso marker="#Module:group-1">group/1</seealso></c> override
 	  properties with the same key that have been previously set by
-	  <c>suite/0</c>.</p>
+	  <c><seealso marker="#Module:suite-0">suite/0</seealso></c>.</p>
 	  
 	<p>The <c>timetrap</c> tag sets the maximum time each
-	  test case is allowed to execute (including <c>init_per_testcase/2</c>
-	  and <c>end_per_testcase/2</c>). If the timetrap time is
+	  test case is allowed to execute (including <c><seealso marker="#Module:init_per_testcase-2">init_per_testcase/2</seealso></c>
+	  and <c><seealso marker="#Module:end_per_testcase-2">end_per_testcase/2</seealso></c>). If the timetrap time is
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It may also be
@@ -330,11 +331,11 @@
 	  in any of the configuration files, all test cases in this group are skipped.
 	  For more information about the 'require' functionality, see the
 	  reference manual for the function
-	  <c>ct:require/[1,2]</c>.</p>
+	  <c><seealso marker="ct#require-1">ct:require/1/2</seealso></c>.</p>
 
 	<p>With <c>userdata</c>, it is possible for the user to
 	  specify arbitrary test case group related information which can be 
-	  read by calling <c>ct:userdata/2</c>.</p>
+	  read by calling <c><seealso marker="ct#userdata-2">ct:userdata/2</seealso></c>.</p>
 
 	  <p>The <c>ct_hooks</c> tag specifies which 
 	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
@@ -367,7 +368,7 @@
 	    test case group. It typically contains initializations which are 
 	    common for all test cases and sub-groups in the group, and which
 	    shall only be performed once. <c>GroupName</c> is the name of the
-	    group, as specified in the group definition (see <c>groups/0</c>). The
+	    group, as specified in the group definition (see <c><seealso marker="#Module:groups-0">groups/0</seealso></c>). The
 	    <c>Config</c> parameter is the configuration data which can be modified
 	    here. The return value of this function is given as <c>Config</c> 
 	    to all test cases and sub-groups in the group. If <c>{skip,Reason}</c>
@@ -396,10 +397,10 @@
 	  <p> OPTIONAL </p>
 	  
 	  <p>This function is called after the execution of a test case group is finished.
-	    It is meant to be used for cleaning up after <c>init_per_group/2</c>.
+	    It is meant to be used for cleaning up after <c><seealso marker="#Module:init_per_group-2">init_per_group/2</seealso></c>.
 	    By means of <c>{return_group_result,Status}</c>, it is possible to return a 
 	    status value for a nested sub-group. The status can be retrieved in
-	    <c>end_per_group/2</c> for the group on the level above. The status will also
+	    <c><seealso marker="#Module:end_per_group-2">end_per_group/2</seealso></c> for the group on the level above. The status will also
 	    be used by Common Test for deciding if execution of a group should proceed in
 	    case the property <c>sequence</c> or <c>repeat_until_*</c> is set.</p>
 
@@ -450,7 +451,7 @@
 	  <p> OPTIONAL </p>
 	  
 	  <p> This function is called after each test case, and can be used
-	    to clean up after <c>init_per_testcase/2</c> and the test case. 
+	    to clean up after <c><seealso marker="#Module:init_per_testcase-2">init_per_testcase/2</seealso></c> and the test case.
 	    Any return value (besides <c>{fail,Reason}</c> and <c>{save_config,SaveConfig}</c>) 
 	    is ignored. By returning <c>{fail,Reason}</c>, <c>TestCase</c> will be marked as
 	    failed (even though it was actually successful in the sense that it returned
@@ -492,15 +493,15 @@
 	<p>This is the test case info function. It is supposed to 
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of this particular test case.
-	  Properties set by <c>Testcase/0</c> override
+	  Properties set by <c><seealso marker="#Module:Testcase-0">Testcase/0</seealso></c> override
 	  properties that have been previously set for the test case
-	  by <c>group/1</c> or <c>suite/0</c>.</p>
+	  by <c><seealso marker="#Module:group-1">group/1</seealso></c> or <c><seealso marker="#Module:suite-0">suite/0</seealso></c>.</p>
 	  
 	<p>The <c>timetrap</c> tag sets the maximum time the
 	  test case is allowed to execute. If the timetrap time is
 	  exceeded, the test case fails with reason
-	  <c>timetrap_timeout</c>. <c>init_per_testcase/2</c>
-	  and <c>end_per_testcase/2</c> are included in the
+	  <c>timetrap_timeout</c>. <c><seealso marker="#Module:init_per_testcase-2">init_per_testcase/2</seealso></c>
+	  and <c><seealso marker="#Module:end_per_testcase-2">end_per_testcase/2</seealso></c> are included in the
 	  timetrap time. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It may also be
 	  used to trigger a timetrap timeout by, at some point, returning a
@@ -514,15 +515,15 @@
 	  configuration files, the test case is skipped. For more
 	  information about the 'require' functionality, see the
 	  reference manual for the function
-	  <c>ct:require/[1,2]</c>.</p>
+	  <c><seealso marker="ct#require-1">ct:require/1/2</seealso></c>.</p>
 
 	<p>If <c>timetrap</c> and/or <c>require</c> is not set, the
-	  default values specified by <c>suite/0</c> (or
-	  <c>group/1</c>) will be used.</p>
+	  default values specified by <c><seealso marker="#Module:suite-0">suite/0</seealso></c> (or
+	  <c><seealso marker="#Module:group-1">group/1</seealso></c>) will be used.</p>
 
 	<p>With <c>userdata</c>, it is possible for the user to
 	  specify arbitrary test case related information which can be 
-	  read by calling <c>ct:userdata/3</c>.</p>
+	  read by calling <c><seealso marker="ct#userdata-3">ct:userdata/3</seealso></c>.</p>
 	
 	<p>Other tuples than the ones defined will simply be ignored.</p>
 
@@ -550,7 +551,7 @@
 	<p>This is the implementation of a test case. Here you must
 	  call the functions you want to test, and do whatever you
 	  need to check the result. If something fails, make sure the
-	  function causes a runtime error, or call <c>ct:fail/1/2</c> 
+	  function causes a runtime error, or call <c><seealso marker="ct#fail-1">ct:fail/1/2</seealso></c>
 	  (which also causes the test case process to terminate).</p>
 	
 	<p>Elements from the <c>Config</c> list can e.g. be read

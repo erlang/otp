@@ -100,7 +100,7 @@
     <p><c>$ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</c></p>
     
     <p>You may also pass the cover specification file name in a
-      call to <c>ct:run_test/1</c>, by adding a <c>{cover,CoverSpec}</c>
+      call to <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>, by adding a <c>{cover,CoverSpec}</c>
       tuple to the <c>Opts</c> argument. Also, you can of course 
       enable code coverage in your test specifications (read
       more in the chapter about 

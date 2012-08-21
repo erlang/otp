@@ -192,12 +192,12 @@
     <section>
       <title>External configuration data and Logging</title>
       <p>It's possible in the CTH to read configuration data values
-	by calling <c>ct:get_config/1/2/3</c> (as explained in the
+	by calling <c><seealso marker="ct#get_config-1">ct:get_config/1/2/3</seealso></c> (as explained in the
 	<seealso marker="config_file_chapter#require_config_data">
 	  External configuration data</seealso>
 	chapter). The config variables in question must, as always, first have been
 	<c>required</c> by means of a suite-, group-, or test case info function,
-	or the <c>ct:require/1/2</c> function. Note that the latter can also be used
+	or the <c><seealso marker="ct#require-1">ct:require/1/2</seealso></c> function. Note that the latter can also be used
 	in CT hook functions.</p>
       <p>The CT hook functions may call any of the logging functions available
 	in the <c>ct</c> interface to print information to the log files, or to

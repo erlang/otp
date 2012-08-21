@@ -78,7 +78,7 @@
     test is skipped (unless a default value has been specified, see the
     <seealso marker="write_test_chapter#info_function">test case info
     function</seealso> chapter for details). There is also a function
-    <c>ct:require/[1,2]</c> which can be called from a test case
+    <c><seealso marker="ct#require-1">ct:require/1/2</seealso></c> which can be called from a test case
     in order to check if a specific variable is available. The return 
     value from this function must be checked explicitly and appropriate 
     action be taken depending on the result (e.g. to skip the test case
@@ -88,7 +88,7 @@
     info-list should look like this:
     <c>{require,CfgVarName}</c> or <c>{require,AliasName,CfgVarName}</c>.
     The arguments <c>AliasName</c> and <c>CfgVarName</c> are the same as the
-    arguments to <c>ct:require/[1,2]</c> which are described in the
+    arguments to <c><seealso marker="ct#require-1">ct:require/1/2</seealso></c> which are described in the
     reference manual for <seealso marker="ct">ct</seealso>.
     <c>AliasName</c> becomes an alias for the configuration variable,
     and can be used as reference to the configuration data value.
@@ -101,7 +101,8 @@
         (or test case) and improve readability.</item>
     </list>
     <p>To read the value of a config variable, use the function
-    <c>get_config/[1,2,3]</c> which is also described in the reference
+    <c><seealso marker="ct#get_config-1">get_config/1/2/3</seealso></c>
+    which is also described in the reference
     manual for <seealso marker="ct">ct</seealso>.</p>
     <p>Example:</p>
     <pre>
@@ -118,7 +119,7 @@
   <section>
   <title>Using configuration variables defined in multiple files</title>
     <p>If a configuration variable is defined in multiple files and you 
-      want to access all possible values, you may use the <c>ct:get_config/3</c>
+      want to access all possible values, you may use the <c><seealso marker="ct#get_config-3">ct:get_config/3</seealso></c>
       function and specify <c>all</c> in the options list. The values will then
       be returned in a list and the order of the elements corresponds to the order 
       that the config files were specified at startup. Please see 
@@ -130,7 +131,7 @@
     <marker id="encrypted_config_files"></marker>
     <p>It is possible to encrypt configuration files containing sensitive data
       if these files must be stored in open and shared directories.</p> 
-      <p>Call <c>ct:encrypt_config_file/[2,3]</c> to have Common Test encrypt a 
+      <p>Call <c><seealso marker="ct#encrypt_config_file-2">ct:encrypt_config_file/2/3</seealso></c> to have Common Test encrypt a
       specified file using the DES3 function in the OTP <c>crypto</c> application.
       The encrypted file can then be used as a regular configuration file,
       in combination with other encrypted files or normal text files. The key
@@ -139,7 +140,7 @@
       <c>decrypt_file</c> flag/option, or a key file in a predefined location.</p>
       
       <p>Common Test also provides decryption functions, 
-      <c>ct:decrypt_config_file/[2,3]</c>, for recreating the original text
+      <c><seealso marker="ct#decrypt_config_file-2">ct:decrypt_config_file/2/3</seealso></c>, for recreating the original text
       files.</p> 
 
       <p>Please see the <seealso marker="ct">ct</seealso> reference manual for
@@ -149,8 +150,8 @@
   <section>
     <title>Opening connections by using configuration data</title>
     <p>There are two different methods for opening a connection
-      by means of the support functions in e.g. <c>ct_ssh</c>, <c>ct_ftp</c>,
-      and <c>ct_telnet</c>:</p>
+      by means of the support functions in e.g. <c><seealso marker="ct_ssh">ct_ssh</seealso></c>, <c><seealso marker="ct_ftp">ct_ftp</seealso></c>,
+      and <c><seealso marker="ct_telnet">ct_telnet</seealso></c>:</p>
     <list>
       <item>Using a configuration target name (an alias) as reference.</item>
       <item>Using the configuration variable as reference.</item>

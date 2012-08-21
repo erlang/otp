@@ -242,12 +242,12 @@
     
     <p>Common Test provides an Erlang API for running tests. The main (and most
       flexible) function for specifying and executing tests is called
-      <c>ct:run_test/1</c>. This function takes the same start parameters as
+      <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>. This function takes the same start parameters as
       the <c>ct_run</c> program described above, only the flags are instead
       given as options in a list of key-value tuples. E.g. a test specified 
       with <c>ct_run</c> like:</p>
       <p><c>$ ct_run -suite ./my_SUITE -logdir ./results</c></p> 
-      <p>is with <c>ct:run_test/1</c> specified as:</p> 
+      <p>is with <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> specified as:</p>
       <p><c>1> ct:run_test([{suite,"./my_SUITE"},{logdir,"./results"}]).</c></p>
       <p>For detailed documentation, please see the <c>ct</c> manual page.</p>    
   </section>
@@ -266,9 +266,9 @@
       for trying out various operations during test suite development.</p>
 
     <p>To invoke the interactive shell mode, you can start an Erlang shell 
-      manually and call <c>ct:install/1</c> to install any configuration
+      manually and call <c><seealso marker="ct#install-1">ct:install/1</seealso></c> to install any configuration
       data you might need (use <c>[]</c> as argument otherwise), then
-      call <c>ct:start_interactive/0</c> to start Common Test. If you use
+      call <c><seealso marker="ct#start_interactive-0">ct:start_interactive/0</seealso></c> to start Common Test. If you use
       the <c>ct_run</c> program, you may start the Erlang shell and Common Test
       in the same go by using the <c>-shell</c> and, optionally, the <c>-config</c>
       and/or <c>-userconfig</c> flag. Examples:
@@ -287,7 +287,8 @@
     
     <p>If any functions using "required config data" (e.g. ct_telnet or
       ct_ftp functions) are to be called from the erlang shell, config
-      data must first be required with <c>ct:require/[1,2]</c>. This is
+      data must first be required with <c><seealso marker="ct#require-1">
+      ct:require/1/2</seealso></c>. This is
       equivalent to a <c>require</c> statement in the <seealso
 	marker="write_test_chapter#suite">Test Suite Info 
 	Function</seealso> or in the <seealso
@@ -314,11 +315,11 @@
       is not supported.</p>
     
     <p>If you wish to exit the interactive mode (e.g. to start an
-      automated test run with <c>ct:run_test/1</c>), call the function 
-      <c>ct:stop_interactive/0</c>. This shuts down the
+      automated test run with <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>), call the function
+      <c><seealso marker="ct#stop_interactive-0">ct:stop_interactive/0</seealso></c>. This shuts down the
       running <c>ct</c> application. Associations between
       configuration names and data created with <c>require</c> are 
-      consequently deleted. <c>ct:start_interactive/0</c> will get you 
+      consequently deleted. <c><seealso marker="ct#start_interactive-0">ct:start_interactive/0</seealso></c> will get you
       back into interactive mode, but the previous state is not restored.</p>
   </section>
 
@@ -326,7 +327,7 @@
     <title>Step by step execution of test cases with the Erlang Debugger</title>
    
     <p>By means of <c>ct_run -step [opts]</c>, or by passing the 
-       <c>{step,Opts}</c> option to <c>ct:run_test/1</c>, it is possible
+       <c>{step,Opts}</c> option to <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>, it is possible
        to get the Erlang Debugger started automatically and use its
        graphical interface to investigate the state of the current test 
        case and to execute it step by step and/or set execution breakpoints.</p>
@@ -586,7 +587,7 @@
       <c>ct_run</c>. This forces Common Test to ignore unrecognizable terms.
       Note that in this mode, Common Test is not able to check the specification 
       for errors as efficiently as if the scanner runs in default mode. 
-      If <c>ct:run_test/1</c> is used for starting the tests, the relaxed scanner 
+      If <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> is used for starting the tests, the relaxed scanner
       mode is enabled by means of the tuple: <c>{allow_user_terms,true}</c></p>
   </section>
   
@@ -943,7 +944,7 @@
       
       <p>The <c>-silent_connections</c> tag (or
 	<c>silent_connections</c> tagged tuple in the call to
-	<c>ct:run_test/1</c>) overrides any settings in the test
+	<c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>) overrides any settings in the test
 	suite.</p>
       
       <p>Note that in the current Common Test version, the
