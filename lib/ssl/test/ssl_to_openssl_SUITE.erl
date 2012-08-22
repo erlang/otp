@@ -106,7 +106,9 @@ init_per_testcase(TestCase, Config0) ->
 
 special_init(TestCase, Config) 
   when TestCase == erlang_client_openssl_server_renegotiate;
-       TestCase == erlang_client_openssl_server_no_wrap_sequence_number  ->
+       TestCase == erlang_client_openssl_server_no_wrap_sequence_number;
+       TestCase == erlang_server_openssl_client_no_wrap_sequence_number
+       ->
     check_sane_openssl_renegotaite(Config);
 
 special_init(ssl2_erlang_server_openssl_client, Config) ->

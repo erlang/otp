@@ -2119,7 +2119,7 @@ make_sure_expired(Host, Port, Id) ->
 	#session{is_resumable = false} ->
 	    ok;
 	_ ->
-	    test_server:sleep(100),
+	    test_server:sleep(?SLEEP),
 	    make_sure_expired(Host, Port, Id)
     end.
 
