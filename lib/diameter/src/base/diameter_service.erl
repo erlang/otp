@@ -2200,44 +2200,37 @@ handle_answer(SvcName, _, {error, Req, Reason}) ->
 handle_answer(SvcName,
               AnswerErrors,
               {answer, #request{dictionary = Dict} = Req, Pkt}) ->
-    a(examine(diameter_codec:decode(Dict, Pkt)),
-      SvcName,
-      AnswerErrors,
-      Req).
+    answer(examine(diameter_codec:decode(Dict, Pkt)),
+           SvcName,
+           AnswerErrors,
+           Req).
 
 %% We don't really need to do a full decode if we're a relay and will
 %% just resend with a new hop by hop identifier, but might a proxy
 %% want to examine the answer?
 
-a(#diameter_packet{errors = []}
-  = Pkt,
-  SvcName,
-  AE,
-  #request{transport = TPid,
-           caps = Caps,
-           packet = P}
-  = Req) ->
+answer(Pkt, SvcName, AE, #request{transport = TPid} = Req) ->
     try
         incr(recv, Pkt, TPid)
     of
-        _ ->
-            cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}])
+        _ -> a(Pkt, SvcName, AE, Req)
     catch
         exit: {invalid_error_bit, _} = E ->
-            e(Pkt#diameter_packet{errors = [E]}, SvcName, AE, Req)
-    end;
+            a(Pkt#diameter_packet{errors = [E]}, SvcName, AE, Req)
+    end.
 
-a(#diameter_packet{} = Pkt, SvcName, AE, Req) ->
-    e(Pkt, SvcName, AE, Req).
-
-e(Pkt, SvcName, callback, #request{transport = TPid,
-                                   caps = Caps,
-                                   packet = Pkt}
-                          = Req) ->
-    cb(Req, handle_answer, [Pkt, msg(Pkt), SvcName, {TPid, Caps}]);
-e(Pkt, SvcName, report, Req) ->
+a(#diameter_packet{errors = Es} = Pkt, SvcName, AE, #request{transport = TPid,
+                                                             caps = Caps,
+                                                             packet = P}
+                                                    = Req)
+  when [] == Es;
+       callback == AE ->
+    cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
+    
+a(Pkt, SvcName, report, Req) ->
     x(errors, handle_answer, [SvcName, Req, Pkt]);
-e(Pkt, SvcName, discard, Req) ->
+
+a(Pkt, SvcName, discard, Req) ->
     x({errors, handle_answer, [SvcName, Req, Pkt]}).
 
 %% Note that we don't check that the application id in the answer's
@@ -2252,8 +2245,10 @@ e(Pkt, SvcName, discard, Req) ->
 incr(_, #diameter_packet{msg = undefined}, _) ->
     ok;
 
-incr(Dir, Pkt, TPid)
-  when is_pid(TPid) ->
+incr(recv = D, #diameter_packet{header = H, errors = [_|_]}, TPid) ->
+    incr(TPid, {diameter_codec:msg_id(H), D, error});
+
+incr(Dir, Pkt, TPid) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
                      msg = Rec}
@@ -2267,14 +2262,23 @@ incr(Dir, Pkt, TPid)
         orelse (E andalso PE)
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
-    Ctr = rc_counter(Rec, RC),
-    is_tuple(Ctr)
-        andalso incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
+    incr(TPid, Hdr, Dir, rc_counter(Rec, RC)).
+
+%% incr/4
+
+incr(TPid, Hdr, Dir, Ctr)
+  when is_tuple(Ctr) ->
+    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr});
+
+incr(_, _, _, _) ->
+    false.
 
 %% incr/2
 
 incr(TPid, Counter) ->
     diameter_stats:incr(Counter, TPid, 1).
+
+%% error_counter/2
 
 %% RFC 3588, 7.6:
 %%
