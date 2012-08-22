@@ -516,6 +516,14 @@ transition({reconnect, Pid}, S) ->
     reconnect(Pid, S),
     ok;
 
+%% Watchdog is sending notification of a state transition.
+transition({watchdog, Pid, {TPid, From, To}}, #state{service_name = SvcName,
+                                                     peerT = PeerT}) ->
+    #peer{ref = Ref, type = T, options = Opts}
+        = fetch(PeerT, Pid),
+    send_event(SvcName, {watchdog, Ref, TPid, {From, To}, {T, Opts}}),
+    ok;
+
 %% Monitor process has died. Just die with a reason that tells
 %% diameter_config about the happening. If a cleaner shutdown is
 %% required then someone should stop us.
