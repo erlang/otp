@@ -100,9 +100,7 @@ ptype -> '[' utype ',' '...' ']' : #t_nonempty_list{type = '$2'}.
 ptype -> utype_list:
 	if length(element(1, '$1')) == 1 ->
 		%% there must be exactly one utype in the list
-		hd(element(1, '$1'));
-                %% Replace last line when releasing next major release:
-                %% #t_paren{type = hd(element(1, '$1'))};
+                #t_paren{type = hd(element(1, '$1'))};
 	   length(element(1, '$1')) == 0 ->
 		return_error(element(2, '$1'), "syntax error before: ')'");
 	   true ->
