@@ -259,11 +259,17 @@
             that identifies the host for ssh. The default is
             <c><![CDATA[/etc/ssh]]></c>, note that SSH normally
             requires the host files there to be readable only by
-            root.</p>
+	    root.</p>
+	  </item>
+	  <tag><c><![CDATA[{auth_methods, string()}]]></c></tag>
+	  <item>
+	    <p>Comma separated string that determines which authentication methodes that the server
+	    should support and in what order they will be tried. Defaults to
+	    <c><![CDATA["publickey,keyboard_interactive,password"]]></c></p>
           </item>
-          <tag><c><![CDATA[{user_passwords, [{string() = User, string() = Password}]}]]></c></tag>
-          <item>
-	    <p>Provide passwords for password authentication.They will
+	  <tag><c><![CDATA[{user_passwords, [{string() = User, string() = Password}]}]]></c></tag>
+	  <item>
+            <p>Provide passwords for password authentication.They will
 	    be used when someone tries to connect to the server and
 	    public key user authentication fails. The option provides
 	    a list of valid user names and the corresponding password.
