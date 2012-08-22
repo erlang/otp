@@ -690,7 +690,7 @@ get_padding_aux(BlockSize, PadLength) ->
 
 random_iv(IV) ->
     IVSz = byte_size(IV),
-    crypto:rand_bytes(IVSz).
+    ssl:random_bytes(IVSz).
 
 next_iv(Bin, IV) ->
     BinSz = byte_size(Bin),

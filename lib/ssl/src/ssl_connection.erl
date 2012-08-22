@@ -2310,7 +2310,7 @@ handle_unexpected_message(Msg, Info, #state{negotiated_version = Version} = Stat
     {stop, normal, State}.
 
 make_premaster_secret({MajVer, MinVer}, rsa) ->
-    Rand = crypto:rand_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
+    Rand = ssl:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
     undefined.

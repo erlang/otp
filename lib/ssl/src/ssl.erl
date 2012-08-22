@@ -31,7 +31,7 @@
 	 controlling_process/2, listen/2, pid/1, peername/1, peercert/1,
 	 recv/2, recv/3, send/2, getopts/2, setopts/2, sockname/1,
 	 versions/0, session_info/1, format_error/1,
-	 renegotiate/1, prf/5, clear_pem_cache/0]).
+	 renegotiate/1, prf/5, clear_pem_cache/0, random_bytes/1]).
 
 -deprecated({pid, 1, next_major_release}).
 
@@ -483,6 +483,23 @@ format_error(Error) ->
         Other ->
             Other
     end.
+
+%%--------------------------------------------------------------------
+-spec random_bytes(integer()) -> binary().
+
+%%
+%% Description: Generates cryptographically secure random sequence if possible
+%% fallbacks on pseudo random function
+%%--------------------------------------------------------------------
+random_bytes(N) ->
+    try crypto:strong_rand_bytes(N) of
+	RandBytes ->
+	    RandBytes
+    catch
+	error:low_entropy ->
+	    crypto:rand_bytes(N)
+    end.
+
 
 %%%--------------------------------------------------------------
 %%% Internal functions
