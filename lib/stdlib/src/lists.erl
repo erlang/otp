@@ -1178,8 +1178,7 @@ rumerge(T1, [H2 | T2]) ->
 %% takewhile(Predicate, List)
 %% dropwhile(Predicate, List)
 %% splitwith(Predicate, List)
-%%  for list programming. Function here is a 'fun'. For backward compatibility,
-%%  {Module,Function} is still accepted.
+%%  for list programming. Function here is a 'fun'.
 %% 
 %%  The name zf is a joke!
 %%

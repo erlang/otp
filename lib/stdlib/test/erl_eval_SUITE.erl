@@ -216,13 +216,13 @@ guard_4(doc) ->
 guard_4(suite) ->
     [];
 guard_4(Config) when is_list(Config) ->
-    ?line check(fun() -> if {erlang,'+'}(3,a) -> true ; true -> false end end,
-                "if {erlang,'+'}(3,a) -> true ; true -> false end.",
-                false),
-    ?line check(fun() -> if {erlang,is_integer}(3) -> true ; true -> false end
-                end,
-                "if {erlang,is_integer}(3) -> true ; true -> false end.",
-                true),
+    check(fun() -> if erlang:'+'(3,a) -> true ; true -> false end end,
+	  "if erlang:'+'(3,a) -> true ; true -> false end.",
+	  false),
+    check(fun() -> if erlang:is_integer(3) -> true ; true -> false end
+	  end,
+	  "if erlang:is_integer(3) -> true ; true -> false end.",
+	  true),
     ?line check(fun() -> [X || X <- [1,2,3], erlang:is_integer(X)] end,
                 "[X || X <- [1,2,3], erlang:is_integer(X)].",
                 [1,2,3]),
@@ -230,11 +230,11 @@ guard_4(Config) when is_list(Config) ->
                 end,
                 "if is_atom(is_integer(a)) -> true ; true -> false end.",
                 true),
-    ?line check(fun() -> if {erlang,is_atom}({erlang,is_integer}(a)) -> true;
-                            true -> false end end,
-                "if {erlang,is_atom}({erlang,is_integer}(a)) -> true; "
-                "true -> false end.",
-                true),
+    check(fun() -> if erlang:is_atom(erlang:is_integer(a)) -> true;
+		      true -> false end end,
+	  "if erlang:is_atom(erlang:is_integer(a)) -> true; "
+	  "true -> false end.",
+	  true),
     ?line check(fun() -> if is_atom(3+a) -> true ; true -> false end end,
                 "if is_atom(3+a) -> true ; true -> false end.",
                 false),
@@ -1077,11 +1077,6 @@ do_funs(LFH, EFH) ->
                 concat(["begin F1 = fun(F,N) -> apply(", M, 
                         ",count_down,[F, N]) end, F1(F1,1000) end."]),
 		0, ['F1'], LFH, EFH),
-    ?line check(fun() -> F1 = fun(F,N) -> {?MODULE,count_down}(F,N)
-                              end, F1(F1, 1000) end,
-                concat(["begin F1 = fun(F,N) -> {", M, 
-                        ",count_down}(F, N) end, F1(F1,1000) end."]),
-		0, ['F1'], LFH, EFH),
     ?line check(fun() -> F = fun(F,N) when N > 0 -> apply(F,[F,N-1]); 
                                 (_F,0) -> ok end, 
                          F(F, 1000)
@@ -1113,11 +1108,11 @@ do_funs(LFH, EFH) ->
                          true = {2,3} == F(2) end,
                 "begin F = fun(X) -> A = 1+X, {X,A} end, 
                        true = {2,3} == F(2) end.", true, ['F'], LFH, EFH),
-    ?line check(fun() -> F = fun(X) -> {erlang,'+'}(X,2) end, 
-                         true = 3 == F(1) end,
-                "begin F = fun(X) -> {erlang,'+'}(X,2) end," 
-                "      true = 3 == F(1) end.", true, ['F'],
-               LFH, EFH),
+    check(fun() -> F = fun(X) -> erlang:'+'(X,2) end,
+		   true = 3 == F(1) end,
+	  "begin F = fun(X) -> erlang:'+'(X,2) end,"
+	  "      true = 3 == F(1) end.", true, ['F'],
+	  LFH, EFH),
     ?line check(fun() -> F = fun(X) -> byte_size(X) end,
                          ?MODULE:do_apply(F,<<"hej">>) end, 
                 concat(["begin F = fun(X) -> size(X) end,",

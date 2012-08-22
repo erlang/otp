@@ -1916,9 +1916,6 @@ gexpr({call,Line,{remote,_Lr,{atom,_Lm,erlang},{atom,_Lf,F}},As}, Vt, St0) ->
         true -> {Asvt,St1};
         false -> {Asvt,add_error(Line, illegal_guard_expr, St1)}
     end;
-gexpr({call,L,{tuple,Lt,[{atom,Lm,erlang},{atom,Lf,F}]},As}, Vt, St0) ->
-    St = add_warning(L, deprecated_tuple_fun, St0),
-    gexpr({call,L,{remote,Lt,{atom,Lm,erlang},{atom,Lf,F}},As}, Vt, St);
 gexpr({op,Line,Op,A}, Vt, St0) ->
     {Avt,St1} = gexpr(A, Vt, St0),
     case is_gexpr_op(Op, 1) of

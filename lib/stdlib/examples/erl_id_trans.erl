@@ -283,15 +283,6 @@ gexpr({call,Line,{remote,La,{atom,Lb,erlang},{atom,Lc,F}},As0}) ->
 	true -> As1 = gexpr_list(As0),
 		{call,Line,{remote,La,{atom,Lb,erlang},{atom,Lc,F}},As1}
     end;
-% Unfortunately, writing calls as {M,F}(...) is also allowed.
-gexpr({call,Line,{tuple,La,[{atom,Lb,erlang},{atom,Lc,F}]},As0}) ->
-    case erl_internal:guard_bif(F, length(As0)) or
-	 erl_internal:arith_op(F, length(As0)) or 
-	 erl_internal:comp_op(F, length(As0)) or
-	 erl_internal:bool_op(F, length(As0)) of
-	true -> As1 = gexpr_list(As0),
-		{call,Line,{tuple,La,[{atom,Lb,erlang},{atom,Lc,F}]},As1}
-    end;
 gexpr({bin,Line,Fs}) ->
     Fs2 = pattern_grp(Fs),
     {bin,Line,Fs2};

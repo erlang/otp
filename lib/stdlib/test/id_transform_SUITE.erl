@@ -26,7 +26,7 @@
 	 id_transform/1]).
 
 -export([check/2,check2/1,g/0,f/1,t/1,t1/1,t2/1,t3/1,t4/1,
-	 t5/1,t6/1,apa/1,new_fun/0]).
+	 t5/1,apa/1,new_fun/0]).
 
 						% Serves as test...
 -hej(hopp).
@@ -388,8 +388,6 @@ t3(A) when is_tuple(A) or is_tuple(A) ->
    is_tuple; 
 t3(A) when record(A, apa) ->
    foo;
-t3(A) when {erlang,is_record}(A, apa) ->
-   foo;
 t3(A) when erlang:is_record(A, apa) ->
    foo;
 t3(A) when is_record(A, apa) ->
@@ -397,13 +395,10 @@ t3(A) when is_record(A, apa) ->
 t3(A) when record({apa}, apa) ->
    {A,foo}.
 
-t4(_) when {erlang,is_record}({apa}, apa) ->
-   foo.
-
-t5(A) when erlang:is_record({apa}, apa) ->
+t4(A) when erlang:is_record({apa}, apa) ->
    {A,foo}.
 
-t6(A) when is_record({apa}, apa) ->
+t5(A) when is_record({apa}, apa) ->
    {A,foo}.
 
 -record(apa2,{a=a,b=foo:bar()}).

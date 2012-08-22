@@ -1307,44 +1307,30 @@ guard(Config) when is_list(Config) ->
                    foo;
                t3(A) when erlang:is_record(A, {apa}) ->
                    foo;
-               t3(A) when {erlang,is_record}(A, {apa}) ->
-                   foo;
                t3(A) when is_record(A, {apa}, 1) ->
                    foo;
                t3(A) when erlang:is_record(A, {apa}, 1) ->
                    foo;
-               t3(A) when {erlang,is_record}(A, {apa}, 1) ->
-                   foo;
                t3(A) when is_record(A, apa, []) ->
                    foo;
                t3(A) when erlang:is_record(A, apa, []) ->
-                   foo;
-               t3(A) when {erlang,is_record}(A, apa, []) ->
                    foo;
                t3(A) when record(A, apa) ->
                    foo;
                t3(A) when is_record(A, apa) ->
                    foo;
                t3(A) when erlang:is_record(A, apa) ->
-                   foo;
-               t3(A) when {erlang,is_record}(A, apa) ->
                    foo.
             ">>,
             [warn_unused_vars, nowarn_obsolete_guard],
-            {error,[{2,erl_lint,illegal_guard_expr},
-		    {4,erl_lint,illegal_guard_expr},
-		    {6,erl_lint,illegal_guard_expr},
-		    {8,erl_lint,illegal_guard_expr},
-		    {10,erl_lint,illegal_guard_expr},
-		    {12,erl_lint,illegal_guard_expr},
-		    {14,erl_lint,illegal_guard_expr},
-		    {16,erl_lint,illegal_guard_expr},
-		    {18,erl_lint,illegal_guard_expr},
-		    {20,erl_lint,illegal_guard_expr}],
-	     [{8,erl_lint,deprecated_tuple_fun},
-	      {14,erl_lint,deprecated_tuple_fun},
-	      {20,erl_lint,deprecated_tuple_fun},
-	      {28,erl_lint,deprecated_tuple_fun}]}},
+            {errors,[{2,erl_lint,illegal_guard_expr},
+		     {4,erl_lint,illegal_guard_expr},
+		     {6,erl_lint,illegal_guard_expr},
+		     {8,erl_lint,illegal_guard_expr},
+		     {10,erl_lint,illegal_guard_expr},
+		     {12,erl_lint,illegal_guard_expr},
+		     {14,erl_lint,illegal_guard_expr}],
+	     []}},
            {guard6,
             <<"-record(apa,{a=a,b=foo:bar()}).
               apa() ->
