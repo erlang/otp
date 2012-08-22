@@ -1937,6 +1937,12 @@ is_loop(Code, Vid, OH, Avps) ->
 %%
 %% Send a locally originating reply.
 
+%% Skip the setting of Result-Code and Failed-AVP's below.
+reply([Msg], Dict, TPid, Pkt)
+  when is_list(Msg);
+       is_tuple(Msg) ->
+    reply(Msg, Dict, TPid, Pkt#diameter_packet{errors = []});
+
 %% No errors or a diameter_header/avp list.
 reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
                                         transport_data = TD}
