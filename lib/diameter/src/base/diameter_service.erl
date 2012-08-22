@@ -1985,7 +1985,10 @@ rc(RC) ->
 
 rc(Rec, RC, Failed, Dict)
   when is_integer(RC) ->
-    set(Rec, [{'Result-Code', RC} | failed_avp(Rec, Failed, Dict)], Dict).
+    set(Rec,
+        lists:append([rc(Rec, {'Result-Code', RC}, Dict),
+                      failed_avp(Rec, Failed, Dict)]),
+        Dict).
 
 %% Reply as name and tuple list ...
 set([_|_] = Ans, Avps, _) ->
@@ -1995,6 +1998,22 @@ set([_|_] = Ans, Avps, _) ->
 set(Rec, Avps, Dict) ->
     Dict:'#set-'(Avps, Rec).
 
+%% rc/3
+%%
+%% Turn the result code into a list if its optional and only set it if
+%% the arity is 1 or {0,1}. In other cases (which probably shouldn't
+%% exist in practise) we can't know what's appropriate.
+
+rc([MsgName | _], {'Result-Code' = K, RC} = T, Dict) ->
+    case Dict:avp_arity(MsgName, 'Result-Code') of
+        1     -> [T];
+        {0,1} -> [{K, [RC]}];
+        _     -> []
+    end;
+
+rc(Rec, T, Dict) ->
+    rc([Dict:rec2msg(element(1, Rec))], T, Dict).
+    
 %% failed_avp/3
 
 failed_avp(_, [] = No, _) ->
