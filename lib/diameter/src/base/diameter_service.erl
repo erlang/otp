@@ -1942,7 +1942,7 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
     Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
-    incr(send, Pkt, TPid),  %% count result codes in sent answers
+    incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
     send(TPid, Pkt#diameter_packet{transport_data = TD});
 
 %% Or not: set Result-Code and Failed-AVP AVP's.
@@ -2209,9 +2209,11 @@ handle_answer(SvcName,
 %% just resend with a new hop by hop identifier, but might a proxy
 %% want to examine the answer?
 
-answer(Pkt, SvcName, AE, #request{transport = TPid} = Req) ->
+answer(Pkt, SvcName, AE, #request{transport = TPid,
+                                  dictionary = Dict}
+                         = Req) ->
     try
-        incr(recv, Pkt, TPid)
+        incr(recv, Pkt, Dict, TPid)
     of
         _ -> a(Pkt, SvcName, AE, Req)
     catch
@@ -2242,19 +2244,19 @@ a(Pkt, SvcName, discard, Req) ->
 %% Increment a stats counter for an incoming or outgoing message.
 
 %% TODO: fix
-incr(_, #diameter_packet{msg = undefined}, _) ->
+incr(_, #diameter_packet{msg = undefined}, _, _) ->
     ok;
 
-incr(recv = D, #diameter_packet{header = H, errors = [_|_]}, TPid) ->
+incr(recv = D, #diameter_packet{header = H, errors = [_|_]}, _, TPid) ->
     incr(TPid, {diameter_codec:msg_id(H), D, error});
 
-incr(Dir, Pkt, TPid) ->
+incr(Dir, Pkt, Dict, TPid) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
                      msg = Rec}
         = Pkt,
 
-    RC = int(get_avp_value(?BASE, 'Result-Code', Rec)),
+    RC = int(get_avp_value(Dict, 'Result-Code', Rec)),
     PE = is_protocol_error(RC),
 
     %% Check that the E bit is set only for 3xxx result codes.
@@ -2262,16 +2264,13 @@ incr(Dir, Pkt, TPid) ->
         orelse (E andalso PE)
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
-    incr(TPid, Hdr, Dir, rc_counter(Rec, RC)).
+    irc(TPid, Hdr, Dir, rc_counter(Dict, Rec, RC)).
 
-%% incr/4
+irc(_, _, _, undefined) ->
+    false;
 
-incr(TPid, Hdr, Dir, Ctr)
-  when is_tuple(Ctr) ->
-    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr});
-
-incr(_, _, _, _) ->
-    false.
+irc(TPid, Hdr, Dir, Ctr) ->
+    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
 
 %% incr/2
 
@@ -2289,26 +2288,27 @@ incr(TPid, Counter) ->
 %% Maintain statistics assuming one or the other, not both, which is
 %% surely the intent of the RFC.
 
-rc_counter(_, RC)
-  when is_integer(RC) ->
-    {'Result-Code', RC};
-rc_counter(Rec, _) ->
-    rcc(get_avp_value(?BASE, 'Experimental-Result', Rec)).
+rc_counter(Dict, Rec, undefined) ->
+    er(get_avp_value(Dict, 'Experimental-Result', Rec));
+rc_counter(_, _, RC) ->
+    {'Result-Code', RC}.
 
 %% Outgoing answers may be in any of the forms messages can be sent
 %% in. Incoming messages will be records. We're assuming here that the
 %% arity of the result code AVP's is 0 or 1.
 
-rcc([{_,_,RC} = T])
-  when is_integer(RC) ->
+er([{_,_,N} = T | _])
+  when is_integer(N) ->
     T;
-rcc({_,_,RC} = T)
-  when is_integer(RC) ->
+er({_,_,N} = T)
+  when is_integer(N) ->
     T;
-rcc(_) ->
+er(_) ->
     undefined.
 
-int([N])
+%% Extract the first good looking integer. There's no guarantee
+%% that what we're looking for has arity 1.
+int([N|_])
   when is_integer(N) ->
     N;
 int(N)
