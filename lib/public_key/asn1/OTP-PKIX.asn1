@@ -225,7 +225,17 @@ dnQualifier ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
 
 countryName ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
 	ID id-at-countryName
-	TYPE X520countryName }
+        TYPE X520countryName } -- this is currently not used when decoding
+ -- The decoding and mapping between ID and Type is done in the code
+ -- in module publickey_cert_records via the function attribute_type
+ -- To be more forgiving and compatible with other SSL implementations
+ -- regarding how to handle and sometimes accept incorrect certificates
+ -- we define and use the type below instead of X520countryName
+
+ OTP-X520countryname ::= CHOICE {
+       printableString   PrintableString (SIZE (2)),
+       utf8String        UTF8String      (SIZE (2))
+}
 
 serialNumber ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= {
 	ID id-at-serialNumber
