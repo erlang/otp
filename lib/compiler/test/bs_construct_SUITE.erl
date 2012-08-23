@@ -468,6 +468,10 @@ opt(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch <<<<23,56,0,2>>:64/float>>),
     ?line {'EXIT',_} = (catch <<<<23,56,0,2:7>>/binary>>),
 
+    %% Test constant propagation - there should be a warning.
+    BadSz = 2.5,
+    {'EXIT',_} = (catch <<<<N,56,0,2>>:BadSz/binary>>),
+
     case id(false) of
 	true -> ?line opt_dont_call_me();
 	false -> ok

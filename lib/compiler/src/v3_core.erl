@@ -823,6 +823,13 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	{_,_} ->
 	    throw(bad_binary)
     end,
+    case Size1 of
+	#c_var{} -> ok;
+	#c_literal{val=Sz} when is_integer(Sz), Sz >= 0 -> ok;
+	#c_literal{val=undefined} -> ok;
+	#c_literal{val=all} -> ok;
+	_ -> throw(bad_binary)
+    end,
     {#c_bitstr{val=E1,size=Size1,
 	       unit=#c_literal{val=Unit},
 	       type=#c_literal{val=Type},
