@@ -278,11 +278,12 @@ expr(#c_binary{anno=A,segments=Cv}, Sub, St0) ->
 	    {#k_binary{anno=A,segs=Kv},Ep,St1}
     catch
 	throw:bad_element_size ->
+	    St1 = add_warning(get_line(A), bad_segment_size, A, St0),
 	    Erl = #c_literal{val=erlang},
 	    Name = #c_literal{val=error},
 	    Args = [#c_literal{val=badarg}],
 	    Error = #c_call{anno=A,module=Erl,name=Name,args=Args},
-	    expr(Error, Sub, St0)
+	    expr(Error, Sub, St1)
     end;
 expr(#c_fun{anno=A,vars=Cvs,body=Cb}, Sub0, #kern{ff=OldFF,func=Func}=St0) ->
     FA = case OldFF of
@@ -1827,7 +1828,9 @@ format_error({nomatch_shadow,Line}) ->
 format_error(nomatch_shadow) ->
     "this clause cannot match because a previous clause always matches";
 format_error(bad_call) ->
-    "invalid module and/or function name; this call will always fail".
+    "invalid module and/or function name; this call will always fail";
+format_error(bad_segment_size) ->
+    "binary construction will fail because of a type mismatch".
 
 add_warning(none, Term, Anno, #kern{ws=Ws}=St) ->
     File = get_file(Anno),
