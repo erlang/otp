@@ -37,14 +37,15 @@
 	 save_suite_data_async/3, save_suite_data_async/2,
 	 read_suite_data/1, 
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
-	 delete_testdata/0, delete_testdata/1, set_testdata/1, get_testdata/1,
+	 delete_testdata/0, delete_testdata/1,
+	 set_testdata/1, get_testdata/1, get_testdata/2,
 	 set_testdata_async/1, update_testdata/2]).
 
 -export([override_silence_all_connections/0, override_silence_connections/1, 
 	 get_overridden_silenced_connections/0, 
 	 delete_overridden_silenced_connections/0, 
-	 silence_all_connections/0, silence_connections/1, is_silenced/1, 
-	 reset_silent_connections/0]).
+	 silence_all_connections/0, silence_connections/1,
+	 is_silenced/1, is_silenced/2, reset_silent_connections/0]).
 
 -export([get_mode/0, create_table/3, read_opts/0]).
 
@@ -262,6 +263,9 @@ set_testdata_async(TestData) ->
 get_testdata(Key) ->
     call({get_testdata, Key}).
 
+get_testdata(Key, Timeout) ->
+    call({get_testdata, Key}, Timeout).
+
 set_cwd(Dir) ->
     call({set_cwd,Dir}).
 
@@ -396,7 +400,6 @@ loop(Mode,TestData,StartDir) ->
 	    end
     end.
 
-
 close_connections([#conn{handle=Handle,callback=CB}|Conns]) ->
     CB:close(Handle),
     close_connections(Conns);
@@ -528,7 +531,7 @@ close_connections() ->
 %%%
 %%% @doc 
 override_silence_all_connections() ->
-    Protocols = [telnet,ftp,rpc,snmp],
+    Protocols = [telnet,ftp,rpc,snmp,ssh],
     override_silence_connections(Protocols),
     Protocols.
 
@@ -565,7 +568,10 @@ silence_connections(Conns) when is_list(Conns) ->
     set_testdata({silent_connections,Conns1}).
 
 is_silenced(Conn) ->
-    case get_testdata(silent_connections) of
+    is_silenced(Conn, infinity).
+
+is_silenced(Conn, Timeout) ->
+    case get_testdata(silent_connections, Timeout) of
 	Conns when is_list(Conns) ->
 	    case lists:keysearch(Conn,1,Conns) of
 		{value,{Conn,true}} ->
@@ -573,6 +579,8 @@ is_silenced(Conn) ->
 		_ ->
 		    false
 	    end;
+	Error = {error,_} ->
+	    Error;
 	_ ->
 	    false
     end.
@@ -847,6 +855,9 @@ get_profile_data(Profile, Key, StartDir) ->
 %%%-----------------------------------------------------------------
 %%% Internal functions
 call(Msg) ->
+    call(Msg, infinity).
+
+call(Msg, Timeout) ->
     case whereis(ct_util_server) of
 	undefined ->
 	    {error,ct_util_server_not_running};
@@ -860,6 +871,8 @@ call(Msg) ->
 		    Result;
 		{'DOWN',MRef,process,_,Reason}  -> 
 		    {error,{ct_util_server_down,Reason}}
+	    after
+		Timeout -> {error,timeout}
 	    end
     end.
 

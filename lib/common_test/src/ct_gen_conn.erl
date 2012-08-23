@@ -121,7 +121,7 @@ start(Name,Address,InitData,CallbackMod) ->
 %%%
 %%% @doc Close the connection and stop the process managing it.
 stop(Pid) ->
-    call(Pid,stop).
+    call(Pid,stop,5000).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Heading,Format,Args) -> ok
@@ -251,9 +251,10 @@ check_opts([{old,Bool}|T],Opts) ->
 check_opts([],Opts) ->
     Opts.
 
-call(Pid,Msg) ->
-    call(Pid,Msg,infinity).
-call(Pid,Msg,Timeout) ->
+call(Pid, Msg) ->
+    call(Pid, Msg, infinity).
+
+call(Pid, Msg, Timeout) ->
     MRef = erlang:monitor(process,Pid),
     Ref = make_ref(),
     Pid ! {Msg,{self(),Ref}},
@@ -270,7 +271,11 @@ call(Pid,Msg,Timeout) ->
 	    {error,{process_down,Pid,Reason}}
     after Timeout ->
 	    erlang:demonitor(MRef, [flush]),
-	    exit(timeout)
+	    log("ct_gen_conn",
+		"Connection process ~p not responding. Killing now!",
+		[Pid]),
+	    exit(Pid, kill),
+	    {error,{process_down,Pid,forced_termination}}
     end.
 
 return({To,Ref},Result) ->
