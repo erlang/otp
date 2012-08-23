@@ -48,7 +48,7 @@
 
 %% @doc Called before any suites are started
 -spec init(State :: term()) -> ok |
-			       {error, Reason :: term()}.
+			       {fail, Reason :: term()}.
 init(Opts) ->
     call(get_new_hooks(Opts, undefined) ++ get_builtin_hooks(Opts),
 	 ok, init, []).
