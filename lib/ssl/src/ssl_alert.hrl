@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,6 +43,7 @@
 %%       record_overflow(22),
 %%       decompression_failure(30),
 %%       handshake_failure(40),
+%%       no_certificate_RESERVED(41), %% Only sslv3
 %%       bad_certificate(42),
 %%       unsupported_certificate(43),
 %%       certificate_revoked(44),
@@ -69,6 +70,7 @@
 -define(RECORD_OVERFLOW, 22).
 -define(DECOMPRESSION_FAILURE, 30).
 -define(HANDSHAKE_FAILURE, 40).
+-define(NO_CERTIFICATE_RESERVED, 41).
 -define(BAD_CERTIFICATE, 42).
 -define(UNSUPPORTED_CERTIFICATE, 43).
 -define(CERTIFICATE_REVOKED, 44).
