@@ -67,7 +67,12 @@ ERL_COMPILE_FLAGS += +warn_export_vars \
 # Targets
 # ----------------------------------------------------
 
+# Require success ...
 all: opt
+
+# ... or not.
+any: opt
+	$(MAKE) -i $(SUITES)
 
 run: $(SUITES)
 
@@ -113,7 +118,7 @@ help:
 	@echo "        Echo some relevant variables."
 	@echo ========================================
 
-.PHONY: all run clean debug docs help info opt realclean
+.PHONY: all any run clean debug docs help info opt realclean
 
 # ----------------------------------------------------
 # Special Targets
