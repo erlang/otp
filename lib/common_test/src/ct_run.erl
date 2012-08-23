@@ -1619,69 +1619,111 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 			      "run ct:start_interactive()\n\n",[]),
 		    {error,interactive_mode};
 		_Pid ->
-		    %% save stylesheet info
-		    ct_util:set_testdata({stylesheet,Opts#opts.stylesheet}),
-		    %% save logopts
-		    ct_util:set_testdata({logopts,Opts#opts.logopts}),
-		    %% enable silent connections
-		    case Opts#opts.silent_connections of
-			[] ->
-			    Conns = ct_util:override_silence_all_connections(),
-			    ct_logs:log("Silent connections", "~p", [Conns]);
-			Conns when is_list(Conns) ->
-			    ct_util:override_silence_connections(Conns),
-			    ct_logs:log("Silent connections", "~p", [Conns]);
-			_ ->
-			    ok
-		    end,
-		    log_ts_names(Opts1#opts.testspecs),
-		    TestSuites = suite_tuples(Tests),
+		    compile_and_run(Tests, Skip, Opts1, Args)
+	    end
+    end.
 
-		    {_TestSuites1,SuiteMakeErrors,AllMakeErrors} =
-			case application:get_env(common_test, auto_compile) of
-			    {ok,false} ->
-				{TestSuites1,SuitesNotFound} =
-				    verify_suites(TestSuites),
-				{TestSuites1,SuitesNotFound,SuitesNotFound};
-			    _ ->
-				{SuiteErrs,HelpErrs} = auto_compile(TestSuites),
-				{TestSuites,SuiteErrs,SuiteErrs++HelpErrs}
-			end,
+compile_and_run(Tests, Skip, Opts, Args) ->
+    %% save stylesheet info
+    ct_util:set_testdata({stylesheet,Opts#opts.stylesheet}),
+    %% save logopts
+    ct_util:set_testdata({logopts,Opts#opts.logopts}),
+    %% enable silent connections
+    case Opts#opts.silent_connections of
+	[] ->
+	    Conns = ct_util:override_silence_all_connections(),
+	    ct_logs:log("Silent connections", "~p", [Conns]);
+	Conns when is_list(Conns) ->
+	    ct_util:override_silence_connections(Conns),
+	    ct_logs:log("Silent connections", "~p", [Conns]);
+	_ ->
+	    ok
+    end,
+    log_ts_names(Opts#opts.testspecs),
+    TestSuites = suite_tuples(Tests),
+    
+    {_TestSuites1,SuiteMakeErrors,AllMakeErrors} =
+	case application:get_env(common_test, auto_compile) of
+	    {ok,false} ->
+		{TestSuites1,SuitesNotFound} =
+		    verify_suites(TestSuites),
+		{TestSuites1,SuitesNotFound,SuitesNotFound};
+	    _ ->
+		{SuiteErrs,HelpErrs} = auto_compile(TestSuites),
+		{TestSuites,SuiteErrs,SuiteErrs++HelpErrs}
+	end,
+    
+    case continue(AllMakeErrors) of
+	true ->
+	    SavedErrors = save_make_errors(SuiteMakeErrors),
+	    ct_repeat:log_loop_info(Args),
+	    
+	    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
+	    
+	    possibly_spawn(true == proplists:get_value(noinput, Args),
+			   Tests1, Skip1, Opts);
+	false ->
+	    io:nl(),
+	    ct_util:stop(clean),
+	    BadMods =
+		lists:foldr(
+		  fun({{_,_},Ms}, Acc) ->
+			  Ms ++ lists:foldl(
+				  fun(M, Acc1) ->
+					  lists:delete(M, Acc1)
+				  end, Acc, Ms)
+		  end, [], AllMakeErrors),
+	    {error,{make_failed,BadMods}}
+    end.
 
-		    case continue(AllMakeErrors) of
-			true ->
-			    SavedErrors = save_make_errors(SuiteMakeErrors),
-			    ct_repeat:log_loop_info(Args),
+%% keep the shell as the top controlling process
+possibly_spawn(false, Tests, Skip, Opts) ->	
+    TestResult = (catch do_run_test(Tests, Skip, Opts)),
+    case TestResult of
+	{EType,_} = Error when EType == user_error;
+			       EType == error ->
+	    ct_util:stop(clean),
+	    exit(Error);
+	_ ->
+	    ct_util:stop(normal),
+	    TestResult
+    end;
 
-			    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
-
-			    R = (catch do_run_test(Tests1, Skip1,
-						   Opts1#opts{
-						     verbosity=Verbosity})),
-			    case R of
-				{EType,_} = Error when EType == user_error ;
+%% we must return control to the shell now, so we spawn
+%% a test supervisor process to keep an eye on the test run 
+possibly_spawn(true, Tests, Skip, Opts) ->
+    CTUtilSrv = whereis(ct_util_server),
+    Supervisor = 
+	fun() ->
+		process_flag(trap_exit, true),
+		link(CTUtilSrv),
+		TestRun =
+		    fun() ->
+			    TestResult = (catch do_run_test(Tests, Skip, Opts)),
+			    case TestResult of
+				{EType,_} = Error when EType == user_error;
 						       EType == error ->
 				    ct_util:stop(clean),
 				    exit(Error);
 				_ ->
 				    ct_util:stop(normal),
-				    TestResult
-			    end;
-			false ->
-			    io:nl(),
-			    ct_util:stop(clean),
-			    BadMods =
-				lists:foldr(
-				  fun({{_,_},Ms}, Acc) ->
-					  Ms ++ lists:foldl(
-						  fun(M, Acc1) ->
-							  lists:delete(M, Acc1)
-						  end, Acc, Ms)
-				  end, [], AllMakeErrors),
-			    {error,{make_failed,BadMods}}
-		    end
-	    end
-    end.
+				    exit({ok,TestResult})
+			    end
+		    end,
+		TestRunPid = spawn_link(TestRun),
+		receive
+		    {'EXIT',TestRunPid,{ok,TestResult}} ->
+			io:format(user, "~nCommon Test returned ~p~n~n",
+				  [TestResult]);
+		    {'EXIT',TestRunPid,Error} ->
+			exit(Error)				
+		end
+	end,
+    unlink(CTUtilSrv),
+    SupPid = spawn(Supervisor),
+    io:format(user, "~nTest control handed over to process ~p~n~n",
+	      [SupPid]),
+    SupPid.
 
 %% attempt to compile the modules specified in TestSuites
 auto_compile(TestSuites) ->
@@ -2128,7 +2170,7 @@ do_run_test(Tests, Skip, Opts) ->
 		    {error,test_result_unknown}
 	    end;
 	Error ->
-	    Error
+	    exit(Error)
     end.
 
 delete_dups([S | Suites]) ->
