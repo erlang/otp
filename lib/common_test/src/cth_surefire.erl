@@ -82,21 +82,26 @@ pre_init_per_testcase(_TC,Config,State) -> {Config, init_tc(State, Config)}.
 post_end_per_testcase(TC,Config,Result,State) ->
     {Result, end_tc(TC,Config, Result,State)}.
 
+on_tc_fail(_TC, _Res, State = #state{test_cases = []}) ->
+    State;
 on_tc_fail(_TC, Res, State) ->
     TCs = State#state.test_cases,
-    TC = hd(State#state.test_cases),
-    NewTC = TC#testcase{ failure =
-			     {fail,lists:flatten(io_lib:format("~p",[Res]))} },
+    TC = hd(TCs),
+    NewTC = TC#testcase{
+	      failure =
+		  {fail,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
 on_tc_skip(Tc,{Type,Reason} = Res, State) when Type == tc_auto_skip ->
     do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(State,[])));
+on_tc_skip(_Tc, _Res, State = #state{test_cases = []}) ->
+    State;
 on_tc_skip(_Tc, Res, State) ->
     do_tc_skip(Res, State).
 
 do_tc_skip(Res, State) ->
     TCs = State#state.test_cases,
-    TC = hd(State#state.test_cases),
+    TC = hd(TCs),
     NewTC = TC#testcase{
 	      failure =
 		  {skipped,lists:flatten(io_lib:format("~p",[Res]))} },
