@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -319,7 +319,7 @@ foldr(Fun, Acc, Tab) ->
 
 foldl(Fun, Acc, Tab) ->
     Ref = make_ref(),
-    do_traverse(Fun, Acc, Tab, Ref).
+    badarg(do_traverse(Fun, Acc, Tab, Ref), [Fun, Acc, Tab]).
 
 -spec from_ets(Name, EtsTab) -> 'ok' | {'error', Reason} when
       Name :: tab_name(),
@@ -515,7 +515,7 @@ match(Tab, Pat) ->
       Reason :: term().
 
 match(Tab, Pat, N) ->
-    badarg(init_chunk_match(Tab, Pat, bindings, N), [Tab, Pat, N]).
+    badarg(init_chunk_match(Tab, Pat, bindings, N, no_safe), [Tab, Pat, N]).
     
 -spec match(Continuation) ->
           {[Match], Continuation2} | '$end_of_table' | {'error', Reason} when
@@ -525,7 +525,7 @@ match(Tab, Pat, N) ->
       Reason :: term().
 
 match(State) when State#dets_cont.what =:= bindings ->
-    badarg(chunk_match(State), [State]);
+    badarg(chunk_match(State, no_safe), [State]);
 match(Term) ->
     erlang:error(badarg, [Term]).
 
@@ -538,26 +538,26 @@ match_delete(Tab, Pat) ->
     badarg(match_delete(Tab, Pat, delete), [Tab, Pat]).
 
 match_delete(Tab, Pat, What) ->
-    safe_fixtable(Tab, true),    
     case compile_match_spec(What, Pat) of
 	{Spec, MP} ->
-	    Proc = dets_server:get_pid(Tab),
-	    R = req(Proc, {match_delete_init, MP, Spec}),
-	    do_match_delete(Tab, Proc, R, What, 0);
+            case catch dets_server:get_pid(Tab) of
+                {'EXIT', _Reason} ->
+                    badarg;
+                Proc ->
+                    R = req(Proc, {match_delete_init, MP, Spec}),
+                    do_match_delete(Proc, R, What, 0)
+            end;
 	badarg ->
 	    badarg
     end.
 
-do_match_delete(Tab, _Proc, {done, N1}, select, N) ->
-    safe_fixtable(Tab, false),
+do_match_delete(_Proc, {done, N1}, select, N) ->
     N + N1;
-do_match_delete(Tab, _Proc, {done, _N1}, _What, _N) ->
-    safe_fixtable(Tab, false),
+do_match_delete(_Proc, {done, _N1}, _What, _N) ->
     ok;
-do_match_delete(Tab, Proc, {cont, State, N1}, What, N) ->
-    do_match_delete(Tab, Proc, req(Proc, {match_delete, State}), What, N+N1);
-do_match_delete(Tab, _Proc, Error, _What, _N) ->
-    safe_fixtable(Tab, false),
+do_match_delete(Proc, {cont, State, N1}, What, N) ->
+    do_match_delete(Proc, req(Proc, {match_delete, State}), What, N+N1);
+do_match_delete(_Proc, Error, _What, _N) ->
     Error.
 
 -spec match_object(Name, Pattern) -> Objects | {'error', Reason} when
@@ -579,7 +579,7 @@ match_object(Tab, Pat) ->
       Reason :: term().
 
 match_object(Tab, Pat, N) ->
-    badarg(init_chunk_match(Tab, Pat, object, N), [Tab, Pat, N]).
+    badarg(init_chunk_match(Tab, Pat, object, N, no_safe), [Tab, Pat, N]).
     
 -spec match_object(Continuation) ->
            {Objects, Continuation2} | '$end_of_table' | {'error', Reason} when
@@ -589,7 +589,7 @@ match_object(Tab, Pat, N) ->
       Reason :: term().
 
 match_object(State) when State#dets_cont.what =:= object ->
-    badarg(chunk_match(State), [State]);
+    badarg(chunk_match(State, no_safe), [State]);
 match_object(Term) ->
     erlang:error(badarg, [Term]).
 
@@ -712,7 +712,7 @@ select(Tab, Pat) ->
       Reason :: term().
 
 select(Tab, Pat, N) ->
-    badarg(init_chunk_match(Tab, Pat, select, N), [Tab, Pat, N]).
+    badarg(init_chunk_match(Tab, Pat, select, N, no_safe), [Tab, Pat, N]).
     
 -spec select(Continuation) ->
           {Selection, Continuation2} | '$end_of_table' | {'error', Reason} when
@@ -722,7 +722,7 @@ select(Tab, Pat, N) ->
       Reason :: term().
 
 select(State) when State#dets_cont.what =:= select ->
-    badarg(chunk_match(State), [State]);
+    badarg(chunk_match(State, no_safe), [State]);
 select(Term) ->
     erlang:error(badarg, [Term]).
 
@@ -898,7 +898,7 @@ traverse(Tab, Fun) ->
 			throw({Ref, Other})
 		end
 	end,
-    do_traverse(TFun, [], Tab, Ref).
+    badarg(do_traverse(TFun, [], Tab, Ref), [Tab, Fun]).
 
 -spec update_counter(Name, Key, Increment) -> Result when
       Name :: tab_name(),
@@ -929,20 +929,21 @@ where(Tab, Object) ->
     badarg(treq(Tab, {where, Object}), [Tab, Object]).
 
 do_traverse(Fun, Acc, Tab, Ref) ->
-    safe_fixtable(Tab, true),    
-    Proc = dets_server:get_pid(Tab),
-    try
-        do_trav(Proc, Acc, Fun)
-    catch {Ref, Result} ->
-        Result
-    after 
-        safe_fixtable(Tab, false)
+    case catch dets_server:get_pid(Tab) of
+        {'EXIT', _Reason} ->
+            badarg;
+        Proc ->
+            try
+                do_trav(Proc, Acc, Fun)
+            catch {Ref, Result} ->
+                Result
+            end
     end.
 
 do_trav(Proc, Acc, Fun) ->
     {Spec, MP} = compile_match_spec(object, '_'),
     %% MP not used
-    case req(Proc, {match, MP, Spec, default}) of
+    case req(Proc, {match, MP, Spec, default, safe}) of
 	{cont, State} ->
 	    do_trav(State, Proc, Acc, Fun);
 	Error ->
@@ -952,7 +953,7 @@ do_trav(Proc, Acc, Fun) ->
 do_trav(#dets_cont{bin = eof}, _Proc, Acc, _Fun) ->
     Acc;
 do_trav(State, Proc, Acc, Fun) ->
-    case req(Proc, {match_init, State}) of
+    case req(Proc, {match_init, State, safe}) of
 	{cont, {Bins, NewState}} ->
 	    do_trav_bins(NewState, Proc, Acc, Fun, lists:reverse(Bins));
 	Error ->
@@ -972,44 +973,47 @@ do_trav_bins(State, Proc, Acc, Fun, [Bin | Bins]) ->
     end.
 
 safe_match(Tab, Pat, What) ->
-    safe_fixtable(Tab, true),
-    R = do_safe_match(init_chunk_match(Tab, Pat, What, default), []),
-    safe_fixtable(Tab, false),
-    R.
+    do_safe_match(init_chunk_match(Tab, Pat, What, default, safe), []).
     
 do_safe_match({error, Error}, _L) ->
     {error, Error};
 do_safe_match({L, C}, LL) ->
-    do_safe_match(chunk_match(C), L++LL);
+    do_safe_match(chunk_match(C, safe), L++LL);
 do_safe_match('$end_of_table', L) ->
     L;
 do_safe_match(badarg, _L) ->
     badarg.
 
 %% What = object | bindings | select
-init_chunk_match(Tab, Pat, What, N) when is_integer(N), N >= 0; 
-                                         N =:= default ->
+init_chunk_match(Tab, Pat, What, N, Safe) when is_integer(N), N >= 0;
+                                               N =:= default ->
     case compile_match_spec(What, Pat) of
 	{Spec, MP} ->
-            Proc = dets_server:get_pid(Tab),
-	    case req(Proc, {match, MP, Spec, N}) of
-		{done, L} ->
-		    {L, #dets_cont{tab = Tab, proc = Proc, what = What,
-                                   bin = eof}};
-		{cont, State} ->
-		    chunk_match(State#dets_cont{what = What, tab = Tab,
-                                                proc = Proc});
-		Error ->
-		    Error
+            case catch dets_server:get_pid(Tab) of
+                {'EXIT', _Reason} ->
+                    badarg;
+                Proc ->
+                    case req(Proc, {match, MP, Spec, N, Safe}) of
+                        {done, L} ->
+                            {L, #dets_cont{tab = Tab, proc = Proc,
+                                           what = What, bin = eof}};
+                        {cont, State} ->
+                            chunk_match(State#dets_cont{what = What,
+                                                        tab = Tab,
+                                                        proc = Proc},
+                                       Safe);
+                        Error ->
+                            Error
+                    end
 	    end;
 	badarg ->
 	    badarg
     end;
-init_chunk_match(_Tab, _Pat, _What, _) ->
+init_chunk_match(_Tab, _Pat, _What, _N, _Safe) ->
     badarg.
 
-chunk_match(#dets_cont{proc = Proc}=State) ->
-    case req(Proc, {match_init, State}) of
+chunk_match(#dets_cont{proc = Proc}=State, Safe) ->
+    case req(Proc, {match_init, State, Safe}) of
         '$end_of_table'=Reply ->
             Reply;
         {cont, {Bins, NewState}} ->
@@ -1024,7 +1028,7 @@ chunk_match(#dets_cont{proc = Proc}=State) ->
                             badarg
                     end;
                 [] ->
-                    chunk_match(NewState);
+                    chunk_match(NewState, Safe);
                 Terms ->
                     {Terms, NewState}
             end;
@@ -1301,7 +1305,7 @@ open_file_loop(Head, N) ->
         %% - wait 1 ms after each update.
         %% next is normally followed by lookup, but since lookup is also
         %% used when not traversing the table, it is not prioritized.
-        ?DETS_CALL(From, {match_init, _State} = Op) ->
+        ?DETS_CALL(From, {match_init, _State, _Safe} = Op) ->
             do_apply_op(Op, From, Head, N);
         ?DETS_CALL(From, {bchunk, _State} = Op) ->
             do_apply_op(Op, From, Head, N);
@@ -1558,12 +1562,17 @@ apply_op(Op, From, Head, N) ->
 	    H2;
 	{lookup_keys, _Keys} ->
 	    stream_op(Op, From, [], Head, N);
-	{match_init, State} ->
-	    {H2, Res} = fmatch_init(Head, State),
+	{match_init, State, Safe} ->
+	    {H1, Res} = fmatch_init(Head, State),
+            H2 = case Res of
+                     {cont,_} -> H1;
+                     _ when Safe =:= no_safe-> H1;
+                     _ when Safe =:= safe -> do_safe_fixtable(H1, From, false)
+                 end,
 	    From ! {self(), Res},
 	    H2;
-	{match, MP, Spec, NObjs} ->
-	    {H2, Res} = fmatch(Head, MP, Spec, NObjs),
+	{match, MP, Spec, NObjs, Safe} ->
+	    {H2, Res} = fmatch(Head, MP, Spec, NObjs, Safe, From),
 	    From ! {self(), Res},
 	    H2;
 	{member, Key} when Head#head.version =:= 8 ->
@@ -1577,11 +1586,15 @@ apply_op(Op, From, Head, N) ->
 	    From ! {self(), Res},
 	    H2;
 	{match_delete, State} when Head#head.update_mode =:= dirty ->
-	    {H2, Res} = fmatch_delete(Head, State),
+	    {H1, Res} = fmatch_delete(Head, State),
+            H2 = case Res of
+                     {cont,_S,_N} -> H1;
+                     _ -> do_safe_fixtable(H1, From, false)
+                 end,
 	    From ! {self(), Res},
 	    {N + 1, H2};
 	{match_delete_init, MP, Spec} when Head#head.update_mode =:= dirty ->
-	    {H2, Res} = fmatch_delete_init(Head, MP, Spec),
+	    {H2, Res} = fmatch_delete_init(Head, MP, Spec, From),
 	    From ! {self(), Res},
 	    {N + 1, H2};
 	{safe_fixtable, Bool} ->
@@ -2229,13 +2242,18 @@ fmatch_init(Head, C) ->
     end.
 
 %% -> {NewHead, Result}
-fmatch(Head, MP, Spec, N) ->
+fmatch(Head, MP, Spec, N, Safe, From) ->
     KeyPos = Head#head.keypos,
     case find_all_keys(Spec, KeyPos, []) of
 	[] -> 
 	    %% Complete match
 	    case catch write_cache(Head) of
-		{NewHead, []} ->
+		{Head1, []} ->
+                    NewHead =
+                        case Safe of
+                            safe -> do_safe_fixtable(Head1, From, true);
+                            no_safe -> Head1
+                        end,
 		    C0 = init_scan(NewHead, N),
 		    {NewHead, {cont, C0#dets_cont{match_program = MP}}};
 		{NewHead, _} = HeadError when is_record(NewHead, head) ->
@@ -2300,12 +2318,12 @@ contains_variable(_) ->
     false.
 
 %% -> {NewHead, Res}
-fmatch_delete_init(Head, MP, Spec)  ->
+fmatch_delete_init(Head, MP, Spec, From) ->
     KeyPos = Head#head.keypos,
     case catch 
         case find_all_keys(Spec, KeyPos, []) of
             [] -> 
-                do_fmatch_delete_var_keys(Head, MP, Spec);
+                do_fmatch_delete_var_keys(Head, MP, Spec, From);
             List ->
                 Keys = lists:usort(List),
                 do_fmatch_constant_keys(Head, Keys, MP)
@@ -2336,7 +2354,7 @@ fmatch_delete(Head, C) ->
 	    end
     end.
 
-do_fmatch_delete_var_keys(Head, _MP, ?PATTERN_TO_TRUE_MATCH_SPEC('_')) 
+do_fmatch_delete_var_keys(Head, _MP, ?PATTERN_TO_TRUE_MATCH_SPEC('_'), _From)
             when Head#head.fixed =:= false ->
     %% Handle the case where the file is emptied efficiently.
     %% Empty the cache just to get the number of objects right.
@@ -2348,8 +2366,9 @@ do_fmatch_delete_var_keys(Head, _MP, ?PATTERN_TO_TRUE_MATCH_SPEC('_'))
 	Reply ->
 	    Reply
     end;
-do_fmatch_delete_var_keys(Head, MP, _Spec) ->
-    {NewHead, []} = write_cache(Head),
+do_fmatch_delete_var_keys(Head, MP, _Spec, From) ->
+    Head1 = do_safe_fixtable(Head, From, true),
+    {NewHead, []} = write_cache(Head1),
     C0 = init_scan(NewHead, default),
     {NewHead, {cont, C0#dets_cont{match_program = MP}, 0}}.
 

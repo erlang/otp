@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1943,7 +1943,7 @@ match(Config, Version) ->
     %% match, badarg
     MSpec = [{'_',[],['$_']}],
     ?line check_badarg(catch dets:match(no_table, '_'),
-		       dets, safe_fixtable, [no_table,true]),
+		       dets, match, [no_table,'_']),
     ?line check_badarg(catch dets:match(T, '_', not_a_number),
 		       dets, match, [T,'_',not_a_number]),
     ?line {EC1, _} = dets:select(T, MSpec, 1),
@@ -1952,7 +1952,7 @@ match(Config, Version) ->
 
     %% match_object, badarg
     ?line check_badarg(catch dets:match_object(no_table, '_'),
-		       dets, safe_fixtable, [no_table,true]),
+		       dets, match_object, [no_table,'_']),
     ?line check_badarg(catch dets:match_object(T, '_', not_a_number),
 		       dets, match_object, [T,'_',not_a_number]),
     ?line {EC2, _} = dets:select(T, MSpec, 1),
@@ -2121,7 +2121,7 @@ select(Config, Version) ->
     %% badarg
     MSpec = [{'_',[],['$_']}],
     ?line check_badarg(catch dets:select(no_table, MSpec),
-		       dets, safe_fixtable, [no_table,true]),
+		       dets, select, [no_table,MSpec]),
     ?line check_badarg(catch dets:select(T, <<17>>),
 		       dets, select, [T,<<17>>]),
     ?line check_badarg(catch dets:select(T, []),
@@ -2324,7 +2324,7 @@ badarg(Config) when is_list(Config) ->
 
     %% match_delete
     ?line check_badarg(catch dets:match_delete(no_table, '_'),
-		       dets, safe_fixtable, [no_table,true]),
+                 dets, match_delete, [no_table,'_']),
 
     %% delete_all_objects
     ?line check_badarg(catch dets:delete_all_objects(no_table),
@@ -2333,17 +2333,19 @@ badarg(Config) when is_list(Config) ->
     %% select_delete
     MSpec = [{'_',[],['$_']}],
     ?line check_badarg(catch dets:select_delete(no_table, MSpec),
-		       dets, safe_fixtable, [no_table,true]),
+                       dets, select_delete, [no_table,MSpec]),
     ?line check_badarg(catch dets:select_delete(T, <<17>>),
 		       dets, select_delete, [T, <<17>>]),
 
     %% traverse, fold
-    ?line check_badarg(catch dets:traverse(no_table, fun(_) -> continue end),
-		       dets, safe_fixtable, [no_table,true]),
-    ?line check_badarg(catch dets:foldl(fun(_, A) -> A end, [], no_table),
-		       dets, safe_fixtable, [no_table,true]),
-    ?line check_badarg(catch dets:foldr(fun(_, A) -> A end, [], no_table),
-		       dets, safe_fixtable, [no_table,true]),
+    TF = fun(_) -> continue end,
+    ?line check_badarg(catch dets:traverse(no_table, TF),
+                       dets, traverse, [no_table,TF]),
+    FF = fun(_, A) -> A end,
+    ?line check_badarg(catch dets:foldl(FF, [], no_table),
+		       dets, foldl, [FF,[],no_table]),
+    ?line check_badarg(catch dets:foldr(FF, [], no_table),
+		       dets, foldl, [FF,[],no_table]),
 
     %% close
     ?line ok = dets:close(T),
