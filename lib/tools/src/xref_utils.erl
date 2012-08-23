@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -141,7 +141,7 @@ is_string([], _) ->
 is_string(Term, C) ->
     is_string1(Term, C).
 
-is_string1([H | T], C) when H > C, H < 127 -> 
+is_string1([H | T], C) when H > C ->
     is_string1(T, C);
 is_string1([], _) -> 
     true;
