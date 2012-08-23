@@ -162,7 +162,7 @@
 -export([jobs/0, run_test/1, wait_finish/0, idle_notify/1,
 	 abort_current_testcase/1, abort/0]).
 -export([start_get_totals/1, stop_get_totals/0]).
--export([get_levels/0, set_levels/3]).
+-export([reject_io_reqs/1, get_levels/0, set_levels/3]).
 -export([multiply_timetraps/1, scale_timetraps/1, get_timetrap_parameters/0]).
 -export([create_priv_dir/1]).
 -export([cover/2, cover/3, cover/7,
@@ -220,7 +220,7 @@
 -define(user_skip_color, "#FF8000").
 -define(sortable_table_name, "SortableTable").
 
--record(state,{jobs=[],levels={1,19,10},
+-record(state,{jobs=[], levels={1,19,10}, reject_io_reqs=false,
 	       multiply_timetraps=1, scale_timetraps=true,
 	       create_priv_dir=auto_per_run, finish=false,
 	       target_info, trc=false, cover=false, wait_for_node=[],
@@ -490,6 +490,9 @@ get_levels() ->
 
 set_levels(Show, Major, Minor) ->
     controller_call({set_levels,Show,Major,Minor}).
+
+reject_io_reqs(Bool) ->
+    controller_call({reject_io_reqs,Bool}).
 
 multiply_timetraps(N) ->
     controller_call({multiply_timetraps,N}).
@@ -808,6 +811,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 			    [SpecName,{State#state.multiply_timetraps,
 				       State#state.scale_timetraps}],
 			    LogDir, Name, State#state.levels,
+			    State#state.reject_io_reqs,
 			    State#state.create_priv_dir,
 			    State#state.testcase_callback, ExtraTools1),
 		    NewJobs = [{Name,Pid}|State#state.jobs],
@@ -818,6 +822,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 			    [SpecList,{State#state.multiply_timetraps,
 				       State#state.scale_timetraps}],
 			    LogDir, Name, State#state.levels,
+			    State#state.reject_io_reqs,
 			    State#state.create_priv_dir,
 			    State#state.testcase_callback, ExtraTools1),
 		    NewJobs = [{Name,Pid}|State#state.jobs],
@@ -836,6 +841,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
 				     {State#state.multiply_timetraps,
 				      State#state.scale_timetraps}],
 				    LogDir, Name, State#state.levels,
+				    State#state.reject_io_reqs,
 				    State#state.create_priv_dir,
 				    State#state.testcase_callback, ExtraTools1),
 			    NewJobs = [{Name,Pid}|State#state.jobs],
@@ -966,6 +972,15 @@ handle_call(get_levels, _From, State) ->
 
 handle_call({set_levels,Show,Major,Minor}, _From, State) ->
     {reply,ok,State#state{levels={Show,Major,Minor}}};
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% handle_call({reject_io_reqs,Bool}, _, State) -> ok
+%% Bool = bool()
+%%
+%% May be used to switch off stdout printouts to the minor log file
+
+handle_call({reject_io_reqs,Bool}, _From, State) ->
+    {reply,ok,State#state{reject_io_reqs=Bool}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call({multiply_timetraps,N}, _, State) -> ok
@@ -1333,14 +1348,15 @@ kill_all_jobs([]) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% spawn_tester(Mod, Func, Args, Dir, Name, Levels, CreatePrivDir,
-%%              TestCaseCallback, ExtraTools) -> Pid
+%% spawn_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
+%%              CreatePrivDir, TestCaseCallback, ExtraTools) -> Pid
 %% Mod = atom()
 %% Func = atom()
 %% Args = [term(),...]
 %% Dir = string()
 %% Name = string()
 %% Levels = {integer(),integer(),integer()}
+%% RejectIoReqs = bool()
 %% CreatePrivDir = auto_per_run | manual_per_tc | auto_per_tc
 %% TestCaseCallback = {CBMod,CBFunc} | undefined
 %% ExtraTools = [ExtraTool,...]
@@ -1352,14 +1368,14 @@ kill_all_jobs([]) ->
 %% When the named function is done executing, a summary of the results
 %% is printed to the log files.
 
-spawn_tester(Mod, Func, Args, Dir, Name, Levels, 
+spawn_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
 	     CreatePrivDir, TCCallback, ExtraTools) ->
     spawn_link(
-      fun() -> init_tester(Mod, Func, Args, Dir, Name, Levels,
+      fun() -> init_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
 			   CreatePrivDir, TCCallback, ExtraTools)
       end).
 
-init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
+init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
 	    CreatePrivDir, TCCallback, ExtraTools) ->
     process_flag(trap_exit, true),
     put(test_server_name, Name),
@@ -1371,6 +1387,7 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
     put(test_server_summary_level, SumLev),
     put(test_server_major_level, MajLev),
     put(test_server_minor_level, MinLev),
+    put(test_server_reject_io_reqs, RejectIoReqs),
     put(test_server_create_priv_dir, CreatePrivDir),
     put(test_server_random_seed, proplists:get_value(random_seed, ExtraTools)),
     put(test_server_testcase_callback, TCCallback),
@@ -1481,7 +1498,7 @@ stop_extra_tools([], _) ->
 %% Reads the named test suite specification file, and executes it.
 %%
 %% This function is meant to be called by a process created by
-%% spawn_tester/7, which sets up some necessary dictionary values.
+%% spawn_tester/10, which sets up some necessary dictionary values.
 
 do_spec(SpecName, TimetrapSpec) when is_list(SpecName) ->
     case file:consult(SpecName) of
@@ -1530,7 +1547,7 @@ do_spec(SpecName, TimetrapSpec) when is_list(SpecName) ->
 %% should not be used. Use a configuration test case instead.
 %%
 %% This function is meant to be called by a process created by
-%% spawn_tester/7, which sets up some necessary dictionary values.
+%% spawn_tester/10, which sets up some necessary dictionary values.
 
 do_spec_list(TermList0, TimetrapSpec) ->
     Nodes = [],
@@ -1697,7 +1714,7 @@ add_mod(Mod, Mods) ->
 %% configuration information into the log files.
 %%
 %% This function is meant to be called by a process created by
-%% spawn_tester/7, which sets up some necessary dictionary values.
+%% spawn_tester/10, which sets up some necessary dictionary values.
 do_test_cases(TopCases, SkipCases,
 	      Config, MultiplyTimetrap) when is_integer(MultiplyTimetrap);
 					     MultiplyTimetrap == infinity ->
@@ -3807,10 +3824,12 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	   MinorBase,MinorBase]),
 
     do_if_parallel(Main, ok, fun erlang:yield/0),
+
+    RejectIoReqs = get(test_server_reject_io_reqs),
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
 	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], get_name(Mode),
-			    RunInit, Where, TimetrapData),
+			    RunInit, Where, TimetrapData, RejectIoReqs),
     {Time,RetVal,Loc,Opts,Comment} =
 	case Result of
 	    Normal={_Time,_RetVal,_Loc,_Opts,_Comment} -> Normal;
@@ -4429,7 +4448,7 @@ do_format_exception(Reason={Error,Stack}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
-%%                     Where, TimetrapData) ->
+%%                     Where, TimetrapData, RejectIoReqs) ->
 %%  {{Time,RetVal,Loc,Opts,Comment},DetectedFail,ProcessesBefore,ProcessesAfter} |
 %%  {{died,Reason,unknown,Comment},DetectedFail,ProcessesBefore,ProcessesAfter}
 %% Name = atom()
@@ -4448,19 +4467,21 @@ do_format_exception(Reason={Error,Stack}) ->
 %% sent over socket to target, and test_server runs the case and sends the
 %% result back over the socket. Else test_server runs the case directly on host.
 
-run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, host, TimetrapData) ->
+run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, host,
+		    TimetrapData, RejectIoReqs) ->
     test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
-				     TimetrapData});
-run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, target, TimetrapData) ->
+				     TimetrapData,RejectIoReqs});
+run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, target,
+		    TimetrapData, RejectIoReqs) ->
     case get(test_server_ctrl_job_sock) of
 	undefined ->
 	    %% local target
 	    test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
-					     TimetrapData});
+					     TimetrapData,RejectIoReqs});
 	JobSock ->
 	    %% remote target
 	    request(JobSock, {test_case,{CaseNum,Mod,Func,Args,Name,RunInit,
-					 TimetrapData}}),
+					 TimetrapData,RejectIoReqs}}),
 	    read_job_sock_loop(JobSock)
     end.
 

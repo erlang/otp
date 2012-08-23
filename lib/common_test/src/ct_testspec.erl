@@ -1258,6 +1258,8 @@ valid_terms() ->
      {logopts,3},
      {basic_html,2},
      {basic_html,3},
+     {verbosity,2},
+     {verbosity,3},
      {label,2},
      {label,3},
      {event_handler,2},

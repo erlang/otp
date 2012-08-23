@@ -28,11 +28,11 @@
 
 -module(ct_logs).
 
--export([init/1,close/2,init_tc/1,end_tc/1]).
--export([get_log_dir/0,get_log_dir/1]).
--export([log/3,start_log/1,cont_log/2,end_log/0]).
--export([set_stylesheet/2,clear_stylesheet/1]).
--export([add_external_logs/1,add_link/3]).
+-export([init/2, close/2, init_tc/1, end_tc/1]).
+-export([get_log_dir/0, get_log_dir/1]).
+-export([log/3, start_log/1, cont_log/2, end_log/0]).
+-export([set_stylesheet/2, clear_stylesheet/1]).
+-export([add_external_logs/1, add_link/3]).
 -export([make_last_run_index/0]).
 -export([make_all_suites_index/1,make_all_runs_index/1]).
 -export([get_ts_html_wrapper/4]).
@@ -40,12 +40,13 @@
 -export([insert_javascript/1]).
 
 %% Logging stuff directly from testcase
--export([tc_log/3,tc_log/4,tc_log_async/3,tc_print/3,tc_pal/3,ct_log/3,
-	 basic_html/0]).
+-export([tc_log/3, tc_log/4, tc_log_async/3, tc_print/3, tc_print/4,
+	 tc_pal/3, tc_pal/4, ct_log/3, basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
 -export([simulate/0]).
 
+-include("ct.hrl").
 -include("ct_event.hrl").
 -include("ct_util.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -79,9 +80,9 @@
 %%% started. A new directory named ct_run.&lt;timestamp&gt; is created
 %%% and all logs are stored under this directory.</p>
 %%%
-init(Mode) ->
+init(Mode, Verbosity) ->
     Self = self(),
-    Pid = spawn_link(fun() -> logger(Self,Mode) end),
+    Pid = spawn_link(fun() -> logger(Self, Mode, Verbosity) end),
     MRef = erlang:monitor(process,Pid),
     receive 
 	{started,Pid,Result} -> 
@@ -321,10 +322,16 @@ add_link(Heading,File,Type) ->
 	[filename:join("log_private",File),Type,File]).
 
 
-
 %%%-----------------------------------------------------------------
 %%% @spec tc_log(Category,Format,Args) -> ok
+%%% @equiv tc_log(Category,?STD_IMPORTANCE,Format,Args)
+tc_log(Category,Format,Args) ->
+    tc_log(Category,?STD_IMPORTANCE,Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_log(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
+%%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -333,19 +340,26 @@ add_link(Heading,File,Type) ->
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase (i.e. not from within the CT
 %%% framework).</p>
-tc_log(Category,Format,Args) ->
-    tc_log(Category,"User",Format,Args).
+tc_log(Category,Importance,Format,Args) ->
+    tc_log(Category,Importance,"User",Format,Args).
 
-tc_log(Category,Printer,Format,Args) ->
-    cast({log,sync,self(),group_leader(),[{div_header(Category,Printer),[]},
-					  {Format,Args},
-					  {div_footer(),[]}]}),
+tc_log(Category,Importance,Printer,Format,Args) ->
+    cast({log,sync,self(),group_leader(),Category,Importance,
+	  [{div_header(Category,Printer),[]},
+	   {Format,Args},
+	   {div_footer(),[]}]}),
     ok.
-
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_log_async(Category,Format,Args) -> ok
+%%% @equiv tc_log_async(Category,?STD_IMPORTANCE,Format,Args)
+tc_log_async(Category,Format,Args) ->
+    tc_log_async(Category,?STD_IMPORTANCE,Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_log_async(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
+%%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -356,15 +370,22 @@ tc_log(Category,Printer,Format,Args) ->
 %%% to avoid deadlocks when e.g. the hook that handles SASL printouts
 %%% prints to the test case log file at the same time test server
 %%% asks ct_logs for an html wrapper.</p>
-tc_log_async(Category,Format,Args) ->
-    cast({log,async,self(),group_leader(),[{div_header(Category),[]},
-					   {Format,Args},
-					   {div_footer(),[]}]}),
+tc_log_async(Category,Importance,Format,Args) ->
+    cast({log,async,self(),group_leader(),Category,Importance,
+	  [{div_header(Category),[]},
+	   {Format,Args},
+	   {div_footer(),[]}]}),
     ok.
+%%%-----------------------------------------------------------------
+%%% @spec tc_print(Category,Format,Args)
+%%% @equiv tc_print(Category,?STD_IMPORTANCE,Format,Args)
+tc_print(Category,Format,Args) ->
+    tc_print(Category,?STD_IMPORTANCE,Format,Args).
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_print(Category,Format,Args) -> ok
+%%% @spec tc_print(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
+%%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -372,10 +393,20 @@ tc_log_async(Category,Format,Args) ->
 %%%
 %%% <p>This function is called by <code>ct</code> when printing
 %%% stuff from a testcase on the user console.</p>
-tc_print(Category,Format,Args) ->
-    Head = get_heading(Category),
-    io:format(user, lists:concat([Head,Format,"\n\n"]), Args),
-    ok.
+tc_print(Category,Importance,Format,Args) ->
+    VLvl = case ct_util:get_testdata({verbosity,Category}) of
+	       undefined -> 
+		   ct_util:get_testdata({verbosity,'$unspecified'});
+	       Val ->
+		   Val
+	   end,
+    if Importance >= (100-VLvl) ->
+	    Head = get_heading(Category),
+	    io:format(user, lists:concat([Head,Format,"\n\n"]), Args),
+	    ok;
+       true ->
+	    ok
+    end.
 
 get_heading(default) ->
     io_lib:format("-----------------------------"
@@ -389,7 +420,14 @@ get_heading(Category) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec tc_pal(Category,Format,Args) -> ok
+%%% @equiv tc_pal(Category,?STD_IMPORTANCE,Format,Args) -> ok
+tc_pal(Category,Format,Args) ->
+    tc_pal(Category,?STD_IMPORTANCE,Format,Args).
+
+%%%-----------------------------------------------------------------
+%%% @spec tc_pal(Category,Importance,Format,Args) -> ok
 %%%      Category = atom()
+%%%      Importance = integer()
 %%%      Format = string()
 %%%      Args = list()
 %%%
@@ -398,16 +436,17 @@ get_heading(Category) ->
 %%% <p>This function is called by <code>ct</code> when logging
 %%% stuff directly from a testcase. The info is written both in the
 %%% log and on the console.</p>
-tc_pal(Category,Format,Args) ->
-    tc_print(Category,Format,Args),
-    cast({log,sync,self(),group_leader(),[{div_header(Category),[]},
-					  {Format,Args},
-					  {div_footer(),[]}]}),
+tc_pal(Category,Importance,Format,Args) ->
+    tc_print(Category,Importance,Format,Args),
+    cast({log,sync,self(),group_leader(),Category,Importance,
+	  [{div_header(Category),[]},
+	   {Format,Args},
+	   {div_footer(),[]}]}),
     ok.
 
 
 %%%-----------------------------------------------------------------
-%%% @spec tc_pal(Category,Format,Args) -> ok
+%%% @spec ct_pal(Category,Format,Args) -> ok
 %%%      Category = atom()
 %%%      Format = string()
 %%%      Args = list()
@@ -469,7 +508,7 @@ log_timestamp({MS,S,US}) ->
 		      stylesheet,
 		      async_print_jobs}).
 
-logger(Parent,Mode) ->
+logger(Parent, Mode, Verbosity) ->
     register(?MODULE,self()),
 
     %%! Below is a temporary workaround for the limitation of
@@ -542,6 +581,23 @@ logger(Parent,Mode) ->
 	      [log_timestamp(now()),"Common Test Logger started"]),
     Parent ! {started,self(),{Time,filename:absname("")}},
     set_evmgr_gl(CtLogFd),
+
+    %% save verbosity levels in dictionary for fast lookups
+    io:format(CtLogFd, "\nVERBOSITY LEVELS:\n", []),
+    case proplists:get_value('$unspecified', Verbosity) of
+	undefined -> ok;
+	GenLvl    -> io:format(CtLogFd, "~-25s~3w~n",
+			       ["general level",GenLvl])
+    end,
+    [begin put({verbosity,Cat},VLvl),
+	   if Cat == '$unspecified' ->
+		   ok;
+	      true ->
+		   io:format(CtLogFd, "~-25w~3w~n", [Cat,VLvl])
+	   end
+     end || {Cat,VLvl} <- Verbosity],
+    io:nl(CtLogFd),
+
     logger_loop(#logger_state{parent=Parent,
 			      log_dir=AbsDir,
 			      start_time=Time,
@@ -562,29 +618,41 @@ copy_priv_files([], []) ->
 
 logger_loop(State) ->
     receive
-	{log,SyncOrAsync,Pid,GL,List} ->
-	    case get_groupleader(Pid, GL, State) of
-		{tc_log,TCGL,TCGLs} ->
-		    case erlang:is_process_alive(TCGL) of
-			true ->
-			    State1 = print_to_log(SyncOrAsync, Pid, TCGL,
-						  List, State),
-			    logger_loop(State1#logger_state{tc_groupleaders =
-							       TCGLs});
-			false ->
-			    %% Group leader is dead, so write to the
-			    %% CtLog instead
-			    Fd = State#logger_state.ct_log_fd,
-			    [begin io:format(Fd,Str,Args),io:nl(Fd) end || 
+	{log,SyncOrAsync,Pid,GL,Category,Importance,List} ->
+	    VLvl = case get({verbosity,Category}) of
+		       undefined -> get({verbosity,'$unspecified'});
+		       Val       -> Val
+		   end,
+	    if Importance >= (100-VLvl) ->
+		    case get_groupleader(Pid, GL, State) of
+			{tc_log,TCGL,TCGLs} ->
+			    case erlang:is_process_alive(TCGL) of
+				true ->
+				    State1 = print_to_log(SyncOrAsync, Pid,
+							  TCGL, List, State),
+				    logger_loop(State1#logger_state{
+						  tc_groupleaders = TCGLs});
+				false ->
+				    %% Group leader is dead, so write to the
+				    %% CtLog instead
+				    Fd = State#logger_state.ct_log_fd,
+				    [begin io:format(Fd,Str,Args),
+					   io:nl(Fd) end || {Str,Args} <- List],
+				    logger_loop(State)			    
+			    end;
+			{ct_log,Fd,TCGLs} ->
+			    [begin io:format(Fd,Str,Args),io:nl(Fd) end ||
 				{Str,Args} <- List],
-			    logger_loop(State)			    
+			    logger_loop(State#logger_state{
+					  tc_groupleaders = TCGLs})
 		    end;
-		{ct_log,Fd,TCGLs} ->
-		    [begin io:format(Fd,Str,Args),io:nl(Fd) end ||
-			{Str,Args} <- List],
-		    logger_loop(State#logger_state{tc_groupleaders = TCGLs})
-	    end;
+	       true ->
+		    logger_loop(State)
+	    end;			
 	{{init_tc,TCPid,GL,RefreshLog},From} ->
+	    %% make sure no IO for this test case from the
+	    %% CT logger gets rejected
+	    test_server:permit_io(GL, self()),
 	    print_style(GL, State#logger_state.stylesheet),
 	    set_evmgr_gl(GL),
 	    TCGLs = add_tc_gl(TCPid,GL,State),
@@ -686,6 +754,7 @@ print_to_log(async, FromPid, TCGL, List, State) ->
 		true -> State#logger_state.ct_log_fd
 	     end,
     Printer = fun() ->
+		      test_server:permit_io(TCGL, self()),
 		      io:format(IoProc, "~s", [lists:foldl(IoFun, [], List)])
 	      end,
     case State#logger_state.async_print_jobs of

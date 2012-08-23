@@ -88,11 +88,13 @@
 	[-step [config | keep_inactive]]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
-	 ConfigString2 and .. and CallbackModuleN ConfigStringN]
+	 ConfigString2 and .. CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
 	[-label Label]
 	[-logdir LogDir]
 	[-logopts LogOpts]
+	[-verbosity GenVLevel | [Category1 VLevel1 and
+	 Category2 VLevel2 and .. CategoryN VLevelN]]
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
 	[-stylesheet CSSFile]
 	[-cover CoverCfgFile]
@@ -107,7 +109,10 @@
         [-repeat N [-force_stop]] |
         [-duration HHMMSS [-force_stop]] |
         [-until [YYMoMoDD]HHMMSS [-force_stop]]
-	[-basic_html]</pre>
+	[-basic_html]
+    	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
+	 CTHModuleN CTHOptsN]
+    </pre>
   </section>
   <section>
     <title>Run tests using test specification</title>
@@ -120,6 +125,8 @@
 	[-label Label]
 	[-logdir LogDir]
 	[-logopts LogOpts]
+	[-verbosity GenVLevel | [Category1 VLevel1 and
+	 Category2 VLevel2 and .. CategoryN VLevelN]]
 	[-allow_user_terms]
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
 	[-stylesheet CSSFile]
@@ -135,7 +142,10 @@
         [-repeat N [-force_stop]] |
         [-duration HHMMSS [-force_stop]] |
         [-until [YYMoMoDD]HHMMSS [-force_stop]]
-	[-basic_html]</pre>
+	[-basic_html]
+    	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
+	 CTHModuleN CTHOptsN]
+    </pre>
   </section>
   <section>
     <title>Run tests in web based GUI</title>
@@ -147,6 +157,8 @@
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
          ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-logopts LogOpts]
+	[-verbosity GenVLevel | [Category1 VLevel1 and
+	 Category2 VLevel2 and .. CategoryN VLevelN]]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
 	[-include InclDir1 InclDir2 .. InclDirN]
 	[-no_auto_compile]
