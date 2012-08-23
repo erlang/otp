@@ -58,11 +58,13 @@
 	       step,
 	       logdir,
 	       logopts = [],
+	       basic_html,
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
 	       enable_builtin_hooks,
 	       include = [],
+	       auto_compile,
 	       silent_connections,
 	       stylesheet,
 	       multiply_timetraps = 1,
@@ -106,7 +108,8 @@ script_start() ->
 						  end, Flags)
 			     end,
 		%% used for purpose of testing the run_test interface
-		io:format(user, "~n-------------------- START ARGS --------------------~n", []),
+		io:format(user, "~n-------------------- START ARGS "
+			  "--------------------~n", []),
 		io:format(user, "--- Init args:~n~p~n", [FlagFilter(Init)]),
 		io:format(user, "--- CT args:~n~p~n", [FlagFilter(CtArgs)]),
 		EnvArgs = opts2args(EnvStartOpts),
@@ -114,7 +117,8 @@ script_start() ->
 			  [EnvStartOpts,EnvArgs]),
 		Merged = merge_arguments(CtArgs ++ EnvArgs),
 		io:format(user, "--- Merged args:~n~p~n", [FlagFilter(Merged)]),
-		io:format(user, "----------------------------------------------------~n~n", []),
+		io:format(user, "-----------------------------------"
+			  "-----------------~n~n", []),
 		Merged;
 	    _ ->
 		merge_arguments(CtArgs)
@@ -137,17 +141,20 @@ script_start(Args) ->
 			    _ -> ""
 			end
 		end,
-	    io:format("~nCommon Test~s starting (cwd is ~s)~n~n", [CTVsn,Cwd]),
+	    io:format("~nCommon Test~s starting (cwd is ~s)~n~n",
+	              [CTVsn,Cwd]),
 	    Self = self(),
 	    Pid = spawn_link(fun() -> script_start1(Self, Args) end),
 	    receive
 		{'EXIT',Pid,Reason} ->
 		    case Reason of
 			{user_error,What} ->
-			    io:format("\nTest run failed!\nReason: ~p\n\n\n", [What]),
+			    io:format("\nTest run failed!\nReason: ~p\n\n\n",
+                                      [What]),
 			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
 			_ ->
-			    io:format("Test run crashed! This could be an internal error "
+			    io:format("Test run crashed! "
+                                      "This could be an internal error "
 				      "- please report!\n\n"
 				      "~p\n\n\n", [Reason]),
 			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args)
@@ -261,7 +268,7 @@ script_start1(Parent, Args) ->
 	    end
     end,
     %% no_auto_compile + include
-    IncludeDirs =
+    {AutoCompile,IncludeDirs} =
 	case proplists:get_value(no_auto_compile, Args) of
 	    undefined ->
 		application:set_env(common_test, auto_compile, true),
@@ -277,16 +284,16 @@ script_start1(Parent, Args) ->
 		case os:getenv("CT_INCLUDE_PATH") of
 		    false ->
 			application:set_env(common_test, include, InclDirs),
-			InclDirs;
+			{undefined,InclDirs};
 		    CtInclPath ->
 			AllInclDirs =
 			    string:tokens(CtInclPath,[$:,$ ,$,]) ++ InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
-			AllInclDirs
+			{undefined,AllInclDirs}
 		end;
 	    _ ->
 		application:set_env(common_test, auto_compile, false),
-		[]
+		{false,[]}
 	end,
     %% silent connections
     SilentConns =
@@ -298,19 +305,23 @@ script_start1(Parent, Args) ->
     Stylesheet = get_start_opt(stylesheet,
 			       fun([SS]) -> ?abs(SS) end, Args),
     %% basic_html - used by ct_logs
-    case proplists:get_value(basic_html, Args) of
-	undefined ->
-	    application:set_env(common_test, basic_html, false);
-	_ ->
-	    application:set_env(common_test, basic_html, true)
-    end,
+    BasicHtml = case proplists:get_value(basic_html, Args) of
+		    undefined ->
+			application:set_env(common_test, basic_html, false),
+			undefined;
+		    _ ->
+			application:set_env(common_test, basic_html, true),
+			true
+		end,
 
    StartOpts = #opts{label = Label, profile = Profile,
 		     vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, logopts = LogOpts,
+		     basic_html = BasicHtml,
 		     event_handlers = EvHandlers,
 		     ct_hooks = CTHooks,
 		     enable_builtin_hooks = EnableBuiltinHooks,
+		     auto_compile = AutoCompile,
 		     include = IncludeDirs,
 		     silent_connections = SilentConns,
 		     stylesheet = Stylesheet,
@@ -407,9 +418,36 @@ script_start2(StartOpts = #opts{vts = undefined,
 			      StartOpts#opts.enable_builtin_hooks,
 			      SpecStartOpts#opts.enable_builtin_hooks),
 			
+			Stylesheet =
+			    choose_val(StartOpts#opts.stylesheet,
+				       SpecStartOpts#opts.stylesheet),
+			    
 			AllInclude = merge_vals([StartOpts#opts.include,
 						 SpecStartOpts#opts.include]),
 			application:set_env(common_test, include, AllInclude),
+			
+			AutoCompile =
+			    case choose_val(StartOpts#opts.auto_compile,
+					    SpecStartOpts#opts.auto_compile) of
+				undefined ->
+				    true;
+				ACBool ->
+				    application:set_env(common_test,
+							auto_compile,
+							ACBool),
+				    ACBool
+			    end,
+
+			BasicHtml =
+			    case choose_val(StartOpts#opts.basic_html,
+					    SpecStartOpts#opts.basic_html) of
+				undefined ->
+				    false;
+				BHBool ->
+				    application:set_env(common_test, basic_html, 
+							BHBool),
+				    BHBool
+			    end,
 
 			{TS,StartOpts#opts{label = Label,
 					   profile = Profile,
@@ -417,11 +455,14 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   cover = Cover,
 					   logdir = LogDir,
 					   logopts = AllLogOpts,
+					   basic_html = BasicHtml,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
 					   ct_hooks = AllCTHooks,
 					   enable_builtin_hooks =
 					       EnableBuiltinHooks,
+					   stylesheet = Stylesheet,
+					   auto_compile = AutoCompile,
 					   include = AllInclude,
 					   multiply_timetraps = MultTT,
 					   scale_timetraps = ScaleTT,
@@ -795,8 +836,10 @@ run_test2(StartOpts) ->
 				    (Lbl) when is_atom(Lbl) -> atom_to_list(Lbl)
 				 end, StartOpts),
     %% profile
-    Profile = get_start_opt(profile, fun(Prof) when is_list(Prof) -> Prof;
-					(Prof) when is_atom(Prof) -> atom_to_list(Prof)
+    Profile = get_start_opt(profile, fun(Prof) when is_list(Prof) ->
+					     Prof;
+					(Prof) when is_atom(Prof) ->
+					     atom_to_list(Prof)
 				     end, StartOpts),
     %% logdir
     LogDir = get_start_opt(logdir, fun(LD) when is_list(LD) -> LD end,
@@ -861,7 +904,7 @@ run_test2(StartOpts) ->
     CreatePrivDir = get_start_opt(create_priv_dir, value, StartOpts),
 
     %% auto compile & include files
-    Include =
+    {AutoCompile,Include} =
 	case proplists:get_value(auto_compile, StartOpts) of
 	    undefined ->
 		application:set_env(common_test, auto_compile, true),		
@@ -877,16 +920,16 @@ run_test2(StartOpts) ->
 		case os:getenv("CT_INCLUDE_PATH") of
 		    false ->
 			application:set_env(common_test, include, InclDirs),
-			InclDirs;
+			{undefined,InclDirs};
 		    CtInclPath ->
 			InclDirs1 = string:tokens(CtInclPath, [$:,$ ,$,]),
 			AllInclDirs = InclDirs1++InclDirs,
 			application:set_env(common_test, include, AllInclDirs),
-			AllInclDirs
+			{undefined,AllInclDirs}
 		end;
 	    ACBool ->
 		application:set_env(common_test, auto_compile, ACBool),
-		[]
+		{ACBool,[]}
 	end,
 
     %% decrypt config file
@@ -900,11 +943,14 @@ run_test2(StartOpts) ->
     end,
 
     %% basic html - used by ct_logs
-    case proplists:get_value(basic_html, StartOpts) of
-	undefined ->
-	    application:set_env(common_test, basic_html, false);
-	BasicHtmlBool ->
-	    application:set_env(common_test, basic_html, BasicHtmlBool)
+    BasicHtml =
+	case proplists:get_value(basic_html, StartOpts) of
+	    undefined ->
+		application:set_env(common_test, basic_html, false),
+		undefined;
+	    BasicHtmlBool ->
+		application:set_env(common_test, basic_html, BasicHtmlBool),
+		BasicHtmlBool		
     end,
 
     %% stepped execution
@@ -912,10 +958,12 @@ run_test2(StartOpts) ->
 
     Opts = #opts{label = Label, profile = Profile,
 		 cover = Cover, step = Step, logdir = LogDir,
-		 logopts = LogOpts, config = CfgFiles,
+		 logopts = LogOpts, basic_html = BasicHtml,
+		 config = CfgFiles,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
 		 enable_builtin_hooks = EnableBuiltinHooks,
+		 auto_compile = AutoCompile,
 		 include = Include,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
@@ -961,6 +1009,8 @@ run_spec_file(Relaxed,
 				SpecOpts#opts.logdir),
 	    AllLogOpts = merge_vals([Opts#opts.logopts,
 				     SpecOpts#opts.logopts]),
+	    Stylesheet = choose_val(Opts#opts.stylesheet,
+				    SpecOpts#opts.stylesheet),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
 	    Cover = choose_val(Opts#opts.cover,
 			       SpecOpts#opts.cover),
@@ -974,7 +1024,6 @@ run_spec_file(Relaxed,
 				  SpecOpts#opts.event_handlers]),
 	    AllInclude = merge_vals([Opts#opts.include,
 				     SpecOpts#opts.include]),
-
 	    AllCTHooks = merge_vals([Opts#opts.ct_hooks,
 				      SpecOpts#opts.ct_hooks]),
 	    EnableBuiltinHooks = choose_val(Opts#opts.enable_builtin_hooks,
@@ -982,13 +1031,36 @@ run_spec_file(Relaxed,
 	    
 	    application:set_env(common_test, include, AllInclude),
 
+	    AutoCompile = case choose_val(Opts#opts.auto_compile,
+					  SpecOpts#opts.auto_compile) of
+			      undefined ->
+				  true;
+			      ACBool ->
+				  application:set_env(common_test, auto_compile,
+						      ACBool),
+				  ACBool
+			  end,
+
+	    BasicHtml =	case choose_val(Opts#opts.basic_html,
+					SpecOpts#opts.basic_html) of
+			    undefined ->
+				false;
+			    BHBool ->
+				application:set_env(common_test, basic_html,
+						    BHBool),
+				BHBool
+			end,
+
 	    Opts1 = Opts#opts{label = Label,
 			      profile = Profile,
 			      cover = Cover,
 			      logdir = which(logdir, LogDir),
 			      logopts = AllLogOpts,
+			      stylesheet = Stylesheet,
+			      basic_html = BasicHtml,
 			      config = AllConfig,
 			      event_handlers = AllEvHs,
+			      auto_compile = AutoCompile,
 			      include = AllInclude,
 			      testspecs = AbsSpecs,
 			      multiply_timetraps = MultTT,
@@ -1246,12 +1318,15 @@ get_data_for_node(#testspec{label = Labels,
 			    profile = Profiles,
 			    logdir = LogDirs,
 			    logopts = LogOptsList,
+			    basic_html = BHs,
+			    stylesheet = SSs,
 			    cover = CoverFs,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
 			    event_handler = EvHs,
 			    ct_hooks = CTHooks,
 			    enable_builtin_hooks = EnableBuiltinHooks,
+			    auto_compile = ACs,
 			    include = Incl,
 			    multiply_timetraps = MTs,
 			    scale_timetraps = STs,
@@ -1266,6 +1341,8 @@ get_data_for_node(#testspec{label = Labels,
 		  undefined -> [];
 		  LOs -> LOs
 	      end,
+    BasicHtml = proplists:get_value(Node, BHs),
+    Stylesheet = proplists:get_value(Node, SSs),
     Cover = proplists:get_value(Node, CoverFs),
     MT = proplists:get_value(Node, MTs),
     ST = proplists:get_value(Node, STs),
@@ -1274,16 +1351,20 @@ get_data_for_node(#testspec{label = Labels,
 	[CBF || {N,CBF} <- UsrCfgs, N==Node],
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
     FiltCTHooks = [Hook || {N,Hook} <- CTHooks, N==Node],
+    AutoCompile = proplists:get_value(Node, ACs),
     Include =  [I || {N,I} <- Incl, N==Node],
     #opts{label = Label,
 	  profile = Profile,
 	  logdir = LogDir,
 	  logopts = LogOpts,
+	  basic_html = BasicHtml,
+	  stylesheet = Stylesheet,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
 	  ct_hooks = FiltCTHooks,
 	  enable_builtin_hooks = EnableBuiltinHooks,
+	  auto_compile = AutoCompile,
 	  include = Include,
 	  multiply_timetraps = MT,
 	  scale_timetraps = ST,
@@ -1606,23 +1687,29 @@ verify_suites(TestSuites) ->
 				{[DS|Found],NotFound};
 			   true ->
 				Beam = filename:join(TestDir,
-						     atom_to_list(Suite)++".beam"),
+						     atom_to_list(Suite)++
+							 ".beam"),
 				case filelib:is_regular(Beam) of
 				    true  ->
 					{[DS|Found],NotFound};
 				    false ->
 					case code:is_loaded(Suite) of
 					    {file,SuiteFile} ->
-						%% test suite is already loaded and
-						%% since auto_compile == false,
+						%% test suite is already
+						%% loaded and since
+						%% auto_compile == false,
 						%% let's assume the user has
-						%% loaded the beam file explicitly
-						ActualDir = filename:dirname(SuiteFile),
-						{[{ActualDir,Suite}|Found],NotFound};
+						%% loaded the beam file
+						%% explicitly
+						ActualDir = 
+						    filename:dirname(SuiteFile),
+						{[{ActualDir,Suite}|Found],
+						 NotFound};
 					    false ->
 						Name =
 						    filename:join(TestDir,
-								  atom_to_list(Suite)),
+								  atom_to_list(
+								    Suite)),
 						io:format(user,
 							  "Suite ~w not found"
 							  "in directory ~s~n",
@@ -1640,7 +1727,8 @@ verify_suites(TestSuites) ->
 				ActualDir = filename:dirname(SuiteFile),
 				{[{ActualDir,Suite}|Found],NotFound};
 			    false ->
-				io:format(user, "Directory ~s is invalid~n", [Dir]),
+				io:format(user, "Directory ~s is invalid~n",
+					  [Dir]),
 				Name = filename:join(Dir, atom_to_list(Suite)),
 				{Found,[{DS,[Name]}|NotFound]}
 			end
@@ -1675,8 +1763,9 @@ step(TestDir, Suite, Case) ->
 %%%-----------------------------------------------------------------
 %%% @hidden
 %%% @equiv ct:step/4
-step(TestDir, Suite, Case, Opts) when is_list(TestDir), is_atom(Suite), is_atom(Case),
-				   Suite =/= all, Case =/= all ->
+step(TestDir, Suite, Case, Opts) when is_list(TestDir),
+				      is_atom(Suite), is_atom(Case),
+				      Suite =/= all, Case =/= all ->
     do_run([{TestDir,Suite,Case}], [{step,Opts}]).
 
 
@@ -1828,7 +1917,8 @@ set_group_leader_same_as_shell() ->
 		     end
 	     end,	
     case [P || P <- processes(), GS2or3(P),
-	       true == lists:keymember(shell,1,element(2,process_info(P,dictionary)))] of
+	       true == lists:keymember(shell,1,
+				       element(2,process_info(P,dictionary)))] of
 	[GL|_] ->
 	    group_leader(GL, self());
 	[] ->
@@ -1874,12 +1964,14 @@ do_run_test(Tests, Skip, Opts) ->
 				incl_mods  = CovIncl,
 				cross      = CovCross,
 				src        = _CovSrc}} ->
-		    ct_logs:log("COVER INFO","Using cover specification file: ~s~n"
+		    ct_logs:log("COVER INFO",
+				"Using cover specification file: ~s~n"
 				"App: ~w~n"
 				"Cross cover: ~w~n"
 				"Including ~w modules~n"
 				"Excluding ~w modules",
-				[CovFile,CovApp,CovCross,length(CovIncl),length(CovExcl)]),
+				[CovFile,CovApp,CovCross,length(CovIncl),
+				 length(CovExcl)]),
 
 		    %% cover export file will be used for export and import
 		    %% between tests so make sure it doesn't exist initially
@@ -1887,7 +1979,8 @@ do_run_test(Tests, Skip, Opts) ->
 			true ->
 			    DelResult = file:delete(CovExport),
 			    ct_logs:log("COVER INFO",
-					"Warning! Export file ~s already exists. "
+					"Warning! "
+					"Export file ~s already exists. "
 					"Deleting with result: ~p",
 					[CovExport,DelResult]);
 			false ->
@@ -2561,7 +2654,7 @@ opts2args(EnvStartOpts) ->
 		     ({decrypt,{file,File}}) ->
 			  [{ct_decrypt_file,[File]}];
 		     ({basic_html,true}) ->
-			  ({basic_html,[]});
+			  [{basic_html,[]}];
 		     ({basic_html,false}) ->
 			  [];
 		     ({event_handler,EH}) when is_atom(EH) ->
