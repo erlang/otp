@@ -71,8 +71,13 @@ init_tc(Mod,Func,Config) ->
 	    {skip,{require_failed_in_suite0,Reason}};
 	{Suite,{suite0_failed,_}=Failure} ->
 	    {skip,Failure};
-	_ ->
-	    ct_util:set_testdata({curr_tc,{Suite,Func}}),
+	CurrTC ->
+	    case CurrTC of
+		undefined ->
+		    ct_util:set_testdata({curr_tc,[{Suite,Func}]});
+		Running when is_list(Running) ->
+		    ct_util:set_testdata({curr_tc,[{Suite,Func}|Running]})
+	    end,
 	    case ct_util:read_suite_data({seq,Suite,Func}) of
 		undefined ->
 		    init_tc1(Mod,Suite,Func,Config);
@@ -206,7 +211,8 @@ init_tc2(Mod,Suite,Func,SuiteInfo,MergeResult,Config) ->
     case catch configure(MergedInfo,MergedInfo,SuiteInfo,
 			 FuncSpec,[],Config) of
 	{suite0_failed,Reason} ->
-	    ct_util:set_testdata({curr_tc,{Mod,{suite0_failed,{require,Reason}}}}),
+	    ct_util:set_testdata({curr_tc,{Mod,{suite0_failed,
+						{require,Reason}}}}),
 	    {skip,{require_failed_in_suite0,Reason}};
 	{error,Reason} ->
 	    {auto_skip,{require_failed,Reason}};
@@ -656,7 +662,16 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     end,
 
     ct_util:reset_silent_connections(),
-    
+
+    %% reset the curr_tc state, or delete this TC from the list of
+    %% executing cases (if in a parallel group)
+    case ct_util:get_testdata(curr_tc) of
+	Running = [_,_|_] ->
+	    ct_util:set_testdata({curr_tc,lists:delete({Mod,Func}, Running)});
+	[_] ->
+	    ct_util:set_testdata({curr_tc,undefined})
+    end,
+
     case FinalResult of
 	{skip,{sequence_failed,_,_}} ->
 	    %% ct_logs:init_tc is never called for a skipped test case

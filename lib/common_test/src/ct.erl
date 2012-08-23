@@ -69,7 +69,8 @@
 	 fail/1, fail/2, comment/1, comment/2, make_priv_dir/0,
 	 testcases/2, userdata/2, userdata/3,
 	 timetrap/1, get_timetrap_info/0, sleep/1,
-	 notify/2, sync_notify/2]).
+	 notify/2, sync_notify/2,
+	 break/1, break/2, continue/0, continue/1]).
 
 %% New API for manipulating with config handlers
 -export([add_config/2, remove_config/2]).
@@ -155,7 +156,8 @@ run(TestDirs) ->
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {logopts,LogOpts} | 
 %%%               {verbosity,VLevels} | {basic_html,Bool} | 
-%%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool}
+%%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool} |
+%%%               {noinput,Bool}
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | [atom()] | string() | atom()
 %%%   Cases = [atom()] | atom()
@@ -907,8 +909,9 @@ userdata(TestDir, Suite, Case) when is_atom(Case) ->
 %%%-----------------------------------------------------------------
 %%% @spec get_status() -> TestStatus | {error,Reason} | no_tests_running
 %%%       TestStatus = [StatusElem]
-%%%       StatusElem = {current,{Suite,TestCase}} | {successful,Successful} |
+%%%       StatusElem = {current,TestCaseInfo} | {successful,Successful} |
 %%%                    {failed,Failed} | {skipped,Skipped} | {total,Total}
+%%%       TestCaseInfo = {Suite,TestCase} | [{Suite,TestCase}]
 %%%       Suite = atom()
 %%%       TestCase = atom()
 %%%       Successful = integer()
@@ -920,7 +923,8 @@ userdata(TestDir, Suite, Case) when is_atom(Case) ->
 %%%       Reason = term()
 %%%
 %%% @doc Returns status of ongoing test. The returned list contains info about
-%%%      which test case is currently executing, as well as counters for 
+%%%      which test case is currently executing (a list of cases when a
+%%%      parallel test case group is executing), as well as counters for 
 %%%      successful, failed, skipped, and total test cases so far.
 get_status() ->
     case get_testdata(curr_tc) of
@@ -945,6 +949,8 @@ get_testdata(Key) ->
 	    Error;
 	{'EXIT',_Reason} ->
 	    no_tests_running;
+	[CurrTC] when Key == curr_tc ->
+	    {ok,CurrTC};
 	Data ->
 	    {ok,Data}
     end.
@@ -1138,3 +1144,74 @@ notify(Name,Data) ->
 %%% @see //stdlib/gen_event
 sync_notify(Name,Data) ->
     ct_event:sync_notify(Name, Data).
+
+%%%-----------------------------------------------------------------
+%%% @spec break(Comment) -> ok | {error,Reason}
+%%%       Comment = string()
+%%%       Reason = {multiple_cases_running,TestCases}
+%%%       TestCases = [atom()]
+%%%
+%%% @doc <p>This function will cancel all timetraps and pause the
+%%%       execution of the current test case until the user calls the
+%%%       <c>continue/0</c> function. It gives the user the opportunity
+%%%       to interact with the erlang node running the tests, e.g. for
+%%%       debugging purposes or for manually executing a part of the
+%%%       test case. If a parallel group is executing, <c>break/2</c>
+%%%       should be called instead.</p>
+break(Comment) ->
+    case get_testdata(curr_tc) of
+	{ok,{_,TestCase}} ->
+	    test_server:break(?MODULE, Comment);
+	{ok,Cases} when is_list(Cases) ->
+	    {error,{multiple_cases_running,
+		    [TC || {_,TC} <- Cases]}};
+	Error -> 
+	    {error,Error}
+    end.
+
+%%%-----------------------------------------------------------------
+%%% @spec break(TestCase, Comment) -> ok | {error,Reason}
+%%%       TestCase = atom()
+%%%       Comment = string()
+%%%       Reason = test_case_not_running
+%%%
+%%% @doc <p>This function works the same way as <c>break/1</c>,
+%%%       only the <c>TestCase</c> argument makes it possible to
+%%%       pause a test case executing in a parallel group. The
+%%%       <c>continue/1</c> function should be used to resume
+%%%       execution of <c>TestCase</c>.</p>
+break(TestCase, Comment) ->
+    case get_testdata(curr_tc) of
+	{ok,Cases} when is_list(Cases) ->
+	    case lists:keymember(TestCase, 2, Cases) of
+		true ->
+		    test_server:break(?MODULE, TestCase, Comment);
+		false ->
+		    {error,test_case_not_running}
+	    end;
+	{ok,{_,TestCase}} ->
+	    test_server:break(?MODULE, TestCase, Comment);
+	Error -> 
+	    {error,Error}
+    end.
+
+%%%-----------------------------------------------------------------
+%%% @spec continue() -> ok
+%%%
+%%% @doc <p>This function must be called in order to continue after a
+%%%      test case (not executing in a parallel group) has called
+%%%      <c>break/1</c>.</p>
+continue() -> 
+    test_server:continue().
+
+%%%-----------------------------------------------------------------
+%%% @spec continue(TestCase) -> ok
+%%%       TestCase = atom()
+%%%
+%%% @doc <p>This function must be called in order to continue after a
+%%%      test case has called <c>break/2</c>. If the paused test case,
+%%%      <c>TestCase</c>, executes in a parallel group, this
+%%%      function - rather than <c>continue/0</c> - must be used
+%%%      in order to let the test case proceed.</p>
+continue(TestCase) -> 
+    test_server:continue(TestCase).

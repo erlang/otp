@@ -50,7 +50,7 @@
 -export([run_on_shielded_node/2]).
 -export([is_cover/0,is_debug/0,is_commercial/0]).
 
--export([break/1,continue/0]).
+-export([break/1,break/2,break/3,continue/0,continue/1]).
 
 %%% DEBUGGER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([purify_new_leaks/0, purify_format/2, purify_new_fds_inuse/0,
@@ -2102,31 +2102,40 @@ fail() ->
 %% Break a test case so part of the test can be done manually.
 %% Use continue/0 to continue.
 break(Comment) ->
-    case erase(test_server_timetraps) of
-	undefined -> ok;
-	List -> lists:foreach(fun({Ref,_,_}) -> 
-				      timetrap_cancel(Ref)
-			      end, List)
-    end,
+    break(?MODULE, Comment).
+
+break(CBM, Comment) ->
+    break(CBM, '', Comment).
+
+break(CBM, TestCase, Comment) ->
+    timetrap_cancel(),
+    {TCName,CntArg,PName} =
+	if TestCase == '' -> 
+		{"", "", test_server_break_process};
+	   true ->
+		Str = atom_to_list(TestCase),
+		{[32 | Str], Str,
+		 list_to_atom("test_server_break_process_" ++ Str)}
+	end,
     io:format(user,
 	      "\n\n\n--- SEMIAUTOMATIC TESTING ---"
-	      "\nThe test case executes on process ~w"
+	      "\nThe test case~s executes on process ~w"
 	      "\n\n\n~s"
 	      "\n\n\n-----------------------------\n\n"
-	      "Continue with --> test_server:continue().\n",
-	      [self(),Comment]),
-    case whereis(test_server_break_process) of
+	      "Continue with --> ~w:continue(~s).\n",
+	      [TCName,self(),Comment,CBM,CntArg]),
+    case whereis(PName) of
 	undefined ->
-	    spawn_break_process(self());
+	    spawn_break_process(self(), PName);
 	OldBreakProcess ->
 	    OldBreakProcess ! cancel,
-	    spawn_break_process(self())
+	    spawn_break_process(self(), PName)
     end,
     receive continue -> ok end.
 
-spawn_break_process(Pid) ->
+spawn_break_process(Pid, PName) ->
     spawn(fun() ->
-		  register(test_server_break_process,self()),
+		  register(PName, self()),
 		  receive
 		      continue -> continue(Pid);
 		      cancel -> ok
@@ -2135,13 +2144,19 @@ spawn_break_process(Pid) ->
 
 continue() ->
     case whereis(test_server_break_process) of
-	undefined ->
-	     ok;
-	BreakProcess ->
-	    BreakProcess ! continue
+	undefined    -> ok;
+	BreakProcess -> BreakProcess ! continue
     end.
 
-continue(Pid) ->
+continue(TestCase) when is_atom(TestCase) ->
+    PName = list_to_atom("test_server_break_process_" ++
+			 atom_to_list(TestCase)),
+    case whereis(PName) of
+	undefined    -> ok;
+	BreakProcess -> BreakProcess ! continue
+    end;	
+
+continue(Pid) when is_pid(Pid) ->
     Pid ! continue.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
