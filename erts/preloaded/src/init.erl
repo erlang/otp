@@ -635,7 +635,15 @@ do_unload([M|Mods]) ->
     catch erlang:purge_module(M),
     do_unload(Mods);
 do_unload([]) ->
+    purge_all_hipe_refs(),
     ok.
+
+purge_all_hipe_refs() ->
+    case erlang:system_info(hipe_architecture) of
+	undefined -> ok;
+	_ -> hipe_bifs:remove_refs_from(all)
+    end.
+
 
 sub([H|T],L) -> sub(T,del(H,L));
 sub([],L)    -> L.
