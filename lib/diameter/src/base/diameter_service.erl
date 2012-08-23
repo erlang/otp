@@ -72,6 +72,8 @@
 -define(DEFAULT_TIMEOUT, 5000).  %% for outgoing requests
 -define(RESTART_TC,      1000).  %% if restart was this recent
 
+-define(RELAY, ?DIAMETER_DICT_RELAY).
+
 %% Used to be able to swap this with anything else dict-like but now
 %% rely on the fact that a service's #state{} record does not change
 %% in storing in it ?STATE table and not always going through the
@@ -2353,8 +2355,11 @@ rt(#request{packet = #diameter_packet{msg = undefined}}, _) ->
     false;  %% TODO: Not what we should do.
 
 %% ... or not.
-rt(#request{packet = #diameter_packet{msg = Msg}} = Req, S) ->
-    find_transport(get_destination(Msg), Req, S).
+rt(#request{packet = #diameter_packet{msg = Msg},
+            dictionary = Dict}
+   = Req,
+   S) ->
+    find_transport(get_destination(Dict, Msg), Req, S).
 
 %%% ---------------------------------------------------------------------------
 %%% # report_status/5
@@ -2466,12 +2471,12 @@ find_transport({alias, Alias}, Msg, Opts, #state{service = Svc} = S) ->
 find_transport(#diameter_app{} = App, Msg, Opts, S) ->
     ft(App, Msg, Opts, S).
 
-ft(#diameter_app{module = Mod} = App, Msg, Opts, S) ->
+ft(#diameter_app{module = Mod, dictionary = Dict} = App, Msg, Opts, S) ->
     #options{filter = Filter,
              extra = Xtra}
         = Opts,
     pick_peer(App#diameter_app{module = Mod ++ Xtra},
-              get_destination(Msg),
+              get_destination(Dict, Msg),
               Filter,
               S);
 ft(false = No, _, _, _) ->
@@ -2507,11 +2512,11 @@ find_transport([_,_] = RH,
               Filter,
               S).
 
-%% get_destination/1
+%% get_destination/2
 
-get_destination(Msg) ->
-    [str(get_avp_value(?BASE, 'Destination-Realm', Msg)),
-     str(get_avp_value(?BASE, 'Destination-Host', Msg))].
+get_destination(Dict, Msg) ->
+    [str(get_avp_value(Dict, 'Destination-Realm', Msg)),
+     str(get_avp_value(Dict, 'Destination-Host', Msg))].
 
 %% This is not entirely correct. The avp could have an arity 1, in
 %% which case an empty list is a DiameterIdentity of length 0 rather
@@ -2534,6 +2539,9 @@ str(T) ->
 %% identify the type of the AVP and its arity in the message in
 %% question. The third form allows messages to be sent as is, without
 %% a dictionary, which is needed in the case of relay agents, for one.
+
+get_avp_value(?RELAY, Name, Msg) ->
+    get_avp_value(?BASE, Name, Msg);
 
 get_avp_value(Dict, Name, [#diameter_header{} | Avps]) ->
     try
