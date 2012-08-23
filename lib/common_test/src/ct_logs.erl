@@ -241,7 +241,7 @@ end_tc(TCPid) ->
 %%% activity it is. <code>Format</code> and <code>Args</code> is the
 %%% data to log (as in <code>io:format(Format,Args)</code>).</p>
 log(Heading,Format,Args) ->
-    cast({log,sync,self(),group_leader(),
+    cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
 	  [{int_header(),[log_timestamp(now()),Heading]},
 	   {Format,Args},
 	   {int_footer(),[]}]}),
@@ -263,7 +263,7 @@ log(Heading,Format,Args) ->
 %%% @see cont_log/2
 %%% @see end_log/0
 start_log(Heading) ->
-    cast({log,sync,self(),group_leader(),
+    cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
 	  [{int_header(),[log_timestamp(now()),Heading]}]}),
     ok.
 
@@ -278,7 +278,8 @@ cont_log([],[]) ->
     ok;
 cont_log(Format,Args) ->
     maybe_log_timestamp(),
-    cast({log,sync,self(),group_leader(),[{Format,Args}]}),
+    cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
+	  [{Format,Args}]}),
     ok.
 
 %%%-----------------------------------------------------------------
@@ -289,7 +290,8 @@ cont_log(Format,Args) ->
 %%% @see start_log/1
 %%% @see cont_log/2
 end_log() ->
-    cast({log,sync,self(),group_leader(),[{int_footer(), []}]}),
+    cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
+	  [{int_footer(), []}]}),
     ok.
     
 
@@ -397,6 +399,8 @@ tc_print(Category,Importance,Format,Args) ->
     VLvl = case ct_util:get_testdata({verbosity,Category}) of
 	       undefined -> 
 		   ct_util:get_testdata({verbosity,'$unspecified'});
+	       {error,bad_invocation} ->
+		   ?MAX_VERBOSITY;
 	       Val ->
 		   Val
 	   end,
@@ -484,7 +488,7 @@ maybe_log_timestamp() ->
 	{MS,S,_} ->
 	    ok;
 	_ ->
-	    cast({log,sync,self(),group_leader(),
+	    cast({log,sync,self(),group_leader(),ct_internal,?MAX_IMPORTANCE,
 		  [{"<i>~s</i>",[log_timestamp({MS,S,US})]}]})
     end.
 
@@ -619,10 +623,15 @@ copy_priv_files([], []) ->
 logger_loop(State) ->
     receive
 	{log,SyncOrAsync,Pid,GL,Category,Importance,List} ->
-	    VLvl = case get({verbosity,Category}) of
-		       undefined -> get({verbosity,'$unspecified'});
-		       Val       -> Val
-		   end,
+	    VLvl = case Category of
+		       ct_internal ->
+			   ?MAX_VERBOSITY;
+		       _ ->
+			   case get({verbosity,Category}) of
+			       undefined -> get({verbosity,'$unspecified'});
+			       Val       -> Val
+			end
+		end,
 	    if Importance >= (100-VLvl) ->
 		    case get_groupleader(Pid, GL, State) of
 			{tc_log,TCGL,TCGLs} ->
@@ -754,7 +763,7 @@ print_to_log(async, FromPid, TCGL, List, State) ->
 		true -> State#logger_state.ct_log_fd
 	     end,
     Printer = fun() ->
-		      test_server:permit_io(TCGL, self()),
+		      test_server:permit_io(IoProc, self()),
 		      io:format(IoProc, "~s", [lists:foldl(IoFun, [], List)])
 	      end,
     case State#logger_state.async_print_jobs of
@@ -2105,7 +2114,7 @@ simulate() ->
 
 simulate_logger_loop() ->
     receive 
-    	{log,_,_,_,List} ->
+    	{log,_,_,_,_,_,List} ->
 	    S = [[io_lib:format(Str,Args),io_lib:nl()] || {Str,Args} <- List],
 	    io:format("~s",[S]),
 	    simulate_logger_loop();

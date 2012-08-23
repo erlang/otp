@@ -1114,7 +1114,7 @@ run_spec_file(Relaxed,
     end.
 
 run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
-				     config = CfgFiles },
+				     config = CfgFiles},
 	     StartOpts) ->
     LogDir1 = which(logdir, LogDir),
     case check_and_install_configfiles(CfgFiles, LogDir1, Opts) of
@@ -1619,7 +1619,8 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 			      "run ct:start_interactive()\n\n",[]),
 		    {error,interactive_mode};
 		_Pid ->
-		    compile_and_run(Tests, Skip, Opts1, Args)
+		    compile_and_run(Tests, Skip,
+                                    Opts1#opts{verbosity=Verbosity}, Args)
 	    end
     end.
 
@@ -1786,7 +1787,6 @@ verify_suites(TestSuites) ->
 				Beam = filename:join(TestDir,
 						     atom_to_list(Suite)++
 							 ".beam"),
-
 				case filelib:is_regular(Beam) of
 				    true  ->
 					{[DS|Found],NotFound};
