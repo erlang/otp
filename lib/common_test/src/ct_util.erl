@@ -858,13 +858,17 @@ call(Msg) ->
     call(Msg, infinity).
 
 call(Msg, Timeout) ->
-    case whereis(ct_util_server) of
-	undefined ->
+    case {self(),whereis(ct_util_server)} of
+	{_,undefined} ->
 	    {error,ct_util_server_not_running};
-	Pid ->
+	{Pid,Pid} ->
+	    %% the caller is ct_util_server, which must
+	    %% be a mistake
+	    {error,bad_invocation};
+	{Self,Pid} ->
 	    MRef = erlang:monitor(process, Pid),
 	    Ref = make_ref(),
-	    ct_util_server ! {Msg,{self(),Ref}},
+	    ct_util_server ! {Msg,{Self,Ref}},
 	    receive
 		{Ref, Result} -> 
 		    erlang:demonitor(MRef, [flush]),
