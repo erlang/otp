@@ -334,7 +334,7 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 -spec key_exchange(client | server, tls_version(),
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
-		   {dh, {binary(), binary()}, #'DHParameter'{}, hash_algo(),
+		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
 		   binary(), binary(), private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 %%

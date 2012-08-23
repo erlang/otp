@@ -32,7 +32,6 @@
 -type public_key_params() :: #'Dss-Parms'{} | term().
 -type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
 -type tls_handshake_history() :: {[binary()], [binary()]}.
--type hash_algo()         :: atom().
 
 %% Signature algorithms
 -define(ANON, 0).

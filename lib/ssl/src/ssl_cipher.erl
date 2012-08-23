@@ -606,11 +606,13 @@ hash_size(md5) ->
 hash_size(sha) ->
     20;
 hash_size(sha256) ->
-    32;
-hash_size(sha384) ->
-    48;
-hash_size(sha512) ->
-    64.
+    32.
+%% Currently no supported cipher suites defaults to sha384 or sha512
+%% so these clauses are not needed at the moment.
+%% hash_size(sha384) ->
+%%     48;
+%% hash_size(sha512) ->
+%%     64.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%

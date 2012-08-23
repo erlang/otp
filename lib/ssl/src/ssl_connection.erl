@@ -1633,8 +1633,6 @@ verify_dh_params(_Version, Signed, Hashes, _HashAlgo, {?rsaEncryption, PubKey, _
 	_ ->
 	    false
     end;
-verify_dh_params(_Version, Signed, Hash, undefined, {?'id-dsa', PublicKey, PublicKeyParams}) ->
-    public_key:verify({digest, Hash}, sha, Signed, {PublicKey, PublicKeyParams});
 verify_dh_params(_Version, Signed, Hash, HashAlgo, {?'id-dsa', PublicKey, PublicKeyParams}) ->
     public_key:verify({digest, Hash}, HashAlgo, Signed, {PublicKey, PublicKeyParams}).
 
