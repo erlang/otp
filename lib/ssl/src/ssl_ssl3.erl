@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,9 +54,9 @@ master_secret(PremasterSecret, ClientRandom, ServerRandom) ->
     Block = generate_keyblock(PremasterSecret, ClientRandom, ServerRandom, 48),
     Block.
 
--spec finished(client | server, binary(), {binary(), binary()}) -> binary().
+-spec finished(client | server, binary(), [binary()]) -> binary().
 
-finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
+finished(Role, MasterSecret, Handshake) ->
    %%  draft-ietf-tls-ssl-version3-00 - 5.6.9 Finished
    %%     struct {
    %%      opaque md5_hash[16];
@@ -70,13 +70,13 @@ finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
    %%                      SHA(handshake_messages + Sender +
    %%                          master_secret + pad1));
     Sender = get_sender(Role),
-    MD5 = handshake_hash(?MD5, MasterSecret, Sender, MD5Hash),
-    SHA = handshake_hash(?SHA, MasterSecret, Sender, SHAHash),
+    MD5 = handshake_hash(?MD5, MasterSecret, Sender, Handshake),
+    SHA = handshake_hash(?SHA, MasterSecret, Sender, Handshake),
     <<MD5/binary, SHA/binary>>.
 
--spec certificate_verify(OID::tuple(), binary(), {binary(), binary()}) -> binary().
+-spec certificate_verify(md5sha | sha, binary(), [binary()]) -> binary().
 
-certificate_verify(?'rsaEncryption', MasterSecret, {MD5Hash, SHAHash}) ->
+certificate_verify(md5sha, MasterSecret, Handshake) ->
      %% md5_hash
      %%           MD5(master_secret + pad_2 +
      %%               MD5(handshake_messages + master_secret + pad_1));
@@ -84,15 +84,16 @@ certificate_verify(?'rsaEncryption', MasterSecret, {MD5Hash, SHAHash}) ->
      %%           SHA(master_secret + pad_2 +
      %%               SHA(handshake_messages + master_secret + pad_1));
 
-    MD5 = handshake_hash(?MD5, MasterSecret, undefined, MD5Hash),
-    SHA = handshake_hash(?SHA, MasterSecret, undefined, SHAHash),
+    MD5 = handshake_hash(?MD5, MasterSecret, undefined, Handshake),
+    SHA = handshake_hash(?SHA, MasterSecret, undefined, Handshake),
     <<MD5/binary, SHA/binary>>;
 
-certificate_verify(?'id-dsa', MasterSecret, {_, SHAHash}) ->
+certificate_verify(sha, MasterSecret, Handshake) ->
      %% sha_hash
      %%           SHA(master_secret + pad_2 +
      %%               SHA(handshake_messages + master_secret + pad_1));
-    handshake_hash(?SHA, MasterSecret, undefined, SHAHash).
+
+    handshake_hash(?SHA, MasterSecret, undefined, Handshake).
 
 -spec mac_hash(integer(), binary(), integer(), integer(), integer(), binary()) -> binary(). 
 
@@ -152,20 +153,10 @@ suites() ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-hash(?MD5, Data) -> 
+hash(?MD5, Data) ->
     crypto:md5(Data);
-hash(?SHA, Data) -> 
+hash(?SHA, Data) ->
     crypto:sha(Data).
-
-hash_update(?MD5, Context, Data) -> 
-    crypto:md5_update(Context, Data);
-hash_update(?SHA, Context, Data) -> 
-    crypto:sha_update(Context, Data).
-
-hash_final(?MD5, Context) -> 
-    crypto:md5_final(Context);
-hash_final(?SHA, Context) -> 
-    crypto:sha_final(Context).
 
 %%pad_1(?NULL) ->
 %%    "";
@@ -173,7 +164,6 @@ pad_1(?MD5) ->
     <<"666666666666666666666666666666666666666666666666">>;
 pad_1(?SHA) ->
     <<"6666666666666666666666666666666666666666">>.
-
 %%pad_2(?NULL) ->
 %%    "";
 pad_2(?MD5) ->
@@ -189,19 +179,11 @@ mac_hash(Method, Secret, Data) ->
     InnerHash = hash(Method, [Secret, pad_1(Method), Data]),
     hash(Method, [Secret, pad_2(Method), InnerHash]).
 
-handshake_hash(Method, HandshakeHash, Extra) ->
-    HSH = hash_update(Method, HandshakeHash, Extra),
-    hash_final(Method, HSH).
-
-handshake_hash(Method, MasterSecret, undefined, HandshakeHash) ->
-    InnerHash = 
-	handshake_hash(Method, HandshakeHash, 
-		       [MasterSecret, pad_1(Method)]),
+handshake_hash(Method, MasterSecret, undefined, Handshake) ->
+    InnerHash = hash(Method, [Handshake, MasterSecret, pad_1(Method)]),
     hash(Method, [MasterSecret, pad_2(Method), InnerHash]);
-handshake_hash(Method, MasterSecret, Sender, HandshakeHash) ->
-    InnerHash = 
-	handshake_hash(Method, HandshakeHash, 
-		       [Sender, MasterSecret, pad_1(Method)]),
+handshake_hash(Method, MasterSecret, Sender, Handshake) ->
+    InnerHash = hash(Method, [Handshake, Sender, MasterSecret, pad_1(Method)]),
     hash(Method, [MasterSecret, pad_2(Method), InnerHash]).
 
 get_sender(client) -> "CLNT";

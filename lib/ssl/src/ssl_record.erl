@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -383,6 +383,8 @@ get_tls_records_aux(Data, Acc) ->
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
 %%--------------------------------------------------------------------
+protocol_version('tlsv1.2') ->
+    {3, 3};
 protocol_version('tlsv1.1') ->
     {3, 2};
 protocol_version(tlsv1) ->
@@ -391,6 +393,8 @@ protocol_version(sslv3) ->
     {3, 0};
 protocol_version(sslv2) -> %% Backwards compatibility
     {2, 0};
+protocol_version({3, 3}) ->
+    'tlsv1.2';
 protocol_version({3, 2}) ->
     'tlsv1.1';
 protocol_version({3, 1}) ->
@@ -445,9 +449,9 @@ supported_protocol_versions() ->
 	  end,
     case application:get_env(ssl, protocol_version) of
 	undefined ->
-	    lists:map(Fun, ?DEFAULT_SUPPORTED_VERSIONS);
+	    lists:map(Fun, supported_protocol_versions([]));
 	{ok, []} ->
-	    lists:map(Fun, ?DEFAULT_SUPPORTED_VERSIONS);
+	    lists:map(Fun, supported_protocol_versions([]));
 	{ok, Vsns} when is_list(Vsns) ->
 	    Versions = lists:filter(fun is_acceptable_version/1, lists:map(Fun, Vsns)),
 	    supported_protocol_versions(Versions);
@@ -457,7 +461,16 @@ supported_protocol_versions() ->
     end.
 
 supported_protocol_versions([]) ->
-    ?DEFAULT_SUPPORTED_VERSIONS;
+    Vsns = case sufficient_tlsv1_2_crypto_support() of
+	       true ->
+		   %%?ALL_SUPPORTED_VERSIONS; %% Add TlS-1.2 as default in R16
+		   ?DEFAULT_SUPPORTED_VERSIONS;
+	       false ->
+		   ?DEFAULT_SUPPORTED_VERSIONS
+	   end,
+    application:set_env(ssl, protocol_version, Vsns),
+    Vsns;
+
 supported_protocol_versions([_|_] = Vsns) ->
     Vsns.
 
@@ -561,14 +574,14 @@ highest_protocol_version() ->
 
 initial_connection_state(ConnectionEnd) ->
     #connection_state{security_parameters =
-                      initial_security_params(ConnectionEnd),
+			  initial_security_params(ConnectionEnd),
                       sequence_number = 0
                      }.
 
 initial_security_params(ConnectionEnd) ->
     SecParams = #security_parameters{connection_end = ConnectionEnd,
 				     compression_algorithm = ?NULL},
-    ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, 
+    ssl_cipher:security_parameters(highest_protocol_version(), ?TLS_NULL_WITH_NULL_NULL,
 				   SecParams).
 
 empty_connection_state(ConnectionEnd) ->
@@ -633,7 +646,7 @@ cipher(Type, Version, Fragment, CS0) ->
 						      BCA}
 				}} = 
 	hash_and_bump_seqno(CS0, Type, Version, Length, Fragment),
-    {Ciphered, CipherS1} = ssl_cipher:cipher(BCA, CipherS0, MacHash, Fragment),
+    {Ciphered, CipherS1} = ssl_cipher:cipher(BCA, CipherS0, MacHash, Fragment, Version),
     CS2 = CS1#connection_state{cipher_state=CipherS1},
     {Ciphered, CS2}.
 
@@ -687,6 +700,17 @@ mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
     ssl_ssl3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
 mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
-  when N =:= 1; N =:= 2 ->
+  when N =:= 1; N =:= 2; N =:= 3 ->
     ssl_tls1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version, 
 		      Length, Fragment).
+
+sufficient_tlsv1_2_crypto_support() ->
+    Data = "Sampl",
+    Data2 = "e #1",
+    Key = <<0,1,2,3,16,17,18,19,32,33,34,35,48,49,50,51,4,5,6,7,20,21,22,23,36,37,38,39,
+	    52,53,54,55,8,9,10,11,24,25,26,27,40,41,42,43,56,57,58,59>>,
+    try
+	crypto:sha256_mac(Key, lists:flatten([Data, Data2])),
+	true
+    catch _:_ -> false
+    end.

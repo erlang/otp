@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -47,6 +47,7 @@
           key_material_length,			% unit 8 
           expanded_key_material_length,		% unit 8 
           mac_algorithm,			% unit 8  
+          prf_algorithm,			% unit 8
           hash_size,				% unit 8
           compression_algorithm,		% unit 8 
           master_secret,			% opaque 48
@@ -97,10 +98,15 @@
 %-define(TRUE, 0).  %% Already defined by ssl_internal.hrl
 %-define(FALSE, 1). %% Already defined by ssl_internal.hrl
 
-%% MACAlgorithm
+%% MAC and PRF Algorithms
 %-define(NULL, 0). %% Already defined by ssl_internal.hrl
 -define(MD5, 1).
 -define(SHA, 2).
+-define(MD5SHA, 4711). %% Not defined in protocol used to represent old prf
+-define(SHA224, 3).
+-define(SHA256, 4).
+-define(SHA384, 5).
+-define(SHA512, 6).
 
 %% CompressionMethod
 % -define(NULL, 0). %% Already defined by ssl_internal.hrl
@@ -176,7 +182,8 @@
           content, % opaque content[TLSCompressed.length];
           mac,     % opaque MAC[CipherSpec.hash_size];
           padding, % unit 8 padding[GenericBlockCipher.padding_length];
-          padding_length % uint8 padding_length;
+          padding_length, % uint8 padding_length;
+          next_iv  % opaque IV[SecurityParameters.record_iv_length];
          }). 
 
 -endif. % -ifdef(ssl_record).

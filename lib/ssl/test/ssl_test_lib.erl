@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -708,3 +708,33 @@ state([{data,[{"StateData", State}]} | _]) ->
     State;
 state([_ | Rest]) ->
     state(Rest).
+
+is_tls_version('tlsv1.2') ->
+    true;
+is_tls_version('tlsv1.1') ->
+    true;
+is_tls_version('tlsv1') ->
+    true;
+is_tls_version('sslv3') ->
+    true;
+is_tls_version(_) ->
+    false.
+
+init_tls_version(Version) ->
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, protocol_version, Version),
+    ssl:start().
+
+sufficient_crypto_support('tlsv1.2') ->
+    Data = "Sampl",
+    Data2 = "e #1",
+    Key = <<0,1,2,3,16,17,18,19,32,33,34,35,48,49,50,51,4,5,6,7,20,21,22,23,36,37,38,39,
+	    52,53,54,55,8,9,10,11,24,25,26,27,40,41,42,43,56,57,58,59>>,
+    try
+	crypto:sha256_mac(Key, lists:flatten([Data, Data2])),
+	true
+    catch _:_ -> false
+    end;
+sufficient_crypto_support(_) ->
+    true.
