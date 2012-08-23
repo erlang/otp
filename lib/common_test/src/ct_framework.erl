@@ -75,8 +75,11 @@ init_tc(Mod,Func,Config) ->
 	    case CurrTC of
 		undefined ->
 		    ct_util:set_testdata({curr_tc,[{Suite,Func}]});
-		Running when is_list(Running) ->
-		    ct_util:set_testdata({curr_tc,[{Suite,Func}|Running]})
+		_ when is_list(CurrTC) ->
+		    ct_util:update_testdata(curr_tc,
+					    fun(Running) ->
+						    [{Suite,Func}|Running]
+					    end)
 	    end,
 	    case ct_util:read_suite_data({seq,Suite,Func}) of
 		undefined ->
@@ -84,11 +87,13 @@ init_tc(Mod,Func,Config) ->
 		Seq when is_atom(Seq) ->
 		    case ct_util:read_suite_data({seq,Suite,Seq}) of
 			[Func|TCs] ->		% this is the 1st case in Seq
-			    %% make sure no cases in this seq are marked as failed
-			    %% from an earlier execution in the same suite
+			    %% make sure no cases in this seq are
+			    %% marked as failed from an earlier execution 
+			    %% in the same suite
 			    lists:foreach(
 			      fun(TC) ->
-				      ct_util:save_suite_data({seq,Suite,TC},Seq)
+				      ct_util:save_suite_data({seq,Suite,TC},
+							      Seq)
 			      end, TCs);
 			_ ->
 			    ok
@@ -665,12 +670,16 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
 
     %% reset the curr_tc state, or delete this TC from the list of
     %% executing cases (if in a parallel group)
-    case ct_util:get_testdata(curr_tc) of
-	Running = [_,_|_] ->
-	    ct_util:set_testdata({curr_tc,lists:delete({Mod,Func}, Running)});
-	[_] ->
-	    ct_util:set_testdata({curr_tc,undefined})
-    end,
+    ClearCurrTC = fun(Running = [_,_|_]) ->
+			  lists:delete({Mod,Func},Running);
+		     ({_,{suite0_failed,_}}) ->
+			  undefined;
+		     ([{_,CurrTC}]) when CurrTC == Func ->
+			  undefined;
+		     (undefined) ->
+			  undefined
+		  end,
+    ct_util:update_testdata(curr_tc,ClearCurrTC),
 
     case FinalResult of
 	{skip,{sequence_failed,_,_}} ->

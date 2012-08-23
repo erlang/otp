@@ -1131,7 +1131,8 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 				{'EXIT',Why} ->
 				    timer:sleep(1),
 				    group_leader() ! {printout,12,
-						      "WARNING! ~p:end_per_testcase(~p, ~p)"
+						      "WARNING! "
+						      "~p:end_per_testcase(~p, ~p)"
 						      " crashed!\n\tReason: ~p\n",
 						      [Mod,Func,Conf,Why]};
 				_ ->
@@ -1247,13 +1248,18 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo) ->
+spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
+    {Mod1,Func1} =
+	case {Mod,Func,CurrConf} of
+	    {undefined,undefined,{{M,F},_}} -> {M,F};
+	    _ -> {Mod,Func}
+	end,	    
     FwCall =
 	fun() ->
 		%% set group leader so that printouts/comments
 		%% from the framework get printed in the logs
 		group_leader(SendTo, self()),
-		case catch fw_error_notify(Mod,Func,[],
+		case catch fw_error_notify(Mod1,Func1,[],
 					   Error,Loc) of
 		    {'EXIT',FwErrorNotifyErr} ->
 			exit({fw_notify_done,error_notification,
@@ -1262,7 +1268,7 @@ spawn_fw_call(Mod,Func,_,Pid,Error,Loc,SendTo) ->
 			ok
 		end,
 		Conf = [{tc_status,{failed,timetrap_timeout}}],
-		case catch do_end_tc_call(Mod,Func, Loc,
+		case catch do_end_tc_call(Mod1,Func1, Loc,
 					  {Pid,Error,[Conf]},Error) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});

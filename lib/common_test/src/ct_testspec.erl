@@ -934,6 +934,12 @@ handle_data(ct_hooks,Node,Hook,_Spec) ->
     [{Node,Hook}];
 handle_data(stylesheet,Node,CSSFile,Spec) ->
     [{Node,get_absfile(CSSFile,Spec)}];
+handle_data(verbosity,Node,VLvls,_Spec) when is_integer(VLvls) ->
+    [{Node,[{'$unspecified',VLvls}]}];
+handle_data(verbosity,Node,VLvls,_Spec) when is_list(VLvls) ->
+    VLvls1 = lists:map(fun(VLvl = {_Cat,_Lvl}) -> VLvl;
+			  (Lvl) -> {'$unspecified',Lvl} end, VLvls),
+    [{Node,VLvls1}];
 handle_data(_Tag,Node,Data,_Spec) ->
     [{Node,Data}].
 
@@ -943,7 +949,8 @@ should_be_added(Tag,Node,_Data,Spec) ->
 	%% list terms *without* possible duplicates here
 	Tag == logdir; Tag == logopts;
 	Tag == basic_html; Tag == label;
-	Tag == auto_compile; Tag == stylesheet ->
+	Tag == auto_compile; Tag == stylesheet;
+	Tag == verbosity ->
 	    lists:keymember(ref2node(Node,Spec#testspec.nodes),1,
 			    read_field(Spec,Tag)) == false;
 	%% for terms *with* possible duplicates
