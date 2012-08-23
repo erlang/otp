@@ -192,12 +192,12 @@ call([{Hook, call_id, NextFun} | Rest], Config, Meta, Hooks) ->
 	    case lists:keyfind(NewId, #ct_hook_config.id, Hooks) of
 		false when NextFun =:= undefined ->
 		    {Hooks ++ [NewHook],
-		     [{NewId, call_init} | Rest]};
+		     Rest ++ [{NewId, call_init}]};
 		ExistingHook when is_tuple(ExistingHook) ->
 		    {Hooks, Rest};
 		_ ->
 		    {Hooks ++ [NewHook],
-		     [{NewId, call_init}, {NewId,NextFun} | Rest]}
+		     Rest ++ [{NewId, call_init}, {NewId,NextFun}]}
 	    end,
 	call(resort(NewRest,NewHooks,Meta), Config, Meta, NewHooks)
     catch Error:Reason ->
