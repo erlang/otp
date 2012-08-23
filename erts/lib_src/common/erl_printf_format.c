@@ -457,6 +457,15 @@ static int fmt_double(fmtfn_t fn,void*arg,double val,
     return res;
 }
 
+/* strnlen doesn't exist everywhere */
+static size_t my_strnlen(const char *s, size_t maxlen)
+{
+    size_t i = 0;
+    while (i < maxlen && s[i] != '\0')
+	i++;
+    return i;
+}
+
 int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 {
     char* ptr0 = fmt;
@@ -771,9 +780,7 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		
 	    case FMTC_s: {
 		char* str = va_arg(ap,char*);
-		int len = strlen(str);
-		if (precision >= 0 && precision < len)
-		    len = precision;
+		int len = (precision >= 0) ? my_strnlen(str,precision) : strlen(str);
 		if (width > 0 && !(fmt & FMTF_adj)) {
 		    if (width > len)
 			BLANKS(fn, arg, width - len, count);
