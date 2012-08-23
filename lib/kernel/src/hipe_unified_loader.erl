@@ -34,6 +34,13 @@
 
 -module(hipe_unified_loader).
 
+-compile(no_native).
+% 'no_native' is a workaround to avoid "The code server called unloaded module"
+% caused by Mod:module_info(exports) in patch_to_emu_step1() called by post_beam_load.
+% Reproducable with hipelibs and asn1_SUITE.
+% I think the real solution would be to let BIF erlang:load_module/2 redirect all
+% hipe calls to the module and thereby remove post_beam_load.
+
 -export([chunk_name/1,
 	 %% Only the code and code_server modules may call the entries below!
 	 load_native_code/2,
