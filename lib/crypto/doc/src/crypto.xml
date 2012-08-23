@@ -256,6 +256,57 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
     <func>
+      <name>hash(Type, Data) -> Digest</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type = md4 | md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<v>Data = iodata()</v>
+	<v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hash_init(Type) -> Context</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Type = md4 | md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+      </type>
+      <desc>
+        <p>Initializes the context for streaming hash operations. <c>Type</c> determines
+        which digest to use. The returned context should be used as argument
+	to <seealso marker="#hash_update/2">hash_update</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hash_update(Context, Data) -> NewContext</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Data = iodata()</v>
+      </type>
+      <desc>
+        <p>Updates the digest represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
+        must have been generated using <seealso marker="#hash_init/1">hash_init</seealso>
+	or a previous call to this function. <c>Data</c> can be any length. <c>NewContext</c>
+        must be passed into the next call to <c>hash_update</c>
+	or <seealso marker="#hash_final/1">hash_final</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hash_final(Context) -> Digest</name>
+      <fsummary></fsummary>
+      <type>
+	<v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Finalizes the hash operation referenced by <c>Context</c> returned
+	from a previous call to <seealso marker="#hash_update/2">hash_update</seealso>.
+	The size of <c>Digest</c> is determined by the type of hash
+	function used to generate it.</p>
+      </desc>
+    </func>
+    <func>
       <name>md5_mac(Key, Data) -> Mac</name>
       <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
       <type>
@@ -893,11 +944,13 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
 
     <func>
-      <name>rsa_sign(Data, Key) -> Signature</name>
-      <name>rsa_sign(DigestType, Data, Key) -> Signature</name> 
+      <name>rsa_sign(DataOrDigest, Key) -> Signature</name>
+      <name>rsa_sign(DigestType, DataOrDigest, Key) -> Signature</name>
       <fsummary>Sign the data using rsa with the given key.</fsummary>
       <type>
+        <v>DataOrDigest = Data | {digest,Digest}</v>
         <v>Data = Mpint</v>
+	<v>Digest = binary()</v>
         <v>Key = [E, N, D] | [E, N, D, P1, P2, E1, E2, C]</v>
         <v>E, N, D = Mpint</v>
         <d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
@@ -907,37 +960,40 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 	   the calculation faster. <c>P1,P2</c> are first and second prime factors.
            <c>E1,E2</c> are first and second exponents. <c>C</c> is the CRT coefficient.
            Terminology is taken from RFC 3447.</d>
-	<v>DigestType = md5 | sha</v>
+	<v>DigestType = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
 	<d>The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
         <v>Signature = binary()</v>
       </type>
       <desc>
-        <p>Calculates a <c>DigestType</c> digest of the <c>Data</c>
-	  and creates a RSA signature with the private key <c>Key</c>
-	  of the digest.</p>
+        <p>Creates a RSA signature with the private key <c>Key</c>
+	  of a digest. The digest is either calculated as a
+	  <c>DigestType</c> digest of <c>Data</c> or a precalculated
+	  binary <c>Digest</c>.</p>
       </desc>
     </func>
 
     <func>
-      <name>rsa_verify(Data, Signature, Key) -> Verified</name>
-      <name>rsa_verify(DigestType, Data, Signature, Key) -> Verified </name> 
+      <name>rsa_verify(DataOrDigest, Signature, Key) -> Verified</name>
+      <name>rsa_verify(DigestType, DataOrDigest, Signature, Key) -> Verified </name>
       <fsummary>Verify the digest and signature using rsa with given public key.</fsummary>
       <type>
         <v>Verified = boolean()</v>
+	<v>DataOrDigest = Data | {digest|Digest}</v>
         <v>Data, Signature = Mpint</v>
+	<v>Digest = binary()</v>
         <v>Key = [E, N]</v>
         <v>E, N = Mpint</v>
         <d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
-	<v>DigestType = md5 | sha | sha256 | sha384 | sha512</v>
-	<d> The default <c>DigestType</c> is sha.</d>
+	<v>DigestType = md5 | sha | sha224 | sha256 | sha384 | sha512</v>
+	<d>The default <c>DigestType</c> is sha.</d>
         <v>Mpint = binary()</v>
       </type>
       <desc>
-        <p>Calculates a <c>DigestType</c> digest of the <c>Data</c>
-          and verifies that the digest matches the RSA signature using the
+	<p>Verifies that a digest matches the RSA signature using the
           signer's public key <c>Key</c>.
-	</p>
+	  The digest is either calculated as a <c>DigestType</c>
+	  digest of <c>Data</c> or a precalculated binary <c>Digest</c>.</p>
 	<p>May throw exception <c>notsup</c> in case the chosen <c>DigestType</c>
 	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
@@ -1050,45 +1106,52 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
       
     <func>
-      <name>dss_sign(Data, Key) -> Signature</name>
-      <name>dss_sign(DigestType, Data, Key) -> Signature</name>
+      <name>dss_sign(DataOrDigest, Key) -> Signature</name>
+      <name>dss_sign(DigestType, DataOrDigest, Key) -> Signature</name>
       <fsummary>Sign the data using dsa with given private key.</fsummary>
       <type>
-        <v>DigestType = sha | none (default is sha)</v>
-        <v>Data = Mpint | ShaDigest</v>
+        <v>DigestType = sha</v>
+        <v>DataOrDigest = Mpint | {digest,Digest}</v>
         <v>Key = [P, Q, G, X]</v>
         <v>P, Q, G, X = Mpint</v>
 	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
 	  parameters and <c>X</c> is the private key.</d>
-        <v>ShaDigest = binary() with length 20 bytes</v>
+        <v>Digest = binary() with length 20 bytes</v>
         <v>Signature = binary()</v>
       </type>
       <desc>
-        <p>Creates a DSS signature with the private key <c>Key</c> of a digest.
-        If <c>DigestType</c> is 'sha', the digest is calculated as SHA1 of <c>Data</c>.
-        If <c>DigestType</c> is 'none', <c>Data</c> is the precalculated SHA1 digest.</p>
+        <p>Creates a DSS signature with the private key <c>Key</c> of
+	a digest. The digest is either calculated as a SHA1
+	  digest of <c>Data</c> or a precalculated binary <c>Digest</c>.</p>
+	<p>A deprecated feature is having <c>DigestType = 'none'</c>
+	in which case <c>DataOrDigest</c> is a precalculated SHA1
+	digest.</p>
       </desc>
     </func>
 
     <func>
-      <name>dss_verify(Data, Signature, Key) -> Verified</name>
-      <name>dss_verify(DigestType, Data, Signature, Key) -> Verified</name>
+      <name>dss_verify(DataOrDigest, Signature, Key) -> Verified</name>
+      <name>dss_verify(DigestType, DataOrDigest, Signature, Key) -> Verified</name>
       <fsummary>Verify the data and signature using dsa with given public key.</fsummary>
       <type>
         <v>Verified = boolean()</v>
-        <v>DigestType = sha | none</v>
+        <v>DigestType = sha</v>
+	<v>DataOrDigest = Mpint | {digest,Digest}</v>
         <v>Data = Mpint | ShaDigest</v>
         <v>Signature = Mpint</v>
         <v>Key = [P, Q, G, Y]</v>
         <v>P, Q, G, Y = Mpint</v>
 	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
 	  parameters and <c>Y</c> is the public key.</d>
-        <v>ShaDigest = binary() with length 20 bytes</v>
+        <v>Digest = binary() with length 20 bytes</v>
       </type>
       <desc>
-        <p>Verifies that a digest matches the DSS signature using the public key <c>Key</c>.
-        If <c>DigestType</c> is 'sha', the digest is calculated as SHA1 of <c>Data</c>.
-        If <c>DigestType</c> is 'none', <c>Data</c> is the precalculated SHA1 digest.</p>
+        <p>Verifies that a digest matches the DSS signature using the
+	public key <c>Key</c>. The digest is either calculated as a SHA1
+	digest of <c>Data</c> or is a precalculated binary <c>Digest</c>.</p>
+	<p>A deprecated feature is having <c>DigestType = 'none'</c>
+	in which case <c>DataOrDigest</c> is a precalculated SHA1
+	digest binary.</p>
       </desc>
     </func>
 

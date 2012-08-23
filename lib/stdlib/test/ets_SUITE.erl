@@ -1026,6 +1026,8 @@ t_test_ms(Config) when is_list(Config) ->
 				   [{{'$1','$2'},[{'<','$1','$2'}],['$$']}]),
     ?line {ok,false} = ets:test_ms({a,b},
 				   [{{'$1','$2'},[{'>','$1','$2'}],['$$']}]),
+    Tpl = {a,gb_sets:new()},
+    ?line {ok,Tpl} = ets:test_ms(Tpl, [{{'_','_'},  [], ['$_']}]), % OTP-10190
     ?line {error,[{error,String}]} = ets:test_ms({a,b},
 						 [{{'$1','$2'},
 						   [{'flurp','$1','$2'}],

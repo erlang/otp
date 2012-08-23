@@ -659,13 +659,23 @@ create_io_fun(FromPid, State) ->
 
 print_to_log(sync, FromPid, TCGL, List, State) ->
     IoFun = create_io_fun(FromPid, State),
-    io:format(TCGL, "~s", [lists:foldl(IoFun, [], List)]),
+    %% in some situations (exceptions), the printout is made from the
+    %% test server IO process and there's no valid group leader to send to
+    IoProc = if FromPid /= TCGL -> TCGL;
+		true -> State#logger_state.ct_log_fd
+	     end,
+    io:format(IoProc, "~s", [lists:foldl(IoFun, [], List)]),
     State;
 
 print_to_log(async, FromPid, TCGL, List, State) ->
     IoFun = create_io_fun(FromPid, State),
+    %% in some situations (exceptions), the printout is made from the
+    %% test server IO process and there's no valid group leader to send to
+    IoProc = if FromPid /= TCGL -> TCGL;
+		true -> State#logger_state.ct_log_fd
+	     end,
     Printer = fun() ->
-		      io:format(TCGL, "~s", [lists:foldl(IoFun, [], List)])
+		      io:format(IoProc, "~s", [lists:foldl(IoFun, [], List)])
 	      end,
     case State#logger_state.async_print_jobs of
 	[] ->

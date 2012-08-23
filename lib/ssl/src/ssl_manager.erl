@@ -86,7 +86,7 @@ start_link_dist(Opts) ->
 
 %%--------------------------------------------------------------------
 -spec connection_init(binary()| {der, list()}, client | server) ->
-			     {ok, certdb_ref(), db_handle(), db_handle()}.
+			     {ok, certdb_ref(), db_handle(), db_handle(), db_handle(), db_handle()}.
 %%			     
 %% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
@@ -325,7 +325,7 @@ handle_info({clean_cert_db, Ref, File},
     case ssl_certificate_db:ref_count(Ref, RefDb, 0) of
 	0 ->
 	    MD5 = crypto:md5(File),
-	    case ssl_certificate_db:lookup_cached_pem(MD5, PemCache) of
+	    case ssl_certificate_db:lookup_cached_pem(PemCache, MD5) of
 		[{Content, Ref}] ->
 		    ssl_certificate_db:insert(MD5, Content, PemCache);
 		undefined ->

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,8 +48,8 @@
 -type rsa_padding()          :: 'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding' 
 			      | 'rsa_no_padding'.
 -type public_crypt_options() :: [{rsa_pad, rsa_padding()}].
--type rsa_digest_type()      :: 'md5' | 'sha'| 'sha256' | 'sha512'.
--type dss_digest_type()      :: 'none' | 'sha'.
+-type rsa_digest_type()      :: 'md5' | 'sha'| 'sha224' | 'sha256' | 'sha384' | 'sha512'.
+-type dss_digest_type()      :: 'none' | 'sha'. %% None is for backwards compatibility
 
 -define(UINT32(X), X:32/unsigned-big-integer).
 -define(DER_NULL, <<5, 0>>).
@@ -332,60 +332,61 @@ format_rsa_private_key(#'RSAPrivateKey'{modulus = N, publicExponent = E,
    [crypto:mpint(K) || K <- [E, N, D]].
 
 %%--------------------------------------------------------------------
--spec sign(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type(), 
-	   rsa_private_key() | 
+-spec sign(binary() | {digest, binary()},  rsa_digest_type() | dss_digest_type(),
+	   rsa_private_key() |
 	   dsa_private_key()) -> Signature :: binary().
-%%
 %% Description: Create digital signature.
 %%--------------------------------------------------------------------
-sign(PlainText, DigestType,
-     #'RSAPrivateKey'{modulus = N, publicExponent = E, privateExponent = D} = Key)
-  when is_binary(PlainText),
-       (DigestType == md5 orelse DigestType == sha),
-       is_integer(N), is_integer(E), is_integer(D)  ->
-    crypto:rsa_sign(DigestType, sized_binary(PlainText),
-                    format_rsa_private_key(Key));
+sign({digest,_}=Digest, DigestType, Key = #'RSAPrivateKey'{}) ->
+    crypto:rsa_sign(DigestType, Digest, format_rsa_private_key(Key));
 
-sign(Digest, none, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) 
-  when is_binary(Digest)->
-    crypto:dss_sign(none, Digest, 
-		    [crypto:mpint(P), crypto:mpint(Q), 
+sign(PlainText, DigestType, Key = #'RSAPrivateKey'{}) ->
+    crypto:rsa_sign(DigestType, sized_binary(PlainText), format_rsa_private_key(Key));
+
+sign({digest,_}=Digest, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
+    crypto:dss_sign(Digest,
+		    [crypto:mpint(P), crypto:mpint(Q),
 		     crypto:mpint(G), crypto:mpint(X)]);
-  
-sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) 
-  when is_binary(PlainText) ->
-    crypto:dss_sign(sized_binary(PlainText), 
-		    [crypto:mpint(P), crypto:mpint(Q), 
-		     crypto:mpint(G), crypto:mpint(X)]).
+
+sign(PlainText, sha, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
+    crypto:dss_sign(sized_binary(PlainText),
+          [crypto:mpint(P), crypto:mpint(Q),
+           crypto:mpint(G), crypto:mpint(X)]);
+
+%% Backwards compatible
+sign(Digest, none, #'DSAPrivateKey'{} = Key) ->
+    sign({digest,Digest}, sha, Key).
 
 %%--------------------------------------------------------------------
--spec verify(PlainTextOrDigest :: binary(), rsa_digest_type() | dss_digest_type(), 
-	     Signature :: binary(), rsa_public_key() 
+-spec verify(binary() | {digest, binary()}, rsa_digest_type() | dss_digest_type(),
+	     Signature :: binary(), rsa_public_key()
 	     | dsa_public_key()) -> boolean().
-%%
 %% Description: Verifies a digital signature.
 %%--------------------------------------------------------------------
-verify(PlainText, DigestType, Signature, 
-       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) 
-  when is_binary (PlainText) and (DigestType == sha orelse
-				  DigestType == sha256 orelse 
-				  DigestType == sha512 orelse 
-				  DigestType == md5) ->
+verify({digest,_}=Digest, DigestType, Signature,
+       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
+    crypto:rsa_verify(DigestType, Digest,
+		      sized_binary(Signature),
+		      [crypto:mpint(Exp), crypto:mpint(Mod)]);
+
+verify(PlainText, DigestType, Signature,
+       #'RSAPublicKey'{modulus = Mod, publicExponent = Exp}) ->
     crypto:rsa_verify(DigestType,
 		      sized_binary(PlainText), 
 		      sized_binary(Signature), 
 		      [crypto:mpint(Exp), crypto:mpint(Mod)]);
 
-verify(Digest, none, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) 
-  when is_integer(Key),  is_binary(Digest), is_binary(Signature) ->
-    crypto:dss_verify(none, 
-		      Digest, 
-		      sized_binary(Signature), 
+verify({digest,_}=Digest, sha, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}})
+  when is_integer(Key), is_binary(Signature) ->
+    crypto:dss_verify(Digest, sized_binary(Signature),
 		      [crypto:mpint(P), crypto:mpint(Q), 
 		       crypto:mpint(G), crypto:mpint(Key)]);
-    
+%% Backwards compatibility
+verify(Digest, none, Signature, {_,  #'Dss-Parms'{}} = Key ) ->
+    verify({digest,Digest}, sha, Signature, Key);
+
 verify(PlainText, sha, Signature, {Key,  #'Dss-Parms'{p = P, q = Q, g = G}}) 
-  when is_integer(Key),  is_binary(PlainText), is_binary(Signature) ->
+  when is_integer(Key), is_binary(PlainText), is_binary(Signature) ->
     crypto:dss_verify(sized_binary(PlainText), 
 		      sized_binary(Signature), 
 		      [crypto:mpint(P), crypto:mpint(Q), 

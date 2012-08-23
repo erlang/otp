@@ -122,15 +122,56 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
+    [
+     {group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'},
+     {group, 'sslv3'}
+    ].
+
+groups() ->
+    [{'tlsv1.2', [], packet_tests()},
+     {'tlsv1.1', [], packet_tests()},
+     {'tlsv1', [], packet_tests()},
+     {'sslv3', [], packet_tests()}].
+
+packet_tests() ->
+    active_packet_tests() ++ active_once_packet_tests() ++ passive_packet_tests() ++
+	[packet_send_to_large,
+	 packet_cdr_decode, packet_cdr_decode_list,
+	 packet_http_decode, packet_http_decode_list,
+	 packet_http_bin_decode_multi,
+	 packet_line_decode, packet_line_decode_list,
+	 packet_asn1_decode, packet_asn1_decode_list,
+	 packet_tpkt_decode, packet_tpkt_decode_list,
+	 packet_sunrm_decode, packet_sunrm_decode_list].
+
+passive_packet_tests() ->
     [packet_raw_passive_many_small,
      packet_0_passive_many_small,
      packet_1_passive_many_small,
      packet_2_passive_many_small,
      packet_4_passive_many_small,
-     packet_raw_passive_some_big, packet_0_passive_some_big,
-     packet_1_passive_some_big, packet_2_passive_some_big,
+     packet_raw_passive_some_big,
+     packet_0_passive_some_big,
+     packet_1_passive_some_big,
+     packet_2_passive_some_big,
      packet_4_passive_some_big,
-     packet_raw_active_once_many_small,
+     packet_httph_passive,
+     packet_httph_bin_passive,
+     packet_http_error_passive,
+     packet_wait_passive,
+     packet_size_passive,
+     packet_baddata_passive,
+     %% inet header option should be deprecated!
+     header_decode_one_byte_passive,
+     header_decode_two_bytes_passive,
+     header_decode_two_bytes_two_sent_passive,
+     header_decode_two_bytes_one_sent_passive
+    ].
+
+active_once_packet_tests() ->
+    [packet_raw_active_once_many_small,
      packet_0_active_once_many_small,
      packet_1_active_once_many_small,
      packet_2_active_once_many_small,
@@ -140,44 +181,49 @@ all() ->
      packet_1_active_once_some_big,
      packet_2_active_once_some_big,
      packet_4_active_once_some_big,
-     packet_raw_active_many_small,
-     packet_0_active_many_small, packet_1_active_many_small,
-     packet_2_active_many_small, packet_4_active_many_small,
-     packet_raw_active_some_big, packet_0_active_some_big,
-     packet_1_active_some_big, packet_2_active_some_big,
-     packet_4_active_some_big, packet_send_to_large,
-     packet_wait_passive, packet_wait_active,
-     packet_baddata_passive, packet_baddata_active,
-     packet_size_passive, packet_size_active,
-     packet_cdr_decode, packet_cdr_decode_list,
-     packet_http_decode, packet_http_decode_list,
-     packet_http_bin_decode_multi, packet_http_error_passive,
-     packet_httph_active, packet_httph_bin_active,
-     packet_httph_active_once, packet_httph_bin_active_once,
-     packet_httph_passive, packet_httph_bin_passive,
-     packet_line_decode, packet_line_decode_list,
-     packet_asn1_decode, packet_asn1_decode_list,
-     packet_tpkt_decode, packet_tpkt_decode_list,
-     packet_sunrm_decode, packet_sunrm_decode_list,
-     {group, header}
+     packet_httph_active_once,
+     packet_httph_bin_active_once
     ].
 
-groups() -> 
-    [{header, [], [ header_decode_one_byte,  
-		    header_decode_two_bytes, 
-		    header_decode_two_bytes_one_sent,
-		    header_decode_two_bytes_two_sent]}].
+active_packet_tests() ->
+    [packet_raw_active_many_small,
+     packet_0_active_many_small,
+     packet_1_active_many_small,
+     packet_2_active_many_small,
+     packet_4_active_many_small,
+     packet_raw_active_some_big,
+     packet_0_active_some_big,
+     packet_1_active_some_big,
+     packet_2_active_some_big,
+     packet_4_active_some_big,
+     packet_httph_active,
+     packet_httph_bin_active,
+     packet_wait_active,
+     packet_baddata_active,
+     packet_size_active,
+     %% inet header option should be deprecated!
+     header_decode_one_byte_active,
+     header_decode_two_bytes_active,
+     header_decode_two_bytes_two_sent_active,
+     header_decode_two_bytes_one_sent_active
+    ].
 
-init_per_group(header, Config) ->
-    case ssl_record:highest_protocol_version(ssl_record:supported_protocol_versions()) of
-	{3, N} when N < 2 ->
-	    {skip, ""};
+
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_tls_version(GroupName) of
+	true ->
+	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl_test_lib:init_tls_version(GroupName),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end;
 	_ ->
+	    ssl:start(),
 	    Config
-    end;
+    end.
 
-init_per_group(_, Config) ->
-    Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
@@ -2436,11 +2482,11 @@ packet_sunrm_decode_list(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
 
-header_decode_one_byte(doc) ->
+header_decode_one_byte_active(doc) ->
     ["Test setting the packet option {header, 1}"];
-header_decode_one_byte(suite) ->
+header_decode_one_byte_active(suite) ->
     [];
-header_decode_one_byte(Config) when is_list(Config) ->
+header_decode_one_byte_active(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2449,7 +2495,7 @@ header_decode_one_byte(Config) when is_list(Config) ->
     
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
-					{mfa, {?MODULE, server_header_decode,
+					{mfa, {?MODULE, server_header_decode_active,
 					       [Data, [11 | <<"Hello world">>]]}},
 					{options, [{active, true}, binary, 
 						   {header,1}|ServerOpts]}]),
@@ -2458,7 +2504,7 @@ header_decode_one_byte(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
-					{mfa, {?MODULE, client_header_decode, 
+					{mfa, {?MODULE, client_header_decode_active,
 					       [Data, [11 | <<"Hello world">> ]]}},
 					{options, [{active, true}, {header, 1},
 						   binary | ClientOpts]}]),
@@ -2470,11 +2516,11 @@ header_decode_one_byte(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-header_decode_two_bytes(doc) ->
+header_decode_two_bytes_active(doc) ->
     ["Test setting the packet option {header, 2}"];
-header_decode_two_bytes(suite) ->
+header_decode_two_bytes_active(suite) ->
     [];
-header_decode_two_bytes(Config) when is_list(Config) ->
+header_decode_two_bytes_active(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2483,7 +2529,7 @@ header_decode_two_bytes(Config) when is_list(Config) ->
     
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
-					{mfa, {?MODULE, server_header_decode,
+					{mfa, {?MODULE, server_header_decode_active,
 					       [Data, [11, $H | <<"ello world">> ]]}},
 					{options, [{active, true}, binary, 
 						   {header,2}|ServerOpts]}]),
@@ -2492,7 +2538,7 @@ header_decode_two_bytes(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
-					{mfa, {?MODULE, client_header_decode, 
+					{mfa, {?MODULE, client_header_decode_active,
 					       [Data, [11, $H | <<"ello world">> ]]}},
 					{options, [{active, true}, {header, 2},
 						   binary | ClientOpts]}]),
@@ -2505,11 +2551,11 @@ header_decode_two_bytes(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-header_decode_two_bytes_two_sent(doc) ->
-    ["Test setting the packet option {header, 2} and sending on byte"];
-header_decode_two_bytes_two_sent(suite) ->
+header_decode_two_bytes_two_sent_active(doc) ->
+    ["Test setting the packet option {header, 2} and sending two byte"];
+header_decode_two_bytes_two_sent_active(suite) ->
     [];
-header_decode_two_bytes_two_sent(Config) when is_list(Config) ->
+header_decode_two_bytes_two_sent_active(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2518,8 +2564,8 @@ header_decode_two_bytes_two_sent(Config) when is_list(Config) ->
     
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
-					{mfa, {?MODULE, server_header_decode,
-					       [Data, [$H, $e | <<>> ]]}},
+					{mfa, {?MODULE, server_header_decode_active,
+					       [Data, [$H, $e]]}},
 					{options, [{active, true}, binary, 
 						   {header,2}|ServerOpts]}]),
 
@@ -2527,8 +2573,8 @@ header_decode_two_bytes_two_sent(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
-					{mfa, {?MODULE, client_header_decode, 
-					       [Data, [$H, $e | <<>> ]]}},
+					{mfa, {?MODULE, client_header_decode_active,
+					       [Data, [$H, $e]]}},
 					{options, [{active, true}, {header, 2},
 						   binary | ClientOpts]}]),
 
@@ -2540,11 +2586,11 @@ header_decode_two_bytes_two_sent(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-header_decode_two_bytes_one_sent(doc) ->
-    ["Test setting the packet option {header, 2} and sending on byte"];
-header_decode_two_bytes_one_sent(suite) ->
+header_decode_two_bytes_one_sent_active(doc) ->
+    ["Test setting the packet option {header, 2} and sending one byte"];
+header_decode_two_bytes_one_sent_active(suite) ->
     [];
-header_decode_two_bytes_one_sent(Config) when is_list(Config) ->
+header_decode_two_bytes_one_sent_active(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2553,7 +2599,7 @@ header_decode_two_bytes_one_sent(Config) when is_list(Config) ->
     
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
-					{mfa, {?MODULE, server_header_decode,
+					{mfa, {?MODULE, server_header_decode_active,
 					       [Data, "H"]}},
 					{options, [{active, true}, binary, 
 						   {header,2}|ServerOpts]}]),
@@ -2562,7 +2608,7 @@ header_decode_two_bytes_one_sent(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
-					{mfa, {?MODULE, client_header_decode, 
+					{mfa, {?MODULE, client_header_decode_active,
 					       [Data, "H"]}},
 					{options, [{active, true}, {header, 2},
 						   binary | ClientOpts]}]),
@@ -2572,6 +2618,143 @@ header_decode_two_bytes_one_sent(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+%%--------------------------------------------------------------------
+
+header_decode_one_byte_passive(doc) ->
+    ["Test setting the packet option {header, 1}"];
+header_decode_one_byte_passive(suite) ->
+    [];
+header_decode_one_byte_passive(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = <<11:8, "Hello world">>,
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_header_decode_passive,
+					       [Data, [11 | <<"Hello world">>]]}},
+					{options, [{active, false}, binary,
+						   {header,1}|ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_header_decode_passive,
+					       [Data, [11 | <<"Hello world">> ]]}},
+					{options, [{active, false}, {header, 1},
+						   binary | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+header_decode_two_bytes_passive(doc) ->
+    ["Test setting the packet option {header, 2}"];
+header_decode_two_bytes_passive(suite) ->
+    [];
+header_decode_two_bytes_passive(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = <<11:8, "Hello world">>,
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_header_decode_passive,
+					       [Data, [11, $H | <<"ello world">> ]]}},
+					{options, [{active, false}, binary,
+						   {header,2}|ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_header_decode_passive,
+					       [Data, [11, $H | <<"ello world">> ]]}},
+					{options, [{active, false}, {header, 2},
+						   binary | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+
+header_decode_two_bytes_two_sent_passive(doc) ->
+    ["Test setting the packet option {header, 2} and sending two byte"];
+header_decode_two_bytes_two_sent_passive(suite) ->
+    [];
+header_decode_two_bytes_two_sent_passive(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = <<"He">>,
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_header_decode_passive,
+					       [Data, [$H, $e]]}},
+					{options, [{active, false}, binary,
+						   {header,2}|ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_header_decode_passive,
+					       [Data, [$H, $e]]}},
+					{options, [{active, false}, {header, 2},
+						   binary | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+
+header_decode_two_bytes_one_sent_passive(doc) ->
+    ["Test setting the packet option {header, 2} and sending one byte"];
+header_decode_two_bytes_one_sent_passive(suite) ->
+    [];
+header_decode_two_bytes_one_sent_passive(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = <<"H">>,
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_header_decode_passive,
+					       [Data, "H"]}},
+					{options, [{active, false}, binary,
+						   {header,2}|ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_header_decode_passive,
+					       [Data, "H"]}},
+					{options, [{active, false}, {header, 2},
+						   binary | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 %% Internal functions
@@ -2758,29 +2941,52 @@ client_packet_decode(Socket, P1, P2, Packet) ->
 	Other2 -> exit({?LINE, Other2})
     end.
 
-server_header_decode(Socket, Packet, Result) ->
+server_header_decode_active(Socket, Packet, Result) ->
     receive
-	{ssl, Socket, Result}  -> ok;
-	Other1 -> exit({?LINE, Other1})
-    end,
-    ok = ssl:send(Socket, Packet),
-    receive
-	{ssl, Socket, Result}  -> ok;
-	Other2 -> exit({?LINE, Other2})
+	{ssl, Socket, Result}  ->
+	    ok;
+	{ssl, Socket, Other1} ->
+	    check_header_result(Result, Other1)
     end,
     ok = ssl:send(Socket, Packet).
 
-client_header_decode(Socket, Packet, Result) ->
+client_header_decode_active(Socket, Packet, Result) ->
     ok = ssl:send(Socket, Packet),
     receive
-	{ssl, Socket, Result}  -> ok;
-	Other1 -> exit({?LINE, Other1})
-    end,
-    ok = ssl:send(Socket, Packet),
-    receive
-	{ssl, Socket, Result}  -> ok;
-	Other2 -> exit({?LINE, Other2})
+	{ssl, Socket, Result}  ->
+	    ok;
+	{ssl, Socket, Other1} ->
+	    check_header_result(Result, Other1)
     end.
+
+server_header_decode_passive(Socket, Packet, Result) ->
+    case ssl:recv(Socket, 0) of
+	{ok, Result} ->
+	    ok;
+	{ok, Other} ->
+	    check_header_result(Result, Other)
+    end,
+    ok = ssl:send(Socket, Packet).
+
+client_header_decode_passive(Socket, Packet, Result) ->
+    ok = ssl:send(Socket, Packet),
+
+    case ssl:recv(Socket, 0) of
+	{ok, Result} ->
+	    ok;
+	{ok, Other} ->
+	    check_header_result(Result, Other)
+    end.
+
+%% The inet header option is a broken option as it does not buffer until it gets enough data.
+%% This check only checks that it has the same behavior as inet, but it is a quite useless
+%% option and the bitsynax makes it obsolete!
+check_header_result([Byte1 | _], [Byte1]) ->
+    ok;
+check_header_result([Byte1, Byte2 | _], [Byte1, Byte2]) ->
+    ok;
+check_header_result(_,Got) ->
+    exit({?LINE, Got}).
     
 server_line_packet_decode(Socket, Packet) when is_binary(Packet) ->
     [L1, L2] = string:tokens(binary_to_list(Packet), "\n"),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,25 +28,27 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
+-include("ssl_handshake.hrl").
 -include("ssl_alert.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([security_parameters/2, suite_definition/1,
-	 decipher/5, cipher/4, 
+-export([security_parameters/3, suite_definition/1,
+	 decipher/5, cipher/5,
 	 suite/1, suites/1, anonymous_suites/0,
-	 openssl_suite/1, openssl_suite_name/1, filter/2]).
+	 openssl_suite/1, openssl_suite_name/1, filter/2,
+	 hash_algorithm/1, sign_algorithm/1]).
 
 -compile(inline).
 
 %%--------------------------------------------------------------------
--spec security_parameters(cipher_suite(), #security_parameters{}) -> 
+-spec security_parameters(tls_version(), cipher_suite(), #security_parameters{}) ->
 				 #security_parameters{}.
 %%
 %% Description: Returns a security parameters record where the
 %% cipher values has been updated according to <CipherSuite> 
 %%-------------------------------------------------------------------
-security_parameters(CipherSuite, SecParams) ->
-    { _, Cipher, Hash} = suite_definition(CipherSuite),
+security_parameters(Version, CipherSuite, SecParams) ->
+    { _, Cipher, Hash, PrfHashAlg} = suite_definition(CipherSuite),
     SecParams#security_parameters{
       cipher_suite = CipherSuite,
       bulk_cipher_algorithm = bulk_cipher_algorithm(Cipher),
@@ -55,20 +57,21 @@ security_parameters(CipherSuite, SecParams) ->
       expanded_key_material_length = expanded_key_material(Cipher),
       key_material_length = key_material(Cipher),
       iv_size = iv_size(Cipher),
-      mac_algorithm = mac_algorithm(Hash),
+      mac_algorithm = hash_algorithm(Hash),
+      prf_algorithm = prf_algorithm(PrfHashAlg, Version),
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
--spec cipher(cipher_enum(), #cipher_state{}, binary(), binary()) -> 
+-spec cipher(cipher_enum(), #cipher_state{}, binary(), binary(), tls_version()) ->
 		    {binary(), #cipher_state{}}. 
 %%
 %% Description: Encrypts the data and the MAC using chipher described
 %% by cipher_enum() and updating the cipher state
 %%-------------------------------------------------------------------
-cipher(?NULL, CipherState, <<>>, Fragment) ->
+cipher(?NULL, CipherState, <<>>, Fragment, _Version) ->
     GenStreamCipherList = [Fragment, <<>>],
     {GenStreamCipherList, CipherState};
-cipher(?RC4, CipherState, Mac, Fragment) ->
+cipher(?RC4, CipherState, Mac, Fragment, _Version) ->
     State0 = case CipherState#cipher_state.state of
                  undefined -> crypto:rc4_set_key(CipherState#cipher_state.key);
                  S -> S
@@ -76,32 +79,41 @@ cipher(?RC4, CipherState, Mac, Fragment) ->
     GenStreamCipherList = [Fragment, Mac],
     {State1, T} = crypto:rc4_encrypt_with_state(State0, GenStreamCipherList),
     {T, CipherState#cipher_state{state = State1}};
-cipher(?DES, CipherState, Mac, Fragment) ->
+cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
 			 crypto:des_cbc_encrypt(Key, IV, T)
-		 end, block_size(des_cbc), CipherState, Mac, Fragment);
-cipher(?'3DES', CipherState, Mac, Fragment) ->
+		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
+cipher(?'3DES', CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			 crypto:des3_cbc_encrypt(K1, K2, K3, IV, T)
-		 end, block_size(des_cbc), CipherState, Mac, Fragment);
-cipher(?AES, CipherState, Mac, Fragment) ->
+		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
+cipher(?AES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
 			 crypto:aes_cbc_128_encrypt(Key, IV, T);
 		    (Key, IV, T) when byte_size(Key) =:= 32 ->
 			 crypto:aes_cbc_256_encrypt(Key, IV, T)
-		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment).
-%% cipher(?IDEA, CipherState, Mac, Fragment) ->
-%%     block_cipher(fun(Key, IV, T) ->
-%% 			 crypto:idea_cbc_encrypt(Key, IV, T)
-%% 		 end, block_size(idea_cbc), CipherState, Mac, Fragment);
+		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
 
-block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0, 
-	     Mac, Fragment) ->
+build_cipher_block(BlockSz, Mac, Fragment) ->
     TotSz = byte_size(Mac) + erlang:iolist_size(Fragment) + 1,
     {PaddingLength, Padding} = get_padding(TotSz, BlockSz),
-    L = [Fragment, Mac, PaddingLength, Padding],
+    [Fragment, Mac, PaddingLength, Padding].
+
+block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
+	     Mac, Fragment, {3, N})
+  when N == 0; N == 1 ->
+    L = build_cipher_block(BlockSz, Mac, Fragment),
     T = Fun(Key, IV, L),
     NextIV = next_iv(T, IV),
+    {T, CS0#cipher_state{iv=NextIV}};
+
+block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
+	     Mac, Fragment, {3, N})
+  when N == 2; N == 3 ->
+    NextIV = random_iv(IV),
+    L0 = build_cipher_block(BlockSz, Mac, Fragment),
+    L = [NextIV|L0],
+    T = Fun(Key, IV, L),
     {T, CS0#cipher_state{iv=NextIV}}.
 
 %%--------------------------------------------------------------------
@@ -147,19 +159,16 @@ decipher(?AES, HashSz, CipherState, Fragment, Version) ->
 		      (Key, IV, T) when byte_size(Key) =:= 32 ->
 			   crypto:aes_cbc_256_decrypt(Key, IV, T)
 		   end, CipherState, HashSz, Fragment, Version).
-%% decipher(?IDEA, HashSz, CipherState, Fragment, Version) ->
-%%     block_decipher(fun(Key, IV, T) ->
-%%  			   crypto:idea_cbc_decrypt(Key, IV, T)
-%%  		   end, CipherState, HashSz, Fragment, Version);
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
 	       HashSz, Fragment, Version) ->
     try 
 	Text = Fun(Key, IV, Fragment),
-	GBC = generic_block_cipher_from_bin(Text, HashSz),
+	NextIV = next_iv(Fragment, IV),
+	GBC = generic_block_cipher_from_bin(Version, Text, NextIV, HashSz),
 	Content = GBC#generic_block_cipher.content,
 	Mac = GBC#generic_block_cipher.mac,
-	CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
+	CipherState1 = CipherState0#cipher_state{iv=GBC#generic_block_cipher.next_iv},
 	case is_correct_padding(GBC, Version) of
 	    true ->
 		{Content, Mac, CipherState1};
@@ -187,8 +196,8 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %%--------------------------------------------------------------------
 suites({3, 0}) ->
     ssl_ssl3:suites();
-suites({3, N}) when N == 1; N == 2 ->
-    ssl_tls1:suites().
+suites({3, N}) ->
+    ssl_tls1:suites(N).
 
 %%--------------------------------------------------------------------
 -spec anonymous_suites() -> [cipher_suite()].
@@ -201,10 +210,12 @@ anonymous_suites() ->
      ?TLS_DH_anon_WITH_DES_CBC_SHA,
      ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA,
      ?TLS_DH_anon_WITH_AES_128_CBC_SHA,
-     ?TLS_DH_anon_WITH_AES_256_CBC_SHA].
+     ?TLS_DH_anon_WITH_AES_256_CBC_SHA,
+     ?TLS_DH_anon_WITH_AES_128_CBC_SHA256,
+     ?TLS_DH_anon_WITH_AES_256_CBC_SHA256].
 
 %%--------------------------------------------------------------------
--spec suite_definition(cipher_suite()) -> erl_cipher_suite().
+-spec suite_definition(cipher_suite()) -> int_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition.
 %% Note: Currently not supported suites are commented away.
@@ -212,56 +223,81 @@ anonymous_suites() ->
 %%-------------------------------------------------------------------
 %% TLS v1.1 suites
 suite_definition(?TLS_NULL_WITH_NULL_NULL) ->
-    {null, null, null};
+    {null, null, null, null};
 %% suite_definition(?TLS_RSA_WITH_NULL_MD5) ->
-%%     {rsa, null, md5};
+%%     {rsa, null, md5, default_prf};
 %% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
-%%     {rsa, null, sha};	
+%%     {rsa, null, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_RC4_128_MD5) ->	
-    {rsa, rc4_128, md5};
-suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->	
-    {rsa, rc4_128, sha};
-%% suite_definition(?TLS_RSA_WITH_IDEA_CBC_SHA) -> 
-%%     {rsa, idea_cbc, sha};
-suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->	
-    {rsa, des_cbc, sha}; 
+    {rsa, rc4_128, md5, default_prf};
+suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->
+    {rsa, rc4_128, sha, default_prf};
+suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->
+    {rsa, des_cbc, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    {rsa, '3des_ede_cbc', sha}; 
+    {rsa, '3des_ede_cbc', sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_DES_CBC_SHA) ->
-    {dhe_dss, des_cbc, sha};
+    {dhe_dss, des_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    {dhe_dss, '3des_ede_cbc', sha};
+    {dhe_dss, '3des_ede_cbc', sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
-    {dhe_rsa, des_cbc, sha};
+    {dhe_rsa, des_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    {dhe_rsa, '3des_ede_cbc', sha}; 
+    {dhe_rsa, '3des_ede_cbc', sha, default_prf};
 
 %%% TSL V1.1 AES suites
 suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA) -> 
-    {rsa, aes_128_cbc, sha};
+    {rsa, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA) ->
-    {dhe_dss, aes_128_cbc, sha};
+    {dhe_dss, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA) ->
-    {dhe_rsa, aes_128_cbc, sha};
+    {dhe_rsa, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA) -> 
-    {rsa, aes_256_cbc, sha};
+    {rsa, aes_256_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
-    {dhe_dss, aes_256_cbc, sha};
+    {dhe_dss, aes_256_cbc, sha, default_prf};
 suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
-    {dhe_rsa, aes_256_cbc, sha};
+    {dhe_rsa, aes_256_cbc, sha, default_prf};
+
+%% TLS v1.2 suites
+
+%% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
+%%     {rsa, null, sha, default_prf};
+suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA256) ->
+    {rsa, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA256) ->
+    {rsa, aes_256_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256) ->
+    {dhe_dss, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256) ->
+    {dhe_rsa, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256) ->
+    {dhe_dss, aes_256_cbc, sha256, default_prf};
+suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256) ->
+    {dhe_rsa, aes_256_cbc, sha256, default_prf};
+
+%% not defined YET:
+%%   TLS_DH_DSS_WITH_AES_128_CBC_SHA256      DH_DSS       AES_128_CBC  SHA256
+%%   TLS_DH_RSA_WITH_AES_128_CBC_SHA256      DH_RSA       AES_128_CBC  SHA256
+%%   TLS_DH_DSS_WITH_AES_256_CBC_SHA256      DH_DSS       AES_256_CBC  SHA256
+%%   TLS_DH_RSA_WITH_AES_256_CBC_SHA256      DH_RSA       AES_256_CBC  SHA256
 
 %%% DH-ANON deprecated by TLS spec and not available
 %%% by default, but good for testing purposes.
 suite_definition(?TLS_DH_anon_WITH_RC4_128_MD5) ->
-    {dh_anon, rc4_128, md5};
+    {dh_anon, rc4_128, md5, default_prf};
 suite_definition(?TLS_DH_anon_WITH_DES_CBC_SHA) ->
-    {dh_anon, des_cbc, sha};
+    {dh_anon, des_cbc, sha, default_prf};
 suite_definition(?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA) ->
-    {dh_anon, '3des_ede_cbc', sha};
+    {dh_anon, '3des_ede_cbc', sha, default_prf};
 suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA) ->
-    {dh_anon, aes_128_cbc, sha};
+    {dh_anon, aes_128_cbc, sha, default_prf};
 suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA) ->
-    {dh_anon, aes_256_cbc, sha}.
+    {dh_anon, aes_256_cbc, sha, default_prf};
+suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA256) ->
+    {dh_anon, aes_128_cbc, sha256, default_prf};
+suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA256) ->
+    {dh_anon, aes_256_cbc, sha256, default_prf}.
 
 %%--------------------------------------------------------------------
 -spec suite(erl_cipher_suite()) -> cipher_suite().
@@ -278,8 +314,6 @@ suite({rsa, rc4_128, md5}) ->
     ?TLS_RSA_WITH_RC4_128_MD5;
 suite({rsa, rc4_128, sha}) ->
     ?TLS_RSA_WITH_RC4_128_SHA;
-%% suite({rsa, idea_cbc, sha}) -> 
-%%     ?TLS_RSA_WITH_IDEA_CBC_SHA;
 suite({rsa, des_cbc, sha}) ->
     ?TLS_RSA_WITH_DES_CBC_SHA; 
 suite({rsa, '3des_ede_cbc', sha}) ->
@@ -315,7 +349,28 @@ suite({dhe_dss, aes_256_cbc, sha}) ->
 suite({dhe_rsa, aes_256_cbc, sha}) ->
     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
 suite({dh_anon, aes_256_cbc, sha}) ->
-    ?TLS_DH_anon_WITH_AES_256_CBC_SHA.
+    ?TLS_DH_anon_WITH_AES_256_CBC_SHA;
+
+%% TLS v1.2 suites
+
+%% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
+%%     {rsa, null, sha, sha256};
+suite({rsa, aes_128_cbc, sha256}) ->
+    ?TLS_RSA_WITH_AES_128_CBC_SHA256;
+suite({rsa, aes_256_cbc, sha256}) ->
+    ?TLS_RSA_WITH_AES_256_CBC_SHA256;
+suite({dhe_dss, aes_128_cbc, sha256}) ->
+    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256;
+suite({dhe_rsa, aes_128_cbc, sha256}) ->
+    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256;
+suite({dhe_dss, aes_256_cbc, sha256}) ->
+    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256;
+suite({dhe_rsa, aes_256_cbc, sha256}) ->
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
+suite({dh_anon, aes_128_cbc, sha256}) ->
+    ?TLS_DH_anon_WITH_AES_128_CBC_SHA256;
+suite({dh_anon, aes_256_cbc, sha256}) ->
+    ?TLS_DH_anon_WITH_AES_256_CBC_SHA256.
 
 %%--------------------------------------------------------------------
 -spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
@@ -323,6 +378,18 @@ suite({dh_anon, aes_256_cbc, sha}) ->
 %% Description: Return TLS cipher suite definition.
 %%--------------------------------------------------------------------
 %% translate constants <-> openssl-strings
+openssl_suite("DHE-RSA-AES256-SHA256") ->
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256;
+openssl_suite("DHE-DSS-AES256-SHA256") ->
+    ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256;
+openssl_suite("AES256-SHA256") ->
+    ?TLS_RSA_WITH_AES_256_CBC_SHA256;
+openssl_suite("DHE-RSA-AES128-SHA256") ->
+    ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256;
+openssl_suite("DHE-DSS-AES128-SHA256") ->
+    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256;
+openssl_suite("AES128-SHA256") ->
+    ?TLS_RSA_WITH_AES_128_CBC_SHA256;
 openssl_suite("DHE-RSA-AES256-SHA") ->
     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
 openssl_suite("DHE-DSS-AES256-SHA") ->
@@ -341,8 +408,6 @@ openssl_suite("DHE-DSS-AES128-SHA") ->
     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA;
 openssl_suite("AES128-SHA") ->
     ?TLS_RSA_WITH_AES_128_CBC_SHA;
-%%openssl_suite("IDEA-CBC-SHA") ->
-%%    ?TLS_RSA_WITH_IDEA_CBC_SHA;
 openssl_suite("RC4-SHA") ->
     ?TLS_RSA_WITH_RC4_128_SHA;
 openssl_suite("RC4-MD5") -> 
@@ -374,8 +439,6 @@ openssl_suite_name(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA) ->
     "DHE-DSS-AES128-SHA";
 openssl_suite_name(?TLS_RSA_WITH_AES_128_CBC_SHA) ->
     "AES128-SHA";
-%% openssl_suite_name(?TLS_RSA_WITH_IDEA_CBC_SHA) ->
-%%     "IDEA-CBC-SHA";
 openssl_suite_name(?TLS_RSA_WITH_RC4_128_SHA) ->
     "RC4-SHA";
 openssl_suite_name(?TLS_RSA_WITH_RC4_128_MD5) -> 
@@ -384,6 +447,28 @@ openssl_suite_name(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
     "EDH-RSA-DES-CBC-SHA";
 openssl_suite_name(?TLS_RSA_WITH_DES_CBC_SHA) ->
     "DES-CBC-SHA";
+openssl_suite_name(?TLS_RSA_WITH_NULL_SHA256) ->
+    "NULL-SHA256";
+openssl_suite_name(?TLS_RSA_WITH_AES_128_CBC_SHA256) ->
+    "AES128-SHA256";
+openssl_suite_name(?TLS_RSA_WITH_AES_256_CBC_SHA256) ->
+    "AES256-SHA256";
+openssl_suite_name(?TLS_DH_DSS_WITH_AES_128_CBC_SHA256) ->
+    "DH-DSS-AES128-SHA256";
+openssl_suite_name(?TLS_DH_RSA_WITH_AES_128_CBC_SHA256) ->
+    "DH-RSA-AES128-SHA256";
+openssl_suite_name(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256) ->
+    "DHE-DSS-AES128-SHA256";
+openssl_suite_name(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256) ->
+    "DHE-RSA-AES128-SHA256";
+openssl_suite_name(?TLS_DH_DSS_WITH_AES_256_CBC_SHA256) ->
+    "DH-DSS-AES256-SHA256";
+openssl_suite_name(?TLS_DH_RSA_WITH_AES_256_CBC_SHA256) ->
+    "DH-RSA-AES256-SHA256";
+openssl_suite_name(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256) ->
+    "DHE-DSS-AES256-SHA256";
+openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256) ->
+    "DHE-RSA-AES256-SHA256";
 %% No oppenssl name
 openssl_suite_name(Cipher) ->
     suite_definition(Cipher).
@@ -411,9 +496,6 @@ filter(DerCert, Ciphers) ->
 
 bulk_cipher_algorithm(null) ->
     ?NULL;
-%% Not supported yet
-%% bulk_cipher_algorithm(idea_cbc) ->
-%%     ?IDEA;
 bulk_cipher_algorithm(rc4_128) ->
     ?RC4;
 bulk_cipher_algorithm(des_cbc) ->
@@ -428,8 +510,7 @@ type(Cipher) when Cipher == null;
 		  Cipher == rc4_128 ->
     ?STREAM;
 
-type(Cipher) when Cipher == idea_cbc;
-		  Cipher == des_cbc;
+type(Cipher) when Cipher == des_cbc;
 		  Cipher == '3des_ede_cbc';
 		  Cipher == aes_128_cbc;
 		  Cipher == aes_256_cbc ->
@@ -437,8 +518,7 @@ type(Cipher) when Cipher == idea_cbc;
 
 key_material(null) ->
     0;
-key_material(Cipher) when Cipher == idea_cbc;
- 			  Cipher == rc4_128 ->
+key_material(rc4_128) ->
     16;
 key_material(des_cbc) ->
     8;
@@ -451,8 +531,7 @@ key_material(aes_256_cbc) ->
 
 expanded_key_material(null) ->
     0;
-expanded_key_material(Cipher) when Cipher == idea_cbc;
- 				   Cipher == rc4_128 ->
+expanded_key_material(rc4_128) ->
     16;
 expanded_key_material(Cipher) when Cipher == des_cbc ->
     8;
@@ -467,8 +546,7 @@ effective_key_bits(null) ->
     0;
 effective_key_bits(des_cbc) ->
     56;
-effective_key_bits(Cipher) when Cipher == idea_cbc;
-				Cipher == rc4_128;
+effective_key_bits(Cipher) when Cipher == rc4_128;
 				Cipher == aes_128_cbc ->
     128;
 effective_key_bits('3des_ede_cbc') ->
@@ -482,8 +560,7 @@ iv_size(Cipher) when Cipher == null;
 iv_size(Cipher) ->
     block_size(Cipher).
 
-block_size(Cipher) when Cipher == idea_cbc;
-			Cipher == des_cbc;
+block_size(Cipher) when Cipher == des_cbc;
 			Cipher == '3des_ede_cbc' -> 
     8;
 
@@ -491,19 +568,51 @@ block_size(Cipher) when Cipher == aes_128_cbc;
 			Cipher == aes_256_cbc ->
     16.
 
-mac_algorithm(null) ->
-    ?NULL;
-mac_algorithm(md5) ->
-    ?MD5;
-mac_algorithm(sha) ->
-    ?SHA.
+prf_algorithm(default_prf, {3, N}) when N >= 3 ->
+    ?SHA256;
+prf_algorithm(default_prf, {3, _}) ->
+    ?MD5SHA;
+prf_algorithm(Algo, _) ->
+    hash_algorithm(Algo).
+
+hash_algorithm(null)   -> ?NULL;
+hash_algorithm(md5)    -> ?MD5;
+hash_algorithm(sha)   -> ?SHA; %% Only sha always refers to "SHA-1"
+hash_algorithm(sha224) -> ?SHA224;
+hash_algorithm(sha256) -> ?SHA256;
+hash_algorithm(sha384) -> ?SHA384;
+hash_algorithm(sha512) -> ?SHA512;
+hash_algorithm(?NULL) -> null;
+hash_algorithm(?MD5) -> md5;
+hash_algorithm(?SHA) -> sha;
+hash_algorithm(?SHA224) -> sha224;
+hash_algorithm(?SHA256) -> sha256;
+hash_algorithm(?SHA384) -> sha384;
+hash_algorithm(?SHA512) -> sha512.
+
+sign_algorithm(anon)  -> ?ANON;
+sign_algorithm(rsa)   -> ?RSA;
+sign_algorithm(dsa)   -> ?DSA;
+sign_algorithm(ecdsa) -> ?ECDSA;
+sign_algorithm(?ANON) -> anon;
+sign_algorithm(?RSA) -> rsa;
+sign_algorithm(?DSA) -> dsa;
+sign_algorithm(?ECDSA) -> ecdsa.
 
 hash_size(null) ->
     0;
 hash_size(md5) ->
     16;
 hash_size(sha) ->
-    20.
+    20;
+hash_size(sha256) ->
+    32.
+%% Currently no supported cipher suites defaults to sha384 or sha512
+%% so these clauses are not needed at the moment.
+%% hash_size(sha384) ->
+%%     48;
+%% hash_size(sha512) ->
+%%     64.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%
@@ -525,7 +634,8 @@ hash_size(sha) ->
 %%   We return the original (possibly invalid) PadLength in any case.
 %%   An invalid PadLength will be caught by is_correct_padding/2
 %%
-generic_block_cipher_from_bin(T, HashSize) ->
+generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
+  when N == 0; N == 1 ->
     Sz1 = byte_size(T) - 1,
     <<_:Sz1/binary, ?BYTE(PadLength0)>> = T,
     PadLength = if
@@ -536,7 +646,20 @@ generic_block_cipher_from_bin(T, HashSize) ->
     <<Content:CompressedLength/binary, Mac:HashSize/binary,
      Padding:PadLength/binary, ?BYTE(PadLength0)>> = T,
     #generic_block_cipher{content=Content, mac=Mac,
-			  padding=Padding, padding_length=PadLength0}.
+			  padding=Padding, padding_length=PadLength0,
+			  next_iv = IV};
+
+generic_block_cipher_from_bin({3, N}, T, IV, HashSize)
+  when N == 2; N == 3 ->
+    Sz1 = byte_size(T) - 1,
+    <<_:Sz1/binary, ?BYTE(PadLength)>> = T,
+    IVLength = byte_size(IV),
+    CompressedLength = byte_size(T) - IVLength - PadLength - 1 - HashSize,
+    <<NextIV:IVLength/binary, Content:CompressedLength/binary, Mac:HashSize/binary,
+      Padding:PadLength/binary, ?BYTE(PadLength)>> = T,
+    #generic_block_cipher{content=Content, mac=Mac,
+			  padding=Padding, padding_length=PadLength,
+			  next_iv = NextIV}.
 
 generic_stream_cipher_from_bin(T, HashSz) ->
     Sz = byte_size(T),
@@ -567,6 +690,10 @@ get_padding_aux(BlockSize, PadLength) ->
     N = BlockSize - PadLength,
     {N, list_to_binary(lists:duplicate(N, N))}.
 
+random_iv(IV) ->
+    IVSz = byte_size(IV),
+    ssl:random_bytes(IVSz).
+
 next_iv(Bin, IV) ->
     BinSz = byte_size(Bin),
     IVSz = byte_size(IV),
@@ -578,16 +705,19 @@ rsa_signed_suites() ->
     dhe_rsa_suites() ++ rsa_suites().
 
 dhe_rsa_suites() ->
-    [?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+    [?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
      ?TLS_DHE_RSA_WITH_DES_CBC_SHA].
 
 rsa_suites() ->
-    [?TLS_RSA_WITH_AES_256_CBC_SHA,
+    [?TLS_RSA_WITH_AES_256_CBC_SHA256,
+     ?TLS_RSA_WITH_AES_256_CBC_SHA,
      ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_RSA_WITH_AES_128_CBC_SHA256,
      ?TLS_RSA_WITH_AES_128_CBC_SHA,
-     %%?TLS_RSA_WITH_IDEA_CBC_SHA,
      ?TLS_RSA_WITH_RC4_128_SHA,
      ?TLS_RSA_WITH_RC4_128_MD5,
      ?TLS_RSA_WITH_DES_CBC_SHA].
@@ -596,8 +726,10 @@ dsa_signed_suites() ->
     dhe_dss_suites().
 
 dhe_dss_suites()  ->
-    [?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+    [?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
+     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
      ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
      ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA].
 

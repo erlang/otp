@@ -106,7 +106,7 @@ add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
 	    {ok, Ref};
 	[Content] ->
 	    Ref = make_ref(),
-	    insert(Ref, [], 1, RefDb),
+	    update_counter(Ref, 1, RefDb),
 	    insert(MD5, {Content, Ref}, PemChache),
 	    add_certs_from_pem(Content, Ref, CertsDb),
 	    {ok, Ref};
@@ -114,8 +114,8 @@ add_trusted_certs(_Pid, File, [CertsDb, RefDb, PemChache] = Db) ->
 	    new_trusted_cert_entry({MD5, File}, Db)
     end.
 %%--------------------------------------------------------------------
--spec cache_pem_file(string(), [db_handle()]) -> term().
--spec cache_pem_file(reference(), string(), [db_handle()]) -> term().
+-spec cache_pem_file({binary(), binary()}, [db_handle()]) -> term().
+-spec cache_pem_file(reference(), {binary(), binary()}, [db_handle()]) -> term().
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
@@ -204,10 +204,8 @@ insert(Key, Data, Db) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-insert(Key, [], Count, Db) ->
-    true = ets:insert(Db, {Key, Count});
-insert(Key, Data, Count, Db) ->
-    true = ets:insert(Db, {Key, Count, Data}).
+update_counter(Key, Count, Db) ->
+    true = ets:insert(Db, {Key, Count}).
 
 remove_certs(Ref, CertsDb) ->
     ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}).
@@ -236,7 +234,7 @@ add_certs(Cert, Ref, CertsDb) ->
 
 new_trusted_cert_entry(FileRef, [CertsDb, RefDb, _] = Db) ->
     Ref = make_ref(),
-    insert(Ref, [], 1, RefDb),
+    update_counter(Ref, 1, RefDb),
     {ok, Content} = cache_pem_file(Ref, FileRef, Db),
     add_certs_from_pem(Content, Ref, CertsDb),
     {ok, Ref}.

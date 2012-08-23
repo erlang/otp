@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,13 @@
 -type algo_oid()          :: ?'rsaEncryption' | ?'id-dsa'.
 -type public_key_params() :: #'Dss-Parms'{} | term().
 -type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
+-type tls_handshake_history() :: {[binary()], [binary()]}.
+
+%% Signature algorithms
+-define(ANON, 0).
+-define(RSA, 1).
+-define(DSA, 2).
+-define(ECDSA, 3).
 
 -record(session, {
 	  session_id,
@@ -89,7 +96,8 @@
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suites,      % cipher_suites<2..2^16-1>
 	  compression_methods, % compression_methods<1..2^8-1>,
-	  renegotiation_info
+	  renegotiation_info,
+	  hash_signs          % supported combinations of hashes/signature algos
 	 }).
 
 -record(server_hello, {
@@ -98,7 +106,8 @@
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suite,       % cipher_suites
 	  compression_method, % compression_method
-	  renegotiation_info
+	  renegotiation_info,
+	  hash_signs          % supported combinations of hashes/signature algos
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -129,7 +138,8 @@
   
 -record(server_key_exchange, {
 	  params, %% #server_rsa_params{} | #server_dh_params{}
-	  signed_params %% #signature{}
+	  signed_params, %% #signature{}
+	  hashsign %% term(atom(), atom())
 	 }).
 	
 %% enum { anonymous, rsa, dsa } SignatureAlgorithm;
@@ -159,6 +169,7 @@
 
 -record(certificate_request, {
 	  certificate_types,        %ClientCertificateType   <1..2^8-1>
+	  hashsign_algorithms,      %%SignatureAndHashAlgorithm <2^16-1>;
 	  certificate_authorities   %DistinguishedName       <0..2^16-1>
 	 }).
 
@@ -193,6 +204,7 @@
 %%% Certificate verify - RFC 4346 section 7.4.8
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(certificate_verify, {
+	  hashsign_algorithm,
 	  signature % binary()
 	 }).
 
@@ -211,6 +223,15 @@
 
 -record(renegotiation_info,{
 	  renegotiated_connection
+	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Signature Algorithms  RFC 5746 section 7.4.1.4.1.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(SIGNATURE_ALGORITHMS_EXT, 13).
+
+-record(hash_sign_algos, {
+	  hash_sign_algos
 	 }).
 
 -endif. % -ifdef(ssl_handshake).

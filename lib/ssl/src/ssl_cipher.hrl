@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,8 +28,9 @@
 
 -type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc.
--type hash()              :: null | sha | md5.
+-type hash()              :: null | sha | md5 | sha256 | sha384 | sha512.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
+-type int_cipher_suite()  :: {key_algo(), cipher(), hash(), hash()}.
 -type cipher_suite()      :: binary().
 -type cipher_enum()        :: integer().
 -type openssl_cipher_suite()  :: string().
@@ -176,6 +177,47 @@
    
 %%	TLS_DH_anon_WITH_AES_256_CBC_SHA  = { 0x00, 0x3A };
 -define(TLS_DH_anon_WITH_AES_256_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#3A)>>).   
+
+%%% TLS 1.2 Cipher Suites RFC 5246
+
+%%      TLS_RSA_WITH_NULL_SHA256              = { 0x00,0x3B };
+-define(TLS_RSA_WITH_NULL_SHA256, <<?BYTE(16#00), ?BYTE(16#3B)>>).
+
+%%      TLS_RSA_WITH_AES_128_CBC_SHA256       = { 0x00,0x3C };
+-define(TLS_RSA_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#3C)>>).
+
+%%      TLS_RSA_WITH_AES_256_CBC_SHA256       = { 0x00,0x3D };
+-define(TLS_RSA_WITH_AES_256_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#3D)>>).
+
+%%      TLS_DH_DSS_WITH_AES_128_CBC_SHA256    = { 0x00,0x3E };
+-define(TLS_DH_DSS_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#3E)>>).
+
+%%      TLS_DH_RSA_WITH_AES_128_CBC_SHA256    = { 0x00,0x3F };
+-define(TLS_DH_RSA_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#3F)>>).
+
+%%      TLS_DHE_DSS_WITH_AES_128_CBC_SHA256   = { 0x00,0x40 };
+-define(TLS_DHE_DSS_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#40)>>).
+
+%%      TLS_DHE_RSA_WITH_AES_128_CBC_SHA256   = { 0x00,0x67 };
+-define(TLS_DHE_RSA_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#67)>>).
+
+%%      TLS_DH_DSS_WITH_AES_256_CBC_SHA256    = { 0x00,0x68 };
+-define(TLS_DH_DSS_WITH_AES_256_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#68)>>).
+
+%%      TLS_DH_RSA_WITH_AES_256_CBC_SHA256    = { 0x00,0x69 };
+-define(TLS_DH_RSA_WITH_AES_256_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#69)>>).
+
+%%      TLS_DHE_DSS_WITH_AES_256_CBC_SHA256   = { 0x00,0x6A };
+-define(TLS_DHE_DSS_WITH_AES_256_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#6A)>>).
+
+%%      TLS_DHE_RSA_WITH_AES_256_CBC_SHA256   = { 0x00,0x6B };
+-define(TLS_DHE_RSA_WITH_AES_256_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#6B)>>).
+
+%%      TLS_DH_anon_WITH_AES_128_CBC_SHA256   = { 0x00,0x6C };
+-define(TLS_DH_anon_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#6C)>>).
+
+%%      TLS_DH_anon_WITH_AES_256_CBC_SHA256   = { 0x00,0x6D };
+-define(TLS_DH_anon_WITH_AES_256_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#6D)>>).
 
 %%% Kerberos Cipher Suites 
 

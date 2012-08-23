@@ -27,9 +27,11 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
+-include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
+-include("ssl_handshake.hrl").
 
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
@@ -54,7 +56,6 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    application:start(public_key),
-	    ssl:start(),
 
 	    %% make rsa certs using oppenssl
 	    Result =
@@ -91,37 +92,10 @@ end_per_suite(_Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
-init_per_testcase(session_cache_process_list, Config) ->
-    init_customized_session_cache(list, Config);
-
-init_per_testcase(session_cache_process_mnesia, Config) ->
-    mnesia:start(),
-    init_customized_session_cache(mnesia, Config);
-
-init_per_testcase(reuse_session_expired, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ssl_test_lib:timetrap(?EXPIRE * 1000 * 5),
-    ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, session_lifetime, ?EXPIRE),
-    ssl:start(),
-    [{watchdog, Dog} | Config];
-
 init_per_testcase(no_authority_key_identifier, Config) ->
     %% Clear cach so that root cert will not
     %% be found.
-    ssl:stop(),
-    ssl:start(), 
-    Config;
-
-init_per_testcase(TestCase, Config) when TestCase == ciphers_rsa_signed_certs_ssl3; 
-					 TestCase == ciphers_rsa_signed_certs_openssl_names_ssl3;
-					 TestCase == ciphers_dsa_signed_certs_ssl3; 
-					 TestCase == ciphers_dsa_signed_certs_openssl_names_ssl3 ->
-    ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, protocol_version, sslv3),
-    ssl:start(),
+    ssl:clear_pem_cache(),
     Config;
 
 init_per_testcase(protocol_versions, Config)  ->
@@ -132,6 +106,15 @@ init_per_testcase(protocol_versions, Config)  ->
     ssl:start(),
     Config;
 
+init_per_testcase(reuse_session_expired, Config0) ->
+    Config = lists:keydelete(watchdog, 1, Config0),
+    Dog = ssl_test_lib:timetrap(?EXPIRE * 1000 * 5),
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, session_lifetime, ?EXPIRE),
+    ssl:start(),
+    [{watchdog, Dog} | Config];
+
 init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:stop(),
     application:load(ssl),
@@ -139,23 +122,14 @@ init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:start(),
     Config;
 
-init_per_testcase(different_ca_peer_sign, Config0) ->
-    ssl_test_lib:make_mix_cert(Config0);
+%% init_per_testcase(different_ca_peer_sign, Config0) ->
+%%     ssl_test_lib:make_mix_cert(Config0);
 
 init_per_testcase(_TestCase, Config0) ->
+    test_server:format("TLS/SSL version ~p~n ", [ssl_record:supported_protocol_versions()]),
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = test_server:timetrap(?TIMEOUT),
    [{watchdog, Dog} | Config].
-
-init_customized_session_cache(Type, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = test_server:timetrap(?TIMEOUT),
-    ssl:stop(),
-    application:load(ssl),
-    application:set_env(ssl, session_cb, ?MODULE),
-    application:set_env(ssl, session_cb_init_args, [Type]),
-    ssl:start(),
-    [{watchdog, Dog} | Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config) -> _
@@ -165,27 +139,10 @@ init_customized_session_cache(Type, Config0) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(session_cache_process_list, Config) ->
-    application:unset_env(ssl, session_cb),
-    end_per_testcase(default_action, Config);
-end_per_testcase(session_cache_process_mnesia, Config) ->
-    application:unset_env(ssl, session_cb),
-    application:unset_env(ssl, session_cb_init_args),
-    mnesia:stop(),
-    ssl:stop(),
-    ssl:start(),
-    end_per_testcase(default_action, Config);
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
     end_per_testcase(default_action, Config);
-end_per_testcase(TestCase, Config) when TestCase == ciphers_rsa_signed_certs_ssl3; 
-					TestCase == ciphers_rsa_signed_certs_openssl_names_ssl3;
-					TestCase == ciphers_dsa_signed_certs_ssl3; 
-					TestCase == ciphers_dsa_signed_certs_openssl_names_ssl3;
-					TestCase == protocol_versions;
-					TestCase == empty_protocol_versions->
-    application:unset_env(ssl, protocol_version),
-    end_per_testcase(default_action, Config);
+
 end_per_testcase(_TestCase, Config) ->
     Dog = ?config(watchdog, Config),
     case Dog of 
@@ -206,74 +163,170 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app, alerts, connection_info, protocol_versions,
-     empty_protocol_versions, controlling_process,
-     controller_dies, client_closes_socket,
-     connect_dist, peername, peercert, sockname, socket_options,
-     invalid_inet_get_option, invalid_inet_get_option_not_list,
-     invalid_inet_get_option_improper_list,
-     invalid_inet_set_option, invalid_inet_set_option_not_list,
-     invalid_inet_set_option_improper_list,
-     misc_ssl_options, versions, cipher_suites, upgrade,
-     upgrade_with_timeout, tcp_connect, tcp_connect_big, ipv6, ekeyfile,
-     ecertfile, ecacertfile, eoptions, shutdown,
-     shutdown_write, shutdown_both, shutdown_error,
-     ciphers_rsa_signed_certs, ciphers_rsa_signed_certs_ssl3,
-     ciphers_rsa_signed_certs_openssl_names,
-     ciphers_rsa_signed_certs_openssl_names_ssl3,
-     ciphers_dsa_signed_certs, ciphers_dsa_signed_certs_ssl3,
-     ciphers_dsa_signed_certs_openssl_names,
-     ciphers_dsa_signed_certs_openssl_names_ssl3,
-     anonymous_cipher_suites,
-     default_reject_anonymous,
+    [
+     {group, basic},
+     {group, options},
+     {group, session},
+     {group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'},
+     {group, 'sslv3'}
+    ].
+
+groups() ->
+    [{basic, [], basic_tests()},
+     {options, [], options_tests()},
+     {'tlsv1.2', [], all_versions_groups()},
+     {'tlsv1.1', [], all_versions_groups()},
+     {'tlsv1', [], all_versions_groups() ++ rizzo_tests()},
+     {'sslv3', [], all_versions_groups() ++ rizzo_tests()},
+     {api,[], api_tests()},
+     {certificate_verify, [], certificate_verify_tests()},
+     {session, [], session_tests()},
+     {renegotiate, [], renegotiate_tests()},
+     {ciphers, [], cipher_tests()},
+     {error_handling_tests, [], error_handling_tests()}
+    ].
+
+all_versions_groups ()->
+    [{group, api},
+     {group, certificate_verify},
+     {group, renegotiate},
+     {group, ciphers},
+     {group, error_handling_tests}].
+
+init_per_group(GroupName, Config) ->
+    case ssl_test_lib:is_tls_version(GroupName) of
+	true ->
+	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl_test_lib:init_tls_version(GroupName),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end;
+	_ ->
+	    ssl:start(),
+	    Config
+    end.
+
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+basic_tests() ->
+    [app,
+     alerts,
      send_close,
-     close_transport_accept, dh_params,
-     server_verify_peer_passive, server_verify_peer_active,
+     connect_twice,
+     connect_dist
+    ].
+
+options_tests() ->
+    [der_input,
+     misc_ssl_options,
+     socket_options,
+     invalid_inet_get_option,
+     invalid_inet_get_option_not_list,
+     invalid_inet_get_option_improper_list,
+     invalid_inet_set_option,
+     invalid_inet_set_option_not_list,
+     invalid_inet_set_option_improper_list,
+     dh_params,
+     ecertfile,
+     ecacertfile,
+     ekeyfile,
+     eoptions,
+     protocol_versions,
+     empty_protocol_versions,
+     ipv6,
+     reuseaddr].
+
+api_tests() ->
+    [connection_info,
+     peername,
+     peercert,
+     sockname,
+     versions,
+     controlling_process,
+     upgrade,
+     upgrade_with_timeout,
+     shutdown,
+     shutdown_write,
+     shutdown_both,
+     shutdown_error,
+     hibernate
+    ].
+
+certificate_verify_tests() ->
+    [server_verify_peer_passive,
+     server_verify_peer_active,
      server_verify_peer_active_once,
-     server_verify_none_passive, server_verify_none_active,
+     server_verify_none_passive,
+     server_verify_none_active,
      server_verify_none_active_once,
-     server_verify_no_cacerts, server_require_peer_cert_ok,
+     server_verify_no_cacerts,
+     server_require_peer_cert_ok,
      server_require_peer_cert_fail,
      server_verify_client_once_passive,
      server_verify_client_once_active,
      server_verify_client_once_active_once,
-     client_verify_none_passive, client_verify_none_active,
+     client_verify_none_passive,
+     client_verify_none_active,
      client_verify_none_active_once,
-     reuse_session,
-     reuse_session_expired,
-     server_does_not_want_to_reuse_session,
-     client_renegotiate, server_renegotiate,
-     client_renegotiate_reused_session,
-     server_renegotiate_reused_session,
-     client_no_wrap_sequence_number,
-     server_no_wrap_sequence_number, extended_key_usage_verify_peer,
+     extended_key_usage_verify_peer,
      extended_key_usage_verify_none,
-     no_authority_key_identifier, invalid_signature_client,
-     invalid_signature_server, cert_expired,
+     invalid_signature_client,
+     invalid_signature_server,
+     cert_expired,
      client_with_cert_cipher_suites_handshake,
      verify_fun_always_run_client,
      verify_fun_always_run_server,
-     unknown_server_ca_fail, der_input,
+     unknown_server_ca_fail,
      unknown_server_ca_accept_verify_none,
      unknown_server_ca_accept_verify_peer,
      unknown_server_ca_accept_backwardscompatibility,
-     %%different_ca_peer_sign,
-     no_reuses_session_server_restart_new_cert,
-     no_reuses_session_server_restart_new_cert_file, reuseaddr,
-     hibernate, connect_twice, renegotiate_dos_mitigate_active,
-     renegotiate_dos_mitigate_passive,
-     tcp_error_propagation_in_active_mode, rizzo, no_rizzo_rc4,
-     recv_error_handling
+     no_authority_key_identifier
     ].
 
-groups() -> 
-    [].
+session_tests() ->
+    [reuse_session,
+     reuse_session_expired,
+     server_does_not_want_to_reuse_session,
+     no_reuses_session_server_restart_new_cert,
+     no_reuses_session_server_restart_new_cert_file].
 
-init_per_group(_GroupName, Config) ->
-    Config.
+renegotiate_tests() ->
+    [client_renegotiate,
+     server_renegotiate,
+     client_renegotiate_reused_session,
+     server_renegotiate_reused_session,
+     client_no_wrap_sequence_number,
+     server_no_wrap_sequence_number,
+     renegotiate_dos_mitigate_active,
+     renegotiate_dos_mitigate_passive].
 
-end_per_group(_GroupName, Config) ->
-    Config.
+cipher_tests() ->
+    [cipher_suites,
+     ciphers_rsa_signed_certs,
+     ciphers_rsa_signed_certs_openssl_names,
+     ciphers_dsa_signed_certs,
+     ciphers_dsa_signed_certs_openssl_names,
+     anonymous_cipher_suites,
+     default_reject_anonymous].
+
+error_handling_tests()->
+    [controller_dies,
+     client_closes_socket,
+     tcp_error_propagation_in_active_mode,
+     tcp_connect,
+     tcp_connect_big,
+     close_transport_accept
+    ].
+
+rizzo_tests() ->
+    [rizzo,
+     no_rizzo_rc4].
 
 %% Test cases starts here.
 %%--------------------------------------------------------------------
@@ -1726,21 +1779,7 @@ ciphers_rsa_signed_certs(Config) when is_list(Config) ->
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
     Ciphers = ssl_test_lib:rsa_suites(),
-    test_server:format("tls1 erlang cipher suites ~p~n", [Ciphers]),
-    run_suites(Ciphers, Version, Config, rsa).
-
-ciphers_rsa_signed_certs_ssl3(doc) -> 
-    ["Test all rsa ssl cipher suites in ssl3"];
-       
-ciphers_rsa_signed_certs_ssl3(suite) -> 
-    [];
-
-ciphers_rsa_signed_certs_ssl3(Config) when is_list(Config) ->
-    Version = 
-	ssl_record:protocol_version({3,0}),
-
-    Ciphers = ssl_test_lib:rsa_suites(),
-    test_server:format("ssl3 erlang cipher suites ~p~n", [Ciphers]),
+    test_server:format("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, rsa).
 
 ciphers_rsa_signed_certs_openssl_names(doc) -> 
@@ -1757,18 +1796,6 @@ ciphers_rsa_signed_certs_openssl_names(Config) when is_list(Config) ->
     run_suites(Ciphers, Version, Config, rsa).
 
 
-ciphers_rsa_signed_certs_openssl_names_ssl3(doc) -> 
-    ["Test all dsa ssl cipher suites in ssl3"];
-       
-ciphers_rsa_signed_certs_openssl_names_ssl3(suite) -> 
-    [];
-
-ciphers_rsa_signed_certs_openssl_names_ssl3(Config) when is_list(Config) ->
-    Version = ssl_record:protocol_version({3,0}),
-    Ciphers = ssl_test_lib:openssl_rsa_suites(),
-    run_suites(Ciphers, Version, Config, rsa).
-
-
 ciphers_dsa_signed_certs(doc) -> 
     ["Test all dsa ssl cipher suites in highest support ssl/tls version"];
        
@@ -1780,23 +1807,8 @@ ciphers_dsa_signed_certs(Config) when is_list(Config) ->
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
     Ciphers = ssl_test_lib:dsa_suites(),
-    test_server:format("tls1 erlang cipher suites ~p~n", [Ciphers]),
+    test_server:format("~p erlang cipher suites ~p~n", [Version, Ciphers]),
     run_suites(Ciphers, Version, Config, dsa).
-
-ciphers_dsa_signed_certs_ssl3(doc) -> 
-    ["Test all dsa ssl cipher suites in ssl3"];
-       
-ciphers_dsa_signed_certs_ssl3(suite) -> 
-    [];
-
-ciphers_dsa_signed_certs_ssl3(Config) when is_list(Config) ->
-    Version = 
-	ssl_record:protocol_version({3,0}),
-
-    Ciphers = ssl_test_lib:dsa_suites(),
-    test_server:format("ssl3 erlang cipher suites ~p~n", [Ciphers]),  
-    run_suites(Ciphers, Version, Config, dsa).
-    
 
 ciphers_dsa_signed_certs_openssl_names(doc) -> 
     ["Test all dsa ssl cipher suites in highest support ssl/tls version"];
@@ -1810,18 +1822,6 @@ ciphers_dsa_signed_certs_openssl_names(Config) when is_list(Config) ->
 
     Ciphers = ssl_test_lib:openssl_dsa_suites(),
     test_server:format("tls1 openssl cipher suites ~p~n", [Ciphers]),
-    run_suites(Ciphers, Version, Config, dsa).
-
-
-ciphers_dsa_signed_certs_openssl_names_ssl3(doc) -> 
-    ["Test all dsa ssl cipher suites in ssl3"];
-       
-ciphers_dsa_signed_certs_openssl_names_ssl3(suite) -> 
-    [];
-
-ciphers_dsa_signed_certs_openssl_names_ssl3(Config) when is_list(Config) ->
-    Version = ssl_record:protocol_version({3,0}),
-    Ciphers = ssl_test_lib:openssl_dsa_suites(),
     run_suites(Ciphers, Version, Config, dsa).
 
 anonymous_cipher_suites(doc)->
@@ -1860,7 +1860,7 @@ run_suites(Ciphers, Version, Config, Type) ->
     end.
 
 erlang_cipher_suite(Suite) when is_list(Suite)->
-    ssl_cipher:suite_definition(ssl_cipher:openssl_suite(Suite));
+    ssl:suite_definition(ssl_cipher:openssl_suite(Suite));
 erlang_cipher_suite(Suite) ->
     Suite.
 
@@ -2087,7 +2087,9 @@ reuse_session_expired(Config) when is_list(Config) ->
     Server ! listen,
 
     %% Make sure session is unregistered due to expiration
-    test_server:sleep((?EXPIRE+1) * 1000),
+    test_server:sleep((?EXPIRE+1)),
+    [{session_id, Id} |_] = SessionInfo,
+    make_sure_expired(Hostname, Port, Id),
     
     Client2 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -2105,6 +2107,22 @@ reuse_session_expired(Config) when is_list(Config) ->
     ssl_test_lib:close(Client0),
     ssl_test_lib:close(Client1),
     ssl_test_lib:close(Client2).
+
+make_sure_expired(Host, Port, Id) ->
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    Cache = element(2, State),
+    case ssl_session_cache:lookup(Cache, {{Host, Port}, Id}) of
+	undefined ->
+	    ok;
+	#session{is_resumable = false} ->
+	    ok;
+	_ ->
+	    test_server:sleep(?SLEEP),
+	    make_sure_expired(Host, Port, Id)
+    end.
+
 
 %%--------------------------------------------------------------------
 server_does_not_want_to_reuse_session(doc) -> 
@@ -3912,7 +3930,7 @@ recv_error_handling(Config) when is_list(Config) ->
 					  {mfa, {?MODULE, recv_close, []}},
 					 {options, [{active, false} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
-    {Client, #sslsocket{pid=Pid} = SslSocket} = ssl_test_lib:start_client([return_socket,
+    {_Client, #sslsocket{} = SslSocket} = ssl_test_lib:start_client([return_socket,
 									   {node, ClientNode}, {port, Port},
 									   {host, Hostname},
 									   {from, self()},
@@ -3929,9 +3947,9 @@ rizzo(doc) -> ["Test that there is a 1/n-1-split for non RC4 in 'TLS < 1.1' as i
 
 rizzo(Config) when is_list(Config) ->
     Ciphers  = [X || X ={_,Y,_} <- ssl:cipher_suites(), Y  =/= rc4_128],
-    run_send_recv_rizzo(Ciphers, Config, sslv3,
-			 {?MODULE, send_recv_result_active_rizzo, []}),
-    run_send_recv_rizzo(Ciphers, Config, tlsv1,
+    Prop = ?config(tc_group_properties, Config),
+    Version = proplists:get_value(name, Prop),
+    run_send_recv_rizzo(Ciphers, Config, Version,
 			 {?MODULE, send_recv_result_active_rizzo, []}).
 %%--------------------------------------------------------------------
 no_rizzo_rc4(doc) -> 
@@ -3939,9 +3957,9 @@ no_rizzo_rc4(doc) ->
 
 no_rizzo_rc4(Config) when is_list(Config) ->
     Ciphers = [X || X ={_,Y,_} <- ssl:cipher_suites(),Y == rc4_128],
-    run_send_recv_rizzo(Ciphers, Config, sslv3,
-			{?MODULE, send_recv_result_active_no_rizzo, []}),
-    run_send_recv_rizzo(Ciphers, Config, tlsv1,
+    Prop = ?config(tc_group_properties, Config),
+    Version = proplists:get_value(name, Prop),
+    run_send_recv_rizzo(Ciphers, Config, Version,
 			{?MODULE, send_recv_result_active_no_rizzo, []}).
 
 %%--------------------------------------------------------------------

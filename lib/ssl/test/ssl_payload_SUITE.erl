@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -103,23 +103,56 @@ end_per_testcase(_TestCase, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
+    [
+     {group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'},
+     {group, 'sslv3'}
+    ].
+
+groups() ->
+    [
+     {'tlsv1.2', [], payload_tests()},
+     {'tlsv1.1', [], payload_tests()},
+     {'tlsv1', [], payload_tests()},
+     {'sslv3', [], payload_tests()}
+    ].
+
+payload_tests() ->
     [server_echos_passive_small,
      server_echos_active_once_small,
-     server_echos_active_small, client_echos_passive_small,
+     server_echos_active_small,
+     client_echos_passive_small,
      client_echos_active_once_small,
-     client_echos_active_small, server_echos_passive_big,
-     server_echos_active_once_big, server_echos_active_big,
-     client_echos_passive_big, client_echos_active_once_big,
-     client_echos_active_big, server_echos_passive_huge,
-     server_echos_active_once_huge, server_echos_active_huge,
+     client_echos_active_small,
+     server_echos_passive_big,
+     server_echos_active_once_big,
+     server_echos_active_big,
+     client_echos_passive_big,
+     client_echos_active_once_big,
+     client_echos_active_big,
+     server_echos_passive_huge,
+     server_echos_active_once_huge,
+     server_echos_active_huge,
      client_echos_passive_huge,
-     client_echos_active_once_huge, client_echos_active_huge].
+     client_echos_active_once_huge,
+     client_echos_active_huge].
 
-groups() -> 
-    [].
 
-init_per_group(_GroupName, Config) ->
-    Config.
+init_per_group(GroupName, Config) ->
+     case ssl_test_lib:is_tls_version(GroupName) of
+	true ->
+	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl_test_lib:init_tls_version(GroupName),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end;
+	_ ->
+	    ssl:start(),
+	    Config
+    end.
 
 end_per_group(_GroupName, Config) ->
     Config.

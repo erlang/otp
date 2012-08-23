@@ -353,11 +353,10 @@ pos(Id,[_|Rest],Num) ->
     pos(Id,Rest,Num+1).
 
 
-
 catch_apply(M,F,A, Default) ->
     try
 	apply(M,F,A)
-    catch error:Reason ->
+    catch _:Reason ->
 	    case erlang:get_stacktrace() of
             %% Return the default if it was the CTH module which did not have the function.
 		[{M,F,A,_}|_] when Reason == undef ->

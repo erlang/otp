@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,12 +22,19 @@
 -module(crypto).
 
 -export([start/0, stop/0, info/0, info_lib/0, version/0]).
+-export([hash/2, hash_init/1, hash_update/2, hash_final/1]).
 -export([md4/1, md4_init/0, md4_update/2, md4_final/1]).
 -export([md5/1, md5_init/0, md5_update/2, md5_final/1]).
 -export([sha/1, sha_init/0, sha_update/2, sha_final/1]).
+-export([sha224/1, sha224_init/0, sha224_update/2, sha224_final/1]).
 -export([sha256/1, sha256_init/0, sha256_update/2, sha256_final/1]).
+-export([sha384/1, sha384_init/0, sha384_update/2, sha384_final/1]).
 -export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac/3, sha_mac_96/2]).
+-export([sha224_mac/2, sha224_mac/3]).
+-export([sha256_mac/2, sha256_mac/3]).
+-export([sha384_mac/2, sha384_mac/3]).
+-export([sha512_mac/2, sha512_mac/3]).
 -export([hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
 -export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
@@ -64,10 +71,13 @@
 -define(FUNC_LIST, [md4, md4_init, md4_update, md4_final,
 		    md5, md5_init, md5_update, md5_final,
 		    sha, sha_init, sha_update, sha_final,
- 		    sha256, sha256_init, sha256_update, sha256_final,
- 		    sha512, sha512_init, sha512_update, sha512_final,
+		    sha224, sha224_init, sha224_update, sha224_final,
+		    sha256, sha256_init, sha256_update, sha256_final,
+		    sha384, sha384_init, sha384_update, sha384_final,
+		    sha512, sha512_init, sha512_update, sha512_final,
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
+		    sha224_mac, sha256_mac, sha384_mac, sha512_mac,
                     sha_mac_init, sha_mac_update, sha_mac_final,
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
@@ -95,8 +105,9 @@
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
 		    info_lib]).
 
--type rsa_digest_type() :: 'md5' | 'sha' | 'sha256' | 'sha384' | 'sha512'.
+-type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
 -type dss_digest_type() :: 'none' | 'sha'.
+-type data_or_digest() :: binary() | {digest, binary()}.
 -type crypto_integer() :: binary() | integer().
 
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -171,13 +182,52 @@ info_lib() -> ?nif_stub.
 %% (no version): Driver implementation
 %% 2.0         : NIF implementation, requires OTP R14
 version() -> ?CRYPTO_VSN.
-     
+
 %% Below Key and Data are binaries or IO-lists. IVec is a binary.
 %% Output is always a binary. Context is a binary.
 
 %%
 %%  MESSAGE DIGESTS
 %%
+
+-spec hash(_, iodata()) -> binary().
+hash(md5, Data)    -> md5(Data);
+hash(md4, Data)    -> md4(Data);
+hash(sha, Data)    -> sha(Data);
+hash(sha224, Data) -> sha224(Data);
+hash(sha256, Data) -> sha256(Data);
+hash(sha384, Data) -> sha384(Data);
+hash(sha512, Data) -> sha512(Data).
+
+-spec hash_init('md5'|'md4'|'sha'|'sha224'|'sha256'|'sha384'|'sha512') -> any().
+
+hash_init(md5) -> {md5, md5_init()};
+hash_init(md4) -> {md4, md4_init()};
+hash_init(sha) -> {sha, sha_init()};
+hash_init(sha224) -> {sha224, sha224_init()};
+hash_init(sha256) -> {sha256, sha256_init()};
+hash_init(sha384) -> {sha384, sha384_init()};
+hash_init(sha512) -> {sha512, sha512_init()}.
+
+-spec hash_update(_, iodata()) -> any().
+
+hash_update({md5,Context}, Data) -> {md5, md5_update(Context,Data)};
+hash_update({md4,Context}, Data) -> {md4, md4_update(Context,Data)};
+hash_update({sha,Context}, Data) -> {sha, sha_update(Context,Data)};
+hash_update({sha224,Context}, Data) -> {sha224, sha224_update(Context,Data)};
+hash_update({sha256,Context}, Data) -> {sha256, sha256_update(Context,Data)};
+hash_update({sha384,Context}, Data) -> {sha384, sha384_update(Context,Data)};
+hash_update({sha512,Context}, Data) -> {sha512, sha512_update(Context,Data)}.
+
+-spec hash_final(_) -> binary().
+
+hash_final({md5,Context}) -> md5_final(Context);
+hash_final({md4,Context}) -> md4_final(Context);
+hash_final({sha,Context}) -> sha_final(Context);
+hash_final({sha224,Context}) -> sha224_final(Context);
+hash_final({sha256,Context}) -> sha256_final(Context);
+hash_final({sha384,Context}) -> sha384_final(Context);
+hash_final({sha512,Context}) -> sha512_final(Context).
 
 %%
 %%  MD5
@@ -220,6 +270,40 @@ sha_update(_Context, _Data) -> ?nif_stub.
 sha_final(_Context) -> ?nif_stub.
 
 %
+%% SHA224
+%%
+-spec sha224(iodata()) -> binary().
+-spec sha224_init() -> binary().
+-spec sha224_update(binary(), iodata()) -> binary().
+-spec sha224_final(binary()) -> binary().
+
+sha224(Data) ->
+    case sha224_nif(Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha224_init() ->
+    case sha224_init_nif() of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha224_update(Context, Data) ->
+    case sha224_update_nif(Context, Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha224_final(Context) ->
+    case sha224_final_nif(Context) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+sha224_nif(_Data) -> ?nif_stub.
+sha224_init_nif() -> ?nif_stub.
+sha224_update_nif(_Context, _Data) -> ?nif_stub.
+sha224_final_nif(_Context) -> ?nif_stub.
+
+%
 %% SHA256
 %%
 -spec sha256(iodata()) -> binary().
@@ -252,6 +336,40 @@ sha256_nif(_Data) -> ?nif_stub.
 sha256_init_nif() -> ?nif_stub.
 sha256_update_nif(_Context, _Data) -> ?nif_stub.
 sha256_final_nif(_Context) -> ?nif_stub.
+
+%
+%% SHA384
+%%
+-spec sha384(iodata()) -> binary().
+-spec sha384_init() -> binary().
+-spec sha384_update(binary(), iodata()) -> binary().
+-spec sha384_final(binary()) -> binary().
+
+sha384(Data) ->
+    case sha384_nif(Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha384_init() ->
+    case sha384_init_nif() of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha384_update(Context, Data) ->
+    case sha384_update_nif(Context, Data) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+sha384_final(Context) ->
+    case sha384_final_nif(Context) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+sha384_nif(_Data) -> ?nif_stub.
+sha384_init_nif() -> ?nif_stub.
+sha384_update_nif(_Context, _Data) -> ?nif_stub.
+sha384_final_nif(_Context) -> ?nif_stub.
 
 %
 %% SHA512
@@ -334,6 +452,70 @@ sha_mac_96(Key, Data) ->
     sha_mac_n(Key,Data,12).
 
 sha_mac_n(_Key,_Data,_MacSz) -> ?nif_stub.
+
+%%
+%%  SHA224_MAC
+%%
+-spec sha224_mac(iodata(), iodata()) -> binary().
+
+sha224_mac(Key, Data) ->
+    sha224_mac(Key, Data, 224 div 8).
+
+sha224_mac(Key, Data, Size) ->
+   case sha224_mac_nif(Key, Data, Size) of
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
+sha224_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
+
+%%
+%%  SHA256_MAC
+%%
+-spec sha256_mac(iodata(), iodata()) -> binary().
+
+sha256_mac(Key, Data) ->
+    sha256_mac(Key, Data, 256 div 8).
+
+sha256_mac(Key, Data, Size) ->
+   case sha256_mac_nif(Key, Data, Size) of
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
+sha256_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
+
+%%
+%%  SHA384_MAC
+%%
+-spec sha384_mac(iodata(), iodata()) -> binary().
+
+sha384_mac(Key, Data) ->
+    sha384_mac(Key, Data, 384 div 8).
+
+sha384_mac(Key, Data, Size) ->
+   case sha384_mac_nif(Key, Data, Size) of
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
+sha384_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
+
+%%
+%%  SHA512_MAC
+%%
+-spec sha512_mac(iodata(), iodata()) -> binary().
+
+sha512_mac(Key, Data) ->
+    sha512_mac(Key, Data, 512 div 8).
+
+sha512_mac(Key, Data, MacSz) ->
+   case sha512_mac_nif(Key, Data, MacSz) of
+       notsup -> erlang:error(notsup);
+       Bin -> Bin
+   end.
+
+sha512_mac_nif(_Key,_Data,_MacSz) -> ?nif_stub.
 
 %%
 %% CRYPTO FUNCTIONS
@@ -576,10 +758,10 @@ mod_exp_nif(_Base,_Exp,_Mod) -> ?nif_stub.
 %%
 %% DSS, RSA - verify
 %%
--spec dss_verify(binary(), binary(), [binary()]) -> boolean().
--spec dss_verify(dss_digest_type(), binary(), binary(), [binary()]) -> boolean().
--spec rsa_verify(binary(), binary(), [binary()]) -> boolean().
--spec rsa_verify(rsa_digest_type(), binary(), binary(), [binary()]) ->
+-spec dss_verify(data_or_digest(), binary(), [binary()]) -> boolean().
+-spec dss_verify(dss_digest_type(), data_or_digest(), binary(), [binary()]) -> boolean().
+-spec rsa_verify(data_or_digest(), binary(), [binary()]) -> boolean().
+-spec rsa_verify(rsa_digest_type(), data_or_digest(), binary(), [binary()]) ->
 			boolean().
 
 %% Key = [P,Q,G,Y]   P,Q,G=DSSParams  Y=PublicKey
@@ -590,8 +772,8 @@ dss_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.
 % Key = [E,N]  E=PublicExponent N=PublicModulus
 rsa_verify(Data,Signature,Key) ->
     rsa_verify_nif(sha, Data,Signature,Key).
-rsa_verify(Type, Data, Signature, Key) ->
-    case rsa_verify_nif(Type, Data, Signature, Key) of
+rsa_verify(Type, DataOrDigest, Signature, Key) ->
+    case rsa_verify_nif(Type, DataOrDigest, Signature, Key) of
     	notsup -> erlang:error(notsup);
 	Bool -> Bool
     end.
@@ -603,27 +785,27 @@ rsa_verify_nif(_Type, _Data, _Signature, _Key) -> ?nif_stub.
 %% DSS, RSA - sign
 %%
 %% Key = [P,Q,G,X]   P,Q,G=DSSParams  X=PrivateKey
--spec dss_sign(binary(), [binary()]) -> binary().
--spec dss_sign(dss_digest_type(), binary(), [binary()]) -> binary().
--spec rsa_sign(binary(), [binary()]) -> binary().
--spec rsa_sign(rsa_digest_type(), binary(), [binary()]) -> binary().
+-spec dss_sign(data_or_digest(), [binary()]) -> binary().
+-spec dss_sign(dss_digest_type(), data_or_digest(), [binary()]) -> binary().
+-spec rsa_sign(data_or_digest(), [binary()]) -> binary().
+-spec rsa_sign(rsa_digest_type(), data_or_digest(), [binary()]) -> binary().
 
-dss_sign(Data,Key) ->
-    dss_sign(sha,Data,Key).
-dss_sign(Type, Data, Key) ->
-    case dss_sign_nif(Type,Data,Key) of
-	error -> erlang:error(badkey, [Data, Key]);
+dss_sign(DataOrDigest,Key) ->
+    dss_sign(sha,DataOrDigest,Key).
+dss_sign(Type, DataOrDigest, Key) ->
+    case dss_sign_nif(Type,DataOrDigest,Key) of
+	error -> erlang:error(badkey, [DataOrDigest, Key]);
 	Sign -> Sign
     end.
 
 dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
 
 %% Key = [E,N,D]  E=PublicExponent N=PublicModulus  D=PrivateExponent
-rsa_sign(Data,Key) ->
-    rsa_sign(sha, Data, Key).
-rsa_sign(Type, Data, Key) ->
-    case rsa_sign_nif(Type,Data,Key) of
-	error -> erlang:error(badkey, [Type,Data,Key]);
+rsa_sign(DataOrDigest,Key) ->
+    rsa_sign(sha, DataOrDigest, Key).
+rsa_sign(Type, DataOrDigest, Key) ->
+    case rsa_sign_nif(Type,DataOrDigest,Key) of
+	error -> erlang:error(badkey, [Type,DataOrDigest,Key]);
 	Sign -> Sign
     end.
 

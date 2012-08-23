@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2008</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -82,9 +82,9 @@
     <p><code> rsa_padding() =  'rsa_pkcs1_padding' | 'rsa_pkcs1_oaep_padding'
     | 'rsa_no_padding'</code></p>
     
-    <p><code> rsa_digest_type()  = 'md5' | 'sha' </code></p>
+    <p><code> rsa_digest_type()  = 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512' </code></p>
 
-    <p><code> dss_digest_type()  = 'none' | 'sha' </code></p>
+    <p><code> dss_digest_type()  = 'sha' </code></p>
 
     <p><code> ssh_file()  = openssh_public_key | rfc4716_public_key |
     known_hosts | auth_keys </code></p>
@@ -396,14 +396,14 @@
     <name>sign(Msg, DigestType, Key) -> binary()</name>
     <fsummary> Create digital signature.</fsummary>
     <type>
-       <v>Msg = binary()</v>
+       <v>Msg = binary() | {digest,binary()}</v>
        <d>The msg is either the binary "plain text" data to be
-       signed or in the case that digest type is <c>none</c>
-       it is the hashed value of "plain text" i.e. the digest.</d>
-       <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
+       signed or it is the hashed value of "plain text" i.e. the
+       digest.</d>
+       <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
        <v>Key = rsa_private_key() | dsa_private_key()</v>
-  </type> 
-  <desc> 
+  </type>
+  <desc>
     <p> Creates a digital signature.</p> 
   </desc> 
   </func>   
@@ -461,11 +461,10 @@
     <name>verify(Msg, DigestType, Signature, Key) -> boolean()</name>
     <fsummary>Verifies a digital signature.</fsummary>
     <type>
-      <v>Msg = binary()</v>
+      <v>Msg = binary() | {digest,binary()}</v>
        <d>The msg is either the binary "plain text" data 
-        or in the case that digest type is <c>none</c>
-	it is the hashed value of "plain text" i.e. the digest.</d>
-      <v>DigestType = rsa_digest_type() | dsa_digest_type()</v>
+        or it is the hashed value of "plain text" i.e. the digest.</d>
+      <v>DigestType = rsa_digest_type() | dss_digest_type()</v>
       <v>Signature = binary()</v>
       <v>Key = rsa_public_key() | dsa_public_key()</v> 
   </type> 
