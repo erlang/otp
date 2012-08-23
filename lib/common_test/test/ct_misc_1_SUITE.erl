@@ -106,7 +106,7 @@ beam_me_up(Config) when is_list(Config) ->
 
     {Opts,ERPid} = setup([{suite,Suites},{auto_compile,false}], Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {_Ok,_Fail,_Skip} = ct_test_support:run(ct, run_test, [Opts], Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(beam_me_up,
