@@ -60,6 +60,7 @@ FILES = vts.tool
 SCRIPTS = 
 IMAGES = tile1.jpg
 CSS = ct_default.css
+JS = jquery-latest.js jquery.tablesorter.min.js 
 
 #
 # Rules
@@ -86,11 +87,11 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 ifeq ($(XNIX),true)
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
-	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(JS) "$(RELSYSDIR)/priv"
 else
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
-	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(JS) "$(RELSYSDIR)/priv"
 endif
 
 release_docs_spec:
@@ -107,6 +108,7 @@ else
 FILES = vts.tool 
 IMAGES = tile1.jpg
 CSS = ct_default.css
+JS = jquery-latest.js jquery.tablesorter.min.js 
 
 #
 # Rules
@@ -126,7 +128,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv"
-	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) "$(RELSYSDIR)/priv"
+	$(INSTALL_DATA) $(FILES) $(IMAGES) $(CSS) $(JS) "$(RELSYSDIR)/priv"
 
 release_docs_spec:
 

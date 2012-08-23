@@ -65,5 +65,10 @@
 
 -define(ct_profile_file, ".common_test").
 
+-define(css_default, "ct_default.css").
+-define(sortable_table_name, "SortableTable").
+-define(jquery_script, "jquery-latest.js").
+-define(tablesorter_script, "jquery.tablesorter.min.js").
+
 %% Logging information for error handler
 -record(conn_log, {client, name, address, action, module}).
