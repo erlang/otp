@@ -621,7 +621,9 @@ setup_and_execute(TCName, TestSpec, Config) ->
     ok = ct_test_support:run(Opts, Config),
     TestSpec1 = [{logdir,proplists:get_value(logdir,Opts)},
 		 {label,proplists:get_value(label,TestTerms)} | TestSpec],
-    ok = ct_test_support:run(ct, run_testspec, [TestSpec1], Config),
+    {_Ok,_Failed,{_USkipped,_ASkipped}} = 
+	ct_test_support:run(ct, run_testspec, [TestSpec1], Config),
+
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(TCName,

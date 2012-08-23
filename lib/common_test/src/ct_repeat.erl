@@ -41,72 +41,86 @@ loop_test(If,Args) when is_list(Args) ->
     case get_loop_info(Args) of
 	no_loop ->
 	    false;
-	{error,E} ->
+	E = {error,_} ->
 	    io:format("Common Test error: ~p\n\n",[E]),
 	    file:set_cwd(Cwd),
 	    E;
 	{repeat,N} ->
 	    io:format("\nCommon Test: Will repeat tests ~w times.\n\n",[N]),
 	    Args1 = [{loop_info,[{repeat,1,N}]} | Args],
-	    loop(If,repeat,0,N,undefined,Args1,undefined),
-	    file:set_cwd(Cwd);
+	    Result = loop(If,repeat,0,N,undefined,Args1,undefined,[]),
+	    file:set_cwd(Cwd),
+	    Result;
 	{stop_time,StopTime} ->
-	    case remaining_time(StopTime) of
-		0 ->
-		    io:format("\nCommon Test: No time left to run tests.\n\n",[]),
-		    ok;
-		Secs ->
-		    io:format("\nCommon Test: Will repeat tests for ~s.\n\n",
-			      [ts(Secs)]),
-		    TPid =
-			case lists:keymember(force_stop,1,Args) of 
-			    true ->
-				CtrlPid = self(),
-				spawn(fun() -> stop_after(CtrlPid,Secs) end);
-			    false ->
-				undefined
-			end,
-		    Args1 = [{loop_info,[{stop_time,Secs,StopTime,1}]} | Args],
-		    loop(If,stop_time,0,Secs,StopTime,Args1,TPid)
-	    end,
-	    file:set_cwd(Cwd)
+	    Result =
+		case remaining_time(StopTime) of
+		    0 ->
+			io:format("\nCommon Test: "
+				  "No time left to run tests.\n\n",[]),
+			{error,not_enough_time};
+		    Secs ->
+			io:format("\nCommon Test: "
+				  "Will repeat tests for ~s.\n\n",[ts(Secs)]),
+			TPid =
+			    case lists:keymember(force_stop,1,Args) of 
+				true ->
+				    CtrlPid = self(),
+				    spawn(fun() -> stop_after(CtrlPid,Secs) end);
+				false ->
+				    undefined
+			    end,
+			Args1 = [{loop_info,[{stop_time,Secs,StopTime,1}]} | Args],
+			loop(If,stop_time,0,Secs,StopTime,Args1,TPid,[])
+		end,
+	    file:set_cwd(Cwd),
+	    Result
     end.
     
-loop(_,repeat,N,N,_,_Args,_) ->
-    ok;
+loop(_,repeat,N,N,_,_Args,_,AccResult) ->
+    lists:reverse(AccResult);
 
-loop(If,Type,N,Data0,Data1,Args,TPid) ->
+loop(If,Type,N,Data0,Data1,Args,TPid,AccResult) ->
     Pid = spawn_tester(If,self(),Args),
     receive 
 	{'EXIT',Pid,Reason} ->
-	    io:format("Test run crashed! This could be an internal error "
-		      "- please report!\n\n"
-		      "~p\n\n",[Reason]),
-	    cancel(TPid),
-	    {error,Reason};
+	    case Reason of
+		{user_error,What} ->
+		    io:format("\nTest run failed!\nReason: ~p\n\n\n", [What]),
+		    cancel(TPid),
+		    {error,What};			
+		_ ->
+		    io:format("Test run crashed! This could be an internal error "
+			      "- please report!\n\n"
+			      "~p\n\n\n",[Reason]),
+		    cancel(TPid),
+		    {error,Reason}
+	    end;
 	{Pid,{error,Reason}} ->
-	    io:format("\nTest run failed!\nReason: ~p\n\n",[Reason]),
+	    io:format("\nTest run failed!\nReason: ~p\n\n\n",[Reason]),
 	    cancel(TPid),
 	    {error,Reason};
 	{Pid,Result} ->
 	    if Type == repeat ->
-		    io:format("\nTest run ~w(~w) complete.\n\n",[N+1,Data0]),		    
+		    io:format("\nTest run ~w(~w) complete.\n\n\n",[N+1,Data0]),
 		    lists:keydelete(loop_info,1,Args),
 		    Args1 = [{loop_info,[{repeat,N+2,Data0}]} | Args],
-		    loop(If,repeat,N+1,Data0,Data1,Args1,TPid);
+		    loop(If,repeat,N+1,Data0,Data1,Args1,TPid,[Result|AccResult]);
 	       Type == stop_time ->
 		    case remaining_time(Data1) of
 			0 ->
-			    io:format("\nTest time (~s) has run out.\n\n",[ts(Data0)]),
+			    io:format("\nTest time (~s) has run out.\n\n\n",
+				      [ts(Data0)]),
 			    cancel(TPid),
-			    Result;
+			    lists:reverse([Result|AccResult]);
 			Secs ->
 			    io:format("\n~s of test time remaining, " 
-				      "starting run #~w...\n\n",[ts(Secs),N+2]),
+				      "starting run #~w...\n\n\n",
+				      [ts(Secs),N+2]),
 			    lists:keydelete(loop_info,1,Args),			    
 			    ST = {stop_time,Data0,Data1,N+2},
 			    Args1 = [{loop_info,[ST]} | Args],
-			    loop(If,stop_time,N+1,Data0,Data1,Args1,TPid)
+			    loop(If,stop_time,N+1,Data0,Data1,Args1,TPid,
+				 [Result|AccResult])
 		    end
 	    end
     end.

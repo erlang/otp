@@ -35,6 +35,8 @@
 	 verify_events/3, reformat/2, log_events/4,
 	 join_abs_dirs/2]).
 
+-export([ct_test_halt/1]).
+
 -include_lib("kernel/include/file.hrl").
 
 %%%-----------------------------------------------------------------
@@ -229,8 +231,9 @@ run(Opts, Config) when is_list(Opts) ->
     %% use ct interface
     test_server:format(Level, "~n[RUN #1] Calling ct:run_test(~p) on ~p~n",
 		       [Opts, CTNode]),
-    Result1 = rpc:call(CTNode, ct, run_test, [Opts]),
-
+    CtRunTestResult = rpc:call(CTNode, ct, run_test, [Opts]),
+    test_server:format(Level, "~n[RUN #1] Got return value ~p~n",
+		       [CtRunTestResult]),
     case rpc:call(CTNode, erlang, whereis, [ct_util_server]) of
 	undefined ->
 	    ok;
@@ -242,17 +245,36 @@ run(Opts, Config) when is_list(Opts) ->
 	    undefined = rpc:call(CTNode, erlang, whereis, [ct_util_server])
     end,
     %% use run_test interface (simulated)
-    test_server:format(Level, "Saving start opts on ~p: ~p~n", [CTNode,Opts]),
-    rpc:call(CTNode, application, set_env, [common_test, run_test_start_opts, Opts]),
-    test_server:format(Level, "[RUN #2] Calling ct_run:script_start() on ~p~n", [CTNode]),
-    Result2 = rpc:call(CTNode, ct_run, script_start, []),
-    case {Result1,Result2} of
-	{ok,ok} ->
+    Opts1 = [{halt_with,{?MODULE,ct_test_halt}} | Opts],
+    test_server:format(Level, "Saving start opts on ~p: ~p~n",
+		       [CTNode, Opts1]),
+    rpc:call(CTNode, application, set_env,
+	     [common_test, run_test_start_opts, Opts1]),
+    test_server:format(Level, "[RUN #2] Calling ct_run:script_start() on ~p~n",
+		       [CTNode]),
+    ExitStatus = rpc:call(CTNode, ct_run, script_start, []),
+    test_server:format(Level, "[RUN #2] Got exit status value ~p~n",
+		       [ExitStatus]),
+    case {CtRunTestResult,ExitStatus} of
+	{{_Ok,Failed,{_UserSkipped,_AutoSkipped}},1} when Failed > 0 ->
 	    ok;
-	{E,_} when E =/= ok ->
-	    E;
-	{_,E} when E =/= ok ->
-	    E
+	{{_Ok,0,{_UserSkipped,AutoSkipped}},ExitStatus} when AutoSkipped > 0 ->
+	    case proplists:get_value(exit_status, Opts1) of
+		ignore_config when ExitStatus == 1 ->
+		    {error,{wrong_exit_status,ExitStatus}};
+		_ ->
+		    ok
+	    end;
+	{{error,_}=Error,ExitStatus} ->
+	    if ExitStatus /= 2 ->
+		    {error,{wrong_exit_status,ExitStatus}};
+	       ExitStatus == 2 ->
+		    Error
+	    end;
+	{{_Ok,0,{_UserSkipped,_AutoSkipped}},0} ->
+	    ok;
+	Unexpected ->
+	    {error,{unexpected_return_value,Unexpected}}
     end.
 
 run(M, F, A, Config) ->
@@ -272,6 +294,10 @@ run({M,F,A}, InitCalls, Config) ->
 		       [M, F, A, CTNode]),
     rpc:call(CTNode, M, F, A).
 
+%% this is the last function that ct_run:script_start() calls, so the
+%% return value here is what rpc:call/4 above returns
+ct_test_halt(ExitStatus) ->
+    ExitStatus.	    
 
 %%%-----------------------------------------------------------------
 %%% wait_for_ct_stop/1

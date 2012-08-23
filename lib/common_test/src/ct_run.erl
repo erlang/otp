@@ -45,6 +45,10 @@
 -define(abs(Name), filename:absname(Name)).
 -define(testdir(Name, Suite), ct_util:get_testdir(Name, Suite)).
 
+-define(EXIT_STATUS_TEST_SUCCESSFUL, 0).
+-define(EXIT_STATUS_TEST_CASE_FAILED, 1).
+-define(EXIT_STATUS_TEST_RUN_FAILED, 2).
+
 -record(opts, {label,
 	       profile,
 	       vts,
@@ -122,46 +126,97 @@ script_start() ->
 
 script_start(Args) ->
     Tracing = start_trace(Args),
-    Res =
-	case ct_repeat:loop_test(script, Args) of
-	    false ->
-		{ok,Cwd} = file:get_cwd(),
-		CTVsn =
-		    case filename:basename(code:lib_dir(common_test)) of
-			CTBase when is_list(CTBase) ->
-			    case string:tokens(CTBase, "-") of
-				["common_test",Vsn] -> " v"++Vsn;
-				_ -> ""
-			    end
-		    end,
-		io:format("~nCommon Test~s starting (cwd is ~s)~n~n", [CTVsn,Cwd]),
-		Self = self(),
-		Pid = spawn_link(fun() -> script_start1(Self, Args) end),
-	        receive
-		    {'EXIT',Pid,Reason} ->
-			case Reason of
-			    {user_error,What} ->
-				io:format("\nTest run failed!\nReason: ~p\n\n", [What]),
-				{error,What};
-			    _ ->
-				io:format("Test run crashed! This could be an internal error "
-					  "- please report!\n\n"
-					  "~p\n\n", [Reason]),
-				{error,Reason}				
-			end;
-		    {Pid,{error,Reason}} ->
-			io:format("\nTest run failed! Reason:\n~p\n\n",[Reason]),
-			{error,Reason};
-		    {Pid,Result} ->
-			Result
-		end;
-	    Result ->
-		Result
-	end,
+    case ct_repeat:loop_test(script, Args) of
+	false ->
+	    {ok,Cwd} = file:get_cwd(),
+	    CTVsn =
+		case filename:basename(code:lib_dir(common_test)) of
+		    CTBase when is_list(CTBase) ->
+			case string:tokens(CTBase, "-") of
+			    ["common_test",Vsn] -> " v"++Vsn;
+			    _ -> ""
+			end
+		end,
+	    io:format("~nCommon Test~s starting (cwd is ~s)~n~n", [CTVsn,Cwd]),
+	    Self = self(),
+	    Pid = spawn_link(fun() -> script_start1(Self, Args) end),
+	    receive
+		{'EXIT',Pid,Reason} ->
+		    case Reason of
+			{user_error,What} ->
+			    io:format("\nTest run failed!\nReason: ~p\n\n\n", [What]),
+			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
+			_ ->
+			    io:format("Test run crashed! This could be an internal error "
+				      "- please report!\n\n"
+				      "~p\n\n\n", [Reason]),
+			    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args)
+		    end;
+		{Pid,{error,Reason}} ->
+		    io:format("\nTest run failed! Reason:\n~p\n\n\n",[Reason]),
+		    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
+		{Pid,Result} ->
+		    io:nl(),
+		    finish(Tracing, analyze_test_result(Result, Args), Args)
+	    end;
+	{error,_LoopReason} ->
+	    finish(Tracing, ?EXIT_STATUS_TEST_RUN_FAILED, Args);
+	Result ->
+	    io:nl(),
+	    finish(Tracing, analyze_test_result(Result, Args), Args)
+    end.
+
+%% analyze the result of one test run, or many (in case of looped test)
+analyze_test_result(ok, _) ->
+    ?EXIT_STATUS_TEST_SUCCESSFUL;
+analyze_test_result({error,_Reason}, _) ->
+    ?EXIT_STATUS_TEST_RUN_FAILED;
+analyze_test_result({_Ok,Failed,{_UserSkipped,AutoSkipped}}, Args) ->
+    if Failed > 0 ->
+	    ?EXIT_STATUS_TEST_CASE_FAILED;
+       true ->
+	    case AutoSkipped of
+		0 ->
+		    ?EXIT_STATUS_TEST_SUCCESSFUL;
+		_ ->
+		    case get_start_opt(exit_status,
+				       fun([ExitOpt]) -> ExitOpt end,
+				       Args) of
+			undefined ->
+			    ?EXIT_STATUS_TEST_CASE_FAILED;
+			"ignore_config" ->
+		    	    ?EXIT_STATUS_TEST_SUCCESSFUL
+		    end
+	    end
+    end;
+analyze_test_result([Result|Rs], Args) ->
+    case analyze_test_result(Result, Args) of
+	?EXIT_STATUS_TEST_SUCCESSFUL ->
+	    analyze_test_result(Rs, Args);
+	Other ->
+	    Other
+    end;
+analyze_test_result([], _) ->
+    ?EXIT_STATUS_TEST_SUCCESSFUL;
+analyze_test_result(Unknown, _) ->
+    io:format("\nTest run failed! Reason:\n~p\n\n\n",[Unknown]),
+    ?EXIT_STATUS_TEST_RUN_FAILED.
+
+finish(Tracing, ExitStatus, Args) ->
     stop_trace(Tracing),
     timer:sleep(1000),
-    io:nl(),
-    Res.
+    %% it's possible to tell CT to finish execution with a call
+    %% to a different function than the normal halt/1 BIF
+    %% (meant to be used mainly for reading the CT exit status)
+    case get_start_opt(halt_with,
+		       fun([HaltMod,HaltFunc]) -> {list_to_atom(HaltMod),
+						   list_to_atom(HaltFunc)} end,
+		       Args) of
+	undefined ->
+	    halt(ExitStatus);
+	{M,F} ->
+	    apply(M, F, [ExitStatus])
+    end.
 
 script_start1(Parent, Args) ->
     %% read general start flags
@@ -553,7 +608,7 @@ script_start4(#opts{vts = true, cover = Cover}, _) ->
 	    %% Add support later (maybe).
 	    io:format("\nCan't run cover in vts mode.\n\n", [])
     end,
-    erlang:halt();
+    {error,no_cover_in_vts_mode};
 
 script_start4(#opts{shell = true, cover = Cover}, _) ->
     case Cover of
@@ -562,7 +617,8 @@ script_start4(#opts{shell = true, cover = Cover}, _) ->
 	_ ->
 	    %% Add support later (maybe).
 	    io:format("\nCan't run cover in interactive mode.\n\n", [])
-    end;
+    end,
+    {error,no_cover_in_interactive_mode};
 
 script_start4(Opts = #opts{tests = Tests}, Args) ->
     do_run(Tests, [], Opts, Args).
@@ -702,7 +758,7 @@ run_test(StartOpts) when is_list(StartOpts) ->
     Ref = monitor(process, CTPid),
     receive
 	{'DOWN',Ref,process,CTPid,{user_error,Error}} ->
-		    Error;
+		    {error,Error};
 	{'DOWN',Ref,process,CTPid,Other} ->
 		    Other
     end.
@@ -894,7 +950,7 @@ run_spec_file(Relaxed,
     log_ts_names(AbsSpecs),
     case catch ct_testspec:collect_tests_from_file(AbsSpecs, Relaxed) of
 	{Error,CTReason} when Error == error ; Error == 'EXIT' ->
-	    exit(CTReason);
+	    exit({error,CTReason});
 	TS ->
 	    SpecOpts = get_data_for_node(TS, node()),
 	    Label = choose_val(Opts#opts.label,
@@ -948,7 +1004,7 @@ run_spec_file(Relaxed,
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
 		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
 		{error,GCFReason} ->
-		    exit(GCFReason)
+		    exit({error,GCFReason})
 	    end
     end.
 
@@ -960,8 +1016,8 @@ run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
 	ok ->
 	    reformat_result(catch do_run(Run, Skip, Opts#opts{logdir = LogDir1},
 					 StartOpts));
-	{error,Reason} ->
-	    exit(Reason)
+	{error,_Reason} = Error ->
+	    exit(Error)
     end.
 
 check_config_file(Callback, File)->
@@ -969,7 +1025,7 @@ check_config_file(Callback, File)->
 	false ->
 	    case code:load_file(Callback) of
 		{module,_} -> ok;
-		{error,Why} -> exit({cant_load_callback_module,Why})
+		{error,Why} -> exit({error,{cant_load_callback_module,Why}})
 	    end;
 	_ ->
 	    ok
@@ -980,16 +1036,17 @@ check_config_file(Callback, File)->
 	{ok,{config,_}}->
 	    File;
 	{error,{wrong_config,Message}}->
-	    exit({wrong_config,{Callback,Message}});
+	    exit({error,{wrong_config,{Callback,Message}}});
 	{error,{nofile,File}}->
-	    exit({no_such_file,?abs(File)})
+	    exit({error,{no_such_file,?abs(File)}})
     end.
 
 run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
 		     event_handlers = EvHandlers,
 		     ct_hooks = CTHook,
-		     enable_builtin_hooks = EnableBuiltinHooks }, StartOpts) ->
+		     enable_builtin_hooks = EnableBuiltinHooks},
+	StartOpts) ->
     LogDir1 = which(logdir, LogDir),
     Opts1 = Opts#opts{logdir = LogDir1},
     AbsCfgFiles =
@@ -1002,7 +1059,8 @@ run_dir(Opts = #opts{logdir = LogDir,
 				      {module,Callback}->
 					  ok;
 				      {error,_}->
-					  exit({no_such_module,Callback})
+					  exit({error,{no_such_module,
+						       Callback}})
 				  end
 			  end,
 			  {Callback,
@@ -1015,7 +1073,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 		  {ct_hooks, CTHook},
 		  {enable_builtin_hooks,EnableBuiltinHooks}], LogDir1) of
 	ok -> ok;
-	{error,IReason} -> exit(IReason)
+	{error,_IReason} = IError -> exit(IError)
     end,
     case {proplists:get_value(dir, StartOpts),
 	  proplists:get_value(suite, StartOpts),
@@ -1057,7 +1115,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 					 [], Opts1, StartOpts));
 
 	{undefined,[Hd,_|_],_GsAndCs} when not is_integer(Hd) ->
-	    exit(multiple_suites_and_cases);
+	    exit({error,multiple_suites_and_cases});
 
 	{undefined,Suite=[Hd|Tl],GsAndCs} when is_integer(Hd) ;
 					       (is_list(Hd) and	(Tl == [])) ;
@@ -1067,10 +1125,10 @@ run_dir(Opts = #opts{logdir = LogDir,
 					 [], Opts1, StartOpts));
 
 	{[Hd,_|_],_Suites,[]} when is_list(Hd) ; not is_integer(Hd) ->
-	    exit(multiple_dirs_and_suites);
+	    exit({error,multiple_dirs_and_suites});
 
 	{undefined,undefined,GsAndCs} when GsAndCs /= [] ->
-	    exit(incorrect_start_options);
+	    exit({error,incorrect_start_options});
 
 	{Dir,Suite,GsAndCs} when is_integer(hd(Dir)) ;
 				 (is_atom(Dir) and (Dir /= undefined)) ;
@@ -1079,7 +1137,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    Dir1 = if is_atom(Dir) -> atom_to_list(Dir);
 		      true -> Dir end,
 	    if Suite == undefined ->
-		  exit(incorrect_start_options);
+		  exit({error,incorrect_start_options});
 
 	       is_integer(hd(Suite)) ;
 	       (is_atom(Suite) and (Suite /= undefined)) ;
@@ -1098,7 +1156,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 		is_list(Suite) ->		% multiple suites
 		    case [suite_to_test(Dir1, S) || S <- Suite] of
 			[_,_|_] when GsAndCs /= [] ->
-			    exit(multiple_suites_and_cases);
+			    exit({error,multiple_suites_and_cases});
 			[{Dir2,Mod}] when GsAndCs /= [] ->
 			    reformat_result(catch do_run(tests(Dir2, Mod, GsAndCs),
 							 [], Opts1, StartOpts));
@@ -1109,10 +1167,10 @@ run_dir(Opts = #opts{logdir = LogDir,
 	    end;
 
 	{undefined,undefined,[]} ->
-	    exit(no_test_specified);
+	    exit({error,no_test_specified});
 
 	{Dir,Suite,GsAndCs} ->
-	    exit({incorrect_start_options,{Dir,Suite,GsAndCs}})
+	    exit({error,{incorrect_start_options,{Dir,Suite,GsAndCs}}})
     end.
 
 %%%-----------------------------------------------------------------
@@ -1157,7 +1215,7 @@ run_testspec2(File) when is_list(File), is_integer(hd(File)) ->
 run_testspec2(TestSpec) ->
     case catch ct_testspec:collect_tests_from_list(TestSpec, false) of
 	{E,CTReason}  when E == error ; E == 'EXIT' ->
-	    exit(CTReason);
+	    exit({error,CTReason});
 	TS ->
 	    Opts = get_data_for_node(TS, node()),
 
@@ -1179,8 +1237,8 @@ run_testspec2(TestSpec) ->
 				      include = AllInclude},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
 		    reformat_result(catch do_run(Run, Skip, Opts1, []));
-		{error,GCFReason} ->
-		    exit(GCFReason)
+		{error,_GCFReason} = GCFError ->
+		    exit(GCFError)
 	    end
     end.
 
@@ -1397,7 +1455,7 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 
     case code:which(test_server) of
 	non_existing ->
-	    exit({error,no_path_to_test_server});
+	    {error,no_path_to_test_server};
 	_ ->
 	    Opts1 = if Cover == undefined ->
 			    Opts;
@@ -1464,15 +1522,16 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 
 			    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
 
-			    R = (catch do_run_test(Tests1, Skip1, Opts1)),
-			    case R of
+			    TestResult = (catch do_run_test(Tests1, Skip1, Opts1)),
+
+			    case TestResult of
 				{EType,_} = Error when EType == user_error ;
 						       EType == error ->
 				    ct_util:stop(clean),
 				    exit(Error);
 				_ ->
 				    ct_util:stop(normal),
-				    R
+				    TestResult
 			    end;
 			false ->
 			    io:nl(),
@@ -1898,7 +1957,13 @@ do_run_test(Tests, Skip, Opts) ->
 				  maybe_cleanup_interpret(Suite, Opts#opts.step)
 			  end, CleanUp),
 	    [code:del_path(Dir) || Dir <- AddedToPath],
-	    ok;
+
+	    case ct_util:get_testdata(stats) of
+		Stats = {_Ok,_Failed,{_UserSkipped,_AutoSkipped}} ->
+		    Stats;
+		_ ->
+		    {error,test_result_unknown}
+	    end;
 	Error ->
 	    Error
     end.
@@ -2446,7 +2511,11 @@ make_abs1([], Path) ->
 %% to ct_run start arguments (on the init arguments format) -
 %% this is useful mainly for testing the ct_run start functions.
 opts2args(EnvStartOpts) ->
-    lists:flatmap(fun({config,CfgFiles}) ->
+    lists:flatmap(fun({exit_status,ExitStatusOpt}) when is_atom(ExitStatusOpt) ->
+			  [{exit_status,[atom_to_list(ExitStatusOpt)]}];
+		     ({halt_with,{HaltM,HaltF}}) ->
+			  [{halt_with,[atom_to_list(HaltM),atom_to_list(HaltF)]}];
+		     ({config,CfgFiles}) ->
 			  [{ct_config,[CfgFiles]}];
 		     ({userconfig,{CBM,CfgStr=[X|_]}}) when is_integer(X) ->
 			  [{userconfig,[atom_to_list(CBM),CfgStr]}];
