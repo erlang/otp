@@ -39,6 +39,7 @@
 %% Misc internal functions
 -export([variables_file_name/1,script_start1/2,run_test2/1]).
 
+-include("ct.hrl").
 -include("ct_event.hrl").
 -include("ct_util.hrl").
 
@@ -48,6 +49,9 @@
 -define(EXIT_STATUS_TEST_SUCCESSFUL, 0).
 -define(EXIT_STATUS_TEST_CASE_FAILED, 1).
 -define(EXIT_STATUS_TEST_RUN_FAILED, 2).
+
+-define(default_verbosity, [{default,?MAX_VERBOSITY},
+			    {'$unspecified',?MAX_VERBOSITY}]).
 
 -record(opts, {label,
 	       profile,
@@ -59,6 +63,7 @@
 	       logdir,
 	       logopts = [],
 	       basic_html,
+	       verbosity = [],
 	       config = [],
 	       event_handlers = [],
 	       ct_hooks = [],
@@ -235,6 +240,7 @@ script_start1(Parent, Args) ->
     LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
     LogOpts = get_start_opt(logopts, fun(Os) -> [list_to_atom(O) || O <- Os] end,
 			    [], Args),
+    Verbosity = verbosity_args2opts(Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps,
@@ -318,6 +324,7 @@ script_start1(Parent, Args) ->
 		     vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, logopts = LogOpts,
 		     basic_html = BasicHtml,
+		     verbosity = Verbosity,
 		     event_handlers = EvHandlers,
 		     ct_hooks = CTHooks,
 		     enable_builtin_hooks = EnableBuiltinHooks,
@@ -391,9 +398,12 @@ script_start2(StartOpts = #opts{vts = undefined,
 
 			AllLogOpts = merge_vals([StartOpts#opts.logopts,
 						 SpecStartOpts#opts.logopts]),
-
-			Cover = choose_val(StartOpts#opts.cover,
-					   SpecStartOpts#opts.cover),
+			AllVerbosity =
+			    merge_keyvals([StartOpts#opts.verbosity,
+					   SpecStartOpts#opts.verbosity]),
+			Cover =
+			    choose_val(StartOpts#opts.cover,
+				       SpecStartOpts#opts.cover),
 			MultTT =
 			    choose_val(StartOpts#opts.multiply_timetraps,
 				       SpecStartOpts#opts.multiply_timetraps),
@@ -456,6 +466,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   logdir = LogDir,
 					   logopts = AllLogOpts,
 					   basic_html = BasicHtml,
+					   verbosity = AllVerbosity,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
 					   ct_hooks = AllCTHooks,
@@ -615,6 +626,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		    event_handlers = EvHandlers,
 		    ct_hooks = CTHooks,
 		    logopts = LogOpts,
+		    verbosity = Verbosity,
 		    enable_builtin_hooks = EnableBuiltinHooks,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
     %% label - used by ct_logs
@@ -632,7 +644,8 @@ script_start4(#opts{label = Label, profile = Profile,
 		  {ct_hooks, CTHooks},
 		  {enable_builtin_hooks,EnableBuiltinHooks}]) of
 	ok ->
-	    ct_util:start(interactive, LogDir),
+	    ct_util:start(interactive, LogDir,
+			  add_verbosity_defaults(Verbosity)),
 	    ct_util:set_testdata({logopts, LogOpts}),
 	    log_ts_names(Specs),
 	    io:nl(),
@@ -676,6 +689,7 @@ script_usage() ->
 	      "\n\t[-dir TestDir1 TestDir2 .. TestDirN] |"
 	      "\n\t[-suite Suite [-case Case]]"
 	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
 	      "\n\t[-multiply_timetraps N]"
@@ -690,11 +704,12 @@ script_usage() ->
 	      "\n\t[-userconfig CallbackModule ConfigFile1 .. ConfigFileN]"
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t[-logdir LogDir]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
-	      "\n\t[-stylesheet CSSFile]"
+	      "\n\t[-stylesheet CSSFile]"	     
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
-	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
 	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
@@ -710,12 +725,13 @@ script_usage() ->
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t[-logdir LogDir]"
+	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
+	      "\n\t[-verbosity GenVLvl | [CategoryVLvl1 .. CategoryVLvlN]]"
 	      "\n\t[-allow_user_terms]"
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
-	      "\n\t[-logopts LogOpt1 LogOpt2 .. LogOptN]"
 	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
@@ -847,6 +863,19 @@ run_test2(StartOpts) ->
     %% logopts
     LogOpts = get_start_opt(logopts, value, [], StartOpts),
 
+    %% verbosity
+    Verbosity =
+	get_start_opt(verbosity,
+		      fun(VLvls) when is_list(VLvls) ->
+			      lists:map(fun(VLvl = {_Cat,_Lvl}) ->
+						VLvl;
+					   (Lvl) ->
+						{'$unspecified',Lvl}
+					end, VLvls);
+			 (VLvl) when is_integer(VLvl) ->
+			      [{'$unspecified',VLvl}]
+		      end, [], StartOpts),
+
     %% config & userconfig
     CfgFiles = ct_config:get_config_file_list(StartOpts),
 
@@ -960,6 +989,7 @@ run_test2(StartOpts) ->
 		 cover = Cover, step = Step, logdir = LogDir,
 		 logopts = LogOpts, basic_html = BasicHtml,
 		 config = CfgFiles,
+		 verbosity = Verbosity,
 		 event_handlers = EvHandlers,
 		 ct_hooks = CTHooks,
 		 enable_builtin_hooks = EnableBuiltinHooks,
@@ -1011,6 +1041,8 @@ run_spec_file(Relaxed,
 				     SpecOpts#opts.logopts]),
 	    Stylesheet = choose_val(Opts#opts.stylesheet,
 				    SpecOpts#opts.stylesheet),
+	    AllVerbosity = merge_keyvals([Opts#opts.verbosity,
+					  SpecOpts#opts.verbosity]),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
 	    Cover = choose_val(Opts#opts.cover,
 			       SpecOpts#opts.cover),
@@ -1025,7 +1057,7 @@ run_spec_file(Relaxed,
 	    AllInclude = merge_vals([Opts#opts.include,
 				     SpecOpts#opts.include]),
 	    AllCTHooks = merge_vals([Opts#opts.ct_hooks,
-				      SpecOpts#opts.ct_hooks]),
+				     SpecOpts#opts.ct_hooks]),
 	    EnableBuiltinHooks = choose_val(Opts#opts.enable_builtin_hooks,
 					    SpecOpts#opts.enable_builtin_hooks),
 	    
@@ -1058,6 +1090,7 @@ run_spec_file(Relaxed,
 			      logopts = AllLogOpts,
 			      stylesheet = Stylesheet,
 			      basic_html = BasicHtml,
+			      verbosity = AllVerbosity,
 			      config = AllConfig,
 			      event_handlers = AllEvHs,
 			      auto_compile = AutoCompile,
@@ -1320,6 +1353,7 @@ get_data_for_node(#testspec{label = Labels,
 			    logopts = LogOptsList,
 			    basic_html = BHs,
 			    stylesheet = SSs,
+			    verbosity = VLvls,
 			    cover = CoverFs,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
@@ -1343,6 +1377,10 @@ get_data_for_node(#testspec{label = Labels,
 	      end,
     BasicHtml = proplists:get_value(Node, BHs),
     Stylesheet = proplists:get_value(Node, SSs),
+    Verbosity = case proplists:get_value(Node, VLvls) of
+		    undefined -> [];
+		    Lvls -> Lvls
+		end,
     Cover = proplists:get_value(Node, CoverFs),
     MT = proplists:get_value(Node, MTs),
     ST = proplists:get_value(Node, STs),
@@ -1359,6 +1397,7 @@ get_data_for_node(#testspec{label = Labels,
 	  logopts = LogOpts,
 	  basic_html = BasicHtml,
 	  stylesheet = Stylesheet,
+	  verbosity = Verbosity,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
@@ -1405,6 +1444,14 @@ choose_val(V0, _V1) ->
 
 merge_vals(Vs) ->
     lists:append(Vs).
+
+merge_keyvals(Vs) ->
+    make_unique(lists:append(Vs)).
+
+make_unique([Elem={Key,_} | Elems]) ->
+    [Elem | make_unique(proplists:delete(Key, Elems))];
+make_unique([]) ->
+    [].
 
 listify([C|_]=Str) when is_integer(C) -> [Str];
 listify(L) when is_list(L) -> L;
@@ -1515,7 +1562,8 @@ do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
     do_run(Tests, [], Opts1#opts{logdir = LogDir}, []);
 
 do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
-    #opts{label = Label, profile = Profile, cover = Cover} = Opts,
+    #opts{label = Label, profile = Profile, cover = Cover,
+	  verbosity = VLvls} = Opts,
     %% label - used by ct_logs
     TestLabel =
 	if Label == undefined -> undefined;
@@ -1557,12 +1605,16 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 		"ct_framework" ->
 		    ok;
 		Other ->
-		    erlang:display(list_to_atom("Note: TEST_SERVER_FRAMEWORK = " ++ Other))
+		    erlang:display(
+		      list_to_atom(
+			"Note: TEST_SERVER_FRAMEWORK = " ++ Other))
 	    end,
-	    case ct_util:start(Opts#opts.logdir) of
+	    Verbosity = add_verbosity_defaults(VLvls),
+	    case ct_util:start(Opts#opts.logdir, Verbosity) of
 		{error,interactive_mode} ->
 		    io:format("CT is started in interactive mode. "
-			      "To exit this mode, run ct:stop_interactive().\n"
+			      "To exit this mode, "
+			      "run ct:stop_interactive().\n"
 			      "To enter the interactive mode again, "
 			      "run ct:start_interactive()\n\n",[]),
 		    {error,interactive_mode};
@@ -1603,9 +1655,10 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 
 			    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
 
-			    TestResult = (catch do_run_test(Tests1, Skip1, Opts1)),
-
-			    case TestResult of
+			    R = (catch do_run_test(Tests1, Skip1,
+						   Opts1#opts{
+						     verbosity=Verbosity})),
+			    case R of
 				{EType,_} = Error when EType == user_error ;
 						       EType == error ->
 				    ct_util:stop(clean),
@@ -1644,11 +1697,13 @@ auto_compile(TestSuites) ->
 	end,
     SuiteMakeErrors =
 	lists:flatmap(fun({TestDir,Suite} = TS) ->
-			      case run_make(suites, TestDir, Suite, UserInclude) of
+			      case run_make(suites, TestDir, 
+					    Suite, UserInclude) of
 				  {error,{make_failed,Bad}} ->
 				      [{TS,Bad}];
 				  {error,_} ->
-				      [{TS,[filename:join(TestDir,"*_SUITE")]}];
+				      [{TS,[filename:join(TestDir,
+							  "*_SUITE")]}];
 				  _ ->
 				      []
 			      end
@@ -1689,6 +1744,7 @@ verify_suites(TestSuites) ->
 				Beam = filename:join(TestDir,
 						     atom_to_list(Suite)++
 							 ".beam"),
+
 				case filelib:is_regular(Beam) of
 				    true  ->
 					{[DS|Found],NotFound};
@@ -1727,8 +1783,8 @@ verify_suites(TestSuites) ->
 				ActualDir = filename:dirname(SuiteFile),
 				{[{ActualDir,Suite}|Found],NotFound};
 			    false ->
-				io:format(user, "Directory ~s is invalid~n",
-					  [Dir]),
+				io:format(user, "Directory ~s is "
+					  "invalid~n", [Dir]),
 				Name = filename:join(Dir, atom_to_list(Suite)),
 				{Found,[{DS,[Name]}|NotFound]}
 			end
@@ -1742,7 +1798,8 @@ save_make_errors([]) ->
 save_make_errors(Errors) ->
     Suites = get_bad_suites(Errors,[]),
     ct_logs:log("MAKE RESULTS",
-		"Error compiling or locating the following suites: ~n~p",[Suites]),
+		"Error compiling or locating the "
+		"following suites: ~n~p",[Suites]),
     %% save the info for logger
     file:write_file(?missing_suites_info,term_to_binary(Errors)),
     Errors.
@@ -1883,9 +1940,11 @@ continue(_MakeErrors) ->
     case set_group_leader_same_as_shell() of
 	true ->
 	    S = self(),
-	    io:format("Failed to compile or locate one or more test suites\n"
+	    io:format("Failed to compile or locate one "
+		      "or more test suites\n"
 		      "Press \'c\' to continue or \'a\' to abort.\n"
-		      "Will continue in 15 seconds if no answer is given!\n"),
+		      "Will continue in 15 seconds if no "
+		      "answer is given!\n"),
 	    Pid = spawn(fun() ->
 				case io:get_line('(c/a) ') of
 				    "c\n" ->
@@ -1970,8 +2029,8 @@ do_run_test(Tests, Skip, Opts) ->
 				"Cross cover: ~w~n"
 				"Including ~w modules~n"
 				"Excluding ~w modules",
-				[CovFile,CovApp,CovCross,length(CovIncl),
-				 length(CovExcl)]),
+				[CovFile,CovApp,CovCross,
+				 length(CovIncl),length(CovExcl)]),
 
 		    %% cover export file will be used for export and import
 		    %% between tests so make sure it doesn't exist initially
@@ -1996,7 +2055,8 @@ do_run_test(Tests, Skip, Opts) ->
 		    %% start cover on specified nodes
 		    if (CovNodes /= []) and (CovNodes /= undefined) ->
 			    ct_logs:log("COVER INFO",
-					"Nodes included in cover session: ~w",
+					"Nodes included in cover "
+					"session: ~w",
 					[CovNodes]),
 			    cover:start(CovNodes);
 		       true ->
@@ -2021,17 +2081,27 @@ do_run_test(Tests, Skip, Opts) ->
 		    ct_logs:log("TEST INFO","~w test(s), ~w suite(s)",
 				[NoOfTests,NoOfSuites]);
 	       true ->
-		    io:format("~nTEST INFO: ~w test(s), ~w case(s) in ~w suite(s)~n~n",
+		    io:format("~nTEST INFO: ~w test(s), ~w case(s) "
+			      "in ~w suite(s)~n~n",
 			      [NoOfTests,NoOfCases,NoOfSuites]),
-		    ct_logs:log("TEST INFO","~w test(s), ~w case(s) in ~w suite(s)",
+		    ct_logs:log("TEST INFO","~w test(s), ~w case(s) "
+				"in ~w suite(s)",
 				[NoOfTests,NoOfCases,NoOfSuites])
 	    end,
-
+	    %% if the verbosity level is set lower than ?STD_IMPORTANCE, tell
+	    %% test_server to ignore stdout printouts to the test case log file
+	    case proplists:get_value(default, Opts#opts.verbosity) of
+		VLvl when is_integer(VLvl), (?STD_IMPORTANCE < (100-VLvl)) ->
+		    test_server_ctrl:reject_io_reqs(true);
+		_Lower ->
+		    ok
+	    end,
 	    test_server_ctrl:multiply_timetraps(Opts#opts.multiply_timetraps),
 	    test_server_ctrl:scale_timetraps(Opts#opts.scale_timetraps),
 
-	    test_server_ctrl:create_priv_dir(choose_val(Opts#opts.create_priv_dir,
-							auto_per_run)),
+	    test_server_ctrl:create_priv_dir(choose_val(
+					       Opts#opts.create_priv_dir,
+					       auto_per_run)),
 	    ct_event:notify(#event{name=start_info,
 				   node=node(),
 				   data={NoOfTests,NoOfSuites,NoOfCases}}),
@@ -2515,7 +2585,6 @@ parse_cth_args(String) ->
 	    String
     end.
 
-
 event_handler_args2opts(Args) ->
     case proplists:get_value(event_handler, Args) of
 	undefined ->
@@ -2537,6 +2606,42 @@ event_handler_init_args2opts([EH, Arg]) ->
     [{list_to_atom(EH),lists:flatten(io_lib:format("~s",[Arg]))}];
 event_handler_init_args2opts([]) ->
     [].
+
+verbosity_args2opts(Args) ->
+    case proplists:get_value(verbosity, Args) of
+	undefined ->
+	    [];
+	VArgs ->	
+	    GetVLvls =
+		fun("and", {new,SoFar}) when is_list(SoFar) ->
+			{new,SoFar};
+		   ("and", {Lvl,SoFar}) when is_list(SoFar) -> 
+			{new,[{'$unspecified',list_to_integer(Lvl)} | SoFar]};
+		   (CatOrLvl, {new,SoFar}) when is_list(SoFar) -> 
+			{CatOrLvl,SoFar};
+		   (Lvl, {Cat,SoFar}) ->
+			{new,[{list_to_atom(Cat),list_to_integer(Lvl)} | SoFar]}
+		end,
+		case lists:foldl(GetVLvls, {new,[]}, VArgs) of
+		    {new,Parsed} ->
+			Parsed;
+		    {Lvl,Parsed} ->
+			[{'$unspecified',list_to_integer(Lvl)} | Parsed]
+		end
+    end.
+
+add_verbosity_defaults(VLvls) ->
+    case {proplists:get_value('$unspecified', VLvls),
+	  proplists:get_value(default, VLvls)} of
+	{undefined,undefined} ->	    
+	    ?default_verbosity ++ VLvls;
+	{Lvl,undefined} ->
+	    [{default,Lvl} | VLvls];
+	{undefined,_Lvl} ->
+	    [{'$unspecified',?MAX_VERBOSITY} | VLvls];
+	_ ->
+	    VLvls
+    end.
 
 %% This function reads pa and pz arguments, converts dirs from relative
 %% to absolute, and re-inserts them in the code path. The order of the
@@ -2616,10 +2721,14 @@ opts2args(EnvStartOpts) ->
 			  [{userconfig,[atom_to_list(CBM) | CfgStrs]}];
 		     ({userconfig,UserCfg}) when is_list(UserCfg) ->
 			  Strs =
-			      lists:map(fun({CBM,CfgStr=[X|_]}) when is_integer(X) ->
-						[atom_to_list(CBM),CfgStr,"and"];
-					   ({CBM,CfgStrs}) when is_list(CfgStrs) ->
-						[atom_to_list(CBM) | CfgStrs] ++ ["and"]
+			      lists:map(fun({CBM,CfgStr=[X|_]})
+					      when is_integer(X) ->
+						[atom_to_list(CBM),
+						 CfgStr,"and"];
+					   ({CBM,CfgStrs})
+					      when is_list(CfgStrs) ->
+						[atom_to_list(CBM) | CfgStrs] ++
+						    ["and"]
 					end, UserCfg),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{userconfig,lists:reverse(StrsR)}];
@@ -2667,12 +2776,32 @@ opts2args(EnvStartOpts) ->
 		     ({event_handler,{EHs,Arg}}) when is_list(EHs) ->
 			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
 			  Strs = lists:map(fun(EH) ->
-						   [atom_to_list(EH),ArgStr,"and"]
+						   [atom_to_list(EH),
+						    ArgStr,"and"]
 					   end, EHs),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{event_handler_init,lists:reverse(StrsR)}];
 		     ({logopts,LOs}) when is_list(LOs) ->
 			  [{logopts,[atom_to_list(LO) || LO <- LOs]}];
+		     ({verbosity,?default_verbosity}) ->
+			  [];
+		     ({verbosity,VLvl}) when is_integer(VLvl) ->
+			  [{verbosity,[integer_to_list(VLvl)]}];
+		     ({verbosity,VLvls}) when is_list(VLvls) ->
+			  VLvlArgs =
+			      lists:flatmap(fun({'$unspecified',Lvl}) ->
+						    [integer_to_list(Lvl),
+						     "and"];
+					       ({Cat,Lvl}) ->
+						    [atom_to_list(Cat),
+						     integer_to_list(Lvl),
+						     "and"];
+					       (Lvl) ->
+						    [integer_to_list(Lvl),
+						     "and"]
+					    end, VLvls),
+			  [_LastAnd|VLvlArgsR] = lists:reverse(VLvlArgs),
+			  [{verbosity,lists:reverse(VLvlArgsR)}];
 		     ({ct_hooks,[]}) ->
 			  [];
 		     ({ct_hooks,CTHs}) when is_list(CTHs) ->

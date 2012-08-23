@@ -35,6 +35,7 @@
 		   logdir=["."],
 		   logopts=[],
 		   basic_html=[],
+		   verbosity=[],
 		   cover=[],
 		   config=[],
 		   userconfig=[],

@@ -35,6 +35,7 @@
 -export([fail/0,fail/1,format/1,format/2,format/3]).
 -export([capture_start/0,capture_stop/0,capture_get/0]).
 -export([messages_get/0]).
+-export([permit_io/2]).
 -export([hours/1,minutes/1,seconds/1,sleep/1,adjusted_sleep/1,timecall/3]).
 -export([timetrap_scale_factor/0,timetrap/1,get_timetrap_info/0,
 	 timetrap_cancel/1,timetrap_cancel/0]).
@@ -523,7 +524,7 @@ stick_all_sticky(Node,Sticky) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% run_test_case_apply(Mod,Func,Args,Name,RunInit,TimetrapData) ->
+%% run_test_case_apply(Mod,Func,Args,Name,RunInit,TimetrapData,RejectIoReqs) ->
 %%               {Time,Value,Loc,Opts,Comment} | {died,Reason,unknown,Comment}
 %%
 %% Time = float()   (seconds)
@@ -558,8 +559,12 @@ stick_all_sticky(Node,Sticky) ->
 %% ScaleTimetrap indicates if test_server should attemp to automatically
 %% compensate timetraps for runtime delays introduced by e.g. tools like
 %% cover.
+%% 
+%% RejectIoReqs (bool) is information about whether printouts to stdout
+%% should be visible in the minor log file or not.
 
-run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,TimetrapData}) ->
+run_test_case_apply({CaseNum,Mod,Func,Args,Name,
+		     RunInit,TimetrapData,RejectIoReqs}) ->
     purify_format("Test case #~w ~w:~w/1", [CaseNum, Mod, Func]),
     case os:getenv("TS_RUN_VALGRIND") of
 	false ->
@@ -570,17 +575,19 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,TimetrapData}) ->
     end,
     test_server_h:testcase({Mod,Func,1}),
     ProcBef = erlang:system_info(process_count),
-    Result = run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData),
+    Result = run_test_case_apply(Mod, Func, Args, Name, RunInit,
+				 TimetrapData, RejectIoReqs),
     ProcAft = erlang:system_info(process_count),
     purify_new_leaks(),
     DetFail = get(test_server_detected_fail),
     {Result,DetFail,ProcBef,ProcAft}.
 
-run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
+run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData, RejectIoReqs) ->
     case get(test_server_job_dir) of
 	undefined ->
 	    %% i'm a local target
-	    do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData);
+	    do_run_test_case_apply(Mod, Func, Args, Name, RunInit,
+				   TimetrapData, RejectIoReqs);
 	JobDir ->
 	    %% i'm a remote target
 	    case Args of
@@ -595,13 +602,14 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 		    Config2 = lists:keyreplace(priv_dir, 1, Config1,
 					       {priv_dir,TargetPrivDir}),
 		    do_run_test_case_apply(Mod, Func, [Config2], Name, RunInit,
-					   TimetrapData);
+					   TimetrapData, RejectIoReqs);
 		_other ->
 		    do_run_test_case_apply(Mod, Func, Args, Name, RunInit,
-					   TimetrapData)
+					   TimetrapData, RejectIoReqs)
 	    end
     end.
-do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
+do_run_test_case_apply(Mod, Func, Args, Name, RunInit,
+		       TimetrapData, RejectIoReqs) ->
     {ok,Cwd} = file:get_cwd(),
     Args2Print = case Args of
 		     [Args1] when is_list(Args1) ->
@@ -628,7 +636,8 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 	  end),
     group_leader(OldGLeader, self()),
     put(test_server_detected_fail, []),
-    run_test_case_msgloop(Ref, Pid, false, false, "", undefined, starting).
+    run_test_case_msgloop(Ref, Pid, false, RejectIoReqs, false, "",
+			  undefined, starting).
 
 %% Ugly bug (pre R5A):
 %% If this process (group leader of the test case) terminates before
@@ -639,7 +648,7 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 %% A test case is known to have failed if it returns {'EXIT', _} tuple,
 %% or sends a message {failed, File, Line} to it's group_leader
 %%
-run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
+run_test_case_msgloop(Ref, Pid, CaptureStdout, RejectIoReqs, Terminate,
 		      Comment, CurrConf, Status) ->
     %% NOTE: Keep job_proxy_msgloop/0 up to date when changes
     %%       are made in this function!
@@ -655,7 +664,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 	end,
     receive
 	{test_case_initialized,Pid} ->
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,running);
 	Abort = {abort_current_testcase,_,_} when Status == starting ->
 	    %% we're in init phase, must must postpone this operation
@@ -663,7 +672,7 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 	    %% gets killed)
 	    self() ! Abort,
 	    erlang:yield(),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{abort_current_testcase,Reason,From} ->
 	    Line = case is_process_alive(Pid) of
@@ -694,82 +703,92 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 				    Error1
 			    end
 		    end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  NewComment,CurrConf,Status);
+	{permit_io,FromPid} ->
+	    put({permit_io,FromPid},true),
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
+				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,io_lib,Func,[Format,Args]}}
 	when is_list(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
-	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Msg,From,Func),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,io_lib,Func,[Format,Args]}}
 	when is_atom(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
-	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Msg,From,Func),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,Bytes}} ->
-	    run_test_case_msgloop_io(
-	      ReplyAs,CaptureStdout,Bytes,From,put_chars),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Bytes,From,put_chars),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,unicode,io_lib,Func,[Format,Args]}}
 	when is_list(Format) ->
 	    Msg = unicode_to_latin1(catch io_lib:Func(Format,Args)),
-	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Msg,From,Func),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,latin1,io_lib,Func,[Format,Args]}}
 	when is_list(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
-	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Msg,From,Func),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,unicode,io_lib,Func,[Format,Args]}}
 	when is_atom(Format) ->
 	    Msg = unicode_to_latin1(catch io_lib:Func(Format,Args)),
-	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Msg,From,Func),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,latin1,io_lib,Func,[Format,Args]}}
 	when is_atom(Format) ->
 	    Msg = (catch io_lib:Func(Format,Args)),
-	    run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Msg,From,Func),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,unicode,Bytes}} ->
-	    run_test_case_msgloop_io(
-	      ReplyAs,CaptureStdout,unicode_to_latin1(Bytes),From,put_chars),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     unicode_to_latin1(Bytes),From,put_chars),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         {io_request,From,ReplyAs,{put_chars,latin1,Bytes}} ->
-	    run_test_case_msgloop_io(
-	      ReplyAs,CaptureStdout,Bytes,From,put_chars),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+				     Bytes,From,put_chars),
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
         IoReq when element(1, IoReq) == io_request ->
 	    %% something else, just pass it on
             group_leader() ! IoReq,
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{structured_io,ClientPid,Msg} ->
 	    output(Msg, ClientPid),
-            run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+            run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{capture,NewCapture} ->
-            run_test_case_msgloop(Ref,Pid,NewCapture,Terminate,
+            run_test_case_msgloop(Ref,Pid,NewCapture,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{sync_apply,From,MFA} ->
 	    sync_local_or_remote_apply(false,From,MFA),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{sync_apply_proxy,Proxy,From,MFA} ->
 	    sync_local_or_remote_apply(Proxy,From,MFA),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{printout,Detail,Format,Args} ->
 	    print(Detail,Format,Args),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{comment,NewComment} ->
 	    NewComment1 = test_server_ctrl:to_string(NewComment),
@@ -783,18 +802,20 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 		    Other ->
 			Other
 		end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate1,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate1,
 				  NewComment2,CurrConf,Status);
 	{read_comment,From} ->
 	    From ! {self(),read_comment,Comment},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{set_curr_conf,From,NewCurrConf} ->
 	    From ! {self(),set_curr_conf,ok},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,NewCurrConf,Status);
 	{make_priv_dir,From} when CurrConf == undefined ->
-	    From ! {self(),make_priv_dir,{error,no_priv_dir_in_config}};
+	    From ! {self(),make_priv_dir,{error,no_priv_dir_in_config}},
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
+				  Comment,CurrConf,Status);
 	{make_priv_dir,From} ->
 	    Result =
 		case proplists:get_value(priv_dir, element(2, CurrConf)) of
@@ -811,12 +832,12 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 			end
 		end,
 	    From ! {self(),make_priv_dir,Result},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,Terminate,
 				  Comment,CurrConf,Status);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
 	    RetVal = {Time/1000000,Value,mod_loc(Loc),Opts,Comment},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},
-				  Comment,undefined,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  {true,RetVal},Comment,undefined,Status);
 	{'EXIT',Pid,Reason} ->
 	    case Reason of
 		{timetrap_timeout,TVal,Loc} ->
@@ -827,7 +848,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,{timetrap,TVal}},
 					  unknown,self()),
-			    run_test_case_msgloop(Ref,Pid,CaptureStdout,
+			    run_test_case_msgloop(Ref,Pid,
+						  CaptureStdout,RejectIoReqs,
 						  Terminate,Comment,
 						  undefined,Status);
 			Loc1 ->
@@ -860,7 +882,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 						      Loc1,self()),
 					undefined
 				end,
-			    run_test_case_msgloop(Ref,Pid,CaptureStdout,
+			    run_test_case_msgloop(Ref,Pid,
+						  CaptureStdout,RejectIoReqs,
 						  Terminate,Comment,
 						  NewCurrConf,Status)
 		    end;
@@ -877,15 +900,16 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 					  {timetrap_timeout,TVal},
 					  Loc1,self())
 		    end,
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-					  Comment,CurrConf,Status);
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+					  Terminate,Comment,CurrConf,Status);
 		{testcase_aborted,ErrorMsg={user_timetrap_error,_},AbortLoc} ->
 		    %% user timetrap function caused exit
 		    %% during start of test case
 		    {Mod,Func} = get_mf(mod_loc(AbortLoc)),
 		    spawn_fw_call(Mod,Func,CurrConf,Pid,
 				  ErrorMsg,unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,
+		    run_test_case_msgloop(Ref,Pid,
+					  CaptureStdout,RejectIoReqs,
 					  Terminate,Comment,
 					  undefined,Status);		
 		{testcase_aborted,AbortReason,AbortLoc} ->
@@ -896,7 +920,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,ErrorMsg},
 					  unknown,self()),
-			    run_test_case_msgloop(Ref,Pid,CaptureStdout,
+			    run_test_case_msgloop(Ref,Pid,
+						  CaptureStdout,RejectIoReqs,
 						  Terminate,Comment,
 						  undefined,Status);
 			Loc1 ->
@@ -928,7 +953,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 						      ErrorMsg,Loc1,self()),
 					undefined
 				end,
-			    run_test_case_msgloop(Ref,Pid,CaptureStdout,
+			    run_test_case_msgloop(Ref,Pid,
+						  CaptureStdout,RejectIoReqs,
 						  Terminate,Comment,
 						  NewCurrConf,Status)
 		    end;
@@ -943,14 +969,14 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 		    spawn_fw_call(Mod,Func,CurrConf,Pid,
 				  testcase_aborted_or_killed,
 				  unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-					  Comment,CurrConf,Status);
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+					  Terminate,Comment,CurrConf,Status);
 		{fw_error,{FwMod,FwFunc,FwError}} ->
 		    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 				  {framework_error,FwError},
 				  unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-					  Comment,CurrConf,Status);
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+					  Terminate,Comment,CurrConf,Status);
 		_Other ->
 		    %% the testcase has terminated because of Reason (e.g. an exit
 		    %% because a linked process failed)
@@ -960,8 +986,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 				 end,
 		    spawn_fw_call(Mod,Func,CurrConf,Pid,
 				  Reason,unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-					  Comment,CurrConf,Status)
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+					  Terminate,Comment,CurrConf,Status)
 	    end;
 	{EndConfPid,{call_end_conf,Data,_Result}} ->
 	    case CurrConf of
@@ -969,11 +995,11 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 		    {_Mod,_Func,TCPid,TCExitReason,Loc} = Data,
 		    spawn_fw_call(Mod,Func,CurrConf,TCPid,
 				  TCExitReason,Loc,self()),
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-					  Comment,undefined,Status);
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+					  Terminate,Comment,undefined,Status);
 		_ ->
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-					  Comment,CurrConf,Status)
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+					  Terminate,Comment,CurrConf,Status)
 	    end;
 	{_FwCallPid,fw_notify_done,{T,Value,Loc,Opts,AddToComment}} ->
 	    %% the framework has been notified, we're finished
@@ -993,8 +1019,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 			    end,
 			{T,Value,Loc,Opts,Comment1}
 		end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},
-				  Comment,undefined,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  {true,RetVal},Comment,undefined,Status);
  	{'EXIT',_FwCallPid,{fw_notify_done,Func,Error}} ->
 	    %% a framework function failed
 	    CB = os:getenv("TEST_SERVER_FRAMEWORK"),
@@ -1005,13 +1031,13 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 			  {list_to_atom(CB),Func}
 		  end,
 	    RetVal = {died,{framework_error,Loc,Error},Loc,"Framework error"},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,{true,RetVal},
-				  Comment,undefined,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  {true,RetVal},Comment,undefined,Status);
 	{failed,File,Line} ->
 	    put(test_server_detected_fail,
 		[{File, Line}| get(test_server_detected_fail)]),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status);
 
 	{user_timetrap,Pid,_TrapTime,StartTime,E={user_timetrap_error,_},_} ->
 	    case update_user_timetraps(Pid, StartTime) of
@@ -1020,8 +1046,8 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 		ignore ->
 		    ok
 	    end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status);
 	{user_timetrap,Pid,TrapTime,StartTime,ElapsedTime,Scale} ->
 	    %% a user timetrap is triggered, ignore it if new
 	    %% timetrap has been started since
@@ -1036,49 +1062,57 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate,
 		ignore ->
 		    ok
 	    end,
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status);
 	{timetrap_cancel_one,Handle,_From} ->
 	    timetrap_cancel_one(Handle, false),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status);
 	{timetrap_cancel_all,TCPid,_From} ->
 	    timetrap_cancel_all(TCPid, false),
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status);
 	{get_timetrap_info,TCPid,From} ->
 	    Info = get_timetrap_info(TCPid, false),
 	    From ! {self(),get_timetrap_info,Info},
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status);
 	_Other when not is_tuple(_Other) ->
 	    %% ignore anything not generated by test server
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status);
 	_Other when element(1, _Other) /= 'EXIT',
 		    element(1, _Other) /= started,
 		    element(1, _Other) /= finished,
 		    element(1, _Other) /= print ->
 	    %% ignore anything not generated by test server
-	    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-				  Comment,CurrConf,Status)
+	    run_test_case_msgloop(Ref,Pid,CaptureStdout,RejectIoReqs,
+				  Terminate,Comment,CurrConf,Status)
     after Timeout ->
 	    ReturnValue
     end.
 
-run_test_case_msgloop_io(ReplyAs,CaptureStdout,Msg,From,Func) ->
+run_test_case_msgloop_io(From,ReplyAs,CaptureStdout,RejectIoReqs,
+			 Msg,From,Func) ->
     case Msg of
 	{'EXIT',_} ->
 	    From ! {io_reply,ReplyAs,{error,Func}};
 	_ ->
 	    From ! {io_reply,ReplyAs,ok}
     end,
-    if  CaptureStdout /= false ->
-	    CaptureStdout ! {captured,Msg};
-	true ->
+    Proceed = if RejectIoReqs -> get({permit_io,From});
+		 true        -> true
+	      end,
+    if Proceed ->
+	    if CaptureStdout /= false ->
+		    CaptureStdout ! {captured,Msg};
+	       true ->
+		    ok
+	    end,
+	    output({minor,Msg},From);
+       true ->
 	    ok
-    end,
-    output({minor,Msg},From).
+    end.
 
 output(Msg,Sender) ->
     local_or_remote_apply({test_server_ctrl,output,[Msg,Sender]}).
@@ -1957,6 +1991,13 @@ capture_get() ->
 %% Returns all messages in the message queue.
 messages_get() ->
     test_server_sup:messages_get([]).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% permit_io(GroupLeader, FromPid) -> ok
+%%
+%% Make sure proceeding IO from FromPid won't get rejected
+permit_io(GroupLeader, FromPid) ->
+    GroupLeader ! {permit_io,FromPid}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% sleep(Time) -> ok

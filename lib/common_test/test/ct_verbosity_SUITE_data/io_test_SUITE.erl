@@ -16,7 +16,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(priv_dir_SUITE).
+-module(io_test_SUITE).
 
 -compile(export_all).
 
@@ -28,7 +28,7 @@
 %% @end
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap,{seconds,30}}].
+    [{timetrap,{seconds,10}}].
 
 %%--------------------------------------------------------------------
 %% @spec init_per_suite(Config0) ->
@@ -58,7 +58,7 @@ end_per_suite(_Config) ->
 %%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
     Config.
-
+    
 %%--------------------------------------------------------------------
 %% @spec end_per_group(GroupName, Config0) ->
 %%               void() | {save_config,Config1}
@@ -105,7 +105,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 groups() ->
-    [].
+    [{g1, [parallel], [tc1,tc2,tc3,{group,g2}]},
+     {g2, [parallel], [tc1,tc2,tc3]}].
 
 %%--------------------------------------------------------------------
 %% @spec all() -> GroupsAndTestCases | {skip,Reason}
@@ -116,22 +117,40 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() -> 
-    [].
+    [tc1,tc2,tc3,{group,g1}].
 
-default(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    "log_private" = filename:basename(PrivDir),
-    {ok,_} = file:list_dir(PrivDir).
+tc1(_C) ->
+    io:format("This is an io:format(~p)~n", [[]]),
+    ct:log("ct:log(default)", []),
+    ct:log(?STD_IMPORTANCE, "ct:log(default,~p)", [?STD_IMPORTANCE]),
+    ct:log(error, "ct:log(error)", []),
+    ct:log(error, ?STD_IMPORTANCE, "ct:log(error,~p)", [?STD_IMPORTANCE]),
+    ct:log(1, "ct:log(default,~p)", [1]),
+    ct:log(error, 1, "ct:log(error,~p)", [1]),
+    ct:log(99, "ct:log(default,~p)", [99]),
+    ct:log(error, 99, "ct:log(error,~p)", [99]),
+    ok.
 
-auto_per_tc(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
-    {ok,_} = file:list_dir(PrivDir).
+tc2(_C) ->
+    io:format("This is an io:format(~p)~n", [[]]),
+    ct:pal("ct:pal(default)", []),
+    ct:pal(?STD_IMPORTANCE, "ct:pal(default,~p)", [?STD_IMPORTANCE]),
+    ct:pal(error, "ct:pal(error)", []),
+    ct:pal(error, ?STD_IMPORTANCE, "ct:pal(error,~p)", [?STD_IMPORTANCE]),
+    ct:pal(1, "ct:pal(default,~p)", [1]),
+    ct:pal(error, 1, "ct:pal(error,~p)", [1]),
+    ct:pal(99, "ct:pal(default,~p)", [99]),
+    ct:pal(error, 99, "ct:pal(error,~p)", [99]),
+    ok.
 
-manual_per_tc(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ["log_private",_] = string:tokens(filename:basename(PrivDir), "."),
-    {error,_} = file:list_dir(PrivDir),
-    ok = ct:make_priv_dir(),
-    {ok,_} = file:list_dir(PrivDir).
-    
+tc3(_C) ->
+    io:format("This is an io:format(~p)~n", [[]]),
+    ct:print("ct:print(default)", []),
+    ct:print(?STD_IMPORTANCE, "ct:print(default,~p)", [?STD_IMPORTANCE]),
+    ct:print(error, "ct:print(error)", []),
+    ct:print(error, ?STD_IMPORTANCE, "ct:print(error,~p)", [?STD_IMPORTANCE]),
+    ct:print(1, "ct:print(default,~p)", [1]),
+    ct:print(error, 1, "ct:print(error,~p)", [1]),
+    ct:print(99, "ct:print(default,~p)", [99]),
+    ct:print(error, 99, "ct:print(error,~p)", [99]),
+    ok.
