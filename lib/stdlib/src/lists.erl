@@ -175,8 +175,10 @@ last(E, []) -> E.
       Seq :: [integer()].
 
 seq(First, Last)
-    when is_integer(First), is_integer(Last), First-1 =< Last -> 
-    seq_loop(Last-First+1, Last, []).
+    when is_integer(First), is_integer(Last) ->
+      if First-1 =< Last -> seq_loop(Last-First+1, Last, []),
+         true            -> seq(First, Last, -1)
+      end.
 
 seq_loop(N, X, L) when N >= 4 ->
      seq_loop(N-4, X-4, [X-3,X-2,X-1,X|L]);
@@ -185,7 +187,7 @@ seq_loop(N, X, L) when N >= 2 ->
 seq_loop(1, X, L) ->
      [X|L];
 seq_loop(0, _, L) ->
-     L.
+     L.t
 
 -spec seq(From, To, Incr) -> Seq when
       From :: integer(),
