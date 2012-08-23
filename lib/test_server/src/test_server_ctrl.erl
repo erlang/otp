@@ -218,6 +218,7 @@
 
 -define(auto_skip_color, "#FFA64D").
 -define(user_skip_color, "#FF8000").
+-define(sortable_table_name, "SortableTable").
 
 -record(state,{jobs=[],levels={1,19,10},
 	       multiply_timetraps=1, scale_timetraps=true,
@@ -1416,8 +1417,10 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev},
 	end,
     OkN = get(test_server_ok),
     FailedN = get(test_server_failed),
-    print(html,"<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
-	  "<td>~.3fs</td><td><b>~s</b></td><td>~p Ok, ~p Failed~s of ~p</td></tr>\n",
+    print(html,"\n</tbody>\n<tfoot>\n"
+	  "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
+	  "<td>~.3fs</td><td><b>~s</b></td><td>~p Ok, ~p Failed~s of ~p</td></tr>\n"
+	  "</tfoot>\n",
 	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]).
 
 %% timer:tc/3
@@ -1733,7 +1736,8 @@ do_test_cases(TopCases, SkipCases,
 	    test_server_sup:framework_call(report, [tests_start,{Test,N}]),
 	    {Header,Footer} =
 		case test_server_sup:framework_call(get_html_wrapper, 
-						    [TestDescr,true,TestDir], "") of
+						    [TestDescr,true,TestDir,
+						    {[],[2,3,4,7,8],[1,6]}], "") of
 		    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 			put(basic_html, true),
 			{["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
@@ -1795,14 +1799,15 @@ do_test_cases(TopCases, SkipCases,
 		  [?suitelog_name,?coverlog_name]),
 	    print(html,
 		  "<p>~s</p>\n" ++
-		   xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">",
-			 "<table>") ++
-		   "<tr><th>Num</th><th>Module</th><th>Group</th>" ++
-		   "<th>Case</th><th>Log</th><th>Time</th><th>Result</th>" ++
-		   "<th>Comment</th></tr>\n",
-		  [print_if_known(N, {"<i>Executing <b>~p</b> test cases...</i>\n",[N]},
+		  xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">",
+			["<table id=\"",?sortable_table_name,"\">\n",
+			 "<thead>\n"]) ++
+		      "<tr><th>Num</th><th>Module</th><th>Group</th>" ++
+		      "<th>Case</th><th>Log</th><th>Time</th><th>Result</th>" ++
+		      "<th>Comment</th></tr>\n</thead>\n<tbody>\n",
+		  [print_if_known(N, {"<i>Executing <b>~p</b> test cases...</i>" ++
+				      xhtml("\n<br>\n", "\n<br />\n"),[N]},
 				  {"",[]})]),
-	    print(html, xhtml("<br>", "<br />")),
 
 	    print(major, "=cases         ~p", [get(test_server_cases)]),
 	    print(major, "=user          ~s", [TI#target_info.username]),
@@ -1956,7 +1961,8 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName) ->
     {Header,Footer} =
 	case test_server_sup:framework_call(get_html_wrapper, 
 					    [TestDescr,false,
-					     filename:dirname(AbsName)], "") of
+					     filename:dirname(AbsName),
+					     undefined], "") of
 	    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 		put(basic_html, true),
 		{["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
@@ -2086,7 +2092,7 @@ html_possibly_convert(Src, SrcInfo, Dest) ->
 	    Header =
 		case test_server_sup:framework_call(get_html_wrapper, 
 						    ["Module "++Src,false,
-						     OutDir], "") of
+						     OutDir,undefined], "") of
 		    Empty when (Empty == "") ; (element(2,Empty) == "")  ->
 			["<!DOCTYPE HTML PUBLIC",
 			 "\"-//W3C//DTD HTML 3.2 Final//EN\">\n",

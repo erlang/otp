@@ -27,7 +27,7 @@
 -export([init_tc/3, end_tc/3, end_tc/4, get_suite/2, get_all_cases/1]).
 -export([report/2, warn/1, error_notification/4]).
 
--export([get_logopts/0, format_comment/1, get_html_wrapper/3]).
+-export([get_logopts/0, format_comment/1, get_html_wrapper/4]).
 
 -export([error_in_suite/1, init_per_suite/1, end_per_suite/1,
 	 init_per_group/2, end_per_group/2]).
@@ -1657,5 +1657,5 @@ format_comment(Comment) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec get_html_wrapper(TestName, PrintLabel, Cwd) -> Header
-get_html_wrapper(TestName, PrintLabel, Cwd) ->
-    ct_logs:get_ts_html_wrapper(TestName, PrintLabel, Cwd).
+get_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
+    ct_logs:get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols).

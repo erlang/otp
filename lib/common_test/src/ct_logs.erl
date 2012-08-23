@@ -35,8 +35,9 @@
 -export([add_external_logs/1,add_link/3]).
 -export([make_last_run_index/0]).
 -export([make_all_suites_index/1,make_all_runs_index/1]).
--export([get_ts_html_wrapper/3]).
--export([xhtml/2, locate_default_css_file/0, make_relative/1]).
+-export([get_ts_html_wrapper/4]).
+-export([xhtml/2, locate_priv_file/1, make_relative/1]).
+-export([insert_javascript/1]).
 
 %% Logging stuff directly from testcase
 -export([tc_log/3,tc_log/4,tc_log_async/3,tc_print/3,tc_pal/3,ct_log/3,
@@ -56,7 +57,6 @@
 -define(all_runs_name, "all_runs.html").
 -define(index_name, "index.html").
 -define(totals_name, "totals.info").
--define(css_default, "ct_default.css").
 
 -define(table_color1,"#ADD8E6").
 -define(table_color2,"#E4F0FE").
@@ -371,7 +371,7 @@ tc_log_async(Category,Format,Args) ->
 %%% @doc Console printout from a testcase. 
 %%%
 %%% <p>This function is called by <code>ct</code> when printing
-%%% stuff a testcase on the user console.</p>
+%%% stuff from a testcase on the user console.</p>
 tc_print(Category,Format,Args) ->
     Head = get_heading(Category),
     io:format(user, lists:concat([Head,Format,"\n\n"]), Args),
@@ -502,26 +502,27 @@ logger(Parent,Mode) ->
 	    %% dir) so logs are independent of Common Test installation
 	    {ok,Cwd} = file:get_cwd(),
 	    CTPath = code:lib_dir(common_test),
-	    CSSFileSrc = filename:join(filename:join(CTPath, "priv"),
-				       ?css_default),
-	    CSSFileDestTop = filename:join(Cwd, ?css_default),
-	    CSSFileDestRun = filename:join(AbsDir, ?css_default),
-	    case file:copy(CSSFileSrc, CSSFileDestTop) of
-		{error,Reason0} ->
+	    PrivFiles = [?css_default,?jquery_script,?tablesorter_script],
+	    PrivFilesSrc = [filename:join(filename:join(CTPath, "priv"), F) ||
+			       F <- PrivFiles],
+	    PrivFilesDestTop = [filename:join(Cwd, F) || F <- PrivFiles],
+	    PrivFilesDestRun = [filename:join(AbsDir, F) || F <- PrivFiles],
+	    case copy_priv_files(PrivFilesSrc, PrivFilesDestTop) of
+		{error,Src1,Dest1,Reason1} ->
 		    io:format(user, "ERROR! "++
-			      "CSS file ~p could not be copied to ~p. "++
-			      "Reason: ~p~n",
-			      [CSSFileSrc,CSSFileDestTop,Reason0]),
-		    exit({css_file_error,CSSFileDestTop});
-		_ ->
-		    case file:copy(CSSFileSrc, CSSFileDestRun) of
-			{error,Reason1} ->
+				  "Priv file ~p could not be copied to ~p. "++
+				  "Reason: ~p~n",
+			      [Src1,Dest1,Reason1]),
+		    exit({priv_file_error,Dest1});
+		ok ->
+		    case copy_priv_files(PrivFilesSrc, PrivFilesDestRun) of
+			{error,Src2,Dest2,Reason2} ->
 			    io:format(user, "ERROR! "++
-				      "CSS file ~p could not be copied to ~p. "++
-				      "Reason: ~p~n",
-				      [CSSFileSrc,CSSFileDestRun,Reason1]),
-			    exit({css_file_error,CSSFileDestRun});
-			_ ->
+					  "Priv file ~p could not be copied to ~p. "++
+					  "Reason: ~p~n",
+				      [Src2,Dest2,Reason2]),
+			    exit({priv_file_error,Dest2});
+			ok ->
 			    ok
 		    end
 	    end
@@ -548,6 +549,16 @@ logger(Parent,Mode) ->
 			      ct_log_fd=CtLogFd,
 			      tc_groupleaders=[],
 			      async_print_jobs=[]}).
+
+copy_priv_files([SrcF | SrcFs], [DestF | DestFs]) ->
+    case file:copy(SrcF, DestF) of
+	{error,Reason} ->
+	    {error,SrcF,DestF,Reason};
+	_ ->
+	    copy_priv_files(SrcFs, DestFs)
+    end;
+copy_priv_files([], []) ->
+    ok.
 
 logger_loop(State) ->
     receive
@@ -780,7 +791,7 @@ set_evmgr_gl(GL) ->
 
 open_ctlog() ->
     {ok,Fd} = file:open(?ct_log_name,[write]),
-    io:format(Fd, header("Common Test Framework Log"), []),
+    io:format(Fd, header("Common Test Framework Log", {[],[1,2],[]}), []),
     case file:consult(ct_run:variables_file_name("../")) of
 	{ok,Vars} ->
 	    io:format(Fd, config_table(Vars), []);
@@ -1090,14 +1101,14 @@ total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
 		    integer_to_list(UserSkip),integer_to_list(AutoSkip)}
 	end,
     [xhtml("<tr valign=top>\n", 
-	   ["<tr class=\"",odd_or_even(),"\">\n"]),
+	   ["</tbody>\n<tfoot>\n<tr class=\"",odd_or_even(),"\">\n"]),
      "<td><b>Total</b></td>\n", Label, TimestampCell,
      "<td align=right><b>",integer_to_list(Success),"<b></td>\n",
      "<td align=right><b>",integer_to_list(Fail),"<b></td>\n",
      "<td align=right>",integer_to_list(AllSkip),
      " (",UserSkipStr,"/",AutoSkipStr,")</td>\n",  
      "<td align=right><b>",integer_to_list(NotBuilt),"<b></td>\n",
-     AllInfo, "</tr>\n"].
+     AllInfo, "</tr>\n</tfoot>\n"].
 
 not_built(_BaseName,_LogDir,_All,[]) ->
     0;
@@ -1154,10 +1165,12 @@ index_header(Label, StartTime) ->
     Head =
 	case Label of
 	    undefined ->
-		header("Test Results", format_time(StartTime));
+		header("Test Results", format_time(StartTime),
+		       {[],[1],[2,3,4,5]});
 	    _ ->
 		header("Test Results for '" ++ Label ++ "'",
-		       format_time(StartTime))
+		       format_time(StartTime),
+		       {[],[1],[2,3,4,5]})
 	end,
     [Head |
      ["<center>\n",
@@ -1169,15 +1182,17 @@ index_header(Label, StartTime) ->
 	     "\">COMMON TEST FRAMEWORK LOG</a>\n</div>"]),
       xhtml("<br>\n", "<br /><br /><br />\n"),
       xhtml(["<table border=\"3\" cellpadding=\"5\" "
-	     "bgcolor=\"",?table_color3,"\">\n"], "<table>\n"),
+	     "bgcolor=\"",?table_color3,"\">\n"],
+	    ["<table id=\"",?sortable_table_name,"\">\n",
+	     "<thead>\n<tr>\n"]),
       "<th><b>Test Name</b></th>\n",
       xhtml(["<th><font color=\"",?table_color3,"\">_</font>Ok"
 	     "<font color=\"",?table_color3,"\">_</font></th>\n"],
 	    "<th>Ok</th>\n"),
       "<th>Failed</th>\n",
       "<th>Skipped", xhtml("<br>", "<br />"), "(User/Auto)</th>\n"
-      "<th>Missing", xhtml("<br>", "<br />"), "Suites</th>\n"
-      "\n"]].
+      "<th>Missing", xhtml("<br>", "<br />"), "Suites</th>\n",
+      xhtml("", "</tr>\n</thead>\n<tbody>\n")]].
 
 all_suites_index_header() ->
     {ok,Cwd} = file:get_cwd(),
@@ -1190,12 +1205,14 @@ all_suites_index_header(IndexDir) ->
     AllRunsLink = xhtml(["<a href=\"",?all_runs_name,"\">",AllRuns,"</a>\n"],
 			["<div id=\"button_holder\" class=\"btn\">\n"
 			 "<a href=\"",?all_runs_name,"\">",AllRuns,"</a>\n</div>"]),
-    [header("Test Results") | 
+    [header("Test Results", {[3],[1,2,8,9,10],[4,5,6,7]}) | 
      ["<center>\n",
       AllRunsLink,
       xhtml("<br><br>\n", "<br /><br />\n"),
       xhtml(["<table border=\"3\" cellpadding=\"5\" "
-	     "bgcolor=\"",?table_color2,"\">\n"], "<table>\n"),
+	     "bgcolor=\"",?table_color2,"\">\n"],
+	    ["<table id=\"",?sortable_table_name,"\">\n",
+	     "<thead>\n<tr>\n"]),
       "<th>Test Name</th>\n",
       "<th>Label</th>\n",
       "<th>Test Run Started</th>\n",
@@ -1208,7 +1225,7 @@ all_suites_index_header(IndexDir) ->
       "<th>Node</th>\n",
       "<th>CT Log</th>\n",
       "<th>Old Runs</th>\n",
-      "\n"]].
+      xhtml("", "</tr>\n</thead>\n<tbody>\n")]].
 
 all_runs_header() ->
     {ok,Cwd} = file:get_cwd(),
@@ -1220,10 +1237,12 @@ all_runs_header() ->
 		     "<a href=\"",?index_name,
 		     "\">TEST INDEX PAGE</a>\n</div>"]),
 	      xhtml("<br>\n", "<br /><br />\n")],
-    [header(Title) |
+    [header(Title, {[1],[2,3,5],[4,6,7,8,9,10]}) |
      ["<center>\n", IxLink,
       xhtml(["<table border=\"3\" cellpadding=\"5\" "
-	     "bgcolor=\"",?table_color1,"\">\n"], "<table>\n"),
+	     "bgcolor=\"",?table_color1,"\">\n"],
+	    ["<table id=\"",?sortable_table_name,"\">\n",
+	     "<thead>\n<tr>\n"]),
       "<th><b>History</b></th>\n"
       "<th><b>Node</b></th>\n"
       "<th><b>Label</b></th>\n"
@@ -1235,23 +1254,29 @@ all_runs_header() ->
 	    "<th>Ok</th>\n"),
       "<th>Failed</th>\n"
       "<th>Skipped<br>(User/Auto)</th>\n"
-      "<th>Missing<br>Suites</th>\n"
-      "\n"]].
+      "<th>Missing<br>Suites</th>\n",
+      xhtml("", "</tr>\n</thead>\n<tbody>\n")]].
 
-header(Title) ->
-    header1(Title, "").
-header(Title, SubTitle) ->
-    header1(Title, SubTitle).
+header(Title, TableCols) ->
+    header1(Title, "", TableCols).
+header(Title, SubTitle, TableCols) ->
+    header1(Title, SubTitle, TableCols).
 
-header1(Title, SubTitle) ->
+header1(Title, SubTitle, TableCols) ->
     SubTitleHTML = if SubTitle =/= "" ->
 			   ["<center>\n",
 			    "<h3>" ++ SubTitle ++ "</h3>\n",
 			    xhtml("</center>\n<br>\n", "</center>\n<br />\n")];
-		      true -> xhtml("<br>\n", "<br />\n")
+		      true -> xhtml("<br>", "<br />")
 		   end,
     CSSFile = xhtml(fun() -> "" end, 
-		    fun() -> make_relative(locate_default_css_file()) end),
+		    fun() -> make_relative(locate_priv_file(?css_default)) end),
+    JQueryFile =
+	xhtml(fun() -> "" end, 
+	      fun() -> make_relative(locate_priv_file(?jquery_script)) end),
+    TableSorterFile =
+	xhtml(fun() -> "" end, 
+	      fun() -> make_relative(locate_priv_file(?tablesorter_script)) end),
     [xhtml(["<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\n",
 	    "<html>\n"],
 	   ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
@@ -1262,7 +1287,17 @@ header1(Title, SubTitle) ->
      "<title>" ++ Title ++ " " ++ SubTitle ++ "</title>\n",
      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
      xhtml("",
-	   ["<link rel=\"stylesheet\" href=\"",CSSFile,"\" type=\"text/css\">"]),
+	   ["<link rel=\"stylesheet\" href=\"",CSSFile,"\" type=\"text/css\">\n"]),
+     xhtml("",
+	   ["<script type=\"text/javascript\" src=\"",JQueryFile,
+	    "\"></script>\n"]),
+     xhtml("",
+	   ["<script type=\"text/javascript\" src=\"",TableSorterFile,
+	    "\"></script>\n"]),
+     xhtml(fun() -> "" end,
+	   fun() -> insert_javascript({tablesorter,?sortable_table_name,
+				       TableCols})
+	   end),
      "</head>\n",
      body_tag(),
      "<center>\n",
@@ -1272,6 +1307,10 @@ header1(Title, SubTitle) ->
 
 index_footer() ->
     ["</table>\n"
+     "</center>\n" | footer()].
+
+all_runs_index_footer() ->
+    ["</tbody>\n</table>\n"
      "</center>\n" | footer()].
 
 footer() ->
@@ -1285,7 +1324,8 @@ footer() ->
       xhtml("<br>\n", "<br />\n"),
       xhtml("</font></p>\n", "</div>\n"),
       "</center>\n"
-      "</body>\n"].
+      "</body>\n"
+      "</html>\n"].
 
 
 body_tag() ->
@@ -1301,7 +1341,7 @@ current_time() ->
 
 format_time({{Y, Mon, D}, {H, Min, S}}) ->
     Weekday = weekday(calendar:day_of_the_week(Y, Mon, D)),
-    lists:flatten(io_lib:format("~s ~s ~p ~w ~2.2.0w:~2.2.0w:~2.2.0w",
+    lists:flatten(io_lib:format("~s ~s ~2.2.0w ~w ~2.2.0w:~2.2.0w:~2.2.0w",
 				[Weekday, month(Mon), D, Y, H, Min, S])).
 
 weekday(1) -> "Mon";
@@ -1427,8 +1467,12 @@ config_table_header() ->
     [
      xhtml(["<h2>Configuration</h2>\n"
 	    "<table border=\"3\" cellpadding=\"5\" bgcolor=\"",?table_color1,"\"\n"],
-	   "<h4>CONFIGURATION</h4>\n<table>\n"),
-     "<tr><th>Key</th><th>Value</th></tr>\n"].
+	   ["<h4>CONFIGURATION</h4>\n",
+	    "<table id=\"",?sortable_table_name,"\">\n",
+	    "<thead>\n"]),
+     "<tr><th>Key</th><th>Value</th></tr>\n",
+     xhtml("", "</thead>\n<tbody>\n")
+    ].
 
 config_table1([{Key,Value}|Vars]) ->
     [xhtml(["<tr><td>", atom_to_list(Key), "</td>\n",
@@ -1438,7 +1482,7 @@ config_table1([{Key,Value}|Vars]) ->
 	    "<td>", io_lib:format("~p",[Value]), "</td>\n</tr>\n"]) | 
      config_table1(Vars)];
 config_table1([]) ->
-    ["</table>\n"].
+    ["</tbody>\n</table>\n"].
 
 
 make_all_runs_index(When) ->
@@ -1452,7 +1496,8 @@ make_all_runs_index(When) ->
     DirsSorted = (catch sort_all_runs(Dirs)),
     Header = all_runs_header(),
     Index = [runentry(Dir) || Dir <- DirsSorted],
-    Result = file:write_file(AbsName,Header++Index++index_footer()),
+    Result = file:write_file(AbsName,Header++Index++
+				 all_runs_index_footer()),
     if When == start -> ok;
        true -> io:put_chars("done\n")
     end,
@@ -2088,34 +2133,34 @@ basic_html() ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec locate_default_css_file() -> CSSFile
+%%% @spec locate_priv_file(FileName) -> PrivFile
 %%%
 %%% @doc
 %%%
-locate_default_css_file() ->
+locate_priv_file(FileName) ->
     {ok,CWD} = file:get_cwd(),
-    CSSFileInCwd = filename:join(CWD, ?css_default),
-    case filelib:is_file(CSSFileInCwd) of
+    PrivFileInCwd = filename:join(CWD, FileName),
+    case filelib:is_file(PrivFileInCwd) of
 	true ->
-	    CSSFileInCwd;
+	    PrivFileInCwd;
 	false ->
-	    CSSResultFile =
+	    PrivResultFile =
 		case {whereis(?MODULE),self()} of
 		    {Self,Self} ->
 			%% executed on the ct_logs process
-			filename:join(get(ct_run_dir), ?css_default);
+			filename:join(get(ct_run_dir), FileName);
 		    _ ->			
 			%% executed on other process than ct_logs
 			{ok,RunDir} = get_log_dir(true),
-			filename:join(RunDir, ?css_default)
+			filename:join(RunDir, FileName)
 		end,
-	    case filelib:is_file(CSSResultFile) of
+	    case filelib:is_file(PrivResultFile) of
 		true ->
-		    CSSResultFile;
+		    PrivResultFile;
 		false ->
 		    %% last resort, try use css file in CT installation
 		    CTPath = code:lib_dir(common_test),		
-		    filename:join(filename:join(CTPath, "priv"), ?css_default)
+		    filename:join(filename:join(CTPath, "priv"), FileName)
 	    end
     end.
 
@@ -2154,7 +2199,7 @@ make_relative1(DirTs, CwdTs) ->
 %%%
 %%% @doc
 %%%
-get_ts_html_wrapper(TestName, PrintLabel, Cwd) ->
+get_ts_html_wrapper(TestName, PrintLabel, Cwd, TableCols) ->
     TestName1 = if is_list(TestName) ->
 			lists:flatten(TestName);
 		   true ->
@@ -2214,17 +2259,36 @@ get_ts_html_wrapper(TestName, PrintLabel, Cwd) ->
 		 "Open Telecom Platform</a><br />\n",
 		 "Updated: <!date>", current_time(), "<!/date>",
 		 "<br />\n</div>\n"],
-	    CSSFile = xhtml(fun() -> "" end, 
-			    fun() -> make_relative(locate_default_css_file(), Cwd) end),
+	    CSSFile =
+		xhtml(fun() -> "" end, 
+		      fun() -> make_relative(locate_priv_file(?css_default),
+					     Cwd)
+		      end),
+	    JQueryFile =
+		xhtml(fun() -> "" end, 
+		      fun() -> make_relative(locate_priv_file(?jquery_script),
+					     Cwd)
+		      end),
+	    TableSorterFile =
+		xhtml(fun() -> "" end, 
+		      fun() -> make_relative(locate_priv_file(?tablesorter_script),
+					    Cwd)
+		      end),
+	    TableSorterScript =
+		xhtml(fun() -> "" end, 
+		      fun() -> insert_javascript({tablesorter,
+						  ?sortable_table_name,
+						  TableCols}) end),
 	    {xhtml,
 	     ["<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\"\n",
 	      "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n",
 	      "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n",
 	      "<head>\n<title>", TestName1, "</title>\n",
 	      "<meta http-equiv=\"cache-control\" content=\"no-cache\">\n",
-	      "<link rel=\"stylesheet\" href=\"", CSSFile, "\" type=\"text/css\">",
-	      "</head>\n","<body>\n", 
-	      LabelStr, "\n"],
+	      "<link rel=\"stylesheet\" href=\"", CSSFile, "\" type=\"text/css\">\n",
+	      "<script type=\"text/javascript\" src=\"", JQueryFile, "\"></script>\n",
+	      "<script type=\"text/javascript\" src=\"", TableSorterFile, "\"></script>\n"] ++
+	      TableSorterScript ++ ["</head>\n","<body>\n", LabelStr, "\n"],
 	     ["<center>\n<br /><hr /><p>\n",
 	      "<a href=\"", AllRuns,
 	      "\">Test run history\n</a>  |  ",
@@ -2232,3 +2296,89 @@ get_ts_html_wrapper(TestName, PrintLabel, Cwd) ->
 	      "\">Top level test index\n</a>\n</p>\n",
 	      Copyright,"</center>\n</body>\n</html>\n"]}
     end.
+
+insert_javascript({tablesorter,_TableName,undefined}) ->
+    [];
+
+insert_javascript({tablesorter,TableName,
+		   {DateCols,TextCols,ValCols}}) ->
+    Headers =
+	lists:flatten(
+	  lists:sort(
+	    lists:flatmap(fun({Sorter,Cols}) ->
+				  [lists:flatten(
+				     io_lib:format("      ~w: "
+						   "{ sorter: '~s' },\n",
+						   [Col-1,Sorter])) || Col<-Cols]
+			  end, [{"CTDateSorter",DateCols},
+				{"CTTextSorter",TextCols},
+				{"CTValSorter",ValCols}]))),
+    Headers1 = string:substr(Headers, 1, length(Headers)-2),
+
+    ["<script type=\"text/javascript\">\n",
+     "// Parser for date format, e.g: Wed Jul 4 2012 11:24:15\n",
+     "var monthNames = {};\n",
+     "monthNames[\"Jan\"] = \"01\"; monthNames[\"Feb\"] = \"02\";\n",
+     "monthNames[\"Mar\"] = \"03\"; monthNames[\"Apr\"] = \"04\";\n",
+     "monthNames[\"May\"] = \"05\"; monthNames[\"Jun\"] = \"06\";\n",
+     "monthNames[\"Jul\"] = \"07\"; monthNames[\"Aug\"] = \"08\";\n",
+     "monthNames[\"Sep\"] = \"09\"; monthNames[\"Oct\"] = \"10\";\n",
+     "monthNames[\"Nov\"] = \"11\"; monthNames[\"Dec\"] = \"12\";\n",
+     "$.tablesorter.addParser({\n",
+     "  id: 'CTDateSorter',\n",
+     "  is: function(s) {\n",
+     "      return false; },\n",
+     "  format: function(s) {\n",
+     %% place empty cells, "-" and "?" at the bottom
+     "      if (s.length < 2) return 999999999;\n",
+     "      else {\n",
+     %% match out each date element
+     "          var date = s.match(/(\\w{3})\\s(\\w{3})\\s(\\d{2})\\s(\\d{4})\\s(\\d{2}):(\\d{2}):(\\d{2})/);\n",
+     "          var y = date[4]; var mo = monthNames[date[2]]; var d = String(date[3]);\n",
+     "          var h = String(date[5]); var mi = String(date[6]); var sec = String(date[7]);\n",
+     "          return (parseInt('' + y + mo + d + h + mi + sec)); }},\n",
+     "  type: 'numeric' });\n",
+
+     "// Parser for general text format\n",
+     "$.tablesorter.addParser({\n",
+     "  id: 'CTTextSorter',\n",
+     "  is: function(s) {\n",
+     "    return false; },\n",
+     "  format: function(s) {\n",
+     %% place empty cells, "?" and "-" at the bottom
+     "    if (s.length < 1) return 'zzzzzzzz';\n",
+     "    else if (s == \"?\") return 'zzzzzzz';\n",
+     "    else if (s == \"-\") return 'zzzzzz';\n",
+     "    else if (s == \"FAILED\") return 'A';\n",
+     "    else if (s == \"SKIPPED\") return 'B';\n",
+     "    else if (s == \"OK\") return 'C';\n",
+     "    else return '' + s; },\n",
+     "  type: 'text' });\n",
+
+     "// Parser for numerical values\n",
+     "$.tablesorter.addParser({\n",
+     "  id: 'CTValSorter',\n",
+     "  is: function(s) {\n",
+     "    return false; },\n",
+     "  format: function(s) {\n"
+     %% place empty cells and "?" at the bottom
+     "    if (s.length < 1) return '-2';\n",
+     "    else if (s == \"?\") return '-1';\n",
+     %% look for skip value, eg "3 (2/1)"
+     "    else if ((s.search(/(\\d{1,})\\s/)) >= 0) {\n",
+     "      var num = s.match(/(\\d{1,})\\s/);\n",
+     %% return only the total skip value for sorting
+     "      return (parseInt('' + num[1])); }\n",
+     "    else if ((s.search(/(\\d{1,})\\.(\\d{3})s/)) >= 0) {\n",
+     "      var num = s.match(/(\\d{1,})\\.(\\d{3})/);\n",
+     "      if (num[1] == \"0\") return (parseInt('' + num[2]));\n",
+     "      else return (parseInt('' + num[1] + num[2])); }\n",
+     "    else return '' + s; },\n",
+     "  type: 'numeric' });\n",
+
+     "$(document).ready(function() {\n",
+     "  $(\"#",TableName,"\").tablesorter({\n",
+     "    headers: { \n", Headers1, "\n    }\n  });\n",
+     "  $(\"#",TableName,"\").trigger(\"update\");\n",
+     "  $(\"#",TableName,"\").trigger(\"appendCache\");\n",
+     "});\n</script>\n"].
