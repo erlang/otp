@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -120,11 +120,10 @@
 %% specified on the transport in question. Check here that the list is
 %% still non-empty.
 
-start({_, Ref} = Type, Opts, #diameter_service{applications = Apps} = Svc) ->
+start({_,_} = Type, Opts, #diameter_service{applications = Apps} = Svc) ->
     [] /= Apps orelse ?ERROR({no_apps, Type, Opts}),
     T = {self(), Type, Opts, Svc},
     {ok, Pid} = diameter_peer_fsm_sup:start_child(T),
-    diameter_stats:reg(Pid, Ref),
     Pid.
 
 start_link(T) ->
@@ -146,6 +145,7 @@ init(T) ->
 i({WPid, T, Opts, #diameter_service{capabilities = Caps} = Svc0}) ->
     putr(dwa, dwa(Caps)),
     {M, Ref} = T,
+    diameter_stats:reg(Ref),
     {[Ts], Rest} = proplists:split(Opts, [capabilities_cb]),
     putr(capabilities_cb, {Ref, [F || {_,F} <- Ts]}),
     {ok, TPid, Svc} = start_transport(T, Rest, Svc0),
