@@ -425,7 +425,7 @@
     <p>Below is the test specification syntax. Test specifications can
       be used to run tests both in a single test host environment and
       in a distributed Common Test environment (Large Scale
-      Testing). The node parameters in the init term are only
+      Testing). The node parameters in the <c>init</c> term are only
       relevant in the latter (see the
       <seealso marker="ct_master_chapter#test_specifications">Large
       Scale Testing</seealso> chapter for information). For details on
@@ -575,9 +575,9 @@
       <item>Lastly, all suites for systems t3 are to be completely skipped and this
 	should be explicitly noted in the log files.</item>
     </list>
-    <p>It is possible to specify initialization options for nodes defined in the
-      test specification. Currently, there are options to start the node and/or to
-      evaluate any function on the node.
+    <p>With the <c>init</c> term it's possible to specify initialization options
+      for nodes defined in the test specification. Currently, there are options
+      to start the node and/or to evaluate any function on the node.
       See the <seealso marker="ct_master_chapter#ct_slave">Automatic startup of
       the test target nodes</seealso> chapter for details.</p>
     <p>It is possible for the user to provide a test specification that

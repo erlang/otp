@@ -39,6 +39,7 @@ MODULES= \
 	ct_sequence_1_SUITE \
 	ct_repeat_1_SUITE \
 	ct_testspec_1_SUITE \
+	ct_testspec_2_SUITE \
 	ct_skip_SUITE \
 	ct_error_SUITE \
 	ct_test_server_if_1_SUITE \
@@ -46,7 +47,9 @@ MODULES= \
 	ct_master_SUITE \
 	ct_misc_1_SUITE \
 	ct_hooks_SUITE \
-	ct_netconfc_SUITE
+	ct_netconfc_SUITE \
+	ct_basic_html_SUITE \
+	ct_auto_compile_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
