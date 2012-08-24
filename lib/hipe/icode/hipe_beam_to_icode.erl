@@ -72,11 +72,10 @@
 	end).
 
 %%-----------------------------------------------------------------------
-%% Exported types
+%% Types
 %%-----------------------------------------------------------------------
 
 -type hipe_beam_to_icode_ret() :: [{mfa(),#icode{}}].
-
 
 %%-----------------------------------------------------------------------
 %% Internal data structures
@@ -315,19 +314,19 @@ trans_fun([{call_ext_last,_N,{extfunc,M,F,A},_}|Instructions], Env) ->
 %%--- bif0 ---
 trans_fun([{bif,BifName,nofail,[],Reg}|Instructions], Env) ->
   BifInst = trans_bif0(BifName,Reg),
-  [hipe_icode:mk_comment({bif0,BifName}),BifInst|trans_fun(Instructions,Env)];
+  [BifInst|trans_fun(Instructions,Env)];
 %%--- bif1 ---
 trans_fun([{bif,BifName,{f,Lbl},[_] = Args,Reg}|Instructions], Env) ->
   {BifInsts,Env1} = trans_bif(1,BifName,Lbl,Args,Reg,Env),
-  [hipe_icode:mk_comment({bif1,BifName})|BifInsts] ++ trans_fun(Instructions,Env1);
+  BifInsts ++ trans_fun(Instructions,Env1);
 %%--- bif2 ---
 trans_fun([{bif,BifName,{f,Lbl},[_,_] = Args,Reg}|Instructions], Env) ->
   {BifInsts,Env1} = trans_bif(2,BifName,Lbl,Args,Reg,Env),
-  [hipe_icode:mk_comment({bif2,BifName})|BifInsts] ++ trans_fun(Instructions,Env1);
+  BifInsts ++ trans_fun(Instructions,Env1);
 %%--- bif3 ---
 trans_fun([{bif,BifName,{f,Lbl},[_,_,_] = Args,Reg}|Instructions], Env) ->
   {BifInsts,Env1} = trans_bif(3,BifName,Lbl,Args,Reg,Env),
-  [hipe_icode:mk_comment({bif3,BifName})|BifInsts] ++ trans_fun(Instructions,Env1);
+  BifInsts ++ trans_fun(Instructions,Env1);
 %%--- allocate
 trans_fun([{allocate,StackSlots,_}|Instructions], Env) ->
   trans_allocate(StackSlots) ++ trans_fun(Instructions,Env);
@@ -816,7 +815,7 @@ trans_fun([{test,bs_test_tail2,{f,Lbl},[Ms,Numbits]}| Instructions], Env) ->
   trans_op_call({hipe_bs_primop,{bs_test_tail,Numbits}}, 
 		Lbl, [MsVar], [], Env, Instructions);
 %%--------------------------------------------------------------------
-%% New bit syntax instructions added in February 2004 (R10B).
+%% bit syntax instructions added in February 2004 (R10B).
 %%--------------------------------------------------------------------
 trans_fun([{bs_init2,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
 	   Instructions], Env) ->
@@ -1031,7 +1030,7 @@ trans_fun([{arithfbif,fnegate,Lab,[SrcR],DestR}|Instructions], Env) ->
       trans_fun([{arithbif,'-',Lab,[{float,0.0},SrcR],DestR}|Instructions], Env)
   end;
 %%--------------------------------------------------------------------
-%% New apply instructions added in April 2004 (R10B).
+%% apply instructions added in April 2004 (R10B).
 %%--------------------------------------------------------------------
 trans_fun([{apply,Arity}|Instructions], Env) ->
   BeamArgs = extract_fun_args(Arity+2), %% +2 is for M and F
@@ -1047,21 +1046,21 @@ trans_fun([{apply_last,Arity,_N}|Instructions], Env) -> % N is StackAdjustment?
    hipe_icode:mk_enter_primop(#apply_N{arity=Arity}, [M,F|Args])
    | trans_fun(Instructions,Env)];
 %%--------------------------------------------------------------------
-%% New test instruction added in April 2004 (R10B).
+%% test for boolean added in April 2004 (R10B).
 %%--------------------------------------------------------------------
 %%--- is_boolean ---
 trans_fun([{test,is_boolean,{f,Lbl},[Arg]}|Instructions], Env) ->
   {Code,Env1} = trans_type_test(boolean,Lbl,Arg,Env),
   [Code | trans_fun(Instructions,Env1)];
 %%--------------------------------------------------------------------
-%% New test instruction added in June 2005 for R11
+%% test for function with specific arity added in June 2005 (R11).
 %%--------------------------------------------------------------------
 %%--- is_function2 ---
 trans_fun([{test,is_function2,{f,Lbl},[Arg,Arity]}|Instructions], Env) ->
   {Code,Env1} = trans_type_test2(function2,Lbl,Arg,Arity,Env),
   [Code | trans_fun(Instructions,Env1)];
 %%--------------------------------------------------------------------
-%% New garbage-collecting BIFs added in January 2006 for R11B.
+%% garbage collecting BIFs added in January 2006 (R11B).
 %%--------------------------------------------------------------------
 trans_fun([{gc_bif,'-',Fail,_Live,[SrcR],DstR}|Instructions], Env) ->
   %% Unary minus. Change this to binary minus.
@@ -1079,21 +1078,21 @@ trans_fun([{gc_bif,Name,Fail,_Live,SrcRs,DstR}|Instructions], Env) ->
       trans_fun([{bif,Name,Fail,SrcRs,DstR}|Instructions], Env)
   end;
 %%--------------------------------------------------------------------
-%% New test instruction added in July 2007 for R12.
+%% test for bitstream added in July 2007 (R12).
 %%--------------------------------------------------------------------
 %%--- is_bitstr ---
 trans_fun([{test,is_bitstr,{f,Lbl},[Arg]}|Instructions], Env) ->
   {Code,Env1} = trans_type_test(bitstr, Lbl, Arg, Env),
   [Code | trans_fun(Instructions, Env1)];
 %%--------------------------------------------------------------------
-%% New stack triming instruction added in October 2007 for R12.
+%% stack triming instruction added in October 2007 (R12).
 %%--------------------------------------------------------------------
 trans_fun([{trim,N,NY}|Instructions], Env) ->
   %% trim away N registers leaving NY registers
   Moves = trans_trim(N, NY),
   Moves ++ trans_fun(Instructions, Env);
 %%--------------------------------------------------------------------
-%% New line/1 instruction in R15.
+%% line instruction added in Fall 2012 (R15).
 %%--------------------------------------------------------------------
 trans_fun([{line,_}|Instructions], Env) ->
   trans_fun(Instructions,Env);
@@ -1297,7 +1296,7 @@ trans_bin([{bs_put_integer,{f,Lbl},Size,Unit,{field_flags,Flags0},Source}|
   SrcInstrs ++ trans_bin_call({hipe_bs_primop, Name}, 
 			     Lbl, [Src|Args], [Offset], Base, Offset, Env2, Instructions);
 %%----------------------------------------------------------------
-%% New binary construction instructions added in R12B-5 (Fall 2008).
+%% binary construction instructions added in Fall 2008 (R12B-5).
 %%----------------------------------------------------------------
 trans_bin([{bs_put_utf8,{f,Lbl},_FF,A3}|Instructions], Base, Offset, Env) ->
   Src = trans_arg(A3),
@@ -1348,7 +1347,7 @@ trans_bs_get_or_skip_utf32(Lbl, Ms, Flags0, X, Instructions, Env) ->
 		      Lbl, [Dst,MsVar], [MsVar], Env1, Instructions).
 
 %%-----------------------------------------------------------------------
-%% trans_arith(Op, SrcVars, Des, Lab, Env) -> { Icode, NewEnv }
+%% trans_arith(Op, SrcVars, Des, Lab, Env) -> {Icode, NewEnv}
 %%     A failure label of type {f,0} means in a body.
 %%     A failure label of type {f,L} where L>0 means in a guard.
 %%        Within a guard a failure should branch to the next guard and
@@ -1454,7 +1453,7 @@ clone_dst(Dest) ->
 
 
 %%-----------------------------------------------------------------------
-%% trans_type_test(Test, Lbl, Arg, Env) -> { Icode, NewEnv }
+%% trans_type_test(Test, Lbl, Arg, Env) -> {Icode, NewEnv}
 %%     Handles all unary type tests like is_integer etc. 
 %%-----------------------------------------------------------------------
 
@@ -1466,7 +1465,7 @@ trans_type_test(Test, Lbl, Arg, Env) ->
   {[Move,I,True],Env1}.
 
 %%
-%% This handles binary type tests. Currently, the only such is the new
+%% This handles binary type tests. Currently, the only such is the
 %% is_function/2 BIF.
 %%
 trans_type_test2(function2, Lbl, Arg, Arity, Env) ->
@@ -1479,7 +1478,7 @@ trans_type_test2(function2, Lbl, Arg, Arity, Env) ->
 
 %%-----------------------------------------------------------------------
 %% trans_puts(Code, Environment) -> 
-%%            { Movs, Code, Vars, NewEnv }
+%%            {Movs, Code, Vars, NewEnv}
 %%-----------------------------------------------------------------------
 
 trans_puts(Code, Env) ->
