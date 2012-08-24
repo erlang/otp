@@ -25,8 +25,8 @@
 
 -behaviour(gen_server).
 
--export([reg/1, reg/2,
-         incr/1, incr/3,
+-export([reg/2, reg/1,
+         incr/3, incr/1,
          read/1,
          flush/1]).
 
@@ -96,9 +96,10 @@ reg(Ref) ->
 %% ---------------------------------------------------------------------------
 
 -spec incr(counter(), ref(), integer())
-   -> integer().
+   -> integer() | false.
 
-incr(Ctr, Ref, N) ->
+incr(Ctr, Ref, N)
+  when is_integer(N) ->
     update_counter({Ctr, Ref}, N).
 
 incr(Ctr) ->
@@ -177,6 +178,9 @@ handle_call(state, _, State) ->
 handle_call(uptime, _, #state{id = Time} = State) ->
     {reply, diameter_lib:now_diff(Time), State};
 
+handle_call({incr, T}, _, State) ->
+    {reply, update_counter(T), State};
+
 handle_call({reg, Pid, Ref}, _From, State) ->
     B = ets:insert_new(?TABLE, {Pid, Ref}),
     B andalso erlang:monitor(process, Pid),
@@ -192,10 +196,6 @@ handle_call(Req, From, State) ->
 %% ----------------------------------------------------------
 %% # handle_cast/2
 %% ----------------------------------------------------------
-
-handle_cast({incr, Rec}, State) ->
-    update_counter(Rec),
-    {noreply, State};
 
 handle_cast(Msg, State) ->
     ?UNEXPECTED([Msg]),
@@ -246,21 +246,22 @@ fold(Ref, L) ->
 
 %% update_counter/2
 %%
-%% From an arbitrary process. Cast to the server process to insert a
+%% From an arbitrary process. Call to the server process to insert a
 %% new element if the counter doesn't exists so that two processes
-%% don't do so simultaneously.
+%% don't insert simultaneously.
 
 update_counter(Key, N) ->
     try
         ets:update_counter(?TABLE, Key, N)
     catch
         error: badarg ->
-            cast({incr, {Key, N}})
+            call({incr, {Key, N}})
     end.
 
 %% update_counter/1
 %%
-%% From the server process.
+%% From the server process, when update_counter/2 failed due to a
+%% non-existent entry.
 
 update_counter({{_Ctr, Ref} = Key, N} = T) ->
     try
@@ -268,7 +269,7 @@ update_counter({{_Ctr, Ref} = Key, N} = T) ->
     catch
         error: badarg ->
             (not is_pid(Ref) orelse ets:member(?TABLE, Ref))
-                andalso insert(T)
+                andalso begin insert(T), N end
     end.
 
 insert(T) ->
@@ -279,11 +280,6 @@ lookup(Key) ->
 
 delete(Objs) ->
     lists:foreach(fun({K,_}) -> ets:delete(?TABLE, K) end, Objs).
-
-%% cast/1
-
-cast(Msg) ->
-    gen_server:cast(?SERVER, Msg).
 
 %% call/1
 
