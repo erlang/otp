@@ -212,7 +212,7 @@ Eshell V5.7  (abort with ^G)
 <section>
 <title>Unicode in environment variables and parameters</title>
 <p>Environment variables and their interpretation is handled much in the same way as file names. If Unicode file names are enabled, environment variables as well as parameters to the Erlang VM are expected to be in Unicode.</p>
-<p>If Unicode file names are enabled, the calls to <seealso marker="kernel:os#os_getenv/0"><c>os:getenv/0</c></seealso>, <seealso marker="kernel:os#os_getenv/1"><c>os:getenv/1</c></seealso> and <seealso marker="kernel:os#os_putenv/2"><c>os:putenv/2</c></seealso> will handle Unicode strings. On Unix-like platforms, the built-in functions will translate environment variables in UTF-8 to/from Unicode strings, possibly with codepoints > 255. On Windows the Unicode versions of the environment system API will be used, also allowing for codepoints > 255.</p>
+<p>If Unicode file names are enabled, the calls to <seealso marker="kernel:os#getenv/0"><c>os:getenv/0</c></seealso>, <seealso marker="kernel:os#getenv/1"><c>os:getenv/1</c></seealso> and <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso> will handle Unicode strings. On Unix-like platforms, the built-in functions will translate environment variables in UTF-8 to/from Unicode strings, possibly with codepoints > 255. On Windows the Unicode versions of the environment system API will be used, also allowing for codepoints > 255.</p>
 <p>On Unix-like operating systems, parameters are expected to be UTF-8 without translation if Unicode file names are enabled.</p>
 </section>
 <section>
