@@ -461,6 +461,10 @@ When a variable has been set, no warning will be issued.
     automatically detected, but not always. If not automatically detected,
     `configure` will fail unless this variable is set. Since no default
     value is used, `configure` will try to figure this out automatically.
+	
+*   `erl_xcomp_double_middle` - `yes|no`. Defaults to `no`. 
+	If `yes`, the target system must have doubles in "middle-endian" format. If
+    `no`, it has "regular" endianness. 	
 
 *   `erl_xcomp_clock_gettime_cpu_time` - `yes|no`. Defaults to `no`. If `yes`,
     the target system must have a working `clock_gettime()` implementation

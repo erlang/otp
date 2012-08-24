@@ -156,7 +156,7 @@ typedef struct {
 	byte *string;
 	SQLINTEGER *integer;
 	double *floating;
-	Boolean *bool;
+	byte *bool;
     }values;
 } param_array;
 
