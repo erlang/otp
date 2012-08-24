@@ -755,7 +755,10 @@ handle_info({'DOWN', _Ref, _Type, _Process, shutdown}, State) ->
 handle_info({'DOWN', _Ref, _Type, Process, Reason}, State) ->
     {stop, {stopped, {'EXIT', Process, Reason}}, 
      State#state{reply_to = undefined}};
-    
+
+handle_info({tcp_closed, Socket}, State = #state{odbc_socket=Socket,
+						 state = disconnecting}) ->
+    {stop, normal, State};
 %---------------------------------------------------------------------------
 %% Catch all - throws away unknown messages (This could happen by "accident"
 %% so we do not want to crash, but we make a log entry as it is an
@@ -942,9 +945,11 @@ fix_params({sql_bit, InOut, Values}) ->
 fix_params({'sql_timestamp', InOut, Values}) ->
     NewValues =
  	case (catch 
-		  lists:map(fun({{Year,Month,Day},{Hour,Minute,Second}}) -> 
-                                {Year,Month,Day,Hour,Minute,Second}
-                        end, Values)) of
+		  lists:map(
+		    fun({{Year,Month,Day},{Hour,Minute,Second}}) ->
+			    {Year,Month,Day,Hour,Minute,Second};
+		       (null) -> null
+		    end, Values)) of
  	    Result ->
  		Result
  	end,
@@ -960,15 +965,15 @@ fix_inout(out) ->
 fix_inout(inout) ->
     ?INOUT.
 
-string_terminate([Value| _ ] = Values) when is_list(Value)->
-    case (catch 
- 	      lists:map(fun(Str) -> Str ++ [?STR_TERMINATOR] end, Values)) of
-	Result ->
-	    Result
-    end;
-string_terminate([Value| _ ] = Values) when is_binary(Value)->
-    case (catch 
-  	      lists:map(fun(B) -> <<B/binary,0:16>> end, Values)) of
+string_terminate(Values) ->
+    case (catch lists:map(fun string_terminate_value/1, Values)) of
 	Result ->
 	    Result
     end.
+
+string_terminate_value(String) when is_list(String) ->
+    String ++ [?STR_TERMINATOR];
+string_terminate_value(Binary) when is_binary(Binary) ->
+    <<Binary/binary,0:16>>;
+string_terminate_value(null) ->
+    null.
