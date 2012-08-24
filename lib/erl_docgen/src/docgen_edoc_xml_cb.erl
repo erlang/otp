@@ -338,7 +338,7 @@ otp_xmlify_e(#xmlElement{name=code} = E) ->    % 4)
     end;
 otp_xmlify_e(#xmlElement{name=Tag} = E)        % 5a
   when Tag==h1; Tag==h2; Tag==h3; Tag==h4; Tag==h5 ->
-    Content = text_only(E#xmlElement.content),
+    Content = text_and_a_name_only(E#xmlElement.content),
     [E#xmlElement{name=b, content=Content}];
 otp_xmlify_e(#xmlElement{name=Tag} = E)        % 5b-c)
   when Tag==center;
@@ -1160,6 +1160,18 @@ get_text(#xmlElement{content=[#xmlText{value=Text}]}) ->
     Text;
 get_text(#xmlElement{content=[E]}) ->
     get_text(E).
+
+%% text_and_name_only(Es) -> Ts
+text_and_a_name_only([#xmlElement{
+		       name = a, 
+		       attributes = [#xmlAttribute{name=name}]} = Name|Es]) ->
+    [Name|text_and_a_name_only(Es)];
+text_and_a_name_only([#xmlElement{content = Content}|Es]) ->
+    text_and_a_name_only(Content) ++ text_and_a_name_only(Es);
+text_and_a_name_only([#xmlText{} = E |Es]) ->
+    [E | text_and_a_name_only(Es)];
+text_and_a_name_only([]) ->
+    [].
 
 %% text_only(Es) -> Ts
 %% Takes a list of xmlElement and xmlText and return a lists of xmlText.
