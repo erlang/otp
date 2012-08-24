@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -65,8 +65,26 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
+%% The "old" states maintained in this module historically.
 -define(STATE_UP,   up).
 -define(STATE_DOWN, down).
+
+-type op_state() :: ?STATE_UP
+                  | ?STATE_DOWN.
+
+%% The RFC 3539 watchdog states that are now maintained, albeit
+%% along with the old up/down. okay = up, else down.
+-define(WD_INITIAL, initial).
+-define(WD_OKAY,    okay).
+-define(WD_SUSPECT, suspect).
+-define(WD_DOWN,    down).
+-define(WD_REOPEN,  reopen).
+
+-type wd_state() :: ?WD_INITIAL
+                  | ?WD_OKAY
+                  | ?WD_SUSPECT
+                  | ?WD_DOWN
+                  | ?WD_REOPEN.
 
 -define(DEFAULT_TC,     30000).  %% RFC 3588 ch 2.1
 -define(DEFAULT_TIMEOUT, 5000).  %% for outgoing requests
@@ -117,7 +135,8 @@
          type :: match(connect | accept),
          ref  :: match(reference()),  %% key into diameter_config
          options :: match([diameter:transport_opt()]),%% from start_transport
-         op_state = ?STATE_DOWN :: match(?STATE_DOWN | ?STATE_UP),
+         op_state = {?STATE_DOWN, ?WD_INITIAL}
+                 :: match(op_state() | {op_state(), wd_state()}),
          started = now(),      %% at process start
          conn = false :: match(boolean() | pid())}).
                       %% true at accept, pid() at connection_up (connT key)
@@ -516,13 +535,33 @@ transition({reconnect, Pid}, S) ->
     reconnect(Pid, S),
     ok;
 
-%% Watchdog is sending notification of a state transition.
+%% Watchdog is sending notification of a state transition. Note that
+%% the connection_up/down messages are pre-date this message and are
+%% still used. A 'watchdog' message will follow these and communicate
+%% the same state as was set in handling connection_up/down.
 transition({watchdog, Pid, {TPid, From, To}}, #state{service_name = SvcName,
                                                      peerT = PeerT}) ->
-    #peer{ref = Ref, type = T, options = Opts}
+    #peer{ref = Ref, type = T, options = Opts, op_state = {OS,_}}
+        = P
         = fetch(PeerT, Pid),
+    insert(PeerT, P#peer{op_state = {OS, To}}),
     send_event(SvcName, {watchdog, Ref, TPid, {From, To}, {T, Opts}}),
     ok;
+%% Death of a peer process results in the removal of it's peer and any
+%% associated conn record when 'DOWN' is received (after this) but the
+%% states will be {?STATE_UP, ?WD_DOWN} for a short time. (No real
+%% problem since ?WD_* is only used in service_info.) We set ?WD_OKAY
+%% as a consequence of connection_up since we know a watchdog is
+%% coming. We can't set anything at connection_down since we don't
+%% know if the subsequent watchdog message will be ?WD_DOWN or
+%% ?WD_SUSPECT. We don't (yet) set ?STATE_* as a consequence of a
+%% watchdog message since this requires changing some of the matching
+%% on ?STATE_*.
+%%
+%% Death of a conn process results in connection_down followed by
+%% watchdog ?WD_DOWN. The latter doesn't result in the conn record
+%% being deleted since 'DOWN' from death of its peer doesn't (yet)
+%% deal with the record having been removed.
 
 %% Monitor process has died. Just die with a reason that tells
 %% diameter_config about the happening. If a cleaner shutdown is
@@ -887,7 +926,14 @@ accepted(Pid, _TPid, #state{peerT = PeerT} = S) ->
 
 fetch(Tid, Key) ->
     [T] = ets:lookup(Tid, Key),
-    T.
+    case T of
+        #peer{op_state = ?STATE_UP} = P ->
+            P#peer{op_state = {?STATE_UP, ?WD_OKAY}};
+        #peer{op_state = ?STATE_DOWN} = P ->
+            P#peer{op_state = {?STATE_DOWN, ?WD_DOWN}};
+        _ ->
+            T
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% # connection_up/3
@@ -933,12 +979,12 @@ connection_up(T, P, C, #state{peerT = PeerT,
                               service
                               = #diameter_service{applications = Apps}}
                        = S) ->
-    #peer{conn = TPid, op_state = ?STATE_DOWN}
+    #peer{conn = TPid, op_state = {?STATE_DOWN, _}}
         = P,
     #conn{apps = SApps, caps = Caps}
         = C,
 
-    insert(PeerT, P#peer{op_state = ?STATE_UP}),
+    insert(PeerT, P#peer{op_state = {?STATE_UP, ?WD_OKAY}}),
 
     request_peer_up(TPid),
     report_status(up, P, C, S, T),
@@ -987,22 +1033,22 @@ peer_cb(MFA, Alias) ->
 connection_down(Pid, #state{peerT = PeerT,
                             connT = ConnT}
                      = S) ->
-    #peer{op_state = ?STATE_UP,  %% assert
+    #peer{op_state = {?STATE_UP, WS},  %% assert
           conn = TPid}
         = P
         = fetch(PeerT, Pid),
 
     C = fetch(ConnT, TPid),
-    insert(PeerT, P#peer{op_state = ?STATE_DOWN}),
+    insert(PeerT, P#peer{op_state = {?STATE_DOWN, WS}}),
     connection_down(P,C,S).
 
 %% connection_down/3
 
-connection_down(#peer{op_state = ?STATE_DOWN}, _, S) ->
+connection_down(#peer{op_state = {?STATE_DOWN, _}}, _, S) ->
     S;
 
 connection_down(#peer{conn = TPid,
-                      op_state = ?STATE_UP}
+                      op_state = {?STATE_UP, _}}
                 = P,
                 #conn{caps = Caps,
                       apps = SApps}
@@ -1051,7 +1097,7 @@ peer_down(Pid, Reason, #state{peerT = PeerT} = S) ->
 
 %% Send an event at connection establishment failure.
 closed({shutdown, {close, _TPid, Reason}},
-       #peer{op_state = ?STATE_DOWN,
+       #peer{op_state = {?STATE_DOWN, _},
              ref = Ref,
              type = Type,
              options = Opts},
@@ -2858,15 +2904,26 @@ it_acc(ConnT, Acc, #peer{pid = Pid,
                          op_state = OS,
                          started = T,
                          conn = TPid}) ->
+    WS = wd_state(OS),
     dict:append(Ref,
                 [{type, Type},
                  {options, Opts},
-                 {watchdog, {Pid, T, OS}}
-                 | info_conn(ConnT, TPid)],
+                 {watchdog, {Pid, T, WS}}
+                 | info_conn(ConnT, TPid, WS /= ?WD_DOWN)],
                 Acc).
 
-info_conn(ConnT, TPid) ->
-    info_conn(ets:lookup(ConnT, TPid)).
+info_conn(ConnT, TPid, true)
+  when is_pid(TPid) ->
+    info_conn(ets:lookup(ConnT, TPid));
+info_conn(_, _, _) ->
+    [].
+
+wd_state({_,S}) ->
+    S;
+wd_state(?STATE_UP) ->
+    ?WD_OKAY;
+wd_state(?STATE_DOWN) ->
+    ?WD_DOWN.
 
 info_conn([#conn{pid = Pid, apps = SApps, caps = Caps, started = T}]) ->
     [{peer, {Pid, T}},
