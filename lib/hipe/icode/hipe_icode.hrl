@@ -64,9 +64,9 @@
 -type icode_if_op()  :: '>' | '<' | '>=' | '=<' | '=:=' | '=/=' | '==' | '/='
                       | 'fixnum_eq' | 'fixnum_neq' | 'fixnum_lt'
                       | 'fixnum_le' | 'fixnum_ge' | 'fixnum_gt' 
-                      | 'suspend_msg_timeout'.
+                      | 'op_exact_eqeq_2' | 'suspend_msg_timeout'.
 
--type icode_type_test()	:: 'atom' | 'bignum' | 'binary' | 'bitrst' | 'boolean'
+-type icode_type_test()	:: 'atom' | 'bignum' | 'binary' | 'bitstr' | 'boolean'
                          | 'cons' | 'constant' | 'fixnum' | 'float'
                          | 'function' | 'function2' | 'integer' | 'list' | 'nil'
                          | 'number' | 'pid' | 'port' | 'reference' | 'tuple'
@@ -88,7 +88,7 @@
 -type icode_call_type()   :: 'local' | 'primop' | 'remote'.
 -type icode_exit_class()  :: 'error' | 'exit' | 'rethrow' | 'throw'.
 
--type icode_comment_text() :: atom() | string() | {atom(), term()}.
+-type icode_comment_text() :: atom() | string().
 
 -type icode_info() :: [{'arg_types', [erl_types:erl_type()]}].
 
