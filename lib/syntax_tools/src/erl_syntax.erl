@@ -14,10 +14,8 @@
 %% Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
 %% USA
 %%
-%% $Id$
-%%
 %% @copyright 1997-2006 Richard Carlsson
-%% @author Richard Carlsson <richardc@it.uu.se>
+%% @author Richard Carlsson <carlsson.richard@gmail.com>
 %% @end
 %% =====================================================================
 
@@ -26,23 +24,20 @@
 %% This module defines an abstract data type for representing Erlang
 %% source code as syntax trees, in a way that is backwards compatible
 %% with the data structures created by the Erlang standard library
-%% parser module <code>erl_parse</code> (often referred to as "parse
+%% parser module `erl_parse' (often referred to as "parse
 %% trees", which is a bit of a misnomer). This means that all
-%% <code>erl_parse</code> trees are valid abstract syntax trees, but the
+%% `erl_parse' trees are valid abstract syntax trees, but the
 %% reverse is not true: abstract syntax trees can in general not be used
-%% as input to functions expecting an <code>erl_parse</code> tree.
+%% as input to functions expecting an `erl_parse' tree.
 %% However, as long as an abstract syntax tree represents a correct
-%% Erlang program, the function <a
-%% href="#revert-1"><code>revert/1</code></a> should be able to
-%% transform it to the corresponding <code>erl_parse</code>
+%% Erlang program, the function {@link revert/1} should be able to
+%% transform it to the corresponding `erl_parse'
 %% representation.
 %%
-%% A recommended starting point for the first-time user is the
-%% documentation of the <a
-%% href="#type-syntaxTree"><code>syntaxTree()</code></a> data type, and
-%% the function <a href="#type-1"><code>type/1</code></a>.
+%% A recommended starting point for the first-time user is the documentation
+%% of the {@link syntaxTree()} data type, and the function {@link type/1}.
 %%
-%% <h3><b>NOTES:</b></h3>
+%% == NOTES: ==
 %%
 %% This module deals with the composition and decomposition of
 %% <em>syntactic</em> entities (as opposed to semantic ones); its
@@ -52,36 +47,31 @@
 %% in general, the user is assumed to pass type-correct arguments - if
 %% this is not done, the effects are not defined.
 %%
-%% With the exception of the <code>erl_parse</code> data structures,
+%% With the exception of the {@link erl_parse()} data structures,
 %% the internal representations of abstract syntax trees are subject to
 %% change without notice, and should not be documented outside this
 %% module. Furthermore, we do not give any guarantees on how an abstract
 %% syntax tree may or may not be represented, <em>with the following
 %% exceptions</em>: no syntax tree is represented by a single atom, such
-%% as <code>none</code>, by a list constructor <code>[X | Y]</code>, or
-%% by the empty list <code>[]</code>. This can be relied on when writing
+%% as `none', by a list constructor `[X | Y]', or
+%% by the empty list `[]'. This can be relied on when writing
 %% functions that operate on syntax trees.
 
-%% @type syntaxTree(). An abstract syntax tree. The
-%% <code>erl_parse</code> "parse tree" representation is a subset of the
-%% <code>syntaxTree()</code> representation.
+%% @type syntaxTree(). An abstract syntax tree. The {@link erl_parse()}
+%% "parse tree" representation is a proper subset of the `syntaxTree()'
+%% representation.
 %%
 %% Every abstract syntax tree node has a <em>type</em>, given by the
-%% function <a href="#type-1"><code>type/1</code></a>. Each node also
-%% has associated <em>attributes</em>; see <a
-%% href="#get_attrs-1"><code>get_attrs/1</code></a> for details. The
-%% functions <a href="#make_tree-2"><code>make_tree/2</code></a> and <a
-%% href="#subtrees-1"><code>subtrees/1</code></a> are generic
+%% function {@link type/1}. Each node also has associated
+%% <em>attributes</em>; see {@link get_attrs/1} for details. The functions
+%% {@link make_tree/2} and {@link subtrees/1} are generic
 %% constructor/decomposition functions for abstract syntax trees. The
-%% functions <a href="#abstract-1"><code>abstract/1</code></a> and <a
-%% href="#concrete-1"><code>concrete/1</code></a> convert between
+%% functions {@link abstract/1} and {@link concrete/1} convert between
 %% constant Erlang terms and their syntactic representations. The set of
-%% syntax tree nodes is extensible through the <a
-%% href="#tree-2"><code>tree/2</code></a> function.
+%% syntax tree nodes is extensible through the {@link tree/2} function.
 %%
-%% A syntax tree can be transformed to the <code>erl_parse</code>
-%% representation with the <a href="#revert-1"><code>revert/1</code></a>
-%% function.
+%% A syntax tree can be transformed to the {@link erl_parse()}
+%% representation with the {@link revert/1} function.
 
 -module(erl_syntax).
 
@@ -309,7 +299,7 @@
 	 data/1,
 	 is_tree/1]).
 
--export_type([forms/0, syntaxTree/0, syntaxTreeAttributes/0]).
+-export_type([forms/0, syntaxTree/0, syntaxTreeAttributes/0, padding/0]).
 
 %% =====================================================================
 %% IMPLEMENTATION NOTES:
@@ -390,11 +380,15 @@
 
 -record(wrapper, {type           :: atom(),
 		  attr = #attr{} :: #attr{},
-		  tree           :: term()}).
+		  tree           :: erl_parse()}).
 
 %% =====================================================================
 
--type syntaxTree() :: #tree{} | #wrapper{} | tuple(). % XXX: refine
+-type syntaxTree() :: #tree{} | #wrapper{} | erl_parse().
+
+-type erl_parse() :: erl_parse:abstract_form() | erl_parse:abstract_expr().
+%% The representation built by the Erlang standard library parser
+%% `erl_parse'. This is a subset of the {@link syntaxTree()} type.
 
 %% =====================================================================
 %%
@@ -404,12 +398,11 @@
 
 
 %% =====================================================================
-%% @spec type(Node::syntaxTree()) -> atom()
-%%
-%% @doc Returns the type tag of <code>Node</code>. If <code>Node</code>
+%% @doc Returns the type tag of `Node'. If `Node'
 %% does not represent a syntax tree, evaluation fails with reason
-%% <code>badarg</code>. Node types currently defined by this module are:
-%% <p><center><table border="1">
+%% `badarg'. Node types currently defined by this module are:
+%%
+%% <center><table border="1">
 %%  <tr>
 %%   <td>application</td>
 %%   <td>arity_qualifier</td>
@@ -476,12 +469,13 @@
 %%   <td>variable</td>
 %%   <td>warning_marker</td>
 %%  </tr>
-%% </table></center></p>
-%% <p>The user may (for special purposes) create additional nodes
-%% with other type tags, using the <code>tree/2</code> function.</p>
+%% </table></center>
 %%
-%% <p>Note: The primary constructor functions for a node type should
-%% always have the same name as the node type itself.</p>
+%% The user may (for special purposes) create additional nodes
+%% with other type tags, using the {@link tree/2} function.
+%%
+%% Note: The primary constructor functions for a node type should
+%% always have the same name as the node type itself.
 %%
 %% @see tree/2
 %% @see application/3
@@ -606,39 +600,38 @@ type(Node) ->
 
 
 %% =====================================================================
-%% @spec is_leaf(Node::syntaxTree()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> is a leaf node,
-%% otherwise <code>false</code>. The currently recognised leaf node
+%% @doc Returns `true' if `Node' is a leaf node,
+%% otherwise `false'. The currently recognised leaf node
 %% types are:
-%% <p><center><table border="1">
-%%  <tr>
-%%   <td><code>atom</code></td>
-%%   <td><code>char</code></td>
-%%   <td><code>comment</code></td>
-%%   <td><code>eof_marker</code></td>
-%%   <td><code>error_marker</code></td>
-%%  </tr><tr>
-%%   <td><code>float</code></td>
-%%   <td><code>integer</code></td>
-%%   <td><code>nil</code></td>
-%%   <td><code>operator</code></td>
-%%   <td><code>string</code></td>
-%%  </tr><tr>
-%%   <td><code>text</code></td>
-%%   <td><code>underscore</code></td>
-%%   <td><code>variable</code></td>
-%%   <td><code>warning_marker</code></td>
-%%  </tr>
-%% </table></center></p>
-%% <p>A node of type <code>tuple</code> is a leaf node if and only if
-%% its arity is zero.</p>
 %%
-%% <p>Note: not all literals are leaf nodes, and vice versa. E.g.,
+%% <center><table border="1">
+%%  <tr>
+%%   <td>`atom'</td>
+%%   <td>`char'</td>
+%%   <td>`comment'</td>
+%%   <td>`eof_marker'</td>
+%%   <td>`error_marker'</td>
+%%  </tr><tr>
+%%   <td>`float'</td>
+%%   <td>`integer'</td>
+%%   <td>`nil'</td>
+%%   <td>`operator'</td>
+%%   <td>`string'</td>
+%%  </tr><tr>
+%%   <td>`text'</td>
+%%   <td>`underscore'</td>
+%%   <td>`variable'</td>
+%%   <td>`warning_marker'</td>
+%%  </tr>
+%% </table></center>
+%%
+%% A node of type `tuple' is a leaf node if and only if its arity is zero.
+%%
+%% Note: not all literals are leaf nodes, and vice versa. E.g.,
 %% tuples with nonzero arity and nonempty lists may be literals, but are
 %% not leaf nodes. Variables, on the other hand, are leaf nodes but not
-%% literals.</p>
-%% 
+%% literals.
+%%
 %% @see type/1
 %% @see is_literal/1
 
@@ -666,29 +659,29 @@ is_leaf(Node) ->
 
 
 %% =====================================================================
-%% @spec is_form(Node::syntaxTree()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> is a syntax tree
+%% @doc Returns `true' if `Node' is a syntax tree
 %% representing a so-called "source code form", otherwise
-%% <code>false</code>. Forms are the Erlang source code units which,
+%% `false'. Forms are the Erlang source code units which,
 %% placed in sequence, constitute an Erlang program. Current form types
 %% are:
-%% <p><center><table border="1">
+%%
+%% <center><table border="1">
 %%  <tr>
-%%   <td><code>attribute</code></td>
-%%   <td><code>comment</code></td>
-%%   <td><code>error_marker</code></td>
-%%   <td><code>eof_marker</code></td>
-%%   <td><code>form_list</code></td>
+%%   <td>`attribute'</td>
+%%   <td>`comment'</td>
+%%   <td>`error_marker'</td>
+%%   <td>`eof_marker'</td>
+%%   <td>`form_list'</td>
 %%  </tr><tr>
-%%   <td><code>function</code></td>
-%%   <td><code>rule</code></td>
-%%   <td><code>warning_marker</code></td>
-%%   <td><code>text</code></td>
+%%   <td>`function'</td>
+%%   <td>`rule'</td>
+%%   <td>`warning_marker'</td>
+%%   <td>`text'</td>
 %%  </tr>
-%% </table></center></p>
+%% </table></center>
+%%
 %% @see type/1
-%% @see attribute/2 
+%% @see attribute/2
 %% @see comment/2
 %% @see eof_marker/0
 %% @see error_marker/1
@@ -715,10 +708,8 @@ is_form(Node) ->
 
 
 %% =====================================================================
-%% @spec get_pos(Node::syntaxTree()) -> term()
-%%
 %% @doc Returns the position information associated with
-%% <code>Node</code>. This is usually a nonnegative integer (indicating
+%% `Node'. This is usually a nonnegative integer (indicating
 %% the source code line number), but may be any term. By default, all
 %% new tree nodes have their associated position information set to the
 %% integer zero.
@@ -750,10 +741,7 @@ get_pos(Node) ->
 
 
 %% =====================================================================
-%% @spec set_pos(Node::syntaxTree(), Pos::term()) -> syntaxTree()
-%%
-%% @doc Sets the position information of <code>Node</code> to
-%% <code>Pos</code>.
+%% @doc Sets the position information of `Node' to `Pos'.
 %%
 %% @see get_pos/1
 %% @see copy_pos/2
@@ -774,14 +762,10 @@ set_pos(Node, Pos) ->
 
 
 %% =====================================================================
-%% @spec copy_pos(Source::syntaxTree(), Target::syntaxTree()) ->
-%%           syntaxTree()
+%% @doc Copies the position information from `Source' to `Target'.
 %%
-%% @doc Copies the position information from <code>Source</code> to
-%% <code>Target</code>.
-%%
-%% <p>This is equivalent to <code>set_pos(Target,
-%% get_pos(Source))</code>, but potentially more efficient.</p>
+%% This is equivalent to `set_pos(Target,
+%% get_pos(Source))', but potentially more efficient.
 %%
 %% @see get_pos/1
 %% @see set_pos/2
@@ -811,24 +795,20 @@ set_com(Node, Com) ->
 
 
 %% =====================================================================
-%% @spec get_precomments(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the associated pre-comments of a node. This is a
 %% possibly empty list of abstract comments, in top-down textual order.
 %% When the code is formatted, pre-comments are typically displayed
 %% directly above the node. For example:
-%% <pre>
-%%         % Pre-comment of function
-%%         foo(X) -> {bar, X}.</pre>
+%% ```% Pre-comment of function
+%%    foo(X) -> {bar, X}.'''
 %%
-%% <p>If possible, the comment should be moved before any preceding
+%% If possible, the comment should be moved before any preceding
 %% separator characters on the same line. E.g.:
-%% <pre>
-%%         foo([X | Xs]) ->
-%%             % Pre-comment of 'bar(X)' node
-%%             [bar(X) | foo(Xs)];
-%%         ...</pre>
-%% (where the comment is moved before the "<code>[</code>").</p>
+%% ```foo([X | Xs]) ->
+%%        % Pre-comment of 'bar(X)' node
+%%        [bar(X) | foo(Xs)];
+%%    ...'''
+%% (where the comment is moved before the "`['").
 %%
 %% @see comment/2
 %% @see set_precomments/2
@@ -846,11 +826,8 @@ get_precomments_1(#attr{com = #com{pre = Cs}}) -> Cs.
 
 
 %% =====================================================================
-%% @spec set_precomments(Node::syntaxTree(),
-%%                       Comments::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Sets the pre-comments of <code>Node</code> to
-%% <code>Comments</code>. <code>Comments</code> should be a possibly
+%% @doc Sets the pre-comments of `Node' to
+%% `Comments'. `Comments' should be a possibly
 %% empty list of abstract comments, in top-down textual order.
 %%
 %% @see comment/2
@@ -880,15 +857,11 @@ set_precomments_1(#attr{com = Com} = Attr, Cs) ->
 
 
 %% =====================================================================
-%% @spec add_precomments(Comments::[syntaxTree()],
-%%                       Node::syntaxTree()) -> syntaxTree()
+%% @doc Appends `Comments' to the pre-comments of `Node'.
 %%
-%% @doc Appends <code>Comments</code> to the pre-comments of
-%% <code>Node</code>.
-%%
-%% <p>Note: This is equivalent to <code>set_precomments(Node,
-%% get_precomments(Node) ++ Comments)</code>, but potentially more
-%% efficient.</p>
+%% Note: This is equivalent to `set_precomments(Node,
+%% get_precomments(Node) ++ Comments)', but potentially more
+%% efficient.
 %%
 %% @see comment/2
 %% @see get_precomments/1
@@ -915,24 +888,20 @@ add_precomments_1(Cs, #attr{com = Com} = Attr) ->
 
 
 %% =====================================================================
-%% @spec get_postcomments(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the associated post-comments of a node. This is a
 %% possibly empty list of abstract comments, in top-down textual order.
 %% When the code is formatted, post-comments are typically displayed to
 %% the right of and/or below the node. For example:
-%% <pre>
-%%         {foo, X, Y}     % Post-comment of tuple</pre>
+%% ```{foo, X, Y}     % Post-comment of tuple'''
 %%
-%% <p>If possible, the comment should be moved past any following
+%% If possible, the comment should be moved past any following
 %% separator characters on the same line, rather than placing the
 %% separators on the following line. E.g.:
-%% <pre>
-%%         foo([X | Xs], Y) ->
-%%             foo(Xs, bar(X));     % Post-comment of 'bar(X)' node
-%%          ...</pre>
-%% (where the comment is moved past the rightmost "<code>)</code>" and
-%% the "<code>;</code>").</p>
+%% ```foo([X | Xs], Y) ->
+%%        foo(Xs, bar(X));     % Post-comment of 'bar(X)' node
+%%     ...'''
+%% (where the comment is moved past the rightmost "`)'" and
+%% the "`;'").
 %%
 %% @see comment/2
 %% @see set_postcomments/2
@@ -950,11 +919,8 @@ get_postcomments_1(#attr{com = #com{post = Cs}}) -> Cs.
 
 
 %% =====================================================================
-%% @spec set_postcomments(Node::syntaxTree(),
-%%                        Comments::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Sets the post-comments of <code>Node</code> to
-%% <code>Comments</code>. <code>Comments</code> should be a possibly
+%% @doc Sets the post-comments of `Node' to
+%% `Comments'. `Comments' should be a possibly
 %% empty list of abstract comments, in top-down textual order
 %%
 %% @see comment/2
@@ -984,15 +950,11 @@ set_postcomments_1(#attr{com = Com} = Attr, Cs) ->
 
 
 %% =====================================================================
-%% @spec add_postcomments(Comments::[syntaxTree()],
-%%                        Node::syntaxTree()) -> syntaxTree()
+%% @doc Appends `Comments' to the post-comments of `Node'.
 %%
-%% @doc Appends <code>Comments</code> to the post-comments of
-%% <code>Node</code>.
-%%
-%% <p>Note: This is equivalent to <code>set_postcomments(Node,
-%% get_postcomments(Node) ++ Comments)</code>, but potentially more
-%% efficient.</p>
+%% Note: This is equivalent to `set_postcomments(Node,
+%% get_postcomments(Node) ++ Comments)', but potentially more
+%% efficient.
 %%
 %% @see comment/2
 %% @see get_postcomments/1
@@ -1019,14 +981,12 @@ add_postcomments_1(Cs, #attr{com = Com} = Attr) ->
 
 
 %% =====================================================================
-%% @spec has_comments(Node::syntaxTree()) -> boolean()
+%% @doc Yields `false' if the node has no associated
+%% comments, and `true' otherwise.
 %%
-%% @doc Yields <code>false</code> if the node has no associated
-%% comments, and <code>true</code> otherwise.
-%%
-%% <p>Note: This is equivalent to <code>(get_precomments(Node) == [])
-%% and (get_postcomments(Node) == [])</code>, but potentially more
-%% efficient.</p>
+%% Note: This is equivalent to `(get_precomments(Node) == [])
+%% and (get_postcomments(Node) == [])', but potentially more
+%% efficient.
 %%
 %% @see get_precomments/1
 %% @see get_postcomments/1
@@ -1050,13 +1010,11 @@ has_comments(_) -> false.
 
 
 %% =====================================================================
-%% @spec remove_comments(Node::syntaxTree()) -> syntaxTree()
+%% @doc Clears the associated comments of `Node'.
 %%
-%% @doc Clears the associated comments of <code>Node</code>.
-%%
-%% <p>Note: This is equivalent to
-%% <code>set_precomments(set_postcomments(Node, []), [])</code>, but
-%% potentially more efficient.</p>
+%% Note: This is equivalent to
+%% `set_precomments(set_postcomments(Node, []), [])', but
+%% potentially more efficient.
 %%
 %% @see set_precomments/2
 %% @see set_postcomments/2
@@ -1075,16 +1033,12 @@ remove_comments(Node) ->
 
 
 %% =====================================================================
-%% @spec copy_comments(Source::syntaxTree(), Target::syntaxTree()) ->
-%%           syntaxTree()
+%% @doc Copies the pre- and postcomments from `Source' to `Target'.
 %%
-%% @doc Copies the pre- and postcomments from <code>Source</code> to
-%% <code>Target</code>.
-%%
-%% <p>Note: This is equivalent to
-%% <code>set_postcomments(set_precomments(Target,
-%% get_precomments(Source)), get_postcomments(Source))</code>, but
-%% potentially more efficient.</p>
+%% Note: This is equivalent to
+%% `set_postcomments(set_precomments(Target,
+%% get_precomments(Source)), get_postcomments(Source))', but
+%% potentially more efficient.
 %%
 %% @see comment/2
 %% @see get_precomments/1
@@ -1099,16 +1053,13 @@ copy_comments(Source, Target) ->
 
 
 %% =====================================================================
-%% @spec join_comments(Source::syntaxTree(), Target::syntaxTree()) ->
-%%           syntaxTree()
+%% @doc Appends the comments of `Source' to the current
+%% comments of `Target'.
 %%
-%% @doc Appends the comments of <code>Source</code> to the current
-%% comments of <code>Target</code>.
-%%
-%% <p>Note: This is equivalent to
-%% <code>add_postcomments(get_postcomments(Source),
-%% add_precomments(get_precomments(Source), Target))</code>, but
-%% potentially more efficient.</p>
+%% Note: This is equivalent to
+%% `add_postcomments(get_postcomments(Source),
+%% add_precomments(get_precomments(Source), Target))', but
+%% potentially more efficient.
 %%
 %% @see comment/2
 %% @see get_precomments/1
@@ -1125,8 +1076,6 @@ join_comments(Source, Target) ->
 
 
 %% =====================================================================
-%% @spec get_ann(syntaxTree()) -> [term()]
-%%
 %% @doc Returns the list of user annotations associated with a syntax
 %% tree node. For a newly created node, this is the empty list. The
 %% annotations may be any terms.
@@ -1142,11 +1091,7 @@ get_ann(_) -> [].
 
 
 %% =====================================================================
-%% @spec set_ann(Node::syntaxTree(), Annotations::[term()]) ->
-%%           syntaxTree()
-%%
-%% @doc Sets the list of user annotations of <code>Node</code> to
-%% <code>Annotations</code>.
+%% @doc Sets the list of user annotations of `Node' to `Annotations'.
 %%
 %% @see get_ann/1
 %% @see add_ann/2
@@ -1168,13 +1113,11 @@ set_ann(Node, As) ->
 
 
 %% =====================================================================
-%% @spec add_ann(Annotation::term(), Node::syntaxTree()) -> syntaxTree()
+%% @doc Appends the term `Annotation' to the list of user
+%% annotations of `Node'.
 %%
-%% @doc Appends the term <code>Annotation</code> to the list of user
-%% annotations of <code>Node</code>.
-%%
-%% <p>Note: this is equivalent to <code>set_ann(Node, [Annotation |
-%% get_ann(Node)])</code>, but potentially more efficient.</p>
+%% Note: this is equivalent to `set_ann(Node, [Annotation |
+%% get_ann(Node)])', but potentially more efficient.
 %%
 %% @see get_ann/1
 %% @see set_ann/2
@@ -1195,14 +1138,10 @@ add_ann(A, Node) ->
 
 
 %% =====================================================================
-%% @spec copy_ann(Source::syntaxTree(), Target::syntaxTree()) ->
-%%           syntaxTree()
+%% @doc Copies the list of user annotations from `Source' to `Target'.
 %%
-%% @doc Copies the list of user annotations from <code>Source</code> to
-%% <code>Target</code>.
-%%
-%% <p>Note: this is equivalent to <code>set_ann(Target,
-%% get_ann(Source))</code>, but potentially more efficient.</p>
+%% Note: this is equivalent to `set_ann(Target,
+%% get_ann(Source))', but potentially more efficient.
 %%
 %% @see get_ann/1
 %% @see set_ann/2
@@ -1214,23 +1153,20 @@ copy_ann(Source, Target) ->
 
 
 %% =====================================================================
-%% @spec get_attrs(syntaxTree()) -> syntaxTreeAttributes()
-%%
 %% @doc Returns a representation of the attributes associated with a
 %% syntax tree node. The attributes are all the extra information that
 %% can be attached to a node. Currently, this includes position
 %% information, source code comments, and user annotations. The result
 %% of this function cannot be inspected directly; only attached to
-%% another node (cf. <code>set_attrs/2</code>).
+%% another node (see {@link set_attrs/2}).
 %%
-%% <p>For accessing individual attributes, see <code>get_pos/1</code>,
-%% <code>get_ann/1</code>, <code>get_precomments/1</code> and
-%% <code>get_postcomments/1</code>.</p>
+%% For accessing individual attributes, see {@link get_pos/1},
+%% {@link get_ann/1}, {@link get_precomments/1} and
+%% {@link get_postcomments/1}.
 %%
 %% @type syntaxTreeAttributes(). This is an abstract representation of
-%% syntax tree node attributes; see the function <a
-%% href="#get_attrs-1"><code>get_attrs/1</code></a>.
-%% 
+%% syntax tree node attributes; see the function {@link get_attrs/1}.
+%%
 %% @see set_attrs/2
 %% @see get_pos/1
 %% @see get_ann/1
@@ -1247,11 +1183,7 @@ get_attrs(Node) -> #attr{pos = get_pos(Node),
 
 
 %% =====================================================================
-%% @spec set_attrs(Node::syntaxTree(),
-%%                 Attributes::syntaxTreeAttributes()) -> syntaxTree()
-%%
-%% @doc Sets the attributes of <code>Node</code> to
-%% <code>Attributes</code>.
+%% @doc Sets the attributes of `Node' to `Attributes'.
 %%
 %% @see get_attrs/1
 %% @see copy_attrs/2
@@ -1270,14 +1202,10 @@ set_attrs(Node, Attr) ->
 
 
 %% =====================================================================
-%% @spec copy_attrs(Source::syntaxTree(), Target::syntaxTree()) ->
-%%           syntaxTree()
+%% @doc Copies the attributes from `Source' to `Target'.
 %%
-%% @doc Copies the attributes from <code>Source</code> to
-%% <code>Target</code>.
-%%
-%% <p>Note: this is equivalent to <code>set_attrs(Target,
-%% get_attrs(Source))</code>, but potentially more efficient.</p>
+%% Note: this is equivalent to `set_attrs(Target,
+%% get_attrs(Source))', but potentially more efficient.
 %%
 %% @see get_attrs/1
 %% @see set_attrs/2
@@ -1289,7 +1217,6 @@ copy_attrs(S, T) ->
 
 
 %% =====================================================================
-%% @spec comment(Strings) -> syntaxTree()
 %% @equiv comment(none, Strings)
 
 -spec comment([string()]) -> syntaxTree().
@@ -1299,22 +1226,19 @@ comment(Strings) ->
 
 
 %% =====================================================================
-%% @spec comment(Padding, Strings::[string()]) -> syntaxTree()
-%%	    Padding = none | integer()
-%%
 %% @doc Creates an abstract comment with the given padding and text. If
-%% <code>Strings</code> is a (possibly empty) list
+%% `Strings' is a (possibly empty) list
 %% <code>["<em>Txt1</em>", ..., "<em>TxtN</em>"]</code>, the result
 %% represents the source code text
 %% <pre>
-%%     %<em>Txt1</em>
-%%     ...
-%%     %<em>TxtN</em></pre>
-%% <code>Padding</code> states the number of empty character positions
+%%    %<em>Txt1</em>
+%%    ...
+%%    %<em>TxtN</em></pre>
+%% `Padding' states the number of empty character positions
 %% to the left of the comment separating it horizontally from
-%% source code on the same line (if any). If <code>Padding</code> is
-%% <code>none</code>, a default positive number is used. If
-%% <code>Padding</code> is an integer less than 1, there should be no
+%% source code on the same line (if any). If `Padding' is
+%% `none', a default positive number is used. If
+%% `Padding' is an integer less than 1, there should be no
 %% separating space. Comments are in themselves regarded as source
 %% program forms.
 %%
@@ -1338,8 +1262,6 @@ comment(Pad, Strings) ->
 
 
 %% =====================================================================
-%% @spec comment_text(syntaxTree()) -> [string()]
-%%
 %% @doc Returns the lines of text of the abstract comment.
 %%
 %% @see comment/2
@@ -1351,11 +1273,8 @@ comment_text(Node) ->
 
 
 %% =====================================================================
-%% @spec comment_padding(syntaxTree()) -> none | integer()
-%%
 %% @doc Returns the amount of padding before the comment, or
-%% <code>none</code>. The latter means that a default padding may be
-%% used.
+%% `none'. The latter means that a default padding may be used.
 %%
 %% @see comment/2
 
@@ -1366,23 +1285,21 @@ comment_padding(Node) ->
 
 
 %% =====================================================================
-%% @spec form_list(Forms::[syntaxTree()]) -> syntaxTree()
-%%
 %% @doc Creates an abstract sequence of "source code forms". If
-%% <code>Forms</code> is <code>[F1, ..., Fn]</code>, where each
-%% <code>Fi</code> is a form (cf. <code>is_form/1</code>, the result
+%% `Forms' is `[F1, ..., Fn]', where each
+%% `Fi' is a form (see {@link is_form/1}, the result
 %% represents
 %% <pre>
-%%     <em>F1</em>
-%%     ...
-%%     <em>Fn</em></pre>
-%% where the <code>Fi</code> are separated by one or more line breaks. A
-%% node of type <code>form_list</code> is itself regarded as a source
-%% code form; cf. <code>flatten_form_list/1</code>.
+%%    <em>F1</em>
+%%    ...
+%%    <em>Fn</em></pre>
+%% where the `Fi' are separated by one or more line breaks. A
+%% node of type `form_list' is itself regarded as a source
+%% code form; see {@link flatten_form_list/1}.
 %%
-%% <p>Note: this is simply a way of grouping source code forms as a
+%% Note: this is simply a way of grouping source code forms as a
 %% single syntax tree, usually in order to form an Erlang module
-%% definition.</p>
+%% definition.
 %%
 %% @see form_list_elements/1
 %% @see is_form/1
@@ -1401,9 +1318,7 @@ form_list(Forms) ->
 
 
 %% =====================================================================
-%% @spec form_list_elements(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of subnodes of a <code>form_list</code> node.
+%% @doc Returns the list of subnodes of a `form_list' node.
 %%
 %% @see form_list/1
 
@@ -1414,10 +1329,8 @@ form_list_elements(Node) ->
 
 
 %% =====================================================================
-%% @spec flatten_form_list(Node::syntaxTree()) -> syntaxTree()
-%%
-%% @doc Flattens sublists of a <code>form_list</code> node. Returns
-%% <code>Node</code> with all subtrees of type <code>form_list</code>
+%% @doc Flattens sublists of a `form_list' node. Returns
+%% `Node' with all subtrees of type `form_list'
 %% recursively expanded, yielding a single "flat" abstract form
 %% sequence.
 %%
@@ -1443,10 +1356,8 @@ flatten_form_list_1([], As) ->
 
 
 %% =====================================================================
-%% @spec text(String::string()) -> syntaxTree()
-%%
 %% @doc Creates an abstract piece of source code text. The result
-%% represents exactly the sequence of characters in <code>String</code>.
+%% represents exactly the sequence of characters in `String'.
 %% This is useful in cases when one wants full control of the resulting
 %% output, e.g., for the appearance of floating-point numbers or macro
 %% definitions.
@@ -1463,10 +1374,7 @@ text(String) ->
 
 
 %% =====================================================================
-%% @spec text_string(syntaxTree()) -> string()
-%%
-%% @doc Returns the character sequence represented by a
-%% <code>text</code> node.
+%% @doc Returns the character sequence represented by a `text' node.
 %%
 %% @see text/1
 
@@ -1477,18 +1385,15 @@ text_string(Node) ->
 
 
 %% =====================================================================
-%% @spec variable(Name) -> syntaxTree()
-%%	    Name = atom() | string()
-%%
 %% @doc Creates an abstract variable with the given name.
-%% <code>Name</code> may be any atom or string that represents a
+%% `Name' may be any atom or string that represents a
 %% lexically valid variable name, but <em>not</em> a single underscore
-%% character; cf. <code>underscore/0</code>.
+%% character; see {@link underscore/0}.
 %%
-%% <p>Note: no checking is done whether the character sequence
+%% Note: no checking is done whether the character sequence
 %% represents a proper variable name, i.e., whether or not its first
 %% character is an uppercase Erlang character, or whether it does not
-%% contain control characters, whitespace, etc.</p>
+%% contain control characters, whitespace, etc.
 %%
 %% @see variable_name/1
 %% @see variable_literal/1
@@ -1517,9 +1422,7 @@ revert_variable(Node) ->
 
 
 %% =====================================================================
-%% @spec variable_name(syntaxTree()) -> atom()
-%%
-%% @doc Returns the name of a <code>variable</code> node as an atom.
+%% @doc Returns the name of a `variable' node as an atom.
 %%
 %% @see variable/1
 
@@ -1535,9 +1438,7 @@ variable_name(Node) ->
 
 
 %% =====================================================================
-%% @spec variable_literal(syntaxTree()) -> string()
-%%
-%% @doc Returns the name of a <code>variable</code> node as a string.
+%% @doc Returns the name of a `variable' node as a string.
 %%
 %% @see variable/1
 
@@ -1553,9 +1454,7 @@ variable_literal(Node) ->
 
 
 %% =====================================================================
-%% @spec underscore() -> syntaxTree()
-%%
-%% @doc Creates an abstract universal pattern ("<code>_</code>"). The
+%% @doc Creates an abstract universal pattern ("`_'"). The
 %% lexical representation is a single underscore character. Note that
 %% this is <em>not</em> a variable, lexically speaking.
 %%
@@ -1579,10 +1478,8 @@ revert_underscore(Node) ->
 
 
 %% =====================================================================
-%% @spec integer(Value::integer()) -> syntaxTree()
-%%
 %% @doc Creates an abstract integer literal. The lexical representation
-%% is the canonical decimal numeral of <code>Value</code>.
+%% is the canonical decimal numeral of `Value'.
 %%
 %% @see integer_value/1
 %% @see integer_literal/1
@@ -1608,11 +1505,8 @@ revert_integer(Node) ->
 
 
 %% =====================================================================
-%% @spec is_integer(Node::syntaxTree(), Value::integer()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> has type
-%% <code>integer</code> and represents <code>Value</code>, otherwise
-%% <code>false</code>.
+%% @doc Returns `true' if `Node' has type
+%% `integer' and represents `Value', otherwise `false'.
 %%
 %% @see integer/1
 
@@ -1630,9 +1524,7 @@ is_integer(Node, Value) ->
 
 
 %% =====================================================================
-%% @spec integer_value(syntaxTree()) -> integer()
-%%
-%% @doc Returns the value represented by an <code>integer</code> node.
+%% @doc Returns the value represented by an `integer' node.
 %%
 %% @see integer/1
 
@@ -1648,10 +1540,7 @@ integer_value(Node) ->
 
 
 %% =====================================================================
-%% @spec integer_literal(syntaxTree()) -> string()
-%%
-%% @doc Returns the numeral string represented by an
-%% <code>integer</code> node.
+%% @doc Returns the numeral string represented by an `integer' node.
 %%
 %% @see integer/1
 
@@ -1662,11 +1551,8 @@ integer_literal(Node) ->
 
 
 %% =====================================================================
-%% @spec float(Value::float()) -> syntaxTree()
-%%
 %% @doc Creates an abstract floating-point literal. The lexical
-%% representation is the decimal floating-point numeral of
-%% <code>Value</code>.
+%% representation is the decimal floating-point numeral of `Value'.
 %%
 %% @see float_value/1
 %% @see float_literal/1
@@ -1701,9 +1587,7 @@ revert_float(Node) ->
 
 
 %% =====================================================================
-%% @spec float_value(syntaxTree()) -> float()
-%%
-%% @doc Returns the value represented by a <code>float</code> node. Note
+%% @doc Returns the value represented by a `float' node. Note
 %% that floating-point values should usually not be compared for
 %% equality.
 %%
@@ -1721,10 +1605,7 @@ float_value(Node) ->
 
 
 %% =====================================================================
-%% @spec float_literal(syntaxTree()) -> string()
-%%
-%% @doc Returns the numeral string represented by a <code>float</code>
-%% node.
+%% @doc Returns the numeral string represented by a `float' node.
 %%
 %% @see float/1
 
@@ -1735,17 +1616,15 @@ float_literal(Node) ->
 
 
 %% =====================================================================
-%% @spec char(Value::char()) -> syntaxTree()
-%%
 %% @doc Creates an abstract character literal. The result represents
-%% "<code>$<em>Name</em></code>", where <code>Name</code> corresponds to
-%% <code>Value</code>.
+%% "<code>$<em>Name</em></code>", where `Name' corresponds to
+%% `Value'.
 %%
-%% <p>Note: the literal corresponding to a particular character value is
-%% not uniquely defined. E.g., the character "<code>a</code>" can be
-%% written both as "<code>$a</code>" and "<code>$\141</code>", and a Tab
-%% character can be written as "<code>$\11</code>", "<code>$\011</code>"
-%% or "<code>$\t</code>".</p>
+%% Note: the literal corresponding to a particular character value is
+%% not uniquely defined. E.g., the character "`a'" can be
+%% written both as "`$a'" and "`$\141'", and a Tab
+%% character can be written as "`$\11'", "`$\011'"
+%% or "`$\t'".
 %%
 %% @see char_value/1
 %% @see char_literal/1
@@ -1771,11 +1650,8 @@ revert_char(Node) ->
 
 
 %% =====================================================================
-%% @spec is_char(Node::syntaxTree(), Value::char()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> has type
-%% <code>char</code> and represents <code>Value</code>, otherwise
-%% <code>false</code>.
+%% @doc Returns `true' if `Node' has type
+%% `char' and represents `Value', otherwise `false'.
 %%
 %% @see char/1
 
@@ -1793,9 +1669,7 @@ is_char(Node, Value) ->
 
 
 %% =====================================================================
-%% @spec char_value(syntaxTree()) -> char()
-%%
-%% @doc Returns the value represented by a <code>char</code> node.
+%% @doc Returns the value represented by a `char' node.
 %%
 %% @see char/1
 
@@ -1811,10 +1685,8 @@ char_value(Node) ->
 
 
 %% =====================================================================
-%% @spec char_literal(syntaxTree()) -> string()
-%%
-%% @doc Returns the literal string represented by a <code>char</code>
-%% node. This includes the leading "<code>$</code>" character.
+%% @doc Returns the literal string represented by a `char'
+%% node. This includes the leading "`$'" character.
 %%
 %% @see char/1
 
@@ -1825,16 +1697,14 @@ char_literal(Node) ->
 
 
 %% =====================================================================
-%% @spec string(Value::string()) -> syntaxTree()
-%%
 %% @doc Creates an abstract string literal. The result represents
 %% <code>"<em>Text</em>"</code> (including the surrounding
-%% double-quotes), where <code>Text</code> corresponds to the sequence
-%% of characters in <code>Value</code>, but not representing a
-%% <em>specific</em> string literal. E.g., the result of
-%% <code>string("x\ny")</code> represents any and all of
-%% <code>"x\ny"</code>, <code>"x\12y"</code>, <code>"x\012y"</code> and
-%% <code>"x\^Jy"</code>; cf. <code>char/1</code>.
+%% double-quotes), where `Text' corresponds to the sequence
+%% of characters in `Value', but not representing a
+%% <em>specific</em> string literal.
+%%
+%% For example, the result of `string("x\ny")' represents any and all of
+%% `"x\ny"', `"x\12y"', `"x\012y"' and `"x\^Jy"'; see {@link char/1}.
 %%
 %% @see string_value/1
 %% @see string_literal/1
@@ -1861,11 +1731,8 @@ revert_string(Node) ->
 
 
 %% =====================================================================
-%% @spec is_string(Node::syntaxTree(), Value::string()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> has type
-%% <code>string</code> and represents <code>Value</code>, otherwise
-%% <code>false</code>.
+%% @doc Returns `true' if `Node' has type
+%% `string' and represents `Value', otherwise `false'.
 %%
 %% @see string/1
 
@@ -1883,9 +1750,7 @@ is_string(Node, Value) ->
 
 
 %% =====================================================================
-%% @spec string_value(syntaxTree()) -> string()
-%%
-%% @doc Returns the value represented by a <code>string</code> node.
+%% @doc Returns the value represented by a `string' node.
 %%
 %% @see string/1
 
@@ -1901,9 +1766,7 @@ string_value(Node) ->
 
 
 %% =====================================================================
-%% @spec string_literal(syntaxTree()) -> string()
-%%
-%% @doc Returns the literal string represented by a <code>string</code>
+%% @doc Returns the literal string represented by a `string'
 %% node. This includes surrounding double-quote characters.
 %%
 %% @see string/1
@@ -1915,11 +1778,8 @@ string_literal(Node) ->
 
 
 %% =====================================================================
-%% @spec atom(Name) -> syntaxTree()
-%%	    Name = atom() | string()
-%%
 %% @doc Creates an abstract atom literal. The print name of the atom is
-%% the character sequence represented by <code>Name</code>.
+%% the character sequence represented by `Name'.
 %%
 %% @see atom_value/1
 %% @see atom_name/1
@@ -1948,11 +1808,8 @@ revert_atom(Node) ->
 
 
 %% =====================================================================
-%% @spec is_atom(Node::syntaxTree(), Value::atom()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> has type
-%% <code>atom</code> and represents <code>Value</code>, otherwise
-%% <code>false</code>.
+%% @doc Returns `true' if `Node' has type
+%% `atom' and represents `Value', otherwise `false'.
 %%
 %% @see atom/1
 
@@ -1970,9 +1827,7 @@ is_atom(Node, Value) ->
 
 
 %% =====================================================================
-%% @spec atom_value(syntaxTree()) -> atom()
-%%
-%% @doc Returns the value represented by an <code>atom</code> node.
+%% @doc Returns the value represented by an `atom' node.
 %%
 %% @see atom/1
 
@@ -1988,9 +1843,7 @@ atom_value(Node) ->
 
 
 %% =====================================================================
-%% @spec atom_name(syntaxTree()) -> string()
-%%
-%% @doc Returns the printname of an <code>atom</code> node.
+%% @doc Returns the printname of an `atom' node.
 %%
 %% @see atom/1
 
@@ -2001,15 +1854,12 @@ atom_name(Node) ->
 
 
 %% =====================================================================
-%% @spec atom_literal(syntaxTree()) -> string()
-%%
-%% @doc Returns the literal string represented by an <code>atom</code>
+%% @doc Returns the literal string represented by an `atom'
 %% node. This includes surrounding single-quote characters if necessary.
 %%
-%% <p>Note that e.g. the result of <code>atom("x\ny")</code> represents
-%% any and all of <code>'x\ny'</code>, <code>'x\12y'</code>,
-%% <code>'x\012y'</code> and <code>'x\^Jy\'</code>; cf.
-%% <code>string/1</code>.</p>
+%% Note that e.g. the result of `atom("x\ny")' represents
+%% any and all of `'x\ny'', `'x\12y'',
+%% `'x\012y'' and `'x\^Jy\''; see {@link string/1}.
 %%
 %% @see atom/1
 %% @see string/1
@@ -2021,14 +1871,12 @@ atom_literal(Node) ->
 
 
 %% =====================================================================
-%% @spec tuple(Elements::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Creates an abstract tuple. If <code>Elements</code> is
-%% <code>[X1, ..., Xn]</code>, the result represents
+%% @doc Creates an abstract tuple. If `Elements' is
+%% `[X1, ..., Xn]', the result represents
 %% "<code>{<em>X1</em>, ..., <em>Xn</em>}</code>".
 %%
-%% <p>Note: The Erlang language has distinct 1-tuples, i.e.,
-%% <code>{X}</code> is always distinct from <code>X</code> itself.</p>
+%% Note: The Erlang language has distinct 1-tuples, i.e.,
+%% `{X}' is always distinct from `X' itself.
 %%
 %% @see tuple_elements/1
 %% @see tuple_size/1
@@ -2055,10 +1903,7 @@ revert_tuple(Node) ->
 
 
 %% =====================================================================
-%% @spec tuple_elements(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of element subtrees of a <code>tuple</code>
-%% node.
+%% @doc Returns the list of element subtrees of a `tuple' node.
 %%
 %% @see tuple/1
 
@@ -2074,13 +1919,11 @@ tuple_elements(Node) ->
 
 
 %% =====================================================================
-%% @spec tuple_size(syntaxTree()) -> integer()
+%% @doc Returns the number of elements of a `tuple' node.
 %%
-%% @doc Returns the number of elements of a <code>tuple</code> node.
-%%
-%% <p>Note: this is equivalent to
-%% <code>length(tuple_elements(Node))</code>, but potentially more
-%% efficient.</p>
+%% Note: this is equivalent to
+%% `length(tuple_elements(Node))', but potentially more
+%% efficient.
 %%
 %% @see tuple/1
 %% @see tuple_elements/1
@@ -2092,7 +1935,6 @@ tuple_size(Node) ->
 
 
 %% =====================================================================
-%% @spec list(List) -> syntaxTree()
 %% @equiv list(List, none)
 
 -spec list([syntaxTree()]) -> syntaxTree().
@@ -2102,35 +1944,31 @@ list(List) ->
 
 
 %% =====================================================================
-%% @spec list(List, Tail) -> syntaxTree()
-%%	    List = [syntaxTree()]
-%%	    Tail = none | syntaxTree()
-%%
 %% @doc Constructs an abstract list skeleton. The result has type
-%% <code>list</code> or <code>nil</code>. If <code>List</code> is a
-%% nonempty list <code>[E1, ..., En]</code>, the result has type
-%% <code>list</code> and represents either "<code>[<em>E1</em>, ...,
-%% <em>En</em>]</code>", if <code>Tail</code> is <code>none</code>, or
+%% `list' or `nil'. If `List' is a
+%% nonempty list `[E1, ..., En]', the result has type
+%% `list' and represents either "<code>[<em>E1</em>, ...,
+%% <em>En</em>]</code>", if `Tail' is `none', or
 %% otherwise "<code>[<em>E1</em>, ..., <em>En</em> |
-%% <em>Tail</em>]</code>". If <code>List</code> is the empty list,
-%% <code>Tail</code> <em>must</em> be <code>none</code>, and in that
-%% case the result has type <code>nil</code> and represents
-%% "<code>[]</code>" (cf. <code>nil/0</code>).
+%% <em>Tail</em>]</code>". If `List' is the empty list,
+%% `Tail' <em>must</em> be `none', and in that
+%% case the result has type `nil' and represents
+%% "`[]'" (see {@link nil/0}).
 %%
-%% <p>The difference between lists as semantic objects (built up of
+%% The difference between lists as semantic objects (built up of
 %% individual "cons" and "nil" terms) and the various syntactic forms
 %% for denoting lists may be bewildering at first. This module provides
 %% functions both for exact control of the syntactic representation as
 %% well as for the simple composition and deconstruction in terms of
-%% cons and head/tail operations.</p>
+%% cons and head/tail operations.
 %%
-%% <p>Note: in <code>list(Elements, none)</code>, the "nil" list
-%% terminator is implicit and has no associated information (cf.
-%% <code>get_attrs/1</code>), while in the seemingly equivalent
-%% <code>list(Elements, Tail)</code> when <code>Tail</code> has type
-%% <code>nil</code>, the list terminator subtree <code>Tail</code> may
+%% Note: in `list(Elements, none)', the "nil" list
+%% terminator is implicit and has no associated information (see
+%% {@link get_attrs/1}), while in the seemingly equivalent
+%% `list(Elements, Tail)' when `Tail' has type
+%% `nil', the list terminator subtree `Tail' may
 %% have attached attributes such as position, comments, and annotations,
-%% which will be preserved in the result.</p>
+%% which will be preserved in the result.
 %%
 %% @see nil/0
 %% @see list/1
@@ -2187,10 +2025,8 @@ revert_list(Node) ->
 		S, P).
 
 %% =====================================================================
-%% @spec nil() -> syntaxTree()
-%%
 %% @doc Creates an abstract empty list. The result represents
-%% "<code>[]</code>". The empty list is traditionally called "nil".
+%% "`[]'". The empty list is traditionally called "nil".
 %%
 %% @see list/2
 %% @see is_list_skeleton/1
@@ -2213,13 +2049,11 @@ revert_nil(Node) ->
 
 
 %% =====================================================================
-%% @spec list_prefix(Node::syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the prefix element subtrees of a <code>list</code> node.
-%% If <code>Node</code> represents "<code>[<em>E1</em>, ...,
+%% @doc Returns the prefix element subtrees of a `list' node.
+%% If `Node' represents "<code>[<em>E1</em>, ...,
 %% <em>En</em>]</code>" or "<code>[<em>E1</em>, ..., <em>En</em> |
-%% <em>Tail</em>]</code>", the returned value is <code>[E1, ...,
-%% En]</code>.
+%% <em>Tail</em>]</code>", the returned value is `[E1, ...,
+%% En]'.
 %%
 %% @see list/2
 
@@ -2227,28 +2061,31 @@ revert_nil(Node) ->
 
 list_prefix(Node) ->
     case unwrap(Node) of
-	{cons, _, Head, _} ->
-	    [Head];
+	{cons, _, Head, Tail} ->
+	    [Head | cons_prefix(Tail)];
 	Node1 ->
 	    (data(Node1))#list.prefix
     end.
 
+%% collects sequences of conses; cf. cons_suffix/1 below
+cons_prefix({cons, _, Head, Tail}) ->
+    [Head | cons_prefix(Tail)];
+cons_prefix(_) ->
+    [].
+
 
 %% =====================================================================
-%% @spec list_suffix(Node::syntaxTree()) -> none | syntaxTree()
-%%
-%% @doc Returns the suffix subtree of a <code>list</code> node, if one
-%% exists. If <code>Node</code> represents "<code>[<em>E1</em>, ...,
+%% @doc Returns the suffix subtree of a `list' node, if one
+%% exists. If `Node' represents "<code>[<em>E1</em>, ...,
 %% <em>En</em> | <em>Tail</em>]</code>", the returned value is
-%% <code>Tail</code>, otherwise, i.e., if <code>Node</code> represents
-%% "<code>[<em>E1</em>, ..., <em>En</em>]</code>", <code>none</code> is
+%% `Tail', otherwise, i.e., if `Node' represents
+%% "<code>[<em>E1</em>, ..., <em>En</em>]</code>", `none' is
 %% returned.
 %%
-%% <p>Note that even if this function returns some <code>Tail</code>
-%% that is not <code>none</code>, the type of <code>Tail</code> can be
-%% <code>nil</code>, if the tail has been given explicitly, and the list
-%% skeleton has not been compacted (cf.
-%% <code>compact_list/1</code>).</p>
+%% Note that even if this function returns some `Tail'
+%% that is not `none', the type of `Tail' can be
+%% `nil', if the tail has been given explicitly, and the list
+%% skeleton has not been compacted (see {@link compact_list/1}).
 %%
 %% @see list/2
 %% @see nil/0
@@ -2259,34 +2096,36 @@ list_prefix(Node) ->
 list_suffix(Node) ->
     case unwrap(Node) of
 	{cons, _, _, Tail} ->
-	    %% If there could be comments/annotations on the tail node,
-	    %% we should not return `none' even if it has type `nil'.
-	    case Tail of
+	    case cons_suffix(Tail) of
 		{nil, _} ->
-		    none;    % no interesting information is lost
-		_ ->
-		    Tail
+		    none;
+		Tail1 ->
+		    Tail1
 	    end;
 	Node1 ->
 	    (data(Node1))#list.suffix
     end.
 
+%% skips sequences of conses; cf. cons_prefix/1 above
+cons_suffix({cons, _, _, Tail}) ->
+    cons_suffix(Tail);
+cons_suffix(Tail) ->
+    Tail.
+
 
 %% =====================================================================
-%% @spec cons(Head::syntaxTree(), Tail::syntaxTree()) -> syntaxTree()
-%%
 %% @doc "Optimising" list skeleton cons operation. Creates an abstract
-%% list skeleton whose first element is <code>Head</code> and whose tail
-%% corresponds to <code>Tail</code>. This is similar to
-%% <code>list([Head], Tail)</code>, except that <code>Tail</code> may
-%% not be <code>none</code>, and that the result does not necessarily
+%% list skeleton whose first element is `Head' and whose tail
+%% corresponds to `Tail'. This is similar to
+%% `list([Head], Tail)', except that `Tail' may
+%% not be `none', and that the result does not necessarily
 %% represent exactly "<code>[<em>Head</em> | <em>Tail</em>]</code>", but
-%% may depend on the <code>Tail</code> subtree. E.g., if
-%% <code>Tail</code> represents <code>[X, Y]</code>, the result may
+%% may depend on the `Tail' subtree. E.g., if
+%% `Tail' represents `[X, Y]', the result may
 %% represent "<code>[<em>Head</em>, X, Y]</code>", rather than
 %% "<code>[<em>Head</em> | [X, Y]]</code>". Annotations on
-%% <code>Tail</code> itself may be lost if <code>Tail</code> represents
-%% a list skeleton, but comments on <code>Tail</code> are propagated to
+%% `Tail' itself may be lost if `Tail' represents
+%% a list skeleton, but comments on `Tail' are propagated to
 %% the result.
 %%
 %% @see list/2
@@ -2308,10 +2147,8 @@ cons(Head, Tail) ->
 
 
 %% =====================================================================
-%% @spec list_head(Node::syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the head element subtree of a <code>list</code> node. If
-%% <code>Node</code> represents "<code>[<em>Head</em> ...]</code>", the
+%% @doc Returns the head element subtree of a `list' node. If
+%% `Node' represents "<code>[<em>Head</em> ...]</code>", the
 %% result will represent "<code><em>Head</em></code>".
 %%
 %% @see list/2
@@ -2325,15 +2162,13 @@ list_head(Node) ->
 
 
 %% =====================================================================
-%% @spec list_tail(Node::syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the tail of a <code>list</code> node. If
-%% <code>Node</code> represents a single-element list
+%% @doc Returns the tail of a `list' node. If
+%% `Node' represents a single-element list
 %% "<code>[<em>E</em>]</code>", then the result has type
-%% <code>nil</code>, representing "<code>[]</code>". If
-%% <code>Node</code> represents "<code>[<em>E1</em>, <em>E2</em>
+%% `nil', representing "`[]'". If
+%% `Node' represents "<code>[<em>E1</em>, <em>E2</em>
 %% ...]</code>", the result will represent "<code>[<em>E2</em>
-%% ...]</code>", and if <code>Node</code> represents
+%% ...]</code>", and if `Node' represents
 %% "<code>[<em>Head</em> | <em>Tail</em>]</code>", the result will
 %% represent "<code><em>Tail</em></code>".
 %%
@@ -2358,10 +2193,8 @@ list_tail(Node) ->
 
 
 %% =====================================================================
-%% @spec is_list_skeleton(syntaxTree()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> has type
-%% <code>list</code> or <code>nil</code>, otherwise <code>false</code>.
+%% @doc Returns `true' if `Node' has type
+%% `list' or `nil', otherwise `false'.
 %%
 %% @see list/2
 %% @see nil/0
@@ -2377,24 +2210,22 @@ is_list_skeleton(Node) ->
 
 
 %% =====================================================================
-%% @spec is_proper_list(Node::syntaxTree()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> represents a
-%% proper list, and <code>false</code> otherwise. A proper list is a
-%% list skeleton either on the form "<code>[]</code>" or
+%% @doc Returns `true' if `Node' represents a
+%% proper list, and `false' otherwise. A proper list is a
+%% list skeleton either on the form "`[]'" or
 %% "<code>[<em>E1</em>, ..., <em>En</em>]</code>", or "<code>[... |
-%% <em>Tail</em>]</code>" where recursively <code>Tail</code> also
+%% <em>Tail</em>]</code>" where recursively `Tail' also
 %% represents a proper list.
 %%
-%% <p>Note: Since <code>Node</code> is a syntax tree, the actual
+%% Note: Since `Node' is a syntax tree, the actual
 %% run-time values corresponding to its subtrees may often be partially
-%% or completely unknown. Thus, if <code>Node</code> represents e.g.
-%% "<code>[... | Ns]</code>" (where <code>Ns</code> is a variable), then
-%% the function will return <code>false</code>, because it is not known
-%% whether <code>Ns</code> will be bound to a list at run-time. If
-%% <code>Node</code> instead represents e.g. "<code>[1, 2, 3]</code>" or
-%% "<code>[A | []]</code>", then the function will return
-%% <code>true</code>.</p>
+%% or completely unknown. Thus, if `Node' represents e.g.
+%% "`[... | Ns]'" (where `Ns' is a variable), then
+%% the function will return `false', because it is not known
+%% whether `Ns' will be bound to a list at run-time. If
+%% `Node' instead represents e.g. "`[1, 2, 3]'" or
+%% "`[A | []]'", then the function will return
+%% `true'.
 %%
 %% @see list/2
 
@@ -2417,14 +2248,11 @@ is_proper_list(Node) ->
 
 
 %% =====================================================================
-%% @spec list_elements(Node::syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of element subtrees of a list skeleton.
-%% <code>Node</code> must represent a proper list. E.g., if
-%% <code>Node</code> represents "<code>[<em>X1</em>, <em>X2</em> |
+%% `Node' must represent a proper list. E.g., if
+%% `Node' represents "<code>[<em>X1</em>, <em>X2</em> |
 %% [<em>X3</em>, <em>X4</em> | []]</code>", then
-%% <code>list_elements(Node)</code> yields the list <code>[X1, X2, X3,
-%% X4]</code>.
+%% `list_elements(Node)' yields the list `[X1, X2, X3, X4]'.
 %%
 %% @see list/2
 %% @see is_proper_list/1
@@ -2450,17 +2278,15 @@ list_elements(Node, As) ->
 
 
 %% =====================================================================
-%% @spec list_length(Node::syntaxTree()) -> integer()
-%%
 %% @doc Returns the number of element subtrees of a list skeleton.
-%% <code>Node</code> must represent a proper list. E.g., if
-%% <code>Node</code> represents "<code>[X1 | [X2, X3 | [X4, X5,
-%% X6]]]</code>", then <code>list_length(Node)</code> returns the
+%% `Node' must represent a proper list. E.g., if
+%% `Node' represents "`[X1 | [X2, X3 | [X4, X5,
+%% X6]]]'", then `list_length(Node)' returns the
 %% integer 6.
 %%
-%% <p>Note: this is equivalent to
-%% <code>length(list_elements(Node))</code>, but potentially more
-%% efficient.</p>
+%% Note: this is equivalent to
+%% `length(list_elements(Node))', but potentially more
+%% efficient.
 %%
 %% @see list/2
 %% @see is_proper_list/1
@@ -2487,18 +2313,16 @@ list_length(Node, A) ->
 
 
 %% =====================================================================
-%% @spec normalize_list(Node::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Expands an abstract list skeleton to its most explicit form. If
-%% <code>Node</code> represents "<code>[<em>E1</em>, ..., <em>En</em> |
+%% `Node' represents "<code>[<em>E1</em>, ..., <em>En</em> |
 %% <em>Tail</em>]</code>", the result represents "<code>[<em>E1</em> |
 %% ... [<em>En</em> | <em>Tail1</em>] ... ]</code>", where
-%% <code>Tail1</code> is the result of
-%% <code>normalize_list(Tail)</code>. If <code>Node</code> represents
+%% `Tail1' is the result of
+%% `normalize_list(Tail)'. If `Node' represents
 %% "<code>[<em>E1</em>, ..., <em>En</em>]</code>", the result simply
 %% represents "<code>[<em>E1</em> | ... [<em>En</em> | []] ...
-%% ]</code>". If <code>Node</code> does not represent a list skeleton,
-%% <code>Node</code> itself is returned.
+%% ]</code>". If `Node' does not represent a list skeleton,
+%% `Node' itself is returned.
 %%
 %% @see list/2
 %% @see compact_list/1
@@ -2528,16 +2352,14 @@ normalize_list_1(Es, Tail) ->
 
 
 %% =====================================================================
-%% @spec compact_list(Node::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Yields the most compact form for an abstract list skeleton. The
 %% result either represents "<code>[<em>E1</em>, ..., <em>En</em> |
-%% <em>Tail</em>]</code>", where <code>Tail</code> is not a list
+%% <em>Tail</em>]</code>", where `Tail' is not a list
 %% skeleton, or otherwise simply "<code>[<em>E1</em>, ...,
-%% <em>En</em>]</code>". Annotations on subtrees of <code>Node</code>
+%% <em>En</em>]</code>". Annotations on subtrees of `Node'
 %% that represent list skeletons may be lost, but comments will be
-%% propagated to the result. Returns <code>Node</code> itself if
-%% <code>Node</code> does not represent a list skeleton.
+%% propagated to the result. Returns `Node' itself if
+%% `Node' does not represent a list skeleton.
 %%
 %% @see list/2
 %% @see normalize_list/1
@@ -2575,10 +2397,8 @@ compact_list(Node) ->
 
 
 %% =====================================================================
-%% @spec binary(Fields::[syntaxTree()]) -> syntaxTree()
-%%
 %% @doc Creates an abstract binary-object template. If
-%% <code>Fields</code> is <code>[F1, ..., Fn]</code>, the result
+%% `Fields' is `[F1, ..., Fn]', the result
 %% represents "<code>&lt;&lt;<em>F1</em>, ...,
 %% <em>Fn</em>&gt;&gt;</code>".
 %%
@@ -2611,10 +2431,7 @@ revert_binary(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_fields(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of field subtrees of a <code>binary</code>
-%% node.
+%% @doc Returns the list of field subtrees of a `binary' node.
 %%
 %% @see binary/1
 %% @see binary_field/2
@@ -2631,7 +2448,6 @@ binary_fields(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_field(Body) -> syntaxTree()
 %% @equiv binary_field(Body, [])
 
 -spec binary_field(syntaxTree()) -> syntaxTree().
@@ -2641,15 +2457,11 @@ binary_field(Body) ->
 
 
 %% =====================================================================
-%% @spec binary_field(Body::syntaxTree(), Size,
-%%                    Types::[syntaxTree()]) -> syntaxTree()
-%%	    Size = none | syntaxTree()
-%%
 %% @doc Creates an abstract binary template field.
-%% If <code>Size</code> is <code>none</code>, this is equivalent to
-%% "<code>binary_field(Body, Types)</code>", otherwise it is
-%% equivalent to "<code>binary_field(size_qualifier(Body, Size),
-%% Types)</code>".
+%% If `Size' is `none', this is equivalent to
+%% "`binary_field(Body, Types)'", otherwise it is
+%% equivalent to "`binary_field(size_qualifier(Body, Size),
+%% Types)'".
 %%
 %% (This is a utility function.)
 %%
@@ -2667,13 +2479,10 @@ binary_field(Body, Size, Types) ->
 
 
 %% =====================================================================
-%% @spec binary_field(Body::syntaxTree(), Types::[syntaxTree()]) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract binary template field. If
-%% <code>Types</code> is the empty list, the result simply represents
-%% "<code><em>Body</em></code>", otherwise, if <code>Types</code> is
-%% <code>[T1, ..., Tn]</code>, the result represents
+%% `Types' is the empty list, the result simply represents
+%% "<code><em>Body</em></code>", otherwise, if `Types' is
+%% `[T1, ..., Tn]', the result represents
 %% "<code><em>Body</em>/<em>T1</em>-...-<em>Tn</em></code>".
 %%
 %% @see binary/1
@@ -2727,9 +2536,7 @@ revert_binary_field(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_field_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>binary_field</code>.
+%% @doc Returns the body subtree of a `binary_field'.
 %%
 %% @see binary_field/2
 
@@ -2749,12 +2556,10 @@ binary_field_body(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_field_types(Node::syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of type-specifier subtrees of a
-%% <code>binary_field</code> node. If <code>Node</code> represents
+%% `binary_field' node. If `Node' represents
 %% "<code>.../<em>T1</em>, ..., <em>Tn</em></code>", the result is
-%% <code>[T1, ..., Tn]</code>, otherwise the result is the empty list.
+%% `[T1, ..., Tn]', otherwise the result is the empty list.
 %%
 %% @see binary_field/2
 
@@ -2774,14 +2579,12 @@ binary_field_types(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_field_size(Node::syntaxTree()) -> none | syntaxTree()
-%%
 %% @doc Returns the size specifier subtree of a
-%% <code>binary_field</code> node, if any. If <code>Node</code>
+%% `binary_field' node, if any. If `Node'
 %% represents "<code><em>Body</em>:<em>Size</em></code>" or
 %% "<code><em>Body</em>:<em>Size</em>/<em>T1</em>, ...,
-%% <em>Tn</em></code>", the result is <code>Size</code>, otherwise
-%% <code>none</code> is returned.
+%% <em>Tn</em></code>", the result is `Size', otherwise
+%% `none' is returned.
 %%
 %% (This is a utility function.)
 %%
@@ -2810,9 +2613,6 @@ binary_field_size(Node) ->
 
 
 %% =====================================================================
-%% @spec size_qualifier(Body::syntaxTree(), Size::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract size qualifier. The result represents
 %% "<code><em>Body</em>:<em>Size</em></code>".
 %%
@@ -2834,10 +2634,7 @@ size_qualifier(Body, Size) ->
 
 
 %% =====================================================================
-%% @spec size_qualifier_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>size_qualifier</code>
-%% node.
+%% @doc Returns the body subtree of a `size_qualifier' node.
 %%
 %% @see size_qualifier/2
 
@@ -2848,10 +2645,8 @@ size_qualifier_body(Node) ->
 
 
 %% =====================================================================
-%% @spec size_qualifier_argument(syntaxTree()) -> syntaxTree()
-%%
 %% @doc Returns the argument subtree (the size) of a
-%% <code>size_qualifier</code> node.
+%% `size_qualifier' node.
 %%
 %% @see size_qualifier/2
 
@@ -2862,16 +2657,14 @@ size_qualifier_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec error_marker(Error::term()) -> syntaxTree()
-%%
 %% @doc Creates an abstract error marker. The result represents an
 %% occurrence of an error in the source code, with an associated Erlang
-%% I/O ErrorInfo structure given by <code>Error</code> (see module
+%% I/O ErrorInfo structure given by `Error' (see module
 %% {@link //stdlib/io} for details). Error markers are regarded as source
 %% code forms, but have no defined lexical form.
 %%
-%% <p>Note: this is supported only for backwards compatibility with
-%% existing parsers and tools.</p>
+%% Note: this is supported only for backwards compatibility with
+%% existing parsers and tools.
 %%
 %% @see error_marker_info/1
 %% @see warning_marker/1
@@ -2902,10 +2695,7 @@ revert_error_marker(Node) ->
 
 
 %% =====================================================================
-%% @spec error_marker_info(syntaxTree()) -> term()
-%%
-%% @doc Returns the ErrorInfo structure of an <code>error_marker</code>
-%% node.
+%% @doc Returns the ErrorInfo structure of an `error_marker' node.
 %%
 %% @see error_marker/1
 
@@ -2921,16 +2711,14 @@ error_marker_info(Node) ->
 
 
 %% =====================================================================
-%% @spec warning_marker(Error::term()) -> syntaxTree()
-%%
 %% @doc Creates an abstract warning marker. The result represents an
 %% occurrence of a possible problem in the source code, with an
-%% associated Erlang I/O ErrorInfo structure given by <code>Error</code>
+%% associated Erlang I/O ErrorInfo structure given by `Error'
 %% (see module {@link //stdlib/io} for details). Warning markers are
 %% regarded as source code forms, but have no defined lexical form.
 %%
-%% <p>Note: this is supported only for backwards compatibility with
-%% existing parsers and tools.</p>
+%% Note: this is supported only for backwards compatibility with
+%% existing parsers and tools.
 %%
 %% @see warning_marker_info/1
 %% @see error_marker/1
@@ -2961,10 +2749,7 @@ revert_warning_marker(Node) ->
 
 
 %% =====================================================================
-%% @spec warning_marker_info(syntaxTree()) -> term()
-%%
-%% @doc Returns the ErrorInfo structure of a <code>warning_marker</code>
-%% node.
+%% @doc Returns the ErrorInfo structure of a `warning_marker' node.
 %%
 %% @see warning_marker/1
 
@@ -2980,16 +2765,14 @@ warning_marker_info(Node) ->
 
 
 %% =====================================================================
-%% @spec eof_marker() -> syntaxTree()
-%%
 %% @doc Creates an abstract end-of-file marker. This represents the
 %% end of input when reading a sequence of source code forms. An
 %% end-of-file marker is itself regarded as a source code form
 %% (namely, the last in any sequence in which it occurs). It has no
 %% defined lexical form.
 %%
-%% <p>Note: this is retained only for backwards compatibility with
-%% existing parsers and tools.</p>
+%% Note: this is retained only for backwards compatibility with
+%% existing parsers and tools.
 %%
 %% @see error_marker/1
 %% @see warning_marker/1
@@ -3013,7 +2796,6 @@ revert_eof_marker(Node) ->
 
 
 %% =====================================================================
-%% @spec attribute(Name) -> syntaxTree()
 %% @equiv attribute(Name, none)
 
 -spec attribute(syntaxTree()) -> syntaxTree().
@@ -3023,23 +2805,20 @@ attribute(Name) ->
 
 
 %% =====================================================================
-%% @spec attribute(Name::syntaxTree(), Arguments) -> syntaxTree()
-%%           Arguments = none | [syntaxTree()]
-%%
 %% @doc Creates an abstract program attribute. If
-%% <code>Arguments</code> is <code>[A1, ..., An]</code>, the result
+%% `Arguments' is `[A1, ..., An]', the result
 %% represents "<code>-<em>Name</em>(<em>A1</em>, ...,
-%% <em>An</em>).</code>". Otherwise, if <code>Arguments</code> is
-%% <code>none</code>, the result represents
+%% <em>An</em>).</code>". Otherwise, if `Arguments' is
+%% `none', the result represents
 %% "<code>-<em>Name</em>.</code>". The latter form makes it possible
 %% to represent preprocessor directives such as
-%% "<code>-endif.</code>". Attributes are source code forms.
+%% "`-endif.'". Attributes are source code forms.
 %%
-%% <p>Note: The preprocessor macro definition directive
+%% Note: The preprocessor macro definition directive
 %% "<code>-define(<em>Name</em>, <em>Body</em>).</code>" has relatively
-%% few requirements on the syntactical form of <code>Body</code> (viewed
-%% as a sequence of tokens). The <code>text</code> node type can be used
-%% for a <code>Body</code> that is not a normal Erlang construct.</p>
+%% few requirements on the syntactical form of `Body' (viewed
+%% as a sequence of tokens). The `text' node type can be used
+%% for a `Body' that is not a normal Erlang construct.
 %%
 %% @see attribute/1
 %% @see attribute_name/1
@@ -3233,9 +3012,7 @@ revert_module_name(A) ->
 
 
 %% =====================================================================
-%% @spec attribute_name(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the name subtree of an <code>attribute</code> node.
+%% @doc Returns the name subtree of an `attribute' node.
 %%
 %% @see attribute/1
 
@@ -3251,15 +3028,12 @@ attribute_name(Node) ->
 
 
 %% =====================================================================
-%% @spec attribute_arguments(Node::syntaxTree()) ->
-%%           none | [syntaxTree()]
-%%
 %% @doc Returns the list of argument subtrees of an
-%% <code>attribute</code> node, if any. If <code>Node</code>
+%% `attribute' node, if any. If `Node'
 %% represents "<code>-<em>Name</em>.</code>", the result is
-%% <code>none</code>. Otherwise, if <code>Node</code> represents
+%% `none'. Otherwise, if `Node' represents
 %% "<code>-<em>Name</em>(<em>E1</em>, ..., <em>En</em>).</code>",
-%% <code>[E1, ..., E1]</code> is returned.
+%% `[E1, ..., E1]' is returned.
 %%
 %% @see attribute/1
 
@@ -3326,9 +3100,6 @@ attribute_arguments(Node) ->
 
 
 %% =====================================================================
-%% @spec arity_qualifier(Body::syntaxTree(), Arity::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract arity qualifier. The result represents
 %% "<code><em>Body</em>/<em>Arity</em></code>".
 %%
@@ -3350,10 +3121,7 @@ arity_qualifier(Body, Arity) ->
 
 
 %% =====================================================================
-%% @spec arity_qualifier_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of an <code>arity_qualifier</code>
-%% node.
+%% @doc Returns the body subtree of an `arity_qualifier' node.
 %%
 %% @see arity_qualifier/2
 
@@ -3364,10 +3132,8 @@ arity_qualifier_body(Node) ->
 
 
 %% =====================================================================
-%% @spec arity_qualifier_argument(syntaxTree()) -> syntaxTree()
-%%
 %% @doc Returns the argument (the arity) subtree of an
-%% <code>arity_qualifier</code> node.
+%% `arity_qualifier' node.
 %%
 %% @see arity_qualifier/2
 
@@ -3378,9 +3144,6 @@ arity_qualifier_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec module_qualifier(Module::syntaxTree(), Body::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract module qualifier. The result represents
 %% "<code><em>Module</em>:<em>Body</em></code>".
 %%
@@ -3414,10 +3177,8 @@ revert_module_qualifier(Node) ->
 
 
 %% =====================================================================
-%% @spec module_qualifier_argument(syntaxTree()) -> syntaxTree()
-%%
 %% @doc Returns the argument (the module) subtree of a
-%% <code>module_qualifier</code> node.
+%% `module_qualifier' node.
 %%
 %% @see module_qualifier/2
 
@@ -3433,10 +3194,7 @@ module_qualifier_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec module_qualifier_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>module_qualifier</code>
-%% node.
+%% @doc Returns the body subtree of a `module_qualifier' node.
 %%
 %% @see module_qualifier/2
 
@@ -3452,11 +3210,9 @@ module_qualifier_body(Node) ->
 
 
 %% =====================================================================
-%% @spec qualified_name(Segments::[syntaxTree()]) -> syntaxTree()
-%%
 %% @doc Creates an abstract qualified name. The result represents
 %% "<code><em>S1</em>.<em>S2</em>. ... .<em>Sn</em></code>", if
-%% <code>Segments</code> is <code>[S1, S2, ..., Sn]</code>.
+%% `Segments' is `[S1, S2, ..., Sn]'.
 %%
 %% @see qualified_name_segments/1
 
@@ -3484,10 +3240,8 @@ revert_qualified_name(Node) ->
 
 
 %% =====================================================================
-%% @spec qualified_name_segments(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of name segments of a
-%% <code>qualified_name</code> node.
+%% `qualified_name' node.
 %%
 %% @see qualified_name/1
 
@@ -3503,13 +3257,10 @@ qualified_name_segments(Node) ->
 
 
 %% =====================================================================
-%% @spec function(Name::syntaxTree(), Clauses::[syntaxTree()]) ->
-%%           syntaxTree()
-%%
-%% @doc Creates an abstract function definition. If <code>Clauses</code>
-%% is <code>[C1, ..., Cn]</code>, the result represents
+%% @doc Creates an abstract function definition. If `Clauses'
+%% is `[C1, ..., Cn]', the result represents
 %% "<code><em>Name</em> <em>C1</em>; ...; <em>Name</em>
-%% <em>Cn</em>.</code>". More exactly, if each <code>Ci</code>
+%% <em>Cn</em>.</code>". More exactly, if each `Ci'
 %% represents "<code>(<em>Pi1</em>, ..., <em>Pim</em>) <em>Gi</em> ->
 %% <em>Bi</em></code>", then the result represents
 %% "<code><em>Name</em>(<em>P11</em>, ..., <em>P1m</em>) <em>G1</em> ->
@@ -3523,13 +3274,12 @@ qualified_name_segments(Node) ->
 %% @see is_form/1
 %% @see rule/2
 
--record(function, {name, clauses}).
-%% XXX: This one is problematic because there is a tuple with the same
-%%      tag and size that comes from 'erl_parse'
-%% -record(function, {name :: syntaxTree(), clauses :: [syntaxTree()]}).
+%% Don't use the name 'function' for this record, to avoid confusion with
+%% the tuples on the form {function,Name,Arity} used by erl_parse.
+-record(func, {name :: syntaxTree(), clauses :: [syntaxTree()]}).
 
 %% type(Node) = function
-%% data(Node) = #function{name :: Name, clauses :: Clauses}
+%% data(Node) = #func{name :: Name, clauses :: Clauses}
 %%
 %%	Name = syntaxTree()
 %%	Clauses = [syntaxTree()]
@@ -3556,7 +3306,7 @@ qualified_name_segments(Node) ->
 -spec function(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 function(Name, Clauses) ->
-    tree(function, #function{name = Name, clauses = Clauses}).
+    tree(function, #func{name = Name, clauses = Clauses}).
 
 revert_function(Node) ->
     Name = function_name(Node),
@@ -3572,9 +3322,7 @@ revert_function(Node) ->
 
 
 %% =====================================================================
-%% @spec function_name(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the name subtree of a <code>function</code> node.
+%% @doc Returns the name subtree of a `function' node.
 %%
 %% @see function/2
 
@@ -3585,15 +3333,12 @@ function_name(Node) ->
 	{function, Pos, Name, _, _} ->
 	    set_pos(atom(Name), Pos);
 	Node1 ->
-	    (data(Node1))#function.name
+	    (data(Node1))#func.name
     end.
 
 
 %% =====================================================================
-%% @spec function_clauses(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of clause subtrees of a <code>function</code>
-%% node.
+%% @doc Returns the list of clause subtrees of a `function' node.
 %%
 %% @see function/2
 
@@ -3604,21 +3349,19 @@ function_clauses(Node) ->
 	{function, _, _, _, Clauses} ->
 	    Clauses;
 	Node1 ->
-	    (data(Node1))#function.clauses
+	    (data(Node1))#func.clauses
     end.
 
 
 %% =====================================================================
-%% @spec function_arity(Node::syntaxTree()) -> integer()
-%%
-%% @doc Returns the arity of a <code>function</code> node. The result
+%% @doc Returns the arity of a `function' node. The result
 %% is the number of parameter patterns in the first clause of the
 %% function; subsequent clauses are ignored.
 %%
-%% <p>An exception is thrown if <code>function_clauses(Node)</code>
+%% An exception is thrown if `function_clauses(Node)'
 %% returns an empty list, or if the first element of that list is not
-%% a syntax tree <code>C</code> of type <code>clause</code> such that
-%% <code>clause_patterns(C)</code> is a nonempty list.</p>
+%% a syntax tree `C' of type `clause' such that
+%% `clause_patterns(C)' is a nonempty list.
 %%
 %% @see function/2
 %% @see function_clauses/1
@@ -3634,7 +3377,6 @@ function_arity(Node) ->
 
 
 %% =====================================================================
-%% @spec clause(Guard, Body) -> syntaxTree()
 %% @equiv clause([], Guard, Body)
 
 -type guard() :: 'none' | syntaxTree() | [syntaxTree()] | [[syntaxTree()]].
@@ -3646,34 +3388,28 @@ clause(Guard, Body) ->
 
 
 %% =====================================================================
-%% @spec clause(Patterns::[syntaxTree()], Guard,
-%%              Body::[syntaxTree()]) -> syntaxTree()
-%%	    Guard = none | syntaxTree()
-%%                | [syntaxTree()] | [[syntaxTree()]]
-%%
-%% @doc Creates an abstract clause. If <code>Patterns</code> is
-%% <code>[P1, ..., Pn]</code> and <code>Body</code> is <code>[B1, ...,
-%% Bm]</code>, then if <code>Guard</code> is <code>none</code>, the
+%% @doc Creates an abstract clause. If `Patterns' is
+%% `[P1, ..., Pn]' and `Body' is `[B1, ...,
+%% Bm]', then if `Guard' is `none', the
 %% result represents "<code>(<em>P1</em>, ..., <em>Pn</em>) ->
 %% <em>B1</em>, ..., <em>Bm</em></code>", otherwise, unless
-%% <code>Guard</code> is a list, the result represents
+%% `Guard' is a list, the result represents
 %% "<code>(<em>P1</em>, ..., <em>Pn</em>) when <em>Guard</em> ->
 %% <em>B1</em>, ..., <em>Bm</em></code>".
 %%
-%% <p>For simplicity, the <code>Guard</code> argument may also be any
+%% For simplicity, the `Guard' argument may also be any
 %% of the following:
 %% <ul>
-%%   <li>An empty list <code>[]</code>. This is equivalent to passing
-%%       <code>none</code>.</li>
-%%   <li>A nonempty list <code>[E1, ..., Ej]</code> of syntax trees.
-%%       This is equivalent to passing <code>conjunction([E1, ...,
-%%       Ej])</code>.</li>
-%%   <li>A nonempty list of lists of syntax trees <code>[[E1_1, ...,
-%%       E1_k1], ..., [Ej_1, ..., Ej_kj]]</code>, which is equivalent
-%%       to passing <code>disjunction([conjunction([E1_1, ...,
-%%       E1_k1]), ..., conjunction([Ej_1, ..., Ej_kj])])</code>.</li>
+%%   <li>An empty list `[]'. This is equivalent to passing
+%%       `none'.</li>
+%%   <li>A nonempty list `[E1, ..., Ej]' of syntax trees.
+%%       This is equivalent to passing `conjunction([E1, ...,
+%%       Ej])'.</li>
+%%   <li>A nonempty list of lists of syntax trees `[[E1_1, ...,
+%%       E1_k1], ..., [Ej_1, ..., Ej_kj]]', which is equivalent
+%%       to passing `disjunction([conjunction([E1_1, ...,
+%%       E1_k1]), ..., conjunction([Ej_1, ..., Ej_kj])])'.</li>
 %% </ul>
-%% </p>
 %%
 %% @see clause/2
 %% @see clause_patterns/1
@@ -3789,10 +3525,7 @@ unfold_try_clause({clause, Pos, [{tuple, _, [C, V, _]}],
 
 
 %% =====================================================================
-%% @spec clause_patterns(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of pattern subtrees of a <code>clause</code>
-%% node.
+%% @doc Returns the list of pattern subtrees of a `clause' node.
 %%
 %% @see clause/3
 
@@ -3808,13 +3541,11 @@ clause_patterns(Node) ->
 
 
 %% =====================================================================
-%% @spec clause_guard(Node::syntaxTree()) -> none | syntaxTree()
-%%
-%% @doc Returns the guard subtree of a <code>clause</code> node, if
-%% any. If <code>Node</code> represents "<code>(<em>P1</em>, ...,
+%% @doc Returns the guard subtree of a `clause' node, if
+%% any. If `Node' represents "<code>(<em>P1</em>, ...,
 %% <em>Pn</em>) when <em>Guard</em> -> <em>B1</em>, ...,
-%% <em>Bm</em></code>", <code>Guard</code> is returned. Otherwise, the
-%% result is <code>none</code>.
+%% <em>Bm</em></code>", `Guard' is returned. Otherwise, the
+%% result is `none'.
 %%
 %% @see clause/3
 
@@ -3836,10 +3567,7 @@ clause_guard(Node) ->
 
 
 %% =====================================================================
-%% @spec clause_body(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Return the list of body subtrees of a <code>clause</code>
-%% node.
+%% @doc Return the list of body subtrees of a `clause' node.
 %%
 %% @see clause/3
 
@@ -3855,10 +3583,8 @@ clause_body(Node) ->
 
 
 %% =====================================================================
-%% @spec disjunction(List::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Creates an abstract disjunction. If <code>List</code> is
-%% <code>[E1, ..., En]</code>, the result represents
+%% @doc Creates an abstract disjunction. If `List' is
+%% `[E1, ..., En]', the result represents
 %% "<code><em>E1</em>; ...; <em>En</em></code>".
 %%
 %% @see disjunction_body/1
@@ -3874,10 +3600,8 @@ disjunction(Tests) ->
 
 
 %% =====================================================================
-%% @spec disjunction_body(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of body subtrees of a
-%% <code>disjunction</code> node.
+%% `disjunction' node.
 %%
 %% @see disjunction/1
 
@@ -3888,10 +3612,8 @@ disjunction_body(Node) ->
 
 
 %% =====================================================================
-%% @spec conjunction(List::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Creates an abstract conjunction. If <code>List</code> is
-%% <code>[E1, ..., En]</code>, the result represents
+%% @doc Creates an abstract conjunction. If `List' is
+%% `[E1, ..., En]', the result represents
 %% "<code><em>E1</em>, ..., <em>En</em></code>".
 %%
 %% @see conjunction_body/1
@@ -3907,10 +3629,8 @@ conjunction(Tests) ->
 
 
 %% =====================================================================
-%% @spec conjunction_body(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of body subtrees of a
-%% <code>conjunction</code> node.
+%% `conjunction' node.
 %%
 %% @see conjunction/1
 
@@ -3921,8 +3641,6 @@ conjunction_body(Node) ->
 
 
 %% =====================================================================
-%% @spec catch_expr(Expr::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Creates an abstract catch-expression. The result represents
 %% "<code>catch <em>Expr</em></code>".
 %%
@@ -3949,9 +3667,7 @@ revert_catch_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec catch_expr_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>catch_expr</code> node.
+%% @doc Returns the body subtree of a `catch_expr' node.
 %%
 %% @see catch_expr/1
 
@@ -3967,9 +3683,6 @@ catch_expr_body(Node) ->
 
 
 %% =====================================================================
-%% @spec match_expr(Pattern::syntaxTree(), Body::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract match-expression. The result represents
 %% "<code><em>Pattern</em> = <em>Body</em></code>".
 %%
@@ -4002,9 +3715,7 @@ revert_match_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec match_expr_pattern(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the pattern subtree of a <code>match_expr</code> node.
+%% @doc Returns the pattern subtree of a `match_expr' node.
 %%
 %% @see match_expr/2
 
@@ -4020,9 +3731,7 @@ match_expr_pattern(Node) ->
 
 
 %% =====================================================================
-%% @spec match_expr_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>match_expr</code> node.
+%% @doc Returns the body subtree of a `match_expr' node.
 %%
 %% @see match_expr/2
 
@@ -4038,15 +3747,12 @@ match_expr_body(Node) ->
 
 
 %% =====================================================================
-%% @spec operator(Name) -> syntaxTree()
-%%	    Name = atom() | string()
-%%
 %% @doc Creates an abstract operator. The name of the operator is the
-%% character sequence represented by <code>Name</code>. This is
+%% character sequence represented by `Name'. This is
 %% analogous to the print name of an atom, but an operator is never
 %% written within single-quotes; e.g., the result of
-%% <code>operator('++')</code> represents "<code>++</code>" rather
-%% than "<code>'++'</code>".
+%% `operator('++')' represents "`++'" rather
+%% than "`'++''".
 %%
 %% @see operator_name/1
 %% @see operator_literal/1
@@ -4064,9 +3770,7 @@ operator(Name) ->
 
 
 %% =====================================================================
-%% @spec operator_name(syntaxTree()) -> atom()
-%%
-%% @doc Returns the name of an <code>operator</code> node. Note that
+%% @doc Returns the name of an `operator' node. Note that
 %% the name is returned as an atom.
 %%
 %% @see operator/1
@@ -4078,11 +3782,8 @@ operator_name(Node) ->
 
 
 %% =====================================================================
-%% @spec operator_literal(syntaxTree()) -> string()
-%%
 %% @doc Returns the literal string represented by an
-%% <code>operator</code> node. This is simply the operator name as a
-%% string.
+%% `operator' node. This is simply the operator name as a string.
 %%
 %% @see operator/1
 
@@ -4093,9 +3794,6 @@ operator_literal(Node) ->
 
 
 %% =====================================================================
-%% @spec infix_expr(Left::syntaxTree(), Operator::syntaxTree(),
-%%                  Right::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Creates an abstract infix operator expression. The result
 %% represents "<code><em>Left</em> <em>Operator</em>
 %% <em>Right</em></code>".
@@ -4144,10 +3842,8 @@ revert_infix_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec infix_expr_left(syntaxTree()) -> syntaxTree()
-%%
 %% @doc Returns the left argument subtree of an
-%% <code>infix_expr</code> node.
+%% `infix_expr' node.
 %%
 %% @see infix_expr/3
 
@@ -4163,10 +3859,7 @@ infix_expr_left(Node) ->
 
 
 %% =====================================================================
-%% @spec infix_expr_operator(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the operator subtree of an <code>infix_expr</code>
-%% node.
+%% @doc Returns the operator subtree of an `infix_expr' node.
 %%
 %% @see infix_expr/3
 
@@ -4182,10 +3875,8 @@ infix_expr_operator(Node) ->
 
 
 %% =====================================================================
-%% @spec infix_expr_right(syntaxTree()) -> syntaxTree()
-%%
 %% @doc Returns the right argument subtree of an
-%% <code>infix_expr</code> node.
+%% `infix_expr' node.
 %%
 %% @see infix_expr/3
 
@@ -4201,9 +3892,6 @@ infix_expr_right(Node) ->
 
 
 %% =====================================================================
-%% @spec prefix_expr(Operator::syntaxTree(), Argument::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract prefix operator expression. The result
 %% represents "<code><em>Operator</em> <em>Argument</em></code>".
 %%
@@ -4247,10 +3935,7 @@ revert_prefix_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec prefix_expr_operator(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the operator subtree of a <code>prefix_expr</code>
-%% node.
+%% @doc Returns the operator subtree of a `prefix_expr' node.
 %%
 %% @see prefix_expr/2
 
@@ -4266,10 +3951,7 @@ prefix_expr_operator(Node) ->
 
 
 %% =====================================================================
-%% @spec prefix_expr_argument(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the argument subtree of a <code>prefix_expr</code>
-%% node.
+%% @doc Returns the argument subtree of a `prefix_expr' node.
 %%
 %% @see prefix_expr/2
 
@@ -4285,7 +3967,6 @@ prefix_expr_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec record_field(Name) -> syntaxTree()
 %% @equiv record_field(Name, none)
 
 -spec record_field(syntaxTree()) -> syntaxTree().
@@ -4295,11 +3976,8 @@ record_field(Name) ->
 
 
 %% =====================================================================
-%% @spec record_field(Name::syntaxTree(), Value) -> syntaxTree()
-%%	    Value = none | syntaxTree()
-%%
 %% @doc Creates an abstract record field specification. If
-%% <code>Value</code> is <code>none</code>, the result represents
+%% `Value' is `none', the result represents
 %% simply "<code><em>Name</em></code>", otherwise it represents
 %% "<code><em>Name</em> = <em>Value</em></code>".
 %%
@@ -4321,9 +3999,7 @@ record_field(Name, Value) ->
 
 
 %% =====================================================================
-%% @spec record_field_name(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the name subtree of a <code>record_field</code> node.
+%% @doc Returns the name subtree of a `record_field' node.
 %%
 %% @see record_field/2
 
@@ -4334,13 +4010,11 @@ record_field_name(Node) ->
 
 
 %% =====================================================================
-%% @spec record_field_value(syntaxTree()) -> none | syntaxTree()
-%%
-%% @doc Returns the value subtree of a <code>record_field</code> node,
-%% if any. If <code>Node</code> represents
-%% "<code><em>Name</em></code>", <code>none</code> is
-%% returned. Otherwise, if <code>Node</code> represents
-%% "<code><em>Name</em> = <em>Value</em></code>", <code>Value</code>
+%% @doc Returns the value subtree of a `record_field' node,
+%% if any. If `Node' represents
+%% "<code><em>Name</em></code>", `none' is
+%% returned. Otherwise, if `Node' represents
+%% "<code><em>Name</em> = <em>Value</em></code>", `Value'
 %% is returned.
 %%
 %% @see record_field/2
@@ -4352,15 +4026,12 @@ record_field_value(Node) ->
 
 
 %% =====================================================================
-%% @spec record_index_expr(Type::syntaxTree(), Field::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract record field index expression. The result
 %% represents "<code>#<em>Type</em>.<em>Field</em></code>".
 %%
-%% <p>(Note: the function name <code>record_index/2</code> is reserved
+%% (Note: the function name `record_index/2' is reserved
 %% by the Erlang compiler, which is why that name could not be used
-%% for this constructor.)</p>
+%% for this constructor.)
 %%
 %% @see record_index_expr_type/1
 %% @see record_index_expr_field/1
@@ -4399,10 +4070,7 @@ revert_record_index_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec record_index_expr_type(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the type subtree of a <code>record_index_expr</code>
-%% node.
+%% @doc Returns the type subtree of a `record_index_expr' node.
 %%
 %% @see record_index_expr/2
 
@@ -4418,10 +4086,7 @@ record_index_expr_type(Node) ->
 
 
 %% =====================================================================
-%% @spec record_index_expr_field(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the field subtree of a <code>record_index_expr</code>
-%% node.
+%% @doc Returns the field subtree of a `record_index_expr' node.
 %%
 %% @see record_index_expr/2
 
@@ -4437,7 +4102,6 @@ record_index_expr_field(Node) ->
 
 
 %% =====================================================================
-%% @spec record_access(Argument, Field) -> syntaxTree()
 %% @equiv record_access(Argument, none, Field)
 
 -spec record_access(syntaxTree(), syntaxTree()) -> syntaxTree().
@@ -4447,17 +4111,13 @@ record_access(Argument, Field) ->
 
 
 %% =====================================================================
-%% @spec record_access(Argument::syntaxTree(), Type,
-%%                     Field::syntaxTree()) -> syntaxTree()
-%%	    Type = none | syntaxTree()
-%%
 %% @doc Creates an abstract record field access expression. If
-%% <code>Type</code> is not <code>none</code>, the result represents
+%% `Type' is not `none', the result represents
 %% "<code><em>Argument</em>#<em>Type</em>.<em>Field</em></code>".
 %%
-%% <p>If <code>Type</code> is <code>none</code>, the result represents
+%% If `Type' is `none', the result represents
 %% "<code><em>Argument</em>.<em>Field</em></code>". This is a special
-%% form only allowed within Mnemosyne queries.</p>
+%% form only allowed within Mnemosyne queries.
 %%
 %% @see record_access/2
 %% @see record_access_argument/1
@@ -4512,10 +4172,7 @@ revert_record_access(Node) ->
 
 
 %% =====================================================================
-%% @spec record_access_argument(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the argument subtree of a <code>record_access</code>
-%% node.
+%% @doc Returns the argument subtree of a `record_access' node.
 %%
 %% @see record_access/3
 
@@ -4533,14 +4190,12 @@ record_access_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec record_access_type(syntaxTree()) -> none | syntaxTree()
-%%
-%% @doc Returns the type subtree of a <code>record_access</code> node,
-%% if any. If <code>Node</code> represents
-%% "<code><em>Argument</em>.<em>Field</em></code>", <code>none</code>
-%% is returned, otherwise if <code>Node</code> represents
+%% @doc Returns the type subtree of a `record_access' node,
+%% if any. If `Node' represents
+%% "<code><em>Argument</em>.<em>Field</em></code>", `none'
+%% is returned, otherwise if `Node' represents
 %% "<code><em>Argument</em>#<em>Type</em>.<em>Field</em></code>",
-%% <code>Type</code> is returned.
+%% `Type' is returned.
 %%
 %% @see record_access/3
 
@@ -4558,10 +4213,7 @@ record_access_type(Node) ->
 
 
 %% =====================================================================
-%% @spec record_access_field(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the field subtree of a <code>record_access</code>
-%% node.
+%% @doc Returns the field subtree of a `record_access' node.
 %%
 %% @see record_access/3
 
@@ -4579,7 +4231,6 @@ record_access_field(Node) ->
 
 
 %% =====================================================================
-%% @spec record_expr(Type, Fields) -> syntaxTree()
 %% @equiv record_expr(none, Type, Fields)
 
 -spec record_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
@@ -4589,13 +4240,9 @@ record_expr(Type, Fields) ->
 
 
 %% =====================================================================
-%% @spec record_expr(Argument, Type::syntaxTree(),
-%%                   Fields::[syntaxTree()]) -> syntaxTree()
-%%	    Argument = none | syntaxTree()
-%%
-%% @doc Creates an abstract record expression. If <code>Fields</code> is
-%% <code>[F1, ..., Fn]</code>, then if <code>Argument</code> is
-%% <code>none</code>, the result represents
+%% @doc Creates an abstract record expression. If `Fields' is
+%% `[F1, ..., Fn]', then if `Argument' is
+%% `none', the result represents
 %% "<code>#<em>Type</em>{<em>F1</em>, ..., <em>Fn</em>}</code>",
 %% otherwise it represents
 %% "<code><em>Argument</em>#<em>Type</em>{<em>F1</em>, ...,
@@ -4661,14 +4308,12 @@ revert_record_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec record_expr_argument(syntaxTree()) -> none | syntaxTree()
-%%
-%% @doc Returns the argument subtree of a <code>record_expr</code> node,
-%% if any. If <code>Node</code> represents
-%% "<code>#<em>Type</em>{...}</code>", <code>none</code> is returned.
-%% Otherwise, if <code>Node</code> represents
+%% @doc Returns the argument subtree of a `record_expr' node,
+%% if any. If `Node' represents
+%% "<code>#<em>Type</em>{...}</code>", `none' is returned.
+%% Otherwise, if `Node' represents
 %% "<code><em>Argument</em>#<em>Type</em>{...}</code>",
-%% <code>Argument</code> is returned.
+%% `Argument' is returned.
 %%
 %% @see record_expr/3
 
@@ -4686,9 +4331,7 @@ record_expr_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec record_expr_type(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the type subtree of a <code>record_expr</code> node.
+%% @doc Returns the type subtree of a `record_expr' node.
 %%
 %% @see record_expr/3
 
@@ -4706,10 +4349,8 @@ record_expr_type(Node) ->
 
 
 %% =====================================================================
-%% @spec record_expr_fields(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of field subtrees of a
-%% <code>record_expr</code> node.
+%% `record_expr' node.
 %%
 %% @see record_expr/3
 
@@ -4727,15 +4368,11 @@ record_expr_fields(Node) ->
 
 
 %% =====================================================================
-%% @spec application(Module, Function::syntaxTree(),
-%%                   Arguments::[syntaxTree()]) -> syntaxTree()
-%%	    Module = none | syntaxTree()
-%%
 %% @doc Creates an abstract function application expression. If
-%% <code>Module</code> is <code>none</code>, this is call is equivalent
-%% to <code>application(Function, Arguments)</code>, otherwise it is
-%% equivalent to <code>application(module_qualifier(Module, Function),
-%% Arguments)</code>.
+%% `Module' is `none', this is call is equivalent
+%% to `application(Function, Arguments)', otherwise it is
+%% equivalent to `application(module_qualifier(Module, Function),
+%% Arguments)'.
 %%
 %% (This is a utility function.)
 %%
@@ -4752,11 +4389,8 @@ application(Module, Name, Arguments) ->
 
 
 %% =====================================================================
-%% @spec application(Operator::syntaxTree(),
-%%                   Arguments::[syntaxTree()]) -> syntaxTree()
-%%
 %% @doc Creates an abstract function application expression. If
-%% <code>Arguments</code> is <code>[A1, ..., An]</code>, the result
+%% `Arguments' is `[A1, ..., An]', the result
 %% represents "<code><em>Operator</em>(<em>A1</em>, ...,
 %% <em>An</em>)</code>".
 %%
@@ -4794,14 +4428,11 @@ revert_application(Node) ->
 
 
 %% =====================================================================
-%% @spec application_operator(syntaxTree()) -> syntaxTree()
+%% @doc Returns the operator subtree of an `application' node.
 %%
-%% @doc Returns the operator subtree of an <code>application</code>
-%% node.
-%%
-%% <p>Note: if <code>Node</code> represents
+%% Note: if `Node' represents
 %% "<code><em>M</em>:<em>F</em>(...)</code>", then the result is the
-%% subtree representing "<code><em>M</em>:<em>F</em></code>".</p>
+%% subtree representing "<code><em>M</em>:<em>F</em></code>".
 %%
 %% @see application/2
 %% @see module_qualifier/2
@@ -4818,10 +4449,8 @@ application_operator(Node) ->
 
 
 %% =====================================================================
-%% @spec application_arguments(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of argument subtrees of an
-%% <code>application</code> node.
+%% `application' node.
 %%
 %% @see application/2
 
@@ -4837,11 +4466,8 @@ application_arguments(Node) ->
 
 
 %% =====================================================================
-%% @spec list_comp(Template::syntaxTree(), Body::[syntaxTree()]) ->
-%%           syntaxTree()
-%%
-%% @doc Creates an abstract list comprehension. If <code>Body</code> is
-%% <code>[E1, ..., En]</code>, the result represents
+%% @doc Creates an abstract list comprehension. If `Body' is
+%% `[E1, ..., En]', the result represents
 %% "<code>[<em>Template</em> || <em>E1</em>, ..., <em>En</em>]</code>".
 %%
 %% @see list_comp_template/1
@@ -4876,9 +4502,7 @@ revert_list_comp(Node) ->
 
 
 %% =====================================================================
-%% @spec list_comp_template(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the template subtree of a <code>list_comp</code> node.
+%% @doc Returns the template subtree of a `list_comp' node.
 %%
 %% @see list_comp/2
 
@@ -4894,10 +4518,7 @@ list_comp_template(Node) ->
 
 
 %% =====================================================================
-%% @spec list_comp_body(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of body subtrees of a <code>list_comp</code>
-%% node.
+%% @doc Returns the list of body subtrees of a `list_comp' node.
 %%
 %% @see list_comp/2
 
@@ -4912,11 +4533,8 @@ list_comp_body(Node) ->
     end.
 
 %% =====================================================================
-%% @spec binary_comp(Template::syntaxTree(), Body::[syntaxTree()]) ->
-%%           syntaxTree()
-%%
-%% @doc Creates an abstract binary comprehension. If <code>Body</code> is
-%% <code>[E1, ..., En]</code>, the result represents
+%% @doc Creates an abstract binary comprehension. If `Body' is
+%% `[E1, ..., En]', the result represents
 %% "<code>&lt;&lt;<em>Template</em> || <em>E1</em>, ..., <em>En</em>&gt;&gt;</code>".
 %%
 %% @see binary_comp_template/1
@@ -4951,9 +4569,7 @@ revert_binary_comp(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_comp_template(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the template subtree of a <code>binary_comp</code> node.
+%% @doc Returns the template subtree of a `binary_comp' node.
 %%
 %% @see binary_comp/2
 
@@ -4969,10 +4585,7 @@ binary_comp_template(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_comp_body(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of body subtrees of a <code>binary_comp</code>
-%% node.
+%% @doc Returns the list of body subtrees of a `binary_comp' node.
 %%
 %% @see binary_comp/2
 
@@ -4988,8 +4601,6 @@ binary_comp_body(Node) ->
 
 
 %% =====================================================================
-%% @spec query_expr(Body::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Creates an abstract Mnemosyne query expression. The result
 %% represents "<code>query <em>Body</em> end</code>".
 %%
@@ -5018,9 +4629,7 @@ revert_query_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec query_expr_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>query_expr</code> node.
+%% @doc Returns the body subtree of a `query_expr' node.
 %%
 %% @see query_expr/1
 
@@ -5036,13 +4645,10 @@ query_expr_body(Node) ->
 
 
 %% =====================================================================
-%% @spec rule(Name::syntaxTree(), Clauses::[syntaxTree()]) ->
-%%           syntaxTree()
-%%
-%% @doc Creates an abstract Mnemosyne rule. If <code>Clauses</code> is
-%% <code>[C1, ..., Cn]</code>, the results represents
+%% @doc Creates an abstract Mnemosyne rule. If `Clauses' is
+%% `[C1, ..., Cn]', the results represents
 %% "<code><em>Name</em> <em>C1</em>; ...; <em>Name</em>
-%% <em>Cn</em>.</code>". More exactly, if each <code>Ci</code>
+%% <em>Cn</em>.</code>". More exactly, if each `Ci'
 %% represents "<code>(<em>Pi1</em>, ..., <em>Pim</em>) <em>Gi</em> ->
 %% <em>Bi</em></code>", then the result represents
 %% "<code><em>Name</em>(<em>P11</em>, ..., <em>P1m</em>) <em>G1</em> :-
@@ -5097,9 +4703,7 @@ revert_rule(Node) ->
 
 
 %% =====================================================================
-%% @spec rule_name(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the name subtree of a <code>rule</code> node.
+%% @doc Returns the name subtree of a `rule' node.
 %%
 %% @see rule/2
 
@@ -5114,9 +4718,7 @@ rule_name(Node) ->
     end.
 
 %% =====================================================================
-%% @spec rule_clauses(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of clause subtrees of a <code>rule</code> node.
+%% @doc Returns the list of clause subtrees of a `rule' node.
 %%
 %% @see rule/2
 
@@ -5131,16 +4733,14 @@ rule_clauses(Node) ->
     end.
 
 %% =====================================================================
-%% @spec rule_arity(Node::syntaxTree()) -> integer()
-%%
-%% @doc Returns the arity of a <code>rule</code> node. The result is the
+%% @doc Returns the arity of a `rule' node. The result is the
 %% number of parameter patterns in the first clause of the rule;
 %% subsequent clauses are ignored.
 %%
-%% <p>An exception is thrown if <code>rule_clauses(Node)</code> returns
+%% An exception is thrown if `rule_clauses(Node)' returns
 %% an empty list, or if the first element of that list is not a syntax
-%% tree <code>C</code> of type <code>clause</code> such that
-%% <code>clause_patterns(C)</code> is a nonempty list.</p>
+%% tree `C' of type `clause' such that
+%% `clause_patterns(C)' is a nonempty list.
 %%
 %% @see rule/2
 %% @see rule_clauses/1
@@ -5156,9 +4756,6 @@ rule_arity(Node) ->
 
 
 %% =====================================================================
-%% @spec generator(Pattern::syntaxTree(), Body::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract generator. The result represents
 %% "<code><em>Pattern</em> &lt;- <em>Body</em></code>".
 %%
@@ -5193,9 +4790,7 @@ revert_generator(Node) ->
 
 
 %% =====================================================================
-%% @spec generator_pattern(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the pattern subtree of a <code>generator</code> node.
+%% @doc Returns the pattern subtree of a `generator' node.
 %%
 %% @see generator/2
 
@@ -5211,9 +4806,7 @@ generator_pattern(Node) ->
 
 
 %% =====================================================================
-%% @spec generator_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>generator</code> node.
+%% @doc Returns the body subtree of a `generator' node.
 %%
 %% @see generator/2
 
@@ -5229,9 +4822,6 @@ generator_body(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_generator(Pattern::syntaxTree(), Body::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract binary_generator. The result represents
 %% "<code><em>Pattern</em> &lt;- <em>Body</em></code>".
 %%
@@ -5266,9 +4856,7 @@ revert_binary_generator(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_generator_pattern(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the pattern subtree of a <code>generator</code> node.
+%% @doc Returns the pattern subtree of a `generator' node.
 %%
 %% @see binary_generator/2
 
@@ -5284,9 +4872,7 @@ binary_generator_pattern(Node) ->
 
 
 %% =====================================================================
-%% @spec binary_generator_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>generator</code> node.
+%% @doc Returns the body subtree of a `generator' node.
 %%
 %% @see binary_generator/2
 
@@ -5302,10 +4888,8 @@ binary_generator_body(Node) ->
 
 
 %% =====================================================================
-%% @spec block_expr(Body::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Creates an abstract block expression. If <code>Body</code> is
-%% <code>[B1, ..., Bn]</code>, the result represents "<code>begin
+%% @doc Creates an abstract block expression. If `Body' is
+%% `[B1, ..., Bn]', the result represents "<code>begin
 %% <em>B1</em>, ..., <em>Bn</em> end</code>".
 %%
 %% @see block_expr_body/1
@@ -5321,7 +4905,7 @@ binary_generator_body(Node) ->
 %%
 %%	    Body = [erl_parse()] \ []
 
--spec block_expr(Body::[syntaxTree()]) -> syntaxTree().
+-spec block_expr([syntaxTree()]) -> syntaxTree().
 
 block_expr(Body) ->
     tree(block_expr, Body).
@@ -5333,10 +4917,7 @@ revert_block_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec block_expr_body(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of body subtrees of a <code>block_expr</code>
-%% node.
+%% @doc Returns the list of body subtrees of a `block_expr' node.
 %%
 %% @see block_expr/1
 
@@ -5352,12 +4933,10 @@ block_expr_body(Node) ->
 
 
 %% =====================================================================
-%% @spec if_expr(Clauses::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Creates an abstract if-expression. If <code>Clauses</code> is
-%% <code>[C1, ..., Cn]</code>, the result represents "<code>if
+%% @doc Creates an abstract if-expression. If `Clauses' is
+%% `[C1, ..., Cn]', the result represents "<code>if
 %% <em>C1</em>; ...; <em>Cn</em> end</code>". More exactly, if each
-%% <code>Ci</code> represents "<code>() <em>Gi</em> ->
+%% `Ci' represents "<code>() <em>Gi</em> ->
 %% <em>Bi</em></code>", then the result represents "<code>if
 %% <em>G1</em> -> <em>B1</em>; ...; <em>Gn</em> -> <em>Bn</em>
 %% end</code>".
@@ -5392,10 +4971,7 @@ revert_if_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec if_expr_clauses(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of clause subtrees of an <code>if_expr</code>
-%% node.
+%% @doc Returns the list of clause subtrees of an `if_expr' node.
 %%
 %% @see if_expr/1
 
@@ -5411,13 +4987,10 @@ if_expr_clauses(Node) ->
 
 
 %% =====================================================================
-%% @spec case_expr(Argument::syntaxTree(), Clauses::[syntaxTree()]) ->
-%%           syntaxTree()
-%%
-%% @doc Creates an abstract case-expression. If <code>Clauses</code> is
-%% <code>[C1, ..., Cn]</code>, the result represents "<code>case
+%% @doc Creates an abstract case-expression. If `Clauses' is
+%% `[C1, ..., Cn]', the result represents "<code>case
 %% <em>Argument</em> of <em>C1</em>; ...; <em>Cn</em> end</code>". More
-%% exactly, if each <code>Ci</code> represents "<code>(<em>Pi</em>)
+%% exactly, if each `Ci' represents "<code>(<em>Pi</em>)
 %% <em>Gi</em> -> <em>Bi</em></code>", then the result represents
 %% "<code>case <em>Argument</em> of <em>P1</em> <em>G1</em> ->
 %% <em>B1</em>; ...; <em>Pn</em> <em>Gn</em> -> <em>Bn</em> end</code>".
@@ -5461,9 +5034,7 @@ revert_case_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec case_expr_argument(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the argument subtree of a <code>case_expr</code> node.
+%% @doc Returns the argument subtree of a `case_expr' node.
 %%
 %% @see case_expr/2
 
@@ -5479,10 +5050,7 @@ case_expr_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec case_expr_clauses(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of clause subtrees of a <code>case_expr</code>
-%% node.
+%% @doc Returns the list of clause subtrees of a `case_expr' node.
 %%
 %% @see case_expr/2
 
@@ -5498,12 +5066,10 @@ case_expr_clauses(Node) ->
 
 
 %% =====================================================================
-%% @spec cond_expr(Clauses::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Creates an abstract cond-expression. If <code>Clauses</code> is
-%% <code>[C1, ..., Cn]</code>, the result represents "<code>cond
+%% @doc Creates an abstract cond-expression. If `Clauses' is
+%% `[C1, ..., Cn]', the result represents "<code>cond
 %% <em>C1</em>; ...; <em>Cn</em> end</code>". More exactly, if each
-%% <code>Ci</code> represents "<code>() <em>Ei</em> ->
+%% `Ci' represents "<code>() <em>Ei</em> ->
 %% <em>Bi</em></code>", then the result represents "<code>cond
 %% <em>E1</em> -> <em>B1</em>; ...; <em>En</em> -> <em>Bn</em>
 %% end</code>".
@@ -5538,10 +5104,7 @@ revert_cond_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec cond_expr_clauses(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of clause subtrees of a <code>cond_expr</code>
-%% node.
+%% @doc Returns the list of clause subtrees of a `cond_expr' node.
 %%
 %% @see cond_expr/1
 
@@ -5557,7 +5120,6 @@ cond_expr_clauses(Node) ->
 
 
 %% =====================================================================
-%% @spec receive_expr(Clauses) -> syntaxTree()
 %% @equiv receive_expr(Clauses, none, [])
 
 -spec receive_expr([syntaxTree()]) -> syntaxTree().
@@ -5567,25 +5129,21 @@ receive_expr(Clauses) ->
 
 
 %% =====================================================================
-%% @spec receive_expr(Clauses::[syntaxTree()], Timeout,
-%%                    Action::[syntaxTree()]) -> syntaxTree()
-%%	    Timeout = none | syntaxTree()
-%%
-%% @doc Creates an abstract receive-expression. If <code>Timeout</code>
-%% is <code>none</code>, the result represents "<code>receive
-%% <em>C1</em>; ...; <em>Cn</em> end</code>" (the <code>Action</code>
-%% argument is ignored). Otherwise, if <code>Clauses</code> is
-%% <code>[C1, ..., Cn]</code> and <code>Action</code> is <code>[A1, ...,
-%% Am]</code>, the result represents "<code>receive <em>C1</em>; ...;
+%% @doc Creates an abstract receive-expression. If `Timeout'
+%% is `none', the result represents "<code>receive
+%% <em>C1</em>; ...; <em>Cn</em> end</code>" (the `Action'
+%% argument is ignored). Otherwise, if `Clauses' is
+%% `[C1, ..., Cn]' and `Action' is `[A1, ...,
+%% Am]', the result represents "<code>receive <em>C1</em>; ...;
 %% <em>Cn</em> after <em>Timeout</em> -> <em>A1</em>, ..., <em>Am</em>
-%% end</code>". More exactly, if each <code>Ci</code> represents
+%% end</code>". More exactly, if each `Ci' represents
 %% "<code>(<em>Pi</em>) <em>Gi</em> -> <em>Bi</em></code>", then the
 %% result represents "<code>receive <em>P1</em> <em>G1</em> ->
 %% <em>B1</em>; ...; <em>Pn</em> <em>Gn</em> -> <em>Bn</em> ...
 %% end</code>".
 %%
-%% <p>Note that in Erlang, a receive-expression must have at least one
-%% clause if no timeout part is specified.</p>
+%% Note that in Erlang, a receive-expression must have at least one
+%% clause if no timeout part is specified.
 %%
 %% @see receive_expr_clauses/1
 %% @see receive_expr_timeout/1
@@ -5649,11 +5207,8 @@ revert_receive_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec receive_expr_clauses(syntaxTree()) -> [syntaxTree()]
-%%	     type(Node) = receive_expr
-%%
 %% @doc Returns the list of clause subtrees of a
-%% <code>receive_expr</code> node.
+%% `receive_expr' node.
 %%
 %% @see receive_expr/3
 
@@ -5671,15 +5226,12 @@ receive_expr_clauses(Node) ->
 
 
 %% =====================================================================
-%% @spec receive_expr_timeout(Node::syntaxTree()) -> Timeout
-%%	     Timeout = none | syntaxTree()
-%%
-%% @doc Returns the timeout subtree of a <code>receive_expr</code> node,
-%% if any. If <code>Node</code> represents "<code>receive <em>C1</em>;
-%% ...; <em>Cn</em> end</code>", <code>none</code> is returned.
-%% Otherwise, if <code>Node</code> represents "<code>receive
+%% @doc Returns the timeout subtree of a `receive_expr' node,
+%% if any. If `Node' represents "<code>receive <em>C1</em>;
+%% ...; <em>Cn</em> end</code>", `none' is returned.
+%% Otherwise, if `Node' represents "<code>receive
 %% <em>C1</em>; ...; <em>Cn</em> after <em>Timeout</em> -> ... end</code>",
-%% <code>Timeout</code> is returned.
+%% `Timeout' is returned.
 %%
 %% @see receive_expr/3
 
@@ -5697,10 +5249,8 @@ receive_expr_timeout(Node) ->
 
 
 %% =====================================================================
-%% @spec receive_expr_action(Node::syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of action body subtrees of a
-%% <code>receive_expr</code> node. If <code>Node</code> represents
+%% `receive_expr' node. If `Node' represents
 %% "<code>receive <em>C1</em>; ...; <em>Cn</em> end</code>", this is the
 %% empty list.
 %%
@@ -5720,8 +5270,6 @@ receive_expr_action(Node) ->
 
 
 %% =====================================================================
-%% @spec try_expr(Body::syntaxTree(), Handlers::[syntaxTree()]) ->
-%%           syntaxTree()
 %% @equiv try_expr(Body, [], Handlers)
 
 -spec try_expr([syntaxTree()], [syntaxTree()]) -> syntaxTree().
@@ -5731,8 +5279,6 @@ try_expr(Body, Handlers) ->
 
 
 %% =====================================================================
-%% @spec try_expr(Body::syntaxTree(), Clauses::[syntaxTree()],
-%%           Handlers::[syntaxTree()]) -> syntaxTree()
 %% @equiv try_expr(Body, Clauses, Handlers, [])
 
 -spec try_expr([syntaxTree()], [syntaxTree()], [syntaxTree()]) -> syntaxTree().
@@ -5742,8 +5288,6 @@ try_expr(Body, Clauses, Handlers) ->
 
 
 %% =====================================================================
-%% @spec try_after_expr(Body::syntaxTree(), After::[syntaxTree()]) ->
-%%           syntaxTree()
 %% @equiv try_expr(Body, [], [], After)
 
 -spec try_after_expr([syntaxTree()], [syntaxTree()]) -> syntaxTree().
@@ -5753,30 +5297,26 @@ try_after_expr(Body, After) ->
 
 
 %% =====================================================================
-%% @spec try_expr(Body::[syntaxTree()], Clauses::[syntaxTree()],
-%%                Handlers::[syntaxTree()], After::[syntaxTree()]) ->
-%%           syntaxTree()
-%%
-%% @doc Creates an abstract try-expression. If <code>Body</code> is
-%% <code>[B1, ..., Bn]</code>, <code>Clauses</code> is <code>[C1, ...,
-%% Cj]</code>, <code>Handlers</code> is <code>[H1, ..., Hk]</code>, and
-%% <code>After</code> is <code>[A1, ..., Am]</code>, the result
+%% @doc Creates an abstract try-expression. If `Body' is
+%% `[B1, ..., Bn]', `Clauses' is `[C1, ...,
+%% Cj]', `Handlers' is `[H1, ..., Hk]', and
+%% `After' is `[A1, ..., Am]', the result
 %% represents "<code>try <em>B1</em>, ..., <em>Bn</em> of <em>C1</em>;
 %% ...; <em>Cj</em> catch <em>H1</em>; ...; <em>Hk</em> after
 %% <em>A1</em>, ..., <em>Am</em> end</code>". More exactly, if each
-%% <code>Ci</code> represents "<code>(<em>CPi</em>) <em>CGi</em> ->
-%% <em>CBi</em></code>", and each <code>Hi</code> represents
+%% `Ci' represents "<code>(<em>CPi</em>) <em>CGi</em> ->
+%% <em>CBi</em></code>", and each `Hi' represents
 %% "<code>(<em>HPi</em>) <em>HGi</em> -> <em>HBi</em></code>", then the
 %% result represents "<code>try <em>B1</em>, ..., <em>Bn</em> of
 %% <em>CP1</em> <em>CG1</em> -> <em>CB1</em>; ...; <em>CPj</em>
 %% <em>CGj</em> -> <em>CBj</em> catch <em>HP1</em> <em>HG1</em> ->
 %% <em>HB1</em>; ...; <em>HPk</em> <em>HGk</em> -> <em>HBk</em> after
-%% <em>A1</em>, ..., <em>Am</em> end</code>"; cf.
-%% <code>case_expr/2</code>. If <code>Clauses</code> is the empty list,
-%% the <code>of ...</code> section is left out. If <code>After</code> is
-%% the empty list, the <code>after ...</code> section is left out. If
-%% <code>Handlers</code> is the empty list, and <code>After</code> is
-%% nonempty, the <code>catch ...</code> section is left out.
+%% <em>A1</em>, ..., <em>Am</em> end</code>"; see
+%% {@link case_expr/2}. If `Clauses' is the empty list,
+%% the `of ...' section is left out. If `After' is
+%% the empty list, the `after ...' section is left out. If
+%% `Handlers' is the empty list, and `After' is
+%% nonempty, the `catch ...' section is left out.
 %%
 %% @see try_expr_body/1
 %% @see try_expr_clauses/1
@@ -5834,10 +5374,7 @@ revert_try_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec try_expr_body(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of body subtrees of a <code>try_expr</code>
-%% node.
+%% @doc Returns the list of body subtrees of a `try_expr' node.
 %%
 %% @see try_expr/4
 
@@ -5853,10 +5390,8 @@ try_expr_body(Node) ->
 
 
 %% =====================================================================
-%% @spec try_expr_clauses(Node::syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of case-clause subtrees of a
-%% <code>try_expr</code> node. If <code>Node</code> represents
+%% `try_expr' node. If `Node' represents
 %% "<code>try <em>Body</em> catch <em>H1</em>; ...; <em>Hn</em>
 %% end</code>", the result is the empty list.
 %%
@@ -5874,10 +5409,8 @@ try_expr_clauses(Node) ->
 
 
 %% =====================================================================
-%% @spec try_expr_handlers(syntaxTree()) -> [syntaxTree()]
-%%
 %% @doc Returns the list of handler-clause subtrees of a
-%% <code>try_expr</code> node.
+%% `try_expr' node.
 %%
 %% @see try_expr/4
 
@@ -5893,10 +5426,7 @@ try_expr_handlers(Node) ->
 
 
 %% =====================================================================
-%% @spec try_expr_after(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of "after" subtrees of a <code>try_expr</code>
-%% node.
+%% @doc Returns the list of "after" subtrees of a `try_expr' node.
 %%
 %% @see try_expr/4
 
@@ -5912,9 +5442,6 @@ try_expr_after(Node) ->
 
 
 %% =====================================================================
-%% @spec class_qualifier(Class::syntaxTree(), Body::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract class qualifier. The result represents
 %% "<code><em>Class</em>:<em>Body</em></code>".
 %%
@@ -5937,10 +5464,8 @@ class_qualifier(Class, Body) ->
 
 
 %% =====================================================================
-%% @spec class_qualifier_argument(syntaxTree()) -> syntaxTree()
-%%
 %% @doc Returns the argument (the class) subtree of a
-%% <code>class_qualifier</code> node.
+%% `class_qualifier' node.
 %%
 %% @see class_qualifier/2
 
@@ -5951,9 +5476,7 @@ class_qualifier_argument(Node) ->
 
 
 %% =====================================================================
-%% @spec class_qualifier_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>class_qualifier</code> node.
+%% @doc Returns the body subtree of a `class_qualifier' node.
 %%
 %% @see class_qualifier/2
 
@@ -5964,13 +5487,10 @@ class_qualifier_body(Node) ->
 
 
 %% =====================================================================
-%% @spec implicit_fun(Name::syntaxTree(), Arity::syntaxTree()) ->
-%%           syntaxTree()
-%%
 %% @doc Creates an abstract "implicit fun" expression. If
-%% <code>Arity</code> is <code>none</code>, this is equivalent to
-%% <code>implicit_fun(Name)</code>, otherwise it is equivalent to
-%% <code>implicit_fun(arity_qualifier(Name, Arity))</code>.
+%% `Arity' is `none', this is equivalent to
+%% `implicit_fun(Name)', otherwise it is equivalent to
+%% `implicit_fun(arity_qualifier(Name, Arity))'.
 %%
 %% (This is a utility function.)
 %%
@@ -5986,14 +5506,11 @@ implicit_fun(Name, Arity) ->
 
 
 %% =====================================================================
-%% @spec implicit_fun(Module::syntaxTree(), Name::syntaxTree(),
-%%                    Arity::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Creates an abstract module-qualified "implicit fun" expression.
-%% If <code>Module</code> is <code>none</code>, this is equivalent to
-%% <code>implicit_fun(Name, Arity)</code>, otherwise it is equivalent to
-%% <code>implicit_fun(module_qualifier(Module, arity_qualifier(Name,
-%% Arity))</code>.
+%% If `Module' is `none', this is equivalent to
+%% `implicit_fun(Name, Arity)', otherwise it is equivalent to
+%% `implicit_fun(module_qualifier(Module, arity_qualifier(Name,
+%% Arity))'.
 %%
 %% (This is a utility function.)
 %%
@@ -6010,10 +5527,8 @@ implicit_fun(Module, Name, Arity) ->
 
 
 %% =====================================================================
-%% @spec implicit_fun(Name::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Creates an abstract "implicit fun" expression. The result
-%% represents "<code>fun <em>Name</em></code>". <code>Name</code> should
+%% represents "<code>fun <em>Name</em></code>". `Name' should
 %% represent either <code><em>F</em>/<em>A</em></code> or
 %% <code><em>M</em>:<em>F</em>/<em>A</em></code>
 %%
@@ -6072,15 +5587,13 @@ revert_implicit_fun(Node) ->
 
 
 %% =====================================================================
-%% @spec implicit_fun_name(Node::syntaxTree()) -> syntaxTree()
+%% @doc Returns the name subtree of an `implicit_fun' node.
 %%
-%% @doc Returns the name subtree of an <code>implicit_fun</code> node.
-%%
-%% <p>Note: if <code>Node</code> represents "<code>fun
+%% Note: if `Node' represents "<code>fun
 %% <em>N</em>/<em>A</em></code>" or "<code>fun
 %% <em>M</em>:<em>N</em>/<em>A</em></code>", then the result is the
 %% subtree representing "<code><em>N</em>/<em>A</em></code>" or
-%% "<code><em>M</em>:<em>N</em>/<em>A</em></code>", respectively.</p>
+%% "<code><em>M</em>:<em>N</em>/<em>A</em></code>", respectively.
 %%
 %% @see implicit_fun/1
 %% @see arity_qualifier/2
@@ -6110,12 +5623,10 @@ implicit_fun_name(Node) ->
 
 
 %% =====================================================================
-%% @spec fun_expr(Clauses::[syntaxTree()]) -> syntaxTree()
-%%
-%% @doc Creates an abstract fun-expression. If <code>Clauses</code> is
-%% <code>[C1, ..., Cn]</code>, the result represents "<code>fun
+%% @doc Creates an abstract fun-expression. If `Clauses' is
+%% `[C1, ..., Cn]', the result represents "<code>fun
 %% <em>C1</em>; ...; <em>Cn</em> end</code>". More exactly, if each
-%% <code>Ci</code> represents "<code>(<em>Pi1</em>, ..., <em>Pim</em>)
+%% `Ci' represents "<code>(<em>Pi1</em>, ..., <em>Pim</em>)
 %% <em>Gi</em> -> <em>Bi</em></code>", then the result represents
 %% "<code>fun (<em>P11</em>, ..., <em>P1m</em>) <em>G1</em> ->
 %% <em>B1</em>; ...; (<em>Pn1</em>, ..., <em>Pnm</em>) <em>Gn</em> ->
@@ -6152,10 +5663,7 @@ revert_fun_expr(Node) ->
 
 
 %% =====================================================================
-%% @spec fun_expr_clauses(syntaxTree()) -> [syntaxTree()]
-%%
-%% @doc Returns the list of clause subtrees of a <code>fun_expr</code>
-%% node.
+%% @doc Returns the list of clause subtrees of a `fun_expr' node.
 %%
 %% @see fun_expr/1
 
@@ -6171,16 +5679,14 @@ fun_expr_clauses(Node) ->
 
 
 %% =====================================================================
-%% @spec fun_expr_arity(syntaxTree()) -> integer()
-%%
-%% @doc Returns the arity of a <code>fun_expr</code> node. The result is
+%% @doc Returns the arity of a `fun_expr' node. The result is
 %% the number of parameter patterns in the first clause of the
 %% fun-expression; subsequent clauses are ignored.
 %%
-%% <p>An exception is thrown if <code>fun_expr_clauses(Node)</code>
+%% An exception is thrown if `fun_expr_clauses(Node)'
 %% returns an empty list, or if the first element of that list is not a
-%% syntax tree <code>C</code> of type <code>clause</code> such that
-%% <code>clause_patterns(C)</code> is a nonempty list.</p>
+%% syntax tree `C' of type `clause' such that
+%% `clause_patterns(C)' is a nonempty list.
 %%
 %% @see fun_expr/1
 %% @see fun_expr_clauses/1
@@ -6194,8 +5700,6 @@ fun_expr_arity(Node) ->
 
 
 %% =====================================================================
-%% @spec parentheses(Body::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Creates an abstract parenthesised expression. The result
 %% represents "<code>(<em>Body</em>)</code>", independently of the
 %% context.
@@ -6215,9 +5719,7 @@ revert_parentheses(Node) ->
 
 
 %% =====================================================================
-%% @spec parentheses_body(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the body subtree of a <code>parentheses</code> node.
+%% @doc Returns the body subtree of a `parentheses' node.
 %%
 %% @see parentheses/1
 
@@ -6228,7 +5730,6 @@ parentheses_body(Node) ->
 
 
 %% =====================================================================
-%% @spec macro(Name) -> syntaxTree()
 %% @equiv macro(Name, none)
 
 -spec macro(syntaxTree()) -> syntaxTree().
@@ -6238,25 +5739,22 @@ macro(Name) ->
 
 
 %% =====================================================================
-%% @spec macro(Name::syntaxTree(), Arguments) -> syntaxTree()
-%%	    Arguments = none | [syntaxTree()]
-%%
-%% @doc Creates an abstract macro application. If <code>Arguments</code>
-%% is <code>none</code>, the result represents
-%% "<code>?<em>Name</em></code>", otherwise, if <code>Arguments</code>
-%% is <code>[A1, ..., An]</code>, the result represents
+%% @doc Creates an abstract macro application. If `Arguments'
+%% is `none', the result represents
+%% "<code>?<em>Name</em></code>", otherwise, if `Arguments'
+%% is `[A1, ..., An]', the result represents
 %% "<code>?<em>Name</em>(<em>A1</em>, ..., <em>An</em>)</code>".
 %%
-%% <p>Notes: if <code>Arguments</code> is the empty list, the result
+%% Notes: if `Arguments' is the empty list, the result
 %% will thus represent "<code>?<em>Name</em>()</code>", including a pair
-%% of matching parentheses.</p>
+%% of matching parentheses.
 %%
-%% <p>The only syntactical limitation imposed by the preprocessor on the
+%% The only syntactical limitation imposed by the preprocessor on the
 %% arguments to a macro application (viewed as sequences of tokens) is
 %% that they must be balanced with respect to parentheses, brackets,
-%% <code>begin ... end</code>, <code>case ... end</code>, etc. The
-%% <code>text</code> node type can be used to represent arguments which
-%% are not regular Erlang constructs.</p>
+%% `begin ... end', `case ... end', etc. The
+%% `text' node type can be used to represent arguments which
+%% are not regular Erlang constructs.
 %%
 %% @see macro_name/1
 %% @see macro_arguments/1
@@ -6278,9 +5776,7 @@ macro(Name, Arguments) ->
 
 
 %% =====================================================================
-%% @spec macro_name(syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns the name subtree of a <code>macro</code> node.
+%% @doc Returns the name subtree of a `macro' node.
 %%
 %% @see macro/2
 
@@ -6291,14 +5787,12 @@ macro_name(Node) ->
 
 
 %% =====================================================================
-%% @spec macro_arguments(Node::syntaxTree()) -> none | [syntaxTree()]
-%%
-%% @doc Returns the list of argument subtrees of a <code>macro</code>
-%% node, if any. If <code>Node</code> represents
-%% "<code>?<em>Name</em></code>", <code>none</code> is returned.
-%% Otherwise, if <code>Node</code> represents
+%% @doc Returns the list of argument subtrees of a `macro'
+%% node, if any. If `Node' represents
+%% "<code>?<em>Name</em></code>", `none' is returned.
+%% Otherwise, if `Node' represents
 %% "<code>?<em>Name</em>(<em>A1</em>, ..., <em>An</em>)</code>",
-%% <code>[A1, ..., An]</code> is returned.
+%% `[A1, ..., An]' is returned.
 %%
 %% @see macro/2
 
@@ -6309,15 +5803,13 @@ macro_arguments(Node) ->
 
 
 %% =====================================================================
-%% @spec abstract(Term::term()) -> syntaxTree()
-%%
 %% @doc Returns the syntax tree corresponding to an Erlang term.
-%% <code>Term</code> must be a literal term, i.e., one that can be
+%% `Term' must be a literal term, i.e., one that can be
 %% represented as a source code literal. Thus, it may not contain a
 %% process identifier, port, reference, binary or function value as a
 %% subterm. The function recognises printable strings, in order to get a
 %% compact and readable representation. Evaluation fails with reason
-%% <code>badarg</code> if <code>Term</code> is not a literal term.
+%% `badarg' if `Term' is not a literal term.
 %%
 %% @see concrete/1
 %% @see is_literal/1
@@ -6367,19 +5859,17 @@ abstract_tail(H, T) ->
 
 
 %% =====================================================================
-%% @spec concrete(Node::syntaxTree()) -> term()
-%%
 %% @doc Returns the Erlang term represented by a syntax tree. Evaluation
-%% fails with reason <code>badarg</code> if <code>Node</code> does not
+%% fails with reason `badarg' if `Node' does not
 %% represent a literal term.
 %%
-%% <p>Note: Currently, the set of syntax trees which have a concrete
+%% Note: Currently, the set of syntax trees which have a concrete
 %% representation is larger than the set of trees which can be built
-%% using the function <code>abstract/1</code>. An abstract character
-%% will be concretised as an integer, while <code>abstract/1</code> does
+%% using the function {@link abstract/1}. An abstract character
+%% will be concretised as an integer, while {@link abstract/1} does
 %% not at present yield an abstract character for any input. (Use the
-%% <code>char/1</code> function to explicitly create an abstract
-%% character.)</p>
+%% {@link char/1} function to explicitly create an abstract
+%% character.)
 %%
 %% @see abstract/1
 %% @see is_literal/1
@@ -6422,7 +5912,7 @@ concrete(Node) ->
 					   {value, concrete(F), []}
 				   end, [], true),
 	    B;
-    	_ ->
+        _ ->
 	    erlang:error({badarg, Node})
     end.
 
@@ -6433,12 +5923,10 @@ concrete_list([]) ->
 
 
 %% =====================================================================
-%% @spec is_literal(Node::syntaxTree()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if <code>Node</code> represents a
-%% literal term, otherwise <code>false</code>. This function returns
-%% <code>true</code> if and only if the value of
-%% <code>concrete(Node)</code> is defined.
+%% @doc Returns `true' if `Node' represents a
+%% literal term, otherwise `false'. This function returns
+%% `true' if and only if the value of
+%% `concrete(Node)' is defined.
 %%
 %% @see abstract/1
 %% @see concrete/1
@@ -6469,21 +5957,19 @@ is_literal(T) ->
 
 
 %% =====================================================================
-%% @spec revert(Tree::syntaxTree()) -> syntaxTree()
-%%
-%% @doc Returns an <code>erl_parse</code>-compatible representation of a
-%% syntax tree, if possible. If <code>Tree</code> represents a
+%% @doc Returns an `erl_parse'-compatible representation of a
+%% syntax tree, if possible. If `Tree' represents a
 %% well-formed Erlang program or expression, the conversion should work
-%% without problems. Typically, <code>is_tree/1</code> yields
-%% <code>true</code> if conversion failed (i.e., the result is still an
-%% abstract syntax tree), and <code>false</code> otherwise.
+%% without problems. Typically, {@link is_tree/1} yields
+%% `true' if conversion failed (i.e., the result is still an
+%% abstract syntax tree), and `false' otherwise.
 %%
-%% <p>The <code>is_tree/1</code> test is not completely foolproof. For a
-%% few special node types (e.g. <code>arity_qualifier</code>), if such a
+%% The {@link is_tree/1} test is not completely foolproof. For a
+%% few special node types (e.g. `arity_qualifier'), if such a
 %% node occurs in a context where it is not expected, it will be left
 %% unchanged as a non-reverted subtree of the result. This can only
-%% happen if <code>Tree</code> does not actually represent legal Erlang
-%% code.</p>
+%% happen if `Tree' does not actually represent legal Erlang
+%% code.
 %%
 %% @see revert_forms/1
 %% @see //stdlib/erl_parse
@@ -6493,9 +5979,13 @@ is_literal(T) ->
 revert(Node) ->
     case is_tree(Node) of
 	false ->
-	    %% Just remove any wrapper. `erl_parse' nodes never contain
-	    %% abstract syntax tree nodes as subtrees.
-	    unwrap(Node);
+	    %% Just remove any wrapper and copy the position. `erl_parse'
+	    %% nodes never contain abstract syntax tree nodes as subtrees.
+	    case unwrap(Node) of
+                {error, Info} -> {error, setelement(1,Info,get_pos(Node))};
+                {warning, Info} -> {warning, setelement(1,Info,get_pos(Node))};
+                Node1 -> setelement(2,Node1,get_pos(Node))
+            end;
 	true ->
 	    case is_leaf(Node) of
 		true ->
@@ -6615,16 +6105,12 @@ revert_root(Node) ->
 
 
 %% =====================================================================
-%% @spec revert_forms(Forms) -> [erl_parse()]
-%%
-%%	    Forms = syntaxTree() | [syntaxTree()]
-%%
 %% @doc Reverts a sequence of Erlang source code forms. The sequence can
-%% be given either as a <code>form_list</code> syntax tree (possibly
+%% be given either as a `form_list' syntax tree (possibly
 %% nested), or as a list of "program form" syntax trees. If successful,
-%% the corresponding flat list of <code>erl_parse</code>-compatible
-%% syntax trees is returned (cf. <code>revert/1</code>). If some program
-%% form could not be reverted, <code>{error, Form}</code> is thrown.
+%% the corresponding flat list of `erl_parse'-compatible
+%% syntax trees is returned (see {@link revert/1}). If some program
+%% form could not be reverted, `{error, Form}' is thrown.
 %% Standalone comments in the form sequence are discarded.
 %%
 %% @see revert/1
@@ -6633,10 +6119,10 @@ revert_root(Node) ->
 
 -type forms() :: syntaxTree() | [syntaxTree()].
 
-%% -spec revert_forms(forms()) -> [erl_parse()].
+-spec revert_forms(forms()) -> [erl_parse()].
 
-revert_forms(L) when is_list(L) ->
-    revert_forms(form_list(L));
+revert_forms(Forms) when is_list(Forms) ->
+    revert_forms(form_list(Forms));
 revert_forms(T) ->
     case type(T) of
 	form_list ->
@@ -6673,60 +6159,54 @@ revert_forms_1([]) ->
 
 
 %% =====================================================================
-%% @spec subtrees(Node::syntaxTree()) -> [[syntaxTree()]]
-%%
 %% @doc Returns the grouped list of all subtrees of a syntax tree. If
-%% <code>Node</code> is a leaf node (cf. <code>is_leaf/1</code>), this
+%% `Node' is a leaf node (see {@link is_leaf/1}), this
 %% is the empty list, otherwise the result is always a nonempty list,
-%% containing the lists of subtrees of <code>Node</code>, in
+%% containing the lists of subtrees of `Node', in
 %% left-to-right order as they occur in the printed program text, and
 %% grouped by category. Often, each group contains only a single
 %% subtree.
 %%
-%% <p>Depending on the type of <code>Node</code>, the size of some
+%% Depending on the type of `Node', the size of some
 %% groups may be variable (e.g., the group consisting of all the
 %% elements of a tuple), while others always contain the same number of
 %% elements - usually exactly one (e.g., the group containing the
 %% argument expression of a case-expression). Note, however, that the
 %% exact structure of the returned list (for a given node type) should
 %% in general not be depended upon, since it might be subject to change
-%% without notice.</p>
+%% without notice.
 %%
-%% <p>The function <code>subtrees/1</code> and the constructor functions
-%% <code>make_tree/2</code> and <code>update_tree/2</code> can be a
+%% The function {@link subtrees/1} and the constructor functions
+%% {@link make_tree/2} and {@link update_tree/2} can be a
 %% great help if one wants to traverse a syntax tree, visiting all its
 %% subtrees, but treat nodes of the tree in a uniform way in most or all
 %% cases. Using these functions makes this simple, and also assures that
 %% your code is not overly sensitive to extensions of the syntax tree
 %% data type, because any node types not explicitly handled by your code
-%% can be left to a default case.</p>
+%% can be left to a default case.
 %%
-%% <p>For example:
-%% <pre>
-%%   postorder(F, Tree) ->
+%% For example:
+%% ```postorder(F, Tree) ->
 %%       F(case subtrees(Tree) of
 %%           [] -> Tree;
 %%           List -> update_tree(Tree,
 %%                               [[postorder(F, Subtree)
 %%                                 || Subtree &lt;- Group]
 %%                                || Group &lt;- List])
-%%         end).
-%% </pre>
-%% maps the function <code>F</code> on <code>Tree</code> and all its
+%%         end).'''
+%% maps the function `F' on `Tree' and all its
 %% subtrees, doing a post-order traversal of the syntax tree. (Note the
-%% use of <code>update_tree/2</code> to preserve node attributes.) For a
+%% use of {@link update_tree/2} to preserve node attributes.) For a
 %% simple function like:
-%% <pre>
-%%   f(Node) ->
+%% ```f(Node) ->
 %%       case type(Node) of
 %%           atom -> atom("a_" ++ atom_name(Node));
 %%           _ -> Node
-%%       end.
-%% </pre>
-%% the call <code>postorder(fun f/1, Tree)</code> will yield a new
-%% representation of <code>Tree</code> in which all atom names have been
+%%       end.'''
+%% the call `postorder(fun f/1, Tree)' will yield a new
+%% representation of `Tree' in which all atom names have been
 %% extended with the prefix "a_", but nothing else (including comments,
-%% annotations and line numbers) has been changed.</p>
+%% annotations and line numbers) has been changed.
 %%
 %% @see make_tree/2
 %% @see type/1
@@ -6896,12 +6376,9 @@ subtrees(T) ->
 
 
 %% =====================================================================
-%% @spec update_tree(Node::syntaxTree(), Groups::[[syntaxTree()]]) ->
-%%           syntaxTree()
-%%
 %% @doc Creates a syntax tree with the same type and attributes as the
-%% given tree. This is equivalent to <code>copy_attrs(Node,
-%% make_tree(type(Node), Groups))</code>.
+%% given tree. This is equivalent to `copy_attrs(Node,
+%% make_tree(type(Node), Groups))'.
 %%
 %% @see make_tree/2
 %% @see copy_attrs/2
@@ -6914,23 +6391,20 @@ update_tree(Node, Groups) ->
 
 
 %% =====================================================================
-%% @spec make_tree(Type::atom(), Groups::[[syntaxTree()]]) ->
-%%           syntaxTree()
-%%
 %% @doc Creates a syntax tree with the given type and subtrees.
-%% <code>Type</code> must be a node type name (cf. <code>type/1</code>)
-%% that does not denote a leaf node type (cf. <code>is_leaf/1</code>).
-%% <code>Groups</code> must be a <em>nonempty</em> list of groups of
+%% `Type' must be a node type name (see {@link type/1})
+%% that does not denote a leaf node type (see {@link is_leaf/1}).
+%% `Groups' must be a <em>nonempty</em> list of groups of
 %% syntax trees, representing the subtrees of a node of the given type,
 %% in left-to-right order as they would occur in the printed program
-%% text, grouped by category as done by <code>subtrees/1</code>.
+%% text, grouped by category as done by {@link subtrees/1}.
 %%
-%% <p>The result of <code>copy_attrs(Node, make_tree(type(Node),
-%% subtrees(Node)))</code> (cf. <code>update_tree/2</code>) represents
-%% the same source code text as the original <code>Node</code>, assuming
-%% that <code>subtrees(Node)</code> yields a nonempty list. However, it
+%% The result of `copy_attrs(Node, make_tree(type(Node),
+%% subtrees(Node)))' (see {@link update_tree/2}) represents
+%% the same source code text as the original `Node', assuming
+%% that `subtrees(Node)' yields a nonempty list. However, it
 %% does not necessarily have the same data representation as
-%% <code>Node</code>.</p>
+%% `Node'.
 %%
 %% @see update_tree/2
 %% @see subtrees/1
@@ -6995,42 +6469,40 @@ make_tree(tuple, [E]) -> tuple(E).
 
 
 %% =====================================================================
-%% @spec meta(Tree::syntaxTree()) -> syntaxTree()
-%%
 %% @doc Creates a meta-representation of a syntax tree. The result
 %% represents an Erlang expression "<code><em>MetaTree</em></code>"
 %% which, if evaluated, will yield a new syntax tree representing the
-%% same source code text as <code>Tree</code> (although the actual data
+%% same source code text as `Tree' (although the actual data
 %% representation may be different). The expression represented by
-%% <code>MetaTree</code> is <em>implementation independent</em> with
+%% `MetaTree' is <em>implementation independent</em> with
 %% regard to the data structures used by the abstract syntax tree
-%% implementation. Comments attached to nodes of <code>Tree</code> will
+%% implementation. Comments attached to nodes of `Tree' will
 %% be preserved, but other attributes are lost.
 %%
-%% <p>Any node in <code>Tree</code> whose node type is
-%% <code>variable</code> (cf. <code>type/1</code>), and whose list of
-%% annotations (cf. <code>get_ann/1</code>) contains the atom
-%% <code>meta_var</code>, will remain unchanged in the resulting tree,
-%% except that exactly one occurrence of <code>meta_var</code> is
-%% removed from its annotation list.</p>
+%% Any node in `Tree' whose node type is
+%% `variable' (see {@link type/1}), and whose list of
+%% annotations (see {@link get_ann/1}) contains the atom
+%% `meta_var', will remain unchanged in the resulting tree,
+%% except that exactly one occurrence of `meta_var' is
+%% removed from its annotation list.
 %%
-%% <p>The main use of the function <code>meta/1</code> is to transform a
-%% data structure <code>Tree</code>, which represents a piece of program
+%% The main use of the function `meta/1' is to transform a
+%% data structure `Tree', which represents a piece of program
 %% code, into a form that is <em>representation independent when
-%% printed</em>. E.g., suppose <code>Tree</code> represents a variable
-%% named "V". Then (assuming a function <code>print/1</code> for
-%% printing syntax trees), evaluating <code>print(abstract(Tree))</code>
-%% - simply using <code>abstract/1</code> to map the actual data
+%% printed</em>. E.g., suppose `Tree' represents a variable
+%% named "V". Then (assuming a function `print/1' for
+%% printing syntax trees), evaluating `print(abstract(Tree))'
+%% - simply using {@link abstract/1} to map the actual data
 %% structure onto a syntax tree representation - would output a string
-%% that might look something like "<code>{tree, variable, ..., "V",
-%% ...}</code>", which is obviously dependent on the implementation of
+%% that might look something like "`{tree, variable, ..., "V",
+%% ...}'", which is obviously dependent on the implementation of
 %% the abstract syntax trees. This could e.g. be useful for caching a
 %% syntax tree in a file. However, in some situations like in a program
 %% generator generator (with two "generator"), it may be unacceptable.
-%% Using <code>print(meta(Tree))</code> instead would output a
+%% Using `print(meta(Tree))' instead would output a
 %% <em>representation independent</em> syntax tree generating
 %% expression; in the above case, something like
-%% "<code>erl_syntax:variable("V")</code>".</p>
+%% "`erl_syntax:variable("V")'".
 %%
 %% @see abstract/1
 %% @see type/1
@@ -7161,60 +6633,56 @@ meta_call(F, As) ->
 
 
 %% =====================================================================
-%% @spec tree(Type) -> syntaxTree()
 %% @equiv tree(Type, [])
 
--spec tree(atom()) -> syntaxTree().
+-spec tree(atom()) -> #tree{}.
 
 tree(Type) ->
     tree(Type, []).
 
 %% =====================================================================
-%% @spec tree(Type::atom(), Data::term()) -> syntaxTree()
-%%
 %% @doc <em>For special purposes only</em>. Creates an abstract syntax
-%% tree node with type tag <code>Type</code> and associated data
-%% <code>Data</code>.
+%% tree node with type tag `Type' and associated data
+%% `Data'.
 %%
-%% <p>This function and the related <code>is_tree/1</code> and
-%% <code>data/1</code> provide a uniform way to extend the set of
-%% <code>erl_parse</code> node types. The associated data is any term,
-%% whose format may depend on the type tag.</p>
+%% This function and the related {@link is_tree/1} and
+%% {@link data/1} provide a uniform way to extend the set of
+%% `erl_parse' node types. The associated data is any term,
+%% whose format may depend on the type tag.
 %%
-%% <h4>Notes:</h4>
+%% === Notes: ===
 %% <ul>
 %%  <li>Any nodes created outside of this module must have type tags
 %%      distinct from those currently defined by this module; see
-%%      <code>type/1</code> for a complete list.</li>
+%%      {@link type/1} for a complete list.</li>
 %%  <li>The type tag of a syntax tree node may also be used
-%%      as a primary tag by the <code>erl_parse</code> representation;
+%%      as a primary tag by the `erl_parse' representation;
 %%      in that case, the selector functions for that node type
 %%      <em>must</em> handle both the abstract syntax tree and the
-%%      <code>erl_parse</code> form. The function <code>type(T)</code>
+%%      `erl_parse' form. The function `type(T)'
 %%      should return the correct type tag regardless of the
-%%      representation of <code>T</code>, so that the user sees no
-%%      difference between <code>erl_syntax</code> and
-%%      <code>erl_parse</code> nodes.</li>
+%%      representation of `T', so that the user sees no
+%%      difference between `erl_syntax' and
+%%      `erl_parse' nodes.</li>
 %% </ul>
+%%
 %% @see is_tree/1
 %% @see data/1
 %% @see type/1
 
--spec tree(atom(), term()) -> syntaxTree().
+-spec tree(atom(), term()) -> #tree{}.
 
 tree(Type, Data) ->
     #tree{type = Type, data = Data}.
 
 
 %% =====================================================================
-%% @spec is_tree(Tree::syntaxTree()) -> boolean()
-%%
-%% @doc <em>For special purposes only</em>. Returns <code>true</code> if
-%% <code>Tree</code> is an abstract syntax tree and <code>false</code>
+%% @doc <em>For special purposes only</em>. Returns `true' if
+%% `Tree' is an abstract syntax tree and `false'
 %% otherwise.
 %%
-%% <p><em>Note</em>: this function yields <code>false</code> for all
-%% "old-style" <code>erl_parse</code>-compatible "parse trees".</p>
+%% <em>Note</em>: this function yields `false' for all
+%% "old-style" `erl_parse'-compatible "parse trees".
 %%
 %% @see tree/2
 
@@ -7227,12 +6695,10 @@ is_tree(_) ->
 
 
 %% =====================================================================
-%% @spec data(Tree::syntaxTree()) -> term()
-%%
 %% @doc <em>For special purposes only</em>. Returns the associated data
 %% of a syntax tree node. Evaluation fails with reason
-%% <code>badarg</code> if <code>is_tree(Node)</code> does not yield
-%% <code>true</code>.
+%% `badarg' if `is_tree(Node)' does not yield
+%% `true'.
 %%
 %% @see tree/2
 
@@ -7248,26 +6714,19 @@ data(T) -> erlang:error({badarg, T}).
 
 
 %% =====================================================================
-%% @spec wrap(Node::erl_parse()) -> syntaxTree()
-%%
-%% @type erl_parse() = erl_parse:parse_tree(). The "parse tree"
-%% representation built by the Erlang standard library parser
-%% <code>erl_parse</code>. This is a subset of the
-%% <a href="#type-syntaxTree"><code>syntaxTree</code></a> type.
-%%
-%% @doc Creates a wrapper structure around an <code>erl_parse</code>
+%% @doc Creates a wrapper structure around an `erl_parse'
 %% "parse tree".
 %%
-%% <p>This function and the related <code>unwrap/1</code> and
-%% <code>is_wrapper/1</code> provide a uniform way to attach arbitrary
-%% information to an <code>erl_parse</code> tree. Some information about
+%% This function and the related {@link unwrap/1} and
+%% {@link is_wrapper/1} provide a uniform way to attach arbitrary
+%% information to an `erl_parse' tree. Some information about
 %% the encapsuled tree may be cached in the wrapper, such as the node
 %% type. All functions on syntax trees must behave so that the user sees
-%% no difference between wrapped and non-wrapped <code>erl_parse</code>
+%% no difference between wrapped and non-wrapped `erl_parse'
 %% trees. <em>Attaching a wrapper onto another wrapper structure is an
-%% error</em>.</p>
+%% error</em>.
 
-%%-spec wrap(erl_parse:parse_tree()) -> syntaxTree().
+-spec wrap(erl_parse()) -> #wrapper{}.
 
 wrap(Node) ->
     %% We assume that Node is an old-school `erl_parse' tree.
@@ -7276,24 +6735,20 @@ wrap(Node) ->
 
 
 %% =====================================================================
-%% @spec unwrap(Node::syntaxTree()) -> syntaxTree()
-%%
-%% @doc Removes any wrapper structure, if present. If <code>Node</code>
+%% @doc Removes any wrapper structure, if present. If `Node'
 %% is a wrapper structure, this function returns the wrapped
-%% <code>erl_parse</code> tree; otherwise it returns <code>Node</code>
+%% `erl_parse' tree; otherwise it returns `Node'
 %% itself.
 
--spec unwrap(syntaxTree()) -> syntaxTree().
+-spec unwrap(syntaxTree()) -> #tree{} | erl_parse().
 
 unwrap(#wrapper{tree = Node}) -> Node;
 unwrap(Node) -> Node.	 % This could also be a new-form node.
 
 
 %% =====================================================================
-%% @spec is_wrapper(Term::term()) -> boolean()
-%%
-%% @doc Returns <code>true</code> if the argument is a wrapper
-%% structure, otherwise <code>false</code>.
+%% @doc Returns `true' if the argument is a wrapper
+%% structure, otherwise `false'.
 
 -ifndef(NO_UNUSED).
 -spec is_wrapper(term()) -> boolean().
