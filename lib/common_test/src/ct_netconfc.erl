@@ -1074,12 +1074,18 @@ handle_msg({get_event_streams=Op,Streams,Timeout}, From, State) ->
 
 handle_msg({ssh_cm, _CM, {data, _Ch, _Type, Data}}, State) ->
     handle_data(Data, State);
-handle_msg({ssh_cm, _CM, {closed,_Ch}}, State) ->
-    %% This will happen if the server terminates the connection, as in
-    %% kill-session (or if ssh:close is called from somewhere
+handle_msg({ssh_cm, _CM, _SshCloseMsg}, State) ->
+    %% _SshCloseMsg can probably be one of
+    %% {eof,Ch}
+    %% {exit_status,Ch,Status}
+    %% {exit_signal,Ch,ExitSignal,ErrorMsg,LanguageString}
+    %% {signal,Ch,Signal}
+
+    %% This might e.g. happen if the server terminates the connection,
+    %% as in kill-session (or if ssh:close is called from somewhere
     %% unexpected).
 
-    %%! Log this?? - i.e. as server closing the connection
+    %%! Log this??
     %%! Currently the log will say that the client closed the
     %%! connection - due to terminate/2
 
