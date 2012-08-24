@@ -84,7 +84,7 @@ handle_call(_Query, State) ->
     {ok, {error, bad_query}, State}.
 
 terminate(_,#state{logs=Logs}) ->
-    [file:close(Fd) || {_,_,Fds} <- Logs, Fd <- Fds],
+    [file:close(Fd) || {_,{_,Fds}} <- Logs, {_,Fd} <- Fds],
     ok.
 
 
