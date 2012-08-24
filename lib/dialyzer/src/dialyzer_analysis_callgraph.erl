@@ -519,9 +519,10 @@ rcv_and_send_ext_types(Parent) ->
   Self ! {Self, done},
   case rcv_ext_types(Self, []) of
     [] -> ok;
-    ExtTypes -> Parent ! {Self, ext_types, ExtTypes}
-  end,
-  ok.
+    ExtTypes ->
+      Parent ! {Self, ext_types, ExtTypes},
+      ok
+  end.
 
 rcv_ext_types(Self, ExtTypes) ->
   receive
