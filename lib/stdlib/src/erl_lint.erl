@@ -612,12 +612,9 @@ add_warning(FileLine, W, St) ->
     add_warning({Location,erl_lint,W}, St#lint{file = File}).
 
 loc(L) ->
-    case erl_parse:get_attribute(L, location) of
-        {location,{{File,Line},Column}} ->
-            {File,{Line,Column}};
-        {location,{File,Line}} ->
-            {File,Line}
-    end.
+    {file,File} = erl_parse:get_attribute(L, file),
+    {location,Loc} = erl_parse:get_attribute(L, location),
+    {File,Loc}.
 
 %% forms([Form], State) -> State'
 
@@ -668,8 +665,8 @@ eval_file_attr([], _File) ->
     [].
 
 zip_file_and_line(T, File) ->
-    F0 = fun(Line) -> {File,Line} end,
-    F = fun(L) -> erl_parse:set_line(L, F0) end,
+    F0 = fun(_OldFile) -> File end,
+    F = fun(Attrs) -> erl_scan:set_attribute(file, Attrs, F0) end,
     modify_line(T, F).
 
 %% form(Form, State) -> State'
@@ -787,10 +784,16 @@ not_deprecated(Forms, St0) ->
 %% The nowarn_bif_clash directive is not only deprecated, it's actually an error from R14A
 disallowed_compile_flags(Forms, St0) ->
     %% There are (still) no line numbers in St0#lint.compile.
-    Errors0 =  [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
-		    {attribute,[{line,{_,L}}],compile,nowarn_bif_clash} <- Forms ],
-    Errors1 = [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
-		    {attribute,[{line,{_,L}}],compile,{nowarn_bif_clash, {_,_}}} <- Forms ],
+    Errors0 =  [ begin
+                     {location,Loc} = erl_scan:attributes_info(Attrs, location),
+                     {St0#lint.file,{Loc,erl_lint,disallowed_nowarn_bif_clash}}
+                 end ||
+		    {attribute,Attrs,compile,nowarn_bif_clash} <- Forms ],
+    Errors1 = [ begin
+                    {location,Loc} = erl_scan:attributes_info(Attrs, location),
+                    {St0#lint.file,{Loc,erl_lint,disallowed_nowarn_bif_clash}}
+                end ||
+		    {attribute,Attrs,compile,{nowarn_bif_clash, {_,_}}} <- Forms ],
     Disabled = (not is_warn_enabled(bif_clash, St0)),
     Errors = if
 		   Disabled andalso Errors0 =:= [] ->
