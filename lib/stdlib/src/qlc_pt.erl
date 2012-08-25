@@ -641,12 +641,12 @@ join_kind(Qs, LcL, AllIVs, Dependencies, State) ->
     if 
         EqualColsN =/= []; MatchColsN =/= [] -> 
             {[], 
-             [{get(?QLC_FILE),[{abs(LcL),?APIMOD,too_complex_join}]}]};
+             [{get(?QLC_FILE),[{abs_loc(LcL),?APIMOD,too_complex_join}]}]};
         EqualCols2 =:= [], MatchCols2 =:= [] ->
             {[], []};
         length(Tables) > 2 -> 
             {[], 
-             [{get(?QLC_FILE),[{abs(LcL),?APIMOD,too_many_joins}]}]};
+             [{get(?QLC_FILE),[{abs_loc(LcL),?APIMOD,too_many_joins}]}]};
         EqualCols2 =:= MatchCols2 ->
             {EqualCols2, []};
         true -> 
