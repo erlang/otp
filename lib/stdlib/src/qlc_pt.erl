@@ -2694,9 +2694,14 @@ get_lcid_no(IdAttrs) ->
     {line,Id} = erl_parse:get_attribute(IdAttrs, line),
     abs(Id) bsr ?MAX_NUM_OF_LINES.    
 
+
 get_lcid_line(IdAttrs) ->
-    {line,Id} = erl_parse:get_attribute(IdAttrs, line),
-    sgn(Id) * (abs(Id) band ((1 bsl ?MAX_NUM_OF_LINES) - 1)).
+    {location,Loc} = erl_parse:get_attribute(IdAttrs, location),
+    erl_parse:set_line(
+        Loc,
+        fun (Id) ->
+            sgn(Id) * (abs(Id) band ((1 bsl ?MAX_NUM_OF_LINES) - 1))
+        end).
 
 sgn(X) when X >= 0 ->
     1;
