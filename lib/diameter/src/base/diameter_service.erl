@@ -2800,11 +2800,17 @@ transports(#state{peerT = PeerT}) ->
                    'Vendor-Specific-Application-Id',
                    'Firmware-Revision']).
 
+%% The config returned by diameter:service_info(SvcName, all).
 -define(ALL_INFO, [capabilities,
                    applications,
                    transport,
-                   pending,
-                   statistics]).
+                   pending]).
+
+%% The rest.
+-define(OTHER_INFO, [connections,
+                     name,
+                     peers,
+                     statistics]).
 
 service_info(Items, S)
   when is_list(Items) ->
@@ -2857,21 +2863,25 @@ service_info(Item, #state{service = Svc} = S, Complete) ->
         applications -> info_apps(S);
         transport    -> info_transport(S);
         pending      -> info_pending(S);
-        statistics   -> info_stats(S);
-        keys         -> ?ALL_INFO ++ ?CAP_INFO;  %% mostly for test
+        keys         -> ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO;
         all          -> service_info(?ALL_INFO, S);
+        statistics   -> info_stats(S);
+        connections  -> info_connections(S);
+        peers        -> info_peers(S);
         _ when Complete   -> service_info(complete(Item), S, false);
         _            -> undefined
     end.
 
 complete(Pre) ->
     P = atom_to_list(Pre),
-    case [I || I <- [name | ?ALL_INFO] ++ ?CAP_INFO,
+    case [I || I <- ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO,
                lists:prefix(P, atom_to_list(I))]
     of
         [I] -> I;
         _   -> Pre
     end.
+
+%% info_stats/1
 
 info_stats(#state{peerT = PeerT}) ->
     Peers = ets:select(PeerT, [{#peer{ref = '$1', conn = '$2', _ = '_'},
@@ -2880,30 +2890,47 @@ info_stats(#state{peerT = PeerT}) ->
     diameter_stats:read(lists:append(Peers)).
 %% TODO: include peer identities in return value
 
-info_transport(#state{peerT = PeerT, connT = ConnT}) ->
-    dict:fold(fun it/3,
+%% info_transport/1
+%%
+%% One entry per configured transport. Statistics for each entry are
+%% the accumulated values for the ref and associated peer pids.
+
+info_transport(S) ->
+    PeerD = peer_dict(S),
+    RefsD = dict:map(fun(_, Ls) -> [P || L <- Ls, {peer, {P,_}} <- L] end,
+                     PeerD),
+    Refs = lists:append(dict:fold(fun(R, Ps, A) -> [[R|Ps] | A] end,
+                                  [],
+                                  RefsD)),
+    Stats = diameter_stats:read(Refs),
+    dict:fold(fun(R, Ls, A) ->
+                      Ps = dict:fetch(R, RefsD),
+                      [[{ref, R} | transport(Ls)] ++ [stats([R|Ps], Stats)]
+                       | A]
+              end,
               [],
-              ets:foldl(fun(T,A) -> it_acc(ConnT, A, T) end,
-                        dict:new(),
-                        PeerT)).
+              PeerD).
 
-it(Ref, [[{type, connect} | _] = L], Acc) ->
-    [[{ref, Ref} | L] | Acc];
-it(Ref, [[{type, accept}, {options, Opts} | _] | _] = L, Acc) ->
-    [[{ref, Ref},
-      {type, listen},
-      {options, Opts},
-      {accept, [lists:nthtail(2,A) || A <- L]}]
-     | Acc].
-%% Each entry has the same Opts. (TODO)
+transport([[{type, connect} | _] = L]) ->
+    L;
 
-it_acc(ConnT, Acc, #peer{pid = Pid,
-                         type = Type,
-                         ref = Ref,
-                         options = Opts,
-                         op_state = OS,
-                         started = T,
-                         conn = TPid}) ->
+transport([[{type, accept}, {options, Opts} | _] | _] = Ls) ->
+    [{type, listen},
+     {options, Opts},
+     {accept, [lists:nthtail(2,L) || L <- Ls]}].
+%% Note that all peer records for a listening transport (ie. same Ref)
+%% have the same options. (TODO)
+
+peer_dict(#state{peerT = PeerT, connT = ConnT}) ->
+    ets:foldl(fun(T,A) -> peer_acc(ConnT, A, T) end, dict:new(), PeerT).
+
+peer_acc(ConnT, Acc, #peer{pid = Pid,
+                           type = Type,
+                           ref = Ref,
+                           options = Opts,
+                           op_state = OS,
+                           started = T,
+                           conn = TPid}) ->
     WS = wd_state(OS),
     dict:append(Ref,
                 [{type, Type},
@@ -2932,6 +2959,11 @@ info_conn([#conn{pid = Pid, apps = SApps, caps = Caps, started = T}]) ->
 info_conn([] = No) ->
     No.
 
+%% Use the fields names from diameter_caps instead of
+%% diameter_base_CER to distinguish between the 2-tuple values
+%% compared to the single capabilities values. Note also that the
+%% returned list is tagged 'caps' rather than 'capabilities' to
+%% emphasize the difference.
 info_caps(#diameter_caps{} = C) ->
     lists:zip(record_info(fields, diameter_caps), tl(tuple_to_list(C))).
 
@@ -2947,6 +2979,10 @@ mk_app(#diameter_app{alias = Alias,
      {module, ModX},
      {id, Id}].
 
+%% info_pending/1
+%%
+%% One entry for each outgoing request whose answer is outstanding.
+
 info_pending(#state{} = S) ->
     MatchSpec = [{{'$1',
                    #request{transport = '$2',
@@ -2960,3 +2996,59 @@ info_pending(#state{} = S) ->
                             {{from, '$3'}}]}}]}],
 
     ets:select(?REQUEST_TABLE, MatchSpec).
+
+%% info_connections/1
+%%
+%% One entry per transport connection. Statistics for each entry are
+%% for the peer pid only.
+
+info_connections(S) ->
+    ConnL = conn_list(S),
+    Stats = diameter_stats:read([P || L <- ConnL, {peer, {P,_}} <- L]),
+    [L ++ [stats([P], Stats)] || L <- ConnL, {peer, {P,_}} <- L].
+
+conn_list(S) ->
+    lists:append(dict:fold(fun conn_acc/3, [], peer_dict(S))).
+
+conn_acc(Ref, Peers, Acc) ->
+    [[[{ref, Ref} | L] || L <- Peers, lists:keymember(peer, 1, L)]
+     | Acc].
+
+stats(Refs, Stats) ->
+    {statistics, dict:to_list(lists:foldl(fun(R,D) ->
+                                                  stats_acc(R, D, Stats)
+                                          end,
+                                          dict:new(),
+                                          Refs))}.
+
+stats_acc(Ref, Dict, Stats) ->
+    lists:foldl(fun({C,N}, D) -> dict:update_counter(C, N, D) end,
+                Dict,
+                proplists:get_value(Ref, Stats, [])).
+
+%% info_peers/1
+%%
+%% One entry per peer Origin-Host. Statistics for each entry are
+%% accumulated values for all associated transport refs and peer pids.
+
+info_peers(S) ->
+    ConnL = conn_list(S),
+    {PeerD, RefD} = lists:foldl(fun peer_acc/2,
+                                {dict:new(), dict:new()},
+                                ConnL),
+    Refs = lists:append(dict:fold(fun(_, Rs, A) -> [lists:append(Rs) | A] end,
+                                  [],
+                                  RefD)),
+    Stats = diameter_stats:read(Refs),
+    dict:fold(fun(OH, Cs, A) ->
+                      Rs = lists:append(dict:fetch(OH, RefD)),
+                      [{OH, [{connections, Cs}, stats(Rs, Stats)]}
+                       | A]
+              end,
+              [],
+              PeerD).
+
+peer_acc(Peer, {PeerD, RefD}) ->
+    [Ref, {TPid, _}, [{origin_host, {_, OH}} | _]]
+        = [proplists:get_value(K, Peer) || K <- [ref, peer, caps]],
+    {dict:append(OH, Peer, PeerD), dict:append(OH, [Ref, TPid], RefD)}.
