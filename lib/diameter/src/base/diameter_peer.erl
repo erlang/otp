@@ -33,6 +33,9 @@
          abort/1,
          notify/2]).
 
+%% Old interface only called from old code.
+-export([start/3]).  %% < diameter-1.2 (R15B02)
+
 %% Server start.
 -export([start_link/0]).
 
@@ -70,8 +73,29 @@ notify(SvcName, T) ->
     rpc:abcast(nodes(), ?SERVER, {notify, SvcName, T}).
 
 %%% ---------------------------------------------------------------------------
+%%% # start/3
+%%% ---------------------------------------------------------------------------
+
+%% From old code: make is restart.
+start(_T, _Opts, #diameter_service{}) ->
+    {error, restart}.
+
+%%% ---------------------------------------------------------------------------
 %%% # start/1
 %%% ---------------------------------------------------------------------------
+
+-spec start({T, [Opt], #diameter_service{}})
+   -> {TPid, [Addr], Tmo, Data}
+    | {error, [term()]}
+ when T    :: {connect|accept, diameter:transport_ref()},
+      Opt  :: diameter:transport_opt(),
+      TPid :: pid(),
+      Addr :: inet:ip_address(),
+      Tmo  :: non_neg_integer(),
+      Data :: {{T, Mod, Cfg}, [Mod], [{T, [Mod], Cfg}], [Err]},
+      Mod  :: module(),
+      Cfg  :: term(),
+      Err  :: term().
 
 %% Initial start.
 start({T, Opts, #diameter_service{} = Svc}) ->
@@ -132,13 +156,8 @@ def(Acc) ->
 start(T, Svc, [{Ms, Cfg, Tmo} | Rest], Errs) ->
     start(T, Ms, Cfg, Svc, Tmo, Rest, Errs);
 
-%% One transport: return the bare error for backwards compatibility.
-start(_, _, [], [Err]) ->
-    {Err};
-
-%% Or not: return list of errors.
 start(_, _, [], Errs) ->
-    {{error, Errs}}.
+    {error, Errs}.
 
 %% start/7
 

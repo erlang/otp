@@ -121,6 +121,11 @@
 %%% Output: Pid
 %%% ---------------------------------------------------------------------------
 
+-spec start(T, [Opt], #diameter_service{})
+   -> pid()
+ when T   :: {connect|accept, diameter:transport_ref()},
+      Opt :: diameter:transport_opt().
+
 %% diameter_config requires a non-empty list of applications on the
 %% service but diameter_service then constrains the list to any
 %% specified on the transport in question. Check here that the list is
@@ -179,7 +184,7 @@ start_transport(Addrs0, T) ->
             erlang:monitor(process, TPid),
             q_next(TPid, Addrs0, Tmo, Data),
             {TPid, addrs(Addrs, Addrs0)};
-        {No} ->
+        No ->
             exit({shutdown, No})
     end.
 
