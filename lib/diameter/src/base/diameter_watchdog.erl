@@ -64,13 +64,12 @@
 %% that a failed capabilities exchange produces the desired exit
 %% reason.
 
--spec start(Type, {RecvData, Opts, SvcName, Svc})
-   -> pid()
- when Type :: {connect|accept, reference()},
+-spec start(Type, {RecvData, [Opt], SvcName, #diameter_service{}})
+   -> {reference(), pid()}
+ when Type :: {connect|accept, diameter:transport_ref()},
       RecvData :: term(),
-      Opts :: list(),
-      SvcName :: term(),
-      Svc :: #diameter_service{}.
+      Opt :: diameter:transport_opt(),
+      SvcName :: diameter:service_name().
 
 start({_,_} = Type, T) ->
     Ref = make_ref(),
