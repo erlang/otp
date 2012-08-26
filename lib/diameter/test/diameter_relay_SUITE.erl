@@ -48,6 +48,7 @@
          send_loop/1,
          send_timeout_1/1,
          send_timeout_2/1,
+         info/1,
          disconnect/1,
          stop_services/1,
          stop/1]).
@@ -136,7 +137,8 @@ tc() ->
      send4,
      send_loop,
      send_timeout_1,
-     send_timeout_2].
+     send_timeout_2,
+     info].
 
 %% ===========================================================================
 %% start/stop testcases
@@ -223,6 +225,9 @@ send_timeout(Tmo) ->
                   {'Auth-Application-Id', ?APP_ID},
                   {'Re-Auth-Request-Type', ?AUTHORIZE_ONLY}],
     call(Req, [{filter, realm}, {timeout, Tmo}]).
+
+info(_Config) ->
+    [] = ?util:info().
 
 %% ===========================================================================
 
