@@ -185,6 +185,27 @@ realclean: clean
 	rm -f ../ebin/*
 # Not $(EBIN) just to be a bit paranoid
 
+PLT = ./otp.plt
+
+plt:
+	dialyzer --build_plt \
+	         --apps erts stdlib kernel \
+	                xmerl ssl public_key crypto \
+	                compiler syntax_tools runtime_tools \
+	         --output_plt $(PLT) \
+	         --verbose
+
+dialyze: opt $(PLT)
+	dialyzer --plt $(PLT) \
+	         --verbose \
+	         -Wno_improper_lists \
+	         $(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR) \
+	         $(patsubst %, $(EBIN)/%.$(EMULATOR), \
+                          $(notdir $(RT_MODULES) $(CT_MODULES)))
+# Omit all but the common dictionary module since these
+# (diameter_gen_relay in particular) generate warning depending on how
+# much of the included diameter_gen.hrl they use.
+
 # ----------------------------------------------------
 # Release targets
 # ----------------------------------------------------
@@ -253,6 +274,7 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
 .PHONY: $(EXAMPLE_DIRS:%/=release_examples_%)
+.PHONY: plt dialyze
 
 # Keep intermediate files.
 .SECONDARY: $(DICT_ERLS) $(DICT_HRLS) gen/$(DICT_YRL:%=%.erl)
