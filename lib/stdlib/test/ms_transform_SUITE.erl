@@ -91,21 +91,23 @@ warnings(Config) when is_list(Config) ->
 	    "            end)">>,
     ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
 	compile_ww(Prog),
-    Prog2 = <<"C=5, "
-	    "ets:fun2ms(fun({A,B} = C) "
-	    "            when is_integer(A) and (A+5 > B) -> "
-	    "              {A andalso B,C} "
-	    "            end)">>,
-    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+    Prog2 = <<"C = 5,
+               ets:fun2ms(fun ({A,B} =
+                                       C) when is_integer(A) and (A+5 > B) ->
+                                  {A andalso B,C}
+                          end)">>,
+    [{_,[{3,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
 	compile_ww(Prog2),
     Rec3 = <<"-record(a,{a,b,c,d=foppa}).">>,
-    Prog3 = <<"A=3,C=5, "
-	    "ets:fun2ms(fun(#a{a = A, b = B} = C) "
-	    "            when is_integer(A) and (A+5 > B) -> "
-	    "              {A andalso B,C} "
-	    "            end)">>,
-    ?line [{_,[{_,ms_transform,{?WARN_NUMBER_SHADOW,'A'}},
-	       {_,ms_transform,{?WARN_NUMBER_SHADOW,'C'}}]}] =
+    Prog3 = <<"A = 3,
+               C = 5,
+               ets:fun2ms(fun (C
+                                 = #a{a = A, b = B})
+                              when is_integer(A) and (A+5 > B) ->
+                                  {A andalso B,C}
+                          end)">>,
+    [{_,[{3,ms_transform,{?WARN_NUMBER_SHADOW,'C'}},
+         {4,ms_transform,{?WARN_NUMBER_SHADOW,'A'}}]}] =
 	compile_ww(Rec3,Prog3),
     Rec4 = <<"-record(a,{a,b,c,d=foppa}).">>,
     Prog4 = <<"A=3,C=5, "
@@ -867,6 +869,7 @@ compile_ww(Records,Expr) ->
     "-include_lib(\"stdlib/include/ms_transform.hrl\").\n",
     "-export([tmp/0]).\n",
     Records/binary,"\n",
+    "-file(?FILE, 0). ",
     "tmp() ->\n",
     Expr/binary,".\n">>,
     FN=temp_name(),
