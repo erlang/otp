@@ -275,8 +275,8 @@ connect(Client, Prot, LRef) ->
 
 connect(Client, Prot, LRef, Opts) ->
     [PortNr] = lport(Prot, LRef, 20),
-    Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
     true = diameter:subscribe(Client),
+    Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
     ok = receive
              {diameter_event, Client, {up, Ref, _, _, _}} -> ok
          after 2000 ->
