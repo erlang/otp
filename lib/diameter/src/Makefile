@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2010-2011. All Rights Reserved.
+# Copyright Ericsson AB 2010-2012. All Rights Reserved.
 # 
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -181,6 +181,10 @@ clean:
 	rm -f $(TARGET_FILES) gen/*
 	rm -f depend.mk
 
+realclean: clean
+	rm -f ../ebin/*
+# Not $(EBIN) just to be a bit paranoid
+
 # ----------------------------------------------------
 # Release targets
 # ----------------------------------------------------
@@ -245,7 +249,7 @@ depend.mk: depend.sed $(MODULES:%=%.erl) Makefile
 
 -include depend.mk
 
-.PHONY: app clean depend dict info release_subdir
+.PHONY: app clean realclean depend dict info release_subdir
 .PHONY: debug opt release_docs_spec release_spec
 .PHONY: $(TARGET_DIRS:%/=%) $(TARGET_DIRS:%/=release_src_%)
 .PHONY: $(EXAMPLE_DIRS:%/=release_examples_%)
