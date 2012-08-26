@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -279,7 +279,7 @@ connect(Client, Prot, LRef, Opts) ->
     Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
     ok = receive
              {diameter_event, Client, {up, Ref, _, _, _}} -> ok
-         after 2000 ->
+         after 10000 ->
                  {Client, Prot, PortNr, process_info(self(), messages)}
          end,
     Ref.
@@ -295,7 +295,7 @@ disconnect(Client, Ref, Server, LRef) ->
     ok = diameter:remove_transport(Client, Ref),
     ok = receive
              {diameter_event, Server, {down, LRef, _, _}} -> ok
-         after 2000 ->
+         after 10000 ->
                  {Client, Ref, Server, LRef, process_info(self(), messages)}
          end.
 
