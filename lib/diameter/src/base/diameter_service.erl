@@ -2812,14 +2812,33 @@ transports(#state{peerT = PeerT}) ->
                      peers,
                      statistics]).
 
-service_info(Items, S)
-  when is_list(Items) ->
-    [{complete(I), service_info(I,S)} || I <- Items];
 service_info(Item, S)
   when is_atom(Item) ->
-    service_info(Item, S, true).
+    case tagged_info(Item, S) of
+        {_, T} -> T;
+        undefined = No -> No
+    end;
 
-service_info(Item, #state{service = Svc} = S, Complete) ->
+service_info(Items, S) ->
+    tagged_info(Items, S).
+
+tagged_info(Item, S)
+  when is_atom(Item) ->
+    case complete(Item) of
+        {value, I} ->
+            {I, complete_info(I,S)};
+        false ->
+            undefined
+    end;
+
+tagged_info(Items, S)
+  when is_list(Items) ->
+    [T || I <- Items, T <- [tagged_info(I,S)], T /= undefined, T /= []];
+
+tagged_info(_, _) ->
+    undefined.
+
+complete_info(Item, #state{service = Svc} = S) ->
     case Item of
         name ->
             S#state.service_name;
@@ -2867,18 +2886,20 @@ service_info(Item, #state{service = Svc} = S, Complete) ->
         all          -> service_info(?ALL_INFO, S);
         statistics   -> info_stats(S);
         connections  -> info_connections(S);
-        peers        -> info_peers(S);
-        _ when Complete   -> service_info(complete(Item), S, false);
-        _            -> undefined
+        peers        -> info_peers(S)
     end.
 
+complete(I)
+  when I == keys;
+       I == all ->
+    {value, I};
 complete(Pre) ->
     P = atom_to_list(Pre),
     case [I || I <- ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO,
                lists:prefix(P, atom_to_list(I))]
     of
-        [I] -> I;
-        _   -> Pre
+        [I] -> {value, I};
+        _   -> false
     end.
 
 %% info_stats/1
