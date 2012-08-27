@@ -527,6 +527,9 @@ dirty_index_update_bag(Config, Storage) ->
     ?match(ok, mnesia:dirty_write(Rec1)),
     ?match([Rec1], mnesia:dirty_index_read(Tab, 2, ValPos)),
 
+    ?match(ok, mnesia:dirty_delete_object(Rec5)),
+    ?match([Rec1], mnesia:dirty_index_read(Tab, 2, ValPos)),
+
     ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:write(Rec2) end)), 
     R1 = mnesia:dirty_index_read(Tab, 2, ValPos),
     ?match([Rec1, Rec2], lists:sort(R1)),

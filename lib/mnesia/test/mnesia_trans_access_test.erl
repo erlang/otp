@@ -896,6 +896,10 @@ index_update_bag(Config)when is_list(Config) ->
     ?match({atomic, [Rec1]},
 	   mnesia:transaction(fun() -> mnesia:index_read(Tab, 2, ValPos) end)),
 
+    ?match({atomic, ok}, mnesia:transaction(fun() -> mnesia:delete_object(Rec5) end)),
+    ?match({atomic, [Rec1]},
+	   mnesia:transaction(fun() -> mnesia:index_read(Tab, 2, ValPos) end)),
+
     ?match({atomic, ok},
 	   mnesia:transaction(fun() -> mnesia:write(Rec2) end)),
     {atomic, R1} = mnesia:transaction(fun() -> mnesia:index_read(Tab, 2, ValPos) end),
