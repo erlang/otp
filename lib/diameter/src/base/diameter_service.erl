@@ -2917,7 +2917,7 @@ info_stats(#state{peerT = PeerT}) ->
 %% the accumulated values for the ref and associated peer pids.
 
 info_transport(S) ->
-    PeerD = peer_dict(S),
+    PeerD = peer_dict(S, config_dict(S)),
     RefsD = dict:map(fun(_, Ls) -> [P || L <- Ls, {peer, {P,_}} <- L] end,
                      PeerD),
     Refs = lists:append(dict:fold(fun(R, Ps, A) -> [[R|Ps] | A] end,
@@ -2932,18 +2932,29 @@ info_transport(S) ->
               [],
               PeerD).
 
+%% Only a config entry for a listening transport: use it.
+transport([[{type, listen}, _] = L]) ->
+    L ++ [{accept, []}];
+
+%% Only one config or peer entry for a connecting transport: use it.
 transport([[{type, connect} | _] = L]) ->
     L;
 
+%% Peer entries: discard config. Note that the peer entries have
+%% length at least 3.
+transport([[_,_] | L]) ->
+    transport(L);
+
+%% Possibly many peer entries for a listening transport. Note that all
+%% have the same options by construction, which is not terribly space
+%% efficient. (TODO: all entries for the same Ref should share options.)
 transport([[{type, accept}, {options, Opts} | _] | _] = Ls) ->
     [{type, listen},
      {options, Opts},
      {accept, [lists:nthtail(2,L) || L <- Ls]}].
-%% Note that all peer records for a listening transport (ie. same Ref)
-%% have the same options. (TODO)
 
-peer_dict(#state{peerT = PeerT, connT = ConnT}) ->
-    ets:foldl(fun(T,A) -> peer_acc(ConnT, A, T) end, dict:new(), PeerT).
+peer_dict(#state{peerT = PeerT, connT = ConnT}, Dict0) ->
+    ets:foldl(fun(T,A) -> peer_acc(ConnT, A, T) end, Dict0, PeerT).
 
 peer_acc(ConnT, Acc, #peer{pid = Pid,
                            type = Type,
@@ -2965,6 +2976,22 @@ info_conn(ConnT, TPid, true)
     info_conn(ets:lookup(ConnT, TPid));
 info_conn(_, _, _) ->
     [].
+
+%% The point of extracting the config here is so that 'transport' info
+%% has one entry for each transport ref, the peer table only
+%% containing entries that have a living watchdog.
+
+config_dict(#state{service_name = SvcName}) ->
+    lists:foldl(fun config_acc/2,
+                dict:new(),
+                diameter_config:lookup(SvcName)).
+
+config_acc({Ref, T, Opts}, Dict)
+  when T == listen;
+       T == connect ->
+    dict:store(Ref, [[{type, T}, {options, Opts}]], Dict);
+config_acc(_, Dict) ->
+    Dict.
 
 wd_state({_,S}) ->
     S;
@@ -3040,7 +3067,7 @@ info_connections(S) ->
     [L ++ [stats([P], Stats)] || L <- ConnL, {peer, {P,_}} <- L].
 
 conn_list(S) ->
-    lists:append(dict:fold(fun conn_acc/3, [], peer_dict(S))).
+    lists:append(dict:fold(fun conn_acc/3, [], peer_dict(S, dict:new()))).
 
 conn_acc(Ref, Peers, Acc) ->
     [[[{ref, Ref} | L] || L <- Peers, lists:keymember(peer, 1, L)]
