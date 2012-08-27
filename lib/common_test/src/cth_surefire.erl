@@ -92,7 +92,7 @@ on_tc_fail(_TC, Res, State) ->
 		  {fail,lists:flatten(io_lib:format("~p",[Res]))} },
     State#state{ test_cases = [NewTC | tl(TCs)]}.
 
-on_tc_skip(Tc,{Type,Reason} = Res, State) when Type == tc_auto_skip ->
+on_tc_skip(Tc,{Type,_Reason} = Res, State) when Type == tc_auto_skip ->
     do_tc_skip(Res, end_tc(Tc,[],Res,init_tc(State,[])));
 on_tc_skip(_Tc, _Res, State = #state{test_cases = []}) ->
     State;
