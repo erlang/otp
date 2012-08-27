@@ -1408,6 +1408,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals]) ->
 						  ExclApp,
 						  Sys#sys.excl_app_filters),
 			embedded_app_type = AppType};
+	    excl_lib when Val =:= otp_root ->
+		Sys#sys{excl_lib=Val};
             incl_sys_filters ->
                 Sys#sys{incl_sys_filters =
 			    dec_re(Key, Val, Sys#sys.incl_sys_filters)};

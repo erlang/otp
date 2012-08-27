@@ -22,7 +22,11 @@ SEL_VSN= \
      use_selected_vsn/b-3.0/ebin/b.@EMULATOR@ \
      use_selected_vsn/lib2/b-2.0/ebin/b.@EMULATOR@
 
-all: $(OTP9229) $(DEPENDENCIES) $(ESCRIPT) $(SEL_VSN)
+SLIM= \
+     slim/a-1.0/ebin/a_sup.@EMULATOR@ \
+     slim/a-1.0/ebin/a.@EMULATOR@
+
+all: $(OTP9229) $(DEPENDENCIES) $(ESCRIPT) $(SEL_VSN) $(SLIM)
 
 otp_9229/x-1.0/ebin/x.@EMULATOR@: otp_9229/x-1.0/src/x.erl
 	erlc $(EFLAGS) -ootp_9229/x-1.0/ebin otp_9229/x-1.0/src/x.erl
@@ -55,3 +59,8 @@ use_selected_vsn/b-3.0/ebin/b.@EMULATOR@: use_selected_vsn/b-3.0/src/b.erl
 	erlc $(EFLAGS) -ouse_selected_vsn/b-3.0/ebin use_selected_vsn/b-3.0/src/b.erl
 use_selected_vsn/lib2/b-2.0/ebin/b.@EMULATOR@: use_selected_vsn/lib2/b-2.0/src/b.erl
 	erlc $(EFLAGS) -ouse_selected_vsn/lib2/b-2.0/ebin use_selected_vsn/lib2/b-2.0/src/b.erl
+
+slim/a-1.0/ebin/a_sup.@EMULATOR@: slim/a-1.0/src/a_sup.erl
+	erlc $(EFLAGS) -oslim/a-1.0/ebin slim/a-1.0/src/a_sup.erl
+slim/a-1.0/ebin/a.@EMULATOR@: slim/a-1.0/src/a.erl
+	erlc $(EFLAGS) -oslim/a-1.0/ebin slim/a-1.0/src/a.erl
