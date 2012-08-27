@@ -341,8 +341,15 @@ receive_what_was_sent(_Config) ->
 %% open/0
 
 open() ->
-    gen_sctp:open([{ip, ?ADDR}, {port, 0}, {active, true}, binary]).
+    open([]).
 
+%% open/1
+
+open(Opts) ->
+    gen_sctp:open([{ip, ?ADDR}, {port, 0}, {active, true}, binary,
+                   {recbuf, 1 bsl 16}, {sndbuf, 1 bsl 16}
+                   | Opts]).
+    
 %% assoc/1
 
 assoc(Sock) ->
