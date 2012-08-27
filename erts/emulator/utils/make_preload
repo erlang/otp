@@ -87,6 +87,7 @@ foreach $file (@ARGV) {
 	my $comment = '';
 
 	open(FILE, $file) or error("failed to read $file: $!");
+	binmode(FILE);
 	$_ = <FILE>;
 	$_ = beam_strip($_);
 	close(FILE);
