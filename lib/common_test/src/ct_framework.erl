@@ -71,16 +71,13 @@ init_tc(Mod,Func,Config) ->
 	    {skip,{require_failed_in_suite0,Reason}};
 	{Suite,{suite0_failed,_}=Failure} ->
 	    {skip,Failure};
-	CurrTC ->
-	    case CurrTC of
-		undefined ->
-		    ct_util:set_testdata({curr_tc,[{Suite,Func}]});
-		_ when is_list(CurrTC) ->
-		    ct_util:update_testdata(curr_tc,
-					    fun(Running) ->
-						    [{Suite,Func}|Running]
-					    end)
-	    end,
+	_ ->
+	    ct_util:update_testdata(curr_tc,
+				    fun(undefined) ->
+					    [{Suite,Func}];
+				       (Running) ->
+					    [{Suite,Func}|Running]
+				    end, [create]),
 	    case ct_util:read_suite_data({seq,Suite,Func}) of
 		undefined ->
 		    init_tc1(Mod,Suite,Func,Config);
@@ -671,13 +668,15 @@ end_tc(Mod,Func,TCPid,Result,Args,Return) ->
     %% reset the curr_tc state, or delete this TC from the list of
     %% executing cases (if in a parallel group)
     ClearCurrTC = fun(Running = [_,_|_]) ->
-			  lists:delete({Mod,Func},Running);
+			  lists:keydelete(Func,2,Running);
 		     ({_,{suite0_failed,_}}) ->
 			  undefined;
 		     ([{_,CurrTC}]) when CurrTC == Func ->
 			  undefined;
 		     (undefined) ->
-			  undefined
+			  undefined;
+		     (Unexpected) ->
+			  exit({error,{reset_curr_tc,{Mod,Func},Unexpected}})
 		  end,
     ct_util:update_testdata(curr_tc,ClearCurrTC),
 

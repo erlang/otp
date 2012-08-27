@@ -39,7 +39,7 @@
 	 delete_suite_data/0, delete_suite_data/1, match_delete_suite_data/1,
 	 delete_testdata/0, delete_testdata/1,
 	 set_testdata/1, get_testdata/1, get_testdata/2,
-	 set_testdata_async/1, update_testdata/2]).
+	 set_testdata_async/1, update_testdata/2, update_testdata/3]).
 
 -export([override_silence_all_connections/0, override_silence_connections/1, 
 	 get_overridden_silenced_connections/0, 
@@ -252,7 +252,10 @@ delete_testdata(Key) ->
     call({delete_testdata, Key}).
 
 update_testdata(Key, Fun) ->
-    call({update_testdata, Key, Fun}).
+    update_testdata(Key, Fun, []).
+
+update_testdata(Key, Fun, Opts) ->
+    call({update_testdata, Key, Fun, Opts}).
 
 set_testdata(TestData) ->
     call({set_testdata, TestData}).
@@ -333,7 +336,7 @@ loop(Mode,TestData,StartDir) ->
 		    return(From,undefined)
 	    end,
 	    loop(From,TestData,StartDir);
-	{{update_testdata,Key,Fun},From} ->
+	{{update_testdata,Key,Fun,Opts},From} ->
 	    TestData1 =
 		case lists:keysearch(Key,1,TestData) of
 		    {value,{Key,Val}} ->
@@ -341,8 +344,15 @@ loop(Mode,TestData,StartDir) ->
 			return(From,NewVal),
 			[{Key,NewVal}|lists:keydelete(Key,1,TestData)];
 		    _ ->
-			return(From,undefined),
-			TestData
+			case lists:member(create,Opts) of
+			    true ->
+				InitVal = Fun(undefined),
+				return(From,InitVal),
+				[{Key,InitVal}|TestData];
+			    false ->
+				return(From,undefined),
+				TestData
+			end
 		end,
 	    loop(From,TestData1,StartDir);	    
 	{{set_cwd,Dir},From} ->

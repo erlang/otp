@@ -79,6 +79,10 @@ all() ->
 %% {logopts,3}
 %% {basic_html,2}
 %% {basic_html,3}
+%% {verbosity,2}
+%% {verbosity,3}
+%% {silent_connections,2}
+%% {silent_connections,3}
 %% {label,2}
 %% {label,3}
 %% {event_handler,2}
@@ -533,6 +537,9 @@ misc_config_terms(_Config) ->
 	 {basic_html,n1@h1,false},
 	 {basic_html,n2@h2,true},
 	 
+	 {silent_connections,n1@h1,all},
+	 {silent_connections,n2@h2,[ssh]},
+
 	 {enable_builtin_hooks,false},
 
 	 {noinput,true},
@@ -571,6 +578,7 @@ misc_config_terms(_Config) ->
     Verify = #testspec{spec_dir = SpecDir,
 		       nodes = [{undefined,Node},{x,n1@h1},{y,n2@h2}],
 		       basic_html = [{Node,true},{n1@h1,false},{n2@h2,true}],
+		       silent_connections = [{n1@h1,[all]},{n2@h2,[ssh]}],
 		       config = [{Node,CfgA},
 				 {n1@h1,CfgA},
 				 {n2@h2,CfgA},

@@ -36,6 +36,7 @@
 		   logopts=[],
 		   basic_html=[],
 		   verbosity=[],
+		   silent_connections=[],
 		   cover=[],
 		   config=[],
 		   userconfig=[],
