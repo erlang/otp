@@ -897,7 +897,8 @@ efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 	     we should be able to find its target */
 	    WCHAR target_name[_MAX_PATH];
 	    if (efile_readlink(errInfo, (char *) name, 
-			       (char *) target_name,256) == 1) {
+			       (char *) target_name, 
+			       _MAX_PATH * sizeof(WCHAR)) == 1) {
 		FindClose(findhandle);
 		return efile_fileinfo(errInfo, pInfo,
 				      (char *) target_name, info_for_link);
@@ -1386,7 +1387,7 @@ efile_readlink(Efile_error* errInfo, char* name, char* buffer, size_t size)
 		HANDLE h = CreateFileW(wname, GENERIC_READ, 0,NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
 		int len;
 		if(h != INVALID_HANDLE_VALUE) {
-		    success = pGetFinalPathNameByHandle(h, wbuffer, size,0);
+		    success = pGetFinalPathNameByHandle(h, wbuffer, size / sizeof(WCHAR),0);
 		    /* GetFinalPathNameByHandle prepends path with "\\?\": */
 		    len = wcslen(wbuffer);
 		    wmemmove(wbuffer,wbuffer+4,len-3);
