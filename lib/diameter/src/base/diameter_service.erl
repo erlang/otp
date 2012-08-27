@@ -3016,7 +3016,9 @@ info_port(Pid) ->
     {TPid, {_Type, TMod, _Cfg}} = T,
     {_, TD} = process_info(TPid, dictionary),
     {_, Data} = lists:keyfind({TMod, info}, 1, TD),
-    [{owner, TPid}, {module, TMod} | [_|_] = TMod:info(Data)].
+    [{owner, TPid},
+     {module, TMod}
+     | try TMod:info(Data) catch _:_ -> [] end].
 
 %% Use the fields names from diameter_caps instead of
 %% diameter_base_CER to distinguish between the 2-tuple values
@@ -3029,14 +3031,8 @@ info_caps(#diameter_caps{} = C) ->
 info_apps(#state{service = #diameter_service{applications = Apps}}) ->
     lists:map(fun mk_app/1, Apps).
 
-mk_app(#diameter_app{alias = Alias,
-                     dictionary = Dict,
-                     module = ModX,
-                     id = Id}) ->
-    [{alias, Alias},
-     {dictionary, Dict},
-     {module, ModX},
-     {id, Id}].
+mk_app(#diameter_app{} = A) ->
+    lists:zip(record_info(fields, diameter_app), tl(tuple_to_list(A))).
 
 %% info_pending/1
 %%
