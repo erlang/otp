@@ -31,9 +31,13 @@
 	 hello/1,
 	 hello/2,
 	 expect/1,
+	 expect/2,
 	 expect_reply/2,
+	 expect_reply/3,
 	 expect_do/2,
+	 expect_do/3,
 	 expect_do_reply/3,
+	 expect_do_reply/4,
 	 hupp/1,
 	 hupp/2]).
 
@@ -110,22 +114,30 @@ hello(SessionId,Stuff) ->
 %% actions. To be called directly before sending a request.
 expect(Expect) ->
     expect_do_reply(Expect,undefined,undefined).
+expect(SessionId,Expect) ->
+    expect_do_reply(SessionId,Expect,undefined,undefined).
 
 %% Tell server to expect the given message and reply with the give
 %% reply. To be called directly before sending a request.
 expect_reply(Expect,Reply) ->
     expect_do_reply(Expect,undefined,Reply).
+expect_reply(SessionId,Expect,Reply) ->
+    expect_do_reply(SessionId,Expect,undefined,Reply).
 
 %% Tell server to expect the given message and perform an action. To
 %% be called directly before sending a request.
 expect_do(Expect,Do) ->
     expect_do_reply(Expect,Do,undefined).
+expect_do(SessionId,Expect,Do) ->
+    expect_do_reply(SessionId,Expect,Do,undefined).
 
 %% Tell server to expect the given message, perform an action and
 %% reply with the given reply. To be called directly before sending a
 %% request.
 expect_do_reply(Expect,Do,Reply) ->
-    add_expect({Expect,Do,Reply}).
+    add_expect(1,{Expect,Do,Reply}).
+expect_do_reply(SessionId,Expect,Do,Reply) ->
+    add_expect(SessionId,{Expect,Do,Reply}).
 
 %% Hupp the server - i.e. tell it to do something -
 %% e.g. hupp(send_event) will cause send_event(State) to be called on
@@ -133,17 +145,19 @@ expect_do_reply(Expect,Do,Reply) ->
 hupp(send_event) ->
     hupp(send,[make_msg(event)]);
 hupp(kill) ->
-    hupp(fun hupp_kill/1,[]).
+    hupp(1,fun hupp_kill/1,[]).
 
 hupp(send,Data) ->
-    hupp(fun hupp_send/2,[Data]);
-hupp(Fun,Args) when is_function(Fun) ->
-    [{_,Pid}] = lookup(channel_process),
+    hupp(1,fun hupp_send/2,[Data]).
+
+hupp(SessionId,Fun,Args) when is_function(Fun) ->
+    [{_,Pid}] = lookup({channel_process,SessionId}),
     Pid ! {hupp,Fun,Args}.
 
 %%%-----------------------------------------------------------------
 %%% Main loop of the netconf server
 init_server(Dir) ->
+    register(main_ns_proc,self()),
     ets:new(ns_tab,[set,named_table,public]),
     Config = ?ssh_config(Dir),
     {_,Host} = lists:keyfind(interface, 1, Config),
@@ -165,7 +179,12 @@ loop(Daemon) ->
     receive
 	{stop,From} ->
 	    ssh:stop_daemon(Daemon),
-	    From ! stopped
+	    From ! stopped;
+	{table_trans,Fun,Args,From} ->
+	    %% Simple transaction mechanism for ets table
+	    R = apply(Fun,Args),
+	    From ! {table_trans_done,R},
+	    loop(Daemon)
     end.
 
 %%----------------------------------------------------------------------
@@ -178,7 +197,7 @@ terminate(_Reason, _State) ->
     ok.
 
 handle_ssh_msg({ssh_cm,CM,{data, Ch, _Type = 0, Data}}, State) ->
-    %% erlang:display({self(),data,CM,Ch,State}),
+    %% io:format("~p~n",[{self(),Data,CM,Ch,State}]),
     data_for_channel(CM, Ch, Data, State);
 handle_ssh_msg({ssh_cm,CM,{closed, Ch}}, State)  ->
     %% erlang:display({self(),closed,CM,Ch,State}),
@@ -194,7 +213,7 @@ handle_msg({ssh_channel_up,Ch,CM},undefined) ->
     %% erlang:display({self(),up,CM,Ch}),
     ConnRef = {CM,Ch},
     SessionId = maybe_hello(ConnRef),
-    insert(channel_process,self()), % used to hupp the server
+    insert({channel_process,SessionId},self()), % used to hupp the server
     {ok, #session{connection = ConnRef,
 		  session_id = SessionId}};
 handle_msg({hupp,Fun,Args},State) ->
@@ -214,17 +233,19 @@ data_for_channel(CM, Ch, Data, State) ->
 	    Stacktrace = erlang:get_stacktrace(),
 	    error_logger:error_report([{?MODULE, data_for_channel},
 				       {request, Data},
+				       {buffer, State#session.buffer},
 				       {reason, {Class, Reason}},
 				       {stacktrace, Stacktrace}]),
 	    stop_channel(CM, Ch, State)
     end.
 
 data(Data, State = #session{connection = ConnRef,
-			    buffer = Buffer}) ->
+			    buffer = Buffer,
+			    session_id = SessionId}) ->
     AllData = <<Buffer/binary,Data/binary>>,
     case find_endtag(AllData) of
 	{ok,Msgs,Rest} ->
-	    [check_expected(ConnRef,Msg) || Msg <- Msgs],
+	    [check_expected(SessionId,ConnRef,Msg) || Msg <- Msgs],
 	    {ok,State#session{buffer=Rest}};
 	need_more ->
 	    {ok,State#session{buffer=AllData}}
@@ -258,14 +279,41 @@ send({CM,Ch},Data) ->
 kill({CM,_Ch}) ->
     ssh:close(CM).
 
-add_expect(Add) ->
-    case lookup(expect) of
+add_expect(SessionId,Add) ->
+    table_trans(fun do_add_expect/2,[SessionId,Add]).
+
+table_trans(Fun,Args) ->
+    S = self(),
+    case whereis(main_ns_proc) of
+	S ->
+	    apply(Fun,Args);
+	Pid ->
+	    Pid ! {table_trans,Fun,Args,self()},
+	    receive
+		{table_trans_done,Result} ->
+		    Result
+	    after 5000 ->
+		    exit(table_trans_timeout)
+	    end
+    end.
+
+do_add_expect(SessionId,Add) ->
+    case lookup({expect,SessionId}) of
 	[] ->
-	    insert(expect,[Add]);
-	[{expect,First}] ->
-	    insert(expect,First ++ [Add])
+	    insert({expect,SessionId},[Add]);
+	[{_,First}] ->
+	    insert({expect,SessionId},First ++ [Add])
     end,
     ok.
+
+do_get_expect(SessionId) ->
+    case lookup({expect,SessionId}) of
+	[{_,[{Expect,Do,Reply}|Rest]}] ->
+	    insert({expect,SessionId},Rest),
+	    {Expect,Do,Reply};
+	_ ->
+	    error
+    end.
 
 insert(Key,Value) ->
     ets:insert(ns_tab,{Key,Value}).
@@ -292,17 +340,18 @@ find_endtag(Data) ->
 	    {ok,lists:sublist(Msgs,length(Msgs)-1),lists:last(Msgs)}
     end.
 
-check_expected(ConnRef,Msg) ->
-    case lookup(expect) of
-	[{expect,[{Expect,Do,Reply}|Rest]}] ->
-	    insert(expect,Rest),
+check_expected(SessionId,ConnRef,Msg) ->
+    %% io:format("~p~n",[{check_expected,SessionId,Msg}]),
+    case table_trans(fun do_get_expect/1,[SessionId]) of
+	{Expect,Do,Reply} ->
 	    %% erlang:display({got,io_lib:format("~s",[Msg])}),
 	    %% erlang:display({expected,Expect}),
 	    match(Msg,Expect),
 	    do(ConnRef, Do),
 	    reply(ConnRef,Reply);
-	Expected ->
-	    exit({error,{got_unexpected,Msg,Expected}})
+	error ->
+	    timer:sleep(1000),
+	    exit({error,{got_unexpected,SessionId,Msg,ets:tab2list(ns_tab)}})
     end.
 
 match(Msg,Expect) ->
