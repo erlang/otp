@@ -79,6 +79,7 @@
                           | {debug_info, debug_info()}
                           | {app_file, app_file()}
                           | {profile, profile()}
+			  | {excl_lib, excl_lib()}
                           | {incl_sys_filters, incl_sys_filters()}
                           | {excl_sys_filters, excl_sys_filters()}
                           | {incl_app_filters, incl_app_filters()}
@@ -123,6 +124,7 @@
 -type incl_defaults()    :: boolean().
 -type incl_derived()     :: boolean().
 -type status()           :: missing | ok.
+-type excl_lib()         :: otp_root.
 
 -record(common,
         {
@@ -233,6 +235,7 @@
           rels     	       :: [#rel{}],
           emu_name 	       :: emu_name(),
           profile  	       :: profile(),
+	  excl_lib             :: excl_lib(),
           incl_sys_filters     :: [#regexp{}],
           excl_sys_filters     :: [#regexp{}],
           incl_app_filters     :: [#regexp{}],
