@@ -369,6 +369,8 @@ handle_option([{shell, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -407,6 +409,8 @@ handle_ssh_option({compression, Value} = Opt) when is_atom(Value) ->
 handle_ssh_option({exec, {Module, Function, _}} = Opt) when is_atom(Module), 
 							    is_atom(Function) ->
 
+    Opt;
+handle_ssh_option({auth_methods, Value} = Opt)  when is_list(Value) ->
     Opt;
 handle_ssh_option({infofun, Value} = Opt)  when is_function(Value) ->
     Opt;
