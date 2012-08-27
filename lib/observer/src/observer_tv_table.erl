@@ -220,8 +220,8 @@ search_area(Parent) ->
 	    search=TC1,goto=TC2,radio={Nbtn,Pbtn,Cbtn}}.
 
 edit(Index, #state{pid=Pid, frame=Frame}) ->
-    Str = get_row(Pid, Index, all),
-    case observer_lib:user_term(Frame, "Edit object:", Str) of
+    Str = get_row(Pid, Index, all_multiline),
+    case observer_lib:user_term_multiline(Frame, "Edit object:", Str) of
 	cancel -> ok;
 	{ok, Term} -> Pid ! {edit, Index, Term};
 	Err = {error, _} -> self() ! Err
@@ -597,7 +597,7 @@ keysort(Col, Table) ->
     lists:sort(Sort, Table).
 
 search([Str, Row, Dir0, CaseSens],
-       S=#holder{parent=Parent, table=Table}) ->
+       S=#holder{parent=Parent, table=Table0}) ->
     Opt = case CaseSens of
 	      true -> [];
 	      false -> [caseless]
@@ -608,29 +608,35 @@ search([Str, Row, Dir0, CaseSens],
 	  end,
     Res = case re:compile(Str, Opt) of
 	      {ok, Re} ->
+		  Table =
+		      case Dir0 of
+			  true ->
+			      lists:nthtail(Row, Table0);
+			  false ->
+			      lists:reverse(lists:sublist(Table0, Row+1))
+		      end,
 		  search(Row, Dir, Re, Table);
 	      {error, _} -> false
 	  end,
     Parent ! {self(), Res},
     S#holder{search=Res}.
 
-search(Row, Dir, Re, Table) ->
-    Res = try lists:nth(Row+1, Table) of
-	      [Term|_] ->
-		  Str = format(Term),
-		  re:run(Str, Re)
-	  catch _:_ -> no_more
-	  end,
+search(Row, Dir, Re, [ [Term|_] |Table]) ->
+    Str = format(Term),
+    Res = re:run(Str, Re),
     case Res of
 	nomatch -> search(Row+Dir, Dir, Re, Table);
-	no_more -> false;
 	{match,_} -> Row
-    end.
+    end;
+search(_, _, _, []) ->
+    false.
 
 get_row(From, Row, Col, Table) ->
     case lists:nth(Row+1, Table) of
 	[Object|_] when Col =:= all ->
 	    From ! {self(), format(Object)};
+	[Object|_] when Col =:= all_multiline ->
+	    From ! {self(), io_lib:format("~p", [Object])};
 	[Object|_] when tuple_size(Object) >= Col ->
 	    From ! {self(), format(element(Col, Object))};
 	_ ->

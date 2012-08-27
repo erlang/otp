@@ -19,7 +19,7 @@
 -module(observer_lib).
 
 -export([get_wx_parent/1,
-	 display_info_dialog/1, user_term/3,
+	 display_info_dialog/1, user_term/3, user_term_multiline/3,
 	 interval_dialog/4, start_timer/1, stop_timer/1,
 	 display_info/2, fill_info/2, update_info/2, to_str/1,
 	 create_menus/3, create_menu_item/3,
@@ -344,6 +344,58 @@ user_term(Parent, Title, Default) ->
 	    parse_string(ensure_last_is_dot(Str));
 	?wxID_CANCEL ->
 	    wxTextEntryDialog:destroy(Dialog),
+	    cancel
+    end.
+
+user_term_multiline(Parent, Title, Default) ->
+    Dialog = wxDialog:new(Parent, ?wxID_ANY, Title,
+			  [{style, ?wxDEFAULT_DIALOG_STYLE bor
+			    ?wxRESIZE_BORDER}]),
+    Panel = wxPanel:new(Dialog),
+
+    TextCtrl = wxTextCtrl:new(Panel, ?wxID_ANY,
+			      [{value, Default},
+			       {style, ?wxDEFAULT bor ?wxTE_MULTILINE}]),
+    Line = wxStaticLine:new(Panel, [{style, ?wxLI_HORIZONTAL}]),
+
+    Buttons = wxDialog:createButtonSizer(Dialog, ?wxOK bor ?wxCANCEL),
+
+    InnerSizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:add(InnerSizer, TextCtrl,
+		[{flag, ?wxEXPAND bor ?wxALL},{proportion, 1},{border, 5}]),
+    wxSizer:add(InnerSizer, Line,
+		[{flag, ?wxEXPAND},{proportion, 0},{border, 5}]),
+    wxPanel:setSizer(Panel, InnerSizer),
+
+    TopSizer = wxBoxSizer:new(?wxVERTICAL),
+    wxSizer:add(TopSizer, Panel,
+		[{flag, ?wxEXPAND bor ?wxALL},{proportion, 1},{border, 5}]),
+    wxSizer:add(TopSizer, Buttons,
+		[{flag, ?wxEXPAND bor ?wxBOTTOM bor ?wxRIGHT},{border, 10}]),
+
+    % calculate the size of TopSizer when the whole user_term
+    % fits in the TextCtrl
+    DC = wxClientDC:new(Panel),
+    W = wxDC:getCharWidth(DC),
+    H = wxDC:getCharHeight(DC),
+    {EW, EH} = wxDC:getMultiLineTextExtent(DC, Default),
+    wxSizer:setItemMinSize(InnerSizer, 0, EW+2*W, EH+H),
+    TopSize = wxSizer:getMinSize(TopSizer),
+    % reset min size of TextCtrl to 40 chararacters * 4 lines
+    wxSizer:setItemMinSize(InnerSizer, 0, 40*W, 4*H),
+
+    wxWindow:setSizerAndFit(Dialog, TopSizer),
+    wxSizer:setSizeHints(TopSizer, Dialog),
+
+    wxWindow:setClientSize(Dialog, TopSize),
+
+    case wxDialog:showModal(Dialog) of
+	?wxID_OK ->
+	    Str = wxTextCtrl:getValue(TextCtrl),
+	    wxDialog:destroy(Dialog),
+	    parse_string(ensure_last_is_dot(Str));
+	?wxID_CANCEL ->
+	    wxDialog:destroy(Dialog),
 	    cancel
     end.
 
