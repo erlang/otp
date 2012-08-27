@@ -274,27 +274,34 @@ stop_interactive() ->
 
 %%%-----------------------------------------------------------------
 %%% @spec require(Required) -> ok | {error,Reason}
-%%%      Required = Key | {Key,SubKeys}
+%%%      Required = Key | {Key,SubKeys} | {Key,SubKey,SubKeys}
 %%%      Key = atom()
 %%%      SubKeys = SubKey | [SubKey]
 %%%      SubKey = atom()
 %%%
-%%% @doc Check if the required configuration is available.
+%%% @doc Check if the required configuration is available. It is possible
+%%% to specify arbitrarily deep tuples as <c>Required</c>. Note that it is
+%%% only the last element of the tuple which can be a list of <c>SubKey</c>s.
 %%%
-%%% <p>Example: require the variable <code>myvar</code>:<br/>
-%%% <code>ok = ct:require(myvar)</code></p>
+%%% <p>Example 1: require the variable <code>myvar</code>:</p>
+%%% <pre>ok = ct:require(myvar).</pre>
 %%%
 %%% <p>In this case the config file must at least contain:</p>
-%%% <pre>
-%%% {myvar,Value}.</pre>
+%%% <pre>{myvar,Value}.</pre>
 %%% 
-%%% <p>Example: require the variable <code>myvar</code> with
-%%% subvariable <code>sub1</code>:<br/>
-%%% <code>ok = ct:require({myvar,sub1})</code></p>
+%%% <p>Example 2: require the key <code>myvar</code> with
+%%% subkeys <code>sub1</code> and <code>sub2</code>:</p>
+%%% <pre>ok = ct:require({myvar,[sub1,sub2]}).</pre>
 %%%
 %%% <p>In this case the config file must at least contain:</p>
-%%% <pre>
-%%% {myvar,[{sub1,Value}]}.</pre>
+%%% <pre>{myvar,[{sub1,Value},{sub2,Value}]}.</pre>
+%%%
+%%% <p>Example 3: require the key <code>myvar</code> with
+%%% subkey <code>sub1</code> with <code>subsub1</code>:</p>
+%%% <pre>ok = ct:require({myvar,sub1,sub2}).</pre>
+%%%
+%%% <p>In this case the config file must at least contain:</p>
+%%% <pre>{myvar,[{sub1,[{sub2,Value}]}]}.</pre>
 %%%
 %%% @see require/2
 %%% @see get_config/1
@@ -306,30 +313,36 @@ require(Required) ->
 %%%-----------------------------------------------------------------
 %%% @spec require(Name,Required) -> ok | {error,Reason}
 %%%      Name = atom()
-%%%      Required = Key | {Key,SubKeys}
+%%%      Required = Key | {Key,SubKey} | {Key,SubKey,SubKey}
+%%%      SubKey = Key
 %%%      Key = atom()
-%%%      SubKeys = SubKey | [SubKey]
-%%%      SubKey = atom()
 %%%
 %%% @doc Check if the required configuration is available, and give it
-%%% a name.
+%%% a name. The semantics for <c>Required</c> is the same as in
+%%% <c>required/1</c> except that it is not possible to specify a list
+%%% of <c>SubKey</c>s.
 %%%
-%%% <p>If the requested data is available, the main entry will be
+%%% <p>If the requested data is available, the sub entry will be
 %%% associated with <code>Name</code> so that the value of the element
 %%% can be read with <code>get_config/1,2</code> provided
-%%% <code>Name</code> instead of the <code>Key</code>.</p>
+%%% <code>Name</code> instead of the whole <code>Required</code> term.</p>
 %%%
 %%% <p>Example: Require one node with a telnet connection and an
-%%% ftp connection. Name the node <code>a</code>:<br/> <code>ok =
-%%% ct:require(a,{node,[telnet,ftp]}).</code><br/> All references
-%%% to this node may then use the node name. E.g. you can fetch a
-%%% file over ftp like this:<br/>
-%%% <code>ok = ct:ftp_get(a,RemoteFile,LocalFile).</code></p>
+%%% ftp connection. Name the node <code>a</code>:
+%%% <pre>ok = ct:require(a,{machine,node}).</pre>
+%%% All references to this node may then use the node name.
+%%% E.g. you can fetch a file over ftp like this:</p>
+%%% <pre>ok = ct:ftp_get(a,RemoteFile,LocalFile).</pre>
 %%%
 %%% <p>For this to work, the config file must at least contain:</p>
-%%% <pre>
-%%% {node,[{telnet,IpAddr},
-%%%        {ftp,IpAddr}]}.</pre>
+%%% <pre>{machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.</pre>
+%%%
+%%% <note>The behaviour of this function changed radically in common_test
+%%% 1.6.2. In order too keep some backwards compatability it is still possible
+%%% to do: <br/><c>ct:require(a,{node,[telnet,ftp]}).</c><br/>
+%%% This will associate the name <c>a</c> with the top level <c>node</c> entry.
+%%% For this to work, the config file must at least contain:<br/>
+%%% <c>{node,[{telnet,IpAddr},{ftp,IpAddr}]}.</c></note>
 %%%
 %%% @see require/1
 %%% @see get_config/1
@@ -352,7 +365,7 @@ get_config(Required,Default) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec get_config(Required,Default,Opts) -> ValueOrElement
-%%%      Required = KeyOrName | {KeyOrName,SubKey}
+%%%      Required = KeyOrName | {KeyOrName,SubKey} | {KeyOrName,SubKey,SubKey}
 %%%      KeyOrName = atom()
 %%%      SubKey = atom()
 %%%      Default = term()
@@ -370,25 +383,25 @@ get_config(Required,Default) ->
 %%% <p>Example, given the following config file:</p>
 %%% <pre>
 %%% {unix,[{telnet,IpAddr},
-%%%        {username,Username},
-%%%        {password,Password}]}.</pre>
-%%% <p><code>get_config(unix,Default) -> 
+%%%        {user,[{username,Username},
+%%%               {password,Password}]}]}.</pre>
+%%% <p><code>ct:get_config(unix,Default) ->
 %%%                          [{telnet,IpAddr},
-%%%                           {username,Username},
-%%%                           {password,Password}]</code><br/>
-%%% <code>get_config({unix,telnet},Default) -> IpAddr</code><br/>
-%%% <code>get_config({unix,ftp},Default) -> Default</code><br/>
-%%% <code>get_config(unknownkey,Default) -> Default</code></p>
+%%%                           {user, [{username,Username},
+%%%                                   {password,Password}]}]</code><br/>
+%%% <code>ct:get_config({unix,telnet},Default) -> IpAddr</code><br/>
+%%% <code>ct:get_config({unix,user,username},Default) -> Username</code><br/>
+%%% <code>ct:get_config({unix,ftp},Default) -> Default</code><br/>
+%%% <code>ct:get_config(unknownkey,Default) -> Default</code></p>
 %%%
 %%% <p>If a config variable key has been associated with a name (by
 %%% means of <code>require/2</code> or a require statement), the name 
 %%% may be used instead of the key to read the value:</p>
 %%%
-%%% <p><code>require(myhost,unix) -> ok</code><br/>
-%%% <code>get_config(myhost,Default) -> 
-%%%                          [{telnet,IpAddr},
-%%%                           {username,Username},
-%%%                           {password,Password}]</code></p>
+%%% <p><code>ct:require(myuser,{unix,user}) -> ok.</code><br/>
+%%% <code>ct:get_config(myuser,Default) ->
+%%%          [{username,Username},
+%%%           {password,Password}]</code></p>
 %%%
 %%% <p>If a config variable is defined in multiple files and you want to
 %%% access all possible values, use the <code>all</code> option. The
@@ -398,9 +411,7 @@ get_config(Required,Default) ->
 %%%
 %%% <p>If you want config elements (key-value tuples) returned as result 
 %%% instead of values, use the <code>element</code> option. 
-%%% The returned elements will then be on the form <code>{KeyOrName,Value}</code>, 
-%%% or (in case a subkey has been specified)
-%%% <code>{{KeyOrName,SubKey},Value}</code></p>
+%%% The returned elements will then be on the form <code>{Required,Value}</code></p>
 %%%
 %%% @see get_config/1
 %%% @see get_config/2
@@ -411,7 +422,7 @@ get_config(Required,Default,Opts) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec reload_config(Required) -> ValueOrElement
-%%%      Required = KeyOrName | {KeyOrName,SubKey}
+%%%      Required = KeyOrName | {KeyOrName,SubKey} | {KeyOrName,SubKey,SubKey}
 %%%      KeyOrName = atom()
 %%%      SubKey = atom()
 %%%      ValueOrElement = term()

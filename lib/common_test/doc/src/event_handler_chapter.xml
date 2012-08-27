@@ -64,7 +64,7 @@
     <marker id="usage"></marker>
     <title>Usage</title>
     <p>Event handlers may be installed by means of an <c>event_handler</c>
-    start flag (<c>ct_run</c>) or option (<c>ct:run_test/1</c>), where the
+    start flag (<c>ct_run</c>) or option (<c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>), where the
     argument specifies the names of one or more event handler modules.
     Example:</p>
     <p><c>$ ct_run -suite test/my_SUITE -event_handler handlers/my_evh1 
@@ -78,7 +78,7 @@
     example).</p>
 
     <p>An event_handler tuple in the argument <c>Opts</c> has the following
-      definition (see also <c>ct:run_test/1</c> in the reference manual):</p>
+      definition (see also <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> in the reference manual):</p>
 
     <pre>
     {event_handler,EventHandlers}
@@ -205,7 +205,7 @@
 	                   {error,{RunTimeError,StackTrace}} | 
                            {timetrap_timeout,integer()} | 
 			   {failed,{Suite,end_per_testcase,FailInfo}}</c>, reason for failure.</p>	
-        <p><c>RequireInfo = {not_available,atom()}</c>, why require has failed.</p>
+        <p><c>RequireInfo = {not_available,atom() | tuple()}</c>, why require has failed.</p>
         <p><c>FailInfo = {timetrap_timeout,integer()} | 
 	                 {RunTimeError,StackTrace} | 
 			 UserTerm</c>, 
@@ -233,7 +233,7 @@
 	      reason for auto skipping <c>Func</c>.</p>
         <p><c>FailReason = {Suite,ConfigFunc,FailInfo}} | 
 	                   {Suite,FailedCaseInSequence}</c>, reason for failure.</p>	
-        <p><c>RequireInfo = {not_available,atom()}</c>, why require has failed.</p>
+        <p><c>RequireInfo = {not_available,atom() | tuple()}</c>, why require has failed.</p>
         <p><c>ConfigFunc = init_per_suite | init_per_group</c></p>
         <p><c>FailInfo = {timetrap_timeout,integer()} | 
 	                 {RunTimeError,StackTrace} |
@@ -308,7 +308,7 @@
     manager can look like.</p>
 
     <note><p>To ensure that printouts to standard out (or printouts made with
-    <c>ct:log/2/3</c> or <c>ct:pal/2/3</c>) get written to the test case log
+    <c><seealso marker="ct#log-2">ct:log/2/3</seealso></c> or <c><seealso marker="ct:pal-2">ct:pal/2/3</seealso></c>) get written to the test case log
     file, and not to the Common Test framework log, you can syncronize
     with the Common Test server by matching on the <c>tc_start</c> and <c>tc_done</c>
     events. In the period between these events, all IO gets directed to the

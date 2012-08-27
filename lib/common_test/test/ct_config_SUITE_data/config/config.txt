@@ -2,7 +2,8 @@
 {gen_cfg,
 	[
 		{a,a_value},
-		{b,b_value}
+		{b,b_value},
+		{c,[{d,d_value}]}
 	]}.
 {gen_cfg2,
 	[

@@ -334,9 +334,9 @@ path_separator() ->
     end.
 
 
-make_common_test_args(Args0, Options, _Vars) ->
+make_common_test_args(Args0, Options0, _Vars) ->
     Trace = 
-	case lists:keysearch(trace,1,Options) of
+	case lists:keysearch(trace,1,Options0) of
 	    {value,{trace,TI}} when is_tuple(TI); is_tuple(hd(TI)) ->
 		ok = file:write_file(?tracefile,io_lib:format("~p.~n",[TI])),
 		[{ct_trace,?tracefile}];
@@ -348,7 +348,7 @@ make_common_test_args(Args0, Options, _Vars) ->
 		[]
 	end,
     Cover = 
-	case lists:keysearch(cover,1,Options) of
+	case lists:keysearch(cover,1,Options0) of
 	    {value,{cover, App, none, _Analyse}} ->
 		io:format("No cover file found for ~p~n",[App]),
 		[];
@@ -358,7 +358,7 @@ make_common_test_args(Args0, Options, _Vars) ->
 		[]
 	end,
 
-    Logdir = case lists:keysearch(logdir, 1, Options) of
+    Logdir = case lists:keysearch(logdir, 1, Options0) of
 		  {value,{logdir, _}} ->
 		      [];
 		  false ->
@@ -373,15 +373,16 @@ make_common_test_args(Args0, Options, _Vars) ->
 			{scale_timetraps, true}]
 	       end,
 
-    ConfigPath = case {os:getenv("TEST_CONFIG_PATH"),
-		       lists:keysearch(config, 1, Options)} of
-		     {false,{value, {config, Path}}} ->
-			 Path;
-		     {false,false} ->
-			 "../test_server";
-		     {Path,_} ->
-			 Path
-		 end,
+    {ConfigPath,
+     Options} = case {os:getenv("TEST_CONFIG_PATH"),
+		      lists:keysearch(config, 1, Options0)} of
+		    {_,{value, {config, Path}}} ->
+			{Path,lists:keydelete(config, 1, Options0)};
+		    {false,false} ->
+			{"../test_server",Options0};
+		    {Path,_} ->
+			{Path,Options0}
+		end,
     ConfigFiles = [{config,[filename:join(ConfigPath,File)
 			    || File <- get_config_files()]}],
     io_lib:format("~100000p",[Args0++Trace++Cover++Logdir++

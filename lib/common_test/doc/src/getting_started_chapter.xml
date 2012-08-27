@@ -90,7 +90,7 @@
     <p>As you can understand from the illustration above, Common Test requires
       that a test case generates a runtime error to indicate failure (e.g.
       by causing a bad match error or by calling <c>exit/1</c>, preferrably
-      through the <c>ct:fail/1,2</c> help function). A succesful execution is
+      through the <c><seealso marker="ct#fail-1">ct:fail/1,2</seealso></c> help function). A succesful execution is
       indicated by means of a normal return from the test case function.
     </p>
     </section>
