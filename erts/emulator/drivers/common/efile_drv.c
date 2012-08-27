@@ -2597,7 +2597,7 @@ file_output(ErlDrvData e, char* buf, ErlDrvSizeT count)
 #ifdef USE_VM_PROBES
 	    dt_s1 = d->b;
 	    dt_s2 = d->b + namelen;
-	    dt_utag = buf + namelen + FILENAME_BYTELEN(name) + FILENAME_CHARSIZE;
+	    dt_utag = buf + namelen + FILENAME_BYTELEN(new_name) + FILENAME_CHARSIZE;
 #endif
 	    d->flags = desc->flags;
 	    d->fd = fd;
