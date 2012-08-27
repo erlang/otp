@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -21,17 +21,13 @@
 
 -module(client_server).
 
--export([start/0, start/1, init_connect/1]).
+-export([start/0, init_connect/1]).
 
 start() ->
-    start([ssl, subject]).
-
-start(CertOpts) ->
     %% Start ssl application
+    application:start(crypto),
+    application:start(public_key),
     application:start(ssl),
-
-    %% Always seed 
-    ssl:seed("ellynatefttidppohjeh"),
 
     %% Let the current process be the server that listens and accepts
     %% Listen
@@ -40,14 +36,14 @@ start(CertOpts) ->
     io:fwrite("Listen: port = ~w.~n", [LPort]),
 
     %% Spawn the client process that connects to the server
-    spawn(?MODULE, init_connect, [{LPort, CertOpts}]),
+    spawn(?MODULE, init_connect, [LPort]),
 
     %% Accept
     {ok, ASock} = ssl:transport_accept(LSock),
     ok = ssl:ssl_accept(ASock),
     io:fwrite("Accept: accepted.~n"),
-    {ok, Cert} = ssl:peercert(ASock, CertOpts),
-    io:fwrite("Accept: peer cert:~n~p~n", [Cert]),
+    {ok, Cert} = ssl:peercert(ASock),
+    io:fwrite("Accept: peer cert:~n~p~n", [public_key:pkix_decode_cert(Cert, otp)]),
     io:fwrite("Accept: sending \"hello\".~n"),
     ssl:send(ASock, "hello"),
     {error, closed} = ssl:recv(ASock, 0),
@@ -59,12 +55,12 @@ start(CertOpts) ->
 
 
 %% Client connect
-init_connect({LPort, CertOpts}) ->
+init_connect(LPort) ->
     {ok, Host} = inet:gethostname(), 
     {ok, CSock} = ssl:connect(Host, LPort, mk_opts(connect)),
     io:fwrite("Connect: connected.~n"),
-    {ok, Cert} = ssl:peercert(CSock, CertOpts),
-    io:fwrite("Connect: peer cert:~n~p~n", [Cert]),
+    {ok, Cert} = ssl:peercert(CSock),
+    io:fwrite("Connect: peer cert:~n~p~n", [public_key:pkix_decode_cert(Cert, otp)]),
     {ok, Data} = ssl:recv(CSock, 0),
     io:fwrite("Connect: got data: ~p~n", [Data]),
     io:fwrite("Connect: closing and terminating.~n"),

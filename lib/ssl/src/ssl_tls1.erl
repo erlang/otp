@@ -81,7 +81,7 @@ certificate_verify(md5sha, _Version, Handshake) ->
     <<MD5/binary, SHA/binary>>;
 
 certificate_verify(HashAlgo, _Version, Handshake) ->
-    Hash = crypto:hash(HashAlgo, Handshake).
+    crypto:hash(HashAlgo, Handshake).
 
 -spec setup_keys(integer(), integer(), binary(), binary(), binary(), integer(),
 		 integer(), integer()) -> {binary(), binary(), binary(),
