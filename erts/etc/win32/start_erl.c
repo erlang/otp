@@ -585,6 +585,9 @@ BOOL WINAPI LogoffHandlerRoutine( DWORD dwCtrlType )
     if(dwCtrlType == CTRL_LOGOFF_EVENT) {
 	return TRUE;
     }
+    if(dwCtrlType == CTRL_SHUTDOWN_EVENT) {
+	return TRUE;
+    }
 
     return FALSE;
 }

@@ -45,6 +45,8 @@ extern void mainCRTStartup(void);
 BOOL WINAPI erl_port_default_handler(DWORD ctrl){
     if(ctrl == CTRL_LOGOFF_EVENT)
 	return TRUE;
+    if(ctrl == CTRL_SHUTDOWN_EVENT)
+	return TRUE;
     return FALSE;
 }
 
