@@ -1532,6 +1532,8 @@ type(erlang, system_flag, 2, Xs) ->
 		     t_sequential_tracer();
 		   ['trace_control_word'] ->
 		     t_integer();
+		   ['scheduler_wall_time'] ->
+		     t_boolean();
 		   List when is_list(List) ->
 		     T_system_flag_2;
 		   unknown ->
@@ -3925,6 +3927,7 @@ arg_types(erlang, system_flag, 2) ->
 	  t_atom('trace_control_word'),
 	  %% 'internal_cpu_topology' is an undocumented internal feature.
 	  t_atom('internal_cpu_topology'),
+	  t_atom('scheduler_wall_time'),
 	  t_integer()]),
    t_sup([t_integer(),
 	  %% 'cpu_topology'
@@ -3940,6 +3943,9 @@ arg_types(erlang, system_flag, 2) ->
 	  %% The following two are for 'multi_scheduling'
 	  t_atom('block'),
 	  t_atom('unblock'),
+	  %% For 'scheduler_wall_time'
+	  t_atom('true'),
+	  t_atom('false'),
 	  %% The following is for 'internal_cpu_topology'
 	  t_internal_cpu_topology()])];
 arg_types(erlang, system_info, 1) ->
