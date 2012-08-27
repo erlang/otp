@@ -210,11 +210,14 @@ q_next(TPid, Addrs0, Tmo, {_,_,_,_} = Data) ->
     send_after(Tmo, {connection_timeout, TPid}),
     putr(?Q_KEY, {Addrs0, Tmo, Data}).
 
-%% Connection has been established: retain the started module/config
-%% in the process dictionary.
-keep_transport() ->
+%% Connection has been established: retain the started
+%% pid/module/config in the process dictionary. This is a part of the
+%% interface defined by this module, so that the transport pid can be
+%% found when constructing service_info (in order to extract further
+%% information from it).
+keep_transport(TPid) ->
     {_, _, {{_,_,_} = T, _, _, _}} = eraser(?Q_KEY),
-    putr(?START_KEY, T).
+    putr(?START_KEY, {TPid, T}).
 
 send_after(infinity, _) ->
     ok;
@@ -291,7 +294,7 @@ transition({diameter, {TPid, connected, Remote}},
            = S) ->
     'Wait-Conn-Ack' = PS,  %% assert
     connect = M,           %%
-    keep_transport(),
+    keep_transport(TPid),
     send_CER(S#state{mode = {M, Remote}});
 
 %% Connection from peer.
@@ -303,7 +306,7 @@ transition({diameter, {TPid, connected}},
            = S) ->
     'Wait-Conn-Ack' = PS,  %% assert
     accept = M,            %%
-    keep_transport(),
+    keep_transport(TPid),
     Pid ! {accepted, self()},
     start_timer(S#state{state = recv_CER});
 
