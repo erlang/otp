@@ -2976,9 +2976,20 @@ wd_state(?STATE_DOWN) ->
 info_conn([#conn{pid = Pid, apps = SApps, caps = Caps, started = T}]) ->
     [{peer, {Pid, T}},
      {apps, SApps},
-     {caps, info_caps(Caps)}];
+     {caps, info_caps(Caps)}
+     | try [{port, info_port(Pid)}] catch _:_ -> [] end];
 info_conn([] = No) ->
     No.
+
+%% Extract information that the processes involved are expected to
+%% "publish" in their process dictionaries. Simple but backhanded.
+info_port(Pid) ->
+    {_, PD} = process_info(Pid, dictionary),
+    {_, T} = lists:keyfind({diameter_peer_fsm, start}, 1, PD),
+    {TPid, {_Type, TMod, _Cfg}} = T,
+    {_, TD} = process_info(TPid, dictionary),
+    {_, Data} = lists:keyfind({TMod, info}, 1, TD),
+    [{owner, TPid}, {module, TMod} | [_|_] = TMod:info(Data)].
 
 %% Use the fields names from diameter_caps instead of
 %% diameter_base_CER to distinguish between the 2-tuple values
