@@ -3,6 +3,7 @@
 	<gen_cfg>
 		<a>a_value</a>
 		<b>b_value</b>
+		<c><d>d_value</d></c>
 	</gen_cfg>
 	<gen_cfg2>
 		<c>"Hello, world!"</c>

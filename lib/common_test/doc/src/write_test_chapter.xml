@@ -173,7 +173,7 @@
     </p>
 
     <p>The <c>end_per_testcase/2</c> function is called even after a
-      test case terminates due to a call to <c>ct:abort_current_testcase/1</c>,
+      test case terminates due to a call to <c><seealso marker="ct#abort_current_testcase-1">ct:abort_current_testcase/1</seealso></c>,
       or after a timetrap timeout. However, <c>end_per_testcase</c>
       will then execute on a different process than the test case
       function, and in this situation, <c>end_per_testcase</c> will
@@ -243,7 +243,8 @@
 
     <note><p>The test case function argument <c>Config</c> should not be 
 	confused with the information that can be retrieved from 
-	configuration files (using ct:get_config/[1,2]). The Config argument 
+	configuration files (using <c><seealso marker="ct#get_config-1">
+	ct:get_config/1/2</seealso></c>). The Config argument
 	should be used for runtime configuration of the test suite and the 
 	test cases, while configuration files should typically contain data 
 	related to the SUT. These two types of configuration data are handled 
@@ -302,7 +303,7 @@
 	<item>
 	  <p>
 	    Use this to specify arbitrary data related to the testcase. This
-	    data can be retrieved at any time using the <c>ct:userdata/3</c> 
+	    data can be retrieved at any time using the <c><seealso marker="ct#userdata-3">ct:userdata/3</seealso></c>
 	    utility function.
 	  </p>
 	</item>
@@ -338,7 +339,8 @@
 
 	  <pre>
 	    testcase2() -> 
-	        [{require, unix_telnet, {unix, [telnet, username, password]}},
+	        [{require, unix_telnet, unix},
+		 {require, {unix, [telnet, username, password]}},
 	         {default_config, unix, [{telnet, "my_telnet_host"},
 	                                 {username, "aladdin"},
 	                                 {password, "sesame"}]}}].</pre>
@@ -346,7 +348,8 @@
       </taglist>
 
 	<p>See the <seealso marker="config_file_chapter#require_config_data">Config files</seealso>
-	  chapter and the <c>ct:require/[1,2]</c> function in the
+	  chapter and the <c><seealso marker="ct#require-1">
+	  ct:require/1/2</seealso></c> function in the
 	   <seealso marker="ct">ct</seealso> reference manual for more information about
 	   <c>require</c>.</p>
 
@@ -823,7 +826,7 @@
       Common Test to create one dedicated private directory per
       test case and execution instead. This is accomplished by means of
       the flag/option: <c>create_priv_dir</c> (to be used with the
-      <c>ct_run</c> program, the <c>ct:run_test/1</c> function, or
+      <c>ct_run</c> program, the <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> function, or
       as test specification term). There are three possible values
       for this option:
       <list>
@@ -839,7 +842,7 @@
       become very inefficient for test runs with many test cases and/or
       repetitions. Therefore, in case the manual version is instead used, the
       test case must tell Common Test to create priv_dir when it needs it.
-      It does this by calling the function <c>ct:make_priv_dir/0</c>.
+      It does this by calling the function <c><seealso marker="ct#make_priv_dir-0">ct:make_priv_dir/0</seealso></c>.
       </p>
 
       <note><p>You should not depend on current working directory for
@@ -887,7 +890,7 @@
     
     <p>It is also possible to dynamically set/reset a timetrap during the
     excution of a test case, or configuration function. This is done by calling
-    <c>ct:timetrap/1</c>. This function cancels the current timetrap
+    <c><seealso marker="ct#timetrap-1">ct:timetrap/1</seealso></c>. This function cancels the current timetrap
     and starts a new one (that stays active until timeout, or end of the
     current function).</p>
     
@@ -900,12 +903,12 @@
     
     <p>If a test case needs to suspend itself for a time that also gets
     multipled by <c>multiply_timetraps</c> (and possibly also scaled up if
-    <c>scale_timetraps</c> is enabled), the function <c>ct:sleep/1</c>
+    <c>scale_timetraps</c> is enabled), the function <c><seealso marker="ct#sleep-1">ct:sleep/1</seealso></c>
     may be used (instead of e.g. <c>timer:sleep/1</c>).</p>
     
     <p>A function (<c>fun/0</c> or <c>MFA</c>) may be specified as
     timetrap value in the suite-, group- and test case info function, as
-    well as argument to the <c>ct:timetrap/1</c> function. Examples:</p>
+    well as argument to the <c><seealso marker="ct#timetrap-1">ct:timetrap/1</seealso></c> function. Examples:</p>
 
     <p><c>{timetrap,{my_test_utils,timetrap,[?MODULE,system_start]}}</c></p>
     <p><c>ct:timetrap(fun() -> my_timetrap(TestCaseName, Config) end)</c></p>

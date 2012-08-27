@@ -184,7 +184,7 @@ close_pend_loop(S, N) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 bind(S,IP,Port) when is_port(S), is_integer(Port), Port >= 0, Port =< 65535 ->
-    case ctl_cmd(S,?INET_REQ_BIND,[?int16(Port),ip_to_bytes(IP)]) of
+    case ctl_cmd(S,?INET_REQ_BIND,enc_value(set, addr, {IP,Port})) of
 	{ok, [P1,P0]} -> {ok, ?u16(P1, P0)};
 	{error,_}=Error -> Error
     end;
@@ -206,10 +206,10 @@ bindx(S, AddFlag, Addrs) ->
     case getprotocol(S) of
 	sctp ->
 	    %% Really multi-homed "bindx". Stringified args:
-	    %% [AddFlag, (Port, IP)+]:
+	    %% [AddFlag, (AddrBytes see enc_value_2(addr,X))+]:
 	    Args =
 		[?int8(AddFlag)|
-		 [[?int16(Port)|ip_to_bytes(IP)] ||
+		 [enc_value(set, addr, {IP,Port}) ||
 		     {IP, Port} <- Addrs]],
 	    case ctl_cmd(S, ?SCTP_REQ_BINDX, Args) of
 		{ok,_} -> {ok, S};

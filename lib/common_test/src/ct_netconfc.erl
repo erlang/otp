@@ -408,6 +408,7 @@ open(Options) ->
 %% server. It is not used for any other purposes during the lifetime
 %% of the connection.
 %%
+%% @see ct:require/2
 %% @end
 %%----------------------------------------------------------------------
 open(KeyOrName, ExtraOpts) ->

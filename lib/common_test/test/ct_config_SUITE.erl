@@ -88,7 +88,8 @@ require(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     run_test(config_static_SUITE,
 	     Config,
-	     {config, filename:join(DataDir, "config/config.txt")},
+	     [{config, filename:join(DataDir, "config/shadow.txt")},
+	      {config, filename:join(DataDir, "config/config.txt")}],
              ["config_static_SUITE"]).
 
 install_config(Config) when is_list(Config) ->
@@ -106,7 +107,8 @@ userconfig_static(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     run_test(config_static_SUITE,
 	     Config,
-	     {userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}},
+	     [{userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}},
+	      {config, filename:join(DataDir, "config/shadow.txt")}],
              ["config_static_SUITE"]).
 
 userconfig_dynamic(Config) when is_list(Config) ->
@@ -121,7 +123,8 @@ testspec_legacy(Config) when is_list(Config) ->
     make_spec(DataDir, ConfigDir,
 	      "spec_legacy.spec",
 	      [config_static_SUITE],
-	      [{config, filename:join(DataDir, "config/config.txt")}]),
+	      [{config, filename:join(DataDir, "config/shadow.txt")},
+	       {config, filename:join(DataDir, "config/config.txt")}]),
     run_test(config_static_SUITE,
 	     Config,
 	     {spec, filename:join(ConfigDir, "spec_legacy.spec")},
@@ -134,7 +137,8 @@ testspec_static(Config) when is_list(Config) ->
     make_spec(DataDir, ConfigDir,
 	      "spec_static.spec",
 	      [config_static_SUITE],
-	      [{userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}}]),
+	      [{userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}},
+	       {config, filename:join(DataDir, "config/shadow.txt")}]),
     run_test(config_static_SUITE,
 	     Config,
 	     {spec, filename:join(ConfigDir, "spec_static.spec")},
@@ -179,13 +183,15 @@ run_test(Name, Config, CTConfig, SuiteNames)->
     ExpEvents = events_to_check(Name),
     ok = ct_test_support:verify_events(ExpEvents, TestEvents, Config).
 
-setup_env(Test, Config, CTConfig) ->
+setup_env(Test, Config, CTConfig) when is_list(CTConfig) ->
     Opts0 = ct_test_support:get_opts(Config),
     Level = ?config(trace_level, Config),
     EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
-    Opts = Opts0 ++ [Test,{event_handler,{?eh,EvHArgs}}, CTConfig],
+    Opts = Opts0 ++ [Test,{event_handler,{?eh,EvHArgs}} | CTConfig],
     ERPid = ct_test_support:start_event_receiver(Config),
-    {Opts,ERPid}.
+    {Opts,ERPid};
+setup_env(Test, Config, CTConfig) ->
+    setup_env(Test, Config, [CTConfig]).
 
 reformat_events(Events, EH) ->
     ct_test_support:reformat(Events, EH).
@@ -202,40 +208,49 @@ events_to_check(_, 0) ->
 events_to_check(Test, N) ->
     expected_events(Test) ++ events_to_check(Test, N-1).
 
+-define(ok(Name,Suite,Stat),{?eh,tc_start,{Suite,Name}},
+	{?eh,tc_done,{Suite,Name,ok}},
+	{?eh,test_stats,Stat}).
+-define(nok(Name,Suite,Reason,Stat),{?eh,tc_start,{Suite,Name}},
+     {?eh,tc_done,{Suite,Name,Reason}},
+     {?eh,test_stats,Stat}).
+
+-define(sok(Name,Stat),?ok(Name,config_static_SUITE,Stat)).
+-define(snok(Name,Reason,Stat),?nok(Name,config_static_SUITE,Reason,Stat)).
+
+-define(dok(Name,Stat),?ok(Name,config_dynamic_SUITE,Stat)).
+-define(dnok(Name,Reason,Stat),?nok(Name,config_dynamic_SUITE,Reason,Stat)).
+
 expected_events(config_static_SUITE)->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{1,1,8}},
+     {?eh,start_info,{1,1,'_'}},
      {?eh,tc_start,{config_static_SUITE,init_per_suite}},
      {?eh,tc_done,{config_static_SUITE,init_per_suite,ok}},
-     {?eh,tc_start,{config_static_SUITE,test_get_config_simple}},
-     {?eh,tc_done,{config_static_SUITE,test_get_config_simple,ok}},
-     {?eh,test_stats,{1,0,{0,0}}},
-     {?eh,tc_start,{config_static_SUITE,test_get_config_nested}},
-     {?eh,tc_done,{config_static_SUITE,test_get_config_nested,ok}},
-     {?eh,test_stats,{2,0,{0,0}}},
-     {?eh,tc_start,{config_static_SUITE,test_default_suitewide}},
-     {?eh,tc_done,{config_static_SUITE,test_default_suitewide,ok}},
-     {?eh,test_stats,{3,0,{0,0}}},
-     {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use1}},
-     {?eh,tc_done,
-      {config_static_SUITE,test_config_name_already_in_use1,{skipped,{config_name_already_in_use,[x1]}}}},
-     {?eh,test_stats,{3,0,{1,0}}},
-     {?eh,tc_start,{config_static_SUITE,test_default_tclocal}},
-     {?eh,tc_done,{config_static_SUITE,test_default_tclocal,ok}},
-     {?eh,test_stats,{4,0,{1,0}}},
-     {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use2}},
-     {?eh,tc_done,
-      {config_static_SUITE,test_config_name_already_in_use2,
-       {skipped,{config_name_already_in_use,[alias,x1]}}}},
-     {?eh,test_stats,{4,0,{2,0}}},
-     {?eh,tc_start,{config_static_SUITE,test_alias_tclocal}},
-     {?eh,tc_done,{config_static_SUITE,test_alias_tclocal,ok}},
-     {?eh,test_stats,{5,0,{2,0}}},
-     {?eh,tc_start,{config_static_SUITE,test_get_config_undefined}},
-     {?eh,tc_done,{config_static_SUITE,test_get_config_undefined,ok}},
-     {?eh,test_stats,{6,0,{2,0}}},
+     ?sok(test_get_config_simple,{1,0,{0,0}}),
+     ?sok(test_get_config_nested,{2,0,{0,0}}),
+     ?sok(test_get_config_deep_nested,{3,0,{0,0}}),
+     ?sok(test_default_suitewide,{4,0,{0,0}}),
+     ?snok(test_config_name_already_in_use1,
+	  {skipped,{config_name_already_in_use,[x1]}},{4,0,{1,0}}),
+     ?sok(test_default_tclocal,{5,0,{1,0}}),
+     ?snok(test_config_name_already_in_use2,
+	  {skipped,{config_name_already_in_use,[alias,x1]}},{5,0,{2,0}}),
+     ?sok(test_alias_tclocal,{6,0,{2,0}}),
+     ?sok(test_get_config_undefined,{7,0,{2,0}}),
+     ?sok(test_require_subvals,{8,0,{2,0}}),
+     ?snok(test_require_subvals2,
+	  {skipped,{require_failed,
+		    {not_available,{gen_cfg,[a,b,c,d]}}}},{8,0,{2,1}}),
+     ?sok(test_require_deep_config,{9,0,{2,1}}),
+     ?sok(test_shadow_all,{10,0,{2,1}}),
+     ?sok(test_element,{11,0,{2,1}}),
+     ?sok(test_shadow_all_element,{12,0,{2,1}}),
+     ?sok(test_internal_deep,{13,0,{2,1}}),
+     ?sok(test_alias_tclocal_nested,{14,0,{2,1}}),
+     ?sok(test_alias_tclocal_nested_backward_compat,{15,0,{2,1}}),
+     ?sok(test_alias_tclocal_nested_backward_compat_subvals,{16,0,{2,1}}),
      {?eh,tc_start,{config_static_SUITE,end_per_suite}},
      {?eh,tc_done,{config_static_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
@@ -246,29 +261,14 @@ expected_events(config_dynamic_SUITE)->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{1,1,5}},
+     {?eh,start_info,{1,1,'_'}},
      {?eh,tc_start,{config_dynamic_SUITE,init_per_suite}},
      {?eh,tc_done,{config_dynamic_SUITE,init_per_suite,ok}},
-     {?eh,tc_start,{config_dynamic_SUITE,test_get_known_variable}},
-     {?eh,tc_done,
-      {config_dynamic_SUITE,test_get_known_variable,ok}},
-     {?eh,test_stats,{1,0,{0,0}}},
-     {?eh,tc_start,{config_dynamic_SUITE,test_localtime_update}},
-     {?eh,tc_done,{config_dynamic_SUITE,test_localtime_update,ok}},
-     {?eh,test_stats,{2,0,{0,0}}},
-     {?eh,tc_start,{config_dynamic_SUITE,test_server_pid}},
-     {?eh,tc_done,{config_dynamic_SUITE,test_server_pid,ok}},
-     {?eh,test_stats,{3,0,{0,0}}},
-     {?eh,tc_start,
-      {config_dynamic_SUITE,test_disappearable_variable}},
-     {?eh,tc_done,
-      {config_dynamic_SUITE,test_disappearable_variable,ok}},
-     {?eh,test_stats,{4,0,{0,0}}},
-     {?eh,tc_start,
-      {config_dynamic_SUITE,test_disappearable_variable_alias}},
-     {?eh,tc_done,
-      {config_dynamic_SUITE,test_disappearable_variable_alias,ok}},
-     {?eh,test_stats,{5,0,{0,0}}},
+     ?dok(test_get_known_variable,{1,0,{0,0}}),
+     ?dok(test_localtime_update,{2,0,{0,0}}),
+     ?dok(test_server_pid,{3,0,{0,0}}),
+     ?dok(test_disappearable_variable,{4,0,{0,0}}),
+     ?dok(test_disappearable_variable_alias,{5,0,{0,0}}),
      {?eh,tc_start,{config_dynamic_SUITE,end_per_suite}},
      {?eh,tc_done,{config_dynamic_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},

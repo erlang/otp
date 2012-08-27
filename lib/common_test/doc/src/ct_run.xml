@@ -46,7 +46,7 @@
     particular mode.</p>
 
   <p>There is an interface function that corresponds to this program,
-    called <c>ct:run_test/1</c>, for starting Common Test from the Erlang
+    called <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>, for starting Common Test from the Erlang
     shell (or an Erlang program). Please see the <c>ct</c> man page for
     details.</p>
 
