@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,11 +37,17 @@
          code_change/3,
          terminate/2]).
 
+-export([info/1]).  %% service_info callback
+
 -export([ports/0,
          ports/1]).
 
 -include_lib("kernel/include/inet_sctp.hrl").
 -include_lib("diameter/include/diameter.hrl").
+
+%% Keys into process dictionary.
+-define(INFO_KEY, info).
+-define(REF_KEY,  ref).
 
 -define(ERROR(T), erlang:error({T, ?MODULE, ?LINE})).
 
@@ -134,6 +140,24 @@ start_link(T) ->
                         diameter_lib:spawn_opts(server, [])).
 
 %% ---------------------------------------------------------------------------
+%% # info/1
+%% ---------------------------------------------------------------------------
+
+info({gen_sctp, Sock}) ->
+    lists:flatmap(fun(K) -> info(K, Sock) end,
+                  [{socket, sockname},
+                   {peer, peername},
+                   {statistics, getstat}]).
+
+info({K,F}, Sock) ->
+    case inet:F(Sock) of
+        {ok, V} ->
+            [{K,V}];
+        _ ->
+            []
+    end.
+
+%% ---------------------------------------------------------------------------
 %% # init/1
 %% ---------------------------------------------------------------------------
 
@@ -157,7 +181,7 @@ i({connect, Pid, Opts, Addrs, Ref}) ->
     RAs  = [diameter_lib:ipaddr(A) || {raddr, A} <- As],
     [RP] = [P || {rport, P} <- Ps] ++ [P || P <- [?DEFAULT_PORT], [] == Ps],
     {LAs, Sock} = open(Addrs, Rest, 0),
-    putr(ref, Ref),
+    putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self(), LAs}),
     erlang:monitor(process, Pid),
     #transport{parent = Pid,
@@ -169,7 +193,7 @@ i({connect, _, _, _} = T) ->  %% from old code
 %% An accepting transport spawned by diameter.
 i({accept, Pid, LPid, Sock, Ref})
   when is_pid(Pid) ->
-    putr(ref, Ref),
+    putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
     erlang:monitor(process, Pid),
     erlang:monitor(process, LPid),
@@ -181,7 +205,7 @@ i({accept, _, _, _} = T) ->  %% from old code
 
 %% An accepting transport spawned at association establishment.
 i({accept, Ref, LPid, Sock, Id}) ->
-    putr(ref, Ref),
+    putr(?REF_KEY, Ref),
     proc_lib:init_ack({ok, self()}),
     MRef = erlang:monitor(process, LPid),
     %% Wait for a signal that the transport has been started before
@@ -554,10 +578,9 @@ recv({_, #sctp_assoc_change{state = comm_up,
                 mode = {T, _},
                 socket = Sock}
      = S) ->
-    Ref = getr(ref),
+    Ref = getr(?REF_KEY),
     is_reference(Ref)  %% started in new code
-        andalso
-        (true = diameter_reg:add_new({?MODULE, T, {Ref, {Id, Sock}}})),
+        andalso publish(T, Ref, Id, Sock),
     up(S#transport{assoc_id = Id,
                    streams = {IS, OS}});
 
@@ -598,6 +621,10 @@ recv({_, #sctp_paddr_change{}}, _) ->
 
 recv({_, #sctp_pdapi_event{}}, _) ->
     ok.
+
+publish(T, Ref, Id, Sock) ->
+    true = diameter_reg:add_new({?MODULE, T, {Ref, {Id, Sock}}}),
+    putr(?INFO_KEY, {gen_sctp, Sock}).  %% for info/1
 
 %% up/1
 
