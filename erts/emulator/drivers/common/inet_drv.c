@@ -1228,6 +1228,27 @@ struct erl_drv_entry inet_driver_entry =
     NULL,
 };
 
+#if HAVE_IN6
+#  if ! defined(HAVE_IN6ADDR_ANY) || ! HAVE_IN6ADDR_ANY
+#    if HAVE_DECL_IN6ADDR_ANY_INIT
+static const struct in6_addr in6addr_any = { { IN6ADDR_ANY_INIT } };
+#    else
+static const struct in6_addr in6addr_any =
+    { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } };
+#    endif /* HAVE_IN6ADDR_ANY_INIT */
+#  endif /* ! HAVE_DECL_IN6ADDR_ANY */
+
+#  if ! defined(HAVE_IN6ADDR_LOOPBACK) || ! HAVE_IN6ADDR_LOOPBACK
+#    if HAVE_DECL_IN6ADDR_LOOPBACK_INIT
+static const struct in6_addr in6addr_loopback =
+    { { IN6ADDR_LOOPBACK_INIT } };
+#    else
+static const struct in6_addr in6addr_loopback =
+    { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } };
+#    endif /* HAVE_IN6ADDR_LOOPBACk_INIT */
+#  endif /* ! HAVE_DECL_IN6ADDR_LOOPBACK */
+#endif /* HAVE_IN6 */
+
 /* XXX: is this a driver interface function ??? */
 void erl_exit(int n, char*, ...);
 
@@ -3706,6 +3727,9 @@ static char* inet_set_address(int family, inet_address* dst,
     if ((family == AF_INET) && (*len >= 2+4)) {
 	sys_memzero((char*)dst, sizeof(struct sockaddr_in));
 	port = get_int16(src);
+#ifndef NO_SA_LEN
+	dst->sai.sin_len    = sizeof(struct sockaddr_in);
+#endif
 	dst->sai.sin_family = family;
 	dst->sai.sin_port   = sock_htons(port);
 	sys_memcpy(&dst->sai.sin_addr, src+2, 4);
@@ -3716,6 +3740,9 @@ static char* inet_set_address(int family, inet_address* dst,
     else if ((family == AF_INET6) && (*len >= 2+16)) {
 	sys_memzero((char*)dst, sizeof(struct sockaddr_in6));
 	port = get_int16(src);
+#ifndef NO_SA_LEN
+	dst->sai6.sin6_len    = sizeof(struct sockaddr_in6);
+#endif
 	dst->sai6.sin6_family = family;
 	dst->sai6.sin6_port   = sock_htons(port);
 	dst->sai6.sin6_flowinfo = 0;   /* XXX this may be set as well ?? */
@@ -3726,7 +3753,7 @@ static char* inet_set_address(int family, inet_address* dst,
 #endif
     return NULL;
 }
-#ifdef HAVE_SCTP
+
 /*
 ** Set an inaddr structure, address family comes from source data,
 ** or from argument if source data specifies constant address.
@@ -3770,6 +3797,9 @@ static char *inet_set_faddress(int family, inet_address* dst,
 		return NULL;
 	    }
 	    sys_memzero((char*)dst, sizeof(struct sockaddr_in));
+#ifndef NO_SA_LEN
+	    dst->sai.sin_len         = sizeof(struct sockaddr_in6);
+#endif
 	    dst->sai.sin_family      = family;
 	    dst->sai.sin_port        = sock_htons(port);
 	    dst->sai.sin_addr.s_addr = addr.s_addr;
@@ -3789,6 +3819,9 @@ static char *inet_set_faddress(int family, inet_address* dst,
 		return NULL;
 	    }
 	    sys_memzero((char*)dst, sizeof(struct sockaddr_in6));
+#ifndef NO_SA_LEN
+	    dst->sai6.sin6_len    = sizeof(struct sockaddr_in6);
+#endif
 	    dst->sai6.sin6_family = family;
 	    dst->sai6.sin6_port   = sock_htons(port);
 	    dst->sai6.sin6_flowinfo = 0;   /* XXX this may be set as well ?? */
@@ -3806,7 +3839,7 @@ static char *inet_set_faddress(int family, inet_address* dst,
     }
     return inet_set_address(family, dst, src, len);
 }
-#endif /* HAVE_SCTP */
+
 
 /* Get a inaddr structure
 ** src = inaddr structure
@@ -7771,7 +7804,7 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	if (desc->state != INET_STATE_OPEN)
 	    return ctl_xerror(EXBADPORT, rbuf, rsize);
 
-	if (inet_set_address(desc->sfamily, &local, buf, &len) == NULL)
+	if (inet_set_faddress(desc->sfamily, &local, buf, &len) == NULL)
 	    return ctl_error(EINVAL, rbuf, rsize);
 
 	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
@@ -10136,12 +10169,13 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 
     case SCTP_REQ_BINDX:
 	{   /* Multi-homing bind for SCTP: */
-	    /* Construct the list of addresses we bind to. The curr limit is
-	       256 addrs. Buff structure: Flags(1), ListItem,...:
+	    /* Add additional addresses by calling sctp_bindx with one address
+	       at a time, since this is what some OSes promise will work.
+	       Buff structure: Flags(1), ListItem,...:
 	    */
-	    struct sockaddr addrs[256];
+	    inet_address addr;
 	    char* curr;
-	    int   add_flag, n, rflag;
+	    int   add_flag, rflag;
 	    
 	    if (!IS_SCTP(desc))
 		return ctl_xerror(EXBADPORT, rbuf, rsize);
@@ -10150,27 +10184,22 @@ static ErlDrvSSizeT packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf,
 	    add_flag = get_int8(curr);
 	    curr++;
 
-	    for(n=0; n < 256 && curr < buf+len; n++)
-		{
-		    /* List item format: Port(2), IP(4|16) -- compatible with
-		       "inet_set_address": */
-		    inet_address tmp;
-		    ErlDrvSizeT alen  = buf + len - curr;
-		    curr = inet_set_address(desc->sfamily, &tmp, curr, &alen);
-		    if (curr == NULL)
-			return ctl_error(EINVAL, rbuf, rsize);
-
-		    /* Now: we need to squeeze "tmp" into the size of "sockaddr",
-		       which is smaller than "tmp" for IPv6 (extra IN6 info will
-		       be cut off): */
-		    memcpy(addrs + n, &tmp, sizeof(struct sockaddr));
-		}
 	    /* Make the real flags: */
 	    rflag = add_flag ? SCTP_BINDX_ADD_ADDR : SCTP_BINDX_REM_ADDR;
 
-	    /* Invoke the call: */
-	    if (p_sctp_bindx(desc->s, addrs, n, rflag) < 0)
-		return ctl_error(sock_errno(), rbuf, rsize);
+	    while (curr < buf+len)
+		{
+		    /* List item format: see "inet_set_faddress": */
+		    ErlDrvSizeT alen  = buf + len - curr;
+		    curr = inet_set_faddress(desc->sfamily, &addr, curr, &alen);
+		    if (curr == NULL)
+			return ctl_error(EINVAL, rbuf, rsize);
+
+		    /* Invoke the call: */
+		    if (p_sctp_bindx(desc->s, (struct sockaddr *)&addr, 1,
+				     rflag) < 0)
+			return ctl_error(sock_errno(), rbuf, rsize);
+		}
 
 	    desc->state = INET_STATE_BOUND;
 

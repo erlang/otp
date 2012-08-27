@@ -31,14 +31,22 @@
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
-    basic_stream/1, xfer_stream_min/1, peeloff/1, buffers/1]).
+    basic_stream/1, xfer_stream_min/1, peeloff/1, buffers/1,
+    open_multihoming_ipv4_socket/1,
+    open_unihoming_ipv6_socket/1,
+    open_multihoming_ipv6_socket/1,
+    open_multihoming_ipv4_and_ipv6_socket/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, api_open_close, api_listen, api_connect_init,
      api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
-     basic_stream, xfer_stream_min, peeloff, buffers].
+     basic_stream, xfer_stream_min, peeloff, buffers,
+     open_multihoming_ipv4_socket,
+     open_unihoming_ipv6_socket,
+     open_multihoming_ipv6_socket,
+     open_multihoming_ipv4_and_ipv6_socket].
 
 groups() -> 
     [].
@@ -1104,6 +1112,192 @@ mk_data(N, Bytes, Bin) when N < Bytes ->
     mk_data(N+4, Bytes, <<Bin/binary,N:32>>);
 mk_data(_, _, Bin) ->
     Bin.
+
+
+
+open_multihoming_ipv4_socket(doc) ->
+    "Test opening a multihoming ipv4 socket";
+open_multihoming_ipv4_socket(suite) ->
+    [];
+open_multihoming_ipv4_socket(Config) when is_list(Config) ->
+    ?line case get_addrs_by_family(inet, 2) of
+	      {ok, [Addr1, Addr2]} ->
+		  ?line do_open_and_connect([Addr1, Addr2], Addr1);
+	      {error, Reason} ->
+		  {skip, Reason}
+	  end.
+
+open_unihoming_ipv6_socket(doc) ->
+    %% This test is mostly aimed to indicate
+    %% whether host has a non-working ipv6 setup
+    "Test opening a unihoming (non-multihoming) ipv6 socket";
+open_unihoming_ipv6_socket(suite) ->
+    [];
+open_unihoming_ipv6_socket(Config) when is_list(Config) ->
+    ?line case get_addrs_by_family(inet6, 1) of
+	      {ok, [Addr]} ->
+		  ?line do_open_and_connect([Addr], Addr);
+	      {error, Reason} ->
+		  {skip, Reason}
+	  end.
+
+
+open_multihoming_ipv6_socket(doc) ->
+    "Test opening a multihoming ipv6 socket";
+open_multihoming_ipv6_socket(suite) ->
+    [];
+open_multihoming_ipv6_socket(Config) when is_list(Config) ->
+    ?line case get_addrs_by_family(inet6, 2) of
+	      {ok, [Addr1, Addr2]} ->
+		  ?line do_open_and_connect([Addr1, Addr2], Addr1);
+	      {error, Reason} ->
+		  {skip, Reason}
+	  end.
+
+open_multihoming_ipv4_and_ipv6_socket(doc) ->
+    "Test opening a multihoming ipv6 socket with ipv4 and ipv6 addresses";
+open_multihoming_ipv4_and_ipv6_socket(suite) ->
+    [];
+open_multihoming_ipv4_and_ipv6_socket(Config) when is_list(Config) ->
+    ?line case get_addrs_by_family(inet_and_inet6, 2) of
+	      {ok, [[InetAddr1, InetAddr2], [Inet6Addr1, Inet6Addr2]]} ->
+		  %% Connect to the first address to test bind
+		  ?line do_open_and_connect([InetAddr1, Inet6Addr1, InetAddr2],
+					    InetAddr1),
+		  ?line do_open_and_connect([Inet6Addr1, InetAddr1],
+					    Inet6Addr1),
+
+		  %% Connect an address, not the first,
+		  %% to test sctp_bindx
+		  ?line do_open_and_connect([Inet6Addr1, Inet6Addr2, InetAddr1],
+					    Inet6Addr2),
+		  ?line do_open_and_connect([Inet6Addr1, Inet6Addr2, InetAddr1],
+					    InetAddr1);
+	      {error, Reason} ->
+		  {skip, Reason}
+	  end.
+
+
+get_addrs_by_family(Family, NumAddrs) ->
+    case os:type() of
+	{unix,linux} ->
+	    get_addrs_by_family_aux(Family, NumAddrs);
+	{unix,freebsd} ->
+	    get_addrs_by_family_aux(Family, NumAddrs);
+	{unix,sunos} ->
+	    case get_addrs_by_family_aux(Family, NumAddrs) of
+		{ok, [InetAddrs, Inet6Addrs]} when Family =:= inet_and_inet6 ->
+		    %% Man page for sctp_bindx on Solaris says: "If sock is an
+		    %% Internet Protocol Version 6 (IPv6) socket, addrs should
+		    %% be an array of sockaddr_in6 structures containing IPv6
+		    %% or IPv4-mapped IPv6 addresses."
+		    {ok, [ipv4_map_addrs(InetAddrs), Inet6Addrs]};
+		{ok, Addrs} ->
+		    {ok, Addrs};
+		{error, Reason} ->
+		    {error, Reason}
+	    end;
+	Os ->
+	    Reason = if Family =:= inet_and_inet6 ->
+			     f("Mixing ipv4 and ipv6 addresses for multihoming "
+			       " has not been verified on ~p", [Os]);
+			true ->
+			     f("Multihoming for ~p has not been verified on ~p",
+			       [Family, Os])
+		     end,
+	    {error, Reason}
+    end.
+
+get_addrs_by_family_aux(Family, NumAddrs) when Family =:= inet;
+					       Family =:= inet6 ->
+    ?line
+	case inet:getaddr(localhost, Family) of
+	    {error,eafnosupport} ->
+		{skip, f("No support for ~p", Family)};
+	    {ok, _} ->
+		?line IfAddrs = ok(inet:getifaddrs()),
+		?line case filter_addrs_by_family(IfAddrs, Family) of
+			  Addrs when length(Addrs) >= NumAddrs ->
+			      {ok, lists:sublist(Addrs, NumAddrs)};
+			  [] ->
+			      {error, f("Need ~p ~p address(es) found none~n",
+					[NumAddrs, Family])};
+			  Addrs ->
+			      {error,
+			       f("Need ~p ~p address(es) found only ~p: ~p~n",
+				 [NumAddrs, Family, length(Addrs), Addrs])}
+		      end
+	end;
+get_addrs_by_family_aux(inet_and_inet6, NumAddrs) ->
+    ?line catch {ok, [case get_addrs_by_family_aux(Family, NumAddrs) of
+			  {ok, Addrs}     -> Addrs;
+			  {error, Reason} -> throw({error, Reason})
+		      end || Family <- [inet, inet6]]}.
+
+filter_addrs_by_family(IfAddrs, Family) ->
+    lists:flatten([[Addr || {addr, Addr} <- Info,
+			    is_good_addr(Addr, Family)]
+		   || {_IfName, Info} <- IfAddrs]).
+
+is_good_addr(Addr, inet) when tuple_size(Addr) =:= 4 ->
+    true;
+is_good_addr({0,0,0,0,0,16#ffff,_,_}, inet6) ->
+    false; %% ipv4 mapped
+is_good_addr({16#fe80,_,_,_,_,_,_,_}, inet6) ->
+    false; %% link-local
+is_good_addr(Addr, inet6) when tuple_size(Addr) =:= 8 ->
+    true;
+is_good_addr(_Addr, _Family) ->
+    false.
+
+ipv4_map_addrs(InetAddrs) ->
+    [begin
+	 <<AB:16>> = <<A,B>>,
+	 <<CD:16>> = <<C,D>>,
+	 {0, 0, 0, 0, 0, 16#ffff, AB, CD}
+     end || {A,B,C,D} <- InetAddrs].
+
+f(F, A) ->
+    lists:flatten(io_lib:format(F, A)).
+
+do_open_and_connect(ServerAddresses, AddressToConnectTo) ->
+    ?line ServerFamily = get_family_by_addrs(ServerAddresses),
+    ?line io:format("Serving ~p addresses: ~p~n",
+		    [ServerFamily, ServerAddresses]),
+    ?line S1 = ok(gen_sctp:open(0, [{ip,Addr} || Addr <- ServerAddresses] ++
+				    [ServerFamily])),
+    ?line ok = gen_sctp:listen(S1, true),
+    ?line P1 = ok(inet:port(S1)),
+    ?line ClientFamily = get_family_by_addr(AddressToConnectTo),
+    ?line io:format("Connecting to ~p ~p~n",
+		    [ClientFamily, AddressToConnectTo]),
+    ?line S2 = ok(gen_sctp:open(0, [ClientFamily])),
+    %% Verify client can connect
+    ?line #sctp_assoc_change{state=comm_up} =
+	ok(gen_sctp:connect(S2, AddressToConnectTo, P1, [])),
+    %% verify server side also receives comm_up from client
+    ?line recv_comm_up_eventually(S1),
+    ?line ok = gen_sctp:close(S2),
+    ?line ok = gen_sctp:close(S1).
+
+%% If at least one of the addresses is an ipv6 address, return inet6, else inet.
+get_family_by_addrs(Addresses) ->
+    ?line case lists:usort([get_family_by_addr(Addr) || Addr <- Addresses]) of
+	      [inet, inet6] -> inet6;
+	      [inet]        -> inet;
+	      [inet6]       -> inet6
+	  end.
+
+get_family_by_addr(Addr) when tuple_size(Addr) =:= 4 -> inet;
+get_family_by_addr(Addr) when tuple_size(Addr) =:= 8 -> inet6.
+
+recv_comm_up_eventually(S) ->
+    ?line case ok(gen_sctp:recv(S)) of
+	      {_Addr, _Port, _Info, #sctp_assoc_change{state=comm_up}} ->
+		  ok;
+	      {_Addr, _Port, _Info, _OtherSctpMsg} ->
+		  ?line recv_comm_up_eventually(S)
+	  end.
 
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light

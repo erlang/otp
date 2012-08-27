@@ -763,8 +763,12 @@ sctp_opt([Opt|Opts], Mod, R, As) ->
 	{Name,Val}	-> sctp_opt (Opts, Mod, R, As, Name, Val);
 	_ -> {error,badarg}
     end;
-sctp_opt([], _Mod, R, _SockOpts) ->
-    {ok, R}.
+sctp_opt([], _Mod, #sctp_opts{ifaddr=IfAddr}=R, _SockOpts) ->
+    if is_list(IfAddr) ->
+	    {ok, R#sctp_opts{ifaddr=lists:reverse(IfAddr)}};
+       true ->
+	    {ok, R}
+    end.
 
 sctp_opt(Opts, Mod, R, As, Name, Val) ->
     case add_opt(Name, Val, R#sctp_opts.opts, As) of
@@ -1015,11 +1019,7 @@ open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) when Fd < 0 ->
 	    case prim_inet:setopts(S, Opts) of
 		ok ->
 		    case if is_list(Addr) ->
-				 prim_inet:bind(S, add,
-						[case A of
-						     {_,_} -> A;
-						     _     -> {A,Port}
-						 end || A <- Addr]);
+				 bindx(S, Addr, Port);
 			    true ->
 				 prim_inet:bind(S, Addr, Port)
 			 end of
@@ -1039,6 +1039,34 @@ open(Fd, Addr, Port, Opts, Protocol, Family, Type, Module) when Fd < 0 ->
     end;
 open(Fd, _Addr, _Port, Opts, Protocol, Family, Type, Module) ->
     fdopen(Fd, Opts, Protocol, Family, Type, Module).
+
+bindx(S, [Addr], Port0) ->
+    {IP, Port} = set_bindx_port(Addr, Port0),
+    prim_inet:bind(S, IP, Port);
+bindx(S, Addrs, Port0) ->
+    [{IP, Port} | Rest] = [set_bindx_port(Addr, Port0) || Addr <- Addrs],
+    case prim_inet:bind(S, IP, Port) of
+	{ok, AssignedPort} when Port =:= 0 ->
+	    %% On newer Linux kernels, Solaris and FreeBSD, calling
+	    %% bindx with port 0 is ok, but on SuSE 10, it results in einval
+	    Rest2 = [change_bindx_0_port(Addr, AssignedPort) || Addr <- Rest],
+	    prim_inet:bind(S, add, Rest2);
+	{ok, _} ->
+	    prim_inet:bind(S, add, Rest);
+	Error ->
+	    Error
+    end.
+
+set_bindx_port({_IP, _Port}=Addr, _OtherPort) ->
+    Addr;
+set_bindx_port(IP, Port) ->
+    {IP, Port}.
+
+change_bindx_0_port({IP, 0}, AssignedPort) ->
+    {IP, AssignedPort};
+change_bindx_0_port({_IP, _Port}=Addr, _AssignedPort) ->
+    Addr.
+
 
 -spec fdopen(Fd :: non_neg_integer(),
 	     Opts :: [socket_setopt()],
