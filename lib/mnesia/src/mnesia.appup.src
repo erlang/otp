@@ -1,6 +1,9 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
+  {"4.7.1",  [{restart_application, mnesia}]},
+  {"4.7",  [{restart_application, mnesia}]},
+  {"4.6",  [{restart_application, mnesia}]},
   {"4.5.1",  [{restart_application, mnesia}]},
   {"4.5",    [{restart_application, mnesia}]},
   {"4.4.19", [{restart_application, mnesia}]},
@@ -9,6 +12,9 @@
   {"4.4.16", [{restart_application, mnesia}]}
  ],
  [
+  {"4.7.1",  [{restart_application, mnesia}]},
+  {"4.7",  [{restart_application, mnesia}]},
+  {"4.6",  [{restart_application, mnesia}]},
   {"4.5.1",  [{restart_application, mnesia}]},
   {"4.5",    [{restart_application, mnesia}]},
   {"4.4.19", [{restart_application, mnesia}]},

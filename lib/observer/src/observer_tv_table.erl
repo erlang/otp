@@ -324,7 +324,7 @@ handle_event(#wx{id=?SEARCH_ENTRY, event=#wxCommand{type=command_text_enter,cmdS
 	    wxStatusBar:setStatusText(SB, "Not found"),
 	    Pid ! {mark_search_hit, Find#find.start},
 	    wxListCtrl:refreshItem(Grid, Find#find.start),
-	    {noreply, State#state{search=Search#search{find=#find{found=false}}}};
+	    {noreply, State#state{search=Search#search{find=Find#find{found=false}}}};
 	Row ->
 	    wxListCtrl:ensureVisible(Grid, Row),
 	    wxListCtrl:refreshItem(Grid, Row),
@@ -616,7 +616,7 @@ search([Str, Row, Dir0, CaseSens],
 
 search(Row, Dir, Re, Table) ->
     Res = try lists:nth(Row+1, Table) of
-	      Term ->
+	      [Term|_] ->
 		  Str = format(Term),
 		  re:run(Str, Re)
 	  catch _:_ -> no_more
@@ -772,7 +772,7 @@ format_tuple(_Tuple, 1, 0) ->
 format_list([]) -> "[]";
 format_list(List) ->
     case printable_list(List) of
-	true ->  io_lib:format("\"~ts\"", [List]);
+	true ->  io_lib:format("\"~ts\"", [map_printable_list(List)]);
 	false -> [$[ | make_list(List)]
     end.
 
@@ -780,6 +780,24 @@ make_list([Last]) ->
     [format(Last), $]];
 make_list([Head|Tail]) ->
     [format(Head), $,|make_list(Tail)].
+
+map_printable_list([$\n|Cs]) ->
+    [$\\, $n|map_printable_list(Cs)];
+map_printable_list([$\r|Cs]) ->
+    [$\\, $r|map_printable_list(Cs)];
+map_printable_list([$\t|Cs]) ->
+    [$\\, $t|map_printable_list(Cs)];
+map_printable_list([$\v|Cs]) ->
+    [$\\, $v|map_printable_list(Cs)];
+map_printable_list([$\b|Cs]) ->
+    [$\\, $b|map_printable_list(Cs)];
+map_printable_list([$\f|Cs]) ->
+    [$\\, $f|map_printable_list(Cs)];
+map_printable_list([$\e|Cs]) ->
+    [$\\, $e|map_printable_list(Cs)];
+map_printable_list([]) -> [];
+map_printable_list([C|Cs]) ->
+    [C|map_printable_list(Cs)].
 
 %% printable_list([Char]) -> bool()
 %%  Return true if CharList is a list of printable characters, else

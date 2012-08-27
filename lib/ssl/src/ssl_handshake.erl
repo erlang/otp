@@ -220,18 +220,23 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
 		 end, {Role, UserState0}}
 	end,
 
-    {TrustedErlCert, CertPath}  =
-	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef),
-
-    case public_key:pkix_path_validation(TrustedErlCert,
-					 CertPath,
-					 [{max_path_length,
-					   MaxPathLen},
-					  {verify_fun, ValidationFunAndState}]) of
-	{ok, {PublicKeyInfo,_}} ->
-	    {PeerCert, PublicKeyInfo};
-	{error, Reason} ->
-	    path_validation_alert(Reason)
+    try
+	{TrustedErlCert, CertPath}  =
+	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef),
+	case public_key:pkix_path_validation(TrustedErlCert,
+					      CertPath,
+					     [{max_path_length,
+					       MaxPathLen},
+					      {verify_fun, ValidationFunAndState}]) of
+	    {ok, {PublicKeyInfo,_}} ->
+		{PeerCert, PublicKeyInfo};
+	    {error, Reason} ->
+		path_validation_alert(Reason)
+	end
+    catch
+	error:_ ->
+	    %% ASN-1 decode of certificate somehow failed
+	    ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN)
     end.
 
 %%--------------------------------------------------------------------
