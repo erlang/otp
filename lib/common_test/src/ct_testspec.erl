@@ -779,8 +779,8 @@ add_tests([{event_handler,Node,HOrHs,Args}|Ts],Spec) ->
 add_tests([{enable_builtin_hooks,Bool}|Ts],Spec) ->
     add_tests(Ts, Spec#testspec{enable_builtin_hooks = Bool});
 
-add_tests([{noinput,Bool}|Ts],Spec) ->
-    add_tests(Ts, Spec#testspec{noinput = Bool});
+add_tests([{release_shell,Bool}|Ts],Spec) ->
+    add_tests(Ts, Spec#testspec{release_shell = Bool});
 
 %% --- handled/errors ---
 add_tests([{define,_,_}|Ts],Spec) ->		% handled
@@ -1283,7 +1283,7 @@ valid_terms() ->
      {ct_hooks,2},
      {ct_hooks,3},
      {enable_builtin_hooks,2},
-     {noinput,2},
+     {release_shell,2},
      {multiply_timetraps,2},
      {multiply_timetraps,3},
      {scale_timetraps,2},

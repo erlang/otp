@@ -157,7 +157,7 @@ run(TestDirs) ->
 %%%               {refresh_logs,LogDir} | {logopts,LogOpts} | 
 %%%               {verbosity,VLevels} | {basic_html,Bool} | 
 %%%               {ct_hooks, CTHs} | {enable_builtin_hooks,Bool} |
-%%%               {noinput,Bool}
+%%%               {release_shell,Bool}
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | [atom()] | string() | atom()
 %%%   Cases = [atom()] | atom()
@@ -194,15 +194,24 @@ run(TestDirs) ->
 %%%   CTHs = [CTHModule | {CTHModule, CTHInitArgs}]
 %%%   CTHModule = atom()
 %%%   CTHInitArgs = term()
-%%%   Result = [TestResult] | {error,Reason}
-%%% @doc Run tests as specified by the combination of options in <code>Opts</code>.
+%%%   Result = {Ok,Failed,{UserSkipped,AutoSkipped}} | TestRunnerPid | {error,Reason}
+%%%   Ok = integer()
+%%%   Failed = integer()
+%%%   UserSkipped = integer()
+%%%   AutoSkipped = integer()
+%%%   TestRunnerPid = pid()
+%%%   Reason = term()
+%%% @doc <p>Run tests as specified by the combination of options in <code>Opts</code>.
 %%% The options are the same as those used with the
 %%% <seealso marker="ct_run#ct_run"><code>ct_run</code></seealso> program.
 %%% Note that here a <code>TestDir</code> can be used to point out the path to 
 %%% a <code>Suite</code>. Note also that the option <code>testcase</code>
 %%% corresponds to the <code>-case</code> option in the <code>ct_run</code> 
 %%% program. Configuration files specified in <code>Opts</code> will be
-%%% installed automatically at startup.
+%%% installed automatically at startup.</p>
+%%% <p><code>TestRunnerPid</code> is returned if <code>release_shell == true</code>
+%%% (see the User's Guide for details).</p>
+%%% <p><code>Reason</code> indicates what type of error has been encountered.</p>
 run_test(Opts) ->
     ct_run:run_test(Opts).
 
@@ -960,6 +969,8 @@ get_testdata(Key) ->
 	    Error;
 	{'EXIT',_Reason} ->
 	    no_tests_running;
+	undefined ->
+	    {error,no_testdata};
 	[CurrTC] when Key == curr_tc ->
 	    {ok,CurrTC};
 	Data ->
@@ -1159,7 +1170,8 @@ sync_notify(Name,Data) ->
 %%%-----------------------------------------------------------------
 %%% @spec break(Comment) -> ok | {error,Reason}
 %%%       Comment = string()
-%%%       Reason = {multiple_cases_running,TestCases}
+%%%       Reason = {multiple_cases_running,TestCases} |
+%%%                'enable break with release_shell option'
 %%%       TestCases = [atom()]
 %%%
 %%% @doc <p>This function will cancel all timetraps and pause the
@@ -1170,21 +1182,33 @@ sync_notify(Name,Data) ->
 %%%       test case. If a parallel group is executing, <c>break/2</c>
 %%%       should be called instead.</p>
 break(Comment) ->
-    case get_testdata(curr_tc) of
-	{ok,{_,TestCase}} ->
-	    test_server:break(?MODULE, Comment);
-	{ok,Cases} when is_list(Cases) ->
-	    {error,{multiple_cases_running,
-		    [TC || {_,TC} <- Cases]}};
-	Error -> 
-	    {error,Error}
+    case {ct_util:get_testdata(starter),
+	  ct_util:get_testdata(release_shell)} of
+	{ct,ReleaseSh} when ReleaseSh /= true ->
+	    Warning = "ct:break/1 can only be used if release_shell == true.\n",
+	    ct_logs:log("Warning!", Warning, []),
+	    io:format(user, "Warning! " ++ Warning, []),
+	    {error,'enable break with release_shell option'};
+	_ ->
+	    case get_testdata(curr_tc) of
+		{ok,{_,TestCase}} ->
+		    test_server:break(?MODULE, Comment);
+		{ok,Cases} when is_list(Cases) ->
+		    {error,{'multiple cases running',
+			    [TC || {_,TC} <- Cases]}};
+		Error = {error,_} -> 
+		    Error;
+		Error ->
+		    {error,Error}
+	    end
     end.
 
 %%%-----------------------------------------------------------------
 %%% @spec break(TestCase, Comment) -> ok | {error,Reason}
 %%%       TestCase = atom()
 %%%       Comment = string()
-%%%       Reason = test_case_not_running
+%%%       Reason = 'test case not running' |
+%%%                'enable break with release_shell option'
 %%%
 %%% @doc <p>This function works the same way as <c>break/1</c>,
 %%%       only the <c>TestCase</c> argument makes it possible to
@@ -1192,18 +1216,29 @@ break(Comment) ->
 %%%       <c>continue/1</c> function should be used to resume
 %%%       execution of <c>TestCase</c>.</p>
 break(TestCase, Comment) ->
-    case get_testdata(curr_tc) of
-	{ok,Cases} when is_list(Cases) ->
-	    case lists:keymember(TestCase, 2, Cases) of
-		true ->
+    case {ct_util:get_testdata(starter),
+	  ct_util:get_testdata(release_shell)} of
+	{ct,ReleaseSh} when ReleaseSh /= true ->
+	    Warning = "ct:break/2 can only be used if release_shell == true.\n",
+	    ct_logs:log("Warning!", Warning, []),
+	    io:format(user, "Warning! " ++ Warning, []),
+	    {error,'enable break with release_shell option'};
+	_ ->
+	    case get_testdata(curr_tc) of
+		{ok,Cases} when is_list(Cases) ->
+		    case lists:keymember(TestCase, 2, Cases) of
+			true ->
+			    test_server:break(?MODULE, TestCase, Comment);
+			false ->
+			    {error,'test case not running'}
+		    end;
+		{ok,{_,TestCase}} ->
 		    test_server:break(?MODULE, TestCase, Comment);
-		false ->
-		    {error,test_case_not_running}
-	    end;
-	{ok,{_,TestCase}} ->
-	    test_server:break(?MODULE, TestCase, Comment);
-	Error -> 
-	    {error,Error}
+		Error = {error,_} -> 
+		    Error;
+		Error ->
+		    {error,Error}
+	    end
     end.
 
 %%%-----------------------------------------------------------------
