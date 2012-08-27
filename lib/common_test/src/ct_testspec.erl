@@ -940,6 +940,12 @@ handle_data(verbosity,Node,VLvls,_Spec) when is_list(VLvls) ->
     VLvls1 = lists:map(fun(VLvl = {_Cat,_Lvl}) -> VLvl;
 			  (Lvl) -> {'$unspecified',Lvl} end, VLvls),
     [{Node,VLvls1}];
+handle_data(silent_connections,Node,all,_Spec) ->
+    [{Node,[all]}];
+handle_data(silent_connections,Node,Conn,_Spec) when is_atom(Conn) ->
+    [{Node,[Conn]}];
+handle_data(silent_connections,Node,Conns,_Spec) ->
+    [{Node,Conns}];
 handle_data(_Tag,Node,Data,_Spec) ->
     [{Node,Data}].
 
@@ -947,10 +953,10 @@ handle_data(_Tag,Node,Data,_Spec) ->
 should_be_added(Tag,Node,_Data,Spec) ->
     if 
 	%% list terms *without* possible duplicates here
-	Tag == logdir; Tag == logopts;
-	Tag == basic_html; Tag == label;
+	Tag == logdir;       Tag == logopts;
+	Tag == basic_html;   Tag == label;
 	Tag == auto_compile; Tag == stylesheet;
-	Tag == verbosity ->
+	Tag == verbosity;    Tag == silent_connections ->
 	    lists:keymember(ref2node(Node,Spec#testspec.nodes),1,
 			    read_field(Spec,Tag)) == false;
 	%% for terms *with* possible duplicates
@@ -1267,6 +1273,8 @@ valid_terms() ->
      {basic_html,3},
      {verbosity,2},
      {verbosity,3},
+     {silent_connections,2},
+     {silent_connections,3},
      {label,2},
      {label,3},
      {event_handler,2},

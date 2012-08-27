@@ -70,7 +70,7 @@
 	       enable_builtin_hooks,
 	       include = [],
 	       auto_compile,
-	       silent_connections,
+	       silent_connections = [],
 	       stylesheet,
 	       multiply_timetraps = 1,
 	       scale_timetraps = false,
@@ -304,9 +304,9 @@ script_start1(Parent, Args) ->
     %% silent connections
     SilentConns =
 	get_start_opt(silent_connections,
-		      fun(["all"]) -> [];
+		      fun(["all"]) -> [all];
 			 (Conns) -> [list_to_atom(Conn) || Conn <- Conns]
-		      end, Args),
+		      end, [], Args),
     %% stylesheet
     Stylesheet = get_start_opt(stylesheet,
 			       fun([SS]) -> ?abs(SS) end, Args),
@@ -401,6 +401,9 @@ script_start2(StartOpts = #opts{vts = undefined,
 			AllVerbosity =
 			    merge_keyvals([StartOpts#opts.verbosity,
 					   SpecStartOpts#opts.verbosity]),
+			AllSilentConns =
+			    merge_vals([StartOpts#opts.silent_connections,
+					SpecStartOpts#opts.silent_connections]),
 			Cover =
 			    choose_val(StartOpts#opts.cover,
 				       SpecStartOpts#opts.cover),
@@ -467,6 +470,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   logopts = AllLogOpts,
 					   basic_html = BasicHtml,
 					   verbosity = AllVerbosity,
+					   silent_connections = AllSilentConns,
 					   config = SpecStartOpts#opts.config,
 					   event_handlers = AllEvHs,
 					   ct_hooks = AllCTHooks,
@@ -914,9 +918,9 @@ run_test2(StartOpts) ->
 
     %% silent connections
     SilentConns = get_start_opt(silent_connections,
-				fun(all) -> [];
+				fun(all) -> [all];
 				   (Conns) -> Conns
-				end, StartOpts),
+				end, [], StartOpts),
     %% stylesheet
     Stylesheet = get_start_opt(stylesheet,
 			       fun(SS) -> ?abs(SS) end,
@@ -1043,6 +1047,8 @@ run_spec_file(Relaxed,
 				    SpecOpts#opts.stylesheet),
 	    AllVerbosity = merge_keyvals([Opts#opts.verbosity,
 					  SpecOpts#opts.verbosity]),
+	    AllSilentConns = merge_vals([Opts#opts.silent_connections,
+					 SpecOpts#opts.silent_connections]),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
 	    Cover = choose_val(Opts#opts.cover,
 			       SpecOpts#opts.cover),
@@ -1091,6 +1097,7 @@ run_spec_file(Relaxed,
 			      stylesheet = Stylesheet,
 			      basic_html = BasicHtml,
 			      verbosity = AllVerbosity,
+			      silent_connections = AllSilentConns,
 			      config = AllConfig,
 			      event_handlers = AllEvHs,
 			      auto_compile = AutoCompile,
@@ -1354,6 +1361,7 @@ get_data_for_node(#testspec{label = Labels,
 			    basic_html = BHs,
 			    stylesheet = SSs,
 			    verbosity = VLvls,
+			    silent_connections = SilentConnsList,
 			    cover = CoverFs,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
@@ -1381,6 +1389,10 @@ get_data_for_node(#testspec{label = Labels,
 		    undefined -> [];
 		    Lvls -> Lvls
 		end,
+    SilentConns = case proplists:get_value(Node, SilentConnsList) of
+		      undefined -> [];
+		      SCs -> SCs
+		  end,
     Cover = proplists:get_value(Node, CoverFs),
     MT = proplists:get_value(Node, MTs),
     ST = proplists:get_value(Node, STs),
@@ -1398,6 +1410,7 @@ get_data_for_node(#testspec{label = Labels,
 	  basic_html = BasicHtml,
 	  stylesheet = Stylesheet,
 	  verbosity = Verbosity,
+	  silent_connections = SilentConns,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
@@ -1632,13 +1645,16 @@ compile_and_run(Tests, Skip, Opts, Args) ->
     %% enable silent connections
     case Opts#opts.silent_connections of
 	[] ->
-	    Conns = ct_util:override_silence_all_connections(),
-	    ct_logs:log("Silent connections", "~p", [Conns]);
-	Conns when is_list(Conns) ->
-	    ct_util:override_silence_connections(Conns),
-	    ct_logs:log("Silent connections", "~p", [Conns]);
-	_ ->
-	    ok
+	    ok;
+	Conns ->
+	    case lists:member(all, Conns) of
+		true ->
+		    Conns1 = ct_util:override_silence_all_connections(),
+		    ct_logs:log("Silent connections", "~p", [Conns1]);
+		false ->
+		    ct_util:override_silence_connections(Conns),
+		    ct_logs:log("Silent connections", "~p", [Conns])
+	    end
     end,
     log_ts_names(Opts#opts.testspecs),
     TestSuites = suite_tuples(Tests),
