@@ -275,8 +275,8 @@
 
 -type tag()  :: ?atom_tag | ?binary_tag | ?function_tag | ?identifier_tag
               | ?list_tag | ?matchstate_tag | ?nil_tag | ?number_tag
-              | ?opaque_tag | ?product_tag | ?tuple_tag | ?tuple_set_tag
-              | ?union_tag | ?var_tag.
+              | ?opaque_tag | ?product_tag | ?remote_tag
+              | ?tuple_tag | ?tuple_set_tag | ?union_tag | ?var_tag.
 
 -define(float_qual,     float).
 -define(integer_qual,   integer).
