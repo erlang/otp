@@ -184,6 +184,7 @@ analysis_start(Parent, Analysis) ->
       false -> Callgraph
     end,
   State3 = analyze_callgraph(NewCallgraph, State2#analysis_state{plt = Plt1}),
+  dialyzer_callgraph:dispose_race_server(NewCallgraph),
   rcv_and_send_ext_types(Parent),
   NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
   NonExportsList = sets:to_list(NonExports),
@@ -519,9 +520,10 @@ rcv_and_send_ext_types(Parent) ->
   Self ! {Self, done},
   case rcv_ext_types(Self, []) of
     [] -> ok;
-    ExtTypes -> Parent ! {Self, ext_types, ExtTypes}
-  end,
-  ok.
+    ExtTypes ->
+      Parent ! {Self, ext_types, ExtTypes},
+      ok
+  end.
 
 rcv_ext_types(Self, ExtTypes) ->
   receive
