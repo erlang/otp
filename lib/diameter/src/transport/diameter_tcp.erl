@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,10 +37,16 @@
          code_change/3,
          terminate/2]).
 
+-export([info/1]).  %% service_info callback
+
 -export([ports/0,
          ports/1]).
 
 -include_lib("diameter/include/diameter.hrl").
+
+%% Keys into process dictionary.
+-define(INFO_KEY, info).
+-define(REF_KEY,  ref).
 
 -define(ERROR(T), erlang:error({T, ?MODULE, ?LINE})).
 
@@ -111,6 +117,33 @@ start_link(T) ->
                         diameter_lib:spawn_opts(server, [])).
 
 %% ---------------------------------------------------------------------------
+%% # info/1
+%% ---------------------------------------------------------------------------
+
+info({Mod, Sock}) ->
+    lists:flatmap(fun(K) -> info(Mod, K, Sock) end,
+                  [{socket, fun sockname/2},
+                   {peer, fun peername/2},
+                   {statistics, fun getstat/2}
+                   | ssl_info(Mod, Sock)]).
+
+info(Mod, {K,F}, Sock) ->
+    case F(Mod, Sock) of
+        {ok, V} ->
+            [{K,V}];
+        _ ->
+            []
+    end.
+
+ssl_info(ssl = M, Sock) ->
+    [{M, ssl_info(Sock)}];
+ssl_info(_, _) ->
+    [].
+
+ssl_info(Sock) ->
+    [{peercert, C} || {ok, C} <- [ssl:peercert(Sock)]].
+
+%% ---------------------------------------------------------------------------
 %% # init/1
 %% ---------------------------------------------------------------------------
 
@@ -133,7 +166,7 @@ i({T, Ref, Mod, Pid, Opts, Addrs})
     MPid ! {stop, self()},  %% tell the monitor to die
     M = if SslOpts -> ssl; true -> Mod end,
     setopts(M, Sock),
-    putr(ref, Ref),
+    putr(?REF_KEY, Ref),
     #transport{parent = Pid,
                module = M,
                socket = Sock,
@@ -191,7 +224,7 @@ i(accept = T, Ref, Mod, Pid, Opts, Addrs) ->
     {LAddr, LSock} = listener(Ref, {Mod, Opts, Addrs}),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(accept(Mod, LSock)),
-    true = diameter_reg:add_new({?MODULE, T, {Ref, Sock}}),
+    publish(Mod, T, Ref, Sock),
     diameter_peer:up(Pid),
     Sock;
 
@@ -202,9 +235,13 @@ i(connect = T, Ref, Mod, Pid, Opts, Addrs) ->
     RPort = get_port(RP),
     proc_lib:init_ack({ok, self(), [LAddr]}),
     Sock = ok(connect(Mod, RAddr, RPort, gen_opts(LAddr, Rest))),
-    true = diameter_reg:add_new({?MODULE, T, {Ref, Sock}}),
+    publish(Mod, T, Ref, Sock),
     diameter_peer:up(Pid, {RAddr, RPort}),
     Sock.
+
+publish(Mod, T, Ref, Sock) ->
+    true = diameter_reg:add_new({?MODULE, T, {Ref, Sock}}),
+    putr(?INFO_KEY, {Mod, Sock}).  %% for info/1
 
 ok({ok, T}) ->
     T;
@@ -521,7 +558,7 @@ tls_handshake(Type, true, #transport{socket = Sock,
                                      ssl = Opts}
                           = S) ->
     {ok, SSock} = tls(Type, Sock, [{cb_info, ?TCP_CB(M)} | Opts]),
-    Ref = getr(ref),
+    Ref = getr(?REF_KEY),
     is_reference(Ref)  %% started in new code
         andalso
         (true = diameter_reg:add_new({?MODULE, Type, {Ref, SSock}})),
@@ -696,12 +733,32 @@ setopts(M, Sock) ->
 
 portnr(gen_tcp, Sock) ->
     inet:port(Sock);
-portnr(ssl, Sock) ->
-    case ssl:sockname(Sock) of
+portnr(M, Sock) ->
+    case M:sockname(Sock) of
         {ok, {_Addr, PortNr}} ->
             {ok, PortNr};
         {error, _} = No ->
             No
-    end;
-portnr(M, Sock) ->
-    M:port(Sock).
+    end.
+
+%% sockname/2
+
+sockname(gen_tcp, Sock) ->
+    inet:sockname(Sock);
+sockname(M, Sock) ->
+    M:sockname(Sock).
+
+%% peername/2
+
+peername(gen_tcp, Sock) ->
+    inet:peername(Sock);
+peername(M, Sock) ->
+    M:peername(Sock).
+
+%% getstat/2
+
+getstat(gen_tcp, Sock) ->
+    inet:getstat(Sock);
+getstat(M, Sock) ->
+    M:getstat(Sock).
+%% Note that ssl:getstat/1 doesn't yet exist in R15B01.

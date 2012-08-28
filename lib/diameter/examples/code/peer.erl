@@ -117,6 +117,11 @@ server(T) ->
 %%
 %% Return config for a connecting transport.
 
+client({all, LA, RA, RP}) ->
+    [[M,{K,C}], T]
+        = [client({P, LA, RA, RP}) || P <- [sctp,tcp]],
+    [M, {K,C,2000} | T];
+
 client({T, LA, RA, RP}) ->
     [{transport_module, tmod(T)},
      {transport_config, [{ip, addr(LA)},
