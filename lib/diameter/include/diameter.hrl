@@ -139,7 +139,6 @@
          init_state, %% option 'state', initial callback state
          id,         %% 32-bit unsigned application identifier = Dict:id()
          mutable = false, %% boolean(), do traffic callbacks modify state?
-         answer_errors = report}). %% | callback | discard
-                                   %% how to handle containing errors?
+         options = [{answer_errors, report}]}).  %% | callback | discard
 
 -endif. %% -ifdef(diameter_hrl).

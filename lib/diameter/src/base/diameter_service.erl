@@ -991,27 +991,35 @@ ilp({Id, Alias}, {TC, SA}, LDict) ->
     init_conn(Id, Alias, TC, SA),
     ?Dict:append(Alias, TC, LDict).
 
-init_conn(Id, Alias, TC, {SvcName, Apps}) ->
+init_conn(Id, Alias, {TPid, _} = TC, {SvcName, Apps}) ->
     #diameter_app{module = ModX,
                   id = Id}  %% assert
         = find_app(Alias, Apps),
 
-    peer_cb({ModX, peer_up, [SvcName, TC]}, Alias).
+    peer_cb({ModX, peer_up, [SvcName, TC]}, Alias)
+        orelse exit(TPid, kill).  %% fake transport failure
+
+%% find_app/2
 
 find_app(Alias, Apps) ->
-    lists:keyfind(Alias, #diameter_app.alias, Apps).
+    case lists:keyfind(Alias, #diameter_app.alias, Apps) of
+        #diameter_app{options = E} = A when is_atom(E) ->  %% upgrade
+            A#diameter_app{options = [{answer_errors, E}]};
+        A ->
+            A
+    end.
 
-%% A failing peer callback brings down the service. In the case of
-%% peer_up we could just kill the transport and emit an error but for
-%% peer_down we have no way to cleanup any state change that peer_up
-%% may have introduced.
+%% Don't bring down the service (and all associated connections)
+%% regardless of what happens.
 peer_cb(MFA, Alias) ->
     try state_cb(MFA, Alias) of
         ModS ->
-            mod_state(Alias, ModS)
+            mod_state(Alias, ModS),
+            true
     catch
-        E: Reason ->
-            ?ERROR({E, Reason, MFA, ?STACK})
+        E:R ->
+            diameter_lib:error_report({failure, {E, R, Alias, ?STACK}}, MFA),
+            false
     end.
 
 %%% ---------------------------------------------------------------------------
@@ -1398,7 +1406,7 @@ send_request(Pkt, TPid, Caps, App, Opts, Caller, SvcName) ->
     #diameter_app{alias = Alias,
                   dictionary = Dict,
                   module = ModX,
-                  answer_errors = AE}
+                  options = [{answer_errors, AE} | _]}
         = App,
 
     EPkt = encode(Dict, Pkt),
