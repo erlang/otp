@@ -436,32 +436,32 @@ handle_msg(#ssh_msg_channel_window_adjust{recipient_channel = ChannelId,
 	   #connection{channel_cache = Cache} = Connection, 
 	   ConnectionPid, _) ->
     
-    #channel{send_window_size = Size} = 
+    #channel{send_window_size = Size, remote_id = RemoteId} = 
 	Channel0 = ssh_channel:cache_lookup(Cache, ChannelId), 
-
+    
     {SendList, Channel} =  %% TODO: Datatype 0 ?
 	update_send_window(Channel0#channel{send_window_size = Size + Add},
 			   0, <<>>, Connection),
     
     Replies = lists:map(fun({Type, Data}) -> 
 				{connection_reply, ConnectionPid,
-				 channel_data_msg(ChannelId, Type, Data)}
+				 channel_data_msg(RemoteId, Type, Data)}
 			end, SendList),
     FlowCtrlMsgs = flow_control(Channel, Cache),
     {{replies, Replies ++ FlowCtrlMsgs}, Connection};
 
 handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
-				 sender_channel = ChannelId,
+				 sender_channel = RemoteId,
 				 initial_window_size = WindowSz,
 				 maximum_packet_size = PacketSz}, Connection0, 
 	   ConnectionPid, server) ->
    
-    try setup_session(Connection0, ConnectionPid, ChannelId,
+    try setup_session(Connection0, ConnectionPid, RemoteId,
 		     Type, WindowSz, PacketSz) of
 	Result ->
 	    Result
     catch _:_ ->
-	    FailMsg = channel_open_failure_msg(ChannelId, 
+	    FailMsg = channel_open_failure_msg(RemoteId, 
 					       ?SSH_OPEN_CONNECT_FAILED,
 					       "Connection refused", "en"),
 	    {{replies, [{connection_reply, ConnectionPid, FailMsg}]}, 
@@ -532,9 +532,9 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
     {{replies, [{connection_reply, ConnectionPid, FailMsg}]}, Connection};
 
 
-handle_msg(#ssh_msg_channel_open{sender_channel = ChannelId}, Connection, 
+handle_msg(#ssh_msg_channel_open{sender_channel = RemoteId}, Connection, 
 	   ConnectionPid, _) ->
-    FailMsg = channel_open_failure_msg(ChannelId, 
+    FailMsg = channel_open_failure_msg(RemoteId, 
 				       ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED,
 				       "Not allowed", "en"),
     {{replies, [{connection_reply, ConnectionPid, FailMsg}]}, Connection};
