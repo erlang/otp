@@ -46,10 +46,13 @@
 %%%     such as a jump that never transfers control to the instruction
 %%%     following it.
 %%%
-%%% (2) case_end, if_end, and badmatch, and function calls that cause an
-%%%     exit (such as calls to exit/1) are moved to the end of the function.
-%%%     The purpose is to allow further optimizations at the place from
-%%%     which the code was moved.
+%%% (2) Short sequences starting with a label and ending in case_end, if_end,
+%%%     and badmatch, and function calls that cause an exit (such as calls
+%%%     to exit/1) are moved to the end of the function, but only if the
+%%%     the block is not entered via a fallthrough. The purpose of this move
+%%%     is to allow further optimizations at the place from which the
+%%%     code was moved (a jump around the block could be replaced with a
+%%%     fallthrough).
 %%%
 %%% (3) Any unreachable code is removed.  Unreachable code is code
 %%%     after jump, call_last and other instructions which never
@@ -231,6 +234,9 @@ extract_seq(_, _) -> no.
 extract_seq_1([{line,_}=Line|Is], Acc) ->
     extract_seq_1(Is, [Line|Acc]);
 extract_seq_1([{label,_},{func_info,_,_,_}|_], _) ->
+    no;
+extract_seq_1([{label,Lbl},{jump,{f,Lbl}}|_], _) ->
+    %% Don't move a sequence which have a fallthrough entering it.
     no;
 extract_seq_1([{label,_}=Lbl|Is], Acc) ->
     {yes,[Lbl|Acc],Is};
