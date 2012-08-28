@@ -3084,26 +3084,24 @@ stats_acc(Ref, Dict, Stats) ->
 %% info_peers/1
 %%
 %% One entry per peer Origin-Host. Statistics for each entry are
-%% accumulated values for all associated transport refs and peer pids.
+%% accumulated values for all peer pids.
 
 info_peers(S) ->
-    ConnL = conn_list(S),
     {PeerD, RefD} = lists:foldl(fun peer_acc/2,
                                 {dict:new(), dict:new()},
-                                ConnL),
-    Refs = lists:append(dict:fold(fun(_, Rs, A) -> [lists:append(Rs) | A] end,
+                                conn_list(S)),
+    Refs = lists:append(dict:fold(fun(_, Rs, A) -> [Rs|A] end,
                                   [],
                                   RefD)),
     Stats = diameter_stats:read(Refs),
     dict:fold(fun(OH, Cs, A) ->
-                      Rs = lists:append(dict:fetch(OH, RefD)),
-                      [{OH, [{connections, Cs}, stats(Rs, Stats)]}
-                       | A]
+                      Rs = dict:fetch(OH, RefD),
+                      [{OH, [{connections, Cs}, stats(Rs, Stats)]} | A]
               end,
               [],
               PeerD).
 
 peer_acc(Peer, {PeerD, RefD}) ->
-    [Ref, {TPid, _}, [{origin_host, {_, OH}} | _]]
-        = [proplists:get_value(K, Peer) || K <- [ref, peer, caps]],
-    {dict:append(OH, Peer, PeerD), dict:append(OH, [Ref, TPid], RefD)}.
+    [{TPid, _}, [{origin_host, {_, OH}} | _]]
+        = [proplists:get_value(K, Peer) || K <- [peer, caps]],
+    {dict:append(OH, Peer, PeerD), dict:append(OH, TPid, RefD)}.
