@@ -248,7 +248,7 @@ init_per_testcase(Func, Config) ->
     [{case_dir, CaseDir}, {watchdog, Dog}|Config].
 
 end_per_testcase(_Func, Config) ->
-    true = code:del_path(?config(case_dir, Config)),
+    code:del_path(?config(case_dir, Config)),
     test_server:timetrap_cancel(?config(watchdog, Config)).
 
 %%------------------------------------------------------------------------------
