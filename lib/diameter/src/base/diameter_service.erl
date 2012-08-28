@@ -43,8 +43,7 @@
          subscriptions/0,
          services/0,
          services/1,
-         whois/1,
-         flush_stats/1]).
+         whois/1]).
 
 %% test/debug
 -export([call_module/3,
@@ -389,15 +388,6 @@ whois(SvcName) ->
         [] ->
             undefined
     end.
-
-%%% ---------------------------------------------------------------------------
-%%% # flush_stats/1
-%%%
-%%% Output: list of {{SvcName, Alias, Counter}, Value}
-%%% ---------------------------------------------------------------------------
-
-flush_stats(TPid) ->
-    diameter_stats:flush(TPid).
 
 %% ===========================================================================
 %% ===========================================================================
@@ -2857,11 +2847,10 @@ complete(Pre) ->
     end.
 
 info_stats(#state{peerT = PeerT}) ->
-    Peers = ets:select(PeerT, [{#peer{ref = '$1', conn = '$2', _ = '_'},
-                                [{'is_pid', '$2'}],
-                                [['$1', '$2']]}]),
-    diameter_stats:read(lists:append(Peers)).
-%% TODO: include peer identities in return value
+    MatchSpec = [{#peer{ref = '$1', conn = '$2', _ = '_'},
+                  [{'is_pid', '$2'}],
+                  [['$1', '$2']]}],
+    diameter_stats:read(lists:append(ets:select(PeerT, MatchSpec))).
 
 info_transport(#state{peerT = PeerT, connT = ConnT}) ->
     dict:fold(fun it/3,

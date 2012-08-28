@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -519,6 +519,7 @@ rm(SvcName, L) ->
     Refs = lists:map(fun(#transport{ref = R}) -> R end, L),
     case stop_transport(SvcName, Refs) of
         ok ->
+            diameter_stats:flush(Refs),
             lists:foreach(fun delete_object/1, L);
         {error, _} = No ->
             No
