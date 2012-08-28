@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -54,7 +54,7 @@
                      %% number of DWAs received during reopen
          %% end PCB
          parent = self() :: pid(),
-         transport       :: pid(),
+         transport       :: pid() | undefined,
          tref :: reference(), %% reference for current watchdog timer
          message_data}).   %% term passed into diameter_service with message
 
@@ -63,6 +63,13 @@
 %% Start a monitor before the watchdog is allowed to proceed to ensure
 %% that a failed capabilities exchange produces the desired exit
 %% reason.
+
+-spec start(Type, {RecvData, [Opt], SvcName, #diameter_service{}})
+   -> {reference(), pid()}
+ when Type :: {connect|accept, diameter:transport_ref()},
+      RecvData :: term(),
+      Opt :: diameter:transport_opt(),
+      SvcName :: diameter:service_name().
 
 start({_,_} = Type, T) ->
     Ref = make_ref(),
@@ -102,7 +109,7 @@ i({_, Pid, _} = T) ->  %% from old code
     erlang:monitor(process, Pid),
     make_state(T).
 
-make_state({T, Pid, {ConnT,
+make_state({T, Pid, {RecvData,
                      Opts,
                      SvcName,
                      #diameter_service{applications = Apps,
@@ -116,7 +123,7 @@ make_state({T, Pid, {ConnT,
               tw = proplists:get_value(watchdog_timer,
                                        Opts,
                                        ?DEFAULT_TW_INIT),
-              message_data = {ConnT, SvcName, Apps}}.
+              message_data = {RecvData, SvcName, Apps}}.
 
 %% handle_call/3
 
@@ -134,13 +141,35 @@ handle_info(T, State) ->
     case transition(T, State) of
         ok ->
             {noreply, State};
-        #watchdog{status = X} = S ->
-            ?LOGC(X =/= State#watchdog.status, transition, X),
+        #watchdog{} = S ->
+            event(State, S),
             {noreply, S};
         stop ->
             ?LOG(stop, T),
+            event(State, State#watchdog{status = down}),
             {stop, {shutdown, T}, State}
     end.
+
+event(#watchdog{status = T}, #watchdog{status = T}) ->
+    ok;
+
+event(#watchdog{transport = undefined}, #watchdog{transport = undefined}) ->
+    ok;
+
+event(#watchdog{status = From, transport = F, parent = Pid},
+      #watchdog{status = To, transport = T}) ->
+    E = {tpid(F,T), From, To},
+    notify(Pid, E),
+    ?LOG(transition, {self(), E}).
+
+tpid(_, Pid)
+  when is_pid(Pid) ->
+    Pid;
+tpid(Pid, _) ->
+    Pid.
+
+notify(Pid, E) ->
+    Pid ! {watchdog, self(), E}.
 
 %% terminate/2
 
@@ -251,8 +280,8 @@ transition({'DOWN', _, process, TPid, _},
                      status = initial}) ->
     stop;
 
-transition({'DOWN', _, process, Pid, _},
-           #watchdog{transport = Pid}
+transition({'DOWN', _, process, TPid, _},
+           #watchdog{transport = TPid}
            = S) ->
     failover(S),
     close(S),
@@ -385,7 +414,7 @@ recv(Name, Pkt, S) ->
             rcv(Name, Pkt, S),
             NS
     catch
-        throw: {?MODULE, throwaway, #watchdog{} = NS} ->
+        {?MODULE, throwaway, #watchdog{} = NS} ->
             NS
     end.
 

@@ -692,6 +692,19 @@ The packet record contains the CEA in question.</p>
 </taglist>
 </item>
 
+<tag><c>{watchdog, Ref, PeerRef, {From, To}, Config}</c></tag>
+<item>
+<code>
+Ref = transport_ref()
+PeerRef = diameter_app:peer_ref()
+From, To = initial | okay | suspect | down | reopen
+Config = {connect|listen, [transport_opt()]}
+</code>
+
+<p>
+An RFC 3539 watchdog state machine has changed state.</p>
+</item>
+
 </taglist>
 
 <p>
