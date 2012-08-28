@@ -1198,15 +1198,288 @@ DPA or timeout.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>service_info(SvcName, Item) -> Value</name>
-<fsummary>Return specific information about a started service.</fsummary>
+<name>service_info(SvcName, Item) -> term()</name>
+<fsummary>Return information about a started service.</fsummary>
 <type>
 <v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
-<v>Value = term()</v>
 </type>
 <desc>
 <p>
-Return information about a started service.</p>
+Return information about a started service.
+<c>Item</c> can be one of the following.</p>
+
+<taglist>
+
+<tag><c>'Origin-Host'</c></tag>
+<tag><c>'Origin-Realm'</c></tag>
+<tag><c>'Vendor-Id'</c></tag>
+<tag><c>'Product-Name'</c></tag>
+<tag><c>'Origin-State-Id'</c></tag>
+<tag><c>'Host-IP-Address'</c></tag>
+<tag><c>'Supported-Vendor'</c></tag>
+<tag><c>'Auth-Application-Id'</c></tag>
+<tag><c>'Inband-Security-Id'</c></tag>
+<tag><c>'Acct-Application-Id'</c></tag>
+<tag><c>'Vendor-Specific-Application-Id'</c></tag>
+<tag><c>'Firmware-Revision'</c></tag>
+<item>
+<p>
+Return a capability value as configured on the service at <seealso
+marker="#start_service">start_service/2</seealso>.
+Note that all capabilities are returned in a tagged list with the
+<c>capabilities</c> item.</p>
+</item>
+
+<tag><c>applications</c></tag>
+<item>
+<p>
+Return the list of applications configured on the service at <seealso
+marker="#start_service">start_service/2</seealso>.
+</p>
+</item>
+
+<tag><c>capabilities</c></tag>
+<item>
+<p>
+Return a tagged list of all capabilities values configured on the service
+at <seealso
+marker="#start_service">start_service/2</seealso>.</p>
+</item>
+
+<tag><c>transport</c></tag>
+<item>
+<p>
+Return a list containing one entry for every transport configured on
+the service with <seealso
+marker="#add_transport">add_transport/2</seealso>.
+Each entry is a tagged list containing both configuration and
+information about established peer connections.
+An example return value with for a client service with Origin-Host
+"client.example.com" configured with a single transport connected to "server.example.com"
+might look as follows.</p>
+
+<code>
+[[{ref,#Ref&lt;0.0.0.93>},
+  {type,connect},
+  {options,[{transport_module,diameter_tcp},
+            {transport_config,[{ip,{127,0,0,1}},
+                               {raddr,{127,0,0,1}},
+                               {rport,3868},
+                               {reuseaddr,true}]}]},
+  {watchdog,{&lt;0.66.0>,{1346,171491,996448},okay}},
+  {peer,{&lt;0.67.0>,{1346,171491,999906}}},
+  {apps,[{0,common}]},
+  {caps,[{origin_host,{"client.example.com","server.example.com"}},
+         {origin_realm,{"example.com","example.com"}},
+         {host_ip_address,{[{127,0,0,1}],[{127,0,0,1}]}},
+         {vendor_id,{0,193}},
+         {product_name,{"Client","Server"}},
+         {origin_state_id,{[],[]}},
+         {supported_vendor_id,{[],[]}},
+         {auth_application_id,{[0],[0]}},
+         {inband_security_id,{[],[0]}},
+         {acct_application_id,{[],[]}},
+         {vendor_specific_application_id,{[],[]}},
+         {firmware_revision,{[],[]}},
+         {avp,{[],[]}}]},
+  {port,[{owner,&lt;0.69.0>},
+         {module,diameter_tcp},
+         {socket,{{127,0,0,1},48758}},
+         {peer,{{127,0,0,1},3868}},
+         {statistics,[{recv_oct,656},
+                      {recv_cnt,6},
+                      {recv_max,148},
+                      {recv_avg,109},
+                      {recv_dvi,19},
+                      {send_oct,836},
+                      {send_cnt,6},
+                      {send_max,184},
+                      {send_avg,139},
+                      {send_pend,0}]}]},
+  {statistics,[{{{0,258,0},recv},3},
+               {{{0,258,1},send},3},
+               {{{0,257,0},recv},1},
+               {{{0,257,1},send},1},
+               {{{0,258,0},recv,{'Result-Code',2001}},3},
+               {{{0,280,1},recv},2},
+               {{{0,280,0},send},2}]}]]
+</code>
+
+<p>
+Here <c>ref</c> is the <seealso
+marker="#transport_ref">transport_ref()</seealso> of the service's
+transport and <c>options</c> are as were passed to <seealso
+marker="#add_transport">add_transport/2</seealso>.
+The <c>watchdog</c> entry shows the state of a connection's RFC 3539 watchdog
+state machine.
+The <c>peer</c> entry identifies the <seealso
+marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso> for
+which there will have been a <seealso
+marker="diameter_app#peer_up">peer_up</seealso> callback for the
+Diameter applications negotiated during capabilities exchange, which
+are identified by the <c>apps</c> entry, <c>common</c> in this case
+being the <seealso
+marker="#application_alias">application_alias()</seealso> of this
+application with Application Id 0.
+The <c>caps</c> entry identifies the capabilities sent by the local
+node and received from the peer during capabilities exchange.
+The <c>port</c> entry displays socket-level information about the
+transport connection.
+The <c>statistics</c> entry presents Diameter-level counters, 
+an entry like <c>{{{0,280,1},recv},2}</c> saying that the client has
+received 2 DWR messages: <c>{0,280,1} = {Application_Id, Command_Code,
+R_Flag}</c>.</p>
+
+<p>
+Note that <c>watchdog</c>, <c>peer</c>, <c>apps</c>, <c>caps</c>
+and <c>port</c> entries depend on connectivity
+with the peer and may not be present.
+Note also that the <c>statistics</c> entry presents values acuumulated
+during the lifetime of the transport configuration.</p>
+
+<p>
+A listening transport presents its information slightly differently
+since there may be multiple accepted connections for the same <seealso
+marker="#transport_ref">transport_ref()</seealso>.
+The <c>transport</c> info returned by a server with a single client
+connection might look as follows.</p>
+
+<code>
+[[{ref,#Ref&lt;0.0.0.61>},
+  {type,listen},
+  {options,[{transport_module,diameter_tcp},
+            {transport_config,[{reuseaddr,true},
+                               {ip,{127,0,0,1}},
+                               {port,3868}]}]},
+  {accept,[[{watchdog,{&lt;0.56.0>,{1346,171481,226895},okay}},
+            {peer,{&lt;0.58.0>,{1346,171491,999511}}},
+            {apps,[{0,server}]},
+            {caps,[{origin_host,{"server.example.com","client.example.com"}},
+                   {origin_realm,{"example.com","example.com"}},
+                   {host_ip_address,{[{127,0,0,1}],[{127,0,0,1}]}},
+                   {vendor_id,{193,0}},
+                   {product_name,{"Server","Client"}},
+                   {origin_state_id,{[],[]}},
+                   {supported_vendor_id,{[],[]}},
+                   {auth_application_id,{[0],[0]}},
+                   {inband_security_id,{[],[]}},
+                   {acct_application_id,{[],[]}},
+                   {vendor_specific_application_id,{[],[]}},
+                   {firmware_revision,{[],[]}},
+                   {avp,{[],[]}}]},
+            {port,[{owner,&lt;0.62.0>},
+                   {module,diameter_tcp},
+                   {socket,{{127,0,0,1},3868}},
+                   {peer,{{127,0,0,1},48758}},
+                   {statistics,[{recv_oct,1576},
+                                {recv_cnt,16},
+                                {recv_max,184},
+                                {recv_avg,98},
+                                {recv_dvi,26},
+                                {send_oct,1396},
+                                {send_cnt,16},
+                                {send_max,148},
+                                {send_avg,87},
+                                {send_pend,0}]}]}],
+           [{watchdog,{&lt;0.72.0>,{1346,171491,998404},initial}}]]},
+  {statistics,[{{{0,280,0},recv},7},
+               {{{0,280,1},send},7},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,258,1},recv},3},
+               {{{0,258,0},send},3},
+               {{{0,280,1},recv},5},
+               {{{0,280,0},send},5},
+               {{{0,257,1},recv},1},
+               {{{0,257,0},send},1}]}]]
+</code>
+
+<p>
+The information presented here is as in the <c>connect</c> case except
+that the client connections are grouped under an <c>accept</c> tuple.</p>
+
+</item>
+
+<tag><c>connections</c></tag>
+<item>
+<p>
+Return a list containing one entry for every established transport
+connection whose watchdog state machine is not in the <c>down</c>
+state.
+This is a flat view of <c>transport</c> info which lists only active
+connections and for which Diameter-level statistics are accumulated
+only for the lifetime of the transport connection.
+A return value for the server above might look as follows.</p>
+
+<code>
+[[{ref,#Ref&lt;0.0.0.61>},
+  {type,accept},
+  {options,[{transport_module,diameter_tcp},
+            {transport_config,[{reuseaddr,true},
+                               {ip,{127,0,0,1}},
+                               {port,3868}]}]},
+  {watchdog,{&lt;0.56.0>,{1346,171481,226895},okay}},
+  {peer,{&lt;0.58.0>,{1346,171491,999511}}},
+  {apps,[{0,server}]},
+  {caps,[{origin_host,{"server.example.com","client.example.com"}},
+         {origin_realm,{"example.com","example.com"}},
+         {host_ip_address,{[{127,0,0,1}],[{127,0,0,1}]}},
+         {vendor_id,{193,0}},
+         {product_name,{"Server","Client"}},
+         {origin_state_id,{[],[]}},
+         {supported_vendor_id,{[],[]}},
+         {auth_application_id,{[0],[0]}},
+         {inband_security_id,{[],[]}},
+         {acct_application_id,{[],[]}},
+         {vendor_specific_application_id,{[],[]}},
+         {firmware_revision,{[],[]}},
+         {avp,{[],[]}}]},
+  {port,[{owner,&lt;0.62.0>},
+         {module,diameter_tcp},
+         {socket,{{127,0,0,1},3868}},
+         {peer,{{127,0,0,1},48758}},
+         {statistics,[{recv_oct,10124},
+                      {recv_cnt,132},
+                      {recv_max,184},
+                      {recv_avg,76},
+                      {recv_dvi,9},
+                      {send_oct,10016},
+                      {send_cnt,132},
+                      {send_max,148},
+                      {send_avg,75},
+                      {send_pend,0}]}]},
+  {statistics,[{{{0,280,0},recv},62},
+               {{{0,280,1},send},62},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,258,1},recv},3},
+               {{{0,258,0},send},3},
+               {{{0,280,1},recv},66},
+               {{{0,280,0},send},66},
+               {{{0,257,1},recv},1},
+               {{{0,257,0},send},1}]}]]
+</code>
+
+<p>
+Note that there may be multiple entries with the same <c>ref</c>, in
+contrast to <c>transport</c> info.</p>
+</item>
+
+<tag><c>statistics</c></tag>
+<item>
+<p>
+Return a <c>{{Counter, Ref}, non_neg_integer()}</c> list of counter values.
+<c>Ref</c> can be either a <seealso
+marker="#transport_ref">transport_ref()</seealso>
+or a <seealso
+marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso>.
+Entries for the latter are folded into corresponding entries for the
+former as peer connections go down.
+Entries for both are removed at <seealso
+marker="#remove_transport">remove_transport/2</seealso>.
+The Diameter-level statistics returned by <c>transport</c> and
+<c>connections</c> info are based upon these entries.</p>
+</item>
+
+</taglist>
 
 <marker id="services"/>
 </desc>
