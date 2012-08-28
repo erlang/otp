@@ -311,7 +311,8 @@ transform_to_EXTERNAL1990([Data_val_desc,Data_value],Acc)
   when is_binary(Data_value)->
     list_to_tuple(lists:reverse([{'single-ASN1-type',Data_value},
 				 Data_val_desc|Acc]));
-transform_to_EXTERNAL1990([Data_value],Acc) when is_list(Data_value)->
+transform_to_EXTERNAL1990([Data_value],Acc)
+  when is_list(Data_value); is_binary(Data_value) ->
     list_to_tuple(lists:reverse([{'octet-aligned',Data_value}|Acc])).
 
 
