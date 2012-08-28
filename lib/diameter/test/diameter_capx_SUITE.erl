@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -93,12 +93,12 @@
 
 -define(fail(T), erlang:error({T, process_info(self(), messages)})).
 
--define(TIMEOUT, 2000).
+-define(TIMEOUT, 10000).
 
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {seconds, 10}}].
+    [{timetrap, {seconds, 60}}].
 
 all() -> [start,
           start_services,

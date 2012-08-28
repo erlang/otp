@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -35,7 +35,8 @@
          lport/3,
          listen/2, listen/3,
          connect/3, connect/4,
-         disconnect/4]).
+         disconnect/4,
+         info/0]).
 
 %% common_test-specific
 -export([write_priv/3,
@@ -262,7 +263,10 @@ listen(SvcName, Prot) ->
     listen(SvcName, Prot, []).
 
 listen(SvcName, Prot, Opts) ->
-    add_transport(SvcName, {listen, opts(Prot, listen) ++ Opts}).
+    SvcName = diameter:service_info(SvcName, name),  %% assert
+    Ref = add_transport(SvcName, {listen, opts(Prot, listen) ++ Opts}),
+    true = transport(SvcName, Ref),                  %% assert
+    Ref.
 
 %% ---------------------------------------------------------------------------
 %% connect/2-3
@@ -275,14 +279,21 @@ connect(Client, Prot, LRef) ->
 
 connect(Client, Prot, LRef, Opts) ->
     [PortNr] = lport(Prot, LRef, 20),
-    Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
+    Client = diameter:service_info(Client, name),  %% assert
     true = diameter:subscribe(Client),
+    Ref = add_transport(Client, {connect, opts(Prot, PortNr) ++ Opts}),
+    true = transport(Client, Ref),                 %% assert
+
     ok = receive
              {diameter_event, Client, {up, Ref, _, _, _}} -> ok
-         after 2000 ->
+         after 10000 ->
                  {Client, Prot, PortNr, process_info(self(), messages)}
          end,
     Ref.
+
+transport(SvcName, Ref) ->
+    [Ref] == [R || [{ref, R} | _] <- diameter:service_info(SvcName, transport),
+                   R == Ref].
 
 %% ---------------------------------------------------------------------------
 %% disconnect/4
@@ -295,7 +306,7 @@ disconnect(Client, Ref, Server, LRef) ->
     ok = diameter:remove_transport(Client, Ref),
     ok = receive
              {diameter_event, Server, {down, LRef, _, _}} -> ok
-         after 2000 ->
+         after 10000 ->
                  {Client, Ref, Server, LRef, process_info(self(), messages)}
          end.
 
@@ -320,3 +331,17 @@ opts(listen) ->
     [];
 opts(PortNr) ->
     [{raddr, ?ADDR}, {rport, PortNr}].
+
+%% ---------------------------------------------------------------------------
+%% info/0
+
+info() ->
+    [_|_] = Svcs = diameter:services(),  %% assert
+    run([[fun info/1, S] || S <- Svcs]).
+
+info(S) ->
+    [_|_] = Keys = diameter:service_info(S, keys),
+    [] = run([[fun info/2, K, S] || K <- Keys]).
+
+info(Key, SvcName) ->
+    [{Key, _}] = diameter:service_info(SvcName, [Key]).
