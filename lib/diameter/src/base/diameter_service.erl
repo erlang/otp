@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -71,6 +71,8 @@
 -define(DEFAULT_TC,     30000).  %% RFC 3588 ch 2.1
 -define(DEFAULT_TIMEOUT, 5000).  %% for outgoing requests
 -define(RESTART_TC,      1000).  %% if restart was this recent
+
+-define(RELAY, ?DIAMETER_DICT_RELAY).
 
 %% Used to be able to swap this with anything else dict-like but now
 %% rely on the fact that a service's #state{} record does not change
@@ -1935,6 +1937,12 @@ is_loop(Code, Vid, OH, Avps) ->
 %%
 %% Send a locally originating reply.
 
+%% Skip the setting of Result-Code and Failed-AVP's below.
+reply([Msg], Dict, TPid, Pkt)
+  when is_list(Msg);
+       is_tuple(Msg) ->
+    reply(Msg, Dict, TPid, Pkt#diameter_packet{errors = []});
+
 %% No errors or a diameter_header/avp list.
 reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
                                         transport_data = TD}
@@ -1942,7 +1950,7 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
     Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
-    incr(send, Pkt, TPid),  %% count result codes in sent answers
+    incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
     send(TPid, Pkt#diameter_packet{transport_data = TD});
 
 %% Or not: set Result-Code and Failed-AVP AVP's.
@@ -1983,7 +1991,10 @@ rc(RC) ->
 
 rc(Rec, RC, Failed, Dict)
   when is_integer(RC) ->
-    set(Rec, [{'Result-Code', RC} | failed_avp(Rec, Failed, Dict)], Dict).
+    set(Rec,
+        lists:append([rc(Rec, {'Result-Code', RC}, Dict),
+                      failed_avp(Rec, Failed, Dict)]),
+        Dict).
 
 %% Reply as name and tuple list ...
 set([_|_] = Ans, Avps, _) ->
@@ -1993,6 +2004,22 @@ set([_|_] = Ans, Avps, _) ->
 set(Rec, Avps, Dict) ->
     Dict:'#set-'(Avps, Rec).
 
+%% rc/3
+%%
+%% Turn the result code into a list if its optional and only set it if
+%% the arity is 1 or {0,1}. In other cases (which probably shouldn't
+%% exist in practise) we can't know what's appropriate.
+
+rc([MsgName | _], {'Result-Code' = K, RC} = T, Dict) ->
+    case Dict:avp_arity(MsgName, 'Result-Code') of
+        1     -> [T];
+        {0,1} -> [{K, [RC]}];
+        _     -> []
+    end;
+
+rc(Rec, T, Dict) ->
+    rc([Dict:rec2msg(element(1, Rec))], T, Dict).
+    
 %% failed_avp/3
 
 failed_avp(_, [] = No, _) ->
@@ -2200,44 +2227,39 @@ handle_answer(SvcName, _, {error, Req, Reason}) ->
 handle_answer(SvcName,
               AnswerErrors,
               {answer, #request{dictionary = Dict} = Req, Pkt}) ->
-    a(examine(diameter_codec:decode(Dict, Pkt)),
-      SvcName,
-      AnswerErrors,
-      Req).
+    answer(examine(diameter_codec:decode(Dict, Pkt)),
+           SvcName,
+           AnswerErrors,
+           Req).
 
 %% We don't really need to do a full decode if we're a relay and will
 %% just resend with a new hop by hop identifier, but might a proxy
 %% want to examine the answer?
 
-a(#diameter_packet{errors = []}
-  = Pkt,
-  SvcName,
-  AE,
-  #request{transport = TPid,
-           caps = Caps,
-           packet = P}
-  = Req) ->
+answer(Pkt, SvcName, AE, #request{transport = TPid,
+                                  dictionary = Dict}
+                         = Req) ->
     try
-        incr(in, Pkt, TPid)
+        incr(recv, Pkt, Dict, TPid)
     of
-        _ ->
-            cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}])
+        _ -> a(Pkt, SvcName, AE, Req)
     catch
         exit: {invalid_error_bit, _} = E ->
-            e(Pkt#diameter_packet{errors = [E]}, SvcName, AE, Req)
-    end;
+            a(Pkt#diameter_packet{errors = [E]}, SvcName, AE, Req)
+    end.
 
-a(#diameter_packet{} = Pkt, SvcName, AE, Req) ->
-    e(Pkt, SvcName, AE, Req).
-
-e(Pkt, SvcName, callback, #request{transport = TPid,
-                                   caps = Caps,
-                                   packet = Pkt}
-                          = Req) ->
-    cb(Req, handle_answer, [Pkt, msg(Pkt), SvcName, {TPid, Caps}]);
-e(Pkt, SvcName, report, Req) ->
+a(#diameter_packet{errors = Es} = Pkt, SvcName, AE, #request{transport = TPid,
+                                                             caps = Caps,
+                                                             packet = P}
+                                                    = Req)
+  when [] == Es;
+       callback == AE ->
+    cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
+    
+a(Pkt, SvcName, report, Req) ->
     x(errors, handle_answer, [SvcName, Req, Pkt]);
-e(Pkt, SvcName, discard, Req) ->
+
+a(Pkt, SvcName, discard, Req) ->
     x({errors, handle_answer, [SvcName, Req, Pkt]}).
 
 %% Note that we don't check that the application id in the answer's
@@ -2249,17 +2271,19 @@ e(Pkt, SvcName, discard, Req) ->
 %% Increment a stats counter for an incoming or outgoing message.
 
 %% TODO: fix
-incr(_, #diameter_packet{msg = undefined}, _) ->
+incr(_, #diameter_packet{msg = undefined}, _, _) ->
     ok;
 
-incr(Dir, Pkt, TPid)
-  when is_pid(TPid) ->
+incr(recv = D, #diameter_packet{header = H, errors = [_|_]}, _, TPid) ->
+    incr(TPid, {diameter_codec:msg_id(H), D, error});
+
+incr(Dir, Pkt, Dict, TPid) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
                      msg = Rec}
         = Pkt,
 
-    RC = int(get_avp_value(?BASE, 'Result-Code', Rec)),
+    RC = int(get_avp_value(Dict, 'Result-Code', Rec)),
     PE = is_protocol_error(RC),
 
     %% Check that the E bit is set only for 3xxx result codes.
@@ -2267,14 +2291,20 @@ incr(Dir, Pkt, TPid)
         orelse (E andalso PE)
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
-    Ctr = rc_counter(Rec, RC),
-    is_tuple(Ctr)
-        andalso incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
+    irc(TPid, Hdr, Dir, rc_counter(Dict, Rec, RC)).
+
+irc(_, _, _, undefined) ->
+    false;
+
+irc(TPid, Hdr, Dir, Ctr) ->
+    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
 
 %% incr/2
 
 incr(TPid, Counter) ->
     diameter_stats:incr(Counter, TPid, 1).
+
+%% error_counter/2
 
 %% RFC 3588, 7.6:
 %%
@@ -2285,26 +2315,27 @@ incr(TPid, Counter) ->
 %% Maintain statistics assuming one or the other, not both, which is
 %% surely the intent of the RFC.
 
-rc_counter(_, RC)
-  when is_integer(RC) ->
-    {'Result-Code', RC};
-rc_counter(Rec, _) ->
-    rcc(get_avp_value(?BASE, 'Experimental-Result', Rec)).
+rc_counter(Dict, Rec, undefined) ->
+    er(get_avp_value(Dict, 'Experimental-Result', Rec));
+rc_counter(_, _, RC) ->
+    {'Result-Code', RC}.
 
 %% Outgoing answers may be in any of the forms messages can be sent
 %% in. Incoming messages will be records. We're assuming here that the
 %% arity of the result code AVP's is 0 or 1.
 
-rcc([{_,_,RC} = T])
-  when is_integer(RC) ->
+er([{_,_,N} = T | _])
+  when is_integer(N) ->
     T;
-rcc({_,_,RC} = T)
-  when is_integer(RC) ->
+er({_,_,N} = T)
+  when is_integer(N) ->
     T;
-rcc(_) ->
+er(_) ->
     undefined.
 
-int([N])
+%% Extract the first good looking integer. There's no guarantee
+%% that what we're looking for has arity 1.
+int([N|_])
   when is_integer(N) ->
     N;
 int(N)
@@ -2349,8 +2380,11 @@ rt(#request{packet = #diameter_packet{msg = undefined}}, _) ->
     false;  %% TODO: Not what we should do.
 
 %% ... or not.
-rt(#request{packet = #diameter_packet{msg = Msg}} = Req, S) ->
-    find_transport(get_destination(Msg), Req, S).
+rt(#request{packet = #diameter_packet{msg = Msg},
+            dictionary = Dict}
+   = Req,
+   S) ->
+    find_transport(get_destination(Dict, Msg), Req, S).
 
 %%% ---------------------------------------------------------------------------
 %%% # report_status/5
@@ -2462,12 +2496,12 @@ find_transport({alias, Alias}, Msg, Opts, #state{service = Svc} = S) ->
 find_transport(#diameter_app{} = App, Msg, Opts, S) ->
     ft(App, Msg, Opts, S).
 
-ft(#diameter_app{module = Mod} = App, Msg, Opts, S) ->
+ft(#diameter_app{module = Mod, dictionary = Dict} = App, Msg, Opts, S) ->
     #options{filter = Filter,
              extra = Xtra}
         = Opts,
     pick_peer(App#diameter_app{module = Mod ++ Xtra},
-              get_destination(Msg),
+              get_destination(Dict, Msg),
               Filter,
               S);
 ft(false = No, _, _, _) ->
@@ -2503,11 +2537,11 @@ find_transport([_,_] = RH,
               Filter,
               S).
 
-%% get_destination/1
+%% get_destination/2
 
-get_destination(Msg) ->
-    [str(get_avp_value(?BASE, 'Destination-Realm', Msg)),
-     str(get_avp_value(?BASE, 'Destination-Host', Msg))].
+get_destination(Dict, Msg) ->
+    [str(get_avp_value(Dict, 'Destination-Realm', Msg)),
+     str(get_avp_value(Dict, 'Destination-Host', Msg))].
 
 %% This is not entirely correct. The avp could have an arity 1, in
 %% which case an empty list is a DiameterIdentity of length 0 rather
@@ -2530,6 +2564,9 @@ str(T) ->
 %% identify the type of the AVP and its arity in the message in
 %% question. The third form allows messages to be sent as is, without
 %% a dictionary, which is needed in the case of relay agents, for one.
+
+get_avp_value(?RELAY, Name, Msg) ->
+    get_avp_value(?BASE, Name, Msg);
 
 get_avp_value(Dict, Name, [#diameter_header{} | Avps]) ->
     try

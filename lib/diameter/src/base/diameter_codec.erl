@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -91,7 +91,8 @@ e(_, #diameter_packet{msg = [#diameter_header{} = Hdr | As]} = Pkt) ->
 
     Flags = make_flags(0, Hdr),
 
-    Pkt#diameter_packet{bin = <<Vsn:8, Length:24,
+    Pkt#diameter_packet{header = Hdr,
+                        bin = <<Vsn:8, Length:24,
                                 Flags:8, Code:24,
                                 Aid:32,
                                 Hid:32,
