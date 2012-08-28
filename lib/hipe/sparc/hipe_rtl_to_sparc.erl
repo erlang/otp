@@ -19,6 +19,7 @@
 %%
 
 -module(hipe_rtl_to_sparc).
+
 -export([translate/1]).
 
 -include("../rtl/hipe_rtl.hrl").
@@ -142,8 +143,7 @@ mk_fload_rr(Base1, Base2, Dst) ->
 mk_fload_ii(Base1, Base2, Dst) ->
   io:format("~w: RTL fload with two immediates\n", [?MODULE]),
   Tmp = new_untagged_temp(),
-  mk_set(Base1, Tmp,
-	 mk_fload_ri(Tmp, Base2, Dst)).
+  mk_set(Base1, Tmp, mk_fload_ri(Tmp, Base2, Dst)).
 
 mk_fload_ri(Base, Disp, Dst) ->
   hipe_sparc:mk_fload(Base, Disp, Dst, 'new').
@@ -239,8 +239,7 @@ mk_alu_ii(XAluOp, Src1, Src2, Dst) ->
   io:format("~w: ALU with two immediates (~w ~w ~w ~w)\n",
 	    [?MODULE, XAluOp, Src1, Src2, Dst]),
   Tmp = new_untagged_temp(),
-  mk_set(Src1, Tmp,
-	 mk_alu_ri(XAluOp, Tmp, Src2, Dst)).
+  mk_set(Src1, Tmp, mk_alu_ri(XAluOp, Tmp, Src2, Dst)).
 
 mk_alu_ir(XAluOp, Src1, Src2, Dst) ->
   case xaluop_commutes(XAluOp) of
@@ -249,8 +248,7 @@ mk_alu_ir(XAluOp, Src1, Src2, Dst) ->
        true};
     _ ->
       Tmp = new_untagged_temp(),
-      {mk_set(Src1, Tmp,
-	      mk_alu_rs(XAluOp, Tmp, Src2, Dst)),
+      {mk_set(Src1, Tmp, mk_alu_rs(XAluOp, Tmp, Src2, Dst)),
        false}
   end.
 
@@ -274,8 +272,7 @@ mk_arith_ri(XAluOp, Src1, Src2, Dst) when is_integer(Src2) ->
       mk_alu_rs(XAluOp, Src1, hipe_sparc:mk_simm13(Src2), Dst);
      true ->
       Tmp = new_untagged_temp(),
-      mk_set(Src2, Tmp,
-	     mk_alu_rs(XAluOp, Src1, Tmp, Dst))
+      mk_set(Src2, Tmp, mk_alu_rs(XAluOp, Src1, Tmp, Dst))
   end.
 
 mk_alu_rs(XAluOp, Src1, Src2, Dst) ->
@@ -623,8 +620,7 @@ mk_move(Src, Dst, Tail) ->
 conv_return(I, Map, Data) ->
   %% TODO: multiple-value returns
   {[Arg], Map0} = conv_src_list(hipe_rtl:return_varlist(I), Map),
-  I2 = mk_move(Arg, hipe_sparc:mk_rv(),
-	       [hipe_sparc:mk_pseudo_ret()]),
+  I2 = mk_move(Arg, hipe_sparc:mk_rv(), [hipe_sparc:mk_pseudo_ret()]),
   {I2, Map0, Data}.
 
 conv_store(I, Map, Data) ->
@@ -648,8 +644,7 @@ mk_store(StOp, Src, Base1, Base2) ->
       mk_store2(StOp, Src, Base1, Base2);
     _ ->
       Tmp = new_untagged_temp(),
-      mk_set(Src, Tmp,
-	     mk_store2(StOp, Tmp, Base1, Base2))
+      mk_set(Src, Tmp, mk_store2(StOp, Tmp, Base1, Base2))
   end.
 
 mk_store2(StOp, Src, Base1, Base2) ->
@@ -674,8 +669,7 @@ conv_switch(I, Map, Data) ->
       [] ->
 	hipe_consttab:insert_block(Data, word, LMap);
       SortOrder ->
-	hipe_consttab:insert_sorted_block(
-	  Data, word, LMap, SortOrder)
+	hipe_consttab:insert_sorted_block(Data, word, LMap, SortOrder)
     end,
   %% no immediates allowed here
   {IndexR, Map1} = conv_dst(hipe_rtl:switch_src(I), Map),
@@ -722,7 +716,7 @@ conv_aluop(RtlAluOp) ->
 
 xaluop_commutes(XAluOp) ->
   case XAluOp of
-    'cmp' -> true;
+    %% 'cmp' -> true;
     'cmpcc' -> true;
     'add' -> true;
     'addcc' -> true;
@@ -739,16 +733,16 @@ xaluop_commutes(XAluOp) ->
     'sll' -> false;
     'srl' -> false;
     'sra' -> false;
-    'sllx' -> false;
-    'srlx' -> false;
-    'srax' -> false;
+    %% 'sllx' -> false;
+    %% 'srlx' -> false;
+    %% 'srax' -> false;
     'ldsb' -> true;
     'ldsh' -> true;
-    'ldsw' -> true;
+    %% 'ldsw' -> true;
     'ldub' -> true;
     'lduh' -> true;
-    'lduw' -> true;
-    'ldx' -> true
+    'lduw' -> true
+    %% 'ldx' -> true
   end.
 
 %%% Check if an extended SPARC AluOp is a shift.

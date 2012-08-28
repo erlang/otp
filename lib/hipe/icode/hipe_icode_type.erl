@@ -79,13 +79,13 @@
 -import(erl_types, [number_min/1, number_max/1,
 		    t_any/0, t_atom/1, t_atom/0, t_atom_vals/1,
 		    t_binary/0, t_bitstr/0, t_bitstr_base/1, t_bitstr_unit/1, 
-		    t_boolean/0, t_cons/0, t_constant/0,
+		    t_boolean/0, t_cons/0,
 		    t_float/0, t_from_term/1, t_from_range/2,
 		    t_fun/0, t_fun/1, t_fun/2, t_fun_args/1, t_fun_arity/1, 
 		    t_inf/2, t_inf_lists/2, t_integer/0,
 		    t_integer/1, t_is_atom/1, t_is_any/1,
 		    t_is_binary/1, t_is_bitstr/1, t_is_bitwidth/1, t_is_boolean/1,
-		    t_is_fixnum/1, t_is_cons/1, t_is_constant/1,
+		    t_is_fixnum/1, t_is_cons/1,
 		    t_is_maybe_improper_list/1, t_is_equal/2, t_is_float/1,
 		    t_is_fun/1, t_is_integer/1, t_is_non_neg_integer/1, 
 		    t_is_number/1, t_is_matchstate/1,
@@ -587,7 +587,6 @@ do_type(I, Info, Var) ->
   TrueLab = hipe_icode:type_true_label(I),
   FalseLab = hipe_icode:type_false_label(I),
   None = t_none(),
-  
   case lookup(Var, Info) of
     None ->
       [{TrueLab, Info}, {FalseLab, Info}];
@@ -1698,7 +1697,6 @@ lookup_list0([H|T], Info, Acc) ->
   lookup_list0(T, Info, [lookup(H, Info)|Acc]);
 lookup_list0([], _, Acc) ->
   lists:reverse(Acc).
-
 
 %% safe_lookup treats anything that is neither in the map nor a
 %% constant as t_any(). Use this during transformations.
