@@ -1483,6 +1483,8 @@ type(erlang, statistics, 1, Xs) ->
 		 t_tuple([t_non_neg_integer(), t_integer(0)]);
 	       ['wall_clock'] ->
 		 t_tuple([t_non_neg_integer(), t_integer(0)]);
+	       ['scheduler_wall_time'] ->
+		 t_list(t_tuple([t_integer(), t_number(), t_number()]));
 	       List when is_list(List) ->
 		 T_statistics_1;
 	       unknown ->
@@ -3903,6 +3905,7 @@ arg_types(erlang, statistics, 1) ->
 	  t_atom('reductions'),
 	  t_atom('run_queue'),
 	  t_atom('runtime'),
+	  t_atom('scheduler_wall_time'),
 	  t_atom('wall_clock')])];
 arg_types(erlang, subtract, 2) ->
   arg_types(erlang, '--', 2);
