@@ -27,11 +27,14 @@
          up/2]).
 
 %% ... and the stack.
--export([start/3,
+-export([start/1,
          send/2,
          close/1,
          abort/1,
          notify/2]).
+
+%% Old interface only called from old code.
+-export([start/3]).  %% < diameter-1.2 (R15B02)
 
 %% Server start.
 -export([start_link/0]).
@@ -57,6 +60,11 @@
 %% Server state.
 -record(state, {id = now()}).
 
+%% Default transport_module/config.
+-define(DEFAULT_TMOD, diameter_tcp).
+-define(DEFAULT_TCFG, []).
+-define(DEFAULT_TTMO, infinity).
+
 %%% ---------------------------------------------------------------------------
 %%% # notify/2
 %%% ---------------------------------------------------------------------------
@@ -68,9 +76,108 @@ notify(SvcName, T) ->
 %%% # start/3
 %%% ---------------------------------------------------------------------------
 
-start(T, Opts, #diameter_service{} = Svc) ->
-    {Mod, Cfg} = split_transport(Opts),
-    apply(Mod, start, [T, Svc, Cfg]).
+%% From old code: make is restart.
+start(_T, _Opts, #diameter_service{}) ->
+    {error, restart}.
+
+%%% ---------------------------------------------------------------------------
+%%% # start/1
+%%% ---------------------------------------------------------------------------
+
+-spec start({T, [Opt], #diameter_service{}})
+   -> {TPid, [Addr], Tmo, Data}
+    | {error, [term()]}
+ when T    :: {connect|accept, diameter:transport_ref()},
+      Opt  :: diameter:transport_opt(),
+      TPid :: pid(),
+      Addr :: inet:ip_address(),
+      Tmo  :: non_neg_integer(),
+      Data :: {{T, Mod, Cfg}, [Mod], [{T, [Mod], Cfg}], [Err]},
+      Mod  :: module(),
+      Cfg  :: term(),
+      Err  :: term().
+
+%% Initial start.
+start({T, Opts, #diameter_service{} = Svc}) ->
+    start(T, Svc, pair(Opts, [], []), []);
+
+%% Subsequent start.
+start({#diameter_service{} = Svc, Tmo, {{T, _, Cfg}, Ms, Rest, Errs}}) ->
+    start(T, Ms, Cfg, Svc, Tmo, Rest, Errs).
+
+%% pair/3
+%%
+%% Pair transport modules with config.
+
+%% Another transport_module: accumulate it.
+pair([{transport_module, M} | Rest], Mods, Acc) ->
+    pair(Rest, [M|Mods], Acc);
+
+%% Another transport_config: accumulate another tuple.
+pair([{transport_config = T, C} | Rest], Mods, Acc) ->
+    pair([{T, C, ?DEFAULT_TTMO} | Rest], Mods, Acc);
+pair([{transport_config, C, Tmo} | Rest], Mods, Acc) ->
+    pair(Rest, [], acc({Mods, C, Tmo}, Acc));
+
+pair([_ | Rest], Mods, Acc) ->
+    pair(Rest, Mods, Acc);
+
+%% No transport_module or transport_config: defaults.
+pair([], [], []) ->  
+    [{[?DEFAULT_TMOD], ?DEFAULT_TCFG, ?DEFAULT_TTMO}];
+
+%% One transport_module, one transport_config.
+pair([], [M], [{[], Cfg, Tmo}]) ->
+    [{[M], Cfg, Tmo}];
+
+%% Trailing transport_module: default transport_config.
+pair([], [_|_] = Mods, Acc) ->
+    lists:reverse(acc({Mods, ?DEFAULT_TCFG, ?DEFAULT_TTMO}, Acc));
+
+pair([], [], Acc) ->
+    lists:reverse(def(Acc)).
+
+%% acc/2
+
+acc(T, Acc) ->
+    [T | def(Acc)].
+
+%% def/1
+%%
+%% Default module of previous pair if none were specified.
+
+def([{[], Cfg, Tmo} | Acc]) ->
+    [{[?DEFAULT_TMOD], Cfg, Tmo} | Acc];
+def(Acc) ->
+    Acc.
+
+%% start/4
+
+start(T, Svc, [{Ms, Cfg, Tmo} | Rest], Errs) ->
+    start(T, Ms, Cfg, Svc, Tmo, Rest, Errs);
+
+start(_, _, [], Errs) ->
+    {error, Errs}.
+
+%% start/7
+
+start(T, [], _, Svc, _, Rest, Errs) ->
+    start(T, Svc, Rest, Errs);
+
+start(T, [M|Ms], Cfg, Svc, Tmo, Rest, Errs) ->
+    case start(M, [T, Svc, Cfg]) of
+        {ok, TPid} ->
+            {TPid, [], Tmo, {{T, M, Cfg}, Ms, Rest, Errs}};
+        {ok, TPid, [_|_] = Addrs} ->
+            {TPid, Addrs, Tmo, {{T, M, Cfg}, Ms, Rest, Errs}};
+        E ->
+            start(T, Ms, Cfg, Svc, Tmo, Rest, [E|Errs])
+    end.
+
+%% start/2
+
+start(Mod, Args) ->
+    apply(Mod, start, Args).
 
 %%% ---------------------------------------------------------------------------
 %%% # up/[12]
@@ -203,21 +310,6 @@ bang(undefined = No, _) ->
     No;
 bang(Pid, T) ->
     Pid ! T.
-
-%% split_transport/1
-%%
-%% Split options into transport module, transport config and
-%% remaining options.
-
-split_transport(Opts) ->
-    {[M,C], _} = proplists:split(Opts, [transport_module,
-                                        transport_config]),
-    {value(M, diameter_tcp), value(C, [])}.
-
-value([{_,V}], _) ->
-    V;
-value([], V) ->
-    V.
 
 %% call/1
 

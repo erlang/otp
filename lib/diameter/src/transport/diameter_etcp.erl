@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,7 +36,9 @@
          send/2,
          close/1,
          setopts/2,
-         port/1]).
+         sockname/1,
+         peername/1,
+         getstat/1]).
 
 %% child start
 -export([start_link/1]).
@@ -113,10 +115,20 @@ close(Pid) ->
 setopts(_, _) ->
     ok.
 
-%% port/1
+%% sockname/1
 
-port(_) ->
-    3868.  %% We have no local port: fake it.
+sockname(_) ->
+    {error, ?MODULE}.
+
+%% peername/1
+
+peername(_) ->
+    {error, ?MODULE}.
+
+%% getstat/1
+
+getstat(_) ->
+    {error, ?MODULE}.
 
 %% start_link/1
 

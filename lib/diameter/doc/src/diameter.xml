@@ -692,6 +692,19 @@ The packet record contains the CEA in question.</p>
 </taglist>
 </item>
 
+<tag><c>{watchdog, Ref, PeerRef, {From, To}, Config}</c></tag>
+<item>
+<code>
+Ref = transport_ref()
+PeerRef = diameter_app:peer_ref()
+From, To = initial | okay | suspect | down | reopen
+Config = {connect|listen, [transport_opt()]}
+</code>
+
+<p>
+An RFC 3539 watchdog state machine has changed state.</p>
+</item>
+
 </taglist>
 
 <p>
@@ -764,15 +777,45 @@ Defaults to <c>diameter_tcp</c> if unspecified.</p>
 <p>
 The interface required of a transport module is documented in <seealso
 marker="diameter_transport">diameter_transport(3)</seealso>.</p>
+
+<p>
+Multiple <c>transport_module</c> and <c>transport_config</c>
+options are allowed.
+The order of these is significant in this case (and only in this case),
+a <c>transport_module</c> being paired with the first
+<c>transport_config</c> following it in the options list, or the
+default value for trailing modules.
+Transport starts will be attempted with each of the
+modules in order until one establishes a connection within the
+corresponding timeout (see <c>transport_config</c> below) or all fail.</p>
 </item>
 
 <tag><c>{transport_config, term()}</c></tag>
+<tag><c>{transport_config, term(), Unsigned32()}</c></tag>
 <item>
 <p>
 A term passed as the third argument to the <seealso
 marker="diameter_transport#start">start/3</seealso> function of
 the relevant <c>transport_module</c> in order to start a transport process.
 Defaults to the empty list if unspecified.</p>
+
+<p>
+The 3-tuple form additionally specifies an interval, in milliseconds,
+after which a started transport process should be terminated if it has
+not yet established a connection.
+For example, the following options on a connecting transport
+request a connection with one peer over SCTP or another
+(typically the same) over TCP.</p>
+
+<code>
+{transport_module, diameter_sctp}
+{transport_config, SctpOpts, 5000}
+{transport_module, diameter_tcp}
+{transport_config, TcpOpts}
+</code>
+
+<p>
+To listen on both SCTP and TCP, define one transport for each.</p>
 </item>
 
 <tag><c>{applications, [application_alias()]}</c></tag>

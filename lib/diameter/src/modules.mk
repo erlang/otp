@@ -58,6 +58,7 @@ RT_MODULES = \
 	transport/diameter_tcp_sup \
 	transport/diameter_sctp \
 	transport/diameter_sctp_sup \
+	transport/diameter_transport \
 	transport/diameter_transport_sup
 
 # Handwritten (compile time) modules not included in the app file.

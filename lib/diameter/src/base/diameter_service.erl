@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -43,8 +43,7 @@
          subscriptions/0,
          services/0,
          services/1,
-         whois/1,
-         flush_stats/1]).
+         whois/1]).
 
 %% test/debug
 -export([call_module/3,
@@ -65,12 +64,32 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
+%% The "old" states maintained in this module historically.
 -define(STATE_UP,   up).
 -define(STATE_DOWN, down).
+
+-type op_state() :: ?STATE_UP
+                  | ?STATE_DOWN.
+
+%% The RFC 3539 watchdog states that are now maintained, albeit
+%% along with the old up/down. okay = up, else down.
+-define(WD_INITIAL, initial).
+-define(WD_OKAY,    okay).
+-define(WD_SUSPECT, suspect).
+-define(WD_DOWN,    down).
+-define(WD_REOPEN,  reopen).
+
+-type wd_state() :: ?WD_INITIAL
+                  | ?WD_OKAY
+                  | ?WD_SUSPECT
+                  | ?WD_DOWN
+                  | ?WD_REOPEN.
 
 -define(DEFAULT_TC,     30000).  %% RFC 3588 ch 2.1
 -define(DEFAULT_TIMEOUT, 5000).  %% for outgoing requests
 -define(RESTART_TC,      1000).  %% if restart was this recent
+
+-define(RELAY, ?DIAMETER_DICT_RELAY).
 
 %% Used to be able to swap this with anything else dict-like but now
 %% rely on the fact that a service's #state{} record does not change
@@ -117,7 +136,8 @@
          type :: match(connect | accept),
          ref  :: match(reference()),  %% key into diameter_config
          options :: match([diameter:transport_opt()]),%% from start_transport
-         op_state = ?STATE_DOWN :: match(?STATE_DOWN | ?STATE_UP),
+         op_state = {?STATE_DOWN, ?WD_INITIAL}
+                 :: match(op_state() | {op_state(), wd_state()}),
          started = now(),      %% at process start
          conn = false :: match(boolean() | pid())}).
                       %% true at accept, pid() at connection_up (connT key)
@@ -388,15 +408,6 @@ whois(SvcName) ->
             undefined
     end.
 
-%%% ---------------------------------------------------------------------------
-%%% # flush_stats/1
-%%%
-%%% Output: list of {{SvcName, Alias, Counter}, Value}
-%%% ---------------------------------------------------------------------------
-
-flush_stats(TPid) ->
-    diameter_stats:flush(TPid).
-
 %% ===========================================================================
 %% ===========================================================================
 
@@ -515,6 +526,34 @@ transition({close, Pid}, S) ->
 transition({reconnect, Pid}, S) ->
     reconnect(Pid, S),
     ok;
+
+%% Watchdog is sending notification of a state transition. Note that
+%% the connection_up/down messages are pre-date this message and are
+%% still used. A 'watchdog' message will follow these and communicate
+%% the same state as was set in handling connection_up/down.
+transition({watchdog, Pid, {TPid, From, To}}, #state{service_name = SvcName,
+                                                     peerT = PeerT}) ->
+    #peer{ref = Ref, type = T, options = Opts, op_state = {OS,_}}
+        = P
+        = fetch(PeerT, Pid),
+    insert(PeerT, P#peer{op_state = {OS, To}}),
+    send_event(SvcName, {watchdog, Ref, TPid, {From, To}, {T, Opts}}),
+    ok;
+%% Death of a peer process results in the removal of it's peer and any
+%% associated conn record when 'DOWN' is received (after this) but the
+%% states will be {?STATE_UP, ?WD_DOWN} for a short time. (No real
+%% problem since ?WD_* is only used in service_info.) We set ?WD_OKAY
+%% as a consequence of connection_up since we know a watchdog is
+%% coming. We can't set anything at connection_down since we don't
+%% know if the subsequent watchdog message will be ?WD_DOWN or
+%% ?WD_SUSPECT. We don't (yet) set ?STATE_* as a consequence of a
+%% watchdog message since this requires changing some of the matching
+%% on ?STATE_*.
+%%
+%% Death of a conn process results in connection_down followed by
+%% watchdog ?WD_DOWN. The latter doesn't result in the conn record
+%% being deleted since 'DOWN' from death of its peer doesn't (yet)
+%% deal with the record having been removed.
 
 %% Monitor process has died. Just die with a reason that tells
 %% diameter_config about the happening. If a cleaner shutdown is
@@ -879,7 +918,14 @@ accepted(Pid, _TPid, #state{peerT = PeerT} = S) ->
 
 fetch(Tid, Key) ->
     [T] = ets:lookup(Tid, Key),
-    T.
+    case T of
+        #peer{op_state = ?STATE_UP} = P ->
+            P#peer{op_state = {?STATE_UP, ?WD_OKAY}};
+        #peer{op_state = ?STATE_DOWN} = P ->
+            P#peer{op_state = {?STATE_DOWN, ?WD_DOWN}};
+        _ ->
+            T
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% # connection_up/3
@@ -925,12 +971,12 @@ connection_up(T, P, C, #state{peerT = PeerT,
                               service
                               = #diameter_service{applications = Apps}}
                        = S) ->
-    #peer{conn = TPid, op_state = ?STATE_DOWN}
+    #peer{conn = TPid, op_state = {?STATE_DOWN, _}}
         = P,
     #conn{apps = SApps, caps = Caps}
         = C,
 
-    insert(PeerT, P#peer{op_state = ?STATE_UP}),
+    insert(PeerT, P#peer{op_state = {?STATE_UP, ?WD_OKAY}}),
 
     request_peer_up(TPid),
     report_status(up, P, C, S, T),
@@ -945,27 +991,35 @@ ilp({Id, Alias}, {TC, SA}, LDict) ->
     init_conn(Id, Alias, TC, SA),
     ?Dict:append(Alias, TC, LDict).
 
-init_conn(Id, Alias, TC, {SvcName, Apps}) ->
+init_conn(Id, Alias, {TPid, _} = TC, {SvcName, Apps}) ->
     #diameter_app{module = ModX,
                   id = Id}  %% assert
         = find_app(Alias, Apps),
 
-    peer_cb({ModX, peer_up, [SvcName, TC]}, Alias).
+    peer_cb({ModX, peer_up, [SvcName, TC]}, Alias)
+        orelse exit(TPid, kill).  %% fake transport failure
+
+%% find_app/2
 
 find_app(Alias, Apps) ->
-    lists:keyfind(Alias, #diameter_app.alias, Apps).
+    case lists:keyfind(Alias, #diameter_app.alias, Apps) of
+        #diameter_app{options = E} = A when is_atom(E) ->  %% upgrade
+            A#diameter_app{options = [{answer_errors, E}]};
+        A ->
+            A
+    end.
 
-%% A failing peer callback brings down the service. In the case of
-%% peer_up we could just kill the transport and emit an error but for
-%% peer_down we have no way to cleanup any state change that peer_up
-%% may have introduced.
+%% Don't bring down the service (and all associated connections)
+%% regardless of what happens.
 peer_cb(MFA, Alias) ->
     try state_cb(MFA, Alias) of
         ModS ->
-            mod_state(Alias, ModS)
+            mod_state(Alias, ModS),
+            true
     catch
-        E: Reason ->
-            ?ERROR({E, Reason, MFA, ?STACK})
+        E:R ->
+            diameter_lib:error_report({failure, {E, R, Alias, ?STACK}}, MFA),
+            false
     end.
 
 %%% ---------------------------------------------------------------------------
@@ -979,22 +1033,22 @@ peer_cb(MFA, Alias) ->
 connection_down(Pid, #state{peerT = PeerT,
                             connT = ConnT}
                      = S) ->
-    #peer{op_state = ?STATE_UP,  %% assert
+    #peer{op_state = {?STATE_UP, WS},  %% assert
           conn = TPid}
         = P
         = fetch(PeerT, Pid),
 
     C = fetch(ConnT, TPid),
-    insert(PeerT, P#peer{op_state = ?STATE_DOWN}),
+    insert(PeerT, P#peer{op_state = {?STATE_DOWN, WS}}),
     connection_down(P,C,S).
 
 %% connection_down/3
 
-connection_down(#peer{op_state = ?STATE_DOWN}, _, S) ->
+connection_down(#peer{op_state = {?STATE_DOWN, _}}, _, S) ->
     S;
 
 connection_down(#peer{conn = TPid,
-                      op_state = ?STATE_UP}
+                      op_state = {?STATE_UP, _}}
                 = P,
                 #conn{caps = Caps,
                       apps = SApps}
@@ -1043,7 +1097,7 @@ peer_down(Pid, Reason, #state{peerT = PeerT} = S) ->
 
 %% Send an event at connection establishment failure.
 closed({shutdown, {close, _TPid, Reason}},
-       #peer{op_state = ?STATE_DOWN,
+       #peer{op_state = {?STATE_DOWN, _},
              ref = Ref,
              type = Type,
              options = Opts},
@@ -1352,7 +1406,7 @@ send_request(Pkt, TPid, Caps, App, Opts, Caller, SvcName) ->
     #diameter_app{alias = Alias,
                   dictionary = Dict,
                   module = ModX,
-                  answer_errors = AE}
+                  options = [{answer_errors, AE} | _]}
         = App,
 
     EPkt = encode(Dict, Pkt),
@@ -1935,6 +1989,12 @@ is_loop(Code, Vid, OH, Avps) ->
 %%
 %% Send a locally originating reply.
 
+%% Skip the setting of Result-Code and Failed-AVP's below.
+reply([Msg], Dict, TPid, Pkt)
+  when is_list(Msg);
+       is_tuple(Msg) ->
+    reply(Msg, Dict, TPid, Pkt#diameter_packet{errors = []});
+
 %% No errors or a diameter_header/avp list.
 reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
                                         transport_data = TD}
@@ -1942,7 +2002,7 @@ reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
     Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
-    incr(send, Pkt, TPid),  %% count result codes in sent answers
+    incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
     send(TPid, Pkt#diameter_packet{transport_data = TD});
 
 %% Or not: set Result-Code and Failed-AVP AVP's.
@@ -1983,7 +2043,10 @@ rc(RC) ->
 
 rc(Rec, RC, Failed, Dict)
   when is_integer(RC) ->
-    set(Rec, [{'Result-Code', RC} | failed_avp(Rec, Failed, Dict)], Dict).
+    set(Rec,
+        lists:append([rc(Rec, {'Result-Code', RC}, Dict),
+                      failed_avp(Rec, Failed, Dict)]),
+        Dict).
 
 %% Reply as name and tuple list ...
 set([_|_] = Ans, Avps, _) ->
@@ -1993,6 +2056,22 @@ set([_|_] = Ans, Avps, _) ->
 set(Rec, Avps, Dict) ->
     Dict:'#set-'(Avps, Rec).
 
+%% rc/3
+%%
+%% Turn the result code into a list if its optional and only set it if
+%% the arity is 1 or {0,1}. In other cases (which probably shouldn't
+%% exist in practise) we can't know what's appropriate.
+
+rc([MsgName | _], {'Result-Code' = K, RC} = T, Dict) ->
+    case Dict:avp_arity(MsgName, 'Result-Code') of
+        1     -> [T];
+        {0,1} -> [{K, [RC]}];
+        _     -> []
+    end;
+
+rc(Rec, T, Dict) ->
+    rc([Dict:rec2msg(element(1, Rec))], T, Dict).
+    
 %% failed_avp/3
 
 failed_avp(_, [] = No, _) ->
@@ -2200,44 +2279,39 @@ handle_answer(SvcName, _, {error, Req, Reason}) ->
 handle_answer(SvcName,
               AnswerErrors,
               {answer, #request{dictionary = Dict} = Req, Pkt}) ->
-    a(examine(diameter_codec:decode(Dict, Pkt)),
-      SvcName,
-      AnswerErrors,
-      Req).
+    answer(examine(diameter_codec:decode(Dict, Pkt)),
+           SvcName,
+           AnswerErrors,
+           Req).
 
 %% We don't really need to do a full decode if we're a relay and will
 %% just resend with a new hop by hop identifier, but might a proxy
 %% want to examine the answer?
 
-a(#diameter_packet{errors = []}
-  = Pkt,
-  SvcName,
-  AE,
-  #request{transport = TPid,
-           caps = Caps,
-           packet = P}
-  = Req) ->
+answer(Pkt, SvcName, AE, #request{transport = TPid,
+                                  dictionary = Dict}
+                         = Req) ->
     try
-        incr(in, Pkt, TPid)
+        incr(recv, Pkt, Dict, TPid)
     of
-        _ ->
-            cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}])
+        _ -> a(Pkt, SvcName, AE, Req)
     catch
         exit: {invalid_error_bit, _} = E ->
-            e(Pkt#diameter_packet{errors = [E]}, SvcName, AE, Req)
-    end;
+            a(Pkt#diameter_packet{errors = [E]}, SvcName, AE, Req)
+    end.
 
-a(#diameter_packet{} = Pkt, SvcName, AE, Req) ->
-    e(Pkt, SvcName, AE, Req).
-
-e(Pkt, SvcName, callback, #request{transport = TPid,
-                                   caps = Caps,
-                                   packet = Pkt}
-                          = Req) ->
-    cb(Req, handle_answer, [Pkt, msg(Pkt), SvcName, {TPid, Caps}]);
-e(Pkt, SvcName, report, Req) ->
+a(#diameter_packet{errors = Es} = Pkt, SvcName, AE, #request{transport = TPid,
+                                                             caps = Caps,
+                                                             packet = P}
+                                                    = Req)
+  when [] == Es;
+       callback == AE ->
+    cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
+    
+a(Pkt, SvcName, report, Req) ->
     x(errors, handle_answer, [SvcName, Req, Pkt]);
-e(Pkt, SvcName, discard, Req) ->
+
+a(Pkt, SvcName, discard, Req) ->
     x({errors, handle_answer, [SvcName, Req, Pkt]}).
 
 %% Note that we don't check that the application id in the answer's
@@ -2249,17 +2323,19 @@ e(Pkt, SvcName, discard, Req) ->
 %% Increment a stats counter for an incoming or outgoing message.
 
 %% TODO: fix
-incr(_, #diameter_packet{msg = undefined}, _) ->
+incr(_, #diameter_packet{msg = undefined}, _, _) ->
     ok;
 
-incr(Dir, Pkt, TPid)
-  when is_pid(TPid) ->
+incr(recv = D, #diameter_packet{header = H, errors = [_|_]}, _, TPid) ->
+    incr(TPid, {diameter_codec:msg_id(H), D, error});
+
+incr(Dir, Pkt, Dict, TPid) ->
     #diameter_packet{header = #diameter_header{is_error = E}
                             = Hdr,
                      msg = Rec}
         = Pkt,
 
-    RC = int(get_avp_value(?BASE, 'Result-Code', Rec)),
+    RC = int(get_avp_value(Dict, 'Result-Code', Rec)),
     PE = is_protocol_error(RC),
 
     %% Check that the E bit is set only for 3xxx result codes.
@@ -2267,14 +2343,20 @@ incr(Dir, Pkt, TPid)
         orelse (E andalso PE)
         orelse x({invalid_error_bit, RC}, answer, [Dir, Pkt]),
 
-    Ctr = rc_counter(Rec, RC),
-    is_tuple(Ctr)
-        andalso incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
+    irc(TPid, Hdr, Dir, rc_counter(Dict, Rec, RC)).
+
+irc(_, _, _, undefined) ->
+    false;
+
+irc(TPid, Hdr, Dir, Ctr) ->
+    incr(TPid, {diameter_codec:msg_id(Hdr), Dir, Ctr}).
 
 %% incr/2
 
 incr(TPid, Counter) ->
     diameter_stats:incr(Counter, TPid, 1).
+
+%% error_counter/2
 
 %% RFC 3588, 7.6:
 %%
@@ -2285,26 +2367,27 @@ incr(TPid, Counter) ->
 %% Maintain statistics assuming one or the other, not both, which is
 %% surely the intent of the RFC.
 
-rc_counter(_, RC)
-  when is_integer(RC) ->
-    {'Result-Code', RC};
-rc_counter(Rec, _) ->
-    rcc(get_avp_value(?BASE, 'Experimental-Result', Rec)).
+rc_counter(Dict, Rec, undefined) ->
+    er(get_avp_value(Dict, 'Experimental-Result', Rec));
+rc_counter(_, _, RC) ->
+    {'Result-Code', RC}.
 
 %% Outgoing answers may be in any of the forms messages can be sent
 %% in. Incoming messages will be records. We're assuming here that the
 %% arity of the result code AVP's is 0 or 1.
 
-rcc([{_,_,RC} = T])
-  when is_integer(RC) ->
+er([{_,_,N} = T | _])
+  when is_integer(N) ->
     T;
-rcc({_,_,RC} = T)
-  when is_integer(RC) ->
+er({_,_,N} = T)
+  when is_integer(N) ->
     T;
-rcc(_) ->
+er(_) ->
     undefined.
 
-int([N])
+%% Extract the first good looking integer. There's no guarantee
+%% that what we're looking for has arity 1.
+int([N|_])
   when is_integer(N) ->
     N;
 int(N)
@@ -2349,8 +2432,11 @@ rt(#request{packet = #diameter_packet{msg = undefined}}, _) ->
     false;  %% TODO: Not what we should do.
 
 %% ... or not.
-rt(#request{packet = #diameter_packet{msg = Msg}} = Req, S) ->
-    find_transport(get_destination(Msg), Req, S).
+rt(#request{packet = #diameter_packet{msg = Msg},
+            dictionary = Dict}
+   = Req,
+   S) ->
+    find_transport(get_destination(Dict, Msg), Req, S).
 
 %%% ---------------------------------------------------------------------------
 %%% # report_status/5
@@ -2462,12 +2548,12 @@ find_transport({alias, Alias}, Msg, Opts, #state{service = Svc} = S) ->
 find_transport(#diameter_app{} = App, Msg, Opts, S) ->
     ft(App, Msg, Opts, S).
 
-ft(#diameter_app{module = Mod} = App, Msg, Opts, S) ->
+ft(#diameter_app{module = Mod, dictionary = Dict} = App, Msg, Opts, S) ->
     #options{filter = Filter,
              extra = Xtra}
         = Opts,
     pick_peer(App#diameter_app{module = Mod ++ Xtra},
-              get_destination(Msg),
+              get_destination(Dict, Msg),
               Filter,
               S);
 ft(false = No, _, _, _) ->
@@ -2503,11 +2589,11 @@ find_transport([_,_] = RH,
               Filter,
               S).
 
-%% get_destination/1
+%% get_destination/2
 
-get_destination(Msg) ->
-    [str(get_avp_value(?BASE, 'Destination-Realm', Msg)),
-     str(get_avp_value(?BASE, 'Destination-Host', Msg))].
+get_destination(Dict, Msg) ->
+    [str(get_avp_value(Dict, 'Destination-Realm', Msg)),
+     str(get_avp_value(Dict, 'Destination-Host', Msg))].
 
 %% This is not entirely correct. The avp could have an arity 1, in
 %% which case an empty list is a DiameterIdentity of length 0 rather
@@ -2530,6 +2616,9 @@ str(T) ->
 %% identify the type of the AVP and its arity in the message in
 %% question. The third form allows messages to be sent as is, without
 %% a dictionary, which is needed in the case of relay agents, for one.
+
+get_avp_value(?RELAY, Name, Msg) ->
+    get_avp_value(?BASE, Name, Msg);
 
 get_avp_value(Dict, Name, [#diameter_header{} | Avps]) ->
     try
@@ -2746,20 +2835,45 @@ transports(#state{peerT = PeerT}) ->
                    'Vendor-Specific-Application-Id',
                    'Firmware-Revision']).
 
+%% The config returned by diameter:service_info(SvcName, all).
 -define(ALL_INFO, [capabilities,
                    applications,
                    transport,
-                   pending,
-                   statistics]).
+                   pending]).
 
-service_info(Items, S)
-  when is_list(Items) ->
-    [{complete(I), service_info(I,S)} || I <- Items];
+%% The rest.
+-define(OTHER_INFO, [connections,
+                     name,
+                     peers,
+                     statistics]).
+
 service_info(Item, S)
   when is_atom(Item) ->
-    service_info(Item, S, true).
+    case tagged_info(Item, S) of
+        {_, T} -> T;
+        undefined = No -> No
+    end;
 
-service_info(Item, #state{service = Svc} = S, Complete) ->
+service_info(Items, S) ->
+    tagged_info(Items, S).
+
+tagged_info(Item, S)
+  when is_atom(Item) ->
+    case complete(Item) of
+        {value, I} ->
+            {I, complete_info(I,S)};
+        false ->
+            undefined
+    end;
+
+tagged_info(Items, S)
+  when is_list(Items) ->
+    [T || I <- Items, T <- [tagged_info(I,S)], T /= undefined, T /= []];
+
+tagged_info(_, _) ->
+    undefined.
+
+complete_info(Item, #state{service = Svc} = S) ->
     case Item of
         name ->
             S#state.service_name;
@@ -2803,70 +2917,119 @@ service_info(Item, #state{service = Svc} = S, Complete) ->
         applications -> info_apps(S);
         transport    -> info_transport(S);
         pending      -> info_pending(S);
-        statistics   -> info_stats(S);
-        keys         -> ?ALL_INFO ++ ?CAP_INFO;  %% mostly for test
+        keys         -> ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO;
         all          -> service_info(?ALL_INFO, S);
-        _ when Complete   -> service_info(complete(Item), S, false);
-        _            -> undefined
+        statistics   -> info_stats(S);
+        connections  -> info_connections(S);
+        peers        -> info_peers(S)
     end.
 
+complete(I)
+  when I == keys;
+       I == all ->
+    {value, I};
 complete(Pre) ->
     P = atom_to_list(Pre),
-    case [I || I <- [name | ?ALL_INFO] ++ ?CAP_INFO,
+    case [I || I <- ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO,
                lists:prefix(P, atom_to_list(I))]
     of
-        [I] -> I;
-        _   -> Pre
+        [I] -> {value, I};
+        _   -> false
     end.
 
+%% info_stats/1
+
 info_stats(#state{peerT = PeerT}) ->
-    Peers = ets:select(PeerT, [{#peer{ref = '$1', conn = '$2', _ = '_'},
-                                [{'is_pid', '$2'}],
-                                [['$1', '$2']]}]),
-    diameter_stats:read(lists:append(Peers)).
-%% TODO: include peer identities in return value
+    MatchSpec = [{#peer{ref = '$1', conn = '$2', _ = '_'},
+                  [{'is_pid', '$2'}],
+                  [['$1', '$2']]}],
+    diameter_stats:read(lists:append(ets:select(PeerT, MatchSpec))).
 
-info_transport(#state{peerT = PeerT, connT = ConnT}) ->
-    dict:fold(fun it/3,
+%% info_transport/1
+%%
+%% One entry per configured transport. Statistics for each entry are
+%% the accumulated values for the ref and associated peer pids.
+
+info_transport(S) ->
+    PeerD = peer_dict(S),
+    RefsD = dict:map(fun(_, Ls) -> [P || L <- Ls, {peer, {P,_}} <- L] end,
+                     PeerD),
+    Refs = lists:append(dict:fold(fun(R, Ps, A) -> [[R|Ps] | A] end,
+                                  [],
+                                  RefsD)),
+    Stats = diameter_stats:read(Refs),
+    dict:fold(fun(R, Ls, A) ->
+                      Ps = dict:fetch(R, RefsD),
+                      [[{ref, R} | transport(Ls)] ++ [stats([R|Ps], Stats)]
+                       | A]
+              end,
               [],
-              ets:foldl(fun(T,A) -> it_acc(ConnT, A, T) end,
-                        dict:new(),
-                        PeerT)).
+              PeerD).
 
-it(Ref, [[{type, connect} | _] = L], Acc) ->
-    [[{ref, Ref} | L] | Acc];
-it(Ref, [[{type, accept}, {options, Opts} | _] | _] = L, Acc) ->
-    [[{ref, Ref},
-      {type, listen},
-      {options, Opts},
-      {accept, [lists:nthtail(2,A) || A <- L]}]
-     | Acc].
-%% Each entry has the same Opts. (TODO)
+transport([[{type, connect} | _] = L]) ->
+    L;
 
-it_acc(ConnT, Acc, #peer{pid = Pid,
-                         type = Type,
-                         ref = Ref,
-                         options = Opts,
-                         op_state = OS,
-                         started = T,
-                         conn = TPid}) ->
+transport([[{type, accept}, {options, Opts} | _] | _] = Ls) ->
+    [{type, listen},
+     {options, Opts},
+     {accept, [lists:nthtail(2,L) || L <- Ls]}].
+%% Note that all peer records for a listening transport (ie. same Ref)
+%% have the same options. (TODO)
+
+peer_dict(#state{peerT = PeerT, connT = ConnT}) ->
+    ets:foldl(fun(T,A) -> peer_acc(ConnT, A, T) end, dict:new(), PeerT).
+
+peer_acc(ConnT, Acc, #peer{pid = Pid,
+                           type = Type,
+                           ref = Ref,
+                           options = Opts,
+                           op_state = OS,
+                           started = T,
+                           conn = TPid}) ->
+    WS = wd_state(OS),
     dict:append(Ref,
                 [{type, Type},
                  {options, Opts},
-                 {watchdog, {Pid, T, OS}}
-                 | info_conn(ConnT, TPid)],
+                 {watchdog, {Pid, T, WS}}
+                 | info_conn(ConnT, TPid, WS /= ?WD_DOWN)],
                 Acc).
 
-info_conn(ConnT, TPid) ->
-    info_conn(ets:lookup(ConnT, TPid)).
+info_conn(ConnT, TPid, true)
+  when is_pid(TPid) ->
+    info_conn(ets:lookup(ConnT, TPid));
+info_conn(_, _, _) ->
+    [].
+
+wd_state({_,S}) ->
+    S;
+wd_state(?STATE_UP) ->
+    ?WD_OKAY;
+wd_state(?STATE_DOWN) ->
+    ?WD_DOWN.
 
 info_conn([#conn{pid = Pid, apps = SApps, caps = Caps, started = T}]) ->
     [{peer, {Pid, T}},
      {apps, SApps},
-     {caps, info_caps(Caps)}];
+     {caps, info_caps(Caps)}
+     | try [{port, info_port(Pid)}] catch _:_ -> [] end];
 info_conn([] = No) ->
     No.
 
+%% Extract information that the processes involved are expected to
+%% "publish" in their process dictionaries. Simple but backhanded.
+info_port(Pid) ->
+    {_, PD} = process_info(Pid, dictionary),
+    {_, T} = lists:keyfind({diameter_peer_fsm, start}, 1, PD),
+    {TPid, {_Type, TMod, _Cfg}} = T,
+    {_, TD} = process_info(TPid, dictionary),
+    {_, Data} = lists:keyfind({TMod, info}, 1, TD),
+    [{owner, TPid}, {module, TMod} | [_|_] = TMod:info(Data)].
+
+%% Use the fields names from diameter_caps instead of
+%% diameter_base_CER to distinguish between the 2-tuple values
+%% compared to the single capabilities values. Note also that the
+%% returned list is tagged 'caps' rather than 'capabilities' to
+%% emphasize the difference.
 info_caps(#diameter_caps{} = C) ->
     lists:zip(record_info(fields, diameter_caps), tl(tuple_to_list(C))).
 
@@ -2882,6 +3045,10 @@ mk_app(#diameter_app{alias = Alias,
      {module, ModX},
      {id, Id}].
 
+%% info_pending/1
+%%
+%% One entry for each outgoing request whose answer is outstanding.
+
 info_pending(#state{} = S) ->
     MatchSpec = [{{'$1',
                    #request{transport = '$2',
@@ -2895,3 +3062,59 @@ info_pending(#state{} = S) ->
                             {{from, '$3'}}]}}]}],
 
     ets:select(?REQUEST_TABLE, MatchSpec).
+
+%% info_connections/1
+%%
+%% One entry per transport connection. Statistics for each entry are
+%% for the peer pid only.
+
+info_connections(S) ->
+    ConnL = conn_list(S),
+    Stats = diameter_stats:read([P || L <- ConnL, {peer, {P,_}} <- L]),
+    [L ++ [stats([P], Stats)] || L <- ConnL, {peer, {P,_}} <- L].
+
+conn_list(S) ->
+    lists:append(dict:fold(fun conn_acc/3, [], peer_dict(S))).
+
+conn_acc(Ref, Peers, Acc) ->
+    [[[{ref, Ref} | L] || L <- Peers, lists:keymember(peer, 1, L)]
+     | Acc].
+
+stats(Refs, Stats) ->
+    {statistics, dict:to_list(lists:foldl(fun(R,D) ->
+                                                  stats_acc(R, D, Stats)
+                                          end,
+                                          dict:new(),
+                                          Refs))}.
+
+stats_acc(Ref, Dict, Stats) ->
+    lists:foldl(fun({C,N}, D) -> dict:update_counter(C, N, D) end,
+                Dict,
+                proplists:get_value(Ref, Stats, [])).
+
+%% info_peers/1
+%%
+%% One entry per peer Origin-Host. Statistics for each entry are
+%% accumulated values for all associated transport refs and peer pids.
+
+info_peers(S) ->
+    ConnL = conn_list(S),
+    {PeerD, RefD} = lists:foldl(fun peer_acc/2,
+                                {dict:new(), dict:new()},
+                                ConnL),
+    Refs = lists:append(dict:fold(fun(_, Rs, A) -> [lists:append(Rs) | A] end,
+                                  [],
+                                  RefD)),
+    Stats = diameter_stats:read(Refs),
+    dict:fold(fun(OH, Cs, A) ->
+                      Rs = lists:append(dict:fetch(OH, RefD)),
+                      [{OH, [{connections, Cs}, stats(Rs, Stats)]}
+                       | A]
+              end,
+              [],
+              PeerD).
+
+peer_acc(Peer, {PeerD, RefD}) ->
+    [Ref, {TPid, _}, [{origin_host, {_, OH}} | _]]
+        = [proplists:get_value(K, Peer) || K <- [ref, peer, caps]],
+    {dict:append(OH, Peer, PeerD), dict:append(OH, [Ref, TPid], RefD)}.
