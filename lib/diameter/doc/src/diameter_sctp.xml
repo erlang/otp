@@ -58,11 +58,11 @@ and implements the behaviour documented in
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
-<v>Ref = reference()</v>
+<v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
 <v>Svc = #diameter_service{}</v>
-<v>Opt = {raddr, ip_address()} | {rport, integer()} | term()</v>
+<v>Opt = {raddr, inet:ip_address()} | {rport, integer()} | term()</v>
 <v>Pid = pid()</v>
-<v>LAddr = ip_address()</v>
+<v>LAddr = inet:ip_address()</v>
 <v>Reason = term()</v>
 </type>
 <desc>

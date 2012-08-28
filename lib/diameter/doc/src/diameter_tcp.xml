@@ -65,13 +65,13 @@ before configuring TLS capability on diameter transports.</p>
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
-<v>Ref = reference()</v>
+<v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
 <v>Svc = #diameter_service{}</v>
 <v>Opt = OwnOpt | SslOpt | OtherOpt</v>
 <v>Pid = pid()</v>
-<v>LAddr = ip_address()</v>
+<v>LAddr = inet:ip_address()</v>
 <v>Reason = term()</v>
-<v>OwnOpt = {raddr, ip_address()}
+<v>OwnOpt = {raddr, inet:ip_address()}
           | {rport, integer()}
           | {port, integer()}</v>
 <v>SslOpt = {ssl_options, true | list()}</v>
@@ -123,7 +123,7 @@ watchdog to take down the connection.</p>
 
 <p>
 If the service specifies more than one Host-IP-Address and
-option <c>ip</c> is unspecified then then the
+option <c>ip</c> is unspecified then the
 first of the service's addresses is used as the local address.</p>
 
 <p>

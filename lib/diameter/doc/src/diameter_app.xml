@@ -45,8 +45,8 @@ A diameter service as started by <seealso
 marker="diameter#start_service">diameter:start_service/2</seealso>
 configures one of more Diameter applications, each of whose
 configuration specifies a callback that handles messages specific to
-its application.
-The messages and AVPs of the Diameter application are defined in a
+the application.
+The messages and AVPs of the application are defined in a
 dictionary file whose format is documented in
 <seealso marker="diameter_dict">diameter_dict(4)</seealso>
 while the callback module is documented here.
@@ -106,11 +106,13 @@ and, for the call-specific callbacks, any extra arguments passed to
 
 <taglist>
 
+<marker id="capabilities"/>
+
 <tag><c>capabilities() = #diameter_caps{}</c></tag>
 <item>
 <p>
 A record containing the identities of
-the local and remote Diameter peers having an established transport
+the local Diameter node and the remote Diameter peer having an established transport
 connection, as well as the capabilities as
 determined by capabilities exchange.
 Each field of the record is a 2-tuple consisting of
@@ -118,6 +120,8 @@ values for the (local) host and (remote) peer.
 Optional or possibly multiple values are encoded as lists of values,
 mandatory values as the bare value.</p>
 </item>
+
+<marker id="message"/>
 
 <tag><c>message() = record() | list()</c></tag>
 <item>
@@ -149,6 +153,8 @@ are sent exactly as specified.</p>
 
 </item>
 
+<marker id="packet"/>
+
 <tag><c>packet() = #diameter_packet{}</c></tag>
 <item>
 <p>
@@ -158,6 +164,8 @@ Fields of a packet() record should not be set in return values except
 as documented.</p>
 </item>
 
+<marker id="peer_ref"/>
+
 <tag><c>peer_ref() = term()</c></tag>
 <item>
 <p>
@@ -165,11 +173,15 @@ A term identifying a transport connection with a Diameter peer.
 Should be treated opaquely.</p>
 </item>
 
-<tag><c>peer() = {peer_ref(), capabilities()}</c></tag>
+<marker id="peer"/>
+
+<tag><c>peer() = {<seealso marker="#peer_ref">peer_ref()</seealso>, <seealso marker="#capabilities">capabilities()</seealso>}</c></tag>
 <item>
 <p>
 A tuple representing a Diameter peer connection.</p>
 </item>
+
+<marker id="service_name"/>
 
 <tag><c>service_name() = term()</c></tag>
 <item>
@@ -179,6 +191,8 @@ Specified to <seealso
 marker="diameter#start_service">diameter:start_service/2</seealso>
 when starting the service.</p>
 </item>
+
+<marker id="state"/>
 
 <tag><c>state() = term()</c></tag>
 <item>
@@ -211,9 +225,9 @@ process.</p>
 <name>Mod:peer_up(SvcName, Peer, State) -> NewState</name>
 <fsummary>Invoked when a transport connection has been established</fsummary>
 <type>
-<v>SvcName = service_name()</v>
-<v>Peer    = peer()</v>
-<v>State   = NewState = state()</v>
+<v>SvcName = <seealso marker="service_name">#service_name()</seealso></v>
+<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
+<v>State   = NewState = <seealso marker="#state">state()</seealso></v>
 </type>
 <desc>
 <p>
@@ -230,9 +244,9 @@ the callback module in question has been configured.</p>
 <name>Mod:peer_down(SvcName, Peer, State) -> NewState</name>
 <fsummary>Invoked when a transport connection has been lost.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
-<v>Peer    = peer()</v>
-<v>State   = NewState = state()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
+<v>State   = NewState = <seealso marker="#state">state()</seealso></v>
 </type>
 <desc>
 <p>
@@ -248,10 +262,10 @@ call to <seealso marker="#peer_up">peer_up/3</seealso>.</p>
       -> {ok, Peer} | {Peer, NewState} | false</name>
 <fsummary>Select a target peer for an outgoing request.</fsummary>
 <type>
-<v>Candidates = [peer()]</v>
-<v>Peer = peer() | false</v>
-<v>SvcName = service_name()</v>
-<v>State = NewState = state()</v>
+<v>Candidates = [<seealso marker="#peer">peer()</seealso>]</v>
+<v>Peer = <seealso marker="#peer">peer()</seealso> | false</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>State = NewState = <seealso marker="#state">state()</seealso></v>
 </type>
 <desc>
 <p>
@@ -278,7 +292,8 @@ equivalent when callback state is mutable, as are
 <c>{ok, Peer}</c> and <c>{Peer, State}</c>.
 Returning a peer as <c>false</c> causes <c>{error, no_connection}</c>
 to be returned from <seealso marker="diameter#call">diameter:call/4</seealso>.
-Returning a peer() from an initial pick_peer/4 callback will result in a
+Returning a <seealso marker="#peer">peer()</seealso> from an initial
+pick_peer/4 callback will result in a
 <seealso marker="#prepare_request">prepare_request/3</seealso> callback
 followed by either <seealso
 marker="#handle_answer">handle_answer/4</seealso>
@@ -301,9 +316,9 @@ received from a previously selected peer.</p>
 <p>
 <c>{Peer, NewState}</c> and its equivalents can only be returned if
 the Diameter application in question was
-configured with the option <c>{call_mutates_state, true}</c>,
-as documented for <seealso
-marker="diameter#start_service">diameter:start_service/2</seealso>.
+configured with the <seealso
+marker="diameter#application_opt">diameter:application_opt()</seealso>
+<c>{call_mutates_state, true}</c>.
 Otherwise, the <c>State</c> argument is always
 the intial value as configured on the application, not any subsequent
 value returned by a <seealso marker="#peer_up">peer_up/3</seealso>
@@ -319,10 +334,10 @@ or <seealso marker="#peer_down">peer_down/3</seealso> callback.</p>
 <name>Mod:prepare_request(Packet, SvcName, Peer) -> Action</name>
 <fsummary>Return a request for encoding and transport.</fsummary>
 <type>
-<v>Packet = packet()</v>
-<v>SvcName = service_name()</v>
-<v>Peer = peer()</v>
-<v>Action = {send, packet() | message()} | {discard, Reason} | discard</v>
+<v>Packet = <seealso marker="#packet">packet()</seealso></v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Peer = <seealso marker="#peer">peer()</seealso></v>
+<v>Action = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
 </type>
 <desc>
 <p>
@@ -334,13 +349,13 @@ callback need not be limited to this usage.
 Many implementations may simply want to return <c>{send, Packet}</c></p>
 
 <p>
-A returned packet() should set the request to be encoded in its
+A returned <seealso marker="#packet">packet()</seealso> should set the request to be encoded in its
 <c>msg</c> field and can set the <c>transport_data</c> field in order
 to pass information to the transport module.
 Extra arguments passed to <seealso
 marker="diameter#call">diameter:call/4</seealso> can be used to
 communicate transport data to the callback.
-A returned packet() can also set the <c>header</c> field to a
+A returned <seealso marker="#packet">packet()</seealso> can also set the <c>header</c> field to a
 <c>diameter_header</c> record in order to specify values that should
 be preserved in the outgoing request, although this should typically
 not be necessary and allows the callback to set header values
@@ -364,10 +379,10 @@ discarded}</c>.</p>
 <name>Mod:prepare_retransmit(Packet, SvcName, Peer) -> Result</name>
 <fsummary>Return a request for encoding and retransmission.</fsummary>
 <type>
-<v>Packet  = packet()</v>
-<v>SvcName = service_name()</v>
-<v>Peer    = peer()</v>
-<v>Result  = {send, packet() | message()} | {discard, Reason} | discard</v>
+<v>Packet  = <seealso marker="#packet">packet()</seealso></v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
+<v>Result  = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
 </type>
 <desc>
 <p>
@@ -375,7 +390,7 @@ Invoked to return a request for encoding and retransmission.
 Has the same role as <seealso
 marker="#prepare_request">prepare_request/3</seealso> in the case that
 a peer connection is lost an an alternate peer selected but the
-argument packet() is as returned by the initial
+argument <seealso marker="#packet">packet()</seealso> is as returned by the initial
 <c>prepare_request/3</c>.</p>
 
 <p>
@@ -394,10 +409,10 @@ discarded}</c>.</p>
 <name>Mod:handle_answer(Packet, Request, SvcName, Peer) -> Result</name>
 <fsummary>Receive an answer message from a peer.</fsummary>
 <type>
-<v>Packet  = packet()</v>
-<v>Request = message()</v>
-<v>SvcName = service_name()</v>
-<v>Peer    = peer()</v>
+<v>Packet  = <seealso marker="#packet">packet()</seealso></v>
+<v>Request = <seealso marker="#message">message()</seealso></v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>Result  = term()</v>
 </type>
 <desc>
@@ -410,7 +425,7 @@ specified.</p>
 
 <p>
 The decoded answer record is in the <c>msg</c> field of the argument
-packet(),
+<seealso marker="#packet">packet()</seealso>,
 the undecoded binary in the <c>packet</c> field.
 <c>Request</c> is the outgoing request message as was returned from
 <seealso marker="#prepare_request">prepare_request/3</seealso> or
@@ -447,9 +462,9 @@ marker="diameter#start_service">diameter:start_service/2</seealso>.</p>
 <fsummary>Return an error from a outgoing request.</fsummary>
 <type>
 <v>Reason  = timeout | failover | term()</v>
-<v>Request = message()</v>
-<v>SvcName = service_name()</v>
-<v>Peer    = peer()</v>
+<v>Request = <seealso marker="#message">message()</seealso></v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>Result  = term()</v>
 </type>
 <desc>
@@ -478,14 +493,14 @@ callback returned false.</p>
 <name>Mod:handle_request(Packet, SvcName, Peer) -> Action</name>
 <fsummary>Receive an incoming request.</fsummary>
 <type>
-<v>Packet  = packet()</v>
+<v>Packet  = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = term()</v>
-<v>Peer    = peer()</v>
+<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>Action  = Reply | {relay, Opts} | discard | {eval, Action, PostF}</v>
-<v>Reply   = {reply, message()}
+<v>Reply   = {reply, <seealso marker="#message">message()</seealso>}
            | {protocol_error, 3000..3999}</v>
-<v>Opts    = diameter:call_opts()</v>
-<v>PostF   = diameter:evaluable()</v>
+<v>Opts    = <seealso marker="diameter#call opts">diameter:call_opts()</seealso></v>
+<v>PostF   = <seealso marker="diameter#evaluable">diameter:evaluable()</seealso></v>
 </type>
 <desc>
 <p>
@@ -501,13 +516,13 @@ itself as defining either the application in question or the Relay
 application.</p>
 
 <p>
-The argument packet() has the following signature.</p>
+The argument <seealso marker="#packet">packet()</seealso> has the following signature.</p>
 
 <code>
 #diameter_packet{header = #diameter_header{},
                  avps   = [#diameter_avp{}],
                  msg    = record() | undefined,
-                 errors = ['Unsigned32'() | {'Unsigned32'(), #diameter_avp{}}],
+                 errors = [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso> | {<seealso marker="#diameter_dict#DATA_TYPES">Unsigned32()</seealso>, #diameter_avp{}}],
                  bin    = binary(),
                  transport_data = term()}
 </code>
@@ -524,8 +539,8 @@ The <c>errors</c> field specifies any Result-Code's identifying errors
 that were encountered in decoding the request.
 In this case diameter will set both Result-Code and
 Failed-AVP AVP's in a returned
-answer message() before sending it to the peer:
-the returned message() need only set any other required AVP's.
+answer <seealso marker="#message">message()</seealso> before sending it to the peer:
+the returned <seealso marker="#message">message()</seealso> need only set any other required AVP's.
 Note that the errors detected by diameter are all of the 5xxx series
 (Permanent Failures).
 The <c>errors</c> list is empty if the request has been received in
@@ -535,7 +550,7 @@ the relay application.</p>
 The <c>transport_data</c> field contains an arbitrary term passed into
 diameter from the transport module in question, or the atom
 <c>undefined</c> if the transport specified no data.
-The term is preserved in the packet() containing any answer message
+The term is preserved in the <seealso marker="#packet">packet()</seealso> containing any answer message
 sent back to the transport process unless another value is explicitly
 specified.</p>
 
@@ -544,7 +559,7 @@ The semantics of each of the possible return values are as follows.</p>
 
 <taglist>
 
-<tag><c>{reply, message()}</c></tag>
+<tag><c>{reply, <seealso marker="#message">message()</seealso>}</c></tag>
 <item>
 <p>
 Send the specified answer message to the peer.</p>

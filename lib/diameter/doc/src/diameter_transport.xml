@@ -59,11 +59,11 @@ parent).</p>
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
-<v>Ref = reference()</v>
+<v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
 <v>Svc = #diameter_service{}</v>
 <v>Opts = term()</v>
 <v>Pid = pid()</v>
-<v>LAddrs = [ip_address()]</v>
+<v>LAddrs = [inet:ip_address()]</v>
 <v>Reason = term()</v>
 </type>
 <desc>
