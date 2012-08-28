@@ -76,7 +76,8 @@
 	       scale_timetraps = false,
 	       create_priv_dir,
 	       testspecs = [],
-	       tests}).
+	       tests,
+	       starter}).
 
 %%%-----------------------------------------------------------------
 %%% @spec script_start() -> void()
@@ -334,7 +335,8 @@ script_start1(Parent, Args) ->
 		     stylesheet = Stylesheet,
 		     multiply_timetraps = MultTT,
 		     scale_timetraps = ScaleTT,
-		     create_priv_dir = CreatePrivDir},
+		     create_priv_dir = CreatePrivDir,
+		     starter = script},
 
     %% check if log files should be refreshed or go on to run tests...
     Result = run_or_refresh(StartOpts, Args),
@@ -1003,7 +1005,8 @@ run_test2(StartOpts) ->
 		 stylesheet = Stylesheet,
 		 multiply_timetraps = MultiplyTT,
 		 scale_timetraps = ScaleTT,
-		 create_priv_dir = CreatePrivDir},
+		 create_priv_dir = CreatePrivDir,
+		 starter = ct},
 
     %% test specification
     case proplists:get_value(spec, StartOpts) of
@@ -1632,6 +1635,7 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 			      "run ct:start_interactive()\n\n",[]),
 		    {error,interactive_mode};
 		_Pid ->
+		    ct_util:set_testdata({starter,Opts#opts.starter}),
 		    compile_and_run(Tests, Skip,
                                     Opts1#opts{verbosity=Verbosity}, Args)
 	    end
@@ -1677,8 +1681,9 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 	    
 	    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
 	    
-	    possibly_spawn(true == proplists:get_value(noinput, Args),
-			   Tests1, Skip1, Opts);
+	    ReleaseSh = proplists:get_value(release_shell, Args),
+	    ct_util:set_testdata({release_shell,ReleaseSh}),
+	    possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts);
 	false ->
 	    io:nl(),
 	    ct_util:stop(clean),
