@@ -91,7 +91,7 @@ all() ->
 %% {ct_hooks,2}
 %% {ct_hooks,3}
 %% {enable_builtin_hooks,2}
-%% {noinput,2}
+%% {release_shell,2}
 %% {multiply_timetraps,2}
 %% {multiply_timetraps,3}
 %% {scale_timetraps,2}
@@ -198,7 +198,7 @@ basic_compatible_no_nodes(_Config) ->
 		       ct_hooks = [{Node,{cth_mod1,[]}},
 				   {Node,{cth_mod2,[]}}],
 		       enable_builtin_hooks = true,
-		       noinput = false,
+		       release_shell = false,
 		       include = Incls,
 		       auto_compile = [],
 		       stylesheet = [],
@@ -325,7 +325,7 @@ basic_compatible_nodes(_Config) ->
 				   {Node1,{cth_mod2,[]}},
 				   {Node2,{cth_mod2,[]}}],
 		       enable_builtin_hooks = true,
-		       noinput = false,
+		       release_shell = false,
 		       include = Incls,
 		       auto_compile = [],
 		       stylesheet = [],
@@ -542,7 +542,7 @@ misc_config_terms(_Config) ->
 
 	 {enable_builtin_hooks,false},
 
-	 {noinput,true},
+	 {release_shell,true},
 
 	 {auto_compile,false},
 	 {auto_compile,n1@h1,true},
@@ -590,7 +590,7 @@ misc_config_terms(_Config) ->
 				 {n1@h1,CfgD},
 				 {n2@h2,CfgD}],
 		       enable_builtin_hooks = false,
-		       noinput = true,
+		       release_shell = true,
 		       auto_compile = [{Node,false},
 				       {n1@h1,true},
 				       {n2@h2,false}],

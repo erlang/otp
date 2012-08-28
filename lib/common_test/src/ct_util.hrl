@@ -43,7 +43,7 @@
 		   event_handler=[],
 		   ct_hooks=[],
 		   enable_builtin_hooks=true,
-		   noinput=false,
+		   release_shell=false,
 		   include=[],
 		   auto_compile=[],
 		   stylesheet=[],
