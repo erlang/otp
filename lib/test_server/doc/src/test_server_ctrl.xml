@@ -769,11 +769,13 @@ Optional, if not given the test server controller node
         constantly updated. The following can be reported:
         </p>
         <p><c>What = tests_start, Data = {Name,NumCases}</c><br></br>
+	   <c>What = loginfo, Data = [{topdir,TestRootDir},{rundir,CurrLogDir}]</c><br></br>
 	   <c>What = tests_done, Data = {Ok,Failed,{UserSkipped,AutoSkipped}}</c><br></br>
-	   <c>What = tc_start, Data = {Mod,Func}</c><br></br>
+	   <c>What = tc_start, Data = {{Mod,Func},TCLogFile}</c><br></br>
 	   <c>What = tc_done, Data = {Mod,Func,Result}</c><br></br>
 	   <c>What = tc_user_skip, Data = {Mod,Func,Comment}</c><br></br>
-	   <c>What = tc_auto_skip, Data = {Mod,Func,Comment}</c></p>
+	   <c>What = tc_auto_skip, Data = {Mod,Func,Comment}</c><br></br>
+	   <c>What = framework_error, Data = {{FWMod,FWFunc},Error}</c></p>
       </desc>
     </func>
     <func>

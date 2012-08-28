@@ -178,6 +178,8 @@
       <item><c><![CDATA[-basic_html]]></c>, switches off html enhancements that might not be compatible with older browsers.</item>
       <item><c><![CDATA[-logopts <opts>]]></c>, makes it possible to modify aspects of the logging behaviour, see
         <seealso marker="run_test_chapter#logopts">Log options</seealso> below.</item>
+      <item><c><![CDATA[-verbosity <levels>]]></c>, sets <seealso marker="write_test_chapter#logging">verbosity levels
+      for printouts</seealso>.</item>
     </list>
 
     <note><p>Directories passed to Common Test may have either relative or absolute paths.</p></note>
@@ -196,60 +198,73 @@
 	     the current working directory of the Erlang Runtime System during the test run!</p>
     </note>
     
+    <p>The <c>ct_run</c> program sets the exit status before shutting down. The following values
+      are defined:</p>
+    <list>
+      <item><c>0</c> indicates a successful testrun, i.e. one without failed or auto-skipped test cases.</item>
+      <item><c>1</c> indicates that one or more test cases have failed, or have been auto-skipped.</item>
+      <item><c>2</c> indicates that the test execution has failed because of e.g. compilation errors, an
+	illegal return value from an info function, etc.</item>
+    </list>
+    <p>If auto-skipped test cases should not affect the exit status, you may change the default
+      behaviour using start flag:</p>
+    <pre>-exit_status ignore_config</pre>
+    
     <p>For more information about the <c>ct_run</c> program, see the
+      <seealso marker="ct_run#top">Reference Manual</seealso> and the
       <seealso marker="install_chapter#general">Installation</seealso> chapter.
     </p>
   </section>
-  
-  <section>
-    <title>Running tests from the Web based GUI</title>
     
-    <p>The web based GUI, VTS, is started with the <c>ct_run</c>
-      program. From the GUI you can load config files, and select
-      directories, suites and cases to run. You can also state the
-      config files, directories, suites and cases on the command line
-      when starting the web based GUI.
-    </p>
-    
-    <list>
-      <item><c>ct_run -vts</c></item>
-      <item><c><![CDATA[ct_run -vts -config <configfilename>]]></c></item>
-      <item><c><![CDATA[ct_run -vts -config <configfilename> -suite <suitewithfullpath>
-	      -case <casename>]]></c></item>
-    </list>
-    
-    <p>From the GUI you can run tests and view the result and the logs.
-    </p>
-    
-    <p>Note that <c>ct_run -vts</c> will try to open the Common Test start
-      page in an existing web browser window or start the browser if it is
-      not running. Which browser should be started may be specified with
-      the browser start command option:</p>
-      <p><c><![CDATA[ct_run -vts -browser <browser_start_cmd>]]></c></p>
-      <p>Example:</p>
-      <p><c><![CDATA[$ ct_run -vts -browser 'firefox&']]></c></p>
-      <p>Note that the browser must run as a separate OS process or VTS will hang!</p>
-      <p>If no specific browser start command is specified, Firefox will
-        be the default browser on Unix platforms and Internet Explorer on Windows.
-	If Common Test fails to start a browser automatically, or <c>'none'</c> is
-	specified as the value for -browser (i.e. <c>-browser none</c>), start your
-	favourite browser manually and type in the URL that Common Test
-	displays in the shell.</p>    
-  </section>
-  
   <section>
     <title>Running tests from the Erlang shell or from an Erlang program</title>
     
     <p>Common Test provides an Erlang API for running tests. The main (and most
       flexible) function for specifying and executing tests is called
-      <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>. This function takes the same start parameters as
-      the <c>ct_run</c> program described above, only the flags are instead
+      <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>.
+      This function takes the same start parameters as
+      the <c><seealso marker="run_test_chapter#ct_run">ct_run</seealso></c>
+      program described above, only the flags are instead
       given as options in a list of key-value tuples. E.g. a test specified 
       with <c>ct_run</c> like:</p>
+
       <p><c>$ ct_run -suite ./my_SUITE -logdir ./results</c></p> 
       <p>is with <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> specified as:</p>
       <p><c>1> ct:run_test([{suite,"./my_SUITE"},{logdir,"./results"}]).</c></p>
-      <p>For detailed documentation, please see the <c>ct</c> manual page.</p>    
+
+      <p>The function returns the test result, represented by the tuple:
+	<c>{Ok,Failed,{UserSkipped,AutoSkipped}}</c>, where each element is an
+	integer. If test execution fails, the function returns the tuple:
+	<c>{error,Reason}</c>, where the term <c>Reason</c> explains the
+	failure.</p>
+
+	<section>
+	  <title>Releasing the Erlang shell</title>
+	  <p>During execution of tests, started with
+	  <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>,
+	  the Erlang shell process, controlling stdin, will remain the top
+	  level process of the Common Test system of processes. The result
+	  is that the Erlang shell is not available for interaction during
+	  the test run. If this is not desirable, maybe because the shell is needed
+	  for debugging purposes or for interaction with the SUT during test
+	  execution, you may set the <c>release_shell</c> start option to
+	  <c>true</c> (in the call to <c>ct:run_test/1</c> or by
+	  using the corresponding test specification term, see below). This will
+	  make Common Test release the shell immediately after the test suite
+	  compilation stage. To accomplish this, a test runner process
+	  is spawned to take control of the test execution, and the effect is that
+	  <c>ct:run_test/1</c> returns the pid of this process rather than the
+	  test result - which instead is printed to tty at the end of the test run.</p>
+	  <note><p>Note that in order to use the
+	  <c><seealso marker="ct#break-1">ct:break/1/2</seealso></c> and
+	  <c><seealso marker="ct#continue-0">ct:continue/0/1</seealso></c> functions,
+	  <c>release_shell</c> <em>must</em> be set to <c>true</c>.</p></note>
+	</section>
+        
+      <p>For detailed documentation about
+        <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>,
+        please see the
+        <c><seealso marker="ct#run_test-1">ct</seealso></c> manual page.</p>    
   </section>
   
   <section>
@@ -353,31 +368,34 @@
 
   <marker id="test_specifications"></marker>
   <section>
-    <title>Using test specifications</title>
+    <title>Test Specifications</title>
     
     <p>The most flexible way to specify what to test, is to use a so
       called test specification. A test specification is a sequence of
-      Erlang terms. The terms may be declared in a text file or passed
-      to the test server at runtime as a list
-      (see <c>run_testspec/1</c> in the manual page
-      for <c>ct</c>). There are two general types of terms:
-      configuration terms and test specification terms.</p>
+      Erlang terms. The terms are normally declared in a text file (see
+      <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>), but
+      may also be passed to Common Test on the form of a list (see
+      <c><seealso marker="ct#run_testspec-1">ct:run_testspec/1</seealso></c>).
+      There are two general types of terms: configuration terms and test
+      specification terms.</p>
     <p>With configuration terms it is possible to e.g. label the test
       run (similar to <c>ct_run -label</c>), evaluate arbitrary expressions
-      before starting a test, import configuration
-      data (similar to
-      <c>ct_run -config/-userconfig</c>), specify HTML log directories (similar
-      to
-      <c>ct_run -logdir</c>), give aliases to test nodes and test
-      directories (to make a specification easier to read and
-      maintain), enable code coverage analysis (see
-      the <seealso marker="cover_chapter#cover">Code Coverage
-      Analysis</seealso> chapter) and specify event_handler plugins
-      (see the <seealso marker="event_handler_chapter#event_handling">
-      Event Handling</seealso> chapter). There is also a term for
-      specifying include directories that should be passed on to the
-      compiler when automatic compilation is performed (similar
-      to <c>ct_run -include</c>, see above).</p>
+      before starting the test, import configuration data (similar to
+      <c>ct_run -config/-userconfig</c>), specify the top level HTML log
+      directory (similar to <c>ct_run -logdir</c>), enable code coverage
+      analysis (similar to <c>ct_run -cover</c>), install Common Test Hooks
+      (similar to <c>ct_run -ch_hooks</c>), install event_handler plugins
+      (similar to <c>ct_run -event_handler</c>), specify include directories
+      that should be passed to the compiler for automatic compilation
+      (similar to <c>ct_run -include</c>), disable the auto compilation
+      feature (similar to <c>ct_run -no_auto_compile</c>), set verbosity
+      levels (similar to <c>ct_run -verbosity</c>), and more.</p>
+    <p>Configuration terms can be combined with <c>ct_run</c> start flags,
+      or <c>ct:run_test/1</c> options. The result will for some flags/options
+      and terms be that the values are merged (e.g. configuration files,
+      include directories, verbosity levels, silent connections), and for
+      others that the start flags/options override the test specification
+      terms (e.g. log directory, label, style sheet, auto compilation).</p>
     <p>With test specification terms it is possible to state exactly
       which tests should run and in which order. A test term specifies
       either one or more suites, one or more test case groups, or one
@@ -392,11 +410,12 @@
       S, is a test of all cases in S. However, if a term specifying
       test case X and Y in S is merged with a term specifying case Z
       in S, the result is a test of X, Y and Z in S. To disable this
-      behaviour, it is possible in test specification to set the 
-      <c>merge_tests</c> term to <c>false</c>.</p>
+      behaviour, i.e. to instead perform each test sequentially in a "script-like"
+      manner, the term <c>merge_tests</c> can be set to <c>false</c> in
+      the test specification.</p>
     <p>A test term can also specify one or more test suites, groups,
       or test cases to be skipped. Skipped suites, groups and cases
-      are not executed and show up in the HTML test log files as
+      are not executed and show up in the HTML log files as
       SKIPPED.</p>
     <p>When a test case group is specified, the resulting test
       executes the
@@ -429,12 +448,27 @@
       Testing). The node parameters in the <c>init</c> term are only
       relevant in the latter (see the
       <seealso marker="ct_master_chapter#test_specifications">Large
-      Scale Testing</seealso> chapter for information). For details on
-      the event_handler term, see the
+      Scale Testing</seealso> chapter for information). For more information
+      about the various terms, please see the corresponding sections in the
+      User's Guide, such as e.g. the
+      <seealso marker="run_test_chapter#ct_run"><c>ct_run</c>
+      program</seealso> for an overview of available start flags
+      (since most flags have a corresponding configuration term), and
+      more detailed explanation of e.g.
+      <seealso marker="write_test_chapter#logging">Logging</seealso>
+      (for the <c>verbosity</c>, <c>stylesheet</c> and <c>basic_html</c> terms),
+      <seealso marker="config_file_chapter#top">External Configuration Data</seealso>
+      (for the <c>config</c> and <c>userconfig</c> terms),      
       <seealso marker="event_handler_chapter#event_handling">Event
-      Handling</seealso> chapter.</p>
+      Handling</seealso> (for the <c>event_handler</c> term),
+      <seealso marker="ct_hooks_chapter#installing">Common Test Hooks</seealso>
+      (for the <c>ct_hooks</c> term), etc.</p>
       <p>Config terms:</p>
     <pre>
+      {merge_tests, Bool}.
+
+      {define, Constant, Value}.
+
       {node, NodeAlias, Node}.
 
       {init, InitOptions}.
@@ -442,6 +476,15 @@
 
       {label, Label}.
       {label, NodeRefs, Label}.
+
+      {verbosity, VerbosityLevels}.
+      {verbosity, NodeRefs, VerbosityLevels}.
+
+      {stylesheet, CSSFile}.
+      {stylesheet, NodeRefs, CSSFile}.
+
+      {silent_connections, ConnTypes}.
+      {silent_connections, NodeRefs, ConnTypes}.
 
       {multiply_timetraps, N}.
       {multiply_timetraps, NodeRefs, N}.
@@ -455,18 +498,22 @@
       {include, IncludeDirs}.
       {include, NodeRefs, IncludeDirs}.
 
+      {auto_compile, Bool},
+      {auto_compile, NodeRefs, Bool},
+
       {config, ConfigFiles}.
+      {config, ConfigDir, ConfigBaseNames}.
       {config, NodeRefs, ConfigFiles}.
+      {config, NodeRefs, ConfigDir, ConfigBaseNames}.
 
       {userconfig, {CallbackModule, ConfigStrings}}.
       {userconfig, NodeRefs, {CallbackModule, ConfigStrings}}.
       
-      {alias, DirAlias, Dir}.
-
-      {merge_tests, Bool}.
-      
       {logdir, LogDir}.                                        
       {logdir, NodeRefs, LogDir}.
+
+      {logopts, LogOpts}.
+      {logopts, NodeRefs, LogOpts}.
 
       {create_priv_dir, PrivDirOption}.
       {create_priv_dir, NodeRefs, PrivDirOption}.
@@ -480,83 +527,176 @@
       {ct_hooks, NodeRefs, CTHModules}.
 
       {enable_builtin_hooks, Bool}.
-    </pre>
+      
+      {basic_html, Bool}.
+      {basic_html, NodeRefs, Bool}.
+
+      {release_shell, Bool}.</pre>
+
       <p>Test terms:</p>
     <pre>
-      {suites, DirRef, Suites}.                                
-      {suites, NodeRefs, DirRef, Suites}.
+      {suites, Dir, Suites}.                                
+      {suites, NodeRefs, Dir, Suites}.
       
-      {groups, DirRef, Suite, Groups}.
-      {groups, NodeRefsDirRef, Suite, Groups}.
+      {groups, Dir, Suite, Groups}.
+      {groups, NodeRefs, Dir, Suite, Groups}.
 
-      {groups, DirRef, Suite, GroupSpec, {cases,Cases}}.
-      {groups, NodeRefsDirRef, Suite, GroupSpec, {cases,Cases}}.
+      {groups, Dir, Suite, GroupSpec, {cases,Cases}}.
+      {groups, NodeRefs, Dir, Suite, GroupSpec, {cases,Cases}}.
 
-      {cases, DirRef, Suite, Cases}.                           
-      {cases, NodeRefs, DirRef, Suite, Cases}.
+      {cases, Dir, Suite, Cases}.                           
+      {cases, NodeRefs, Dir, Suite, Cases}.
 
-      {skip_suites, DirRef, Suites, Comment}.
-      {skip_suites, NodeRefs, DirRef, Suites, Comment}.
+      {skip_suites, Dir, Suites, Comment}.
+      {skip_suites, NodeRefs, Dir, Suites, Comment}.
 
-      {skip_groups, DirRef, Suite, GroupNames, Comment}.
-      {skip_groups, NodeRefs, DirRef, Suite, GroupNames, Comment}.
+      {skip_groups, Dir, Suite, GroupNames, Comment}.
+      {skip_groups, NodeRefs, Dir, Suite, GroupNames, Comment}.
       
-      {skip_cases, DirRef, Suite, Cases, Comment}.
-      {skip_cases, NodeRefs, DirRef, Suite, Cases, Comment}.
-    </pre>
+      {skip_cases, Dir, Suite, Cases, Comment}.
+      {skip_cases, NodeRefs, Dir, Suite, Cases, Comment}.</pre>
+
       <p>Types:</p>
     <pre>
-      NodeAlias     = atom()
-      InitOptions   = term()
-      Node          = node()
-      NodeRef       = NodeAlias | Node | master
-      NodeRefs      = all_nodes | [NodeRef] | NodeRef
-      N             = integer()
-      Bool          = true | false
-      CoverSpecFile = string()
-      IncludeDirs   = string() | [string()]
-      ConfigFiles   = string() | [string()]
-      DirAlias      = atom()
-      Dir           = string()
-      LogDir        = string()
-      PrivDirOption = auto_per_run | auto_per_tc | manual_per_tc
-      EventHandlers = atom() | [atom()]
-      InitArgs      = [term()]
-      CTHModules    = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]
-      CTHModule     = atom()
-      CTHInitArgs   = term()
-      DirRef        = DirAlias | Dir
-      Suites        = atom() | [atom()] | all
-      Suite         = atom()
-      Groups        = GroupSpec | [GroupSpec] | all
-      GroupSpec     = GroupName | {GroupName,Properties} | {GroupName,Properties,GroupSpec}
-      GroupName     = atom()
-      GroupNames    = GroupName | [GroupName]
-      Cases         = atom() | [atom()] | all
-      Comment       = string() | ""
-    </pre>
-    <p>Example:</p>
+      Bool            = true | false
+      Constant        = atom()
+      Value           = term()
+      NodeAlias       = atom()
+      Node            = node()
+      NodeRef         = NodeAlias | Node | master
+      NodeRefs        = all_nodes | [NodeRef] | NodeRef
+      InitOptions     = term()
+      Label           = atom() | string()
+      VerbosityLevels = integer() | [{Category,integer()}]
+      Category        = atom()
+      CSSFile         = string()
+      ConnTypes       = all | [atom()]
+      N               = integer()
+      CoverSpecFile   = string()
+      IncludeDirs     = string() | [string()]
+      ConfigFiles     = string() | [string()]
+      ConfigDir       = string()
+      ConfigBaseNames = string() | [string()]
+      CallbackModule  = atom()
+      ConfigStrings   = string() | [string()]
+      LogDir          = string()
+      LogOpts         = [term()]
+      PrivDirOption   = auto_per_run | auto_per_tc | manual_per_tc
+      EventHandlers   = atom() | [atom()]
+      InitArgs        = [term()]
+      CTHModules      = [CTHModule | {CTHModule, CTHInitArgs} | {CTHModule, CTHInitArgs, CTHPriority}]
+      CTHModule       = atom()
+      CTHInitArgs     = term()
+      Dir             = string()
+      Suites          = atom() | [atom()] | all
+      Suite           = atom()
+      Groups          = GroupSpec | [GroupSpec] | all
+      GroupSpec       = GroupName | {GroupName,Properties} | {GroupName,Properties,GroupSpec}
+      GroupName       = atom()
+      GroupNames      = GroupName | [GroupName]
+      Cases           = atom() | [atom()] | all
+      Comment         = string() | ""</pre>
+
+    <p>The difference between the <c>config</c> terms above, is that with
+      <c>ConfigDir</c>, <c>ConfigBaseNames</c> is a list of base names,
+      i.e. without directory paths. <c>ConfigFiles</c> must be full names,
+      including paths. E.g, these two terms have the same meaning:</p>
     <pre>
-      {logdir, "/home/test/logs"}.
+      {config, ["/home/testuser/tests/config/nodeA.cfg",
+                "/home/testuser/tests/config/nodeB.cfg"]}.
+
+      {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.</pre>
+
+    <note><p>Any relative paths specified in the test specification, will be
+	relative to the directory which contains the test specification file, if
+	<c>ct_run -spec TestSpecFile ...</c> or
+	<c>ct:run:test([{spec,TestSpecFile},...])</c>
+	executes the test. The path will be relative to the top level log directory, if
+	<c>ct:run:testspec(TestSpec)</c> executes the test.</p></note>
       
-      {config, "/home/test/t1/cfg/config.cfg"}.
-      {config, "/home/test/t2/cfg/config.cfg"}.
-      {config, "/home/test/t3/cfg/config.cfg"}.
+    <p>The <c>define</c> term introduces a constant, which is used to
+      replace the name <c>Constant</c> with <c>Value</c>, wherever it's found in
+      the test specification. This replacement happens during an initial iteration
+      through the test specification. Constants may be used anywhere in the test
+      specification, e.g. in arbitrary lists and tuples, and even in strings
+      and inside the value part of other constant definitions! A constant can
+      also be part of a node name, but that is the only place where a constant
+      can be part of an atom.</p>
+    
+    <note><p>For the sake of readability, the name of the constant must always
+	begin with an upper case letter, or a <c>$</c>, <c>?</c>, or <c>_</c>.
+	This also means that it must always be single quoted (obviously, since
+	the constant name is actually an atom, not text).</p></note>
+
+    <p>The main benefit of constants is that they can be used to reduce the size
+      (and avoid repetition) of long strings, such as file paths. Compare these
+      terms:</p>
+
+    <pre>
+      %% 1a. no constant
+      {config, "/home/testuser/tests/config", ["nodeA.cfg","nodeB.cfg"]}.
+      {suites, "/home/testuser/tests/suites", all}.
       
-      {alias, t1, "/home/test/t1"}.
-      {alias, t2, "/home/test/t2"}.
-      {alias, t3, "/home/test/t3"}.
+      %% 1b. with constant
+      {define, 'TESTDIR', "/home/testuser/tests"}.
+      {config, "'TESTDIR'/config", ["nodeA.cfg","nodeB.cfg"]}.
+      {suites, "'TESTDIR'/suites", all}.
+
+      %% 2a. no constants
+      {config, [testnode@host1, testnode@host2], "../config", ["nodeA.cfg","nodeB.cfg"]}.
+      {suites, [testnode@host1, testnode@host2], "../suites", [x_SUITE, y_SUITE]}.
+
+      %% 2b. with constants
+      {define, 'NODE', testnode}.
+      {define, 'NODES', ['NODE'@host1, 'NODE'@host2]}.
+      {config, 'NODES', "../config", ["nodeA.cfg","nodeB.cfg"]}.
+      {suites, 'NODES', "../suites", [x_SUITE, y_SUITE]}.</pre>
+
+    <p>Constants make the test specification term <c>alias</c>, in previous
+      versions of Common Test, redundant. This term has been deprecated but will
+      remain supported in upcoming Common Test releases. Replacing <c>alias</c>
+      terms with <c>define</c> is strongly recommended though! Here's an example
+      of such a replacement:</p>
+
+    <pre>
+      %% using the old alias term
+      {config, "/home/testuser/tests/config/nodeA.cfg"}.
+      {alias, suite_dir, "/home/testuser/tests/suites"}.
+      {groups, suite_dir, x_SUITE, group1}.
+
+      %% replacing with constants
+      {define, 'TestDir', "/home/testuser/tests"}.
+      {define, 'CfgDir', "'TestDir'/config"}.
+      {define, 'SuiteDir', "'TestDir'/suites"}.
+      {config, 'CfgDir', "nodeA.cfg"}.
+      {groups, 'SuiteDir', x_SUITE, group1}.</pre>
+
+    <p>Actually, constants could well replace the <c>node</c> term too, but
+      this still has declarative value, mainly when used in combination
+      with <c>NodeRefs == all_nodes</c> (see types above).</p>
+
+    <p>Here follows a simple test specification example:</p>
+    <pre>
+      {define, 'Top', "/home/test"}.
+      {define, 'T1', "'Top'/t1"}.
+      {define, 'T2', "'Top'/t2"}.
+      {define, 'T3', "'Top'/t3"}.
+      {define, 'CfgFile', "config.cfg"}.
+
+      {logdir, "'Top'/logs"}.
       
-      {suites, t1, all}.
-      {skip_suites, t1, [t1B_SUITE,t1D_SUITE], "Not implemented"}.
-      {skip_cases, t1, t1A_SUITE, [test3,test4], "Irrelevant"}.
-      {skip_cases, t1, t1C_SUITE, [test1], "Ignore"}.
+      {config, ["'T1'/'CfgFile'", "'T2'/'CfgFile'", "'T3'/'CfgFile'"]}.
       
-      {suites, t2, [t2B_SUITE,t2C_SUITE]}.
-      {cases, t2, t2A_SUITE, [test4,test1,test7]}.
+      {suites, 'T1', all}.
+      {skip_suites, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
+      {skip_cases, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
+      {skip_cases, 'T1', t1C_SUITE, [test1], "Ignore"}.
       
-      {skip_suites, t3, all, "Not implemented"}.
-    </pre>
+      {suites, 'T2', [t2B_SUITE,t2C_SUITE]}.
+      {cases, 'T2', t2A_SUITE, [test4,test1,test7]}.
+      
+      {skip_suites, 'T3', all, "Not implemented"}.</pre>
+
     <p>The example specifies the following:</p>
     <list>
       <item>The specified logdir directory will be used for storing 
@@ -564,8 +704,6 @@
 	date and time).</item>
       <item>The variables in the specified test system config files will be 
 	imported for the test.</item>
-      <item>Aliases are given for three test system directories. The suites in
-	this example are stored in "/home/test/tX/test".</item>
       <item>The first test to run includes all suites for system t1. Excluded from
 	the test are however the t1B and t1D suites. Also test cases test3 and
 	test4 in t1A as well as the test1 case in t1C are excluded from
@@ -590,8 +728,46 @@
       If <c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c> is used for starting the tests, the relaxed scanner
       mode is enabled by means of the tuple: <c>{allow_user_terms,true}</c></p>
   </section>
+
+  <section>
+    <title>Running tests from the Web based GUI</title>
+    
+    <p>The web based GUI, VTS, is started with the
+      <c><seealso marker="run_test_chapter#ct_run">ct_run</seealso></c>
+      program. From the GUI you can load config files, and select
+      directories, suites and cases to run. You can also state the
+      config files, directories, suites and cases on the command line
+      when starting the web based GUI.
+    </p>
+    
+    <list>
+      <item><c>ct_run -vts</c></item>
+      <item><c><![CDATA[ct_run -vts -config <configfilename>]]></c></item>
+      <item><c><![CDATA[ct_run -vts -config <configfilename> -suite <suitewithfullpath>
+	      -case <casename>]]></c></item>
+    </list>
+    
+    <p>From the GUI you can run tests and view the result and the logs.
+    </p>
+    
+    <p>Note that <c>ct_run -vts</c> will try to open the Common Test start
+      page in an existing web browser window or start the browser if it is
+      not running. Which browser should be started may be specified with
+      the browser start command option:</p>
+      <p><c><![CDATA[ct_run -vts -browser <browser_start_cmd>]]></c></p>
+      <p>Example:</p>
+      <p><c><![CDATA[$ ct_run -vts -browser 'firefox&']]></c></p>
+      <p>Note that the browser must run as a separate OS process or VTS will hang!</p>
+      <p>If no specific browser start command is specified, Firefox will
+        be the default browser on Unix platforms and Internet Explorer on Windows.
+	If Common Test fails to start a browser automatically, or <c>'none'</c> is
+	specified as the value for -browser (i.e. <c>-browser none</c>), start your
+	favourite browser manually and type in the URL that Common Test
+	displays in the shell.</p>    
+  </section>
   
   <section>
+    <marker id="log_files"></marker>
     <title>Log files</title>
     
     <p>As the execution of the test suites proceed, events are logged in
@@ -719,17 +895,30 @@
 	  <p>instead of each <c>x</c> printed on a new line, which is the default behaviour.</p>
 	</section>
 
+	<section>
+	  <marker id="table_sorting"></marker>
+	  <title>Sorting HTML table columns</title>
+	  <p>By clicking the name in the column header of any table (e.g. "Ok", "Case", "Time", etc),
+	    the table rows are sorted in whatever order makes sense for the type of value (e.g.
+	    numerical for "Ok" or "Time", and alphabetical for "Case"). The sorting is performed
+	    by means of JavaScript code, automatically inserted into the HTML log files. Common Test
+	    uses the <url href="http://jquery.com">jQuery</url> library and the
+	    <url href="http://tablesorter.com">tablesorter</url> plugin, with customized sorting
+	    functions, for this implementation.</p>
+	</section>
       </section>
   
       <section>
 	<marker id="html_stylesheet"></marker>
 	<title>HTML Style Sheets</title>
-	<p>Common Test uses a CSS file to control the look of the HTML
-	  files generated during test runs. If, for some reason, the
-	  log files are not displayed correctly in the HTML browser of your
-	  choice, or you prefer the "pre Common Test v1.6 look"
-	  of the log files (i.e. not using CSS), use the start flag/option
-	  <c>basic_html</c> to revert to the old style.</p>
+	<p>Common Test uses an HTML Style Sheet (CSS file) to control the look of
+	  the HTML log files generated during test runs. If, for some reason, the
+	  log files are not displayed correctly in the browser of your
+	  choice, or you prefer a more primitive ("pre Common Test v1.6") look
+	  of the logs, use the start flag/option:</p>
+	<pre>basic_html</pre>
+	<p>This disables the use of Style Sheets, as well as JavaScripts (see
+	  table sorting above).</p>
 	  
 	<p>Common Test includes an <em>optional</em> feature to allow
 	  user HTML style sheets for customizing printouts. The
@@ -882,75 +1071,82 @@
   <section>
     <marker id="silent_connections"></marker>
       <title>Silent Connections</title>
-      <p>The protocol handling processes in Common Test, implemented by ct_telnet, ct_ftp etc,
-	do verbose printing to the test case logs. This can be switched off by means
-	of the <c>-silent_connections</c> flag:</p>
+      <p>The protocol handling processes in Common Test, implemented by ct_telnet,
+      ct_ssh, ct_ftp etc, do verbose printing to the test case logs. This can be switched off
+      by means of the <c>-silent_connections</c> flag:</p>
       
       <pre>
 	ct_run -silent_connections [conn_types]
       </pre>
       
-      <p>where <c>conn_types</c> specifies <c>telnet, ftp, rpc</c> and/or <c>snmp</c>.</p>
+      <p>where <c>conn_types</c> specifies <c>ssh, telnet, ftp, rpc</c> and/or <c>snmp</c>.</p>
       
       <p>Example:</p>
       
       <pre>
-	ct_run ... -silent_connections telnet ftp</pre>
-      <p>switches off logging for telnet and ftp connections.</p>
+	ct_run ... -silent_connections ssh telnet</pre>
+      <p>switches off logging for ssh and telnet connections.</p>
       
       <pre>
 	ct_run ... -silent_connections</pre>
       <p>switches off logging for all connection types.</p>
       
       
-      <p>Basic and important information such as opening and closing a connection,
-	fatal communication error and reconnection attempts will always be printed even 
-	if logging has been suppressed for the connection type in question. However, operations
-	such as sending and receiving data may be performed silently.</p>
+      <p>Fatal communication error and reconnection attempts will always be printed even 
+      if logging has been suppressed for the connection type in question. However, operations
+      such as sending and receiving data will be performed silently.</p>
       
       <p>It is possible to also specify <c>silent_connections</c> in a test suite. This is
 	accomplished by returning a tuple, <c>{silent_connections,ConnTypes}</c>, in the
 	<c>suite/0</c> or test case info list. If <c>ConnTypes</c> is a list of atoms 
-	(<c>telnet, ftp, rpc</c> and/or <c>snmp</c>), output for any corresponding connections 
+	(<c>ssh, telnet, ftp, rpc</c> and/or <c>snmp</c>), output for any corresponding connections 
 	will be suppressed. Full logging is per default enabled for any connection of type not 
 	specified in <c>ConnTypes</c>. Hence, if <c>ConnTypes</c> is the empty list, logging 
 	is enabled for all connections.</p>
       
-      <p>The <c>silent_connections</c> setting returned from a test case info function overrides,
-	for the test case in question, any setting made with <c>suite/0</c> (which is the setting 
-	used for all cases in the suite). Example:</p>
+	<p>Example:</p>
       
       <pre>
 	
 	-module(my_SUITE).
+
+	suite() -> [..., {silent_connections,[telnet,ssh]}, ...].
+
 	...
-	suite() -> [..., {silent_connections,[telnet,ftp]}, ...].
-	...
+
 	my_testcase1() ->
-	[{silent_connections,[ftp]}].
+	    [{silent_connections,[ssh]}].
+
 	my_testcase1(_) ->
-	...
+	    ...
+
 	my_testcase2(_) ->
-	...
+	    ...
       </pre>
       
       <p>In this example, <c>suite/0</c> tells Common Test to suppress
-	printouts from telnet and ftp connections. This is valid for
+	printouts from telnet and ssh connections. This is valid for
 	all test cases. However, <c>my_testcase1/0</c> specifies that
-	for this test case, only ftp should be silent. The result is
+	for this test case, only ssh should be silent. The result is
 	that <c>my_testcase1</c> will get telnet info (if any) printed
-	in the log, but not ftp info. <c>my_testcase2</c> will get no
+	in the log, but not ssh info. <c>my_testcase2</c> will get no
 	info from either connection printed.</p>
       
-      <p>The <c>-silent_connections</c> tag (or
-	<c>silent_connections</c> tagged tuple in the call to
-	<c><seealso marker="ct#run_test-1">ct:run_test/1</seealso></c>) overrides any settings in the test
-	suite.</p>
+	<p><c>silent_connections</c> may also be specified with a term
+	in a test specification
+	(see <seealso marker="run_test_chapter#test_specifications">Test
+	Specifications</seealso>). Connections provided with the
+	<c>silent_connections</c> start	flag/option, will be merged with
+	any connections listed in the test specification.</p>
+
+	<p>The <c>silent_connections</c> start flag/option and test
+	specification term, overrides any settings made by the info functions
+	inside the test suite.</p>
       
-      <p>Note that in the current Common Test version, the
+      <note><p>Note that in the current Common Test version, the
 	<c>silent_connections</c> feature only works for telnet
-	connections. Support for other connection types will be added
-	in future Common Test versions.</p>
+	and ssh connections! Support for other connection types will be added
+	in future Common Test versions.</p></note>
       
   </section>
 </chapter>
