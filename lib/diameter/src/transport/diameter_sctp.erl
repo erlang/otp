@@ -68,6 +68,7 @@
 -record(transport,
         {parent  :: pid(),
          mode :: {accept, pid()}
+               | accept
                | {connect, {list(inet:ip_address()), uint(), list()}}
                         %% {RAs, RP, Errors}
                | connect,
@@ -349,6 +350,11 @@ terminate(_, #transport{assoc_id = undefined}) ->
     ok;
 
 terminate(_, #transport{socket = Sock,
+                        mode = accept,
+                        assoc_id = Id}) ->
+    close(Sock, Id);
+
+terminate(_, #transport{socket = Sock,
                         mode = {accept, _},
                         assoc_id = Id}) ->
     close(Sock, Id);
@@ -380,13 +386,16 @@ start_timer(S) ->
 
 %% Incoming message from SCTP.
 l({sctp, Sock, _RA, _RP, Data} = Msg, #listener{socket = Sock} = S) ->
-    setopts(Sock),
-    case find(Data, S) of
+    Id = assoc_id(Data),
+
+    try find(Id, Data, S) of
         {TPid, NewS} ->
-            TPid ! Msg,
+            TPid ! {peeloff, peeloff(Sock, Id, TPid), Msg},
             NewS;
         false ->
             S
+    after
+        setopts(Sock)
     end;
 
 %% Transport is asking message to be sent. See send/3 for why the send
@@ -454,15 +463,19 @@ t(T,S) ->
 
 %% transition/2
 
-%% Incoming message.
-transition({sctp, Sock, _RA, _RP, Data}, #transport{socket = Sock,
-                                                    mode = {accept, _}}
-                                         = S) ->
-    recv(Data, S);
+%% Listening process is transfering ownership of an association.
+transition({peeloff, Sock, {sctp, LSock, _RA, _RP, _Data} = Msg},
+           #transport{mode = {accept, _},
+                      socket = LSock}
+           = S) ->
+    transition(Msg, S#transport{socket = Sock});
 
-transition({sctp, Sock, _RA, _RP, Data}, #transport{socket = Sock} = S) ->
+%% Incoming message.
+transition({sctp, _Sock, _RA, _RP, Data}, #transport{socket = Sock} = S) ->
     setopts(Sock),
     recv(Data, S);
+%% Don't match on Sock since in R15B01 it can be the listening socket
+%% in the (peeled-off) accept case, which is likely a bug.
 
 %% Outgoing message.
 transition({diameter, {send, Msg}}, S) ->
@@ -480,13 +493,18 @@ transition({diameter, {close, Pid}}, #transport{parent = Pid}) ->
 transition({diameter, {tls, _Ref, _Type, _Bool}}, _) ->
     stop;
 
+%% Parent process has died.
+transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid}) ->
+    stop;
+
 %% Listener process has died.
 transition({'DOWN', _, process, Pid, _}, #transport{mode = {accept, Pid}}) ->
     stop;
 
-%% Parent process has died.
-transition({'DOWN', _, process, Pid, _}, #transport{parent = Pid}) ->
-    stop;
+%% Ditto but we have ownership of the association. It might be that
+%% we'll go down anyway though.
+transition({'DOWN', _, process, _Pid, _}, #transport{mode = accept}) ->
+    ok;
 
 %% Request for the local port number.
 transition({resolve_port, Pid}, #transport{socket = Sock})
@@ -544,14 +562,6 @@ send(Bin, #transport{streams = {_, OS},
     S#transport{os = (N + 1) rem OS}.
 
 %% send/3
-
-%% Messages have to be sent from the controlling process, which is
-%% probably a bug. Sending from here causes an inet_reply, Sock,
-%% Status} message to be sent to the controlling process while
-%% gen_sctp:send/4 here hangs.
-send(StreamId, Bin, #transport{assoc_id = AId,
-                               mode = {accept, LPid}}) ->
-    LPid ! {send, AId, StreamId, Bin};
 
 send(StreamId, Bin, #transport{socket = Sock,
                                assoc_id = AId}) ->
@@ -635,21 +645,15 @@ up(#transport{parent = Pid,
     S#transport{mode = C};
 
 up(#transport{parent = Pid,
-              mode = {accept, _}}
+              mode = {accept = A, _}}
    = S) ->
     diameter_peer:up(Pid),
-    S.
+    S#transport{mode = A}.
 
-%% find/2
+%% find/3
 
-find({[#sctp_sndrcvinfo{assoc_id = Id}], _}
-     = Data,
-     #listener{tmap = T}
-     = S) ->
-    f(ets:lookup(T, Id), Data, S);
-
-find({_, Rec} = Data, #listener{tmap = T} = S) ->
-    f(ets:lookup(T, assoc_id(Rec)), Data, S).
+find(Id, Data, #listener{tmap = T} = S) ->
+    f(ets:lookup(T, Id), Data, S).
 
 %% New association and a transport waiting for one: use it.
 f([],
@@ -690,16 +694,28 @@ f([], _, _) ->
 
 %% assoc_id/1
 
-assoc_id(#sctp_shutdown_event{assoc_id = Id}) ->
+assoc_id({[#sctp_sndrcvinfo{assoc_id = Id}], _}) ->
     Id;
-assoc_id(#sctp_assoc_change{assoc_id = Id}) ->
+assoc_id({_, Rec}) ->
+    id(Rec).
+
+id(#sctp_shutdown_event{assoc_id = Id}) ->
     Id;
-assoc_id(#sctp_sndrcvinfo{assoc_id = Id}) ->
+id(#sctp_assoc_change{assoc_id = Id}) ->
     Id;
-assoc_id(#sctp_paddr_change{assoc_id = Id}) ->
+id(#sctp_sndrcvinfo{assoc_id = Id}) ->
     Id;
-assoc_id(#sctp_adaptation_event{assoc_id = Id}) ->
+id(#sctp_paddr_change{assoc_id = Id}) ->
+    Id;
+id(#sctp_adaptation_event{assoc_id = Id}) ->
     Id.
+
+%% peeloff/3
+
+peeloff(LSock, Id, TPid) ->
+    {ok, Sock} = gen_sctp:peeloff(LSock, Id),
+    ok = gen_sctp:controlling_process(Sock, TPid),
+    Sock.
 
 %% connect/4
 
