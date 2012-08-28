@@ -63,9 +63,9 @@ encode(Mod, #diameter_packet{} = Pkt) ->
         e(Mod, Pkt)
     catch
         error: Reason ->
-            %% Be verbose rather than letting the emulator truncate the
-            %% error report.
-            X = {Reason, ?STACK},
+            %% Be verbose since a crash report may be truncated and
+            %% encode errors are self-inflicted.
+            X = {?MODULE, encode, {Reason, ?STACK}},
             diameter_lib:error_report(X, {?MODULE, encode, [Mod, Pkt]}),
             exit(X)
     end;

@@ -250,13 +250,26 @@ handle_info(T, #state{} = State) ->
             ?LOG(stop, T),
             x(T, State)
     catch
+        exit: {diameter_codec, encode, _} = Reason ->
+            close_wd(Reason, State#state.parent),
+            ?LOG(stop, Reason),
+            %% diameter_codec:encode/2 emits an error report. Only
+            %% indicate the probable reason here.
+            diameter_lib:info_report(probable_configuration_error,
+                                     insufficient_capabilities),
+            {stop, {shutdown, Reason}, State};
         {?MODULE, Tag, Reason}  ->
             ?LOG(Tag, {Reason, T}),
             {stop, {shutdown, Reason}, State}
     end.
-%% The form of the exception caught here is historical. It's
+%% The form of the throw caught here is historical. It's
 %% significant that it's not a 2-tuple, as in ?FAILURE(Reason),
 %% since these are caught elsewhere.
+
+%% Note that there's no guarantee that the service and transport
+%% capabilities are good enough to build a CER/CEA that can be
+%% succesfully encoded. It's not checked at diameter:add_transport/2
+%% since this can be called before creating the service.
 
 x(Reason, #state{} = S) ->
     close_wd(Reason, S),
