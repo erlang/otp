@@ -150,7 +150,7 @@ run_client(Opts) ->
 	{ok, Socket} ->
 	    Pid ! { connected, Socket },
 	    test_server:format("Client: connected~n", []), 
-	    %% In specail cases we want to know the client port, it will
+	    %% In special cases we want to know the client port, it will
 	    %% be indicated by sending {port, 0} in options list!
 	    send_selected_port(Pid,  proplists:get_value(port, Options), Socket),
 	    {Module, Function, Args} = proplists:get_value(mfa, Opts),

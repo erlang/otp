@@ -316,7 +316,7 @@ module.beam: module.erl \
           <item>
             <p>Add <c>Dir</c> to the list of directories to be searched
               when including a file. When encountering an
-	      <c>-include</c> or <c>-include_dir</c> directive,
+	      <c>-include</c> or <c>-include_lib</c> directive,
 	      the compiler searches for header files in the following
 	      directories:</p>
             <list type="ordered">
