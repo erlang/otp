@@ -349,6 +349,14 @@ hmac_update_sha256(doc) ->
 hmac_update_sha256(suite) ->
     [];
 hmac_update_sha256(Config) when is_list(Config) ->
+    case openssl_version() of
+	V when V < 16#908000 ->
+	    {skipped,"OpenSSL version too old"};
+	_ ->
+	    hmac_update_sha256_do()
+    end.
+
+hmac_update_sha256_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
                            "04050607141516172425262734353637"
                            "08090a0b18191a1b28292a2b38393a3b"
@@ -368,6 +376,14 @@ hmac_update_sha512(doc) ->
 hmac_update_sha512(suite) ->
     [];
 hmac_update_sha512(Config) when is_list(Config) ->
+    case openssl_version() of
+	V when V < 16#908000 ->
+	    {skipped,"OpenSSL version too old"};
+	_ ->
+	    hmac_update_sha512_do()
+    end.
+
+hmac_update_sha512_do() ->
     ?line Key = hexstr2bin("00010203101112132021222330313233"
                            "04050607141516172425262734353637"
                            "08090a0b18191a1b28292a2b38393a3b"
@@ -406,6 +422,14 @@ hmac_rfc4231(doc) ->
 hmac_rfc4231(suite) ->
     [];
 hmac_rfc4231(Config) when is_list(Config) ->
+    case openssl_version() of
+	V when V < 16#908000 ->
+	    {skipped,"OpenSSL version too old"};
+	_ ->
+	    hmac_rfc4231_do()
+    end.
+
+hmac_rfc4231_do() ->
     %% Test Case 1
     Case1Key = binary:copy(<<16#0b>>, 20),
     Case1Data = <<"Hi There">>,
@@ -1926,4 +1950,12 @@ my_dss_sign(Data,Key) ->
     ?line <<_:32,Raw/binary>> = Data,
     ?line S3 = crypto:dss_sign(none, crypto:sha(Raw), Key),
     [S1,S2,S3].
+
+openssl_version() ->
+    case crypto:info_lib() of
+	[{<<"OpenSSL">>,LibVer,_}] when is_integer(LibVer) ->
+	    LibVer;
+	_ ->
+	    undefined
+    end.
 
