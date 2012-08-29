@@ -252,6 +252,13 @@
     {ok, Handle} -&gt;
       {[{db_handle, Handle} | Config], CTHState#state{ handle = Handle }}
   end.</code>
+  <note>If using multiple CTHs, the first part of the return tuple will be
+  used as input for the next CTH. So in the case above the next CTH might
+  get <c>{fail,Reason}</c> as the second parameter. If you have many CTHs
+  which interact, it might be a good idea to not let each CTH return
+  <c>fail</c> or <c>skip</c>. Instead return that an action should be taken
+  through the <c>Config</c> list and implement a CTH which at the end takes
+  the correct action. </note>
 	
     </section>
     
