@@ -5979,13 +5979,9 @@ is_literal(T) ->
 revert(Node) ->
     case is_tree(Node) of
 	false ->
-	    %% Just remove any wrapper and copy the position. `erl_parse'
-	    %% nodes never contain abstract syntax tree nodes as subtrees.
-	    case unwrap(Node) of
-                {error, Info} -> {error, setelement(1,Info,get_pos(Node))};
-                {warning, Info} -> {warning, setelement(1,Info,get_pos(Node))};
-                Node1 -> setelement(2,Node1,get_pos(Node))
-            end;
+	    %% Just remove any wrapper. `erl_parse' nodes never contain
+	    %% abstract syntax tree nodes as subtrees.
+	    unwrap(Node);
 	true ->
 	    case is_leaf(Node) of
 		true ->
