@@ -84,13 +84,29 @@ function({function,Name,Arity,Entry,Is}) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
+opt([{call_ext,A,{extfunc,erlang,spawn_monitor,A}}=I0|Is0], D, Acc)
+  when A =:= 1; A =:= 3 ->
+    case ref_in_tuple(Is0) of
+	no ->
+	    opt(Is0, D, [I0|Acc]);
+	{yes,Regs,Is1,MatchReversed} ->
+	    %% The call creates a brand new reference. Now
+	    %% search for a receive statement in the same
+	    %% function that will match against the reference.
+	    case opt_recv(Is1, Regs, D) of
+		no ->
+		    opt(Is0, D, [I0|Acc]);
+		{yes,Is,Lbl} ->
+		    opt(Is, D, MatchReversed++[I0,{recv_mark,{f,Lbl}}|Acc])
+	    end
+    end;
 opt([{call_ext,Arity,{extfunc,erlang,Name,Arity}}=I|Is0], D, Acc) ->
     case creates_new_ref(Name, Arity) of
 	true ->
 	    %% The call creates a brand new reference. Now
 	    %% search for a receive statement in the same
 	    %% function that will match against the reference.
-	    case opt_recv(Is0, D) of
+	    case opt_recv(Is0, regs_init_x0(), D) of
 		no ->
 		    opt(Is0, D, [I|Acc]);
 		{yes,Is,Lbl} ->
@@ -104,19 +120,34 @@ opt([I|Is], D, Acc) ->
 opt([], _, Acc) ->
     reverse(Acc).
 
+ref_in_tuple([{test,is_tuple,_,[{x,0}]}=I1,
+	      {test,test_arity,_,[{x,0},2]}=I2,
+	      {block,[{set,[_],[{x,0}],{get_tuple_element,0}},
+		      {set,[Dst],[{x,0}],{get_tuple_element,1}}|Bl]}=I3|Is]) ->
+    ref_in_tuple_1(Bl, Dst, Is, [I3,I2,I1]);
+ref_in_tuple([{test,is_tuple,_,[{x,0}]}=I1,
+	      {test,test_arity,_,[{x,0},2]}=I2,
+	      {block,[{set,[Dst],[{x,0}],{get_tuple_element,1}}|Bl]}=I3|Is]) ->
+    ref_in_tuple_1(Bl, Dst, Is, [I3,I2,I1]);
+ref_in_tuple(_) -> no.
+
+ref_in_tuple_1(Bl, Dst, Is, MatchReversed) ->
+    Regs0 = regs_init_singleton(Dst),
+    Regs = opt_update_regs_bl(Bl, Regs0),
+    {yes,Regs,Is,MatchReversed}.
+
 %% creates_new_ref(Name, Arity) -> true|false.
 %%  Return 'true' if the BIF Name/Arity will create a new reference.
 creates_new_ref(monitor, 2) -> true;
 creates_new_ref(make_ref, 0) -> true;
 creates_new_ref(_, _) -> false.
 
-%% opt_recv([Instruction], LabelIndex) -> no|{yes,[Instruction]}
+%% opt_recv([Instruction], Regs, LabelIndex) -> no|{yes,[Instruction]}
 %%  Search for a receive statement that will only retrieve messages
 %%  that contain the newly created reference (which is currently in {x,0}).
-opt_recv(Is, D) ->
-    R = regs_init_x0(),
+opt_recv(Is, Regs, D) ->
     L = gb_sets:empty(),
-    opt_recv(Is, D, R, L, []).
+    opt_recv(Is, D, Regs, L, []).
 
 opt_recv([{label,L}=Lbl,{loop_rec,{f,Fail},_}=Loop|Is], D, R0, _, Acc) ->
     R = regs_kill_not_live(0, R0),
@@ -322,6 +353,12 @@ opt_ref_used_bl([], Regs) -> Regs.
 
 regs_init() ->
     {0,0}.
+
+%% regs_init_singleton(Register) -> RegisterSet
+%%  Return a set that only contains one register.
+
+regs_init_singleton(Reg) ->
+    regs_add(Reg, regs_init()).
 
 %% regs_init_x0() -> RegisterSet
 %%  Return a set that only contains the {x,0} register.
