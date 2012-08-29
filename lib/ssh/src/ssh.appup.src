@@ -24,6 +24,7 @@
 	      {load_module, ssh_connection_manager, soft_purge, soft_purge, []},
 	      {load_module, ssh_auth, soft_purge, soft_purge, []},
 	      {load_module, ssh_channel, soft_purge, soft_purge, []},
+	      {load_module, ssh_file, soft_purge, soft_purge, []}]},
 	      {load_module, ssh, soft_purge, soft_purge, []}]},
   {<<"2.0\\.*">>, [{restart_application, ssh}]},
   {<<"1\\.*">>, [{restart_application, ssh}]}
@@ -34,6 +35,7 @@
 	      {load_module, ssh_connection_manager, soft_purge, soft_purge, []},
 	      {load_module, ssh_auth, soft_purge, soft_purge, []},
 	      {load_module, ssh_channel, soft_purge, soft_purge, []},
+	      {load_module, ssh_file, soft_purge, soft_purge, []}]},
 	      {load_module, ssh, soft_purge, soft_purge, []}]},
   {<<"2.0\\.*">>, [{restart_application, ssh}]},
   {<<"1\\.*">>, [{restart_application, ssh}]}
