@@ -453,7 +453,7 @@ position(#file_descriptor{module = ?MODULE, data = {Port, _}}, At) ->
 	    {error, Reason}
     end.
 
-%% Returns {error, Reaseon} | ok.
+%% Returns {error, Reason} | ok.
 truncate(#file_descriptor{module = ?MODULE, data = {Port, _}}) ->
     drv_command(Port, <<?FILE_TRUNCATE>>).
 

@@ -91,7 +91,7 @@
       of the additional library directories will override modules with
       the same name in OTP, except for modules in Kernel and
       STDLIB.</p>
-    <p>The environment variable <c>ERL_LIBS</c> (if defined) shold contain
+    <p>The environment variable <c>ERL_LIBS</c> (if defined) should contain
       a colon-separated (for Unix-like systems) or semicolon-separated
       (for Windows) list of additional libraries.</p>
     <p>Example: On an Unix-like system, <c>ERL_LIBS</c> could be set to

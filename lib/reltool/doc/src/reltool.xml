@@ -144,7 +144,7 @@
         value <c>include</c> implies that all applications and
         escripts that do not have any explicit <c>incl_cond</c>
         setting will be included. <c>exclude</c> implies that all
-        applications and escripts) that do not have any explicit
+        applications and escripts that do not have any explicit
         <c>incl_cond</c> setting will be excluded.</p>
       </item>
 
