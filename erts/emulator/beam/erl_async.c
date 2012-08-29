@@ -397,6 +397,8 @@ static ERTS_INLINE void call_async_ready(ErtsAsync *a)
 	}
 	erts_port_release(p);
     }
+    if (a->pdl)
+	driver_pdl_dec_refc(a->pdl);
     if (a->hndl)
 	erts_ddll_dereference_driver(a->hndl);
 }
@@ -405,9 +407,6 @@ static ERTS_INLINE void async_reply(ErtsAsync *a, ErtsThrQPrepEnQ_t *prep_enq)
 {
 #if ERTS_USE_ASYNC_READY_Q
     ErtsAsyncReadyQ *arq;
-
-    if (a->pdl)
-	driver_pdl_dec_refc(a->pdl);
 
 #if ERTS_ASYNC_PRINT_JOB
     erts_fprintf(stderr, "=>> %ld\n", a->async_id);
@@ -428,8 +427,6 @@ static ERTS_INLINE void async_reply(ErtsAsync *a, ErtsThrQPrepEnQ_t *prep_enq)
 #else /* ERTS_USE_ASYNC_READY_Q */
 
 	call_async_ready(a);
-	if (a->pdl)
-	    driver_pdl_dec_refc(a->pdl);
 	erts_free(ERTS_ALC_T_ASYNC, (void *) a);
 
 #endif /* ERTS_USE_ASYNC_READY_Q */
