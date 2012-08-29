@@ -4,7 +4,7 @@
 <comref>
 <header>
 <copyright>
-<year>2011</year>
+<year>2011</year><year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -31,7 +31,7 @@ supplied.
 <description>
 
 <p>
-The diameterc utility is used to transform diameter
+The diameterc utility is used to compile diameter
 <seealso marker="diameter_dict">dictionary files</seealso>
 into Erlang source.
 The resulting source implements the interface diameter requires
@@ -47,7 +47,7 @@ to encode and decode the dictionary's messages and AVP's.</p>
 <tag><![CDATA[diameterc [<options>] <file>]]></tag>
 <item>
 <p>
-Transforms a single dictionary file. Valid options are as follows.</p>
+Compiles a single dictionary file. Valid options are as follows.</p>
 
 <!-- Leave -h/d/v undocumented, except for the usage message from the
      utility itself. -->
@@ -64,47 +64,36 @@ Defaults to the current working directory.</p>
 <item>
 <p>
 Specifies a directory to add to the code path.
-Use to point at beam files corresponding to dictionaries
-inherited by the one being compiled using <c>@inherits</c> or
-<c>--inherits</c>.
-Inheritance is a beam dependency, not an erl/hrl dependency.</p>
+Use to point at beam files compiled from inherited dictionaries,
+<c>@inherits</c> in a dictionary file creating a beam dependency, not
+an erl/hrl dependency.</p>
 
 <p>
 Multiple <c>-i</c> options can be specified.</p>
 </item>
 
 <tag><![CDATA[-E]]></tag>
-<item>
-<p>
-Supresses erl generation.</p>
-</item>
-
 <tag><![CDATA[-H]]></tag>
 <item>
 <p>
-Supresses hrl generation.</p>
+Supresses erl and hrl generation, respectively.</p>
 </item>
 
 <tag><![CDATA[--name <name>]]></tag>
-<item>
-<p>
-Set <c>@name</c> in the dictionary file.
-Overrides any setting in the file itself.</p>
-</item>
-
 <tag><![CDATA[--prefix <prefix>]]></tag>
 <item>
 <p>
-Set <c>@prefix</c> in the dictionary file.
+Set <c>@name</c> and <c>@prefix</c> in the dictionary,
+respectively.
 Overrides any setting in the file itself.</p>
 </item>
 
 <tag><![CDATA[--inherits <dict>]]></tag>
 <item>
 <p>
-Append an <c>@inherits</c> to the dictionary file.
-Specifying <c>'-'</c> as the dictionary has the effect of clearing
-any previous inherits, effectively ignoring previous inherits.</p>
+Append an <c>@inherits</c> to the dictionary before compiling.
+Specifying <c>'-'</c> as the dictionary has the effect of clearing any
+previous inherits, causing them to be ignored.</p>
 
 <p>
 Multiple <c>--inherits</c> options can be specified.</p>
@@ -124,16 +113,6 @@ Multiple <c>--inherits</c> options can be specified.</p>
 
 <p>
 Returns 0 on success, non-zero on failure.</p>
-
-</section>
-
-<!-- ===================================================================== -->
-
-<section>
-<title>BUGS</title>
-
-<p>
-The identification of errors in the source file is poor.</p>
 
 </section>
 
