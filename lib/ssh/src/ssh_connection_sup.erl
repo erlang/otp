@@ -48,8 +48,12 @@ start_manager_child(Sup, Args) ->
     supervisor:start_child(Sup, Spec).
 
 connection_manager(SupPid) -> 
-    Children = supervisor:which_children(SupPid),
-    {ok, ssh_connection_manager(Children)}.
+    try supervisor:which_children(SupPid) of
+	Children ->
+	    {ok, ssh_connection_manager(Children)}
+    catch exit:{noproc,_} ->
+	    {ok, undefined}
+    end.
 
 %%%=========================================================================
 %%%  Supervisor callback
@@ -107,6 +111,8 @@ handler_spec([Role, Socket, Opts]) ->
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
+ssh_connection_manager([]) ->
+    undefined;
 ssh_connection_manager([{_, Child, _, [ssh_connection_manager]} | _]) ->
     Child;
 ssh_connection_manager([_ | Rest]) ->

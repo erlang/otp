@@ -91,10 +91,8 @@ do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
  	{ok, ConnectionSup} ->
 	    {ok, Manager} = 
 		ssh_connection_sup:connection_manager(ConnectionSup),
-	    MRef = erlang:monitor(process, Manager),
 	    receive 
 		{Manager, is_connected} ->
-		    do_demonitor(MRef, Manager),
 		    {ok, Manager};
 		%% When the connection fails 
 		%% ssh_connection_sup:connection_manager
@@ -102,30 +100,13 @@ do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
 		%% could allready have terminated, so we will not
 		%% match the Manager in this case
 		{_, not_connected, {error, econnrefused}} when DisableIpv6 == false ->
-		    do_demonitor(MRef, Manager),
 		    do_connect(Host, Port, proplists:delete(inet6, SocketOptions), 
 			    SshOptions, Timeout, true);
 		{_, not_connected, {error, Reason}} ->
-		    do_demonitor(MRef, Manager),
 		    {error, Reason};
 		{_, not_connected, Other} ->
-		    do_demonitor(MRef, Manager),
-		    {error, Other};
-		{'DOWN', MRef, _, Manager, Reason} when is_pid(Manager) ->
-		    error_logger:warning_report([{ssh, connect},
-						 {diagnose,
-						  "Connection was closed before properly set up."},
-						 {host, Host},
-						 {port, Port},
-						 {reason, Reason}]),
-		    receive %% Clear EXIT message from queue
-			{'EXIT', Manager, _What} -> 
-			    {error, channel_closed}
-		    after 0 ->
-			    {error, channel_closed}
-		    end
+		    {error, Other}
 	    after Timeout  ->
-		    do_demonitor(MRef, Manager),
 		    ssh_connection_manager:stop(Manager),
 		    {error, timeout}
 	    end
@@ -133,16 +114,6 @@ do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
 	exit:{noproc, _} ->
  	    {error, ssh_not_started}
     end.
-
-do_demonitor(MRef, Manager) ->
-    erlang:demonitor(MRef),
-    receive 
-	{'DOWN', MRef, _, Manager, _} -> 
-	    ok
-    after 0 -> 
-	    ok
-    end.
-
 
 %%--------------------------------------------------------------------
 %% Function: close(ConnectionRef) -> ok
