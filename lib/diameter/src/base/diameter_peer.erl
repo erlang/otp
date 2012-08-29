@@ -91,8 +91,19 @@ start(_T, _Opts, #diameter_service{}) ->
       Opt  :: diameter:transport_opt(),
       TPid :: pid(),
       Addr :: inet:ip_address(),
-      Tmo  :: non_neg_integer(),
+      Tmo  :: non_neg_integer() | infinity,
       Data :: {{T, Mod, Cfg}, [Mod], [{T, [Mod], Cfg}], [Err]},
+      Mod  :: module(),
+      Cfg  :: term(),
+      Err  :: term()
+    ; ({#diameter_service{}, Tmo, Data})
+   -> {TPid, [Addr], Tmo, Data}
+    | {error, [term()]}
+ when TPid :: pid(),
+      Addr :: inet:ip_address(),
+      Tmo  :: non_neg_integer() | infinity,
+      Data :: {{T, Mod, Cfg}, [Mod], [{T, [Mod], Cfg}], [Err]},
+      T    :: {connect|accept, diameter:transport_ref()},
       Mod  :: module(),
       Cfg  :: term(),
       Err  :: term().

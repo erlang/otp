@@ -80,7 +80,7 @@
 
 %% Accepting/connecting transport process state.
 -record(transport,
-        {socket  :: inet:socket(),  %% accept or connect socket
+        {socket  :: inet:socket() | ssl:sslsock(), %% accept or connect socket
          parent  :: pid(),          %% of process that started us
          module  :: module(),       %% gen_tcp-like module
          frag = <<>> :: binary() | {tref(), frag()},  %% message fragment
