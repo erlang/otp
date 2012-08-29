@@ -2417,7 +2417,7 @@ arg_types(hipe_bifs, ref_get, 1) ->
 arg_types(hipe_bifs, ref_set, 2) ->
   [t_hiperef(), t_immediate()];
 arg_types(hipe_bifs, remove_refs_from, 1) ->
-  [t_mfa()];
+  [t_sup([t_mfa(), t_atom('all')])];
 arg_types(hipe_bifs, set_funinfo_native_address, 3) ->
   arg_types(hipe_bifs, set_native_address, 3);
 arg_types(hipe_bifs, set_native_address, 3) ->
