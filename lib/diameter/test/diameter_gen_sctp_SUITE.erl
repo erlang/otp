@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -175,7 +175,8 @@ send(Sock, Id) ->
 
 send_from_multiple_clients(_) ->
     {S, Rs} = T = send_from_multiple_clients(8, 1024),
-    {false, [], _} = {?FOREVER < S,
+    Max = ?FOREVER*1000,
+    {false, [], _} = {Max < S,
                       Rs -- [OI || {O,_} = OI <- Rs, is_integer(O)],
                       T}.
 
@@ -223,6 +224,11 @@ send_from_multiple_clients(_) ->
 %%                {134,100},
 %%                {117,98},
 %%                {149,125}]}
+%%
+%% This turns out to have been due to SCTP resends as a consequence of
+%% the listener having an insufficient recbuf. Increasing the size
+%% solves the problem.
+%%
 
 send_from_multiple_clients(N, Sz)
   when is_integer(N), 0 < N, is_integer(Sz), 0 < Sz ->
