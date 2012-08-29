@@ -38,8 +38,9 @@ under the License.
 <description>
 
 <p>
-This module implements diameter transport over TCP using gen_tcp.
-It can be specified as the value of a transport_module option to
+This module implements diameter transport over TCP using <seealso
+marker="kernel:gen_sctp">gen_tcp</seealso>.
+It can be specified as the value of a <c>transport_module</c> option to
 <seealso
 marker="diameter#add_transport">diameter:add_transport/2</seealso>
 and implements the behaviour documented in
@@ -67,15 +68,15 @@ before configuring TLS capability on diameter transports.</p>
 <v>Type = connect | accept</v>
 <v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
 <v>Svc = #diameter_service{}</v>
-<v>Opt = OwnOpt | SslOpt | OtherOpt</v>
+<v>Opt = OwnOpt | SslOpt | TcpOpt</v>
 <v>Pid = pid()</v>
-<v>LAddr = inet:ip_address()</v>
+<v>LAddr = <seealso marker="kernel:inet">inet:ip_address()</seealso></v>
 <v>Reason = term()</v>
-<v>OwnOpt = {raddr, inet:ip_address()}
+<v>OwnOpt = {raddr, <seealso marker="kernel:inet">inet:ip_address()</seealso>}
           | {rport, integer()}
           | {port, integer()}</v>
 <v>SslOpt = {ssl_options, true | list()}</v>
-<v>OtherOpt = term()</v>
+<v>TcpOpt = term()</v>
 </type>
 <desc>
 
@@ -89,25 +90,32 @@ Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and are not valid for a listening
 transport.
 Option <c>ssl_options</c> must be specified for a transport
-that must be able to support TLS: a value of <c>true</c> results in a
+that should support TLS: a value of <c>true</c> results in a
 TLS handshake immediately upon connection establishment while
-list() specifies options to be passed to ssl:connect/2 of ssl:ssl_accept/2
+<c>list()</c> specifies options to be passed to <seealso
+marker="ssl:ssl">ssl:connect/2</seealso> or
+<seealso marker="ssl:ssl">ssl:ssl_accept/2</seealso>
 after capabilities exchange if TLS is negotiated.
-Remaining options are any accepted by ssl:connect/3 or gen_tcp:connect/3 for
-a connecting transport, or ssl:listen/3 or gen_tcp:listen/2 for
+Remaining options are any accepted by <seealso
+marker="ssl:ssl">ssl:connect/3</seealso> or <seealso
+marker="kernel:gen_tcp">gen_tcp:connect/3</seealso> for
+a connecting transport, or <seealso
+marker="ssl:ssl">ssl:listen/3</seealso> or <seealso
+marker="kernel:gen_tcp">gen_tcp:listen/2</seealso> for
 a listening transport, depending on whether or not <c>{ssl_options, true}</c>
 has been specified.
-Options <c>binary</c>, <c>packet</c> and <c>active</c> cannot be specified.
+Options <c>binary</c>,
+<c>packet</c> and <c>active</c> cannot be specified.
 Also, option <c>port</c> can be specified for a listening transport
 to specify the local listening port, the default being the standardized
 3868 if unspecified.
-Note that option <c>ip</c> specifies the local address.</p>
+Note that the option <c>ip</c> specifies the local address.</p>
 
 <p>
 An <c>ssl_options</c> list must be specified if and only if
-the transport in question has specified an Inband-Security-Id
-AVP with value TLS on the relevant call to
-<seealso
+the transport in question has set <c>Inband-Security-Id</c> to
+1 (<c>TLS</c>), as
+specified to either <seealso
 marker="diameter#start_service">start_service/2</seealso> or
 <seealso
 marker="diameter#add_transport">add_transport/2</seealso>,
@@ -122,9 +130,9 @@ that will not be forthcoming, which will eventually cause the RFC 3539
 watchdog to take down the connection.</p>
 
 <p>
-If the service specifies more than one Host-IP-Address and
-option <c>ip</c> is unspecified then the
-first of the service's addresses is used as the local address.</p>
+If the <c>#diameter_service{}</c> record has more than one
+<c>Host-IP-Address</c> and option <c>ip</c> is unspecified then the
+first of the these addresses is used as the local address.</p>
 
 <p>
 The returned local address list has length one.</p>
@@ -142,7 +150,10 @@ The returned local address list has length one.</p>
 
 <p>
 <seealso marker="diameter">diameter(3)</seealso>,
-<seealso marker="diameter_transport">diameter_transport(3)</seealso></p>
+<seealso marker="diameter_transport">diameter_transport(3)</seealso>,
+<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>,
+<seealso marker="kernel:inet">inet(3)</seealso>,
+<seealso marker="ssl:ssl">ssl(3)</seealso></p>
 
 </section>
 

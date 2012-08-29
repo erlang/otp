@@ -60,9 +60,9 @@ and implements the behaviour documented in
 <v>Type = connect | accept</v>
 <v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
 <v>Svc = #diameter_service{}</v>
-<v>Opt = {raddr, inet:ip_address()} | {rport, integer()} | term()</v>
+<v>Opt = {raddr, <seealso marker="kernel:inet">inet:ip_address()</seealso>} | {rport, integer()} | term()</v>
 <v>Pid = pid()</v>
-<v>LAddr = inet:ip_address()</v>
+<v>LAddr = <seealso marker="kernel:inet">inet:ip_address()</seealso></v>
 <v>Reason = term()</v>
 </type>
 <desc>
@@ -75,12 +75,13 @@ marker="diameter_transport#start">diameter_transport(3)</seealso>.</p>
 The only diameter_sctp-specific argument is the options list.
 Options <c>raddr</c> and <c>rport</c> specify the remote address
 and port for a connecting transport and not valid for a listening
-transport.
-The former is required while latter defaults to 3868 if unspecified.
+transport: the former is required while latter defaults to 3868 if
+unspecified.
 More than one <c>raddr</c> option can be specified, in which case the
 connecting transport in question attempts each in sequence until
 an association is established.
-Remaining options are any accepted by gen_sctp:open/1, with the exception
+Remaining options are any accepted by <seealso
+marker="kernel:gen_sctp">gen_sctp:open/1</seealso>, with the exception
 of options <c>mode</c>, <c>binary</c>, <c>list</c>, <c>active</c>
 and <c>sctp_events</c>.
 Note that options <c>ip</c> and <c>port</c> specify the local address
@@ -88,30 +89,45 @@ and port respectively.</p>
 
 <p>
 Multiple <c>ip</c> options can be specified for a multihomed peer.
-If none are specified then the values of Host-IP-Address
-on the service are used. (In particular, one of these must be specified.)
+If none are specified then the values of <c>Host-IP-Address</c>
+in the <c>#diameter_service{}</c> record are used.
+(In particular, one of these must be specified.)
 Option <c>port</c> defaults to 3868 for a listening transport and 0 for a
 connecting transport.</p>
 
+<warning>
+<p>
+An insufficiently large receive buffer may result in a peer having to
+resend incoming messages: set the <seealso
+marker="kernel:inet">inet</seealso> option <c>recbuf</c> to increase
+the buffer size.</p>
+
+<p>
+An insufficiently large send buffer may result in outgoing messages
+being discarded: set the <seealso
+marker="kernel:inet">inet</seealso> option <c>sndbuf</c> to increase
+the buffer size.</p>
+</warning>
+
 <p>
 diameter_sctp uses the <c>transport_data</c> field of
-the <c>diameter_packet</c> record to communicate the stream on which an
+the <c>#diameter_packet{}</c> record to communicate the stream on which an
 inbound message has been received, or on which an outbound message
 should be sent: the value will be of the form <c>{stream, Id}</c>
 on an inbound message passed to a <seealso
 marker="diameter_app#handle_request">handle_request</seealso> or <seealso
 marker="diameter_app#handle_answer">handle_answer</seealso> callback.
-For an outbound message, either <c>undefined</c> (explicitly of
-by specifying the outbound message as a <c>binary()</c>) or a tuple
+For an outbound message, either <c>undefined</c> (explicitly or
+by receiving the outbound message as a <c>binary()</c>) or a tuple
 should be set in the return value of <seealso
 marker="diameter_app#handle_request">handle_request</seealso>
 (typically by retaining the value passed into this function)
 or <seealso
 marker="diameter_app#prepare_request">prepare_request</seealso>.
-The value <c>undefined</c> uses a "next outbound stream" id and then
-increments this modulo the total number outbound streams. That
-is, successive values of <c>undefined</c> cycle through all outbound
-streams.</p>
+The value <c>undefined</c> uses a "next outbound stream" id and
+increments this modulo the total number outbound streams.
+That is, successive values of <c>undefined</c> cycle through all
+outbound streams.</p>
 
 <!-- TODO: Some way of getting at the number of available outbound -->
 <!--       streams.                                                -->
@@ -128,7 +144,9 @@ streams.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameter_transport">diameter_transport(3)</seealso></p>
+<seealso marker="diameter_transport">diameter_transport(3)</seealso>,
+<seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>,
+<seealso marker="kernel:inet">inet(3)</seealso></p>
 
 </section>
 
