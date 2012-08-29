@@ -140,8 +140,8 @@ list of <c>{FieldName, FieldValue}</c> pairs.</p>
 
 <p>
 A third representation allows a message to be specified as a list
-whose head is a <c>diameter_header</c> record and whose tail is a list
-of <c>diameter_avp</c> records.
+whose head is a <c>#diameter_header{}</c> record and whose tail is a list
+of <c>#diameter_avp{}</c> records.
 This representation is used by diameter itself when relaying requests
 as directed by the return value of a
 <seealso marker="#handle_request">handle_request/3</seealso>
@@ -158,10 +158,9 @@ are sent exactly as specified.</p>
 <tag><c>packet() = #diameter_packet{}</c></tag>
 <item>
 <p>
-A container for incoming and outgoing Diameters message that's passed
+A container for incoming and outgoing Diameter messages that's passed
 through encode/decode and transport.
-Fields of a packet() record should not be set in return values except
-as documented.</p>
+Fields should not be set in return values except as documented.</p>
 </item>
 
 <marker id="peer_ref"/>
@@ -356,7 +355,7 @@ Extra arguments passed to <seealso
 marker="diameter#call">diameter:call/4</seealso> can be used to
 communicate transport data to the callback.
 A returned <seealso marker="#packet">packet()</seealso> can also set the <c>header</c> field to a
-<c>diameter_header</c> record in order to specify values that should
+<c>#diameter_header{}</c> record in order to specify values that should
 be preserved in the outgoing request, although this should typically
 not be necessary and allows the callback to set header values
 inappropriately.
@@ -603,7 +602,7 @@ header of the relayed request.</p>
 The returned <c>Opts</c> should not specify <c>detach</c>.
 A subsequent <seealso marker="#handle_answer">handle_answer/4</seealso>
 callback for the relayed request must return its first
-argument, the <c>diameter_packet</c> record containing the answer
+argument, the <c>#diameter_packet{}</c> record containing the answer
 message.
 Note that the <c>extra</c> option can be specified to supply arguments
 that can distinguish the relay case from others if so desired.
