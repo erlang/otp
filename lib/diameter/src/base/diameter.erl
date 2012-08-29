@@ -312,7 +312,7 @@ call(SvcName, App, Message) ->
 -type transport_opt()
    :: {transport_module, atom()}
     | {transport_config, any()}
-    | {transport_timeout, non_neg_integer() | infinity}
+    | {transport_config, any(), non_neg_integer() | infinity}
     | {applications, [app_alias()]}
     | {capabilities, [capability()]}
     | {capabilities_cb, evaluable()}
