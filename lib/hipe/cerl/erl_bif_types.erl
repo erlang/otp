@@ -1483,6 +1483,8 @@ type(erlang, statistics, 1, Xs) ->
 		 t_tuple([t_non_neg_integer(), t_integer(0)]);
 	       ['wall_clock'] ->
 		 t_tuple([t_non_neg_integer(), t_integer(0)]);
+	       ['scheduler_wall_time'] ->
+		 t_list(t_tuple([t_integer(), t_number(), t_number()]));
 	       List when is_list(List) ->
 		 T_statistics_1;
 	       unknown ->
@@ -1532,6 +1534,8 @@ type(erlang, system_flag, 2, Xs) ->
 		     t_sequential_tracer();
 		   ['trace_control_word'] ->
 		     t_integer();
+		   ['scheduler_wall_time'] ->
+		     t_boolean();
 		   List when is_list(List) ->
 		     T_system_flag_2;
 		   unknown ->
@@ -3901,6 +3905,7 @@ arg_types(erlang, statistics, 1) ->
 	  t_atom('reductions'),
 	  t_atom('run_queue'),
 	  t_atom('runtime'),
+	  t_atom('scheduler_wall_time'),
 	  t_atom('wall_clock')])];
 arg_types(erlang, subtract, 2) ->
   arg_types(erlang, '--', 2);
@@ -3925,6 +3930,7 @@ arg_types(erlang, system_flag, 2) ->
 	  t_atom('trace_control_word'),
 	  %% 'internal_cpu_topology' is an undocumented internal feature.
 	  t_atom('internal_cpu_topology'),
+	  t_atom('scheduler_wall_time'),
 	  t_integer()]),
    t_sup([t_integer(),
 	  %% 'cpu_topology'
@@ -3940,6 +3946,9 @@ arg_types(erlang, system_flag, 2) ->
 	  %% The following two are for 'multi_scheduling'
 	  t_atom('block'),
 	  t_atom('unblock'),
+	  %% For 'scheduler_wall_time'
+	  t_atom('true'),
+	  t_atom('false'),
 	  %% The following is for 'internal_cpu_topology'
 	  t_internal_cpu_topology()])];
 arg_types(erlang, system_info, 1) ->
@@ -4267,7 +4276,7 @@ arg_types(hipe_bifs, ref_get, 1) ->
 arg_types(hipe_bifs, ref_set, 2) ->
   [t_hiperef(), t_immediate()];
 arg_types(hipe_bifs, remove_refs_from, 1) ->
-  [t_mfa()];
+  [t_sup([t_mfa(), t_atom('all')])];
 arg_types(hipe_bifs, set_funinfo_native_address, 3) ->
   arg_types(hipe_bifs, set_native_address, 3);
 arg_types(hipe_bifs, set_native_address, 3) ->
