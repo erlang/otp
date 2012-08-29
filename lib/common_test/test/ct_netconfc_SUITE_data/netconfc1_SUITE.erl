@@ -107,7 +107,8 @@ all() ->
 	     connection_crash,
 	     get_event_streams,
 	     create_subscription,
-	     receive_event]
+	     receive_event
+	    ]
     end.
 
 
@@ -216,6 +217,7 @@ hello_required_exists(Config) ->
 
     ?NS:expect_do_reply('close-session',close,ok),
     ?ok = ct_netconfc:close_session(my_named_connection),
+    timer:sleep(500),
 
     %% Then check that it can be used again after the first is closed
     {ok,_Client2} = open_configured_success(my_named_connection,DataDir),
@@ -234,7 +236,7 @@ hello_global_pwd(Config) ->
 hello_no_session_id(Config) ->
     DataDir = ?config(data_dir,Config),
     ?NS:hello(no_session_id),
-    ?NS:expect(hello),
+    ?NS:expect(no_session_id,hello),
     {error,{incorrect_hello,no_session_id_found}} = open(DataDir),
     ok.
 
@@ -261,7 +263,7 @@ hello_no_caps(Config) ->
 
 no_server_hello(Config) ->
     DataDir = ?config(data_dir,Config),
-    ?NS:expect(hello),
+    ?NS:expect(undefined,hello),
     {error,{hello_session_failed,timeout}} = open(DataDir,[{timeout,2000}]),
     ok.
 
@@ -435,7 +437,7 @@ kill_session(Config) ->
     {ok,Client} = open_success(DataDir),
 
     ?NS:hello(2),
-    ?NS:expect(hello),
+    ?NS:expect(2,hello),
     {ok,_OtherClient} = open(DataDir),
 
     ?NS:expect_do_reply('kill-session',{kill,2},ok),
