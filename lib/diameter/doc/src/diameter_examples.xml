@@ -5,7 +5,7 @@
 <header>
 
 <copyright>
-<year>2011</year>
+<year>2011</year><year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 
@@ -37,7 +37,6 @@ under the License.
 <!-- ===================================================================== -->
 
 <p>
-To be written.
 Example code can be found in the diameter application's
 <c>examples</c> subdirectory.</p>
 
