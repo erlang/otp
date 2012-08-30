@@ -2329,6 +2329,7 @@ symlinks(doc) -> "Test operations on symbolic links (for Unix).";
 symlinks(suite) -> [];
 symlinks(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ?line {error, _} = ?FILE_MODULE:read_link(lists:duplicate(10000,$a)),
     ?line RootDir = ?config(priv_dir, Config),
     ?line NewDir = filename:join(RootDir, 
 				 atom_to_list(?MODULE)
