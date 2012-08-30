@@ -463,6 +463,10 @@ specified list.</p>
 
 </taglist>
 
+<p>
+An invalid filter is equivalent to <c>{any,[]}</c>, a filter
+that matches no peer.</p>
+
 <note>
 <p>
 The <c>host</c> and <c>realm</c> filters examine the
@@ -473,13 +477,18 @@ the message contains at most one of each AVP.
 If this is not the case then the <c>{host|realm, <seealso
 marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso>}</c>
 filters must be used to achieve the desired result.
-An empty host/realm (which should not be typical)
-is equivalent to an unspecified one for the purposes of filtering.</p>
+An empty <c><seealso
+marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso></c>
+(which should not be typical)
+matches all hosts/realms for the purposes of filtering.</p>
 </note>
 
+<warning>
 <p>
-An invalid filter is equivalent to <c>{any,[]}</c>, a filter
-that matches no peer.</p>
+A <c>host</c> filter is not typically desirable when setting
+Destination-Host since it will remove peer agents from the
+candidates list.</p>
+</warning>
 
 <marker id="service_event"/>
 </item>
