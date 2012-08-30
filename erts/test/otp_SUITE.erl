@@ -181,6 +181,7 @@ dialyzer_filter(Undef) ->
 		      ({_,{dialyzer_codeserver,_,_}}) -> false;
 		      ({_,{dialyzer_contracts,_,_}}) -> false;
 		      ({_,{dialyzer_cl_parse,_,_}}) -> false;
+		      ({_,{dialyzer_timing,_,_}}) -> false;
 		      ({_,{dialyzer_plt,_,_}}) -> false;
 		      ({_,{dialyzer_succ_typings,_,_}}) -> false;
 		      ({_,{dialyzer_utils,_,_}}) -> false;

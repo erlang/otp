@@ -1875,7 +1875,7 @@ static int get_rsa_private_key(ErlNifEnv* env, ERL_NIF_TERM key, RSA *rsa)
 static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Type, Data|{digest,Digest}, Key=[E,N,D]|[E,N,D,P1,P2,E1,E2,C]) */
     ErlNifBinary data_bin, ret_bin;
-    unsigned char hmacbuf[SHA_DIGEST_LENGTH];
+    unsigned char hmacbuf[SHA512_LEN];
     unsigned rsa_s_len;
     RSA* rsa;
     int i;
