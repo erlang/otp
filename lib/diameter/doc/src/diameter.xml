@@ -86,6 +86,7 @@ in this module.</p>
 <tag><c>OctetString()</c></tag>
 <tag><c>Time()</c></tag>
 <tag><c>Unsigned32()</c></tag>
+<tag><c>UTF8String()</c></tag>
 <item>
 <p>
 Types corresponding to RFC 3588 AVP Data Formats.
@@ -312,7 +313,7 @@ returns an address list.</p>
 </item>
 
 <tag><c>{'Vendor-Id', <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
-<tag><c>{'Product-Name', <seealso marker="#UTF8String">UTF8String()</seealso>}</c></tag>
+<tag><c>{'Product-Name', <seealso marker="diameter_dict#DATA_TYPES">UTF8String()</seealso>}</c></tag>
 <tag><c>{'Origin-State-Id', <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
 <item>
 <p>
@@ -731,7 +732,7 @@ corresponding timeout (see below) or all fail.</p>
 </item>
 
 <tag><c>{transport_config, term()}</c></tag>
-<tag><c>{transport_config, term(), <seealso marker="#diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
+<tag><c>{transport_config, term(), <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
 <item>
 <p>
 A term passed as the third argument to the <seealso

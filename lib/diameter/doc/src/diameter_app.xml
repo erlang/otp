@@ -180,17 +180,6 @@ Should be treated opaquely.</p>
 A tuple representing a Diameter peer connection.</p>
 </item>
 
-<marker id="service_name"/>
-
-<tag><c>service_name() = term()</c></tag>
-<item>
-<p>
-The service supporting the Diameter application.
-Specified to <seealso
-marker="diameter#start_service">diameter:start_service/2</seealso>
-when starting the service.</p>
-</item>
-
 <marker id="state"/>
 
 <tag><c>state() = term()</c></tag>
@@ -224,7 +213,7 @@ process.</p>
 <name>Mod:peer_up(SvcName, Peer, State) -> NewState</name>
 <fsummary>Invoked when a transport connection has been established</fsummary>
 <type>
-<v>SvcName = <seealso marker="service_name">#service_name()</seealso></v>
+<v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>State   = NewState = <seealso marker="#state">state()</seealso></v>
 </type>
@@ -243,7 +232,7 @@ the callback module in question has been configured.</p>
 <name>Mod:peer_down(SvcName, Peer, State) -> NewState</name>
 <fsummary>Invoked when a transport connection has been lost.</fsummary>
 <type>
-<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>State   = NewState = <seealso marker="#state">state()</seealso></v>
 </type>
@@ -263,7 +252,7 @@ call to <seealso marker="#peer_up">peer_up/3</seealso>.</p>
 <type>
 <v>Candidates = [<seealso marker="#peer">peer()</seealso>]</v>
 <v>Peer = <seealso marker="#peer">peer()</seealso> | false</v>
-<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>State = NewState = <seealso marker="#state">state()</seealso></v>
 </type>
 <desc>
@@ -334,7 +323,7 @@ or <seealso marker="#peer_down">peer_down/3</seealso> callback.</p>
 <fsummary>Return a request for encoding and transport.</fsummary>
 <type>
 <v>Packet = <seealso marker="#packet">packet()</seealso></v>
-<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer = <seealso marker="#peer">peer()</seealso></v>
 <v>Action = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
 </type>
@@ -379,7 +368,7 @@ discarded}</c>.</p>
 <fsummary>Return a request for encoding and retransmission.</fsummary>
 <type>
 <v>Packet  = <seealso marker="#packet">packet()</seealso></v>
-<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>Result  = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
 </type>
@@ -410,7 +399,7 @@ discarded}</c>.</p>
 <type>
 <v>Packet  = <seealso marker="#packet">packet()</seealso></v>
 <v>Request = <seealso marker="#message">message()</seealso></v>
-<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>Result  = term()</v>
 </type>
@@ -462,7 +451,7 @@ marker="diameter#start_service">diameter:start_service/2</seealso>.</p>
 <type>
 <v>Reason  = timeout | failover | term()</v>
 <v>Request = <seealso marker="#message">message()</seealso></v>
-<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
 <v>Result  = term()</v>
 </type>
@@ -495,10 +484,10 @@ callback returned false.</p>
 <v>Packet  = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = term()</v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
-<v>Action  = Reply | {relay, Opts} | discard | {eval, Action, PostF}</v>
+<v>Action  = Reply | {relay, [Opt]} | discard | {eval, Action, PostF}</v>
 <v>Reply   = {reply, <seealso marker="#message">message()</seealso>}
            | {protocol_error, 3000..3999}</v>
-<v>Opts    = <seealso marker="diameter#call opts">diameter:call_opts()</seealso></v>
+<v>Opt     = <seealso marker="diameter#call_opt">diameter:call_opt()</seealso></v>
 <v>PostF   = <seealso marker="diameter#evaluable">diameter:evaluable()</seealso></v>
 </type>
 <desc>
@@ -521,7 +510,7 @@ The argument <seealso marker="#packet">packet()</seealso> has the following sign
 #diameter_packet{header = #diameter_header{},
                  avps   = [#diameter_avp{}],
                  msg    = record() | undefined,
-                 errors = [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso> | {<seealso marker="#diameter_dict#DATA_TYPES">Unsigned32()</seealso>, #diameter_avp{}}],
+                 errors = [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso> | {<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>, #diameter_avp{}}],
                  bin    = binary(),
                  transport_data = term()}
 </code>
