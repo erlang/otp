@@ -353,12 +353,12 @@ require(Required) ->
 %%% <p>For this to work, the config file must at least contain:</p>
 %%% <pre>{machine,[{node,[{telnet,IpAddr},{ftp,IpAddr}]}]}.</pre>
 %%%
-%%% <note>The behaviour of this function changed radically in common_test
+%%% <note><p>The behaviour of this function changed radically in common_test
 %%% 1.6.2. In order too keep some backwards compatability it is still possible
 %%% to do: <br/><c>ct:require(a,{node,[telnet,ftp]}).</c><br/>
 %%% This will associate the name <c>a</c> with the top level <c>node</c> entry.
 %%% For this to work, the config file must at least contain:<br/>
-%%% <c>{node,[{telnet,IpAddr},{ftp,IpAddr}]}.</c></note>
+%%% <c>{node,[{telnet,IpAddr},{ftp,IpAddr}]}.</c></p></note>
 %%%
 %%% @see require/1
 %%% @see get_config/1
