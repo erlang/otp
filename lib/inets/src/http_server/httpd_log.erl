@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -36,8 +36,8 @@
 		   AuthUser   :: string(), 
 		   Date       :: string(), 
 		   StatusCode :: pos_integer(),
-		   Size       :: pos_integer() | string()) ->
-    {Log :: atom() | pid(), Entry :: string()}.
+		   Size       :: 0 | pos_integer() | string()) ->
+			  {Log :: atom() | pid(), Entry :: string()} | term() .
 
 access_entry(Log, NoLog, Info, RFC931, AuthUser, Date, StatusCode, SizeStr) 
   when is_list(SizeStr) ->
@@ -69,7 +69,7 @@ access_entry(Log, NoLog,
 		  Info   :: #mod{},
 		  Date   :: string(), 
 		  Reason :: term()) ->
-    {Log :: atom() | pid(), Entry :: string()}.
+			 {Log :: atom() | pid(), Entry :: string()} | term().
 
 error_entry(Log, NoLog, 
 	    #mod{config_db   = ConfigDB,
@@ -87,7 +87,7 @@ error_entry(Log, NoLog,
 			 ConfigDB :: term(),
 			 Date     :: string(), 
 			 ErrroStr :: string()) ->
-    {Log :: atom() | pid(), Entry :: string()}.
+    {Log :: atom() | pid(), Entry :: string()} | term().
 
 error_report_entry(Log, NoLog, ConfigDb, Date, ErrorStr) ->
     MakeEntry = fun() -> io_lib:format("[~s], ~s~n", [Date, ErrorStr]) end,
@@ -99,7 +99,7 @@ error_report_entry(Log, NoLog, ConfigDb, Date, ErrorStr) ->
 		     ConfigDB :: term(),
 		     Date     :: string(), 
 		     Reason   :: term()) ->
-    {Log :: atom() | pid(), Entry :: string()}.
+    {Log :: atom() | pid(), Entry :: string()} | term().
 
 security_entry(Log, NoLog, #mod{config_db = ConfigDB}, Date, Reason) ->
     MakeEntry = fun() -> io_lib:format("[~s] ~s~n", [Date, Reason]) end,

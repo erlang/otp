@@ -232,12 +232,19 @@ lookup_host_key_fd(Fd, Host, KeyType) ->
 	eof ->
 	    {error, not_found};
 	Line ->
-	    case public_key:ssh_decode(Line, known_hosts) of
+	    case ssh_decode_line(Line, known_hosts) of
 		[{Key, Attributes}] ->
 		    handle_host(Fd, Host, proplists:get_value(hostnames, Attributes), Key, KeyType);
 		[] ->
 		    lookup_host_key_fd(Fd, Host, KeyType)
 	    end
+    end.
+
+ssh_decode_line(Line, Type) ->
+    try 
+	public_key:ssh_decode(Line, Type) 
+    catch _:_ ->
+	    []
     end.
 
 handle_host(Fd, Host, HostList, Key, KeyType) ->
@@ -285,7 +292,7 @@ lookup_user_key_fd(Fd, Key) ->
 	eof ->
 	    {error, not_found};
 	Line ->
-	    case public_key:ssh_decode(Line, auth_keys) of
+	    case ssh_decode_line(Line, auth_keys) of
 		[{AuthKey, _}] ->
 		    case is_auth_key(Key, AuthKey) of
 			true ->
