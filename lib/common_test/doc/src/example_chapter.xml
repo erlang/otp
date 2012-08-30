@@ -28,7 +28,8 @@
     <rev></rev>
     <file>example_chapter.xml</file>
   </header>
-         
+  
+  <marker id="top"></marker>
 
   <section>
     <title>Test suite example</title>
