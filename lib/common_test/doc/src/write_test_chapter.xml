@@ -47,7 +47,7 @@
       module for details about these functions.</p>
     
     <p>The CT application also includes other modules named 
-      <c><![CDATA[ct_<something>]]></c> that
+      <c><![CDATA[ct_<component>]]></c> that
       provide various support, mainly simplified use of communication
       protocols such as rpc, snmp, ftp, telnet, etc.</p>
 
@@ -935,6 +935,99 @@
   </section>
 
   <section>
+    <marker id="logging"></marker>
+    <title>Logging - categories and verbosity levels</title>
+    <p>Common Test provides three main functions for printing strings:</p>
+    <list>
+      <item><c>ct:log(Category, Importance, Format, Args)</c></item>
+      <item><c>ct:print(Category, Importance, Format, Args)</c></item>
+      <item><c>ct:pal(Category, Importance, Format, Args)</c></item>
+    </list>
+    <p>The <c>log/1/2/3/4</c> function will print a string to the test case
+    log file. The <c>print/1/2/3/4</c> function will print the string to screen,
+    and the <c>pal/1/2/3/4</c> function will print the same string both to file and
+    screen. (The functions are documented in the <c>ct</c> reference manual).</p>
+
+    <p>The optional <c>Category</c> argument may be used to categorize the
+    log printout, and categories can be used for two things:</p>
+    <list>
+      <item>To compare the importance of the printout to a specific
+      verbosity level, and</item>
+      <item>to format the printout according to a user specific HTML
+      Style Sheet (CSS).</item>
+    </list>
+
+    <p>The <c>Importance</c> argument specifies a level of importance
+    which, compared to a verbosity level (general and/or set per category),
+    determines if the printout should be visible or not. <c>Importance</c>
+    is an arbitrary integer in the range 0..99. Pre-defined constants
+    exist in the <c>ct.hrl</c> header file. The default importance level,
+    <c>?STD_IMPORTANCE</c> (used if the <c>Importance</c> argument is not
+    provided), is 50. This is also the importance used for standard IO, e.g.
+    from printouts made with <c>io:format/2</c>, <c>io:put_chars/1</c>, etc.</p>
+
+    <p><c>Importance</c> is compared to a verbosity level set by means of the
+    <c>verbosity</c> start flag/option. The verbosity level can be set per
+    category and/or generally. The default verbosity level, <c>?STD_VERBOSITY</c>,
+    is 50, i.e. all standard IO gets printed. If a lower verbosity level is set,
+    standard IO printouts will be ignored. Common Test performs the following test:</p>
+    <pre>Importance >= (100-VerbosityLevel)</pre>
+    <p>This also means that verbosity level 0 effectively turns all logging off
+    (with the exception of printouts made by Common Test itself).</p>
+
+    <p>The general verbosity level is not associated with any particular
+    category. This level sets the threshold for the standard IO printouts,
+    uncategorized <c>ct:log/print/pal</c> printouts, as well as
+    printouts for categories with undefined verbosity level.</p>
+
+    <p>Example:</p>
+    <pre>
+
+      Some printouts during test case execution:
+
+        io:format("1. Standard IO, importance = ~w~n", [?STD_IMPORTANCE]),
+        ct:log("2. Uncategorized, importance = ~w", [?STD_IMPORTANCE]),
+        ct:log(info, "3. Categorized info, importance = ~w", [?STD_IMPORTANCE]]),
+        ct:log(info, ?LOW_IMPORTANCE, "4. Categorized info, importance = ~w", [?LOW_IMPORTANCE]),
+        ct:log(error, "5. Categorized error, importance = ~w", [?HI_IMPORTANCE]),
+        ct:log(error, ?HI_IMPORTANCE, "6. Categorized error, importance = ~w", [?MAX_IMPORTANCE]),
+
+      If starting the test without specifying any verbosity levels:
+
+        $ ct_run ...
+
+      the following gets printed:
+      
+        1. Standard IO, importance = 50
+        2. Uncategorized, importance = 50
+        3. Categorized info, importance = 50
+        5. Categorized error, importance = 75
+        6. Categorized error, importance = 99
+
+      If starting the test with:
+        
+        $ ct_run -verbosity 1 and info 75
+      
+      the following gets printed:
+
+        3. Categorized info, importance = 50
+	4. Categorized info, importance = 25
+        6. Categorized error, importance = 99
+    </pre>
+
+    <p>How categories can be mapped to CSS tags is documented in the 
+    <seealso marker="run_test_chapter#html_stylesheet">Running Tests</seealso>
+    chapter.</p>
+
+    <p>The <c>Format</c> and <c>Args</c> arguments in <c>ct:log/print/pal</c> are
+    always passed on to the <c>io:format/3</c> function in <c>stdlib</c>
+    (please see the <c>io</c> manual page for details).</p>
+    
+    <p>For more information about log files, please see the
+    <seealso marker="run_test_chapter#log_files">Running Tests</seealso> chapter.</p>
+  </section>
+  
+  <section>
     <title>Illegal dependencies</title>
 
     <p>Even though it is highly efficient to write test suites with
@@ -944,7 +1037,6 @@
       Erlang/OTP test suites.</p>
 
     <list>
-
 	<item>Depending on current directory, and writing there:<br></br>
 	    
 	    <p>This is a common error in test suites. It is assumed that
@@ -956,19 +1048,10 @@
 	    </p>
 	</item>
 
-	<item>Depending on the Clearcase (file version control system) 
-	  paths and files:<br></br>
-	    
-	    <p>The test suites are stored in Clearcase but are not 
-	      (necessarily) run within this environment. The directory 
-	      structure may vary from test run to test run.
-	    </p>
-	</item>
-
 	<item>Depending on execution order:<br></br>
 	
-	    <p>During development of test suites, no assumption should be made
-	    (preferrably) about the execution order of the test cases or suites.
+	    <p>During development of test suites, no assumption should preferrably
+	    be made about the execution order of the test cases or suites.
 	    E.g. a test case should not assume that a server it depends on,
 	    has already been started by a previous test case. There are
 	    several reasons for this:

@@ -25,24 +25,24 @@
 %%%
 %%% <p><strong>Test Suite Support Macros</strong></p>
 %%%
-%%% <p>The <code>config</code> macro is defined in <code>ct.hrl</code>. This
+%%% <p>The <c>config</c> macro is defined in <c>ct.hrl</c>. This
 %%% macro should be used to retrieve information from the
-%%% <code>Config</code> variable sent to all test cases. It is used with two
+%%% <c>Config</c> variable sent to all test cases. It is used with two
 %%% arguments, where the first is the name of the configuration
-%%% variable you wish to retrieve, and the second is the <code>Config</code>
+%%% variable you wish to retrieve, and the second is the <c>Config</c>
 %%% variable supplied to the test case.</p>
 %%%
 %%% <p>Possible configuration variables include:</p>
 %%% <ul>
-%%%   <li><code>data_dir</code>  - Data file directory.</li>
-%%%   <li><code>priv_dir</code>  - Scratch file directory.</li>
-%%%   <li>Whatever added by <code>init_per_suite/1</code> or
-%%%   <code>init_per_testcase/2</code> in the test suite.</li>
+%%%   <li><c>data_dir</c>  - Data file directory.</li>
+%%%   <li><c>priv_dir</c>  - Scratch file directory.</li>
+%%%   <li>Whatever added by <c>init_per_suite/1</c> or
+%%%   <c>init_per_testcase/2</c> in the test suite.</li>
 %%% </ul>
 
 %%% @type var_name() = atom(). A variable name which is specified when
-%%% <code>ct:require/2</code> is called,
-%%% e.g. <code>ct:require(mynodename,{node,[telnet]})</code>
+%%% <c>ct:require/2</c> is called,
+%%% e.g. <c>ct:require(mynodename,{node,[telnet]})</c>
 %%%
 %%% @type target_name() = var_name(). The name of a target.
 %%%
@@ -99,10 +99,10 @@
 %%% <p>Run this function once before first test.</p>
 %%%
 %%% <p>Example:<br/>
-%%% <code>install([{config,["config_node.ctc","config_user.ctc"]}])</code>.</p>
+%%% <c>install([{config,["config_node.ctc","config_user.ctc"]}])</c>.</p>
 %%%
 %%% <p>Note that this function is automatically run by the
-%%% <code>ct_run</code> program.</p>
+%%% <c>ct_run</c> program.</p>
 install(Opts) ->
     ct_run:install(Opts).
 
@@ -115,10 +115,10 @@ install(Opts) ->
 %%%
 %%% @doc Run the given test case(s).
 %%%
-%%% <p>Requires that <code>ct:install/1</code> has been run first.</p>
+%%% <p>Requires that <c>ct:install/1</c> has been run first.</p>
 %%%
 %%% <p>Suites (*_SUITE.erl) files must be stored in
-%%% <code>TestDir</code> or <code>TestDir/test</code>.  All suites
+%%% <c>TestDir</c> or <c>TestDir/test</c>.  All suites
 %%% will be compiled when test is run.</p>
 run(TestDir,Suite,Cases) ->
     ct_run:run(TestDir,Suite,Cases).
@@ -201,25 +201,32 @@ run(TestDirs) ->
 %%%   AutoSkipped = integer()
 %%%   TestRunnerPid = pid()
 %%%   Reason = term()
-%%% @doc <p>Run tests as specified by the combination of options in <code>Opts</code>.
+%%% @doc <p>Run tests as specified by the combination of options in <c>Opts</c>.
 %%% The options are the same as those used with the
-%%% <seealso marker="ct_run#ct_run"><code>ct_run</code></seealso> program.
-%%% Note that here a <code>TestDir</code> can be used to point out the path to 
-%%% a <code>Suite</code>. Note also that the option <code>testcase</code>
-%%% corresponds to the <code>-case</code> option in the <code>ct_run</code> 
-%%% program. Configuration files specified in <code>Opts</code> will be
+%%% <seealso marker="ct_run#ct_run"><c>ct_run</c></seealso> program.
+%%% Note that here a <c>TestDir</c> can be used to point out the path to 
+%%% a <c>Suite</c>. Note also that the option <c>testcase</c>
+%%% corresponds to the <c>-case</c> option in the <c>ct_run</c> 
+%%% program. Configuration files specified in <c>Opts</c> will be
 %%% installed automatically at startup.</p>
-%%% <p><code>TestRunnerPid</code> is returned if <code>release_shell == true</code>
-%%% (see the User's Guide for details).</p>
-%%% <p><code>Reason</code> indicates what type of error has been encountered.</p>
+%%% <p><c>TestRunnerPid</c> is returned if <c>release_shell == true</c>
+%%% (see <c>break/1</c> for details).</p>
+%%% <p><c>Reason</c> indicates what type of error has been encountered.</p>
 run_test(Opts) ->
     ct_run:run_test(Opts).
 
 %%%-----------------------------------------------------------------
 %%% @spec run_testspec(TestSpec) -> Result
 %%%   TestSpec = [term()]
-%%% @doc Run test specified by <code>TestSpec</code>. The terms are
+%%%   Result = {Ok,Failed,{UserSkipped,AutoSkipped}} | {error,Reason}
+%%%   Ok = integer()
+%%%   Failed = integer()
+%%%   UserSkipped = integer()
+%%%   AutoSkipped = integer()
+%%%   Reason = term()
+%%% @doc Run test specified by <c>TestSpec</c>. The terms are
 %%% the same as those used in test specification files.
+%%% <p><c>Reason</c> indicates what type of error has been encountered.</p>
 run_testspec(TestSpec) ->
     ct_run:run_testspec(TestSpec).
     
@@ -239,8 +246,8 @@ step(TestDir,Suite,Case) ->
 %%%   Opt = config | keep_inactive
 %%%
 %%% @doc Step through a test case with the debugger. If the
-%%% <code>config</code> option has been given, breakpoints will
-%%% be set also on the configuration functions in <code>Suite</code>.
+%%% <c>config</c> option has been given, breakpoints will
+%%% be set also on the configuration functions in <c>Suite</c>.
 %%% @see run/3
 step(TestDir,Suite,Case,Opts) ->
     ct_run:step(TestDir,Suite,Case,Opts).
@@ -252,20 +259,20 @@ step(TestDir,Suite,Case,Opts) ->
 %%%
 %%% <p>From this mode all test case support functions can be executed
 %%% directly from the erlang shell. The interactive mode can also be
-%%% started from the OS command line with <code>ct_run -shell
-%%% [-config File...]</code>.</p>
+%%% started from the OS command line with <c>ct_run -shell
+%%% [-config File...]</c>.</p>
 %%%
 %%% <p>If any functions using "required config data" (e.g. telnet or
 %%% ftp functions) are to be called from the erlang shell, config data
-%%% must first be required with <code>ct:require/2</code>.</p>
+%%% must first be required with <c>ct:require/2</c>.</p>
 %%%
 %%% <p>Example:<br/>
-%%% <code>&gt; ct:require(unix_telnet, unix).</code><br/>
-%%% <code>ok</code><br/>
-%%% <code>&gt; ct_telnet:open(unix_telnet).</code><br/>
-%%% <code>{ok,&lt;0.105.0&gt;}</code><br/>
-%%% <code>&gt; ct_telnet:cmd(unix_telnet, "ls .").</code><br/>
-%%% <code>{ok,["ls","file1  ...",...]}</code></p>
+%%% <c>&gt; ct:require(unix_telnet, unix).</c><br/>
+%%% <c>ok</c><br/>
+%%% <c>&gt; ct_telnet:open(unix_telnet).</c><br/>
+%%% <c>{ok,&lt;0.105.0&gt;}</c><br/>
+%%% <c>&gt; ct_telnet:cmd(unix_telnet, "ls .").</c><br/>
+%%% <c>{ok,["ls","file1  ...",...]}</c></p>
 start_interactive() ->
     ct_util:start(interactive).
 
@@ -292,21 +299,21 @@ stop_interactive() ->
 %%% to specify arbitrarily deep tuples as <c>Required</c>. Note that it is
 %%% only the last element of the tuple which can be a list of <c>SubKey</c>s.
 %%%
-%%% <p>Example 1: require the variable <code>myvar</code>:</p>
+%%% <p>Example 1: require the variable <c>myvar</c>:</p>
 %%% <pre>ok = ct:require(myvar).</pre>
 %%%
 %%% <p>In this case the config file must at least contain:</p>
 %%% <pre>{myvar,Value}.</pre>
 %%% 
-%%% <p>Example 2: require the key <code>myvar</code> with
-%%% subkeys <code>sub1</code> and <code>sub2</code>:</p>
+%%% <p>Example 2: require the key <c>myvar</c> with
+%%% subkeys <c>sub1</c> and <c>sub2</c>:</p>
 %%% <pre>ok = ct:require({myvar,[sub1,sub2]}).</pre>
 %%%
 %%% <p>In this case the config file must at least contain:</p>
 %%% <pre>{myvar,[{sub1,Value},{sub2,Value}]}.</pre>
 %%%
-%%% <p>Example 3: require the key <code>myvar</code> with
-%%% subkey <code>sub1</code> with <code>subsub1</code>:</p>
+%%% <p>Example 3: require the key <c>myvar</c> with
+%%% subkey <c>sub1</c> with <c>subsub1</c>:</p>
 %%% <pre>ok = ct:require({myvar,sub1,sub2}).</pre>
 %%%
 %%% <p>In this case the config file must at least contain:</p>
@@ -332,12 +339,12 @@ require(Required) ->
 %%% of <c>SubKey</c>s.
 %%%
 %%% <p>If the requested data is available, the sub entry will be
-%%% associated with <code>Name</code> so that the value of the element
-%%% can be read with <code>get_config/1,2</code> provided
-%%% <code>Name</code> instead of the whole <code>Required</code> term.</p>
+%%% associated with <c>Name</c> so that the value of the element
+%%% can be read with <c>get_config/1,2</c> provided
+%%% <c>Name</c> instead of the whole <c>Required</c> term.</p>
 %%%
 %%% <p>Example: Require one node with a telnet connection and an
-%%% ftp connection. Name the node <code>a</code>:
+%%% ftp connection. Name the node <c>a</c>:
 %%% <pre>ok = ct:require(a,{machine,node}).</pre>
 %%% All references to this node may then use the node name.
 %%% E.g. you can fetch a file over ftp like this:</p>
@@ -386,7 +393,7 @@ get_config(Required,Default) ->
 %%%
 %%% <p>This function returns the matching value(s) or config element(s),
 %%% given a config variable key or its associated name
-%%% (if one has been specified with <code>require/2</code> or a 
+%%% (if one has been specified with <c>require/2</c> or a 
 %%% require statement).</p>
 %%%
 %%% <p>Example, given the following config file:</p>
@@ -394,33 +401,33 @@ get_config(Required,Default) ->
 %%% {unix,[{telnet,IpAddr},
 %%%        {user,[{username,Username},
 %%%               {password,Password}]}]}.</pre>
-%%% <p><code>ct:get_config(unix,Default) ->
+%%% <p><c>ct:get_config(unix,Default) ->
 %%%                          [{telnet,IpAddr},
 %%%                           {user, [{username,Username},
-%%%                                   {password,Password}]}]</code><br/>
-%%% <code>ct:get_config({unix,telnet},Default) -> IpAddr</code><br/>
-%%% <code>ct:get_config({unix,user,username},Default) -> Username</code><br/>
-%%% <code>ct:get_config({unix,ftp},Default) -> Default</code><br/>
-%%% <code>ct:get_config(unknownkey,Default) -> Default</code></p>
+%%%                                   {password,Password}]}]</c><br/>
+%%% <c>ct:get_config({unix,telnet},Default) -> IpAddr</c><br/>
+%%% <c>ct:get_config({unix,user,username},Default) -> Username</c><br/>
+%%% <c>ct:get_config({unix,ftp},Default) -> Default</c><br/>
+%%% <c>ct:get_config(unknownkey,Default) -> Default</c></p>
 %%%
 %%% <p>If a config variable key has been associated with a name (by
-%%% means of <code>require/2</code> or a require statement), the name 
+%%% means of <c>require/2</c> or a require statement), the name 
 %%% may be used instead of the key to read the value:</p>
 %%%
-%%% <p><code>ct:require(myuser,{unix,user}) -> ok.</code><br/>
-%%% <code>ct:get_config(myuser,Default) ->
+%%% <p><c>ct:require(myuser,{unix,user}) -> ok.</c><br/>
+%%% <c>ct:get_config(myuser,Default) ->
 %%%          [{username,Username},
-%%%           {password,Password}]</code></p>
+%%%           {password,Password}]</c></p>
 %%%
 %%% <p>If a config variable is defined in multiple files and you want to
-%%% access all possible values, use the <code>all</code> option. The
+%%% access all possible values, use the <c>all</c> option. The
 %%% values will be returned in a list and the order of the elements
 %%% corresponds to the order that the config files were specified at 
 %%% startup.</p>
 %%%
 %%% <p>If you want config elements (key-value tuples) returned as result 
-%%% instead of values, use the <code>element</code> option. 
-%%% The returned elements will then be on the form <code>{Required,Value}</code></p>
+%%% instead of values, use the <c>element</c> option. 
+%%% The returned elements will then be on the form <c>{Required,Value}</c></p>
 %%%
 %%% @see get_config/1
 %%% @see get_config/2
@@ -493,11 +500,11 @@ log(X1,X2,X3) ->
 %%% <p>This function is meant for printing a string directly from a
 %%% test case to the test case log file.</p>
 %%%
-%%% <p>Default <code>Category</code> is <code>default</code>,
-%%% default <code>Importance</code> is <code>?STD_IMPORTANCE</code>,
-%%% and default value for <code>Args</code> is <code>[]</code>.</p>
-%%% <p>Please see the User's Guide for details on <code>Category</code>
-%%% and <code>Importance</code>.</p>
+%%% <p>Default <c>Category</c> is <c>default</c>,
+%%% default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
+%%% and default value for <c>Args</c> is <c>[]</c>.</p>
+%%% <p>Please see the User's Guide for details on <c>Category</c>
+%%% and <c>Importance</c>.</p>
 log(Category,Importance,Format,Args) ->
     ct_logs:tc_log(Category,Importance,Format,Args).
 
@@ -547,11 +554,11 @@ print(X1,X2,X3) ->
 %%% <p>This function is meant for printing a string from a test case
 %%% to the console.</p>
 %%%
-%%% <p>Default <code>Category</code> is <code>default</code>,
-%%% default <code>Importance</code> is <code>?STD_IMPORTANCE</code>,
-%%% and default value for <code>Args</code> is <code>[]</code>.</p>
-%%% <p>Please see the User's Guide for details on <code>Category</code>
-%%% and <code>Importance</code>.</p>
+%%% <p>Default <c>Category</c> is <c>default</c>,
+%%% default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
+%%% and default value for <c>Args</c> is <c>[]</c>.</p>
+%%% <p>Please see the User's Guide for details on <c>Category</c>
+%%% and <c>Importance</c>.</p>
 print(Category,Importance,Format,Args) ->
     ct_logs:tc_print(Category,Importance,Format,Args).
 
@@ -601,11 +608,11 @@ pal(X1,X2,X3) ->
 %%% <p>This function is meant for printing a string from a test case,
 %%% both to the test case log file and to the console.</p>
 %%%
-%%% <p>Default <code>Category</code> is <code>default</code>,
-%%% default <code>Importance</code> is <code>?STD_IMPORTANCE</code>,
-%%% and default value for <code>Args</code> is <code>[]</code>.</p>
-%%% <p>Please see the User's Guide for details on <code>Category</code>
-%%% and <code>Importance</code>.</p>
+%%% <p>Default <c>Category</c> is <c>default</c>,
+%%% default <c>Importance</c> is <c>?STD_IMPORTANCE</c>,
+%%% and default value for <c>Args</c> is <c>[]</c>.</p>
+%%% <p>Please see the User's Guide for details on <c>Category</c>
+%%% and <c>Importance</c>.</p>
 pal(Category,Importance,Format,Args) ->
     ct_logs:tc_pal(Category,Importance,Format,Args).
 
@@ -624,7 +631,7 @@ capture_start() ->
 %%% @spec capture_stop() -> ok
 %%%
 %%% @doc Stop capturing text strings (a session started with
-%%% <code>capture_start/0</code>).
+%%% <c>capture_start/0</c>).
 %%%
 %%% @see capture_start/0
 %%% @see capture_get/1
@@ -647,9 +654,9 @@ capture_get() ->
 %%%
 %%% @doc Return and purge the list of text strings buffered
 %%% during the latest session of capturing printouts to stdout.
-%%% With <code>ExclCategories</code> it's possible to specify
-%%% log categories that should be ignored in <code>ListOfStrings</code>.
-%%% If <code>ExclCategories = []</code>, no filtering takes place.
+%%% With <c>ExclCategories</c> it's possible to specify
+%%% log categories that should be ignored in <c>ListOfStrings</c>.
+%%% If <c>ExclCategories = []</c>, no filtering takes place.
 %%%
 %%% @see capture_start/0
 %%% @see capture_stop/0
@@ -674,7 +681,7 @@ capture_get([]) ->
 %%%      Reason = term()
 %%%
 %%% @doc Terminate a test case with the given error
-%%% <code>Reason</code>.
+%%% <c>Reason</c>.
 fail(Reason) ->
     try
 	exit({test_case_failed,Reason})
@@ -694,7 +701,7 @@ fail(Reason) ->
 %%%
 %%% @doc Terminate a test case with an error message specified
 %%% by a format string and a list of values (used as arguments to
-%%% <code>io_lib:format/2</code>).
+%%% <c>io_lib:format/2</c>).
 fail(Format, Args) ->
     try io_lib:format(Format, Args) of
 	Str ->
@@ -717,11 +724,11 @@ fail(Format, Args) ->
 %%% @spec comment(Comment) -> void()
 %%%      Comment = term()
 %%%
-%%% @doc Print the given <code>Comment</code> in the comment field in
+%%% @doc Print the given <c>Comment</c> in the comment field in
 %%% the table on the test suite result page.
 %%%
 %%% <p>If called several times, only the last comment is printed.
-%%% The test case return value <code>{comment,Comment}</code>
+%%% The test case return value <c>{comment,Comment}</c>
 %%% overwrites the string set by this function.</p>
 comment(Comment) when is_list(Comment) ->
     Formatted =
@@ -744,10 +751,10 @@ comment(Comment) ->
 %%% @doc Print the formatted string in the comment field in
 %%% the table on the test suite result page.
 %%% 
-%%% <p>The <code>Format</code> and <code>Args</code> arguments are
-%%% used in call to <code>io_lib:format/2</code> in order to create
-%%% the comment string. The behaviour of <code>comment/2</code> is
-%%% otherwise the same as the <code>comment/1</code> function (see
+%%% <p>The <c>Format</c> and <c>Args</c> arguments are
+%%% used in call to <c>io_lib:format/2</c> in order to create
+%%% the comment string. The behaviour of <c>comment/2</c> is
+%%% otherwise the same as the <c>comment/1</c> function (see
 %%% above for details).</p>
 comment(Format, Args) when is_list(Format), is_list(Args) ->
     Formatted =
@@ -792,11 +799,11 @@ get_target_name(Handle) ->
 %%% @doc Parse the printout from an SQL table and return a list of tuples.
 %%%
 %%% <p>The printout to parse would typically be the result of a
-%%% <code>select</code> command in SQL. The returned
-%%% <code>Table</code> is a list of tuples, where each tuple is a row
+%%% <c>select</c> command in SQL. The returned
+%%% <c>Table</c> is a list of tuples, where each tuple is a row
 %%% in the table.</p>
 %%% 
-%%% <p><code>Heading</code> is a tuple of strings representing the
+%%% <p><c>Heading</c> is a tuple of strings representing the
 %%% headings of each column in the table.</p>
 parse_table(Data) ->
     ct_util:parse_table(Data).
@@ -868,8 +875,8 @@ make_and_load(Dir, Suite) ->
 %%%       SuiteUserData = [term()]
 %%%       Reason = term()
 %%%
-%%% @doc Returns any data specified with the tag <code>userdata</code> 
-%%% in the list of tuples returned from <code>Suite:suite/0</code>.
+%%% @doc Returns any data specified with the tag <c>userdata</c> 
+%%% in the list of tuples returned from <c>Suite:suite/0</c>.
 userdata(TestDir, Suite) ->
     case make_and_load(TestDir, Suite) of
 	E = {error,_} ->
@@ -904,9 +911,9 @@ get_userdata(_BadTerm, Spec) ->
 %%%       TCUserData = [term()]
 %%%       Reason = term()
 %%%
-%%% @doc Returns any data specified with the tag <code>userdata</code>
-%%% in the list of tuples returned from <code>Suite:group(GroupName)</code>
-%%% or <code>Suite:Case()</code>.
+%%% @doc Returns any data specified with the tag <c>userdata</c>
+%%% in the list of tuples returned from <c>Suite:group(GroupName)</c>
+%%% or <c>Suite:Case()</c>.
 userdata(TestDir, Suite, {group,GroupName}) ->
     case make_and_load(TestDir, Suite) of
 	E = {error,_} ->
@@ -986,7 +993,7 @@ get_testdata(Key) ->
 %%%	 executing. The function is therefore only safe to call from a function which
 %%%	 has been called (or synchronously invoked) by the test case.</p>
 %%%
-%%%      <p><code>Reason</code>, the reason for aborting the test case, is printed
+%%%      <p><c>Reason</c>, the reason for aborting the test case, is printed
 %%%      in the test case log.</p>
 abort_current_testcase(Reason) ->
     test_server_ctrl:abort_current_testcase(Reason).
@@ -999,13 +1006,13 @@ abort_current_testcase(Reason) ->
 %%%       Reason = term()
 %%%
 %%% @doc <p>This function encrypts the source config file with DES3 and 
-%%%      saves the result in file <code>EncryptFileName</code>. The key,
+%%%      saves the result in file <c>EncryptFileName</c>. The key,
 %%%      a string, must be available in a text file named 
-%%%      <code>.ct_config.crypt</code> in the current directory, or the 
+%%%      <c>.ct_config.crypt</c> in the current directory, or the 
 %%%      home directory of the user (it is searched for in that order).</p>
 %%%      <p>See the Common Test User's Guide for information about using
 %%%      encrypted config files when running tests.</p>
-%%%      <p>See the <code>crypto</code> application for details on DES3
+%%%      <p>See the <c>crypto</c> application for details on DES3
 %%%      encryption/decryption.</p>
 encrypt_config_file(SrcFileName, EncryptFileName) ->
     ct_config:encrypt_config_file(SrcFileName, EncryptFileName).
@@ -1019,13 +1026,13 @@ encrypt_config_file(SrcFileName, EncryptFileName) ->
 %%%       Reason = term()
 %%%
 %%% @doc <p>This function encrypts the source config file with DES3 and
-%%%      saves the result in the target file <code>EncryptFileName</code>. 
+%%%      saves the result in the target file <c>EncryptFileName</c>. 
 %%%      The encryption key to use is either the value in 
-%%%      <code>{key,Key}</code> or the value stored in the file specified 
-%%%      by <code>{file,File}</code>.</p>
+%%%      <c>{key,Key}</c> or the value stored in the file specified 
+%%%      by <c>{file,File}</c>.</p>
 %%%      <p>See the Common Test User's Guide for information about using
 %%%      encrypted config files when running tests.</p>
-%%%      <p>See the <code>crypto</code> application for details on DES3
+%%%      <p>See the <c>crypto</c> application for details on DES3
 %%%      encryption/decryption.</p>
 encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) ->
     ct_config:encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile).
@@ -1037,11 +1044,11 @@ encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) ->
 %%%       TargetFileName = string()
 %%%       Reason = term()
 %%%
-%%% @doc <p>This function decrypts <code>EncryptFileName</code>, previously 
-%%%      generated with <code>encrypt_config_file/2/3</code>. The original
+%%% @doc <p>This function decrypts <c>EncryptFileName</c>, previously 
+%%%      generated with <c>encrypt_config_file/2/3</c>. The original
 %%%      file contents is saved in the target file. The encryption key, a
 %%%      string, must be available in a text file named
-%%%      <code>.ct_config.crypt</code> in the current directory, or the
+%%%      <c>.ct_config.crypt</c> in the current directory, or the
 %%%      home directory of the user (it is searched for in that order).</p>
 decrypt_config_file(EncryptFileName, TargetFileName) ->
     ct_config:decrypt_config_file(EncryptFileName, TargetFileName).
@@ -1054,8 +1061,8 @@ decrypt_config_file(EncryptFileName, TargetFileName) ->
 %%%       KeyOrFile = {key,string()} | {file,string()}
 %%%       Reason = term()
 %%%
-%%% @doc <p>This function decrypts <code>EncryptFileName</code>, previously 
-%%%      generated with <code>encrypt_config_file/2/3</code>. The original
+%%% @doc <p>This function decrypts <c>EncryptFileName</c>, previously 
+%%%      generated with <c>encrypt_config_file/2/3</c>. The original
 %%%      file contents is saved in the target file. The key must have the
 %%%      the same value as that used for encryption.</p>
 decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
@@ -1072,7 +1079,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
 %%% 	 given callback module and configuration string. Callback module
 %%%	 should be either loaded or present in the code part. Loaded
 %%%	 configuration variables can later be removed using
-%%%	 <code>remove_config/2</code> function.</p>
+%%%	 <c>remove_config/2</c> function.</p>
 add_config(Callback, Config)->
     ct_config:add_config(Callback, Config).
 
@@ -1101,9 +1108,9 @@ remove_config(Callback, Config) ->
 %%%       A = list()
 %%%
 %%% @doc <p>Use this function to set a new timetrap for the running test case.
-%%%      If the argument is <code>Func</code>, the timetrap will be triggered
-%%%      when this function returns. <code>Func</code> may also return a new
-%%%      <code>Time</code> value, which in that case will be the value for the
+%%%      If the argument is <c>Func</c>, the timetrap will be triggered
+%%%      when this function returns. <c>Func</c> may also return a new
+%%%      <c>Time</c> value, which in that case will be the value for the
 %%%      new timetrap.</p>
 timetrap(Time) ->
     test_server:timetrap_cancel(),
@@ -1174,13 +1181,21 @@ sync_notify(Name,Data) ->
 %%%                'enable break with release_shell option'
 %%%       TestCases = [atom()]
 %%%
-%%% @doc <p>This function will cancel all timetraps and pause the
+%%% @doc <p>This function will cancel any active timetrap and pause the
 %%%       execution of the current test case until the user calls the
 %%%       <c>continue/0</c> function. It gives the user the opportunity
 %%%       to interact with the erlang node running the tests, e.g. for
 %%%       debugging purposes or for manually executing a part of the
 %%%       test case. If a parallel group is executing, <c>break/2</c>
 %%%       should be called instead.</p>
+%%%      <p>A cancelled timetrap will not be automatically
+%%%       reactivated after the break, but must be started exlicitly with
+%%%       <c>ct:timetrap/1</c></p>
+%%%      <p>In order for the break/continue functionality to work,
+%%%       Common Test must release the shell process controlling stdin.
+%%%       This is done by setting the <c>release_shell</c> start option
+%%%       to <c>true</c>. See the User's Guide for more information.</p>
+
 break(Comment) ->
     case {ct_util:get_testdata(starter),
 	  ct_util:get_testdata(release_shell)} of
@@ -1191,7 +1206,7 @@ break(Comment) ->
 	    {error,'enable break with release_shell option'};
 	_ ->
 	    case get_testdata(curr_tc) of
-		{ok,{_,TestCase}} ->
+		{ok,{_,_TestCase}} ->
 		    test_server:break(?MODULE, Comment);
 		{ok,Cases} when is_list(Cases) ->
 		    {error,{'multiple cases running',
@@ -1215,6 +1230,7 @@ break(Comment) ->
 %%%       pause a test case executing in a parallel group. The
 %%%       <c>continue/1</c> function should be used to resume
 %%%       execution of <c>TestCase</c>.</p>
+%%%      <p>See <c>break/1</c> for more details.</p>
 break(TestCase, Comment) ->
     case {ct_util:get_testdata(starter),
 	  ct_util:get_testdata(release_shell)} of

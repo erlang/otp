@@ -124,7 +124,8 @@
     <p><c>NodeRef = NodeAlias | node() | master</c></p>
 
     <p>A <c>NodeAlias</c> (<c>atom()</c>) is used in a test specification as a 
-    reference to a node name (so the actual node name only needs to be declared once). 
+    reference to a node name (so the actual node name only needs to be declared once,
+      which can of course also be achieved using constants). 
     The alias is declared with a <c>node</c> term:</p>
 
     <p><c>{node, NodeAlias, NodeName}</c></p>
@@ -141,30 +142,32 @@
     CT Master:</p>
 
     <pre>
-      {node, node1, ct_node@host_x}.
-      {node, node2, ct_node@host_y}.
- 
-      {logdir, master, "/home/test/master_logs"}.
-      {logdir, "/home/test/logs"}.
+      {define, 'Top', "/home/test"}.
+      {define, 'T1', "'Top'/t1"}.
+      {define, 'T2', "'Top'/t2"}.
+      {define, 'T3', "'Top'/t3"}.
+      {define, 'CfgFile', "config.cfg"}.
+      {define, 'Node', ct_node}.
+
+      {node, node1, 'Node@host_x'}.
+      {node, node2, 'Node@host_y'}.
+
+      {logdir, master, "'Top'/master_logs"}.
+      {logdir, "'Top'/logs"}.
       
-      {config, node1, "/home/test/t1/cfg/config.cfg"}.
-      {config, node2, "/home/test/t2/cfg/config.cfg"}.
-      {config, "/home/test/t3/cfg/config.cfg"}.
+      {config, node1, "'T1'/'CfgFile'"}.
+      {config, node2, "'T2'/'CfgFile'"}.
+      {config, "'T3'/'CfgFile'"}.
       
-      {alias, t1, "/home/test/t1"}.
-      {alias, t2, "/home/test/t2"}.
-      {alias, t3, "/home/test/t3"}.
+      {suites, node1, 'T1', all}.
+      {skip_suites, node1, 'T1', [t1B_SUITE,t1D_SUITE], "Not implemented"}.
+      {skip_cases, node1, 'T1', t1A_SUITE, [test3,test4], "Irrelevant"}.
+      {skip_cases, node1, 'T1', t1C_SUITE, [test1], "Ignore"}.
       
-      {suites, node1, t1, all}.
-      {skip_suites, node1, t1, [t1B_SUITE,t1D_SUITE], "Not implemented"}.
-      {skip_cases, node1, t1, t1A_SUITE, [test3,test4], "Irrelevant"}.
-      {skip_cases, node1, t1, t1C_SUITE, [test1], "Ignore"}.
+      {suites, node2, 'T2', [t2B_SUITE,t2C_SUITE]}.
+      {cases, node2, 'T2', t2A_SUITE, [test4,test1,test7]}.
       
-      {suites, node2, t2, [t2B_SUITE,t2C_SUITE]}.
-      {cases, node2, t2, t2A_SUITE, [test4,test1,test7]}.
-      
-      {skip_suites, t3, all, "Not implemented"}.
-    </pre>
+      {skip_suites, 'T3', all, "Not implemented"}.</pre>
 
     <p>This example specifies the same tests as the original example. But 
     now if started with a call to <c>ct_master:run(TestSpecName)</c>, the 
@@ -190,10 +193,6 @@
     name as the Common Test node in question (typically <c>ct@somehost</c> if started
     with the <c>ct_run</c> program), will be performed. Tests without explicit
     node association will always be performed too of course!</p>
-
-    <note><p>It is recommended that absolute paths are used for log directories,
-    config files and test directory aliases in the test specifications so that
-    current working directory settings are not important.</p></note>
   </section>
 
   <section>
