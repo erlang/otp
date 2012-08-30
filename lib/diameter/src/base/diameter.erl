@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -323,10 +323,11 @@ call(SvcName, App, Message) ->
 %% Predicate passed to remove_transport/2
 
 -type transport_pred()
-   :: fun((reference(), connect|listen, list()) -> boolean())
-    | fun((reference(), list()) -> boolean())
+   :: fun((transport_ref(), connect|listen, list()) -> boolean())
+    | fun((transport_ref(), list()) -> boolean())
     | fun((list()) -> boolean())
-    | reference()
+    | transport_ref()
+    | boolean()
     | list()
     | {connect|listen, transport_pred()}
     | {atom(), atom(), list()}.
