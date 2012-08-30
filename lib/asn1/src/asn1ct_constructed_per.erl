@@ -119,9 +119,7 @@ gen_encode_constructed(Erule,Typename,D) when is_record(D,type) ->
 				      "end,",nl]),
 				asn1ct_name:new(val)
 			end,
-		    lists:foreach(ExtGroupFun,ExtGroupPosLenList);
-		_ -> % no extensionAdditionGroup
-		    ok
+		    lists:foreach(ExtGroupFun,ExtGroupPosLenList)
 	    end,
 	    asn1ct_name:new(tmpval),
 	    emit(["Extensions = ?RT_PER:fixextensions(",{asis,Ext},",",

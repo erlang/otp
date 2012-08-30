@@ -803,8 +803,6 @@ decode_unconstrained_number(Bytes) ->
     {Ints,Bytes3} = getoctets_as_list(Bytes2,Len),
     {dec_integer(Ints),Bytes3}.
 
-dec_pos_integer(Ints) ->
-    decpint(Ints, 8 * (length(Ints) - 1)).
 dec_integer(Ints) when hd(Ints) band 255 =< 127 -> %% Positive number
     decpint(Ints, 8 * (length(Ints) - 1));
 dec_integer(Ints) ->                        %% Negative

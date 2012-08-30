@@ -833,7 +833,7 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
     asn1ct_table:new(check_functions),
 
     %% create decoding function names and taglists for partial decode
-    case specialized_decode_prepare(EncodingRule,M,GenTOrV,Options) of
+    case (catch specialized_decode_prepare(EncodingRule,M,GenTOrV,Options)) of
         {error, Reason}  -> warning("Error in configuration file: ~n~p~n",
                                     [Reason], Options,
                                     "Error in configuration file");
