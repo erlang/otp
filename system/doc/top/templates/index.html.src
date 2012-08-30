@@ -94,7 +94,7 @@ Some hints that may get you started faster
 <ul>
 
 <li>
-The complete Erlang language is described in the 
+The Erlang language is described in the 
 <a href="reference_manual/users_guide.html">Erlang Reference Manual</a>. 
 An Erlang tutorial can be found in 
 <a href="getting_started/users_guide.html">
@@ -108,6 +108,7 @@ In addition to the documentation here Erlang is described in several recent book
 </li>
 <li>
 <a href="http://www.pragprog.com/titles/jaerlang">"Programming Erlang"</a> from Pragmatic.
+<a href="http://www.manning.com/logan">"Erlang and OTP in Action"</a> from Manning.
 </li>
 </ul>
 <p>
@@ -143,16 +144,14 @@ environment. ErlIDE is under active development with new features in almost ever
 from the interactive shell (see <a href="getting_started/users_guide.html">
 Getting Started With Erlang</a>) where you can call individual
 functions. There is also a number of tools available, such as the graphical <a
-href="#debugger#/index.html" >Debugger</a>, the process
-manager <a href="#pman#/index.html" >Pman</a> and table
-viewer <a href="#tv#/index.html">TV</a>.
+href="#debugger#/index.html" >Debugger</a> and the <a href="#observer#/index.html" >Observer tool</a> for inspection of system information, ets and mnesia tables  etc.
 <p> Also note that there are some shell features like history list
 (control-p and control-n), in line editing (Emacs key bindings) and
 module and function name completion (tab) if the module is loaded.
 <p>
 
 <li>OpenSource users can ask questions
-and share experiences on the <a href="http://www.erlang.org/faq.html">
+and share experiences on the <a href="http://www.erlang.org/static/doc/mailinglist.html">
 Erlang questions mailing list</a>.  <p>
 
 <li>Before asking a question you can browse the <a
