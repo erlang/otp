@@ -4,7 +4,7 @@
 <chapter>
 <header>
 <copyright>
-<year>2011</year>
+<year>2011</year><year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 
@@ -44,11 +44,11 @@ agent.
 This chapter provides a short overview of the application.</p>
 
 <p>
-A Diameter peer is implemented by configuring a <em>service</em> and
+A Diameter node is implemented by configuring a <em>service</em> and
 one or more <em>transports</em> using the interface module
 <seealso marker="diameter">diameter</seealso>.
 The service configuration defines the Diameter applications to be
-supported by the peer and, typically, the capabilities that it should
+supported by the node and, typically, the capabilities that it should
 send to remote peers at capabilities exchange upon the establishment
 of transport connections.
 A transport is configured on a service and provides protocol-specific
@@ -57,16 +57,17 @@ diameter and implemented by a transport module.
 The diameter application provides two transport modules: <seealso
 marker="diameter_tcp">diameter_tcp</seealso> and <seealso
 marker="diameter_sctp">diameter_sctp</seealso> for transport over TCP
-(using <c>gen_tcp</c>) and SCTP (using <c>gen_sctp</c>) respectively.
+(using <seealso marker="kernel:gen_tcp">gen_tcp</seealso>) and SCTP
+(using <seealso marker="kernel:gen_sctp">gen_sctp</seealso>) respectively.
 Other transports can be provided by any module that implements
 diameter's <seealso marker="diameter_transport">transport
 interface</seealso>.</p>
 
 <p>
-While a service typically implements a single Diameter peer (as
+While a service typically implements a single Diameter node (as
 identified by an Origin-Host AVP), transports can themselves be
-associated with capabilities AVP's so that a single service be used to
-implement more than one Diameter peer.</p>
+associated with capabilities AVP's so that a single service can be
+used to implement more than one Diameter node.</p>
 
 <p>
 Each Diameter application defined on a service is configured with a
@@ -76,19 +77,19 @@ diameter communicates the connectivity of remote peers, requests peer
 selection for outgoing requests, and communicates the reception of
 incoming Diameter request and answer messages.
 An application using diameter implements these application callback
-modules to provide the functionality of the Diameter peer(s) it
+modules to provide the functionality of the Diameter node(s) it
 implements.</p>
 
 <p>
-Each Diameter application is also configured with one or more
-dictionary modules
+Each Diameter application is also configured with a
+dictionary module
 that provide encode/decode functionality for outgoing/incoming
-Diameter messages.
-A module is generated from a <seealso
+Diameter messages belonging to the application.
+A dictionary module is generated from a <seealso
 marker="diameter_dict">specification file</seealso> using the <seealso
 marker="diameterc">diameterc</seealso> utility.
 Dictionaries for the RFC 3588 Diameter Common Messages, Base
-Accounting and Relay applications are provided by the diameter
+Accounting and Relay applications are provided with the diameter
 application.</p>
 
 </chapter>

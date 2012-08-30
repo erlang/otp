@@ -5,7 +5,7 @@
 <header>
 
 <copyright>
-<year>2011</year>
+<year>2011</year><year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -43,13 +43,13 @@ under the License.
 
 <description>
 <p>
-This module provides the interface with which a user
-creates a service that sends and receives messages using the
+This module provides the interface with which a user can
+implement a Diameter node that sends and receives messages using the
 Diameter protocol as defined in RFC 3588.</p>
 
 <p>
 Basic usage consists of creating a representation of a
-locally implemented Diameter peer and its capabilities with <seealso
+locally implemented Diameter node and its capabilities with <seealso
 marker="#start_service">start_service/2</seealso>, adding transport
 capability using <seealso
 marker="#add_transport">add_transport/2</seealso> and sending Diameter
@@ -61,17 +61,15 @@ marker="diameter_app">diameter_app(3)</seealso> callback modules as
 specified in the service configuration.</p>
 
 <p>
-Beware the difference between <em>diameter application</em> and
-<em>Diameter application</em>.
+Beware the difference between <em>diameter</em> (not capitalised) and
+<em>Diameter</em> (capitalised).
 The former refers to the Erlang application named diameter whose main
-api is defined here, the latter to an application of the Diameter
-protocol in the sense of RFC 3588.
-More generally, capitalized Diameter refers to the RFC
-and diameter to this implementation.</p>
+api is defined here, the latter to Diameter protocol in the sense of
+RFC 3588.</p>
 
 <p>
-The diameter application must be started before calling functions in
-this module.</p>
+The diameter application must be started before calling most functions
+in this module.</p>
 
 </description>
 
@@ -84,13 +82,15 @@ this module.</p>
 
 <tag><c>Address()</c></tag>
 <tag><c>DiameterIdentity()</c></tag>
+<tag><c>Grouped()</c></tag>
+<tag><c>OctetString()</c></tag>
 <tag><c>Time()</c></tag>
 <tag><c>Unsigned32()</c></tag>
 <tag><c>UTF8String()</c></tag>
 <item>
 <p>
 Types corresponding to RFC 3588 AVP Data Formats.
-Defined in <seealso marker="diameter_dict">diameter_dict(4)</seealso>.</p>
+Defined in <seealso marker="diameter_dict#DATA_TYPES">diameter_dict(4)</seealso>.</p>
 
 <marker id="application_alias"/>
 </item>
@@ -99,10 +99,9 @@ Defined in <seealso marker="diameter_dict">diameter_dict(4)</seealso>.</p>
 <item>
 <p>
 A name identifying a Diameter application in
-service configuration passed to <seealso
-marker="#start_service">start_service/2</seealso> and passed to
-<seealso marker="#call">call/4</seealso> when sending requests
-belonging to the application.</p>
+service configuration.
+Passed to <seealso marker="#call">call/4</seealso> when sending requests
+defined by the application.</p>
 
 <marker id="application_module"/>
 </item>
@@ -120,19 +119,14 @@ ExtraArgs = list()
 A module implementing the callback interface defined in <seealso
 marker="diameter_app">diameter_app(3)</seealso>, along with any
 extra arguments to be appended to those documented for the interface.
-Any extra arguments are appended to the documented list of arguments for
-each function.
-Note that additional arguments specific to an outgoing request be
+Note that extra arguments specific to an outgoing request can be
 specified to <seealso marker="#call">call/4</seealso>, in which case
-the call-specific arguments are appended to any specified with the
-callback module.</p>
+those are are appended to any module-specific extra arguments.</p>
 
 <p>
 Specifying a <c>#diameter_callback{}</c> record allows individual
 functions to be configured in place of the usual <seealso
-marker="diameter_app">diameter_app(3)</seealso> callbacks, with
-default implementations provided by module <c>diameter_callback</c>
-unless otherwise specified.
+marker="diameter_app">diameter_app(3)</seealso> callbacks.
 See that module for details.</p>
 
 <marker id="application_opt"/>
@@ -142,18 +136,18 @@ See that module for details.</p>
 <item>
 
 <p>
-Options defining a Diameter application as configured in an
-<c>application</c> option passed to
-<seealso marker="#start_service">start_service/2</seealso>.</p>
+Options defining a Diameter application.
+Has one the following types.</p>
 
 <taglist>
 
-<tag><c>{alias, application_alias()}</c></tag>
+<tag><c>{alias, <seealso marker="#application_alias">application_alias()</seealso>}</c></tag>
 <item>
 <p>
 An unique identifier for the application in the scope of the
 service.
-Optional, defaults to the value of the <c>dictionary</c> option.</p>
+Defaults to the value of the <c>dictionary</c> option if
+unspecified.</p>
 </item>
 
 <tag><c>{dictionary, atom()}</c></tag>
@@ -166,23 +160,23 @@ documented in <seealso
 marker="diameter_dict">diameter_dict(4)</seealso>.</p>
 </item>
 
-<tag><c>{module, application_module()}</c></tag>
+<tag><c>{module, <seealso marker="#application_module">application_module()</seealso>}</c></tag>
 <item>
 <p>
-A callback module with which messages of the Diameter application are
+The callback module with which messages of the Diameter application are
 handled.
 See <seealso marker="diameter_app">diameter_app(3)</seealso> for
-information on the required interface and semantics.</p>
+the required interface and semantics.</p>
 </item>
 
 <tag><c>{state, term()}</c></tag>
 <item>
 <p>
 The initial callback state.
-Defaults to the value of the <c>alias</c> option if unspecified.
-The prevailing state is passed to certain
+The prevailing state is passed to some
 <seealso marker="diameter_app">diameter_app(3)</seealso>
-callbacks, which can then return a new state.</p>
+callbacks, which can then return a new state.
+Defaults to the value of the <c>alias</c> option if unspecified.</p>
 </item>
 
 <tag><c>{call_mutates_state, true|false}</c></tag>
@@ -190,19 +184,18 @@ callbacks, which can then return a new state.</p>
 <p>
 Specifies whether or not the <seealso
 marker="diameter_app#pick_peer">pick_peer/4</seealso>
-application callback (following from a call to
-<seealso marker="#call">call/4</seealso>)
-can modifiy state,
+application callback can modify the application state,
 Defaults to <c>false</c> if unspecified.</p>
 
+<note>
 <p>
-Note that <seealso
-marker="diameter_app#pick_peer">pick_peer</seealso> callbacks are
-serialized when these are allowed to modify state, which is a
+<seealso marker="diameter_app#pick_peer">pick_peer</seealso> callbacks
+are serialized when these are allowed to modify state, which is a
 potential performance bottleneck.
 A simple Diameter client may suffer no ill effects from using mutable
-state but a server or agent that responds to incoming request but
-sending its own requests should probably avoid it.</p>
+state but a server or agent that responds to incoming request should
+probably avoid it.</p>
+</note>
 </item>
 
 <tag><c>{answer_errors, callback|report|discard}</c></tag>
@@ -213,9 +206,9 @@ decode errors are handled.
 If <c>callback</c> then errors result in a <seealso
 marker="diameter_app#handle_answer">handle_answer/4</seealso>
 callback in the same fashion as for <seealso
-marker="diameter_app#handle_request">handle_request/3</seealso>, in the
-<c>errors</c> field of the <c>diameter_packet</c> record passed into
-the callback.
+marker="diameter_app#handle_request">handle_request/3</seealso>, with
+errors communicated in the <c>errors</c> field of the
+<c>#diameter_packet{}</c> record passed to the callback.
 If <c>report</c> then an answer containing errors is discarded
 without a callback and a warning report is written to the log.
 If <c>discard</c> then an answer containing errors is silently
@@ -239,7 +232,8 @@ Defaults to <c>report</c> if unspecified.</p>
 
 <p>
 Options available to <seealso marker="#call">call/4</seealso> when
-sending an outgoing Diameter request.</p>
+sending an outgoing Diameter request.
+Has one of the following types.</p>
 
 <taglist>
 
@@ -248,12 +242,12 @@ sending an outgoing Diameter request.</p>
 <p>
 Extra arguments to append to callbacks to the callback
 module in question.
-These are appended to any extra arguments configured with the callback
+These are appended to any extra arguments configured on the callback
 itself.
 Multiple options append to the argument list.</p>
 </item>
 
-<tag><c>{filter, peer_filter()}</c></tag>
+<tag><c>{filter, <seealso marker="#peer_filter">peer_filter()</seealso>}</c></tag>
 <item>
 <p>
 A filter to apply to the list of available peers before passing them to
@@ -264,7 +258,7 @@ corresponding list of filters.
 Defaults to <c>none</c>.</p>
 </item>
 
-<tag><c>{timeout, Unsigned32()}</c></tag>
+<tag><c>{timeout, <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
 <item>
 <p>
 The number of milliseconds after which the request should
@@ -298,121 +292,55 @@ to fail.</p>
 <item>
 
 <p>
-AVP values used in outgoing CER/CEA messages during capabilities exchange.
-Can be configured both on a service and a transport, the latter taking
-precedence over the former.</p>
+AVP values sent in outgoing CER or CEA messages during capabilities
+exchange.
+Can be configured both on a service and a transport, values specified
+on the latter taking precedence over any specified on the former.
+Has one of the following types.</p>
 
 <taglist>
 
-<tag><c>{'Origin-Host', DiameterIdentity()}</c></tag>
+<tag><c>{'Origin-Host', <seealso marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso>}</c></tag>
+<tag><c>{'Origin-Realm', <seealso marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso>}</c></tag>
+<tag><c>{'Host-IP-Address', [<seealso marker="diameter_dict#DATA_TYPES">Address()</seealso>]}</c></tag>
 <item>
 <p>
-Value of the Origin-Host AVP in outgoing messages.</p>
+An address list is available to the start function of a
+<seealso marker="diameter_transport">transport module</seealso>, which
+can return a new list for use in the subsequent CER or CEA.
+Host-IP-Address need not be specified if the transport start function
+returns an address list.</p>
 </item>
 
-<tag><c>{'Origin-Realm', DiameterIdentity()}</c></tag>
+<tag><c>{'Vendor-Id', <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
+<tag><c>{'Product-Name', <seealso marker="diameter_dict#DATA_TYPES">UTF8String()</seealso>}</c></tag>
+<tag><c>{'Origin-State-Id', <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
 <item>
 <p>
-Value of the Origin-Realm AVP in outgoing messages.</p>
-</item>
-
-<tag><c>{'Host-IP-Address', [Address()]}</c></tag>
-<item>
-<p>
-Values of Host-IP-Address AVPs.
-Optional.</p>
-
-<p>
-The list of addresses is available to the start function of a
-transport module, which either uses them as is or returns a new list
-(typically as configured as <c>transport_config()</c> on the
-transport module in question) in order for the correct list of
-addresses to be sent in capabilities exchange messages.</p>
-</item>
-
-<tag><c>{'Vendor-Id', Unsigned32()}</c></tag>
-<item>
-<p>
-Value of the Vendor-Id AVP sent in an outgoing capabilities
-exchange message.</p>
-</item>
-
-<tag><c>{'Product-Name', UTF8String()}</c></tag>
-<item>
-<p>
-Value of the Product-Name AVP sent in an outgoing capabilities
-exchange message.</p>
-</item>
-
-<tag><c>{'Origin-State-Id', Unsigned32()}</c></tag>
-<item>
-<p>
-Value of Origin-State-Id to be included in outgoing messages sent by
-diameter itself.
-In particular, the AVP will be included in CER/CEA and DWR/DWA messages.
-Optional.</p>
-
-<p>
+Origin-State-Id is optional but will be included in outgoing messages
+sent by diameter itself: CER/CEA, DWR/DWA and DPR/DPA.
 Setting a value of <c>0</c> (zero) is equivalent to not setting a
 value as documented in RFC 3588.
 The function <seealso
 marker="#origin_state_id">origin_state_id/0</seealso>
-can be used as to retrieve a value that is set when the diameter
+can be used as to retrieve a value that is computed when the diameter
 application is started.</p>
 </item>
 
-<tag><c>{'Supported-Vendor-Id', [Unsigned32()]}</c></tag>
+<tag><c>{'Supported-Vendor-Id', [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>]}</c></tag>
+<tag><c>{'Auth-Application-Id', [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>]}</c></tag>
+<tag><c>{'Inband-Security-Id', [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>]}</c></tag>
 <item>
 <p>
-Values of Supported-Vendor-Id AVPs sent in an outgoing
-capabilities exchange message.
-Optional, defaults to the empty list.</p>
-</item>
-
-<tag><c>{'Auth-Application-Id', [Unsigned32()]}</c></tag>
-<item>
-<p>
-Values of Auth-Application-Id AVPs sent in an outgoing
-capabilities exchange message.
-Optional, defaults to the empty list.</p>
-</item>
-
-<tag><c>{'Inband-Security-Id', [Unsigned32()]}</c></tag>
-<item>
-<p>
-Values of Inband-Security-Id AVPs sent in an outgoing
-capabilities exchange message.
-Optional, defaults to the empty list, which is equivalent to a
-list containing only 0 (= NO_INBAND_SECURITY).</p>
-
-<p>
+Inband-Security-Id defaults to the empty list, which is equivalent to a
+list containing only 0 (= NO_INBAND_SECURITY).
 If 1 (= TLS) is specified then TLS is selected if the CER/CEA received
 from the peer offers it.</p>
 </item>
 
-<tag><c>{'Acct-Application-Id', [Unsigned32()]}</c></tag>
-<item>
-<p>
-Values of Acct-Application-Id AVPs sent in an outgoing
-capabilities exchange message.
-Optional, defaults to the empty list.</p>
-</item>
-
-<tag><c>{'Vendor-Specific-Application-Id', [Grouped()]}</c></tag>
-<item>
-<p>
-Values of Vendor-Specific-Application-Id AVPs sent in
-an outgoing capabilities exchange message.
-Optional, defaults to the empty list.</p>
-</item>
-
-<tag><c>{'Firmware-Revision', Unsigned32()}</c></tag>
-<item>
-<p>
-Value of the Firmware-Revision AVP sent in an outgoing capabilities
-exchange message.
-Optional.</p>
-</item>
+<tag><c>{'Acct-Application-Id', [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>]}</c></tag>
+<tag><c>{'Vendor-Specific-Application-Id', [<seealso marker="diameter_dict#DATA_TYPES">Grouped()</seealso>]}</c></tag>
+<tag><c>{'Firmware-Revision', <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
 
 </taglist>
 
@@ -441,14 +369,17 @@ eval(F) ->
 </code>
 
 <p>
-Applying an evaluable() <c>E</c> to an argument list <c>A</c>
+Applying an <c><seealso marker="#evaluable">evaluable()</seealso></c>
+<c>E</c> to an argument list <c>A</c>
 is meant in the sense of <c>eval([E|A])</c>.</p>
 
+<warning>
 <p>
-Beware of using local funs (that is, fun expressions not of the
-form <c>fun Module:Name/Arity</c>) in situations in which the fun is
-not short-lived and code is to be upgraded at runtime since any
-processes retaining such a fun will have a reference to old code.</p>
+Beware of using fun expressions of the form <c>fun Name/Arity</c> (not
+fun Mod:Name/Arity) in situations in which the fun is not short-lived
+and code is to be upgraded at runtime since any processes retaining
+such a fun will have a reference to old code.</p>
+</warning>
 
 <marker id="peer_filter"/>
 </item>
@@ -490,63 +421,76 @@ or any peer if the request does not contain
 a <c>Destination-Realm</c> AVP.</p>
 </item>
 
-<tag><c>{host, any|DiameterIdentity()}</c></tag>
+<tag><c>{host, any|<seealso marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso>}</c></tag>
 <item>
 <p>
 Matches only those peers whose <c>Origin-Host</c> has the
 specified value, or all peers if the atom <c>any</c>.</p>
 </item>
 
-<tag><c>{realm, any|DiameterIdentity()</c></tag>
+<tag><c>{realm, any|<seealso marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso></c></tag>
 <item>
 <p>
 Matches only those peers whose <c>Origin-Realm</c> has the
-value, or all peers if the atom <c>any</c>.</p>
+specified value, or all peers if the atom <c>any</c>.</p>
 </item>
 
-<tag><c>{eval, evaluable()}</c></tag>
+<tag><c>{eval, <seealso marker="#evaluable">evaluable()</seealso>}</c></tag>
 <item>
 <p>
-Matches only those peers for which the specified evaluable() returns
+Matches only those peers for which the specified <c><seealso
+marker="#evaluable">evaluable()</seealso></c> returns
 <c>true</c> on the connection's <c>diameter_caps</c> record.
 Any other return value or exception is equivalent to <c>false</c>.</p>
 </item>
 
-<tag><c>{neg, peer_filter()}</c></tag>
+<tag><c>{neg, <seealso marker="#peer_filter">peer_filter()</seealso>}</c></tag>
 <item>
 <p>
 Matches only those peers not matched by the specified filter.</p>
 </item>
 
-<tag><c>{all, [peer_filter()]}</c></tag>
+<tag><c>{all, [<seealso marker="#peer_filter">peer_filter()</seealso>]}</c></tag>
 <item>
 <p>
-Matches only those peers matched by each filter of the specified list.</p>
+Matches only those peers matched by each filter in the specified list.</p>
 </item>
 
-<tag><c>{any, [peer_filter()]}</c></tag>
+<tag><c>{any, [<seealso marker="#peer_filter">peer_filter()</seealso>]}</c></tag>
 <item>
 <p>
-Matches only those peers matched by at least one filter of the
+Matches only those peers matched by at least one filter in the
 specified list.</p>
 </item>
 
 </taglist>
 
 <p>
-Note that the <c>host</c> and <c>realm</c> filters examine the
-outgoing request as passed to <seealso marker="#call">call/4</seealso>,
-assuming that this is a record- or list-valued message() as documented
-in <seealso marker="diameter_app">diameter_app(3)</seealso>, and that
-the message contains at most one of each AVP.
-If this is not the case then the <c>{host|realm, DiameterIdentity()}</c>
-filters must be used to achieve the desired result.
-Note also that an empty host/realm (which should not be typical)
-is equivalent to an unspecified one for the purposes of filtering.</p>
-
-<p>
-An invalid filter is equivalent to <c>{any, []}</c>, a filter
+An invalid filter is equivalent to <c>{any,[]}</c>, a filter
 that matches no peer.</p>
+
+<note>
+<p>
+The <c>host</c> and <c>realm</c> filters examine the
+outgoing request as passed to <seealso marker="#call">call/4</seealso>,
+assuming that this is a record- or list-valued <c><seealso
+marker="diameter_app#message">diameter_app:message()</seealso></c>,
+and that the message contains at most one of each AVP.
+If this is not the case then the <c>{host|realm, <seealso
+marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso>}</c>
+filters must be used to achieve the desired result.
+An empty <c><seealso
+marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso></c>
+(which should not be typical)
+matches all hosts/realms for the purposes of filtering.</p>
+</note>
+
+<warning>
+<p>
+A <c>host</c> filter is not typically desirable when setting
+Destination-Host since it will remove peer agents from the
+candidates list.</p>
+</warning>
 
 <marker id="service_event"/>
 </item>
@@ -554,12 +498,12 @@ that matches no peer.</p>
 <tag><c>service_event() = #diameter_event{}</c></tag>
 <item>
 <p>
-Event message sent to processes that have subscribed using <seealso
-marker="#subscribe">subscribe/1</seealso>.</p>
+An event message sent to processes that have subscribed to these using
+<seealso marker="#subscribe">subscribe/1</seealso>.</p>
 
 <p>
-The <c>info</c> field of the event record can be one of the
-following.</p>
+The <c>info</c> field of the event record can have one of the
+following types.</p>
 
 <taglist>
 
@@ -568,27 +512,27 @@ following.</p>
 <tag><c>{down, Ref, Peer, Config}</c></tag>
 <item>
 <code>
-Ref    = transport_ref()
-Peer   = diameter_app:peer()
-Config = {connect|listen, [transport_opt()]}
+Ref    = <seealso marker="#transport_ref">transport_ref()</seealso>
+Peer   = <seealso marker="diameter_app#peer">diameter_app:peer()</seealso>
+Config = {connect|listen, [<seealso marker="#transport_opt">transport_opt()</seealso>]}
 Pkt    = #diameter_packet{}
 </code>
 
 <p>
 The RFC 3539 watchdog state machine has
-transitioned into (<c>up</c>) or out of (<c>down</c>) the open
+transitioned into (<c>up</c>) or out of (<c>down</c>) the OKAY
 state.
-If a <c>diameter_packet</c> record is present in an <c>up</c> tuple
-then there has been an exchange of capabilities exchange messages and
-the record contains the received CER or CEA, otherwise the
-connection has reestablished without the loss or transport
+If a <c>#diameter_packet{}</c> record is present in an <c>up</c> event
+then there has been a capabilties exchange on a newly established
+transport connection and the record contains the received CER or CEA.
+Otherwise a connection has reestablished without the loss or
 connectivity.</p>
 
 <p>
-Note that a single up/down event for a given peer corresponds to
-as many <seealso marker="diameter_app#peer_up">peer_up/peer_down</seealso>
-callbacks as there are Diameter applications shared by the peer,
-as determined during capablilities exchange.
+Note that a single <c>up</c>/<c>down</c> event for a given peer
+corresponds to one <seealso marker="diameter_app#peer_up">peer_up/peer_down</seealso>
+callback for each of the Diameter applications negotiated during
+capablilities exchange.
 That is, the event communicates connectivity with the
 peer as a whole while the callbacks communicate connectivity with
 respect to individual Diameter applications.</p>
@@ -597,26 +541,28 @@ respect to individual Diameter applications.</p>
 <tag><c>{reconnect, Ref, Opts}</c></tag>
 <item>
 <code>
-Ref  = transport_ref()
-Opts = [transport_opt()]
+Ref  = <seealso marker="#transport_ref">transport_ref()</seealso>
+Opts = [<seealso marker="#transport_opt">transport_opt()</seealso>]
 </code>
 
 <p>
 A connecting transport is attempting to establish/reestablish a
-transport connection with a peer following <c>reconnect_timer</c> or
-<c>watchdog_timer</c> expiry.</p>
+transport connection with a peer following <seealso
+marker="#reconnect_timer">reconnect_timer</seealso> or
+<seealso marker="#watchdog_timer">watchdog_timer</seealso>
+expiry.</p>
 </item>
 
 <tag><c>{closed, Ref, Reason, Config}</c></tag>
 <item>
 <code>
-Ref = transport_ref()
-Config = {connect|listen, [transport_opt()]}
+Ref = <seealso marker="#transport_ref">transport_ref()</seealso>
+Config = {connect|listen, [<seealso marker="#transport_opt">transport_opt()</seealso>]}
 </code>
 
 <p>
-Capabilities exchange has failed. <c>Reason</c> can be one of
-the following.</p>
+Capabilities exchange has failed.
+<c>Reason</c> can have one of the following types.</p>
 
 <taglist>
 
@@ -627,17 +573,17 @@ Result = ResultCode | {capabilities_cb, CB, ResultCode|discard}
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
 ResultCode = integer()
-CB = evaluable()
+CB = <seealso marker="#evaluable">evaluable()</seealso>
 </code>
 
 <p>
 An incoming CER has been answered with the indicated result code or
 discarded.
-The capabilities record contains pairs of values for the the local
-node and remote peer.
-The packet record contains the CER in question.
+<c>Caps</c> contains pairs of values for the the local node and remote
+peer.
+<c>Pkt</c> contains the CER in question.
 In the case of rejection by a capabilities callback, the tuple
-indicates the rejecting callback.</p>
+contains the rejecting callback.</p>
 </item>
 
 <tag><c>{'CER', Caps, {ResultCode, Pkt}}</c></tag>
@@ -651,9 +597,8 @@ Pkt  = #diameter_packet{}
 <p>
 An incoming CER contained errors and has been answered with the
 indicated result code.
-The capabilities record contains only values for the the local
-node.
-The packet record contains the CER in question.</p>
+<c>Caps</c> contains only values for the the local node.
+<c>Pkt</c> contains the CER in question.</p>
 </item>
 
 <tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
@@ -669,11 +614,11 @@ ResultCode = integer()
 An incoming CEA has been rejected for the indicated reason.
 An integer-valued <c>Result</c> indicates the result code sent
 by the peer.
-The capabilities record contains pairs of values for the the local
-node and remote peer.
-The packet record contains the CEA in question.
+<c>Caps</c> contains pairs of values for the the local node and remote
+peer.
+<c>Pkt</c> contains the CEA in question.
 In the case of rejection by a capabilities callback, the tuple
-indicates the rejecting callback.</p>
+contains the rejecting callback.</p>
 </item>
 
 <tag><c>{'CEA', Caps, Pkt}</c></tag>
@@ -684,9 +629,9 @@ Pkt  = #diameter_packet{}
 </code>
 
 <p>
-An incoming CER contained errors and has been rejected.
-The capabilities record contains only values for the the local node.
-The packet record contains the CEA in question.</p>
+An incoming CEA contained errors and has been rejected.
+<c>Caps</c> contains only values for the the local node.
+<c>Pkt</c> contains the CEA in question.</p>
 </item>
 
 </taglist>
@@ -695,8 +640,8 @@ The packet record contains the CEA in question.</p>
 <tag><c>{watchdog, Ref, PeerRef, {From, To}, Config}</c></tag>
 <item>
 <code>
-Ref = transport_ref()
-PeerRef = diameter_app:peer_ref()
+Ref = <seealso marker="#transport_ref">transport_ref()</seealso>
+PeerRef  = <seealso marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso>
 From, To = initial | okay | suspect | down | reopen
 Config = {connect|listen, [transport_opt()]}
 </code>
@@ -721,8 +666,8 @@ The name of a service as passed to <seealso
 marker="#start_service">start_service/2</seealso> and with which the
 service is identified.
 There can be at most one service with a given name on a given node.
-Note that <c>erlang:make_ref/0</c> can be used to generate a service name
-that is somewhat unique.</p>
+Note that <seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>
+can be used to generate a service name that is somewhat unique.</p>
 
 <marker id="service_opt"/>
 </item>
@@ -730,29 +675,28 @@ that is somewhat unique.</p>
 <tag><c>service_opt()</c></tag>
 <item>
 <p>
-Options accepted by <seealso
+An option passed to <seealso
 marker="#start_service">start_service/2</seealso>.
-Can be any <c>capability()</c> tuple as
+Can be any <c><seealso marker="#capability">capability()</seealso></c> as
 well as the following.</p>
 
 <taglist>
 
-<tag><c>{application, [application_opt()]}</c></tag>
+<tag><c>{application, [<seealso marker="#application_opt">application_opt()</seealso>]}</c></tag>
 <item>
 <p>
 Defines a Diameter application supported by the service.</p>
 
 <p>
-A service must define one application for each Diameter application it
-intends to support.
-For an outgoing Diameter request, the application is specified by
-passing the desired application's <c>application_alias()</c> to
-<seealso marker="#call">call/4</seealso>, while for an
+A service must configure one <c>application</c> for each Diameter
+application it intends to support.
+For an outgoing Diameter request, the relevant <c><seealso 
+marker="#application_alias">application_alias()</seealso></c> is
+passed to <seealso marker="#call">call/4</seealso>, while for an
 incoming request the application identifier in the message
-header determines the application (and callback module), the
-application identifier being specified in the <seealso
-marker="diameter_dict">dictionary</seealso> file defining the
-application.</p>
+header determines the application, the identifier being specified in
+the application's <seealso marker="diameter_dict">dictionary</seealso>
+file.</p>
 </item>
 
 </taglist>
@@ -763,8 +707,9 @@ application.</p>
 <tag><c>transport_opt()</c></tag>
 <item>
 <p>
-Options accepted by <seealso
-marker="#add_transport">add_transport/2</seealso>.</p>
+An option passed to <seealso
+marker="#add_transport">add_transport/2</seealso>.
+Has one of the following types.</p>
 
 <taglist>
 <tag><c>{transport_module, atom()}</c></tag>
@@ -775,10 +720,6 @@ marker="diameter_transport">diameter_transport(3)</seealso>.
 Defaults to <c>diameter_tcp</c> if unspecified.</p>
 
 <p>
-The interface required of a transport module is documented in <seealso
-marker="diameter_transport">diameter_transport(3)</seealso>.</p>
-
-<p>
 Multiple <c>transport_module</c> and <c>transport_config</c>
 options are allowed.
 The order of these is significant in this case (and only in this case),
@@ -787,11 +728,11 @@ a <c>transport_module</c> being paired with the first
 default value for trailing modules.
 Transport starts will be attempted with each of the
 modules in order until one establishes a connection within the
-corresponding timeout (see <c>transport_config</c> below) or all fail.</p>
+corresponding timeout (see below) or all fail.</p>
 </item>
 
 <tag><c>{transport_config, term()}</c></tag>
-<tag><c>{transport_config, term(), Unsigned32()}</c></tag>
+<tag><c>{transport_config, term(), <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
 <item>
 <p>
 A term passed as the third argument to the <seealso
@@ -818,40 +759,38 @@ request a connection with one peer over SCTP or another
 To listen on both SCTP and TCP, define one transport for each.</p>
 </item>
 
-<tag><c>{applications, [application_alias()]}</c></tag>
+<tag><c>{applications, [<seealso marker="#application_alias">application_alias()</seealso>]}</c></tag>
 <item>
 <p>
-The list of Diameter applications to which usage of the transport
-should be restricted.
-Defaults to all applications configured on the service
-in question.</p>
+The list of Diameter applications to which the transport should be
+restricted.
+Defaults to all applications configured on the service in question.
+Applications not configured on the service in question are ignored.</p>
 </item>
 
-<tag><c>{capabilities, [capability()]}</c></tag>
+<tag><c>{capabilities, [<seealso marker="#capability">capability()</seealso>]}</c></tag>
 <item>
 <p>
 AVP's used to construct outgoing CER/CEA messages.
-Any AVP specified takes precedence over a corresponding value specified
-for the service in question.</p>
+Values take precedence over any specified on the service in
+question.</p>
 
 <p>
 Specifying a capability as a transport option
-may be particularly appropriate for Inband-Security-Id in case
+may be particularly appropriate for Inband-Security-Id, in case
 TLS is desired over TCP as implemented by
-<seealso marker="diameter_tcp">diameter_tcp(3)</seealso> but
-not over SCTP as implemented by
-<seealso marker="diameter_sctp">diameter_sctp(3)</seealso>.</p>
+<seealso marker="diameter_tcp">diameter_tcp(3)</seealso>.</p>
 </item>
 
-<tag><c>{capabilities_cb, evaluable()}</c></tag>
+<tag><c>{capabilities_cb, <seealso marker="#evaluable">evaluable()</seealso>}</c></tag>
 <item>
 <p>
 A callback invoked upon reception of CER/CEA during capabilities
 exchange in order to ask whether or not the connection should
 be accepted.
-Applied to the transport reference (as returned by <seealso
-marker="#add_transport">add_transport/2</seealso>) and
-<c>diameter_caps</c> record of the connection.
+Applied to the relevant <c><seealso
+marker="#transport_ref">transport_ref()</seealso></c> and the
+<c>#diameter_caps{}</c> record of the connection.
 Returning <c>ok</c> accepts the connection.
 Returning <c>integer()</c> causes an incoming
 CER to be answered with the specified Result-Code.
@@ -866,12 +805,14 @@ code causes the transport connection to be broken.</p>
 Multiple <c>capabilities_cb</c> options can be specified, in which
 case the corresponding callbacks are applied until either all return
 <c>ok</c> or one does not.</p>
+
+<marker id="watchdog_timer"/>
 </item>
 
 <tag><c>{watchdog_timer, TwInit}</c></tag>
 <item>
 <code>
-TwInit = Unsigned32()
+TwInit = <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>
        | {M,F,A}
 </code>
 
@@ -887,17 +828,19 @@ the callback.</p>
 <p>
 An integer value must be at least 6000 as required by RFC 3539.
 Defaults to 30000 if unspecified.</p>
+
+<marker id="reconnect_timer"/>
 </item>
 
 <tag><c>{reconnect_timer, Tc}</c></tag>
 <item>
 <code>
-Tc = Unsigned32()
+Tc = <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>
 </code>
 
 <p>
 For a connecting transport, the RFC 3588 Tc timer, in milliseconds.
-Note that this timer determines the frequency with which the transport
+Note that this timer determines the frequency with which a transport
 will attempt to establish a connection with its peer only <em>before</em>
 an initial connection is established: once there is an initial
 connection it's watchdog_timer that determines the frequency of
@@ -910,12 +853,13 @@ regarded as an initial connection rather than a reestablishment,
 causing the RFC 3539 state machine to pass to state OPEN rather than
 REOPEN.
 Note that these semantics are not goverened by the RFC and
-that a listening transport's reconnect_timer should be greater than its
-peers's Tc plus jitter.</p>
+that a listening transport's <c>reconnect_timer</c> should be greater
+than its peer's Tw plus jitter.</p>
 
 <p>
 Defaults to 30000 for a connecting transport and 60000 for a listening
 transport.</p>
+
 </item>
 
 </taglist>
@@ -927,6 +871,15 @@ marker="#service_info">service_info/2</seealso> and can be referred to
 in predicate functions passed to <seealso
 marker="#remove_transport">remove_transport/2</seealso>.</p>
 
+<marker id="transport_ref"/>
+</item>
+
+<tag><c>transport_ref() = reference()</c></tag>
+<item>
+<p>
+An reference returned by <seealso
+marker="#add_transport">add_transport/2</seealso> that
+identifies the configuration.</p>
 </item>
 
 </taglist>
@@ -939,13 +892,13 @@ marker="#remove_transport">remove_transport/2</seealso>.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>add_transport(SvcName, {connect|listen, Options})
+<name>add_transport(SvcName, {connect|listen, [Opt]})
         -> {ok, Ref} | {error, Reason}</name>
 <fsummary>Add transport capability to a service.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
-<v>Options = [transport_opt()]</v>
-<v>Ref = ref()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Opt = <seealso marker="#transport_opt">transport_opt()</seealso></v>
+<v>Ref = <seealso marker="#transport_ref">transport_ref()</seealso></v>
 <v>Reason = term()</v>
 </type>
 <desc>
@@ -953,8 +906,8 @@ marker="#remove_transport">remove_transport/2</seealso>.</p>
 Add transport capability to a service.</p>
 
 <p>
-The service will start a transport process(es) in order to establish a
-connection with the peer, either by connecting to the peer
+The service will start transport processes as required in order to
+establish a connection with the peer, either by connecting to the peer
 (<c>connect</c>) or by  accepting incoming connection requests
 (<c>listen</c>).
 A connecting transport establishes transport connections with at most
@@ -969,16 +922,20 @@ marker="diameter_app#peer_up">peer_up/3</seealso> callback
 after which the caller can exchange Diameter messages with the peer over
 the transport.
 In addition to CER/CEA, the service takes responsibility for the
-handling of DWR/DWA and required by RFC 3539 as well as for DPR/DPA.</p>
+handling of DWR/DWA and required by RFC 3539, as well as for DPR/DPA.</p>
 
 <p>
 The returned reference uniquely identifies the transport within the
 scope of the service.
 Note that the function returns before a transport connection has been
-established.
+established.</p>
+
+<note>
+<p>
 It is not an error to add a transport to a service that has not yet
 been configured: a service can be started after configuring
-transports.</p>
+its transports.</p>
+</note>
 
 <marker id="call"/>
 </desc>
@@ -987,48 +944,47 @@ transports.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>call(SvcName, App, Request, Options) -> ok | Answer | {error, Reason}</name>
+<name>call(SvcName, App, Request, [Opt]) -> Answer | ok | {error, Reason}</name>
 <fsummary>Send a Diameter request message.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
-<v>App = application_alias()</v>
-<v>Request = diameter_app:message() | term()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>App = <seealso marker="#application_alias">application_alias()</seealso></v>
+<v>Request = <seealso marker="diameter_app#message">diameter_app:message()</seealso></v>
 <v>Answer = term()</v>
-<v>Options = [call_opt()]</v>
+<v>Opt = <seealso marker="#call_opt">call_opt()</seealso></v>
 </type>
 <desc>
 <p>
-Send a Diameter request message and possibly return the answer or error.</p>
+Send a Diameter request message.</p>
 
 <p>
-<c>App</c> identifies the Diameter application in which the request is
+<c>App</c> specifies the Diameter application in which the request is
 defined and callbacks to the corresponding callback module
 will follow as described below and in <seealso
 marker="diameter_app">diameter_app(3)</seealso>.
-Unless the <c>detach</c> option has been specified to cause an earlier
-return, the call returns either when an answer message is received
-from the peer or an error occurs.
-In the case of an answer, the return value is as returned by a
+Unless the <c>detach</c> option is specified, the call returns either
+when an answer message is received from the peer or an error occurs.
+In the answer case, the return value is as returned by a
 <seealso
 marker="diameter_app#handle_answer">handle_answer/4</seealso>
 callback.
-In the case of an error, whether or not the error is returned directly
+In the error case, whether or not the error is returned directly
 by diameter or from a <seealso
 marker="diameter_app#handle_error">handle_error/4</seealso>
 callback depends on whether or not the outgoing request is
-successfully encoded for transmission from the peer, the cases being
+successfully encoded for transmission to the peer, the cases being
 documented below.</p>
 
 <p>
 If there are no suitable peers, or if
 <seealso marker="diameter_app#pick_peer">pick_peer/4</seealso>
-rejects them by returning 'false', then <c>{error, no_connection}</c>
+rejects them by returning <c>false</c>, then <c>{error,no_connection}</c>
 is returned.
 Otherwise <seealso marker="diameter_app#pick_peer">pick_peer/4</seealso>
 is followed by a
 <seealso
 marker="diameter_app#prepare_request">prepare_request/3</seealso>
-callback, the message is encoded and sent.</p>
+callback, the message is encoded and then sent.</p>
 
 <p>
 There are several error cases which may prevent an
@@ -1041,7 +997,7 @@ callback:</p>
 <item>
 <p>
 If the initial encode of the outgoing request
-fails, then the request process fails and <c>{error, encode}</c>
+fails, then the request process fails and <c>{error,encode}</c>
 is returned.</p>
 </item>
 
@@ -1058,7 +1014,7 @@ callback takes place with <c>Reason = timeout</c>.</p>
 If the request is successfully encoded and sent but the service in
 question is stopped before an answer is received then a
 <seealso marker="diameter_app#handle_error">handle_error/4</seealso>
-callback takes place <c>Reason = cancel</c>.</p>
+callback takes place with <c>Reason = cancel</c>.</p>
 </item>
 
 <item>
@@ -1085,7 +1041,7 @@ callback.</p>
 <p>
 If an encode error takes place during
 retransmission then the request process fails and
-<c>{error, failure}</c> is returned.</p>
+<c>{error,failure}</c> is returned.</p>
 </item>
 
 <item>
@@ -1093,7 +1049,7 @@ retransmission then the request process fails and
 If an application callback made in processing the request fails
 (pick_peer, prepare_request, prepare_retransmit,
 handle_answer or handle_error) then either
-<c>{error, encode}</c> or <c>{error, failure}</c>
+<c>{error,encode}</c> or <c>{error,failure}</c>
 is returned depending on whether or not there has been an
 attempt to send the request over the transport.</p>
 </item>
@@ -1101,9 +1057,9 @@ attempt to send the request over the transport.</p>
 </list>
 
 <p>
-Note that <c>{error, encode}</c> is the only return value which
+Note that <c>{error,encode}</c> is the only return value which
 guarantees that the request has <em>not</em> been sent over the
-transport.</p>
+transport connection.</p>
 
 <marker id="origin_state_id"/>
 </desc>
@@ -1112,7 +1068,7 @@ transport.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>origin_state_id() -> Unsigned32()</name>
+<name>origin_state_id() -> <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso></name>
 <fsummary>Returns a reasonable Origin-State-Id.</fsummary>
 <desc>
 <p>
@@ -1121,7 +1077,7 @@ outgoing messages.</p>
 
 <p>
 The value returned is the number of seconds since 19680120T031408Z,
-the first value that can be encoded as a Diameter Time(),
+the first value that can be encoded as a Diameter <c><seealso marker="diameter_dict#DATA_TYPES">Time()</seealso></c>,
 at the time the diameter application was started.</p>
 
 <marker id="remove_transport"/>
@@ -1134,11 +1090,11 @@ at the time the diameter application was started.</p>
 <name>remove_transport(SvcName, Pred) -> ok</name>
 <fsummary>Remove previously added transports.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
-<v>Pred = Fun | MFA | ref() | list() | true | false</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Pred = Fun | MFA | <seealso marker="#transport_ref">transport_ref()</seealso> | list() | true | false</v>
 <v></v>
-<v>Fun = fun((reference(), connect|listen, list()) -> boolean())</v>
-<v>&nbsp;&nbsp;&nbsp; | fun((reference(), list()) -> boolean())</v>
+<v>Fun = fun((<seealso marker="#transport_ref">transport_ref()</seealso>, connect|listen, list()) -> boolean())</v>
+<v>&nbsp;&nbsp;&nbsp; | fun((<seealso marker="#transport_ref">transport_ref()</seealso>, list()) -> boolean())</v>
 <v>&nbsp;&nbsp;&nbsp; | fun((list()) -> boolean())</v>
 <v>MFA = {atom(), atom(), list()}</v>
 </type>
@@ -1152,23 +1108,23 @@ An arity-3-valued <c>Pred</c> removes all transports for which
 <c>Pred(Ref, Type, Opts)</c> returns <c>true</c>, where <c>Type</c> and
 <c>Opts</c> are as passed to <seealso
 marker="#add_transport">add_transport/2</seealso> and <c>Ref</c> is
-as returned by the corresponding call.
+as returned by it.
 The remaining forms are equivalent to an arity-3 fun as follows.</p>
 
 <code>
-Pred = fun(reference(), list()):  fun(Ref, _, Opts) -> Pred(Ref, Opts) end
-Pred = fun(list()):               fun(_, _, Opts) -> Pred(Opts) end
-Pred = reference():               fun(Ref, _, _)  -> Pred == Ref end
-Pred = list():                    fun(_, _, Opts) -> [] == Pred -- Opts end
-Pred = true:                      fun(_, _, _) -> true end
-Pred = false:                     fun(_, _, _) -> false end
+Pred = fun(transport_ref(), list()):  fun(Ref, _, Opts) -> Pred(Ref, Opts) end
+Pred = fun(list()):                   fun(_, _, Opts) -> Pred(Opts) end
+Pred = transport_ref():               fun(Ref, _, _)  -> Pred == Ref end
+Pred = list():                        fun(_, _, Opts) -> [] == Pred -- Opts end
+Pred = true:                          fun(_, _, _) -> true end
+Pred = false:                         fun(_, _, _) -> false end
 Pred = {M,F,A}:  fun(Ref, Type, Opts) -> apply(M, F, [Ref, Type, Opts | A]) end
 </code>
 
 <p>
 Removing a transport causes all associated transport connections to
 be broken.
-A base application DPR message with
+A DPR message with
 Disconnect-Cause <c>DO_NOT_WANT_TO_TALK_TO_YOU</c> will be sent
 to each connected peer before disassociating the transport configuration
 from the service and terminating the transport upon reception of
@@ -1183,15 +1139,293 @@ DPA or timeout.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>service_info(SvcName, Item) -> Value</name>
-<fsummary>Return specific information about a started service.</fsummary>
+<name>service_info(SvcName, Info) -> term()</name>
+<fsummary>Return information about a started service.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
-<v>Value = term()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Info = Item | [Info]</v>
+<v>Item = atom()</v>
 </type>
 <desc>
 <p>
-Return information about a started service.</p>
+Return information about a started service.
+<c>Item</c> can be one of the following.</p>
+
+<taglist>
+
+<tag><c>'Origin-Host'</c></tag>
+<tag><c>'Origin-Realm'</c></tag>
+<tag><c>'Vendor-Id'</c></tag>
+<tag><c>'Product-Name'</c></tag>
+<tag><c>'Origin-State-Id'</c></tag>
+<tag><c>'Host-IP-Address'</c></tag>
+<tag><c>'Supported-Vendor'</c></tag>
+<tag><c>'Auth-Application-Id'</c></tag>
+<tag><c>'Inband-Security-Id'</c></tag>
+<tag><c>'Acct-Application-Id'</c></tag>
+<tag><c>'Vendor-Specific-Application-Id'</c></tag>
+<tag><c>'Firmware-Revision'</c></tag>
+<item>
+<p>
+Return a capability value as configured with <seealso
+marker="#start_service">start_service/2</seealso>.</p>
+</item>
+
+<tag><c>applications</c></tag>
+<item>
+<p>
+Return the list of applications as configured with <seealso
+marker="#start_service">start_service/2</seealso>.
+</p>
+</item>
+
+<tag><c>capabilities</c></tag>
+<item>
+<p>
+Return a tagged list of all capabilities values as configured with
+<seealso
+marker="#start_service">start_service/2</seealso>.</p>
+</item>
+
+<tag><c>transport</c></tag>
+<item>
+<p>
+Return a list containing one entry for each of the service's transport
+as configured with <seealso
+marker="#add_transport">add_transport/2</seealso>.
+Each entry is a tagged list containing both configuration and
+information about established peer connections.
+An example return value with for a client service with Origin-Host
+"client.example.com" configured with a single transport connected to
+"server.example.com" might look as follows.</p>
+
+<code>
+[[{ref,#Ref&lt;0.0.0.93>},
+  {type,connect},
+  {options,[{transport_module,diameter_tcp},
+            {transport_config,[{ip,{127,0,0,1}},
+                               {raddr,{127,0,0,1}},
+                               {rport,3868},
+                               {reuseaddr,true}]}]},
+  {watchdog,{&lt;0.66.0>,{1346,171491,996448},okay}},
+  {peer,{&lt;0.67.0>,{1346,171491,999906}}},
+  {apps,[{0,common}]},
+  {caps,[{origin_host,{"client.example.com","server.example.com"}},
+         {origin_realm,{"example.com","example.com"}},
+         {host_ip_address,{[{127,0,0,1}],[{127,0,0,1}]}},
+         {vendor_id,{0,193}},
+         {product_name,{"Client","Server"}},
+         {origin_state_id,{[],[]}},
+         {supported_vendor_id,{[],[]}},
+         {auth_application_id,{[0],[0]}},
+         {inband_security_id,{[],[0]}},
+         {acct_application_id,{[],[]}},
+         {vendor_specific_application_id,{[],[]}},
+         {firmware_revision,{[],[]}},
+         {avp,{[],[]}}]},
+  {port,[{owner,&lt;0.69.0>},
+         {module,diameter_tcp},
+         {socket,{{127,0,0,1},48758}},
+         {peer,{{127,0,0,1},3868}},
+         {statistics,[{recv_oct,656},
+                      {recv_cnt,6},
+                      {recv_max,148},
+                      {recv_avg,109},
+                      {recv_dvi,19},
+                      {send_oct,836},
+                      {send_cnt,6},
+                      {send_max,184},
+                      {send_avg,139},
+                      {send_pend,0}]}]},
+  {statistics,[{{{0,258,0},recv},3},
+               {{{0,258,1},send},3},
+               {{{0,257,0},recv},1},
+               {{{0,257,1},send},1},
+               {{{0,258,0},recv,{'Result-Code',2001}},3},
+               {{{0,280,1},recv},2},
+               {{{0,280,0},send},2}]}]]
+</code>
+
+<p>
+Here <c>ref</c> is a <c><seealso
+marker="#transport_ref">transport_ref()</seealso></c> and <c>options</c>
+the corresponding <c><seealso
+marker="#transport_opt">transport_opt()</seealso></c> list passed to <seealso 
+marker="#add_transport">add_transport/2</seealso>.
+The <c>watchdog</c> entry shows the state of a connection's RFC 3539 watchdog
+state machine.
+The <c>peer</c> entry identifies the <c><seealso
+marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso></c> for
+which there will have been <seealso
+marker="diameter_app#peer_up">peer_up</seealso> callbacks for the
+Diameter applications identified by the <c>apps</c> entry,
+<c>common</c> being the <c><seealso
+marker="#application_alias">application_alias()</seealso></c>.
+The <c>caps</c> entry identifies the capabilities sent by the local
+node and received from the peer during capabilities exchange.
+The <c>port</c> entry displays socket-level information about the
+transport connection.
+The <c>statistics</c> entry presents Diameter-level counters, 
+an entry like <c>{{{0,280,1},recv},2}</c> saying that the client has
+received 2 DWR messages: <c>{0,280,1} = {Application_Id, Command_Code,
+R_Flag}</c>.</p>
+
+<p>
+Note that <c>watchdog</c>, <c>peer</c>, <c>apps</c>, <c>caps</c>
+and <c>port</c> entries depend on connectivity
+with the peer and may not be present.
+Note also that the <c>statistics</c> entry presents values acuumulated
+during the lifetime of the transport configuration.</p>
+
+<p>
+A listening transport presents its information slightly differently
+since there may be multiple accepted connections for the same <c><seealso
+marker="#transport_ref">transport_ref()</seealso></c>.
+The <c>transport</c> info returned by a server with a single client
+connection might look as follows.</p>
+
+<code>
+[[{ref,#Ref&lt;0.0.0.61>},
+  {type,listen},
+  {options,[{transport_module,diameter_tcp},
+            {transport_config,[{reuseaddr,true},
+                               {ip,{127,0,0,1}},
+                               {port,3868}]}]},
+  {accept,[[{watchdog,{&lt;0.56.0>,{1346,171481,226895},okay}},
+            {peer,{&lt;0.58.0>,{1346,171491,999511}}},
+            {apps,[{0,common}]},
+            {caps,[{origin_host,{"server.example.com","client.example.com"}},
+                   {origin_realm,{"example.com","example.com"}},
+                   {host_ip_address,{[{127,0,0,1}],[{127,0,0,1}]}},
+                   {vendor_id,{193,0}},
+                   {product_name,{"Server","Client"}},
+                   {origin_state_id,{[],[]}},
+                   {supported_vendor_id,{[],[]}},
+                   {auth_application_id,{[0],[0]}},
+                   {inband_security_id,{[],[]}},
+                   {acct_application_id,{[],[]}},
+                   {vendor_specific_application_id,{[],[]}},
+                   {firmware_revision,{[],[]}},
+                   {avp,{[],[]}}]},
+            {port,[{owner,&lt;0.62.0>},
+                   {module,diameter_tcp},
+                   {socket,{{127,0,0,1},3868}},
+                   {peer,{{127,0,0,1},48758}},
+                   {statistics,[{recv_oct,1576},
+                                {recv_cnt,16},
+                                {recv_max,184},
+                                {recv_avg,98},
+                                {recv_dvi,26},
+                                {send_oct,1396},
+                                {send_cnt,16},
+                                {send_max,148},
+                                {send_avg,87},
+                                {send_pend,0}]}]}],
+           [{watchdog,{&lt;0.72.0>,{1346,171491,998404},initial}}]]},
+  {statistics,[{{{0,280,0},recv},7},
+               {{{0,280,1},send},7},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,258,1},recv},3},
+               {{{0,258,0},send},3},
+               {{{0,280,1},recv},5},
+               {{{0,280,0},send},5},
+               {{{0,257,1},recv},1},
+               {{{0,257,0},send},1}]}]]
+</code>
+
+<p>
+The information presented here is as in the <c>connect</c> case except
+that the client connections are grouped under an <c>accept</c> tuple.</p>
+
+</item>
+
+<tag><c>connections</c></tag>
+<item>
+<p>
+Return a list containing one entry for every established transport
+connection whose watchdog state machine is not in the <c>down</c>
+state.
+This is a flat view of <c>transport</c> info which lists only active
+connections and for which Diameter-level statistics are accumulated
+only for the lifetime of the transport connection.
+A return value for the server above might look as follows.</p>
+
+<code>
+[[{ref,#Ref&lt;0.0.0.61>},
+  {type,accept},
+  {options,[{transport_module,diameter_tcp},
+            {transport_config,[{reuseaddr,true},
+                               {ip,{127,0,0,1}},
+                               {port,3868}]}]},
+  {watchdog,{&lt;0.56.0>,{1346,171481,226895},okay}},
+  {peer,{&lt;0.58.0>,{1346,171491,999511}}},
+  {apps,[{0,common}]},
+  {caps,[{origin_host,{"server.example.com","client.example.com"}},
+         {origin_realm,{"example.com","example.com"}},
+         {host_ip_address,{[{127,0,0,1}],[{127,0,0,1}]}},
+         {vendor_id,{193,0}},
+         {product_name,{"Server","Client"}},
+         {origin_state_id,{[],[]}},
+         {supported_vendor_id,{[],[]}},
+         {auth_application_id,{[0],[0]}},
+         {inband_security_id,{[],[]}},
+         {acct_application_id,{[],[]}},
+         {vendor_specific_application_id,{[],[]}},
+         {firmware_revision,{[],[]}},
+         {avp,{[],[]}}]},
+  {port,[{owner,&lt;0.62.0>},
+         {module,diameter_tcp},
+         {socket,{{127,0,0,1},3868}},
+         {peer,{{127,0,0,1},48758}},
+         {statistics,[{recv_oct,10124},
+                      {recv_cnt,132},
+                      {recv_max,184},
+                      {recv_avg,76},
+                      {recv_dvi,9},
+                      {send_oct,10016},
+                      {send_cnt,132},
+                      {send_max,148},
+                      {send_avg,75},
+                      {send_pend,0}]}]},
+  {statistics,[{{{0,280,0},recv},62},
+               {{{0,280,1},send},62},
+               {{{0,258,0},send,{'Result-Code',2001}},3},
+               {{{0,258,1},recv},3},
+               {{{0,258,0},send},3},
+               {{{0,280,1},recv},66},
+               {{{0,280,0},send},66},
+               {{{0,257,1},recv},1},
+               {{{0,257,0},send},1}]}]]
+</code>
+
+<p>
+Note that there may be multiple entries with the same <c>ref</c>, in
+contrast to <c>transport</c> info.</p>
+</item>
+
+<tag><c>statistics</c></tag>
+<item>
+<p>
+Return a <c>{{Counter, Ref}, non_neg_integer()}</c> list of counter values.
+<c>Ref</c> can be either a <c><seealso
+marker="#transport_ref">transport_ref()</seealso></c>
+or a <c><seealso
+marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso></c>.
+Entries for the latter are folded into corresponding entries for the
+former as peer connections go down.
+Entries for both are removed at <seealso
+marker="#remove_transport">remove_transport/2</seealso>.
+The Diameter-level statistics returned by <c>transport</c> and
+<c>connections</c> info are based upon these entries.</p>
+</item>
+
+</taglist>
+
+<p>
+Requesting info for an unknown service causes <c>undefined</c> to be
+returned.
+Requesting a list of items causes a tagged list to be
+returned.</p>
 
 <marker id="services"/>
 </desc>
@@ -1203,7 +1437,7 @@ Return information about a started service.</p>
 <name>services() -> [SvcName]</name>
 <fsummary>Return the list of started services.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
 </type>
 <desc>
 <p>
@@ -1216,10 +1450,10 @@ Return the list of started services.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>session_id(Ident) -> OctetString()</name>
+<name>session_id(Ident) -> <seealso marker="diameter_dict#DATA_TYPES">OctetString()</seealso></name>
 <fsummary>Return a value for a Session-Id AVP.</fsummary>
 <type>
-<v>Ident = DiameterIdentity()</v>
+<v>Ident = <seealso marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso></v>
 </type>
 <desc>
 <p>
@@ -1244,7 +1478,7 @@ Start the diameter application.</p>
 
 <p>
 The diameter application must be started before starting a service.
-In a production system this will typically be accomplished by a boot
+In a production system this is typically accomplished by a boot
 file, not by calling <c>start/0</c> explicitly.</p>
 
 <marker id="start_service"/>
@@ -1256,8 +1490,8 @@ file, not by calling <c>start/0</c> explicitly.</p>
 <name>start_service(SvcName, Options) -> ok | {error, Reason}</name>
 <fsummary>Start a Diameter service.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
-<v>Options = [service_opt()]</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
+<v>Options = [<seealso marker="#service_opt">service_opt()</seealso>]</v>
 <v>Reason  = term()</v>
 </type>
 <desc>
@@ -1265,11 +1499,19 @@ file, not by calling <c>start/0</c> explicitly.</p>
 Start a diameter service.</p>
 
 <p>
-A service defines a locally-implemented Diameter peer, specifying the
-capabilities of the peer to be used during capabilities exchange and
-the Diameter applications that it supports.
+A service defines a locally-implemented Diameter node, specifying the
+capabilities to be advertised during capabilities exchange.
 Transports are added to a service using <seealso
-marker="#add_transport">add_transport/2</seealso>.</p>
+marker="#add_transport">add_transport/2</seealso>.
+</p>
+
+<note>
+<p>
+A transport can both override its service's
+capabilities and restrict its supported Diameter applications so
+"service = Diameter node as identified by Origin-Host" is not
+necessarily the case.</p>
+</note>
 
 <marker id="stop_service"/>
 </desc>
@@ -1295,12 +1537,25 @@ Stop the diameter application.</p>
 <name>stop_service(SvcName) -> ok | {error, Reason}</name>
 <fsummary>Stop a Diameter service.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
 <v>Reason = term()</v>
 </type>
 <desc>
 <p>
 Stop a diameter service.</p>
+
+<p>
+Stopping a service causes all associated transport connections to be
+broken.
+A DPR message with be sent as in the case of <seealso
+marker="#remove_transport">remove_transport/2</seealso>.</p>
+
+<note>
+<p>
+Stopping a transport does not remove any associated transports:
+<seealso marker="#remove_transport">remove_transport/2</seealso> must
+be called to remove transport configuration.</p>
+</note>
 
 <marker id="subscribe"/>
 </desc>
@@ -1312,15 +1567,19 @@ Stop a diameter service.</p>
 <name>subscribe(SvcName) -> true</name>
 <fsummary>Subscribe to event messages.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
 </type>
 <desc>
 <p>
-Subscribe to <c>service_event()</c> messages from a service.</p>
+Subscribe to <c><seealso
+marker="#service_event">service_event()</seealso></c> messages from
+a service.</p>
 
 <p>
 It is not an error to subscribe to events from a service
-that does not yet exist.</p>
+that does not yet exist.
+Doing so before adding transports is required to guarantee the
+reception of all related events.</p>
 
 <marker id="unsubscribe"/>
 </desc>
@@ -1332,7 +1591,7 @@ that does not yet exist.</p>
 <name>unsubscribe(SvcName) -> true</name>
 <fsummary>Unsubscribe to event messages.</fsummary>
 <type>
-<v>SvcName = service_name()</v>
+<v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
 </type>
 <desc>
 <p>
