@@ -118,7 +118,6 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     int is_global;
     Process *meta_tracer_proc = p;
     Eterm meta_tracer_pid = p->id;
-    int is_blocking = 0;
 
     if (!erts_try_seize_code_write_permission(p)) {
 	ERTS_BIF_YIELD3(bif_export[BIF_trace_pattern_3], p, MFA, Pattern, flaglist);
@@ -1370,12 +1369,8 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 	BeamInstr* pc = fp[i].pc;
 	Export* ep = (Export *)(((char *)(pc-3)) - offsetof(Export, code));
 
-	if (!on || flags.breakpoint) {
-	    erts_clear_call_trace_bif(pc, 0);
-	    if (pc[0] == (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
-		pc[0] = (BeamInstr) BeamOp(op_jump_f);
-	    }
-	} else {
+	if (on && !flags.breakpoint) {
+	    /* Turn on global call tracing */
 	    if (ep->addressv[code_ix] != pc) {
 		fp[i].mod->curr.num_traced_exports++;
 #ifdef DEBUG
@@ -1387,6 +1382,17 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 	    erts_set_call_trace_bif(pc, match_prog_set, 0);
 	    if (ep->addressv[code_ix] != pc) {
 		pc[0] = (BeamInstr) BeamOp(op_i_generic_breakpoint);
+	    }
+	} else if (!on && flags.breakpoint) {
+	    /* Turn off breakpoint tracing -- nothing to do here. */
+	} else {
+	    /*
+	     * Turn off global tracing, either explicitly or implicitly
+	     * before turning on breakpoint tracing.
+	     */
+	    erts_clear_call_trace_bif(pc, 0);
+	    if (pc[0] == (BeamInstr) BeamOp(op_i_generic_breakpoint)) {
+		pc[0] = (BeamInstr) BeamOp(op_jump_f);
 	    }
 	}
     }

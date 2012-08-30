@@ -70,7 +70,8 @@ config(priv_dir,_) ->
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, basic/1, bit_syntax/1,
-	 return/1, on_and_off/1, stack_grow/1,info/1, delete/1,
+	 return/1, on_and_off/1, systematic_on_off/1,
+	 stack_grow/1,info/1, delete/1,
 	 exception/1, exception_apply/1,
 	 exception_function/1, exception_apply_function/1,
 	 exception_nocatch/1, exception_nocatch_apply/1,
@@ -105,7 +106,8 @@ all() ->
     case test_server:is_native(trace_local_SUITE) of
 	true -> [not_run];
 	false ->
-	    [basic, bit_syntax, return, on_and_off, stack_grow,
+	    [basic, bit_syntax, return, on_and_off, systematic_on_off,
+	     stack_grow,
 	     info, delete, exception, exception_apply,
 	     exception_function, exception_apply_function,
 	     exception_nocatch, exception_nocatch_apply,
@@ -583,7 +585,118 @@ on_and_off_test() ->
 	  end,
     ?line ?NM,
     ok.
-    
+
+systematic_on_off(Config) when is_list(Config) ->
+    setup([call]),
+    Local = combinations([local,meta,call_count,call_time]),
+    [systematic_on_off_1(Flags) || Flags <- Local],
+
+    %% Make sure that we don't get any trace messages when trace
+    %% is supposed to be off.
+    receive_no_next(500).
+
+systematic_on_off_1(Local) ->
+    io:format("~p\n", [Local]),
+
+    %% Global off.
+    verify_trace_info(false, []),
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, true, Local),
+    verify_trace_info(false, Local),
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, false, [global]),
+    verify_trace_info(false, Local),
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, false, Local),
+    verify_trace_info(false, []),
+
+    %% Global on.
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, true, [global]),
+    verify_trace_info(true, []),
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, false, Local),
+    verify_trace_info(true, []),
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, false, [global]),
+    verify_trace_info(false, []),
+
+    %% Implicitly turn off global call trace.
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, true, [global]),
+    verify_trace_info(true, []),
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, true, Local),
+    verify_trace_info(false, Local),
+
+    %% Implicitly turn off local call trace.
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, true, [global]),
+    verify_trace_info(true, []),
+
+    %% Turn off global call trace. Everything should be off now.
+    1 = erlang:trace_pattern({?MODULE,exported_wrap,1}, false, [global]),
+    verify_trace_info(false, []),
+
+    ok.
+
+verify_trace_info(Global, Local) ->
+    case erlang:trace_info({?MODULE,exported_wrap,1}, all) of
+	{all,false} ->
+	    false = Global,
+	    [] = Local;
+	{all,Ps} ->
+	    io:format("~p\n", [Ps]),
+	    [verify_trace_info(P, Global, Local) || P <- Ps]
+    end,
+    global_call(Global, Local),
+    local_call(Local),
+    ok.
+
+verify_trace_info({traced,global}, true, []) -> ok;
+verify_trace_info({traced,local}, false, _) -> ok;
+verify_trace_info({match_spec,[]}, _, _) -> ok;
+verify_trace_info({meta_match_spec,[]}, _, _) -> ok;
+verify_trace_info({LocalFlag,Bool}, _, Local) when is_boolean(Bool) ->
+    try
+	Bool = lists:member(LocalFlag, Local)
+    catch
+	error:_ ->
+	    io:format("Line ~p: {~p,~p}, false, ~p\n",
+		      [?LINE,LocalFlag,Bool,Local]),
+	    ?t:fail()
+    end;
+verify_trace_info({meta,Pid}, false, Local) when is_pid(Pid) ->
+    true = lists:member(meta, Local);
+verify_trace_info({call_time,_}, false, Local) ->
+    true = lists:member(call_time, Local);
+verify_trace_info({call_count,_}, false, Local) ->
+    true = lists:member(call_time, Local).
+
+global_call(Global, Local) ->
+    apply_slave(?MODULE, exported_wrap, [global_call]),
+    case Global of
+	false ->
+	    recv_local_call(Local, [global_call]);
+	true ->
+	    ?CT(?MODULE, exported_wrap, [global_call])
+    end.
+
+local_call(Local) ->
+    lambda_slave(fun() -> exported_wrap(local_call) end),
+    recv_local_call(Local, [local_call]).
+
+recv_local_call(Local, Args) ->
+    case lists:member(local, Local) of
+	false ->
+	    ok;
+	true ->
+	    ?CT(?MODULE, exported_wrap, Args)
+    end,
+    case lists:member(meta, Local) of
+	false ->
+	    ok;
+	true ->
+	    ?CTT(?MODULE, exported_wrap, Args)
+    end,
+    ok.
+
+combinations([_]=One) ->
+    [One];
+combinations([H|T]) ->
+    Cs = combinations(T),
+    [[H|C] || C <- Cs] ++ Cs.
     
 stack_grow_test() ->    
     ?line setup([call,return_to]),
