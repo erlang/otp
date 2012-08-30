@@ -36,6 +36,8 @@
     OS command line.
   </comsummary>
 
+  <marker id="top"></marker>
+
   <description>
   <p>The <c>ct_run</c> program is automatically installed with Erlang/OTP
     and Common Test (please see the Installation chapter in the Common
@@ -71,6 +73,10 @@
     during test runs). Common Test will however ignore <c>-pa</c> and <c>-pz</c> flags
     following <c>-erl_args</c> on the command line. These directories are added
     to the code path normally (i.e. on specified form)</p>
+
+  <p>Exit status is set before the program ends. Value <c>0</c> indicates a successful
+    test result, <c>1</c> indicates one or more failed or auto-skipped test cases, and
+    <c>2</c> indicates test execution failure.</p>
 
   <p>If <c>ct_run</c> is called with option:</p>
     <pre>-help</pre>
@@ -112,6 +118,7 @@
 	[-basic_html]
     	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
 	 CTHModuleN CTHOptsN]
+	[-exit_status ignore_config]
     </pre>
   </section>
   <section>
@@ -145,6 +152,7 @@
 	[-basic_html]
     	[-ct_hooks CTHModule1 CTHOpts1 and CTHModule2 CTHOpts2 and ..
 	 CTHModuleN CTHOptsN]
+	[-exit_status ignore_config]
     </pre>
   </section>
   <section>
