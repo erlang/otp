@@ -162,7 +162,7 @@ transport respectively.
 connection should be upgraded to TLS.</p>
 
 <p>
-If TLS is requested (<c>Bool = true</c>) then a connecting process should
+If TLS is requested (<c>Bool=true</c>) then a connecting process should
 initiate a TLS handshake with the peer and an accepting process should
 prepare to accept a handshake.
 A successful handshake should be followed by a <c>{diameter, {tls, Ref}}</c>
