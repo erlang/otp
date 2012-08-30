@@ -1632,6 +1632,9 @@ handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 	if (!erts_thr_progress_has_reached_this(current, lop->later))
 	    return aux_work & ~ERTS_SSI_AUX_WORK_THR_PRGR_LATER_OP;
 	awdp->later_op.first = lop->next;
+	if (!awdp->later_op.first) {
+	    awdp->later_op.last = NULL;
+	}
 	lop->func(lop->data);
 	if (!awdp->later_op.first) {
 	    awdp->later_op.last = NULL;
