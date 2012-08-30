@@ -214,11 +214,56 @@
 
   <section>
     <title>What happens next?</title>
-    <p>
-      You will find detailed information about the basics introduced here in this
-      chapter in the following chapters in the User's Guide, as well as
-      presentations of many more useful features. Have fun!
-    </p>
+
+    <p>Well, you might already be asking yourself questions such as:</p>
+      
+      <list>
+	<item>"How and where can I specify variable data for my tests that mustn't
+	  be hard-coded in the test suites (such as host names, addresses,
+	  user login data, etc)?" The
+	  <seealso marker="config_file_chapter#top">External Configuration Data</seealso>
+	  chapter will give you that information.
+	</item>
+	<item>"Is there a way to declare a number of different tests and run them
+	  in one session without having to write my own scripts? And can such
+	  declarations be used for regression testing?" The 
+	  <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
+	  chapter answers these questions.
+	</item>
+	<item>"Can test cases and/or test runs be automatically repeated?" Learn more about
+	  <seealso marker="write_test_chapter#test_case_groups">Test Case Groups</seealso>
+	  and also read about start flags/options in the
+	  <seealso marker="run_test_chapter#ct_run">Running Tests</seealso> chapter and
+	  the Reference Manual.
+	</item>
+	<item>"Will Common Test execute my test cases in sequence or in parallel?" The
+	  <seealso marker="write_test_chapter#test_case_groups">Test Case Groups</seealso>
+	  section in the Running Tests chapter will give you the answer.
+	</item>
+	<item>"What's the syntax for timetraps (mentioned above), and how do I set them?"
+	  This is explained in the
+	  <seealso marker="write_test_chapter#timetraps">Timetrap Timeouts</seealso>
+	  part of the Writing Test Suites chapter.
+	</item>
+	<item>"What functions are available for logging and printing?" Check the
+	  <seealso marker="write_test_chapter#logging">Logging</seealso>
+	  section in the Writing Test Suites chapter.
+	</item>
+	<item>"I need data files for my tests. Where do I store them preferrably?"
+	  You should read about 
+	  <seealso marker="write_test_chapter#data_priv_dir">Data and Private
+	  Directories</seealso> for information about this.
+	</item>
+	<item>"May I start with a test suite example, please?"
+	  <seealso marker="example_chapter#top">Sure!</seealso>
+	</item>
+      </list>
+      <p>You will probably want to get started on your own first test suites now, while
+      at the same time digging deeper into the Common Test User's Guide and Reference Manual.
+      You will find that there's lots more to learn about the things that have been introduced
+      in this chapter. You will of course also be presented many more useful features, such as the
+      ones listed above. Have fun!
+      </p>
     </section>
 </chapter>
 
