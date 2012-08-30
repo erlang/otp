@@ -275,10 +275,12 @@ Location-Information   350  Grouped     MV
 Requested-Information  353  Enumerated   V
 </code>
 
+<warning>
 <p>
-Note that the P flag has been deprecated by the Diameter Maintenance
-and Extensions Working Group of the IETF: diameter will set the P flag
-to 0 as mandated by the current draft standard.</p>
+The P flag has been deprecated by the Diameter Maintenance
+and Extensions Working Group of the IETF and should be omitted
+to conform to the current draft standard.</p>
+</warning>
 
 </item>
 
