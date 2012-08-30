@@ -63,7 +63,7 @@ parent).</p>
 <v>Svc = #diameter_service{}</v>
 <v>Opts = term()</v>
 <v>Pid = pid()</v>
-<v>LAddrs = [<seealso marker="kernel:inet">inet:ip_address()</seealso>]</v>
+<v>LAddrs = [<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>]</v>
 <v>Reason = term()</v>
 </type>
 <desc>

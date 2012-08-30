@@ -665,8 +665,8 @@ The name of a service as passed to <seealso
 marker="#start_service">start_service/2</seealso> and with which the
 service is identified.
 There can be at most one service with a given name on a given node.
-Note that <c>erlang:make_ref/0</c> can be used to generate a service name
-that is somewhat unique.</p>
+Note that <seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>
+can be used to generate a service name that is somewhat unique.</p>
 
 <marker id="service_opt"/>
 </item>

@@ -4,7 +4,7 @@
 <erlref>
 <header>
 <copyright>
-<year>2011</year>
+<year>2011</year><year>2012</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -39,7 +39,7 @@ under the License.
 
 <p>
 This module implements diameter transport over TCP using <seealso
-marker="kernel:gen_sctp">gen_tcp</seealso>.
+marker="kernel:gen_tcp">gen_tcp</seealso>.
 It can be specified as the value of a <c>transport_module</c> option to
 <seealso
 marker="diameter#add_transport">diameter:add_transport/2</seealso>
@@ -70,9 +70,9 @@ before configuring TLS capability on diameter transports.</p>
 <v>Svc = #diameter_service{}</v>
 <v>Opt = OwnOpt | SslOpt | TcpOpt</v>
 <v>Pid = pid()</v>
-<v>LAddr = <seealso marker="kernel:inet">inet:ip_address()</seealso></v>
+<v>LAddr = <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso></v>
 <v>Reason = term()</v>
-<v>OwnOpt = {raddr, <seealso marker="kernel:inet">inet:ip_address()</seealso>}
+<v>OwnOpt = {raddr, <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>}
           | {rport, integer()}
           | {port, integer()}</v>
 <v>SslOpt = {ssl_options, true | list()}</v>
@@ -93,15 +93,15 @@ Option <c>ssl_options</c> must be specified for a transport
 that should support TLS: a value of <c>true</c> results in a
 TLS handshake immediately upon connection establishment while
 <c>list()</c> specifies options to be passed to <seealso
-marker="ssl:ssl">ssl:connect/2</seealso> or
-<seealso marker="ssl:ssl">ssl:ssl_accept/2</seealso>
+marker="ssl:ssl#connect-2">ssl:connect/2</seealso> or
+<seealso marker="ssl:ssl#ssl_accept-2">ssl:ssl_accept/2</seealso>
 after capabilities exchange if TLS is negotiated.
 Remaining options are any accepted by <seealso
-marker="ssl:ssl">ssl:connect/3</seealso> or <seealso
-marker="kernel:gen_tcp">gen_tcp:connect/3</seealso> for
+marker="ssl:ssl#connect-3">ssl:connect/3</seealso> or <seealso
+marker="kernel:gen_tcp#connect-3">gen_tcp:connect/3</seealso> for
 a connecting transport, or <seealso
-marker="ssl:ssl">ssl:listen/3</seealso> or <seealso
-marker="kernel:gen_tcp">gen_tcp:listen/2</seealso> for
+marker="ssl:ssl#listen-2">ssl:listen/2</seealso> or <seealso
+marker="kernel:gen_tcp#listen-2">gen_tcp:listen/2</seealso> for
 a listening transport, depending on whether or not <c>{ssl_options, true}</c>
 has been specified.
 Options <c>binary</c>,
