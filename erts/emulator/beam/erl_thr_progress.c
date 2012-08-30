@@ -96,16 +96,13 @@
 
 #define ERTS_THR_PRGR_LFLG_BLOCK	(((erts_aint32_t) 1) << 31)
 #define ERTS_THR_PRGR_LFLG_NO_LEADER	(((erts_aint32_t) 1) << 30)
-#define ERTS_THR_PRGR_LFLG_ACTIVE_MASK	(~(ERTS_THR_PRGR_LFLG_NO_LEADER \
-					   | ERTS_THR_PRGR_LFLG_BLOCK))
+#define ERTS_THR_PRGR_LFLG_WAITING_UM	(((erts_aint32_t) 1) << 29)
+#define ERTS_THR_PRGR_LFLG_ACTIVE_MASK	(~(ERTS_THR_PRGR_LFLG_NO_LEADER	\
+					   | ERTS_THR_PRGR_LFLG_BLOCK	\
+					   | ERTS_THR_PRGR_LFLG_WAITING_UM))
 
-#define ERTS_THR_PRGR_LFLGS_ACTIVE(LFLGS) \
+#define ERTS_THR_PRGR_LFLGS_ACTIVE(LFLGS)				\
     ((LFLGS) & ERTS_THR_PRGR_LFLG_ACTIVE_MASK)
-
-#define ERTS_THR_PRGR_LFLGS_ALL_WAITING(LFLGS) \
-    (((LFLGS) & (ERTS_THR_PRGR_LFLG_NO_LEADER \
-		 |ERTS_THR_PRGR_LFLG_ACTIVE_MASK)) \
-     == ERTS_THR_PRGR_LFLG_NO_LEADER)
 
 /*
  * We use a 64-bit value for thread progress. By this wrapping of
@@ -262,6 +259,11 @@ typedef struct {
     erts_atomic32_t managed_count;
     erts_atomic32_t managed_id;
     erts_atomic32_t unmanaged_id;    
+    int chk_next_ix;
+    struct {
+	int waiting;
+	erts_atomic32_t current;
+    } umrefc_ix;
 } ErtsThrPrgrMiscData;
 
 typedef struct {
@@ -276,12 +278,18 @@ typedef union {
     char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsThrPrgrElement))];
 } ErtsThrPrgrArray;
 
+typedef union {
+    erts_atomic_t refc;
+    char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(erts_atomic_t))];
+} ErtsThrPrgrUnmanagedRefc;
+
 typedef struct {
     union {
 	ErtsThrPrgrMiscData data;
 	char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(
 		sizeof(ErtsThrPrgrMiscData))];
     } misc;
+    ErtsThrPrgrUnmanagedRefc umrefc[2];
     ErtsThrPrgrArray *thr;
     struct {
 	int no;
@@ -346,7 +354,9 @@ init_tmp_thr_prgr_data(ErtsThrPrgrData *tpd)
     tpd->is_managed = 0;
     tpd->is_blocking = 0;
     tpd->is_temporary = 1;
-
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    tpd->is_delaying = 0;
+#endif
     erts_tsd_set(erts_thr_prgr_data_key__, (void *) tpd);
 }
 
@@ -461,6 +471,9 @@ erts_thr_progress_init(int no_schedulers, int managed, int unmanaged)
     erts_atomic32_init_nob(&intrnl->misc.data.managed_count, 0);
     erts_atomic32_init_nob(&intrnl->misc.data.managed_id, no_schedulers);
     erts_atomic32_init_nob(&intrnl->misc.data.unmanaged_id, -1);
+    intrnl->misc.data.chk_next_ix = 0;
+    intrnl->misc.data.umrefc_ix.waiting = -1;
+    erts_atomic32_init_nob(&intrnl->misc.data.umrefc_ix.current, 0);
 
     intrnl->thr = (ErtsThrPrgrArray *) ptr;
     ptr += thr_arr_sz;
@@ -547,6 +560,9 @@ erts_thr_progress_register_unmanaged_thread(ErtsThrPrgrCallbacks *callbacks)
     tpd->is_managed = 0;
     tpd->is_blocking = is_blocking;
     tpd->is_temporary = 0;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    tpd->is_delaying = 0;
+#endif
     ASSERT(tpd->id >= 0);
     if (tpd->id >= intrnl->unmanaged.no)
 	erl_exit(ERTS_ABORT_EXIT,
@@ -600,6 +616,9 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
     tpd->is_managed = 1;
     tpd->is_blocking = is_blocking;
     tpd->is_temporary = 0;
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    tpd->is_delaying = 1;
+#endif
 
     init_wakeup_request_array(&tpd->wakeup_request[0]);
 
@@ -607,8 +626,8 @@ erts_thr_progress_register_managed_thread(ErtsSchedulerData *esdp,
 
     tpd->leader = 0;
     tpd->active = 1;
-    tpd->previous.local = 0;
-    tpd->previous.current = ERTS_THR_PRGR_VAL_WAITING;
+    tpd->confirmed = 0;
+    tpd->leader_state.current = ERTS_THR_PRGR_VAL_WAITING;
     erts_tsd_set(erts_thr_prgr_data_key__, (void *) tpd);
 
     erts_atomic32_inc_nob(&intrnl->misc.data.lflgs);
@@ -651,60 +670,113 @@ leader_update(ErtsThrPrgrData *tpd)
 	block_thread(tpd);
     }
     else {
+	ErtsThrPrgrVal current;
+	int ix, chk_next_ix, umrefc_ix, my_ix, no_managed, waiting_unmanaged;
 	erts_aint32_t lflgs;
 	ErtsThrPrgrVal next;
-	int ix, sz, make_progress;
+	erts_aint_t refc;
 
-	if (tpd->previous.current == ERTS_THR_PRGR_VAL_WAITING) {
+	my_ix = tpd->id;
+
+	if (tpd->leader_state.current == ERTS_THR_PRGR_VAL_WAITING) {
 	    /* Took over as leader from another thread */
-	    tpd->previous.current = read_acqb(&erts_thr_prgr__.current);
-	    tpd->previous.next = tpd->previous.current;
-	    tpd->previous.next++;
-	    if (tpd->previous.next == ERTS_THR_PRGR_VAL_WAITING)
-		tpd->previous.next = 0;
-	}
+	    tpd->leader_state.current = read_nob(&erts_thr_prgr__.current);
+	    tpd->leader_state.next = tpd->leader_state.current;
+	    tpd->leader_state.next++;
+	    if (tpd->leader_state.next == ERTS_THR_PRGR_VAL_WAITING)
+		tpd->leader_state.next = 0;
+	    tpd->leader_state.chk_next_ix = intrnl->misc.data.chk_next_ix;
+	    tpd->leader_state.umrefc_ix.waiting = intrnl->misc.data.umrefc_ix.waiting;
+	    tpd->leader_state.umrefc_ix.current =
+		(int) erts_atomic32_read_nob(&intrnl->misc.data.umrefc_ix.current);
 
-	if (tpd->previous.local == tpd->previous.current) {
-	    ErtsThrPrgrVal val = tpd->previous.current + 1;
-	    if (val == ERTS_THR_PRGR_VAL_WAITING)
-		val = 0;
-	    tpd->previous.local = val;
-	    set_mb(&intrnl->thr[tpd->id].data.current, val);
-	}
-
-	next = tpd->previous.next;
-
-	make_progress = 1;
-	sz = intrnl->managed.no;
-	for (ix = 0; ix < sz; ix++) {
-	    ErtsThrPrgrVal tmp;
-	    tmp = read_nob(&intrnl->thr[ix].data.current);
-	    if (tmp != next && tmp != ERTS_THR_PRGR_VAL_WAITING) {
-		make_progress = 0;
-		ASSERT(erts_thr_progress_has_passed__(next, tmp));
-		break;
+	    if (tpd->confirmed == tpd->leader_state.current) {
+		ErtsThrPrgrVal val = tpd->leader_state.current + 1;
+		if (val == ERTS_THR_PRGR_VAL_WAITING)
+		    val = 0;
+		tpd->confirmed = val;
+		set_mb(&intrnl->thr[my_ix].data.current, val);
 	    }
 	}
 
-	if (make_progress) {
-	    ErtsThrPrgrVal current = next;
 
-	    next++;
-	    if (next == ERTS_THR_PRGR_VAL_WAITING)
-		next = 0;
+	next = tpd->leader_state.next;
 
-	    set_nob(&intrnl->thr[tpd->id].data.current, next);
-	    set_mb(&erts_thr_prgr__.current, current);
-	    tpd->previous.local = next;
-	    tpd->previous.next = next;
-	    tpd->previous.current = current;
+	waiting_unmanaged = 0;
+	umrefc_ix = -1; /* Shut up annoying warning */
+
+	chk_next_ix = tpd->leader_state.chk_next_ix;
+	no_managed = intrnl->managed.no;
+	ASSERT(0 <= chk_next_ix && chk_next_ix <= no_managed);
+	/* Check manged threads */
+	if (chk_next_ix < no_managed) {
+	    for (ix = chk_next_ix; ix < no_managed; ix++) {
+		ErtsThrPrgrVal tmp;
+		if (ix == my_ix)
+		    continue;
+		tmp = read_nob(&intrnl->thr[ix].data.current);
+		if (tmp != next && tmp != ERTS_THR_PRGR_VAL_WAITING) {
+		    tpd->leader_state.chk_next_ix = ix;
+		    ASSERT(erts_thr_progress_has_passed__(next, tmp));
+		    goto done;
+		}
+	    }
+	}
+
+	/* Check unmanged threads */
+	waiting_unmanaged = tpd->leader_state.umrefc_ix.waiting != -1;
+	umrefc_ix = (waiting_unmanaged
+		     ? tpd->leader_state.umrefc_ix.waiting
+		     : tpd->leader_state.umrefc_ix.current);
+	refc = erts_atomic_read_nob(&intrnl->umrefc[umrefc_ix].refc);
+	ASSERT(refc >= 0);
+	if (refc != 0) {
+	    int new_umrefc_ix;
+
+	    if (waiting_unmanaged)
+		goto done;
+
+	    new_umrefc_ix = (umrefc_ix + 1) & 0x1;
+	    tpd->leader_state.umrefc_ix.waiting = umrefc_ix;
+	    tpd->leader_state.chk_next_ix = no_managed;
+	    erts_atomic32_set_nob(&intrnl->misc.data.umrefc_ix.current,
+				  (erts_aint32_t) new_umrefc_ix);
+	    ETHR_MEMBAR(ETHR_StoreLoad);
+	    refc = erts_atomic_read_nob(&intrnl->umrefc[umrefc_ix].refc);
+	    ASSERT(refc >= 0);
+	    waiting_unmanaged = 1;
+	    if (refc != 0)
+		goto done;
+	}
+
+	/* Make progress */
+	current = next;
+
+	next++;
+	if (next == ERTS_THR_PRGR_VAL_WAITING)
+	    next = 0;
+
+	set_nob(&intrnl->thr[my_ix].data.current, next);
+	set_mb(&erts_thr_prgr__.current, current);
+	tpd->confirmed = next;
+	tpd->leader_state.next = next;
+	tpd->leader_state.current = current;
 
 #if ERTS_THR_PRGR_PRINT_VAL
-	    if (current % 1000 == 0)
-		erts_fprintf(stderr, "%b64u\n", current);
+	if (current % 1000 == 0)
+	    erts_fprintf(stderr, "%b64u\n", current);
 #endif
-	    handle_wakeup_requests(current);
+	handle_wakeup_requests(current);
+
+	if (waiting_unmanaged) {
+	    waiting_unmanaged = 0;
+	    tpd->leader_state.umrefc_ix.waiting = -1;
+	    erts_atomic32_read_band_nob(&intrnl->misc.data.lflgs,
+					~ERTS_THR_PRGR_LFLG_WAITING_UM);
 	}
+	tpd->leader_state.chk_next_ix = 0;
+
+    done:
 
 	if (tpd->active) {
 	    lflgs = erts_atomic32_read_nob(&intrnl->misc.data.lflgs);
@@ -712,20 +784,44 @@ leader_update(ErtsThrPrgrData *tpd)
 		(void) block_thread(tpd);
 	}
 	else {
+	    int force_wakeup_check = 0;
+	    erts_aint32_t set_flags = ERTS_THR_PRGR_LFLG_NO_LEADER;
 	    tpd->leader = 0;
-	    tpd->previous.current = ERTS_THR_PRGR_VAL_WAITING;
+	    tpd->leader_state.current = ERTS_THR_PRGR_VAL_WAITING;
 #if ERTS_THR_PRGR_PRINT_LEADER
 	    erts_fprintf(stderr, "L <- %d\n", tpd->id);
 #endif
 
 	    ERTS_THR_PROGRESS_STATE_DEBUG_SET_LEADER(tpd->id, 0);
 
+	    if (waiting_unmanaged)
+		set_flags |= ERTS_THR_PRGR_LFLG_WAITING_UM;
+
 	    lflgs = erts_atomic32_read_bor_relb(&intrnl->misc.data.lflgs,
-						ERTS_THR_PRGR_LFLG_NO_LEADER);
+						set_flags);
+	    lflgs |= set_flags;
 	    if (lflgs & ERTS_THR_PRGR_LFLG_BLOCK)
 		lflgs = block_thread(tpd);
-	    if (ERTS_THR_PRGR_LFLGS_ACTIVE(lflgs) == 0 && got_sched_wakeups())
+
+	    if (waiting_unmanaged) {
+		/* Need to check umrefc again */
+		ETHR_MEMBAR(ETHR_StoreLoad);
+		refc = erts_atomic_read_nob(&intrnl->umrefc[umrefc_ix].refc);
+		if (refc == 0) {
+		    /* Need to force wakeup check */
+		    force_wakeup_check = 1;
+		}
+	    }
+
+	    if ((force_wakeup_check
+		 || ((lflgs & (ERTS_THR_PRGR_LFLG_NO_LEADER
+			       | ERTS_THR_PRGR_LFLG_WAITING_UM
+			       | ERTS_THR_PRGR_LFLG_ACTIVE_MASK))
+		     == ERTS_THR_PRGR_LFLG_NO_LEADER))
+		&& got_sched_wakeups()) {
+		/* Someone need to make progress */
 		wakeup_managed(0);
+	    }
 	}
     }
 
@@ -744,11 +840,11 @@ update(ErtsThrPrgrData *tpd)
 	erts_aint32_t lflgs;
 	res = 0;
 	val = read_acqb(&erts_thr_prgr__.current);
-	if (tpd->previous.local == val) {
+	if (tpd->confirmed == val) {
 	    val++;
 	    if (val == ERTS_THR_PRGR_VAL_WAITING)
 		val = 0;
-	    tpd->previous.local = val;
+	    tpd->confirmed = val;
 	    set_mb(&intrnl->thr[tpd->id].data.current, val);
 	}
 
@@ -801,12 +897,19 @@ erts_thr_progress_prepare_wait(ErtsSchedulerData *esdp)
 
     block_count_dec();
 
-    tpd->previous.local = ERTS_THR_PRGR_VAL_WAITING;
+    tpd->confirmed = ERTS_THR_PRGR_VAL_WAITING;
     set_mb(&intrnl->thr[tpd->id].data.current, ERTS_THR_PRGR_VAL_WAITING);
 
     lflgs = erts_atomic32_read_nob(&intrnl->misc.data.lflgs);
-    if (ERTS_THR_PRGR_LFLGS_ALL_WAITING(lflgs) && got_sched_wakeups())
-	wakeup_managed(0); /* Someone need to make progress */
+
+    if ((lflgs & (ERTS_THR_PRGR_LFLG_NO_LEADER
+		  | ERTS_THR_PRGR_LFLG_WAITING_UM
+		  | ERTS_THR_PRGR_LFLG_ACTIVE_MASK))
+	== ERTS_THR_PRGR_LFLG_NO_LEADER 
+	&& got_sched_wakeups()) {
+	/* Someone need to make progress */
+	wakeup_managed(0);
+    }
 }
 
 void
@@ -828,7 +931,7 @@ erts_thr_progress_finalize_wait(ErtsSchedulerData *esdp)
 	val++;
 	if (val == ERTS_THR_PRGR_VAL_WAITING)
 	    val = 0;
-	tpd->previous.local = val;
+	tpd->confirmed = val;
 	set_mb(&intrnl->thr[tpd->id].data.current, val);
 	val = read_acqb(&erts_thr_prgr__.current);
 	if (current == val)
@@ -873,6 +976,68 @@ erts_thr_progress_active(ErtsSchedulerData *esdp, int on)
     }
 #endif
 
+}
+
+static ERTS_INLINE void
+unmanaged_continue(ErtsThrPrgrDelayHandle handle)
+{
+    int umrefc_ix = (int) handle;
+    erts_aint_t refc;
+
+    ASSERT(umrefc_ix == 0 || umrefc_ix == 1);
+    refc = erts_atomic_dec_read_relb(&intrnl->umrefc[umrefc_ix].refc);
+    ASSERT(refc >= 0);
+    if (refc == 0) {
+	erts_aint_t lflgs;
+	ERTS_THR_READ_MEMORY_BARRIER;
+	lflgs = erts_atomic32_read_nob(&intrnl->misc.data.lflgs);
+	if ((lflgs & (ERTS_THR_PRGR_LFLG_NO_LEADER
+		      | ERTS_THR_PRGR_LFLG_WAITING_UM
+		      | ERTS_THR_PRGR_LFLG_ACTIVE_MASK))
+	    == (ERTS_THR_PRGR_LFLG_NO_LEADER|ERTS_THR_PRGR_LFLG_WAITING_UM)
+	    && got_sched_wakeups()) {
+	    /* Others waiting for us... */
+	    wakeup_managed(0);
+	}
+    }
+}
+
+void
+erts_thr_progress_unmanaged_continue__(ErtsThrPrgrDelayHandle handle)
+{
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    ErtsThrPrgrData *tpd = perhaps_thr_prgr_data(NULL);
+    ERTS_LC_ASSERT(tpd && tpd->is_delaying);
+    tpd->is_delaying = 0;
+    return_tmp_thr_prgr_data(tpd);
+#endif
+    ASSERT(!erts_thr_progress_is_managed_thread());
+
+    unmanaged_continue(handle);
+}
+
+ErtsThrPrgrDelayHandle
+erts_thr_progress_unmanaged_delay__(void)
+{
+    int umrefc_ix;
+    ASSERT(!erts_thr_progress_is_managed_thread());
+    umrefc_ix = (int) erts_atomic32_read_acqb(&intrnl->misc.data.umrefc_ix.current);
+    while (1) {
+	int tmp_ix;
+	erts_atomic_inc_acqb(&intrnl->umrefc[umrefc_ix].refc);
+	tmp_ix = (int) erts_atomic32_read_acqb(&intrnl->misc.data.umrefc_ix.current);
+	if (tmp_ix == umrefc_ix)
+	    break;
+	unmanaged_continue(umrefc_ix);
+	umrefc_ix = tmp_ix;
+    }
+#ifdef ERTS_ENABLE_LOCK_CHECK
+    {
+	ErtsThrPrgrData *tpd = tmp_thr_prgr_data(NULL);
+	tpd->is_delaying = 1;
+    }
+#endif
+    return (ErtsThrPrgrDelayHandle) umrefc_ix;
 }
 
 static ERTS_INLINE int
@@ -931,7 +1096,7 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
      */
 
     ASSERT(tpd->is_managed);
-    ASSERT(tpd->previous.local != ERTS_THR_PRGR_VAL_WAITING);
+    ASSERT(tpd->confirmed != ERTS_THR_PRGR_VAL_WAITING);
 
     if (has_reached_wakeup(value)) {
 	wakeup_managed(tpd->id);
@@ -946,7 +1111,7 @@ request_wakeup_managed(ErtsThrPrgrData *tpd, ErtsThrPrgrVal value)
 					  tpd->wakeup_request[wix]));
 
 
-    if (tpd->previous.local == value) {
+    if (tpd->confirmed == value) {
 	/*
 	 * We have already confirmed this value. We need to request
 	 * wakeup for a value later than our latest confirmed value in

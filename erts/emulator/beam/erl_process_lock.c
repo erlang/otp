@@ -66,6 +66,7 @@
 #endif
 
 #include "erl_process.h"
+#include "erl_thr_progress.h"
 
 const Process erts_proc_lock_busy = {ERTS_INVALID_PID};
 
@@ -671,7 +672,7 @@ erts_proc_lock_prepare_proc_lock_waiter(void)
  */
 
 static void
-proc_safelock(int is_sched,
+proc_safelock(int is_managed,
 	      Process *a_proc,
 	      ErtsProcLocks a_have_locks,
 	      ErtsProcLocks a_need_locks,
@@ -797,7 +798,7 @@ proc_safelock(int is_sched,
 	if (unlock_locks) {
 	    have_locks1 &= ~unlock_locks;
 	    need_locks1 |= unlock_locks;
-	    if (!is_sched && !have_locks1) {
+	    if (!is_managed && !have_locks1) {
 		refc1 = 1;
 		erts_smp_proc_inc_refc(p1);
 	    }
@@ -807,7 +808,7 @@ proc_safelock(int is_sched,
 	if (unlock_locks) {
 	    have_locks2 &= ~unlock_locks;
 	    need_locks2 |= unlock_locks;
-	    if (!is_sched && !have_locks2) {
+	    if (!is_managed && !have_locks2) {
 		refc2 = 1;
 		erts_smp_proc_inc_refc(p2);
 	    }
@@ -888,7 +889,7 @@ proc_safelock(int is_sched,
     }
 #endif
 
-    if (!is_sched) {
+    if (!is_managed) {
 	if (refc1)
 	    erts_smp_proc_dec_refc(p1);
 	if (refc2)
@@ -921,7 +922,7 @@ erts_pid2proc_opt(Process *c_p,
 		  int flags)
 {
     Process *dec_refc_proc = NULL;
-    int need_ptl;
+    ErtsThrPrgrDelayHandle dhndl;
     ErtsProcLocks need_locks;
     Uint pix;
     Process *proc;
@@ -959,10 +960,7 @@ erts_pid2proc_opt(Process *c_p,
 	}
     }
 
-    need_ptl = !erts_get_scheduler_id();
-
-    if (need_ptl)
-	erts_smp_rwmtx_rwlock(&erts_proc_tab_rwmtx);
+    dhndl = erts_thr_progress_unmanaged_delay();
 
     proc = (Process *) erts_smp_atomic_read_ddrb(&erts_proc.tab[pix]);
 
@@ -1026,6 +1024,7 @@ erts_pid2proc_opt(Process *c_p,
 		if (flags & ERTS_P2P_FLG_TRY_LOCK)
 		    proc = ERTS_PROC_LOCK_BUSY;
 		else {
+		    int managed;
 		    if (flags & ERTS_P2P_FLG_SMP_INC_REFC)
 			erts_smp_proc_inc_refc(proc);
 
@@ -1033,14 +1032,21 @@ erts_pid2proc_opt(Process *c_p,
 		    erts_lcnt_proc_lock_unaquire(&proc->lock, lcnt_locks);
 #endif
 
-		    if (need_ptl) {
+		    managed = dhndl == ERTS_THR_PRGR_DHANDLE_MANAGED;
+		    if (!managed) {
 			erts_smp_proc_inc_refc(proc);
+			erts_thr_progress_unmanaged_continue(dhndl);
 			dec_refc_proc = proc;
-			erts_smp_rwmtx_rwunlock(&erts_proc_tab_rwmtx);
-			need_ptl = 0;
+
+			/*
+			 * We don't want to call
+			 * erts_thr_progress_unmanaged_continue()
+			 * again.
+			 */
+			dhndl = ERTS_THR_PRGR_DHANDLE_MANAGED;
 		    }
 
-		    proc_safelock(!need_ptl,
+		    proc_safelock(managed,
 				  c_p,
 				  c_p_have_locks,
 				  c_p_have_locks,
@@ -1052,8 +1058,8 @@ erts_pid2proc_opt(Process *c_p,
         }
     }
 
-    if (need_ptl)
-	erts_smp_rwmtx_rwunlock(&erts_proc_tab_rwmtx);
+    if (dhndl != ERTS_THR_PRGR_DHANDLE_MANAGED)
+	erts_thr_progress_unmanaged_continue(dhndl);
 
     if (need_locks
 	&& proc
