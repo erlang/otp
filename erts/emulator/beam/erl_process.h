@@ -284,7 +284,6 @@ typedef enum {
 #define ERTS_SSI_AUX_WORK_SET_TMO		(((erts_aint32_t) 1) << 11)
 #define ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK	(((erts_aint32_t) 1) << 12)
 #define ERTS_SSI_AUX_WORK_REAP_PORTS		(((erts_aint32_t) 1) << 13)
-#define ERTS_SSI_AUX_WORK_FINISH_BP	        (((erts_aint32_t) 1) << 14)
 
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
@@ -478,10 +477,6 @@ typedef struct {
     } async_ready;
 #endif
 #ifdef ERTS_SMP
-    struct {
-	Process* stager;
-	ErtsThrPrgrVal thr_prgr;
-    } bp_ix_activation;
     struct {
 	int *sched2jix;
 	int jix;
