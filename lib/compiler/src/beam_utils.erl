@@ -330,8 +330,6 @@ check_liveness(R, [{bs_init_bits,_,_,_,_,_,Dst}|Is], St) ->
 	R =:= Dst -> {killed,St};
 	true -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [{bs_put_string,_,_}|Is], St) ->
-    check_liveness(R, Is, St);
 check_liveness(R, [{deallocate,_}|Is], St) ->
     case R of
 	{y,_} -> {killed,St};
@@ -435,18 +433,8 @@ check_liveness(R, [{bs_add,{f,0},Ss,D}|Is], St) ->
 	false when R =:= D -> {killed,St};
 	false -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [{bs_put_binary,{f,0},Sz,_,_,Src}|Is], St) ->
-    case member(R, [Sz,Src]) of
-	true -> {used,St};
-	false -> check_liveness(R, Is, St)
-    end;
-check_liveness(R, [{bs_put_integer,{f,0},Sz,_,_,Src}|Is], St) ->
-    case member(R, [Sz,Src]) of
-	true -> {used,St};
-	false -> check_liveness(R, Is, St)
-    end;
-check_liveness(R, [{bs_put_float,{f,0},Sz,_,_,Src}|Is], St) ->
-    case member(R, [Sz,Src]) of
+check_liveness(R, [{bs_put,{f,0},_,Ss}|Is], St) ->
+    case member(R, Ss) of
 	true -> {used,St};
 	false -> check_liveness(R, Is, St)
     end;
@@ -721,28 +709,8 @@ live_opt([{bs_private_append,Fail,Src1,_,Src2,_,Dst}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src1,Src2], x_dead([Dst], Regs0)),
     Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_put_binary,Fail,Src1,_,_,Src2}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src1,Src2], Regs0),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_put_float,Fail,Src1,_,_,Src2}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src1,Src2], Regs0),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_put_integer,Fail,Src1,_,_,Src2}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src1,Src2], Regs0),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_put_utf8,Fail,_,Src}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src], Regs0),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_put_utf16,Fail,_,Src}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src], Regs0),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_put_utf32,Fail,_,Src}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src], Regs0),
+live_opt([{bs_put,Fail,_,Ss}=I|Is], Regs0, D, Acc) ->
+    Regs1 = x_live(Ss, Regs0),
     Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{bs_restore2,Src,_}=I|Is], Regs0, D, Acc) ->
@@ -847,8 +815,6 @@ live_opt([timeout=I|Is], _, D, Acc) ->
     live_opt(Is, 0, D, [I|Acc]);
 
 %% Transparent instructions - they neither use nor modify x registers.
-live_opt([{bs_put_string,_,_}=I|Is], Regs, D, Acc) ->
-    live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{deallocate,_}=I|Is], Regs, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{kill,_}=I|Is], Regs, D, Acc) ->

@@ -27,8 +27,9 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is}) ->
+function({function,Name,Arity,CLabel,Is0}) ->
     try
+	Is = [undo_rename(I) || I <- Is0],
 	{function,Name,Arity,CLabel,Is}
     catch
 	Class:Error ->
@@ -36,3 +37,11 @@ function({function,Name,Arity,CLabel,Is}) ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
+
+undo_rename({bs_put,F,{I,U,Fl},[Sz,Src]}) ->
+    {I,F,Sz,U,Fl,Src};
+undo_rename({bs_put,F,{I,Fl},[Src]}) ->
+    {I,F,Fl,Src};
+undo_rename({bs_put,{f,0},{bs_put_string,_,_}=I,[]}) ->
+    I;
+undo_rename(I) -> I.

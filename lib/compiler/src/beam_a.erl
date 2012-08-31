@@ -30,9 +30,12 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
 
 function({function,Name,Arity,CLabel,Is0}) ->
     try
+	%% Rename certain operations to simplify the optimization passes.
+	Is1 = [rename_instr(I) || I <- Is0],
+
 	%% Remove unusued labels for cleanliness and to help
 	%% optimization passes and HiPE.
-	Is = beam_jump:remove_unused_labels(Is0),
+	Is = beam_jump:remove_unused_labels(Is1),
 	{function,Name,Arity,CLabel,Is}
     catch
 	Class:Error ->
@@ -40,3 +43,19 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
+
+rename_instr({bs_put_binary=I,F,Sz,U,Fl,Src}) ->
+    {bs_put,F,{I,U,Fl},[Sz,Src]};
+rename_instr({bs_put_float=I,F,Sz,U,Fl,Src}) ->
+    {bs_put,F,{I,U,Fl},[Sz,Src]};
+rename_instr({bs_put_integer=I,F,Sz,U,Fl,Src}) ->
+    {bs_put,F,{I,U,Fl},[Sz,Src]};
+rename_instr({bs_put_utf8=I,F,Fl,Src}) ->
+    {bs_put,F,{I,Fl},[Src]};
+rename_instr({bs_put_utf16=I,F,Fl,Src}) ->
+    {bs_put,F,{I,Fl},[Src]};
+rename_instr({bs_put_utf32=I,F,Fl,Src}) ->
+    {bs_put,F,{I,Fl},[Src]};
+%% rename_instr({bs_put_string,_,_}=I) ->
+%%     {bs_put,{f,0},I,[]};
+rename_instr(I) -> I.

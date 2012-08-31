@@ -113,13 +113,7 @@ insert_alloc_1([I|Is], Alloc, Acc) ->
 %%  as a literal, the bs_init2/6 instruction will not occur
 %%  at the end and therefore it is no need to test for it here.)
 %%
-is_bs_constructor({bs_put_integer,_,_,_,_,_}) -> true;
-is_bs_constructor({bs_put_utf8,_,_,_}) -> true;
-is_bs_constructor({bs_put_utf16,_,_,_}) -> true;
-is_bs_constructor({bs_put_utf32,_,_,_}) -> true;
-is_bs_constructor({bs_put_float,_,_,_,_,_}) -> true;
-is_bs_constructor({bs_put_binary,_,_,_,_,_}) -> true;
-is_bs_constructor({bs_put_string,_,_}) -> true;
+is_bs_constructor({bs_put,_,_,_}) -> true;
 is_bs_constructor(_) -> false.
 
 %% opt(Is0) -> Is

@@ -189,16 +189,8 @@ remap([{bs_init2,Fail,Src,Live,U,Flags,D}|Is], Map, Acc) ->
 remap([{bs_init_bits,Fail,Src,Live,U,Flags,D}|Is], Map, Acc) ->
     I = {bs_init_bits,Fail,Map(Src),Live,U,Flags,Map(D)},
     remap(Is, Map, [I|Acc]);
-remap([{bs_put_binary=Op,Fail,Src,U,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Src),U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put_integer=Op,Fail,Src,U,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Src),U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put_float=Op,Fail,Src,U,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Src),U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put_string,_,_}=I|Is], Map, Acc) ->
+remap([{bs_put=Op,Fail,Info,Ss}|Is], Map, Acc) ->
+    I = {Op,Fail,Info,[Map(S) || S <- Ss]},
     remap(Is, Map, [I|Acc]);
 remap([{kill,Y}|T], Map, Acc) ->
     remap(T, Map, [{kill,Map(Y)}|Acc]);
@@ -307,14 +299,8 @@ frame_size([{bs_init2,{f,L},_,_,_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{bs_init_bits,{f,L},_,_,_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_binary,{f,L},_,_,_,_}|Is], Safe) ->
+frame_size([{bs_put,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_integer,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_float,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_string,_,_}|Is], Safe) ->
-    frame_size(Is, Safe);
 frame_size([{kill,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([send|Is], Safe) ->

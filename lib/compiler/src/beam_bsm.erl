@@ -308,16 +308,8 @@ btb_reaches_match_2([{bs_append,{f,0},_,_,_,_,Src,_,Dst}=I|Is], Regs, D) ->
 btb_reaches_match_2([{bs_private_append,{f,0},_,_,Src,_,Dst}=I|Is], Regs, D) ->
     btb_ensure_not_used([Src], I, Regs),
     btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
-btb_reaches_match_2([{bs_put_integer,{f,0},_,_,_,Src}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{bs_put_float,{f,0},_,_,_,Src}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{bs_put_binary,{f,0},_,_,_,Src}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{bs_put_string,_,_}|Is], Regs, D) ->
+btb_reaches_match_2([{bs_put,{f,0},_,Ss}=I|Is], Regs, D) ->
+    btb_ensure_not_used(Ss, I, Regs),
     btb_reaches_match_1(Is, Regs, D);
 btb_reaches_match_2([{bs_utf8_size,_,Src,Dst}=I|Is], Regs, D) ->
     btb_ensure_not_used([Src], I, Regs),
@@ -325,15 +317,6 @@ btb_reaches_match_2([{bs_utf8_size,_,Src,Dst}=I|Is], Regs, D) ->
 btb_reaches_match_2([{bs_utf16_size,_,Src,Dst}=I|Is], Regs, D) ->
     btb_ensure_not_used([Src], I, Regs),
     btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
-btb_reaches_match_2([{bs_put_utf8,_,_,Src}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{bs_put_utf16,_,_,Src}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{bs_put_utf32,_,_,Src}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, Regs, D);
 btb_reaches_match_2([{bs_restore2,Src,_}=I|Is], Regs0, D) ->
     case btb_contains_context(Src, Regs0) of
 	false ->
