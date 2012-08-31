@@ -541,13 +541,7 @@ ulbl({bs_init_bits,Lbl,_,_,_,_,_}, Used) ->
     mark_used(Lbl, Used);
 ulbl({bs_put,Lbl,_,_}, Used) ->
     mark_used(Lbl, Used);
-ulbl({bs_add,Lbl,_,_}, Used) ->
-    mark_used(Lbl, Used);
 ulbl({bs_append,Lbl,_,_,_,_,_,_,_}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({bs_utf8_size,Lbl,_,_}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({bs_utf16_size,Lbl,_,_}, Used) ->
     mark_used(Lbl, Used);
 ulbl(_, Used) -> Used.
 

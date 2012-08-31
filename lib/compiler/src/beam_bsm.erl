@@ -293,8 +293,6 @@ btb_reaches_match_2([{jump,{f,Lbl}}|_], Regs, #btb{index=Li}=D) ->
     btb_reaches_match_2(Is, Regs, D);
 btb_reaches_match_2([{label,_}|Is], Regs, D) ->
     btb_reaches_match_2(Is, Regs, D);
-btb_reaches_match_2([{bs_add,{f,0},_,Dst}|Is], Regs, D) ->
-    btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
 btb_reaches_match_2([bs_init_writable|Is], Regs0, D) ->
     Regs = btb_kill_not_live(0, Regs0),
     btb_reaches_match_1(Is, Regs, D);
@@ -311,12 +309,6 @@ btb_reaches_match_2([{bs_private_append,{f,0},_,_,Src,_,Dst}=I|Is], Regs, D) ->
 btb_reaches_match_2([{bs_put,{f,0},_,Ss}=I|Is], Regs, D) ->
     btb_ensure_not_used(Ss, I, Regs),
     btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{bs_utf8_size,_,Src,Dst}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
-btb_reaches_match_2([{bs_utf16_size,_,Src,Dst}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
 btb_reaches_match_2([{bs_restore2,Src,_}=I|Is], Regs0, D) ->
     case btb_contains_context(Src, Regs0) of
 	false ->

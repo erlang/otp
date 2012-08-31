@@ -427,12 +427,6 @@ check_liveness(R, [{gc_bif,Op,{f,Fail},Live,Ss,D}|Is], St0) ->
 		    Other
 	    end
     end;
-check_liveness(R, [{bs_add,{f,0},Ss,D}|Is], St) ->
-    case member(R, Ss) of
-	true -> {used,St};
-	false when R =:= D -> {killed,St};
-	false -> check_liveness(R, Is, St)
-    end;
 check_liveness(R, [{bs_put,{f,0},_,Ss}|Is], St) ->
     case member(R, Ss) of
 	true -> {used,St};
@@ -676,10 +670,6 @@ combine_alloc_lists_1([]) -> [].
 live_opt([{bs_context_to_binary,Src}=I|Is], Regs0, D, Acc) ->
     Regs = x_live([Src], Regs0),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_add,Fail,[Src1,Src2,_],Dst}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src1,Src2], x_dead([Dst], Regs0)),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{bs_init2,Fail,Sz,Extra,Live0,Fl,Dst}|Is], Regs0, D, Acc) ->
     Regs1 = x_dead([Dst], Regs0),
     Live = live_regs(Regs1),
@@ -718,14 +708,6 @@ live_opt([{bs_restore2,Src,_}=I|Is], Regs0, D, Acc) ->
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{bs_save2,Src,_}=I|Is], Regs0, D, Acc) ->
     Regs = x_live([Src], Regs0),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_utf8_size,Fail,Src,Dst}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src], x_dead([Dst], Regs0)),
-    Regs = live_join_label(Fail, D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_utf16_size,Fail,Src,Dst}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src], x_dead([Dst], Regs0)),
-    Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{test,bs_start_match2,Fail,Live,[Src,_],_}=I|Is], _, D, Acc) ->
     Regs0 = live_call(Live),

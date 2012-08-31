@@ -44,4 +44,10 @@ undo_rename({bs_put,F,{I,Fl},[Src]}) ->
     {I,F,Fl,Src};
 undo_rename({bs_put,{f,0},{bs_put_string,_,_}=I,[]}) ->
     I;
+undo_rename({bif,bs_add=I,F,[Src1,Src2,{integer,U}],Dst}) ->
+    {I,F,[Src1,Src2,U],Dst};
+undo_rename({bif,bs_utf8_size=I,F,[Src],Dst}) ->
+    {I,F,Src,Dst};
+undo_rename({bif,bs_utf16_size=I,F,[Src],Dst}) ->
+    {I,F,Src,Dst};
 undo_rename(I) -> I.

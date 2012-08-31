@@ -248,15 +248,9 @@ replace([{bs_init_bits,{f,Lbl},Sz,Words,R,F,Dst}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{bs_init_bits,{f,label(Lbl, D)},Sz,Words,R,F,Dst}|Acc], D);
 replace([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{bs_put,{f,label(Lbl, D)},Info,Ss}|Acc], D);
-replace([{bs_add,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_add,{f,label(Lbl, D)},Src,Dst}|Acc], D);
 replace([{bs_append,{f,Lbl},_,_,_,_,_,_,_}=I0|Is], Acc, D) when Lbl =/= 0 ->
     I = setelement(2, I0, {f,label(Lbl, D)}),
     replace(Is, [I|Acc], D);
-replace([{bs_utf8_size=I,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,Dst}|Acc], D);
-replace([{bs_utf16_size=I,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,Dst}|Acc], D);
 replace([I|Is], Acc, D) ->
     replace(Is, [I|Acc], D);
 replace([], Acc, _) -> Acc.

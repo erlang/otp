@@ -172,9 +172,6 @@ remap([{bif,Name,Fail,Ss,D}|Is], Map, Acc) ->
 remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Map, Acc) ->
     I = {gc_bif,Name,Fail,Live,[Map(S) || S <- Ss],Map(D)},
     remap(Is, Map, [I|Acc]);
-remap([{bs_add,Fail,[SrcA,SrcB,U],D}|Is], Map, Acc) ->
-    I = {bs_add,Fail,[Map(SrcA),Map(SrcB),U],Map(D)},
-    remap(Is, Map, [I|Acc]);
 remap([{bs_append=Op,Fail,Bits,Heap,Live,Unit,Bin,Flags,D}|Is], Map, Acc) ->
     I = {Op,Fail,Map(Bits),Heap,Live,Unit,Map(Bin),Flags,Map(D)},
     remap(Is, Map, [I|Acc]);
@@ -286,8 +283,6 @@ frame_size([{gc_bif,_,{f,L},_,_,_}|Is], Safe) ->
 frame_size([{test,_,{f,L},_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{test,_,{f,L},_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_add,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{bs_append,{f,L},_,_,_,_,_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
