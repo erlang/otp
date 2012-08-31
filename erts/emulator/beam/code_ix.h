@@ -116,7 +116,7 @@ void erts_commit_staging_code_ix(void);
 void erts_abort_staging_code_ix(void);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-int erts_is_code_ix_locked(void);
+int erts_has_code_write_permission(void);
 #endif
 
 

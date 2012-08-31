@@ -406,7 +406,7 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       struct trace_pattern_flags *trace_pattern_flags,
 			       Eterm *meta_tracer_pid)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked() ||
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
     if (trace_pattern_is_on)
 	*trace_pattern_is_on = erts_default_trace_pattern_is_on;
@@ -422,7 +422,7 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 
 int erts_is_default_trace_enabled(void)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked() ||
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
     return erts_default_trace_pattern_is_on;
 }
@@ -1556,7 +1556,7 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 int
 erts_finish_breakpointing(void)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
 
     /*
      * Memory barriers will be issued for all processes *before*
