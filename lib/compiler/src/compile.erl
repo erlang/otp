@@ -224,6 +224,8 @@ format_error({delete_temp,File,Error}) ->
 		  [File,file:format_error(Error)]);
 format_error({parse_transform,M,R}) ->
     io_lib:format("error in parse transform '~s': ~p", [M, R]);
+format_error({undef_parse_transform,M}) ->
+    io_lib:format("undefined parse transform '~s'", [M]);
 format_error({core_transform,M,R}) ->
     io_lib:format("error in core transform '~s': ~p", [M, R]);
 format_error({crash,Pass,Reason}) ->
@@ -850,6 +852,10 @@ foldl_transform(St, [T|Ts]) ->
 	{error,Es,Ws} ->
 	    {error,St#compile{warnings=St#compile.warnings ++ Ws,
 			      errors=St#compile.errors ++ Es}};
+	{'EXIT',{undef,_}} ->
+	    Es = [{St#compile.ifile,[{none,compile,
+				      {undef_parse_transform,T}}]}],
+	    {error,St#compile{errors=St#compile.errors ++ Es}};
 	{'EXIT',R} ->
 	    Es = [{St#compile.ifile,[{none,compile,{parse_transform,T,R}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}};
