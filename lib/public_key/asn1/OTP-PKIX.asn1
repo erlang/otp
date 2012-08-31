@@ -119,6 +119,7 @@ IMPORTS
        md2WithRSAEncryption,
        md5WithRSAEncryption,
        sha1WithRSAEncryption,
+       sha224WithRSAEncryption,
        sha256WithRSAEncryption,
        sha384WithRSAEncryption,
        sha512WithRSAEncryption	     
@@ -317,6 +318,7 @@ PublicKeyAlgorithm ::=  SEQUENCE  {
 SupportedSignatureAlgorithms SIGNATURE-ALGORITHM-CLASS ::= { 
 		    dsa-with-sha1 | md2-with-rsa-encryption |
 		    md5-with-rsa-encryption | sha1-with-rsa-encryption |
+		    sha224-with-rsa-encryption |
 		    sha256-with-rsa-encryption |
 		    sha384-with-rsa-encryption |
 		    sha512-with-rsa-encryption |
@@ -363,6 +365,10 @@ SupportedPublicKeyAlgorithms PUBLIC-KEY-ALGORITHM-CLASS ::= {
 
    sha1-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
 			    ID sha1WithRSAEncryption 
+			    TYPE NULL }
+
+   sha224-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
+			    ID sha224WithRSAEncryption 
 			    TYPE NULL }
 
    sha256-with-rsa-encryption SIGNATURE-ALGORITHM-CLASS ::= {
