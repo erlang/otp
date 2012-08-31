@@ -2565,9 +2565,15 @@ str(T) ->
 %% question. The third form allows messages to be sent as is, without
 %% a dictionary, which is needed in the case of relay agents, for one.
 
+%% Messages will be header/avps list as a relay and the only AVP's we
+%% look for are in the common dictionary. This is required since the
+%% relay dictionary doesn't inherit the common dictionary (which maybe
+%% it should).
 get_avp_value(?RELAY, Name, Msg) ->
     get_avp_value(?BASE, Name, Msg);
 
+%% Message sent as a header/avps list, probably a relay case but not
+%% necessarily.
 get_avp_value(Dict, Name, [#diameter_header{} | Avps]) ->
     try
         {Code, _, VId} = Dict:avp_header(Name),
@@ -2581,6 +2587,7 @@ get_avp_value(Dict, Name, [#diameter_header{} | Avps]) ->
             undefined
     end;
 
+%% Outgoing message as a name/values list.
 get_avp_value(_, Name, [_MsgName | Avps]) ->
     case lists:keyfind(Name, 1, Avps) of
         {_, V} ->
@@ -2588,6 +2595,11 @@ get_avp_value(_, Name, [_MsgName | Avps]) ->
         _ ->
             undefined
     end;
+
+%% Record might be an answer message in the common dictionary.
+get_avp_value(Dict, Name, Rec)
+  when Dict /= ?BASE, element(1, Rec) == 'diameter_base_answer-message' ->
+    get_avp_value(?BASE, Name, Rec);
 
 %% Message is typically a record but not necessarily: diameter:call/4
 %% can be passed an arbitrary term.
