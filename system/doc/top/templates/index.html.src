@@ -108,6 +108,8 @@ In addition to the documentation here Erlang is described in several recent book
 </li>
 <li>
 <a href="http://www.pragprog.com/titles/jaerlang">"Programming Erlang"</a> from Pragmatic.
+</li>
+<li>
 <a href="http://www.manning.com/logan">"Erlang and OTP in Action"</a> from Manning.
 </li>
 </ul>
@@ -137,7 +139,7 @@ tags support and more. See the <a href="#tools#/index.html">
 Tools</a> application for details.  
 <p>
 There is also an 
-<a href="http://erlide.sourceforge.net">
+<a href="http://erlide.org/index.html">
 Erlang plugin (ErlIDE) for Eclipse</a> if you prefer a more graphical 
 environment. ErlIDE is under active development with new features in almost every release.
 <li>When developing with Erlang/OTP you usually test your programs
