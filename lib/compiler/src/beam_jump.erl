@@ -535,13 +535,9 @@ ulbl({bif,_Name,Lbl,_As,_R}, Used) ->
     mark_used(Lbl, Used);
 ulbl({gc_bif,_Name,Lbl,_Live,_As,_R}, Used) ->
     mark_used(Lbl, Used);
-ulbl({bs_init2,Lbl,_,_,_,_,_}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({bs_init_bits,Lbl,_,_,_,_,_}, Used) ->
+ulbl({bs_init,Lbl,_,_,_,_}, Used) ->
     mark_used(Lbl, Used);
 ulbl({bs_put,Lbl,_,_}, Used) ->
-    mark_used(Lbl, Used);
-ulbl({bs_append,Lbl,_,_,_,_,_,_,_}, Used) ->
     mark_used(Lbl, Used);
 ulbl(_, Used) -> Used.
 

@@ -301,34 +301,32 @@ check_liveness(R, [{kill,R}|_], St) ->
     {killed,St};
 check_liveness(R, [{kill,_}|Is], St) ->
     check_liveness(R, Is, St);
-check_liveness(R, [bs_init_writable|Is], St) ->
-    if
-	R =:= {x,0} -> {used,St};
-	true -> check_liveness(R, Is, St)
+check_liveness(R, [{bs_init,_,_,none,Ss,Dst}|Is], St) ->
+    case member(R, Ss) of
+	true ->
+	    {used,St};
+	false ->
+	    if
+		R =:= Dst -> {killed,St};
+		true -> check_liveness(R, Is, St)
+	    end
     end;
-check_liveness(R, [{bs_private_append,_,Bits,_,Bin,_,Dst}|Is], St) ->
+check_liveness(R, [{bs_init,_,_,Live,Ss,Dst}|Is], St) ->
     case R of
-	Bits -> {used,St};
-	Bin -> {used,St};
-	Dst -> {killed,St};
-	_ -> check_liveness(R, Is, St)
-    end;
-check_liveness(R, [{bs_append,_,Bits,_,_,_,Bin,_,Dst}|Is], St) ->
-    case R of
-	Bits -> {used,St};
-	Bin -> {used,St};
-	Dst -> {killed,St};
-	_ -> check_liveness(R, Is, St)
-    end;
-check_liveness(R, [{bs_init2,_,_,_,_,_,Dst}|Is], St) ->
-    if
-	R =:= Dst -> {killed,St};
-	true -> check_liveness(R, Is, St)
-    end;
-check_liveness(R, [{bs_init_bits,_,_,_,_,_,Dst}|Is], St) ->
-    if
-	R =:= Dst -> {killed,St};
-	true -> check_liveness(R, Is, St)
+	{x,X} ->
+	    case X < Live orelse member(R, Ss) of
+		true -> {used,St};
+		false -> {killed,St}
+	    end;
+	{y,_} ->
+	    case member(R, Ss) of
+		true -> {used,St};
+		false ->
+		    if
+			R =:= Dst -> {killed,St};
+			true -> check_liveness(R, Is, St)
+		    end
+	    end
     end;
 check_liveness(R, [{deallocate,_}|Is], St) ->
     case R of
@@ -670,34 +668,18 @@ combine_alloc_lists_1([]) -> [].
 live_opt([{bs_context_to_binary,Src}=I|Is], Regs0, D, Acc) ->
     Regs = x_live([Src], Regs0),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_init2,Fail,Sz,Extra,Live0,Fl,Dst}|Is], Regs0, D, Acc) ->
-    Regs1 = x_dead([Dst], Regs0),
-    Live = live_regs(Regs1),
-    true = Live =< Live0,	%Assertion.
-    Regs2 = live_call(Live),
-    Regs = live_join_label(Fail, D, Regs2),
-    I = {bs_init2,Fail,Sz,Extra,Live,Fl,Dst},
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_init_bits,Fail,Sz,Extra,Live0,Fl,Dst}|Is], Regs0, D, Acc) ->
-    Regs1 = x_dead([Dst], Regs0),
-    Live = live_regs(Regs1),
-    true = Live =< Live0,	%Assertion.
-    Regs2 = live_call(Live),
-    Regs = live_join_label(Fail, D, Regs2),
-    I = {bs_init_bits,Fail,Sz,Extra,Live,Fl,Dst},
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_append,Fail,Bits,Extra,Live0,Unit,Src,Fl,Dst}|Is],
-	 Regs0, D, Acc) ->
-    Regs1 = x_live([Src], x_dead([Dst], Regs0)),
-    Live = live_regs(Regs1),
-    true = Live =< Live0,	%Assertion.
-    Regs2 = live_call(Live),
-    Regs = live_join_label(Fail, D, Regs2),
-    I = {bs_append,Fail,Bits,Extra,Live,Unit,Src,Fl,Dst},
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{bs_private_append,Fail,Src1,_,Src2,_,Dst}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src1,Src2], x_dead([Dst], Regs0)),
+live_opt([{bs_init,Fail,_,none,Ss,Dst}=I|Is], Regs0, D, Acc) ->
+    Regs1 = x_live(Ss, x_dead([Dst], Regs0)),
     Regs = live_join_label(Fail, D, Regs1),
+    live_opt(Is, Regs, D, [I|Acc]);
+live_opt([{bs_init,Fail,Info,Live0,Ss,Dst}|Is], Regs0, D, Acc) ->
+    Regs1 = x_dead([Dst], Regs0),
+    Live = live_regs(Regs1),
+    true = Live =< Live0,	%Assertion.
+    Regs2 = live_call(Live),
+    Regs3 = x_live(Ss, Regs2),
+    Regs = live_join_label(Fail, D, Regs3),
+    I = {bs_init,Fail,Info,Live,Ss,Dst},
     live_opt(Is, Regs, D, [I|Acc]);
 live_opt([{bs_put,Fail,_,Ss}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live(Ss, Regs0),
@@ -743,8 +725,6 @@ live_opt([{try_case_end,Src}=I|Is], _, D, Acc) ->
 live_opt([if_end=I|Is], _, D, Acc) ->
     Regs = 0,
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([bs_init_writable=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(1), D, [I|Acc]);
 live_opt([{call,Arity,_}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Arity), D, [I|Acc]);
 live_opt([{call_ext,Arity,_}=I|Is], _, D, Acc) ->

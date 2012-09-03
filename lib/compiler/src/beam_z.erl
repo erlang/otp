@@ -50,4 +50,12 @@ undo_rename({bif,bs_utf8_size=I,F,[Src],Dst}) ->
     {I,F,Src,Dst};
 undo_rename({bif,bs_utf16_size=I,F,[Src],Dst}) ->
     {I,F,Src,Dst};
+undo_rename({bs_init,F,{I,U,Flags},none,[Sz,Src],Dst}) ->
+    {I,F,Sz,U,Src,Flags,Dst};
+undo_rename({bs_init,F,{I,Extra,Flags},Live,[Sz],Dst}) ->
+    {I,F,Sz,Extra,Live,Flags,Dst};
+undo_rename({bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst}) ->
+    {I,F,Sz,Extra,Live,U,Src,Flags,Dst};
+undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
+    I;
 undo_rename(I) -> I.

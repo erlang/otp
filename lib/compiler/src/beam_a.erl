@@ -64,4 +64,14 @@ rename_instr({bs_utf8_size=I,F,Src,Dst}) ->
     {bif,I,F,[Src],Dst};
 rename_instr({bs_utf16_size=I,F,Src,Dst}) ->
     {bif,I,F,[Src],Dst};
+rename_instr({bs_init2=I,F,Sz,Extra,Live,Flags,Dst}) ->
+    {bs_init,F,{I,Extra,Flags},Live,[Sz],Dst};
+rename_instr({bs_init_bits=I,F,Sz,Extra,Live,Flags,Dst}) ->
+    {bs_init,F,{I,Extra,Flags},Live,[Sz],Dst};
+rename_instr({bs_append=I,F,Sz,Extra,Live,U,Src,Flags,Dst}) ->
+    {bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst};
+rename_instr({bs_private_append=I,F,Sz,U,Src,Flags,Dst}) ->
+    {bs_init,F,{I,U,Flags},none,[Sz,Src],Dst};
+rename_instr(bs_init_writable=I) ->
+    {bs_init,{f,0},I,1,[{x,0}],{x,0}};
 rename_instr(I) -> I.

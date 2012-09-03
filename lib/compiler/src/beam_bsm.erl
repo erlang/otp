@@ -293,18 +293,8 @@ btb_reaches_match_2([{jump,{f,Lbl}}|_], Regs, #btb{index=Li}=D) ->
     btb_reaches_match_2(Is, Regs, D);
 btb_reaches_match_2([{label,_}|Is], Regs, D) ->
     btb_reaches_match_2(Is, Regs, D);
-btb_reaches_match_2([bs_init_writable|Is], Regs0, D) ->
-    Regs = btb_kill_not_live(0, Regs0),
-    btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{bs_init2,{f,0},_,_,_,_,Dst}|Is], Regs, D) ->
-    btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
-btb_reaches_match_2([{bs_init_bits,{f,0},_,_,_,_,Dst}|Is], Regs, D) ->
-    btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
-btb_reaches_match_2([{bs_append,{f,0},_,_,_,_,Src,_,Dst}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
-    btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
-btb_reaches_match_2([{bs_private_append,{f,0},_,_,Src,_,Dst}=I|Is], Regs, D) ->
-    btb_ensure_not_used([Src], I, Regs),
+btb_reaches_match_2([{bs_init,{f,0},_,_,Ss,Dst}=I|Is], Regs, D) ->
+    btb_ensure_not_used(Ss, I, Regs),
     btb_reaches_match_1(Is, btb_kill([Dst], Regs), D);
 btb_reaches_match_2([{bs_put,{f,0},_,Ss}=I|Is], Regs, D) ->
     btb_ensure_not_used(Ss, I, Regs),

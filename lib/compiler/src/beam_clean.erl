@@ -242,15 +242,10 @@ replace([{call_only,Ar,{f,Lbl}}|Is], Acc, D) ->
     replace(Is, [{call_only,Ar,{f,label(Lbl, D)}}|Acc], D);
 replace([{make_fun2,{f,Lbl},U1,U2,U3}|Is], Acc, D) ->
     replace(Is, [{make_fun2,{f,label(Lbl, D)},U1,U2,U3}|Acc], D);
-replace([{bs_init2,{f,Lbl},Sz,Words,R,F,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_init2,{f,label(Lbl, D)},Sz,Words,R,F,Dst}|Acc], D);
-replace([{bs_init_bits,{f,Lbl},Sz,Words,R,F,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_init_bits,{f,label(Lbl, D)},Sz,Words,R,F,Dst}|Acc], D);
+replace([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{bs_init,{f,label(Lbl, D)},Info,Live,Ss,Dst}|Acc], D);
 replace([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{bs_put,{f,label(Lbl, D)},Info,Ss}|Acc], D);
-replace([{bs_append,{f,Lbl},_,_,_,_,_,_,_}=I0|Is], Acc, D) when Lbl =/= 0 ->
-    I = setelement(2, I0, {f,label(Lbl, D)}),
-    replace(Is, [I|Acc], D);
 replace([I|Is], Acc, D) ->
     replace(Is, [I|Acc], D);
 replace([], Acc, _) -> Acc.

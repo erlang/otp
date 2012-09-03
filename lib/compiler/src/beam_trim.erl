@@ -172,19 +172,10 @@ remap([{bif,Name,Fail,Ss,D}|Is], Map, Acc) ->
 remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Map, Acc) ->
     I = {gc_bif,Name,Fail,Live,[Map(S) || S <- Ss],Map(D)},
     remap(Is, Map, [I|Acc]);
-remap([{bs_append=Op,Fail,Bits,Heap,Live,Unit,Bin,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Bits),Heap,Live,Unit,Map(Bin),Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_private_append=Op,Fail,Bits,Unit,Bin,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Bits),Unit,Map(Bin),Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([bs_init_writable=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]);
-remap([{bs_init2,Fail,Src,Live,U,Flags,D}|Is], Map, Acc) ->
-    I = {bs_init2,Fail,Map(Src),Live,U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_init_bits,Fail,Src,Live,U,Flags,D}|Is], Map, Acc) ->
-    I = {bs_init_bits,Fail,Map(Src),Live,U,Flags,Map(D)},
+remap([{bs_init,Fail,Info,Live,Ss0,Dst0}|Is], Map, Acc) ->
+    Ss = [Map(Src) || Src <- Ss0],
+    Dst = Map(Dst0),
+    I = {bs_init,Fail,Info,Live,Ss,Dst},
     remap(Is, Map, [I|Acc]);
 remap([{bs_put=Op,Fail,Info,Ss}|Is], Map, Acc) ->
     I = {Op,Fail,Info,[Map(S) || S <- Ss]},
@@ -284,15 +275,7 @@ frame_size([{test,_,{f,L},_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{test,_,{f,L},_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_append,{f,L},_,_,_,_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_private_append,{f,L},_,_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([bs_init_writable|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{bs_init2,{f,L},_,_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_init_bits,{f,L},_,_,_,_,_}|Is], Safe) ->
+frame_size([{bs_init,{f,L},_,_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{bs_put,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
