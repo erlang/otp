@@ -31,6 +31,75 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The module name in the link to the detail page for each
+	    loaded module was earlier not URL encoded. If the module
+	    name contained e.g. a # this could cause the crashdump
+	    viewer to crash when opening the link. This has been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-10090 Aux Id: seq12068 </p>
+        </item>
+        <item>
+          <p>
+	    Escape control characters in Table Viewer</p>
+          <p>
+	    Similar behaviour to old tv. Objects in tables supposed
+	    to be printed in a single line and it looks ugly when a
+	    [...,10,...] integer list creates a new-line. Fix Table
+	    Viewer search crash on new|changed|deleted rows.</p>
+          <p>
+	    Fix Table Viewer crash after a 'Found' -&gt; 'Not found'
+	    search sequence</p>
+          <p>
+	    Start position was lost after a 'Found' -&gt; 'Not found'
+	    search sequence leading an undefined position in the next
+	    search. Thanks to Peti Gömori</p>
+          <p>
+	    Own Id: OTP-10218</p>
+        </item>
+        <item>
+          <p>
+	    observer: fix app file (Noticed-by: Motiejus Jakstys)</p>
+          <p>
+	    Add missing observer modules to observer.app.src. Thanks
+	    to Tuncer Ayaz.</p>
+          <p>
+	    Own Id: OTP-10221</p>
+        </item>
+        <item>
+          <p>
+	    Make Table Viewer search a bit faster</p>
+          <p>
+	    Edit table row in a multiline text dialog. Thanks to Peti
+	    Gomori.</p>
+          <p>
+	    Own Id: OTP-10225</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Allow tracing on bifs.</p> <p>Ask epmd for local
+	    nodes, and remember users last input in connect.</p>
+	    <p>Fix crashes when a table or process information could
+	    not be retrieved.</p>
+          <p>
+	    Own Id: OTP-10075</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 1.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

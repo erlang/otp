@@ -31,6 +31,64 @@
   <p>This document describes the changes made to the Dialyzer
     application.</p>
 
+<section><title>Dialyzer 2.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct handling of type names in contracts. Fix
+	    crash related to contract checking. Do not rewrite
+	    unchanged PLT. </p>
+          <p>
+	    Own Id: OTP-10083</p>
+        </item>
+        <item>
+          <p>
+	    Stop a forgotten server process</p>
+          <p>
+	    Dialyzer forgot to stop a server process before finishing
+	    its analysis. This is a concurrency error detected by
+	    Concuerror. Changes to fix warnings identified by running
+	    dialyzer -Wunmatched_returns. Thanks to Kostis Sagonas.</p>
+          <p>
+	    Own Id: OTP-10231</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Bug fixes and improvements of
+	    <c>dialyzer_typesig</c>. </p>
+          <p>
+	    Own Id: OTP-10082</p>
+        </item>
+        <item>
+          <p>
+	    Add parallel dialyzer support</p>
+          <p>
+	    Own Id: OTP-10103</p>
+        </item>
+        <item>
+	    <p> An alternative implementation of the solver in
+	    <c>dialyzer_typesig</c> has been introduced. It is faster
+	    than the original implementation. </p>
+          <p>
+	    Own Id: OTP-10110</p>
+        </item>
+        <item>
+	    <p> Bugs in <c>erl_types:t_inf()</c> (HiPE) and in
+	    <c>dialyzer_dataflow</c> (Dialyzer) have been fixed. </p>
+          <p>
+	    Own Id: OTP-10191</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Dialyzer 2.5.1</title>
 
     <section><title>Improvements and New Features</title>

@@ -30,6 +30,23 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Detect when middle endian doubles are used by a platform
+	    and account for it when decoding floats. (Thanks to Mike
+	    Sperber)</p>
+          <p>
+	    Own Id: OTP-10209</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.7.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,220 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    If a CT hook function caused a crash, this could in some
+	    situations cause Common Test to terminate due to an
+	    illegal IO operation. This error has been corrected.</p>
+          <p>
+	    Own Id: OTP-10050 Aux Id: seq12039 </p>
+        </item>
+        <item>
+          <p>
+	    The Common Test documentation states that timetraps are
+	    never active during execution of CT hook functions. This
+	    was only true for post hook functions, not for pre hook
+	    functions. The code for CT hooks has been modified to
+	    behave according to the documentation.</p>
+          <p>
+	    Own Id: OTP-10069</p>
+        </item>
+        <item>
+          <p>
+	    If a CT hook function would call the exit/1 or throw/1
+	    BIF (possibly indirectly, e.g. as a result of a timeout
+	    in gen_server:call/3), Common Test would hang. This
+	    problem has been fixed.</p>
+          <p>
+	    Own Id: OTP-10072 Aux Id: seq12053 </p>
+        </item>
+        <item>
+          <p>
+	    The documentation has been updated with information about
+	    how to deal with chaining of hooks which return
+	    fail/skip.</p>
+          <p>
+	    Own Id: OTP-10077 Aux Id: seq12048 </p>
+        </item>
+        <item>
+          <p>
+	    When ct_hooks called the id/1 functions of multiple
+	    hooks, it would reverse the order of the hooks and call
+	    the proceeding init/2 calls in the wrong order. This has
+	    been fixed.</p>
+          <p>
+	    Own Id: OTP-10135</p>
+        </item>
+        <item>
+          <p>
+	    The surefire hook now correctly handles autoskipped
+	    initialization and test functions.</p>
+          <p>
+	    Own Id: OTP-10158</p>
+        </item>
+        <item>
+          <p>
+	    The ct:get_status/0 function failed to report status if a
+	    parallel test case group was running at the time of the
+	    call. This has been fixed and the return value for the
+	    function has been updated. Please see the ct reference
+	    manual for details.</p>
+          <p>
+	    Own Id: OTP-10172</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The support for "silent connections" has been updated to
+	    include ssh. Also, a silent_connections term has been
+	    added to the set of test specification terms.</p>
+          <p>
+	    Own Id: OTP-9625 Aux Id: seq11918 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to specify an arbitrarily large tuple
+	    as the requires config data when using require and
+	    ct:get_config. See the ct:get_config and ct:require
+	    reference manual pages for details about which keys are
+	    allowed.</p>
+          <p>
+	    This change introduces a backwards incompatability in the
+	    <c>ct:require/2</c> interface. Previously when doing
+	    <c>ct:require(a_name,{key,subkey})</c>, a_name would be
+	    associated with key. This has been changed to that
+	    <c>a_name</c> is associated with <c>subkey</c>. This
+	    change also effects using <c>require</c> in an
+	    suite/group/testcase info function.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-9626 Aux Id: seq11920 </p>
+        </item>
+        <item>
+          <p>
+	    The ct_run program now sets the OS process exit status
+	    before it ends. Value 0 indicates a successful test
+	    result, 1 indicates one or more failed or auto-skipped
+	    test cases, and 2 indicates test execution failure.</p>
+          <p>
+	    Own Id: OTP-9865 Aux Id: OTP-10087 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to sort the HTML tables by clicking on
+	    the header elements. In order to reset a sorted table,
+	    the browser window should simply be refreshed. This
+	    feature requires that the browser supports javascript,
+	    and has javascript execution enabled. If the 'ct_run
+	    -basic_html' flag is used, no javascript code is included
+	    in the generated HTML code.</p>
+          <p>
+	    Own Id: OTP-9896 Aux Id: seq12034, OTP-9835 </p>
+        </item>
+        <item>
+          <p>
+	    A netconf client, ct_netconfc, is added to common_test.
+	    It supports basic netconf functionality over SSH. In
+	    order to allow testing of both success and failure cases,
+	    it is intentionally written to allow non-standard
+	    behavior.</p>
+          <p>
+	    Own Id: OTP-10025</p>
+        </item>
+        <item>
+          <p>
+	    The test specification term {define,Constant,Value} has
+	    been introduced, which makes it possible to replace
+	    constant names (atom()) with values (term()) in arbitrary
+	    test specification terms. The 'define' makes the (now
+	    deprecated) 'alias' term obsolete. More details,
+	    including examples, can be found in the Test
+	    Specifications chapter in the Common Test User's Guide.</p>
+          <p>
+	    Own Id: OTP-10049</p>
+        </item>
+        <item>
+          <p>
+	    Verbosity levels for log printouts has been added. This
+	    makes it possible to specify preferred verbosity for
+	    different categories of log printouts, as well as general
+	    printouts (such as standard IO), to allow control over
+	    which strings get printed and which get ignored. New
+	    versions of the Common Test logging functions, ct:log,
+	    ct:pal and ct:print, have been introduced, with a new
+	    Importance argument added. The Importance value is
+	    compared to the verbosity level at runtime. More
+	    information can be found in the chapter about Logging in
+	    the Common Test User's Guide.</p>
+          <p>
+	    Own Id: OTP-10067 Aux Id: seq12050 </p>
+        </item>
+        <item>
+          <p>
+	    The return values of ct:run_test/1 and ct:run_testspec/1
+	    have been changed from an uninformative 'ok' (independent
+	    of the test outcome) to a value,
+	    {Ok,Failed,{UserSkipped,AutoSkipped}} (all integers),
+	    that presents the final test case result, or a value,
+	    {error,Reason}, that informs about fatal test execution
+	    failure. See details in the reference manual for ct.</p>
+          <p>
+	    Own Id: OTP-10087 Aux Id: OTP-9865 </p>
+        </item>
+        <item>
+          <p>
+	    The test specification syntax has been updated with new
+	    and missing terms, such as 'define', 'verbosity',
+	    'auto_compile', 'stylesheet', 'silent_connections',
+	    'basic_html' and 'release_shell'. See the Test
+	    Specification chapter in the Common Test User's Guide for
+	    details.</p>
+          <p>
+	    Own Id: OTP-10089 Aux Id: OTP-10049 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to pause execution of a test case, by
+	    calling the ct:break/1/2 function. Execution is resumed
+	    with a call to ct:continue/0/1. Break/continue also works
+	    for test cases executing in parallel. See the ct
+	    reference manual for details.</p>
+          <p>
+	    Own Id: OTP-10127</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to send user defined events from a
+	    testcase which will be picked up by the installed event
+	    handler.</p>
+          <p>
+	    Own Id: OTP-10157</p>
+        </item>
+        <item>
+          <p>
+	    A new start option, release_shell, for ct:run_test/1, has
+	    been added, which makes Common Test release the shell
+	    process after the test suite compilation phase is
+	    finished. For details, see the Running Tests chapter in
+	    the User's Guide.</p>
+          <p>
+	    Own Id: OTP-10248 Aux Id: OTP-10127 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

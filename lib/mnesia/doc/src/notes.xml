@@ -38,7 +38,37 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.7</title>
+  <section><title>Mnesia 4.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add tests showing that trying to delete non-existing
+	    object may corrupt the </p>
+          <p>
+	    In case of bag tables, trying to delete a non-existing
+	    object leads to the index becoming corrupt. This happens
+	    if the non-existing object we try to delete happens to
+	    share its key and index field value with a single
+	    existing object in the table. Result: The index entry
+	    corresponding to the existing object is removed.</p>
+          <p>
+	    Prevent index from being corrupted if a nonexistent item
+	    is deleted</p>
+          <p>
+	    We have to ensure that we actually delete the last object
+	    with a given (key, index) pair before removing the index.
+	    Thanks to Bartlomiej Puzon</p>
+          <p>
+	    Own Id: OTP-10220</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

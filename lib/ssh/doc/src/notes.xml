@@ -29,6 +29,76 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 2.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ssh now only sends one channel close message under all
+	    circumstances, before it would sometimes incorrectly send
+	    two.</p>
+          <p>
+	    Own Id: OTP-10060</p>
+        </item>
+        <item>
+          <p>
+	    The options check mistreated the ip_v6_disable-option,
+	    and did not handle some, at the moment, undocumented
+	    options correctly.</p>
+          <p>
+	    Own Id: OTP-10061</p>
+        </item>
+        <item>
+          <p>
+	    The channel id in a channel failure message, sent to the
+	    peer, is now in all cases the remote channel id</p>
+          <p>
+	    Own Id: OTP-10062</p>
+        </item>
+        <item>
+          <p>
+	    Improved handling of multiple closes to avoid occasional
+	    crashes when a channel is closed more than once.</p>
+          <p>
+	    Own Id: OTP-10112</p>
+        </item>
+        <item>
+          <p>
+	    Fix lib/src/test/ssh_basic_SUITE.erl to fix IPv6 option
+	    typos</p>
+          <p>
+	    Fixed incorrect option "ipv6_disable" to "ipv6_disabled"
+	    as documented in the ssh manual.</p>
+          <p>
+	    Own Id: OTP-10219</p>
+        </item>
+        <item>
+          <p>
+	    SSH: Make "auth_methods" server option re-usable</p>
+          <p>
+	    The 'auth_methods' option is used by the server side of
+	    the SSH code to tell a connecting SSH client about the
+	    authentication methods that are supported by the server.
+	    The code still extracts and handles the 'auth_methods'
+	    option from Opts in appropriate places, but the Opts
+	    checking code in ssh.erl didn't allow that option to be
+	    specified.</p>
+          <p>
+	    Own Id: OTP-10224</p>
+        </item>
+        <item>
+          <p>
+	    Use the correct channel id when adjusting the channel
+	    window</p>
+          <p>
+	    Own Id: OTP-10232</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

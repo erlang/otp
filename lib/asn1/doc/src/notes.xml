@@ -31,6 +31,75 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Encoding and decoding of integer ranges can now be done
+	    with an upper bound larger than the previous limit of
+	    16^10. The new upper bound in per encoding and decodings
+	    for constrained whole numbers is 2^2040 (close to 16^508)</p>
+          <p>
+	    Own Id: OTP-10128</p>
+        </item>
+        <item>
+          <p>
+	    Per encoding/decoding now works correctly for single
+	    value subtyping of an integer type where a subtype is a
+	    predefined value. Previously a predefined value could
+	    cause a non-valid range-check in the generated Erlang
+	    code for per encoding/decoding due to a bug in the
+	    constraint checking.</p>
+          <p>
+	    Own Id: OTP-10139</p>
+        </item>
+        <item>
+          <p>
+	    Fix typo error in selected decode function (Thanks to
+	    Artem Teslenko)</p>
+          <p>
+	    Own Id: OTP-10152</p>
+        </item>
+        <item>
+          <p>
+	    Better error indication when detecting unexpected tags
+	    during decoding of BER encoded data.</p>
+          <p>
+	    Own Id: OTP-10186</p>
+        </item>
+        <item>
+          <p>
+	    asn1rt_check: Fix transform_to_EXTERNAL1990 for binary
+	    input (Thanks to Harald Welte)</p>
+          <p>
+	    Own Id: OTP-10233</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Add support for multiple ExtensionAdditionGroups</p>
+          <p>
+	    Own Id: OTP-10058</p>
+        </item>
+        <item>
+          <p>
+	    Add support for extensible enumeration types in n2n
+	    generated functions.</p>
+          <p>
+	    Own Id: OTP-10144</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.7</title>
 
     <section><title>Improvements and New Features</title>

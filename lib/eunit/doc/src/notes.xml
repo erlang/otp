@@ -32,6 +32,38 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    New option 'no_tty' to silent the default tty report.</p>
+          <p>
+	    Recognize the new stacktrace format introduced in R15,
+	    adding location information. (Thanks to Klas Johansson.)</p>
+          <p>
+	    Improve layout of error messages, printing the stack
+	    trace before the error term.</p>
+          <p>
+	    Heuristically detect and report bad return values from
+	    generators and instantiators. E.g., "ok" will not be
+	    interpreted as a module name, and a warning will be
+	    printed.</p>
+          <p>
+	    New test representation {test,M,F} for completeness along
+	    with {generator,M,F}. Tuples {M,F} are deprecated.</p>
+          <p>
+	    Use UTF-8 as encoding in Surefire output files. (Thanks
+	    to Lukas Larsson.)</p>
+          <p>
+	    Own Id: OTP-10173</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.2.2</title>
 
     <section><title>Improvements and New Features</title>

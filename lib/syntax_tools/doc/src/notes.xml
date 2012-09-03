@@ -31,6 +31,24 @@
   <p>This document describes the changes made to the Syntax_Tools
     application.</p>
 
+<section><title>Syntax_Tools 1.6.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Syntax Tools 1.6.9</p>
+          <p>
+	    Minor bugfixes, spec annotations and documentation
+	    cleanup. Thanks to Richard Carlsson</p>
+          <p>
+	    Own Id: OTP-10208</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Syntax_Tools 1.6.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,84 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.18.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug where if given an invalid drive letter on
+	    windows ensure dir would go into an infinite loop.</p>
+          <p>
+	    Own Id: OTP-10104</p>
+        </item>
+        <item>
+          <p>
+	    Calls to gen_server:enter_loop/4 where ServerName has a
+	    global scope and no timeout is given now works correctly.</p>
+          <p>
+	    Thanks to Sam Bobroff for reporting the issue.</p>
+          <p>
+	    Own Id: OTP-10130</p>
+        </item>
+        <item>
+          <p>
+	    fix escript/primary archive reloading</p>
+          <p>
+	    If the mtime of an escript/primary archive file changes
+	    after being added to the code path, correctly reload the
+	    archive and update the cache. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-10151</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that in some cases could cause corrupted binaries
+	    in ETS tables with <c>compressed</c> option.</p>
+          <p>
+	    Own Id: OTP-10182</p>
+        </item>
+        <item>
+          <p>
+	    Fix filename:nativename/1 on Win32</p>
+          <p>
+	    Don't choke on paths given as binary argument on Win32.
+	    Thanks to Jan Klötzke</p>
+          <p>
+	    Own Id: OTP-10188</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>ets:test_ms/2</c> that could cause emulator
+	    crash when using <c>'$_'</c> in match spec.</p>
+          <p>
+	    Own Id: OTP-10190</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where zip archives wrongly have a first disk
+	    number set to 1</p>
+          <p>
+	    Own Id: OTP-10223</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> The message printed by the Erlang shell as an
+	    explanation of the <c>badarith</c> error has been
+	    corrected. (Thanks to Matthias Lang.) </p>
+          <p>
+	    Own Id: OTP-10054</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.18.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

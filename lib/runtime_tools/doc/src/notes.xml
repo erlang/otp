@@ -31,6 +31,52 @@
   <p>This document describes the changes made to the Runtime_Tools
     application.</p>
 
+<section><title>Runtime_Tools 1.8.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Change the module-level docs to give complete
+	    step-by-step instructions for using the `dyntrace:p()`
+	    trace function. (Thanks to Scott Lystig Fritchie)</p>
+          <p>
+	    Own Id: OTP-10141</p>
+        </item>
+        <item>
+          <p>
+	    Add 1024 separate USDT probes to dyntrace.erl and
+	    dyntrace.c (Thanks to Scott Lystig Fritchie)</p>
+          <p>
+	    Own Id: OTP-10143</p>
+        </item>
+        <item>
+          <p>
+	    Relocate bodies of DTrace probes to the statically-linked
+	    VM.</p>
+          <p>
+	    Due to various operating systems (in both the DTrace and
+	    SystemTap worlds) not fully supporting DTrace probes (or
+	    SystemTap-compatibility mode probes) in shared libraries,
+	    we relocate those probes to the statically-linked virtual
+	    machine. This could be seen as pollution of the pristine
+	    VM by a (yet) experimental feature. However:</p>
+          <p>
+	    1. This code can be eliminated completely by the C
+	    preprocessor. 2. Leaving the probes in the dyntrace NIF
+	    shared library simply does not work correctly on too many
+	    platforms. *Many* thanks to Macneil Shonle at Basho for
+	    assisting when my RSI-injured fingers gave out. (note:
+	    Solaris 10 and FreeBSD 9.0-RELEASE can take a long time
+	    to compile)</p>
+          <p>
+	    Own Id: OTP-10189</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Runtime_Tools 1.8.8</title>
 
     <section><title>Improvements and New Features</title>
