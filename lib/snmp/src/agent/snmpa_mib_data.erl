@@ -675,7 +675,7 @@ find_node(D, {node, {variable, _MibName}}, [0], RevOid) ->
     end;
 find_node(_D, {node, {variable, _MibName}}, [], _RevOid) ->
     ?vtrace("find_node(tree,variable,[]) -> entry",[]),
-    {false, noSuchObject};
+    {false, noSuchInstance};
 find_node(_D, {node, {variable, _MibName}}, _, _RevOid) ->
     ?vtrace("find_node(tree,variable) -> entry",[]),
     {false, noSuchInstance};
