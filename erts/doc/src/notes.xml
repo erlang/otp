@@ -30,6 +30,30 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    On Linux systems using heart (erl -heart) and a
+	    HEAR_BEAT_TIMEOUT less than default, heart could fire
+	    even though Erlang was running fine after approx 298 to
+	    497 days (depending on kernel config). This was due to
+	    the behaviour of the times(2) system call. Usage of
+	    times(2) is now replaced with clock_gettime(2) and the
+	    CLOCK_MONOTONIC clock, resulting in a more stable
+	    solution. The Erlang VM itself has used clock_gettime(2)
+	    on linux since before R12B, so this only affects the
+	    heart program.</p>
+          <p>
+	    Own Id: OTP-10111 Aux Id: seq12075 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9.1.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
