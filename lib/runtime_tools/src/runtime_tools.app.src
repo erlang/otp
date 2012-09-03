@@ -17,14 +17,13 @@
 %% %CopyrightEnd%
 %%
 {application, runtime_tools,
-   [{description,  "RUNTIME_TOOLS version 1"},
+   [{description,  "RUNTIME_TOOLS"},
     {vsn,          "%VSN%"},
     {modules,      [dbg,observer_backend,percept_profile,
 		    runtime_tools,runtime_tools_sup,erts_alloc_config,
 		    ttb_autostart,dyntrace]},
-    {registered,   [runtime_tools_sup,inviso_rt,inviso_rt_meta]},
+    {registered,   [runtime_tools_sup]},
     {applications, [kernel, stdlib]},
-%    {env,          [{inviso_autostart_mod,your_own_autostart_module}]},
     {env,          []},
     {mod,          {runtime_tools, []}}]}.
 
