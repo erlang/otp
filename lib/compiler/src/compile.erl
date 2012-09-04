@@ -632,7 +632,8 @@ kernel_passes() ->
 asm_passes() ->
     %% Assembly level optimisations.
     [{delay,
-      [{unless,no_postopt,
+      [{pass,beam_a},
+       {unless,no_postopt,
 	[{pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_except,{pass,beam_except}},
@@ -666,6 +667,7 @@ asm_passes() ->
 	[?pass(beam_unused_labels),
 	 {pass,beam_clean}]},
 
+       {pass,beam_z},
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
