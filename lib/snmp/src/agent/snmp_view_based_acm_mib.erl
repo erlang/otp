@@ -634,7 +634,7 @@ vacmAccessTable(is_set_ok, RowIndex, Cols0) ->
 		{{Col, ?'RowStatus_createAndWait'}, _} ->
 		    %% Row already exists => inconsistentValue
 		    {inconsistentValue, Col};
-		{value, {_Col, ?'RowStatus_destroy'}} ->
+		{{_Col, ?'RowStatus_destroy'}, _} ->
 		    %% always ok!
 		    {noError, 0};
 		{_, false} ->
