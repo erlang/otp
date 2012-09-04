@@ -660,12 +660,9 @@ asm_passes() ->
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
 
-       %% If post optimizations are turned off, we still coalesce
-       %% adjacent labels and remove unused labels to keep the
-       %% HiPE compiler happy.
-       {iff,no_postopt,
-	[?pass(beam_unused_labels),
-	 {pass,beam_clean}]},
+       %% If post optimizations are turned off, we still
+       %% need to do a few clean-ups to code.
+       {iff,no_postopt,[{pass,beam_clean}]},
 
        {pass,beam_z},
        {iff,dopt,{listing,"optimize"}},
@@ -1243,10 +1240,6 @@ random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 
 save_core_code(St) ->
     {ok,St#compile{core_code=cerl:from_records(St#compile.code)}}.
-
-beam_unused_labels(#compile{code=Code0}=St) ->
-    Code = beam_jump:module_labels(Code0),
-    {ok,St#compile{code=Code}}.
 
 beam_asm(#compile{ifile=File,code=Code0,
 		  abstract_code=Abst,mod_options=Opts0}=St) ->

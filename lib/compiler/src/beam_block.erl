@@ -31,19 +31,16 @@ module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
 
 function({function,Name,Arity,CLabel,Is0}, Lc0) ->
     try
-	%% Extra labels may thwart optimizations.
-	Is1 = beam_jump:remove_unused_labels(Is0),
-
 	%% Collect basic blocks and optimize them.
-	Is2 = blockify(Is1),
-	Is3 = embed_lines(Is2),
-	Is4 = move_allocates(Is3),
-	Is5 = beam_utils:live_opt(Is4),
-	Is6 = opt_blocks(Is5),
-	Is7 = beam_utils:delete_live_annos(Is6),
+	Is1 = blockify(Is0),
+	Is2 = embed_lines(Is1),
+	Is3 = move_allocates(Is2),
+	Is4 = beam_utils:live_opt(Is3),
+	Is5 = opt_blocks(Is4),
+	Is6 = beam_utils:delete_live_annos(Is5),
 
 	%% Optimize bit syntax.
-	{Is,Lc} = bsm_opt(Is7, Lc0),
+	{Is,Lc} = bsm_opt(Is6, Lc0),
 
 	%% Done.
 	{{function,Name,Arity,CLabel,Is},Lc}

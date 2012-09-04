@@ -28,8 +28,11 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
 
-function({function,Name,Arity,CLabel,Is}) ->
+function({function,Name,Arity,CLabel,Is0}) ->
     try
+	%% Remove unusued labels for cleanliness and to help
+	%% optimization passes and HiPE.
+	Is = beam_jump:remove_unused_labels(Is0),
 	{function,Name,Arity,CLabel,Is}
     catch
 	Class:Error ->

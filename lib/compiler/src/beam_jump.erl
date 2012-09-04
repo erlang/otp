@@ -20,7 +20,7 @@
 
 -module(beam_jump).
 
--export([module/2,module_labels/1,
+-export([module/2,
 	 is_unreachable_after/1,is_exit_instruction/1,
 	 remove_unused_labels/1,is_label_used_in/2]).
 
@@ -132,13 +132,6 @@
 module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
     Fs = [function(F) || F <- Fs0],
     {ok,{Mod,Exp,Attr,Fs,Lc}}.
-
-module_labels({Mod,Exp,Attr,Fs,Lc}) ->
-    {Mod,Exp,Attr,[function_labels(F) || F <- Fs],Lc}.
-
-function_labels({function,Name,Arity,CLabel,Asm0}) ->
-    Asm = remove_unused_labels(Asm0),
-    {function,Name,Arity,CLabel,Asm}.    
 
 %% function(Function) -> Function'
 %%  Optimize jumps and branches.
