@@ -278,12 +278,7 @@ btb_reaches_match_2([{test,_,{f,F},_,Ss,_}=I|Is], Regs, D0) ->
     btb_ensure_not_used(Ss, I, Regs),
     D = btb_follow_branch(F, Regs, D0),
     btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{select_val,Src,{f,F},{list,Conds}}=I|Is], Regs, D0) ->
-    btb_ensure_not_used([Src], I, Regs),
-    D1 = btb_follow_branch(F, Regs, D0),
-    D = btb_follow_branches(Conds, Regs, D1),
-    btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{select_tuple_arity,Src,{f,F},{list,Conds}}=I|Is], Regs, D0) ->
+btb_reaches_match_2([{select,_,Src,{f,F},Conds}=I|Is], Regs, D0) ->
     btb_ensure_not_used([Src], I, Regs),
     D1 = btb_follow_branch(F, Regs, D0),
     D = btb_follow_branches(Conds, Regs, D1),

@@ -276,13 +276,9 @@ check_liveness(R, [{test,_,{f,Fail},Live,Ss,_}|Is], St0) ->
 		{_,_}=Other -> Other
 	    end
     end;
-check_liveness(R, [{select_val,R,_,_}|_], St) ->
+check_liveness(R, [{select,_,R,_,_}|_], St) ->
     {used,St};
-check_liveness(R, [{select_val,_,Fail,{list,Branches}}|_], St) ->
-    check_liveness_everywhere(R, [Fail|Branches], St);
-check_liveness(R, [{select_tuple_arity,R,_,_}|_], St) ->
-    {used,St};
-check_liveness(R, [{select_tuple_arity,_,Fail,{list,Branches}}|_], St) ->
+check_liveness(R, [{select,_,_,Fail,Branches}|_], St) ->
     check_liveness_everywhere(R, [Fail|Branches], St);
 check_liveness(R, [{jump,{f,F}}|_], St) ->
     check_liveness_at(R, F, St);
@@ -756,11 +752,7 @@ live_opt([{test,_,Fail,Live,Ss,_}=I|Is], _, D, Acc) ->
     Regs1 = x_live(Ss, Regs0),
     Regs = live_join_label(Fail, D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{select_val,Src,Fail,{list,List}}=I|Is], Regs0, D, Acc) ->
-    Regs1 = x_live([Src], Regs0),
-    Regs = live_join_labels([Fail|List], D, Regs1),
-    live_opt(Is, Regs, D, [I|Acc]);
-live_opt([{select_tuple_arity,Src,Fail,{list,List}}=I|Is], Regs0, D, Acc) ->
+live_opt([{select,_,Src,Fail,List}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live([Src], Regs0),
     Regs = live_join_labels([Fail|List], D, Regs1),
     live_opt(Is, Regs, D, [I|Acc]);

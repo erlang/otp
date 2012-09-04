@@ -284,10 +284,7 @@ opt_ref_used_1([{test,is_ne_exact,{f,Fail},Args}|Is], RefReg, D, Done0, Regs) ->
 opt_ref_used_1([{test,_,{f,Fail},_}|Is], RefReg, D, Done0, Regs) ->
     Done = opt_ref_used_at(Fail, RefReg, D, Done0, Regs),
     opt_ref_used_1(Is, RefReg, D, Done, Regs);
-opt_ref_used_1([{select_tuple_arity,_,{f,Fail},{list,List}}|_], RefReg, D, Done, Regs) ->
-    Lbls = [F || {f,F} <- List] ++ [Fail],
-    opt_ref_used_in_all(Lbls, RefReg, D, Done, Regs);
-opt_ref_used_1([{select_val,_,{f,Fail},{list,List}}|_], RefReg, D, Done, Regs) ->
+opt_ref_used_1([{select,_,_,{f,Fail},List}|_], RefReg, D, Done, Regs) ->
     Lbls = [F || {f,F} <- List] ++ [Fail],
     opt_ref_used_in_all(Lbls, RefReg, D, Done, Regs);
 opt_ref_used_1([{label,Lbl}|Is], RefReg, D, Done, Regs) ->

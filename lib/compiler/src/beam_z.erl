@@ -58,4 +58,6 @@ undo_rename({bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst}) ->
     {I,F,Sz,Extra,Live,U,Src,Flags,Dst};
 undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
     I;
+undo_rename({select,I,Reg,Fail,List}) ->
+    {I,Reg,Fail,{list,List}};
 undo_rename(I) -> I.

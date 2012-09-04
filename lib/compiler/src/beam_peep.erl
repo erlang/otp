@@ -120,13 +120,13 @@ peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
 		    peep(Is, SeenTests, [I|Acc])
 	    end
     end;
-peep([{select_val,Src,Fail,
-	{list,[{atom,false},{f,L},{atom,true},{f,L}]}}|
+peep([{select,select_val,Src,Fail,
+       [{atom,false},{f,L},{atom,true},{f,L}]}|
       [{label,L}|_]=Is], SeenTests, Acc) ->
     I = {test,is_boolean,Fail,[Src]},
     peep([I|Is], SeenTests, Acc);
-peep([{select_val,Src,Fail,
-       {list,[{atom,true},{f,L},{atom,false},{f,L}]}}|
+peep([{select,select_val,Src,Fail,
+       [{atom,true},{f,L},{atom,false},{f,L}]}|
       [{label,L}|_]=Is], SeenTests, Acc) ->
     I = {test,is_boolean,Fail,[Src]},
     peep([I|Is], SeenTests, Acc);

@@ -71,9 +71,9 @@ blockify([{bs_save2,R,Point}=I,{test,is_eq_exact,_,_}=Test,
 
 %% Do other peep-hole optimizations.
 blockify([{test,is_atom,{f,Fail},[Reg]}=I|
-	  [{select_val,Reg,{f,Fail},
-	    {list,[{atom,false},{f,_}=BrFalse,
-		   {atom,true}=AtomTrue,{f,_}=BrTrue]}}|Is]=Is0],
+	  [{select,select_val,Reg,{f,Fail},
+	    [{atom,false},{f,_}=BrFalse,
+	     {atom,true}=AtomTrue,{f,_}=BrTrue]}|Is]=Is0],
 	 [{block,Bl}|_]=Acc) ->
     case is_last_bool(Bl, Reg) of
 	false ->
@@ -86,9 +86,9 @@ blockify([{test,is_atom,{f,Fail},[Reg]}=I|
 			  {test,is_eq_exact,BrFalse,[Reg,AtomTrue]}|Acc])
     end;
 blockify([{test,is_atom,{f,Fail},[Reg]}=I|
-	  [{select_val,Reg,{f,Fail},
-	    {list,[{atom,true}=AtomTrue,{f,_}=BrTrue,
-		   {atom,false},{f,_}=BrFalse]}}|Is]=Is0],
+	  [{select,select_val,Reg,{f,Fail},
+	    [{atom,true}=AtomTrue,{f,_}=BrTrue,
+	     {atom,false},{f,_}=BrFalse]}|Is]=Is0],
 	 [{block,Bl}|_]=Acc) ->
     case is_last_bool(Bl, Reg) of
 	false ->
@@ -580,9 +580,9 @@ bsm_reroute([{bs_restore2,Reg,Save}=I|Is], D, _, Acc) ->
     bsm_reroute(Is, D, {Reg,Save}, [I|Acc]);
 bsm_reroute([{label,_}=I|Is], D, S, Acc) ->
     bsm_reroute(Is, D, S, [I|Acc]);
-bsm_reroute([{select_val,Reg,F0,{list,Lbls0}}|Is], D, {_,Save}=S, Acc0) ->
+bsm_reroute([{select,select_val,Reg,F0,Lbls0}|Is], D, {_,Save}=S, Acc0) ->
     [F|Lbls] = bsm_subst_labels([F0|Lbls0], Save, D),
-    Acc = [{select_val,Reg,F,{list,Lbls}}|Acc0],
+    Acc = [{select,select_val,Reg,F,Lbls}|Acc0],
     bsm_reroute(Is, D, S, Acc);
 bsm_reroute([{test,TestOp,F0,TestArgs}=I|Is], D, {_,Save}=S, Acc0) ->
     F = bsm_subst_label(F0, Save, D),

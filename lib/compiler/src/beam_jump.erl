@@ -291,9 +291,7 @@ opt([{test,_,{f,_}=Lbl,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
 opt([{test,_,{f,_}=Lbl,_,_,_}=I|Is], Acc, St) ->
     opt(Is, [I|Acc], label_used(Lbl, St));
-opt([{select_val,_R,Fail,{list,Vls}}=I|Is], Acc, St) ->
-    skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
-opt([{select_tuple_arity,_R,Fail,{list,Vls}}=I|Is], Acc, St) ->
+opt([{select,_,_R,Fail,Vls}=I|Is], Acc, St) ->
     skip_unreachable(Is, [I|Acc], label_used([Fail|Vls], St));
 opt([{label,L}=I|Is], Acc, #st{entry=L}=St) ->
     %% NEVER move the entry label.
@@ -415,8 +413,7 @@ is_unreachable_after({call_last,_Ar,_Lbl,_D}) -> true;
 is_unreachable_after({call_only,_Ar,_Lbl}) -> true;
 is_unreachable_after({apply_last,_Ar,_N}) -> true;
 is_unreachable_after({jump,_Lbl}) -> true;
-is_unreachable_after({select_val,_R,_Lbl,_Cases}) -> true;
-is_unreachable_after({select_tuple_arity,_R,_Lbl,_Cases}) -> true;
+is_unreachable_after({select,_What,_R,_Lbl,_Cases}) -> true;
 is_unreachable_after({loop_rec_end,_}) -> true;
 is_unreachable_after({wait,_}) -> true;
 is_unreachable_after(I) -> is_exit_instruction(I).
@@ -513,9 +510,7 @@ ulbl({test,_,Fail,_}, Used) ->
     mark_used(Fail, Used);
 ulbl({test,_,Fail,_,_,_}, Used) ->
     mark_used(Fail, Used);
-ulbl({select_val,_,Fail,{list,Vls}}, Used) ->
-    mark_used_list(Vls, mark_used(Fail, Used));
-ulbl({select_tuple_arity,_,Fail,{list,Vls}}, Used) ->
+ulbl({select,_,_,Fail,Vls}, Used) ->
     mark_used_list(Vls, mark_used(Fail, Used));
 ulbl({'try',_,Lbl}, Used) ->
     mark_used(Lbl, Used);

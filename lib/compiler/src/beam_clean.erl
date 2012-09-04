@@ -200,7 +200,7 @@ replace([{test,Test,{f,Lbl},Ops}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Ops}|Acc], D);
 replace([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Live,Ops,Dst}|Acc], D);
-replace([{select_val,R,{f,Fail0},{list,Vls0}}|Is], Acc, D) ->
+replace([{select,I,R,{f,Fail0},Vls0}|Is], Acc, D) ->
     Vls1 = map(fun ({f,L}) -> {f,label(L, D)};
 		   (Other) -> Other end, Vls0),
     Fail = label(Fail0, D),
@@ -210,12 +210,8 @@ replace([{select_val,R,{f,Fail0},{list,Vls0}}|Is], Acc, D) ->
 	    %% Convert to a plain jump.
 	    replace(Is, [{jump,{f,Fail}}|Acc], D);
 	Vls ->
-	    replace(Is, [{select_val,R,{f,Fail},{list,Vls}}|Acc], D)
+	    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D)
     end;
-replace([{select_tuple_arity,R,{f,Fail},{list,Vls0}}|Is], Acc, D) ->
-    Vls = map(fun ({f,L}) -> {f,label(L, D)};
-		  (Other) -> Other end, Vls0),
-    replace(Is, [{select_tuple_arity,R,{f,label(Fail, D)},{list,Vls}}|Acc], D);
 replace([{'try',R,{f,Lbl}}|Is], Acc, D) ->
     replace(Is, [{'try',R,{f,label(Lbl, D)}}|Acc], D);
 replace([{'catch',R,{f,Lbl}}|Is], Acc, D) ->
