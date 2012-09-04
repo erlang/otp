@@ -30,6 +30,50 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct handling of type names in contracts. Fix
+	    crash related to contract checking. Do not rewrite
+	    unchanged PLT. </p>
+          <p>
+	    Own Id: OTP-10083</p>
+        </item>
+        <item>
+          <p>
+	    Changes in comments and minor code cleanups</p>
+          <p>
+	    Thanks to Kostis Sagonas.</p>
+          <p>
+	    Own Id: OTP-10230</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove all code, documentation, options and diagnostic
+	    functions which were related to the experimental hybrid
+	    heap implementation.</p>
+          <p>
+	    Own Id: OTP-10105</p>
+        </item>
+        <item>
+	    <p> Bugs in <c>erl_types:t_inf()</c> (HiPE) and in
+	    <c>dialyzer_dataflow</c> (Dialyzer) have been fixed. </p>
+          <p>
+	    Own Id: OTP-10191</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.9.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

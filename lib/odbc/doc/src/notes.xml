@@ -31,7 +31,27 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.10.12</title>
+  <section><title>ODBC 2.10.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add support for NULL value in odbc:param_query</p>
+          <p>
+	    Support atom 'null' in odbc:param_query as database NULL
+	    value Fix "ODBC: received unexpected info:{tcp_closed,
+	    ...}" when connection is terminated. Fix possible access
+	    violation with 64bit ODBC. Thanks to Maxim Zrazhevskiy</p>
+          <p>
+	    Own Id: OTP-10206</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.10.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -30,6 +30,355 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix erl_prim_loader errors in handling of primary
+	    archive. The following errors have been corrected:</p>
+          <p>
+	    <list> <item> If primary archive was named "xxx", then a
+	    file in the same directory named "xxxyyy" would be
+	    interpreted as a file named "yyy" inside the archive.
+	    </item> <item> erl_prim_loader did not correctly create
+	    and normalize absolute paths for primary archive and
+	    files inside it, so unless given with exact same path
+	    files inside the archive would not be found. E.g. if
+	    escript was started as /full/path/to/xxx then
+	    "./xxx/file" would not be found since erl_prim_loader
+	    would try to match /full/path/to/xxx with
+	    /full/path/to/./xxx. Same problem with ../. </item>
+	    <item> Depending on how the primary archive was built,
+	    erl_prim_loader:list_dir/1 would sometimes return an
+	    empty string inside the file list. This was a virtual
+	    element representing the top directory of the archive.
+	    This has been removed. </item> </list></p>
+          <p>
+	    Thanks to Tuncer Ayaz and Shunichi Shinohara for
+	    reporting and co-authoring corrections.</p>
+          <p>
+	    Own Id: OTP-10071</p>
+        </item>
+        <item>
+	    <p>Fix: Add port-I/O statistics for active once and true
+	    and not only active false.</p>
+          <p>
+	    Own Id: OTP-10073</p>
+        </item>
+        <item>
+          <p>
+	    The 64-bit windows installer did not look in the right
+	    directories for 64-bit version of Microsoft Visual C++
+	    2010 Redistibutable Package and hence took the wrong
+	    decision about having to install the redistributable
+	    package if the 32-bit version was installed but not the
+	    64-bit and vice versa. This bug has now been fixed
+	    Furthermore the sub-installer for the redistributable
+	    package is now run in silent mode if the erlang installer
+	    is.</p>
+          <p>
+	    Own Id: OTP-10096</p>
+        </item>
+        <item>
+          <p>
+	    epmd would fail to start automatically when starting a
+	    distributed erlang node installed in a location with a
+	    whitespace in the path.</p>
+          <p>
+	    Own Id: OTP-10106</p>
+        </item>
+        <item>
+          <p>
+	    A more or less harmless bug that sometimes caused memory
+	    deallocations to be delayed longer than intended has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-10116</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing emulator crash when running HiPE on ARM.
+	    Bug has existed since R15B.</p>
+          <p>
+	    Own Id: OTP-10137</p>
+        </item>
+        <item>
+	    <p> A bug regarding spaces in C function prototypes has
+	    been fixed. (Thanks to Richard O'Keefe.) </p>
+          <p>
+	    Own Id: OTP-10138</p>
+        </item>
+        <item>
+          <p>
+	    Corrected dtrace pid length in message related probes.
+	    (Thanks to Zheng Siyao)</p>
+          <p>
+	    Own Id: OTP-10142</p>
+        </item>
+        <item>
+          <p>
+	    Correct formating in exit error messages</p>
+          <p>
+	    Ensure displayed sizes are not negative. (Thanks to
+	    Michael Santos)</p>
+          <p>
+	    Own Id: OTP-10148</p>
+        </item>
+        <item>
+          <p>
+	    fix escript/primary archive reloading</p>
+          <p>
+	    If the mtime of an escript/primary archive file changes
+	    after being added to the code path, correctly reload the
+	    archive and update the cache. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-10151</p>
+        </item>
+        <item>
+          <p>
+	    Doc fix: link from erlang:now/0 to os:timestamp/0</p>
+          <p>
+	    Sometimes os:timestamp/0 is more appropriate than
+	    erlang:now/0. The documentation for the former has a link
+	    to the latter; this patch adds a link in the other
+	    direction to make os:timestamp/0 more visible. Thanks to
+	    Magnus Henoch</p>
+          <p>
+	    Own Id: OTP-10180</p>
+        </item>
+        <item>
+          <p>
+	    The caret in the werl window (on Windows) could appear at
+	    the wrong place after regaining focus. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-10181</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug that in some cases could cause corrupted binaries
+	    in ETS tables with <c>compressed</c> option.</p>
+          <p>
+	    Own Id: OTP-10182</p>
+        </item>
+        <item>
+          <p>
+	    Fix use of "clever" mktime</p>
+          <p>
+	    Commit 1eef765 introduced regression (conditional
+	    _always_ evaluates to true) in which
+	    erlang:localtime_to_universaltime/2 stopped working on
+	    systems configured with timezone without DST (i.e. UTC)
+	    on *BSD platforms: 1>
+	    erlang:localtime_to_universaltime({{2012,1,1},{0,0,0}},
+	    true). ** exception error: bad argument Thanks to Piotr
+	    Sikora</p>
+          <p>
+	    Own Id: OTP-10187</p>
+        </item>
+        <item>
+          <p>
+	    Relocate bodies of DTrace probes to the statically-linked
+	    VM.</p>
+          <p>
+	    Due to various operating systems (in both the DTrace and
+	    SystemTap worlds) not fully supporting DTrace probes (or
+	    SystemTap-compatibility mode probes) in shared libraries,
+	    we relocate those probes to the statically-linked virtual
+	    machine. This could be seen as pollution of the pristine
+	    VM by a (yet) experimental feature. However:</p>
+          <p>
+	    1. This code can be eliminated completely by the C
+	    preprocessor. 2. Leaving the probes in the dyntrace NIF
+	    shared library simply does not work correctly on too many
+	    platforms. *Many* thanks to Macneil Shonle at Basho for
+	    assisting when my RSI-injured fingers gave out. (note:
+	    Solaris 10 and FreeBSD 9.0-RELEASE can take a long time
+	    to compile)</p>
+          <p>
+	    Own Id: OTP-10189</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in <c>ets:test_ms/2</c> that could cause emulator
+	    crash when using <c>'$_'</c> in match spec.</p>
+          <p>
+	    Own Id: OTP-10190</p>
+        </item>
+        <item>
+          <p>
+	    Supplying a filename longer than the operating system
+	    MAX_PATH to file:read_link/1 would cause a crash
+	    (Segemntation fault/Critical Error) on all platforms.
+	    This is now corrected.</p>
+          <p>
+	    Own Id: OTP-10200</p>
+        </item>
+        <item>
+          <p>
+	    If Perl was configured to interpret files as being
+	    encoded in UTF-8, the build would crash in
+	    <c>make_preload</c>. (Thanks to Aaron Harnly for noticing
+	    this issue.)</p>
+          <p>
+	    Own Id: OTP-10201</p>
+        </item>
+        <item>
+          <p>
+	    Fix the erlc -MP flag</p>
+          <p>
+	    Because of a copy-and-paste error in erlc.c, the -MP flag
+	    had the same effect as -MG. As a workaround, you had to
+	    pass +makedep_phony to enable the MP option. This patch
+	    makes -MP work as intended.</p>
+          <p>
+	    Own Id: OTP-10211</p>
+        </item>
+        <item>
+          <p>
+	    Allow mixed IPv4 and IPv6 addresses to sctp_bindx</p>
+          <p>
+	    Also allow mixed address families to bind, since the
+	    first address on a multihomed sctp socket must be bound
+	    with bind, while the rest are to be bound using
+	    sctp_bindx. At least Linux supports adding address of
+	    mixing families. Make inet_set_faddress function
+	    available also when HAVE_SCTP is not defined, since we
+	    use it to find an address for bind to be able to mix ipv4
+	    and ipv6 addresses. Thanks to Tomas Abrahamsson</p>
+          <p>
+	    Own Id: OTP-10217</p>
+        </item>
+        <item>
+          <p>
+	    Fix support for leap seconds-aware timezones</p>
+          <p>
+	    erlang:universaltime_to_localtime is leap seconds-aware
+	    (since 2008), however erlang:localtime_to_universaltime
+	    is not, which gives surprising results on systems
+	    configured with leap seconds-aware timezones: 1>
+	    erlang:universaltime_to_localtime({{2012,1,1},{0,0,0}}).
+	    {{2012,1,1},{0,0,0}} 2>
+	    erlang:localtime_to_universaltime({{2012,1,1},{0,0,0}}).
+	    {{2012,1,1},{0,0,24}} and completely breaks
+	    calendar:local_time_to_universal_time_dst: 3>
+	    calendar:local_time_to_universal_time_dst({{2011,1,1},{0,0,0}}).
+	    [] Thanks to Piotr Sikora</p>
+          <p>
+	    Own Id: OTP-10227</p>
+        </item>
+        <item>
+          <p>
+	    erlsrv: gracefully stop emulator on Windows shutdown</p>
+          <p>
+	    Windows will send the SERVICE_CONTROL_SHUTDOWN event to
+	    the service control handler when shutting down the
+	    system. Instead of ignoring the event, erlsrv will now
+	    invoke the stop action. Likewise, the Erlang emulator
+	    (and it's po drivers) must not quit upon reception of the
+	    CTRL_SHUTDOWN_EVENT event in th console control handler.
+	    Thanks to Jan Kloetzke</p>
+          <p>
+	    Own Id: OTP-10228</p>
+        </item>
+        <item>
+          <p>
+	    Fix dtrace bug in file rename operation.</p>
+          <p>
+	    Own Id: OTP-10234</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug in memory management of driver port data locks
+	    (PDL). In some cases PDLs could be deallocated before
+	    <c>ready_async</c> or <c>async_free</c> callback was
+	    called.</p>
+          <p>
+	    Own Id: OTP-10249</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Add port and suspend options to lock-counter
+	    profiling. (Thanks to Rick Reed)</p>
+          <p>
+	    Own Id: OTP-10051</p>
+        </item>
+        <item>
+          <p>
+	    Latency when using the active_once option in gen_tcp
+	    communication is reduced.</p>
+          <p>
+	    Own Id: OTP-10055 Aux Id: sto139 </p>
+        </item>
+        <item>
+	    <p>Remove bit8 option support from inet</p>
+          <p>
+	    Own Id: OTP-10056</p>
+        </item>
+        <item>
+          <p>
+	    The OS Pid of a port program is now available by calling
+	    erlang:port_info(Port,os_pid), Thanks to Matthias Lang
+	    for the original patch.</p>
+          <p>
+	    Own Id: OTP-10057</p>
+        </item>
+        <item>
+          <p>
+	    Fix openpty usage in run_erl. </p>
+          <p>
+	    Reopening a slave file descriptor which was closed
+	    earlier could lead to a misbehaving connection. This has
+	    now been remedied.</p>
+          <p>
+	    Own Id: OTP-10076</p>
+        </item>
+        <item>
+          <p>
+	    Remove all code, documentation, options and diagnostic
+	    functions which were related to the experimental hybrid
+	    heap implementation.</p>
+          <p>
+	    Own Id: OTP-10105</p>
+        </item>
+        <item>
+          <p>
+	    Optimizations of memory deallocations.</p>
+          <p>
+	    Own Id: OTP-10162 Aux Id: OTP-7775 </p>
+        </item>
+        <item>
+          <p>
+	    Optimization of process locking.</p>
+          <p>
+	    Own Id: OTP-10163</p>
+        </item>
+        <item>
+          <p>
+	    Added a xcomp example file for powerpc-dso-linux-gnu</p>
+          <p>
+	    Own Id: OTP-10198</p>
+        </item>
+        <item>
+          <p>
+	    Detect when middle endian doubles are used by a platform
+	    and account for it when decoding floats. (Thanks to Mike
+	    Sperber)</p>
+          <p>
+	    Own Id: OTP-10209</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.9.1.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

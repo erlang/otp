@@ -30,7 +30,22 @@
   </header>
   <p>This document describes the changes made to the <em>erl_docgen</em> application.</p>
 
-  <section><title>Erl_Docgen 0.3.1</title>
+  <section><title>Erl_Docgen 0.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> A bug regarding spaces in C function prototypes has
+	    been fixed. (Thanks to Richard O'Keefe.) </p>
+          <p>
+	    Own Id: OTP-10138</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Docgen 0.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

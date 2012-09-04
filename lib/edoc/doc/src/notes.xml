@@ -31,6 +31,25 @@
   <p>This document describes the changes made to the EDoc
     application.</p>
 
+<section><title>Edoc 0.7.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    List behaviour callbacks in Edoc when using -callback
+	    attribute. (Thanks to Magnus Henoch.)</p>
+          <p>
+	    Added special case for file names under Windows. (Thanks
+	    to Beads Land-Trujillo.)</p>
+          <p>
+	    Own Id: OTP-10174</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Edoc 0.7.9.1</title>
 
     <section><title>Improvements and New Features</title>

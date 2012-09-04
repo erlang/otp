@@ -30,6 +30,27 @@
   </header>
   <p>This document describes the changes made to the OS_Mon application.</p>
 
+<section><title>Os_Mon 2.2.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Infinity timeout added to internal calls in disksup to
+	    allow it to work properly under very heavy load.</p>
+          <p>
+	    Own Id: OTP-10100</p>
+        </item>
+        <item>
+	    <p>Clarify error messages from os_mon port programs</p>
+          <p>
+	    Own Id: OTP-10161</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Os_Mon 2.2.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

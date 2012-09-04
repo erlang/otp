@@ -31,6 +31,82 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 4.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Modules with very many functions would compile very
+	    slowly.</p>
+          <p>
+	    Own Id: OTP-10123</p>
+        </item>
+        <item>
+          <p>
+	    <c>compile:forms/2</c> will now use a
+	    {source,SourceFilePath} to set the source returned by
+	    <c>module_info(compile)</c> (Thanks to José Valim)</p>
+          <p>
+	    Own Id: OTP-10150</p>
+        </item>
+        <item>
+          <p>
+	    A process which had enabled trap_exit would receive EXIT
+	    messages after calling the compiler. (Thanks to Jeremy
+	    Heater.)</p>
+          <p>
+	    Own Id: OTP-10171</p>
+        </item>
+        <item>
+          <p>
+	    Fix messages ordering with column numbers</p>
+          <p>
+	    Own Id: OTP-10183</p>
+        </item>
+        <item>
+          <p>
+	    sys_pre_expand: Fix BASE never being set</p>
+          <p>
+	    Commit a612e99fb5aaa934fe5a8591db0f083d7fa0b20a turned
+	    module attributes from 2-tuples to 3-tuples but forgot to
+	    update get_base/1, breaking BASE for parametric modules.</p>
+          <p>
+	    Own Id: OTP-10184</p>
+        </item>
+        <item>
+          <p>
+	    The compiler will now issue a warning if literal tuple
+	    funs are used. For example, {erlang,is_tuple}(X) will now
+	    generate a warning.</p>
+          <p>
+	    Own Id: OTP-10185</p>
+        </item>
+        <item>
+          <p>
+	    The compiler will now warn for illegal sizes for segments
+	    in binary construction. For example,
+	    &lt;&lt;X:(2.5)&gt;&gt; will now cause the compiler to
+	    issue a warning.</p>
+          <p>
+	    Own Id: OTP-10197</p>
+        </item>
+        <item>
+          <p>
+	    Fix the erlc -MP flag</p>
+          <p>
+	    Because of a copy-and-paste error in erlc.c, the -MP flag
+	    had the same effect as -MG. As a workaround, you had to
+	    pass +makedep_phony to enable the MP option. This patch
+	    makes -MP work as intended.</p>
+          <p>
+	    Own Id: OTP-10211</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 4.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

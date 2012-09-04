@@ -32,6 +32,78 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documentation has been updated with the latest
+	    changes for the test_server_ctrl:report/2 function.</p>
+          <p>
+	    Own Id: OTP-10086 Aux Id: seq12066 </p>
+        </item>
+        <item>
+          <p>
+	    The ct:get_status/0 function failed to report status if a
+	    parallel test case group was running at the time of the
+	    call. This has been fixed and the return value for the
+	    function has been updated. Please see the ct reference
+	    manual for details.</p>
+          <p>
+	    Own Id: OTP-10172</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible to sort the HTML tables by clicking on
+	    the header elements. In order to reset a sorted table,
+	    the browser window should simply be refreshed. This
+	    feature requires that the browser supports javascript,
+	    and has javascript execution enabled. If the 'ct_run
+	    -basic_html' flag is used, no javascript code is included
+	    in the generated HTML code.</p>
+          <p>
+	    Own Id: OTP-9896 Aux Id: seq12034, OTP-9835 </p>
+        </item>
+        <item>
+          <p>
+	    Verbosity levels for log printouts has been added. This
+	    makes it possible to specify preferred verbosity for
+	    different categories of log printouts, as well as general
+	    printouts (such as standard IO), to allow control over
+	    which strings get printed and which get ignored. New
+	    versions of the Common Test logging functions, ct:log,
+	    ct:pal and ct:print, have been introduced, with a new
+	    Importance argument added. The Importance value is
+	    compared to the verbosity level at runtime. More
+	    information can be found in the chapter about Logging in
+	    the Common Test User's Guide.</p>
+          <p>
+	    Own Id: OTP-10067 Aux Id: seq12050 </p>
+        </item>
+        <item>
+          <p>
+	    The Erlang/OTP test runner ts has been extended to allow
+	    cross compilation of test suites. To cross compile the
+	    test suites first follow the normal cross compilation
+	    procedures and release the tests on the build host. Then
+	    install ts using an xcomp specification file and compile
+	    test suites using ts:compile_testcases/0. For more
+	    details see $ERL_TOP/xcomp/README.md.</p>
+          <p>
+	    Own Id: OTP-10074</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

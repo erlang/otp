@@ -36,6 +36,106 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>Diameter 1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix broken Result-Code setting and Destination-Host/Realm
+	    extraction.</p>
+          <p>
+	    Result-Code was assumed to have arity 1 when setting this
+	    value in an answer to a request containing AVP decode
+	    errors. Destination-Host/Realm were only correctly
+	    extracted from messages in the common application.</p>
+          <p>
+	    Own Id: OTP-10202</p>
+        </item>
+        <item>
+          <p>
+	    Handle insufficient capabilities configuration more
+	    gracefully.</p>
+          <p>
+	    A transport that does not have sufficient capabilities
+	    configuration in order to encode CER/CEA will now emit an
+	    error report noting the configuration error and exit
+	    instead of failing. The error is not detected at
+	    diameter:add_transport/2 since there is no requirement
+	    that a service be configured before its transports.</p>
+          <p>
+	    Own Id: OTP-10203</p>
+        </item>
+        <item>
+          <p>
+	    Ensure a failing peer_up/down callback does not affect
+	    transport connections to other peers.</p>
+          <p>
+	    Such a failure would previously have taken down all of a
+	    service's connections.</p>
+          <p>
+	    Own Id: OTP-10215</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Statistics related to Diameter messages can be retrieved
+	    using diameter:service_info/2.</p>
+          <p>
+	    Both Diameter and socket-level statistics are available,
+	    for both incoming and outgoing messages.</p>
+          <p>
+	    Own Id: OTP-9608</p>
+        </item>
+        <item>
+          <p>
+	    Allow multiple transport_module/config to
+	    diameter:add_transport/2.</p>
+          <p>
+	    Multiple values are attempted in sequence until one
+	    results in an established connection. This provides a way
+	    for a connecting transport to specify configuration in
+	    order of preference. (For example, SCTP before TCP.)</p>
+          <p>
+	    Own Id: OTP-9885</p>
+        </item>
+        <item>
+          <p>
+	    Add events for state transitions in the RFC 3539 watchdog
+	    state machine.</p>
+          <p>
+	    The watchdog state is also available through
+	    diameter:service_info/2.</p>
+          <p>
+	    Own Id: OTP-10212</p>
+        </item>
+        <item>
+          <p>
+	    Add diameter:service_info(SvcName, connections).</p>
+          <p>
+	    This provides an alternative to
+	    diameter:service_info(SvcName, transport) that presents
+	    information per established connection instead of per
+	    transport reference.</p>
+          <p>
+	    Own Id: OTP-10213</p>
+        </item>
+        <item>
+          <p>
+	    Assorted documentation corrections/improvements.</p>
+          <p>
+	    Own Id: OTP-10216</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Diameter 1.0</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

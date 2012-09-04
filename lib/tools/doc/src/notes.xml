@@ -30,6 +30,69 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The last tuple fun call has been removed from fprof.</p>
+          <p>
+	    Own Id: OTP-10091 Aux Id: seq12067 </p>
+        </item>
+        <item>
+          <p>
+	    Fix indentation of record fields in Emacs (Thanks to
+	    Tomas Abrahamsson)</p>
+          <p>
+	    Own Id: OTP-10120</p>
+        </item>
+        <item>
+          <p>
+	    Documentation fixes (Thanks to Ricardo Catalinas Jiménez
+	    )</p>
+          <p>
+	    Own Id: OTP-10121</p>
+        </item>
+        <item>
+          <p>
+	    Remove Erlang-specific compilation error regexp in
+	    erlang.el</p>
+          <p>
+	    Own Id: OTP-10168</p>
+        </item>
+        <item>
+          <p>
+	    Fix highlighting of atoms ending with a dollar sign</p>
+          <p>
+	    Like this: 'atom$'. In that example, the last single
+	    quote should be recognised as ending the atom. This needs
+	    a font-lock workaround similar to the one for strings.
+	    Thanks to Magnus Henoch</p>
+          <p>
+	    Own Id: OTP-10178</p>
+        </item>
+        <item>
+	    <p> Xref now accepts filenames with character codes
+	    greater than 126. (Thanks to Emile Joubert for reporting
+	    the issue.) </p>
+          <p>
+	    Own Id: OTP-10192</p>
+        </item>
+        <item>
+          <p>
+	    Add test_indentation target to lib/tools/emacs/Makefile</p>
+          <p>
+	    Automatically indent test.erl.orig, save to test.erl, and
+	    compare to test.erl.intended. Thanks to Magnus Henoch.</p>
+          <p>
+	    Own Id: OTP-10226</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

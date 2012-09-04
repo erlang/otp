@@ -30,6 +30,97 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.15.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed issue where using controlling_process/2 with self()
+	    as the second argument caused the port to leak if self()
+	    crashes. (Thanks to Ricardo Catalinas Jiménez)</p>
+          <p>
+	    Own Id: OTP-10094</p>
+        </item>
+        <item>
+          <p>
+	    When sending large files using the file:sendfile fallback
+	    file:sendfile would crash. This is now fixed.</p>
+          <p>
+	    Own Id: OTP-10098</p>
+        </item>
+        <item>
+          <p>
+	    Fix rpc:call/5 for local calls with a finite Timeout
+	    (Thanks to Tomer Chachamu)</p>
+          <p>
+	    Own Id: OTP-10149</p>
+        </item>
+        <item>
+          <p>
+	    fix escript/primary archive reloading</p>
+          <p>
+	    If the mtime of an escript/primary archive file changes
+	    after being added to the code path, correctly reload the
+	    archive and update the cache. (Thanks to Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-10151</p>
+        </item>
+        <item>
+          <p>
+	    Support added for home directories named with non-ASCII
+	    characters (codepoints above 127) on a system running in
+	    Unicode file mode (e.g. on MacOSX or Linux with startup
+	    arguments +fnu or +fna with the right LOCALE). Also
+	    environment variables with Unicode content are supported
+	    in applicable environments.</p>
+          <p>
+	    Own Id: OTP-10160</p>
+        </item>
+        <item>
+          <p>
+	    Allow mixed IPv4 and IPv6 addresses to sctp_bindx</p>
+          <p>
+	    Also allow mixed address families to bind, since the
+	    first address on a multihomed sctp socket must be bound
+	    with bind, while the rest are to be bound using
+	    sctp_bindx. At least Linux supports adding address of
+	    mixing families. Make inet_set_faddress function
+	    available also when HAVE_SCTP is not defined, since we
+	    use it to find an address for bind to be able to mix ipv4
+	    and ipv6 addresses. Thanks to Tomas Abrahamsson</p>
+          <p>
+	    Own Id: OTP-10217</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Document inet options: high_watermark, priority,
+	    linger and a some other options that previously was
+	    undocumented.</p>
+          <p>
+	    Own Id: OTP-10053</p>
+        </item>
+        <item>
+	    <p>Remove bit8 option support from inet</p>
+          <p>
+	    Own Id: OTP-10056</p>
+        </item>
+        <item>
+	    <p> The type of the disk log header has been corrected.
+	    (Thanks to Niclas Eklund.) </p>
+          <p>
+	    Own Id: OTP-10131</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.15.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

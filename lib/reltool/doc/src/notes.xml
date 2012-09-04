@@ -37,7 +37,28 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Reltool.</p>
 
-  <section><title>Reltool 0.6</title>
+  <section><title>Reltool 0.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A new sys level configuration parameter
+	    <c>{excl_lib,otp_root}</c> is added. When this is set,
+	    the target system will not contain anything from
+	    <c>$OTP_ROOT</c>. It will only contain a releases
+	    directory with rel, script and boot files, and a lib
+	    directory with applications found outside of
+	    <c>$OTP_ROOT</c> (i.e. "your own" applications).</p>
+          <p>
+	    Own Id: OTP-9743</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Reltool 0.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
