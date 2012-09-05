@@ -78,4 +78,6 @@ rename_instr({select_val=I,Reg,Fail,{list,List}}) ->
     {select,I,Reg,Fail,List};
 rename_instr({select_tuple_arity=I,Reg,Fail,{list,List}}) ->
     {select,I,Reg,Fail,List};
+rename_instr(send) ->
+    {call_ext,2,send};
 rename_instr(I) -> I.

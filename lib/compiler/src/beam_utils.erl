@@ -345,15 +345,14 @@ check_liveness(R, [{call,Live,_}|Is], St) ->
 	{x,_} -> {killed,St};
 	{y,_} -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [{call_ext,Live,Func}|Is], St) ->
+check_liveness(R, [{call_ext,Live,_}=I|Is], St) ->
     case R of
 	{x,X} when X < Live ->
 	    {used,St};
 	{x,_} ->
 	    {killed,St};
 	{y,_} ->
-	    {extfunc,Mod,Name,Arity} = Func,
-	    case erl_bifs:is_exit_bif(Mod, Name, Arity) of
+	    case beam_jump:is_exit_instruction(I) of
 		false ->
 		    check_liveness(R, Is, St);
 		true ->
@@ -381,12 +380,6 @@ check_liveness(R, [{apply,Args}|Is], St) ->
     end;
 check_liveness(R, [{apply_last,Args,_}|_], St) ->
     check_liveness_live_ret(R, Args+2, St);
-check_liveness(R, [send|Is], St) ->
-    case R of
-	{x,X} when X < 2 -> {used,St};
-	{x,_} -> {killed,St};
-	{y,_} -> check_liveness(R, Is, St)
-    end;
 check_liveness({x,R}, [{'%live',Live}|Is], St) ->
     if
 	R < Live -> check_liveness(R, Is, St);
@@ -741,8 +734,6 @@ live_opt([{call_ext_only,Arity,_}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Arity), D, [I|Acc]);
 live_opt([{make_fun2,_,_,_,Arity}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Arity), D, [I|Acc]);
-live_opt([send=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(2), D, [I|Acc]);
 live_opt([{test,_,Fail,Ss}=I|Is], Regs0, D, Acc) ->
     Regs1 = x_live(Ss, Regs0),
     Regs = live_join_label(Fail, D, Regs1),

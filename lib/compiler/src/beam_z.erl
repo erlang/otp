@@ -60,4 +60,6 @@ undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
     I;
 undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
+undo_rename({call_ext,2,send}) ->
+    send;
 undo_rename(I) -> I.

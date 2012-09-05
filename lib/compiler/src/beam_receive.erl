@@ -188,8 +188,6 @@ opt_update_regs({call_fun,_}, R, L) ->
     {regs_kill_not_live(0, R),L};
 opt_update_regs({kill,Y}, R, L) ->
     {regs_kill([Y], R),L};
-opt_update_regs(send, R, L) ->
-    {regs_kill_not_live(0, R),L};
 opt_update_regs({'catch',_,{f,Lbl}}, R, L) ->
     {R,gb_sets:add(Lbl, L)};
 opt_update_regs({catch_end,_}, R, L) ->

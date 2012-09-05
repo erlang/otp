@@ -222,10 +222,10 @@ btb_reaches_match_2([{call_fun,Live}=I|Is], Regs, D) ->
     btb_call(Live, I, Regs, Is, D);
 btb_reaches_match_2([{make_fun2,_,_,_,Live}|Is], Regs, D) ->
     btb_call(Live, make_fun2, Regs, Is, D);
-btb_reaches_match_2([{call_ext,Arity,{extfunc,Mod,Name,Arity}=Func}|Is], Regs0, D) ->
+btb_reaches_match_2([{call_ext,Arity,Func}=I|Is], Regs0, D) ->
     %% Allow us scanning beyond the call in case the match
     %% context is saved on the stack.
-    case erl_bifs:is_exit_bif(Mod, Name, Arity) of
+    case beam_jump:is_exit_instruction(I) of
 	false ->
 	    btb_call(Arity, Func, Regs0, Is, D);
 	true ->

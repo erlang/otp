@@ -182,8 +182,6 @@ remap([{bs_put=Op,Fail,Info,Ss}|Is], Map, Acc) ->
     remap(Is, Map, [I|Acc]);
 remap([{kill,Y}|T], Map, Acc) ->
     remap(T, Map, [{kill,Map(Y)}|Acc]);
-remap([send=I|T], Map, Acc) ->
-    remap(T, Map, [I|Acc]);
 remap([{make_fun2,_,_,_,_}=I|T], Map, Acc) ->
     remap(T, Map, [I|Acc]);
 remap([{deallocate,N}|Is], Map, Acc) ->
@@ -260,8 +258,8 @@ frame_size([{call_fun,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{call,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
-frame_size([{call_ext,A,{extfunc,M,F,A}}|Is], Safe) ->
-    case erl_bifs:is_exit_bif(M, F, A) of
+frame_size([{call_ext,_,_}=I|Is], Safe) ->
+    case beam_jump:is_exit_instruction(I) of
 	true -> throw(not_possible);
 	false -> frame_size(Is, Safe)
     end;
@@ -280,8 +278,6 @@ frame_size([{bs_init,{f,L},_,_,_,_}|Is], Safe) ->
 frame_size([{bs_put,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{kill,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([send|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
