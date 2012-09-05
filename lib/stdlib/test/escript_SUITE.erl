@@ -64,7 +64,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(2)),
+    ?line Dog = ?t:timetrap(?t:minutes(5)),
     [{watchdog,Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
@@ -618,7 +618,7 @@ compile_files([File | Files], SrcDir, OutDir) ->
     case filename:extension(File) of
 	".erl" ->
 	    AbsFile = filename:join([SrcDir, File]),
-	    case compile:file(AbsFile, [{outdir, OutDir}]) of
+	    case compile:file(AbsFile, [{outdir, OutDir},report_errors]) of
 		{ok, _Mod} ->
 		    compile_files(Files, SrcDir, OutDir);
 		Error ->
