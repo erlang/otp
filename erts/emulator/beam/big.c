@@ -1674,26 +1674,26 @@ int big_decimal_estimate(Wterm x)
 ** Convert a bignum into a string of decimal numbers
 */
 
-static void write_big(Wterm x, void (*write_func)(void *, char), void *arg)
+static Uint write_big(Wterm x, void (*write_func)(void *, char), void *arg)
 {
     Eterm* xp = big_val(x);
     ErtsDigit* dx = BIG_V(xp);
     dsize_t xl = BIG_SIZE(xp);
     short sign = BIG_SIGN(xp);
     ErtsDigit rem;
+    Uint n = 0;
 
     if (xl == 1 && *dx < D_DECIMAL_BASE) {
 	rem = *dx;
-	if (rem == 0)
-	    (*write_func)(arg, '0');
-	else {
+	if (rem == 0) {
+	    (*write_func)(arg, '0'); n++;
+	} else {
 	    while(rem) {
-		(*write_func)(arg, (rem % 10) + '0');
+		(*write_func)(arg, (rem % 10) + '0'); n++;
 		rem /= 10;
 	    }
 	}
-    }
-    else {
+    } else {
 	ErtsDigit* tmp  = (ErtsDigit*) erts_alloc(ERTS_ALC_T_TMP,
 					      sizeof(ErtsDigit)*xl);
 	dsize_t tmpl = xl;
@@ -1704,15 +1704,14 @@ static void write_big(Wterm x, void (*write_func)(void *, char), void *arg)
 	    tmpl = D_div(tmp, tmpl, D_DECIMAL_BASE, tmp, &rem);
 	    if (tmpl == 1 && *tmp == 0) {
 		while(rem) {
-		    (*write_func)(arg, (rem % 10)+'0');
+		    (*write_func)(arg, (rem % 10)+'0'); n++;
 		    rem /= 10;
 		}
 		break;
-	    }
-	    else {
+	    } else {
 		int i = D_DECIMAL_EXP;
 		while(i--) {
-		    (*write_func)(arg, (rem % 10)+'0');
+		    (*write_func)(arg, (rem % 10)+'0'); n++;
 		    rem /= 10;
 		}
 	    }
@@ -1720,8 +1719,10 @@ static void write_big(Wterm x, void (*write_func)(void *, char), void *arg)
 	erts_free(ERTS_ALC_T_TMP, (void *) tmp);
     }
 
-    if (sign)
-	(*write_func)(arg, '-');
+    if (sign) {
+	(*write_func)(arg, '-'); n++;
+    }
+    return n;
 }
 
 struct big_list__ {
@@ -1761,6 +1762,20 @@ char *erts_big_to_string(Wterm x, char *buf, Uint buf_sz)
     ASSERT(buf <= big_str && big_str <= buf + buf_sz - 1);
     return big_str;
 }
+
+/* Bignum to binary bytes
+ * e.g. 1 bsl 64 -> "18446744073709551616"
+ */
+
+Uint erts_big_to_binary_bytes(Eterm x, char *buf, Uint buf_sz)
+{
+    char *big_str = buf + buf_sz;
+    Uint n;
+    n = write_big(x, write_string, (void *) &big_str);
+    ASSERT(buf <= big_str && big_str <= buf + buf_sz);
+    return n;
+}
+
 
 /*
 ** Normalize a bignum given thing pointer length in digits and a sign
@@ -2466,4 +2481,210 @@ int term_equals_2pow32(Eterm x)
 #endif
 	return 0;
     }
+}
+
+
+#define IS_VALID_CHARACTER(CHAR,BASE) \
+  (CHAR < '0'				    \
+   || (CHAR > ('0' + BASE - 1)		    \
+       && !(BASE > 10							\
+	    && ((CHAR >= 'a' && CHAR < ('a' + BASE - 10))		\
+		|| (CHAR >= 'A' && CHAR < ('A' + BASE - 10))))))
+#define CHARACTER_FROM_BASE(CHAR)					\
+  ((CHAR <= '9') ? CHAR - '0' : 10 + ((CHAR <= 'Z') ? CHAR - 'A' : CHAR - 'a'))
+#define D_BASE_EXP(BASE) (d_base_exp_lookup[BASE-2])
+#define D_BASE_BASE(BASE) (d_base_base_lookup[BASE-2])
+#define LG2_LOOKUP(BASE)  (lg2_lookup[base-2])
+
+/*
+ * for i in 2..64 do
+ *   lg2_lookup[i-2] = log2(i)
+ * end
+ * How many bits are needed to store string of size n
+ */
+const double lg2_lookup[] = { 1.0, 1.58496, 2, 2.32193, 2.58496, 2.80735, 3.0,
+	3.16993, 3.32193, 3.45943, 3.58496, 3.70044, 3.80735, 3.90689, 4.0,
+	4.08746, 4.16993, 4.24793, 4.32193, 4.39232, 4.45943, 4.52356, 4.58496,
+	4.64386, 4.70044, 4.75489, 4.80735, 4.85798, 4.90689, 4.9542, 5.0,
+	5.04439, 5.08746, 5.12928, 5.16993, 5.20945, 5.24793, 5.2854, 5.32193,
+	5.35755, 5.39232, 5.42626, 5.45943, 5.49185, 5.52356, 5.55459, 5.58496,
+	5.61471, 5.64386, 5.67243, 5.70044, 5.72792, 5.75489, 5.78136, 5.80735,
+	5.83289, 5.85798, 5.88264, 5.90689, 5.93074, 5.9542, 5.97728, 6.0 };
+
+/*
+ * for i in 2..64 do
+ *   d_base_exp_lookup[i-2] = 31 / lg2_lookup[i-2];
+ * end
+ * How many characters can fit in 31 bits
+ */
+const byte d_base_exp_lookup[] = { 31, 19, 15, 13, 11, 11, 10, 9, 9, 8, 8, 8, 8,
+	7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5,
+	5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+	5, 5 };
+
+/*
+ * for i in 2..64 do
+ *   d_base_base_lookup[i-2] = pow(i,d_base_exp_lookup[i-2]);
+ * end
+ * How much can the characters which fit in 31 bit represent
+ */
+const Uint d_base_base_lookup[] = { 2147483648, 1162261467, 1073741824,
+	1220703125, 362797056, 1977326743, 1073741824, 387420489, 1000000000,
+	214358881, 429981696, 815730721, 1475789056, 170859375, 268435456,
+	410338673, 612220032, 893871739, 1280000000, 1801088541, 113379904,
+	148035889, 191102976, 244140625, 308915776, 387420489, 481890304,
+	594823321, 729000000, 887503681, 1073741824, 1291467969, 1544804416,
+	1838265625, 60466176, 69343957, 79235168, 90224199, 102400000,
+	115856201, 130691232, 147008443, 164916224, 184528125, 205962976,
+	229345007, 254803968, 282475249, 312500000, 345025251, 380204032,
+	418195493, 459165024, 503284375, 550731776, 601692057, 656356768,
+	714924299, 777600000, 844596301, 916132832, 992436543, 1073741824 };
+
+Eterm erts_chars_to_integer(Process *BIF_P, char *bytes, 
+			   Uint size, const int base) {
+    Eterm res;
+    Sint i = 0;
+    int n = 0;
+    int neg = 0;
+    byte b;
+    Eterm *hp, *hp_end;
+    int m;
+    int lg2;
+
+    if (size == 0)
+	goto bytebuf_to_integer_1_error;
+
+    if (bytes[0] == '-') {
+	neg = 1;
+	bytes++;
+	size--;
+
+    } else if (bytes[0] == '+') {
+	bytes++;
+	size--;
+    }
+
+    if (size < SMALL_DIGITS && base <= 10) {
+	/* *
+	 * Take shortcut if we know that all chars are '0' < b < '9' and
+	 * fit in a small. This improves speed by about 10% over the generic
+	 * small case.
+	 * */
+	while (size--) {
+	    b = *bytes++;
+
+	    if (b < '0' || b > ('0'+base-1))
+		goto bytebuf_to_integer_1_error;
+
+	    i = i * base + b - '0';
+	}
+
+	if (neg)
+	    i = -i;
+	res = make_small(i);
+	goto bytebuf_to_integer_1_done;
+    }
+
+    /*
+     * Calculate the maximum number of bits which will
+     * be needed to represent the binary
+     */
+    lg2 = ((size+2)*LG2_LOOKUP(base)+1);
+
+    if (lg2 < SMALL_BITS) {
+	/* Take shortcut if we know it will fit in a small.
+	 * This improves speed by about 30%.
+	 */
+	while (size) {
+	    b = *bytes++;
+	    size--;
+
+	    if (IS_VALID_CHARACTER(b,base))
+		goto bytebuf_to_integer_1_error;
+
+	    i = i * base + CHARACTER_FROM_BASE(b);
+
+	}
+
+	if (neg)
+	    i = -i;
+	res = make_small(i);
+	goto bytebuf_to_integer_1_done;
+
+    }
+
+    /* Start calculating bignum */
+    m = (lg2 + D_EXP-1)/D_EXP;
+    m = BIG_NEED_SIZE(m);
+
+    hp = HAlloc(BIF_P, m);
+    hp_end = hp + m;
+
+    if ((i = (size % D_BASE_EXP(base))) == 0)
+	i = D_BASE_EXP(base);
+
+    n = size - i;
+    m = 0;
+
+    while (i--) {
+	b = *bytes++;
+
+	if (IS_VALID_CHARACTER(b,base)) {
+	    HRelease(BIF_P, hp_end, hp);
+	    goto bytebuf_to_integer_1_error;
+	}
+
+	m = base * m + CHARACTER_FROM_BASE(b);
+    }
+
+    res = small_to_big(m, hp);
+
+    while (n) {
+	i = D_BASE_EXP(base);
+	n -= D_BASE_EXP(base);
+	m = 0;
+	while (i--) {
+	    b = *bytes++;
+
+	    if (IS_VALID_CHARACTER(b,base)) {
+	      HRelease(BIF_P, hp_end, hp);
+	      goto bytebuf_to_integer_1_error;
+	    }
+
+	    m = base * m + CHARACTER_FROM_BASE(b);
+	}
+	if (is_small(res)) {
+	    res = small_to_big(signed_val(res), hp);
+	}
+	res = big_times_small(res, D_BASE_BASE(base), hp);
+	if (is_small(res)) {
+	    res = small_to_big(signed_val(res), hp);
+	}
+	res = big_plus_small(res, m, hp);
+    }
+
+    if (is_big(res)) /* check if small */
+	res = big_plus_small(res, 0, hp); /* includes conversion to small */
+
+    if (neg) {
+	if (is_small(res))
+	    res = make_small(-signed_val(res));
+	else {
+	    Uint *big = big_val(res); /* point to thing */
+	    *big = bignum_header_neg(*big);
+	}
+    }
+
+    if (is_big(res)) {
+	hp += (big_arity(res) + 1);
+    }
+    HRelease(BIF_P, hp_end, hp);
+    goto bytebuf_to_integer_1_done;
+
+bytebuf_to_integer_1_error:
+    return THE_NON_VALUE;
+
+bytebuf_to_integer_1_done:
+    return res;
+
 }

@@ -36,7 +36,8 @@
 -export([set_cookie/2, get_cookie/0]).
 -export([nodes/0]).
 
--export([list_to_integer/2,integer_to_list/2]).
+-export([integer_to_list/2]).
+-export([integer_to_binary/2]).
 -export([flush_monitor_message/2]).
 -export([set_cpu_topology/1, format_cpu_topology/1]).
 -export([await_proc_exit/3]).
@@ -73,7 +74,9 @@
 
 -export([adler32/1, adler32/2, adler32_combine/3, append_element/2]).
 -export([atom_to_binary/2, atom_to_list/1, binary_part/2, binary_part/3]).
--export([binary_to_atom/2, binary_to_existing_atom/2, binary_to_list/1]).
+-export([binary_to_atom/2, binary_to_existing_atom/2]).
+-export([binary_to_integer/1,binary_to_integer/2]).
+-export([binary_to_list/1]).
 -export([binary_to_list/3, binary_to_term/1, binary_to_term/2]).
 -export([bit_size/1, bitsize/1, bitstr_to_list/1, bitstring_to_list/1]).
 -export([bump_reductions/1, byte_size/1, call_on_load_function/1]).
@@ -91,11 +94,13 @@
 -export([get_module_info/1, get_stacktrace/0, group_leader/0]).
 -export([group_leader/2, halt/0, halt/1, halt/2, hash/2, hibernate/3]).
 -export([insert_element/3]).
--export([integer_to_list/1, iolist_size/1, iolist_to_binary/1]).
+-export([integer_to_binary/1, integer_to_list/1]).
+-export([iolist_size/1, iolist_to_binary/1]).
 -export([is_alive/0, is_builtin/3, is_process_alive/1, length/1, link/1]).
 -export([list_to_atom/1, list_to_binary/1, list_to_bitstr/1]).
 -export([list_to_bitstring/1, list_to_existing_atom/1, list_to_float/1]).
--export([list_to_integer/1, list_to_pid/1, list_to_tuple/1, loaded/0]).
+-export([list_to_integer/1, list_to_integer/2]).
+-export([list_to_pid/1, list_to_tuple/1, loaded/0]).
 -export([localtime/0, make_ref/0, match_spec_test/3, md5/1, md5_final/1]).
 -export([md5_init/0, md5_update/2, module_loaded/1, monitor/2]).
 -export([monitor_node/2, monitor_node/3, nif_error/1, nif_error/2
@@ -315,6 +320,19 @@ binary_to_atom(_Binary, _Encoding) ->
       Binary :: binary(),
       Encoding :: latin1 | unicode | utf8.
 binary_to_existing_atom(_Binary, _Encoding) ->
+    erlang:nif_error(undefined).
+
+%% binary_to_integer/1
+-spec binary_to_integer(Binary) -> integer() when
+      Binary :: binary().
+binary_to_integer(_Binary) ->
+    erlang:nif_error(undefined).
+
+%% binary_to_integer/2
+-spec binary_to_integer(Binary,Base) -> integer() when
+      Binary :: binary(),
+      Base :: 2..36.
+binary_to_integer(_Binary,_Base) ->
     erlang:nif_error(undefined).
 
 %% binary_to_list/1
@@ -850,6 +868,12 @@ hibernate(_Module, _Function, _Args) ->
 insert_element(_Index, _Tuple1, _Term) ->
     erlang:nif_error(undefined).
 
+%% integer_to_binary/1
+-spec integer_to_binary(Integer) -> binary() when
+      Integer :: integer().
+integer_to_binary(_Integer) ->
+    erlang:nif_error(undefined).
+
 %% integer_to_list/1
 -spec integer_to_list(Integer) -> string() when
       Integer :: integer().
@@ -940,6 +964,13 @@ list_to_float(_String) ->
 -spec list_to_integer(String) -> integer() when
       String :: string().
 list_to_integer(_String) ->
+    erlang:nif_error(undefined).
+
+%% list_to_integer/2
+-spec list_to_integer(String, Base) -> integer() when
+      String :: string(),
+      Base :: 2..36.
+list_to_integer(_String,_Base) ->
     erlang:nif_error(undefined).
 
 %% list_to_pid/1
@@ -2838,51 +2869,32 @@ integer_to_list(I0, Base, R0) ->
 	    integer_to_list(I1, Base, R1)
     end.
 
-
--spec list_to_integer(String, Base) -> integer() when
-      String :: string(),
+-spec integer_to_binary(Integer, Base) -> binary() when
+      Integer :: integer(),
       Base :: 2..36.
-list_to_integer(L, 10) ->
-    erlang:list_to_integer(L);
-list_to_integer(L, Base)
-  when erlang:is_list(L), erlang:is_integer(Base),
+integer_to_binary(I, 10) ->
+    erlang:integer_to_binary(I);
+integer_to_binary(I, Base) 
+  when erlang:is_integer(I), erlang:is_integer(Base),
        Base >= 2, Base =< 1+$Z-$A+10 ->
-    case list_to_integer_sign(L, Base) of 
-	I when erlang:is_integer(I) ->
-	    I;
-	Fault ->
-	    erlang:error(Fault, [L,Base])
+    if I < 0 ->
+	    <<"$-",(integer_to_binary(-I, Base, []))/binary>>;
+       true ->
+	    integer_to_binary(I, Base, <<>>)
     end;
-list_to_integer(L, Base) ->
-    erlang:error(badarg, [L,Base]).
+integer_to_binary(I, Base) ->
+    erlang:error(badarg, [I, Base]).
 
-list_to_integer_sign([$-|[_|_]=L], Base) ->
-    case list_to_integer(L, Base, 0) of
-	I when erlang:is_integer(I) ->
-	    -I;
-	I ->
-	    I
-    end;
-list_to_integer_sign([$+|[_|_]=L], Base) ->
-    list_to_integer(L, Base, 0);
-list_to_integer_sign([_|_]=L, Base) ->
-    list_to_integer(L, Base, 0);
-list_to_integer_sign(_, _) ->
-    badarg.
-
-list_to_integer([D|L], Base, I) 
-  when erlang:is_integer(D), D >= $0, D =< $9, D < Base+$0 ->
-    list_to_integer(L, Base, I*Base + D-$0);
-list_to_integer([D|L], Base, I) 
-  when erlang:is_integer(D), D >= $A, D < Base+$A-10 ->
-    list_to_integer(L, Base, I*Base + D-$A+10);
-list_to_integer([D|L], Base, I) 
-  when erlang:is_integer(D), D >= $a, D < Base+$a-10 ->
-    list_to_integer(L, Base, I*Base + D-$a+10);
-list_to_integer([], _, I) ->
-    I;
-list_to_integer(_, _, _) ->
-    badarg.
+integer_to_binary(0, _Base, R0) ->
+    R0;
+integer_to_binary(I0, Base, R0) ->
+    D = I0 rem Base,
+    I1 = I0 div Base,
+    if D >= 10 ->
+	    integer_to_binary(I1,Base,<<(D-10+$A),R0/binary>>);
+       true ->
+	    integer_to_binary(I1,Base,<<(D+$0),R0/binary>>)
+    end.
 
 %% erlang:flush_monitor_message/2 is for internal use only!
 %%

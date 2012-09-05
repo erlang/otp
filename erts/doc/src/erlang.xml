@@ -300,6 +300,32 @@
       </desc>
     </func>
     <func>
+      <name name="binary_to_integer" arity="1"/>
+      <fsummary>Convert from text representation to an integer</fsummary>
+      <desc>
+        <p>Returns an integer whose text representation is
+          <c><anno>Binary</anno></c>.</p>
+        <pre>
+> <input>binary_to_integer(&lt;&lt;"123"&gt;&gt;).</input>
+123</pre>
+        <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
+          representation of an integer.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="binary_to_integer" arity="2"/>
+      <fsummary>Convert from text representation to an integer</fsummary>
+      <desc>
+        <p>Returns an integer whose text representation in base
+          <c><anno>Base</anno></c> is <c><anno>Binary</anno></c>.</p>
+        <pre>
+> <input>binary_to_integer(&lt;&lt;"3FF"&gt;&gt;, 16).</input>
+1023</pre>
+        <p>Failure: <c>badarg</c> if <c><anno>Binary</anno></c> contains a bad
+          representation of an integer.</p>
+      </desc>
+    </func>
+    <func>
       <name name="binary_to_list" arity="1"/>
       <fsummary>Convert a binary to a list</fsummary>
       <desc>
@@ -1429,7 +1455,28 @@ os_prompt% </pre>
 {one,new,two,three}</pre>
       </desc>
     </func>
-
+    <func>
+      <name name="integer_to_binary" arity="1"/>
+      <fsummary>Text representation of an integer</fsummary>
+      <desc>
+        <p>Returns a binary which corresponds to the text
+          representation of <c><anno>Integer</anno></c>.</p>
+        <pre>
+> <input>integer_to_binary(77).</input>
+&lt;&lt;"77">></pre>
+      </desc>
+    </func>
+    <func>
+      <name name="integer_to_binary" arity="2"/>
+      <fsummary>Text representation of an integer</fsummary>
+      <desc>
+        <p>Returns a binary which corresponds to the text
+          representation of <c><anno>Integer</anno></c> in base <c><anno>Base</anno></c>.</p>
+        <pre>
+> <input>integer_to_binary(1023, 16).</input>
+&lt;&lt;"3FF">></pre>
+      </desc>
+    </func>
     <func>
       <name name="integer_to_list" arity="1"/>
       <fsummary>Text representation of an integer</fsummary>

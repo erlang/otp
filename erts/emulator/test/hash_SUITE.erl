@@ -253,7 +253,7 @@ spread_test(N) ->
 						     integer_to_bytelist(X,[])
 					     end),
     ?line test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
-						     integer_to_binary(X)
+						     integer_to_binary_value(X)
 					     end).
     
 
@@ -711,7 +711,7 @@ collect_hits() ->
     init_table(),
     N.
 
-integer_to_binary(N) ->
+integer_to_binary_value(N) ->
     list_to_binary(lists:reverse(integer_to_bytelist(N,[]))).
 
 integer_to_bytelist(0,Acc) ->

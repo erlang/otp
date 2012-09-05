@@ -2895,18 +2895,62 @@ BIF_RETTYPE string_to_integer_1(BIF_ALIST_1)
 	 BIF_RET(TUPLE2(hp, res, tail));
      }
 }
-								 
 
 BIF_RETTYPE list_to_integer_1(BIF_ALIST_1)
-{
+ {
+   /* Using do_list_to_integer is about twice as fast as using 
+      erts_chars_to_integer because we do not have to copy the 
+      entire list */
      Eterm res;
      Eterm dummy;
      /* must be a list */
-     
      if (do_list_to_integer(BIF_P,BIF_ARG_1,&res,&dummy) != LTI_ALL_INTEGER) {
 	 BIF_ERROR(BIF_P,BADARG);
      }
      BIF_RET(res);
+ }
+
+BIF_RETTYPE list_to_integer_2(BIF_ALIST_2)
+{
+
+  /* Bif implementation is about 50% faster than pure erlang,
+     and since we have erts_chars_to_integer now it is simpler
+     as well. This could be optmized further if we did not have to
+     copy the list to buf. */
+    int i;
+    Eterm res;
+    char *buf = NULL;
+    int base;
+
+    i = list_length(BIF_ARG_1);
+    if (i < 0)
+      BIF_ERROR(BIF_P, BADARG);
+    
+    base = signed_val(BIF_ARG_2);
+  
+    if (base < 2 || base > 36) 
+      BIF_ERROR(BIF_P, BADARG);
+
+    /* Take fast path if base it 10 */
+    if (base == 10)
+      return list_to_integer_1(BIF_P,&BIF_ARG_1);
+    
+    buf = (char *) erts_alloc(ERTS_ALC_T_TMP, i + 1);
+    
+    if (intlist_to_buf(BIF_ARG_1, buf, i) < 0)
+      goto list_to_integer_1_error;
+    buf[i] = '\0';		/* null terminal */
+    
+    if ((res = erts_chars_to_integer(BIF_P,buf,i,base)) == THE_NON_VALUE)
+      goto list_to_integer_1_error;
+    
+    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    BIF_RET(res);
+    
+ list_to_integer_1_error:
+    erts_free(ERTS_ALC_T_TMP, (void *) buf);
+    BIF_ERROR(BIF_P, BADARG);
+     
  }
 
 /**********************************************************************/

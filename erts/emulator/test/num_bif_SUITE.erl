@@ -31,19 +31,23 @@
 %%	list_to_integer/1
 %%	round/1
 %%	trunc/1
+%%	integer_to_binary/1
+%%	integer_to_binary/2
+%%	binary_to_integer/1
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2, t_abs/1, t_float/1,
-	 t_float_to_list/1, t_integer_to_list/1,
-	 t_list_to_integer/1,
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1, 
+	 init_per_group/2, end_per_group/2, t_abs/1, t_float/1,
+	 t_float_to_list/1, t_integer_to_string/1,
+	 t_string_to_integer/1,
 	 t_list_to_float_safe/1, t_list_to_float_risky/1,
-	 t_round/1, t_trunc/1]).
+	 t_round/1, t_trunc/1
+     ]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [t_abs, t_float, t_float_to_list, t_integer_to_list,
-     {group, t_list_to_float}, t_list_to_integer, t_round,
+    [t_abs, t_float, t_float_to_list, t_integer_to_string,
+     {group, t_list_to_float}, t_string_to_integer, t_round,
      t_trunc].
 
 groups() -> 
@@ -65,53 +69,46 @@ end_per_group(_GroupName, Config) ->
 
 t_abs(Config) when is_list(Config) ->
     %% Floats.
-    ?line 5.5 = abs(id(5.5)),
-    ?line 0.0 = abs(id(0.0)),
-    ?line 100.0 = abs(id(-100.0)),
+    5.5 = abs(id(5.5)),
+    0.0 = abs(id(0.0)),
+    100.0 = abs(id(-100.0)),
     
     %% Integers.
-    ?line 5 = abs(id(5)),
-    ?line 0 = abs(id(0)),
-    ?line 100 = abs(id(-100)),
+    5 = abs(id(5)),
+    0 = abs(id(0)),
+    100 = abs(id(-100)),
 
     %% The largest smallnum. OTP-3190.
-    ?line X = id((1 bsl 27) - 1),
-    ?line X = abs(X),
-    ?line X = abs(X-1)+1,
-    ?line X = abs(X+1)-1,
-    ?line X = abs(-X),
-    ?line X = abs(-X-1)-1,
-    ?line X = abs(-X+1)+1,
+    X = id((1 bsl 27) - 1),
+    X = abs(X),
+    X = abs(X-1)+1,
+    X = abs(X+1)-1,
+    X = abs(-X),
+    X = abs(-X-1)-1,
+    X = abs(-X+1)+1,
 
     %% Bignums.
     BigNum = id(13984792374983749),
-    ?line BigNum = abs(BigNum),
-    ?line BigNum = abs(-BigNum),
+    BigNum = abs(BigNum),
+    BigNum = abs(-BigNum),
     ok.
     
 t_float(Config) when is_list(Config) ->
-    ?line 0.0 = float(id(0)),
-    ?line 2.5 = float(id(2.5)),
-    ?line 0.0 = float(id(0.0)),
-    ?line -100.55 = float(id(-100.55)),
-    ?line 42.0 = float(id(42)),
-    ?line -100.0 = float(id(-100)),
+    0.0 = float(id(0)),
+    2.5 = float(id(2.5)),
+    0.0 = float(id(0.0)),
+    -100.55 = float(id(-100.55)),
+    42.0 = float(id(42)),
+    -100.0 = float(id(-100)),
 
     %% Bignums.
-    ?line 4294967305.0 = float(id(4294967305)),
-    ?line -4294967305.0 = float(id(-4294967305)),
+    4294967305.0 = float(id(4294967305)),
+    -4294967305.0 = float(id(-4294967305)),
 
     %% Extremly big bignums.
-    ?line Big = id(list_to_integer(id(lists:duplicate(2000, $1)))),
-    ?line {'EXIT', {badarg, _}} = (catch float(Big)),
-
-    %% Invalid types and lists.
-    ?line {'EXIT', {badarg, _}} = (catch list_to_integer(id(atom))),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_integer(id(123))),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_integer(id([$1,[$2]]))),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_integer(id("1.2"))),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_integer(id("a"))),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_integer(id(""))),
+    Big = id(list_to_integer(id(lists:duplicate(2000, $1)))),
+    {'EXIT', {badarg, _}} = (catch float(Big)),
+    
     ok.
 
 
@@ -193,37 +190,21 @@ remove_zeros([Char|Rest], Result) ->
 remove_zeros([], Result) ->
     Result.
 
-%% Tests integer_to_list/1.
-
-t_integer_to_list(Config) when is_list(Config) ->
-    ?line "0" = integer_to_list(id(0)),
-    ?line "42" = integer_to_list(id(42)),
-    ?line "-42" = integer_to_list(id(-42)),
-    ?line "32768" = integer_to_list(id(32768)),
-    ?line "268435455" = integer_to_list(id(268435455)),
-    ?line "-268435455" = integer_to_list(id(-268435455)),
-    ?line "123456932798748738738" = integer_to_list(id(123456932798748738738)),
-    ?line Big_List = id(lists:duplicate(2000, id($1))),
-    ?line Big = list_to_integer(Big_List),
-    ?line Big_List = integer_to_list(Big),
-    ok.
-
 %% Tests list_to_float/1.
 
-
 t_list_to_float_safe(Config) when is_list(Config) ->
-    ?line 0.0 = list_to_float(id("0.0")),
-    ?line 0.0 = list_to_float(id("-0.0")),
-    ?line 0.5 = list_to_float(id("0.5")),
-    ?line -0.5 = list_to_float(id("-0.5")),
-    ?line 100.0 = list_to_float(id("1.0e2")),
-    ?line 127.5 = list_to_float(id("127.5")),
-    ?line -199.5 = list_to_float(id("-199.5")),
+    0.0 = list_to_float(id("0.0")),
+    0.0 = list_to_float(id("-0.0")),
+    0.5 = list_to_float(id("0.5")),
+    -0.5 = list_to_float(id("-0.5")),
+    100.0 = list_to_float(id("1.0e2")),
+    127.5 = list_to_float(id("127.5")),
+    -199.5 = list_to_float(id("-199.5")),
 
-    ?line {'EXIT',{badarg,_}} = (catch list_to_float(id("0"))),
-    ?line {'EXIT',{badarg,_}} = (catch list_to_float(id("0..0"))),
-    ?line {'EXIT',{badarg,_}} = (catch list_to_float(id("0e12"))),
-    ?line {'EXIT',{badarg,_}} = (catch list_to_float(id("--0.0"))),
+    {'EXIT',{badarg,_}} = (catch list_to_float(id("0"))),
+    {'EXIT',{badarg,_}} = (catch list_to_float(id("0..0"))),
+    {'EXIT',{badarg,_}} = (catch list_to_float(id("0e12"))),
+    {'EXIT',{badarg,_}} = (catch list_to_float(id("--0.0"))),
 
     ok.
 
@@ -231,107 +212,214 @@ t_list_to_float_safe(Config) when is_list(Config) ->
 %% (Known to crash the Unix version of Erlang 4.4.1)
 
 t_list_to_float_risky(Config) when is_list(Config) ->
-    ?line Many_Ones = lists:duplicate(25000, id($1)),
-    ?line id(list_to_float("2."++Many_Ones)),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
-    ok.
-
-%% Tests list_to_integer/1.
-
-t_list_to_integer(Config) when is_list(Config) ->
-    ?line 0 = list_to_integer(id("0")),
-    ?line 0 = list_to_integer(id("00")),
-    ?line 0 = list_to_integer(id("-0")),
-    ?line 1 = list_to_integer(id("1")),
-    ?line -1 = list_to_integer(id("-1")),
-    ?line 42 = list_to_integer(id("42")),
-    ?line -12 = list_to_integer(id("-12")),
-    ?line 32768 = list_to_integer(id("32768")),
-    ?line 268435455 = list_to_integer(id("268435455")),
-    ?line -268435455 = list_to_integer(id("-268435455")),
-
-    %% Bignums.
-    ?line 123456932798748738738 = list_to_integer(id("123456932798748738738")),
-    ?line id(list_to_integer(lists:duplicate(2000, id($1)))),
+    Many_Ones = lists:duplicate(25000, id($1)),
+    id(list_to_float("2."++Many_Ones)),
+    {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
     ok.
 
 %% Tests round/1.
 
 t_round(Config) when is_list(Config) ->
-    ?line 0 = round(id(0.0)),
-    ?line 0 = round(id(0.4)),
-    ?line 1 = round(id(0.5)),
-    ?line 0 = round(id(-0.4)),
-    ?line -1 = round(id(-0.5)),
-    ?line 255 = round(id(255.3)),
-    ?line 256 = round(id(255.6)),
-    ?line -1033 = round(id(-1033.3)),
-    ?line -1034 = round(id(-1033.6)),
+    0 = round(id(0.0)),
+    0 = round(id(0.4)),
+    1 = round(id(0.5)),
+    0 = round(id(-0.4)),
+    -1 = round(id(-0.5)),
+    255 = round(id(255.3)),
+    256 = round(id(255.6)),
+    -1033 = round(id(-1033.3)),
+    -1034 = round(id(-1033.6)),
     
     % OTP-3722:
-    ?line X = id((1 bsl 27) - 1),
-    ?line MX = -X,
-    ?line MXm1 = -X-1,
-    ?line MXp1 = -X+1,
-    ?line F = id(X + 0.0),
-    ?line X = round(F),
-    ?line X = round(F+1)-1,
-    ?line X = round(F-1)+1,
-    ?line MX = round(-F),
-    ?line MXm1 = round(-F-1),
-    ?line MXp1 = round(-F+1),
+    X = id((1 bsl 27) - 1),
+    MX = -X,
+    MXm1 = -X-1,
+    MXp1 = -X+1,
+    F = id(X + 0.0),
+    X = round(F),
+    X = round(F+1)-1,
+    X = round(F-1)+1,
+    MX = round(-F),
+    MXm1 = round(-F-1),
+    MXp1 = round(-F+1),
 
-    ?line X = round(F+0.1),
-    ?line X = round(F+1+0.1)-1,
-    ?line X = round(F-1+0.1)+1,
-    ?line MX = round(-F+0.1),
-    ?line MXm1 = round(-F-1+0.1),
-    ?line MXp1 = round(-F+1+0.1),
+    X = round(F+0.1),
+    X = round(F+1+0.1)-1,
+    X = round(F-1+0.1)+1,
+    MX = round(-F+0.1),
+    MXm1 = round(-F-1+0.1),
+    MXp1 = round(-F+1+0.1),
 
-    ?line X = round(F-0.1),
-    ?line X = round(F+1-0.1)-1,
-    ?line X = round(F-1-0.1)+1,
-    ?line MX = round(-F-0.1),
-    ?line MXm1 = round(-F-1-0.1),
-    ?line MXp1 = round(-F+1-0.1),
+    X = round(F-0.1),
+    X = round(F+1-0.1)-1,
+    X = round(F-1-0.1)+1,
+    MX = round(-F-0.1),
+    MXm1 = round(-F-1-0.1),
+    MXp1 = round(-F+1-0.1),
 
-    ?line 0.5 = abs(round(F+0.5)-(F+0.5)),
-    ?line 0.5 = abs(round(F-0.5)-(F-0.5)),
-    ?line 0.5 = abs(round(-F-0.5)-(-F-0.5)),
-    ?line 0.5 = abs(round(-F+0.5)-(-F+0.5)),
+    0.5 = abs(round(F+0.5)-(F+0.5)),
+    0.5 = abs(round(F-0.5)-(F-0.5)),
+    0.5 = abs(round(-F-0.5)-(-F-0.5)),
+    0.5 = abs(round(-F+0.5)-(-F+0.5)),
 
     %% Bignums.
-    ?line 4294967296 = round(id(4294967296.1)),
-    ?line 4294967297 = round(id(4294967296.9)),
-    ?line -4294967296 = -round(id(4294967296.1)),
-    ?line -4294967297 = -round(id(4294967296.9)),
+    4294967296 = round(id(4294967296.1)),
+    4294967297 = round(id(4294967296.9)),
+    -4294967296 = -round(id(4294967296.1)),
+    -4294967297 = -round(id(4294967296.9)),
     ok.
 
 t_trunc(Config) when is_list(Config) ->
-    ?line 0 = trunc(id(0.0)),
-    ?line 5 = trunc(id(5.3333)),
-    ?line -10 = trunc(id(-10.978987)),
+    0 = trunc(id(0.0)),
+    5 = trunc(id(5.3333)),
+    -10 = trunc(id(-10.978987)),
 
     % The largest smallnum, converted to float (OTP-3722):
-    ?line X = id((1 bsl 27) - 1),
-    ?line F = id(X + 0.0),
+    X = id((1 bsl 27) - 1),
+    F = id(X + 0.0),
     io:format("X = ~p/~w/~w, F = ~p/~w/~w, trunc(F) = ~p/~w/~w~n",
 	      [X, X, binary_to_list(term_to_binary(X)),
 	       F, F, binary_to_list(term_to_binary(F)),
 	       trunc(F), trunc(F), binary_to_list(term_to_binary(trunc(F)))]),
-    ?line X = trunc(F),
-    ?line X = trunc(F+1)-1,
-    ?line X = trunc(F-1)+1,
-    ?line X = -trunc(-F),
-    ?line X = -trunc(-F-1)-1,
-    ?line X = -trunc(-F+1)+1,
+    X = trunc(F),
+    X = trunc(F+1)-1,
+    X = trunc(F-1)+1,
+    X = -trunc(-F),
+    X = -trunc(-F-1)-1,
+    X = -trunc(-F+1)+1,
 
     %% Bignums.
-    ?line 4294967305 = trunc(id(4294967305.7)),
-    ?line -4294967305 = trunc(id(-4294967305.7)),
+    4294967305 = trunc(id(4294967305.7)),
+    -4294967305 = trunc(id(-4294967305.7)),
     ok.
+
+
+%% Tests integer_to_binary/1.
+
+t_integer_to_string(Config) when is_list(Config) ->
+    test_its("0",0),
+    test_its("42",42),
+    test_its("-42",-42),
+    test_its("32768",32768),
+    test_its("268435455",268435455),
+    test_its("-268435455",-268435455),
+    test_its("123456932798748738738",123456932798748738738),
+
+    %% 1 bsl 33, just beyond 32 bit
+    test_its("8589934592",8589934592),
+    test_its("-8589934592",-8589934592),
+    %% 1 bsl 65, just beyond 64 bit
+    test_its("36893488147419103232",36893488147419103232),
+    test_its("-36893488147419103232",-36893488147419103232),
+
+    %% Bignums.
+    BigBin = id(list_to_binary(lists:duplicate(2000, id($1)))),
+    Big    = erlang:binary_to_integer(BigBin),
+    BigBin = erlang:integer_to_binary(Big),
+
+    %% Invalid types
+    lists:foreach(fun(Value) ->
+			  {'EXIT', {badarg, _}} = 
+			      (catch erlang:integer_to_binary(Value)),
+			  {'EXIT', {badarg, _}} = 
+			      (catch erlang:integer_to_list(Value))
+		  end,[atom,1.2,0.0,[$1,[$2]]]),
+
+    ok.
+
+test_its(List,Int) ->
+    Int = list_to_integer(List),
+    Int = binary_to_integer(list_to_binary(List)).
+
+%% Tests binary_to_integer/1.
+
+t_string_to_integer(Config) when is_list(Config) ->
+    0 = erlang:binary_to_integer(id(<<"00">>)),
+    0 = erlang:binary_to_integer(id(<<"-0">>)),
+    0 = erlang:binary_to_integer(id(<<"+0">>)),
+
+    test_sti(0),
+    test_sti(1),
+    test_sti(-1),
+    test_sti(42),
+    test_sti(-12),
+    test_sti(32768),
+    test_sti(268435455),
+    test_sti(-268435455),
+
+    %% 1 bsl 28 - 1, just before 32 bit bignum
+    test_sti(1 bsl 28 - 1),
+    %% 1 bsl 28, just beyond 32 bit small
+    test_sti(1 bsl 28),
+    %% 1 bsl 33, just beyond 32 bit
+    test_sti(1 bsl 33),
+    %% 1 bsl 60 - 1, just before 64 bit bignum
+    test_sti(1 bsl 60 - 1),
+    %% 1 bsl 60, just beyond 64 bit small
+    test_sti(1 bsl 60),
+    %% 1 bsl 65, just beyond 64 bit
+    test_sti(1 bsl 65),
+    %% Bignums.
+    test_sti(123456932798748738738,16),
+    test_sti(list_to_integer(lists:duplicate(2000, $1))),
+
+    %% unalign string
+    Str = <<"10">>,
+    UnalignStr = <<0:3, (id(Str))/binary, 0:5>>,
+    <<_:3, SomeStr:2/binary, _:5>> = id(UnalignStr),
+    10 = erlang:binary_to_integer(SomeStr),
+
+    %% Invalid types
+    lists:foreach(fun(Value) ->
+			  {'EXIT', {badarg, _}} = 
+			      (catch binary_to_integer(Value)),
+			  {'EXIT', {badarg, _}} = 
+			      (catch erlang:list_to_integer(Value))
+		  end,[atom,1.2,0.0,[$1,[$2]]]),
+    
+    % Default base error cases
+    lists:foreach(fun(Value) ->
+			  {'EXIT', {badarg, _}} = 
+			      (catch erlang:binary_to_integer(
+				       list_to_binary(Value))),
+			  {'EXIT', {badarg, _}} = 
+			      (catch erlang:list_to_integer(Value))
+		  end,["1.0"," 1"," -1",""]),
+    
+    % Custom base error cases
+    lists:foreach(fun({Value,Base}) ->
+			  {'EXIT', {badarg, _}} = 
+			      (catch binary_to_integer(
+				       list_to_binary(Value),Base)),
+			  {'EXIT', {badarg, _}} = 
+			      (catch erlang:list_to_integer(Value,Base))
+		  end,[{" 1",1},{" 1",37},{"2",2},{"C",11},
+		       {"1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111z",16},
+		       {"1z111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",16},
+		       {"111z11111111",16}]),
+    
+    ok.
+
+test_sti(Num) ->
+    [begin
+	 io:format("Testing ~p:~p",[Num,Base]),
+	 test_sti(Num,Base) 
+     end|| Base <- lists:seq(2,36)].
+
+test_sti(Num,Base) ->
+    Num  = list_to_integer(int2list(Num,Base),Base),
+    Num = -1*list_to_integer(int2list(Num*-1,Base),Base),
+    Num  = binary_to_integer(int2bin(Num,Base),Base),
+    Num = -1*binary_to_integer(int2bin(Num*-1,Base),Base).
 
 % Calling this function (which is not supposed to be inlined) prevents
 % the compiler from calculating the answer, so we don't test the compiler
 % instead of the newest runtime system.
 id(X) -> X.
+
+%% Uses the printing library to to integer_to_binary conversions.
+int2bin(Int,Base) when Base < 37 ->
+    iolist_to_binary(int2list(Int,Base)).
+
+int2list(Int,Base) when Base < 37 ->
+    lists:flatten(io_lib:format("~."++integer_to_list(Base)++"B",[Int])).
