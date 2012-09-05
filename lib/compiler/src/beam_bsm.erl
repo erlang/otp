@@ -336,13 +336,16 @@ btb_call(Arity, Lbl, Regs0, Is, D0) ->
 	    %% First handle the call as if it were a tail call.
 	    D = btb_tail_call(Lbl, Regs, D0),
 
-	    %% No problem so far, but now we must make sure that
-	    %% we don't have any copies of the match context
-	    %% tucked away in an y register.
+	    %% No problem so far (the called function can handle a
+	    %% match context). Now we must make sure that the rest
+	    %% of this function following the call does not attempt
+	    %% to use the match context in case there is a copy
+	    %% tucked away in a y register.
 	    RegList = btb_context_regs(Regs),
-	    case [R || {y,_}=R <- RegList] of
-		[] -> D;
-		[_|_] -> btb_error({multiple_uses,RegList})
+	    YRegs = [R || {y,_}=R <- RegList],
+	    case btb_are_all_killed(YRegs, Is, D) of
+		true -> D;
+		false -> btb_error({multiple_uses,RegList})
 	    end;
 	true ->
 	    %% No match context in any x register. It could have been
