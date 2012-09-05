@@ -553,12 +553,12 @@ select_list_passes_1([{iff,Flag,{done,Ext}}|Ps], Opts, Acc) ->
     end;
 select_list_passes_1([{iff=Op,Flag,List0}|Ps], Opts, Acc) when is_list(List0) ->
     case select_list_passes(List0, Opts) of
-	{done,_}=Done -> Done;
+	{done,List} -> {done,reverse(Acc) ++ List};
 	{not_done,List} -> select_list_passes_1(Ps, Opts, [{Op,Flag,List}|Acc])
     end;
 select_list_passes_1([{unless=Op,Flag,List0}|Ps], Opts, Acc) when is_list(List0) ->
     case select_list_passes(List0, Opts) of
-	{done,_}=Done -> Done;
+	{done,List} -> {done,reverse(Acc) ++ List};
 	{not_done,List} -> select_list_passes_1(Ps, Opts, [{Op,Flag,List}|Acc])
     end;
 select_list_passes_1([P|Ps], Opts, Acc) ->
