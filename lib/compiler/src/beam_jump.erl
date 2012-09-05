@@ -407,11 +407,6 @@ is_label_used(L, St) ->
 
 is_unreachable_after({func_info,_M,_F,_A}) -> true;
 is_unreachable_after(return) -> true;
-is_unreachable_after({call_ext_last,_Ar,_ExtFunc,_D}) -> true;
-is_unreachable_after({call_ext_only,_Ar,_ExtFunc}) -> true;
-is_unreachable_after({call_last,_Ar,_Lbl,_D}) -> true;
-is_unreachable_after({call_only,_Ar,_Lbl}) -> true;
-is_unreachable_after({apply_last,_Ar,_N}) -> true;
 is_unreachable_after({jump,_Lbl}) -> true;
 is_unreachable_after({select,_What,_R,_Lbl,_Cases}) -> true;
 is_unreachable_after({loop_rec_end,_}) -> true;
@@ -423,10 +418,6 @@ is_unreachable_after(I) -> is_exit_instruction(I).
 %%  causes an exit/failure.
 
 is_exit_instruction({call_ext,_,{extfunc,M,F,A}}) ->
-    erl_bifs:is_exit_bif(M, F, A);
-is_exit_instruction({call_ext_last,_,{extfunc,M,F,A},_}) ->
-    erl_bifs:is_exit_bif(M, F, A);
-is_exit_instruction({call_ext_only,_,{extfunc,M,F,A}}) ->
     erl_bifs:is_exit_bif(M, F, A);
 is_exit_instruction(if_end) -> true;
 is_exit_instruction({case_end,_}) -> true;

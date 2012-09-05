@@ -29,7 +29,7 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
 
 function({function,Name,Arity,CLabel,Is0}) ->
     try
-	Is = [undo_rename(I) || I <- Is0],
+	Is = undo_renames(Is0),
 	{function,Name,Arity,CLabel,Is}
     catch
 	Class:Error ->
@@ -37,6 +37,22 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
+
+undo_renames([{call_ext,2,send}|Is]) ->
+    [send|undo_renames(Is)];
+undo_renames([{apply,A},{deallocate,N},return|Is]) ->
+    [{apply_last,A,N}|undo_renames(Is)];
+undo_renames([{call,A,F},{deallocate,N},return|Is]) ->
+    [{call_last,A,F,N}|undo_renames(Is)];
+undo_renames([{call_ext,A,F},{deallocate,N},return|Is]) ->
+    [{call_ext_last,A,F,N}|undo_renames(Is)];
+undo_renames([{call,A,F},return|Is]) ->
+    [{call_only,A,F}|undo_renames(Is)];
+undo_renames([{call_ext,A,F},return|Is]) ->
+    [{call_ext_only,A,F}|undo_renames(Is)];
+undo_renames([I|Is]) ->
+    [undo_rename(I)|undo_renames(Is)];
+undo_renames([]) -> [].
 
 undo_rename({bs_put,F,{I,U,Fl},[Sz,Src]}) ->
     {I,F,Sz,U,Fl,Src};
@@ -60,6 +76,4 @@ undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
     I;
 undo_rename({select,I,Reg,Fail,List}) ->
     {I,Reg,Fail,{list,List}};
-undo_rename({call_ext,2,send}) ->
-    send;
 undo_rename(I) -> I.

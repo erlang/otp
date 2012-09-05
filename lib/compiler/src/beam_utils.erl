@@ -331,14 +331,6 @@ check_liveness(R, [{deallocate,_}|Is], St) ->
     end;
 check_liveness(R, [return|_], St) ->
     check_liveness_live_ret(R, 1, St);
-check_liveness(R, [{call_last,Live,_,_}|_], St) ->
-    check_liveness_live_ret(R, Live, St);
-check_liveness(R, [{call_only,Live,_}|_], St) ->
-    check_liveness_live_ret(R, Live, St);
-check_liveness(R, [{call_ext_last,Live,_,_}|_], St) ->
-    check_liveness_live_ret(R, Live, St);
-check_liveness(R, [{call_ext_only,Live,_}|_], St) ->
-    check_liveness_live_ret(R, Live, St);
 check_liveness(R, [{call,Live,_}|Is], St) ->
     case R of
 	{x,X} when X < Live -> {used,St};
@@ -378,8 +370,6 @@ check_liveness(R, [{apply,Args}|Is], St) ->
 	{x,_} -> {killed,St};
 	{y,_} -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [{apply_last,Args,_}|_], St) ->
-    check_liveness_live_ret(R, Args+2, St);
 check_liveness({x,R}, [{'%live',Live}|Is], St) ->
     if
 	R < Live -> check_liveness(R, Is, St);
@@ -720,18 +710,8 @@ live_opt([{call_ext,Arity,_}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Arity), D, [I|Acc]);
 live_opt([{call_fun,Arity}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Arity+1), D, [I|Acc]);
-live_opt([{call_last,Arity,_,_}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(Arity), D, [I|Acc]);
-live_opt([{call_ext_last,Arity,_,_}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(Arity), D, [I|Acc]);
 live_opt([{apply,Arity}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Arity+2), D, [I|Acc]);
-live_opt([{apply_last,Arity,_}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(Arity+2), D, [I|Acc]);
-live_opt([{call_only,Arity,_}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(Arity), D, [I|Acc]);
-live_opt([{call_ext_only,Arity,_}=I|Is], _, D, Acc) ->
-    live_opt(Is, live_call(Arity), D, [I|Acc]);
 live_opt([{make_fun2,_,_,_,Arity}=I|Is], _, D, Acc) ->
     live_opt(Is, live_call(Arity), D, [I|Acc]);
 live_opt([{test,_,Fail,Ss}=I|Is], Regs0, D, Acc) ->

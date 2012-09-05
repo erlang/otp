@@ -195,12 +195,6 @@ remap([{test,Name,Fail,Live,Ss,Dst}|Is], Map, Acc) ->
     remap(Is, Map, [I|Acc]);
 remap([return|_]=Is, _, Acc) ->
     reverse(Acc, Is);
-remap([{call_last,Ar,Name,N}|Is], Map, Acc) ->
-    I = {call_last,Ar,Name,Map({frame_size,N})},
-    reverse(Acc, [I|Is]);
-remap([{call_ext_last,Ar,Name,N}|Is], Map, Acc) ->
-    I = {call_ext_last,Ar,Name,Map({frame_size,N})},
-    reverse(Acc, [I|Is]);
 remap([{line,_}=I|Is], Map, Acc) ->
     remap(Is, Map, [I|Acc]).
     
@@ -282,8 +276,6 @@ frame_size([{kill,_}|Is], Safe) ->
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{deallocate,N}|_], _) -> N;
-frame_size([{call_last,_,_,N}|_], _) -> N;
-frame_size([{call_ext_last,_,_,N}|_], _) -> N;
 frame_size([{line,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([_|_], _) -> throw(not_possible).

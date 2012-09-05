@@ -204,16 +204,6 @@ btb_reaches_match_1(Is, Regs, D) ->
 btb_reaches_match_2([{block,Bl}|Is], Regs0, D) ->
     Regs = btb_reaches_match_block(Bl, Regs0),
     btb_reaches_match_1(Is, Regs, D);
-btb_reaches_match_2([{call_only,Arity,{f,Lbl}}|_], Regs0, D) ->
-    Regs = btb_kill_not_live(Arity, Regs0),
-    btb_tail_call(Lbl, Regs, D);
-btb_reaches_match_2([{call_ext_only,Arity,Func}|_], Regs0, D) ->
-    Regs = btb_kill_not_live(Arity, Regs0),
-    btb_tail_call(Func, Regs, D);
-btb_reaches_match_2([{call_last,Arity,{f,Lbl},_}|_], Regs0, D) ->
-    Regs1 = btb_kill_not_live(Arity, Regs0),
-    Regs = btb_kill_yregs(Regs1),
-    btb_tail_call(Lbl, Regs, D);
 btb_reaches_match_2([{call,Arity,{f,Lbl}}|Is], Regs, D) ->
     btb_call(Arity, Lbl, Regs, Is, D);
 btb_reaches_match_2([{apply,Arity}|Is], Regs, D) ->
@@ -232,9 +222,6 @@ btb_reaches_match_2([{call_ext,Arity,Func}=I|Is], Regs0, D) ->
 	    Regs = btb_kill_not_live(Arity, Regs0),
 	    btb_tail_call(Func, Regs, D)
     end;
-btb_reaches_match_2([{call_ext_last,Arity,_,_}=I|_], Regs, D) ->
-    btb_ensure_not_used(btb_regs_from_arity(Arity), I, Regs),
-    D;
 btb_reaches_match_2([{kill,Y}|Is], Regs, D) ->
     btb_reaches_match_1(Is, btb_kill([Y], Regs), D);
 btb_reaches_match_2([{deallocate,_}|Is], Regs0, D) ->
@@ -434,15 +421,6 @@ btb_reaches_match_block([{set,Ds,Ss,_}=I|Is], Regs0) ->
     btb_reaches_match_block(Is, Regs);
 btb_reaches_match_block([], Regs) ->
     Regs.
-
-%% btb_regs_from_arity(Arity) -> [Register])
-%%  Create a list of x registers from a function arity.
-
-btb_regs_from_arity(Arity) ->
-    btb_regs_from_arity_1(Arity, []).
-
-btb_regs_from_arity_1(0, Acc) -> Acc;
-btb_regs_from_arity_1(N, Acc) -> btb_regs_from_arity_1(N-1, [{x,N-1}|Acc]).
 
 %% btb_are_all_killed([Register], [Instruction], D) -> true|false
 %%  Test whether all of the register are killed in the instruction stream.

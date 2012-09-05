@@ -31,7 +31,7 @@ module({Mod,Exp,Attr,Fs0,Lc}, _Opt) ->
 function({function,Name,Arity,CLabel,Is0}) ->
     try
 	%% Rename certain operations to simplify the optimization passes.
-	Is1 = [rename_instr(I) || I <- Is0],
+	Is1 = rename_instrs(Is0),
 
 	%% Remove unusued labels for cleanliness and to help
 	%% optimization passes and HiPE.
@@ -43,6 +43,20 @@ function({function,Name,Arity,CLabel,Is0}) ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
 	    erlang:raise(Class, Error, Stack)
     end.
+
+rename_instrs([{apply_last,A,N}|Is]) ->
+    [{apply,A},{deallocate,N},return|rename_instrs(Is)];
+rename_instrs([{call_last,A,F,N}|Is]) ->
+    [{call,A,F},{deallocate,N},return|rename_instrs(Is)];
+rename_instrs([{call_ext_last,A,F,N}|Is]) ->
+    [{call_ext,A,F},{deallocate,N},return|rename_instrs(Is)];
+rename_instrs([{call_only,A,F}|Is]) ->
+    [{call,A,F},return|rename_instrs(Is)];
+rename_instrs([{call_ext_only,A,F}|Is]) ->
+    [{call_ext,A,F},return|rename_instrs(Is)];
+rename_instrs([I|Is]) ->
+    [rename_instr(I)|rename_instrs(Is)];
+rename_instrs([]) -> [].
 
 rename_instr({bs_put_binary=I,F,Sz,U,Fl,Src}) ->
     {bs_put,F,{I,U,Fl},[Sz,Src]};

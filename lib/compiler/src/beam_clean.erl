@@ -74,10 +74,6 @@ find_all_used([], _All, Used) -> Used.
 
 update_work_list([{call,_,{f,L}}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
-update_work_list([{call_last,_,{f,L},_}|Is], Sets) ->
-    update_work_list(Is, add_to_work_list(L, Sets));
-update_work_list([{call_only,_,{f,L}}|Is], Sets) ->
-    update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([{make_fun2,{f,L},_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([_|Is], Sets) ->
@@ -232,10 +228,6 @@ replace([{gc_bif,Name,{f,Lbl},Live,As,R}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{gc_bif,Name,{f,label(Lbl, D)},Live,As,R}|Acc], D);
 replace([{call,Ar,{f,Lbl}}|Is], Acc, D) ->
     replace(Is, [{call,Ar,{f,label(Lbl,D)}}|Acc], D);
-replace([{call_last,Ar,{f,Lbl},N}|Is], Acc, D) ->
-    replace(Is, [{call_last,Ar,{f,label(Lbl,D)},N}|Acc], D);
-replace([{call_only,Ar,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{call_only,Ar,{f,label(Lbl, D)}}|Acc], D);
 replace([{make_fun2,{f,Lbl},U1,U2,U3}|Is], Acc, D) ->
     replace(Is, [{make_fun2,{f,label(Lbl, D)},U1,U2,U3}|Acc], D);
 replace([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D) when Lbl =/= 0 ->
