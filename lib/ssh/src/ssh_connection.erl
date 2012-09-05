@@ -319,7 +319,7 @@ channel_data(ChannelId, DataType, Data,
     
     case ssh_channel:cache_lookup(Cache, ChannelId) of
 	#channel{remote_id = Id} = Channel0 ->
-	    {SendList, Channel} = update_send_window(Channel0, DataType, 
+	    {SendList, Channel} = update_send_window(Channel0#channel{flow_control = From}, DataType,
 						     Data, Connection),
 	    Replies = 
 		lists:map(fun({SendDataType, SendData}) -> 
@@ -329,7 +329,7 @@ channel_data(ChannelId, DataType, Data,
 							SendData)}
 			  end, SendList),
 	    FlowCtrlMsgs = flow_control(Replies, 
-					Channel#channel{flow_control = From}, 
+					Channel,
 					Cache),
 	    {{replies, Replies ++ FlowCtrlMsgs}, Connection};
 	undefined ->
@@ -1126,13 +1126,13 @@ flow_control(Channel, Cache) ->
 flow_control([], Channel, Cache) ->
     ssh_channel:cache_update(Cache, Channel),
     [];
-flow_control([_|_], #channel{flow_control = From} = Channel, Cache) ->
-    case From of
-	undefined ->
-	    [];
-	_ ->
-	    [{flow_control, Cache,  Channel, From, ok}]
-    end.
+
+flow_control([_|_], #channel{flow_control = From,
+							 send_buf = []} = Channel, Cache) when From =/= undefined ->
+	[{flow_control, Cache, Channel, From, ok}];
+flow_control(_,_,_) ->
+	[].
+
 
 encode_pty_opts(Opts) ->
     Bin = list_to_binary(encode_pty_opts2(Opts)),
