@@ -1453,7 +1453,7 @@ Evaluates a predefined analysis.
           Note however that the code path will be traversed once for
           each used <seealso marker="#library_module">library module</seealso> while setting up module data.
           On the other hand, if there are only a few modules that are
-          used by not analyzed, using <c>code_path</c> may be faster
+          used but not analyzed, using <c>code_path</c> may be faster
           than setting the library path to <c>code:get_path()</c>.
           </p>
         <p>If the library path is set to <c>code_path</c>, the set of
