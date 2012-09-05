@@ -326,13 +326,6 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
   ModuleDeps = dialyzer_callgraph:module_deps(Callgraph),
   send_mod_deps(Parent, ModuleDeps),
   {Callgraph1, ExtCalls} = dialyzer_callgraph:remove_external(Callgraph),
-  RelevantAPICalls =
-    dialyzer_behaviours:get_behaviour_apis([gen_server]),
-  BehaviourAPICalls = [Call || {_From, To} = Call <- ExtCalls,
-			       lists:member(To, RelevantAPICalls)],
-  Callgraph2 =
-    dialyzer_callgraph:put_behaviour_api_calls(BehaviourAPICalls,
-					       Callgraph1),
   ExtCalls1 = [Call || Call = {_From, To} <- ExtCalls,
 		       not dialyzer_plt:contains_mfa(InitPlt, To)],
   {BadCalls1, RealExtCalls} =
@@ -355,7 +348,7 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
      true ->
       send_ext_calls(Parent, lists:usort([To || {_From, To} <- RealExtCalls]))
   end,
-  Callgraph2.
+  Callgraph1.
 
 compile_src(File, Includes, Defines, Callgraph, CServer, UseContracts) ->
   DefaultIncludes = default_includes(filename:dirname(File)),
