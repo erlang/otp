@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2011. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -66,23 +66,31 @@ init_per_group(running_error_logger,Config) ->
     restart_sasl(),
     Config.
 
-end_per_group(running_error_logger,Config) ->
+end_per_group(running_error_logger,_Config) ->
     %% Remove log_mf_h???
     ok.
 
 
 init_per_testcase(_Case,Config) ->
     case whereis(?SUP) of
-	undefined -> ok;
-	Pid -> kill(Pid)
+	undefined ->
+	    ok;
+	Sup ->
+	    Server = whereis(?MODULE),
+	    exit(Sup,kill),
+	    wait_for_down([Server,Sup])
     end,
     empty_error_logs(Config),
     Config.
 
-kill(Pid) ->
+wait_for_down([]) ->
+    ok;
+wait_for_down([undefined|Rest]) ->
+    wait_for_down(Rest);
+wait_for_down([Pid|Rest]) ->
     Ref = erlang:monitor(process,Pid),
-    exit(Pid,kill),
-    receive {'DOWN', Ref, process, Pid, _Info} -> ok end.
+    receive {'DOWN', Ref, process, Pid, _Info} -> ok end,
+    wait_for_down(Rest).
 
 end_per_testcase(Case,Config) ->
     try apply(?MODULE,Case,[cleanup,Config])
@@ -96,8 +104,9 @@ end_per_testcase(Case,Config) ->
 
 help(_Config) ->
     Help = capture(fun() -> rb:h() end),
-    "Report Browser Tool - usage" = hd(Help),
-    "rb:stop            - stop the rb_server" = lists:last(Help),
+    %% Check that first and last line is there
+    true = lists:member("Report Browser Tool - usage", Help),
+    true = lists:member("rb:stop            - stop the rb_server", Help),
     ok.
 
 %% Test that all three sasl env vars must be set for a successful start of rb
