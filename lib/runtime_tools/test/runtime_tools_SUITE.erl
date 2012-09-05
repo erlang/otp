@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -25,7 +25,7 @@
 -export([init_per_testcase/2, end_per_testcase/2]).
 
 %% Test cases
--export([app_file/1]).
+-export([app_file/1, start_stop_app/1]).
 
 %% Default timetrap timeout (set in init_per_testcase)
 -define(default_timeout, ?t:minutes(1)).
@@ -42,7 +42,8 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [app_file].
+    [app_file,
+     start_stop_app].
 
 groups() -> 
     [].
@@ -60,10 +61,14 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-app_file(suite) ->
-    [];
-app_file(doc) ->
-    ["Testing .app file"];
-app_file(Config) when is_list(Config) ->
+app_file(_Config) ->
     ?line ok = ?t:app_test(runtime_tools),
     ok.
+
+start_stop_app(_Config) ->
+    ok = application:start(runtime_tools),
+    Sup = whereis(runtime_tools_sup),
+    true = is_pid(Sup),
+    Ref = erlang:monitor(process,Sup),
+    ok = application:stop(runtime_tools),
+    receive {'DOWN', Ref, process, Sup, shutdown} -> ok end.
