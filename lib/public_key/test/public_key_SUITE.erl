@@ -405,8 +405,19 @@ ssh_known_hosts(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
 
     {ok, SshKnownHosts} = file:read_file(filename:join(Datadir, "known_hosts")),
-    [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2}] = Decoded =
+    [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2},
+     {#'RSAPublicKey'{}, Attributes3}, {#'RSAPublicKey'{}, Attributes4}] = Decoded =
         public_key:ssh_decode(SshKnownHosts, known_hosts),
+
+    Comment1 = undefined,
+    Comment2 = "foo@bar.com",
+    Comment3 = "Comment with whitespaces",
+    Comment4 = "foo@bar.com Comment with whitespaces",
+    	
+    Comment1 = proplists:get_value(comment, Attributes1, undefined),
+    Comment2 = proplists:get_value(comment, Attributes2),
+    Comment3 = proplists:get_value(comment, Attributes3),
+    Comment4 = proplists:get_value(comment, Attributes4),	
 
     Value1 = proplists:get_value(hostnames, Attributes1, undefined),
     Value2 = proplists:get_value(hostnames, Attributes2, undefined),
@@ -425,12 +436,15 @@ ssh1_known_hosts(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
 
     {ok, SshKnownHosts} = file:read_file(filename:join(Datadir, "ssh1_known_hosts")),
-    [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2}] = Decoded =
-        public_key:ssh_decode(SshKnownHosts, known_hosts),
+    [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2},{#'RSAPublicKey'{}, Attributes3}] 
+	= Decoded = public_key:ssh_decode(SshKnownHosts, known_hosts),
 
     Value1 = proplists:get_value(hostnames, Attributes1, undefined),
     Value2 = proplists:get_value(hostnames, Attributes2, undefined),
     true = (Value1 =/= undefined) and (Value2 =/= undefined),
+
+    Comment ="dhopson@VMUbuntu-DSH comment with whitespaces",
+    Comment = proplists:get_value(comment, Attributes3),
 
     Encoded = public_key:ssh_encode(Decoded, known_hosts),
     Decoded = public_key:ssh_decode(Encoded, known_hosts).
@@ -444,11 +458,21 @@ ssh_auth_keys(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
 
     {ok, SshAuthKeys} = file:read_file(filename:join(Datadir, "auth_keys")),
-    [{#'RSAPublicKey'{}, Attributes1}, {{_, #'Dss-Parms'{}}, _Attributes2}] = Decoded =
+    [{#'RSAPublicKey'{}, Attributes1}, {{_, #'Dss-Parms'{}}, Attributes2},
+     {#'RSAPublicKey'{}, Attributes3}, {{_, #'Dss-Parms'{}}, Attributes4}
+    ] = Decoded =
         public_key:ssh_decode(SshAuthKeys, auth_keys),
 
     Value1 = proplists:get_value(options, Attributes1, undefined),
     true = Value1 =/= undefined,
+
+    Comment1 = Comment2 = "dhopson@VMUbuntu-DSH",
+    Comment3 = Comment4 ="dhopson@VMUbuntu-DSH comment with whitespaces",
+    
+    Comment1 = proplists:get_value(comment, Attributes1),
+    Comment2 = proplists:get_value(comment, Attributes2),
+    Comment3 = proplists:get_value(comment, Attributes3),
+    Comment4 = proplists:get_value(comment, Attributes4),
 
     Encoded = public_key:ssh_encode(Decoded, auth_keys),
     Decoded = public_key:ssh_decode(Encoded, auth_keys).
@@ -462,12 +486,23 @@ ssh1_auth_keys(Config) when is_list(Config) ->
     Datadir = ?config(data_dir, Config),
 
     {ok, SshAuthKeys} = file:read_file(filename:join(Datadir, "ssh1_auth_keys")),
-    [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2}] = Decoded =
+    [{#'RSAPublicKey'{}, Attributes1},
+     {#'RSAPublicKey'{}, Attributes2}, {#'RSAPublicKey'{}, Attributes3},
+     {#'RSAPublicKey'{}, Attributes4}, {#'RSAPublicKey'{}, Attributes5}] = Decoded =
         public_key:ssh_decode(SshAuthKeys, auth_keys),
 
-    Value1 = proplists:get_value(bits, Attributes1, undefined),
-    Value2 = proplists:get_value(bits, Attributes2, undefined),
+    Value1 = proplists:get_value(bits, Attributes2, undefined),
+    Value2 = proplists:get_value(bits, Attributes3, undefined),
     true = (Value1 =/= undefined) and (Value2 =/= undefined),
+
+    Comment2 = Comment3 = "dhopson@VMUbuntu-DSH",
+    Comment4 = Comment5 ="dhopson@VMUbuntu-DSH comment with whitespaces",
+    
+    undefined = proplists:get_value(comment, Attributes1, undefined),
+    Comment2 = proplists:get_value(comment, Attributes2),
+    Comment3 = proplists:get_value(comment, Attributes3),
+    Comment4 = proplists:get_value(comment, Attributes4),
+    Comment5 = proplists:get_value(comment, Attributes5),
 
     Encoded = public_key:ssh_encode(Decoded, auth_keys),
     Decoded = public_key:ssh_decode(Encoded, auth_keys).
