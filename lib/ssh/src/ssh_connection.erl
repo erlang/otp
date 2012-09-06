@@ -318,7 +318,7 @@ channel_data(ChannelId, DataType, Data,
 	     From) ->
     
     case ssh_channel:cache_lookup(Cache, ChannelId) of
-	#channel{remote_id = Id} = Channel0 ->
+		#channel{remote_id = Id, sent_close = false} = Channel0 ->
 	    {SendList, Channel} = update_send_window(Channel0#channel{flow_control = From}, DataType,
 						     Data, Connection),
 	    Replies = 
@@ -332,7 +332,8 @@ channel_data(ChannelId, DataType, Data,
 					Channel,
 					Cache),
 	    {{replies, Replies ++ FlowCtrlMsgs}, Connection};
-	undefined ->
+		_ ->
+			gen_server:reply(From, {error, closed}),
 	    {noreply, Connection}
     end.
 
@@ -386,20 +387,30 @@ handle_msg(#ssh_msg_channel_close{recipient_channel = ChannelId},
 	   ConnectionPid, _) ->
 
 	case ssh_channel:cache_lookup(Cache, ChannelId) of
-	    #channel{sent_close = Closed, remote_id = RemoteId} = Channel ->
+		#channel{sent_close = Closed, remote_id = RemoteId, flow_control = FlowControl} = Channel ->
 		ssh_channel:cache_delete(Cache, ChannelId),
 		{CloseMsg, Connection} = 
 		    reply_msg(Channel, Connection0, {closed, ChannelId}),
+
+			ConnReplyMsgs =
 		case Closed of
-		    true ->
-			{{replies, [CloseMsg]}, Connection};
+					true -> [];
 		    false ->
 			RemoteCloseMsg = channel_close_msg(RemoteId),
-			{{replies, 
-			  [{connection_reply, 
-				      ConnectionPid, RemoteCloseMsg},
-			   CloseMsg]}, Connection}
-		end;
+						[{connection_reply, ConnectionPid, RemoteCloseMsg}]
+				end,
+
+			%% if there was a send() in progress, make it fail
+			SendReplyMsgs =
+				case FlowControl of
+					undefined -> [];
+					From ->
+						[{flow_control, From, {error, closed}}]
+				end,
+
+			Replies = ConnReplyMsgs ++ [CloseMsg] ++ SendReplyMsgs,
+			{{replies, Replies}, Connection};
+
 	    undefined ->
 		{{replies, []}, Connection0}
 	end;
