@@ -3575,6 +3575,11 @@ case $host_os in
 			DED_LDFLAGS="-m32 $DED_LDFLAGS"
 		fi
 	;;	
+	openbsd*)
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+		DED_LDFLAGS="-shared"
+	;;
 	osf*)
 		# NOTE! Whitespace after -rpath is important.
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-rpath "
