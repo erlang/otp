@@ -24,6 +24,7 @@
 	     eprof,
 	     fprof,
 	     instrument,
+	     lcnt,
 	     make,
 	     xref,
 	     xref_base,
