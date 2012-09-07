@@ -9453,7 +9453,7 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
         erts_print(to, to_arg, "\n%p ", sp);
     } else {
         char sbuf[16];
-        sprintf(sbuf, "y(%d)", yreg);
+        erts_snprintf(sbuf, sizeof(sbuf), "y(%d)", yreg);
         erts_print(to, to_arg, "%-8s ", sbuf);
         yreg++;
     }

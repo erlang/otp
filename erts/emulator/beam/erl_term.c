@@ -105,7 +105,7 @@ unsigned tag_val_def(Wterm x)
 	  break;
       }
     }
-    sprintf(msg, "tag_val_def: %#lx", (unsigned long) x);
+    erts_snprintf(msg, sizeof(msg), "tag_val_def: %#lx", (unsigned long) x);
     et_abort(msg, file, line);
 #undef file
 #undef line

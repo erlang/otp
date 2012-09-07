@@ -2844,7 +2844,7 @@ BIF_RETTYPE float_to_list_1(BIF_ALIST_1)
      if (is_not_float(BIF_ARG_1))
 	 BIF_ERROR(BIF_P, BADARG);
      GET_DOUBLE(BIF_ARG_1, f);
-     if ((i = sys_double_to_chars(f.fd, fbuf)) <= 0)
+     if ((i = sys_double_to_chars(f.fd, fbuf, sizeof(fbuf))) <= 0)
 	 BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
      need = i*2;
      hp = HAlloc(BIF_P, need);

@@ -323,7 +323,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		    int i;
 
 		    GET_DOUBLE_DATA((ptr+1), f);
-		    i = sys_double_to_chars(f.fd, (char*) sbuf);
+		    i = sys_double_to_chars(f.fd, (char*) sbuf, sizeof(sbuf));
 		    sys_memset(sbuf+i, 0, 31-i);
 		    erts_print(to, to_arg, "F%X:%s\n", i, sbuf);
 		    *ptr = OUR_NIL;

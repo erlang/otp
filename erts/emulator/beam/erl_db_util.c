@@ -2480,7 +2480,7 @@ Eterm db_format_dmc_err_info(Process *p, DMCErrInfo *ei)
 	    vnum = tmp->variable;
 	}
 	if (vnum >= 0)
-	    sprintf(buff,tmp->error_string, vnum);
+	    erts_snprintf(buff,sizeof(buff)+20,tmp->error_string, vnum);
 	else
 	    strcpy(buff,tmp->error_string);
 	sl = strlen(buff);
@@ -4485,7 +4485,9 @@ static DMCRet dmc_fun(DMCContext *context,
 	if (context->err_info != NULL) {
 	    /* Ugly, should define a better RETURN_TERM_ERROR interface... */
 	    char buff[100];
-	    sprintf(buff, "Function %%T/%d does_not_exist.", (int)a - 1);
+	    erts_snprintf(buff, sizeof(buff),
+		    "Function %%T/%d does_not_exist.",
+		    (int)a - 1);
 	    RETURN_TERM_ERROR(buff, p[1], context, *constant);
 	} else {
 	    return retFail;
@@ -4500,7 +4502,7 @@ static DMCRet dmc_fun(DMCContext *context,
 	if (context->err_info != NULL) {
 	    /* Ugly, should define a better RETURN_TERM_ERROR interface... */
 	    char buff[100];
-	    sprintf(buff, 
+	    erts_snprintf(buff, sizeof(buff),
 		    "Function %%T/%d cannot be called in this context.",
 		    (int)a - 1);
 	    RETURN_TERM_ERROR(buff, p[1], context, *constant);
@@ -4764,7 +4766,7 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
 	    for (j = 0; j < x && DMC_PEEK(heap,j) != n; ++j) 
 		;
 	    ASSERT(j < x);
-	    sprintf(buff+1,"%u", (unsigned) j);
+	    erts_snprintf(buff+1, sizeof(buff) - 1, "%u", (unsigned) j);
 	    /* Yes, writing directly into terms, they ARE off heap */
 	    *p = am_atom_put(buff, strlen(buff));
 	}

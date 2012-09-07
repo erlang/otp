@@ -1675,7 +1675,7 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 
     t_str = type_no_str(n);
     if (!t_str) {
-	sprintf(buf, "%d", (int) n);
+	erts_snprintf(buf, sizeof(buf), "%d", (int) n);
 	t_str = buf;
     }
 
@@ -3572,12 +3572,12 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 
 	ftype = type_no_str(found_type);
 	if (!ftype) {
-	    sprintf(fbuf, "%d", (int) found_type);
+	    erts_snprintf(fbuf, sizeof(fbuf), "%d", (int) found_type);
 	    ftype = fbuf;
 	}
 	otype = type_no_str(n);
 	if (!otype) {
-	    sprintf(obuf, "%d", (int) n);
+	    erts_snprintf(obuf, sizeof(obuf), "%d", (int) n);
 	    otype = obuf;
 	}
 

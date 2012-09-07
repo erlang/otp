@@ -58,7 +58,7 @@ BIF_RETTYPE os_getpid_0(BIF_ALIST_0)
      char pid_string[21]; /* enough for a 64 bit number */
      int n;
      Eterm* hp;
-     sys_get_pid(pid_string); /* In sys.c */
+     sys_get_pid(pid_string, sizeof(pid_string)); /* In sys.c */
      n = sys_strlen(pid_string);
      hp = HAlloc(BIF_P, n*2);
      BIF_RET(buf_to_intlist(&hp, pid_string, n, NIL));
