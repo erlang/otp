@@ -133,8 +133,10 @@ gen/$(DICT_YRL).erl: compiler/$(DICT_YRL).yrl
 # Generate the app file.
 $(APP_TARGET): $(APP_SRC) ../vsn.mk modules.mk
 	$(gen_verbose)M=`echo $(notdir $(APP_MODULES)) | tr ' ' ,`; \
+	R=`echo $(REGISTERED) | tr ' ' ,`; \
 	sed -e 's;%VSN%;$(VSN);' \
 	    -e "s;%MODULES%;$$M;" \
+	    -e "s;%REGISTERED%;$$R;" \
 	  $< > $@
 
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk

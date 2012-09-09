@@ -103,3 +103,12 @@ EXAMPLES = \
 	dict/rfc4072_eap.dia \
 	dict/rfc4590_digest.dia \
 	dict/rfc4740_sip.dia
+
+# Registered server names.
+
+REGISTERED = \
+	diameter_config \
+	diameter_peer \
+	diameter_reg \
+	diameter_stats \
+	diameter_sync
