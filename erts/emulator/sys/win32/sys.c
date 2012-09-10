@@ -420,6 +420,8 @@ typedef struct async_io {
   HANDLE ioAllowed;		/* The thread will wait for this event
 				 * before starting a new read or write.
 				 */
+  HANDLE flushEvent;		/* Used to signal that a flush should be done. */
+  HANDLE flushReplyEvent;	/* Used to signal that a flush has been done. */
   DWORD pendingError;		/* Used to delay presentating an error to Erlang
 				 * until the check_io function is entered.
 				 */
@@ -878,6 +880,8 @@ init_async_io(AsyncIo* aio, int use_threads)
     aio->ov.Offset = 0L;
     aio->ov.OffsetHigh = 0L;
     aio->ioAllowed = NULL;
+    aio->flushEvent = NULL;
+    aio->flushReplyEvent = NULL;
     aio->pendingError = 0;
     aio->bytesTransferred = 0;
 #ifdef ERTS_SMP
@@ -890,6 +894,12 @@ init_async_io(AsyncIo* aio, int use_threads)
 	aio->ioAllowed = CreateAutoEvent(FALSE);
 	if (aio->ioAllowed == NULL)
 	    return -1;
+	aio->flushEvent = CreateAutoEvent(FALSE);
+	if (aio->flushEvent == NULL)
+	  return -1;
+	aio->flushReplyEvent = CreateAutoEvent(FALSE);
+	if (aio->flushReplyEvent == NULL)
+	  return -1;
     }
     return 0;
 }
@@ -923,6 +933,14 @@ release_async_io(AsyncIo* aio, ErlDrvPort port_num)
     if (aio->ioAllowed != NULL)
 	CloseHandle(aio->ioAllowed);
     aio->ioAllowed = NULL;
+
+    if (aio->flushEvent != NULL)
+	CloseHandle(aio->flushEvent);
+    aio->flushEvent = NULL;
+
+    if (aio->flushReplyEvent != NULL)
+	CloseHandle(aio->flushReplyEvent);
+    aio->flushReplyEvent = NULL;
 }
 
 /* ----------------------------------------------------------------------
@@ -2083,16 +2101,26 @@ threaded_writer(LPVOID param)
     AsyncIo* aio = (AsyncIo *) param;
     HANDLE thread = GetCurrentThread();
     char* buf;
-    DWORD numToWrite;
+    DWORD numToWrite, handle;
     int ok;
+    HANDLE handles[2];
+    handles[0] = aio->ioAllowed;
+    handles[1] = aio->flushEvent;
   
     for (;;) {
-	WaitForSingleObject(aio->ioAllowed, INFINITE);
+	handle = WaitForMultipleObjects(2, handles, FALSE, INFINITE);
 	if (aio->flags & DF_EXIT_THREAD)
 	    break;
+
 	buf = OV_BUFFER_PTR(aio);
 	numToWrite = OV_NUM_TO_READ(aio);
 	aio->pendingError = 0;
+
+	if (handle == (WAIT_OBJECT_0 + 1) && numToWrite == 0) {
+	  SetEvent(aio->flushReplyEvent);
+	  continue;
+	}
+
 	ok = WriteFile(aio->fd, buf, numToWrite, &aio->bytesTransferred, NULL);
 	if (!ok) {
 	    aio->pendingError = GetLastError();
@@ -2127,7 +2155,11 @@ threaded_writer(LPVOID param)
 		}  
 	    }
 	}
-	SetEvent(aio->ov.hEvent);
+	OV_NUM_TO_READ(aio) = 0;
+	if (handle == (WAIT_OBJECT_0 + 1))
+	    SetEvent(aio->flushReplyEvent);
+	else
+	    SetEvent(aio->ov.hEvent);
 	if (aio->pendingError != NO_ERROR || aio->bytesTransferred == 0)
 	    break;
 	if (aio->flags & DF_EXIT_THREAD)
@@ -2193,6 +2225,43 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
 	if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, TRUE)) == NULL)
 	    return ERL_DRV_ERROR_GENERAL;
 	
+	/**
+	 * Here is a brief description about how the fd driver works on windows.
+	 *
+	 * fd_init:
+	 * For each in/out fd pair a threaded_reader and threaded_writer thread is
+	 * created. Within the DriverData struct each of the threads have an AsyncIO
+	 * sctruct associated with it.  Within AsyncIO there are two important HANDLEs,
+	 * ioAllowed and ov.hEvent. ioAllowed is used to signal the threaded_* threads
+	 * should read/write some data, and ov.hEvent is driver_select'ed to be used to
+	 * signal that the thread is done reading/writing.
+	 *
+	 * The reason for the driver being threaded like this is because once the FD is open
+	 * on windows, it is not possible to set the it in overlapped mode. So we have to
+	 * simulate this using threads.
+	 *
+	 * output:
+	 * When an output occurs the data to be outputted is copied to AsyncIO.ov. Then
+	 * the ioAllowed HANDLE is set, ov.hEvent is cleared and the port is marked as busy.
+	 * The threaded_writer thread is lying in WaitForMultipleObjects on ioAllowed, and
+	 * when signalled it writes all data in AsyncIO.ov and then sets ov.hEvent so that
+	 * ready_output gets triggered and (potentially) sends the reply to the port and
+	 * marks the port an non-busy.
+	 *
+	 * input:
+	 * The threaded_reader is lying waiting in ReadFile on the in fd and when a new
+	 * line is written it sets ov.hEvent that new data is available and then goes
+	 * and waits for ioAllowed to be set. ready_input is run when ov.hEvent is set and
+	 * delivers the data to the port. Then ioAllowed is signalled again and threaded_reader
+	 * goes back to ReadFile.
+	 *
+	 * shutdown:
+	 * In order to guarantee that all io is outputted before the driver is stopped,
+	 * fd_stop uses flushEvent and flushReplyEvent to make sure that there is no data
+	 * in ov which needs writing before returning from fd_stop.
+	 *
+	 **/
+
 	if (!create_file_thread(&dp->in, DO_READ)) {
 	    dp->port_num = PORT_FREE;
 	    return ERL_DRV_ERROR_GENERAL;
@@ -2241,6 +2310,8 @@ static void fd_stop(ErlDrvData d)
       (void) driver_select(dp->port_num,
 			   (ErlDrvEvent)dp->out.ov.hEvent,
 			   ERL_DRV_WRITE, 0);
+      SetEvent(dp->out.flushEvent);
+      WaitForSingleObject(dp->out.flushReplyEvent, INFINITE);
   }    
 
 }
