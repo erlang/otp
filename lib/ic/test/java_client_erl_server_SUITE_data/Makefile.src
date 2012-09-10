@@ -66,8 +66,11 @@ CLASS_FILES = $(JAVA_FILES:.java=.class)
 ERL_FILES = $(GEN_ERL_FILES) m_i_impl.erl
 EBINS = $(ERL_FILES:.erl=.@EMULATOR@)
 
-
+@IFEQ@ (@jinterface_classpath@,)
+all:
+@ELSE
 all: $(CLASS_FILES) $(EBINS)
+@ENDIF@
 
 $(GEN_ERL_FILES) $(GEN_HRL_FILES):  java_erl_test.built_erl
 $(GEN_JAVA_FILES): java_erl_test.built_java
