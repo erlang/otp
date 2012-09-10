@@ -90,6 +90,7 @@ all() ->
      gen_rel_files,
      save_config,
      dependencies,
+     mod_incl_cond_derived,
      use_selected_vsn,
      use_selected_vsn_relative_path].
 
@@ -1942,7 +1943,7 @@ save_config(Config) ->
 %%
 %% x-1.0: x1.erl   x2.erl   x3.erl
 %%                   \        /         (x2 calls y1, x3 calls y2)
-%% y-1.0:          y1.erl   y2.erl
+%% y-1.0: y0.erl    y1.erl   y2.erl
 %%                    \                 (y1 calls z1)
 %% z-1.0            z1.erl
 %%
@@ -2071,6 +2072,47 @@ dependencies(Config) ->
     ?m(ok, reltool:stop(Pid)),
     ok.
 
+
+%% Test that incl_cond on mod level overwrites mod_cond on app level
+%% Uses same test applications as dependencies/1 above
+mod_incl_cond_derived(Config) ->
+    %% In app y: mod_cond=none means no module shall be included
+    %% but mod_cond is overwritten by incl_cond on mod level
+    Sys = {sys,[{lib_dirs,[filename:join(datadir(Config),"dependencies")]},
+		{incl_cond, exclude},
+		{app,kernel,[{incl_cond,include}]},
+		{app,sasl,[{incl_cond,include}]},
+		{app,stdlib,[{incl_cond,include}]},
+		{app,x,[{incl_cond,include}]},
+		{app,y,[{incl_cond,include},
+			{mod_cond,none},
+			{mod,y0,[{incl_cond,derived}]},
+			{mod,y2,[{incl_cond,derived}]}]}]},
+    {ok, Pid} = ?msym({ok, _}, reltool:start_server([{config, Sys}])),
+
+    ?msym({ok,[#app{name=kernel},
+	       #app{name=sasl},
+	       #app{name=stdlib},
+	       #app{name=x,uses_apps=[y]},
+	       #app{name=y,uses_apps=[]}]},
+	  reltool_server:get_apps(Pid,whitelist)),
+    {ok, Der} = ?msym({ok,_},reltool_server:get_apps(Pid,derived)),
+    ?msym([], rm_missing_app(Der)),
+    ?msym({ok,[]}, reltool_server:get_apps(Pid,source)),
+
+    %% 1. check that y0 is not included since it has
+    %% incl_cond=derived, but is not used by any other module.
+    ?msym({ok,#mod{is_included=undefined}}, reltool_server:get_mod(Pid,y0)),
+
+    %% 2. check that y1 is excluded since it has undefined incl_cond
+    %% on mod level, so mod_cond on app level shall be used.
+    ?msym({ok,#mod{is_included=false}}, reltool_server:get_mod(Pid,y1)),
+
+    %% 3. check that y2 is included since it has incl_cond=derived and
+    %% is used by x3.
+    ?msym({ok,#mod{is_included=true}}, reltool_server:get_mod(Pid,y2)),
+
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 use_selected_vsn(Config) ->

@@ -446,7 +446,7 @@
       <tag><c>incl_cond</c></tag>
       <item>
         <p>This parameter controls whether the module is included or not. By
-        default the <c>mod_incl</c> parameter on application and system level
+        default the <c>mod_cond</c> parameter on application and system level
         will be used to control whether the module is included or not. The
         value of <c>incl_cond</c> overrides the module inclusion policy.
         <c>include</c> implies that the module is included, while

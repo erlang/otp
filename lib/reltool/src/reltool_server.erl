@@ -674,6 +674,8 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
                         true;
                     exclude ->
                         false;
+		    derived ->
+			undefined;
                     undefined ->
                         %% print(M#mod.name, hipe, "mod_cond -> ~p\n",
 			%%       [ModCond]),
@@ -693,6 +695,8 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
                         true;
                     exclude ->
                         false;
+		    derived ->
+			undefined;
                     undefined ->
                         Default
                 end
@@ -783,9 +787,10 @@ mod_mark_is_included(#state{app_tab=AppTab, mod_tab=ModTab, sys=Sys} = S,
                                     M#mod{is_pre_included = true,
 					  is_included = true};
                                 exclude ->
-                                    M#mod{is_pre_included = true,
-					  is_included = true};
-                                undefined ->
+                                    M#mod{is_pre_included = false,
+					  is_included = false};
+				ModInclCond when ModInclCond==undefined;
+						 ModInclCond==derived  ->
                                     M#mod{is_included = true}
                             end,
                         ets:insert(ModTab, M2),
