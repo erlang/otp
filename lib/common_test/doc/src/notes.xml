@@ -32,6 +32,22 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.6.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The interactive mode (ct_run -shell) would not start
+	    properly. This error has been fixed.</p>
+          <p>
+	    Own Id: OTP-10414</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
