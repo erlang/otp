@@ -75,7 +75,7 @@ config(priv_dir,_) ->
 	 test_phash2/1,otp_5292/1,bit_level_binaries/1,otp_7127/1,
 	 end_per_testcase/2,init_per_testcase/2]).
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:minutes(10)),
+    Dog=test_server:timetrap(test_server:minutes(10)),
     [{watchdog, Dog}|Config].
  
 end_per_testcase(_Case, Config) ->
@@ -169,24 +169,24 @@ otp_7127(Config) when is_list(Config) ->
 %% define -DSTANDALONE when compiling.
 %%
 basic_test() ->
-    ?line 685556714 = erlang:phash({a,b,c},16#FFFFFFFF),
-    ?line 14468079 = erlang:hash({a,b,c},16#7FFFFFF),
-    ?line 37442646 =  erlang:phash([a,b,c,{1,2,3},c:pid(0,2,3),
+    685556714 = erlang:phash({a,b,c},16#FFFFFFFF),
+    14468079 = erlang:hash({a,b,c},16#7FFFFFF),
+    37442646 =  erlang:phash([a,b,c,{1,2,3},c:pid(0,2,3),
 				    16#77777777777777],16#FFFFFFFF),
-    ?line Comment = case erlang:hash([a,b,c,{1,2,3},c:pid(0,2,3),
+    Comment = case erlang:hash([a,b,c,{1,2,3},c:pid(0,2,3),
 				      16#77777777777777],16#7FFFFFF) of
 			102727602 ->
-			    ?line big = erlang:system_info(endian),
+			    big = erlang:system_info(endian),
 			    "Big endian machine";
 			105818829 ->
-			    ?line little = erlang:system_info(endian),
+			    little = erlang:system_info(endian),
 			    "Little endian machine"
 		    end,
     ExternalReference = <<131,114,0,3,100,0,13,110,111,110,111,100,101,64,
 			 110,111,104,111,115,116,0,0,0,0,122,0,0,0,0,0,0,0,0>>,
-    ?line 1113403635 = erlang:phash(binary_to_term(ExternalReference),
+    1113403635 = erlang:phash(binary_to_term(ExternalReference),
 				    16#FFFFFFFF),
-    ?line 123 = erlang:hash(binary_to_term(ExternalReference),
+    123 = erlang:hash(binary_to_term(ExternalReference),
 			    16#7FFFFFF),
     ExternalFun = <<131,117,0,0,0,3,103,100,0,13,110,111,110,111,100,101,64,
 		   110,111,104,111,115,116,0,0,0,38,0,0,0,0,0,100,0,8,101,
@@ -204,9 +204,9 @@ basic_test() ->
 		   104,101,108,108,100,0,10,108,111,99,97,108,95,102,117,
 		   110,99,108,0,0,0,1,103,100,0,13,110,111,110,111,100,101,
 		   64,110,111,104,111,115,116,0,0,0,22,0,0,0,0,0,106>>,
-    ?line 170987488 = erlang:phash(binary_to_term(ExternalFun),
+    170987488 = erlang:phash(binary_to_term(ExternalFun),
 				   16#FFFFFFFF),
-    ?line 124460689 = erlang:hash(binary_to_term(ExternalFun),
+    124460689 = erlang:hash(binary_to_term(ExternalFun),
 				  16#7FFFFFF),
     case (catch erlang:phash(1,0)) of
 	{'EXIT',{badarg, _}} ->
@@ -237,22 +237,22 @@ range_test() ->
     
 
 spread_test(N) ->
-    ?line test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
+    test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
 						     X
 					     end),
-    ?line test_fun(N,{erlang,phash},0,fun(X) ->
+    test_fun(N,{erlang,phash},0,fun(X) ->
 					X
 				end),
-    ?line test_fun(N,{erlang,phash},16#123456789ABCDEF123456789ABCDEF,fun(X) ->
+    test_fun(N,{erlang,phash},16#123456789ABCDEF123456789ABCDEF,fun(X) ->
 									X
 								end),
-    ?line test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
+    test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
 						     integer_to_list(X)
 					     end),
-    ?line test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
+    test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
 						     integer_to_bytelist(X,[])
 					     end),
-    ?line test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
+    test_fun(N,{erlang,phash},16#50000000000,fun(X) ->
 						     integer_to_binary_value(X)
 					     end).
     
@@ -265,14 +265,14 @@ cmp_test(N) ->
 do_cmp_hashes(0,_) ->
     ok;
 do_cmp_hashes(N,Steps) ->
-    ?line R0 = random:uniform(1 bsl Steps - 1) + random:uniform(16#FFFFFFFF),
-    ?line R = case random:uniform(2) of
+    R0 = random:uniform(1 bsl Steps - 1) + random:uniform(16#FFFFFFFF),
+    R = case random:uniform(2) of
 	    1 ->
 		R0;
 	    _ ->
 		-R0
 	end,
-    ?line NSteps = case N rem 10 of
+    NSteps = case N rem 10 of
 		 0 ->
 		     case (Steps + 8) rem 1024 of
 			 0 ->
@@ -283,9 +283,9 @@ do_cmp_hashes(N,Steps) ->
 		 _ ->
 		     Steps
 	     end,
-    ?line X = erlang:phash(R,16#FFFFFFFF),
-    ?line Y = make_hash(R,16#FFFFFFFF),
-    ?line case X =:= Y of
+    X = erlang:phash(R,16#FFFFFFFF),
+    Y = make_hash(R,16#FFFFFFFF),
+    case X =:= Y of
 	true ->
 	    do_cmp_hashes(N - 1, NSteps);
 	_ ->
@@ -469,8 +469,8 @@ phash2_test() ->
     SpecFun = fun(S) -> sofs:no_elements(S) > 1 end,
     F = sofs:relation_to_family(sofs:converse(sofs:relation(L))),
     D = sofs:to_external(sofs:family_specification(SpecFun, F)),
-    ?line [] = D,
-    ?line [] = [{E,H,H2} || {E,H} <- L, (H2 = erlang:phash2(E, Max)) =/= H],
+    [] = D,
+    [] = [{E,H,H2} || {E,H} <- L, (H2 = erlang:phash2(E, Max)) =/= H],
     ok.
 
 -ifdef(FALSE).
@@ -497,17 +497,17 @@ otp_5292_test() ->
             end,
     S2 = md5([md5(hash_int(S, E, PH)) || {Start, N, Sz} <- d(), 
                                          {S, E} <- int(Start, N, Sz)]),
-    ?line Comment = case S1 of 
+    Comment = case S1 of 
 			<<4,248,208,156,200,131,7,1,173,13,239,173,112,81,16,174>> ->
-			    ?line big = erlang:system_info(endian),
+			    big = erlang:system_info(endian),
                             "Big endian machine";
                         <<180,28,33,231,239,184,71,125,76,47,227,241,78,184,176,233>> ->
-			    ?line little = erlang:system_info(endian),
+			    little = erlang:system_info(endian),
                             "Little endian machine"
                     end,
-    ?line <<124,81,198,121,174,233,19,137,10,83,33,80,226,111,238,99>> = S2,
-    ?line 2 = erlang:hash(1, (1 bsl 27) -1),
-    ?line {'EXIT', _} = (catch erlang:hash(1, (1 bsl 27))),
+    <<124,81,198,121,174,233,19,137,10,83,33,80,226,111,238,99>> = S2,
+    2 = erlang:hash(1, (1 bsl 27) -1),
+    {'EXIT', _} = (catch erlang:hash(1, (1 bsl 27))),
     {comment, Comment}.
 
 d() ->
@@ -528,21 +528,21 @@ md5(T) ->
     erlang:md5(term_to_binary(T)).   
 
 bit_level_binaries() ->
-    ?line [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
+    [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
 	bit_level_all_different(fun erlang:hash/2),
-    ?line [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
+    [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
 	bit_level_all_different(fun erlang:phash/2),
-    ?line [102233154,19716,102133857,4532024,123369135,24565730,109558721|_] =
+    [102233154,19716,102133857,4532024,123369135,24565730,109558721|_] =
 	bit_level_all_different(fun erlang:phash2/2),
 
-    ?line 13233341 = test_hash_phash(<<42:7>>, 16#7FFFFFF),
-    ?line 79121243 = test_hash_phash(<<99:7>>, 16#7FFFFFF),
-    ?line 95517726 = test_hash_phash(<<16#378ABF73:31>>, 16#7FFFFFF),
+    13233341 = test_hash_phash(<<42:7>>, 16#7FFFFFF),
+    79121243 = test_hash_phash(<<99:7>>, 16#7FFFFFF),
+    95517726 = test_hash_phash(<<16#378ABF73:31>>, 16#7FFFFFF),
 
-    ?line 64409098 = test_phash2(<<99:7>>, 16#7FFFFFF),
-    ?line 55555814 = test_phash2(<<123,19:2>>, 16#7FFFFFF),
-    ?line 83868582 = test_phash2(<<123,45,6:3>>, 16#7FFFFFF),
-    ?line 2123204 = test_phash2(<<123,45,7:3>>, 16#7FFFFFF),
+    64409098 = test_phash2(<<99:7>>, 16#7FFFFFF),
+    55555814 = test_phash2(<<123,19:2>>, 16#7FFFFFF),
+    83868582 = test_phash2(<<123,45,6:3>>, 16#7FFFFFF),
+    2123204 = test_phash2(<<123,45,7:3>>, 16#7FFFFFF),
 
     ok.
 
@@ -579,7 +579,7 @@ test_phash2(Bitstr, Rem) ->
 
 otp_7127_test() ->
     %% Used to return 2589127136.
-    ?line 38990304 = erlang:phash2(<<"Scott9">>),
+    38990304 = erlang:phash2(<<"Scott9">>),
     ok.
 
 %%
