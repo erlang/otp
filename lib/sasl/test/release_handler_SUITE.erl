@@ -1210,8 +1210,14 @@ otp_9864(Conf) ->
     PrivDir = priv_dir(Conf),
     Dir = filename:join(PrivDir,"otp_9864"),
     RelDir = filename:join(?config(data_dir, Conf), "app1_app2"),
-    LibDir1 = filename:join(RelDir, "lib1"),
-    LibDir2 = filename:join(RelDir, "lib2"),
+
+    %% Copy libs to priv_dir because remove_release will remove some
+    %% of these again, and we don't want to remove anything from
+    %% data_dir
+    copy_tree(Conf,filename:join(RelDir, "lib1"),Dir),
+    copy_tree(Conf,filename:join(RelDir, "lib2"),Dir),
+    LibDir1 = filename:join(Dir, "lib1"),
+    LibDir2 = filename:join(Dir, "lib2"),
 
     %% Create the releases
     Rel1 = create_and_install_fake_first_release(Dir,
@@ -1229,10 +1235,6 @@ otp_9864(Conf) ->
     {ok, Node} = t_start_node(otp_9864, Rel1, filename:join(Rel1Dir,"sys.config")),
     
     %% Unpack rel2 (make sure it does not work if an AppDir is bad)
-    LibDir3 = filename:join(RelDir, "lib3"),
-    {error, {no_such_directory, _}} =
-	rpc:call(Node, release_handler, set_unpacked,
-		 [Rel2++".rel", [{app1,"2.0",LibDir2}, {app2,"1.0",LibDir3}]]),
     {ok, RelVsn2} =
 	rpc:call(Node, release_handler, set_unpacked,
 		 [Rel2++".rel", [{app1,"2.0",LibDir2}, {app2,"1.0",LibDir2}]]),
@@ -1243,21 +1245,26 @@ otp_9864(Conf) ->
     ok = rpc:call(Node, release_handler, install_file,
 			[RelVsn2, filename:join(Rel2Dir, "sys.config")]),
 
-    %% Install RelVsn2 without {update_paths, true} option
+    %% Install RelVsn2
     {ok, RelVsn1, []} =
 	rpc:call(Node, release_handler, install_release, [RelVsn2]),
 
-    %% Install RelVsn1 again
+    %% Create a symlink inside release 2
+    Releases2Dir = filename:join([Dir,"releases","2"]),
+    Link = filename:join(Releases2Dir,"foo_symlink_dir"),
+    file:make_symlink(Releases2Dir,Link),
+
+    %% Back down to RelVsn1
     {ok, RelVsn1, []} =
 	rpc:call(Node, release_handler, install_release, [RelVsn1]),
-
-    TempRel2Dir = filename:join(Dir,"releases/2"),
-    file:make_symlink(TempRel2Dir, filename:join(TempRel2Dir, "foo_symlink_dir")),
 
     %% This will fail if symlinks are not handled
     ok = rpc:call(Node, release_handler, remove_release, [RelVsn2]),
 
     ok.
+
+otp_9864(cleanup,_Conf) ->
+    stop_node(node_name(otp_9864)).
 
 
 upgrade_supervisor(Conf) when is_list(Conf) ->
