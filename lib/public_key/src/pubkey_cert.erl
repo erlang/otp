@@ -376,8 +376,12 @@ encoded_tbs_cert(Cert) ->
 
 digest_type(?sha1WithRSAEncryption) ->
     sha;
+digest_type(?sha224WithRSAEncryption) ->
+    sha224;
 digest_type(?sha256WithRSAEncryption) ->
     sha256;
+digest_type(?sha384WithRSAEncryption) ->
+    sha384;
 digest_type(?sha512WithRSAEncryption) ->
     sha512;
 digest_type(?md5WithRSAEncryption) ->
