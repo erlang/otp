@@ -176,9 +176,19 @@ do_wildcard_5(Dir, Wcf) ->
 
     %% Cleanup
     ?line del(Files),
-    ?line foreach(fun(D) -> ok = file:del_dir(filename:join(Dir, D)) end, Dirs).
+    ?line foreach(fun(D) -> ok = file:del_dir(filename:join(Dir, D)) end, Dirs),
+    do_wildcard_6(Dir, Wcf).
 
-
+do_wildcard_6(Dir, Wcf) ->
+    ok = file:make_dir(filename:join(Dir, "xbin")),
+    All = ["xbin/a.x","xbin/b.x","xbin/c.x"],
+    Files = mkfiles(All, Dir),
+    All = Wcf("xbin/*.x"),
+    All = Wcf("xbin/*"),
+    ["xbin"] = Wcf("*"),
+    All = Wcf("*/*"),
+    del(Files),
+    ok = file:del_dir(filename:join(Dir, "xbin")).
 
 fold_files(Config) when is_list(Config) ->
     ?line Dir = filename:join(?config(priv_dir, Config), "fold_files"),

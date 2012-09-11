@@ -132,6 +132,8 @@ do_wildcard_comp({compiled_wildcard,{exists,File}}, Mod) ->
 	{ok,_} -> [File];
 	_ -> []
     end;
+do_wildcard_comp({compiled_wildcard,[cwd,Base|Rest]}, Mod) ->
+    do_wildcard_1([Base], Rest, Mod);
 do_wildcard_comp({compiled_wildcard,[Base|Rest]}, Mod) ->
     do_wildcard_1([Base], Rest, Mod).
 
@@ -143,7 +145,11 @@ do_wildcard_comp({compiled_wildcard,{exists,File}}, Cwd, Mod) ->
 	{ok,_} -> [File];
 	_ -> []
     end;
-do_wildcard_comp({compiled_wildcard,[current|Rest]}, Cwd0, Mod) ->
+do_wildcard_comp({compiled_wildcard,[cwd|Rest0]}, Cwd0, Mod) ->
+    case Rest0 of
+	[current|Rest] -> ok;
+	Rest -> ok
+    end,
     {Cwd,PrefixLen} = case filename:join([Cwd0]) of
 	      Bin when is_binary(Bin) -> {Bin,byte_size(Bin)+1};
 	      Other -> {Other,length(Other)+1}
@@ -383,7 +389,10 @@ compile_wildcard_1(Pattern) ->
     [Root|Rest] = filename:split(Pattern),
     case filename:pathtype(Root) of
 	relative ->
-	    compile_wildcard_2([Root|Rest], current);
+	    case compile_wildcard_2([Root|Rest], current) of
+		{exists,_}=Wc -> Wc;
+		[_|_]=Wc -> [cwd|Wc]
+	    end;
 	_ ->
 	    compile_wildcard_2(Rest, [Root])
     end.
