@@ -37,6 +37,7 @@
 -define(HTTP_MAX_REDIRECTS,      4).
 -define(HTTP_KEEP_ALIVE_TIMEOUT, 120000).
 -define(HTTP_KEEP_ALIVE_LENGTH,  5).
+-define(TLS_UPGRADE_TOKEN, "TLS/1.0").
 
 %%% HTTP Client per request settings
 -record(http_options,
@@ -72,6 +73,7 @@
 -record(options, 
 	{
 	 proxy = {undefined, []}, % {{ProxyHost, ProxyPort}, [NoProxy]},
+	 https_proxy = {undefined, []}, % {{ProxyHost, ProxyPort}, [NoProxy]}
 	 %% 0 means persistent connections are used without pipelining
 	 pipeline_timeout      = ?HTTP_PIPELINE_TIMEOUT, 
 	 max_pipeline_length   = ?HTTP_PIPELINE_LENGTH,

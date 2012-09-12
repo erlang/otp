@@ -577,6 +577,7 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
     ?hcrv("set options", [{options, Options}, {old_options, OldOptions}]),
     NewOptions = 
 	#options{proxy                 = get_proxy(Options, OldOptions),
+		 https_proxy           = get_https_proxy(Options, OldOptions),
 		 pipeline_timeout      = get_pipeline_timeout(Options, OldOptions), 
 		 max_pipeline_length   = get_max_pipeline_length(Options, OldOptions), 
 		 max_keep_alive_length = get_max_keep_alive_length(Options, OldOptions), 
@@ -1026,6 +1027,9 @@ get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
 
 get_proxy(Opts, #options{proxy = Default}) ->
     proplists:get_value(proxy, Opts, Default).
+
+get_https_proxy(Opts, #options{https_proxy = Default}) ->
+    proplists:get_value(https_proxy, Opts, Default).
 
 get_pipeline_timeout(Opts, #options{pipeline_timeout = Default}) ->
     proplists:get_value(pipeline_timeout, Opts, Default).
