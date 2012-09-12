@@ -952,8 +952,6 @@ create_multiple_standalone(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate old type of target system
-
-create_old_target(_Config) -> {skip, "Old style of target"};
 create_old_target(_Config) ->
     
     %% Configure the server
@@ -976,8 +974,7 @@ create_old_target(_Config) ->
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ok = ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
-    
-    %% io:format("Will fail on Windows (should patch erl.ini)\n", []),
+
     ok = ?m(ok, reltool:install(RelName2, TargetDir)),
 
     Erl = filename:join([TargetDir, "bin", "erl"]),

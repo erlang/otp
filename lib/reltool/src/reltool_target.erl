@@ -1420,12 +1420,10 @@ do_install(RelName, TargetDir) ->
             BinDir = filename:join([TargetDir2, "bin"]),
 	    case os:type() of
 		{win32, _} ->
-		    NativeRootDir = filename:nativename(TargetDir2),
-		    %% NativeBinDir =
-		    %% filename:nativename(filename:join([BinDir, "win32"])),
-		    NativeBinDir = filename:nativename(BinDir),
+		    NativeRootDir = nativename(TargetDir2),
+		    NativeErtsBinDir = nativename(ErtsBinDir),
 		    IniData = ["[erlang]\r\n",
-			       "Bindir=", NativeBinDir, "\r\n",
+			       "Bindir=", NativeErtsBinDir, "\r\n",
 			       "Progname=erl\r\n",
 			       "Rootdir=", NativeRootDir, "\r\n"],
 		    IniFile = filename:join([BinDir, "erl.ini"]),
@@ -1444,6 +1442,15 @@ do_install(RelName, TargetDir) ->
         _ ->
             reltool_utils:throw_error("~s: Illegal data file syntax", [DataFile])
     end.
+
+nativename(Dir) ->
+    escape_backslash(filename:nativename(Dir)).
+escape_backslash([$\\|T]) ->
+    [$\\,$\\|escape_backslash(T)];
+escape_backslash([H|T]) ->
+    [H|escape_backslash(T)];
+escape_backslash([]) ->
+    [].
 
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->
     Fun = fun(Script) ->
