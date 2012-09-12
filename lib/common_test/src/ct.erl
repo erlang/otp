@@ -274,7 +274,8 @@ step(TestDir,Suite,Case,Opts) ->
 %%% <c>&gt; ct_telnet:cmd(unix_telnet, "ls .").</c><br/>
 %%% <c>{ok,["ls","file1  ...",...]}</c></p>
 start_interactive() ->
-    ct_util:start(interactive).
+    ct_util:start(interactive),
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% @spec stop_interactive() -> ok
@@ -282,7 +283,8 @@ start_interactive() ->
 %%% @doc Exit the interactive mode.
 %%% @see start_interactive/0
 stop_interactive() ->
-    ct_util:stop(normal).
+    ct_util:stop(normal),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% MISC INTERFACE
