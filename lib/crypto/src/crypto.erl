@@ -57,7 +57,11 @@
 -export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
 -export([rand_bytes/1, rand_bytes/3, rand_uniform/2]).
 -export([strong_rand_bytes/1, strong_rand_mpint/3]).
--export([mod_exp/3, mpint/1, erlint/1]).
+-export([mod_exp/3, mod_exp_prime/3, mpint/1, erlint/1]).
+-export([srp_value_B/5]).
+-export([srp3_value_u/1, srp6_value_u/3, srp6a_multiplier/2]).
+-export([srp_client_secret/7, srp_server_secret/5]).
+
 %% -export([idea_cbc_encrypt/3, idea_cbc_decrypt/3]).
 -export([aes_cbc_128_encrypt/3, aes_cbc_128_decrypt/3]).
 -export([aes_cbc_256_encrypt/3, aes_cbc_256_decrypt/3]).
@@ -88,7 +92,7 @@
 		    strong_rand_bytes,
 		    strong_rand_mpint,
 		    rand_uniform,
-		    mod_exp,
+		    mod_exp, mod_exp_prime,
 		    dss_verify,dss_sign,
 		    rsa_verify,rsa_sign,
 		    rsa_public_encrypt,rsa_private_decrypt, 
@@ -109,6 +113,9 @@
 		    hash, hash_init, hash_update, hash_final,
 		    hmac, hmac_init, hmac_update, hmac_final, hmac_final_n, info,
 		    rc2_cbc_encrypt, rc2_cbc_decrypt,
+		    srp_value_B,
+		    srp3_value_u, srp6_value_u, srp6a_multiplier,
+		    srp_client_secret, srp_server_secret,
 		    info_lib]).
 
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
@@ -783,7 +790,7 @@ rand_uniform_pos(_,_) ->
 rand_uniform_nif(_From,_To) -> ?nif_stub.     
 
 %%
-%% mod_exp - utility for rsa generation
+%% mod_exp - utility for rsa generation and SRP
 %%
 mod_exp(Base, Exponent, Modulo)
   when is_integer(Base), is_integer(Exponent), is_integer(Modulo) ->
@@ -792,6 +799,11 @@ mod_exp(Base, Exponent, Modulo)
 mod_exp(Base, Exponent, Modulo) ->
     mod_exp_nif(mpint_to_bin(Base),mpint_to_bin(Exponent),mpint_to_bin(Modulo), 4).
     
+-spec mod_exp_prime(binary(), binary(), binary()) -> binary().
+mod_exp_prime(Base, Exponent, Prime) ->
+    case mod_exp_nif(Base, Exponent, Prime, 0) of
+	<<0>> -> error;
+	R -> R
     end.
 
 
@@ -1062,10 +1074,63 @@ dh_compute_key(OthersPublicKey, MyPrivateKey, DHParameters) ->
 
 dh_compute_key_nif(_OthersPublicKey, _MyPrivateKey, _DHParameters) -> ?nif_stub.
 
+
+-spec srp_value_B(binary(), integer(), binary(), binary(), binary()) -> binary().
+srp_value_B(Multiplier, Verifier, Generator, Exponent, Prime) ->
+    srp_value_B_nif(srp_multiplier(Multiplier), Verifier, Generator, Exponent, Prime).
+
+srp_value_B_nif(_Multiplier, _Verifier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+
+-spec srp_client_secret(binary(), binary(), binary(), integer()|binary(), binary(), binary(), binary()) -> binary().
+srp_client_secret(A, U, B, Multiplier, Generator, Exponent, Prime) ->
+    srp_client_secret_nif(A, U, B, srp_multiplier(Multiplier), Generator, Exponent, Prime).
+
+srp_client_secret_nif(_A, _U, _B, _Multiplier, _Generator, _Exponent, _Prime) -> ?nif_stub.
+
+-spec srp_server_secret(binary(), binary(), binary(), binary(), binary()) -> binary().
+srp_server_secret(_Verifier, _B, _U, _A, _Prime) -> ?nif_stub.
+
+-spec srp6a_multiplier(binary(), binary()) -> binary().
+srp6a_multiplier(Generator, Prime) ->
+    %% k = SHA1(N | PAD(g))
+    C0 = sha_init(),
+    C1 = sha_update(C0, Prime),
+    C2 = sha_update(C1, srp_pad_to(erlang:byte_size(Prime), Generator)),
+    sha_final(C2).
+
+-spec srp3_value_u(binary()) -> binary().
+srp3_value_u(B) ->
+    %% The parameter u is a 32-bit unsigned integer which takes its value
+    %% from the first 32 bits of the SHA1 hash of B, MSB first.
+    <<U:32/bits, _/binary>> = sha(B),
+    U.
+
+-spec srp6_value_u(binary(), binary(), binary()) -> binary().
+srp6_value_u(A, B, Prime) ->
+    %% SHA1(PAD(A) | PAD(B))
+    PadLength = erlang:byte_size(Prime),
+    C0 = sha_init(),
+    C1 = sha_update(C0, srp_pad_to(PadLength, A)),
+    C2 = sha_update(C1, srp_pad_to(PadLength, B)),
+    sha_final(C2).
+
 %%
 %%  LOCAL FUNCTIONS
 %%
 
+srp_pad_length(Width, Length) ->
+    (Width - Length rem Width) rem Width.
+
+srp_pad_to(Width, Binary) ->
+    case srp_pad_length(Width, size(Binary)) of
+        0 -> Binary;
+        N -> << 0:(N*8), Binary/binary>>
+    end.
+
+srp_multiplier(Multiplier) when is_binary(Multiplier) ->
+    Multiplier;
+srp_multiplier(Multiplier) when is_integer(Multiplier) ->
+    int_to_bin_pos(Multiplier).
 
 %% large integer in a binary with 32bit length
 %% MP representaion  (SSH2)
