@@ -1206,6 +1206,13 @@ otp_9395_rm_many_mods(cleanup,_Conf) ->
     stop_node(node_name(otp_9395_rm_many_mods)).
 
 otp_9864(Conf) ->
+    case os:type() of
+	{win32,_} ->
+	    {skip,"Testing handling of symlinks - skipped on windows"};
+	_ ->
+	    do_otp_9864(Conf)
+    end.
+do_otp_9864(Conf) ->
     %% Set some paths
     PrivDir = priv_dir(Conf),
     Dir = filename:join(PrivDir,"otp_9864"),
