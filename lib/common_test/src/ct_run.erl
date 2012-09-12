@@ -211,6 +211,8 @@ analyze_test_result([Result|Rs], Args) ->
     end;
 analyze_test_result([], _) ->
     ?EXIT_STATUS_TEST_SUCCESSFUL;
+analyze_test_result(interactive_mode, _) ->
+    interactive_mode;
 analyze_test_result(Unknown, _) ->
     io:format("\nTest run failed! Reason:\n~p\n\n\n",[Unknown]),
     ?EXIT_STATUS_TEST_RUN_FAILED.
@@ -218,17 +220,22 @@ analyze_test_result(Unknown, _) ->
 finish(Tracing, ExitStatus, Args) ->
     stop_trace(Tracing),
     timer:sleep(1000),
-    %% it's possible to tell CT to finish execution with a call
-    %% to a different function than the normal halt/1 BIF
-    %% (meant to be used mainly for reading the CT exit status)
-    case get_start_opt(halt_with,
-		       fun([HaltMod,HaltFunc]) -> {list_to_atom(HaltMod),
-						   list_to_atom(HaltFunc)} end,
-		       Args) of
-	undefined ->
-	    halt(ExitStatus);
-	{M,F} ->
-	    apply(M, F, [ExitStatus])
+    if ExitStatus == interactive_mode ->
+	    interactive_mode;
+       true ->
+	    %% it's possible to tell CT to finish execution with a call
+	    %% to a different function than the normal halt/1 BIF
+	    %% (meant to be used mainly for reading the CT exit status)
+	    case get_start_opt(halt_with,
+			       fun([HaltMod,HaltFunc]) -> 
+				       {list_to_atom(HaltMod),
+					list_to_atom(HaltFunc)} end,
+			       Args) of
+		undefined ->
+		    halt(ExitStatus);
+		{M,F} ->
+		    apply(M, F, [ExitStatus])
+	    end
     end.
 
 script_start1(Parent, Args) ->
@@ -635,6 +642,7 @@ script_start4(#opts{label = Label, profile = Profile,
 		    verbosity = Verbosity,
 		    enable_builtin_hooks = EnableBuiltinHooks,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
+
     %% label - used by ct_logs
     application:set_env(common_test, test_label, Label),
 
@@ -655,7 +663,7 @@ script_start4(#opts{label = Label, profile = Profile,
 	    ct_util:set_testdata({logopts, LogOpts}),
 	    log_ts_names(Specs),
 	    io:nl(),
-	    ok;
+	    interactive_mode;
 	Error ->
 	    Error
     end;
@@ -2776,6 +2784,8 @@ opts2args(EnvStartOpts) ->
 			  [{exit_status,[atom_to_list(ExitStatusOpt)]}];
 		     ({halt_with,{HaltM,HaltF}}) ->
 			  [{halt_with,[atom_to_list(HaltM),atom_to_list(HaltF)]}];
+		     ({interactive_mode,true}) ->
+			  [{shell,[]}];
 		     ({config,CfgFiles}) ->
 			  [{ct_config,[CfgFiles]}];
 		     ({userconfig,{CBM,CfgStr=[X|_]}}) when is_integer(X) ->
