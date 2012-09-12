@@ -1256,6 +1256,95 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </desc>
     </func>
    
+    <func>
+      <name>srp_mod_exp(Generator, Exponent, Prime) -> Result</name>
+      <fsummary>Computes the SRP-SHA function: g^x % N</fsummary>
+      <type>
+	<v>Generator, Exponent, Prime = binary()</v>
+	<v>Result = binary() | error</v>
+      </type>
+      <desc>
+	<p>Computes the SRP-SHA function g^x % N used for the verifier and client public key (RFC-2945, Sect. 3)
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>srp_value_B(Multiplier, Verifier, Generator, Exponent, Prime) -> ValueB</name>
+      <fsummary>Computes the SRP function: B = k*v + g^b % N</fsummary>
+      <type>
+	<v>Verifier (v), Generator (g), Exponent (b), Prime (N), ValueB (B) = binary()</v>
+	<v>Multiplier (k) = integer() | binary()</v>
+      </type>
+      <desc>
+	<p>Computes the SRP value B according to RFC-2945, Sect. 3 and RFC-5054, Sect. 2.5.3</p>
+	<p>B = k*v + g^b % N</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>srp_client_secret(A, U, B, Multiplier, Generator, Exponent, Prime) -> Secret</name>
+      <fsummary>Computes the SRP client secret</fsummary>
+      <type>
+	<v>A (a), U (u), B, Multiplier (k), Generator (g), Exponent (x), Prime (N), Secret = binary()</v>
+	<v>Multiplier (k) = integer() | binary()</v>
+      </type>
+      <desc>
+	<p>Computes the SRP client secret according to RFC-2945, Sect. 3 and RFC-5054, Sect. 2.6</p>
+        <p>Secret = (B - (k * g^x)) ^ (a + (u * x)) % N</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>srp_server_secret(Verifier, B, U, A, Prime) -> Secret</name>
+      <fsummary>Computes the SRP host secret</fsummary>
+      <type>
+	<v>Verifier (v), B (b), U (u), A, Prime (N), Secret = binary()</v>
+      </type>
+      <desc>
+	<p>Computes the SRP host secret according to RFC-2945, Sect. 3 and RFC-5054, Sect. 2.6</p>
+        <p>Secret = (A * v^u) ^ b % N</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>srp3_value_u(B) -> Result</name>
+      <fsummary>Computes the SRP3-SHA value u</fsummary>
+      <type>
+	<v>B = binary()</v>
+	<v>Result = integer()</v>
+      </type>
+      <desc>
+	<p>Computes the SRP-3 value u according to RFC-2945, Sect. 3 
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>srp6_value_u(A, B, Prime) -> Result</name>
+      <fsummary>Computes the SRP6a value u as u = SHA1(PAD(A) | PAD(B))</fsummary>
+      <type>
+	<v>A, B, Prime = binary()</v>
+	<v>Result = integer()</v>
+      </type>
+      <desc>
+	<p>Computes the SRP-6 value u according to RFC-5054, Sect. 2.6
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>srp6a_multiplier(Generator, Prime) -> Result</name>
+      <fsummary>Computes the SRP-SHA function: k = SHA1(N | PAD(g))</fsummary>
+      <type>
+	<v>Generator, Prime = binary()</v>
+	<v>Result = integer()</v>
+      </type>
+      <desc>
+	<p>Computes the SRP-6a function SHA1(N | PAD(g)) as the multiplier
+	</p>
+      </desc>
+    </func>
 
     <func>
       <name>exor(Data1, Data2) -> Result</name>
