@@ -1,9 +1,5 @@
 EFLAGS=+debug_info
 
-P2B= \
-     P2B/a-2.0/ebin/a.@EMULATOR@ \
-     P2B/a-2.0/ebin/a_sup.@EMULATOR@
-
 LIB= \
      lib/a-9.1/ebin/a.@EMULATOR@ \
      lib/a-9.1/ebin/a_sup.@EMULATOR@ \
@@ -80,13 +76,7 @@ SUP= \
 	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup.@EMULATOR@ \
 	 release_handler_timeouts/dummy-0.1/ebin/dummy_sup_2.@EMULATOR@
 
-all: $(P2B) $(LIB) $(APP) $(OTP2740) $(C) $(SUP)
-
-P2B/a-2.0/ebin/a.@EMULATOR@: P2B/a-2.0/src/a.erl
-	erlc $(EFLAGS) -oP2B/a-2.0/ebin P2B/a-2.0/src/a.erl
-P2B/a-2.0/ebin/a_sup.@EMULATOR@: P2B/a-2.0/src/a_sup.erl
-	erlc $(EFLAGS) -oP2B/a-2.0/ebin P2B/a-2.0/src/a_sup.erl
-
+all: $(LIB) $(APP) $(OTP2740) $(C) $(SUP)
 
 lib/a-1.0/ebin/a.@EMULATOR@: lib/a-1.0/src/a.erl
 	erlc $(EFLAGS) -olib/a-1.0/ebin lib/a-1.0/src/a.erl

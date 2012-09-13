@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -326,8 +326,7 @@ translate_application_instrs(Script, Appls, PreAppls) ->
 	  fun({add_application, Appl, Type}) ->
 		  case lists:keysearch(Appl, #application.name, Appls) of
 		      {value, Application} ->
-			  Mods =
-			      remove_vsn(Application#application.modules),
+			  Mods = Application#application.modules,
 			  ApplyL = case Type of
 			      none -> [];
 			      load -> [{apply, {application, load, [Appl]}}];
@@ -349,9 +348,11 @@ translate_application_instrs(Script, Appls, PreAppls) ->
 		  end,
 		  case lists:keysearch(Appl, #application.name, PreAppls) of
 		      {value, RemApplication} ->
-			  Mods = remove_vsn(RemApplication#application.modules),
+			  Mods = RemApplication#application.modules,
+
 			  [{apply, {application, stop, [Appl]}}] ++
-			      [{remove, {M, brutal_purge, brutal_purge}} || M <- Mods] ++
+			      [{remove, {M, brutal_purge, brutal_purge}}
+			       || M <- Mods] ++
 			      [{purge, Mods},
 			       {apply, {application, unload, [Appl]}}];
 		      false ->
@@ -360,16 +361,14 @@ translate_application_instrs(Script, Appls, PreAppls) ->
 	     ({restart_application, Appl}) ->
 		  case lists:keysearch(Appl, #application.name, PreAppls) of
 		      {value, PreApplication} ->
-			  PreMods =
-			      remove_vsn(PreApplication#application.modules),
-
+			  PreMods = PreApplication#application.modules,
 			  case lists:keysearch(Appl, #application.name, Appls) of
 			      {value, PostApplication} ->
-				  PostMods =
-				      remove_vsn(PostApplication#application.modules),
-				  
+				  PostMods = PostApplication#application.modules,
+
 				  [{apply, {application, stop, [Appl]}}] ++
-				      [{remove, {M, brutal_purge, brutal_purge}} || M <- PreMods] ++
+				      [{remove, {M, brutal_purge, brutal_purge}}
+				       || M <- PreMods] ++
 				      [{purge, PreMods}] ++
 				      [{add_module, M, []} || M <- PostMods] ++
 				      [{apply, {application, start,
@@ -384,11 +383,6 @@ translate_application_instrs(Script, Appls, PreAppls) ->
 	     (X) -> X
 	  end, Script),
     lists:flatten(L).
-
-remove_vsn(Mods) ->
-    lists:map(fun({Mod, _Vsn}) -> Mod;
-		 (Mod) -> Mod
-	      end, Mods).
 
 %%-----------------------------------------------------------------
 %% Translates add_module into load_module (high-level transformation)
@@ -654,15 +648,9 @@ translate_dep_to_low(Mode, Instructions, Appls) ->
     end.
 
 get_lib(Mod, [#application{name = Name, vsn = Vsn, modules = Modules} | T]) ->
-    %% Module = {Mod, Vsn} | Mod
-    case lists:keysearch(Mod, 1, Modules) of
-	{value, _} ->
-	    {Name, Vsn};
-	false ->
-	    case lists:member(Mod, Modules) of
-		true -> {Name, Vsn};
-		false ->   get_lib(Mod, T)
-	    end
+    case lists:member(Mod, Modules) of
+	true -> {Name, Vsn};
+	false ->   get_lib(Mod, T)
     end;
 get_lib(Mod, []) ->
     throw({error, {no_such_module, Mod}}).
