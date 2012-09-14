@@ -1410,7 +1410,7 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
     StartedExtraTools = start_extra_tools(ExtraTools),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
     put(test_server_common_io_handler, undefined),
-    stop_extra_tools(StartedExtraTools),
+    catch stop_extra_tools(StartedExtraTools),
     case Result of
 	{'EXIT',test_suites_done} ->
 	    print(25, "DONE, normal exit", []);
