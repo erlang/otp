@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -37,8 +37,7 @@
 -type application_opt() :: {'description', Description :: string()}
                          | {'vsn', Vsn :: string()}
                          | {'id', Id :: string()}
-                         | {'modules', [(Module :: module()) |
-                                        {Module :: module(), Version :: term()}]}
+                         | {'modules', [Module :: module()]}
                          | {'registered', Names :: [Name :: atom()]}
                          | {'applications', [Application :: atom()]}
                          | {'included_applications', [Application :: atom()]}

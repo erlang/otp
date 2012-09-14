@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -46,7 +46,7 @@ syntax_check(Config) when is_list(Config) ->
 	[#application{name = test,
 		      description = "TEST",
 		      vsn = "0.1",
-		      modules = [{foo,1},{bar,1},{baz,1},{old_mod,1}],
+		      modules = [foo,bar,baz,old_mod],
 		      regs = [],
 		      mod = {sasl, []}},
 	 #application{name = snmp,
@@ -59,7 +59,7 @@ syntax_check(Config) when is_list(Config) ->
 	[#application{name = test,
 		      description = "TEST",
 		      vsn = "1.0",
-		      modules = [{foo,1},{bar,1},{baz,1},{new_mod,1}],
+		      modules = [foo,bar,baz,new_mod],
 		      regs = [],
 		      mod = {sasl, []}}],
     S1 = [
@@ -128,8 +128,8 @@ translate(Config) when is_list(Config) ->
 	[#application{name = test,
 		      description = "TEST",
 		      vsn = "1.0",
-		      modules = [{foo,1},{bar,1},{baz,1},
-				 {x,1},{y,1},{z,1}],
+		      modules = [foo,bar,baz,
+				 x,y,z],
 		      regs = [],
 		      mod = {sasl, []}}],
     %% Simple translation (1)
@@ -439,7 +439,7 @@ translate_app(Config) when is_list(Config) ->
 	[#application{name = test,
 		      description = "TEST",
 		      vsn = "1.0",
-		      modules = [{foo,1},{bar,1},{baz,1}],
+		      modules = [foo,bar,baz],
 		      regs = [],
 		      mod = {sasl, []}},
 	 #application{name = pelle,
@@ -452,7 +452,7 @@ translate_app(Config) when is_list(Config) ->
 	[#application{name = test,
 		      description = "TEST",
 		      vsn = "1.0",
-		      modules = [{foo,1},{bar,1},{baz,1}],
+		      modules = [foo,bar,baz],
 		      regs = [],
 		      mod = {sasl, []}}],
     %% Simple translation (1)
@@ -492,13 +492,13 @@ translate_emulator_restarts(_Config) ->
 	[#application{name = test,
 		      description = "TEST",
 		      vsn = "1.0",
-		      modules = [{foo,1},{bar,1},{baz,1}],
+		      modules = [foo,bar,baz],
 		      regs = [],
 		      mod = {sasl, []}},
 	 #application{name = test,
 		      description = "TEST2",
 		      vsn = "1.0",
-		      modules = [{x,1},{y,1},{z,1}],
+		      modules = [x,y,z],
 		      regs = [],
 		      mod = {sasl, []}}],
     %% restart_new_emulator

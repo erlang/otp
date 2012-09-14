@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -162,7 +162,7 @@
 %%       appl_opt() = {description, string()}           |
 %%                    {vsn, string()}                   |
 %%                    {id, string()},                   |
-%%                    {modules, [Module|{Module,Vsn}]}  |
+%%                    {modules, [Module]}  |
 %%                    {registered, [atom()]}            |
 %%                    {applications, [atom()]}          |
 %%                    {included_applications, [atom()]} |
@@ -172,7 +172,6 @@
 %%                    {maxP, integer()|infinity}        |
 %%                    {mod, {Module, term()}}
 %%         Module = atom()
-%%         Vsn = term()
 %% Purpose: Starts the application_controller.  This process starts all
 %%          application masters for the applications.
 %%          The kernel application is the only application that is
@@ -446,7 +445,7 @@ get_application_module(Module) ->
     get_application_module(Module, AppModules).
 
 get_application_module(Module, [[AppName, Modules]|AppModules]) ->
-    case in_modules(Module, Modules) of
+    case lists:member(Module, Modules) of
 	true ->
 	    {ok, AppName};
 	false ->
@@ -454,16 +453,6 @@ get_application_module(Module, [[AppName, Modules]|AppModules]) ->
     end;
 get_application_module(_Module, []) ->
     undefined.
-
-%% 'modules' key in .app is a list of Module or {Module,Vsn}
-in_modules(Module, [Module|_Modules]) ->
-    true;
-in_modules(Module, [{Module, _Vsn}|_Modules]) ->
-    true;
-in_modules(Module, [_Module|Modules]) ->
-    in_modules(Module, Modules);
-in_modules(_Module, []) ->
-    false.
 
 permit_application(ApplName, Flag) ->
     gen_server:call(?AC, 

@@ -673,7 +673,7 @@ check_item({_,{registered,Regs}},I) ->
 	_ -> throw({bad_param, I})
     end;
 check_item({_,{modules,Mods}},I) ->
-    case mod_list_p(Mods) of
+    case a_list_p(Mods) of
 	true -> Mods;
 	_ -> throw({bad_param, I})
     end;
@@ -900,11 +900,10 @@ find_pos(N, Name, [_OtherAppl|OrderedAppls]) ->
 
 check_modules(Appls, Path, TestP, Machine) ->
     %% first check that all the module names are unique
-    %% Make a list M1 = [{Mod,Vsn,App,AppVsn,Dir}]
-    %%   where Vsn = '$$ignore$$' | Specified
-    M1 = [{Mod,Vsn,App,Appv,A#application.dir} ||
-	     {{App,Appv},A} <- Appls,
-	     {Mod,Vsn} <- get_mod_vsn(A#application.modules)],
+    %% Make a list M1 = [{Mod,App,Dir}]
+    M1 = [{Mod,App,A#application.dir} ||
+	     {{App,_Appv},A} <- Appls,
+	     Mod <- A#application.modules],
     case duplicates(M1) of
 	[] ->
 	    case check_mods(M1, Appls, Path, TestP, Machine) of
@@ -918,16 +917,8 @@ check_modules(Appls, Path, TestP, Machine) ->
 	    throw({error, {duplicate_modules, Dups}})
     end.
 
-get_mod_vsn([{Mod,Vsn}|Mods]) ->
-    [{Mod,Vsn}|get_mod_vsn(Mods)];
-get_mod_vsn([Mod|Mods]) ->
-    [{Mod,'$$ignore$$'}|get_mod_vsn(Mods)];
-get_mod_vsn([]) ->
-    [].
-
 %%______________________________________________________________________
-%% Check that all modules exists and that the specified version
-%% corresponds to the version in the module's source code.
+%% Check that all modules exists.
 %% Use the module extension of the running machine as extension for
 %% the checked modules.
 
@@ -952,7 +943,7 @@ check_src(Modules, Appls, Path, true, Machine) ->
     Ext = objfile_extension(Machine),
     IncPath = create_include_path(Appls, Path),
     append(map(fun(ModT) ->
-		       {Mod,_Vsn,App,_,Dir} = ModT,
+		       {Mod,App,Dir} = ModT,
 		       case check_mod(Mod,App,Dir,Ext,IncPath) of
 			   ok ->
 			       [];
@@ -1421,10 +1412,7 @@ create_mandatory_path(Appls, PathFlag, Variables) ->
 %% Load all modules, except those in Mandatory_modules.
 
 load_appl_mods([{{Name,Vsn},A}|Appls], Mand, PathFlag, Variables) ->
-    Mods = map(fun({Mod,_}) -> Mod;
-		  (Mod)     -> Mod
-	       end,
-	       A#application.modules),
+    Mods = A#application.modules,
     load_commands(filter(fun(Mod) -> not member(Mod, Mand) end, Mods),
 		  cr_path(Name, Vsn, A, PathFlag, Variables)) ++
 	load_appl_mods(Appls, Mand, PathFlag, Variables);
@@ -1784,9 +1772,7 @@ add_appl(Name, Vsn, App, Tar, Variables, Flags, Var) ->
 	    add_to_tar(Tar,
 		       filename:join(AppDir, Name ++ ".app"),
 		       filename:join(BinDir, Name ++ ".app")),
-	    add_modules(map(fun({Mod,_}) -> to_list(Mod);
-			       (Mod)     -> to_list(Mod)
-			    end,
+	    add_modules(map(fun(Mod) -> to_list(Mod) end,
 			    App#application.modules),
 			Tar,
 			AppDir,
@@ -2025,14 +2011,6 @@ string_p(_) ->  false.
 t_list_p([{A,_}|T]) when is_atom(A) -> t_list_p(T);
 t_list_p([])                        -> true;
 t_list_p(_)                         -> false.
-
-% check if a term is a list of atoms or two-tuples with the first
-% element as an atom.
-
-mod_list_p([{A,_}|T]) when is_atom(A) -> mod_list_p(T);
-mod_list_p([A|T]) when is_atom(A)     -> mod_list_p(T);
-mod_list_p([])                        -> true;
-mod_list_p(_)                         -> false.
 
 % check if a term is a list of atoms.
 
