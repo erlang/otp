@@ -21,7 +21,7 @@
 
 -module(ts_run).
 
--export([run/4]).
+-export([run/4,ct_run_test/2]).
 
 -define(DEFAULT_MAKE_TIMETRAP_MINUTES, 60).
 -define(DEFAULT_UNMAKE_TIMETRAP_MINUTES, 15).
@@ -86,6 +86,24 @@ execute([Hook|Rest], Vars0, Spec0, St0) ->
     end;
 execute([], Vars, Spec, St) ->
     {ok, Vars, Spec, St}.
+
+%% Wrapper to run tests using ct:run_test/1 and handle any errors.
+
+ct_run_test(Dir, CommonTestArgs) ->
+    try
+	ok = file:set_cwd(Dir),
+	case ct:run_test(CommonTestArgs) of
+	    {_,_,_} ->
+		ok;
+	    {error,Error} ->
+		io:format("ERROR: ~P\n", [Error,20]);
+	    Other ->
+		io:format("~P\n", [Other,20])
+	end
+    catch
+	_:Crash ->
+	    io:format("CRASH: ~P\n", [Crash,20])
+    end.
 
 %%
 %% Deletes File from Files when File is on the form .../<SUITE>_data/<file>
@@ -230,8 +248,7 @@ make_command(Vars, Spec, State) ->
 	   " -boot start_sasl -sasl errlog_type error",
 	   " -pz \"",Cwd,"\"",
 	   " -ct_test_vars ",TestVars,
-	   " -eval \"file:set_cwd(\\\"",TestDir,"\\\")\" "
-	   " -eval \"ct:run_test(", 
+	   " -eval \"ts_run:ct_run_test(\\\"",TestDir,"\\\", ",
 	   backslashify(lists:flatten(State#state.test_server_args)),")\""
 	   " ",
 	   ExtraArgs],
