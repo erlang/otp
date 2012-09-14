@@ -1417,6 +1417,7 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
 	{'EXIT',_Pid,Reason} ->
 	    print(1, "EXIT, reason ~p", [Reason]);
 	{'EXIT',Reason} ->
+	    report_severe_error(Reason),
 	    print(1, "EXIT, reason ~p", [Reason]);
 	_Other ->
 	    print(25, "DONE", [])
@@ -1439,6 +1440,9 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
 	  "<td>~.3fs</td><td><b>~s</b></td><td>~p Ok, ~p Failed~s of ~p</td></tr>\n"
 	  "</tfoot>\n",
 	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]).
+
+report_severe_error(Reason) ->
+    test_server_sup:framework_call(report, [severe_error,Reason]).
 
 %% timer:tc/3
 ts_tc(M, F, A) ->

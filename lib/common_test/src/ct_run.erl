@@ -2192,6 +2192,15 @@ do_run_test(Tests, Skip, Opts) ->
 			  end, CleanUp),
 	    [code:del_path(Dir) || Dir <- AddedToPath],
 
+	    %% If a severe error has occurred in the test_server,
+	    %% we will generate an exception here.
+	    case ct_util:get_testdata(severe_error) of
+		undefined -> ok;
+		SevereError ->
+		    ct_logs:log("SEVERE ERROR", "~p\n", [SevereError]),
+		    exit(SevereError)
+	    end,
+
 	    case ct_util:get_testdata(stats) of
 		Stats = {_Ok,_Failed,{_UserSkipped,_AutoSkipped}} ->
 		    Stats;
