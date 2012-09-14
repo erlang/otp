@@ -770,14 +770,6 @@ proclist_destroy(ErtsProcList *plp)
     proclist_free(plp);
 }
 
-static ERTS_INLINE int
-proclist_same(ErtsProcList *plp, Process *p)
-{
-    return (plp->pid == p->common.id
-	    && (plp->started_interval
-		== p->common.u.alive.started_interval));
-}
-
 ErtsProcList *
 erts_proclist_create(Process *p)
 {
@@ -788,12 +780,6 @@ void
 erts_proclist_destroy(ErtsProcList *plp)
 {
     proclist_destroy(plp);
-}
-
-int
-erts_proclist_same(ErtsProcList *plp, Process *p)
-{
-    return proclist_same(plp, p);
 }
 
 void *
@@ -4980,8 +4966,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
     else if (on) { /* ------ BLOCK ------ */
 	if (schdlr_sspnd.msb.procs) {
 	    plp = proclist_create(p);
-	    plp->next = schdlr_sspnd.msb.procs;
-	    schdlr_sspnd.msb.procs = plp;
+	    erts_proclist_store_last(&schdlr_sspnd.msb.procs, plp);
 	    p->flags |= F_HAVE_BLCKD_MSCHED;
 	    ASSERT(erts_smp_atomic32_read_nob(&schdlr_sspnd.active) == 1);
 	    ASSERT(p->scheduler_data->no == 1);
@@ -5066,8 +5051,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 						~ERTS_SCHDLR_SSPND_CHNG_WAITER);
 	    }
 	    plp = proclist_create(p);
-	    plp->next = schdlr_sspnd.msb.procs;
-	    schdlr_sspnd.msb.procs = plp;
+	    erts_proclist_store_last(&schdlr_sspnd.msb.procs, plp);
 	    ASSERT(p->scheduler_data);
 	}
     }
@@ -5078,20 +5062,16 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
     }
     else {  /* ------ UNBLOCK ------ */
 	if (p->flags & F_HAVE_BLCKD_MSCHED) {
-	    ErtsProcList **plpp = &schdlr_sspnd.msb.procs;
-	    plp = schdlr_sspnd.msb.procs;
+	    ErtsProcList *plp = erts_proclist_peek_first(schdlr_sspnd.msb.procs);
 
 	    while (plp) {
-		if (!proclist_same(plp, p)){
-		    plpp = &plp->next;
-		    plp = plp->next;
-		}
-		else {
-		    *plpp = plp->next;
-		    proclist_destroy(plp);
+		ErtsProcList *tmp_plp = plp;
+		plp = erts_proclist_peek_next(schdlr_sspnd.msb.procs, plp);
+		if (erts_proclist_same(tmp_plp, p)) {
+		    erts_proclist_remove(&schdlr_sspnd.msb.procs, tmp_plp);
+		    proclist_destroy(tmp_plp);
 		    if (!all)
 			break;
-		    plp = *plpp;
 		}
 	    }
 	}
@@ -5160,23 +5140,25 @@ erts_multi_scheduling_blockers(Process *p)
     Eterm res = NIL;
 
     erts_smp_mtx_lock(&schdlr_sspnd.mtx);
-    if (schdlr_sspnd.msb.procs) {
+    if (!erts_proclist_is_empty(schdlr_sspnd.msb.procs)) {
 	Eterm *hp, *hp_end;
 	ErtsProcList *plp1, *plp2;
-	Uint max_size;
-	ASSERT(schdlr_sspnd.msb.procs);
-	for (max_size = 0, plp1 = schdlr_sspnd.msb.procs;
+	Uint max_size = 0;
+
+	for (plp1 = erts_proclist_peek_first(schdlr_sspnd.msb.procs);
 	     plp1;
-	     plp1 = plp1->next) {
+	     plp1 = erts_proclist_peek_next(schdlr_sspnd.msb.procs, plp1)) {
 	    max_size += 2;
 	}
 	ASSERT(max_size);
 	hp = HAlloc(p, max_size);
 	hp_end = hp + max_size;
-	for (plp1 = schdlr_sspnd.msb.procs; plp1; plp1 = plp1->next) {
-	    for (plp2 = schdlr_sspnd.msb.procs;
+	for (plp1 = erts_proclist_peek_first(schdlr_sspnd.msb.procs);
+	     plp1;
+	     plp1 = erts_proclist_peek_next(schdlr_sspnd.msb.procs, plp1)) {
+	    for (plp2 = erts_proclist_peek_first(schdlr_sspnd.msb.procs);
 		 plp2->pid != plp1->pid;
-		 plp2 = plp2->next);
+		 plp2 = erts_proclist_peek_next(schdlr_sspnd.msb.procs, plp2));
 	    if (plp2 == plp1) {
 		res = CONS(hp, plp1->pid, res);
 		hp += 2;
@@ -6081,23 +6063,25 @@ erts_process_status(Process *c_p, ErtsProcLocks c_p_locks,
 void
 erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port)
 {
-#ifdef DEBUG
-    int res;
-#endif
+    int suspend;
+
     ASSERT(c_p == erts_get_current_process());
     ERTS_SMP_LC_ASSERT(c_p_locks == erts_proc_lc_my_proc_locks(c_p));
     if (!(c_p_locks & ERTS_PROC_LOCK_STATUS))
 	erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_STATUS);
 
-#ifdef DEBUG
-    res =
-#endif
-	suspend_process(c_p, c_p);
-
-    ASSERT(res);
-
     if (busy_port)
-	erts_wake_process_later(busy_port, c_p);
+	suspend = erts_save_suspend_process_on_port(busy_port, c_p);
+    else
+	suspend = 1;
+
+    if (suspend) {
+#ifdef DEBUG
+	int res =
+#endif
+	    suspend_process(c_p, c_p);
+	ASSERT(res);
+    }
 
     if (!(c_p_locks & ERTS_PROC_LOCK_STATUS))
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
@@ -6116,16 +6100,19 @@ erts_resume(Process* process, ErtsProcLocks process_locks)
 }
 
 int
-erts_resume_processes(ErtsProcList *plp)
+erts_resume_processes(ErtsProcList *list)
 {
+    /* 'list' is expected to have been fetched (i.e. not a ring anymore) */
     int nresumed = 0;
+    ErtsProcList *plp = list;
+
     while (plp) {
 	Process *proc;
 	ErtsProcList *fplp;
 	ASSERT(is_internal_pid(plp->pid));
 	proc = erts_pid2proc(NULL, 0, plp->pid, ERTS_PROC_LOCK_STATUS);
 	if (proc) {
-	    if (proclist_same(plp, proc)) {
+	    if (erts_proclist_same(plp, proc)) {
 		resume_process(proc);
 		nresumed++;
 	    }
@@ -6354,9 +6341,8 @@ Process *schedule(Process *p, int calls)
 #ifdef ERTS_SMP
 	{
 	    ErtsProcList *pnd_xtrs = rq->procs.pending_exiters;
-	    rq->procs.pending_exiters = NULL;
-
-	    if (pnd_xtrs) {
+	    if (erts_proclist_fetch(&pnd_xtrs, NULL)) {
+		rq->procs.pending_exiters = NULL;
 		erts_smp_runq_unlock(rq);
 		handle_pending_exiters(pnd_xtrs);
 		erts_smp_runq_lock(rq);
@@ -7700,12 +7686,14 @@ erts_handle_pending_exit(Process *c_p, ErtsProcLocks locks)
 static void
 handle_pending_exiters(ErtsProcList *pnd_xtrs)
 {
+    /* 'list' is expected to have been fetched (i.e. not a ring anymore) */
     ErtsProcList *plp = pnd_xtrs;
-    ErtsProcList *free_plp;
+
     while (plp) {
+	ErtsProcList *free_plp;
 	Process *p = erts_pid2proc(NULL, 0, plp->pid, ERTS_PROC_LOCKS_ALL);
 	if (p) {
-	    if (proclist_same(plp, p)) {
+	    if (erts_proclist_same(plp, p)) {
 		erts_aint32_t state = erts_smp_atomic32_read_acqb(&p->state);
 		if (!(state & ERTS_PSFLG_RUNNING)) {
 		    ASSERT(state & ERTS_PSFLG_PENDING_EXIT);
@@ -7734,8 +7722,7 @@ save_pending_exiter(Process *p)
 
     erts_smp_runq_lock(rq);
 
-    plp->next = rq->procs.pending_exiters;
-    rq->procs.pending_exiters = plp;
+    erts_proclist_store_last(&rq->procs.pending_exiters, plp);
 
     erts_smp_runq_unlock(rq);
     wake_scheduler(rq, 1);

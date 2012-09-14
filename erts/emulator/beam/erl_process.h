@@ -290,6 +290,7 @@ struct ErtsProcList_ {
     Eterm pid;
     Uint64 started_interval;
     ErtsProcList* next;
+    ErtsProcList* prev;
 };
 
 typedef struct ErtsMiscOpList_ ErtsMiscOpList;
@@ -1135,7 +1136,172 @@ Uint64 erts_step_proc_interval(void);
 
 ErtsProcList *erts_proclist_create(Process *);
 void erts_proclist_destroy(ErtsProcList *);
-int erts_proclist_same(ErtsProcList *, Process *);
+
+ERTS_GLB_INLINE int erts_proclist_same(ErtsProcList *, Process *);
+ERTS_GLB_INLINE void erts_proclist_store_first(ErtsProcList **, ErtsProcList *);
+ERTS_GLB_INLINE void erts_proclist_store_last(ErtsProcList **, ErtsProcList *);
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_first(ErtsProcList *);
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_last(ErtsProcList *);
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_next(ErtsProcList *, ErtsProcList *);
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_prev(ErtsProcList *, ErtsProcList *);
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_fetch_first(ErtsProcList **);
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_fetch_last(ErtsProcList **);
+ERTS_GLB_INLINE int erts_proclist_fetch(ErtsProcList **, ErtsProcList **);
+ERTS_GLB_INLINE void erts_proclist_remove(ErtsProcList **, ErtsProcList *);
+ERTS_GLB_INLINE int erts_proclist_is_empty(ErtsProcList *);
+ERTS_GLB_INLINE int erts_proclist_is_first(ErtsProcList *, ErtsProcList *);
+ERTS_GLB_INLINE int erts_proclist_is_last(ErtsProcList *, ErtsProcList *);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE int
+erts_proclist_same(ErtsProcList *plp, Process *p)
+{
+    return (plp->pid == p->common.id
+	    && (plp->started_interval
+		== p->common.u.alive.started_interval));
+}
+
+ERTS_GLB_INLINE void erts_proclist_store_first(ErtsProcList **list,
+					       ErtsProcList *element)
+{
+    if (!*list)
+	element->next = element->prev = element;
+    else {
+	element->prev = (*list)->prev;
+	element->next = *list;
+	element->prev->next = element;
+	element->next->prev = element;
+    }
+    *list = element;
+}
+
+ERTS_GLB_INLINE void erts_proclist_store_last(ErtsProcList **list,
+					      ErtsProcList *element)
+{
+    if (!*list) {
+	element->next = element->prev = element;
+	*list = element;
+    }
+    else {
+	element->prev = (*list)->prev;
+	element->next = *list;
+	element->prev->next = element;
+	element->next->prev = element;
+    }
+}
+
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_first(ErtsProcList *list)
+{
+    return list;
+}
+
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_last(ErtsProcList *list)
+{
+    if (!list)
+	return NULL;
+    else
+	return list->prev;
+}
+
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_next(ErtsProcList *list,
+						      ErtsProcList *element)
+{
+    ErtsProcList *next;
+    ASSERT(list && element);
+    next = element->next;
+    return list == next ? NULL : next;
+}
+
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_peek_prev(ErtsProcList *list,
+						      ErtsProcList *element)
+{
+    ErtsProcList *prev;
+    ASSERT(list && element);
+    prev = element->prev;
+    return list == element ? NULL : prev;
+}
+
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_fetch_first(ErtsProcList **list)
+{
+    if (!*list)
+	return NULL;
+    else {
+	ErtsProcList *res = *list;
+	if (res == *list)
+	    *list = NULL;
+	else
+	    *list = res->next;
+	res->next->prev = res->prev;
+	res->prev->next = res->next;
+	return res;
+    }
+}
+
+ERTS_GLB_INLINE ErtsProcList *erts_proclist_fetch_last(ErtsProcList **list)
+{
+    if (!*list)
+	return NULL;
+    else {
+	ErtsProcList *res = (*list)->prev;
+	if (res == *list)
+	    *list = NULL;
+	res->next->prev = res->prev;
+	res->prev->next = res->next;
+	return res;
+    }
+}
+
+ERTS_GLB_INLINE int erts_proclist_fetch(ErtsProcList **list_first,
+					ErtsProcList **list_last)
+{
+    if (!*list_first) {
+	if (list_last)
+	    *list_last = NULL;
+	return 0;
+    }
+    else {
+	if (list_last)
+	    *list_last = (*list_first)->prev;
+	(*list_first)->prev->next = NULL;
+	(*list_first)->prev = NULL;
+	return !0;
+    }
+}
+
+ERTS_GLB_INLINE void erts_proclist_remove(ErtsProcList **list,
+					  ErtsProcList *element)
+{
+    ASSERT(list && *list);
+    if (*list == element) {
+	*list = element->next;
+	if (*list == element)
+	    *list = NULL;
+    }
+    element->next->prev = element->prev;
+    element->prev->next = element->next;
+}
+
+ERTS_GLB_INLINE int erts_proclist_is_empty(ErtsProcList *list)
+{
+    return list == NULL;
+}
+
+ERTS_GLB_INLINE int erts_proclist_is_first(ErtsProcList *list,
+					   ErtsProcList *element)
+{
+    ASSERT(list && element);
+    return list == element;
+}
+
+ERTS_GLB_INLINE int erts_proclist_is_last(ErtsProcList *list,
+					  ErtsProcList *element)
+{
+    ASSERT(list && element);
+    return list->prev == element;
+}
+
+#endif
 
 void erts_schedule_thr_prgr_later_op(void (*)(void *),
 				     void *,

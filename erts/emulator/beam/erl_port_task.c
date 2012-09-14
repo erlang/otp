@@ -530,6 +530,7 @@ fail:
 void
 erts_port_task_free_port(Port *pp)
 {
+    ErtsProcList *suspended;
     erts_aint32_t flags;
     ErtsRunQueue *runq;
 
@@ -542,6 +543,8 @@ erts_port_task_free_port(Port *pp)
     erts_port_task_sched_lock(&pp->sched);
     flags = erts_smp_atomic32_read_bor_relb(&pp->sched.flags,
 					    ERTS_PTS_FLG_EXIT);
+    suspended = pp->suspended;
+    pp->suspended = NULL;
     erts_port_task_sched_unlock(&pp->sched);
     erts_atomic32_read_bset_relb(&pp->state,
 				 (ERTS_PORT_SFLG_CLOSING
@@ -549,6 +552,9 @@ erts_port_task_free_port(Port *pp)
 				 ERTS_PORT_SFLG_FREE);
 
     erts_smp_runq_unlock(runq);
+
+    if (erts_proclist_fetch(&suspended, NULL))
+	erts_resume_processes(suspended);
 
     if (!(flags & (ERTS_PTS_FLG_IN_RUNQ|ERTS_PTS_FLG_EXEC)))
 	begin_port_cleanup(pp, NULL);

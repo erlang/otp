@@ -116,8 +116,7 @@ dist_table_alloc(void *dep_tmpl)
     dep->qsize				= 0;
     dep->out_queue.first		= NULL;
     dep->out_queue.last			= NULL;
-    dep->suspended.first		= NULL;
-    dep->suspended.last			= NULL;
+    dep->suspended			= NULL;
 
     dep->finalized_out_queue.first	= NULL;
     dep->finalized_out_queue.last	= NULL;
@@ -769,8 +768,7 @@ void erts_init_node_tables(void)
     erts_this_dist_entry->qsize				= 0;
     erts_this_dist_entry->out_queue.first		= NULL;
     erts_this_dist_entry->out_queue.last		= NULL;
-    erts_this_dist_entry->suspended.first		= NULL;
-    erts_this_dist_entry->suspended.last		= NULL;
+    erts_this_dist_entry->suspended			= NULL;
 
     erts_this_dist_entry->finalized_out_queue.first	= NULL;
     erts_this_dist_entry->finalized_out_queue.last	= NULL;

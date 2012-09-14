@@ -476,23 +476,19 @@ static void stopq(Port* prt)
     }
 }
 
-void
-erts_wake_process_later(Port *prt, Process *process)
+int
+erts_save_suspend_process_on_port(Port *prt, Process *process)
 {
-    ErtsProcList** p;
-    ErtsProcList* new_p;
-
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
-
-    if (erts_atomic32_read_nob(&prt->state) & ERTS_PORT_SFLGS_DEAD)
-	return;
-
-    for (p = &(prt->suspended); *p != NULL; p = &((*p)->next))
-	/* Empty loop body */;
-
-    new_p = erts_proclist_create(process);
-    new_p->next = NULL;
-    *p = new_p;
+    int saved;
+    erts_aint32_t flags;
+    erts_port_task_sched_lock(&prt->sched);
+    flags = erts_smp_atomic32_read_nob(&prt->sched.flags);
+    saved = ((flags & (ERTS_PTS_FLG_BUSY
+		       | ERTS_PTS_FLG_EXIT)) == ERTS_PTS_FLG_BUSY);
+    if (saved)
+	erts_proclist_store_last(&prt->suspended, erts_proclist_create(process));
+    erts_port_task_sched_unlock(&prt->sched);
+    return saved;
 }
 
 /*
@@ -2094,9 +2090,7 @@ erts_do_exit_port(Port *p, Eterm from, Eterm reason)
 #endif
 
    state = erts_atomic32_read_nob(&p->state);
-   if ((state & (ERTS_PORT_SFLGS_DEAD
-		 | ERTS_PORT_SFLG_EXITING
-		 | ERTS_PORT_SFLG_IMMORTAL))
+   if ((state & (ERTS_PORT_SFLGS_DEAD|ERTS_PORT_SFLG_EXITING))
        || ((reason == am_normal) &&
 	   ((from != p->connected) && (from != p->common.id)))) {
       return;
@@ -2468,6 +2462,8 @@ void
 set_busy_port(ErlDrvPort port_num, int on)
 {
     Port *prt;
+    erts_aint32_t flags;
+
 #ifdef USE_VM_PROBES
     DTRACE_CHARBUF(port_str, 16);
 #endif
@@ -2479,8 +2475,10 @@ set_busy_port(ErlDrvPort port_num, int on)
 	return;
 
     if (on) {
-	erts_atomic32_read_bor_relb(&prt->state,
-				    ERTS_PORT_SFLG_PORT_BUSY);
+	flags = erts_smp_atomic32_read_bor_nob(&prt->sched.flags,
+					       ERTS_PTS_FLG_BUSY);
+	if (flags & ERTS_PTS_FLG_BUSY)
+	    return; /* Already busy */
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(port_busy)) {
             erts_snprintf(port_str, sizeof(port_str),
@@ -2489,10 +2487,12 @@ set_busy_port(ErlDrvPort port_num, int on)
         }
 #endif
     } else {
-        ErtsProcList* plp = prt->suspended;
-	erts_atomic32_read_band_relb(&prt->state,
-				     ~ERTS_PORT_SFLG_PORT_BUSY);
-        prt->suspended = NULL;
+        ErtsProcList *plp;
+
+	flags = erts_smp_atomic32_read_band_nob(&prt->sched.flags,
+						~ERTS_PTS_FLG_BUSY);
+	if (!(flags & ERTS_PTS_FLG_BUSY))
+	    return; /* Already non-busy */
 
 #ifdef USE_VM_PROBES
         if (DTRACE_ENABLED(port_not_busy)) {
@@ -2517,7 +2517,13 @@ set_busy_port(ErlDrvPort port_num, int on)
 	 * the first process.
 	 */
 
-        if (plp) {
+	erts_port_task_sched_lock(&prt->sched);
+	plp = prt->suspended;
+	prt->suspended = NULL;
+	erts_port_task_sched_unlock(&prt->sched);
+
+        if (erts_proclist_fetch(&plp, NULL)) {
+
 #ifdef USE_VM_PROBES
             /*
              * Hrm, for blocked dist ports, plp always seems to be NULL.
@@ -2540,8 +2546,10 @@ set_busy_port(ErlDrvPort port_num, int on)
                 }
             }
 #endif
+
             /* First proc should be resumed last */
 	    if (plp->next) {
+		plp->next->prev = NULL;
 		erts_resume_processes(plp->next);
 		plp->next = NULL;
 	    }

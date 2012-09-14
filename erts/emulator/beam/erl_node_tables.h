@@ -84,10 +84,6 @@ typedef struct {
 } ErtsDistOutputQueue;
 
 struct ErtsProcList_;
-typedef struct {
-    struct ErtsProcList_ *first;
-    struct ErtsProcList_ *last;
-} ErtsDistSuspended;
 
 /*
  * Lock order:
@@ -134,7 +130,7 @@ typedef struct dist_entry_ {
     Uint32 qflgs;
     Sint qsize;
     ErtsDistOutputQueue out_queue;
-    ErtsDistSuspended suspended;
+    struct ErtsProcList_ *suspended;
 
     ErtsDistOutputQueue finalized_out_queue;
     erts_smp_atomic_t dist_cmd_scheduled;

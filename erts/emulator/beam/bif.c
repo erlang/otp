@@ -1908,7 +1908,7 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
         
 	/* We have waited for locks, trace schedule ports */
 	if (pt) {
-	    erts_aint32_t state;
+	    erts_aint32_t flags;
 	    if (IS_TRACED_FL(pt, F_TRACE_SCHED_PORTS)) {
 		trace_sched_ports_where(pt, am_in, am_command);
 	    }
@@ -1916,9 +1916,9 @@ do_send(Process *p, Eterm to, Eterm msg, int suspend) {
 		profile_runnable_port(pt, am_active);
 	    }
 	
-	    state = erts_atomic32_read_nob(&pt->state);
+	    flags = erts_atomic32_read_rb(&pt->sched.flags);
 	    /* XXX let port_command handle the busy stuff !!! */
-	    if (state & ERTS_PORT_SFLG_PORT_BUSY) {
+	    if (flags & ERTS_PTS_FLG_BUSY) {
 		if (suspend) {
 		    erts_suspend(p, ERTS_PROC_LOCK_MAIN, pt);
 		    if (erts_system_monitor_flags.busy_port) {

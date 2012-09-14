@@ -168,7 +168,8 @@ do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
 	ERTS_BIF_PREP_ERROR(res, BIF_P, EXC_NOTSUP);
     }
     else if (!(flags & ERTS_PORT_COMMAND_FLAG_FORCE)
-	     && (erts_atomic32_read_nob(&p->state) & ERTS_PORT_SFLG_PORT_BUSY)) {
+	     && (erts_smp_atomic32_read_nob(&p->sched.flags)
+		 & ERTS_PTS_FLG_BUSY)) {
 	if (flags & ERTS_PORT_COMMAND_FLAG_NOSUSPEND) {
 	    ERTS_BIF_PREP_RET(res, am_false);
 	}

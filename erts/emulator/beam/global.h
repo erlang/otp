@@ -895,7 +895,7 @@ typedef struct {
 
 int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked);
 void erts_destroy_driver(erts_driver_t *drv);
-void erts_wake_process_later(Port*, Process*);
+int erts_save_suspend_process_on_port(Port*, Process*);
 Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
 int erts_is_port_ioq_empty(Port *);
 void erts_terminate_port(Port *);

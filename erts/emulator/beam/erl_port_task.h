@@ -60,6 +60,8 @@ extern erts_smp_atomic_t erts_port_task_outstanding_io_tasks;
 #define ERTS_PTS_FLG_EXEC		(((erts_aint32_t) 1) << 1)
 #define ERTS_PTS_FLG_HAVE_TASKS		(((erts_aint32_t) 1) << 2)
 #define ERTS_PTS_FLG_EXIT		(((erts_aint32_t) 1) << 3)
+#define ERTS_PTS_FLG_BUSY		(((erts_aint32_t) 1) << 4)
+
 
 typedef struct ErtsPortTask_ ErtsPortTask;
 

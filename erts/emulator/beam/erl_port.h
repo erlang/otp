@@ -214,22 +214,20 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 #define ERTS_PORT_SFLG_BINARY_IO	((Uint32) (1 <<  3))
 #define ERTS_PORT_SFLG_SOFT_EOF		((Uint32) (1 <<  4))
 /* Flow control */
-#define ERTS_PORT_SFLG_PORT_BUSY	((Uint32) (1 <<  5))
 /* Port is closing (no i/o accepted) */
-#define ERTS_PORT_SFLG_CLOSING		((Uint32) (1 <<  6))
+#define ERTS_PORT_SFLG_CLOSING		((Uint32) (1 <<  5))
 /* Send a closed message when terminating */
-#define ERTS_PORT_SFLG_SEND_CLOSED	((Uint32) (1 <<  7))
+#define ERTS_PORT_SFLG_SEND_CLOSED	((Uint32) (1 <<  6))
 /* Line orinted io on port */  
-#define ERTS_PORT_SFLG_LINEBUF_IO	((Uint32) (1 <<  8))
+#define ERTS_PORT_SFLG_LINEBUF_IO	((Uint32) (1 <<  7))
 /* Immortal port (only certain system ports) */
-#define ERTS_PORT_SFLG_IMMORTAL		((Uint32) (1 <<  9))
-#define ERTS_PORT_SFLG_FREE		((Uint32) (1 << 10))
-#define ERTS_PORT_SFLG_INITIALIZING	((Uint32) (1 << 11))
+#define ERTS_PORT_SFLG_FREE		((Uint32) (1 <<  8))
+#define ERTS_PORT_SFLG_INITIALIZING	((Uint32) (1 <<  9))
 /* Port uses port specific locking (opposed to driver specific locking) */
-#define ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK ((Uint32) (1 << 12))
-#define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 13))
+#define ERTS_PORT_SFLG_PORT_SPECIFIC_LOCK ((Uint32) (1 << 10))
+#define ERTS_PORT_SFLG_INVALID		((Uint32) (1 << 11))
 /* Last port to terminate halts the emulator */
-#define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 14))
+#define ERTS_PORT_SFLG_HALT		((Uint32) (1 << 12))
 #ifdef DEBUG
 /* Only debug: make sure all flags aren't cleared unintentionally */
 #define ERTS_PORT_SFLG_PORT_DEBUG	((Uint32) (1 << 31))
@@ -237,8 +235,7 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
 
 /* Combinations of port status flags */ 
 #define ERTS_PORT_SFLGS_DEAD						\
-  (ERTS_PORT_SFLG_FREE							\
-   | ERTS_PORT_SFLG_INITIALIZING)
+  (ERTS_PORT_SFLG_FREE | ERTS_PORT_SFLG_INITIALIZING)
 #define ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP				\
   (ERTS_PORT_SFLGS_DEAD | ERTS_PORT_SFLG_INVALID)
 #define ERTS_PORT_SFLGS_INVALID_LOOKUP					\
@@ -246,7 +243,6 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
    | ERTS_PORT_SFLG_CLOSING)
 #define ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP				\
   (ERTS_PORT_SFLGS_INVALID_LOOKUP					\
-   | ERTS_PORT_SFLG_PORT_BUSY						\
    | ERTS_PORT_SFLG_DISTRIBUTION)
 
 void print_port_info(Port *, int, void *);
