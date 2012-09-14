@@ -342,9 +342,11 @@ do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType,
 	false ->
 	    {value, App} = lists:keysearch(Name, #app.name, Apps),
 	    MergedApp = merge_app(RelName, RA, RelAppType, App),
-	    MoreNames = (MergedApp#app.info)#app_info.applications,
+	    ReqNames = (MergedApp#app.info)#app_info.applications,
+	    IncNames = (MergedApp#app.info)#app_info.incl_apps,
 	    Acc2 = [MergedApp | Acc],
-	    do_merge_apps(RelName, MoreNames ++ RelApps, Apps, RelAppType, Acc2)
+	    do_merge_apps(RelName, ReqNames ++ IncNames ++ RelApps,
+			  Apps, RelAppType, Acc2)
     end;
 do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
   case is_already_merged(Name, RelApps, Acc) of
