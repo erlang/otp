@@ -344,6 +344,8 @@ handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{quiet_mode, _} = Opt|Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -415,6 +417,9 @@ handle_ssh_option({shell, {Module, Function, _}} = Opt)  when is_atom(Module),
 							      is_atom(Function) ->
     Opt;
 handle_ssh_option({shell, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({quiet_mode, Value} = Opt) when Value == true; 
+						  Value == false -> 
     Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
