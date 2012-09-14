@@ -232,7 +232,8 @@ register_name(Name, Pid) when is_pid(Pid) ->
       Name :: term(),
       Pid :: pid(),
       Resolve :: method().
-register_name(Name, Pid, Method) when is_pid(Pid) ->
+register_name(Name, Pid, Method0) when is_pid(Pid) ->
+    Method = allow_tuple_fun(Method0),
     Fun = fun(Nodes) ->
         case (where(Name) =:= undefined) andalso check_dupname(Name, Pid) of
             true ->
@@ -290,7 +291,8 @@ re_register_name(Name, Pid) when is_pid(Pid) ->
       Name :: term(),
       Pid :: pid(),
       Resolve :: method().
-re_register_name(Name, Pid, Method) when is_pid(Pid) ->
+re_register_name(Name, Pid, Method0) when is_pid(Pid) ->
+    Method = allow_tuple_fun(Method0),
     Fun = fun(Nodes) ->
 		  gen_server:multi_call(Nodes,
 					global_name_server,
@@ -2218,3 +2220,9 @@ intersection(_, []) ->
     [];
 intersection(L1, L2) ->
     L1 -- (L1 -- L2).
+
+%% Support legacy tuple funs as resolve functions.
+allow_tuple_fun({M, F}) when is_atom(M), is_atom(F) ->
+    fun M:F/3;
+allow_tuple_fun(Fun) when is_function(Fun, 3) ->
+    Fun.
