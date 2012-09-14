@@ -1873,7 +1873,7 @@ start_log_file() ->
 	{error, eexist} ->
 	    ok;
 	MkDirError ->
-	    exit({cant_create_log_dir,{MkDirError,Dir}})
+	    log_file_error(MkDirError, Dir)
     end,
     TestDir = timestamp_filename_get(filename:join(Dir, "run.")),
     TestDir1 =
@@ -1888,10 +1888,10 @@ start_log_file() ->
 		    ok ->
 			TestDirX;
 		    MkDirError2 ->
-			exit({cant_create_log_dir,{MkDirError2,TestDirX}})
+			log_file_error(MkDirError2, TestDirX)
 		end;
 	    MkDirError2 ->
-		exit({cant_create_log_dir,{MkDirError2,TestDir}})
+		log_file_error(MkDirError2, TestDir)
 	end,
     ok = file:write_file(filename:join(Dir, ?last_file), TestDir1 ++ "\n"),
     ok = file:write_file(?last_file, TestDir1 ++ "\n"),
@@ -1917,6 +1917,9 @@ start_log_file() ->
     LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir1)}],
     test_server_sup:framework_call(report, [loginfo,LogInfo]),
     {ok,TestDir1}.
+
+log_file_error(Error, Dir) ->
+    exit({cannot_create_log_dir,{Error,lists:flatten(Dir)}}).
 
 make_html_link(LinkName, Target, Explanation) ->
     %% if possible use a relative reference to Target.
