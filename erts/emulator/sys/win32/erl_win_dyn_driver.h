@@ -74,7 +74,9 @@ WDD_TYPEDEF(ErlDrvTermData, driver_mk_port,(ErlDrvPort));
 WDD_TYPEDEF(ErlDrvTermData, driver_connected,(ErlDrvPort));
 WDD_TYPEDEF(ErlDrvTermData, driver_caller,(ErlDrvPort));
 WDD_TYPEDEF(ErlDrvTermData, driver_mk_term_nil,(void));
+WDD_TYPEDEF(int, erl_drv_output_term, (ErlDrvTermData, ErlDrvTermData*, int));
 WDD_TYPEDEF(int, driver_output_term, (ErlDrvPort, ErlDrvTermData*, int));
+WDD_TYPEDEF(int, erl_drv_send_term, (ErlDrvTermData, ErlDrvTermData, ErlDrvTermData*, int));
 WDD_TYPEDEF(int, driver_send_term, (ErlDrvPort, ErlDrvTermData, ErlDrvTermData*, int));
 WDD_TYPEDEF(long, driver_async, (ErlDrvPort,unsigned int*,void (*)(void*),void*,void (*)(void*)));
 WDD_TYPEDEF(int, driver_async_cancel, (unsigned int));
@@ -187,7 +189,9 @@ typedef struct {
     WDD_FTYPE(driver_connected) *driver_connected;
     WDD_FTYPE(driver_caller) *driver_caller;
     WDD_FTYPE(driver_mk_term_nil) *driver_mk_term_nil;
+    WDD_FTYPE(erl_drv_output_term) *erl_drv_output_term;
     WDD_FTYPE(driver_output_term) *driver_output_term;
+    WDD_FTYPE(erl_drv_send_term) *erl_drv_send_term;
     WDD_FTYPE(driver_send_term) *driver_send_term;
     WDD_FTYPE(driver_async) *driver_async;
     WDD_FTYPE(driver_async_cancel) *driver_async_cancel;
@@ -294,7 +298,9 @@ extern TWinDynDriverCallbacks WinDynDriverCallbacks;
 #define driver_connected (WinDynDriverCallbacks.driver_connected)
 #define driver_caller (WinDynDriverCallbacks.driver_caller)
 #define driver_mk_term_nil (WinDynDriverCallbacks.driver_mk_term_nil)
+#define erl_drv_output_term (WinDynDriverCallbacks.erl_drv_output_term)
 #define driver_output_term (WinDynDriverCallbacks.driver_output_term)
+#define erl_drv_send_term (WinDynDriverCallbacks.erl_drv_send_term)
 #define driver_send_term (WinDynDriverCallbacks.driver_send_term)
 #define driver_async (WinDynDriverCallbacks.driver_async)
 #define driver_async_cancel (WinDynDriverCallbacks.driver_async_cancel)
@@ -425,7 +431,9 @@ do {				                        \
 ((W).driver_connected) = driver_connected;		\
 ((W).driver_caller) = driver_caller;			\
 ((W).driver_mk_term_nil) = driver_mk_term_nil;		\
+((W).erl_drv_output_term) = erl_drv_output_term;	\
 ((W).driver_output_term) = driver_output_term;		\
+((W).erl_drv_send_term) = erl_drv_send_term;		\
 ((W).driver_send_term) = driver_send_term;		\
 ((W).driver_async) = driver_async;			\
 ((W).driver_async_cancel) = driver_async_cancel;	\

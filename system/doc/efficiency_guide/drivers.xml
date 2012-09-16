@@ -105,9 +105,9 @@ client_port() ->
     <p>If you know that the binaries you return are always small,
     you should use driver API calls that do not require a pre-allocated
     binary, for instance
-    <seealso marker="erts:erl_driver#int driver_output-3">driver_output()</seealso>
+    <seealso marker="erts:erl_driver#driver_output">driver_output()</seealso>
     or 
-    <seealso marker="erts:erl_driver#int driver_output_term-3">driver_output_term()</seealso>
+    <seealso marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seealso>
     using the <c>ERL_DRV_BUF2BINARY</c> format,
     to allow the run-time to construct a heap binary.</p>
 
@@ -120,7 +120,7 @@ client_port() ->
     the driver to an Erlang process, the driver must first allocate the
     binary and then send it to an Erlang process in some way.</p>
     
-    <p>Use <seealso marker="erts:erl_driver#ErlDrvBinary* driver_alloc_binary-1">driver_alloc_binary()</seealso> to allocate a binary.</p>
+    <p>Use <seealso marker="erts:erl_driver#driver_alloc_binary">driver_alloc_binary()</seealso> to allocate a binary.</p>
 
     <p>There are several ways to send a binary created with
     <c>driver_alloc_binary()</c>.</p>
@@ -128,17 +128,17 @@ client_port() ->
     <list type="bulleted">
     <item><p>From the <c>control</c> callback, a binary can be returned provided
         that
-	<seealso marker="erts:erl_driver#void set_port_control_flags-2">set_port_control()</seealso>
+	<seealso marker="erts:erl_driver#set_port_control_flags">set_port_control_flags()</seealso>
 	 has been called with the flag value <c>PORT_CONTROL_FLAG_BINARY</c>.</p>
     </item>
 
     <item><p>A single binary can be sent with
-    <seealso marker="erts:erl_driver#int driver_output_binary-6">driver_output_binary()</seealso>.</p></item>
+    <seealso marker="erts:erl_driver#driver_output_binary">driver_output_binary()</seealso>.</p></item>
 
     <item><p>Using
-    <seealso marker="erts:erl_driver#int driver_output_term-3">driver_output_term()</seealso>
+    <seealso marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seealso>
     or
-    <seealso marker="erts:erl_driver#int driver_send_term-4">driver_send_term()</seealso>,
+    <seealso marker="erts:erl_driver#erl_drv_send_term">erl_drv_send_term()</seealso>,
     a binary can be included in an Erlang term.</p>
     </item>
     </list>

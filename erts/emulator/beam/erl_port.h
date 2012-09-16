@@ -113,7 +113,7 @@ struct _erl_drv_port {
     erts_atomic32_t refc;
     int cleanup;
 #endif
-    Eterm connected;            /* A connected process */
+    erts_smp_atomic_t connected;/* A connected process */
     Eterm caller;		/* Current caller. */
     Eterm data;			/* Data associated with port. */
     ErlHeapFragment* bp;	/* Heap fragment holding data (NULL if imm data). */
@@ -357,6 +357,17 @@ erts_smp_port_unlock(Port *prt)
 
 #define ERTS_PORT_SCHED_ID(P, ID) \
   ((Uint) (UWord) erts_prtsd_set((P), ERTS_PSD_SCHED_ID, (void *) (UWord) (ID)))
+
+#define ERTS_PORT_INIT_CONNECTED(PRT, PID) \
+    erts_smp_atomic_init_nob(&(PRT)->connected, (erts_aint_t) (PID))
+#define ERTS_PORT_SET_CONNECTED(PRT, PID) \
+    erts_smp_atomic_set_nob(&(PRT)->connected, (erts_aint_t) (PID))
+#define ERTS_PORT_SET_CONNECTED_RELB(PRT, PID) \
+    erts_smp_atomic_set_relb(&(PRT)->connected, (erts_aint_t) (PID))
+#define ERTS_PORT_GET_CONNECTED(PRT) \
+    ((Eterm) erts_smp_atomic_read_nob(&(PRT)->connected))
+#define ERTS_PORT_GET_CONNECTED_ACQB(PRT) \
+    ((Eterm) erts_smp_atomic_read_acqb(&(PRT)->connected))
 
 extern const Port erts_invalid_port;
 #define ERTS_PORT_LOCK_BUSY ((Port *) &erts_invalid_port)

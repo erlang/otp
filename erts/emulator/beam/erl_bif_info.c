@@ -2915,7 +2915,7 @@ static BIF_RETTYPE port_info(Process* p, Eterm portid, Eterm item)
     }
     else if (item == am_connected) {
 	hp = HAlloc(p, 3);
-	res = prt->connected; /* internal pid */
+	res = ERTS_PORT_GET_CONNECTED(prt); /* internal pid */
     }
     else if (item == am_input) {
 	Uint hsz = 3;

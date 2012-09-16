@@ -123,12 +123,20 @@
       different threads. This, however, is not a problem for any
       function in this API, since the emulator has control over
       these threads.</p>
-    <note>
-      <p>Functions not explicitly documented as thread-safe are
-        <em>not</em> thread-safe. Also note that some functions
+    <warning>
+      <p>Functions not explicitly documented as thread safe are
+        <em>not</em> thread safe. Also note that some functions
         are <em>only</em> thread safe when used in a runtime
         system with SMP support.</p>
-    </note>
+      <p>A function not explicitly documented as thread safe may at
+         some point in time have a thread safe implementation in the
+	 runtime system. Such an implementation may however change to
+	 a thread <em>unsafe</em> implementation at any time <em>without
+	 any notice</em> at all.
+      </p>
+      <p><em>Only use functions explicitly documented as thread safe
+         from arbitrary threads.</em></p>
+    </warning>
   </description>
 
   <section>
@@ -1570,6 +1578,8 @@ typedef struct ErlIOVec {
       <desc>
         <marker id="driver_connected"></marker>
         <p>This function returns the port owner process.</p>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
       </desc>
     </func>
     <func>
@@ -1597,22 +1607,32 @@ typedef struct ErlIOVec {
 	    <tag><seealso marker="driver_entry#call">call</seealso></tag>
             <item>Called from <c>erlang:port_call/3</c></item>
 	  </taglist>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
       </desc>
     </func>
     <func>
-      <name><ret>int</ret><nametext>driver_output_term(ErlDrvPort port, ErlDrvTermData* term, int n)</nametext></name>
+      <name><ret>int</ret><nametext>erl_drv_output_term(ErlDrvTermData port, ErlDrvTermData* term, int n)</nametext></name>
       <fsummary>Send term data from driver to port owner</fsummary>
       <desc>
-        <marker id="driver_output_term"></marker>
+        <marker id="erl_drv_output_term"></marker>
         <p>This functions sends data in the special driver term
-          format. This is a fast way to deliver term data from a
-          driver. It also needs no binary conversion, so the port
-          owner process receives data as normal Erlang terms.</p>
+          format to the port owner process. This is a fast way to
+	  deliver term data from a driver. It also needs no binary
+	  conversion, so the port owner process receives data as
+	  normal Erlang terms. The
+	  <seealso marker="#erl_drv_send_term">erl_drv_send_term()</seealso>
+	  functions can be used for sending to any arbitrary process
+	  on the local node.</p>
+	<note><p>Note that the <c>port</c> parameter is <em>not</em>
+	  an ordinary port handle, but a port handle converted using
+	  <c>driver_mk_port()</c>.</p></note>
         <p>The <c>term</c> parameter points to an array of
           <c>ErlDrvTermData</c>, with <c>n</c> elements. This array
           contains terms described in the driver term format. Every
           term consists of one to four elements in the array. The
-          term first has a term type, and then arguments.</p>
+          term first has a term type, and then arguments. The
+	  <c>port</c> parameter specifies the sending port.</p>
         <p>Tuple and lists (with the exception of strings, see below),
           are built in reverse polish notation, so that to build a
           tuple, the elements are given first, and then the tuple
@@ -1664,17 +1684,17 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
     ErlDrvPort port = ...
     ErlDrvTermData spec[] = {
         ERL_DRV_ATOM, driver_mk_atom("tcp"),
-        ERL_DRV_PORT, driver_mk_port(port),
+        ERL_DRV_PORT, driver_mk_port(drvport),
             ERL_DRV_INT, 100,
             ERL_DRV_BINARY, bin, 50, 0,
             ERL_DRV_LIST, 2,
         ERL_DRV_TUPLE, 3,
     };
-    driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
+    erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
         ]]>
       </code>
         <p>Where <c>bin</c> is a driver binary of length at least 50
-          and <c>port</c> is a port handle. Note that the <c>ERL_DRV_LIST</c>
+          and <c>drvport</c> is a port handle. Note that the <c>ERL_DRV_LIST</c>
           comes after the elements of the list, likewise the
           <c>ERL_DRV_TUPLE</c>.</p>
         <p>The term <c>ERL_DRV_STRING_CONS</c> is a way to construct
@@ -1695,7 +1715,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
         ERL_DRV_NIL,
         ERL_DRV_LIST, 4
     };
-    driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
+    erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
         ]]></code>
         <p></p>
         <code type="none"><![CDATA[
@@ -1705,7 +1725,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
         ERL_DRV_STRING_CONS, (ErlDrvTermData)"123", 3,
         ERL_DRV_STRING_CONS, (ErlDrvTermData)"abc", 3,
     };
-    driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
+    erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
         ]]></code>
 	<p>The <c>ERL_DRV_EXT2TERM</c> term type is used for passing a
 	term encoded with the
@@ -1725,7 +1745,7 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
             ERL_DRV_EXT2TERM, (ErlDrvTermData) binp->orig_bytes, binp->orig_size
         ERL_DRV_TUPLE, 2,
     };
-    driver_output_term(port, spec, sizeof(spec) / sizeof(spec[0]));
+    erl_drv_output_term(driver_mk_port(drvport), spec, sizeof(spec) / sizeof(spec[0]));
         ]]></code>
 	<p>If you want to pass a binary and don't already have the content
 	of the binary in an <c>ErlDrvBinary</c>, you can benefit from using
@@ -1741,6 +1761,22 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
 	<c>ERL_DRV_EXT2TERM</c> term types were introduced in the 5.6
 	version of erts.
 	</p>
+        <p>This function is only thread-safe when the emulator with SMP
+          support is used.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>driver_output_term(ErlDrvPort port, ErlDrvTermData* term, int n)</nametext></name>
+      <fsummary>Send term data from driver to port owner</fsummary>
+      <desc>
+        <marker id="driver_output_term"></marker>
+	<warning><p><c>driver_output_term()</c> is deferred and will
+	            be removed in the OTP-R17 release. Use
+		    <seealso marker="#erl_drv_send_term">erl_drv_output_term()</seealso>
+		    instead.</p>
+	</warning>
+        <p>The parameters <c>term</c> and <c>n</c> do the same thing
+          as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
         <p>Note that this function is <em>not</em> thread-safe, not
           even when the emulator with SMP support is used.</p>
       </desc>
@@ -1754,6 +1790,8 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
           <c>string</c>. The atom is created and won't change, so the
           return value may be saved and reused, which is faster than
           looking up the atom several times.</p>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
       </desc>
     </func>
     <func>
@@ -1762,7 +1800,27 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
       <desc>
         <marker id="driver_mk_port"></marker>
         <p>This function converts a port handle to the erlang term
-          format, usable in the <c>driver_output_send</c> function.</p>
+          format, usable in the <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>, and <seealso marker="#erl_drv_send_term">erl_drv_send_term()</seealso> functions.</p>
+        <p>Note that this function is <em>not</em> thread-safe, not
+          even when the emulator with SMP support is used.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>erl_drv_send_term(ErlDrvTermData port, ErlDrvTermData receiver, ErlDrvTermData* term, int n)</nametext></name>
+      <fsummary>Send term data to other process than port owner process</fsummary>
+      <desc>
+        <marker id="erl_drv_send_term"></marker>
+        <p>This function is the only way for a driver to send data to
+          <em>other</em> processes than the port owner process. The
+          <c>receiver</c> parameter specifies the process to receive
+          the data.</p>
+	<note><p>Note that the <c>port</c> parameter is <em>not</em>
+	  an ordinary port handle, but a port handle converted using
+	  <c>driver_mk_port()</c>.</p></note>
+        <p>The parameters <c>port</c>, <c>term</c> and <c>n</c> do the same thing
+          as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
+        <p>This function is only thread-safe when the emulator with SMP
+          support is used.</p>
       </desc>
     </func>
     <func>
@@ -1770,12 +1828,18 @@ ERL_DRV_EXT2TERM     char *buf, ErlDrvUInt len
       <fsummary>Send term data to other process than port owner process</fsummary>
       <desc>
         <marker id="driver_send_term"></marker>
-        <p>This function is the only way for a driver to send data to
-          <em>other</em> processes than the port owner process. The
-          <c>receiver</c> parameter specifies the process to receive
-          the data.</p>
+	<warning><p><c>driver_send_term()</c> is deferred and will
+	            be removed in the OTP-R17 release. Use
+		    <seealso marker="#erl_drv_send_term">erl_drv_send_term()</seealso>
+		    instead.</p>
+		 <p>Also note that parameters of <c>driver_send_term()</c>
+		    cannot be properly checked by the runtime system when
+		    executed by arbitrary threads. This may cause the
+		    <c>driver_send_term()</c> function not to fail when
+		    it should.</p>
+	</warning>
         <p>The parameters <c>term</c> and <c>n</c> do the same thing
-          as in <seealso marker="#driver_output_term">driver_output_term</seealso>.</p>
+          as in <seealso marker="#erl_drv_output_term">erl_drv_output_term()</seealso>.</p>
         <p>This function is only thread-safe when the emulator with SMP
           support is used.</p>
       </desc>

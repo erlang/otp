@@ -1138,7 +1138,9 @@ check_driver_system_info_result(Result) ->
 	      {{1, 1}, _} ->
 		  ?line ExpNs = lists:sort(?EXPECTED_SYSTEM_INFO_NAMES
 					   -- ?EXPECTED_SYSTEM_INFO_NAMES2),
-		  ?line ExpNs = lists:sort(Ns)
+		  ?line ExpNs = lists:sort(Ns);
+	      {{2, 0}, _} ->
+		  ?line [] = Ns
 	  end.
 
 chk_sis(SIs, Ns) ->

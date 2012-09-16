@@ -56,7 +56,7 @@
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);         \
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);            \
                                                                    \
-        dtrace_pid_str(PP->connected, process_str);                \
+        dtrace_pid_str(ERTS_PORT_GET_CONNECTED(PP), process_str);  \
         dtrace_port_str(PP, port_str);                             \
         DTRACE3(PROBE_NAME, process_str, port_str, PP->name);      \
     }

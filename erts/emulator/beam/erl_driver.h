@@ -136,7 +136,7 @@ typedef struct {
 
 #define ERL_DRV_EXTENDED_MARKER		(0xfeeeeeed)
 #define ERL_DRV_EXTENDED_MAJOR_VERSION	2
-#define ERL_DRV_EXTENDED_MINOR_VERSION	0
+#define ERL_DRV_EXTENDED_MINOR_VERSION	1
 
 /*
  * The emulator will refuse to load a driver with different major
@@ -601,11 +601,33 @@ EXTERN ErlDrvPort driver_create_port(ErlDrvPort creator_port,
 				     ErlDrvData drv_data);
 					 
 
+/*
+ * driver_output_term() is deprecated, and scheduled for removal in
+ * OTP-R17. Use erl_drv_output_term() instead. For more information
+ * see the erl_driver(3) documentation.
+ */
+EXTERN int driver_output_term(ErlDrvPort ix,
+			      ErlDrvTermData* data,
+			      int len) ERL_DRV_DEPRECATED_FUNC;
+/*
+ * driver_send_term() is deprecated, and scheduled for removal in
+ * OTP-R17. Use erl_drv_send_term() instead. For more information
+ * see the erl_driver(3) documentation.
+ */
+EXTERN int driver_send_term(ErlDrvPort ix,
+			    ErlDrvTermData to,
+			    ErlDrvTermData* data,
+			    int len) ERL_DRV_DEPRECATED_FUNC;
+
 /* output term data to the port owner */
-EXTERN int driver_output_term(ErlDrvPort ix, ErlDrvTermData* data, int len);
+EXTERN int erl_drv_output_term(ErlDrvTermData port,
+			       ErlDrvTermData* data,
+			       int len);
 /* output term data to a specific process */
-EXTERN int driver_send_term(ErlDrvPort ix, ErlDrvTermData to,
-			    ErlDrvTermData* data, int len);
+EXTERN int erl_drv_send_term(ErlDrvTermData port,
+			     ErlDrvTermData to,
+			     ErlDrvTermData* data,
+			     int len);
 
 /* Async IO functions */
 EXTERN long driver_async(ErlDrvPort ix,

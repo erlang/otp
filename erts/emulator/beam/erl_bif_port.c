@@ -354,7 +354,7 @@ port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
         DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
 
-        dtrace_pid_str(p->connected, process_str);
+        dtrace_pid_str(ERTS_PORT_GET_CONNECTED(p), process_str);
         dtrace_port_str(p, port_str);
         DTRACE5(driver_call, process_str, port_str, p->name, op, real_size);
     }
@@ -516,7 +516,7 @@ BIF_RETTYPE port_close_1(BIF_ALIST_1)
 	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	BIF_ERROR(BIF_P, BADARG);
     }
-    erts_do_exit_port(p, p->connected, am_normal);
+    erts_do_exit_port(p, ERTS_PORT_GET_CONNECTED(p), am_normal);
     /* if !ERTS_SMP: since we terminate port with reason normal 
        we SHOULD never get an exit signal ourselves
        */
@@ -553,7 +553,7 @@ BIF_RETTYPE port_connect_2(BIF_ALIST_2)
 
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
 
-    prt->connected = pid; /* internal pid */
+    ERTS_PORT_SET_CONNECTED_RELB(prt, pid); /* internal pid */
     erts_port_release(prt);
 #ifdef USE_VM_PROBES
     if (DTRACE_ENABLED(port_connect)) {
@@ -561,7 +561,7 @@ BIF_RETTYPE port_connect_2(BIF_ALIST_2)
         DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
         DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
 
-        dtrace_pid_str(prt->connected, process_str);
+        dtrace_pid_str(pid, process_str);
         erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
         dtrace_proc_str(rp, newprocess_str);
         DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
