@@ -149,6 +149,7 @@ INETS_ROOT = ../../inets
 
 MODULES =                 		\
 	inets_test_lib    		\
+	erl_make_certs                  \
 	ftp_SUITE 	  		\
 	ftp_format_SUITE  		\
 	ftp_solaris8_sparc_test		\
@@ -169,6 +170,7 @@ MODULES =                 		\
 	http_format_SUITE 		\
 	httpc_SUITE	  		\
 	httpc_cookie_SUITE		\
+	httpc_proxy_SUITE		\
 	httpd_SUITE       		\
 	httpd_basic_SUITE		\
 	httpd_mod 	  		\
@@ -213,7 +215,7 @@ INETS_FILES = inets.config $(INETS_SPECS)
 
 INETS_DATADIRS = inets_SUITE_data inets_sup_SUITE_data 
 HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data
-HTTPC_DATADIRS = httpc_SUITE_data
+HTTPC_DATADIRS = httpc_SUITE_data httpc_proxy_SUITE_data
 FTP_DATADIRS   = ftp_SUITE_data  
 
 DATADIRS     = $(INETS_DATADIRS) $(HTTPD_DATADIRS) $(HTTPC_DATADIRS) $(FTP_DATADIRS)
