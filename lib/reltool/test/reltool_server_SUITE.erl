@@ -299,7 +299,6 @@ create_release(_Config) ->
 %% started before the including application.
 %% Circular dependencies shall also be detected and cause error.
 
-create_release_sort(_Config) -> {skip, "Two bugs related to sorting"};
 create_release_sort(Config) ->
     DataDir = ?config(data_dir,Config),
     %% Configure the server
@@ -375,7 +374,6 @@ create_release_sort(Config) ->
 		 {mnesia, _}]}},
 	  reltool:get_rel([{config, Sys}], RelName3)),
 
-    %%! BUG: same as OTP-4121, but for reltool???? Or revert tools and mnesia
     ?msym({ok, {release, {RelName4, RelVsn},
 		{erts, _},
 		[{kernel, _},
@@ -426,7 +424,6 @@ create_release_sort(Config) ->
 		{z,_,[]}]}},
 	  reltool:get_rel([{config, Sys}], RelName9)),
 
-    %%! BUG: same as OTP-9984, but for reltool???? Or revert inets and sasl?
     ?msym({ok,{release,{RelName10,RelVsn},
 	       {erts,_},
 	       [{kernel,_},
@@ -665,11 +662,10 @@ create_script_sort(Config) ->
     {ok, Script3} = ?msym({ok, _}, reltool:get_script(Pid, RelName3)),
     ?m(equal, diff_script(SystoolsScript3, Script3)),
 
-    %% BUG, same as OTP-4121, but for reltool
-    %% ?msym({ok,_,_}, systools_make_script(FullName4,ZPath)),
-    %% {ok, [SystoolsScript4]} = ?msym({ok,[_]}, file:consult(FullName4++".script")),
-    %% {ok, Script4} = ?msym({ok, _}, reltool:get_script(Pid, RelName4)),
-    %% ?m(equal, diff_script(SystoolsScript4, Script4)),
+    ?msym({ok,_,_}, systools_make_script(FullName4,ZPath)),
+    {ok, [SystoolsScript4]} = ?msym({ok,[_]}, file:consult(FullName4++".script")),
+    {ok, Script4} = ?msym({ok, _}, reltool:get_script(Pid, RelName4)),
+    ?m(equal, diff_script(SystoolsScript4, Script4)),
 
     ?msym({error,_,[{error_reading,{sasl,{override_include,_}}}]},
 	  systools_make_script(FullName5,ZPath)),
@@ -698,11 +694,10 @@ create_script_sort(Config) ->
     {ok, Script9} = ?msym({ok, _}, reltool:get_script(Pid, RelName9)),
     ?m(equal, diff_script(SystoolsScript9, Script9)),
 
-    %% BUG, same as OTP-9984, but for reltool
-    %% ?msym({ok,_,_}, systools_make_script(FullName10,ZPath)),
-    %% {ok, [SystoolsScript10]} = ?msym({ok,[_]}, file:consult(FullName10++".script")),
-    %% {ok, Script10} = ?msym({ok, _}, reltool:get_script(Pid, RelName10)),
-    %% ?m(equal, diff_script(SystoolsScript10, Script10)),
+    ?msym({ok,_,_}, systools_make_script(FullName10,ZPath)),
+    {ok, [SystoolsScript10]} = ?msym({ok,[_]}, file:consult(FullName10++".script")),
+    {ok, Script10} = ?msym({ok, _}, reltool:get_script(Pid, RelName10)),
+    ?m(equal, diff_script(SystoolsScript10, Script10)),
 
     %% Stop server
     ?m(ok, reltool:stop(Pid)),
