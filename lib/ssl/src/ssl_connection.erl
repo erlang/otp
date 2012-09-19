@@ -1311,8 +1311,6 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
 verify_client_cert(#state{client_certificate_requested = false} = State) ->
     State.
 
-
-
 do_server_hello(Type, NextProtocolsToSend, #state{negotiated_version = Version,
 						  session = #session{session_id = SessId},
 						  connection_states = ConnectionStates0,
@@ -1587,7 +1585,6 @@ finalize_handshake(State, StateName) ->
     State1 = State#state{connection_states = ConnectionStates},
     State2 = next_protocol(State1),
     finished(State2, StateName).
-
 
 next_protocol(#state{role = server} = State) ->
     State;
@@ -2115,8 +2112,8 @@ next_state_is_connection(_, State =
 next_state_is_connection(StateName, State0) ->
     {Record, State} = next_record_if_active(State0),
     next_state(StateName, connection, Record, State#state{premaster_secret = undefined,
-					       public_key_info = undefined,
-					       tls_handshake_history = ssl_handshake:init_handshake_history()}).
+							  public_key_info = undefined,
+							  tls_handshake_history = ssl_handshake:init_handshake_history()}).
 
 register_session(client, Host, Port, #session{is_resumable = new} = Session0) ->
     Session = Session0#session{is_resumable = true},

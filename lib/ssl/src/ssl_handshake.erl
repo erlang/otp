@@ -44,14 +44,7 @@
 -type tls_handshake() :: #client_hello{} | #server_hello{} |
 			 #server_hello_done{} | #certificate{} | #certificate_request{} |
 			 #client_key_exchange{} | #finished{} | #certificate_verify{} |
-			 #hello_request{}.
-
-encode_client_protocol_negotiation(undefined, _) ->
-       undefined;
-encode_client_protocol_negotiation(_, false) ->
-	#next_protocol_negotiation{extension_data = <<>>};
-encode_client_protocol_negotiation(_, _) ->
-	undefined.
+			 #hello_request{} | #next_protocol{}.
 
 %%====================================================================
 %% Internal application API
@@ -104,7 +97,7 @@ encode_protocols_advertised_on_server(Protocols) ->
 
 %%--------------------------------------------------------------------
 -spec server_hello(session_id(), tls_version(), #connection_states{}, 
-		   boolean(), list(string())) -> #server_hello{}.
+		   boolean(), [binary()] | undefined) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
 %%--------------------------------------------------------------------
@@ -716,7 +709,7 @@ next_protocol_extension_allowed(NextProtocolSelector, Renegotiating) ->
 handle_next_protocol_on_server(#client_hello{next_protocol_negotiation = undefined}, _Renegotiation, _SslOpts) ->
     undefined;
 
-handle_next_protocol_on_server(#client_hello{next_protocol_negotiation = {next_protocol_negotiation,<<>>}},
+handle_next_protocol_on_server(#client_hello{next_protocol_negotiation = {next_protocol_negotiation, <<>>}},
 			       false, #ssl_options{next_protocols_advertised = Protocols}) ->
     Protocols;
 
@@ -1268,8 +1261,15 @@ enc_hello_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest],
 		       {Hash, Sign} <- HashSignAlgos >>,
     ListLen = byte_size(SignAlgoList),
     Len = ListLen + 2,
-    enc_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>).
+    enc_hello_extensions(Rest, <<?UINT16(?SIGNATURE_ALGORITHMS_EXT), 
+				 ?UINT16(Len), ?UINT16(ListLen), SignAlgoList/binary, Acc/binary>>).
 
+encode_client_protocol_negotiation(undefined, _) ->
+    undefined;
+encode_client_protocol_negotiation(_, false) ->
+	#next_protocol_negotiation{extension_data = <<>>};
+encode_client_protocol_negotiation(_, _) ->
+	undefined.
 
 from_3bytes(Bin3) ->
     from_3bytes(Bin3, []).
