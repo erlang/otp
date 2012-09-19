@@ -281,6 +281,13 @@ wait_for_result(Pid, Msg) ->
 	%%     Unexpected
     end.
 
+user_lookup(psk, _Identity, UserState) ->
+    {ok, UserState};
+user_lookup(srp, Username, _UserState) ->
+    Salt = ssl:random_bytes(16),
+    UserPassHash = crypto:sha([Salt, crypto:sha([Username, <<$:>>, <<"secret">>])]),
+    {ok, {srp_1024, Salt, UserPassHash}}.
+
 cert_options(Config) ->
     ClientCaCertFile = filename:join([?config(priv_dir, Config), 
 				      "client", "cacerts.pem"]),
@@ -307,6 +314,7 @@ cert_options(Config) ->
 				   "badcert.pem"]),
     BadKeyFile = filename:join([?config(priv_dir, Config), 
 			      "badkey.pem"]),
+    PskSharedSecret = <<1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     [{client_opts, [{ssl_imp, new},{reuseaddr, true}]}, 
      {client_verification_opts, [{cacertfile, ClientCaCertFile}, 
 				{certfile, ClientCertFile},  
@@ -319,6 +327,24 @@ cert_options(Config) ->
      {server_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
      {server_anon, [{ssl_imp, new},{reuseaddr, true}, {ciphers, anonymous_suites()}]},
+     {client_psk, [{ssl_imp, new},{reuseaddr, true},
+		   {psk_identity, "Test-User"},
+		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}}]},
+     {server_psk, [{ssl_imp, new},{reuseaddr, true},
+		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+		   {user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
+		   {ciphers, psk_suites()}]},
+     {server_psk_hint, [{ssl_imp, new},{reuseaddr, true},
+			{certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+			{psk_identity, "HINT"},
+			{user_lookup_fun, {fun user_lookup/3, PskSharedSecret}},
+			{ciphers, psk_suites()}]},
+     {client_srp, [{ssl_imp, new},{reuseaddr, true},
+		   {srp_identity, {"Test-User", "secret"}}]},
+     {server_srp, [{ssl_imp, new},{reuseaddr, true},
+		   {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+		   {user_lookup_fun, {fun user_lookup/3, undefined}},
+		   {ciphers, srp_suites()}]},
      {server_verification_opts, [{ssl_imp, new},{reuseaddr, true}, 
 		    {cacertfile, ServerCaCertFile},
 		    {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
@@ -356,7 +382,16 @@ make_dsa_cert(Config) ->
 			       {verify, verify_peer}]},
      {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
 			{cacertfile, ClientCaCertFile},
-			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]},
+     {server_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
+		       {cacertfile, ServerCaCertFile},
+		       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+		       {user_lookup_fun, {fun user_lookup/3, undefined}},
+		       {ciphers, srp_dss_suites()}]},
+     {client_srp_dsa, [{ssl_imp, new},{reuseaddr, true}, 
+		       {srp_identity, {"Test-User", "secret"}},
+		       {cacertfile, ClientCaCertFile},
+		       {certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
      | Config].
 
 
@@ -674,6 +709,33 @@ anonymous_suites() ->
      {dh_anon, '3des_ede_cbc', sha},
      {dh_anon, aes_128_cbc, sha},
      {dh_anon, aes_256_cbc, sha}].
+
+psk_suites() ->
+    [{psk, rc4_128, sha},
+     {psk, '3des_ede_cbc', sha},
+     {psk, aes_128_cbc, sha},
+     {psk, aes_256_cbc, sha},
+     {dhe_psk, rc4_128, sha},
+     {dhe_psk, '3des_ede_cbc', sha},
+     {dhe_psk, aes_128_cbc, sha},
+     {dhe_psk, aes_256_cbc, sha},
+     {rsa_psk, rc4_128, sha},
+     {rsa_psk, '3des_ede_cbc', sha},
+     {rsa_psk, aes_128_cbc, sha},
+     {rsa_psk, aes_256_cbc, sha}].
+
+srp_suites() ->
+    [{srp_anon, '3des_ede_cbc', sha},
+     {srp_rsa, '3des_ede_cbc', sha},
+     {srp_anon, aes_128_cbc, sha},
+     {srp_rsa, aes_128_cbc, sha},
+     {srp_anon, aes_256_cbc, sha},
+     {srp_rsa, aes_256_cbc, sha}].
+
+srp_dss_suites() ->
+    [{srp_dss, '3des_ede_cbc', sha},
+     {srp_dss, aes_128_cbc, sha},
+     {srp_dss, aes_256_cbc, sha}].
 
 pem_to_der(File) ->
     {ok, PemBin} = file:read_file(File),
