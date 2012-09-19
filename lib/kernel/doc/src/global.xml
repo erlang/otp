@@ -163,7 +163,8 @@
       <fsummary>Globally register a name for a pid</fsummary>
       <type name="method"/>
       <type_desc name="method">{<c>Module</c>, <c>Function</c>}
-        is also allowed
+        is currently also allowed for backward compatibility, but its use is
+	deprecated
       </type_desc>
       <desc>
         <p>Globally associates the name <c><anno>Name</anno></c> with a pid, that is,
@@ -179,6 +180,15 @@
           returns anything other than one of the pids, the name is
           unregistered. This function is called once for each name
           clash.</p>
+
+	<warning>
+	  <p>If you plan to change code without restarting your system,
+	  you must use an external fun (<c>fun Module:Function/Arity</c>)
+	  as the <c><anno>Resolve</anno></c> function; if you use a
+	  local fun you can never replace the code for the module that
+	  the fun belongs to.
+	  </p>
+	</warning>
 
         <p>There are three pre-defined resolve functions:
           <c>random_exit_name/3</c>, <c>random_notify_name/3</c>, and
