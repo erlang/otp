@@ -6,7 +6,7 @@ contracts_with_subtypes.erl:109: The call contracts_with_subtypes:rec_arg({'b',{
 contracts_with_subtypes.erl:110: The call contracts_with_subtypes:rec_arg({'a',{'b',{'a','b'}}}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
 contracts_with_subtypes.erl:111: The call contracts_with_subtypes:rec_arg({'b',{'a',{'b','a'}}}) breaks the contract (Arg) -> 'ok' when is_subtype(Arg,{'a',A} | {'b',B}), is_subtype(A,'a' | {'b',B}), is_subtype(B,'b' | {'a',A})
 contracts_with_subtypes.erl:142: The pattern 1 can never match the type binary() | string()
-contracts_with_subtypes.erl:145: The pattern 'alpha' can never match the type {'ok',X} | {'ok',X,binary() | string()}
+contracts_with_subtypes.erl:145: The pattern 'alpha' can never match the type {'ok',_} | {'ok',_,binary() | string()}
 contracts_with_subtypes.erl:147: The pattern 42 can never match the type {'ok',_} | {'ok',_,binary() | string()}
 contracts_with_subtypes.erl:163: The pattern 'alpha' can never match the type {'ok',X}
 contracts_with_subtypes.erl:165: The pattern 42 can never match the type {'ok',X}

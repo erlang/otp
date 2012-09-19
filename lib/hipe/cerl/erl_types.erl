@@ -687,8 +687,8 @@ t_solve_remote(?tuple(Types, _Arity, _Tag), ET, R, C)  ->
   {RL, RR} = list_solve_remote(Types, ET, R, C),
   {t_tuple(RL), RR};
 t_solve_remote(?tuple_set(Set), ET, R, C) ->
-  {NewSet, RR} = tuples_solve_remote(Set, ET, R, C),
-  {?tuple_set(NewSet), RR};
+  {NewTuples, RR} = tuples_solve_remote(Set, ET, R, C),
+  {t_sup(NewTuples), RR};
 t_solve_remote(?remote(Set), ET, R, C) ->
   RemoteList = ordsets:to_list(Set),
   {RL, RR} = list_solve_remote_type(RemoteList, ET, R, C),
@@ -788,10 +788,10 @@ opaques_solve_remote([#opaque{struct = Struct} = Remote|Tail], ET, R, C) ->
 
 tuples_solve_remote([], _ET, _R, _C) ->
   {[], []};
-tuples_solve_remote([{Sz, Tuples}|Tail], ET, R, C) ->
+tuples_solve_remote([{_Sz, Tuples}|Tail], ET, R, C) ->
   {RL, RR1} = list_solve_remote(Tuples, ET, R, C),
   {LSzTpls, RR2} = tuples_solve_remote(Tail, ET, R, C),
-  {[{Sz, RL}|LSzTpls], RR1 ++ RR2}.
+  {RL ++ LSzTpls, RR1 ++ RR2}.
 
 %%-----------------------------------------------------------------------------
 %% Unit type. Signals non termination.
