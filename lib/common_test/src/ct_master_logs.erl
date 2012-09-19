@@ -204,7 +204,7 @@ open_ct_master_log(Dir) ->
     {ok,Fd} = file:open(FullName,[write]),
     io:format(Fd,header("Common Test Master Log", {[],[1,2],[]}),[]),
     %% maybe add config info here later
-    io:format(Fd, config_table([]), []),
+    io:put_chars(config_table([])),
     io:format(Fd,
 	      "<style>\n"
 	      "div.ct_internal { background:lightgrey; color:black }\n"
@@ -253,11 +253,11 @@ open_nodedir_index(Dir,StartTime) ->
 
 print_nodedir(Node,RunDir,Fd) ->
     Index = filename:join(RunDir,"index.html"),
-    io:format(Fd,
-	      ["<tr>\n"
-	       "<td align=center>",atom_to_list(Node),"</td>\n",
-	       "<td align=left><a href=\"",Index,"\">",Index,"</a></td>\n",
-	       "</tr>\n"],[]),
+    io:put_chars(Fd,
+		 ["<tr>\n"
+		  "<td align=center>",atom_to_list(Node),"</td>\n",
+		  "<td align=left><a href=\"",Index,"\">",Index,"</a></td>\n",
+		  "</tr>\n"]),
     ok.
 
 close_nodedir_index(Fd) ->
