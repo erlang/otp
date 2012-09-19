@@ -39,6 +39,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
+-include("ssl_handshake.hrl").
 
 -include_lib("public_key/include/public_key.hrl"). 
 
@@ -745,11 +746,16 @@ validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
 validate_option(erl_dist,Value) when Value == true;
 				     Value == false ->
     Value;
-validate_option(client_preferred_next_protocols, {FallbackProtocol, Order, PreferredProtocols} = Value)
-      when is_list(PreferredProtocols), is_binary(FallbackProtocol),
-           byte_size(FallbackProtocol) > 0, byte_size(FallbackProtocol) < 256 ->
+validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols})
+  when is_list(PreferredProtocols) ->
     validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-    validate_npn_ordering(Order),
+    validate_npn_ordering(Precedence),
+    {Precedence, PreferredProtocols, ?NO_PROTOCOL};
+validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols, Default} = Value)
+      when is_list(PreferredProtocols), is_binary(Default),
+           byte_size(Default) > 0, byte_size(Default) < 256 ->
+    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+    validate_npn_ordering(Precedence),
     Value;
 validate_option(client_preferred_next_protocols, undefined) ->
     undefined;
@@ -766,7 +772,7 @@ validate_npn_ordering(client) ->
 validate_npn_ordering(server) ->
     ok;
 validate_npn_ordering(Value) ->
-    throw({error, {eoptions, {client_preferred_next_protocols, Value}}}).
+    throw({error, {eoptions, {client_preferred_next_protocols, {invalid_precedence, Value}}}}).
 
 validate_binary_list(Opt, List) ->
     lists:foreach(
@@ -775,7 +781,7 @@ validate_binary_list(Opt, List) ->
                       byte_size(Bin) < 256 ->
             ok;
            (Bin) ->
-            throw({error, {eoptions, {Opt, Bin}}})
+            throw({error, {eoptions, {Opt, {invalid_protocol, Bin}}}})
         end, List).
 
 validate_versions([], Versions) ->
@@ -896,18 +902,18 @@ detect(Pred, [H|T]) ->
 
 make_next_protocol_selector(undefined) ->
     undefined;
-make_next_protocol_selector({FallbackProtocol, client, AllProtocols}) ->
+make_next_protocol_selector({client, AllProtocols, DefaultProtocol}) ->
     fun(AdvertisedProtocols) ->
         case detect(fun(PreferredProtocol) -> lists:member(PreferredProtocol, AdvertisedProtocols) end, AllProtocols) of
-            undefined -> FallbackProtocol;
+            undefined -> DefaultProtocol;
             PreferredProtocol -> PreferredProtocol
         end
     end;
 
-make_next_protocol_selector({FallbackProtocol, server, AllProtocols}) ->
+make_next_protocol_selector({server, AllProtocols, DefaultProtocol}) ->
     fun(AdvertisedProtocols) ->
         case detect(fun(PreferredProtocol) -> lists:member(PreferredProtocol, AllProtocols) end, AdvertisedProtocols) of
-            undefined -> FallbackProtocol;
+            undefined -> DefaultProtocol;
             PreferredProtocol -> PreferredProtocol
         end
     end.

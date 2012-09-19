@@ -29,7 +29,7 @@
 -define(TIMEOUT, 120000).
 -define(LONG_TIMEOUT, 600000).
 -define(SLEEP, 1000).
--define(OPENSSL_RENEGOTIATE, "r\n").
+-define(OPENSSL_RENEGOTIATE, "R\n").
 -define(OPENSSL_QUIT, "Q\n").
 -define(OPENSSL_GARBAGE, "P\n").
 -define(EXPIRE, 10).
@@ -172,9 +172,9 @@ all() ->
 
 groups() ->
     [{basic, [], basic_tests()},
-     {'tlsv1.2', [], all_versions_tests()},
-     {'tlsv1.1', [], all_versions_tests()},
-     {'tlsv1', [], all_versions_tests()},
+     {'tlsv1.2', [], all_versions_tests() ++ npn_tests()},
+     {'tlsv1.1', [], all_versions_tests() ++ npn_tests()},
+     {'tlsv1', [], all_versions_tests()++ npn_tests()},
      {'sslv3', [], all_versions_tests()}].
 
 basic_tests() ->
@@ -199,8 +199,10 @@ all_versions_tests() ->
      ciphers_dsa_signed_certs,
      erlang_client_bad_openssl_server,
      expired_session,
-     ssl2_erlang_server_openssl_client,
-     erlang_client_openssl_server_npn_negotiation,
+     ssl2_erlang_server_openssl_client].
+
+npn_tests() ->
+    [erlang_client_openssl_server_npn_negotiation,
      erlang_server_openssl_client_npn_negotiation,
      erlang_server_openssl_client_npn_negotiation_and_renegotiate,
      erlang_client_openssl_server_npn_negotiation_and_renegotiate,
@@ -1164,7 +1166,7 @@ erlang_client_openssl_server_npn_negotiate_only_on_server(Config) when is_list(C
 
 erlang_client_openssl_server_npn_negotiate_only_on_client(Config) when is_list(Config) ->
     Data = "From openssl to erlang",
-    start_erlang_client_and_openssl_server_with_opts(Config, [{client_preferred_next_protocols, {<<"http/1.1">>, client, [<<"spdy/2">>]}}], "", Data, fun(Server, OpensslPort) ->
+    start_erlang_client_and_openssl_server_with_opts(Config, [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}}], "", Data, fun(Server, OpensslPort) ->
         port_command(OpensslPort, Data),
         ssl_test_lib:check_result(Server, ok)
     end),
@@ -1202,9 +1204,11 @@ start_erlang_client_and_openssl_server_with_opts(Config, ErlangClientOpts, Opens
     Port = ssl_test_lib:inet_port(node()),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
-    Cmd = "openssl s_server " ++ OpensslServerOpts ++ "  -accept " ++ integer_to_list(Port)  ++
-    " -cert " ++ CertFile  ++ " -key " ++ KeyFile,
+    Cmd = "openssl s_server " ++ OpensslServerOpts ++ "  -accept " ++ 
+	integer_to_list(Port) ++  version_flag(Version) ++
+	" -cert " ++ CertFile  ++ " -key " ++ KeyFile,
 
     test_server:format("openssl cmd: ~p~n", [Cmd]),
 
@@ -1231,7 +1235,7 @@ start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callbac
     process_flag(trap_exit, true),
     ServerOpts = ?config(server_opts, Config),
     ClientOpts0 = ?config(client_opts, Config),
-    ClientOpts = [{client_preferred_next_protocols, {<<"http/1.1">>, client, [<<"spdy/2">>]}} | ClientOpts0],
+    ClientOpts = [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}} | ClientOpts0],
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
 
@@ -1240,8 +1244,9 @@ start_erlang_client_and_openssl_server_for_npn_negotiation(Config, Data, Callbac
     Port = ssl_test_lib:inet_port(node()),
     CertFile = proplists:get_value(certfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
-    Cmd = "openssl s_server -msg -nextprotoneg http/1.1,spdy/2  -accept " ++ integer_to_list(Port)  ++
+    Cmd = "openssl s_server -msg -nextprotoneg http/1.1,spdy/2  -accept " ++ integer_to_list(Port)  ++  version_flag(Version) ++
     " -cert " ++ CertFile  ++ " -key " ++ KeyFile,
 
     test_server:format("openssl cmd: ~p~n", [Cmd]),
@@ -1278,8 +1283,8 @@ start_erlang_server_and_openssl_client_for_npn_negotiation(Config, Data, Callbac
                     {mfa, {?MODULE, erlang_ssl_receive_and_assert_npn, [<<"spdy/2">>, Data]}},
                     {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
-
-    Cmd = "openssl s_client -nextprotoneg http/1.0,spdy/2 -msg -port " ++ integer_to_list(Port)  ++
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Cmd = "openssl s_client -nextprotoneg http/1.0,spdy/2 -msg -port " ++ integer_to_list(Port)  ++ version_flag(Version) ++
     " -host localhost",
 
     test_server:format("openssl cmd: ~p~n", [Cmd]),

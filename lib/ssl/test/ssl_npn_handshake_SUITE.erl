@@ -28,16 +28,16 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 init_per_suite(Config) ->
     try crypto:start() of
-    ok ->
-        application:start(public_key),
-        ssl:start(),
-        Result =
-        (catch make_certs:all(?config(data_dir, Config),
-                      ?config(priv_dir, Config))),
-        test_server:format("Make certs  ~p~n", [Result]),
-        ssl_test_lib:cert_options(Config)
+	ok ->
+	    application:start(public_key),
+	    ssl:start(),
+	    Result =
+		(catch make_certs:all(?config(data_dir, Config),
+				      ?config(priv_dir, Config))),
+	    test_server:format("Make certs  ~p~n", [Result]),
+	    ssl_test_lib:cert_options(Config)
     catch _:_ ->
-        {skip, "Crypto did not start"}
+	    {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
@@ -62,9 +62,14 @@ connection_info_result(Socket) ->
     ssl:connection_info(Socket).
 
 validate_empty_protocols_are_not_allowed_test(_Config) ->
-    {error, {eoptions, {next_protocols_advertised, <<>>}}} = (catch ssl:listen(9443, [{next_protocols_advertised, [<<"foo/1">>, <<"">>]}])),
-    {error, {eoptions, {client_preferred_next_protocols, <<>>}}} = (catch ssl:connect({127,0,0,1}, 9443, [{client_preferred_next_protocols, {<<"foox/1">>, client, [<<"foo/1">>, <<"">>]}}], infinity)),
-    Option = {client_preferred_next_protocols, {<<"">>, client, [<<"foo/1">>, <<"blah/1">>]}},
+    {error, {eoptions, {next_protocols_advertised, {invalid_protocol, <<>>}}}}
+	= (catch ssl:listen(9443,
+			    [{next_protocols_advertised, [<<"foo/1">>, <<"">>]}])),
+    {error, {eoptions, {client_preferred_next_protocols, {invalid_protocol, <<>>}}}}
+	= (catch ssl:connect({127,0,0,1}, 9443,
+			     [{client_preferred_next_protocols,
+			       {client, [<<"foo/1">>, <<"">>], <<"foox/1">>}}], infinity)),
+    Option = {client_preferred_next_protocols, {invalid_protocol, <<"">>}},
     {error, {eoptions, Option}} = (catch ssl:connect({127,0,0,1}, 9443, [Option], infinity)).
 
 validate_empty_advertisement_list_is_allowed_test(_Config) ->
@@ -90,32 +95,34 @@ perform_client_does_not_try_to_negotiate_but_server_supports_npn_test(Config) ->
 
 perform_client_tries_to_negotiate_but_server_does_not_support_test(Config) ->
     run_npn_handshake_test(Config,
-        [{client_preferred_next_protocols, {<<"http/1.1">>, client, [<<"spdy/2">>]}}],
+        [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}}],
         [],
         {error, next_protocol_not_negotiated}).
 
 perform_fallback_npn_handshake_test(Config) ->
     run_npn_handshake_test(Config,
-        [{client_preferred_next_protocols, {<<"http/1.1">>, client, [<<"spdy/2">>]}}],
+        [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}}],
         [{next_protocols_advertised, [<<"spdy/1">>, <<"http/1.1">>, <<"http/1.0">>]}],
         {ok, <<"http/1.1">>}).
 
 perform_fallback_npn_handshake_server_preference_test(Config) ->
     run_npn_handshake_test(Config,
-        [{client_preferred_next_protocols, {<<"http/1.1">>, server, [<<"spdy/2">>]}}],
+        [{client_preferred_next_protocols, {server, [<<"spdy/2">>], <<"http/1.1">>}}],
         [{next_protocols_advertised, [<<"spdy/1">>, <<"http/1.1">>, <<"http/1.0">>]}],
         {ok, <<"http/1.1">>}).
 
 
 perform_normal_npn_handshake_client_preference_test(Config) ->
     run_npn_handshake_test(Config,
-        [{client_preferred_next_protocols, {<<"http/1.1">>, client, [<<"http/1.0">>, <<"http/1.1">>]}}],
+        [{client_preferred_next_protocols,
+	  {client, [<<"http/1.0">>, <<"http/1.1">>], <<"http/1.1">>}}],
         [{next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}],
         {ok, <<"http/1.0">>}).
 
 perform_normal_npn_handshake_server_preference_test(Config) ->
     run_npn_handshake_test(Config,
-        [{client_preferred_next_protocols, {<<"http/1.1">>, server, [<<"http/1.0">>, <<"http/1.1">>]}}],
+        [{client_preferred_next_protocols,
+	  {server, [<<"http/1.0">>, <<"http/1.1">>], <<"http/1.1">>}}],
         [{next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}],
         {ok, <<"http/1.1">>}).
 
@@ -124,9 +131,11 @@ perform_renegotiate_from_client_after_npn_handshake(Config) ->
     Data = "hello world",
 
     ClientOpts0 = ?config(client_opts, Config),
-    ClientOpts = [{client_preferred_next_protocols, {<<"http/1.1">>, client, [<<"http/1.0">>]}}] ++ ClientOpts0,
+    ClientOpts = [{client_preferred_next_protocols,
+		   {client, [<<"http/1.0">>], <<"http/1.1">>}}] ++ ClientOpts0,
     ServerOpts0 = ?config(server_opts, Config),
-    ServerOpts = [{next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
+    ServerOpts = [{next_protocols_advertised,
+		   [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
     ExpectedProtocol = {ok, <<"http/1.0">>},
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -170,7 +179,8 @@ run_npn_handshake_test(Config, ClientExtraOpts, ServerExtraOpts, ExpectedProtoco
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
 assert_npn(Socket, Protocol) ->
-    test_server:format("Negotiated Protocol ~p, Expecting: ~p ~n", [ssl:negotiated_next_protocol(Socket), Protocol]),
+    test_server:format("Negotiated Protocol ~p, Expecting: ~p ~n",
+		       [ssl:negotiated_next_protocol(Socket), Protocol]),
     Protocol = ssl:negotiated_next_protocol(Socket).
 
 assert_npn_and_renegotiate_and_send_data(Socket, Protocol, Data) ->

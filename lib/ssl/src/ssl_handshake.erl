@@ -741,10 +741,10 @@ select_next_protocol({error, _Reason}, _NextProtocolSelector) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
 select_next_protocol(Protocols, NextProtocolSelector) ->
     case NextProtocolSelector(Protocols) of
-      Protocol when is_binary(Protocol), byte_size(Protocol) > 0 ->
-          Protocol;
-      _ ->
-          ?ALERT_REC(?FATAL, ?INTERNAL_ERROR) % we are broken internally :( api presently stops this but we might let it happen in future
+	?NO_PROTOCOL ->
+	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE);
+	Protocol when is_binary(Protocol)  ->
+	    Protocol
     end.
 
 handle_renegotiation_info(_, #renegotiation_info{renegotiated_connection = ?byte(0)}, 

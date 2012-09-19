@@ -60,7 +60,7 @@ encode_and_decode_client_hello_test(_Config) ->
 encode_and_decode_npn_client_hello_test(_Config) ->
     HandShakeData = create_client_handshake(#next_protocol_negotiation{extension_data = <<>>}),
     Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
-    {[{DecodedHandshakeMessage, _Raw}], _} = ssl_handshake:get_tls_handshake(Version¸ list_to_binary(HandShakeData), <<>>),
+    {[{DecodedHandshakeMessage, _Raw}], _} = ssl_handshake:get_tls_handshake(Version, list_to_binary(HandShakeData), <<>>),
     NextProtocolNegotiation = DecodedHandshakeMessage#client_hello.next_protocol_negotiation,
     NextProtocolNegotiation = #next_protocol_negotiation{extension_data = <<>>}.
 
