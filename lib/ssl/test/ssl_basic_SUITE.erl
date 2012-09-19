@@ -154,6 +154,10 @@ cipher_tests() ->
      ciphers_dsa_signed_certs,
      ciphers_dsa_signed_certs_openssl_names,
      anonymous_cipher_suites,
+     psk_cipher_suites,
+     psk_with_hint_cipher_suites,
+     srp_cipher_suites,
+     srp_dsa_cipher_suites,
      default_reject_anonymous].
 
 error_handling_tests()->
@@ -1575,7 +1579,34 @@ anonymous_cipher_suites(Config) when is_list(Config) ->
     Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
     Ciphers = ssl_test_lib:anonymous_suites(),
     run_suites(Ciphers, Version, Config, anonymous).
-
+%%-------------------------------------------------------------------
+psk_cipher_suites() ->
+    [{doc, "Test the PSK ciphersuites WITHOUT server supplied identity hint"}].
+psk_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:psk_suites(),
+    run_suites(Ciphers, Version, Config, psk).
+%%-------------------------------------------------------------------
+psk_with_hint_cipher_suites()->
+    [{doc, "Test the PSK ciphersuites WITH server supplied identity hint"}].
+psk_with_hint_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:psk_suites(),
+    run_suites(Ciphers, Version, Config, psk_with_hint).
+%%-------------------------------------------------------------------
+srp_cipher_suites()->
+    [{doc, "Test the SRP ciphersuites"}].
+srp_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:srp_suites(),
+    run_suites(Ciphers, Version, Config, srp).
+%%-------------------------------------------------------------------
+srp_dsa_cipher_suites()->
+    [{doc, "Test the SRP DSA ciphersuites"}].
+srp_dsa_cipher_suites(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+    Ciphers = ssl_test_lib:srp_dss_suites(),
+    run_suites(Ciphers, Version, Config, srp_dsa).
 %%--------------------------------------------------------------------
 default_reject_anonymous()->
     [{doc,"Test that by default anonymous cipher suites are rejected "}].
@@ -3113,7 +3144,19 @@ run_suites(Ciphers, Version, Config, Type) ->
 	    anonymous ->
 		%% No certs in opts!
 		{?config(client_opts, Config),
-		 ?config(server_anon, Config)}
+		 ?config(server_anon, Config)};
+	    psk ->
+		{?config(client_psk, Config),
+		 ?config(server_psk, Config)};
+	    psk_with_hint ->
+		{?config(client_psk, Config),
+		 ?config(server_psk_hint, Config)};
+	    srp ->
+		{?config(client_srp, Config),
+		 ?config(server_srp, Config)};
+	    srp_dsa ->
+		{?config(client_srp_dsa, Config),
+		 ?config(server_srp_dsa, Config)}
 	    end,
 
     Result =  lists:map(fun(Cipher) ->
