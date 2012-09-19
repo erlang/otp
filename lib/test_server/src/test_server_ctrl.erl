@@ -4679,21 +4679,16 @@ output_to_fd(stdout, Msg, Sender) ->
     io:format("Testing ~s: ~s\n", [Name, lists:flatten(Msg)]);
 output_to_fd(undefined, _Msg, _Sender) ->
     ok;
-output_to_fd(Fd, [$=|Msg], internal) ->
-    io:put_chars(Fd, [$=]),
-    io:put_chars(Fd, Msg),
-    io:put_chars(Fd, "\n");
+output_to_fd(Fd, Msg=[$=|_], internal) ->
+    io:put_chars(Fd, [Msg,"\n"]);
 
 output_to_fd(Fd, Msg, internal) ->
-    io:put_chars(Fd, [$=,$=,$=,$ ]),
-    io:put_chars(Fd, Msg),
-    io:put_chars(Fd, "\n");
+    io:put_chars(Fd, [$=,$=,$=,$ , Msg, "\n"]);
 
 output_to_fd(Fd, Msg, _Sender) ->
-    io:put_chars(Fd, Msg),
     case get(test_server_log_nl) of
-	false -> ok;
-	_     -> io:put_chars(Fd, "\n")
+	false -> io:put_chars(Fd, Msg);
+	_     -> io:put_chars(Fd, [Msg,"\n"])
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
