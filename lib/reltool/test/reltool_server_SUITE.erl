@@ -92,7 +92,8 @@ all() ->
      dependencies,
      mod_incl_cond_derived,
      use_selected_vsn,
-     use_selected_vsn_relative_path].
+     use_selected_vsn_relative_path,
+     non_standard_vsn_id].
 
 groups() -> 
     [].
@@ -105,6 +106,15 @@ end_per_group(_GroupName, Config) ->
 
 
 %% The test cases
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% A dummy break test case which is NOT in all(), but can be run
+%% directly from the command line with ct_run. It just does a
+%% test_server:break()...
+break(_Config) ->
+    test_server:break(""),
+    ok.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Start a server process and check that it does not crash
@@ -2287,6 +2297,39 @@ use_selected_vsn_relative_path(Config) ->
     ok = file:set_cwd(Cwd),
     ok.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that reltool recognizes an application with its real name even
+%% though it uses non standard format for its version number (in the
+%% directory name)
+non_standard_vsn_id(Config) ->
+    LibDir = filename:join(datadir(Config),"non_standard_vsn_id"),
+    B1Dir = filename:join(LibDir,"b-first"),
+    B2Dir = filename:join(LibDir,"b-second"),
+
+    %%-----------------------------------------------------------------
+    %% Default vsn of app b
+    Sys1 = {sys,[{lib_dirs,[LibDir]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,b,[{incl_cond,include}]}]},
+    {ok, Pid1} = ?msym({ok, _}, reltool:start_server([{config, Sys1}])),
+    ?msym({ok,#app{vsn="first",active_dir=B1Dir,sorted_dirs=[B1Dir,B2Dir]}},
+	  reltool_server:get_app(Pid1,b)),
+
+    %%-----------------------------------------------------------------
+    %% Pre-selected vsn of app b
+    Sys2 = {sys,[{lib_dirs,[LibDir]},
+		 {incl_cond, exclude},
+		 {app,kernel,[{incl_cond,include}]},
+		 {app,sasl,[{incl_cond,include}]},
+		 {app,stdlib,[{incl_cond,include}]},
+		 {app,b,[{incl_cond,include},{vsn,"second"}]}]},
+    {ok, Pid2} = ?msym({ok, _}, reltool:start_server([{config, Sys2}])),
+    ?msym({ok,#app{vsn="second",active_dir=B2Dir,sorted_dirs=[B1Dir,B2Dir]}},
+	  reltool_server:get_app(Pid2,b)),
+   ok.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
