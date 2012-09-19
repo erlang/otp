@@ -498,18 +498,6 @@ This option is mandatory for remote targets
       </desc>
     </func>
     <func>
-      <name>index() -> ok | {error, Reason}</name>
-      <fsummary>Updates local index page</fsummary>
-      <type>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>This function updates the local index page. This can be
-          useful if a previous test run was not completed and the index
-          is incomplete.</p>
-      </desc>
-    </func>
-    <func>
       <name>clean() -> ok</name>
       <name>clean(all) -> ok</name>
       <fsummary>Cleans up the log directories created when running tests. </fsummary>

@@ -49,7 +49,6 @@ MODULES= test_server_ctrl \
 TS_MODULES= \
 	ts \
 	ts_run \
-	ts_reports \
 	ts_lib \
 	ts_make \
 	ts_erl_config \
