@@ -498,17 +498,6 @@ This option is mandatory for remote targets
       </desc>
     </func>
     <func>
-      <name>clean() -> ok</name>
-      <name>clean(all) -> ok</name>
-      <fsummary>Cleans up the log directories created when running tests. </fsummary>
-      <desc>
-        <p>This function cleans up log directories created when
-          running test cases. <c>clean/0</c> cleans up all but the last
-          run of each application.  <c>clean/1</c> cleans up all test
-          runs found.</p>
-      </desc>
-    </func>
-    <func>
       <name>estone() -> ok | {error, Reason}</name>
       <name>estone(Opts) -> ok</name>
       <fsummary>Runs the EStone test</fsummary>
