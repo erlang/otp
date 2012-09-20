@@ -128,6 +128,9 @@
 
 -define(KEY_EXCHANGE_RSA, 0).
 -define(KEY_EXCHANGE_DIFFIE_HELLMAN, 1).
+-define(KEY_EXCHANGE_PSK, 2).
+-define(KEY_EXCHANGE_DHE_PSK, 3).
+-define(KEY_EXCHANGE_RSA_PSK, 4).
 
 -record(server_rsa_params, {
 	  rsa_modulus,  %%  opaque RSA_modulus<1..2^16-1>
@@ -139,7 +142,16 @@
 	  dh_g, %% opaque DH_g<1..2^16-1>
 	  dh_y  %% opaque DH_Ys<1..2^16-1>
 	 }).
-  
+
+-record(server_psk_params, {
+	  hint
+	 }).
+
+-record(server_dhe_psk_params, {
+	  hint,
+	  dh_params
+	 }).
+
 -record(server_key_exchange, {
 	  exchange_keys
 	 }).
@@ -207,6 +219,20 @@
 
 -record(client_diffie_hellman_public, {
 	  dh_public
+	 }).
+
+-record(client_psk_identity, {
+	  identity
+	 }).
+
+-record(client_dhe_psk_identity, {
+	  identity,
+	  dh_public
+	 }).
+
+-record(client_rsa_psk_identity, {
+	  identity,
+	  exchange_keys
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
