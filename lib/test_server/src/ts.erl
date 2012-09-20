@@ -25,9 +25,8 @@
 -module(ts).
 
 -export([run/0, run/1, run/2, run/3, run/4,
-	 clean/0, clean/1,
 	 tests/0, tests/1,
-	 install/0, install/1, index/0,
+	 install/0, install/1,
 	 bench/0, bench/1, bench/2, benchmarks/0,
 	 estone/0, estone/1,
 	 cross_cover_analyse/1,
@@ -42,17 +41,11 @@
 %%%
 %%%       +-- ts_install --+------  ts_autoconf_win32
 %%%       |
-%%%       |
-%%%       |
 %%% ts ---+                +------  ts_erl_config
 %%%       |                |				     ts_lib
-%%%       |                +------  ts_make
-%%%       |                |
-%%%       +-- ts_run  -----+
+%%%       +-- ts_run  -----+------  ts_make
 %%%       |                |	    			     ts_filelib
 %%%       |                +------  ts_make_erl
-%%%       |                |
-%%%       |                +------  ts_reports (indirectly)
 %%%       |
 %%%       +-- ts_benchmark
 %%%
@@ -77,8 +70,6 @@
 %%%			 and other platforms.
 %%% ts_make_erl		 A corrected version of the standar Erlang module
 %%%			 make (used for rebuilding test suites).
-%%% ts_reports		 Generates index pages in HTML, providing a summary
-%%%			 of the tests run.
 %%% ts_lib		 Miscellanous utility functions, each used by several
 %%%			 other modules.
 %%% ts_benchmark         Supervises otp benchmarks and collects results.
@@ -163,9 +154,6 @@ help(installed) ->
 	 "  ts:tests()        - Shows all available families of tests.\n",
 	 "  ts:tests(Spec)    - Shows all available test modules in Spec,\n",
 	 "                      i.e. ../Spec_test/*_SUITE.erl\n",
-	 "  ts:index()        - Updates local index page.\n",
-	 "  ts:clean()        - Cleans up all but the last tests run.\n",
-	 "  ts:clean(all)     - Cleans up all test runs found.\n",
 	 "  ts:estone()       - Run estone_SUITE in kernel application with\n"
 	 "                      no run options\n",
 	 "  ts:estone(Opts)   - Run estone_SUITE in kernel application with\n"
@@ -200,33 +188,6 @@ install() ->
     ts_install:install(install_local,[]).
 install(Options) when is_list(Options) ->
     ts_install:install(install_local,Options).
-
-%% Updates the local index page.
-
-index() ->
-    check_and_run(fun(_Vars) -> ts_reports:make_index(), ok end).
-
-%%
-%% clean(all)
-%% Deletes all logfiles.
-%%
-clean(all) ->
-    delete_files(filelib:wildcard("*" ++ ?logdir_ext)).
-
-%% clean/0
-%%
-%% Cleans up run logfiles, all but the last run.
-clean() ->
-    clean1(filelib:wildcard("*" ++ ?logdir_ext)).
-
-clean1([Dir|Dirs]) ->
-    List0 = filelib:wildcard(filename:join(Dir, "run.*")),
-    case lists:reverse(lists:sort(List0)) of
-	[] -> ok;
-	[_Last|Rest] -> delete_files(Rest)
-    end,
-    clean1(Dirs);
-clean1([]) -> ok.
 
 %% run/0
 %%  Runs all specs found by ts:tests(), if any, or returns
@@ -578,32 +539,6 @@ run_test(File, Args, Options) ->
 
 run_test(File, Args, Options, Vars) ->
     ts_run:run(File, Args, Options, Vars).
-
-
-delete_files([]) -> ok;
-delete_files([Item|Rest]) ->
-    case file:delete(Item) of
-	ok ->
-	    delete_files(Rest);
-	{error,eperm} ->
-	    file:change_mode(Item, 8#777),
-	    delete_files(filelib:wildcard(filename:join(Item, "*"))),
-	    file:del_dir(Item),
-	    ok;
-	{error,eacces} ->
-	    %% We'll see about that!
-	    file:change_mode(Item, 8#777),
-	    case file:delete(Item) of
-		ok -> ok;
-		{error,_} ->
-		    erlang:yield(),
-		    file:change_mode(Item, 8#777),
-		    file:delete(Item),
-		    ok
-	    end;
-	{error,_} -> ok
-    end,
-    delete_files(Rest).
 
 
 %% This module provides some convenient shortcuts to running

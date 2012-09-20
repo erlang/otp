@@ -25,9 +25,8 @@
 -compile({no_auto_import,[error/1]}).
 -export([error/1, var/2, erlang_type/0,
 	 erlang_type/1,
-	 initial_capital/1, interesting_logs/1, 
-	 specs/1, suites/2, last_test/1,
-	 force_write_file/2, force_delete/1,
+	 initial_capital/1,
+	 specs/1, suites/2,
 	 subst_file/3, subst/2, print_data/1,
 	 make_non_erlang/2,
 	 maybe_atom_to_list/1, progress/4
@@ -91,21 +90,6 @@ initial_capital([C|Rest]) when $a =< C, C =< $z ->
 initial_capital(String) ->
     String.
 
-%% Returns a list of the "interesting logs" in a directory,
-%% i.e. those that correspond to spec files.
-
-interesting_logs(Dir) ->
-    Logs = filelib:wildcard(filename:join(Dir, [$*|?logdir_ext])),
-    Interesting =
-	case specs(Dir) of
-	    [] ->
-		Logs;
-	    Specs0 ->
-		Specs = ordsets:from_list(Specs0),
-		[L || L <- Logs, ordsets:is_element(filename_to_atom(L), Specs)]
-	end,
-    sort_tests(Interesting).
-
 specs(Dir) ->
     Specs = filelib:wildcard(filename:join([filename:dirname(Dir),
 					    "*_test", "*.{dyn,}spec"])),
@@ -164,42 +148,6 @@ suite_order(mnesia_session) -> 42;
 suite_order(mnesia) -> 44;
 suite_order(system) -> 999; %% IMPORTANT: system SHOULD always be last!
 suite_order(_) -> 200.
-
-last_test(Dir) ->
-    last_test(filelib:wildcard(filename:join(Dir, "run.[1-2]*")), false).
-
-last_test([Run|Rest], false) ->
-    last_test(Rest, Run);
-last_test([Run|Rest], Latest) when Run > Latest ->
-    last_test(Rest, Run);
-last_test([_|Rest], Latest) ->
-    last_test(Rest, Latest);
-last_test([], Latest) ->
-    Latest.
-
-%% Do the utmost to ensure that the file is written, by deleting or
-%% renaming an old file with the same name.
-
-force_write_file(Name, Contents) ->
-    force_delete(Name),
-    file:write_file(Name, Contents).
-
-force_delete(Name) ->
-    case file:delete(Name) of
-	{error, eacces} ->
-	    force_rename(Name, Name ++ ".old.", 0);
-	Other ->
-	    Other
-    end.
-
-force_rename(From, To, Number) ->
-    Dest = [To|integer_to_list(Number)],
-    case file:read_file_info(Dest) of
-	{ok, _} ->
-	    force_rename(From, To, Number+1);
-	{error, _} ->
-	    file:rename(From, Dest)
-    end.
 
 %% Substitute all occurrences of @var@ in the In file, using
 %% the list of variables in Vars, producing the output file Out.
