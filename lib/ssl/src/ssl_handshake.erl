@@ -35,7 +35,7 @@
 	 client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 certificate_request/3, key_exchange/3, server_key_exchange_hash/2,
 	 finished/5, verify_connection/6, get_tls_handshake/3,
-	 decode_client_key/3, server_hello_done/0,
+	 decode_client_key/3, decode_server_key/3, server_hello_done/0,
 	 encode_handshake/2, init_handshake_history/0, update_handshake_history/2,
 	 decrypt_premaster_secret/2, prf/5, next_protocol/1]).
 
@@ -393,31 +393,33 @@ key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
 
 key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 		      #'DHParameter'{prime = P, base = G},
-		      {HashAlgo, SignAlgo}, ClientRandom, ServerRandom, PrivateKey}) ->
+		      HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
     <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
-    PLen = byte_size(PBin),
-    GLen = byte_size(GBin),
-    YLen = byte_size(PublicKey),
     ServerDHParams = #server_dh_params{dh_p = PBin, 
 				       dh_g = GBin, dh_y = PublicKey},    
+    enc_server_key_exchange(Version, ServerDHParams, HashSign,
+			    ClientRandom, ServerRandom, PrivateKey).
 
+enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
+			ClientRandom, ServerRandom, PrivateKey) ->
+    EncParams = enc_server_key(Params),
     case HashAlgo of
 	null ->
-	    #server_key_exchange{params = ServerDHParams,
-				 signed_params = <<>>,
-				 hashsign = {null, anon}};
+	    #server_key_params{params = Params,
+			       params_bin = EncParams,
+			       hashsign = {null, anon},
+			       signature = <<>>};
 	_ ->
 	    Hash =
 		server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
-						    ServerRandom/binary,
-						    ?UINT16(PLen), PBin/binary,
-						    ?UINT16(GLen), GBin/binary,
-						    ?UINT16(YLen), PublicKey/binary>>),
-	    Signed = digitally_signed(Version, Hash, HashAlgo, PrivateKey),
-	    #server_key_exchange{params = ServerDHParams,
-				 signed_params = Signed,
-				 hashsign = {HashAlgo, SignAlgo}}
+						     ServerRandom/binary,
+						     EncParams/binary>>),
+	    Signature = digitally_signed(Version, Hash, HashAlgo, PrivateKey),
+	    #server_key_params{params = Params,
+			       params_bin = EncParams,
+			       hashsign = {HashAlgo, SignAlgo},
+			       signature = Signature}
     end.
 
 %%--------------------------------------------------------------------
@@ -532,6 +534,15 @@ get_tls_handshake(Version, Data, Buffer) ->
 %%--------------------------------------------------------------------
 decode_client_key(ClientKey, Type, Version) ->
     dec_client_key(ClientKey, key_exchange_alg(Type), Version).
+
+%%--------------------------------------------------------------------
+-spec decode_server_key(binary(), key_algo(), tls_version()) ->
+			       #server_key_params{}.
+%%
+%% Description: Decode server_key data and return appropriate type
+%%--------------------------------------------------------------------
+decode_server_key(ServerKey, Type, Version) ->
+    dec_server_key(ServerKey, key_exchange_alg(Type), Version).
 
 %%--------------------------------------------------------------------
 -spec init_handshake_history() -> tls_handshake_history().
@@ -986,31 +997,8 @@ dec_hs(_Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
        next_protocol_negotiation = NextProtocolNegotiation};
 dec_hs(_Version, ?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
-
-dec_hs(_Version, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
-			      ?UINT16(GLen), G:GLen/binary,
-			      ?UINT16(YLen), Y:YLen/binary,
-			       ?UINT16(0)>>) -> %% May happen if key_algorithm is dh_anon
-    #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G,
-						    dh_y = Y},
-			 signed_params = <<>>, hashsign = {null, anon}};
-dec_hs({Major, Minor}, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
-			      ?UINT16(GLen), G:GLen/binary,
-			      ?UINT16(YLen), Y:YLen/binary,
-			      ?BYTE(HashAlgo), ?BYTE(SignAlgo),
-			      ?UINT16(Len), Sig:Len/binary>>)
-  when Major == 3, Minor >= 3 ->
-    #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G,
-						    dh_y = Y},
-			 signed_params = Sig,
-			 hashsign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)}};
-dec_hs(_Version, ?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
-			      ?UINT16(GLen), G:GLen/binary,
-			      ?UINT16(YLen), Y:YLen/binary,
-			      ?UINT16(Len), Sig:Len/binary>>) ->
-    #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, 
-						    dh_y = Y},
-			 signed_params = Sig, hashsign = undefined};
+dec_hs(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
+    #server_key_exchange{exchange_keys = Keys};
 dec_hs({Major, Minor}, ?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(HashSignsLen), HashSigns:HashSignsLen/binary,
@@ -1049,6 +1037,42 @@ dec_client_key(<<>>, ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
 dec_client_key(<<?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
 	       ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
     #client_diffie_hellman_public{dh_public = DH_Y}.
+
+dec_ske_params(Len, Keys, Version) ->
+    <<Params:Len/bytes, Signature/binary>> = Keys,
+    dec_ske_signature(Params, Signature, Version).
+
+dec_ske_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
+			    ?UINT16(0)>>, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
+    {Params, HashSign, <<>>};
+dec_ske_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
+			    ?UINT16(Len), Signature:Len/binary>>, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    HashSign = {ssl_cipher:hash_algorithm(HashAlgo), ssl_cipher:sign_algorithm(SignAlgo)},
+    {Params, HashSign, Signature};
+dec_ske_signature(Params, <<>>, _) ->
+    {Params, {null, anon}, <<>>};
+dec_ske_signature(Params, <<?UINT16(0)>>, _) ->
+    {Params, {null, anon}, <<>>};
+dec_ske_signature(Params, <<?UINT16(Len), Signature:Len/binary>>, _) ->
+    {Params, undefined, Signature};
+dec_ske_signature(_, _, _) ->
+    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
+
+dec_server_key(<<?UINT16(PLen), P:PLen/binary,
+		 ?UINT16(GLen), G:GLen/binary,
+		 ?UINT16(YLen), Y:YLen/binary, _/binary>> = KeyStruct,
+	       ?KEY_EXCHANGE_DIFFIE_HELLMAN, Version) ->
+    Params = #server_dh_params{dh_p = P, dh_g = G, dh_y = Y},
+    {BinMsg, HashSign, Signature} = dec_ske_params(PLen + GLen + YLen + 6, KeyStruct, Version),
+    #server_key_params{params = Params,
+		       params_bin = BinMsg,
+		       hashsign = HashSign,
+		       signature = Signature};
+dec_server_key(_, _, _) ->
+    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
 
 dec_hello_extensions(<<>>) ->
     [];
@@ -1167,18 +1191,12 @@ enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version) ->
     ASN1Certs = certs_from_list(ASN1CertList),
     ACLen = erlang:iolist_size(ASN1Certs),
     {?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>};
-enc_hs(#server_key_exchange{params = #server_dh_params{
-			      dh_p = P, dh_g = G, dh_y = Y},
-	signed_params = SignedParams, hashsign = HashSign}, Version) ->
-    PLen = byte_size(P),
-    GLen = byte_size(G),
-    YLen = byte_size(Y),
-    Signature = enc_sign(HashSign, SignedParams, Version),
-    {?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P/binary, 
-			    ?UINT16(GLen), G/binary,
-			    ?UINT16(YLen), Y/binary,
-			    Signature/binary>>
-    };
+enc_hs(#server_key_exchange{exchange_keys = Keys}, _Version) ->
+    {?SERVER_KEY_EXCHANGE, Keys};
+enc_hs(#server_key_params{params_bin = Keys, hashsign = HashSign,
+			  signature = Signature}, Version) ->
+    EncSign = enc_sign(HashSign, Signature, Version),
+    {?SERVER_KEY_EXCHANGE, <<Keys/binary, EncSign/binary>>};
 enc_hs(#certificate_request{certificate_types = CertTypes,
 			    hashsign_algorithms = #hash_sign_algos{hash_sign_algos = HashSignAlgos},
 			    certificate_authorities = CertAuths},
@@ -1222,6 +1240,14 @@ enc_cke(#client_diffie_hellman_public{dh_public = DHPublic}, _) ->
     Len = byte_size(DHPublic),
     <<?UINT16(Len), DHPublic/binary>>.
 
+enc_server_key(#server_dh_params{dh_p = P, dh_g = G, dh_y = Y}) ->
+    PLen = byte_size(P),
+    GLen = byte_size(G),
+    YLen = byte_size(Y),
+    <<?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>.
+
+enc_sign({_, anon}, _Sign, _Version) ->
+    <<>>;
 enc_sign({HashAlg, SignAlg}, Signature, _Version = {Major, Minor})
   when Major == 3, Minor >= 3->
 	SignLen = byte_size(Signature),

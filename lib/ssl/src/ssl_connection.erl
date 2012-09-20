@@ -1628,65 +1628,49 @@ save_verify_data(client, #finished{verify_data = Data}, ConnectionStates, abbrev
 save_verify_data(server, #finished{verify_data = Data}, ConnectionStates, abbreviated) ->
     ssl_record:set_server_verify_data(current_write, Data, ConnectionStates).
 
-handle_server_key(#server_key_exchange{params =
-					   #server_dh_params{dh_p = P,
-							     dh_g = G,
-							     dh_y = ServerPublicDhKey},
-				       signed_params = <<>>},
-		  #state{key_algorithm = dh_anon} = State) ->
-    dh_master_secret(P, G, ServerPublicDhKey, undefined, State);
+handle_server_key(#server_key_exchange{exchange_keys = Keys},
+		  #state{key_algorithm = KeyAlg,
+			 negotiated_version = Version} = State) ->
+    Params = ssl_handshake:decode_server_key(Keys, KeyAlg, Version),
+    HashSign = connection_hashsign(Params#server_key_params.hashsign, State),
+    case HashSign of
+	{_, anon} ->
+	    server_master_secret(Params#server_key_params.params, State);
+	_ ->
+	    verify_server_key(Params, HashSign, State)
+    end.
 
-handle_server_key(
-  #server_key_exchange{params = 
-		       #server_dh_params{dh_p = P,
-					 dh_g = G,
-					 dh_y = ServerPublicDhKey}, 
-		       signed_params = Signed,
-		       hashsign = HashSign},
-  #state{negotiated_version = Version,
-	 public_key_info = PubKeyInfo,
-	 connection_states = ConnectionStates} = State) ->
-     
-    PLen = size(P),
-    GLen = size(G),
-    YLen = size(ServerPublicDhKey),
-    HashAlgo = connection_hash_algo(HashSign, State),
-
-    ConnectionState = 
+verify_server_key(#server_key_params{params = Params,
+				     params_bin = EncParams,
+				     signature = Signature},
+		  HashSign = {HashAlgo, _},
+		  #state{negotiated_version = Version,
+			 public_key_info = PubKeyInfo,
+			 connection_states = ConnectionStates} = State) ->
+    ConnectionState =
 	ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
     Hash = ssl_handshake:server_key_exchange_hash(HashAlgo,
-						  <<ClientRandom/binary, 
-						   ServerRandom/binary, 
-						   ?UINT16(PLen), P/binary, 
-						   ?UINT16(GLen), G/binary,
-						   ?UINT16(YLen),
-						   ServerPublicDhKey/binary>>),
-
+						  <<ClientRandom/binary,
+						    ServerRandom/binary,
+						    EncParams/binary>>),
     case ssl_handshake:verify_signature(Version, Hash, HashSign, Signature, PubKeyInfo) of
 	true ->
-	    dh_master_secret(P, G, ServerPublicDhKey, undefined, State);
+	    server_master_secret(Params, State);
 	false ->
 	    ?ALERT_REC(?FATAL, ?DECRYPT_ERROR)
     end.
 
+server_master_secret(#server_dh_params{dh_p = P, dh_g = G, dh_y = ServerPublicDhKey},
+		     State) ->
+    dh_master_secret(P, G, ServerPublicDhKey, undefined, State).
 
-dh_master_secret(Prime, Base, PublicDhKey, undefined, State) ->
-    PMpint = mpint_binary(Prime),
-    GMpint = mpint_binary(Base),
-    Keys = {_, PrivateDhKey} =
-	crypto:dh_generate_key([PMpint,GMpint]),
-    dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State#state{diffie_hellman_keys = Keys});
-
-dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey,
-		 #state{session = Session,
-			negotiated_version = Version, role = Role,
-			connection_states = ConnectionStates0} = State) ->
-    PremasterSecret =
-	crypto:dh_compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
-			      [PMpint, GMpint]),
+master_from_premaster_secret(PremasterSecret,
+			     #state{session = Session,
+				    negotiated_version = Version, role = Role,
+				    connection_states = ConnectionStates0} = State) ->
     case ssl_handshake:master_secret(Version, PremasterSecret,
 				     ConnectionStates0, Role) of
 	{MasterSecret, ConnectionStates} ->
@@ -1697,6 +1681,19 @@ dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey,
 	#alert{} = Alert ->
 	    Alert
     end.
+
+dh_master_secret(Prime, Base, PublicDhKey, undefined, State) ->
+    PMpint = mpint_binary(Prime),
+    GMpint = mpint_binary(Base),
+    Keys = {_, PrivateDhKey} =
+	crypto:dh_generate_key([PMpint,GMpint]),
+    dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State#state{diffie_hellman_keys = Keys});
+
+dh_master_secret(PMpint, GMpint, PublicDhKey, PrivateDhKey, State) ->
+    PremasterSecret =
+	crypto:dh_compute_key(mpint_binary(PublicDhKey), PrivateDhKey,
+			      [PMpint, GMpint]),
+    master_from_premaster_secret(PremasterSecret, State).
 
 cipher_role(client, Data, Session, #state{connection_states = ConnectionStates0} = State) -> 
     ConnectionStates = ssl_record:set_server_verify_data(current_both, Data, ConnectionStates0),
@@ -2472,10 +2469,10 @@ get_pending_connection_state_prf(CStates, Direction) ->
 	CS = ssl_record:pending_connection_state(CStates, Direction),
 	CS#connection_state.security_parameters#security_parameters.prf_algorithm.
 
-connection_hash_algo({HashAlgo, _}, _State) ->
-    HashAlgo;
-connection_hash_algo(_, #state{hashsign_algorithm = {HashAlgo, _}}) ->
-    HashAlgo.
+connection_hashsign(HashSign = {_, _}, _State) ->
+    HashSign;
+connection_hashsign(_, #state{hashsign_algorithm = HashSign}) ->
+    HashSign.
 
 %% RFC 5246, Sect. 7.4.1.4.1.  Signature Algorithms
 %% If the client does not send the signature_algorithms extension, the
