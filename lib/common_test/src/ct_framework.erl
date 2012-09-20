@@ -1529,6 +1529,12 @@ report(What,Data) ->
 	    end;
 	tests_done ->
 	    ok;
+	severe_error ->
+	    ct_event:sync_notify(#event{name=What,
+					node=node(),
+					data=Data}),
+	    ct_util:set_testdata({What,Data}),
+	    ok;
 	tc_start ->
 	    %% Data = {{Suite,Func},LogFileName}
 	    ct_event:sync_notify(#event{name=tc_logfile,

@@ -1410,13 +1410,14 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
     StartedExtraTools = start_extra_tools(ExtraTools),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
     put(test_server_common_io_handler, undefined),
-    stop_extra_tools(StartedExtraTools),
+    catch stop_extra_tools(StartedExtraTools),
     case Result of
 	{'EXIT',test_suites_done} ->
 	    print(25, "DONE, normal exit", []);
 	{'EXIT',_Pid,Reason} ->
 	    print(1, "EXIT, reason ~p", [Reason]);
 	{'EXIT',Reason} ->
+	    report_severe_error(Reason),
 	    print(1, "EXIT, reason ~p", [Reason]);
 	_Other ->
 	    print(25, "DONE", [])
@@ -1439,6 +1440,9 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
 	  "<td>~.3fs</td><td><b>~s</b></td><td>~p Ok, ~p Failed~s of ~p</td></tr>\n"
 	  "</tfoot>\n",
 	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]).
+
+report_severe_error(Reason) ->
+    test_server_sup:framework_call(report, [severe_error,Reason]).
 
 %% timer:tc/3
 ts_tc(M, F, A) ->
@@ -1873,7 +1877,7 @@ start_log_file() ->
 	{error, eexist} ->
 	    ok;
 	MkDirError ->
-	    exit({cant_create_log_dir,{MkDirError,Dir}})
+	    log_file_error(MkDirError, Dir)
     end,
     TestDir = timestamp_filename_get(filename:join(Dir, "run.")),
     TestDir1 =
@@ -1888,10 +1892,10 @@ start_log_file() ->
 		    ok ->
 			TestDirX;
 		    MkDirError2 ->
-			exit({cant_create_log_dir,{MkDirError2,TestDirX}})
+			log_file_error(MkDirError2, TestDirX)
 		end;
 	    MkDirError2 ->
-		exit({cant_create_log_dir,{MkDirError2,TestDir}})
+		log_file_error(MkDirError2, TestDir)
 	end,
     ok = file:write_file(filename:join(Dir, ?last_file), TestDir1 ++ "\n"),
     ok = file:write_file(?last_file, TestDir1 ++ "\n"),
@@ -1917,6 +1921,9 @@ start_log_file() ->
     LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir1)}],
     test_server_sup:framework_call(report, [loginfo,LogInfo]),
     {ok,TestDir1}.
+
+log_file_error(Error, Dir) ->
+    exit({cannot_create_log_dir,{Error,lists:flatten(Dir)}}).
 
 make_html_link(LinkName, Target, Explanation) ->
     %% if possible use a relative reference to Target.
