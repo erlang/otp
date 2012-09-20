@@ -20,6 +20,7 @@
 	       ssl_connection_sup,
 	       ssl_connection,
 	       ssl_cipher,
+	       ssl_srp_primes,
 	       ssl_certificate_db,
 	       ssl_certificate,
 	       ssl_alert

@@ -92,6 +92,7 @@
 	  dhfile,     % file()
 	  user_lookup_fun,  % server option, fun to lookup the user
 	  psk_identity,  % binary
+	  srp_identity,  % client option {User, Password}
 	  ciphers,    % 
 	  %% Local policy for the server if it want's to reuse the session
 	  %% or not. Defaluts to allways returning true.

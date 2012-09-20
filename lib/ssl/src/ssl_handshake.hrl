@@ -48,6 +48,7 @@
 	  compression_method,
 	  cipher_suite,
 	  master_secret,
+	  srp_username,
 	  is_resumable,
 	  time_stamp
 	  }).
@@ -99,6 +100,7 @@
 	  cipher_suites,      % cipher_suites<2..2^16-1>
 	  compression_methods, % compression_methods<1..2^8-1>,
 	  renegotiation_info,
+	  srp,                % srp username to send
 	  hash_signs,          % supported combinations of hashes/signature algos
 	  next_protocol_negotiation = undefined % [binary()]
 	 }).
@@ -131,6 +133,7 @@
 -define(KEY_EXCHANGE_PSK, 2).
 -define(KEY_EXCHANGE_DHE_PSK, 3).
 -define(KEY_EXCHANGE_RSA_PSK, 4).
+-define(KEY_EXCHANGE_SRP, 5).
 
 -record(server_rsa_params, {
 	  rsa_modulus,  %%  opaque RSA_modulus<1..2^16-1>
@@ -150,6 +153,13 @@
 -record(server_dhe_psk_params, {
 	  hint,
 	  dh_params
+	 }).
+
+-record(server_srp_params, {
+	  srp_n, %% opaque srp_N<1..2^16-1>
+	  srp_g, %% opaque srp_g<1..2^16-1>
+	  srp_s, %% opaque srp_s<1..2^8-1>
+	  srp_b  %% opaque srp_B<1..2^16-1>
 	 }).
 
 -record(server_key_exchange, {
@@ -235,6 +245,10 @@
 	  exchange_keys
 	 }).
 
+-record(client_srp_public, {
+	  srp_a
+	 }).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Certificate verify - RFC 4346 section 7.4.8
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -258,6 +272,15 @@
 
 -record(renegotiation_info,{
 	  renegotiated_connection
+	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SRP  RFC 5054 section 2.8.1.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(SRP_EXT, 12).
+
+-record(srp, {
+	  username
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
