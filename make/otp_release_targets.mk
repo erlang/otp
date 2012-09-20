@@ -45,6 +45,7 @@ $(HTMLDIR)/index.html: $(XML_FILES) $(SPECS_FILES)
 	  --stringparam stylesheet "$(CSS_FILE)" \
 	  --stringparam winprefix "$(WINPREFIX)" \
 	  --stringparam logo "$(HTMLLOGO_FILE)" \
+	  --stringparam pdfname "$(PDFNAME)" \
           -path $(DOCGEN)/priv/dtd \
           -path $(DOCGEN)/priv/dtd_html_entities \
             $(DOCGEN)/priv/xsl/db_html.xsl book.xml

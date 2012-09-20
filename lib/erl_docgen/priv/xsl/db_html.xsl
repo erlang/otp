@@ -752,7 +752,14 @@
       <xsl:if test="boolean(/book/releasenotes)">
         <a href="release_notes.html">Release Notes</a><br/>
       </xsl:if>
-      <a href="{$pdfdir}/{$appname}-{$appver}.pdf">PDF</a><br/>
+      <xsl:choose>
+	<xsl:when test="string-length($pdfname) > 0">
+	  <a href="{$pdfdir}/{$pdfname}.pdf">PDF</a><br/>
+	</xsl:when>
+	<xsl:otherwise>
+	  <a href="{$pdfdir}/{$appname}-{$appver}.pdf">PDF</a><br/>
+	</xsl:otherwise>
+      </xsl:choose>
       <a href="{$topdocdir}/index.html">Top</a>
     </small>
   </xsl:template>
