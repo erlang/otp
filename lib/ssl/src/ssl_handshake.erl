@@ -32,7 +32,7 @@
 
 -export([master_secret/4, client_hello/8, server_hello/5, hello/4,
 	 hello_request/0, certify/7, certificate/4,
-	 client_certificate_verify/6, certificate_verify/6,
+	 client_certificate_verify/6, certificate_verify/6, verify_signature/5,
 	 certificate_request/3, key_exchange/3, server_key_exchange_hash/2,
 	 finished/5, verify_connection/6, get_tls_handshake/3,
 	 decode_client_key/3, server_hello_done/0,
@@ -320,24 +320,35 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
-certificate_verify(Signature, {?'rsaEncryption', PublicKey, _}, Version,
-		   {HashAlgo, _SignAlgo}, MasterSecret, {_, Handshake}) ->
-    Hashes = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
-    case certificate_verify_rsa(Hashes, HashAlgo, Signature, PublicKey, Version) of
+certificate_verify(Signature, PublicKeyInfo, Version,
+		   HashSign = {HashAlgo, _}, MasterSecret, {_, Handshake}) ->
+    Hash = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
+    case verify_signature(Version, Hash, HashSign, Signature, PublicKeyInfo) of
 	true ->
 	    valid;
 	_ ->
-	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
-    end;
-certificate_verify(Signature, {?'id-dsa', PublicKey, PublicKeyParams}, Version,
-		   {HashAlgo, _SignAlgo}, MasterSecret, {_, Handshake}) ->
-    Hashes = calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
-    case public_key:verify({digest, Hashes}, sha, Signature, {PublicKey, PublicKeyParams}) of
-	true ->
-	    valid;
-	false ->
     	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end.
+
+%%--------------------------------------------------------------------
+-spec verify_signature(tls_version(), binary(), {term(), term()}, binary(),
+				   public_key_info()) -> true | false.
+%%
+%% Description: Checks that a public_key signature is valid.
+%%--------------------------------------------------------------------
+verify_signature(_Version, _Hash, {_HashAlgo, anon}, _Signature, _) ->
+    true;
+verify_signature({3, Minor}, Hash, {HashAlgo, rsa}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
+  when Minor >= 3 ->
+    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey);
+verify_signature(_Version, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) ->
+    case public_key:decrypt_public(Signature, PubKey,
+				   [{rsa_pad, rsa_pkcs1_padding}]) of
+	Hash -> true;
+	_    -> false
+    end;
+verify_signature(_Version, Hash, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams}) ->
+    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 
 %%--------------------------------------------------------------------
@@ -1328,8 +1339,8 @@ certificate_authorities_from_db(CertDbHandle, CertDbRef) ->
 
 digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
     public_key:sign({digest, Hash}, HashAlgo, Key);
-digitally_signed(_Version, Hash, _HashAlgo, #'DSAPrivateKey'{} = Key) ->
-    public_key:sign({digest, Hash}, sha, Key);
+digitally_signed(_Version, Hash, HashAlgo, #'DSAPrivateKey'{} = Key) ->
+    public_key:sign({digest, Hash}, HashAlgo, Key);
 digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]).
@@ -1376,19 +1387,6 @@ apply_user_fun(Fun, OtpCert, ExtensionOrError, UserState0, SslState) ->
 	    Fail;
 	{unknown, UserState} ->
 	    {unknown, {SslState, UserState}}
-    end.
-
-certificate_verify_rsa(Hashes, sha, Signature, PublicKey, {Major, Minor})
-  when Major == 3, Minor >= 3 ->
-    public_key:verify({digest, Hashes}, sha, Signature, PublicKey);
-certificate_verify_rsa(Hashes, HashAlgo, Signature, PublicKey, {Major, Minor})
-  when Major == 3, Minor >= 3 ->
-    public_key:verify({digest, Hashes}, HashAlgo, Signature, PublicKey);
-certificate_verify_rsa(Hashes, _HashAlgo, Signature, PublicKey, _Version) ->
-    case public_key:decrypt_public(Signature, PublicKey,
-				   [{rsa_pad, rsa_pkcs1_padding}]) of
-	Hashes -> true;
-	_      -> false
     end.
 
 -define(TLSEXT_SIGALG_RSA(MD), {MD, rsa}).

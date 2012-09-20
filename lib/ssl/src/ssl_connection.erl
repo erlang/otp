@@ -1665,26 +1665,13 @@ handle_server_key(
 						   ?UINT16(YLen),
 						   ServerPublicDhKey/binary>>),
 
-    case verify_dh_params(Version, Signed, Hash, HashAlgo, PubKeyInfo) of
+    case ssl_handshake:verify_signature(Version, Hash, HashSign, Signature, PubKeyInfo) of
 	true ->
 	    dh_master_secret(P, G, ServerPublicDhKey, undefined, State);
 	false ->
 	    ?ALERT_REC(?FATAL, ?DECRYPT_ERROR)
     end.
 
-verify_dh_params({3, Minor}, Signed, Hashes, HashAlgo, {?rsaEncryption, PubKey, _PubKeyParams})
-  when Minor >= 3 ->
-    public_key:verify({digest, Hashes}, HashAlgo, Signed, PubKey);
-verify_dh_params(_Version, Signed, Hashes, _HashAlgo, {?rsaEncryption, PubKey, _PubKeyParams}) ->
-    case public_key:decrypt_public(Signed, PubKey, 
-				   [{rsa_pad, rsa_pkcs1_padding}]) of
-	Hashes ->
-	    true;
-	_ ->
-	    false
-    end;
-verify_dh_params(_Version, Signed, Hash, HashAlgo, {?'id-dsa', PublicKey, PublicKeyParams}) ->
-    public_key:verify({digest, Hash}, HashAlgo, Signed, {PublicKey, PublicKeyParams}).
 
 dh_master_secret(Prime, Base, PublicDhKey, undefined, State) ->
     PMpint = mpint_binary(Prime),
