@@ -40,6 +40,8 @@ RELSYSDIR = $(RELEASE_PATH)/lib/test_server-$(VSN)
 # ----------------------------------------------------
 
 MODULES= test_server_ctrl \
+	 test_server_gl \
+	 test_server_io \
 	 test_server_node \
 	 test_server \
 	 test_server_sup \

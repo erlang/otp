@@ -172,7 +172,7 @@
 -export([kill_slavenodes/0]).
 
 %%% TEST_SERVER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([output/2, print/2, print/3, print/4, print_timestamp/2]).
+-export([print/2, print/3, print/4, print_timestamp/2]).
 -export([start_node/3, stop_node/1, wait_for_node/1, is_release_available/1]).
 -export([format/1, format/2, format/3, to_string/1]).
 -export([get_target_info/0]).
@@ -203,6 +203,7 @@
 -define(coverlog_name, "cover.html").
 -define(cross_coverlog_name, "cross_cover.html").
 -define(cover_total, "total_cover.log").
+-define(unexpected_io_log, "unexpected_io.log").
 -define(last_file, "last_name").
 -define(last_link, "last_link").
 -define(last_test, "last_test").
@@ -1370,24 +1371,22 @@ kill_all_jobs([]) ->
 
 spawn_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
 	     CreatePrivDir, TCCallback, ExtraTools) ->
-    spawn_link(
-      fun() -> init_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
+    spawn_link(fun() ->
+	      init_tester(Mod, Func, Args, Dir, Name, Levels, RejectIoReqs,
 			   CreatePrivDir, TCCallback, ExtraTools)
       end).
 
-init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
-	    CreatePrivDir, TCCallback, ExtraTools) ->
+init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
+	    RejectIoReqs, CreatePrivDir, TCCallback, ExtraTools) ->
     process_flag(trap_exit, true),
+    test_server_io:start_link(),
     put(test_server_name, Name),
     put(test_server_dir, Dir),
     put(test_server_total_time, 0),
     put(test_server_ok, 0),
     put(test_server_failed, 0),
     put(test_server_skipped, {0,0}),
-    put(test_server_summary_level, SumLev),
-    put(test_server_major_level, MajLev),
     put(test_server_minor_level, MinLev),
-    put(test_server_reject_io_reqs, RejectIoReqs),
     put(test_server_create_priv_dir, CreatePrivDir),
     put(test_server_random_seed, proplists:get_value(random_seed, ExtraTools)),
     put(test_server_testcase_callback, TCCallback),
@@ -1403,11 +1402,18 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
 		    put(test_server_framework_name, list_to_atom(FWName))
 	    end
     end,
+
     %% before first print, read and set logging options
     LogOpts = test_server_sup:framework_call(get_logopts, [], []),
     put(test_server_logopts, LogOpts),
-    put(test_server_log_nl, not lists:member(no_nl, LogOpts)),
+
     StartedExtraTools = start_extra_tools(ExtraTools),
+
+    test_server_io:set_job_name(Name),
+    test_server_io:set_gl_props([{levels,Levels},
+				 {auto_nl,not lists:member(no_nl, LogOpts)},
+				 {reject_io_reqs,RejectIoReqs}]),
+    group_leader(test_server_io:get_gl(true), self()),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
     set_io_buffering(undefined),
     catch stop_extra_tools(StartedExtraTools),
@@ -1439,7 +1445,8 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
 	  "<tr><td></td><td><b>TOTAL</b></td><td></td><td></td><td></td>"
 	  "<td>~.3fs</td><td><b>~s</b></td><td>~p Ok, ~p Failed~s of ~p</td></tr>\n"
 	  "</tfoot>\n",
-	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]).
+	  [Time,SuccessStr,OkN,FailedN,SkipStr,OkN+FailedN+SkippedN]),
+    test_server_io:stop().
 
 report_severe_error(Reason) ->
     test_server_sup:framework_call(report, [severe_error,Reason]).
@@ -1816,8 +1823,9 @@ do_test_cases(TopCases, SkipCases,
 	    print(html,
 		  "<p><ul>\n"
 		  "<li><a href=\"~s\">Full textual log</a></li>\n"
-		  "<li><a href=\"~s\">Coverage log</a></li>\n</ul></p>\n",
-		  [?suitelog_name,?coverlog_name]),
+		  "<li><a href=\"~s\">Coverage log</a></li>\n"
+		  "<li><a href=\"~s\">Unexpected I/O log</a></li>\n</ul></p>\n",
+		  [?suitelog_name,?coverlog_name,?unexpected_io_log]),
 	    print(html,
 		  "<p>~s</p>\n" ++
 		  xhtml("<table bgcolor=\"white\" border=\"3\" cellpadding=\"5\">",
@@ -1902,10 +1910,16 @@ start_log_file() ->
     put(test_server_log_dir_base,TestDir1),
     MajorName = filename:join(TestDir1, ?suitelog_name),
     HtmlName = MajorName ++ ?html_ext,
+    UnexpectedName = filename:join(TestDir1, ?unexpected_io_log),
     {ok,Major} = file:open(MajorName, [write]),
     {ok,Html}  = file:open(HtmlName,  [write]),
+    {ok,Unexpected}  = file:open(UnexpectedName,  [write]),
+    test_server_io:set_fd(major, Major),
+    test_server_io:set_fd(html, Html),
+    test_server_io:set_fd(unexpected_io, Unexpected),
     put(test_server_major_fd,Major),
     put(test_server_html_fd,Html),
+    put(test_server_unexpected_io, Unexpected),
 
     make_html_link(filename:absname(?last_test ++ ?html_ext),
 		   HtmlName, filename:basename(Dir)),
@@ -1958,13 +1972,14 @@ make_html_link(LinkName, Target, Explanation) ->
 %% Some header info will also be inserted into the log file.
 
 start_minor_log_file(Mod, Func) ->
+    MFA = {Mod,Func,1},
     LogDir = get(test_server_log_dir_base),
     Name0 = lists:flatten(io_lib:format("~s.~s~s", [Mod,Func,?html_ext])),
     Name = downcase(Name0),
     AbsName = filename:join(LogDir, Name),
     case file:read_file_info(AbsName) of
 	{error,_} ->                         %% normal case, unique name
-	    start_minor_log_file1(Mod, Func, LogDir, AbsName);
+	    start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA);
 	{ok,_} ->                            %% special case, duplicate names
 	    {_,S,Us} = now(),
 	    Name1_0 =
@@ -1973,14 +1988,15 @@ start_minor_log_file(Mod, Func) ->
 							     ?html_ext])),
 	    Name1 = downcase(Name1_0),
 	    AbsName1 = filename:join(LogDir, Name1),
-	    start_minor_log_file1(Mod, Func, LogDir, AbsName1)
+	    start_minor_log_file1(Mod, Func, LogDir, AbsName1, MFA)
     end.
 
-start_minor_log_file1(Mod, Func, LogDir, AbsName) ->
+start_minor_log_file1(Mod, Func, LogDir, AbsName, MFA) ->
     {ok,Fd} = file:open(AbsName, [write]),
     Lev = get(test_server_minor_level)+1000, %% far down in the minor levels
     put(test_server_minor_fd, Fd),
-    
+    test_server_gl:set_minor_fd(group_leader(), Fd, MFA),
+
     TestDescr = io_lib:format("Test ~p:~p result", [Mod,Func]),
     {Header,Footer} =
 	case test_server_sup:framework_call(get_html_wrapper, 
@@ -2028,6 +2044,7 @@ start_minor_log_file1(Mod, Func, LogDir, AbsName) ->
     AbsName.
 
 stop_minor_log_file() ->
+    test_server_gl:unset_minor_fd(group_leader()),
     Fd = get(test_server_minor_fd),
     Footer = get(test_server_minor_footer),
     io:fwrite(Fd, "</pre>\n" ++ Footer, []),
@@ -2448,27 +2465,38 @@ maybe_get_privdir() ->
 %% reason, the Mode argument specifies if a parallel group is currently
 %% being executed.
 %%
-%% A parallel test case process will always set the dictionary value
-%% 'test_server_common_io_handler' to the pid of the main (starting)
-%% process. With this value set, the print/3 function will send print
-%% messages to the main process instead of writing the data to file
-%% (only true for printouts to common log files).
+%% The low-level mechanism for buffering IO for the common log files
+%% is handled by the test_server_io module. Buffering is turned on by
+%% test_server_io:start_transaction/0 and off by calling
+%% test_server_io:end_transaction/0. The buffered data for the transaction
+%% can printed by calling test_server_io:print_buffered/1.
+%%
+%% This module is responsible for turning on IO buffering and to later
+%% test_server_io:print_buffered/1 to print the data. To help with this,
+%% two variables in the process dictionary are used:
+%% 'test_server_common_io_handler' and 'test_server_queued_io'. The values
+%% are set to as follwing:
+%%
+%%   Value	Meaning
+%%   -----     -------
+%%   undefined	No parallel test cases running
+%%   {tc,Pid}	Running test cases in a top-level parallel group
+%%   {Ref,Pid}	Running sequential test case inside a parallel group
+%%
+%% FIXME: The Pid is no longer used.
 %%
 %% If a conf group nested under a parallel group in the test
 %% specification should be started, the 'test_server_common_io_handler'
-%% value gets set also on the main process. This causes all printouts
-%% to common files - both from parallel test cases and from cases
-%% executed by the main process - to all end up as messages in the
-%% inbox of the main process.
+%% value gets set also on the main process.
 %%
 %% During execution of a parallel group (or of a group nested under a
 %% parallel group), *any* new test case being started gets registered
 %% in a list saved in the dictionary with 'test_server_queued_io' as key.
 %% When the top level parallel group is finished (only then can we be
 %% sure all parallel test cases have finished and "reported in"), the
-%% list of test cases is traversed in order and printout messages from
-%% each process - including the main process - are handled in turn. See
-%% handle_test_case_io_and_status/0 for details.
+%% list of test cases is traversed in order and test_server_io:print_buffered/1
+%% can be called for each test case. See handle_test_case_io_and_status/0
+%% for details.
 %%
 %% To be able to handle nested conf groups with different properties,
 %% the Mode argument specifies a list of {Ref,Properties} tuples.
@@ -3096,8 +3124,8 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
 	%% the test case is being executed in parallel with the main process (and
 	%% other test cases) and Pid is the dedicated process executing the case
 	Pid ->
-	    %% io from Pid will be buffered in the main process inbox and handled
-	    %% later, so we have to save info about the case
+	    %% io from Pid will be buffered by the test_server_io process and
+	    %% handled later, so we have to save info about the case
 	    queue_test_case_io(undefined, Pid, Num+1, Mod, Func),
 	    run_test_cases_loop(Cases, Config, TimetrapData, Mode, Status)
     end;
@@ -3352,7 +3380,9 @@ skip_case(Type, Ref, CaseNum, Case, Comment, SendSync, Mode) ->
     if SendSync ->
 	    queue_test_case_io(Ref, self(), CaseNum, Mod, Func),
 	    self() ! {started,Ref,self(),CaseNum,Mod,Func},
+	    test_server_io:start_transaction(),
 	    skip_case1(Type, CaseNum, Mod, Func, Comment, Mode),
+	    test_server_io:end_transaction(),
 	    self() ! {finished,Ref,self(),CaseNum,Mod,Func,skipped,{0,skipped,[]}};
        not SendSync ->
 	    skip_case1(Type, CaseNum, Mod, Func, Comment, Mode)
@@ -3493,8 +3523,7 @@ modify_cases_upto1(Ref, CopyOp, [C|T], Orig, Alt) ->
 %%
 %% Save info about current process (always the main process) buffering
 %% io printout messages from parallel test case processes (*and* possibly
-%% also the main process). If the value is the default 'undefined',
-%% io is not buffered but printed directly to file (see print/3).
+%% also the main process).
 
 set_io_buffering(IOHandler) ->
     put(test_server_common_io_handler, IOHandler).
@@ -3554,7 +3583,7 @@ wait_and_resend(Ref, [{_,CurrPid,CaseNum,Mod,Func}|Ps] = Cases, Ok,Skip,Fail) ->
     receive
 	{finished,_Ref,CurrPid,CaseNum,Mod,Func,Result,_RetVal} = Msg ->
 	    %% resend message to main process so that it can be used
-	    %% to handle buffered io messages later
+	    %% to test_server_io:print_buffered/1 later
 	    self() ! Msg,
 	    MF = {Mod,Func},
 	    {Ok1,Skip1,Fail1} =
@@ -3585,16 +3614,18 @@ rm_cases_upto(Ref, [_|Ps]) ->
 %%
 %% Each parallel test case process prints to its own minor log file during
 %% execution. The common log files (major, html etc) must however be
-%% written to sequentially. The test case processes send print requests
-%% to the main (starting) process (the same process executing
-%% run_test_cases_loop/4), which handles these requests in the same
-%% order that the test case processes were started.
+%% written to sequentially. This is handled by calling
+%% test_server_io:start_transaction/0 to tell the test_server_io process
+%% to buffer all print requests.
 %%
-%% An io session is always started with a {started,Ref,Pid,Num,Mod,Func}
-%% message and terminated with {finished,Ref,Pid,Num,Mod,Func,Result,RetVal}.
-%% The result shipped with the finished message from a parallel process
-%% is used to update status data of the current test run. An 'EXIT'
-%% message from each parallel test case process (after finishing and
+%% An io session is always started with a
+%% {started,Ref,Pid,Num,Mod,Func} message (and
+%% test_server_io:start_transaction/0 will be called) and terminated
+%% with {finished,Ref,Pid,Num,Mod,Func,Result,RetVal} (and
+%% test_server_io:end_transaction/0 will be called).  The result
+%% shipped with the finished message from a parallel process is used
+%% to update status data of the current test run. An 'EXIT' message
+%% from each parallel test case process (after finishing and
 %% terminating) is also received and handled here.
 %%
 %% During execution of a parallel group, any cases (conf or normal)
@@ -3603,13 +3634,13 @@ rm_cases_upto(Ref, [_|Ps]) ->
 %% correct sequence. This function handles also the print messages
 %% generated by nested group cases that have been executed sequentially
 %% by the main process (note that these cases do not generate 'EXIT'
-%% messages, only 'start', 'print' and 'finished' messages).
+%% messages, only 'start' and 'finished' messages).
 %%
 %% See the header comment for run_test_cases_loop/4 for more
 %% info about IO handling.
 %%
 %% Note: It is important that the type of messages handled here
-%% do not get consumated by test_server:run_test_case_msgloop/5
+%% do not get consumed by test_server:run_test_case_msgloop/5
 %% during the test case execution (e.g. in the catch clause of
 %% the receive)!
 
@@ -3636,7 +3667,7 @@ handle_test_case_io_and_status() ->
 
 %% Handle cases (without Ref) that belong to the top parallel group (i.e. when Refs = [])
 handle_io_and_exit_loop([], [{undefined,CurrPid,CaseNum,Mod,Func}|Ps] = Cases, Ok,Skip,Fail) ->
-    %% retreive the start message for the current io session (= testcase)
+    %% retrieve the start message for the current io session (= testcase)
     receive
 	{started,_,CurrPid,CaseNum,Mod,Func} ->
 	    {Ok1,Skip1,Fail1} =
@@ -3678,9 +3709,11 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
     receive
 	%% end of io session from test case executed by main process
 	{finished,_,Main,CaseNum,Mod,Func,Result,_RetVal} ->
+	    test_server_io:print_buffered(CurrPid),
 	    {Result,{Mod,Func}};
 	%% end of io session from test case executed by parallel process
 	{finished,_,CurrPid,CaseNum,Mod,Func,Result,RetVal} ->
+	    test_server_io:print_buffered(CurrPid),
 	    case Result of
 		ok ->
 		    put(test_server_ok, get(test_server_ok)+1);
@@ -3693,13 +3726,9 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
 	    end,
 	    {Result,{Mod,Func}};
 
-	%% print to common log file
-	{print,CurrPid,Detail,Msg} ->
-	    output({Detail,Msg}, internal),
-	    handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases);
-
 	%% unexpected termination of test case process
 	{'EXIT',TCPid,Reason} when Reason /= normal ->
+	    test_server_io:print_buffered(CurrPid),
 	    {value,{_,_,Num,M,F}} = lists:keysearch(TCPid, 2, Cases),
 	    print(1, "Error! Process for test case #~p (~p:~p) died! Reason: ~p",
 		  [Num, M, F, Reason]),
@@ -3765,11 +3794,15 @@ run_test_case(Ref, Num, Mod, Func, Args, RunInit, Where, TimetrapData, Mode) ->
 
 run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	       TimetrapData, Mode, Main) ->
+    group_leader(test_server_io:get_gl(Main == self()), self()),
+
     %% if io is being buffered, send start io session message
     %% (no matter if case runs on parallel or main process)
     case is_io_buffered() of
 	false -> ok;
-	true -> Main ! {started,Ref,self(),Num,Mod,Func}
+	true ->
+	    test_server_io:start_transaction(),
+	    Main ! {started,Ref,self(),Num,Mod,Func}
     end,
     TSDir = get(test_server_dir),
     case Where of
@@ -3778,6 +3811,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	host ->
 	    ok
     end,
+
     print(major, "=case          ~p:~p", [Mod, Func]),
     MinorName = start_minor_log_file(Mod, Func),
     print(minor, "<a name=\"top\"></a>", [], internal_raw),
@@ -3831,11 +3865,10 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 
     do_unless_parallel(Main, fun erlang:yield/0),
 
-    RejectIoReqs = get(test_server_reject_io_reqs),
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
 	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], get_name(Mode),
-			    RunInit, Where, TimetrapData, RejectIoReqs),
+			    RunInit, Where, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
 	case Result of
 	    Normal={_Time,_RetVal,_Loc,_Opts,_Comment} -> Normal;
@@ -3960,6 +3993,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	false ->
 	    ok;
 	true ->
+	    test_server_io:end_transaction(),
 	    Main ! {finished,Ref,self(),Num,Mod,Func,
 		    ?mod_result(Status),{Time,RetVal,Opts}}
     end,
@@ -4449,7 +4483,7 @@ do_format_exception(Reason={Error,Stack}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
-%%                     Where, TimetrapData, RejectIoReqs) ->
+%%                     Where, TimetrapData) ->
 %%  {{Time,RetVal,Loc,Opts,Comment},DetectedFail,ProcessesBefore,ProcessesAfter} |
 %%  {{died,Reason,unknown,Comment},DetectedFail,ProcessesBefore,ProcessesAfter}
 %% Name = atom()
@@ -4469,20 +4503,20 @@ do_format_exception(Reason={Error,Stack}) ->
 %% result back over the socket. Else test_server runs the case directly on host.
 
 run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, host,
-		    TimetrapData, RejectIoReqs) ->
+		    TimetrapData) ->
     test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
-				     TimetrapData,RejectIoReqs});
+				     TimetrapData});
 run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, target,
-		    TimetrapData, RejectIoReqs) ->
+		    TimetrapData) ->
     case get(test_server_ctrl_job_sock) of
 	undefined ->
 	    %% local target
 	    test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
-					     TimetrapData,RejectIoReqs});
+					     TimetrapData});
 	JobSock ->
 	    %% remote target
 	    request(JobSock, {test_case,{CaseNum,Mod,Func,Args,Name,RunInit,
-					 TimetrapData,RejectIoReqs}}),
+					 TimetrapData}}),
 	    read_job_sock_loop(JobSock)
     end.
 
@@ -4494,16 +4528,6 @@ run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, target,
 %%
 %% Just like io:format, except that depending on the Detail value, the output
 %% is directed to console, major and/or minor log files.
-%%
-%% To handle printouts to common (not minor) log files from parallel test
-%% case processes, the test_server_common_io_handler value is checked. If
-%% set, the data is sent to the main controlling process. Note that test
-%% cases that belong to a conf group nested under a parallel group will also
-%% get its io data sent to main rather than immediately printed out, even
-%% if the test cases are executed by the same, main, process (ie the main
-%% process sends messages to itself then).
-%%
-%% Buffered io is handled by the handle_test_case_io_and_status/0 function.
 
 print(Detail, Format) ->
     print(Detail, Format, []).
@@ -4516,19 +4540,7 @@ print(Detail, Format, Args, Printer) ->
     print_or_buffer(Detail, Msg, Printer).
 
 print_or_buffer(Detail, Msg, Printer) ->
-    case get(test_server_minor_level) of
-	_ when Detail == minor ->
-	    output({Detail,Msg}, Printer);
-	MinLevel when is_number(Detail), Detail >= MinLevel ->
-	    output({Detail,Msg}, Printer);
-	_ ->					% Detail < Minor | major | html
-	    case get(test_server_common_io_handler) of
-		undefined ->
-		    output({Detail,Msg}, Printer);
-		{_,MainPid} ->
-		    MainPid ! {print,self(),Detail,Msg}
-	    end
-    end.
+    test_server_gl:print(group_leader(), Detail, Msg, Printer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% print_timestamp(Detail, Leader) -> ok
@@ -4590,107 +4602,6 @@ format(Detail, Format, Args) ->
 	    Valid -> Valid
 	end,
     print_or_buffer(Detail, Str, self()).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% output({Level,Message}, Sender) -> ok
-%% Level = integer() | minor | major | html
-%% Message = string() | [integer()]
-%% Sender = string() | internal
-%%
-%% Outputs the message on the channels indicated by Level. If Level is an
-%% atom, only the corresponding channel receives the output. When Level is
-%% an integer console, major and/or minor log file will receive output
-%% depending on the user set thresholds (see get_levels/0, set_levels/3)
-%%
-%% When printing on the console, the message is prefixed with the test
-%% suite's name. In case a name is not set (yet), Sender is used.
-%%
-%% When not outputting to the console, and the Sender is 'internal',
-%% the message is prefixed with "=== ", so that it will be apparent that
-%% the message comes from the test server and not the test suite itself.
-
-output({Level,Msg}, Sender) when is_integer(Level) ->
-    SumLev = get(test_server_summary_level),
-    if  Level =< SumLev ->
-	    output_to_fd(stdout, Msg, Sender);
-	true ->
-	    ok
-    end,
-    MajLev = get(test_server_major_level),
-    if  Level =< MajLev ->
-	    output_to_fd(get(test_server_major_fd), Msg, Sender);
-	true ->
-	    ok
-    end,
-    MinLev = get(test_server_minor_level),
-    if  Level >= MinLev ->
-	    output_to_fd(get(test_server_minor_fd), Msg, Sender);
-	true ->
-	    ok
-    end;
-output({minor,Bytes}, Sender) when is_list(Bytes) ->
-    output_to_fd(get(test_server_minor_fd), Bytes, Sender);
-output({major,Bytes}, Sender) when is_list(Bytes) ->
-    output_to_fd(get(test_server_major_fd), Bytes, Sender);
-output({minor,Bytes}, Sender) when is_binary(Bytes) ->
-    output_to_fd(get(test_server_minor_fd),binary_to_list(Bytes), Sender);
-output({major,Bytes}, Sender) when is_binary(Bytes) ->
-    output_to_fd(get(test_server_major_fd),binary_to_list(Bytes), Sender);
-output({html,Msg}, _Sender) ->
-    case get(test_server_html_fd) of
-	undefined ->
-	    ok;
-	Fd ->
-	    io:put_chars(Fd,Msg),
-	    case file:position(Fd, {cur, 0}) of
-		{ok, Pos} ->
-		    %% We are writing to a seekable file.  Finalise so
-		    %% we get complete valid (and viewable) HTML code.
-		    %% Then rewind to overwrite the finalising code.
-		    io:put_chars(Fd, "\n</table>\n"),
-		    case get(test_server_html_footer) of
-			undefined ->
-			    io:put_chars(Fd, "</body>\n</html>\n");
-			Footer ->
-			    io:put_chars(Fd, Footer)
-		    end,
-		    file:position(Fd, Pos);
-		{error, epipe} ->
-		    %% The file is not seekable.  We cannot erase what
-		    %% we've already written --- so the reader will
-		    %% have to wait until we're done.
-		    ok
-	    end
-    end;
-output({minor,Data}, Sender) ->
-    output_to_fd(get(test_server_minor_fd),
-		 lists:flatten(io_lib:format(
-				 "Unexpected output: ~p~n", [Data])),Sender);
-output({major,Data}, Sender) ->
-    output_to_fd(get(test_server_major_fd),
-		 lists:flatten(io_lib:format(
-				 "Unexpected output: ~p~n", [Data])),Sender).
-
-output_to_fd(stdout, Msg, Sender) ->
-    Name =
-	case get(test_server_name) of
-	    undefined -> Sender;
-	    Other -> Other
-	end,
-    io:format("Testing ~s: ~s\n", [Name, lists:flatten(Msg)]);
-output_to_fd(undefined, _Msg, _Sender) ->
-    ok;
-output_to_fd(Fd, Msg=[$=|_], internal) ->
-    io:put_chars(Fd, [Msg,"\n"]);
-
-output_to_fd(Fd, Msg, internal) ->
-    io:put_chars(Fd, [$=,$=,$=,$ , Msg, "\n"]);
-
-output_to_fd(Fd, Msg, _Sender) ->
-    case get(test_server_log_nl) of
-	false -> io:put_chars(Fd, Msg);
-	_     -> io:put_chars(Fd, [Msg,"\n"])
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% xhtml(BasicHtml, XHtml) -> BasicHtml | XHtml
