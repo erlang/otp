@@ -251,6 +251,7 @@ expected_events(config_static_SUITE)->
      ?sok(test_alias_tclocal_nested,{14,0,{2,1}}),
      ?sok(test_alias_tclocal_nested_backward_compat,{15,0,{2,1}}),
      ?sok(test_alias_tclocal_nested_backward_compat_subvals,{16,0,{2,1}}),
+     ?sok(test_config_same_name_already_in_use,{17,0,{2,1}}),
      {?eh,tc_start,{config_static_SUITE,end_per_suite}},
      {?eh,tc_done,{config_static_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
