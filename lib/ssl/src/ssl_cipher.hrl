@@ -250,4 +250,80 @@
 %% hello extension data as they should.
 -define(TLS_EMPTY_RENEGOTIATION_INFO_SCSV, <<?BYTE(16#00), ?BYTE(16#FF)>>).
 
+%%% PSK Cipher Suites RFC 4279
+
+%%      TLS_PSK_WITH_RC4_128_SHA              = { 0x00, 0x8A };
+-define(TLS_PSK_WITH_RC4_128_SHA, <<?BYTE(16#00), ?BYTE(16#8A)>>).
+
+%%      TLS_PSK_WITH_3DES_EDE_CBC_SHA         = { 0x00, 0x8B };
+-define(TLS_PSK_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#8B)>>).
+
+%%      TLS_PSK_WITH_AES_128_CBC_SHA          = { 0x00, 0x8C };
+-define(TLS_PSK_WITH_AES_128_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#8C)>>).
+
+%%      TLS_PSK_WITH_AES_256_CBC_SHA          = { 0x00, 0x8D };
+-define(TLS_PSK_WITH_AES_256_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#8D)>>).
+
+%%      TLS_DHE_PSK_WITH_RC4_128_SHA          = { 0x00, 0x8E };
+-define(TLS_DHE_PSK_WITH_RC4_128_SHA, <<?BYTE(16#00), ?BYTE(16#8E)>>).
+
+%%      TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA     = { 0x00, 0x8F };
+-define(TLS_DHE_PSK_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#8F)>>).
+
+%%      TLS_DHE_PSK_WITH_AES_128_CBC_SHA      = { 0x00, 0x90 };
+-define(TLS_DHE_PSK_WITH_AES_128_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#90)>>).
+
+%%      TLS_DHE_PSK_WITH_AES_256_CBC_SHA      = { 0x00, 0x91 };
+-define(TLS_DHE_PSK_WITH_AES_256_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#91)>>).
+
+%%      TLS_RSA_PSK_WITH_RC4_128_SHA          = { 0x00, 0x92 };
+-define(TLS_RSA_PSK_WITH_RC4_128_SHA, <<?BYTE(16#00), ?BYTE(16#92)>>).
+
+%%      TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA     = { 0x00, 0x93 };
+-define(TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#93)>>).
+
+%%      TLS_RSA_PSK_WITH_AES_128_CBC_SHA      = { 0x00, 0x94 };
+-define(TLS_RSA_PSK_WITH_AES_128_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#94)>>).
+
+%%      TLS_RSA_PSK_WITH_AES_256_CBC_SHA      = { 0x00, 0x95 };
+-define(TLS_RSA_PSK_WITH_AES_256_CBC_SHA, <<?BYTE(16#00), ?BYTE(16#95)>>).
+
+%%% TLS 1.2 PSK Cipher Suites RFC 5487
+
+%%      TLS_PSK_WITH_AES_128_CBC_SHA256       = {0x00,0xAE};
+-define(TLS_PSK_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#AE)>>).
+
+%%      TLS_PSK_WITH_AES_256_CBC_SHA384       = {0x00,0xAF};
+-define(TLS_PSK_WITH_AES_256_CBC_SHA384, <<?BYTE(16#00), ?BYTE(16#AF)>>).
+
+%%      TLS_PSK_WITH_NULL_SHA256              = {0x00,0xB0};
+-define(TLS_PSK_WITH_NULL_SHA256, <<?BYTE(16#00), ?BYTE(16#B0)>>).
+
+%%      TLS_PSK_WITH_NULL_SHA384              = {0x00,0xB1};
+-define(TLS_PSK_WITH_NULL_SHA384, <<?BYTE(16#00), ?BYTE(16#B1)>>).
+
+%%      TLS_DHE_PSK_WITH_AES_128_CBC_SHA256   = {0x00,0xB2};
+-define(TLS_DHE_PSK_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#B2)>>).
+
+%%      TLS_DHE_PSK_WITH_AES_256_CBC_SHA384   = {0x00,0xB3};
+-define(TLS_DHE_PSK_WITH_AES_256_CBC_SHA384, <<?BYTE(16#00), ?BYTE(16#B3)>>).
+
+%%      TLS_DHE_PSK_WITH_NULL_SHA256          = {0x00,0xB4};
+-define(TLS_DHE_PSK_WITH_NULL_SHA256, <<?BYTE(16#00), ?BYTE(16#B4)>>).
+
+%%      TLS_DHE_PSK_WITH_NULL_SHA384          = {0x00,0xB5};
+-define(TLS_DHE_PSK_WITH_NULL_SHA384, <<?BYTE(16#00), ?BYTE(16#B5)>>).
+
+%%      TLS_RSA_PSK_WITH_AES_128_CBC_SHA256   = {0x00,0xB6};
+-define(TLS_RSA_PSK_WITH_AES_128_CBC_SHA256, <<?BYTE(16#00), ?BYTE(16#B6)>>).
+
+%%      TLS_RSA_PSK_WITH_AES_256_CBC_SHA384   = {0x00,0xB7};
+-define(TLS_RSA_PSK_WITH_AES_256_CBC_SHA384, <<?BYTE(16#00), ?BYTE(16#B7)>>).
+
+%%      TLS_RSA_PSK_WITH_NULL_SHA256          = {0x00,0xB8};
+-define(TLS_RSA_PSK_WITH_NULL_SHA256, <<?BYTE(16#00), ?BYTE(16#B8)>>).
+
+%%      TLS_RSA_PSK_WITH_NULL_SHA384          = {0x00,0xB9};
+-define(TLS_RSA_PSK_WITH_NULL_SHA384, <<?BYTE(16#00), ?BYTE(16#B9)>>).
+
 -endif. % -ifdef(ssl_cipher).

@@ -375,6 +375,8 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
+		   {psk, binary()} |
+		   {dhe_psk, binary(), binary()},
 		   binary(), binary(), private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 %%
@@ -391,6 +393,27 @@ key_exchange(client, _Version, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
 		dh_public = PublicKey}
 	       };
 
+key_exchange(client, _Version, {psk, Identity}) ->
+    #client_key_exchange{
+	      exchange_keys = #client_psk_identity{
+		identity = Identity}
+	       };
+
+key_exchange(client, _Version, {dhe_psk, Identity, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
+    #client_key_exchange{
+	      exchange_keys = #client_dhe_psk_identity{
+		identity = Identity,
+		dh_public = PublicKey}
+	       };
+
+key_exchange(client, _Version, {psk_premaster_secret, PskIdentity, Secret, {_, PublicKey, _}}) ->
+    EncPremasterSecret =
+	encrypted_premaster_secret(Secret, PublicKey),
+    #client_key_exchange{
+		exchange_keys = #client_rsa_psk_identity{
+		  identity = PskIdentity,
+		  exchange_keys = EncPremasterSecret}};
+
 key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 		      #'DHParameter'{prime = P, base = G},
 		      HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
@@ -399,6 +422,25 @@ key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
     ServerDHParams = #server_dh_params{dh_p = PBin, 
 				       dh_g = GBin, dh_y = PublicKey},    
     enc_server_key_exchange(Version, ServerDHParams, HashSign,
+			    ClientRandom, ServerRandom, PrivateKey);
+
+key_exchange(server, Version, {psk, PskIdentityHint,
+			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
+    ServerPSKParams = #server_psk_params{hint = PskIdentityHint},
+    enc_server_key_exchange(Version, ServerPSKParams, HashSign,
+			    ClientRandom, ServerRandom, PrivateKey);
+
+key_exchange(server, Version, {dhe_psk, PskIdentityHint, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
+			       #'DHParameter'{prime = P, base = G},
+			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
+    <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
+    <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
+    ServerEDHPSKParams = #server_dhe_psk_params{
+      hint = PskIdentityHint,
+      dh_params = #server_dh_params{dh_p = PBin,
+				    dh_g = GBin, dh_y = PublicKey}
+     },
+    enc_server_key_exchange(Version, ServerEDHPSKParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey).
 
 enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
@@ -528,7 +570,11 @@ get_tls_handshake(Version, Data, Buffer) ->
 
 %%--------------------------------------------------------------------
 -spec decode_client_key(binary(), key_algo(), tls_version()) ->
-			    #encrypted_premaster_secret{} | #client_diffie_hellman_public{}.
+			    #encrypted_premaster_secret{}
+			    | #client_diffie_hellman_public{}
+			    | #client_psk_identity{}
+			    | #client_dhe_psk_identity{}
+			    | #client_rsa_psk_identity{}.
 %%
 %% Description: Decode client_key data and return appropriate type
 %%--------------------------------------------------------------------
@@ -1036,7 +1082,20 @@ dec_client_key(<<>>, ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
     throw(?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE));
 dec_client_key(<<?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
 	       ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
-    #client_diffie_hellman_public{dh_public = DH_Y}.
+    #client_diffie_hellman_public{dh_public = DH_Y};
+dec_client_key(<<?UINT16(Len), Id:Len/binary>>,
+	       ?KEY_EXCHANGE_PSK, _) ->
+    #client_psk_identity{identity = Id};
+dec_client_key(<<?UINT16(Len), Id:Len/binary,
+		 ?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
+	       ?KEY_EXCHANGE_DHE_PSK, _) ->
+    #client_dhe_psk_identity{identity = Id, dh_public = DH_Y};
+dec_client_key(<<?UINT16(Len), Id:Len/binary, PKEPMS/binary>>,
+	       ?KEY_EXCHANGE_RSA_PSK, {3, 0}) ->
+    #client_rsa_psk_identity{identity = Id, exchange_keys = #encrypted_premaster_secret{premaster_secret = PKEPMS}};
+dec_client_key(<<?UINT16(Len), Id:Len/binary, ?UINT16(_), PKEPMS/binary>>,
+	       ?KEY_EXCHANGE_RSA_PSK, _) ->
+    #client_rsa_psk_identity{identity = Id, exchange_keys = #encrypted_premaster_secret{premaster_secret = PKEPMS}}.
 
 dec_ske_params(Len, Keys, Version) ->
     <<Params:Len/bytes, Signature/binary>> = Keys,
@@ -1067,6 +1126,30 @@ dec_server_key(<<?UINT16(PLen), P:PLen/binary,
 	       ?KEY_EXCHANGE_DIFFIE_HELLMAN, Version) ->
     Params = #server_dh_params{dh_p = P, dh_g = G, dh_y = Y},
     {BinMsg, HashSign, Signature} = dec_ske_params(PLen + GLen + YLen + 6, KeyStruct, Version),
+    #server_key_params{params = Params,
+		       params_bin = BinMsg,
+		       hashsign = HashSign,
+		       signature = Signature};
+dec_server_key(<<?UINT16(Len), PskIdentityHint:Len/binary>> = KeyStruct,
+	       KeyExchange, Version)
+  when KeyExchange == ?KEY_EXCHANGE_PSK; KeyExchange == ?KEY_EXCHANGE_RSA_PSK ->
+    Params = #server_psk_params{
+      hint = PskIdentityHint},
+    {BinMsg, HashSign, Signature} = dec_ske_params(Len + 2, KeyStruct, Version),
+    #server_key_params{params = Params,
+		       params_bin = BinMsg,
+		       hashsign = HashSign,
+		       signature = Signature};
+dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
+		 ?UINT16(PLen), P:PLen/binary,
+		 ?UINT16(GLen), G:GLen/binary,
+		 ?UINT16(YLen), Y:YLen/binary, _/binary>> = KeyStruct,
+	       ?KEY_EXCHANGE_DHE_PSK, Version) ->
+    DHParams = #server_dh_params{dh_p = P, dh_g = G, dh_y = Y},
+    Params = #server_dhe_psk_params{
+      hint = IdentityHint,
+      dh_params = DHParams},
+    {BinMsg, HashSign, Signature} = dec_ske_params(Len + PLen + GLen + YLen + 8, KeyStruct, Version),
     #server_key_params{params = Params,
 		       params_bin = BinMsg,
 		       hashsign = HashSign,
@@ -1238,13 +1321,46 @@ enc_cke(#encrypted_premaster_secret{premaster_secret = PKEPMS}, _) ->
     <<?UINT16(PKEPMSLen), PKEPMS/binary>>;
 enc_cke(#client_diffie_hellman_public{dh_public = DHPublic}, _) ->
     Len = byte_size(DHPublic),
-    <<?UINT16(Len), DHPublic/binary>>.
+    <<?UINT16(Len), DHPublic/binary>>;
+enc_cke(#client_psk_identity{identity = undefined}, _) ->
+    Id = <<"psk_identity">>,
+    Len = byte_size(Id),
+    <<?UINT16(Len), Id/binary>>;
+enc_cke(#client_psk_identity{identity = Id}, _) ->
+    Len = byte_size(Id),
+    <<?UINT16(Len), Id/binary>>;
+enc_cke(Identity = #client_dhe_psk_identity{identity = undefined}, Version) ->
+    enc_cke(Identity#client_dhe_psk_identity{identity = <<"psk_identity">>}, Version);
+enc_cke(#client_dhe_psk_identity{identity = Id, dh_public = DHPublic}, _) ->
+    Len = byte_size(Id),
+    DHLen = byte_size(DHPublic),
+    <<?UINT16(Len), Id/binary, ?UINT16(DHLen), DHPublic/binary>>;
+enc_cke(Identity = #client_rsa_psk_identity{identity = undefined}, Version) ->
+    enc_cke(Identity#client_rsa_psk_identity{identity = <<"psk_identity">>}, Version);
+enc_cke(#client_rsa_psk_identity{identity = Id, exchange_keys = ExchangeKeys}, Version) ->
+    EncPMS = enc_cke(ExchangeKeys, Version),
+    Len = byte_size(Id),
+    <<?UINT16(Len), Id/binary, EncPMS/binary>>.
 
 enc_server_key(#server_dh_params{dh_p = P, dh_g = G, dh_y = Y}) ->
     PLen = byte_size(P),
     GLen = byte_size(G),
     YLen = byte_size(Y),
-    <<?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>.
+    <<?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>;
+enc_server_key(#server_psk_params{hint = PskIdentityHint}) ->
+    Len = byte_size(PskIdentityHint),
+    <<?UINT16(Len), PskIdentityHint/binary>>;
+enc_server_key(Params = #server_dhe_psk_params{hint = undefined}) ->
+    enc_server_key(Params#server_dhe_psk_params{hint = <<>>});
+enc_server_key(#server_dhe_psk_params{
+		  hint = PskIdentityHint,
+		  dh_params = #server_dh_params{dh_p = P, dh_g = G, dh_y = Y}}) ->
+    Len = byte_size(PskIdentityHint),
+    PLen = byte_size(P),
+    GLen = byte_size(G),
+    YLen = byte_size(Y),
+    <<?UINT16(Len), PskIdentityHint/binary,
+      ?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>.
 
 enc_sign({_, anon}, _Sign, _Version) ->
     <<>>;
@@ -1402,6 +1518,12 @@ key_exchange_alg(rsa) ->
 key_exchange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
 			    Alg == dh_dss; Alg == dh_rsa; Alg == dh_anon ->
     ?KEY_EXCHANGE_DIFFIE_HELLMAN;
+key_exchange_alg(psk) ->
+    ?KEY_EXCHANGE_PSK;
+key_exchange_alg(dhe_psk) ->
+    ?KEY_EXCHANGE_DHE_PSK;
+key_exchange_alg(rsa_psk) ->
+    ?KEY_EXCHANGE_RSA_PSK;
 key_exchange_alg(_) ->
     ?NULL.
 

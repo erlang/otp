@@ -60,6 +60,7 @@
 %%       internal_error(80),
 %%       user_canceled(90),
 %%       no_renegotiation(100),
+%%       unknown_psk_identity(115),
 %%           (255)
 %%       } AlertDescription;
 
@@ -87,6 +88,7 @@
 -define(INTERNAL_ERROR, 80).
 -define(USER_CANCELED, 90).
 -define(NO_RENEGOTIATION, 100).
+-define(UNKNOWN_PSK_IDENTITY, 115).
 
 -define(ALERT_REC(Level,Desc), #alert{level=Level,description=Desc,where={?FILE, ?LINE}}).
 
