@@ -110,12 +110,13 @@ all() ->
      {group, rsa_pass_key},
      {group, internal_error},
      daemon_already_started,
-     server_password_option, server_userpassword_option,
+     server_password_option,
+     server_userpassword_option,
      close].
 
 groups() -> 
-    [{dsa_key, [], [exec, exec_compressed, shell, known_hosts]},
-     {rsa_key, [], [exec, exec_compressed, shell, known_hosts]},     
+    [{dsa_key, [], [send, exec, exec_compressed, shell, known_hosts]},
+     {rsa_key, [], [send, exec, exec_compressed, shell, known_hosts]},
      {dsa_pass_key, [], [pass_phrase]},
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]}
@@ -530,6 +531,31 @@ internal_error(Config) when is_list(Config) ->
 				 {user_dir, UserDir},
 				 {user_interaction, false}]),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+send(doc) ->
+    ["Test ssh_connection:send/3"];
+
+send(suite) ->
+    [];
+
+send(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}]),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ok = ssh_connection:send(ConnectionRef, ChannelId, <<"Data">>),
+    ok = ssh_connection:send(ConnectionRef, ChannelId, << >>),
+    ssh:stop_daemon(Pid).
+
 
 %%--------------------------------------------------------------------
 close(doc) ->
