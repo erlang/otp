@@ -34,7 +34,7 @@
 
 -export([security_parameters/3, suite_definition/1,
 	 decipher/5, cipher/5,
-	 suite/1, suites/1, anonymous_suites/0, psk_suites/1,
+	 suite/1, suites/1, anonymous_suites/0, psk_suites/1, srp_suites/0,
 	 openssl_suite/1, openssl_suite_name/1, filter/2,
 	 hash_algorithm/1, sign_algorithm/1]).
 
@@ -248,6 +248,23 @@ psk_suites(_) ->
 	 ?TLS_PSK_WITH_RC4_128_SHA].
 
 %%--------------------------------------------------------------------
+-spec srp_suites() -> [cipher_suite()].
+%%
+%% Description: Returns a list of the SRP cipher suites, only supported
+%% if explicitly set by user.
+%%--------------------------------------------------------------------
+srp_suites() ->
+    [?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_SRP_SHA_WITH_AES_128_CBC_SHA,
+     ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA,
+     ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA,
+     ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA,
+     ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA,
+     ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA].
+
+%%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> int_cipher_suite().
 %%
 %% Description: Return erlang cipher suite definition.
@@ -385,7 +402,29 @@ suite_definition(?TLS_DHE_PSK_WITH_NULL_SHA384) ->
 suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA256) ->
     {rsa_psk, null, sha256, default_prf};
 suite_definition(?TLS_RSA_PSK_WITH_NULL_SHA384) ->
-    {rsa_psk, null, sha384, default_prf}.
+    {rsa_psk, null, sha384, default_prf};
+
+%%% SRP Cipher Suites RFC 5054
+
+suite_definition(?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA) ->
+    {srp_anon, '3des_ede_cbc', sha, default_prf};
+suite_definition(?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA) ->
+    {srp_rsa, '3des_ede_cbc', sha, default_prf};
+suite_definition(?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA) ->
+    {srp_dss, '3des_ede_cbc', sha, default_prf};
+suite_definition(?TLS_SRP_SHA_WITH_AES_128_CBC_SHA) ->
+    {srp_anon, aes_128_cbc, sha, default_prf};
+suite_definition(?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA) ->
+    {srp_rsa, aes_128_cbc, sha, default_prf};
+suite_definition(?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA) ->
+    {srp_dss, aes_128_cbc, sha, default_prf};
+suite_definition(?TLS_SRP_SHA_WITH_AES_256_CBC_SHA) ->
+    {srp_anon, aes_256_cbc, sha, default_prf};
+suite_definition(?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA) ->
+    {srp_rsa, aes_256_cbc, sha, default_prf};
+suite_definition(?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA) ->
+    {srp_dss, aes_256_cbc, sha, default_prf}.
+
 
 %%--------------------------------------------------------------------
 -spec suite(erl_cipher_suite()) -> cipher_suite().
@@ -513,7 +552,28 @@ suite({dhe_psk, null, sha384}) ->
 suite({rsa_psk, null, sha256}) ->
     ?TLS_RSA_PSK_WITH_NULL_SHA256;
 suite({rsa_psk, null, sha384}) ->
-    ?TLS_RSA_PSK_WITH_NULL_SHA384.
+    ?TLS_RSA_PSK_WITH_NULL_SHA384;
+
+%%% SRP Cipher Suites RFC 5054
+
+suite({srp_anon, '3des_ede_cbc', sha}) ->
+    ?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA;
+suite({srp_rsa, '3des_ede_cbc', sha}) ->
+    ?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA;
+suite({srp_dss, '3des_ede_cbc', sha}) ->
+    ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA;
+suite({srp_anon, aes_128_cbc, sha}) ->
+    ?TLS_SRP_SHA_WITH_AES_128_CBC_SHA;
+suite({srp_rsa, aes_128_cbc, sha}) ->
+    ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA;
+suite({srp_dss, aes_128_cbc, sha}) ->
+    ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA;
+suite({srp_anon, aes_256_cbc, sha}) ->
+    ?TLS_SRP_SHA_WITH_AES_256_CBC_SHA;
+suite({srp_rsa, aes_256_cbc, sha}) ->
+    ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA;
+suite({srp_dss, aes_256_cbc, sha}) ->
+    ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA.
 
 %%--------------------------------------------------------------------
 -spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
@@ -558,7 +618,24 @@ openssl_suite("RC4-MD5") ->
 openssl_suite("EDH-RSA-DES-CBC-SHA") ->
     ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
 openssl_suite("DES-CBC-SHA") ->
-    ?TLS_RSA_WITH_DES_CBC_SHA.
+    ?TLS_RSA_WITH_DES_CBC_SHA;
+
+%%% SRP Cipher Suites RFC 5054
+
+openssl_suite("SRP-DSS-AES-256-CBC-SHA") ->
+    ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA;
+openssl_suite("SRP-RSA-AES-256-CBC-SHA") ->
+    ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA;
+openssl_suite("SRP-DSS-3DES-EDE-CBC-SHA") ->
+    ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA;
+openssl_suite("SRP-RSA-3DES-EDE-CBC-SHA") ->
+    ?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA;
+openssl_suite("SRP-DSS-AES-128-CBC-SHA") ->
+    ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA;
+openssl_suite("SRP-RSA-AES-128-CBC-SHA") ->
+    ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA.
+
+
 %%--------------------------------------------------------------------
 -spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite().
 %%
@@ -623,6 +700,21 @@ openssl_suite_name(?TLS_PSK_WITH_AES_128_CBC_SHA) ->
     "PSK-AES128-CBC-SHA";
 openssl_suite_name(?TLS_PSK_WITH_RC4_128_SHA) ->
     "PSK-RC4-SHA";
+
+%%% SRP Cipher Suites RFC 5054
+
+openssl_suite_name(?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA) ->
+    "SRP-RSA-3DES-EDE-CBC-SHA";
+openssl_suite_name(?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA) ->
+    "SRP-DSS-3DES-EDE-CBC-SHA";
+openssl_suite_name(?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA) ->
+    "SRP-RSA-AES-128-CBC-SHA";
+openssl_suite_name(?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA) ->
+    "SRP-DSS-AES-128-CBC-SHA";
+openssl_suite_name(?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA) ->
+    "SRP-RSA-AES-256-CBC-SHA";
+openssl_suite_name(?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA) ->
+    "SRP-DSS-AES-256-CBC-SHA";
 
 %% No oppenssl name
 openssl_suite_name(Cipher) ->
@@ -858,7 +950,7 @@ next_iv(Bin, IV) ->
 
 rsa_signed_suites() ->
     dhe_rsa_suites() ++ rsa_suites() ++
-	psk_rsa_suites().
+	psk_rsa_suites() ++ srp_rsa_suites().
 
 dhe_rsa_suites() ->
     [?TLS_DHE_RSA_WITH_AES_256_CBC_SHA256,
@@ -876,6 +968,11 @@ psk_rsa_suites() ->
      ?TLS_RSA_PSK_WITH_3DES_EDE_CBC_SHA,
      ?TLS_RSA_PSK_WITH_RC4_128_SHA].
 
+srp_rsa_suites() ->
+    [?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_SRP_SHA_RSA_WITH_AES_128_CBC_SHA,
+     ?TLS_SRP_SHA_RSA_WITH_AES_256_CBC_SHA].
+
 rsa_suites() ->
     [?TLS_RSA_WITH_AES_256_CBC_SHA256,
      ?TLS_RSA_WITH_AES_256_CBC_SHA,
@@ -887,7 +984,7 @@ rsa_suites() ->
      ?TLS_RSA_WITH_DES_CBC_SHA].
     
 dsa_signed_suites() ->
-    dhe_dss_suites().
+    dhe_dss_suites() ++ srp_dss_suites().
 
 dhe_dss_suites()  ->
     [?TLS_DHE_DSS_WITH_AES_256_CBC_SHA256,
@@ -896,6 +993,11 @@ dhe_dss_suites()  ->
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA256,
      ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
      ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA].
+
+srp_dss_suites() ->
+    [?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_SRP_SHA_DSS_WITH_AES_128_CBC_SHA,
+     ?TLS_SRP_SHA_DSS_WITH_AES_256_CBC_SHA].
 
 filter_rsa(OtpCert, RsaCiphers) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 

@@ -28,6 +28,7 @@
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_srp.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -export([master_secret/4, client_hello/8, server_hello/5, hello/4,
@@ -69,6 +70,7 @@ client_hello(Host, Port, ConnectionStates,
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
     Ciphers = available_suites(UserSuites, Version),
+    SRP = srp_user(SslOpts),
 
     Id = ssl_session:client_id({Host, Port, SslOpts}, Cache, CacheCb, OwnCert),
 
@@ -80,6 +82,7 @@ client_hello(Host, Port, ConnectionStates,
 
 		  renegotiation_info =
 		      renegotiation_info(client, ConnectionStates, Renegotiation),
+		  srp = SRP,
 		  hash_signs = default_hash_signs(),
 		  next_protocol_negotiation =
 		      encode_client_protocol_negotiation(SslOpts#ssl_options.next_protocol_selector, Renegotiation)
@@ -165,7 +168,8 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 			       
 hello(#client_hello{client_version = ClientVersion, random = Random,
 		    cipher_suites = CipherSuites,
-		    renegotiation_info = Info} = Hello,
+		    renegotiation_info = Info,
+		    srp = SRP} = Hello,
       #ssl_options{versions = Versions,
 		   secure_renegotiate = SecureRenegotation} = SslOpts,
       {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
@@ -174,13 +178,14 @@ hello(#client_hello{client_version = ClientVersion, random = Random,
     case ssl_record:is_acceptable_version(Version) of
 	true ->
 	    {Type, #session{cipher_suite = CipherSuite,
-			    compression_method = Compression} = Session} 
+			    compression_method = Compression} = Session1}
 		= select_session(Hello, Port, Session0, Version, 
 				 SslOpts, Cache, CacheCb, Cert),
 	    case CipherSuite of 
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
 		_ ->
+		    Session = handle_srp_info(SRP, Session1),
 		    case handle_renegotiation_info(server, Info, ConnectionStates0,
 						   Renegotiation, SecureRenegotation, 
 						   CipherSuites) of
@@ -375,8 +380,10 @@ certificate_request(ConnectionStates, CertDbHandle, CertDbRef) ->
 		   {premaster_secret, binary(), public_key_info()} |
 		   {dh, binary()} |
 		   {dh, {binary(), binary()}, #'DHParameter'{}, {HashAlgo::atom(), SignAlgo::atom()},
+		   binary(), binary(), private_key()} |
 		   {psk, binary()} |
-		   {dhe_psk, binary(), binary()},
+		   {dhe_psk, binary(), binary()} |
+		   {srp, {binary(), binary()}, #srp_user{}, {HashAlgo::atom(), SignAlgo::atom()},
 		   binary(), binary(), private_key()}) ->
     #client_key_exchange{} | #server_key_exchange{}.
 %%
@@ -414,6 +421,12 @@ key_exchange(client, _Version, {psk_premaster_secret, PskIdentity, Secret, {_, P
 		  identity = PskIdentity,
 		  exchange_keys = EncPremasterSecret}};
 
+key_exchange(client, _Version, {srp, PublicKey}) ->
+    #client_key_exchange{
+	      exchange_keys = #client_srp_public{
+		srp_a = PublicKey}
+	       };
+
 key_exchange(server, Version, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 		      #'DHParameter'{prime = P, base = G},
 		      HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
@@ -440,7 +453,16 @@ key_exchange(server, Version, {dhe_psk, PskIdentityHint, {<<?UINT32(Len), Public
       dh_params = #server_dh_params{dh_p = PBin,
 				    dh_g = GBin, dh_y = PublicKey}
      },
-    enc_server_key_exchange(Version, ServerEDHPSKParams, HashSign,
+    enc_server_key_exchange(Version, ServerEDHPSKParams,
+			    HashSign, ClientRandom, ServerRandom, PrivateKey);
+
+key_exchange(server, Version, {srp, {PublicKey, _},
+			       #srp_user{generator = Generator, prime = Prime,
+					 salt = Salt},
+			       HashSign, ClientRandom, ServerRandom, PrivateKey}) ->
+    ServerSRPParams = #server_srp_params{srp_n = Prime, srp_g = Generator,
+					 srp_s = Salt, srp_b = PublicKey},
+    enc_server_key_exchange(Version, ServerSRPParams, HashSign,
 			    ClientRandom, ServerRandom, PrivateKey).
 
 enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
@@ -574,7 +596,8 @@ get_tls_handshake(Version, Data, Buffer) ->
 			    | #client_diffie_hellman_public{}
 			    | #client_psk_identity{}
 			    | #client_dhe_psk_identity{}
-			    | #client_rsa_psk_identity{}.
+			    | #client_rsa_psk_identity{}
+			    | #client_srp_public{}.
 %%
 %% Description: Decode client_key data and return appropriate type
 %%--------------------------------------------------------------------
@@ -726,6 +749,11 @@ cipher_suites(Suites, false) ->
 cipher_suites(Suites, true) ->
     Suites.
 
+srp_user(#ssl_options{srp_identity = {UserName, _}}) ->
+    #srp{username = UserName};
+srp_user(_) ->
+    undefined.
+
 renegotiation_info(client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
 renegotiation_info(server, ConnectionStates, false) ->
@@ -807,6 +835,11 @@ select_next_protocol(Protocols, NextProtocolSelector) ->
 	Protocol when is_binary(Protocol)  ->
 	    Protocol
     end.
+
+handle_srp_info(undefined, Session) ->
+    Session;
+handle_srp_info(#srp{username = Username}, Session) ->
+    Session#session{srp_username = Username}.
 
 handle_renegotiation_info(_, #renegotiation_info{renegotiated_connection = ?byte(0)}, 
 			  ConnectionStates, false, _, _) ->
@@ -994,6 +1027,7 @@ dec_hs(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 
     DecodedExtensions = dec_hello_extensions(Extensions),
     RenegotiationInfo = proplists:get_value(renegotiation_info, DecodedExtensions, undefined),
+    SRP = proplists:get_value(srp, DecodedExtensions, undefined),
     HashSigns = proplists:get_value(hash_signs, DecodedExtensions, undefined),
     NextProtocolNegotiation = proplists:get_value(next_protocol_negotiation, DecodedExtensions, undefined),
 
@@ -1004,6 +1038,7 @@ dec_hs(_Version, ?CLIENT_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
        cipher_suites = from_2bytes(CipherSuites),
        compression_methods = Comp_methods,
        renegotiation_info = RenegotiationInfo,
+	srp = SRP,
        hash_signs = HashSigns,
        next_protocol_negotiation = NextProtocolNegotiation
       };
@@ -1095,7 +1130,10 @@ dec_client_key(<<?UINT16(Len), Id:Len/binary, PKEPMS/binary>>,
     #client_rsa_psk_identity{identity = Id, exchange_keys = #encrypted_premaster_secret{premaster_secret = PKEPMS}};
 dec_client_key(<<?UINT16(Len), Id:Len/binary, ?UINT16(_), PKEPMS/binary>>,
 	       ?KEY_EXCHANGE_RSA_PSK, _) ->
-    #client_rsa_psk_identity{identity = Id, exchange_keys = #encrypted_premaster_secret{premaster_secret = PKEPMS}}.
+    #client_rsa_psk_identity{identity = Id, exchange_keys = #encrypted_premaster_secret{premaster_secret = PKEPMS}};
+dec_client_key(<<?UINT16(ALen), A:ALen/binary>>,
+	       ?KEY_EXCHANGE_SRP, _) ->
+    #client_srp_public{srp_a = A}.
 
 dec_ske_params(Len, Keys, Version) ->
     <<Params:Len/bytes, Signature/binary>> = Keys,
@@ -1154,6 +1192,17 @@ dec_server_key(<<?UINT16(Len), IdentityHint:Len/binary,
 		       params_bin = BinMsg,
 		       hashsign = HashSign,
 		       signature = Signature};
+dec_server_key(<<?UINT16(NLen), N:NLen/binary,
+		 ?UINT16(GLen), G:GLen/binary,
+		 ?BYTE(SLen), S:SLen/binary,
+		 ?UINT16(BLen), B:BLen/binary, _/binary>> = KeyStruct,
+	       ?KEY_EXCHANGE_SRP, Version) ->
+    Params = #server_srp_params{srp_n = N, srp_g = G, srp_s = S, srp_b = B},
+    {BinMsg, HashSign, Signature} = dec_ske_params(NLen + GLen + SLen + BLen + 7, KeyStruct, Version),
+    #server_key_params{params = Params,
+		       params_bin = BinMsg,
+		       hashsign = HashSign,
+		       signature = Signature};
 dec_server_key(_, _, _) ->
     throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)).
 
@@ -1180,6 +1229,11 @@ dec_hello_extensions(<<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), Info:Len/binar
 		      end,	    
     dec_hello_extensions(Rest, [{renegotiation_info, 
 			   #renegotiation_info{renegotiated_connection = RenegotiateInfo}} | Acc]);
+
+dec_hello_extensions(<<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen), SRP:SRPLen/binary, Rest/binary>>, Acc)
+  when Len == SRPLen + 2 ->
+    dec_hello_extensions(Rest, [{srp,
+			   #srp{username = SRP}} | Acc]);
 
 dec_hello_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Acc) ->
@@ -1238,6 +1292,7 @@ enc_hs(#client_hello{client_version = {Major, Minor},
 		     cipher_suites = CipherSuites,
 		     compression_methods = CompMethods, 
 		     renegotiation_info = RenegotiationInfo,
+		     srp = SRP,
 		     hash_signs = HashSigns,
 		     next_protocol_negotiation = NextProtocolNegotiation}, _Version) ->
     SIDLength = byte_size(SessionID),
@@ -1245,7 +1300,7 @@ enc_hs(#client_hello{client_version = {Major, Minor},
     CmLength = byte_size(BinCompMethods),
     BinCipherSuites = list_to_binary(CipherSuites),
     CsLength = byte_size(BinCipherSuites),
-    Extensions0 = hello_extensions(RenegotiationInfo, NextProtocolNegotiation),
+    Extensions0 = hello_extensions(RenegotiationInfo, SRP, NextProtocolNegotiation),
     Extensions1 = if
 		      Major == 3, Minor >=3 -> Extensions0 ++ hello_extensions(HashSigns);
 		      true -> Extensions0
@@ -1340,7 +1395,10 @@ enc_cke(Identity = #client_rsa_psk_identity{identity = undefined}, Version) ->
 enc_cke(#client_rsa_psk_identity{identity = Id, exchange_keys = ExchangeKeys}, Version) ->
     EncPMS = enc_cke(ExchangeKeys, Version),
     Len = byte_size(Id),
-    <<?UINT16(Len), Id/binary, EncPMS/binary>>.
+    <<?UINT16(Len), Id/binary, EncPMS/binary>>;
+enc_cke(#client_srp_public{srp_a = A}, _) ->
+    Len = byte_size(A),
+    <<?UINT16(Len), A/binary>>.
 
 enc_server_key(#server_dh_params{dh_p = P, dh_g = G, dh_y = Y}) ->
     PLen = byte_size(P),
@@ -1360,7 +1418,14 @@ enc_server_key(#server_dhe_psk_params{
     GLen = byte_size(G),
     YLen = byte_size(Y),
     <<?UINT16(Len), PskIdentityHint/binary,
-      ?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>.
+      ?UINT16(PLen), P/binary, ?UINT16(GLen), G/binary, ?UINT16(YLen), Y/binary>>;
+enc_server_key(#server_srp_params{srp_n = N, srp_g = G,	srp_s = S, srp_b = B}) ->
+    NLen = byte_size(N),
+    GLen = byte_size(G),
+    SLen = byte_size(S),
+    BLen = byte_size(B),
+    <<?UINT16(NLen), N/binary, ?UINT16(GLen), G/binary,
+      ?BYTE(SLen), S/binary, ?UINT16(BLen), B/binary>>.
 
 enc_sign({_, anon}, _Sign, _Version) ->
     <<>>;
@@ -1376,13 +1441,20 @@ enc_sign(_HashSign, Sign, _Version) ->
 hello_extensions(RenegotiationInfo, NextProtocolNegotiation) ->
     hello_extensions(RenegotiationInfo) ++ next_protocol_extension(NextProtocolNegotiation).
 
+hello_extensions(RenegotiationInfo, SRP, NextProtocolNegotiation) ->
+    hello_extensions(RenegotiationInfo) ++ hello_extensions(SRP) ++ next_protocol_extension(NextProtocolNegotiation).
+
 %% Renegotiation info
 hello_extensions(#renegotiation_info{renegotiated_connection = undefined}) ->
     [];
 hello_extensions(#renegotiation_info{} = Info) ->
     [Info];
+hello_extensions(#srp{} = Info) ->
+    [Info];
 hello_extensions(#hash_sign_algos{} = Info) ->
-    [Info].
+    [Info];
+hello_extensions(undefined) ->
+    [].
 
 next_protocol_extension(undefined) ->
     [];
@@ -1408,6 +1480,11 @@ enc_hello_extensions([#renegotiation_info{renegotiated_connection = Info} | Rest
     InfoLen = byte_size(Info),
     Len = InfoLen +1,
     enc_hello_extensions(Rest, <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(Len), ?BYTE(InfoLen), Info/binary, Acc/binary>>);
+
+enc_hello_extensions([#srp{username = UserName} | Rest], Acc) ->
+    SRPLen = byte_size(UserName),
+    Len = SRPLen + 2,
+    enc_hello_extensions(Rest, <<?UINT16(?SRP_EXT), ?UINT16(Len), ?BYTE(SRPLen), UserName/binary, Acc/binary>>);
 
 enc_hello_extensions([#hash_sign_algos{hash_sign_algos = HashSignAlgos} | Rest], Acc) ->
     SignAlgoList = << <<(ssl_cipher:hash_algorithm(Hash)):8, (ssl_cipher:sign_algorithm(Sign)):8>> ||
@@ -1524,6 +1601,9 @@ key_exchange_alg(dhe_psk) ->
     ?KEY_EXCHANGE_DHE_PSK;
 key_exchange_alg(rsa_psk) ->
     ?KEY_EXCHANGE_RSA_PSK;
+key_exchange_alg(Alg)
+  when Alg == srp_rsa; Alg == srp_dss; Alg == srp_anon ->
+    ?KEY_EXCHANGE_SRP;
 key_exchange_alg(_) ->
     ?NULL.
 
