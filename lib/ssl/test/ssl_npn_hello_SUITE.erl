@@ -111,5 +111,7 @@ create_server_hello_with_no_advertised_protocols_test(_Config) ->
     undefined = Hello#server_hello.next_protocol_negotiation.
 
 create_server_hello_with_advertised_protocols_test(_Config) ->
-    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),  false, [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]),
-     #next_protocol_negotiation{extension_data = <<6, "spdy/1", 8, "http/1.0", 8, "http/1.1">>} = Hello#server_hello.next_protocol_negotiation.
+    Hello = ssl_handshake:server_hello(<<>>, {3, 0}, create_connection_states(),  
+				       false, [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]),
+    #next_protocol_negotiation{extension_data = <<6, "spdy/1", 8, "http/1.0", 8, "http/1.1">>} = 
+	Hello#server_hello.next_protocol_negotiation.

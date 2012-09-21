@@ -746,22 +746,39 @@ validate_option(hibernate_after, Value) when is_integer(Value), Value >= 0 ->
 validate_option(erl_dist,Value) when Value == true;
 				     Value == false ->
     Value;
-validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols})
+validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredProtocols} = Value)
   when is_list(PreferredProtocols) ->
-    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-    validate_npn_ordering(Precedence),
-    {Precedence, PreferredProtocols, ?NO_PROTOCOL};
-validate_option(client_preferred_next_protocols, {Precedence, PreferredProtocols, Default} = Value)
+    case ssl_record:highest_protocol_version([]) of
+	{3,0} ->
+	    throw({error, {eoptions, {not_supported_in_sslv3, {Opt, Value}}}});
+	_ ->
+	    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+	    validate_npn_ordering(Precedence),
+	    {Precedence, PreferredProtocols, ?NO_PROTOCOL}
+    end;
+validate_option(client_preferred_next_protocols = Opt, {Precedence, PreferredProtocols, Default} = Value)
       when is_list(PreferredProtocols), is_binary(Default),
            byte_size(Default) > 0, byte_size(Default) < 256 ->
-    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
-    validate_npn_ordering(Precedence),
-    Value;
+    case ssl_record:highest_protocol_version([]) of
+	{3,0} ->
+	    throw({error, {eoptions, {not_supported_in_sslv3, {Opt, Value}}}});
+	_ ->
+	    validate_binary_list(client_preferred_next_protocols, PreferredProtocols),
+	    validate_npn_ordering(Precedence),
+	    Value
+    end;
+	
 validate_option(client_preferred_next_protocols, undefined) ->
     undefined;
-validate_option(next_protocols_advertised, Value) when is_list(Value) ->
-    validate_binary_list(next_protocols_advertised, Value),
-    Value;
+validate_option(next_protocols_advertised = Opt, Value) when is_list(Value) ->
+    case ssl_record:highest_protocol_version([]) of
+	{3,0} ->
+	    throw({error, {eoptions, {not_supported_in_sslv3, {Opt, Value}}}});
+	_ ->
+	    validate_binary_list(next_protocols_advertised, Value),
+	    Value
+    end;
+
 validate_option(next_protocols_advertised, undefined) ->
     undefined;
 validate_option(Opt, Value) ->
