@@ -480,9 +480,8 @@ setup_agent(true, AgentConfName, SnmpConfName,
     file:make_dir(DbDir),    
     snmp_config:write_agent_snmp_files(ConfDir, Vsns, ManagerIP, TrapUdp, 
 				       AgentIP, AgentUdp, SysName, 
-				       atom_to_list(NotifType), 
-				       SecType, Passwd, AgentEngineID, 
-				       AgentMaxMsgSize),
+				       NotifType, SecType, Passwd,
+				       AgentEngineID, AgentMaxMsgSize),
 
     override_default_configuration(Config, AgentConfName),
     
