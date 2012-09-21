@@ -1,4 +1,4 @@
-%%--------------------------------------------------------------------
+%%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2012. All Rights Reserved.
@@ -16,137 +16,126 @@
 %%
 %% %CopyrightEnd%
 %%
-%%----------------------------------------------------------------------
-%% File: ct_snmp_SUITE.erl
-%%
-%% Description:
-%%    This file contains the test cases for the ct_snmp API.
-%%
-%% @author Support
-%% @doc Test  of SNMP support in common_test
-%% @end
-%%----------------------------------------------------------------------
-%%----------------------------------------------------------------------
+
+%%%-------------------------------------------------------------------
+%%% File: ct_snmp_SUITE
+%%%
+%%% Description:
+%%% Test ct_snmp module
+%%%
+%%%-------------------------------------------------------------------
 -module(ct_snmp_SUITE).
--include_lib("common_test/include/ct.hrl").
--include_lib("snmp/include/STANDARD-MIB.hrl").
--include_lib("snmp/include/snmp_types.hrl").
 
 -compile(export_all).
 
-%% Default timetrap timeout (set in init_per_testcase).
--define(default_timeout, ?t:minutes(1)).
+-include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_event.hrl").
 
-%% SNMP user stuff
--behaviour(snmpm_user).
--export([handle_error/3,
-	 handle_agent/5,
-	 handle_pdu/4,
-	 handle_trap/3,
-	 handle_inform/3,
-	 handle_report/3]).
+-define(eh, ct_test_support_eh).
 
+%%--------------------------------------------------------------------
+%% TEST SERVER CALLBACK FUNCTIONS
+%%--------------------------------------------------------------------
 
-suite() ->
-    [{require, snmp_mgr_agent, snmp},
-     {require, snmp_app_cfg, snmp_app}].
-
-all() ->
-    [start_stop,
-    {group,get_set}].
-
-
-groups() ->
-    [{get_set,[get_values,get_next_values,set_values]}].
-
-init_per_group(get_set, Config) ->
-    ok = ct_snmp:start(Config,snmp_mgr_agent,snmp_app_cfg),
-    Config.
-
-end_per_group(get_set, Config) ->
-    ok = ct_snmp:stop(Config),
-    Config.
-
-init_per_testcase(_Case, Config) ->
-    Dog = test_server:timetrap(?default_timeout),
-    [{watchdog, Dog}|Config].
-
-end_per_testcase(_Case, Config) ->
-    Dog=?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
+%%--------------------------------------------------------------------
+%% Description: Since Common Test starts another Test Server
+%% instance, the tests need to be performed on a separate node (or
+%% there will be clashes with logging processes etc).
+%%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config.
+    Config1 = ct_test_support:init_per_suite(Config),
+    Config1.
 
 end_per_suite(Config) ->
-    Config.
+    ct_test_support:end_per_suite(Config).
 
-break(_Config) ->
-    test_server:break(""),
-    ok.
+init_per_testcase(TestCase, Config) ->
+    ct_test_support:init_per_testcase(TestCase, Config).
 
-start_stop(Config) ->
-    ok = ct_snmp:start(Config,snmp_mgr_agent,snmp_app_cfg),
-    timer:sleep(1000),
-    {snmp,_,_} = lists:keyfind(snmp,1,application:which_applications()),
-    [_|_] = filelib:wildcard("*/*.conf",?config(priv_dir,Config)),
+end_per_testcase(TestCase, Config) ->
+    ct_test_support:end_per_testcase(TestCase, Config).
 
-    ok = ct_snmp:stop(Config),
-    timer:sleep(1000),
-    false = lists:keyfind(snmp,1,application:which_applications()),
-    [] = filelib:wildcard("*/*.conf",?config(priv_dir,Config)),
-    ok.
+suite() -> [{ct_hooks,[ts_install_cth]}].
 
-get_values(_Config) ->
-    Oids1 = [?sysDescr_instance, ?sysName_instance],
-    {noError,_,V1} = ct_snmp:get_values(agent_name,Oids1,snmp_mgr_agent),
-    [#varbind{oid=?sysDescr_instance,value="Erlang SNMP agent"},
-     #varbind{oid=?sysName_instance,value="ct_test"}] = V1,
-    ok.
+all() ->
+    [
+     default
+    ].
 
-get_next_values(_Config) ->
-    Oids2 = [?system],
-    {noError,_,V2} = ct_snmp:get_next_values(agent_name,Oids2,snmp_mgr_agent),
-    [#varbind{oid=?sysDescr_instance,value="Erlang SNMP agent"}] = V2,
-    ok.
+%%--------------------------------------------------------------------
+%% TEST CASES
+%%--------------------------------------------------------------------
 
-set_values(Config) ->
-    Oid3 = ?sysName_instance,
-    NewName = "ct_test changed by " ++ atom_to_list(?MODULE),
-    VarsAndVals = [{Oid3,s,NewName}],
-    {noError,_,_} =
-	ct_snmp:set_values(agent_name,VarsAndVals,snmp_mgr_agent,Config),
+%%%-----------------------------------------------------------------
+%%%
+default(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Suite = filename:join(DataDir, "snmp1_SUITE"),
+    CfgFile = filename:join(DataDir, "snmp.cfg"),
+    {Opts,ERPid} = setup([{suite,Suite},{config,CfgFile},
+			  {label,default}], Config),
 
-    Oids4 = [?sysName_instance],
-    {noError,_,V4} = ct_snmp:get_values(agent_name,Oids4,snmp_mgr_agent),
-    [#varbind{oid=?sysName_instance,value=NewName}] = V4,
-
-    ok.
+    ok = execute(default, Opts, ERPid, Config).
 
 
 %%%-----------------------------------------------------------------
-%%% SNMP Manager User callback
-handle_error(ReqId, Reason, UserData) ->
-    erlang:display({handle_error,ReqId, Reason, UserData}),
-    ignore.
+%%% HELP FUNCTIONS
+%%%-----------------------------------------------------------------
 
-handle_agent(Addr, Port, Type, SnmpInfo, UserData) ->
-    erlang:display({handle_agent,Addr, Port, Type, SnmpInfo, UserData}),
-    ignore.
+setup(Test, Config) ->
+    Opts0 = ct_test_support:get_opts(Config),
+    Level = ?config(trace_level, Config),
+    EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
+    Opts = Opts0 ++ [{event_handler,{?eh,EvHArgs}}|Test],
+    ERPid = ct_test_support:start_event_receiver(Config),
+    {Opts,ERPid}.
 
-handle_pdu(TargetName, ReqId, SnmpPduInfo, UserData) ->
-    erlang:display({handle_pdu,TargetName, ReqId, SnmpPduInfo, UserData}),
-    ignore.
+execute(Name, Opts, ERPid, Config) ->
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
 
-handle_trap(TargetName, SnmpTrapInfo, UserData) ->
-    erlang:display({handle_trap,TargetName, SnmpTrapInfo, UserData}),
-    ignore.
+    ct_test_support:log_events(Name,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config),
+			       Opts),
 
-handle_inform(TargetName, SnmpInformInfo, UserData) ->
-    erlang:display({handle_inform,TargetName, SnmpInformInfo, UserData}),
-    ignore.
+    TestEvents = events_to_check(Name,Config),
+    ct_test_support:verify_events(TestEvents, Events, Config).
 
-handle_report(TargetName, SnmpReportInfo, UserData) ->
-    erlang:display({handle_report,TargetName, SnmpReportInfo, UserData}),
-    ignore.
+reformat(Events, EH) ->
+    ct_test_support:reformat(Events, EH).
+
+%%%-----------------------------------------------------------------
+%%% TEST EVENTS
+%%%-----------------------------------------------------------------
+events_to_check(_TestName,Config) ->
+    {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
+					     snmp1_SUITE)),
+    TCs = get_tcs(),
+    code:purge(snmp1_SUITE),
+    code:delete(snmp1_SUITE),
+
+    OneTest =
+	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
+	[{?eh,tc_done,{snmp1_SUITE,TC,ok}} || TC <- TCs] ++
+	[{?eh,stop_logging,[]}],
+
+    %% 2 tests (ct:run_test + script_start) is default
+    OneTest ++ OneTest.
+
+
+get_tcs() ->
+    All = snmp1_SUITE:all(),
+    Groups =
+	try snmp1_SUITE:groups()
+	catch error:undef -> []
+	end,
+    flatten_tcs(All,Groups).
+
+flatten_tcs([H|T],Groups) when is_atom(H) ->
+    [H|flatten_tcs(T,Groups)];
+flatten_tcs([{group,Group}|T],Groups) ->
+    TCs = proplists:get_value(Group,Groups),
+    flatten_tcs(TCs ++ T,Groups);
+flatten_tcs([],_) ->
+    [].
