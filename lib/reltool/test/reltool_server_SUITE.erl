@@ -1084,9 +1084,14 @@ create_slim(Config) ->
 
     RootDir = code:root_dir(),
     Erl = filename:join([RootDir, "bin", "erl"]),
-    Args = "-boot_var RELTOOL_EXT_LIB " ++ TargetLibDir ++
-	" -boot " ++ filename:join(TargetRelVsnDir,RelName) ++
-	" -sasl releases_dir \\\"" ++ TargetRelDir ++ "\\\"",
+    EscapedQuote =
+	case os:type() of
+	    {win32,_} -> "\\\"";
+	    _         -> "\""
+	end,
+    Args = ["-boot_var", "RELTOOL_EXT_LIB", TargetLibDir,
+	    "-boot", filename:join(TargetRelVsnDir,RelName),
+	    "-sasl", "releases_dir", EscapedQuote++TargetRelDir++EscapedQuote],
     {ok, Node} = ?msym({ok, _}, start_node(?NODE_NAME, Erl, Args)),
     ?msym(RootDir, rpc:call(Node, code, root_dir, [])),
     ?msym([{RelName,RelVsn,_,permanent}],
@@ -2412,11 +2417,13 @@ mod_path(Node,Mod) ->
 
 start_node(Name, ErlPath) ->
     start_node(Name, ErlPath, []).
-start_node(Name, ErlPath, Args) ->
+start_node(Name, ErlPath, Args0) ->
     FullName = full_node_name(Name),
-    CmdLine = mk_node_cmdline(Name, ErlPath, Args),
-    io:format("Starting node ~p: ~s~n", [FullName, CmdLine]),
-    case open_port({spawn, CmdLine}, []) of
+    Args = mk_node_args(Name, Args0),
+    io:format("Starting node ~p: ~s~n",
+	      [FullName, lists:flatten([[X," "] || X <- [ErlPath|Args]])]),
+    %io:format("open_port({spawn_executable, ~p}, [{args,~p}])~n",[ErlPath,Args]),
+    case open_port({spawn_executable, ErlPath}, [{args,Args}]) of
         Port when is_port(Port) ->
             unlink(Port),
             erlang:port_close(Port),
@@ -2433,23 +2440,21 @@ stop_node(Node) ->
     spawn(Node, fun () -> halt() end),
     receive {nodedown, Node} -> ok end.
 
-mk_node_cmdline(Name, Prog, Args) ->
-    Static = "-detached -noinput",
+mk_node_args(Name, Args) ->
     Pa = filename:dirname(code:which(?MODULE)),
     NameSw = case net_kernel:longnames() of
-                 false -> "-sname ";
-                 true -> "-name ";
+                 false -> "-sname";
+                 true -> "-name";
                  _ -> exit(not_distributed_node)
              end,
     {ok, Pwd} = file:get_cwd(),
     NameStr = atom_to_list(Name),
-    Prog ++ " "
-        ++ Static ++ " "
-        ++ NameSw ++ " " ++ NameStr ++ " "
-        ++ "-pa " ++ Pa ++ " "
-        ++ "-env ERL_CRASH_DUMP " ++ Pwd ++ "/erl_crash_dump." ++ NameStr ++ " "
-        ++ "-setcookie " ++ atom_to_list(erlang:get_cookie())
-	++ " " ++ Args.
+    ["-detached", "-noinput",
+     NameSw, NameStr,
+     "-pa", Pa,
+     "-env", "ERL_CRASH_DUMP", Pwd ++ "/erl_crash_dump." ++ NameStr,
+     "-setcookie", atom_to_list(erlang:get_cookie())
+     | Args].
 
 full_node_name(PreName) ->
     HostSuffix = lists:dropwhile(fun ($@) -> false; (_) -> true end,
