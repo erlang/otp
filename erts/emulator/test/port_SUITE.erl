@@ -90,7 +90,7 @@
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
 	 exit_status_multi_scheduling_block/1, ports/1,
 	 spawn_driver/1, spawn_executable/1, close_deaf_port/1,
-	 unregister_name/1]).
+	 unregister_name/1, parallelism_option/1]).
 
 -export([]).
 
@@ -114,7 +114,8 @@ all() ->
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
      exit_status_multi_scheduling_block, ports, spawn_driver,
-     spawn_executable, close_deaf_port, unregister_name].
+     spawn_executable, close_deaf_port, unregister_name,
+     parallelism_option].
 
 groups() -> 
     [{stream, [], [stream_small, stream_big]},
@@ -1364,6 +1365,43 @@ spawn_driver(Config) when is_list(Config) ->
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
+parallelism_option(suite) ->
+    [];
+parallelism_option(doc) ->
+    ["Test parallelism option of open_port"];
+parallelism_option(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(10)),
+    ?line Path = ?config(data_dir, Config),
+    ?line ok = load_driver(Path, "echo_drv"),
+    ?line Port = erlang:open_port({spawn_driver, "echo_drv"},
+				  [{parallelism, true}]),
+    ?line {parallelism, true} = erlang:port_info(Port, parallelism),
+    ?line Port ! {self(), {command, "Hello port!"}},
+    ?line receive 
+	      {Port, {data, "Hello port!"}} = Msg1 -> 
+		  io:format("~p~n", [Msg1]),
+		  ok; 
+	      Other ->
+		  test_server:fail({unexpected, Other})
+	  end,
+    ?line Port ! {self(), close},
+    ?line receive {Port, closed} -> ok end,
+
+    ?line Port2 = erlang:open_port({spawn_driver, "echo_drv -Hello port?"}, 
+				   [{parallelism, false}]),
+    ?line {parallelism, false} = erlang:port_info(Port2, parallelism),
+    ?line receive 
+	      {Port2, {data, "Hello port?"}} = Msg2 -> 
+		  io:format("~p~n", [Msg2]),
+		  ok; 
+	      Other2 ->
+		  test_server:fail({unexpected2, Other2})
+	  end,
+    ?line Port2 ! {self(), close},
+    ?line receive {Port2, closed} -> ok end,
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
 spawn_executable(suite) ->
     [];
 spawn_executable(doc) ->
@@ -1632,6 +1670,7 @@ otp_5112(Config) when is_list(Config) ->
     ?line ?t:format("Links1: ~p~n",[Links1]),
     ?line true = lists:member(Port, Links1),
     ?line Port ! {self(), {command, ""}},
+    ?line wait_until(fun () -> lists:member(Port, erlang:ports()) == false end),
     ?line {links, Links2} = process_info(self(),links),
     ?line ?t:format("Links2: ~p~n",[Links2]),
     ?line false = lists:member(Port, Links2), %% This used to fail
@@ -1703,38 +1742,8 @@ otp_5119_fill_empty_port_tab(Ports) ->
 		  ?line LastPort
 	  end.
 
--define(DEF_MAX_PORTS, 1024).
-
-max_ports_env() ->
-    ?line case os:getenv("ERL_MAX_PORTS") of
-	      EMP when is_list(EMP) ->
-		  case catch list_to_integer(EMP) of
-		      Int when is_integer(Int) -> ?line Int;
-		      _ -> ?line false
-		  end;
-	      _ -> ?line false
-	  end.
-
 max_ports() ->
-    ?line PreMaxPorts
-	= case max_ports_env() of
-	      Env when is_integer(Env) -> ?line Env;
-	      _ ->
-		  ?line case os:type() of
-			    {unix, _} ->
-				?line UlimStr = string:strip(os:cmd("ulimit -n")
-							     -- "\n"),
-				?line case catch list_to_integer(UlimStr) of
-					  Ulim when is_integer(Ulim) -> ?line Ulim;
-					  _ -> ?line ?DEF_MAX_PORTS
-				      end;
-			    _ -> ?line ?DEF_MAX_PORTS
-			end
-	  end,
-    ?line case PreMaxPorts > ?DEF_MAX_PORTS of
-	      true -> ?line PreMaxPorts;
-	      false -> ?line ?DEF_MAX_PORTS
-	  end.
+    erlang:system_info(port_limit).
 
 port_ix(Port) when is_port(Port) ->
     ?line ["#Port",_,PortIxStr] = string:tokens(erlang:port_to_list(Port),
@@ -2344,5 +2353,12 @@ close_deaf_port_1(N, Cmd) ->
     	_:eagain ->
 	    {comment, "Could not spawn more than " ++ integer_to_list(N) ++ " OS processes."}
     end.
-    
 
+wait_until(Fun) ->
+    case catch Fun() of
+	true ->
+	    ok;
+	_ ->
+	    receive after 100 -> ok end,
+	    wait_until(Fun)
+    end.

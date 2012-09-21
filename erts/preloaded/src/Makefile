@@ -40,7 +40,8 @@ PRE_LOADED_MODULES = \
 	zlib \
 	prim_zip \
 	otp_ring0 \
-	erlang
+	erlang \
+	erts_internal
 
 RELSYSDIR = $(RELEASE_PATH)/lib/erts-$(VSN)
 # not $(RELEASE_PATH)/erts-$(VSN)/preloaded

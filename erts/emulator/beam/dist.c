@@ -124,6 +124,13 @@ static void send_nodes_mon_msgs(Process *, Eterm, Eterm, Eterm, Eterm);
 static void init_nodes_monitors(void);
 
 static erts_smp_atomic_t no_caches;
+static erts_smp_atomic_t no_nodes;
+
+struct {
+    Eterm reason;
+    ErlHeapFragment *bp;
+} nodedown;
+
 
 static void
 delete_cache(ErtsAtomCache *cache)
@@ -393,6 +400,47 @@ static void doit_node_link_net_exits(ErtsLink *lnk, void *vnecp)
     erts_destroy_link(lnk);
 }
 
+static void
+set_node_not_alive(void *unused)
+{
+    ErlHeapFragment *bp;
+    Eterm nodename = erts_this_dist_entry->sysname;
+
+    ASSERT(erts_smp_atomic_read_nob(&no_nodes) == 0);
+
+    erts_smp_thr_progress_block();
+    erts_set_this_node(am_Noname, 0);
+    erts_is_alive = 0;
+    send_nodes_mon_msgs(NULL, am_nodedown, nodename, am_visible, nodedown.reason);
+    nodedown.reason = NIL;
+    bp = nodedown.bp;
+    nodedown.bp = NULL;
+    erts_smp_thr_progress_unblock();
+    if (bp)
+	free_message_buffer(bp);
+}
+
+static ERTS_INLINE void
+dec_no_nodes(void)
+{
+    erts_aint_t no = erts_smp_atomic_dec_read_mb(&no_nodes);
+    ASSERT(no >= 0);
+    ASSERT(erts_get_scheduler_id()); /* Need to be a scheduler */
+    if (no == 0)
+	erts_schedule_misc_aux_work(erts_get_scheduler_id(),
+				    set_node_not_alive,
+				    NULL);
+}
+
+static ERTS_INLINE void
+inc_no_nodes(void)
+{
+#ifdef DEBUG
+    erts_aint_t no = erts_smp_atomic_read_nob(&no_nodes);
+    ASSERT(erts_is_alive ? no > 0 : no == 0);
+#endif
+    erts_smp_atomic_inc_mb(&no_nodes);
+}
 	
 /*
  * proc is currently running or exiting process.
@@ -402,48 +450,76 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
     Eterm nodename;
 
     if (dep == erts_this_dist_entry) {  /* Net kernel has died (clean up!!) */
+	DistEntry *tdep;
+	int no_dist_port = 0;
 	Eterm nd_reason = (reason == am_no_network
 			   ? am_no_network
 			   : am_net_kernel_terminated);
 	erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
 
+	for (tdep = erts_hidden_dist_entries; tdep; tdep = tdep->next)
+	    no_dist_port++;
+	for (tdep = erts_visible_dist_entries; tdep; tdep = tdep->next)
+	    no_dist_port++;
+
 	/* KILL all port controllers */
-	while(erts_visible_dist_entries || erts_hidden_dist_entries) {
-	    DistEntry *tdep;
-	    Eterm prt_id;
-	    Port *prt;
-	    if(erts_hidden_dist_entries)
-		tdep = erts_hidden_dist_entries;
+	if (no_dist_port == 0)
+	    erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
+	else {
+	    Eterm def_buf[128];
+	    int i = 0;
+	    Eterm *dist_port;
+
+	    if (no_dist_port <= sizeof(def_buf)/sizeof(def_buf[0]))
+		dist_port = &def_buf[0];
 	    else
-		tdep = erts_visible_dist_entries;
-	    prt_id = tdep->cid;
-	    ASSERT(is_internal_port(prt_id));
+		dist_port = erts_alloc(ERTS_ALC_T_TMP,
+				       sizeof(Eterm)*no_dist_port);
+	    for (tdep = erts_hidden_dist_entries; tdep; tdep = tdep->next) {
+		ASSERT(is_internal_port(tdep->cid));
+		dist_port[i++] = tdep->cid;
+	    }
+	    for (tdep = erts_visible_dist_entries; tdep; tdep = tdep->next) {
+		ASSERT(is_internal_port(tdep->cid));
+		dist_port[i++] = tdep->cid;
+	    }
 	    erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
 
-	    prt = erts_id2port(prt_id);
-	    if (prt) {
+	    for (i = 0; i < no_dist_port; i++) {
+		Port *prt = erts_port_lookup(dist_port[i],
+					     ERTS_PORT_SFLGS_INVALID_LOOKUP);
+		if (!prt)
+		    continue;
 		ASSERT(erts_atomic32_read_nob(&prt->state)
 		       & ERTS_PORT_SFLG_DISTRIBUTION);
-		ASSERT(prt->dist_entry);
-		/* will call do_net_exists !!! */
-		erts_do_exit_port(prt, prt_id, nd_reason);
-		erts_port_release(prt);
+
+		erts_port_exit(NULL, ERTS_PORT_SIG_FLG_FORCE_SCHED,
+			       prt, dist_port[i], nd_reason, NULL);
 	    }
 
-	    erts_smp_rwmtx_rwlock(&erts_dist_table_rwmtx);
+	    if (dist_port != &def_buf[0])
+		erts_free(ERTS_ALC_T_TMP, dist_port);
 	}
 
-	erts_smp_rwmtx_rwunlock(&erts_dist_table_rwmtx);
-
-	nodename = erts_this_dist_entry->sysname;
-	erts_smp_thr_progress_block();
-	erts_set_this_node(am_Noname, 0);
-	erts_is_alive = 0;
-	send_nodes_mon_msgs(NULL, am_nodedown, nodename, am_visible, nd_reason);
-	erts_smp_thr_progress_unblock();
-
+	/*
+	 * When last dist port exits, node will be taken
+	 * from alive to not alive.
+	 */
+	ASSERT(is_nil(nodedown.reason) && !nodedown.bp);
+	if (is_immed(nd_reason))
+	    nodedown.reason = nd_reason;
+	else {
+	    Eterm *hp;
+	    Uint sz = size_object(nd_reason);
+	    nodedown.bp = new_message_buffer(sz);
+	    hp = nodedown.bp->mem;
+	    nodedown.reason = copy_struct(nd_reason,
+					  sz,
+					  &hp,
+					  &nodedown.bp->off_heap);
+	}
     }
-    else { /* recursive call via erts_do_exit_port() will end up here */
+    else { /* Call from distribution port */
 	NetExitsContext nec = {dep};
 	ErtsLink *nlinks;
 	ErtsLink *node_links;
@@ -503,6 +579,9 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 	clear_dist_entry(dep);
 
     }
+
+    dec_no_nodes();
+
     return 1;
 }
 
@@ -516,6 +595,10 @@ void init_dist(void)
 {
     init_nodes_monitors();
 
+    nodedown.reason = NIL;
+    nodedown.bp = NULL;
+
+    erts_smp_atomic_init_nob(&no_nodes, 0);
     erts_smp_atomic_init_nob(&no_caches, 0);
 
     /* Lookup/Install all references to trap functions */
@@ -1601,7 +1684,7 @@ int erts_net_message(Port *prt,
     }
 #endif
     UnUseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
-    erts_do_exit_port(prt, dep->cid, am_killed);
+    erts_deliver_port_exit(prt, dep->cid, am_killed, 0);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
     return -1;
 }
@@ -1924,7 +2007,7 @@ erts_dist_command(Port *prt, int reds_limit)
     erts_smp_de_runlock(dep);
 
     if (status & ERTS_DE_SFLG_EXITING) {
-	erts_do_exit_port(prt, prt->common.id, am_killed);
+	erts_deliver_port_exit(prt, prt->common.id, am_killed, 0);
 	erts_deref_dist_entry(dep);
 	return reds + ERTS_PORT_REDS_DIST_CMD_EXIT;
     }
@@ -2484,6 +2567,7 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 
     erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_smp_thr_progress_block();
+    inc_no_nodes();
     erts_set_this_node(BIF_ARG_1, (Uint32) creation);
     erts_is_alive = 1;
     send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
@@ -2638,6 +2722,8 @@ BIF_RETTYPE setnode_3(BIF_ALIST_3)
     erts_smp_de_rwunlock(dep);
     dep = NULL; /* inc of refc transferred to port (dist_entry field) */
 
+    inc_no_nodes();
+
     send_nodes_mon_msgs(BIF_P,
 			am_nodeup,
 			BIF_ARG_1,
@@ -2723,11 +2809,17 @@ BIF_RETTYPE dist_exit_3(BIF_ALIST_3)
 #endif
 	erts_smp_proc_unlock(lp, lp_locks);
 	if (lp == BIF_P) {
+	    erts_aint32_t state = erts_smp_atomic32_read_acqb(&BIF_P->state);
 	    /*
 	     * We may have exited current process and may have to take action.
 	     */
-	    ERTS_BIF_CHK_EXITED(BIF_P);
-	    ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P, ERTS_PROC_LOCK_MAIN);
+	    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
+#ifdef ERTS_SMP
+		if (state & ERTS_PSFLG_PENDING_EXIT)
+		    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+#endif
+		ERTS_BIF_EXITED(BIF_P);
+	    }
 	}
     }
     else if (is_external_pid(local)

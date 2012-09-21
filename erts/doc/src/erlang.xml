@@ -1000,14 +1000,14 @@ b</pre>
     </func>
     <func>
       <name>exit(Pid, Reason) -> true</name>
-      <fsummary>Send an exit signal to a process</fsummary>
+      <fsummary>Send an exit signal to a process or port</fsummary>
       <type>
-        <v>Pid = pid()</v>
+        <v>Pid = pid() | port()</v>
         <v>Reason = term()</v>
       </type>
       <desc>
         <p>Sends an exit signal with exit reason <c>Reason</c> to
-          the process <c>Pid</c>.</p>
+          the process or port identified by <c>Pid</c>.</p>
         <p>The following behavior apply if <c>Reason</c> is any term
           except <c>normal</c> or <c>kill</c>:</p>
         <p>If <c>Pid</c> is not trapping exits, <c>Pid</c> itself will
@@ -2875,7 +2875,7 @@ os_prompt% </pre>
 	<v>&nbsp;FileNameChar = integer() (1..255 or any Unicode codepoint, see description)</v>
         <v>&nbsp;In = Out = integer()</v>
         <v>PortSettings = [Opt]</v>
-        <v>&nbsp;Opt = {packet, N} | stream | {line, L} | {cd, Dir} | {env, Env} | {args, [ ArgString ]} | {arg0, ArgString} | exit_status | use_stdio | nouse_stdio | stderr_to_stdout | in | out | binary | eof</v>
+        <v>&nbsp;Opt = {packet, N} | stream | {line, L} | {cd, Dir} | {env, Env} | {args, [ ArgString ]} | {arg0, ArgString} | exit_status | use_stdio | nouse_stdio | stderr_to_stdout | in | out | binary | eof | {parallelism, true|false}</v>
         <v>&nbsp;&nbsp;N = 1 | 2 | 4</v>
         <v>&nbsp;&nbsp;L = integer()</v>
         <v>&nbsp;&nbsp;Dir = string()</v>
@@ -3173,6 +3173,18 @@ os_prompt% </pre>
 	      console window when spawning the port program.
 	      (This option has no effect on other platforms.)</p>
           </item>
+          <tag><marker id="open_port_parallelism"><c>{parallelism, Boolean}</c></marker></tag>
+          <item>
+            <p>Set scheduler hint for port parallelism. If set to <c>true</c>,
+	    the VM will schedule port tasks when it by this can improve the
+	    parallelism in the system. If set to <c>false</c>, the VM will
+	    try to perform port tasks immediately and by this improving the
+	    latency at the expense of parallelism. The default can be set on
+	    system startup by passing the
+	    <seealso marker="erl#+spp">+spp</seealso> command line argument
+	    to <seealso marker="erl">erl(1)</seealso>.
+	    </p>
+          </item>
         </taglist>
         <p>The default is <c>stream</c> for all types of port and
           <c>use_stdio</c> for spawned ports.</p>
@@ -3299,10 +3311,10 @@ os_prompt% </pre>
       <desc>
         <p>Closes an open port. Roughly the same as
           <c>Port ! {self(), close}</c> except for the error behaviour
-          (see below), and that the port does <em>not</em> reply with
-          <c>{Port, closed}</c>. Any process may close a port with
-          <c>port_close/1</c>, not only the port owner (the connected
-          process).</p>
+          (see below), being synchronous, and that the port does
+	  <em>not</em> reply with <c>{Port, closed}</c>. Any process may
+	  close a port with <c>port_close/1</c>, not only the port owner
+	  (the connected process).</p>
         <p>For comparison: <c>Port ! {self(), close}</c> fails with
           <c>badarg</c> if <c>Port</c> cannot be sent to (i.e.,
           <c>Port</c> refers neither to a port nor to a process). If
@@ -3314,8 +3326,12 @@ os_prompt% </pre>
         <p>Note that any process can close a port using
           <c>Port ! {PortOwner, close}</c> just as if it itself was
           the port owner, but the reply always goes to the port owner.</p>
-        <p>In short: <c>port_close(Port)</c> has a cleaner and more
-          logical behaviour than <c>Port ! {self(), close}</c>.</p>
+	<p>As of OTP-R16 <c>Port ! {PortOwner, close}</c> is truly
+	   asynchronous. Note that this operation has always been
+	   documented as an asynchronous operation, while the underlying
+	   implementation has been synchronous. <c>port_close/1</c> is
+	   however still fully synchronous. This due to its error
+	   behavior.</p>
         <p>Failure: <c>badarg</c> if <c>Port</c> is not an open port or
           the registered name of an open port.</p>
       </desc>
@@ -3329,11 +3345,11 @@ os_prompt% </pre>
       </type>
       <desc>
         <p>Sends data to a port. Same as
-          <c>Port ! {self(), {command, Data}}</c> except for the error
-          behaviour (see below). Any process may send data to a port
-          with <c>port_command/2</c>, not only the port owner
-          (the connected process).</p>
-        <p>For comparison: <c>Port ! {self(), {command, Data}}</c>
+          <c>Port ! {PortOwner, {command, Data}}</c> except for the error
+          behaviour and being synchronous (see below). Any process may
+	  send data to a port with <c>port_command/2</c>, not only the
+	  port owner (the connected process).</p>
+        <p>For comparison: <c>Port ! {PortOwner, {command, Data}}</c>
           fails with <c>badarg</c> if <c>Port</c> cannot be sent to
           (i.e., <c>Port</c> refers neither to a port nor to a process).
           If <c>Port</c> is a closed port the data message disappears
@@ -3344,11 +3360,14 @@ os_prompt% </pre>
         <p>Note that any process can send to a port using
           <c>Port ! {PortOwner, {command, Data}}</c> just as if it
           itself was the port owner.</p>
-        <p>In short: <c>port_command(Port, Data)</c> has a cleaner and
-          more logical behaviour than
-          <c>Port ! {self(), {command, Data}}</c>.</p>
 	<p>If the port is busy, the calling process will be suspended
 	   until the port is not busy anymore.</p>
+	<p>As of OTP-R16 <c>Port ! {PortOwner, {command, Data}}</c> is
+	   truly asynchronous. Note that this operation has always been
+	   documented as an asynchronous operation, while the underlying
+	   implementation has been synchronous. <c>port_command/2</c> is
+	   however still fully synchronous. This due to its error
+	   behavior.</p>
         <p>Failures:</p>
         <taglist>
           <tag><c>badarg</c></tag>
@@ -3433,7 +3452,7 @@ os_prompt% </pre>
       </type>
       <desc>
         <p>Sets the port owner (the connected port) to <c>Pid</c>.
-          Roughly the same as <c>Port ! {self(), {connect, Pid}}</c>
+          Roughly the same as <c>Port ! {Owner, {connect, Pid}}</c>
           except for the following:</p>
         <list type="bulleted">
           <item>
@@ -3442,6 +3461,9 @@ os_prompt% </pre>
           <item>
             <p>The port does <em>not</em> reply with
               <c>{Port,connected}</c>.</p>
+          </item>
+          <item>
+            <p><c>port_connect/1</c> is synchronous, see below.</p>
           </item>
           <item>
             <p>The new port owner gets linked to the port.</p>
@@ -3467,9 +3489,12 @@ os_prompt% </pre>
           <c>Port ! {PortOwner, {connect, Pid}}</c> just as if it
           itself was the port owner, but the reply always goes to
           the port owner.</p>
-        <p>In short: <c>port_connect(Port, Pid)</c> has a cleaner and
-          more logical behaviour than
-          <c>Port ! {self(),{connect,Pid}}</c>.</p>
+	<p>As of OTP-R16 <c>Port ! {PortOwner, {connect, Pid}}</c> is
+	   truly asynchronous. Note that this operation has always been
+	   documented as an asynchronous operation, while the underlying
+	   implementation has been synchronous. <c>port_connect/2</c> is
+	   however still fully synchronous. This due to its error
+	   behavior.</p>
         <p>Failure: <c>badarg</c> if <c>Port</c> is not an open port
           or the registered name of an open port, or if <c>Pid</c> is
           not an existing local pid.</p>
@@ -3538,12 +3563,35 @@ os_prompt% </pre>
           the <c>Port</c>, or <c>undefined</c> if the port is not open.
           The order of the tuples is not defined, nor are all the
           tuples mandatory.</p>
+	<p>Currently the result will containt information about the
+	following <c>Item</c>s: <c>registered_name</c> (if the port has
+	a registed name), <c>id</c>, <c>connected</c>, <c>links</c>,
+	<c>name</c>, <c>input</c>, and <c>output</c>. For more information
+	about the different <c>Item</c>s, see
+	<seealso marker="#port_info/2">port_info/2</seealso>.</p>
+        <p>Failure: <c>badarg</c> if <c>Port</c> is not a local port.</p>
+      </desc>
+    </func>
+    <func>
+      <name>erlang:port_info(Port, Item) -> {Item, Info} | undefined | []</name>
+      <fsummary>Information about a port</fsummary>
+      <type>
+        <v>Port = port() | atom()</v>
+        <v>Item, Info -- see below</v>
+      </type>
+      <desc>
+        <p>Returns information about <c>Port</c> as specified
+          by <c>Item</c>, or <c>undefined</c> if the port is not open.
+          Also, if <c>Item == registered_name</c> and the port has no
+          registered name, [] is returned.</p>
+        <p>Valid values of <c>Item</c>, and corresponding <c>{Item, Info}</c>
+	  tuples:</p>
         <taglist>
           <tag><c>{registered_name, RegName}</c></tag>
           <item>
             <p><c>RegName</c> (an atom) is the registered name of
-              the port. If the port has no registered name, this tuple
-              is not present in the list.</p>
+              the port. If the port has no registered name, <c>[]</c>
+	      is returned.</p>
           </item>
           <tag><c>{id, Index}</c></tag>
           <item>
@@ -3574,25 +3622,40 @@ os_prompt% </pre>
             <p><c>Bytes</c> is the total number of bytes written to
               the port.</p>
           </item>
+          <tag><c>{monitors, Monitors}</c></tag>
+          <item>
+            <p><c>Monitors</c> represent processes that this port
+	    is monitoring. Note that the type of <c>Monitors</c> is
+	    likey to change in the future.</p>
+          </item>
+          <tag><c>{parallelism, Boolean}</c></tag>
+          <item>
+            <p><c>Boolean</c> corresponds to the port parallelism
+	    hint being used by this port. For more information see
+	    the <seealso marker="#open_port_parallelism">parallelism</seealso>
+	    option of <seealso marker="#open_port/2">open_port/2</seealso>.</p>
+          </item>
+          <tag><c>{memory, MemSz}</c></tag>
+          <item>
+            <p><c>MemSz</c> is the total amount of memory, in bytes,
+	    allocated for this port by the runtime system. Note that
+	    the port itself might have allocated memory which is not
+	    included in <c>MemSz</c>.</p>
+          </item>
+          <tag><c>{queue_size, QSz}</c></tag>
+          <item>
+            <p><c>QSz</c> is the total amount of data, in bytes, queued
+	    by the port using the ERTS driver queue implementation.</p>
+          </item>
+          <tag><c>{locking, Locking}</c></tag>
+          <item>
+            <p><c>Locking</c> is currently either <c>false</c> (emulator
+	    without SMP support), <c>port_level</c> (port specific locking),
+	    or <c>driver_level</c> (driver specific locking). Note that
+	    these results are highly implementation specific and might
+	    change in the future.</p>
+          </item>
         </taglist>
-        <p>Failure: <c>badarg</c> if <c>Port</c> is not a local port.</p>
-      </desc>
-    </func>
-    <func>
-      <name>erlang:port_info(Port, Item) -> {Item, Info} | undefined | []</name>
-      <fsummary>Information about a port</fsummary>
-      <type>
-        <v>Port = port() | atom()</v>
-        <v>Item, Info -- see below</v>
-      </type>
-      <desc>
-        <p>Returns information about <c>Port</c> as specified
-          by <c>Item</c>, or <c>undefined</c> if the port is not open.
-          Also, if <c>Item == registered_name</c> and the port has no
-          registered name, [] is returned.</p>
-        <p>For valid values of <c>Item</c>, and corresponding
-          values of <c>Info</c>, see
-          <seealso marker="#port_info/1">erlang:port_info/1</seealso>.</p>
         <p>Failure: <c>badarg</c> if <c>Port</c> is not a local port.</p>
       </desc>
     </func>
@@ -5954,6 +6017,11 @@ ok
           <item>
             <p>Returns a string containing the OTP release number.</p>
           </item>
+	  <tag><marker id="system_info_port_parallelism"><c>port_parallelism</c></marker></tag>
+	  <item><p>Returns the default port parallelism scheduling hint used.
+	  For more information see the
+	  <seealso marker="erl#+spp">+spp</seealso> command line argument
+	  of <seealso marker="erl">erl(1)</seealso>.</p></item>
           <tag><c>process_count</c></tag>
           <item>
             <p>Returns the number of ports currently existing at

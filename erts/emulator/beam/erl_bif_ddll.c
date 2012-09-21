@@ -182,7 +182,7 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
     Eterm name_term = BIF_ARG_2;
     Eterm options = BIF_ARG_3;
     char *path = NULL;
-    Uint path_len;
+    ErlDrvSizeT path_len;
     char *name = NULL;
     DE_Handle *dh;
     erts_driver_t *drv;
@@ -261,7 +261,7 @@ BIF_RETTYPE erl_ddll_try_load_3(BIF_ALIST_3)
 	goto error;
     }
     path = erts_alloc(ERTS_ALC_T_DDLL_TMP_BUF, path_len + 1 /* might need path separator */ + sys_strlen(name) + 1);
-    if (io_list_to_buf(path_term, path, path_len) != 0) {
+    if (erts_iolist_to_buf(path_term, path, path_len) != 0) {
 	goto error;
     }
     while (path_len > 0 && (path[path_len-1] == '\\' || path[path_len-1] == '/')) {
@@ -1841,7 +1841,7 @@ static Eterm mkatom(char *str)
 static char *pick_list_or_atom(Eterm name_term)
 { 
     char *name = NULL;
-    Uint name_len;
+    ErlDrvSizeT name_len;
     if (is_atom(name_term)) {
 	Atom *ap = atom_tab(atom_val(name_term));
 	if (ap->len == 0) {
@@ -1857,7 +1857,7 @@ static char *pick_list_or_atom(Eterm name_term)
 	    goto error;
 	}
 	name = erts_alloc(ERTS_ALC_T_DDLL_TMP_BUF, name_len + 1);
-	if (io_list_to_buf(name_term, name, name_len) != 0) {
+	if (erts_iolist_to_buf(name_term, name, name_len) != 0) {
 	    goto error;
 	}
 	name[name_len] = '\0';

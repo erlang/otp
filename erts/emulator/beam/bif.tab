@@ -184,10 +184,6 @@ bif 'erl.lang.port':open/2		ebif_open_port_2 open_port_2
 
 bif erlang:pid_to_list/1
 bif 'erl.lang.proc':pid_to_string/1	ebif_pid_to_string_1 pid_to_list_1
-bif erlang:port_info/1
-bif 'erl.lang.port':info/1		ebif_port_info_1
-bif erlang:port_info/2
-bif 'erl.lang.port':info/2		ebif_port_info_2
 bif erlang:ports/0
 bif 'erl.lang.node':ports/0		ebif_ports_0
 bif erlang:pre_loaded/0
@@ -256,24 +252,16 @@ bif erlang:setnode/2
 bif erlang:setnode/3
 bif erlang:dist_exit/3
 
-bif erlang:port_call/2
-bif 'erl.lang.port':call/2		ebif_port_call_2
-bif erlang:port_call/3
-bif 'erl.lang.port':call/3		ebif_port_call_3
-bif erlang:port_command/2
-bif 'erl.lang.port':command/2		ebif_port_command_2
-bif erlang:port_command/3
-bif 'erl.lang.port':command/3		ebif_port_command_3
-bif erlang:port_control/3
-bif 'erl.lang.port':control/3		ebif_port_control_3
-bif erlang:port_close/1
-bif 'erl.lang.port':close/1		ebif_port_close_1
-bif erlang:port_connect/2
-bif 'erl.lang.port':connect/2		ebif_port_connect_2
-bif erlang:port_set_data/2
-bif 'erl.lang.port':set_data/2		ebif_port_set_data_2
-bif erlang:port_get_data/1
-bif 'erl.lang.port':get_data/1		ebif_port_get_data_1
+# Static native functions in erts_internal
+bif erts_internal:port_info/1
+bif erts_internal:port_info/2
+bif erts_internal:port_call/3
+bif erts_internal:port_command/3
+bif erts_internal:port_control/3
+bif erts_internal:port_close/1
+bif erts_internal:port_connect/2
+bif erts_internal:port_set_data/2
+bif erts_internal:port_get_data/1
 
 # Tracing & debugging.
 bif erlang:trace_pattern/2

@@ -501,7 +501,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
 {
     struct enif_tmp_obj_t* tobj;
     ErtsAlcType_t allocator;
-    Uint sz;
+    ErlDrvSizeT sz;
     if (is_binary(term)) {
 	return enif_inspect_binary(env,term,bin);
     }
@@ -527,7 +527,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
     bin->size = sz;
     bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
-    io_list_to_buf(term, (char*) bin->data, sz);
+    erts_iolist_to_buf(term, (char*) bin->data, sz);
     ADD_READONLY_CHECK(env, bin->data, bin->size); 
     return 1;
 }

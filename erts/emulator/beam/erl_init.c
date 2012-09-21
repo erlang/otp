@@ -564,7 +564,8 @@ void erts_usage(void)
     /*    erts_fprintf(stderr, "-i module  set the boot module (default init)\n"); */
 
     erts_fprintf(stderr, "-K boolean  enable or disable kernel poll\n");
-
+    erts_fprintf(stderr, "-n[s|a|d]   Control behavior of signals to ports\n");
+    erts_fprintf(stderr, "            Note that this flag is deprecated!\n");
     erts_fprintf(stderr, "-M<X> <Y>   memory allocator switches,\n");
     erts_fprintf(stderr, "            see the erts_alloc(3) documentation for more info.\n");
 
@@ -592,6 +593,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "            valid range is [%d-%d]\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE);
+    erts_fprintf(stderr, "-spp Bool   set port parallelism scheduling hint\n");
     erts_fprintf(stderr, "-S n1:n2    set number of schedulers (n1), and number of\n");
     erts_fprintf(stderr, "            schedulers online (n2), valid range for both\n");
     erts_fprintf(stderr, "            numbers are [1-%d]\n",
@@ -1228,6 +1230,30 @@ erl_start(int argc, char **argv)
 		       arg);
 	    break;
 
+	case 'n':
+	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+	    switch (arg[0]) {
+	    case 's': /* synchronous */
+		erts_port_synchronous_ops = 1;
+		erts_port_schedule_all_ops = 0;
+		break;
+	    case 'a': /* asynchronous */
+		erts_port_synchronous_ops = 0;
+		erts_port_schedule_all_ops = 1;
+		break;
+	    case 'd': /* Default - schedule on conflict (asynchronous) */
+		erts_port_synchronous_ops = 0;
+		erts_port_schedule_all_ops = 0;
+		break;
+	    default:
+	    bad_n_option:
+		erts_fprintf(stderr, "bad -n option %s\n", arg);
+		erts_usage();
+	    }
+	    if (arg[1] != '\0')
+		goto bad_n_option;
+	    break;
+
 	case 'P': /* set maximum number of processes */
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    errno = 0;
@@ -1339,6 +1365,19 @@ erl_start(int argc, char **argv)
 				 "bad cpu topology '%s': %s\n",
 				 arg,
 				 estr);
+		    erts_usage();
+		}
+	    }
+	    else if (has_prefix("pp", sub_param)) {
+		arg = get_arg(sub_param+2, argv[i+1], &i);
+		if (sys_strcmp(arg, "true") == 0)
+		    erts_port_parallelism = 1;
+		else if (sys_strcmp(arg, "false") == 0)
+		    erts_port_parallelism = 0;
+		else {
+		    erts_fprintf(stderr,
+				 "bad port parallelism scheduling hint %s\n",
+				 arg);
 		    erts_usage();
 		}
 	    }
@@ -1467,8 +1506,6 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
-	case 'n':   /* XXX obsolete */
-	    break;
 	case 'c':
 	    if (argv[i][2] == 0) { /* -c: documented option */
 		erts_disable_tolerant_timeofday = 1;

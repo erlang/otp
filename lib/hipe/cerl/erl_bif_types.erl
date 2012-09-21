@@ -1153,59 +1153,66 @@ type(erlang, phash2, 2, Xs) ->
   strict(arg_types(erlang, phash2, 2), Xs, fun (_) -> t_non_neg_integer() end);
 type(erlang, pid_to_list, 1, Xs) ->
   strict(arg_types(erlang, pid_to_list, 1), Xs, fun (_) -> t_string() end);
-type(erlang, port_call, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
-  strict(arg_types(erlang, port_call, Arity), Xs, fun (_) -> t_any() end);
-type(erlang, port_close, 1, Xs) ->
-  strict(arg_types(erlang, port_close, 1), Xs,
-	 fun (_) -> t_atom('true') end);
-type(erlang, port_command, 2, Xs) ->
-  strict(arg_types(erlang, port_command, 2), Xs,
-	 fun (_) -> t_atom('true') end);
-type(erlang, port_command, 3, Xs) ->
-  strict(arg_types(erlang, port_command, 3), Xs,
-	 fun (_) -> t_boolean() end);
-type(erlang, port_connect, 2, Xs) ->
-  strict(arg_types(erlang, port_connect, 2), Xs,
-	 fun (_) -> t_atom('true') end);
-type(erlang, port_control, 3, Xs) ->
-  strict(arg_types(erlang, port_control, 3), Xs,
-	 fun (_) -> t_sup(t_string(), t_binary()) end);
-type(erlang, port_get_data, 1, Xs) ->
-  strict(arg_types(erlang, port_get_data, 1), Xs, fun (_) -> t_any() end);
-type(erlang, port_info, 1, Xs) ->
-  strict(arg_types(erlang, port_info, 1), Xs,
-	 fun (_) -> t_sup(t_atom('undefined'), t_list()) end);
-type(erlang, port_info, 2, Xs) ->
-  strict(arg_types(erlang, port_info, 2), Xs,
+type(erts_internal, port_call, 3, Xs) ->
+  strict(arg_types(erts_internal, port_call, 3), Xs,
+	fun (_) -> t_sup([t_atom('badarg'), t_reference(), t_tuple(['ok', t_any()])]) end);
+type(erts_internal, port_close, 1, Xs) ->
+  strict(arg_types(erts_internal, port_close, 1), Xs,
+	 fun (_) -> t_sup([t_atom('badarg'), t_atom('true'), t_reference()]) end);
+type(erts_internal, port_command, 3, Xs) ->
+  strict(arg_types(erts_internal, port_command, 3), Xs,
+	 fun (_) -> t_sup([t_atom('badarg'), t_boolean(), t_reference()]) end);
+type(erts_internal, port_connect, 2, Xs) ->
+  strict(arg_types(erts_internal, port_connect, 2), Xs,
+	 fun (_) -> t_sup([t_atom('badarg'), t_atom('true'), t_reference()]) end);
+type(erts_internal, port_control, 3, Xs) ->
+  strict(arg_types(erts_internal, port_control, 3), Xs,
+	 fun (_) -> t_sup([t_atom('badarg'), t_reference(), t_string(), t_binary()]) end);
+type(erts_internal, port_get_data, 1, Xs) ->
+  strict(arg_types(erts_internal, port_get_data, 1), Xs,
+	fun (_) -> t_sup([t_atom('badarg'), t_reference(), t_tuple(['ok', t_any()])]) end);
+type(erts_internal, port_info, 1, Xs) ->
+    [_, PossibleItems] =arg_types(erts_internal, port_info, 2),
+  strict(arg_types(erts_internal, port_info, 1), Xs,
+	 fun (_) -> t_sup([t_atom('badarg'), t_atom('undefined'), t_reference(), t_list(t_tuple([PossibleItems, t_any()]))]) end);
+type(erts_internal, port_info, 2, Xs) ->
+  strict(arg_types(erts_internal, port_info, 2), Xs,
 	 fun ([_Port, Item]) ->
-	     t_sup(t_atom('undefined'),
-		   case t_atom_vals(Item) of
+	     t_sup([t_atom('undefined'),
+		    t_atom('badarg'),
+		    t_reference(),
+		    case t_atom_vals(Item) of
 		     ['connected'] -> t_tuple([Item, t_pid()]);
 		     ['id'] -> t_tuple([Item, t_integer()]);
 		     ['input'] -> t_tuple([Item, t_integer()]);
 		     ['links'] -> t_tuple([Item, t_list(t_pid())]);
 		     ['name'] -> t_tuple([Item, t_string()]);
 		     ['output'] -> t_tuple([Item, t_integer()]);
-		     ['registered_name'] -> t_tuple([Item, t_atom()]);
+		     ['registered_name'] -> t_sup(t_tuple([Item, t_atom()]), t_nil());
+		     ['monitors'] -> t_tuple([Item, t_list(t_tuple([t_atom('process'), t_pid()]))]);
+		     ['memory'] -> t_tuple([Item, t_integer()]);
+		     ['queue_size'] -> t_tuple([Item, t_integer()]);
+		     ['locking'] -> t_tuple([Item, t_sup([t_atom('false'), t_atom('port_level'), t_atom('driver_level')])]);
+		     ['parallelism'] -> t_tuple([Item, t_boolean()]);
 		     List when is_list(List) ->
 		       t_tuple([t_sup([t_atom(A) || A <- List]),
 				t_sup([t_atom(), t_integer(),
 				       t_pid(), t_list(t_pid()),
 				       t_string()])]);
 		     unknown ->
-		       [_, PosItem] = arg_types(erlang, port_info, 2),
+		       [_, PosItem] = arg_types(erts_internal, port_info, 2),
 		       t_tuple([PosItem,
 				t_sup([t_atom(), t_integer(),
 				       t_pid(), t_list(t_pid()),
 				       t_string()])])		       
-		   end)
+		   end])
 	 end);
 type(erlang, port_to_list, 1, Xs) ->
   strict(arg_types(erlang, port_to_list, 1), Xs, fun (_) -> t_string() end);
 type(erlang, ports, 0, _) -> t_list(t_port());
-type(erlang, port_set_data, 2, Xs) ->
-  strict(arg_types(erlang, port_set_data, 2), Xs,
-	 fun (_) -> t_atom('true') end);
+type(erts_internal, port_set_data, 2, Xs) ->
+  strict(arg_types(erts_internal, port_set_data, 2), Xs,
+	 fun (_) -> t_sup([t_atom('badarg'), t_atom('true'), t_reference()]) end);
 type(erlang, pre_loaded, 0, _) -> t_list(t_atom());
 type(erlang, process_display, 2, _) -> t_atom('true');
 type(erlang, process_flag, 2, Xs) ->
@@ -1638,6 +1645,12 @@ type(erlang, system_info, 1, Xs) ->
 			   t_string());
                    ['otp_release'] ->
                      t_string();
+		   ['port_parallelism'] ->
+		     t_boolean();
+		   ['port_count'] ->
+		     t_non_neg_fixnum();
+		   ['port_limit'] ->
+		     t_non_neg_fixnum();
 		   ['process_count'] ->
 		     t_non_neg_fixnum();
 		   ['process_limit'] ->
@@ -3757,7 +3770,8 @@ arg_types(erlang, open_port, 2) ->
 		       t_tuple([t_atom('cd'), t_string()]),
 		       t_tuple([t_atom('env'), t_list(t_tuple(2))]), % XXX: More
 		       t_tuple([t_atom('args'), t_list(ArgT)]),
-		       t_tuple([t_atom('arg0'), ArgT])])))];
+		       t_tuple([t_atom('arg0'), ArgT]),
+		       t_tuple([t_atom('parallelism'), t_boolean()])])))];
 arg_types(erlang, phash, 2) ->
   [t_any(), t_pos_integer()];
 arg_types(erlang, phash2, 1) ->
@@ -3766,35 +3780,32 @@ arg_types(erlang, phash2, 2) ->
   [t_any(), t_pos_integer()];
 arg_types(erlang, pid_to_list, 1) ->
   [t_pid()];
-arg_types(erlang, port_call, 2) ->
-  [t_sup(t_port(), t_atom()), t_any()];
-arg_types(erlang, port_call, 3) ->
+arg_types(erts_internal, port_call, 3) ->
   [t_sup(t_port(), t_atom()), t_integer(), t_any()];
-arg_types(erlang, port_close, 1) ->
+arg_types(erts_internal, port_close, 1) ->
   [t_sup(t_port(), t_atom())];
-arg_types(erlang, port_command, 2) ->
-  [t_sup(t_port(), t_atom()), t_sup(t_iolist(), t_binary())];
-arg_types(erlang, port_command, 3) ->
+arg_types(erts_internal, port_command, 3) ->
   [t_sup(t_port(), t_atom()),
    t_sup(t_iolist(), t_binary()),
    t_list(t_atoms(['force', 'nosuspend']))];
-arg_types(erlang, port_connect, 2) ->
+arg_types(erts_internal, port_connect, 2) ->
   [t_sup(t_port(), t_atom()), t_pid()];
-arg_types(erlang, port_control, 3) ->
+arg_types(erts_internal, port_control, 3) ->
   [t_sup(t_port(), t_atom()), t_integer(), t_sup(t_iolist(), t_binary())];
-arg_types(erlang, port_get_data, 1) ->
+arg_types(erts_internal, port_get_data, 1) ->
   [t_sup(t_port(), t_atom())];
-arg_types(erlang, port_info, 1) ->
+arg_types(erts_internal, port_info, 1) ->
   [t_sup(t_port(), t_atom())];
-arg_types(erlang, port_info, 2) ->
+arg_types(erts_internal, port_info, 2) ->
   [t_sup(t_port(), t_atom()),
    t_atoms(['registered_name', 'id', 'connected',
-	    'links', 'name', 'input', 'output'])];
+	    'links', 'name', 'input', 'output',
+	    'monitors', 'memory', 'queue_size', 'locking', 'parallelism'])];
 arg_types(erlang, port_to_list, 1) ->
   [t_port()];
 arg_types(erlang, ports, 0) ->
   [];
-arg_types(erlang, port_set_data, 2) ->
+arg_types(erts_internal, port_set_data, 2) ->
   [t_sup(t_port(), t_atom()), t_any()];
 arg_types(erlang, pre_loaded, 0) ->
   [];

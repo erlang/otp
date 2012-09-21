@@ -125,6 +125,7 @@ static char *pluss_val_switches[] = {
     "ct",
     "wt",
     "ss",
+    "pp",
     NULL
 };
 /* +h arguments with values */
@@ -813,6 +814,7 @@ int main(int argc, char **argv)
 		  case 'A':
 		  case 'b':
 		  case 'i':
+		  case 'n':
 		  case 'P':
 		  case 'Q':
 		  case 'S':

@@ -322,27 +322,6 @@ do {					\
 	ERTS_BIF_EXITED((PROC));	\
 } while (0)
 
-#ifdef ERTS_SMP
-#define ERTS_SMP_BIF_CHK_PENDING_EXIT(P, L)				\
-do {									\
-    ERTS_SMP_LC_ASSERT((L) == erts_proc_lc_my_proc_locks((P)));		\
-    ERTS_SMP_LC_ASSERT(ERTS_PROC_LOCK_MAIN & (L));			\
-    if (!((L) & ERTS_PROC_LOCK_STATUS))					\
-	erts_smp_proc_lock((P), ERTS_PROC_LOCK_STATUS);			\
-    if (ERTS_PROC_PENDING_EXIT((P))) {					\
-	erts_handle_pending_exit((P), (L)|ERTS_PROC_LOCK_STATUS);	\
-	erts_smp_proc_unlock((P),					\
-			     (((L)|ERTS_PROC_LOCK_STATUS)		\
-			      & ~ERTS_PROC_LOCK_MAIN));			\
-	ERTS_BIF_EXITED((P));						\
-    }									\
-    if (!((L) & ERTS_PROC_LOCK_STATUS))					\
-	erts_smp_proc_unlock((P), ERTS_PROC_LOCK_STATUS);		\
-} while (0)
-#else
-#define ERTS_SMP_BIF_CHK_PENDING_EXIT(P, L)
-#endif
-
 /*
  * The ERTS_BIF_*_AWAIT_X_*_TRAP makros either exits the caller, or
  * sets up a trap to erlang:await_proc_exit/3.

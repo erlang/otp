@@ -578,11 +578,35 @@ Eterm erts_realloc_binary(Eterm bin, size_t size);
 
 /* erl_bif_info.c */
 
+Eterm
+erts_bld_port_info(Eterm **hpp,
+		   ErlOffHeap *ohp,
+		   Uint *szp,
+		   Port *prt,
+		   Eterm item); 
+
 void erts_bif_info_init(void);
 
 /* bif.c */
 Eterm erts_make_ref(Process *);
 Eterm erts_make_ref_in_buffer(Eterm buffer[REF_THING_SIZE]);
+void erts_make_ref_in_array(Uint32 ref[ERTS_MAX_REF_NUMBERS]);
+
+ERTS_GLB_INLINE Eterm
+erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS]);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE Eterm
+erts_proc_store_ref(Process *c_p, Uint32 ref[ERTS_MAX_REF_NUMBERS])
+{
+    Eterm *hp = HAlloc(c_p, REF_THING_SIZE);
+    write_ref_thing(hp, ref[0], ref[1], ref[2]);
+    return make_internal_ref(hp);
+}
+
+#endif
+
 void erts_queue_monitor_message(Process *,
 				ErtsProcLocks*,
 				Eterm,
@@ -595,13 +619,6 @@ Eterm erl_send(Process *p, Eterm to, Eterm msg);
 /* erl_bif_op.c */
 
 Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
-
-/* erl_bif_port.c */
-
-/* erl_bif_trace.c */
-Eterm erl_seq_trace_info(Process *p, Eterm arg1);
-void erts_system_monitor_clear(Process *c_p);
-void erts_system_profile_clear(Process *c_p);
 
 /* beam_load.c */
 typedef struct {
@@ -892,7 +909,6 @@ typedef struct {
 #define ERTS_SPAWN_DRIVER 1
 #define ERTS_SPAWN_EXECUTABLE 2
 #define ERTS_SPAWN_ANY (ERTS_SPAWN_DRIVER | ERTS_SPAWN_EXECUTABLE)
-
 int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_locked);
 void erts_destroy_driver(erts_driver_t *drv);
 int erts_save_suspend_process_on_port(Port*, Process*);
@@ -900,10 +916,6 @@ Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int 
 int erts_is_port_ioq_empty(Port *);
 void erts_terminate_port(Port *);
 void erts_init_io(int, int);
-void erts_do_exit_port(Port *, Eterm, Eterm);
-void erts_port_command(Process *, Eterm, Port *, Eterm);
-Eterm erts_port_control(Process*, Port*, Uint, Eterm);
-int erts_write_to_port(Eterm caller_id, Port *p, Eterm list);
 void erts_raw_port_command(Port*, byte*, Uint);
 void driver_report_exit(ErlDrvPort, int);
 LineBuf* allocate_linebuf(int);
@@ -963,79 +975,6 @@ char *erts_convert_filename_to_native(Eterm name, ErtsAlcType_t alloc_type, int 
 #define ERTS_UTF8_ERROR 2
 #define ERTS_UTF8_ANALYZE_MORE 3
 
-/* erl_trace.c */
-void erts_init_trace(void);
-void erts_trace_check_exiting(Eterm exiting);
-Eterm erts_set_system_seq_tracer(Process *c_p,
-				 ErtsProcLocks c_p_locks,
-				 Eterm new);
-Eterm erts_get_system_seq_tracer(void);
-void erts_change_default_tracing(int setflags, Uint *flagsp, Eterm *tracerp);
-void erts_get_default_tracing(Uint *flagsp, Eterm *tracerp);
-void erts_set_system_monitor(Eterm monitor);
-Eterm erts_get_system_monitor(void);
-
-#ifdef ERTS_SMP
-void erts_check_my_tracer_proc(Process *);
-void erts_block_sys_msg_dispatcher(void);
-void erts_release_sys_msg_dispatcher(void);
-void erts_foreach_sys_msg_in_q(void (*func)(Eterm,
-					    Eterm,
-					    Eterm,
-					    ErlHeapFragment *));
-void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
-#endif
-
-void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
-void trace_send(Process*, Eterm, Eterm);
-void trace_receive(Process*, Eterm);
-Uint32 erts_call_trace(Process *p, BeamInstr mfa[], Binary *match_spec, Eterm* args,
-		       int local, Eterm *tracer_pid);
-void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, Eterm *tracer_pid);
-void erts_trace_exception(Process* p, BeamInstr mfa[], Eterm class, Eterm value,
-			  Eterm *tracer);
-void erts_trace_return_to(Process *p, BeamInstr *pc);
-void trace_sched(Process*, Eterm);
-void trace_proc(Process*, Process*, Eterm, Eterm);
-void trace_proc_spawn(Process*, Eterm pid, Eterm mod, Eterm func, Eterm args);
-void save_calls(Process *p, Export *);
-void trace_gc(Process *p, Eterm what);
-/* port tracing */
-void trace_virtual_sched(Process*, Eterm);
-void trace_sched_ports(Port *pp, Eterm);
-void trace_sched_ports_where(Port *pp, Eterm, Eterm);
-void trace_port(Port *, Eterm what, Eterm data);
-void trace_port_open(Port *, Eterm calling_pid, Eterm drv_name);
-
-/* system_profile */
-void erts_set_system_profile(Eterm profile);
-Eterm erts_get_system_profile(void);
-void profile_scheduler(Eterm scheduler_id, Eterm);
-void profile_scheduler_q(Eterm scheduler_id, Eterm state, Eterm no_schedulers, Uint Ms, Uint s, Uint us);
-void profile_runnable_proc(Process* p, Eterm status);
-void profile_runnable_port(Port* p, Eterm status);
-void erts_system_profile_setup_active_schedulers(void);
-
-/* system_monitor */
-void monitor_long_gc(Process *p, Uint time);
-void monitor_large_heap(Process *p);
-void monitor_generic(Process *p, Eterm type, Eterm spec);
-Uint erts_trace_flag2bit(Eterm flag);
-int erts_trace_flags(Eterm List, 
-		 Uint *pMask, Eterm *pTracer, int *pCpuTimestamp);
-Eterm erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr *I);
-
-#ifdef ERTS_SMP
-void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);
-#define ERTS_SMP_CHK_PEND_TRACE_MSGS(ESDP)				\
-do {									\
-    if ((ESDP)->pending_trace_msgs)					\
-	erts_send_pending_trace_msgs((ESDP));				\
-} while (0)
-#else
-#define ERTS_SMP_CHK_PEND_TRACE_MSGS(ESDP)
-#endif
-
 void bin_write(int, void*, byte*, size_t);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
@@ -1053,9 +992,16 @@ char* Sint_to_buf(Sint, struct Sint_buf*);
 #define ERTS_IOLIST_TYPE 2
 
 Eterm buf_to_intlist(Eterm**, char*, size_t, Eterm); /* most callers pass plain char*'s */
-int io_list_to_buf(Eterm, char*, int);
-int io_list_to_buf2(Eterm, char*, int);
-int erts_iolist_size(Eterm, Uint *);
+
+#define ERTS_IOLIST_TO_BUF_OVERFLOW	(~((ErlDrvSizeT) 0))
+#define ERTS_IOLIST_TO_BUF_TYPE_ERROR	(~((ErlDrvSizeT) 1))
+#define ERTS_IOLIST_TO_BUF_FAILED(R) \
+    (((R) & (~((ErlDrvSizeT) 1))) == (~((ErlDrvSizeT) 1)))
+#define ERTS_IOLIST_TO_BUF_SUCCEEDED(R) \
+    (!ERTS_IOLIST_TO_BUF_FAILED((R)))
+
+ErlDrvSizeT erts_iolist_to_buf(Eterm, char*, ErlDrvSizeT);
+int erts_iolist_size(Eterm, ErlDrvSizeT *);
 int is_string(Eterm);
 void erl_at_exit(void (*) (void*), void*);
 Eterm collect_memory(Process *);
@@ -1100,39 +1046,6 @@ Uint erts_current_reductions(Process* current, Process *p);
 int erts_print_system_version(int to, void *arg, Process *c_p);
 
 int erts_hibernate(Process* c_p, Eterm module, Eterm function, Eterm args, Eterm* reg);
-#define seq_trace_output(token, msg, type, receiver, process) \
-seq_trace_output_generic((token), (msg), (type), (receiver), (process), NIL)
-#define seq_trace_output_exit(token, msg, type, receiver, exitfrom) \
-seq_trace_output_generic((token), (msg), (type), (receiver), NULL, (exitfrom))
-void seq_trace_output_generic(Eterm token, Eterm msg, Uint type, 
-			      Eterm receiver, Process *process, Eterm exitfrom);
-
-int seq_trace_update_send(Process *process);
-
-Eterm erts_seq_trace(Process *process, 
-		     Eterm atom_type, Eterm atom_true_or_false, 
-		     int build_result);
-
-struct trace_pattern_flags {
-    unsigned int breakpoint : 1; /* Set if any other is set */
-    unsigned int local      : 1; /* Local call trace breakpoint */
-    unsigned int meta       : 1; /* Metadata trace breakpoint */
-    unsigned int call_count : 1; /* Fast call count breakpoint */
-    unsigned int call_time  : 1; /* Fast call time breakpoint */
-};
-extern const struct trace_pattern_flags erts_trace_pattern_flags_off;
-extern int erts_call_time_breakpoint_tracing;
-int erts_set_trace_pattern(Eterm* mfa, int specified, 
-			   Binary* match_prog_set, Binary *meta_match_prog_set,
-			   int on, struct trace_pattern_flags,
-			   Eterm meta_tracer_pid);
-void
-erts_get_default_trace_pattern(int *trace_pattern_is_on,
-			       Binary **match_spec,
-			       Binary **meta_match_spec,
-			       struct trace_pattern_flags *trace_pattern_flags,
-			       Eterm *meta_tracer_pid);
-void erts_bif_trace_init(void);
 
 /*
 ** Call_trace uses this API for the parameter matching functions

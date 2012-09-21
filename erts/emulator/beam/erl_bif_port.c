@@ -49,9 +49,6 @@ static void free_args(char **);
 
 char *erts_default_arg0 = "default";
 
-static BIF_RETTYPE
-port_call(Process* p, Eterm arg1, Eterm arg2, Eterm arg3);
-
 BIF_RETTYPE open_port_2(BIF_ALIST_2)
 {
     Port *port;
@@ -86,539 +83,397 @@ BIF_RETTYPE open_port_2(BIF_ALIST_2)
     BIF_RET(port_id);
 }
 
-/****************************************************************************
-
-  PORT BIFS:
-
-           port_command/2   -- replace Port ! {..., {command, Data}}
-               port_command(Port, Data) -> true
-               when port(Port), io-list(Data)
-
-           port_control/3   -- new port_control(Port, Ctl, Data) -> Reply
-	      port_control(Port, Ctl, Data) -> Reply
-              where integer(Ctl), io-list(Data), io-list(Reply)
-
-           port_close/1     -- replace Port ! {..., close}
-             port_close(Port) -> true
-             when port(Port)
-
-           port_connect/2   -- replace Port ! {..., {connect, Pid}}
-              port_connect(Port, Pid) 
-              when port(Port), pid(Pid)
-
- ***************************************************************************/
-
-static Port*
-id_or_name2port(Process *c_p, Eterm id)
+static ERTS_INLINE Port *
+lookup_port(Process *c_p, Eterm id_or_name)
 {
-    Port *port;
-    if (is_not_atom(id))
-	port = erts_id2port_sflgs(id,
-				  c_p,
-				  ERTS_PROC_LOCK_MAIN,
-				  ERTS_PORT_SFLGS_INVALID_LOOKUP);
+    /* TODO: Implement nicer lookup in register... */
+    Eterm id;
+    if (is_atom(id_or_name))
+	id = erts_whereis_name_to_id(c_p, id_or_name);
     else
-	erts_whereis_name(c_p, ERTS_PROC_LOCK_MAIN, id, NULL, 0, 0, &port);
-    return port;
+	id = id_or_name;
+    return erts_port_lookup(id, ERTS_PORT_SFLGS_INVALID_LOOKUP);
 }
 
-#define ERTS_PORT_COMMAND_FLAG_FORCE		(((Uint32) 1) << 0)
-#define ERTS_PORT_COMMAND_FLAG_NOSUSPEND	(((Uint32) 1) << 1)
+/*
+ * erts_internal:port_command/3 is used by the
+ * erlang:port_command/2 and erlang:port_command/3
+ * BIFs.
+ */
 
-static BIF_RETTYPE
-do_port_command(Process *BIF_P, Eterm arg1, Eterm arg2, Eterm arg3,
-		Uint32 flags)
+BIF_RETTYPE erts_internal_port_command_3(BIF_ALIST_3)
 {
     BIF_RETTYPE res;
-    Port *p;
+    Port *prt;
+    int flags = 0;
+    Eterm ref;
 
-    /* Trace sched out before lock check wait */    
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-	trace_virtual_sched(BIF_P, am_out);
-    }
-    
-    if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_inactive);
-    }
-
-    p = id_or_name2port(BIF_P, arg1);
-    if (!p) {
-    	if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-	    trace_virtual_sched(BIF_P, am_in);
+    if (is_not_nil(BIF_ARG_3)) {
+	Eterm l = BIF_ARG_3;
+	while (is_list(l)) {
+	    Eterm* cons = list_val(l);
+	    Eterm car = CAR(cons);
+	    if (car == am_force)
+		flags |= ERTS_PORT_SIG_FLG_FORCE;
+	    else if (car == am_nosuspend)
+		flags |= ERTS_PORT_SIG_FLG_NOSUSPEND;
+	    else
+		BIF_RET(am_badarg);
+	    l = CDR(cons);
 	}
-    	if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	    profile_runnable_proc(BIF_P, am_active);
-    	}
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    
-    /* Trace port in, id_or_name2port causes wait */
-
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
-	trace_sched_ports_where(p, am_in, am_command);
-    }
-    if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
-    	profile_runnable_port(p, am_active);
+	if (!is_nil(l))
+	    BIF_RET(am_badarg);
     }
 
-    ERTS_BIF_PREP_RET(res, am_true);
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+	BIF_RET(am_badarg);
 
-    if ((flags & ERTS_PORT_COMMAND_FLAG_FORCE)
-	&& !(p->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY)) {
-	ERTS_BIF_PREP_ERROR(res, BIF_P, EXC_NOTSUP);
+    if (flags & ERTS_PORT_SIG_FLG_FORCE) {
+	if (!(prt->drv_ptr->flags & ERL_DRV_FLAG_SOFT_BUSY))
+	    BIF_RET(am_notsup);
     }
-    else if (!(flags & ERTS_PORT_COMMAND_FLAG_FORCE)
-	     && (erts_smp_atomic32_read_nob(&p->sched.flags)
-		 & ERTS_PTS_FLG_BUSY)) {
-	if (flags & ERTS_PORT_COMMAND_FLAG_NOSUSPEND) {
+
+#ifdef DEBUG
+    ref = NIL;
+#endif
+
+    switch (erts_port_output(BIF_P, flags, prt, prt->common.id, BIF_ARG_2, &ref)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+    case ERTS_PORT_OP_DROPPED:
+ 	ERTS_BIF_PREP_RET(res, am_badarg);
+	break;
+    case ERTS_PORT_OP_BUSY:
+	ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
+	if (flags & ERTS_PORT_SIG_FLG_NOSUSPEND)
 	    ERTS_BIF_PREP_RET(res, am_false);
-	}
 	else {
-	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, p);
-	    if (erts_system_monitor_flags.busy_port) {
-		monitor_generic(BIF_P, am_busy_port, p->common.id);
-	    }
-	    ERTS_BIF_PREP_YIELD3(res, bif_export[BIF_port_command_3], BIF_P,
-				 arg1, arg2, arg3);
+	    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, prt);
+	    ERTS_BIF_PREP_YIELD3(res, bif_export[BIF_erts_internal_port_command_3],
+				 BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 	}
-    } else {
-	int wres;
-	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	ERTS_SMP_CHK_NO_PROC_LOCKS;
-	wres = erts_write_to_port(BIF_P->common.id, p, arg2);
-	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	if (wres != 0) {
-	    ERTS_BIF_PREP_ERROR(res, BIF_P, BADARG);
-	}
-    }
-    
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
-	trace_sched_ports_where(p, am_out, am_command);
-    }
-    if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
-    	profile_runnable_port(p, am_inactive);
+	break;
+    case ERTS_PORT_OP_BUSY_SCHEDULED:
+	ASSERT(!(flags & ERTS_PORT_SIG_FLG_FORCE));
+	/* Fall through... */
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(ref));
+	ERTS_BIF_PREP_RET(res, ref);
+	break;
+    case ERTS_PORT_OP_DONE:
+	ERTS_BIF_PREP_RET(res, am_true);
+	break;
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_output() result");
+	break;
     }
 
-    erts_port_release(p);
-    /* Trace sched in after port release */
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-	trace_virtual_sched(BIF_P, am_in);
-    }
-    if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_active);
-    }
-    
     if (ERTS_PROC_IS_EXITING(BIF_P)) {
 	KILL_CATCHES(BIF_P);	/* Must exit */
 	ERTS_BIF_PREP_ERROR(res, BIF_P, EXC_ERROR);
     }
+
     return res;
 }
 
-BIF_RETTYPE port_command_2(BIF_ALIST_2)
-{
-    return do_port_command(BIF_P, BIF_ARG_1, BIF_ARG_2, NIL, 0);
-}
-
-BIF_RETTYPE port_command_3(BIF_ALIST_3)
-{
-    Eterm l = BIF_ARG_3;
-    Uint32 flags = 0;
-    while (is_list(l)) {
-	Eterm* cons = list_val(l);
-	Eterm car = CAR(cons);
-	if (car == am_force) {
-	    flags |= ERTS_PORT_COMMAND_FLAG_FORCE;
-	} else if (car == am_nosuspend) {
-	    flags |= ERTS_PORT_COMMAND_FLAG_NOSUSPEND;
-	} else {
-	    BIF_ERROR(BIF_P, BADARG);
-	}
-	l = CDR(cons);
-    }
-    if(!is_nil(l)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    return do_port_command(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, flags);
-}
-
-BIF_RETTYPE port_call_2(BIF_ALIST_2)
-{
-    return port_call(BIF_P,BIF_ARG_1, make_small(0), BIF_ARG_2);
-}
-
-BIF_RETTYPE port_call_3(BIF_ALIST_3)
-{
-    return port_call(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
-}
-
-static BIF_RETTYPE
-port_call(Process* c_p, Eterm arg1, Eterm arg2, Eterm arg3)
-{
-    Uint op;
-    Port *p;
-    Uint size;
-    byte *bytes;
-    byte *endp;
-    ErlDrvSizeT real_size;
-    erts_driver_t *drv;
-    byte port_input[256];	/* Default input buffer to encode in */
-    byte port_result[256];	/* Buffer for result from port. */
-    byte* port_resp;		/* Pointer to result buffer. */
-    char *prc;
-    ErlDrvSSizeT ret;
-    Eterm res;
-    Sint result_size;
-    Eterm *hp;
-    Eterm *hp_end;              /* To satisfy hybrid heap architecture */
-    unsigned ret_flags = 0U;
-    int fpe_was_unmasked;
-
-    bytes = &port_input[0];
-    port_resp = port_result;
-    /* trace of port scheduling with virtual process descheduling
-     * lock wait 
-     */
-    if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
-	trace_virtual_sched(c_p, am_out);
-    }
-
-    if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-	profile_runnable_proc(c_p, am_inactive);
-    }
-
-    p = id_or_name2port(c_p, arg1);
-    if (!p) {
-    error:
-	if (port_resp != port_result && 
-	    !(ret_flags & DRIVER_CALL_KEEP_BUFFER)) {
-	    driver_free(port_resp);
-	}
-	if (bytes != &port_input[0])
-	    erts_free(ERTS_ALC_T_PORT_CALL_BUF, bytes);
-	/* Need to virtual schedule in the process if there
-	 * was an error.
-	 */
-	if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
-	    trace_virtual_sched(c_p, am_in);
-    	}
-
-	if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-	    profile_runnable_proc(c_p, am_active);
-    	}
-
-	if (p)
-	    erts_port_release(p);
-#ifdef ERTS_SMP
-	ERTS_SMP_BIF_CHK_PENDING_EXIT(c_p, ERTS_PROC_LOCK_MAIN);
-#else
-	ERTS_BIF_CHK_EXITED(c_p);
-#endif
-	BIF_ERROR(c_p, BADARG);
-    }
-
-    if ((drv = p->drv_ptr) == NULL) {
-	goto error;
-    }
-    if (drv->call == NULL) {
-	goto error;
-    }
-    if (!term_to_Uint(arg2, &op)) {
-	goto error;
-    }
-    p->caller = c_p->common.id;
-    
-    /* Lock taken, virtual schedule of port */
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
-    	trace_sched_ports_where(p, am_in, am_call);
-    }
-    
-    if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
-    	profile_runnable_port(p, am_active);
-    }
-    size = erts_encode_ext_size(arg3);
-    if (size > sizeof(port_input))
-	bytes = erts_alloc(ERTS_ALC_T_PORT_CALL_BUF, size);
-
-    endp = bytes;
-    erts_encode_ext(arg3, &endp);
-
-    real_size = endp - bytes;
-    if (real_size > size) {
-	erl_exit(1, "%s, line %d: buffer overflow: %d word(s)\n",
-		 __FILE__, __LINE__, endp - (bytes + size));
-    }
-    erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(driver_call)) {
-        DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
-
-        dtrace_pid_str(ERTS_PORT_GET_CONNECTED(p), process_str);
-        dtrace_port_str(p, port_str);
-        DTRACE5(driver_call, process_str, port_str, p->name, op, real_size);
-    }
-#endif
-    prc  = (char *) port_resp;
-    fpe_was_unmasked = erts_block_fpe();
-    ret = drv->call((ErlDrvData)p->drv_data, 
-		    (unsigned) op,
-		    (char *) bytes, 
-		    (int) real_size,
-		    &prc, 
-		    (int) sizeof(port_result),
-		    &ret_flags);
-    erts_unblock_fpe(fpe_was_unmasked);
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
-    	trace_sched_ports_where(p, am_out, am_call);
-    }
-    
-    if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
-    	profile_runnable_port(p, am_inactive);
-    }
-   
-    port_resp = (byte *) prc;
-    p->caller = NIL;
-    erts_smp_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
-#ifdef HARDDEBUG
-    { 
-	ErlDrvSizeT z;
-	printf("real_size = %ld,%d, ret = %ld,%d\r\n", (unsigned long) real_size,
-	       (int) real_size, (unsigned long)ret, (int) ret);
-	printf("[");
-	for(z = 0; z < real_size; ++z) {
-	    printf("%d, ",(int) bytes[z]);
-	}
-	printf("]\r\n");
-	printf("[");
-	for(z = 0; z < ret; ++z) {
-	    printf("%d, ",(int) port_resp[z]);
-	}
-	printf("]\r\n");
-    }
-#endif
-    if (ret <= 0 || port_resp[0] != VERSION_MAGIC) { 
-	/* Error or a binary without magic/ with wrong magic */
-	goto error;
-    }
-    result_size = erts_decode_ext_size(port_resp, ret);
-    if (result_size < 0) {
-	goto error;
-    }
-    hp = HAlloc(c_p, result_size);
-    hp_end = hp + result_size;
-    endp = port_resp;
-    res = erts_decode_ext(&hp, &MSO(c_p), &endp);
-    if (res == THE_NON_VALUE) {
-	goto error;
-    }
-    HRelease(c_p, hp_end, hp);
-    if (port_resp != port_result && !(ret_flags & DRIVER_CALL_KEEP_BUFFER)) {
-	driver_free(port_resp);
-    }
-    if (bytes != &port_input[0])
-	erts_free(ERTS_ALC_T_PORT_CALL_BUF, bytes);
-    if (p)
-	erts_port_release(p);
-#ifdef ERTS_SMP
-    ERTS_SMP_BIF_CHK_PENDING_EXIT(c_p, ERTS_PROC_LOCK_MAIN);
-#else
-    ERTS_BIF_CHK_EXITED(c_p);
-#endif
-    if (IS_TRACED_FL(c_p, F_TRACE_SCHED_PROCS)) {
-	trace_virtual_sched(c_p, am_in);
-    }
-
-    if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-	profile_runnable_proc(c_p, am_active);
-    }
-  
-    return res;
-}
-    
-BIF_RETTYPE port_control_3(BIF_ALIST_3)
-{
-    Port* p;
-    Uint op;
-    Eterm res = THE_NON_VALUE;
-    
-    /* Virtual schedule out calling process before lock wait */
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-	trace_virtual_sched(BIF_P, am_out);
-    }
-
-    if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_inactive);
-    }
-
-    p = id_or_name2port(BIF_P, BIF_ARG_1);
-    if (!p) {
-    	/* Schedule the process before exiting */
-    	if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-	    trace_virtual_sched(BIF_P, am_in);
-    	}
-	
-	if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	    profile_runnable_proc(BIF_P, am_active);
-	}
-	
-	BIF_ERROR(BIF_P, BADARG);
-    }
-
-    /* Trace the port for scheduling in */
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
-    	trace_sched_ports_where(p, am_in, am_control);
-    }
-    
-    if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
-    	profile_runnable_port(p, am_active);
-    }
-
-    if (term_to_Uint(BIF_ARG_2, &op))
-	res = erts_port_control(BIF_P, p, op, BIF_ARG_3);
-    
-    /* Trace the port for scheduling out */
-    if (IS_TRACED_FL(p, F_TRACE_SCHED_PORTS)) {
-    	trace_sched_ports_where(p, am_out, am_control);
-    }
-
-    if (erts_system_profile_flags.runnable_ports && !erts_port_is_scheduled(p)) {
-    	profile_runnable_port(p, am_inactive);
-    }
-
-    erts_port_release(p);
-#ifdef ERTS_SMP
-    ERTS_SMP_BIF_CHK_PENDING_EXIT(BIF_P, ERTS_PROC_LOCK_MAIN);
-#else
-    ERTS_BIF_CHK_EXITED(BIF_P);
-#endif
-    
-    if (IS_TRACED_FL(BIF_P, F_TRACE_SCHED_PROCS)) {
-	trace_virtual_sched(BIF_P, am_in);
-    }
-    
-    if (erts_system_profile_flags.runnable_procs && erts_system_profile_flags.exclusive) {
-    	profile_runnable_proc(BIF_P, am_active);
-    }
-    
-    if (is_non_value(res)) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    BIF_RET(res);
-}
-
-BIF_RETTYPE port_close_1(BIF_ALIST_1)
-{
-    Port* p;
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    p = id_or_name2port(NULL, BIF_ARG_1);
-    if (!p) {
-	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    erts_do_exit_port(p, ERTS_PORT_GET_CONNECTED(p), am_normal);
-    /* if !ERTS_SMP: since we terminate port with reason normal 
-       we SHOULD never get an exit signal ourselves
-       */
-    erts_port_release(p);
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    BIF_RET(am_true);
-}
-
-BIF_RETTYPE port_connect_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_port_call_3(BIF_ALIST_3)
 {
     Port* prt;
-    Process* rp;
-    Eterm pid = BIF_ARG_2;
+    Eterm retval;
+    Uint uint_op;
+    unsigned int op;
+    erts_aint32_t state;
 
-    if (is_not_internal_pid(pid)) {
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+	BIF_RET(am_badarg);
+
+    if (!term_to_Uint(BIF_ARG_2, &uint_op))
+	BIF_RET(am_badarg);
+
+    if (uint_op > (Uint) UINT_MAX)
+	BIF_RET(am_badarg);
+
+    op = (unsigned int) uint_op;
+
+    switch (erts_port_call(BIF_P, prt, op, BIF_ARG_3, &retval)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_DROPPED:
+    case ERTS_PORT_OP_BADARG:
+	retval = am_badarg;
+	break;
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(retval));
+	break;
+    case ERTS_PORT_OP_DONE:
+	ASSERT(is_not_internal_ref(retval));
+	break;
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_call() result");
+	retval = am_internal_error;
+	break;
     }
-    prt = id_or_name2port(BIF_P, BIF_ARG_1);
-    if (!prt) {
-	goto error;
-    }
 
-    rp = erts_pid2proc(BIF_P, ERTS_PROC_LOCK_MAIN,
-		       pid, ERTS_PROC_LOCK_LINK);
-    if (!rp) {
-	erts_port_release(prt);
-	ERTS_SMP_ASSERT_IS_NOT_EXITING(BIF_P);
-	goto error;
-    }
-
-    erts_add_link(&ERTS_P_LINKS(rp), LINK_PID, prt->common.id);
-    erts_add_link(&ERTS_P_LINKS(prt), LINK_PID, pid);
-
-    erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
-
-    ERTS_PORT_SET_CONNECTED_RELB(prt, pid); /* internal pid */
-    erts_port_release(prt);
-#ifdef USE_VM_PROBES
-    if (DTRACE_ENABLED(port_connect)) {
-        DTRACE_CHARBUF(process_str, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(port_str, DTRACE_TERM_BUF_SIZE);
-        DTRACE_CHARBUF(newprocess_str, DTRACE_TERM_BUF_SIZE);
-
-        dtrace_pid_str(pid, process_str);
-        erts_snprintf(port_str, sizeof(port_str), "%T", prt->id);
-        dtrace_proc_str(rp, newprocess_str);
-        DTRACE4(port_connect, process_str, port_str, prt->name, newprocess_str);
-    }
+    state = erts_smp_atomic32_read_acqb(&BIF_P->state);
+    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
+#ifdef ERTS_SMP
+	if (state & ERTS_PSFLG_PENDING_EXIT)
+	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
 #endif
-    BIF_RET(am_true);
+	ERTS_BIF_EXITED(BIF_P);
+    }
+
+    BIF_RET(retval);
 }
 
-BIF_RETTYPE port_set_data_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
 {
     Port* prt;
-    Eterm portid = BIF_ARG_1;
-    Eterm data   = BIF_ARG_2;
+    Eterm retval;
+    Uint uint_op;
+    unsigned int op;
+    erts_aint32_t state;
 
-    prt = id_or_name2port(BIF_P, portid);
-    if (!prt) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    if (prt->bp != NULL) {
-	free_message_buffer(prt->bp);
-	prt->bp = NULL;
-    }
-    if (IS_CONST(data)) {
-	prt->data = data;
-    } else {
-	Uint size;
-	ErlHeapFragment* bp;
-	Eterm* hp;
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+	BIF_RET(am_badarg);
 
-	size = size_object(data);
-	prt->bp = bp = new_message_buffer(size);
-	hp = bp->mem;
-	prt->data = copy_struct(data, size, &hp, &bp->off_heap);
+    if (!term_to_Uint(BIF_ARG_2, &uint_op))
+	BIF_RET(am_badarg);
+
+    if (uint_op > (Uint) UINT_MAX)
+	BIF_RET(am_badarg);
+
+    op = (unsigned int) uint_op;
+
+    switch (erts_port_control(BIF_P, prt, op, BIF_ARG_3, &retval)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+    case ERTS_PORT_OP_DROPPED:
+	retval = am_badarg;
+	break;
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(retval));
+	break;
+    case ERTS_PORT_OP_DONE:
+	ASSERT(is_not_internal_ref(retval));
+	break;
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_control() result");
+	retval = am_internal_error;
+	break;
     }
-    erts_port_release(prt);
-    BIF_RET(am_true);
+
+    state = erts_smp_atomic32_read_acqb(&BIF_P->state);
+    if (state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_PENDING_EXIT)) {
+#ifdef ERTS_SMP
+	if (state & ERTS_PSFLG_PENDING_EXIT)
+	    erts_handle_pending_exit(BIF_P, ERTS_PROC_LOCK_MAIN);
+#endif
+	ERTS_BIF_EXITED(BIF_P);
+    }
+
+    BIF_RET(retval);
+}
+
+/*
+ * erts_internal:port_close/1 is used by the
+ * erlang:port_close/1 BIF.
+ */
+BIF_RETTYPE erts_internal_port_close_1(BIF_ALIST_1)
+{
+    Eterm ref;
+    Port *prt;
+
+#ifdef DEBUG
+    ref = NIL;
+#endif
+
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+	BIF_RET(am_badarg);
+
+
+    switch (erts_port_exit(BIF_P, 0, prt, prt->common.id, am_normal, &ref)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+    case ERTS_PORT_OP_DROPPED:
+	BIF_RET(am_badarg);
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(ref));
+	BIF_RET(ref);
+    case ERTS_PORT_OP_DONE:
+	BIF_RET(am_true);
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_exit() result");
+	BIF_RET(am_internal_error);
+    }
+}
+
+/*
+ * erts_internal:port_connect/2 is used by the
+ * erlang:port_connect/2 BIF.
+ */
+BIF_RETTYPE erts_internal_port_connect_2(BIF_ALIST_2)
+{
+    Eterm ref;
+    Port* prt;
+
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+	BIF_RET(am_badarg);
+
+#ifdef DEBUG
+    ref = NIL;
+#endif
+
+    switch (erts_port_connect(BIF_P, 0, prt, prt->common.id, BIF_ARG_2, &ref)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+    case ERTS_PORT_OP_DROPPED:
+	BIF_RET(am_badarg);
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(ref));
+	BIF_RET(ref);
+	break;
+    case ERTS_PORT_OP_DONE:
+	BIF_RET(am_true);
+	break;
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_connect() result");
+	BIF_RET(am_internal_error);
+    }
+}
+
+BIF_RETTYPE erts_internal_port_info_1(BIF_ALIST_1)
+{
+    Eterm retval;
+    Port* prt;
+
+    if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
+	prt = lookup_port(BIF_P, BIF_ARG_1);
+	if (!prt)
+	    BIF_RET(am_undefined);
+    }
+    else if (is_external_port(BIF_ARG_1)) {
+	if (external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
+	    BIF_RET(am_undefined);
+	else
+	    BIF_RET(am_badarg);
+    }
+    else {
+	BIF_RET(am_badarg);
+    }
+
+    switch (erts_port_info(BIF_P, prt, THE_NON_VALUE, &retval)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+	BIF_RET(am_badarg);
+    case ERTS_PORT_OP_DROPPED:
+	BIF_RET(am_undefined);
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(retval));
+	BIF_RET(retval);
+    case ERTS_PORT_OP_DONE:
+	ASSERT(is_not_internal_ref(retval));
+	BIF_RET(retval);
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_info() result");
+	BIF_RET(am_internal_error);
+    }
 }
 
 
-BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
+BIF_RETTYPE erts_internal_port_info_2(BIF_ALIST_2)
 {
-    BIF_RETTYPE res;
+    Eterm retval;
     Port* prt;
-    Eterm portid = BIF_ARG_1;
 
-    prt = id_or_name2port(BIF_P, portid);
-    if (!prt) {
-	BIF_ERROR(BIF_P, BADARG);
+    if (is_internal_port(BIF_ARG_1) || is_atom(BIF_ARG_1)) {
+	prt = lookup_port(BIF_P, BIF_ARG_1);
+	if (!prt)
+	    BIF_RET(am_undefined);
     }
-    if (prt->bp == NULL) {	/* MUST be CONST! */
-	res = prt->data;
-    } else {
-	Eterm* hp = HAlloc(BIF_P, prt->bp->used_size);
-	res = copy_struct(prt->data, prt->bp->used_size, &hp, &MSO(BIF_P));
+    else if (is_external_port(BIF_ARG_1)) {
+	if (external_port_dist_entry(BIF_ARG_1) == erts_this_dist_entry)
+	    BIF_RET(am_undefined);
+	else
+	    BIF_RET(am_badarg);
     }
-    erts_port_release(prt);
-    BIF_RET(res);
+    else {
+	BIF_RET(am_badarg);
+    }
+
+    switch (erts_port_info(BIF_P, prt, BIF_ARG_2, &retval)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+	BIF_RET(am_badarg);
+    case ERTS_PORT_OP_DROPPED:
+	BIF_RET(am_undefined);
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(retval));
+	BIF_RET(retval);
+    case ERTS_PORT_OP_DONE:
+	ASSERT(is_not_internal_ref(retval));
+	BIF_RET(retval);
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_info() result");
+	BIF_RET(am_internal_error);
+    }
+}
+
+
+BIF_RETTYPE erts_internal_port_set_data_2(BIF_ALIST_2)
+{
+    Eterm ref;
+    Port* prt;
+
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+	BIF_RET(am_badarg);
+
+    switch (erts_port_set_data(BIF_P, prt, BIF_ARG_2, &ref)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+    case ERTS_PORT_OP_DROPPED:
+	BIF_RET(am_badarg);
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(ref));
+	BIF_RET(ref);
+    case ERTS_PORT_OP_DONE:
+	BIF_RET(am_true);
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_set_data() result");
+	BIF_RET(am_internal_error);
+    }
+}
+
+
+BIF_RETTYPE erts_internal_port_get_data_1(BIF_ALIST_1)
+{
+    Eterm retval;
+    Port* prt;
+
+    prt = lookup_port(BIF_P, BIF_ARG_1);
+    if (!prt)
+	BIF_RET(am_badarg);
+
+    switch (erts_port_get_data(BIF_P, prt, &retval)) {
+    case ERTS_PORT_OP_CALLER_EXIT:
+    case ERTS_PORT_OP_BADARG:
+    case ERTS_PORT_OP_DROPPED:
+	BIF_RET(am_badarg);
+    case ERTS_PORT_OP_SCHEDULED:
+	ASSERT(is_internal_ref(retval));
+	BIF_RET(retval);
+    case ERTS_PORT_OP_DONE:
+	ASSERT(is_not_internal_ref(retval));
+	BIF_RET(retval);
+    default:
+	ERTS_INTERNAL_ERROR("Unexpected erts_port_get_data() result");
+	BIF_RET(am_internal_error);
+    }
 }
 
 /* 
@@ -659,6 +514,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     opts.overlapped_io = 0; 
     opts.spawn_type = ERTS_SPAWN_ANY; 
     opts.argv = NULL;
+    opts.parallelism = erts_port_parallelism;
     linebuf = 0;
 
     *err_nump = 0;
@@ -736,6 +592,13 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 		    }
 		} else if (option == am_cd) {
 		    edir = *tp;
+		} else if (option == am_parallelism) {
+		    if (*tp == am_true)
+			opts.parallelism = 1;
+		    else if (*tp == am_false)
+			opts.parallelism = 0;
+		    else
+			goto badarg;
 		} else {
 		    goto badarg;
 		}
@@ -904,9 +767,9 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    heap[2] = make_small(0);
 	    heap[3] = NIL;
 	    iolist = make_list(heap);
-	    r = io_list_to_buf(iolist, (char*) dir, MAXPATHLEN);
+	    r = erts_iolist_to_buf(iolist, (char*) dir, MAXPATHLEN);
 	    UnUseTmpHeap(4,p);
-	    if (r < 0) {
+	    if (ERTS_IOLIST_TO_BUF_FAILED(r)) {
 		goto badarg;
 	    }
 	    opts.wd = (char *) dir;
@@ -1035,7 +898,7 @@ static byte* convert_environment(Process* p, Eterm env)
     Eterm* hp;
     Uint heap_size;
     int n;
-    Uint size;
+    ErlDrvSizeT size;
     byte* bytes;
 
     if ((n = list_length(env)) < 0) {
@@ -1087,7 +950,7 @@ static byte* convert_environment(Process* p, Eterm env)
      * Put the result in a binary (no risk for a memory leak that way).
      */
     (void) erts_new_heap_binary(p, NULL, size, &bytes);
-    io_list_to_buf(all, (char*)bytes, size);
+    erts_iolist_to_buf(all, (char*)bytes, size);
 
  done:
     erts_free(ERTS_ALC_T_TMP, temp_heap);

@@ -134,6 +134,7 @@ typedef struct {
 typedef int ErtsThrPrgrDelayHandle;
 #define ERTS_THR_PRGR_DHANDLE_MANAGED ((ErtsThrPrgrDelayHandle) -1)
 /* ERTS_THR_PRGR_DHANDLE_MANAGED implies managed thread */
+#define ERTS_THR_PRGR_DHANDLE_INVALID ((ErtsThrPrgrDelayHandle) -2)
 
 extern ErtsThrPrgr erts_thr_prgr__;
 

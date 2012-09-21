@@ -586,18 +586,38 @@
           <seealso marker="erts_alloc">erts_alloc(3)</seealso> for
           further information.</p>
       </item>
-      <tag><c><![CDATA[+n]]></c></tag>
+      <tag><c><![CDATA[+n Behavior]]></c></tag>
       <item>
-	<p>Enable synchronous message passing to ports.</p>
-	<p>As of OTP-R16 message passing to ports are truly asynchronously
-	   implemented. Correctly written Erlang programs should be able
-	   to handle this without any issues. Bugs in existing Erlang
-	   programs that make false assumptions about message passing to
-	   ports may, however, be tricky to find. This switch has been
-	   introduced in order to at least make it easier to compare
-	   behaviors during a transition period. Note that this flag is
-	   deprecated as of its introduction, and is scheduled for removal
-	   in OTP-R17.</p>
+	<p>Control behavior of signals to ports.</p>
+	<p>As of OTP-R16 signals to ports are truly asynchronously
+	   delivered. Note that signals always have been documented as
+	   asynchronous. The underlying implementation has, however,
+	   previously delivered these signals synchronously. Correctly
+	   written Erlang programs should be able to handle this without
+	   any issues. Bugs in existing Erlang programs that make false
+	   assumptions about signals to ports may, however, be tricky to
+	   find. This switch has been introduced in order to at least
+	   make it easier to compare behaviors during a transition period.
+	   Note that <em>this flag is deprecated</em> as of its
+	   introduction, and is scheduled for removal in OTP-R17.
+	   <c>Behavior</c> should be one of the following characters:</p>
+	   <taglist>
+	     <tag><c>d</c></tag>
+	     <item>The default. Asynchronous signals. A process that sends
+	     a signal to a port may continue execution before the signal
+	     has been delivered to the port.</item>
+	     <tag><c>s</c></tag>
+	     <item>Synchronous signals. A processes that sends a signal
+	     to a port will not continue execution until the signal has
+	     been delivered. Should <em>only</em> be used for testing and
+	     debugging.</item>
+	     <tag><c>a</c></tag>
+	     <item>Asynchronous signals. As the default, but a processes
+	     that sends a signal will even more frequently continue
+	     execution before the signal has been delivered to the
+	     port. Should <em>only</em> be used for testing and
+	     debugging.</item>
+	   </taglist>
       </item>
       <tag><marker id="max_processes"><c><![CDATA[+P Number]]></c></marker></tag>
       <item>
@@ -947,6 +967,22 @@
              <p><em>NOTE:</em> This flag may be removed or changed at any time
 	        without prior notice.
 	     </p>
+	  </item>
+          <tag><marker id="+spp"><c>+spp Bool</c></marker></tag>
+          <item>
+	    <p>Set default scheduler hint for port parallelism. If set to
+	    <c>true</c>, the VM will schedule port tasks when it by this can
+	    improve the parallelism in the system. If set to <c>false</c>,
+	    the VM will try to perform port tasks immediately and by this
+	    improve latency at the expense of parallelism. If this
+	    flag has not been passed, the default scheduler hint for port
+	    parallelism is currently <c>false</c>. The default used can be
+	    inspected in runtime by calling
+	    <seealso marker="erlang#system_info_port_parallelism">erlang:system_info(port_parallelism)</seealso>.
+	    The default can be overriden on port creation by passing the
+	    <seealso marker="erlang#open_port_parallelism">parallelism</seealso>
+	    option to
+	    <seealso marker="erlang#open_port/2">open_port/2</seealso></p>.
 	  </item>
 	  <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
 	  <item>

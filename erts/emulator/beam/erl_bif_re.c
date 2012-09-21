@@ -418,7 +418,7 @@ build_compile_result(Process *p, Eterm error_tag, pcre *result, int errcode, con
 static BIF_RETTYPE
 re_compile(Process* p, Eterm arg1, Eterm arg2)
 {
-    Uint slen;
+    ErlDrvSizeT slen;
     char *expr;
     pcre *result;
     int errcode = 0;
@@ -449,7 +449,7 @@ re_compile(Process* p, Eterm arg1, Eterm arg2)
         BIF_ERROR(p,BADARG);
     }
     expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen + 1);
-    if (io_list_to_buf(arg1, expr, slen) != 0) {
+    if (erts_iolist_to_buf(arg1, expr, slen) != 0) {
 	erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 	BIF_ERROR(p,BADARG);
     }
@@ -802,7 +802,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 			memcpy(tmpb,ap->name,ap->len);
 			tmpb[ap->len] = '\0';
 		    } else {
-			Uint slen;
+			ErlDrvSizeT slen;
 			if (erts_iolist_size(val, &slen)) {
 			    goto error;
 			}
@@ -814,7 +814,7 @@ build_capture(Eterm capture_spec[CAPSPEC_SIZE], const pcre *code)
 						    (tmpbsiz = slen + 1));
 			    }
 			}
-			if (io_list_to_buf(val, tmpb, slen) != 0) {
+			if (erts_iolist_to_buf(val, tmpb, slen) != 0) {
 			    goto error;
 			}
 			tmpb[slen] = '\0';
@@ -858,7 +858,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     const pcre *code_tmp;
     RestartContext restart;
     byte *temp_alloc = NULL;
-    Uint slength;
+    ErlDrvSizeT slength;
     int startoffset = 0;
     int options = 0, comp_options = 0;
     int ovsize;
@@ -882,7 +882,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
     if (is_not_tuple(arg2) || (arityval(*tuple_val(arg2)) != 4)) {
 	if (is_binary(arg2) || is_list(arg2) || is_nil(arg2)) {
 	    /* Compile from textual RE */
-	    Uint slen;
+	    ErlDrvSizeT slen;
 	    char *expr;
 	    pcre *result;
 	    int errcode = 0;
@@ -901,7 +901,7 @@ re_run(Process *p, Eterm arg1, Eterm arg2, Eterm arg3)
 	    }
 	    
 	    expr = erts_alloc(ERTS_ALC_T_RE_TMP_BUF, slen + 1);
-	    if (io_list_to_buf(arg2, expr, slen) != 0) {
+	    if (erts_iolist_to_buf(arg2, expr, slen) != 0) {
 		erts_free(ERTS_ALC_T_RE_TMP_BUF, expr);
 		BIF_ERROR(p,BADARG);
 	    }
@@ -1044,7 +1044,7 @@ handle_iolist:
 	}
 	restart.subject = erts_alloc(ERTS_ALC_T_RE_SUBJECT, slength);
 
-	if (io_list_to_buf(arg1, restart.subject, slength) != 0) {
+	if (erts_iolist_to_buf(arg1, restart.subject, slength) != 0) {
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.ovector);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.code);
 	    erts_free(ERTS_ALC_T_RE_SUBJECT, restart.subject);

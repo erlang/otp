@@ -46,6 +46,10 @@
 -export([gather_sched_wall_time_result/1,
 	 await_sched_wall_time_modifications/2]).
 
+-export([port_command/2, port_command/3, port_connect/2, port_close/1,
+	 port_control/3, port_call/2, port_call/3, port_info/1, port_info/2,
+	 port_set_data/2, port_get_data/1]).
+
 -deprecated([hash/2]).
 
 % Get rid of autoimports of spawn to avoid clashes with ourselves.
@@ -403,6 +407,174 @@ suspend_process(P) ->
 	{'EXIT', {Reason, _}} -> erlang:error(Reason, [P]);
 	{'EXIT', Reason} -> erlang:error(Reason, [P]);
 	Res -> Res
+    end.
+
+%%
+%% Port BIFs
+%%
+%%       Currently all port BIFs calls the corresponding
+%%       erts_internal:port_*() native function which perform
+%%       most of the actual work. These native functions should
+%%       *never* be called directly by other functionality. The
+%%       native functions may be changed, or removed without any
+%%       notice whatsoever!
+%%
+%% IMPORTANT NOTE:
+%%       When the erts_internal:port_*() native functions return
+%%       a reference, they have also internally prepared the
+%%       message queue of the caller for a receive that will
+%%       unconditionally wait for a message containing this
+%%       reference. If the erlang code calling these native
+%%       functions do not do this, subsequent receives will not
+%%       work as expected! That is, it is of *vital importance*
+%%       that the receive is performed as described above!
+%%
+
+-spec erlang:port_command(Port, Data) -> 'true' when
+      Port :: port() | atom(),
+      Data :: iodata().
+
+port_command(Port, Data) ->
+    case case erts_internal:port_command(Port, Data, []) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	true -> true;
+	Error -> erlang:error(Error, [Port, Data])
+    end.
+
+-spec erlang:port_command(Port, Data, [Flag]) -> boolean() when
+      Port :: port() | atom(),
+      Data :: iodata(),
+      Flag :: force | nosuspend.
+
+port_command(Port, Data, Flags) ->
+    case case erts_internal:port_command(Port, Data, Flags) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	Bool when Bool == true; Bool == false -> Bool;
+	Error -> erlang:error(Error, [Port, Data, Flags])
+    end.
+
+-spec erlang:port_connect(Port, Pid) -> 'true' when
+      Port :: port() | atom(),
+      Pid :: pid().
+
+port_connect(Port, Pid) ->
+    case case erts_internal:port_connect(Port, Pid) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	true -> true;
+	Error -> erlang:error(Error, [Port, Pid])
+    end.
+
+
+-spec erlang:port_close(Port) -> 'true' when
+      Port :: port() | atom().
+
+port_close(Port) ->
+    case case erts_internal:port_close(Port) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	true -> true;
+	Error -> erlang:error(Error, [Port])
+    end.
+
+-spec erlang:port_control(Port, Command, Data) -> iodata() | binary() when
+      Port :: port() | atom(),
+      Command :: integer(),
+      Data :: iodata().
+
+port_control(Port, Command, Data) ->
+    case case erts_internal:port_control(Port, Command, Data) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port, Command, Data]);
+	Result -> Result
+    end.
+
+-spec erlang:port_call(Port, Data) -> term() when
+      Port :: port() | atom(),
+      Data :: term().
+
+port_call(Port, Data) ->
+    case case erts_internal:port_call(Port, 0, Data) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	{ok, Result} -> Result;
+	Error -> erlang:error(Error, [Port, Data])
+    end.
+
+-spec erlang:port_call(Port, Command, Data) -> term() when
+      Port :: port() | atom(),
+      Command :: integer(),
+      Data :: term().
+
+port_call(Port, Command, Data) ->
+    case case erts_internal:port_call(Port, Command, Data) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	{ok, Result} -> Result;
+	Error -> erlang:error(Error, [Port, Command, Data])
+    end.
+
+-spec erlang:port_info(Port) -> [{Item, Info}] when
+      Port :: port() | atom(),
+      Item :: 'registered_name' | 'id' | 'connected' | 'links' | 'name' | 'input' | 'output',
+      Info :: term().
+
+port_info(Port) ->
+    case case erts_internal:port_info(Port) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port]);
+	Result -> Result
+    end.
+
+-spec erlang:port_info(Port, Item) -> [{Item, Info}] when
+      Port :: port() | atom(),
+      Item :: 'registered_name' | 'id' | 'connected' | 'links' | 'monitors' | 'name' | 'input' | 'output' | 'memory' | 'queue_size' | 'locking',
+      Info :: term().
+
+port_info(Port, Item) ->
+    case case erts_internal:port_info(Port, Item) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port, Item]);
+	Result -> Result
+    end.
+
+-spec erlang:port_set_data(Port, Data) -> 'true' when
+      Port :: port() | atom(),
+      Data :: term().
+    
+port_set_data(Port, Data) ->
+    case case erts_internal:port_set_data(Port, Data) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	badarg -> erlang:error(badarg, [Port, Data]);
+	Result -> Result
+    end.
+
+-spec erlang:port_get_data(Port) -> term() when
+      Port :: port() | atom().
+
+port_get_data(Port) ->
+    case case erts_internal:port_get_data(Port) of
+	     Ref when is_reference(Ref) -> receive {Ref, Res} -> Res end;
+	     Res -> Res
+	 end of
+	{ok, Data} -> Data;
+	Error -> erlang:error(Error, [Port])
     end.
 
 %%

@@ -87,8 +87,14 @@
       of bytes, the option <c>binary</c> must be included.</p>
     <p>The port owner <c>Pid</c> can communicate with the port
       <c>Port</c> by sending and receiving messages. (In fact, any
-      process can send the messages to the port, but the messages from
-      the port always go to the port owner).</p>
+      process can send the messages to the port, but the port owner must
+      be identified in the message).</p>
+    <p>As of OTP-R16 messages sent to ports are delivered truly
+      asynchronously. The underlying implementation previously
+      delivered messages to ports synchronously. Message passing has
+      however always been documented as an asynchronous operation, so
+      this should not be an issue for an Erlang program communicating
+      with ports, unless false assumptions about ports has been made.</p>
     <p>Below, <c>Data</c> must be an I/O list. An I/O list is a binary
       or a (possibly deep) list of binaries or integers in the range
       0..255.</p>
@@ -127,8 +133,7 @@
       <tcaption>Messages Received From a Port.</tcaption>
     </table>
     <p>Instead of sending and receiving messages, there are also a
-      number of BIFs that can be used. These can be called by any
-      process, not only the port owner.</p>
+      number of BIFs that can be used.</p>
     <table>
       <row>
         <cell align="left" valign="middle"><c>port_command(Port,Data)</c></cell>

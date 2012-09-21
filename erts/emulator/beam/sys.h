@@ -564,7 +564,7 @@ __decl_noreturn void __noreturn erl_exit(int n, char*, ...);
 #define ERTS_DUMP_EXIT	(INT_MIN + 2)	/* crash dump; then exit() */
 
 #define ERTS_INTERNAL_ERROR(What) \
-    erl_exit(ERTS_ABORT_EXIT, "%s:%d:%s(): Internal error: %s",	\
+    erl_exit(ERTS_ABORT_EXIT, "%s:%d:%s(): Internal error: %s\n", \
 	     __FILE__, __LINE__, __func__, What)
 
 Eterm erts_check_io_info(void *p);
@@ -641,6 +641,7 @@ typedef struct _SysDriverOpts {
     char *wd;			/* Working directory. */
     unsigned spawn_type;        /* Bitfield of ERTS_SPAWN_DRIVER | 
 				   ERTS_SPAWN_EXTERNAL | both*/ 
+    int parallelism;            /* Optimize for parallelism */
 } SysDriverOpts;
 
 extern char *erts_default_arg0;

@@ -1490,7 +1490,7 @@ handle_reap_ports(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
 						    ERTS_PORT_SFLG_HALT);
 		erts_smp_atomic32_inc_nob(&erts_halt_progress);
 		if (!(state & (ERTS_PORT_SFLG_EXITING|ERTS_PORT_SFLG_CLOSING)))
-		    erts_do_exit_port(prt, prt->common.id, am_killed);
+		    erts_deliver_port_exit(prt, prt->common.id, am_killed, 0);
 	    }
 
 	    erts_port_release(prt);
@@ -6086,6 +6086,8 @@ erts_suspend(Process* c_p, ErtsProcLocks c_p_locks, Port *busy_port)
     if (!(c_p_locks & ERTS_PROC_LOCK_STATUS))
 	erts_smp_proc_unlock(c_p, ERTS_PROC_LOCK_STATUS);
 
+    if (suspend && busy_port && erts_system_monitor_flags.busy_port)
+	monitor_generic(c_p, am_busy_port, busy_port->common.id);
 }
 
 void
@@ -8183,14 +8185,15 @@ static void doit_exit_link(ErtsLink *lnk, void *vpcontext)
     switch(lnk->type) {
     case LINK_PID:
 	if(is_internal_port(item)) {
-	    Port *prt = erts_id2port(item);
-	    if (prt) {
-		rlnk = erts_remove_link(&ERTS_P_LINKS(prt), p->common.id);
-		if (rlnk)
-		    erts_destroy_link(rlnk);
-		erts_do_exit_port(prt, p->common.id, reason);
-		erts_port_release(prt);
-	    }
+	    Port *prt = erts_port_lookup(item, ERTS_PORT_SFLGS_INVALID_LOOKUP);
+	    if (prt)
+		erts_port_exit(NULL,
+			       (ERTS_PORT_SIG_FLG_FORCE_SCHED
+				| ERTS_PORT_SIG_FLG_BROKEN_LINK),
+			       prt,
+			       p->common.id,
+			       reason,
+			       NULL);
 	}
 	else if(is_external_port(item)) {
 	    erts_dsprintf_buf_t *dsbufp = erts_create_logger_dsbuf();
