@@ -490,7 +490,8 @@ setup_agent(true, AgentConfName, SnmpConfName,
 					 {verbosity, trace}]},
 			       {agent_type, master},
 			       {agent_verbosity, trace},
-			       {net_if, [{verbosity, trace}]}],
+			       {net_if, [{verbosity, trace}]},
+			       {versions, Vsns}],
 			      ct:get_config({SnmpConfName,agent})),
     application:set_env(snmp, agent, SnmpEnv).
 %%%---------------------------------------------------------------------------
