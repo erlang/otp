@@ -51,8 +51,18 @@
     defines library directories where additional applications
     may reside and it defaults to the directories
     listed by the operating system environment variable
-    <c>ERL_LIBS</c>. See the module <c>code</c> for more info.
-    Finally single modules and entire applications may be read from
+    <c>ERL_LIBS</c>. See the module <c>code</c> for more info.</p>
+
+    <p>An application directory <c>AppDir</c> under a library
+    directory is recognized by the existence of an <c>AppDir/ebin</c>
+    directory. If this does not exist, <c>reltool</c> will not
+    consider <c>AppDir</c> at all when looking for applications.</p>
+
+    <p>It is recommended that application directories are named as the
+    application, possibly followed by a dash and the version
+    number. For example <c>myapp</c> or <c>myapp-1.1</c>.</p>
+
+    <p>Finally single modules and entire applications may be read from
     Escripts.</p>
 
     <p>Some configuration parameters control the behavior of Reltool
@@ -372,6 +382,11 @@
 	<p>This parameter is mutual exclusive with <c>lib_dir</c>. If
 	<c>vsn</c> and <c>lib_dir</c> are both omitted, the latest version
 	will be chosen.</p>
+	<p>Note that in order for reltool to sort application versions
+	and thereby be able to select the latest, it is required that
+	the version id for the application consits of integers and
+	dots only, for example <c>1</c>, <c>2.0</c> or
+	<c>3.17.1</c>.</p>
       </item>
       <tag><c>lib_dir</c></tag>
       <item>
@@ -383,6 +398,11 @@
 	<p>This parameter is mutual exclusive with <c>vsn</c>. If
 	<c>vsn</c> and <c>lib_dir</c> are both omitted, the latest version
 	will be chosen.</p>
+	<p>Note that in order for reltool to sort application versions
+	and thereby be able to select the latest, it is required that
+	the version id for the application consits of integers and
+	dots only, for example <c>1</c>, <c>2.0</c> or
+	<c>3.17.1</c>.</p>
       </item>
       <tag><c>mod</c></tag>
       <item>
@@ -446,7 +466,7 @@
       <tag><c>incl_cond</c></tag>
       <item>
         <p>This parameter controls whether the module is included or not. By
-        default the <c>mod_incl</c> parameter on application and system level
+        default the <c>mod_cond</c> parameter on application and system level
         will be used to control whether the module is included or not. The
         value of <c>incl_cond</c> overrides the module inclusion policy.
         <c>include</c> implies that the module is included, while

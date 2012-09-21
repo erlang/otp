@@ -674,6 +674,8 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
                         true;
                     exclude ->
                         false;
+		    derived ->
+			undefined;
                     undefined ->
                         %% print(M#mod.name, hipe, "mod_cond -> ~p\n",
 			%%       [ModCond]),
@@ -693,6 +695,8 @@ mod_init_is_included(ModTab, M, ModCond, AppCond, Default, Status) ->
                         true;
                     exclude ->
                         false;
+		    derived ->
+			undefined;
                     undefined ->
                         Default
                 end
@@ -783,9 +787,10 @@ mod_mark_is_included(#state{app_tab=AppTab, mod_tab=ModTab, sys=Sys} = S,
                                     M#mod{is_pre_included = true,
 					  is_included = true};
                                 exclude ->
-                                    M#mod{is_pre_included = true,
-					  is_included = true};
-                                undefined ->
+                                    M#mod{is_pre_included = false,
+					  is_included = false};
+				ModInclCond when ModInclCond==undefined;
+						 ModInclCond==derived  ->
                                     M#mod{is_included = true}
                             end,
                         ets:insert(ModTab, M2),
@@ -979,7 +984,7 @@ refresh_app(#app{name = AppName,
 
                         %% Add info from .app file
                         Base = get_base(AppName, ActiveDir),
-                        {_, DefaultVsn} = reltool_utils:split_app_name(Base),
+                        DefaultVsn = get_vsn_from_dir(AppName,Base),
                         Ebin = filename:join([ActiveDir, "ebin"]),
                         AppFile =
 			    filename:join([Ebin,
@@ -1680,8 +1685,7 @@ app_dirs2([Lib | Libs], Acc) ->
                         EbinDir = filename:join([AppDir, "ebin"]),
                         case filelib:is_dir(EbinDir, erl_prim_loader) of
                             true ->
-                                {Name, _Vsn} =
-				    reltool_utils:split_app_name(Base),
+				Name = find_app_name(Base,EbinDir),
                                 case Name of
                                     erts -> false;
                                     _    -> {true, {Name, AppDir}}
@@ -1699,17 +1703,74 @@ app_dirs2([Lib | Libs], Acc) ->
 app_dirs2([], Acc) ->
     lists:sort(lists:append(Acc)).
 
+find_app_name(Base,EbinDir) ->
+    {ok,EbinFiles} = erl_prim_loader:list_dir(EbinDir),
+    AppFile =
+	case [F || F <- EbinFiles, filename:extension(F)=:=".app"] of
+	    [AF] ->
+		AF;
+	    _ ->
+		undefined
+	end,
+    find_app_name1(Base,AppFile).
+
+find_app_name1(Base,undefined) ->
+    {Name,_} = reltool_utils:split_app_name(Base),
+    Name;
+find_app_name1(_Base,AppFile) ->
+    list_to_atom(filename:rootname(AppFile)).
+
+get_vsn_from_dir(AppName,Base) ->
+    Prefix = atom_to_list(AppName) ++ "-",
+    case lists:prefix(Prefix,Base) of
+	true ->
+	    lists:nthtail(length(Prefix),Base);
+	false ->
+	    ""
+    end.
+
+
 escripts_to_apps([Escript | Escripts], Apps, Status) ->
     {EscriptAppName, _Label} = split_escript_name(Escript),
     Ext = code:objfile_extension(),
+
+    %% First find all .app files and associate the app name to the app
+    %% label - this is in order to now which application a module
+    %% belongs to in the next round.
+    AppFun = fun(FullName, _GetInfo, _GetBin, AppFiles) ->
+		     Components = filename:split(FullName),
+		     case Components of
+			 [AppLabel, "ebin", File] ->
+			     case filename:extension(File) of
+				 ".app" ->
+				     [{AppLabel,File}|AppFiles];
+				 _ ->
+				     AppFiles
+			     end;
+			 _ ->
+			     AppFiles
+		     end
+	     end,
+    AppFiles =
+	case reltool_utils:escript_foldl(AppFun, [], Escript) of
+	    {ok, AF} ->
+		AF;
+	    {error, Reason1} ->
+		reltool_utils:throw_error("Illegal escript ~p: ~p",
+					  [Escript,Reason1])
+	end,
+
+    %% Next, traverse all files...
     Fun = fun(FullName, _GetInfo, GetBin, {FileAcc, StatusAcc}) ->
                   Components = filename:split(FullName),
                   case Components of
                       [AppLabel, "ebin", File] ->
                           case filename:extension(File) of
                               ".app" ->
-                                  {AppName, DefaultVsn} =
-				      reltool_utils:split_app_name(AppLabel),
+				  AppName =
+				      list_to_atom(filename:rootname(File)),
+                                  DefaultVsn =
+				      get_vsn_from_dir(AppName,AppLabel),
                                   AppFileName =
 				      filename:join([Escript, FullName]),
                                   {Info, StatusAcc2} =
@@ -1722,8 +1783,9 @@ escripts_to_apps([Escript | Escripts], Apps, Status) ->
                                   {[{AppName, app, Dir, Info} | FileAcc],
 				   StatusAcc2};
                               E when E =:= Ext ->
-                                  {AppName, _} =
-				      reltool_utils:split_app_name(AppLabel),
+				  AppFile =
+				      proplists:get_value(AppLabel,AppFiles),
+				  AppName = find_app_name1(AppLabel,AppFile),
                                   Mod = init_mod(AppName,
 						 File,
 						 {File, GetBin()},
@@ -1760,6 +1822,7 @@ escripts_to_apps([Escript | Escripts], Apps, Status) ->
                           {FileAcc, StatusAcc}
                   end
           end,
+
     case reltool_utils:escript_foldl(Fun, {[], Status}, Escript) of
 	{ok, {Files, Status2}} ->
 	    EscriptApp =
@@ -1774,8 +1837,9 @@ escripts_to_apps([Escript | Escripts], Apps, Status) ->
 				      Apps,
 				      Status2),
 	    escripts_to_apps(Escripts, Apps2, Status3);
-	{error, Reason} ->
-	    reltool_utils:throw_error("Illegal escript ~p: ~p", [Escript,Reason])
+	{error, Reason2} ->
+	    reltool_utils:throw_error("Illegal escript ~p: ~p",
+				      [Escript,Reason2])
     end;
 escripts_to_apps([], Apps, Status) ->
     {Apps, Status}.
@@ -1934,7 +1998,7 @@ ensure_app_info(#app{name = Name,
         fun(Dir, StatusAcc) ->
                 Base = get_base(Name, Dir),
                 Ebin = filename:join([Dir, "ebin"]),
-                {_, DefaultVsn} = reltool_utils:split_app_name(Base),
+                DefaultVsn = get_vsn_from_dir(Name,Base),
                 AppFile = filename:join([Ebin, atom_to_list(Name) ++ ".app"]),
                 read_app_info(AppFile, AppFile, Name, DefaultVsn, StatusAcc)
         end,

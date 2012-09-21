@@ -333,7 +333,9 @@ merge_apps(#rel{name = RelName,
 		       A#app.name =/= ?MISSING_APP_NAME,
 		       not lists:keymember(A#app.name, #app.name, MergedApps2)],
     MergedApps3 = do_merge_apps(RelName, Embedded, Apps, EmbAppType, MergedApps2),
-    sort_apps(lists:reverse(MergedApps3)).
+    RevMerged = lists:reverse(MergedApps3),
+    MergedSortedUsedAndIncs = sort_used_and_incl_apps(RevMerged,RevMerged),
+    sort_apps(MergedSortedUsedAndIncs).
 
 do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType, Acc) ->
     case is_already_merged(Name, RelApps, Acc) of
@@ -342,9 +344,11 @@ do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType,
 	false ->
 	    {value, App} = lists:keysearch(Name, #app.name, Apps),
 	    MergedApp = merge_app(RelName, RA, RelAppType, App),
-	    MoreNames = (MergedApp#app.info)#app_info.applications,
+	    ReqNames = (MergedApp#app.info)#app_info.applications,
+	    IncNames = (MergedApp#app.info)#app_info.incl_apps,
 	    Acc2 = [MergedApp | Acc],
-	    do_merge_apps(RelName, MoreNames ++ RelApps, Apps, RelAppType, Acc2)
+	    do_merge_apps(RelName, ReqNames ++ IncNames ++ RelApps,
+			  Apps, RelAppType, Acc2)
     end;
 do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
   case is_already_merged(Name, RelApps, Acc) of
@@ -505,6 +509,56 @@ load_app_mods(#app{mods = Mods} = App, Mand, PathFlag, Variables) ->
       end,
       [],
       SplitMods).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% sort_used_and_incl_apps(Apps, OrderedApps) -> Apps
+%%   Apps = [#app{}]
+%%   OrderedApps = [#app{}]
+%%
+%% OTP-4121, OTP-9984
+%% (Tickets are written for systools, but needs to be implemented here
+%% as well.)
+%% Make sure that used and included applications are given in the same
+%% order as in the release resource file (.rel). Otherwise load and
+%% start instructions in the boot script, and consequently release
+%% upgrade instructions in relup, may end up in the wrong order.
+
+sort_used_and_incl_apps([#app{info=Info} = App|Apps], OrderedApps) ->
+    Incls2 =
+	case Info#app_info.incl_apps of
+	    Incls when length(Incls)>1 ->
+		sort_appl_list(Incls, OrderedApps);
+	    Incls ->
+		Incls
+	end,
+    Uses2 =
+	case Info#app_info.applications of
+	    Uses when length(Uses)>1 ->
+		sort_appl_list(Uses, OrderedApps);
+	    Uses ->
+		Uses
+	end,
+    App2 = App#app{info=Info#app_info{incl_apps=Incls2, applications=Uses2}},
+    [App2|sort_used_and_incl_apps(Apps, OrderedApps)];
+sort_used_and_incl_apps([], _OrderedApps) ->
+    [].
+
+sort_appl_list(List, Order) ->
+    IndexedList = find_pos(List, Order),
+    SortedIndexedList = lists:keysort(1, IndexedList),
+    lists:map(fun({_Index,Name}) -> Name end, SortedIndexedList).
+
+find_pos([Name|Incs], OrderedApps) ->
+    [find_pos(1, Name, OrderedApps)|find_pos(Incs, OrderedApps)];
+find_pos([], _OrderedApps) ->
+    [].
+
+find_pos(N, Name, [#app{name=Name}|_OrderedApps]) ->
+    {N, Name};
+find_pos(N, Name, [_OtherAppl|OrderedApps]) ->
+    find_pos(N+1, Name, OrderedApps).
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Function: sort_apps(Apps) -> {ok, Apps'} | throw({error, Error})
@@ -1420,12 +1474,10 @@ do_install(RelName, TargetDir) ->
             BinDir = filename:join([TargetDir2, "bin"]),
 	    case os:type() of
 		{win32, _} ->
-		    NativeRootDir = filename:nativename(TargetDir2),
-		    %% NativeBinDir =
-		    %% filename:nativename(filename:join([BinDir, "win32"])),
-		    NativeBinDir = filename:nativename(BinDir),
+		    NativeRootDir = nativename(TargetDir2),
+		    NativeErtsBinDir = nativename(ErtsBinDir),
 		    IniData = ["[erlang]\r\n",
-			       "Bindir=", NativeBinDir, "\r\n",
+			       "Bindir=", NativeErtsBinDir, "\r\n",
 			       "Progname=erl\r\n",
 			       "Rootdir=", NativeRootDir, "\r\n"],
 		    IniFile = filename:join([BinDir, "erl.ini"]),
@@ -1444,6 +1496,15 @@ do_install(RelName, TargetDir) ->
         _ ->
             reltool_utils:throw_error("~s: Illegal data file syntax", [DataFile])
     end.
+
+nativename(Dir) ->
+    escape_backslash(filename:nativename(Dir)).
+escape_backslash([$\\|T]) ->
+    [$\\,$\\|escape_backslash(T)];
+escape_backslash([H|T]) ->
+    [H|escape_backslash(T)];
+escape_backslash([]) ->
+    [].
 
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->
     Fun = fun(Script) ->

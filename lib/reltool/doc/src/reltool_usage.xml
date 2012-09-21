@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2009</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -257,6 +257,11 @@
     policy</c> part of the page. By default the latest version of the
     application is selected, but it is possible to override this by
     explicitly selecting another version.</p>
+
+    <p>Note that in order for reltool to sort application versions and
+    thereby be able to select the latest, it is required that the
+    version id for the application consits of integers and dots only,
+    for example <c>1</c>, <c>2.0</c> or <c>3.17.1</c>.</p>
     
     <p>By default the <c>Application inclusion policy</c> on system
     level is used for all applications. Set the value to
@@ -335,7 +340,7 @@
 
     <p>There are two categories of modules on the <c>Module
     dependencies</c> page. If the module is used by other modules,
-    these are listed under <c>Modules used by others</c>. If the
+    these are listed under <c>Modules using this</c>. If the
     module uses other modules, these are listed under <c>Used
     modules</c>.</p>
 
@@ -365,7 +370,7 @@
 
     <p>There are two categories of modules on the <c>Dependencies</c>
     page. If the module is used by other modules, these are listed
-    under <c>Modules used by others</c>. If the module uses other
+    under <c>Modules using this</c>. If the module uses other
     modules, these are listed under <c>Used modules</c>.</p>
 
     <p>Double click on an module name to launch a module window.</p>
