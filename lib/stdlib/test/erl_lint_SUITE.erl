@@ -50,7 +50,8 @@
 	  unsafe_vars_try/1,
 	  guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
 	  otp_5362/1, otp_5371/1, otp_7227/1, otp_5494/1, otp_5644/1, otp_5878/1,
-	  otp_5917/1, otp_6585/1, otp_6885/1, export_all/1,
+	  otp_5917/1, otp_6585/1, otp_6885/1, otp_10436/1,
+          export_all/1,
 	  bif_clash/1,
 	  behaviour_basic/1, behaviour_multiple/1,
 	  otp_7550/1,
@@ -80,7 +81,7 @@ all() ->
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, otp_5494, otp_5644,
-     otp_5878, otp_5917, otp_6585, otp_6885, export_all,
+     otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, export_all,
      bif_clash, behaviour_basic, behaviour_multiple,
      otp_7550, otp_8051, format_warn, {group, on_load},
      too_many_arguments].
@@ -2386,6 +2387,20 @@ otp_6885(Config) when is_list(Config) ->
 	   []} = run_test2(Config, Ts, []),
     ok.
 
+otp_10436(doc) ->
+    "OTP-6885. Warnings for opaque types.";
+otp_10436(suite) -> [];
+otp_10436(Config) when is_list(Config) ->
+    Ts = <<"-module(otp_10436).
+            -export_type([t1/0]).
+            -opaque t1() :: {i, integer()}.
+            -opaque t2() :: {a, atom()}.
+         ">>,
+    {warnings,[{4,erl_lint,{not_exported_opaque,{t2,0}}},
+               {4,erl_lint,{unused_type,{t2,0}}}]} =
+        run_test2(Config, Ts, []),
+    ok.
+
 export_all(doc) ->
     "OTP-7392. Warning for export_all.";
 export_all(Config) when is_list(Config) ->
@@ -2834,10 +2849,10 @@ otp_8051(doc) ->
 otp_8051(Config) when is_list(Config) ->
     Ts = [{otp_8051,
            <<"-opaque foo() :: bar().
+              -export_type([foo/0]).
              ">>,
            [],
-           {error,[{1,erl_lint,{undefined_type,{bar,0}}}],
-            [{1,erl_lint,{unused_type,{foo,0}}}]}}],
+           {errors,[{1,erl_lint,{undefined_type,{bar,0}}}],[]}}],
     ?line [] = run(Config, Ts),
     ok.
 
