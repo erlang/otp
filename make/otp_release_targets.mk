@@ -65,6 +65,7 @@ $(HTMLDIR)/users_guide.html: $(XML_FILES)
 		--stringparam stylesheet "$(CSS_FILE)" \
 		--stringparam winprefix "$(WINPREFIX)" \
 		--stringparam logo "$(HTMLLOGO_FILE)" \
+		--stringparam pdfname "$(PDFNAME)" \
 	        --xinclude  \
 		-path $(DOCGEN)/priv/dtd \
 	        -path $(DOCGEN)/priv/dtd_html_entities \
