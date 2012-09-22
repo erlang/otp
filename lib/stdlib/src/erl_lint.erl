@@ -368,6 +368,9 @@ format_error({imported_predefined_type, Name}) ->
 format_error({not_exported_opaque, {TypeName, Arity}}) ->
     io_lib:format("opaque type ~w~s is not exported",
                   [TypeName, gen_type_paren(Arity)]);
+format_error({underspecified_opaque, {TypeName, Arity}}) ->
+    io_lib:format("opaque type ~w~s is underspecified and therefore meaningless",
+                  [TypeName, gen_type_paren(Arity)]);
 %% --- obsolete? unused? ---
 format_error({format_error, {Fmt, Args}}) ->
     io_lib:format(Fmt, Args);
@@ -2570,6 +2573,12 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
     Arity = length(Args),
     TypePair = {TypeName, Arity},
     Info = #typeinfo{attr = Attr, line = Line},
+    StoreType =
+        fun(St) ->
+                NewDefs = dict:store(TypePair, Info, TypeDefs),
+                CheckType = {type, -1, product, [ProtoType|Args]},
+                check_type(CheckType, St#lint{types=NewDefs})
+        end,
     case (dict:is_key(TypePair, TypeDefs) orelse is_var_arity_type(TypeName)) of
 	true ->
 	    case dict:is_key(TypePair, default_types()) of
@@ -2579,19 +2588,28 @@ type_def(Attr, Line, TypeName, ProtoType, Args, St0) ->
 			true ->
 			    Warn = {new_builtin_type, TypePair},
 			    St1 = add_warning(Line, Warn, St0),
-			    NewDefs = dict:store(TypePair, Info, TypeDefs),
-			    CheckType = {type, -1, product, [ProtoType|Args]},
-			    check_type(CheckType, St1#lint{types=NewDefs});
+                            StoreType(St1);
 			false ->
 			    add_error(Line, {builtin_type, TypePair}, St0)
 		    end;
 	        false -> add_error(Line, {redefine_type, TypePair}, St0)
 	    end;
 	false ->
-	    NewDefs = dict:store(TypePair, Info, TypeDefs),
-	    CheckType = {type, -1, product, [ProtoType|Args]},
-	    check_type(CheckType, St0#lint{types=NewDefs})
+            St1 = case
+                      Attr =:= opaque andalso
+                      is_underspecified(ProtoType, Arity)
+                  of
+                      true ->
+                          Warn = {underspecified_opaque, TypePair},
+                          add_warning(Line, Warn, St0);
+                      false -> St0
+                  end,
+            StoreType(St1)
     end.
+
+is_underspecified({type,_,term,[]}, 0) -> true;
+is_underspecified({type,_,any,[]}, 0) -> true;
+is_underspecified(_ProtType, _Arity) -> false.
 
 check_type(Types, St) ->
     {SeenVars, St1} = check_type(Types, dict:new(), St),
