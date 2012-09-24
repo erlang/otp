@@ -142,8 +142,12 @@ stream_next(Pid) ->
 %%     Used for debugging and testing
 %%--------------------------------------------------------------------
 info(Pid) ->
-    call(info, Pid).
-
+    try 
+	call(info, Pid)
+    catch
+	_:_ ->
+	    []
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: stream(BodyPart, Request, Code) -> _

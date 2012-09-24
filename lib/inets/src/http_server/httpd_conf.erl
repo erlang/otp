@@ -829,9 +829,7 @@ os_info(Info) ->
 	{OsFamily, _OsName} when Info =:= partial ->
 	    lists:flatten(io_lib:format("(~w)", [OsFamily]));
 	{OsFamily, OsName} ->
-	    lists:flatten(io_lib:format("(~w/~w)", [OsFamily, OsName]));
-	OsFamily ->
-	    lists:flatten(io_lib:format("(~w)", [OsFamily]))
+	    lists:flatten(io_lib:format("(~w/~w)", [OsFamily, OsName]))
     end.
 
 otp_release() ->

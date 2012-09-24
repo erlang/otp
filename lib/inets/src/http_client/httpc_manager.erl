@@ -742,7 +742,7 @@ get_manager_info(#state{handler_db = HDB,
     SessionInfo = which_sessions2(SDB), 
     OptionsInfo = 
 	[{Item, get_option(Item, Options)} || 
-	    Item <- record_info(fields, options)], 
+		  Item <- record_info(fields, options)], 
     CookieInfo  = httpc_cookie:which_cookies(CDB),
     [{handlers, HandlerInfo}, 
      {sessions, SessionInfo}, 
@@ -770,20 +770,7 @@ get_handler_info(Tab) ->
     Pattern   = {'$2', '$1', '_'},
     Handlers1 = [{Pid, Id} || [Pid, Id] <- ets:match(Tab, Pattern)],
     Handlers2 = sort_handlers(Handlers1), 
-    Handlers3 = [{Pid, Reqs, 
-		  try
-		      begin
-			  httpc_handler:info(Pid)
-		      end
-		  catch
-		      _:_ ->
-			  %% Why would this crash? 
-			  %% Only if the process has died, but we don't 
-			  %% know about it?
-			  []
-		  end} || {Pid, Reqs} <- Handlers2],
-    Handlers3.
-
+    [{Pid, Reqs, httpc_handler:info(Pid)} || {Pid, Reqs} <- Handlers2].
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/0.9"}} = Request,
@@ -1001,6 +988,8 @@ cast(ProfileName, Msg) ->
 
 
 get_option(proxy, #options{proxy = Proxy}) ->
+    Proxy;
+get_option(https_proxy, #options{https_proxy = Proxy}) ->
     Proxy;
 get_option(pipeline_timeout, #options{pipeline_timeout = Timeout}) ->
     Timeout;
