@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -250,10 +250,8 @@ stop(Config) ->
 %%%
 %%% @doc Issues a synchronous snmp get request. 
 get_values(Agent, Oids, MgrAgentConfName) ->
-    [Uid, AgentIp, AgentUdpPort | _] = 
-	agent_conf(Agent, MgrAgentConfName),
-    {ok, SnmpReply, _} =
-	snmpm:g(Uid, AgentIp, AgentUdpPort, Oids),
+    [Uid | _] = agent_conf(Agent, MgrAgentConfName),
+    {ok, SnmpReply, _} = snmpm:sync_get2(Uid, target_name(Agent), Oids),
     SnmpReply.
 
 %%% @spec get_next_values(Agent, Oids, MgrAgentConfName) -> SnmpReply 
@@ -265,10 +263,8 @@ get_values(Agent, Oids, MgrAgentConfName) ->
 %%%
 %%% @doc Issues a synchronous snmp get next request. 
 get_next_values(Agent, Oids, MgrAgentConfName) ->
-    [Uid, AgentIp, AgentUdpPort | _] = 
-	agent_conf(Agent, MgrAgentConfName),
-    {ok, SnmpReply, _} =
-	snmpm:gn(Uid, AgentIp, AgentUdpPort, Oids),
+    [Uid | _] = agent_conf(Agent, MgrAgentConfName),
+    {ok, SnmpReply, _} = snmpm:sync_get_next2(Uid, target_name(Agent), Oids),
     SnmpReply.
 
 %%% @spec set_values(Agent, VarsAndVals, MgrAgentConfName, Config) -> SnmpReply
@@ -282,13 +278,11 @@ get_next_values(Agent, Oids, MgrAgentConfName) ->
 %%% @doc Issues a synchronous snmp set request. 
 set_values(Agent, VarsAndVals, MgrAgentConfName, Config) ->
     PrivDir = ?config(priv_dir, Config),
-    [Uid, AgentIp, AgentUdpPort | _] = 
-	agent_conf(Agent, MgrAgentConfName),
+    [Uid | _] = agent_conf(Agent, MgrAgentConfName),
     Oids = lists:map(fun({Oid, _, _}) -> Oid end, VarsAndVals),
-    {ok, SnmpGetReply, _} =
-	snmpm:g(Uid, AgentIp, AgentUdpPort, Oids),
-    {ok, SnmpSetReply, _} =
-	snmpm:s(Uid, AgentIp, AgentUdpPort, VarsAndVals),
+    TargetName = target_name(Agent),
+    {ok, SnmpGetReply, _} = snmpm:sync_get2(Uid, TargetName, Oids),
+    {ok, SnmpSetReply, _} = snmpm:sync_set2(Uid, TargetName, VarsAndVals),
     case SnmpSetReply of
 	{noError, 0, _} when PrivDir /= false ->
 	    log(PrivDir, Agent, SnmpGetReply, VarsAndVals);
@@ -348,7 +342,7 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
     NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals,
 				   {managed_agents, ManagedAgents}),
     ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
-    setup_managed_agents(ManagedAgents).
+    setup_managed_agents(MgrAgentConfName,ManagedAgents).
 
 %%% @spec register_usm_users(MgrAgentConfName, UsmUsers) ->  ok | {error, Reason}
 %%%
@@ -486,9 +480,8 @@ setup_agent(true, AgentConfName, SnmpConfName,
     file:make_dir(DbDir),    
     snmp_config:write_agent_snmp_files(ConfDir, Vsns, ManagerIP, TrapUdp, 
 				       AgentIP, AgentUdp, SysName, 
-				       atom_to_list(NotifType), 
-				       SecType, Passwd, AgentEngineID, 
-				       AgentMaxMsgSize),
+				       NotifType, SecType, Passwd,
+				       AgentEngineID, AgentMaxMsgSize),
 
     override_default_configuration(Config, AgentConfName),
     
@@ -497,7 +490,8 @@ setup_agent(true, AgentConfName, SnmpConfName,
 					 {verbosity, trace}]},
 			       {agent_type, master},
 			       {agent_verbosity, trace},
-			       {net_if, [{verbosity, trace}]}],
+			       {net_if, [{verbosity, trace}]},
+			       {versions, Vsns}],
 			      ct:get_config({SnmpConfName,agent})),
     application:set_env(snmp, agent, SnmpEnv).
 %%%---------------------------------------------------------------------------
@@ -535,7 +529,7 @@ manager_register(true, MgrAgentConfName) ->
 
     setup_usm_users(UsmUsers, EngineID),
     setup_users(Users),
-    setup_managed_agents(Agents).
+    setup_managed_agents(MgrAgentConfName,Agents).
 
 %%%---------------------------------------------------------------------------
 setup_users(Users) ->
@@ -543,10 +537,11 @@ setup_users(Users) ->
 			  snmpm:register_user(Id, Module, Data)
 		  end, Users).
 %%%---------------------------------------------------------------------------   
-setup_managed_agents([]) ->
+setup_managed_agents(_,[]) ->
     ok;
 
-setup_managed_agents([{_, [Uid, AgentIp, AgentUdpPort, AgentConf]} |
+setup_managed_agents(AgentConfName,
+		     [{AgentName, [Uid, AgentIp, AgentUdpPort, AgentConf0]} |
 		      Rest]) ->
     NewAgentIp = case AgentIp of
 		     IpTuple when is_tuple(IpTuple) ->
@@ -556,12 +551,19 @@ setup_managed_agents([{_, [Uid, AgentIp, AgentUdpPort, AgentConf]} |
 			 [IpTuple|_] = Hostent#hostent.h_addr_list,
 			 IpTuple
 		 end,
-    ok = snmpm:register_agent(Uid, NewAgentIp, AgentUdpPort),   
-    lists:foreach(fun({Item, Val}) ->
-			  snmpm:update_agent_info(Uid, NewAgentIp, 
-						  AgentUdpPort, Item, Val)
-		  end, AgentConf),
-    setup_managed_agents(Rest).
+    AgentConf =
+	case lists:keymember(engine_id,1,AgentConf0) of
+	    true ->
+		AgentConf0;
+	    false ->
+		DefaultEngineID = ct:get_config({AgentConfName,agent_engine_id},
+						?AGENT_ENGINE_ID),
+		[{engine_id,DefaultEngineID}|AgentConf0]
+	end,
+    ok = snmpm:register_agent(Uid, target_name(AgentName),
+			      [{address,NewAgentIp},{port,AgentUdpPort} |
+			       AgentConf]),
+    setup_managed_agents(AgentConfName,Rest).
 %%%---------------------------------------------------------------------------
 setup_usm_users(UsmUsers, EngineID)->
     lists:foreach(fun({UsmUser, Conf}) ->
@@ -769,3 +771,8 @@ override_vacm(Config, VacmConf) ->
        File = filename:join(Dir,"vacm.conf"),
     file:delete(File),
     snmp_config:write_agent_vacm_config(Dir, "", VacmConf).
+
+%%%---------------------------------------------------------------------------
+
+target_name(Agent) ->
+    atom_to_list(Agent).
