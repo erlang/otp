@@ -49,8 +49,8 @@ next_protocol_tests() ->
      normal_npn_handshake_client_preference,
      fallback_npn_handshake,
      fallback_npn_handshake_server_preference,
-     client_tries_to_negotiate_but_server_does_not_support,
-     client_does_not_try_to_negotiate_but_server_supports_npn,
+     client_negotiate_server_does_not_support,
+     no_client_negotiate_but_server_supports_npn,
      renegotiate_from_client_after_npn_handshake
     ].
 
@@ -164,7 +164,7 @@ fallback_npn_handshake_server_preference(Config) when is_list(Config) ->
 
 %--------------------------------------------------------------------------------
 
-client_does_not_try_to_negotiate_but_server_supports_npn(Config) when is_list(Config) ->
+no_client_negotiate_but_server_supports_npn(Config) when is_list(Config) ->
     run_npn_handshake(Config,
 			   [],
 			   [{next_protocols_advertised, [<<"spdy/1">>, <<"http/1.1">>, <<"http/1.0">>]}],
@@ -172,7 +172,7 @@ client_does_not_try_to_negotiate_but_server_supports_npn(Config) when is_list(Co
 %--------------------------------------------------------------------------------
 
 
-client_tries_to_negotiate_but_server_does_not_support(Config) when is_list(Config) ->
+client_negotiate_server_does_not_support(Config) when is_list(Config) ->
     run_npn_handshake(Config,
 			   [{client_preferred_next_protocols, {client, [<<"spdy/2">>], <<"http/1.1">>}}],
 			   [],
