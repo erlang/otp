@@ -39,6 +39,7 @@
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
 -define(RENEGOTIATION_DISABLE_TIME, 12000).
+-define(CLEAN_SESSION_DB, 60000).
 
 %% Test server callback functions
 %%--------------------------------------------------------------------
@@ -108,12 +109,12 @@ init_per_testcase(protocol_versions, Config)  ->
 
 init_per_testcase(reuse_session_expired, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ssl_test_lib:timetrap(?EXPIRE * 1000 * 5),
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
+    application:set_env(ssl, session_delay_cleanup_time, 500),
     ssl:start(),
-    [{watchdog, Dog} | Config];
+    Config;
 
 init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:stop(),
@@ -141,6 +142,7 @@ init_per_testcase(_TestCase, Config0) ->
 %%--------------------------------------------------------------------
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
+    application:unset_env(ssl, session_delay_cleanup_time),
     end_per_testcase(default_action, Config);
 
 end_per_testcase(_TestCase, Config) ->
@@ -2089,13 +2091,14 @@ reuse_session_expired(Config) when is_list(Config) ->
     %% Make sure session is unregistered due to expiration
     test_server:sleep((?EXPIRE+1)),
     [{session_id, Id} |_] = SessionInfo,
+
     make_sure_expired(Hostname, Port, Id),
     
     Client2 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
-		      {port, Port}, {host, Hostname},
+				   {port, Port}, {host, Hostname},
 				   {mfa, {ssl_test_lib, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),   
+				   {from, self()}, {options, ClientOpts}]),   
     receive
 	{Client2, SessionInfo} ->
 	    test_server:fail(session_reused_when_session_expired);
@@ -2113,16 +2116,16 @@ make_sure_expired(Host, Port, Id) ->
     [_, _,_, _, Prop] = StatusInfo,
     State = ssl_test_lib:state(Prop),
     Cache = element(2, State),
-    case ssl_session_cache:lookup(Cache, {{Host, Port}, Id}) of
+
+    case ssl_session_cache:lookup(Cache, {{Host,  Port}, Id}) of
 	undefined ->
-	    ok;
+	   ok;
 	#session{is_resumable = false} ->
-	    ok;
+	   ok;
 	_ ->
 	    test_server:sleep(?SLEEP),
 	    make_sure_expired(Host, Port, Id)
-    end.
-
+    end.     
 
 %%--------------------------------------------------------------------
 server_does_not_want_to_reuse_session(doc) -> 
