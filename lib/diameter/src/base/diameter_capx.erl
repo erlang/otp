@@ -151,7 +151,7 @@ cap(_, Vs)
     Vs;
 
 cap(K, V) ->
-    ?THROW({invalid, K, V}).
+    ?THROW({invalid, {K,V}}).
 
 ipaddr(A) ->
     try
