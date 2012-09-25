@@ -2522,7 +2522,7 @@ static char *format_address(int siz, AddrByte *addr)
     *buff='\0';
     if (siz <= 4) {
 	while(siz--) {
-	    sprintf(tmp,"%d",(int) *addr++);
+	    erts_snprintf(tmp, sizeof(tmp), "%d",(int) *addr++);
 	    strcat(buff,tmp);
 	    if(siz) {
 		strcat(buff,".");
@@ -2531,7 +2531,7 @@ static char *format_address(int siz, AddrByte *addr)
 	return buff;
     } 
     while(siz--) {
-	sprintf(tmp,"%02x",(int) *addr++);
+	erts_snprintf(tmp, sizeof(tmp), "%02x",(int) *addr++);
 	strcat(buff,tmp);
 	if(siz) {
 	    strcat(buff,":");
@@ -2548,9 +2548,9 @@ static void debugf(char *format, ...)
 
     va_start(ap,format);
 #ifdef WIN32
-	sprintf(buff,"%s[%d] (DEBUG):",program_name,(int) GetCurrentThreadId());
+    erts_snprintf(buff, sizeof(buff), "%s[%d] (DEBUG):",program_name,(int) GetCurrentThreadId());
 #else
-    sprintf(buff,"%s[%d] (DEBUG):",program_name,(int) getpid());
+    erts_snprintf(buff, sizeof(buff), "%s[%d] (DEBUG):",program_name,(int) getpid());
 #endif
     ptr = buff + strlen(buff);
     erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
@@ -2574,7 +2574,7 @@ static void warning(char *format, ...)
     va_list ap;
 
     va_start(ap,format);
-    sprintf(buff,"%s[%d]: WARNING:",program_name, (int) getpid());
+    erts_snprintf(buff, sizeof(buff), "%s[%d]: WARNING:",program_name, (int) getpid());
     ptr = buff + strlen(buff);
     erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");
@@ -2597,7 +2597,7 @@ static void fatal(char *format, ...)
     va_list ap;
 
     va_start(ap,format);
-    sprintf(buff,"%s[%d]: FATAL ERROR:",program_name, (int) getpid());
+    erts_snprintf(buff, sizeof(buff), "%s[%d]: FATAL ERROR:",program_name, (int) getpid());
     ptr = buff + strlen(buff);
     erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");

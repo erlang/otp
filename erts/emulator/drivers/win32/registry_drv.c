@@ -344,7 +344,7 @@ fix_value_result(RegPort* rp, LONG result, DWORD type,
 #ifdef DEBUG
 	if (ok != ERROR_SUCCESS) {
 	    char buff[256];
-	    sprintf(buff,"Failure in registry_drv line %d, error = %d",
+	    erts_snprintf(buff, sizeof(buff), "Failure in registry_drv line %d, error = %d",
 		    __LINE__, GetLastError());
 	    MessageBox(NULL, buff, "Internal error", MB_OK);
 	    ASSERT(ok == ERROR_SUCCESS);

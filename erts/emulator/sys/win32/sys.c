@@ -2835,10 +2835,10 @@ static void stop_select(ErlDrvEvent e, void* _)
 ** no interpretation of this should be done by the rest of the
 ** emulator. The buffer should be at least 21 bytes long.
 */
-void sys_get_pid(char *buffer){
+void sys_get_pid(char *buffer, size_t buffer_size){
     DWORD p = GetCurrentProcessId();
     /* The pid is scalar and is an unsigned long. */
-    sprintf(buffer,"%lu",(unsigned long) p);
+    erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
 
 void
@@ -3178,7 +3178,8 @@ erl_assert_error(char* expr, char* file, int line)
 {   
     char message[1024];
 
-    sprintf(message, "File %hs, line %d: %hs", file, line, expr);
+    erts_snprintf(message, sizeof(message),
+	    "File %hs, line %d: %hs", file, line, expr);
     MessageBox(GetActiveWindow(), message, "Assertion failed",
 	       MB_OK | MB_ICONERROR);
 #if 0

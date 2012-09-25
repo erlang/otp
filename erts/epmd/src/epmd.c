@@ -64,7 +64,7 @@ int epmd_dbg(int level,int port) /* Utility to debug epmd... */
   if(port)
     {
       argv[argc++] = "-port";
-      sprintf(ibuff,"%d",port);
+      erts_snprintf(ibuff, sizeof(ibuff), "%d",port);
       argv[argc++] = ibuff;
     }
   argv[argc] = NULL;

@@ -23,6 +23,7 @@
 #endif
 #include "epmd.h"     /* Renamed from 'epmd_r4.h' */
 #include "epmd_int.h"
+#include "erl_printf.h" /* erts_snprintf */
 
 #ifndef INADDR_NONE
 #  define INADDR_NONE 0xffffffff
@@ -633,7 +634,7 @@ static void do_request(g, fd, s, buf, bsize)
 	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
 	       change in syntax will break < OTP R3A */
 
-	    sprintf(wbuf,"name %s at port %d\n",node->symname, node->port);
+	    erts_snprintf(wbuf, sizeof(wbuf), "name %s at port %d\n",node->symname, node->port);
 	    len = strlen(wbuf);
 	    if (reply(g, fd, wbuf, len) != len)
 	      {
@@ -669,7 +670,7 @@ static void do_request(g, fd, s, buf, bsize)
 	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
 	       change in syntax will break < OTP R3A */
 
-	    sprintf(wbuf,"active name     <%s> at port %d, fd = %d\n",
+	    erts_snprintf(wbuf, sizeof(wbuf), "active name     <%s> at port %d, fd = %d\n",
 		    node->symname, node->port, node->fd);
 	    len = strlen(wbuf) + 1;
 	    if (reply(g, fd,wbuf,len) != len)
@@ -686,7 +687,7 @@ static void do_request(g, fd, s, buf, bsize)
 	    /* CAREFUL!!! These are parsed by "erl_epmd.erl" so a slight
 	       change in syntax will break < OTP R3A */
 
-	    sprintf(wbuf,"old/unused name <%s>, port = %d, fd = %d \n",
+	    erts_snprintf(wbuf, sizeof(wbuf), "old/unused name <%s>, port = %d, fd = %d \n",
 		    node->symname,node->port, node->fd);
 	    len = strlen(wbuf) + 1;
 	    if (reply(g, fd,wbuf,len) != len)

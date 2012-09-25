@@ -118,18 +118,18 @@ sys_chars_to_double(char *buf, double *fp)
 */
 
 int
-sys_double_to_chars(double fp, char *buf)
+sys_double_to_chars(double fp, char *buffer, size_t buffer_size)
 {
-    char *s = buf;
+    char *s = buffer;
     
-    (void) sprintf(buf, "%.20e", fp);
+    (void) erts_snprintf(buffer, buffer_size, "%.20e", fp);
     /* Search upto decimal point */
     if (*s == '+' || *s == '-') s++;
     while (isdigit(*s)) s++;
     if (*s == ',') *s++ = '.'; /* Replace ',' with '.' */
     /* Scan to end of string */
     while (*s) s++;
-    return s-buf; /* i.e strlen(buf) */
+    return s-buffer; /* i.e strlen(buffer) */
 }
 
 int

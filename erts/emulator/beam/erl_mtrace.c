@@ -611,7 +611,7 @@ void erts_mtrace_init(char *receiver, char *nodename)
 	if (erts_sock_gethostname(hostname, MAXHOSTNAMELEN) != 0)
 	    hostname[0] = '\0';
 	hostname[MAXHOSTNAMELEN-1] = '\0';
-	sys_get_pid(pid);
+	sys_get_pid(pid, sizeof(pid));
 	write_trace_header(nodename ? nodename : "", pid, hostname);
 	erts_mtrace_update_heap_size();
     }

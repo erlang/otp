@@ -1850,8 +1850,8 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags,
 	    } else {
 		*ep++ = FLOAT_EXT;
 
-		/* now the sprintf which does the work */
-		i = sys_double_to_chars(f.fd, (char*) ep);
+		/* now the erts_snprintf which does the work */
+		i = sys_double_to_chars(f.fd, (char*) ep, (size_t)31);
 
 		/* Don't leave garbage after the float!  (Bad practice in general,
 		 * and Purify complains.)

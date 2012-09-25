@@ -570,7 +570,7 @@ erl_sys_init(void)
 		   + 1);
     child_setup_prog = erts_alloc(ERTS_ALC_T_CS_PROG_PATH, csp_path_sz);
     erts_smp_atomic_add_nob(&sys_misc_mem_sz, csp_path_sz);
-    sprintf(child_setup_prog,
+    erts_snprintf(child_setup_prog, csp_path_sz,
             "%s%c%s",
             bindir,
             DIR_SEPARATOR_CHAR,
@@ -1532,12 +1532,13 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	}
 #if !DISABLE_VFORK
     }
+#define ENOUGH_BYTES (44)
     else { /* Use vfork() */
 	char **cs_argv= erts_alloc(ERTS_ALC_T_TMP,(CS_ARGV_NO_OF_ARGS + 1)*
 				   sizeof(char *));
-	char fd_close_range[44];                  /* 44 bytes are enough to  */
-	char dup2_op[CS_ARGV_NO_OF_DUP2_OPS][44]; /* hold any "%d:%d" string */
-                                                  /* on a 64-bit machine.    */
+	char fd_close_range[ENOUGH_BYTES];                  /* 44 bytes are enough to  */
+	char dup2_op[CS_ARGV_NO_OF_DUP2_OPS][ENOUGH_BYTES]; /* hold any "%d:%d" string */
+                                                            /* on a 64-bit machine.    */
 
 	/* Setup argv[] for the child setup program (implemented in
 	   erl_child_setup.c) */
@@ -1545,23 +1546,23 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	if (opts->use_stdio) {
 	    if (opts->read_write & DO_READ){
 		/* stdout for process */
-		sprintf(&dup2_op[i++][0], "%d:%d", ifd[1], 1);
+		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ifd[1], 1);
 		if(opts->redir_stderr)
 		    /* stderr for process */
-		    sprintf(&dup2_op[i++][0], "%d:%d", ifd[1], 2);
+		    erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ifd[1], 2);
 	    }
 	    if (opts->read_write & DO_WRITE)
 		/* stdin for process */
-		sprintf(&dup2_op[i++][0], "%d:%d", ofd[0], 0);
+		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ofd[0], 0);
 	} else {	/* XXX will fail if ofd[0] == 4 (unlikely..) */
 	    if (opts->read_write & DO_READ)
-		sprintf(&dup2_op[i++][0], "%d:%d", ifd[1], 4);
+		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ifd[1], 4);
 	    if (opts->read_write & DO_WRITE)
-		sprintf(&dup2_op[i++][0], "%d:%d", ofd[0], 3);
+		erts_snprintf(&dup2_op[i++][0], ENOUGH_BYTES, "%d:%d", ofd[0], 3);
 	}
 	for (; i < CS_ARGV_NO_OF_DUP2_OPS; i++)
 	    strcpy(&dup2_op[i][0], "-");
-	sprintf(fd_close_range, "%d:%d", opts->use_stdio ? 3 : 5, max_files-1);
+	erts_snprintf(fd_close_range, ENOUGH_BYTES, "%d:%d", opts->use_stdio ? 3 : 5, max_files-1);
 
 	cs_argv[CS_ARGV_PROGNAME_IX] = child_setup_prog;
 	cs_argv[CS_ARGV_WD_IX] = opts->wd ? opts->wd : ".";
@@ -1612,6 +1613,7 @@ static ErlDrvData spawn_start(ErlDrvPort port_num, char* name, SysDriverOpts* op
 	}
 	erts_free(ERTS_ALC_T_TMP,cs_argv);
     }
+#undef ENOUGH_BYTES
 #endif
 
     erts_sched_bind_atfork_parent(unbind);
@@ -2355,10 +2357,10 @@ void erts_do_break_handling(void)
 ** no interpretatione of this should be done by the rest of the
 ** emulator. The buffer should be at least 21 bytes long.
 */
-void sys_get_pid(char *buffer){
+void sys_get_pid(char *buffer, size_t buffer_size){
     pid_t p = getpid();
     /* Assume the pid is scalar and can rest in an unsigned long... */
-    sprintf(buffer,"%lu",(unsigned long) p);
+    erts_snprintf(buffer, buffer_size, "%lu",(unsigned long) p);
 }
 
 int
