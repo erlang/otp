@@ -103,7 +103,8 @@ init(Parent) ->
     end,
 
     mnesia_schema:purge_tmp_files(),
-    mnesia_recover:start_garb(),
+    mnesia_recover:next_garb(),
+    mnesia_recover:next_check_overload(),
 
     ?eval_debug_fun({?MODULE, init},  [{nodes, AllOthers}]),
 

@@ -45,7 +45,8 @@
 	 note_log_decision/2,
 	 outcome/2,
 	 start/0,
-	 start_garb/0,
+	 next_garb/0,
+	 next_check_overload/0,
 	 still_pending/1,
 	 sync_trans_tid_serial/1,
 	 sync/0,
@@ -91,10 +92,38 @@ start() ->
 init() ->
     call(init).
 
-start_garb() ->
+next_garb() ->
     Pid = whereis(mnesia_recover),
-    {ok, _} = timer:send_interval(timer:minutes(2), Pid, garb_decisions),
-    {ok, _} = timer:send_interval(timer:seconds(10), Pid, check_overload).
+    erlang:send_after(timer:minutes(2), Pid, garb_decisions).
+
+next_check_overload() ->
+    Pid = whereis(mnesia_recover),
+    erlang:send_after(timer:seconds(10), Pid, check_overload).
+
+
+do_check_overload(S) ->
+    %% Time to check if mnesia_tm is overloaded
+    case whereis(mnesia_tm) of
+    Pid when is_pid(Pid) ->
+        Threshold = 100,
+        Prev = S#state.tm_queue_len,
+        {message_queue_len, Len} =
+        process_info(Pid, message_queue_len),
+        if
+        Len > Threshold, Prev > Threshold ->
+            What = {mnesia_tm, message_queue_len, [Prev, Len]},
+            mnesia_lib:report_system_event({mnesia_overload, What}),
+            mnesia_lib:overload_set(mnesia_tm, true),
+            S#state{tm_queue_len = 0};
+        Len > Threshold ->
+            S#state{tm_queue_len = Len};
+        true ->
+            mnesia_lib:overload_set(mnesia_tm, false),
+            S#state{tm_queue_len = 0}
+        end;
+    undefined ->
+        S
+    end.
 
 allow_garb() ->
     cast(allow_garb).
@@ -853,34 +882,13 @@ handle_info({connect_nodes, Ns, From}, State) ->
     handle_call({connect_nodes,Ns},From,State);
 
 handle_info(check_overload, S) ->
-    %% Time to check if mnesia_tm is overloaded
-    case whereis(mnesia_tm) of
-	Pid when is_pid(Pid) ->
-	    
-	    Threshold = 100,
-	    Prev = S#state.tm_queue_len,
-	    {message_queue_len, Len} =
-		process_info(Pid, message_queue_len),
-	    if
-		Len > Threshold, Prev > Threshold ->
-		    What = {mnesia_tm, message_queue_len, [Prev, Len]},
-		    mnesia_lib:report_system_event({mnesia_overload, What}),
-                    mnesia_lib:overload_set(mnesia_tm, true),
-		    {noreply, S#state{tm_queue_len = 0}};
-		
-		Len > Threshold ->
-		    {noreply, S#state{tm_queue_len = Len}};
-		
-		true ->
-                    mnesia_lib:overload_set(mnesia_tm, false),
-		    {noreply, S#state{tm_queue_len = 0}}
-	    end;
-	undefined ->
-	    {noreply, S}
-    end;
+    State2 = do_check_overload(S),
+    next_check_overload(),
+    {noreply, State2};
 
 handle_info(garb_decisions, State) ->
     do_garb_decisions(),
+    next_garb(),
     {noreply, State};
 
 handle_info({force_decision, Tid}, State) ->
