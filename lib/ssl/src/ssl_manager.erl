@@ -191,7 +191,7 @@ init([Name, Opts]) ->
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
     CertDb = ssl_certificate_db:create(),
     SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
-    Timer = erlang:send_after(SessionLifeTime * 1000, 
+    Timer = erlang:send_after(SessionLifeTime * 1000 + 5000, 
 			      self(), validate_sessions),
     erlang:send_after(?CLEAR_PEM_CACHE, self(), clear_pem_cache),
     {ok, #state{certificate_db = CertDb,
