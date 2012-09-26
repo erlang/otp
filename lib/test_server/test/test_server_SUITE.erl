@@ -92,8 +92,8 @@ test_server_SUITE(Config) ->
 %    rpc:call(Node,dbg, tracer,[]),
 %    rpc:call(Node,dbg, p,[all,c]),
 %    rpc:call(Node,dbg, tpl,[test_server_ctrl,x]),
-    run_test_server_tests("test_server_SUITE", 39, 1, 31, 
-			  20, 9, 1, 11, 2, 26, Config).
+    run_test_server_tests("test_server_SUITE", 38, 1, 30,
+			  19, 9, 1, 11, 2, 25, Config).
 
 test_server_parallel01_SUITE(Config) ->
     run_test_server_tests("test_server_parallel01_SUITE", 37, 0, 19, 

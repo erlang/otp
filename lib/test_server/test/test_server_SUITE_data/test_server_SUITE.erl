@@ -34,7 +34,7 @@
 	 do_times/1, do_times_mfa/1, do_times_fun/1,
 	 skip_cases/1, skip_case1/1, skip_case2/1, skip_case3/1, 
 	 skip_case4/1, skip_case5/1, skip_case6/1, skip_case7/1,
-	 skip_case8/1, skip_case9/1, undefined_functions/1,
+	 skip_case8/1, skip_case9/1,
 	 conf_init/1, check_new_conf/1, conf_cleanup/1,
 	 check_old_conf/1, conf_init_fail/1, start_stop_node/1,
 	 cleanup_nodes_init/1, check_survive_nodes/1, cleanup_nodes_fin/1,
@@ -47,7 +47,7 @@ all(suite) ->
     [config, comment, timetrap, timetrap_cancel, multiply_timetrap,
      init_per_s, init_per_tc, end_per_tc,
      timeconv, msgs, capture, timecall, do_times, skip_cases,
-     undefined_functions, commercial,
+     commercial,
      {conf, conf_init, [check_new_conf], conf_cleanup},
      check_old_conf,
      {conf, conf_init_fail,[conf_member_skip],conf_cleanup_skip},
@@ -385,50 +385,6 @@ skip_case9(Config) when is_list(Config) ->
     %% This case shall be skipped by adding a specific clause to 
     %% returning {skip, Reason} from init_per_testcase/2 for this case. 
     ?t:fail("This case should have been Skipped by init_per_testcase/2").
-
-undefined_functions(suite) -> [];
-undefined_functions(doc) -> ["Check for calls to undefined functions in"
-			     " test_server."
-			     "Skip if cover is running"];
-undefined_functions(Config) when is_list(Config) ->
-    case whereis(cover_server) of
-	Pid when is_pid(Pid) -> 
-	    {skip,"Cover is running"};
-	undefined -> 
-	    undefined_functions()
-    end.
-
-undefined_functions() ->
-    TestServerDir = filename:dirname(code:which(test_server)),
-    Res = xref:d(TestServerDir),
-    
-    {value,{unused,Unused}} = lists:keysearch(unused, 1, Res),
-    case Unused of
-	[] -> ok;
-	_ ->
-	    lists:foreach(fun (MFA) ->
-				  io:format("~s unused", [format_mfa(MFA)])
-			  end, Unused)
-    end,
-    
-    {value,{undefined,Undef0}} = lists:keysearch(undefined, 1, Res),
-    Undef = [U || U <- Undef0, not unresolved(U)],
-    case Undef of
-	[] -> ok;
-	_ ->
-	    lists:foreach(fun ({MFA1,MFA2}) ->
-				  io:format("~s calls undefined ~s",
-					    [format_mfa(MFA1),format_mfa(MFA2)])
-			  end, Undef),
-	    ?t:fail({length(Undef),undefined_functions_in_otp})
-    end,
-    ok.
-
-unresolved({_,{_,'$F_EXPR',_}}) -> true;
-unresolved(_) -> false.
-
-format_mfa({M,F,A}) ->
-    lists:flatten(io_lib:format("~s:~s/~p", [M,F,A])).
 
 conf_init(doc) -> ["Test successful conf case: Change Config parameter"];
 conf_init(Config) when is_list(Config) ->
