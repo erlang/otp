@@ -441,7 +441,7 @@ handle_msg(#ssh_msg_channel_window_adjust{recipient_channel = ChannelId,
     
     {SendList, Channel} =  %% TODO: Datatype 0 ?
 	update_send_window(Channel0#channel{send_window_size = Size + Add},
-			   0, <<>>, Connection),
+			   0, undefined, Connection),
     
     Replies = lists:map(fun({Type, Data}) -> 
 				{connection_reply, ConnectionPid,
@@ -1073,14 +1073,15 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 	false ->
 	    {{channel_data, ChannelPid, Reply}, Connection}
     end.
+update_send_window(Channel, _, undefined,
+		   #connection{channel_cache = Cache}) ->
+    do_update_send_window(Channel,  Channel#channel.send_buf, Cache);
 
-update_send_window(Channel0, DataType, Data,  
-			#connection{channel_cache = Cache}) ->
-    Buf0 = if Data == <<>> ->
-		   Channel0#channel.send_buf;
-	      true ->
-		   Channel0#channel.send_buf ++ [{DataType, Data}]
-	   end,
+update_send_window(Channel, DataType, Data,
+		   #connection{channel_cache = Cache}) ->
+    do_update_send_window(Channel, Channel#channel.send_buf ++ [{DataType, Data}], Cache).
+
+do_update_send_window(Channel0, Buf0, Cache) ->
     {Buf1, NewSz, Buf2} = get_window(Buf0, 
 				     Channel0#channel.send_packet_size,
 				     Channel0#channel.send_window_size),
