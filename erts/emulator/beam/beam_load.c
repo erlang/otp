@@ -5527,7 +5527,8 @@ stub_copy_info(LoaderState* stp,
 	       int chunk,	/* Chunk: ATTR_CHUNK or COMPILE_CHUNK */
 	       byte* info,	/* Where to store info. */
 	       BeamInstr* ptr_word,	/* Where to store pointer into info. */
-	       BeamInstr* size_word) /* Where to store size of info. */
+	       BeamInstr* size_word,	/* Where to store size into info. */
+	       BeamInstr* size_on_heap_word) /* Where to store size on heap. */
 {
     Sint decoded_size;
     Uint size = stp->chunks[chunk].size;
@@ -5538,7 +5539,8 @@ stub_copy_info(LoaderState* stp,
 	if (decoded_size < 0) {
  	    return 0;
  	}
-	*size_word = decoded_size;
+	*size_word = (BeamInstr) size;
+	*size_on_heap_word = decoded_size;
     }
     return info + size;
 }
@@ -5960,12 +5962,16 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
     info = (byte *) fp;
     info = stub_copy_info(stp, ATTR_CHUNK, info,
-			  code+MI_ATTR_PTR, code+MI_ATTR_SIZE_ON_HEAP);
+			  code+MI_ATTR_PTR,
+			  code+MI_ATTR_SIZE,
+			  code+MI_ATTR_SIZE_ON_HEAP);
     if (info == NULL) {
 	goto error;
     }
     info = stub_copy_info(stp, COMPILE_CHUNK, info,
-			  code+MI_COMPILE_PTR, code+MI_COMPILE_SIZE_ON_HEAP);
+			  code+MI_COMPILE_PTR,
+			  code+MI_COMPILE_SIZE,
+			  code+MI_COMPILE_SIZE_ON_HEAP);
     if (info == NULL) {
 	goto error;
     }
