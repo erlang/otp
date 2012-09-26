@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,16 +18,20 @@
 %%
 -module(os_mon_mib_SUITE).
 
-%-define(STANDALONE,1).
+%%-----------------------------------------------------------------
+%% This suite can no longer be executed standalone, i.e. it must be
+%% executed with common test. The reason is that ct_snmp is used
+%% instead of the snmp application directly. The suite requires a
+%% config file, os_mon_mib_SUITE.cfg, found in the same directory as
+%% the suite.
+%%
+%% Execute with:
+%% > ct_run -suite os_mon_mib_SUITE -config os_mon_mib_SUITE.cfg
+%%-----------------------------------------------------------------
 
--ifdef(STANDALONE).
--define(line,erlang:display({line,?LINE}),).
--define(config(A,B), config(A,B)).
--else.
 -include_lib("test_server/include/test_server.hrl").
 -include_lib("os_mon/include/OTP-OS-MON-MIB.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
--endif.
 
 % Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2, 
@@ -60,15 +64,6 @@
 -define(MGR_PORT, 5001).
 
 %%---------------------------------------------------------------------
--ifdef(STANDALONE).
--export([run/0]).
-run() ->
-    catch init_per_suite([]),
-    Ret = (catch update_load_table([])),
-    catch end_per_suite([]),
-    Ret.
--else.
-
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:minutes(6)),
     [{watchdog, Dog}|Config].
@@ -78,7 +73,8 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     test_server:timetrap_cancel(Dog),
     Config.
 
-suite() -> [{ct_hooks,[ts_install_cth]}].
+suite() -> [{ct_hooks,[ts_install_cth]},
+	    {require, snmp_mgr_agent, snmp}].
 
 all() -> 
     [load_unload, get_mem_sys_mark, get_mem_proc_mark,
@@ -104,8 +100,6 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-
--endif.
 %%---------------------------------------------------------------------
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -121,50 +115,13 @@ init_per_suite(Config) ->
     ?line application:start(mnesia),
     ?line application:start(os_mon),
 
-    %% Create initial configuration data for the snmp application
-    ?line PrivDir = ?config(priv_dir, Config),
-    ?line ConfDir = filename:join(PrivDir, "conf"),
-    ?line DbDir = filename:join(PrivDir,"db"),
-    ?line MgrDir =  filename:join(PrivDir,"mgr"),
-
-    ?line file:make_dir(ConfDir),
-    ?line file:make_dir(DbDir),
-    ?line file:make_dir(MgrDir),
-
-    {ok, HostName} = inet:gethostname(),
-    {ok, Addr} = inet:getaddr(HostName, inet),
-
-    ?line snmp_config:write_agent_snmp_files(ConfDir, ?CONF_FILE_VER,
-					     tuple_to_list(Addr), ?TRAP_UDP,
-					     tuple_to_list(Addr),
-					     ?AGENT_UDP, ?SYS_NAME),
-
-    ?line snmp_config:write_manager_snmp_files(MgrDir, tuple_to_list(Addr),
-					       ?MGR_PORT, ?MAX_MSG_SIZE,
-					       ?ENGINE_ID, [], [], []),
-
-    %% To make sure application:set_env is not overwritten by any
-    %% app-file settings.
-    ?line ok = application:load(snmp),
-
-    ?line application:set_env(snmp, agent, [{db_dir, DbDir},
-					    {config, [{dir, ConfDir}]},
-					    {agent_type, master},
-					    {agent_verbosity, trace},
-					    {net_if, [{verbosity, trace}]}]),
-    ?line application:set_env(snmp, manager, [{config, [{dir, MgrDir},
-							{db_dir, MgrDir},
-							{verbosity, trace}]},
-					      {server, [{verbosity, trace}]},
-					      {net_if, [{verbosity, trace}]},
-					      {versions, [v1, v2, v3]}]),
-    application:start(snmp),
+    ok = ct_snmp:start(Config,snmp_mgr_agent),
 
     %% Load the mibs that should be tested
     otp_mib:load(snmp_master_agent),
     os_mon_mib:load(snmp_master_agent),
 
-    [{agent_ip, Addr}| Config].
+    Config.
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
 %% Config - [tuple()]
@@ -197,7 +154,7 @@ end_per_suite(Config) ->
 load_unload(doc) ->
     ["Test to unload and the reload the OTP.mib "];
 load_unload(suite) -> [];
-load_unload(Config) when list(Config) ->
+load_unload(Config) when is_list(Config) ->
     ?line os_mon_mib:unload(snmp_master_agent),
     ?line os_mon_mib:load(snmp_master_agent),
     ok.
@@ -424,7 +381,7 @@ cpu_load(doc) ->
     [];
 cpu_load(suite) ->
     [];
-cpu_load(Config) when list(Config) ->
+cpu_load(Config) when is_list(Config) ->
     ?line [{[?loadCpuLoad, Len | NodeStr], Load}] =
 	os_mon_mib:load_table(get_next,[], [?loadCpuLoad]),
     ?line Len = length(NodeStr),
@@ -640,32 +597,24 @@ disk_capacity(Config) when is_list(Config) ->
 
 %%---------------------------------------------------------------------
 real_snmp_request(doc) ->
-    ["Starts an snmp manager and sends a real snmp-reques. i.e. "
+    ["Starts an snmp manager and sends a real snmp-request. i.e. "
      "sends a udp message on the correct format."];
 real_snmp_request(suite) -> [];
-real_snmp_request(Config) when list(Config) ->
-    Agent_ip = ?config(agent_ip, Config),
-
-    ?line ok = snmpm:register_user(os_mon_mib_test, snmpm_user_default, []),
-    ?line ok = snmpm:register_agent(os_mon_mib_test, Agent_ip, ?AGENT_UDP),
-
+real_snmp_request(Config) when is_list(Config) ->
     NodStr = atom_to_list(node()),
     Len = length(NodStr),
     {_, _, {Pid, _}} = memsup:get_memory_data(),
     PidStr = lists:flatten(io_lib:format("~w", [Pid])),
     io:format("FOO: ~p~n", [PidStr]),
-    ?line ok = snmp_get(Agent_ip,
-			[?loadEntry ++
+    ?line ok = snmp_get([?loadEntry ++
 			 [?loadLargestErlProcess, Len | NodStr]],
 			PidStr),
-    ?line ok = snmp_get_next(Agent_ip,
-			     [?loadEntry ++
+    ?line ok = snmp_get_next([?loadEntry ++
 			      [?loadSystemUsedMemory, Len | NodStr]],
 			     ?loadEntry ++ [?loadSystemUsedMemory + 1, Len
 					    | NodStr], PidStr),
-    ?line ok = snmp_set(Agent_ip, [?loadEntry ++
-				   [?loadLargestErlProcess,  Len | NodStr]],
-			s, "<0.101.0>"),
+    ?line ok = snmp_set([?loadEntry ++ [?loadLargestErlProcess,  Len | NodStr]],
+			s, "<0.101.0>", Config),
     ok.
 
 otp_7441(doc) ->
@@ -674,34 +623,17 @@ otp_7441(doc) ->
 otp_7441(suite) ->
     [];
 otp_7441(Config) when is_list(Config) ->
-    Agent_ip = ?config(agent_ip, Config),
-
-
     NodStr = atom_to_list(node()),
     Len = length(NodStr),
     Oids = [Oid|_] = [?loadEntry ++ [?loadSystemTotalMemory, Len | NodStr]],
-    ?line { ok, {noError,0,[#varbind{oid = Oid, variabletype = 'Unsigned32'}]}, _} =
-	snmpm:g(os_mon_mib_test, Agent_ip, ?AGENT_UDP, Oids),
+    {noError,0,[#varbind{oid = Oid, variabletype = 'Unsigned32'}]} =
+	ct_snmp:get_values(os_mon_mib_test, Oids, snmp_mgr_agent),
 
     ok.
 
 %%---------------------------------------------------------------------
 %% Internal functions
 %%---------------------------------------------------------------------
--ifdef(STANDALONE).
-config(priv_dir,_) ->
-    "/tmp".
-
-start_node() ->
-    Host = hd(tl(string:tokens(atom_to_list(node()),"@"))),
-    {ok,Node} = slave:start(Host,testnisse),
-    net_adm:ping(testnisse),
-    Node.
-
-
-stop_node(Node) ->
-   rpc:call(Node,erlang,halt,[]).
--else.
 start_node() ->
     ?line Pa = filename:dirname(code:which(?MODULE)),
     ?line {ok,Node} = test_server:start_node(testnisse, slave,
@@ -710,8 +642,6 @@ start_node() ->
 
 stop_node(Node) ->
     test_server:stop_node(Node).
-
--endif.
 
 del_dir(Dir) ->
     io:format("Deleting: ~s~n",[Dir]),
@@ -722,21 +652,22 @@ del_dir(Dir) ->
     file:del_dir(Dir).
 
 %%---------------------------------------------------------------------
-snmp_get(Agent_ip, Oids = [Oid |_], Result) ->
-    ?line {ok,{noError,0,[#varbind{oid = Oid,
-				   variabletype = 'OCTET STRING',
-				   value = Result}]}, _} =
-	snmpm:g(os_mon_mib_test, Agent_ip, ?AGENT_UDP, Oids),
+snmp_get(Oids = [Oid |_], Result) ->
+    {noError,0,[#varbind{oid = Oid,
+			 variabletype = 'OCTET STRING',
+			 value = Result}]} =
+	ct_snmp:get_values(os_mon_mib_test, Oids, snmp_mgr_agent),
     ok.
 
-snmp_get_next(Agent_ip, Oids, NextOid, Result) ->
-    ?line {ok,{noError,0,[#varbind{oid = NextOid,
-				   variabletype = 'OCTET STRING',
-				   value = Result}]},_} =
-	snmpm:gn(os_mon_mib_test, Agent_ip, ?AGENT_UDP, Oids),
+snmp_get_next(Oids, NextOid, Result) ->
+    {noError,0,[#varbind{oid = NextOid,
+			 variabletype = 'OCTET STRING',
+			 value = Result}]} =
+	ct_snmp:get_next_values(os_mon_mib_test, Oids, snmp_mgr_agent),
     ok.
 
-snmp_set(Agent_ip, Oid, ValuType, Value) ->
-    ?line {ok, {notWritable, _, _}, _} =
-	snmpm:s(os_mon_mib_test,Agent_ip,?AGENT_UDP,[{Oid, ValuType, Value}]),
+snmp_set(Oid, ValuType, Value, Config) ->
+    {notWritable, _, _} =
+	ct_snmp:set_values(os_mon_mib_test, [{Oid, ValuType, Value}],
+			   snmp_mgr_agent, Config),
     ok.
