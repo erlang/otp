@@ -346,7 +346,7 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       <name>hmac_init(Type, Key) -> Context</name>
       <fsummary></fsummary>
       <type>
-        <v>Type = sha | md5 | ripemd160</v>
+        <v>Type = md5 | ripemd160 | sha | sha224 | sha256 | sha384 | sha512</v>
         <v>Key = iolist() | binary()</v>
         <v>Context = binary()</v>
       </type>
