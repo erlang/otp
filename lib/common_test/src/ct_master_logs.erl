@@ -134,7 +134,7 @@ init(Parent,LogDir,Nodes) ->
 
     io:format(CtLogFd,int_header(),[log_timestamp(now()),"Test Nodes\n"]),
     io:format(CtLogFd,"~s\n",[NodeStr]),
-    io:format(CtLogFd,int_footer()++"\n",[]),
+    io:put_chars(CtLogFd,[int_footer(),"\n"]),
 
     NodeDirIxFd = open_nodedir_index(RunDirAbs,Time),
     Parent ! {started,self(),{Time,RunDirAbs}},
@@ -202,24 +202,21 @@ loop(State) ->
 open_ct_master_log(Dir) ->
     FullName = filename:join(Dir,?ct_master_log_name),
     {ok,Fd} = file:open(FullName,[write]),
-    io:format(Fd,header("Common Test Master Log", {[],[1,2],[]}),[]),
+    io:put_chars(Fd,header("Common Test Master Log", {[],[1,2],[]})),
     %% maybe add config info here later
-    io:format(Fd, config_table([]), []),
-    io:format(Fd,
-	      "<style>\n"
-	      "div.ct_internal { background:lightgrey; color:black }\n"
-	      "div.default     { background:lightgreen; color:black }\n"
-	      "</style>\n",
-	      []),
-    io:format(Fd, 
-	      xhtml("<br><h2>Progress Log</h2>\n<pre>\n",
-		    "<br /><h2>Progress Log</h2>\n<pre>\n"),
-	      []),
+    io:put_chars(config_table([])),
+    io:put_chars(Fd,
+		 "<style>\n"
+		 "div.ct_internal { background:lightgrey; color:black }\n"
+		 "div.default     { background:lightgreen; color:black }\n"
+		 "</style>\n"),
+    io:put_chars(Fd, 
+		 xhtml("<br><h2>Progress Log</h2>\n<pre>\n",
+		       "<br /><h2>Progress Log</h2>\n<pre>\n")),
     Fd.
 
 close_ct_master_log(Fd) ->
-    io:format(Fd,"</pre>",[]),
-    io:format(Fd,footer(),[]),
+    io:put_chars(Fd,["</pre>",footer()]),
     file:close(Fd).
 
 config_table(Vars) ->
@@ -248,20 +245,20 @@ int_footer() ->
 open_nodedir_index(Dir,StartTime) ->
     FullName = filename:join(Dir,?nodedir_index_name),
     {ok,Fd} = file:open(FullName,[write]),
-    io:format(Fd,nodedir_index_header(StartTime),[]),
+    io:put_chars(Fd,nodedir_index_header(StartTime)),
     Fd.
 
 print_nodedir(Node,RunDir,Fd) ->
     Index = filename:join(RunDir,"index.html"),
-    io:format(Fd,
-	      ["<tr>\n"
-	       "<td align=center>",atom_to_list(Node),"</td>\n",
-	       "<td align=left><a href=\"",Index,"\">",Index,"</a></td>\n",
-	       "</tr>\n"],[]),
+    io:put_chars(Fd,
+		 ["<tr>\n"
+		  "<td align=center>",atom_to_list(Node),"</td>\n",
+		  "<td align=left><a href=\"",Index,"\">",Index,"</a></td>\n",
+		  "</tr>\n"]),
     ok.
 
 close_nodedir_index(Fd) ->
-    io:format(Fd,index_footer(),[]),
+    io:put_chars(Fd,index_footer()),
     file:close(Fd).
 
 nodedir_index_header(StartTime) ->

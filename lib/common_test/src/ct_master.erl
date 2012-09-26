@@ -696,8 +696,9 @@ status(MasterPid,Event) ->
 
 log(To,Heading,Str,Args) ->
     if To == all ; To == tty ->
-	    Str1 = ["=== ",Heading," ===\n",io_lib:format(Str,Args),"\n"],
-	    io:format(Str1,[]);
+	    Chars = ["=== ",Heading," ===\n",
+		     io_lib:format(Str,Args),"\n"],
+	    io:put_chars(Chars);
        true ->
 	    ok
     end,
