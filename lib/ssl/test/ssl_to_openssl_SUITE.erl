@@ -1451,11 +1451,27 @@ check_sane_openssl_renegotaite(Config) ->
     end.
 
 check_sane_openssl_sslv2(Config) ->
-    case os:cmd("openssl version") of
-	"OpenSSL 1." ++ _ ->
-	    {skip, "sslv2 by default turned of in 1.*"};
-	_ ->
-	    Config
+    Port = open_port({spawn, "openssl s_client  -ssl2 "}, [stderr_to_stdout]),
+    case supports_sslv2(Port) of
+	true ->
+	    Config;
+	false ->
+	    {skip, "sslv2 not supported by openssl"}
+    end.
+
+supports_sslv2(Port) ->
+    receive 
+	{Port, {data, "unknown option -ssl2" ++ _}} -> 
+	    false;
+	{Port, {data, Data}} ->
+	    case lists:member("error", string:tokens(Data, ":")) of
+		true ->
+		    false;
+		false ->
+		    supports_sslv2(Port)
+	    end
+    after 500 ->
+	    true
     end.
 
 check_sane_openssl_version(Version) ->
