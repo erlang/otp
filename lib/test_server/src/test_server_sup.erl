@@ -473,10 +473,8 @@ getenv_any([]) -> "".
 %%
 %% Returns the OS family
 get_os_family() ->
-    case os:type() of
-	{OsFamily,_OsName} -> OsFamily;
-	OsFamily -> OsFamily
-    end.
+    {OsFamily,_OsName} = os:type(),
+    OsFamily.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
