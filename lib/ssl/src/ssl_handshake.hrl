@@ -33,6 +33,8 @@
 -type public_key_info()   :: {algo_oid(), #'RSAPublicKey'{} | integer() , public_key_params()}.
 -type tls_handshake_history() :: {[binary()], [binary()]}.
 
+-define(NO_PROTOCOL, <<>>).
+
 %% Signature algorithms
 -define(ANON, 0).
 -define(RSA, 1).
@@ -97,7 +99,8 @@
 	  cipher_suites,      % cipher_suites<2..2^16-1>
 	  compression_methods, % compression_methods<1..2^8-1>,
 	  renegotiation_info,
-	  hash_signs          % supported combinations of hashes/signature algos
+	  hash_signs,          % supported combinations of hashes/signature algos
+	  next_protocol_negotiation = undefined % [binary()]
 	 }).
 
 -record(server_hello, {
@@ -107,7 +110,8 @@
 	  cipher_suite,       % cipher_suites
 	  compression_method, % compression_method
 	  renegotiation_info,
-	  hash_signs          % supported combinations of hashes/signature algos
+	  hash_signs,          % supported combinations of hashes/signature algos
+	  next_protocol_negotiation = undefined % [binary()]
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -233,6 +237,18 @@
 -record(hash_sign_algos, {
 	  hash_sign_algos
 	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Next Protocol Negotiation
+%% (http://tools.ietf.org/html/draft-agl-tls-nextprotoneg-02)
+%% (http://technotes.googlecode.com/git/nextprotoneg.html)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-define(NEXTPROTONEG_EXT, 13172).
+-define(NEXT_PROTOCOL, 67).
+-record(next_protocol_negotiation, {extension_data}).
+
+-record(next_protocol, {selected_protocol}).
 
 -endif. % -ifdef(ssl_handshake).
 

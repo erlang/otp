@@ -79,7 +79,9 @@
       {keyfile, path()} | {password, string()} |
       {cacerts, [der_encoded()]} | {cacertfile, path()} |
       |{dh, der_encoded()} | {dhfile, path()} | {ciphers, ciphers()} |
-      {ssl_imp, ssl_imp()}| {reuse_sessions, boolean()} | {reuse_session, fun()}
+      {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()}
+      {next_protocols_advertised, list(binary()} |
+      {client_preferred_next_protocols, binary(), client | server, list(binary())}
     </c></p>
 
     <p><c>transportoption() = {CallbackModule, DataTag, ClosedTag}
@@ -301,8 +303,29 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       when possible.
       </item>
 
+      <tag>{client_preferred_next_protocols,  Precedence:: server | client, ClientPrefs::[binary()]}
+           {client_preferred_next_protocols,  Precedence:: server | client, ClientPrefs::[binary()] , Default :: binary()}}</tag>
+
+	   <item> <p>Indicates the client will try to perform Next Protocol
+	   Negotiation.</p>
+
+	    <p>If precedence is server the negaotiated protocol will be the
+	   first protocol that appears on the server advertised list that is
+	   also on the clients preference list.</p>
+
+	   <p>If the precedence is client the negaotiated protocol will be the
+	   first protocol that appears on the clients preference list that is
+	   also on the server advertised list.</p>
+
+	  <p> If the client does not support any of the servers advertised
+	   protocols or the server does not advertise any protocols the
+	   client will fallback to the first protocol in its list or if a
+	   default is supplied it will fallback to that instead. If the
+	   server does not support next protocol renegotiation the
+	   connection will be aborted if no default protocol is supplied.</p>
+	   </item>
     </taglist>
-  </section>
+   </section>
 
   <section>
     <title>SSL OPTION DESCRIPTIONS - SERVER SIDE</title>
@@ -353,6 +376,14 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
       SuggestedSessionId is a binary(),  PeerCert is a DER encoded
       certificate, Compression is an enumeration integer
       and CipherSuite is of type ciphersuite().
+    </item>
+
+      <tag>{next_protocols_advertised, Protocols :: list(binary())}</tag>
+      <item>The list of protocols to send to the client if the client indicates
+      it supports the Next Protocol extension. The client may select a protocol
+      that is not on this list. The list of protocols must not contain an empty
+      binary. If the server negotiates a Next Protocol it can be accessed
+      using <c>negotiated_next_protocol/1</c> method.
       </item>
 
     </taglist>
@@ -766,8 +797,23 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom()} |
 	  ssl application.</p>
       </desc>
     </func>
+    <func>
+      <name>negotiated_next_protocol(Socket) -> {ok, Protocol} | {error, next_protocol_not_negotiated}</name>
+      <fsummary>Returns the Next Protocol negotiated.</fsummary>
+      <type>
+        <v>Socket = sslsocket()</v>
+        <v>Protocol = binary()</v>
+      </type>
+      <desc>
+        <p>
+          Returns the Next Protocol negotiated.
+        </p>
+      </desc>
+    </func>
+
+
   </funcs> 
-      
+
   <section>
     <title>SEE ALSO</title>
     <p><seealso marker="kernel:inet">inet(3) </seealso> and 
