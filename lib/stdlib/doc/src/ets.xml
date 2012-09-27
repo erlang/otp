@@ -146,6 +146,10 @@
       <desc><p>A match specification, see above.</p></desc>
     </datatype>
     <datatype>
+      <name name="comp_match_spec"/>
+      <desc><p>A compiled match specification.</p></desc>
+    </datatype>
+    <datatype>
       <name name="match_pattern"/>
     </datatype>
     <datatype>
@@ -766,8 +770,6 @@ ets:is_compiled_ms(Broken).</code>
     </func>
     <func>
       <name name="match_spec_compile" arity="1"/>
-      <type name="comp_match_spec"/>
-      <type_desc name="comp_match_spec">A compiled match specification.</type_desc>
       <fsummary>Compiles a match specification into its internal representation</fsummary>
       <desc>
         <p>This function transforms a
@@ -791,8 +793,6 @@ ets:is_compiled_ms(Broken).</code>
     </func>
     <func>
       <name name="match_spec_run" arity="2"/>
-      <type name="comp_match_spec"/>
-      <type_desc name="comp_match_spec">A compiled match specification.</type_desc>
       <fsummary>Performs matching, using a compiled match_spec, on a list of tuples</fsummary>
       <desc>
         <p>This function executes the matching specified in a

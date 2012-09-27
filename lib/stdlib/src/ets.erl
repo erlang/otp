@@ -42,7 +42,7 @@
 
 -export([i/0, i/1, i/2, i/3]).
 
--export_type([tab/0, tid/0, match_spec/0]).
+-export_type([tab/0, tid/0, match_spec/0, comp_match_spec/0]).
 
 %%-----------------------------------------------------------------------------
 
@@ -445,7 +445,7 @@ update_element(_, _, _) ->
 
 %%% End of BIFs
 
--opaque comp_match_spec() :: any().  %% this one is REALLY opaque
+-opaque comp_match_spec() :: binary().  %% this one is REALLY opaque
 
 -spec match_spec_run(List, CompiledMatchSpec) -> list() when
       List :: [tuple()],
