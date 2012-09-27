@@ -68,7 +68,6 @@ asn1rt_check.erl:100: The variable _ can never match since previous clauses comp
 asn1rt_check.erl:85: The variable _ can never match since previous clauses completely covered the type [any()]
 asn1rt_driver_handler.erl:32: The pattern 'already_done' can never match the type {'error',_}
 asn1rt_per.erl:1065: The pattern {'BMPString', {'octets', Ol}} can never match the type {_,[{'bits',1 | 2 | 4 | 8 | 16 | 32,_}]}
-asn1rt_per.erl:1066: Function will never be called
 asn1rt_per.erl:1231: The call erlang:'not'('implemented') will never return since it differs in the 1st argument from the success typing arguments: (boolean())
 asn1rt_per.erl:1233: The call erlang:'not'('implemented') will never return since it differs in the 1st argument from the success typing arguments: (boolean())
 asn1rt_per.erl:1235: The call erlang:'not'('implemented') will never return since it differs in the 1st argument from the success typing arguments: (boolean())
@@ -76,7 +75,6 @@ asn1rt_per.erl:1237: The call erlang:'not'('implemented') will never return sinc
 asn1rt_per.erl:989: The pattern <_C, 'true', _Val> can never match the type <_,'false',_>
 asn1rt_per_bin.erl:1361: The pattern <_, 'true', _> can never match the type <_,'false',_>
 asn1rt_per_bin.erl:1436: The pattern {'BMPString', {'octets', Ol}} can never match the type {'BMPString' | 'IA5String' | 'NumericString' | 'PrintableString' | 'UniversalString' | 'VisibleString',[{'bits',1 | 2 | 4 | 8 | 16 | 32,_}]}
-asn1rt_per_bin.erl:1437: Function will never be called
 asn1rt_per_bin.erl:161: The call asn1rt_per_bin:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>> | {non_neg_integer(),<<_:1,_:_*1>>})
 asn1rt_per_bin.erl:1812: The pattern {Name, Val} can never match since previous clauses completely covered the type any()
 asn1rt_per_bin.erl:2106: Cons will produce an improper list since its 2nd argument is binary()
@@ -94,7 +92,6 @@ asn1rt_per_bin.erl:487: The variable _ can never match since previous clauses co
 asn1rt_per_bin.erl:498: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin_rt2ct.erl:152: The call asn1rt_per_bin_rt2ct:getbit({0,maybe_improper_list()}) will never return since it differs in the 1st argument from the success typing arguments: (<<_:8,_:_*8>> | {non_neg_integer(),<<_:1,_:_*1>>})
 asn1rt_per_bin_rt2ct.erl:1533: The pattern {'BMPString', {'octets', Ol}} can never match the type {_,[[any(),...]]}
-asn1rt_per_bin_rt2ct.erl:1534: Function will never be called
 asn1rt_per_bin_rt2ct.erl:1875: The pattern {Name, Val} can never match since previous clauses completely covered the type any()
 asn1rt_per_bin_rt2ct.erl:443: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_bin_rt2ct.erl:464: The variable _ can never match since previous clauses completely covered the type integer()
@@ -103,4 +100,3 @@ asn1rt_per_bin_rt2ct.erl:484: The variable _ can never match since previous clau
 asn1rt_per_bin_rt2ct.erl:495: The variable _ can never match since previous clauses completely covered the type integer()
 asn1rt_per_v1.erl:1209: The pattern <_, 'true', _> can never match the type <_,'false',_>
 asn1rt_per_v1.erl:1290: The pattern {'BMPString', {'octets', Ol}} can never match the type {'BMPString' | 'IA5String' | 'NumericString' | 'PrintableString' | 'UniversalString' | 'VisibleString',[{'bits',1 | 2 | 4 | 8 | 16 | 32,_}]}
-asn1rt_per_v1.erl:1291: Function will never be called

@@ -2,7 +2,7 @@
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -380,8 +380,6 @@ message_to_string({pattern_match_cov, [Pat, Type]}) ->
 message_to_string({unmatched_return, [Type]}) ->
   io_lib:format("Expression produces a value of type ~s,"
 		" but this value is unmatched\n", [Type]);
-message_to_string({unused_fun, []}) ->
-  io_lib:format("Function will never be called\n", []);
 message_to_string({unused_fun, [F, A]}) ->
   io_lib:format("Function ~w/~w will never be called\n", [F, A]);
 %%----- Warnings for specs and contracts -------------------
