@@ -1409,7 +1409,7 @@ init_tester(Mod, Func, Args, Dir, Name, {SumLev,MajLev,MinLev}, RejectIoReqs,
     put(test_server_log_nl, not lists:member(no_nl, LogOpts)),
     StartedExtraTools = start_extra_tools(ExtraTools),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
-    put(test_server_common_io_handler, undefined),
+    set_io_buffering(undefined),
     catch stop_extra_tools(StartedExtraTools),
     case Result of
 	{'EXIT',test_suites_done} ->
@@ -3764,7 +3764,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	       end,
     do_if_parallel(Main, CopyDict, ok),
     do_if_parallel(Main, fun() -> 
-				 put(test_server_common_io_handler, {tc,Main})
+				 set_io_buffering({tc,Main})
 			 end, ok),
     %% if io is being buffered, send start io session message
     %% (no matter if case runs on parallel or main process)
