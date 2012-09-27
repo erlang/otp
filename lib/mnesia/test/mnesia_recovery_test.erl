@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -99,21 +99,21 @@ groups() ->
        async_dirty_post_kill_coord_node,
        async_dirty_post_kill_coord_pid]},
      {asym_trans, [],
-      [asym_trans_kill_part_ask,
-       asym_trans_kill_part_commit_vote,
-       asym_trans_kill_part_pre_commit,
-       asym_trans_kill_part_log_commit,
-       asym_trans_kill_part_do_commit,
-       asym_trans_kill_coord_got_votes,
-       asym_trans_kill_coord_pid_got_votes,
-       asym_trans_kill_coord_log_commit_rec,
-       asym_trans_kill_coord_pid_log_commit_rec,
-       asym_trans_kill_coord_log_commit_dec,
-       asym_trans_kill_coord_pid_log_commit_dec,
-       asym_trans_kill_coord_rec_acc_pre_commit_log_commit,
-       asym_trans_kill_coord_pid_rec_acc_pre_commit_log_commit,
-       asym_trans_kill_coord_rec_acc_pre_commit_done_commit,
-       asym_trans_kill_coord_pid_rec_acc_pre_commit_done_commit]},
+      [asymtrans_part_ask,
+       asymtrans_part_commit_vote,
+       asymtrans_part_pre_commit,
+       asymtrans_part_log_commit,
+       asymtrans_part_do_commit,
+       asymtrans_coord_got_votes,
+       asymtrans_coord_pid_got_votes,
+       asymtrans_coord_log_commit_rec,
+       asymtrans_coord_pid_log_commit_rec,
+       asymtrans_coord_log_commit_dec,
+       asymtrans_coord_pid_log_commit_dec,
+       asymtrans_coord_rec_acc_pre_commit_log_commit,
+       asymtrans_coord_pid_rec_acc_pre_commit_log_commit,
+       asymtrans_coord_rec_acc_pre_commit_done_commit,
+       asymtrans_coord_pid_rec_acc_pre_commit_done_commit]},
      {after_corrupt_files, [],
       [after_corrupt_files_decision_log_head,
        after_corrupt_files_decision_log_tail,
@@ -978,8 +978,8 @@ do_async_dirty([Tab], _Fahter) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-asym_trans_kill_part_ask(suite) -> [];
-asym_trans_kill_part_ask(Config) when is_list(Config) -> 
+asymtrans_part_ask(suite) -> [];
+asymtrans_part_ask(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -989,8 +989,8 @@ asym_trans_kill_part_ask(Config) when is_list(Config) ->
     kill_after_debug_point(Part1, {Part1, {mnesia_tm, doit_ask_commit}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_part_commit_vote(suite) -> [];
-asym_trans_kill_part_commit_vote(Config) when is_list(Config) -> 
+asymtrans_part_commit_vote(suite) -> [];
+asymtrans_part_commit_vote(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1000,8 +1000,8 @@ asym_trans_kill_part_commit_vote(Config) when is_list(Config) ->
     kill_after_debug_point(Part1, {Part1, {mnesia_tm, commit_participant, vote_yes}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_part_pre_commit(suite) -> [];
-asym_trans_kill_part_pre_commit(Config) when is_list(Config) -> 
+asymtrans_part_pre_commit(suite) -> [];
+asymtrans_part_pre_commit(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1011,8 +1011,8 @@ asym_trans_kill_part_pre_commit(Config) when is_list(Config) ->
     kill_after_debug_point(Part1, {Part1, {mnesia_tm, commit_participant, pre_commit}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_part_log_commit(suite) -> [];
-asym_trans_kill_part_log_commit(Config) when is_list(Config) -> 
+asymtrans_part_log_commit(suite) -> [];
+asymtrans_part_log_commit(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1022,8 +1022,8 @@ asym_trans_kill_part_log_commit(Config) when is_list(Config) ->
     kill_after_debug_point(Part1, {Part1, {mnesia_tm, commit_participant, log_commit}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_part_do_commit(suite) -> [];
-asym_trans_kill_part_do_commit(Config) when is_list(Config) -> 
+asymtrans_part_do_commit(suite) -> [];
+asymtrans_part_do_commit(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1033,8 +1033,8 @@ asym_trans_kill_part_do_commit(Config) when is_list(Config) ->
     kill_after_debug_point(Part1, {Part1, {mnesia_tm, commit_participant, do_commit}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_got_votes(suite) -> [];
-asym_trans_kill_coord_got_votes(Config) when is_list(Config) -> 
+asymtrans_coord_got_votes(suite) -> [];
+asymtrans_coord_got_votes(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1044,8 +1044,8 @@ asym_trans_kill_coord_got_votes(Config) when is_list(Config) ->
     kill_after_debug_point(Coord, {Coord, {mnesia_tm, multi_commit_asym_got_votes}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_pid_got_votes(suite) -> [];
-asym_trans_kill_coord_pid_got_votes(Config) when is_list(Config) -> 
+asymtrans_coord_pid_got_votes(suite) -> [];
+asymtrans_coord_pid_got_votes(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1055,8 +1055,8 @@ asym_trans_kill_coord_pid_got_votes(Config) when is_list(Config) ->
     kill_after_debug_point(coord_pid, {Coord, {mnesia_tm, multi_commit_asym_got_votes}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_log_commit_rec(suite) -> [];
-asym_trans_kill_coord_log_commit_rec(Config) when is_list(Config) -> 
+asymtrans_coord_log_commit_rec(suite) -> [];
+asymtrans_coord_log_commit_rec(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1066,8 +1066,8 @@ asym_trans_kill_coord_log_commit_rec(Config) when is_list(Config) ->
     kill_after_debug_point(Coord, {Coord, {mnesia_tm, multi_commit_asym_log_commit_rec}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_pid_log_commit_rec(suite) -> [];
-asym_trans_kill_coord_pid_log_commit_rec(Config) when is_list(Config) -> 
+asymtrans_coord_pid_log_commit_rec(suite) -> [];
+asymtrans_coord_pid_log_commit_rec(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1077,8 +1077,8 @@ asym_trans_kill_coord_pid_log_commit_rec(Config) when is_list(Config) ->
     kill_after_debug_point(coord_pid, {Coord, {mnesia_tm, multi_commit_asym_log_commit_rec}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_log_commit_dec(suite) -> [];
-asym_trans_kill_coord_log_commit_dec(Config) when is_list(Config) -> 
+asymtrans_coord_log_commit_dec(suite) -> [];
+asymtrans_coord_log_commit_dec(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1088,8 +1088,8 @@ asym_trans_kill_coord_log_commit_dec(Config) when is_list(Config) ->
     kill_after_debug_point(Coord, {Coord, {mnesia_tm, multi_commit_asym_log_commit_dec}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_pid_log_commit_dec(suite) -> [];
-asym_trans_kill_coord_pid_log_commit_dec(Config) when is_list(Config) -> 
+asymtrans_coord_pid_log_commit_dec(suite) -> [];
+asymtrans_coord_pid_log_commit_dec(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1099,8 +1099,8 @@ asym_trans_kill_coord_pid_log_commit_dec(Config) when is_list(Config) ->
     kill_after_debug_point(coord_pid, {Coord, {mnesia_tm, multi_commit_asym_log_commit_dec}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_rec_acc_pre_commit_log_commit(suite) -> [];
-asym_trans_kill_coord_rec_acc_pre_commit_log_commit(Config) when is_list(Config) -> 
+asymtrans_coord_rec_acc_pre_commit_log_commit(suite) -> [];
+asymtrans_coord_rec_acc_pre_commit_log_commit(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1110,8 +1110,8 @@ asym_trans_kill_coord_rec_acc_pre_commit_log_commit(Config) when is_list(Config)
     kill_after_debug_point(Coord, {Coord, {mnesia_tm, rec_acc_pre_commit_log_commit}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_pid_rec_acc_pre_commit_log_commit(suite) -> [];
-asym_trans_kill_coord_pid_rec_acc_pre_commit_log_commit(Config) when is_list(Config) -> 
+asymtrans_coord_pid_rec_acc_pre_commit_log_commit(suite) -> [];
+asymtrans_coord_pid_rec_acc_pre_commit_log_commit(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1121,8 +1121,8 @@ asym_trans_kill_coord_pid_rec_acc_pre_commit_log_commit(Config) when is_list(Con
     kill_after_debug_point(coord_pid, {Coord, {mnesia_tm, rec_acc_pre_commit_log_commit}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_rec_acc_pre_commit_done_commit(suite) -> [];
-asym_trans_kill_coord_rec_acc_pre_commit_done_commit(Config) when is_list(Config) -> 
+asymtrans_coord_rec_acc_pre_commit_done_commit(suite) -> [];
+asymtrans_coord_rec_acc_pre_commit_done_commit(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
@@ -1132,8 +1132,8 @@ asym_trans_kill_coord_rec_acc_pre_commit_done_commit(Config) when is_list(Config
     kill_after_debug_point(Coord, {Coord, {mnesia_tm, rec_acc_pre_commit_done_commit}}, 
 			   TransFun, [Tab1, Tab2], Nodes).
 
-asym_trans_kill_coord_pid_rec_acc_pre_commit_done_commit(suite) -> [];
-asym_trans_kill_coord_pid_rec_acc_pre_commit_done_commit(Config) when is_list(Config) -> 
+asymtrans_coord_pid_rec_acc_pre_commit_done_commit(suite) -> [];
+asymtrans_coord_pid_rec_acc_pre_commit_done_commit(Config) when is_list(Config) -> 
     ?is_debug_compiled,
     Nodes = ?acquire_nodes(3, Config ++ [{tc_timeout, timer:minutes(2)}]),
     [Coord, Part1, Part2] = Nodes,
