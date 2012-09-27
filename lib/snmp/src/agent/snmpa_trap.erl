@@ -154,6 +154,8 @@ construct_trap(Trap, Varbinds) ->
 	    {ok, NRec, InitiatedVars}
     end.
 
+alias_to_oid(Var) when is_record(Var, varbind) ->
+    Var;
 alias_to_oid({Alias, Val}) when is_atom(Alias) ->
     case snmpa_symbolic_store:aliasname_to_oid(Alias) of
 	{value, Oid} -> {lists:append(Oid, [0]), {value, Val}};
@@ -449,6 +451,9 @@ contract_order([No | Order], [Varbind | T]) ->
 contract_order([], []) -> 
     [].
 
+split_variables([{No, Var} | T]) when is_record(Var, varbind) ->
+    {A, B} = split_variables(T),
+    {[{No, Var} | A], B};
 split_variables([{No, {VarOid, Type, Val}} | T]) when is_list(VarOid) ->
     {A, B} = split_variables(T),
     {[{No, {VarOid, Type, Val}} | A], B};
