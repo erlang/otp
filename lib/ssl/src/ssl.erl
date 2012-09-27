@@ -165,7 +165,7 @@ listen(Port, Options0) ->
 	#config{cb={CbModule, _, _, _},inet_user=Options} = Config,
 	case CbModule:listen(Port, Options) of
 	    {ok, ListenSocket} ->
-		{ok, #sslsocket{pid = {ListenSocket, Config}, fd = new_ssl}};
+		{ok, #sslsocket{pid = {ListenSocket, Config}}};
 	    Err = {error, _} ->
 		Err
 	end
@@ -245,18 +245,20 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 %%
 %% Description: Close an ssl connection
 %%--------------------------------------------------------------------  
+close(#sslsocket{pid = Pid}) when is_pid(Pid) ->
+    ssl_connection:close(Pid);
 close(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _, _}}}}) ->
-    CbMod:close(ListenSocket);
-close(#sslsocket{pid = Pid}) ->
-    ssl_connection:close(Pid).
+    CbMod:close(ListenSocket).
 
 %%--------------------------------------------------------------------
 -spec send(#sslsocket{}, iodata()) -> ok | {error, reason()}.
 %% 
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
-send(#sslsocket{pid = Pid}, Data) ->
-    ssl_connection:send(Pid, Data).
+send(#sslsocket{pid = Pid}, Data) when is_pid(Pid) ->
+    ssl_connection:send(Pid, Data);
+send(#sslsocket{pid = {ListenSocket, #config{cb={CbModule, _, _, _}}}}, Data) ->
+    CbModule:send(ListenSocket, Data). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
 -spec recv(#sslsocket{}, integer()) -> {ok, binary()| list()} | {error, reason()}.
@@ -266,8 +268,10 @@ send(#sslsocket{pid = Pid}, Data) ->
 %%--------------------------------------------------------------------
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
-recv(#sslsocket{pid = Pid, fd = new_ssl}, Length, Timeout) ->
-    ssl_connection:recv(Pid, Length, Timeout).
+recv(#sslsocket{pid = Pid, fd = new_ssl}, Length, Timeout) when is_pid(Pid) ->
+    ssl_connection:recv(Pid, Length, Timeout);
+recv(#sslsocket{pid = {Listen, #config{cb={CbModule, _, _, _}}}}, _,_) when is_port(Listen)->
+    CbModule:recv(Listen, 0). %% {error,enotconn}
 
 %%--------------------------------------------------------------------
 -spec controlling_process(#sslsocket{}, pid()) -> ok | {error, reason()}.
@@ -275,8 +279,12 @@ recv(#sslsocket{pid = Pid, fd = new_ssl}, Length, Timeout) ->
 %% Description: Changes process that receives the messages when active = true
 %% or once. 
 %%--------------------------------------------------------------------
-controlling_process(#sslsocket{pid = Pid}, NewOwner) when is_pid(Pid) ->
-    ssl_connection:new_user(Pid, NewOwner).
+controlling_process(#sslsocket{pid = Pid}, NewOwner) when is_pid(Pid), is_pid(NewOwner) ->
+    ssl_connection:new_user(Pid, NewOwner);
+controlling_process(#sslsocket{pid = {Listen,
+				      #config{cb={CbModule, _, _, _}}}}, NewOwner) when is_port(Listen),
+											is_pid(NewOwner) ->
+    CbModule:controlling_process(Listen, NewOwner).
 
 %%--------------------------------------------------------------------
 -spec connection_info(#sslsocket{}) -> 	{ok, {tls_atom_version(), erl_cipher_suite()}} | 
@@ -284,29 +292,35 @@ controlling_process(#sslsocket{pid = Pid}, NewOwner) when is_pid(Pid) ->
 %%
 %% Description: Returns ssl protocol and cipher used for the connection
 %%--------------------------------------------------------------------
-connection_info(#sslsocket{pid = Pid}) ->
-    ssl_connection:info(Pid).
+connection_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
+    ssl_connection:info(Pid);
+connection_info(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
+    {error, enotconn}.
 
 %%--------------------------------------------------------------------
 -spec peername(#sslsocket{}) -> {ok, {inet:ip_address(), inet:port_number()}} | {error, reason()}.
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
-peername(#sslsocket{pid = Pid}) ->
-    ssl_connection:peername(Pid).
+peername(#sslsocket{pid = Pid}) when is_pid(Pid)->
+    ssl_connection:peername(Pid);
+peername(#sslsocket{pid = {ListenSocket, _}}) ->
+    inet:peername(ListenSocket). %% Will return {error, enotconn}
 
 %%--------------------------------------------------------------------
 -spec peercert(#sslsocket{}) ->{ok, DerCert::binary()} | {error, reason()}.
 %%
 %% Description: Returns the peercert.
 %%--------------------------------------------------------------------
-peercert(#sslsocket{pid = Pid}) ->
+peercert(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     case ssl_connection:peer_certificate(Pid) of
 	{ok, undefined} ->
 	    {error, no_peercert};
         Result ->
 	    Result
-    end.
+    end;
+peercert(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
+    {error, enotconn}.
 
 %%--------------------------------------------------------------------
 -spec suite_definition(cipher_suite()) -> erl_cipher_suite().
@@ -396,8 +410,9 @@ setopts(#sslsocket{}, Options) ->
 %%		      
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _, _}}}}, How) ->
-    CbMod:shutdown(ListenSocket, How);
+shutdown(#sslsocket{pid = {Listen, #config{cb={CbMod,_, _, _}}}},
+	 How) when is_port(Listen) ->
+    CbMod:shutdown(Listen, How);
 shutdown(#sslsocket{pid = Pid}, How) ->
     ssl_connection:shutdown(Pid, How).
 
@@ -406,10 +421,10 @@ shutdown(#sslsocket{pid = Pid}, How) ->
 %%		     
 %% Description: Same as inet:sockname/1
 %%--------------------------------------------------------------------
-sockname(#sslsocket{pid = {ListenSocket, _}}) ->
-    inet:sockname(ListenSocket);
+sockname(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
+    inet:sockname(Listen);
 
-sockname(#sslsocket{pid = Pid}) ->
+sockname(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:sockname(Pid).
 
 %%---------------------------------------------------------------
@@ -418,12 +433,14 @@ sockname(#sslsocket{pid = Pid}) ->
 %% Description: Returns list of session info currently [{session_id, session_id(),
 %% {cipher_suite, cipher_suite()}]
 %%--------------------------------------------------------------------
-session_info(#sslsocket{pid = Pid, fd = new_ssl}) ->
-    ssl_connection:session_info(Pid).
+session_info(#sslsocket{pid = Pid, fd = new_ssl}) when is_pid(Pid) ->
+    ssl_connection:session_info(Pid);
+session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
+    {error, enotconn}.
 
 %%---------------------------------------------------------------
 -spec versions() -> [{ssl_app, string()} | {supported, [tls_atom_version()]} | 
-		      {available, [tls_atom_version()]}]. 
+		     {available, [tls_atom_version()]}].
 %%
 %% Description: Returns a list of relevant versions.
 %%--------------------------------------------------------------------
@@ -439,8 +456,10 @@ versions() ->
 %% 
 %% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
-renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) ->
-    ssl_connection:renegotiation(Pid).
+renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) when is_pid(Pid) ->
+    ssl_connection:renegotiation(Pid);
+renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
+    {error, enotconn}.
 
 %%--------------------------------------------------------------------
 -spec prf(#sslsocket{}, binary() | 'master_secret', binary(),
@@ -450,9 +469,10 @@ renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) ->
 %% Description: use a ssl sessions TLS PRF to generate key material
 %%--------------------------------------------------------------------
 prf(#sslsocket{pid = Pid, fd = new_ssl},
-    Secret, Label, Seed, WantedLength) ->
-    ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength).
-
+    Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
+    ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength);
+prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
+    {error, enotconn}.
 
 %%--------------------------------------------------------------------
 -spec clear_pem_cache() -> ok.
