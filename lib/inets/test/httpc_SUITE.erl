@@ -34,9 +34,6 @@
 -compile(export_all).
 
 %% Test server specific exports
--define(PROXY_URL, "http://www.erlang.org").
--define(PROXY, "www-proxy.ericsson.se").
--define(PROXY_PORT, 8080).
 -define(IP_PORT, 8998).
 -define(SSL_PORT, 8999).
 -define(NOT_IN_USE_PORT, 8997).
@@ -91,7 +88,6 @@ all() ->
      options,
      headers_as_is, 
      selecting_session, 
-     {group, proxy}, 
      {group, ssl}, 
      {group, stream}, 
      {group, ipv6}, 
@@ -101,18 +97,6 @@ all() ->
 
 groups() -> 
     [
-     {proxy,   [], [proxy_options, 
-		    proxy_head, 
-		    proxy_get, 
-		    proxy_trace,
-		    proxy_post, 
-		    proxy_put, 
-		    proxy_delete, 
-		    proxy_auth,
-		    proxy_headers, 
-		    proxy_emulate_lower_versions,
-		    proxy_page_does_not_exist,
-		    proxy_https_not_supported]}, 
      {ssl,     [], [ssl_head, 
 		    essl_head, 
 		    ssl_get, 
@@ -120,13 +104,11 @@ groups() ->
 		    ssl_trace, 
 		    essl_trace]}, 
      {stream,  [], [http_stream,
-		    http_stream_once, 
-		    proxy_stream]}, 
+		    http_stream_once]},
      {tickets, [], [hexed_query_otp_6191, 
 		    empty_body_otp_6243,
 		    empty_response_header_otp_6830,
 		    transfer_encoding_otp_6807, 
-		    proxy_not_modified_otp_6821,
 		    no_content_204_otp_6982, 
 		    missing_CR_otp_7304,
 		    {group, otp_7883}, 
@@ -287,66 +269,6 @@ init_per_testcase(Case, Timeout, Config) ->
 		init_per_testcase_ssl(essl, PrivDir, SslConfFile, 
 				      [{watchdog, Dog} | TmpConfig]);
 
-	    "proxy_" ++ Rest ->
-		io:format("init_per_testcase -> Rest: ~p~n", [Rest]),
-		case Rest of			       
-		    "https_not_supported" ->	
-			tsp("init_per_testcase -> [proxy case] start inets"),
-			inets:start(),
-			tsp("init_per_testcase -> "
-			    "[proxy case] start crypto, public_key and ssl"),
-			try ?ENSURE_STARTED([crypto, public_key, ssl]) of
-			    ok ->
-				[{watchdog, Dog} | TmpConfig]
-			catch 
-			    throw:{error, {failed_starting, App, _}} ->
-				SkipString = 
-				    "Could not start " ++ atom_to_list(App),
-				skip(SkipString);
-			      _:X ->
-				SkipString = 
-				    lists:flatten(
-				      io_lib:format("Failed starting apps: ~p", [X])), 
-				skip(SkipString)
-			end;
-
-		    _ ->
-			%% We use erlang.org for the proxy tests 
-			%% and after the switch to erlang-web, many
-			%% of the test cases no longer work (erlang.org
-			%% previously run on Apache). 
-			%% Until we have had time to update inets
-			%% (and updated erlang.org to use that inets) 
-			%% and the test cases, we simply skip the 
-			%% problematic test cases. 
-			%% This is not ideal, but I am busy....
-			case is_proxy_available(?PROXY, ?PROXY_PORT) of
-			    true ->
-				BadCases = 
-				    [
-				     "delete", 
-				     "get", 
-				     "head", 
-				     "not_modified_otp_6821", 
-				     "options", 
-				     "page_does_not_exist", 
-				     "post", 
-				     "put", 
-				     "stream"
-				    ],
-				case lists:member(Rest, BadCases) of
-				    true ->
-					[skip("TC and server not compatible") | 
-					 TmpConfig];
-				    false ->
-					inets:start(),
-					[{watchdog, Dog} | TmpConfig]
-				end;
-			    false ->
-				[skip("proxy not responding") | TmpConfig]
-			end
-		end;
-
 	    "ipv6_" ++ _Rest ->
 		%% Ensure needed apps (crypto, public_key and ssl) are started
 		try ?ENSURE_STARTED([crypto, public_key, ssl]) of
@@ -415,13 +337,6 @@ init_per_testcase(Case, Timeout, Config) ->
     %% so this value will be overwritten (see "ipv6_" below).
     %% </IPv6>
 
-    %% This will fail for the ipv6_ - cases (but that is ok)
-    ProxyExceptions = ["localhost", ?IPV6_LOCAL_HOST], 
-    tsp("init_per_testcase -> Options before proxy set: ~n~p", 
-	[httpc:get_options(all)]),
-    ok = httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, ProxyExceptions}}]),
-    tsp("init_per_testcase -> Options after proxy set: ~n~p", 
-	[httpc:get_options(all)]),
     inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp]),
@@ -915,7 +830,7 @@ pipeline_await_async_reply(ReqIds, _, Acc) ->
     
 %%-------------------------------------------------------------------------
 http_trace(doc) ->
-    ["Perform a TRACE request that goes through a proxy."];
+    ["Perform a TRACE request."];
 http_trace(suite) ->
     [];
 http_trace(Config) when is_list(Config) ->
@@ -1554,260 +1469,6 @@ http_cookie(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-proxy_options(doc) ->
-    ["Perform a OPTIONS request that goes through a proxy."];
-proxy_options(suite) ->
-    [];
-proxy_options(Config) when is_list(Config) ->
-    %% As of 2011-03-24, erlang.org (which is used as server) 
-    %% does no longer run Apache, but instead runs inets, which 
-    %% do not implement "options".
-    case ?config(skip, Config) of 
-        undefined ->
-	    case httpc:request(options, {?PROXY_URL, []}, [], []) of
-		{ok, {{_,200,_}, Headers, _}} ->
-		    case lists:keysearch("allow", 1, Headers) of
-			{value, {"allow", _}} ->
-			    ok;
-			_ ->
-			    tsf(http_options_request_failed)
-		    end;
-		Unexpected ->
-		    tsf({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    skip(Reason)
-    end.
-
-
-%%-------------------------------------------------------------------------
-proxy_head(doc) ->
-     ["Perform a HEAD request that goes through a proxy."];
-proxy_head(suite) ->
-    [];
-proxy_head(Config) when is_list(Config) ->
-    %% As of 2011-03-24, erlang.org (which is used as server) 
-    %% does no longer run Apache, but instead runs inets.
-    case ?config(skip, Config) of 
-	undefined ->
-	    case httpc:request(head, {?PROXY_URL, []}, [], []) of
-		{ok, {{_,200, _}, [_ | _], []}} ->
-		    ok;
-		Unexpected ->
-		    tsf({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    skip(Reason)
-    end.
-
-
-%%-------------------------------------------------------------------------
-proxy_get(doc) ->
-    ["Perform a GET request that goes through a proxy."];
-proxy_get(suite) ->
-    [];
-proxy_get(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined ->
-	    case httpc:request(get, {?PROXY_URL, []}, [], []) of
-		{ok, {{_,200,_}, [_ | _], Body = [_ | _]}} ->
-		    inets_test_lib:check_body(Body);
-		Unexpected ->
-		    tsf({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    skip(Reason)
-    end.
-
-%%-------------------------------------------------------------------------
-proxy_emulate_lower_versions(doc) ->
-    ["Perform requests as 0.9 and 1.0 clients."];
-proxy_emulate_lower_versions(suite) ->
-    [];
-proxy_emulate_lower_versions(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined ->
-	    Result09 = pelv_get("HTTP/0.9"), 
-	    case Result09 of
-		{ok, [_| _] = Body0} ->
-		    inets_test_lib:check_body(Body0),
-		    ok;
-		_ ->
-		    tsf({unexpected_result, "HTTP/0.9", Result09})
-	    end,
-	    
-	    %% We do not check the version here as many servers
-	    %% do not behave according to the rfc and send
-	    %% 1.1 in its response.
-	    Result10 = pelv_get("HTTP/1.0"), 
-	    case Result10 of
-		{ok,{{_, 200, _}, [_ | _], Body1 = [_ | _]}} ->
-		    inets_test_lib:check_body(Body1),
-		    ok;
-		_ ->
-		    tsf({unexpected_result, "HTTP/1.0", Result10})
-	    end,
-
-	    Result11 = pelv_get("HTTP/1.1"), 
-	    case Result11 of
-		{ok, {{"HTTP/1.1", 200, _}, [_ | _], Body2 = [_ | _]}} ->
-		    inets_test_lib:check_body(Body2);
-		_ ->
-		    tsf({unexpected_result, "HTTP/1.1", Result11})
-	    end;
-		
-	Reason ->
-	    skip(Reason)
-    end.
-
-pelv_get(Version) ->
-    httpc:request(get, {?PROXY_URL, []}, [{version, Version}], []).
-
-
-%%-------------------------------------------------------------------------
-proxy_trace(doc) ->
-    ["Perform a TRACE request that goes through a proxy."];
-proxy_trace(suite) ->
-    [];
-proxy_trace(Config) when is_list(Config) ->
-    %%{ok, {{_,200,_}, [_ | _], "TRACE " ++ _}} =
-    %%	httpc:request(trace, {?PROXY_URL, []}, [], []),
-    skip("HTTP TRACE is no longer allowed on the ?PROXY_URL server due "
-	 "to security reasons").
-
-
-%%-------------------------------------------------------------------------
-proxy_post(doc) ->
-    ["Perform a POST request that goes through a proxy. Note the server"
-     " will reject the request this is a test of the sending of the"
-     " request."];
-proxy_post(suite) ->
-    [];
-proxy_post(Config) when is_list(Config) ->
-    %% As of 2011-03-24, erlang.org (which is used as server) 
-    %% does no longer run Apache, but instead runs inets.
-    case ?config(skip, Config) of 
-	undefined ->
-	    case httpc:request(post, {?PROXY_URL, [], 
-				     "text/plain", "foobar"}, [],[]) of
-		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
-		    ok;
-		Unexpected ->
-		    tsf({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    skip(Reason)
-    end.
-
-
-%%-------------------------------------------------------------------------
-proxy_put(doc) ->
-    ["Perform a PUT request that goes through a proxy. Note the server"
-     " will reject the request this is a test of the sending of the"
-     " request."];
-proxy_put(suite) ->
-    [];
-proxy_put(Config) when is_list(Config) ->
-    %% As of 2011-03-24, erlang.org (which is used as server) 
-    %% does no longer run Apache, but instead runs inets.
-    case ?config(skip, Config) of 
-	undefined -> 
-	    case httpc:request(put, {"http://www.erlang.org/foobar.html", [], 
-				    "html", "<html> <body><h1> foo </h1>" 
-				    "<p>bar</p> </body></html>"}, [], []) of
-		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
-		    ok;
-		Unexpected ->
-		    tsf({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    skip(Reason)
-    end.
-
-
-%%-------------------------------------------------------------------------
-proxy_delete(doc) ->
-    ["Perform a DELETE request that goes through a proxy. Note the server"
-     " will reject the request this is a test of the sending of the"
-     " request. But as the file does not exist the return code will"
-     " be 404 not found."];
-proxy_delete(suite) ->
-    [];
-proxy_delete(Config) when is_list(Config) ->
-    %% As of 2011-03-24, erlang.org (which is used as server) 
-    %% does no longer run Apache, but instead runs inets.
-    case ?config(skip, Config) of 
-	undefined -> 
-	    URL = ?PROXY_URL ++ "/foobar.html",
-	    case httpc:request(delete, {URL, []}, [], []) of
-		{ok, {{_,404,_}, [_ | _], [_ | _]}} ->
-		    ok;
-		Unexpected ->
-		    tsf({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    skip(Reason)
-    end.
-
-
-%%-------------------------------------------------------------------------
-proxy_headers(doc) ->
-    ["Use as many request headers as possible"];
-proxy_headers(suite) ->
-    [];
-proxy_headers(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined ->
-	    {ok, {{_,200,_}, [_ | _], [_ | _]}} 
-		= httpc:request(get, {?PROXY_URL,
-				     [
-				      {"Accept",
-				       "text/*, text/html,"
-				       " text/html;level=1,"
-				       " */*"}, 
-				      {"Accept-Charset", 
-				       "iso-8859-5, unicode-1-1;"
-				       "q=0.8"},
-				      {"Accept-Encoding", "*"},
-				      {"Accept-Language", 
-				       "sv, en-gb;q=0.8,"
-				       " en;q=0.7"},
-				      {"User-Agent", "inets"},
-				      {"Max-Forwards","5"},
-				      {"Referer", 
-				       "http://otp.ericsson.se:8000"
-				       "/product/internal"}
-			     ]}, [], []),
-	    ok;
-	Reason ->
-	    skip(Reason)
-    end.
-
-
-%%-------------------------------------------------------------------------
-proxy_auth(doc) ->
-    ["Test the code for sending of proxy authorization."];
-proxy_auth(suite) ->
-    [];
-proxy_auth(Config) when is_list(Config) ->
-    %% Our proxy seems to ignore the header, however our proxy
-    %% does not requirer an auth header, but we want to know
-    %% atleast the code for sending the header does not crash!
-    case ?config(skip, Config) of 
-	undefined ->	    
-	    case httpc:request(get, {?PROXY_URL, []}, 
-			      [{proxy_auth, {"foo", "bar"}}], []) of
-		{ok, {{_,200, _}, [_ | _], [_|_]}} ->
-		    ok;
-		Unexpected ->
-		    tsf({unexpected_result, Unexpected})
-	    end;
-	Reason ->
-	    skip(Reason)
-    end.  
-
-
-%%-------------------------------------------------------------------------
 http_server_does_not_exist(doc) ->
     ["Test that we get an error message back when the server "
      "does note exist."];
@@ -1832,39 +1493,6 @@ page_does_not_exist(Config) when is_list(Config) ->
     {ok, {{_,404,_}, [_ | _], [_ | _]}} 
 	= httpc:request(get, {URL, []}, [], []),
     ok.
-
-
-%%-------------------------------------------------------------------------
-proxy_page_does_not_exist(doc) ->
-    ["Test that we get a 404 when the page is not found."];
-proxy_page_does_not_exist(suite) ->
-    [];
-proxy_page_does_not_exist(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined ->
-	    URL = ?PROXY_URL ++ "/doesnotexist.html",
-	    {ok, {{_,404,_}, [_ | _], [_ | _]}} = 
-		httpc:request(get, {URL, []}, [], []),
-	    ok;
-	Reason ->
-	    skip(Reason)
-    end.
-
-
-%%-------------------------------------------------------------------------
-
-proxy_https_not_supported(doc) ->
-    [];
-proxy_https_not_supported(suite) ->
-    [];
-proxy_https_not_supported(Config) when is_list(Config) ->
-    Result = httpc:request(get, {"https://login.yahoo.com", []}, [], []),
-    case Result of
-	{error, https_through_proxy_is_not_currently_supported} ->
-	    ok;
-	_ ->
-	    tsf({unexpected_reason, Result})
-    end.
 
 
 %%-------------------------------------------------------------------------
@@ -1965,36 +1593,6 @@ once(URL) ->
 
     p("once -> done when Bode: ~p", [Body]),
     ok.
-
-
-%%-------------------------------------------------------------------------
-proxy_stream(doc) ->
-    ["Test the option stream for asynchrony requests"];
-proxy_stream(suite) ->
-    [];
-proxy_stream(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined ->
-	    {ok, {{_,200,_}, [_ | _], Body}} = 
-		httpc:request(get, {?PROXY_URL, []}, [], []),
-	    
-	    {ok, RequestId} =
-		httpc:request(get, {?PROXY_URL, []}, [], 
-			     [{sync, false}, {stream, self}]),
-	    
-	    receive 
-		{http, {RequestId, stream_start, _Headers}} ->
-		    ok;
-		{http, Msg} ->
-		    tsf(Msg)
-	    end,
-	    
-	    StreamedBody = receive_streamed_body(RequestId, <<>>),
-	    
-	    Body == binary_to_list(StreamedBody);
-	Reason ->
-	    skip(Reason)
-    end.
 
 
 %%-------------------------------------------------------------------------
@@ -2585,21 +2183,6 @@ transfer_encoding_otp_6807(Config) when is_list(Config) ->
     DummyServerPid ! stop,
     ok = httpc:set_options([{ipfamily, inet6fb4}]), 
     ok.
-
-
-%%-------------------------------------------------------------------------
-
-proxy_not_modified_otp_6821(doc) ->
-    ["If unmodified no body should be returned"];
-proxy_not_modified_otp_6821(suite) ->
-    [];
-proxy_not_modified_otp_6821(Config) when is_list(Config) ->
-    case ?config(skip, Config) of 
-	undefined ->
-	    provocate_not_modified_bug(?PROXY_URL);
-	Reason ->
-	    skip(Reason)
-    end.
 
 
 %%-------------------------------------------------------------------------
@@ -3410,15 +2993,6 @@ create_config(FileName, ComType, Port, PrivDir, ServerRoot, DocRoot,
 cline(List) ->
     lists:flatten([List, "\r\n"]).
 
-is_proxy_available(Proxy, Port) ->
-    case gen_tcp:connect(Proxy, Port, []) of
-	{ok, Socket} ->
-	    gen_tcp:close(Socket),
-	    true;
-	_ ->
-	    false
-    end.
-
 receive_streamed_body(RequestId, Body) ->
     receive 
 	{http, {RequestId, stream, BinBodyPart}} ->
@@ -3911,42 +3485,6 @@ content_length(["content-length:" ++ Value | _]) ->
     list_to_integer(string:strip(Value));
 content_length([_Head | Tail]) ->
    content_length(Tail).
-
-provocate_not_modified_bug(Url) ->
-    Timeout = 15000, %% 15s should be plenty
-
-    {ok, {{_, 200, _}, ReplyHeaders, _Body}} =
-	httpc:request(get, {Url, []}, [{timeout, Timeout}], []),
-    Etag = pick_header(ReplyHeaders, "ETag"),
-    Last = pick_header(ReplyHeaders, "last-modified"),
-    
-    case httpc:request(get, {Url, [{"If-None-Match", Etag},
-				  {"If-Modified-Since", Last}]},
-		      [{timeout, 15000}],
-		      []) of
-	{ok, {{_, 304, _}, _, _}} -> %% The expected reply
-	    page_unchanged;
-	{ok, {{_, 200, _}, _, _}} -> 
-	    %% If the page has changed since the	
-	    %% last request we retry to
-	    %% trigger the bug
-	    provocate_not_modified_bug(Url);
-	{error, timeout} ->
-	    %% Not what we expected. Tcpdump can be used to
-	    %% verify that we receive the complete http-reply
-	    %% but still time out.
-	    incorrect_result
-    end.
-
-pick_header(Headers, Name) ->
-    case lists:keysearch(string:to_lower(Name), 1,
-			 [{string:to_lower(X), Y} || {X, Y} <- Headers]) of
-	false ->
-	    [];
-	{value, {_Key, Val}} ->
-	    Val
-    end.
-
 
 %% -------------------------------------------------------------------------
 
