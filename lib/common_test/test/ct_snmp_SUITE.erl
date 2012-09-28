@@ -70,7 +70,7 @@ all() ->
 %%%
 default(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    Suite = filename:join(DataDir, "snmp1_SUITE"),
+    Suite = filename:join(DataDir, "snmp_SUITE"),
     CfgFile = filename:join(DataDir, "snmp.cfg"),
     {Opts,ERPid} = setup([{suite,Suite},{config,CfgFile},
 			  {label,default}], Config),
@@ -110,14 +110,14 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 events_to_check(_TestName,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
-					     snmp1_SUITE)),
+					     snmp_SUITE)),
     TCs = get_tcs(),
-    code:purge(snmp1_SUITE),
-    code:delete(snmp1_SUITE),
+    code:purge(snmp_SUITE),
+    code:delete(snmp_SUITE),
 
     OneTest =
 	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
-	[{?eh,tc_done,{snmp1_SUITE,TC,ok}} || TC <- TCs] ++
+	[{?eh,tc_done,{snmp_SUITE,TC,ok}} || TC <- TCs] ++
 	[{?eh,stop_logging,[]}],
 
     %% 2 tests (ct:run_test + script_start) is default
@@ -125,9 +125,9 @@ events_to_check(_TestName,Config) ->
 
 
 get_tcs() ->
-    All = snmp1_SUITE:all(),
+    All = snmp_SUITE:all(),
     Groups =
-	try snmp1_SUITE:groups()
+	try snmp_SUITE:groups()
 	catch error:undef -> []
 	end,
     flatten_tcs(All,Groups).
