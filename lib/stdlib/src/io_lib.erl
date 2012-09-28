@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -82,7 +82,10 @@
 -type chars() :: [char() | chars()].
 -type depth() :: -1 | non_neg_integer().
 
--opaque continuation() :: {_, _, _, _}.  % XXX: refine
+-opaque continuation() :: {Format :: string(),
+                           Stack :: chars(),
+                           Nchars :: non_neg_integer(),
+                           Results :: [term()]}.
 
 %%----------------------------------------------------------------------
 
