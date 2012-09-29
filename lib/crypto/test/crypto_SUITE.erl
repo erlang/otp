@@ -38,6 +38,7 @@
          hmac_update_md5/1,
          hmac_update_md5_io/1,
          hmac_update_md5_n/1,
+         hmac_rfc2202/1,
 	 hmac_rfc4231/1,
 	 sha256/1,
 	 sha256_update/1,
@@ -90,7 +91,7 @@ groups() ->
        sha256, sha256_update, sha512, sha512_update,
        hmac_update_sha, hmac_update_sha_n, hmac_update_sha256, hmac_update_sha512,
        hmac_update_md5_n, hmac_update_md5_io, hmac_update_md5,
-       hmac_rfc4231,
+       hmac_rfc2202, hmac_rfc4231,
        des_cbc, aes_cfb, aes_cbc,
        des_cfb, des_cfb_iter, des3_cbc, des3_cfb, rc2_cbc,
        aes_cbc_iter, aes_ctr, aes_ctr_stream, des_cbc_iter, des_ecb,
@@ -417,6 +418,167 @@ hmac_update_md5(Config) when is_list(Config) ->
     ?line Mac2 = crypto:hmac_final(CtxD),
     ?line Exp2 = crypto:md5_mac(Key2, lists:flatten([Long1, Long2, Long3])), 
     ?line m(Exp2, Mac2).
+
+hmac_rfc2202(doc) ->
+    ["Generate an HMAC using hmac, md5_mac, and sha_mac."
+     "Test vectors are taken from RFC-2202."];
+hmac_rfc2202(suite) ->
+    [];
+hmac_rfc2202(Config) when is_list(Config) ->
+    hmac_rfc2202_md5(),
+    hmac_rfc2202_sha().
+
+hmac_rfc2202_md5() ->
+    %% Test case 1
+    Case1Key = binary:copy(<<16#0b>>, 16),
+    Case1Data = <<"Hi There">>,
+    Case1Exp = hexstr2bin("9294727a3638bb1c13f48ef8158bfc9d"),
+
+    ?line Case1Mac_1 = crypto:md5_mac(Case1Key, Case1Data),
+    ?line Case1Mac_2 = crypto:hmac(md5, Case1Key, Case1Data),
+    ?line m(Case1Exp, Case1Mac_1),
+    ?line m(Case1Exp, Case1Mac_2),
+
+    %% Test case 2
+    Case2Key = <<"Jefe">>,
+    Case2Data = <<"what do ya want for nothing?">>,
+    Case2Exp = hexstr2bin("750c783e6ab0b503eaa86e310a5db738"),
+
+    ?line Case2Mac_1 = crypto:md5_mac(Case2Key, Case2Data),
+    ?line Case2Mac_2 = crypto:hmac(md5, Case2Key, Case2Data),
+    ?line m(Case2Exp, Case2Mac_1),
+    ?line m(Case2Exp, Case2Mac_2),
+
+    %% Test case 3
+    Case3Key = binary:copy(<<16#aa>>, 16),
+    Case3Data = binary:copy(<<16#dd>>, 50),
+    Case3Exp = hexstr2bin("56be34521d144c88dbb8c733f0e8b3f6"),
+
+    ?line Case3Mac_1 = crypto:md5_mac(Case3Key, Case3Data),
+    ?line Case3Mac_2 = crypto:hmac(md5, Case3Key, Case3Data),
+    ?line m(Case3Exp, Case3Mac_1),
+    ?line m(Case3Exp, Case3Mac_2),
+
+    %% Test case 4
+    Case4Key = list_to_binary(lists:seq(1, 16#19)),
+    Case4Data = binary:copy(<<16#cd>>, 50),
+    Case4Exp = hexstr2bin("697eaf0aca3a3aea3a75164746ffaa79"),
+
+    ?line Case4Mac_1 = crypto:md5_mac(Case4Key, Case4Data),
+    ?line Case4Mac_2 = crypto:hmac(md5, Case4Key, Case4Data),
+    ?line m(Case4Exp, Case4Mac_1),
+    ?line m(Case4Exp, Case4Mac_2),
+
+    %% Test case 5
+    Case5Key = binary:copy(<<16#0c>>, 16),
+    Case5Data = "Test With Truncation",
+    Case5Exp = hexstr2bin("56461ef2342edc00f9bab995690efd4c"),
+    Case5Exp96 = hexstr2bin("56461ef2342edc00f9bab995"),
+
+    ?line Case5Mac_1 = crypto:md5_mac(Case5Key, Case5Data),
+    ?line Case5Mac_2 = crypto:hmac(md5, Case5Key, Case5Data),
+    ?line Case5Mac96_1 = crypto:md5_mac_96(Case5Key, Case5Data),
+    ?line Case5Mac96_2 = crypto:hmac(md5, Case5Key, Case5Data, 12),
+    ?line m(Case5Exp, Case5Mac_1),
+    ?line m(Case5Exp, Case5Mac_2),
+    ?line m(Case5Exp96, Case5Mac96_1),
+    ?line m(Case5Exp96, Case5Mac96_2),
+
+    %% Test case 6
+    Case6Key = binary:copy(<<16#aa>>, 80),
+    Case6Data = <<"Test Using Larger Than Block-Size Key - Hash Key First">>,
+    Case6Exp = hexstr2bin("6b1ab7fe4bd7bf8f0b62e6ce61b9d0cd"),
+
+    ?line Case6Mac_1 = crypto:md5_mac(Case6Key, Case6Data),
+    ?line Case6Mac_2 = crypto:hmac(md5, Case6Key, Case6Data),
+    ?line m(Case6Exp, Case6Mac_1),
+    ?line m(Case6Exp, Case6Mac_2),
+
+    %% Test case 7
+    Case7Key = binary:copy(<<16#aa>>, 80),
+    Case7Data = <<"Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data">>,
+    Case7Exp = hexstr2bin("6f630fad67cda0ee1fb1f562db3aa53e"),
+
+    ?line Case7Mac_1 = crypto:md5_mac(Case7Key, Case7Data),
+    ?line Case7Mac_2 = crypto:hmac(md5, Case7Key, Case7Data),
+    ?line m(Case7Exp, Case7Mac_1),
+    ?line m(Case7Exp, Case7Mac_2).
+
+hmac_rfc2202_sha() ->
+    %% Test case 1
+    Case1Key = binary:copy(<<16#0b>>, 20),
+    Case1Data = <<"Hi There">>,
+    Case1Exp = hexstr2bin("b617318655057264e28bc0b6fb378c8ef146be00"),
+
+    ?line Case1Mac_1 = crypto:sha_mac(Case1Key, Case1Data),
+    ?line Case1Mac_2 = crypto:hmac(sha, Case1Key, Case1Data),
+    ?line m(Case1Exp, Case1Mac_1),
+    ?line m(Case1Exp, Case1Mac_2),
+
+    %% Test case 2
+    Case2Key = <<"Jefe">>,
+    Case2Data = <<"what do ya want for nothing?">>,
+    Case2Exp = hexstr2bin("effcdf6ae5eb2fa2d27416d5f184df9c259a7c79"),
+
+    ?line Case2Mac_1 = crypto:sha_mac(Case2Key, Case2Data),
+    ?line Case2Mac_2 = crypto:hmac(sha, Case2Key, Case2Data),
+    ?line m(Case2Exp, Case2Mac_1),
+    ?line m(Case2Exp, Case2Mac_2),
+
+    %% Test case 3
+    Case3Key = binary:copy(<<16#aa>>, 20),
+    Case3Data = binary:copy(<<16#dd>>, 50),
+    Case3Exp = hexstr2bin("125d7342b9ac11cd91a39af48aa17b4f63f175d3"),
+
+    ?line Case3Mac_1 = crypto:sha_mac(Case3Key, Case3Data),
+    ?line Case3Mac_2 = crypto:hmac(sha, Case3Key, Case3Data),
+    ?line m(Case3Exp, Case3Mac_1),
+    ?line m(Case3Exp, Case3Mac_2),
+
+    %% Test case 4
+    Case4Key = list_to_binary(lists:seq(1, 16#19)),
+    Case4Data = binary:copy(<<16#cd>>, 50),
+    Case4Exp = hexstr2bin("4c9007f4026250c6bc8414f9bf50c86c2d7235da"),
+
+    ?line Case4Mac_1 = crypto:sha_mac(Case4Key, Case4Data),
+    ?line Case4Mac_2 = crypto:hmac(sha, Case4Key, Case4Data),
+    ?line m(Case4Exp, Case4Mac_1),
+    ?line m(Case4Exp, Case4Mac_2),
+
+    %% Test case 5
+    Case5Key = binary:copy(<<16#0c>>, 20),
+    Case5Data = "Test With Truncation",
+    Case5Exp = hexstr2bin("4c1a03424b55e07fe7f27be1d58bb9324a9a5a04"),
+    Case5Exp96 = hexstr2bin("4c1a03424b55e07fe7f27be1"),
+
+    ?line Case5Mac_1 = crypto:sha_mac(Case5Key, Case5Data),
+    ?line Case5Mac_2 = crypto:hmac(sha, Case5Key, Case5Data),
+    ?line Case5Mac96_1 = crypto:sha_mac_96(Case5Key, Case5Data),
+    ?line Case5Mac96_2 = crypto:hmac(sha, Case5Key, Case5Data, 12),
+    ?line m(Case5Exp, Case5Mac_1),
+    ?line m(Case5Exp, Case5Mac_2),
+    ?line m(Case5Exp96, Case5Mac96_1),
+    ?line m(Case5Exp96, Case5Mac96_2),
+
+    %% Test case 6
+    Case6Key = binary:copy(<<16#aa>>, 80),
+    Case6Data = <<"Test Using Larger Than Block-Size Key - Hash Key First">>,
+    Case6Exp = hexstr2bin("aa4ae5e15272d00e95705637ce8a3b55ed402112"),
+
+    ?line Case6Mac_1 = crypto:sha_mac(Case6Key, Case6Data),
+    ?line Case6Mac_2 = crypto:hmac(sha, Case6Key, Case6Data),
+    ?line m(Case6Exp, Case6Mac_1),
+    ?line m(Case6Exp, Case6Mac_2),
+
+    %% Test case 7
+    Case7Key = binary:copy(<<16#aa>>, 80),
+    Case7Data = <<"Test Using Larger Than Block-Size Key and Larger Than One Block-Size Data">>,
+    Case7Exp = hexstr2bin("e8e99d0f45237d786d6bbaa7965c7808bbff1a91"),
+
+    ?line Case7Mac_1 = crypto:sha_mac(Case7Key, Case7Data),
+    ?line Case7Mac_2 = crypto:hmac(sha, Case7Key, Case7Data),
+    ?line m(Case7Exp, Case7Mac_1),
+    ?line m(Case7Exp, Case7Mac_2).
 
 hmac_rfc4231(doc) ->
     ["Generate an HMAC using crypto:shaXXX_mac and hmac_init, hmac_update, and hmac_final. "
@@ -1838,7 +2000,7 @@ worker_loop(N, Config) ->
 	      aes_cfb, aes_cbc, des_cbc_iter, rand_uniform_test, strong_rand_test,
 	      rsa_verify_test, exor_test, rc4_test, rc4_stream_test, mod_exp_test,
               hmac_update_md5, hmac_update_sha, hmac_update_sha256, hmac_update_sha512,
-	      hmac_rfc4231,
+	      hmac_rfc2202, hmac_rfc4231,
 	      aes_ctr_stream },
 
     F = element(random:uniform(size(Funcs)),Funcs),
