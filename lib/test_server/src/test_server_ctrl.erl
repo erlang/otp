@@ -5829,11 +5829,11 @@ write_default_cross_coverlog(TestDir) ->
     {ok,CrossCoverLog} =
 	file:open(filename:join(TestDir,?cross_coverlog_name), [write]),
     write_coverlog_header(CrossCoverLog),
-    io:fwrite(CrossCoverLog,
-	      ["No cross cover modules exist for this application,",
-	       xhtml("<br>","<br />"),
-	       "or cross cover analysis is not completed.\n"
-	       "</body></html>\n"], []),
+    io:put_chars(CrossCoverLog,
+		 ["No cross cover modules exist for this application,",
+		  xhtml("<br>","<br />"),
+		  "or cross cover analysis is not completed.\n"
+		  "</body></html>\n"]),
     file:close(CrossCoverLog).
 
 write_cover_result_table(CoverLog,Coverage) ->
