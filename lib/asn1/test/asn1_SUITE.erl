@@ -51,7 +51,8 @@
 %% Suite definition
 %%------------------------------------------------------------------------------
 
-suite() -> [{ct_hooks, [ts_install_cth]}].
+suite() -> [{ct_hooks, [ts_install_cth]},
+	    {timetrap,{minutes,60}}].
 
 all() ->
     [{group, parallel},
@@ -241,15 +242,10 @@ init_per_testcase(Func, Config) ->
     ok = filelib:ensure_dir(filename:join([CaseDir, dummy_file])),
     true = code:add_patha(CaseDir),
 
-    Dog = case Func of
-              testX420 -> test_server:timetrap({minutes, 90});
-              _        -> test_server:timetrap({minutes, 60})
-          end,
-    [{case_dir, CaseDir}, {watchdog, Dog}|Config].
+    [{case_dir, CaseDir}|Config].
 
 end_per_testcase(_Func, Config) ->
-    code:del_path(?config(case_dir, Config)),
-    test_server:timetrap_cancel(?config(watchdog, Config)).
+    code:del_path(?config(case_dir, Config)).
 
 %%------------------------------------------------------------------------------
 %% Test runners
@@ -1064,6 +1060,9 @@ test_modified_x420(Config) ->
     asn1_test_lib:compile_all(Files, Config, [der]),
     test_modified_x420:test_io(Config).
 
+
+testX420() ->
+    [{timetrap,{minutes,90}}].
 testX420(Config) ->
     test(Config, fun testX420/3, [ber, ber_bin, ber_bin_v2]).
 testX420(Config, Rule, Opts) ->
