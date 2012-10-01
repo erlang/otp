@@ -39,7 +39,7 @@
 %%%        %%% Manager config
 %%%        [{start_manager, boolean()}    % Optional - default is true
 %%%        {users, [{user_name(), [call_back_module(), user_data()]}]}, %% Optional 
-%%%        {usm_users, [{usm_user_name(), usm_config()}]},%% Optional - snmp v3 only
+%%%        {usm_users, [{usm_user_name(), [usm_config()]}]},%% Optional - snmp v3 only
 %%%        % managed_agents is optional 
 %%%        {managed_agents,[{agent_name(), [user_name(), agent_ip(), agent_port(), [agent_config()]]}]},   
 %%%        {max_msg_size, integer()},     % Optional - default is 484
@@ -130,7 +130,7 @@
 %%% @type agent_config() = {Item, Value} 
 %%% @type user_name() = atom() 
 %%% @type usm_user_name() = string() 
-%%% @type usm_config() = string()  
+%%% @type usm_config() = {Item, Value}
 %%% @type call_back_module() = atom()
 %%% @type user_data() = term() 
 %%% @type oids() = [oid()]
@@ -157,8 +157,9 @@
 %%% API
 -export([start/2, start/3, stop/1, get_values/3, get_next_values/3, set_values/4, 
 	 set_info/1, register_users/2, register_agents/2, register_usm_users/2,
-	 unregister_users/1, unregister_agents/1, update_usm_users/2, 
-	 load_mibs/1]).
+	 unregister_users/1, unregister_users/2, unregister_agents/1,
+	 unregister_agents/2, unregister_usm_users/1, unregister_usm_users/2,
+	 load_mibs/1, unload_mibs/1]).
 
 %% Manager values
 -define(CT_SNMP_LOG_FILE, "ct_snmp_set.log").
@@ -322,12 +323,23 @@ set_info(Config) ->
 %%%      Reason = term()    
 %%%
 %%% @doc Register the manager entity (=user) responsible for specific agent(s).
-%%% Corresponds to making an entry in users.conf
+%%% Corresponds to making an entry in users.conf.
+%%%
+%%% This function will try to register the given users, without
+%%% checking if any of them already exist. In order to change an
+%%% already registered user, the user must first be unregistered.
 register_users(MgrAgentConfName, Users) ->
-    {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
-    NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {users, Users}),
-    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
-    setup_users(Users).
+    case setup_users(Users) of
+	ok ->
+	    SnmpVals = ct:get_config(MgrAgentConfName),
+	    OldUsers = ct:get_config({MgrAgentConfName,users},[]),
+	    NewSnmpVals = lists:keystore(users, 1, SnmpVals,
+					 {users, Users ++ OldUsers}),
+	    ct_config:update_config(MgrAgentConfName, NewSnmpVals),
+	    ok;
+	Error ->
+	    Error
+    end.
 
 %%% @spec register_agents(MgrAgentConfName, ManagedAgents) -> ok | {error, Reason}
 %%%
@@ -337,12 +349,24 @@ register_users(MgrAgentConfName, Users) ->
 %%%
 %%% @doc Explicitly instruct the manager to handle this agent.
 %%% Corresponds to making an entry in agents.conf 
+%%%
+%%% This function will try to register the given managed agents,
+%%% without checking if any of them already exist. In order to change
+%%% an already registered managed agent, the agent must first be
+%%% unregistered.
 register_agents(MgrAgentConfName, ManagedAgents) ->
-    {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
-    NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals,
-				   {managed_agents, ManagedAgents}),
-    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
-    setup_managed_agents(MgrAgentConfName,ManagedAgents).
+    case setup_managed_agents(MgrAgentConfName,ManagedAgents) of
+	ok ->
+	    SnmpVals = ct:get_config(MgrAgentConfName),
+	    OldAgents = ct:get_config({MgrAgentConfName,managed_agents},[]),
+	    NewSnmpVals = lists:keystore(managed_agents, 1, SnmpVals,
+					 {managed_agents,
+					  ManagedAgents ++ OldAgents}),
+	    ct_config:update_config(MgrAgentConfName, NewSnmpVals),
+	    ok;
+	Error ->
+	    Error
+    end.
 
 %%% @spec register_usm_users(MgrAgentConfName, UsmUsers) ->  ok | {error, Reason}
 %%%
@@ -352,60 +376,115 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
 %%%
 %%% @doc Explicitly instruct the manager to handle this USM user.
 %%% Corresponds to making an entry in usm.conf 
+%%%
+%%% This function will try to register the given users, without
+%%% checking if any of them already exist. In order to change an
+%%% already registered user, the user must first be unregistered.
 register_usm_users(MgrAgentConfName, UsmUsers) ->
-    {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
-    NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {usm_users, UsmUsers}),
-    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
-    setup_usm_users(UsmUsers, EngineID).
+    case setup_usm_users(UsmUsers, EngineID) of
+	ok ->
+	    SnmpVals = ct:get_config(MgrAgentConfName),
+	    OldUsmUsers = ct:get_config({MgrAgentConfName,usm_users},[]),
+	    NewSnmpVals = lists:keystore(usm_users, 1, SnmpVals,
+					 {usm_users, UsmUsers ++ OldUsmUsers}),
+	    ct_config:update_config(MgrAgentConfName, NewSnmpVals),
+	    ok;
+	Error ->
+	    Error
+    end.
 
-%%% @spec unregister_users(MgrAgentConfName) ->  ok | {error, Reason}
+%%% @spec unregister_users(MgrAgentConfName) ->  ok
 %%%
 %%%      MgrAgentConfName = atom()
 %%%      Reason = term()
 %%%
-%%% @doc Removes information added when calling register_users/2. 
+%%% @doc Unregister all users.
 unregister_users(MgrAgentConfName) ->
-    Users = lists:map(fun({UserName, _}) -> UserName end,
-		      ct:get_config({MgrAgentConfName, users})),
-    {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
-    NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {users, []}),
-    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
-    takedown_users(Users).
+    Users = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, users},[])],
+    unregister_users(MgrAgentConfName,Users).
 
-%%% @spec unregister_agents(MgrAgentConfName) ->  ok | {error, Reason}
+%%% @spec unregister_users(MgrAgentConfName,Users) ->  ok
+%%%
+%%%      MgrAgentConfName = atom()
+%%%      Users = [user_name()]
+%%%      Reason = term()
+%%%
+%%% @doc Unregister the given users.
+unregister_users(MgrAgentConfName,Users) ->
+    takedown_users(Users),
+    SnmpVals = ct:get_config(MgrAgentConfName),
+    AllUsers = ct:get_config({MgrAgentConfName, users},[]),
+    RemainingUsers = lists:filter(fun({Id,_}) ->
+					  not lists:member(Id,Users)
+				  end,
+				  AllUsers),
+    NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {users,RemainingUsers}),
+    ct_config:update_config(MgrAgentConfName, NewSnmpVals),
+    ok.
+
+%%% @spec unregister_agents(MgrAgentConfName) ->  ok
 %%%
 %%%      MgrAgentConfName = atom()
 %%%      Reason = term()
 %%%
-%%% @doc  Removes information added when calling register_agents/2. 
+%%% @doc  Unregister all managed agents.
 unregister_agents(MgrAgentConfName) ->    
-    ManagedAgents = lists:map(fun({_, [Uid, AgentIP, AgentPort, _]}) -> 
-				      {Uid, AgentIP, AgentPort} 
-			      end,
-			      ct:get_config({MgrAgentConfName, managed_agents})),
-    {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
-    NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals, 
-				   {managed_agents, []}),
-    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
-    takedown_managed_agents(ManagedAgents).
+    ManagedAgents =  [AgentName ||
+			 {AgentName, _} <-
+			     ct:get_config({MgrAgentConfName,managed_agents},[])],
+    unregister_agents(MgrAgentConfName,ManagedAgents).
 
-
-%%% @spec update_usm_users(MgrAgentConfName, UsmUsers) -> ok | {error, Reason}
+%%% @spec unregister_agents(MgrAgentConfName,ManagedAgents) ->  ok
 %%%
 %%%      MgrAgentConfName = atom()
-%%%      UsmUsers = usm_users()
+%%%      ManagedAgents = [agent_name()]
 %%%      Reason = term()
 %%%
-%%% @doc  Alters information added when calling register_usm_users/2. 
-update_usm_users(MgrAgentConfName, UsmUsers) ->    
-   
-    {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
-    NewSnmpVals = lists:keyreplace(usm_users, 1, SnmpVals, 
-				   {usm_users, UsmUsers}),
-    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+%%% @doc  Unregister the given managed agents.
+unregister_agents(MgrAgentConfName,ManagedAgents) ->
+    takedown_managed_agents(MgrAgentConfName, ManagedAgents),
+    SnmpVals = ct:get_config(MgrAgentConfName),
+    AllAgents = ct:get_config({MgrAgentConfName,managed_agents},[]),
+    RemainingAgents = lists:filter(fun({Name,_}) ->
+					  not lists:member(Name,ManagedAgents)
+				   end,
+				   AllAgents),
+    NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals,
+				   {managed_agents,RemainingAgents}),
+    ct_config:update_config(MgrAgentConfName, NewSnmpVals),
+    ok.
+
+%%% @spec unregister_usm_users(MgrAgentConfName) ->  ok
+%%%
+%%%      MgrAgentConfName = atom()
+%%%      Reason = term()
+%%%
+%%% @doc Unregister all usm users.
+unregister_usm_users(MgrAgentConfName) ->
+    UsmUsers = [Id || {Id,_} <- ct:get_config({MgrAgentConfName, usm_users},[])],
+    unregister_usm_users(MgrAgentConfName,UsmUsers).
+
+%%% @spec unregister_usm_users(MgrAgentConfName,UsmUsers) ->  ok
+%%%
+%%%      MgrAgentConfName = atom()
+%%%      UsmUsers = [usm_user_name()]
+%%%      Reason = term()
+%%%
+%%% @doc Unregister the given usm users.
+unregister_usm_users(MgrAgentConfName,UsmUsers) ->
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
-    do_update_usm_users(UsmUsers, EngineID). 
+    takedown_usm_users(UsmUsers,EngineID),
+    SnmpVals = ct:get_config(MgrAgentConfName),
+    AllUsmUsers = ct:get_config({MgrAgentConfName, usm_users},[]),
+    RemainingUsmUsers = lists:filter(fun({Id,_}) ->
+					     not lists:member(Id,UsmUsers)
+				     end,
+				     AllUsmUsers),
+    NewSnmpVals = lists:keyreplace(usm_users, 1, SnmpVals,
+				   {usm_users,RemainingUsmUsers}),
+    ct_config:update_config(MgrAgentConfName, NewSnmpVals),
+    ok.
 
 %%% @spec load_mibs(Mibs) -> ok | {error, Reason}
 %%%
@@ -417,6 +496,15 @@ update_usm_users(MgrAgentConfName, UsmUsers) ->
 load_mibs(Mibs) ->       
     snmpa:load_mibs(snmp_master_agent, Mibs).
  
+%%% @spec unload_mibs(Mibs) -> ok | {error, Reason}
+%%%
+%%%      Mibs = [MibName]
+%%%      MibName = string()
+%%%      Reason = term()
+%%%
+%%% @doc Unload the mibs from the agent 'snmp_master_agent'.
+unload_mibs(Mibs) ->
+    snmpa:unload_mibs(snmp_master_agent, Mibs).
 
 %%%========================================================================
 %%% Internal functions
@@ -533,69 +621,57 @@ manager_register(true, MgrAgentConfName) ->
 
 %%%---------------------------------------------------------------------------
 setup_users(Users) ->
-    lists:foreach(fun({Id, [Module, Data]}) ->
-			  snmpm:register_user(Id, Module, Data)
-		  end, Users).
+    while_ok(fun({Id, [Module, Data]}) ->
+		     snmpm:register_user(Id, Module, Data)
+	     end, Users).
 %%%---------------------------------------------------------------------------   
-setup_managed_agents(_,[]) ->
-    ok;
-
-setup_managed_agents(AgentConfName,
-		     [{AgentName, [Uid, AgentIp, AgentUdpPort, AgentConf0]} |
-		      Rest]) ->
-    NewAgentIp = case AgentIp of
-		     IpTuple when is_tuple(IpTuple) ->
-			 IpTuple;
-		     HostName when is_list(HostName) ->
-			 {ok,Hostent} = inet:gethostbyname(HostName),
-			 [IpTuple|_] = Hostent#hostent.h_addr_list,
-			 IpTuple
-		 end,
-    AgentConf =
-	case lists:keymember(engine_id,1,AgentConf0) of
-	    true ->
-		AgentConf0;
-	    false ->
-		DefaultEngineID = ct:get_config({AgentConfName,agent_engine_id},
-						?AGENT_ENGINE_ID),
-		[{engine_id,DefaultEngineID}|AgentConf0]
+setup_managed_agents(AgentConfName,Agents) ->
+    Fun =
+	fun({AgentName, [Uid, AgentIp, AgentUdpPort, AgentConf0]}) ->
+		NewAgentIp = case AgentIp of
+				 IpTuple when is_tuple(IpTuple) ->
+				     IpTuple;
+				 HostName when is_list(HostName) ->
+				     {ok,Hostent} = inet:gethostbyname(HostName),
+				     [IpTuple|_] = Hostent#hostent.h_addr_list,
+				     IpTuple
+			     end,
+		AgentConf =
+		    case lists:keymember(engine_id,1,AgentConf0) of
+			true ->
+			    AgentConf0;
+			false ->
+			    DefaultEngineID =
+				ct:get_config({AgentConfName,agent_engine_id},
+					      ?AGENT_ENGINE_ID),
+			    [{engine_id,DefaultEngineID}|AgentConf0]
+		    end,
+		snmpm:register_agent(Uid, target_name(AgentName),
+				     [{address,NewAgentIp},{port,AgentUdpPort} |
+				      AgentConf])
 	end,
-    ok = snmpm:register_agent(Uid, target_name(AgentName),
-			      [{address,NewAgentIp},{port,AgentUdpPort} |
-			       AgentConf]),
-    setup_managed_agents(AgentConfName,Rest).
+    while_ok(Fun,Agents).
 %%%---------------------------------------------------------------------------
 setup_usm_users(UsmUsers, EngineID)->
-    lists:foreach(fun({UsmUser, Conf}) ->
-			  snmpm:register_usm_user(EngineID, UsmUser, Conf)
-		  end, UsmUsers).
+    while_ok(fun({UsmUser, Conf}) ->
+		     snmpm:register_usm_user(EngineID, UsmUser, Conf)
+	     end, UsmUsers).
 %%%---------------------------------------------------------------------------
 takedown_users(Users) ->
-     lists:foreach(fun({Id}) ->
+     lists:foreach(fun(Id) ->
 			  snmpm:unregister_user(Id)
 		   end, Users).
 %%%---------------------------------------------------------------------------
-takedown_managed_agents([{Uid, AgentIp, AgentUdpPort} |
-			 Rest]) ->
-    NewAgentIp = case AgentIp of
-		     IpTuple when is_tuple(IpTuple) ->
-			 IpTuple;
-		     HostName when is_list(HostName) ->
-			 {ok,Hostent} = inet:gethostbyname(HostName),
-			 [IpTuple|_] = Hostent#hostent.h_addr_list,
-			 IpTuple
-		 end,
-    ok = snmpm:unregister_agent(Uid, NewAgentIp, AgentUdpPort),   
-    takedown_managed_agents(Rest);
-
-takedown_managed_agents([]) ->
-    ok.
+takedown_managed_agents(MgrAgentConfName,ManagedAgents) ->
+    lists:foreach(fun(AgentName) ->
+			  [Uid | _] = agent_conf(AgentName, MgrAgentConfName),
+			  snmpm:unregister_agent(Uid, target_name(AgentName))
+		  end, ManagedAgents).
 %%%---------------------------------------------------------------------------
-do_update_usm_users(UsmUsers, EngineID) ->
-    lists:foreach(fun({UsmUser, {Item, Val}}) ->
-			  snmpm:update_usm_user_info(EngineID, UsmUser, 
-						     Item, Val)
-		  end, UsmUsers).
+takedown_usm_users(UsmUsers, EngineID) ->
+     lists:foreach(fun(Id) ->
+			  snmpm:unregister_usm_user(EngineID, Id)
+		   end, UsmUsers).
 %%%---------------------------------------------------------------------------  
 log(PrivDir, Agent, {_, _, Varbinds}, NewVarsAndVals) ->
 
@@ -659,7 +735,7 @@ override_contexts(Config, {data_dir_file, File}) ->
     override_contexts(Config, ContextInfo);
 
 override_contexts(Config, Contexts) ->
-    Dir = ?config(priv_dir, Config),    
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"context.conf"),
     file:delete(File),
     snmp_config:write_agent_context_config(Dir, "", Contexts).
@@ -675,7 +751,7 @@ override_sysinfo(Config, {data_dir_file, File}) ->
     override_sysinfo(Config, SysInfo);
 
 override_sysinfo(Config, SysInfo) ->   
-    Dir = ?config(priv_dir, Config),  
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"standard.conf"),
     file:delete(File),
     snmp_config:write_agent_standard_config(Dir, "", SysInfo).
@@ -690,7 +766,7 @@ override_target_address(Config, {data_dir_file, File}) ->
     override_target_address(Config, TargetAddressConf);
 
 override_target_address(Config, TargetAddressConf) ->
-    Dir = ?config(priv_dir, Config),  
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"target_addr.conf"),
     file:delete(File),
     snmp_config:write_agent_target_addr_config(Dir, "", TargetAddressConf).
@@ -706,7 +782,7 @@ override_target_params(Config, {data_dir_file, File}) ->
     override_target_params(Config, TargetParamsConf);
 
 override_target_params(Config, TargetParamsConf) ->
-    Dir = ?config(priv_dir, Config),  
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"target_params.conf"),
     file:delete(File),
     snmp_config:write_agent_target_params_config(Dir, "", TargetParamsConf). 
@@ -721,7 +797,7 @@ override_notify(Config, {data_dir_file, File}) ->
     override_notify(Config, NotifyConf);
 
 override_notify(Config, NotifyConf) ->
-    Dir = ?config(priv_dir, Config),  
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"notify.conf"),
     file:delete(File),
     snmp_config:write_agent_notify_config(Dir, "", NotifyConf).
@@ -736,7 +812,7 @@ override_usm(Config, {data_dir_file, File}) ->
     override_usm(Config, UsmConf);
 
 override_usm(Config, UsmConf) ->
-    Dir = ?config(priv_dir, Config),  
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"usm.conf"),
     file:delete(File),
     snmp_config:write_agent_usm_config(Dir, "", UsmConf).
@@ -751,7 +827,7 @@ override_community(Config, {data_dir_file, File}) ->
     override_community(Config, CommunityConf);
 
 override_community(Config, CommunityConf) ->
-    Dir = ?config(priv_dir, Config),  
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
     File = filename:join(Dir,"community.conf"),
     file:delete(File),
     snmp_config:write_agent_community_config(Dir, "", CommunityConf).
@@ -767,8 +843,8 @@ override_vacm(Config, {data_dir_file, File}) ->
     override_vacm(Config, VacmConf);
 
 override_vacm(Config, VacmConf) ->
-    Dir = ?config(priv_dir, Config),  
-       File = filename:join(Dir,"vacm.conf"),
+    Dir = filename:join(?config(priv_dir, Config),"conf"),
+    File = filename:join(Dir,"vacm.conf"),
     file:delete(File),
     snmp_config:write_agent_vacm_config(Dir, "", VacmConf).
 
@@ -776,3 +852,11 @@ override_vacm(Config, VacmConf) ->
 
 target_name(Agent) ->
     atom_to_list(Agent).
+
+while_ok(Fun,[H|T]) ->
+    case Fun(H) of
+	ok -> while_ok(Fun,T);
+	Error -> Error
+    end;
+while_ok(_Fun,[]) ->
+    ok.
