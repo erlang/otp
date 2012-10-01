@@ -1419,14 +1419,12 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     catch stop_extra_tools(StartedExtraTools),
     case Result of
 	{'EXIT',test_suites_done} ->
-	    print(25, "DONE, normal exit", []);
+	    ok;
 	{'EXIT',_Pid,Reason} ->
 	    print(1, "EXIT, reason ~p", [Reason]);
 	{'EXIT',Reason} ->
 	    report_severe_error(Reason),
-	    print(1, "EXIT, reason ~p", [Reason]);
-	_Other ->
-	    print(25, "DONE", [])
+	    print(1, "EXIT, reason ~p", [Reason])
     end,
     Time = TimeMy/1000000,
     SuccessStr =
@@ -1930,7 +1928,7 @@ start_log_file() ->
     PrivDir = filename:join(TestDir1, ?priv_dir),
     ok = file:make_dir(PrivDir),
     put(test_server_priv_dir,PrivDir++"/"),
-    print_timestamp(13,"Suite started at "),
+    print_timestamp(major, "Suite started at "),
 
     LogInfo = [{topdir,Dir},{rundir,lists:flatten(TestDir1)}],
     test_server_sup:framework_call(report, [loginfo,LogInfo]),
