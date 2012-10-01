@@ -265,7 +265,7 @@
 	  <item>
 	    <p>Comma separated string that determines which authentication methodes that the server
 	    should support and in what order they will be tried. Defaults to
-	    <c><![CDATA["publickey,keyboard_interactive,password"]]></c></p>
+	    <c><![CDATA["publickey,keyboard-interactive,password"]]></c></p>
           </item>
 	  <tag><c><![CDATA[{user_passwords, [{string() = User, string() = Password}]}]]></c></tag>
 	  <item>

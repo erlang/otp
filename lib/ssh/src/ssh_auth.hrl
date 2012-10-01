@@ -21,7 +21,7 @@
 
 %%% Description: Ssh User Authentication Protocol
 
--define(SUPPORTED_AUTH_METHODS, "publickey,keyboard_interactive,password").
+-define(SUPPORTED_AUTH_METHODS, "publickey,keyboard-interactive,password").
 
 -define(PREFERRED_PK_ALG, ssh_rsa).
 
