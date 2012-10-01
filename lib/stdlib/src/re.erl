@@ -409,6 +409,12 @@ apply_mlist(Subject,Replacement,Mlist) ->
 
 precomp_repl(<<>>) ->
     [];
+precomp_repl(<<$\\,$g,${,Rest/binary>>) when byte_size(Rest) > 0 ->
+    {NS, <<$},NRest/binary>>} = pick_int(Rest),
+    [list_to_integer(NS) | precomp_repl(NRest)];
+precomp_repl(<<$\\,$g,Rest/binary>>) when byte_size(Rest) > 0 ->
+    {NS,NRest} = pick_int(Rest),
+    [list_to_integer(NS) | precomp_repl(NRest)];
 precomp_repl(<<$\\,X,Rest/binary>>) when X < $1 ; X > $9 ->
     %% Escaped character
     case precomp_repl(Rest) of
