@@ -979,10 +979,9 @@ connection_up(T, P, C, #state{peerT = PeerT,
     insert(PeerT, P#peer{op_state = {?STATE_UP, ?WD_OKAY}}),
 
     request_peer_up(TPid),
+    insert_local_peer(SApps, {{TPid, Caps}, {SvcName, Apps}}, LDict),
     report_status(up, P, C, S, T),
-    S#state{local_peers = insert_local_peer(SApps,
-                                            {{TPid, Caps}, {SvcName, Apps}},
-                                            LDict)}.
+    S.
 
 insert_local_peer(SApps, T, LDict) ->
     lists:foldl(fun(A,D) -> ilp(A, T, D) end, LDict, SApps).
@@ -1058,12 +1057,9 @@ connection_down(#peer{conn = TPid,
                        local_peers = LDict}
                 = S) ->
     report_status(down, P, C, S, []),
-    NewS = S#state{local_peers
-                   = remove_local_peer(SApps,
-                                       {{TPid, Caps}, {SvcName, Apps}},
-                                       LDict)},
-    request_peer_down(TPid, NewS),
-    NewS.
+    remove_local_peer(SApps, {{TPid, Caps}, {SvcName, Apps}}, LDict),
+    request_peer_down(TPid, S),
+    S.
 
 remove_local_peer(SApps, T, LDict) ->
     lists:foldl(fun(A,D) -> rlp(A, T, D) end, LDict, SApps).
