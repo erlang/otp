@@ -268,7 +268,7 @@ send(#sslsocket{pid = {ListenSocket, #config{cb={CbModule, _, _, _}}}}, Data) ->
 %%--------------------------------------------------------------------
 recv(Socket, Length) ->
     recv(Socket, Length, infinity).
-recv(#sslsocket{pid = Pid, fd = new_ssl}, Length, Timeout) when is_pid(Pid) ->
+recv(#sslsocket{pid = Pid}, Length, Timeout) when is_pid(Pid) ->
     ssl_connection:recv(Pid, Length, Timeout);
 recv(#sslsocket{pid = {Listen, #config{cb={CbModule, _, _, _}}}}, _,_) when is_port(Listen)->
     CbModule:recv(Listen, 0). %% {error,enotconn}
@@ -302,8 +302,8 @@ connection_info(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
-peername(#sslsocket{pid = Pid}) when is_pid(Pid)->
-    ssl_connection:peername(Pid);
+peername(#sslsocket{pid = Pid, fd = Socket}) when is_pid(Pid)->
+    inet:peername(Socket);
 peername(#sslsocket{pid = {ListenSocket, _}}) ->
     inet:peername(ListenSocket). %% Will return {error, enotconn}
 
@@ -337,7 +337,7 @@ suite_definition(S) ->
 %% Description: Returns the next protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, next_protocol_not_negotiated}
 %%--------------------------------------------------------------------
-negotiated_next_protocol(#sslsocket{fd = new_ssl, pid = Pid}) ->
+negotiated_next_protocol(#sslsocket{pid = Pid}) ->
     ssl_connection:negotiated_next_protocol(Pid).
 
 -spec cipher_suites() -> [erl_cipher_suite()].
@@ -424,8 +424,8 @@ shutdown(#sslsocket{pid = Pid}, How) ->
 sockname(#sslsocket{pid = {Listen, _}}) when is_port(Listen) ->
     inet:sockname(Listen);
 
-sockname(#sslsocket{pid = Pid}) when is_pid(Pid) ->
-    ssl_connection:sockname(Pid).
+sockname(#sslsocket{pid = Pid, fd = Socket}) when is_pid(Pid) ->
+    inet:sockname(Socket).
 
 %%---------------------------------------------------------------
 -spec session_info(#sslsocket{}) -> {ok, list()} | {error, reason()}.
@@ -433,7 +433,7 @@ sockname(#sslsocket{pid = Pid}) when is_pid(Pid) ->
 %% Description: Returns list of session info currently [{session_id, session_id(),
 %% {cipher_suite, cipher_suite()}]
 %%--------------------------------------------------------------------
-session_info(#sslsocket{pid = Pid, fd = new_ssl}) when is_pid(Pid) ->
+session_info(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:session_info(Pid);
 session_info(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
@@ -456,7 +456,7 @@ versions() ->
 %% 
 %% Description: Initiates a renegotiation.
 %%--------------------------------------------------------------------
-renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) when is_pid(Pid) ->
+renegotiate(#sslsocket{pid = Pid}) when is_pid(Pid) ->
     ssl_connection:renegotiation(Pid);
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
@@ -468,7 +468,7 @@ renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
 %%
 %% Description: use a ssl sessions TLS PRF to generate key material
 %%--------------------------------------------------------------------
-prf(#sslsocket{pid = Pid, fd = new_ssl},
+prf(#sslsocket{pid = Pid},
     Secret, Label, Seed, WantedLength) when is_pid(Pid) ->
     ssl_connection:prf(Pid, Secret, Label, Seed, WantedLength);
 prf(#sslsocket{pid = {Listen,_}}, _,_,_,_) when is_port(Listen) ->
@@ -961,7 +961,5 @@ make_next_protocol_selector({server, AllProtocols, DefaultProtocol}) ->
 %% function in a none recommended way, but will
 %% work correctly if a valid pid is returned.
 %% Deprcated to be removed in r16
-pid(#sslsocket{fd = new_ssl}) ->
-     whereis(ssl_connection_sup);
-pid(#sslsocket{pid = Pid}) ->
-     Pid.
+pid(#sslsocket{})->
+    whereis(ssl_connection_sup).
