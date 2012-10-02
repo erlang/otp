@@ -2611,16 +2611,15 @@ run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 
 run_test_cases_loop([{auto_skip_case,{Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
-    {Mod,Func} = skip_case(auto, undefined, get(test_server_case_num)+1, Case, Comment,
-			   (undefined /= get(test_server_common_io_handler)), SkipMode),
+    {Mod,Func} = skip_case(auto, undefined, get(test_server_case_num)+1,
+			   Case, Comment, is_io_buffered(), SkipMode),
     test_server_sup:framework_call(report, [tc_auto_skip,{?pl2a(Mod),Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
 
 run_test_cases_loop([{skip_case,{conf,Ref,Case,Comment}}|Cases0],
 		    Config, TimetrapData, Mode, Status) ->
-    {Mod,Func} = skip_case(user, Ref, 0, Case, Comment,
-			   (undefined /= get(test_server_common_io_handler))),
+    {Mod,Func} = skip_case(user, Ref, 0, Case, Comment, is_io_buffered()),
     {Cases,Config1} =
 	case curr_ref(Mode) of
 	    Ref ->
@@ -2636,8 +2635,8 @@ run_test_cases_loop([{skip_case,{conf,Ref,Case,Comment}}|Cases0],
 
 run_test_cases_loop([{skip_case,{Case,Comment}}|Cases],
 		    Config, TimetrapData, Mode, Status) ->
-    {Mod,Func} = skip_case(user, undefined, get(test_server_case_num)+1, Case, Comment,
-			   (undefined /= get(test_server_common_io_handler))),
+    {Mod,Func} = skip_case(user, undefined, get(test_server_case_num)+1,
+			   Case, Comment, is_io_buffered()),
     test_server_sup:framework_call(report, [tc_user_skip,{?pl2a(Mod),Func,Comment}]),
     run_test_cases_loop(Cases, Config, TimetrapData, Mode,
 			update_status(skipped, Mod, Func, Status));
@@ -3036,21 +3035,19 @@ run_test_cases_loop([{Mod,Case}|Cases], Config, TimetrapData, Mode, Status) ->
 
 run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status) ->
     Num = put(test_server_case_num, get(test_server_case_num)+1),
+
     %% check the current execution mode and save info about the case if
     %% detected that printouts to common log files is handled later
-    case check_prop(parallel, Mode) of
+
+    case check_prop(parallel, Mode) =:= false andalso is_io_buffered() of
+	true ->
+	    %% sequential test case nested in a parallel group;
+	    %% io is buffered, so we must queue this test case
+	    queue_test_case_io(undefined, self(), Num+1, Mod, Func);
 	false ->
-	    case get(test_server_common_io_handler) of
-		undefined ->
-		    %% io printouts are written to straight to file
-		    ok;
-		_ ->
-		    %% io messages are buffered, put test case in queue
-		    queue_test_case_io(undefined, self(), Num+1, Mod, Func)
-	    end;
-	_ ->
 	    ok
     end,
+
     case run_test_case(undefined, Num+1, Mod, Func, Args,
 		       run_init, target, TimetrapData, Mode) of
 	%% callback to framework module failed, exit immediately
@@ -3503,6 +3500,14 @@ set_io_buffering(IOHandler) ->
     put(test_server_common_io_handler, IOHandler).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% is_io_buffered() -> true|false
+%%
+%% Test whether is being buffered.
+
+is_io_buffered() ->
+    get(test_server_common_io_handler) =/= undefined.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% queue_test_case_io(Pid, Num, Mod, Func) -> ok
 %%
 %% Save info about test case that gets its io buffered. This can
@@ -3768,9 +3773,9 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 			 end, ok),
     %% if io is being buffered, send start io session message
     %% (no matter if case runs on parallel or main process)
-    case get(test_server_common_io_handler) of
-	undefined -> ok;
-	_ -> Main ! {started,Ref,self(),Num,Mod,Func}
+    case is_io_buffered() of
+	false -> ok;
+	true -> Main ! {started,Ref,self(),Num,Mod,Func}
     end,
     TSDir = get(test_server_dir),
     case Where of
@@ -3957,10 +3962,12 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 
     %% if io is being buffered, send finished message
     %% (no matter if case runs on parallel or main process)
-    case get(test_server_common_io_handler) of
-	undefined -> ok;
-	_ -> Main ! {finished,Ref,self(),Num,Mod,Func,
-		     ?mod_result(Status),{Time,RetVal,Opts}}
+    case is_io_buffered() of
+	false ->
+	    ok;
+	true ->
+	    Main ! {finished,Ref,self(),Num,Mod,Func,
+		    ?mod_result(Status),{Time,RetVal,Opts}}
     end,
     {Time,RetVal,Opts}.
 
