@@ -274,13 +274,8 @@ sys_info() ->
 
 os_info() ->
     V = os:version(),
-    case os:type() of
-        {OsFam, OsName} ->
-            [{fam, OsFam}, {name, OsName}, {ver, V}];
-        OsFam ->
-            [{fam, OsFam}, {ver, V}]
-    end.
-
+    {OsFam, OsName} = os:type(),
+    [{fam, OsFam}, {name, OsName}, {ver, V}].
 
 print_mods_info(Versions) ->
     case key1search(mod_info, Versions) of

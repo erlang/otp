@@ -43,8 +43,12 @@
 	cookies and other options that can be applied to more than one
 	request. </p>
 
-      <p>If the scheme
-	https is used the ssl application needs to be started.</p>
+	<p>If the scheme https is used the ssl application needs to be
+	started. When https links needs to go through a proxy the
+	CONNECT method extension to HTTP-1.1 is used to establish a
+	tunnel and then the connection is upgraded to TLS,
+	however "TLS upgrade" according to RFC 2817 is not
+	supported.</p>
 
       <p>Also note that pipelining will only be used if the pipeline
       timeout is set, otherwise persistent connections without
@@ -449,7 +453,8 @@ apply(Module, Function, [ReplyInfo | Args])
       <type>
         <v>Options = [Option]</v>
         <v>Option = {proxy,                 {Proxy, NoProxy}} | 
-                    {max_sessions,          MaxSessions} |
+                    {https_proxy,           {Proxy, NoProxy}} | 
+	            {max_sessions,          MaxSessions} |
 	            {max_keep_alive_length, MaxKeepAlive} | 
                     {keep_alive_timeout,    KeepAliveTimeout} |
 	            {max_pipeline_length,   MaxPipeline} |  
@@ -460,25 +465,23 @@ apply(Module, Function, [ReplyInfo | Args])
                     {port,                  Port} | 
                     {socket_opts,           socket_opts()} | 
                     {verbose,               VerboseMode} </v>
+		    
         <v>Proxy = {Hostname, Port}</v>
         <v>Hostname = string() </v>
         <d>ex: "localhost" or "foo.bar.se"</d>
         <v>Port = integer()</v>
         <d>ex: 8080 </d>
-        <v>socket_opts() = [socket_opt()]</v>
-        <d>The options are appended to the socket options used by the 
-          client. </d>
-        <d>These are the default values when a new request handler
-          is started (for the initial connect). They are passed directly 
-          to the underlying transport (gen_tcp or ssl) <em>without</em> 
-          verification! </d>
         <v>NoProxy = [NoProxyDesc]</v>
         <v>NoProxyDesc = DomainDesc | HostName | IPDesc</v>
         <v>DomainDesc = "*.Domain"</v>
         <d>ex: "*.ericsson.se"</d>
         <v>IpDesc = string()</v>
         <d>ex: "134.138" or "[FEDC:BA98" (all IP-addresses starting with 134.138 or FEDC:BA98), "66.35.250.150" or "[2010:836B:4179::836B:4179]" (a complete IP-address).</d>
-        <v>MaxSessions = integer() </v>
+
+	<d>proxy defaults to {undefined, []} e.i. no proxy is configured and https_proxy defaults to
+	the value of proxy.</d>
+	
+	<v>MaxSessions = integer() </v>
         <d>Default is <c>2</c>.
 	Maximum number of persistent connections to a host.</d>
 	<v>MaxKeepAlive = integer() </v>
@@ -520,6 +523,13 @@ apply(Module, Function, [ReplyInfo | Args])
 	<v>Port = integer() </v>
 	<d>Specify which local port number to use. 
 	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> for more info. </d>
+	<v>socket_opts() = [socket_opt()]</v>
+	<d>The options are appended to the socket options used by the 
+	client. </d>
+	<d>These are the default values when a new request handler
+	is started (for the initial connect). They are passed directly 
+          to the underlying transport (gen_tcp or ssl) <em>without</em> 
+	verification! </d>
 	<v>VerboseMode = false | verbose | debug | trace </v>
 	<d>Default is <c>false</c>.
 	This option is used to switch on (or off) 
@@ -554,7 +564,8 @@ apply(Module, Function, [ReplyInfo | Args])
       <fsummary>Gets the currently used options.</fsummary>
       <type>
         <v>OptionItems = all | [option_item()]</v>
-	<v>option_item() = proxy | 
+	<v>option_item() = proxy |
+	                   https_proxy
                            max_sessions | 
 			   keep_alive_timeout | 
 	                   max_keep_alive_length | 

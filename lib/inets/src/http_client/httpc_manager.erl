@@ -577,6 +577,7 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
     ?hcrv("set options", [{options, Options}, {old_options, OldOptions}]),
     NewOptions = 
 	#options{proxy                 = get_proxy(Options, OldOptions),
+		 https_proxy           = get_https_proxy(Options, OldOptions),
 		 pipeline_timeout      = get_pipeline_timeout(Options, OldOptions), 
 		 max_pipeline_length   = get_max_pipeline_length(Options, OldOptions), 
 		 max_keep_alive_length = get_max_keep_alive_length(Options, OldOptions), 
@@ -741,7 +742,7 @@ get_manager_info(#state{handler_db = HDB,
     SessionInfo = which_sessions2(SDB), 
     OptionsInfo = 
 	[{Item, get_option(Item, Options)} || 
-	    Item <- record_info(fields, options)], 
+		  Item <- record_info(fields, options)], 
     CookieInfo  = httpc_cookie:which_cookies(CDB),
     [{handlers, HandlerInfo}, 
      {sessions, SessionInfo}, 
@@ -769,20 +770,7 @@ get_handler_info(Tab) ->
     Pattern   = {'$2', '$1', '_'},
     Handlers1 = [{Pid, Id} || [Pid, Id] <- ets:match(Tab, Pattern)],
     Handlers2 = sort_handlers(Handlers1), 
-    Handlers3 = [{Pid, Reqs, 
-		  try
-		      begin
-			  httpc_handler:info(Pid)
-		      end
-		  catch
-		      _:_ ->
-			  %% Why would this crash? 
-			  %% Only if the process has died, but we don't 
-			  %% know about it?
-			  []
-		  end} || {Pid, Reqs} <- Handlers2],
-    Handlers3.
-
+    [{Pid, Reqs, httpc_handler:info(Pid)} || {Pid, Reqs} <- Handlers2].
 
 handle_request(#request{settings = 
 			#http_options{version = "HTTP/0.9"}} = Request,
@@ -1001,6 +989,8 @@ cast(ProfileName, Msg) ->
 
 get_option(proxy, #options{proxy = Proxy}) ->
     Proxy;
+get_option(https_proxy, #options{https_proxy = Proxy}) ->
+    Proxy;
 get_option(pipeline_timeout, #options{pipeline_timeout = Timeout}) ->
     Timeout;
 get_option(max_pipeline_length, #options{max_pipeline_length = Length}) ->
@@ -1026,6 +1016,9 @@ get_option(socket_opts, #options{socket_opts = SocketOpts}) ->
 
 get_proxy(Opts, #options{proxy = Default}) ->
     proplists:get_value(proxy, Opts, Default).
+
+get_https_proxy(Opts, #options{https_proxy = Default}) ->
+    proplists:get_value(https_proxy, Opts, Default).
 
 get_pipeline_timeout(Opts, #options{pipeline_timeout = Default}) ->
     proplists:get_value(pipeline_timeout, Opts, Default).
