@@ -58,7 +58,6 @@
 #define __DARWIN__ 1
 #endif
 
-
 #ifdef USE_THREADS
 #include "erl_threads.h"
 #endif
@@ -71,7 +70,6 @@ static erts_smp_rwmtx_t environ_rwmtx;
 #define MAX_VSIZE 16		/* Max number of entries allowed in an I/O
 				 * vector sock_sendv().
 				 */
-
 /*
  * Don't need global.h, but bif_table.h (included by bif.h),
  * won't compile otherwise
@@ -122,6 +120,15 @@ struct ErtsSysReportExit_ {
     int status;
 #endif
 };
+
+/* This data is shared by these drivers - initialized by spawn_init() */
+static struct driver_data {
+    int port_num, ofd, packet_bytes;
+    ErtsSysReportExit *report_exit;
+    int pid;
+    int alive;
+    int status;
+} *driver_data;			/* indexed by fd */
 
 static ErtsSysReportExit *report_exit_list;
 #if CHLDWTHR && !defined(ERTS_SMP)
@@ -685,12 +692,33 @@ prepare_crash_dump(void)
     int i, max;
     char env[21]; /* enough to hold any 64-bit integer */
     size_t envsz;
+    Port *heart_port;
+    Eterm heap[3];
+    Eterm *hp = heap;
+    Eterm list = NIL;
+
+    int heart_fd[2] = {-1,-1};
 
     if (ERTS_PREPARED_CRASH_DUMP)
 	return; /* We have already been called */
 
+    heart_port = erts_get_heart_port();
+    if (heart_port) {
+	/* hearts input fd
+	 * We "know" drv_data is the in_fd since the port is started with read|write
+	 */
+	heart_fd[0] = (int)heart_port->drv_data;
+	heart_fd[1] = (int)driver_data[heart_fd[0]].ofd;
+
+	list = CONS(hp, make_small(8), list); hp += 2;
+
+	/* send to heart port, CMD = 8, i.e. prepare crash dump =o */
+	erts_write_to_port(NIL, heart_port, list);
+    }
+
     /* Make sure we unregister at epmd (unknown fd) and get at least
        one free filedescriptor (for erl_crash.dump) */
+
     max = max_files;
     if (max < 1024)
 	max = 1024;
@@ -704,6 +732,10 @@ prepare_crash_dump(void)
 	if (i == async_fd[0] || i == async_fd[1])
 	    continue;
 #endif
+	/* We don't want to close our heart yet ... */
+	if (i == heart_fd[0] || i == heart_fd[1])
+	    continue;
+
 	close(i);
     }
 
@@ -725,7 +757,6 @@ prepare_crash_dump(void)
 	sec = (unsigned) i != 0 ? 0 : atoi(env);
 	alarm(sec);
     }
-
 }
 
 void
@@ -1020,15 +1051,6 @@ void fini_getenv_state(GETENV_STATE *state)
 /* II. The spawn/fd/vanilla drivers */
 
 #define ERTS_SYS_READ_BUF_SZ (64*1024)
-
-/* This data is shared by these drivers - initialized by spawn_init() */
-static struct driver_data {
-    int port_num, ofd, packet_bytes;
-    ErtsSysReportExit *report_exit;
-    int pid;
-    int alive;
-    int status;
-} *driver_data;			/* indexed by fd */
 
 /* Driver interfaces */
 static ErlDrvData spawn_start(ErlDrvPort, char*, SysDriverOpts*);

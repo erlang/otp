@@ -5235,3 +5235,24 @@ erl_drv_getenv(char *key, char *value, size_t *value_size)
 {
     return erts_sys_getenv_raw(key, value, value_size);
 }
+
+/* get heart_port
+ * used by erl_crash_dump
+ * - uses the fact that heart_port is registered when starting heart
+ */
+
+Port *erts_get_heart_port() {
+
+    Port* port;
+    Uint  ix;
+
+    for(ix = 0; ix < erts_max_ports; ix++) {
+	port = &erts_port[ix];
+	/* immediate compare */
+	if (port->reg && port->reg->name == am_heart_port) {
+	    return port;
+	}
+    }
+
+    return NULL;
+}

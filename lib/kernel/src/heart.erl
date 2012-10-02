@@ -42,6 +42,7 @@
 -define(CLEAR_CMD, 5).
 -define(GET_CMD, 6).
 -define(HEART_CMD, 7).
+-define(PREPARING_CRASH, 8). % Used in beam vm
 
 -define(TIMEOUT, 5000).
 -define(CYCLE_TIMEOUT, 10000).
@@ -130,6 +131,8 @@ start_portprogram() ->
 	Port when is_port(Port) ->
 	    case wait_ack(Port) of
 		ok ->
+		    %% register port so the vm can find it if need be
+		    register(heart_port, Port),
 		    {ok, Port};
 		{error, Reason} ->
 		    report_problem({{port_problem, Reason},

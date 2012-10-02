@@ -153,13 +153,14 @@ struct msg {
 };
 
 /* operations */
-#define  HEART_ACK    1
-#define  HEART_BEAT   2
-#define  SHUT_DOWN    3
-#define  SET_CMD      4
-#define  CLEAR_CMD    5
-#define  GET_CMD      6
-#define  HEART_CMD    7
+#define  HEART_ACK       (1)
+#define  HEART_BEAT      (2)
+#define  SHUT_DOWN       (3)
+#define  SET_CMD         (4)
+#define  CLEAR_CMD       (5)
+#define  GET_CMD         (6)
+#define  HEART_CMD       (7)
+#define  PREPARING_CRASH (8)
 
 
 /*  Maybe interesting to change */
@@ -187,10 +188,11 @@ unsigned long heart_beat_kill_pid = 0;
 #define SOL_WD_TIMEOUT (heart_beat_timeout+heart_beat_boot_delay)
 
 /* reasons for reboot */
-#define  R_TIMEOUT          1
-#define  R_CLOSED           2
-#define  R_ERROR            3
-#define  R_SHUT_DOWN        4
+#define  R_TIMEOUT          (1)
+#define  R_CLOSED           (2)
+#define  R_ERROR            (3)
+#define  R_SHUT_DOWN        (4)
+#define  R_CRASHING         (5) /* Doing a crash dump and we will wait for it */
 
 
 /*  macros */
@@ -200,8 +202,8 @@ unsigned long heart_beat_kill_pid = 0;
 
 /*  prototypes */
 
-static int message_loop(int,int);
-static void do_terminate(int);
+static int message_loop(int, int);
+static void do_terminate(int, int);
 static int notify_ack(int);
 static int heart_cmd_reply(int, char *);
 static int write_message(int, struct msg *);
@@ -376,7 +378,7 @@ main(int argc, char **argv)
     program_name[sizeof(program_name)-1] = '\0';
     notify_ack(erlout_fd);
     cmd[0] = '\0';
-    do_terminate(message_loop(erlin_fd,erlout_fd));
+    do_terminate(erlin_fd,message_loop(erlin_fd,erlout_fd));
     return 0;
 }
 
@@ -410,6 +412,7 @@ message_loop(erlin_fd, erlout_fd)
 #endif
 
   while (1) {
+      /* REFACTOR: below to select/tmo function */
 #ifdef __WIN32__
 	wresult = WaitForSingleObject(hevent_dataready,SELECT_TIMEOUT*1000+ 2);
 	if (wresult == WAIT_FAILED) {
@@ -504,6 +507,10 @@ message_loop(erlin_fd, erlout_fd)
 				    free_env_val(env);
 				}
 			        break;
+			case PREPARING_CRASH:
+				/* Erlang has reached a crushdump point (is crashing for sure) */
+				print_error("Erlang is crashing .. (waiting for crash dump file)");
+				return R_CRASHING;
 			default:
 				/* ignore all other messages */
 				break;
@@ -635,69 +642,66 @@ void win_system(char *command)
  * do_terminate
  */
 static void 
-do_terminate(reason)
-  int reason;
-{
+do_terminate(int erlin_fd, int reason) {
   /*
     When we get here, we have HEART_BEAT_BOOT_DELAY secs to finish
     (plus heart_beat_report_delay if under VxWorks), so we don't need
     to call wd_reset().
     */
-  
+  struct msg message;
+
   switch (reason) {
   case R_SHUT_DOWN:
     break;
+  case R_CRASHING:
+    print_error("Waiting for dump");
+    read_message(erlin_fd, &message); /* read until we get something */
   case R_TIMEOUT:
-  case R_ERROR:
   case R_CLOSED:
+  case R_ERROR:
   default:
+    {
 #if defined(__WIN32__) /* Not VxWorks */
-    {
-      if(!cmd[0]) {
-	char *command = get_env(HEART_COMMAND_ENV);
-	if(!command)
-	  print_error("Would reboot. Terminating.");
-	else {
-	  kill_old_erlang();
-	  /* High prio combined with system() works badly indeed... */
-	  SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-	  win_system(command);
-	  print_error("Executed \"%s\". Terminating.",command);
+	if(!cmd[0]) {
+	    char *command = get_env(HEART_COMMAND_ENV);
+	    if(!command)
+		print_error("Would reboot. Terminating.");
+	    else {
+		kill_old_erlang();
+		/* High prio combined with system() works badly indeed... */
+		SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
+		win_system(command);
+		print_error("Executed \"%s\". Terminating.",command);
+	    }
+	    free_env_val(command);
+	} else {
+	    kill_old_erlang();
+	    /* High prio combined with system() works badly indeed... */
+	    SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
+	    win_system(&cmd[0]);
+	    print_error("Executed \"%s\". Terminating.",cmd);
 	}
-	free_env_val(command);
-      }
-      else {
-	kill_old_erlang();
-	/* High prio combined with system() works badly indeed... */
-	SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-	win_system(&cmd[0]);
-	print_error("Executed \"%s\". Terminating.",cmd);
-      }
-    }
-
 #else
-    {
-      if(!cmd[0]) {
-	char *command = get_env(HEART_COMMAND_ENV);
-	if(!command)
-	  print_error("Would reboot. Terminating.");
-	else {
-	  kill_old_erlang();
-	  /* suppress gcc warning with 'if' */
-	  if(system(command));
-	  print_error("Executed \"%s\". Terminating.",command);
+	if(!cmd[0]) {
+	    char *command = get_env(HEART_COMMAND_ENV);
+	    if(!command)
+		print_error("Would reboot. Terminating.");
+	    else {
+		kill_old_erlang();
+		/* suppress gcc warning with 'if' */
+		if(system(command));
+		print_error("Executed \"%s\". Terminating.",command);
+	    }
+	    free_env_val(command);
+	} else {
+	    kill_old_erlang();
+	    /* suppress gcc warning with 'if' */
+	    if(system((char*)&cmd[0]));
+	    print_error("Executed \"%s\". Terminating.",cmd);
 	}
-	free_env_val(command);
-      }
-      else {
-	kill_old_erlang();
-	/* suppress gcc warning with 'if' */
-	if(system((char*)&cmd[0]));
-	print_error("Executed \"%s\". Terminating.",cmd);
-      }
+#endif
     }
     break;
-#endif
   } /* switch(reason) */
 }
 
