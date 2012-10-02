@@ -265,6 +265,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       </type>
       <desc>
         <p>Computes a message digest of type <c>Type</c> from <c>Data</c>.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     <func>
@@ -277,6 +279,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
         which digest to use. The returned context should be used as argument
 	to <seealso marker="#hash_update/2">hash_update</seealso>.</p>
+	<p>May throw exception <c>notsup</c> in case the chosen <c>Type</c>
+	is not supported by the underlying OpenSSL implementation.</p>
       </desc>
     </func>
     <func>

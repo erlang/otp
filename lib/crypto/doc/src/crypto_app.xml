@@ -62,7 +62,7 @@
   <section>
     <title>OpenSSL libraries</title>
     <p>The current implementation of the Erlang Crypto application is
-      based on the <em>OpenSSL</em> package version 0.9.7 or higher.
+      based on the <em>OpenSSL</em> package version 0.9.8 or higher.
       There are source and binary releases on the web.
       </p>
     <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
