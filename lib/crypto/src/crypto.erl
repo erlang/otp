@@ -78,12 +78,11 @@
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
 		    sha224_mac, sha256_mac, sha384_mac, sha512_mac,
-                    sha_mac_init, sha_mac_update, sha_mac_final,
 		    des_cbc_encrypt, des_cbc_decrypt,
 		    des_cfb_encrypt, des_cfb_decrypt,
 		    des_ecb_encrypt, des_ecb_decrypt,
-		    des_ede3_cbc_encrypt, des_ede3_cbc_decrypt,
-		    des_ede3_cfb_encrypt, des_ede3_cfb_decrypt,
+		    des3_cbc_encrypt, des3_cbc_decrypt,
+		    des3_cfb_encrypt, des3_cfb_decrypt,
 		    aes_cfb_128_encrypt, aes_cfb_128_decrypt,
 		    rand_bytes,
 		    strong_rand_bytes,
@@ -103,6 +102,13 @@
 		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
 		    aes_ctr_encrypt, aes_ctr_decrypt,
                     aes_ctr_stream_init, aes_ctr_stream_encrypt, aes_ctr_stream_decrypt,
+		    aes_cbc_ivec, blowfish_cbc_encrypt, blowfish_cbc_decrypt,
+		    blowfish_cfb64_encrypt, blowfish_cfb64_decrypt,
+		    blowfish_ecb_encrypt, blowfish_ecb_decrypt, blowfish_ofb64_encrypt,
+		    des_cbc_ivec, des_cfb_ivec, erlint, mpint,
+		    hash, hash_init, hash_update, hash_final,
+		    hmac_init, hmac_update, hmac_final, hmac_final_n, info,
+		    rc2_cbc_encrypt, rc2_cbc_decrypt,
 		    info_lib]).
 
 -type rsa_digest_type() :: 'md5' | 'sha' | 'sha224' | 'sha256' | 'sha384' | 'sha512'.
@@ -597,12 +603,12 @@ des_ecb_crypt(_Key, _Data, _IsEncrypt) -> ?nif_stub.
 			     binary().
 
 des3_cbc_encrypt(Key1, Key2, Key3, IVec, Data) ->
-    des_ede3_cbc_encrypt(Key1, Key2, Key3, IVec, Data).
+    des_ede3_cbc_crypt(Key1, Key2, Key3, IVec, Data, true).
 des_ede3_cbc_encrypt(Key1, Key2, Key3, IVec, Data) ->
     des_ede3_cbc_crypt(Key1, Key2, Key3, IVec, Data, true).
 
 des3_cbc_decrypt(Key1, Key2, Key3, IVec, Data) ->
-    des_ede3_cbc_decrypt(Key1, Key2, Key3, IVec, Data).
+    des_ede3_cbc_crypt(Key1, Key2, Key3, IVec, Data, false).
 des_ede3_cbc_decrypt(Key1, Key2, Key3, IVec, Data) ->
     des_ede3_cbc_crypt(Key1, Key2, Key3, IVec, Data, false).
 
@@ -617,13 +623,9 @@ des_ede3_cbc_crypt(_Key1, _Key2, _Key3, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 			     binary().
 
 des3_cfb_encrypt(Key1, Key2, Key3, IVec, Data) ->
-    des_ede3_cfb_encrypt(Key1, Key2, Key3, IVec, Data).
-des_ede3_cfb_encrypt(Key1, Key2, Key3, IVec, Data) ->
     des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, true).
 
 des3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
-    des_ede3_cfb_decrypt(Key1, Key2, Key3, IVec, Data).
-des_ede3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
     des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, false).
 
 des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, IsEncrypt) ->

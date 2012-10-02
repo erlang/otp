@@ -194,7 +194,16 @@ info(Config) when is_list(Config) ->
 	    {skip,"Missing crypto application"};
 	{_,_} ->
 	    ?line crypto:start(),
-	    ?line crypto:info(),
+	    ?line Info = crypto:info(),
+	    ?line Exports = lists:usort([F || {F,_} <- crypto:module_info(exports)]),
+	    ?line [] = Info -- Exports,
+	    ?line NotInInfo = Exports -- Info,
+	    io:format("NotInInfo = ~p\n", [NotInInfo]),
+	    BlackList = lists:sort([des_ede3_cbc_decrypt, des_ede3_cbc_encrypt,
+				    dh_check, dh_generate_parameters,
+				    module_info, start, stop, version]),
+	    ?line BlackList = NotInInfo,
+
 	    ?line InfoLib = crypto:info_lib(),
 	    ?line [_|_] = InfoLib,
 	    F = fun([{Name,VerN,VerS}|T],Me) ->
