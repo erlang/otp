@@ -47,7 +47,7 @@
 
 %% Internal exports.
 -export([sender/3, not_owner/1, passive_sockets_server/2, priority_server/1, 
-	 otp_7731_server/1, zombie_server/2]).
+	 otp_7731_server/1, zombie_server/2, do_iter_max_socks/2]).
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     Dog = test_server:timetrap(test_server:seconds(240)),
@@ -589,7 +589,13 @@ iter_max_socks(doc) ->
      "that we get the same number of sockets every time."];
 iter_max_socks(Config) when is_list(Config) ->
     N = 20,
-    L = do_iter_max_socks(N, initalize),
+    %% Run on a different node in order to limit the effect if this test fails.
+    Dir = filename:dirname(code:which(?MODULE)),
+    {ok,Node} = test_server:start_node(test_iter_max_socks,slave,
+				       [{args,"-pa " ++ Dir}]),
+    L = rpc:call(Node,?MODULE,do_iter_max_socks,[N, initalize]),
+    test_server:stop_node(Node),
+
     io:format("Result: ~p",[L]),
     all_equal(L),
     {comment, "Max sockets: " ++ integer_to_list(hd(L))}.
