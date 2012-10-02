@@ -1699,7 +1699,8 @@ nodes(_Arg) ->
            | in
            | out
            | binary
-           | eof.
+           | eof
+	   | hide.
 open_port(_PortName,_PortSettings) ->
     erlang:nif_error(undefined).
 
