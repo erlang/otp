@@ -626,7 +626,13 @@ des3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
 des_ede3_cfb_decrypt(Key1, Key2, Key3, IVec, Data) ->
     des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, false).
 
-des_ede3_cfb_crypt(_Key1, _Key2, _Key3, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
+des_ede3_cfb_crypt(Key1, Key2, Key3, IVec, Data, IsEncrypt) ->
+    case des_ede3_cfb_crypt_nif(Key1,Key2,Key3,IVec,Data,IsEncrypt) of
+	notsup -> erlang:error(notsup);
+	Bin -> Bin
+    end.
+
+des_ede3_cfb_crypt_nif(_Key1, _Key2, _Key3, _IVec, _Data, _IsEncrypt) -> ?nif_stub.
 
 %%
 %% Blowfish

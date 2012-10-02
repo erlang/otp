@@ -996,6 +996,12 @@ des3_cfb(doc) ->
 des3_cfb(suite) ->
     [];
 des3_cfb(Config) when is_list(Config) ->
+    case openssl_version() of
+	V when V < 16#90705F -> {skipped,"OpenSSL version too old"};
+	_ -> des3_cfb_do()
+    end.
+
+des3_cfb_do() ->
     ?line Key1 = hexstr2bin("0123456789abcdef"),
     ?line Key2 = hexstr2bin("fedcba9876543210"),
     ?line Key3 = hexstr2bin("0f2d4b6987a5c3e1"),

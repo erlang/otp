@@ -548,6 +548,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           keys, and <c>IVec</c> is an arbitrary initializing
           vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
           <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+	<p>May throw exception <c>notsup</c> for old OpenSSL
+	  versions (0.9.7) that does not support this encryption mode.</p>
       </desc>
     </func>
     <func>
@@ -565,6 +567,8 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           and <c>IVec</c> must have the same values as those used when
           encrypting.  The lengths of <c>Key1</c>, <c>Key2</c>,
           <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
+	<p>May throw exception <c>notsup</c> for old OpenSSL
+	  versions (0.9.7) that does not support this encryption mode.</p>
       </desc>
     </func>
 
