@@ -45,6 +45,5 @@
   </description>
   <xi:include href="embedded_solaris.xml"/>
   <xi:include href="embedded_nt.xml"/>
-  <xi:include href="vxworks.xml"/>
 </part>
 
