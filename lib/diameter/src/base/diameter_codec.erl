@@ -333,6 +333,9 @@ decode_header(_) ->
 %% wraparound counter. The 8-bit counter is incremented each time the
 %% system is restarted.
 
+sequence_numbers({_,_} = T) ->
+    T;
+
 sequence_numbers(#diameter_packet{bin = Bin})
   when is_binary(Bin) ->
     sequence_numbers(Bin);
