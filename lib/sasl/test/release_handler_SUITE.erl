@@ -63,7 +63,8 @@ cases() ->
      instructions, eval_appup, eval_appup_with_restart,
      supervisor_which_children_timeout,
      release_handler_which_releases, install_release_syntax_check,
-     upgrade_supervisor, upgrade_supervisor_fail, otp_9864].
+     upgrade_supervisor, upgrade_supervisor_fail, otp_9864,
+     otp_10463_upgrade_script_regexp].
 
 groups() ->
     [{release,[],
@@ -1660,6 +1661,15 @@ upgrade_gg(cleanup,Config) ->
     ok = stop_nodes(NodeNames).
 
 
+%%%-----------------------------------------------------------------
+%%% OTP-10463, Bug - release_handler could not handle regexp in appup
+%%% files.
+otp_10463_upgrade_script_regexp(_Config) ->
+    %% Assuming that kernel always has a regexp in it's appup
+    KernelVsn = vsn(kernel,current),
+    {ok,KernelVsn,_} =
+	release_handler:upgrade_script(kernel,code:lib_dir(kernel)),
+    ok.
 
 
 %%%=================================================================

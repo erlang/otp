@@ -494,10 +494,10 @@ find_script(App, Dir, OldVsn, UpOrDown) ->
 			  up -> UpFromScripts;
 			  down -> DownToScripts
 		      end,
-	    case lists:keysearch(OldVsn, 1, Scripts) of
-		{value, {_OldVsn, Script}} ->
-		    {NewVsn, Script};
-		false ->
+	    case systools_relup:appup_search_for_version(OldVsn,Scripts) of
+		{ok,Script} ->
+		    {NewVsn,Script};
+		error ->
 		    throw({version_not_in_appup, OldVsn})
 	    end;
 	{error, enoent} ->

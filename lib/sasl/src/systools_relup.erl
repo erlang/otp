@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -114,7 +114,8 @@
 
 -define(R15_SASL_VSN,"2.2").
 
-%% For test purposes only - used by kernel, stdlib and sasl tests
+%% Used by release_handler:find_script/4.
+%% Also used by kernel, stdlib and sasl tests
 -export([appup_search_for_version/2]).
 
 %%-----------------------------------------------------------------
