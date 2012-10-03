@@ -318,22 +318,22 @@ channel_data(ChannelId, DataType, Data,
 	     From) ->
     
     case ssh_channel:cache_lookup(Cache, ChannelId) of
-		#channel{remote_id = Id, sent_close = false} = Channel0 ->
+	#channel{remote_id = Id, sent_close = false} = Channel0 ->
 	    {SendList, Channel} = update_send_window(Channel0#channel{flow_control = From}, DataType,
 						     Data, Connection),
 	    Replies = 
 		lists:map(fun({SendDataType, SendData}) -> 
-				      {connection_reply, ConnectionPid, 
-				       channel_data_msg(Id, 
-							SendDataType, 
-							SendData)}
+				  {connection_reply, ConnectionPid,
+				   channel_data_msg(Id,
+						    SendDataType,
+						    SendData)}
 			  end, SendList),
 	    FlowCtrlMsgs = flow_control(Replies, 
 					Channel,
 					Cache),
 	    {{replies, Replies ++ FlowCtrlMsgs}, Connection};
-		_ ->
-			gen_server:reply(From, {error, closed}),
+	_ ->
+	    gen_server:reply(From, {error, closed}),
 	    {noreply, Connection}
     end.
 
