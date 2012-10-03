@@ -380,13 +380,7 @@ make_common_test_args(Args0, Options0, _Vars) ->
 		      [{logdir,"../test_server"}]
 	     end,
 
-    TimeTrap = case test_server:timetrap_scale_factor() of
-		   1 ->
-		       [];
-		   Scale ->
-		       [{multiply_timetraps, Scale},
-			{scale_timetraps, true}]
-	       end,
+    TimeTrap = [{scale_timetraps, true}],
 
     {ConfigPath,
      Options} = case {os:getenv("TEST_CONFIG_PATH"),
