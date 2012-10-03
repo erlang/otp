@@ -26,7 +26,6 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	test_server_SUITE \
-	test_server_line_SUITE \
 	test_server_test_lib
 
 ERL_FILES= $(MODULES:%=%.erl)
@@ -65,7 +64,6 @@ make_emakefile:
 	>> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
-	cd ../src && $(MAKE) ../ebin/test_server_line.beam
 	erl $(ERL_MAKE_FLAGS) -make
 
 clean:

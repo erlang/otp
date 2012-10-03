@@ -92,8 +92,8 @@ test_server_SUITE(Config) ->
 %    rpc:call(Node,dbg, tracer,[]),
 %    rpc:call(Node,dbg, p,[all,c]),
 %    rpc:call(Node,dbg, tpl,[test_server_ctrl,x]),
-    run_test_server_tests("test_server_SUITE", 39, 1, 31, 
-			  20, 9, 1, 11, 2, 26, Config).
+    run_test_server_tests("test_server_SUITE", 38, 1, 30,
+			  19, 9, 1, 11, 2, 25, Config).
 
 test_server_parallel01_SUITE(Config) ->
     run_test_server_tests("test_server_parallel01_SUITE", 37, 0, 19, 
@@ -120,7 +120,7 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
 		      NUsrSkip, NAutoSkip, 
 		      NActualSkip, NActualFail, NActualSucc, Config) ->
 
-    ct:log("See test case log files under:~n~p~n",
+    ct:log("<a href=\"file://~s\">Test case log files</a>\n",
 	   [filename:join([proplists:get_value(priv_dir, Config),
 			   SuiteName++".logs"])]),
 
@@ -138,17 +138,16 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
     
     rpc:call(Node,test_server_ctrl, stop, []),
 
-    {ok,#suite{ n_cases = NCases,
-		n_cases_failed = NFail,
-		n_cases_expected = NExpected, 
-		n_cases_succ = NSucc,
-		n_cases_user_skip = NUsrSkip,
-		n_cases_auto_skip = NAutoSkip,
-		cases = Cases }} = Data =
-	test_server_test_lib:parse_suite(
-	  hd(filelib:wildcard(
-	       filename:join([proplists:get_value(priv_dir, Config), 
-			      SuiteName++".logs","run*","suite.log"])))),
+    {ok,Data} =	test_server_test_lib:parse_suite(
+		  hd(filelib:wildcard(
+		       filename:join([proplists:get_value(priv_dir, Config), 
+				      SuiteName++".logs","run*","suite.log"])))),
+    check([{"Number of cases",NCases,Data#suite.n_cases},
+	   {"Number failed",NFail,Data#suite.n_cases_failed},
+	   {"Number expected",NExpected,Data#suite.n_cases_expected},
+	   {"Number successful",NSucc,Data#suite.n_cases_succ},
+	   {"Number user skipped",NUsrSkip,Data#suite.n_cases_user_skip},
+	   {"Number auto skipped",NAutoSkip,Data#suite.n_cases_auto_skip}], ok),
     {NActualSkip,NActualFail,NActualSucc} = 
 	lists:foldl(fun(#tc{ result = skip },{S,F,Su}) ->
 			     {S+1,F,Su};
@@ -156,8 +155,17 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
 			     {S,F,Su+1};
 			(#tc{ result = failed },{S,F,Su}) ->
 			     {S,F+1,Su}
-			  end,{0,0,0},Cases),
+			  end,{0,0,0},Data#suite.cases),
     Data.
+
+check([{Str,Same,Same}|T], Status) ->
+    io:format("~s: ~p\n", [Str,Same]),
+    check(T, Status);
+check([{Str,Expected,Actual}|T], _) ->
+    io:format("~s: expected ~p, actual ~p\n", [Str,Expected,Actual]),
+    check(T, error);
+check([], ok) -> ok;
+check([], error) -> ?t:fail().
 
 until(Fun) ->
     case Fun() of
