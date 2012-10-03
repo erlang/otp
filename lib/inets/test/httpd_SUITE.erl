@@ -530,24 +530,10 @@ init_per_testcase3(Case, Config) ->
     application:stop(inets),
     application:stop(ssl),
     cleanup_mnesia(),
-
-    %% Set trace level
-    case lists:reverse(atom_to_list(Case)) of
-	"tset_emit" ++ _Rest -> % test-cases ending with time_test
-	    tsp("init_per_testcase3(~w) -> disabling trace", [Case]),
-	    inets:disable_trace();
-	_ ->
-	    tsp("init_per_testcase3(~w) -> enabling trace", [Case]),
-	    %% TraceLevel = 70, 
-	    TraceLevel = max, 
-	    TraceDest  = io, 
-	    inets:enable_trace(TraceLevel, TraceDest, httpd)
-    end,
-	    
+ 
     %% Start initialization
     tsp("init_per_testcase3(~w) -> start init", [Case]),
-    
-
+ 
     Dog = test_server:timetrap(inets_test_lib:minutes(10)),
     NewConfig = lists:keydelete(watchdog, 1, Config),
     TcTopDir = ?config(tc_top_dir, Config),

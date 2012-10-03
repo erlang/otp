@@ -276,8 +276,6 @@ secure_cookie(Config) when is_list(Config) ->
     tsp("secure_cookie -> entry with"
 	"~n   Config: ~p", [Config]),
     
-    inets:enable_trace(max, io, httpc),
-
     %% httpc:reset_cookies(), 
 
     tsp("secure_cookie -> Cookies 1: ~p", [httpc:which_cookies()]),
@@ -309,7 +307,6 @@ secure_cookie(Config) when is_list(Config) ->
 
     tsp("secure_cookie -> Cookies 4: ~p", [httpc:which_cookies()]),
 
-    inets:disable_trace(),
     tsp("secure_cookie -> done"),
     ok.
     

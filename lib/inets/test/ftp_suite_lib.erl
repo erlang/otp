@@ -206,7 +206,6 @@ init_per_testcase(Case, Config)
 
 init_per_testcase(Case, Config)  ->
     put(ftp_testcase, Case), 
-    inets:enable_trace(max, io, ftpc),
     do_init_per_testcase(Case, Config).
 
 do_init_per_testcase(Case, Config)  
