@@ -1758,7 +1758,10 @@ compare_var_list(Var, VarList, RaceVarMap) ->
 
 ets_list_args(MaybeList) ->
   case is_list(MaybeList) of
-    true -> [ets_tuple_args(T) || T <- MaybeList];
+    true ->
+      try [ets_tuple_args(T) || T <- MaybeList]
+      catch _:_ -> [?no_label]
+      end;
     false -> [ets_tuple_args(MaybeList)]
  end.
 
