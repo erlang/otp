@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -61,7 +61,7 @@ id_transform(Config) when is_list(Config) ->
     ?line {module,erl_id_trans}=code:load_binary(erl_id_trans,File,Bin),
     ?line case test_server:purify_is_running() of
 	      false ->
-		  Dog = ?t:timetrap(?t:hours(1)),
+		  Dog = ct:timetrap(?t:hours(1)),
 		  ?line Res = run_in_test_suite(),
 		  ?t:timetrap_cancel(Dog),
 		  Res;
