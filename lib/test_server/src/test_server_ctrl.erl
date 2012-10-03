@@ -3734,43 +3734,37 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
 run_test_case(Ref, Num, Mod, Func, Args, RunInit, Where, TimetrapData) ->
     file:set_cwd(filename:dirname(get(test_server_dir))),
     run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
-		   TimetrapData, [], [], self()).
+		   TimetrapData, [], self()).
 
 run_test_case(Ref, Num, Mod, Func, Args, skip_init, Where, TimetrapData, Mode) ->
     %% a conf case is always executed by the main process
     run_test_case1(Ref, Num, Mod, Func, Args, skip_init, Where,
-		   TimetrapData, [], Mode, self());
+		   TimetrapData, Mode, self());
 
 run_test_case(Ref, Num, Mod, Func, Args, RunInit, Where, TimetrapData, Mode) ->
     file:set_cwd(filename:dirname(get(test_server_dir))),
+    Main = self(),
     case check_prop(parallel, Mode) of
 	false ->
 	    %% this is a sequential test case
 	    run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
-			   TimetrapData, [], Mode, self());
+			   TimetrapData, Mode, Main);
 	_Ref ->
 	    %% this a parallel test case, spawn the new process
-	    Main = self(),
-	    {dictionary,State} = process_info(self(), dictionary),
-	    spawn_link(fun() ->
-			   run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
-					  TimetrapData, State, Mode, Main)
-		       end)
+	    Dictionary = get(),
+	    {dictionary,Dictionary} = process_info(self(), dictionary),
+	    spawn_link(
+	      fun() ->
+		      process_flag(trap_exit, true),
+		      [put(Key, Val) || {Key,Val} <- Dictionary],
+		      set_io_buffering({tc,Main}),
+		      run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
+				     Where, TimetrapData, Mode, Main)
+	      end)
     end.
 
 run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
-	       TimetrapData, State, Mode, Main) ->
-    %% if this runs on a parallel test case process,
-    %% copy the dictionary from the main process
-    do_if_parallel(Main, fun() -> process_flag(trap_exit, true) end, ok),
-    CopyDict = fun() -> lists:foreach(fun({Key,Val}) ->
-					      put(Key, Val)
-				      end, State)
-	       end,
-    do_if_parallel(Main, CopyDict, ok),
-    do_if_parallel(Main, fun() -> 
-				 set_io_buffering({tc,Main})
-			 end, ok),
+	       TimetrapData, Mode, Main) ->
     %% if io is being buffered, send start io session message
     %% (no matter if case runs on parallel or main process)
     case is_io_buffered() of
@@ -3835,7 +3829,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	  [num2str(Num),fw_name(Mod),GroupName,MinorBase,Func,
 	   MinorBase,MinorBase]),
 
-    do_if_parallel(Main, ok, fun erlang:yield/0),
+    do_unless_parallel(Main, fun erlang:yield/0),
 
     RejectIoReqs = get(test_server_reject_io_reqs),
     %% run the test case
@@ -3853,7 +3847,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
     print_timestamp(minor, "Ended at "),
     print(major, "=ended         ~s", [lists:flatten(timestamp_get(""))]),
 
-    do_if_parallel(Main, ok, fun() -> file:set_cwd(filename:dirname(TSDir)) end),
+    do_unless_parallel(Main, fun() -> file:set_cwd(filename:dirname(TSDir)) end),
 
     %% call the appropriate progress function clause to print the results to log
     Status =
@@ -3975,18 +3969,11 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 %%--------------------------------------------------------------------
 %% various help functions
 
-%% Call If() if we're on parallel process, or
-%% call Else() if we're on main process
-do_if_parallel(Pid, If, Else) ->
+%% Call Action if we are running on the main process (not parallel).
+do_unless_parallel(Main, Action) when is_function(Action, 0) ->
     case self() of
-	Pid ->
-	    if is_function(Else) -> Else();
-	       true -> Else
-	    end;
-	_ ->
-	    if is_function(If) -> If();
-	       true -> If
-	    end
+	Main -> Action();
+	_ -> ok
     end.
 
 num2str(0) -> "";
