@@ -162,14 +162,17 @@ run(Opts) ->
     {error, Msg} ->
       throw({dialyzer_error, Msg});
     OptsRecord ->
-      case cl_check_init(OptsRecord) of
-	{ok, ?RET_NOTHING_SUSPICIOUS} ->
-	  case dialyzer_cl:start(OptsRecord) of
-	    {?RET_DISCREPANCIES, Warnings} -> Warnings;
-	    {?RET_NOTHING_SUSPICIOUS, []}  -> []
-	  end;
-	{error, ErrorMsg1} ->
-	  throw({dialyzer_error, ErrorMsg1})
+      case OptsRecord#options.check_plt of
+        true ->
+          case cl_check_init(OptsRecord) of
+            {ok, ?RET_NOTHING_SUSPICIOUS} -> ok;
+            {error, ErrorMsg1} -> throw({dialyzer_error, ErrorMsg1})
+          end;
+        false -> ok
+      end,
+      case dialyzer_cl:start(OptsRecord) of
+        {?RET_DISCREPANCIES, Warnings} -> Warnings;
+        {?RET_NOTHING_SUSPICIOUS, []}  -> []
       end
   catch
     throw:{dialyzer_error, ErrorMsg} ->

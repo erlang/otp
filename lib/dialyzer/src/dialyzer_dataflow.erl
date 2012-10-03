@@ -91,9 +91,8 @@
 		warning_mode = false :: boolean(),
 		warnings = []        :: [dial_warning()],
 		work                 :: {[_], [_], set()},
-		module               :: module(),
-		behaviour_api_dict = [] ::
-		  dialyzer_behaviours:behaviour_api_dict()}).
+		module               :: module()
+               }).
 
 -record(map, {dict = dict:new()   :: dict(),
               subst = dict:new()  :: dict(),
@@ -135,38 +134,15 @@ get_fun_types(Tree, Plt, Callgraph, Records) ->
 analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
   debug_pp(Tree, false),
   Module = cerl:atom_val(cerl:module_name(Tree)),
-  RaceDetection = dialyzer_callgraph:get_race_detection(Callgraph),
-  BehaviourTranslations =
-    case RaceDetection of
-      true -> dialyzer_behaviours:translatable_behaviours(Tree);
-      false -> []
-    end,
   TopFun = cerl:ann_c_fun([{label, top}], [], Tree),
-  State =
-    state__new(Callgraph, TopFun, Plt, Module, Records, BehaviourTranslations),
+  State = state__new(Callgraph, TopFun, Plt, Module, Records),
   State1 = state__race_analysis(not GetWarnings, State),
   State2 = analyze_loop(State1),
   case GetWarnings of
     true ->
       State3 = state__set_warning_mode(State2),
       State4 = analyze_loop(State3),
-
-      %% EXPERIMENTAL: Turn all behaviour API calls into calls to the
-      %%               respective callback module's functions.
-
-      case BehaviourTranslations of
-	[] -> dialyzer_races:race(State4);
-	Behaviours ->
-          Digraph = dialyzer_callgraph:get_digraph(State4#state.callgraph),
-	  TranslatedCallgraph =
-	    dialyzer_behaviours:translate_callgraph(Behaviours, Module,
-						    Callgraph),
-          St =
-            dialyzer_races:race(State4#state{callgraph = TranslatedCallgraph}),
-          FinalCallgraph = dialyzer_callgraph:put_digraph(Digraph,
-							   St#state.callgraph),
-          St#state{callgraph = FinalCallgraph}
-      end;
+      dialyzer_races:race(State4);
     false ->
       State2
   end.
@@ -530,21 +506,8 @@ handle_apply_or_call([{TypeOfApply, {Fun, Sig, Contr, LocalRet}}|Left],
         Ann = cerl:get_ann(Tree),
         File = get_file(Ann),
         Line = abs(get_line(Ann)),
-
-	%% EXPERIMENTAL: Turn a behaviour's API call into a call to the
-	%%               respective callback module's function.
-
-	Module = State#state.module,
-	BehApiDict = State#state.behaviour_api_dict,
-	{RealFun, RealArgTypes, RealArgs} =
-	  case dialyzer_behaviours:translate_behaviour_api_call(Fun, ArgTypes,
-								Args, Module,
-								BehApiDict) of
-	    plain_call    -> {Fun, ArgTypes, Args};
-	    BehaviourAPI  -> BehaviourAPI
-	  end,
-        dialyzer_races:store_race_call(RealFun, RealArgTypes, RealArgs,
-				       {File, Line}, State);
+        dialyzer_races:store_race_call(Fun, ArgTypes, Args,
+                                       {File, Line}, State);
       false -> State
     end,
   FailedConj = any_none([RetWithoutLocal|NewArgTypes]),
@@ -2711,7 +2674,7 @@ determine_mode(Type, Opaques) ->
 %%%
 %%% ===========================================================================
 
-state__new(Callgraph, Tree, Plt, Module, Records, BehaviourTranslations) ->
+state__new(Callgraph, Tree, Plt, Module, Records) ->
   Opaques = erl_types:module_builtin_opaques(Module) ++
     erl_types:t_opaque_from_records(Records),
   TreeMap = build_tree_map(Tree),
@@ -2725,7 +2688,7 @@ state__new(Callgraph, Tree, Plt, Module, Records, BehaviourTranslations) ->
   #state{callgraph = Callgraph, envs = Env, fun_tab = FunTab, opaques = Opaques,
 	 plt = Plt, races = dialyzer_races:new(), records = Records,
 	 warning_mode = false, warnings = [], work = Work, tree_map = TreeMap,
-	 module = Module, behaviour_api_dict = BehaviourTranslations}.
+	 module = Module}.
 
 state__warning_mode(#state{warning_mode = WM}) ->
   WM.
