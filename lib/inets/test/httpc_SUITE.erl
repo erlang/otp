@@ -337,7 +337,6 @@ init_per_testcase(Case, Timeout, Config) ->
     %% so this value will be overwritten (see "ipv6_" below).
     %% </IPv6>
 
-    inets:enable_trace(max, io, httpc),
     %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp]),
     tsp("init_per_testcase(~w) -> done when"
@@ -381,7 +380,6 @@ end_per_testcase(http_save_to_file = Case, Config) ->
 end_per_testcase(Case, Config) ->
     io:format(user, "~n~n*** END ~w:~w ***~n~n", 
 	      [?MODULE, Case]),
-    dbg:stop(), % ?
     case atom_to_list(Case) of
 	"ipv6_" ++ _Rest ->
 	    tsp("end_per_testcase(~w) -> stop ssl", [Case]),
