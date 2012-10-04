@@ -196,7 +196,7 @@
        <name>send(ConnectionRef, ChannelId, Data, Timeout) -></name>
        <name>send(ConnectionRef, ChannelId, Type, Data) -></name>
        <name>send(ConnectionRef, ChannelId, Type, Data, TimeOut) ->
-       ok | {error, timeout}</name>
+       ok | {error, timeout} | {error, closed}</name>
        <fsummary>Sends channel data </fsummary>
        <type>
 	<v> ConnectionRef = ssh_connection_ref() </v>
@@ -212,7 +212,7 @@
      </func>
      
      <func>
-       <name>send_eof(ConnectionRef, ChannelId) -> ok </name>
+       <name>send_eof(ConnectionRef, ChannelId) -> ok | {error, closed}</name>
        <fsummary>Sends eof on the channel <c>ChannelId</c>.  </fsummary>
        <type>
 	<v> ConnectionRef = ssh_connection_ref() </v>

@@ -36,7 +36,9 @@ MODULES= \
 	ssh_to_openssh_SUITE \
 	ssh_sftp_SUITE \
 	ssh_sftpd_SUITE \
-        ssh_sftpd_erlclient_SUITE
+	ssh_sftpd_erlclient_SUITE \
+	ssh_connection_SUITE \
+	ssh_echo_server
 
 HRL_FILES_NEEDED_IN_TEST= \
 	$(ERL_TOP)/lib/ssh/src/ssh.hrl \

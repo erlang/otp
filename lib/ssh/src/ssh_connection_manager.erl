@@ -163,7 +163,7 @@ send(ConnectionManager, ChannelId, Type, Data, Timeout) ->
     call(ConnectionManager, {data, ChannelId, Type, Data}, Timeout).
 
 send_eof(ConnectionManager, ChannelId) ->
-    cast(ConnectionManager, {eof, ChannelId}).
+    call(ConnectionManager, {eof, ChannelId}).
 
 %%====================================================================
 %% gen_server callbacks
@@ -294,6 +294,18 @@ handle_call({data, ChannelId, Type, Data}, From,
 		   connection = ConnectionPid} = State) ->
     channel_data(ChannelId, Type, Data, Connection0, ConnectionPid, From,
 		 State);
+
+handle_call({eof, ChannelId}, _From,
+			#state{connection = Pid, connection_state =
+					   #connection{channel_cache = Cache}} = State) ->
+	case ssh_channel:cache_lookup(Cache, ChannelId) of
+		#channel{remote_id = Id, sent_close = false} ->
+			send_msg({connection_reply, Pid,
+					  ssh_connection:channel_eof_msg(Id)}),
+			{reply, ok, State};
+		_ ->
+			{reply, {error,closed}, State}
+	end;
 
 handle_call({connection_info, Options}, From, 
 	    #state{connection = Connection} = State) ->
@@ -453,18 +465,6 @@ handle_cast({adjust_window, ChannelId, Bytes},
     end,
     {noreply, State};
 
-handle_cast({eof, ChannelId}, 
-	    #state{connection = Pid, connection_state = 
-		   #connection{channel_cache = Cache}} = State) ->
-    case ssh_channel:cache_lookup(Cache, ChannelId) of			 
-	#channel{remote_id = Id} ->
-	    send_msg({connection_reply, Pid, 
-		      ssh_connection:channel_eof_msg(Id)}),
-	    {noreply, State};
-	undefined -> 
-	    {noreply, State}
-    end;
-
 handle_cast({success, ChannelId},  #state{connection = Pid} = State) ->
     Msg = ssh_connection:channel_success_msg(ChannelId),
     send_msg({connection_reply, Pid, Msg}),
@@ -614,6 +614,8 @@ do_send_msg({connection_reply, Pid, Data}) ->
     ssh_connection_handler:send(Pid, Msg);
 do_send_msg({flow_control, Cache, Channel, From, Msg}) ->
     ssh_channel:cache_update(Cache, Channel#channel{flow_control = undefined}),
+    gen_server:reply(From, Msg);
+do_send_msg({flow_control, From, Msg}) ->
     gen_server:reply(From, Msg).
 
 handle_request(ChannelPid, ChannelId, Type, Data, WantReply, From, 
