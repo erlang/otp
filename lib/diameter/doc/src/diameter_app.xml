@@ -325,31 +325,43 @@ or <seealso marker="#peer_down">peer_down/3</seealso> callback.</p>
 <v>Packet = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer = <seealso marker="#peer">peer()</seealso></v>
-<v>Action = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
+<v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
+<v>Send = {send, <seealso marker="#packet">packet()</seealso>
+                 | <seealso marker="#message">message()</seealso>}</v>
+<v>Discard = {discard, Reason} | discard</v>
+<v>PostF =
+    <seealso marker="diameter#evaluable">diameter:evaluable()</seealso>}</v>
 </type>
 <desc>
 <p>
 Invoked to return a request for encoding and transport.
-Allows the sender to access the selected peer's capabilities
-in order to set (for example) <c>Destination-Host</c> and/or
-<c>Destination-Realm</c> in the outgoing request, although the
-callback need not be limited to this usage.
+Allows the sender to use the selected peer's capabilities
+to modify the outgoing request.
 Many implementations may simply want to return <c>{send, Packet}</c></p>
 
 <p>
-A returned <seealso marker="#packet">packet()</seealso> should set the request to be encoded in its
+A returned <seealso marker="#packet">packet()</seealso> should set the
+request to be encoded in its
 <c>msg</c> field and can set the <c>transport_data</c> field in order
-to pass information to the transport module.
+to pass information to the transport process.
 Extra arguments passed to <seealso
 marker="diameter#call">diameter:call/4</seealso> can be used to
-communicate transport data to the callback.
-A returned <seealso marker="#packet">packet()</seealso> can also set the <c>header</c> field to a
-<c>#diameter_header{}</c> record in order to specify values that should
-be preserved in the outgoing request, although this should typically
-not be necessary and allows the callback to set header values
-inappropriately.
+communicate transport (or any other) data to the callback.</p>
+
+<p>
+A returned <seealso marker="#packet">packet()</seealso> can set
+the <c>header</c> field to a
+<c>#diameter_header{}</c> in order to specify values that should
+be preserved in the outgoing request, values otherwise being those in
+the header record contained in <c>Packet</c>.
 A returned <c>length</c>, <c>cmd_code</c> or <c>application_id</c> is
 ignored.</p>
+
+<p>
+A returned <c>PostF</c> will be evaluated on any encoded
+<c>#diameter_packet{}</c> prior to transmission, the <c>bin</c> field
+of this record containing the encoded binary.
+The return value is ignored.</p>
 
 <p>
 Returning <c>{discard, Reason}</c> causes the request to be aborted
@@ -364,13 +376,18 @@ discarded}</c>.</p>
 </func>
 
 <func>
-<name>Mod:prepare_retransmit(Packet, SvcName, Peer) -> Result</name>
+<name>Mod:prepare_retransmit(Packet, SvcName, Peer) -> Action</name>
 <fsummary>Return a request for encoding and retransmission.</fsummary>
 <type>
 <v>Packet  = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
-<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
-<v>Result  = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
+<v>Peer = <seealso marker="#peer">peer()</seealso></v>
+<v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
+<v>Send = {send, <seealso marker="#packet">packet()</seealso>
+                | <seealso marker="#message">message()</seealso>}</v>
+<v>Discard = {discard, Reason} | discard</v>
+<v>PostF =
+    <seealso marker="diameter#evaluable">diameter:evaluable()</seealso>}</v>
 </type>
 <desc>
 <p>
@@ -484,7 +501,11 @@ callback returned false.</p>
 <v>Packet  = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = term()</v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
-<v>Action  = Reply | {relay, [Opt]} | discard | {eval, Action, PostF}</v>
+<v>Action  = Reply
+           | {relay, [Opt]}
+           | discard
+           | {eval, Action, PostF}
+           | {eval_packet, Action, PostF}</v>
 <v>Reply   = {reply, <seealso marker="#message">message()</seealso>}
            | {protocol_error, 3000..3999}</v>
 <v>Opt     = <seealso marker="diameter#call_opt">diameter:call_opt()</seealso></v>
@@ -610,7 +631,17 @@ Discard the request.</p>
 <item>
 <p>
 Handle the request as if <c>Action</c> has been returned and then
-evaluate <c>PostF</c> in the request process.</p>
+evaluate <c>PostF</c> in the request process.
+The return value is ignored.</p>
+</item>
+
+<tag><c>{eval_packet, Action, PostF}</c></tag>
+<item>
+<p>
+Like <c>eval</c> but evaluate <c>PostF</c> on any encoded
+<c>#diameter_packet{}</c> prior to transmission, the <c>bin</c> field
+of this record containing the encoded binary.
+The return value is ignored.</p>
 </item>
 
 </taglist>
