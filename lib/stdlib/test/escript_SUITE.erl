@@ -34,7 +34,8 @@
 	 create_and_extract/1,
 	 foldl/1,
 	 overflow/1,
-	 verify_sections/3
+	 verify_sections/3,
+         unicode/1
 	]).
 
 -include_lib("test_server/include/test_server.hrl").
@@ -46,7 +47,7 @@ all() ->
     [basic, errors, strange_name, emulator_flags,
      module_script, beam_script, archive_script, epp,
      create_and_extract, foldl, overflow,
-     archive_script_file_access].
+     archive_script_file_access, unicode].
 
 groups() -> 
     [].
@@ -810,6 +811,8 @@ normalize_sections(Sections) ->
 	end.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+
 foldl(Config) when is_list(Config) ->
     {NewFile, _FileInfo,
      _EmuArg, _Source,
@@ -886,6 +889,20 @@ emulate_escript_foldl(Fun, Acc, File) ->
 	{error, Reason} ->
 	    {error, Reason}
     end.
+
+unicode(Config) when is_list(Config) ->
+    Data = ?config(data_dir, Config),
+    Dir = filename:absname(Data),		%Get rid of trailing slash.
+    run(Dir, "unicode1",
+        [<<"escript: exception error: an error occurred when evaluating"
+           " an arithmetic expression\n  in operator  '/'/2\n     "
+           "called as <<170>> / <<170>>\nExitCode:127">>]),
+    run(Dir, "unicode2",
+        [<<"escript: exception error: an error occurred when evaluating"
+           " an arithmetic expression\n  in operator  '/'/2\n     "
+           "called as <<\"\xaa\">> / <<\"\xaa\">>\nExitCode:127">>]),
+    run(Dir, "unicode3", [<<"ExitCode:0">>]),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -37,6 +37,18 @@
     <p>The Erlang code preprocessor includes functions which are used
       by <c>compile</c> to preprocess macros and include files before
       the actual parsing takes place.</p>
+    <p>The Erlang source file <marker
+      id="encoding"><em>encoding</em></marker> is selected by a
+      comment in one of the first two lines of the source file. The
+      first string that matches the regular expression
+      <c>coding\s*[:=]\s*([-a-zA-Z0-9])+</c> selects the encoding. If
+      the matching string is not a valid encoding it is ignored. The
+      valid encodings are <c>Latin-1</c> and <c>UTF-8</c> where the
+      case of the characters can be chosen freely. Examples:</p>
+      <pre>
+%% coding: utf-8
+%% For this file we have chosen encoding = Latin-1
+%% -*- coding: latin-1 -*-</pre>
   </description>
   <datatypes>
     <datatype>
@@ -45,6 +57,9 @@
     <datatype>
       <name name="epp_handle"></name>
       <desc><p>Handle to the epp server.</p></desc>
+    </datatype>
+    <datatype>
+      <name name="source_encoding"></name>
     </datatype>
   </datatypes>
   <funcs>
@@ -80,6 +95,50 @@
         <p>Preprocesses and parses an Erlang source file.
           Note that the tuple <c>{eof, <anno>Line</anno>}</c> returned at end-of-file is
           included as a "form".</p>
+      </desc>
+    </func>
+    <func>
+      <name name="default_encoding" arity="0"/>
+      <fsummary>Return the default encoding of Erlang source files</fsummary>
+      <desc>
+        <p>Returns the default encoding of Erlang source files.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="encoding_to_string" arity="1"/>
+      <fsummary>Return a string representation of an encoding</fsummary>
+      <desc>
+        <p>Returns a string representation of an encoding. The string
+        is recognized by <c>read_encoding/1,2</c> and
+        <c>set_encoding/1</c> as a valid encoding.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="read_encoding" arity="1"/>
+      <name name="read_encoding" arity="2"/>
+      <fsummary>Read the encoding from a file</fsummary>
+      <desc>
+        <p>Read the <seealso marker="#encoding">encoding</seealso> from
+          a file. Returns the read encoding, or <c>none</c> if no
+          valid encoding was found.</p>
+        <p>The option <c>in_comment_only</c> is <c>true</c> by
+          default, which is correct for Erlang source files. If set to
+          <c>false</c> the encoding string does not necessarily have to
+          occur in a comment.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="set_encoding" arity="1"/>
+      <fsummary>Read and set the encoding of an IO device</fsummary>
+      <desc>
+        <p>Reads the <seealso marker="#encoding">encoding</seealso> from
+          an IO device and sets the encoding of the device
+          accordingly. The position of the IO device referenced by
+          <c><anno>File</anno></c> is not affected. If no valid
+          encoding can be read from the IO device the encoding of the
+          IO device is set to the default encoding.</p>
+        <p>Returns the read encoding, or <c>none</c> if no valid
+          encoding was found.</p>
       </desc>
     </func>
     <func>

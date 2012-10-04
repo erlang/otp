@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
 
--export([ error_1/1, error_2/1, iso88591/1, otp_7810/1]).
+-export([ error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -59,7 +59,7 @@ end_per_testcase(_Case, Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [{group, error}, iso88591, otp_7810].
+    [{group, error}, iso88591, otp_7810, otp_10302].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -823,7 +823,7 @@ unicode() ->
     ?line {ok,[{char,1,1}],1} = erl_scan:string([$$,$\\,$^,1089]),
 
     ?line {error,{1,erl_scan,Error},1} = erl_scan:string("\"qa\x{aaa}"),
-    ?line "unterminated string starting with \"qa\\x{AAA}\"" =
+    ?line "unterminated string starting with \"qa"++[2730]++"\"" =
         erl_scan:format_error(Error),
     ?line {error,{{1,1},erl_scan,_},{1,11}} =
         erl_scan:string("\"qa\\x{aaa}",{1,1}),
@@ -887,9 +887,10 @@ unicode() ->
                {char,_,$d},{']',_}],{1,8}} = erl_scan:string(Str1, {1,1}),
     ?line test(Str1),
     Comment = "%% "++[1089],
-    ?line {ok,[{comment,1,[$%,$%,$\s,1089]}],1} =
+    %% Returned a comment In R15B03:
+    {error,{1,erl_scan,{illegal,character}},1} =
         erl_scan:string(Comment, 1, return),
-    ?line {ok,[{comment,_,[$%,$%,$\s,1089]}],{1,5}} =
+    {error,{{1,1},erl_scan,{illegal,character}},{1,5}} =
         erl_scan:string(Comment, {1,1}, return),
     ok.
 
@@ -956,6 +957,182 @@ more_chars() ->
 
     ?line {error,{{1,1},erl_scan,{illegal,character}},{1,4}} =
         erl_scan:string("$\\xg", {1,1}),
+    ok.
+
+otp_10302(doc) ->
+    "OTP-10302. Unicode characters scanner/parser.";
+otp_10302(suite) ->
+    [];
+otp_10302(Config) when is_list(Config) ->
+    %% From unicode():
+    {error,{1,erl_scan,{illegal,atom}},1} =
+        erl_scan:string("'a"++[1089]++"b'", 1, unicode),
+    {error,{{1,1},erl_scan,{illegal,atom}},{1,12}} =
+        erl_scan:string("'qa\\x{aaa}'",{1,1},unicode),
+
+    {ok,[{char,1,1089}],1} = erl_scan:string([$$,1089], 1, unicode),
+    {ok,[{char,1,1089}],1} = erl_scan:string([$$,$\\,1089],1,unicode),
+
+    Qs = "$\\x{aaa}",
+    {ok,[{char,1,2730}],1} = erl_scan:string(Qs,1,unicode),
+    {ok,[Q2],{1,9}} = erl_scan:string(Qs,{1,1},[unicode,text]),
+    [{category,char},{column,1},{length,8},
+     {line,1},{symbol,16#aaa},{text,Qs}] =
+        erl_scan:token_info(Q2),
+
+    Tags = [category, column, length, line, symbol, text],
+
+    U1 = "\"\\x{aaa}\"",
+    {ok,[T1],{1,10}} = erl_scan:string(U1, {1,1}, [unicode,text]),
+    [{category,string},{column,1},{length,9},{line,1},
+     {symbol,[16#aaa]},{text,U1}] = erl_scan:token_info(T1, Tags),
+
+    U2 = "\"\\x41\\x{fff}\\x42\"",
+    {ok,[{string,1,[65,4095,66]}],1} = erl_scan:string(U2, 1, unicode),
+
+    U3 = "\"a\n\\x{fff}\n\"",
+    {ok,[{string,1,[97,10,4095,10]}],3} = erl_scan:string(U3, 1,unicode),
+
+    U4 = "\"\\^\n\\x{aaa}\\^\n\"",
+    {ok,[{string,1,[10,2730,10]}],3} = erl_scan:string(U4, 1,[unicode]),
+
+    Str1 = "\"ab" ++ [1089] ++ "cd\"",
+    {ok,[{string,1,[97,98,1089,99,100]}],1} =
+        erl_scan:string(Str1,1,unicode),
+    {ok,[{string,{1,1},[97,98,1089,99,100]}],{1,8}} =
+        erl_scan:string(Str1, {1,1},unicode),
+
+    OK1 = 16#D800-1,
+    OK2 = 16#DFFF+1,
+    OK3 = 16#FFFE-1,
+    OK4 = 16#FFFF+1,
+    OKL = [OK1,OK2,OK3,OK4],
+
+    Illegal1 = 16#D800,
+    Illegal2 = 16#DFFF,
+    Illegal3 = 16#FFFE,
+    Illegal4 = 16#FFFF,
+    IllegalL = [Illegal1,Illegal2,Illegal3,Illegal4],
+
+    [{ok,[{comment,1,[$%,$%,$\s,OK]}],1} =
+         erl_scan:string("%% "++[OK], 1, [unicode,return]) ||
+        OK <- OKL],
+    {ok,[{comment,_,[$%,$%,$\s,OK1]}],{1,5}} =
+        erl_scan:string("%% "++[OK1], {1,1}, [unicode,return]),
+    [{error,{1,erl_scan,{illegal,character}},1} =
+         erl_scan:string("%% "++[Illegal], 1, [unicode,return]) ||
+        Illegal <- IllegalL],
+    {error,{{1,1},erl_scan,{illegal,character}},{1,5}} =
+        erl_scan:string("%% "++[Illegal1], {1,1}, [unicode,return]),
+
+    [{ok,[],1} = erl_scan:string("%% "++[OK], 1, [unicode]) ||
+        OK <- OKL],
+    {ok,[],{1,5}} = erl_scan:string("%% "++[OK1], {1,1}, [unicode]),
+    [{error,{1,erl_scan,{illegal,character}},1} =
+         erl_scan:string("%% "++[Illegal], 1, [unicode]) ||
+        Illegal <- IllegalL],
+    {error,{{1,1},erl_scan,{illegal,character}},{1,5}} =
+        erl_scan:string("%% "++[Illegal1], {1,1}, [unicode]),
+
+    [{ok,[{string,{1,1},[OK]}],{1,4}} =
+        erl_scan:string("\""++[OK]++"\"",{1,1},unicode) ||
+        OK <- OKL],
+    [{error,{{1,2},erl_scan,{illegal,character}},{1,3}} =
+         erl_scan:string("\""++[OK]++"\"",{1,1},unicode) ||
+        OK <- IllegalL],
+
+    [{error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
+        erl_scan:string([Illegal],{1,1},unicode) ||
+        Illegal <- IllegalL],
+
+    {ok,[{char,{1,1},OK1}],{1,3}} =
+        erl_scan:string([$$,OK1],{1,1},unicode),
+    {error,{{1,1},erl_scan,{illegal,character}},{1,2}} =
+        erl_scan:string([$$,Illegal1],{1,1},unicode),
+
+    {ok,[{char,{1,1},OK1}],{1,4}} =
+        erl_scan:string([$$,$\\,OK1],{1,1},unicode),
+    {error,{{1,1},erl_scan,{illegal,character}},{1,4}} =
+        erl_scan:string([$$,$\\,Illegal1],{1,1},unicode),
+
+    {ok,[{string,{1,1},[55295]}],{1,5}} =
+        erl_scan:string("\"\\"++[OK1]++"\"",{1,1},unicode),
+    {error,{{1,2},erl_scan,{illegal,character}},{1,4}} =
+        erl_scan:string("\"\\"++[Illegal1]++"\"",{1,1},unicode),
+
+    {ok,[{char,{1,1},OK1}],{1,10}} =
+        erl_scan:string("$\\x{D7FF}",{1,1},unicode),
+    {error,{{1,1},erl_scan,{illegal,character}},{1,10}} =
+        erl_scan:string("$\\x{D800}",{1,1},unicode),
+
+    %% Not erl_scan, but erl_parse.
+    {integer,0,1} = erl_parse:abstract(1),
+    Float = 3.14, {float,0,Float} = erl_parse:abstract(Float),
+    {nil,0} = erl_parse:abstract([]),
+    {bin,0,
+     [{bin_element,0,{integer,0,1},default,default},
+      {bin_element,0,{integer,0,2},default,default}]} =
+        erl_parse:abstract(<<1,2>>),
+    {cons,0,{tuple,0,[{atom,0,a}]},{atom,0,b}} =
+        erl_parse:abstract([{a} | b]),
+    {string,0,"str"} = erl_parse:abstract("str"),
+    {cons,0,
+     {integer,0,$a},
+     {cons,0,{integer,0,1024},{string,0,"c"}}} =
+        erl_parse:abstract("a"++[1024]++"c"),
+
+    Line = 17,
+    {integer,Line,1} = erl_parse:abstract(1, Line),
+    Float = 3.14, {float,Line,Float} = erl_parse:abstract(Float, Line),
+    {nil,Line} = erl_parse:abstract([], Line),
+    {bin,Line,
+     [{bin_element,Line,{integer,Line,1},default,default},
+      {bin_element,Line,{integer,Line,2},default,default}]} =
+        erl_parse:abstract(<<1,2>>, Line),
+    {cons,Line,{tuple,Line,[{atom,Line,a}]},{atom,Line,b}} =
+        erl_parse:abstract([{a} | b], Line),
+    {string,Line,"str"} = erl_parse:abstract("str", Line),
+    {cons,Line,
+     {integer,Line,$a},
+     {cons,Line,{integer,Line,1024},{string,Line,"c"}}} =
+        erl_parse:abstract("a"++[1024]++"c", Line),
+
+    Opts1 = [{line,17}],
+    {integer,Line,1} = erl_parse:abstract(1, Opts1),
+    Float = 3.14, {float,Line,Float} = erl_parse:abstract(Float, Opts1),
+    {nil,Line} = erl_parse:abstract([], Opts1),
+    {bin,Line,
+     [{bin_element,Line,{integer,Line,1},default,default},
+      {bin_element,Line,{integer,Line,2},default,default}]} =
+        erl_parse:abstract(<<1,2>>, Opts1),
+    {cons,Line,{tuple,Line,[{atom,Line,a}]},{atom,Line,b}} =
+        erl_parse:abstract([{a} | b], Opts1),
+    {string,Line,"str"} = erl_parse:abstract("str", Opts1),
+    {cons,Line,
+     {integer,Line,$a},
+     {cons,Line,{integer,Line,1024},{string,Line,"c"}}} =
+        erl_parse:abstract("a"++[1024]++"c", Opts1),
+
+    [begin
+         {integer,Line,1} = erl_parse:abstract(1, Opts2),
+         Float = 3.14, {float,Line,Float} = erl_parse:abstract(Float, Opts2),
+         {nil,Line} = erl_parse:abstract([], Opts2),
+         {bin,Line,
+          [{bin_element,Line,{integer,Line,1},default,default},
+           {bin_element,Line,{integer,Line,2},default,default}]} =
+             erl_parse:abstract(<<1,2>>, Opts2),
+         {cons,Line,{tuple,Line,[{atom,Line,a}]},{atom,Line,b}} =
+             erl_parse:abstract([{a} | b], Opts2),
+         {string,Line,"str"} = erl_parse:abstract("str", Opts2),
+         {string,Line,[97,1024,99]} =
+             erl_parse:abstract("a"++[1024]++"c", Opts2)
+     end || Opts2 <- [[{encoding,unicode},{line,Line}],
+                      [{encoding,utf8},{line,Line}]]],
+
+    {cons,0,
+     {integer,0,97},
+     {cons,0,{integer,0,1024},{string,0,"c"}}} =
+        erl_parse:abstract("a"++[1024]++"c", [{encoding,latin1}]),
     ok.
 
 test_string(String, Expected) ->

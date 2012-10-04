@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,7 +22,7 @@
 
 -export([fwrite/2,fwrite_g/1,indentation/2]).
 
-%% fwrite(Format, ArgList) -> [Char].
+%% fwrite(Format, ArgList) -> [unicode:unicode:char()].
 %%  Format the arguments in ArgList after string Format. Just generate
 %%  an error if there is an error in the arguments.
 %%
@@ -133,7 +133,7 @@ pcount([{$P,_As,_F,_Ad,_P,_Pad,_Enc}|Cs], Acc) -> pcount(Cs, Acc+1);
 pcount([_|Cs], Acc) -> pcount(Cs, Acc);
 pcount([], Acc) -> Acc.
 
-%% build([Control], Pc, Indentation) -> [Char].
+%% build([Control], Pc, Indentation) -> [unicode:unicode_char()].
 %%  Interpret the control structures. Count the number of print
 %%  remaining and only calculate indentation when necessary. Must also
 %%  be smart when calculating indentation for characters in format.
@@ -154,7 +154,7 @@ decr_pc($p, Pc) -> Pc - 1;
 decr_pc($P, Pc) -> Pc - 1;
 decr_pc(_, Pc) -> Pc.
 
-%% indentation([Char], Indentation) -> Indentation.
+%% indentation([unicode:unicode_char()], Indentation) -> Indentation.
 %%  Calculate the indentation of the end of a string given its start
 %%  indentation. We assume tabs at 8 cols.
 
@@ -167,19 +167,19 @@ indentation([C|Cs], I) ->
 indentation([], I) -> I.
 
 %% control(FormatChar, [Argument], FieldWidth, Adjust, Precision, PadChar,
-%%	   Indentation) ->
-%%	[Char]
+%%	   Encoding, Indentation) ->
+%%	[unicode:unicode_char()]
 %%  This is the main dispatch function for the various formatting commands.
 %%  Field widths and precisions have already been calculated.
 
 control($w, [A], F, Adj, P, Pad, _Enc,_I) ->
     term(io_lib:write(A, -1), F, Adj, P, Pad);
-control($p, [A], F, Adj, P, Pad, _Enc, I) ->
-    print(A, -1, F, Adj, P, Pad, I);
+control($p, [A], F, Adj, P, Pad, Enc, I) ->
+    print(A, -1, F, Adj, P, Pad, Enc, I);
 control($W, [A,Depth], F, Adj, P, Pad, _Enc, _I) when is_integer(Depth) ->
     term(io_lib:write(A, Depth), F, Adj, P, Pad);
-control($P, [A,Depth], F, Adj, P, Pad, _Enc, I) when is_integer(Depth) ->
-    print(A, Depth, F, Adj, P, Pad, I);
+control($P, [A,Depth], F, Adj, P, Pad, Enc, I) when is_integer(Depth) ->
+    print(A, Depth, F, Adj, P, Pad, Enc, I);
 control($s, [A], F, Adj, P, Pad, _Enc, _I) when is_atom(A) ->
     string(atom_to_list(A), F, Adj, P, Pad);
 control($s, [L0], F, Adj, P, Pad, latin1, _I) ->
@@ -187,6 +187,7 @@ control($s, [L0], F, Adj, P, Pad, latin1, _I) ->
     string(L, F, Adj, P, Pad);
 control($s, [L0], F, Adj, P, Pad, unicode, _I) ->
     L = unicode:characters_to_list(L0),
+    true = is_list(L),
     uniconv(string(L, F, Adj, P, Pad));
 control($e, [A], F, Adj, P, Pad, _Enc, _I) when is_float(A) ->
     fwrite_e(A, F, Adj, P, Pad);
@@ -256,13 +257,17 @@ term(T, F, Adj, P0, Pad) ->
 	    adjust(T, chars(Pad, F-L), Adj)
     end.
 
-%% print(Term, Depth, Field, Adjust, Precision, PadChar, Indentation)
+%% print(Term, Depth, Field, Adjust, Precision, PadChar, Encoding,
+%%       Indentation)
 %%  Print a term.
 
-print(T, D, none, Adj, P, Pad, I) -> print(T, D, 80, Adj, P, Pad, I);
-print(T, D, F, Adj, none, Pad, I) -> print(T, D, F, Adj, I+1, Pad, I);
-print(T, D, F, right, P, _Pad, _I) ->
-    io_lib_pretty:print(T, P, F, D).
+print(T, D, none, Adj, P, Pad, E, I) -> print(T, D, 80, Adj, P, Pad, E, I);
+print(T, D, F, Adj, none, Pad, E, I) -> print(T, D, F, Adj, I+1, Pad, E, I);
+print(T, D, F, right, P, _Pad, latin1, _I) ->
+    io_lib_pretty:print(T, P, F, D);
+print(T, D, F, right, P, _Pad, Enc, _I) ->
+    Options = [{column, P}, {line_length, F}, {depth, D}, {encoding, Enc}],
+    io_lib_pretty:print(T, Options).
 
 %% fwrite_e(Float, Field, Adjust, Precision, PadChar)
 
@@ -608,7 +613,7 @@ prefixed_integer(Int, F, Adj, Base, Pad, Prefix, Lowercase)
 	    term([Prefix|S], F, Adj, none, Pad)
     end.
 
-%% char(Char, Field, Adjust, Precision, PadChar) -> [Char].
+%% char(Char, Field, Adjust, Precision, PadChar) -> [unicode:unicode_char()].
 
 char(C, none, _Adj, none, _Pad) -> [C];
 char(C, F, _Adj, none, _Pad) -> chars(C, F);

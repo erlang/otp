@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -923,73 +923,77 @@ normalise_list([]) ->
 -spec abstract(Data) -> AbsTerm when
       Data :: term(),
       AbsTerm :: abstract_expr().
-abstract(T) when is_integer(T) -> {integer,0,T};
-abstract(T) when is_float(T) -> {float,0,T};
-abstract(T) when is_atom(T) -> {atom,0,T};
-abstract([]) -> {nil,0};
-abstract(B) when is_bitstring(B) ->
-    {bin, 0, [abstract_byte(Byte, 0) || Byte <- bitstring_to_list(B)]};
-abstract([C|T]) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C]);
-abstract([H|T]) ->
-    {cons,0,abstract(H),abstract(T)};
-abstract(Tuple) when is_tuple(Tuple) ->
-    {tuple,0,abstract_list(tuple_to_list(Tuple))}.
+abstract(T) ->
+    abstract(T, 0, epp:default_encoding()).
 
-abstract_string([C|T], String) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C|String]);
-abstract_string([], String) ->
-    {string, 0, lists:reverse(String)};
-abstract_string(T, String) ->
-    not_string(String, abstract(T)).
+%%% abstract/2 takes line and encoding options
+-spec abstract(Data, Options) -> AbsTerm when
+      Data :: term(),
+      Options :: Line | [Option],
+      Option :: {line, Line} | {encoding, Encoding},
+      Encoding :: latin1 | unicode | utf8,
+      Line :: erl_scan:line(),
+      AbsTerm :: abstract_expr().
 
-not_string([C|T], Result) ->
-    not_string(T, {cons, 0, {integer, 0, C}, Result});
-not_string([], Result) ->
+abstract(T, Line) when is_integer(Line) ->
+    abstract(T, Line, epp:default_encoding());
+abstract(T, Options) when is_list(Options) ->
+    Line = proplists:get_value(line, Options, 0),
+    Encoding = proplists:get_value(encoding, Options,epp:default_encoding()),
+    abstract(T, Line, Encoding).
+
+-define(UNICODE(C),
+         (C >= 0 andalso C < 16#D800 orelse
+          C > 16#DFFF andalso C < 16#FFFE orelse
+          C > 16#FFFF andalso C =< 16#10FFFF)).
+
+abstract(T, L, _E) when is_integer(T) -> {integer,L,T};
+abstract(T, L, _E) when is_float(T) -> {float,L,T};
+abstract(T, L, _E) when is_atom(T) -> {atom,L,T};
+abstract([], L, _E) -> {nil,L};
+abstract(B, L, _E) when is_bitstring(B) ->
+    {bin, L, [abstract_byte(Byte, L) || Byte <- bitstring_to_list(B)]};
+abstract([C|T], L, unicode=E) when ?UNICODE(C) ->
+    abstract_unicode_string(T, [C], L, E);
+abstract([C|T], L, utf8=E) when ?UNICODE(C) ->
+    abstract_unicode_string(T, [C], L, E);
+abstract([C|T], L, latin1=E) when is_integer(C), 0 =< C, C < 256 ->
+    abstract_string(T, [C], L, E);
+abstract([H|T], L, E) ->
+    {cons,L,abstract(H, L, E),abstract(T, L, E)};
+abstract(Tuple, L, E) when is_tuple(Tuple) ->
+    {tuple,L,abstract_list(tuple_to_list(Tuple), L, E)}.
+
+abstract_string([C|T], String, L, E) when is_integer(C), 0 =< C, C < 256 ->
+    abstract_string(T, [C|String], L, E);
+abstract_string([], String, L, _E) ->
+    {string, L, lists:reverse(String)};
+abstract_string(T, String, L, E) ->
+    not_string(String, abstract(T, L, E), L, E).
+
+abstract_unicode_string([C|T], String, L, E) when ?UNICODE(C) ->
+    abstract_unicode_string(T, [C|String], L, E);
+abstract_unicode_string([], String, L, _E) ->
+    {string, L, lists:reverse(String)};
+abstract_unicode_string(T, String, L, E) ->
+    not_string(String, abstract(T, L, E), L, E).
+
+not_string([C|T], Result, L, E) ->
+    not_string(T, {cons, L, {integer, L, C}, Result}, L, E);
+not_string([], Result, _L, _E) ->
     Result.
 
-abstract_list([H|T]) ->
-    [abstract(H)|abstract_list(T)];
-abstract_list([]) ->
+abstract_list([H|T], L, E) ->
+    [abstract(H, L, E)|abstract_list(T, L, E)];
+abstract_list([], _L, _E) ->
     [].
 
-abstract_byte(Byte, Line) when is_integer(Byte) ->
-    {bin_element, Line, {integer, Line, Byte}, default, default};
-abstract_byte(Bits, Line) ->
+abstract_byte(Byte, L) when is_integer(Byte) ->
+    {bin_element, L, {integer, L, Byte}, default, default};
+abstract_byte(Bits, L) ->
     Sz = bit_size(Bits),
     <<Val:Sz>> = Bits,
-    {bin_element, Line, {integer, Line, Val}, {integer, Line, Sz}, default}.
-
-%%% abstract/2 keeps the line number
-abstract(T, Line) when is_integer(T) -> {integer,Line,T};
-abstract(T, Line) when is_float(T) -> {float,Line,T};
-abstract(T, Line) when is_atom(T) -> {atom,Line,T};
-abstract([], Line) -> {nil,Line};
-abstract(B, Line) when is_bitstring(B) ->
-    {bin, Line, [abstract_byte(Byte, Line) || Byte <- bitstring_to_list(B)]};
-abstract([C|T], Line) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C], Line);
-abstract([H|T], Line) ->
-    {cons,Line,abstract(H, Line),abstract(T, Line)};
-abstract(Tuple, Line) when is_tuple(Tuple) ->
-    {tuple,Line,abstract_list(tuple_to_list(Tuple), Line)}.
-
-abstract_string([C|T], String, Line) when is_integer(C), 0 =< C, C < 256 ->
-    abstract_string(T, [C|String], Line);
-abstract_string([], String, Line) ->
-    {string, Line, lists:reverse(String)};
-abstract_string(T, String, Line) ->
-    not_string(String, abstract(T, Line), Line).
-
-not_string([C|T], Result, Line) ->
-    not_string(T, {cons, Line, {integer, Line, C}, Result}, Line);
-not_string([], Result, _Line) ->
-    Result.
-
-abstract_list([H|T], Line) ->
-    [abstract(H, Line)|abstract_list(T, Line)];
-abstract_list([], _Line) ->
-    [].
+    {bin_element, L, {integer, L, Val}, {integer, L, Sz}, default}.
 
 %%  Generate a list of tokens representing the abstract term.
 

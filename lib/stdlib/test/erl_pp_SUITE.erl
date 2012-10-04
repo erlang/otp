@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -48,7 +48,8 @@
 	  neg_indent/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
-	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1]).
+	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
+          otp_10302/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -79,7 +80,7 @@ groups() ->
      {attributes, [], [misc_attrs, import_export]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
-       otp_8473, otp_8522, otp_8567, otp_8664, otp_9147]}].
+       otp_8473, otp_8522, otp_8567, otp_8664, otp_9147, otp_10302]}].
 
 init_per_suite(Config) ->
     Config.
@@ -634,8 +635,12 @@ misc_attrs(Config) when is_list(Config) ->
 hook(suite) ->
     [];
 hook(Config) when is_list(Config) ->
+    F = fun(H) -> H end,
+    do_hook(F).
+
+do_hook(HookFun) ->
     Lc = parse_expr(binary_to_list(<<"[X || X <- [1,2,3]].">>)),
-    H = fun hook/4,
+    H = HookFun(fun hook/4),
     Expr = {call,0,{atom,0,fff},[{foo,Lc},{foo,Lc},{foo,Lc}]},
     EChars = lists:flatten(erl_pp:expr(Expr, 0, H)),
     Call = {call,0,{atom,0,foo},[Lc]},
@@ -692,7 +697,7 @@ hook(Config) when is_list(Config) ->
     GChars2 = erl_pp:guard(G2),
     ?line true = GChars =:= lists:flatten(GChars2),
 
-    EH = {?MODULE, ehook, [foo,bar]},
+    EH = HookFun({?MODULE, ehook, [foo,bar]}),
     XEChars = erl_pp:expr(Expr, -1, EH),
     ?line true = remove_indentation(EChars) =:= lists:flatten(XEChars),
     XEChars2 = erl_pp:expr(Expr, EH),
@@ -1068,6 +1073,43 @@ otp_9147(Config) when is_list(Config) ->
                      string:tokens(binary_to_list(Bin), "\n")),
     ok.
 
+otp_10302(doc) ->
+    "OTP-10302. Unicode characters scanner/parser.";
+otp_10302(suite) -> [];
+otp_10302(Config) when is_list(Config) ->
+    Ts = [{uni_1,
+           <<"t() -> <<(<<\"abc\\x{aaa}\">>):3/binary>>.">>}
+          ],
+    compile(Config, Ts),
+    ok = pp_expr(<<"$\\x{aaa}">>),
+    ok = pp_expr(<<"\"1\\x{aaa}\"">>),
+    ok = pp_expr(<<"<<<<\"hej\">>/binary>>">>),
+    ok = pp_expr(<<"<< <<\"1\\x{aaa}\">>/binary>>">>),
+
+    U = [{encoding,unicode}],
+
+    do_hook(fun(H) -> [{hook,H}] end),
+    do_hook(fun(H) -> [{hook,H}]++U end),
+
+    ok = pp_expr(<<"$\\x{aaa}">>, [{hook,fun hook/4}]),
+
+    Opts = [{hook, fun unicode_hook/4},{encoding,unicode}],
+    Lc = parse_expr("[X || X <- [\"\x{400}\",\"\xFF\"]]."),
+    Expr = {call,0,{atom,0,fff},[{foo,{foo,Lc}},{foo,{foo,Lc}}]},
+    EChars = lists:flatten(erl_pp:expr(Expr, 0, Opts)),
+    Call = {call,0,{atom,0,foo},[{call,0,{atom,0,foo},[Lc]}]},
+    Expr2 = {call,0,{atom,0,fff},[Call,Call]},
+    EChars2 = erl_pp:exprs([Expr2], U),
+    EChars = lists:flatten(EChars2),
+    [$\x{400},$\x{400}] = [C || C <- EChars, C > 255],
+
+    ok = pp_forms(<<"function() -> {\"\x{400}\",$\x{400}}. "/utf8>>, U),
+    ok = pp_forms("function() -> {\"\x{400}\",$\x{400}}. ", []),
+    ok.
+
+unicode_hook({foo,E}, I, P, H) ->
+    erl_pp:expr({call,0,{atom,0,foo},[E]}, I, P, H).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile(Config, Tests) ->
@@ -1137,9 +1179,11 @@ flat_expr(Expr) ->
 pp_forms(Bin) ->
     pp_forms(Bin, none).
 
-pp_forms(Bin, Hook) ->
-    PP1 = (catch parse_and_pp_forms(binary_to_list(Bin), Hook)),
-    PP2 = (catch parse_and_pp_forms(PP1, Hook)),
+pp_forms(Bin, Options) when is_binary(Bin) ->
+    pp_forms(to_list(Bin, Options), Options);
+pp_forms(List, Options) when is_list(List) ->
+    PP1 = (catch parse_and_pp_forms(List, Options)),
+    PP2 = (catch parse_and_pp_forms(PP1, Options)),
     case PP1 =:= PP2 of % same line numbers
         true ->
             test_max_line(PP1);
@@ -1147,8 +1191,8 @@ pp_forms(Bin, Hook) ->
             not_ok
     end.
 
-parse_and_pp_forms(String, Hook) ->
-    lists:append(lists:map(fun(AF) -> erl_pp:form(AF, Hook)
+parse_and_pp_forms(String, Options) ->
+    lists:append(lists:map(fun(AF) -> erl_pp:form(AF, Options)
                            end, parse_forms(String))).
 
 parse_forms(Chars) ->
@@ -1158,7 +1202,7 @@ parse_forms(Chars) ->
 parse_forms2([], _Cont, _Line, Forms) ->
     lists:reverse(Forms);
 parse_forms2(String, Cont0, Line, Forms) ->
-    case erl_scan:tokens(Cont0, String, Line) of
+    case erl_scan:tokens(Cont0, String, Line, [unicode]) of
         {done, {ok, Tokens, EndLine}, Chars} ->
             {ok, Form} = erl_parse:parse_form(Tokens),
             parse_forms2(Chars, [], EndLine, [Form | Forms]);
@@ -1174,10 +1218,12 @@ pp_expr(Bin) ->
     pp_expr(Bin, none).
 
 %% Final dot is added.
-pp_expr(Bin, Hook) ->
-    PP1 = (catch parse_and_pp_expr(binary_to_list(Bin), 0, Hook)),
-    PPneg = (catch parse_and_pp_expr(binary_to_list(Bin), -1, Hook)),
-    PP2 = (catch parse_and_pp_expr(PPneg, 0, Hook)),
+pp_expr(Bin, Options) when is_binary(Bin) ->
+    pp_expr(to_list(Bin, Options), Options);
+pp_expr(List, Options) when is_list(List) ->
+    PP1 = (catch parse_and_pp_expr(List, 0, Options)),
+    PPneg = (catch parse_and_pp_expr(List, -1, Options)),
+    PP2 = (catch parse_and_pp_expr(PPneg, 0, Options)),
     if
         PP1 =:= PP2 -> % same line numbers
             case
@@ -1192,14 +1238,23 @@ pp_expr(Bin, Hook) ->
             not_ok
     end.
 
-parse_and_pp_expr(String, Indent, Hook) ->
+parse_and_pp_expr(String, Indent, Options) ->
     StringDot = lists:flatten(String) ++ ".",
-    erl_pp:expr(parse_expr(StringDot), Indent, Hook).
+    erl_pp:expr(parse_expr(StringDot), Indent, Options).
 
 parse_expr(Chars) ->
-    {ok, Tokens, _} = erl_scan:string(Chars),
+    {ok, Tokens, _} = erl_scan:string(Chars, 1, [unicode]),
     {ok, [Expr]} = erl_parse:parse_exprs(Tokens),
     Expr.
+
+to_list(Bin, Options) when is_list(Options) ->
+    case proplists:get_value(encoding, Options) of
+        unicode -> unicode:characters_to_list(Bin);
+        encoding -> binary_to_list(Bin);
+        undefined -> binary_to_list(Bin)
+    end;
+to_list(Bin, _Hook) ->
+    binary_to_list(Bin).
 
 test_new_line(String) ->
     case string:chr(String, $\n) of

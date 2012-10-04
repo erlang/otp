@@ -3618,6 +3618,10 @@ extract_sequence(4, [$t, $c | Fmt], Need) ->
     extract_sequence(5, [$c|Fmt], Need);
 extract_sequence(4, [$t, $s | Fmt], Need) ->
     extract_sequence(5, [$s|Fmt], Need);
+extract_sequence(4, [$t, $p | Fmt], Need) ->
+    extract_sequence(5, [$p|Fmt], Need);
+extract_sequence(4, [$t, $P | Fmt], Need) ->
+    extract_sequence(5, [$P|Fmt], Need);
 extract_sequence(4, [$t, C | _Fmt], _Need) ->
     {error,"invalid control ~t" ++ [C]};
 extract_sequence(4, Fmt, Need) ->

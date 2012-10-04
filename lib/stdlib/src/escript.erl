@@ -710,7 +710,7 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
                     epp_parse_file(Epp, S, [Form | Forms])
             end;
         {error,{Ln,Mod,Args}} = Form ->
-            io:format("~s:~w: ~s\n",
+            io:format("~s:~w: ~ts\n",
                       [S#state.file,Ln,Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
         {eof, _LastLine} = Eof ->
@@ -780,10 +780,10 @@ report_errors(Errors) ->
                   Errors).
 
 list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~s:~w: ~s\n", [F,Line,Mod:format_error(E)]),
+    io:fwrite("~s:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
-    io:fwrite("~s: ~s\n", [F,Mod:format_error(E)]),
+    io:fwrite("~s: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
 
@@ -795,10 +795,10 @@ report_warnings(Ws0) ->
     lists:foreach(fun({_,Str}) -> io:put_chars(Str) end, Ws).
 
 format_message(F, [{Line,Mod,E}|Es]) ->
-    M = {{F,Line},io_lib:format("~s:~w: Warning: ~s\n", [F,Line,Mod:format_error(E)])},
+    M = {{F,Line},io_lib:format("~s:~w: Warning: ~ts\n", [F,Line,Mod:format_error(E)])},
     [M|format_message(F, Es)];
 format_message(F, [{Mod,E}|Es]) ->
-    M = {none,io_lib:format("~s: Warning: ~s\n", [F,Mod:format_error(E)])},
+    M = {none,io_lib:format("~s: Warning: ~ts\n", [F,Mod:format_error(E)])},
     [M|format_message(F, Es)];
 format_message(_, []) -> [].
 
@@ -851,12 +851,27 @@ eval_exprs([E|Es], Bs0, Lf, Ef, RBs) ->
     eval_exprs(Es, Bs, Lf, Ef, RBs).
 
 format_exception(Class, Reason) ->
+    Enc = encoding(),
+    P = case Enc of
+            latin1 -> "P";
+            _ -> "tP"
+        end,
     PF = fun(Term, I) ->
-                 io_lib:format("~." ++ integer_to_list(I) ++ "P", [Term, 50])
+                 io_lib:format("~." ++ integer_to_list(I) ++ P, [Term, 50])
          end,
     StackTrace = erlang:get_stacktrace(),
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
-    lib:format_exception(1, Class, Reason, StackTrace, StackFun, PF).
+    lib:format_exception(1, Class, Reason, StackTrace, StackFun, PF, Enc).
+
+encoding() ->
+    [{encoding, Encoding}] = enc(),
+    Encoding.
+
+enc() ->
+    case lists:keyfind(encoding, 1, io:getopts()) of
+        false -> [{encoding,latin1}]; % should never happen
+        Enc -> [Enc]
+    end.
 
 fatal(Str) ->
     throw(Str).

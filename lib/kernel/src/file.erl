@@ -1315,6 +1315,7 @@ sendfile_send(Sock, Data, Old) ->
 %%% Helpers
 
 consult_stream(Fd) ->
+    _ = epp:set_encoding(Fd),
     consult_stream(Fd, 1, []).
 
 consult_stream(Fd, Line, Acc) ->
@@ -1328,6 +1329,7 @@ consult_stream(Fd, Line, Acc) ->
     end.
 
 eval_stream(Fd, Handling, Bs) ->
+    _ = epp:set_encoding(Fd),
     eval_stream(Fd, Handling, 1, undefined, [], Bs).
 
 eval_stream(Fd, H, Line, Last, E, Bs) ->

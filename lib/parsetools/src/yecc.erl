@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,6 +42,7 @@
           includefile,
           includefile_version,
           module,
+          encoding = none,
           options = [],
           verbose = false,
           file_attrs = true,
@@ -224,7 +225,11 @@ format_error({unused_nonterminal, Nonterminal}) ->
                   [format_symbol(Nonterminal)]);
 format_error({unused_terminal, Terminal}) ->
     io_lib:fwrite("terminal symbol ~s not used", 
-                  [format_symbol(Terminal)]).
+                  [format_symbol(Terminal)]);
+format_error({bad_symbol, String}) ->
+    io_lib:fwrite("bad symbol ~ts", [String]);
+format_error(cannot_parse) ->
+    io_lib:fwrite("cannot parse; possibly encoding mismatch", []).
 
 file(File) ->
     file(File, [report_errors, report_warnings]).
@@ -257,7 +262,7 @@ yecc(Infile, Outfile, Verbose) ->
     yecc(Infile, Outfile, Verbose, []).
 
 yecc(Infilex, Outfilex, Verbose, Includefilex) ->
-    statistics(runtime),
+    _ = statistics(runtime),
     case file(Infilex, [{parserfile, Outfilex}, 
                         {verbose, Verbose}, 
                         {report, true},
@@ -407,7 +412,9 @@ infile(Parent, Infilex, Options) ->
     St = case file:open(St0#yecc.infile, [read, read_ahead]) of
              {ok, Inport} ->
                  try 
-                     outfile(St0#yecc{inport = Inport})
+                     Encoding = epp:set_encoding(Inport),
+                     St1 = St0#yecc{inport = Inport, encoding = Encoding},
+                     outfile(St1)
                  after
                      ok = file:close(Inport)
                  end;
@@ -428,6 +435,8 @@ outfile(St0) ->
     case file:open(St0#yecc.outfile, [write, delayed_write]) of
         {ok, Outport} ->
             try 
+                %% Set the same encoding as infile:
+                set_encoding(St0, Outport),
                 generate(St0#yecc{outport = Outport, line = 1})
             catch 
                 throw: St1  ->
@@ -466,13 +475,14 @@ timeit(Name, Fun, St0) ->
 -define(PASS(P), {P, fun P/1}).
 
 generate(St0) ->
+    St1 = output_encoding_comment(St0),
     Passes = [?PASS(parse_grammar), ?PASS(check_grammar),
               ?PASS(states_and_goto_table), ?PASS(parse_actions),
               ?PASS(action_conflicts), ?PASS(write_file)],
-    F = case member(time, St0#yecc.options) of
+    F = case member(time, St1#yecc.options) of
             true -> 
                 io:fwrite(<<"Generating parser from grammar in ~s\n">>, 
-                          [format_filename(St0#yecc.infile)]),
+                          [format_filename(St1#yecc.infile)]),
                 fun timeit/3;
             false ->
                 fun(_Name, Fn, St) -> Fn(St) end
@@ -484,13 +494,13 @@ generate(St0) ->
                       true -> throw(St2)
                   end
           end,
-    foldl(Fun, St0, Passes).
+    foldl(Fun, St1, Passes).
 
 parse_grammar(St) ->
     parse_grammar(St#yecc.inport, 1, St).
 
 parse_grammar(Inport, Line, St) ->
-    {NextLine, Grammar} = read_grammar(Inport, Line),
+    {NextLine, Grammar} = read_grammar(Inport, St, Line),
     parse_grammar(Grammar, Inport, NextLine, St).
 
 parse_grammar(eof, _Inport, _NextLine, St) ->
@@ -523,6 +533,8 @@ parse_grammar({rule, Rule, Tokens}, St0) ->
     St#yecc{rules_list = [RuleDef | St#yecc.rules_list]};
 parse_grammar({prec, Prec}, St) ->
     St#yecc{prec = Prec ++ St#yecc.prec};
+parse_grammar({#symbol{}, [{string,Line,String}]}, St) ->
+    add_error(Line, {bad_symbol, String}, St);
 parse_grammar({#symbol{line = Line, name = Name}, Symbols}, St) ->
     CF = fun(I) ->
                  case element(I, St) of
@@ -543,12 +555,17 @@ parse_grammar({#symbol{line = Line, name = Name}, Symbols}, St) ->
         _ -> add_warning(Line, bad_declaration, St)
     end.
 
-read_grammar(Inport, Line) ->
+read_grammar(Inport, St, Line) ->
     case yeccscan:scan(Inport, '', Line) of
         {eof, NextLine} ->
             {NextLine, eof};
         {error, {ErrorLine, Mod, What}, NextLine} ->
             {NextLine, {error, ErrorLine, {error, Mod, What}}};
+        {error, terminated} ->
+            throw(St);
+        {error, _} ->
+            File = St#yecc.infile,
+            throw(add_error(File, none, cannot_parse, St));
         {ok, Input, NextLine} ->
             {NextLine, case yeccparser:parse(Input) of
                            {error, {ErrorLine, Mod, Message}} ->
@@ -738,9 +755,9 @@ states_and_goto_table(St0) ->
     create_precedence_table(St).
 
 parse_actions(St) ->
-    erase(), % the pd is used when decoding lookahead sets
+    _ = erase(), % the pd is used when decoding lookahead sets
     ParseActions = compute_parse_actions(St#yecc.n_states, St, []),
-    erase(),
+    _ = erase(),
     St#yecc{parse_actions = ParseActions, state_tab = []}.
 
 action_conflicts(St0) ->
@@ -841,10 +858,10 @@ report_errors(St) ->
     case member(report_errors, St#yecc.options) of
         true ->
             foreach(fun({File,{none,Mod,E}}) -> 
-                            io:fwrite(<<"~s: ~s\n">>, 
+                            io:fwrite(<<"~s: ~ts\n">>,
                                       [File,Mod:format_error(E)]);
                        ({File,{Line,Mod,E}}) -> 
-                            io:fwrite(<<"~s:~w: ~s\n">>, 
+                            io:fwrite(<<"~s:~w: ~ts\n">>,
                                       [File,Line,Mod:format_error(E)])
                     end, sort(St#yecc.errors));
         false -> 
@@ -861,11 +878,11 @@ report_warnings(St) ->
     case member(report_warnings, St#yecc.options) orelse ReportWerror of
         true ->
             foreach(fun({File,{none,Mod,W}}) -> 
-                            io:fwrite(<<"~s: ~s~s\n">>,
+                            io:fwrite(<<"~s: ~s~ts\n">>,
                                       [File,Prefix,
 				       Mod:format_error(W)]);
                        ({File,{Line,Mod,W}}) -> 
-                            io:fwrite(<<"~s:~w: ~s~s\n">>,
+                            io:fwrite(<<"~s:~w: ~s~ts\n">>,
                                       [File,Line,Prefix,
 				       Mod:format_error(W)])
                     end, sort(St#yecc.warnings));
@@ -1024,7 +1041,7 @@ compute_states(St0) ->
                    rp_info = RulePointerInfo,
                    goto = GotoTab},
 
-    erase(),
+    _ = erase(),
     EndsymCode = code_terminal(StC#yecc.endsymbol, StC#yecc.symbol_tab),
     {StateId, State0} = compute_state([{EndsymCode, 1}], Tables),
 
@@ -1923,9 +1940,10 @@ output_prelude(Outport, Inport, St0) when St0#yecc.includefile =:= [] ->
                 {St20, 0, no_erlang_code};
             Next_line ->
                 St_10 = output_file_directive(St20, Infile, Next_line-1),
-                Nmbr_of_lines = include1([], Inport, Outport),
-                {St_10, Nmbr_of_lines, 
-                 {last_erlang_code_line, Next_line+Nmbr_of_lines}}
+                Last_line = include1([], Inport, Outport, Infile,
+                                     Next_line, St_10),
+                Nmbr_of_lines = Last_line - Next_line,
+                {St_10, Nmbr_of_lines, {last_erlang_code_line, Last_line}}
     end,
     St30 = nl(St25),
     IncludeFile = 
@@ -1946,13 +1964,13 @@ output_prelude(Outport, Inport, St0) ->
             {St30, N_lines_1, no_erlang_code};
         Next_line ->
             St = output_file_directive(St30, Infile, Next_line-1),
-            Nmbr_of_lines = include1([], Inport, Outport),
-            {St, Nmbr_of_lines + N_lines_1, 
-             {last_erlang_code_line, Next_line+Nmbr_of_lines}}
+            Last_line = include1([], Inport, Outport, Infile, Next_line, St),
+            Nmbr_of_lines = Last_line - Next_line,
+            {St, Nmbr_of_lines + N_lines_1, {last_erlang_code_line, Last_line}}
     end.
 
 output_header(St0) ->
-    lists:foldl(fun(Str, St) -> fwrite(St, <<"~s\n">>, [Str]) 
+    lists:foldl(fun(Str, St) -> fwrite(St, <<"~ts\n">>, [Str])
                 end, St0, St0#yecc.header).
 
 output_goto(St, [{_Nonterminal, []} | Go], StateInfo) ->
@@ -2250,8 +2268,8 @@ output_inlined(St0, FunctionName, Reduce, Infile) ->
                           [append(["[", tl(A), " | __Stack]"])])
            end,
     St = St40#yecc{line = St40#yecc.line + NLines},
-    fwrite(St, <<" [begin\n  ~s\n  end | ~s].\n\n">>, 
-           [pp_tokens(Tokens, Line0), Stack]).
+    fwrite(St, <<" [begin\n  ~ts\n  end | ~s].\n\n">>,
+           [pp_tokens(Tokens, Line0, St#yecc.encoding), Stack]).
 
 inlined_function_name(State, "Cat") ->
     inlined_function_name(State, "");
@@ -2421,24 +2439,24 @@ include(St, File, Outport) ->
         {error, Reason} ->
             throw(add_error(File, none, {file_error, Reason}, St));
         {ok, Inport} ->
+            _ = epp:set_encoding(Inport),
             Line = io:get_line(Inport, ''),
-            N_lines = include1(Line, Inport, Outport),
-            file:close(Inport),
-            N_lines
+            try include1(Line, Inport, Outport, File, 1, St) - 1
+            after ok = file:close(Inport)
+            end
     end.
 
-include1(Line, Inport, Outport) ->
-    include1(Line, Inport, Outport, 0).
-
-include1(eof, _, _, Nmbr_of_lines) ->
-    Nmbr_of_lines;
-include1(Line, Inport, Outport, Nmbr_of_lines) ->
+include1(eof, _, _, _File, L, _St) ->
+    L;
+include1({error, _}=_Error, _Inport, _Outport, File, L, St) ->
+    throw(add_error(File, L, cannot_parse, St));
+include1(Line, Inport, Outport, File, L, St) ->
     Incr = case member($\n, Line) of
                true -> 1;
                false -> 0
            end,
     io:put_chars(Outport, Line),
-    include1(io:get_line(Inport, ''), Inport, Outport, Nmbr_of_lines + Incr).
+    include1(io:get_line(Inport, ''), Inport, Outport, File, L + Incr, St).
 
 includefile_version([]) ->
     {1,4};
@@ -2465,18 +2483,22 @@ parse_file(Epp) ->
     end.
 
 %% Keeps the line breaks of the original code.
-pp_tokens(Tokens, Line0) ->
-    concat(pp_tokens1(Tokens, Line0, [])).
+pp_tokens(Tokens, Line0, Enc) ->
+    concat(pp_tokens1(Tokens, Line0, Enc, [])).
     
-pp_tokens1([], _Line0, _T0) ->
+pp_tokens1([], _Line0, _Enc, _T0) ->
     [];
-pp_tokens1([T | Ts], Line0, T0) ->
+pp_tokens1([T | Ts], Line0, Enc, T0) ->
     Line = element(2, T),
-    [pp_sep(Line, Line0, T0), pp_symbol(T) | pp_tokens1(Ts, Line, T)].
+    [pp_sep(Line, Line0, T0), pp_symbol(T, Enc)|pp_tokens1(Ts, Line, Enc, T)].
 
-pp_symbol({var,_,Var}) -> Var;
-pp_symbol({_,_,Symbol}) -> io_lib:fwrite(<<"~p">>, [Symbol]);
-pp_symbol({Symbol, _}) -> Symbol.
+pp_symbol({var,_,Var}, _Enc) -> Var;
+pp_symbol({string,_,String}, latin1) ->
+    io_lib:write_unicode_string_as_latin1(String);
+pp_symbol({string,_,String}, _Enc) -> io_lib:write_unicode_string(String);
+pp_symbol({_,_,Symbol}, latin1) -> io_lib:fwrite(<<"~p">>, [Symbol]);
+pp_symbol({_,_,Symbol}, _Enc) -> io_lib:fwrite(<<"~tp">>, [Symbol]);
+pp_symbol({Symbol, _}, _Enc) -> Symbol.
 
 pp_sep(Line, Line0, T0) when Line > Line0 -> 
     ["\n   " | pp_sep(Line - 1, Line0, T0)];
@@ -2484,6 +2506,16 @@ pp_sep(_Line, _Line0, {'.',_}) ->
     "";
 pp_sep(_Line, _Line0, _T0) -> 
     " ".
+
+set_encoding(#yecc{encoding = none}, Port) ->
+    ok = io:setopts(Port, [{encoding, epp:default_encoding()}]);
+set_encoding(#yecc{encoding = E}, Port) ->
+    ok = io:setopts(Port, [{encoding, E}]).
+
+output_encoding_comment(#yecc{encoding = none}=St) ->
+    St;
+output_encoding_comment(#yecc{encoding = Encoding}=St) ->
+    fwrite(St, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
 output_file_directive(St, Filename, Line) when St#yecc.file_attrs ->
     fwrite(St, <<"-file(~s, ~w).\n">>, 
@@ -2529,7 +2561,7 @@ format_assoc(nonassoc) ->
 
 format_symbol(Symbol) ->
     String = concat([Symbol]),
-    case erl_scan:string(String) of
+    case erl_scan:string(String, 1, [unicode]) of
         {ok, [{atom, _, _}], _} ->
             io_lib:fwrite(<<"~w">>, [Symbol]);
         {ok, [{Word, _}], _} when Word =/= ':', Word =/= '->' ->

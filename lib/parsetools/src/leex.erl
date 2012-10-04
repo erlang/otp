@@ -58,6 +58,7 @@
                gfile=[],        % Graph file
                module,          % Module name
                opts=[],         % Options
+               encoding=none,   % Encoding of Xrl file
                % posix=false,   % POSIX regular expressions
                errors=[],
                warnings=[]
@@ -146,7 +147,9 @@ format_error({regexp,E})->
          end,
     ["bad regexp `",Es,"'"];
 format_error(ignored_characters) ->
-    "ignored characters".
+    "ignored characters";
+format_error(cannot_parse) ->
+    io_lib:fwrite("cannot parse; probably encoding mismatch", []).
 
 %%%
 %%% Local functions
@@ -298,10 +301,10 @@ pack_warnings([]) ->
 report_errors(St) ->
     when_opt(fun () -> 
                      foreach(fun({File,{none,Mod,E}}) -> 
-                                     io:fwrite("~s: ~s\n",
+                                     io:fwrite("~s: ~ts\n",
                                                [File,Mod:format_error(E)]);
                                 ({File,{Line,Mod,E}}) -> 
-                                     io:fwrite("~s:~w: ~s\n",
+                                     io:fwrite("~s:~w: ~ts\n",
                                                [File,Line,Mod:format_error(E)])
                              end, sort(St#leex.errors))
              end, report_errors, St#leex.opts).
@@ -316,11 +319,11 @@ report_warnings(St) ->
     ShouldReport = member(report_warnings, St#leex.opts) orelse ReportWerror,
     when_bool(fun () ->
 		      foreach(fun({File,{none,Mod,W}}) ->
-				      io:fwrite("~s: ~s~s\n",
+				      io:fwrite("~s: ~s~ts\n",
 						[File,Prefix,
 						 Mod:format_error(W)]);
 				 ({File,{Line,Mod,W}}) ->
-				      io:fwrite("~s:~w: ~s~s\n",
+				      io:fwrite("~s:~w: ~s~ts\n",
 						[File,Line,Prefix,
 						 Mod:format_error(W)])
 			      end, sort(St#leex.warnings))
@@ -396,17 +399,18 @@ verbose_print(St, Format, Args) ->
 parse_file(St0) ->
     case file:open(St0#leex.xfile, [read]) of
         {ok,Xfile} ->
+            St1 = St0#leex{encoding = epp:set_encoding(Xfile)},
             try
-                verbose_print(St0, "Parsing file ~s, ", [St0#leex.xfile]),
+                verbose_print(St1, "Parsing file ~s, ", [St1#leex.xfile]),
                 %% We KNOW that errors throw so we can ignore them here.
-                {ok,Line1,St1} = parse_head(Xfile, St0),
-                {ok,Line2,Macs,St2} = parse_defs(Xfile, Line1, St1),
-                {ok,Line3,REAs,Actions,St3} = 
-                    parse_rules(Xfile, Line2, Macs, St2),
-                {ok,Code,St4} = parse_code(Xfile, Line3, St3),
-                verbose_print(St1, "contained ~w rules.~n", [length(REAs)]),
-                {ok,REAs,Actions,Code,St4}
-            after file:close(Xfile)
+                {ok,Line1,St2} = parse_head(Xfile, St1),
+                {ok,Line2,Macs,St3} = parse_defs(Xfile, Line1, St2),
+                {ok,Line3,REAs,Actions,St4} =
+                    parse_rules(Xfile, Line2, Macs, St3),
+                {ok,Code,St5} = parse_code(Xfile, Line3, St4),
+                verbose_print(St5, "contained ~w rules.~n", [length(REAs)]),
+                {ok,REAs,Actions,Code,St5}
+            after ok = file:close(Xfile)
             end;
         {error,Error} ->
             add_error({none,leex,{file_error,Error}}, St0)
@@ -415,7 +419,7 @@ parse_file(St0) ->
 %% parse_head(File, State) -> {ok,NextLine,State}.
 %%  Parse the head of the file. Skip all comments and blank lines.
 
-parse_head(Ifile, St) -> {ok,nextline(Ifile, 0),St}.
+parse_head(Ifile, St) -> {ok,nextline(Ifile, 0, St),St}.
 
 %% parse_defs(File, Line, State) -> {ok,NextLine,Macros,State}.
 %%  Parse the macro definition section of a file. This must exist.
@@ -423,7 +427,7 @@ parse_head(Ifile, St) -> {ok,nextline(Ifile, 0),St}.
 
 parse_defs(Ifile, {ok,?DEFS_HEAD ++ Rest,L}, St) ->
     St1 = warn_ignored_chars(L, Rest, St),
-    parse_defs(Ifile, nextline(Ifile, L), [], St1);
+    parse_defs(Ifile, nextline(Ifile, L, St), [], St1);
 parse_defs(_, {ok,_,L}, St) ->
     add_error({L,leex,missing_defs}, St);
 parse_defs(_, {eof,L}, St) ->
@@ -435,7 +439,7 @@ parse_defs(Ifile, {ok,Chars,L}=Line, Ms, St) ->
     case re:run(Chars, MS, [{capture,all_but_first,list}]) of
         {match,[Name,Def]} ->
             %%io:fwrite("~p = ~p\n", [Name,Def]),
-            parse_defs(Ifile, nextline(Ifile, L), [{Name,Def}|Ms], St);
+            parse_defs(Ifile, nextline(Ifile, L, St), [{Name,Def}|Ms], St);
         _ -> {ok,Line,Ms,St}                    % Anything else
     end;
 parse_defs(_, Line, Ms, St) ->
@@ -446,7 +450,7 @@ parse_defs(_, Line, Ms, St) ->
 
 parse_rules(Ifile, {ok,?RULE_HEAD ++ Rest,L}, Ms, St) ->
     St1 = warn_ignored_chars(L, Rest, St),
-    parse_rules(Ifile, nextline(Ifile, L), Ms, [], [], 0, St1);
+    parse_rules(Ifile, nextline(Ifile, L, St), Ms, [], [], 0, St1);
 parse_rules(_, {ok,_,L}, _, St) ->
     add_error({L,leex,missing_rules}, St);
 parse_rules(_, {eof,L}, _, St) ->
@@ -464,7 +468,7 @@ parse_rules(Ifile, NextLine, Ms, REAs, As, N, St) ->
             case collect_rule(Ifile, Chars, L0) of
                 {ok,Re,Atoks,L1} ->
                     {ok,REA,A,St1} = parse_rule(Re, L0, Atoks, Ms, N, St),
-                    parse_rules(Ifile, nextline(Ifile, L1), Ms,
+                    parse_rules(Ifile, nextline(Ifile, L1, St), Ms,
                                 [REA|REAs], [A|As], N+1, St1);
                 {error,E} -> add_error(E, St)
             end;
@@ -497,8 +501,10 @@ collect_rule(Ifile, Chars, L0) ->
         {error,E,_} -> {error,E}
     end.
 
+collect_action(_Ifile, {error, _}, L, _Cont0) ->
+    {error, {L, leex, cannot_parse}, ignored_end_line};
 collect_action(Ifile, Chars, L0, Cont0) ->
-    case erl_scan:tokens(Cont0, Chars, L0) of
+    case erl_scan:tokens(Cont0, Chars, L0, [unicode]) of
         {done,{ok,Toks,_},_} -> {ok,Toks,L0};
         {done,{eof,_},_} -> {eof,L0};
         {done,{error,E,_},_} -> {error,E,L0};
@@ -560,29 +566,32 @@ parse_code(Ifile, {ok,?CODE_HEAD ++ Rest,CodeL}, St) ->
     St1 = warn_ignored_chars(CodeL, Rest, St),
     {ok, CodePos} = file:position(Ifile, cur),
     %% Just count the lines; copy the code from file to file later.
-    NCodeLines = count_lines(Ifile, 0),
+    EndCodeLine = count_lines(Ifile, CodeL, St),
+    NCodeLines = EndCodeLine - CodeL,
     {ok,{CodeL,CodePos,NCodeLines},St1};
 parse_code(_, {ok,_,L}, St) ->
     add_error({L,leex,missing_code}, St);
 parse_code(_, {eof,L}, St) ->
     add_error({L,leex,missing_code}, St).
 
-count_lines(File, N) ->
+count_lines(File, N, St) ->
     case io:get_line(File, leex) of
         eof -> N;
-        _Line -> count_lines(File, N+1)
+        {error, _} -> add_error({N+1, leex, cannot_parse}, St);
+        _Line -> count_lines(File, N+1, St)
     end.
 
-%% nextline(InputFile, PrevLineNo) -> {ok,Chars,LineNo} | {eof,LineNo}.
+%% nextline(InputFile, PrevLineNo, State) -> {ok,Chars,LineNo} | {eof,LineNo}.
 %%  Get the next line skipping comment lines and blank lines.
 
-nextline(Ifile, L) ->
+nextline(Ifile, L, St) ->
     case io:get_line(Ifile, leex) of
         eof -> {eof,L};
+        {error, _} -> add_error({L+1, leex, cannot_parse}, St);
         Chars ->
             case substr(Chars, span(Chars, " \t\n")+1) of
-                [$%|_Rest] -> nextline(Ifile, L+1);
-                [] -> nextline(Ifile, L+1);
+                [$%|_Rest] -> nextline(Ifile, L+1, St);
+                [] -> nextline(Ifile, L+1, St);
                 _Other -> {ok,Chars,L+1}
             end
     end.
@@ -1289,19 +1298,21 @@ out_file(St0, DFA, DF, Actions, Code) ->
             try
                 case file:open(St0#leex.efile, [write]) of
                     {ok,Ofile} ->
+                        set_encoding(St0, Ofile),
                         try 
+                            output_encoding_comment(Ofile, St0),
                             output_file_directive(Ofile, St0#leex.ifile, 0),
                             out_file(Ifile, Ofile, St0, DFA, DF, Actions,
                                      Code, 1),
                             verbose_print(St0, "ok~n", []),
                             St0
-                        after file:close(Ofile)
+                        after ok = file:close(Ofile)
                         end;
                     {error,Error} ->
                         verbose_print(St0, "error~n", []),
                         add_error({none,leex,{file_error,Error}}, St0)
                 end
-            after file:close(Ifile)
+            after ok = file:close(Ifile)
             end;
         {{error,Error},Ifile} ->
             add_error(Ifile, {none,leex,{file_error,Error}}, St0)
@@ -1310,7 +1321,9 @@ out_file(St0, DFA, DF, Actions, Code) ->
 open_inc_file(State) ->
     Ifile = State#leex.ifile,
     case file:open(Ifile, [read]) of
-        {ok,F} -> {ok,F};
+        {ok,F} ->
+            _ = epp:set_encoding(F),
+            {ok,F};
         Error -> {Error,Ifile}
     end.
 
@@ -1328,6 +1341,7 @@ inc_file_name(Filename) ->
 out_file(Ifile, Ofile, St, DFA, DF, Actions, Code, L) ->
     case io:get_line(Ifile, leex) of
         eof -> output_file_directive(Ofile, St#leex.ifile, L);
+        {error, _} -> add_error(St#leex.ifile, {L, leex, cannot_parse}, St);
         Line ->
             case substr(Line, 1, 5) of
                 "##mod" -> out_module(Ofile, St);
@@ -1347,13 +1361,22 @@ out_erlang_code(File, St, Code, L) ->
     output_file_directive(File, St#leex.xfile, CodeL),
     {ok,Xfile} = file:open(St#leex.xfile, [read]),
     try
+        set_encoding(St, Xfile),
         {ok,_} = file:position(Xfile, CodePos),
-        {ok,_} = file:copy(Xfile, File)
+        ok = file_copy(Xfile, File)
     after 
-        file:close(Xfile)
+        ok = file:close(Xfile)
     end,
     io:nl(File),
     output_file_directive(File, St#leex.ifile, L).
+
+file_copy(From, To) ->
+    case io:get_line(From, leex) of
+        eof -> ok;
+        Line when is_list(Line) ->
+            io:fwrite(To, "~ts", [Line]),
+            file_copy(From, To)
+    end.
 
 out_dfa(File, St, DFA, Code, DF, L) ->
     {_CodeL,_CodePos,NCodeLines} = Code,
@@ -1569,7 +1592,7 @@ out_dfa_graph(St, DFA, DF) ->
                 io:fwrite(Gfile, "}~n", []),
                 verbose_print(St, "ok~n", []),
                 St
-            after file:close(Gfile)
+            after ok = file:close(Gfile)
             end;
         {error,Error} ->
             verbose_print(St, "error~n", []),
@@ -1609,6 +1632,16 @@ dfa_edgelabel(Cranges) ->
     "[" ++ map(fun ({A,B}) -> [quote(A), "-", quote(B)];
                    (C)     -> [quote(C)]
                end, Cranges) ++ "]".
+
+set_encoding(#leex{encoding = none}, File) ->
+    ok = io:setopts(File, [{encoding, epp:default_encoding()}]);
+set_encoding(#leex{encoding = E}, File) ->
+    ok = io:setopts(File, [{encoding, E}]).
+
+output_encoding_comment(_File, #leex{encoding = none}) ->
+    ok;
+output_encoding_comment(File, #leex{encoding = Encoding}) ->
+    io:fwrite(File, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
 output_file_directive(File, Filename, Line) ->
     io:fwrite(File, <<"-file(~s, ~w).\n">>, 

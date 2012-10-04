@@ -1,7 +1,8 @@
+%% -*= coding: latin-1 -*-
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -42,7 +43,9 @@
 -export([
 	 file/1, compile/1, syntax/1,
 	 
-	 pt/1, man/1, ex/1, ex2/1, not_yet/1]).
+	 pt/1, man/1, ex/1, ex2/1, not_yet/1,
+
+         otp_10302/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
 -define(default_timeout, ?t:minutes(1)).
@@ -63,7 +66,8 @@ all() ->
 
 groups() -> 
     [{checks, [], [file, compile, syntax]},
-     {examples, [], [pt, man, ex, ex2, not_yet]}].
+     {examples, [], [pt, man, ex, ex2, not_yet]},
+     {tickets, [], [otp_10302]}].
 
 init_per_suite(Config) ->
     Config.
@@ -872,6 +876,111 @@ not_yet(Config) when is_list(Config) ->
                                  "Erlang code.\n">>),
     ?line {error,[{_,[{3,leex,{regexp,_}}]}],[]} = 
         leex:file(Filename, Ret),
+
+    ok.
+
+otp_10302(doc) ->
+    "OTP-10302. Unicode characters scanner/parser.";
+otp_10302(suite) -> [];
+otp_10302(Config) when is_list(Config) ->
+    Dir = ?privdir,
+    Filename = filename:join(Dir, "file.xrl"),
+    Ret = [return, {report, true}],
+
+    ok = file:write_file(Filename,<<
+         "%% coding: UTF-8\n"
+         "ä"
+     >>),
+    {error,[{_,[{2,leex,cannot_parse}]}],[]} =
+        leex:file(Filename, Ret),
+
+    ok = file:write_file(Filename,<<
+         "%% coding: UTF-8\n"
+         "Definitions.\n"
+         "ä"
+     >>),
+    {error,[{_,[{3,leex,cannot_parse}]}],[]} = leex:file(Filename, Ret),
+
+    ok = file:write_file(Filename,<<
+         "%% coding: UTF-8\n"
+         "Definitions.\n"
+         "A = a\n"
+         "L = [{A}-{Z}]\n"
+         "Z = z\n"
+         "Rules.\n"
+         "{L}+ : {token,{list_to_atom(TokenChars),Häpp}}.\n"
+     >>),
+    {error,[{_,[{7,leex,cannot_parse}]}],[]} = leex:file(Filename, Ret),
+
+    ok = file:write_file(Filename,<<
+         "%% coding: UTF-8\n"
+         "Definitions.\n"
+         "A = a\n"
+         "L = [{A}-{Z}]\n"
+         "Z = z\n"
+         "Rules.\n"
+         "{L}+ : {token,{list_to_atom(TokenChars)}}.\n"
+         "Erlang code.\n"
+         "-export([t/0]).\n"
+         "t() ->\n"
+         "    Häpp\n"
+      >>),
+    {error,[{_,[{11,leex,cannot_parse}]}],[]} = leex:file(Filename, Ret),
+
+    Mini = <<"Definitions.\n"
+             "D  = [0-9]\n"
+             "Rules.\n"
+             "{L}+  : {token,{word,TokenLine,TokenChars}}.\n"
+             "Erlang code.\n">>,
+    LeexPre = filename:join(Dir, "leexinc.hrl"),
+    ?line ok = file:write_file(LeexPre, <<"%% coding: UTF-8\n ä">>),
+    PreErrors = run_test(Config, Mini, LeexPre),
+    {error,[{IncludeFile,[{2,leex,cannot_parse}]}],[]} = PreErrors,
+    "leexinc.hrl" = filename:basename(IncludeFile),
+
+    Ts = [{uni_1,
+       <<"%% coding: UTF-8\n"
+         "Definitions.\n"
+         "A = a\n"
+         "L = [{A}-{Z}]\n"
+         "Z = z\n"
+         "Rules.\n"
+         "{L}+ : {token,{list_to_atom(TokenChars),\n"
+         "begin HÃ¤pp = foo, HÃ¤pp end,"
+         " 'HÃ¤pp',\"\\x{400}B\",\"Ã¶rn_Ð€\"}}.\n"
+         "Erlang code.\n"
+         "-export([t/0]).\n"
+         "t() ->\n"
+         "    %% HÃ¤pp, 'HÃ¤pp',\"\\x{400}B\",\"Ã¶rn_Ð€\"\n"
+         "    {ok, [R], 1} = string(\"tip\"),\n"
+         "    {tip,foo,'HÃ¤pp',[1024,66],[246,114,110,95,1024]} = R,\n"
+         "    HÃ¤pp = foo,\n"
+         "    {tip, HÃ¤pp, 'HÃ¤pp',\"\\x{400}B\",\"Ã¶rn_Ð€\"} = R,\n"
+         "    ok.\n">>,
+          default,
+          ok},
+      {uni_2,
+       <<"%% coding: Latin-1\n"
+         "Definitions.\n"
+         "A = a\n"
+         "L = [{A}-{Z}]\n"
+         "Z = z\n"
+         "Rules.\n"
+         "{L}+ : {token,{list_to_atom(TokenChars),\n"
+         "begin Häpp = foo, Häpp end,"
+         " 'Häpp',\"\\x{400}B\",\"Ã¶rn_Ð€\"}}.\n"
+         "Erlang code.\n"
+         "-export([t/0]).\n"
+         "t() ->\n"
+         "    %% Häpp, 'Häpp',\"\\x{400}B\",\"Ã¶rn_Ð€\"\n"
+         "    {ok, [R], 1} = string(\"tip\"),\n"
+         "    {tip,foo,'Häpp',[1024,66],[195,182,114,110,95,208,128]} = R,\n"
+         "    Häpp = foo,\n"
+         "    {tip, Häpp, 'Häpp',\"\\x{400}B\",\"Ã¶rn_Ð€\"} = R,\n"
+         "    ok.\n">>,
+          default,
+          ok}],
+    run(Config, Ts),
 
     ok.
 

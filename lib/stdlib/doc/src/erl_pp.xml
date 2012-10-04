@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>1996</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -62,6 +62,12 @@
         <p>If <c><anno>CurrentIndentation</anno></c> is negative, there will be no line
           breaks and only a space is used as a separator.</p>
       </desc>
+    </datatype>
+    <datatype>
+      <name name="option"/>
+    </datatype>
+    <datatype>
+      <name name="options"/>
     </datatype>
   </datatypes>
   <funcs>

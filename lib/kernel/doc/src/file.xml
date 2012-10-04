@@ -261,6 +261,9 @@
         {person, "pelle", 30}.</code>
 <pre>1> <input>file:consult("f.txt").</input>
 {ok,[{person,"kalle",25},{person,"pelle",30}]}</pre>
+        <p>The encoding of of <c><anno>Filename</anno></c> can be set
+          by a comment as described in <seealso
+          marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -399,6 +402,9 @@
               of the error.</p>
           </item>
         </taglist>
+        <p>The encoding of of <c><anno>Filename</anno></c> can be set
+          by a comment as described in <seealso
+          marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -865,6 +871,9 @@
               the error.</p>
           </item>
         </taglist>
+        <p>The encoding of of <c><anno>Filename</anno></c> can be set
+          by a comment as described in <seealso
+          marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -906,6 +915,9 @@
               of the error.</p>
           </item>
         </taglist>
+        <p>The encoding of of <c><anno>Filename</anno></c> can be set
+          by a comment as described in <seealso
+          marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
       </desc>
     </func>
     <func>
@@ -975,7 +987,10 @@
               of the error.</p>
           </item>
         </taglist>
-      </desc>
+        <p>The encoding of of <c><anno>Filename</anno></c> can be set
+          by a comment as described in <seealso
+          marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
+   </desc>
     </func>
     <func>
       <name name="path_script" arity="3"/>
@@ -1506,6 +1521,9 @@
               of the error.</p>
           </item>
         </taglist>
+        <p>The encoding of of <c><anno>Filename</anno></c> can be set
+          by a comment as described in <seealso
+          marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
       </desc>
     </func>
     <func>

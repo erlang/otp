@@ -736,7 +736,7 @@ binary_options(Config) when is_list(Config) ->
 		  {getline_re, ".*<<\"hej\\\\n\">>"},
 		  {putline, "io:get_line('')."},
 		  {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-		  {getline_re, ".*<<\""++binary_to_list(unicode:characters_to_binary(<<"\345\344\366"/utf8>>,latin1,utf8))++"\\\\n\">>"}
+		  {getline_re, ".*<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\\\n\"/utf8>>"}
 		  ],[],[],"-oldshell"),
     ok.
 

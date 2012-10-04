@@ -64,7 +64,10 @@
 
 -export([write/1,write/2,write/3,nl/0,format_prompt/1]).
 -export([write_atom/1,write_string/1,write_string/2,write_unicode_string/1,
-	 write_unicode_string/2, write_char/1, write_unicode_char/1]).
+         write_unicode_string/2, write_char/1, write_unicode_char/1]).
+
+-export([write_unicode_string_as_latin1/1, write_unicode_string_as_latin1/2,
+         write_unicode_char_as_latin1/1]).
 
 -export([quote_atom/2, char_list/1, unicode_char_list/1,
 	 deep_char_list/1, deep_unicode_char_list/1,
@@ -75,11 +78,13 @@
 	 collect_line/2, collect_line/3, collect_line/4,
 	 get_until/3, get_until/4]).
 
--export_type([chars/0, continuation/0]).
+-export_type([chars/0, unicode_chars/0, unicode_string/0, continuation/0]).
 
 %%----------------------------------------------------------------------
 
 -type chars() :: [char() | chars()].
+-type unicode_chars() :: [unicode:unicode_char() | unicode_chars()].
+-type unicode_string() :: [unicode:unicode_char()].
 -type depth() :: -1 | non_neg_integer().
 
 -opaque continuation() :: {Format :: string(),
@@ -330,11 +335,32 @@ write_string(S) ->
 write_string(S, Q) ->
     [Q|write_string1(latin1, S, Q)].
 
+%%% There are two functions to write Unicode strings:
+%%% - they both escape control characters < 160;
+%%% - write_unicode_string() never escapes characters >= 160;
+%%% - write_unicode_string_as_latin1() also escapes characters >= 255.
+
+-spec write_unicode_string(UnicodeString) -> unicode_string() when
+      UnicodeString :: unicode_string().
+
 write_unicode_string(S) ->
     write_unicode_string(S, $").   %"
 
+-spec write_unicode_string(unicode_string(), char()) -> unicode_string().
+
 write_unicode_string(S, Q) ->
-    [Q|write_string1(unicode, S, Q)].
+    [Q|write_string1(unicode_as_unicode, S, Q)].
+
+-spec write_unicode_string_as_latin1(UnicodeString) -> string() when
+      UnicodeString :: unicode_string().
+
+write_unicode_string_as_latin1(S) ->
+    write_unicode_string_as_latin1(S, $").   %"
+
+-spec write_unicode_string_as_latin1(unicode_string(), char()) -> string().
+
+write_unicode_string_as_latin1(S, Q) ->
+    [Q|write_string1(unicode_as_latin1, S, Q)].
 
 write_string1(_,[], Q) ->
     [Q];
@@ -347,7 +373,11 @@ string_char(_,C, _, Tail) when C >= $\s, C =< $~ ->
     [C|Tail];
 string_char(latin1,C, _, Tail) when C >= $\240, C =< $\377 ->
     [C|Tail];
-string_char(unicode,C, _, Tail) when C >= $\240 ->
+string_char(unicode_as_unicode,C, _, Tail) when C >= $\240 ->
+    [C|Tail];
+string_char(unicode_as_latin1,C, _, Tail) when C >= $\240, C =< $\377 ->
+    [C|Tail];
+string_char(unicode_as_latin1,C, _, Tail) when C >= $\377 ->
     "\\x{"++erlang:integer_to_list(C, 16)++"}"++Tail;
 string_char(_,$\n, _, Tail) -> [$\\,$n|Tail];	%\n = LF
 string_char(_,$\r, _, Tail) -> [$\\,$r|Tail];	%\r = CR
@@ -374,10 +404,22 @@ write_char($\s) -> "$\\s";			%Must special case this.
 write_char(C) when is_integer(C), C >= $\000, C =< $\377 ->
     [$$|string_char(latin1,C, -1, [])].
 
-write_unicode_char(Ch) when Ch =< 255 ->
-    write_char(Ch);
-write_unicode_char(Uni) ->
-    [$$|string_char(unicode,Uni, -1, [])].
+%%% There are two functions to write a Unicode character:
+%%% - they both escape control characters < 160;
+%%% - write_unicode_char() never escapes characters >= 160;
+%%% - write_unicode_char_as_latin1() also escapes characters >= 255.
+
+-spec write_unicode_char(UnicodeChar) -> unicode_string() when
+      UnicodeChar :: unicode:unicode_char().
+
+write_unicode_char(Uni) when is_integer(Uni), Uni >= $\000 ->
+    [$$|string_char(unicode_as_unicode,Uni, -1, [])].
+
+-spec write_unicode_char_as_latin1(UnicodeChar) -> string() when
+      UnicodeChar :: unicode:unicode_char().
+
+write_unicode_char_as_latin1(Uni) when is_integer(Uni), Uni >= $\000 ->
+    [$$|string_char(unicode_as_latin1,Uni, -1, [])].
 
 %% char_list(CharList)
 %% deep_char_list(CharList)
@@ -392,7 +434,8 @@ char_list([C|Cs]) when is_integer(C), C >= $\000, C =< $\377 ->
 char_list([]) -> true;
 char_list(_) -> false.			%Everything else is false
 
--spec unicode_char_list(term()) -> boolean().
+-spec unicode_char_list(Term) -> boolean() when
+      Term :: term().
 
 unicode_char_list([C|Cs]) when is_integer(C), C >= 0, C < 16#D800; 
        is_integer(C), C > 16#DFFF, C < 16#FFFE;
@@ -417,7 +460,8 @@ deep_char_list([], []) -> true;
 deep_char_list(_, _More) ->			%Everything else is false
     false.
 
--spec deep_unicode_char_list(term()) -> boolean().
+-spec deep_unicode_char_list(Term) -> boolean() when
+      Term :: term().
 
 deep_unicode_char_list(Cs) ->
     deep_unicode_char_list(Cs, []).
@@ -462,7 +506,8 @@ printable_list(_) -> false.			%Everything else is false
 %%  Everything that is not a control character and not invalid unicode 
 %%  will be considered printable.
 
--spec printable_unicode_list(term()) -> boolean().
+-spec printable_unicode_list(Term) -> boolean() when
+      Term :: term().
 
 printable_unicode_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
     printable_unicode_list(Cs);

@@ -55,7 +55,14 @@
          token_info/1,token_info/2,
          attributes_info/1,attributes_info/2,set_attribute/3]).
 
--export_type([error_info/0, line/0, return_cont/0, tokens_result/0]).
+%%% Private
+-export([continuation_location/1]).
+
+-export_type([error_info/0,
+              line/0,
+              options/0,
+              return_cont/0,
+              tokens_result/0]).
 
 %%%
 %%% Defines and type definitions
@@ -74,7 +81,8 @@
 -type location() :: line() | {line(),column()}.
 -type resword_fun() :: fun((atom()) -> boolean()).
 -type option() :: 'return' | 'return_white_spaces' | 'return_comments'
-                | 'text' | {'reserved_word_fun', resword_fun()}.
+                | 'text' | {'reserved_word_fun', resword_fun()}
+                | 'unicode'.
 -type options() :: option() | [option()].
 -type symbol() :: atom() | float() | integer() | string().
 -type info_line() :: integer() | term().
@@ -95,7 +103,8 @@
         {resword_fun = fun reserved_word/1 :: resword_fun(),
          ws          = false               :: boolean(),
          comment     = false               :: boolean(),
-         text        = false               :: boolean()}).
+         text        = false               :: boolean(),
+         unicode     = false               :: boolean()}).
 
 %%----------------------------------------------------------------------------
 
@@ -182,6 +191,11 @@ tokens([], CharSpec, {Line,Column}, Options) when ?ALINE(Line),
 tokens({erl_scan_continuation,Cs,Col,Toks,Line,St,Any,Fun},
        CharSpec, _Loc, _Opts) ->
     tokens1(Cs++CharSpec, St, Line, Col, Toks, Fun, Any).
+
+continuation_location({erl_scan_continuation,_,no_col,_,Line,_,_,_}) ->
+    Line;
+continuation_location({erl_scan_continuation,_,Col,_,Line,_,_,_}) ->
+    {Line,Col}.
 
 -type attribute_item() :: 'column' | 'length' | 'line'
                         | 'location' | 'text'.
@@ -322,13 +336,20 @@ string_thing(_) -> "string".
          (C >= $\000 andalso C =< $\s orelse C >= $\200 andalso C =< $\240)).
 -define(DIGIT(C), C >= $0, C =< $9).
 -define(CHAR(C), is_integer(C), C >= 0).
+-define(UNICODE(C),
+         (C >= 0 andalso C < 16#D800 orelse
+          C > 16#DFFF andalso C < 16#FFFE orelse
+          C > 16#FFFF andalso C =< 16#10FFFF)).
 
-%% A workaround: Unicode strings are not returned as strings, but as
-%% lists of integers. For instance, "b\x{aaa}c" => [98,2730,99]. This
-%% is to protect the system from character codes greater than 255. To
-%% be removed. Search for UNI to find workaround code.
+%% When the option 'unicode' is false: return Unicode strings as lists
+%% of integers and Unicode characters as integers. For instance,
+%% erl_scan:string("\"b\x{aaa}c\".") is equivalent to
+%% erl_scan:string("[98,2730,99]."). This is to protect the caller
+%% from character codes greater than 255. Search for UNI to find code
+%% implementing this "feature". The 'unicode' option is undocumented
+%% and will probably be removed later.
 -define(NO_UNICODE, 0).
--define(UNI255(C), (C) =< 16#ff).
+-define(UNI255(C), (C =< 16#ff)).
 
 options(Opts0) when is_list(Opts0) ->
     Opts = lists:foldr(fun expand_opt/2, [], Opts0),
@@ -342,10 +363,12 @@ options(Opts0) when is_list(Opts0) ->
     Comment = proplists:get_bool(return_comments, Opts),
     WS = proplists:get_bool(return_white_spaces, Opts),
     Txt = proplists:get_bool(text, Opts),
+    Unicode = proplists:get_bool(unicode, Opts),
     #erl_scan{resword_fun = RW_fun,
               comment     = Comment,
               ws          = WS,
-              text        = Txt};
+              text        = Txt,
+              unicode     = Unicode};
 options(Opt) ->
     options([Opt]).
 
@@ -626,15 +649,12 @@ scan1([$~|Cs], St, Line, Col, Toks) ->
 scan1([$&|Cs], St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "&", '&', 1);
 %% End of optimization.
-scan1([C|Cs], St, Line, Col, Toks) when ?CHAR(C) ->
+scan1([C|Cs], St, Line, Col, Toks) when ?CHAR(C), ?UNI255(C) ->
     Str = [C],
-    case catch list_to_atom(Str) of
-        Sym when is_atom(Sym) ->
-            tok2(Cs, St, Line, Col, Toks, Str, Sym, 1);
-        _ ->
-            Ncol = incr_column(Col, 1),
-            scan_error({illegal,character}, Line, Col, Line, Ncol, Cs)
-    end;
+    tok2(Cs, St, Line, Col, Toks, Str, list_to_atom(Str), 1);
+scan1([C|Cs], _St, Line, Col, _Toks) when ?CHAR(C) ->
+    Ncol = incr_column(Col, 1),
+    scan_error({illegal,character}, Line, Col, Line, Ncol, Cs);
 scan1([]=Cs, _St, Line, Col, Toks) ->
     {more,{Cs,Col,Toks,Line,[],fun scan/6}};
 scan1(eof=Cs, _St, Line, Col, Toks) ->
@@ -832,32 +852,44 @@ scan_char([$\\|Cs]=Cs0, St, Line, Col, Toks) ->
         {eof,Ncol} ->
             scan_error(char, Line, Col, Line, Ncol, eof);
         {nl,Val,Str,Ncs,Ncol} ->
-            Attrs = attributes(Line, Col, St, "$\\"++Str),
+            Attrs = attributes(Line, Col, St, "$\\"++Str), %"
             Ntoks = [{char,Attrs,Val}|Toks],
             scan1(Ncs, St, Line+1, Ncol, Ntoks);
         {unicode,Val,Str,Ncs,Ncol} ->
-            Attrs = attributes(Line, Col, St, "$\\"++Str),
-            Ntoks = [{integer,Attrs,Val}|Toks], % UNI
+            Attrs = attributes(Line, Col, St, "$\\"++Str), %"
+            Tag = char_tag(Val, St), % UNI
+            Ntoks = [{Tag,Attrs,Val}|Toks],
             scan1(Ncs, St, Line, Ncol, Ntoks);
         {Val,Str,Ncs,Ncol} ->
-            Attrs = attributes(Line, Col, St, "$\\"++Str),
+            Attrs = attributes(Line, Col, St, "$\\"++Str), %"
             Ntoks = [{char,Attrs,Val}|Toks],
             scan1(Ncs, St, Line, Ncol, Ntoks)
     end;
 scan_char([$\n=C|Cs], St, Line, Col, Toks) ->
     Attrs = attributes(Line, Col, St, [$$,C]),
     scan1(Cs, St, Line+1, new_column(Col, 1), [{char,Attrs,C}|Toks]);
-scan_char([C|Cs], St, Line, Col, Toks) when ?CHAR(C) ->
-    Tag = if ?UNI255(C) -> char; true -> integer end, % UNI
+scan_char([C|Cs], St, Line, Col, Toks) when ?UNICODE(C) ->
+    Tag = char_tag(C, St), % UNI
     Attrs = attributes(Line, Col, St, [$$,C]),
     scan1(Cs, St, Line, incr_column(Col, 2), [{Tag,Attrs,C}|Toks]);
+scan_char([C|_Cs], _St, Line, Col, _Toks) when ?CHAR(C) ->
+    scan_error({illegal,character}, Line, Col, Line, incr_column(Col, 1), eof);
 scan_char([], _St, Line, Col, Toks) ->
     {more,{[$$],Col,Toks,Line,[],fun scan/6}};
 scan_char(eof, _St, Line, Col, _Toks) ->
     scan_error(char, Line, Col, Line, incr_column(Col, 1), eof).
 
+-compile({inline,[char_tag/2]}).
+
+char_tag(C, _St) when ?UNI255(C) ->
+    char;
+char_tag(_C, #erl_scan{unicode = true}) ->
+    char;
+char_tag(_C, _St) ->
+    integer.
+
 scan_string(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0,Uni0}) ->
-    case scan_string0(Cs, St, Line, Col, $\", Str, Wcs, Uni0) of
+    case scan_string0(Cs, St, Line, Col, $\", true, Str, Wcs, Uni0) of %"
         {more,Ncs,Nline,Ncol,Nstr,Nwcs,Uni} ->
             State = {Nwcs,Nstr,Line0,Col0,Uni},
             {more,{Ncs,Ncol,Toks,Nline,State,fun scan_string/6}};
@@ -865,8 +897,9 @@ scan_string(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0,Uni0}) ->
             scan_error(Error, Nline, Ncol, Nline, EndCol, Ncs);
         {error,Nline,Ncol,Nwcs,Ncs} ->
             Estr = string:substr(Nwcs, 1, 16), % Expanded escape chars.
-            scan_error({string,$\",Estr}, Line0, Col0, Nline, Ncol, Ncs);
-        {Ncs,Nline,Ncol,Nstr,Nwcs,?NO_UNICODE} ->
+            scan_error({string,$\",Estr}, Line0, Col0, Nline, Ncol, Ncs); %"
+        {Ncs,Nline,Ncol,Nstr,Nwcs,Uni} when Uni =:= ?NO_UNICODE;
+                                            St#erl_scan.unicode ->
             Attrs = attributes(Line0, Col0, St, Nstr),
             scan1(Ncs, St, Nline, Ncol, [{string,Attrs,Nwcs}|Toks]);
         {Ncs,Nline,Ncol,Nstr,_Nwcs,_Uni} ->
@@ -918,7 +951,8 @@ unicode_tokens(Line, Col, Str, Val, St, Toks, Cs, Cline, Ccol) ->
     [{',',attributes(Cline, Ccol, St, "")} || Cs =/= "\""] ++ [Token|Toks].
 
 scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0,Uni0}) ->
-    case scan_string0(Cs, St, Line, Col, $\', Str, Wcs, Uni0) of
+    AllowUni = St#erl_scan.unicode,
+    case scan_string0(Cs, St, Line, Col, $\', AllowUni, Str, Wcs, Uni0) of %'
         {more,Ncs,Nline,Ncol,Nstr,Nwcs,Uni} ->
             State = {Nwcs,Nstr,Line0,Col0,Uni},
             {more,{Ncs,Ncol,Toks,Nline,State,fun scan_qatom/6}};
@@ -926,8 +960,9 @@ scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0,Uni0}) ->
             scan_error(Error, Nline, Ncol, Nline, EndCol, Ncs);
         {error,Nline,Ncol,Nwcs,Ncs} ->
             Estr = string:substr(Nwcs, 1, 16), % Expanded escape chars.
-            scan_error({string,$\',Estr}, Line0, Col0, Nline, Ncol, Ncs);
-        {Ncs,Nline,Ncol,Nstr,Nwcs,?NO_UNICODE} ->
+            scan_error({string,$\',Estr}, Line0, Col0, Nline, Ncol, Ncs); %'
+        {Ncs,Nline,Ncol,Nstr,Nwcs,Uni} ->
+            true = Uni =:= ?NO_UNICODE orelse AllowUni,
             case catch list_to_atom(Nwcs) of
                 A when is_atom(A) ->
                     Attrs = attributes(Line0, Col0, St, Nstr),
@@ -937,38 +972,40 @@ scan_qatom(Cs, St, Line, Col, Toks, {Wcs,Str,Line0,Col0,Uni0}) ->
             end
     end.
 
-scan_string0(Cs, #erl_scan{text=false}, Line, no_col=Col, Q, [], Wcs, Uni) ->
-    scan_string_no_col(Cs, Line, Col, Q, Wcs, Uni);
-scan_string0(Cs, #erl_scan{text=true}, Line, no_col=Col, Q, Str, Wcs, Uni) ->
-    scan_string1(Cs, Line, Col, Q, Str, Wcs, Uni);
-scan_string0(Cs, _St, Line, Col, Q, [], Wcs, Uni) ->
-    scan_string_col(Cs, Line, Col, Q, Wcs, Uni);
-scan_string0(Cs, _St, Line, Col, Q, Str, Wcs, Uni) ->
-    scan_string1(Cs, Line, Col, Q, Str, Wcs, Uni).
+scan_string0(Cs, #erl_scan{text=false}, Line, no_col=Col, Q, U, [], Wcs, Uni) ->
+    scan_string_no_col(Cs, Line, Col, Q, U, Wcs, Uni);
+scan_string0(Cs, #erl_scan{text=true}, Line, no_col=Col, Q, U, Str, Wcs, Uni) ->
+    scan_string1(Cs, Line, Col, Q, U, Str, Wcs, Uni);
+scan_string0(Cs, _St, Line, Col, Q, U, [], Wcs, Uni) ->
+    scan_string_col(Cs, Line, Col, Q, U, Wcs, Uni);
+scan_string0(Cs, _St, Line, Col, Q, U, Str, Wcs, Uni) ->
+    scan_string1(Cs, Line, Col, Q, U, Str, Wcs, Uni).
 
 %% Optimization. Col =:= no_col.
-scan_string_no_col([Q|Cs], Line, Col, Q, Wcs, Uni) ->
+scan_string_no_col([Q|Cs], Line, Col, Q, _U, Wcs, Uni) ->
     {Cs,Line,Col,_DontCare=[],lists:reverse(Wcs),Uni};
-scan_string_no_col([$\n=C|Cs], Line, Col, Q, Wcs, Uni) ->
-    scan_string_no_col(Cs, Line+1, Col, Q, [C|Wcs], Uni);
-scan_string_no_col([C|Cs], Line, Col, Q, Wcs, Uni) when C =/= $\\,
-                                                        ?CHAR(C), ?UNI255(C) ->
-    scan_string_no_col(Cs, Line, Col, Q, [C|Wcs], Uni);
-scan_string_no_col(Cs, Line, Col, Q, Wcs, Uni) ->
-    scan_string1(Cs, Line, Col, Q, Wcs, Wcs, Uni).
+scan_string_no_col([$\n=C|Cs], Line, Col, Q, U, Wcs, Uni) ->
+    scan_string_no_col(Cs, Line+1, Col, Q, U, [C|Wcs], Uni);
+scan_string_no_col([C|Cs], Line, Col, Q, U, Wcs, Uni) when C =/= $\\,
+                                                           ?CHAR(C),
+                                                           ?UNI255(C) ->
+    scan_string_no_col(Cs, Line, Col, Q, U, [C|Wcs], Uni);
+scan_string_no_col(Cs, Line, Col, Q, U, Wcs, Uni) ->
+    scan_string1(Cs, Line, Col, Q, U, Wcs, Wcs, Uni).
 
 %% Optimization. Col =/= no_col.
-scan_string_col([Q|Cs], Line, Col, Q, Wcs0, Uni) ->
+scan_string_col([Q|Cs], Line, Col, Q, _U, Wcs0, Uni) ->
     Wcs = lists:reverse(Wcs0),
     Str = [Q|Wcs++[Q]],
     {Cs,Line,Col+1,Str,Wcs,Uni};
-scan_string_col([$\n=C|Cs], Line, _xCol, Q, Wcs, Uni) ->
-    scan_string_col(Cs, Line+1, 1, Q, [C|Wcs], Uni);
-scan_string_col([C|Cs], Line, Col, Q, Wcs, Uni) when C =/= $\\,
-                                                     ?CHAR(C), ?UNI255(C) ->
-    scan_string_col(Cs, Line, Col+1, Q, [C|Wcs], Uni);
-scan_string_col(Cs, Line, Col, Q, Wcs, Uni) ->
-    scan_string1(Cs, Line, Col, Q, Wcs, Wcs, Uni).
+scan_string_col([$\n=C|Cs], Line, _xCol, Q, U, Wcs, Uni) ->
+    scan_string_col(Cs, Line+1, 1, Q, U, [C|Wcs], Uni);
+scan_string_col([C|Cs], Line, Col, Q, U, Wcs, Uni) when C =/= $\\,
+                                                        ?CHAR(C),
+                                                        ?UNI255(C) ->
+    scan_string_col(Cs, Line, Col+1, Q, U, [C|Wcs], Uni);
+scan_string_col(Cs, Line, Col, Q, U, Wcs, Uni) ->
+    scan_string1(Cs, Line, Col, Q, U, Wcs, Wcs, Uni).
 
 %% UNI_STR is to be replaced by STR when the Unicode-string-to-list
 %% workaround is eventually removed.
@@ -979,14 +1016,14 @@ scan_string_col(Cs, Line, Col, Q, Wcs, Uni) ->
 %% but then the end location of the error tuple would not correspond
 %% to the start location of the returned Rest string. (Maybe the end
 %% location could be modified, but that too is ugly.)
-scan_string1([Q|Cs], Line, Col, Q, Str0, Wcs0, Uni) ->
+scan_string1([Q|Cs], Line, Col, Q, _U, Str0, Wcs0, Uni) ->
     Wcs = lists:reverse(Wcs0),
     Str = ?UNI_STR(Col, [Q|lists:reverse(Str0, [Q])]),
     {Cs,Line,incr_column(Col, 1),Str,Wcs,Uni};
-scan_string1([$\n=C|Cs], Line, Col, Q, Str, Wcs, Uni) ->
+scan_string1([$\n=C|Cs], Line, Col, Q, U, Str, Wcs, Uni) ->
     Ncol = new_column(Col, 1),
-    scan_string1(Cs, Line+1, Ncol, Q, ?UNI_STR(Col, [C|Str]), [C|Wcs], Uni);
-scan_string1([$\\|Cs]=Cs0, Line, Col, Q, Str, Wcs, Uni) ->
+    scan_string1(Cs, Line+1, Ncol, Q, U, ?UNI_STR(Col, [C|Str]), [C|Wcs], Uni);
+scan_string1([$\\|Cs]=Cs0, Line, Col, Q, U, Str, Wcs, Uni) ->
     case scan_escape(Cs, Col) of
         more ->
             {more,Cs0,Line,Col,Str,Wcs,Uni};
@@ -997,31 +1034,33 @@ scan_string1([$\\|Cs]=Cs0, Line, Col, Q, Str, Wcs, Uni) ->
         {nl,Val,ValStr,Ncs,Ncol} ->
             Nstr = ?UNI_STR(Ncol, lists:reverse(ValStr, [$\\|Str])),
             Nwcs = [Val|Wcs],
-            scan_string1(Ncs, Line+1, Ncol, Q, Nstr, Nwcs, Uni);
-        {unicode,_Val,_ValStr,Ncs,Ncol} when Q =:= $' -> %' Emacs
+            scan_string1(Ncs, Line+1, Ncol, Q, U, Nstr, Nwcs, Uni);
+        {unicode,_Val,_ValStr,Ncs,Ncol} when not U -> %' Emacs
             {char_error,Ncs,{illegal,character},Line,Col,incr_column(Ncol, 1)};
         {unicode,Val,ValStr,Ncs,Ncol} -> % UNI. Uni is set to Val.
             Nstr = ?UNI_STR(Ncol, lists:reverse(ValStr, [$\\|Str])),
             Nwcs = [Val|Wcs], % not used
-            scan_string1(Ncs, Line, incr_column(Ncol, 1), Q, Nstr, Nwcs, Val);
+            scan_string1(Ncs, Line, incr_column(Ncol, 1), Q, U, Nstr, Nwcs, Val);
         {Val,ValStr,Ncs,Ncol} ->
             Nstr = ?UNI_STR(Ncol, lists:reverse(ValStr, [$\\|Str])),
             Nwcs = [Val|Wcs],
-            scan_string1(Ncs, Line, incr_column(Ncol, 1), Q, Nstr, Nwcs, Uni)
+            scan_string1(Ncs, Line, incr_column(Ncol, 1), Q, U, Nstr, Nwcs, Uni)
     end;
-scan_string1([C|Cs], Line, no_col=Col, Q, Str, Wcs, Uni) when ?CHAR(C),
-                                                              ?UNI255(C) ->
-    %% scan_string1(Cs, Line, Col, Q, Str, [C|Wcs], Uni);
-    scan_string1(Cs, Line, Col, Q, [C|Str], [C|Wcs], Uni); % UNI
-scan_string1([C|Cs], Line, Col, Q, Str, Wcs, Uni) when ?CHAR(C), ?UNI255(C) ->
-    scan_string1(Cs, Line, Col+1, Q, [C|Str], [C|Wcs], Uni);
-scan_string1([C|Cs], Line, Col, $', _Str, _Wcs, _Uni) when ?CHAR(C) -> %' UNI
+scan_string1([C|Cs], Line, no_col=Col, Q, U, Str, Wcs, Uni) when ?CHAR(C),
+                                                                 ?UNI255(C) ->
+    %% scan_string1(Cs, Line, Col, Q, U, Str, [C|Wcs], Uni);
+    scan_string1(Cs, Line, Col, Q, U, [C|Str], [C|Wcs], Uni); % UNI
+scan_string1([C|Cs], Line, Col, Q, U, Str, Wcs, Uni) when ?CHAR(C), ?UNI255(C) ->
+    scan_string1(Cs, Line, Col+1, Q, U, [C|Str], [C|Wcs], Uni);
+scan_string1([C|Cs], Line, Col, _Q, false, _Str, _Wcs, _Uni) when ?CHAR(C) -> %' UNI
     {char_error,Cs,{illegal,character},Line,Col,incr_column(Col, 1)};
-scan_string1([C|Cs], Line, Col, Q, Str, Wcs, _Uni) when ?CHAR(C) -> % UNI
-    scan_string1(Cs, Line, incr_column(Col, 1), Q, [C|Str], [C|Wcs], C);
-scan_string1([]=Cs, Line, Col, _Q, Str, Wcs, Uni) ->
+scan_string1([C|Cs], Line, Col, Q, U, Str, Wcs, _Uni) when ?UNICODE(C) ->
+    scan_string1(Cs, Line, incr_column(Col, 1), Q, U, [C|Str], [C|Wcs], C);
+scan_string1([C|Cs], Line, Col, _Q, _U, _Str, _Wcs, _Uni) when ?CHAR(C) -> % UNI
+    {char_error,Cs,{illegal,character},Line,Col,incr_column(Col, 1)};
+scan_string1([]=Cs, Line, Col, _Q, _U, Str, Wcs, Uni) ->
     {more,Cs,Line,Col,Str,Wcs,Uni};
-scan_string1(eof, Line, Col, _Q, _Str, Wcs, _Uni) ->
+scan_string1(eof, Line, Col, _Q, _U, _Str, Wcs, _Uni) ->
     {error,Line,Col,lists:reverse(Wcs),eof}.
 
 -define(OCT(C), C >= $0, C =< $7).
@@ -1072,8 +1111,10 @@ scan_escape([$\n=C|Cs], Col) ->
 scan_escape([C0|Cs], Col) when ?CHAR(C0), ?UNI255(C0) ->
     C = escape_char(C0),
     {C,?UNI_STR(Col, [C0]),Cs,incr_column(Col, 1)};
-scan_escape([C|Cs], Col) when ?CHAR(C) -> % UNI
+scan_escape([C|Cs], Col) when ?UNICODE(C) ->
     {unicode,C,?UNI_STR(Col, [C]),Cs,incr_column(Col, 1)};
+scan_escape([C|Cs], Col) when ?CHAR(C) -> % UNI
+    {error,Cs,{illegal,character},incr_column(Col, 1)};
 scan_escape([], _Col) ->
     more;
 scan_escape(eof, Col) ->
@@ -1091,7 +1132,7 @@ scan_esc_end([$}|Cs], Col, Wcs0, B, Str0) ->
     case catch erlang:list_to_integer(Wcs, B) of
         Val when Val =< 16#FF ->
             {Val,?UNI_STR(Col, Str0++Wcs++[$}]),Cs,incr_column(Col, 1)};
-        Val when Val =< 16#10FFFF ->
+        Val when ?UNICODE(Val) ->
             {unicode,Val,?UNI_STR(Col, Str0++Wcs++[$}]),Cs,incr_column(Col,1)};
         _ ->
             {error,Cs,{illegal,character},incr_column(Col, 1)}
@@ -1197,18 +1238,36 @@ float_end(Cs, St, Line, Col, Toks, Ncs0) ->
             scan_error({illegal,float}, Line, Col, Line, Ncol, Cs)
     end.
 
-skip_comment([C|Cs], St, Line, Col, Toks, N) when C =/= $\n, ?CHAR(C) ->
-    skip_comment(Cs, St, Line, Col, Toks, N+1);
-skip_comment([]=Cs, _St, Line, Col, Toks, N) ->
-    {more,{Cs,Col,Toks,Line,N,fun skip_comment/6}};
 skip_comment(Cs, St, Line, Col, Toks, N) ->
+    skip_comment(Cs, St, Line, Col, Toks, N, St#erl_scan.unicode).
+
+skip_comment([C|Cs], St, Line, Col, Toks, N, U) when C =/= $\n, ?CHAR(C) ->
+    case ?UNI255(C) orelse U andalso ?UNICODE(C) of
+        true ->
+            skip_comment(Cs, St, Line, Col, Toks, N+1, U);
+        false ->
+            Ncol = incr_column(Col, N+1),
+            scan_error({illegal,character}, Line, Col, Line, Ncol, Cs)
+    end;
+skip_comment([]=Cs, _St, Line, Col, Toks, N, _U) ->
+    {more,{Cs,Col,Toks,Line,N,fun skip_comment/6}};
+skip_comment(Cs, St, Line, Col, Toks, N, _U) ->
     scan1(Cs, St, Line, incr_column(Col, N), Toks).
 
-scan_comment([C|Cs], St, Line, Col, Toks, Ncs) when C =/= $\n, ?CHAR(C) ->
-    scan_comment(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_comment([]=Cs, _St, Line, Col, Toks, Ncs) ->
+scan_comment(Cs, St, Line, Col, Toks, Ncs) ->
+    scan_comment(Cs, St, Line, Col, Toks, Ncs, St#erl_scan.unicode).
+
+scan_comment([C|Cs], St, Line, Col, Toks, Ncs, U) when C =/= $\n, ?CHAR(C) ->
+    case ?UNI255(C) orelse U andalso ?UNICODE(C) of
+        true ->
+            scan_comment(Cs, St, Line, Col, Toks, [C|Ncs], U);
+        false ->
+            Ncol = incr_column(Col, length(Ncs)+1),
+            scan_error({illegal,character}, Line, Col, Line, Ncol, Cs)
+    end;
+scan_comment([]=Cs, _St, Line, Col, Toks, Ncs, _U) ->
     {more,{Cs,Col,Toks,Line,Ncs,fun scan_comment/6}};
-scan_comment(Cs, St, Line, Col, Toks, Ncs0) ->
+scan_comment(Cs, St, Line, Col, Toks, Ncs0, _U) ->
     Ncs = lists:reverse(Ncs0),
     tok3(Cs, St, Line, Col, Toks, comment, Ncs, Ncs).
 

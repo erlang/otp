@@ -101,7 +101,6 @@ XML_REF6_FILES = stdlib_app.xml
 
 XML_PART_FILES = part.xml part_notes.xml part_notes_history.xml
 XML_CHAPTER_FILES = io_protocol.xml unicode_usage.xml notes.xml notes_history.xml
-GIF_FILES = ushell1.gif ushell2.gif ushell3.gif
 
 BOOK_FILES = book.xml
 
@@ -112,8 +111,7 @@ XML_FILES = \
 # ----------------------------------------------------
 
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(GIF_FILES:%.gif=$(HTMLDIR)/%.gif)
+	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
 
 INFO_FILE = ../../info
 
@@ -138,20 +136,15 @@ SPECS_FLAGS = -I../../include -I../../../kernel/include
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
-	$(INSTALL_DATA) $< $@
-
 docs: man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html: gifs $(HTML_REF_MAN_FILE)
+html: $(HTML_REF_MAN_FILE)
 
 man: $(MAN3_FILES) $(MAN6_FILES)
-
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
 debug opt: 
 

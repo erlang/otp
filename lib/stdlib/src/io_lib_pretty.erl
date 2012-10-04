@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -33,31 +33,76 @@
 %% print(Term, Column, LineLength, Depth) -> [Chars]
 %% Depth = -1 gives unlimited print depth. Use io_lib:write for atomic terms.
 
+-spec print(term()) -> io_lib:chars().
+
 print(Term) ->
     print(Term, 1, 80, -1).
 
 %% print(Term, RecDefFun) -> [Chars]
 %% print(Term, Depth, RecDefFun) -> [Chars]
 %% RecDefFun = fun(Tag, NoFields) -> [FieldTag] | no
-%% Used by the shell for printing records.
+%% Used by the shell for printing records and for Unicode.
+
+-type rec_print_fun() :: fun((Tag :: atom(), NFields :: non_neg_integer()) ->
+                                  no | [FieldName :: atom()]).
+-type column() :: integer().
+-type line_length() :: pos_integer().
+-type depth() :: integer().
+-type max_chars() :: integer().
+
+-type chars() :: io_lib:chars().
+-type unicode_chars() :: io_lib:unicode_chars().
+-type option() :: {column, column()}
+                | {line_length, line_length()}
+                | {depth, depth()}
+                | {max_chars, max_chars()}
+                | {record_print_fun, rec_print_fun()}
+                | {encoding, latin1 | utf8 | unicode}.
+-type options() :: [option()].
+
+-spec print(term(), rec_print_fun()) -> chars() | unicode_chars();
+           (term(), options()) -> chars() | unicode_chars().
+
+print(Term, Options) when is_list(Options) ->
+    Col = proplists:get_value(column, Options, 1),
+    Ll = proplists:get_value(line_length, Options, 80),
+    D = proplists:get_value(depth, Options, -1),
+    M = proplists:get_value(max_chars, Options, -1),
+    RecDefFun = proplists:get_value(record_print_fun, Options, no_fun),
+    Encoding = proplists:get_value(encoding, Options, epp:default_encoding()),
+    print(Term, Col, Ll, D, M, RecDefFun, Encoding);
 print(Term, RecDefFun) ->
     print(Term, -1, RecDefFun).
+
+-spec print(term(), depth(), rec_print_fun()) -> chars() | unicode_chars().
 
 print(Term, Depth, RecDefFun) ->
     print(Term, 1, 80, Depth, RecDefFun).
 
-print(Term, Col, Ll, D) ->
-    print(Term, Col, Ll, D, _M=-1, no_fun).
+-spec print(term(), column(), line_length(), depth()) ->
+                   chars() | unicode_chars().
 
+print(Term, Col, Ll, D) ->
+    print(Term, Col, Ll, D, _M=-1, no_fun, latin1).
+
+-spec print(term(), column(), line_length(), depth(), rec_print_fun()) ->
+                   chars() | unicode_chars().
 print(Term, Col, Ll, D, RecDefFun) ->
     print(Term, Col, Ll, D, _M=-1, RecDefFun).
 
-print(_, _, _, 0, _M, _RF) -> "...";
-print(Term, Col, Ll, D, M, RecDefFun) when Col =< 0 ->
-    print(Term, 1, Ll, D, M, RecDefFun);
-print(Term, Col, Ll, D, M0, RecDefFun) when is_tuple(Term); 
-                                            is_list(Term) ->
-    If = {_S, Len} = print_length(Term, D, RecDefFun),
+-spec print(term(), column(), line_length(), depth(), max_chars(),
+            rec_print_fun()) -> chars() | unicode_chars().
+
+print(Term, Col, Ll, D, M, RecDefFun) ->
+    print(Term, Col, Ll, D, M, RecDefFun, latin1).
+
+print(_, _, _, 0, _M, _RF, _Enc) -> "...";
+print(Term, Col, Ll, D, M, RecDefFun, Enc) when Col =< 0 ->
+    print(Term, 1, Ll, D, M, RecDefFun, Enc);
+print(Term, Col, Ll, D, M0, RecDefFun, Enc) when is_tuple(Term);
+                                                 is_list(Term);
+                                                 is_bitstring(Term) ->
+    If = {_S, Len} = print_length(Term, D, RecDefFun, Enc),
     M = max_cs(M0, Len),
     if
         Len < Ll - Col, Len =< M ->
@@ -68,19 +113,7 @@ print(Term, Col, Ll, D, M0, RecDefFun) when is_tuple(Term);
                               1),
             pp(If, Col, Ll, M, TInd, indent(Col), 0, 0)
     end;
-print(<<_/bitstring>>=Term, Col, Ll, D, M0, RecDefFun) ->
-    If = {_S, Len} = print_length(Term, D, RecDefFun),
-    M = max_cs(M0, Len),
-    if
-        Len < Ll - Col, Len =< M ->
-            write(If);
-        true ->
-            TInd = while_fail([-1, 4], 
-                              fun(I) -> cind(If, Col, Ll, M, I, 0, 0) end, 
-                              1),
-            pp(If, Col, Ll, M, TInd, indent(Col), 0, 0)
-    end;
-print(Term, _Col, _Ll, _D, _M, _RF) ->
+print(Term, _Col, _Ll, _D, _M, _RF, _Enc) ->
     io_lib:write(Term).
 
 %%%
@@ -294,50 +327,56 @@ write_tail(E, S) ->
 %% counted but need to be added later.
 
 %% D =/= 0
-print_length([], _D, _RF) ->
+print_length([], _D, _RF, _Enc) ->
     {"[]", 2};
-print_length({}, _D, _RF) ->
+print_length({}, _D, _RF, _Enc) ->
     {"{}", 2};
-print_length(List, D, RF) when is_list(List) ->
-    case printable_list(List, D) of
+print_length(List, D, RF, Enc) when is_list(List) ->
+    case printable_list(List, D, Enc) of
         true ->
-            S = io_lib:write_string(List, $"), %"
+            S = write_string(List, Enc),
             {S, length(S)};
         %% Truncated lists could break some existing code.
         % {true, Prefix} ->
-        %    S = io_lib:write_string(Prefix, $"), %"
+        %    S = write_string(Prefix, Enc),
         %    {[S | "..."], 3 + length(S)};
         false ->
-            print_length_list(List, D, RF)
+            print_length_list(List, D, RF, Enc)
     end;
-print_length(Fun, _D, _RF) when is_function(Fun) ->
+print_length(Fun, _D, _RF, _Enc) when is_function(Fun) ->
     S = io_lib:write(Fun),
     {S, iolist_size(S)};
-print_length(R, D, RF) when is_atom(element(1, R)), 
-                            is_function(RF) ->
+print_length(R, D, RF, Enc) when is_atom(element(1, R)),
+                                 is_function(RF) ->
     case RF(element(1, R), tuple_size(R) - 1) of
         no -> 
-            print_length_tuple(R, D, RF);
+            print_length_tuple(R, D, RF, Enc);
         RDefs ->
-            print_length_record(R, D, RF, RDefs)
+            print_length_record(R, D, RF, RDefs, Enc)
     end;
-print_length(Tuple, D, RF) when is_tuple(Tuple) ->
-    print_length_tuple(Tuple, D, RF);
-print_length(<<>>, _D, _RF) ->
+print_length(Tuple, D, RF, Enc) when is_tuple(Tuple) ->
+    print_length_tuple(Tuple, D, RF, Enc);
+print_length(<<>>, _D, _RF, _Enc) ->
     {"<<>>", 4};
-print_length(<<_/bitstring>>, 1, _RF) ->
+print_length(<<_/bitstring>>, 1, _RF, _Enc) ->
     {"<<...>>", 7};
-print_length(<<_/bitstring>>=Bin, D, _RF) ->
+print_length(<<_/bitstring>>=Bin, D, _RF, Enc) ->
     case bit_size(Bin) rem 8 of
         0 ->
 	    D1 = D - 1, 
-	    case printable_bin(Bin, D1) of
-	        List when is_list(List) ->
-                    S = io_lib:write_string(List, $"),
+	    case printable_bin(Bin, D1, Enc) of
+                {true, List} when is_list(List) ->
+                    S = io_lib:write_string(List, $"), %"
 	            {[$<,$<,S,$>,$>], 4 + length(S)};
-	        {true, Prefix} -> 
-	            S = io_lib:write_string(Prefix, $"), 
-	            {[$<,$<, S | "...>>"], 4 + length(S)};
+                {false, List} when is_list(List) ->
+                    S = io_lib:write_unicode_string(List, $"), %"
+	            {[$<,$<,S,"/utf8>>"], 9 + length(S)};
+	        {true, true, Prefix} ->
+	            S = io_lib:write_string(Prefix, $"), %"
+	            {[$<,$<, S | "...>>"], 7 + length(S)};
+	        {false, true, Prefix} ->
+                    S = io_lib:write_unicode_string(Prefix, $"), %"
+	            {[$<,$<, S | "/utf8...>>"], 12 + length(S)};
 	        false ->
 	            S = io_lib:write(Bin, D),
 	            {{bin,S}, iolist_size(S)}
@@ -346,51 +385,51 @@ print_length(<<_/bitstring>>=Bin, D, _RF) ->
            S = io_lib:write(Bin, D),
 	   {{bin,S}, iolist_size(S)}
     end;    
-print_length(Term, _D, _RF) ->
+print_length(Term, _D, _RF, _Enc) ->
     S = io_lib:write(Term),
     {S, iolist_size(S)}.
 
-print_length_tuple(_Tuple, 1, _RF) ->
+print_length_tuple(_Tuple, 1, _RF, _Enc) ->
     {"{...}", 5};
-print_length_tuple(Tuple, D, RF) ->
-    L = print_length_list1(tuple_to_list(Tuple), D, RF),
+print_length_tuple(Tuple, D, RF, Enc) ->
+    L = print_length_list1(tuple_to_list(Tuple), D, RF, Enc),
     IsTagged = is_atom(element(1, Tuple)) and (tuple_size(Tuple) > 1),
     {{tuple,IsTagged,L}, list_length(L, 2)}.
 
-print_length_record(_Tuple, 1, _RF, _RDefs) ->
+print_length_record(_Tuple, 1, _RF, _RDefs, _Enc) ->
     {"{...}", 5};
-print_length_record(Tuple, D, RF, RDefs) ->
+print_length_record(Tuple, D, RF, RDefs, Enc) ->
     Name = [$# | io_lib:write_atom(element(1, Tuple))],
     NameL = length(Name),
-    L = print_length_fields(RDefs, D - 1, tl(tuple_to_list(Tuple)), RF),
+    L = print_length_fields(RDefs, D - 1, tl(tuple_to_list(Tuple)), RF, Enc),
     {{record, [{Name,NameL} | L]}, list_length(L, NameL + 2)}.
 
-print_length_fields([], _D, [], _RF) ->
+print_length_fields([], _D, [], _RF, _Enc) ->
     [];
-print_length_fields(_, 1, _, _RF) -> 
+print_length_fields(_, 1, _, _RF, _Enc) ->
     {dots, 3};
-print_length_fields([Def | Defs], D, [E | Es], RF) ->
-    [print_length_field(Def, D - 1, E, RF) | 
-     print_length_fields(Defs, D - 1, Es, RF)].
+print_length_fields([Def | Defs], D, [E | Es], RF, Enc) ->
+    [print_length_field(Def, D - 1, E, RF, Enc) |
+     print_length_fields(Defs, D - 1, Es, RF, Enc)].
 
-print_length_field(Def, D, E, RF) ->
+print_length_field(Def, D, E, RF, Enc) ->
     Name = io_lib:write_atom(Def),
-    {S, L} = print_length(E, D, RF),
+    {S, L} = print_length(E, D, RF, Enc),
     NameL = length(Name) + 3,
     {{field, Name, NameL, {S, L}}, NameL + L}.
 
-print_length_list(List, D, RF) -> 
-    L = print_length_list1(List, D, RF),
+print_length_list(List, D, RF, Enc) ->
+    L = print_length_list1(List, D, RF, Enc),
     {{list, L}, list_length(L, 2)}.
 
-print_length_list1([], _D, _RF) ->
+print_length_list1([], _D, _RF, _Enc) ->
     [];
-print_length_list1(_, 1, _RF) ->
+print_length_list1(_, 1, _RF, _Enc) ->
     {dots, 3};
-print_length_list1([E | Es], D, RF) ->
-    [print_length(E, D - 1, RF) | print_length_list1(Es, D - 1, RF)];
-print_length_list1(E, D, RF) ->
-    print_length(E, D - 1, RF).
+print_length_list1([E | Es], D, RF, Enc) ->
+    [print_length(E, D - 1, RF, Enc) | print_length_list1(Es, D - 1, RF, Enc)];
+print_length_list1(E, D, RF, Enc) ->
+    print_length(E, D - 1, RF, Enc).
 
 list_length([], Acc) ->
     Acc;
@@ -409,16 +448,16 @@ list_length_tail({_, Len}, Acc) ->
 %% ?CHARS printable characters has depth 1.
 -define(CHARS, 4).
 
-printable_list(L, D) when D < 0 ->
-    io_lib:printable_list(L);
-printable_list(_L, 1) ->
+printable_list(_L, 1, _Enc) ->
     false;
-printable_list(L, _D) ->
-    io_lib:printable_list(L).
+printable_list(L, _D, latin1) ->
+    io_lib:printable_list(L);
+printable_list(L, _D, _Uni) ->
+    io_lib:printable_unicode_list(L).
 %% Truncated lists could break some existing code.
-% printable_list(L, D) ->
+% printable_list(L, D, Enc) when D >= 0 ->
 %     Len = ?CHARS * (D - 1),
-%     case printable_list1(L, Len) of
+%     case printable_list1(L, Len, Enc) of
 %         all ->
 %             true;
 %         N when is_integer(N), Len - N >= D - 1 ->
@@ -428,31 +467,40 @@ printable_list(L, _D) ->
 %             false
 %     end.
 
-printable_bin(Bin, D) when D >= 0, ?CHARS * D =< byte_size(Bin) ->
-    printable_bin(Bin, erlang:min(?CHARS * D, byte_size(Bin)), D);
-printable_bin(Bin, D) ->
-    printable_bin(Bin, byte_size(Bin), D).
+printable_bin(Bin, D, Enc) when D >= 0, ?CHARS * D =< byte_size(Bin) ->
+    printable_bin(Bin, erlang:min(?CHARS * D, byte_size(Bin)), D, Enc);
+printable_bin(Bin, D, Enc) ->
+    printable_bin(Bin, byte_size(Bin), D, Enc).
 
-printable_bin(Bin, Len, D) ->
+printable_bin(Bin, Len, D, latin1) ->
     N = erlang:min(20, Len),
     L = binary_to_list(Bin, 1, N),
     case printable_list1(L, N) of
         all when N =:= byte_size(Bin)  ->
-            L;
-        all when N =:= Len -> % N < byte_size(Bin)
             {true, L};
+        all when N =:= Len -> % N < byte_size(Bin)
+            {true, true, L};
         all ->
             case printable_bin1(Bin, 1 + N, Len - N) of
                 0 when byte_size(Bin) =:= Len ->
-                    binary_to_list(Bin);
+                    {true, binary_to_list(Bin)};
                 NC when D > 0, Len - NC >= D ->
-                    {true, binary_to_list(Bin, 1, Len - NC)};
+                    {true, true, binary_to_list(Bin, 1, Len - NC)};
                 NC when is_integer(NC) ->
                     false
             end;
         NC when is_integer(NC), D > 0, N - NC >= D ->
-            {true, binary_to_list(Bin, 1, N - NC)};
+            {true, true, binary_to_list(Bin, 1, N - NC)};
         NC when is_integer(NC) ->
+            false
+    end;
+printable_bin(Bin, Len, D, _Uni) ->
+    case printable_unicode(Bin, Len, []) of
+        {_, <<>>, L} ->
+            {byte_size(Bin) =:= length(L), L};
+        {NC, Bin1, L} when D > 0, Len - NC >= D ->
+            {byte_size(Bin)-byte_size(Bin1) =:= length(L), true, L};
+        {_NC, _Bin, _L} ->
             false
     end.
 
@@ -483,6 +531,16 @@ printable_list1([$\f | Cs], N) -> printable_list1(Cs, N - 1);
 printable_list1([$\e | Cs], N) -> printable_list1(Cs, N - 1);
 printable_list1([], _) -> all;
 printable_list1(_, N) -> N.
+
+printable_unicode(<<C/utf8, R/binary>>, I, L) when I > 0 ->
+    printable_unicode(R, I - 1, [C | L]);
+printable_unicode(Bin, I, L) ->
+    {I, Bin, lists:reverse(L)}.
+
+write_string(S, latin1) ->
+    io_lib:write_string(S, $"); %"
+write_string(S, _Uni) ->
+    io_lib:write_unicode_string(S, $"). %"
 
 %% Throw 'no_good' if the indentation exceeds half the line length
 %% unless there is room for M characters on the line.

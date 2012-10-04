@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -150,6 +150,17 @@
       </row>
       <tcaption>Character Classes.</tcaption>
     </table>
+    <p>In Erlang/OTP R16 the syntax of Erlang tokens was extended to
+       handle Unicode. To begin with the support is limited to strings,
+       but Erlang/OTP R18 is expected to handle Unicode atoms as well.
+       More about the usage of Unicode in Erlang source files can be
+       found in <seealso
+       marker="stdlib:unicode_usage#unicode_in_erlang">STDLIB's User'S
+       Guide</seealso>. The default encoding for Erlang source files
+       is still Latin-1, but in Erlang/OTP R17 the default encoding
+       will be UTF-8. The details on how to state the encoding of an
+       Erlang source file can be found in <seealso
+       marker="stdlib:epp#encoding">epp(3)</seealso>.</p>
   </section>
 </chapter>
 

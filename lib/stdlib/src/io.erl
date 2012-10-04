@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -22,14 +22,15 @@
 	 get_chars/2,get_chars/3,get_line/1,get_line/2,
 	 get_password/0, get_password/1,
 	 setopts/1, setopts/2, getopts/0, getopts/1]).
--export([write/1,write/2,read/1,read/2,read/3]).
+-export([write/1,write/2,read/1,read/2,read/3,read/4]).
 -export([columns/0,columns/1,rows/0,rows/1]).
 -export([fwrite/1,fwrite/2,fwrite/3,fread/2,fread/3,
 	 format/1,format/2,format/3]).
--export([scan_erl_exprs/1,scan_erl_exprs/2,scan_erl_exprs/3,
-	 scan_erl_form/1,scan_erl_form/2,scan_erl_form/3,
+-export([scan_erl_exprs/1,scan_erl_exprs/2,scan_erl_exprs/3,scan_erl_exprs/4,
+	 scan_erl_form/1,scan_erl_form/2,scan_erl_form/3,scan_erl_form/4,
 	 parse_erl_exprs/1,parse_erl_exprs/2,parse_erl_exprs/3,
-	 parse_erl_form/1,parse_erl_form/2,parse_erl_form/3]).
+         parse_erl_exprs/4,parse_erl_form/1,parse_erl_form/2,
+         parse_erl_form/3,parse_erl_form/4]).
 -export([request/1,request/2,requests/1,requests/2]).
 
 -export_type([device/0, format/0]).
@@ -256,8 +257,21 @@ read(Io, Prompt) ->
               | {'eof', EndLine :: line()}
               | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}.
 
-read(Io, Prompt, StartLine) when is_integer(StartLine) ->
-    case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[StartLine]}) of
+read(Io, Prompt, Pos0) ->
+    read(Io, Prompt, Pos0, []).
+
+-spec read(IoDevice, Prompt, StartLine, Options) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Options :: erl_scan:options(),
+      Result :: {'ok', Term :: term(), EndLine :: line()}
+              | {'eof', EndLine :: line()}
+              | {'error', ErrorInfo :: erl_scan:error_info(), ErrorLine :: line()}.
+
+read(Io, Prompt, Pos0, Options) when is_integer(Pos0), is_list(Options) ->
+    Args = [Pos0,Options],
+    case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,Args}) of
 	{ok,Toks,EndLine} ->
             case erl_parse:parse_term(Toks) of
                 {ok,Term} -> {ok,Term,EndLine};
@@ -368,7 +382,17 @@ scan_erl_exprs(Io, Prompt) ->
       Result :: erl_scan:tokens_result() | request_error().
 
 scan_erl_exprs(Io, Prompt, Pos0) ->
-    request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}).
+    scan_erl_exprs(Io, Prompt, Pos0, []).
+
+-spec scan_erl_exprs(Device, Prompt, StartLine, Options) -> Result when
+      Device :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Options :: erl_scan:options(),
+      Result :: erl_scan:tokens_result() | request_error().
+
+scan_erl_exprs(Io, Prompt, Pos0, Options) ->
+    request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0,Options]}).
 
 -spec scan_erl_form(Prompt) -> Result when
       Prompt :: prompt(),
@@ -392,7 +416,17 @@ scan_erl_form(Io, Prompt) ->
       Result :: erl_scan:tokens_result() | request_error().
 
 scan_erl_form(Io, Prompt, Pos0) ->
-    request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}).
+    scan_erl_form(Io, Prompt, Pos0, []).
+
+-spec scan_erl_form(IoDevice, Prompt, StartLine, Options) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Options :: erl_scan:options(),
+      Result :: erl_scan:tokens_result() | request_error().
+
+scan_erl_form(Io, Prompt, Pos0, Options) ->
+    request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0,Options]}).
 
 %% Parsing Erlang code.
 
@@ -423,7 +457,17 @@ parse_erl_exprs(Io, Prompt) ->
       Result :: parse_ret().
 
 parse_erl_exprs(Io, Prompt, Pos0) ->
-    case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}) of
+    parse_erl_exprs(Io, Prompt, Pos0, []).
+
+-spec parse_erl_exprs(IoDevice, Prompt, StartLine, Options) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Options :: erl_scan:options(),
+      Result :: parse_ret().
+
+parse_erl_exprs(Io, Prompt, Pos0, Options) ->
+    case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0,Options]}) of
 	{ok,Toks,EndPos} ->
 	    case erl_parse:parse_exprs(Toks) of
 		{ok,Exprs} -> {ok,Exprs,EndPos};
@@ -460,7 +504,18 @@ parse_erl_form(Io, Prompt) ->
       Result :: parse_form_ret().
 
 parse_erl_form(Io, Prompt, Pos0) ->
-    case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,[Pos0]}) of
+    parse_erl_form(Io, Prompt, Pos0, []).
+
+-spec parse_erl_form(IoDevice, Prompt, StartLine, Options) -> Result when
+      IoDevice :: device(),
+      Prompt :: prompt(),
+      StartLine :: line(),
+      Options :: erl_scan:options(),
+      Result :: parse_form_ret().
+
+parse_erl_form(Io, Prompt, Pos0, Options) ->
+    Args = [Pos0, Options],
+    case request(Io, {get_until,unicode,Prompt,erl_scan,tokens,Args}) of
 	{ok,Toks,EndPos} ->
 	    case erl_parse:parse_form(Toks) of
 		{ok,Exprs} -> {ok,Exprs,EndPos};

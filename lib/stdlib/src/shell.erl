@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -128,7 +128,7 @@ start_restricted(RShMod) when is_atom(RShMod) ->
 	    error_logger:error_report(
 	      lists:flatten(
 		io_lib:fwrite(
-		  <<"Restricted shell module ~w not found: ~p\n">>, 
+		  "Restricted shell module ~w not found: ~"++cs_p() ++"\n",
 		  [RShMod,What]))),
 	    Error
     end.
@@ -192,7 +192,6 @@ server(StartSync) ->
 				 end,
 				 Bs0, default_packages()),
 		     default_modules()),
-    %% io:fwrite("Imported modules: ~p.\n", [erl_eval:bindings(Bs)]),
 
     %% Use an Ets table for record definitions. It takes too long to
     %% send a huge term to and from the evaluator. Ets makes it
@@ -230,9 +229,10 @@ server(StartSync) ->
             ok;
 	{RShMod2,What2} -> 
             io:fwrite(
-              <<"Warning! Restricted shell module ~w not found: ~p.\n"
-                "Only the commands q() and init:stop() will be allowed!\n">>,
-                      [RShMod2,What2]),
+              ("Warning! Restricted shell module ~w not found: ~"
+               ++cs_p()++".\n"
+               "Only the commands q() and init:stop() will be allowed!\n"),
+              [RShMod2,What2]),
             application:set_env(stdlib, restricted_shell, ?MODULE)
     end,
 
@@ -263,11 +263,11 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
                     end,
                     server_loop(N, Eval, Bs, RT, Ds, History, Results);
                 {error,E} ->
-                    fwrite_severity(benign, <<"~s">>, [E]),
+                    fwrite_severity(benign, <<"~ts">>, [E]),
                     server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0)
             end;
 	{error,{Line,Mod,What},_EndLine} ->
-            fwrite_severity(benign, <<"~w: ~s">>, 
+            fwrite_severity(benign, <<"~w: ~ts">>,
                             [Line, Mod:format_error(What)]),
 	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
 	{error,terminated} ->			%Io process terminated
@@ -277,7 +277,7 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
 	    exit(Eval0, kill),
 	    {_,Eval,_,_} = shell_rep(Eval0, Bs0, RT, Ds0),
 	    server_loop(N0, Eval, Bs0, RT, Ds0, History0, Results0);
-	{error,tokens} ->			%Most probably unicode > 255
+	{error,tokens} ->			%Most probably character > 255
             fwrite_severity(benign, <<"~w: Invalid tokens.">>, 
                             [N]),
 	    server_loop(N0, Eval0, Bs0, RT, Ds0, History0, Results0);
@@ -290,7 +290,10 @@ server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
     end.
 
 get_command(Prompt, Eval, Bs, RT, Ds) ->
-    Parse = fun() -> exit(io:parse_erl_exprs(Prompt)) end,
+    Parse =
+        fun() ->
+                exit(io:parse_erl_exprs(group_leader(), Prompt, 1, [unicode]))
+        end,
     Pid = spawn_link(Parse),
     get_command1(Pid, Eval, Bs, RT, Ds).
 
@@ -337,7 +340,7 @@ get_prompt_func() ->
     end.
 
 bad_prompt_func(M) ->
-    fwrite_severity(benign, <<"Bad prompt function: ~p">>, [M]).
+    fwrite_severity(benign, "Bad prompt function: ~"++cs_p(), [M]).
 
 default_prompt(N) ->
     %% Don't bother flattening the list irrespective of what the
@@ -453,7 +456,8 @@ expand_bin_elements([{bin_element,L,E,Sz,Ts}|Fs], C) ->
 
 no_command(N) ->
     throw({error,
-           io_lib:fwrite(<<"~s: command not found">>, [erl_pp:expr(N)])}).
+           io_lib:fwrite(<<"~ts: command not found">>,
+                         [erl_pp:expr(N, enc())])}).
 
 %% add_cmd(Number, Expressions, Value)
 %% get_cmd(Number, CurrentCommand)
@@ -518,7 +522,7 @@ shell_rep(Ev, Bs0, RT, Ds0) ->
 	{shell_rep,Ev,{value,V,Bs,Ds}} ->
 	    {V,Ev,Bs,Ds};
         {shell_rep,Ev,{command_error,{Line,M,Error}}} -> 
-            fwrite_severity(benign, <<"~w: ~s">>, 
+            fwrite_severity(benign, <<"~w: ~ts">>,
                             [Line, M:format_error(Error)]),
             {{'EXIT',Error},Ev,Bs0,Ds0};
 	{shell_req,Ev,get_cmd} ->
@@ -570,9 +574,10 @@ report_exception(Class, Severity, {Reason,Stacktrace}, RT) ->
     I = iolist_size(Tag) + 1,
     PF = fun(Term, I1) -> pp(Term, I1, RT) end,
     SF = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
-    io:requests([{put_chars, Tag},
-                 {put_chars, 
-                  lib:format_exception(I, Class, Reason, Stacktrace, SF, PF)},
+    Enc = encoding(),
+    Str = lib:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
+    io:requests([{put_chars, latin1, Tag},
+                 {put_chars, unicode, Str},
                  nl]).
 
 start_eval(Bs, RT, Ds) ->
@@ -671,7 +676,8 @@ exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
             if
                 Es =:= [] ->
                     VS = pp(V0, 1, RT),
-                    [io:requests([{put_chars, VS}, nl]) || W =:= cmd],
+                    [io:requests([{put_chars, unicode, VS}, nl]) ||
+                        W =:= cmd],
                     %% Don't send the result back if it will be
                     %% discarded anyway.
                     V = if
@@ -753,7 +759,7 @@ used_records(E) ->
     {expr, E}.
 
 fwrite_severity(Severity, S, As) ->
-    io:fwrite(<<"~s\n">>, [format_severity(Severity, S, As)]).
+    io:fwrite(<<"~ts\n">>, [format_severity(Severity, S, As)]).
 
 format_severity(Severity, S, As) ->
     add_severity(Severity, io_lib:fwrite(S, As)).
@@ -958,13 +964,13 @@ local_func(rd, [{atom,_,RecName},RecDef0], Bs, _Shell, RT, _Lf, _Ef) ->
     RecDef = expand_value(RecDef0),
     RDs = lists:flatten(erl_pp:expr(RecDef)),
     Attr = lists:concat(["-record('", RecName, "',", RDs, ")."]),
-    {ok, Tokens, _} = erl_scan:string(Attr),
+    {ok, Tokens, _} = erl_scan:string(Attr, 1, [unicode]),
     case erl_parse:parse_form(Tokens) of
         {ok,AttrForm} ->
             [RN] = add_records([AttrForm], Bs, RT),
             {value,RN,Bs};
         {error,{_Line,M,ErrDesc}} ->
-            ErrStr = io_lib:fwrite(<<"~s">>, [M:format_error(ErrDesc)]),
+            ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr))
     end;
 local_func(rd, [_,_], _Bs, _Shell, _RT, _Lf, _Ef) ->
@@ -988,11 +994,13 @@ local_func(rl, [A], Bs0, _Shell, RT, Lf, Ef) ->
     {value,list_records(record_defs(RT, listify(Recs))),Bs};
 local_func(rp, [A], Bs0, _Shell, RT, Lf, Ef) ->
     {[V],Bs} = expr_list([A], Bs0, Lf, Ef),
-    W = columns(),
-    io:requests([{put_chars, 
-                  io_lib_pretty:print(V, 1, W, -1, ?CHAR_MAX,
-                                      record_print_fun(RT))},
-                 nl]),
+    Cs = io_lib_pretty:print(V, ([{column, 1},
+                                  {line_length, columns()},
+                                  {depth, -1},
+                                  {max_chars, ?CHAR_MAX},
+                                  {record_print_fun, record_print_fun(RT)}]
+                                 ++ enc())),
+    io:requests([{put_chars, unicode, Cs}, nl]),
     {value,ok,Bs};
 local_func(rr, [A], Bs0, _Shell, RT, Lf, Ef) ->
     {[File],Bs} = expr_list([A], Bs0, Lf, Ef),
@@ -1166,7 +1174,7 @@ add_records(RAs, Bs0, RT) ->
     case check_command([], Bs1) of
         {error,{_Line,M,ErrDesc}} ->
             %% A source file that has not been compiled.
-            ErrStr = io_lib:fwrite(<<"~s">>, [M:format_error(ErrDesc)]),
+            ErrStr = io_lib:fwrite(<<"~ts">>, [M:format_error(ErrDesc)]),
             exit(lists:flatten(ErrStr));
         ok ->
             true = ets:insert(RT, Recs),
@@ -1343,25 +1351,25 @@ list_commands([{{N,command},Es0}, {{N,result}, V} |Ds], RT) ->
     VS = pp(V, 4, RT),
     Ns = io_lib:fwrite(<<"~w: ">>, [N]),
     I = iolist_size(Ns),
-    io:requests([{put_chars, Ns},
-                 {format,<<"~s\n">>,[erl_pp:exprs(Es, I, none)]},
+    io:requests([{put_chars, latin1, Ns},
+                 {format,<<"~ts\n">>,[erl_pp:exprs(Es, I, enc())]},
 		 {format,<<"-> ">>,[]},
-                 {put_chars, VS},
+                 {put_chars, unicode, VS},
                  nl]),
     list_commands(Ds, RT);
 list_commands([{{N,command},Es0} |Ds], RT) ->
     Es = prep_list_commands(Es0),
     Ns = io_lib:fwrite(<<"~w: ">>, [N]),
     I = iolist_size(Ns),
-    io:requests([{put_chars, Ns},
-                 {format,<<"~s\n">>,[erl_pp:exprs(Es, I, none)]}]),
+    io:requests([{put_chars, latin1, Ns},
+                 {format,<<"~ts\n">>,[erl_pp:exprs(Es, I, enc())]}]),
     list_commands(Ds, RT);
 list_commands([_D|Ds], RT) ->
     list_commands(Ds, RT);
 list_commands([], _RT) -> ok.
 
 list_bindings([{{module,M},Val}|Bs], RT) ->
-    io:fwrite(<<"~p is ~p\n">>, [M,Val]),
+    io:fwrite(<<"~w is ~w\n">>, [M,Val]),
     list_bindings(Bs, RT);
 list_bindings([{Name,Val}|Bs], RT) ->
     case erl_eval:fun_data(Val) of
@@ -1369,13 +1377,13 @@ list_bindings([{Name,Val}|Bs], RT) ->
             FCs = expand_value(FCs0), % looks nicer
             F = {'fun',0,{clauses,FCs}},
             M = {match,0,{var,0,Name},F},
-            io:fwrite(<<"~s\n">>, [erl_pp:expr(M)]);
+            io:fwrite(<<"~ts\n">>, [erl_pp:expr(M, enc())]);
         false ->
             Namel = io_lib:fwrite(<<"~s = ">>, [Name]),
             Nl = iolist_size(Namel)+1,
             ValS = pp(Val, Nl, RT),
-            io:requests([{put_chars, Namel},
-                         {put_chars, ValS},
+            io:requests([{put_chars, latin1, Namel},
+                         {put_chars, unicode, ValS},
                          nl])
     end,
     list_bindings(Bs, RT);
@@ -1384,7 +1392,7 @@ list_bindings([], _RT) ->
 
 list_records(Records) ->
     lists:foreach(fun({_Name,Attr}) -> 
-                          io:fwrite(<<"~s">>, [erl_pp:attribute(Attr)])
+                          io:fwrite(<<"~ts">>, [erl_pp:attribute(Attr, enc())])
                   end, Records).
 
 record_defs(RT, Names) ->
@@ -1427,13 +1435,35 @@ get_history_and_results() ->
     {History, erlang:min(Results, History)}.
 
 pp(V, I, RT) ->
-    io_lib_pretty:print(V, I, columns(), ?LINEMAX, ?CHAR_MAX,
-                        record_print_fun(RT)).
+    pp(V, I, RT, enc()).
+
+pp(V, I, RT, Enc) ->
+    io_lib_pretty:print(V, ([{column, I}, {line_length, columns()},
+                             {depth, ?LINEMAX}, {max_chars, ?CHAR_MAX},
+                             {record_print_fun, record_print_fun(RT)}]
+                            ++ Enc)).
+
+%% Control sequence 'p' possibly with Unicode translation modifier
+cs_p() ->
+    case encoding() of
+        latin1 -> "p";
+        unicode -> "tp"
+    end.
 
 columns() ->
     case io:columns() of
         {ok,N} -> N;
         _ -> 80
+    end.
+
+encoding() ->
+    [{encoding, Encoding}] = enc(),
+    Encoding.
+
+enc() ->
+    case lists:keyfind(encoding, 1, io:getopts()) of
+        false -> [{encoding,latin1}]; % should never happen
+        Enc -> [Enc]
     end.
 
 garb(Shell) ->
@@ -1458,7 +1488,8 @@ check_env(V) ->
 	    ok;
         {ok, Val} ->
             Txt = io_lib:fwrite(
-              <<"Invalid value of STDLIB configuration parameter ~p: ~p\n">>,
+                    ("Invalid value of STDLIB configuration parameter ~w: ~"
+                     ++cs_p()++"\n"),
                     [V, Val]),
 	    error_logger:info_report(lists:flatten(Txt))
     end.

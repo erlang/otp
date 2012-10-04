@@ -248,6 +248,7 @@ format_error({module_name,Mod,Filename}) ->
 		  abstract_code=[],		%Abstract code for debugger.
 		  options=[]  :: [option()],	%Options for compilation
 		  mod_options=[]  :: [option()], %Options for module_info
+                  encoding=none :: none | epp:source_coding(),
 		  errors=[],
 		  warnings=[]}).
 
@@ -734,8 +735,9 @@ collect_asm([X | Rest], R) ->
 beam_consult_asm(St) ->
     case file:consult(St#compile.ifile) of
 	{ok, Forms0} ->
+            Encoding = epp:read_encoding(St#compile.ifile),
 	    {Module, Forms} = preprocess_asm_forms(Forms0),
-	    {ok,St#compile{module=Module, code=Forms}};
+	    {ok,St#compile{module=Module, code=Forms, encoding=Encoding}};
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{open,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
@@ -777,7 +779,8 @@ parse_module(St) ->
     R =  epp:parse_file(St#compile.ifile, IncludePath, pre_defs(Opts)),
     case R of
 	{ok,Forms} ->
-	    {ok,St#compile{code=Forms}};
+            Encoding = epp:read_encoding(St#compile.ifile),
+	    {ok,St#compile{code=Forms,encoding=Encoding}};
 	{error,E} ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
@@ -1424,28 +1427,28 @@ report_warnings(#compile{options=Opts,warnings=Ws0}) ->
     end.
 
 format_message(F, P, [{{Line,Column}=Loc,Mod,E}|Es]) ->
-    M = {{F,Loc},io_lib:format("~s:~w:~w ~s~s\n",
+    M = {{F,Loc},io_lib:format("~s:~w:~w ~s~ts\n",
                                 [F,Line,Column,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{Line,Mod,E}|Es]) ->
-    M = {{F,{Line,0}},io_lib:format("~s:~w: ~s~s\n",
+    M = {{F,{Line,0}},io_lib:format("~s:~w: ~s~ts\n",
                                 [F,Line,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(F, P, [{Mod,E}|Es]) ->
-    M = {none,io_lib:format("~s: ~s~s\n", [F,P,Mod:format_error(E)])},
+    M = {none,io_lib:format("~s: ~s~ts\n", [F,P,Mod:format_error(E)])},
     [M|format_message(F, P, Es)];
 format_message(_, _, []) -> [].
 
 %% list_errors(File, ErrorDescriptors) -> ok
 
 list_errors(F, [{{Line,Column},Mod,E}|Es]) ->
-    io:fwrite("~s:~w:~w: ~s\n", [F,Line,Column,Mod:format_error(E)]),
+    io:fwrite("~s:~w:~w: ~ts\n", [F,Line,Column,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Line,Mod,E}|Es]) ->
-    io:fwrite("~s:~w: ~s\n", [F,Line,Mod:format_error(E)]),
+    io:fwrite("~s:~w: ~ts\n", [F,Line,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(F, [{Mod,E}|Es]) ->
-    io:fwrite("~s: ~s\n", [F,Mod:format_error(E)]),
+    io:fwrite("~s: ~ts\n", [F,Mod:format_error(E)]),
     list_errors(F, Es);
 list_errors(_F, []) -> ok.
 
@@ -1501,10 +1504,12 @@ src_listing(Ext, St) ->
 	    Ext, St).
 
 do_src_listing(Lf, Fs) ->
-    foreach(fun (F) -> io:put_chars(Lf, [erl_pp:form(F),"\n"]) end,
+    Opts = [lists:keyfind(encoding, 1, io:getopts(Lf))],
+    foreach(fun (F) -> io:put_chars(Lf, [erl_pp:form(F, Opts),"\n"]) end,
 	    Fs).
 
-listing(Ext, St) ->
+listing(Ext, St0) ->
+    St = St0#compile{encoding = none},
     listing(fun(Lf, Fs) -> beam_listing:module(Lf, Fs) end, Ext, St).
 
 listing(LFun, Ext, St) ->
@@ -1512,6 +1517,7 @@ listing(LFun, Ext, St) ->
     case file:open(Lfile, [write,delayed_write]) of
 	{ok,Lf} ->
             Code = restore_expanded_types(Ext, St#compile.code),
+            output_encoding(Lf, St),
 	    LFun(Lf, Code),
 	    ok = file:close(Lf),
 	    {ok,St};
@@ -1519,6 +1525,12 @@ listing(LFun, Ext, St) ->
 	    Es = [{Lfile,[{none,compile,write_error}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
+
+output_encoding(F, #compile{encoding = none}) ->
+    ok = io:setopts(F, [{encoding, epp:default_encoding()}]);
+output_encoding(F, #compile{encoding = Encoding}) ->
+    ok = io:setopts(F, [{encoding, Encoding}]),
+    ok = io:fwrite(F, <<"%% ~s\n">>, [epp:encoding_to_string(Encoding)]).
 
 restore_expanded_types("P", Fs) ->
     epp:restore_typed_record_fields(Fs);
