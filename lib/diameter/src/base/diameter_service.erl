@@ -64,7 +64,7 @@
 -include_lib("diameter/include/diameter.hrl").
 -include("diameter_internal.hrl").
 
-%% The "old" states maintained in this module historically.
+%% The states mirrored by peer_up/peer_down callbacks.
 -define(STATE_UP,   up).
 -define(STATE_DOWN, down).
 
@@ -107,6 +107,9 @@
 %% process.
 -define(STATE_TABLE, ?MODULE).
 
+%% The default sequence mask.
+-define(NOMASK, {0,32}).
+
 %% Workaround for dialyzer's lack of understanding of match specs.
 -type match(T)
    :: T | '_' | '$1' | '$2' | '$3' | '$4'.
@@ -114,15 +117,17 @@
 %% State of service gen_server.
 -record(state,
         {id = now(),
-         service_name,      %% as passed to start_service/2, key in ?STATE_TABLE
+         service_name,  %% as passed to start_service/2, key in ?STATE_TABLE
          service :: #diameter_service{},
          peerT = ets_new(peers) :: ets:tid(), %% #peer{} at start_fsm
          connT = ets_new(conns) :: ets:tid(), %% #conn{} at connection_up
-         share_peers = false :: boolean(), %% broadcast peers to remote nodes?
-         use_shared_peers = false :: boolean(),  %% use broadcasted peers?
          shared_peers = ?Dict:new(),         %% Alias -> [{TPid, Caps}, ...]
          local_peers = ?Dict:new(),          %% Alias -> [{TPid, Caps}, ...]
-         monitor = false :: false | pid()}). %% process to die with
+         monitor = false :: false | pid(),   %% process to die with
+         options :: [{atom(), term()}]}).
+%         :: [{sequence, diameter:sequence()}  %% sequence mask
+%             | {share_peers, boolean()}  %% broadcast peers to remote nodes?
+%             | {use_shared_peers, boolean()}]}).%% use broadcasted peers?
 %% shared_peers reflects the peers broadcast from remote nodes. Note
 %% that the state term itself doesn't change, which is relevant for
 %% the stateless application callbacks since the state is retrieved
@@ -329,20 +334,38 @@ call_rc(_, _, Sent) ->
 %% In the process spawned for the outgoing request.
 
 call(SvcName, App, Msg, Opts, Caller) ->
-    c(ets:lookup(?STATE_TABLE, SvcName), App, Msg, Opts, Caller).
+    c(find_state(SvcName), App, Msg, Opts, Caller).
 
-c([#state{service_name = SvcName} = S], App, Msg, Opts, Caller) ->
+c(#state{service_name = Svc, options = [{_, Mask} | _]} = S,
+  App,
+  Msg,
+  Opts,
+  Caller) ->
     case find_transport(App, Msg, Opts, S) of
         {_,_,_} = T ->
-            send_request(T, Msg, Opts, Caller, SvcName);
+            send_request(T, Mask, Msg, Opts, Caller, Svc);
         false ->
             {error, no_connection};
         {error, _} = No ->
             No
     end;
 
-c([], _, _, _, _) ->
+c(false, _, _, _, _) ->
     {error, no_service}.
+
+%% find_state/1
+
+find_state(SvcName) ->
+    fs(ets:lookup(?STATE_TABLE, SvcName)).
+
+fs([#state{} = S]) ->
+    S;
+
+fs([S]) ->  %% inserted from old code
+    upgrade(S);
+
+fs([]) ->
+    false.
 
 %% make_options/1
 
@@ -439,6 +462,10 @@ i(_, false) ->
 %%% # handle_call(Req, From, State)
 %%% ---------------------------------------------------------------------------
 
+handle_call(T, From, S)
+  when not is_record(S, state) ->
+    handle_call(T, From, upgrade(S));
+
 handle_call(state, _, S) ->
     {reply, S, S};
 
@@ -473,6 +500,10 @@ handle_call(stop, _From, S) ->
 %% gets the reply. We deal with this in the call to the server,
 %% stating a monitor that waits for DOWN before returning.
 
+%% Watchdog is asking for the sequence mask.
+handle_call(sequence, _From, #state{options = [{_, Mask} | _]} = S) ->
+    {reply, Mask, S};
+
 handle_call(Req, From, S) ->
     unexpected(handle_call, [Req, From], S),
     {reply, nok, S}.
@@ -489,7 +520,7 @@ handle_cast(Req, S) ->
 %%% # handle_info(Req, State)
 %%% ---------------------------------------------------------------------------
 
-handle_info(T,S) ->
+handle_info(T, #state{} = S) ->
     case transition(T,S) of
         ok ->
             {noreply, S};
@@ -497,7 +528,10 @@ handle_info(T,S) ->
             {noreply, NS};
         {stop, Reason} ->
             {stop, {shutdown, Reason}, S}
-    end.
+    end;
+
+handle_info(T, S) ->
+    handle_info(T, upgrade(S)).
 
 %% transition/2
 
@@ -574,11 +608,13 @@ transition({service, Pid}, S) ->
 
 %% Remote service is communicating a shared peer.
 transition({peer, TPid, Aliases, Caps}, S) ->
-    remote_peer_up(TPid, Aliases, Caps, S);
+    remote_peer_up(TPid, Aliases, Caps, S),
+    ok;
 
 %% Remote peer process has died.
 transition({'DOWN', _, process, TPid, _}, S) ->
-    remote_peer_down(TPid, S);
+    remote_peer_down(TPid, S),
+    ok;
 
 %% Restart after tc expiry.
 transition({tc_timeout, T}, S) ->
@@ -592,9 +628,37 @@ transition({failover, TRef, Seqs}, S) ->
     failover(TRef, Seqs, S),
     ok;
 
+%% Ensure upgraded state is stored in state table.
+transition(upgrade, _) ->
+    ok;
+
 transition(Req, S) ->
     unexpected(handle_info, [Req], S),
     ok.
+
+%% upgrade/1
+
+upgrade({state, Id, Svc, Name, Svc, PT, CT, SB, UB, SD, LD, MPid}) ->
+    S = #state{id = Id,
+               service_name = Name,
+               service = Svc,
+               peerT = PT,
+               connT = CT,
+               shared_peers = SD,
+               local_peers = LD,
+               monitor = MPid,
+               options = [{sequence, ?NOMASK},
+                          {share_peers, SB},
+                          {use_shared_peers, UB}]},
+    upgrade_insert(S),
+    S.
+
+upgrade_insert(#state{service = #diameter_service{pid = Pid}} = S) ->
+    if Pid == self() ->
+            ets:insert(?STATE_TABLE, S);
+       true ->
+            Pid ! upgrade
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% # terminate(Reason, State)
@@ -780,9 +844,8 @@ cfg_acc({SvcName, #diameter_service{applications = Apps} = Rec, Opts},
     lists:foreach(fun init_mod/1, Apps),
     S = #state{service_name = SvcName,
                service = Rec#diameter_service{pid = self()},
-               share_peers = get_value(share_peers, Opts),
-               use_shared_peers = get_value(use_shared_peers, Opts),
-               monitor = mref(get_value(monitor, Opts))},
+               monitor = mref(get_value(monitor, Opts)),
+               options = service_options(Opts)},
     {S, Acc};
 
 cfg_acc({_Ref, Type, _Opts} = T, {S, Acc})
@@ -790,15 +853,21 @@ cfg_acc({_Ref, Type, _Opts} = T, {S, Acc})
        Type == listen ->
     {S, [T | Acc]}.
 
+service_options(Opts) ->
+    [{sequence, proplists:get_value(sequence, Opts, ?NOMASK)},
+     {share_peers, get_value(share_peers, Opts)},
+     {use_shared_peers, get_value(use_shared_peers, Opts)}].
+%% The order of options is significant since we match against the list.
+
 mref(false = No) ->
     No;
 mref(P) ->
     erlang:monitor(process, P).
 
-init_shared(#state{use_shared_peers = true,
+init_shared(#state{options = [_, _, {_, true} | _],
                    service_name = Svc}) ->
     diameter_peer:notify(Svc, {service, self()});
-init_shared(#state{use_shared_peers = false}) ->
+init_shared(#state{options = [_, _, {_, false} | _]}) ->
     ok.
 
 init_mod(#diameter_app{alias = Alias,
@@ -1285,7 +1354,7 @@ cm([_,_|_], _, _, _) ->
     multiple.
 
 %%% ---------------------------------------------------------------------------
-%%% # send_request/5
+%%% # send_request/6
 %%% ---------------------------------------------------------------------------
 
 %% Send an outgoing request in its dedicated process.
@@ -1298,11 +1367,11 @@ cm([_,_|_], _, _, _) ->
 %% The mod field of the #diameter_app{} here includes any extra
 %% arguments passed to diameter:call/2.
 
-send_request({TPid, Caps, App} = T, Msg, Opts, Caller, SvcName) ->
+send_request({TPid, Caps, App} = T, Mask, Msg, Opts, Caller, SvcName) ->
     #diameter_app{module = ModX}
         = App,
 
-    Pkt = make_request_packet(Msg),
+    Pkt = make_prepare_packet(Mask, Msg),
 
     send_req(cb(ModX, prepare_request, [Pkt, SvcName, {TPid, Caps}]),
              Pkt,
@@ -1313,7 +1382,7 @@ send_request({TPid, Caps, App} = T, Msg, Opts, Caller, SvcName) ->
              []).
 
 send_req({send, P}, Pkt, T, Opts, Caller, SvcName, Fs) ->
-    send_request(make_request_packet(P, Pkt), T, Opts, Caller, SvcName, Fs);
+    send_req(make_request_packet(P, Pkt), T, Opts, Caller, SvcName, Fs);
 
 send_req({discard, Reason} , _, _, _, _, _, _) ->
     {error, Reason};
@@ -1327,48 +1396,60 @@ send_req({eval_packet, RC, F}, Pkt, T, Opts, Caller, SvcName, Fs) ->
 send_req(E, _, {_, _, App}, _, _, _, _) ->
     ?ERROR({invalid_return, prepare_request, App, E}).
 
-%% make_request_packet/1
+%% make_prepare_packet/2
 %%
 %% Turn an outgoing request as passed to call/4 into a diameter_packet
 %% record in preparation for a prepare_request callback.
 
-make_request_packet(Bin)
+make_prepare_packet(_, Bin)
   when is_binary(Bin) ->
     #diameter_packet{header = diameter_codec:decode_header(Bin),
                      bin = Bin};
 
-make_request_packet(#diameter_packet{msg = [#diameter_header{} = Hdr | Avps]}
-                    = Pkt) ->
-    Pkt#diameter_packet{msg = [make_request_header(Hdr) | Avps]};
+make_prepare_packet(Mask, #diameter_packet{msg = [#diameter_header{} = Hdr
+                                                  | Avps]}
+                          = Pkt) ->
+    Pkt#diameter_packet{msg = [make_prepare_header(Mask, Hdr) | Avps]};
 
-make_request_packet(#diameter_packet{header = Hdr} = Pkt) ->
-    Pkt#diameter_packet{header = make_request_header(Hdr)};
+make_prepare_packet(Mask, #diameter_packet{header = Hdr} = Pkt) ->
+    Pkt#diameter_packet{header = make_prepare_header(Mask, Hdr)};
 
-make_request_packet(Msg) ->
-    make_request_packet(#diameter_packet{msg = Msg}).
+make_prepare_packet(Mask, Msg) ->
+    make_prepare_packet(Mask, #diameter_packet{msg = Msg}).
 
-%% make_request_header/1
+%% make_prepare_header/1
 
-make_request_header(undefined) ->
-    Seq = diameter_session:sequence(),
-    make_request_header(#diameter_header{end_to_end_id = Seq,
+make_prepare_header(Mask, undefined) ->
+    Seq = diameter_session:sequence(Mask),
+    make_prepare_header(#diameter_header{end_to_end_id = Seq,
                                          hop_by_hop_id = Seq});
 
-make_request_header(#diameter_header{version = undefined} = Hdr) ->
-    make_request_header(Hdr#diameter_header{version = ?DIAMETER_VERSION});
+make_prepare_header(Mask, #diameter_header{end_to_end_id = undefined,
+                                           hop_by_hop_id = undefined}) ->
+    Seq = diameter_session:sequence(Mask),
+    make_prepare_header(#diameter_header{end_to_end_id = Seq,
+                                         hop_by_hop_id = Seq});
 
-make_request_header(#diameter_header{end_to_end_id = undefined} = H) ->
-    Seq = diameter_session:sequence(),
-    make_request_header(H#diameter_header{end_to_end_id = Seq});
+make_prepare_header(Mask, #diameter_header{end_to_end_id = undefined} = H) ->
+    Seq = diameter_session:sequence(Mask),
+    make_prepare_header(H#diameter_header{end_to_end_id = Seq});
 
-make_request_header(#diameter_header{hop_by_hop_id = undefined} = H) ->
-    Seq = diameter_session:sequence(),
-    make_request_header(H#diameter_header{hop_by_hop_id = Seq});
+make_prepare_header(Mask, #diameter_header{hop_by_hop_id = undefined} = H) ->
+    Seq = diameter_session:sequence(Mask),
+    make_prepare_header(H#diameter_header{hop_by_hop_id = Seq});
 
-make_request_header(#diameter_header{} = Hdr) ->
+make_prepare_header(_, Hdr) ->
+    make_prepare_header(Hdr).
+
+%% make_prepare_header/1
+
+make_prepare_header(#diameter_header{version = undefined} = Hdr) ->
+    make_prepare_header(Hdr#diameter_header{version = ?DIAMETER_VERSION});
+
+make_prepare_header(#diameter_header{} = Hdr) ->
     Hdr;
 
-make_request_header(T) ->
+make_prepare_header(T) ->
     ?ERROR({invalid_header, T}).
 
 %% make_request_packet/2
@@ -1378,7 +1459,7 @@ make_request_header(T) ->
 
 make_request_packet(Bin, _)
   when is_binary(Bin) ->
-    make_request_packet(Bin);
+    make_prepare_packet(false, Bin);
 
 make_request_packet(#diameter_packet{msg = [#diameter_header{} | _]}
                     = Pkt,
@@ -1390,7 +1471,7 @@ make_request_packet(#diameter_packet{msg = [#diameter_header{} | _]}
 %% This is primarily so that the end to end and hop by hop identifiers
 %% are retained.
 make_request_packet(#diameter_packet{header = Hdr} = Pkt,
-            #diameter_packet{header = Hdr0}) ->
+                    #diameter_packet{header = Hdr0}) ->
     Pkt#diameter_packet{header = fold_record(Hdr0, Hdr)};
 
 make_request_packet(Msg, Pkt) ->
@@ -1403,9 +1484,9 @@ fold_record(undefined, R) ->
 fold_record(Rec, R) ->
     diameter_lib:fold_tuple(2, Rec, R).
 
-%% send_request/6
+%% send_req/6
 
-send_request(Pkt, {TPid, Caps, App}, Opts, Caller, SvcName, Fs) ->
+send_req(Pkt, {TPid, Caps, App}, Opts, Caller, SvcName, Fs) ->
     #diameter_app{alias = Alias,
                   dictionary = Dict,
                   module = ModX,
@@ -1693,10 +1774,13 @@ request_peer_down(TPid, S) ->
 %%% recv_request/3
 %%% ---------------------------------------------------------------------------
 
-recv_request(TPid, Pkt, {ConnT, SvcName, Apps}) ->
+recv_request(TPid, Pkt, {ConnT, SvcName, Apps}) ->  %% upgrade
+    recv_request(TPid, Pkt, {ConnT, SvcName, Apps, ?NOMASK});
+
+recv_request(TPid, Pkt, {ConnT, SvcName, Apps, Mask}) ->
     try ets:lookup(ConnT, TPid) of
         [C] ->
-            recv_request(C, TPid, Pkt, SvcName, Apps);
+            recv_request(C, TPid, Pkt, SvcName, Apps, Mask);
         [] ->             %% transport has gone down
             ok
     catch
@@ -1706,7 +1790,12 @@ recv_request(TPid, Pkt, {ConnT, SvcName, Apps}) ->
 
 %% recv_request/5
 
-recv_request(#conn{apps = SApps, caps = Caps}, TPid, Pkt, SvcName, Apps) ->
+recv_request(#conn{apps = SApps, caps = Caps},
+             TPid,
+             Pkt,
+             SvcName,
+             Apps,
+             Mask) ->
     #diameter_caps{origin_host = {OH,_},
                    origin_realm = {OR,_}}
         = Caps,
@@ -1718,6 +1807,7 @@ recv_request(#conn{apps = SApps, caps = Caps}, TPid, Pkt, SvcName, Apps) ->
                  {SvcName, OH, OR},
                  TPid,
                  Apps,
+                 Mask,
                  Caps,
                  Pkt).
 
@@ -1743,20 +1833,24 @@ keyfind([Key | Rest], Pos, L) ->
             T
     end.
 
-%% recv_request/6
+%% recv_request/7
 
-recv_request({Id, Alias}, T, TPid, Apps, Caps, Pkt) ->
+recv_request({Id, Alias}, T, TPid, Apps, Mask, Caps, Pkt) ->
     #diameter_app{dictionary = Dict}
         = A
         = find_app(Alias, Apps),
-    recv_request(T, {TPid, Caps}, A, diameter_codec:decode(Id, Dict, Pkt));
+    recv_request(T,
+                 {TPid, Caps},
+                 A,
+                 Mask,
+                 diameter_codec:decode(Id, Dict, Pkt));
 %% Note that the decode is different depending on whether or not Id is
 %% ?APP_ID_RELAY.
 
 %%   DIAMETER_APPLICATION_UNSUPPORTED   3007
 %%      A request was sent for an application that is not supported.
 
-recv_request(false, T, TPid, _, _, Pkt) ->
+recv_request(false, T, TPid, _, _, _, Pkt) ->
     As = collect_avps(Pkt),
     protocol_error(3007, T, TPid, Pkt#diameter_packet{avps = As}).
 
@@ -1768,7 +1862,7 @@ collect_avps(Pkt) ->
             As
     end.
 
-%% recv_request/4
+%% recv_request/5
 
 %% Wrong number of bits somewhere in the message: reply.
 %%
@@ -1777,7 +1871,7 @@ collect_avps(Pkt) ->
 %%      set to an unrecognized value, or that is inconsistent with the
 %%      AVP's definition.
 %%
-recv_request(T, {TPid, _}, _, #diameter_packet{errors = [Bs | _]} = Pkt)
+recv_request(T, {TPid, _}, _, _, #diameter_packet{errors = [Bs | _]} = Pkt)
   when is_bitstring(Bs) ->
     protocol_error(3009, T, TPid, Pkt);
 
@@ -1792,6 +1886,7 @@ recv_request(T, {TPid, _}, _, #diameter_packet{errors = [Bs | _]} = Pkt)
 recv_request(T,
              {TPid, _},
              #diameter_app{id = Id},
+             _,
              #diameter_packet{header = #diameter_header{is_proxiable = P},
                               msg = M}
              = Pkt)
@@ -1809,6 +1904,7 @@ recv_request(T,
 recv_request(T,
              {TPid, _},
              _,
+             _,
              #diameter_packet{header = #diameter_header{is_error = true}}
              = Pkt) ->
     protocol_error(3008, T, TPid, Pkt);
@@ -1817,15 +1913,16 @@ recv_request(T,
 %% in the relay application. Don't distinguish between the two since
 %% each application has its own callback config. That is, the user can
 %% easily distinguish between the two cases.
-recv_request(T, TC, App, Pkt) ->
-    request_cb(T, TC, App, examine(Pkt)).
+recv_request(T, TC, App, Mask, Pkt) ->
+    request_cb(T, TC, App, Mask, examine(Pkt)).
 
 %% Note that there may still be errors but these aren't protocol
 %% (3xxx) errors that lead to an answer-message.
 
-request_cb({SvcName, _OH, _OR} = T, TC, App, Pkt) ->
+request_cb({SvcName, _OH, _OR} = T, TC, App, Mask, Pkt) ->
     request_cb(cb(App, handle_request, [Pkt, SvcName, TC]),
                App,
+               Mask,
                T,
                TC,
                [],
@@ -1849,7 +1946,7 @@ examine(#diameter_packet{errors = Es} = Pkt) ->
     Pkt#diameter_packet{errors = [5011 | Es]}.
 %% It's odd/unfortunate that this isn't a protocol error.
 
-%% request_cb/6
+%% request_cb/7
 
 %% A reply may be an answer-message, constructed either here or by
 %% the handle_request callback. The header from the incoming request
@@ -1859,13 +1956,14 @@ examine(#diameter_packet{errors = Es} = Pkt) ->
 request_cb({reply, Ans},
            #diameter_app{dictionary = Dict},
            _,
+           _,
            {TPid, _},
            Fs,
            Pkt) ->
     reply(Ans, Dict, TPid, Fs, Pkt);
 
 %% An 3xxx result code, for which the E-bit is set in the header.
-request_cb({protocol_error, RC}, _, T, {TPid, _}, Fs, Pkt)
+request_cb({protocol_error, RC}, _, _, T, {TPid, _}, Fs, Pkt)
   when 3000 =< RC, RC < 4000 ->
     protocol_error(RC, T, TPid, Fs, Pkt);
 
@@ -1873,7 +1971,7 @@ request_cb({protocol_error, RC}, _, T, {TPid, _}, Fs, Pkt)
 %% unsupported. 'noreply' is undocumented (and inappropriately named)
 %% backwards compatibility for this, protocol_error the documented
 %% alternative.
-request_cb(noreply, _, T, {TPid, _}, Fs, Pkt) ->
+request_cb(noreply, _, _, T, {TPid, _}, Fs, Pkt) ->
     protocol_error(3001, T, TPid, Fs, Pkt);
 
 %% Relay a request to another peer. This is equivalent to doing an
@@ -1894,6 +1992,7 @@ request_cb(noreply, _, T, {TPid, _}, Fs, Pkt) ->
 request_cb({A, Opts},
            #diameter_app{id = Id}
            = App,
+           Mask,
            T,
            TC,
            Fs,
@@ -1901,16 +2000,16 @@ request_cb({A, Opts},
   when A == relay, Id == ?APP_ID_RELAY;
        A == proxy, Id /= ?APP_ID_RELAY;
        A == resend ->
-    resend(Opts, App, T, TC, Fs, Pkt);
+    resend(Opts, App, Mask, T, TC, Fs, Pkt);
 
-request_cb(discard, _, _, _, _, _) ->
+request_cb(discard, _, _, _, _, _, _) ->
     ok;
 
-request_cb({eval_packet, RC, F}, App, T, TC, Fs, Pkt) ->
-    request_cb(RC, App, T, TC, [F|Fs], Pkt);
+request_cb({eval_packet, RC, F}, App, Mask, T, TC, Fs, Pkt) ->
+    request_cb(RC, App, Mask, T, TC, [F|Fs], Pkt);
 
-request_cb({eval, RC, F}, App, T, TC, Fs, Pkt) ->
-    request_cb(RC, App, T, TC, Pkt, Fs),
+request_cb({eval, RC, F}, App, Mask, T, TC, Fs, Pkt) ->
+    request_cb(RC, App, Mask, T, TC, Pkt, Fs),
     diameter_lib:eval(F).
 
 %% protocol_error/5
@@ -1925,20 +2024,19 @@ protocol_error(RC, {_, OH, OR}, TPid, Fs, Pkt) ->
 protocol_error(RC, T, TPid, Pkt) ->
     protocol_error(RC, T, TPid, [], Pkt).
 
-%% resend/6
+%% resend/7
 %%
 %% Resend a message as a relay or proxy agent.
 
 resend(Opts,
        #diameter_app{} = App,
+       Mask,
        {_SvcName, OH, _OR} = T,
        {_TPid, _Caps} = TC,
        Fs,
        #diameter_packet{avps = Avps} = Pkt) ->
     {Code, _Flags, Vid} = ?BASE:avp_header('Route-Record'),
-    resend(is_loop(Code, Vid, OH, Avps), Opts, App, T, TC, Fs, Pkt).
-
-%% resend/7
+    resend(is_loop(Code, Vid, OH, Avps), Opts, App, Mask, T, TC, Fs, Pkt).
 
 %%   DIAMETER_LOOP_DETECTED             3005
 %%      An agent detected a loop while trying to get the message to the
@@ -1946,7 +2044,7 @@ resend(Opts,
 %%      if one is available, but the peer reporting the error has
 %%      identified a configuration problem.
 
-resend(true, _, _, T, {TPid, _}, Fs, Pkt) ->  %% Route-Record loop
+resend(true, _, _, _, T, {TPid, _}, Fs, Pkt) ->  %% Route-Record loop
     protocol_error(3005, T, TPid, Fs, Pkt);
 
 %% 6.1.8.  Relaying and Proxying Requests
@@ -1958,6 +2056,7 @@ resend(true, _, _, T, {TPid, _}, Fs, Pkt) ->  %% Route-Record loop
 resend(false,
        Opts,
        App,
+       Mask,
        {SvcName, _, _} = T,
        {TPid, #diameter_caps{origin_host = {_, OH}}},
        Fs,
@@ -1965,7 +2064,7 @@ resend(false,
                         avps = Avps}
        = Pkt) ->
     Route = #diameter_avp{data = {?BASE, 'Route-Record', OH}},
-    Seq = diameter_session:sequence(),
+    Seq = diameter_session:sequence(Mask),
     Hdr = Hdr0#diameter_header{hop_by_hop_id = Seq},
     Msg = [Hdr, Route | Avps],
     resend(call(SvcName, App, Msg, Opts), T, TPid, Fs, Pkt).
@@ -2118,7 +2217,7 @@ rc([MsgName | _], {'Result-Code' = K, RC} = T, Dict) ->
 
 rc(Rec, T, Dict) ->
     rc([Dict:rec2msg(element(1, Rec))], T, Dict).
-    
+
 %% failed_avp/3
 
 failed_avp(_, [] = No, _) ->
@@ -2354,7 +2453,7 @@ a(#diameter_packet{errors = Es} = Pkt, SvcName, AE, #request{transport = TPid,
   when [] == Es;
        callback == AE ->
     cb(Req, handle_answer, [Pkt, msg(P), SvcName, {TPid, Caps}]);
-    
+
 a(Pkt, SvcName, report, Req) ->
     x(errors, handle_answer, [SvcName, Req, Pkt]);
 
@@ -2516,7 +2615,7 @@ send_event(#diameter_event{service = SvcName} = E) ->
 %%% # share_peer/5
 %%% ---------------------------------------------------------------------------
 
-share_peer(up, Caps, Aliases, TPid, #state{share_peers = true,
+share_peer(up, Caps, Aliases, TPid, #state{options = [_, {_, true} | _],
                                            service_name = Svc}) ->
     diameter_peer:notify(Svc, {peer, TPid, Aliases, Caps});
 
@@ -2527,11 +2626,11 @@ share_peer(_, _, _, _, _) ->
 %%% # share_peers/2
 %%% ---------------------------------------------------------------------------
 
-share_peers(Pid, #state{share_peers = true,
+share_peers(Pid, #state{options = [_, {_, true} | _],
                         local_peers = PDict}) ->
     ?Dict:fold(fun(A,Ps,ok) -> sp(Pid, A, Ps), ok end, ok, PDict);
 
-share_peers(_, #state{share_peers = false}) ->
+share_peers(_, _) ->
     ok.
 
 sp(Pid, Alias, Peers) ->
@@ -2541,39 +2640,31 @@ sp(Pid, Alias, Peers) ->
 %%% # remote_peer_up/4
 %%% ---------------------------------------------------------------------------
 
-remote_peer_up(Pid, Aliases, Caps, #state{use_shared_peers = true,
+remote_peer_up(Pid, Aliases, Caps, #state{options = [_, _, {_, true} | _],
                                           service = Svc,
-                                          shared_peers = PDict}
-                                   = S) ->
+                                          shared_peers = PDict}) ->
     #diameter_service{applications = Apps} = Svc,
-    Update = lists:filter(fun(A) ->
-                                  lists:keymember(A, #diameter_app.alias, Apps)
-                          end,
-                          Aliases),
-    S#state{shared_peers = rpu(Pid, Caps, PDict, Update)};
+    Key = #diameter_app.alias,
+    As = lists:filter(fun(A) -> lists:keymember(A, Key, Apps) end, Aliases),
+    rpu(Pid, Caps, PDict, As);
 
-remote_peer_up(_, _, _, #state{use_shared_peers = false} = S) ->
-    S.
+remote_peer_up(_, _, _, #state{options = [_, _, {_, false} | _]}) ->
+    ok.
 
 rpu(_, _, PDict, []) ->
     PDict;
 rpu(Pid, Caps, PDict, Aliases) ->
     erlang:monitor(process, Pid),
     T = {Pid, Caps},
-    lists:foldl(fun(A,D) -> ?Dict:append(A, T, D) end,
-                PDict,
-                Aliases).
+    lists:foreach(fun(A) -> ?Dict:append(A, T, PDict) end, Aliases).
 
 %%% ---------------------------------------------------------------------------
 %%% # remote_peer_down/2
 %%% ---------------------------------------------------------------------------
 
-remote_peer_down(Pid, #state{use_shared_peers = true,
-                             shared_peers = PDict}
-                      = S) ->
-    S#state{shared_peers = lists:foldl(fun(A,D) -> rpd(Pid, A, D) end,
-                                       PDict,
-                                       ?Dict:fetch_keys(PDict))}.
+remote_peer_down(Pid, #state{options = [_, _, {_, true} | _],
+                             shared_peers = PDict}) ->
+    lists:foreach(fun(A) -> rpd(Pid, A, PDict) end, ?Dict:fetch_keys(PDict)).
 
 rpd(Pid, Alias, PDict) ->
     ?Dict:update(Alias, fun(Ps) -> lists:keydelete(Pid, 1, Ps) end, PDict).
