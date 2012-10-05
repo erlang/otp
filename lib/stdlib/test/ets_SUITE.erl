@@ -2170,20 +2170,29 @@ heir_do(Opts) ->
     ?line undefined = ets:info(foo),
 
     %% When heir dies and pid reused before founder dies
-    NextPidIx = erts_debug:get_internal_state(next_pid),
-    {Founder4,MrefF4} = my_spawn_monitor(fun()->heir_founder(Master,"The dying heir",Opts)end),
-    {Heir4,MrefH4} = my_spawn_monitor(fun()->heir_heir(Founder4)end),
-    Founder4 ! {go, Heir4},
-    ?line {'DOWN', MrefH4, process, Heir4, normal} = receive_any(),
-    erts_debug:set_internal_state(next_pid, NextPidIx),
-    {Heir4,MrefH4_B} = spawn_monitor_with_pid(Heir4, 
-					      fun()-> ?line die_please = receive_any() end),
-    Founder4 ! die_please,
-    ?line {'DOWN', MrefF4, process, Founder4, normal} = receive_any(),
-    Heir4 ! die_please,
-    ?line {'DOWN', MrefH4_B, process, Heir4, normal} = receive_any(),
-    ?line undefined = ets:info(foo), 
-
+    repeat_while(fun() ->
+			 NextPidIx = erts_debug:get_internal_state(next_pid),
+			 {Founder4,MrefF4} = my_spawn_monitor(fun()->heir_founder(Master,"The dying heir",Opts)end),
+			 {Heir4,MrefH4} = my_spawn_monitor(fun()->heir_heir(Founder4)end),
+			 Founder4 ! {go, Heir4},
+			 ?line {'DOWN', MrefH4, process, Heir4, normal} = receive_any(),
+			 erts_debug:set_internal_state(next_pid, NextPidIx),
+			 DoppelGanger = spawn_monitor_with_pid(Heir4, 
+							       fun()-> ?line die_please = receive_any() end),
+			 Founder4 ! die_please,
+			 ?line {'DOWN', MrefF4, process, Founder4, normal} = receive_any(),
+			 case DoppelGanger of
+			     {Heir4,MrefH4_B} ->
+				 Heir4 ! die_please,
+				 ?line {'DOWN', MrefH4_B, process, Heir4, normal} = receive_any(),
+				 ?line undefined = ets:info(foo),
+				 false;
+			     failed ->
+				 io:format("Failed to spawn process with pid ~p\n", [Heir4]),
+				 true % try again
+			 end			  
+		 end),
+	    
     ?line verify_etsmem(EtsMem).
 
 heir_founder(Master, HeirData, Opts) ->    
@@ -5795,25 +5804,20 @@ receive_any_spinning(Loops, N, Tries) when N>0 ->
 
 
 spawn_monitor_with_pid(Pid, Fun) when is_pid(Pid) ->
-    spawn_monitor_with_pid(Pid, Fun, 1, 10).
+    spawn_monitor_with_pid(Pid, Fun, 10).
 
-spawn_monitor_with_pid(Pid, Fun, N, M) when N > M*10 ->
-    spawn_monitor_with_pid(Pid, Fun, N, M*10);
-spawn_monitor_with_pid(Pid, Fun, N, M) ->
-    ?line false = is_process_alive(Pid),
+spawn_monitor_with_pid(_, _, 0) ->
+    failed;
+spawn_monitor_with_pid(Pid, Fun, N) ->
     case my_spawn(fun()-> case self() of
 			      Pid -> Fun();
 			      _ -> die
 			  end
 		  end) of
-	Pid ->	    
+	Pid ->
 	    {Pid, erlang:monitor(process, Pid)};
 	Other ->
-	    case N rem M of
-		0 -> io:format("Failed ~p times to get pid ~p (current = ~p)\n",[N,Pid,Other]);
-		_ -> ok
-	    end,
-	    spawn_monitor_with_pid(Pid,Fun,N+1,M)
+	    spawn_monitor_with_pid(Pid,Fun,N-1)
     end.
 
 
