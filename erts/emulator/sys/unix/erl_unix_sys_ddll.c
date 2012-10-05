@@ -101,7 +101,7 @@ void erl_sys_ddll_init(void) {
 /* 
  * Open a shared object
  */
-int erts_sys_ddll_open2(char *full_name, void **handle, ErtsSysDdllError* err)
+int erts_sys_ddll_open2(const char *full_name, void **handle, ErtsSysDdllError* err)
 {
 #if defined(HAVE_DLOPEN)
     char* dlname; 
@@ -153,7 +153,7 @@ int erts_sys_ddll_open_noext(char *dlname, void **handle, ErtsSysDdllError* err)
 /* 
  * Find a symbol in the shared object
  */
-int erts_sys_ddll_sym2(void *handle, char *func_name, void **function,
+int erts_sys_ddll_sym2(void *handle, const char *func_name, void **function,
 		       ErtsSysDdllError* err)
 {
 #if defined(HAVE_DLOPEN)

@@ -114,7 +114,7 @@
 
 -on_load(on_load/0).
 
--define(CRYPTO_NIF_VSN,101).
+-define(CRYPTO_NIF_VSN,201).
 
 on_load() ->
     LibBaseName = "crypto",
@@ -140,7 +140,7 @@ on_load() ->
 		      end
 	      end,
     Lib = filename:join([PrivDir, "lib", LibName]),
-    Status = case erlang:load_nif(Lib, ?CRYPTO_NIF_VSN) of
+    Status = case erlang:load_nif(Lib, {?CRYPTO_NIF_VSN,Lib}) of
 		 ok -> ok;
 		 {error, {load_failed, _}}=Error1 ->
 		     ArchLibDir = 
@@ -152,7 +152,7 @@ on_load() ->
 			 [] -> Error1;
 			 _ ->
 			     ArchLib = filename:join([ArchLibDir, LibName]),
-			     erlang:load_nif(ArchLib, ?CRYPTO_NIF_VSN)
+			     erlang:load_nif(ArchLib, {?CRYPTO_NIF_VSN,ArchLib})
 		     end;
 		 Error1 -> Error1
 	     end,
