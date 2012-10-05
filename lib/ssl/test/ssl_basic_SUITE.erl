@@ -257,7 +257,8 @@ api_tests() ->
      shutdown_write,
      shutdown_both,
      shutdown_error,
-     hibernate
+     hibernate,
+     listen_socket
     ].
 
 certificate_verify_tests() ->
@@ -3775,6 +3776,35 @@ hibernate(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+listen_socket(doc) ->
+    ["Check error handling and inet compliance when calling API functions with listen sockets."];
+
+listen_socket(suite) ->
+    [];
+
+listen_socket(Config) ->
+    ServerOpts = ?config(server_opts, Config),
+    {ok, ListenSocket} = ssl:listen(0, ServerOpts),
+
+    %% This can be a valid thing to do as
+    %% options are inherited by the accept socket
+    ok = ssl:controlling_process(ListenSocket, self()),
+
+    {ok, _} = ssl:sockname(ListenSocket),
+
+    {error, enotconn} = ssl:send(ListenSocket, <<"data">>),
+    {error, enotconn} = ssl:recv(ListenSocket, 0),
+    {error, enotconn} = ssl:connection_info(ListenSocket),
+    {error, enotconn} = ssl:peername(ListenSocket),
+    {error, enotconn} = ssl:peercert(ListenSocket),
+    {error, enotconn} = ssl:session_info(ListenSocket),
+    {error, enotconn} = ssl:renegotiate(ListenSocket),
+    {error, enotconn} = ssl:prf(ListenSocket, 'master_secret', <<"Label">>, client_random, 256),
+    {error, enotconn} = ssl:shutdown(ListenSocket, read_write),
+
+    ok = ssl:close(ListenSocket).
 
 %%--------------------------------------------------------------------
 
