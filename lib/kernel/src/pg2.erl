@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -159,7 +159,7 @@ get_closest_pid(Name) ->
 
 -record(state, {}).
 
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 -spec init(Arg :: []) -> {'ok', state()}.
 

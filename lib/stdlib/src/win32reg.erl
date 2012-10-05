@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -24,6 +24,8 @@
 	 value/2, values/1, set_value/3, delete_value/2,
 	 expand/1,
 	 format_error/1]).
+
+-export_type([reg_handle/0]).
 
 %% Key handles (always open).
 -define(hkey_classes_root, 16#80000000).

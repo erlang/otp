@@ -44,6 +44,8 @@
 %% To be used for debugging only:
 -export([pid2name/1]).
 
+-export_type([continuation/0]).
+
 -type dlog_state_error() :: 'ok' | {'error', term()}.
 
 -record(state, {queue = [],

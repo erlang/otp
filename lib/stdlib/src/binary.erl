@@ -21,6 +21,8 @@
 %% Implemented in this module:
 -export([split/2,split/3,replace/3,replace/4]).
 
+-export_type([cp/0]).
+
 -opaque cp() :: {'am' | 'bm', binary()}.
 -type part() :: {Start :: non_neg_integer(), Length :: integer()}.
 
