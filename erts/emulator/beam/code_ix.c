@@ -36,13 +36,13 @@
 erts_smp_atomic32_t the_active_code_index;
 erts_smp_atomic32_t the_staging_code_index;
 
-static int the_code_ix_lock = 0;
-struct code_ix_queue_item {
+static Process* code_writing_process = NULL;
+struct code_write_queue_item {
     Process *p;
-    struct code_ix_queue_item* next;
+    struct code_write_queue_item* next;
 };
-static struct code_ix_queue_item* the_code_ix_queue = NULL;
-static erts_smp_mtx_t the_code_ix_queue_lock;
+static struct code_write_queue_item* code_write_queue = NULL;
+static erts_smp_mtx_t code_write_permission_mtx;
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
 static erts_tsd_key_t has_code_write_permission;
@@ -56,7 +56,7 @@ void erts_code_ix_init(void)
      */
     erts_smp_atomic32_init_nob(&the_active_code_index, 0);
     erts_smp_atomic32_init_nob(&the_staging_code_index, 0);
-    erts_smp_mtx_init(&the_code_ix_queue_lock, "code_ix_queue");
+    erts_smp_mtx_init(&code_write_permission_mtx, "code_write_permission");
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_tsd_key_create(&has_code_write_permission);
 #endif
@@ -114,53 +114,55 @@ int erts_try_seize_code_write_permission(Process* c_p)
 #ifdef ERTS_SMP
     ASSERT(!erts_smp_thr_progress_is_blocking()); /* to avoid deadlock */
 #endif
+    ASSERT(c_p != NULL);
 
-    erts_smp_mtx_lock(&the_code_ix_queue_lock);
-    success = !the_code_ix_lock;
+    erts_smp_mtx_lock(&code_write_permission_mtx);
+    success = (code_writing_process == NULL);
     if (success) {
-	the_code_ix_lock = 1;
+	code_writing_process = c_p;
 #ifdef ERTS_ENABLE_LOCK_CHECK
 	erts_tsd_set(has_code_write_permission, (void *) 1);
 #endif
     }
     else { /* Already locked */
-	struct code_ix_queue_item* qitem;
+	struct code_write_queue_item* qitem;
+	ASSERT(code_writing_process != c_p);
 	qitem = erts_alloc(ERTS_ALC_T_CODE_IX_LOCK_Q, sizeof(*qitem));
 	qitem->p = c_p;
 	erts_smp_proc_inc_refc(c_p);
-	qitem->next = the_code_ix_queue;
-	the_code_ix_queue = qitem;
+	qitem->next = code_write_queue;
+	code_write_queue = qitem;
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
     }
-   erts_smp_mtx_unlock(&the_code_ix_queue_lock);
+   erts_smp_mtx_unlock(&code_write_permission_mtx);
    return success;
 }
 
 void erts_release_code_write_permission(void)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
-    erts_smp_mtx_lock(&the_code_ix_queue_lock);
-    while (the_code_ix_queue != NULL) { /* unleash the entire herd */
-	struct code_ix_queue_item* qitem = the_code_ix_queue;
+    erts_smp_mtx_lock(&code_write_permission_mtx);
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
+    while (code_write_queue != NULL) { /* unleash the entire herd */
+	struct code_write_queue_item* qitem = code_write_queue;
 	erts_smp_proc_lock(qitem->p, ERTS_PROC_LOCK_STATUS);
 	if (!ERTS_PROC_IS_EXITING(qitem->p)) {
 	    erts_resume(qitem->p, ERTS_PROC_LOCK_STATUS);
 	}
 	erts_smp_proc_unlock(qitem->p, ERTS_PROC_LOCK_STATUS);
-	the_code_ix_queue = qitem->next;
+	code_write_queue = qitem->next;
 	erts_smp_proc_dec_refc(qitem->p);
 	erts_free(ERTS_ALC_T_CODE_IX_LOCK_Q, qitem);
     }
-    the_code_ix_lock = 0;
+    code_writing_process = NULL;
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_tsd_set(has_code_write_permission, (void *) 0);
 #endif
-    erts_smp_mtx_unlock(&the_code_ix_queue_lock);
+    erts_smp_mtx_unlock(&code_write_permission_mtx);
 }
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
-int erts_is_code_ix_locked(void)
+int erts_has_code_write_permission(void)
 {
-    return the_code_ix_lock && erts_tsd_get(has_code_write_permission);
+    return (code_writing_process != NULL) && erts_tsd_get(has_code_write_permission);
 }
 #endif

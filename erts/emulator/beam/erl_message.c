@@ -1096,7 +1096,6 @@ erts_send_message(Process* sender,
 	}
         BM_SWAP_TIMER(send,system);
 #endif /* #ifndef ERTS_SMP */
-	return;
     }
    return res;
 }

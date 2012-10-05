@@ -58,10 +58,17 @@ static struct {			/* Protected by code write permission */
     int local;
     BpFunctions f;		/* Local functions */
     BpFunctions e;		/* Export entries */
+#ifdef ERTS_SMP
+    Process* stager;
+    ErtsThrPrgrLaterOp lop;
+#endif
 } finish_bp;
 
 static Eterm
 trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist);
+#ifdef ERTS_SMP
+static void smp_bp_finisher(void* arg);
+#endif
 static BIF_RETTYPE
 system_monitor(Process *p, Eterm monitor_pid, Eterm list);
 
@@ -350,7 +357,10 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 #ifdef ERTS_SMP
     if (finish_bp.current >= 0) {
 	ASSERT(matches >= 0);
-	erts_notify_finish_breakpointing(p);
+	ASSERT(finish_bp.stager == NULL);
+	finish_bp.stager = p;
+	erts_schedule_thr_prgr_later_op(smp_bp_finisher, NULL, &finish_bp.lop);
+	erts_smp_proc_inc_refc(p);
 	erts_suspend(p, ERTS_PROC_LOCK_MAIN, NULL);
 	ERTS_BIF_YIELD_RETURN(p, make_small(matches));
     }
@@ -366,6 +376,29 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     }
 }
 
+#ifdef ERTS_SMP
+static void smp_bp_finisher(void* null)
+{
+    if (erts_finish_breakpointing()) { /* Not done */
+	/* Arrange for being called again */
+	erts_schedule_thr_prgr_later_op(smp_bp_finisher, NULL, &finish_bp.lop);
+    }
+    else {			/* Done */
+	Process* p = finish_bp.stager;
+#ifdef DEBUG
+	finish_bp.stager = NULL;
+#endif
+	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+	if (!ERTS_PROC_IS_EXITING(p)) {
+	    erts_resume(p, ERTS_PROC_LOCK_STATUS);
+	}
+	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+	erts_smp_proc_dec_refc(p);
+	erts_release_code_write_permission();
+    }
+}
+#endif /* ERTS_SMP */
+
 void
 erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       Binary **match_spec,
@@ -373,7 +406,7 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       struct trace_pattern_flags *trace_pattern_flags,
 			       Eterm *meta_tracer_pid)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked() ||
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
     if (trace_pattern_is_on)
 	*trace_pattern_is_on = erts_default_trace_pattern_is_on;
@@ -389,7 +422,7 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 
 int erts_is_default_trace_enabled(void)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked() ||
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
     return erts_default_trace_pattern_is_on;
 }
@@ -1530,7 +1563,7 @@ erts_set_trace_pattern(Process*p, Eterm* mfa, int specified,
 int
 erts_finish_breakpointing(void)
 {
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
 
     /*
      * Memory barriers will be issued for all processes *before*
@@ -1538,7 +1571,6 @@ erts_finish_breakpointing(void)
      * are blocked, in which case memory barriers will be issued
      * when they are awaken.)
      */
-
     switch (finish_bp.current++) {
     case 0:
 	/*

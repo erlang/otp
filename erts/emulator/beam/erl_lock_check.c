@@ -93,7 +93,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"proc_msgq",				"pid"			},
     {	"dist_entry",				"address"		},
     {	"dist_entry_links",			"address"		},
-    {   "code_ix_queue",                        NULL                    },
+    {   "code_write_permission",                NULL                    },
     {	"proc_status",				"pid"			},
     {	"proc_tab",				NULL			},
     {   "ports_snapshot",                       NULL                    },

@@ -148,6 +148,15 @@ struct m {
 };
 
 static Eterm staging_epilogue(Process* c_p, int, Eterm res, int, struct m*, int);
+#ifdef ERTS_SMP
+static void smp_code_ix_commiter(void*);
+
+static struct /* Protected by code_write_permission */
+{
+    Process* stager;
+    ErtsThrPrgrLaterOp lop;
+}commiter_state;
+#endif
 
 static Eterm
 exception_list(Process* p, Eterm tag, struct m* mp, Sint exceptions)
@@ -347,7 +356,6 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
     }
 #ifdef ERTS_SMP
     else {
-	ErtsThrPrgrVal later;
 	ASSERT(is_value(res));
 
 	if (loaded) {
@@ -356,23 +364,45 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	erts_end_staging_code_ix();
 	/*
 	 * Now we must wait for all schedulers to do a memory barrier before
-	 * we can activate and let them access the new staged code. This allows
+	 * we can commit and let them access the new staged code. This allows
 	 * schedulers to read active code_ix in a safe way while executing
 	 * without any memory barriers at all. 
 	 */
-    
-	later = erts_thr_progress_later(c_p->scheduler_data);
-	erts_thr_progress_wakeup(c_p->scheduler_data, later);
-	erts_notify_code_ix_activation(c_p, later);
+	ASSERT(commiter_state.stager == NULL);
+	commiter_state.stager = c_p;
+	erts_schedule_thr_prgr_later_op(smp_code_ix_commiter, NULL, &commiter_state.lop);
+	erts_smp_proc_inc_refc(c_p);
 	erts_suspend(c_p, ERTS_PROC_LOCK_MAIN, NULL);
 	/*
-	 * handle_code_ix_activation() will do the rest "later"
+	 * smp_code_ix_commiter() will do the rest "later"
 	 * and resume this process to return 'res'.  
 	 */
 	ERTS_BIF_YIELD_RETURN(c_p, res);
     }
 #endif
 }
+
+
+#ifdef ERTS_SMP
+static void smp_code_ix_commiter(void* null)
+{
+    Process* p = commiter_state.stager;
+
+    erts_commit_staging_code_ix();
+    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    if (!ERTS_PROC_IS_EXITING(p)) {
+	erts_resume(p, ERTS_PROC_LOCK_STATUS);
+    }
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+    erts_smp_proc_dec_refc(p);
+#ifdef DEBUG
+    commiter_state.stager = NULL;
+#endif
+    erts_release_code_write_permission();
+}
+#endif /* ERTS_SMP */
+
+
 
 BIF_RETTYPE
 check_old_code_1(BIF_ALIST_1)

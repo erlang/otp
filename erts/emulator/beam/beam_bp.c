@@ -254,7 +254,7 @@ erts_consolidate_bp_data(BpFunctions* f, int local)
     Uint i;
     Uint n = f->matched;
 
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
 
     for (i = 0; i < n; i++) {
 	consolidate_bp_data(fs[i].mod, fs[i].pc, local);
@@ -266,7 +266,7 @@ erts_consolidate_bif_bp_data(void)
 {
     int i;
 
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
     for (i = 0; i < BIF_SIZE; i++) {
 	Export *ep = bif_export[i];
 	consolidate_bp_data(0, ep->code+3, 0);
@@ -692,7 +692,7 @@ erts_bif_trace(int bif_index, Process* p, Eterm* args, BeamInstr* I)
 					   * export entry */
     BeamInstr *cp = p->cp;
     GenericBp* g;
-    GenericBpData* bp;
+    GenericBpData* bp = NULL;
     Uint bp_flags = 0;
 
     ERTS_SMP_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
@@ -1449,7 +1449,7 @@ set_function_break(BeamInstr *pc, Binary *match_spec, Uint break_flags,
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
     g = (GenericBp *) pc[-4];
     if (g == 0) {
 	int i;
@@ -1565,7 +1565,7 @@ clear_function_break(BeamInstr *pc, Uint break_flags)
     Uint common;
     ErtsBpIndex ix = erts_staging_bp_ix();
 
-    ERTS_SMP_LC_ASSERT(erts_is_code_ix_locked());
+    ERTS_SMP_LC_ASSERT(erts_has_code_write_permission());
 
     if ((g = (GenericBp *) pc[-4]) == 0) {
 	return 1;

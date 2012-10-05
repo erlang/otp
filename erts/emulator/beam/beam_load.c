@@ -756,7 +756,7 @@ erts_finish_loading(Binary* magic, Process* c_p,
      * table which is not protected by any locks.
      */
 
-    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_is_code_ix_locked() ||
+    ERTS_SMP_LC_ASSERT(erts_initialized == 0 || erts_has_code_write_permission() ||
 		       erts_smp_thr_progress_is_blocking());
 
     /*

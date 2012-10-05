@@ -144,7 +144,7 @@ erts_put_module(Eterm mod)
 
     ASSERT(is_atom(mod));
     ERTS_SMP_LC_ASSERT(erts_initialized == 0
-		       || erts_is_code_ix_locked());
+		       || erts_has_code_write_permission());
 
     mod_tab = &module_tables[erts_staging_code_ix()];
     e.module = atom_val(mod);
