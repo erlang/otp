@@ -16,13 +16,8 @@
 #
 # %CopyrightEnd%
 
-ifeq ($(ERL_TOP),)
-include $(DIAMETER_TOP)/make/target.mk
-include $(DIAMETER_TOP)/make/$(TARGET)/rules.mk
-else
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
-endif
 
 # ----------------------------------------------------
 # Application version
@@ -148,11 +143,7 @@ log:
 /%: % force
 	sed -f release.sed $< > "$(RELSYSDIR)$@"
 
-ifeq ($(ERL_TOP),)
-include $(DIAMETER_TOP)/make/release_targets.mk
-else
 include $(ERL_TOP)/make/otp_release_targets.mk
-endif
 
 release_spec release_docs_spec:
 

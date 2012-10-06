@@ -16,13 +16,8 @@
 #
 # %CopyrightEnd%
 
-ifneq ($(ERL_TOP),)
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
-else
-include $(DIAMETER_TOP)/make/target.mk
-include $(DIAMETER_TOP)/make/$(TARGET)/rules.mk
-endif
 
 include ../../vsn.mk
 
@@ -155,11 +150,8 @@ info:
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
-ifneq ($(ERL_TOP),)
+
 include $(ERL_TOP)/make/otp_release_targets.mk
-else
-include $(DIAMETER_TOP)/make/release_targets.mk
-endif
 
 release_docs_spec: $(LOCAL)docs
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
