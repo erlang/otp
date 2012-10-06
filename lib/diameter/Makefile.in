@@ -59,7 +59,7 @@ else
 include $(DIAMETER_TOP)/make/subdir.mk
 endif
 
-.PHONY: reconf conf info version dialyzer
+.PHONY: reconf conf info version
 
 reconf: 
 	autoconf
@@ -78,11 +78,3 @@ info:
 
 version:
 	@echo "$(VSN)"
-
-
-dialyzer: 
-	(cd ./ebin; \
-         dialyzer --build_plt \
-                  --output_plt ../priv/diameter.plt \
-                  -r ../../diameter/ebin \
-                  --verbose)
