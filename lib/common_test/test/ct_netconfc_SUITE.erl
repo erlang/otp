@@ -44,7 +44,12 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     Config1 = ct_test_support:init_per_suite(Config),
-    Config1.
+    case application:load(crypto) of
+	{error,Reason} ->
+	    {skip, Reason};
+	_ ->
+	    Config1
+    end.
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
