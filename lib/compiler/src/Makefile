@@ -82,7 +82,6 @@ MODULES =  \
 	sys_core_dsetel \
 	sys_core_fold \
 	sys_core_inline \
-	sys_expand_pmod \
 	sys_pre_attributes \
 	sys_pre_expand \
 	v3_codegen \
