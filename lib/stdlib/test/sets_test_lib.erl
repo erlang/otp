@@ -17,91 +17,89 @@
 %% %CopyrightEnd%
 %%
 
--module(sets_test_lib, [Mod,Equal]).
+-module(sets_test_lib).
 
--export([module/0,equal/2,empty/0,from_list/1,to_list/1,singleton/1,
-	 add_element/2,del_element/2,size/1,is_empty/1,is_set/1,
-	 intersection/1,intersection/2,subtract/2,
-	 union/1,union/2,is_subset/2,fold/3,filter/2]).
+-export([new/2]).
 
-module() ->
-    Mod.
-
-equal(X, Y) ->
-    Equal(X, Y).
-
-empty() ->
-    Mod:new().
-
-from_list(L) ->
-    Mod:from_list(L).
-
-to_list(S) ->
-    Mod:to_list(S).
-
-singleton(E) ->
-    case erlang:function_exported(Mod, singleton, 1) of
-	true -> Mod:singleton(E);
-	false -> from_list([E])
+new(Mod, Eq) ->
+    fun	(add_element, {El,S}) -> add_element(Mod, El, S);
+	(del_element, {El,S}) -> del_element(Mod, El, S);
+	(empty, []) -> Mod:new();
+	(equal, {S1,S2}) -> Eq(S1, S2);
+	(filter, {F,S}) -> filter(Mod, F, S);
+	(fold, {F,A,S}) -> fold(Mod, F, A, S);
+	(from_list, L) -> Mod:from_list(L);
+	(intersection, {S1,S2}) -> intersection(Mod, Eq, S1, S2);
+	(intersection, Ss) -> intersection(Mod, Eq, Ss);
+	(is_empty, S) -> is_empty(Mod, S);
+	(is_set, S) -> Mod:is_set(S);
+	(is_subset, {S,Set}) -> is_subset(Mod, Eq, S, Set);
+	(module, []) -> Mod;
+	(singleton, E) -> singleton(Mod, E);
+	(size, S) -> Mod:size(S);
+	(subtract, {S1,S2}) -> subtract(Mod, S1, S2);
+	(to_list, S) -> Mod:to_list(S);
+	(union, {S1,S2}) -> union(Mod, Eq, S1, S2);
+	(union, Ss) -> union(Mod, Eq, Ss)
     end.
 
-add_element(El, S0) ->
+singleton(Mod, E) ->
+    case erlang:function_exported(Mod, singleton, 1) of
+	true -> Mod:singleton(E);
+	false -> Mod:from_list([E])
+    end.
+
+add_element(Mod, El, S0) ->
     S = Mod:add_element(El, S0),
     true = Mod:is_element(El, S),
-    false = is_empty(S),
+    false = is_empty(Mod, S),
     true = Mod:is_set(S),
     S.
 
-del_element(El, S0) ->
+del_element(Mod, El, S0) ->
     S = Mod:del_element(El, S0),
     false = Mod:is_element(El, S),
     true = Mod:is_set(S),
     S.
 
-size(S) ->
-    Mod:size(S).
-
-is_empty(S) ->
+is_empty(Mod, S) ->
     true = Mod:is_set(S),
     case erlang:function_exported(Mod, is_empty, 1) of
 	true -> Mod:is_empty(S);
 	false -> Mod:size(S) == 0
     end.
 
-is_set(S) ->
-    Mod:is_set(S).
-
-intersection(S1, S2) ->
+intersection(Mod, Equal, S1, S2) ->
     S = Mod:intersection(S1, S2),
     true = Equal(S, Mod:intersection(S2, S1)),
-    Disjoint = is_empty(S),
+    Disjoint = is_empty(Mod, S),
     Disjoint = Mod:is_disjoint(S1, S2),
     Disjoint = Mod:is_disjoint(S2, S1),
     S.
 
-intersection(Ss) ->
+intersection(Mod, Equal, Ss) ->
     S = Mod:intersection(Ss),
     true = Equal(S, Mod:intersection(lists:reverse(Ss))),
     S.
 
-subtract(S1, S2) ->
+subtract(Mod, S1, S2) ->
     S = Mod:subtract(S1, S2),
     true = Mod:is_set(S),
     true = Mod:size(S) =< Mod:size(S1),
     S.
 	    
-union(S1, S2) ->
+union(Mod, Equal, S1, S2) ->
     S = Mod:union(S1, S2),
     true = Equal(S, Mod:union(S2, S1)),
     true = Mod:is_set(S),
     S.
 
-union(Ss) ->
+union(Mod, Equal, Ss) ->
     S = Mod:union(Ss),
     true = Equal(S, Mod:union(lists:reverse(Ss))),
     S.
 		 
-is_subset(S, Set) ->
+is_subset(Mod, Equal, S, Set) ->
     case Mod:is_subset(S, Set) of
 	false -> false;
 	true ->
@@ -115,10 +113,10 @@ is_subset(S, Set) ->
 	    true
     end.
 
-fold(F, A, S) ->
+fold(Mod, F, A, S) ->
     true = Mod:is_set(S),
     Mod:fold(F, A, S).
 
-filter(F, S) ->
+filter(Mod, F, S) ->
     true = Mod:is_set(S),
     Mod:filter(F, S).
