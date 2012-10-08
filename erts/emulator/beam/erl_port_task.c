@@ -984,8 +984,9 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 #endif
 
  done:
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
+    runq->scheduler->reductions += reds;
 
+    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
     ERTS_PORT_REDUCTIONS_EXECUTED(runq, reds);
 
     return res;
