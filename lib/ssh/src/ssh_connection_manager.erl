@@ -40,7 +40,7 @@
 	 close/2, stop/1, send/5,
 	 send_eof/2]).
 
--export([open_channel/6, request/6, request/7, global_request/4, event/2,
+-export([open_channel/6, reply_request/3, request/6, request/7, global_request/4, event/2,
 	 cast/2]).
 
 %% Internal application API and spawn
@@ -94,6 +94,9 @@ request(ConnectionManager, ChannelId, Type, true, Data, Timeout) ->
     call(ConnectionManager, {request, ChannelId, Type, Data}, Timeout);
 request(ConnectionManager, ChannelId, Type, false, Data, _) ->
     cast(ConnectionManager, {request, ChannelId, Type, Data}).
+
+reply_request(ConnectionManager, Status, ChannelId) ->
+    cast(ConnectionManager, {reply_request, Status, ChannelId}).
 
 global_request(ConnectionManager, Type, true = Reply, Data) ->
     case call(ConnectionManager, 
@@ -441,6 +444,16 @@ handle_cast({request, ChannelId, Type, Data}, State0) ->
     {{replies, Replies}, State} = handle_request(ChannelId, Type, Data, 
 						 false, none, State0),
     lists:foreach(fun send_msg/1, Replies),
+    {noreply, State};
+
+handle_cast({reply_request, Status, ChannelId}, #state{connection_state =
+        #connection{channel_cache = Cache}} = State0) ->
+    State = case ssh_channel:cache_lookup(Cache, ChannelId) of
+        #channel{remote_id = RemoteId} ->
+            cm_message({Status, RemoteId}, State0);
+        undefined ->
+            State0
+    end,
     {noreply, State};
 
 handle_cast({global_request, _, _, _, _} = Request, State0) ->
