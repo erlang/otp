@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,16 +31,18 @@
 
 -define(TIMEOUT, 600000).
 
-%% Test server callback functions
 %%--------------------------------------------------------------------
-%% Function: init_per_suite(Config) -> Config
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Initialization before the whole suite
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
+%% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
+
+suite() -> [{ct_hooks,[ts_install_cth]}].
+
+all() ->
+    [aes_decipher_good, aes_decipher_good_tls11, aes_decipher_fail, aes_decipher_fail_tls11].
+
+groups() ->
+    [].
+
 init_per_suite(Config) ->
     try crypto:start() of
 	ok ->
@@ -48,66 +50,10 @@ init_per_suite(Config) ->
     catch _:_  ->
 	    {skip, "Crypto did not start"}
     end.
-%%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> _
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after the whole suite
-%%--------------------------------------------------------------------
+
 end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
-
-%%--------------------------------------------------------------------
-%% Function: init_per_testcase(TestCase, Config) -> Config
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%%
-%% Description: Initialization before each test case
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%% Description: Initialization before each test case
-%%--------------------------------------------------------------------
-init_per_testcase(_TestCase, Config0) ->
-    Config = lists:keydelete(watchdog, 1, Config0),
-    Dog = ssl_test_lib:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
-
-%%--------------------------------------------------------------------
-%% Function: end_per_testcase(TestCase, Config) -> _
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after each test case
-%%--------------------------------------------------------------------
-end_per_testcase(_TestCase, Config) ->
-    Dog = ?config(watchdog, Config),
-    case Dog of 
-	undefined ->
-	    ok;
-	_ ->
-	    test_server:timetrap_cancel(Dog)
-    end.
-
-%%--------------------------------------------------------------------
-%% Function: all(Clause) -> TestCases
-%% Clause - atom() - suite | doc
-%% TestCases - [Case] 
-%% Case - atom()
-%%   Name of a test case.
-%% Description: Returns a list of all test cases in this test suite
-%%--------------------------------------------------------------------
-suite() -> [{ct_hooks,[ts_install_cth]}].
-
-all() -> 
-    [aes_decipher_good, aes_decipher_good_tls11, aes_decipher_fail, aes_decipher_fail_tls11].
-
-groups() -> 
-    [].
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -115,14 +61,19 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(_TestCase, Config0) ->
+    Config = lists:keydelete(watchdog, 1, Config0),
+    Dog = ct:timetrap(?TIMEOUT),
+    [{watchdog, Dog} | Config].
 
-%% Test cases starts here.
+end_per_testcase(_TestCase, Config) ->
+    Config.
+
 %%--------------------------------------------------------------------
-aes_decipher_good(doc) -> 
-    ["Decipher a known cryptotext."];
-
-aes_decipher_good(suite) -> 
-    [];
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+aes_decipher_good() ->
+    [{doc,"Decipher a known cryptotext."}].
 
 aes_decipher_good(Config) when is_list(Config) ->
     HashSz = 32,
@@ -142,11 +93,8 @@ aes_decipher_good(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-aes_decipher_good_tls11(doc) ->
-    ["Decipher a known TLS 1.1 cryptotext."];
-
-aes_decipher_good_tls11(suite) ->
-    [];
+aes_decipher_good_tls11() ->
+    [{doc,"Decipher a known TLS 1.1 cryptotext."}].
 
 %% the fragment is actuall a TLS 1.1 record, with
 %% Version = TLS 1.1, we get the correct NextIV in #cipher_state
@@ -169,11 +117,8 @@ aes_decipher_good_tls11(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-aes_decipher_fail(doc) -> 
-    ["Decipher a known cryptotext."];
-
-aes_decipher_fail(suite) -> 
-    [];
+aes_decipher_fail() ->
+    [{doc,"Decipher a known cryptotext."}].
 
 %% same as above, last byte of key replaced
 aes_decipher_fail(Config) when is_list(Config) ->
@@ -196,11 +141,8 @@ aes_decipher_fail(Config) when is_list(Config) ->
 
 %%--------------------------------------------------------------------
 
-aes_decipher_fail_tls11(doc) ->
-    ["Decipher a known TLS 1.1 cryptotext."];
-
-aes_decipher_fail_tls11(suite) ->
-    [];
+aes_decipher_fail_tls11() ->
+    [{doc,"Decipher a known TLS 1.1 cryptotext."}].
 
 %% same as above, last byte of key replaced
 %% stricter padding checks in TLS 1.1 mean we get an alert instead
@@ -213,9 +155,11 @@ aes_decipher_fail_tls11(Config) when is_list(Config) ->
 		 198,181,81,19,98,162,213,228,74,224,253,168,156,59,195,122,
 		 108,101,107,242,20,15,169,150,163,107,101,94,93,104,241,165>>,
     Version = {3,2},
-    #alert{level = ?FATAL, description = ?BAD_RECORD_MAC} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
+    #alert{level = ?FATAL, description = ?BAD_RECORD_MAC} =
+	ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version),
     Version1 = {3,3},
-    #alert{level = ?FATAL, description = ?BAD_RECORD_MAC} = ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version1),
+    #alert{level = ?FATAL, description = ?BAD_RECORD_MAC} =
+	ssl_cipher:decipher(?AES, HashSz, CipherState, Fragment, Version1),
     ok.
 
 %%--------------------------------------------------------------------

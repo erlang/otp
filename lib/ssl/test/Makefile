@@ -37,15 +37,16 @@ VSN=$(GS_VSN)
 MODULES = \
 	ssl_test_lib \
 	ssl_basic_SUITE \
-	ssl_handshake_SUITE \
-	ssl_packet_SUITE \
 	ssl_cipher_SUITE \
-	ssl_payload_SUITE \
-	ssl_to_openssl_SUITE \
-	ssl_session_cache_SUITE	\
+	ssl_certificate_verify_SUITE\
 	ssl_dist_SUITE \
+	ssl_handshake_SUITE \
 	ssl_npn_hello_SUITE \
 	ssl_npn_handshake_SUITE \
+	ssl_packet_SUITE \
+	ssl_payload_SUITE \
+	ssl_session_cache_SUITE	\
+	ssl_to_openssl_SUITE \
 	make_certs\
 	erl_make_certs
 

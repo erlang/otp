@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,6 +27,9 @@
 -include("ssl_internal.hrl").
 -include("ssl_handshake.hrl").
 
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> [
@@ -34,6 +37,9 @@ all() -> [
 	decode_single_hello_extension_correctly,
 	decode_unknown_hello_extension_correctly].
 
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
 decode_hello_handshake(_Config) ->
 	HelloPacket = <<16#02, 16#00, 16#00,
 	16#44, 16#03, 16#03, 16#4e, 16#7f, 16#c1, 16#03, 16#35,

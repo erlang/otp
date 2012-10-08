@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2013. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -19,7 +19,7 @@
 
 -module(ssl_dist_SUITE).
 
--include_lib("test_server/include/test_server.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -35,7 +35,10 @@
 	 nodename}
        ).
 
-%% Test server callback functions
+%%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
+
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
@@ -54,6 +57,7 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
+	    %% Currently no ct function avilable for is_cover!
 	    case test_server:is_cover() of
 		false ->
 		    Config = add_ssl_opts_config(Config0),
@@ -98,11 +102,13 @@ common_end(_, Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
+
 %%--------------------------------------------------------------------
-%% Test cases starts here.
+%% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-basic(doc) ->
-    ["Test that two nodes can connect via ssl distribution"];
+
+basic() ->
+    [{doc,"Test that two nodes can connect via ssl distribution"}].
 basic(Config) when is_list(Config) ->
     NH1 = start_ssl_node(Config),
     Node1 = NH1#node_handle.nodename,
@@ -162,8 +168,8 @@ basic(Config) when is_list(Config) ->
     success(Config).
 
 %%--------------------------------------------------------------------
-payload(doc) ->
-    ["Test that send a lot of data between the ssl distributed noes"];
+payload() ->
+    [{doc,"Test that send a lot of data between the ssl distributed noes"}].
 payload(Config) when is_list(Config) ->
     NH1 = start_ssl_node(Config),
     Node1 = NH1#node_handle.nodename,
@@ -204,8 +210,8 @@ payload(Config) when is_list(Config) ->
     stop_ssl_node(NH2),
     success(Config).
 %%--------------------------------------------------------------------
-plain_options(doc) ->
-    ["Test specifying additional options"];
+plain_options() ->
+    [{doc,"Test specifying additional options"}].
 plain_options(Config) when is_list(Config) ->
     DistOpts = "-ssl_dist_opt server_secure_renegotiate true "
 	"client_secure_renegotiate true "
@@ -228,8 +234,8 @@ plain_options(Config) when is_list(Config) ->
     stop_ssl_node(NH2),
     success(Config).
 %%--------------------------------------------------------------------
-plain_verify_options(doc) ->
-    ["Test specifying additional options"];
+plain_verify_options() ->
+    [{doc,"Test specifying additional options"}].
 plain_verify_options(Config) when is_list(Config) ->
     DistOpts = "-ssl_dist_opt server_secure_renegotiate true "
 	"client_secure_renegotiate true "
@@ -251,7 +257,7 @@ plain_verify_options(Config) when is_list(Config) ->
     success(Config).
 
 %%--------------------------------------------------------------------
-%%% Internal functions
+%%% Internal functions -----------------------------------------------
 %%--------------------------------------------------------------------
 
 %% ssl_node side api
