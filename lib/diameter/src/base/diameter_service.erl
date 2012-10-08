@@ -241,11 +241,11 @@ stop_transport(SvcName, [_|_] = Refs) ->
 %%% ---------------------------------------------------------------------------
 
 info(SvcName, Item) ->
-    case ets:lookup(?STATE_TABLE, SvcName) of
-        [] ->
-            undefined;
-        [S] ->
-            service_info(Item, S)
+    case find_state(SvcName) of
+        #state{} = S ->
+            service_info(Item, S);
+        false ->
+            undefined
     end.
 
 %%% ---------------------------------------------------------------------------
@@ -2989,7 +2989,8 @@ transports(#state{peerT = PeerT}) ->
 -define(ALL_INFO, [capabilities,
                    applications,
                    transport,
-                   pending]).
+                   pending,
+                   options]).
 
 %% The rest.
 -define(OTHER_INFO, [connections,
@@ -3066,6 +3067,7 @@ complete_info(Item, #state{service = Svc} = S) ->
         capabilities -> service_info(?CAP_INFO, S);
         applications -> info_apps(S);
         transport    -> info_transport(S);
+        options      -> info_options(S);
         pending      -> info_pending(S);
         keys         -> ?ALL_INFO ++ ?CAP_INFO ++ ?OTHER_INFO;
         all          -> service_info(?ALL_INFO, S);
@@ -3307,3 +3309,8 @@ peer_acc(Peer, {PeerD, RefD}) ->
     [{TPid, _}, [{origin_host, {_, OH}} | _]]
         = [proplists:get_value(K, Peer) || K <- [peer, caps]],
     {dict:append(OH, Peer, PeerD), dict:append(OH, TPid, RefD)}.
+
+%% info_options/1
+
+info_options(S) ->
+    S#state.options.
