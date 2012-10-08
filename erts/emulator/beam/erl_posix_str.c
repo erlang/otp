@@ -619,6 +619,7 @@ erl_errno_id(error)
     case WSAEINVALIDPROVIDER: return "einvalidprovider";
 #endif
 #ifdef WSAEPROVIDERFAILEDINIT
+      /* You could get this if SYSTEMROOT env variable is set incorrectly */
     case WSAEPROVIDERFAILEDINIT: return "eproviderfailedinit";
 #endif
 #ifdef WSASYSCALLFAILURE
