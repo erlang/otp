@@ -62,6 +62,8 @@
 %% Internals
 -export([proxy_user_flush/0]).
 
+-export_type([key/0]).
+
 %%------------------------------------------------------------------------
 
 -type state() :: gb_tree().

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -31,6 +31,8 @@
 %%-----------------------------------------------------------------
 %% Types
 %%-----------------------------------------------------------------
+
+-export_type([dbg_opt/0]).
 
 -type name()         :: pid() | atom() | {'global', atom()}.
 -type system_event() :: {'in', Msg :: _}

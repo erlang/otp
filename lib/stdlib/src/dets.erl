@@ -88,7 +88,8 @@
 %% Not documented, or not ready for publication.
 -export([lookup_keys/2]).
 
--export_type([tab_name/0]).
+-export_type([bindings_cont/0, cont/0, object_cont/0, select_cont/0,
+              tab_name/0]).
 
 -compile({inline, [{einval,2},{badarg,2},{undefined,1},
                    {badarg_exit,2},{lookup_reply,2}]}).

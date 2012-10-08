@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -125,7 +125,7 @@
 
 -define(THROWN_ERROR, {?MODULE, throw_error, _, _}).
 
--export_type([query_handle/0]).
+-export_type([query_cursor/0, query_handle/0]).
 
 %%% A query handle is a tuple {qlc_handle, Handle} where Handle is one
 %%% of #qlc_append, #qlc_table, #qlc_sort, and #qlc_lc.
