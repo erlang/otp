@@ -69,7 +69,7 @@ absname(Name) ->
 
 -spec absname(Filename, Dir) -> file:filename() when
       Filename :: file:name(),
-      Dir :: file:filename().
+      Dir :: file:name().
 absname(Name, AbsBase) when is_binary(Name), is_list(AbsBase) ->
     absname(Name,filename_string_to_binary(AbsBase));
 absname(Name, AbsBase) when is_list(Name), is_binary(AbsBase) ->
@@ -123,7 +123,7 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 %% AbsBase must be absolute and Name must be relative.
 
 -spec absname_join(Dir, Filename) -> file:filename() when
-      Dir :: file:filename(),
+      Dir :: file:name(),
       Filename :: file:name().
 absname_join(AbsBase, Name) ->
     join(AbsBase, flatten(Name)).
@@ -388,7 +388,7 @@ extension([], Result, _OsType) ->
 %% Joins a list of filenames with directory separators.
 
 -spec join(Components) -> file:filename() when
-      Components :: [file:filename()].
+      Components :: [file:name()].
 join([Name1, Name2|Rest]) ->
     join([join(Name1, Name2)|Rest]);
 join([Name]) when is_list(Name) ->
@@ -401,8 +401,8 @@ join([Name]) when is_atom(Name) ->
 %% Joins two filenames with directory separators.
 
 -spec join(Name1, Name2) -> file:filename() when
-      Name1 :: file:filename(),
-      Name2 :: file:filename().
+      Name1 :: file:name(),
+      Name2 :: file:name().
 join(Name1, Name2) when is_list(Name1), is_list(Name2) ->
     OsType = major_os_type(),
     case pathtype(Name2) of
@@ -624,7 +624,7 @@ rootname2([Char|Rest], Ext, Result) when is_integer(Char) ->
 
 -spec split(Filename) -> Components when
       Filename :: file:name(),
-      Components :: [file:filename()].
+      Components :: [file:name()].
 split(Name) when is_binary(Name) ->
     case os:type() of
 	{win32, _} -> win32_splitb(Name);
@@ -718,7 +718,7 @@ split([], Comp, Components, OsType) ->
 %% name will be normalized as done by join/1.
 
 -spec nativename(Path) -> file:filename() when
-      Path :: file:filename().
+      Path :: file:name().
 nativename(Name0) ->
     Name = join([Name0]),			%Normalize.
     case os:type() of

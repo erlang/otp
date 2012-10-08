@@ -1,7 +1,6 @@
 
 mnesia.erl:1319: Guard test size(Spec::[{_,_,_},...]) can never succeed
 mnesia.erl:1498: The call mnesia:bad_info_reply(Tab::atom(),Item::'type') will never return since it differs in the 2nd argument from the success typing arguments: (atom(),'memory' | 'size')
-mnesia.erl:331: Function mod2abs/1 has no local return
 mnesia_backup.erl:49: Callback info about the mnesia_backup behaviour is not available
 mnesia_bup.erl:111: The created fun has no local return
 mnesia_bup.erl:574: Function fallback_receiver/2 has no local return
