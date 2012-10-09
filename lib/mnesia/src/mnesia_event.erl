@@ -153,7 +153,7 @@ handle_system_event({mnesia_down, Node}, State) ->
     end;
 
 handle_system_event({mnesia_overload, Details}, State) ->
-    report_warning("Mnesia is overloaded: ~p~n", [Details]),
+    report_warning("Mnesia is overloaded: ~w~n", [Details]),
     {ok, State}; 
 
 handle_system_event({mnesia_info, Format, Args}, State) ->
