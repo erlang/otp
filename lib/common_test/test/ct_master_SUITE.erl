@@ -147,13 +147,15 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config) ->
     
     CM = [{config,master,filename:join(DataDir,"master/config.txt")}],
 
+    Env = [{"THIS_MUST_BE_SET","yes"},
+	   {"SO_MUST_THIS","value"}],
     NS = lists:map(
 	   fun(NodeName) ->
 		   {init,NodeName,[
 				   {node_start,[{startup_functions,[]},
-						{monitor_master,true}]},
-				   {eval,{erlang,nodes,[]}}
-				  ]
+						{monitor_master,true},
+						{env,Env}]},
+				   {eval,{erlang,nodes,[]}}]
 		   }
 	   end,
 	   NodeNames),
@@ -223,4 +225,6 @@ events_to_check(_) ->
      {?eh,tc_start,{master_SUITE,second_testcase}},
      {?eh,tc_done,{master_SUITE,second_testcase,ok}},
      {?eh,tc_start,{master_SUITE,third_testcase}},
-     {?eh,tc_done,{master_SUITE,third_testcase,ok}}].
+     {?eh,tc_done,{master_SUITE,third_testcase,ok}},
+     {?eh,tc_start,{master_SUITE,env_vars}},
+     {?eh,tc_done,{master_SUITE,env_vars,ok}}].
