@@ -16,11 +16,19 @@
  *     $Id$
  */
 
+#include "erl_int_sizes_config.h"
+
 #include "testcase_driver.h"
 #include "allocator_test.h"
 #include <stdio.h>
 
-#define SBCT (512*1024)
+#ifdef __WIN32__ && SIZEOF_VOID_P == 8
+/* Use larger threashold for win64 as block alignment
+   is 16 bytes and not 8 */
+#define SBCT ((1024*1024))
+#else
+#define SBCT ((512*1024))
+#endif
 
 char *
 testcase_name(void)
