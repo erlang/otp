@@ -272,12 +272,15 @@ transition({open, TPid, Hosts, T} = Open,
 
 transition({open = P, TPid, _Hosts, T},
            #watchdog{transport = TPid,
+                     parent = Pid,
                      status = down}
            = S) ->
     %% Store the info we need to notify the parent to reopen the
     %% connection after the requisite DWA's are received, at which
-    %% time we eraser(open).
+    %% time we eraser(open). The reopen message is a later addition,
+    %% to communicate the new capabilities as soon as they're known.
     putr(P, {TPid, T}),
+    Pid ! {reopen, self(), {TPid, T}},
     set_watchdog(send_watchdog(S#watchdog{status = reopen,
                                           num_dwa = 0}));
 
