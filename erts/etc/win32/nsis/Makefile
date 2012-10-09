@@ -91,7 +91,7 @@ release_spec:
 	  fi;\
 	  if [ '!' -z "$(REDIST_FILE)" -a '!' -z "$(REDIST_DLL_VERSION)" ];\
 	  then \
-		cp $(REDIST_FILE) "$(RELEASE_PATH)/$(REDIST_TARGET);"\
+		cp $(REDIST_FILE) "$(RELEASE_PATH)/$(REDIST_TARGET)";\
 		echo '!define HAVE_REDIST_FILE 1'  >> $(VERSION_HEADER); \
 		echo '!define REDIST_DLL_VERSION "$(REDIST_DLL_VERSION)"' >> $(VERSION_HEADER);\
 		echo '!define REDIST_DLL_NAME "$(REDIST_DLL_NAME)"' >> $(VERSION_HEADER);\
