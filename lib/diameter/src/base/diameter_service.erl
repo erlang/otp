@@ -135,7 +135,12 @@
 %% service record is used to determine whether or not we need to call
 %% the process for a pick_peer callback.
 
-%% Record representing a watchdog process.
+%% Record representing a watchdog process as implemented by
+%% diameter_watchdog. The term "peer" here is historical, made
+%% especially confusing by the fact that a peer_ref() in the
+%% documentation is the key of a #conn{} record, not a #peer{} record.
+%% The name is also unfortunate given the meaning of peer in the
+%% Diameter sense.
 -record(peer,
         {pid  :: match(pid()),
          type :: match(connect | accept),
@@ -147,7 +152,13 @@
          conn = false :: match(boolean() | pid())}).
                       %% true at accepted, pid() at connection_up or reopen
 
-%% Record representing a peer_fsm process.
+%% Record representing a peer process as implemented by
+%% diameter_peer_fsm. The term "conn" is historical. Despite the name
+%% here, comments refer to watchdog and peer processes, that are keys
+%% in #peer{} and #conn{} records respectively. To add to the
+%% confusion, a #request.transport is a peer process = key in a
+%% #conn{} record. The actual transport process (that the peer process
+%% knows about and that has a transport connection) isn't seen here.
 -record(conn,
         {pid   :: pid(),
          apps  :: [{0..16#FFFFFFFF, diameter:app_alias()}], %% {Id, Alias}
@@ -161,10 +172,9 @@
          handler    :: match(pid()), %% request process
          transport  :: match(pid()), %% peer process
          caps       :: match(#diameter_caps{}),
-         app        :: match(diameter:app_alias()),  %% #diameter_app.alias
-         dictionary :: match(module()),     %% #diameter_app.dictionary
-         module     :: match([module() | list()]),
-                    %% #diameter_app.module
+         app        :: match(diameter:app_alias()),%% #diameter_app.alias
+         dictionary :: match(module()),            %% #diameter_app.dictionary
+         module     :: match([module() | list()]), %% #diameter_app.module
          filter     :: match(diameter:peer_filter()),
          packet     :: match(#diameter_packet{})}).
 
@@ -174,20 +184,6 @@
          extra = []     :: list(),
          timeout = ?DEFAULT_TIMEOUT :: 0..16#FFFFFFFF,
          detach = false :: boolean()}).
-
-%% Since RFC 3588 requires that a Diameter agent not modify End-to-End
-%% Identifiers, the possibility of explicitly setting an End-to-End
-%% Identifier would be needed to be able to implement an agent in
-%% which one side of the communication is not implemented on top of
-%% diameter. For example, Diameter being sent or received encapsulated
-%% in some other protocol, or even another Diameter stack in a
-%% non-Erlang environment. (Not that this is likely to be a normal
-%% case.)
-%%
-%% The implemented solution is not an option but to respect any header
-%% values set in a diameter_header record returned from a
-%% prepare_request callback. A call to diameter:call/4 can communicate
-%% values to the callback using the 'extra' option if so desired.
 
 %%% ---------------------------------------------------------------------------
 %%% # start(SvcName)
@@ -252,9 +248,9 @@ info(SvcName, Item) ->
 %%% # receive_message(TPid, Pkt, MessageData)
 %%% ---------------------------------------------------------------------------
 
-%% Handle an incoming message in the watchdog process. This used to
-%% come through the service process but this avoids that becoming a
-%% bottleneck.
+%% Handle an incoming Diameter message in the watchdog process. This
+%% used to come through the service process but this avoids that
+%% becoming a bottleneck.
 
 receive_message(TPid, Pkt, T)
   when is_pid(TPid) ->
@@ -543,20 +539,20 @@ transition({connection_up, Pid, T}, S) ->
     connection_up(Pid, T, S),
     ok;
 
-%% Peer process has a new connection that will be opened after
-%% watchdog exchange. This message was added long after connection_up,
-%% to communicate the information as soon as it's available. Leave
+%% Watchdog has a new connection that will be opened after DW[RA]
+%% exchange. This message was added long after connection_up, to
+%% communicate the information as soon as it's available. Leave
 %% connection_up as is it for now, duplicated information and all.
 transition({reopen, Pid, T}, S) ->
     reopen(Pid, T, S),
     ok;
 
-%% Peer process has left state open.
+%% Watchdog has left state OKAY.
 transition({connection_down, Pid}, S) ->
     connection_down(Pid, S),
     ok;
 
-%% Peer process has returned to state open.
+%% Watchdog has returned to state OKAY.
 transition({connection_up, Pid}, S) ->
     connection_up(Pid, S),
     ok;
@@ -573,7 +569,7 @@ transition({reconnect, Pid}, S) ->
 
 %% Watchdog is sending notification of a state transition. Note that
 %% the connection_up/down messages are pre-date this message and are
-%% still used. A 'watchdog' message will follow these and communicate
+%% still used. A watchdog message will follow these and communicate
 %% the same state as was set in handling connection_up/down.
 transition({watchdog, Pid, {TPid, From, To}}, #state{service_name = SvcName,
                                                      peerT = PeerT}) ->
@@ -583,21 +579,22 @@ transition({watchdog, Pid, {TPid, From, To}}, #state{service_name = SvcName,
     insert(PeerT, P#peer{op_state = {OS, To}}),
     send_event(SvcName, {watchdog, Ref, TPid, {From, To}, {T, Opts}}),
     ok;
-%% Death of a peer process results in the removal of it's peer and any
-%% associated conn record when 'DOWN' is received (after this) but the
-%% states will be {?STATE_UP, ?WD_DOWN} for a short time. (No real
-%% problem since ?WD_* is only used in service_info.) We set ?WD_OKAY
-%% as a consequence of connection_up since we know a watchdog is
-%% coming. We can't set anything at connection_down since we don't
-%% know if the subsequent watchdog message will be ?WD_DOWN or
-%% ?WD_SUSPECT. We don't (yet) set ?STATE_* as a consequence of a
-%% watchdog message since this requires changing some of the matching
-%% on ?STATE_*.
+%% Death of a watchdog process (#peer.pid) results in the removal of
+%% it's peer and any associated conn record when 'DOWN' is received
+%% (after this) but the states will be {?STATE_UP, ?WD_DOWN} for a
+%% short time. (No real problem since ?WD_* is only used in
+%% service_info.) We set ?WD_OKAY as a consequence of connection_up
+%% since we know a watchdog is coming. We can't set anything at
+%% connection_down since we don't know if the subsequent watchdog
+%% message will be ?WD_DOWN or ?WD_SUSPECT. We don't (yet) set
+%% ?STATE_* as a consequence of a watchdog message since this requires
+%% changing some of the matching on ?STATE_*.
 %%
-%% Death of a conn process results in connection_down followed by
-%% watchdog ?WD_DOWN. The latter doesn't result in the conn record
-%% being deleted since 'DOWN' from death of its peer doesn't (yet)
-%% deal with the record having been removed.
+%% Death of a peer process process (#conn.pid, #peer.conn) results in
+%% connection_down followed by watchdog ?WD_DOWN. The latter doesn't
+%% result in the conn record being deleted since 'DOWN' from death of
+%% its watchdog doesn't (yet) deal with the record having been
+%% removed.
 
 %% Monitor process has died. Just die with a reason that tells
 %% diameter_config about the happening. If a cleaner shutdown is
@@ -605,13 +602,13 @@ transition({watchdog, Pid, {TPid, From, To}}, #state{service_name = SvcName,
 transition({'DOWN', MRef, process, _, Reason}, #state{monitor = MRef}) ->
     {stop, {monitor, Reason}};
 
-%% Local peer process has died.
+%% Local watchdog process has died.
 transition({'DOWN', _, process, Pid, Reason}, S)
   when node(Pid) == node() ->
     peer_down(Pid, Reason, S),
     ok;
 
-%% Remote service wants to know about shared transports.
+%% Remote service wants to know about shared peers.
 transition({service, Pid}, S) ->
     share_peers(Pid, S),
     ok;
@@ -944,9 +941,8 @@ start(Ref, Type, Opts, #state{peerT = PeerT,
     Pid.
 
 %% Note that the service record passed into the watchdog is the merged
-%% record so that each watchdog (and peer_fsm) may get a different
-%% record. This record is what is passed back into application
-%% callbacks.
+%% record so that each watchdog may get a different record. This
+%% record is what is passed back into application callbacks.
 
 s(Type, Ref, T) ->
     case diameter_watchdog:start({Type, Ref}, T) of
@@ -997,8 +993,8 @@ accepted(Pid, _TPid, #state{peerT = PeerT} = S) ->
     #peer{ref = Ref, type = accept = T, conn = false, options = Opts}
         = P
         = fetch(PeerT, Pid),
-    insert(PeerT, P#peer{conn = true}),  %% mark replacement transport started
-    start(Ref, T, Opts, S).              %% start new peer
+    insert(PeerT, P#peer{conn = true}),  %% mark replacement as started
+    start(Ref, T, Opts, S).              %% start new watchdog
 
 fetch(Tid, Key) ->
     [T] = ets:lookup(Tid, Key),
@@ -1015,7 +1011,7 @@ fetch(Tid, Key) ->
 %%% # connection_up/3
 %%% ---------------------------------------------------------------------------
 
-%% Peer process has reached the open state.
+%% Watchdog process has reached state OKAY.
 
 connection_up(Pid, {TPid, {Caps, SApps, Pkt}}, #state{peerT = PeerT,
                                                       connT = ConnT}
@@ -1126,7 +1122,7 @@ peer_cb(MFA, Alias) ->
 %%% # connection_down/2
 %%% ---------------------------------------------------------------------------
 
-%% Peer process has transitioned out of the open state.
+%% Watchdog has transitioned out of state OKAY.
 
 connection_down(Pid, #state{peerT = PeerT,
                             connT = ConnT}
@@ -1178,7 +1174,7 @@ down_conn(Id, Alias, TC, {SvcName, Apps}) ->
 %%% # peer_down/3
 %%% ---------------------------------------------------------------------------
 
-%% Peer process has died.
+%% Watchdog process has died.
 
 peer_down(Pid, Reason, #state{peerT = PeerT} = S) ->
     P = fetch(PeerT, Pid),
@@ -1198,7 +1194,7 @@ closed({shutdown, {close, _TPid, Reason}},
 closed(_, _, _) ->
     ok.
 
-%% The peer has never come up ...
+%% The watchdog has never reached OKAY ...
 peer_down(#peer{conn = B}, _)
   when is_boolean(B) ->
     ok;
@@ -1231,7 +1227,7 @@ restart(#peer{ref = Ref,
               started = Time}) ->
     {Time, {Ref, T, Opts}};
 
-%% ... or it has: a replacement transport has already been spawned.
+%% ... or it has: a replacement has already been spawned.
 restart(#peer{type = accept}) ->
     false.
 
@@ -1257,8 +1253,8 @@ default_tc(connect, Opts) ->
 default_tc(accept, _) ->
     0.
 
-%% Bound tc below if the peer was restarted recently to avoid
-%% continuous in case of faulty config or other problems.
+%% Bound tc below if the watchdog was restarted recently to avoid
+%% continuous restarted in case of faulty config or other problems.
 tc(Time, Tc) ->
     choose(Tc > ?RESTART_TC
              orelse timer:now_diff(now(), Time) > 1000*?RESTART_TC,
