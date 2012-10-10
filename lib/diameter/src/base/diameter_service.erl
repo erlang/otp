@@ -3051,6 +3051,19 @@ tagged_info(Item, S)
             undefined
     end;
 
+tagged_info(TPid, #state{peerT = PT, connT = CT})
+  when is_pid(TPid) ->
+    try
+        [#conn{peer = Pid}] = ets:lookup(CT, TPid),
+        [#peer{ref = Ref, type = Type, options = Opts}] = ets:lookup(PT, Pid),
+        [{ref, Ref},
+         {type, Type},
+         {options, Opts}]
+    catch
+        error:_ ->
+            []
+    end;
+
 tagged_info(Items, S)
   when is_list(Items) ->
     [T || I <- Items, T <- [tagged_info(I,S)], T /= undefined, T /= []];
