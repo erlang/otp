@@ -154,6 +154,9 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config) ->
 		   {init,NodeName,[
 				   {node_start,[{startup_functions,[]},
 						{monitor_master,true},
+						{boot_timeout,10},
+						{init_timeout,10},
+						{startup_timeout,10},
 						{env,Env}]},
 				   {eval,{erlang,nodes,[]}}]
 		   }
