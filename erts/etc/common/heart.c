@@ -352,12 +352,14 @@ static void get_arguments(int argc, char** argv) {
     debugf("arguments -ht %d -wt %d -pid %lu\n",h,w,p);
 }
 
-int
-main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+
+    if (is_env_set("HEART_DEBUG")) {
+	fprintf(stderr, "heart: debug is ON!\r\n");
+	debug_on = 1;
+    }
+
     get_arguments(argc,argv);
-    if (is_env_set("HEART_DEBUG"))
-	debug_on=1;
 #ifdef __WIN32__
     if (debug_on) {
 	if(!is_env_set("ERLSRV_SERVICE_NAME")) {
@@ -649,6 +651,7 @@ do_terminate(int erlin_fd, int reason) {
     to call wd_reset().
     */
   struct msg message;
+  int ret = 0;
 
   switch (reason) {
   case R_SHUT_DOWN:
@@ -656,6 +659,7 @@ do_terminate(int erlin_fd, int reason) {
   case R_CRASHING:
     print_error("Waiting for dump");
     read_message(erlin_fd, &message); /* read until we get something */
+    /* fall through */
   case R_TIMEOUT:
   case R_CLOSED:
   case R_ERROR:
@@ -689,15 +693,15 @@ do_terminate(int erlin_fd, int reason) {
 	    else {
 		kill_old_erlang();
 		/* suppress gcc warning with 'if' */
-		if(system(command));
-		print_error("Executed \"%s\". Terminating.",command);
+		ret = system(command);
+		print_error("Executed \"%s\" -> %d. Terminating.",command, ret);
 	    }
 	    free_env_val(command);
 	} else {
 	    kill_old_erlang();
 	    /* suppress gcc warning with 'if' */
-	    if(system((char*)&cmd[0]));
-	    print_error("Executed \"%s\". Terminating.",cmd);
+	    ret = system((char*)&cmd[0]);
+	    print_error("Executed \"%s\" -> %d. Terminating.",cmd, ret);
 	}
 #endif
     }
@@ -895,12 +899,13 @@ debugf(const char *format,...)
 {
   va_list args;
 
-  if (!debug_on) return;
-  va_start(args, format);
-  fprintf(stderr, "Heart: ");
-  vfprintf(stderr, format, args);
-  va_end(args);
-  fprintf(stderr, "\r\n");
+  if (debug_on) {
+      va_start(args, format);
+      fprintf(stderr, "Heart: ");
+      vfprintf(stderr, format, args);
+      va_end(args);
+      fprintf(stderr, "\r\n");
+  }
 }
 
 #ifdef __WIN32__
