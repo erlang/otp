@@ -186,11 +186,11 @@ static int verify_dns_configuration(void)
  * advance:  increment buf by n bytes, reduce len by same amount .
  */
 #if defined SIZEOF_VOID_P
-#define ALIGNBYTES (SIZEOF_VOID_P - 1)
+#define EI_ALIGNBYTES (SIZEOF_VOID_P - 1)
 #else
-#define ALIGNBYTES (sizeof(void*) - 1)
+#define EI_ALIGNBYTES (sizeof(void*) - 1)
 #endif
-#define align_buf(buf,len) for (;(((unsigned)buf) & ALIGNBYTES); (buf)++, len--)
+#define align_buf(buf,len) for (;(((unsigned)buf) & EI_ALIGNBYTES); (buf)++, len--)
 #define advance_buf(buf,len,n) ((buf)+=(n),(len)-=(n))
 
 /* "and now the tricky part..." */
@@ -281,6 +281,8 @@ static int copy_hostent(struct hostent *dest, const struct hostent *src, char *b
   if (buflen < 0) return -1;
   return 0;
 }
+
+#undef EI_ALIGNBYTES
 
 /* This function is a pseudo-reentrant version of gethostbyname(). It
  * uses locks to serialize the call to the regular (non-reentrant)
