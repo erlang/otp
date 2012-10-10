@@ -626,8 +626,32 @@ safe_binary_to_term2(Config) when is_list(Config) ->
 bad_terms(suite) -> [];
 bad_terms(Config) when is_list(Config) ->
     ?line test_terms(fun corrupter/1).
-			     
+
+corrupter(Term) when is_function(Term);
+		     is_function(hd(Term));
+		     is_function(element(2,element(2,element(2,Term)))) ->
+    %% Check if lists is native compiled. If it is, we do not try to
+    %% corrupt funs as this can create some very strange behaviour.
+    %% To show the error print `Byte` in the foreach fun in corrupter/2.
+    case erlang:system_info(hipe_architecture) of
+	undefined ->
+	    corrupter0(Term);
+	Architecture ->
+	    {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
+	    ChunkName = hipe_unified_loader:chunk_name(Architecture),
+	    NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
+	    case NativeChunk of
+		{ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
+		    S = io_lib:format("Skipping corruption of: ~P", [Term,12]),
+		    io:put_chars(S);
+		{error, beam_lib, _} ->
+		    corrupter0(Term)
+	    end
+    end;
 corrupter(Term) ->
+    corrupter0(Term).
+
+corrupter0(Term) ->
     ?line try
 	      S = io_lib:format("About to corrupt: ~P", [Term,12]),
 	      io:put_chars(S)
