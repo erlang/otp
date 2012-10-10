@@ -18,8 +18,9 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "4.8.1"},
+  {vsn, "4.8.2"},
   {modules, [
+	     beam_a,
 	     beam_asm,
 	     beam_block,
 	     beam_bool,
@@ -40,6 +41,7 @@
 	     beam_type,
 	     beam_utils,
 	     beam_validator,
+	     beam_z,
 	     cerl,
 	     cerl_clauses,
 	     cerl_inline,
