@@ -51,7 +51,17 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
+init_per_testcase(boot_combo = Case, Config) when is_list(Config) ->
+    case erlang:system_info(build_type) of
+	opt ->
+	    init_per_tc(Case, Config);
+	_ ->
+	    {skip,"Cannot test boot_combo in special builds since beam.* may not exist"}
+    end;
 init_per_testcase(Case, Config) when is_list(Config) ->
+    init_per_tc(Case, Config).
+
+init_per_tc(Case, Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
     [{testcase, Case},{watchdog, Dog}|Config].
 
@@ -121,18 +131,19 @@ start_node(Config) ->
     start_node(Config, "").
 
 start_node(Config, Args) when is_list(Config) ->
-    ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line {A, B, C} = now(),
-    ?line Name = list_to_atom(atom_to_list(?MODULE)
-			      ++ "-"
-			      ++ atom_to_list(?config(testcase, Config))
-			      ++ "-"
-			      ++ integer_to_list(A)
-			      ++ "-"
-			      ++ integer_to_list(B)
-			      ++ "-"
-			      ++ integer_to_list(C)),
-    ?line ?t:start_node(Name, slave, [{args, "-pa "++Pa++" "++Args}]).
+    Pa = filename:dirname(code:which(?MODULE)),
+    {A, B, C} = now(),
+    Name = list_to_atom(atom_to_list(?MODULE)
+	      ++ "-"
+	      ++ atom_to_list(?config(testcase, Config))
+	      ++ "-"
+	      ++ integer_to_list(A)
+	      ++ "-"
+	      ++ integer_to_list(B)
+	      ++ "-"
+	      ++ integer_to_list(C)),
+    Opts = [{args, "-pa "++Pa++" "++Args}],
+    ?t:start_node(Name, slave, Opts).
 
 stop_node(Node) ->
     ?t:stop_node(Node).
