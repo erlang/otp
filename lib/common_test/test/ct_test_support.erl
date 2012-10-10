@@ -1051,8 +1051,8 @@ result_match({SkipOrFail,{ErrorInd,{EMod,EFunc,{Why,'_'}}}},
     true;
 result_match({failed,{timetrap_timeout,{'$approx',Num}}},
 	     {failed,{timetrap_timeout,Value}}) ->
-    if Value >= trunc(Num-0.02*Num),
-       Value =< trunc(Num+0.02*Num) -> true;
+    if Value >= trunc(Num-0.05*Num),
+       Value =< trunc(Num+0.05*Num) -> true;
        true -> false
     end;
 result_match({user_timetrap_error,{Why,'_'}},
