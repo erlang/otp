@@ -915,10 +915,8 @@ make_abs_path(BasePath, Path) ->
     join(BasePath, Path).
 
 major_os_type() ->
-    case os:type() of
-	{OsT, _} -> OsT;
-	OsT -> OsT
-    end.
+    {OsT, _} = os:type(),
+    OsT.
 
 %% flatten(List)
 %%  Flatten a list, also accepting atoms.
