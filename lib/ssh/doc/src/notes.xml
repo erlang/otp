@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
@@ -780,7 +780,7 @@
       <list>
         <item>
           <p>
-            Ssh timeouts will now behave as expected e.i. defaults to
+            Ssh timeouts will now behave as expected i.e. defaults to
             infinity only the user of the ssh application can know of
             a reasonable timeout value for their application.</p>
           <p>
@@ -833,7 +833,7 @@
 	caused the ssh daemon to close the connections to all
 	currently logged in users if one user logged out. Another
 	problem related to the supervision tree caused the closing
-	down of clients to leak processes e.i. all processes was
+	down of clients to leak processes i.e. all processes was
       not shutdown correctly.</p>
       <p>
       Own Id: OTP-7676</p>
@@ -925,7 +925,7 @@
 	slightly changes the options to the API function
 	ssh:daemon/[1,2,3] deprecating all no longer documented
 	options. Note that the new API enforces the "logical way"
-	of using the old API e.i. making the subsystem process
+	of using the old API i.e. making the subsystem process
 	part of the ssh applications supervisor tree, so missuses
       of the old API are not compatible with the new API.</p>
       <p>

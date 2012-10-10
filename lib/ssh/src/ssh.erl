@@ -41,19 +41,23 @@
 %%
 %%  Type =  permanent | transient | temporary
 %%
-%% Description: Starts the inets application. Default type
+%% Description: Starts the ssh application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
 start() ->
+    application:start(crypto),
+    application:start(public_key),
     application:start(ssh).
 
 start(Type) ->
+    application:start(crypto, Type),
+    application:start(public_key, Type),
     application:start(ssh, Type).
 
 %%--------------------------------------------------------------------
 %% Function: stop() -> ok
 %%
-%% Description: Stops the inets application.
+%% Description: Stops the ssh application.
 %%--------------------------------------------------------------------
 stop() ->
     application:stop(ssh).
@@ -325,8 +329,6 @@ handle_option([{user_passwords, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{pwdfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{user_auth, _} = Opt | Rest],SocketOptions, SshOptions ) ->
-    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{key_cb, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{role, _} = Opt | Rest], SocketOptions, SshOptions) ->
@@ -399,8 +401,6 @@ handle_ssh_option({password, Value} = Opt) when is_list(Value) ->
 handle_ssh_option({user_passwords, Value} = Opt) when is_list(Value)->
     Opt;
 handle_ssh_option({pwdfun, Value} = Opt) when is_function(Value) ->
-    Opt;
-handle_ssh_option({user_auth, Value} = Opt)  when is_function(Value) ->
     Opt;
 handle_ssh_option({key_cb, Value} = Opt)  when is_atom(Value) ->
     Opt;

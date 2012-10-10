@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2012</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>Getting started</title>
+    <file>using_ssh.xml</file>
+  </header>
+
+  <section>
+    <title> General information</title>
+    <p>The examples in the following sections use the utility function
+    <seealso marker="ssh#start"> ssh:start/0 </seealso> that starts
+    all needed applications (crypto, public_key and ssh). All examples
+    are run in an Erlang shell, or in a bash shell using openssh to
+    illustrate how the erlang ssh application can be used.  The
+    exampels are run as the user otptest on a local network where the
+    user is authorized to login in over ssh to the host "tarlop". If
+    nothing else is stated it is persumed that the otptest user has an
+    entry in tarlop's authorized_keys file (may log in via ssh without
+    entering a password).  Also tarlop is a known host in the user
+    otptests known_hosts file so that host verification can be done
+    without user interaction.
+    </p>
+  </section>
+
+  <section>
+    <title>Using the Erlang SSH Terminal Client</title>
+
+    <p>The user otptest, that has bash as default shell, uses the
+    ssh:shell/1 client to connect to the openssh daemon running on a
+    host called tarlop. Note that currently this client is very simple
+    and you should not be expected to be as fancy as the openssh
+    client.</p>
+
+    <code type="erl" >
+      1>  ssh:start().
+      ok
+      2> {ok, S} = ssh:shell("tarlop").
+      >pwd
+      /home/otptest
+      >exit
+      logout
+      3>
+    </code>
+  </section>
+
+  <section>
+    <title>Running an Erlang SSH Daemon </title>
+
+    <p> The option system_dir must be a directory containing a host
+    key file and it defaults to /etc/ssh. For details see section
+    Configuration Files in <seealso
+    marker="ssh_app">ssh(6)</seealso>.
+    </p>
+
+    <note><p>Normaly the /etc/ssh directory is only readable by root. </p>
+    </note>
+
+    <p> The option user_dir defaults to the users ~/.ssh  directory</p>
+
+    <p>In the following exampel we have generate new keys and host keys as
+    to be able to run the example without having root privilages</p>
+
+    <code>
+      $bash> ssh-keygen -t rsa -f /tmp/ssh_daemon/ssh_host_rsa_key
+      [...]
+      $bash> ssh-keygen -t rsa -f /tmp/otptest_user/.ssh/id_rsa
+      [...]
+    </code>
+
+    <p>And add the public hostkey to the known_hosts file of the user otptest. Then we can do</p>
+
+    <code type="erl">
+      1> ssh:start().
+      ok
+      2> {ok, Sshd} = ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon/ssh_host_rsa_key"},
+      {user_dir, "/tmp/otptest_user/.ssh"}]).
+      {ok,&lt;0.54.0>}
+      3>
+    </code>
+
+    <p>Use the openssh client from a shell to connect to the Erlang ssh daemon.</p>
+
+    <code>
+      $bash> ssh tarlop -p 8989 -i /tmp/otptest_user/.ssh/id_rsa
+      Eshell V5.10  (abort with ^G)
+      1>
+    </code>
+
+    <p>There is two ways of shuting down an SSH daemon</p>
+
+    <p>1: Stops the listener, but leaves existing connections started by the listener up and running.</p>
+
+    <code type="erl">
+      3> ssh:stop_listener(Sshd).
+      ok
+      4>
+    </code>
+
+    <p>2: Stops the listener and all connections started by the listener.</p>
+
+    <code type="erl">
+      3> ssh:stop_daemon(Sshd)
+      ok
+      4>
+    </code>
+
+  </section>
+
+  <section>
+    <title>One Time Execution</title>
+
+    <p>In the following example the Erlang shell is the client process
+    that receives the channel replies. <note> If you run this example
+    in your environment you may get fewer or more messages back as
+    this depends on the OS and shell on the machine running the ssh
+    daemon. See also <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>
+  </note>
+    </p>
+
+    <code type="erl" >
+      1>  ssh:start().
+      ok
+      2> {ok, ConnectionRef} = ssh:connect("tarlop", 22, []).
+      {ok,&lt;0.57.0>}
+      3>{ok, ChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+      {ok,0}
+      4> success = ssh_connection:exec(ConnectionRef, ChannelId, "pwd", infinity).
+      5>  flush().
+      Shell got {ssh_cm,&lt;0.57.0>,{data,0,0,&lt;&lt;"/home/otptest\n">>}}
+      Shell got {ssh_cm,&lt;0.57.0>,{eof,0}}
+      Shell got {ssh_cm,&lt;0.57.0>,{exit_status,0,0}}
+      Shell got {ssh_cm,&lt;0.57.0>,{closed,0}}
+      ok
+      6>
+    </code>
+
+    <p>Note only the channel is closed the connection is still up and can handle other channels</p>
+
+    <code type="erl" >
+      6> {ok, NewChannelId} =  ssh_connection:session_channel(ConnectionRef, infinity).
+        {ok,1}
+	...
+    </code>
+  </section>
+
+  <section>
+    <title>SFTP (SSH File Transport Protocol) server</title>
+
+    <code type="erl" >
+      1> ssh:start().
+      ok
+      2>  ssh:daemon(8989, [{system_dir, "."},
+      {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])]}]).
+      {ok,&lt;0.54.0>}
+      3>
+    </code>
+
+    <p> Run the openssh sftp client</p>
+
+    <code type="erl">
+      $bash> sftp -oPort=8989 tarlop
+      Connecting to tarlop...
+      sftp> pwd
+      Remote working directory: /tmp/sftp/example
+      sftp>
+    </code>
+  </section>
+
+  <section>
+    <title>SFTP (SSH File Transport Protocol) client</title>
+
+    <code type="erl" >
+      1> ssh:start().
+      ok
+      2> {ok, ChannelPid, Connection} = ssh_sftp:start_channel("tarlop", []).
+      {ok,&lt;0.57.0>,&lt;0.51.0>}
+      3>  ssh_sftp:read_file(ChannelPid, "/home/otptest/test.txt").
+      {ok,&lt;&lt;"This is a test file\n">>}
+    </code>
+  </section>
+
+  <section>
+    <title>Creating a subsystem</title>
+
+    <p>A very small SSH subsystem that echos N bytes could be implemented like this.</p>
+
+    <code type="erl" >
+-module(ssh_echo_server).
+-behaviour(ssh_channel).
+-record(state, {
+	  n,
+	  id,
+	  cm
+	 }).
+-export([init/1, handle_msg/2, handle_ssh_msg/2, terminate/2]).
+
+init([N]) ->
+    {ok, #state{n = N}}.
+
+handle_msg({ssh_channel_up, ChannelId, ConnectionManager}, State) ->
+    {ok, State#state{id = ChannelId,
+		     cm = ConnectionManager}}.
+
+handle_ssh_msg({ssh_cm, CM, {data, ChannelId, 0, Data}}, #state{n = N} = State) ->
+    M = N - size(Data),
+    case M > 0 of
+	true ->
+	   ssh_connection:send(CM, ChannelId, Data),
+	   {ok, State#state{n = M}};
+	false ->
+	   &lt;&lt;SendData:N/binary, _/binary>> = Data,
+           ssh_connection:send(CM, ChannelId, SendData),
+           ssh_connection:send_eof(CM, ChannelId),
+	   {stop, ChannelId, State}
+    end;
+handle_ssh_msg({ssh_cm, _ConnectionManager,
+		{data, _ChannelId, 1, Data}}, State) ->
+    error_logger:format(standard_error, " ~p~n", [binary_to_list(Data)]),
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _ConnectionManager, {eof, _ChannelId}}, State) ->
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {signal, _, _}}, State) ->
+    %% Ignore signals according to RFC 4254 section 6.9.
+    {ok, State};
+
+handle_ssh_msg({ssh_cm, _, {exit_signal, ChannelId, _, _Error, _}},
+	       State) ->
+    {stop, ChannelId,  State};
+
+handle_ssh_msg({ssh_cm, _, {exit_status, ChannelId, _Status}}, State) ->
+    {stop, ChannelId, State}.
+
+terminate(_Reason, _State) ->
+    ok.
+ </code>
+
+ <p>And run like this on the host tarlop with the keys generated in section 3.3</p>
+
+ <code type="erl" >
+   1> ssh:start().
+   ok
+   2>  ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon/ssh_host_rsa_key"},
+   {user_dir, "/tmp/otptest_user/.ssh"}
+   {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
+   {ok,&lt;0.54.0>}
+   3>
+ </code>
+
+ <code type="erl" >
+   1> ssh:start().
+   ok
+   2>{ok, ConnectionRef} = ssh:connect("tarlop", 8989, [{user_dir, "/tmp/otptest_user/.ssh"}]).
+    {ok,&lt;0.57.0>}
+   3>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
+   4> success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).
+   5> ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity),
+   6> flush().
+   {ssh_msg, &lt;0.57.0>, {data, 0, 1, "0123456789"}}
+   {ssh_msg, &lt;0.57.0>, {eof, 0}}
+   {ssh_msg, &lt;0.57.0>, {closed, 0}}
+   7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity),
+ </code>
+
+</section>
+
+</chapter>

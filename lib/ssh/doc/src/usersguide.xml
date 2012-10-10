@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE part SYSTEM "part.dtd">
 
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,14 +22,16 @@
     </legalnotice>
 
     <title>SSH User's Guide</title>
-    <prepared></prepared>
-    <docno></docno>
-    <date></date>
-    <rev></rev>
+    <prepared>OTP Team</prepared>
+    <date>2012-10-11</date>
+    <file>usersguide.xml</file>
   </header>
   <description>
-    <p>The <em>SSH</em> application is an Erlang implementation of the
-      SSH protocol.</p>
+    <p>The <em>SSH</em> application implements the SSH (Secure Shell) protocol and
+    provides an SFTP (Secret File Transfer Protocol) client and server.
+    </p>
   </description>
-  <xi:include href="ssh_ug.xml"/>
+  <xi:include href="introduction.xml"/>
+  <xi:include href="ssh_protocol.xml"/>
+  <xi:include href="using_ssh.xml"/>
 </part>

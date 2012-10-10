@@ -44,14 +44,18 @@ XML_REF3_FILES = \
 	ssh_sftp.xml \
 	ssh_sftpd.xml \
 
+XML_REF6_FILES = ssh_app.xml
+
 XML_PART_FILES = part_notes.xml \
-	part.xml
+		 usersguide.xml
 XML_CHAPTER_FILES = notes.xml \
-	ssh_ug.xml
+	introduction.xml \
+	ssh_protocol.xml \
+	using_ssh.xml
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
+XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES)  $(XML_REF6_FILES)\
             $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
 
 IMAGE_FILES = SSH_protocols.png
@@ -66,10 +70,12 @@ EXTRA_FILES = \
 	$(DEFAULT_GIF_FILES) \
 	$(DEFAULT_HTML_FILES) \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
+        $(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
 
 
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
+MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
 
 HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
@@ -104,7 +110,7 @@ clean clean_docs:
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~
 
-man: $(MAN3_FILES)
+man: $(MAN3_FILES) $(MAN6_FILES)
 
 
 debug opt: 
@@ -124,5 +130,8 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
 	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
+	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"
+	$(INSTALL_DATA) $(MAN6_FILES) "$(RELEASE_PATH)/man/man6"
+
 
 release_spec:

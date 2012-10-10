@@ -35,7 +35,7 @@
 	     ssh_userreg,
 	     ssh_xfer]},
   {registered, []},
-  {applications, [kernel, stdlib, crypto]},
+  {applications, [kernel, stdlib, crypto, public_key]},
   {env, []},
   {mod, {ssh_app, []}}]}.
 
