@@ -87,7 +87,7 @@ test_server_failing_logs(Config) ->
 
 crash_test_server(Config) ->
     DataDir = ?config(data_dir, Config),
-    Root = ?config(priv_dir, Config),
+    Root = proplists:get_value(logdir, ct_test_support:get_opts(Config)),
     [$@|Host] = lists:dropwhile(fun(C) ->
 					C =/= $@
 				end, atom_to_list(node())),
