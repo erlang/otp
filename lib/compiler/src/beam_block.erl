@@ -31,19 +31,16 @@ module({Mod,Exp,Attr,Fs0,Lc0}, _Opt) ->
 
 function({function,Name,Arity,CLabel,Is0}, Lc0) ->
     try
-	%% Extra labels may thwart optimizations.
-	Is1 = beam_jump:remove_unused_labels(Is0),
-
 	%% Collect basic blocks and optimize them.
-	Is2 = blockify(Is1),
-	Is3 = embed_lines(Is2),
-	Is4 = move_allocates(Is3),
-	Is5 = beam_utils:live_opt(Is4),
-	Is6 = opt_blocks(Is5),
-	Is7 = beam_utils:delete_live_annos(Is6),
+	Is1 = blockify(Is0),
+	Is2 = embed_lines(Is1),
+	Is3 = move_allocates(Is2),
+	Is4 = beam_utils:live_opt(Is3),
+	Is5 = opt_blocks(Is4),
+	Is6 = beam_utils:delete_live_annos(Is5),
 
 	%% Optimize bit syntax.
-	{Is,Lc} = bsm_opt(Is7, Lc0),
+	{Is,Lc} = bsm_opt(Is6, Lc0),
 
 	%% Done.
 	{{function,Name,Arity,CLabel,Is},Lc}
@@ -74,9 +71,9 @@ blockify([{bs_save2,R,Point}=I,{test,is_eq_exact,_,_}=Test,
 
 %% Do other peep-hole optimizations.
 blockify([{test,is_atom,{f,Fail},[Reg]}=I|
-	  [{select_val,Reg,{f,Fail},
-	    {list,[{atom,false},{f,_}=BrFalse,
-		   {atom,true}=AtomTrue,{f,_}=BrTrue]}}|Is]=Is0],
+	  [{select,select_val,Reg,{f,Fail},
+	    [{atom,false},{f,_}=BrFalse,
+	     {atom,true}=AtomTrue,{f,_}=BrTrue]}|Is]=Is0],
 	 [{block,Bl}|_]=Acc) ->
     case is_last_bool(Bl, Reg) of
 	false ->
@@ -89,9 +86,9 @@ blockify([{test,is_atom,{f,Fail},[Reg]}=I|
 			  {test,is_eq_exact,BrFalse,[Reg,AtomTrue]}|Acc])
     end;
 blockify([{test,is_atom,{f,Fail},[Reg]}=I|
-	  [{select_val,Reg,{f,Fail},
-	    {list,[{atom,true}=AtomTrue,{f,_}=BrTrue,
-		   {atom,false},{f,_}=BrFalse]}}|Is]=Is0],
+	  [{select,select_val,Reg,{f,Fail},
+	    [{atom,true}=AtomTrue,{f,_}=BrTrue,
+	     {atom,false},{f,_}=BrFalse]}|Is]=Is0],
 	 [{block,Bl}|_]=Acc) ->
     case is_last_bool(Bl, Reg) of
 	false ->
@@ -423,8 +420,8 @@ inverse_comp_op(_) -> none.
 %%% Evaluation of constant bit fields.
 %%%
 
-is_bs_put({bs_put_integer,_,_,_,_,_}) -> true;
-is_bs_put({bs_put_float,_,_,_,_,_}) -> true;
+is_bs_put({bs_put,_,{bs_put_integer,_,_},_}) -> true;
+is_bs_put({bs_put,_,{bs_put_float,_,_},_}) -> true;
 is_bs_put(_) -> false.
 
 collect_bs_puts(Is) ->
@@ -439,20 +436,24 @@ collect_bs_puts_1([I|Is]=Is0, Acc) ->
 opt_bs_puts(Is) ->
     opt_bs_1(Is, []).
 
-opt_bs_1([{bs_put_float,Fail,{integer,Sz},1,Flags0,Src}=I0|Is], Acc) ->
+opt_bs_1([{bs_put,Fail,
+	   {bs_put_float,1,Flags0},[{integer,Sz},Src]}=I0|Is], Acc) ->
     try eval_put_float(Src, Sz, Flags0) of
 	<<Int:Sz>> ->
 	    Flags = force_big(Flags0),
-	    I = {bs_put_integer,Fail,{integer,Sz},1,Flags,{integer,Int}},
+	    I = {bs_put,Fail,{bs_put_integer,1,Flags},
+		 [{integer,Sz},{integer,Int}]},
 	    opt_bs_1([I|Is], Acc)
     catch
 	error:_ ->
 	    opt_bs_1(Is, [I0|Acc])
     end;
-opt_bs_1([{bs_put_integer,_,{integer,8},1,_,{integer,_}}|_]=IsAll, Acc0) ->
+opt_bs_1([{bs_put,_,{bs_put_integer,1,_},[{integer,8},{integer,_}]}|_]=IsAll,
+	 Acc0) ->
     {Is,Acc} = bs_collect_string(IsAll, Acc0),
     opt_bs_1(Is, Acc);
-opt_bs_1([{bs_put_integer,Fail,{integer,Sz},1,F,{integer,N}}=I|Is0], Acc) when Sz > 8 ->
+opt_bs_1([{bs_put,Fail,{bs_put_integer,1,F},[{integer,Sz},{integer,N}]}=I|Is0],
+	 Acc) when Sz > 8 ->
     case field_endian(F) of
 	big ->
 	    %% We can do this optimization for any field size without risk
@@ -466,14 +467,14 @@ opt_bs_1([{bs_put_integer,Fail,{integer,Sz},1,F,{integer,N}}=I|Is0], Acc) when S
 	    %% an explosion in code size.
 	    <<Int:Sz>> = <<N:Sz/little>>,
 	    Flags = force_big(F),
-	    Is = [{bs_put_integer,Fail,{integer,Sz},1,
-		   Flags,{integer,Int}}|Is0],
+	    Is = [{bs_put,Fail,{bs_put_integer,1,Flags},
+		   [{integer,Sz},{integer,Int}]}|Is0],
 	    opt_bs_1(Is, Acc);
 	_ -> 					%native or too wide little field
 	    opt_bs_1(Is0, [I|Acc])
     end;
-opt_bs_1([{Op,Fail,{integer,Sz},U,F,Src}|Is], Acc) when U > 1 ->
-    opt_bs_1([{Op,Fail,{integer,U*Sz},1,F,Src}|Is], Acc);
+opt_bs_1([{bs_put,Fail,{Op,U,F},[{integer,Sz},Src]}|Is], Acc) when U > 1 ->
+    opt_bs_1([{bs_put,Fail,{Op,1,F},[{integer,U*Sz},Src]}|Is], Acc);
 opt_bs_1([I|Is], Acc) ->
     opt_bs_1(Is, [I|Acc]);
 opt_bs_1([], Acc) -> reverse(Acc).
@@ -489,17 +490,17 @@ eval_put_float(Src, Sz, Flags) when Sz =< 256 -> %Only evaluate if Sz is reasona
 value({integer,I}) -> I;
 value({float,F}) -> F.
 
-bs_collect_string(Is, [{bs_put_string,Len,{string,Str}}|Acc]) ->
+bs_collect_string(Is, [{bs_put,_,{bs_put_string,Len,{string,Str}},[]}|Acc]) ->
     bs_coll_str_1(Is, Len, reverse(Str), Acc);
 bs_collect_string(Is, Acc) ->
     bs_coll_str_1(Is, 0, [], Acc).
     
-bs_coll_str_1([{bs_put_integer,_,{integer,Sz},U,_,{integer,V}}|Is],
+bs_coll_str_1([{bs_put,_,{bs_put_integer,U,_},[{integer,Sz},{integer,V}]}|Is],
 	      Len, StrAcc, IsAcc) when U*Sz =:= 8 ->
     Byte = V band 16#FF,
     bs_coll_str_1(Is, Len+1, [Byte|StrAcc], IsAcc);
 bs_coll_str_1(Is, Len, StrAcc, IsAcc) ->
-    {Is,[{bs_put_string,Len,{string,reverse(StrAcc)}}|IsAcc]}.
+    {Is,[{bs_put,{f,0},{bs_put_string,Len,{string,reverse(StrAcc)}},[]}|IsAcc]}.
 
 field_endian({field_flags,F}) -> field_endian_1(F).
 
@@ -531,15 +532,17 @@ bs_split_int(N, Sz, Fail, Acc) ->
     bs_split_int_1(N, FirstByteSz, Sz, Fail, Acc).
 
 bs_split_int_1(-1, _, Sz, Fail, Acc) when Sz > 64 ->
-    I = {bs_put_integer,Fail,{integer,Sz},1,{field_flags,[big]},{integer,-1}},
+    I = {bs_put,Fail,{bs_put_integer,1,{field_flags,[big]}},
+	 [{integer,Sz},{integer,-1}]},
     [I|Acc];
 bs_split_int_1(0, _, Sz, Fail, Acc) when Sz > 64 ->
-    I = {bs_put_integer,Fail,{integer,Sz},1,{field_flags,[big]},{integer,0}},
+    I = {bs_put,Fail,{bs_put_integer,1,{field_flags,[big]}},
+	 [{integer,Sz},{integer,0}]},
     [I|Acc];
 bs_split_int_1(N, ByteSz, Sz, Fail, Acc) when Sz > 0 ->
     Mask = (1 bsl ByteSz) - 1,
-    I = {bs_put_integer,Fail,{integer,ByteSz},1,
-	 {field_flags,[big]},{integer,N band Mask}},
+    I = {bs_put,Fail,{bs_put_integer,1,{field_flags,[big]}},
+	 [{integer,ByteSz},{integer,N band Mask}]},
     bs_split_int_1(N bsr ByteSz, 8, Sz-ByteSz, Fail, [I|Acc]);
 bs_split_int_1(_, _, _, _, Acc) -> Acc.
 
@@ -577,9 +580,9 @@ bsm_reroute([{bs_restore2,Reg,Save}=I|Is], D, _, Acc) ->
     bsm_reroute(Is, D, {Reg,Save}, [I|Acc]);
 bsm_reroute([{label,_}=I|Is], D, S, Acc) ->
     bsm_reroute(Is, D, S, [I|Acc]);
-bsm_reroute([{select_val,Reg,F0,{list,Lbls0}}|Is], D, {_,Save}=S, Acc0) ->
+bsm_reroute([{select,select_val,Reg,F0,Lbls0}|Is], D, {_,Save}=S, Acc0) ->
     [F|Lbls] = bsm_subst_labels([F0|Lbls0], Save, D),
-    Acc = [{select_val,Reg,F,{list,Lbls}}|Acc0],
+    Acc = [{select,select_val,Reg,F,Lbls}|Acc0],
     bsm_reroute(Is, D, S, Acc);
 bsm_reroute([{test,TestOp,F0,TestArgs}=I|Is], D, {_,Save}=S, Acc0) ->
     F = bsm_subst_label(F0, Save, D),
@@ -615,10 +618,6 @@ bsm_opt_2([{test,bs_skip_bits2,F,[Ctx,{integer,I1},Unit1,_]}|Is],
 	  [{test,bs_skip_bits2,F,[Ctx,{integer,I2},Unit2,Flags]}|Acc]) ->
     bsm_opt_2(Is, [{test,bs_skip_bits2,F,
 		    [Ctx,{integer,I1*Unit1+I2*Unit2},1,Flags]}|Acc]);
-bsm_opt_2([{test,bs_match_string,F,[Ctx,Bin1]},
-	   {test,bs_match_string,F,[Ctx,Bin2]}|Is], Acc) ->
-    I = {test,bs_match_string,F,[Ctx,<<Bin1/bitstring,Bin2/bitstring>>]},
-    bsm_opt_2([I|Is], Acc);
 bsm_opt_2([I|Is], Acc) ->
     bsm_opt_2(Is, [I|Acc]);
 bsm_opt_2([], Acc) -> reverse(Acc).

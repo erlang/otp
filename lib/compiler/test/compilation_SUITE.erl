@@ -623,7 +623,7 @@ string_table(Config) when is_list(Config) ->
     ?line File = filename:join(DataDir, "string_table.erl"),
     ?line {ok,string_table,Beam,[]} = compile:file(File, [return, binary]),
     ?line {ok,{string_table,[StringTableChunk]}} = beam_lib:chunks(Beam, ["StrT"]),
-    ?line {"StrT", <<"stringabletringtable">>} = StringTableChunk,
+    ?line {"StrT", <<"stringtable">>} = StringTableChunk,
     ok.
 
 otp_8949_a(Config) when is_list(Config) ->

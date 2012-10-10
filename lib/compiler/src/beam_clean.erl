@@ -74,10 +74,6 @@ find_all_used([], _All, Used) -> Used.
 
 update_work_list([{call,_,{f,L}}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
-update_work_list([{call_last,_,{f,L},_}|Is], Sets) ->
-    update_work_list(Is, add_to_work_list(L, Sets));
-update_work_list([{call_only,_,{f,L}}|Is], Sets) ->
-    update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([{make_fun2,{f,L},_,_,_}|Is], Sets) ->
     update_work_list(Is, add_to_work_list(L, Sets));
 update_work_list([_|Is], Sets) ->
@@ -200,7 +196,7 @@ replace([{test,Test,{f,Lbl},Ops}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Ops}|Acc], D);
 replace([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D) ->
     replace(Is, [{test,Test,{f,label(Lbl, D)},Live,Ops,Dst}|Acc], D);
-replace([{select_val,R,{f,Fail0},{list,Vls0}}|Is], Acc, D) ->
+replace([{select,I,R,{f,Fail0},Vls0}|Is], Acc, D) ->
     Vls1 = map(fun ({f,L}) -> {f,label(L, D)};
 		   (Other) -> Other end, Vls0),
     Fail = label(Fail0, D),
@@ -210,12 +206,8 @@ replace([{select_val,R,{f,Fail0},{list,Vls0}}|Is], Acc, D) ->
 	    %% Convert to a plain jump.
 	    replace(Is, [{jump,{f,Fail}}|Acc], D);
 	Vls ->
-	    replace(Is, [{select_val,R,{f,Fail},{list,Vls}}|Acc], D)
+	    replace(Is, [{select,I,R,{f,Fail},Vls}|Acc], D)
     end;
-replace([{select_tuple_arity,R,{f,Fail},{list,Vls0}}|Is], Acc, D) ->
-    Vls = map(fun ({f,L}) -> {f,label(L, D)};
-		  (Other) -> Other end, Vls0),
-    replace(Is, [{select_tuple_arity,R,{f,label(Fail, D)},{list,Vls}}|Acc], D);
 replace([{'try',R,{f,Lbl}}|Is], Acc, D) ->
     replace(Is, [{'try',R,{f,label(Lbl, D)}}|Acc], D);
 replace([{'catch',R,{f,Lbl}}|Is], Acc, D) ->
@@ -236,37 +228,12 @@ replace([{gc_bif,Name,{f,Lbl},Live,As,R}|Is], Acc, D) when Lbl =/= 0 ->
     replace(Is, [{gc_bif,Name,{f,label(Lbl, D)},Live,As,R}|Acc], D);
 replace([{call,Ar,{f,Lbl}}|Is], Acc, D) ->
     replace(Is, [{call,Ar,{f,label(Lbl,D)}}|Acc], D);
-replace([{call_last,Ar,{f,Lbl},N}|Is], Acc, D) ->
-    replace(Is, [{call_last,Ar,{f,label(Lbl,D)},N}|Acc], D);
-replace([{call_only,Ar,{f,Lbl}}|Is], Acc, D) ->
-    replace(Is, [{call_only,Ar,{f,label(Lbl, D)}}|Acc], D);
 replace([{make_fun2,{f,Lbl},U1,U2,U3}|Is], Acc, D) ->
     replace(Is, [{make_fun2,{f,label(Lbl, D)},U1,U2,U3}|Acc], D);
-replace([{bs_init2,{f,Lbl},Sz,Words,R,F,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_init2,{f,label(Lbl, D)},Sz,Words,R,F,Dst}|Acc], D);
-replace([{bs_init_bits,{f,Lbl},Sz,Words,R,F,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_init_bits,{f,label(Lbl, D)},Sz,Words,R,F,Dst}|Acc], D);
-replace([{bs_put_integer,{f,Lbl},Bits,Unit,Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_put_integer,{f,label(Lbl, D)},Bits,Unit,Fl,Val}|Acc], D);
-replace([{bs_put_utf8=I,{f,Lbl},Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Fl,Val}|Acc], D);
-replace([{bs_put_utf16=I,{f,Lbl},Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Fl,Val}|Acc], D);
-replace([{bs_put_utf32=I,{f,Lbl},Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Fl,Val}|Acc], D);
-replace([{bs_put_binary,{f,Lbl},Bits,Unit,Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_put_binary,{f,label(Lbl, D)},Bits,Unit,Fl,Val}|Acc], D);
-replace([{bs_put_float,{f,Lbl},Bits,Unit,Fl,Val}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_put_float,{f,label(Lbl, D)},Bits,Unit,Fl,Val}|Acc], D);
-replace([{bs_add,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{bs_add,{f,label(Lbl, D)},Src,Dst}|Acc], D);
-replace([{bs_append,{f,Lbl},_,_,_,_,_,_,_}=I0|Is], Acc, D) when Lbl =/= 0 ->
-    I = setelement(2, I0, {f,label(Lbl, D)}),
-    replace(Is, [I|Acc], D);
-replace([{bs_utf8_size=I,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,Dst}|Acc], D);
-replace([{bs_utf16_size=I,{f,Lbl},Src,Dst}|Is], Acc, D) when Lbl =/= 0 ->
-    replace(Is, [{I,{f,label(Lbl, D)},Src,Dst}|Acc], D);
+replace([{bs_init,{f,Lbl},Info,Live,Ss,Dst}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{bs_init,{f,label(Lbl, D)},Info,Live,Ss,Dst}|Acc], D);
+replace([{bs_put,{f,Lbl},Info,Ss}|Is], Acc, D) when Lbl =/= 0 ->
+    replace(Is, [{bs_put,{f,label(Lbl, D)},Info,Ss}|Acc], D);
 replace([I|Is], Acc, D) ->
     replace(Is, [I|Acc], D);
 replace([], Acc, _) -> Acc.

@@ -22,13 +22,17 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
-	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1]).
+	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1,
+	 transforms/1]).
+
+%% Used by transforms/1 test case.
+-export([parse_transform/2]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [head_mismatch_line, warnings_as_errors, bif_clashes].
+    [head_mismatch_line, warnings_as_errors, bif_clashes, transforms].
 
 groups() -> 
     [].
@@ -215,6 +219,24 @@ warnings_as_errors(Config) when is_list(Config) ->
     ?line ok = file:delete(BeamFile),
 
     ok.
+
+transforms(Config) ->
+    Ts1 = [{undef_parse_transform,
+	    <<"
+              -compile({parse_transform,non_existing}).
+             ">>,
+	    [return],
+	    {error,[{none,compile,{undef_parse_transform,non_existing}}],[]}}],
+    [] = run(Config, Ts1),
+    Ts2 = <<"
+              -compile({parse_transform,",?MODULE_STRING,"}).
+             ">>,
+    {error,[{none,compile,{parse_transform,?MODULE,{too_bad,_}}}],[]} =
+	run_test(Ts2, test_filename(Config), [], dont_write_beam),
+    ok.
+
+parse_transform(_, _) ->
+    error(too_bad).
 
 
 run(Config, Tests) ->

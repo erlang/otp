@@ -123,14 +123,23 @@ cg_fun(Les, Hvs, Vdb, AtomMod, NameArity, Anno, St0) ->
 					   put_reg(V, Reg)
 				   end, [], Hvs),
 			 stk=[]}, 0, Vdb),
-    {B,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
+    {B0,_Aft,St} = cg_list(Les, 0, Vdb, Bef,
 			  St3#cg{bfail=0,
 				 ultimate_failure=UltimateMatchFail,
 				 is_top_block=true}),
+    B = fix_bs_match_strings(B0),
     {Name,Arity} = NameArity,
     Asm = [{label,Fi},line(Anno),{func_info,AtomMod,{atom,Name},Arity},
 	   {label,Fl}|B++[{label,UltimateMatchFail},if_end]],
     {Asm,Fl,St}.
+
+fix_bs_match_strings([{test,bs_match_string,F,[Ctx,BinList]}|Is])
+  when is_list(BinList) ->
+    I = {test,bs_match_string,F,[Ctx,list_to_bitstring(BinList)]},
+    [I|fix_bs_match_strings(Is)];
+fix_bs_match_strings([I|Is]) ->
+    [I|fix_bs_match_strings(Is)];
+fix_bs_match_strings([]) -> [].
 
 %% cg(Lkexpr, Vdb, StackReg, State) -> {[Ainstr],StackReg,State}.
 %%  Generate code for a kexpr.
@@ -713,7 +722,22 @@ select_bin_seg(#l{ke={val_clause,{bin_int,Ctx,Sz,U,Fs,Val,Es},B},i=I,vdb=Vdb},
 				       I, Vdb, Bef, Ctx, St0),
     {Bis,Aft,St2} = match_cg(B, Fail, Int, St1),
     CtxReg = fetch_var(Ctx, Bef),
-    {[{bs_restore2,CtxReg,{Ctx,Ivar}}|Mis] ++ Bis,Aft,St2}.
+    Is = case Mis ++ Bis of
+	     [{test,bs_match_string,F,[OtherCtx,Bin1]},
+	      {bs_save2,OtherCtx,_},
+	      {bs_restore2,OtherCtx,_},
+	      {test,bs_match_string,F,[OtherCtx,Bin2]}|Is0] ->
+		 %% We used to do this optimization later, but it
+		 %% turns out that in huge functions with many
+		 %% bs_match_string instructions, it's a big win
+		 %% to do the combination now. To avoid copying the
+		 %% binary data again and again, we'll combine bitstrings
+		 %% in a list and convert all of it to a bitstring later.
+		 [{test,bs_match_string,F,[OtherCtx,[Bin1,Bin2]]}|Is0];
+	     Is0 ->
+		 Is0
+	 end,
+    {[{bs_restore2,CtxReg,{Ctx,Ivar}}|Is],Aft,St2}.
 
 select_extract_int([{var,Tl}], Val, {integer,Sz}, U, Fs, Vf,
 		   I, Vdb, Bef, Ctx, St) ->
@@ -1385,22 +1409,32 @@ catch_cg(C, {var,R}, Le, Vdb, Bef, St0) ->
 %%
 %%  put_list for constructing a cons is an atomic instruction
 %%  which can safely resuse one of the source registers as target.
-%%  Also binaries can reuse a source register as target.
 
 set_cg([{var,R}], {cons,Es}, Le, Vdb, Bef, St) ->
-    [S1,S2] = map(fun ({var,V}) -> fetch_var(V, Bef);
-		      (Other) -> Other
-		  end, Es),
+    [S1,S2] = cg_reg_args(Es, Bef),
     Int0 = clear_dead(Bef, Le#l.i, Vdb),
     Int1 = Int0#sr{reg=put_reg(R, Int0#sr.reg)},
     Ret = fetch_reg(R, Int1#sr.reg),
     {[{put_list,S1,S2,Ret}], Int1, St};
 set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
        #cg{in_catch=InCatch, bfail=Bfail}=St) ->
+    %% At run-time, binaries are constructed in three stages:
+    %% 1) First the size of the binary is calculated.
+    %% 2) Then the binary is allocated.
+    %% 3) Then each field in the binary is constructed.
+    %% For simplicity, we use the target register to also hold the
+    %% size of the binary. Therefore the target register must *not*
+    %% be one of the source registers.
+
+    %% First allocate the target register.
     Int0 = Bef#sr{reg=put_reg(R, Bef#sr.reg)},
     Target = fetch_reg(R, Int0#sr.reg),
-    Fail = {f,Bfail},
+
+    %% Also allocate a scratch register for size calculations.
     Temp = find_scratch_reg(Int0#sr.reg),
+
+    %% First generate the code that constructs each field.
+    Fail = {f,Bfail},
     PutCode = cg_bin_put(Segs, Fail, Bef),
     {Sis,Int1} =
 	case InCatch of
@@ -1409,6 +1443,8 @@ set_cg([{var,R}], {binary,Segs}, Le, Vdb, Bef,
 	end,
     MaxRegs = max_reg(Bef#sr.reg),
     Aft = clear_dead(Int1, Le#l.i, Vdb),
+
+    %% Now generate the complete code for constructing the binary.
     Code = cg_binary(PutCode, Target, Temp, Fail, MaxRegs, Le#l.a),
     {Sis++Code,Aft,St};
 set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
@@ -1418,10 +1454,8 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
     Ais = case Con of
 	      {tuple,Es} ->
 		  [{put_tuple,length(Es),Ret}] ++ cg_build_args(Es, Bef);
-	      {var,V} ->	  % Normally removed by kernel optimizer.
-		  [{move,fetch_var(V, Int),Ret}];
 	      Other ->
-		  [{move,Other,Ret}]
+		  [{move,cg_reg_arg(Other, Int),Ret}]
 	  end,
     {Ais,clear_dead(Int, Le#l.i, Vdb),St}.
 
@@ -1575,8 +1609,7 @@ cg_gen_binsize([], _, _, _, _, Acc) -> Acc.
 %% cg_bin_opt(Code0) -> Code
 %%  Optimize the size calculations for binary construction.
 
-cg_bin_opt([{move,Size,D},{bs_append,Fail,D,Extra,Regs0,U,Bin,Flags,D}|Is]) ->
-    Regs = cg_bo_newregs(Regs0, D),
+cg_bin_opt([{move,Size,D},{bs_append,Fail,D,Extra,Regs,U,Bin,Flags,D}|Is]) ->
     cg_bin_opt([{bs_append,Fail,Size,Extra,Regs,U,Bin,Flags,D}|Is]);
 cg_bin_opt([{move,Size,D},{bs_private_append,Fail,D,U,Bin,Flags,D}|Is]) ->
     cg_bin_opt([{bs_private_append,Fail,Size,U,Bin,Flags,D}|Is]);
@@ -1584,9 +1617,8 @@ cg_bin_opt([{move,{integer,0},D},{bs_add,_,[D,{integer,_}=S,1],Dst}|Is]) ->
     cg_bin_opt([{move,S,Dst}|Is]);
 cg_bin_opt([{move,{integer,0},D},{bs_add,Fail,[D,S,U],Dst}|Is]) ->
     cg_bin_opt([{bs_add,Fail,[{integer,0},S,U],Dst}|Is]);
-cg_bin_opt([{move,{integer,Bytes},D},{Op,Fail,D,Extra,Regs0,Flags,D}|Is])
+cg_bin_opt([{move,{integer,Bytes},D},{Op,Fail,D,Extra,Regs,Flags,D}|Is])
   when Op =:= bs_init2; Op =:= bs_init_bits ->
-    Regs = cg_bo_newregs(Regs0, D),
     cg_bin_opt([{Op,Fail,Bytes,Extra,Regs,Flags,D}|Is]);
 cg_bin_opt([{move,Src1,Dst},{bs_add,Fail,[Dst,Src2,U],Dst}|Is]) ->
     cg_bin_opt([{bs_add,Fail,[Src1,Src2,U],Dst}|Is]);
@@ -1594,20 +1626,9 @@ cg_bin_opt([I|Is]) ->
     [I|cg_bin_opt(Is)];
 cg_bin_opt([]) -> [].
 
-cg_bo_newregs(R, {x,X}) when R-1 =:= X -> R-1;
-cg_bo_newregs(R, _) -> R.
-
-%% Common for new and old binary code generation.
-
 cg_bin_put({bin_seg,[],S0,U,T,Fs,[E0,Next]}, Fail, Bef) ->
-    S1 = case S0 of
-	     {var,Sv} -> fetch_var(Sv, Bef);
-	     _ -> S0
-	 end,
-    E1 = case E0 of
-	     {var,V} -> fetch_var(V, Bef);
-	     Other ->   Other
-	 end,
+    S1 = cg_reg_arg(S0, Bef),
+    E1 = cg_reg_arg(E0, Bef),
     {Format,Op} = case T of
 		      integer -> {plain,bs_put_integer};
 		      utf8 ->    {utf,bs_put_utf8};
@@ -1625,9 +1646,7 @@ cg_bin_put({bin_seg,[],S0,U,T,Fs,[E0,Next]}, Fail, Bef) ->
 cg_bin_put({bin_end,[]}, _, _) -> [].
 
 cg_build_args(As, Bef) ->
-    map(fun ({var,V}) -> {put,fetch_var(V, Bef)};
-	    (Other) -> {put,Other}
-	end, As).
+    [{put,cg_reg_arg(A, Bef)} || A <- As].
 
 %% return_cg([Val], Le, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
 %% break_cg([Val], Le, Vdb, Bef, St) -> {[Ainstr],Aft,St}.
@@ -1906,27 +1925,13 @@ fetch_var(V, Sr) ->
 	error -> fetch_stack(V, Sr#sr.stk)
     end.
 
-% find_var(V, Sr) ->
-%     case find_reg(V, Sr#sr.reg) of
-% 	{ok,R} -> {ok,R};
-% 	error ->
-% 	    case find_stack(V, Sr#sr.stk) of
-% 		{ok,S} -> {ok,S};
-% 		error -> error
-% 	    end
-%     end.
-
 load_vars(Vs, Regs) ->
     foldl(fun ({var,V}, Rs) -> put_reg(V, Rs) end, Regs, Vs).
 
 %% put_reg(Val, Regs) -> Regs.
-%% free_reg(Val, Regs) -> Regs.
 %% find_reg(Val, Regs) -> ok{r{R}} | error.
 %% fetch_reg(Val, Regs) -> r{R}.
 %%  Functions to interface the registers.
-%%  put_reg puts a value into a free register,
-%%  load_reg loads a value into a fixed register
-%%  free_reg frees a register containing a specific value.
 
 % put_regs(Vs, Rs) -> foldl(fun put_reg/2, Rs, Vs).
 
@@ -1936,10 +1941,6 @@ put_reg_1(V, [free|Rs], I) -> [{I,V}|Rs];
 put_reg_1(V, [{reserved,I,V}|Rs], I) -> [{I,V}|Rs];
 put_reg_1(V, [R|Rs], I) -> [R|put_reg_1(V, Rs, I+1)];
 put_reg_1(V, [], I) -> [{I,V}].
-
-% free_reg(V, [{I,V}|Rs]) -> [free|Rs];
-% free_reg(V, [R|Rs]) -> [R|free_reg(V, Rs)];
-% free_reg(V, []) -> [].
 
 fetch_reg(V, [{I,V}|_]) -> {x,I};
 fetch_reg(V, [_|SRs]) -> fetch_reg(V, SRs).
@@ -1956,9 +1957,6 @@ find_scratch_reg(Rs) -> find_scratch_reg(Rs, 0).
 find_scratch_reg([free|_], I) -> {x,I};
 find_scratch_reg([_|Rs], I) -> find_scratch_reg(Rs, I+1);
 find_scratch_reg([], I) -> {x,I}.
-
-%%copy_reg(Val, R, Regs) -> load_reg(Val, R, Regs).
-%%move_reg(Val, R, Regs) -> load_reg(Val, R, free_reg(Val, Regs)).
 
 replace_reg_contents(Old, New, [{I,Old}|Rs]) -> [{I,New}|Rs];
 replace_reg_contents(Old, New, [R|Rs]) -> [R|replace_reg_contents(Old, New, Rs)].

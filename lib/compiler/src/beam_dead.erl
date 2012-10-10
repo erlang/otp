@@ -182,7 +182,7 @@ forward(Is, Lc) ->
 forward([{block,[]}|Is], D, Lc, Acc) ->
     %% Empty blocks can prevent optimizations.
     forward(Is, D, Lc, Acc);
-forward([{select_val,Reg,_,{list,List}}=I|Is], D0, Lc, Acc) ->
+forward([{select,select_val,Reg,_,List}=I|Is], D0, Lc, Acc) ->
     D = update_value_dict(List, Reg, D0),
     forward(Is, D, Lc, [I|Acc]);
 forward([{label,Lbl}=LblI,{block,[{set,[Dst],[Lit],move}|BlkIs]}=Blk|Is], D, Lc, Acc) ->
@@ -271,11 +271,11 @@ backward([{test,is_eq_exact,Fail,[Dst,{integer,Arity}]}=I|
     end;
 backward([{label,Lbl}=L|Is], D, Acc) ->
     backward(Is, beam_utils:index_label(Lbl, Acc, D), [L|Acc]);
-backward([{select_val,Reg,{f,Fail0},{list,List0}}|Is], D, Acc) ->
+backward([{select,select_val,Reg,{f,Fail0},List0}|Is], D, Acc) ->
     List = shortcut_select_list(List0, Reg, D, []),
     Fail1 = shortcut_label(Fail0, D),
     Fail = shortcut_bs_test(Fail1, Is, D),
-    Sel = {select_val,Reg,{f,Fail},{list,List}},
+    Sel = {select,select_val,Reg,{f,Fail},List},
     backward(Is, D, [Sel|Acc]);
 backward([{jump,{f,To0}},{move,Src,Reg}=Move0|Is], D, Acc) ->
     {To,Move} = case Src of
@@ -382,7 +382,7 @@ shortcut_select_label(To0, Reg, Val, D) ->
     case beam_utils:code_at(To0, D) of
  	[{jump,{f,To}}|_] ->
  	    shortcut_select_label(To, Reg, Val, D);
-	[{test,is_atom,_,[Reg]},{select_val,Reg,{f,Fail},{list,Map}}|_] ->
+	[{test,is_atom,_,[Reg]},{select,select_val,Reg,{f,Fail},Map}|_] ->
 	    To = find_select_val(Map, Val, Fail),
 	    shortcut_select_label(To, Reg, Val, D);
   	[{test,is_eq_exact,{f,_},[Reg,{atom,Val}]},{label,To}|_] when is_atom(Val) ->
@@ -472,10 +472,10 @@ combine_eqs(To, [Reg,{Type,_}=Lit1]=Ops, D, [{label,L1}|_])
     case beam_utils:code_at(To, D) of
 	[{test,is_eq_exact,{f,F2},[Reg,{Type,_}=Lit2]},
 	 {label,L2}|_] when Lit1 =/= Lit2 ->
-	    {select_val,Reg,{f,F2},{list,[Lit1,{f,L1},Lit2,{f,L2}]}};
-	[{select_val,Reg,{f,F2},{list,[{Type,_}|_]=List0}}|_] ->
+	    {select,select_val,Reg,{f,F2},[Lit1,{f,L1},Lit2,{f,L2}]};
+	[{select,select_val,Reg,{f,F2},[{Type,_}|_]=List0}|_] ->
 	    List = remove_from_list(Lit1, List0),
-	    {select_val,Reg,{f,F2},{list,[Lit1,{f,L1}|List]}};
+	    {select,select_val,Reg,{f,F2},[Lit1,{f,L1}|List]};
 	_Is ->
 	    {test,is_eq_exact,{f,To},Ops}
 	end;
@@ -527,6 +527,8 @@ count_bits_matched([{test,_,_,_,[_,Sz,U,{field_flags,_}],_}|Is], SavePoint, Bits
 	{integer,N} -> count_bits_matched(Is, SavePoint, Bits+N*U);
 	_ -> count_bits_matched(Is, SavePoint, Bits)
     end;
+count_bits_matched([{test,bs_match_string,_,[_,Bits,_]}|Is], SavePoint, Bits0) ->
+    count_bits_matched(Is, SavePoint, Bits0+Bits);
 count_bits_matched([{test,_,_,_}|Is], SavePoint, Bits) ->
     count_bits_matched(Is, SavePoint, Bits);
 count_bits_matched([{bs_save2,Reg,SavePoint}|_], {Reg,SavePoint}, Bits) ->

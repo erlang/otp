@@ -81,7 +81,7 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
-		keymember/3,keyfind/3]).
+		keymember/3,keyfind/3,partition/2]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
 -import(cerl, [c_tuple/1]).
 
@@ -1081,9 +1081,44 @@ select_bin_con(Cs0) ->
 		       end, Cs0),
     select_bin_con_1(Cs1).
 
+
 select_bin_con_1(Cs) ->
     try
-	select_bin_int(Cs)
+	%% The usual way to match literals is to first extract the
+	%% value to a register, and then compare the register to the
+	%% literal value. Extracting the value is good if we need
+	%% compare it more than once.
+	%%
+	%% But we would like to combine the extracting and the
+	%% comparing into a single instruction if we know that
+	%% a binary segment must contain specific integer value
+	%% or the matching will fail, like in this example:
+	%%
+	%% <<42:8,...>> ->
+	%% <<42:8,...>> ->
+	%% .
+	%% .
+	%% .
+	%% <<42:8,...>> ->
+	%% <<>> ->
+	%%
+	%% The first segment must either contain the integer 42
+	%% or the binary must end for the match to succeed.
+	%%
+	%% The way we do is to replace the generic #k_bin_seg{}
+	%% record with a #k_bin_int{} record if all clauses will
+	%% select the same literal integer (except for one or more
+	%% clauses that will end the binary).
+
+	{BinSegs0,BinEnd} =
+	    partition(fun (C) ->
+			      clause_con(C) =:= k_bin_seg
+		      end, Cs),
+	BinSegs = select_bin_int(BinSegs0),
+	case BinEnd of
+	    [] -> BinSegs;
+	    [_|_] -> BinSegs ++ [{k_bin_end,BinEnd}]
+	end
     catch
 	throw:not_possible ->
 	    select_bin_con_2(Cs)
@@ -1097,7 +1132,7 @@ select_bin_con_2([]) -> [].
 
 %% select_bin_int([Clause]) -> {k_bin_int,[Clause]}
 %%  If the first pattern in each clause selects the same integer,
-%%  rewrite all clauses to use #k_bin_int{} (which will later to
+%%  rewrite all clauses to use #k_bin_int{} (which will later be
 %%  translated to a bs_match_string/4 instruction).
 %%
 %%  If it is not possible to do this rewrite, a 'not_possible'
@@ -1346,7 +1381,7 @@ clause_arg(#iclause{pats=[Arg|_]}) -> Arg.
 
 clause_con(C) -> arg_con(clause_arg(C)).
 
-clause_val(C) -> arg_val(clause_arg(C)).
+clause_val(C) -> arg_val(clause_arg(C), C).
 
 is_var_clause(C) -> clause_con(C) =:= k_var.
 
@@ -1377,7 +1412,7 @@ arg_con(Arg) ->
 	#k_var{} -> k_var
     end.
 
-arg_val(Arg) ->
+arg_val(Arg, C) ->
     case arg_arg(Arg) of
 	#k_literal{val=Lit} -> Lit;
 	#k_int{val=I} -> I;
@@ -1385,7 +1420,13 @@ arg_val(Arg) ->
 	#k_atom{val=A} -> A;
 	#k_tuple{es=Es} -> length(Es);
 	#k_bin_seg{size=S,unit=U,type=T,flags=Fs} ->
-	    {set_kanno(S, []),U,T,Fs}
+	    case S of
+		#k_var{name=V} ->
+		    #iclause{isub=Isub} = C,
+		    {#k_var{name=get_vsub(V, Isub)},U,T,Fs};
+		_ ->
+		    {set_kanno(S, []),U,T,Fs}
+	    end
     end.
 
 %% ubody_used_vars(Expr, State) -> [UsedVar]

@@ -172,38 +172,16 @@ remap([{bif,Name,Fail,Ss,D}|Is], Map, Acc) ->
 remap([{gc_bif,Name,Fail,Live,Ss,D}|Is], Map, Acc) ->
     I = {gc_bif,Name,Fail,Live,[Map(S) || S <- Ss],Map(D)},
     remap(Is, Map, [I|Acc]);
-remap([{bs_add,Fail,[SrcA,SrcB,U],D}|Is], Map, Acc) ->
-    I = {bs_add,Fail,[Map(SrcA),Map(SrcB),U],Map(D)},
+remap([{bs_init,Fail,Info,Live,Ss0,Dst0}|Is], Map, Acc) ->
+    Ss = [Map(Src) || Src <- Ss0],
+    Dst = Map(Dst0),
+    I = {bs_init,Fail,Info,Live,Ss,Dst},
     remap(Is, Map, [I|Acc]);
-remap([{bs_append=Op,Fail,Bits,Heap,Live,Unit,Bin,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Bits),Heap,Live,Unit,Map(Bin),Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_private_append=Op,Fail,Bits,Unit,Bin,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Bits),Unit,Map(Bin),Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([bs_init_writable=I|Is], Map, Acc) ->
-    remap(Is, Map, [I|Acc]);
-remap([{bs_init2,Fail,Src,Live,U,Flags,D}|Is], Map, Acc) ->
-    I = {bs_init2,Fail,Map(Src),Live,U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_init_bits,Fail,Src,Live,U,Flags,D}|Is], Map, Acc) ->
-    I = {bs_init_bits,Fail,Map(Src),Live,U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put_binary=Op,Fail,Src,U,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Src),U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put_integer=Op,Fail,Src,U,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Src),U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put_float=Op,Fail,Src,U,Flags,D}|Is], Map, Acc) ->
-    I = {Op,Fail,Map(Src),U,Flags,Map(D)},
-    remap(Is, Map, [I|Acc]);
-remap([{bs_put_string,_,_}=I|Is], Map, Acc) ->
+remap([{bs_put=Op,Fail,Info,Ss}|Is], Map, Acc) ->
+    I = {Op,Fail,Info,[Map(S) || S <- Ss]},
     remap(Is, Map, [I|Acc]);
 remap([{kill,Y}|T], Map, Acc) ->
     remap(T, Map, [{kill,Map(Y)}|Acc]);
-remap([send=I|T], Map, Acc) ->
-    remap(T, Map, [I|Acc]);
 remap([{make_fun2,_,_,_,_}=I|T], Map, Acc) ->
     remap(T, Map, [I|Acc]);
 remap([{deallocate,N}|Is], Map, Acc) ->
@@ -217,12 +195,6 @@ remap([{test,Name,Fail,Live,Ss,Dst}|Is], Map, Acc) ->
     remap(Is, Map, [I|Acc]);
 remap([return|_]=Is, _, Acc) ->
     reverse(Acc, Is);
-remap([{call_last,Ar,Name,N}|Is], Map, Acc) ->
-    I = {call_last,Ar,Name,Map({frame_size,N})},
-    reverse(Acc, [I|Is]);
-remap([{call_ext_last,Ar,Name,N}|Is], Map, Acc) ->
-    I = {call_ext_last,Ar,Name,Map({frame_size,N})},
-    reverse(Acc, [I|Is]);
 remap([{line,_}=I|Is], Map, Acc) ->
     remap(Is, Map, [I|Acc]).
     
@@ -280,8 +252,8 @@ frame_size([{call_fun,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{call,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
-frame_size([{call_ext,A,{extfunc,M,F,A}}|Is], Safe) ->
-    case erl_bifs:is_exit_bif(M, F, A) of
+frame_size([{call_ext,_,_}=I|Is], Safe) ->
+    case beam_jump:is_exit_instruction(I) of
 	true -> throw(not_possible);
 	false -> frame_size(Is, Safe)
     end;
@@ -295,35 +267,15 @@ frame_size([{test,_,{f,L},_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
 frame_size([{test,_,{f,L},_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_add,{f,L},_,_}|Is], Safe) ->
+frame_size([{bs_init,{f,L},_,_,_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_append,{f,L},_,_,_,_,_,_,_}|Is], Safe) ->
+frame_size([{bs_put,{f,L},_,_}|Is], Safe) ->
     frame_size_branch(L, Is, Safe);
-frame_size([{bs_private_append,{f,L},_,_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([bs_init_writable|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([{bs_init2,{f,L},_,_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_init_bits,{f,L},_,_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_binary,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_integer,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_float,{f,L},_,_,_,_}|Is], Safe) ->
-    frame_size_branch(L, Is, Safe);
-frame_size([{bs_put_string,_,_}|Is], Safe) ->
-    frame_size(Is, Safe);
 frame_size([{kill,_}|Is], Safe) ->
-    frame_size(Is, Safe);
-frame_size([send|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{make_fun2,_,_,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{deallocate,N}|_], _) -> N;
-frame_size([{call_last,_,_,N}|_], _) -> N;
-frame_size([{call_ext_last,_,_,N}|_], _) -> N;
 frame_size([{line,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([_|_], _) -> throw(not_possible).

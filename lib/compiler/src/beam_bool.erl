@@ -168,18 +168,18 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
     end.
 
 %% ensure_opt_safe(OriginalCode, OptCode, FollowingCode, Fail,
-%%             ReversedPreceedingCode, State) -> ok
+%%             ReversedPrecedingCode, State) -> ok
 %%  Comparing the original code to the optimized code, determine
 %%  whether the optimized code is guaranteed to work in the same
 %%  way as the original code.
 %%
 %%  Throw an exception if the optimization is not safe.
 %%
-ensure_opt_safe(Bl, NewCode, OldIs, Fail, PreceedingCode, St) ->
+ensure_opt_safe(Bl, NewCode, OldIs, Fail, PrecedingCode, St) ->
     %% Here are the conditions that must be true for the
     %% optimization to be safe.
     %%
-    %% 1. If a register is INITIALIZED by PreceedingCode,
+    %% 1. If a register is INITIALIZED by PrecedingCode,
     %%    then if that register assigned a value in the original
     %%    code, but not in the optimized code, it must be UNUSED or KILLED
     %%    in the code that follows.
@@ -190,28 +190,49 @@ ensure_opt_safe(Bl, NewCode, OldIs, Fail, PreceedingCode, St) ->
     %%    by the code that follows.
     %%
     %% 3. Any register that is assigned a value in the optimized
-    %%    code must be UNUSED or KILLED in the following code
-    %%    (because the register might be assigned the wrong value,
-    %%    and even if the value is right it might no longer be
-    %%    assigned on *all* paths leading to its use).
+    %%    code must be UNUSED or KILLED in the following code,
+    %%    unless we can be sure that it is always assigned the same
+    %%    value.
 
-    InitInPreceeding = initialized_regs(PreceedingCode),
+    InitInPreceding = initialized_regs(PrecedingCode),
 
     PrevDst = dst_regs(Bl),
     NewDst = dst_regs(NewCode),
     NotSet = ordsets:subtract(PrevDst, NewDst),
-    MustBeKilled = ordsets:subtract(NotSet, InitInPreceeding),
-    MustBeUnused = ordsets:subtract(ordsets:union(NotSet, NewDst), MustBeKilled),
+    MustBeKilled = ordsets:subtract(NotSet, InitInPreceding),
 
     case all_killed(MustBeKilled, OldIs, Fail, St) of
 	false -> throw(all_registers_not_killed);
 	true -> ok
     end,
+    Same = assigned_same_value(Bl, NewCode),
+    MustBeUnused = ordsets:subtract(ordsets:union(NotSet, NewDst),
+				    ordsets:union(MustBeKilled, Same)),
     case none_used(MustBeUnused, OldIs, Fail, St) of
 	false -> throw(registers_used);
 	true -> ok
     end,
     ok.
+
+%% assigned_same_value(OldCode, NewCodeReversed) -> [DestinationRegs]
+%%  Return an ordset with a list of all y registers that are always
+%%  assigned the same value in the old and new code. Currently, we
+%%  are very conservative in that we only consider identical move
+%%  instructions in the same order.
+%%
+assigned_same_value(Old, New) ->
+    case reverse(New) of
+	[{block,Bl}|_] ->
+	    assigned_same_value(Old, Bl, []);
+	_ ->
+	    ordsets:new()
+    end.
+
+assigned_same_value([{set,[{y,_}=D],[S],move}|T1],
+		    [{set,[{y,_}=D],[S],move}|T2], Acc) ->
+    assigned_same_value(T1, T2, [D|Acc]);
+assigned_same_value(_, _, Acc) ->
+    ordsets:from_list(Acc).
 
 update_fail_label([{set,_,_,move}=I|Is], Fail, Acc) ->
     update_fail_label(Is, Fail, [I|Acc]);

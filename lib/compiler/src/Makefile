@@ -45,6 +45,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/compiler-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 MODULES =  \
+	beam_a \
 	beam_asm \
 	beam_block \
 	beam_bool \
@@ -65,6 +66,7 @@ MODULES =  \
 	beam_type \
 	beam_utils \
 	beam_validator \
+        beam_z \
 	cerl \
 	cerl_clauses \
 	cerl_inline \

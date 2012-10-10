@@ -79,48 +79,27 @@ norm_allocate({nozero,Ns,Nh,Inits}, Regs) ->
 
 %% insert_alloc_in_bs_init(ReverseInstructionStream, AllocationInfo) ->
 %%                                  impossible | ReverseInstructionStream'
-%%   A bs_init2/6 instruction should not be followed by a test heap instruction.
+%%   A bs_init/6 instruction should not be followed by a test heap instruction.
 %%   Given the AllocationInfo from a test heap instruction, merge the
-%%   allocation amounts into the previous bs_init2/6 instruction (if any).
+%%   allocation amounts into the previous bs_init/6 instruction (if any).
 %%
-insert_alloc_in_bs_init([I|_]=Is, Alloc) ->
-    case is_bs_constructor(I) of
-	false -> impossible;
-	true -> insert_alloc_1(Is, Alloc, [])
-    end.
+insert_alloc_in_bs_init([{bs_put,_,_,_}=I|Is], Alloc) ->
+    %% The instruction sequence ends with an bs_put/4 instruction.
+    %% We'll need to search backwards for the bs_init/6 instruction.
+    insert_alloc_1(Is, Alloc, [I]);
+insert_alloc_in_bs_init(_, _) -> impossible.
 
-insert_alloc_1([{bs_init2=Op,Fail,Bs,Ws1,Regs,F,Dst}|Is], {_,nostack,Ws2,[]}, Acc) ->
+insert_alloc_1([{bs_init=Op,Fail,Info0,Live,Ss,Dst}|Is],
+	       {_,nostack,Ws2,[]}, Acc) when is_integer(Live) ->
+    %% The number of extra heap words is always in the second position
+    %% in the Info tuple.
+    Ws1 = element(2, Info0),
     Al = beam_utils:combine_heap_needs(Ws1, Ws2),
-    I = {Op,Fail,Bs,Al,Regs,F,Dst},
+    Info = setelement(2, Info0, Al),
+    I = {Op,Fail,Info,Live,Ss,Dst},
     reverse(Acc, [I|Is]);
-insert_alloc_1([{bs_init_bits=Op,Fail,Bs,Ws1,Regs,F,Dst}|Is], {_,nostack,Ws2,[]}, Acc) ->
-    Al = beam_utils:combine_heap_needs(Ws1, Ws2),
-    I = {Op,Fail,Bs,Al,Regs,F,Dst},
-    reverse(Acc, [I|Is]);
-insert_alloc_1([{bs_append,Fail,Sz,Ws1,Regs,U,Bin,Fl,Dst}|Is],
-	       {_,nostack,Ws2,[]}, Acc) ->
-    Al = beam_utils:combine_heap_needs(Ws1, Ws2),
-    I = {bs_append,Fail,Sz,Al,Regs,U,Bin,Fl,Dst},
-    reverse(Acc, [I|Is]);
-insert_alloc_1([I|Is], Alloc, Acc) ->
+insert_alloc_1([{bs_put,_,_,_}=I|Is], Alloc, Acc) ->
     insert_alloc_1(Is, Alloc, [I|Acc]).
-
-
-%% is_bs_constructor(Instruction) -> true|false.
-%%  Test whether the instruction is a bit syntax construction
-%%  instruction that can occur at the end of a bit syntax
-%%  construction. (Since an empty binary would be expressed
-%%  as a literal, the bs_init2/6 instruction will not occur
-%%  at the end and therefore it is no need to test for it here.)
-%%
-is_bs_constructor({bs_put_integer,_,_,_,_,_}) -> true;
-is_bs_constructor({bs_put_utf8,_,_,_}) -> true;
-is_bs_constructor({bs_put_utf16,_,_,_}) -> true;
-is_bs_constructor({bs_put_utf32,_,_,_}) -> true;
-is_bs_constructor({bs_put_float,_,_,_,_,_}) -> true;
-is_bs_constructor({bs_put_binary,_,_,_,_,_}) -> true;
-is_bs_constructor({bs_put_string,_,_}) -> true;
-is_bs_constructor(_) -> false.
 
 %% opt(Is0) -> Is
 %%  Simple peep-hole optimization to move a {move,Any,{x,0}} past

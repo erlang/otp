@@ -65,10 +65,6 @@ function_1(Is0) ->
 
 translate([{call_ext,Ar,{extfunc,erlang,error,Ar}}=I|Is], St, Acc) ->
     translate_1(Ar, I, Is, St, Acc);
-translate([{call_ext_only,Ar,{extfunc,erlang,error,Ar}}=I|Is], St, Acc) ->
-    translate_1(Ar, I, Is, St, Acc);
-translate([{call_ext_last,Ar,{extfunc,erlang,error,Ar},_}=I|Is], St, Acc) ->
-    translate_1(Ar, I, Is, St, Acc);
 translate([I|Is], St, Acc) ->
     translate(Is, St, [I|Acc]);
 translate([], _, Acc) ->

@@ -224,6 +224,8 @@ format_error({delete_temp,File,Error}) ->
 		  [File,file:format_error(Error)]);
 format_error({parse_transform,M,R}) ->
     io_lib:format("error in parse transform '~s': ~p", [M, R]);
+format_error({undef_parse_transform,M}) ->
+    io_lib:format("undefined parse transform '~s'", [M]);
 format_error({core_transform,M,R}) ->
     io_lib:format("error in core transform '~s': ~p", [M, R]);
 format_error({crash,Pass,Reason}) ->
@@ -551,12 +553,12 @@ select_list_passes_1([{iff,Flag,{done,Ext}}|Ps], Opts, Acc) ->
     end;
 select_list_passes_1([{iff=Op,Flag,List0}|Ps], Opts, Acc) when is_list(List0) ->
     case select_list_passes(List0, Opts) of
-	{done,_}=Done -> Done;
+	{done,List} -> {done,reverse(Acc) ++ List};
 	{not_done,List} -> select_list_passes_1(Ps, Opts, [{Op,Flag,List}|Acc])
     end;
 select_list_passes_1([{unless=Op,Flag,List0}|Ps], Opts, Acc) when is_list(List0) ->
     case select_list_passes(List0, Opts) of
-	{done,_}=Done -> Done;
+	{done,List} -> {done,reverse(Acc) ++ List};
 	{not_done,List} -> select_list_passes_1(Ps, Opts, [{Op,Flag,List}|Acc])
     end;
 select_list_passes_1([P|Ps], Opts, Acc) ->
@@ -630,7 +632,8 @@ kernel_passes() ->
 asm_passes() ->
     %% Assembly level optimisations.
     [{delay,
-      [{unless,no_postopt,
+      [{pass,beam_a},
+       {unless,no_postopt,
 	[{pass,beam_block},
 	 {iff,dblk,{listing,"block"}},
 	 {unless,no_except,{pass,beam_except}},
@@ -657,13 +660,11 @@ asm_passes() ->
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},
 
-       %% If post optimizations are turned off, we still coalesce
-       %% adjacent labels and remove unused labels to keep the
-       %% HiPE compiler happy.
-       {iff,no_postopt,
-	[?pass(beam_unused_labels),
-	 {pass,beam_clean}]},
+       %% If post optimizations are turned off, we still
+       %% need to do a few clean-ups to code.
+       {iff,no_postopt,[{pass,beam_clean}]},
 
+       {pass,beam_z},
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
@@ -850,6 +851,10 @@ foldl_transform(St, [T|Ts]) ->
 	{error,Es,Ws} ->
 	    {error,St#compile{warnings=St#compile.warnings ++ Ws,
 			      errors=St#compile.errors ++ Es}};
+	{'EXIT',{undef,_}} ->
+	    Es = [{St#compile.ifile,[{none,compile,
+				      {undef_parse_transform,T}}]}],
+	    {error,St#compile{errors=St#compile.errors ++ Es}};
 	{'EXIT',R} ->
 	    Es = [{St#compile.ifile,[{none,compile,{parse_transform,T,R}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}};
@@ -1235,10 +1240,6 @@ random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 
 save_core_code(St) ->
     {ok,St#compile{core_code=cerl:from_records(St#compile.code)}}.
-
-beam_unused_labels(#compile{code=Code0}=St) ->
-    Code = beam_jump:module_labels(Code0),
-    {ok,St#compile{code=Code}}.
 
 beam_asm(#compile{ifile=File,code=Code0,
 		  abstract_code=Abst,mod_options=Opts0}=St) ->
