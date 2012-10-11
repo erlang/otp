@@ -82,7 +82,8 @@ index_put(IndexTable* t, void* tmpl)
     if (ix >= t->size) {
 	Uint sz;
 	if (ix >= t->limit) {
-	    erl_exit(1, "no more index entries in %s (max=%d)\n",
+	    /* A core dump is unnecessary */
+	    erl_exit(ERTS_DUMP_EXIT, "no more index entries in %s (max=%d)\n",
 		     t->htable.name, t->limit);
 	}
 	sz = INDEX_PAGE_SIZE*sizeof(IndexSlot*);

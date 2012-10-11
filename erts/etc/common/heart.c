@@ -137,7 +137,8 @@
 #  endif
 #endif
 
-#define HEART_COMMAND_ENV    "HEART_COMMAND"
+#define HEART_COMMAND_ENV          "HEART_COMMAND"
+#define ERL_CRASH_DUMP_SECONDS_ENV "ERL_CRASH_DUMP_SECONDS"
 
 #define MSG_HDR_SIZE        2
 #define MSG_HDR_PLUS_OP_SIZE 3
@@ -214,6 +215,7 @@ static void print_error(const char *,...);
 static void debugf(const char *,...);
 static void init_timestamp(void);
 static time_t timestamp(time_t *);
+static int  wait_until_close_write_or_env_tmo(int);
 
 #ifdef __WIN32__
 static BOOL enable_privilege(void);
@@ -650,15 +652,20 @@ do_terminate(int erlin_fd, int reason) {
     (plus heart_beat_report_delay if under VxWorks), so we don't need
     to call wd_reset().
     */
-  struct msg message;
-  int ret = 0;
+  int ret = 0, tmo=0;
+  char *tmo_env;
 
   switch (reason) {
   case R_SHUT_DOWN:
     break;
   case R_CRASHING:
-    print_error("Waiting for dump");
-    read_message(erlin_fd, &message); /* read until we get something */
+    if (is_env_set(ERL_CRASH_DUMP_SECONDS_ENV)) {
+	tmo_env = get_env(ERL_CRASH_DUMP_SECONDS_ENV);
+	tmo = atoi(tmo_env);
+	print_error("Waiting for dump - timeout set to %d seconds.", tmo);
+	wait_until_close_write_or_env_tmo(tmo);
+	free_env_val(tmo_env);
+    }
     /* fall through */
   case R_TIMEOUT:
   case R_CLOSED:
@@ -708,6 +715,60 @@ do_terminate(int erlin_fd, int reason) {
     break;
   } /* switch(reason) */
 }
+
+
+/* Waits until something happens on socket or handle
+ *
+ * Uses global variables erlin_fd or hevent_dataready
+ */
+int wait_until_close_write_or_env_tmo(int tmo) {
+    int i = 0;
+
+#ifdef __WIN32__
+    DWORD wresult;
+    DWORD wtmo = INFINITE;
+
+    if (tmo >= 0) {
+	wtmo = tmo*1000 + 2;
+    }
+
+    wresult = WaitForSingleObject(hevent_dataready, wtmo);
+    if (wresult == WAIT_FAILED) {
+	print_last_error();
+	return -1;
+    }
+
+    if (wresult == WAIT_TIMEOUT) {
+	debugf("wait timed out\n");
+	i = 0;
+    } else {
+	debugf("wait ok\n");
+	i = 1;
+    }
+#else
+    fd_set read_fds;
+    int   max_fd;
+    struct timeval timeout;
+    struct timeval *tptr = NULL;
+
+    max_fd = erlin_fd; /* global */
+
+    if (tmo >= 0) {
+	timeout.tv_sec  = tmo;  /* On Linux timeout is modified by select */
+	timeout.tv_usec = 0;
+	tptr = &timeout;
+    }
+
+    FD_ZERO(&read_fds);
+    FD_SET(erlin_fd, &read_fds);
+    if ((i = select(max_fd + 1, &read_fds, NULLFDS, NULLFDS, tptr)) < 0) {
+	print_error("error in select.");
+	return -1;
+    }
+#endif
+    return i;
+}
+
 
 /*
  * notify_ack

@@ -256,7 +256,7 @@ void erl_sys_args(int* argc, char** argv)
 }
 
 void
-erts_sys_prepare_crash_dump(void)
+erts_sys_prepare_crash_dump(int secs)
 {
     Port *heart_port;
     Eterm heap[3];
@@ -274,6 +274,7 @@ erts_sys_prepare_crash_dump(void)
     }
 
     /* Windows - free file descriptors are hopefully available */
+    /* Alarm not used on windows */
 }
 
 static void

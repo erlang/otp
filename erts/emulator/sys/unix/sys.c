@@ -687,17 +687,19 @@ static RETSIGTYPE break_handler(int sig)
 #endif /* 0 */
 
 static ERTS_INLINE void
-prepare_crash_dump(void)
+prepare_crash_dump(int secs)
 {
+#define NUFBUF (3)
     int i, max;
     char env[21]; /* enough to hold any 64-bit integer */
     size_t envsz;
+    DeclareTmpHeapNoproc(heap,NUFBUF);
     Port *heart_port;
-    Eterm heap[3];
     Eterm *hp = heap;
     Eterm list = NIL;
-
     int heart_fd[2] = {-1,-1};
+
+    UseTmpHeapNoproc(NUFBUF);
 
     if (ERTS_PREPARED_CRASH_DUMP)
 	return; /* We have already been called */
@@ -740,7 +742,7 @@ prepare_crash_dump(void)
     }
 
     envsz = sizeof(env);
-    i = erts_sys_getenv_raw("ERL_CRASH_DUMP_NICE", env, &envsz);
+    i = erts_sys_getenv__("ERL_CRASH_DUMP_NICE", env, &envsz);
     if (i >= 0) {
 	int nice_val;
 	nice_val = i != 0 ? 0 : atoi(env);
@@ -749,20 +751,21 @@ prepare_crash_dump(void)
 	}
 	erts_silence_warn_unused_result(nice(nice_val));
     }
-    
-    envsz = sizeof(env);
-    i = erts_sys_getenv_raw("ERL_CRASH_DUMP_SECONDS", env, &envsz);
-    if (i >= 0) {
-	unsigned sec;
-	sec = (unsigned) i != 0 ? 0 : atoi(env);
-	alarm(sec);
+
+    /* Positive secs means an alarm must be set
+     * 0 or negative means no alarm
+     */
+    if (secs > 0) {
+	alarm((unsigned int)secs);
     }
+    UnUseTmpHeapNoproc(NUFBUF);
+#undef NUFBUF
 }
 
 void
-erts_sys_prepare_crash_dump(void)
+erts_sys_prepare_crash_dump(int secs)
 {
-    prepare_crash_dump();
+    prepare_crash_dump(secs);
 }
 
 static ERTS_INLINE void
@@ -804,7 +807,7 @@ sigusr1_exit(void)
       is hung somewhere, so it won't be able to poll any flag we set here.
       */
     ERTS_SET_GOT_SIGUSR1;
-    prepare_crash_dump();
+    prepare_crash_dump((int)0);
     erl_exit(1, "Received SIGUSR1\n");
 }
 
@@ -2438,6 +2441,15 @@ int
 erts_sys_getenv_raw(char *key, char *value, size_t *size) {
     return erts_sys_getenv(key, value, size);
 }
+
+/*
+ * erts_sys_getenv
+ * returns:
+ *  -1, if environment key is not set with a value
+ *   0, if environment key is set and value fits into buffer size
+ *   1, if environment key is set but does not fit into buffer size
+ *      size is set with the needed buffer size value
+ */
 
 int
 erts_sys_getenv(char *key, char *value, size_t *size)
