@@ -70,8 +70,19 @@
 %% Purpose: Call is_varbind_ok for each varbind
 %% Returns: {noError, 0} | {ErrorStatus, ErrorIndex}
 %%-----------------------------------------------------------------
-is_varbinds_ok([{_TableOid, TableVbs} | IVarbinds]) -> 
-    is_varbinds_ok(lists:append(TableVbs, IVarbinds));
+is_varbinds_ok([{TableOid, TableVbs} | IVarbinds]) ->
+    % TableOid points to the table entry, not the table itself.
+    % for table row index checking, we need the table entry, though.
+    % Hence, strip the last OID.
+    NTableOid = lists:reverse(tl(lists:reverse(TableOid))),
+    case is_table_varbinds_ok(NTableOid, TableVbs) of
+        true ->
+            is_varbinds_ok(lists:append(TableVbs, IVarbinds));
+        {ErrorStatus, Varbind} ->
+            ?vtrace("varbinds erroneous: ~p -> ~p",
+                [Varbind#varbind.org_index,ErrorStatus]),
+            {ErrorStatus, Varbind#varbind.org_index}
+    end;
 is_varbinds_ok([IVarbind | IVarbinds]) -> 
     case catch is_varbind_ok(IVarbind) of
 	true -> is_varbinds_ok(IVarbinds);
@@ -84,6 +95,56 @@ is_varbinds_ok([IVarbind | IVarbinds]) ->
 is_varbinds_ok([]) -> 
     ?vtrace("varbinds ok",[]),
     {noError, 0}.
+
+
+%%-----------------------------------------------------------------
+%% Func: is_table_varbinds_ok/2
+%% Purpose: Perform basic checks on the RowIndex of varbinds against
+%%          the MIB. Here we don't call any instrumentation functions.
+%% Returns: true |
+%% Fails:   with an <error-atom>.
+%%-----------------------------------------------------------------
+is_table_varbinds_ok(_TableOid, []) ->
+    true;
+is_table_varbinds_ok(TableOid, [Hd | _] = Varbinds) ->
+    ErrResult = {noCreation, Hd#ivarbind.varbind},
+    % resolve table information, it's required for the checks we do
+    case snmpa_symbolic_store:oid_to_aliasname(TableOid) of
+        {value, TableName} ->
+            case snmpa_symbolic_store:table_info(TableName) of
+                {value, #table_info{} = TableInfo} ->
+                    is_table_varbinds_ok(TableOid, TableInfo, Varbinds);
+                false ->
+                    snmpa_error:user_err("Failed in table_info(~w)", [TableName]),
+                    ErrResult
+            end;
+        false ->
+            snmpa_error:user_err("Failed in oid_to_aliasname(~w)", [TableOid]),
+            ErrResult
+    end.
+
+is_table_varbinds_ok(TableOid, TableInfo, [#ivarbind{varbind = Varbind} | Varbinds]) ->
+    Indices = TableInfo#table_info.index_types,
+    Oid = Varbind#varbind.oid,
+    case snmp_misc:diff(Oid, TableOid) of
+        [_TblEntryId, _TblColumnId | RowIndex] ->
+            case (catch snmp_generic:split_index_to_keys(Indices, RowIndex)) of
+                Keys when is_list(Keys) ->
+                    % RowIndex seems to be OK
+                    is_table_varbinds_ok(TableOid, TableInfo, Varbinds);
+                Error ->
+                    % RowIndex is syntactically wrong...
+                    ?vtrace("table varbind RowIndex erroneous: ~p", [Error]),
+                    {noCreation, Varbind}
+            end;
+        _Else ->
+            % OID is syntactically wrong...
+            ?vtrace("table varbind OID erroneous: ~p", [Oid]),
+            {noCreation, Varbind}
+    end;
+is_table_varbinds_ok(_TableOid, _TableInfo, []) ->
+    true.
+
 
 %%-----------------------------------------------------------------
 %% Func: is_varbind_ok/1
