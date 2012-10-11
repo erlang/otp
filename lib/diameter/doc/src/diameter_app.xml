@@ -559,14 +559,14 @@ application.</p>
 <p>
 The argument <seealso marker="#packet">packet()</seealso> has the following signature.</p>
 
-<code>
+<pre>
 #diameter_packet{header = #diameter_header{},
                  avps   = [#diameter_avp{}],
                  msg    = record() | undefined,
                  errors = [<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso> | {<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>, #diameter_avp{}}],
                  bin    = binary(),
                  transport_data = term()}
-</code>
+</pre>
 
 <p>
 The <c>msg</c> field will be <c>undefined</c> in case the request has
@@ -619,9 +619,9 @@ being set by diameter.</p>
 Send an answer message to the peer containing the specified
 protocol error.
 Equivalent to</p>
-<code>
+<pre>
 {reply, ['answer-message' | Avps]
-</code>
+</pre>
 <p>
 where <c>Avps</c> sets the Origin-Host, Origin-Realm, the specified
 Result-Code and (if the request sent one) Session-Id AVP's.</p>

@@ -125,9 +125,9 @@ is used to identify the relevant dictionary module.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @id 16777231
-</code>
+</pre>
 
 </item>
 
@@ -146,9 +146,9 @@ with existing modules in the system.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @name etsi_e2
-</code>
+</pre>
 
 </item>
 
@@ -169,9 +169,9 @@ different Diameter applications.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @prefix etsi_e2
-</code>
+</pre>
 
 </item>
 
@@ -189,9 +189,9 @@ The section has empty content.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @vendor 13019 ETSI
-</code>
+</pre>
 
 </item>
 
@@ -205,13 +205,13 @@ The section content consists of AVP names.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @avp_vendor_id 2937
 
 WWW-Auth
 Domain-Index
 Region-Set
-</code>
+</pre>
 
 </item>
 
@@ -244,9 +244,9 @@ All dictionaries should typically inherit RFC3588 AVPs from
 <p>
 Example:</p>
 
-<code>
+<pre>
 @inherits diameter_gen_base_rfc3588
-</code>
+</pre>
 
 </item>
 
@@ -268,12 +268,12 @@ none are to be set.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @avp_types
 
 Location-Information   350  Grouped     MV
 Requested-Information  353  Enumerated   V
-</code>
+</pre>
 
 <warning>
 <p>
@@ -298,11 +298,11 @@ encode/decode.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @custom_types rfc4005_avps
 
 Framed-IP-Address
-</code>
+</pre>
 </item>
 
 <tag><c>@codecs Mod</c></tag>
@@ -315,11 +315,11 @@ Like <c>@custom_types</c> but requires the specified module to export
 <p>
 Example:</p>
 
-<code>
+<pre>
 @codecs rfc4005_avps
 
 Framed-IP-Address
-</code>
+</pre>
 </item>
 
 <tag><c>@messages</c></tag>
@@ -330,7 +330,7 @@ The section content consists of definitions of the form specified in
 section 3.2 of RFC 3588, "Command Code ABNF specification".</p>
 
 <!-- RFC 4740 RTR/RTA -->
-<code>
+<pre>
 @messages
 
 RTR ::= &lt; Diameter Header: 287, REQ, PXY >
@@ -363,7 +363,7 @@ RTA ::= &lt; Diameter Header: 287, PXY >
       * [ Proxy-Info ]
       * [ Route-Record ]
       * [ AVP ]
-</code>
+</pre>
 
 </item>
 
@@ -378,14 +378,14 @@ section 4.4 of RFC 3588, "Grouped AVP Values".</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @grouped
 
 SIP-Deregistration-Reason ::= &lt; AVP Header: 383 >
                               { SIP-Reason-Code }
                               [ SIP-Reason-Info ]
                             * [ AVP ]
-</code>
+</pre>
 
 <p>
 Specifying a Vendor-Id in the definition of a grouped AVP is
@@ -408,14 +408,14 @@ otherwise defined in another dictionary.</p>
 <p>
 Example:</p>
 
-<code>
+<pre>
 @enum SIP-Reason-Code
 
 PERMANENT_TERMINATION    0
 NEW_SIP_SERVER_ASSIGNED  1
 SIP_SERVER_CHANGE        2
 REMOVE_SIP_SERVER        3
-</code>
+</pre>
 </item>
 
 <tag><c>@end</c></tag>
@@ -450,22 +450,22 @@ contained in the message or grouped AVP in the order specified in the
 definition in question.
 For example, the grouped AVP</p>
 
-<code>
+<pre>
 SIP-Deregistration-Reason ::= &lt; AVP Header: 383 >
                               { SIP-Reason-Code }
                               [ SIP-Reason-Info ]
                             * [ AVP ]
-</code>
+</pre>
 
 <p>
 will result in the following record definition given an empty
 prefix.</p>
 
-<code>
+<pre>
 -record('SIP-Deregistration-Reason' {'SIP-Reason-Code',
                                      'SIP-Reason-Info',
                                      'AVP'}).
-</code>
+</pre>
 
 <p>
 The values encoded in the fields of generated records depends on the
@@ -507,7 +507,7 @@ callback upon reception of an incoming request.</p>
 <marker id="Float64"/>
 <marker id="Grouped"/>
 
-<code>
+<pre>
 OctetString() = [0..255]
 Integer32()   = -2147483647..2147483647
 Integer64()   = -9223372036854775807..9223372036854775807
@@ -516,7 +516,7 @@ Unsigned64()  = 0..18446744073709551615
 Float32()     = '-infinity' | float() | infinity
 Float64()     = '-infinity' | float() | infinity
 Grouped()     = record()
-</code>
+</pre>
 
 <p>
 On encode, an OctetString() can be specified as an iolist(),
@@ -530,10 +530,10 @@ section.</p>
 <em>Derived AVP Data Formats</em></p>
 
 <marker id="Address"/>
-<code>
+<pre>
 Address() = OctetString()
           | tuple()
-</code>
+</pre>
 
 <p>
 On encode, an OctetString() IPv4 address is parsed in the usual
@@ -545,7 +545,7 @@ An IPv6 tuple() has length 8 and contains values of type 0..65535.
 The tuple representation is used on decode.</p>
 
 <marker id="Time"/>
-<code>
+<pre>
 Time() = {date(), time()}
 
 where
@@ -559,7 +559,7 @@ where
   Hour   = 0..23
   Minute = 0..59
   Second = 0..59
-</code>
+</pre>
 
 <p>
 Additionally, values that can be encoded are
@@ -569,9 +569,9 @@ In particular, only values between <c>{{1968,1,20},{3,14,8}}</c>
 and <c>{{2104,2,26},{9,42,23}}</c> (both inclusive) can be encoded.</p>
 
 <marker id="UTF8String"/>
-<code>
+<pre>
 UTF8String() = [integer()]
-</code>
+</pre>
 
 <p>
 List elements are the UTF-8 encodings of the individual characters
@@ -579,15 +579,15 @@ in the string.
 Invalid codepoints will result in encode/decode failure.</p>
 
 <marker id="DiameterIdentity"/>
-<code>
+<pre>
 DiameterIdentity() = OctetString()
-</code>
+</pre>
 
 <p>
 A value must have length at least 1.</p>
 
 <marker id="DiameterURI"/>
-<code>
+<pre>
 DiameterURI() = OctetString()
               | #diameter_URI{type = Type,
                               fqdn = FQDN,
@@ -602,7 +602,7 @@ where
   Port = integer()
   Transport = sctp | tcp
   Protocol  = diameter | radius | 'tacacs+'
-</code>
+</pre>
 
 <p>
 On encode, fields port, transport and protocol default to 3868, sctp
@@ -612,9 +612,9 @@ section 4.3 of RFC 3588.
 The record representation is used on decode.</p>
 
 <marker id="Enumerated"/>
-<code>
+<pre>
 Enumerated() = Integer32()
-</code>
+</pre>
 
 <p>
 On encode, values can be specified using the macros defined in a
@@ -622,10 +622,10 @@ dictionary's hrl file.</p>
 
 <marker id="IPFilterRule"/>
 <marker id="QoSFilterRule"/>
-<code>
+<pre>
 IPFilterRule()  = OctetString()
 QoSFilterRule() = OctetString()
-</code>
+</pre>
 
 <p>
 Values of these types are not currently parsed by diameter.</p>

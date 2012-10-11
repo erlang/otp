@@ -110,10 +110,10 @@ defined by the application.</p>
                              | [Mod | ExtraArgs]
                              | #diameter_callback{}</c></tag>
 <item>
-<code>
+<pre>
 Mod = atom()
 ExtraArgs = list()
-</code>
+</pre>
 
 <p>
 A module implementing the callback interface defined in <seealso
@@ -357,7 +357,7 @@ It is an error to specify duplicate tuples.</p>
 An expression that can be evaluated as a function in the following
 sense.</p>
 
-<code>
+<pre>
 eval([{M,F,A} | T]) ->
     apply(M, F, T ++ A);
 eval([[F|A] | T]) ->
@@ -366,7 +366,7 @@ eval([F|A]) ->
     apply(F, A);
 eval(F) ->
     eval([F]).
-</code>
+</pre>
 
 <p>
 Applying an <c><seealso marker="#evaluable">evaluable()</seealso></c>
@@ -527,12 +527,12 @@ implies the termination of all transport processes.</p>
 <tag><c>{up, Ref, Peer, Config}</c></tag>
 <tag><c>{down, Ref, Peer, Config}</c></tag>
 <item>
-<code>
+<pre>
 Ref    = <seealso marker="#transport_ref">transport_ref()</seealso>
 Peer   = <seealso marker="diameter_app#peer">diameter_app:peer()</seealso>
 Config = {connect|listen, [<seealso marker="#transport_opt">transport_opt()</seealso>]}
 Pkt    = #diameter_packet{}
-</code>
+</pre>
 
 <p>
 The RFC 3539 watchdog state machine has
@@ -556,10 +556,10 @@ respect to individual Diameter applications.</p>
 
 <tag><c>{reconnect, Ref, Opts}</c></tag>
 <item>
-<code>
+<pre>
 Ref  = <seealso marker="#transport_ref">transport_ref()</seealso>
 Opts = [<seealso marker="#transport_opt">transport_opt()</seealso>]
-</code>
+</pre>
 
 <p>
 A connecting transport is attempting to establish/reestablish a
@@ -571,10 +571,10 @@ expiry.</p>
 
 <tag><c>{closed, Ref, Reason, Config}</c></tag>
 <item>
-<code>
+<pre>
 Ref = <seealso marker="#transport_ref">transport_ref()</seealso>
 Config = {connect|listen, [<seealso marker="#transport_opt">transport_opt()</seealso>]}
-</code>
+</pre>
 
 <p>
 Capabilities exchange has failed.
@@ -584,13 +584,13 @@ Capabilities exchange has failed.
 
 <tag><c>{'CER', Result, Caps, Pkt}</c></tag>
 <item>
-<code>
+<pre>
 Result = ResultCode | {capabilities_cb, CB, ResultCode|discard}
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
 ResultCode = integer()
 CB = <seealso marker="#evaluable">evaluable()</seealso>
-</code>
+</pre>
 
 <p>
 An incoming CER has been answered with the indicated result code or
@@ -604,11 +604,11 @@ contains the rejecting callback.</p>
 
 <tag><c>{'CER', Caps, {ResultCode, Pkt}}</c></tag>
 <item>
-<code>
+<pre>
 ResultCode = integer()
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
-</code>
+</pre>
 
 <p>
 An incoming CER contained errors and has been answered with the
@@ -627,12 +627,12 @@ connection establishment.</p>
 
 <tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
 <item>
-<code>
+<pre>
 Result = integer() | atom() | {capabilities_cb, CB, ResultCode|discard}
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
 ResultCode = integer()
-</code>
+</pre>
 
 <p>
 An incoming CEA has been rejected for the indicated reason.
@@ -647,10 +647,10 @@ contains the rejecting callback.</p>
 
 <tag><c>{'CEA', Caps, Pkt}</c></tag>
 <item>
-<code>
+<pre>
 Caps = #diameter_caps{}
 Pkt  = #diameter_packet{}
-</code>
+</pre>
 
 <p>
 An incoming CEA contained errors and has been rejected.
@@ -671,12 +671,12 @@ of connection establishment.</p>
 
 <tag><c>{watchdog, Ref, PeerRef, {From, To}, Config}</c></tag>
 <item>
-<code>
+<pre>
 Ref = <seealso marker="#transport_ref">transport_ref()</seealso>
 PeerRef  = <seealso marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso>
 From, To = initial | okay | suspect | down | reopen
 Config = {connect|listen, [transport_opt()]}
-</code>
+</pre>
 
 <p>
 An RFC 3539 watchdog state machine has changed state.</p>
@@ -772,9 +772,9 @@ to be evaluated at <seealso
 marker="#start_service">start_service/2</seealso>.
 In particular, an identifier <c>Id</c> is mapped to a new identifier
 as follows.</p>
-<code>
+<pre>
 (H bsl N) bor (Id band ((1 bsl N) - 1))
-</code>
+</pre>
 <p>
 Note that RFC 3588 requires that End-to-End identifiers remain unique
 for a period of at least 4 minutes and that this and the call rate
@@ -980,9 +980,9 @@ Defaults to a single callback returning <c>dpr</c>.</p>
 <marker id="reconnect_timer"/>
 <tag><c>{reconnect_timer, Tc}</c></tag>
 <item>
-<code>
+<pre>
 Tc = <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>
-</code>
+</pre>
 
 <p>
 For a connecting transport, the RFC 3588 Tc timer, in milliseconds.
@@ -1029,12 +1029,12 @@ For example, the following options on a connecting transport
 request a connection with one peer over SCTP or another
 (typically the same) over TCP.</p>
 
-<code>
+<pre>
 {transport_module, diameter_sctp}
 {transport_config, SctpOpts, 5000}
 {transport_module, diameter_tcp}
 {transport_config, TcpOpts}
-</code>
+</pre>
 
 <p>
 To listen on both SCTP and TCP, define one transport for each.</p>
@@ -1065,10 +1065,10 @@ corresponding timeout (see below) or all fail.</p>
 <marker id="watchdog_timer"/>
 <tag><c>{watchdog_timer, TwInit}</c></tag>
 <item>
-<code>
+<pre>
 TwInit = <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>
        | {M,F,A}
-</code>
+</pre>
 
 <p>
 The RFC 3539 watchdog timer.
@@ -1334,7 +1334,7 @@ marker="#add_transport">add_transport/2</seealso> and <c>Ref</c> is
 as returned by it.
 The remaining forms are equivalent to an arity-3 fun as follows.</p>
 
-<code>
+<pre>
 Pred = fun(transport_ref(), list()):  fun(Ref, _, Opts) -> Pred(Ref, Opts) end
 Pred = fun(list()):                   fun(_, _, Opts) -> Pred(Opts) end
 Pred = transport_ref():               fun(Ref, _, _)  -> Pred == Ref end
@@ -1342,7 +1342,7 @@ Pred = list():                        fun(_, _, Opts) -> [] == Pred -- Opts end
 Pred = true:                          fun(_, _, _) -> true end
 Pred = false:                         fun(_, _, _) -> false end
 Pred = {M,F,A}:  fun(Ref, Type, Opts) -> apply(M, F, [Ref, Type, Opts | A]) end
-</code>
+</pre>
 
 <p>
 Removing a transport causes the corresponding transport processes to
@@ -1425,7 +1425,7 @@ An example return value with for a client service with Origin-Host
 "client.example.com" configured with a single transport connected to
 "server.example.com" might look as follows.</p>
 
-<code>
+<pre>
 [[{ref,#Ref&lt;0.0.0.93>},
   {type,connect},
   {options,[{transport_module,diameter_tcp},
@@ -1470,7 +1470,7 @@ An example return value with for a client service with Origin-Host
                {{{0,258,0},recv,{'Result-Code',2001}},3},
                {{{0,280,1},recv},2},
                {{{0,280,0},send},2}]}]]
-</code>
+</pre>
 
 <p>
 Here <c>ref</c> is a <c><seealso
@@ -1510,7 +1510,7 @@ marker="#transport_ref">transport_ref()</seealso></c>.
 The <c>transport</c> info returned by a server with a single client
 connection might look as follows.</p>
 
-<code>
+<pre>
 [[{ref,#Ref&lt;0.0.0.61>},
   {type,listen},
   {options,[{transport_module,diameter_tcp},
@@ -1557,7 +1557,7 @@ connection might look as follows.</p>
                {{{0,280,0},send},5},
                {{{0,257,1},recv},1},
                {{{0,257,0},send},1}]}]]
-</code>
+</pre>
 
 <p>
 The information presented here is as in the <c>connect</c> case except
@@ -1576,7 +1576,7 @@ connections and for which Diameter-level statistics are accumulated
 only for the lifetime of the transport connection.
 A return value for the server above might look as follows.</p>
 
-<code>
+<pre>
 [[{ref,#Ref&lt;0.0.0.61>},
   {type,accept},
   {options,[{transport_module,diameter_tcp},
@@ -1622,7 +1622,7 @@ A return value for the server above might look as follows.</p>
                {{{0,280,0},send},66},
                {{{0,257,1},recv},1},
                {{{0,257,0},send},1}]}]]
-</code>
+</pre>
 
 <p>
 Note that there may be multiple entries with the same <c>ref</c>, in
@@ -1655,14 +1655,14 @@ Otherwise it contains the <c>ref</c>, <c>type</c> and <c>options</c>
 tuples as in <c>transport</c> and <c>connections</c> info above.
 For example:</p>
 
-<code>
+<pre>
 [{ref,#Ref&lt;0.0.0.61>},
  {type,accept},
  {options,[{transport_module,diameter_tcp},
            {transport_config,[{reuseaddr,true},
                               {ip,{127,0,0,1}},
                               {port,3868}]}]}]
-</code>
+</pre>
 </item>
 
 </taglist>
