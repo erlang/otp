@@ -537,6 +537,9 @@ else
 fi
 
 if test "x$GCC" = xyes; then
+  # Treat certain GCC warnings as errors
+  LM_TRY_ENABLE_CFLAG([-Werror=return-type], [WERRORFLAGS])
+
   # until the emulator can handle this, I suggest we turn it off!
   #WFLAGS="-Wall -Wshadow -Wcast-qual -Wmissing-declarations"
   WFLAGS="-Wall -Wstrict-prototypes"
@@ -559,11 +562,13 @@ if test "x$GCC" = xyes; then
   CFLAGS=$saved_CFLAGS
 else
   WFLAGS=""
+  WERRORFLAGS=""
 fi
 dnl DEBUG_FLAGS is obsolete (I hope)
 AC_SUBST(DEBUG_FLAGS)
 AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(WFLAGS)
+AC_SUBST(WERRORFLAGS)
 AC_SUBST(CFLAG_RUNTIME_LIBRARY_PATH)
 
 AC_CHECK_SIZEOF(void *) # Needed for ARCH and smp checks below
@@ -4498,7 +4503,7 @@ dnl needs to be rebuilt.
 dnl
 
 AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
-"$STATIC_CFLAGS $CFLAGS $DEBUG_CFLAGS $EMU_THR_DEFS $DEFS $WFLAGS",
+"$STATIC_CFLAGS $CFLAGS $DEBUG_CFLAGS $EMU_THR_DEFS $DEFS $WERRORFLAGS $WFLAGS",
 [The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of config.h when the emulator command line flags are modified by configure])
 
 dnl ----------------------------------------------------------------------
@@ -4560,6 +4565,10 @@ AH_BOTTOM([
 #define ERTS_ENABLE_LOCK_CHECK 1
 #endif
 ])
+
+if test "x$GCC" = xyes; then
+  CFLAGS="$WERRORFLAGS $CFLAGS"
+fi
 
 dnl ----------------------------------------------------------------------
 dnl Output the result.

@@ -273,6 +273,11 @@ if test "$PERL" = no_perl; then
   AC_MSG_ERROR([Perl is required to build the flex scanner!])
 fi
 
+if test "x$GCC" = xyes; then
+  # Treat certain GCC warnings as errors
+  LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
+fi
+
 AC_OUTPUT(examples/meas/Makefile:examples/meas/Makefile.in)
 AC_OUTPUT(src/flex/$host/Makefile:src/flex/Makefile.in)
 

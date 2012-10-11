@@ -1849,6 +1849,32 @@ case $erl_gethrvtime in
 esac
 ])dnl
 
+dnl ----------------------------------------------------------------------
+dnl
+dnl LM_TRY_ENABLE_CFLAG
+dnl
+dnl
+dnl Tries a CFLAG and sees if it can be enabled without compiler errors
+dnl $1: textual cflag to add
+dnl $2: variable to store the modified CFLAG in
+dnl Usage example LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
+dnl
+dnl
+AC_DEFUN([LM_TRY_ENABLE_CFLAG], [
+    AC_MSG_CHECKING([if we can add $1 to CFLAGS])
+    saved_CFLAGS=$CFLAGS;
+    CFLAGS="$1 $CFLAGS";
+    AC_TRY_COMPILE([],[return 0;],can_enable_flag=true,can_enable_flag=false)
+    CFLAGS=$saved_CFLAGS;
+    if test "X$can_enable_flag" = "Xtrue"; then
+        AC_MSG_RESULT([yes])
+        AS_VAR_SET($2, "$1 $CFLAGS")
+    else
+        AC_MSG_RESULT([no])
+        AS_VAR_SET($2, "$CFLAGS")
+    fi
+])
+
 dnl ERL_TRY_LINK_JAVA(CLASSES, FUNCTION-BODY
 dnl                   [ACTION_IF_FOUND [, ACTION-IF-NOT-FOUND]])
 dnl Freely inspired by AC_TRY_LINK. (Maybe better to create a 

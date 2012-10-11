@@ -621,6 +621,12 @@ fi dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"
 
 AC_SUBST(WXERL_CAN_BUILD_DRIVER)
 
+if test "x$GCC" = xyes; then
+    # Treat certain GCC warnings as errors
+    LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CFLAGS])
+    LM_TRY_ENABLE_CFLAG([-Werror=return-type], [CXXFLAGS])
+fi
+
 #############################################################################
 
 dnl 
