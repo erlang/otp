@@ -79,7 +79,8 @@
 -type symbol() :: atom() | float() | integer() | string().
 -type info_line() :: integer() | term().
 -type attributes_data()
-       :: [{'column', column()} | {'line', info_line()} | {'text', string()}]
+       :: [{'column', column()} | {'line', info_line()} | {'text', string()}
+              | {'file', string()}]
         |  {line(), column()}.
 %% The fact that {line(),column()} is a possible attributes() type
 %% is hidden.
@@ -184,12 +185,13 @@ tokens({erl_scan_continuation,Cs,Col,Toks,Line,St,Any,Fun},
     tokens1(Cs++CharSpec, St, Line, Col, Toks, Fun, Any).
 
 -type attribute_item() :: 'column' | 'length' | 'line'
-                        | 'location' | 'text'.
+                        | 'location' | 'text' | 'file'.
 -type info_location() :: location() | term().
 -type attribute_info() :: {'column', column()}| {'length', pos_integer()}
                         | {'line', info_line()}
                         | {'location', info_location()}
-                        | {'text', string()}.
+                        | {'text', string()}
+                        | {'file', string()}.
 -type token_item() :: 'category' | 'symbol' | attribute_item().
 -type token_info() :: {'category', category()} | {'symbol', symbol()}
                     | attribute_info().
@@ -198,7 +200,7 @@ tokens({erl_scan_continuation,Cs,Col,Toks,Line,St,Any,Fun},
       Token :: token(),
       TokenInfo :: [TokenInfoTuple :: token_info()].
 token_info(Token) ->
-    Items = [category,column,length,line,symbol,text], % undefined order
+    Items = [category,column,length,line,symbol,text,file], % undefined order
     token_info(Token, Items).
 
 -spec token_info(Token, TokenItem) -> TokenInfo | 'undefined' when
@@ -236,7 +238,7 @@ token_info({_Category,Attrs,_Symbol}, Item) ->
       Attributes :: attributes(),
       AttributesInfo :: [AttributeInfoTuple :: attribute_info()].
 attributes_info(Attributes) ->
-    Items = [column,length,line,text], % undefined order
+    Items = [column,length,line,text,file], % undefined order
     attributes_info(Attributes, Items).
 
 -spec attributes_info(Attributes, AttributeItem) ->
@@ -302,13 +304,19 @@ attributes_info(Line, text) when ?ALINE(Line) ->
     undefined;
 attributes_info(Attrs, text=Item) ->
     attr_info(Attrs, Item);
+attributes_info({Line,Column}, file) when ?ALINE(Line), ?COLUMN(Column) ->
+    undefined;
+attributes_info(Line, file) when ?ALINE(Line) ->
+    undefined;
+attributes_info(Attrs, file=Item) ->
+    attr_info(Attrs, Item);
 attributes_info(T1, T2) ->
     erlang:error(badarg, [T1,T2]).
 
 -spec set_attribute(AttributeItem, Attributes, SetAttributeFun) -> Attributes when
-      AttributeItem :: 'line',
+      AttributeItem :: 'line' | 'file',
       Attributes :: attributes(),
-      SetAttributeFun :: fun((info_line()) -> info_line()).
+      SetAttributeFun :: fun((term()) -> term()).
 set_attribute(Tag, Attributes, Fun) when ?SETATTRFUN(Fun) ->
     set_attr(Tag, Attributes, Fun).
 
@@ -388,7 +396,10 @@ attr_info(Attrs, Item) ->
             erlang:error(badarg, [Attrs, Item])
     end.
 
--spec set_attr('line', attributes(), fun((line()) -> line())) -> attributes().
+-spec set_attr('line', attributes(), fun((line()) -> line())) -> attributes();
+              ('file', attributes(),
+               fun(('undefined' | string()) -> 'undefined' | string()))
+                  -> attributes().
 
 set_attr(line, Line, Fun) when ?ALINE(Line) ->
     Ln = Fun(Line),
@@ -413,6 +424,39 @@ set_attr(line=Tag, Attrs, Fun) when is_list(Attrs) ->
             Ln;
         As ->
             As
+    end;
+set_attr(file, Line, Fun) when ?ALINE(Line) ->
+    case Fun(undefined) of
+        undefined ->
+            Line;
+        File ->
+            [{file,File},{line,Line}]
+    end;
+set_attr(file, {Line,Column}=Loc, Fun) when ?ALINE(Line), ?COLUMN(Column) ->
+    case Fun(undefined) of
+        undefined ->
+            Loc;
+        File ->
+            [{file,File},{line,Line},{column,Column}]
+    end;
+set_attr(file=Tag, Attrs, Fun) when is_list(Attrs) ->
+    case lists:keyfind(Tag, 1, Attrs) of
+        {file, OldFile} ->
+            case Fun(OldFile) of
+                undefined ->
+                    lists:keydelete(Tag, 1, Attrs);
+                OldFile ->
+                    Attrs;
+                File ->
+                    lists:keyreplace(Tag, 1, Attrs, {Tag,File})
+            end;
+        false ->
+            case Fun(undefined) of
+                undefined ->
+                    Attrs;
+                File ->
+                    [{file,File}|Attrs]
+            end
     end;
 set_attr(T1, T2, T3) ->
     erlang:error(badarg, [T1,T2,T3]).

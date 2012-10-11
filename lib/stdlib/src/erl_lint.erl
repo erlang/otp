@@ -129,14 +129,12 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
               }).
 
 -type lint_state() :: #lint{}.
--type error_description() :: term().
--type error_info() :: {erl_scan:line(), module(), error_description()}.
 
 %% format_error(Error)
 %%  Return a string describing the error.
 
 -spec format_error(ErrorDescriptor) -> io_lib:chars() when
-      ErrorDescriptor :: error_description().
+      ErrorDescriptor :: erl_scan:error_description().
 
 format_error(undefined_module) ->
     "no module definition";
@@ -436,7 +434,7 @@ used_vars(Exprs, BindingsList) ->
       AbsForms :: [erl_parse:abstract_form()],
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
-      ErrorInfo :: error_info()).
+      ErrorInfo :: erl_scan:error_info()).
 
 module(Forms) ->
     Opts = compiler_options(Forms),
@@ -449,7 +447,7 @@ module(Forms) ->
       FileName :: atom() | string(),
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
-      ErrorInfo :: error_info()).
+      ErrorInfo :: erl_scan:error_info()).
 
 module(Forms, FileName) ->
     Opts = compiler_options(Forms),
@@ -463,7 +461,7 @@ module(Forms, FileName) ->
       CompileOptions :: [compile:option()],
       Warnings :: [{file:filename(),[ErrorInfo]}],
       Errors :: [{FileName2 :: file:filename(),[ErrorInfo]}],
-      ErrorInfo :: error_info()).
+      ErrorInfo :: erl_scan:error_info()).
 
 module(Forms, FileName, Opts0) ->
     %% We want the options given on the command line to take
@@ -595,12 +593,9 @@ add_warning(FileLine, W, St) ->
     add_warning({Location,erl_lint,W}, St#lint{file = File}).
 
 loc(L) ->
-    case erl_parse:get_attribute(L, location) of
-        {location,{{File,Line},Column}} ->
-            {File,{Line,Column}};
-        {location,{File,Line}} ->
-            {File,Line}
-    end.
+    {file,File} = erl_parse:get_attribute(L, file),
+    {location,Loc} = erl_parse:get_attribute(L, location),
+    {File,Loc}.
 
 %% forms([Form], State) -> State'
 
@@ -653,8 +648,8 @@ eval_file_attr([], _File) ->
     [].
 
 zip_file_and_line(T, File) ->
-    F0 = fun(Line) -> {File,Line} end,
-    F = fun(L) -> erl_parse:set_line(L, F0) end,
+    F0 = fun(_OldFile) -> File end,
+    F = fun(Attrs) -> erl_scan:set_attribute(file, Attrs, F0) end,
     modify_line(T, F).
 
 %% form(Form, State) -> State'
@@ -817,10 +812,16 @@ not_deprecated(Forms, St0) ->
 %% The nowarn_bif_clash directive is not only deprecated, it's actually an error from R14A
 disallowed_compile_flags(Forms, St0) ->
     %% There are (still) no line numbers in St0#lint.compile.
-    Errors0 =  [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
-		    {attribute,[{line,{_,L}}],compile,nowarn_bif_clash} <- Forms ],
-    Errors1 = [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
-		    {attribute,[{line,{_,L}}],compile,{nowarn_bif_clash, {_,_}}} <- Forms ],
+    Errors0 =  [ begin
+                     {location,Loc} = erl_scan:attributes_info(Attrs, location),
+                     {St0#lint.file,{Loc,erl_lint,disallowed_nowarn_bif_clash}}
+                 end ||
+		    {attribute,Attrs,compile,nowarn_bif_clash} <- Forms ],
+    Errors1 = [ begin
+                    {location,Loc} = erl_scan:attributes_info(Attrs, location),
+                    {St0#lint.file,{Loc,erl_lint,disallowed_nowarn_bif_clash}}
+                end ||
+		    {attribute,Attrs,compile,{nowarn_bif_clash, {_,_}}} <- Forms ],
     Disabled = (not is_warn_enabled(bif_clash, St0)),
     Errors = if
 		   Disabled andalso Errors0 =:= [] ->

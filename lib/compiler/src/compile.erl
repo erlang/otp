@@ -41,7 +41,7 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type err_info() :: {erl_scan:line(), module(), term()}. %% ErrorDescriptor
+-type err_info() :: erl_scan:error_info(). %% ErrorDescriptor
 -type errors()   :: [{file:filename(), [err_info()]}].
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}
@@ -773,7 +773,8 @@ parse_module(St) ->
     Opts = St#compile.options,
     Cwd = ".",
     IncludePath = [Cwd, St#compile.dir|inc_paths(Opts)],
-    R =  epp:parse_file(St#compile.ifile, IncludePath, pre_defs(Opts)),
+    AtPos = initial_position(Opts),
+    R =  epp:parse_file(St#compile.ifile, AtPos, IncludePath, pre_defs(Opts)),
     case R of
 	{ok,Forms} ->
 	    {ok,St#compile{code=Forms}};
@@ -1485,6 +1486,12 @@ objfile(Base, St) ->
 
 tmpfile(Ofile) ->
     reverse([$#|tl(reverse(Ofile))]).
+
+initial_position(Opts) ->
+    case lists:member(column, Opts) of
+        true -> {1, 1};
+        false -> 1
+    end.
 
 %% pre_defs(Options)
 %% inc_paths(Options)

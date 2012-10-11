@@ -170,14 +170,15 @@ mforms(Tag, L) ->
 no_duplicates(Forms, Errors, Warnings0, ExtraWarnings, Options) ->
     %% Some mistakes such as "{X} =:= {}" are found by strong
     %% validation as well as by qlc. Prefer the warnings from qlc:
-    Warnings1 = mforms(Warnings0) --
-        ([{File,[{L,v3_core,nomatch}]} ||
-             {File,[{L,qlc,M}]} <- mforms(ExtraWarnings),
-             lists:member(M, [nomatch_pattern,nomatch_filter])]
-         ++ 
-         [{File,[{L,sys_core_fold,nomatch_guard}]} ||
-             {File,[{L,qlc,M}]} <- mforms(ExtraWarnings),
-             M =:= nomatch_filter]),
+    EWs = mforms(ExtraWarnings),
+    NoMatchLines =
+        [{File,get_line(Loc)} ||
+            {File,[{Loc,qlc,M}]} <- EWs,
+            lists:member(M, [nomatch_pattern,nomatch_filter])],
+    NoMatchGuardLines =
+        [{File,get_line(Loc)} ||
+             {File,[{Loc,qlc,nomatch_filter}]} <- EWs],
+    Warnings1 = filter_dupes(Warnings0, NoMatchLines, NoMatchGuardLines),
     Warnings = Warnings1 ++ ExtraWarnings,
     {Es1,Ws1} = compile_forms(Forms, Options),
     Es = mforms(Errors) -- mforms(Es1),
@@ -194,6 +195,20 @@ mforms2(Tag, L) ->
                                    M <- Ms]
                        end, lists:sort(L)),
     lists:flatten(lists:sort(ML)).
+
+filter_dupes(Ws, NoMatchLines, NoMatchGuardLines) ->
+    lists:filter(
+        fun ({File,[{Loc,v3_core,nomatch}]}) ->
+                not lists:member({File,get_line(Loc)}, NoMatchLines);
+            ({File,[{Loc,sys_core_fold,nomatch_guard}]}) ->
+                not lists:member({File,get_line(Loc)}, NoMatchGuardLines);
+            (_) ->
+                true
+        end, Ws).
+
+get_line(Loc) ->
+    {line,Line} = erl_scan:attributes_info(Loc, line),
+    Line.
 
 is_qlc_q_imported(Forms) ->
     [[] || {attribute,_,import,{?APIMOD,FAs}} <- Forms, {?Q,1} <- FAs] =/= [].
@@ -626,12 +641,12 @@ join_kind(Qs, LcL, AllIVs, Dependencies, State) ->
     if 
         EqualColsN =/= []; MatchColsN =/= [] -> 
             {[], 
-             [{get(?QLC_FILE),[{abs(LcL),?APIMOD,too_complex_join}]}]};
+             [{get(?QLC_FILE),[{abs_loc(LcL),?APIMOD,too_complex_join}]}]};
         EqualCols2 =:= [], MatchCols2 =:= [] ->
             {[], []};
         length(Tables) > 2 -> 
             {[], 
-             [{get(?QLC_FILE),[{abs(LcL),?APIMOD,too_many_joins}]}]};
+             [{get(?QLC_FILE),[{abs_loc(LcL),?APIMOD,too_many_joins}]}]};
         EqualCols2 =:= MatchCols2 ->
             {EqualCols2, []};
         true -> 
@@ -2679,9 +2694,14 @@ get_lcid_no(IdAttrs) ->
     {line,Id} = erl_parse:get_attribute(IdAttrs, line),
     abs(Id) bsr ?MAX_NUM_OF_LINES.    
 
+
 get_lcid_line(IdAttrs) ->
-    {line,Id} = erl_parse:get_attribute(IdAttrs, line),
-    sgn(Id) * (abs(Id) band ((1 bsl ?MAX_NUM_OF_LINES) - 1)).
+    {location,Loc} = erl_parse:get_attribute(IdAttrs, location),
+    erl_parse:set_line(
+        Loc,
+        fun (Id) ->
+            sgn(Id) * (abs(Id) band ((1 bsl ?MAX_NUM_OF_LINES) - 1))
+        end).
 
 sgn(X) when X >= 0 ->
     1;

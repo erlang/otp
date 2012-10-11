@@ -58,12 +58,6 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="error_description"></name>
-    </datatype>
-    <datatype>
-      <name name="error_info"></name>
-    </datatype>
-    <datatype>
       <name name="token"></name>
     </datatype>
   </datatypes>
@@ -130,14 +124,16 @@
       <fsummary>Format an error descriptor</fsummary>
       <type>
         <v>ErrorDescriptor = <seealso
-          marker="#type-error_info">error_description()</seealso></v>
+          marker="erl_scan#type-error_description">erl_scan:error_description()</seealso></v>
         <v>Chars = [char() | Chars]</v>
       </type>
       <desc>
         <p>Uses an <c>ErrorDescriptor</c> and returns a string
           which describes the error. This function is usually called
           implicitly when an <c>ErrorInfo</c> structure is processed
-          (see below).</p>
+          (see
+          <seealso marker="erl_scan#error_information">erl_scan(3)</seealso>).
+        </p>
       </desc>
     </func>
     <func>
@@ -170,20 +166,6 @@
       </desc>
     </func>
   </funcs>
-
-  <section>
-    <title>Error Information</title>
-    <p>The <c>ErrorInfo</c> mentioned above is the standard
-      <c>ErrorInfo</c> structure which is returned from all IO
-      modules. It has the format:
-      </p>
-    <code type="none">
-    {ErrorLine, Module, ErrorDescriptor}    </code>
-    <p>A string which describes the error is obtained with the following call:
-      </p>
-    <code type="none">
-    Module:format_error(ErrorDescriptor)    </code>
-  </section>
 
   <section>
     <title>See Also</title>

@@ -284,6 +284,9 @@
             column()</seealso>}</c></tag>
           <item><p>The column where the token begins.</p>
           </item>
+          <tag><c>{file, string()}</c></tag>
+          <item><p>The file in which the token is.</p>
+          </item>
           <tag><c>{length, integer() > 0}</c></tag>
           <item><p>The length of the token's text.</p>
           </item>
@@ -351,6 +354,9 @@
             column()</seealso>}</c></tag>
           <item><p>The column where the token begins.</p>
           </item>
+          <tag><c>{file, string()}</c></tag>
+          <item><p>The file in which the token is.</p>
+          </item>
           <tag><c>{length, integer() > 0}</c></tag>
           <item><p>The length of the token's text.</p>
           </item>
@@ -373,11 +379,14 @@
       <name name="set_attribute" arity="3"/>
       <fsummary>Set a token attribute value</fsummary>
       <desc>
-        <p>Sets the value of the <c>line</c> attribute of the token
-          attributes <c><anno>Attributes</anno></c>.</p>
+        <p>Sets the value of the <c>line</c> or <c>file</c> attribute of the
+          token attributes <c><anno>Attributes</anno></c>.</p>
         <p>The <c><anno>SetAttributeFun</anno></c> is called with the value of
-          the <c>line</c> attribute, and is to return the new value of
-          the <c>line</c> attribute.</p>
+          the <c>line</c> or <c>file</c> attribute, and is to return its new
+          value.</p>
+        <p>When setting the value of the <c>file</c> attribute,
+          <c><anno>SetAttributeFun</anno></c> may be given or return
+          <c>undefined</c> as an absence of value.</p>
       </desc>
     </func>
     <func>
@@ -394,6 +403,7 @@
   </funcs>
 
   <section>
+    <marker id="error_information"/>
     <title>Error Information</title>
     <p>The <c>ErrorInfo</c> mentioned above is the standard
       <c>ErrorInfo</c> structure which is returned from all IO

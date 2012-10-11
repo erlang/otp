@@ -718,10 +718,10 @@ transform_head([V],OuterBound) ->
     th(NewV,NewBind,OuterBound).
 
 
-toplevel_head_match({match,Line,{var,_,VName},Expr},B,OB) ->
+toplevel_head_match({match,_,{var,Line,VName},Expr},B,OB) ->
     warn_var_clash(Line,VName,OB),
     {Expr,new_bind({VName,'$_'},B)};
-toplevel_head_match({match,Line,Expr,{var,_,VName}},B,OB) ->
+toplevel_head_match({match,_,Expr,{var,Line,VName}},B,OB) ->
     warn_var_clash(Line,VName,OB),
     {Expr,new_bind({VName,'$_'},B)};
 toplevel_head_match(Other,B,_OB) ->
