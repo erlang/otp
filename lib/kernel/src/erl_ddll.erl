@@ -54,9 +54,7 @@ info(_, _) ->
     erlang:nif_error(undef).
 
 -spec format_error_int(ErrSpec) -> string() when
-      ErrSpec :: inconsisten | linked_in_driver | permanent
-               | not_loaded | not_loaded_by_this_process | not_pending
-               | already_loaded | unloading.
+      ErrSpec :: term().
 
 format_error_int(_) ->
     erlang:nif_error(undef).
