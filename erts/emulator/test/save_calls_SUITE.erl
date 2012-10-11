@@ -21,8 +21,10 @@
 
 -include_lib("test_server/include/test_server.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2]).
+-export([all/0, suite/0,groups/0,
+	 init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+	 init_per_testcase/2,end_per_testcase/2]).
 
 -export([save_calls_1/1,dont_break_reductions/1]).
 
@@ -48,6 +50,27 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
+init_per_testcase(dont_break_reductions,Config) ->
+    %% Skip on --enable-native-libs as hipe rescedules after each
+    %% function call.
+    case erlang:system_info(hipe_architecture) of
+	undefined ->
+	    Config;
+	Architecture ->
+	    {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
+	    ChunkName = hipe_unified_loader:chunk_name(Architecture),
+	    NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
+	    case NativeChunk of
+		{ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
+		    {skip,"Does not work for --enable-native-libs"};
+		{error, beam_lib, _} -> Config
+	    end
+    end;
+init_per_testcase(_,Config) ->
+    Config.
+
+end_per_testcase(_,_Config) ->
+    ok.
 
 dont_break_reductions(suite) ->
     [];
