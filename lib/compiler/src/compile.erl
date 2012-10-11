@@ -1247,9 +1247,16 @@ beam_asm(#compile{ifile=File,code=Code0,
 			 (Other) -> Other
 		      end, Opts0),
     Opts2 = [O || O <- Opts1, effects_code_generation(O)],
-    case beam_asm:module(Code0, Abst, Source, Opts2) of
-	{ok,Code} -> {ok,St#compile{code=Code,abstract_code=[]}}
-    end.
+
+    %% Turn off native code generation if on_load is used.
+    {_Mod,_Exp,Attr,_Asm,_NumLabels} = Code0,
+    NewOpts = case proplists:get_value(on_load, Attr) of
+		  undefined -> Opts0;
+		  [{_,_}] -> Opts0 -- [native]
+	      end,
+
+    {ok,Code} = beam_asm:module(Code0, Abst, Source, Opts2),
+    {ok,St#compile{code=Code,abstract_code=[],options=NewOpts}}.
 
 test_native(#compile{options=Opts}) ->
     %% This test is done late, in case some other option has turned off native.

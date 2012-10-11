@@ -158,8 +158,15 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 ?comp(otp_6121b).
 ?comp(convopts).
 ?comp(otp_7202).
-?comp(on_load).
 ?comp(on_load_inline).
+
+on_load(Config) when is_list(Config) ->
+    case test_server:is_native(?MODULE) of
+	false ->
+	    try_it(on_load, Config);
+	true ->
+	    {skip,"Native code causes crash"}
+    end.
 
 beam_compiler_7(doc) ->
     "Code snippet submitted from Ulf Wiger which fails in R3 Beam.";
@@ -412,7 +419,11 @@ self_compile(Config) when is_list(Config) ->
 self_compile_old_inliner(Config) when is_list(Config) ->
     %% The old inliner is useful for testing that sys_core_fold does not
     %% introduce name capture problems.
-    self_compile_1(Config, "old", [verbose,{inline,500}]).
+    HowMuch = case test_server:is_native(?MODULE) of
+		  true -> 100;
+		  false -> 500
+	      end,
+    self_compile_1(Config, "old", [verbose,{inline,HowMuch}]).
 
 self_compile_1(Config, Prefix, Opts) ->
     ?line Dog = test_server:timetrap(test_server:minutes(40)),
