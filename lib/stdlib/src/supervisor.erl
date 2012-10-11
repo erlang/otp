@@ -297,7 +297,8 @@ start_children([Child|Chs], NChildren, SupName) ->
 	    start_children(Chs, [Child#child{pid = Pid}|NChildren], SupName);
 	{error, Reason} ->
 	    report_error(start_error, Reason, Child, SupName),
-	    {error, lists:reverse(Chs) ++ [Child | NChildren], Reason}
+	    {error, lists:reverse(Chs) ++ [Child | NChildren],
+	     {failed_to_start_child,Child#child.name,Reason}}
     end;
 start_children([], NChildren, _SupName) ->
     {ok, NChildren}.

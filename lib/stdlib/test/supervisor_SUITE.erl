@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -671,17 +671,24 @@ faulty_application_shutdown(Config) when is_list(Config) ->
     %% Start faulty app
     code:add_patha(EbinDir),
 
-    % {error,
-    %   {{shutdown,
-    %     {undef,[
-    %       {an_undefined_module_with,an_undefined_function,[argument1,argument2],[]},
-    %       {app_faulty_server,init,1,[{file,"app_faulty/src/app_faulty_server.erl"},{line,16}]},
-    %       {gen_server,init_it,6,[{file,"gen_server.erl"},{line,304}]},
-    %       {proc_lib,init_p_do_apply,3,[{file,"proc_lib.erl"},{line,227}]}
-    %   ]}},{app_faulty,start,[normal,[]]}}}
+    %% {error,
+    %%  {{shutdown,
+    %%    {failed_to_start_child,
+    %% 	app_faulty,
+    %% 	{undef,
+    %% 	 [{an_undefined_module_with,an_undefined_function,[argument1,argument2],
+    %% 	   []},
+    %% 	  {app_faulty_server,init,1,
+    %% 	   [{file,"app_faulty/src/app_faulty_server.erl"},{line,16}]},
+    %% 	  {gen_server,init_it,6,
+    %% 	   [{file,"gen_server.erl"},{line,304}]},
+    %% 	  {proc_lib,init_p_do_apply,3,
+    %% 	   [{file,"proc_lib.erl"},{line,227}]}]}}},
+    %%   {app_faulty,start,[normal,[]]}}}
 
     {error, Error} = application:start(app_faulty),
-    {{shutdown, {undef, CallStack}},{app_faulty,start,_}} = Error,
+    {{shutdown, {failed_to_start_child,app_faulty,{undef, CallStack}}},
+     {app_faulty,start,_}} = Error,
     [{an_undefined_module_with,an_undefined_function,_,_}|_] = CallStack,
     ok = application:unload(app_faulty),
     ok.
