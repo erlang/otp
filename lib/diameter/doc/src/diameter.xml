@@ -512,6 +512,17 @@ following types.</p>
 
 <taglist>
 
+<tag><c>start</c></tag>
+<tag><c>stop</c></tag>
+
+<item>
+<p>
+The service is being started or stopped.
+No event precedes a <c>start</c> event.
+No event follows a <c>stop</c> event and this event
+implies the termination of all transport processes.</p>
+</item>
+
 <tag><c>{up, Ref, Peer, Config, Pkt}</c></tag>
 <tag><c>{up, Ref, Peer, Config}</c></tag>
 <tag><c>{down, Ref, Peer, Config}</c></tag>

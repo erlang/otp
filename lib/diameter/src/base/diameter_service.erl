@@ -681,6 +681,7 @@ upgrade_insert(#state{service = #diameter_service{pid = Pid}} = S) ->
 %%% ---------------------------------------------------------------------------
 
 terminate(Reason, #state{service_name = Name} = S) ->
+    send_event(Name, stop),
     ets:delete(?STATE_TABLE, Name),
     shutdown == Reason  %% application shutdown
         andalso shutdown(S).
@@ -857,6 +858,7 @@ i(SvcName) ->
     lists:foreach(fun(T) -> start_fsm(T,S) end, CL),
 
     init_shared(S),
+    send_event(SvcName, start),
     S.
 
 cfg_acc({SvcName, #diameter_service{applications = Apps} = Rec, Opts},
