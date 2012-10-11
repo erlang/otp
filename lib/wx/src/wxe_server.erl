@@ -29,7 +29,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start/0, stop/0, register_me/1, set_debug/2, invoke_callback/1]).
+-export([start/1, stop/0, register_me/1, set_debug/2, invoke_callback/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -49,13 +49,13 @@
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: start() -> #wx_env{}
+%% Function: start(SilentStart) -> #wx_env{}
 %% Description: Starts the server
 %%--------------------------------------------------------------------
-start() ->
+start(SilentStart) ->
     case get(?WXE_IDENTIFIER) of
 	undefined ->
-	    case gen_server:start(?MODULE, [], []) of
+	    case gen_server:start(?MODULE, [SilentStart], []) of
 		{ok, Pid}  ->
 		    {ok, Port} = gen_server:call(Pid, get_port, infinity),
 		    wx:set_env(Env = #wx_env{port=Port,sv=Pid}),
@@ -69,7 +69,7 @@ start() ->
 		    Env;
 		false ->  %% Ok we got an old wx env, someone forgot
 		    erase(?WXE_IDENTIFIER),  %% to call wx:destroy()
-		    start()
+		    start(SilentStart)
 	    end
     end.
 
@@ -88,8 +88,8 @@ set_debug(Pid, Level) ->
 %% gen_server callbacks
 %%====================================================================
 
-init([]) ->
-    {Port,CBPort} = wxe_master:init_port(),
+init([SilentStart]) ->
+    {Port,CBPort} = wxe_master:init_port(SilentStart),
     put(?WXE_IDENTIFIER, #wx_env{port=Port,sv=self()}),
     {ok,#state{port=Port, cb_port=CBPort,
 	       users=gb_trees:empty(), cb=gb_trees:empty(), cb_cnt=1}}.
