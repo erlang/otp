@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+
+<!--
+#
+# %CopyrightBegin%
+#
+# Copyright Ericsson AB 2012. All Rights Reserved.
+#
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+#
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+#
+# %CopyrightEnd%
+-->
+
+<!-- diameter -->
+
+<!ENTITY add_transport
+  '<seealso marker="#add_transport">add_transport/2</seealso>'>
+<!ENTITY call
+  '<seealso marker="#call">call/4</seealso>'>
+<!ENTITY origin_state_id
+  '<seealso marker="#origin_state_id">origin_state_id/0</seealso>'>
+<!ENTITY remove_transport
+  '<seealso marker="#remove_transport">remove_transport/2</seealso>'>
+<!ENTITY service_info
+  '<seealso marker="#service_info">service_info/2</seealso>'>
+<!ENTITY services
+  '<seealso marker="#services">services/0</seealso>'>
+<!ENTITY start_service
+  '<seealso marker="#start_service">diameter:start_service/2</seealso>'>
+<!ENTITY stop_service
+ '<seealso marker="#stop_service">stop_service/1</seealso>'>
+<!ENTITY subscribe
+ '<seealso marker="#subscribe">subscribe/1</seealso>'>
+
+<!ENTITY application_alias
+ '<seealso marker="#application_alias">application_alias()</seealso>'>
+<!ENTITY application_module
+ '<seealso marker="#application_module">application_module()</seealso>'>
+<!ENTITY application_opt
+ '<seealso marker="#application_opt">application_opt()</seealso>'>
+<!ENTITY call_opt
+ '<seealso marker="#call_opt">call_opt()</seealso>'>
+<!ENTITY capability
+ '<seealso marker="#capability">capability()</seealso>'>
+<!ENTITY evaluable
+ '<seealso marker="#evaluable">evaluable()</seealso>'>
+<!ENTITY peer_filter
+ '<seealso marker="#peer_filter">peer_filter()</seealso>'>
+<!ENTITY service_event
+ '<seealso marker="#service_event">service_event()</seealso>'>
+<!ENTITY service_name
+ '<seealso marker="#service_name">service_name()</seealso>'>
+<!ENTITY service_opt
+ '<seealso marker="#service_opt">service_opt()</seealso>'>
+<!ENTITY transport_opt
+ '<seealso marker="#transport_opt">transport_opt()</seealso>'>
+<!ENTITY transport_ref
+ '<seealso marker="#transport_ref">transport_ref()</seealso>'>
+
+<!ENTITY application
+ '<seealso marker="#application">application</seealso>'>
+<!ENTITY capabilities_cb
+ '<seealso marker="#capabilities_cb">capabilities_cb</seealso>'>
+<!ENTITY capx_timeout
+ '<seealso marker="#capx_timeout">capx_timeout</seealso>'>
+<!ENTITY disconnect_cb
+ '<seealso marker="#disconnect_cb">disconnect_cb</seealso>'>
+<!ENTITY transport_config
+ '<seealso marker="#transport_config">transport_config</seealso>'>
+<!ENTITY transport_module
+ '<seealso marker="#transport_module">transport_module</seealso>'>
+<!ENTITY reconnect_timer
+ '<seealso marker="#reconnect_timer">reconnect_timer</seealso>'>
+<!ENTITY watchdog_timer
+ '<seealso marker="#watchdog_timer">watchdog_timer</seealso>'>
+
+<!ENTITY mod_add_transport
+  '<seealso marker="diameter#add_transport">diameter:add_transport/2</seealso>'>
+<!ENTITY mod_call
+  '<seealso marker="diameter#call">diameter:call/4</seealso>'>
+<!ENTITY mod_remove_transport
+ '<seealso marker="diameter#remove_transport">diameter:remove_transport/2</seealso>'>
+<!ENTITY mod_start_service
+ '<seealso marker="diameter#start_service">diameter:start_service/2</seealso>'>
+
+<!ENTITY mod_call_opt
+ '<seealso marker="diameter#call_opt">diameter:call_opt()</seealso>'>
+<!ENTITY mod_application_opt
+ '<seealso marker="diameter#application_opt">diameter:application_opt()</seealso>'>
+<!ENTITY mod_evaluable
+ '<seealso marker="diameter#evaluable">diameter:evaluable()</seealso>'>
+<!ENTITY mod_service_name
+ '<seealso marker="diameter#service_name">diameter:service_name()</seealso>'>
+<!ENTITY mod_transport_opt
+ '<seealso marker="diameter#transport_opt">diameter:transport_opt()</seealso>'>
+<!ENTITY mod_transport_ref
+ '<seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso>'>
+
+<!-- diameter_app -->
+
+<!ENTITY handle_answer
+ '<seealso marker="#handle_answer">handle_answer/4</seealso>'>
+<!ENTITY handle_request
+ '<seealso marker="#handle_request">handle_request/3</seealso>'>
+<!ENTITY handle_error
+ '<seealso marker="#handle_error">handle_error/4</seealso>'>
+<!ENTITY peer_down
+ '<seealso marker="#peer_down">peer_down/3</seealso>'>
+<!ENTITY peer_up
+ '<seealso marker="#peer_up">peer_up/3</seealso>'>
+<!ENTITY pick_peer
+ '<seealso marker="#pick_peer">pick_peer/4</seealso>'>
+<!ENTITY prepare_retransmit
+ '<seealso marker="#prepare_retransmit">prepare_retransmit/3</seealso>'>
+<!ENTITY prepare_request
+ '<seealso marker="#prepare_request">prepare_request/3</seealso>'>
+
+<!ENTITY capabilities
+ '<seealso marker="#capabilities">capabilities()</seealso>'>
+<!ENTITY message
+ '<seealso marker="#message">message()</seealso>'>
+<!ENTITY packet
+ '<seealso marker="#packet">packet()</seealso>'>
+<!ENTITY peer
+ '<seealso marker="#peer">peer()</seealso>'>
+<!ENTITY peer_ref
+ '<seealso marker="#peer_ref">peer_ref()</seealso>'>
+<!ENTITY state
+ '<seealso marker="#state">state()</seealso>'>
+
+<!ENTITY app_handle_answer
+ '<seealso marker="diameter_app#handle_answer">handle_answer/4</seealso>'>
+<!ENTITY app_handle_request
+ '<seealso marker="diameter_app#handle_request">handle_request/3</seealso>'>
+<!ENTITY app_handle_error
+ '<seealso marker="diameter_app#handle_error">handle_error/4</seealso>'>
+<!ENTITY app_peer_up
+ '<seealso marker="diameter_app#peer_up">peer_up/3</seealso>'>
+<!ENTITY app_pick_peer
+ '<seealso marker="diameter_app#pick_peer">pick_peer/4</seealso>'>
+<!ENTITY app_prepare_retransmit
+ '<seealso marker="diameter_app#prepare_retransmit">prepare_retransmit/3</seealso>'>
+<!ENTITY app_prepare_request
+ '<seealso marker="diameter_app#prepare_request">prepare_request/3</seealso>'>
+
+<!ENTITY app_message
+ '<seealso marker="diameter_app#message">diameter_app:message()</seealso>'>
+<!ENTITY app_peer
+ '<seealso marker="diameter_app#peer">diameter_app:peer()</seealso>'>
+<!ENTITY app_peer_ref
+ '<seealso marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso>'>
+
+<!-- diameter_dict -->
+
+<!ENTITY dict_data_types
+ '<seealso marker="diameter_dict#DATA_TYPES">diameter_dict(4)</seealso>'>
+
+<!ENTITY dict_Address
+ '<seealso marker="diameter_dict#DATA_TYPES">Address()</seealso>'>
+<!ENTITY dict_DiameterIdentity
+ '<seealso marker="diameter_dict#DATA_TYPES">DiameterIdentity()</seealso>'>
+<!ENTITY dict_Grouped
+ '<seealso marker="diameter_dict#DATA_TYPES">Grouped()</seealso>'>
+<!ENTITY dict_OctetString
+ '<seealso marker="diameter_dict#DATA_TYPES">OctetString()</seealso>'>
+<!ENTITY dict_Time
+ '<seealso marker="diameter_dict#DATA_TYPES">Time()</seealso>'>
+<!ENTITY dict_UTF8String
+ '<seealso marker="diameter_dict#DATA_TYPES">UTF8String()</seealso>'>
+<!ENTITY dict_Unsigned32
+ '<seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>'>
+
+<!-- diameter_transport -->
+
+<!ENTITY transport_start
+ '<seealso marker="diameter_transport#start">start/3</seealso>'>
+
+<!-- reference pages -->
+
+<!ENTITY man_compile '<seealso marker="diameterc">diameterc(1)</seealso>'>
+<!ENTITY man_main '<seealso marker="diameter">diameter(3)</seealso>'>
+<!ENTITY man_app '<seealso marker="diameter_app">diameter_app(3)</seealso>'>
+<!ENTITY man_dict '<seealso marker="diameter_dict">diameter_dict(4)</seealso>'>
+<!ENTITY man_transport
+   '<seealso marker="diameter_transport">diameter_transport(3)</seealso>'>
+<!ENTITY man_sctp '<seealso marker="diameter_sctp">diameter_sctp(3)</seealso>'>
+<!ENTITY man_tcp  '<seealso marker="diameter_tcp">diameter_tcp(3)</seealso>'>

@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2011. All Rights Reserved.
+# Copyright Ericsson AB 2010-2012. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -16,6 +16,9 @@
 # under the License.
 #
 # %CopyrightEnd%
+
+XML_ENTITY_FILES = \
+	diameter.ent
 
 XML_APPLICATION_FILES = \
 	ref_man.xml
