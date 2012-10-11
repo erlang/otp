@@ -509,8 +509,8 @@ snmpTargetAddrExtTable(set, RowIndex, Cols0) ->
     case (catch verify_snmpTargetAddrExtTable_cols(Cols0, [])) of
 	{ok, Cols} ->
 	    NCols = conv3(Cols),
-	    snmp_generic:table_func(set, RowIndex, NCols, 
-				    db(snmpTargetAddrExtTable));
+	    conv4(snmp_generic:table_func(set, RowIndex, NCols,
+                db(snmpTargetAddrExtTable)));
 	Error ->
 	    Error
     end;
@@ -518,8 +518,8 @@ snmpTargetAddrExtTable(is_set_ok, RowIndex, Cols0) ->
     case (catch verify_snmpTargetAddrExtTable_cols(Cols0, [])) of
 	{ok, Cols} ->
 	    NCols = conv3(Cols),
-	    snmp_generic:table_func(is_set_ok, RowIndex, NCols, 
-				    db(snmpTargetAddrExtTable));
+	    conv4(snmp_generic:table_func(is_set_ok, RowIndex, NCols,
+                db(snmpTargetAddrExtTable)));
 	Error ->
 	    Error
     end.
@@ -581,6 +581,10 @@ conv2(X) -> X.
 
 conv3([{Idx, Val}|T]) -> [{Idx+10, Val} | conv3(T)];
 conv3([]) -> [].
+
+
+conv4({ErrAtom, ErrIdx}) -> {ErrAtom, ErrIdx - 10};
+conv4(X) -> X.
 
 
 get(Name, RowIndex, Cols) ->
