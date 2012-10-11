@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -28,7 +28,7 @@
 	 crash/1, sync_start_nolink/1, sync_start_link/1,
          spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1,
 	 hibernate/1]).
--export([ otp_6345/1]).
+-export([ otp_6345/1, init_dont_hang/1]).
 
 -export([hib_loop/1, awaken/1]).
 
@@ -36,7 +36,7 @@
 	 handle_event/2, handle_call/2, handle_info/2,
 	 terminate/2]).
 
--export([otp_6345_init/1]).
+-export([otp_6345_init/1, init_dont_hang_init/1]).
 
 
 -ifdef(STANDALONE).
@@ -52,7 +52,7 @@ all() ->
      {group, tickets}].
 
 groups() -> 
-    [{tickets, [], [otp_6345]},
+    [{tickets, [], [otp_6345, init_dont_hang]},
      {sync_start, [], [sync_start_nolink, sync_start_link]}].
 
 init_per_suite(Config) ->
@@ -342,6 +342,29 @@ otp_6345_loop() ->
 	_Msg ->
 	    otp_6345_loop()
     end.
+
+%% OTP-9803
+init_dont_hang(suite) ->
+    [];
+init_dont_hang(doc) ->
+    ["Check that proc_lib:start don't hang if spawned process crashes before proc_lib:init_ack/2"];
+init_dont_hang(Config) when is_list(Config) ->
+    %% Start should behave as start_link
+    process_flag(trap_exit, true),
+    StartLinkRes = proc_lib:start_link(?MODULE, init_dont_hang_init, [self()]),
+    try
+	StartLinkRes = proc_lib:start(?MODULE, init_dont_hang_init, [self()], 1000),
+	StartLinkRes = proc_lib:start(?MODULE, init_dont_hang_init, [self()], 1000, []),
+	ok
+    catch _:Error ->
+	    io:format("Error ~p /= ~p ~n",[erlang:get_stacktrace(), StartLinkRes]),
+	    exit(Error)
+    end.
+
+init_dont_hang_init(Parent) ->
+    1 = 2.
+
+
 
 %%-----------------------------------------------------------------
 %% The error_logger handler used.
