@@ -5248,7 +5248,10 @@ Port *erts_get_heart_port() {
 
     for(ix = 0; ix < erts_max_ports; ix++) {
 	port = &erts_port[ix];
-	/* immediate compare */
+	/* only examine undead or alive ports */
+	if (port->status & ERTS_PORT_SFLGS_DEAD)
+	    continue;
+	/* immediate atom compare */
 	if (port->reg && port->reg->name == am_heart_port) {
 	    return port;
 	}
