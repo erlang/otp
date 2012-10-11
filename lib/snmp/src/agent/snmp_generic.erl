@@ -640,11 +640,12 @@ collect_keys([#asn1_type{lo = X, hi = X} | _Indexes], Keys)
 %% Otherwise, its a dynamic-length type => its a list
 %% OBJECT IDENTIFIER, OCTET STRING or BITS (or derivatives)
 %% Check if it is IMPLIED (only last element can be IMPLIED)
-collect_keys([#asn1_type{implied = true}], Keys) ->
-    [Keys];
-collect_keys([_Type | Indexes], [Length | Keys]) when length(Keys) >= Length ->
+%% and also check lo/hi constraints...
+collect_keys([#asn1_type{implied = true} = Type], Keys) ->
+    [collect_check_length(Type, Keys)];
+collect_keys([Type | Indexes], [Length | Keys]) when length(Keys) >= Length ->
     {StrKey, Rest} = collect_length(Length, Keys, []),
-    [StrKey | collect_keys(Indexes, Rest)];
+    [collect_check_length(Type, StrKey) | collect_keys(Indexes, Rest)];
 collect_keys([_Type | _Indexes], [Length | Keys]) ->
     exit({error, {size_mismatch, Length, Keys}});
 collect_keys([], []) -> [];
@@ -656,6 +657,17 @@ collect_length(0, Rest, Rts) ->
     {lists:reverse(Rts), Rest};
 collect_length(N, [El | Rest], Rts) ->
     collect_length(N-1, Rest, [El | Rts]).
+
+collect_check_length(#asn1_type{lo = Lo, hi = Hi}, ListVal) ->
+    Length = length(ListVal),
+    if
+        is_integer(Lo) andalso Length < Lo ->
+            exit({error, {size_mismatch, Lo, ListVal}});
+        is_integer(Hi) andalso Length > Hi ->
+            exit({error, {size_mismatch, Hi, ListVal}});
+        true ->
+            ListVal
+    end.
 
 %%------------------------------------------------------------------
 %% Checks if a certain row exists.
