@@ -734,6 +734,7 @@ validate_is_set_ok(Error, _RowIndex, _Cols) ->
 
 do_validate_is_set_ok(RowIndex, Cols) ->
     NCols = validate_clone_from(RowIndex, Cols),
+    validate_storage_type(RowIndex, NCols),
     validate_auth_protocol(RowIndex, NCols),
     validate_auth_key_change(RowIndex, NCols),
     validate_own_auth_key_change(RowIndex, NCols),
@@ -778,7 +779,7 @@ validate_set(Error, _RowIndex, _Cols) ->
 %%-----------------------------------------------------------------
 %% Here's the alg: If this is the first time the CloneFrom is written,
 %% we must check that the CloneFrom row exists, so we can invoke the
-%% clone process in the set phase.  Otherwise, the set succed, with
+%% clone process in the set phase.  Otherwise, the set succeeds, with
 %% no further checks.
 %%-----------------------------------------------------------------
 validate_clone_from(RowIndex, Cols) ->
@@ -835,6 +836,29 @@ no_cloning(Cols0) ->
     Cols1 = key1delete(?usmUserCloneFrom, Cols0),
     key1delete(?is_cloning, Cols1).
 
+
+% the storage type *MUST NOT* be readOnly if authentication
+% or privacy is enabled for the user (because the user must
+% be able to change his/her password(s)).
+validate_storage_type(RowIndex, Cols) ->
+    case proplists:get_value(?usmUserStorageType, Cols) of
+        ?usmUserStorageType_readOnly ->
+            % check whether authentication or privacy are in use.
+            % we only need to check usmUserAuthProtocol because
+            % privacy can never be enabled when authentication is
+            % disabled. That is already checked by a different
+            % function.
+            case get_auth_proto(RowIndex, Cols) of
+                ?usmNoAuthProtocol ->
+                    ok;
+                _OtherAuthProto ->
+                    inconsistentValue(?usmUserStorageType)
+            end;
+        _Else ->
+            % either the new value is not readOnly, or the storage
+            % type is not going to be changed.
+            ok
+    end.
 
 validate_auth_protocol(RowIndex, Cols) ->
     case key1search(?usmUserAuthProtocol, Cols) of
