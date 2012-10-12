@@ -22,7 +22,7 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, start/1, restart/1, 
-	 reboot/1, set_cmd/1, clear_cmd/1, get_cmd/1,
+	 reboot/1, node_start_immediately_after_crash/1, set_cmd/1, clear_cmd/1, get_cmd/1,
 	 dont_drop/1, kill_pid/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -57,8 +57,12 @@ end_per_testcase(_Func, Config) ->
 %%-----------------------------------------------------------------
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [start, restart, reboot, set_cmd, clear_cmd, get_cmd, kill_pid].
+all() -> [
+	start, restart, reboot,
+	node_start_immediately_after_crash,
+	set_cmd, clear_cmd, get_cmd,
+	kill_pid
+    ].
 
 groups() -> 
     [].
@@ -80,10 +84,15 @@ init_per_suite(Config) when is_list(Config) ->
 end_per_suite(Config) when is_list(Config) ->
     Config.
 
+
 start_check(Type, Name) ->
+    start_check(Type, Name, []).
+start_check(Type, Name, Envs) ->
     Args = case ?t:os_type() of
-	{win32,_} -> "-heart -env HEART_COMMAND no_reboot";
-	_ -> "-heart"
+	{win32,_} -> 
+	    "-heart " ++ env_encode([{"HEART_COMMAND", no_reboot}|Envs]);
+	_ ->
+	    "-heart " ++ env_encode(Envs)
     end,
     {ok, Node} = case Type of
 	loose ->
@@ -123,6 +132,10 @@ start(Config) when is_list(Config) ->
 %% Slave executes erlang:halt() on master nodedown.
 %% Therefore the slave process has to be killed
 %% before restart.
+
+%% restart
+%% Purpose:
+%%   Check that a node is up and running after a init:restart/0
 restart(doc) -> [];
 restart(suite) -> 
    case ?t:os_type() of
@@ -141,23 +154,12 @@ restart(Config) when is_list(Config) ->
 	    test_server:fail(node_not_closed)
     end,
     test_server:sleep(5000),
-
-    case net_adm:ping(Node) of
-	pong ->
-	    erlang:monitor_node(Node, true),
-	    rpc:call(Node, init, stop, []),
-	    receive
-		{nodedown, Node} ->
-		    ok
-	    after 2000 ->
-		    test_server:fail(node_not_closed2)
-	    end,
-	    ok;
-	_ ->
-	    test_server:fail(node_not_restarted)
-    end,
+    node_check_up_down(Node, 2000),
     loose_node:stop(Node).
 
+%% reboot
+%% Purpose:
+%%   Check that a node is up and running after a init:reboot/0
 reboot(doc) -> [];
 reboot(suite) -> {req, [{time, 10}]};
 reboot(Config) when is_list(Config) ->
@@ -174,21 +176,56 @@ reboot(Config) when is_list(Config) ->
 	    test_server:fail(node_not_closed)
     end,
     test_server:sleep(5000),
+    node_check_up_down(Node, 2000),
+    ok.
+
+%% node_start_immediately_after_crash
+%% Purpose:
+%%   Check that a node is up and running after a crash.
+%%   This test exhausts the atom table on the remote node.
+%%   ERL_CRASH_DUMP_SECONDS=0 will force beam not to dump an erl_crash.dump.
+node_start_immediately_after_crash(suite) -> {req, [{time, 10}]};
+node_start_immediately_after_crash(Config) when is_list(Config) ->
+    {ok, Node} = start_check(slave, heart_test, [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
+
+    ok = rpc:call(Node, heart, set_cmd,
+	[atom_to_list(lib:progname()) ++
+	    " -noshell -heart " ++ name(Node) ++ "&"]),
+
+    Mod  = exhaust_atoms,
+
+    Code = generate(Mod, [], [
+	    "do() -> " ++
+	    "  Set = lists:seq($a,$z), " ++
+	    "  [ list_to_atom([A,B,C,D,E]) || " ++
+	    "  A <- Set, B <- Set, C <- Set, E <- Set, D <- Set ]."
+	]),
+
+    %% crash it with atom exhaustion
+    rpc:call(Node, erlang, load_module, [Mod, Code]),
+    rpc:cast(Node, Mod, do, []),
+
+
+    receive {nodedown, Node} -> ok
+    after 2000 -> test_server:fail(node_not_closed)
+    end,
+    test_server:sleep(5000),
+    node_check_up_down(Node, 2000),
+    ok.
+
+node_check_up_down(Node, Tmo) ->
     case net_adm:ping(Node) of
 	pong ->
 	    erlang:monitor_node(Node, true),
 	    rpc:call(Node, init, reboot, []),
 	    receive
-		{nodedown, Node} ->
-		    ok
-	    after 2000 ->
+		{nodedown, Node} -> ok
+	    after Tmo ->
 		    test_server:fail(node_not_closed2)
-	    end,
-	    ok;
+	    end;
 	_ ->
 	    test_server:fail(node_not_rebooted)
-    end,
-    ok.
+    end.
 
 %% Only tests bad command, correct behaviour is tested in reboot/1.
 set_cmd(suite) -> [];
@@ -272,8 +309,7 @@ dont_drop(Config) when is_list(Config) ->
 	    ok
     end.
 
-do_dont_drop(_,0) ->
-    [];
+do_dont_drop(_,0) -> [];
 do_dont_drop(Config,N) ->
     %% Name of first slave node
     NN1 = atom_to_list(?MODULE) ++ "slave_1",
@@ -385,15 +421,13 @@ name([H|T], Name) ->
     name(T, [H|Name]).
 
 
-atom_conv(A) when is_atom(A) ->
-    atom_to_list(A);
-atom_conv(A) when is_list(A) ->
-    A.
+enc(A) when is_atom(A) -> atom_to_list(A);
+enc(A) when is_binary(A) -> binary_to_list(A);
+enc(A) when is_list(A) -> A.
 
-env_conv([]) ->
-    [];
-env_conv([{X,Y}|T]) ->
-    atom_conv(X) ++ " \"" ++ atom_conv(Y) ++ "\" " ++ env_conv(T).
+env_encode([]) -> [];
+env_encode([{X,Y}|T]) ->
+    "-env " ++ enc(X) ++ " \"" ++ enc(Y) ++ "\" " ++ env_encode(T).
 
 %%%
 %%% Starts a node and runs a function in this
@@ -405,10 +439,10 @@ env_conv([{X,Y}|T]) ->
 %%%
 start_node_run(Name, Env, Function, Argument) -> 
     PA = filename:dirname(code:which(?MODULE)),
-    Params = "-heart -env " ++ env_conv(Env) ++ " -pa " ++ PA ++
+    Params = "-heart " ++ env_encode(Env) ++ " -pa " ++ PA ++
 	" -s " ++
-	atom_conv(?MODULE) ++ " " ++ atom_conv(Function) ++ " " ++
-	atom_conv(Argument),
+	enc(?MODULE) ++ " " ++ enc(Function) ++ " " ++
+	enc(Argument),
     start_node(Name, Params).
 
 start_node(Name, Param) ->
@@ -475,3 +509,24 @@ suicide_by_heart() ->
 	{makaronipudding} ->
 	    sallad
     end.
+
+
+%% generate a module from binary
+generate(Module, Attributes, FunStrings) ->
+    FunForms = function_forms(FunStrings),
+    Forms    = [
+	{attribute,1,module,Module},
+	{attribute,2,export,[FA || {FA,_} <- FunForms]}
+    ] ++ [{attribute, 3, A, V}|| {A, V} <- Attributes] ++
+    [ Function || {_, Function} <- FunForms],
+    {ok, Module, Bin} = compile:forms(Forms),
+    Bin.
+
+
+function_forms([]) -> [];
+function_forms([S|Ss]) ->
+    {ok, Ts,_} = erl_scan:string(S),
+    {ok, Form} = erl_parse:parse_form(Ts),
+    Fun   = element(3, Form),
+    Arity = element(4, Form),
+    [{{Fun,Arity}, Form}|function_forms(Ss)].
