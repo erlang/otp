@@ -494,7 +494,7 @@ handle_call({info, Item}, _From, S) ->
     {reply, service_info(Item, S), S};
 
 handle_call(stop, _From, S) ->
-    shutdown(S),
+    shutdown(service, S),
     {stop, normal, ok, S};
 %% The server currently isn't guaranteed to be dead when the caller
 %% gets the reply. We deal with this in the call to the server,
@@ -683,7 +683,7 @@ upgrade_insert(#state{service = #diameter_service{pid = Pid}} = S) ->
 terminate(Reason, #state{service_name = Name} = S) ->
     ets:delete(?STATE_TABLE, Name),
     shutdown == Reason  %% application shutdown
-        andalso shutdown(S).
+        andalso shutdown(application, S).
 
 %%% ---------------------------------------------------------------------------
 %%% # code_change(FromVsn, State, Extra)
@@ -766,44 +766,48 @@ mod_state(Alias, ModS) ->
 %%% # shutdown/2
 %%% ---------------------------------------------------------------------------
 
-shutdown(Refs, #state{peerT = PeerT}) ->
-    ets:foldl(fun(P,ok) -> s(P, Refs), ok end, ok, PeerT).
+%% remove_transport: ask watchdogs to terminate their transport.
+shutdown(Refs, #state{peerT = PeerT})
+  when is_list(Refs) ->
+    ets:foldl(fun(P,ok) -> sp(P, Refs), ok end, ok, PeerT);
 
-s(#peer{ref = Ref, pid = Pid}, Refs) ->
-    s(lists:member(Ref, Refs), Pid);
-
-s(true, Pid) ->
-    Pid ! {shutdown, self()};  %% 'DOWN' will cleanup as usual
-s(false, _) ->
-    ok.
-
-%%% ---------------------------------------------------------------------------
-%%% # shutdown/1
-%%% ---------------------------------------------------------------------------
-
-shutdown(#state{peerT = PeerT}) ->
+%% application/service shutdown: ask transports to terminate themselves.
+shutdown(Reason, #state{peerT = PeerT}) ->
     %% A transport might not be alive to receive the shutdown request
     %% but give those that are a chance to shutdown gracefully.
-    wait(fun st/2, PeerT),
+    shutdown(conn, Reason, PeerT),
     %% Kill the watchdogs explicitly in case there was no transport.
-    wait(fun sw/2, PeerT).
+    shutdown(peer, Reason, PeerT).
 
-wait(Fun, T) ->
-    diameter_lib:wait(ets:foldl(Fun, [], T)).
+%% sp/2
 
-st(#peer{op_state = {OS,_}} = P, Acc) ->
-    st(P#peer{op_state = OS}, Acc);
-st(#peer{op_state = ?STATE_UP, conn = Pid}, Acc) ->
-    Pid ! shutdown,
-    [Pid | Acc];
-st(#peer{}, Acc) ->
-    Acc.
+sp(#peer{ref = Ref, pid = Pid}, Refs) ->
+    lists:member(Ref, Refs)
+        andalso (Pid ! {shutdown, self()}).  %% 'DOWN' cleans up
 
-sw(#peer{pid = Pid}, Acc)
+%% shutdown/3
+
+shutdown(Who, Reason, T) ->
+    diameter_lib:wait(ets:foldl(fun(X,A) -> shutdown(Who, X, Reason, A) end,
+                                [],
+                                T)).
+
+shutdown(conn = Who, #peer{op_state = {OS,_}} = P, Reason, Acc) ->
+    shutdown(Who, P#peer{op_state = OS}, Reason, Acc);
+
+shutdown(conn,
+         #peer{pid = Pid, op_state = ?STATE_UP, conn = TPid},
+         Reason,
+         Acc) ->
+    TPid ! {shutdown, Pid, Reason},
+    [TPid | Acc];
+
+shutdown(peer, #peer{pid = Pid}, _Reason, Acc)
   when is_pid(Pid) ->
     exit(Pid, shutdown),
     [Pid | Acc];
-sw(#peer{}, Acc) ->
+
+shutdown(_, #peer{}, _, Acc) ->
     Acc.
 
 %%% ---------------------------------------------------------------------------
