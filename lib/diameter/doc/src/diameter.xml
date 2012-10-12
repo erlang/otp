@@ -822,6 +822,7 @@ request a connection with one peer over SCTP or another
 To listen on both SCTP and TCP, define one transport for each.</p>
 </item>
 
+<marker id="applications"/>
 <tag><c>{applications, [<seealso marker="#application_alias">application_alias()</seealso>]}</c></tag>
 <item>
 <p>
@@ -831,6 +832,7 @@ Defaults to all applications configured on the service in question.
 Applications not configured on the service in question are ignored.</p>
 </item>
 
+<marker id="capabilities"/>
 <tag><c>{capabilities, [<seealso marker="#capability">capability()</seealso>]}</c></tag>
 <item>
 <p>
@@ -845,33 +847,136 @@ TLS is desired over TCP as implemented by
 <seealso marker="diameter_tcp">diameter_tcp(3)</seealso>.</p>
 </item>
 
+<marker id="capabilities_cb"/>
 <tag><c>{capabilities_cb, <seealso marker="#evaluable">evaluable()</seealso>}</c></tag>
 <item>
 <p>
 A callback invoked upon reception of CER/CEA during capabilities
 exchange in order to ask whether or not the connection should
 be accepted.
-Applied to the relevant <c><seealso
-marker="#transport_ref">transport_ref()</seealso></c> and the
-<c>#diameter_caps{}</c> record of the connection.
-Returning <c>ok</c> accepts the connection.
-Returning <c>integer()</c> causes an incoming
-CER to be answered with the specified Result-Code.
-Returning <c>discard</c> causes an incoming CER to
-be discarded.
-Returning <c>unknown</c> is equivalent to returning <c>3010</c>,
-DIAMETER_UNKNOWN_PEER.
-Returning anything but <c>ok</c> or a 2xxx series result
-code causes the transport connection to be broken.</p>
+Applied to the <c><seealso
+marker="#transport_ref">transport_ref()</seealso></c> and
+<c>#diameter_caps{}</c> record of the connection.</p>
 
 <p>
+The return value can have one of the following types.</p>
+
+<taglist>
+<tag><c>ok</c></tag>
+<item>
+<p>
+Accept the connection.</p>
+</item>
+
+<tag><c>integer()</c></tag>
+<item>
+<p>
+Causes an incoming CER to be answered with the specified Result-Code.</p>
+</item>
+
+<tag><c>discard</c></tag>
+<item>
+<p>
+Causes an incoming CER to be discarded without CEA being sent.</p>
+</item>
+
+<tag><c>unknown</c></tag>
+<item>
+<p>
+Equivalent to returning <c>3010</c>, DIAMETER_UNKNOWN_PEER.</p>
+</item>
+</taglist>
+
+<p>
+Returning anything but <c>ok</c> or a 2xxx series result
+code causes the transport connection to be broken.
 Multiple <c>capabilities_cb</c> options can be specified, in which
 case the corresponding callbacks are applied until either all return
 <c>ok</c> or one does not.</p>
-
-<marker id="watchdog_timer"/>
 </item>
 
+<marker id="disconnect_cb"/>
+<tag><c>{disconnect_cb, <seealso marker="#evaluable">evaluable()</seealso>}</c></tag>
+
+<item>
+<p>
+A callback invoked prior to requesting shutdown of a transport process
+for a transport connection having watchdog state <c>OKAY</c>.
+Applied to <c>Reason=transport|service|application</c> and the
+<c><seealso marker="#transport_ref">transport_ref()</seealso></c> and
+<c><seealso marker="diameter_app#peer">diameter_app:peer()</seealso></c>
+in question, <c>Reason</c> indicating whether the the diameter
+application is being stopped, the service in question is being stopped
+at <seealso
+marker="diameter#stop_service">diameter:stop_service/1</seealso> or
+the transport in question is being removed at <seealso
+marker="diameter#remove_transport">diameter:remove_transport/2</seealso>,
+respectively.</p>
+
+<p>
+The return value can have one of the following types.</p>
+
+<taglist>
+<tag><c>{dpr, [option()]}</c></tag>
+<item>
+<p>
+Causes Disconnect-Peer-Request to be sent to the peer, transport
+process shutdown being requested after reception of
+Disconnect-Peer-Answer or timeout.
+An <c>option()</c> can be one of the following.</p>
+
+<taglist>
+<tag><c>{timeout, integer()}</c></tag>
+<item>
+<p>
+Transport process shutdown will be requested after this number of
+milliseconds if DPA is not received.
+Defaults to 1000.</p>
+</item>
+
+<tag><c>{cause, 0|rebooting|1|busy|2|goaway}</c></tag>
+<item>
+<p>
+The Disconnect-Cause to send, <c>REBOOTING</c>, <c>BUSY</c> and
+<c>DO_NOT_WANT_TO_TALK_TO_YOU</c> respectively.
+Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
+<c>goaway</c> for <c>Reason=transport</c>.</p>
+</item>
+</taglist>
+</item>
+
+<tag><c>dpr</c></tag>
+<item>
+<p>
+Equivalent to <c>{dpr, []}</c>.</p>
+</item>
+
+<tag><c>close</c></tag>
+<item>
+<p>
+Causes transport process shutdown to be requested without
+Disconnect-Peer-Request being sent to the peer.</p>
+</item>
+
+<tag><c>ignore</c></tag>
+<item>
+<p>
+Equivalent to not having configured the callback.</p>
+</item>
+</taglist>
+
+<p>
+Multiple <c>disconnect_cb</c> options can be specified, in which
+case the corresponding callbacks are applied until one of them returns
+a value other than <c>ignore</c>.
+All callbacks returning <c>ignore</c> is equivalent to not having
+configured them.</p>
+
+<p>
+Defaults to a single callback returning <c>dpr</c>.</p>
+</item>
+
+<marker id="watchdog_timer"/>
 <tag><c>{watchdog_timer, TwInit}</c></tag>
 <item>
 <code>
@@ -891,10 +996,9 @@ the callback.</p>
 <p>
 An integer value must be at least 6000 as required by RFC 3539.
 Defaults to 30000 if unspecified.</p>
-
-<marker id="reconnect_timer"/>
 </item>
 
+<marker id="reconnect_timer"/>
 <tag><c>{reconnect_timer, Tc}</c></tag>
 <item>
 <code>
@@ -1185,15 +1289,12 @@ Pred = {M,F,A}:  fun(Ref, Type, Opts) -> apply(M, F, [Ref, Type, Opts | A]) end
 </code>
 
 <p>
-Removing a transport causes all associated transport connections to
-be broken.
-A DPR message with
-Disconnect-Cause <c>DO_NOT_WANT_TO_TALK_TO_YOU</c> will be sent
-to each connected peer before disassociating the transport configuration
-from the service and terminating the transport upon reception of
-DPA or timeout.</p>
-
-<!-- TODO: document the timeout value, possibly make configurable. -->
+Removing a transport causes the corresponding transport processes to
+be asked to terminate.
+Whether or not a DPR message is sent to a peer is
+controlled by
+value of <seealso marker="disconnect_cb">disconnect_cb</seealso>
+configured on the transport.</p>
 
 <marker id="service_info"/>
 </desc>
