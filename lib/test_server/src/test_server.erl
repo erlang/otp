@@ -377,9 +377,7 @@ module_names(Beams) ->
 do_cover_compile(Modules) ->
     do_cover_compile1(lists:usort(Modules)). % remove duplicates
 
-do_cover_compile1([Dont|Rest]) when Dont=:=cover;
-				    Dont=:=test_server;
-				    Dont=:=test_server_ctrl ->
+do_cover_compile1([Dont|Rest]) when Dont=:=cover ->
     do_cover_compile1(Rest);
 do_cover_compile1([M|Rest]) ->
     case {code:is_sticky(M),code:is_loaded(M)} of
@@ -483,9 +481,13 @@ cover_analyse(Analyse,Modules) ->
 			  {M,Err}
 		  end
 	  end, Modules),
-    Sticky = unstick_all_sticky(node()),
-    cover:stop(),
-    stick_all_sticky(node(),Sticky),
+
+%%! SIRI: This must be checked further - is it always ok not to stop
+%%! cover? Will the node always terminate after this? Probably not -
+%%! maybe use an option?
+%    Sticky = unstick_all_sticky(node()),
+%    cover:stop(),
+%    stick_all_sticky(node(),Sticky),
     R.
 
 pmap(Fun,List) ->
@@ -503,6 +505,8 @@ pmap(Fun,List) ->
 	      end, Pids).
 
 unstick_all_sticky(Node) ->
+    unstick_all_sticky(node(),Node).
+unstick_all_sticky(MainCoverNode,Node) ->
     lists:filter(
       fun(M) ->
 	      case code:is_sticky(M) of
@@ -513,7 +517,7 @@ unstick_all_sticky(Node) ->
 		      false
 	      end
       end,
-      cover:modules()).
+      rpc:call(MainCoverNode,cover,modules,[])).
 
 stick_all_sticky(Node,Sticky) ->
     lists:foreach(
@@ -2577,8 +2581,9 @@ start_node(Name, Type, Options) ->
 	    net_adm:ping(Node),
 	    case Cover of
 		true ->
-		    Sticky = unstick_all_sticky(Node),
-		    cover:start(Node),
+		    MainCoverNode = cover:get_main_node(),
+		    Sticky = unstick_all_sticky(MainCoverNode,Node),
+		    rpc:call(MainCoverNode,cover,start,[Node]),
 		    stick_all_sticky(Node,Sticky);
 		_ ->
 		    ok
@@ -2619,8 +2624,9 @@ stop_node(Slave) ->
     Nocover = is_shielded(Slave) orelse not same_version(Slave),
     case is_cover() of
 	true when not Nocover ->
-	    Sticky = unstick_all_sticky(Slave),
-	    cover:stop(Slave),
+	    MainCoverNode = cover:get_main_node(),
+	    Sticky = unstick_all_sticky(MainCoverNode,Slave),
+	    rpc:call(MainCoverNode,cover,flush,[Slave]),
 	    stick_all_sticky(Slave,Sticky);
 	_ ->
 	    ok
