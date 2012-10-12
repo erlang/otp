@@ -117,7 +117,7 @@ end_per_suite(Config) ->
     CTNode = proplists:get_value(ct_node, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
     true = rpc:call(CTNode, code, del_path, [filename:join(PrivDir,"")]),
-    cover:stop(CTNode),
+    cover:flush(CTNode),
     slave:stop(CTNode),
     ok.
 
@@ -149,7 +149,7 @@ end_per_testcase(_TestCase, Config) ->
     case wait_for_ct_stop(CTNode) of
 	%% Common test was not stopped to we restart node.
 	false ->
-	    cover:stop(CTNode),
+	    cover:flush(CTNode),
 	    slave:stop(CTNode),
 	    start_slave(Config,proplists:get_value(trace_level,Config)),
 	    {fail, "Could not stop common_test"};

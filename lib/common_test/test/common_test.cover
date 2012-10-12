@@ -1,13 +1,2 @@
 %% -*- erlang -*-
 {incl_app,common_test,details}.
-{excl_mods,common_test,[ct_config,
-			ct_gen_conn,
-			ct_event,
-			ct_logs,
-			ct_master,
-			ct_master_logs,
-			ct_master_status,
-			ct_run,
-			ct_slave,
-			ct_util,
-			vts]}.
