@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2001-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -81,8 +81,9 @@
 	 export/1, export/2, import/1,
 	 modules/0, imported/0, imported_modules/0, which_nodes/0, is_compiled/1,
 	 reset/1, reset/0,
+	 flush/1,
 	 stop/0, stop/1]).
--export([remote_start/1]).
+-export([remote_start/1,get_main_node/0]).
 %-export([bump/5]).
 -export([transform/4]). % for test purposes
 
@@ -497,6 +498,19 @@ stop(Node) when is_atom(Node) ->
 stop(Nodes) ->
     call({stop,remove_myself(Nodes,[])}).
 
+%% flush(Nodes) -> ok | {error,not_main_node}
+%%   Nodes = [Node] | Node
+%%   Node = atom()
+%%   Error = {not_cover_compiled,Module}
+flush(Node) when is_atom(Node) ->
+    flush([Node]);
+flush(Nodes) ->
+    call({flush,remove_myself(Nodes,[])}).
+
+%% Used by test_server only. Not documented.
+get_main_node() ->
+    call(get_main_node).
+
 %% bump(Module, Function, Arity, Clause, Line)
 %%   Module = Function = atom()
 %%   Arity = Clause = Line = integer()
@@ -710,6 +724,11 @@ main_process_loop(State) ->
 	    State1 = State#main_state{nodes=State#main_state.nodes--Nodes},
 	    main_process_loop(State1);
 
+	{From, {flush,Nodes}} ->
+	    remote_collect('_',Nodes,false),
+	    reply(From, ok),
+	    main_process_loop(State);
+
 	{From, stop} ->
 	    lists:foreach(
 	      fun(Node) -> 
@@ -796,6 +815,10 @@ main_process_loop(State) ->
 	    State1 = State#main_state{nodes=State#main_state.nodes--[node(Pid)]},
 	    main_process_loop(State1);
 	
+	{From, get_main_node} ->
+	    reply(From, node()),
+	    main_process_loop(State);
+
 	get_status ->
 	    io:format("~p~n",[State]),
 	    main_process_loop(State)
@@ -851,6 +874,10 @@ remote_process_loop(State) ->
 	    reload_originals(State#remote_state.compiled),
             unregister(?SERVER),
 	    remote_reply(State#remote_state.main_node, ok);
+
+	{From, get_main_node} ->
+	    reply(From, State#remote_state.main_node),
+	    remote_process_loop(State);
 
 	get_status ->
 	    io:format("~p~n",[State]),

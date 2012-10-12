@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2001</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -104,6 +104,8 @@
       remove nodes. The same Cover compiled code will be loaded on each
       node, and analysis will collect and sum up coverage data results
       from all nodes.</p>
+    <p>To only collect data from remote nodes without stopping
+      <c>cover</c> on those nodes, use <c>cover:flush/1</c></p>
   </description>
   <funcs>
     <func>
@@ -475,6 +477,17 @@
         <p>Stops the Cover server and unloads all Cover compiled code
           on the given nodes. Data stored in the Cover database on the
           remote nodes is fetched and stored on the main node.</p>
+      </desc>
+    </func>
+    <func>
+      <name>flush(Nodes) -> ok | {error,not_main_node}</name>
+      <fsummary>Collect cover data from remote nodes.</fsummary>
+      <type>
+        <v>Nodes = [atom()]</v>
+      </type>
+      <desc>
+        <p>Fetch data from the Cover database on the remote nodes and
+        stored on the main node.</p>
       </desc>
     </func>
   </funcs>

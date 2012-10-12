@@ -326,14 +326,16 @@ distribution(Config) when is_list(Config) ->
     ?line {ok,N1} = ?t:start_node(cover_SUITE_distribution1,slave,[]),
     ?line {ok,N2} = ?t:start_node(cover_SUITE_distribution2,slave,[]),
     ?line {ok,N3} = ?t:start_node(cover_SUITE_distribution3,slave,[]),
+    ?line {ok,N4} = ?t:start_node(cover_SUITE_distribution4,slave,[]),
 
     %% Check that an already compiled module is loaded on new nodes
     ?line {ok,f} = cover:compile(f),
-    ?line {ok,[_,_,_]} = cover:start(nodes()),
+    ?line {ok,[_,_,_,_]} = cover:start(nodes()),
     ?line cover_compiled = code:which(f),
     ?line cover_compiled = rpc:call(N1,code,which,[f]),
     ?line cover_compiled = rpc:call(N2,code,which,[f]),
     ?line cover_compiled = rpc:call(N3,code,which,[f]),
+    ?line cover_compiled = rpc:call(N4,code,which,[f]),
 
     %% Check that a node cannot be started twice
     ?line {ok,[]} = cover:start(N2),
@@ -351,6 +353,7 @@ distribution(Config) when is_list(Config) ->
     ?line cover_compiled = rpc:call(N1,code,which,[v]),
     ?line cover_compiled = rpc:call(N2,code,which,[v]),
     ?line cover_compiled = rpc:call(N3,code,which,[v]),
+    ?line cover_compiled = rpc:call(N4,code,which,[v]),
     
     %% this is lost when the node is killed
     ?line rpc:call(N3,f,f2,[]),
@@ -384,6 +387,18 @@ distribution(Config) when is_list(Config) ->
     %% Check that same data is not fetched again (i.e. that analyse does
     %% reset on the remote node(s))
     ?line check_f_calls(1,1),
+
+    %% Another checn that data is not fetched twice, i.e. when flushed
+    %% then analyse should not add the same data again.
+    ?line rpc:call(N4,f,f2,[]),
+    ?line ok = cover:flush(N4),
+    ?line check_f_calls(1,2),
+
+    %% Check that flush collects data so calls are not lost if node is killed
+    ?line rpc:call(N4,f,f2,[]),
+    ?line ok = cover:flush(N4),
+    ?line rpc:call(N4,erlang,halt,[]),
+    ?line check_f_calls(1,3),
 
     %% Check that stop() unloads on all nodes
     ?line ok = cover:stop(),
