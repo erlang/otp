@@ -47,7 +47,8 @@
         {recbuf,          non_neg_integer()} |
         {reuseaddr,       boolean()} |
         {sndbuf,          non_neg_integer()} |
-        {tos,             non_neg_integer()}.
+        {tos,             non_neg_integer()} |
+	{ipv6_v6only,     boolean()}.
 -type option_name() ::
         active |
         broadcast |
@@ -69,7 +70,8 @@
         recbuf |
         reuseaddr |
         sndbuf |
-        tos.
+        tos |
+	ipv6_v6only.
 -type socket() :: port().
 
 -export_type([option/0, option_name/0]).
