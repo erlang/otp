@@ -424,10 +424,12 @@ start_node_peer(SlaveName, OptList, From, TI) ->
     %% Bad environment can cause open port to fail. If this happens,
     %% we ignore it and let the testcase handle the situation...
     catch open_port({spawn, Cmd}, [stream|Opts]),
+
+    Tmo = 60000 * test_server:timetrap_scale_factor(),
     
     case start_node_get_option_value(wait, OptList, true) of
 	true ->
-	    Ret = wait_for_node_started(LSock,60000,undefined,Cleanup,TI,self()),
+	    Ret = wait_for_node_started(LSock,Tmo,undefined,Cleanup,TI,self()),
 	    case {Ret,FailOnError} of
 		{{{ok, Node}, Warning},_} ->
 		    gen_server:reply(From,{{ok,Node},HostStr,Cmd,[],Warning});
@@ -443,7 +445,7 @@ start_node_peer(SlaveName, OptList, From, TI) ->
 	    Self = self(),
 	    spawn_link(
 	      fun() -> 
-		      wait_for_node_started(LSock,60000,undefined,
+		      wait_for_node_started(LSock,Tmo,undefined,
 					    Cleanup,TI,Self),
 		      receive after infinity -> ok end
 	      end),

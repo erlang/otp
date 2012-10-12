@@ -2170,24 +2170,19 @@ continue(Pid) when is_pid(Pid) ->
 %%
 %% Returns the amount to scale timetraps with.
 
+%% {X, fun() -> check() end} <- multiply scale with X if Fun() is true
 timetrap_scale_factor() ->
-    F0 = case test_server:purify_is_running() of
-	    true -> 5;
-	    false -> 1
-	end,
-    F1 = case {is_debug(), has_lock_checking()} of
-	     {true,_} -> 6 * F0;
-	     {false,true} -> 2 * F0;
-	     {false,false} -> F0
-	 end,
-    F = case has_superfluous_schedulers() of
-	     true -> 3*F1;
-	     false -> F1
-	 end,
-    case test_server:is_cover() of
-	true -> 10 * F;
-	false -> F
-    end.
+    timetrap_scale_factor([
+	{ 2, fun() -> has_lock_checking() end},
+	{ 3, fun() -> has_superfluous_schedulers() end},
+	{ 5, fun() -> purify_is_running() end},
+	{ 6, fun() -> is_debug() end},
+	{10, fun() -> is_cover() end}
+    ]).
+
+timetrap_scale_factor(Scales) ->
+    %% The fun in {S, Fun} a filter input to the list comprehension
+    lists:foldl(fun(S,O) -> O*S end, 1, [ S || {S,F} <- Scales, F()]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
