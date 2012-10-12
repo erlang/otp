@@ -1960,5 +1960,5 @@ to_string(Term) ->
 	true ->
 	    Term;
 	false ->
-	    lists:flatten(io_lib:write(Term))
+	    lists:flatten(io_lib:format("~134217728p", [Term]))
     end.
