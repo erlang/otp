@@ -605,6 +605,19 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 	    end
     end.
 
+-record(st,
+	{
+	  ref :: reference(),
+	  pid :: pid(),
+	  mf :: {atom(),atom()},
+	  status :: 'starting' | 'running',
+	  ret_val :: term(),
+	  comment :: list(char()),
+	  timeout :: non_neg_integer() | 'infinity',
+	  config :: list() | 'undefined',
+	  end_conf_pid :: pid() | 'undefined'
+	}).
+
 do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     {ok,Cwd} = file:get_cwd(),
     Args2Print = case Args of
@@ -628,8 +641,9 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 				     LogOpts, TCCallback)
 	  end),
     put(test_server_detected_fail, []),
-    run_test_case_msgloop(Ref, Pid, false, "",
-			  undefined, starting).
+    St = #st{ref=Ref,pid=Pid,mf={Mod,Func},status=starting,ret_val=[],
+	     comment="",timeout=infinity,config=undefined},
+    run_test_case_msgloop(St).
 
 %% Ugly bug (pre R5A):
 %% If this process (group leader of the test case) terminates before
@@ -640,31 +654,17 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 %% A test case is known to have failed if it returns {'EXIT', _} tuple,
 %% or sends a message {failed, File, Line} to it's group_leader
 %%
-run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
-    %% NOTE: Keep job_proxy_msgloop/0 up to date when changes
-    %%       are made in this function!
-    {Timeout,ReturnValue} =
-	case Terminate of
-	    {true, ReturnVal} ->
-		%% stop any timetrap timers for the test case
-		%% that have been started by this process
-		timetrap_cancel_all(Pid, false),
-		{20, ReturnVal};
-	    false ->
-		{infinity, should_never_appear}
-	end,
+run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
     receive
 	{test_case_initialized,Pid} ->
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,CurrConf,running);
-	Abort = {abort_current_testcase,_,_} when Status == starting ->
+	    run_test_case_msgloop(St0#st{status=running});
+	{abort_current_testcase,_,_}=Abort when St0#st.status =:= starting ->
 	    %% we're in init phase, must must postpone this operation
 	    %% until test case execution is in progress (or FW:init_tc
 	    %% gets killed)
 	    self() ! Abort,
 	    erlang:yield(),
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{abort_current_testcase,Reason,From} ->
 	    Line = case is_process_alive(Pid) of
 		       true -> get_loc(Pid);
@@ -674,65 +674,52 @@ run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
 	    exit(Pid,{testcase_aborted,Reason,Line}),
 	    erlang:yield(),
 	    From ! {self(),abort_current_testcase,ok},
-	    NewComment =
-		receive
-		    {'DOWN', Mon, process, Pid, _} ->
-			Comment
-		    after 10000 ->
-			    %% Pid is probably trapping exits, hit it harder...
-			    exit(Pid, kill),
-			    %% here's the only place we know Reason, so we save
-			    %% it as a comment, potentially replacing user data
-			    Error = lists:flatten(io_lib:format("Aborted: ~p",
-								[Reason])),
-			    Error1 = lists:flatten([string:strip(S,left) ||
+	    St = receive
+		     {'DOWN', Mon, process, Pid, _} ->
+			 St0
+		 after 10000 ->
+			 %% Pid is probably trapping exits, hit it harder...
+			 exit(Pid, kill),
+			 %% here's the only place we know Reason, so we save
+			 %% it as a comment, potentially replacing user data
+			 Error = lists:flatten(io_lib:format("Aborted: ~p",
+							     [Reason])),
+			 Error1 = lists:flatten([string:strip(S,left) ||
 						    S <- string:tokens(Error,
 								       [$\n])]),
-			    if length(Error1) > 63 ->
-				    string:substr(Error1,1,60) ++ "...";
-			       true ->
-				    Error1
-			    end
-		    end,
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  NewComment,CurrConf,Status);
+			 Comment = if length(Error1) > 63 ->
+					   string:substr(Error1,1,60) ++ "...";
+				      true ->
+					   Error1
+				   end,
+			 St0#st{comment=Comment}
+		 end,
+	    run_test_case_msgloop(St);
 	{sync_apply,From,MFA} ->
 	    sync_local_or_remote_apply(false,From,MFA),
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{sync_apply_proxy,Proxy,From,MFA} ->
 	    sync_local_or_remote_apply(Proxy,From,MFA),
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,CurrConf,Status);
-	{comment,NewComment} ->
-	    NewComment1 = test_server_ctrl:to_string(NewComment),
-	    NewComment2 = test_server_sup:framework_call(format_comment,
-							 [NewComment1],
-							 NewComment1),
-	    Terminate1 =
-		case Terminate of
-		    {true,{Time,Value,Loc,Opts,_OldComment}} ->
-			{true,{Time,Value,mod_loc(Loc),Opts,NewComment2}};
-		    Other ->
-			Other
-		end,
-	    run_test_case_msgloop(Ref,Pid,Terminate1,
-				  NewComment2,CurrConf,Status);
+	    run_test_case_msgloop(St0);
+	{comment,NewComment0} ->
+	    NewComment1 = test_server_ctrl:to_string(NewComment0),
+	    NewComment = test_server_sup:framework_call(format_comment,
+							[NewComment1],
+							NewComment1),
+	    run_test_case_msgloop(St0#st{comment=NewComment});
 	{read_comment,From} ->
-	    From ! {self(),read_comment,Comment},
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,CurrConf,Status);
-	{set_curr_conf,From,NewCurrConf} ->
+	    From ! {self(),read_comment,St0#st.comment},
+	    run_test_case_msgloop(St0);
+	{set_curr_conf,From,Config} ->
 	    From ! {self(),set_curr_conf,ok},
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,NewCurrConf,Status);
-	{make_priv_dir,From} when CurrConf == undefined ->
+	    St = St0#st{config=Config},
+	    run_test_case_msgloop(St);
+	{make_priv_dir,From} when St0#st.config =:= undefined ->
 	    From ! {self(),make_priv_dir,{error,no_priv_dir_in_config}},
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{make_priv_dir,From} ->
 	    Result =
-		case proplists:get_value(priv_dir, element(2, CurrConf)) of
+		case proplists:get_value(priv_dir, St0#st.config) of
 		    undefined ->
 			{error,no_priv_dir_in_config};
 		    PrivDir ->
@@ -746,60 +733,57 @@ run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
 			end
 		end,
 	    From ! {self(),make_priv_dir,Result},
-	    run_test_case_msgloop(Ref,Pid,Terminate,
-				  Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
-	    RetVal = {Time/1000000,Value,mod_loc(Loc),Opts,Comment},
-	    run_test_case_msgloop(Ref,Pid,
-				  {true,RetVal},Comment,undefined,Status);
+	    RetVal = {Time/1000000,Value,mod_loc(Loc),Opts},
+	    St = setup_termination(RetVal, St0#st{config=undefined}),
+	    run_test_case_msgloop(St);
 	{'EXIT',Pid,Reason} ->
+	    Config0 = St0#st.config,
 	    case Reason of
 		{timetrap_timeout,TVal,Loc} ->
 		    %% convert Loc to form that can be formatted
 		    case mod_loc(Loc) of
 			{FwMod,FwFunc,framework} ->
 			    %% timout during framework call
-			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
+			    spawn_fw_call(FwMod,FwFunc,Config0,Pid,
 					  {framework_error,{timetrap,TVal}},
 					  unknown,self()),
-			    run_test_case_msgloop(Ref,Pid,
-						  Terminate,Comment,
-						  undefined,Status);
+			    run_test_case_msgloop(St0#st{config=undefined});
 			Loc1 ->
 			    %% call end_per_testcase on a separate process,
 			    %% only so that the user has a chance to
 			    %% clean up after init_per_testcase, even after
 			    %% a timetrap timeout
-			    NewCurrConf =
-				case CurrConf of
-				    {{Mod,Func},Conf} ->
-					EndConfPid =
-					    call_end_conf(
-					      Mod,Func,Pid,
-					      {timetrap_timeout,TVal},
-					      Loc1,[{tc_status,
-						     {failed,
-						      timetrap_timeout}}|Conf],
-					      TVal),
-					{EndConfPid,{Mod,Func},Conf};
-				    _ ->
-					{Mod,Func} = get_mf(Loc1),
-					%% The framework functions mustn't
-					%% execute on this group leader process
-					%% or io will cause deadlock, so we
-					%% spawn a dedicated process for the
-					%% operation and let the group leader
-					%% go back to handle io.
-					spawn_fw_call(Mod,Func,CurrConf,Pid,
-						      {timetrap_timeout,TVal},
-						      Loc1,self()),
-					undefined
-				end,
-			    run_test_case_msgloop(Ref,Pid,
-						  Terminate,Comment,
-						  NewCurrConf,Status)
+			    #st{mf={Mod,Func}} = St0,
+			    case Config0 of
+				_ when is_list(Config0) ->
+				    EndConfPid =
+					call_end_conf(
+					  Mod,Func,Pid,
+					  {timetrap_timeout,TVal},
+					  Loc1,[{tc_status,
+						 {failed,
+						  timetrap_timeout}}|
+						Config0],
+					  TVal),
+				    St = St0#st{end_conf_pid=EndConfPid},
+				    run_test_case_msgloop(St);
+				undefined ->
+				    %% The framework functions mustn't
+				    %% execute on this group leader process
+				    %% or io will cause deadlock, so we
+				    %% spawn a dedicated process for the
+				    %% operation and let the group leader
+				    %% go back to handle io.
+				    spawn_fw_call(Mod,Func,Config0,Pid,
+						  {timetrap_timeout,TVal},
+						  Loc1,self()),
+				    run_test_case_msgloop(St0)
+			    end
 		    end;
 		{timetrap_timeout,TVal,Loc,InitOrEnd} ->
+		    #st{mf={Mod,_Func},config=CurrConf} = St0,
 		    case mod_loc(Loc) of
 			{FwMod,FwFunc,framework} ->
 			    %% timout during framework call
@@ -807,23 +791,20 @@ run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
 					  {framework_error,{timetrap,TVal}},
 					  unknown,self());
 			Loc1 ->
-			    {Mod,_Func} = get_mf(Loc1),
 			    spawn_fw_call(Mod,InitOrEnd,CurrConf,Pid,
 					  {timetrap_timeout,TVal},
 					  Loc1,self())
 		    end,
-		    run_test_case_msgloop(Ref,Pid,
-					  Terminate,Comment,CurrConf,Status);
-		{testcase_aborted,ErrorMsg={user_timetrap_error,_},AbortLoc} ->
+		    run_test_case_msgloop(St0);
+		{testcase_aborted,ErrorMsg={user_timetrap_error,_},_AbortLoc} ->
 		    %% user timetrap function caused exit
 		    %% during start of test case
-		    {Mod,Func} = get_mf(mod_loc(AbortLoc)),
+		    #st{mf={Mod,Func},config=CurrConf} = St0,
 		    spawn_fw_call(Mod,Func,CurrConf,Pid,
 				  ErrorMsg,unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,
-					  Terminate,Comment,
-					  undefined,Status);		
+		    run_test_case_msgloop(St0);
 		{testcase_aborted,AbortReason,AbortLoc} ->
+		    #st{mf={Mod,Func},config=CurrConf} = St0,
 		    ErrorMsg = {testcase_aborted,AbortReason},
 		    case mod_loc(AbortLoc) of
 			{FwMod,FwFunc,framework} ->
@@ -831,105 +812,93 @@ run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
 			    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 					  {framework_error,ErrorMsg},
 					  unknown,self()),
-			    run_test_case_msgloop(Ref,Pid,
-						  Terminate,Comment,
-						  undefined,Status);
+			    St = St0#st{config=undefined},
+			    run_test_case_msgloop(St);
 			Loc1 ->
 			    %% call end_per_testcase on a separate process,
 			    %% only so that the user has a chance to clean up
 			    %% after init_per_testcase, even after abortion
-			    NewCurrConf =
-				case CurrConf of
-				    {{Mod,Func},Conf} ->
-					TVal =
-					    case lists:keysearch(default_timeout,
-								 1,
-								 Conf) of
-						{value,{default_timeout,Tmo}} ->
-						    Tmo;
-						_ ->
-						    ?DEFAULT_TIMETRAP_SECS*1000
-					    end,
-					EndConfPid =
-					    call_end_conf(
-					      Mod,Func,Pid,
-					      ErrorMsg,Loc1,
-					      [{tc_status,
-						{failed,ErrorMsg}}|Conf],TVal),
-					{EndConfPid,{Mod,Func},Conf};
-				    _ ->
-					{Mod,Func} = get_mf(Loc1),
-					spawn_fw_call(Mod,Func,CurrConf,Pid,
-						      ErrorMsg,Loc1,self()),
-					undefined
-				end,
-			    run_test_case_msgloop(Ref,Pid,
-						  Terminate,Comment,
-						  NewCurrConf,Status)
+			    case CurrConf of
+				_ when is_list(CurrConf) ->
+				    TVal =
+					case lists:keyfind(default_timeout,
+							   1,
+							   CurrConf) of
+					    {default_timeout,Tmo} ->
+						Tmo;
+					    _ ->
+						?DEFAULT_TIMETRAP_SECS*1000
+					end,
+				    EndConfPid =
+					call_end_conf(
+					  Mod,Func,Pid,
+					  ErrorMsg,Loc1,
+					  [{tc_status,
+					    {failed,ErrorMsg}}|CurrConf],
+					  TVal),
+				    St = St0#st{end_conf_pid=EndConfPid},
+				    run_test_case_msgloop(St);
+				undefined ->
+				    spawn_fw_call(Mod,Func,CurrConf,Pid,
+						  ErrorMsg,Loc1,self()),
+				    run_test_case_msgloop(St0)
+			    end
 		    end;
 		killed ->
 		    %% result of an exit(TestCase,kill) call, which is the
 		    %% only way to abort a testcase process that traps exits
 		    %% (see abort_current_testcase)
-		    {Mod,Func} = case CurrConf of
-				     {MF,_} -> MF;
-				     _      -> {undefined,undefined}
-				 end,
+		    #st{mf={Mod,Func},config=CurrConf} = St0,
 		    spawn_fw_call(Mod,Func,CurrConf,Pid,
 				  testcase_aborted_or_killed,
 				  unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,
-					  Terminate,Comment,CurrConf,Status);
+		    run_test_case_msgloop(St0);
 		{fw_error,{FwMod,FwFunc,FwError}} ->
+		    #st{config=CurrConf} = St0,
 		    spawn_fw_call(FwMod,FwFunc,CurrConf,Pid,
 				  {framework_error,FwError},
 				  unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,
-					  Terminate,Comment,CurrConf,Status);
+		    run_test_case_msgloop(St0);
 		_Other ->
 		    %% the testcase has terminated because of Reason (e.g. an exit
 		    %% because a linked process failed)
-		    {Mod,Func} = case CurrConf of
-				     {MF,_} -> MF;
-				     _      -> {undefined,undefined}
-				 end,
+		    #st{mf={Mod,Func},config=CurrConf} = St0,
 		    spawn_fw_call(Mod,Func,CurrConf,Pid,
 				  Reason,unknown,self()),
-		    run_test_case_msgloop(Ref,Pid,
-					  Terminate,Comment,CurrConf,Status)
+		    run_test_case_msgloop(St0)
 	    end;
-	{EndConfPid,{call_end_conf,Data,_Result}} ->
+	{EndConfPid0,{call_end_conf,Data,_Result}} ->
+	    #st{mf={Mod,Func},config=CurrConf} = St0,
 	    case CurrConf of
-		{EndConfPid,{Mod,Func},_Conf} ->
+		_ when is_list(CurrConf) ->
 		    {_Mod,_Func,TCPid,TCExitReason,Loc} = Data,
 		    spawn_fw_call(Mod,Func,CurrConf,TCPid,
 				  TCExitReason,Loc,self()),
-		    run_test_case_msgloop(Ref,Pid,
-					  Terminate,Comment,undefined,Status);
+		    St = St0#st{config=undefined,end_conf_pid=undefined},
+		    run_test_case_msgloop(St);
 		_ ->
-		    run_test_case_msgloop(Ref,Pid,
-					  Terminate,Comment,CurrConf,Status)
+		    run_test_case_msgloop(St0)
 	    end;
 	{_FwCallPid,fw_notify_done,{T,Value,Loc,Opts,AddToComment}} ->
 	    %% the framework has been notified, we're finished
-	    RetVal =
-		case AddToComment of
-		    undefined ->
-			{T,Value,Loc,Opts,Comment};
-		    _ ->
-			Comment1 =
-			    if Comment == "" -> 
-				    AddToComment;
-			       true -> 
-				    Comment ++
-				    test_server_ctrl:xhtml("<br>",
-							   "<br />") ++
-				    AddToComment
-			    end,
-			{T,Value,Loc,Opts,Comment1}
-		end,
-	    run_test_case_msgloop(Ref,Pid,
-				  {true,RetVal},Comment,undefined,Status);
+	    RetVal = {T,Value,Loc,Opts},
+	    Comment0 = St0#st.comment,
+	    Comment = case AddToComment of
+			  undefined ->
+			      Comment0;
+			  _ ->
+			      if Comment0 =:= "" ->
+				      AddToComment;
+				 true -> 
+				      Comment0 ++
+					  test_server_ctrl:xhtml("<br>",
+								 "<br />") ++
+					  AddToComment
+			      end
+		      end,
+	    St = setup_termination(RetVal, St0#st{comment=Comment,
+						  config=undefined}),
+	    run_test_case_msgloop(St);
  	{'EXIT',_FwCallPid,{fw_notify_done,Func,Error}} ->
 	    %% a framework function failed
 	    CB = os:getenv("TEST_SERVER_FRAMEWORK"),
@@ -939,14 +908,14 @@ run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
 		      _ ->
 			  {list_to_atom(CB),Func}
 		  end,
-	    RetVal = {died,{framework_error,Loc,Error},Loc,"Framework error"},
-	    run_test_case_msgloop(Ref,Pid,
-				  {true,RetVal},Comment,undefined,Status);
+	    RetVal = {died,{framework_error,Loc,Error},Loc},
+	    St = setup_termination(RetVal, St0#st{comment="Framework error",
+						 config=undefined}),
+	    run_test_case_msgloop(St);
 	{failed,File,Line} ->
 	    put(test_server_detected_fail,
 		[{File, Line}| get(test_server_detected_fail)]),
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 
 	{user_timetrap,Pid,_TrapTime,StartTime,E={user_timetrap_error,_},_} ->
 	    case update_user_timetraps(Pid, StartTime) of
@@ -955,8 +924,7 @@ run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
 		ignore ->
 		    ok
 	    end,
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{user_timetrap,Pid,TrapTime,StartTime,ElapsedTime,Scale} ->
 	    %% a user timetrap is triggered, ignore it if new
 	    %% timetrap has been started since
@@ -971,35 +939,34 @@ run_test_case_msgloop(Ref, Pid, Terminate, Comment, CurrConf, Status) ->
 		ignore ->
 		    ok
 	    end,
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{timetrap_cancel_one,Handle,_From} ->
 	    timetrap_cancel_one(Handle, false),
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{timetrap_cancel_all,TCPid,_From} ->
 	    timetrap_cancel_all(TCPid, false),
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	{get_timetrap_info,From,TCPid} ->
 	    Info = get_timetrap_info(TCPid, false),
 	    From ! {self(),get_timetrap_info,Info},
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	_Other when not is_tuple(_Other) ->
 	    %% ignore anything not generated by test server
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status);
+	    run_test_case_msgloop(St0);
 	_Other when element(1, _Other) /= 'EXIT',
 		    element(1, _Other) /= started,
 		    element(1, _Other) /= finished,
 		    element(1, _Other) /= print ->
 	    %% ignore anything not generated by test server
-	    run_test_case_msgloop(Ref,Pid,
-				  Terminate,Comment,CurrConf,Status)
-    after Timeout ->
-	    ReturnValue
+	    run_test_case_msgloop(St0)
+    after St0#st.timeout ->
+	    #st{ret_val=RetVal,comment=Comment} = St0,
+	    erlang:append_element(RetVal, Comment)
     end.
+
+setup_termination(RetVal, #st{pid=Pid}=St) ->
+    timetrap_cancel_all(Pid, false),
+    St#st{ret_val=RetVal,timeout=20}.
 
 call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
     Starter = self(),
@@ -1121,15 +1088,10 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
-    {Mod1,Func1} =
-	case {Mod,Func,CurrConf} of
-	    {undefined,undefined,{{M,F},_}} -> {M,F};
-	    _ -> {Mod,Func}
-	end,	    
+spawn_fw_call(Mod,Func,_CurrConf,Pid,Error,Loc,SendTo) ->
     FwCall =
 	fun() ->
-		case catch fw_error_notify(Mod1,Func1,[],
+		case catch fw_error_notify(Mod,Func,[],
 					   Error,Loc) of
 		    {'EXIT',FwErrorNotifyErr} ->
 			exit({fw_notify_done,error_notification,
@@ -1138,7 +1100,7 @@ spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
 			ok
 		end,
 		Conf = [{tc_status,{failed,timetrap_timeout}}],
-		case catch do_end_tc_call(Mod1,Func1, Loc,
+		case catch do_end_tc_call(Mod,Func, Loc,
 					  {Pid,Error,[Conf]},Error) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
@@ -1236,7 +1198,7 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 
 run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
     %% save current state in controller loop
-    tc_supervisor_req(set_curr_conf, {{Mod,Func},hd(Args)}),
+    tc_supervisor_req(set_curr_conf, hd(Args)),
     case RunInit of
 	run_init ->
 	    put(test_server_init_or_end_conf,{init_per_testcase,Func}),
@@ -1266,7 +1228,7 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    %% call user callback function if defined
 		    NewConf1 = user_callback(TCCallback, Mod, Func, init, NewConf),
 		    %% save current state in controller loop
-		    tc_supervisor_req(set_curr_conf, {{Mod,Func},NewConf1}),
+		    tc_supervisor_req(set_curr_conf, NewConf1),
 		    put(test_server_loc, {Mod,Func}),
 		    %% execute the test case
 		    {{T,Return},Loc} = {ts_tc(Mod, Func, [NewConf1]),get_loc()},
@@ -1632,22 +1594,6 @@ get_loc(Pid) ->
 	    ok
     end,
     get_loc().
-
-%% find the latest known Suite:Testcase
-get_mf(MFs) ->
-    get_mf(MFs, {undefined,undefined}).
-
-get_mf([MF|MFs], _Found) when is_tuple(MF) ->
-    ModFunc = {Mod,_} = case MF of
-			    {M,F,_} -> {M,F};
-			    MF -> MF
-			end,
-    case is_suite(Mod) of
-	true -> ModFunc;
-	false -> get_mf(MFs, ModFunc)
-    end;
-get_mf(_, Found) ->
-    Found.
 
 is_suite(Mod) ->
     case lists:reverse(atom_to_list(Mod)) of
