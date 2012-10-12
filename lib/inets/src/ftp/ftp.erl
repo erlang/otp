@@ -1899,6 +1899,10 @@ ctrl_result_response(pos_compl, #state{client = From} = State, _)  ->
     gen_server:reply(From, ok),
     {noreply, State#state{client = undefined, caller = undefined}};
 
+ctrl_result_response(enofile, #state{client = From} = State, _) ->
+    gen_server:reply(From, {error, enofile}),
+    {noreply, State#state{client = undefined, caller = undefined}};
+
 ctrl_result_response(Status, #state{client = From} = State, _) 
   when (Status =:= etnospc)  orelse 
        (Status =:= epnospc)  orelse 

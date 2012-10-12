@@ -162,6 +162,7 @@ error_string(epath) ->  "No such file or directory, already exists, "
 error_string(etype) ->  "No such type.";
 error_string(euser) ->  "User name or password not valid.";
 error_string(etnospc) -> "Insufficient storage space in system.";
+error_string(enofile) -> "No files found or file unavailable";
 error_string(epnospc) -> "Exceeded storage allocation "
 		       "(for current directory or dataset).";
 error_string(efnamena) -> "File name not allowed.";
@@ -180,6 +181,8 @@ interpret_status(?POS_COMPL,_,_)                  -> pos_compl;
 interpret_status(?POS_INTERM,?AUTH_ACC,2)         -> pos_interm_acct;
 %% Positive Intermediate Reply
 interpret_status(?POS_INTERM,_,_)                 -> pos_interm; 
+%% No files found or file not available
+interpret_status(?TRANS_NEG_COMPL,?FILE_SYSTEM,0) -> enofile;
 %% No storage area no action taken
 interpret_status(?TRANS_NEG_COMPL,?FILE_SYSTEM,2) -> etnospc;
 %% Temporary Error, no action taken
