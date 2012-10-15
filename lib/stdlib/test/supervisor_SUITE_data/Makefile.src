@@ -1,0 +1,15 @@
+EFLAGS=+debug_info
+
+APP_FAULTY= \
+     app_faulty/ebin/app_faulty_sup.@EMULATOR@ \
+     app_faulty/ebin/app_faulty_server.@EMULATOR@ \
+     app_faulty/ebin/app_faulty.@EMULATOR@ \
+
+all: $(APP_FAULTY)
+
+app_faulty/ebin/app_faulty_server.@EMULATOR@: app_faulty/src/app_faulty_server.erl
+	erlc $(EFLAGS) -oapp_faulty/ebin app_faulty/src/app_faulty_server.erl
+app_faulty/ebin/app_faulty_sup.@EMULATOR@: app_faulty/src/app_faulty_sup.erl
+	erlc $(EFLAGS) -oapp_faulty/ebin app_faulty/src/app_faulty_sup.erl
+app_faulty/ebin/app_faulty.@EMULATOR@: app_faulty/src/app_faulty.erl
+	erlc $(EFLAGS) -oapp_faulty/ebin app_faulty/src/app_faulty.erl
