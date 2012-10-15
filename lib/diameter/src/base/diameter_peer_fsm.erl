@@ -1015,7 +1015,12 @@ add(false, T) ->
 
 unregistered(Nodes, T) ->
     {ResL, _} = rpc:multicall(Nodes, ?MODULE, match, [{node(), T}]),
-    lists:all(fun(L) -> [] == L end, ResL).
+    lists:all(fun nomatch/1, ResL).
+
+nomatch({badrpc, {'EXIT', {undef, _}}}) ->  %% no diameter on remote node
+    true;
+nomatch(L) ->
+    [] == L.
 
 %% match/1
 
