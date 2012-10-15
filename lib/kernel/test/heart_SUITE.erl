@@ -22,7 +22,10 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, start/1, restart/1, 
-	 reboot/1, node_start_immediately_after_crash/1, set_cmd/1, clear_cmd/1, get_cmd/1,
+	 reboot/1,
+	 node_start_immediately_after_crash/1,
+	 node_start_soon_after_crash/1,
+	 set_cmd/1, clear_cmd/1, get_cmd/1,
 	 dont_drop/1, kill_pid/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -60,6 +63,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> [
 	start, restart, reboot,
 	node_start_immediately_after_crash,
+	node_start_soon_after_crash,
 	set_cmd, clear_cmd, get_cmd,
 	kill_pid
     ].
@@ -186,7 +190,7 @@ reboot(Config) when is_list(Config) ->
 %%   ERL_CRASH_DUMP_SECONDS=0 will force beam not to dump an erl_crash.dump.
 node_start_immediately_after_crash(suite) -> {req, [{time, 10}]};
 node_start_immediately_after_crash(Config) when is_list(Config) ->
-    {ok, Node} = start_check(slave, heart_test, [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
+    {ok, Node} = start_check(loose, heart_test_imm, [{"ERL_CRASH_DUMP_SECONDS", "0"}]),
 
     ok = rpc:call(Node, heart, set_cmd,
 	[atom_to_list(lib:progname()) ++
@@ -195,9 +199,9 @@ node_start_immediately_after_crash(Config) when is_list(Config) ->
     Mod  = exhaust_atoms,
 
     Code = generate(Mod, [], [
-	    "do() -> " ++
-	    "  Set = lists:seq($a,$z), " ++
-	    "  [ list_to_atom([A,B,C,D,E]) || " ++
+	    "do() -> "
+	    "  Set = lists:seq($a,$z), "
+	    "  [ list_to_atom([A,B,C,D,E]) || "
 	    "  A <- Set, B <- Set, C <- Set, E <- Set, D <- Set ]."
 	]),
 
@@ -209,9 +213,44 @@ node_start_immediately_after_crash(Config) when is_list(Config) ->
     receive {nodedown, Node} -> ok
     after 2000 -> test_server:fail(node_not_closed)
     end,
-    test_server:sleep(5000),
+    test_server:sleep(3000),
     node_check_up_down(Node, 2000),
-    ok.
+    loose_node:stop(Node).
+
+%% node_start_soon_after_crash
+%% Purpose:
+%%   Check that a node is up and running after a crash.
+%%   This test exhausts the atom table on the remote node.
+%%   ERL_CRASH_DUMP_SECONDS=10 will force beam
+%%   to only dump an erl_crash.dump for 10 seconds.
+node_start_soon_after_crash(suite) -> {req, [{time, 10}]};
+node_start_soon_after_crash(Config) when is_list(Config) ->
+    {ok, Node} = start_check(loose, heart_test_soon, [{"ERL_CRASH_DUMP_SECONDS", "10"}]),
+
+    ok = rpc:call(Node, heart, set_cmd,
+	[atom_to_list(lib:progname()) ++
+	    " -noshell -heart " ++ name(Node) ++ "&"]),
+
+    Mod  = exhaust_atoms,
+
+    Code = generate(Mod, [], [
+	    "do() -> "
+	    "  Set = lists:seq($a,$z), "
+	    "  [ list_to_atom([A,B,C,D,E]) || "
+	    "  A <- Set, B <- Set, C <- Set, E <- Set, D <- Set ]."
+	]),
+
+    %% crash it with atom exhaustion
+    rpc:call(Node, erlang, load_module, [Mod, Code]),
+    rpc:cast(Node, Mod, do, []),
+
+    receive {nodedown, Node} -> ok
+    after 15000 -> test_server:fail(node_not_closed)
+    end,
+    test_server:sleep(20000),
+    node_check_up_down(Node, 15000),
+    loose_node:stop(Node).
+
 
 node_check_up_down(Node, Tmo) ->
     case net_adm:ping(Node) of
@@ -285,7 +324,7 @@ get_cmd(suite) -> [];
 get_cmd(Config) when is_list(Config) ->
     {ok, Node} = start_check(slave, heart_test),
     Cmd = "test",
-    ok = rpc:call(Node, heart, set_cmd, [Cmd]),
+    ok  = rpc:call(Node, heart, set_cmd, [Cmd]),
     {ok, Cmd} = rpc:call(Node, heart, get_cmd, []),
     stop_node(Node),
     ok.
@@ -378,9 +417,7 @@ do_kill_pid(_Config) ->
     {ok,Node} = start_node_run(Name,Env,suicide_by_heart,[]),
     ok = wait_for_node(Node,15),
     erlang:monitor_node(Node, true),
-    receive
-	{nodedown,Node} ->
-	    ok
+    receive {nodedown,Node} -> ok
     after 30000 ->
 	    false
     end.
@@ -388,23 +425,16 @@ do_kill_pid(_Config) ->
 wait_for_node(_,0) ->
     false;
 wait_for_node(Node,N) ->
-    receive
-    after 1000 ->
-	    ok
-    end,
+    receive after 1000 -> ok end,
     case net_adm:ping(Node) of
-	pong ->
-	    ok;
-	pang ->
-	    wait_for_node(Node,N-1)
+	pong -> ok;
+	pang -> wait_for_node(Node,N-1)
     end.
 
 erl() ->	   
     case os:type() of
-	{win32,_} ->
-	    "werl ";
-	_ ->
-	    "erl "
+	{win32,_} -> "werl ";
+	_ -> "erl "
     end.
     
 name(Node) when is_list(Node) -> name(Node,[]);
