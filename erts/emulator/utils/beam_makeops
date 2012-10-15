@@ -1711,7 +1711,7 @@ sub tr_gen_to {
 
     my $prev_last;
     $prev_last = pop(@{$gen_transform{$key}})
-	if defined @{$gen_transform{$key}}; # Fail
+	if defined $gen_transform{$key}; # Fail
 
     if ($prev_last && !is_instr($prev_last, 'fail')) {
 	error("Line $line: A previous transformation shadows '$orig_transform'");
