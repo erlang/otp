@@ -405,8 +405,38 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	return 0;
     }
     if (library_refc > 0) {
+	/* Repeated loading of this library (module upgrade).
+	 * Atoms and callbacks are already set, we are done.
+	 */
 	return 1;
     }
+
+    atom_true = enif_make_atom(env,"true");
+    atom_false = enif_make_atom(env,"false");
+    atom_sha = enif_make_atom(env,"sha");
+    atom_sha224 = enif_make_atom(env,"sha224");
+    atom_sha256 = enif_make_atom(env,"sha256");
+    atom_sha384 = enif_make_atom(env,"sha384");
+    atom_sha512 = enif_make_atom(env,"sha512");
+    atom_md5 = enif_make_atom(env,"md5");
+    atom_ripemd160 = enif_make_atom(env,"ripemd160");
+    atom_error = enif_make_atom(env,"error");
+    atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
+    atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
+    atom_rsa_no_padding = enif_make_atom(env,"rsa_no_padding");
+    atom_undefined = enif_make_atom(env,"undefined");
+    atom_ok = enif_make_atom(env,"ok");
+    atom_not_prime = enif_make_atom(env,"not_prime");
+    atom_not_strong_prime = enif_make_atom(env,"not_strong_prime");
+    atom_unable_to_check_generator = enif_make_atom(env,"unable_to_check_generator");
+    atom_not_suitable_generator = enif_make_atom(env,"not_suitable_generator");
+    atom_check_failed = enif_make_atom(env,"check_failed");
+    atom_unknown = enif_make_atom(env,"unknown");
+    atom_none = enif_make_atom(env,"none");
+    atom_notsup = enif_make_atom(env,"notsup");
+    atom_digest = enif_make_atom(env,"digest");
+
+    init_digest_types(env);
 
     if (!change_basename(lib_buf, sizeof(lib_buf), callback_lib)) {
 	return 0;
@@ -455,33 +485,6 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 	return -1;
     }
 
-    atom_true = enif_make_atom(env,"true");
-    atom_false = enif_make_atom(env,"false");
-    atom_sha = enif_make_atom(env,"sha");
-    atom_sha224 = enif_make_atom(env,"sha224");
-    atom_sha256 = enif_make_atom(env,"sha256");
-    atom_sha384 = enif_make_atom(env,"sha384");
-    atom_sha512 = enif_make_atom(env,"sha512");
-    atom_md5 = enif_make_atom(env,"md5");
-    atom_ripemd160 = enif_make_atom(env,"ripemd160");
-    atom_error = enif_make_atom(env,"error");
-    atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
-    atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
-    atom_rsa_no_padding = enif_make_atom(env,"rsa_no_padding");
-    atom_undefined = enif_make_atom(env,"undefined");
-    atom_ok = enif_make_atom(env,"ok");
-    atom_not_prime = enif_make_atom(env,"not_prime");
-    atom_not_strong_prime = enif_make_atom(env,"not_strong_prime");
-    atom_unable_to_check_generator = enif_make_atom(env,"unable_to_check_generator");
-    atom_not_suitable_generator = enif_make_atom(env,"not_suitable_generator");
-    atom_check_failed = enif_make_atom(env,"check_failed");
-    atom_unknown = enif_make_atom(env,"unknown");
-    atom_none = enif_make_atom(env,"none");
-    atom_notsup = enif_make_atom(env,"notsup");
-    atom_digest = enif_make_atom(env,"digest");
-
-    init_digest_types(env);
-
     *priv_data = NULL;
     library_refc++;
     return 0;
@@ -495,11 +498,6 @@ static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data,
     }
     if (*priv_data != NULL) {
 	return -1; /* Don't know how to do that */
-    }
-    if (library_refc == 0) {
-	/* No support for real library upgrade. The tricky thing is to know
-	   when to (re)set the callbacks for allocation and locking. */
-	return -2;
     }
     if (!init(env, load_info)) {
 	return -1;
