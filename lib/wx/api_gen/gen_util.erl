@@ -187,6 +187,8 @@ replace_and_remove([$| | R], Acc) ->
     replace_and_remove(R, ["|"|Acc]);
 replace_and_remove([$* | R], Acc) ->
     replace_and_remove(R, ["*"|Acc]);
+replace_and_remove([$+ | R], Acc) ->
+    replace_and_remove(R, ["+"|Acc]);
 replace_and_remove([$& | R], Acc) ->
     replace_and_remove(R, [$&|Acc]);
 replace_and_remove([$<,$< | R], Acc) ->

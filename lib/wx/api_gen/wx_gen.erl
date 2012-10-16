@@ -654,6 +654,12 @@ extract_type_info(#xmlElement{name=ref,attributes=As,content=[#xmlText{value=V}]
     {value, #xmlAttribute{value = Kind}} = keysearch(kindref,#xmlAttribute.name,As),
     {reverse(foldl(fun extract_type_info2/2, [], string:tokens(V, " "))) ++ Acc,
      {Kind,Refid}};
+extract_type_info(#xmlElement{name=ref,attributes=As,content=[#xmlText{value=V}]},
+		  {Acc,_}) ->
+    {value, #xmlAttribute{value = Refid}} = keysearch(refid,#xmlAttribute.name,As),
+    {value, #xmlAttribute{value = Kind}} = keysearch(kindref,#xmlAttribute.name,As),
+    {reverse(foldl(fun extract_type_info2/2, [], string:tokens(V, " "))) ++ Acc,
+     {Kind,Refid}};
 extract_type_info(What,Acc) ->
     ?error({parse_error,What,Acc}).
 
@@ -1251,7 +1257,7 @@ parse_enums([File|Files], Parsed) ->
     case gb_sets:is_member(File,Parsed) of
 	false ->
 	    FileName = filename:join(["wx_xml",File ++ "_8h.xml"]),
-%%	    io:format("Parse Enums in ~s ~n", [FileName]),
+	    %%io:format("Parse Enums in ~s ~n", [FileName]),
 	    case xmerl_scan:file(FileName, [{space, normalize}]) of 
 		{error, enoent} ->
 		    parse_enums(Files, gb_sets:add(File,Parsed));
@@ -1318,41 +1324,37 @@ extract_enum2([], N, _Id, Acc) ->
 
 extract_enum3([#xmlElement{name=name,content=[#xmlText{value=Name}]}|R], Id, Acc) ->
     case lists:keymember(Name, 1, Acc) of
-	true ->  %% Doxygen double includes some defs. 
+	true ->  %% Doxygen double includes some defs.
 	    {Acc,Id};
 	false ->
 	    case Id of
-		This = {Str,Num} -> 
+		This = {Str,Num} ->
 		    extract_enum3(R, {Str, Num+1}, [{Name,This}|Acc]);
 		Val ->
 		    extract_enum3(R, Val+1, [{Name,Val}|Acc])
 	    end
     end;
 
-extract_enum3([#xmlElement{name=initializer,
-			   content=Cs=[#xmlText{}|_]}|_],_Id,[{Name,_}|Acc]) ->
-
-    String = lists:append([string:strip(C#xmlText.value) || C <- Cs]),
-    
+extract_enum3([#xmlElement{name=initializer,content=Cs}|_],_Id,[{Name,_}|Acc]) ->
+    String = extract_def2(Cs),
     Val0 = gen_util:tokens(String,"<& "),
-            
-    try 
+    try
 	case Val0 of
-	    ["0x" ++ Val1] -> 
+	    ["0x" ++ Val1] ->
 		Val = http_util:hexlist_to_integer(Val1),
-		{[{Name, Val}|Acc], Val+1};
-	    [Single] ->
-		Val = list_to_integer(Single),
 		{[{Name, Val}|Acc], Val+1};
 	    ["1", "<<", Shift] ->
 		Val = 1 bsl list_to_integer(Shift),
 		{[{Name, Val}|Acc], Val+1};
-	    [_Str, "+", _What] ->
-		Val = lists:append(Val0),
-		{[{Name, {Val, 0}}|Acc], {Val,1}};	    
-	    _What ->
-		%% io:format("~p Name ~p ~p~n",[?LINE, Name, Val0]),
-		throw(below)		
+	    [Str, "+", What] ->
+		Val = list_to_integer(What),
+		{[{Name, {Str, Val}}|Acc], {Str,Val+1}};
+	    [Single] ->
+		Val = list_to_integer(Single),
+		{[{Name, Val}|Acc], Val+1};
+	    _ ->
+		%% io:format("~p Name ~p ~p ~p~n",[?LINE, Name, Val0, String]),
+		throw(below)
 	end
     catch _:_ ->
 	    {[{Name,{String,0}}|Acc], {String,1}}
@@ -1372,7 +1374,7 @@ extract_defs(Defs, File) ->
     end.
 
 extract_defs2(#xmlElement{name=memberdef,content=C},{Acc,Skip}) ->
-    try 
+    try
 	Res = {Name,_} = extract_def(C,undefined,Skip),
 	case gb_sets:is_member(Name,Skip) orelse lists:keymember(Name, 1, Acc) of
 	    true -> {Acc,Skip};
@@ -1380,30 +1382,31 @@ extract_defs2(#xmlElement{name=memberdef,content=C},{Acc,Skip}) ->
 	end
     catch throw:SkipName -> {Acc, gb_sets:add(SkipName,Skip)}
     end.
-	     
+
 extract_def([#xmlElement{name=name,content=[#xmlText{value=Name}]}|R], _N, Skip) ->
     case Name of
 	"wxUSE" ++ _ ->
 	    throw(Name);
 	"wx" ++ _ ->
 	    extract_def(R, Name, Skip);
-	_ -> 
+	_ ->
 	    throw(Name)
     end;
 extract_def([#xmlElement{name=param}|_],Name,_) ->
     throw(Name);
-extract_def([#xmlElement{name=initializer,content=[#xmlText{value=Val0}]}|_],N,Skip) ->
+extract_def([#xmlElement{name=initializer,content=Cs}|_R],N,Skip) ->
+    Val0 = extract_def2(Cs),
     case Val0 of
 	"0x" ++ Val1 -> {N, http_util:hexlist_to_integer(Val1)};
 	_ ->
 	    try
 		Val = list_to_integer(Val0),
 		{N, Val}
-	    catch _:_ ->  
+	    catch _:_ ->
 		    case def_is_ok(Val0, Skip) of
 			false ->
 			    throw(N);
-			NVal when is_integer(NVal) -> 
+			NVal when is_integer(NVal) ->
 			    {N, NVal};
 			NVal ->
 			    {N, {NVal,0}}
@@ -1414,7 +1417,24 @@ extract_def([_|R],N,Skip) ->
     extract_def(R,N,Skip);
 extract_def(_,N,_) ->
     throw(N).
-		     
+
+extract_def2([#xmlText{value=Val}|R]) ->
+    strip_comment(string:strip(Val)) ++ extract_def2(R);
+extract_def2([#xmlElement{content=Cs}|R]) ->
+    extract_def2(Cs) ++ extract_def2(R);
+extract_def2([]) -> [].
+
+strip_comment("/*" ++ Rest) ->
+    strip_comment_until_end(Rest);
+strip_comment("//" ++ _) -> [];
+strip_comment([H|R]) -> [H | strip_comment(R)];
+strip_comment([]) -> [].
+
+strip_comment_until_end("*/" ++ Rest) ->
+    strip_comment(Rest);
+strip_comment_until_end([_|R]) ->
+    strip_comment_until_end(R).
+
 def_is_ok(Name, Skip) ->
     Toks = gen_util:tokens(Name,"()| \\:"),
     R = def_is_ok(Toks, Skip, []),
