@@ -1014,10 +1014,22 @@ align(64, 1, Str) -> {"0:32," ++ Str,0};
 align(Sz, W, Str) -> align(Sz, W rem 2, Str).
 
 enum_name(Name) ->
-    case string:tokens(Name, ":") of
-	[Name] -> Name;
-	[C,N] ->  C ++ "_" ++ N
+    case enum_split(Name) of
+	{undefined, _} -> Name;
+	{_C, ErlName} -> ErlName
     end.
+
+enum_split(Name) ->
+    case string:tokens(Name, ":") of
+	[Name] -> {undefined, Name};
+	[C,N] ->  {C, enum_name(C,N)}
+    end.
+
+enum_name(undefined, Name) -> Name;
+enum_name(Enum, Name) -> Enum ++ "_" ++ Name.
+
+enum_name_c(undefined, Name) -> Name;
+enum_name_c(Enum, Name) -> Enum ++ "::" ++ Name.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1058,6 +1070,14 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 	    w("% From class ~s::~s~n",[Class, Name])
     end,
 
+    Consts = get(consts),
+    Ignore = fun(Name) ->
+		     case gb_trees:lookup(Name, Consts) of
+			 {value, Const} -> Const;
+			 none -> true
+		     end
+	     end,
+
     Format = fun(#const{name="wxEVT_" ++ _}) ->
 		     ignore; %% Ignore event macros they are not valid in our event model
 		(#const{name=Name,val=Value,is_const=true}) when is_number(Value) ->
@@ -1065,44 +1085,57 @@ build_enum_ints(#enum{from=From, vals=Vals},Done) ->
 		(#const{name=Name,val=Value,is_const=false}) when is_number(Value) ->
 		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),enum_name(Name)]);
 		(#const{name=Name,val={Str,0}}) ->
+		     {EnumClass, EnumName} = enum_split(Name),
 		     case string:tokens(Str, " |()") of
 			 [Token] ->
-			     w("-define(~s, ~s).~n", [enum_name(Name),const_value(Token)]);
+			     w("-define(~s, ~s).~n", [EnumName,const_value(Token, EnumClass, Ignore)]);
 			 Tokens ->
-			     Def = args(fun(T) -> const_value(T) end, " bor ", Tokens),
-			     w("-define(~s, (~s)).~n", [enum_name(Name),Def])
+			     Def = args(fun(T) -> const_value(T, EnumClass, Ignore) end, " bor ", Tokens),
+			     w("-define(~s, (~s)).~n", [EnumName, Def])
 		     end;
 		(#const{name=Name,val={Str,N}}) ->
+		     {EnumClass, EnumName} = enum_split(Name),
 		     case string:tokens(Str, " |()") of
 			 [Token] ->
-			     w("-define(~s, (?~s+~p)).~n", [enum_name(Name),Token,N])
+			     w("-define(~s, (~s+~p)).~n", [EnumName,const_value(Token, EnumClass, Ignore),N])
 		     end
 	     end,
-    Consts = get(consts),
+
     Write = fun({Name,_What}, Skip) ->
-		    case gb_sets:is_member(Name,Skip) of
-			true ->
-			    Skip;
-			false ->
-			    case gb_trees:lookup(Name, Consts) of
-				{value, Const} ->
-				    Format(Const),
-				    gb_sets:add(Name,Skip);
-				none -> Skip
-			    end
+		    case gb_sets:is_member(Name,Skip) orelse Ignore(Name) of
+			true -> Skip;
+			Const ->
+			    try Format(Const)
+			    catch {unknown_value, _Error} ->
+				    %% io:format("Const ~s uses unknown define ~p ignoring~n", [Name, _Error]),
+				    ok
+			    end,
+			    gb_sets:add(Name,Skip)
 		    end
 	    end,
     lists:foldl(Write, Done, Vals).
 
-const_value(V) when is_integer(V) -> integer_to_list(V);
-const_value(V = "16#" ++ IntList) ->
+const_value(V,_,_) when is_integer(V) -> integer_to_list(V);
+const_value(V = "16#" ++ IntList,_,_) ->
     _ = http_util:hexlist_to_integer(IntList), %% ASSERT
     V;
-const_value(V0) ->
+const_value(V0, EnumClass, Ignore) ->
     try
 	_ = list_to_integer(V0),
 	V0
-    catch _:_ -> [$?|V0]
+    catch _:_ ->
+	    EEnum = enum_name(EnumClass, V0),
+	    CEnum = enum_name_c(EnumClass, V0),
+	    case Ignore(CEnum) of
+		true when CEnum == V0 ->
+		    throw({unknown_value, EEnum});
+		true ->
+		    case Ignore(V0) of
+			true -> throw({unknown_value, EEnum});
+			_ -> [$?|V0]
+		    end;
+		_ -> [$?|EEnum]
+	    end
     end.
 
 gen_event_recs() ->
