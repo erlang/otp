@@ -30103,24 +30103,6 @@ case wxStyledTextCtrl_ScrollToColumn: { // wxStyledTextCtrl::ScrollToColumn
  This->ScrollToColumn((int) *column);
  break;
 }
-case wxStyledTextCtrl_SendMsg: { // wxStyledTextCtrl::SendMsg
- long wp=0;
- long lp=0;
- wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
- int * msg = (int *) bp; bp += 4;
- while( * (int*) bp) { switch (* (int*) bp) {
-  case 1: {bp += 4;
- wp = (long)*(int *) bp; bp += 4;
-  } break;
-  case 2: {bp += 4;
- lp = (long)*(int *) bp; bp += 4;
-  } break;
- }};
- if(!This) throw wxe_badarg(0);
- long Result = This->SendMsg((int) *msg,wp,lp);
- rt.addInt(Result);
- break;
-}
 case wxStyledTextCtrl_SetVScrollBar: { // wxStyledTextCtrl::SetVScrollBar
  wxStyledTextCtrl *This = (wxStyledTextCtrl *) getPtr(bp,memenv); bp += 4;
  wxScrollBar *bar = (wxScrollBar *) getPtr(bp,memenv); bp += 4;
