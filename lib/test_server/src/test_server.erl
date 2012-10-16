@@ -714,12 +714,13 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	    From ! {self(),set_curr_conf,ok},
 	    St = St0#st{config=Config},
 	    run_test_case_msgloop(St);
-	{make_priv_dir,From} when St0#st.config =:= undefined ->
-	    From ! {self(),make_priv_dir,{error,no_priv_dir_in_config}},
-	    run_test_case_msgloop(St0);
 	{make_priv_dir,From} ->
+	    Config = case St0#st.config of
+			 undefined -> [];
+			 Config0 -> Config0
+		     end,
 	    Result =
-		case proplists:get_value(priv_dir, St0#st.config) of
+		case proplists:get_value(priv_dir, Config) of
 		    undefined ->
 			{error,no_priv_dir_in_config};
 		    PrivDir ->
