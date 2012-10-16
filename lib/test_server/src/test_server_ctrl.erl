@@ -5119,7 +5119,7 @@ get_target_info() ->
 %% Called by test_server. See test_server:start_node/3 for details
 
 start_node(Name, Type, Options) ->
-    T = 10 * ?ACCEPT_TIMEOUT, % give some extra time
+    T = 10 * ?ACCEPT_TIMEOUT * test_server:timetrap_scale_factor(),
     format(minor, "Attempt to start ~w node ~p with options ~p",
 	   [Type, Name, Options]),
     case controller_call({start_node,Name,Type,Options}, T) of
@@ -5164,7 +5164,8 @@ start_node(Name, Type, Options) ->
 %% when the new node has contacted test_server_ctrl again
 
 wait_for_node(Slave) ->
-    case catch controller_call({wait_for_node,Slave},10000) of
+    T = 10000 * test_server:timetrap_scale_factor(),
+    case catch controller_call({wait_for_node,Slave},T) of
 	{'EXIT',{timeout,_}} -> {error,timeout};
 	ok -> ok
     end.
