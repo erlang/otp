@@ -1,7 +1,7 @@
 %%--------------------------------------------------------------------
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -311,6 +311,13 @@ do_start(Host, Node, Options) ->
     StartupTimeout = Options#options.startup_timeout,
     Result = case wait_for_node_alive(ENode, BootTimeout) of
 	pong->
+	    case test_server:is_cover() of
+		true ->
+		    MainCoverNode = cover:get_main_node(),
+		    rpc:call(MainCoverNode,cover,start,[ENode]);
+		false ->
+		    ok
+	    end,
             call_functions(ENode, Functions2),
 	    receive
 		{node_started, ENode}->
@@ -423,6 +430,8 @@ wait_for_node_alive(Node, N) ->
 
 % call init:stop on a remote node
 do_stop(ENode) ->
+    MainCoverNode = cover:get_main_node(),
+    rpc:call(MainCoverNode,cover,flush,[ENode]),
     spawn(ENode, init, stop, []),
     wait_for_node_dead(ENode, 5).
 
