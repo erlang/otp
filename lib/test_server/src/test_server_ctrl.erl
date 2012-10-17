@@ -166,7 +166,7 @@
 -export([multiply_timetraps/1, scale_timetraps/1, get_timetrap_parameters/0]).
 -export([create_priv_dir/1]).
 -export([cover/2, cover/3, cover/7,
-	 cross_cover_analyse/1, cross_cover_analyse/2, trc/1, stop_trace/0]).
+	 cross_cover_analyse/2, cross_cover_analyse/3, trc/1, stop_trace/0]).
 -export([testcase_callback/1]).
 -export([set_random_seed/1]).
 -export([kill_slavenodes/0]).
@@ -5513,15 +5513,20 @@ cover_analyse(Analyse, AnalyseMods) ->
 
 %% Cover analysis, cross application
 %% This can be executed on any node after all tests are finished.
-%% The node's current directory must be the same as when the tests
-%% were run.
-cross_cover_analyse(Analyse) ->
-    cross_cover_analyse(Analyse, undefined).
-
-cross_cover_analyse(Analyse, CrossModules) ->
-    CoverdataFiles = get_coverdata_files(),
+%% Apps = [{App,Dir}]
+%%   App = atom(), application name
+%%   Dir = string(), the log directory for App, normally where
+%%                   run.<timestamp> is found.
+%%   Modules = [atom()], modules that have been cover compiled during tests
+%%                       of other apps than the one they belong to.
+cross_cover_analyse(Analyse, Apps) ->
+    cross_cover_analyse(Analyse, Apps, get_cross_modules()).
+cross_cover_analyse(Analyse, Apps, Modules) ->
+    Apps1 = get_latest_run_dirs(Apps),
+    Apps2 = add_cross_modules(Modules,Apps1),
+    CoverdataFiles = get_coverdata_files(Apps2),
     lists:foreach(fun(CDF) -> cover:import(CDF) end, CoverdataFiles),
-    io:fwrite("Cover analysing... ", []),
+    io:fwrite("Cover analysing...\n", []),
     DetailsFun =
 	case Analyse of
 	    details ->
@@ -5535,25 +5540,15 @@ cross_cover_analyse(Analyse, CrossModules) ->
 	    _ ->
 		fun(_,_) -> undefined end
 	end,
-    SortedModules =
-	case CrossModules of
-	    undefined ->
-		sort_modules([Mod || Mod <- get_all_cross_modules(),
-				     lists:member(Mod, cover:imported_modules())], []);
-	    _ ->
-		sort_modules(CrossModules, [])
-	end,
-    Coverage = analyse_apps(SortedModules, DetailsFun, []),
+    Coverage = analyse_apps(Apps2, DetailsFun, []),
     cover:stop(),
-    write_cross_cover_logs(Coverage).
+    write_cross_cover_logs(Coverage,Apps2).
 
-%% For each application from which there are modules listed in the
-%% cross.cover, write a cross cover log (cross_cover.html).
-write_cross_cover_logs([{App,Coverage}|T]) ->
-    case last_test_for_app(App) of
-	false ->
-	    ok;
-	Dir ->
+%% For each application from which there are cross cover analysed
+%% modules, write a cross cover log (cross_cover.html).
+write_cross_cover_logs([{App,Coverage}|T],Apps) ->
+    case lists:keyfind(App,1,Apps) of
+	{_,Dir,Mods} when Mods=/=[] ->
 	    CoverLogName = filename:join(Dir,?cross_coverlog_name),
 	    {ok,CoverLog} = file:open(CoverLogName, [write]),
 	    write_coverlog_header(CoverLog),
@@ -5561,60 +5556,65 @@ write_cross_cover_logs([{App,Coverage}|T]) ->
 		      "<h1>Coverage results for \'~w\' from all tests</h1>\n",
 		      [App]),
 	    write_cover_result_table(CoverLog, Coverage),
-	    io:fwrite("Written file ~p\n", [CoverLogName])
+	    io:fwrite("Written file ~p\n", [CoverLogName]);
+	_ ->
+	    ok
     end,
-    write_cross_cover_logs(T);
-write_cross_cover_logs([]) ->
+    write_cross_cover_logs(T,Apps);
+write_cross_cover_logs([],_) ->
     io:fwrite("done\n", []).
 
-%% Find all exported coverdata files. First find all the latest
-%% run.<timestamp> directories, and the check if there is a file named
-%% all.coverdata.
-get_coverdata_files() ->
-    PossibleFiles = [last_coverdata_file(Dir) ||
-			Dir <- filelib:wildcard([$*|?logdir_ext]),
-			filelib:is_dir(Dir)],
-    [File || File <- PossibleFiles, filelib:is_file(File)].
+%% Get the latest run.<timestamp> directories
+get_latest_run_dirs([{App,Dir}|Apps]) ->
+    [{App,get_latest_run_dir(Dir)} | get_latest_run_dirs(Apps)];
+get_latest_run_dirs([]) ->
+    [].
 
-last_coverdata_file(Dir) ->
-    LastDir = last_test(filelib:wildcard(filename:join(Dir,"run.[1-2]*")),false),
-    filename:join(LastDir,"all.coverdata").
+get_latest_run_dir(Dir) ->
+    case filelib:wildcard(filename:join(Dir,"run.[1-2]*")) of
+	[] ->
+	    Dir;
+	[H|T] ->
+	    get_latest_dir(T,H)
+    end.
 
-
-%% Find the latest run.<timestamp> directory for the given application.
-last_test_for_app(App) ->
-    AppLogDir = atom_to_list(App)++?logdir_ext,
-    last_test(filelib:wildcard(filename:join(AppLogDir,"run.[1-2]*")),false).
-
-last_test([Run|Rest], false) ->
-    last_test(Rest, Run);
-last_test([Run|Rest], Latest) when Run > Latest ->
-    last_test(Rest, Run);
-last_test([_|Rest], Latest) ->
-    last_test(Rest, Latest);
-last_test([], Latest) ->
+get_latest_dir([H|T],Latest) when H>Latest ->
+    get_latest_dir(T,H);
+get_latest_dir([_|T],Latest) ->
+    get_latest_dir(T,Latest);
+get_latest_dir([],Latest) ->
     Latest.
 
-%% Sort modules according to the application they belong to.
-%% Return [{App,LastTestDir,ModuleList}]
-sort_modules([M|Modules], Acc) ->
-    App = get_app(M),
-    Acc1 =
-	case lists:keysearch(App, 1, Acc) of
-	    {value,{App,LastTest,List}} ->
-		lists:keyreplace(App, 1, Acc, {App,LastTest,[M|List]});
+%% Associate the cross cover modules with their applications.
+add_cross_modules(Mods,Apps)->
+    do_add_cross_modules(Mods,[{App,Dir,[]} || {App,Dir} <- Apps]).
+do_add_cross_modules([Mod|Mods],Apps)->
+    App = get_app(Mod),
+    NewApps =
+	case lists:keytake(App,1,Apps) of
+	    {value,{App,Dir,AppMods},Rest} ->
+		[{App,Dir,lists:umerge([Mod],AppMods)}|Rest];
 	    false ->
-		[{App,last_test_for_app(App),[M]}|Acc]
+		Apps
 	end,
-    sort_modules(Modules, Acc1);
-sort_modules([], Acc) ->
-    Acc.
+    do_add_cross_modules(Mods,NewApps);
+do_add_cross_modules([],Apps) ->
+    %% Just to get the modules in the same order as app-only cover log
+    [{App,Dir,lists:reverse(Mods)} || {App,Dir,Mods} <- Apps].
 
 get_app(Module) ->
     Beam = code:which(Module),
     AppDir = filename:basename(filename:dirname(filename:dirname(Beam))),
     [AppStr|_] = string:tokens(AppDir,"-"),
     list_to_atom(AppStr).
+
+%% Find all exported coverdata files.
+get_coverdata_files(Apps) ->
+    lists:flatmap(
+      fun({_,LatestAppDir,_}) ->
+	      filelib:wildcard(filename:join(LatestAppDir,"all.coverdata"))
+      end,
+      Apps).
 
 
 %% For each application, analyse all modules
@@ -5636,7 +5636,7 @@ analyse_modules(_Dir, [], _DetailsFun, Acc) ->
 
 
 %% Read the cross cover file (cross.cover)
-get_all_cross_modules() ->
+get_cross_modules() ->
     get_cross_modules(all).
 get_cross_modules(App) ->
     case file:consult(?cross_cover_file) of
