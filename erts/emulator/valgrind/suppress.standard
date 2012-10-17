@@ -120,14 +120,14 @@ fun:pthread_create@@GLIBC_2.2.5
 {
 zlib; ok according to zlib developers
 Memcheck:Cond
-fun:longest_match
+...
 fun:deflate_slow
 fun:deflate
 }
 {
 zlib; ok according to zlib developers
 Memcheck:Cond
-fun:longest_match
+...
 fun:deflate_fast
 fun:deflate
 }
