@@ -64,13 +64,7 @@ timetrap(Timeout0, ReportTVal, Scale, Pid) ->
 				      true -> ReportTVal end,
 		    MFLs = test_server:get_loc(Pid),
 		    Mon = erlang:monitor(process, Pid),
-		    Trap = 
-			case get(test_server_init_or_end_conf) of
-			    undefined ->
-				{timetrap_timeout,TimeToReport,MFLs};
-			    InitOrEnd ->
-				{timetrap_timeout,TimeToReport,MFLs,InitOrEnd}
-			end,
+		    Trap = {timetrap_timeout,TimeToReport,MFLs},
 		    exit(Pid, Trap),
 		    receive
 			{'DOWN', Mon, process, Pid, _} ->
@@ -520,6 +514,17 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
 	true ->
 	    put(test_server_loc, {Mod,Func,framework}),
 	    EH = fun(Reason) -> exit({fw_error,{Mod,Func,Reason}}) end,
+	    SetTcState = case Func of
+			     end_tc -> true;
+			     init_tc -> true;
+			     _ -> false
+			 end,
+	    case SetTcState of
+		true ->
+		    test_server:set_tc_state({framework,Mod,Func}, undefined);
+		false ->
+		    ok
+	    end,
 	    try apply(Mod,Func,Args) of
 		Result ->
 		    Result
