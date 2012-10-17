@@ -2612,7 +2612,30 @@ wait_for_node(Slave) ->
     group_leader() ! {sync_apply,
 		      self(),
 		      {test_server_ctrl,wait_for_node,[Slave]}},
-    receive {sync_result,R} -> R end.
+    Result = receive {sync_result,R} -> R end,
+    case Result of
+	ok ->
+	    Cover = case is_cover() of
+			true ->
+			    not is_shielded(Slave) andalso same_version(Slave);
+			false ->
+			    false
+		    end,
+
+	    net_adm:ping(Slave),
+	    case Cover of
+		true ->
+		    MainCoverNode = cover:get_main_node(),
+		    Sticky = unstick_all_sticky(MainCoverNode,Slave),
+		    rpc:call(MainCoverNode,cover,start,[Slave]),
+		    stick_all_sticky(Slave,Sticky);
+		_ ->
+		    ok
+	    end;
+	_ ->
+	    ok
+    end,
+    Result.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
