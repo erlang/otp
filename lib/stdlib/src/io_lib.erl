@@ -253,10 +253,10 @@ write_ref(Ref) ->
 write_binary(B, D) when is_integer(D) ->
     [$<,$<,write_binary_body(B, D),$>,$>].
 
-write_binary_body(_B, 1) ->
-    "...";
 write_binary_body(<<>>, _D) ->
     "";
+write_binary_body(_B, 1) ->
+    "...";
 write_binary_body(<<X:8>>, _D) ->
     [integer_to_list(X)];
 write_binary_body(<<X:8,Rest/bitstring>>, D) ->

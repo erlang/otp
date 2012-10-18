@@ -27,7 +27,8 @@
          otp_6282/1, otp_6354/1, otp_6495/1, otp_6517/1, otp_6502/1,
          manpage/1, otp_6708/1, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
-	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1]).
+	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
+	 io_lib_print_binary_depth_one/1]).
 
 %-define(debug, true).
 
@@ -62,7 +63,8 @@ all() ->
      otp_6282, otp_6354, otp_6495, otp_6517, otp_6502,
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
-     io_fread_newlines, otp_8989, io_lib_fread_literal].
+     io_fread_newlines, otp_8989, io_lib_fread_literal,
+     io_lib_print_binary_depth_one].
 
 groups() -> 
     [].
@@ -2020,4 +2022,15 @@ io_lib_fread_literal(Suite) when is_list(Suite) ->
     ?line {more,C2} = io_lib:fread([], " \n", " d"),
     ?line {done,{error,{fread,input}},_} = io_lib:fread(C2, eof, " d"),
     ?line {done,{ok,[]},[]} = io_lib:fread(C2, "d\n", " d"),
+    ok.
+
+io_lib_print_binary_depth_one(doc) ->
+    "Test binaries printed with a depth of one behave correctly";
+io_lib_print_binary_depth_one(Suite) when is_list(Suite) ->
+    ?line "<<>>" = fmt("~W", [<<>>, 1]),
+    ?line "<<>>" = fmt("~P", [<<>>, 1]),
+    ?line "<<...>>" = fmt("~W", [<<1>>, 1]),
+    ?line "<<...>>" = fmt("~P", [<<1>>, 1]),
+    ?line "<<...>>" = fmt("~W", [<<1:7>>, 1]),
+    ?line "<<...>>" = fmt("~P", [<<1:7>>, 1]),
     ok.
