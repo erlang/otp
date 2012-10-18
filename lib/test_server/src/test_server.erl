@@ -737,7 +737,7 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	    From ! {self(),make_priv_dir,Result},
 	    run_test_case_msgloop(St0);
 	{'EXIT',Pid,{Ref,Time,Value,Loc,Opts}} ->
-	    RetVal = {Time/1000000,Value,mod_loc(Loc),Opts},
+	    RetVal = {Time/1000000,Value,Loc,Opts},
 	    St = setup_termination(RetVal, St0#st{config=undefined}),
 	    run_test_case_msgloop(St);
 	{'EXIT',Pid,Reason} ->
@@ -780,9 +780,9 @@ run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
 	    CB = os:getenv("TEST_SERVER_FRAMEWORK"),
 	    Loc = case CB of
 		      FW when FW =:= false; FW =:= "undefined" ->
-			  {test_server,Func};
+			  [{test_server,Func}];
 		      _ ->
-			  {list_to_atom(CB),Func}
+			  [{list_to_atom(CB),Func}]
 		  end,
 	    RetVal = {died,{framework_error,Loc,Error},Loc},
 	    St = setup_termination(RetVal, St0#st{comment="Framework error",
@@ -887,8 +887,7 @@ handle_tc_exit(Reason, #st{status=tc,config=Config0,mf={Mod,Func},pid=Pid}=St)
 		 end,
     Timeout = end_conf_timeout(Reason, St),
     Config = [{tc_status,{failed,F}}|Config0],
-    Loc = mod_loc(Loc1),
-    EndConfPid = call_end_conf(Mod, Func, Pid, R, Loc, Config, Timeout),
+    EndConfPid = call_end_conf(Mod, Func, Pid, R, Loc1, Config, Timeout),
     St#st{end_conf_pid=EndConfPid};
 handle_tc_exit(Reason, #st{config=Config,mf={Mod,Func0},pid=Pid,
 			   status=Status}=St) ->
@@ -905,8 +904,7 @@ handle_tc_exit(Reason, #st{config=Config,mf={Mod,Func0},pid=Pid,
 	       end_per_testcase=F -> {F,Func0};
 	       _ -> Func0
 	   end,
-    Loc = mod_loc(Loc1),
-    spawn_fw_call(Mod, Func, Config, Pid, R, Loc, self()),
+    spawn_fw_call(Mod, Func, Config, Pid, R, Loc1, self()),
     St.
 
 end_conf_timeout({timetrap_timeout,Timeout,_}, _) ->
@@ -1104,6 +1102,8 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 		   TimetrapData, LogOpts, TCCallback) ->
     put(test_server_multiply_timetraps, TimetrapData),
     put(test_server_logopts, LogOpts),
+    Where = [{Mod,Func}],
+    put(test_server_loc, Where),
     FWInitResult = test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
 						  {ok,Args0}),
     set_tc_state(running, undefined),
@@ -1112,23 +1112,19 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 	    {ok,Args} ->
 		run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback);
 	    Error = {error,_Reason} ->
-		Where = {Mod,Func},
 		NewResult = do_end_tc_call(Mod,Func, {Error,Args0},
 					   {skip,{failed,Error}}),
 		{{0,NewResult},Where,[]};
 	    {fail,Reason} ->
 		Conf = [{tc_status,{failed,Reason}} | hd(Args0)],
-		Where = {Mod,Func},
 		fw_error_notify(Mod, Func, Conf, Reason),
 		NewResult = do_end_tc_call(Mod,Func, {{error,Reason},[Conf]},
 					   {fail,Reason}),
 		{{0,NewResult},Where,[]};
 	    Skip = {skip,_Reason} ->
-		Where = {Mod,Func},
 		NewResult = do_end_tc_call(Mod,Func, {Skip,Args0}, Skip),
 		{{0,NewResult},Where,[]};
 	    {auto_skip,Reason} ->
-		Where = {Mod,Func},
 		NewResult = do_end_tc_call(Mod,Func, {{skip,Reason},Args0},
 					   {skip,Reason}),
 		{{0,NewResult},Where,[]}
@@ -1138,7 +1134,6 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
     case RunInit of
 	run_init ->
-	    put(test_server_loc, {Mod,{init_per_testcase,Func}}),
 	    set_tc_state(init_per_testcase, hd(Args)),
 	    ensure_timetrap(Args),
 	    case init_per_testcase(Mod, Func, Args) of
@@ -1159,23 +1154,21 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 		    NewRes = do_end_tc_call(Mod,Func,
 					    {{error,Reason},[EndConf]},
 					    FailTC),
-		    {{0,NewRes},{Mod,Func},[]};
+		    {{0,NewRes},[{Mod,Func}],[]};
 		{ok,NewConf} ->
 		    %% call user callback function if defined
 		    NewConf1 = user_callback(TCCallback, Mod, Func, init, NewConf),
 		    %% save current state in controller loop
 		    set_tc_state(tc, NewConf1),
-		    put(test_server_loc, {Mod,Func}),
 		    %% execute the test case
 		    {{T,Return},Loc} = {ts_tc(Mod, Func, [NewConf1]),get_loc()},
 		    {EndConf,TSReturn,FWReturn} =
 			case Return of
 			    {E,TCError} when E=='EXIT' ; E==failed ->
-				ModLoc = mod_loc(Loc),
 				fw_error_notify(Mod, Func, NewConf1,
-						TCError, ModLoc),
+						TCError, Loc),
 				{[{tc_status,{failed,TCError}},
-				  {tc_fail_loc,ModLoc}|NewConf1],
+				  {tc_fail_loc,Loc}|NewConf1],
 				 Return,{error,TCError}};
 			    SaveCfg={save_config,_} ->
 				{[{tc_status,ok},SaveCfg|NewConf1],Return,ok};
@@ -1215,7 +1208,7 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 					{FWReturn1,[EndConf2]}, TSReturn1) of
 			{failed,Reason} = NewReturn ->
 			    fw_error_notify(Mod,Func,EndConf2, Reason),
-			    {{T,NewReturn},{Mod,Func},[]};
+			    {{T,NewReturn},[{Mod,Func}],[]};
 			NewReturn ->
 			    {{T,NewReturn},Loc,[]}
 		    end
@@ -1226,7 +1219,6 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    Args1 = user_callback(TCCallback, Mod, Func, init, Args),
 	    ensure_timetrap(Args1),
 	    %% ts_tc does a catch
-	    put(test_server_loc, {Mod,Func}),
 	    %% if this is a named conf group, the test case (init or end conf)
 	    %% should be called with the name as the first argument
 	    Args2 = if Name == undefined -> Args1;
@@ -1237,7 +1229,7 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    %% call user callback function if defined
 	    Return1 = user_callback(TCCallback, Mod, Func, 'end', Return),
 	    {Return2,Opts} = process_return_val([Return1], Mod, Func,
-						Args1, {Mod,Func}, Return1),
+						Args1, [{Mod,Func}], Return1),
 	    {{T,Return2},Loc,Opts}
     end.
 
@@ -1300,7 +1292,7 @@ process_return_val(Return, M,F,A, Loc, Final) ->
 process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts)
   when E=='EXIT';
        E==failed ->
-    fw_error_notify(M,F,A, TCError, mod_loc(Loc)),
+    fw_error_notify(M,F,A, TCError, Loc),
     case do_end_tc_call(M,F, {{error,TCError},
 			      [[{tc_status,{failed,TCError}}|Args]]},
 			Failed) of
@@ -1387,7 +1379,7 @@ do_init_per_testcase(Mod, Args) ->
 	throw:Other ->
 	    set_loc(erlang:get_stacktrace()),
 	    Line = get_loc(),
-	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
+	    FormattedLoc = test_server_sup:format_loc(Line),
 	    group_leader() ! {printout,12,
 			      "ERROR! init_per_testcase thrown!\n"
 			      "\tLocation: ~s\n\tReason: ~p\n",
@@ -1398,7 +1390,7 @@ do_init_per_testcase(Mod, Args) ->
 	    Reason = {Reason0,Stk},
 	    set_loc(Stk),
 	    Line = get_loc(),
-	    FormattedLoc = test_server_sup:format_loc(mod_loc(Line)),
+	    FormattedLoc = test_server_sup:format_loc(Line),
 	    group_leader() ! {printout,12,
 			      "ERROR! init_per_testcase crashed!\n"
 			      "\tLocation: ~s\n\tReason: ~p\n",
@@ -1421,7 +1413,6 @@ end_per_testcase(Mod, Func, Conf) ->
     end.
 
 do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
-    put(test_server_loc, {Mod,{EndFunc,Func}}),
     set_tc_state(end_per_testcase, Conf),
     try Mod:EndFunc(Func, Conf) of
 	{save_config,_}=SaveCfg ->
@@ -1446,8 +1437,7 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 			      "Reason: ~p\n"
 			      "Line: ~s\n",
 			      [EndFunc, Other,
-			       test_server_sup:format_loc(
-				 mod_loc(get_loc()))]},
+			       test_server_sup:format_loc(get_loc())]},
 	    {failed,{Mod,end_per_testcase,Other}};
 	  Class:Reason ->
 	    Stk = erlang:get_stacktrace(),
@@ -1469,8 +1459,7 @@ do_end_per_testcase(Mod,EndFunc,Func,Conf) ->
 			      "Reason: ~p\n"
 			      "Line: ~s\n",
 			      [EndFunc, Reason,
-			       test_server_sup:format_loc(
-				 mod_loc(get_loc()))]},
+			       test_server_sup:format_loc(get_loc())]},
 	    {failed,{Mod,end_per_testcase,Why}}
     end.
 
@@ -1483,43 +1472,18 @@ get_loc(Pid) ->
     lists:foreach(fun({Key,Val}) -> put(Key, Val) end, Dict),
     Stk = [rewrite_loc_item(Loc) || Loc <- Stk0],
     case get(test_server_loc) of
-	undefined ->
-	    put(test_server_loc, Stk);
-	{Suite,Case} ->
+	[{Suite,Case}] ->
 	    %% location info unknown, check if {Suite,Case,Line}
 	    %% is available in stacktrace. and if so, use stacktrace
-	    %% instead of currect test_server_loc
+	    %% instead of current test_server_loc
 	    case [match || {S,C,_L} <- Stk, S == Suite, C == Case] of
 		[match|_] -> put(test_server_loc, Stk);
 		_         -> ok
 	    end;
 	_ ->
-	    ok
+	    put(test_server_loc, Stk)
     end,
     get_loc().
-
-mod_loc(Loc) ->
-    %% handle diff line num versions
-    case Loc of
-	[{{_M,_F},_L}|_] ->
-	    [begin if L /= 0 -> {?pl2a(M),F,L};
-		      true   -> {?pl2a(M),F} end end || {{M,F},L} <- Loc];
-	[{_M,_F}|_] ->
-	    [{?pl2a(M),F} || {M,F} <- Loc];
-	{{M,F},0} ->
-	    [{?pl2a(M),F}];
-	{{M,F},L} ->
-	    [{?pl2a(M),F,L}];
-	{M,ForL} ->
-	    [{?pl2a(M),ForL}];
-	{M,F,0} ->
-	    [{M,F}];
-	[{M,F,0}|Stack] ->
-	    [{M,F}|Stack];
-	_ ->
-	    Loc
-    end.
-
 
 fw_error_notify(Mod, Func, Args, Error) ->
     test_server_sup:framework_call(error_notification,
@@ -1603,7 +1567,12 @@ ts_tc(M, F, A) ->
     {Elapsed, Result}.
 
 set_loc(Stk) ->
-    Loc = [rewrite_loc_item(I) || {_,_,_,_}=I <- Stk],
+    Loc = case [rewrite_loc_item(I) || {_,_,_,_}=I <- Stk] of
+	      [{M,F,0}|Stack] ->
+		  [{M,F}|Stack];
+	      Other ->
+		  Other
+	  end,
     put(test_server_loc, Loc).
 
 rewrite_loc_item({M,F,_,Loc}) ->

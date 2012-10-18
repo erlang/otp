@@ -512,7 +512,6 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
     end,
     case erlang:function_exported(Mod,Func,length(Args)) of
 	true ->
-	    put(test_server_loc, {Mod,Func,framework}),
 	    EH = fun(Reason) -> exit({fw_error,{Mod,Func,Reason}}) end,
 	    SetTcState = case Func of
 			     end_tc -> true;
@@ -555,18 +554,6 @@ format_loc([{Mod,LineOrFunc}]) ->
     format_loc({Mod,LineOrFunc});
 format_loc({Mod,Func}) when is_atom(Func) -> 
     io_lib:format("{~s,~w}",[package_str(Mod),Func]);
-format_loc({Mod,Line}) when is_integer(Line) -> 
-    %% ?line macro is used
-    ModStr = package_str(Mod),
-    case {lists:member(no_src, get(test_server_logopts)),
-	  lists:reverse(ModStr)} of
-	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
-	    io_lib:format("{~s,<a href=\"~s~s#~w\">~w</a>}",
-			  [ModStr,downcase(ModStr),?src_listing_ext,
-			   round_to_10(Line),Line]);
-	_ ->
-	    io_lib:format("{~s,~w}",[ModStr,Line])
-    end;
 format_loc(Loc) ->
     io_lib:format("~p",[Loc]).    
 
