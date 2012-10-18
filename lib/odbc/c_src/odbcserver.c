@@ -104,6 +104,7 @@
 
 #ifdef UNIX
 #include <unistd.h>
+#include <netinet/tcp.h>
 #endif 
 
 #if defined WIN32
@@ -201,6 +202,7 @@ static byte *receive_msg(int socket);
 static Boolean receive_msg_part(int socket, byte * buffer, size_t msg_len);
 static Boolean send_msg_part(int socket, byte * buffer, size_t msg_len);
 static void close_socket(int socket); 
+static void tcp_nodelay(int sock);
 #endif
 static void clean_socket_lib(void);
 
@@ -1782,6 +1784,10 @@ static int connect_to_erlang(const char *port)
 	sin6.sin6_addr = in6addr_loopback;
     
 	if (connect(sock, (struct sockaddr*)&sin6, sizeof(sin6)) == 0) {
+		/* Enable TCP_NODELAY to disable Nagel's socket algorithm. (Removes ~40ms delay on Redhat ES 6). */
+		#ifdef UNIX
+		tcp_nodelay(sock);
+		#endif
 		return sock;
 	}
 	close_socket(sock);
@@ -1797,9 +1803,24 @@ static int connect_to_erlang(const char *port)
 		close_socket(sock);
 		DO_EXIT(EXIT_SOCKET_CONNECT);
 	}
+
+	/* Enable TCP_NODELAY to disable Nagel's socket algorithm. (Removes ~40ms delay on Redhat ES 6). */
+	#ifdef UNIX
+	tcp_nodelay(sock);
+	#endif
 	return sock;
 }
 
+#ifdef UNIX
+static void tcp_nodelay(int sock)
+{
+	int flag = 1;
+        int result = setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int));
+	if (result < 0) {
+		DO_EXIT(EXIT_SOCKET_CONNECT);
+	}
+}
+#endif
 #ifdef WIN32
 static void close_socket(SOCKET socket)
 {
