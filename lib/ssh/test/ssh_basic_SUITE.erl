@@ -22,7 +22,6 @@
 -module(ssh_basic_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
@@ -30,78 +29,12 @@
 -define(NEWLINE, <<"\r\n">>).
 
 %%--------------------------------------------------------------------
-%% Function: init_per_suite(Config) -> Config
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Initialization before the whole suite
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%%--------------------------------------------------------------------
-init_per_suite(Config) ->
-    case catch crypto:start() of
-	ok ->
-	    Config;
-	_Else ->
-	    {skip, "Crypto could not be started!"}
-    end.
-
-%%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> _
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after the whole suite
-%%--------------------------------------------------------------------
-end_per_suite(_Config) ->
-    ssh:stop(),
-    crypto:stop(),
-    ok.
-
-%%--------------------------------------------------------------------
-%% Function: init_per_testcase(TestCase, Config) -> Config
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%%
-%% Description: Initialization before each test case
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%% Description: Initialization before each test case
-%%--------------------------------------------------------------------
-init_per_testcase(_TestCase, Config) ->
-    ssh:start(),
-    Config.
-
-%%--------------------------------------------------------------------
-%% Function: end_per_testcase(TestCase, Config) -> _
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after each test case
+%% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-end_per_testcase(TestCase, Config) when TestCase == server_password_option;
-					TestCase == server_userpassword_option ->
-    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
-    ssh_test_lib:del_dirs(UserDir),
-    end_per_testcase(Config);
-end_per_testcase(_TestCase, Config) ->
-    end_per_testcase(Config).
-end_per_testcase(_Config) ->    
-    ssh:stop(),
-    ok.
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
 
-%%--------------------------------------------------------------------
-%% Function: all(Clause) -> TestCases
-%% Clause - atom() - suite | doc
-%% TestCases - [Case]
-%% Case - atom()
-%%   Name of a test case.
-%% Description: Returns a list of all test cases in this test suite
-%%--------------------------------------------------------------------
 all() -> 
     [app_test,
      {group, dsa_key},
@@ -121,7 +54,18 @@ groups() ->
      {rsa_pass_key, [], [pass_phrase]},
      {internal_error, [], [internal_error]}
     ].
-
+%%--------------------------------------------------------------------
+init_per_suite(Config) ->
+    case catch crypto:start() of
+	ok ->
+	    Config;
+	_Else ->
+	    {skip, "Crypto could not be started!"}
+    end.
+end_per_suite(_Config) ->
+    ssh:stop(),
+    crypto:stop().
+%%--------------------------------------------------------------------
 init_per_group(dsa_key, Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
@@ -174,11 +118,25 @@ end_per_group(internal_error, Config) ->
 
 end_per_group(_, Config) ->
     Config.
-
-%% Test cases starts here.
 %%--------------------------------------------------------------------
-app_test(suite) ->
-    [];
+init_per_testcase(_TestCase, Config) ->
+    ssh:start(),
+    Config.
+
+end_per_testcase(TestCase, Config) when TestCase == server_password_option;
+					TestCase == server_userpassword_option ->
+    UserDir = filename:join(?config(priv_dir, Config), nopubkey),
+    ssh_test_lib:del_dirs(UserDir),
+    end_per_testcase(Config);
+end_per_testcase(_TestCase, Config) ->
+    end_per_testcase(Config).
+end_per_testcase(_Config) ->    
+    ssh:stop(),
+    ok.
+
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
 app_test(doc) ->
     ["Application consistency test."];
 app_test(Config) when is_list(Config) ->
@@ -189,8 +147,6 @@ misc_ssh_options(doc) ->
     ["Test that we can set some misc options not tested elsewhere, "
      "some options not yet present are not decided if we should support or "
      "if they need thier own test case."];
-misc_ssh_options(suite) ->
-    [];
 misc_ssh_options(Config) when is_list(Config) ->  
     SystemDir = filename:join(?config(priv_dir, Config), system),
     UserDir = ?config(priv_dir, Config),
@@ -209,10 +165,6 @@ misc_ssh_options(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 exec(doc) ->
     ["Test api function ssh_connection:exec"];
-
-exec(suite) ->
-    [];
-
 exec(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -233,7 +185,7 @@ exec(Config) when is_list(Config) ->
 	expected ->
 	    ok;
 	Other0 ->
-	    test_server:fail(Other0)
+	    ct:fail(Other0)
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId0),
 
@@ -247,7 +199,7 @@ exec(Config) when is_list(Config) ->
 	expected ->
 	    ok;
 	Other1 ->
-	    test_server:fail(Other1)
+	    ct:fail(Other1)
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId1),
     ssh:stop_daemon(Pid).
@@ -255,10 +207,6 @@ exec(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 exec_compressed(doc) ->
     ["Test that compression option works"];
-
-exec_compressed(suite) ->
-    [];
-
 exec_compressed(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -280,7 +228,7 @@ exec_compressed(Config) when is_list(Config) ->
 	expected ->
 	    ok;
 	Other ->
-	    test_server:fail(Other)
+	    ct:fail(Other)
     end,
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
     ssh:stop_daemon(Pid).
@@ -289,10 +237,6 @@ exec_compressed(Config) when is_list(Config) ->
 
 shell(doc) ->
     ["Test that ssh:shell/2 works"];
-
-shell(suite) ->
-    [];
-
 shell(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -300,76 +244,22 @@ shell(Config) when is_list(Config) ->
    
     {_Pid, _Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},{user_dir, UserDir},
 					       {failfun, fun ssh_test_lib:failfun/2}]),
-    test_server:sleep(500),
+    ct:sleep(500),
 
     IO = ssh_test_lib:start_io_server(),
     Shell = ssh_test_lib:start_shell(Port, IO, UserDir),
     receive
 	{'EXIT', _, _} ->
-	    test_server:fail(no_ssh_connection);  
+	    ct:fail(no_ssh_connection);  
 	ErlShellStart ->
-	    test_server:format("Erlang shell start: ~p~n", [ErlShellStart]),
+	    ct:pal("Erlang shell start: ~p~n", [ErlShellStart]),
 	    do_shell(IO, Shell)
     end.
     
-do_shell(IO, Shell) ->
-    receive
-	ErlPrompt0 ->
-	    test_server:format("Erlang prompt: ~p~n", [ErlPrompt0])
-    end,
-    IO ! {input, self(), "1+1.\r\n"},
-     receive
-	Echo0 ->
-	     test_server:format("Echo: ~p ~n", [Echo0])
-    end,
-    receive
-	?NEWLINE ->
-	    ok
-    end,
-    receive
-	Result0 = <<"2">> ->
-	    test_server:format("Result: ~p~n", [Result0])
-    end,
-    receive
-	?NEWLINE ->
-	    ok
-    end,
-    receive
-	ErlPrompt1 ->
-	    test_server:format("Erlang prompt: ~p~n", [ErlPrompt1])
-    end,
-    exit(Shell, kill),
-    %% Does not seem to work in the testserver!
-    %%   IO ! {input, self(), "q().\r\n"},
-    %%     receive
-    %% 	?NEWLINE ->
-    %% 	    ok
-    %%     end,
-    %%     receive
-    %% 	Echo1 ->
-    %% 	     test_server:format("Echo: ~p ~n", [Echo1])
-    %%     end,
-    %%     receive
-    %% 	?NEWLINE ->
-    %% 	    ok
-    %%     end,
-    %%     receive
-    %% 	Result1 ->
-    %% 	    test_server:format("Result: ~p~n", [Result1])
-    %%     end,
-    receive
-	{'EXIT', Shell, killed} ->
-	    ok
-    end.
-
 %%--------------------------------------------------------------------
 daemon_already_started(doc) ->
     ["Test that get correct error message if you try to start a daemon",
     "on an adress that already runs a daemon see also seq10667" ];
-
-daemon_already_started(suite) ->
-    [];
-
 daemon_already_started(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     UserDir = ?config(priv_dir, Config),
@@ -386,8 +276,6 @@ daemon_already_started(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 server_password_option(doc) ->
     ["validate to server that uses the 'password' option"];
-server_password_option(suite) ->
-    [];
 server_password_option(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -413,7 +301,7 @@ server_password_option(Config) when is_list(Config) ->
 				 {user_interaction, false},
 				 {user_dir, UserDir}]),
     
-    test_server:format("Test of wrong password: Error msg: ~p ~n", [Reason]),
+    ct:pal("Test of wrong password: Error msg: ~p ~n", [Reason]),
 
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
@@ -422,8 +310,6 @@ server_password_option(Config) when is_list(Config) ->
 
 server_userpassword_option(doc) ->
     ["validate to server that uses the 'password' option"];
-server_userpassword_option(suite) ->
-    [];
 server_userpassword_option(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
@@ -460,8 +346,6 @@ server_userpassword_option(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 known_hosts(doc) ->
     ["check that known_hosts is updated correctly"];
-known_hosts(suite) ->
-    [];
 known_hosts(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config), 
@@ -489,10 +373,6 @@ known_hosts(Config) when is_list(Config) ->
 
 pass_phrase(doc) ->
     ["Test that we can use keyes protected by pass phrases"];
-
-pass_phrase(suite) ->
-    [];
-
 pass_phrase(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -514,10 +394,6 @@ pass_phrase(Config) when is_list(Config) ->
 
 internal_error(doc) ->
     ["Test that client does not hang if disconnects due to internal error"];
-
-internal_error(suite) ->
-    [];
-
 internal_error(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -535,10 +411,6 @@ internal_error(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 send(doc) ->
     ["Test ssh_connection:send/3"];
-
-send(suite) ->
-    [];
-
 send(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     SystemDir = filename:join(?config(priv_dir, Config), system),
@@ -560,10 +432,6 @@ send(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 close(doc) ->
     ["Simulate that we try to close an already closed connection"];
-
-close(suite) ->
-    [];
-
 close(Config) when is_list(Config) ->
     SystemDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config), 
@@ -583,10 +451,8 @@ close(Config) when is_list(Config) ->
     exit(CM, {shutdown, normal}),
     ok = ssh:close(CM).
     
-
-
 %%--------------------------------------------------------------------
-%% Internal functions
+%% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
   
 basic_test(Config) ->
@@ -597,3 +463,53 @@ basic_test(Config) ->
     {ok, CM} = ssh:connect(Host, Port, ClientOpts),
     ok = ssh:close(CM),
     ssh:stop_daemon(Pid).
+
+do_shell(IO, Shell) ->
+    receive
+	ErlPrompt0 ->
+	    ct:pal("Erlang prompt: ~p~n", [ErlPrompt0])
+    end,
+    IO ! {input, self(), "1+1.\r\n"},
+     receive
+	Echo0 ->
+	     ct:pal("Echo: ~p ~n", [Echo0])
+    end,
+    receive
+	?NEWLINE ->
+	    ok
+    end,
+    receive
+	Result0 = <<"2">> ->
+	    ct:pal("Result: ~p~n", [Result0])
+    end,
+    receive
+	?NEWLINE ->
+	    ok
+    end,
+    receive
+	ErlPrompt1 ->
+	    ct:pal("Erlang prompt: ~p~n", [ErlPrompt1])
+    end,
+    exit(Shell, kill).
+    %%Does not seem to work in the testserver!
+    %% 	IO ! {input, self(), "q().\r\n"},
+    %% receive
+    %%  	?NEWLINE ->
+    %%  	    ok
+    %% end,
+    %% receive
+    %%  	Echo1 ->
+    %% 	    ct:pal("Echo: ~p ~n", [Echo1])
+    %% end,
+    %% receive
+    %% 	?NEWLINE ->
+    %%  	    ok
+    %% end,
+    %% receive
+    %%  	Result1 ->
+    %%  	    ct:pal("Result: ~p~n", [Result1])
+    %%      end,
+    %% receive
+    %% 	{'EXIT', Shell, killed} ->
+    %% 	    ok
+    %% end.
