@@ -31,22 +31,24 @@
    [basic/1,
     api_open_close/1,api_listen/1,api_connect_init/1,api_opts/1,
     xfer_min/1,xfer_active/1,def_sndrcvinfo/1,implicit_inet6/1,
-    basic_stream/1, xfer_stream_min/1, peeloff/1, buffers/1,
     open_multihoming_ipv4_socket/1,
     open_unihoming_ipv6_socket/1,
     open_multihoming_ipv6_socket/1,
-    open_multihoming_ipv4_and_ipv6_socket/1]).
+    open_multihoming_ipv4_and_ipv6_socket/1,
+    basic_stream/1, xfer_stream_min/1, peeloff_active_once/1,
+    peeloff_active_true/1, buffers/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [basic, api_open_close, api_listen, api_connect_init,
      api_opts, xfer_min, xfer_active, def_sndrcvinfo, implicit_inet6,
-     basic_stream, xfer_stream_min, peeloff, buffers,
      open_multihoming_ipv4_socket,
      open_unihoming_ipv6_socket,
      open_multihoming_ipv6_socket,
-     open_multihoming_ipv4_and_ipv6_socket].
+     open_multihoming_ipv4_and_ipv6_socket,
+     basic_stream, xfer_stream_min, peeloff_active_once,
+     peeloff_active_true, buffers].
 
 groups() -> 
     [].
@@ -923,23 +925,34 @@ do_from_other_process(Fun) ->
     end.
 
 
-
-peeloff(doc) ->
-    "Peel off an SCTP stream socket";
-peeloff(suite) ->
+peeloff_active_once(doc) ->
+    "Peel off an SCTP stream socket ({active,once})";
+peeloff_active_once(suite) ->
     [];
-peeloff(Config) when is_list(Config) ->
+
+peeloff_active_once(Config) ->
+    peeloff(Config, [{active,once}]).
+
+peeloff_active_true(doc) ->
+    "Peel off an SCTP stream socket ({active,true})";
+peeloff_active_true(suite) ->
+    [];
+
+peeloff_active_true(Config) ->
+    peeloff(Config, [{active,true}]).
+
+peeloff(Config, SockOpts) when is_list(Config) ->
     ?line Addr = {127,0,0,1},
     ?line Stream = 0,
     ?line Timeout = 333,
-    ?line S1 = socket_open([{ifaddr,Addr}], Timeout),
+    ?line S1 = socket_open([{ifaddr,Addr}|SockOpts], Timeout),
     ?line ?LOGVAR(S1),
     ?line P1 = socket_call(S1, get_port),
     ?line ?LOGVAR(P1),
     ?line Socket1 = socket_call(S1, get_socket),
     ?line ?LOGVAR(Socket1),
     ?line socket_call(S1, {listen,true}),
-    ?line S2 = socket_open([{ifaddr,Addr}], Timeout),
+    ?line S2 = socket_open([{ifaddr,Addr}|SockOpts], Timeout),
     ?line ?LOGVAR(S2),
     ?line P2 = socket_call(S2, get_port),
     ?line ?LOGVAR(P2),
@@ -983,7 +996,7 @@ peeloff(Config) when is_list(Config) ->
 		socket_bailout([S1,S2])
 	end,
     %%
-    ?line S3 = socket_peeloff(Socket1, S1Ai, Timeout),
+    ?line S3 = socket_peeloff(Socket1, S1Ai, SockOpts, Timeout),
     ?line ?LOGVAR(S3),
     ?line P3_X = socket_call(S3, get_port),
     ?line ?LOGVAR(P3_X),
@@ -1302,8 +1315,15 @@ recv_comm_up_eventually(S) ->
 %%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% socket gen_server ultra light
 
-socket_open(SocketOpts, Timeout) ->
-    Opts = [{type,seqpacket},{active,once},binary|SocketOpts],
+socket_open(SockOpts0, Timeout) ->
+    SockOpts =
+	case lists:keyfind(active,1,SockOpts0) of
+	    false ->
+		[{active,once}|SockOpts0];
+	    _ ->
+		SockOpts0
+	end,
+    Opts = [{type,seqpacket},binary|SockOpts],
     Starter =
 	fun () ->
 		{ok,Socket} =
@@ -1312,8 +1332,8 @@ socket_open(SocketOpts, Timeout) ->
 	end,
     s_start(Starter, Timeout).
 
-socket_peeloff(Socket, AssocId, Timeout) ->
-    Opts = [{active,once},binary],
+socket_peeloff(Socket, AssocId, SocketOpts, Timeout) ->
+    Opts = [binary|SocketOpts],
     Starter =
 	fun () ->
 		{ok,NewSocket} =
