@@ -1132,7 +1132,7 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
     Uint size;
     int fpe_was_unmasked;
     
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p) || ERTS_IS_CRASH_DUMPING);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     p->caller = caller_id;
