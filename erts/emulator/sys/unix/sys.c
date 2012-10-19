@@ -715,7 +715,7 @@ prepare_crash_dump(int secs)
 	list = CONS(hp, make_small(8), list); hp += 2;
 
 	/* send to heart port, CMD = 8, i.e. prepare crash dump =o */
-	erts_write_to_port(NIL, heart_port, list);
+	erts_write_to_port(ERTS_INVALID_PID, heart_port, list);
     }
 
     /* Make sure we unregister at epmd (unknown fd) and get at least
