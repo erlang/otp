@@ -28,26 +28,29 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [self_compile_old_inliner, self_compile, compiler_1,
-     compiler_3, compiler_5, beam_compiler_1,
-     beam_compiler_2, beam_compiler_3, beam_compiler_4,
-     beam_compiler_5, beam_compiler_6, beam_compiler_7,
-     beam_compiler_8, beam_compiler_9, beam_compiler_10,
-     beam_compiler_11, beam_compiler_12,
-     nested_tuples_in_case_expr, otp_2330, guards,
-     {group, vsn}, otp_2380, otp_2141, otp_2173, otp_4790,
-     const_list_256, bin_syntax_1, bin_syntax_2,
-     bin_syntax_3, bin_syntax_4, bin_syntax_5, bin_syntax_6,
-     live_var, convopts, bad_functional_value,
-     catch_in_catch, redundant_case, long_string, otp_5076,
-     complex_guard, otp_5092, otp_5151, otp_5235, otp_5244,
-     trycatch_4, opt_crash, otp_5404, otp_5436, otp_5481,
-     otp_5553, otp_5632, otp_5714, otp_5872, otp_6121,
-     otp_6121a, otp_6121b, otp_7202, otp_7345, on_load,
-     string_table,otp_8949_a,otp_8949_a,split_cases].
+    [self_compile_old_inliner,self_compile,
+     {group,p}].
 
 groups() -> 
-    [{vsn, [], [vsn_1, vsn_2, vsn_3]}].
+    [{vsn,[parallel],[vsn_1,vsn_2,vsn_3]},
+     {p,test_lib:parallel(),
+      [compiler_1,
+       compiler_3,compiler_5,beam_compiler_1,
+       beam_compiler_2,beam_compiler_3,beam_compiler_4,
+       beam_compiler_5,beam_compiler_6,beam_compiler_7,
+       beam_compiler_8,beam_compiler_9,beam_compiler_10,
+       beam_compiler_11,beam_compiler_12,
+       nested_tuples_in_case_expr,otp_2330,guards,
+       {group,vsn},otp_2380,otp_2141,otp_2173,otp_4790,
+       const_list_256,bin_syntax_1,bin_syntax_2,
+       bin_syntax_3,bin_syntax_4,bin_syntax_5,bin_syntax_6,
+       live_var,convopts,bad_functional_value,
+       catch_in_catch,redundant_case,long_string,otp_5076,
+       complex_guard,otp_5092,otp_5151,otp_5235,otp_5244,
+       trycatch_4,opt_crash,otp_5404,otp_5436,otp_5481,
+       otp_5553,otp_5632,otp_5714,otp_5872,otp_6121,
+       otp_6121a,otp_6121b,otp_7202,otp_7345,on_load,
+       string_table,otp_8949_a,otp_8949_a,split_cases]}].
 
 init_per_suite(Config) ->
     Config.

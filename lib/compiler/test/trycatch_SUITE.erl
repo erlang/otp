@@ -32,13 +32,15 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [basic, lean_throw, try_of, try_after, catch_oops,
-     after_oops, eclectic, rethrow, nested_of, nested_catch,
-     nested_after, nested_horrid, last_call_optimization,
-     bool, plain_catch_coverage, andalso_orelse, get_in_try].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [basic,lean_throw,try_of,try_after,catch_oops,
+       after_oops,eclectic,rethrow,nested_of,nested_catch,
+       nested_after,nested_horrid,last_call_optimization,
+       bool,plain_catch_coverage,andalso_orelse,get_in_try]}].
+
 
 init_per_suite(Config) ->
     Config.

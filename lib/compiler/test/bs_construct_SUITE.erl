@@ -36,12 +36,14 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [two, test1, fail, float_bin, in_guard, in_catch,
-     nasty_literals, side_effect, opt, otp_7556, float_arith,
-     otp_8054].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [two,test1,fail,float_bin,in_guard,in_catch,
+       nasty_literals,side_effect,opt,otp_7556,float_arith,
+       otp_8054]}].
+
 
 init_per_suite(Config) ->
     Config.

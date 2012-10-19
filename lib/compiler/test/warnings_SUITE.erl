@@ -55,12 +55,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [pattern, pattern2, pattern3, pattern4, guard,
-     bad_arith, bool_cases, bad_apply, files, effect,
-     bin_opt_info, bin_construction].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [pattern,pattern2,pattern3,pattern4,guard,
+       bad_arith,bool_cases,bad_apply,files,effect,
+       bin_opt_info,bin_construction]}].
 
 init_per_suite(Config) ->
     Config.
@@ -556,9 +557,10 @@ run(Config, Tests) ->
 %% Compiles a test module and returns the list of errors and warnings.
 
 run_test(Conf, Test0, Warnings) ->
-    Filename = 'warnings_test.erl',
+    Mod = "warnings_"++test_lib:uniq(),
+    Filename = Mod ++ ".erl",
     ?line DataDir = ?privdir,
-    ?line Test = ["-module(warnings_test). ", Test0],
+    Test = ["-module(", Mod, "). ", Test0],
     ?line File = filename:join(DataDir, Filename),
     ?line Opts = [binary,export_all,return|Warnings],
     ?line ok = file:write_file(File, Test),

@@ -57,11 +57,12 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 -spec all() -> misc_SUITE_test_cases().
 all() -> 
     test_lib:recompile(?MODULE),
-    [tobias, empty_string, md5, silly_coverage,
-     confused_literals, integer_encoding, override_bif].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,[],%%test_lib:parallel(),
+      [tobias,empty_string,md5,silly_coverage,
+       confused_literals,integer_encoding,override_bif]}].
 
 init_per_suite(Config) ->
     Config.

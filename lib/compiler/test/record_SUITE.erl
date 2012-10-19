@@ -42,12 +42,14 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [errors, record_test_2, record_test_3,
-     record_access_in_guards, guard_opt, eval_once, foobar,
-     missing_test_heap, nested_access, coverage].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [errors,record_test_2,record_test_3,
+       record_access_in_guards,guard_opt,eval_once,foobar,
+       missing_test_heap,nested_access,coverage]}].
+
 
 init_per_suite(Config) ->
     Config.
