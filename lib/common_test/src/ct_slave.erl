@@ -430,8 +430,13 @@ wait_for_node_alive(Node, N) ->
 
 % call init:stop on a remote node
 do_stop(ENode) ->
-    MainCoverNode = cover:get_main_node(),
-    rpc:call(MainCoverNode,cover,flush,[ENode]),
+    case test_server:is_cover() of
+	true ->
+	    MainCoverNode = cover:get_main_node(),
+	    rpc:call(MainCoverNode,cover,flush,[ENode]);
+	false ->
+	    ok
+    end,
     spawn(ENode, init, stop, []),
     wait_for_node_dead(ENode, 5).
 

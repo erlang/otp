@@ -83,7 +83,12 @@ start_slave(Config,_Level) ->
 
 post_end_per_testcase(_TC, Config, Return, State) ->
     Node = proplists:get_value(node, Config),
-    cover:flush(Node),
+    case test_server:is_cover() of
+	true ->
+	    cover:flush(Node);
+	false ->
+	    ok
+    end,
     slave:stop(Node),
 
     {Return, State}.
