@@ -25,8 +25,7 @@
 -compile(export_all).
 
 -include_lib("public_key/include/public_key.hrl").
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 -define(TIMEOUT, 50000).
 
@@ -129,16 +128,16 @@ reply(TestCase, Result) ->
     TestCase ! Result.
 
 receive_exec_result(Msg) ->
-    test_server:format("Expect data! ~p", [Msg]),
+    ct:pal("Expect data! ~p", [Msg]),
     receive
 	{ssh_cm,_,{data,_,1, Data}} ->
-	    test_server:format("StdErr: ~p~n", [Data]),
+	    ct:pal("StdErr: ~p~n", [Data]),
 	    receive_exec_result(Msg);
 	Msg ->
-	    test_server:format("1: Collected data ~p", [Msg]),
+	    ct:pal("1: Collected data ~p", [Msg]),
 	    expected;
 	Other ->
-	    test_server:format("Other ~p", [Other]),
+	    ct:pal("Other ~p", [Other]),
 	    {unexpected_msg, Other}
     end.
 
@@ -150,19 +149,19 @@ receive_exec_end(ConnectionRef, ChannelId) ->
     case receive_exec_result(ExitStatus) of
 	{unexpected_msg, Eof} -> %% Open ssh seems to not allways send these messages
 	    %% in the same order!
-	    test_server:format("2: Collected data ~p", [Eof]),
+	    ct:pal("2: Collected data ~p", [Eof]),
 	    case receive_exec_result(ExitStatus) of
 		expected ->
 		    expected = receive_exec_result(Closed);
 		{unexpected_msg, Closed} ->
-		    test_server:format("3: Collected data ~p", [Closed])
+		    ct:pal("3: Collected data ~p", [Closed])
 	    end;
 	expected ->
-	    test_server:format("4: Collected data ~p", [ExitStatus]),
+	    ct:pal("4: Collected data ~p", [ExitStatus]),
 	    expected = receive_exec_result(Eof),
 	    expected = receive_exec_result(Closed);
 	Other ->
-	    test_server:fail({unexpected_msg, Other})
+	    ct:fail({unexpected_msg, Other})
     end.
 
 receive_exec_result(Data, ConnectionRef, ChannelId) ->

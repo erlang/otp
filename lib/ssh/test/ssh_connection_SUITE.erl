@@ -28,23 +28,24 @@
 -define(EXEC_TIMEOUT, 10000).
 
 %%--------------------------------------------------------------------
+%% Common Test interface functions -----------------------------------
+%%--------------------------------------------------------------------
+
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [
-     {group, erlang_client},
+     {group, openssh_payload},
      interrupted_send
     ].
 groups() ->
-    [{erlang_client, [], [simple_exec,
-			  small_cat,
-			  big_cat,
-			  send_after_exit
-			 ]}].
-
+    [{openssh_payload, [], [simple_exec,
+			    small_cat,
+			    big_cat,
+			    send_after_exit
+			   ]}].
 %%--------------------------------------------------------------------
-
 init_per_suite(Config) ->
     case catch crypto:start() of
 	ok ->
@@ -54,15 +55,15 @@ init_per_suite(Config) ->
     end.
 
 end_per_suite(_Config) ->
-    crypto:stop(),
-    ok.
+    crypto:stop().
+
 %%--------------------------------------------------------------------
-init_per_group(erlang_client, Config) ->
+init_per_group(openssh_payload, _Config) ->
     case gen_tcp:connect("localhost", 22, []) of
 	{error,econnrefused} ->
 	    {skip,"No openssh deamon"};
-	_ ->
-	    Config
+	{ok, Socket} ->
+	    gen_tcp:close(Socket)
      end;
 init_per_group(_, Config) ->
     Config.
@@ -76,10 +77,10 @@ init_per_testcase(_TestCase, Config) ->
     Config.
 
 end_per_testcase(_Config) ->
-    ssh:stop(),
-    ok.
+    ssh:stop().
 
-%%% TEST cases starts here.
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 simple_exec(doc) ->
     ["Simple openssh connectivity test for ssh_connection:exec"];
@@ -163,7 +164,7 @@ big_cat(Config) when is_list(Config) ->
     %% pre-adjust receive window so the other end doesn't block
     ssh_connection:adjust_window(ConnectionRef, ChannelId0, size(Data)),
 
-    test_server:format("sending ~p byte binary~n",[size(Data)]),
+    ct:pal("sending ~p byte binary~n",[size(Data)]),
     ok = ssh_connection:send(ConnectionRef, ChannelId0, Data, 10000),
     ok = ssh_connection:send_eof(ConnectionRef, ChannelId0),
 
@@ -174,10 +175,10 @@ big_cat(Config) when is_list(Config) ->
 	{ok, Other} ->
 	    case size(Data) =:= size(Other) of
 		true ->
-		    test_server:format("received and sent data are same"
+		    ct:pal("received and sent data are same"
 				       "size but do not match~n",[]);
 		false ->
-		    test_server:format("sent ~p but only received ~p~n",
+		    ct:pal("sent ~p but only received ~p~n",
 				       [size(Data), size(Other)])
 	    end,
 	    ct:fail(receive_data_mismatch);
@@ -193,21 +194,6 @@ big_cat(Config) when is_list(Config) ->
     receive
 	{ssh_cm, ConnectionRef,{closed, ChannelId0}} ->
 	    ok
-    end.
-
-big_cat_rx(ConnectionRef, ChannelId) ->
-    big_cat_rx(ConnectionRef, ChannelId, []).
-
-big_cat_rx(ConnectionRef, ChannelId, Acc) ->
-    receive
-	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} ->
-	    %% ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
-	    %% window was pre-adjusted, don't adjust again here
-	    big_cat_rx(ConnectionRef, ChannelId, [Data | Acc]);
-	{ssh_cm, ConnectionRef, {eof, ChannelId}} ->
-	    {ok, iolist_to_binary(lists:reverse(Acc))}
-    after ?EXEC_TIMEOUT ->
-	    timeout
     end.
 
 %%--------------------------------------------------------------------
@@ -292,8 +278,23 @@ interrupted_send(Config) when is_list(Config) ->
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid).
 
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+big_cat_rx(ConnectionRef, ChannelId) ->
+    big_cat_rx(ConnectionRef, ChannelId, []).
 
-%% Internal funtions ------------------------------------------------------------------
+big_cat_rx(ConnectionRef, ChannelId, Acc) ->
+    receive
+	{ssh_cm, ConnectionRef, {data, ChannelId, 0, Data}} ->
+	    %% ssh_connection:adjust_window(ConnectionRef, ChannelId, size(Data)),
+	    %% window was pre-adjusted, don't adjust again here
+	    big_cat_rx(ConnectionRef, ChannelId, [Data | Acc]);
+	{ssh_cm, ConnectionRef, {eof, ChannelId}} ->
+	    {ok, iolist_to_binary(lists:reverse(Acc))}
+    after ?EXEC_TIMEOUT ->
+	    timeout
+    end.
 
 receive_data(ExpectedData, ConnectionRef, ChannelId) ->
     ExpectedData = collect_data(ConnectionRef, ChannelId).

@@ -24,7 +24,6 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
-
 -include_lib("kernel/include/file.hrl").
 
 % Default timetrap timeout
@@ -33,16 +32,18 @@
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
 
-%% Test server callback functions
 %%--------------------------------------------------------------------
-%% Function: init_per_suite(Config) -> Config
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Initiation before the whole suite
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
+%% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [{group, erlang_server},
+     {group, openssh_server}].
+
+
 init_per_suite(Config) ->
     case (catch crypto:start()) of
 	ok ->
@@ -52,95 +53,12 @@ init_per_suite(Config) ->
 	    {skip,"Could not start crypto!"}
     end.
 
-%%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> _
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after the whole suite
-%%--------------------------------------------------------------------
 end_per_suite(Config) ->
     ssh:stop(),
     crypto:stop(),
     Config.
 
 %%--------------------------------------------------------------------
-%% Function: init_per_testcase(TestCase, Config) -> Config
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%%
-%% Description: Initiation before each test case
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%% Description: Initiation before each test case
-%%--------------------------------------------------------------------
-init_per_testcase(Case, Config) ->
-    prep(Config),
-    TmpConfig0 = lists:keydelete(watchdog, 1, Config),
-    TmpConfig = lists:keydelete(sftp, 1, TmpConfig0),
-    Dog = test_server:timetrap(?default_timeout),
-
-    case ?config(group, Config) of 
-	erlang_server ->
-	    {_,Host, Port} =  ?config(sftpd, Config),
-	    {ok, ChannelPid, Connection}  = 
-		ssh_sftp:start_channel(Host, Port,
-				       [{user, ?USER},
-					{password, ?PASSWD},
-					{user_interaction, false},
-					{silently_accept_hosts, true}]),
-	    Sftp = {ChannelPid, Connection},
-	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig];
-	openssh_server when Case == links ->
-	    {skip, "known bug in openssh"};
-	openssh_server ->
-	    Host = ssh_test_lib:hostname(),
-	    {ok, ChannelPid, Connection} = 
-		ssh_sftp:start_channel(Host, 
-				       [{user_interaction, false},
-					{silently_accept_hosts, true}]), 
-	    Sftp = {ChannelPid, Connection},
-	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig]
-    end.
-
-%%--------------------------------------------------------------------
-%% Function: end_per_testcase(TestCase, Config) -> _
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after each test case
-%%--------------------------------------------------------------------
-end_per_testcase(rename_file, Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    NewFileName = filename:join(PrivDir, "test.txt"),
-    file:delete(NewFileName),  
-    end_per_testcase(Config);
-end_per_testcase(_, Config) ->
-    end_per_testcase(Config).
-
-end_per_testcase(Config) ->
-    {Sftp, Connection} = ?config(sftp, Config),
-    ssh_sftp:stop_channel(Sftp),
-    ssh:close(Connection),
-    Dog = ?config(watchdog, Config),
-    test_server:timetrap_cancel(Dog),
-    ok.
-
-%%--------------------------------------------------------------------
-%% Function: all(Clause) -> TestCases
-%% Clause - atom() - suite | doc
-%% TestCases - [Case]
-%% Case - atom()
-%%   Name of a test case.
-%% Description: Returns a list of all test cases in this test suite
-%%--------------------------------------------------------------------
-all() -> 
-    [{group, erlang_server},
-     {group, openssh_server}].
-
 groups() -> 
     [{erlang_server, [], [open_close_file, open_close_dir, read_file, read_dir,
 			  write_file, rename_file, mk_rm_dir, remove_file, links,
@@ -180,13 +98,55 @@ end_per_group(erlang_server, Config) ->
 end_per_group(_, Config) ->
     Config.
 
+%%--------------------------------------------------------------------
 
-%% Test cases starts here.
+init_per_testcase(Case, Config) ->
+    prep(Config),
+    TmpConfig0 = lists:keydelete(watchdog, 1, Config),
+    TmpConfig = lists:keydelete(sftp, 1, TmpConfig0),
+    Dog = ct:timetrap(?default_timeout),
+
+    case ?config(group, Config) of 
+	erlang_server ->
+	    {_,Host, Port} =  ?config(sftpd, Config),
+	    {ok, ChannelPid, Connection}  = 
+		ssh_sftp:start_channel(Host, Port,
+				       [{user, ?USER},
+					{password, ?PASSWD},
+					{user_interaction, false},
+					{silently_accept_hosts, true}]),
+	    Sftp = {ChannelPid, Connection},
+	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig];
+	openssh_server when Case == links ->
+	    {skip, "known bug in openssh"};
+	openssh_server ->
+	    Host = ssh_test_lib:hostname(),
+	    {ok, ChannelPid, Connection} = 
+		ssh_sftp:start_channel(Host, 
+				       [{user_interaction, false},
+					{silently_accept_hosts, true}]), 
+	    Sftp = {ChannelPid, Connection},
+	    [{sftp, Sftp}, {watchdog, Dog} | TmpConfig]
+    end.
+
+end_per_testcase(rename_file, Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    NewFileName = filename:join(PrivDir, "test.txt"),
+    file:delete(NewFileName),  
+    end_per_testcase(Config);
+end_per_testcase(_, Config) ->
+    end_per_testcase(Config).
+
+end_per_testcase(Config) ->
+    {Sftp, Connection} = ?config(sftp, Config),
+    ssh_sftp:stop_channel(Sftp),
+    ssh:close(Connection).
+
+%%--------------------------------------------------------------------
+%% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 open_close_file(doc) ->
     ["Test API functions open/3 and close/2"];
-open_close_file(suite) ->
-    [];
 open_close_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
@@ -198,21 +158,15 @@ open_close_file(Config) when is_list(Config) ->
     ok = open_close_file(Sftp, FileName, [write, creat]),
     ok = open_close_file(Sftp, FileName, [write, trunc]),
     ok = open_close_file(Sftp, FileName, [append]),
-    ok = open_close_file(Sftp, FileName, [read, binary]),
-
-    ok.
+    ok = open_close_file(Sftp, FileName, [read, binary]).
 
 open_close_file(Server, File, Mode) ->
     {ok, Handle} = ssh_sftp:open(Server, File, Mode),
-    ok = ssh_sftp:close(Server, Handle),
-    ok.
-
+    ok = ssh_sftp:close(Server, Handle).
 
 %%--------------------------------------------------------------------
 open_close_dir(doc) ->
     ["Test API functions opendir/2 and close/2"];
-open_close_dir(suite) ->
-    [];
 open_close_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
@@ -220,138 +174,92 @@ open_close_dir(Config) when is_list(Config) ->
 
     {ok, Handle} = ssh_sftp:opendir(Sftp, PrivDir),
     ok = ssh_sftp:close(Sftp, Handle),
-    {error, _} =  ssh_sftp:opendir(Sftp, FileName),
+    {error, _} =  ssh_sftp:opendir(Sftp, FileName).
 
-    ok.
 %%--------------------------------------------------------------------
 read_file(doc) ->
     ["Test API funtion read_file/2"];
-read_file(suite) ->
-    [];
 read_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
-
     {Sftp, _} = ?config(sftp, Config),
-
     {ok, Data} = ssh_sftp:read_file(Sftp, FileName),
+    {ok, Data} = file:read_file(FileName).
 
-    {ok, Data} = file:read_file(FileName),
-
-    ok.
 %%--------------------------------------------------------------------
 read_dir(doc) ->
     ["Test API function list_dir/2"];
-read_dir(suite) ->
-    [];
 read_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
-    test_server:format("sftp list dir: ~p~n", [Files]),
-    ok.
+    ct:pal("sftp list dir: ~p~n", [Files]).
 
 %%--------------------------------------------------------------------
 write_file(doc) ->
     ["Test API function write_file/2"];
-write_file(suite) ->
-    [];
 write_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
-
     {Sftp, _} = ?config(sftp, Config),
 
     Data = list_to_binary("Hej hopp!"),
-
     ssh_sftp:write_file(Sftp, FileName, [Data]),
-
-    {ok, Data} = file:read_file(FileName),
-
-    ok.
+    {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
 remove_file(doc) ->
     ["Test API function delete/2"];
-remove_file(suite) ->
-    [];
 remove_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
-
     {Sftp, _} = ?config(sftp, Config),
 
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
-
     true = lists:member(filename:basename(FileName), Files),
-
     ok = ssh_sftp:delete(Sftp, FileName),
-
     {ok, NewFiles} = ssh_sftp:list_dir(Sftp, PrivDir),
-
     false = lists:member(filename:basename(FileName), NewFiles),
-
-    {error, _} = ssh_sftp:delete(Sftp, FileName),
-
-    ok.
-
+    {error, _} = ssh_sftp:delete(Sftp, FileName).
 %%--------------------------------------------------------------------
 rename_file(doc) ->
     ["Test API function rename_file/2"];
-rename_file(suite) ->
-    [];
 rename_file(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
     NewFileName = filename:join(PrivDir, "test.txt"),
 
     {Sftp, _} = ?config(sftp, Config),
-
     {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
-
-    test_server:format("FileName: ~p, Files: ~p~n", [FileName, Files]),
-
+    ct:pal("FileName: ~p, Files: ~p~n", [FileName, Files]),
     true = lists:member(filename:basename(FileName), Files),
     false = lists:member(filename:basename(NewFileName), Files),
-
     ok = ssh_sftp:rename(Sftp, FileName, NewFileName),
-
     {ok, NewFiles} = ssh_sftp:list_dir(Sftp, PrivDir),
-
-    test_server:format("FileName: ~p, Files: ~p~n", [FileName, NewFiles]),
+    ct:pal("FileName: ~p, Files: ~p~n", [FileName, NewFiles]),
 
     false = lists:member(filename:basename(FileName), NewFiles),
-    true = lists:member(filename:basename(NewFileName), NewFiles),
-
-    ok.
+    true = lists:member(filename:basename(NewFileName), NewFiles).
 
 %%--------------------------------------------------------------------
 mk_rm_dir(doc) ->
     ["Test API functions make_dir/2, del_dir/2"];
-mk_rm_dir(suite) ->
-    [];
 mk_rm_dir(Config) when is_list(Config) ->
     PrivDir = ?config(priv_dir, Config),
     {Sftp, _} = ?config(sftp, Config),
+ 
     DirName = filename:join(PrivDir, "test"),
-
     ok = ssh_sftp:make_dir(Sftp, DirName),
     ok = ssh_sftp:del_dir(Sftp, DirName),
-
     NewDirName = filename:join(PrivDir, "foo/bar"),
-
     {error, _} = ssh_sftp:make_dir(Sftp, NewDirName),
-    {error, _} = ssh_sftp:del_dir(Sftp, PrivDir),
-
-    ok.
+    {error, _} = ssh_sftp:del_dir(Sftp, PrivDir).
 
 %%--------------------------------------------------------------------
 links(doc) ->
     ["Tests API function make_symlink/3"];
-links(suite) ->
-    [];
 links(Config) when is_list(Config) ->
-    case test_server:os_type() of
+    case os:type() of
 	{win32, _} ->
 	    {skip, "Links are not fully supported by windows"};
 	_ ->
@@ -361,74 +269,60 @@ links(Config) when is_list(Config) ->
 	    LinkFileName = filename:join(PrivDir, "link_test.txt"),
 
 	    ok = ssh_sftp:make_symlink(Sftp, LinkFileName, FileName),
-	    {ok, FileName} = ssh_sftp:read_link(Sftp, LinkFileName),
-	    ok
+	    {ok, FileName} = ssh_sftp:read_link(Sftp, LinkFileName)
     end.
 
 %%--------------------------------------------------------------------
 retrieve_attributes(doc) ->
     ["Test API function read_file_info/3"];
-retrieve_attributes(suite) ->
-    [];
 retrieve_attributes(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "sftp.txt"),
+
     {Sftp, _} = ?config(sftp, Config),
-
     {ok, FileInfo} = ssh_sftp:read_file_info(Sftp, FileName),
-
     {ok, NewFileInfo} = file:read_file_info(FileName),
 
     %% TODO comparison. There are some differences now is that ok?
-    test_server:format("SFTP: ~p   FILE: ~p~n", [FileInfo, NewFileInfo]),
-    ok.
+    ct:pal("SFTP: ~p   FILE: ~p~n", [FileInfo, NewFileInfo]).
 
 %%--------------------------------------------------------------------
 set_attributes(doc) ->
     ["Test API function write_file_info/3"];
-set_attributes(suite) ->
-    [];
 set_attributes(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
-    {Sftp, _} = ?config(sftp, Config),
 
+    {Sftp, _} = ?config(sftp, Config),
     {ok,Fd} = file:open(FileName, write),
     io:put_chars(Fd,"foo"),
-
     ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#400}),
     {error, eacces} = file:write_file(FileName, "hello again"),
     ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
-    ok = file:write_file(FileName, "hello again"),
-
-    ok.
+    ok = file:write_file(FileName, "hello again").
 
 %%--------------------------------------------------------------------
 
 async_read(doc) ->
     ["Test API aread/3"];
-async_read(suite) ->
-    [];
 async_read(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     PrivDir =  ?config(priv_dir, Config),
+
     FileName = filename:join(PrivDir, "sftp.txt"),
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
     {async, Ref} = ssh_sftp:aread(Sftp, Handle, 20),
 
     receive
 	{async_reply, Ref, {ok, Data}} ->
-	    test_server:format("Data: ~p~n", [Data]),
+	    ct:pal("Data: ~p~n", [Data]),
 	    ok;
 	Msg ->
-	    test_server:fail(Msg)
-    end,
-    ok.
+	    ct:fail(Msg)
+    end.
 %%--------------------------------------------------------------------
 async_write(doc) ->
     ["Test API awrite/3"];
-async_write(suite) ->
-    [];
 async_write(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     PrivDir =  ?config(priv_dir, Config),
@@ -441,16 +335,13 @@ async_write(Config) when is_list(Config) ->
 	{async_reply, Ref, ok} ->
 	    {ok, Data} = file:read_file(FileName);
 	Msg ->
-	    test_server:fail(Msg)
-    end,
-    ok.
+	    ct:fail(Msg)
+    end.
 
 %%--------------------------------------------------------------------
 
 position(doc) ->
     ["Test API functions position/3"];
-position(suite) ->
-    [];
 position(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -458,7 +349,6 @@ position(Config) when is_list(Config) ->
 
     Data = list_to_binary("1234567890"),
     ssh_sftp:write_file(Sftp, FileName, [Data]),
-
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
 
     {ok, 3} = ssh_sftp:position(Sftp, Handle, {bof, 3}),
@@ -477,15 +367,11 @@ position(Config) when is_list(Config) ->
     {ok, "1"} = ssh_sftp:read(Sftp, Handle, 1),
 
     {ok, 1} = ssh_sftp:position(Sftp, Handle, cur),
-    {ok, "2"} = ssh_sftp:read(Sftp, Handle, 1),
-
-    ok.
+    {ok, "2"} = ssh_sftp:read(Sftp, Handle, 1).
 
 %%--------------------------------------------------------------------
 pos_read(doc) ->
     ["Test API functions pread/3 and apread/3"];
-pos_read(suite) ->
-    [];
 pos_read(Config) when is_list(Config) ->
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
@@ -494,7 +380,6 @@ pos_read(Config) when is_list(Config) ->
     ssh_sftp:write_file(Sftp, FileName, [Data]),
 
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
-
     {async, Ref} = ssh_sftp:apread(Sftp, Handle, {bof, 5}, 4),
 
     NewData  = "opp!",
@@ -503,21 +388,17 @@ pos_read(Config) when is_list(Config) ->
 	{async_reply, Ref, {ok, NewData}} ->
 	    ok;
 	Msg ->
-	    test_server:fail(Msg)
+	    ct:fail(Msg)
     end,
 
     NewData1  = "hopp",
 
-    {ok, NewData1} = ssh_sftp:pread(Sftp, Handle, {bof, 4}, 4),
+    {ok, NewData1} = ssh_sftp:pread(Sftp, Handle, {bof, 4}, 4).
 
-    ok.
 %%--------------------------------------------------------------------
 pos_write(doc) ->
     ["Test API functions pwrite/4 and apwrite/4"];
-pos_write(suite) ->
-    [];
 pos_write(Config) when is_list(Config) ->
-
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(PrivDir, "test.txt"),
     {Sftp, _} = ?config(sftp, Config),
@@ -533,17 +414,16 @@ pos_write(Config) when is_list(Config) ->
 	{async_reply, Ref, ok} ->
 	    ok;
 	Msg ->
-	    test_server:fail(Msg)
+	    ct:fail(Msg)
     end,
 
     ok = ssh_sftp:pwrite(Sftp, Handle, eof, list_to_binary("!")),
 
     NewData1 = list_to_binary("Bye, see you tomorrow!"),
-    {ok, NewData1} = ssh_sftp:read_file(Sftp, FileName),
+    {ok, NewData1} = ssh_sftp:read_file(Sftp, FileName).
 
-    ok.
-
-%% Internal functions
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 prep(Config) ->
     PrivDir =  ?config(priv_dir, Config),

@@ -24,24 +24,31 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
-
 -include_lib("kernel/include/file.hrl").
 
 -define(USER, "Alladin").
 -define(PASSWD, "Sesame").
 -define(SSH_MAX_PACKET_SIZE, 32768).
 
-%% Test server callback functions
 %%--------------------------------------------------------------------
-%% Function: init_per_suite(Config) -> Config
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Initiation before the whole suite
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
+%% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
+
+suite() ->
+    [{ct_hooks,[ts_install_cth]}].
+
+all() -> 
+    [close_file, 
+     quit, 
+     file_cb,
+     root_dir, 
+     list_dir_limited].
+
+groups() -> 
+    [].
+
+%%--------------------------------------------------------------------
+
 init_per_suite(Config) ->
     catch ssh:stop(),
     case catch crypto:start() of
@@ -60,12 +67,6 @@ init_per_suite(Config) ->
 	    {skip,"Could not start ssh!"}
     end.
 
-%%--------------------------------------------------------------------
-%% Function: end_per_suite(Config) -> _
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after the whole suite
-%%--------------------------------------------------------------------
 end_per_suite(Config) -> 
     UserDir = filename:join(?config(priv_dir, Config), nopubkey),
     file:del_dir(UserDir),
@@ -75,18 +76,14 @@ end_per_suite(Config) ->
     ok.
 
 %%--------------------------------------------------------------------
-%% Function: init_per_testcase(TestCase, Config) -> Config
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%%
-%% Description: Initiation before each test case
-%%
-%% Note: This function is free to add any key/value pairs to the Config
-%% variable, but should NOT alter/remove any existing entries.
-%% Description: Initiation before each test case
+
+init_per_group(_GroupName, Config) ->
+	Config.
+
+end_per_group(_GroupName, Config) ->
+	Config.
 %%--------------------------------------------------------------------
+
 init_per_testcase(TestCase, Config) ->
     ssh:start(),
     PrivDir = ?config(priv_dir, Config),
@@ -132,53 +129,21 @@ init_per_testcase(TestCase, Config) ->
     NewConfig = lists:keydelete(sftpd, 1, TmpConfig),
     [{port, Port}, {sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
 
-%%--------------------------------------------------------------------
-%% Function: end_per_testcase(TestCase, Config) -> _
-%% Case - atom()
-%%   Name of the test case that is about to be run.
-%% Config - [tuple()]
-%%   A list of key/value pairs, holding the test case configuration.
-%% Description: Cleanup after each test case
-%%--------------------------------------------------------------------
 end_per_testcase(_TestCase, Config) ->
     catch ssh_sftpd:stop(?config(sftpd, Config)),
     {Sftp, Connection} = ?config(sftp, Config),
     catch ssh_sftp:stop_channel(Sftp),
     catch ssh:close(Connection),
-    ssh:stop(),
-    ok.
+    ssh:stop().
 
 %%--------------------------------------------------------------------
-%% Function: all(Clause) -> TestCases
-%% Clause - atom() - suite | doc
-%% TestCases - [Case]
-%% Case - atom()
-%%   Name of a test case.
-%% Description: Returns a list of all test cases in this test suite
+%% Test cases starts here. -------------------------------------------
 %%--------------------------------------------------------------------
-all() -> 
-    [close_file_OTP_6350, quit_OTP_6349, file_cb_OTP_6356,
-     root_dir, list_dir_limited].
-
-groups() -> 
-    [].
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
-end_per_group(_GroupName, Config) ->
-	Config.
-
-%% Test cases starts here.
-%%--------------------------------------------------------------------
-close_file_OTP_6350(doc) ->
+close_file(doc) ->
     ["Test that sftpd closes its fildescriptors after compleating the "
-     "transfer"];
+     "transfer OTP-6350"];
 
-close_file_OTP_6350(suite) ->
-    [];
-
-close_file_OTP_6350(Config) when is_list(Config) ->
+close_file(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
 
@@ -186,28 +151,20 @@ close_file_OTP_6350(Config) when is_list(Config) ->
 
     NumOfPorts = length(erlang:ports()),
 
-    test_server:format("Number of open ports:  ~p~n", [NumOfPorts]),
+    ct:pal("Number of open ports:  ~p~n", [NumOfPorts]),
 
     {ok, <<_/binary>>} = ssh_sftp:read_file(Sftp, FileName),
 
-    NumOfPorts = length(erlang:ports()),
-
-    test_server:format("Number of open ports:  ~p~n",
-		       [length(erlang:ports())]),
-
-    ok.
+    NumOfPorts = length(erlang:ports()).
 
 %%--------------------------------------------------------------------
 
-quit_OTP_6349(doc) ->
+quit(doc) ->
     [" When the sftp client ends the session the "
      "server will now behave correctly and not leave the "
-     "client hanging."];
+     "client hanging. OTP-6349"];
 
-quit_OTP_6349(suite) ->
-    [];
-
-quit_OTP_6349(Config) when is_list(Config) ->
+quit(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
     UserDir = ?config(priv_dir, Config), 
@@ -230,19 +187,15 @@ quit_OTP_6349(Config) when is_list(Config) ->
 
     {ok, <<_/binary>>} = ssh_sftp:read_file(NewSftp, FileName),
 
-    ok = ssh_sftp:stop_channel(NewSftp),
-    ok.
+    ok = ssh_sftp:stop_channel(NewSftp).
 
 %%--------------------------------------------------------------------
 
-file_cb_OTP_6356(doc) ->
+file_cb(doc) ->
     ["Test that it is possible to change the callback module for"
-    " the sftpds filehandling."];
+    " the sftpds filehandling. OTP-6356"];
 
-file_cb_OTP_6356(suite) ->
-    [];
-
-file_cb_OTP_6356(Config) when is_list(Config) ->
+file_cb(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir =  ?config(priv_dir, Config),
     FileName = filename:join(DataDir, "test.txt"),
@@ -283,13 +236,11 @@ file_cb_OTP_6356(Config) when is_list(Config) ->
     ok = ssh_sftp:del_dir(Sftp, NewDir),
     alt_file_handler_check(alt_read_link_info),
     alt_file_handler_check(alt_write_file_info),
-    alt_file_handler_check(alt_del_dir),
-    ok.
+    alt_file_handler_check(alt_del_dir).
+%%--------------------------------------------------------------------
 
 root_dir(doc) ->
     [""];
-root_dir(suite) ->
-    [];
 root_dir(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     FileName = "test.txt",
@@ -298,26 +249,27 @@ root_dir(Config) when is_list(Config) ->
     {ok, Bin} = ssh_sftp:read_file(Sftp, FileName),
     {ok, Listing} =
 	ssh_sftp:list_dir(Sftp, "."),
-    test_server:format("Listing: ~p~n", [Listing]),
-    ok.
+    ct:pal("Listing: ~p~n", [Listing]).
 
+%%--------------------------------------------------------------------
 list_dir_limited(doc) ->
     [""];
-list_dir_limited(suite) ->
-    [];
 list_dir_limited(Config) when is_list(Config) ->
     {Sftp, _} = ?config(sftp, Config),
     {ok, Listing} =
 	ssh_sftp:list_dir(Sftp, "."),
-    test_server:format("Listing: ~p~n", [Listing]),
-    ok.
+    ct:pal("Listing: ~p~n", [Listing]).
 
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+ 
 alt_file_handler_check(Msg) ->
     receive
 	Msg ->
 	    ok;
 	Other ->
-	    test_server:fail({Msg, Other})
+	    ct:fail({Msg, Other})
     after 10000 ->
-	    test_server:fail("Not alt file handler")
+	    ct:fail("Not alt file handler")
     end.
