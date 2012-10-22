@@ -38,6 +38,7 @@
 		   verbosity=[],
 		   silent_connections=[],
 		   cover=[],
+		   cover_stop=[],
 		   config=[],
 		   userconfig=[],
 		   event_handler=[],

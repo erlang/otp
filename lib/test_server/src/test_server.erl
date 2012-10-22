@@ -25,7 +25,7 @@
 
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([run_test_case_apply/1,init_target_info/0,init_purify/0]).
--export([cover_compile/1,cover_analyse/2]).
+-export([cover_compile/1,cover_analyse/3]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([get_loc/1]).
@@ -414,7 +414,7 @@ do_cover_compile1([]) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% cover_analyse(Analyse,Modules) -> [{M,{Cov,NotCov,Details}}]
+%% cover_analyse(Analyse,Modules,Stop) -> [{M,{Cov,NotCov,Details}}]
 %%
 %% Analyse = {details,Dir} | details | {overview,void()} | overview
 %% Modules = [atom()], the modules to analyse
@@ -430,7 +430,18 @@ do_cover_compile1([]) ->
 %%
 %% Also, if a Dir exists, cover data will be exported to a file called
 %% all.coverdata in that directory.
-cover_analyse(Analyse,Modules) ->
+%%
+%% Finally, if Stop==true, then cover will be stopped after the
+%% analysis is completed. Stopping cover causes the original (non
+%% cover compiled) modules to be loaded back in. If a process at this
+%% point is still running old code of any of the cover compiled
+%% modules, meaning that is has not done any fully qualified function
+%% call after the cover compilation, the process will now be
+%% killed. To avoid this scenario, it is possible to set Stop=false,
+%% which means that the modules will stay cover compiled. Note that
+%% this is only recommended if the erlang node is being terminated
+%% after the test is completed.
+cover_analyse(Analyse,Modules,Stop) ->
     io:fwrite("Cover analysing...\n",[]),
     DetailsFun =
 	case Analyse of
@@ -482,12 +493,14 @@ cover_analyse(Analyse,Modules) ->
 		  end
 	  end, Modules),
 
-%%! SIRI: This must be checked further - is it always ok not to stop
-%%! cover? Will the node always terminate after this? Probably not -
-%%! maybe use an option?
-%    Sticky = unstick_all_sticky(node()),
-%    cover:stop(),
-%    stick_all_sticky(node(),Sticky),
+    case Stop of
+	true ->
+	    Sticky = unstick_all_sticky(node()),
+	    cover:stop(),
+	    stick_all_sticky(node(),Sticky);
+	false ->
+	    ok
+    end,
     R.
 
 pmap(Fun,List) ->
@@ -503,6 +516,17 @@ pmap(Fun,List) ->
 			      Res
 		      end
 	      end, Pids).
+
+
+do_cover_for_node(Node,CoverFunc) ->
+    %% In case a slave node is starting another slave node! I.e. this
+    %% function is executed on a slave node - then the cover function
+    %% must be executed on the master node. This is for instance the
+    %% case in test_server's own tests.
+    MainCoverNode = cover:get_main_node(),
+    Sticky = unstick_all_sticky(MainCoverNode,Node),
+    rpc:call(MainCoverNode,cover,CoverFunc,[Node]),
+    stick_all_sticky(Node,Sticky).
 
 unstick_all_sticky(Node) ->
     unstick_all_sticky(node(),Node).
@@ -2581,10 +2605,7 @@ start_node(Name, Type, Options) ->
 	    net_adm:ping(Node),
 	    case Cover of
 		true ->
-		    MainCoverNode = cover:get_main_node(),
-		    Sticky = unstick_all_sticky(MainCoverNode,Node),
-		    rpc:call(MainCoverNode,cover,start,[Node]),
-		    stick_all_sticky(Node,Sticky);
+		    do_cover_for_node(Node,start);
 		_ ->
 		    ok
 	    end,
@@ -2625,10 +2646,7 @@ wait_for_node(Slave) ->
 	    net_adm:ping(Slave),
 	    case Cover of
 		true ->
-		    MainCoverNode = cover:get_main_node(),
-		    Sticky = unstick_all_sticky(MainCoverNode,Slave),
-		    rpc:call(MainCoverNode,cover,start,[Slave]),
-		    stick_all_sticky(Slave,Sticky);
+		    do_cover_for_node(Slave,start);
 		_ ->
 		    ok
 	    end;
@@ -2647,10 +2665,7 @@ stop_node(Slave) ->
     Nocover = is_shielded(Slave) orelse not same_version(Slave),
     case is_cover() of
 	true when not Nocover ->
-	    MainCoverNode = cover:get_main_node(),
-	    Sticky = unstick_all_sticky(MainCoverNode,Slave),
-	    rpc:call(MainCoverNode,cover,flush,[Slave]),
-	    stick_all_sticky(Slave,Sticky);
+	    do_cover_for_node(Slave,flush);
 	_ ->
 	    ok
     end,

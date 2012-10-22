@@ -148,7 +148,7 @@ run(TestDirs) ->
 %%%               {config,CfgFiles} | {userconfig, UserConfig} |
 %%%               {allow_user_terms,Bool} | {logdir,LogDir} |
 %%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
-%%%               {cover,CoverSpecFile} | {step,StepOpts} |
+%%%               {cover,CoverSpecFile} | {cover_stop,Bool} | {step,StepOpts} |
 %%%               {event_handler,EventHandlers} | {include,InclDirs} |
 %%%               {auto_compile,Bool} | {create_priv_dir,CreatePrivDir}  |
 %%%               {multiply_timetraps,M} | {scale_timetraps,Bool} |

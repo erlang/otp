@@ -153,6 +153,8 @@
       <item><c><![CDATA[-stylesheet <css_file>]]></c>, points out a user HTML style sheet (see below).</item>
       <item><c><![CDATA[-cover <cover_cfg_file>]]></c>, to perform code coverage test (see 
 	<seealso marker="cover_chapter#cover">Code Coverage Analysis</seealso>).</item>
+      <item><c><![CDATA[-cover_stop <bool>]]></c>, to specify if the cover tool shall be stopped after the test is completed (see
+	<seealso marker="cover_chapter#cover_stop">Code Coverage Analysis</seealso>).</item>
       <item><c><![CDATA[-event_handler <event_handlers>]]></c>, to install 
         <seealso marker="event_handler_chapter#event_handling">event handlers</seealso>.</item>
       <item><c><![CDATA[-event_handler_init <event_handlers>]]></c>, to install
@@ -495,6 +497,9 @@
       {cover, CoverSpecFile}.
       {cover, NodeRefs, CoverSpecFile}.
       
+      {cover_stop, Bool}.
+      {cover_stop, NodeRefs, Bool}.
+
       {include, IncludeDirs}.
       {include, NodeRefs, IncludeDirs}.
 

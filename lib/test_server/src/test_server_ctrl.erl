@@ -165,7 +165,7 @@
 -export([reject_io_reqs/1, get_levels/0, set_levels/3]).
 -export([multiply_timetraps/1, scale_timetraps/1, get_timetrap_parameters/0]).
 -export([create_priv_dir/1]).
--export([cover/2, cover/3, cover/7,
+-export([cover/2, cover/3, cover/8,
 	 cross_cover_analyse/2, cross_cover_analyse/3, trc/1, stop_trace/0]).
 -export([testcase_callback/1]).
 -export([set_random_seed/1]).
@@ -521,9 +521,9 @@ cover(App, Analyse) when is_atom(App) ->
 cover(CoverFile, Analyse) ->
     cover(none, CoverFile, Analyse).
 cover(App, CoverFile, Analyse) ->
-    controller_call({cover,{App,CoverFile},Analyse}).
-cover(App, CoverFile, Exclude, Include, Cross, Export, Analyse) ->
-    controller_call({cover,{App,{CoverFile,Exclude,Include,Cross,Export}},Analyse}).
+    controller_call({cover,{App,CoverFile},Analyse,true}).
+cover(App, CoverFile, Exclude, Include, Cross, Export, Analyse, Stop) ->
+    controller_call({cover,{App,{CoverFile,Exclude,Include,Cross,Export}},Analyse,Stop}).
 
 testcase_callback(ModFunc) ->
     controller_call({testcase_callback,ModFunc}).
@@ -796,7 +796,7 @@ handle_call({add_job,Dir,Name,TopCase,Skip}, _From, State) ->
     ExtraTools =
 	case State#state.cover of
 	    false -> [];
-	    {App,Analyse} -> [{cover,App,Analyse}]
+	    {App,Analyse,Stop} -> [{cover,App,Analyse,Stop}]
 	end,
     ExtraTools1 =
 	case State#state.random_seed of
@@ -1052,13 +1052,13 @@ handle_call(stop_trace, _From, State) ->
     {reply,R,State#state{trc=false}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% handle_call({cover,App,Analyse}, _, State) -> ok | {error,Reason}
+%% handle_call({cover,App,Analyse,Stop}, _, State) -> ok | {error,Reason}
 %%
 %% All modules inn application App are cover compiled
 %% Analyse indicates on which level the coverage should be analysed
 
-handle_call({cover,App,Analyse}, _From, State) ->
-    {reply,ok,State#state{cover={App,Analyse}}};
+handle_call({cover,App,Analyse,Stop}, _From, State) ->
+    {reply,ok,State#state{cover={App,Analyse,Stop}}};
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% handle_call({create_priv_dir,Value}, _, State) -> ok | {error,Reason}
@@ -1465,11 +1465,11 @@ elapsed_time(Before, After) ->
 
 start_extra_tools(ExtraTools) ->
     start_extra_tools(ExtraTools, []).
-start_extra_tools([{cover,App,Analyse} | ExtraTools], Started) ->
+start_extra_tools([{cover,App,Analyse,Stop} | ExtraTools], Started) ->
     case cover_compile(App) of
 	{ok,AnalyseMods} ->
 	    start_extra_tools(ExtraTools,
-			      [{cover,App,Analyse,AnalyseMods}|Started]);
+			      [{cover,App,Analyse,AnalyseMods,Stop}|Started]);
 	{error,_} ->
 	    start_extra_tools(ExtraTools, Started)
     end;
@@ -1488,8 +1488,8 @@ stop_extra_tools(ExtraTools) ->
     end,
     stop_extra_tools(ExtraTools, TestDir).
 
-stop_extra_tools([{cover,App,Analyse,AnalyseMods}|ExtraTools], TestDir) ->
-    cover_analyse(App, Analyse, AnalyseMods, TestDir),
+stop_extra_tools([{cover,App,Analyse,AnalyseMods,Stop}|ExtraTools], TestDir) ->
+    cover_analyse(App, Analyse, AnalyseMods, Stop, TestDir),
     stop_extra_tools(ExtraTools, TestDir);
 %%stop_extra_tools([_ | ExtraTools], TestDir) ->
 %%    stop_extra_tools(ExtraTools, TestDir);
@@ -5448,7 +5448,7 @@ check_cover_file([], Exclude, Include) ->
 %%
 %% This per application analysis writes the file cover.html in the
 %% application's run.<timestamp> directory.
-cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, TestDir) ->
+cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
     write_default_cross_coverlog(TestDir),
 
     {ok,CoverLog} = file:open(filename:join(TestDir, ?coverlog_name), [write]),
@@ -5479,7 +5479,7 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, TestDir) ->
 
     io:fwrite(CoverLog, "<p>Excluded module(s): <code>~p</code>\n", [Excluded]),
 
-    Coverage = cover_analyse(Analyse, AnalyseMods),
+    Coverage = cover_analyse(Analyse, AnalyseMods, Stop),
 
     case lists:filter(fun({_M,{_,_,_}}) -> false;
 			 (_) -> true
@@ -5496,17 +5496,17 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, TestDir) ->
     file:write_file(filename:join(TestDir, ?cover_total),
 		    term_to_binary(TotPercent)).
 
-cover_analyse(Analyse, AnalyseMods) ->
+cover_analyse(Analyse, AnalyseMods, Stop) ->
     TestDir = get(test_server_log_dir_base),
     case get(test_server_ctrl_job_sock) of
 	undefined ->
 	    %% local target
-	    test_server:cover_analyse({Analyse,TestDir}, AnalyseMods);
+	    test_server:cover_analyse({Analyse,TestDir}, AnalyseMods, Stop);
 	JobSock ->
 	    %% remote target
 	    request(JobSock, {sync_apply,{test_server,
 					  cover_analyse,
-					  [Analyse,AnalyseMods]}}),
+					  [Analyse,AnalyseMods, Stop]}}),
 	    read_job_sock_loop(JobSock)
     end.
 

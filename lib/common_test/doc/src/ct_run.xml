@@ -104,6 +104,7 @@
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
 	[-stylesheet CSSFile]
 	[-cover CoverCfgFile]
+	[-cover_stop Bool]
 	[-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
         [-event_handler_init EvHandler1 InitArg1 and
 	 EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
@@ -138,6 +139,7 @@
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
 	[-stylesheet CSSFile]
 	[-cover CoverCfgFile]
+	[-cover_stop Bool]
 	[-event_handler EvHandler1 EvHandler2 .. EvHandlerN] |
         [-event_handler_init EvHandler1 InitArg1 and
 	 EvHandler2 InitArg2 and .. EvHandlerN InitArgN]
