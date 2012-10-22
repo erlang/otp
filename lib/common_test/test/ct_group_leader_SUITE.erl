@@ -170,6 +170,12 @@ events_to_check(_Test) ->
 		 {?eh,tc_done,{group_leader_SUITE,s5,ok}}],
 		{?eh,tc_start,{group_leader_SUITE,p13}},
 		{?eh,tc_done,{group_leader_SUITE,p13,ok}} ]},
+     {?eh,tc_done,{group_leader_SUITE,cap1,ok}},
+     {?eh,tc_done,{group_leader_SUITE,cap2,ok}},
+     {parallel,[{?eh,tc_start,{group_leader_SUITE,cap1}},
+		{?eh,tc_done,{group_leader_SUITE,cap1,ok}},
+		{?eh,tc_start,{group_leader_SUITE,cap2}},
+		{?eh,tc_done,{group_leader_SUITE,cap2,ok}}]},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

@@ -111,7 +111,8 @@ groups() ->
      {p_restart,[parallel],[p_restart_my_io_server]},
      {seq,[],[s1,s2,s3]},
      {seq2,[],[s4,s5]},
-     {seq_in_par,[parallel],[p10,p11,{group,seq},p12,{group,seq2},p13]}].
+     {seq_in_par,[parallel],[p10,p11,{group,seq},p12,{group,seq2},p13]},
+     {capture_io,[parallel],[cap1,cap2]}].
 
 %%--------------------------------------------------------------------
 %% @spec all() -> GroupsAndTestCases | {skip,Reason}
@@ -123,7 +124,9 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [tc1,{group,p},{group,p_restart},p3,
-     {group,seq_in_par}].
+     {group,seq_in_par},
+     cap1,cap2,
+     {group,capture_io}].
 
 tc1(_C) ->
     ok.
@@ -221,3 +224,29 @@ s4(_) ->
 
 s5(_) ->
     ok.
+
+cap1(_) ->
+    ct:capture_start(),
+    IO = gen_io(cap1, 10, []),
+    ct:capture_stop(),
+    IO = ct:capture_get(),
+    ok.
+
+cap2(_) ->
+    ct:capture_start(),
+    {Pid,Ref} = spawn_monitor(fun() ->
+				      exit(gen_io(cap2, 42, []))
+			      end),
+    receive
+	{'DOWN',Ref,process,Pid,IO} ->
+	    ct:capture_stop(),
+	    IO = ct:capture_get(),
+	    ok
+    end.
+
+gen_io(_, 0, Acc) ->
+    lists:reverse(Acc);
+gen_io(Label, N, Acc) ->
+    S = lists:flatten(io_lib:format("~s: ~p\n", [Label,N])),
+    io:put_chars(S),
+    gen_io(Label, N-1, [S|Acc]).
