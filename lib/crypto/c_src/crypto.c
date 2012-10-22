@@ -363,13 +363,20 @@ static ERL_NIF_TERM atom_none;
 static ERL_NIF_TERM atom_notsup;
 static ERL_NIF_TERM atom_digest;
 
+/*
+#define PRINTF_ERR0(FMT) enif_fprintf(stderr, FMT "\n")
+#define PRINTF_ERR1(FMT, A1) enif_fprintf(stderr, FMT "\n", A1)
+*/
+#define PRINTF_ERR0(FMT)
+#define PRINTF_ERR1(FMT,A1)
+
 static int change_basename(char* buf, int bufsz, const char* newfile)
 {
     char* p = strrchr(buf, '/');
     p = (p == NULL) ? buf : p + 1;
     
     if ((p - buf) + strlen(newfile) >= bufsz) {
-	/*fprintf(stderr, "CRYPTO: lib name too long\r\n");*/
+	PRINTF_ERR0("CRYPTO: lib name too long");
 	return 0;
     }
     strcpy(p, newfile);
@@ -378,7 +385,7 @@ static int change_basename(char* buf, int bufsz, const char* newfile)
 
 static void error_handler(void* null, const char* errstr)
 {
-    /*fprintf(stderr, "CRYPTO LOADING ERROR: '%s'\r\n", errstr);*/
+    PRINTF_ERR1("CRYPTO LOADING ERROR: '%s'", errstr);
 }
 
 static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
@@ -401,7 +408,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	|| vernum != 201
 	|| enif_get_string(env, tpl_array[1], lib_buf, sizeof(lib_buf), ERL_NIF_LATIN1) <= 0) {
 
-	/*enif_fprintf(stderr, "CRYPTO: Invalid load_info '%T'\n", load_info);*/
+	PRINTF_ERR1("CRYPTO: Invalid load_info '%T'", load_info);
 	return 0;
     }
     if (library_refc > 0) {
@@ -461,7 +468,7 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
     ccb = (*funcp)(nlocks);
     
     if (!ccb || ccb->sizeof_me != sizeof(*ccb)) {
-	/*fprintf(stderr, "Invalid 'crypto_callbacks'\r\n");*/
+	PRINTF_ERR0("Invalid 'crypto_callbacks'");
 	return 0;
     }
     
