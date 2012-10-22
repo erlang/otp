@@ -209,9 +209,14 @@ node_start_immediately_after_crash(Config) when is_list(Config) ->
     rpc:call(Node, erlang, load_module, [Mod, Code]),
     rpc:cast(Node, Mod, do, []),
 
+    T0 = now(),
 
-    receive {nodedown, Node} -> ok
-    after 2000 -> test_server:fail(node_not_closed)
+    receive {nodedown, Node} ->
+	    test_server:format("Took ~.2f s. for node to go down~n", [timer:now_diff(now(), T0)/1000000]),
+	    ok
+    %% timeout is very liberal here. nodedown is received in about 1 s. on linux (palantir)
+    %% and in about 10 s. on solaris (carcharoth)
+    after (15000*test_server:timetrap_scale_factor()) -> test_server:fail(node_not_closed)
     end,
     test_server:sleep(3000),
     node_check_up_down(Node, 2000),
@@ -245,7 +250,7 @@ node_start_soon_after_crash(Config) when is_list(Config) ->
     rpc:cast(Node, Mod, do, []),
 
     receive {nodedown, Node} -> ok
-    after 15000 -> test_server:fail(node_not_closed)
+    after (15000*test_server:timetrap_scale_factor()) -> test_server:fail(node_not_closed)
     end,
     test_server:sleep(20000),
     node_check_up_down(Node, 15000),
