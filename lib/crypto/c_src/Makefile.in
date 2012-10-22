@@ -59,8 +59,6 @@ TYPE_FLAGS = $(CFLAGS)
 endif
 endif
 
-ALL_CFLAGS = $(TYPE_FLAGS) $(INCLUDES)
-
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -89,10 +87,17 @@ DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
 ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 SSL_DED_LD_RUNTIME_LIBRARY_PATH = @SSL_DED_LD_RUNTIME_LIBRARY_PATH@
 CRYPTO_LINK_LIB=$(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -l$(SSL_CRYPTO_LIBNAME)
+EXTRA_FLAGS = -DHAVE_DYNAMIC_CRYPTO_LIB
 else
 SSL_DED_LD_RUNTIME_LIBRARY_PATH=
 CRYPTO_LINK_LIB=$(SSL_LIBDIR)/lib$(SSL_CRYPTO_LIBNAME).a 
+EXTRA_FLAGS =
+CRYPTO_OBJS := $(CRYPTO_OBJS) $(CALLBACK_OBJS)
+CALLBACK_OBJS =
+CALLBACK_LIB =
 endif
+
+ALL_CFLAGS = $(TYPE_FLAGS) $(EXTRA_FLAGS) $(INCLUDES)
 
 # ----------------------------------------------------
 # Targets
@@ -114,6 +119,7 @@ $(LIBDIR)/crypto$(TYPEMARKER).dll: $(CRYPTO_OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(CRYPTO_OBJS) -l$(SSL_CRYPTO_LIBNAME) -l$(SSL_SSL_LIBNAME)
 
+ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
 $(LIBDIR)/crypto_callback$(TYPEMARKER).so: $(CALLBACK_OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS)
@@ -121,6 +127,7 @@ $(LIBDIR)/crypto_callback$(TYPEMARKER).so: $(CALLBACK_OBJS)
 $(LIBDIR)/crypto_callback$(TYPEMARKER).dll: $(CALLBACK_OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@ $(CALLBACK_OBJS)
+endif
 
 
 clean:
@@ -157,9 +164,11 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/priv/lib"
 	$(INSTALL_DATA) $(NIF_MAKEFILE) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(CRYPTO_OBJS) "$(RELSYSDIR)/priv/obj"
-	$(INSTALL_PROGRAM) $(CALLBACK_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(NIF_LIB) "$(RELSYSDIR)/priv/lib"
+ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
+	$(INSTALL_PROGRAM) $(CALLBACK_OBJS) "$(RELSYSDIR)/priv/obj"
 	$(INSTALL_PROGRAM) $(CALLBACK_LIB) "$(RELSYSDIR)/priv/lib"
+endif
 
 release_docs_spec:
 

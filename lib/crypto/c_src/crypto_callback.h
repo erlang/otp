@@ -40,3 +40,7 @@ struct crypto_callbacks
 
 typedef struct crypto_callbacks* get_crypto_callbacks_t(int nlocks);
 
+#ifndef HAVE_DYNAMIC_CRYPTO_LIB
+struct crypto_callbacks* get_crypto_callbacks(int nlocks);
+#endif
+

@@ -156,8 +156,10 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
     return &the_struct;
 }
 
+#ifdef HAVE_DYNAMIC_CRYPTO_LIB
 /* This is not really a NIF library, but we use ERL_NIF_INIT in order to
  * get access to the erl_nif API (on Windows).
  */
 ERL_NIF_INIT(dummy, (ErlNifFunc*)NULL , NULL, NULL, NULL, NULL)
+#endif
 

@@ -370,6 +370,7 @@ static ERL_NIF_TERM atom_digest;
 #define PRINTF_ERR0(FMT)
 #define PRINTF_ERR1(FMT,A1)
 
+#ifdef HAVE_DYNAMIC_CRYPTO_LIB
 static int change_basename(char* buf, int bufsz, const char* newfile)
 {
     char* p = strrchr(buf, '/');
@@ -387,12 +388,11 @@ static void error_handler(void* null, const char* errstr)
 {
     PRINTF_ERR1("CRYPTO LOADING ERROR: '%s'", errstr);
 }
+#endif /* HAVE_DYNAMIC_CRYPTO_LIB */
 
 static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
     ErlNifSysInfo sys_info;
-    const char callback_lib[] = "crypto_callback";
-    void* handle;
     get_crypto_callbacks_t* funcp;
     struct crypto_callbacks* ccb;
     int nlocks = 0;
@@ -445,17 +445,23 @@ static int init(ErlNifEnv* env, ERL_NIF_TERM load_info)
 
     init_digest_types(env);
 
-    if (!change_basename(lib_buf, sizeof(lib_buf), callback_lib)) {
-	return 0;
+#ifdef HAVE_DYNAMIC_CRYPTO_LIB
+    {
+	void* handle;
+	if (!change_basename(lib_buf, sizeof(lib_buf), "crypto_callback")) {
+	    return 0;
+	}
+	if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
+	    return 0;
+	}
+	if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
+							   &error_handler, NULL))) {
+	    return 0;
+	}
     }
-    
-    if (!(handle = enif_dlopen(lib_buf, &error_handler, NULL))) {
-	return 0;
-    }
-    if (!(funcp = (get_crypto_callbacks_t*) enif_dlsym(handle, "get_crypto_callbacks",
-						       &error_handler, NULL))) {
-	return 0;
-    }
+#else /* !HAVE_DYNAMIC_CRYPTO_LIB */
+    funcp = &get_crypto_callbacks;
+#endif
     
 #ifdef OPENSSL_THREADS
     enif_system_info(&sys_info, sizeof(sys_info));
