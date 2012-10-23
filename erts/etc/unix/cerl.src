@@ -267,11 +267,16 @@ if [ "x$GDB" = "x" ]; then
 	    valgrind_misc_flags="$VALGRIND_MISC_FLAGS"
 	fi
 	beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
-	# Ahhhh... Need to quote $PROGNAME...
-	early_beam_args=`echo $beam_args | sed "s|^\(.*-progname\).*$|\1|g"`
-	late_beam_args=`echo $beam_args | sed "s|^$pre_beam_args.*\(-- -home.*\)$|\1|g"`
-	
-	exec valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $emu_xargs $early_beam_args "$PROGNAME" $late_beam_args -pz $PRELOADED
+
+	# Time for some argument passing voodoo:
+	# $beam_args is a list of command line arguments separated by newlines.
+	# Make "$@" represent those arguments verbatim (including spaces and quotes).
+	SAVE_IFS="$IFS"
+	IFS='
+'
+	set -- $beam_args
+	IFS="$SAVE_IFS"
+	exec valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU_NAME $emu_xargs "$@" -pz $PRELOADED
     else
 	exec $EXEC $eeargs $xargs ${1+"$@"}
     fi

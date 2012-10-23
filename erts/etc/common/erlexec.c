@@ -989,8 +989,7 @@ int main(int argc, char **argv)
 
     if (print_args_exit) {
 	for (i = 1; i < EargsCnt; i++)
-	    printf("%s ", Eargsp[i]);
-	printf("\n");
+	    printf("%s\n", Eargsp[i]);
 	exit(0);
     }
 
