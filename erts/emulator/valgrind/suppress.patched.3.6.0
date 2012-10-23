@@ -267,6 +267,14 @@ obj:*/ssleay.*
 }
 
 {
+   Harmless assembler bug in openssl
+   Memcheck:Addr8
+   ...
+   fun:AES_cbc_encrypt
+   ...
+}
+
+{
 erts_bits_init_state; Why is this needed?
 Memcheck:Leak
 PossiblyLost

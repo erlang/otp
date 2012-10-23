@@ -252,6 +252,14 @@ obj:*/ssleay.*
 }
 
 {
+   Harmless assembler bug in openssl
+   Memcheck:Addr8
+   ...
+   fun:AES_cbc_encrypt
+   ...
+}
+
+{
 Prebuilt constant terms in os_info_init (PossiblyLost)
 Memcheck:Leak
 fun:malloc
