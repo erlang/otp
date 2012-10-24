@@ -19,7 +19,7 @@
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpaintevent.html">wxPaintEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>paint</em>, <em>paint_icon</em></dd></dl>
+%% <dd><em>paint</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxPaint(). #wxPaint{}} event record type.
 %%
 %% <p>This class is derived (and can use functions) from:

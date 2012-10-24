@@ -19,7 +19,7 @@
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmouseevent.html">wxMouseEvent</a>.
 %% <dl><dt>Use {@link wxEvtHandler:connect/3.} with EventType:</dt>
-%% <dd><em>left_down</em>, <em>left_up</em>, <em>middle_down</em>, <em>middle_up</em>, <em>right_down</em>, <em>right_up</em>, <em>motion</em>, <em>enter_window</em>, <em>leave_window</em>, <em>left_dclick</em>, <em>middle_dclick</em>, <em>right_dclick</em>, <em>mousewheel</em>, <em>nc_left_down</em>, <em>nc_left_up</em>, <em>nc_middle_down</em>, <em>nc_middle_up</em>, <em>nc_right_down</em>, <em>nc_right_up</em>, <em>nc_motion</em>, <em>nc_enter_window</em>, <em>nc_leave_window</em>, <em>nc_left_dclick</em>, <em>nc_middle_dclick</em>, <em>nc_right_dclick</em></dd></dl>
+%% <dd><em>left_down</em>, <em>left_up</em>, <em>middle_down</em>, <em>middle_up</em>, <em>right_down</em>, <em>right_up</em>, <em>motion</em>, <em>enter_window</em>, <em>leave_window</em>, <em>left_dclick</em>, <em>middle_dclick</em>, <em>right_dclick</em>, <em>mousewheel</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxMouse(). #wxMouse{}} event record type.
 %%
 %% <p>This class is derived (and can use functions) from:

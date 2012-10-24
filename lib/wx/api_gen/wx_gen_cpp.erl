@@ -118,12 +118,18 @@ gen_constructors(#class{name=Class, methods=Ms0}) ->
 
 gen_constructor(_Class, #method{where=merged_c}) -> ok;
 gen_constructor(_Class, #method{where=erl_no_opt}) -> ok;
-gen_constructor(Class, _M=#method{params=Ps}) ->
+gen_constructor(Class, _M=#method{params=Ps, opts=FOpts}) ->
     Gen1  = fun(#param{name=N, type=T}) -> gen_type(T,1) ++ N end,
     Gen2  = fun(#param{name=N, type=T}) -> gen_type(T,2) ++ N end,
     CallA = fun(#param{name=N}) -> N end,
     HaveMergedType = fun(#param{type={merged,_,_,_,_,_,_}}) -> true; (_) -> false end,
     ?WTC("gen_constructor"),
+    Endif = case lists:keysearch(ifdef, 1, FOpts) of
+		{value, {ifdef, IfDef}} ->
+		    w("#if ~s~n", [IfDef]),
+		    true;
+		_ -> false
+	    end,
     case lists:any(HaveMergedType, Ps) of
 	false ->
 	    w(" E~s(~s) : ~s(~s) {};~n",
@@ -133,7 +139,9 @@ gen_constructor(Class, _M=#method{params=Ps}) ->
 	      [Class,args(Gen1,",",Ps),Class,args(CallA,",",Ps)]),
 	    w(" E~s(~s) : ~s(~s) {};~n",
 	      [Class,args(Gen2,",",Ps),Class,args(CallA,",",Ps)])
-    end.
+    end,
+    Endif andalso w("#endif~n", []),
+    ok.
 
 gen_type(#type{name=Type, ref={pointer,1}, mod=Mod},_) ->
     mods(Mod) ++ to_string(Type) ++ " * ";
@@ -292,10 +300,16 @@ gen_method(CName, M=#method{name=N,params=[Ps],method_type=destructor,id=MethodI
 	    ignore
     end,
     M;
-gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId}) ->
+gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId, opts=FOpts}) ->
     put(current_func, N),
     put(bin_count,-1),
     ?WTC("gen_method"),
+    Endif = case lists:keysearch(ifdef, 1, FOpts) of
+		{value, {ifdef, IfDef}} ->
+		    w("#if ~s~n", [IfDef]),
+		    true;
+		_ -> false
+	    end,
     w("case ~s: { // ~s::~s~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
     Ps1 = declare_variables(void, Ps0),
     {Ps2,Align} = decode_arguments(Ps1),
@@ -314,6 +328,7 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     free_args(),
     build_return_vals(T,Ps3),
     w(" break;~n}~n", []),
+    Endif andalso w("#endif~n", []),
     erase(current_func),
     M.
 
@@ -936,6 +951,12 @@ build_ret(Name,{ret,_},#type{base={comp,_,_},single=true, ref=reference}) ->
     w(" rt.add((*~s));~n",[Name]);
 build_ret(Name,_,#type{base={comp,_,_},single=true}) ->
     w(" rt.add(~s);~n",[Name]);
+build_ret(Name = "ev->m_scanCode",_,#type{base=bool,single=true,by_val=true}) ->
+    %% Hardcoded workaround for 2.9 and later
+    w("#if !wxCHECK_VERSION(2,9,0)~n", []),
+    w(" rt.addBool(~s);~n",[Name]),
+    w("#else~n rt.addBool(false);~n",[]),
+    w("#endif~n",[]);
 build_ret(Name,_,#type{base=bool,single=true,by_val=true}) ->
     w(" rt.addBool(~s);~n",[Name]);
 build_ret(Name,{arg, both},#type{base=int,single=true,mod=M}) ->

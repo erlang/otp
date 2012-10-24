@@ -94,19 +94,25 @@ class EwxPostScriptDC : public wxPostScriptDC {
 class EwxWindowDC : public wxWindowDC {
  public: ~EwxWindowDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxWindowDC(wxWindow * win) : wxWindowDC(win) {};
+#if !wxCHECK_VERSION(2,9,0)
  EwxWindowDC() : wxWindowDC() {};
+#endif
 };
 
 class EwxClientDC : public wxClientDC {
  public: ~EwxClientDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxClientDC(wxWindow * win) : wxClientDC(win) {};
+#if !wxCHECK_VERSION(2,9,0)
  EwxClientDC() : wxClientDC() {};
+#endif
 };
 
 class EwxPaintDC : public wxPaintDC {
  public: ~EwxPaintDC() {((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxPaintDC(wxWindow * win) : wxPaintDC(win) {};
+#if !wxCHECK_VERSION(2,9,0)
  EwxPaintDC() : wxPaintDC() {};
+#endif
 };
 
 class EwxMemoryDC : public wxMemoryDC {
@@ -712,7 +718,9 @@ class EwxMDIChildFrame : public wxMDIChildFrame {
 
 class EwxMDIClientWindow : public wxMDIClientWindow {
  public: ~EwxMDIClientWindow() {((WxeApp *)wxTheApp)->clearPtr(this);};
+#if !wxCHECK_VERSION(2,9,0)
  EwxMDIClientWindow(wxMDIParentFrame * parent,long style) : wxMDIClientWindow(parent,style) {};
+#endif
  EwxMDIClientWindow() : wxMDIClientWindow() {};
 };
 

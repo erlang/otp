@@ -421,22 +421,30 @@ select_member(Several, #class{name=Class,file=Orig}, Defs0, Opts) ->
 
 parse_member(Data,MType,Virtual,Opts = #hs{fopt=Fopts}) ->
     Parse  = fun(Con,A) -> parse_member2(Con,Opts,A) end,
-    Method = #method{name=MName,params=PS0} = 
+    Method = #method{name=MName,params=PS0} =
 	foldl(Parse, #method{method_type=MType, virtual=Virtual}, Data),
     %% Skip motif name's if it's last and optional
     PS2 = case PS0 of %% Backward order..
-	      [#param{name="name",def=Def,type=#type{name="wxString"}}|PS1] 
-	      when Def =/= none -> 
+	      [#param{name="name",def=Def,type=#type{name="wxString"}}|PS1]
+	      when Def =/= none ->
 		  PS1;
 	      _ ->
 		  PS0
 	  end,
     Sz = length(PS2),
-    PS = map(fun(P=#param{name=PName}) -> 
+    PS = map(fun(P=#param{name=PName}) ->
 		     patch_param(MName,{Sz,PName},P,Fopts)
 	     end, PS2),
-    Alias = find_erl_alias_name(MName,PS,Fopts),	    
-    Method#method{params=PS, alias=Alias}.
+    Alias = find_erl_alias_name(MName,PS,Fopts),
+    FOpts = case gb_trees:lookup(MName, Fopts) of
+		{value, FuncO} when is_list(FuncO) ->
+		    case lists:keyfind({func,Sz}, 1, FuncO) of
+			false -> FuncO;
+			{_, FuncNO} -> FuncNO
+		    end;
+		_ -> []
+	    end,
+    Method#method{params=PS, alias=Alias, opts=FOpts}.
 
 find_erl_alias_name(MName,Ps,Fopts) ->
     case gb_trees:lookup(MName, Fopts) of
@@ -527,7 +535,7 @@ add_param2(P=#param{name=Name},#hs{fopt=FOpt},M0=#method{name=MName,params=Ps}) 
 	    M0#method{params=[Patched|Ps]}
     end.
 
-patch_param(Method, Name, P, Opt) ->    
+patch_param(Method, Name, P, Opt) ->
     case gb_trees:lookup(Method,Opt) of
 	none -> P;
 	{value,NoArg} when is_integer(NoArg) -> P;

@@ -4423,6 +4423,7 @@ case wxGridCellEditor_BeginEdit: { // wxGridCellEditor::BeginEdit
  This->BeginEdit((int) *row,(int) *col,grid);
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxGridCellEditor_EndEdit: { // wxGridCellEditor::EndEdit
  wxGridCellEditor *This = (wxGridCellEditor *) getPtr(bp,memenv); bp += 4;
  int * row = (int *) bp; bp += 4;
@@ -4433,6 +4434,7 @@ case wxGridCellEditor_EndEdit: { // wxGridCellEditor::EndEdit
  rt.addBool(Result);
  break;
 }
+#endif
 case wxGridCellEditor_Reset: { // wxGridCellEditor::Reset
  wxGridCellEditor *This = (wxGridCellEditor *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
@@ -4939,12 +4941,14 @@ case wxDC_Clear: { // wxDC::Clear
  This->Clear();
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxDC_ComputeScaleAndOrigin: { // wxDC::ComputeScaleAndOrigin
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->ComputeScaleAndOrigin();
  break;
 }
+#endif
 case wxDC_CrossHair: { // wxDC::CrossHair
  wxDC *This = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * ptX = (int *) bp; bp += 4;
@@ -5850,22 +5854,28 @@ case wxPostScriptDC_new_1: { // wxPostScriptDC::wxPostScriptDC
  rt.addRef(getRef((void *)Result,memenv), "wxPostScriptDC");
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxPostScriptDC_SetResolution: { // wxPostScriptDC::SetResolution
  int * ppi = (int *) bp; bp += 4;
  wxPostScriptDC::SetResolution((int) *ppi);
  break;
 }
+#endif
+#if !wxCHECK_VERSION(2,9,0)
 case wxPostScriptDC_GetResolution: { // wxPostScriptDC::GetResolution
  int Result = wxPostScriptDC::GetResolution();
  rt.addInt(Result);
  break;
 }
+#endif
+#if !wxCHECK_VERSION(2,9,0)
 case wxWindowDC_new_0: { // wxWindowDC::wxWindowDC
  wxWindowDC * Result = new EwxWindowDC();
  newPtr((void *) Result, 1, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxWindowDC");
  break;
 }
+#endif
 case wxWindowDC_new_1: { // wxWindowDC::wxWindowDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxWindowDC * Result = new EwxWindowDC(win);
@@ -5873,12 +5883,14 @@ case wxWindowDC_new_1: { // wxWindowDC::wxWindowDC
  rt.addRef(getRef((void *)Result,memenv), "wxWindowDC");
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxClientDC_new_0: { // wxClientDC::wxClientDC
  wxClientDC * Result = new EwxClientDC();
  newPtr((void *) Result, 1, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxClientDC");
  break;
 }
+#endif
 case wxClientDC_new_1: { // wxClientDC::wxClientDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxClientDC * Result = new EwxClientDC(win);
@@ -5886,12 +5898,14 @@ case wxClientDC_new_1: { // wxClientDC::wxClientDC
  rt.addRef(getRef((void *)Result,memenv), "wxClientDC");
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxPaintDC_new_0: { // wxPaintDC::wxPaintDC
  wxPaintDC * Result = new EwxPaintDC();
  newPtr((void *) Result, 1, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxPaintDC");
  break;
 }
+#endif
 case wxPaintDC_new_1: { // wxPaintDC::wxPaintDC
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxPaintDC * Result = new EwxPaintDC(win);
@@ -6085,6 +6099,7 @@ case wxGraphicsContext_CreateBrush: { // wxGraphicsContext::CreateBrush
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxGraphicsContext_CreateRadialGradientBrush: { // wxGraphicsContext::CreateRadialGradientBrush
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
@@ -6108,6 +6123,8 @@ case wxGraphicsContext_CreateRadialGradientBrush: { // wxGraphicsContext::Create
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
+#endif
+#if !wxCHECK_VERSION(2,9,0)
 case wxGraphicsContext_CreateLinearGradientBrush: { // wxGraphicsContext::CreateLinearGradientBrush
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
@@ -6130,6 +6147,7 @@ case wxGraphicsContext_CreateLinearGradientBrush: { // wxGraphicsContext::Create
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
+#endif
 case wxGraphicsContext_CreateFont: { // wxGraphicsContext::CreateFont
  wxColour col= *wxBLACK;
  wxGraphicsContext *This = (wxGraphicsContext *) getPtr(bp,memenv); bp += 4;
@@ -25002,6 +25020,7 @@ case wxMDIClientWindow_new_0: { // wxMDIClientWindow::wxMDIClientWindow
  rt.addRef(getRef((void *)Result,memenv), "wxMDIClientWindow");
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxMDIClientWindow_new_2: { // wxMDIClientWindow::wxMDIClientWindow
  long style=0;
  wxMDIParentFrame *parent = (wxMDIParentFrame *) getPtr(bp,memenv); bp += 4;
@@ -25016,6 +25035,7 @@ case wxMDIClientWindow_new_2: { // wxMDIClientWindow::wxMDIClientWindow
  rt.addRef(getRef((void *)Result,memenv), "wxMDIClientWindow");
  break;
 }
+#endif
 case wxMDIClientWindow_CreateClient: { // wxMDIClientWindow::CreateClient
  long style=wxVSCROLL|wxHSCROLL;
  wxMDIClientWindow *This = (wxMDIClientWindow *) getPtr(bp,memenv); bp += 4;
@@ -26108,12 +26128,14 @@ case wxContextMenuEvent_SetPosition: { // wxContextMenuEvent::SetPosition
  This->SetPosition(pos);
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxIdleEvent_CanSend: { // wxIdleEvent::CanSend
  wxWindow *win = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bool Result = wxIdleEvent::CanSend(win);
  rt.addBool(Result);
  break;
 }
+#endif
 case wxIdleEvent_GetMode: { // wxIdleEvent::GetMode
  int Result = wxIdleEvent::GetMode();
  rt.addInt(Result);
@@ -30394,7 +30416,7 @@ case wxNotebookEvent_SetSelection: { // wxNotebookEvent::SetSelection
 }
 case wxFileDataObject_new: { // wxFileDataObject::wxFileDataObject
  wxFileDataObject * Result = new wxFileDataObject();
- newPtr((void *) Result, 212, memenv);
+ newPtr((void *) Result, 211, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxFileDataObject");
  break;
 }
@@ -30430,7 +30452,7 @@ case wxTextDataObject_new: { // wxTextDataObject::wxTextDataObject
   } break;
  }};
  wxTextDataObject * Result = new wxTextDataObject(text);
- newPtr((void *) Result, 213, memenv);
+ newPtr((void *) Result, 212, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxTextDataObject");
  break;
 }
@@ -30466,7 +30488,7 @@ case wxTextDataObject_destroy: { // wxTextDataObject::destroy
 case wxBitmapDataObject_new_1_1: { // wxBitmapDataObject::wxBitmapDataObject
  wxBitmap *bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 214, memenv);
+ newPtr((void *) Result, 213, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -30478,7 +30500,7 @@ bitmap = (wxBitmap *) getPtr(bp,memenv); bp += 4;
   } break;
  }};
  wxBitmapDataObject * Result = new wxBitmapDataObject(*bitmap);
- newPtr((void *) Result, 214, memenv);
+ newPtr((void *) Result, 213, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxBitmapDataObject");
  break;
 }
@@ -31311,7 +31333,7 @@ case wxAuiManagerEvent_CanVeto: { // wxAuiManagerEvent::CanVeto
 }
 case wxLogNull_new: { // wxLogNull::wxLogNull
  wxLogNull * Result = new wxLogNull();
- newPtr((void *) Result, 225, memenv);
+ newPtr((void *) Result, 224, memenv);
  rt.addRef(getRef((void *)Result,memenv), "wxLogNull");
  break;
 }
@@ -31398,10 +31420,10 @@ void WxeApp::delete_object(void *ptr, wxeRefData *refd) {
   case 101: delete (wxListItemAttr *) ptr; break;
   case 103: delete (wxTextAttr *) ptr; break;
   case 155: delete (wxAuiPaneInfo *) ptr; break;
-  case 212: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 213: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 214: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
-  case 225: delete (wxLogNull *) ptr; break;
+  case 211: /* delete (wxFileDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 212: /* delete (wxTextDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 213: /* delete (wxBitmapDataObject *) ptr;These objects must be deleted by owner object */ break;
+  case 224: delete (wxLogNull *) ptr; break;
   default: delete (wxObject *) ptr;
 }}
 
