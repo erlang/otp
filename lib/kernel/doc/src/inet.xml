@@ -520,6 +520,68 @@ fe80::204:acff:fe17:bf38
 			  </p>
 		  </item>
 
+	  <tag><c>{ipv6_v6only, Boolean}</c></tag>
+	  <item>
+	    <p>
+	      Restricts the socket to only use IPv6, prohibiting any
+	      IPv4 connections. This only applicable for
+	      IPv6 sockets (option <c>inet6</c>).
+	    </p>
+	    <p>
+	      On most platforms this option has to be set on the socket
+	      before associating it to an address. Therefore it is only
+	      reasonable to give it when creating the socket and not
+	      to use it when calling the function
+	      (<seealso marker="#setopts/2">setopts/2</seealso>)
+	      containing this description.
+	    </p>
+	    <p>
+	      The behaviour of a socket with this socket option set to
+	      <c>true</c> is becoming the only portable one. The original
+	      idea when IPv6 was new of using IPv6 for all traffic
+	      is now not recommended by FreeBSD (you can use
+	      <c>{ipv6_v6only,false}</c> to override the recommended
+	      system default value),
+	      forbidden by OpenBSD (the supported GENERIC kernel)
+	      and impossible on Windows (that has separate
+	      IPv4 and IPv6 protocol stacks). Most Linux distros
+	      still have a system default value of <c>false</c>.
+	      This policy shift among operating systems towards
+	      separating IPv6 from IPv4 traffic has evolved since
+	      it gradually proved hard and complicated to get
+	      a dual stack implementation correct and secure.
+	    </p>
+	    <p>
+	      On some platforms the only allowed value for this option
+	      is <c>true</c>, e.g. OpenBSD and Windows. Trying to set
+	      this option to <c>false</c> when creating the socket
+	      will in this case fail.
+	    </p>
+	    <p>
+	      Setting this option on platforms where it does not exist
+	      is ignored and getting this option with
+	      <seealso marker="#getopts/2">getopts/2</seealso>
+	      returns no value. On Windows the option acually does
+	      not exist but it is emulated as being a read-only option
+	      with the value <c>true</c>.
+	    </p>
+	    <p>
+	      So it boils down to that setting this option to <c>true</c>
+	      when creating a socket will never fail except possibly
+	      (at the time of this writing) on a platform where you
+	      have customized the kernel to only allow <c>false</c>,
+	      which might be doable (but weird) on e.g. OpenBSD.
+	    </p>
+	    <p>
+	      If you read back the option value using
+	      <seealso marker="#getopts/2">getopts/2</seealso>
+	      and get no value the option does not exist in the host OS
+	      and all bets are off regarding the behaviour of both
+	      an IPv6 and an IPv4 socket listening on the same port
+	      as well as for an IPv6 socket getting IPv4 traffic.
+	    </p>
+	  </item>
+
           <tag><c>{keepalive, Boolean}</c>(TCP/IP sockets)</tag>
           <item>
             <p>Enables/disables periodic transmission on a connected
