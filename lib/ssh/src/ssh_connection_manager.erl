@@ -523,7 +523,7 @@ handle_info({same_user, _}, State) ->
 handle_info(ssh_connected, #state{role = client, client = Pid} 
 	    = State) ->
     Pid ! {self(), is_connected},
-    {noreply, State#state{connected = true}};
+    {noreply, State#state{connected = true, opts = handle_password(State#state.opts)}};
 
 handle_info(ssh_connected, #state{role = server} = State) ->
     {noreply, State#state{connected = true}};
@@ -536,6 +536,14 @@ handle_info({'DOWN', _Ref, process, ChannelPid, _Reason}, State) ->
 handle_info({'EXIT', _Sup, Reason}, State) ->
     {stop, Reason, State}.
 
+handle_password(Opts) ->
+    case proplists:get_value(ssh_opts, Opts, false) of
+	false ->
+	    Opts;
+	SshOpts ->
+	    NewOpts = [{password, undefined}|lists:keydelete(password, 1, SshOpts)],
+	    {ssh_opts, lists:merge(NewOpts, lists:keydelete(ssh_opts, 1, Opts))}
+    end.
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
 %% Description: This function is called by a gen_server when it is about to
