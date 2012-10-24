@@ -115,7 +115,8 @@
 #  endif
 #endif
 
-#define HEART_COMMAND_ENV    "HEART_COMMAND"
+#define HEART_COMMAND_ENV          "HEART_COMMAND"
+#define ERL_CRASH_DUMP_SECONDS_ENV "ERL_CRASH_DUMP_SECONDS"
 
 #define MSG_HDR_SIZE        2
 #define MSG_HDR_PLUS_OP_SIZE 3
@@ -131,13 +132,14 @@ struct msg {
 };
 
 /* operations */
-#define  HEART_ACK    1
-#define  HEART_BEAT   2
-#define  SHUT_DOWN    3
-#define  SET_CMD      4
-#define  CLEAR_CMD    5
-#define  GET_CMD      6
-#define  HEART_CMD    7
+#define  HEART_ACK       (1)
+#define  HEART_BEAT      (2)
+#define  SHUT_DOWN       (3)
+#define  SET_CMD         (4)
+#define  CLEAR_CMD       (5)
+#define  GET_CMD         (6)
+#define  HEART_CMD       (7)
+#define  PREPARING_CRASH (8)
 
 
 /*  Maybe interesting to change */
@@ -165,10 +167,11 @@ unsigned long heart_beat_kill_pid = 0;
 #define SOL_WD_TIMEOUT (heart_beat_timeout+heart_beat_boot_delay)
 
 /* reasons for reboot */
-#define  R_TIMEOUT          1
-#define  R_CLOSED           2
-#define  R_ERROR            3
-#define  R_SHUT_DOWN        4
+#define  R_TIMEOUT          (1)
+#define  R_CLOSED           (2)
+#define  R_ERROR            (3)
+#define  R_SHUT_DOWN        (4)
+#define  R_CRASHING         (5) /* Doing a crash dump and we will wait for it */
 
 
 /*  macros */
@@ -178,8 +181,8 @@ unsigned long heart_beat_kill_pid = 0;
 
 /*  prototypes */
 
-static int message_loop(int,int);
-static void do_terminate(int);
+static int message_loop(int, int);
+static void do_terminate(int, int);
 static int notify_ack(int);
 static int heart_cmd_reply(int, char *);
 static int write_message(int, struct msg *);
@@ -190,6 +193,7 @@ static void print_error(const char *,...);
 static void debugf(const char *,...);
 static void init_timestamp(void);
 static time_t timestamp(time_t *);
+static int  wait_until_close_write_or_env_tmo(int);
 
 #ifdef __WIN32__
 static BOOL enable_privilege(void);
@@ -328,12 +332,14 @@ static void get_arguments(int argc, char** argv) {
     debugf("arguments -ht %d -wt %d -pid %lu\n",h,w,p);
 }
 
-int
-main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+
+    if (is_env_set("HEART_DEBUG")) {
+	fprintf(stderr, "heart: debug is ON!\r\n");
+	debug_on = 1;
+    }
+
     get_arguments(argc,argv);
-    if (is_env_set("HEART_DEBUG"))
-	debug_on=1;
 #ifdef __WIN32__
     if (debug_on) {
 	if(!is_env_set("ERLSRV_SERVICE_NAME")) {
@@ -354,7 +360,7 @@ main(int argc, char **argv)
     program_name[sizeof(program_name)-1] = '\0';
     notify_ack(erlout_fd);
     cmd[0] = '\0';
-    do_terminate(message_loop(erlin_fd,erlout_fd));
+    do_terminate(erlin_fd,message_loop(erlin_fd,erlout_fd));
     return 0;
 }
 
@@ -388,6 +394,7 @@ message_loop(erlin_fd, erlout_fd)
 #endif
 
   while (1) {
+      /* REFACTOR: below to select/tmo function */
 #ifdef __WIN32__
 	wresult = WaitForSingleObject(hevent_dataready,SELECT_TIMEOUT*1000+ 2);
 	if (wresult == WAIT_FAILED) {
@@ -482,6 +489,10 @@ message_loop(erlin_fd, erlout_fd)
 				    free_env_val(env);
 				}
 			        break;
+			case PREPARING_CRASH:
+				/* Erlang has reached a crushdump point (is crashing for sure) */
+				print_error("Erlang is crashing .. (waiting for crash dump file)");
+				return R_CRASHING;
 			default:
 				/* ignore all other messages */
 				break;
@@ -612,71 +623,129 @@ void win_system(char *command)
  * do_terminate
  */
 static void 
-do_terminate(reason)
-  int reason;
-{
+do_terminate(int erlin_fd, int reason) {
   /*
     When we get here, we have HEART_BEAT_BOOT_DELAY secs to finish
     (plus heart_beat_report_delay if under VxWorks), so we don't need
     to call wd_reset().
     */
-  
+  int ret = 0, tmo=0;
+  char *tmo_env;
+
   switch (reason) {
   case R_SHUT_DOWN:
     break;
-  case R_TIMEOUT:
-  case R_ERROR:
-  case R_CLOSED:
-  default:
-#if defined(__WIN32__)
-    {
-      if(!cmd[0]) {
-	char *command = get_env(HEART_COMMAND_ENV);
-	if(!command)
-	  print_error("Would reboot. Terminating.");
-	else {
-	  kill_old_erlang();
-	  /* High prio combined with system() works badly indeed... */
-	  SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-	  win_system(command);
-	  print_error("Executed \"%s\". Terminating.",command);
-	}
-	free_env_val(command);
-      }
-      else {
-	kill_old_erlang();
-	/* High prio combined with system() works badly indeed... */
-	SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
-	win_system(&cmd[0]);
-	print_error("Executed \"%s\". Terminating.",cmd);
-      }
+  case R_CRASHING:
+    if (is_env_set(ERL_CRASH_DUMP_SECONDS_ENV)) {
+	tmo_env = get_env(ERL_CRASH_DUMP_SECONDS_ENV);
+	tmo = atoi(tmo_env);
+	print_error("Waiting for dump - timeout set to %d seconds.", tmo);
+	wait_until_close_write_or_env_tmo(tmo);
+	free_env_val(tmo_env);
     }
-
-#else
+    /* fall through */
+  case R_TIMEOUT:
+  case R_CLOSED:
+  case R_ERROR:
+  default:
     {
-      if(!cmd[0]) {
-	char *command = get_env(HEART_COMMAND_ENV);
-	if(!command)
-	  print_error("Would reboot. Terminating.");
-	else {
-	  kill_old_erlang();
-	  /* suppress gcc warning with 'if' */
-	  if(system(command));
-	  print_error("Executed \"%s\". Terminating.",command);
+#if defined(__WIN32__) /* Not VxWorks */
+	if(!cmd[0]) {
+	    char *command = get_env(HEART_COMMAND_ENV);
+	    if(!command)
+		print_error("Would reboot. Terminating.");
+	    else {
+		kill_old_erlang();
+		/* High prio combined with system() works badly indeed... */
+		SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
+		win_system(command);
+		print_error("Executed \"%s\". Terminating.",command);
+	    }
+	    free_env_val(command);
+	} else {
+	    kill_old_erlang();
+	    /* High prio combined with system() works badly indeed... */
+	    SetPriorityClass(GetCurrentProcess(), NORMAL_PRIORITY_CLASS);
+	    win_system(&cmd[0]);
+	    print_error("Executed \"%s\". Terminating.",cmd);
 	}
-	free_env_val(command);
-      }
-      else {
-	kill_old_erlang();
-	/* suppress gcc warning with 'if' */
-	if(system((char*)&cmd[0]));
-	print_error("Executed \"%s\". Terminating.",cmd);
-      }
+#else
+	if(!cmd[0]) {
+	    char *command = get_env(HEART_COMMAND_ENV);
+	    if(!command)
+		print_error("Would reboot. Terminating.");
+	    else {
+		kill_old_erlang();
+		/* suppress gcc warning with 'if' */
+		ret = system(command);
+		print_error("Executed \"%s\" -> %d. Terminating.",command, ret);
+	    }
+	    free_env_val(command);
+	} else {
+	    kill_old_erlang();
+	    /* suppress gcc warning with 'if' */
+	    ret = system((char*)&cmd[0]);
+	    print_error("Executed \"%s\" -> %d. Terminating.",cmd, ret);
+	}
+#endif
     }
     break;
-#endif
   } /* switch(reason) */
 }
+
+
+/* Waits until something happens on socket or handle
+ *
+ * Uses global variables erlin_fd or hevent_dataready
+ */
+int wait_until_close_write_or_env_tmo(int tmo) {
+    int i = 0;
+
+#ifdef __WIN32__
+    DWORD wresult;
+    DWORD wtmo = INFINITE;
+
+    if (tmo >= 0) {
+	wtmo = tmo*1000 + 2;
+    }
+
+    wresult = WaitForSingleObject(hevent_dataready, wtmo);
+    if (wresult == WAIT_FAILED) {
+	print_last_error();
+	return -1;
+    }
+
+    if (wresult == WAIT_TIMEOUT) {
+	debugf("wait timed out\n");
+	i = 0;
+    } else {
+	debugf("wait ok\n");
+	i = 1;
+    }
+#else
+    fd_set read_fds;
+    int   max_fd;
+    struct timeval timeout;
+    struct timeval *tptr = NULL;
+
+    max_fd = erlin_fd; /* global */
+
+    if (tmo >= 0) {
+	timeout.tv_sec  = tmo;  /* On Linux timeout is modified by select */
+	timeout.tv_usec = 0;
+	tptr = &timeout;
+    }
+
+    FD_ZERO(&read_fds);
+    FD_SET(erlin_fd, &read_fds);
+    if ((i = select(max_fd + 1, &read_fds, NULLFDS, NULLFDS, tptr)) < 0) {
+	print_error("error in select.");
+	return -1;
+    }
+#endif
+    return i;
+}
+
 
 /*
  * notify_ack
@@ -868,12 +937,13 @@ debugf(const char *format,...)
 {
   va_list args;
 
-  if (!debug_on) return;
-  va_start(args, format);
-  fprintf(stderr, "Heart: ");
-  vfprintf(stderr, format, args);
-  va_end(args);
-  fprintf(stderr, "\r\n");
+  if (debug_on) {
+      va_start(args, format);
+      fprintf(stderr, "Heart: ");
+      vfprintf(stderr, format, args);
+      va_end(args);
+      fprintf(stderr, "\r\n");
+  }
 }
 
 #ifdef __WIN32__

@@ -1587,7 +1587,7 @@ erts_proc_lc_chk_no_proc_locks(char *file, int line)
 		  lc_id.proc_lock_msgq,
 		  lc_id.proc_lock_status};
     erts_lc_have_lock_ids(resv, ids, 4);
-    if (resv[0] || resv[1] || resv[2] || resv[3]) {
+    if (!ERTS_IS_CRASH_DUMPING && (resv[0] || resv[1] || resv[2] || resv[3])) {
 	erts_lc_fail("%s:%d: Thread has process locks locked when expected "
 		     "not to have any process locks locked",
 		     file, line);

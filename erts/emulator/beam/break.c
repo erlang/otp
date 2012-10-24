@@ -663,10 +663,13 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     ErtsThrPrgrData tpd_buf; /* in case we aren't a managed thread... */
 #endif
     int fd;
+    size_t envsz;
     time_t now;
+    char env[21]; /* enough to hold any 64-bit integer */
     size_t dumpnamebufsize = MAXPATHLEN;
     char dumpnamebuf[MAXPATHLEN];
     char* dumpname;
+    int secs;
 
     if (ERTS_SOMEONE_IS_CRASH_DUMPING)
 	return;
@@ -689,9 +692,41 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_writing_erl_crash_dump = 1;
 #endif
 
-    erts_sys_prepare_crash_dump();
+    envsz = sizeof(env);
+    /* ERL_CRASH_DUMP_SECONDS not set
+     * same as ERL_CRASH_DUMP_SECONDS = 0
+     * - do not write dump
+     * - do not set an alarm
+     * - break immediately
+     *
+     * ERL_CRASH_DUMP_SECONDS = 0
+     * - do not write dump
+     * - do not set an alarm
+     * - break immediately
+     *
+     * ERL_CRASH_DUMP_SECONDS < 0
+     * - do not set alarm
+     * - write dump until done
+     *
+     * ERL_CRASH_DUMP_SECONDS = S (and S positive)
+     * - Don't dump file forever
+     * - set alarm (set in sys)
+     * - write dump until alarm or file is written completely
+     */
+	
+    if (erts_sys_getenv__("ERL_CRASH_DUMP_SECONDS", env, &envsz) != 0) {
+	return; /* break immediately */
+    } else {
+	secs = atoi(env);
+    }
 
-    if (erts_sys_getenv_raw("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 0)
+    if (secs == 0) {
+	return;
+    }
+
+    erts_sys_prepare_crash_dump(secs);
+
+    if (erts_sys_getenv__("ERL_CRASH_DUMP",&dumpnamebuf[0],&dumpnamebufsize) != 0)
 	dumpname = "erl_crash.dump";
     else
 	dumpname = &dumpnamebuf[0];

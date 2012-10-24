@@ -1042,6 +1042,37 @@
           the emulator will be allowed to spend writing a crash dump. When
           the given number of seconds have elapsed, the emulator will be
           terminated by a SIGALRM signal.</p>
+
+	  <p> If the environment variable is <em>not</em> set or it is set to zero seconds, <c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c>,
+		  the runtime system will not even attempt to write the crash dump file. It will just terminate.
+	  </p>
+	  <p> If the environment variable is set to negative valie, e.g. <c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c>,
+		  the runtime system will wait indefinitely for the crash dump file to be written.
+	  </p>
+	  <p> This environment variable is used in conjuction with
+		  <seealso marker="kernel:heart"><c>heart</c></seealso> if <c>heart</c> is running:
+	  </p>
+	  <taglist>
+		  <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c></tag>
+		  <item><p>
+				  Suppresses the writing a crash dump file entirely,
+				  thus rebooting the runtime system immediately.
+				  This is the same as not setting the environment variable.
+			  </p>
+		  </item>
+		  <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c></tag>
+		  <item><p>Setting the environment variable to a negative value will cause the
+				  termination of the runtime system to wait until the crash dump file
+				  has been completly written.
+			  </p>
+		  </item>
+		  <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>
+		  <item><p>
+				  Will wait for <c>S</c> seconds to complete the crash dump file and
+				  then terminate the runtime system.
+			  </p>
+		  </item>
+	  </taglist>
       </item>
       <tag><c><![CDATA[ERL_AFLAGS]]></c></tag>
       <item>

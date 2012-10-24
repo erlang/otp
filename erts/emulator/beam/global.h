@@ -999,6 +999,9 @@ Uint erts_port_ioq_size(Port *pp);
 void erts_stale_drv_select(Eterm, ErlDrvEvent, int, int);
 void erts_port_cleanup(Port *);
 void erts_fire_port_monitor(Port *prt, Eterm ref);
+
+Port *erts_get_heart_port(void);
+
 #ifdef ERTS_SMP
 void erts_smp_xports_unlock(Port *);
 #endif
