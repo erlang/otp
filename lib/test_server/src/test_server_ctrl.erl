@@ -3207,10 +3207,16 @@ get_data_dir(Mod, Suite) ->
 	non_existing ->
 	    print(12, "The module ~p is not loaded", [Mod]),
 	    [];
+	cover_compiled ->
+	    MainCoverNode = cover:get_main_node(),
+	    {file,File} = rpc:call(MainCoverNode,cover,is_compiled,[UseMod]),
+	    do_get_data_dir(UseMod,File);
 	FullPath ->
-	    filename:dirname(FullPath) ++ "/" ++ cast_to_list(UseMod) ++
-		?data_dir_suffix
+	    do_get_data_dir(UseMod,FullPath)
     end.
+
+do_get_data_dir(Mod,File) ->
+    filename:dirname(File) ++ "/" ++ cast_to_list(Mod) ++ ?data_dir_suffix.
 
 print_conf_time(0) ->
     ok;
