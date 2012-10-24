@@ -5,7 +5,7 @@
   <header>
     <copyright>
       <year>2007</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -529,6 +529,18 @@ Only valid for peer nodes. Note that slave nodes always
            analogy  with  <c>os:getenv/1</c>),  which  removes  the
            environment variable. Only valid for peer nodes. Not
            available on VxWorks.</item>
+	  <tag><c>{start_cover, false}</c></tag>
+	  <item>By default the test server will start cover on all nodes
+	   when the test is run with code coverage analysis. To make
+	   sure cover is not started on a new node, set this option to
+	   <c>false</c>. This can be necessary if the connection to
+	   the node at some point will be broken but the node is
+	   expected to stay alive. The reason is that a remote cover
+	   node can not continue to run without its main node. Another
+	   solution would be to explicitly stop cover on the node
+	   before breaking the connection, but in some situations (if
+	   old code resides in one or more processes) this is not
+	   possible.</item>
         </taglist>
       </desc>
     </func>

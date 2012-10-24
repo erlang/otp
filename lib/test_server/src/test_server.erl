@@ -2597,7 +2597,10 @@ start_node(Name, Type, Options) ->
             %% by a shielded node.
             Cover = case is_cover() of
                         true ->
-                            not is_shielded(Name) andalso same_version(Node);
+                            not is_shielded(Name)
+				andalso same_version(Node)
+				andalso proplists:get_value(start_cover,Options,
+							    true);
                         false ->
                             false
                     end,
