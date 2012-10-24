@@ -1132,7 +1132,7 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
     Uint size;
     int fpe_was_unmasked;
     
-    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p) || ERTS_IS_CRASH_DUMPING);
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     p->caller = caller_id;
@@ -5234,4 +5234,28 @@ int
 erl_drv_getenv(char *key, char *value, size_t *value_size)
 {
     return erts_sys_getenv_raw(key, value, value_size);
+}
+
+/* get heart_port
+ * used by erl_crash_dump
+ * - uses the fact that heart_port is registered when starting heart
+ */
+
+Port *erts_get_heart_port() {
+
+    Port* port;
+    Uint  ix;
+
+    for(ix = 0; ix < erts_max_ports; ix++) {
+	port = &erts_port[ix];
+	/* only examine undead or alive ports */
+	if (port->status & ERTS_PORT_SFLGS_DEAD)
+	    continue;
+	/* immediate atom compare */
+	if (port->reg && port->reg->name == am_heart_port) {
+	    return port;
+	}
+    }
+
+    return NULL;
 }

@@ -71,6 +71,39 @@
       timeout and try to reboot the system. This can happen, for
       example, if the system clock is adjusted automatically by use of
       NTP (Network Time Protocol).</p>
+
+  <p> If a crash occurs, an <c><![CDATA[erl_crash.dump]]></c> will <em>not</em> be written
+	  unless the environment variable <c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c> is set.
+  </p>
+
+    <pre>
+% <input>erl -heart -env ERL_CRASH_DUMP_SECONDS 10 ...</input></pre>
+  <p>
+	  Furthermore, <c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c> has the following behaviour on
+	  <c>heart</c>:
+  </p>
+  <taglist>
+	  <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=0]]></c></tag>
+	  <item><p>
+			  Suppresses the writing a crash dump file entirely,
+			  thus rebooting the runtime system immediately.
+			  This is the same as not setting the environment variable.
+		  </p>
+	  </item>
+	  <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=-1]]></c></tag>
+	  <item><p> Setting the environment variable to a negative value will not reboot
+			  the runtime system until the crash dump file has been completly written.
+		  </p>
+	  </item>
+	  <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS=S]]></c></tag>
+	  <item><p>
+			  Heart will wait for <c>S</c> seconds to let the crash dump file be written.
+			  After <c>S</c> seconds <c>heart</c> will reboot the runtime system regardless of
+			  the crash dump file has been written or not.
+		  </p>
+	  </item>
+  </taglist>
+
     <p>In the following descriptions, all function fails with reason
       <c>badarg</c> if <c>heart</c> is not started.</p>
   </description>
