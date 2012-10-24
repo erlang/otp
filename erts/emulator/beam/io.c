@@ -1244,7 +1244,6 @@ void init_io(void)
     ErlDrvEntry** dp;
     char maxports[21]; /* enough for any 64-bit integer */
     size_t maxportssize = sizeof(maxports);
-    Uint ports_bits = ERTS_PORTS_BITS;
     int port_tab_size;
 
 #ifdef ERTS_SMP
@@ -1262,12 +1261,6 @@ void init_io(void)
 	port_tab_size = ERTS_MAX_PORTS;
     if (port_tab_size < 1024)
 	port_tab_size = 1024;
-
-    if (erts_use_r9_pids_ports) {
-	ports_bits = ERTS_R9_PORTS_BITS;
-	if (port_tab_size > ERTS_MAX_R9_PORTS)
-	    port_tab_size = ERTS_MAX_R9_PORTS;
-    }
 
     erts_smp_mtx_init(&erts_driver_list_lock,"driver_list");
     driver_list = NULL;

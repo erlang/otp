@@ -29,9 +29,6 @@
  * the emulator) for the Erlang data types that contain a reference
  * to a node, i.e. pids, ports, and references.
  *
- * Observe! The layouts of the node container data types have been
- * changed in R9. 
- *
  * Node containers are divided into internal and external node containers.
  * An internal node container refer to the current incarnation of the
  * node which it reside on. An external node container refer to
@@ -51,13 +48,6 @@
  * internal pid, and internal port are immediate data types and internal
  * reference is a boxed data type. An internal node container have an
  * implicit reference to the 'erts_this_node' element in the node table.
- *
- * Due to the R9 changes in layouts of node containers there are room to
- * store more data than previously. Today (R9) this extra space is unused,
- * but it is planned to be used in the future. For example only 18 bits
- * are used for data in a pid but there is room for 28 bits of data (on a
- * 32-bit machine). Some preparations have been made in the emulator for
- * usage of this extra space.
  *
  * OBSERVE! Pids doesn't use fixed size 'serial' and 'number' fields any
  * more. Previously the 15 bit 'number' field of a pid was used as index
@@ -103,8 +93,6 @@
 #define external_creation(x)		(external_node((x))->creation)
 #define internal_dist_entry(x)		(erts_this_node->dist_entry)
 #define external_dist_entry(x)		(external_node((x))->dist_entry)
-
-extern int erts_use_r9_pids_ports;
 
 /*
  * For this node (and previous incarnations of this node), 0 is used as
@@ -171,8 +159,6 @@ extern ErtsPTab erts_proc;
 					 || is_external_pid((x)))
 #define is_not_pid(x)			(!is_pid(x))
 
-#define ERTS_MAX_R9_PROCESSES		(1 << ERTS_R9_PROC_BITS)
-
 /*
  * Maximum number of processes. We want the number to fit in a SMALL on
  * 32-bit CPU.
@@ -186,9 +172,7 @@ extern ErtsPTab erts_proc;
 #define ERTS_MAX_PID_DATA		((1 << _PID_DATA_SIZE) - 1)
 #define ERTS_MAX_PID_NUMBER		((1 << _PID_NUM_SIZE) - 1)
 #define ERTS_MAX_PID_SERIAL		((1 << _PID_SER_SIZE) - 1)
-#define ERTS_MAX_PID_R9_SERIAL		((1 << _PID_R9_SER_SIZE) - 1)
 
-#define ERTS_R9_PROC_BITS		(_PID_R9_SER_SIZE + _PID_NUM_SIZE)
 #define ERTS_PROC_BITS			(_PID_SER_SIZE + _PID_NUM_SIZE)
 
 #define ERTS_INVALID_PID		make_internal_pid(ERTS_MAX_PID_DATA)
@@ -243,13 +227,11 @@ extern ErtsPTab erts_port;
    which defines the maximum number of simultaneous Ports
    in the Erlang node. ERTS_MAX_PORTS is a hard upper limit.
 */
-#define ERTS_MAX_R9_PORTS		(1 << ERTS_R9_PORTS_BITS)
 #define ERTS_MAX_PORTS			(1 << ERTS_PORTS_BITS)
 
 #define ERTS_MAX_PORT_DATA		((1 << _PORT_DATA_SIZE) - 1)
 #define ERTS_MAX_PORT_NUMBER		((1 << _PORT_NUM_SIZE) - 1)
 
-#define ERTS_R9_PORTS_BITS		(_PORT_R9_NUM_SIZE)
 #define ERTS_PORTS_BITS			(_PORT_NUM_SIZE)
 
 #define ERTS_INVALID_PORT		make_internal_port(ERTS_MAX_PORT_DATA)

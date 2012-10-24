@@ -542,12 +542,6 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define _GETBITS(X,Pos,Size) (((X) >> (Pos)) & ~(~((Uint) 0) << (Size)))
 
 /*
- * Observe! New layout for pids, ports and references in R9 (see also note
- * in erl_node_container_utils.h).
- */
-
-
-/*
  * Creation in node specific data (pids, ports, refs)
  */
 
@@ -584,7 +578,6 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
  *
  */
 
-#define _PID_R9_SER_SIZE	3
 #define _PID_SER_SIZE		(_PID_DATA_SIZE - _PID_NUM_SIZE)
 #define _PID_NUM_SIZE 		15
 
@@ -644,7 +637,6 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
  *  N : node number
  *
  */
-#define _PORT_R9_NUM_SIZE	18
 #define _PORT_NUM_SIZE		_PORT_DATA_SIZE
 
 #define _PORT_DATA_SIZE		28

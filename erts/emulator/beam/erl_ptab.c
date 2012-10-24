@@ -432,7 +432,6 @@ erts_ptab_init_table(ErtsPTab *ptab,
     int max_data_bits;
     char *tab_end;
     erts_smp_atomic_t *tab_entry;
-    int proc_bits = ERTS_PROC_BITS;
     erts_smp_rwmtx_opt_t rwmtx_opts = ERTS_SMP_RWMTX_OPT_DEFAULT_INITER;
     rwmtx_opts.type = ERTS_SMP_RWMTX_TYPE_EXTREMELY_FREQUENT_READ;
     rwmtx_opts.lived = ERTS_SMP_RWMTX_LONG_LIVED;
@@ -441,11 +440,8 @@ erts_ptab_init_table(ErtsPTab *ptab,
     erts_smp_atomic32_init_nob(&ptab->vola.tile.count, 0);
     last_data_init_nob(ptab, ~((Uint64) 0));
 
-    if (erts_use_r9_pids_ports)
-	proc_bits = ERTS_R9_PROC_BITS;
-
-    if (size > (1 << proc_bits))
-	size = 1 << proc_bits;
+    if (size > (1 << ERTS_PROC_BITS))
+	size = 1 << ERTS_PROC_BITS;
 
     ptab->r.o.max = size;
 

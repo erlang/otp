@@ -125,8 +125,6 @@ extern void ConWaitForExit(void);
 
 static void erl_init(int ncpu, int proc_tab_sz);
 
-#define ERTS_MIN_COMPAT_REL 7
-
 static erts_atomic_t exiting;
 
 #ifdef ERTS_SMP
@@ -207,8 +205,6 @@ ErtsModifiedTimings erts_modified_timings[] = {
   (sizeof(erts_modified_timings)/sizeof(ErtsModifiedTimings))
 
 Export *erts_delay_trap = NULL;
-
-int erts_use_r9_pids_ports;
 
 #ifdef HYBRID
 Eterm *global_heap;
@@ -520,6 +516,7 @@ load_preloaded(void)
 /* be helpful (or maybe downright rude:-) */
 void erts_usage(void)
 {
+    int this_rel = this_rel_num();
     erts_fprintf(stderr, "Usage: %s [flags] [ -- [init_args] ]\n", progname(program));
     erts_fprintf(stderr, "The flags are:\n\n");
 
@@ -562,7 +559,7 @@ void erts_usage(void)
 	       ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
     erts_fprintf(stderr, "-R number   set compatibility release number,\n");
     erts_fprintf(stderr, "            valid range [%d-%d]\n",
-	       ERTS_MIN_COMPAT_REL, this_rel_num());
+		 this_rel-2, this_rel);
 
     erts_fprintf(stderr, "-r          force ets memory block to be moved on realloc\n");
     erts_fprintf(stderr, "-rg amount  set reader groups limit\n");
@@ -698,8 +695,6 @@ early_init(int *argc, char **argv) /*
     erts_modified_timing_level = -1;
 
     erts_compat_rel = this_rel_num();
-
-    erts_use_r9_pids_ports = 0;
 
     erts_sys_pre_init();
     erts_atomic_init_nob(&exiting, 0);
@@ -1219,8 +1214,11 @@ erl_start(int argc, char **argv)
 	    /* set maximum number of processes */
 	    Parg = get_arg(argv[i]+2, argv[i+1], &i);
 	    proc_tab_sz = atoi(Parg);
-	    /* Check of result is delayed until later. This is because +R
-	       may be given after +P. */
+	    if (proc_tab_sz < ERTS_MIN_PROCESSES
+		|| proc_tab_sz > ERTS_MAX_PROCESSES) {
+		erts_fprintf(stderr, "bad number of processes %s\n", Parg);
+		erts_usage();
+	    }
 	    break;
 
 	case 'S' : /* Was handled in early_init() just read past it */
@@ -1383,22 +1381,19 @@ erl_start(int argc, char **argv)
 
 	case 'R': {
 	    /* set compatibility release */
+	    int this_rel;
 
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    erts_compat_rel = atoi(arg);
 
-	    if (erts_compat_rel < ERTS_MIN_COMPAT_REL
-		|| erts_compat_rel > this_rel_num()) {
+	    this_rel = this_rel_num();
+	    if (erts_compat_rel < this_rel - 2 || this_rel < erts_compat_rel) {
 		erts_fprintf(stderr, "bad compatibility release number %s\n", arg);
 		erts_usage();
 	    }
 
-	    ASSERT(ERTS_MIN_COMPAT_REL >= 7);
 	    switch (erts_compat_rel) {
-	    case 7:
-	    case 8:
-	    case 9:
-		erts_use_r9_pids_ports = 1;
+		/* Currently no compat features... */
 	    default:
 		break;
 	    }
@@ -1494,15 +1489,6 @@ erl_start(int argc, char **argv)
 	    erts_usage();
 	}
 	i++;
-    }
-
-    /* Delayed check of +P flag */
-    if (proc_tab_sz < ERTS_MIN_PROCESSES
-	|| proc_tab_sz > ERTS_MAX_PROCESSES
-	|| (erts_use_r9_pids_ports
-	    && proc_tab_sz > ERTS_MAX_R9_PROCESSES)) {
-	erts_fprintf(stderr, "bad number of processes %s\n", Parg);
-	erts_usage();
     }
 
    /* Restart will not reinstall the break handler */

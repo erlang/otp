@@ -6937,9 +6937,7 @@ alloc_process(ErtsRunQueue *rq, erts_aint32_t state)
 	return NULL;
     }
 
-    ASSERT(internal_pid_serial(p->common.id) <= (erts_use_r9_pids_ports
-						 ? ERTS_MAX_PID_R9_SERIAL
-						 : ERTS_MAX_PID_SERIAL));
+    ASSERT(internal_pid_serial(p->common.id) <= ERTS_MAX_PID_SERIAL);
     
     p->approx_started = erts_get_approx_time();
     p->rcount = 0;
