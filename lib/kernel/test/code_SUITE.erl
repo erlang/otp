@@ -684,8 +684,8 @@ ext_mod_dep(Config) when is_list(Config) ->
     xref:set_default(s, [{verbose,false},{warnings,false},
 			 {builtins,true},{recurse,true}]),
     xref:set_library_path(s, code:get_path()),
-    xref:add_directory(s, filename:dirname(code:which(kernel))),
-    xref:add_directory(s, filename:dirname(code:which(lists))),
+    xref:add_directory(s, filename:join(code:lib_dir(kernel),"ebin")),
+    xref:add_directory(s, filename:join(code:lib_dir(stdlib),"ebin")),
     case catch ext_mod_dep2() of
 	{'EXIT', Reason} -> 
 	    xref:stop(s),
