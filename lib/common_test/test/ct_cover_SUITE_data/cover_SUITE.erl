@@ -122,6 +122,14 @@ ct_cover_add_remove_nodes(Config) ->
 
     ok.
 
+otp_9956(Config) ->
+    cover_compiled = code:which(?MODULE),
+    DataDir = ?config(data_dir,Config),
+    absolute = filename:pathtype(DataDir),
+    true = filelib:is_dir(DataDir),
+    ok.
+
+
 %%%-----------------------------------------------------------------
 %%% Internal
 nodename(Case,N) ->

@@ -32,8 +32,8 @@
 -include_lib("common_test/include/ct_event.hrl").
 
 -define(eh, ct_test_support_eh).
+-define(suite, cover_SUITE).
 -define(mod, cover_test_mod).
--define(cover_spec_file,"test.cover").
 
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
@@ -76,7 +76,8 @@ all() ->
      slave,
      slave_start_slave,
      cover_node_option,
-     ct_cover_add_remove_nodes
+     ct_cover_add_remove_nodes,
+     otp_9956
     ].
 
 %%--------------------------------------------------------------------
@@ -88,7 +89,7 @@ all() ->
 default(Config) ->
     {ok,Events} = run_test(default,Config),
     false = check_cover(Config),
-    check_calls(1,Events),
+    check_calls(Events,1),
     ok.
 
 %% Check that cover is stopped when cover_stop option is set to true
@@ -109,14 +110,14 @@ cover_stop_false(Config) ->
 %% from both nodes
 slave(Config) ->
     {ok,Events} = run_test(slave,slave,[],Config),
-    check_calls(2,Events),
+    check_calls(Events,2),
     ok.
 
 %% Let test node start a slave node which in turn starts another slave
 %% node - check that cover is collected from all three nodes
 slave_start_slave(Config) ->
     {ok,Events} = run_test(slave_start_slave,slave_start_slave,[],Config),
-    check_calls(3,Events),
+    check_calls(Events,3),
     ok.
 
 %% Start a slave node before test starts - the node is listed in cover
@@ -129,10 +130,11 @@ cover_node_option(Config) ->
     {ok,Node} = ct_slave:start(Host,existing_node,
 			       [{erl_flags,"-pa " ++ DataDir}]),
     false = check_cover(Node),
-    CoverFile = add_to_cover_file("node_opt.cover",[{nodes,[Node]}],Config),
+    CoverSpec = default_cover_file_content() ++ [{nodes,[Node]}],
+    CoverFile = create_cover_file(cover_node_option,CoverSpec,Config),
     {ok,Events} = run_test(cover_node_option,cover_node_option,
 			   [{cover,CoverFile}],Config),
-    check_calls(2,Events),
+    check_calls(Events,2),
     {ok,Node} = ct_slave:stop(existing_node),
     ok.
 
@@ -147,8 +149,16 @@ ct_cover_add_remove_nodes(Config) ->
     false = check_cover(Node),
     {ok,Events} = run_test(ct_cover_add_remove_nodes,ct_cover_add_remove_nodes,
 			   [],Config),
-    check_calls(2,Events),
+    check_calls(Events,2),
     {ok,Node} = ct_slave:stop(existing_node),
+    ok.
+
+%% Test that the test suite itself can be cover compiled and that
+%% data_dir is set correctly (OTP-9956)
+otp_9956(Config) ->
+    CoverFile = create_cover_file(otp_9956,[{incl_mods,[?suite]}],Config),
+    {ok,Events} = run_test(otp_9956,otp_9956,[{cover,CoverFile}],Config),
+    check_calls(Events,{?suite,otp_9956,1},1),
     ok.
 
 
@@ -161,12 +171,17 @@ run_test(Label,ExtraOpts,Config) ->
     run_test(Label,default,ExtraOpts,Config).
 run_test(Label,Testcase,ExtraOpts,Config) ->
     DataDir = ?config(data_dir, Config),
-    Suite = filename:join(DataDir, "cover_SUITE"),
-    DefaultCover = filename:join(DataDir, ?cover_spec_file),
-    Cover = proplists:get_value(cover,ExtraOpts,DefaultCover),
+    Suite = filename:join(DataDir, ?suite),
+    CoverFile =
+	case proplists:get_value(cover,ExtraOpts) of
+	    undefined ->
+		create_default_cover_file(Label,Config);
+	    CF ->
+		CF
+	end,
     RestOpts = lists:keydelete(cover,1,ExtraOpts),
     {Opts,ERPid} = setup([{suite,Suite},{testcase,Testcase},
-			  {cover,Cover},{label,Label}] ++ RestOpts, Config),
+			  {cover,CoverFile},{label,Label}] ++ RestOpts, Config),
     execute(Label, Testcase, Opts, ERPid, Config).
 
 setup(Test, Config) ->
@@ -195,7 +210,7 @@ reformat(Events, EH) ->
 events_to_check(Testcase) ->
     OneTest =
 	[{?eh,start_logging,{'DEF','RUNDIR'}}] ++
-	[{?eh,tc_done,{cover_SUITE,Testcase,ok}}] ++
+	[{?eh,tc_done,{?suite,Testcase,ok}}] ++
 	[{?eh,stop_logging,[]}],
 
     %% 2 tests (ct:run_test + script_start) is default
@@ -215,35 +230,42 @@ check_cover(Node) when is_atom(Node) ->
     end.
 
 %% Check that each coverlog includes N calls to ?mod:foo/0
-check_calls(N,Events) ->
+check_calls(Events,N) ->
+    check_calls(Events,{?mod,foo,0},N).
+check_calls(Events,MFA,N) ->
     CoverLogs =
 	[filename:join(filename:dirname(TCLog),"all.coverdata") ||
 	    {ct_test_support_eh,
 	     {event,tc_logfile,ct@falco,
-	      {{cover_SUITE,init_per_suite},TCLog}}} <- Events],
-    do_check_logs(N,CoverLogs).
+	      {{?suite,init_per_suite},TCLog}}} <- Events],
+    do_check_logs(CoverLogs,MFA,N).
 
-do_check_logs(N,[CoverLog|CoverLogs]) ->
+do_check_logs([CoverLog|CoverLogs],{Mod,_,_} = MFA,N) ->
     {ok,_} = cover:start(),
     ok = cover:import(CoverLog),
-    {ok,[{{?mod,foo,0},N}]} = cover:analyse(?mod,calls,function),
+    {ok,Calls} = cover:analyse(Mod,calls,function),
     ok = cover:stop(),
-    do_check_logs(N,CoverLogs);
-do_check_logs(_,[]) ->
+    {MFA,N} = lists:keyfind(MFA,1,Calls),
+    do_check_logs(CoverLogs,MFA,N);
+do_check_logs([],_,_) ->
     ok.
 
 fullname(Name) ->
     {ok,Host} = inet:gethostname(),
     list_to_atom(atom_to_list(Name) ++ "@" ++ Host).
 
-add_to_cover_file(CoverFileName,Terms,Config) ->
-    DataDir = ?config(data_dir,Config),
-    DefaultFile = filename:join(DataDir,?cover_spec_file),
-    NewFile = filename:join(DataDir,CoverFileName),
-    {ok,_} = file:copy(DefaultFile,NewFile),
-    {ok,Fd} = file:open(NewFile,[append]),
+default_cover_file_content() ->
+    [{incl_mods,[?mod]}].
+
+create_default_cover_file(Filename,Config) ->
+    create_cover_file(Filename,default_cover_file_content(),Config).
+
+create_cover_file(Filename,Terms,Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    File = filename:join(PrivDir,Filename) ++ ".cover",
+    {ok,Fd} = file:open(File,[write]),
     lists:foreach(fun(Term) ->
 			  file:write(Fd,io_lib:format("~p.~n",[Term]))
 		  end,Terms),
     ok = file:close(Fd),
-    NewFile.
+    File.
