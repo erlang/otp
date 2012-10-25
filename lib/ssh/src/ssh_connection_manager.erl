@@ -565,7 +565,6 @@ handle_dsa_password(Opts) ->
 	    end
     end.
 handle_rsa_password(Opts) ->
-    io:format("rsa"),
     case proplists:get_value(ssh_opts, Opts, false) of
 	false ->
 	    Opts;
@@ -574,7 +573,6 @@ handle_rsa_password(Opts) ->
 		false ->
 		    Opts;
 		_Password ->
-		    io:format("rsa_2"),
 		    NewOpts = [{rsa_pass_phrase, undefined}|lists:keydelete(rsa_pass_phrase, 1, SshOpts)],
 		    [{ssh_opts, NewOpts}|lists:keydelete(ssh_opts, 1, Opts)]
 	    end
