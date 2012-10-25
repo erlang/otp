@@ -159,21 +159,27 @@ set_all_elements(Tuple, Pos) when Pos > size(Tuple) ->
 %% Tests list_to_tuple/1.
 
 t_list_to_tuple(Config) when is_list(Config) ->
-    ?line {} = list_to_tuple([]),
-    ?line {a} = list_to_tuple([a]),
-    ?line {a, b} = list_to_tuple([a, b]),
-    ?line {a, b, c} = list_to_tuple([a, b, c]),
-    ?line {a, b, c, d} = list_to_tuple([a, b, c, d]),
-    ?line {a, b, c, d, e} = list_to_tuple([a, b, c, d, e]),
+    {} = list_to_tuple([]),
+    {a} = list_to_tuple([a]),
+    {a, b} = list_to_tuple([a, b]),
+    {a, b, c} = list_to_tuple([a, b, c]),
+    {a, b, c, d} = list_to_tuple([a, b, c, d]),
+    {a, b, c, d, e} = list_to_tuple([a, b, c, d, e]),
 
-    ?line Size = 4096,
-    ?line Tuple = list_to_tuple(lists:seq(1, Size)),
-    ?line Size = size(Tuple),
+    Size  = 4096,
+    Tuple = list_to_tuple(lists:seq(1, Size)),
+    Size  = size(Tuple),
 
-    ?line {'EXIT', {badarg, _}} = (catch list_to_tuple(id({a,b}))),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_tuple(id([a|b]))),
-    ?line {'EXIT', {badarg, _}} = (catch list_to_tuple(id([a|b]))),
+    {'EXIT', {badarg, _}} = (catch list_to_tuple(id({a,b}))),
+    {'EXIT', {badarg, _}} = (catch list_to_tuple(id([a|b]))),
+    {'EXIT', {badarg, _}} = (catch list_to_tuple(id([a|b]))),
 
+    % test upper boundry, 16777215 elements
+    MaxSize  = 1 bsl 24 - 1,
+    MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
+    MaxSize  = size(MaxTuple),
+
+    {'EXIT', {badarg,_}} = (catch list_to_tuple(lists:seq(1, 1 bsl 24))),
     ok.
 
 %% Tests tuple_to_list/1.
@@ -199,12 +205,22 @@ t_tuple_to_list(Config) when is_list(Config) ->
 
 %% Tests the make_tuple/2 BIF.
 t_make_tuple_2(Config) when is_list(Config) ->
-    ?line t_make_tuple1([]),
-    ?line t_make_tuple1(42),
-    ?line t_make_tuple1(a),
-    ?line t_make_tuple1({}),
-    ?line t_make_tuple1({a}),
-    ?line t_make_tuple1(erlang:make_tuple(400, [])),
+    t_make_tuple1([]),
+    t_make_tuple1(42),
+    t_make_tuple1(a),
+    t_make_tuple1({}),
+    t_make_tuple1({a}),
+    t_make_tuple1(erlang:make_tuple(400, [])),
+
+    % test upper boundry, 16777215 elements
+    t_make_tuple(1 bsl 24 - 1, a),
+    {'EXIT', {badarg,_}} = (catch erlang:make_tuple(1 bsl 24, a)),
+
+    {'EXIT', {badarg,_}} = (catch erlang:make_tuple(-1, a)),
+    % 26 bits is the total header arity room (for now)
+    {'EXIT', {badarg,_}} = (catch erlang:make_tuple(1 bsl 26 + 3, a)),
+    % bignum
+    {'EXIT', {badarg,_}} = (catch erlang:make_tuple(1 bsl 65 + 3, a)),
     ok.
 
 t_make_tuple1(Element) ->
@@ -222,29 +238,39 @@ t_make_tuple(Size, Element) ->
 
 %% Tests the erlang:make_tuple/3 BIF.
 t_make_tuple_3(Config) when is_list(Config) ->
-    ?line {} = erlang:make_tuple(0, def, []),
-    ?line {def} = erlang:make_tuple(1, def, []),
-    ?line {a} = erlang:make_tuple(1, def, [{1,a}]),
-    ?line {a,def,c,def,e} = erlang:make_tuple(5, def, [{5,e},{1,a},{3,c}]),
-    ?line {a,def,c,def,e} = erlang:make_tuple(5, def,
-					      [{1,blurf},{5,e},{3,blurf},
-					       {1,a},{3,c}]),
+    {}    = erlang:make_tuple(0, def, []),
+    {def} = erlang:make_tuple(1, def, []),
+    {a}   = erlang:make_tuple(1, def, [{1,a}]),
+
+    {a,def,c,def,e} = erlang:make_tuple(5, def, [{5,e},{1,a},{3,c}]),
+    {a,def,c,def,e} = erlang:make_tuple(5, def, [{1,blurf},{5,e},{3,blurf},{1,a},{3,c}]),
+    MaxSize  = 1 bsl 16 - 1,
+    MaxTuple = erlang:make_tuple(MaxSize, def, [{1,blurf},{5,e},{3,blurf},{1,a},{3,c}]),
+    MaxSize  = size(MaxTuple),
 
     %% Error cases.
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(0, def, [{1,a}])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{-1,a}])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{0,a}])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{6,z}])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(a, def, [{6,z}])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{1,a}|b])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [42])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [[a,b,c]])),
-    ?line {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, non_list)),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(0, def, [{1,a}])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{-1,a}])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{0,a}])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{6,z}])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(a, def, [{6,z}])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [{1,a}|b])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [42])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, [[a,b,c]])),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(5, def, non_list)),
+    {'EXIT',{badarg,_}} = (catch erlang:make_tuple(1 bsl 24, def, [{5,e},{1,a},{3,c}])),
+
     ok.
 
 %% Tests the append_element/2 BIF.
 t_append_element(Config) when is_list(Config) ->
-    t_append_element({}, 2048, 2048).
+    ok = t_append_element({}, 2048, 2048),
+
+    % test upper boundry, 16777215 elements
+    MaxSize  = 1 bsl 24 - 1,
+    MaxTuple = list_to_tuple(lists:seq(1, MaxSize)),
+    {'EXIT',{badarg,_}} = (catch erlang:append_element(MaxTuple, a)),
+    ok.
 
 t_append_element(_Tuple, 0, _High) -> ok;
 t_append_element(Tuple, N, High) ->
