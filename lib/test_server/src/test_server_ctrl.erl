@@ -34,118 +34,6 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% ARCHITECTURE
-%%
-%% The Erlang Test Server can be run on the target machine (local target)
-%% or towards a remote target. The execution flow is mainly the same in
-%% both cases, but with a remote target the test cases are (obviously)
-%% executed on the target machine. Host and target communicates over
-%% socket connections because the host should not be introduced as an
-%% additional node in the distributed erlang system in which the test
-%% cases are run.
-%%
-%%
-%% Local Target:
-%% =============
-%%
-%%   -----
-%%   |   |  test_server_ctrl ({global,test_server})
-%%   ----- (test_server_ctrl.erl)
-%%     |
-%%     |
-%%   -----
-%%   |   | JobProc
-%%   ----- (test_server_ctrl.erl and test_server.erl)
-%%     |
-%%     |
-%%   -----
-%%   |   | CaseProc
-%%   ----- (test_server.erl)
-%%
-%%
-%%
-%% test_server_ctrl is the main process in the system. It is a registered
-%% process, and it will always be alive when testing is ongoing.
-%% test_server_ctrl initiates testing and monitors JobProc(s).
-%%
-%% When target is local, and Test Server is *not* being used by a framework
-%% application (where it might cause duplicate name problems in a distributed
-%% test environment), the process is globally registered as 'test_server'
-%% to be able to simulate the {global,test_server} process on a remote target.
-%%
-%% JobProc is spawned for each 'job' added to the test_server_ctrl.
-%% A job can mean one test case, one test suite or one spec.
-%% JobProc creates and writes logs and presents results from testing.
-%% JobProc is the group leader for CaseProc.
-%%
-%% CaseProc is spawned for each test case. It runs the test case and
-%% sends results and any other information to its group leader - JobProc.
-%%
-%%
-%%
-%% Remote Target:
-%% ==============
-%%
-%% 		HOST				TARGET
-%%
-%% 	                   -----  MainSock   -----
-%%        test_server_ctrl |   |- - - - - - -|   | {global,test_server}
-%%  (test_server_ctrl.erl) -----	     ----- (test_server.erl)
-%% 		             |		       |
-%% 			     |		       |
-%% 		           -----  JobSock    -----
-%% 	          JobProcH |   |- - - - - - -|   | JobProcT
-%%  (test_server_ctrl.erl) -----	     ----- (test_server.erl)
-%% 					       |	
-%% 					       |
-%% 					     -----
-%% 					     |   | CaseProc
-%% 					     ----- (test_server.erl)
-%%
-%%
-%%
-%%
-%% A separate test_server process only exists when target is remote. It
-%% is then the main process on target. It is started when test_server_ctrl
-%% is started, and a socket connection is established between
-%% test_server_ctrl and test_server. The following information can be sent
-%% over MainSock:
-%%
-%% HOST			TARGET
-%%  -> {target_info, TargetInfo}     (during initiation)
-%%  <- {job_proc_killed,Name,Reason} (if a JobProcT dies unexpectedly)
-%%  -> {job,Port,Name}               (to start a new JobProcT)
-%%
-%%
-%% When target is remote, JobProc is split into to processes: JobProcH
-%% executing on Host and JobProcT executing on Target. (The two processes
-%% execute the same code as JobProc does when target is local.) JobProcH
-%% and JobProcT communicates over a socket connection. The following
-%% information can be sent over JobSock:
-%%
-%% HOST			TARGET
-%%  -> {test_case, Case}          To start a new test case
-%%  -> {beam,Mod}                 .beam file as binary to be loaded
-%% 				  on target, e.g. a test suite
-%%  -> {datadir,Tarfile}          Content of the datadir for a test suite
-%%  <- {apply,MFA}                MFA to be applied on host, ignore return;
-%% 				  (apply is used for printing information in
-%% 				  log or console)
-%%  <- {sync_apply,MFA}           MFA to be applied on host, wait for return
-%% 				  (used for starting and stopping slave nodes)
-%%  -> {sync_apply,MFA}           MFA to be applied on target, wait for return
-%% 				  (used for cover compiling and analysing)
-%% <-> {sync_result,Result}       Return value from sync_apply
-%%  <- {test_case_result,Result}  When a test case is finished
-%%  <- {crash_dumps,Tarfile}      When a test case is finished
-%%  -> job_done			  When a job is finished
-%%  <- {privdir,Privdir}          When a job is finished
-%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-
 %%% SUPERVISOR INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([start/0, start/1, start_link/1, stop/0]).
 
@@ -177,7 +65,6 @@
 -export([format/1, format/2, format/3, to_string/1]).
 -export([get_target_info/0]).
 -export([get_hosts/0]).
--export([get_target_os_type/0]).
 -export([node_started/1]).
 
 %%% DEBUGGER INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -537,20 +424,6 @@ kill_slavenodes() ->
 get_hosts() ->
     get(test_server_hosts).
 
-get_target_os_type() ->
-    case whereis(?MODULE) of
-	undefined ->
-	    %% This is probably called on the target node
-	    os:type();
-	Pid when Pid =:= self() ->
-	    os:type();
-	_pid ->
-	    %% This is called on the controller, e.g. from a
-	    %% specification clause of a test case
-	    #target_info{os_type=OsType} = controller_call(get_target_info),
-	    OsType
-    end.
-
 %%--------------------------------------------------------------------
 
 add_job(Name, TopCase) ->
@@ -606,7 +479,7 @@ controller_call(Arg, Timeout) ->
 %% Mode 'lazy' ignores (and resets to []) any jobs in the state file
 %%
 
-init([Param]) ->
+init([_]) ->
     case os:getenv("TEST_SERVER_CALL_TRACE") of
 	false ->
 	    ok;
@@ -632,104 +505,14 @@ init([Param]) ->
     test_server_sup:cleanup_crash_dumps(),
     State = #state{jobs=[],finish=false},
     put(test_server_free_targets,[]),
-    case contact_main_target(Param) of
-	{ok,TI} ->
-	    ets:new(slave_tab, [named_table,set,public,{keypos,2}]),
-	    set_hosts([TI#target_info.host]),
-	    {ok,State#state{target_info=TI}};
-	{error,Reason} ->
-	    {stop,Reason}
-    end.
-	
-
-%% If the test is to be run at a remote target, this function sets up
-%% a socket communication with the target.
-contact_main_target(local) ->
-    %% When used by a general framework, global registration of
-    %% test_server should not be required.
-    case get_fw_mod(undefined) of
-	undefined ->
-	    %% Local target! The global test_server process implemented by
-	    %% test_server.erl will not be started, so we simulate it by
-	    %% globally registering this process instead.
-	    global:sync(),
-	    case global:whereis_name(test_server) of
-		undefined ->
-		    global:register_name(test_server, self());
-		Pid ->
-		    case node() of
-			N when N == node(Pid) ->
-			    io:format(user, "Warning: test_server already running!\n", []),
-			    global:re_register_name(test_server,self());
-			_ ->
-			    ok
-		    end
-	    end;
-	_ ->
-	    ok
-    end,
-    TI = test_server:init_target_info(),
+    TI0 = test_server:init_target_info(),
     TargetHost = test_server_sup:hoststr(),
-    {ok,TI#target_info{where=local,
-		       host=TargetHost,
-		       naming=naming(),
-		       master=TargetHost}};
-
-contact_main_target(ParameterFile) ->
-    case read_parameters(ParameterFile) of
-	{ok,Par} ->
-	    case test_server_node:start_remote_main_target(Par) of
-		{ok,TI} ->
-		    {ok,TI};
-		{error,Error} ->
-		    {error,{could_not_start_main_target,Error}}
-	    end;
-	{error,Error} ->
-	    {error,{could_not_read_parameterfile,Error}}
-    end.
-
-read_parameters(File) ->
-    case file:consult(File) of
-	{ok,Data} ->
-	    read_parameters(lists:flatten(Data), #par{naming=naming()});
-	Error ->
-	    Error
-    end.
-read_parameters([{type,Type}|Data], Par) -> % mandatory
-    read_parameters(Data, Par#par{type=Type});
-read_parameters([{target,Target}|Data], Par) -> % mandatory
-    read_parameters(Data, Par#par{target=cast_to_list(Target)});
-read_parameters([{slavetargets,SlaveTargets}|Data], Par) ->
-    read_parameters(Data, Par#par{slave_targets=SlaveTargets});
-read_parameters([{longnames,Bool}|Data], Par) ->
-    Naming = if Bool->"-name"; true->"-sname" end,
-    read_parameters(Data, Par#par{naming=Naming});
-read_parameters([{master,{Node,Cookie}}|Data], Par) ->
-    read_parameters(Data, Par#par{master=cast_to_list(Node),
-				 cookie=cast_to_list(Cookie)});
-read_parameters([Other|_Data], _Par) ->
-    {error,{illegal_parameter,Other}};
-read_parameters([], Par) when Par#par.type==undefined ->
-    {error, {missing_mandatory_parameter,type}};
-read_parameters([], Par) when Par#par.target==undefined ->
-    {error, {missing_mandatory_parameter,target}};
-read_parameters([], Par0) ->
-    Par =
-	case {Par0#par.type, Par0#par.master} of
-	    {ose, undefined} ->
-		%% Use this node as master and bootserver for target
-		%% and slave nodes
-		Par0#par{master = atom_to_list(node()),
-			 cookie = atom_to_list(erlang:get_cookie())};
-	    {ose, _Master} ->
-		%% Master for target and slave nodes was defined in parameterfile
-		Par0;
-	    _ ->
-		%% Use target as master for slave nodes,
-		%% (No master is used for target)
-		Par0#par{master="test_server@" ++ Par0#par.target}
-	end,
-    {ok,Par}.
+    TI = TI0#target_info{host=TargetHost,
+			 naming=naming(),
+			 master=TargetHost},
+    ets:new(slave_tab, [named_table,set,public,{keypos,2}]),
+    set_hosts([TI#target_info.host]),
+    {ok,State#state{target_info=TI}}.
 
 naming() ->
     case lists:member($., test_server_sup:hoststr()) of
@@ -1210,25 +993,17 @@ handle_cast({node_started,Node}, State) ->
 %% Pid = pid()
 %% Reason = term()
 %%
-%% Handles exit messages from linked processes. Only test suites and
-%% possibly a target client are expected to be linked.
-%% When a test suite terminates, it is removed from the job queue.
-%% If a target client terminates it means that we lost contact with
-%% target. The test_server_ctrl process is terminated, and teminate/2
-%% will do the cleanup
+%% Handles exit messages from linked processes. Only test suites are
+%% expected to be linked.  When a test suite terminates, it is removed
+%% from the job queue.  If a target client terminates it means that we
+%% lost contact with target. The test_server_ctrl process is
+%% terminated, and teminate/2 will do the cleanup
 
 handle_info({'EXIT',Pid,Reason}, State) ->
     case lists:keysearch(Pid,2,State#state.jobs) of
 	false ->
-	    TI = State#state.target_info,
-	    case TI#target_info.target_client of
-		Pid ->
-		    %% The target client died - lost contact with target
-		    {stop,{lost_contact_with_target,Reason},State};
-		_other ->
-		    %% not our problem
-		    {noreply,State}
-	    end;
+	    %% not our problem
+	    {noreply,State};
 	{value,{Name,_}} ->
 	    NewJobs = lists:keydelete(Pid, 2, State#state.jobs),
 	    case Reason of
@@ -1303,14 +1078,8 @@ handle_info({tcp_closed,Sock}, State=#state{trc=Sock}) ->
     %%! Maybe print something???
     {noreply,State#state{trc=false}};
 handle_info({tcp_closed,Sock}, State) ->
-    case test_server_node:nodedown(Sock,State#state.target_info) of
-	target_died ->
-	    %% terminate/2 will do the cleanup
-	    {stop,target_died,State};
-	_ ->
-	    {noreply,State}
-    end;
-
+    test_server_node:nodedown(Sock, State#state.target_info),
+    {noreply,State};
 handle_info(_, State) ->
     %% dummy; accept all, do nothing.
     {noreply, State}.
@@ -2318,9 +2087,7 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 %% Runs the specified tests, then displays/logs the summary.
 
 run_test_cases(TestSpec, Config, TimetrapData) ->
-
-    maybe_open_job_sock(),
-
+    test_server:init_purify(),
     case lists:member(no_src, get(test_server_logopts)) of
 	true ->
 	    ok;
@@ -2329,8 +2096,6 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
     end,
 
     run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
-
-    maybe_get_privdir(),
 
     {AllSkippedN,UserSkipN,AutoSkipN,SkipStr} =
 	case get(test_server_skipped) of
@@ -2349,41 +2114,6 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
     print(major, "=user_skipped  ~p", [UserSkipN]),
     print(major, "=auto_skipped  ~p", [AutoSkipN]),
     exit(test_suites_done).
-
-%% If the test is run at a remote target, this function sets up a socket
-%% communication with the target for handling this particular job.
-maybe_open_job_sock() ->
-    TI = get_target_info(),
-    case TI#target_info.where of
-	local ->
-	    %% local target
-	    test_server:init_purify();
-	MainSock ->
-	    %% remote target
-	    {ok,LSock} = gen_tcp:listen(0, [binary,
-					    {reuseaddr,true},
-					    {packet,4},
-					    {active,false}]),
-	    {ok,Port} = inet:port(LSock),
-	    request(MainSock, {job,Port,get(test_server_name)}),
-	    case gen_tcp:accept(LSock, ?ACCEPT_TIMEOUT) of
-		{ok,Sock} -> put(test_server_ctrl_job_sock, Sock);
-		{error,Reason} -> exit({no_contact,Reason})
-	    end
-    end.
-
-%% If the test is run at a remote target, this function waits for a
-%% tar packet containing the privdir created by the test case.
-maybe_get_privdir() ->
-    case get(test_server_ctrl_job_sock) of
-	undefined ->
-	    %% local target
-	    ok;
-	Sock ->
-	    %% remote target
-	    request(Sock, job_done),
-	    gen_tcp:close(Sock)
-    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2899,7 +2629,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	end,
 
     CurrMode = curr_mode(Ref, Mode0, Mode),
-    ConfCaseResult = run_test_case(Ref, 0, Mod, Func, [ActualCfg], skip_init, target,
+    ConfCaseResult = run_test_case(Ref, 0, Mod, Func, [ActualCfg], skip_init,
 				   TimetrapData, CurrMode),
 
     case ConfCaseResult of
@@ -3023,7 +2753,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
     end;
 
 run_test_cases_loop([{make,Ref,{Mod,Func,Args}}|Cases0], Config, TimetrapData, Mode, Status) ->
-    case run_test_case(Ref, 0, Mod, Func, Args, skip_init, host, TimetrapData) of
+    case run_test_case(Ref, 0, Mod, Func, Args, skip_init, TimetrapData) of
 	{_,Why={'EXIT',_},_} ->
  	    print(minor, "~n*** ~p failed.~n"
  		  "    Skipping all cases.", [Func]),
@@ -3068,7 +2798,7 @@ run_test_cases_loop([{Mod,Func,Args}|Cases], Config, TimetrapData, Mode, Status)
     end,
 
     case run_test_case(undefined, Num+1, Mod, Func, Args,
-		       run_init, target, TimetrapData, Mode) of
+		       run_init, TimetrapData, Mode) of
 	%% callback to framework module failed, exit immediately
 	{_,{framework_error,{FwMod,FwFunc},Reason},_} ->
 	    print(minor, "~n*** ~p failed in ~p. Reason: ~p~n", [FwMod,FwFunc,Reason]),
@@ -3757,23 +3487,23 @@ handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
 %% RetVal is the result of executing the test case. It contains info
 %% about the execution time and the return value of the test case function.
 
-run_test_case(Ref, Num, Mod, Func, Args, RunInit, Where, TimetrapData) ->
+run_test_case(Ref, Num, Mod, Func, Args, RunInit, TimetrapData) ->
     file:set_cwd(filename:dirname(get(test_server_dir))),
-    run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
+    run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 		   TimetrapData, [], self()).
 
-run_test_case(Ref, Num, Mod, Func, Args, skip_init, Where, TimetrapData, Mode) ->
+run_test_case(Ref, Num, Mod, Func, Args, skip_init, TimetrapData, Mode) ->
     %% a conf case is always executed by the main process
-    run_test_case1(Ref, Num, Mod, Func, Args, skip_init, Where,
+    run_test_case1(Ref, Num, Mod, Func, Args, skip_init,
 		   TimetrapData, Mode, self());
 
-run_test_case(Ref, Num, Mod, Func, Args, RunInit, Where, TimetrapData, Mode) ->
+run_test_case(Ref, Num, Mod, Func, Args, RunInit, TimetrapData, Mode) ->
     file:set_cwd(filename:dirname(get(test_server_dir))),
     Main = self(),
     case check_prop(parallel, Mode) of
 	false ->
 	    %% this is a sequential test case
-	    run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
+	    run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 			   TimetrapData, Mode, Main);
 	_Ref ->
 	    %% this a parallel test case, spawn the new process
@@ -3785,11 +3515,11 @@ run_test_case(Ref, Num, Mod, Func, Args, RunInit, Where, TimetrapData, Mode) ->
 		      [put(Key, Val) || {Key,Val} <- Dictionary],
 		      set_io_buffering({tc,Main}),
 		      run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
-				     Where, TimetrapData, Mode, Main)
+				     TimetrapData, Mode, Main)
 	      end)
     end.
 
-run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
+run_test_case1(Ref, Num, Mod, Func, Args, RunInit,
 	       TimetrapData, Mode, Main) ->
     group_leader(test_server_io:get_gl(Main == self()), self()),
 
@@ -3802,12 +3532,6 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	    Main ! {started,Ref,self(),Num,Mod,Func}
     end,
     TSDir = get(test_server_dir),
-    case Where of
-	target ->
-	    maybe_send_beam_and_datadir(Mod);
-	host ->
-	    ok
-    end,
 
     print(major, "=case          ~p:~p", [Mod, Func]),
     MinorName = start_minor_log_file(Mod, Func),
@@ -3865,7 +3589,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
     %% run the test case
     {Result,DetectedFail,ProcsBefore,ProcsAfter} =
 	run_test_case_apply(Num, Mod, Func, [UpdatedArgs], get_name(Mode),
-			    RunInit, Where, TimetrapData),
+			    RunInit, TimetrapData),
     {Time,RetVal,Loc,Opts,Comment} =
 	case Result of
 	    Normal={_Time,_RetVal,_Loc,_Opts,_Comment} -> Normal;
@@ -3982,7 +3706,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
        true ->
 	    ok
     end,
-    check_new_crash_dumps(Where),
+    test_server_sup:check_new_crash_dumps(),
 
     %% if io is being buffered, send finished message
     %% (no matter if case runs on parallel or main process)
@@ -4009,109 +3733,6 @@ do_unless_parallel(Main, Action) when is_function(Action, 0) ->
 
 num2str(0) -> "";
 num2str(N) -> integer_to_list(N).
-
-%% If remote target, this function sends the test suite (if not already sent)
-%% and the content of datadir til target.
-maybe_send_beam_and_datadir(Mod) ->
-    case get(test_server_ctrl_job_sock) of
-	undefined ->
-	    %% local target
-	    ok;
-	JobSock ->
-	    %% remote target
-	    case get(test_server_downloaded_suites) of
-		undefined ->
-		    send_beam_and_datadir(Mod, JobSock),
-		    put(test_server_downloaded_suites, [Mod]);
-		Suites ->
-		    case lists:member(Mod, Suites) of
-			false ->
-			    send_beam_and_datadir(Mod, JobSock),
-			    put(test_server_downloaded_suites, [Mod|Suites]);
-			true ->
-			    ok
-		    end
-	    end
-    end.
-
-send_beam_and_datadir(Mod, JobSock) ->
-    case code:which(Mod) of
-	non_existing ->
-	    io:format("** WARNING: Suite ~w could not be found on host\n",
-		      [Mod]);
-	BeamFile ->
-	    send_beam(JobSock, Mod, BeamFile)
-    end,
-    DataDir = get_data_dir(Mod),
-    case file:read_file_info(DataDir) of
-	{ok,_I} ->
-	    {ok,All} = file:list_dir(DataDir),
-	    AddTarFiles =
-		case controller_call(get_target_info) of
-		    #target_info{os_family=ose} ->
-			ObjExt = code:objfile_extension(),
-			Wc = filename:join(DataDir, "*" ++ ObjExt),
-			ModsInDatadir = filelib:wildcard(Wc),
-			SendBeamFun = fun(X) -> send_beam(JobSock, X) end,
-			lists:foreach(SendBeamFun, ModsInDatadir),
-			%% No need to send C code or makefiles since
-			%% no compilation can be done on target anyway.
-			%% Compiled C code must exist on target.
-			%% Beam files are already sent as binaries.
-			%% Erlang source are sent in case the test case
-			%% is to compile it.
-			Filter = fun("Makefile") -> false;
-				    ("Makefile.src") -> false;
-				    (Y) ->
-					 case filename:extension(Y) of
-					     ".c"   -> false;
-					     ObjExt -> false;
-					     _      -> true
-					 end
-				 end,
-			lists:filter(Filter, All);
-		    _ ->
-			All
-		end,
-	    Tarfile =  "data_dir.tar.gz",
-	    {ok,Tar} = erl_tar:open(Tarfile, [write,compressed]),
-	    ShortDataDir = filename:basename(DataDir),
-	    AddTarFun =
-		fun(File) ->
-			Long = filename:join(DataDir, File),
-			Short = filename:join(ShortDataDir, File),
-			ok = erl_tar:add(Tar, Long, Short, [])
-		end,
-	    lists:foreach(AddTarFun, AddTarFiles),
-	    ok = erl_tar:close(Tar),
-	    {ok,TarBin} = file:read_file(Tarfile),
-	    file:delete(Tarfile),
-	    request(JobSock, {{datadir,Tarfile}, TarBin});
-	{error,_R} ->
-	    ok
-    end.
-
-send_beam(JobSock, BeamFile) ->
-    Mod=filename:rootname(filename:basename(BeamFile), code:objfile_extension()),
-    send_beam(JobSock, list_to_atom(Mod), BeamFile).
-send_beam(JobSock, Mod, BeamFile) ->
-    {ok,BeamBin} = file:read_file(BeamFile),
-    request(JobSock, {{beam,Mod,BeamFile}, BeamBin}).
-
-check_new_crash_dumps(Where) ->
-    case Where of
-	target ->
-	    case get(test_server_ctrl_job_sock) of
-		undefined ->
-		    ok;
-		Socket ->
-		    read_job_sock_loop(Socket)
-	    end;
-	_ ->
-	    ok
-    end,
-    test_server_sup:check_new_crash_dumps().
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% progress(Result, CaseNum, Mod, Func, Location, Reason, Time,
@@ -4480,11 +4101,10 @@ do_format_exception(Reason={Error,Stack}) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
-%%                     Where, TimetrapData) ->
+%%                     TimetrapData) ->
 %%  {{Time,RetVal,Loc,Opts,Comment},DetectedFail,ProcessesBefore,ProcessesAfter} |
 %%  {{died,Reason,unknown,Comment},DetectedFail,ProcessesBefore,ProcessesAfter}
 %% Name = atom()
-%% Where = target | host
 %% Time = float()   (seconds)
 %% RetVal = term()
 %% Loc = term()
@@ -4499,23 +4119,10 @@ do_format_exception(Reason={Error,Stack}) ->
 %% sent over socket to target, and test_server runs the case and sends the
 %% result back over the socket. Else test_server runs the case directly on host.
 
-run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, host,
+run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit,
 		    TimetrapData) ->
     test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
-				     TimetrapData});
-run_test_case_apply(CaseNum, Mod, Func, Args, Name, RunInit, target,
-		    TimetrapData) ->
-    case get(test_server_ctrl_job_sock) of
-	undefined ->
-	    %% local target
-	    test_server:run_test_case_apply({CaseNum,Mod,Func,Args,Name,RunInit,
-					     TimetrapData});
-	JobSock ->
-	    %% remote target
-	    request(JobSock, {test_case,{CaseNum,Mod,Func,Args,Name,RunInit,
-					 TimetrapData}}),
-	    read_job_sock_loop(JobSock)
-    end.
+				     TimetrapData}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% print(Detail, Format, Args) -> ok
@@ -5182,60 +4789,6 @@ stop_node(Slave) ->
     controller_call({stop_node,Slave}).
 
 
-%%--------------------------------------------------------------------
-%% Functions handling target communication over socket
-
-%% Generic send function for communication with target
-request(Sock,Request) ->
-    gen_tcp:send(Sock,<<1,(term_to_binary(Request))/binary>>).
-
-%% Receive and decode request on job specific socket
-%% Used when test is running on a remote target
-read_job_sock_loop(Sock) ->
-    case gen_tcp:recv(Sock,0) of
-	{error,Reason} ->
-	    gen_tcp:close(Sock),
-	    exit({controller,connection_lost,Reason});
-	{ok,<<1,Request/binary>>} ->
-	    case decode(binary_to_term(Request)) of
-		ok ->
-		    read_job_sock_loop(Sock);
-		{stop,Result} ->
-		    Result
-	    end
-    end.
-
-decode({apply,{M,F,A}}) ->
-    apply(M,F,A),
-    ok;
-decode({sync_apply,{M,F,A}}) ->
-    R = apply(M,F,A),
-    request(get(test_server_ctrl_job_sock),{sync_result,R}),
-    ok;
-decode({sync_result,Result}) ->
-    {stop,Result};
-decode({test_case_result,Result}) ->
-    {stop,Result};
-decode({privdir,empty_priv_dir}) ->
-    {stop,ok};
-decode({{privdir,PrivDirTar},TarBin}) ->
-    Root = get(test_server_log_dir_base),
-    unpack_tar(Root,PrivDirTar,TarBin),
-    {stop,ok};
-decode({crash_dumps,no_crash_dumps}) ->
-    {stop,ok};
-decode({{crash_dumps,CrashDumpTar},TarBin}) ->
-    Dir = test_server_sup:crash_dump_dir(),
-    unpack_tar(Dir,CrashDumpTar,TarBin),
-    {stop,ok}.
-
-unpack_tar(Dir,TarFileName0,TarBin) ->
-    TarFileName = filename:join(Dir,TarFileName0),
-    ok = file:write_file(TarFileName,TarBin),
-    ok = erl_tar:extract(TarFileName,[compressed,{cwd,Dir}]),
-    ok = file:delete(TarFileName).
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%                        DEBUGGER INTERFACE                        %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -5380,16 +4933,7 @@ cover_compile({App,CoverFile}) ->
     cover_compile1({App,Exclude,Include,Cross}).
 
 cover_compile1(What) ->
-    case get(test_server_ctrl_job_sock) of
-	undefined ->
-	    %% local target
-	    test_server:cover_compile(What);
-	JobSock ->
-	    %% remote target
-	    request(JobSock, {sync_apply,{test_server,cover_compile,[What]}}),
-	    read_job_sock_loop(JobSock)
-    end.
-
+    test_server:cover_compile(What).
 
 %% Read the coverfile for an application and return a list of modules
 %% that are members of the application but shall not be compiled
@@ -5491,17 +5035,7 @@ cover_analyse({App,CoverInfo}, Analyse, AnalyseMods, Stop, TestDir) ->
 
 cover_analyse(Analyse, AnalyseMods, Stop) ->
     TestDir = get(test_server_log_dir_base),
-    case get(test_server_ctrl_job_sock) of
-	undefined ->
-	    %% local target
-	    test_server:cover_analyse({Analyse,TestDir}, AnalyseMods, Stop);
-	JobSock ->
-	    %% remote target
-	    request(JobSock, {sync_apply,{test_server,
-					  cover_analyse,
-					  [Analyse,AnalyseMods, Stop]}}),
-	    read_job_sock_loop(JobSock)
-    end.
+    test_server:cover_analyse({Analyse,TestDir}, AnalyseMods, Stop).
 
 
 %% Cover analysis, cross application
