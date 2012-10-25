@@ -537,12 +537,45 @@ handle_info({'EXIT', _Sup, Reason}, State) ->
     {stop, Reason, State}.
 
 handle_password(Opts) ->
+    handle_rsa_password(handle_dsa_password(handle_normal_password(Opts))).
+handle_normal_password(Opts) ->
     case proplists:get_value(ssh_opts, Opts, false) of
 	false ->
 	    Opts;
 	SshOpts ->
-	    NewOpts = [{password, undefined}|lists:keydelete(password, 1, SshOpts)],
-	    {ssh_opts, lists:merge(NewOpts, lists:keydelete(ssh_opts, 1, Opts))}
+	    case proplists:get_value(password, SshOpts, false) of
+		false ->
+		    Opts;
+		_Password ->
+		    NewOpts = [{password, undefined}|lists:keydelete(password, 1, SshOpts)],
+		    lists:merge(NewOpts, lists:keydelete(ssh_opts, 1, Opts))
+	    end
+    end.
+handle_dsa_password(Opts) ->
+    case proplists:get_value(ssh_opts, Opts, false) of
+	false ->
+	    Opts;
+	SshOpts ->
+	    case proplists:get_value(dsa_pass_phrase, SshOpts, false) of
+		false ->
+		    Opts;
+		_Password ->
+		    NewOpts = [{dsa_pass_phase, undefined}|lists:keydelete(password, 1, SshOpts)],
+		    lists:merge(NewOpts, lists:keydelete(ssh_opts, 1, Opts))
+	    end
+    end.
+handle_rsa_password(Opts) ->
+    case proplists:get_value(ssh_opts, Opts, false) of
+	false ->
+	    Opts;
+	SshOpts ->
+	    case proplists:get_value(rsa_pass_phrase, SshOpts, false) of
+		false ->
+		    Opts;
+		_Password ->
+		    NewOpts = [{rsa_pass_phase, undefined}|lists:keydelete(password, 1, SshOpts)],
+		    lists:merge(NewOpts, lists:keydelete(ssh_opts, 1, Opts))
+	    end
     end.
 %%--------------------------------------------------------------------
 %% Function: terminate(Reason, State) -> void()
