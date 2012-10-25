@@ -4402,6 +4402,7 @@ attr = (wxGridCellAttr *) getPtr(bp,memenv); bp += 4;
  This->Show((bool) *show,attr);
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxGridCellEditor_PaintBackground: { // wxGridCellEditor::PaintBackground
  wxGridCellEditor *This = (wxGridCellEditor *) getPtr(bp,memenv); bp += 4;
  int * rectCellX = (int *) bp; bp += 4;
@@ -4414,6 +4415,7 @@ case wxGridCellEditor_PaintBackground: { // wxGridCellEditor::PaintBackground
  This->PaintBackground(rectCell,attr);
  break;
 }
+#endif
 case wxGridCellEditor_BeginEdit: { // wxGridCellEditor::BeginEdit
  wxGridCellEditor *This = (wxGridCellEditor *) getPtr(bp,memenv); bp += 4;
  int * row = (int *) bp; bp += 4;
@@ -6948,6 +6950,7 @@ case wxGraphicsRenderer_CreateBrush: { // wxGraphicsRenderer::CreateBrush
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxGraphicsRenderer_CreateLinearGradientBrush: { // wxGraphicsRenderer::CreateLinearGradientBrush
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
@@ -6970,6 +6973,8 @@ case wxGraphicsRenderer_CreateLinearGradientBrush: { // wxGraphicsRenderer::Crea
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
+#endif
+#if !wxCHECK_VERSION(2,9,0)
 case wxGraphicsRenderer_CreateRadialGradientBrush: { // wxGraphicsRenderer::CreateRadialGradientBrush
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
@@ -6993,6 +6998,7 @@ case wxGraphicsRenderer_CreateRadialGradientBrush: { // wxGraphicsRenderer::Crea
  rt.addRef(getRef((void *)Result,memenv), "wxGraphicsBrush");
  break;
 }
+#endif
 case wxGraphicsRenderer_CreateFont: { // wxGraphicsRenderer::CreateFont
  wxColour col= *wxBLACK;
  wxGraphicsRenderer *This = (wxGraphicsRenderer *) getPtr(bp,memenv); bp += 4;
@@ -13547,6 +13553,7 @@ case wxCalendarCtrl_GetDate: { // wxCalendarCtrl::GetDate
  rt.add((*Result));
  break;
 }
+#if !wxCHECK_VERSION(2,9,0)
 case wxCalendarCtrl_EnableYearChange: { // wxCalendarCtrl::EnableYearChange
  bool enable=true;
  wxCalendarCtrl *This = (wxCalendarCtrl *) getPtr(bp,memenv); bp += 4;
@@ -13560,6 +13567,7 @@ case wxCalendarCtrl_EnableYearChange: { // wxCalendarCtrl::EnableYearChange
  This->EnableYearChange(enable);
  break;
 }
+#endif
 case wxCalendarCtrl_EnableMonthChange: { // wxCalendarCtrl::EnableMonthChange
  bool enable=true;
  wxCalendarCtrl *This = (wxCalendarCtrl *) getPtr(bp,memenv); bp += 4;
@@ -15114,7 +15122,7 @@ case wxListBox_Set: { // wxListBox::Set
  }
  bp += (8-((0+ itemsASz) & 7 )) & 7;
  if(!This) throw wxe_badarg(0);
- This->Set(items,NULL);
+ This->Set(items,(void **) NULL);
  break;
 }
 case wxListBox_HitTest: { // wxListBox::HitTest

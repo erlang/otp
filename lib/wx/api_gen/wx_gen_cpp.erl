@@ -838,8 +838,8 @@ call_arg(#param{name=N,type={merged,_,#type{base={class,_},single=true,
 					    ref=Ref},_,_,_,_}})
   when ByVal =:= true; Ref =:= reference ->
     "*" ++ N;
-call_arg(#param{def=Def, type=void}) when Def =/= none -> Def;
-call_arg(#param{def=Def, type=voidp}) when Def =/= none -> Def;
+call_arg(#param{def=Def, type=void}) when Def =/= none  -> Def;
+call_arg(#param{def=Def, type=voidp}) when Def =/= none -> "(void **) " ++ Def;
 call_arg(#param{name=N,type=#type{base={ref,_},by_val=true,single=true}}) -> N;
 call_arg(#param{name=N,type={merged,_,_,_,_,_,_}}) -> N.
 
