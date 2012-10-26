@@ -120,9 +120,9 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
 		      NUsrSkip, NAutoSkip, 
 		      NActualSkip, NActualFail, NActualSucc, Config) ->
 
+    WorkDir = proplists:get_value(work_dir, Config),
     ct:log("<a href=\"file://~s\">Test case log files</a>\n",
-	   [filename:join([proplists:get_value(priv_dir, Config),
-			   SuiteName++".logs"])]),
+	   [filename:join(WorkDir, SuiteName++".logs")]),
 
     Node = proplists:get_value(node, Config),
     {ok,_Pid} = rpc:call(Node,test_server_ctrl, start, []),
@@ -140,8 +140,8 @@ run_test_server_tests(SuiteName, NCases, NFail, NExpected, NSucc,
 
     {ok,Data} =	test_server_test_lib:parse_suite(
 		  hd(filelib:wildcard(
-		       filename:join([proplists:get_value(priv_dir, Config), 
-				      SuiteName++".logs","run*","suite.log"])))),
+		       filename:join([WorkDir,SuiteName++".logs",
+				      "run*","suite.log"])))),
     check([{"Number of cases",NCases,Data#suite.n_cases},
 	   {"Number failed",NFail,Data#suite.n_cases_failed},
 	   {"Number expected",NExpected,Data#suite.n_cases_expected},
