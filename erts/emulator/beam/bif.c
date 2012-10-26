@@ -2428,9 +2428,7 @@ BIF_RETTYPE setelement_3(BIF_ALIST_3)
 
     /* copy the tuple */
     resp = hp;
-    while (size--) {		/* XXX use memcpy? */
-	*hp++ = *ptr++;
-    }
+    sys_memcpy(hp, ptr, sizeof(Eterm)*size);
     resp[ix] = BIF_ARG_3;
     BIF_RET(make_tuple(resp));
 }
