@@ -367,7 +367,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
         <p>Update agent config. The function <c>update_agent_info/3</c> 
 	should be used when several values needs to be updated atomically. </p>
 	<p>See function 
-	<seealso marker="#register_agent">register_agent</seealso>) 
+	<seealso marker="#register_agent">register_agent</seealso>
 	for more info about what kind of items are allowed. </p>
 
         <marker id="which_agents"></marker>
