@@ -20,7 +20,8 @@
 
 -include("test_server.hrl").
 -compile({no_auto_import,[binary_part/2]}).
--export([recompile/1,opt_opts/1,get_data_dir/1,smoke_disasm/1,p_run/2,binary_part/2]).
+-export([recompile/1,parallel/0,uniq/0,opt_opts/1,get_data_dir/1,
+	 smoke_disasm/1,p_run/2,binary_part/2]).
 
 recompile(Mod) when is_atom(Mod) ->
     case whereis(cover_server) of
@@ -42,6 +43,18 @@ smoke_disasm(Mod) when is_atom(Mod) ->
 smoke_disasm(File) when is_list(File) ->
     Res = beam_disasm:file(File),
     {beam_file,_Mod} = {element(1, Res),element(2, Res)}.
+
+parallel() ->
+    case ?t:is_cover() orelse erlang:system_info(schedulers) =:= 1 of
+	true -> [];
+	false -> [parallel]
+    end.
+
+uniq() ->
+    U0 = erlang:ref_to_list(make_ref()),
+    U1 = re:replace(U0, "^#Ref", ""),
+    U = re:replace(U1, "[^[A-Za-z0-9_]+", "_", [global]),
+    re:replace(U, "_*$", "", [{return,list}]).
 
 %% Retrieve the "interesting" compiler options (options for optimization
 %% and compatibility) for the given module.

@@ -29,11 +29,12 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [t_case, t_and_or, t_andalso, t_orelse, inside, overlap,
-     combined, in_case, before_and_inside_if].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,
+       combined,in_case,before_and_inside_if]}].
 
 init_per_suite(Config) ->
     Config.

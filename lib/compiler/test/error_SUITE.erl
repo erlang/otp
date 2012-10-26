@@ -32,10 +32,11 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [head_mismatch_line, warnings_as_errors, bif_clashes, transforms].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [head_mismatch_line,warnings_as_errors,bif_clashes,transforms]}].
 
 init_per_suite(Config) ->
     Config.
@@ -282,12 +283,14 @@ filter(X) ->
 %% Compiles a test module and returns the list of errors and warnings.
 
 test_filename(Conf) ->
-    Filename = "errors_test.erl",
+    Filename = ["errors_test_",test_lib:uniq(),".erl"],
     DataDir = ?config(priv_dir, Conf),
     filename:join(DataDir, Filename).
 
 run_test(Test0, File, Warnings, WriteBeam) ->
-    ?line Test = ["-module(errors_test). ", Test0],
+    ModName = filename:rootname(filename:basename(File), ".erl"),
+    Mod = list_to_atom(ModName),
+    Test = ["-module(",ModName,"). ",Test0],
     ?line Opts = case WriteBeam of
 		     dont_write_beam ->
 			 [binary,return_errors|Warnings];
@@ -301,17 +304,17 @@ run_test(Test0, File, Warnings, WriteBeam) ->
 
     %% Test result of compilation.
     ?line Res = case compile:file(File, Opts) of
-		    {ok,errors_test,_,[{_File,Ws}]} ->
+		    {ok,Mod,_,[{_File,Ws}]} ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",
 			%	  [File,Opts,Ws]),
 			{warning,Ws};
-		    {ok,errors_test,_,[]} ->
+		    {ok,Mod,_,[]} ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",
 			%	  [File,Opts,Ws]),
 			[];
-		    {ok,errors_test,[{_File,Ws}]} ->
+		    {ok,Mod,[{_File,Ws}]} ->
 			{warning,Ws};
-		    {ok,errors_test,[]} ->
+		    {ok,Mod,[]} ->
 			[];
 		    {error,[{XFile,Es}],Ws} = _ZZ when is_list(XFile) ->
 			%io:format("compile:file(~s,~p) ->~n~p~n",

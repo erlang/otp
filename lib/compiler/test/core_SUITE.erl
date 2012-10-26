@@ -43,11 +43,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [dehydrated_itracer,nested_tries,seq_in_guard,make_effect_seq,
-     eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [dehydrated_itracer,nested_tries,seq_in_guard,make_effect_seq,
+       eval_is_boolean,unsafe_case,nomatch_shadow,reversed_annos]}].
+
 
 init_per_suite(Config) ->
     Config.

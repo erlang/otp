@@ -40,10 +40,12 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [recv, coverage, otp_7980, ref_opt, export].
+    [{group,p}].
 
 groups() -> 
-    [].
+    {p,test_lib:parallel(),
+     [recv,coverage,otp_7980,ref_opt,export]}.
+
 
 init_per_suite(Config) ->
     Config.

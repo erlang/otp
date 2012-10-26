@@ -47,17 +47,18 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [beam_files, compiler_bug, stupid_but_valid, xrange,
-     yrange, stack, call_last, merge_undefined, uninit,
-     unsafe_catch, dead_code, mult_labels,
-     overwrite_catchtag, overwrite_trytag, accessing_tags,
-     bad_catch_try, cons_guard, freg_range, freg_uninit,
-     freg_state, bin_match, bin_aligned, bad_dsetel,
-     state_after_fault_in_catch, no_exception_in_catch,
-     undef_label, illegal_instruction, failing_gc_guard_bif].
+    [beam_files,{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [compiler_bug,stupid_but_valid,xrange,
+       yrange,stack,call_last,merge_undefined,uninit,
+       unsafe_catch,dead_code,mult_labels,
+       overwrite_catchtag,overwrite_trytag,accessing_tags,
+       bad_catch_try,cons_guard,freg_range,freg_uninit,
+       freg_state,bin_match,bin_aligned,bad_dsetel,
+       state_after_fault_in_catch,no_exception_in_catch,
+       undef_label,illegal_instruction,failing_gc_guard_bif]}].
 
 init_per_suite(Config) ->
     Config.

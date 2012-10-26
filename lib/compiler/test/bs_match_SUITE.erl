@@ -44,19 +44,21 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [fun_shadow, int_float, otp_5269, null_fields, wiger,
-     bin_tail, save_restore, shadowed_size_var,
-     partitioned_bs_match, function_clause, unit,
-     shared_sub_bins, bin_and_float, dec_subidentifiers,
-     skip_optional_tag, wfbm, degenerated_match, bs_sum,
-     coverage, multiple_uses, zero_label, followed_by_catch,
-     matching_meets_construction, simon,
-     matching_and_andalso, otp_7188, otp_7233, otp_7240,
-     otp_7498, match_string, zero_width, bad_size, haystack,
-     cover_beam_bool, matched_out_size].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [fun_shadow,int_float,otp_5269,null_fields,wiger,
+       bin_tail,save_restore,shadowed_size_var,
+       partitioned_bs_match,function_clause,unit,
+       shared_sub_bins,bin_and_float,dec_subidentifiers,
+       skip_optional_tag,wfbm,degenerated_match,bs_sum,
+       coverage,multiple_uses,zero_label,followed_by_catch,
+       matching_meets_construction,simon,
+       matching_and_andalso,otp_7188,otp_7233,otp_7240,
+       otp_7498,match_string,zero_width,bad_size,haystack,
+       cover_beam_bool,matched_out_size]}].
+
 
 init_per_suite(Config) ->
     Config.

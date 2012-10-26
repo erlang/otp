@@ -30,11 +30,13 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     test_lib:recompile(?MODULE),
-    [pmatch, mixed, aliases, match_in_call, untuplify,
-     shortcut_boolean, letify_guard, selectify, underscore, coverage].
+    [{group,p}].
 
 groups() -> 
-    [].
+    [{p,test_lib:parallel(),
+      [pmatch,mixed,aliases,match_in_call,untuplify,
+       shortcut_boolean,letify_guard,selectify,underscore,coverage]}].
+
 
 init_per_suite(Config) ->
     Config.
