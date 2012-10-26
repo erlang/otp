@@ -555,7 +555,10 @@ remote_call(Node,Request) ->
 	    Return = 
 		receive 
 		    {'DOWN', Ref, _Type, _Object, _Info} -> 
-			{error,node_dead};
+			case Request of
+			    {remote,stop} -> ok;
+			    _ -> {error,node_dead}
+			end;
 		    {?SERVER,Reply} -> 
 			Reply
 		end,
@@ -583,7 +586,6 @@ init_main(Starter) ->
     ets:new(?BINARY_TABLE, [set, named_table]),
     ets:new(?COLLECTION_TABLE, [set, public, named_table]),
     ets:new(?COLLECTION_CLAUSE_TABLE, [set, public, named_table]),
-    process_flag(trap_exit,true),
     Starter ! {?SERVER,started},
     main_process_loop(#main_state{}).
 
@@ -595,8 +597,8 @@ main_process_loop(State) ->
 		lists:foldl(
 		  fun(Node,Acc) ->
 			  case rpc:call(Node,cover,remote_start,[ThisNode]) of
-			      {ok,RPid} ->
-				  link(RPid),
+			      {ok,_RPid} ->
+				  erlang:monitor(process,{?SERVER,Node}),
 				  [Node|Acc];
 			      Error ->
 				  io:format("Could not start cover on ~w: ~p\n",
@@ -721,8 +723,8 @@ main_process_loop(State) ->
 	{From, {stop,Nodes}} ->
 	    remote_collect('_',Nodes,true),
 	    reply(From, ok),
-	    State1 = State#main_state{nodes=State#main_state.nodes--Nodes},
-	    main_process_loop(State1);
+	    Nodes1 = State#main_state.nodes--Nodes,
+	    main_process_loop(State#main_state{nodes=Nodes1});
 
 	{From, {flush,Nodes}} ->
 	    remote_collect('_',Nodes,false),
@@ -807,13 +809,10 @@ main_process_loop(State) ->
 		end,
 	    main_process_loop(S);		    
 	
-	{'EXIT',Pid,_Reason} ->
-	    %% Exit is trapped on the main node only, so this will only happen 
-	    %% there. I assume that I'm only linked to cover_servers on remote 
-	    %% nodes, so this must be one of them crashing. 
-	    %% Remove node from list!
-	    State1 = State#main_state{nodes=State#main_state.nodes--[node(Pid)]},
-	    main_process_loop(State1);
+	{'DOWN', _MRef, process, {?SERVER,Node}, _Info} ->
+	    %% A remote cover_server is down, remove node from list.
+	    Nodes1 = State#main_state.nodes--[Node],
+	    main_process_loop(State#main_state{nodes=Nodes1});
 	
 	{From, get_main_node} ->
 	    reply(From, node()),
@@ -873,7 +872,7 @@ remote_process_loop(State) ->
 	{remote,stop} ->
 	    reload_originals(State#remote_state.compiled),
             unregister(?SERVER),
-	    remote_reply(State#remote_state.main_node, ok);
+	    ok; % not replying since 'DOWN' message will be received anyway
 
 	{From, get_main_node} ->
 	    reply(From, State#remote_state.main_node),
@@ -1121,7 +1120,6 @@ remove_myself([Node|Nodes],Acc) ->
     remove_myself(Nodes,[Node|Acc]);
 remove_myself([],Acc) ->
     Acc.
-    
 
 %%%--Handling of modules state data--------------------------------------
 
@@ -2334,7 +2332,7 @@ pmap(Fun, [E | Rest], Pids, Limit, Cnt, Acc) when Cnt < Limit ->
     pmap(Fun, Rest, Pids ++ [Pid], Limit, Cnt + 1, Acc);
 pmap(Fun, List, [Pid | Pids], Limit, Cnt, Acc) ->
     receive
-	{'DOWN', _Ref, process, _, _} ->
+	{'DOWN', _Ref, process, X, _} when is_pid(X) ->
 	    pmap(Fun, List, [Pid | Pids], Limit, Cnt - 1, Acc);
 	{res, Pid, Res} ->
 	    pmap(Fun, List, Pids, Limit, Cnt, [Res | Acc])
@@ -2343,6 +2341,6 @@ pmap(_Fun, [], [], _Limit, 0, Acc) ->
     lists:reverse(Acc);
 pmap(Fun, [], [], Limit, Cnt, Acc) ->
     receive
-	{'DOWN', _Ref, process, _, _} ->
+	{'DOWN', _Ref, process, X, _} when is_pid(X) ->
 	    pmap(Fun, [], [], Limit, Cnt - 1, Acc)
     end.
