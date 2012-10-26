@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/env perl -W
 #
 # %CopyrightBegin%
 #
@@ -362,7 +362,7 @@ while (<>) {
 	    $gen_to_spec{"$name/$arity"} = undef;
 	    $num_specific{"$name/$arity"} = 0;
 	    $min_window{"$name/$arity"} = 255;
-	    $obsolete[$op_num] = $obsolete eq '-';
+	    $obsolete[$op_num] = defined $obsolete;
 	} else {		# Unnumbered generic operation.
 	    push(@unnumbered_generic, [$name, $arity]);
 	    $unnumbered{$name,$arity} = 1;
@@ -379,7 +379,7 @@ while (<>) {
 	if @args > $max_spec_operands;
     &syntax_check($name, @args);
     my $arity = @args;
-    if ($obsolete[$gen_opnum{$name,$arity}]) {
+    if (defined $gen_opnum{$name,$arity} and $obsolete[$gen_opnum{$name,$arity}]) {
 	error("specific instructions may not be specified for obsolete instructions");
     }
     push(@{$specific_op{"$name/$arity"}}, [$name, $hot, @args]);
@@ -810,8 +810,8 @@ sub compiler_output {
     #
     # Generate .hrl file.
     #
-    my($name) = "$outdir/${module}.hrl";
-    open(STDOUT, ">$name") || die "Failed to open $name for writing: $!\n";
+    my($hrl_name) = "$outdir/${module}.hrl";
+    open(STDOUT, ">$hrl_name") || die "Failed to open $hrl_name for writing: $!\n";
     &comment('erlang');
 
     for ($i = 0; $i < @tag_type && $i < 8; $i++) {
@@ -1251,8 +1251,8 @@ sub compile_transform {
 	$arity++ unless $list[1] eq '*';
 	$_ = [ @list ];
     }
-
-    if ($obsolete[$gen_opnum{$name,$arity}]) {
+    
+    if (defined $gen_opnum{$name,$arity} && $obsolete[$gen_opnum{$name,$arity}]) {
 	error("obsolete function must not be used in transformations");
     }
 
@@ -1704,14 +1704,15 @@ sub tr_gen_to {
     #
     my($first_ref) = shift(@code);
     my($size, $first, $key) = @$first_ref;
-    my($dummy, $op, $arity) = @$first;
+    my($dummy, $arity);
+    ($dummy, $op, $arity) = @$first;
     my($comment) = "\n/*\n * Line $line:\n *   $orig_transform\n */\n\n";
     $min_window{$key} = $min_window
 	if $min_window{$key} > $min_window;
 
     my $prev_last;
     $prev_last = pop(@{$gen_transform{$key}})
-	if defined @{$gen_transform{$key}}; # Fail
+	if defined $gen_transform{$key}; # Fail
 
     if ($prev_last && !is_instr($prev_last, 'fail')) {
 	error("Line $line: A previous transformation shadows '$orig_transform'");
@@ -1719,7 +1720,7 @@ sub tr_gen_to {
     unless ($cannot_fail) {
 	unshift(@code, make_op('', 'try_me_else',
 			       tr_code_len(@code)));
-	push(@code, make_op(""), make_op("$key", 'fail'));
+	push(@code, make_op("$key", 'fail'));
     }
     unshift(@code, make_op($comment));
     push(@{$gen_transform{$key}}, @code),
