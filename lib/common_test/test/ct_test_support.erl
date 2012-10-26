@@ -32,7 +32,7 @@
 	 run/2, run/3, run/4, get_opts/1, wait_for_ct_stop/1]).
 
 -export([handle_event/2, start_event_receiver/1, get_events/2,
-	 verify_events/3, reformat/2, log_events/4,
+	 verify_events/3, verify_events/4, reformat/2, log_events/4,
 	 join_abs_dirs/2]).
 
 -export([ct_test_halt/1]).
@@ -357,6 +357,14 @@ er_loop(Evs) ->
 
 verify_events(TEvs, Evs, Config) ->
     Node = proplists:get_value(ct_node, Config),
+    case catch verify_events1(TEvs, Evs, Node, Config) of
+	{'EXIT',Reason} ->
+	    Reason;
+	_ ->
+	    ok
+    end.
+
+verify_events(TEvs, Evs, Node, Config) ->
     case catch verify_events1(TEvs, Evs, Node, Config) of
 	{'EXIT',Reason} ->
 	    Reason;
