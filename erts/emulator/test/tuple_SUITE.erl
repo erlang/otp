@@ -60,40 +60,40 @@ end_per_group(_GroupName, Config) ->
 
 
 build_and_match(Config) when is_list(Config) ->
-    ?line {} = id({}),
-    ?line {1} = id({1}),
-    ?line {1, 2} = id({1, 2}),
-    ?line {1, 2, 3} = id({1, 2, 3}),
-    ?line {1, 2, 3, 4} = id({1, 2, 3, 4}),
-    ?line {1, 2, 3, 4, 5} = id({1, 2, 3, 4, 5}),
-    ?line {1, 2, 3, 4, 5, 6} = id({1, 2, 3, 4, 5, 6}),
-    ?line {1, 2, 3, 4, 5, 6} = id({1, 2, 3, 4, 5, 6}),
-    ?line {1, 2, 3, 4, 5, 6, 7} = id({1, 2, 3, 4, 5, 6, 7}),
-    ?line {1, 2, 3, 4, 5, 6, 7, 8} = id({1, 2, 3, 4, 5, 6, 7, 8}),
+    {} = id({}),
+    {1} = id({1}),
+    {1, 2} = id({1, 2}),
+    {1, 2, 3} = id({1, 2, 3}),
+    {1, 2, 3, 4} = id({1, 2, 3, 4}),
+    {1, 2, 3, 4, 5} = id({1, 2, 3, 4, 5}),
+    {1, 2, 3, 4, 5, 6} = id({1, 2, 3, 4, 5, 6}),
+    {1, 2, 3, 4, 5, 6} = id({1, 2, 3, 4, 5, 6}),
+    {1, 2, 3, 4, 5, 6, 7} = id({1, 2, 3, 4, 5, 6, 7}),
+    {1, 2, 3, 4, 5, 6, 7, 8} = id({1, 2, 3, 4, 5, 6, 7, 8}),
     ok.
 
 %% Tests size(Tuple).
 
 t_size(Config) when is_list(Config) ->
-    ?line 0 = size({}),
-    ?line 1 = size({a}),
-    ?line 1 = size({{a}}),
-    ?line 2 = size({{a}, {b}}),
-    ?line 3 = size({1, 2, 3}),
+    0 = size({}),
+    1 = size({a}),
+    1 = size({{a}}),
+    2 = size({{a}, {b}}),
+    3 = size({1, 2, 3}),
     ok.
 
 t_tuple_size(Config) when is_list(Config) ->
-    ?line 0 = tuple_size(id({})),
-    ?line 1 = tuple_size(id({a})),
-    ?line 1 = tuple_size(id({{a}})),
-    ?line 2 = tuple_size(id({{a},{b}})),
-    ?line 3 = tuple_size(id({1,2,3})),
+    0 = tuple_size(id({})),
+    1 = tuple_size(id({a})),
+    1 = tuple_size(id({{a}})),
+    2 = tuple_size(id({{a},{b}})),
+    3 = tuple_size(id({1,2,3})),
 
     %% Error cases.
-    ?line {'EXIT',{badarg,_}} = (catch tuple_size([])),
-    ?line {'EXIT',{badarg,_}} = (catch tuple_size(<<1,2,3>>)),
-    ?line error = ludicrous_tuple_size({a,b,c}),
-    ?line error = ludicrous_tuple_size([a,b,c]),
+    {'EXIT',{badarg,_}} = (catch tuple_size([])),
+    {'EXIT',{badarg,_}} = (catch tuple_size(<<1,2,3>>)),
+    error = ludicrous_tuple_size({a,b,c}),
+    error = ludicrous_tuple_size([a,b,c]),
     ok.
 
 
@@ -104,44 +104,44 @@ ludicrous_tuple_size(_) -> error.
 %% Tests element/2.
 
 t_element(Config) when is_list(Config) ->
-    ?line a = element(1, {a}),
-    ?line a = element(1, {a, b}),
+    a = element(1, {a}),
+    a = element(1, {a, b}),
 
-    ?line List = lists:seq(1, 4096),
-    ?line Tuple = list_to_tuple(lists:seq(1, 4096)),
-    ?line get_elements(List, Tuple, 1),
+    List = lists:seq(1, 4096),
+    Tuple = list_to_tuple(lists:seq(1, 4096)),
+    get_elements(List, Tuple, 1),
 
-    ?line {'EXIT', {badarg, _}} = (catch element(0, id({a,b}))),
-    ?line {'EXIT', {badarg, _}} = (catch element(3, id({a,b}))),
-    ?line {'EXIT', {badarg, _}} = (catch element(1, id({}))),
-    ?line {'EXIT', {badarg, _}} = (catch element(1, id([a,b]))),
-    ?line {'EXIT', {badarg, _}} = (catch element(1, id(42))),
-    ?line {'EXIT', {badarg, _}} = (catch element(id(1.5), id({a,b}))),
+    {'EXIT', {badarg, _}} = (catch element(0, id({a,b}))),
+    {'EXIT', {badarg, _}} = (catch element(3, id({a,b}))),
+    {'EXIT', {badarg, _}} = (catch element(1, id({}))),
+    {'EXIT', {badarg, _}} = (catch element(1, id([a,b]))),
+    {'EXIT', {badarg, _}} = (catch element(1, id(42))),
+    {'EXIT', {badarg, _}} = (catch element(id(1.5), id({a,b}))),
 
     ok.
 
 get_elements([Element|Rest], Tuple, Pos) ->
-    ?line Element = element(Pos, Tuple),
-    ?line get_elements(Rest, Tuple, Pos+1);
+    Element = element(Pos, Tuple),
+    get_elements(Rest, Tuple, Pos+1);
 get_elements([], _Tuple, _Pos) ->
     ok.
     
 %% Tests set_element/3.
 
 t_setelement(Config) when is_list(Config) ->
-    ?line {x} = setelement(1, id({1}), x),
-    ?line {x,2} = setelement(1, id({1,2}), x),
-    ?line {1,x} = setelement(2, id({1,2}), x),
+    {x} = setelement(1, id({1}), x),
+    {x,2} = setelement(1, id({1,2}), x),
+    {1,x} = setelement(2, id({1,2}), x),
 
-    ?line Tuple = list_to_tuple(lists:duplicate(2048, x)),
-    ?line NewTuple = set_all_elements(Tuple, 1),
-    ?line NewTuple = list_to_tuple(lists:seq(1+7, 2048+7)),
+    Tuple = list_to_tuple(lists:duplicate(2048, x)),
+    NewTuple = set_all_elements(Tuple, 1),
+    NewTuple = list_to_tuple(lists:seq(1+7, 2048+7)),
 
-    ?line {'EXIT', {badarg, _}} = (catch setelement(0, {a, b}, x)),
-    ?line {'EXIT', {badarg, _}} = (catch setelement(3, {a, b}, x)),
-    ?line {'EXIT', {badarg, _}} = (catch setelement(1, {}, x)),
-    ?line {'EXIT', {badarg, _}} = (catch setelement(1, [a, b], x)),
-    ?line {'EXIT', {badarg, _}} = (catch setelement(1.5, {a, b}, x)),
+    {'EXIT', {badarg, _}} = (catch setelement(0, {a, b}, x)),
+    {'EXIT', {badarg, _}} = (catch setelement(3, {a, b}, x)),
+    {'EXIT', {badarg, _}} = (catch setelement(1, {}, x)),
+    {'EXIT', {badarg, _}} = (catch setelement(1, [a, b], x)),
+    {'EXIT', {badarg, _}} = (catch setelement(1.5, {a, b}, x)),
 
     %% Nested setelement with literals.
     AnotherTuple = id({0,0,a,b,c}),
@@ -185,21 +185,21 @@ t_list_to_tuple(Config) when is_list(Config) ->
 %% Tests tuple_to_list/1.
 
 t_tuple_to_list(Config) when is_list(Config) ->
-    ?line [] = tuple_to_list({}),
-    ?line [a] = tuple_to_list({a}),
-    ?line [a, b] = tuple_to_list({a, b}),
-    ?line [a, b, c] = tuple_to_list({a, b, c}),
-    ?line [a, b, c, d] = tuple_to_list({a, b, c, d}),
-    ?line [a, b, c, d] = tuple_to_list({a, b, c, d}),
+    [] = tuple_to_list({}),
+    [a] = tuple_to_list({a}),
+    [a, b] = tuple_to_list({a, b}),
+    [a, b, c] = tuple_to_list({a, b, c}),
+    [a, b, c, d] = tuple_to_list({a, b, c, d}),
+    [a, b, c, d] = tuple_to_list({a, b, c, d}),
 
-    ?line Size = 4096,
-    ?line List = lists:seq(1, Size),
-    ?line Tuple = list_to_tuple(List),
-    ?line Size = size(Tuple),
-    ?line List = tuple_to_list(Tuple),
+    Size = 4096,
+    List = lists:seq(1, Size),
+    Tuple = list_to_tuple(List),
+    Size = size(Tuple),
+    List = tuple_to_list(Tuple),
 
-    ?line {'EXIT', {badarg,_}} = (catch tuple_to_list(id(a))),
-    ?line {'EXIT', {badarg,_}} = (catch tuple_to_list(id(42))),
+    {'EXIT', {badarg,_}} = (catch tuple_to_list(id(a))),
+    {'EXIT', {badarg,_}} = (catch tuple_to_list(id(42))),
 
     ok.
 
@@ -287,7 +287,7 @@ verify_seq([High|T], High, Lower) ->
 %% (This is known to crash earlier versions of BEAM.)
 
 tuple_with_case(Config) when is_list(Config) ->
-    ?line {reply, true} = tuple_with_case(),
+    {reply, true} = tuple_with_case(),
     ok.
 
 tuple_with_case() ->
@@ -306,21 +306,21 @@ foo() -> ignored.
 %% Test to build a tuple in a guard.
 
 tuple_in_guard(Config) when is_list(Config) ->
-    ?line Tuple1 = id({a,b}),
-    ?line Tuple2 = id({a,b,c}),
-    ?line if
-	      Tuple1 == {element(1, Tuple2),element(2, Tuple2)} ->
-		  ok;
-	      true ->
-		  ?line test_server:fail()
-	  end,
-    ?line if
-	      Tuple2 == {element(1, Tuple2),element(2, Tuple2),
-			 element(3, Tuple2)} ->
-		  ok;
-	      true ->
-		  ?line test_server:fail()
-	  end,
+    Tuple1 = id({a,b}),
+    Tuple2 = id({a,b,c}),
+    if
+	Tuple1 == {element(1, Tuple2),element(2, Tuple2)} ->
+	    ok;
+	true ->
+	    test_server:fail()
+    end,
+    if
+	Tuple2 == {element(1, Tuple2),element(2, Tuple2),
+	    element(3, Tuple2)} ->
+	    ok;
+	true ->
+	    test_server:fail()
+    end,
     ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.
