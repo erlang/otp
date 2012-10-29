@@ -106,6 +106,11 @@
       from all nodes.</p>
     <p>To only collect data from remote nodes without stopping
       <c>cover</c> on those nodes, use <c>cover:flush/1</c></p>
+    <p>If the connection to a remote node goes down, the main node
+      will mark it as lost. If the node comes back it will be added
+      again. If the remote node was alive during the disconnected
+      periode, cover data from before and during this periode will be
+      included in the analysis.</p>
   </description>
   <funcs>
     <func>
