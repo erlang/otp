@@ -62,6 +62,7 @@
 	  latest_channel_id = 0, 
 	  opts,
 	  channel_args,
+	  timer_ref, % timerref
 	  connected 
 	 }).
 
@@ -203,6 +204,7 @@ init([client, Opts]) ->
     ChannelPid = proplists:get_value(channel_pid, Opts),
     self() ! 
 	{start_connection, client, [Parent, Address, Port, SocketOpts, Options]},
+    TimerRef = erlang:send_after(3600000, self(), {'EXIT', [], "Timeout"}),
     {ok, #state{role = client, 
 		client = ChannelPid,
 		connection_state = #connection{channel_cache = Cache,
@@ -211,6 +213,7 @@ init([client, Opts]) ->
 					       connection_supervisor = Parent,
 					       requests = []},
 		opts = Opts,
+		timer_ref = TimerRef,
 		connected = false}}.
 
 %%--------------------------------------------------------------------
@@ -358,7 +361,7 @@ handle_call({open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data},
 		       recv_packet_size = MaxPacketSize},
     ssh_channel:cache_update(Cache, Channel),
     State = add_request(true, ChannelId, From, State1),
-    {noreply, State};
+    {noreply, remove_timer_ref(State)};
 
 handle_call({send_window, ChannelId}, _From, 
 	    #state{connection_state = 
@@ -403,6 +406,7 @@ handle_call({close, ChannelId}, _,
 	    send_msg({connection_reply, Pid, 
 		      ssh_connection:channel_close_msg(Id)}),
 	    ssh_channel:cache_update(Cache, Channel#channel{sent_close = true}),
+	    erlang:send_after(3600000, self(), {check_cache, [], []}),
 	    {reply, ok, State};
 	undefined -> 
 	    {reply, ok, State}
@@ -523,7 +527,10 @@ handle_info({start_connection, client,
 	    Pid ! {self(), not_connected, Reason},
 	    {stop, {shutdown, normal}, State}
     end;
-
+handle_info({check_cache, _ , _}, 
+	    #state{connection_state = 
+		       #connection{channel_cache = Cache}} = State) ->
+    {noreply, check_cache(State, Cache)};
 handle_info({ssh_cm, _Sender, Msg}, State0) ->
     %% Backwards compatibility!  
     State = cm_message(Msg, State0),
@@ -580,6 +587,24 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+check_cache(State, Cache) ->
+    %% Check the number of entries in Cache
+    case proplists:get_value(size, ets:info(Cache)) of
+	0 ->
+	    TimerRef = erlang:send_after(3600000, self(), {'EXIT', [], "Timeout"}),
+	    State#state{timer_ref=TimerRef};
+	_ ->
+	    State
+    end.
+remove_timer_ref(State) ->
+    case State#state.timer_ref of
+	undefined ->
+	    State;
+	_ ->
+	    TimerRef = State#state.timer_ref,
+	    erlang:cancel_timer(TimerRef),
+	    State#state{timer_ref = undefined}
+    end.
 channel_data(Id, Type, Data, Connection0, ConnectionPid, From, State) ->
     case ssh_connection:channel_data(Id, Type, Data, Connection0,
 				     ConnectionPid, From) of
@@ -677,7 +702,7 @@ handle_channel_down(ChannelPid, #state{connection_state =
 		  (_,Acc) ->
 		       Acc
 	       end, [], Cache),
-    {{replies, []}, State}.
+    {{replies, []}, check_cache(State, Cache)}.
 
 update_sys(Cache, Channel, Type, ChannelPid) ->
     ssh_channel:cache_update(Cache, 
