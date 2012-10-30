@@ -62,7 +62,7 @@
 	  latest_channel_id = 0, 
 	  opts,
 	  channel_args,
-	  timer_ref, % timerref
+	  idle_timer_ref, % timerref
 	  connected 
 	 }).
 
@@ -204,7 +204,8 @@ init([client, Opts]) ->
     ChannelPid = proplists:get_value(channel_pid, Opts),
     self() ! 
 	{start_connection, client, [Parent, Address, Port, SocketOpts, Options]},
-    TimerRef = erlang:send_after(3600000, self(), {'EXIT', [], "Timeout"}),
+    TimerRef = get_idle_time(Options),
+	
     {ok, #state{role = client, 
 		client = ChannelPid,
 		connection_state = #connection{channel_cache = Cache,
@@ -213,7 +214,7 @@ init([client, Opts]) ->
 					       connection_supervisor = Parent,
 					       requests = []},
 		opts = Opts,
-		timer_ref = TimerRef,
+		idle_timer_ref = TimerRef,
 		connected = false}}.
 
 %%--------------------------------------------------------------------
@@ -406,7 +407,13 @@ handle_call({close, ChannelId}, _,
 	    send_msg({connection_reply, Pid, 
 		      ssh_connection:channel_close_msg(Id)}),
 	    ssh_channel:cache_update(Cache, Channel#channel{sent_close = true}),
-	    erlang:send_after(3600000, self(), {check_cache, [], []}),
+	    SshOpts = proplists:get_value(ssh_opts, State#state.opts),
+	    case proplists:get_value(idle_time, SshOpts) of
+		infinity ->
+		    ok;
+		_IdleTime ->
+		    erlang:send_after(5000, self(), {check_cache, [], []})
+	    end,
 	    {reply, ok, State};
 	undefined -> 
 	    {reply, ok, State}
@@ -587,23 +594,32 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+get_idle_time(SshOptions) ->
+    case proplists:get_value(idle_time, SshOptions) of
+	infinity ->
+	    infinity;
+       IdleTime ->
+	    TimerRef = erlang:send_after(IdleTime, self(), {'EXIT', [], "Timeout"}),
+	    TimerRef
+    end.
 check_cache(State, Cache) ->
     %% Check the number of entries in Cache
     case proplists:get_value(size, ets:info(Cache)) of
 	0 ->
-	    TimerRef = erlang:send_after(3600000, self(), {'EXIT', [], "Timeout"}),
-	    State#state{timer_ref=TimerRef};
+	    Opts = proplists:get_value(ssh_opts, State#state.opts),
+	    TimerRef = erlang:send_after(proplists:get_value(idle_time, Opts), self(), {'EXIT', [], "Timeout"}),
+	    State#state{idle_timer_ref=TimerRef};
 	_ ->
 	    State
     end.
 remove_timer_ref(State) ->
-    case State#state.timer_ref of
-	undefined ->
+    case State#state.idle_timer_ref of
+	infinity ->
 	    State;
 	_ ->
-	    TimerRef = State#state.timer_ref,
+	    TimerRef = State#state.idle_timer_ref,
 	    erlang:cancel_timer(TimerRef),
-	    State#state{timer_ref = undefined}
+	    State#state{idle_timer_ref = undefined}
     end.
 channel_data(Id, Type, Data, Connection0, ConnectionPid, From, State) ->
     case ssh_connection:channel_data(Id, Type, Data, Connection0,

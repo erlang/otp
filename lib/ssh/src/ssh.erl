@@ -79,7 +79,7 @@ connect(Host, Port, Options, Timeout) ->
 	    DisableIpv6 =  proplists:get_value(ip_v6_disabled, SshOptions, false),
 	    Inet = inetopt(DisableIpv6),
 	    do_connect(Host, Port, [Inet | SocketOptions], 
-		       [{host, Host} | SshOptions], Timeout, DisableIpv6)
+		       [{host, Host} | fix_idle_time(SshOptions)], Timeout, DisableIpv6)
     end.
 
 do_connect(Host, Port, SocketOptions, SshOptions, Timeout, DisableIpv6) ->
@@ -237,6 +237,13 @@ shell(Host, Port, Options) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+fix_idle_time(SshOptions) ->
+    case proplists:get_value(idle_time, SshOptions) of
+	undefined ->
+	    [{idle_time, infinity}|SshOptions];
+	_ ->
+	    SshOptions
+    end.
 start_daemon(Host, Port, Options, Inet) ->
     case handle_options(Options) of
 	{error, _Reason} = Error ->
@@ -342,6 +349,8 @@ handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{idle_time, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -406,6 +415,8 @@ handle_ssh_option({shell, {Module, Function, _}} = Opt)  when is_atom(Module),
 							      is_atom(Function) ->
     Opt;
 handle_ssh_option({shell, Value} = Opt) when is_function(Value) ->
+    Opt;
+handle_ssh_option({idle_time, Value} = Opt) when is_integer(Value), Value > 0 ->
     Opt;
 handle_ssh_option(Opt) ->
     throw({error, {eoptions, Opt}}).
