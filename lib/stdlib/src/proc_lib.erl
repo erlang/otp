@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -184,6 +184,17 @@ check_for_monitor(SpawnOpts) ->
 	    false
     end.
 
+spawn_mon(M,F,A) ->
+    Parent = get_my_name(),
+    Ancestors = get_ancestors(),
+    erlang:spawn_monitor(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
+
+spawn_opt_mon(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
+    Parent = get_my_name(),
+    Ancestors = get_ancestors(),
+    check_for_monitor(Opts),
+    erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], [monitor|Opts]).
+
 -spec hibernate(Module, Function, Args) -> no_return() when
       Module :: module(),
       Function :: atom(),
@@ -270,8 +281,8 @@ start(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    Pid = ?MODULE:spawn(M, F, A),
-    sync_wait(Pid, Timeout).
+    PidRef = spawn_mon(M, F, A),
+    sync_wait_mon(PidRef, Timeout).
 
 -spec start(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
@@ -282,8 +293,8 @@ start(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout, SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
-    Pid = ?MODULE:spawn_opt(M, F, A, SpawnOpts),
-    sync_wait(Pid, Timeout).
+    PidRef = spawn_opt_mon(M, F, A, SpawnOpts),
+    sync_wait_mon(PidRef, Timeout).
 
 -spec start_link(Module, Function, Args) -> Ret when
       Module :: module(),
@@ -325,6 +336,23 @@ sync_wait(Pid, Timeout) ->
 	    {error, Reason}
     after Timeout ->
 	    unlink(Pid),
+	    exit(Pid, kill),
+	    flush(Pid),
+	    {error, timeout}
+    end.
+
+sync_wait_mon({Pid, Ref}, Timeout) ->
+    receive
+	{ack, Pid, Return} ->
+	    erlang:demonitor(Ref, [flush]),
+	    Return;
+	{'DOWN', Ref, _Type, Pid, Reason} ->
+	    {error, Reason};
+	{'EXIT', Pid, Reason} -> %% link as spawn_opt?
+	    erlang:demonitor(Ref, [flush]),
+	    {error, Reason}
+    after Timeout ->
+	    erlang:demonitor(Ref, [flush]),
 	    exit(Pid, kill),
 	    flush(Pid),
 	    {error, timeout}
