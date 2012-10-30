@@ -54,7 +54,7 @@ post_init_per_group(_Group, _Config, Result, State) ->
 post_end_per_testcase(_TC, _Config, Result, State) ->
     %% Make sure that the event queue is flushed
     %% before ending this test case.
-    gen_event:call(error_logger, ?MODULE, flush),
+    gen_event:call(error_logger, ?MODULE, flush, 300000),
     {Result, State}.
 
 pre_end_per_group(Group, Config, {ct_log, Group}) ->
