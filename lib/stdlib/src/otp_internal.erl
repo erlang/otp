@@ -359,6 +359,41 @@ obsolete_1(ssh, sign_data, 2) ->
      "and public_key:sign/3 instead"};
 obsolete_1(ssh, verify_data, 3) ->
     {deprecated,"deprecated (will be removed in R16A); use public_key:ssh_decode/1, and public_key:verify/4 instead"};
+
+%% Added in R16
+obsolete_1(wxCalendarCtrl, enableYearChange, _) -> %% wx bug documented?
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxDC, computeScaleAndOrigin, 1) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxClientDC, new, 0) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxPaintDC, new, 0) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxWindowDC, new, 0) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxGraphicsContext, createLinearGradientBrush, 7) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxGraphicsContext, createRadialGradientBrush, 8) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxGraphicsRenderer, createLinearGradientBrush, 7) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxGraphicsRenderer, createRadialGradientBrush, 8) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxGridCellEditor, endEdit, 4) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxGridCellEditor, paintBackground, 3) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxIdleEvent, canSend, 1) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxMDIClientWindow, new, 1) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxMDIClientWindow, new, 2) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxPostScriptDC, getResolution, 0) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+obsolete_1(wxPostScriptDC, setResolution, 1) ->
+    {deprecated,"deprecated function not available in wxWidgets-2.9 and later"};
+
 obsolete_1(_, _, _) ->
     no.
 

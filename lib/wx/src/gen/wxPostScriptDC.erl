@@ -53,6 +53,8 @@
   startPage/1]).
 
 -export_type([wxPostScriptDC/0]).
+-deprecated([getResolution/0,setResolution/1]).
+
 %% @hidden
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

@@ -69,6 +69,8 @@
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
 -export_type([wxMDIClientWindow/0]).
+-deprecated([new/1,new/2]).
+
 %% @hidden
 parent_class(wxWindow) -> true;
 parent_class(wxEvtHandler) -> true;

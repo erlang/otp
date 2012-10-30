@@ -53,6 +53,8 @@
   startPage/1]).
 
 -export_type([wxWindowDC/0]).
+-deprecated([new/0]).
+
 %% @hidden
 parent_class(wxDC) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

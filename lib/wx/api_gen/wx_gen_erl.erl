@@ -70,8 +70,7 @@ gen_class1(C=#class{name=Name,parent="static",methods=Ms,options=_Opts}) ->
 
     Exp = fun(M) -> gen_export(C,M) end,
     ExportList = lists:usort(lists:append(lists:map(Exp,reverse(Ms)))),
-    w("-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
-
+    w("-export([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", ExportList, 60)]),
 
     Gen = fun(M) -> gen_method(Name,M) end,
     NewMs = lists:map(Gen,reverse(Ms)),
@@ -134,7 +133,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("-include(\"wxe.hrl\").~n",[]),
 	    Exp = fun(M) -> gen_export(C,M) end,
 	    ExportList = lists:usort(lists:append(lists:map(Exp,reverse(Ms)))),
-	    w("-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
+	    w("-export([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", ExportList, 60)]),
 	    w("%% inherited exports~n",[]),
 	    Done0 = ["Destroy", "New", "Create", "destroy", "new", "create"],
 	    Done  = gb_sets:from_list(Done0 ++ [M|| #method{name=M} <- lists:append(Ms)]),
@@ -143,6 +142,10 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 					  lists:usort(["parent_class/1"|InExported]),
 					  60)]),
 	    w("-export_type([~s/0]).~n", [Name]),
+	    case lists:filter(fun({_F,Depr}) -> Depr end, ExportList) of
+		[] -> ok;
+		Depr -> w("-deprecated([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", Depr, 60)])
+	    end,
 	    w("%% @hidden~n", []),
 	    parents_check(Parents),
 	    w("-type ~s() :: wx:wx_object().~n", [Name]),
@@ -218,33 +221,40 @@ gen_export(#class{name=Class,abstract=Abs},Ms0) ->
     case Res of
 	[] -> [];
 	[M=#method{where=taylormade}|_] ->
-	    [taylormade_export(Class, M)];
+	    [deprecated(M, taylormade_export(Class, M))];
 	Ms ->
-	    GetF = fun(#method{method_type=constructor,where=W,params=Ps}) ->
+	    GetF = fun(M=#method{method_type=constructor,where=W,params=Ps}) ->
 			   {Args,Opts} = split_optional(Ps),
 			   OptLen = case Opts of
 					[] -> 0;
 					_ when W =:= erl_no_opt -> 0;
 					_ -> 1
 				    end,
-			   "new/" ++ integer_to_list(length(Args)+OptLen);
-		      (#method{method_type=destructor}) ->
+			   deprecated(M, "new" ++ "/" ++ integer_to_list(length(Args)+OptLen));
+		      (M=#method{method_type=destructor}) ->
 			   case Abs of
 			       true -> [];
-			       _ -> "destroy/1"
+			       _ -> deprecated(M, "destroy/1")
 			   end;
-		      (#method{name=N,alias=A,where=W, params=Ps}) ->
+		      (M=#method{name=N,alias=A,where=W, params=Ps}) ->
 			   {Args,Opts} = split_optional(Ps),
 			   OptLen = case Opts of
 					[] -> 0;
 					_ when W =:= erl_no_opt -> 0;
 					_ -> 1
 				    end,
-			   erl_func_name(N,A) ++ "/" ++ integer_to_list(length(Args) + OptLen)
+			   deprecated(M, erl_func_name(N,A) ++ "/" ++ integer_to_list(length(Args) + OptLen))
 		   end,
 	    lists:map(GetF, Ms)
     end.
 
+deprecated(#method{opts=FOpts}, FA) ->
+    case lists:keysearch(deprecated, 1, FOpts) of
+	{value, {deprecated, _}} ->
+	    {FA,true};
+	_ ->
+	    {FA,false}
+    end.
 
 gen_method(Class,Ms0) ->
     RemoveC = fun(#method{where=merged_c}) -> false;(_Other) -> true end,

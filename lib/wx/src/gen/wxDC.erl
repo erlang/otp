@@ -50,6 +50,8 @@
 -export([parent_class/1]).
 
 -export_type([wxDC/0]).
+-deprecated([computeScaleAndOrigin/1]).
+
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 

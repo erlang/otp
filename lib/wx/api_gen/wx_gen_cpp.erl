@@ -124,8 +124,8 @@ gen_constructor(Class, _M=#method{params=Ps, opts=FOpts}) ->
     CallA = fun(#param{name=N}) -> N end,
     HaveMergedType = fun(#param{type={merged,_,_,_,_,_,_}}) -> true; (_) -> false end,
     ?WTC("gen_constructor"),
-    Endif = case lists:keysearch(ifdef, 1, FOpts) of
-		{value, {ifdef, IfDef}} ->
+    Endif = case lists:keysearch(deprecated, 1, FOpts) of
+		{value, {deprecated, IfDef}} ->
 		    w("#if ~s~n", [IfDef]),
 		    true;
 		_ -> false
@@ -304,8 +304,8 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     put(current_func, N),
     put(bin_count,-1),
     ?WTC("gen_method"),
-    Endif = case lists:keysearch(ifdef, 1, FOpts) of
-		{value, {ifdef, IfDef}} ->
+    Endif = case lists:keysearch(deprecated, 1, FOpts) of
+		{value, {deprecated, IfDef}} ->
 		    w("#if ~s~n", [IfDef]),
 		    true;
 		_ -> false

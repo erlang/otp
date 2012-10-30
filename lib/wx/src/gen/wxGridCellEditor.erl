@@ -31,6 +31,8 @@
 -export([parent_class/1]).
 
 -export_type([wxGridCellEditor/0]).
+-deprecated([endEdit/4,paintBackground/3]).
+
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 

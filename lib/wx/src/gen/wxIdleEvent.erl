@@ -38,6 +38,8 @@
   resumePropagation/2,shouldPropagate/1,skip/1,skip/2,stopPropagation/1]).
 
 -export_type([wxIdleEvent/0]).
+-deprecated([canSend/1]).
+
 %% @hidden
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

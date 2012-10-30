@@ -40,6 +40,8 @@
 -export([getRenderer/1,isNull/1,parent_class/1]).
 
 -export_type([wxGraphicsContext/0]).
+-deprecated([createLinearGradientBrush/7,createRadialGradientBrush/8]).
+
 %% @hidden
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

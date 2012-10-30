@@ -54,6 +54,8 @@
   startPage/1]).
 
 -export_type([wxPaintDC/0]).
+-deprecated([new/0]).
+
 %% @hidden
 parent_class(wxWindowDC) -> true;
 parent_class(wxDC) -> true;
