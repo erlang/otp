@@ -204,7 +204,7 @@ open_ct_master_log(Dir) ->
     {ok,Fd} = file:open(FullName,[write]),
     io:put_chars(Fd,header("Common Test Master Log", {[],[1,2],[]})),
     %% maybe add config info here later
-    io:put_chars(config_table([])),
+    io:put_chars(Fd,config_table([])),
     io:put_chars(Fd,
 		 "<style>\n"
 		 "div.ct_internal { background:lightgrey; color:black }\n"
