@@ -1046,8 +1046,9 @@ call_with_huge_message_queue(Config) when is_list(Config) ->
     io:format("Time for empty message queue: ~p", [Time]),
     io:format("Time for huge message queue: ~p", [NewTime]),
 
+    IsCover = test_server:is_cover(),
     case (NewTime+1) / (Time+1) of
-	Q when Q < 10 ->
+	Q when Q < 10; IsCover ->
 	    ok;
 	Q ->
 	    io:format("Q = ~p", [Q]),

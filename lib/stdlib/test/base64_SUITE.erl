@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,7 +20,6 @@
 -module(base64_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
--include("test_server_line.hrl").
 
 %% Test server specific exports
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -33,7 +32,7 @@
 	 mime_decode_to_string/1, roundtrip/1]).
 
 init_per_testcase(_, Config) ->
-    Dog = test_server:timetrap(?t:minutes(2)),
+    Dog = test_server:timetrap(?t:minutes(4)),
     NewConfig = lists:keydelete(watchdog, 1, Config),
     [{watchdog, Dog} | NewConfig].
 

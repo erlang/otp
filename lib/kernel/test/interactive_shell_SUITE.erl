@@ -29,7 +29,7 @@
 -export([toerl_server/3]).
 
 init_per_testcase(_Func, Config) ->
-    Dog = test_server:timetrap(test_server:seconds(60)),
+    Dog = test_server:timetrap(test_server:minutes(3)),
     Term = case os:getenv("TERM") of
 	       List when is_list(List) ->
 		   List;

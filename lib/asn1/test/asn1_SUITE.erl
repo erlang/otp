@@ -1,3 +1,4 @@
+%%
 %% %CopyrightBegin%
 %%
 %% Copyright Ericsson AB 2001-2012. All Rights Reserved.
@@ -242,8 +243,8 @@ init_per_testcase(Func, Config) ->
     true = code:add_patha(CaseDir),
 
     Dog = case Func of
-              testX420 -> test_server:timetrap({minutes, 90});
-              _        -> test_server:timetrap({minutes, 60})
+              testX420 -> ct:timetrap({minutes, 90});
+              _        -> ct:timetrap({minutes, 60})
           end,
     [{case_dir, CaseDir}, {watchdog, Dog}|Config].
 
