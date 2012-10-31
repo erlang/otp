@@ -899,7 +899,7 @@ void erts_wake_process_later(Port*, Process*);
 Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
 int erts_is_port_ioq_empty(Port *);
 void erts_terminate_port(Port *);
-void init_io(void);
+void erts_init_io(int, int);
 void erts_do_exit_port(Port *, Eterm, Eterm);
 void erts_port_command(Process *, Eterm, Port *, Eterm);
 Eterm erts_port_control(Process*, Port*, Uint, Eterm);

@@ -111,6 +111,11 @@ const int etp_lock_check = 1;
 #else
 const int etp_lock_check = 0;
 #endif
+#ifdef WORDS_BIGENDIAN
+const int etp_big_endian = 1;
+#else
+const int etp_big_endian = 0;
+#endif
 /*
  * Note about VxWorks: All variables must be initialized by executable code,
  * not by an initializer. Otherwise a new instance of the emulator will
@@ -123,7 +128,10 @@ extern void ConNormalExit(void);
 extern void ConWaitForExit(void);
 #endif
 
-static void erl_init(int ncpu, int proc_tab_sz);
+static void erl_init(int ncpu,
+		     int proc_tab_sz,
+		     int port_tab_sz,
+		     int port_tab_sz_ignore_files);
 
 static erts_atomic_t exiting;
 
@@ -291,12 +299,18 @@ void
 erts_short_init(void)
 {
     int ncpu = early_init(NULL, NULL);
-    erl_init(ncpu, ERTS_DEFAULT_MAX_PROCESSES);
+    erl_init(ncpu,
+	     ERTS_DEFAULT_MAX_PROCESSES,
+	     ERTS_DEFAULT_MAX_PORTS,
+	     0);
     erts_initialized = 1;
 }
 
 static void
-erl_init(int ncpu, int proc_tab_sz)
+erl_init(int ncpu,
+	 int proc_tab_sz,
+	 int port_tab_sz,
+	 int port_tab_sz_ignore_files)
 {
     init_benchmarking();
 
@@ -333,7 +347,7 @@ erl_init(int ncpu, int proc_tab_sz)
     init_dist();
     erl_drv_thr_init();
     erts_init_async();
-    init_io();
+    erts_init_io(port_tab_sz, port_tab_sz_ignore_files);
     init_copy();
     init_load();
     erts_init_bif();
@@ -556,7 +570,10 @@ void erts_usage(void)
 
     erts_fprintf(stderr, "-P number   set maximum number of processes on this node,\n");
     erts_fprintf(stderr, "            valid range is [%d-%d]\n",
-	       ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
+		 ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
+    erts_fprintf(stderr, "-Q number   set maximum number of ports on this node,\n");
+    erts_fprintf(stderr, "            valid range is [%d-%d]\n",
+		 ERTS_MIN_PORTS, ERTS_MAX_PORTS);
     erts_fprintf(stderr, "-R number   set compatibility release number,\n");
     erts_fprintf(stderr, "            valid range [%d-%d]\n",
 		 this_rel-2, this_rel);
@@ -946,12 +963,13 @@ erl_start(int argc, char **argv)
 {
     int i = 1;
     char* arg=NULL;
-    char* Parg = NULL;
     int have_break_handler = 1;
     char envbuf[21]; /* enough for any 64-bit integer */
     size_t envbufsz;
     int ncpu = early_init(&argc, argv);
     int proc_tab_sz = ERTS_DEFAULT_MAX_PROCESSES;
+    int port_tab_sz = ERTS_DEFAULT_MAX_PORTS;
+    int port_tab_sz_ignore_files = 0;
 
     envbufsz = sizeof(envbuf);
     if (erts_sys_getenv(ERL_MAX_ETS_TABLES_ENV, envbuf, &envbufsz) == 0)
@@ -1210,15 +1228,29 @@ erl_start(int argc, char **argv)
 		       arg);
 	    break;
 
-	case 'P':
-	    /* set maximum number of processes */
-	    Parg = get_arg(argv[i]+2, argv[i+1], &i);
-	    proc_tab_sz = atoi(Parg);
-	    if (proc_tab_sz < ERTS_MIN_PROCESSES
-		|| proc_tab_sz > ERTS_MAX_PROCESSES) {
-		erts_fprintf(stderr, "bad number of processes %s\n", Parg);
+	case 'P': /* set maximum number of processes */
+	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+	    errno = 0;
+	    proc_tab_sz = strtol(arg, NULL, 10);
+	    if (errno != 0
+		|| proc_tab_sz < ERTS_MIN_PROCESSES
+		|| ERTS_MAX_PROCESSES < proc_tab_sz) {
+		erts_fprintf(stderr, "bad number of processes %s\n", arg);
 		erts_usage();
 	    }
+	    break;
+
+	case 'Q': /* set maximum number of ports */
+	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+	    errno = 0;
+	    port_tab_sz = strtol(arg, NULL, 10);
+	    if (errno != 0
+		|| port_tab_sz < ERTS_MIN_PROCESSES
+		|| ERTS_MAX_PROCESSES < port_tab_sz) {
+		erts_fprintf(stderr, "bad number of ports %s\n", arg);
+		erts_usage();
+	    }
+	    port_tab_sz_ignore_files = 1;
 	    break;
 
 	case 'S' : /* Was handled in early_init() just read past it */
@@ -1511,7 +1543,10 @@ erl_start(int argc, char **argv)
     boot_argc = argc - i;  /* Number of arguments to init */
     boot_argv = &argv[i];
 
-    erl_init(ncpu, proc_tab_sz);
+    erl_init(ncpu,
+	     proc_tab_sz,
+	     port_tab_sz,
+	     port_tab_sz_ignore_files);
 
     init_shared_memory(boot_argc, boot_argv);
     load_preloaded();

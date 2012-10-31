@@ -118,8 +118,18 @@
 
 extern ErtsPTab erts_proc;
 
-#define internal_pid_index(x)		erts_ptab_data2ix(&erts_proc, \
-							  internal_pid_data((x)))
+#define make_internal_pid(D)		erts_ptab_make_id(&erts_proc, \
+							  (D), \
+							  _TAG_IMMED1_PID)
+
+#define internal_pid_index(PID)		(ASSERT_EXPR(is_internal_pid((PID))), \
+					 erts_ptab_id2pix(&erts_proc, (PID)))
+
+#define internal_pid_data(PID)		(ASSERT_EXPR(is_internal_pid((PID))), \
+					 erts_ptab_id2data(&erts_proc, (PID)))
+
+#define internal_pid_number(x)		_GET_PID_NUM(internal_pid_data((x)))
+#define internal_pid_serial(x)		_GET_PID_SER(internal_pid_data((x)))
 
 #define internal_pid_node_name(x)	(internal_pid_node((x))->sysname)
 #define external_pid_node_name(x)	(external_pid_node((x))->sysname)
@@ -164,18 +174,14 @@ extern ErtsPTab erts_proc;
  * 32-bit CPU.
  */
 
-#define ERTS_MAX_PROCESSES ((SWORD_CONSTANT(1) << 27)-1)
-#if (ERTS_MAX_PROCESSES > MAX_SMALL)
-# error "The maximum number of processes must fit in a SMALL."
-#endif
-
+#define ERTS_MAX_PROCESSES		(ERTS_PTAB_MAX_SIZE-1)
 #define ERTS_MAX_PID_DATA		((1 << _PID_DATA_SIZE) - 1)
 #define ERTS_MAX_PID_NUMBER		((1 << _PID_NUM_SIZE) - 1)
 #define ERTS_MAX_PID_SERIAL		((1 << _PID_SER_SIZE) - 1)
 
 #define ERTS_PROC_BITS			(_PID_SER_SIZE + _PID_NUM_SIZE)
 
-#define ERTS_INVALID_PID		make_internal_pid(ERTS_MAX_PID_DATA)
+#define ERTS_INVALID_PID		ERTS_PTAB_INVALID_ID(_TAG_IMMED1_PID)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Ports                                                                   *
@@ -183,8 +189,17 @@ extern ErtsPTab erts_proc;
 
 extern ErtsPTab erts_port;
 
-#define internal_port_index(x)		erts_ptab_data2ix(&erts_port, \
-							  internal_port_data((x)))
+#define make_internal_port(D)		erts_ptab_make_id(&erts_port, \
+							  (D), \
+							  _TAG_IMMED1_PORT)
+
+#define internal_port_index(PRT)	(ASSERT_EXPR(is_internal_port((PRT))), \
+					 erts_ptab_id2pix(&erts_port, (PRT)))
+
+#define internal_port_data(PRT)		(ASSERT_EXPR(is_internal_port((PRT))), \
+					 erts_ptab_id2data(&erts_port, (PRT)))
+
+#define internal_port_number(x) _GET_PORT_NUM(internal_port_data((x)))
 
 #define internal_port_node_name(x)	(internal_port_node((x))->sysname)
 #define external_port_node_name(x)	(external_port_node((x))->sysname)
@@ -227,14 +242,13 @@ extern ErtsPTab erts_port;
    which defines the maximum number of simultaneous Ports
    in the Erlang node. ERTS_MAX_PORTS is a hard upper limit.
 */
-#define ERTS_MAX_PORTS			(1 << ERTS_PORTS_BITS)
-
+#define ERTS_MAX_PORTS			(ERTS_PTAB_MAX_SIZE-1)
 #define ERTS_MAX_PORT_DATA		((1 << _PORT_DATA_SIZE) - 1)
 #define ERTS_MAX_PORT_NUMBER		((1 << _PORT_NUM_SIZE) - 1)
 
 #define ERTS_PORTS_BITS			(_PORT_NUM_SIZE)
 
-#define ERTS_INVALID_PORT		make_internal_port(ERTS_MAX_PORT_DATA)
+#define ERTS_INVALID_PORT		ERTS_PTAB_INVALID_ID(_TAG_IMMED1_PORT)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
  * Refs                                                                    *

@@ -98,13 +98,14 @@ typedef struct {
 
 typedef struct {
     erts_smp_atomic_t *tab;
-    int max;
-    int tab_cache_lines;
-    int pix_per_cache_line;
-    int pix_cl_mask;
-    int pix_cl_shift;
-    int pix_cli_mask;
-    int pix_cli_shift;
+    Uint32 max;
+    Uint32 tab_cache_lines;
+    Uint32 pix_per_cache_line;
+    Uint32 pix_mask;
+    Uint32 pix_cl_mask;
+    Uint32 pix_cl_shift;
+    Uint32 pix_cli_mask;
+    Uint32 pix_cli_shift;
     ErtsPTabElementCommon *invalid_element;
     Eterm invalid_data;
     void (*release_element)(void *);
@@ -139,6 +140,12 @@ typedef struct {
 
 #define ERTS_PTAB_ID_DATA_SIZE	28
 #define ERTS_PTAB_ID_DATA_SHIFT	(_TAG_IMMED1_SIZE)
+/* ERTS_PTAB_MAX_SIZE must be a power of 2 */
+#define ERTS_PTAB_MAX_SIZE (SWORD_CONSTANT(1) << 27)
+#if (ERTS_PTAB_MAX_SIZE-1) > MAX_SMALL
+# error "The maximum number of processes/ports must fit in a SMALL."
+#endif
+
 
 /*
  * Currently pids and ports are allowed.
@@ -156,13 +163,13 @@ typedef struct {
 # error "Unexpected port tag size"
 #endif
 
+#define ERTS_PTAB_INVALID_ID(TAG)					\
+    ((Eterm)								\
+     ((((1 << ERTS_PTAB_ID_DATA_SIZE) - 1) << ERTS_PTAB_ID_DATA_SHIFT)	\
+      | (TAG)))
+
 #define erts_ptab_is_valid_id(ID)					\
     (is_internal_pid((ID)) || is_internal_port((ID)))
-
-#define ERTS_PTAB_ID2DATA(ID)						\
-    (ASSERT_EXPR(erts_ptab_is_valid_id((ID))),				\
-     (((ID) >> ERTS_PTAB_ID_DATA_SHIFT)					\
-      & ~(~((Uint) 0) << ERTS_PTAB_ID_DATA_SIZE)))
 
 void erts_ptab_init(void);
 void erts_ptab_init_table(ErtsPTab *ptab,
@@ -182,7 +189,13 @@ int erts_ptab_initialized(ErtsPTab *ptab);
 ERTS_GLB_INLINE erts_interval_t *erts_ptab_interval(ErtsPTab *ptab);
 ERTS_GLB_INLINE int erts_ptab_max(ErtsPTab *ptab);
 ERTS_GLB_INLINE int erts_ptab_count(ErtsPTab *ptab);
-ERTS_GLB_INLINE int erts_ptab_data2ix(ErtsPTab *ptab, Eterm data);
+ERTS_GLB_INLINE Uint erts_ptab_pixdata2data(ErtsPTab *ptab, Eterm pixdata);
+ERTS_GLB_INLINE Uint32 erts_ptab_pixdata2pix(ErtsPTab *ptab, Eterm pixdata);
+ERTS_GLB_INLINE Uint32 erts_ptab_data2pix(ErtsPTab *ptab, Eterm data);
+ERTS_GLB_INLINE Uint erts_ptab_data2pixdata(ErtsPTab *ptab, Eterm data);
+ERTS_GLB_INLINE Eterm erts_ptab_make_id(ErtsPTab *ptab, Eterm data, Eterm tag);
+ERTS_GLB_INLINE int erts_ptab_id2pix(ErtsPTab *ptab, Eterm id);
+ERTS_GLB_INLINE Uint erts_ptab_id2data(ErtsPTab *ptab, Eterm id);
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_nob(ErtsPTab *ptab, int ix);
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_ddrb(ErtsPTab *ptab, int ix);
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_rb(ErtsPTab *ptab, int ix);
@@ -211,38 +224,117 @@ erts_ptab_interval(ErtsPTab *ptab)
 ERTS_GLB_INLINE int
 erts_ptab_max(ErtsPTab *ptab)
 {
-    return ptab->r.o.max;
+    int max = ptab->r.o.max;
+    return max == ERTS_PTAB_MAX_SIZE ? max - 1 : max;
 }
 
 ERTS_GLB_INLINE int
 erts_ptab_count(ErtsPTab *ptab)
 {
+    int max = ptab->r.o.max;
     erts_aint32_t res = erts_smp_atomic32_read_nob(&ptab->vola.tile.count);
-    if (res > ptab->r.o.max)
-	return ptab->r.o.max;
+    if (max == ERTS_PTAB_MAX_SIZE) {
+	max--;
+	res--;
+    }
+    if (res > max)
+	return max;
     ASSERT(res >= 0);
     return (int) res;
 
 }
 
-ERTS_GLB_INLINE int erts_ptab_data2ix(ErtsPTab *ptab, Eterm data)
+ERTS_GLB_INLINE Uint erts_ptab_pixdata2data(ErtsPTab *ptab, Eterm pixdata)
 {
-    int n, pix;
+    Uint32 data = ((Uint32) pixdata) & ~ptab->r.o.pix_mask;
+    data |= (pixdata >> ptab->r.o.pix_cl_shift) & ptab->r.o.pix_cl_mask;
+    data |= (pixdata & ptab->r.o.pix_cli_mask) << ptab->r.o.pix_cli_shift;
+    return data;
+}
 
-    n = (int) data;
-    if (ptab->r.o.pix_cl_mask) {
-	pix = ((n & ptab->r.o.pix_cl_mask) << ptab->r.o.pix_cl_shift);
-	pix += ((n >> ptab->r.o.pix_cli_shift) & ptab->r.o.pix_cli_mask);
-    }
-    else {
-	n %= ptab->r.o.max;
-	pix = n % ptab->r.o.tab_cache_lines;
-	pix *= ptab->r.o.pix_per_cache_line;
-	pix += n / ptab->r.o.tab_cache_lines;
-    }
+ERTS_GLB_INLINE Uint32 erts_ptab_pixdata2pix(ErtsPTab *ptab, Eterm pixdata)
+{
+    return ((Uint32) pixdata) & ptab->r.o.pix_mask;
+}
+
+ERTS_GLB_INLINE Uint32 erts_ptab_data2pix(ErtsPTab *ptab, Eterm data)
+{
+    Uint32 n, pix;
+    n = (Uint32) data;
+    pix = ((n & ptab->r.o.pix_cl_mask) << ptab->r.o.pix_cl_shift);
+    pix += ((n >> ptab->r.o.pix_cli_shift) & ptab->r.o.pix_cli_mask);
     ASSERT(0 <= pix && pix < ptab->r.o.max);
     return pix;
 }
+
+ERTS_GLB_INLINE Uint erts_ptab_data2pixdata(ErtsPTab *ptab, Eterm data)
+{
+    Uint pixdata = data & ~((Uint) ptab->r.o.pix_mask);
+    pixdata |= (Uint) erts_ptab_data2pix(ptab, data);
+    ASSERT(data == erts_ptab_pixdata2data(ptab, pixdata));
+    return pixdata;
+}
+
+#if ERTS_SIZEOF_TERM == 8
+
+ERTS_GLB_INLINE Eterm
+erts_ptab_make_id(ErtsPTab *ptab, Eterm data, Eterm tag)
+{
+    HUint huint;
+    Uint32 low_data = (Uint32) data;
+    low_data &= (1 << ERTS_PTAB_ID_DATA_SIZE) - 1;
+    low_data <<= ERTS_PTAB_ID_DATA_SHIFT;
+    huint.hval[ERTS_HUINT_HVAL_HIGH] = erts_ptab_data2pix(ptab, data);
+    huint.hval[ERTS_HUINT_HVAL_LOW] = low_data | ((Uint32) tag);
+    return (Eterm) huint.val;
+}
+
+ERTS_GLB_INLINE int
+erts_ptab_id2pix(ErtsPTab *ptab, Eterm id)
+{
+    HUint huint;
+    huint.val = id;
+    return (int) huint.hval[ERTS_HUINT_HVAL_HIGH];
+}
+
+ERTS_GLB_INLINE Uint
+erts_ptab_id2data(ErtsPTab *ptab, Eterm id)
+{
+    HUint huint;
+    huint.val = id;
+    return (Uint) (huint.hval[ERTS_HUINT_HVAL_LOW] >> ERTS_PTAB_ID_DATA_SHIFT);
+}
+
+#elif ERTS_SIZEOF_TERM == 4
+
+ERTS_GLB_INLINE Eterm
+erts_ptab_make_id(ErtsPTab *ptab, Eterm data, Eterm tag)
+{
+    Eterm id;
+    data &= ((1 << ERTS_PTAB_ID_DATA_SIZE) - 1);
+    id = (Eterm) erts_ptab_data2pixdata(ptab, data);
+    return (id << ERTS_PTAB_ID_DATA_SHIFT) | tag;
+}
+
+ERTS_GLB_INLINE int
+erts_ptab_id2pix(ErtsPTab *ptab, Eterm id)
+{
+    Uint pixdata = (Uint) id;
+    pixdata >>= ERTS_PTAB_ID_DATA_SHIFT;
+    return (int) erts_ptab_pixdata2pix(ptab, pixdata);
+}
+
+ERTS_GLB_INLINE Uint
+erts_ptab_id2data(ErtsPTab *ptab, Eterm id)
+{
+    Uint pixdata = (Uint) id;
+    pixdata >>= ERTS_PTAB_ID_DATA_SHIFT;
+    return erts_ptab_pixdata2data(ptab, pixdata);
+}
+
+#else
+#error "Unsupported size of term"
+#endif
 
 ERTS_GLB_INLINE erts_aint_t erts_ptab_pix2intptr_nob(ErtsPTab *ptab, int ix)
 {

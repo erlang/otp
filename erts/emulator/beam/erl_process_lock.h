@@ -205,7 +205,7 @@ typedef struct erts_proc_lock_t_ {
 					 & ~ERTS_PROC_LOCK_MAIN)
 
 
-#define ERTS_PIX_LOCKS_BITS		8
+#define ERTS_PIX_LOCKS_BITS		10
 #define ERTS_NO_OF_PIX_LOCKS		(1 << ERTS_PIX_LOCKS_BITS)
 
 

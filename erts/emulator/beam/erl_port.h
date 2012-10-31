@@ -28,6 +28,10 @@ typedef struct _erl_drv_port Port;
 #include "erl_port_task.h"
 #include "erl_ptab.h"
 #include "erl_thr_progress.h"
+#include "erl_trace.h"
+
+#define ERTS_DEFAULT_MAX_PORTS (1 << 16)
+#define ERTS_MIN_PORTS 1024
 
 typedef struct erts_driver_t_ erts_driver_t;
 

@@ -1238,13 +1238,10 @@ release_port(void *vport)
 }
 #endif
 
-/* initialize the port array */
-void init_io(void)
+void erts_init_io(int port_tab_size,
+		  int port_tab_size_ignore_files)
 {
     ErlDrvEntry** dp;
-    char maxports[21]; /* enough for any 64-bit integer */
-    size_t maxportssize = sizeof(maxports);
-    int port_tab_size;
 
 #ifdef ERTS_SMP
     init_xports_list_alloc();
@@ -1252,15 +1249,16 @@ void init_io(void)
 
     pdl_init();
 
-    if (erts_sys_getenv("ERL_MAX_PORTS", maxports, &maxportssize) == 0) 
-	port_tab_size = atoi(maxports);
-    else
-	port_tab_size = sys_max_files();
+    if (!port_tab_size_ignore_files) {
+	int max_files = sys_max_files();
+	if (port_tab_size < max_files)
+	    port_tab_size = max_files;
+    }
 
     if (port_tab_size > ERTS_MAX_PORTS)
 	port_tab_size = ERTS_MAX_PORTS;
-    if (port_tab_size < 1024)
-	port_tab_size = 1024;
+    else if (port_tab_size < ERTS_MIN_PORTS)
+	port_tab_size = ERTS_MIN_PORTS;
 
     erts_smp_mtx_init(&erts_driver_list_lock,"driver_list");
     driver_list = NULL;

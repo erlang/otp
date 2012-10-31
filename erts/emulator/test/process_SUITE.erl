@@ -1468,14 +1468,14 @@ processes_small_tab(doc) ->
 processes_small_tab(suite) ->
     [];
 processes_small_tab(Config) when is_list(Config) ->
-    ?line {ok, SmallNode} = start_node(Config, "+P 500"),
+    ?line {ok, SmallNode} = start_node(Config, "+P 1024"),
     ?line Res = rpc:call(SmallNode, ?MODULE, processes_bif_test, []),
     ?line PBInfo = rpc:call(SmallNode,
 			    erts_debug,
 			    get_internal_state,
 			    [processes_bif_info]),
     ?line stop_node(SmallNode),
-    ?line 1 = PBInfo#ptab_list_bif_info.tab_chunks,
+    ?line true = PBInfo#ptab_list_bif_info.tab_chunks < 10,
     ?line chk_processes_bif_test_res(Res).
 
 processes_this_tab(doc) ->
@@ -1589,8 +1589,8 @@ processes_bif_test() ->
     ?line print_processes_bif_info(PBInfo),
     ?line WantReds = PBInfo#ptab_list_bif_info.min_start_reds + 10,
     ?line WillTrap = case PBInfo of
-			#ptab_list_bif_info{tab_chunks = 1} ->
-			    false;
+			#ptab_list_bif_info{tab_chunks = Chunks} when Chunks < 10 ->
+			    false; %% Skip for small tables
 			#ptab_list_bif_info{tab_chunks = Chunks,
 					    tab_chunks_size = ChunksSize,
 					    tab_indices_per_red = IndiciesPerRed
@@ -1793,7 +1793,7 @@ do_processes_bif_die_test(N, Processes) ->
     catch
 	throw:{kill_in_trap, R} when N > 0 ->
 	    ?t:format("Failed to kill in trap: ~p~n", [R]),
-	    ?t:format("Trying again~p~n", []),
+	    ?t:format("Trying again~n", []),
 	    do_processes_bif_die_test(N-1, Processes)
     end.
 	    

@@ -72,7 +72,7 @@ struct ErtsNodesMonitor_;
 
 #define ERTS_MAX_NO_OF_SCHEDULERS 1024
 
-#define ERTS_DEFAULT_MAX_PROCESSES (1 << 15)
+#define ERTS_DEFAULT_MAX_PROCESSES (1 << 18)
 
 #define ERTS_HEAP_ALLOC(Type, Size)					\
      erts_alloc((Type), (Size))
@@ -1727,10 +1727,10 @@ extern int erts_disable_proc_not_running_opt;
 
 
 /* Minimum NUMBER of processes for a small system to start */
-#ifdef ERTS_SMP
+#define ERTS_MIN_PROCESSES		1024
+#if defined(ERTS_SMP) && ERTS_MIN_PROCESSES < ERTS_NO_OF_PIX_LOCKS
+#undef ERTS_MIN_PROCESSES
 #define ERTS_MIN_PROCESSES		ERTS_NO_OF_PIX_LOCKS
-#else
-#define ERTS_MIN_PROCESSES		16
 #endif
 
 void erts_smp_notify_inc_runq(ErtsRunQueue *runq);

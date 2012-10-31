@@ -586,13 +586,51 @@
           <seealso marker="erts_alloc">erts_alloc(3)</seealso> for
           further information.</p>
       </item>
+      <tag><c><![CDATA[+n]]></c></tag>
+      <item>
+	<p>Enable synchronous message passing to ports.</p>
+	<p>As of OTP-R16 message passing to ports are truly asynchronously
+	   implemented. Correctly written Erlang programs should be able
+	   to handle this without any issues. Bugs in existing Erlang
+	   programs that make false assumptions about message passing to
+	   ports may, however, be tricky to find. This switch has been
+	   introduced in order to at least make it easier to compare
+	   behaviors during a transition period. Note that this flag is
+	   deprecated as of its introduction, and is scheduled for removal
+	   in OTP-R17.</p>
+      </item>
       <tag><marker id="max_processes"><c><![CDATA[+P Number]]></c></marker></tag>
       <item>
-        <p>Sets the maximum number of concurrent processes for this
-          system. <c><![CDATA[Number]]></c> must be in the range 16..134217727.
-	  Default is 32768.</p>
-        <p><em>NOTE</em>: It is possible to choose any value in the range
-	  but powers of 2 perform best.</p>
+	<p>Sets the maximum number of simultaneously existing processes for this
+          system. Valid range for <c>Number</c> is <c>[1024-134217727]</c></p>
+	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
+	the <c>Number</c> passed. Currently the runtime system often,
+	but not always, chooses a value that is a power of 2. This might,
+	however, be changed in the future. The actual value chosen can be
+	checked by calling
+	<seealso marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seealso>.</p>
+	<p>The default value is <c>262144</c></p>
+      </item>
+      <tag><marker id="max_ports"><c><![CDATA[+Q Number]]></c></marker></tag>
+      <item>
+	<p>Sets the maximum number of simultaneously existing ports for this
+          system. Valid range for <c>Number</c> is <c>[1024-134217727]</c></p>
+	<p><em>NOTE</em>: The actual maximum chosen may be much larger than
+	the actual <c>Number</c> passed. Currently the runtime system often,
+	but not always, chooses a value that is a power of 2. This might,
+	however, be changed in the future. The actual value chosen can be
+	checked by calling
+	<seealso marker="erlang#system_info_port_limit">erlang:system_info(port_limit)</seealso>.</p>
+	<p>The default value used is normally <c>65536</c>. However, if
+	the runtime system is able to determine maximum amount of file
+	descriptors that it is allowed to open and this value is larger
+	than <c>65536</c>, the chosen value will increased to a value
+	larger or equal to the maximum amount of file descriptors that
+	can be opened.</p>
+	<p>Previously the environment variable <c>ERL_MAX_PORTS</c> was used
+	for setting the maximum number of simultaneously existing ports. This
+	environment variable is deprecated, and scheduled for removal in
+	OTP-R17, but can still be used.</p>
       </item>
       <tag><marker id="compat_rel"><c><![CDATA[+R ReleaseNumber]]></c></marker></tag>
       <item>
@@ -601,21 +639,14 @@
           default. This flags sets the emulator in compatibility mode
           with an earlier Erlang/OTP release <c><![CDATA[ReleaseNumber]]></c>.
           The release number must be in the range
-          <c><![CDATA[7..<current release>]]></c>. This limits the emulator,
-          making it possible for it to communicate with Erlang nodes
-          (as well as C- and Java nodes) running that earlier release.</p>
-        <p>For example, an R10 node is not automatically compatible
-          with an R9 node, but R10 nodes started with the <c><![CDATA[+R 9]]></c>
-          flag can co-exist with R9 nodes in the same distributed
-          Erlang system, they are R9-compatible.</p>
+          <c><![CDATA[<current release>-2..<current release>]]></c>. This
+	  limits the emulator, making it possible for it to communicate
+	  with Erlang nodes (as well as C- and Java nodes) running that
+	earlier release.</p>
         <p>Note: Make sure all nodes (Erlang-,  C-, and Java nodes) of
           a distributed Erlang system is of the same Erlang/OTP release,
           or from two different Erlang/OTP releases X and Y, where
           <em>all</em> Y nodes have compatibility mode X.</p>
-        <p>For example: A distributed Erlang system can consist of
-          R10 nodes, or of R9 nodes and R9-compatible R10 nodes, but
-          not of R9 nodes, R9-compatible R10 nodes and "regular" R10
-          nodes, as R9 and "regular" R10 nodes are not compatible.</p>
       </item>
       <tag><c><![CDATA[+r]]></c></tag>
       <item>
@@ -1026,7 +1057,7 @@
           the given number of seconds have elapsed, the emulator will be
           terminated by a SIGALRM signal.</p>
       </item>
-      <tag><c><![CDATA[ERL_AFLAGS]]></c></tag>
+      <tag><marker id="ERL_AFLAGS"><c><![CDATA[ERL_AFLAGS]]></c></marker></tag>
       <item>
         <p>The content of this environment variable will be added to the
           beginning of the command line for <c><![CDATA[erl]]></c>.</p>
@@ -1036,7 +1067,7 @@
           the <c><![CDATA[-extra]]></c> section, i.e. the end of the command line
           following after an <c><![CDATA[-extra]]></c> flag.</p>
       </item>
-      <tag><c><![CDATA[ERL_ZFLAGS]]></c> and <c><![CDATA[ERL_FLAGS]]></c></tag>
+      <tag><marker id="ERL_ZFLAGS"><c><![CDATA[ERL_ZFLAGS]]></c></marker> and <marker id="ERL_FLAGS"><c><![CDATA[ERL_FLAGS]]></c></marker></tag>
       <item>
         <p>The content of these environment variables will be added to the
           end of the command line for <c><![CDATA[erl]]></c>.</p>

@@ -591,22 +591,12 @@ _ET_DECLARE_CHECKED(Eterm*,tuple_val,Wterm)
 #define make_pid_data(Ser, Num) \
   ((Uint) ((Ser) << _PID_NUM_SIZE | (Num)))
 
-#define make_internal_pid(X) \
-  ((Eterm) (((X) << _PID_DATA_SHIFT) | _TAG_IMMED1_PID))
-
 #define is_internal_pid(x)	(((x) & _TAG_IMMED1_MASK) == _TAG_IMMED1_PID)
 #define is_not_internal_pid(x)	(!is_internal_pid((x)))
-
-#define _unchecked_internal_pid_data(x) _GET_PID_DATA((x))
-_ET_DECLARE_CHECKED(Uint,internal_pid_data,Eterm)
-#define internal_pid_data(x) _ET_APPLY(internal_pid_data,(x))
 
 #define _unchecked_internal_pid_node(x) erts_this_node
 _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
 #define internal_pid_node(x) _ET_APPLY(internal_pid_node,(x))
-
-#define internal_pid_number(x) _GET_PID_NUM(internal_pid_data((x)))
-#define internal_pid_serial(x) _GET_PID_SER(internal_pid_data((x)))
 
 #define internal_pid_data_words(x) (1)
 
@@ -646,17 +636,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_pid_node,Eterm)
 #define _GET_PORT_NUM(X)	_GETBITS((X), 0, _PORT_NUM_SIZE)
 
 
-#define make_internal_port(X) \
-  ((Eterm) (((X) << _PORT_DATA_SHIFT) | _TAG_IMMED1_PORT))
-
 #define is_internal_port(x)	(((x) & _TAG_IMMED1_MASK) == _TAG_IMMED1_PORT)
 #define is_not_internal_port(x)	(!is_internal_port(x))
-
-#define _unchecked_internal_port_data(x) _GET_PORT_DATA((x))
-_ET_DECLARE_CHECKED(Uint,internal_port_data,Eterm)
-#define internal_port_data(x) _ET_APPLY(internal_port_data,(x))
-
-#define internal_port_number(x) _GET_PORT_NUM(internal_port_data((x)))
 
 #define _unchecked_internal_port_node(x) erts_this_node
 _ET_DECLARE_CHECKED(struct erl_node_*,internal_port_node,Eterm)

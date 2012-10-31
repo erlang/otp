@@ -123,12 +123,11 @@ On 64-bit architectures: 4 words for a reference from the current local node, an
       <tag><em>Processes</em></tag>
       <item>
         <p>The maximum number of simultaneously alive Erlang processes is
-          by default 32768. This limit can be raised up to at most 268435456
-          processes at startup (see documentation of the system flag
-          <seealso marker="erts:erl#max_processes">+P</seealso> in the
-          <seealso marker="erts:erl">erl(1)</seealso> documentation).
-          The maximum limit of 268435456 processes will at least on a 32-bit
-          architecture be impossible to reach due to memory shortage.</p>
+          by default 32768. This limit can be configured at startup,
+	  for more information see the
+	  <seealso marker="erts:erl#max_processes"><c>+P</c></seealso>
+	  command line flag of
+	  <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
       </item>
       <tag><em>Distributed nodes</em></tag>
       <item>
@@ -184,13 +183,12 @@ On 64-bit architectures: 4 words for a reference from the current local node, an
       <tag><em>Open ports</em></tag>
       <item>
         <marker id="ports"></marker>
-        <p>The maximum number of simultaneously open Erlang ports is
-          by default 1024. This limit can be raised up to at most 268435456
-          at startup (see environment variable
-          <seealso marker="erts:erlang#ERL_MAX_PORTS">ERL_MAX_PORTS</seealso>
-          in <seealso marker="erts:erlang">erlang(3)</seealso>)
-          The maximum limit of 268435456 open ports will at least on a 32-bit
-          architecture be impossible to reach due to memory shortage.</p>
+	  <p>The maximum number of simultaneously oper Erlang ports is
+	  often by default 16384. This limit can be configured at startup,
+	  for more information see the
+	  <seealso marker="erts:erl#max_ports"><c>+Q</c></seealso>
+	  command line flag of
+	  <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
       </item>
       <tag><em>Open files, and sockets</em></tag>
       <item>      <marker id="files_sockets"></marker>

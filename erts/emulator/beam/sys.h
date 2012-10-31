@@ -244,9 +244,11 @@ int real_printf(const char *fmt, ...);
 #if SIZEOF_VOID_P == 8
 #undef  ARCH_32
 #define ARCH_64
+#define ERTS_SIZEOF_TERM 8
 #elif SIZEOF_VOID_P == 4
 #define ARCH_32
 #undef  ARCH_64
+#define ERTS_SIZEOF_TERM 4
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
@@ -254,6 +256,8 @@ int real_printf(const char *fmt, ...);
 #    define HALFWORD_HEAP 1
 #    define HALFWORD_ASSERT 0
 #    define ASSERT_HALFWORD(COND) ASSERT(COND)
+#    undef ERTS_SIZEOF_TERM
+#    define ERTS_SIZEOF_TERM 4
 #else
 #    define HALFWORD_HEAP 0
 #    define HALFWORD_ASSERT 0
@@ -378,6 +382,27 @@ typedef unsigned char byte;
 
 #if defined(ARCH_64) && !HAVE_INT64
 #error 64-bit architecture, but no appropriate type to use for Uint64 and Sint64 found 
+#endif
+
+#ifdef WORDS_BIGENDIAN
+#  define ERTS_HUINT_HVAL_HIGH 0
+#  define ERTS_HUINT_HVAL_LOW 1
+#else
+#  define ERTS_HUINT_HVAL_HIGH 1
+#  define ERTS_HUINT_HVAL_LOW 0
+#endif
+#if ERTS_SIZEOF_TERM == 8
+typedef union {
+    Uint val;
+    Uint32 hval[2];
+} HUint;
+#elif ERTS_SIZEOF_TERM == 4
+typedef union {
+    Uint val;
+    Uint16 hval[2];
+} HUint;
+#else
+#error "Unsupported size of term"
 #endif
 
 #  define ERTS_EXTRA_DATA_ALIGN_SZ(X) \

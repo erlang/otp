@@ -3225,10 +3225,11 @@ os_prompt% </pre>
           the owning process using signals of the form
           <c>{'EXIT', Port, PosixCode}</c>. See <c>file(3)</c> for
           possible values of <c>PosixCode</c>.</p>
-        <p><marker id="ERL_MAX_PORTS"></marker>
-          The maximum number of ports that can be open at the same
-          time is 1024 by default, but can be configured by
-          the environment variable <c>ERL_MAX_PORTS</c>.</p>
+	  <p>The maximum number of ports that can be open at the same
+          time can be configured by passing the 
+	  <seealso marker="erl#max_ports"><c>+Q</c></seealso>
+	  command line flag to
+	  <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
       </desc>
     </func>
     <func>
@@ -5955,17 +5956,33 @@ ok
           </item>
           <tag><c>process_count</c></tag>
           <item>
+            <p>Returns the number of ports currently existing at
+              the local node as an integer. The same value as
+              <c>length(erlang:ports())</c> returns.</p>
+          </item>
+          <tag><marker id="system_info_port_limit"><c>port_limit</c></marker></tag>
+          <item>
+            <p>Returns the maximum number of simultaneously existing
+              ports at the local node as an integer. This limit
+              can be configured at startup by using the
+              <seealso marker="erl#max_ports"><c>+Q</c></seealso>
+	      command line flag of
+	      <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
+          </item>
+          <tag><c>process_count</c></tag>
+          <item>
             <p>Returns the number of processes currently existing at
               the local node as an integer. The same value as
               <c>length(processes())</c> returns.</p>
           </item>
-          <tag><c>process_limit</c></tag>
+          <tag><marker id="system_info_process_limit"><c>process_limit</c></marker></tag>
           <item>
-            <p>Returns the maximum number of concurrently existing
+            <p>Returns the maximum number of simultaneously existing
               processes at the local node as an integer. This limit
-              can be configured at startup by using the command line
-              flag <c>+P</c>, see
-              <seealso marker="erts:erl#max_processes">erl(1)</seealso>.</p>
+              can be configured at startup by using the
+              <seealso marker="erl#max_processes"><c>+P</c></seealso>
+	      command line flag of
+	      <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
           </item>
           <tag><c>procs</c></tag>
           <item>
