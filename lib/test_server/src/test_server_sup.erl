@@ -64,13 +64,7 @@ timetrap(Timeout0, ReportTVal, Scale, Pid) ->
 				      true -> ReportTVal end,
 		    MFLs = test_server:get_loc(Pid),
 		    Mon = erlang:monitor(process, Pid),
-		    Trap = 
-			case get(test_server_init_or_end_conf) of
-			    undefined ->
-				{timetrap_timeout,TimeToReport,MFLs};
-			    InitOrEnd ->
-				{timetrap_timeout,TimeToReport,MFLs,InitOrEnd}
-			end,
+		    Trap = {timetrap_timeout,TimeToReport,MFLs},
 		    exit(Pid, Trap),
 		    receive
 			{'DOWN', Mon, process, Pid, _} ->
@@ -518,8 +512,18 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
     end,
     case erlang:function_exported(Mod,Func,length(Args)) of
 	true ->
-	    put(test_server_loc, {Mod,Func,framework}),
 	    EH = fun(Reason) -> exit({fw_error,{Mod,Func,Reason}}) end,
+	    SetTcState = case Func of
+			     end_tc -> true;
+			     init_tc -> true;
+			     _ -> false
+			 end,
+	    case SetTcState of
+		true ->
+		    test_server:set_tc_state({framework,Mod,Func}, undefined);
+		false ->
+		    ok
+	    end,
 	    try apply(Mod,Func,Args) of
 		Result ->
 		    Result
@@ -550,18 +554,6 @@ format_loc([{Mod,LineOrFunc}]) ->
     format_loc({Mod,LineOrFunc});
 format_loc({Mod,Func}) when is_atom(Func) -> 
     io_lib:format("{~s,~w}",[package_str(Mod),Func]);
-format_loc({Mod,Line}) when is_integer(Line) -> 
-    %% ?line macro is used
-    ModStr = package_str(Mod),
-    case {lists:member(no_src, get(test_server_logopts)),
-	  lists:reverse(ModStr)} of
-	{false,[$E,$T,$I,$U,$S,$_|_]}  ->
-	    io_lib:format("{~s,<a href=\"~s~s#~w\">~w</a>}",
-			  [ModStr,downcase(ModStr),?src_listing_ext,
-			   round_to_10(Line),Line]);
-	_ ->
-	    io_lib:format("{~s,~w}",[ModStr,Line])
-    end;
 format_loc(Loc) ->
     io_lib:format("~p",[Loc]).    
 
