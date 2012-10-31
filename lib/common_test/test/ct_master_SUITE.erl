@@ -193,7 +193,6 @@ run_test(_Name, FileName, Config) ->
     [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
 					  [{ct_master,basic_html,[true]}],
 					  Config),
-    timer:sleep(5000),
     [{FileName,ok}] = ct_test_support:run({ct_master,run,[FileName]},
 					  [{ct_master,basic_html,[false]}],
 					  Config).
