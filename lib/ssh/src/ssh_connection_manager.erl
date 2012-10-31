@@ -234,6 +234,13 @@ handle_call({request, ChannelPid, ChannelId, Type, Data}, From, State0) ->
     %% channel is sent later when reply arrives from the connection
     %% handler. 
     lists:foreach(fun send_msg/1, Replies),
+    SshOpts = proplists:get_value(ssh_opts, State0#state.opts),
+    case proplists:get_value(idle_time, SshOpts) of
+	infinity ->
+	    ok;
+	_IdleTime ->
+	    erlang:send_after(5000, self(), {check_cache, [], []})
+    end,
     {noreply, State};
 
 handle_call({request, ChannelId, Type, Data}, From, State0) ->
@@ -613,18 +620,24 @@ check_cache(State, Cache) ->
 		undefined ->
 		    State;
 		Time ->
-		    TimerRef = erlang:send_after(Time, self(), {'EXIT', [], "Timeout"}),
-		    State#state{idle_timer_ref=TimerRef}
+		    case State#state.idle_timer_ref of
+			undefined ->
+			    TimerRef = erlang:send_after(Time, self(), {'EXIT', [], "Timeout"}),
+			    State#state{idle_timer_ref=TimerRef};
+			_ ->
+			    State
+		    end
 	    end;
 	_ ->
 	    State
     end.
 remove_timer_ref(State) ->
     case State#state.idle_timer_ref of
-	infinity ->
+	infinity -> %% If the timer is not activated
 	    State;
-	_ ->
-	    TimerRef = State#state.idle_timer_ref,
+	undefined -> %% If we already has cancelled the timer
+	    State;
+	TimerRef -> %% Timer is active
 	    erlang:cancel_timer(TimerRef),
 	    State#state{idle_timer_ref = undefined}
     end.
