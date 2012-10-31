@@ -531,7 +531,7 @@ getservbyname(Name, Protocol) when is_atom(Name) ->
 options() ->
     [
      tos, priority, reuseaddr, keepalive, dontroute, linger,
-     broadcast, sndbuf, recbuf, nodelay,
+     broadcast, sndbuf, recbuf, nodelay, ipv6_v6only,
      buffer, header, active, packet, deliver, mode,
      multicast_if, multicast_ttl, multicast_loop,
      exit_on_close, high_watermark, low_watermark,
@@ -607,7 +607,7 @@ con_add(Name, Val, R, Opts, AllOpts) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 listen_options() ->
     [tos, priority, reuseaddr, keepalive, linger, sndbuf, recbuf, nodelay,
-     header, active, packet, buffer, mode, deliver, backlog,
+     header, active, packet, buffer, mode, deliver, backlog, ipv6_v6only,
      exit_on_close, high_watermark, low_watermark, send_timeout,
      send_timeout_close, delay_send, packet_size,raw].
 
@@ -664,7 +664,7 @@ list_add(Name, Val, R, Opts, As) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 udp_options() ->
     [tos, priority, reuseaddr, sndbuf, recbuf, header, active, buffer, mode, 
-     deliver,
+     deliver, ipv6_v6only,
      broadcast, dontroute, multicast_if, multicast_ttl, multicast_loop,
      add_membership, drop_membership, read_packets,raw].
 
@@ -720,7 +720,7 @@ udp_add(Name, Val, R, Opts, As) ->
 sctp_options() ->
 [   % The following are generic inet options supported for SCTP sockets:
     mode, active, buffer, tos, priority, dontroute, reuseaddr, linger, sndbuf,
-    recbuf,
+    recbuf, ipv6_v6only,
 
     % Other options are SCTP-specific (though they may be similar to their
     % TCP and UDP counter-parts):

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -53,6 +53,8 @@
 	 simple/1, loop_all/1, simple_raw/1, simple_raw_getbin/1, 
 	 doc_examples_raw/1,doc_examples_raw_getbin/1,
 	 large_raw/1,large_raw_getbin/1,combined/1,combined_getbin/1,
+	 ipv6_v6only_udp/1, ipv6_v6only_tcp/1, ipv6_v6only_sctp/1,
+	 use_ipv6_v6only_udp/1,
 	 type_errors/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -64,6 +66,8 @@ all() ->
     [simple, loop_all, simple_raw, simple_raw_getbin,
      doc_examples_raw, doc_examples_raw_getbin, large_raw,
      large_raw_getbin, combined, combined_getbin,
+     ipv6_v6only_udp, ipv6_v6only_tcp, ipv6_v6only_sctp,
+     use_ipv6_v6only_udp,
      type_errors].
 
 groups() -> 
@@ -127,7 +131,7 @@ loop_all(Config) when is_list(Config) ->
 				   io_lib:format("Non mandatory failed:~w",
 						 [Failed]))}
 	  end.
-			
+
 
 
 simple_raw(suite) -> [];
@@ -460,6 +464,153 @@ do_combined(Config,Binary) when is_list(Config) ->
 	    ?line gen_tcp:close(Sock6),
 	    ok
     end.
+
+
+
+ipv6_v6only_udp(suite) -> [];
+ipv6_v6only_udp(doc) -> "Test socket option ipv6_v6only for UDP";
+ipv6_v6only_udp(Config) when is_list(Config) ->
+    ipv6_v6only(Config, gen_udp).
+
+ipv6_v6only_tcp(suite) -> [];
+ipv6_v6only_tcp(doc) -> "Test socket option ipv6_v6only for TCP";
+ipv6_v6only_tcp(Config) when is_list(Config) ->
+    ipv6_v6only(Config, gen_tcp).
+
+ipv6_v6only_sctp(suite) -> [];
+ipv6_v6only_sctp(doc) -> "Test socket option ipv6_v6only for SCTP";
+ipv6_v6only_sctp(Config) when is_list(Config) ->
+    ipv6_v6only(Config, gen_sctp).
+
+ipv6_v6only(Config, Module) when is_list(Config) ->
+    ?line case ipv6_v6only_open(Module, []) of
+	      {ok,S1} ->
+		  ?line case inet:getopts(S1, [ipv6_v6only]) of
+			    {ok,[{ipv6_v6only,Default}]}
+			      when is_boolean(Default) ->
+				?line ok =
+				    ipv6_v6only_close(Module, S1),
+				?line ipv6_v6only(Config, Module, Default);
+			    {ok,[]} ->
+				?line io:format("Not implemented.~n", []),
+				%% This list of OS:es where the option is
+				%% supposed to be not implemented is just
+				%% a guess, and may grow with time.
+				?line case {os:type(),os:version()} of
+					  {{unix,linux},{2,M,_}}
+					  when M =< 4 -> ok
+				      end,
+				%% At least this should work
+				?line {ok,S2} =
+				    ipv6_v6only_open(
+				      Module,
+				      [{ipv6_v6only,true}]),
+				?line ok =
+				    ipv6_v6only_close(Module, S2)
+			end;
+	      {error,_} ->
+		  {skipped,"Socket type not supported"}
+	  end.
+
+ipv6_v6only(Config, Module, Default) when is_list(Config) ->
+    ?line io:format("Default ~w.~n", [Default]),
+    ?line {ok,S1} =
+	ipv6_v6only_open(Module, [{ipv6_v6only,Default}]),
+    ?line {ok,[{ipv6_v6only,Default}]} =
+	inet:getopts(S1, [ipv6_v6only]),
+    ?line ok =
+	ipv6_v6only_close(Module, S1),
+    ?line NotDefault = not Default,
+    ?line case ipv6_v6only_open(Module, [{ipv6_v6only,NotDefault}]) of
+	      {ok,S2} ->
+		  ?line io:format("Read-write.~n", []),
+		  ?line {ok,[{ipv6_v6only,NotDefault}]} =
+		      inet:getopts(S2, [ipv6_v6only]),
+		  ok;
+	      {error,einval} ->
+		  ?line io:format("Read-only.~n", []),
+		  %% This option is known to be read-only and true
+		  %% on Windows and OpenBSD
+		  ?line case os:type() of
+			    {unix,openbsd} when Default =:= true -> ok;
+			    {win32,_} when Default =:= true -> ok
+			end
+	  end.
+
+ipv6_v6only_open(Module, Opts) ->
+    Module:case Module of
+	       gen_tcp -> listen;
+	       _ -> open
+	   end(0, [inet6|Opts]).
+
+ipv6_v6only_close(Module, Socket) ->
+    Module:close(Socket).
+
+
+use_ipv6_v6only_udp(suite) -> [];
+use_ipv6_v6only_udp(doc) -> "Test using socket option ipv6_v6only for UDP";
+use_ipv6_v6only_udp(Config) when is_list(Config) ->
+    ?line case gen_udp:open(0, [inet6,{ipv6_v6only,true}]) of
+	      {ok,S6} ->
+		  ?line case inet:getopts(S6, [ipv6_v6only]) of
+			    {ok,[{ipv6_v6only,true}]} ->
+				use_ipv6_v6only_udp(Config, S6);
+			    {ok,Other} ->
+				{skipped,{getopts,Other}}
+			end;
+	      {error,_} ->
+		  {skipped,"Socket type not supported"}
+	  end.
+
+use_ipv6_v6only_udp(_Config, S6) ->
+    ?line {ok,Port} = inet:port(S6),
+    ?line {ok,S4} = gen_udp:open(Port, [inet]),
+    ?line E6 = " IPv6-echo.",
+    ?line E4 = " IPv4-echo.",
+    ?line Sender =
+	spawn_link(fun () -> use_ipv6_v6only_udp_sender(Port, E6, E4) end),
+    ?line use_ipv6_v6only_udp_listener(
+	    S6, S4, E6, E4, monitor(process, Sender)).
+
+use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref) ->
+    ?line receive
+	      {udp,S6,IP,P,Data} ->
+		  ?line ok = gen_udp:send(S6, IP, P, [Data|E6]),
+		  ?line use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
+	      {udp,S4,IP,P,Data} ->
+		  ?line ok = gen_udp:send(S4, IP, P, [Data|E4]),
+		  ?line use_ipv6_v6only_udp_listener(S6, S4, E6, E4, Mref);
+	      {'DOWN',Mref,_,_,normal} ->
+		  ok;
+	      {'DOWN',Mref,_,_,Result} ->
+		  %% Since we are linked we will never arrive here
+		  Result;
+	      Other ->
+		  ?line exit({failed,{listener_unexpected,Other}})
+	  end.
+
+use_ipv6_v6only_udp_sender(Port, E6, E4) ->
+    D6 = "IPv6-send.",
+    D4 = "IPv4-send.",
+    R6 = D6 ++ E6,
+    R4 = D4 ++ E4,
+    R6 = sndrcv({0,0,0,0,0,0,0,1}, Port, [inet6], D6),
+    R4 = sndrcv({127,0,0,1}, Port, [inet], D4),
+    ok.
+
+sndrcv(Ip, Port, Opts, Data) ->
+    {ok,S} = gen_udp:open(0, Opts),
+    io:format("[~w:~w] ! ~s~n", [Ip,Port,Data]),
+    ok = gen_udp:send(S, Ip, Port, Data),
+    receive
+	{udp,S,Ip,Port,RecData} ->
+	    io:format("[~w:~w] : ~s~n", [Ip,Port,RecData]),
+	    RecData;
+	Other ->
+	    exit({failed,{sndrcv_unexpectec,Other}})
+    end.
+
+
 
 type_errors(suite) ->
     [];

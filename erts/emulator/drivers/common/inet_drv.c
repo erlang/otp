@@ -660,6 +660,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define UDP_OPT_MULTICAST_LOOP 13 /* set/get IP multicast loopback */
 #define UDP_OPT_ADD_MEMBERSHIP 14 /* add an IP group membership */
 #define UDP_OPT_DROP_MEMBERSHIP 15 /* drop an IP group membership */
+#define INET_OPT_IPV6_V6ONLY 16 /* IPv6 only socket, no mapped v4 addrs */
 /* LOPT is local options */
 #define INET_LOPT_BUFFER      20  /* min buffer size hint */
 #define INET_LOPT_HEADER      21  /* list header size */
@@ -1167,6 +1168,7 @@ static ErlDrvTermData am_reuseaddr;
 static ErlDrvTermData am_dontroute;
 static ErlDrvTermData am_priority;
 static ErlDrvTermData am_tos;
+static ErlDrvTermData am_ipv6_v6only;
 #endif
 
 /* speical errors for bad ports and sequences */
@@ -3486,6 +3488,7 @@ static void inet_init_sctp(void) {
     INIT_ATOM(dontroute);
     INIT_ATOM(priority);
     INIT_ATOM(tos);
+    INIT_ATOM(ipv6_v6only);
     
     /* Option names */
     INIT_ATOM(sctp_rtoinfo);
@@ -5618,6 +5621,23 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
 
 #endif /* HAVE_MULTICAST_SUPPORT */
 
+	case INET_OPT_IPV6_V6ONLY:
+#if HAVE_DECL_IPV6_V6ONLY
+	    proto = IPPROTO_IPV6;
+	    type = IPV6_V6ONLY;
+	    propagate = 1;
+	    DEBUGF(("inet_set_opts(%ld): s=%d, IPV6_V6ONLY=%d\r\n",
+		    (long)desc->port, desc->s, ival));
+	    break;
+#elif defined(__WIN32__) && defined(HAVE_IN6) && defined(AF_INET6)
+	    /* Fake a'la OpenBSD; set to 'true' is fine but 'false' invalid. */
+	    if (ival != 0) continue;
+	    else return -1;
+	    break;
+#else
+	    continue;
+#endif
+
 	case INET_OPT_RAW:
 	    if (len < 8) {
 		return -1;
@@ -5946,6 +5966,22 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 #	else
 	    continue; /* Option not supported -- ignore it */
 #	endif
+
+	case INET_OPT_IPV6_V6ONLY:
+#       if HAVE_DECL_IPV6_V6ONLY
+	{
+	    arg.ival= get_int32 (curr);   curr += 4;
+	    proto   = IPPROTO_IPV6;
+	    type    = IPV6_V6ONLY;
+	    arg_ptr = (char*) (&arg.ival);
+	    arg_sz  = sizeof  ( arg.ival);
+	    break;
+	}
+#       elif defined(__WIN32__) && defined(HAVE_IN6) && defined(AF_INET6)
+#           error Here is a fix for Win IPv6 SCTP missing
+#       else
+	    continue; /* Option not supported -- ignore it */
+#       endif
 
 	case SCTP_OPT_AUTOCLOSE:
 	{
@@ -6435,6 +6471,22 @@ static ErlDrvSSizeT inet_fill_opts(inet_descriptor* desc,
 	    break;
 #endif /* HAVE_MULTICAST_SUPPORT */
 
+	case INET_OPT_IPV6_V6ONLY:
+#if HAVE_DECL_IPV6_V6ONLY
+	    proto = IPPROTO_IPV6;
+	    type = IPV6_V6ONLY;
+	    break;
+#elif defined(__WIN32__) && defined(HAVE_IN6) && defined(AF_INET6)
+	    /* Fake reading 'true' */
+	    *ptr++ = opt;
+	    put_int32(1, ptr);
+	    ptr += 4;
+	    continue;
+#else
+	    TRUNCATE_TO(0,ptr);
+	    continue; /* skip - no result */
+#endif
+
 	case INET_OPT_RAW:
 	    {
 		int data_provided;
@@ -6739,6 +6791,7 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	case INET_OPT_DONTROUTE:
 	case INET_OPT_PRIORITY :
 	case INET_OPT_TOS      :
+	case INET_OPT_IPV6_V6ONLY:
 	case SCTP_OPT_AUTOCLOSE:
 	case SCTP_OPT_MAXSEG   :
 	/* The following options return true or false:	       */
@@ -6811,6 +6864,20 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 		continue;
 #	    endif
 	    }
+	    case INET_OPT_IPV6_V6ONLY:
+#           if HAVE_DECL_IPV6_V6ONLY
+	    {
+		proto  = IPPROTO_IPV6;
+		type   = IPV6_V6ONLY;
+		tag    = am_ipv6_v6only;
+		break;
+	    }
+#           elif defined(__WIN32__) && defined(HAVE_IN6) && defined(AF_INET6)
+#               error Here is a fix for Win IPv6 SCTP needed
+#           else
+		/* Not supported -- ignore */
+		continue;
+#           endif
 	    case SCTP_OPT_AUTOCLOSE:
 	    {
 		proto  = IPPROTO_SCTP;

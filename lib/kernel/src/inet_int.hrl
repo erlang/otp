@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -124,6 +124,7 @@
 -define(UDP_OPT_MULTICAST_LOOP,  13).
 -define(UDP_OPT_ADD_MEMBERSHIP,  14).
 -define(UDP_OPT_DROP_MEMBERSHIP, 15).
+-define(INET_OPT_IPV6_V6ONLY,    16).
 % "Local" options: codes start from 20:
 -define(INET_LOPT_BUFFER,        20).
 -define(INET_LOPT_HEADER,        21).

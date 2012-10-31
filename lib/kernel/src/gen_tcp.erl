@@ -57,7 +57,8 @@
         {send_timeout,    non_neg_integer() | infinity} |
         {send_timeout_close, boolean()} |
         {sndbuf,          non_neg_integer()} |
-        {tos,             non_neg_integer()}.
+        {tos,             non_neg_integer()} |
+	{ipv6_v6only,     boolean()}.
 -type option_name() ::
         active |
         buffer |
@@ -85,7 +86,8 @@
         send_timeout |
         send_timeout_close |
         sndbuf |
-        tos.
+        tos |
+	ipv6_v6only.
 -type connect_option() ::
         {ip, inet:ip_address()} |
         {fd, Fd :: non_neg_integer()} |

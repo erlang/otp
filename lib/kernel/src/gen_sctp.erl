@@ -44,6 +44,7 @@
         {priority, non_neg_integer()} |
         {recbuf, non_neg_integer()} |
         {reuseaddr, boolean()} |
+	{ipv6_v6only, boolean()} |
         {sctp_adaptation_layer, #sctp_setadaptation{}} |
         {sctp_associnfo, #sctp_assocparams{}} |
         {sctp_autoclose, non_neg_integer()} |
@@ -72,6 +73,7 @@
         priority |
         recbuf |
         reuseaddr |
+	ipv6_v6only |
         sctp_adaptation_layer |
         sctp_associnfo |
         sctp_autoclose |
