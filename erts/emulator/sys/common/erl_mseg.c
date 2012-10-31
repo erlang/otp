@@ -116,15 +116,6 @@ static int mmap_fd;
 #error "Not supported"
 #endif /* #if HAVE_MMAP */
 
-#if defined(ERTS_MSEG_FAKE_SEGMENTS) && HALFWORD_HEAP
-#  warning "ERTS_MSEG_FAKE_SEGMENTS will only be used for high memory segments" 
-#endif 
-
-#if defined(ERTS_MSEG_FAKE_SEGMENTS)
-#undef CAN_PARTLY_DESTROY
-#define CAN_PARTLY_DESTROY 0
-#endif
-
 const ErtsMsegOpt_t erts_mseg_default_opt = {
     1,			/* Use cache		     */
     1,			/* Preserv data		     */
@@ -349,9 +340,7 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
     else
 #endif
     {
-#if defined(ERTS_MSEG_FAKE_SEGMENTS)
-	seg = erts_sys_alloc(ERTS_ALC_N_INVALID, NULL, size);
-#elif HAVE_MMAP
+#if HAVE_MMAP
 	{
 	    seg = (void *) mmap((void *) 0, (size_t) size,
 				MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
@@ -385,12 +374,7 @@ mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size)
     else
 #endif
     {
-#ifdef ERTS_MSEG_FAKE_SEGMENTS
-	erts_sys_free(ERTS_ALC_N_INVALID, NULL, seg);
-#ifdef DEBUG
-	res = 0;
-#endif
-#elif HAVE_MMAP
+#ifdef HAVE_MMAP
 #ifdef DEBUG
 	res = 
 #endif
@@ -426,9 +410,7 @@ mseg_recreate(ErtsMsegAllctr_t *ma, MemKind* mk, void *old_seg, Uint old_size, U
     else
 #endif
     {
-#if defined(ERTS_MSEG_FAKE_SEGMENTS)
-	new_seg = erts_sys_realloc(ERTS_ALC_N_INVALID, NULL, old_seg, new_size);
-#elif HAVE_MREMAP
+#if HAVE_MREMAP
 
     #if defined(__NetBSD__)
 	new_seg = (void *) mremap((void *) old_seg,
