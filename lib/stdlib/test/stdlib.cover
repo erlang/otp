@@ -1,17 +1,2 @@
 %% -*- erlang -*-
 {incl_app,stdlib,details}.
-
-{excl_mods,stdlib,
- [erl_parse,
-  erl_eval,
-  ets,
-  filename,
-  gen_event,
-  gen_server,
-  gen,
-  lists,
-  io,
-  io_lib,
-  io_lib_format,
-  io_lib_pretty,
-  proc_lib]}.

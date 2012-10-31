@@ -368,7 +368,7 @@ make_common_test_args(Args0, Options0, _Vars) ->
 		io:format("No cover file found for ~p~n",[App]),
 		[];
 	    {value,{cover,_App,File,_Analyse}} -> 
-		[{cover,to_list(File)}];
+		[{cover,to_list(File)},{cover_stop,false}];
 	    false -> 
 		[]
 	end,

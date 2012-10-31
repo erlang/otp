@@ -498,8 +498,60 @@ estone(Opts) when is_list(Opts) -> run(emulator,estone_SUITE,Opts).
 cross_cover_analyse([Level]) ->
     cross_cover_analyse(Level);
 cross_cover_analyse(Level) ->
-    test_server_ctrl:cross_cover_analyse(Level).
+    Apps = get_last_app_tests(),
+    Modules = get_cross_modules(Apps,[]),
+    test_server_ctrl:cross_cover_analyse(Level,Apps,Modules).
 
+get_last_app_tests() ->
+    AllTests = filelib:wildcard(filename:join(["*","*_test.logs"])),
+    {ok,RE} = re:compile("^[^/]*/[^\.]*\.(.*)_test\.logs$"),
+    get_last_app_tests(AllTests,RE,[]).
+
+get_last_app_tests([Dir|Dirs],RE,Acc) ->
+    NewAcc =
+	case re:run(Dir,RE,[{capture,all,list}]) of
+	    {match,[Dir,AppStr]} ->
+		App = list_to_atom(AppStr),
+		case lists:keytake(App,1,Acc) of
+		    {value,{App,LastDir},Rest} ->
+			if Dir > LastDir ->
+				[{App,Dir}|Rest];
+			   true ->
+				Acc
+			end;
+		    false ->
+			[{App,Dir} | Acc]
+		end;
+	    _ ->
+		Acc
+	end,
+    get_last_app_tests(Dirs,RE,NewAcc);
+get_last_app_tests([],_,Acc) ->
+    Acc.
+
+get_cross_modules([{App,_}|Apps],Acc) ->
+    Mods = cross_modules(App),
+    get_cross_modules(Apps,lists:umerge(Mods,Acc));
+get_cross_modules([],Acc) ->
+    Acc.
+
+cross_modules(App) ->
+    case default_coverfile(App) of
+	none ->
+	    [];
+	File ->
+	    case catch file:consult(File) of
+		{ok,CoverSpec} ->
+		    case lists:keyfind(cross_apps,1,CoverSpec) of
+			false ->
+			    [];
+			{cross_apps,App,Modules} ->
+			    lists:usort(Modules)
+		    end;
+		_ ->
+		    []
+	    end
+    end.
 
 %%% Implementation.
 

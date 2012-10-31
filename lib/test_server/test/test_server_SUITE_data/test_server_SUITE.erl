@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -433,7 +433,7 @@ start_stop_node(Config) when is_list(Config) ->
 	    ?t:comment("WARNING: Node started with {wait,false}"
 			     " is up faster than expected...");
 	false ->
-	    wait_for_node(Node4,0),
+	    test_server:wait_for_node(Node4),
 	    true = lists:member(Node4,nodes())
     end,
 
@@ -449,16 +449,6 @@ start_stop_node(Config) when is_list(Config) ->
     false = ?t:stop_node(Node4),
 
     ok.
-
-
-wait_for_node(Node,Acc) ->
-    case net_adm:ping(Node) of
-	pang -> 
-	    timer:sleep(100),
-	    wait_for_node(Node,Acc+100);
-	pong ->
-	    Acc
-    end.
 
 cleanup_nodes_init(doc) -> ["Test that nodes are terminated when test case"
 			    " is finished unless {cleanup,false} is given."];

@@ -903,6 +903,8 @@ handle_data(logdir,Node,Dir,Spec) ->
     [{Node,ref2dir(Dir,Spec)}];
 handle_data(cover,Node,File,Spec) ->
     [{Node,get_absfile(File,Spec)}];
+handle_data(cover_stop,Node,Stop,_Spec) ->
+    [{Node,Stop}];
 handle_data(include,Node,Dirs=[D|_],Spec) when is_list(D) ->
     [{Node,ref2dir(Dir,Spec)} || Dir <- Dirs];
 handle_data(include,Node,Dir=[Ch|_],Spec) when is_integer(Ch) ->
@@ -1258,6 +1260,8 @@ valid_terms() ->
      {node,3},
      {cover,2},
      {cover,3},
+     {cover_stop,2},
+     {cover_stop,3},
      {config,2},
      {config,3},
      {config,4},

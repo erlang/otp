@@ -58,6 +58,7 @@
 	       vts,
 	       shell,
 	       cover,
+	       cover_stop,
 	       coverspec,
 	       step,
 	       logdir,
@@ -245,6 +246,7 @@ script_start1(Parent, Args) ->
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
+    CoverStop = get_start_opt(cover_stop, fun([CS]) -> list_to_atom(CS) end, Args),
     LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
     LogOpts = get_start_opt(logopts, fun(Os) -> [list_to_atom(O) || O <- Os] end,
 			    [], Args),
@@ -329,7 +331,8 @@ script_start1(Parent, Args) ->
 		end,
 
    StartOpts = #opts{label = Label, profile = Profile,
-		     vts = Vts, shell = Shell, cover = Cover,
+		     vts = Vts, shell = Shell,
+		     cover = Cover, cover_stop = CoverStop,
 		     logdir = LogDir, logopts = LogOpts,
 		     basic_html = BasicHtml,
 		     verbosity = Verbosity,
@@ -416,6 +419,9 @@ script_start2(StartOpts = #opts{vts = undefined,
 			Cover =
 			    choose_val(StartOpts#opts.cover,
 				       SpecStartOpts#opts.cover),
+			CoverStop =
+			    choose_val(StartOpts#opts.cover_stop,
+				       SpecStartOpts#opts.cover_stop),
 			MultTT =
 			    choose_val(StartOpts#opts.multiply_timetraps,
 				       SpecStartOpts#opts.multiply_timetraps),
@@ -475,6 +481,7 @@ script_start2(StartOpts = #opts{vts = undefined,
 					   profile = Profile,
 					   testspecs = Specs,
 					   cover = Cover,
+					   cover_stop = CoverStop,
 					   logdir = LogDir,
 					   logopts = AllLogOpts,
 					   basic_html = BasicHtml,
@@ -723,6 +730,7 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"	     
 	      "\n\t[-cover CoverCfgFile]"
+	      "\n\t[-cover_stop Bool]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
 	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
@@ -745,6 +753,7 @@ script_usage() ->
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
 	      "\n\t[-stylesheet CSSFile]"
 	      "\n\t[-cover CoverCfgFile]"
+	      "\n\t[-cover_stop Bool]"
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
 	      "\n\t[-ct_hooks CTHook1 CTHook2 .. CTHookN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
@@ -938,6 +947,7 @@ run_test2(StartOpts) ->
     %% code coverage
     Cover = get_start_opt(cover,
 			  fun(CoverFile) -> ?abs(CoverFile) end, StartOpts),
+    CoverStop = get_start_opt(cover_stop, value, StartOpts),
 
     %% timetrap manipulation
     MultiplyTT = get_start_opt(multiply_timetraps, value, 1, StartOpts),
@@ -1000,7 +1010,8 @@ run_test2(StartOpts) ->
     Step = get_start_opt(step, value, StartOpts),
 
     Opts = #opts{label = Label, profile = Profile,
-		 cover = Cover, step = Step, logdir = LogDir,
+		 cover = Cover, cover_stop = CoverStop,
+		 step = Step, logdir = LogDir,
 		 logopts = LogOpts, basic_html = BasicHtml,
 		 config = CfgFiles,
 		 verbosity = Verbosity,
@@ -1063,6 +1074,8 @@ run_spec_file(Relaxed,
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
 	    Cover = choose_val(Opts#opts.cover,
 			       SpecOpts#opts.cover),
+	    CoverStop = choose_val(Opts#opts.cover_stop,
+				   SpecOpts#opts.cover_stop),
 	    MultTT = choose_val(Opts#opts.multiply_timetraps,
 				SpecOpts#opts.multiply_timetraps),
 	    ScaleTT = choose_val(Opts#opts.scale_timetraps,
@@ -1103,6 +1116,7 @@ run_spec_file(Relaxed,
 	    Opts1 = Opts#opts{label = Label,
 			      profile = Profile,
 			      cover = Cover,
+			      cover_stop = CoverStop,
 			      logdir = which(logdir, LogDir),
 			      logopts = AllLogOpts,
 			      stylesheet = Stylesheet,
@@ -1374,6 +1388,7 @@ get_data_for_node(#testspec{label = Labels,
 			    verbosity = VLvls,
 			    silent_connections = SilentConnsList,
 			    cover = CoverFs,
+			    cover_stop = CoverStops,
 			    config = Cfgs,
 			    userconfig = UsrCfgs,
 			    event_handler = EvHs,
@@ -1405,6 +1420,7 @@ get_data_for_node(#testspec{label = Labels,
 		      SCs -> SCs
 		  end,
     Cover = proplists:get_value(Node, CoverFs),
+    CoverStop = proplists:get_value(Node, CoverStops),
     MT = proplists:get_value(Node, MTs),
     ST = proplists:get_value(Node, STs),
     CreatePrivDir = proplists:get_value(Node, PDs),
@@ -1423,6 +1439,7 @@ get_data_for_node(#testspec{label = Labels,
 	  verbosity = Verbosity,
 	  silent_connections = SilentConns,
 	  cover = Cover,
+	  cover_stop = CoverStop,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
 	  ct_hooks = FiltCTHooks,
@@ -1576,14 +1593,7 @@ do_run(Tests, Misc, LogDir, LogOpts) when is_list(Misc),
 	    StepOpts ->
 		#opts{step = StepOpts}
 	end,
-    Opts1 =
-	case proplists:get_value(cover, Misc) of
-	    undefined ->
-		Opts;
-	    CoverFile ->
-		Opts#opts{cover = CoverFile}
-	end,
-    do_run(Tests, [], Opts1#opts{logdir = LogDir}, []);
+    do_run(Tests, [], Opts#opts{logdir = LogDir}, []);
 
 do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
     #opts{label = Label, profile = Profile, cover = Cover,
@@ -1617,7 +1627,13 @@ do_run(Tests, Skip, Opts, Args) when is_record(Opts, opts) ->
 				{error,Reason} ->
 				    exit({error,Reason});
 				CoverSpec ->
-				    Opts#opts{coverspec = CoverSpec}
+				    CoverStop =
+					case Opts#opts.cover_stop of
+					    undefined -> true;
+					    Stop -> Stop
+					end,
+				    Opts#opts{coverspec = CoverSpec,
+					      cover_stop = CoverStop}
 			    end
 		    end,
 	    %% This env variable is used by test_server to determine
@@ -2120,7 +2136,8 @@ do_run_test(Tests, Skip, Opts) ->
 		    %% tell test_server which modules should be cover compiled
 		    %% note that actual compilation is done when tests start
 		    test_server_ctrl:cover(CovApp, CovFile, CovExcl, CovIncl,
-					   CovCross, CovExport, CovLevel),
+					   CovCross, CovExport, CovLevel,
+					   Opts#opts.cover_stop),
 		    %% save cover data (used e.g. to add nodes dynamically)
 		    ct_util:set_testdata({cover,CovData}),
 		    %% start cover on specified nodes
@@ -2583,6 +2600,9 @@ merge_arguments([LogDir={logdir,_}|Args], Merged) ->
 
 merge_arguments([CoverFile={cover,_}|Args], Merged) ->
     merge_arguments(Args, handle_arg(replace, CoverFile, Merged));
+
+merge_arguments([CoverStop={cover_stop,_}|Args], Merged) ->
+    merge_arguments(Args, handle_arg(replace, CoverStop, Merged));
 
 merge_arguments([{'case',TC}|Args], Merged) ->
     merge_arguments(Args, handle_arg(merge, {testcase,TC}, Merged));

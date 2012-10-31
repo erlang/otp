@@ -51,7 +51,7 @@
 %%%               {testcase,Cases} | {spec,TestSpecs} | {allow_user_terms,Bool} | 
 %%%               {logdir,LogDir} | {event_handler,EventHandlers} | 
 %%%               {silent_connections,Conns} | {cover,CoverSpecFile} |
-%%%		  {userconfig, UserCfgFiles}
+%%%		  {cover_stop,Bool} | {userconfig, UserCfgFiles}
 %%%       CfgFiles = string() | [string()]
 %%%       TestDirs = string() | [string()]
 %%%       Suites = atom() | [atom()]

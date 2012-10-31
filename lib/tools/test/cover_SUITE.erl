@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([start/1, compile/1, analyse/1, misc/1, stop/1, 
-	 distribution/1, export_import/1,
+	 distribution/1, reconnect/1, die_and_reconnect/1, export_import/1,
 	 otp_5031/1, eif/1, otp_5305/1, otp_5418/1, otp_6115/1, otp_7095/1,
          otp_8188/1, otp_8270/1, otp_8273/1, otp_8340/1]).
 
@@ -45,7 +45,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() -> 
     case whereis(cover_server) of
 	undefined ->
-	    [start, compile, analyse, misc, stop, distribution,
+	    [start, compile, analyse, misc, stop,
+	     distribution, reconnect, die_and_reconnect,
 	     export_import, otp_5031, eif, otp_5305, otp_5418,
 	     otp_6115, otp_7095, otp_8188, otp_8270, otp_8273,
 	     otp_8340];
@@ -326,14 +327,16 @@ distribution(Config) when is_list(Config) ->
     ?line {ok,N1} = ?t:start_node(cover_SUITE_distribution1,slave,[]),
     ?line {ok,N2} = ?t:start_node(cover_SUITE_distribution2,slave,[]),
     ?line {ok,N3} = ?t:start_node(cover_SUITE_distribution3,slave,[]),
+    ?line {ok,N4} = ?t:start_node(cover_SUITE_distribution4,slave,[]),
 
     %% Check that an already compiled module is loaded on new nodes
     ?line {ok,f} = cover:compile(f),
-    ?line {ok,[_,_,_]} = cover:start(nodes()),
+    ?line {ok,[_,_,_,_]} = cover:start(nodes()),
     ?line cover_compiled = code:which(f),
     ?line cover_compiled = rpc:call(N1,code,which,[f]),
     ?line cover_compiled = rpc:call(N2,code,which,[f]),
     ?line cover_compiled = rpc:call(N3,code,which,[f]),
+    ?line cover_compiled = rpc:call(N4,code,which,[f]),
 
     %% Check that a node cannot be started twice
     ?line {ok,[]} = cover:start(N2),
@@ -351,6 +354,7 @@ distribution(Config) when is_list(Config) ->
     ?line cover_compiled = rpc:call(N1,code,which,[v]),
     ?line cover_compiled = rpc:call(N2,code,which,[v]),
     ?line cover_compiled = rpc:call(N3,code,which,[v]),
+    ?line cover_compiled = rpc:call(N4,code,which,[v]),
     
     %% this is lost when the node is killed
     ?line rpc:call(N3,f,f2,[]),
@@ -385,6 +389,18 @@ distribution(Config) when is_list(Config) ->
     %% reset on the remote node(s))
     ?line check_f_calls(1,1),
 
+    %% Another checn that data is not fetched twice, i.e. when flushed
+    %% then analyse should not add the same data again.
+    ?line rpc:call(N4,f,f2,[]),
+    ?line ok = cover:flush(N4),
+    ?line check_f_calls(1,2),
+
+    %% Check that flush collects data so calls are not lost if node is killed
+    ?line rpc:call(N4,f,f2,[]),
+    ?line ok = cover:flush(N4),
+    ?line rpc:call(N4,erlang,halt,[]),
+    ?line check_f_calls(1,3),
+
     %% Check that stop() unloads on all nodes
     ?line ok = cover:stop(),
     ?line timer:sleep(100), %% Give nodes time to unload on slow machines.
@@ -393,20 +409,117 @@ distribution(Config) when is_list(Config) ->
     ?line true = is_unloaded(LocalBeam),
     ?line true = is_unloaded(N2Beam),
 
-    %% Check that cover_server on remote node dies if main node dies
+    %% Check that cover_server on remote node does not die if main node dies
     ?line {ok,[N1]} = cover:start(N1),
-    ?line true = is_pid(rpc:call(N1,erlang,whereis,[cover_server])),
+    ?line true = is_pid(N1Server = rpc:call(N1,erlang,whereis,[cover_server])),
     ?line exit(whereis(cover_server),kill),
-    ?line timer:sleep(10),
-    ?line undefined = rpc:call(N1,erlang,whereis,[cover_server]),    
-    
+    ?line timer:sleep(100),
+    ?line N1Server = rpc:call(N1,erlang,whereis,[cover_server]),
+
     %% Cleanup
     ?line Files = lsfiles(),
     ?line remove(files(Files, ".beam")),
     ?line ?t:stop_node(N1),
     ?line ?t:stop_node(N2).
 
-    
+%% Test that a lost node is reconnected
+reconnect(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ok = file:set_cwd(DataDir),
+
+    {ok,a} = compile:file(a),
+    {ok,b} = compile:file(b),
+    {ok,f} = compile:file(f),
+
+    {ok,N1} = ?t:start_node(cover_SUITE_reconnect,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    {ok,a} = cover:compile(a),
+    {ok,f} = cover:compile(f),
+    {ok,[N1]} = cover:start(nodes()),
+
+    %% Some calls to check later
+    rpc:call(N1,f,f1,[]),
+    cover:flush(N1),
+    rpc:call(N1,f,f1,[]),
+
+    %% This will cause a call to f:f2() when nodes()==[] on N1
+    rpc:cast(N1,f,call_f2_when_isolated,[]),
+
+    %% Disconnect and check that node is removed from main cover node
+    net_kernel:disconnect(N1),
+    [] = cover:which_nodes(),
+    timer:sleep(500), % allow some time for the f:f2() call
+
+    %% Do some add one module (b) and remove one module (a)
+    code:purge(a),
+    {module,a} = code:load_file(a),
+    {ok,b} = cover:compile(b),
+    cover_compiled = code:which(b),
+
+    [] = cover:which_nodes(),
+    check_f_calls(1,0), % only the first call - before the flush
+
+    %% Reconnect the node and check that b and f are cover compiled but not a
+    net_kernel:connect_node(N1),
+    timer:sleep(100),
+    [N1] = cover:which_nodes(), % we are reconnected
+    cover_compiled = rpc:call(N1,code,which,[b]),
+    cover_compiled = rpc:call(N1,code,which,[f]),
+    ABeam = rpc:call(N1,code,which,[a]),
+    false = (cover_compiled==ABeam),
+
+    %% Ensure that we have:
+    %% * one f1 call from before the flush,
+    %% * one f1 call from after the flush but before disconnect
+    %% * one f2 call when disconnected
+    check_f_calls(2,1),
+
+    cover:stop(),
+    ?t:stop_node(N1),
+    ok.
+
+%% Test that a lost node is reconnected - also if it has been dead
+die_and_reconnect(Config) ->
+    DataDir = ?config(data_dir, Config),
+    ok = file:set_cwd(DataDir),
+
+    {ok,f} = compile:file(f),
+
+    NodeName = cover_SUITE_die_and_reconnect,
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    %% {ok,a} = cover:compile(a),
+    {ok,f} = cover:compile(f),
+    {ok,[N1]} = cover:start(nodes()),
+
+    %% Some calls to check later
+    rpc:call(N1,f,f1,[]),
+    cover:flush(N1),
+    rpc:call(N1,f,f1,[]),
+
+    %% Kill the node
+    rpc:call(N1,erlang,halt,[]),
+    [] = cover:which_nodes(),
+
+    check_f_calls(1,0), % only the first call - before the flush
+
+    %% Restart the node and check that cover reconnects
+    {ok,N1} = ?t:start_node(NodeName,peer,
+			    [{args," -pa " ++ DataDir},{start_cover,false}]),
+    timer:sleep(100),
+    [N1] = cover:which_nodes(), % we are reconnected
+    cover_compiled = rpc:call(N1,code,which,[f]),
+
+    %% One more call...
+    rpc:call(N1,f,f1,[]),
+
+    %% Ensure that no more calls are counted
+    check_f_calls(2,0),
+
+    cover:stop(),
+    ?t:stop_node(N1),
+    ok.
+
 export_import(suite) -> [];
 export_import(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
@@ -1238,4 +1351,4 @@ is_unloaded(What) ->
     end.
 
 check_f_calls(F1,F2) ->
-    {ok,[{{f,f1,0},F1},{{f,f2,0},F2}]} = cover:analyse(f,calls,function).
+    {ok,[{{f,f1,0},F1},{{f,f2,0},F2}|_]} = cover:analyse(f,calls,function).

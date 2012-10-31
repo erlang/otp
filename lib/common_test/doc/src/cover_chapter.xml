@@ -109,6 +109,33 @@
   </section>
 
   <section>
+    <marker id="cover_stop"></marker>
+    <title>Stopping the cover tool when tests are completed</title>
+    <p>By default the Cover tool is automatically stopped when the
+      tests are completed. This causes the original (non cover
+      compiled) modules to be loaded back in to the test node. If a
+      process at this point is still running old code of any of the
+      modules that are cover compiled, meaning that it has not done
+      any fully qualified function call after the cover compilation,
+      the process will now be killed. To avoid this it is possible to
+      set the value of the <c>cover_stop</c> option to
+      <c>false</c>. This means that the modules will stay cover
+      compiled, and it is therefore only recommended if the erlang
+      node(s) under test is terminated after the test is completed
+      or if cover can be manually stopped.</p>
+
+    <p>The option can be set by using the <c>-cover_stop</c> flag with
+      <c>ct_run</c>, by adding <c>{cover_stop,true|false}</c> to the
+      Opts argument to <c><seealso
+      marker="ct#run_test-1">ct:run_test/1</seealso></c>, or by adding
+      a <c>cover_stop</c> term in your test specification (see chapter
+      about <seealso
+      marker="run_test_chapter#test_specifications">test
+      specifications</seealso>).</p>
+
+  </section>
+
+  <section>
     <title>The cover specification file</title>
     <p>These are the terms allowed in a cover specification file:</p>
 

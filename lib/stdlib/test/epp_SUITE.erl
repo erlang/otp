@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2011. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -1236,6 +1236,13 @@ otp_8911(doc) ->
 otp_8911(suite) ->
     [];
 otp_8911(Config) when is_list(Config) ->
+    case test_server:is_cover() of
+	true ->
+	    {skip, "Testing cover, so can not run when cover is already running"};
+	false ->
+	    do_otp_8911(Config)
+    end.
+do_otp_8911(Config) ->
     ?line {ok, CWD} = file:get_cwd(),
     ?line ok = file:set_cwd(?config(priv_dir, Config)),
 
