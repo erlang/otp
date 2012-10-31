@@ -442,7 +442,7 @@ do_cover_compile1([]) ->
 %% this is only recommended if the erlang node is being terminated
 %% after the test is completed.
 cover_analyse(Analyse,Modules,Stop) ->
-    io:fwrite("Cover analysing...\n",[]),
+    print(stdout, "Cover analysing...\n", []),
     DetailsFun =
 	case Analyse of
 	    {details,Dir} ->
