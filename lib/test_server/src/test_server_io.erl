@@ -253,6 +253,8 @@ output(From, Tag, Str, #st{io_buffering=Buffered,buffered=Buf0}=St) ->
 	    St#st{buffered=Buf}
     end.
 
+do_output(stdout, Str, #st{job_name=undefined}) ->
+    io:put_chars(Str);
 do_output(stdout, Str0, #st{job_name=Name}) ->
     Str = io_lib:format("Testing ~s: ~s\n", [Name,Str0]),
     io:put_chars(Str);

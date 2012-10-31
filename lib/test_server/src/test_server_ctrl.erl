@@ -1416,6 +1416,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     group_leader(test_server_io:get_gl(true), self()),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
     set_io_buffering(undefined),
+    test_server_io:set_job_name(undefined),
     catch stop_extra_tools(StartedExtraTools),
     case Result of
 	{'EXIT',test_suites_done} ->
