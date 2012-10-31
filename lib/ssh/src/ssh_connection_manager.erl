@@ -607,8 +607,15 @@ check_cache(State, Cache) ->
     case proplists:get_value(size, ets:info(Cache)) of
 	0 ->
 	    Opts = proplists:get_value(ssh_opts, State#state.opts),
-	    TimerRef = erlang:send_after(proplists:get_value(idle_time, Opts), self(), {'EXIT', [], "Timeout"}),
-	    State#state{idle_timer_ref=TimerRef};
+	    case proplists:get_value(idle_time, Opts) of
+		infinity ->
+		    State;
+		undefined ->
+		    State;
+		Time ->
+		    TimerRef = erlang:send_after(Time, self(), {'EXIT', [], "Timeout"}),
+		    State#state{idle_timer_ref=TimerRef}
+	    end;
 	_ ->
 	    State
     end.
