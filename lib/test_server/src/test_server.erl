@@ -28,7 +28,7 @@
 -export([cover_compile/1,cover_analyse/3]).
 
 %%% TEST_SERVER_SUP INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([get_loc/1,set_tc_state/2]).
+-export([get_loc/1,set_tc_state/1]).
 
 %%% TEST SUITE INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([lookup_config/2]).
@@ -673,7 +673,7 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 	  end),
     put(test_server_detected_fail, []),
     St = #st{ref=Ref,pid=Pid,mf={Mod,Func},status=starting,ret_val=[],
-	     comment="",timeout=infinity,config=undefined},
+	     comment="",timeout=infinity,config=hd(Args)},
     run_test_case_msgloop(St).
 
 %% Ugly bug (pre R5A):
@@ -687,7 +687,11 @@ do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 %%
 run_test_case_msgloop(#st{ref=Ref,pid=Pid,end_conf_pid=EndConfPid0}=St0) ->
     receive
-	{set_tc_state=Tag,From,{Status,Config}} ->
+	{set_tc_state=Tag,From,{Status,Config0}} ->
+	    Config = case Config0 of
+			 unknown -> St0#st.config;
+			 _ -> Config0
+		     end,
 	    St = St0#st{status=Status,config=Config},
 	    From ! {self(),Tag,ok},
 	    run_test_case_msgloop(St);
@@ -872,6 +876,8 @@ setup_termination(RetVal, #st{pid=Pid}=St) ->
     timetrap_cancel_all(Pid, false),
     St#st{ret_val=RetVal,timeout=20}.
 
+set_tc_state(State) ->
+    set_tc_state(State,unknown).
 set_tc_state(State, Config) ->
     tc_supervisor_req(set_tc_state, {State,Config}).
 
@@ -980,14 +986,14 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 	end,
     spawn_link(EndConfProc).
 
-spawn_fw_call(Mod,{init_per_testcase,Func},_,Pid,{timetrap_timeout,TVal}=Why,
+spawn_fw_call(Mod,{init_per_testcase,Func},CurrConf,Pid,{timetrap_timeout,TVal}=Why,
 	      Loc,SendTo) ->
     FwCall =
 	fun() ->
 		Skip = {skip,{failed,{Mod,init_per_testcase,Why}}},
 		%% if init_per_testcase fails, the test case
 		%% should be skipped
-		case catch do_end_tc_call(Mod,Func, {Pid,Skip,[[]]}, Why) of
+		case catch do_end_tc_call(Mod,Func, {Pid,Skip,[CurrConf]}, Why) of
 		    {'EXIT',FwEndTCErr} ->
 			exit({fw_notify_done,end_tc,FwEndTCErr});
 		    _ ->
@@ -1053,7 +1059,7 @@ spawn_fw_call(FwMod,FwFunc,_,_Pid,{framework_error,FwError},_,SendTo) ->
 	end,
     spawn_link(FwCall);
 
-spawn_fw_call(Mod,Func,_CurrConf,Pid,Error,Loc,SendTo) ->
+spawn_fw_call(Mod,Func,CurrConf,Pid,Error,Loc,SendTo) ->
     FwCall =
 	fun() ->
 		case catch fw_error_notify(Mod,Func,[],
@@ -1064,7 +1070,7 @@ spawn_fw_call(Mod,Func,_CurrConf,Pid,Error,Loc,SendTo) ->
 		    _ ->
 			ok
 		end,
-		Conf = [{tc_status,{failed,timetrap_timeout}}],
+		Conf = [{tc_status,{failed,timetrap_timeout}}|CurrConf],
 		case catch do_end_tc_call(Mod,Func,
 					  {Pid,Error,[Conf]},Error) of
 		    {'EXIT',FwEndTCErr} ->
@@ -1134,7 +1140,7 @@ run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
     put(test_server_loc, Where),
     FWInitResult = test_server_sup:framework_call(init_tc,[?pl2a(Mod),Func,Args0],
 						  {ok,Args0}),
-    set_tc_state(running, undefined),
+    set_tc_state(running),
     {{Time,Value},Loc,Opts} =
 	case FWInitResult of
 	    {ok,Args} ->
@@ -1167,12 +1173,12 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 	    case init_per_testcase(Mod, Func, Args) of
 		Skip = {skip,Reason} ->
 		    Line = get_loc(),
-		    Conf = [{tc_status,{skipped,Reason}}],
+		    Conf = [{tc_status,{skipped,Reason}}|hd(Args)],
 		    NewRes = do_end_tc_call(Mod,Func, {Skip,[Conf]}, Skip),
 		    {{0,NewRes},Line,[]};
 		{skip_and_save,Reason,SaveCfg} ->
 		    Line = get_loc(),
-		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}],
+		    Conf = [{tc_status,{skipped,Reason}},{save_config,SaveCfg}|hd(Args)],
 		    NewRes = do_end_tc_call(Mod,Func, {{skip,Reason},[Conf]},
 					    {skip,Reason}),
 		    {{0,NewRes},Line,[]};

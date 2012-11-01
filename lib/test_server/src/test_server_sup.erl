@@ -520,7 +520,7 @@ framework_call(Callback,Func,Args,DefaultReturn) ->
 			 end,
 	    case SetTcState of
 		true ->
-		    test_server:set_tc_state({framework,Mod,Func}, undefined);
+		    test_server:set_tc_state({framework,Mod,Func});
 		false ->
 		    ok
 	    end,
