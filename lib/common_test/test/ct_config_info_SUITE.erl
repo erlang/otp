@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -123,8 +123,7 @@ test_events(config_info) ->
      {?eh,tc_done,{config_info_1_SUITE,init_per_suite,ok}},
 
      [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g1,[]}}},
-      {?eh,tc_done,{config_info_1_SUITE,
-		    {init_per_group,unknown,[]},
+      {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g1,[]},
 		    {failed,{timetrap_timeout,350}}}},
       {?eh,tc_auto_skip,{config_info_1_SUITE,t11,
 	{failed,{config_info_1_SUITE,init_per_group,{timetrap_timeout,350}}}}},
@@ -136,14 +135,12 @@ test_events(config_info) ->
       {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g2,[]},ok}},
       {?eh,tc_done,{config_info_1_SUITE,t21,ok}},
       {?eh,tc_start,{config_info_1_SUITE,{end_per_group,g2,[]}}},
-      {?eh,tc_done,{config_info_1_SUITE,
-		    {end_per_group,unknown,[]},
+      {?eh,tc_done,{config_info_1_SUITE,{end_per_group,g2,[]},
 		    {failed,{timetrap_timeout,450}}}}],
      [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g3,[]}}},
       {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g3,[]},ok}},
       [{?eh,tc_start,{config_info_1_SUITE,{init_per_group,g4,[]}}},
-       {?eh,tc_done,{config_info_1_SUITE,
-		     {init_per_group,unknown,[]},
+       {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g4,[]},
 		     {failed,{timetrap_timeout,400}}}},
        {?eh,tc_auto_skip,{config_info_1_SUITE,t41,
 	 {failed,{config_info_1_SUITE,init_per_group,
@@ -164,8 +161,7 @@ test_events(config_info) ->
        {?eh,tc_done,{config_info_1_SUITE,{init_per_group,g5,[]},ok}},
        {?eh,tc_done,{config_info_1_SUITE,t51,ok}},
        {?eh,tc_start,{config_info_1_SUITE,{end_per_group,g5,[]}}},
-       {?eh,tc_done,{config_info_1_SUITE,
-		     {end_per_group,unknown,[]},
+       {?eh,tc_done,{config_info_1_SUITE,{end_per_group,g5,[]},
 		     {failed,{timetrap_timeout,400}}}}],
       {?eh,tc_start,{config_info_1_SUITE,{end_per_group,g3,[]}}},
       {?eh,tc_done,{config_info_1_SUITE,{end_per_group,g3,[]},ok}}],
