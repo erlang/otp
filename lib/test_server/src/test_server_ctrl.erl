@@ -463,8 +463,7 @@ wait_finish() ->
     ok.
 
 abort_current_testcase(Reason) ->
-    controller_call({abort_current_testcase,Reason}),
-    ok.
+    controller_call({abort_current_testcase,Reason}).
 
 abort() ->
     OldTrap = process_flag(trap_exit, true),
@@ -3705,6 +3704,11 @@ handle_io_and_exit_loop(_, [], Ok,Skip,Fail) ->
 
 handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
     receive
+	{abort_current_testcase=Tag,_Reason,From} ->
+	    %% If a parallel group is executing, there is no unique
+	    %% current test case, so we must generate an error.
+	    From ! {self(),Tag,{error,parallel_group}},
+	    handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases);
 	%% end of io session from test case executed by main process
 	{finished,_,Main,CaseNum,Mod,Func,Result,_RetVal} ->
 	    test_server_io:print_buffered(CurrPid),

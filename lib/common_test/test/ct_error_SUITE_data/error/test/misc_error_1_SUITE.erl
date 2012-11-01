@@ -96,7 +96,7 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-    [].
+    [{p,[parallel],[p1,p2]}].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -107,7 +107,8 @@ groups() ->
 %%--------------------------------------------------------------------
 all() -> 
     [ct_fail_1, ct_fail_2, ct_fail_3, ts_fail_1, ts_fail_2,
-     killed_by_signal_1, killed_by_signal_2].
+     killed_by_signal_1, killed_by_signal_2,
+     {group,p}].
 
 ct_fail_1(_) ->
     ct:fail({error,this_is_expected}),
@@ -152,3 +153,10 @@ killed_by_signal_2(_) ->
 	       end),
     ct:sleep(1000),
     exit(this_should_not_be_seen).
+
+p1(_) ->
+    {error,parallel_group} = ct:abort_current_testcase(aborted),
+    ok.
+
+p2(_) ->
+    receive after 1000 -> ok end.
