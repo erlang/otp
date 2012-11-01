@@ -57,6 +57,9 @@
      /* Implement some other way to get the real page size if needed! */
 #endif
 
+#define ALIGN_BITS       (14)
+#define ALIGNED_SIZE     (1 << ALIGN_BITS) /* 16kB */
+
 #define MAX_CACHE_SIZE 30
 
 #undef MIN
@@ -70,6 +73,12 @@
 #define PAGE_FLOOR(X)	((X) & PAGE_MASK)
 #define PAGE_CEILING(X)	PAGE_FLOOR((X) + INV_PAGE_MASK)
 #define PAGES(X)	((X) >> page_shift)
+
+#define INV_ALIGNED_MASK    ((Uint) ((ALIGNED_SIZE) - 1))
+#define ALIGNED_MASK        (~INV_ALIGNED_MASK)
+#define ALIGNED_FLOOR(X)    (((Uint)(X)) & ALIGNED_MASK)
+#define ALIGNED_CEILING(X)  ALIGNED_FLOOR((X) + INV_ALIGNED_MASK)
+#define MAP_IS_ALIGNED(X)   ((((Uint)X) & (ALIGNED_SIZE - 1)) == 0)
 
 static int atoms_initialized;
 
@@ -323,11 +332,44 @@ schedule_cache_check(ErtsMsegAllctr_t *ma)
 }
 
 static ERTS_INLINE void *
+mmap_align(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+
+    void *seg, *aseg;
+    Uint diff;
+
+    seg = mmap(addr, length, prot, flags, fd, offset);
+
+    if (MAP_IS_ALIGNED(seg) || seg == MAP_FAILED) {
+	return seg;
+    }
+
+    munmap(seg, length);
+
+    seg = mmap(addr, length + ALIGNED_SIZE, prot, flags, fd, offset);
+    if (seg == MAP_FAILED) {
+	return seg;
+    }
+
+    /* ceil to aligned pointer */
+    aseg = (void *)(((Uint)(seg + ALIGNED_SIZE)) & (~(ALIGNED_SIZE - 1)));
+    diff = aseg - seg;
+
+    if (diff > 0) {
+	munmap(seg, diff);
+    }
+
+    if (ALIGNED_SIZE - diff > 0) {
+	munmap((void *) (aseg + length), ALIGNED_SIZE - diff);
+    }
+
+    return aseg;
+}
+
+static ERTS_INLINE void *
 mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
 {
     void *seg;
-
-    ASSERT(size % page_size == 0);
+    ASSERT(size % ALIGNED_SIZE == 0);
 
 #if HALFWORD_HEAP
     if (mk == &ma->low_mem) {
@@ -342,7 +384,7 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
     {
 #if HAVE_MMAP
 	{
-	    seg = (void *) mmap((void *) 0, (size_t) size,
+	    seg = (void *) mmap_align((void *) 0, (size_t) size,
 				MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
 	    if (seg == (void *) MAP_FAILED)
 		seg = NULL;
@@ -358,8 +400,7 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
 }
 
 static ERTS_INLINE void
-mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size)
-{
+mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size) {
 #ifdef DEBUG
     int res;
 #endif
@@ -651,7 +692,7 @@ mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, Uint *size_p,
 
     INC_CC(ma, alloc);
 
-    size = PAGE_CEILING(*size_p);
+    size = ALIGNED_CEILING(*size_p);
 
 #if CAN_PARTLY_DESTROY
     if (size < ma->min_seg_size)	
@@ -837,7 +878,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 
     mk = memkind(ma, opt);
     new_seg = seg;
-    new_size = PAGE_CEILING(*new_size_p);
+    new_size = ALIGNED_CEILING(*new_size_p);
 
     if (new_size == old_size)
 	;
@@ -1478,7 +1519,7 @@ erts_mseg_no(const ErtsMsegOpt_t *opt)
 Uint
 erts_mseg_unit_size(void)
 {
-    return page_size;
+    return ALIGNED_SIZE;
 }
 
 static void mem_kind_init(ErtsMsegAllctr_t *ma, MemKind* mk, const char* name)
@@ -1553,8 +1594,10 @@ erts_mseg_init(ErtsMsegInit_t *init)
 #endif
 
     page_size = GET_PAGE_SIZE;
+    ASSERT( (ALIGNED_SIZE % page_size) == 0);
 
     page_shift = 1;
+    /* page size alignment assertion */
     while ((page_size >> page_shift) != 1) {
 	if ((page_size & (1 << (page_shift - 1))) != 0)
 	    erl_exit(ERTS_ABORT_EXIT,
