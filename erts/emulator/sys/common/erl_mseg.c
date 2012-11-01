@@ -78,7 +78,7 @@
 #define ALIGNED_MASK        (~INV_ALIGNED_MASK)
 #define ALIGNED_FLOOR(X)    (((Uint)(X)) & ALIGNED_MASK)
 #define ALIGNED_CEILING(X)  ALIGNED_FLOOR((X) + INV_ALIGNED_MASK)
-#define MAP_IS_ALIGNED(X)   ((((Uint)X) & (ALIGNED_SIZE - 1)) == 0)
+#define MAP_IS_ALIGNED(X)   ((((unsigned long)X) & (ALIGNED_SIZE - 1)) == 0)
 
 static int atoms_initialized;
 
@@ -335,7 +335,7 @@ static ERTS_INLINE void *
 mmap_align(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
 
     void *seg, *aseg;
-    Uint diff;
+    unsigned long diff;
 
     seg = mmap(addr, length, prot, flags, fd, offset);
 
@@ -345,13 +345,12 @@ mmap_align(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 
     munmap(seg, length);
 
-    seg = mmap(addr, length + ALIGNED_SIZE, prot, flags, fd, offset);
-    if (seg == MAP_FAILED) {
+    if ((seg = mmap(addr, length + ALIGNED_SIZE, prot, flags, fd, offset)) == MAP_FAILED) {
 	return seg;
     }
 
     /* ceil to aligned pointer */
-    aseg = (void *)(((Uint)(seg + ALIGNED_SIZE)) & (~(ALIGNED_SIZE - 1)));
+    aseg = (void *)(((unsigned long)(seg + ALIGNED_SIZE)) & (~(ALIGNED_SIZE - 1)));
     diff = aseg - seg;
 
     if (diff > 0) {
@@ -401,25 +400,17 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
 
 static ERTS_INLINE void
 mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size) {
-#ifdef DEBUG
-    int res;
-#endif
+    ERTS_DECLARE_DUMMY(int res);
 
 #if HALFWORD_HEAP
     if (mk == &ma->low_mem) {
-#ifdef DEBUG
-	res = 
-#endif
-	    pmunmap((void *) seg, size);
+	res = pmunmap((void *) seg, size);
     }
     else
 #endif
     {
 #ifdef HAVE_MMAP
-#ifdef DEBUG
-	res = 
-#endif
-	    munmap((void *) seg, size);
+	res = munmap((void *) seg, size);
 #else
 # error "Missing mseg_destroy() implementation"
 #endif
@@ -439,8 +430,8 @@ mseg_recreate(ErtsMsegAllctr_t *ma, MemKind* mk, void *old_seg, Uint old_size, U
 {
     void *new_seg;
 
-    ASSERT(old_size % page_size == 0);
-    ASSERT(new_size % page_size == 0);
+    ASSERT(old_size % ALIGNED_SIZE == 0);
+    ASSERT(new_size % ALIGNED_SIZE == 0);
 
 #if HALFWORD_HEAP
     if (mk == &ma->low_mem) {
@@ -1594,7 +1585,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 #endif
 
     page_size = GET_PAGE_SIZE;
-    ASSERT( (ALIGNED_SIZE % page_size) == 0);
+    ASSERT((ALIGNED_SIZE % page_size) == 0);
 
     page_shift = 1;
     /* page size alignment assertion */
@@ -1732,7 +1723,40 @@ erts_mseg_test(unsigned long op,
  * mapping tricks.
  */
 
-/*#define HARDDEBUG 1*/
+/* #define HARDDEBUG 1 */
+
+#ifdef HARDDEBUG
+static void dump_freelist(void)
+{
+    FreeBlock *p = first;
+
+    while (p) {
+	fprintf(stderr, "p = %p\r\np->num = %ld\r\np->next = %p\r\n\r\n",
+	       (void *) p, (unsigned long) p->num, (void *) p->next);
+	p = p->next;
+    }
+}
+
+#define HARDDEBUG_HW_INCOMPLETE_ALIGNMENT(PTR, SZ)            \
+    fprintf(stderr,"Mapping of address %p with size %ld "     \
+	    "does not map complete pages (%s:%d)\r\n",        \
+	    (void *) (PTR), (unsigned long) (SZ),__FILE__, __LINE__)
+
+#define HARDDEBUG_HW_UNALIGNED_ALIGNMENT(PTR, SZ)             \
+    fprintf(stderr,"Mapping of address %p with size %ld "     \
+	    "is not page aligned (%s:%d)\r\n",                \
+	    (void *) (PTR), (unsigned long) (SZ),__FILE__, __LINE__)
+
+#define HARDDEBUG_MAP_FAILED(PTR, SZ) \
+    fprintf(stderr, "Could not actually map memory "          \
+	    "at address %p with size %ld (%s:%d) ..\r\n",     \
+	    (void *) (PTR), (unsigned long) (SZ),__FILE__, __LINE__)
+#else
+#define HARDDEBUG_HW_INCOMPLETE_ALIGNMENT(PTR, SZ) do{}while(0)
+#define HARDDEBUG_HW_UNALIGNED_ALIGNMENT(PTR, SZ)  do{}while(0)
+#define HARDDEBUG_MAP_FAILED(PTR, SZ)              do{}while(0)
+#endif
+
 
 #ifdef __APPLE__
 #define MAP_ANONYMOUS MAP_ANON
@@ -1751,49 +1775,20 @@ typedef struct _free_block {
     struct _free_block *next;
 } FreeBlock;
 
-/* Assigned once and for all */
-static size_t pagsz;
-
 /* Protect with lock */
 static FreeBlock *first;
-
-static size_t round_up_to_pagesize(size_t size)
-{
-    size_t x  = size / pagsz;
-
-    if ((size % pagsz)) {
-	++x;
-    }
-
-    return pagsz * x;
-}
-
-static size_t round_down_to_pagesize(size_t size)
-{
-    size_t x  = size / pagsz;
-
-    return pagsz * x;
-}
 
 static void *do_map(void *ptr, size_t sz)
 {
     void *res;
 
-    if (round_up_to_pagesize(sz) != sz) {
-#ifdef HARDDEBUG
-	fprintf(stderr,"Mapping of address %p with size %ld "
-		"does not map complete pages\r\n",
-		(void *) ptr, (unsigned long) sz);
-#endif
+    if (ALIGNED_CEILING(sz) != sz) {
+	HARDDEBUG_HW_INCOMPLETE_ALIGNMENT(ptr, sz);
 	return NULL;
     }
 
-    if (((unsigned long) ptr) % pagsz) {
-#ifdef HARDDEBUG
-	fprintf(stderr,"Mapping of address %p with size %ld "
-		"is not page aligned\r\n",
-		(void *) ptr, (unsigned long) sz);
-#endif
+    if (((unsigned long) ptr) % ALIGNED_SIZE) {
+	HARDDEBUG_HW_UNALIGNED_ALIGNMENT(ptr, sz);
 	return NULL;
     }
 
@@ -1807,10 +1802,7 @@ static void *do_map(void *ptr, size_t sz)
 #endif
 
     if (res == MAP_FAILED) {
-#ifdef HARDDEBUG
-	fprintf(stderr,"Mapping of address %p with size %ld failed!\r\n",
-		(void *) ptr, (unsigned long) sz);
-#endif
+	HARDDEBUG_MAP_FAILED(ptr, sz);
 	return NULL;
     }
 
@@ -1821,35 +1813,22 @@ static int do_unmap(void *ptr, size_t sz)
 {
     void *res;
 
-    if (round_up_to_pagesize(sz) != sz) {
-#ifdef HARDDEBUG
-	fprintf(stderr,"Mapping of address %p with size %ld "
-		"does not map complete pages\r\n",
-		(void *) ptr, (unsigned long) sz);
-#endif
+    if (ALIGNED_CEILING(sz) != sz) {
+	HARDDEBUG_HW_INCOMPLETE_ALIGNMENT(ptr, sz);
 	return 1;
     }
 
-    if (((unsigned long) ptr) % pagsz) {
-#ifdef HARDDEBUG
-	fprintf(stderr,"Mapping of address %p with size %ld "
-		"is not page aligned\r\n",
-		(void *) ptr, (unsigned long) sz);
-#endif
+    if (((unsigned long) ptr) % ALIGNED_SIZE) {
+	HARDDEBUG_HW_UNALIGNED_ALIGNMENT(ptr, sz);
 	return 1;
     }
-
 
     res = mmap(ptr, sz,
-	       PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE
-	       | MAP_FIXED,
+	       PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED,
 	       -1 , 0);
 
     if (res == MAP_FAILED) {
-#ifdef HARDDEBUG
-	fprintf(stderr,"Mapping of address %p with size %ld failed!\r\n",
-		(void *) ptr, (unsigned long) sz);
-#endif
+	HARDDEBUG_MAP_FAILED(ptr, sz);
 	return 1;
     }
 
@@ -1887,8 +1866,6 @@ static int initialize_pmmap(void)
     size_t rsz;
     FreeBlock *initial;
 
-
-    pagsz = getpagesize();
     SET_RANGE_MIN();
     if (sizeof(void *) != 8) {
 	erl_exit(1,"Halfword emulator cannot be run in 32bit mode");
@@ -1897,15 +1874,15 @@ static int initialize_pmmap(void)
     p = (char *) RANGE_MIN;
     q = (char *) RANGE_MAX;
 
-    rsz = round_down_to_pagesize(q - p);
+    rsz = ALIGNED_FLOOR(q - p);
 
-    rptr = mmap((void *) p, rsz,
+    rptr = mmap_align((void *) p, rsz,
 		PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS |
 		MAP_NORESERVE | EXTRA_MAP_FLAGS,
 		-1 , 0);
 #ifdef HARDDEBUG
     printf("p=%p, rsz = %ld, pages = %ld, got range = %p -> %p\r\n",
-	   p, (unsigned long) rsz, (unsigned long) (rsz / pagsz),
+	   p, (unsigned long) rsz, (unsigned long) (rsz / ALIGNED_SIZE),
 	   (void *) rptr, (void*)(rptr + rsz));
 #endif
     if ((UWord)(rptr + rsz) > RANGE_MAX) {
@@ -1917,39 +1894,27 @@ static int initialize_pmmap(void)
 	munmap((void*)RANGE_MAX, rsz - rsz_trunc);
 	rsz = rsz_trunc;
     }
-    if (!do_map(rptr,pagsz)) {
+    if (!do_map(rptr, ALIGNED_SIZE)) {
 	erl_exit(1,"Could not actually mmap first page for halfword emulator...\n");
     }
     initial = (FreeBlock *) rptr;
-    initial->num = (rsz / pagsz);
+    initial->num = (rsz / ALIGNED_SIZE);
     initial->next = NULL;
     first = initial;
     INIT_LOCK();
     return 0;
 }
 
-#ifdef HARDDEBUG
-static void dump_freelist(void)
-{
-    FreeBlock *p = first;
-
-    while (p) {
-	printf("p = %p\r\np->num = %ld\r\np->next = %p\r\n\r\n",
-	       (void *) p, (unsigned long) p->num, (void *) p->next);
-	p = p->next;
-    }
-}
-#endif
-
-
 static void *pmmap(size_t size)
 {
-    size_t real_size = round_up_to_pagesize(size);
-    size_t num_pages = real_size / pagsz;
+    size_t real_size = ALIGNED_CEILING(size);
+    size_t num_pages = real_size / ALIGNED_SIZE;
     FreeBlock **block;
     FreeBlock *tail;
     FreeBlock *res;
+
     TAKE_LOCK();
+
     for (block = &first;
 	 *block != NULL && (*block)->num < num_pages;
 	 block = &((*block)->next))
@@ -1960,29 +1925,25 @@ static void *pmmap(size_t size)
     }
     if ((*block)->num == num_pages) {
 	/* nice, perfect fit */
-	res = *block;
+	res    = *block;
 	*block = (*block)->next;
     } else {
 	tail = (FreeBlock *) (((char *) ((void *) (*block))) + real_size);
-	if (!do_map(tail,pagsz)) {
-#ifdef HARDDEBUG
-	    fprintf(stderr, "Could not actually allocate page at %p...\r\n",
-		    (void *) tail);
-#endif
+	if (!do_map(tail, ALIGNED_SIZE)) {
+	    HARDDEBUG_MAP_FAILED(tail, ALIGNED_SIZE);
 	    RELEASE_LOCK();
 	    return NULL;
 	}
-	tail->num = (*block)->num - num_pages;
+	tail->num  = (*block)->num - num_pages;
 	tail->next = (*block)->next;
 	res = *block;
 	*block = tail;
     }
+
     RELEASE_LOCK();
-    if (!do_map(res,real_size)) {
-#ifdef HARDDEBUG
-	fprintf(stderr, "Could not actually allocate %ld at %p...\r\n",
-		(unsigned long) real_size, (void *) res);
-#endif
+
+    if (!do_map(res, real_size)) {
+	HARDDEBUG_MAP_FAILED(res, real_size);
 	return NULL;
     }
 
@@ -1991,15 +1952,17 @@ static void *pmmap(size_t size)
 
 static int pmunmap(void *p, size_t size)
 {
-    size_t real_size = round_up_to_pagesize(size);
-    size_t num_pages = real_size / pagsz;
+    size_t real_size = ALIGNED_CEILING(size);
+    size_t num_pages = real_size / ALIGNED_SIZE;
+
     FreeBlock *block;
     FreeBlock *last;
     FreeBlock *nb = (FreeBlock *) p;
 
     ASSERT(((unsigned long)p & CHECK_POINTER_MASK)==0);
-    if (real_size > pagsz) {
-	if (do_unmap(((char *) p) + pagsz,real_size - pagsz)) {
+
+    if (real_size > ALIGNED_SIZE) {
+	if (do_unmap(((char *) p) + ALIGNED_SIZE, real_size - ALIGNED_SIZE)) {
 	    return 1;
 	}
     }
@@ -2018,7 +1981,7 @@ static int pmunmap(void *p, size_t size)
 	/* Merge new free block with following */
 	nb->num = block->num + num_pages;
 	nb->next = block->next;
-	if (do_unmap(block,pagsz)) {
+	if (do_unmap(block, ALIGNED_SIZE)) {
 	    RELEASE_LOCK();
 	    return 1;
 	}
@@ -2028,11 +1991,11 @@ static int pmunmap(void *p, size_t size)
 	nb->next = block;
     }
     if (last != NULL) {
-	if (p == ((void *) (((char *) last) + (last->num * pagsz)))) {
+	if (p == ((void *) (((char *) last) + (last->num * ALIGNED_SIZE)))) {
 	    /* Merge with previous */
 	    last->num += nb->num;
 	    last->next = nb->next;
-	    if (do_unmap(nb,pagsz)) {
+	    if (do_unmap(nb, ALIGNED_SIZE)) {
 		RELEASE_LOCK();
 		return 1;
 	    }
@@ -2049,10 +2012,10 @@ static int pmunmap(void *p, size_t size)
 static void *pmremap(void *old_address, size_t old_size,
 	      size_t new_size)
 {
-    size_t new_real_size = round_up_to_pagesize(new_size);
-    size_t new_num_pages = new_real_size / pagsz;
-    size_t old_real_size = round_up_to_pagesize(old_size);
-    size_t old_num_pages = old_real_size / pagsz;
+    size_t new_real_size = ALIGNED_CEILING(new_size);
+    size_t new_num_pages = new_real_size / ALIGNED_SIZE;
+    size_t old_real_size = ALIGNED_CEILING(old_size);
+    size_t old_num_pages = old_real_size / ALIGNED_SIZE;
     if (new_num_pages == old_num_pages) {
 	return old_address;
     } else if (new_num_pages < old_num_pages) { /* Shrink */
@@ -2070,8 +2033,8 @@ static void *pmremap(void *old_address, size_t old_size,
 	    (*block) > ((FreeBlock *)(((char *) vnfb) + nfb_real_size))) {
 	    /* Normal link in */
 	    if (nfb_pages > 1) {
-		if (do_unmap((void *)(((char *) vnfb) + pagsz),
-			     (nfb_pages - 1)*pagsz)) {
+		if (do_unmap((void *)(((char *) vnfb) + ALIGNED_SIZE),
+			     (nfb_pages - 1)*ALIGNED_SIZE)) {
 		    return NULL;
 		}
 	    }
@@ -2083,8 +2046,8 @@ static void *pmremap(void *old_address, size_t old_size,
 	    nfb->num = nfb_pages + (*block)->num;
 	    /* unmap also the first page of the next freeblock */
 	    (*block) = nfb;
-	    if (do_unmap((void *)(((char *) vnfb) + pagsz),
-			 nfb_pages*pagsz)) {
+	    if (do_unmap((void *)(((char *) vnfb) + ALIGNED_SIZE),
+			 nfb_pages*ALIGNED_SIZE)) {
 		return NULL;
 	    }
 	}
@@ -2119,9 +2082,9 @@ static void *pmremap(void *old_address, size_t old_size,
 	    size_t remaining_pages = (*block)->num -
 		(new_num_pages - old_num_pages);
 	    if (!remaining_pages) {
-		void *p = (void *) (((char *) (*block)) + pagsz);
+		void *p = (void *) (((char *) (*block)) + ALIGNED_SIZE);
 		void *n = (*block)->next;
-		size_t x = ((*block)->num - 1) * pagsz;
+		size_t x = ((*block)->num - 1) * ALIGNED_SIZE;
 		if (x > 0) {
 		    if (do_map(p,x) == NULL) {
 			RELEASE_LOCK();
@@ -2133,7 +2096,7 @@ static void *pmremap(void *old_address, size_t old_size,
 		FreeBlock *nfb = (FreeBlock *) ((void *)
 						(((char *) old_address) +
 						 new_real_size));
-		void *p = (void *) (((char *) (*block)) + pagsz);
+		void *p = (void *) (((char *) (*block)) + ALIGNED_SIZE);
 		if (do_map(p,new_real_size - old_real_size) == NULL) {
 		    RELEASE_LOCK();
 		    return NULL;
@@ -2147,5 +2110,4 @@ static void *pmremap(void *old_address, size_t old_size,
 	}
     }
 }
-
 #endif /* HALFWORD_HEAP */
