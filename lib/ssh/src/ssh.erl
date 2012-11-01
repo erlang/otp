@@ -342,6 +342,8 @@ handle_option([{exec, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{auth_methods, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
+handle_option([{pref_public_key_algs, _} = Opt | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, [handle_inet_option(Opt) | SocketOptions], SshOptions).
 
@@ -357,6 +359,13 @@ handle_ssh_option({user_interaction, Value} = Opt) when Value == true; Value == 
     Opt;
 handle_ssh_option({public_key_alg, Value} = Opt) when Value == ssh_rsa; Value == ssh_dsa ->
     Opt;
+handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
+    case check_pref_algs(Value) of
+	true ->
+	    Opt;
+	_ ->
+	    throw({error, {eoptions, Opt}})
+    end;
 handle_ssh_option({connect_timeout, Value} = Opt) when is_integer(Value); Value == infinity ->
     Opt;
 handle_ssh_option({user, Value} = Opt) when is_list(Value) ->
@@ -424,7 +433,18 @@ handle_inet_option({reuseaddr, _} = Opt) ->
 %% Option verified by inet
 handle_inet_option(Opt) ->
     Opt.
-
+%% Check preferred algs
+check_pref_algs([]) ->
+    true;
+check_pref_algs([H|T]) ->
+    case H of
+	ssh_dsa ->
+	    check_pref_algs(T);
+	ssh_rsa ->
+	    check_pref_algs(T);
+	_ ->
+	    false
+    end.
 %% Has IPv6 been disabled?
 inetopt(true) ->
     inet;
