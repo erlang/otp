@@ -851,8 +851,8 @@ efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
 }
 
 #ifdef HAVE_SENDFILE
-// For some reason the maximum size_t cannot be used as the max size
-// 3GB seems to work on all platforms
+/* For some reason the maximum size_t cannot be used as the max size
+   3GB seems to work on all platforms */
 #define SENDFILE_CHUNK_SIZE ((1UL << 30) -1)
 
 /*
@@ -889,7 +889,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
 #if defined(__linux__)
     ssize_t retval;
     do {
-      // check if *nbytes is 0 or greater than chunk size
+      /* check if *nbytes is 0 or greater than chunk size */
       if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
 	retval = sendfile(out_fd, in_fd, offset, SENDFILE_CHUNK_SIZE);
       else
@@ -900,7 +900,7 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
       }
     } while (retval == SENDFILE_CHUNK_SIZE);
     if (written != 0) {
-      // -1 is not returned by the linux API so we have to simulate it
+      /* -1 is not returned by the linux API so we have to simulate it */
       retval = -1;
       errno = EAGAIN;
     }
@@ -913,23 +913,29 @@ efile_sendfile(Efile_error* errInfo, int in_fd, int out_fd,
     do {
       fdrec.sfv_off = *offset;
       len = 0;
-      // check if *nbytes is 0 or greater than chunk size
+      /* check if *nbytes is 0 or greater than chunk size */
       if (*nbytes == 0 || *nbytes > SENDFILE_CHUNK_SIZE)
 	fdrec.sfv_len = SENDFILE_CHUNK_SIZE;
       else
 	fdrec.sfv_len = *nbytes;
       retval = sendfilev(out_fd, &fdrec, 1, &len);
-      if (retval != -1 || errno == EAGAIN || errno == EINTR) {
+
+      /* Sometimes sendfilev can return -1 and still send data. 
+         When that happens we just pretend that no error happend. */
+      if (retval != -1 || errno == EAGAIN || errno == EINTR ||
+	  len != 0) {
         *offset += len;
 	*nbytes -= len;
 	written += len;
+	if (errno != EAGAIN && errno != EINTR && len != 0)
+	  retval = len;
       }
     } while (len == SENDFILE_CHUNK_SIZE);
 #elif defined(DARWIN)
     int retval;
     off_t len;
     do {
-      // check if *nbytes is 0 or greater than chunk size
+      /* check if *nbytes is 0 or greater than chunk size */
       if(*nbytes > SENDFILE_CHUNK_SIZE)
 	len = SENDFILE_CHUNK_SIZE;
       else
