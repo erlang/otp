@@ -30,19 +30,10 @@
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(60)),
-    Term = case os:getenv("TERM") of
-	       List when is_list(List) ->
-		   List;
-	       _ ->
-		   "dumb"
-	   end,
-    os:putenv("TERM","vt100"),
-    [{watchdog,Dog},{term,Term}|Config].
+    [{watchdog,Dog}|Config].
 
 end_per_testcase(_Func, Config) ->
     Dog = ?config(watchdog, Config),
-    Term = ?config(term,Config),
-    os:putenv("TERM",Term),
     test_server:timetrap_cancel(Dog).
 
 
@@ -56,9 +47,19 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    Config.
+    Term = case os:getenv("TERM") of
+	       List when is_list(List) ->
+		   List;
+	       _ ->
+		   "dumb"
+	   end,
+    os:putenv("TERM","vt100"),
+    DefShell = get_default_shell(),
+    [{default_shell,DefShell},{term,Term}|Config].
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    Term = ?config(term,Config),
+    os:putenv("TERM",Term),
     ok.
 
 init_per_group(_GroupName, Config) ->
@@ -78,70 +79,118 @@ end_per_group(_GroupName, Config) ->
 get_columns_and_rows(suite) -> [];
 get_columns_and_rows(doc) -> ["Test that the shell can access columns and rows"];
 get_columns_and_rows(Config) when is_list(Config) ->
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline,"io:columns()."},
-%% Behaviour change in R12B-5, returns 80
-%%		  {getline,"{error,enotsup}"},
-		  {getline,"{ok,80}"},
-		  {putline,"io:rows()."},
-%% Behaviour change in R12B-5, returns 24
-%%		  {getline,"{error,enotsup}"}
-		  {getline,"{ok,24}"}
-		  ],[]),
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline,"io:columns()."},
-		  {getline,"{ok,90}"},
-		  {putline,"io:rows()."},
-		  {getline,"{ok,40}"}],
-		 [],
-		 "stty rows 40; stty columns 90; ").
+    case proplists:get_value(default_shell,Config) of
+	old ->
+	    %% Old shell tests
+	    ?dbg(old_shell),
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline,"io:columns()."},
+			  {getline_re,".*{error,enotsup}"},
+			  {putline,"io:rows()."},
+			  {getline_re,".*{error,enotsup}"}
+
+			 ],[]),
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline,"io:columns()."},
+			  {getline_re,".*{ok,90}"},
+			  {putline,"io:rows()."},
+			  {getline_re,".*{ok,40}"}],
+			 [],
+			 "stty rows 40; stty columns 90; ");
+	new ->
+	    % New shell tests
+	    ?dbg(new_shell),
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline,"io:columns()."},
+			  %% Behaviour change in R12B-5, returns 80
+			  %%		  {getline,"{error,enotsup}"},
+			  {getline,"{ok,80}"},
+			  {putline,"io:rows()."},
+			  %% Behaviour change in R12B-5, returns 24
+			  %%		  {getline,"{error,enotsup}"}
+			  {getline,"{ok,24}"}
+			 ],[]),
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline,"io:columns()."},
+			  {getline,"{ok,90}"},
+			  {putline,"io:rows()."},
+			  {getline,"{ok,40}"}],
+			 [],
+			 "stty rows 40; stty columns 90; ")
+    end.
     
     
 
 exit_initial(suite) -> [];
 exit_initial(doc) -> ["Tests that exit of initial shell restarts shell"];
 exit_initial(Config) when is_list(Config) ->
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline,"exit()."},
-		  {getline,""},
-		  {getline,"Eshell"},
-		  {putline,""},
-		  {putline,"35."},
-		  {getline,"35"}],[]).
+    case proplists:get_value(default_shell,Config) of
+	old ->
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline_re, ".*2"},
+		    {putline,"exit()."},
+		    {getline,""},
+		    {getline,"Eshell"},
+		    {putline,""},
+		    {putline,"35."},
+		    {getline_re,".*35"}],[]);
+	new ->
+	    rtnode([{putline,""},
+		    {putline, "2."},
+		    {getline, "2"},
+		    {putline,"exit()."},
+		    {getline,""},
+		    {getline,"Eshell"},
+		    {putline,""},
+		    {putline,"35."},
+		    {getline_re,"35"}],[])
+    end.
 
 job_control_local(suite) -> [];
 job_control_local(doc) -> [ "Tests that local shell can be "
 			    "started by means of job control" ];
 job_control_local(Config) when is_list(Config) ->
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline,[7]},
-		  {sleep,timeout(short)},
-		  {putline,""},
-		  {getline," -->"},
-		  {putline,"s"},
-		  {putline,"c"},
-		  {putline_raw,""},
-		  {getline,"Eshell"},
-		  {putline_raw,""},
-		  {getline,"1>"},
-		  {putline,"35."},
-		  {getline,"35"}],[]).
+    case proplists:get_value(default_shell,Config) of
+	old ->
+	    %% Old shell tests
+	    {skip,"No new shell found"};
+	new ->
+	    %% New shell tests
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline,[7]},
+			  {sleep,timeout(short)},
+			  {putline,""},
+			  {getline," -->"},
+			  {putline,"s"},
+			  {putline,"c"},
+			  {putline_raw,""},
+			  {getline,"Eshell"},
+			  {putline_raw,""},
+			  {getline,"1>"},
+			  {putline,"35."},
+			  {getline,"35"}],[])
+    end.
 
 job_control_remote(suite) -> [];
 job_control_remote(doc) -> [ "Tests that remote shell can be "
 			     "started by means of job control" ];
 job_control_remote(Config) when is_list(Config) ->
-    case node() of
-	nonode@nohost ->
+    case {node(),proplists:get_value(default_shell,Config)} of
+	{nonode@nohost,_} ->
 	    ?line exit(not_distributed);
+	{_,old} ->
+	    {skip,"No new shell found"};
 	_ ->
 	    ?line RNode = create_nodename(),
 	    ?line MyNode = atom_to_list(node()),
@@ -190,9 +239,11 @@ job_control_remote_noshell(doc) ->
     [ "Tests that remote shell can be "
       "started by means of job control to -noshell node" ];
 job_control_remote_noshell(Config) when is_list(Config) ->
-    case node() of
-	nonode@nohost ->
+    case {node(),proplists:get_value(default_shell,Config)} of
+	{nonode@nohost,_} ->
 	    ?line exit(not_distributed);
+	{_,old} ->
+	    {skip,"No new shell found"};
 	_ ->
 	    ?line RNode = create_nodename(),
 	    ?line NSNode = start_noshell_node(interactive_shell_noshell),
@@ -348,6 +399,33 @@ get_and_put(CPid, [{getline, Match}|T],N) ->
 			    put(getline_skipped,List ++ [Data])
 		    end,
 		    get_and_put(CPid,  [{getline, Match}|T],N)
+	    end
+    end;
+
+%% Hey ho copy paste from stdlib/io_proto_SUITE
+get_and_put(CPid, [{getline_re, Match}|T],N) ->
+    ?dbg({getline_re, Match}),
+    CPid ! {self(), {get_line, timeout(normal)}},
+    receive
+	{get_line, timeout} ->
+	    error_logger:error_msg("~p: getline_re timeout waiting for \"~s\" "
+				   "(command number ~p, skipped: ~p)~n",
+				   [?MODULE, Match,N,get(getline_skipped)]),
+	    {error, timeout};
+	{get_line, Data} ->
+	    ?dbg({data,Data}),
+	    case re:run(Data, Match,[{capture,none}]) of
+		match ->
+		    erase(getline_skipped),
+		    get_and_put(CPid, T,N+1);
+		_ ->
+		    case get(getline_skipped) of
+			undefined ->
+			    put(getline_skipped,[Data]);
+			List ->
+			    put(getline_skipped,List ++ [Data])
+		    end,
+		    get_and_put(CPid,  [{getline_re, Match}|T],N)
 	    end
     end;
 
@@ -631,6 +709,13 @@ get_data_within(Port, Timeout, Acc) ->
 	    timeout
     end.
 	    
-	    
-    
-	    
+get_default_shell() ->
+    try
+	rtnode([{putline,""},
+		{putline, "whereis(user_drv)."},
+		{getline, "undefined"}],[]),
+	old
+    catch E:R ->
+	    ?dbg({E,R}),
+	    new
+    end.

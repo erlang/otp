@@ -35,6 +35,15 @@
 init_per_testcase(undef_funcs, Config) ->
     NewConfig = lists:keydelete(watchdog, 1, Config),
     Dog = test_server:timetrap(inets_test_lib:minutes(10)),
+
+    %% We need to check if there is a point to run this test.
+    %% On some platforms, crypto will not build, which in turn
+    %% causes ssl to not build (at this time, this will
+    %% change in the future).
+    %% So, we first check if we can start crypto, and if not,
+    %% we skip this test case!
+    ?ENSURE_STARTED(crypto),
+
     [{watchdog, Dog}| NewConfig];
 init_per_testcase(_, Config) ->
     Config.
@@ -240,13 +249,6 @@ undef_funcs(suite) ->
 undef_funcs(doc) ->
     [];
 undef_funcs(Config) when is_list(Config) ->
-    %% We need to check if there is a point to run this test.
-    %% On some platforms, crypto will not build, which in turn
-    %% causes ssl to not build (at this time, this will
-    %% change in the future).
-    %% So, we first check if we can start crypto, and if not, 
-    %% we skip this test case!
-    ?ENSURE_STARTED(crypto), 
     App            = inets,
     AppFile        = key1search(app_file, Config),
     Mods           = key1search(modules, AppFile),

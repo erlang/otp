@@ -557,7 +557,7 @@ rec(M, Where) ->
         M ->
             ok;
         Else -> ?t:fail({error, {Where, Else}})
-    after 1000 -> ?t:fail({error, {Where, time_out}})
+    after 5000 -> ?t:fail({error, {Where, time_out}})
     end.
 	    
 pps() ->
