@@ -1062,13 +1062,13 @@ insert_groups1(Suite,Groups,Suites0) ->
 
 insert_groups2(_Groups,all) ->
     all;
-insert_groups2([Group={GrName,Cases}|Groups],GrAndCases) ->
-    case lists:keysearch(GrName,1,GrAndCases) of
-	{value,{GrName,all}} ->
+insert_groups2([Group={Gr,Cases}|Groups],GrAndCases) ->
+    case lists:keysearch(Gr,1,GrAndCases) of
+	{value,{Gr,all}} ->
 	    GrAndCases;
-	{value,{GrName,Cases0}} ->
+	{value,{Gr,Cases0}} ->
 	    Cases1 = insert_in_order(Cases,Cases0),
-	    insert_groups2(Groups,insert_in_order({GrName,Cases1},GrAndCases));
+	    insert_groups2(Groups,insert_in_order({Gr,Cases1},GrAndCases));
 	false ->
 	    insert_groups2(Groups,insert_in_order(Group,GrAndCases))
     end;
