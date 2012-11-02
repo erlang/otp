@@ -151,8 +151,8 @@ is_hipe_module(Mod) ->
     end.
 
 ssl_crypto_filter(Undef) ->
-    case {code:lib_dir(crypto),code:lib_dir(ssl)} of
-	{{error,bad_name},{error,bad_name}} ->
+    case {app_exists(crypto),app_exists(ssl)} of
+	{false,false} ->
 	    filter(fun({_,{ssl,_,_}}) -> false;
 		      ({_,{crypto,_,_}}) -> false;
 		      ({_,{ssh,_,_}}) -> false;
@@ -176,8 +176,8 @@ eunit_filter(Undef) ->
 	   end, Undef).
 
 dialyzer_filter(Undef) ->
-    case code:lib_dir(dialyzer) of
-	{error,bad_name} ->
+    case app_exists(dialyzer) of
+	false ->
 	    filter(fun({_,{dialyzer_callgraph,_,_}}) -> false;
 		      ({_,{dialyzer_codeserver,_,_}}) -> false;
 		      ({_,{dialyzer_contracts,_,_}}) -> false;
@@ -192,8 +192,8 @@ dialyzer_filter(Undef) ->
     end.
 
 wx_filter(Undef) ->
-    case code:lib_dir(wx) of
-	{error,bad_name} ->
+    case app_exists(wx) of
+	false ->
 	    filter(fun({_,{MaybeWxModule,_,_}}) ->
 			   case atom_to_list(MaybeWxModule) of
 			       "wx"++_ -> false;
@@ -349,3 +349,16 @@ open_log(Config, Name) ->
 
 close_log(Fd) ->
     ok = file:close(Fd).
+
+app_exists(AppAtom) ->
+    case code:lib_dir(AppAtom) of
+	{error,bad_name} ->
+	    false;
+	Path ->
+	    case file:read_file_info(filename:join(Path,"ebin")) of
+		{ok,_} ->
+		    true;
+		_ ->
+		    false
+	    end
+    end.

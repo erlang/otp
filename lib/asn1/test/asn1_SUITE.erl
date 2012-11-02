@@ -249,8 +249,7 @@ init_per_testcase(Func, Config) ->
     [{case_dir, CaseDir}, {watchdog, Dog}|Config].
 
 end_per_testcase(_Func, Config) ->
-    code:del_path(?config(case_dir, Config)),
-    test_server:timetrap_cancel(?config(watchdog, Config)).
+    code:del_path(?config(case_dir, Config)).
 
 %%------------------------------------------------------------------------------
 %% Test runners
@@ -1065,6 +1064,9 @@ test_modified_x420(Config) ->
     asn1_test_lib:compile_all(Files, Config, [der]),
     test_modified_x420:test_io(Config).
 
+
+testX420() ->
+    [{timetrap,{minutes,90}}].
 testX420(Config) ->
     test(Config, fun testX420/3, [ber, ber_bin, ber_bin_v2]).
 testX420(Config, Rule, Opts) ->

@@ -168,7 +168,7 @@ end_per_testcase(_Case, Config) ->
 register_1(suite) -> [];
 register_1(Config) when is_list(Config) ->
     Timeout = 15,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),
     P = spawn_link(?MODULE, lock_global, [self(), Config]),
@@ -195,7 +195,6 @@ register_1(Config) when is_list(Config) ->
     ?line _ = global:unregister_name(foo),
     write_high_level_trace(Config),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 lock_global(Parent, Config) ->
@@ -238,7 +237,7 @@ lock_global(Parent, Config) ->
 both_known_1(suite) -> [];
 both_known_1(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),
 
@@ -316,7 +315,6 @@ both_known_1(Config) when is_list(Config) ->
     stop_node(Cp3),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 lost_unregister(suite) -> [];
@@ -324,7 +322,7 @@ lost_unregister(doc) ->
     ["OTP-6428. An unregistered name reappears."];
 lost_unregister(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),
 
@@ -361,7 +359,6 @@ lost_unregister(Config) when is_list(Config) ->
     stop_node(B),
     stop_node(C),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 -define(UNTIL_LOOP, 300).
@@ -448,7 +445,7 @@ lock_global2(Id, Parent) ->
 names(suite) -> [];
 names(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),
     ?line OrigNames = global:registered_names(),
@@ -532,7 +529,6 @@ names(Config) when is_list(Config) ->
 
     ?line ?UNTIL(undefined =:= global:whereis_name(test)),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 names_hidden(suite) -> [];
@@ -541,7 +537,7 @@ names_hidden(doc) ->
      "visible nodes."];
 names_hidden(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -639,13 +635,12 @@ names_hidden(Config) when is_list(Config) ->
     stop_node(Cp3),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 locks(suite) -> [];
 locks(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line {ok, Cp1} = start_node(cp1, Config),
@@ -750,7 +745,6 @@ locks(Config) when is_list(Config) ->
     ?line test_server:sleep(10),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -760,7 +754,7 @@ locks_hidden(doc) ->
      "visible nodes."];
 locks_hidden(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNodes = nodes(),
@@ -833,14 +827,13 @@ locks_hidden(Config) when is_list(Config) ->
     stop_node(Cp3),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
 bad_input(suite) -> [];
 bad_input(Config) when is_list(Config) ->
     Timeout = 15,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     Pid = whereis(global_name_server),
@@ -854,13 +847,12 @@ bad_input(Config) when is_list(Config) ->
     ?line {'EXIT', _} = (catch global:trans({id, self()}, {m,f}, [node()], -1)),
     ?line Pid = whereis(global_name_server),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 names_and_locks(suite) -> [];
 names_and_locks(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -922,7 +914,6 @@ names_and_locks(Config) when is_list(Config) ->
     stop_node(Cp3),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 lock_die(suite) -> [];
@@ -930,7 +921,7 @@ lock_die(doc) ->
     ["OTP-6341. Remove locks using monitors."];
 lock_die(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -964,7 +955,6 @@ lock_die(Config) when is_list(Config) ->
     stop_node(Cp1),
     stop_node(Cp2),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 name_die(suite) -> [];
@@ -972,7 +962,7 @@ name_die(doc) ->
     ["OTP-6341. Remove names using monitors."];
 name_die(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1027,7 +1017,6 @@ name_die(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     stop_nodes(Cps),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 kill_pid(Pid, File, Config) ->
@@ -1040,7 +1029,7 @@ basic_partition(doc) ->
     ["Tests that two partitioned networks exchange correct info."];
 basic_partition(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1088,7 +1077,6 @@ basic_partition(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 basic_name_partition(suite) ->
@@ -1099,7 +1087,7 @@ basic_name_partition(doc) ->
      "during connect phase are handled correctly."];
 basic_name_partition(Config) when is_list(Config) ->
     Timeout = 60,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1167,7 +1155,6 @@ basic_name_partition(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %Peer nodes cp0 - cp6 are started. Break apart the connections from
@@ -1190,7 +1177,7 @@ advanced_partition(doc) ->
      "partitioned networks connect."];
 advanced_partition(Config) when is_list(Config) ->
     Timeout = 60,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1278,7 +1265,6 @@ advanced_partition(Config) when is_list(Config) ->
     stop_node(Cp5),
     stop_node(Cp6),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 %Peer nodes cp0 - cp6 are started, and partitioned just like in
@@ -1297,7 +1283,7 @@ stress_partition(doc) ->
      "go up/down a bit."];
 stress_partition(Config) when is_list(Config) ->
     Timeout = 90,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1377,7 +1363,6 @@ stress_partition(Config) when is_list(Config) ->
     stop_node(Cp7),
     stop_node(Cp8),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -1408,7 +1393,7 @@ ring(doc) ->
      "Make sure that there's just one winner."];
 ring(Config) when is_list(Config) ->
     Timeout = 60,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1486,7 +1471,6 @@ ring(Config) when is_list(Config) ->
     stop_node(Cp7),
     stop_node(Cp8),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 simple_ring(suite) ->
@@ -1499,7 +1483,7 @@ simple_ring(doc) ->
      "Make sure that there's just one winner."];
 simple_ring(Config) when is_list(Config) ->
     Timeout = 60,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1565,7 +1549,6 @@ simple_ring(Config) when is_list(Config) ->
     stop_node(Cp4),
     stop_node(Cp5),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 line(suite) ->
@@ -1576,7 +1559,7 @@ line(doc) ->
      "Make sure that there's just one winner."];
 line(Config) when is_list(Config) ->
     Timeout = 60,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1655,7 +1638,6 @@ line(Config) when is_list(Config) ->
     stop_node(Cp7),
     stop_node(Cp8),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 
@@ -1669,7 +1651,7 @@ simple_line(doc) ->
      "Make sure that there's just one winner."];
 simple_line(Config) when is_list(Config) ->
     Timeout = 60,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -1735,7 +1717,6 @@ simple_line(Config) when is_list(Config) ->
     stop_node(Cp4),
     stop_node(Cp5),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 otp_1849(suite) -> [];
@@ -1743,7 +1724,7 @@ otp_1849(doc) ->
     ["Test ticket: Global should keep track of all pids that set the same lock."];
 otp_1849(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line {ok, Cp1} = start_node(cp1, Config),
@@ -1822,7 +1803,6 @@ otp_1849(Config) when is_list(Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -1840,7 +1820,7 @@ otp_3162(Config) when is_list(Config) ->
 
 do_otp_3162(StartFun, Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line [Cp1, Cp2, Cp3] = StartFun(),
@@ -1898,7 +1878,6 @@ do_otp_3162(StartFun, Config) ->
     stop_node(Cp2),
     stop_node(Cp3),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
     
 
@@ -1907,7 +1886,7 @@ otp_5640(doc) ->
     ["OTP-5640. 'allow' multiple names for registered processes."];
 otp_5640(Config) when is_list(Config) ->
     Timeout = 25,
-    ?line Dog = test_server:timetrap(test_server:seconds(Timeout)),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     init_condition(Config),
     ?line {ok, B} = start_node(b, Config),
@@ -1965,7 +1944,6 @@ otp_5640(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     stop_node(B),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 otp_5640_proc(_Parent) ->
@@ -1979,7 +1957,7 @@ otp_5737(doc) ->
     ["OTP-5737. set_lock/3 and trans/4 accept Retries = 0."];
 otp_5737(Config) when is_list(Config) ->
     Timeout = 25,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
 
@@ -2000,7 +1978,6 @@ otp_5737(Config) when is_list(Config) ->
 
     write_high_level_trace(Config),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 otp_6931(suite) -> [];
@@ -2025,7 +2002,7 @@ simple_disconnect(suite) -> [];
 simple_disconnect(doc) -> ["OTP-5563. Disconnected nodes (not partitions)"];
 simple_disconnect(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2075,7 +2052,6 @@ simple_disconnect(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     stop_nodes(Cps),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Not used right now.
@@ -2118,7 +2094,7 @@ simple_resolve(suite) -> [];
 simple_resolve(doc) -> ["OTP-5563. Partitions and names."];
 simple_resolve(Config) when is_list(Config) ->
     Timeout = 360,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2245,7 +2221,6 @@ simple_resolve(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     stop_nodes(Cps),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 simple_resolve2(suite) -> [];
@@ -2255,7 +2230,7 @@ simple_resolve2(Config) when is_list(Config) ->
     %% always work to re-start z_2. "Cannot be a global bug."
 
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2283,7 +2258,6 @@ simple_resolve2(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     stop_nodes(Cps), % Not all nodes may be present, but it works anyway.
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 simple_resolve3(suite) -> [];
@@ -2292,7 +2266,7 @@ simple_resolve3(Config) when is_list(Config) ->
     %% Continuation of simple_resolve.
 
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2320,7 +2294,6 @@ simple_resolve3(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     stop_nodes(Cps), % Not all nodes may be present, but it works anyway.
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 res({Res,Resolver}, [N1, A2, Z2], Cf) ->
@@ -2504,7 +2477,7 @@ leftover_name(suite) -> [];
 leftover_name(doc) -> ["OTP-5563. Bug: nodedown while synching."];
 leftover_name(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2565,7 +2538,6 @@ leftover_name(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     stop_nodes(Cps),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 %% Runs on n_1
@@ -2604,7 +2576,7 @@ re_register_name(Config) when is_list(Config) ->
     %% occupied by links, that's all.
     %% Later: now monitors are checked.
     Timeout = 15,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     Me = self(),
@@ -2618,7 +2590,6 @@ re_register_name(Config) when is_list(Config) ->
     receive {Pid2, MonitoredBy2} -> [_] = MonitoredBy2 end,
     ?line _ = global:unregister_name(name),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 proc(Parent) ->
@@ -2652,7 +2623,7 @@ do_name_exit(StartFun, Version, Config) ->
     %% The current release uses monitors so this test is not so relevant.
 
     Timeout = 60,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2692,7 +2663,6 @@ do_name_exit(StartFun, Version, Config) ->
     write_high_level_trace(Config),
     stop_nodes(Cps),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 long_lock(Parent) ->
@@ -2709,7 +2679,7 @@ external_nodes(suite) -> [];
 external_nodes(doc) -> ["OTP-5563. External nodes (cnodes)."];
 external_nodes(Config) when is_list(Config) ->
     Timeout = 30,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2793,7 +2763,6 @@ external_nodes(Config) when is_list(Config) ->
     ?line ?UNTIL(length(get_ext_names()) =:= 0),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 get_ext_names() ->
@@ -2845,8 +2814,8 @@ many_nodes(suite) ->
 many_nodes(doc) ->
     ["OTP-5770. Start many nodes. Make them connect at the same time."];
 many_nodes(Config) when is_list(Config) ->
-    Timeout = 180,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    Timeout = 240,
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -2902,7 +2871,6 @@ many_nodes(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     ?line stop_nodes(Cps),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     Diff = Time2 - Time,
     Return = lists:flatten(io_lib:format("~w nodes took ~w ms", 
                                          [N_cps, Diff])),
@@ -2988,7 +2956,7 @@ sync_0(doc) ->
     ["OTP-5770. sync/0."];
 sync_0(Config) when is_list(Config) ->
     Timeout = 180,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
 
@@ -3013,7 +2981,6 @@ sync_0(Config) when is_list(Config) ->
     stop_nodes(Cps),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 start_and_sync([]) ->
@@ -3031,7 +2998,7 @@ global_groups_change(suite) -> [];
 global_groups_change(doc) -> ["Test change of global_groups parameter."];
 global_groups_change(Config) ->
     Timeout = 90,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),
     ?line M = from($@, atom_to_list(node())),
@@ -3376,7 +3343,6 @@ global_groups_change(Config) ->
     stop_node(CpE),
 
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 sync_and_wait(Node) ->
@@ -3919,7 +3885,7 @@ global_lost_nodes(doc) ->
     ["Tests that locally loaded nodes do not loose contact with other nodes."];
 global_lost_nodes(Config) when is_list(Config) ->
     Timeout = 60,
-    Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     
@@ -3943,7 +3909,6 @@ global_lost_nodes(Config) when is_list(Config) ->
     ?line stop_node(Node1),
     ?line stop_node(Node2),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.    
 
 global_load(MyName, OtherNode, OtherName) ->
@@ -3994,7 +3959,7 @@ mass_death(doc) ->
     ["Tests the simultaneous death of many processes with registered names"];
 mass_death(Config) when is_list(Config) ->
     Timeout = 90,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line OrigNames = global:registered_names(),
@@ -4023,9 +3988,9 @@ mass_death(Config) when is_list(Config) ->
     {H,M,S} = time(),
     io:format("Started probing: ~.4.0w-~.2.0w-~.2.0w ~.2.0w:~.2.0w:~.2.0w~n",
 	      [YYYY,MM,DD,H,M,S]),
-    wait_mass_death(Dog, Nodes, OrigNames, erlang:now(), Config).
+    wait_mass_death(Nodes, OrigNames, erlang:now(), Config).
 
-wait_mass_death(Dog, Nodes, OrigNames, Then, Config) ->
+wait_mass_death(Nodes, OrigNames, Then, Config) ->
     ?line Names = global:registered_names(),
     ?line 
 	case Names--OrigNames of
@@ -4036,12 +4001,11 @@ wait_mass_death(Dog, Nodes, OrigNames, Then, Config) ->
 				stop_node(Node)
 			end, Nodes),
                 ?line init_condition(Config),
-		?line test_server:timetrap_cancel(Dog),
  		{comment,lists:flatten(io_lib:format("~.3f s~n", [T/1000.0]))};
 	    Ndiff ->
 		?line io:format("Ndiff: ~p~n", [Ndiff]),
 		?line test_server:sleep(1000),
-		?line wait_mass_death(Dog, Nodes, OrigNames, Then, Config)
+		?line wait_mass_death(Nodes, OrigNames, Then, Config)
 	end.
 
 mass_spawn([]) ->
@@ -4213,7 +4177,7 @@ garbage_messages(suite) ->
     [];
 garbage_messages(Config) when is_list(Config) ->
     Timeout = 25,
-    ?line Dog = test_server:timetrap({seconds,Timeout}),
+    ct:timetrap({seconds,Timeout}),
     init_high_level_trace(Timeout),
     ?line init_condition(Config),    
     ?line [Slave] = start_nodes([garbage_messages], slave, Config),
@@ -4233,7 +4197,6 @@ garbage_messages(Config) when is_list(Config) ->
     write_high_level_trace(Config),
     ?line stop_node(Slave),
     ?line init_condition(Config),
-    ?line test_server:timetrap_cancel(Dog),
     ok.
 
 wait_for_ready_net(Config) ->

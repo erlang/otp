@@ -96,7 +96,8 @@ groups() ->
     [].
 
 init_per_suite(Config) ->
-    Config.
+    DefShell = get_default_shell(),
+    [{default_shell,DefShell}|Config].
 
 end_per_suite(_Config) ->
     ok.
@@ -124,20 +125,25 @@ unicode_prompt(doc) ->
     ["Test that an Unicode prompt does not crash the shell"];
 unicode_prompt(Config) when is_list(Config) ->
     ?line PA = filename:dirname(code:which(?MODULE)),
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
-		  {getline, "default"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline, "\"hej\\n\""},
-		  {putline, "io:setopts([{binary,true}])."},
-		  {getline, "ok"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline, "<<\"hej\\n\">>"}
-		  ],[],[],"-pa \""++ PA++"\""),
+    case proplists:get_value(default_shell,Config) of
+	old ->
+	    ok;
+	new ->
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+			  {getline, "default"},
+			  {putline, "io:get_line('')."},
+			  {putline, "hej"},
+			  {getline, "\"hej\\n\""},
+			  {putline, "io:setopts([{binary,true}])."},
+			  {getline, "ok"},
+			  {putline, "io:get_line('')."},
+			  {putline, "hej"},
+			  {getline, "<<\"hej\\n\">>"}
+			 ],[],[],"-pa \""++ PA++"\"")
+    end,
     %% And one with oldshell
      ?line rtnode([{putline,""},
 		   {putline, "2."},
@@ -234,21 +240,26 @@ setopts_getopts(Config) when is_list(Config) ->
 	lists:sort(io:getopts(RFile)),
     ?line eof = io:get_line(RFile,''),
     ?line file:close(RFile),
-    %% So, lets test another node with new interactive shell
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline, "lists:keyfind(binary,1,io:getopts())."},
-		  {getline, "{binary,false}"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline, "\"hej\\n\""},
-		  {putline, "io:setopts([{binary,true}])."},
-		  {getline, "ok"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline, "<<\"hej\\n\">>"}
-		  ],[]),
+    case proplists:get_value(default_shell,Config) of
+	old ->
+	    ok;
+	new ->
+	    %% So, lets test another node with new interactive shell
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline, "lists:keyfind(binary,1,io:getopts())."},
+			  {getline, "{binary,false}"},
+			  {putline, "io:get_line('')."},
+			  {putline, "hej"},
+			  {getline, "\"hej\\n\""},
+			  {putline, "io:setopts([{binary,true}])."},
+			  {getline, "ok"},
+			  {putline, "io:get_line('')."},
+			  {putline, "hej"},
+			  {getline, "<<\"hej\\n\">>"}
+			 ],[])
+    end,
     %% And one with oldshell
     ?line rtnode([{putline,""},
 		  {putline, "2."},
@@ -433,21 +444,27 @@ unicode_options(Config) when is_list(Config) ->
 		      end,
     ?line [ ok = CannotWriteFile(F,FailDir) || F <- AllNoBom ],
 
-    %% OK, time for the group_leaders...
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline, "lists:keyfind(encoding,1,io:getopts())."},
-		  {getline, "{encoding,latin1}"},
-		  {putline, "io:format(\"~ts~n\",[[1024]])."},
-		  {getline, "\\x{400}"},
-		  {putline, "io:setopts([unicode])."},
-		  {getline, "ok"},
-		  {putline, "io:format(\"~ts~n\",[[1024]])."},
-		  {getline, 
-		   binary_to_list(unicode:characters_to_binary(
-				    [1024],unicode,utf8))}
-		 ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "),
+    case proplists:get_value(default_shell,Config) of
+	old ->
+	    ok;
+	new ->
+	    %% OK, time for the group_leaders...
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline, "lists:keyfind(encoding,1,io:getopts())."},
+			  {getline, "{encoding,latin1}"},
+			  {putline, "io:format(\"~ts~n\",[[1024]])."},
+			  {getline, "\\x{400}"},
+			  {putline, "io:setopts([unicode])."},
+			  {getline, "ok"},
+			  {putline, "io:format(\"~ts~n\",[[1024]])."},
+			  {getline,
+			   binary_to_list(unicode:characters_to_binary(
+					    [1024],unicode,utf8))}
+			 ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; "
+			 "export LC_CTYPE; ")
+    end,
     ?line rtnode([{putline,""},
 		  {putline, "2."},
 		  {getline_re, ".*2."},
@@ -680,23 +697,28 @@ binary_options(Config) when is_list(Config) ->
     ?line file:close(F3),
     %% OK, time for the group_leaders...
     %% io:format(standard_error,"Hmmm:~w~n",["<<\""++binary_to_list(<<"\345\344\366"/utf8>>)++"\\n\">>"]),
-    ?line rtnode([{putline,""},
-		  {putline, "2."},
-		  {getline, "2"},
-		  {putline, "lists:keyfind(binary,1,io:getopts())."},
-		  {getline, "{binary,false}"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline, "\"hej\\n\""},
-		  {putline, "io:setopts([{binary,true},unicode])."},
-		  {getline, "ok"},
-		  {putline, "io:get_line('')."},
-		  {putline, "hej"},
-		  {getline, "<<\"hej\\n\">>"},
-		  {putline, "io:get_line('')."},
-		  {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
-		  {getline, "<<\""++binary_to_list(unicode:characters_to_binary(<<"\345\344\366"/utf8>>,latin1,utf8))++"\\n\">>"}
-		  ],[]),
+    case proplists:get_value(default_shell,Config) of
+	old ->
+	    ok;
+	new ->
+	    ?line rtnode([{putline,""},
+			  {putline, "2."},
+			  {getline, "2"},
+			  {putline, "lists:keyfind(binary,1,io:getopts())."},
+			  {getline, "{binary,false}"},
+			  {putline, "io:get_line('')."},
+			  {putline, "hej"},
+			  {getline, "\"hej\\n\""},
+			  {putline, "io:setopts([{binary,true},unicode])."},
+			  {getline, "ok"},
+			  {putline, "io:get_line('')."},
+			  {putline, "hej"},
+			  {getline, "<<\"hej\\n\">>"},
+			  {putline, "io:get_line('')."},
+			  {putline, binary_to_list(<<"\345\344\366"/utf8>>)},
+			  {getline, "<<\""++binary_to_list(unicode:characters_to_binary(<<"\345\344\366"/utf8>>,latin1,utf8))++"\\n\">>"}
+			 ],[])
+    end,
    %% And one with oldshell
     ?line rtnode([{putline,""},
 		  {putline, "2."},
@@ -1146,9 +1168,11 @@ read_modes_gl(suite) ->
 read_modes_gl(doc) ->
     ["Test various modes when reading from the group leade from another machine"];
 read_modes_gl(Config) when is_list(Config) -> 
-    case get_progs() of
-	{error,Reason} ->
+    case {get_progs(),proplists:get_value(default_shell,Config)} of
+	{{error,Reason},_} ->
 	    {skipped,Reason};
+	{_,old} ->
+	    {skipper,"No new shell"};
 	_ ->
 	    read_modes_gl_1(Config,answering_machine1)
     end.
@@ -1752,6 +1776,17 @@ get_data_within(Port, Timeout, Acc) ->
 	    {eol, Acc ++ Data1}
     after Timeout ->
 	    timeout
+    end.
+
+get_default_shell() ->
+    try
+	rtnode([{putline,""},
+		{putline, "whereis(user_drv)."},
+		{getline, "undefined"}],[]),
+	old
+    catch E:R ->
+	    ?dbg({E,R}),
+	    new
     end.
 
 %%
