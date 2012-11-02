@@ -57,34 +57,50 @@
      /* Implement some other way to get the real page size if needed! */
 #endif
 
-#define ALIGN_BITS       (14)
-#define ALIGNED_SIZE     (1 << ALIGN_BITS) /* 16kB */
+#define IS_2POW(X)          (((X) & ((X) - 1)) == 0)
+static ERTS_INLINE Uint ceil_2pow(Uint x) {
+    int i = 1 << (4 + (sizeof(Uint) != 4 ? 1 : 0));
+    x--;
+    do { x |= x >> i; } while(i >>= 1);
+    return x + 1;
+}
+static const int debruijn[32] = {
+     0,  1, 28,  2, 29, 14, 24,  3, 30, 22, 20, 15, 25, 17,  4,  8, 
+    31, 27, 13, 23, 21, 19, 16,  7, 26, 12, 18,  6, 11,  5, 10,  9
+};
 
-#define MAX_CACHE_SIZE 30
+#define LOG2(X) (debruijn[((Uint32)(((X) & -(X)) * 0x077CB531U)) >> 27])
+
+#define ALIGN_BITS       (17)
+#define ALIGNED_SIZE     (1 << ALIGN_BITS) /* 128kB */
+
+#define CACHE_AREAS      (32 - ALIGN_BITS)
+
+#define SIZE_TO_CACHE_AREA_IDX(S)   (LOG2((S)) - ALIGN_BITS)
+#define MAX_CACHE_SIZE   (30)
 
 #undef MIN
 #define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
 #undef MAX
 #define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
 
-#undef  PAGE_MASK
-#define INV_PAGE_MASK	((Uint) (page_size - 1))
-#define PAGE_MASK	(~INV_PAGE_MASK)
-#define PAGE_FLOOR(X)	((X) & PAGE_MASK)
-#define PAGE_CEILING(X)	PAGE_FLOOR((X) + INV_PAGE_MASK)
-#define PAGES(X)	((X) >> page_shift)
-
-#define INV_ALIGNED_MASK    ((Uint) ((ALIGNED_SIZE) - 1))
+#define INV_ALIGNED_MASK    ((UWord) ((ALIGNED_SIZE) - 1))
 #define ALIGNED_MASK        (~INV_ALIGNED_MASK)
-#define ALIGNED_FLOOR(X)    (((Uint)(X)) & ALIGNED_MASK)
+#define ALIGNED_FLOOR(X)    (((UWord)(X)) & ALIGNED_MASK)
 #define ALIGNED_CEILING(X)  ALIGNED_FLOOR((X) + INV_ALIGNED_MASK)
-#define MAP_IS_ALIGNED(X)   ((((unsigned long)X) & (ALIGNED_SIZE - 1)) == 0)
+#define MAP_IS_ALIGNED(X)   (((UWord)(X) & (ALIGNED_SIZE - 1)) == 0)
+
+#define MSEG_FLG_IS_2POW(X)    ((X) & ERTS_MSEG_FLG_2POW)
+
+#ifdef DEBUG
+#define DBG(F,...) fprintf(stderr, (F), __VA_ARGS__ )
+#else
+#define DBG(F,...) do{}while(0)
+#endif
 
 static int atoms_initialized;
 
 typedef struct mem_kind_t MemKind;
-
-static void mseg_clear_cache(MemKind*);
 
 #if HALFWORD_HEAP
 static int initialize_pmmap(void);
@@ -137,26 +153,17 @@ const ErtsMsegOpt_t erts_mseg_default_opt = {
 };
 
 
-typedef struct cache_desc_t_ {
-    void *seg;
-    Uint size;
-    struct cache_desc_t_ *next;
-    struct cache_desc_t_ *prev;
-} cache_desc_t;
-
 typedef struct {
     Uint32 giga_no;
     Uint32 no;
 } CallCounter;
-
-static Uint page_size;
-static Uint page_shift;
 
 typedef struct {
     CallCounter alloc;
     CallCounter dealloc;
     CallCounter realloc;
     CallCounter create;
+    CallCounter create_resize;
     CallCounter destroy;
 #if HAVE_MSEG_RECREATE
     CallCounter recreate;
@@ -165,17 +172,24 @@ typedef struct {
     CallCounter check_cache;
 } ErtsMsegCalls;
 
+typedef struct cache_t_ cache_t;
+
+struct cache_t_ {
+    Uint size;
+    void *seg;
+    cache_t *next;
+};
+
+
 typedef struct ErtsMsegAllctr_t_ ErtsMsegAllctr_t;
 
 struct mem_kind_t {
-    cache_desc_t cache_descs[MAX_CACHE_SIZE];
-    cache_desc_t *free_cache_descs;
-    cache_desc_t *cache;
-    cache_desc_t *cache_end;
 
-    Uint cache_size;
-    Uint min_cached_seg_size;
-    Uint max_cached_seg_size;
+    cache_t cache[MAX_CACHE_SIZE];
+    cache_t *cache_area[CACHE_AREAS];
+    cache_t *cache_free;
+
+    Sint cache_size;
     Uint cache_hits;
 
     struct {
@@ -320,8 +334,7 @@ static erts_mtx_t init_atoms_mutex; /* Also needed when !USE_THREADS */
 
 
 static ERTS_INLINE void
-schedule_cache_check(ErtsMsegAllctr_t *ma)
-{
+schedule_cache_check(ErtsMsegAllctr_t *ma) {
 
     if (!ma->is_cache_check_scheduled && ma->is_init_done) {
 	erts_set_aux_work_timeout(ma->ix,
@@ -331,8 +344,11 @@ schedule_cache_check(ErtsMsegAllctr_t *ma)
     }
 }
 
+/* remove ErtsMsegAllctr_t from arguments?
+ * only used for statistics
+ */
 static ERTS_INLINE void *
-mmap_align(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+mmap_align(ErtsMsegAllctr_t *ma, void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
 
     void *seg, *aseg;
     unsigned long diff;
@@ -342,6 +358,9 @@ mmap_align(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
     if (MAP_IS_ALIGNED(seg) || seg == MAP_FAILED) {
 	return seg;
     }
+
+    if (ma)
+	INC_CC(ma, create_resize);
 
     munmap(seg, length);
 
@@ -383,7 +402,7 @@ mseg_create(ErtsMsegAllctr_t *ma, MemKind* mk, Uint size)
     {
 #if HAVE_MMAP
 	{
-	    seg = (void *) mmap_align((void *) 0, (size_t) size,
+	    seg = (void *) mmap_align(ma, (void *) 0, (size_t) size,
 				MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
 	    if (seg == (void *) MAP_FAILED)
 		seg = NULL;
@@ -416,7 +435,7 @@ mseg_destroy(ErtsMsegAllctr_t *ma, MemKind* mk, void *seg, Uint size) {
 #endif
     }
 
-    ASSERT(size % page_size == 0);
+    ASSERT(size % ALIGNED_SIZE == 0);
     ASSERT(res == 0);
 
     INC_CC(ma, destroy);
@@ -489,151 +508,178 @@ do {									\
 #define ERTS_DBG_MK_CHK_THR_ACCESS(MK)
 #endif
 
-static ERTS_INLINE cache_desc_t * 
-alloc_cd(MemKind* mk)
-{    
-    cache_desc_t *cd = mk->free_cache_descs;
+/* NEW CACHE interface */
+
+static ERTS_INLINE cache_t *mseg_cache_alloc_descriptor(MemKind *mk) {
+    cache_t *c = mk->cache_free;
+
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    if (cd)
-	mk->free_cache_descs = cd->next;
-    return cd;
+    if (c)
+	mk->cache_free = c->next;
+
+    return c;
 }
 
-static ERTS_INLINE void
-free_cd(MemKind* mk, cache_desc_t *cd)
-{
+static ERTS_INLINE void mseg_cache_free_descriptor(MemKind *mk, cache_t *c) {
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    cd->next = mk->free_cache_descs;
-    mk->free_cache_descs = cd;
-}
-
-
-static ERTS_INLINE void
-link_cd(MemKind* mk, cache_desc_t *cd)
-{
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    if (mk->cache)
-	mk->cache->prev = cd;
-    cd->next = mk->cache;
-    cd->prev = NULL;
-    mk->cache = cd;
-
-    if (!mk->cache_end) {
-	ASSERT(!cd->next);
-	mk->cache_end = cd;
-    }
-
-    mk->cache_size++;
-}
-
-#if CAN_PARTLY_DESTROY
-static ERTS_INLINE void
-end_link_cd(MemKind* mk, cache_desc_t *cd)
-{
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    if (mk->cache_end)
-	mk->cache_end->next = cd;
-    cd->next = NULL;
-    cd->prev = mk->cache_end;
-    mk->cache_end = cd;
-
-    if (!mk->cache) {
-	ASSERT(!cd->prev);
-	mk->cache = cd;
-    }
-
-    mk->cache_size++;
-}
-#endif
-
-static ERTS_INLINE void
-unlink_cd(MemKind* mk, cache_desc_t *cd)
-{
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    if (cd->next)
-	cd->next->prev = cd->prev;
-    else
-	mk->cache_end = cd->prev;
+    ASSERT(c);
     
-    if (cd->prev)
-	cd->prev->next = cd->next;
-    else
-	mk->cache = cd->next;
-    ASSERT(mk->cache_size > 0);
-    mk->cache_size--;
+    c->seg  = NULL;
+    c->size = 0;
+    c->next = mk->cache_free;
+    mk->cache_free = c;
 }
 
-static ERTS_INLINE void
-check_cache_limits(MemKind* mk)
-{
-    cache_desc_t *cd;
-    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    mk->max_cached_seg_size = 0;
-    mk->min_cached_seg_size = ~((Uint) 0);
-    for (cd = mk->cache; cd; cd = cd->next) {
-	if (cd->size < mk->min_cached_seg_size)
-	    mk->min_cached_seg_size = cd->size;
-	if (cd->size > mk->max_cached_seg_size)
-	    mk->max_cached_seg_size = cd->size;
-    }
-}
+static ERTS_INLINE int cache_bless_segment(MemKind *mk, void *seg, Uint size) {
 
-static ERTS_INLINE void
-adjust_cache_size(MemKind* mk, int force_check_limits)
-{
-    cache_desc_t *cd;
-    int check_limits = force_check_limits;
-    Sint max_cached = ((Sint) mk->segments.current.watermark
-		       - (Sint) mk->segments.current.no);
     ERTS_DBG_MK_CHK_THR_ACCESS(mk);
-    while (((Sint) mk->cache_size) > max_cached && ((Sint) mk->cache_size) > 0) {
-	ASSERT(mk->cache_end);
-	cd = mk->cache_end;
-	if (!check_limits &&
-	    !(mk->min_cached_seg_size < cd->size
-	      && cd->size < mk->max_cached_seg_size)) {
-	    check_limits = 1;
+    if IS_2POW(size) {
+	int ix = SIZE_TO_CACHE_AREA_IDX(size);
+	cache_t *c;
+
+	if (ix < CACHE_AREAS && mk->cache_free) {
+	    ASSERT( (1 << (ix + ALIGN_BITS)) == size);
+
+	    /* unlink from free cache list */
+	    c = mseg_cache_alloc_descriptor(mk);
+
+	    /* link to cache area */
+	    c->seg  = seg;
+	    c->size = size;
+	    c->next = mk->cache_area[ix];
+
+	    mk->cache_area[ix] = c;
+	    mk->cache_size++;
+
+	    return 1;
 	}
-	if (erts_mtrace_enabled)
-	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, cd->seg);
-	mseg_destroy(mk->ma, mk, cd->seg, cd->size);
-	unlink_cd(mk,cd);
-	free_cd(mk,cd);
     }
 
-    if (check_limits)
-	check_cache_limits(mk);
+    return 0;
 }
 
-static Uint
-check_one_cache(MemKind* mk)
-{
-    if (mk->segments.current.watermark > mk->segments.current.no)
-	mk->segments.current.watermark--;
-    adjust_cache_size(mk, 0);
+static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint size) {
 
-    if (mk->cache_size)
-	schedule_cache_check(mk->ma);
+    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
+    if (IS_2POW(size)) {
+
+	int i, ix = SIZE_TO_CACHE_AREA_IDX(size);
+	void *seg;
+	cache_t *c;
+	Uint csize;
+
+	for( i = ix; i < CACHE_AREAS; i++) {
+
+	    if ((c = mk->cache_area[i]) == NULL)
+		continue;
+
+	    ASSERT(IS_2POW(c->size));
+
+	    /* unlink from cache area */
+	    csize   = c->size;
+	    seg     = c->seg;
+	    c->next = NULL;
+	    mk->cache_area[i] = c->next;
+	    mk->cache_size--;
+	    mk->cache_hits++;
+
+	    /* link to free cache list */
+	    mseg_cache_free_descriptor(mk, c);
+
+	    ASSERT(!(mk->cache_size < 0));
+
+	    /* divvy up the cache - if needed */
+	    while( i > ix) {
+		csize = csize >> 1;
+		/* try to cache half of it */
+		if (!cache_bless_segment(mk, (char *)seg + csize, csize)) {
+		    /* wouldn't cache .. destroy it instead */
+		    mseg_destroy(mk->ma, mk, (char *)seg + csize, csize);
+		}
+		i--;
+	    }
+
+	    ASSERT(csize == size);
+	    return seg;
+	}
+    }
+    return NULL;
+}
+
+/* *_mseg_check_*_cache
+ * Slowly remove segments cached in the allocator by
+ * using callbacks from aux-work in the scheduler.
+ */
+static ERTS_INLINE Uint mseg_drop_memkind_cache_size(MemKind *mk, int ix) {
+    cache_t *c = NULL, *next = NULL;
+
+    c = mk->cache_area[ix];
+    ASSERT( c != NULL );
+
+    while (c) {
+
+	next = c->next;
+
+	if (erts_mtrace_enabled)
+	    erts_mtrace_crr_free(SEGTYPE, SEGTYPE, c->seg);
+
+	mseg_destroy(mk->ma, mk, c->seg, c->size);
+	mseg_cache_free_descriptor(mk, c);
+
+	mk->segments.current.watermark--;
+	mk->cache_size--;
+
+	c = next;
+    }
+
+    mk->cache_area[ix] = NULL;
+
+    ASSERT( mk->cache_size >= 0 );
+
     return mk->cache_size;
 }
 
-static void do_cache_check(ErtsMsegAllctr_t *ma)
-{
-    int empty_cache = 1;
+/* mseg_check_memkind_cache
+ * - Check if we can empty some cached segments in this
+ *   MemKind.
+ */
+
+
+static Uint mseg_check_memkind_cache(MemKind *mk) {
+    int i;
+    /* remove biggest first (less likly to be reused) */
+
+    ERTS_DBG_MK_CHK_THR_ACCESS(mk);
+    for (i = CACHE_AREAS - 1; i > 0; i--) {
+	if (mk->cache_area[i] != NULL)
+	    return mseg_drop_memkind_cache_size(mk, i);
+    }
+
+    return 0;
+}
+
+/* mseg_cache_check
+ * - Check if we have some cache we can purge
+ *   in any of the memkinds.
+ */
+
+static void mseg_cache_check(ErtsMsegAllctr_t *ma) {
     MemKind* mk;
+    Uint empty_cache = 1;
 
     ERTS_MSEG_LOCK(ma);
 
-    for (mk=ma->mk_list; mk; mk=mk->next) {
-	if (check_one_cache(mk))
+    for (mk = ma->mk_list; mk; mk = mk->next) {
+	if (mseg_check_memkind_cache(mk))
 	    empty_cache = 0;
     }
 
+    /* If all MemKinds caches are empty,
+     * remove aux-work callback
+     */
     if (empty_cache) {
 	ma->is_cache_check_scheduled = 0;
-	erts_set_aux_work_timeout(ma->ix,
-				  ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK,
-				  0);
+	erts_set_aux_work_timeout(ma->ix, ERTS_SSI_AUX_WORK_MSEG_CACHE_CHECK, 0);
     }
 
     INC_CC(ma, check_cache);
@@ -641,26 +687,56 @@ static void do_cache_check(ErtsMsegAllctr_t *ma)
     ERTS_MSEG_UNLOCK(ma);
 }
 
-void erts_mseg_cache_check(void)
-{
-    do_cache_check(ERTS_MSEG_ALLCTR_SS());
+/* erts_mseg_cache_check
+ * - This is a callback that is scheduled as aux-work from
+ *   schedulers and is called at some interval if we have a cache
+ *   on this mseg-allocator and memkind.
+ * - Purpose: Empty cache slowly so we don't collect mapped areas
+ *   and bloat memory.
+ */
+
+void erts_mseg_cache_check(void) {
+    mseg_cache_check(ERTS_MSEG_ALLCTR_SS());
 }
 
-static void
-mseg_clear_cache(MemKind* mk)
-{
-    mk->segments.current.watermark = 0;
 
-    adjust_cache_size(mk, 1);
+/* *_mseg_clear_*_cache
+ * Remove cached segments from the allocator completely
+ */
 
-    ASSERT(!mk->cache);
-    ASSERT(!mk->cache_end);
-    ASSERT(!mk->cache_size);
+static void mseg_clear_memkind_cache(MemKind *mk) {
+    int i;
 
-    mk->segments.current.watermark = mk->segments.current.no;
+    for (i = 0; i < CACHE_AREAS; i++) {
+	if (mk->cache_area[i] == NULL)
+	    continue;
 
-    INC_CC(mk->ma, clear_cache);
+	mseg_drop_memkind_cache_size(mk, i);
+    }
 }
+
+static void mseg_clear_cache(ErtsMsegAllctr_t *ma) {
+    MemKind* mk;
+
+    ERTS_MSEG_LOCK(ma);
+    ERTS_DBG_MA_CHK_THR_ACCESS(ma);
+
+
+    for (mk = ma->mk_list; mk; mk = mk->next) {
+	mseg_clear_memkind_cache(mk);
+    }
+
+    INC_CC(ma, clear_cache);
+
+    ERTS_MSEG_UNLOCK(ma);
+}
+
+void erts_mseg_clear_cache(void) {
+    mseg_clear_cache(ERTS_MSEG_ALLCTR_SS());
+    mseg_clear_cache(ERTS_MSEG_ALLCTR_IX(0));
+}
+
+
 
 static ERTS_INLINE MemKind* memkind(ErtsMsegAllctr_t *ma,
 				    const ErtsMsegOpt_t *opt)
@@ -674,116 +750,40 @@ static ERTS_INLINE MemKind* memkind(ErtsMsegAllctr_t *ma,
 
 static void *
 mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, Uint *size_p,
-	   const ErtsMsegOpt_t *opt)
+	   Uint flags, const ErtsMsegOpt_t *opt)
 {
-    Uint max, min, diff_size, size;
-    cache_desc_t *cd, *cand_cd;
+    Uint size;
     void *seg;
     MemKind* mk = memkind(ma, opt);
 
     INC_CC(ma, alloc);
 
+    /* Carrier align */
     size = ALIGNED_CEILING(*size_p);
+
+    /* Cache optim (if applicable) */
+    if (MSEG_FLG_IS_2POW(flags) && !IS_2POW(size))
+	size = ceil_2pow(size);
 
 #if CAN_PARTLY_DESTROY
     if (size < ma->min_seg_size)	
 	ma->min_seg_size = size;
 #endif
+    
+    if (opt->cache && mk->cache_size > 0 && (seg = cache_get_segment(mk, size)) != NULL) 
+	goto done;
 
-    if (!opt->cache) {
-    create_seg:
-	adjust_cache_size(mk,0);
-	seg = mseg_create(ma, mk, size);
-	if (!seg) {
-	    mseg_clear_cache(mk);
-	    seg = mseg_create(ma, mk, size);
-	    if (!seg)
-		size = 0;
-	}
+    if ((seg = mseg_create(ma, mk, size)) == NULL)
+	size = 0;
 
-	*size_p = size;
-	if (seg) {
-	    if (erts_mtrace_enabled)
-		erts_mtrace_crr_alloc(seg, atype, ERTS_MTRACE_SEGMENT_ID, size);
-	    ERTS_MSEG_ALLOC_STAT(mk,size);
-	}
-	return seg;
-    }
-
-    if (size > mk->max_cached_seg_size)
-	goto create_seg;
-
-    if (size < mk->min_cached_seg_size) {
-
-	diff_size = mk->min_cached_seg_size - size;
-
-	if (diff_size > ma->abs_max_cache_bad_fit)
-	    goto create_seg;
-
-	if (100*PAGES(diff_size) > ma->rel_max_cache_bad_fit*PAGES(size))
-	    goto create_seg;
-
-    }
-
-    max = 0;
-    min = ~((Uint) 0);
-    cand_cd = NULL;
-
-    for (cd = mk->cache; cd; cd = cd->next) {
-	if (cd->size >= size) {
-	    if (!cand_cd) {
-		cand_cd = cd;
-		continue;
-	    }
-	    else if (cd->size < cand_cd->size) {
-		if (max < cand_cd->size)
-		    max = cand_cd->size;
-		if (min > cand_cd->size)
-		    min = cand_cd->size;
-		cand_cd = cd;
-		continue;
-	    }
-	}
-	if (max < cd->size)
-	    max = cd->size;
-	if (min > cd->size)
-	    min = cd->size;
-    }
-
-    mk->min_cached_seg_size = min;
-    mk->max_cached_seg_size = max;
-
-    if (!cand_cd)
-	goto create_seg;
-
-    diff_size = cand_cd->size - size;
-
-    if (diff_size > ma->abs_max_cache_bad_fit
-	|| 100*PAGES(diff_size) > ma->rel_max_cache_bad_fit*PAGES(size)) {
-	if (mk->max_cached_seg_size < cand_cd->size)
-	    mk->max_cached_seg_size = cand_cd->size;
-	if (mk->min_cached_seg_size > cand_cd->size)
-	    mk->min_cached_seg_size = cand_cd->size;
-	goto create_seg;
-    }
-
-    mk->cache_hits++;
-
-    size = cand_cd->size;
-    seg = cand_cd->seg;
-
-    unlink_cd(mk,cand_cd);
-    free_cd(mk,cand_cd);
-
+done:
     *size_p = size;
+    if (seg) {
+	if (erts_mtrace_enabled)
+	    erts_mtrace_crr_alloc(seg, atype, ERTS_MTRACE_SEGMENT_ID, size);
 
-    if (erts_mtrace_enabled) {
-	erts_mtrace_crr_free(SEGTYPE, SEGTYPE, seg);
-	erts_mtrace_crr_alloc(seg, atype, SEGTYPE, size);
-    }
-
-    if (seg)
 	ERTS_MSEG_ALLOC_STAT(mk,size);
+    }
 
     return seg;
 }
@@ -794,69 +794,35 @@ mseg_dealloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg, Uint size,
 	     const ErtsMsegOpt_t *opt)
 {
     MemKind* mk = memkind(ma, opt);
-    cache_desc_t *cd;
+
 
     ERTS_MSEG_DEALLOC_STAT(mk,size);
 
-    if (!opt->cache || ma->max_cache_size == 0) {
-	if (erts_mtrace_enabled)
-	    erts_mtrace_crr_free(atype, SEGTYPE, seg);
-	mseg_destroy(ma, mk, seg, size);
-    }
-    else {
-	int check_limits = 0;
-	
-	if (size < mk->min_cached_seg_size)
-	    mk->min_cached_seg_size = size;
-	if (size > mk->max_cached_seg_size)
-	    mk->max_cached_seg_size = size;
-
-	if (!mk->free_cache_descs) {
-	    cd = mk->cache_end;
-	    if (!(mk->min_cached_seg_size < cd->size
-		  && cd->size < mk->max_cached_seg_size)) {
-		check_limits = 1;
-	    }
-	    if (erts_mtrace_enabled)
-		erts_mtrace_crr_free(SEGTYPE, SEGTYPE, cd->seg);
-	    mseg_destroy(ma, mk, cd->seg, cd->size);
-	    unlink_cd(mk,cd);
-	    free_cd(mk,cd);
-	}
-
-	cd = alloc_cd(mk);
-	ASSERT(cd);
-	cd->seg = seg;
-	cd->size = size;
-	link_cd(mk,cd);
-
-	if (erts_mtrace_enabled) {
-	    erts_mtrace_crr_free(atype, SEGTYPE, seg);
-	    erts_mtrace_crr_alloc(seg, SEGTYPE, SEGTYPE, size);
-	}
-
-	/* ASSERT(segments.current.watermark >= segments.current.no + cache_size); */
-
-	if (check_limits)
-	    check_cache_limits(mk);
-
+    if (opt->cache && cache_bless_segment(mk, seg, size)) {
 	schedule_cache_check(ma);
-
+	goto done;
     }
+
+    if (erts_mtrace_enabled)
+	erts_mtrace_crr_free(atype, SEGTYPE, seg);
+
+    mseg_destroy(ma, mk, seg, size);
+
+done:
 
     INC_CC(ma, dealloc);
 }
 
 static void *
 mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
-	     Uint old_size, Uint *new_size_p, const ErtsMsegOpt_t *opt)
+	     Uint old_size, Uint *new_size_p, Uint flags, const ErtsMsegOpt_t *opt)
 {
     MemKind* mk;
     void *new_seg;
     Uint new_size;
 
     if (!seg || !old_size) {
-	new_seg = mseg_alloc(ma, atype, new_size_p, opt);
+	new_seg = mseg_alloc(ma, atype, new_size_p, flags, opt);
 	DEC_CC(ma, alloc);
 	return new_seg;
     }
@@ -869,7 +835,13 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 
     mk = memkind(ma, opt);
     new_seg = seg;
+
+    /* Carrier align */
     new_size = ALIGNED_CEILING(*new_size_p);
+
+    /* Cache optim (if applicable) */
+    if (MSEG_FLG_IS_2POW(flags) && !IS_2POW(new_size))
+	new_size = ceil_2pow(new_size);
 
     if (new_size == old_size)
 	;
@@ -880,53 +852,25 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 	if (new_size < ma->min_seg_size)	
 	    ma->min_seg_size = new_size;
 #endif
-
+	/* +M<S>rsbcst <ratio> */
 	if (shrink_sz < opt->abs_shrink_th
-	    && 100*PAGES(shrink_sz) < opt->rel_shrink_th*PAGES(old_size)) {
+	    && 100*shrink_sz < opt->rel_shrink_th*old_size) {
 	    new_size = old_size;
 	}
 	else {
 
 #if CAN_PARTLY_DESTROY
 
-	    if (shrink_sz > ma->min_seg_size
-		&& mk->free_cache_descs
-		&& opt->cache) {
-		cache_desc_t *cd;
+	    if (erts_mtrace_enabled)
+		erts_mtrace_crr_realloc(new_seg, atype, SEGTYPE, seg, new_size);
 
-		cd = alloc_cd(mk);
-		ASSERT(cd);
-		cd->seg = ((char *) seg) + new_size;
-		cd->size = shrink_sz;
-		end_link_cd(mk,cd);
-
-		if (erts_mtrace_enabled) {
-		    erts_mtrace_crr_realloc(new_seg,
-					    atype,
-					    SEGTYPE,
-					    seg,
-					    new_size);
-		    erts_mtrace_crr_alloc(cd->seg, SEGTYPE, SEGTYPE, cd->size);
-		}
-		schedule_cache_check(ma);
-	    }
-	    else {
-		if (erts_mtrace_enabled)
-		    erts_mtrace_crr_realloc(new_seg,
-					    atype,
-					    SEGTYPE,
-					    seg,
-					    new_size);
-		mseg_destroy(ma, mk, ((char *) seg) + new_size, shrink_sz);
-	    }
+	    mseg_destroy(ma, mk, ((char *) seg) + new_size, shrink_sz);
 
 #elif HAVE_MSEG_RECREATE
-
 	    goto do_recreate;
-
 #else
 
-	    new_seg = mseg_alloc(ma, atype, &new_size, opt);
+	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
 	    if (!new_seg)
 		new_size = old_size;
 	    else {
@@ -944,7 +888,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 
 	if (!opt->preserv) {
 	    mseg_dealloc(ma, atype, seg, old_size, opt);
-	    new_seg = mseg_alloc(ma, atype, &new_size, opt);
+	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
 	}
 	else {
 #if HAVE_MSEG_RECREATE
@@ -957,13 +901,11 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 	    if (!new_seg)
 		new_size = old_size;
 #else
-	    new_seg = mseg_alloc(ma, atype, &new_size, opt);
+	    new_seg = mseg_alloc(ma, atype, &new_size, flags, opt);
 	    if (!new_seg)
 		new_size = old_size;
 	    else {
-		sys_memcpy(((char *) new_seg),
-			   ((char *) seg),
-			   MIN(new_size, old_size));
+		sys_memcpy(((char *) new_seg), ((char *) seg), MIN(new_size, old_size));
 		mseg_dealloc(ma, atype, seg, old_size, opt);
 	    }
 #endif
@@ -972,6 +914,7 @@ mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
 
     INC_CC(ma, realloc);
 
+    ASSERT(!MSEG_FLG_IS_2POW(flags) || IS_2POW(new_size));
     *new_size_p = new_size;
 
     ERTS_MSEG_REALLOC_STAT(mk, old_size, new_size);
@@ -1004,6 +947,7 @@ static struct {
     Eterm mseg_dealloc;
     Eterm mseg_realloc;
     Eterm mseg_create;
+    Eterm mseg_create_resize;
     Eterm mseg_destroy;
 #if HAVE_MSEG_RECREATE
     Eterm mseg_recreate;
@@ -1060,6 +1004,7 @@ init_atoms(ErtsMsegAllctr_t *ma)
 	AM_INIT(mseg_dealloc);
 	AM_INIT(mseg_realloc);
 	AM_INIT(mseg_create);
+	AM_INIT(mseg_create_resize);
 	AM_INIT(mseg_destroy);
 #if HAVE_MSEG_RECREATE
 	AM_INIT(mseg_recreate);
@@ -1079,13 +1024,11 @@ init_atoms(ErtsMsegAllctr_t *ma)
     erts_mtx_unlock(&init_atoms_mutex);
 }
 
-
 #define bld_uint	erts_bld_uint
 #define bld_cons	erts_bld_cons
 #define bld_tuple	erts_bld_tuple
 #define bld_string	erts_bld_string
 #define bld_2tup_list	erts_bld_2tup_list
-
 
 /*
  * bld_unstable_uint() (instead of bld_uint()) is used when values may
@@ -1129,6 +1072,7 @@ add_4tup(Uint **hpp, Uint *szp, Eterm *lp,
 {
     *lp = bld_cons(hpp, szp, bld_tuple(hpp, szp, 4, el1, el2, el3, el4), *lp);
 }
+
 
 static Eterm
 info_options(ErtsMsegAllctr_t *ma,
@@ -1190,6 +1134,7 @@ info_calls(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg, Uint **hpp
 	PRINT_CC(to, arg, dealloc);
 	PRINT_CC(to, arg, realloc);
 	PRINT_CC(to, arg, create);
+	PRINT_CC(to, arg, create_resize);
 	PRINT_CC(to, arg, destroy);
 #if HAVE_MSEG_RECREATE
 	PRINT_CC(to, arg, recreate);
@@ -1229,6 +1174,10 @@ info_calls(ErtsMsegAllctr_t *ma, int *print_to_p, void *print_to_arg, Uint **hpp
 		 bld_unstable_uint(hpp, szp, ma->calls.create.giga_no),
 		 bld_unstable_uint(hpp, szp, ma->calls.create.no));
 
+	add_3tup(hpp, szp, &res,
+		 am.mseg_create_resize,
+		 bld_unstable_uint(hpp, szp, ma->calls.create_resize.giga_no),
+		 bld_unstable_uint(hpp, szp, ma->calls.create_resize.no));
 
 	add_3tup(hpp, szp, &res,
 		 am.mseg_realloc,
@@ -1415,21 +1364,21 @@ erts_mseg_info(int ix,
 }
 
 void *
-erts_mseg_alloc_opt(ErtsAlcType_t atype, Uint *size_p, const ErtsMsegOpt_t *opt)
+erts_mseg_alloc_opt(ErtsAlcType_t atype, Uint *size_p, Uint flags, const ErtsMsegOpt_t *opt)
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
     void *seg;
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
-    seg = mseg_alloc(ma, atype, size_p, opt);
+    seg = mseg_alloc(ma, atype, size_p, flags, opt);
     ERTS_MSEG_UNLOCK(ma);
     return seg;
 }
 
 void *
-erts_mseg_alloc(ErtsAlcType_t atype, Uint *size_p)
+erts_mseg_alloc(ErtsAlcType_t atype, Uint *size_p, Uint flags)
 {
-    return erts_mseg_alloc_opt(atype, size_p, &erts_mseg_default_opt);
+    return erts_mseg_alloc_opt(atype, size_p, flags, &erts_mseg_default_opt);
 }
 
 void
@@ -1452,44 +1401,24 @@ erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, Uint size)
 void *
 erts_mseg_realloc_opt(ErtsAlcType_t atype, void *seg,
 		      Uint old_size, Uint *new_size_p,
+		      Uint flags,
 		      const ErtsMsegOpt_t *opt)
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
     void *new_seg;
     ERTS_MSEG_LOCK(ma);
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
-    new_seg = mseg_realloc(ma, atype, seg, old_size, new_size_p, opt);
+    new_seg = mseg_realloc(ma, atype, seg, old_size, new_size_p, flags, opt);
     ERTS_MSEG_UNLOCK(ma);
     return new_seg;
 }
 
 void *
 erts_mseg_realloc(ErtsAlcType_t atype, void *seg,
-		  Uint old_size, Uint *new_size_p)
+		  Uint old_size, Uint *new_size_p, Uint flags)
 {
     return erts_mseg_realloc_opt(atype, seg, old_size, new_size_p,
-				 &erts_mseg_default_opt);
-}
-
-void
-erts_mseg_clear_cache(void)
-{
-    ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_SS();
-    MemKind* mk;
-
-start:
-
-    ERTS_MSEG_LOCK(ma);
-    ERTS_DBG_MA_CHK_THR_ACCESS(ma);
-    for (mk=ma->mk_list; mk; mk=mk->next) {
-	mseg_clear_cache(mk);
-    }
-    ERTS_MSEG_UNLOCK(ma);
-
-    if (ma->ix != 0) {
-	ma = ERTS_MSEG_ALLCTR_IX(0);
-	goto start;
-    }
+				 flags, &erts_mseg_default_opt);
 }
 
 Uint
@@ -1515,23 +1444,23 @@ erts_mseg_unit_size(void)
 
 static void mem_kind_init(ErtsMsegAllctr_t *ma, MemKind* mk, const char* name)
 {
-    unsigned i;
+    int i;
 
-    mk->cache = NULL;
-    mk->cache_end = NULL;
-    mk->max_cached_seg_size = 0;
-    mk->min_cached_seg_size = ~((Uint) 0);
+    for (i = 0; i < CACHE_AREAS; i++) {
+	mk->cache_area[i] = NULL;
+    }
+
+    mk->cache_free = NULL;
+
+    for (i = 0; i < MAX_CACHE_SIZE; i++) {
+	mk->cache[i].seg  = NULL;
+	mk->cache[i].size = 0;
+	mk->cache[i].next = mk->cache_free;
+	mk->cache_free = &(mk->cache[i]);
+    }
+
     mk->cache_size = 0;
     mk->cache_hits = 0;
-
-    if (ma->max_cache_size > 0) {
-	for (i = 0; i < ma->max_cache_size - 1; i++)
-	    mk->cache_descs[i].next = &mk->cache_descs[i + 1];
-	mk->cache_descs[ma->max_cache_size - 1].next = NULL;
-	mk->free_cache_descs = &mk->cache_descs[0];
-    }
-    else
-	mk->free_cache_descs = NULL;
 
     mk->segments.current.watermark = 0;
     mk->segments.current.no = 0;
@@ -1584,17 +1513,10 @@ erts_mseg_init(ErtsMsegInit_t *init)
     initialize_pmmap();
 #endif
 
-    page_size = GET_PAGE_SIZE;
-    ASSERT((ALIGNED_SIZE % page_size) == 0);
+    if (!IS_2POW(GET_PAGE_SIZE))
+	erl_exit(ERTS_ABORT_EXIT, "erts_mseg: Unexpected page_size %beu\n", GET_PAGE_SIZE);
 
-    page_shift = 1;
-    /* page size alignment assertion */
-    while ((page_size >> page_shift) != 1) {
-	if ((page_size & (1 << (page_shift - 1))) != 0)
-	    erl_exit(ERTS_ABORT_EXIT,
-		     "erts_mseg: Unexpected page_size %beu\n", page_size);
-	page_shift++;
-    }
+    ASSERT((ALIGNED_SIZE % GET_PAGE_SIZE) == 0);
 
     for (i = 0; i < no_mseg_allocators; i++) {
 	ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_IX(i);
@@ -1679,7 +1601,7 @@ erts_mseg_test(unsigned long op,
     case 0x400: /* Have erts_mseg */
 	return (unsigned long) 1;
     case 0x401:
-	return (unsigned long) erts_mseg_alloc(ERTS_ALC_A_INVALID, (Uint *) a1);
+	return (unsigned long) erts_mseg_alloc(ERTS_ALC_A_INVALID, (Uint *) a1, (Uint) 0);
     case 0x402:
 	erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (Uint) a2);
 	return (unsigned long) 0;
@@ -1687,7 +1609,8 @@ erts_mseg_test(unsigned long op,
 	return (unsigned long) erts_mseg_realloc(ERTS_ALC_A_INVALID,
 						 (void *) a1,
 						 (Uint) a2,
-						 (Uint *) a3);
+						 (Uint *) a3,
+						 (Uint) 0);
     case 0x404:
 	erts_mseg_clear_cache();
 	return (unsigned long) 0;
@@ -1876,7 +1799,7 @@ static int initialize_pmmap(void)
 
     rsz = ALIGNED_FLOOR(q - p);
 
-    rptr = mmap_align((void *) p, rsz,
+    rptr = mmap_align(NULL, (void *) p, rsz,
 		PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS |
 		MAP_NORESERVE | EXTRA_MAP_FLAGS,
 		-1 , 0);

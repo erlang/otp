@@ -52,10 +52,10 @@ testcase_run(TestCaseState_t *tcs)
     tcs->extra = &seg[0];
 
     for (i = 0; i < MAX_SEGS; i++) {
-	seg[i].size = 1000;
+	seg[i].size = 1 << 18;
 	seg[i].ptr = MSEG_ALLOC(&seg[i].size);
 	ASSERT(tcs, seg[i].ptr);
-	ASSERT(tcs, seg[i].size >= 1000);
+	ASSERT(tcs, seg[i].size >= (1 << 18));
     }
 
     n = MSEG_NO();

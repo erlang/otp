@@ -510,7 +510,7 @@ alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p)
 {
     void *res;
 
-    res = erts_mseg_alloc_opt(allctr->alloc_no, size_p, &allctr->mseg_opt);
+    res = erts_mseg_alloc_opt(allctr->alloc_no, size_p, (Uint)0, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_alloc);
     return res;
 }
@@ -521,7 +521,7 @@ alcu_mseg_realloc(Allctr_t *allctr, void *seg, Uint old_size, Uint *new_size_p)
     void *res;
 
     res = erts_mseg_realloc_opt(allctr->alloc_no, seg, old_size, new_size_p,
-				&allctr->mseg_opt);
+				(Uint)0, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_realloc);
     return res;
 }

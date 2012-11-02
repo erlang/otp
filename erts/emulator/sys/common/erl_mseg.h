@@ -38,6 +38,11 @@
 
 #if HAVE_ERTS_MSEG
 
+
+#define ERTS_MSEG_FLG_NONE    ((Uint)(0))
+#define ERTS_MSEG_FLG_2POW    ((Uint)(1 << 0))
+
+
 #define ERTS_MSEG_VSN_STR "0.9"
 
 typedef struct {
@@ -68,13 +73,13 @@ typedef struct {
 
 extern const ErtsMsegOpt_t erts_mseg_default_opt;
 
-void *erts_mseg_alloc(ErtsAlcType_t, Uint *);
-void *erts_mseg_alloc_opt(ErtsAlcType_t, Uint *, const ErtsMsegOpt_t *);
+void *erts_mseg_alloc(ErtsAlcType_t, Uint *, Uint);
+void *erts_mseg_alloc_opt(ErtsAlcType_t, Uint *, Uint, const ErtsMsegOpt_t *);
 void  erts_mseg_dealloc(ErtsAlcType_t, void *, Uint);
 void  erts_mseg_dealloc_opt(ErtsAlcType_t, void *, Uint, const ErtsMsegOpt_t *);
-void *erts_mseg_realloc(ErtsAlcType_t, void *, Uint, Uint *);
+void *erts_mseg_realloc(ErtsAlcType_t, void *, Uint, Uint *, Uint);
 void *erts_mseg_realloc_opt(ErtsAlcType_t, void *, Uint, Uint *,
-			    const ErtsMsegOpt_t *);
+			    Uint, const ErtsMsegOpt_t *);
 void  erts_mseg_clear_cache(void);
 void  erts_mseg_cache_check(void);
 Uint  erts_mseg_no( const ErtsMsegOpt_t *);
