@@ -524,7 +524,7 @@ fe80::204:acff:fe17:bf38
 	  <item>
 	    <p>
 	      Restricts the socket to only use IPv6, prohibiting any
-	      IPv4 connections. This only applicable for
+	      IPv4 connections. This is only applicable for
 	      IPv6 sockets (option <c>inet6</c>).
 	    </p>
 	    <p>
@@ -561,9 +561,10 @@ fe80::204:acff:fe17:bf38
 	      Setting this option on platforms where it does not exist
 	      is ignored and getting this option with
 	      <seealso marker="#getopts/2">getopts/2</seealso>
-	      returns no value. On Windows the option acually does
-	      not exist but it is emulated as being a read-only option
-	      with the value <c>true</c>.
+	      returns no value i.e the returned list will not contain an
+	      <c>{ipv6_v6only,_}</c> tuple. On Windows the option acually
+	      does not exist, but it is emulated as being a
+	      read-only option with the value <c>true</c>.
 	    </p>
 	    <p>
 	      So it boils down to that setting this option to <c>true</c>
