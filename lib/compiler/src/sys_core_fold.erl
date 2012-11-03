@@ -756,6 +756,7 @@ call_1(#c_call{anno=Anno}, lists, map, [Arg1,Arg2], Sub) ->
 						      op=F,
 						      args=[X]},
 			       body=#c_cons{hd=H,
+					    anno=[compiler_generated],
 					    tl=#c_apply{anno=Anno,
 							op=Loop,
 							args=[Xs]}}}},
@@ -780,7 +781,7 @@ call_1(#c_call{anno=Anno}, lists, flatmap, [Arg1,Arg2], Sub) ->
     C1 = #c_clause{pats=[#c_cons{hd=X, tl=Xs}], guard=#c_literal{val=true},
 		   body=#c_let{vars=[H],
 			       arg=#c_apply{anno=Anno, op=F, args=[X]},
-			       body=#c_call{anno=Anno,
+			       body=#c_call{anno=[compiler_generated|Anno],
 					    module=#c_literal{val=erlang},
 					    name=#c_literal{val='++'},
 					    args=[H,
@@ -807,7 +808,7 @@ call_1(#c_call{anno=Anno}, lists, filter, [Arg1,Arg2], Sub) ->
     B = #c_var{name='B'},
     Err1 = #c_tuple{es=[#c_literal{val='case_clause'}, X]},
     CC1 = #c_clause{pats=[#c_literal{val=true}], guard=#c_literal{val=true},
-		    body=#c_cons{hd=X, tl=Xs}},
+		    body=#c_cons{anno=[compiler_generated], hd=X, tl=Xs}},
     CC2 = #c_clause{pats=[#c_literal{val=false}], guard=#c_literal{val=true},
 		    body=Xs},
     CC3 = #c_clause{pats=[X], guard=#c_literal{val=true},
@@ -901,7 +902,10 @@ call_1(#c_call{anno=Anno}, lists, mapfoldl, [Arg1,Arg2,Arg3], Sub) ->
 					     op=Loop,
 					     args=[Xs, Avar]},
 				    #c_tuple{es=[Xs, Avar]},
-				    #c_tuple{es=[#c_cons{hd=X, tl=Xs}, Avar]})
+				    #c_tuple{anno=[compiler_generated],
+					     es=[#c_cons{anno=[compiler_generated],
+							 hd=X, tl=Xs},
+						 Avar]})
 %%% Multiple-value version
 %%% 			      #c_let{vars=[Xs,A],
 %%% 				     %% The tuple here will be optimised
@@ -912,7 +916,8 @@ call_1(#c_call{anno=Anno}, lists, mapfoldl, [Arg1,Arg2,Arg3], Sub) ->
 			     )},
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 %%% Tuple passing version
-		   body=#c_tuple{es=[#c_literal{val=[]}, Avar]}},
+		   body=#c_tuple{anno=[compiler_generated],
+				 es=[#c_literal{val=[]}, Avar]}},
 %%% Multiple-value version
 %%% 		   body=#c_values{es=[#c_literal{val=[]}, A]}},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
@@ -955,7 +960,9 @@ call_1(#c_call{anno=Anno}, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
 			      #c_tuple{es=[Xs, Avar]},
 			      Match(#c_apply{anno=Anno, op=F, args=[X, Avar]},
 				    #c_tuple{es=[X, Avar]},
-				    #c_tuple{es=[#c_cons{hd=X, tl=Xs}, Avar]}))
+				    #c_tuple{anno=[compiler_generated],
+					     es=[#c_cons{anno=[compiler_generated],
+							 hd=X, tl=Xs}, Avar]}))
 %%% Multiple-value version
 %%% 		   body=#c_let{vars=[Xs,A],
 %%% 			       %% The tuple will be optimised away
@@ -967,7 +974,8 @@ call_1(#c_call{anno=Anno}, lists, mapfoldr, [Arg1,Arg2,Arg3], Sub) ->
 		  },
     C2 = #c_clause{pats=[#c_literal{val=[]}], guard=#c_literal{val=true},
 %%% Tuple passing version
-		   body=#c_tuple{es=[#c_literal{val=[]}, Avar]}},
+		   body=#c_tuple{anno=[compiler_generated],
+				 es=[#c_literal{val=[]}, Avar]}},
 %%% Multiple-value version
 %%% 		   body=#c_values{es=[#c_literal{val=[]}, A]}},
     Err = #c_tuple{es=[#c_literal{val='function_clause'}, Xs]},
