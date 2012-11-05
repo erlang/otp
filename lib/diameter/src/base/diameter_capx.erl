@@ -141,7 +141,9 @@ cap('Host-IP-Address', Vs)
   when is_list(Vs) ->
     lists:map(fun ipaddr/1, Vs);
 
-cap('Firmware-Revision', V) ->
+cap(K, V)
+  when K == 'Firmware-Revision';
+       K == 'Origin-State-Id' ->
     [V];
 
 cap(_, Vs)
@@ -149,7 +151,7 @@ cap(_, Vs)
     Vs;
 
 cap(K, V) ->
-    ?THROW({invalid, K, V}).
+    ?THROW({invalid, {K,V}}).
 
 ipaddr(A) ->
     try
