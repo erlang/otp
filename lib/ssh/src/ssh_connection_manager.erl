@@ -605,9 +605,8 @@ get_idle_time(SshOptions) ->
     case proplists:get_value(idle_time, SshOptions) of
 	infinity ->
 	    infinity;
-       IdleTime ->
-	    TimerRef = erlang:send_after(IdleTime, self(), {'EXIT', [], "Timeout"}),
-	    TimerRef
+       _IdleTime -> %% We dont want to set the timeout on first connect
+	    undefined
     end.
 check_cache(State, Cache) ->
     %% Check the number of entries in Cache
