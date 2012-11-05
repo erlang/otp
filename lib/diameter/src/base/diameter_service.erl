@@ -236,12 +236,12 @@ stop_transport(SvcName, [_|_] = Refs) ->
 %%% ---------------------------------------------------------------------------
 
 info(SvcName, Item) ->
-    info_rc(call_service_by_name(SvcName, {info, Item})).
-
-info_rc({error, _}) ->
-    undefined;
-info_rc(Info) ->
-    Info.
+    case ets:lookup(?STATE_TABLE, SvcName) of
+        [] ->
+            undefined;
+        [S] ->
+            service_info(Item, S)
+    end.
 
 %%% ---------------------------------------------------------------------------
 %%% # receive_message(TPid, Pkt, MessageData)
@@ -462,6 +462,7 @@ handle_call({pick_peer, Local, Remote, App}, _From, S) ->
 handle_call({call_module, AppMod, Req}, From, S) ->
     call_module(AppMod, Req, From, S);
 
+%% Call from old code.
 handle_call({info, Item}, _From, S) ->
     {reply, service_info(Item, S), S};
 
@@ -3001,7 +3002,12 @@ info_stats(#state{peerT = PeerT}) ->
     MatchSpec = [{#peer{ref = '$1', conn = '$2', _ = '_'},
                   [{'is_pid', '$2'}],
                   [['$1', '$2']]}],
-    diameter_stats:read(lists:append(ets:select(PeerT, MatchSpec))).
+    try ets:select(PeerT, MatchSpec) of
+        L ->
+            diameter_stats:read(lists:append(L))
+    catch
+        error: badarg -> []  %% service  has gone down
+    end.
 
 %% info_transport/1
 %%
@@ -3046,7 +3052,12 @@ transport([[{type, accept}, {options, Opts} | _] | _] = Ls) ->
      {accept, [lists:nthtail(2,L) || L <- Ls]}].
 
 peer_dict(#state{peerT = PeerT, connT = ConnT}, Dict0) ->
-    ets:foldl(fun(T,A) -> peer_acc(ConnT, A, T) end, Dict0, PeerT).
+    try ets:tab2list(PeerT) of
+        L ->
+            lists:foldl(fun(T,A) -> peer_acc(ConnT, A, T) end, Dict0, L)
+    catch
+        error: badarg -> Dict0  %% service has gone down
+    end.
 
 peer_acc(ConnT, Acc, #peer{pid = Pid,
                            type = Type,
@@ -3065,7 +3076,11 @@ peer_acc(ConnT, Acc, #peer{pid = Pid,
 
 info_conn(ConnT, TPid, true)
   when is_pid(TPid) ->
-    info_conn(ets:lookup(ConnT, TPid));
+    try ets:lookup(ConnT, TPid) of
+        T -> info_conn(T)
+    catch
+        error: badarg -> []  %% service has gone down
+    end;
 info_conn(_, _, _) ->
     [].
 
@@ -3142,7 +3157,11 @@ info_pending(#state{} = S) ->
                             {{transport, '$2'}},
                             {{from, '$3'}}]}}]}],
 
-    ets:select(?REQUEST_TABLE, MatchSpec).
+    try
+        ets:select(?REQUEST_TABLE, MatchSpec)
+    catch
+        error: badarg -> []  %% service has gone down
+    end.
 
 %% info_connections/1
 %%
