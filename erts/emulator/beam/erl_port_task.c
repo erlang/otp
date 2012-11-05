@@ -573,13 +573,8 @@ erts_port_task_schedule(Eterm id,
 
     ERTS_PT_CHK_PRES_PORTQ(runq, pp);
 
-    if (!pp->sched.taskq) {
-	pp->sched.taskq = port_taskq_init(port_taskq_alloc(), pp);
-	enq_port = !pp->sched.exe_taskq;
-    }
-
+    if (!pp->sched.taskq && !pp->sched.exe_taskq) {
 #ifdef ERTS_SMP
-    if (enq_port) {
 	ErtsRunQueue *xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
 	if (xrunq) {
 	    /* Port emigrated ... */
@@ -587,12 +582,17 @@ erts_port_task_schedule(Eterm id,
 	    erts_smp_runq_unlock(runq);
 	    runq = xrunq;
 	}
-    }
+	enq_port = !pp->sched.taskq && !pp->sched.exe_taskq;
+#else
+	enq_port = 1;
 #endif
+    }
 
     ASSERT(!enq_port || !(runq->flags & ERTS_RUNQ_FLG_SUSPENDED));
 
-    ASSERT(pp->sched.taskq);
+    if (!pp->sched.taskq)
+	pp->sched.taskq = port_taskq_init(port_taskq_alloc(), pp);
+
     ASSERT(ptp);
 
     ptp->type = type;
