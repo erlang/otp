@@ -563,7 +563,7 @@ make_caps(Caps, Opts) ->
     case diameter_capx:make_caps(Caps, Opts) of
         {ok, T} ->
             T;
-        {error, {Reason, _}} ->
+        {error, Reason} ->
             ?THROW(Reason)
     end.
 
