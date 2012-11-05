@@ -34,6 +34,32 @@
   <lib>erl_driver</lib>
   <libsummary>API functions for an Erlang driver</libsummary>
   <description>
+    <p>An Erlang driver is a library containing a set of native driver
+      callback functions that the Erlang VM calls when certain
+      events occur. There may be multiple instances of a driver, each
+      instance is associated with an Erlang port.</p>
+    <marker id="WARNING"/>
+      <warning><p><em>Use this functionality with extreme care!</em></p>
+      <p>A driver callback is executed as a direct extension of the
+      native code of the VM. Execution is not made in a safe environment.
+      The VM can <em>not</em> provide the same services as provided when
+      executing Erlang code, such as preemptive scheduling or memory
+      protection. If the driver callback function doesn't behave well,
+      the whole VM will misbehave.</p>
+      <list>
+	<item><p>A driver callback that crash will crash the whole VM.</p></item>
+	<item><p>An erroneously implemented driver callback might cause
+	a VM internal state inconsistency which may cause a crash of the VM,
+	or miscellaneous misbehaviors of the VM at any point after the call
+	to the driver callback.</p></item>
+	<item><p>A driver callback that do <seealso marker="#lengthy_work">lengthy
+	work</seealso> before returning will degrade responsiveness of the VM,
+	and may cause miscellaneous strange behaviors. Such strange behaviors
+	include, but are not limited to, extreme memory usage, and bad load
+	balancing between schedulers. Strange behaviors that might occur due
+	to lengthy work may also vary between OTP releases.</p></item>
+      </list>
+      </warning>
     <p>As of erts version 5.5.3 the driver interface has been extended
       (see <seealso marker="driver_entry#extended_marker">extended marker</seealso>).
       The extended interface introduce
@@ -53,16 +79,12 @@
     <p>The driver calls back to the emulator, using the API
       functions declared in <c>erl_driver.h</c>. They are used for
       outputting data from the driver, using timers, etc.</p>
-    <p>A driver is a library with a set of function that the emulator
-      calls, in response to Erlang functions and message
-      sending. There may be multiple instances of a driver, each
-      instance is connected to an Erlang port. Every port has a port
-      owner process. Communication with the port is normally done
-      through the port owner process.</p>
-    <p>Most of the functions take the <c>port</c> handle as an
-      argument. This identifies the driver instance. Note that this
-      port handle must be stored by the driver, it is not given when
-      the driver is called from the emulator (see
+    <p>Each driver instance is associated with a port. Every port
+      has a port owner process. Communication with the port is normally
+      done through the port owner process. Most of the functions take
+      the <c>port</c> handle as an argument. This identifies the driver
+      instance. Note that this port handle must be stored by the driver,
+      it is not given when the driver is called from the emulator (see
       <seealso marker="driver_entry#emulator">driver_entry</seealso>).</p>
     <p>Some of the functions take a parameter of type
       <c>ErlDrvBinary</c>, a driver binary. It should be both
@@ -129,6 +151,21 @@
         are <em>only</em> thread safe when used in a runtime
         system with SMP support.</p>
     </note>
+     <p><marker id="lengthy_work"/>
+     As mentioned in the <seealso marker="#WARNING">warning</seealso> text at
+     the beginning of this document it is of vital importance that a driver callback
+     does return relatively fast. It is hard to give an exact maximum amount
+     of time that a driver callback is allowed to work, but as a rule of thumb
+     a well behaving driver callback should return before a millisecond has
+     passed. This can be achieved using different approaches.
+     If you have full control over the code that are to execute in the driver
+     callback, the best approach is to divide the work into multiple chunks of
+     work and trigger multiple calls to the
+     <seealso marker="driver_entry#timeout">timeout callback</seealso> using
+     zero timeouts. This might, however, not always be possible, e.g. when
+     calling third party libraries. In this case you typically want to dispatch
+     the work to another thread. Information about thread primitives can be
+     found below.</p>
   </description>
 
   <section>
