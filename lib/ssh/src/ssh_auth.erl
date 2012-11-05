@@ -118,15 +118,37 @@ init_userauth_request_msg(#ssh{opts = Opts} = Ssh) ->
 					    service = "ssh-connection",
 					    method = "none",
 					    data = <<>>},
-	    FirstAlg = algorithm(proplists:get_value(public_key_alg, Opts,
-					  ?PREFERRED_PK_ALG)),
-	    SecondAlg = other_alg(FirstAlg),
-	    AllowUserInt =  proplists:get_value(user_interaction, Opts, true),
-	    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
-	    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
-					    userauth_preference = Prefs,
-					    userauth_methods = none,
-					    service = "ssh-connection"});
+	    case proplists:get_value(pref_public_key_algs, Opts, false) of
+		false ->
+		    FirstAlg = algorithm(proplists:get_value(public_key_alg, Opts,
+							     ?PREFERRED_PK_ALG)),
+		    SecondAlg = other_alg(FirstAlg),
+		    AllowUserInt =  proplists:get_value(user_interaction, Opts, true),
+		    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
+		    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
+							  userauth_preference = Prefs,
+							  userauth_methods = none,
+							  service = "ssh-connection"});
+		Algs ->
+		    FirstAlg = algorithm(lists:nth(1, Algs)),
+		    case length(Algs) =:= 2 of
+			true ->
+			    SecondAlg = other_alg(FirstAlg),
+			    AllowUserInt =  proplists:get_value(user_interaction, Opts, true),
+			    Prefs = method_preference(FirstAlg, SecondAlg, AllowUserInt),
+			    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
+								  userauth_preference = Prefs,
+								  userauth_methods = none,
+								  service = "ssh-connection"});
+			_ ->
+			    AllowUserInt = proplists:get_value(user_interaction, Opts, true),
+			    Prefs = method_preference(FirstAlg, AllowUserInt),
+			    ssh_transport:ssh_packet(Msg, Ssh#ssh{user = User,
+								  userauth_preference = Prefs,
+								  userauth_methods = none,
+								  service = "ssh-connection"})
+		    end
+	    end;
 	{error, no_user} ->
 	    ErrStr = "Could not determine the users name",
 	    throw(#ssh_msg_disconnect{code = ?SSH_DISCONNECT_ILLEGAL_USER_NAME,
@@ -285,6 +307,15 @@ method_preference(Alg1, Alg2, true) ->
 method_preference(Alg1, Alg2, false) ->
     [{"publickey", ?MODULE, publickey_msg, [Alg1]},
      {"publickey", ?MODULE, publickey_msg,[Alg2]},
+     {"password", ?MODULE, password_msg, []}
+    ].
+method_preference(Alg1, true) ->
+    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
+     {"password", ?MODULE, password_msg, []},
+     {"keyboard-interactive", ?MODULE, keyboard_interactive_msg, []}
+    ];
+method_preference(Alg1, false) ->
+    [{"publickey", ?MODULE, publickey_msg, [Alg1]},
      {"password", ?MODULE, password_msg, []}
     ].
 
