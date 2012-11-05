@@ -42,6 +42,7 @@ all() ->
      {group, dsa_pass_key},
      {group, rsa_pass_key},
      {group, internal_error},
+     idle_time,
      daemon_already_started,
      server_password_option,
      server_userpassword_option,
@@ -234,7 +235,28 @@ exec_compressed(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-
+idle_time(doc) ->
+    ["Idle timeout test"];
+idle_time(Config) ->
+    SystemDir = filename:join(?config(priv_dir, Config), system),
+    UserDir = ?config(priv_dir, Config),
+    
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+					     {user_dir, UserDir},
+					     {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+					  {user_dir, UserDir},
+					  {user_interaction, false}, 
+					  {idle_time, 3000}]),
+    {ok, Id} = ssh_connection:session_channel(ConnectionRef, 1000),
+    ssh_connection:close(ConnectionRef, Id),
+    receive
+    after 10000 ->
+	    {error,channel_closed} = ssh_connection:session_channel(ConnectionRef, 1000)
+    end,
+    ssh:stop_daemon(Pid).
+%%--------------------------------------------------------------------
 shell(doc) ->
     ["Test that ssh:shell/2 works"];
 shell(Config) when is_list(Config) ->
