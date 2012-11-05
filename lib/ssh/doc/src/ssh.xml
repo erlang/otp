@@ -187,7 +187,7 @@
 	  <p>Determines if SSH shall use IPv6 or not.</p></item>
 	  <tag><c><![CDATA[{idle_time, timeout()}]]></c></tag>
 	  <item>
-	  <p>Sets a timeout on connection when not used and no channels are active, default is infinity</p></item>
+	  <p>Sets a timeout on connection when no channels are active, default is infinity</p></item>
 	</taglist>
       </desc>   
     </func>
