@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -111,6 +111,7 @@ app_dies(_Config) ->
 		     oops(Die,?LINE),
 		     wxFrame:show(Frame),
 		     oops(Die,?LINE),
+		     timer:sleep(100), %% Let the window be shown before DC can be created
 		     DC0  = wxClientDC:new(Win),
 		     oops(Die,?LINE),
 		     DC   = wxBufferedDC:new(DC0),
@@ -134,7 +135,7 @@ app_dies2(Test, N) ->
     end.
 
 oops(Die, Line) when (Die =:= last) orelse (Die =< Line) ->
-    timer:sleep(500),
+    timer:sleep(300),
     ?log(" Exits at line ~p~n",[Line]),
     exit({oops, Die});
 oops(_,_) -> ok.

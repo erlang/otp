@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -92,10 +92,21 @@ canvas(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 canvas(Config) ->
     WX = ?mr(wx_ref, wx:new()),
     Frame = wxFrame:new(WX,1,"Hello 3D-World",[]),
-    Attrs = [{attribList, [?WX_GL_RGBA,?WX_GL_DOUBLEBUFFER,0]}],
+    Attrs = [{attribList, [?WX_GL_RGBA,
+			   ?WX_GL_DOUBLEBUFFER,
+			   ?WX_GL_MIN_RED,8,
+			   ?WX_GL_MIN_GREEN,8,
+			   ?WX_GL_MIN_BLUE,8,
+			   ?WX_GL_DEPTH_SIZE,24,0]}],
     Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, Attrs)),
     
+    wxFrame:connect(Frame, show),
     ?m(true, wxWindow:show(Frame)),
+
+    receive #wx{event=#wxShow{}} -> ok
+    after 1000 -> exit(show_timeout)
+    end,
+
     ?m(false, wx:is_null(wxGLCanvas:getContext(Canvas))),
     ?m({'EXIT', {{error, no_gl_context,_},_}}, gl:getString(?GL_VENDOR)),
 
@@ -111,7 +122,7 @@ canvas(Config) ->
     %%gl:frustum( -2.0, 2.0, -2.0, 2.0, 5.0, 25.0 ),
     gl:ortho( -2.0, 2.0, -2.0*H/W, 2.0*H/W, -20.0, 20.0),
     gl:matrixMode(?GL_MODELVIEW),
-    gl:loadIdentity(),    
+    gl:loadIdentity(),
     gl:enable(?GL_DEPTH_TEST),
     gl:depthFunc(?GL_LESS),
     {R,G,B,_} = wxWindow:getBackgroundColour(Frame),
@@ -122,7 +133,7 @@ canvas(Config) ->
     ?m([], flush()),
     Env = wx:get_env(),
     Tester = self(),
-    spawn_link(fun() -> 
+    spawn_link(fun() ->
 		       wx:set_env(Env),
 		       ?m(ok, wxGLCanvas:setCurrent(Canvas)),
 		       ?m(ok, drawBox(1, Data)),
@@ -181,7 +192,12 @@ glu_tesselation(Config) ->
     Frame = wxFrame:new(WX,1,"Hello 3D-World",[]),
     Attrs = [{attribList, [?WX_GL_RGBA,?WX_GL_DOUBLEBUFFER,0]}],
     Canvas = ?mt(wxGLCanvas, wxGLCanvas:new(Frame, Attrs)),
+    wxFrame:connect(Frame, show),
     ?m(true, wxWindow:show(Frame)),
+
+    receive #wx{event=#wxShow{}} -> ok
+    after 1000 -> exit(show_timeout)
+    end,
     ?m(ok, wxGLCanvas:setCurrent(Canvas)),
     
     {RL1,RB1} = ?m({_,_}, glu:tesselate({0,0,1}, [{-1,0,0},{1,0,0},{0,1,0}])),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -301,35 +301,70 @@ connect_in_callback(TestInfo)
   when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
 connect_in_callback(Config) ->
     Wx = ?mr(wx_ref, wx:new()),
+    %% wx:debug([driver,trace]),
+    %% io:format("gdb -p ~s~n",[os:getpid()]),
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Connect in callback"),
     Panel = wxPanel:new(Frame, []),
-    
+
+    Tester = self(),
+
+    %% Connect in callbacks works different in 2.9
+    %% such that new events are not fired until the previous
+    %% callback have returned.
+
+    %% That means that a callback can not wait for other events
+    %% in receive since they will not come.
+    %% It also means that you can not attach a new callback directly from
+    %% the callback since that callback will be removed when the temporary
+    %% process that executes the outer callback (may) die(s) before the callback
+    %% is invoked
+
+    %% Thus connect in callbacks needs to done in a another process, and
+    %% not in the fun directly
+    Env = wx:get_env(),
+    TestWindow =
+	fun() ->
+		wx:set_env(Env),
+		Me = self(),
+		F1 = wxFrame:new(Frame, ?wxID_ANY, "Frame size event"),
+		wxFrame:connect(F1,size,[{callback,
+					  fun(_,_) ->
+						  io:format("CB2 got size~n",[]),
+						  Me ! {continue, F1}
+					  end}]),
+		wxWindow:show(F1),
+		receive
+		    {continue, F1} -> Tester ! {continue, F1}
+		end
+	end,
     wxFrame:connect(Frame,size,
-		    [{callback, 
-		      fun(#wx{event=#wxSize{}},_SizeEv) -> 
-			      io:format("Frame got size~n",[]),		 
-			      F1 = wxFrame:new(Frame, ?wxID_ANY, "Frame size event"),
-			      CBPid = self(),
-			      wxFrame:connect(F1,size,[{callback,
-							fun(_,_) ->
-								io:format("CB2 got size~n",[]),
-								CBPid ! continue
-							end}]),
-			      wxWindow:show(F1),
-			      receive continue -> wxFrame:destroy(F1) end
+		    [{callback,
+		      fun(#wx{event=#wxSize{}},_SizeEv) ->
+			      io:format("Frame got size~n",[]),
+			      spawn(TestWindow)
 		      end}]),
     wxPanel:connect(Panel,size,
-		    [{callback, 
-		      fun(#wx{event=#wxSize{}},_SizeEv) -> 
+		    [{callback,
+		      fun(#wx{event=#wxSize{}},_SizeEv) ->
 			      io:format("Panel got size~n",[]),
-			      F1 = wxFrame:new(Frame, ?wxID_ANY, "Panel size event"),
-			      wxFrame:connect(F1,size),
-			      wxWindow:show(F1),
-			      receive #wx{event=#wxSize{}} -> wxFrame:destroy(F1) end
-		      end}]),   
+			      spawn(fun() ->
+					    wx:set_env(Env),
+					    F1 = wxFrame:new(Frame, ?wxID_ANY,
+							     "Panel size event"),
+					    wxFrame:connect(F1,size),
+					    wxWindow:show(F1),
+					    receive
+						#wx{event=#wxSize{}} ->
+						    io:format("All Fine ~n",[]),
+						    wxFrame:destroy(F1)
+					    end
+				    end)
+		      end}]),
     wxFrame:show(Frame),
+
+    ok = receive {continue, F1} -> wxFrame:destroy(F1)
+	 after 5000 -> timeout end,
     wx_test_lib:flush(),
-    
     wx_test_lib:wx_destroy(Frame, Config).
 
 %% Test that event callback which triggers another callback works

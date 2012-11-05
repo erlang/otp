@@ -308,12 +308,12 @@ data_types(_Config) ->
     ?m({_,_}, wxWindow:getSize(Frame)),
 
     %% DateTime 
-    DateTime = calendar:now_to_datetime(erlang:now()),
+    DateTime = {Date, _Time} = calendar:now_to_datetime(erlang:now()),
     io:format("DateTime ~p ~n",[DateTime]),
     Cal = ?mt(wxCalendarCtrl, wxCalendarCtrl:new(Frame, ?wxID_ANY, [{date,DateTime}])),
-    ?m(DateTime, wxCalendarCtrl:getDate(Cal)),
+    ?m({Date,_}, wxCalendarCtrl:getDate(Cal)),
     ?m(true, is_boolean(wxCalendarCtrl:setDate(Cal,DateTime))),
-    ?m(DateTime, wxCalendarCtrl:getDate(Cal)),
+    ?m({Date,_}, wxCalendarCtrl:getDate(Cal)),
 
     wxClientDC:destroy(CDC),
     %%wx_test_lib:wx_destroy(Frame,Config).
