@@ -112,7 +112,8 @@ and, for the call-specific callbacks, any extra arguments passed to
 <item>
 <p>
 A record containing the identities of
-the local Diameter node and the remote Diameter peer having an established transport
+the local Diameter node and the remote Diameter peer having an
+established transport
 connection, as well as the capabilities as
 determined by capabilities exchange.
 Each field of the record is a 2-tuple consisting of
@@ -168,13 +169,14 @@ Fields should not be set in return values except as documented.</p>
 <tag><c>peer_ref() = term()</c></tag>
 <item>
 <p>
-A term identifying a transport connection with a Diameter peer.
-Should be treated opaquely.</p>
+A term identifying a transport connection with a Diameter peer.</p>
 </item>
 
 <marker id="peer"/>
 
-<tag><c>peer() = {<seealso marker="#peer_ref">peer_ref()</seealso>, <seealso marker="#capabilities">capabilities()</seealso>}</c></tag>
+<tag><c>peer() =
+          {<seealso marker="#peer_ref">peer_ref()</seealso>,
+           <seealso marker="#capabilities">capabilities()</seealso>}</c></tag>
 <item>
 <p>
 A tuple representing a Diameter peer connection.</p>
@@ -219,10 +221,29 @@ process.</p>
 </type>
 <desc>
 <p>
-Invoked when a transport connection has been established
-and a successful capabilities exchange has indicated that the peer
-supports the Diameter application of the application on which
-the callback module in question has been configured.</p>
+Invoked to signal the availability of a peer connection.
+In particular, capabilities exchange with the peer has indicated
+support for the application in question, the RFC 3539 watchdog state
+machine for the connection has reached state <c>OKAY</c> and Diameter
+messages can be both sent and received.</p>
+
+<note>
+<p>
+A watchdog state machine can reach state <c>OKAY</c> from state
+<c>SUSPECT</c> without a new capabilities exchange taking place.
+A new transport connection (and capabilities exchange) results in a
+new peer_ref().</p>
+</note>
+
+<note>
+<p>
+There is no requirement that a callback return before incoming
+requests are received: <seealso
+marker="#handle_request">handle_request/3</seealso> callbacks must be
+handled independently of <seealso
+marker="#peer_up">peer_up/3</seealso> and <seealso
+marker="#peer_down">peer_down/3</seealso>.</p>
+</note>
 
 <marker id="peer_down"/>
 </desc>
@@ -238,36 +259,42 @@ the callback module in question has been configured.</p>
 </type>
 <desc>
 <p>
-Invoked when a transport connection has been lost following a previous
-call to <seealso marker="#peer_up">peer_up/3</seealso>.</p>
+Invoked to signal that a peer connection is no longer available
+following a previous call to <seealso
+marker="#peer_up">peer_up/3</seealso>.
+In particular, that the RFC 3539 watchdog state machine for the
+connection has left state <c>OKAY</c> and the peer will no longer be a
+candidate in <seealso marker="#pick_peer">pick_peer()</seealso>
+callbacks.</p>
 
 <marker id="pick_peer"/>
 </desc>
 </func>
 
 <func>
-<name>Mod:pick_peer(Candidates, Reserved, SvcName, State)
-      -> {ok, Peer} | {Peer, NewState} | false</name>
+<name>Mod:pick_peer(Candidates, _Reserved, SvcName, State)
+      -> Selection | false</name>
 <fsummary>Select a target peer for an outgoing request.</fsummary>
 <type>
 <v>Candidates = [<seealso marker="#peer">peer()</seealso>]</v>
-<v>Peer = <seealso marker="#peer">peer()</seealso> | false</v>
 <v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>State = NewState = <seealso marker="#state">state()</seealso></v>
+<v>Selection = {ok, Peer} | {Peer, NewState}</v>
+<v>Peer = <seealso marker="#peer">peer()</seealso> | false</v>
 </type>
 <desc>
 <p>
 Invoked as a consequence of a call to <seealso
 marker="diameter#call">diameter:call/4</seealso> to select a destination
-peer for an outgoing request, the return value indicating the selected
-peer.</p>
+peer for an outgoing request.
+The return value indicates the selected peer.</p>
 
 <p>
-The candidate peers list will only include those
-which are selected by any <c>filter</c> option specified in the call to
-<seealso marker="diameter#call">diameter:call/4</seealso>, and only
-those which have indicated support for the Diameter application in
-question.
+The candidate list contains only those peers that have advertised
+support for the Diameter application in question during capabilities
+exchange, that have not be excluded by a <c>filter</c> option in
+the call to <seealso marker="diameter#call">diameter:call/4</seealso>
+and whose watchdog state machine is in the <c>OKAY</c> state.
 The order of the elements is unspecified except that any
 peers whose Origin-Host and Origin-Realm matches that of the
 outgoing request (in the sense of a <c>{filter, {all, [host, realm]}}</c>
@@ -275,36 +302,40 @@ option to <seealso marker="diameter#call">diameter:call/4</seealso>)
 will be placed at the head of the list.</p>
 
 <p>
-The return values <c>false</c> and <c>{false, State}</c> are
-equivalent when callback state is mutable, as are
-<c>{ok, Peer}</c> and <c>{Peer, State}</c>.
-Returning a peer as <c>false</c> causes <c>{error, no_connection}</c>
-to be returned from <seealso marker="diameter#call">diameter:call/4</seealso>.
-Returning a <seealso marker="#peer">peer()</seealso> from an initial
-pick_peer/4 callback will result in a
-<seealso marker="#prepare_request">prepare_request/3</seealso> callback
-followed by either <seealso
-marker="#handle_answer">handle_answer/4</seealso>
+A callback that returns a peer() will be followed by a
+<seealso marker="#prepare_request">prepare_request/3</seealso>
+callback and, if the latter indicates that the request should be sent,
+by either <seealso marker="#handle_answer">handle_answer/4</seealso>
 or <seealso marker="#handle_error">handle_error/4</seealso> depending
 on whether or not an answer message is received from the peer.
-If transport with the peer is lost before this then a new <seealso
-marker="#pick_peer">pick_peer/4</seealso> callback takes place to
-select an alternate peer.</p>
-
-<p>
-Note that there is no guarantee that a <seealso
+If the transport becomes unavailable after <seealso
+marker="prepare_request">prepare_request/3</seealso> then a new <seealso
+marker="#pick_peer">pick_peer/4</seealso> callback may take place to
+failover to an alternate peer, after which <seealso
+marker="#prepare_retransmit">prepare_retransmit/3</seealso> takes the
+place of <seealso
+marker="prepare_request">prepare_request/3</seealso> in resending the
+request.
+There is no guarantee that a <seealso
 marker="#pick_peer">pick_peer/4</seealso> callback to select
-an alternate peer will be followed by any additional callbacks, only
-that the initial <seealso
-marker="#pick_peer">pick_peer/4</seealso> will be, since a
+an alternate peer will be followed by any additional callbacks since a
 retransmission to an alternate peer is abandoned if an answer is
 received from a previously selected peer.</p>
 
+<p>
+Returning <c>false</c> or <c>{false, NewState}</c> causes <c>{error,
+no_connection}</c> to be returned from <seealso
+marker="diameter#call">diameter:call/4</seealso>.</p>
+
+<p>
+The return values <c>false</c> and <c>{false, State}</c> (that is,
+<c>NewState = State</c>) are equivalent, as are <c>{ok, Peer}</c> and
+<c>{Peer, State}</c>.</p>
+
 <note>
 <p>
-<c>{Peer, NewState}</c> and its equivalents can only be returned if
-the Diameter application in question was
-configured with the <seealso
+The return value <c>{Peer, NewState}</c> is only allowed if
+the Diameter application in question was configured with the <seealso
 marker="diameter#application_opt">diameter:application_opt()</seealso>
 <c>{call_mutates_state, true}</c>.
 Otherwise, the <c>State</c> argument is always
@@ -325,31 +356,43 @@ or <seealso marker="#peer_down">peer_down/3</seealso> callback.</p>
 <v>Packet = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
 <v>Peer = <seealso marker="#peer">peer()</seealso></v>
-<v>Action = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
+<v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
+<v>Send = {send, <seealso marker="#packet">packet()</seealso>
+                 | <seealso marker="#message">message()</seealso>}</v>
+<v>Discard = {discard, Reason} | discard</v>
+<v>PostF =
+    <seealso marker="diameter#evaluable">diameter:evaluable()</seealso>}</v>
 </type>
 <desc>
 <p>
 Invoked to return a request for encoding and transport.
-Allows the sender to access the selected peer's capabilities
-in order to set (for example) <c>Destination-Host</c> and/or
-<c>Destination-Realm</c> in the outgoing request, although the
-callback need not be limited to this usage.
+Allows the sender to use the selected peer's capabilities
+to modify the outgoing request.
 Many implementations may simply want to return <c>{send, Packet}</c></p>
 
 <p>
-A returned <seealso marker="#packet">packet()</seealso> should set the request to be encoded in its
+A returned <seealso marker="#packet">packet()</seealso> should set the
+request to be encoded in its
 <c>msg</c> field and can set the <c>transport_data</c> field in order
-to pass information to the transport module.
+to pass information to the transport process.
 Extra arguments passed to <seealso
 marker="diameter#call">diameter:call/4</seealso> can be used to
-communicate transport data to the callback.
-A returned <seealso marker="#packet">packet()</seealso> can also set the <c>header</c> field to a
-<c>#diameter_header{}</c> record in order to specify values that should
-be preserved in the outgoing request, although this should typically
-not be necessary and allows the callback to set header values
-inappropriately.
+communicate transport (or any other) data to the callback.</p>
+
+<p>
+A returned <seealso marker="#packet">packet()</seealso> can set
+the <c>header</c> field to a
+<c>#diameter_header{}</c> in order to specify values that should
+be preserved in the outgoing request, values otherwise being those in
+the header record contained in <c>Packet</c>.
 A returned <c>length</c>, <c>cmd_code</c> or <c>application_id</c> is
 ignored.</p>
+
+<p>
+A returned <c>PostF</c> will be evaluated on any encoded
+<c>#diameter_packet{}</c> prior to transmission, the <c>bin</c> field
+containing the encoded binary.
+The return value is ignored.</p>
 
 <p>
 Returning <c>{discard, Reason}</c> causes the request to be aborted
@@ -364,13 +407,18 @@ discarded}</c>.</p>
 </func>
 
 <func>
-<name>Mod:prepare_retransmit(Packet, SvcName, Peer) -> Result</name>
+<name>Mod:prepare_retransmit(Packet, SvcName, Peer) -> Action</name>
 <fsummary>Return a request for encoding and retransmission.</fsummary>
 <type>
 <v>Packet  = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = <seealso marker="diameter#service_name">diameter:service_name()</seealso></v>
-<v>Peer    = <seealso marker="#peer">peer()</seealso></v>
-<v>Result  = {send, <seealso marker="#packet">packet()</seealso> | <seealso marker="#message">message()</seealso>} | {discard, Reason} | discard</v>
+<v>Peer = <seealso marker="#peer">peer()</seealso></v>
+<v>Action = Send | Discard | {eval_packet, Action, PostF}</v>
+<v>Send = {send, <seealso marker="#packet">packet()</seealso>
+                | <seealso marker="#message">message()</seealso>}</v>
+<v>Discard = {discard, Reason} | discard</v>
+<v>PostF =
+    <seealso marker="diameter#evaluable">diameter:evaluable()</seealso>}</v>
 </type>
 <desc>
 <p>
@@ -378,8 +426,9 @@ Invoked to return a request for encoding and retransmission.
 Has the same role as <seealso
 marker="#prepare_request">prepare_request/3</seealso> in the case that
 a peer connection is lost an an alternate peer selected but the
-argument <seealso marker="#packet">packet()</seealso> is as returned by the initial
-<c>prepare_request/3</c>.</p>
+argument <seealso marker="#packet">packet()</seealso> is as returned
+by the initial <seealso
+marker="#prepare_request">prepare_request/3</seealso>.</p>
 
 <p>
 Returning <c>{discard, Reason}</c> causes the request to be aborted
@@ -406,40 +455,41 @@ discarded}</c>.</p>
 <desc>
 <p>
 Invoked when an answer message is received from a peer.
-The return value is returned from the call to <seealso
-marker="diameter#call">diameter:call/4</seealso> for which the
-callback takes place unless the <c>detach</c> option was
-specified.</p>
+The return value is returned from <seealso
+marker="diameter#call">diameter:call/4</seealso> unless the
+<c>detach</c> option was specified.</p>
 
 <p>
-The decoded answer record is in the <c>msg</c> field of the argument
-<seealso marker="#packet">packet()</seealso>,
-the undecoded binary in the <c>packet</c> field.
+The decoded answer record and undecoded binary are in the <c>msg</c>
+and <c>bin</c> fields of the argument
+<seealso marker="#packet">packet()</seealso> respectively.
 <c>Request</c> is the outgoing request message as was returned from
 <seealso marker="#prepare_request">prepare_request/3</seealso> or
-<seealso marker="#prepare_retransmit">prepare_retransmit/3</seealso>
-before the request was passed to the transport.</p>
+<seealso
+    marker="#prepare_retransmit">prepare_retransmit/3</seealso>.</p>
 
 <p>
 For any given call to <seealso
 marker="diameter#call">diameter:call/4</seealso> there is at most one
-call to the handle_answer callback of the application in question: any
+<seealso marker="#handle_answer">handle_answer/4</seealso> callback: any
 duplicate answer (due to retransmission or otherwise) is discarded.
-Similarly, only one of <c>handle_answer/4</c> or <c>handle_error/4</c> is
-called for any given request.</p>
+Similarly, only one of <seealso
+marker="#handle_answer">handle_answer/4</seealso> or
+<seealso marker="#handle_error">handle_error/4</seealso> is 
+called.</p>
 
 <p>
 By default, an incoming answer message that cannot be successfully
-decoded causes the request process in question to fail, causing the
-relevant call to <seealso
-marker="diameter#call">diameter:call/4</seealso>
-to return <c>{error, failure} (unless the <c>detach</c> option was
-specified)</c>.
-In particular, there is no <c>handle_error/4</c> callback in this
+decoded causes the request process to fail, causing
+<seealso marker="diameter#call">diameter:call/4</seealso>
+to return <c>{error, failure}</c> unless the <c>detach</c> option was
+specified.
+In particular, there is no <seealso
+marker="#handle_error">handle_error/4</seealso> callback in this
 case.
-Application configuration may change this behaviour as described for
-<seealso
-marker="diameter#start_service">diameter:start_service/2</seealso>.</p>
+The <seealso
+marker="diameter#application_opt">diameter:application_opt()</seealso>
+<c>answer_errors</c> can be set to change this behaviour.</p>
 
 <marker id="handle_error"/>
 </desc>
@@ -457,21 +507,20 @@ marker="diameter#start_service">diameter:start_service/2</seealso>.</p>
 </type>
 <desc>
 <p>
-Invoked when an error occurs before an answer message is received from
-a peer in response to an outgoing request.
-The return value is returned from the call to <seealso
-marker="diameter#call">diameter:call/4</seealso> for which the
-callback takes place (unless the <c>detach</c> option was
-specified).</p>
+Invoked when an error occurs before an answer message is received
+in response to an outgoing request.
+The return value is returned from <seealso
+marker="diameter#call">diameter:call/4</seealso> unless the
+<c>detach</c> option was specified.</p>
 
 <p>
 Reason <c>timeout</c> indicates that an answer message has not been
-received within the required time.
+received within the time specified with the corresponding <seealso
+marker="diameter#call_opt">diameter:call_opt()</seealso>.
 Reason <c>failover</c> indicates
 that the transport connection to the peer to which the request has
-been sent has been lost but that not alternate node was available,
-possibly because a <seealso marker="#pick_peer">pick_peer/4</seealso>
-callback returned false.</p>
+been sent has become unavailable and that not alternate peer was
+not selected.</p>
 
 <marker id="handle_request"/>
 </desc>
@@ -484,7 +533,10 @@ callback returned false.</p>
 <v>Packet  = <seealso marker="#packet">packet()</seealso></v>
 <v>SvcName = term()</v>
 <v>Peer    = <seealso marker="#peer">peer()</seealso></v>
-<v>Action  = Reply | {relay, [Opt]} | discard | {eval, Action, PostF}</v>
+<v>Action  = Reply
+           | {relay, [Opt]}
+           | discard
+           | {eval|eval_packet, Action, PostF}</v>
 <v>Reply   = {reply, <seealso marker="#message">message()</seealso>}
            | {protocol_error, 3000..3999}</v>
 <v>Opt     = <seealso marker="diameter#call_opt">diameter:call_opt()</seealso></v>
@@ -603,14 +655,25 @@ causes the request to be answered with 3002 (DIAMETER_UNABLE_TO_DELIVER).</p>
 <tag><c>discard</c></tag>
 <item>
 <p>
-Discard the request.</p>
+Discard the request.
+No answer message is sent to the peer.</p>
 </item>
 
 <tag><c>{eval, Action, PostF}</c></tag>
 <item>
 <p>
 Handle the request as if <c>Action</c> has been returned and then
-evaluate <c>PostF</c> in the request process.</p>
+evaluate <c>PostF</c> in the request process.
+The return value is ignored.</p>
+</item>
+
+<tag><c>{eval_packet, Action, PostF}</c></tag>
+<item>
+<p>
+Like <c>eval</c> but evaluate <c>PostF</c> on any encoded
+<c>#diameter_packet{}</c> prior to transmission, the <c>bin</c> field
+containing the encoded binary.
+The return value is ignored.</p>
 </item>
 
 </taglist>

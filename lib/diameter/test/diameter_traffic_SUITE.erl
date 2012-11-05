@@ -624,7 +624,10 @@ prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name) ->
     {send, prepare(Pkt, Caps, Name)}.
 
 prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, _) ->
-    {send, prepare(Pkt, Caps)}.
+    {eval_packet, {send, prepare(Pkt, Caps)}, [fun log/2, detach]}.
+
+log(#diameter_packet{} = P, T) ->
+    io:format("~p: ~p~n", [T,P]).
 
 prepare(Pkt, Caps, send_unsupported) ->
     Req = prepare(Pkt, Caps),
@@ -738,7 +741,7 @@ handle_request(#diameter_packet{msg = M}, ?SERVER, {_Ref, Caps}) ->
 
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},
         _) ->
-    {protocol_error, ?INVALID_AVP_BITS};
+    {eval_packet, {protocol_error, ?INVALID_AVP_BITS}, [fun log/2, invalid]};
 
 request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                                       'Accounting-Record-Type' = RT,

@@ -1301,28 +1301,34 @@ cm([_,_|_], _, _, _) ->
 %% The mod field of the #diameter_app{} here includes any extra
 %% arguments passed to diameter:call/2.
 
-send_request({TPid, Caps, App}, Msg, Opts, Caller, SvcName) ->
+send_request({TPid, Caps, App} = T, Msg, Opts, Caller, SvcName) ->
     #diameter_app{module = ModX}
         = App,
 
     Pkt = make_request_packet(Msg),
 
-    case cb(ModX, prepare_request, [Pkt, SvcName, {TPid, Caps}]) of
-        {send, P} ->
-            send_request(make_request_packet(P, Pkt),
-                         TPid,
-                         Caps,
-                         App,
-                         Opts,
-                         Caller,
-                         SvcName);
-        {discard, Reason} ->
-            {error, Reason};
-        discard ->
-            {error, discarded};
-        T ->
-            ?ERROR({invalid_return, prepare_request, App, T})
-    end.
+    send_req(cb(ModX, prepare_request, [Pkt, SvcName, {TPid, Caps}]),
+             Pkt,
+             T,
+             Opts,
+             Caller,
+             SvcName,
+             []).
+
+send_req({send, P}, Pkt, T, Opts, Caller, SvcName, Fs) ->
+    send_request(make_request_packet(P, Pkt), T, Opts, Caller, SvcName, Fs);
+
+send_req({discard, Reason} , _, _, _, _, _, _) ->
+    {error, Reason};
+
+send_req(discard, _, _, _, _, _, _) ->
+    {error, discarded};
+
+send_req({eval_packet, RC, F}, Pkt, T, Opts, Caller, SvcName, Fs) ->
+    send_req(RC, Pkt, T, Opts, Caller, SvcName, [F|Fs]);
+
+send_req(E, _, {_, _, App}, _, _, _, _) ->
+    ?ERROR({invalid_return, prepare_request, App, E}).
 
 %% make_request_packet/1
 %%
@@ -1400,16 +1406,16 @@ fold_record(undefined, R) ->
 fold_record(Rec, R) ->
     diameter_lib:fold_tuple(2, Rec, R).
 
-%% send_request/7
+%% send_request/6
 
-send_request(Pkt, TPid, Caps, App, Opts, Caller, SvcName) ->
+send_request(Pkt, {TPid, Caps, App}, Opts, Caller, SvcName, Fs) ->
     #diameter_app{alias = Alias,
                   dictionary = Dict,
                   module = ModX,
                   options = [{answer_errors, AE} | _]}
         = App,
 
-    EPkt = encode(Dict, Pkt),
+    EPkt = encode(Dict, Pkt, Fs),
 
     #options{filter = Filter,
              timeout = Timeout}
@@ -1489,6 +1495,13 @@ msg(#diameter_packet{msg = undefined, bin = Bin}) ->
     Bin;
 msg(#diameter_packet{msg = Msg}) ->
     Msg.
+
+%% encode/3
+
+encode(Dict, Pkt, Fs) ->
+    P = encode(Dict, Pkt),
+    eval_packet(P, Fs),
+    P.
 
 %% encode/2
 
@@ -1571,38 +1584,47 @@ send(Pid, Pkt) ->
 
 %% retransmit/4
 
-retransmit({TPid, Caps, #diameter_app{alias = Alias} = App},
-           #request{app = Alias,
-                    packet = Pkt}
+retransmit({TPid, Caps, #diameter_app{alias = Alias} = App} = T,
+           #request{app = Alias, packet = Pkt}
            = Req,
            SvcName,
            Timeout) ->
     have_request(Pkt, TPid)      %% Don't failover to a peer we've
         andalso ?THROW(timeout), %% already sent to.
 
-    case cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]) of
-        {send, P} ->
-            retransmit(make_request_packet(P, Pkt), TPid, Caps, Req, Timeout);
-        {discard, Reason} ->
-            ?THROW(Reason);
-        discard ->
-            ?THROW(discarded);
-        T ->
-            ?ERROR({invalid_return, prepare_retransmit, App, T})
-    end.
+    resend_req(cb(App, prepare_retransmit, [Pkt, SvcName, {TPid, Caps}]),
+               T,
+               Req,
+               Timeout,
+               []).
 
-%% retransmit/5
+resend_req({send, P}, T, #request{packet = Pkt} = Req, Timeout, Fs) ->
+    retransmit(make_request_packet(P, Pkt), T, Req, Timeout, Fs);
 
-retransmit(Pkt, TPid, Caps, #request{dictionary = Dict} = Req, Timeout) ->
-    EPkt = encode(Dict, Pkt),
+resend_req({discard, Reason}, _, _, _, _) ->
+    ?THROW(Reason);
 
-    NewReq = Req#request{transport = TPid,
-                         packet = Pkt,
-                         caps = Caps},
+resend_req(discard, _, _, _, _) ->
+    ?THROW(discarded);
 
-    ?LOG(retransmission, NewReq),
-    TRef = send_request(TPid, EPkt, NewReq, Timeout),
-    {TRef, NewReq}.
+resend_req({eval_packet, RC, F}, T, Req, Timeout, Fs) ->
+    resend_req(RC, T, Req, Timeout, [F|Fs]);
+    
+resend_req(T, {_, _, App}, _, _, _) ->
+    ?ERROR({invalid_return, prepare_retransmit, App, T}).
+
+%% retransmit/6
+
+retransmit(Pkt, {TPid, Caps, _}, #request{dictionary = D} = Req0, Tmo, Fs) ->
+    EPkt = encode(D, Pkt, Fs),
+
+    Req = Req0#request{transport = TPid,
+                       packet = Pkt,
+                       caps = Caps},
+
+    ?LOG(retransmission, Req),
+    TRef = send_request(TPid, EPkt, Req, Tmo),
+    {TRef, Req}.
 
 %% store_request/4
 
@@ -1805,7 +1827,12 @@ recv_request(T, TC, App, Pkt) ->
 %% (3xxx) errors that lead to an answer-message.
 
 request_cb({SvcName, _OH, _OR} = T, TC, App, Pkt) ->
-    request_cb(cb(App, handle_request, [Pkt, SvcName, TC]), App, T, TC, Pkt).
+    request_cb(cb(App, handle_request, [Pkt, SvcName, TC]),
+               App,
+               T,
+               TC,
+               [],
+               Pkt).
 
 %% examine/1
 %%
@@ -1825,7 +1852,7 @@ examine(#diameter_packet{errors = Es} = Pkt) ->
     Pkt#diameter_packet{errors = [5011 | Es]}.
 %% It's odd/unfortunate that this isn't a protocol error.
 
-%% request_cb/5
+%% request_cb/6
 
 %% A reply may be an answer-message, constructed either here or by
 %% the handle_request callback. The header from the incoming request
@@ -1836,20 +1863,21 @@ request_cb({reply, Ans},
            #diameter_app{dictionary = Dict},
            _,
            {TPid, _},
+           Fs,
            Pkt) ->
-    reply(Ans, Dict, TPid, Pkt);
+    reply(Ans, Dict, TPid, Fs, Pkt);
 
 %% An 3xxx result code, for which the E-bit is set in the header.
-request_cb({protocol_error, RC}, _, T, {TPid, _}, Pkt)
+request_cb({protocol_error, RC}, _, T, {TPid, _}, Fs, Pkt)
   when 3000 =< RC, RC < 4000 ->
-    protocol_error(RC, T, TPid, Pkt);
+    protocol_error(RC, T, TPid, Fs, Pkt);
 
 %% RFC 3588 says we must reply 3001 to anything unrecognized or
 %% unsupported. 'noreply' is undocumented (and inappropriately named)
 %% backwards compatibility for this, protocol_error the documented
 %% alternative.
-request_cb(noreply, _, T, {TPid, _}, Pkt) ->
-    protocol_error(3001, T, TPid, Pkt);
+request_cb(noreply, _, T, {TPid, _}, Fs, Pkt) ->
+    protocol_error(3001, T, TPid, Fs, Pkt);
 
 %% Relay a request to another peer. This is equivalent to doing an
 %% explicit call/4 with the message in question except that (1) a loop
@@ -1871,26 +1899,36 @@ request_cb({A, Opts},
            = App,
            T,
            TC,
+           Fs,
            Pkt)
   when A == relay, Id == ?APP_ID_RELAY;
        A == proxy, Id /= ?APP_ID_RELAY;
        A == resend ->
-    resend(Opts, App, T, TC, Pkt);
+    resend(Opts, App, T, TC, Fs, Pkt);
 
-request_cb(discard, _, _, _, _) ->
+request_cb(discard, _, _, _, _, _) ->
     ok;
 
-request_cb({eval, RC, F}, App, T, TC, Pkt) ->
-    request_cb(RC, App, T, TC, Pkt),
+request_cb({eval_packet, RC, F}, App, T, TC, Fs, Pkt) ->
+    request_cb(RC, App, T, TC, [F|Fs], Pkt);
+
+request_cb({eval, RC, F}, App, T, TC, Fs, Pkt) ->
+    request_cb(RC, App, T, TC, Pkt, Fs),
     diameter_lib:eval(F).
+
+%% protocol_error/5
+
+protocol_error(RC, {_, OH, OR}, TPid, Fs, Pkt) ->
+    #diameter_packet{avps = Avps} = Pkt,
+    ?LOG({error, RC}, Pkt),
+    reply(answer_message({OH, OR, RC}, Avps), ?BASE, TPid, Fs, Pkt).
 
 %% protocol_error/4
 
-protocol_error(RC, {_, OH, OR}, TPid, #diameter_packet{avps = Avps} = Pkt) ->
-    ?LOG({error, RC}, Pkt),
-    reply(answer_message({OH, OR, RC}, Avps), ?BASE, TPid, Pkt).
+protocol_error(RC, T, TPid, Pkt) ->
+    protocol_error(RC, T, TPid, [], Pkt).
 
-%% resend/5
+%% resend/6
 %%
 %% Resend a message as a relay or proxy agent.
 
@@ -1898,9 +1936,12 @@ resend(Opts,
        #diameter_app{} = App,
        {_SvcName, OH, _OR} = T,
        {_TPid, _Caps} = TC,
+       Fs,
        #diameter_packet{avps = Avps} = Pkt) ->
     {Code, _Flags, Vid} = ?BASE:avp_header('Route-Record'),
-    resend(is_loop(Code, Vid, OH, Avps), Opts, App, T, TC, Pkt).
+    resend(is_loop(Code, Vid, OH, Avps), Opts, App, T, TC, Fs, Pkt).
+
+%% resend/7
 
 %%   DIAMETER_LOOP_DETECTED             3005
 %%      An agent detected a loop while trying to get the message to the
@@ -1908,8 +1949,8 @@ resend(Opts,
 %%      if one is available, but the peer reporting the error has
 %%      identified a configuration problem.
 
-resend(true, _, _, T, {TPid, _}, Pkt) ->  %% Route-Record loop
-    protocol_error(3005, T, TPid, Pkt);
+resend(true, _, _, T, {TPid, _}, Fs, Pkt) ->  %% Route-Record loop
+    protocol_error(3005, T, TPid, Fs, Pkt);
 
 %% 6.1.8.  Relaying and Proxying Requests
 %%
@@ -1922,6 +1963,7 @@ resend(false,
        App,
        {SvcName, _, _} = T,
        {TPid, #diameter_caps{origin_host = {_, OH}}},
+       Fs,
        #diameter_packet{header = Hdr0,
                         avps = Avps}
        = Pkt) ->
@@ -1929,7 +1971,7 @@ resend(false,
     Seq = diameter_session:sequence(),
     Hdr = Hdr0#diameter_header{hop_by_hop_id = Seq},
     Msg = [Hdr, Route | Avps],
-    resend(call(SvcName, App, Msg, Opts), T, TPid, Pkt).
+    resend(call(SvcName, App, Msg, Opts), T, TPid, Fs, Pkt).
 %% The incoming request is relayed with the addition of a
 %% Route-Record. Note the requirement on the return from call/4 below,
 %% which places a requirement on the value returned by the
@@ -1955,15 +1997,18 @@ resend(#diameter_packet{bin = B}
        = Pkt,
        _,
        TPid,
+       Fs,
        #diameter_packet{header = #diameter_header{hop_by_hop_id = Id},
                         transport_data = TD}) ->
-    send(TPid, Pkt#diameter_packet{bin = diameter_codec:hop_by_hop_id(Id, B),
-                                   transport_data = TD});
+    P = Pkt#diameter_packet{bin = diameter_codec:hop_by_hop_id(Id, B),
+                                   transport_data = TD},
+    eval_packet(P, Fs),
+    send(TPid, P);
 %% TODO: counters
 
 %% Or not: DIAMETER_UNABLE_TO_DELIVER.
-resend(_, T, TPid, Pkt) ->
-    protocol_error(3002, T, TPid, Pkt).
+resend(_, T, TPid, Fs, Pkt) ->
+    protocol_error(3002, T, TPid, Fs, Pkt).
 
 %% is_loop/4
 %%
@@ -1985,33 +2030,38 @@ is_loop(Code, Vid, OH, [_ | Avps])
 is_loop(Code, Vid, OH, Avps) ->
     is_loop(Code, Vid, ?BASE:avp(encode, OH, 'Route-Record'), Avps).
 
-%% reply/4
+%% reply/5
 %%
 %% Send a locally originating reply.
 
 %% Skip the setting of Result-Code and Failed-AVP's below.
-reply([Msg], Dict, TPid, Pkt)
+reply([Msg], Dict, TPid, Fs, Pkt)
   when is_list(Msg);
        is_tuple(Msg) ->
-    reply(Msg, Dict, TPid, Pkt#diameter_packet{errors = []});
+    reply(Msg, Dict, TPid, Fs, Pkt#diameter_packet{errors = []});
 
 %% No errors or a diameter_header/avp list.
-reply(Msg, Dict, TPid, #diameter_packet{errors = Es,
-                                        transport_data = TD}
-                       = ReqPkt)
+reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = Es,
+                                            transport_data = TD}
+                           = ReqPkt)
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
     Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
+    eval_packet(Pkt, Fs),
     incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
     send(TPid, Pkt#diameter_packet{transport_data = TD});
 
 %% Or not: set Result-Code and Failed-AVP AVP's.
-reply(Msg, Dict, TPid, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
+reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
     reply(rc(Msg, rc(H), [A || {_,A} <- Es], Dict),
           Dict,
           TPid,
+          Fs,
           Pkt#diameter_packet{errors = []}).
 
+eval_packet(Pkt, Fs) ->
+    lists:foreach(fun(F) -> diameter_lib:eval([F,Pkt]) end, Fs).
+    
 %% make_answer_packet/2
 
 %% Binaries and header/avp lists are sent as-is.
