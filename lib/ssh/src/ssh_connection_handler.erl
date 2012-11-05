@@ -718,8 +718,18 @@ init_ssh(server = Role, Vsn, Version, Options, Socket) ->
 	 available_host_keys = supported_host_keys(Role, KeyCb, Options)
 	 }.
 
-supported_host_keys(client, _, _) ->
-    ["ssh-rsa", "ssh-dss"];
+supported_host_keys(client, _, Options) ->
+    try
+	case extract_algs(proplists:get_value(pref_public_key_algs, Options, false), []) of
+	    false ->
+		["ssh-rsa", "ssh-dss"];
+	    Algs ->
+		Algs
+	end
+    catch
+	exit:Reason ->
+	    {stop, {shutdown, Reason}}
+    end;
 supported_host_keys(server, KeyCb, Options) ->
     lists:foldl(fun(Type, Acc) ->
 			case available_host_key(KeyCb, Type, Options) of
@@ -731,7 +741,19 @@ supported_host_keys(server, KeyCb, Options) ->
 		end, [],
 		%% Prefered alg last so no need to reverse
 		["ssh-dss", "ssh-rsa"]).
-
+extract_algs(false, _) ->
+    false;
+extract_algs([],[]) ->
+    false;
+extract_algs([], NewList) ->
+    lists:reverse(NewList);
+extract_algs([H|T], NewList) ->
+    case H of
+	ssh_dsa ->
+	    extract_algs(T, ["ssh-dss"|NewList]);
+	ssh_rsa -> 
+	    extract_algs(T, ["ssh-rsa"|NewList])
+    end.
 available_host_key(KeyCb, "ssh-dss"= Alg, Opts) ->
     case KeyCb:host_key('ssh-dss', Opts) of
 	{ok, _} ->

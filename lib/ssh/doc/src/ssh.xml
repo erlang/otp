@@ -142,6 +142,11 @@
 	    some reason, the other algorithm is tried. The  default is
 	    to try <c><![CDATA[ssh_rsa]]></c> first.</p>
 	  </item>
+	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
+	  <item>
+            <p>List of public key algorithms to try to use, ssh_rsa and ssh_dsa available. 
+	    Will override <c><![CDATA[{public_key_alg, ssh_rsa | ssh_dsa}]]></c></p>
+	  </item>
 	  <tag><c><![CDATA[{connect_timeout, timeout()}]]></c></tag>
 	  <item>
 	    <p>Sets a timeout on the transport layer connection. Defaults to infinity.</p>
