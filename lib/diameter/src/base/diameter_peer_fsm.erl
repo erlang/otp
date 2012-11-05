@@ -967,12 +967,16 @@ dpa_timer() ->
 %% both fail to do so this isn't foolproof.
 
 register_everywhere(T) ->
-    diameter_reg:add_new(T)
-        andalso unregistered(T).
+    diameter_reg:add_new(T) andalso unregistered(T).
 
 unregistered(T) ->
     {ResL, _} = rpc:multicall(?MODULE, match, [{node(), T}]),
-    lists:all(fun(L) -> [] == L end, ResL).
+    lists:all(fun nomatch/1, ResL).
+
+nomatch({badrpc, {'EXIT', {undef, _}}}) ->  %% no diameter on remote node
+    true;
+nomatch(L) ->
+    [] == L.
 
 match({Node, _})
   when Node == node() ->
