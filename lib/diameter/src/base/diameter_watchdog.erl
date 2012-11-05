@@ -555,7 +555,7 @@ timeout(#watchdog{status = T,
         = S)
   when T == suspect;
        T == reopen, P, N < 0 ->
-    exit(TPid, shutdown),
+    exit(TPid, {shutdown, watchdog_timeout}),
     close(S),
     S#watchdog{status = down};
 
