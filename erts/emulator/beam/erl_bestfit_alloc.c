@@ -73,6 +73,8 @@
 #define SET_RED(N)		(((RBTree_t *) (N))->flags |= RED_FLG)
 #define SET_BLACK(N)		(((RBTree_t *) (N))->flags &= ~RED_FLG)
 
+#define BF_BLK_SZ(B)            MBC_BLK_SZ(&(B)->hdr)
+
 #undef ASSERT
 #define ASSERT ASSERT_EXPR
 
@@ -592,7 +594,7 @@ aobf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 		       ? &bfallctr->sbmbc_root
 		       : &bfallctr->mbc_root);
     RBTree_t *blk = (RBTree_t *) block;
-    Uint blk_sz = BLK_SZ(blk);
+    Uint blk_sz = BF_BLK_SZ(blk);
 
     
 
@@ -610,7 +612,7 @@ aobf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 	while (1) {
 	    Uint size;
 
-	    size = BLK_SZ(x);
+	    size = BF_BLK_SZ(x);
 
 	    if (blk_sz < size || (blk_sz == size && blk < x)) {
 		if (!x->left) {
@@ -668,7 +670,7 @@ aobf_get_free_block(Allctr_t *allctr, Uint size,
     ASSERT(!cand_blk || cand_size >= size);
 
     while (x) {
-	blk_sz = BLK_SZ(x);
+	blk_sz = BF_BLK_SZ(x);
 	if (blk_sz < size) {
 	    x = x->right;
 	}
@@ -686,7 +688,7 @@ aobf_get_free_block(Allctr_t *allctr, Uint size,
 #endif
 
     if (cand_blk) {
-	blk_sz = BLK_SZ(blk);
+	blk_sz = BF_BLK_SZ(blk);
 	if (cand_size < blk_sz)
 	    return NULL; /* cand_blk was better */
 	if (cand_size == blk_sz && ((void *) cand_blk) < ((void *) blk))
@@ -711,7 +713,7 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 		       ? &bfallctr->sbmbc_root
 		       : &bfallctr->mbc_root);
     RBTree_t *blk = (RBTree_t *) block;
-    Uint blk_sz = BLK_SZ(blk);
+    Uint blk_sz = BF_BLK_SZ(blk);
 
     SET_TREE_NODE(blk);
 
@@ -730,7 +732,7 @@ bf_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
 	while (1) {
 	    Uint size;
 
-	    size = BLK_SZ(x);
+	    size = BF_BLK_SZ(x);
 
 	    if (blk_sz == size) {
 
@@ -796,7 +798,7 @@ bf_unlink_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
     else if (LIST_NEXT(x)) {
 	/* Replace tree node by next element in list... */
 
-	ASSERT(BLK_SZ(LIST_NEXT(x)) == BLK_SZ(x));
+	ASSERT(BF_BLK_SZ(LIST_NEXT(x)) == BF_BLK_SZ(x));
 	ASSERT(IS_TREE_NODE(x));
 	ASSERT(IS_LIST_ELEM(LIST_NEXT(x)));
 
@@ -834,7 +836,7 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
     ASSERT(!cand_blk || cand_size >= size);
 
     while (x) {
-	blk_sz = BLK_SZ(x);
+	blk_sz = BF_BLK_SZ(x);
 	if (blk_sz < size) {
 	    x = x->right;
 	}
@@ -855,11 +857,11 @@ bf_get_free_block(Allctr_t *allctr, Uint size,
 #ifdef HARD_DEBUG
     {
 	RBTree_t *ct_blk = check_tree(root, 0, size);
-	ASSERT(BLK_SZ(ct_blk) == BLK_SZ(blk));
+	ASSERT(BF_BLK_SZ(ct_blk) == BF_BLK_SZ(blk));
     }
 #endif
 
-    if (cand_blk && cand_size <= BLK_SZ(blk))
+    if (cand_blk && cand_size <= BF_BLK_SZ(blk))
 	return NULL; /* cand_blk was better */
 
     /* Use next block if it exist in order to avoid replacing
@@ -1093,36 +1095,36 @@ check_tree(RBTree_t *root, int ao, Uint size)
 	if (x->left) {
 	    ASSERT(x->left->parent == x);
 	    if (ao) {
-		ASSERT(BLK_SZ(x->left) < BLK_SZ(x)
-		       || (BLK_SZ(x->left) == BLK_SZ(x) && x->left < x));
+		ASSERT(BF_BLK_SZ(x->left) < BF_BLK_SZ(x)
+		       || (BF_BLK_SZ(x->left) == BF_BLK_SZ(x) && x->left < x));
 	    }
 	    else {
 		ASSERT(IS_TREE_NODE(x->left));
-		ASSERT(BLK_SZ(x->left) < BLK_SZ(x));
+		ASSERT(BF_BLK_SZ(x->left) < BF_BLK_SZ(x));
 	    }
 	}
 
 	if (x->right) {
 	    ASSERT(x->right->parent == x);
 	    if (ao) {
-		ASSERT(BLK_SZ(x->right) > BLK_SZ(x)
-		       || (BLK_SZ(x->right) == BLK_SZ(x) && x->right > x));
+		ASSERT(BF_BLK_SZ(x->right) > BF_BLK_SZ(x)
+		       || (BF_BLK_SZ(x->right) == BF_BLK_SZ(x) && x->right > x));
 	    }
 	    else {
 		ASSERT(IS_TREE_NODE(x->right));
-		ASSERT(BLK_SZ(x->right) > BLK_SZ(x));
+		ASSERT(BF_BLK_SZ(x->right) > BF_BLK_SZ(x));
 	    }
 	}
 
-	if (size && BLK_SZ(x) >= size) {
+	if (size && BF_BLK_SZ(x) >= size) {
 	    if (ao) {
 		if (!res
-		    || BLK_SZ(x) < BLK_SZ(res)
-		    || (BLK_SZ(x) == BLK_SZ(res) && x < res))
+		    || BF_BLK_SZ(x) < BF_BLK_SZ(res)
+		    || (BF_BLK_SZ(x) == BF_BLK_SZ(res) && x < res))
 		    res = x;
 	    }
 	    else {
-		if (!res || BLK_SZ(x) < BLK_SZ(res))
+		if (!res || BF_BLK_SZ(x) < BF_BLK_SZ(res))
 		    res = x;
 	    }
 	}
@@ -1168,7 +1170,7 @@ print_tree_aux(RBTree_t *x, int indent)
 	}
 	fprintf(stderr, "%s: sz=%lu addr=0x%lx\r\n",
 		IS_BLACK(x) ? "BLACK" : "RED",
-		BLK_SZ(x),
+		BF_BLK_SZ(x),
 		(Uint) x);
 	print_tree_aux(x->left,  indent + INDENT_STEP);
     }

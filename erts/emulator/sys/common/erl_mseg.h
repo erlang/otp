@@ -32,8 +32,10 @@
 
 #if HAVE_MMAP
 #  define HAVE_ERTS_MSEG 1
+#  define HAVE_SUPER_ALIGNED_MB_CARRIERS 1
 #else
 #  define HAVE_ERTS_MSEG 0
+#  define HAVE_SUPER_ALIGNED_MB_CARRIERS 0
 #endif
 
 #if HAVE_ERTS_MSEG

@@ -91,6 +91,7 @@ struct AOFF_RBTree_t_ {
     AOFF_RBTree_t *right;
     Uint max_sz;  /* of all blocks in this sub-tree */
 };
+#define AOFF_BLK_SZ(B) MBC_BLK_SZ(&(B)->hdr)
 
 #ifdef HARD_DEBUG
 static AOFF_RBTree_t * check_tree(AOFF_RBTree_t* root, Uint);
@@ -102,7 +103,7 @@ static AOFF_RBTree_t * check_tree(AOFF_RBTree_t* root, Uint);
  */
 static ERTS_INLINE Uint node_max_size(AOFF_RBTree_t *x)
 {
-    Uint sz = BLK_SZ(x);
+    Uint sz = AOFF_BLK_SZ(x);
     if (x->left && x->left->max_sz > sz) {
 	sz = x->left->max_sz;
     }
@@ -587,7 +588,7 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block, Uint32 flags)
     AOFF_RBTree_t *blk = (AOFF_RBTree_t *) block;
     AOFF_RBTree_t **root = ((flags & ERTS_ALCU_FLG_SBMBC)
 			    ? &alc->sbmbc_root : &alc->mbc_root);
-    Uint blk_sz = BLK_SZ(blk);
+    Uint blk_sz = AOFF_BLK_SZ(blk);
 
 #ifdef HARD_DEBUG
     check_tree(*root, 0);
@@ -659,7 +660,7 @@ aoff_get_free_block(Allctr_t *allctr, Uint size,
 	if (x->left && x->left->max_sz >= size) {
 	    x = x->left;
 	}
-	else if (BLK_SZ(x) >= size) {
+	else if (AOFF_BLK_SZ(x) >= size) {
 	    blk = x;
 	    break;
 	}
@@ -910,12 +911,12 @@ check_tree(AOFF_RBTree_t* root, Uint size)
 	    ASSERT(x->right > x);
 	    ASSERT(x->right->max_sz <= x->max_sz);	    
 	}
-	ASSERT(x->max_sz >= BLK_SZ(x));
-	ASSERT(x->max_sz == BLK_SZ(x)
+	ASSERT(x->max_sz >= AOFF_BLK_SZ(x));
+	ASSERT(x->max_sz == AOFF_BLK_SZ(x)
 	       || x->max_sz == (x->left ? x->left->max_sz : 0)
 	       || x->max_sz == (x->right ? x->right->max_sz : 0));
 
-	if (size && BLK_SZ(x) >= size) {
+	if (size && AOFF_BLK_SZ(x) >= size) {
 	    if (!res || x < res) {
 		res = x;
 	    }
@@ -956,7 +957,7 @@ print_tree_aux(AOFF_RBTree_t *x, int indent)
 	}
 	fprintf(stderr, "%s: sz=%lu addr=0x%lx max_size=%lu\r\n",
 		IS_BLACK(x) ? "BLACK" : "RED",
-		BLK_SZ(x), (Uint)x, x->max_sz);
+		AOFF_BLK_SZ(x), (Uint)x, x->max_sz);
 	print_tree_aux(x->left,  indent + INDENT_STEP);
     }
 }
