@@ -25,7 +25,7 @@
     <title>ssh_channel</title>
   </header>
   <module>ssh_channel</module>
-  <modulesummary>Generic Ssh Channel Behavior
+  <modulesummary>-behaviour(ssh_channel).
   </modulesummary>
   <description>
     <p>SSH services (clients and servers) are implemented as channels
@@ -41,15 +41,12 @@
     the SSH applications supervisor tree.
     </p>
 
-    <p>The functions init/1, terminate/2, handle_ssh_msg/2 and
-    handle_msg/2 are the functions that are required
-    to provide the implementation for a server side channel, such as
-    an SSH subsystem channel that can be plugged into the Erlang ssh
-    daemon see <seealso marker="ssh#daemon-3">ssh:daemon/[2,
-    3]</seealso>.
-    The handle_call/3, handle_cast/2, code_change/3 and enter_loop/1
-    functions are only relevant when implementing a client side
-    channel.</p>
+    <note> When implementing a SSH subsystem use the
+    <c>-behaviour(ssh_subsystem).</c> instead of  <c>-behaviour(ssh_channel).</c>
+    as the only relevant callback functions for subsystems are
+    init/1, handle_ssh_msg/2, handle_msg/2 and terminate/2, so the ssh_subsystem
+    behaviour is limited version of the ssh_channel behaviour.
+    </note>
   </description>
 
   <section>
@@ -72,20 +69,22 @@
   <funcs>
     <func>
       <name>call(ChannelRef, Msg) -></name>
-      <name>call(ChannelRef, Msg, timeout()) -> Reply | {error, Reason}</name>
+      <name>call(ChannelRef, Msg, Timeout) -> Reply | {error, Reason}</name>
       <fsummary> Makes a synchronous call to a channel.</fsummary>
       <type>
 	<v>ChannelRef = pid() </v>
 	<d>As returned by start_link/4 </d>
 	<v>Msg = term() </v>
+	<v>Timeout = timeout() </v>
 	<v>Reply = term() </v>
 	<v>Reason = closed | timeout </v>
+
       </type>
       <desc>
 	<p>Makes a synchronous call to the channel process by sending
 	a message and waiting until a reply arrives or a timeout
 	occurs. The channel will call <seealso mark =
-	"#CallbackModule:handle_call-3">CallbackModule:handle_call/3</seealso>
+	"#Module:handle_call-3">Module:handle_call/3</seealso>
 	to handle the message.  If the channel process does not exist
 	<c>{error, closed}</c> is returned.
 	</p>
@@ -105,7 +104,7 @@
 	<p>Sends an asynchronous message to the channel process and
 	returns ok immediately, ignoring if the destination node or
 	channel process does not exist. The channel will call
-	<seealso mark = "#CallbackModule:handle_cast-3">CallbackModule:handle_cast/2</seealso>
+	<seealso mark = "#Module:handle_cast-3">Module:handle_cast/2</seealso>
 	 to handle the message.
 	</p>
       </desc>
@@ -131,10 +130,13 @@
     </func>
     
     <func>
-      <name>init(Options) -> {ok, State} |  {ok, State, timeout()} | {stop, Reason} </name>
+      <name>init(Options) -> {ok, State} |  {ok, State, Timeout} | {stop, Reason} </name>
       <fsummary> Initiates a ssh_channel process.</fsummary>
       <type>
-	<v> Options = [{Option, Value}]</v>
+	<v>Options = [{Option, Value}]</v>
+	<v>State = term()</v>
+	<v>Timeout = timeout() </v>
+	<v>Reason = term() </v>
       </type>
       <desc>
 	<p>
@@ -178,7 +180,7 @@
         <p>This function can be used by a channel to explicitly send a
         reply to a client that called <c>call/[2,3]</c> when the reply
         cannot be defined in the return value of
-	<seealso marker ="#CallbackModule:handle_call-3">CallbackModule:handle_call/3</seealso>.</p>
+	<seealso marker ="#Module:handle_call-3">Module:handle_call/3</seealso>.</p>
         <p><c>Client</c> must be the <c>From</c> argument provided to
           the callback function <c>handle_call/3</c>.
 	  <c>Reply</c> is an arbitrary term,
@@ -221,53 +223,56 @@
 
     <p>The timeout values that may be returned by the callback functions
     has the same semantics as in a <seealso marker="stdlib#gen_server">gen_server</seealso>
-    If the timout occurs <seealso marker="#handle_msg">handle_msg/2</seealso>
+    If the timeout occurs <seealso marker="#handle_msg">handle_msg/2</seealso>
     will be called as <c>handle_msg(timeout, State). </c></p>
   </section>
 
   <funcs>
     <func>
-      <name>CallbackModule:code_change(OldVsn, State, Extra) -> {ok,
+      <name>Module:code_change(OldVsn, State, Extra) -> {ok,
       NewState}</name>
       <fsummary> Converts process state when code is changed.</fsummary>
       <type>
-	<v> Converts process state when code is changed.</v>
+	<v>OldVsn = term()</v>
+	<d>In the case of an upgrade, <c>OldVsn</c> is <c>Vsn</c>, and
+	in the case of a downgrade, <c>OldVsn</c> is
+	<c>{down,Vsn}</c>. <c>Vsn</c> is defined by the <c>vsn</c>
+	attribute(s) of the old version of the callback module
+	<c>Module</c>. If no such attribute is defined, the version is
+	the checksum of the BEAM file.</d>
+	<v>State = term()</v>
+	<d>The internal state of the channel.</d>
+        <v>Extra = term()</v>
+	<d>Passed as-is from the <c>{advanced,Extra}</c>
+	part of the update instruction.</d>
       </type>
       <desc>
-	  <p>This function is called by a client side channel when it
-	  should update its internal state during a release
-	  upgrade/downgrade, i.e. when the instruction
-	  <c>{update,Module,Change,...}</c> where
-	  <c>Change={advanced,Extra}</c> is given in the <c>appup</c>
-	  file. See <seealso marker="doc/design_principles:release_handling#instr">OTP
-	  Design Principles</seealso> for more information.
-	  </p>
+	<p> Converts process state when code is changed.</p>
 
-	  <note><p>Soft upgrade according to the OTP release concept
-	  is not straight forward for the server side, as subsystem
-	  channel processes are spawned by the SSH application and
-	  hence added to its supervisor tree. It could be possible to
-	  upgrade the subsystem channels, when upgrading the user
-	  application, if the callback functions can handle two
-	  versions of the state, but this function can not be used in
-	  the normal way.</p>
-	  </note>
+	<p>This function is called by a client side channel when it
+	should update its internal state during a release
+	upgrade/downgrade, i.e. when the instruction
+	<c>{update,Module,Change,...}</c> where
+	<c>Change={advanced,Extra}</c> is given in the <c>appup</c>
+	file. See <seealso marker="doc/design_principles:release_handling#instr">OTP
+	Design Principles</seealso> for more information.
+	</p>
+
+	<note><p>Soft upgrade according to the OTP release concept
+	is not straight forward for the server side, as subsystem
+	channel processes are spawned by the SSH application and
+	hence added to its supervisor tree. It could be possible to
+	upgrade the subsystem channels, when upgrading the user
+	application, if the callback functions can handle two
+	versions of the state, but this function can not be used in
+	the normal way.</p>
+	</note>
 	  
-        <p>In the case of an upgrade, <c>OldVsn</c> is <c>Vsn</c>, and
-          in the case of a downgrade, <c>OldVsn</c> is
-          <c>{down,Vsn}</c>. <c>Vsn</c> is defined by the <c>vsn</c>
-          attribute(s) of the old version of the callback module
-          <c>Module</c>. If no such attribute is defined, the version
-          is the checksum of the BEAM file.</p>
-        <p><c>State</c> is the internal state of the channel.</p>
-        <p><c>Extra</c> is passed as-is from the <c>{advanced,Extra}</c>
-          part of the update instruction.</p>
-        <p>The function should return the updated internal state.</p>
       </desc>
     </func>
     
     <func>
-      <name>CallbackModule:init(Args) -> {ok, State} | {ok, State, timeout()} |
+      <name>Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
       {stop, Reason}</name>
       <fsummary> Makes necessary initializations and returns the
       initial channel state if the initializations succeed.</fsummary>
@@ -287,7 +292,7 @@
     </func>
    
     <func>
-      <name>CallbackModule:handle_call(Msg, From, State) -> Result</name>
+      <name>Module:handle_call(Msg, From, State) -> Result</name>
       <fsummary> Handles messages sent by calling
       <c>ssh_channel:call/[2,3]</c></fsummary>
       <type>
@@ -312,7 +317,7 @@
     </func>
 
     <func>
-      <name>CallbackModule:handle_cast(Msg, State) -> Result</name>
+      <name>Module:handle_cast(Msg, State) -> Result</name>
       <fsummary> Handles messages sent by calling
       <c>ssh_channel:cact/2</c></fsummary>
       <type>
@@ -334,7 +339,7 @@
     </func>
  
     <func>
-      <name>CallbackModule:handle_msg(Msg, State) -> {ok, State} |
+      <name>Module:handle_msg(Msg, State) -> {ok, State} |
       {stop, ChannelId, State}</name>
 
       <fsummary> Handle other messages than ssh connection protocol,
@@ -368,7 +373,7 @@
     </func>
 
     <func>
-      <name>CallbackModule:handle_ssh_msg(Msg, State) -> {ok, State} | {stop,
+      <name>Module:handle_ssh_msg(Msg, State) -> {ok, State} | {stop,
       ssh_channel_id(), State}</name>
       <fsummary> Handles ssh connection protocol messages. </fsummary>
       <type>
@@ -393,7 +398,7 @@
     </func>
 
     <func>
-      <name>CallbackModule:terminate(Reason, State) -> _</name>
+      <name>Module:terminate(Reason, State) -> _</name>
       <fsummary> </fsummary>
       <type>
 	<v>Reason = term()</v>

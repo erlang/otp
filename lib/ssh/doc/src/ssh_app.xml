@@ -22,7 +22,7 @@
     </legalnotice>
 
     <title>SSH</title>
-    <file>ssh_app.sgml</file>
+    <file>ssh_app.xml</file>
   </header>
   <app>SSH</app>
   <appsummary>The ssh application implements the SSH (Secure Shell) protocol and
@@ -50,7 +50,9 @@
     and authorized_keys in ~/.ssh, and the host key files in /etc/ssh
     . These locations may be changed by the options user_dir and
     system_dir.  Public key handling may also be customized by
-    providing a callback module implementing the behavior ssh_key_api.
+    providing a callback module implementing the behaviors
+    <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and
+    <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
     </p>
 
     <section>

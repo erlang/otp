@@ -37,7 +37,7 @@
       authentication and integrity protection. Currently, only a
       minimum of MAC- (message authentication code, a short piece of
       information used to authenticate a message) and encryption
-      algorithms see <seealso marker="ssh">ssh(3)</seealso>
+      algorithms are supported see <seealso marker="ssh">ssh(3)</seealso>
       </p>
     </section>
 
@@ -52,10 +52,18 @@
       interactive authentication. This method is suitable for
       interactive authentication methods that do not need any special
       software support on the client side. Instead, all authentication
-      data should be entered via the keyboad. It is also possible
+      data should be entered via the keyboard. It is also possible
       to use a pure password based authentication scheme, note that in
-      this case the the plain text password will be encrypted befor sent
-      over the network.
+      this case the the plain text password will be encrypted before sent
+      over the network. There are several configuration options for
+      authentication handling available in
+      <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>
+      and <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>
+      It is also possible to customize the public key handling
+      by implementing the behaviours <seealso
+      marker="ssh_client_key_api">ssh_client_key_api</seealso> and
+      <seealso
+	  marker="ssh_server_key_api">ssh_server_key_api</seealso>
       </p>
     </section>
 
@@ -82,7 +90,7 @@
       channel. The <seealso
       marker="ssh_channel">ssh_channel</seealso> behaviour makes it easy to
       write your own SSH client/server processes that use flow
-      control. It handles generic parts of SSH channel managment and
+      control. It handles generic parts of SSH channel management and
       lets you focus on the application logic.
       </p>
 
@@ -91,7 +99,7 @@
       <list type="bulleted">
 	<item><em>Subsystem</em> - named services that can be run as
 	part of an SSH server such as SFTP <seealso
-	marker="ssh_sftp">ssh_sftp</seealso>, that is built in to the
+	marker="ssh_sftpd">ssh_sftpd</seealso>, that is built in to the
 	SSH daemon (server) by default but may be disabled. The Erlang SSH
 	daemon may be configured to run any Erlang
 	implemented SSH subsystem.

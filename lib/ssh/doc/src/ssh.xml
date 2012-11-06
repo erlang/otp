@@ -48,7 +48,7 @@
     this module and/or abstractions to indicate the intended use of the data
     type:</p>
     <p><c>boolean() = true | false </c></p>
-    <p><c>string() = list of ASCII characters</c></p>
+    <p><c>string() = [byte()]</c></p>
     <p><c>ssh_daemon_ref() - opaque to the user
     returned by ssh:daemon/[1,2,3]</c></p>
     <p><c>ssh_connection_ref() - opaque to the user
@@ -134,7 +134,7 @@
 	    password. Do note that it may not always be desirable to use
 	    those options from a security point of view.</p>
 	  </item>
-	  <tag><c><![CDATA[{public_key_alg, ssh_rsa | ssh_dsa}]]></c></tag>
+	  <tag><c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></tag>
 	  <item>
             <p>Sets the preferred public key algorithm to use for user
 	    authentication. If the the preferred algorithm fails for
@@ -143,15 +143,15 @@
 	  </item>
 	  <tag><c><![CDATA[{pref_public_key_algs, list()}]]></c></tag>
 	  <item>
-            <p>List of public key algorithms to try to use, ssh_rsa and ssh_dsa available. 
-	    Will override <c><![CDATA[{public_key_alg, ssh_rsa | ssh_dsa}]]></c></p>
+            <p>List of public key algorithms to try to use, 'ssh-rsa' and 'ssh-dss' available. 
+	    Will override <c><![CDATA[{public_key_alg, 'ssh-rsa' | 'ssh-dss'}]]></c></p>
 	  </item>
 	  <tag><c><![CDATA[{connect_timeout, timeout()}]]></c></tag>
 	  <item>
 	    <p>Sets a timeout on the transport layer
-	    connection. Defaults to infinity.</p>
+	    connection. Defaults to <c>infinity</c>.</p>
 	  </item>
-	  <tag><c><![CDATA[{user, String}]]></c></tag>
+	  <tag><c><![CDATA[{user, string()}]]></c></tag>
           <item>
 	    <p>Provides a user name. If this option is not given, ssh
 	    reads from the environment (<c><![CDATA[LOGNAME]]></c> or
@@ -165,9 +165,11 @@
 	    password if the password authentication method is
 	    attempted.</p>
           </item>
-	  <tag><c><![CDATA[{key_cb, atom() = KeyCallbackModule}]]></c></tag>
+	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
 	  <item>
-	    <p>TODO:</p>
+	    <p>Module implementing the behaviour <seealso marker="ssh_client_key_api">ssh_client_key_api</seealso>.
+	    Can be used to customize the handling of public keys.
+	    </p>
 	  </item>
 	  <tag><c><![CDATA[{quiet_mode, atom() = boolean()}]]></c></tag>
 	  <item>
@@ -177,7 +179,7 @@
 	  <item>
 	    <p>Allow an existing file descriptor to be used
 	  (simply passed on to the transport protocol).</p></item>
-	  <tag><c><![CDATA[{ip_v6_disabled, boolean()}]]></c></tag>
+	  <tag><c><![CDATA[{ipv6_disabled, boolean()}]]></c></tag>
 	  <item>
 	  <p>Determines if SSH shall use IPv6 or not.</p></item>
 	  <tag><c><![CDATA[{idle_time, timeout()}]]></c></tag>
@@ -293,6 +295,12 @@
 	      <c><![CDATA[true]]></c> if the password is valid and
 	      <c><![CDATA[false]]></c> otherwise.</p>
 	  </item>
+	  <tag><c><![CDATA[{key_cb, atom()}]]></c></tag>
+	  <item>
+	    <p>Module implementing the behaviour <seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
+	    Can be used to customize the handling of public keys.
+	    </p>
+	  </item>
 	  <tag><c><![CDATA[{fd, file_descriptor()}]]></c></tag>
 	  <item>
 	    <p>Allow an existing file-descriptor to be used
@@ -347,7 +355,7 @@
       <desc>
         <p>Utility function that starts crypto, public_key and the SSH
 	application. Defult type is temporary.
-	<seealso marker="kernel:application">application(3)</seealso>
+	See also <seealso marker="kernel:application">application(3)</seealso>
 	</p>
       </desc>
     </func>

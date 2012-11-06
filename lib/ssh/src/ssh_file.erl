@@ -23,7 +23,8 @@
 
 -module(ssh_file).
 
--behaviour(ssh_key_api).
+-behaviour(ssh_server_key_api).
+-behaviour(ssh_client_key_api).
 
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -34,7 +35,7 @@
 	 user_key/2,
 	 is_host_key/4,
 	 add_host_key/3,
-	 is_auth_key/4]).
+	 is_auth_key/3]).
 
 
 -define(PERM_700, 8#700).
@@ -53,8 +54,8 @@ host_key(Algorithm, Opts) ->
     decode(File, Password).
 
 
-is_auth_key(Key, User, Alg, Opts) ->
-    case lookup_user_key(Key, User, Alg, Opts) of
+is_auth_key(Key, User,Opts) ->
+    case lookup_user_key(Key, User, Opts) of
 	{ok, Key} ->
 	    true;
 	_ ->
@@ -138,13 +139,13 @@ add_host_key(Host, Key, Opts) ->
    	    Error
     end.
 
-lookup_user_key(Key, User, Alg, Opts) ->
+lookup_user_key(Key, User, Opts) ->
     SshDir = ssh_dir({remoteuser,User}, Opts),
-    case lookup_user_key_f(Key, User, SshDir, Alg, "authorized_keys", Opts) of
+    case lookup_user_key_f(Key, User, SshDir, "authorized_keys", Opts) of
 	{ok, Key} ->
 	    {ok, Key};
 	_ ->
-	    lookup_user_key_f(Key, User, SshDir, Alg,  "authorized_keys2", Opts)
+	    lookup_user_key_f(Key, User, SshDir, "authorized_keys2", Opts)
     end.
 
 
@@ -213,9 +214,9 @@ do_lookup_host_key(Host, Alg, Opts) ->
 	Error -> Error
     end.
 
-identity_key_filename("ssh-dss") ->
+identity_key_filename('ssh-dss') ->
     "id_dsa";
-identity_key_filename("ssh-rsa") ->
+identity_key_filename('ssh-rsa') ->
     "id_rsa".
 
 identity_pass_phrase("ssh-dss") ->
@@ -261,9 +262,9 @@ host_name(Atom) when is_atom(Atom) ->
 host_name(List) ->
     List.
 
-key_match(#'RSAPublicKey'{}, "ssh-rsa") ->
+key_match(#'RSAPublicKey'{}, 'ssh-rsa') ->
     true;
-key_match({_, #'Dss-Parms'{}}, "ssh-dss") ->
+key_match({_, #'Dss-Parms'{}}, 'ssh-dss') ->
     true;
 key_match(_, _) ->
     false.
@@ -272,11 +273,11 @@ add_key_fd(Fd, Host,Key) ->
     SshBin = public_key:ssh_encode([{Key, [{hostnames, [Host]}]}], known_hosts),
     file:write(Fd, SshBin).
 
-lookup_user_key_f(_, _User, [], _Alg, _F, _Opts) ->
+lookup_user_key_f(_, _User, [], _F, _Opts) ->
     {error, nouserdir};
-lookup_user_key_f(_, _User, nouserdir, _Alg, _F, _Opts) ->
+lookup_user_key_f(_, _User, nouserdir, _F, _Opts) ->
     {error, nouserdir};
-lookup_user_key_f(Key, _User, Dir, _Alg, F, _Opts) ->
+lookup_user_key_f(Key, _User, Dir, F, _Opts) ->
     FileName = filename:join(Dir, F),
     case file:open(FileName, [read, binary]) of
 	{ok, Fd} ->

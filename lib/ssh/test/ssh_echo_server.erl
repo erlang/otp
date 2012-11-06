@@ -21,7 +21,7 @@
 
 %%% Description: Example ssh server
 -module(ssh_echo_server).
--behaviour(ssh_channel).
+-behaviour(ssh_subsytem).
 -record(state, {
 	  n,
 	  id,

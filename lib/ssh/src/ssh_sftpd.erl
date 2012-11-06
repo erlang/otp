@@ -24,7 +24,7 @@
 -module(ssh_sftpd).
 
 %%-behaviour(gen_server).
--behaviour(ssh_channel).
+-behaviour(ssh_subsystem).
 
 -include_lib("kernel/include/file.hrl").
 
@@ -36,7 +36,7 @@
 -export([subsystem_spec/1,
 	 listen/1, listen/2, listen/3, stop/1]).
 
--export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2, code_change/3]).
+-export([init/1, handle_ssh_msg/2, handle_msg/2, terminate/2]).
 
 -record(state, {
 	  xf,   			% [{channel,ssh_xfer states}...]
@@ -125,14 +125,6 @@ init(Options) ->
     {ok,  State#state{cwd = CWD, root = Root, max_files = MaxLength,
 		      handles = [], pending = <<>>,
 		      xf = #ssh_xfer{vsn = Vsn, ext = []}}}.
-
-
-%%--------------------------------------------------------------------
-%% Function: code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% Description: 
-%%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) -> 
-    {ok, State}.
 
 
 %%--------------------------------------------------------------------

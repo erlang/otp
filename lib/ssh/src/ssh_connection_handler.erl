@@ -749,9 +749,9 @@ extract_algs([], NewList) ->
     lists:reverse(NewList);
 extract_algs([H|T], NewList) ->
     case H of
-	ssh_dsa ->
+	'ssh-dss' ->
 	    extract_algs(T, ["ssh-dss"|NewList]);
-	ssh_rsa -> 
+	'ssh-rsa' ->
 	    extract_algs(T, ["ssh-rsa"|NewList])
     end.
 available_host_key(KeyCb, "ssh-dss"= Alg, Opts) ->

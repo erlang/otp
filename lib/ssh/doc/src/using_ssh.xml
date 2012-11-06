@@ -37,7 +37,7 @@
     nothing else is stated it is persumed that the otptest user has an
     entry in tarlop's authorized_keys file (may log in via ssh without
     entering a password).  Also tarlop is a known host in the user
-    otptests known_hosts file so that host verification can be done
+    otptest's known_hosts file so that host verification can be done
     without user interaction.
     </p>
   </section>
@@ -72,12 +72,12 @@
     marker="ssh_app">ssh(6)</seealso>.
     </p>
 
-    <note><p>Normaly the /etc/ssh directory is only readable by root. </p>
+    <note><p>Normally the /etc/ssh directory is only readable by root. </p>
     </note>
 
     <p> The option user_dir defaults to the users ~/.ssh  directory</p>
 
-    <p>In the following exampel we have generate new keys and host keys as
+    <p>In the following example we generate new keys and host keys as
     to be able to run the example without having root privilages</p>
 
     <code>
@@ -87,12 +87,13 @@
       [...]
     </code>
 
-    <p>And add the public hostkey to the known_hosts file of the user otptest. Then we can do</p>
+    <p>Create the file /tmp/otptest_user/.ssh/authrized_keys and add the content
+    of /tmp/otptest_user/.ssh/id_rsa.pub  Now we can do</p>
 
     <code type="erl">
       1> ssh:start().
       ok
-      2> {ok, Sshd} = ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon/ssh_host_rsa_key"},
+      2> {ok, Sshd} = ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon"},
       {user_dir, "/tmp/otptest_user/.ssh"}]).
       {ok,&lt;0.54.0>}
       3>
@@ -101,12 +102,16 @@
     <p>Use the openssh client from a shell to connect to the Erlang ssh daemon.</p>
 
     <code>
-      $bash> ssh tarlop -p 8989 -i /tmp/otptest_user/.ssh/id_rsa
+      $bash> ssh tarlop -p 8989  -i /tmp/otptest_user/.ssh/id_rsa -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts
+      The authenticity of host 'tarlop' can't be established.
+      RSA key fingerprint is 14:81:80:50:b1:1f:57:dd:93:a8:2d:2f:dd:90:ae:a8.
+      Are you sure you want to continue connecting (yes/no)? yes
+      Warning: Permanently added 'tarlop' (RSA) to the list of known hosts.
       Eshell V5.10  (abort with ^G)
       1>
     </code>
 
-    <p>There is two ways of shuting down an SSH daemon</p>
+    <p>There are two ways of shutting down an SSH daemon</p>
 
     <p>1: Stops the listener, but leaves existing connections started by the listener up and running.</p>
 
@@ -169,7 +174,7 @@
     <code type="erl" >
       1> ssh:start().
       ok
-      2>  ssh:daemon(8989, [{system_dir, "."},
+      2> ssh:daemon(8989,  [{system_dir, "/tmp/ssh_daemon"}, {user_dir, "/tmp/otptest_user/.ssh"},
       {subsystems, [ssh_sftpd:subsystem_spec([{cwd, "/tmp/sftp/example"}])]}]).
       {ok,&lt;0.54.0>}
       3>
@@ -178,7 +183,7 @@
     <p> Run the openssh sftp client</p>
 
     <code type="erl">
-      $bash> sftp -oPort=8989 tarlop
+      $bash>  sftp -oPort=8989 -o IdentityFile=/tmp/otptest_user/.ssh/id_rsa -o UserKnownHostsFile=/tmp/otptest_user/.ssh/known_hosts tarlop
       Connecting to tarlop...
       sftp> pwd
       Remote working directory: /tmp/sftp/example
@@ -202,11 +207,12 @@
   <section>
     <title>Creating a subsystem</title>
 
-    <p>A very small SSH subsystem that echos N bytes could be implemented like this.</p>
+    <p>A very small SSH subsystem that echos N bytes could be implemented like this.
+    See also <seealso marker="ssh_channel"> ssh_channel(3)</seealso> </p>
 
     <code type="erl" >
 -module(ssh_echo_server).
--behaviour(ssh_channel).
+-behaviour(ssh_subsystem).
 -record(state, {
 	  n,
 	  id,
@@ -261,7 +267,7 @@ terminate(_Reason, _State) ->
  <code type="erl" >
    1> ssh:start().
    ok
-   2>  ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon/ssh_host_rsa_key"},
+   2>  ssh:daemon(8989, [{system_dir, "/tmp/ssh_daemon"},
    {user_dir, "/tmp/otptest_user/.ssh"}
    {subsystems, [{"echo_n", {ssh_echo_server, [10]}}]}]).
    {ok,&lt;0.54.0>}
@@ -275,12 +281,12 @@ terminate(_Reason, _State) ->
     {ok,&lt;0.57.0>}
    3>{ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity).
    4> success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", infinity).
-   5> ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity),
+   5> ok = ssh_connection:send(ConnectionRef, ChannelId, "0123456789", infinity).
    6> flush().
    {ssh_msg, &lt;0.57.0>, {data, 0, 1, "0123456789"}}
    {ssh_msg, &lt;0.57.0>, {eof, 0}}
    {ssh_msg, &lt;0.57.0>, {closed, 0}}
-   7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity),
+   7> {error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).
  </code>
 
 </section>

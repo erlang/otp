@@ -40,7 +40,7 @@
     protocol in Erlang which offers API functions to write customized
     SSH clients and servers as well as making the Erlang shell
     available via SSH. Also included in the SSH application are an
-    SFTP (Secret File Transfer Protocol) client <seealso
+    SFTP (SSH File Transfer Protocol) client <seealso
     marker="ssh_sftp">ssh_sftp</seealso> and server <seealso
     marker="ssh_sftp">ssh_sftpd</seealso>.</p>
   </section>

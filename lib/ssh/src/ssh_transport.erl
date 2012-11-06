@@ -449,7 +449,7 @@ verify_host_key_rsa(SSH, K_S, H, H_SIG) ->
 		false ->
 		    {error, bad_signature};
 		true ->
-		    known_host_key(SSH, Public, "ssh-rsa")
+		    known_host_key(SSH, Public, 'ssh-rsa')
 	    end;
 	_ ->
 	    {error, bad_format}
@@ -464,7 +464,7 @@ verify_host_key_dss(SSH, K_S, H, H_SIG) ->
 		false ->
 		    {error, bad_signature};
 		true ->
-		    known_host_key(SSH, Public, "ssh-dss")
+		    known_host_key(SSH, Public, 'ssh-dss')
 	    end;
 	_ ->
 	    {error, bad_host_key_format}

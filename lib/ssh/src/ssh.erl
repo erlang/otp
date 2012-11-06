@@ -80,7 +80,7 @@ connect(Host, Port, Options, Timeout) ->
 	{error, _Reason} = Error ->
 	    Error;
 	{SocketOptions, SshOptions} ->
-	    DisableIpv6 =  proplists:get_value(ip_v6_disabled, SshOptions, false),
+	    DisableIpv6 =  proplists:get_value(ipv6_disabled, SshOptions, false),
 	    Inet = inetopt(DisableIpv6),
 	    do_connect(Host, Port, [Inet | SocketOptions], 
 		       [{user_pid, self()}, {host, Host} | fix_idle_time(SshOptions)], Timeout, DisableIpv6)
@@ -173,7 +173,7 @@ daemon(HostAddr, Port, Options0) ->
 		   _ ->
 		       Options0
 	       end,
-    DisableIpv6 =  proplists:get_value(ip_v6_disabled, Options0, false),
+    DisableIpv6 =  proplists:get_value(ipv6_disabled, Options0, false),
     {Host, Inet, Options} = case HostAddr of
 				any ->
 				    {ok, Host0} = inet:gethostname(), 
@@ -346,7 +346,10 @@ handle_option([{disconnectfun, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{failfun, _} = Opt | Rest],  SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
-handle_option([{ip_v6_disabled, _} = Opt | Rest], SocketOptions, SshOptions) ->
+%%Backwards compatibility should not be underscore between ip and v6 in API
+handle_option([{ip_v6_disabled, Value} | Rest], SocketOptions, SshOptions) ->
+    handle_option(Rest, SocketOptions, [handle_ssh_option({ipv6_disabled, Value}) | SshOptions]);
+handle_option([{ipv6_disabled, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
 handle_option([{transport, _} = Opt | Rest], SocketOptions, SshOptions) ->
     handle_option(Rest, SocketOptions, [handle_ssh_option(Opt) | SshOptions]);
@@ -379,10 +382,14 @@ handle_ssh_option({silently_accept_hosts, Value} = Opt) when Value == true; Valu
     Opt;
 handle_ssh_option({user_interaction, Value} = Opt) when Value == true; Value == false ->
     Opt;
-handle_ssh_option({public_key_alg, Value} = Opt) when Value == ssh_rsa; Value == ssh_dsa ->
+handle_ssh_option({public_key_alg, ssh_dsa}) ->
+    {public_key_alg, 'ssh-dss'};
+handle_ssh_option({public_key_alg, ssh_rsa})  ->
+    {public_key_alg, 'ssh-rsa'};
+handle_ssh_option({public_key_alg, Value} = Opt) when Value == 'ssh-rsa'; Value == 'ssh-dss' ->
     Opt;
 handle_ssh_option({pref_public_key_algs, Value} = Opt) when is_list(Value), length(Value) >= 1 ->
-    case check_pref_algs(Value) of
+    case handle_pref_algs(Value, []) of
 	true ->
 	    Opt;
 	_ ->
@@ -420,7 +427,9 @@ handle_ssh_option({disconnectfun , Value} = Opt) when is_function(Value) ->
     Opt;
 handle_ssh_option({failfun, Value} = Opt) when is_function(Value) ->
     Opt;
-handle_ssh_option({ip_v6_disabled, Value} = Opt) when is_boolean(Value) ->
+
+handle_ssh_option({ipv6_disabled, Value} = Opt) when Value == true;
+						      Value == false ->
     Opt;
 handle_ssh_option({transport, {Protocol, Cb, ClosTag}} = Opt) when is_atom(Protocol),
 								   is_atom(Cb),
@@ -448,7 +457,7 @@ handle_inet_option({active, _} = Opt) ->
 		   "and activ is handled internaly user is not allowd"
 		   "to specify this option"}});
 handle_inet_option({inet, _} = Opt) ->
-    throw({error, {{eoptions, Opt},"Is set internaly use ip_v6_disabled to"
+    throw({error, {{eoptions, Opt},"Is set internaly use ipv6_disabled to"
 		   " enforce iv4 in the server, client will fallback to ipv4 if"
 		   " it can not use ipv6"}});
 handle_inet_option({reuseaddr, _} = Opt) ->
@@ -458,14 +467,18 @@ handle_inet_option({reuseaddr, _} = Opt) ->
 handle_inet_option(Opt) ->
     Opt.
 %% Check preferred algs
-check_pref_algs([]) ->
-    true;
-check_pref_algs([H|T]) ->
+handle_pref_algs([], Acc) ->
+    {true, lists:reverse(Acc)};
+handle_pref_algs([H|T], Acc) ->
     case H of
 	ssh_dsa ->
-	    check_pref_algs(T);
+	    handle_pref_algs(T, ['ssh-dss'| Acc]);
 	ssh_rsa ->
-	    check_pref_algs(T);
+	    handle_pref_algs(T, ['ssh-rsa'| Acc]);
+	'ssh-dss' ->
+	    handle_pref_algs(T, ['ssh-dss'| Acc]);
+	'ssh-rsa' ->
+	    handle_pref_algs(T, ['ssh-rsa'| Acc]);
 	_ ->
 	    false
     end.

@@ -486,8 +486,9 @@
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Deletes a directory specified by <c><![CDATA[Name]]></c>. The directory
-          should be empty.</p>
+	<p>Deletes a directory specified by <c><![CDATA[Name]]></c>.
+	Note that the directory must be empty before it can be successfully deleted
+	</p>
       </desc>
     </func>
   
