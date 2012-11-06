@@ -245,7 +245,7 @@ idle_time(Config) ->
 					     {user_dir, UserDir},
 					     {failfun, fun ssh_test_lib:failfun/2}]),
     ConnectionRef =
-	ssh:connect(Host, Port, [{silently_accept_hosts, true},
+	ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
 					  {user_dir, UserDir},
 					  {user_interaction, false}, 
 					  {idle_time, 3000}]),
