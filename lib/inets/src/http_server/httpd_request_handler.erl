@@ -46,7 +46,7 @@
 		headers,  %% #http_request_h{}
 		body,      %% binary()
 		data,      %% The total data received in bits, checked after 10s
-		bit_limit  %% Bit limit per second before kick out
+		byte_limit  %% Bit limit per second before kick out
 	       }).
 
 %%====================================================================
@@ -144,7 +144,7 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
     ?hdrt("set socket options (binary, packet & active)", []),
     http_transport:setopts(SocketType, Socket, 
 			   [binary, {packet, 0}, {active, once}]),
-    NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, bit_limit, false)),
+    NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, byte_limit, false)),
     ?hdrt("init done", []),
     gen_server:enter_loop(?MODULE, [], NewState).
 
@@ -208,11 +208,11 @@ handle_info({Proto, Socket, Data},
     
 %%     case (catch Module:Function([Data | Args])) of
     PROCESSED = (catch Module:Function([Data | Args])),
-    NewDataSize = case State#state.bit_limit of
+    NewDataSize = case State#state.byte_limit of
 		      undefined ->
 			  undefined;
 		      _ ->
-			  State#state.data + bit_size(Data)
+			  State#state.data + byte_size(Data)
 		  end,
     ?hdrt("data processed", [{processing_result, PROCESSED}]),
     case PROCESSED of
@@ -277,8 +277,8 @@ handle_info(timeout, #state{mod = ModData} = State) ->
     error_log("The client did not send the whole request before the "
 	      "server side timeout", ModData),
     {stop, normal, State#state{response_sent = true}};
-handle_info(check_data, #state{data = Data, bit_limit = Bit_Limit} = State) ->
-    case Data >= (Bit_Limit * 10) of %% Ten seconds itnerval
+handle_info(check_data, #state{data = Data, byte_limit = Byte_Limit} = State) ->
+    case Data >= (Byte_Limit * 10) of %% Ten seconds itnerval
 	true ->
 	    erlang:send_after(10000, self(), check_data),
 	    {noreply, State#state{data = 0}};
@@ -626,13 +626,13 @@ activate_request_timeout(#state{timeout = Time} = State) ->
     ?hdrt("activate request timeout", [{time, Time}]),    
     Ref = erlang:send_after(Time, self(), timeout),
     State#state{timer = Ref}.
-data_receive_counter(State, Bit_limit) ->
-    case Bit_limit of
+data_receive_counter(State, Byte_limit) ->
+    case Byte_limit of
 	false ->
 	    State#state{data = 0};
 	Nr ->
 	    erlang:send_after(10000, self(), check_data),
-	    State#state{data = 0, bit_limit = Nr}
+	    State#state{data = 0, byte_limit = Nr}
     end.
 cancel_request_timeout(#state{timer = undefined} = State) ->
     State;
