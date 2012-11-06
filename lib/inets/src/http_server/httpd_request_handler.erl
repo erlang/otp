@@ -144,7 +144,7 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
     ?hdrt("set socket options (binary, packet & active)", []),
     http_transport:setopts(SocketType, Socket, 
 			   [binary, {packet, 0}, {active, once}]),
-    NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, byte_limit, false)),
+    NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, minimum_bytes_per_second, false)),
     ?hdrt("init done", []),
     gen_server:enter_loop(?MODULE, [], NewState).
 
