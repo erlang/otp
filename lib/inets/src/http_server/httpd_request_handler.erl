@@ -44,7 +44,9 @@
 		timeout,  %% infinity | integer() > 0
 		timer,     %% ref() - Request timer
 		headers,  %% #http_request_h{}
-		body      %% binary()
+		body,      %% binary()
+		data,      %% The total data received in bits, checked after 10s
+		bit_limit  %% Bit limit per second before kick out
 	       }).
 
 %%====================================================================
@@ -98,7 +100,6 @@ init([Manager, ConfigDB, AcceptTimeout]) ->
 	  [{socket_type, SocketType}, {socket, Socket}]),
 
     TimeOut = httpd_util:lookup(ConfigDB, keep_alive_timeout, 150000),
-
     Then = erlang:now(),
     
     ?hdrd("negotiate", []),
@@ -139,12 +140,11 @@ continue_init(Manager, ConfigDB, SocketType, Socket, TimeOut) ->
 		   mfa                    = MFA},
     
     ?hdrt("activate request timeout", []),
-    NewState = activate_request_timeout(State),
     
     ?hdrt("set socket options (binary, packet & active)", []),
     http_transport:setopts(SocketType, Socket, 
 			   [binary, {packet, 0}, {active, once}]),
-
+    NewState =  data_receive_counter(activate_request_timeout(State), httpd_util:lookup(ConfigDB, bit_limit, false)),
     ?hdrt("init done", []),
     gen_server:enter_loop(?MODULE, [], NewState).
 
@@ -205,16 +205,25 @@ handle_info({Proto, Socket, Data},
     ?hdrd("received data", 
 	  [{data, Data}, {proto, Proto}, 
 	   {socket, Socket}, {socket_type, SockType}, {mfa, MFA}]),
-
+    
 %%     case (catch Module:Function([Data | Args])) of
     PROCESSED = (catch Module:Function([Data | Args])),
-    
+    NewDataSize = case State#state.bit_limit of
+		      undefined ->
+			  undefined;
+		      _ ->
+			  State#state.data + bit_size(Data)
+		  end,
     ?hdrt("data processed", [{processing_result, PROCESSED}]),
-
     case PROCESSED of
         {ok, Result} ->
 	    ?hdrd("data processed", [{result, Result}]),
-	    NewState = cancel_request_timeout(State),
+	    NewState = case NewDataSize of
+			   undefined ->
+			       cancel_request_timeout(State);
+			   _ ->
+			       set_new_data_size(cancel_request_timeout(State), NewDataSize)
+		       end,
             handle_http_msg(Result, NewState); 
 
 	{error, {uri_too_long, MaxSize}, Version} ->
@@ -239,7 +248,12 @@ handle_info({Proto, Socket, Data},
 	NewMFA ->
 	    ?hdrd("data processed - reactivate socket", [{new_mfa, NewMFA}]),
 	    http_transport:setopts(SockType, Socket, [{active, once}]),
-            {noreply, State#state{mfa = NewMFA}}
+	    case NewDataSize of
+		undefined ->
+		    {noreply, State#state{mfa = NewMFA}};
+		_ ->
+		    {noreply, State#state{mfa = NewMFA, data = NewDataSize}}
+	    end
     end;
 
 %% Error cases
@@ -263,7 +277,14 @@ handle_info(timeout, #state{mod = ModData} = State) ->
     error_log("The client did not send the whole request before the "
 	      "server side timeout", ModData),
     {stop, normal, State#state{response_sent = true}};
-
+handle_info(check_data, #state{data = Data, bit_limit = Bit_Limit} = State) ->
+    case Data >= (Bit_Limit * 10) of %% Ten seconds itnerval
+	true ->
+	    erlang:send_after(10000, self(), check_data),
+	    {noreply, State#state{data = 0}};
+	_ ->
+	    {stop, normal, State#state{response_sent = true}}
+    end;
 %% Default case
 handle_info(Info, #state{mod = ModData} = State) ->
     Error = lists:flatten(
@@ -311,6 +332,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+set_new_data_size(State, NewData) ->
+    State#state{data = NewData}.
 await_socket_ownership_transfer(AcceptTimeout) ->
     receive
 	{socket_ownership_transfered, SocketType, Socket} ->
@@ -603,7 +626,14 @@ activate_request_timeout(#state{timeout = Time} = State) ->
     ?hdrt("activate request timeout", [{time, Time}]),    
     Ref = erlang:send_after(Time, self(), timeout),
     State#state{timer = Ref}.
-
+data_receive_counter(State, Bit_limit) ->
+    case Bit_limit of
+	false ->
+	    State#state{data = 0};
+	Nr ->
+	    erlang:send_after(10000, self(), check_data),
+	    State#state{data = 0, bit_limit = Nr}
+    end.
 cancel_request_timeout(#state{timer = undefined} = State) ->
     State;
 cancel_request_timeout(#state{timer = Timer} = State) ->
