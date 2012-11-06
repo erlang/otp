@@ -194,7 +194,10 @@ pem_start('SubjectPublicKeyInfo') ->
 pem_start('DSAPrivateKey') ->
     <<"-----BEGIN DSA PRIVATE KEY-----">>;
 pem_start('DHParameter') ->
-    <<"-----BEGIN DH PARAMETERS-----">>.
+    <<"-----BEGIN DH PARAMETERS-----">>;
+pem_start('ContentInfo') ->
+    <<"-----BEGIN PKCS7-----">>.
+
 pem_end(<<"-----BEGIN CERTIFICATE-----">>) ->
     <<"-----END CERTIFICATE-----">>;
 pem_end(<<"-----BEGIN RSA PRIVATE KEY-----">>) ->
@@ -211,8 +214,8 @@ pem_end(<<"-----BEGIN PRIVATE KEY-----">>) ->
     <<"-----END PRIVATE KEY-----">>;
 pem_end(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
     <<"-----END ENCRYPTED PRIVATE KEY-----">>;
-pem_end(_) ->
-    undefined.
+pem_end(<<"-----BEGIN PKCS7-----">>) ->
+    <<"-----END PKCS7-----">>.
 
 asn1_type(<<"-----BEGIN CERTIFICATE-----">>) ->
     'Certificate';
@@ -229,7 +232,9 @@ asn1_type(<<"-----BEGIN DH PARAMETERS-----">>) ->
 asn1_type(<<"-----BEGIN PRIVATE KEY-----">>) ->
     'PrivateKeyInfo';
 asn1_type(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
-    'EncryptedPrivateKeyInfo'.
+    'EncryptedPrivateKeyInfo';
+asn1_type(<<"-----BEGIN PKCS7-----">>) ->
+    'ContentInfo'.
 
 pem_decrypt() ->
     <<"Proc-Type: 4,ENCRYPTED">>.

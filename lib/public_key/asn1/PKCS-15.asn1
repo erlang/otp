@@ -1,0 +1,869 @@
+PKCS-15 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+         pkcs-15(15) modules(1) pkcs-15(1)}
+
+-- $Revision: 1.7 $ --
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+IMPORTS
+
+informationFramework, authenticationFramework, certificateExtensions
+        FROM UsefulDefinitions {joint-iso-itu-t(2) ds(5) module(1)
+                                usefulDefinitions(0) 3}
+
+Name, Attribute
+        FROM InformationFramework informationFramework
+
+Certificate, AttributeCertificate, CertificateSerialNumber,
+        SubjectPublicKeyInfo
+        FROM AuthenticationFramework authenticationFramework
+
+GeneralNames, KeyUsage
+        FROM CertificateExtensions certificateExtensions
+
+RecipientInfos, RecipientInfo, OriginatorInfo, sha-1,
+	id-alg-CMS3DESwrap, id-alg-CMSRC2wrap, hMAC-SHA1, des-ede3-cbc
+	FROM CryptographicMessageSyntax {iso(1) member-body(2)
+	us(840) rsadsi(113549) pkcs(1) pkcs-9(9) smime(16) modules(0)
+	cms(1)}
+
+RSAPublicKey
+	FROM PKCS-1 {iso(1) member-body(2) us(840) rsadsi(113549)
+	pkcs(1) pkcs-1(1) modules(0) pkcs-1(1)}
+
+AlgorithmIdentifier, SupportingAlgorithms, PBKDF2Algorithms,
+	ALGORITHM-IDENTIFIER, id-hmacWithSHA1
+	FROM PKCS-5 {iso(1) member-body(2) us(840) rsadsi(113549)
+	pkcs(1) pkcs-5(5) modules(16) pkcs-5(1)}
+
+ECPoint, Parameters
+        FROM ANSI-X9-62 {iso(1) member-body(2) us(840)
+        ansi-x962(10045) module(4) 1}
+
+DiffieHellmanPublicNumber, DomainParameters
+        FROM ANSI-X9-42 {iso(1) member-body(2) us(840)
+        ansi-x942(10046) module(5) 1}
+
+OOBCertHash
+        FROM PKIXCMP {iso(1) identified-organization(3) dod(6)
+        internet(1) security(5) mechanisms(5) pkix(7) id-mod(0)
+        id-mod-cmp(9)};
+
+-- Constants
+
+pkcs15-ub-identifier          INTEGER ::= 255
+pkcs15-ub-reference           INTEGER ::= 255
+pkcs15-ub-index               INTEGER ::= 65535
+pkcs15-ub-label               INTEGER ::= pkcs15-ub-identifier
+pkcs15-lb-minPinLength        INTEGER ::= 4
+pkcs15-ub-minPinLength        INTEGER ::= 8
+pkcs15-ub-storedPinLength     INTEGER ::= 64
+pkcs15-ub-recordLength        INTEGER ::= 16383
+pkcs15-ub-userConsent         INTEGER ::= 15
+pkcs15-ub-securityConditions  INTEGER ::= 255
+pkcs15-ub-seInfo              INTEGER ::= 255
+
+-- Object Identifiers
+
+pkcs15 OBJECT IDENTIFIER ::= { iso(1) member-body(2) us(840)
+                               rsadsi(113549) pkcs(1) pkcs-15(15)}
+pkcs15-mo OBJECT IDENTIFIER ::= {pkcs15 1} -- Modules branch
+pkcs15-at OBJECT IDENTIFIER ::= {pkcs15 2} -- Attribute branch
+pkcs15-ct OBJECT IDENTIFIER ::= {pkcs15 3} -- Content type branch
+
+-- Content Types
+
+pkcs15-ct-PKCS15Token OBJECT IDENTIFIER ::= {pkcs15-ct 1}
+
+-- Basic types
+
+Identifier ::= OCTET STRING (SIZE (0..pkcs15-ub-identifier))
+
+Reference ::= INTEGER (0..pkcs15-ub-reference)
+
+Label ::= UTF8String (SIZE(0..pkcs15-ub-label))
+
+KEY-IDENTIFIER ::= CLASS {
+    &id  INTEGER UNIQUE,
+    &Value
+} WITH SYNTAX {
+    SYNTAX &Value IDENTIFIED BY &id
+}
+
+CredentialIdentifier {KEY-IDENTIFIER : IdentifierSet} ::= SEQUENCE {
+    idType  KEY-IDENTIFIER.&id ({IdentifierSet}),
+    idValue KEY-IDENTIFIER.&Value ({IdentifierSet}{@idType})
+}
+
+KeyIdentifiers KEY-IDENTIFIER ::= {
+    issuerAndSerialNumber|
+    issuerAndSerialNumberHash|
+    subjectKeyId|
+    subjectKeyHash |
+    issuerKeyHash |
+    issuerNameHash |
+    subjectNameHash,
+    ...
+}
+
+issuerAndSerialNumber KEY-IDENTIFIER::=
+        {SYNTAX PKCS15-OPAQUE.&Type IDENTIFIED BY 1}
+        -- As defined in RFC 2630
+subjectKeyId KEY-IDENTIFIER ::=
+        {SYNTAX OCTET STRING IDENTIFIED BY 2}
+        -- From x509v3 certificate extension
+issuerAndSerialNumberHash KEY-IDENTIFIER ::=
+        {SYNTAX OCTET STRING IDENTIFIED BY 3}
+        -- Assumes SHA-1 hash of DER encoding of IssuerAndSerialNumber
+subjectKeyHash KEY-IDENTIFIER ::=
+        {SYNTAX OCTET STRING IDENTIFIED BY 4}
+issuerKeyHash KEY-IDENTIFIER ::=
+        {SYNTAX OCTET STRING IDENTIFIED BY 5}
+issuerNameHash KEY-IDENTIFIER ::=
+	{SYNTAX OCTET STRING IDENTIFIED BY 6}
+	-- SHA-1 hash of DER-encoded issuer name
+subjectNameHash KEY-IDENTIFIER ::=
+        {SYNTAX OCTET STRING IDENTIFIED BY 7}
+	-- SHA-1 hash of DER-encoded subject name
+
+ReferencedValue {Type} ::= CHOICE {
+    path	Path,
+    url		URL
+} (CONSTRAINED BY {-- 'path' or 'url' shall point to an object of
+   -- type -- Type})
+
+URL ::= CHOICE {
+    url		PrintableString,
+    urlWithDigest [3] SEQUENCE {
+	url	IA5String,
+	digest	DigestInfoWithDefault
+	}
+}
+
+alg-id-sha1 AlgorithmIdentifier {{DigestAlgorithms}} ::= {
+    algorithm  sha-1,
+    parameters SHA1Parameters : NULL}
+
+SHA1Parameters ::= NULL
+
+DigestInfoWithDefault ::= SEQUENCE {
+    digestAlg	AlgorithmIdentifier {{DigestAlgorithms}} DEFAULT alg-id-sha1,
+    digest	OCTET STRING (SIZE(8..128))
+}
+
+Path ::= SEQUENCE {
+    path 	OCTET STRING,
+    index  	INTEGER (0..pkcs15-ub-index) OPTIONAL,
+    length 	[0] INTEGER (0..pkcs15-ub-index) OPTIONAL
+    }( WITH COMPONENTS {..., index PRESENT, length PRESENT}|
+       WITH COMPONENTS {..., index ABSENT, length ABSENT})
+
+ObjectValue { Type } ::= CHOICE {
+    indirect 	        ReferencedValue {Type},
+    direct 	        [0] Type,
+    indirect-protected	[1] ReferencedValue {EnvelopedData {Type}},
+    direct-protected	[2] EnvelopedData {Type}
+    }(CONSTRAINED BY {-- if indirection is being used, then it is
+    -- expected that the reference points either to a (possibly
+    -- enveloped) object of type -- Type -- or (key case) to a card-
+    -- specific key file --})
+
+PathOrObjects {ObjectType} ::= CHOICE {
+    path  	Path,
+    objects  	[0] SEQUENCE OF ObjectType,
+    ...,
+    indirect-protected [1] ReferencedValue {EnvelopedData {SEQUENCE OF ObjectType}},
+    direct-protected [2] EnvelopedData {SEQUENCE OF ObjectType}
+    }
+
+CommonObjectAttributes ::= SEQUENCE {
+    label		Label OPTIONAL,
+    flags  		CommonObjectFlags OPTIONAL,
+    authId 		Identifier OPTIONAL,
+    ...,
+    userConsent 	INTEGER (1..pkcs15-ub-userConsent) OPTIONAL,
+    accessControlRules	SEQUENCE SIZE (1..MAX) OF AccessControlRule OPTIONAL
+} (CONSTRAINED BY {-- authId should be present in the IC card case if
+    -- flags.private is set. It must equal an authID in one AuthRecord
+    -- in the AODF -- })
+
+CommonObjectFlags ::= BIT STRING {
+    private	(0),
+    modifiable 	(1)
+}
+
+AccessControlRule ::= SEQUENCE {
+    accessMode		AccessMode,
+    securityCondition 	SecurityCondition,
+    ... -- For future extensions
+}
+
+AccessMode ::= BIT STRING {
+    read	(0),
+    update	(1),
+    execute	(2)
+}
+
+SecurityCondition ::= CHOICE {
+    authId	Identifier,
+    not    	[0] SecurityCondition,
+    and    	[1] SEQUENCE SIZE (2..pkcs15-ub-securityConditions)
+                OF SecurityCondition,
+    or     	[2] SEQUENCE SIZE (2..pkcs15-ub-securityConditions)
+                OF SecurityCondition,
+    ... -- For future extensions
+}
+
+CommonKeyAttributes ::= SEQUENCE {
+    iD 		 Identifier,
+    usage 	 KeyUsageFlags,
+    native	 BOOLEAN DEFAULT TRUE,
+    accessFlags	 KeyAccessFlags OPTIONAL,
+    keyReference Reference OPTIONAL,
+    startDate 	 GeneralizedTime OPTIONAL,
+    endDate  	 [0] GeneralizedTime OPTIONAL,
+    ... -- For future extensions
+}
+
+KeyUsageFlags ::= BIT STRING {
+    encrypt 			(0),
+    decrypt 			(1),
+    sign 			(2),
+    signRecover 		(3),
+    wrap 			(4),
+    unwrap 			(5),
+    verify 			(6),
+    verifyRecover  		(7),
+    derive 			(8),
+    nonRepudiation		(9)
+}
+
+KeyAccessFlags ::= BIT STRING {
+    sensitive  		(0),
+    extractable 	(1),
+    alwaysSensitive 	(2),
+    neverExtractable	(3),
+    local		(4)
+}
+
+CommonPrivateKeyAttributes ::= SEQUENCE {
+    subjectName	Name OPTIONAL,
+    keyIdentifiers 	[0] SEQUENCE OF CredentialIdentifier
+                        {{KeyIdentifiers}} OPTIONAL,
+    ... -- For future extensions
+}
+
+CommonPublicKeyAttributes ::= SEQUENCE {
+    subjectName	 Name OPTIONAL,
+    ...,
+    trustedUsage [0] Usage OPTIONAL
+}
+
+CommonSecretKeyAttributes ::= SEQUENCE {
+    keyLen	INTEGER OPTIONAL, -- keylength (in bits)
+    ... -- For future extensions
+}
+
+KeyInfo {ParameterType, OperationsType} ::= CHOICE {
+    reference		Reference,
+    paramsAndOps 	SEQUENCE {
+	parameters 		ParameterType,
+	supportedOperations 	OperationsType OPTIONAL
+	}
+}
+
+CommonCertificateAttributes ::= SEQUENCE {
+    iD 		Identifier,
+    authority	BOOLEAN DEFAULT FALSE,
+    identifier 	CredentialIdentifier {{KeyIdentifiers}} OPTIONAL,
+    certHash	[0] OOBCertHash OPTIONAL,
+    ...,
+    trustedUsage [1] Usage OPTIONAL,
+    identifiers	[2] SEQUENCE OF CredentialIdentifier{{KeyIdentifiers}} OPTIONAL,
+    implicitTrust [3] BOOLEAN DEFAULT FALSE
+}
+
+Usage ::= SEQUENCE {
+    keyUsage	KeyUsage OPTIONAL,
+    extKeyUsage	SEQUENCE SIZE (1..MAX) OF OBJECT IDENTIFIER OPTIONAL
+    }(WITH COMPONENTS {..., keyUsage PRESENT} |
+      WITH COMPONENTS {..., extKeyUsage PRESENT})
+
+CommonDataObjectAttributes ::= SEQUENCE {
+    applicationName	Label OPTIONAL,
+    applicationOID 	OBJECT IDENTIFIER OPTIONAL,
+    ... -- For future extensions
+    } (WITH COMPONENTS {..., applicationName PRESENT}|
+       WITH COMPONENTS {..., applicationOID PRESENT})
+
+CommonAuthenticationObjectAttributes ::= SEQUENCE {
+    authId Identifier,
+    ... -- For future extensions
+}
+
+PKCS15Object {ClassAttributes, SubClassAttributes, TypeAttributes}
+    ::= SEQUENCE {
+    commonObjectAttributes	CommonObjectAttributes,
+    classAttributes		ClassAttributes,
+    subClassAttributes 		[0] SubClassAttributes OPTIONAL,
+    typeAttributes		[1] TypeAttributes
+}
+
+PKCS15Objects ::= CHOICE {
+    privateKeys 	[0] PrivateKeys,
+    publicKeys 		[1] PublicKeys,
+    trustedPublicKeys  	[2] PublicKeys,
+    secretKeys 		[3] SecretKeys,
+    certificates	[4] Certificates,
+    trustedCertificates [5] Certificates,
+    usefulCertificates 	[6] Certificates,
+    dataObjects 	[7] DataObjects,
+    authObjects 	[8] AuthObjects,
+    ... -- For future extensions
+}
+
+PrivateKeys  ::= PathOrObjects {PrivateKeyType}
+
+SecretKeys   ::= PathOrObjects {SecretKeyType}
+
+PublicKeys   ::= PathOrObjects {PublicKeyType}
+
+Certificates ::= PathOrObjects {CertificateType}
+
+DataObjects  ::= PathOrObjects {DataType}
+
+AuthObjects  ::= PathOrObjects {AuthenticationType}
+
+PrivateKeyType ::= CHOICE {
+    privateRSAKey	PrivateKeyObject {PrivateRSAKeyAttributes},
+    privateECKey 	[0] PrivateKeyObject {PrivateECKeyAttributes},
+    privateDHKey 	[1] PrivateKeyObject {PrivateDHKeyAttributes},
+    privateDSAKey	[2] PrivateKeyObject {PrivateDSAKeyAttributes},
+    privateKEAKey	[3] PrivateKeyObject {PrivateKEAKeyAttributes},
+    ... -- For future extensions
+}
+
+PrivateKeyObject {KeyAttributes} ::= PKCS15Object {
+    CommonKeyAttributes, CommonPrivateKeyAttributes, KeyAttributes}
+
+PrivateRSAKeyAttributes ::= SEQUENCE {
+    value 		ObjectValue {RSAPrivateKeyObject},
+    modulusLength 	INTEGER, -- modulus length in bits, e.g. 1024
+    keyInfo  		KeyInfo {NULL, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+RSAPrivateKeyObject ::= SEQUENCE {
+    modulus 		[0] INTEGER OPTIONAL, -- n
+    publicExponent 	[1] INTEGER OPTIONAL, -- e
+    privateExponent 	[2] INTEGER OPTIONAL, -- d
+    prime1 		[3] INTEGER OPTIONAL, -- p
+    prime2 		[4] INTEGER OPTIONAL, -- q
+    exponent1  		[5] INTEGER OPTIONAL, -- d mod (p-1)
+    exponent2  		[6] INTEGER OPTIONAL, -- d mod (q-1)
+    coefficient 	[7] INTEGER OPTIONAL -- inv(q) mod p
+} (CONSTRAINED BY {-- must be possible to reconstruct modulus and
+   -- privateExponent from selected fields --})
+
+PrivateECKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {ECPrivateKey},
+    keyInfo 	KeyInfo {Parameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+ECPrivateKey ::= INTEGER
+
+PrivateDHKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {DHPrivateKey},
+    keyInfo 	KeyInfo {DomainParameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+DHPrivateKey ::= INTEGER -- Diffie-Hellman exponent
+
+PrivateDSAKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {DSAPrivateKey},
+    keyInfo 	KeyInfo {DomainParameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+DSAPrivateKey ::= INTEGER
+
+PrivateKEAKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {KEAPrivateKey},
+    keyInfo 	KeyInfo {DomainParameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+KEAPrivateKey ::= INTEGER
+
+PublicKeyType ::= CHOICE {
+    publicRSAKey 	PublicKeyObject {PublicRSAKeyAttributes},
+    publicECKey 	[0] PublicKeyObject {PublicECKeyAttributes},
+    publicDHKey 	[1] PublicKeyObject {PublicDHKeyAttributes},
+    publicDSAKey 	[2] PublicKeyObject {PublicDSAKeyAttributes},
+    publicKEAKey 	[3] PublicKeyObject {PublicKEAKeyAttributes},
+    ... -- For future extensions
+}
+
+PublicKeyObject {KeyAttributes} ::= PKCS15Object {
+    CommonKeyAttributes, CommonPublicKeyAttributes, KeyAttributes}
+
+PublicRSAKeyAttributes ::= SEQUENCE {
+    value		ObjectValue {RSAPublicKeyChoice},
+    modulusLength 	INTEGER, -- modulus length in bits, e.g. 1024
+    keyInfo		KeyInfo {NULL, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+RSAPublicKeyChoice ::= CHOICE {
+    raw	 RSAPublicKey,
+    spki [1] SubjectPublicKeyInfo, -- See X.509. Must contain a
+    -- public RSA key
+    ...
+}
+
+PublicECKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {ECPublicKeyChoice},
+    keyInfo 	KeyInfo {Parameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+ECPublicKeyChoice ::= CHOICE {
+    raw	 ECPoint,
+    spki SubjectPublicKeyInfo, -- See X.509. Must contain a public EC key
+    ...
+}
+
+PublicDHKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {DHPublicKeyChoice},
+    keyInfo 	KeyInfo {DomainParameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+DHPublicKeyChoice ::= CHOICE {
+    raw	 DiffieHellmanPublicNumber,
+    spki SubjectPublicKeyInfo, -- See X.509. Must contain a public D-H key
+    ...
+}
+
+PublicDSAKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {DSAPublicKeyChoice},
+    keyInfo 	KeyInfo {DomainParameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+DSAPublicKeyChoice ::= CHOICE {
+    raw	 INTEGER,
+    spki SubjectPublicKeyInfo, -- See X.509. Must contain a public DSA key.
+    ...
+}
+
+PublicKEAKeyAttributes ::= SEQUENCE {
+    value  	ObjectValue {KEAPublicKeyChoice},
+    keyInfo 	KeyInfo {DomainParameters, PublicKeyOperations} OPTIONAL,
+    ... -- For future extensions
+}
+
+KEAPublicKeyChoice ::= CHOICE {
+    raw	 INTEGER,
+    spki SubjectPublicKeyInfo, -- See X.509. Must contain a public KEA key
+    ...
+}
+
+SecretKeyType ::= CHOICE {
+    genericSecretKey	SecretKeyObject {GenericSecretKeyAttributes},
+    rc2key 		[0] SecretKeyObject {GenericSecretKeyAttributes},
+    rc4key 		[1] SecretKeyObject {GenericSecretKeyAttributes},
+    desKey 		[2] SecretKeyObject {GenericSecretKeyAttributes},
+    des2Key		[3] SecretKeyObject {GenericSecretKeyAttributes},
+    des3Key    	        [4] SecretKeyObject {GenericSecretKeyAttributes},
+    castKey 		[5] SecretKeyObject {GenericSecretKeyAttributes},
+    cast3Key 		[6] SecretKeyObject {GenericSecretKeyAttributes},
+    cast128Key  	[7] SecretKeyObject {GenericSecretKeyAttributes},
+    rc5Key  		[8] SecretKeyObject {GenericSecretKeyAttributes},
+    ideaKey 		[9] SecretKeyObject {GenericSecretKeyAttributes},
+    skipjackKey 	[10] SecretKeyObject {GenericSecretKeyAttributes},
+    batonKey		[11] SecretKeyObject {GenericSecretKeyAttributes},
+    juniperKey  	[12] SecretKeyObject {GenericSecretKeyAttributes},
+    rc6Key 		[13] SecretKeyObject {GenericSecretKeyAttributes},
+    otherKey		[14] OtherKey,
+... -- For future extensions
+}
+
+SecretKeyObject {KeyAttributes} ::= PKCS15Object {
+     CommonKeyAttributes, CommonSecretKeyAttributes, KeyAttributes}
+
+OtherKey ::= SEQUENCE {
+    keyType	OBJECT IDENTIFIER,
+    keyAttr	SecretKeyObject {GenericSecretKeyAttributes}
+}
+
+GenericSecretKeyAttributes ::= SEQUENCE {
+    value	ObjectValue { OCTET STRING },
+    ... -- For future extensions
+}
+
+CertificateType ::= CHOICE {
+    x509Certificate  	CertificateObject { X509CertificateAttributes},
+    x509AttributeCertificate [0] CertificateObject
+                        {X509AttributeCertificateAttributes},
+    spkiCertificate 	[1] CertificateObject {SPKICertificateAttributes},
+    pgpCertificate  	[2] CertificateObject {PGPCertificateAttributes},
+    wtlsCertificate 	[3] CertificateObject {WTLSCertificateAttributes},
+    x9-68Certificate 	[4] CertificateObject {X9-68CertificateAttributes},
+    ...,
+    cvCertificate	[5] CertificateObject {CVCertificateAttributes}
+}
+
+CertificateObject {CertAttributes} ::= PKCS15Object {
+    CommonCertificateAttributes, NULL, CertAttributes}
+
+X509CertificateAttributes ::= SEQUENCE {
+    value		ObjectValue { Certificate },
+    subject  		Name OPTIONAL,
+    issuer 		[0] Name OPTIONAL,
+    serialNumber 	CertificateSerialNumber OPTIONAL,
+    ... -- For future extensions
+}
+
+X509AttributeCertificateAttributes ::= SEQUENCE {
+    value	ObjectValue { AttributeCertificate },
+    issuer	GeneralNames OPTIONAL,
+    serialNumber CertificateSerialNumber OPTIONAL,
+    attrTypes 	[0] SEQUENCE OF OBJECT IDENTIFIER OPTIONAL,
+    ... -- For future extensions
+}
+
+SPKICertificateAttributes ::= SEQUENCE {
+    value	ObjectValue { PKCS15-OPAQUE.&Type },
+    ... -- For future extensions
+}
+
+PGPCertificateAttributes ::= SEQUENCE {
+    value	ObjectValue { PKCS15-OPAQUE.&Type },
+    ... -- For future extensions
+}
+
+WTLSCertificateAttributes ::= SEQUENCE {
+    value	ObjectValue { PKCS15-OPAQUE.&Type },
+    ... -- For future extensions
+}
+
+X9-68CertificateAttributes ::= SEQUENCE {
+    value	ObjectValue { PKCS15-OPAQUE.&Type },
+    ... -- For future extensions
+}
+CVCertificateAttributes ::= SEQUENCE {
+    value	ObjectValue { PKCS15-OPAQUE.&Type},
+    ... -- For future extensions
+}
+
+DataType ::= CHOICE {
+    opaqueDO	DataObject {Opaque},
+    externalIDO	[0] DataObject {ExternalIDO},
+    oidDO  	[1] DataObject {OidDO},
+    ... -- For future extensions
+}
+
+DataObject {DataObjectAttributes} ::= PKCS15Object {
+    CommonDataObjectAttributes, NULL, DataObjectAttributes}
+
+Opaque ::= ObjectValue {PKCS15-OPAQUE.&Type}
+
+ExternalIDO ::= ObjectValue {PKCS15-OPAQUE.&Type}
+    (CONSTRAINED BY {-- All data objects must be defined in
+    -- accordance with ISO/IEC 7816-6 --})
+
+OidDO ::= SEQUENCE {
+    id		OBJECT IDENTIFIER,
+    value 	ObjectValue {PKCS15-OPAQUE.&Type}
+}
+
+AuthenticationType ::= CHOICE {
+    pin	AuthenticationObject { PinAttributes },
+    ...,
+    biometricTemplate [0] AuthenticationObject {BiometricAttributes},
+    authKey  [1] AuthenticationObject {AuthKeyAttributes},
+    external [2] AuthenticationObject {ExternalAuthObjectAttributes}
+}
+
+AuthenticationObject {AuthObjectAttributes} ::= PKCS15Object {
+    CommonAuthenticationObjectAttributes, NULL, AuthObjectAttributes}
+
+PinAttributes ::= SEQUENCE {
+    pinFlags  	  PinFlags,
+    pinType  	  PinType,
+    minLength 	  INTEGER (pkcs15-lb-minPinLength..pkcs15-ub-minPinLength),
+    storedLength  INTEGER (0..pkcs15-ub-storedPinLength),
+    maxLength 	  INTEGER OPTIONAL,
+    pinReference  [0] Reference DEFAULT 0,
+    padChar  	  OCTET STRING (SIZE(1)) OPTIONAL,
+    lastPinChange GeneralizedTime OPTIONAL,
+    path 	  Path OPTIONAL,
+    ... -- For future extensions
+}
+
+PinFlags ::= BIT STRING {
+    case-sensitive		(0),
+    local 			(1),
+    change-disabled 		(2),
+    unblock-disabled 		(3),
+    initialized  		(4),
+    needs-padding 		(5),
+    unblockingPin 		(6),
+    soPin 			(7),
+    disable-allowed 		(8),
+    integrity-protected		(9),
+    confidentiality-protected	(10),
+    exchangeRefData		(11)
+} (CONSTRAINED BY { -- 'unblockingPin' and 'soPIN' cannot both be set -- })
+
+PinType ::= ENUMERATED {bcd, ascii-numeric, utf8, ...,
+    half-nibble-bcd, iso9564-1}
+
+BiometricAttributes ::= SEQUENCE {
+    bioFlags		BiometricFlags,
+    templateId		OBJECT IDENTIFIER,
+    bioType		BiometricType,
+    bioReference	Reference DEFAULT 0,
+    lastChange		GeneralizedTime OPTIONAL,
+    path		Path OPTIONAL,
+... -- For future extensions
+}
+
+BiometricFlags ::= BIT STRING {
+    local		(1),
+    change-disabled	(2),
+    unblock-disabled	(3),
+    initialized		(4),
+    disable-allowed	(8),
+    integrity-protected	(9),
+    confidentiality-protected	(10)
+    } -- Note: bits 0, 5, 6, and 7 are reserved for future use
+
+BiometricType ::= CHOICE {
+    fingerPrint		FingerPrint,
+    irisScan		[0] IrisScan,
+    -- Possible extensions:
+    -- voiceScan	VoiceScan,
+    -- faceScan		FaceScan,
+    -- retinaScan	Retinascan,
+    -- handGeometry	HandGeometry,
+    -- writeDynamics	WriteDynamics,
+    -- keyStrokeDynamicsKeyStrokeDynamics,
+    -- lipDynamics	LipDynamics,
+    ... -- For future extensions
+}
+
+FingerPrint ::= SEQUENCE {
+    hand	ENUMERATED {left, right},
+    finger	ENUMERATED {thumb, pointerFinger, middleFinger,
+                    ringFinger, littleFinger},
+    ...
+}
+
+IrisScan ::= SEQUENCE {
+    eye	ENUMERATED {left, right},
+    ...
+}
+
+ExternalAuthObjectAttributes ::= CHOICE {
+    authKeyAttributes	AuthKeyAttributes,
+    certBasedAttributes	[0] CertBasedAuthenticationAttributes,
+    ... -- For future extensions
+}
+
+AuthKeyAttributes ::= SEQUENCE {
+    derivedKey	BOOLEAN DEFAULT TRUE,
+    authKeyId	Identifier,
+    ... -- For future extensions
+}
+
+CertBasedAuthenticationAttributes ::= SEQUENCE {
+    cha	OCTET STRING,
+    ...
+}
+
+TokenInfo ::= SEQUENCE {
+    version		INTEGER {v1(0)} (v1,...),
+    serialNumber	OCTET STRING,
+    manufacturerID 	Label OPTIONAL,
+    label 		[0] Label OPTIONAL,
+    tokenflags 		TokenFlags,
+    seInfo 		SEQUENCE OF SecurityEnvironmentInfo OPTIONAL,
+    recordInfo 		[1] RecordInfo OPTIONAL,
+    supportedAlgorithms	[2] SEQUENCE OF AlgorithmInfo OPTIONAL,
+    ...,
+    issuerId		[3] Label OPTIONAL,
+    holderId		[4] Label OPTIONAL,
+    lastUpdate		[5] LastUpdate OPTIONAL,
+    preferredLanguage	PrintableString OPTIONAL -- In accordance with
+    -- IETF RFC 1766
+} (CONSTRAINED BY { -- Each AlgorithmInfo.reference value must be unique --})
+
+TokenFlags ::= BIT STRING {
+    readonly		(0),
+    loginRequired 	(1),
+    prnGeneration 	(2),
+    eidCompliant  	(3)
+}
+
+SecurityEnvironmentInfo ::= SEQUENCE {
+    se		INTEGER (0..pkcs15-ub-seInfo),
+    owner 	OBJECT IDENTIFIER,
+    ... -- For future extensions
+}
+
+RecordInfo ::= SEQUENCE {
+    oDFRecordLength  	[0] INTEGER (0..pkcs15-ub-recordLength) OPTIONAL,
+    prKDFRecordLength 	[1] INTEGER (0..pkcs15-ub-recordLength) OPTIONAL,
+    puKDFRecordLength	[2] INTEGER (0..pkcs15-ub-recordLength) OPTIONAL,
+    sKDFRecordLength 	[3] INTEGER (0..pkcs15-ub-recordLength) OPTIONAL,
+    cDFRecordLength  	[4] INTEGER (0..pkcs15-ub-recordLength) OPTIONAL,
+    dODFRecordLength 	[5] INTEGER (0..pkcs15-ub-recordLength) OPTIONAL,
+    aODFRecordLength 	[6] INTEGER (0..pkcs15-ub-recordLength) OPTIONAL
+}
+
+AlgorithmInfo ::= SEQUENCE {
+    reference  	Reference,
+    algorithm  	PKCS15-ALGORITHM.&id({AlgorithmSet}),
+    parameters 	PKCS15-ALGORITHM.&Parameters({AlgorithmSet}{@algorithm}),
+    supportedOperations
+		PKCS15-ALGORITHM.&Operations({AlgorithmSet}{@algorithm}),
+    algId       PKCS15-ALGORITHM.&objectIdentifier({AlgorithmSet}{@algorithm})
+                    OPTIONAL,
+    algRef	Reference OPTIONAL
+}
+
+PKCS15-ALGORITHM ::= CLASS {
+        &id INTEGER UNIQUE,
+        &Parameters,
+        &Operations Operations,
+	&objectIdentifier OBJECT IDENTIFIER OPTIONAL
+} WITH SYNTAX {
+  PARAMETERS &Parameters OPERATIONS &Operations ID &id [OID &objectIdentifier]}
+
+PKCS15-OPAQUE ::= TYPE-IDENTIFIER
+
+PublicKeyOperations ::= Operations
+
+Operations ::= BIT STRING {
+        compute-checksum  (0), -- H/W computation of checksum
+        compute-signature (1), -- H/W computation of signature
+        verify-checksum   (2), -- H/W verification of checksum
+        verify-signature  (3), -- H/W verification of signature
+        encipher          (4), -- H/W encryption of data
+        decipher          (5), -- H/W decryption of data
+        hash              (6), -- H/W hashing
+        generate-key      (7)  -- H/W key generation
+        }
+
+pkcs15-alg-null      PKCS15-ALGORITHM ::= {
+        PARAMETERS NULL OPERATIONS {{generate-key}} ID -1}
+
+AlgorithmSet PKCS15-ALGORITHM ::= {
+        pkcs15-alg-null,
+        ... -- See PKCS #11 for values for the &id field (and parameters)
+        }
+
+LastUpdate ::= CHOICE {
+        generalizedTime GeneralizedTime,
+        referencedTime ReferencedValue {GeneralizedTime},
+	... -- For future extensions
+	}
+
+-- Soft token related types and objects
+
+EnvelopedData {Type} ::= SEQUENCE {
+    version		 INTEGER{v0(0),v1(1),v2(2),v3(3),v4(4)}(v0|v1|v2,...),
+    originatorInfo	 [0] OriginatorInfo OPTIONAL,
+    recipientInfos 	 RecipientInfos,
+    encryptedContentInfo EncryptedContentInfo{Type},
+    unprotectedAttrs	 [1] SET SIZE (1..MAX) OF Attribute OPTIONAL
+}
+
+EncryptedContentInfo {Type} ::= SEQUENCE {
+    contentType		       OBJECT IDENTIFIER,
+    contentEncryptionAlgorithm AlgorithmIdentifier {{KeyDerivationAlgorithms}},
+    encryptedContent 	       [0] OCTET STRING OPTIONAL
+}(CONSTRAINED BY {-- 'encryptedContent' shall be the result of
+  -- encrypting DER-encoded value of type -- Type})
+
+PKCS15Token ::= SEQUENCE {
+    version		INTEGER {v1(0)} (v1,...),
+    keyManagementInfo	[0] KeyManagementInfo OPTIONAL,
+    pkcs15Objects	SEQUENCE OF PKCS15Objects
+}
+
+KeyManagementInfo ::= SEQUENCE OF SEQUENCE {
+    keyId		Identifier,
+    keyInfo		CHOICE {
+	recipientInfo	RecipientInfo,
+	passwordInfo	[0] PasswordInfo
+	}
+} (CONSTRAINED BY {-- Each keyID must be unique --})
+
+PasswordInfo ::= SEQUENCE {
+    hint	Label OPTIONAL,
+    algId	AlgorithmIdentifier {{KeyDerivationAlgorithms}},
+    ...
+} (CONSTRAINED BY {--keyID shall point to a KEKRecipientInfo--})
+
+KeyDerivationAlgorithms ALGORITHM-IDENTIFIER ::= {
+    PBKDF2Algorithms,
+    ... -- For future extensions
+}
+
+CMS3DESwrap ::= NULL
+
+KeyEncryptionAlgorithms ALGORITHM-IDENTIFIER ::= {
+    {CMS3DESwrap IDENTIFIED BY id-alg-CMS3DESwrap} |
+    {INTEGER IDENTIFIED BY id-alg-CMSRC2wrap},
+    ... -- For future extensions
+}
+
+DES-IV ::= OCTET STRING (SIZE(8))
+
+ContentEncryptionAlgorithms ALGORITHM-IDENTIFIER ::= {
+    SupportingAlgorithms EXCEPT {NULL IDENTIFIED BY id-hmacWithSHA1},
+    ... -- For future extensions
+}
+
+MACAlgorithms ALGORITHM-IDENTIFIER ::= {
+    {NULL IDENTIFIED BY hMAC-SHA1},
+    ... -- For future extensions
+}
+
+DigestAlgorithms ALGORITHM-IDENTIFIER ::= {
+    {NULL IDENTIFIED BY sha-1},
+    ... -- For future extensions
+}
+
+-- Misc
+
+DDO ::= SEQUENCE {
+    oid  	  OBJECT IDENTIFIER,
+    odfPath  	  Path OPTIONAL,
+    tokenInfoPath [0] Path OPTIONAL,
+    unusedPath 	  [1] Path OPTIONAL,
+    ... -- For future extensions
+}
+
+DIRRecord ::=   [APPLICATION 1] SEQUENCE {
+    aid  	[APPLICATION 15] OCTET STRING,
+    label 	[APPLICATION 16] UTF8String OPTIONAL,
+    path 	[APPLICATION 17] OCTET STRING,
+    ddo  	[APPLICATION 19] DDO OPTIONAL
+}
+
+UnusedSpace ::= SEQUENCE {
+    path  	Path (WITH COMPONENTS {..., index PRESENT, length PRESENT}),
+    authId 	Identifier OPTIONAL,
+    ...,
+    accessControlRules SEQUENCE OF AccessControlRule OPTIONAL
+}
+
+END

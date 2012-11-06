@@ -1,0 +1,88 @@
+UpperBounds {joint-iso-itu-t ds(5) module(1) upperBounds(10) 5} DEFINITIONS ::=
+BEGIN
+
+-- EXPORTS All
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained
+-- within the Directory Specifications, and for the use of other applications which will use them to access
+-- Directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the Directory service.
+ub-answerback INTEGER ::=
+  8
+
+ub-business-category INTEGER ::= 128
+
+ub-common-name INTEGER ::= 64
+
+ub-content INTEGER ::= 32768
+
+ub-country-code INTEGER ::= 4
+
+ub-description INTEGER ::= 1024
+
+ub-destination-indicator INTEGER ::= 128
+
+ub-directory-string-first-component-match INTEGER ::= 32768
+
+ub-domainLocalID INTEGER ::= 64
+
+ub-international-isdn-number INTEGER ::= 16
+
+ub-knowledge-information INTEGER ::= 32768
+
+ub-labeledURI INTEGER ::= 32768
+
+ub-localeContextSyntax INTEGER ::= 128
+
+ub-locality-name INTEGER ::= 128
+
+ub-match INTEGER ::= 128
+
+ub-name INTEGER ::= 64
+
+ub-organization-name INTEGER ::= 64
+
+ub-organizational-unit-name INTEGER ::= 64
+
+ub-physical-office-name INTEGER ::= 128
+
+ub-post-office-box INTEGER ::= 40
+
+ub-postal-code INTEGER ::= 40
+
+ub-postal-line INTEGER ::= 6
+
+ub-postal-string INTEGER ::= 30
+
+ub-privacy-mark-length INTEGER ::= 128
+
+ub-pseudonym INTEGER ::= 128
+
+ub-saslMechanism INTEGER ::= 64
+
+ub-schema INTEGER ::= 1024
+
+ub-search INTEGER ::= 32768
+
+ub-serial-number INTEGER ::= 64
+
+ub-state-name INTEGER ::= 128
+
+ub-street-address INTEGER ::= 128
+
+ub-surname INTEGER ::= 64
+
+ub-tag INTEGER ::= 64
+
+ub-telephone-number INTEGER ::= 32
+
+ub-teletex-terminal-id INTEGER ::= 1024
+
+ub-telex-number INTEGER ::= 14
+
+ub-title INTEGER ::= 64
+
+ub-user-password INTEGER ::= 128
+
+ub-x121-address INTEGER ::= 15
+
+END -- UpperBounds

@@ -1,0 +1,174 @@
+PKCS-12 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+                 pkcs-12(12) modules(0)  pkcs-12(1)}
+
+-- $Revision$
+
+DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS ALL
+-- All types and values defined in this module is exported for use in
+-- other ASN.1 modules.
+
+IMPORTS
+
+informationFramework
+        FROM UsefulDefinitions {joint-iso-itu-t(2) ds(5) module(1)
+        usefulDefinitions(0) 3}
+
+ATTRIBUTE
+	FROM InformationFramework informationFramework
+
+ContentInfo, DigestInfo
+	FROM PKCS-7 {iso(1) member-body(2) us(840) rsadsi(113549)
+	pkcs(1) pkcs-7(7) modules(0) pkcs-7(1)}
+
+PrivateKeyInfo, EncryptedPrivateKeyInfo
+	FROM PKCS-8 {iso(1) member-body(2) us(840) rsadsi(113549)
+	pkcs(1) pkcs-8(8) modules(1) pkcs-8(1)}
+
+pkcs-9, friendlyName, localKeyId, certTypes, crlTypes
+	FROM PKCS-9 {iso(1) member-body(2) us(840) rsadsi(113549)
+	pkcs(1) pkcs-9(9) modules(0) pkcs-9(1)};
+
+-- Object identifiers
+
+rsadsi	OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840) rsadsi(113549)}
+pkcs    OBJECT IDENTIFIER ::= {rsadsi pkcs(1)}
+pkcs-12	OBJECT IDENTIFIER ::= {pkcs 12}
+pkcs-12PbeIds                  	OBJECT IDENTIFIER ::= {pkcs-12 1}
+pbeWithSHAAnd128BitRC4          OBJECT IDENTIFIER ::= {pkcs-12PbeIds 1}
+pbeWithSHAAnd40BitRC4           OBJECT IDENTIFIER ::= {pkcs-12PbeIds 2}
+pbeWithSHAAnd3-KeyTripleDES-CBC	OBJECT IDENTIFIER ::= {pkcs-12PbeIds 3}
+pbeWithSHAAnd2-KeyTripleDES-CBC	OBJECT IDENTIFIER ::= {pkcs-12PbeIds 4}
+pbeWithSHAAnd128BitRC2-CBC      OBJECT IDENTIFIER ::= {pkcs-12PbeIds 5}
+pbewithSHAAnd40BitRC2-CBC       OBJECT IDENTIFIER ::= {pkcs-12PbeIds 6}
+
+bagtypes			OBJECT IDENTIFIER ::= {pkcs-12 10 1}
+
+-- The PFX PDU
+
+PFX ::= SEQUENCE {
+	version		INTEGER {v3(3)}(v3,...),
+	authSafe	ContentInfo,
+	macData    	MacData OPTIONAL
+}
+
+MacData ::= SEQUENCE {
+	mac 		DigestInfo,
+	macSalt	        OCTET STRING,
+	iterations	INTEGER DEFAULT 1
+-- Note: The default is for historical reasons and its use is
+-- deprecated. A higher value, like 1024 is recommended.
+}
+
+AuthenticatedSafe ::= SEQUENCE OF ContentInfo
+	-- Data if unencrypted
+	-- EncryptedData if password-encrypted
+	-- EnvelopedData if public key-encrypted
+
+SafeContents ::= SEQUENCE OF SafeBag
+
+SafeBag ::= SEQUENCE {
+	bagId	      	BAG-TYPE.&id ({PKCS12BagSet}),
+	bagValue      	[0] EXPLICIT BAG-TYPE.&Type({PKCS12BagSet}{@bagId}),
+	bagAttributes 	SET OF PKCS12Attribute OPTIONAL
+}
+
+-- Bag types
+
+keyBag 	  BAG-TYPE ::=
+	{KeyBag IDENTIFIED BY {bagtypes 1}}
+pkcs8ShroudedKeyBag BAG-TYPE ::=
+	{PKCS8ShroudedKeyBag IDENTIFIED BY {bagtypes 2}}
+certBag BAG-TYPE ::=
+	{CertBag IDENTIFIED BY {bagtypes 3}}
+crlBag BAG-TYPE ::=
+	{CRLBag IDENTIFIED BY {bagtypes 4}}
+secretBag BAG-TYPE ::=
+	{SecretBag IDENTIFIED BY {bagtypes 5}}
+safeContentsBag BAG-TYPE ::=
+	{SafeContents IDENTIFIED BY {bagtypes 6}}
+
+PKCS12BagSet BAG-TYPE ::= {
+	keyBag |
+	pkcs8ShroudedKeyBag |
+	certBag |
+	crlBag |
+	secretBag |
+	safeContentsBag,
+	... -- For future extensions
+}
+
+BAG-TYPE ::= TYPE-IDENTIFIER
+
+-- KeyBag
+
+KeyBag ::= PrivateKeyInfo
+
+-- Shrouded KeyBag
+
+PKCS8ShroudedKeyBag ::= EncryptedPrivateKeyInfo
+
+-- CertBag
+
+CertBag ::= SEQUENCE {
+	certId    BAG-TYPE.&id   ({CertTypes}),
+	certValue [0] EXPLICIT BAG-TYPE.&Type ({CertTypes}{@certId})
+}
+
+x509Certificate BAG-TYPE ::=
+	{OCTET STRING IDENTIFIED BY {certTypes 1}}
+	-- DER-encoded X.509 certificate stored in OCTET STRING
+sdsiCertificate BAG-TYPE ::=
+	{IA5String IDENTIFIED BY {certTypes 2}}
+	-- Base64-encoded SDSI certificate stored in IA5String
+
+CertTypes BAG-TYPE ::= {
+	x509Certificate |
+	sdsiCertificate,
+	... -- For future extensions
+}
+
+-- CRLBag
+
+CRLBag ::= SEQUENCE {
+	crlId     	BAG-TYPE.&id ({CRLTypes}),
+	crlValue 	[0] EXPLICIT BAG-TYPE.&Type ({CRLTypes}{@crlId})
+}
+
+x509CRL BAG-TYPE ::=
+	{OCTET STRING IDENTIFIED BY {crlTypes 1}}
+	-- DER-encoded X.509 CRL stored in OCTET STRING
+
+CRLTypes BAG-TYPE ::= {
+	x509CRL,
+	... -- For future extensions
+}
+
+-- Secret Bag
+
+SecretBag ::= SEQUENCE {
+	secretTypeId BAG-TYPE.&id ({SecretTypes}),
+	secretValue  [0] EXPLICIT BAG-TYPE.&Type ({SecretTypes}{@secretTypeId})
+}
+
+SecretTypes BAG-TYPE ::= {
+	... -- For future extensions
+}
+
+-- Attributes
+
+PKCS12Attribute ::= SEQUENCE {
+	attrId	   	ATTRIBUTE.&id ({PKCS12AttrSet}),
+	attrValues 	SET OF ATTRIBUTE.&Type ({PKCS12AttrSet}{@attrId})
+} -- This type is compatible with the X.500 type 'Attribute'
+
+PKCS12AttrSet ATTRIBUTE ::= {
+	friendlyName |
+	localKeyId,
+	... -- Other attributes are allowed
+}
+
+END
