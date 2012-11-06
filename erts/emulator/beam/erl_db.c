@@ -250,7 +250,6 @@ free_dbtable(DbTable* tb)
 #endif
 	ASSERT(is_immed(tb->common.heir_data));
 	erts_db_free(ERTS_ALC_T_DB_TABLE, tb, (void *) tb, sizeof(DbTable));
-	ERTS_ETS_MISC_MEM_ADD(-sizeof(DbTable));
 	ERTS_SMP_MEMORY_BARRIER;
 }
 
@@ -1443,7 +1442,6 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	erts_smp_atomic_init_nob(&init_tb.common.memory_size, 0);
 	tb = (DbTable*) erts_db_alloc(ERTS_ALC_T_DB_TABLE,
 				      &init_tb, sizeof(DbTable));
-	ERTS_ETS_MISC_MEM_ADD(sizeof(DbTable));
 	erts_smp_atomic_init_nob(&tb->common.memory_size,
 				 erts_smp_atomic_read_nob(&init_tb.common.memory_size));
     }
@@ -2888,7 +2886,6 @@ void init_db(void)
     meta_pid_to_tab = (DbTable*) erts_db_alloc(ERTS_ALC_T_DB_TABLE,
 					       &init_tb,
 					       sizeof(DbTable));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(DbTable));
     erts_smp_atomic_init_nob(&meta_pid_to_tab->common.memory_size,
 			     erts_smp_atomic_read_nob(&init_tb.common.memory_size));
 
@@ -2920,7 +2917,6 @@ void init_db(void)
     meta_pid_to_fixed_tab = (DbTable*) erts_db_alloc(ERTS_ALC_T_DB_TABLE,
 						     &init_tb,
 						     sizeof(DbTable));
-    ERTS_ETS_MISC_MEM_ADD(sizeof(DbTable));
     erts_smp_atomic_init_nob(&meta_pid_to_fixed_tab->common.memory_size,
 			     erts_smp_atomic_read_nob(&init_tb.common.memory_size));
 
