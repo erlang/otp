@@ -309,12 +309,12 @@ by either <seealso marker="#handle_answer">handle_answer/4</seealso>
 or <seealso marker="#handle_error">handle_error/4</seealso> depending
 on whether or not an answer message is received from the peer.
 If the transport becomes unavailable after <seealso
-marker="prepare_request">prepare_request/3</seealso> then a new <seealso
+marker="#prepare_request">prepare_request/3</seealso> then a new <seealso
 marker="#pick_peer">pick_peer/4</seealso> callback may take place to
 failover to an alternate peer, after which <seealso
 marker="#prepare_retransmit">prepare_retransmit/3</seealso> takes the
 place of <seealso
-marker="prepare_request">prepare_request/3</seealso> in resending the
+marker="#prepare_request">prepare_request/3</seealso> in resending the
 request.
 There is no guarantee that a <seealso
 marker="#pick_peer">pick_peer/4</seealso> callback to select
