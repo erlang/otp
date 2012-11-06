@@ -44,9 +44,9 @@
 #undef DEBUG_PRINTOUTS
 #endif
 
-extern Eterm beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
-extern Eterm beam_return_trace[1];      /* OpCode(i_return_trace) */
-extern Eterm beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
+extern BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
+extern BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
+extern BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 /* Pseudo export entries. Never filled in with data, only used to
    yield unique pointers of the correct type. */
