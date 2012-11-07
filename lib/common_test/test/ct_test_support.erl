@@ -618,8 +618,11 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 				fun({EH,#event{name=tc_auto_skip,
 					       node=EvNode,
 					       data={Mod,end_per_group,Reason}}}) when
-				   EH == TEH, EvNode == Node, Mod == M, Reason == R ->
-					false;
+				   EH == TEH, EvNode == Node, Mod == M ->
+					case match_data(R, Reason) of
+					    match -> false;
+					    _ -> true
+					end;
 				   ({EH,#event{name=stop_logging,
 					       node=EvNode,data=_}}) when
 					  EH == TEH, EvNode == Node ->
@@ -633,23 +636,12 @@ locate({parallel,TEvs}, Node, Evs, Config) ->
 			      [_AutoSkip | RemEvs2] ->
 				  {Done,RemEvs2,length(RemEvs2)}
 			  end;
-		     %% match other event than test case
-		     (TEv={TEH,N,D}, Acc) when D == '_' ->
-			  case [E || E={EH,#event{name=Name,
-						  node=EvNode,
-						  data=_}} <- Evs1, 
-				     EH == TEH, EvNode == Node, Name == N] of
-			      [] ->
-				  exit({unmatched,TEv});
-			      _ ->
-				  test_server:format("Found ~p!", [TEv]),
-				  Acc
-			  end;
 		     (TEv={TEH,N,D}, Acc) ->
 			  case [E || E={EH,#event{name=Name,
 						  node=EvNode,
 						  data=Data}} <- Evs1, 
-				     EH == TEH, EvNode == Node, Name == N, Data == D] of
+				     EH == TEH, EvNode == Node, Name == N,
+				     match == match_data(D,Data)] of
 			      [] ->
 				  exit({unmatched,TEv});
 			      _ ->
@@ -1008,33 +1000,39 @@ locate({TEH,Name,Data}, Node, [{TEH,#event{name=Name,
 					   data = EvData,
 					   node = Node}}|Evs],
        Config) ->
-    try match_data(Data, EvData) of
+    case match_data(Data, EvData) of
 	match ->
-	    {Config,Evs}
-    catch _:_ ->
+	    {Config,Evs};
+	_ ->
 	    nomatch
     end;
 
 locate({_TEH,_Name,_Data}, _Node, [_|_Evs], _Config) ->
     nomatch.
 
-match_data(D,D) ->
+match_data(Data, EvData) ->
+    try do_match_data(Data, EvData)
+    catch _:_ ->
+	    nomatch
+    end.
+
+do_match_data(D,D) ->
     match;
-match_data('_',_) ->
+do_match_data('_',_) ->
     match;
-match_data(Fun,Data) when is_function(Fun) ->
+do_match_data(Fun,Data) when is_function(Fun) ->
     Fun(Data);
-match_data('$proplist',Proplist) ->
-    match_data(
+do_match_data('$proplist',Proplist) ->
+    do_match_data(
       fun(List) ->
 	      lists:foreach(fun({_,_}) -> ok end,List)
       end,Proplist);
-match_data([H1|MatchT],[H2|ValT]) ->
-    match_data(H1,H2),
-    match_data(MatchT,ValT);
-match_data(Tuple1,Tuple2) when is_tuple(Tuple1),is_tuple(Tuple2) ->
-    match_data(tuple_to_list(Tuple1),tuple_to_list(Tuple2));
-match_data([],[]) ->
+do_match_data([H1|MatchT],[H2|ValT]) ->
+    do_match_data(H1,H2),
+    do_match_data(MatchT,ValT);
+do_match_data(Tuple1,Tuple2) when is_tuple(Tuple1),is_tuple(Tuple2) ->
+    do_match_data(tuple_to_list(Tuple1),tuple_to_list(Tuple2));
+do_match_data([],[]) ->
     match.
 
 result_match({SkipOrFail,{ErrorInd,{Why,'_'}}},
@@ -1049,6 +1047,9 @@ result_match({failed,{timetrap_timeout,{'$approx',Num}}},
        Value =< trunc(Num+0.02*Num) -> true;
        true -> false
     end;
+result_match({user_timetrap_error,{Why,'_'}},
+	     {user_timetrap_error,{Why,_Stack}}) ->
+    true;
 result_match(Result, Result) ->
     true;
 result_match(_, _) ->

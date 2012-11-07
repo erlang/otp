@@ -2933,6 +2933,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    exit(framework_error);
 	{_,Fail,_} when element(1,Fail) == 'EXIT';
 			element(1,Fail) == timetrap_timeout;
+			element(1,Fail) == user_timetrap_error;
 			element(1,Fail) == failed ->
 	    {Cases2,Config1,Status3} =
 		if StartConf ->
@@ -2952,14 +2953,6 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 	    set_io_buffering(IOHandler),
 	    stop_minor_log_file(),
 	    run_test_cases_loop(Cases2, Config1, TimetrapData, Mode, Status3);
-	{died,Why,_} when Func == init_per_suite ->
-	    print(minor, "~n*** Unexpected exit during init_per_suite.~n", []),
-	    Reason = {failed,{Mod,init_per_suite,Why}},
-	    Cases2 = skip_cases_upto(Ref, Cases, Reason, conf, CurrMode),
-	    set_io_buffering(IOHandler),
-	    stop_minor_log_file(),
-	    run_test_cases_loop(Cases2, Config, TimetrapData, Mode,
-				delete_status(Ref, Status2));
 	{_,{Skip,Reason},_} when StartConf and ((Skip==skip) or (Skip==skipped)) ->
 	    ReportAbortRepeat(skipped),
 	    print(minor, "~n*** ~p skipped.~n"
