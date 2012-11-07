@@ -23,7 +23,6 @@ MODULES= \
 	dummy_via \
 	edlin_expand_SUITE \
 	epp_SUITE \
-	erl_eval_helper \
 	erl_eval_SUITE \
 	erl_expand_records_SUITE \
 	erl_internal_SUITE \
