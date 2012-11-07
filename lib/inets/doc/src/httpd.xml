@@ -178,7 +178,13 @@
         <p>Note that this option is only used when the option 
 	<c>socket_type</c> has the value <c>ip_comm</c>. </p>
       </item>
-
+      <marker id="prop_minimum_bytes_per_second"></marker>
+      <tag>{minimum_bytes_per_second, integer()}</tag>
+      <item>
+	<p>If given, sets a minimum bytes per second value for connections.</p>
+	<p>If the value is not reached, the socket will close for that connection.</p>
+	<p>The option is good for reducing the risk of "slow dos" attacks.</p>
+      </item>
     </taglist>
 
     <marker id="props_api_modules"></marker>
