@@ -49,31 +49,35 @@ save(Win, Pos, SFile) ->
 
 open_win(Win, Pos, SFile, Str, What) ->
     {SDir, SFileName} =
-	if
-	    %% If settings are saved for the first time, and to
-	    %% the default directory HOME/erlang.tools/debugger,
-	    %% make sure the directory exists, or create it if
-	    %% desired and possible
-	    SFile==default -> {default_settings_dir(Win), "NoName.state"};
-	    true -> {filename:dirname(SFile), filename:basename(SFile)}
-	end,
-		    
+        if
+            %% If settings are saved for the first time, and to
+            %% the default directory HOME/erlang.tools/debugger,
+            %% make sure the directory exists, or create it if
+            %% desired and possible
+            SFile==default -> {default_settings_dir(Win), "NoName.state"};
+            true -> {filename:dirname(SFile), filename:basename(SFile)}
+        end,
+
     FD = wxFileDialog:new(Win, [{message,Str},{pos, Pos},
-				{defaultDir,SDir},
-				{defaultFile,SFileName},
-				{wildCard, "*.state"},
-				{style,What}]),
+                                {defaultDir,SDir},
+                                {defaultFile,SFileName},
+                                {wildCard, "*.state"},
+                                {style,What}]),
     case wxFileDialog:showModal(FD) of
-	?wxID_OK ->
-	    File = wxFileDialog:getFilename(FD),
-	    Dir = wxFileDialog:getDirectory(FD),
-	    wxFileDialog:destroy(FD),
-	    {ok, filename:join(Dir,File)};
-	_ ->
-	    wxFileDialog:destroy(FD),
-	    cancel
+        ?wxID_OK ->
+            case wxFileDialog:getPaths(FD) of
+                [NewFile] ->
+                    wxFileDialog:destroy(FD),
+                    {ok, NewFile};
+                _ ->
+                    wxFileDialog:destroy(FD),
+                    cancel
+            end;
+        _ ->
+            wxFileDialog:destroy(FD),
+            cancel
     end.
-   
+
 default_settings_dir(Win) ->
     {ok, [[Home]]} = init:get_argument(home),
     DefDir = filename:join([Home, ".erlang_tools", "debugger"]),
