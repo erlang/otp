@@ -68,8 +68,8 @@ stop() ->
 %%  Return a group leader (a process using the test_server_gl module).
 %%  If Shared is true, the shared group leader is returned (suitable for
 %%  running sequential test cases), otherwise a new group leader process
-%%  is spawned. Group leader processes will live until they are garbaged
-%%  collected by a call to gc/0.
+%%  is spawned. Group leader processes will live until the
+%%  'test_server_io' process is stopped.
 
 get_gl(Shared) when is_boolean(Shared) ->
     req({get_gl,Shared}).
@@ -95,7 +95,7 @@ start_transaction() ->
 %% end_transaction()
 %%
 %%  End the transaction started by start_transaction/0. Subsequent calls to
-%%  print/3 will cause the message to be printed directory.
+%%  print/3 will cause the message to be printed directly.
 
 end_transaction() ->
     req({end_transaction,self()}).
