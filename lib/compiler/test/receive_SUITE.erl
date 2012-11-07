@@ -43,8 +43,8 @@ all() ->
     [{group,p}].
 
 groups() -> 
-    {p,test_lib:parallel(),
-     [recv,coverage,otp_7980,ref_opt,export]}.
+    [{p,test_lib:parallel(),
+      [recv,coverage,otp_7980,ref_opt,export]}].
 
 
 init_per_suite(Config) ->
