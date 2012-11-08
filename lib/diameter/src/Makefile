@@ -16,13 +16,8 @@
 # 
 # %CopyrightEnd%
 
-ifeq ($(ERL_TOP),)
-include $(DIAMETER_TOP)/make/target.mk
-include $(DIAMETER_TOP)/make/$(TARGET)/rules.mk
-else
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
-endif
 
 # ----------------------------------------------------
 # Application version
@@ -210,11 +205,7 @@ dialyze: opt $(PLT)
 # Release targets
 # ----------------------------------------------------
 
-ifeq ($(ERL_TOP),)
-include $(DIAMETER_TOP)/make/release_targets.mk
-else
 include $(ERL_TOP)/make/otp_release_targets.mk
-endif
 
 # Can't $(INSTALL_DIR) more than one directory at a time on Solaris.
 

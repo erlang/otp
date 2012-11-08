@@ -97,6 +97,9 @@
 -record(monitor, {mref = make_ref() :: reference(),
                   service}). %% name
 
+%% The default sequence mask.
+-define(NOMASK, {0,32}).
+
 %% Time to lay low before restarting a dead service.
 -define(RESTART_SLEEP, 2000).
 
@@ -549,15 +552,72 @@ make_config(SvcName, Opts) ->
 
     ok = encode_CER(COpts),
 
-    Os = split(Opts, [{[fun erlang:is_boolean/1], false, share_peers},
-                      {[fun erlang:is_boolean/1], false, use_shared_peers},
-                      {[fun erlang:is_pid/1, false], false, monitor}]),
+    Os = split(Opts, fun opt/2, [{false, share_peers},
+                                 {false, use_shared_peers},
+                                 {false, monitor},
+                                 {?NOMASK, sequence},
+                                 {nodes, restrict_connections}]),
     %% share_peers and use_shared_peers are currently undocumented.
 
     #service{name = SvcName,
              rec = #diameter_service{applications = Apps,
                                      capabilities = Caps},
              options = Os}.
+
+split(Opts, F, Defs) ->
+    [{K, F(K, get_opt(K, Opts, D))} || {D,K} <- Defs].
+
+opt(K, false = B)
+  when K /= sequence ->
+    B;
+
+opt(K, true = B)
+  when K == share_peer;
+       K == use_shared_peers ->
+    B;
+
+opt(monitor, P)
+  when is_pid(P) ->
+    P;
+
+opt(restrict_connections, T)
+  when T == node;
+       T == nodes;
+       T == [];
+       is_atom(hd(T)) ->
+    T;
+
+opt(restrict_connections = K, F) ->
+    try diameter_lib:eval(F) of  %% no guarantee that it won't fail later
+        Nodes when is_list(Nodes) ->
+            F;
+        V ->
+            ?THROW({value, {K,V}})
+    catch
+        E:R ->
+            ?THROW({value, {K, E, R, ?STACK}})
+    end;
+
+opt(sequence, {_,_} = T) ->
+    sequence(T);
+
+opt(sequence = K, F) ->
+    try diameter_lib:eval(F) of
+        T -> sequence(T)
+    catch
+        E:R ->
+            ?THROW({value, {K, E, R, ?STACK}})
+    end;
+            
+opt(K, _) ->
+    ?THROW({value, K}).
+
+sequence({H,N} = T)
+  when 0 =< N, N =< 32, 0 =< H, 0 == H bsr N ->
+    T;
+    
+sequence(_) ->
+    ?THROW({value, sequence}).
 
 make_caps(Caps, Opts) ->
     case diameter_capx:make_caps(Caps, Opts) of
@@ -662,21 +722,6 @@ get_opt(Key, List, Def) ->
         [V] -> V;
         _   -> ?THROW({arity, Key})
     end.
-
-split(Opts, Defs) ->
-    [{K, value(D, Opts)} || {_,_,K} = D <- Defs].
-
-value({Preds, Def, Key}, Opts) ->
-    V = get_opt(Key, Opts, Def),
-    lists:any(fun(P) -> pred(P,V) end, Preds)
-        orelse ?THROW({value, Key}),
-    V.
-
-pred(F, V)
-  when is_function(F) ->
-    F(V);
-pred(T, V) ->
-    T == V.
 
 cb(M,F) ->
     try M:F() of

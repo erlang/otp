@@ -375,10 +375,15 @@ is meant in the sense of <c>eval([E|A])</c>.</p>
 
 <warning>
 <p>
-Beware of using fun expressions of the form <c>fun Name/Arity</c> (not
-fun Mod:Name/Arity) in situations in which the fun is not short-lived
+Beware of using fun expressions of the form <c>fun Name/Arity</c> in
+situations in which the fun is not short-lived
 and code is to be upgraded at runtime since any processes retaining
-such a fun will have a reference to old code.</p>
+such a fun will have a reference to old code.
+In particular, such a value is typically inappropriate in
+configuration passed to <seealso
+marker="#start_service">start_service/2</seealso> or
+<seealso
+marker="#add_transport">add_transport/2</seealso>.</p> 
 </warning>
 
 <marker id="peer_filter"/>
@@ -699,6 +704,64 @@ the application's <seealso marker="diameter_dict">dictionary</seealso>
 file.</p>
 </item>
 
+<tag><c>{restrict_connections, false
+                             | node
+                             | nodes
+                             | [node()]
+                             | diameter:evaluable()}</c></tag>
+<item>
+<p>
+Specifies the degree to which multiple transport connections to the
+same peer are accepted by the service.</p>
+
+<p>
+If type <c>[node()]</c> then a connection is rejected if another already
+exists on any of the specified nodes.
+Values of type <c>false</c>, <c>node</c>, <c>nodes</c> or
+<c>diameter:evaluable()</c> are equivalent to values <c>[]</c>,
+<c>[node()]</c>, <c>[node()|nodes()]</c> and the evaluated value,
+respectively, evaluation of each expression taking place whenever a
+new connection is to be established.
+Note that <c>false</c> allows an unlimited number of connections to be
+established with the same peer.</p>
+
+<p>
+Multiple connections are independent and governed
+by their own peer and watchdog state machines.</p>
+
+<p>
+Defaults to <c>nodes</c>.</p>
+</item>
+
+<tag><c>{sequence, {H,N} | <seealso
+   marker="diameter#evaluable">diameter:evaluable()</seealso>}</c></tag>
+<item>
+<p>
+Specifies a constant value <c>H</c> for the topmost <c>32-N</c> bits of
+of 32-bit End-to-End and Hop-by-Hop identifiers generated
+by the service, either explicity or as a return value of a function
+to be evaluated at <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>.
+In particular, an identifier <c>Id</c> is mapped to a new identifier
+as follows.</p>
+<code>
+(H bsl N) bor (Id band ((1 bsl N) - 1))
+</code>
+<p>
+Note that RFC 3588 requires that End-to-End identifiers remain unique
+for a period of at least 4 minutes and that this and the call rate
+places a lower bound on the appropriate values of <c>N</c>:
+at a rate of <c>R</c> requests per second an <c>N</c>-bit counter
+traverses all of its values in <c>(1 bsl N) div (R*60)</c> minutes so
+the bound is <c>4*R*60 =&lt; 1 bsl N</c>.</p>
+
+<p><c>N</c> must lie in the range <c>0..32</c> and <c>H</c> must be a
+non-negative integer less than <c>1 bsl (32-N)</c>.</p>
+
+<p>
+Defaults to <c>{0,32}</c>.</p>
+</item>
+
 </taglist>
 
 <marker id="transport_opt"/>
@@ -850,7 +913,7 @@ reconnection attempts, as required by RFC 3539.</p>
 For a listening transport, the timer specifies the time after which a
 previously connected peer will be forgotten: a connection after this time is
 regarded as an initial connection rather than a reestablishment,
-causing the RFC 3539 state machine to pass to state OPEN rather than
+causing the RFC 3539 state machine to pass to state OKAY rather than
 REOPEN.
 Note that these semantics are not goverened by the RFC and
 that a listening transport's <c>reconnect_timer</c> should be greater
@@ -1149,6 +1212,12 @@ DPA or timeout.</p>
 <desc>
 <p>
 Return information about a started service.
+Requesting info for an unknown service causes <c>undefined</c> to be
+returned.
+Requesting a list of items causes a tagged list to be
+returned.</p>
+
+<p>
 <c>Item</c> can be one of the following.</p>
 
 <taglist>
@@ -1419,13 +1488,27 @@ The Diameter-level statistics returned by <c>transport</c> and
 <c>connections</c> info are based upon these entries.</p>
 </item>
 
-</taglist>
-
+<tag><c><seealso marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso></c></tag>
+<item>
 <p>
-Requesting info for an unknown service causes <c>undefined</c> to be
-returned.
-Requesting a list of items causes a tagged list to be
-returned.</p>
+Return transport configuration associated with a single peer, as
+passed to <seealso marker="#add_transport">add_transport/2</seealso>.
+The returned list is empty if the peer is unknown.
+Otherwise it contains the <c>ref</c>, <c>type</c> and <c>options</c>
+tuples as in <c>transport</c> and <c>connections</c> info above.
+For example:</p>
+
+<code>
+[{ref,#Ref&lt;0.0.0.61>},
+ {type,accept},
+ {options,[{transport_module,diameter_tcp},
+           {transport_config,[{reuseaddr,true},
+                              {ip,{127,0,0,1}},
+                              {port,3868}]}]}]
+</code>
+</item>
+
+</taglist>
 
 <marker id="services"/>
 </desc>
