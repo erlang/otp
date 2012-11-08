@@ -35,7 +35,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2]).
 
--export([abstract_module/1, attributes/1, expr/1, guard/1,
+-export([attributes/1, expr/1, guard/1,
          init/1, pattern/1, strict/1, update/1,
 	 otp_5915/1, otp_7931/1, otp_5990/1,
 	 otp_7078/1, otp_7101/1]).
@@ -55,7 +55,7 @@ end_per_testcase(_Case, _Config) ->
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
-    [abstract_module, attributes, expr, guard, init,
+    [attributes, expr, guard, init,
      pattern, strict, update, {group, tickets}].
 
 groups() -> 
@@ -74,33 +74,6 @@ init_per_group(_GroupName, Config) ->
 end_per_group(_GroupName, Config) ->
     Config.
 
-
-abstract_module(doc) ->
-    "Compile an abstract module.";
-abstract_module(suite) -> [];
-abstract_module(Config) when is_list(Config) ->
-    %% erl_expand_records does not handle abstract modules. But anyway...
-    File = filename("param.erl", Config),
-    Beam = filename("param.beam", Config),
-    Test = <<"-module(param, [A, B]).
-
-              -export([args/1]).
-
-              args(C) ->
-                  X = local(C),
-                  Z = new(A, B),
-                  {X, Z}.
-
-              local(C) ->
-                  module_info(C).
-             ">>,
-
-    ?line ok = file:write_file(File, Test),
-    ?line {ok, param} = compile:file(File, [{outdir,?privdir}]),
-
-    ?line ok = file:delete(File),
-    ?line ok = file:delete(Beam),
-    ok.
 
 attributes(doc) ->
     "Import module and functions.";
@@ -196,7 +169,7 @@ guard(suite) -> [];
 guard(Config) when is_list(Config) ->
     File = filename("guard.erl", Config),
     Beam = filename("guard.beam", Config),
-    Test = <<"-module(guard, [A, B]).
+    Test = <<"-module(guard).
 
               -export([t/1]).
 
