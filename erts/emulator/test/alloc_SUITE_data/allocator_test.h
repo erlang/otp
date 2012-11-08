@@ -73,7 +73,7 @@ typedef void* erts_cond;
 #define MIN_BLK_SZ(A)		((Ulong)	ALC_TEST1(0x017, (A)))
 #define NXT_BLK(B)		((Block_t *)	ALC_TEST1(0x018, (B)))
 #define PREV_BLK(B)		((Block_t *)	ALC_TEST1(0x019, (B)))
-#define IS_FIRST_BLK(B)		((Ulong)	ALC_TEST1(0x01a, (B)))
+#define IS_MBC_FIRST_BLK(A,B)	((Ulong)	ALC_TEST2(0x01a, (A), (B)))
 #define UNIT_SZ			((Ulong)	ALC_TEST0(0x01b))
 
 /* From erl_goodfit_alloc.c */

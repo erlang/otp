@@ -233,8 +233,6 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define MBC_BLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_BLK_SZ_MASK)
 #define SBC_BLK_SZ(B) (ASSERT_EXPR(is_sbc_blk(B)), (B)->bhdr & SBC_BLK_SZ_MASK)
 
-#define BLK_SZ(B) ((B)->bhdr & (IS_SBC_BLK(B) ? SBC_BLK_SZ_MASK : MBC_BLK_SZ_MASK))
-
 #define CARRIER_SZ(C) \
   ((C)->chdr & CARRIER_SZ_MASK)
 
