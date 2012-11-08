@@ -53,7 +53,7 @@ end_per_group(_GroupName, Config) ->
 
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog = ?t:timetrap(?t:minutes(5)),
+    Dog = ?t:timetrap(?t:minutes(5)),
     [{watchdog,Dog}|Config].
 
 end_per_testcase(_Case, Config) ->
@@ -65,22 +65,22 @@ create(Config) when is_list(Config) ->
     test_all(fun create_1/1).
 
 create_1(M) ->
-    ?line D0 = M:empty(),
-    ?line [] = M:to_list(D0),
-    ?line 0 = M:size(D0),
+    D0 = M(empty, []),
+    [] = M(to_list, D0),
+    0 = M(size, D0),
     D0.
 
 store(Config) when is_list(Config) ->
     test_all([{0,132},{253,258},{510,514}], fun store_1/2).
 
 store_1(List, M) ->
-    ?line D0 = M:from_list(List),
+    D0 = M(from_list, List),
 
     %% Make sure that we get the same result by inserting
     %% elements one at the time.
-    ?line D1 = foldl(fun({K,V}, Dict) -> M:enter(K, V, Dict) end,
-		     M:empty(), List),
-    ?line true = M:equal(D0, D1),
+    D1 = foldl(fun({K,V}, Dict) -> M(enter, {K,V,Dict}) end,
+	       M(empty, []), List),
+    true = M(equal, {D0,D1}),
     D0.
 
 %%%
@@ -98,7 +98,7 @@ dict_mods() ->
     [Orddict,Dict,Gb].
 
 test_all(Tester) ->
-    ?line Pids = [spawn_tester(M, Tester) || M <- dict_mods()],
+    Pids = [spawn_tester(M, Tester) || M <- dict_mods()],
     collect_all(Pids, []).
 
 spawn_tester(M, Tester) ->
@@ -106,7 +106,7 @@ spawn_tester(M, Tester) ->
     spawn_link(fun() ->
 		       random:seed(1, 2, 42),
 		       S = Tester(M),
-		       Res = {M:size(S),lists:sort(M:to_list(S))},
+		       Res = {M(size, S),lists:sort(M(to_list, S))},
 		       Parent ! {result,self(),Res}
 	       end).
 
