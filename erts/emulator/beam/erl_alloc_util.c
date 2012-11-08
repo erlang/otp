@@ -532,11 +532,11 @@ static void mbc_free(Allctr_t *allctr, void *p);
 #if HAVE_ERTS_MSEG
 
 static ERTS_INLINE void *
-alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p)
+alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 {
     void *res;
 
-    res = erts_mseg_alloc_opt(allctr->alloc_no, size_p, (Uint)0, &allctr->mseg_opt);
+    res = erts_mseg_alloc_opt(allctr->alloc_no, size_p, flags, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_alloc);
     return res;
 }
@@ -547,7 +547,7 @@ alcu_mseg_realloc(Allctr_t *allctr, void *seg, Uint old_size, Uint *new_size_p)
     void *res;
 
     res = erts_mseg_realloc_opt(allctr->alloc_no, seg, old_size, new_size_p,
-				(Uint)0, &allctr->mseg_opt);
+				ERTS_MSEG_FLG_NONE, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_realloc);
     return res;
 }
@@ -1954,6 +1954,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
     Uint blk_sz, bcrr_sz, crr_sz;
 #if HAVE_ERTS_MSEG
     int have_tried_sys_alloc = 0, have_tried_mseg = 0;
+    Uint mseg_flags;
 #endif
 #ifdef DEBUG
     int is_mseg = 0;
@@ -1997,16 +1998,18 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
     if (flags & CFLG_SBC) {
 	crr_sz = blk_sz + allctr->sbc_header_size;
+	mseg_flags = ERTS_MSEG_FLG_NONE;
     }
     else {
 	crr_sz = (*allctr->get_next_mbc_size)(allctr);
 	if (crr_sz < allctr->mbc_header_size + blk_sz)
 	    crr_sz = allctr->mbc_header_size + blk_sz;
+	mseg_flags = ERTS_MSEG_FLG_2POW;
     }
     crr_sz = MSEG_UNIT_CEILING(crr_sz);
     ASSERT(crr_sz % MSEG_UNIT_SZ == 0);
 
-    crr = (Carrier_t *) alcu_mseg_alloc(allctr, &crr_sz);
+    crr = (Carrier_t *) alcu_mseg_alloc(allctr, &crr_sz, mseg_flags);
     if (!crr) {
 	have_tried_mseg = 1;
 	if (!(have_tried_sys_alloc || flags & CFLG_FORCE_MSEG))
