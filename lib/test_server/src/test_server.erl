@@ -20,9 +20,6 @@
 
 -define(DEFAULT_TIMETRAP_SECS, 60).
 
-%%% START %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--export([start/1,start/2]).
-
 %%% TEST_SERVER_CTRL INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([run_test_case_apply/1,init_target_info/0,init_purify/0]).
 -export([cover_compile/1,cover_analyse/3]).
@@ -60,48 +57,10 @@
 -export([]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--record(state,{controller,jobs=[]}).
-
 -include("test_server_internal.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -define(pl2a(M), test_server_sup:package_atom(M)).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%
-%% **** START *** CODE FOR REMOTE TARGET ONLY ***
-%%
-%% test_server
-%% This process is started only if the test is to be run on a remote target
-%% The process is then started on target
-%% A socket connection is established with the test_server_ctrl process
-%% on host, and information about target is sent to host.
-start([ControllerHost]) when is_atom(ControllerHost) ->
-    start(atom_to_list(ControllerHost));
-start(ControllerHost) when is_list(ControllerHost) ->
-    start(ControllerHost,?MAIN_PORT).
-start(ControllerHost,ControllerPort) ->
-    S = self(),
-    Pid = spawn(fun() -> init(ControllerHost,ControllerPort,S) end),
-    receive {Pid,started} -> {ok,Pid};
-	    {Pid,Error} -> Error
-    end.
-
-init(Host,Port,Starter) ->
-    global:register_name(?MODULE,self()),
-    process_flag(trap_exit,true),
-    test_server_sup:cleanup_crash_dumps(),
-    case gen_tcp:connect(Host,Port, [binary,
-				     {reuseaddr,true},
-				     {packet,2}]) of
-	{ok,MainSock} ->
-	    Starter ! {self(),started},
-	    request(MainSock,{target_info,init_target_info()}),
-	    loop(#state{controller={Host,MainSock}});
-	Error ->
-	    Starter ! {self(),{error,
-			       {could_not_contact_controller,Error}}}
-    end.
 
 init_target_info() ->
     [$.|Emu] = code:objfile_extension(),
@@ -118,169 +77,8 @@ init_target_info() ->
 		 username=test_server_sup:get_username(),
 		 cookie=atom_to_list(erlang:get_cookie())}.
 
-
-loop(#state{controller={_,MainSock}} = State) ->
-    receive
-	{tcp, MainSock, <<1,Request/binary>>} ->
-	    State1 = decode_main(binary_to_term(Request),State),
-	    loop(State1);
-	{tcp_closed, MainSock} ->
-	    gen_tcp:close(MainSock),
-	    halt();
-	{'EXIT',Pid,Reason} ->
-	    case lists:keysearch(Pid,1,State#state.jobs) of
-		{value,{Pid,Name}} ->
-		    case Reason of
-			normal -> ignore;
-			_other -> request(MainSock,{job_proc_killed,Name,Reason})
-		    end,
-		    NewJobs = lists:keydelete(Pid,1,State#state.jobs),
-		    loop(State#state{jobs = NewJobs});
-		false ->
-		    loop(State)
-	    end
-    end.
-
-%% Decode request on main socket
-decode_main({job,Port,Name},#state{controller={Host,_},jobs=Jobs}=State) ->
-    S = self(),
-    NewJob = spawn_link(fun() -> job(Host,Port,S) end),
-    receive {NewJob,started} -> State#state{jobs=[{NewJob,Name}|Jobs]};
-	    {NewJob,_Error} -> State
-    end.
-
 init_purify() ->
     purify_new_leaks().
-
-
-%% Temporary job process on target
-%% This process will live while all test cases in the job are executed.
-%% A socket connection is established with the job process on host.
-job(Host,Port,Starter) ->
-    process_flag(trap_exit,true),
-    init_purify(),
-    case gen_tcp:connect(Host,Port, [binary,
-				     {reuseaddr,true},
-				     {packet,4},
-				     {active,false}]) of
-	{ok,JobSock} ->
-	    Starter ! {self(),started},
-	    job(JobSock);
-	Error ->
-	    Starter ! {self(),{error,
-			       {could_not_contact_controller,Error}}}
-    end.
-
-job(JobSock) ->
-    JobDir = get_jobdir(),
-    ok = file:make_dir(JobDir),
-    ok = file:make_dir(filename:join(JobDir,?priv_dir)),
-    put(test_server_job_sock,JobSock),
-    put(test_server_job_dir,JobDir),
-    {ok,Cwd} = file:get_cwd(),
-    job_loop(JobSock),
-    ok = file:set_cwd(Cwd),
-    send_privdir(JobDir,JobSock), % also recursively removes jobdir
-    ok.
-
-
-get_jobdir() ->
-    Now = now(),
-    {{Y,M,D},{H,Mi,S}} = calendar:now_to_local_time(Now),
-    Basename = io_lib:format("~w-~2.2.0w-~2.2.0w_~2.2.0w.~2.2.0w.~2.2.0w_~w",
-			     [Y,M,D,H,Mi,S,element(3,Now)]),
-    %% if target has a file master, don't use prim_file to look up cwd
-    case lists:keymember(master,1,init:get_arguments()) of
-	true ->
-	    {ok,Cwd} = file:get_cwd(),
-	    Cwd ++ "/" ++ Basename;
-	false ->
-	    filename:absname(Basename)
-    end.
-
-send_privdir(JobDir,JobSock) ->
-    LocalPrivDir = filename:join(JobDir,?priv_dir),
-    case file:list_dir(LocalPrivDir) of
-	{ok,List} when List/=[] ->
-	    Tarfile0 = ?priv_dir ++ ".tar.gz",
-	    Tarfile = filename:join(JobDir,Tarfile0),
-	    {ok,Tar} = erl_tar:open(Tarfile,[write,compressed,cooked]),
-	    ok = erl_tar:add(Tar,LocalPrivDir,?priv_dir,[]),
-	    ok = erl_tar:close(Tar),
-	    {ok,TarBin} = file:read_file(Tarfile),
-	    file:delete(Tarfile),
-	    ok = del_dir(JobDir),
-	    request(JobSock,{{privdir,Tarfile0},TarBin});
-	_ ->
-	    ok = del_dir(JobDir),
-	    request(JobSock,{privdir,empty_priv_dir})
-    end.
-
-del_dir(Dir) ->
-    case file:read_file_info(Dir) of
-	{ok,#file_info{type=directory}} ->
-	    {ok,Cont} = file:list_dir(Dir),
-	    lists:foreach(fun(F) -> del_dir(filename:join(Dir,F)) end, Cont),
-	    ok = file:del_dir(Dir);
-	{ok,#file_info{}} ->
-	    ok = file:delete(Dir);
-	_r ->
-	    %% This might be a symlink - let's try to delete it!
-	    catch file:delete(Dir),
-	    ok
-    end.
-
-%%
-%% Receive and decode request on job socket
-%%
-job_loop(JobSock) ->
-    Request = recv(JobSock),
-    case decode_job(Request) of
-	ok -> job_loop(JobSock);
-	{stop,R} -> R
-    end.
-
-decode_job({{beam,Mod,Which},Beam}) ->
-    % FIXME, shared directory structure on host and target required,
-    % "Library beams" are not loaded from HOST... /Patrik
-    code:add_patha(filename:dirname(Which)),
-    % End of Patriks uglyness...
-    {module,Mod} = code:load_binary(Mod,Which,Beam),
-    ok;
-decode_job({{datadir,Tarfile0},Archive}) ->
-    JobDir = get(test_server_job_dir),
-    Tarfile = filename:join(JobDir,Tarfile0),
-    ok = file:write_file(Tarfile,Archive),
-    % Cooked is temporary removed/broken
-    % ok = erl_tar:extract(Tarfile,[compressed,{cwd,JobDir},cooked]),
-    ok = erl_tar:extract(Tarfile,[compressed,{cwd,JobDir}]),
-    ok = file:delete(Tarfile),
-    ok;
-decode_job({test_case,Case}) ->
-    Result = run_test_case_apply(Case),
-    JobSock = get(test_server_job_sock),
-    request(JobSock,{test_case_result,Result}),
-    case test_server_sup:tar_crash_dumps() of
-	{error,no_crash_dumps} -> request(JobSock,{crash_dumps,no_crash_dumps});
-	{ok,TarFile} ->
-	    {ok,TarBin} = file:read_file(TarFile),
-	    file:delete(TarFile),
-	    request(JobSock,{{crash_dumps,filename:basename(TarFile)},TarBin})
-    end,
-    ok;
-decode_job({sync_apply,{M,F,A}}) ->
-    R = apply(M,F,A),
-    request(get(test_server_job_sock),{sync_result,R}),
-    ok;
-decode_job(job_done) ->
-    {stop,stopped}.
-
-%%
-%% **** STOP *** CODE FOR REMOTE TARGET ONLY ***
-%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -606,33 +404,6 @@ run_test_case_apply({CaseNum,Mod,Func,Args,Name,
     DetFail = get(test_server_detected_fail),
     {Result,DetFail,ProcBef,ProcAft}.
 
-run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
-    case get(test_server_job_dir) of
-	undefined ->
-	    %% i'm a local target
-	    do_run_test_case_apply(Mod, Func, Args, Name, RunInit,
-				   TimetrapData);
-	JobDir ->
-	    %% i'm a remote target
-	    case Args of
-		[Config] when is_list(Config) ->
-		    {value,{data_dir,HostDataDir}} =
-			lists:keysearch(data_dir, 1, Config),
-		    DataBase = filename:basename(HostDataDir),
-		    TargetDataDir = filename:join(JobDir, DataBase),
-		    Config1 = lists:keyreplace(data_dir, 1, Config,
-					       {data_dir,TargetDataDir}),
-		    TargetPrivDir = filename:join(JobDir, ?priv_dir),
-		    Config2 = lists:keyreplace(priv_dir, 1, Config1,
-					       {priv_dir,TargetPrivDir}),
-		    do_run_test_case_apply(Mod, Func, [Config2], Name, RunInit,
-					   TimetrapData);
-		_other ->
-		    do_run_test_case_apply(Mod, Func, Args, Name, RunInit,
-					   TimetrapData)
-	    end
-    end.
-
 -type tc_status() :: 'starting' | 'running' | 'init_per_testcase' |
 		     'end_per_testcase' | {'framework',atom(),atom()} |
 		     'tc'.
@@ -649,7 +420,7 @@ run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
 	  end_conf_pid :: pid() | 'undefined'
 	}).
 
-do_run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
+run_test_case_apply(Mod, Func, Args, Name, RunInit, TimetrapData) ->
     {ok,Cwd} = file:get_cwd(),
     Args2Print = case Args of
 		     [Args1] when is_list(Args1) ->
@@ -1540,10 +1311,10 @@ fw_error_notify(Mod, Func, Args, Error, Loc) ->
 %% is directed to console, major and/or minor log files.
 
 print(Detail,Format,Args) ->
-    local_or_remote_apply({test_server_ctrl,print,[Detail,Format,Args]}).
+    test_server_ctrl:print(Detail, Format, Args).
 
 print(Detail,Format,Args,Printer) ->
-    local_or_remote_apply({test_server_ctrl,print,[Detail,Format,Args,Printer]}).
+    test_server_ctrl:print(Detail, Format, Args, Printer).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% print_timsteamp(Detail,Leader) -> ok
@@ -1553,7 +1324,7 @@ print(Detail,Format,Args,Printer) ->
 %% log files.
 
 print_timestamp(Detail,Leader) ->
-    local_or_remote_apply({test_server_ctrl,print_timestamp,[Detail,Leader]}).
+    test_server_ctrl:print_timestamp(Detail, Leader).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2683,7 +2454,7 @@ make_priv_dir() ->
 %% Returns the OsType of the target node. OsType is
 %% the same as returned from os:type()
 os_type() ->
-    test_server_ctrl:get_target_os_type().
+    os:type().
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -2802,47 +2573,9 @@ purify_format(Format, Args) ->
 %%
 %% Generic send functions for communication with host
 %%
-sync_local_or_remote_apply(Proxy,From,{M,F,A} = MFA) ->
-    case get(test_server_job_sock) of
-	undefined ->
-	    %% i'm a local target
-	    Result = apply(M,F,A),
-	    if is_pid(Proxy) -> Proxy ! {sync_result_proxy,From,Result};
-	       true -> From ! {sync_result,Result}
-	    end;
-	JobSock ->
-	    %% i'm a remote target
-	    request(JobSock,{sync_apply,MFA}),
-	    {sync_result,Result} = recv(JobSock),
-	    if is_pid(Proxy) -> Proxy ! {sync_result_proxy,From,Result};
-	       true -> From ! {sync_result,Result}
-	    end
-    end.
-local_or_remote_apply({M,F,A} = MFA) ->
-    case get(test_server_job_sock) of
-	undefined ->
-	    %% i'm a local target
-	    apply(M,F,A),
-	    ok;
-	JobSock ->
-	    %% i'm a remote target
-	    request(JobSock,{apply,MFA}),
-	    ok
-    end.
-
-request(Sock,Request) ->
-    gen_tcp:send(Sock,<<1,(term_to_binary(Request))/binary>>).
-
-%%
-%% Generic receive function for communication with host
-%%
-recv(Sock) ->
-    case gen_tcp:recv(Sock,0) of
-	{error,closed} ->
-	    gen_tcp:close(Sock),
-	    exit(connection_lost);
-	{ok,<<1,Request/binary>>} ->
-	    binary_to_term(Request);
-	{ok,<<0,B/binary>>} ->
-	    B
+sync_local_or_remote_apply(Proxy, From, {M,F,A}) ->
+    %% i'm a local target
+    Result = apply(M, F, A),
+    if is_pid(Proxy) -> Proxy ! {sync_result_proxy,From,Result};
+       true -> From ! {sync_result,Result}
     end.
