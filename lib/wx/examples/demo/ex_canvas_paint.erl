@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -239,14 +239,17 @@ draw(Canvas, Bitmap, Fun) ->
     wxMemoryDC:destroy(MemoryDC).
 
 redraw(DC, Bitmap) ->
-    MemoryDC = wxMemoryDC:new(Bitmap),
+    try
+	MemoryDC = wxMemoryDC:new(Bitmap),
 
-    wxDC:blit(DC, {0,0},
-	      {wxBitmap:getWidth(Bitmap), wxBitmap:getHeight(Bitmap)},
-	      MemoryDC, {0,0}),
+	wxDC:blit(DC, {0,0},
+		  {wxBitmap:getWidth(Bitmap), wxBitmap:getHeight(Bitmap)},
+		  MemoryDC, {0,0}),
 
-    wxMemoryDC:destroy(MemoryDC).
+	wxMemoryDC:destroy(MemoryDC)
+    catch error:{{badarg,_},_} -> %% Bitmap have been deleted
+	    ok
+    end.
 
-
-getPageInfo(_This) -> 
+getPageInfo(_This) ->
     {1,1,1,1}.

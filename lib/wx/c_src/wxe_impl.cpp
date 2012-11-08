@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2011. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2012. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -272,7 +272,7 @@ bool WxeApp::OnInit()
   wxe_batch_cb_saved = new wxList;
   cb_buff = NULL;
 
-  wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED);
+  // wxIdleEvent::SetMode(wxIDLE_PROCESS_SPECIFIED); Hmm printpreview doesn't work in 2.9 with this
 
   this->Connect(wxID_ANY, wxEVT_IDLE,
 		(wxObjectEventFunction) (wxEventFunction) &WxeApp::idle);

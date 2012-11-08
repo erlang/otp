@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -105,7 +105,7 @@ create_frame(Wx) ->
     Frame = wxFrame:new(Wx, -1, "wxErlang menu sample", [{size, {600,400}}]),
 
     Path = filename:dirname(code:which(?MODULE)),    
-    wxFrame:setIcon(Frame,  wxIcon:new(filename:join(Path,"sample.xpm"))),
+    wxFrame:setIcon(Frame,  wxIcon:new(filename:join(Path,"sample.xpm"), [{type, ?wxBITMAP_TYPE_XPM}])),
 
     wxFrame:createStatusBar(Frame,[]),
     wxFrame:connect(Frame, close_window),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -78,6 +78,7 @@ init(Options) ->
     wxFrame:setMenuBar(Frame,MB),
 
     wxFrame:connect(Frame, command_menu_selected),
+    wxFrame:connect(Frame, close_window),
 
     _SB = wxFrame:createStatusBar(Frame,[]),
     
@@ -179,6 +180,8 @@ create_subwindow(Parent, BoxLabel, Funs) ->
 %% Handled as in normal gen_server callbacks
 handle_info({'EXIT',_, wx_deleted}, State) ->
     {noreply,State};
+handle_info({'EXIT',_, shutdown}, State) ->
+    {noreply,State};
 handle_info({'EXIT',_, normal}, State) ->
     {noreply,State};
 handle_info(Msg, State) ->
@@ -197,13 +200,13 @@ handle_cast(Msg, State) ->
 handle_event(#wx{event=#wxCommand{type=command_listbox_selected, cmdString=Ex}}, 
 	     State = #state{demo={_,DemoSz}, example=Example, code=Code}) ->
     case Ex of
-	[] -> 
+	[] ->
 	    {noreply, State};
 	_  ->
 	    wxSizer:detach(DemoSz, Example),
-	    wxWindow:destroy(Example),
+	    exit(wx_object:get_pid(Example), shutdown),
 	    unload_code(Code),
-	    NewExample = load_example(Ex, State), 
+	    NewExample = load_example(Ex, State),
 	    wxSizer:add(DemoSz, NewExample, [{proportion,1}, {flag, ?wxEXPAND}]),
 	    wxSizer:layout(DemoSz),
 	    {noreply, State#state{example=NewExample}}
@@ -247,9 +250,10 @@ handle_event(#wx{id = Id,
 							    ?wxICON_INFORMATION bor
 							    ?wxSTAY_ON_TOP},
 							   {caption, "About"}])),
-	    {noreply, State};		    
+	    {noreply, State};
 	?wxID_EXIT ->
-	    wx_object:get_pid(State#state.example) ! stop,
+	    exit(wx_object:get_pid(State#state.example), shutdown),
+	    timer:sleep(100), %% Give the example process some time to cleanup.
 	    {stop, normal, State};
 	_ ->
 	    {noreply, State}
@@ -266,8 +270,8 @@ code_change(_, _, State) ->
     {stop, not_yet_implemented, State}.
 
 terminate(_Reason, State) ->
-    wx_object:get_pid(State#state.example) ! stop,
-    timer:sleep(200), %% Give the example process some time to cleanup.
+    exit(wx_object:get_pid(State#state.example), shutdown),
+    timer:sleep(100), %% Give the example process some time to cleanup.
     wx:destroy().
 
 %%%%%%%%%%%%%%%%% Internals %%%%%%%%%%

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -27,7 +27,7 @@
 -export([new/1, setup_board/2, clear_board/1, left/1,
 	 get_board_data/1,set_board_data/2, 
 	 set_butt/3, butt_correct/3,
-	 draw/3, 
+	 get_state/1, redraw/3,
 	 %% Callbacks
 	 init/1, handle_sync_event/3, 
 	 handle_event/2, handle_info/2, handle_call/3, handle_cast/2,
@@ -69,9 +69,8 @@ get_board_data(Board) ->
 set_board_data(Board, List) ->
     wx_object:call(Board, {set_board_data, List}).
 
-
-draw(Board, DC, Size) ->
-    wx_object:call(Board, {draw, DC, Size}).
+get_state(Board) ->
+    wx_object:call(Board, get_state).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -85,26 +84,29 @@ init([ParentObj, ParentPid]) ->
     wxWindow:connect(Win, erase_background, []),
     wxWindow:connect(Win, key_up, [{skip, true}]),
     wxWindow:connect(Win, left_down, [{skip, true}]),
-    wxWindow:connect(Win, enter_window, [{skip, true}]), 
+    wxWindow:connect(Win, enter_window, [{skip, true}]),
 
     %% Init pens and fonts
     Pen = wxPen:new({0,0,0}, [{width, 3}]),
     Fs0  = [{Sz,wxFont:new(Sz, ?wxSWISS, ?wxNORMAL, ?wxNORMAL,[])} ||
 	       Sz <- [8,9,10,11,12,13,14,16,18,20,22,24,26,28,30,34,38,42,44,46]],
-    TestDC  = wxClientDC:new(Win),
+    TestDC  = wxMemoryDC:new(),
+    Bitmap = wxBitmap:new(256,256),
+    wxMemoryDC:selectObject(TestDC, Bitmap),
+    true = wxDC:isOk(TestDC),
     CW = fun({Sz,Font},Acc) ->
 		 case wxFont:ok(Font) of
-		     true -> 
+		     true ->
 			 wxDC:setFont(TestDC, Font),
-			 CH = wxDC:getCharHeight(TestDC), 
+			 CH = wxDC:getCharHeight(TestDC),
 			 [{CH,Sz,Font} | Acc];
 		     false ->
 			 Acc
 		 end
 	 end,
     Fs = lists:foldl(CW, [], Fs0),
-    wxClientDC:destroy(TestDC),    
-    {Win, #state{win=Win, board=[], pen=Pen, fonts=Fs, parent=ParentPid}}.
+    wxMemoryDC:destroy(TestDC),
+    {Win, #state{win=Win, board=[], pen=Pen, fonts=Fs,parent=ParentPid}}.
 
 handle_sync_event(#wx{event=#wxPaint{}}, _Obj, State = #state{win=Win}) ->
     %% io:format("EPaint~n",[]),
@@ -119,22 +121,17 @@ handle_sync_event(#wx{event=#wxPaint{}}, _Obj, State = #state{win=Win}) ->
 handle_event(#wx{event=#wxMouse{type=enter_window}}, State = #state{win=Win}) ->
     wxWindow:setFocus(Win), %% Get keyboard focus
     {noreply,State};
-handle_event(#wx{event=#wxKey{keyCode=KeyC, x=X,y=Y}},
+handle_event(#wx{event=#wxKey{keyCode=KeyC}},
 	     S = #state{parent=Pid, win=Win}) ->
     Val = if KeyC > 47, KeyC < 58 -> KeyC - $0;
 	     KeyC > 325, KeyC < 336 -> KeyC - 326; %% NUM LOCK
 	     true -> 0
 	  end,    
-    case get_butt(X,Y,S) of
-	error ->   %% Mac don't get correct coordinates.
-	    Global = wx_misc:getMousePosition(),
-	    {CX,CY} = wxWindow:screenToClient(Win, Global),
-	    case get_butt(CX,CY,S) of 
-		error -> ignore;
-		Id -> Pid ! {set_val,Id,Val}
-	    end;
-	Id -> 
-	    Pid ! {set_val,Id,Val} 
+    Global = wx_misc:getMousePosition(),
+    {CX,CY} = wxWindow:screenToClient(Win, Global),
+    case get_butt(CX,CY,S) of
+	error -> ignore;
+	Id -> Pid ! {set_val,Id,Val}
     end,
     {noreply, S};
 handle_event(#wx{event=#wxMouse{type=left_down,x=X,y=Y}},
@@ -205,9 +202,8 @@ handle_call({set_board_data, B},_From, S0) ->
 handle_call(left,_From, S = #state{board=B}) ->
     Res = 81 - length([ok || #sq{correct=C} <- B, C /= false]),
     {reply, Res, S};
-handle_call({draw, DC, Size},_From, S) ->    
-    redraw(DC,Size,S),
-    {reply, ok, S}.
+handle_call(get_state, _From, S) ->
+    {reply, {ok,S}, S}.
 
 handle_cast(Msg, State) ->
     io:format("Got cast ~p~n",[Msg]),

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -32,7 +32,8 @@
 -record(state, 
 	{
 	  parent,
-	  config
+	  config,
+	  aui
 	}).
 
 start(Config) ->
@@ -47,12 +48,10 @@ init(Config) ->
 do_init(Config) ->
     Parent = proplists:get_value(parent, Config),  
     Panel = wxPanel:new(Parent, []),
-
     %% Setup sizers
     MainSizer = wxBoxSizer:new(?wxVERTICAL),
 
-    Manager = wxAuiManager:new([{managed_wnd, Panel}
-				]),
+    Manager = wxAuiManager:new([{managed_wnd, Panel}]),
 
     Pane = ?pi:new(),
     ?pi:closeButton(Pane),
@@ -79,8 +78,8 @@ do_init(Config) ->
     wxAuiManager:connect(Manager, aui_pane_button, [{skip,true}]),
     wxAuiManager:connect(Manager, aui_pane_maximize, [{skip,true}]),
     wxAuiManager:update(Manager),
-
-    {Panel, #state{parent=Panel, config=Config}}.
+    process_flag(trap_exit, true),
+    {Panel, #state{parent=Panel, config=Config, aui=Manager}}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Callbacks handled as normal gen_server callbacks
@@ -134,11 +133,13 @@ handle_event(Ev = #wx{}, State) ->
     io:format("~p\n", [Ev]),
     {noreply, State}.
 
-
 code_change(_, _, State) ->
     {stop, ignore, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{aui=Manager, parent=Panel}) ->
+    wxAuiManager:unInit(Manager),
+    wxAuiManager:destroy(Manager),
+    wxPanel:destroy(Panel),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

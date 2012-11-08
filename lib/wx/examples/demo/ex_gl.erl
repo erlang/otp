@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -67,7 +67,7 @@ do_init(Config) ->
 			      ?WX_GL_DEPTH_SIZE,24,0]}],
     Canvas = wxGLCanvas:new(Panel,Opts ++ GLAttrib),
     wxGLCanvas:connect(Canvas, size),
-
+    %% Demo window is already shown so we can setCurrent directly
     wxGLCanvas:setCurrent(Canvas),
     Image   = wxImage:scale(wxImage:new("image.jpg"), 128,128),
     GL = setup_gl(Canvas,Image),

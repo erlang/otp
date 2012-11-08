@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2009-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2012. All Rights Reserved.
 %% 
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -58,7 +58,7 @@ do_init(Config) ->
 
     Win = wxPanel:new(Panel, []),
     Pen = wxPen:new(),
-    Brush = wxBrush:new(?wxBLACK),
+    Brush = wxBrush:new({30, 175, 23, 127}),
     Font = wxFont:new(),
     wxFont:setWeight(Font, ?wxBOLD),
 
@@ -112,36 +112,27 @@ terminate(_Reason, _State) ->
 %% Local functions
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-draw(Win, Pen0, _Brush0, Font0) ->
+draw(Win, Pen, Brush, Font0) ->
     try
 	Canvas = wxGraphicsContext:create(Win),
-	Pen    = wxGraphicsContext:createPen(Canvas, Pen0),
 	wxGraphicsContext:setPen(Canvas, Pen),
-	Brush = wxGraphicsContext:createLinearGradientBrush(Canvas, 0.0,0.0, 30.0,30.0,
-							    {200,50,50,50},
-							    {200,50,50,200}),
 	wxGraphicsContext:setBrush(Canvas, Brush),
 	Font  = wxGraphicsContext:createFont(Canvas, Font0),
 	wxGraphicsContext:setFont(Canvas, Font),
 	
 	wxGraphicsContext:drawRoundedRectangle(Canvas, 35.0,35.0, 100.0, 50.0, 10.0),
-	wxGraphicsContext:drawText(Canvas, "Welcome", 60.0, 55.0),
+	wxGraphicsContext:drawText(Canvas, "This text should be antialised", 60.0, 55.0),
 	Path = wxGraphicsContext:createPath(Canvas),
 	wxGraphicsPath:addCircle(Path, 0.0, 0.0, 40.0),
 	wxGraphicsPath:closeSubpath(Path),
-	wxGraphicsContext:translate(Canvas, 100.0, 100.0),
-
-	Brush2 = wxGraphicsContext:createLinearGradientBrush(Canvas, 0.0,0.0, 30.0,30.0,
-							     {50,200,50,50},
-							     {50,50,200,50}),
-	wxGraphicsContext:setBrush(Canvas, Brush2),
+	wxGraphicsContext:translate(Canvas, 100.0, 250.0),
 	
-	F = fun(_) ->
+	F = fun(N) ->
 		    wxGraphicsContext:scale(Canvas, 1.1, 1.1),
-		    wxGraphicsContext:translate(Canvas, 3.0,3.0),
+		    wxGraphicsContext:translate(Canvas, 15.0,-1.0*N),
 		    wxGraphicsContext:drawPath(Canvas, Path)
 	    end,
-	wx:foreach(F, lists:seq(1,5)),
+	wx:foreach(F, lists:seq(1,10)),
 	ok
     catch _:{not_supported, _} ->
 	    Err = "wxGraphicsContext not available in this build of wxwidgets",
