@@ -28,7 +28,7 @@
 	 refman_bit_syntax/1, 
 	 progex_bit_syntax/1, progex_records/1, 
 	 progex_lc/1, progex_funs/1,
-	 otp_5990/1, otp_6166/1, otp_6554/1, otp_6785/1,
+	 otp_5990/1, otp_6166/1, otp_6554/1,
 	 otp_7184/1, otp_7232/1, otp_8393/1, otp_10302/1]).
 
 -export([ start_restricted_from_shell/1, 
@@ -92,7 +92,7 @@ groups() ->
       [progex_bit_syntax, progex_records, progex_lc,
        progex_funs]},
      {tickets, [],
-      [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184,
+      [otp_5990, otp_6166, otp_6554, otp_7184,
        otp_7232, otp_8393, otp_10302]}].
 
 init_per_suite(Config) ->
@@ -2541,19 +2541,6 @@ otp_6554(Config) when is_list(Config) ->
     %%   "h()." should show {'EXIT', {badarith,..}}, {'EXIT',{foo,...}},
     %%   and {'EXIT',{{nocatch,foo},...}}.
 
-    ok.
-
-otp_6785(doc) ->
-    "OTP-6785. Parameterized modules.";
-otp_6785(suite) -> [];
-otp_6785(Config) when is_list(Config) ->
-    MFile = filename:join(?config(priv_dir, Config), "parameterized.erl"),
-    Contents = <<"-module(parameterized, [A]). "
-                 "-export([test/0]). "
-                 "test() -> A. ">>,
-    ?line ok = compile_file(Config, MFile, Contents, []),
-    ?line (parameterized:new(adsf)):test(),
-    file:delete(MFile),
     ok.
 
 otp_7184(doc) ->
