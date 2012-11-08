@@ -1404,7 +1404,7 @@ test_events(misc_errors) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{1,1,7}},
+     {?eh,start_info,{1,1,9}},
      {?eh,tc_start,{misc_error_1_SUITE,ct_fail_1}},
      {?eh,tc_done,{misc_error_1_SUITE,ct_fail_1,
 		   {failed,{error,{test_case_failed,{error,this_is_expected}}}}}},
@@ -1431,7 +1431,12 @@ test_events(misc_errors) ->
      {?eh,tc_start,{misc_error_1_SUITE,killed_by_signal_2}},
      {?eh,tc_done,{misc_error_1_SUITE,killed_by_signal_2,
 		   {failed,testcase_aborted_or_killed}}},
-     {?eh,test_stats,{0,7,{0,0}}},
+     {parallel,
+      [{?eh,tc_start,{misc_error_1_SUITE,p1}},
+       {?eh,tc_done,{misc_error_1_SUITE,p1,ok}},
+       {?eh,tc_start,{misc_error_1_SUITE,p2}},
+       {?eh,tc_done,{misc_error_1_SUITE,p2,ok}}]},
+     {?eh,test_stats,{2,7,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ].

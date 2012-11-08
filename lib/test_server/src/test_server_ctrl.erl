@@ -350,8 +350,7 @@ wait_finish() ->
     ok.
 
 abort_current_testcase(Reason) ->
-    controller_call({abort_current_testcase,Reason}),
-    ok.
+    controller_call({abort_current_testcase,Reason}).
 
 abort() ->
     OldTrap = process_flag(trap_exit, true),
@@ -1185,6 +1184,7 @@ init_tester(Mod, Func, Args, Dir, Name, {_,_,MinLev}=Levels,
     group_leader(test_server_io:get_gl(true), self()),
     {TimeMy,Result} = ts_tc(Mod, Func, Args),
     set_io_buffering(undefined),
+    test_server_io:set_job_name(undefined),
     catch stop_extra_tools(StartedExtraTools),
     case Result of
 	{'EXIT',test_suites_done} ->
@@ -3434,6 +3434,11 @@ handle_io_and_exit_loop(_, [], Ok,Skip,Fail) ->
 
 handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases) ->
     receive
+	{abort_current_testcase=Tag,_Reason,From} ->
+	    %% If a parallel group is executing, there is no unique
+	    %% current test case, so we must generate an error.
+	    From ! {self(),Tag,{error,parallel_group}},
+	    handle_io_and_exits(Main, CurrPid, CaseNum, Mod, Func, Cases);
 	%% end of io session from test case executed by main process
 	{finished,_,Main,CaseNum,Mod,Func,Result,_RetVal} ->
 	    test_server_io:print_buffered(CurrPid),

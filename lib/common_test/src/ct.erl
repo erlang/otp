@@ -987,8 +987,9 @@ get_testdata(Key) ->
     end.
 
 %%%-----------------------------------------------------------------
-%%% @spec abort_current_testcase(Reason) -> ok | {error,no_testcase_running}
+%%% @spec abort_current_testcase(Reason) -> ok | {error,ErrorReason}
 %%%       Reason = term()
+%%%       ErrorReason = no_testcase_running | parallel_group
 %%%
 %%% @doc <p>When calling this function, the currently executing test case will be aborted.
 %%%      It is the user's responsibility to know for sure which test case is currently
