@@ -555,7 +555,8 @@ make_config(SvcName, Opts) ->
     Os = split(Opts, fun opt/2, [{false, share_peers},
                                  {false, use_shared_peers},
                                  {false, monitor},
-                                 {?NOMASK, sequence}]),
+                                 {?NOMASK, sequence},
+                                 {nodes, restrict_connections}]),
     %% share_peers and use_shared_peers are currently undocumented.
 
     #service{name = SvcName,
@@ -579,15 +580,33 @@ opt(monitor, P)
   when is_pid(P) ->
     P;
 
+opt(restrict_connections, T)
+  when T == node;
+       T == nodes;
+       T == [];
+       is_atom(hd(T)) ->
+    T;
+
+opt(restrict_connections = K, F) ->
+    try diameter_lib:eval(F) of  %% no guarantee that it won't fail later
+        Nodes when is_list(Nodes) ->
+            F;
+        V ->
+            ?THROW({value, {K,V}})
+    catch
+        E:R ->
+            ?THROW({value, {K, E, R, ?STACK}})
+    end;
+
 opt(sequence, {_,_} = T) ->
     sequence(T);
 
-opt(sequence, F) ->
+opt(sequence = K, F) ->
     try diameter_lib:eval(F) of
         T -> sequence(T)
     catch
         E:R ->
-            ?THROW({value, {sequence, E, R, ?STACK}})
+            ?THROW({value, {K, E, R, ?STACK}})
     end;
             
 opt(K, _) ->

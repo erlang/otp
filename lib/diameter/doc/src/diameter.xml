@@ -375,10 +375,15 @@ is meant in the sense of <c>eval([E|A])</c>.</p>
 
 <warning>
 <p>
-Beware of using fun expressions of the form <c>fun Name/Arity</c> (not
-fun Mod:Name/Arity) in situations in which the fun is not short-lived
+Beware of using fun expressions of the form <c>fun Name/Arity</c> in
+situations in which the fun is not short-lived
 and code is to be upgraded at runtime since any processes retaining
-such a fun will have a reference to old code.</p>
+such a fun will have a reference to old code.
+In particular, such a value is typically inappropriate in
+configuration passed to <seealso
+marker="#start_service">start_service/2</seealso> or
+<seealso
+marker="#add_transport">add_transport/2</seealso>.</p> 
 </warning>
 
 <marker id="peer_filter"/>
@@ -699,6 +704,35 @@ the application's <seealso marker="diameter_dict">dictionary</seealso>
 file.</p>
 </item>
 
+<tag><c>{restrict_connections, false
+                             | node
+                             | nodes
+                             | [node()]
+                             | diameter:evaluable()}</c></tag>
+<item>
+<p>
+Specifies the degree to which multiple transport connections to the
+same peer are accepted by the service.</p>
+
+<p>
+If type <c>[node()]</c> then a connection is rejected if another already
+exists on any of the specified nodes.
+Values of type <c>false</c>, <c>node</c>, <c>nodes</c> or
+<c>diameter:evaluable()</c> are equivalent to values <c>[]</c>,
+<c>[node()]</c>, <c>[node()|nodes()]</c> and the evaluated value,
+respectively, evaluation of each expression taking place whenever a
+new connection is to be established.
+Note that <c>false</c> allows an unlimited number of connections to be
+established with the same peer.</p>
+
+<p>
+Multiple connections are independent and governed
+by their own peer and watchdog state machines.</p>
+
+<p>
+Defaults to <c>nodes</c>.</p>
+</item>
+
 <tag><c>{sequence, {H,N} | <seealso
    marker="diameter#evaluable">diameter:evaluable()</seealso>}</c></tag>
 <item>
@@ -879,7 +913,7 @@ reconnection attempts, as required by RFC 3539.</p>
 For a listening transport, the timer specifies the time after which a
 previously connected peer will be forgotten: a connection after this time is
 regarded as an initial connection rather than a reestablishment,
-causing the RFC 3539 state machine to pass to state OPEN rather than
+causing the RFC 3539 state machine to pass to state OKAY rather than
 REOPEN.
 Note that these semantics are not goverened by the RFC and
 that a listening transport's <c>reconnect_timer</c> should be greater

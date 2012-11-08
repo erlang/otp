@@ -81,11 +81,11 @@
 %% diameter callbacks
 -export([peer_up/3,
          peer_down/3,
-         pick_peer/5, pick_peer/6,
-         prepare_request/4, prepare_request/5,
-         prepare_retransmit/4,
-         handle_answer/5, handle_answer/6,
-         handle_error/5,
+         pick_peer/6, pick_peer/7,
+         prepare_request/5, prepare_request/6,
+         prepare_retransmit/5,
+         handle_answer/6, handle_answer/7,
+         handle_error/6,
          handle_request/3]).
 
 -include("diameter.hrl").
@@ -115,6 +115,9 @@
 %% messages as lists or records.
 -define(ENCODINGS, [list, record]).
 
+%% Identifers for client connections.
+-define(CONNECTIONS, [c1,c2,c3]).
+
 %% Not really what we should be setting unless the message is sent in
 %% the common application but diameter doesn't care.
 -define(APP_ID, ?DIAMETER_APP_ID_COMMON).
@@ -127,7 +130,8 @@
          {'Vendor-Id', 12345},
          {'Product-Name', "OTP/diameter"},
          {'Auth-Application-Id', [?DIAMETER_APP_ID_COMMON]},
-         {'Acct-Application-Id', [?DIAMETER_APP_ID_ACCOUNTING]}
+         {'Acct-Application-Id', [?DIAMETER_APP_ID_ACCOUNTING]},
+         {restrict_connections, false}
          | [{application, [{dictionary, D},
                            {module, ?MODULE},
                            {answer_errors, callback}]}
@@ -178,12 +182,14 @@ suite() ->
 
 all() ->
     [start, start_services, add_transports, result_codes]
-        ++ [{group, name([E]), P} || E <- ?ENCODINGS, P <- [[], [parallel]]]
+        ++ [{group, name([E,C]), P} || E <- ?ENCODINGS,
+                                       C <- ?CONNECTIONS,
+                                       P <- [[], [parallel]]]
         ++ [remove_transports, stop_services, stop].
 
 groups() ->
     Ts = tc(),
-    [{name([E]), [], Ts} || E <- ?ENCODINGS].
+    [{name([E,C]), [], Ts} || E <- ?ENCODINGS, C <- ?CONNECTIONS].
 
 init_per_group(Name, Config) ->
     [{group, Name} | Config].
@@ -252,12 +258,12 @@ start_services(_Config) ->
 
 add_transports(Config) ->
     LRef = ?util:listen(?SERVER, tcp, [{capabilities_cb, fun capx/2}]),
-    CRef = ?util:connect(?CLIENT, tcp, LRef),
-    ?util:write_priv(Config, "transport", {LRef, CRef}).
+    Cs = [?util:connect(?CLIENT, tcp, LRef, [{id, C}]) || C <- ?CONNECTIONS],
+    ?util:write_priv(Config, "transport", [LRef | Cs]).
 
 remove_transports(Config) ->
-    {LRef, CRef} = ?util:read_priv(Config, "transport"),
-    ?util:disconnect(?CLIENT, CRef, ?SERVER, LRef).
+    [LRef | Cs] = ?util:read_priv(Config, "transport"),
+    [?util:disconnect(?CLIENT, C, ?SERVER, LRef) || C <- Cs].
 
 stop_services(_Config) ->
     ok = diameter:stop_service(?CLIENT),
@@ -543,11 +549,11 @@ call(Config, Req) ->
 
 call(Config, Req, Opts) ->
     Name = proplists:get_value(testcase, Config),
-    [Enc] = name(proplists:get_value(group, Config)),
+    [Encoding, Client] = name(proplists:get_value(group, Config)),
     diameter:call(?CLIENT,
                   dict(Req),
-                  req(Req, Enc),
-                  [{extra, [Name]} | Opts]).
+                  req(Req, Encoding),
+                  [{extra, [Name, Client]} | Opts]).
 
 req(['ACR' = H | T], record) ->
     ?ACCT:'#new-'(?ACCT:msg2rec(H), T);
@@ -584,7 +590,7 @@ set(_, _, _, Rec) ->
     Rec.
 
 %% Contruct and deconstruct names to work around group names being
-%% restricted to atoms. (Not really used yet.)
+%% restricted to atoms.
 
 name(Names)
   when is_list(Names) ->
@@ -607,27 +613,45 @@ peer_up(_SvcName, _Peer, State) ->
 peer_down(_SvcName, _Peer, State) ->
     State.
 
-%% pick_peer/5/6
+%% pick_peer/6-7
 
-pick_peer([Peer], _, ?CLIENT, _State, Name)
+pick_peer(Peers, _, ?CLIENT, _State, Name, Id)
   when Name /= send_detach ->
-    {ok, Peer}.
+    find(Id, Peers).
 
-pick_peer([_Peer], _, ?CLIENT, _State, send_nopeer, ?EXTRA) ->
+pick_peer(_Peers, _, ?CLIENT, _State, send_nopeer, _, ?EXTRA) ->
     false;
 
-pick_peer([Peer], _, ?CLIENT, _State, send_detach, {_,_}) ->
-    {ok, Peer}.
+pick_peer(Peers, _, ?CLIENT, _State, send_detach, Id, {_,_}) ->
+    find(Id, Peers).
 
-%% prepare_request/4/5
+find(Id, Peers) ->
+    [P] = lists:flatmap(fun(C) -> peer(Id, C) end,
+                        diameter:service_info(?CLIENT, transport)),
+    case lists:keyfind(P, 1, Peers) of %% OTP-10470 will provide a better way.
+        {_,_} = TC ->
+            {ok, TC};
+        false = No ->
+            No
+    end.
 
-prepare_request(_Pkt, ?CLIENT, {_Ref, _Caps}, send_discard) ->
+peer(Id, [{ref, _},
+          {type, connect},
+          {options, Opts},
+          {watchdog, _},
+          {peer, {PeerRef, _}}
+          | _]) ->
+    [PeerRef || lists:member({id, Id}, Opts)].
+
+%% prepare_request/5-6
+
+prepare_request(_Pkt, ?CLIENT, {_Ref, _Caps}, send_discard, _) ->
     {discard, unprepared};
 
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name) ->
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, Name, _) ->
     {send, prepare(Pkt, Caps, Name)}.
 
-prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, _) ->
+prepare_request(Pkt, ?CLIENT, {_Ref, Caps}, send_detach, _, _) ->
     {eval_packet, {send, prepare(Pkt, Caps)}, [fun log/2, detach]}.
 
 log(#diameter_packet{} = P, T) ->
@@ -714,25 +738,25 @@ prepare(#diameter_packet{msg = Req}, Caps)
               {'Destination-Realm', DR},
               {'Auth-Application-Id', ?APP_ID}]).
 
-%% prepare_retransmit/4
+%% prepare_retransmit/5
 
-prepare_retransmit(_Pkt, false, _Peer, _Name) ->
+prepare_retransmit(_Pkt, false, _Peer, _Name, _Id) ->
     discard.
 
-%% handle_answer/5/6
+%% handle_answer/6-7
 
-handle_answer(Pkt, Req, ?CLIENT, Peer, Name) ->
+handle_answer(Pkt, Req, ?CLIENT, Peer, Name, _Id) ->
     answer(Pkt, Req, Peer, Name).
 
-handle_answer(Pkt, _Req, ?CLIENT, _Peer, send_detach, {Pid, Ref}) ->
+handle_answer(Pkt, _Req, ?CLIENT, _Peer, send_detach, _Id, {Pid, Ref}) ->
     Pid ! {Ref, Pkt}.
 
 answer(#diameter_packet{msg = Rec, errors = []}, _Req, _Peer, _) ->
     Rec.
 
-%% handle_error/5
+%% handle_error/6
 
-handle_error(Reason, _Req, ?CLIENT, _Peer, _Name) ->
+handle_error(Reason, _Req, ?CLIENT, _Peer, _Name, _Id) ->
     {error, Reason}.
 
 %% handle_request/3

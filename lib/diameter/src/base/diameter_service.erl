@@ -110,6 +110,9 @@
 %% The default sequence mask.
 -define(NOMASK, {0,32}).
 
+%% The default restrict_connections.
+-define(RESTRICT, nodes).
+
 %% Workaround for dialyzer's lack of understanding of match specs.
 -type match(T)
    :: T | '_' | '$1' | '$2' | '$3' | '$4'.
@@ -126,6 +129,7 @@
          monitor = false :: false | pid(),   %% process to die with
          options
          :: [{sequence, diameter:sequence()}  %% sequence mask
+             | {restrict_connections, diameter:restriction()}
              | {share_peers, boolean()}  %% broadcast peers to remote nodes?
              | {use_shared_peers, boolean()}]}).%% use broadcasted peers?
 %% shared_peers reflects the peers broadcast from remote nodes. Note
@@ -500,6 +504,10 @@ handle_call(stop, _From, S) ->
 handle_call(sequence, _From, #state{options = [{_, Mask} | _]} = S) ->
     {reply, Mask, S};
 
+%% Watchdog is asking for the nodes restriction.
+handle_call(restriction, _From, #state{options = [_,_,_,{_,R} | _]} = S) ->
+    {reply, R, S};
+
 handle_call(Req, From, S) ->
     unexpected(handle_call, [Req, From], S),
     {reply, nok, S}.
@@ -656,7 +664,8 @@ upgrade({state, Id, Svc, Name, Svc, PT, CT, SB, UB, SD, LD, MPid}) ->
                monitor = MPid,
                options = [{sequence, ?NOMASK},
                           {share_peers, SB},
-                          {use_shared_peers, UB}]},
+                          {use_shared_peers, UB},
+                          {restrict_connections, ?RESTRICT}]},
     upgrade_insert(S),
     S.
 
@@ -867,7 +876,10 @@ cfg_acc({_Ref, Type, _Opts} = T, {S, Acc})
 service_options(Opts) ->
     [{sequence, proplists:get_value(sequence, Opts, ?NOMASK)},
      {share_peers, get_value(share_peers, Opts)},
-     {use_shared_peers, get_value(use_shared_peers, Opts)}].
+     {use_shared_peers, get_value(use_shared_peers, Opts)},
+     {restrict_connections, proplists:get_value(restrict_connections,
+                                                Opts,
+                                                ?RESTRICT)}].
 %% The order of options is significant since we match against the list.
 
 mref(false = No) ->

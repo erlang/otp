@@ -60,6 +60,7 @@
 -define(Q_KEY, q).           %% transport start queue
 -define(START_KEY, start).   %% start of connected transport
 -define(SEQUENCE_KEY, mask). %% mask for sequence numbers
+-define(RESTRICT_KEY, restrict). %% nodes for connection check
 
 %% The default sequence mask.
 -define(NOMASK, {0,32}).
@@ -126,7 +127,9 @@
 %%% ---------------------------------------------------------------------------
 
 -spec start(T, [Opt], #diameter_service{}  %% from old code
-                    | {diameter:sequence(), #diameter_service{}})
+                    | {diameter:sequence(),
+                       diameter:restriction(),
+                       #diameter_service{}})
    -> pid()
  when T   :: {connect|accept, diameter:transport_ref()},
       Opt :: diameter:transport_opt().
@@ -157,11 +160,11 @@ init(T) ->
     gen_server:enter_loop(?MODULE, [], i(T)).
 
 i({WPid, Type, Opts, #diameter_service{} = Svc}) ->  %% from old code
-    i({WPid, Type, Opts, {?NOMASK, Svc}});
+    i({WPid, Type, Opts, {?NOMASK, [node() | nodes()], Svc}});
 
-i({WPid, T, Opts, {Mask, #diameter_service{applications = Apps,
-                                           capabilities = Caps}
-                         = Svc}}) ->
+i({WPid, T, Opts, {Mask, Nodes, #diameter_service{applications = Apps,
+                                                  capabilities = Caps}
+                                = Svc}}) ->
     [] /= Apps orelse ?ERROR({no_apps, T, Opts}),
     putr(?DWA_KEY, dwa(Caps)),
     {M, Ref} = T,
@@ -169,6 +172,7 @@ i({WPid, T, Opts, {Mask, #diameter_service{applications = Apps,
     {[Ts], Rest} = proplists:split(Opts, [capabilities_cb]),
     putr(?CB_KEY, {Ref, [F || {_,F} <- Ts]}),
     putr(?SEQUENCE_KEY, Mask),
+    putr(?RESTRICT_KEY, Nodes),
     erlang:monitor(process, WPid),
     {TPid, Addrs} = start_transport(T, Rest, Svc),
     #state{parent = WPid,
@@ -990,14 +994,30 @@ dpa_timer() ->
 %% Register a term and ensure it's not registered elsewhere. Note that
 %% two process that simultaneously register the same term may well
 %% both fail to do so this isn't foolproof.
+%%
+%% Everywhere is no longer everywhere, it's where a
+%% restrict_connections service_opt() specifies.
 
 register_everywhere(T) ->
-    diameter_reg:add_new(T)
-        andalso unregistered(T).
+    reg(getr(?RESTRICT_KEY), T).
 
-unregistered(T) ->
-    {ResL, _} = rpc:multicall(?MODULE, match, [{node(), T}]),
+reg(Nodes, T) ->
+    add(lists:member(node(), Nodes), T) andalso unregistered(Nodes, T).
+
+add(true, T) ->
+    diameter_reg:add_new(T);
+add(false, T) ->
+    diameter_reg:add(T).
+
+%% unregistered
+%%
+%% Ensure that the term in question isn't registered on other nodes.
+
+unregistered(Nodes, T) ->
+    {ResL, _} = rpc:multicall(Nodes, ?MODULE, match, [{node(), T}]),
     lists:all(fun(L) -> [] == L end, ResL).
+
+%% match/1
 
 match({Node, _})
   when Node == node() ->
