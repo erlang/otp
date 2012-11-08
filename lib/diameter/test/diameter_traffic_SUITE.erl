@@ -626,22 +626,13 @@ pick_peer(Peers, _, ?CLIENT, _State, send_detach, Id, {_,_}) ->
     find(Id, Peers).
 
 find(Id, Peers) ->
-    [P] = lists:flatmap(fun(C) -> peer(Id, C) end,
-                        diameter:service_info(?CLIENT, transport)),
-    case lists:keyfind(P, 1, Peers) of %% OTP-10470 will provide a better way.
-        {_,_} = TC ->
-            {ok, TC};
-        false = No ->
-            No
-    end.
+    [P] = [P || P <- Peers, id(Id, P)],
+    {ok, P}.
 
-peer(Id, [{ref, _},
-          {type, connect},
-          {options, Opts},
-          {watchdog, _},
-          {peer, {PeerRef, _}}
-          | _]) ->
-    [PeerRef || lists:member({id, Id}, Opts)].
+id(Id, {Pid, _Caps}) ->
+    [{ref, _}, {type, _}, {options, Opts} | _]
+        = diameter:service_info(?CLIENT, Pid),
+    lists:member({id, Id}, Opts).
 
 %% prepare_request/5-6
 

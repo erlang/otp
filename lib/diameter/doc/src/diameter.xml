@@ -1212,6 +1212,12 @@ DPA or timeout.</p>
 <desc>
 <p>
 Return information about a started service.
+Requesting info for an unknown service causes <c>undefined</c> to be
+returned.
+Requesting a list of items causes a tagged list to be
+returned.</p>
+
+<p>
 <c>Item</c> can be one of the following.</p>
 
 <taglist>
@@ -1482,13 +1488,27 @@ The Diameter-level statistics returned by <c>transport</c> and
 <c>connections</c> info are based upon these entries.</p>
 </item>
 
-</taglist>
-
+<tag><c><seealso marker="diameter_app#peer_ref">diameter_app:peer_ref()</seealso></c></tag>
+<item>
 <p>
-Requesting info for an unknown service causes <c>undefined</c> to be
-returned.
-Requesting a list of items causes a tagged list to be
-returned.</p>
+Return transport configuration associated with a single peer, as
+passed to <seealso marker="#add_transport">add_transport/2</seealso>.
+The returned list is empty if the peer is unknown.
+Otherwise it contains the <c>ref</c>, <c>type</c> and <c>options</c>
+tuples as in <c>transport</c> and <c>connections</c> info above.
+For example:</p>
+
+<code>
+[{ref,#Ref&lt;0.0.0.61>},
+ {type,accept},
+ {options,[{transport_module,diameter_tcp},
+           {transport_config,[{reuseaddr,true},
+                              {ip,{127,0,0,1}},
+                              {port,3868}]}]}]
+</code>
+</item>
+
+</taglist>
 
 <marker id="services"/>
 </desc>
