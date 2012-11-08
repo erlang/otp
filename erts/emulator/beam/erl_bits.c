@@ -1247,6 +1247,12 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
      */
 
     erts_bin_offset = 8*sb->size + sb->bitsize;
+    if (unit > 1) {
+	if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
+	    (erts_bin_offset % unit) != 0) {
+	    goto badarg;
+	}
+    }
     used_size_in_bits = erts_bin_offset + build_size_in_bits;
     sb->is_writable = 0;	/* Make sure that no one else can write. */
     pb->size = NBYTES(used_size_in_bits);
@@ -1316,6 +1322,12 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	 */
 	ERTS_GET_BINARY_BYTES(bin, src_bytes, bitoffs, bitsize);
 	erts_bin_offset = 8*binary_size(bin) + bitsize;
+	if (unit > 1) {
+	    if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
+		(erts_bin_offset % unit) != 0) {
+		goto badarg;
+	    }
+	}
 	used_size_in_bits = erts_bin_offset + build_size_in_bits;
 	used_size_in_bytes = NBYTES(used_size_in_bits);
 	bin_size = 2*used_size_in_bytes;
@@ -1363,12 +1375,6 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	/*
 	 * Now copy the data into the binary.
 	 */
-	if (unit > 1) {
-	    if ((unit == 8 && (erts_bin_offset & 7) != 0) ||
-		(erts_bin_offset % unit) != 0) {
-		return THE_NON_VALUE;
-	    }
-	}
 	copy_binary_to_buffer(erts_current_bin, 0, src_bytes, bitoffs, erts_bin_offset);
 
 	return make_binary(sb);

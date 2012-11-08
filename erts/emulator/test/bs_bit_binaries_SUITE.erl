@@ -177,13 +177,54 @@ append(Config) when is_list(Config) ->
     cs_init(),
     ?line <<(-1):256/signed-unit:8>> = cs(do_append(id(<<>>), 256*8)),
     ?line <<(-1):256/signed-unit:8>> = cs(do_append2(id(<<>>), 256*4)),
+    <<(-1):256/signed-unit:8>> = cs(do_append3(id(<<>>), 256*8)),
     cs_end().
     
 do_append(Bin, N) when N > 0 -> do_append(<<Bin/bits,1:1>>, N-1);
 do_append(Bin, 0) -> Bin.
 
-do_append2(Bin, N) when N > 0 -> do_append2(<<Bin/bits,3:2>>, N-1);
+do_append2(Bin, N) when N > 0 -> do_append2(<<Bin/binary-unit:2,3:2>>, N-1);
 do_append2(Bin, 0) -> Bin.
+
+do_append3(Bin, N) when N > 0 ->
+    Bits = bit_size(Bin),
+    if
+	Bits rem 2 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:2,1:1>>, N-1);
+	Bits rem 3 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:3,1:1>>, N-1);
+	Bits rem 4 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:4,1:1>>, N-1);
+	Bits rem 5 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:5,1:1>>, N-1);
+	Bits rem 6 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:6,1:1>>, N-1);
+	Bits rem 7 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:7,1:1>>, N-1);
+	Bits rem 8 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:8,1:1>>, N-1);
+	Bits rem 9 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:9,1:1>>, N-1);
+	Bits rem 10 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:10,1:1>>, N-1);
+	Bits rem 11 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:11,1:1>>, N-1);
+	Bits rem 12 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:12,1:1>>, N-1);
+	Bits rem 13 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:13,1:1>>, N-1);
+	Bits rem 14 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:14,1:1>>, N-1);
+	Bits rem 15 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:15,1:1>>, N-1);
+	Bits rem 16 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:16,1:1>>, N-1);
+	Bits rem 17 =:= 0 ->
+	    do_append3(<<Bin/binary-unit:17,1:1>>, N-1);
+	true ->
+	    do_append3(<<Bin/binary-unit:1,1:1>>, N-1)
+    end;
+do_append3(Bin, 0) -> Bin.
 
 cs_init() ->
     erts_debug:set_internal_state(available_internal_state, true),
