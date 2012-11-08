@@ -18,7 +18,7 @@
 %%
 -module(os_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([space_in_cwd/1, quoting/1, space_in_name/1, bad_command/1,
 	 find_executable/1, unix_comment_in_command/1, evil/1]).
@@ -27,12 +27,12 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
+all() ->
     [space_in_cwd, quoting, space_in_name, bad_command,
      find_executable, unix_comment_in_command, deep_list_command,
      evil].
 
-groups() -> 
+groups() ->
     [].
 
 init_per_suite(Config) ->
@@ -118,9 +118,9 @@ space_in_name(Config) when is_list(Config) ->
     ?line ok = file:change_mode(Echo, 8#777),	% Make it executable on Unix.
 
     %% Run the echo program.
-    %% Quoting on windows depends on if the full path of the executable 
+    %% Quoting on windows depends on if the full path of the executable
     %% contains special characters. Paths when running common_tests always
-    %% include @, why Windows would always fail if we do not double the 
+    %% include @, why Windows would always fail if we do not double the
     %% quotes (this is the behaviour of cmd.exe, not Erlang's idea).
     Quote = case os:type() of
                 {win32,_} ->
@@ -136,7 +136,7 @@ space_in_name(Config) when is_list(Config) ->
     ?t:sleep(5),
     ?line [] = receive_all(),
     ok.
-    
+
 bad_command(doc) ->
     "Check that a bad command doesn't crasch the server or the emulator (it used to).";
 bad_command(suite) -> [];
@@ -154,17 +154,17 @@ find_executable(suite) -> [];
 find_executable(doc) -> [];
 find_executable(Config) when is_list(Config) ->
     case os:type() of
-	{win32, _} -> 
+	{win32, _} ->
 	    ?line DataDir = filename:join(?config(data_dir, Config), "win32"),
 	    ?line ok = file:set_cwd(filename:join([DataDir, "current"])),
 	    ?line Bin = filename:join(DataDir, "bin"),
 	    ?line Abin = filename:join(DataDir, "abin"),
 	    ?line UsrBin = filename:join([DataDir, "usr", "bin"]),
 	    ?line {ok, Current} = file:get_cwd(),
-	    
+
 	    ?line Path = lists:concat([Bin, ";", Abin, ";", UsrBin]),
 	    ?line io:format("Path = ~s", [Path]),
-	    
+
 	    %% Search for programs in Bin (second element in PATH).
 	    ?line find_exe(Abin, "my_ar", ".exe", Path),
 	    ?line find_exe(Abin, "my_ascii", ".com", Path),
@@ -176,18 +176,18 @@ find_executable(Config) when is_list(Config) ->
 	    ?line find_exe(Abin, "my_ar.EXE", "", Path),
 	    ?line find_exe(Abin, "my_ascii.COM", "", Path),
 	    ?line find_exe(Abin, "MY_ADB.BAT", "", Path),
-	    
+
 	    %% Search for programs in Abin (second element in PATH).
 	    ?line find_exe(Abin, "my_ar", ".exe", Path),
 	    ?line find_exe(Abin, "my_ascii", ".com", Path),
 	    ?line find_exe(Abin, "my_adb", ".bat", Path),
-	    
+
 	    %% Search for programs in the current working directory.
 	    ?line find_exe(Current, "my_program", ".exe", Path),
 	    ?line find_exe(Current, "my_command", ".com", Path),
 	    ?line find_exe(Current, "my_batch", ".bat", Path),
 	    ok;
-	{unix, _}  -> 
+	{unix, _}  ->
 	    DataDir = ?config(data_dir, Config),
 
 	    %% Smoke test.
@@ -318,4 +318,3 @@ receive_all() ->
 	X -> [X|receive_all()]
     after 0 -> []
     end.
-	    
