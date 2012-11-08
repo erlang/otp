@@ -78,7 +78,7 @@ int erts_have_sbmbc_alloc;
 
 #if HAVE_ERTS_MSEG
 
-#define MSEG_UNIT_SHIFT         ((UWord)12)
+#define MSEG_UNIT_SHIFT         MSEG_ALIGN_BITS
 #define MSEG_UNIT_SZ            (1 << MSEG_UNIT_SHIFT)
 #define MSEG_UNIT_MASK		((~(UWord)0) << MSEG_UNIT_SHIFT)
 

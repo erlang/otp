@@ -57,6 +57,19 @@
      /* Implement some other way to get the real page size if needed! */
 #endif
 
+#undef MIN
+#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
+#undef MAX
+#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
+
+#define ALIGN_BITS          MSEG_ALIGN_BITS 
+#define ALIGNED_SIZE        MSEG_ALIGNED_SIZE
+#define INV_ALIGNED_MASK    ((UWord) ((ALIGNED_SIZE) - 1))
+#define ALIGNED_MASK        (~INV_ALIGNED_MASK)
+#define ALIGNED_FLOOR(X)    (((UWord)(X)) & ALIGNED_MASK)
+#define ALIGNED_CEILING(X)  ALIGNED_FLOOR((X) + INV_ALIGNED_MASK)
+#define MAP_IS_ALIGNED(X)   (((UWord)(X) & (ALIGNED_SIZE - 1)) == 0)
+
 #define IS_2POW(X)          (((X) & ((X) - 1)) == 0)
 static ERTS_INLINE Uint ceil_2pow(Uint x) {
     int i = 1 << (4 + (sizeof(Uint) != 4 ? 1 : 0));
@@ -71,24 +84,10 @@ static const int debruijn[32] = {
 
 #define LOG2(X) (debruijn[((Uint32)(((X) & -(X)) * 0x077CB531U)) >> 27])
 
-#define ALIGN_BITS       (17)
-#define ALIGNED_SIZE     (1 << ALIGN_BITS) /* 128kB */
-
 #define CACHE_AREAS      (32 - ALIGN_BITS)
 
 #define SIZE_TO_CACHE_AREA_IDX(S)   (LOG2((S)) - ALIGN_BITS)
 #define MAX_CACHE_SIZE   (30)
-
-#undef MIN
-#define MIN(X, Y) ((X) < (Y) ? (X) : (Y))
-#undef MAX
-#define MAX(X, Y) ((X) > (Y) ? (X) : (Y))
-
-#define INV_ALIGNED_MASK    ((UWord) ((ALIGNED_SIZE) - 1))
-#define ALIGNED_MASK        (~INV_ALIGNED_MASK)
-#define ALIGNED_FLOOR(X)    (((UWord)(X)) & ALIGNED_MASK)
-#define ALIGNED_CEILING(X)  ALIGNED_FLOOR((X) + INV_ALIGNED_MASK)
-#define MAP_IS_ALIGNED(X)   (((UWord)(X) & (ALIGNED_SIZE - 1)) == 0)
 
 #define MSEG_FLG_IS_2POW(X)    ((X) & ERTS_MSEG_FLG_2POW)
 

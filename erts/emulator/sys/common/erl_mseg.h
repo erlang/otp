@@ -33,13 +33,16 @@
 #if HAVE_MMAP
 #  define HAVE_ERTS_MSEG 1
 #  define HAVE_SUPER_ALIGNED_MB_CARRIERS 1
+#  define MSEG_ALIGN_BITS       (17)	/*SVERK Configure me! */
 #else
 #  define HAVE_ERTS_MSEG 0
 #  define HAVE_SUPER_ALIGNED_MB_CARRIERS 0
+#  define MSEG_ALIGN_BITS       (12)    /*SVERK Configure me! */
 #endif
 
 #if HAVE_ERTS_MSEG
 
+#define MSEG_ALIGNED_SIZE     (1 << MSEG_ALIGN_BITS)
 
 #define ERTS_MSEG_FLG_NONE    ((Uint)(0))
 #define ERTS_MSEG_FLG_2POW    ((Uint)(1 << 0))
