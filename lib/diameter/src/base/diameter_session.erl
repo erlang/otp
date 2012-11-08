@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -20,6 +20,7 @@
 -module(diameter_session).
 
 -export([sequence/0,
+         sequence/1,
          session_id/1,
          origin_state_id/0]).
 
@@ -30,7 +31,7 @@
 -define(INT32, 16#FFFFFFFF).
 
 %% ---------------------------------------------------------------------------
-%% # sequence/0
+%% # sequence/0-1
 %%
 %% Output: 32-bit
 %% ---------------------------------------------------------------------------
@@ -76,6 +77,15 @@
 sequence() ->
     Instr = {_Pos = 2, _Incr = 1, _Threshold = ?INT32, _SetVal = 0},
     ets:update_counter(diameter_sequence, sequence, Instr).
+
+-spec sequence(diameter:sequence())
+   -> diameter:'Unsigned32'().
+
+sequence({_,32}) ->
+    sequence();
+
+sequence({H,N}) ->
+    (H bsl N) bor (sequence() band (1 bsl N - 1)).
 
 %% ---------------------------------------------------------------------------
 %% # origin_state_id/0

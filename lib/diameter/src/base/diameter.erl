@@ -44,6 +44,7 @@
          stop/0]).
 
 -export_type([evaluable/0,
+              sequence/0,
               app_alias/0,
               service_name/0,
               capability/0,
@@ -280,11 +281,15 @@ call(SvcName, App, Message) ->
     | fun()
     | maybe_improper_list(evaluable(), list()).
 
+-type sequence()
+   :: {'Unsigned32'(), 0..32}.
+
 %% Options passed to start_service/2
 
 -type service_opt()
    :: capability()
-    | {application, [application_opt()]}.
+    | {application, [application_opt()]}
+    | {sequence, sequence() | evaluable()}.
 
 -type application_opt()
    :: {alias, app_alias()}

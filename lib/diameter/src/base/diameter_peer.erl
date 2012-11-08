@@ -76,7 +76,7 @@ notify(SvcName, T) ->
 %%% # start/3
 %%% ---------------------------------------------------------------------------
 
-%% From old code: make is restart.
+%% From old code: make it restart.
 start(_T, _Opts, #diameter_service{}) ->
     {error, restart}.
 

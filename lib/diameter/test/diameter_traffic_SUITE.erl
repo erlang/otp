@@ -108,6 +108,9 @@
 -define(BASE, ?DIAMETER_DICT_COMMON).
 -define(ACCT, ?DIAMETER_DICT_ACCOUNTING).
 
+%% Sequence mask for End-to-End and Hop-by-Hop identifiers.
+-define(CLIENT_MASK, {1,26}).  %% 1 in top 6 bits
+
 %% Run tests cases in different encoding variants. Send outgoing
 %% messages as lists or records.
 -define(ENCODINGS, [list, record]).
@@ -244,7 +247,8 @@ start(_Config) ->
 
 start_services(_Config) ->
     ok = diameter:start_service(?SERVER, ?SERVICE(?SERVER)),
-    ok = diameter:start_service(?CLIENT, ?SERVICE(?CLIENT)).
+    ok = diameter:start_service(?CLIENT, [{sequence, ?CLIENT_MASK}
+                                          | ?SERVICE(?CLIENT)]).
 
 add_transports(Config) ->
     LRef = ?util:listen(?SERVER, tcp, [{capabilities_cb, fun capx/2}]),
@@ -736,7 +740,13 @@ handle_error(Reason, _Req, ?CLIENT, _Peer, _Name) ->
 %% Note that diameter will set Result-Code and Failed-AVPs if
 %% #diameter_packet.errors is non-null.
 
-handle_request(#diameter_packet{msg = M}, ?SERVER, {_Ref, Caps}) ->
+handle_request(#diameter_packet{header = H, msg = M}, ?SERVER, {_Ref, Caps}) ->
+    #diameter_header{end_to_end_id = EI,
+                     hop_by_hop_id = HI}
+        = H,
+    {V,B} = ?CLIENT_MASK,
+    V = EI bsr B,  %% assert
+    V = HI bsr B,  %%
     request(M, Caps).
 
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},

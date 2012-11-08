@@ -699,6 +699,35 @@ the application's <seealso marker="diameter_dict">dictionary</seealso>
 file.</p>
 </item>
 
+<tag><c>{sequence, {H,N} | <seealso
+   marker="diameter#evaluable">diameter:evaluable()</seealso>}</c></tag>
+<item>
+<p>
+Specifies a constant value <c>H</c> for the topmost <c>32-N</c> bits of
+of 32-bit End-to-End and Hop-by-Hop identifiers generated
+by the service, either explicity or as a return value of a function
+to be evaluated at <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso>.
+In particular, an identifier <c>Id</c> is mapped to a new identifier
+as follows.</p>
+<code>
+(H bsl N) bor (Id band ((1 bsl N) - 1))
+</code>
+<p>
+Note that RFC 3588 requires that End-to-End identifiers remain unique
+for a period of at least 4 minutes and that this and the call rate
+places a lower bound on the appropriate values of <c>N</c>:
+at a rate of <c>R</c> requests per second an <c>N</c>-bit counter
+traverses all of its values in <c>(1 bsl N) div (R*60)</c> minutes so
+the bound is <c>4*R*60 =&lt; 1 bsl N</c>.</p>
+
+<p><c>N</c> must lie in the range <c>0..32</c> and <c>H</c> must be a
+non-negative integer less than <c>1 bsl (32-N)</c>.</p>
+
+<p>
+Defaults to <c>{0,32}</c>.</p>
+</item>
+
 </taglist>
 
 <marker id="transport_opt"/>

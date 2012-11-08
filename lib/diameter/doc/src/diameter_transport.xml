@@ -54,14 +54,14 @@ parent).</p>
 <funcs>
 
 <func>
-<name>Mod:start({Type, Ref}, Svc, Opts)
+<name>Mod:start({Type, Ref}, Svc, Config)
          -> {ok, Pid} | {ok, Pid, LAddrs} | {error, Reason}</name>
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
 <v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
 <v>Svc = #diameter_service{}</v>
-<v>Opts = term()</v>
+<v>Config = term()</v>
 <v>Pid = pid()</v>
 <v>LAddrs = [<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>]</v>
 <v>Reason = term()</v>
@@ -75,15 +75,38 @@ order to establish or accept a transport connection respectively.
 A transport process maintains a connection with a single remote peer.</p>
 
 <p>
-The first argument indicates whether the transport process in question
+<c>Type</c> indicates whether the transport process in question
 is being started for a connecting (<c>connect</c>) or listening
 (<c>accept</c>) transport.
 In the latter case, transport processes are started as required to
-accept connections from multiple peers.
-Ref is in each case the same value that was returned from the
-call to <seealso
+accept connections from multiple peers.</p>
+
+<p>
+Ref is the value that was returned from the call to <seealso
 marker="diameter#add_transport">diameter:add_transport/2</seealso>
 that has lead to starting of a transport process.</p>
+
+<p>
+<c>Svc</c> contains the capabilities passed to <seealso
+marker="diameter#start_service">diameter:start_service/2</seealso> and 
+<seealso
+marker="diameter#add_transport">diameter:add_transport/2</seealso>,
+values passed to the latter overriding those passed to the former.</p>
+
+<p>
+<c>Config</c> is as passed in <c>transport_config</c> tuple in the
+<seealso marker="diameter#transport_opt">diameter:transport_opt()</seealso>
+list passed to <seealso
+marker="diameter#add_transport">diameter:add_transport/2</seealso>.</p>
+
+<p>
+The start function should use the <c>Host-IP-Address</c> list and/or
+<c>Config</c> to select an appropriate list of local IP addresses,
+and should return this list if different from the
+<c>#diameter_service{}</c> addresses.
+The returned list is used to populate <c>Host-IP-Address</c> AVPs in
+outgoing capabilities exchange messages, the
+<c>#diameter_service{}</c> addresses being used otherwise.</p>
 
 <p>
 A transport process must implement the message interface documented below.
@@ -91,21 +114,6 @@ It should retain the pid of its parent, monitor the parent and terminate if
 it dies.
 It should not link to the parent.
 It should exit if its transport connection with its peer is lost.</p>
-
-<p>
-The capabilities in the <c>#diameter_service{}</c> record are as
-passed to <seealso
-marker="diameter#start_service">diameter:start_service/2</seealso> and 
-<seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso>,
-values passed to the latter overriding those passed to the former.
-The start function should use the <c>Host-IP-Address</c> list and/or
-<c>Opts</c> to select an appropriate list of local IP addresses,
-and should return this list if different from the
-<c>#diameter_service{}</c> addresses.
-The returned list is used to populate <c>Host-IP-Address</c> AVPs in
-outgoing capabilities exchange messages, the
-<c>#diameter_service{}</c> addresses being used otherwise.</p>
 
 <marker id="MESSAGES"/>
 </desc>
