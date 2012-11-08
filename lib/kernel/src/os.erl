@@ -187,11 +187,14 @@ cmd(Cmd) ->
 	{unix, _} ->
 	    unix_cmd(Cmd);
 	{win32, Wtype} ->
-	    Command = case {os:getenv("COMSPEC"),Wtype} of
+	    Command0 = case {os:getenv("COMSPEC"),Wtype} of
 			  {false,windows} -> lists:concat(["command.com /c", Cmd]);
 			  {false,_} -> lists:concat(["cmd /c", Cmd]);
 			  {Cspec,_} -> lists:concat([Cspec," /c",Cmd])
 		      end,
+            %% open_port/2 awaits string() in Command, but io_lib:chars() can be
+            %% deep lists according to io_lib module description.
+            Command = lists:flatten(Command0),
 	    Port = open_port({spawn, Command}, [stream, in, eof, hide]),
 	    get_data(Port, [])
     end.

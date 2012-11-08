@@ -29,7 +29,8 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() -> 
     [space_in_cwd, quoting, space_in_name, bad_command,
-     find_executable, unix_comment_in_command, evil].
+     find_executable, unix_comment_in_command, deep_list_command,
+     evil].
 
 groups() -> 
     [].
@@ -236,6 +237,20 @@ unix_comment_in_command(Config) when is_list(Config) ->
     ?line [] = receive_all(),
     ?line test_server:timetrap_cancel(Dog),
     ok.
+
+deep_list_command(doc) ->
+    "Check that a deep list in command works equally on unix and on windows.";
+deep_list_command(suite) -> [];
+deep_list_command(Config) when is_list(Config) ->
+    %% As a 'io_lib' module description says: "There is no guarantee that the
+    %% character lists returned from some of the functions are flat, they can
+    %% be deep lists."
+    %% That's why os:cmd/1 can have arguments that are deep lists.
+    %% It is not a problem for unix, but for windows it is (in R15B02 for ex.).
+    ?line os:cmd([$e, $c, "ho"]),
+    %% FYI: [$e, $c, "ho"] =:= io_lib:format("ec~s", ["ho"])
+    ok.
+
 
 -define(EVIL_PROCS, 100).
 -define(EVIL_LOOPS, 100).
