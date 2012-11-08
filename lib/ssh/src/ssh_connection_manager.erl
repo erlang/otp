@@ -40,8 +40,7 @@
 	 close/2, stop/1, send/5,
 	 send_eof/2]).
 
--export([open_channel/6, reply_request/3, request/6, request/7, global_request/4, event/2,
-	 cast/2]).
+-export([open_channel/6, reply_request/3, request/6, request/7, global_request/4, event/2,cast/2]).
 
 %% Internal application API and spawn
 -export([send_msg/1, ssh_channel_info_handler/3]).
@@ -110,10 +109,11 @@ global_request(ConnectionManager, Type, true = Reply, Data) ->
 
 global_request(ConnectionManager, Type, false = Reply, Data) ->
     cast(ConnectionManager, {global_request, self(), Type, Reply, Data}).
- 
+
+event(ConnectionManager, BinMsg, ErrorMsg) ->
+    call(ConnectionManager, {ssh_msg, self(), BinMsg, ErrorMsg}).
 event(ConnectionManager, BinMsg) -> 
     call(ConnectionManager, {ssh_msg, self(), BinMsg}).
-
 info(ConnectionManager) ->
     info(ConnectionManager, {info, all}).
 
@@ -262,8 +262,7 @@ handle_call({ssh_msg, Pid, Msg}, From,
     
     %% To avoid that not all data sent by the other side is processes before
     %% possible crash in ssh_connection_handler takes down the connection.
-    gen_server:reply(From, ok), 
-
+    gen_server:reply(From, ok),
     ConnectionMsg = decode_ssh_msg(Msg),
     try ssh_connection:handle_msg(ConnectionMsg, Connection0, Pid, Role) of
 	{{replies, Replies}, Connection} ->
@@ -294,7 +293,45 @@ handle_call({ssh_msg, Pid, Msg}, From,
 		disconnect_fun(Reason, SSHOpts),
 		{stop, {shutdown, Error}, State#state{connection_state = Connection}}
 	end;
+handle_call({ssh_msg, Pid, Msg, ErrorMsg}, From,
+	    #state{connection_state = Connection0,
+		   role = Role, opts = Opts, connected = IsConnected,
+		   client = ClientPid}
+	    = State) ->
 
+    %% To avoid that not all data sent by the other side is processes before
+    %% possible crash in ssh_connection_handler takes down the connection.
+    gen_server:reply(From, ok),
+    ConnectionMsg = decode_ssh_msg(Msg),
+    try ssh_connection:handle_msg(ConnectionMsg, Connection0, Pid, Role) of
+	{{replies, Replies}, Connection} ->
+	    lists:foreach(fun send_msg/1, Replies),
+	    {noreply, State#state{connection_state = Connection}};
+	{noreply, Connection} ->
+	    {noreply, State#state{connection_state = Connection}};
+	{disconnect, {_, Reason}, {{replies, Replies}, Connection}}
+	when Role == client andalso (not IsConnected) ->
+	    lists:foreach(fun send_msg/1, Replies),
+	    ClientPid ! {self(), not_connected, {Reason, ErrorMsg}},
+	    {stop, {shutdown, normal}, State#state{connection = Connection}};
+	{disconnect, Reason, {{replies, Replies}, Connection}} ->
+	    lists:foreach(fun send_msg/1, Replies),
+	    SSHOpts = proplists:get_value(ssh_opts, Opts),
+	    disconnect_fun(Reason, SSHOpts),
+	    {stop, {shutdown, normal}, State#state{connection_state = Connection}}
+	catch
+	    _:Error ->
+		{disconnect, Reason, {{replies, Replies}, Connection}} =
+		    ssh_connection:handle_msg(
+		      #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+					  description = "Internal error",
+					  language = "en"}, Connection0, undefined,
+		      Role),
+		lists:foreach(fun send_msg/1, Replies),
+		SSHOpts = proplists:get_value(ssh_opts, Opts),
+		disconnect_fun(Reason, SSHOpts),
+		{stop, {shutdown, Error}, State#state{connection_state = Connection}}
+	end;
 handle_call({global_request, Pid, _, _, _} = Request, From, 
 	    #state{connection_state = 
 		   #connection{channel_cache = Cache}} = State0) ->
