@@ -91,27 +91,9 @@ end_per_group(_GroupName, Config) ->
 	Config.
 
 init_per_suite(Config) ->
-
-    %% Copied from test_server_ctrl ln 647, we have to do this here as
-    %% the test_server only does this when run without common_test
-    global:sync(),
-    case global:whereis_name(test_server) of
-	undefined ->
-	    io:format(user, "Registering test_server globally!~n",[]),
-	    global:register_name(test_server, whereis(test_server_ctrl));
-	Pid ->
-	    case node() of
-		N when N == node(Pid) ->
-		    io:format(user, "Warning: test_server already running!\n", []),
-		    global:re_register_name(test_server,self());
-		_ ->
-		    ok
-	    end
-    end,
     Config.
 
 end_per_suite(_Config) ->
-    global:unregister_name(test_server),
     ok.
 
 
@@ -135,8 +117,7 @@ end_per_testcase(_Case, Config) ->
     ?line write_high_level_trace(Config),
     ?line _ = 
         gen_server:call(global_name_server, high_level_trace_stop, infinity),
-    ?line[global:unregister_name(N) || N <- global:registered_names(), 
-                                       N =/= test_server],
+    [global:unregister_name(N) || N <- global:registered_names()],
     ?line InitRegistered = ?registered,
     ?line Registered = registered(),
     ?line [io:format("~s local names: ~p~n", [What, N]) ||
@@ -1840,16 +1821,16 @@ do_otp_3162(StartFun, Config) ->
     ?line ?UNTIL
        ([Cp3] =:= lists:sort(rpc:call(Cp1, erlang, nodes, [])) -- [node()]),
 
-    ?line ?UNTIL([kalle, test_server, vera] =:=
+    ?UNTIL([kalle, vera] =:=
 	   lists:sort(rpc:call(Cp1, global, registered_names, []))),
     ?line ?UNTIL
        ([Cp3] =:= lists:sort(rpc:call(Cp2, erlang, nodes, [])) -- [node()]),
-    ?line ?UNTIL([stina, test_server, vera] =:=
+    ?UNTIL([stina, vera] =:=
            lists:sort(rpc:call(Cp2, global, registered_names, []))),
     ?line ?UNTIL
        ([Cp1, Cp2] =:= 
         lists:sort(rpc:call(Cp3, erlang, nodes, [])) -- [node()]),
-    ?line ?UNTIL([kalle, stina, test_server, vera] =:=
+    ?UNTIL([kalle, stina, vera] =:=
   	   lists:sort(rpc:call(Cp3, global, registered_names, []))),
 
     ?line pong = rpc:call(Cp2, net_adm, ping, [Cp1]),
@@ -1860,17 +1841,17 @@ do_otp_3162(StartFun, Config) ->
     ?line 
     ?UNTIL(begin
 	       NN = lists:sort(rpc:call(Cp1, global, registered_names, [])),
-	       [kalle, stina, test_server, vera] =:= NN
+	       [kalle, stina, vera] =:= NN
 	   end),
     ?line ?UNTIL
        ([Cp1, Cp3] =:=
         lists:sort(rpc:call(Cp2, erlang, nodes, [])) -- [node()]),
-    ?line ?UNTIL([kalle, stina, test_server, vera] =:=
+    ?UNTIL([kalle, stina, vera] =:=
 	lists:sort(rpc:call(Cp2, global, registered_names, []))),
     ?line ?UNTIL
        ([Cp1, Cp2] =:=
         lists:sort(rpc:call(Cp3, erlang, nodes, [])) -- [node()]),
-    ?line ?UNTIL([kalle, stina, test_server, vera] =:=
+    ?UNTIL([kalle, stina, vera] =:=
  	lists:sort(rpc:call(Cp3, global, registered_names, []))),
 
     write_high_level_trace(Config),
@@ -4154,7 +4135,7 @@ init_condition(Config) ->
                         {"Global Locks     (ETS)", global_locks},
                         {"Global Pid Names (ETS)", global_pid_names},
                         {"Global Pid Ids   (ETS)", global_pid_ids}]],
-    ?UNTIL([test_server] =:= global:registered_names()),
+    ?UNTIL([] =:= global:registered_names()),
     ?UNTIL([] =:= nodes()),
     ?UNTIL([node()] =:= get_known(node())),
     ok.
