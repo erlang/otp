@@ -22,7 +22,7 @@
 #include "allocator_test.h"
 #include <stdio.h>
 
-#ifdef __WIN32__ && SIZEOF_VOID_P == 8
+#if defined(__WIN32__) && SIZEOF_VOID_P == 8
 /* Use larger threashold for win64 as block alignment
    is 16 bytes and not 8 */
 #define SBCT ((1024*1024))
@@ -48,10 +48,16 @@ testcase_cleanup(TestCaseState_t *tcs)
 void
 testcase_run(TestCaseState_t *tcs)
 {
-    void *tmp;
-    void **fence;
+    typedef struct linked_block {
+	struct linked_block* next;
+    }Linked;
+    Linked* link;
+    Linked* fence_list;
+    Linked* pad_list;
+    void* tmp;
     void **blk;
     Ulong sz;
+    Ulong residue;
     Ulong smbcs;
     int i;
     int bi;
@@ -73,7 +79,7 @@ testcase_run(TestCaseState_t *tcs)
     ASSERT(tcs, a);
 
     min_blk_sz = MIN_BLK_SZ(a);
-    smbcs = 2*(no_bkts*sizeof(void *) + min_blk_sz) + min_blk_sz;
+    smbcs = (no_bkts*sizeof(void *) + min_blk_sz) + min_blk_sz;
     for (i = 0; i < no_bkts; i++) {
 	sz = BKT_MIN_SZ(a, i);
 	if (sz >= sbct)
@@ -98,26 +104,42 @@ testcase_run(TestCaseState_t *tcs)
     tcs->extra = (void *) a;
     ASSERT(tcs, a);
 
-    blk = (void **) ALLOC(a, no_bkts*sizeof(void *));
-    fence = (void **) ALLOC(a, no_bkts*sizeof(void *));
 
-    ASSERT(tcs, blk && fence);
+    blk = (void **) ALLOC(a, no_bkts*sizeof(void *));
+
+    ASSERT(tcs, blk);
+    fence_list = NULL;
 
     testcase_printf(tcs, "Allocating blocks and fences\n");
     for (i = 0; i < bi_tests; i++) {
 	sz = BKT_MIN_SZ(a, i);
 	blk[i] = ALLOC(a, sz - ablk_hdr_sz);
-	fence[i] = ALLOC(a, 1);
-	ASSERT(tcs, blk[i] && fence[i]);
+	link = (Linked*) ALLOC(a, sizeof(Linked));
+	ASSERT(tcs, blk[i] && link);
+	link->next = fence_list;
+	fence_list = link;
     }
 
-    tmp = (void *) UMEM2BLK(fence[bi_tests - 1]);
-    tmp = (void *) NXT_BLK((Block_t *) tmp);
-    ASSERT(tcs, IS_LAST_BLK(tmp));
-    sz = BLK_SZ((Block_t *) tmp);
-    testcase_printf(tcs, "Allocating leftover size = %lu\n", sz);
-    tmp = ALLOC(a, sz - ablk_hdr_sz);
-    ASSERT(tcs, tmp);
+    pad_list = 0;
+    do {
+	tmp = (void *) UMEM2BLK(link); /* last allocated */
+	tmp = (void *) NXT_BLK((Block_t *) tmp);
+	ASSERT(tcs, IS_LAST_BLK(tmp));
+	sz = BLK_SZ((Block_t *) tmp);
+	if (sz >= sbct) {
+	    residue = sz;
+	    sz = sbct - min_blk_sz;
+	    residue -= sz;
+	}
+	else {
+	    residue = 0;
+	}
+	testcase_printf(tcs, "Allocating leftover size = %lu, residue = %lu\n", sz, residue);
+	link = (Linked*) ALLOC(a, sz - ablk_hdr_sz);
+	ASSERT(tcs, link);
+	link->next = pad_list;
+	pad_list = link;
+    } while (residue);
 
     bi = FIND_BKT(a, 0);
     ASSERT(tcs, bi < 0);
@@ -135,16 +157,23 @@ testcase_run(TestCaseState_t *tcs)
 
     for (i = 0; i < bi_tests; i++) {
 	FREE(a, blk[i]);
-	FREE(a, fence[i]);
+    }
+    while (fence_list) {
+	link = fence_list;
+	fence_list = link->next;
+	FREE(a, link);
     }
 
     FREE(a, (void *) blk);
-    FREE(a, (void *) fence);
 
     bi = FIND_BKT(a, 0);
     ASSERT(tcs, bi == no_bkts - 1);
 
-    FREE(a, tmp);
+    while (pad_list) {
+	link = pad_list;
+	pad_list = link->next;
+	FREE(a, link);
+    }
 
     bi = FIND_BKT(a, 0);
     ASSERT(tcs, bi < 0);
