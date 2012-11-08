@@ -1254,7 +1254,7 @@ at the time the diameter application was started.</p>
 <!-- ===================================================================== -->
 
 <func>
-<name>remove_transport(SvcName, Pred) -> ok</name>
+<name>remove_transport(SvcName, Pred) -> ok | {error, Reason}</name>
 <fsummary>Remove previously added transports.</fsummary>
 <type>
 <v>SvcName = <seealso marker="#service_name">service_name()</seealso></v>
@@ -1264,6 +1264,7 @@ at the time the diameter application was started.</p>
 <v>&nbsp;&nbsp;&nbsp; | fun((<seealso marker="#transport_ref">transport_ref()</seealso>, list()) -> boolean())</v>
 <v>&nbsp;&nbsp;&nbsp; | fun((list()) -> boolean())</v>
 <v>MFA = {atom(), atom(), list()}</v>
+<v>Reason = term()</v>
 </type>
 <desc>
 <p>
