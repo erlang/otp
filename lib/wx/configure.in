@@ -169,6 +169,7 @@ case $host_os in
 	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0500"
 	;;
     *)
+	CFLAGS="$CFLAGS -fpermissive -Wno-deprecated-declarations"
 	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS"
 	;;
 esac
@@ -252,6 +253,18 @@ else
     AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
 fi
 
+if test X"$host_os" != X"win32" ; then
+    AC_CHECK_HEADERS([GL/glu.h], [],
+        [AC_CHECK_HEADERS([OpenGL/glu.h])])
+    if test X"$ac_cv_header_GL_glu_h" != Xyes &&
+        test X"$ac_cv_header_OpenGL_glu_h" != Xyes
+    then
+	AC_MSG_WARN([No GLU headers found, wx will NOT be usable])
+    fi
+else
+    AC_CHECK_HEADERS([gl/glu.h],[],[],[#include <windows.h>])
+fi
+
 AC_SUBST(GL_LIBS)
 
 CXXFLAGS="$CFLAGS $CPPFLAGS" 
@@ -308,7 +321,15 @@ if test "$cross_compiling" = "yes"; then
     echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" > ./CONF_INFO
     WXERL_CAN_BUILD_DRIVER=false
 elif test  X"$MIXED_CYGWIN_VC" == X"no" -a X"$MIXED_MSYS_VC" == X"no"; then
-    m4_include(wxwin.m4)
+    WX_VERSION=`wx-config --version`
+    case $WX_VERSION in
+         2.8.*)
+		m4_include(wxwin-2.8.m4)
+		;;
+	 *)
+		m4_include(wxwin-2.9.m4)
+		;;
+    esac
 
     AM_OPTIONS_WXCONFIG
     reqwx=2.8.4
