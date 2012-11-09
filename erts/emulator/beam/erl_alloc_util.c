@@ -127,7 +127,7 @@ static Uint max_mseg_carriers;
 #define UNUSED2_BLK_FTR_FLG	(((UWord) 1) << 2)
 
 #define ABLK_HDR_SZ (sizeof(Block_t))
-#define FBLK_FTR_SZ (sizeof(UWord))
+#define FBLK_FTR_SZ (sizeof(FreeBlkFtr_t))
 
 #define UMEMSZ2BLKSZ(AP, SZ)						\
   (ABLK_HDR_SZ + (SZ) <= (AP)->min_block_size				\
@@ -138,10 +138,10 @@ static Uint max_mseg_carriers;
 #define BLK2UMEM(P) ((void *)    (((char *) (P)) + ABLK_HDR_SZ))
 
 #define PREV_BLK_SZ(B) \
-  ((UWord) (((UWord *)(B))[-1] & MBC_BLK_SZ_MASK))
+  ((UWord) (((FreeBlkFtr_t *)(B))[-1] & MBC_BLK_SZ_MASK))
 
 #define SET_BLK_SZ_FTR(B, SZ) \
-  (*((UWord *) (((char *) (B)) + (SZ) - sizeof(UWord))) = (SZ))
+  (((FreeBlkFtr_t *) (((char *) (B)) + (SZ)))[-1] = (SZ))
 
 #define THIS_FREE_BLK_HDR_FLG 	(((UWord) 1) << 0)
 #define PREV_FREE_BLK_HDR_FLG 	(((UWord) 1) << 1)
@@ -187,7 +187,7 @@ static Uint max_mseg_carriers;
      ASSERT((UWord)(F) < SBC_BLK_HDR_FLG), \
      (B)->bhdr = ((Sz) | (F) | (BLK_CARRIER_OFFSET(B,C) << CARRIER_OFFSET_SHIFT)))
 
-#  define GET_MB_CARRIER(B) \
+#  define BLK2MBC(B) \
     (ASSERT(IS_MBC_BLK(B)), \
      (Carrier_t*)((MSEG_UNIT_FLOOR((UWord)(B)) - \
 		  (((B)->bhdr >> CARRIER_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
@@ -204,7 +204,7 @@ static Uint max_mseg_carriers;
      (B)->bhdr = ((Sz) | (F)), \
      (B)->carrier = (C))
 
-#  define GET_MB_CARRIER(B) ((B)->carrier)
+#  define BLK2MBC(B) ((B)->carrier)
 
 #  define IS_MBC_FIRST_BLK(AP,B) \
   ((char*)(B) == (char*)((B)->carrier) + (AP)->mbc_header_size)
@@ -289,15 +289,6 @@ static Uint max_mseg_carriers;
   ((C)->chdr & SBC_CARRIER_HDR_FLAG)
 #define IS_MB_CARRIER(C) \
   (!IS_SB_CARRIER((C)))
-
-#define SET_MSEG_CARRIER(C) \
-  ((C)->chdr |= MSEG_CARRIER_HDR_FLAG)
-#define SET_SYS_ALLOC_CARRIER(C) \
-  ((C)->chdr &= ~MSEG_CARRIER_HDR_FLAG)
-#define SET_SB_CARRIER(C) \
-  ((C)->chdr |= SBC_CARRIER_HDR_FLAG)
-#define SET_MB_CARRIER(C) \
-  ((C)->chdr &= ~SBC_CARRIER_HDR_FLAG)
 
 #define SET_CARRIER_SZ(C, SZ) \
   (ASSERT(((SZ) & FLG_MASK) == 0), \
@@ -1288,7 +1279,7 @@ mbc_alloc_finalize(Allctr_t *allctr,
     Uint nxt_blk_sz;
     Block_t *nxt_blk;
     UWord prev_free_flg = flags & PREV_FREE_BLK_HDR_FLG;
-    Carrier_t* crr = GET_MB_CARRIER(blk);
+    Carrier_t* crr = BLK2MBC(blk);
 
     ASSERT(org_blk_sz >= want_blk_sz);
     ASSERT(blk);
@@ -1329,8 +1320,8 @@ mbc_alloc_finalize(Allctr_t *allctr,
 	ASSERT(nxt_blk_sz == MBC_BLK_SZ(nxt_blk));
 	ASSERT(nxt_blk_sz % sizeof(Unit_t) == 0);
 	ASSERT(nxt_blk_sz >= allctr->min_block_size);
-	ASSERT(GET_MB_CARRIER(blk) == crr);
-	ASSERT(GET_MB_CARRIER(nxt_blk) == crr);
+	ASSERT(BLK2MBC(blk) == crr);
+	ASSERT(BLK2MBC(nxt_blk) == crr);
     }
     else {
 	blk_sz = org_blk_sz;
@@ -1352,7 +1343,7 @@ mbc_alloc_finalize(Allctr_t *allctr,
 	ASSERT((flags & LAST_BLK_HDR_FLG)
 	       ? IS_LAST_BLK(blk)
 	       : IS_NOT_LAST_BLK(blk));
-	ASSERT(GET_MB_CARRIER(blk) == crr);
+	ASSERT(BLK2MBC(blk) == crr);
     }
 
     STAT_MBC_BLK_ALLOC(allctr, blk_sz, alcu_flgs);
@@ -1611,7 +1602,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 	    SET_BLK_SZ_FTR(nxt_blk, nxt_blk_sz);
 	}
 
-	crr = GET_MB_CARRIER(blk);
+	crr = BLK2MBC(blk);
 	SET_MBC_BLK_HDR(nxt_blk, nxt_blk_sz,
 			SBH_THIS_FREE | (is_last_blk ? SBH_LAST_BLK : 0),
 			crr);
@@ -1635,7 +1626,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 	ASSERT(is_last_blk ? IS_LAST_BLK(nxt_blk) : IS_NOT_LAST_BLK(nxt_blk));
 	ASSERT(is_last_blk || nxt_blk == PREV_BLK(NXT_BLK(nxt_blk)));
 	ASSERT(is_last_blk || IS_PREV_BLK_FREE(NXT_BLK(nxt_blk)));
-	ASSERT(GET_MB_CARRIER(nxt_blk) == crr);
+	ASSERT(BLK2MBC(nxt_blk) == crr);
 		    
 	HARD_CHECK_BLK_CARRIER(allctr, blk);
 
@@ -1677,7 +1668,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 		}
 	    }
 	    else {
-		Carrier_t* crr = GET_MB_CARRIER(blk);
+		Carrier_t* crr = BLK2MBC(blk);
 		SET_MBC_BLK_SZ(blk, blk_sz);
 
 		nxt_blk = NXT_BLK(blk);
@@ -1691,7 +1682,7 @@ mbc_realloc(Allctr_t *allctr, void *p, Uint size, Uint32 alcu_flgs)
 		(*allctr->link_free_block)(allctr, nxt_blk, alcu_flgs);
 
 		ASSERT(IS_FREE_BLK(nxt_blk));
-		ASSERT(GET_MB_CARRIER(nxt_blk) == crr);
+		ASSERT(BLK2MBC(nxt_blk) == crr);
 	    }
 
 	    STAT_MBC_BLK_FREE(allctr, old_blk_sz, alcu_flgs);
@@ -1872,7 +1863,7 @@ static void CHECK_1BLK_CARRIER(Allctr_t* A, int SBC, int MSEGED, Carrier_t* C,
 	ASSERT(IS_MBC_FIRST_BLK(A, (B)));
 	ASSERT(IS_MBC_BLK((B)));
 	ASSERT(IS_MB_CARRIER((C)));
-	ASSERT(GET_MB_CARRIER(B) == (C));
+	ASSERT(BLK2MBC(B) == (C));
     }
     if ((MSEGED)) {
 	ASSERT(IS_MSEG_CARRIER((C)));
@@ -1910,7 +1901,7 @@ create_sbmbc(Allctr_t *allctr, Uint umem_sz)
 
     blk_sz = UNIT_FLOOR(crr_sz - allctr->mbc_header_size);
 
-    SET_MBC_BLK_FTR(((UWord *) blk)[-1]);
+    SET_MBC_BLK_FTR(((FreeBlkFtr_t *) blk)[-1]);
     SET_MBC_BLK_HDR(blk, blk_sz, SBH_THIS_FREE|SBH_LAST_BLK, crr);
 
     link_carrier(&allctr->sbmbc_list, crr);
@@ -2093,7 +2084,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
 	blk = SBC2BLK(allctr, crr);
 
-	SET_SBC_BLK_FTR(((UWord *) blk)[-1]);
+	SET_SBC_BLK_FTR(((FreeBlkFtr_t *) blk)[-1]);
 	SET_SBC_BLK_HDR(blk, blk_sz);
 
 	link_carrier(&allctr->sbc_list, crr);
@@ -2113,7 +2104,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
 	blk_sz = UNIT_FLOOR(crr_sz - allctr->mbc_header_size);
 
-	SET_MBC_BLK_FTR(((UWord *) blk)[-1]);
+	SET_MBC_BLK_FTR(((FreeBlkFtr_t *) blk)[-1]);
 	SET_MBC_BLK_HDR(blk, blk_sz, SBH_THIS_FREE|SBH_LAST_BLK, crr);
 
 	if (flags & CFLG_MAIN_CARRIER) {
@@ -4139,7 +4130,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     if (allctr->min_block_size < ABLK_HDR_SZ)
 	goto error;
     allctr->min_block_size		= UNIT_CEILING(allctr->min_block_size
-						       + sizeof(UWord));
+						       + sizeof(FreeBlkFtr_t));
 #if ERTS_SMP
     if (init->tpref) {
 	Uint sz = sizeof(Block_t);
@@ -4470,14 +4461,14 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 
 	blk = iblk;
 	tot_blk_sz = 0;
-	crr = GET_MB_CARRIER(blk);
+	crr = BLK2MBC(blk);
 	ASSERT(IS_MB_CARRIER(crr));
 
 	/* Step around the carrier one whole lap starting at 'iblk'
 	 */
 	while (1) {
 	    ASSERT(IS_MBC_BLK(blk));
-	    ASSERT(GET_MB_CARRIER(blk) == crr);
+	    ASSERT(BLK2MBC(blk) == crr);
 
 	    if (prev_blk) {
 		ASSERT(NXT_BLK(prev_blk) == blk);
@@ -4507,11 +4498,9 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 	    tot_blk_sz += blk_sz;
 
 	    is_free_blk = (int) IS_FREE_BLK(blk);
-	    if(is_free_blk) {
-		if (IS_NOT_LAST_BLK(blk))
-		    ASSERT(*((UWord *) (((char *) blk)+blk_sz-sizeof(UWord)))
-			   == blk_sz);
-	    }
+	    ASSERT(!is_free_blk
+		   || IS_LAST_BLK(blk)
+		   || PREV_BLK_SZ(((char *) blk)+blk_sz) == blk_sz);
 
 	    if (allctr->check_block)
 		(*allctr->check_block)(allctr, blk, (int) is_free_blk);
