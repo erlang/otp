@@ -51,7 +51,7 @@ all() ->
 	     {group, client_dies}, connect_timeout, timeout,
 	     many_timeouts, timeout_reset, disconnect_on_timeout,
 	     connection_closed, disable_scrollable_cursors,
-	     return_rows_as_lists, api_missuse];
+	     return_rows_as_lists, api_missuse, extended_errors];
 	Other -> {skip, Other}
     end.
 
@@ -838,3 +838,33 @@ transaction_support_str(mysql) ->
     "ENGINE = InnoDB";
 transaction_support_str(_) ->
     "".
+
+
+%%-------------------------------------------------------------------------
+extended_errors(doc)->
+    ["Test the extended errors connection option: When off; the old behaviour of just an error "
+     "string is returned on error. When on, the error string is replaced by a 3 element tuple "
+     "that also exposes underlying ODBC provider error codes."];
+extended_errors(suite)  -> [];
+extended_errors(Config) when is_list(Config)->
+    Table = ?config(tableName, Config),
+    {ok, Ref} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options()),
+    {updated, _} = odbc:sql_query(Ref, "create table " ++ Table ++" ( id integer, data varchar(10))"),
+
+    % Error case WITHOUT extended errors on...
+    case odbc:sql_query(Ref, "create table " ++ Table ++" ( id integer, data varchar(10))") of
+        {error, ErrorString} when is_list(ErrorString) -> ok
+    end,
+
+    % Now the test case with extended errors on - This should return a tuple, not a list/string now.
+    % The first element is a string that is the ODBC error string; the 2nd element is a native integer error
+    % code passed from the underlying provider driver. The last is the familiar old error string.
+    % We can't check the actual error code; as each different underlying provider will return
+    % a different value - So we just check the return types at least.
+    {ok, RefExtended} = odbc:connect(?RDBMS:connection_string(), odbc_test_lib:platform_options() ++ [{extended_errors, on}]),
+    case odbc:sql_query(RefExtended, "create table " ++ Table ++" ( id integer, data varchar(10))") of
+        {error, {ODBCCodeString, NativeCodeNum, ShortErrorString}} when is_list(ODBCCodeString), is_number(NativeCodeNum), is_list(ShortErrorString) -> ok
+    end,
+
+    ok = odbc:disconnect(Ref),
+    ok = odbc:disconnect(RefExtended).
