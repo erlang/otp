@@ -118,7 +118,7 @@ send(Pid, Data) ->
     sync_send_all_state_event(Pid, {application_data, 
 				    %% iolist_to_binary should really
 				    %% be called iodata_to_binary()
-				    erlang:iolist_to_binary(Data)}, infinity).
+				    erlang:iolist_to_binary(Data)}).
 
 %%--------------------------------------------------------------------
 -spec recv(pid(), integer(), timeout()) ->  
@@ -127,7 +127,7 @@ send(Pid, Data) ->
 %% Description:  Receives data when active = false
 %%--------------------------------------------------------------------
 recv(Pid, Length, Timeout) -> 
-    sync_send_all_state_event(Pid, {recv, Length}, Timeout).
+    sync_send_all_state_event(Pid, {recv, Length, Timeout}).
 %%--------------------------------------------------------------------
 -spec connect(host(), inet:port_number(), port(), {#ssl_options{}, #socket_options{}},
 	      pid(), tuple(), timeout()) ->
@@ -164,7 +164,7 @@ ssl_accept(Port, Socket, Opts, User, CbInfo, Timeout) ->
 %% Description: Starts ssl handshake. 
 %%--------------------------------------------------------------------
 handshake(#sslsocket{pid = Pid}, Timeout) ->  
-    case sync_send_all_state_event(Pid, start, Timeout) of
+    case sync_send_all_state_event(Pid, {start, Timeout}) of
 	connected ->
 	    ok;
  	Error ->
@@ -335,15 +335,15 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,  User, CbInfo]) ->
 	    #state{}) -> gen_fsm_state_return().    
 %%--------------------------------------------------------------------
 hello(start, #state{host = Host, port = Port, role = client,
-		    ssl_options = SslOpts, 
-		    session = #session{own_certificate = Cert} = Session0,
-		    session_cache = Cache, session_cache_cb = CacheCb,
-		    transport_cb = Transport, socket = Socket,
-		    connection_states = ConnectionStates0,
-		    renegotiation = {Renegotiation, _}} = State0) ->
+			      ssl_options = SslOpts, 
+			      session = #session{own_certificate = Cert} = Session0,
+			      session_cache = Cache, session_cache_cb = CacheCb,
+			      transport_cb = Transport, socket = Socket,
+			      connection_states = ConnectionStates0,
+			      renegotiation = {Renegotiation, _}} = State0) ->
     Hello = ssl_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 				       Cache, CacheCb, Renegotiation, Cert),
-
+    
     Version = Hello#client_hello.client_version,
     Handshake0 = ssl_handshake:init_handshake_history(),
     {BinMsg, ConnectionStates, Handshake} =
@@ -768,7 +768,8 @@ handle_sync_event({application_data, Data}, From, StateName,
      State#state{send_queue = queue:in({From, Data}, Queue)},
      get_timeout(State)};
 
-handle_sync_event(start, StartFrom, hello, State) ->
+handle_sync_event({start, Timeout} = Start, StartFrom, hello, State) ->
+    start_or_recv_cancel_timer(Timeout, StartFrom),
     hello(start, State#state{start_or_recv_from = StartFrom});
 
 %% The two clauses below could happen if a server upgrades a socket in
@@ -778,12 +779,14 @@ handle_sync_event(start, StartFrom, hello, State) ->
 %% mode before telling the client that it is willing to upgrade
 %% and before calling ssl:ssl_accept/2. These clauses are 
 %% here to make sure it is the users problem and not owers if
-%% they upgrade a active socket. 
-handle_sync_event(start, _, connection, State) ->
+%% they upgrade an active socket. 
+handle_sync_event({start,_}, _, connection, State) ->
     {reply, connected, connection, State, get_timeout(State)};
-handle_sync_event(start, _From, error, {Error, State = #state{}}) ->
+handle_sync_event({start,_}, _From, error, {Error, State = #state{}}) ->
     {stop, {shutdown, Error}, {error, Error}, State};
-handle_sync_event(start, StartFrom, StateName, State) ->
+
+handle_sync_event({start, Timeout}, StartFrom, StateName, State) ->
+    start_or_recv_cancel_timer(Timeout, StartFrom),
     {next_state, StateName, State#state{start_or_recv_from = StartFrom}, get_timeout(State)};
 
 handle_sync_event(close, _, StateName, State) ->
@@ -815,12 +818,14 @@ handle_sync_event({shutdown, How0}, _, StateName,
 	    {stop, normal, Error, State}
     end;
     
-handle_sync_event({recv, N}, RecvFrom, connection = StateName, State0) ->
+handle_sync_event({recv, N, Timeout}, RecvFrom, connection = StateName, State0) ->
+    start_or_recv_cancel_timer(Timeout, RecvFrom),
     passive_receive(State0#state{bytes_to_read = N, start_or_recv_from = RecvFrom}, StateName);
 
 %% Doing renegotiate wait with handling request until renegotiate is
 %% finished. Will be handled by next_state_is_connection/2.
-handle_sync_event({recv, N}, RecvFrom, StateName, State) ->
+handle_sync_event({recv, N, Timeout}, RecvFrom, StateName, State) ->
+    start_or_recv_cancel_timer(Timeout, RecvFrom),
     {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom},
      get_timeout(State)};
 
@@ -990,7 +995,14 @@ handle_info({'DOWN', MonitorRef, _, _, _}, _,
 
 handle_info(allow_renegotiate, StateName, State) ->
     {next_state, StateName, State#state{allow_renegotiate = true}, get_timeout(State)};
-    
+   
+handle_info({cancel_start_or_recv, RecvFrom}, connection = StateName, #state{start_or_recv_from = RecvFrom} = State) ->
+    gen_fsm:reply(RecvFrom, {error, timeout}),
+    {next_state, StateName, State#state{start_or_recv_from = undefined}, get_timeout(State)};
+
+handle_info({cancel_start_or_recv, _RecvFrom}, StateName, State) ->
+    {next_state, StateName, State, get_timeout(State)};
+
 handle_info(Msg, StateName, State) ->
     Report = io_lib:format("SSL: Got unexpected info: ~p ~n", [Msg]),
     error_logger:info_report(Report),
@@ -1201,15 +1213,10 @@ init_diffie_hellman(DbHandle,_, DHParamFile, server) ->
     end.
 
 sync_send_all_state_event(FsmPid, Event) ->
-    sync_send_all_state_event(FsmPid, Event, infinity).
-
-sync_send_all_state_event(FsmPid, Event, Timeout) ->
-    try gen_fsm:sync_send_all_state_event(FsmPid, Event, Timeout)
+    try gen_fsm:sync_send_all_state_event(FsmPid, Event, infinity)
     catch
  	exit:{noproc, _} ->
  	    {error, closed};
- 	exit:{timeout, _} ->
- 	    {error, timeout};
 	exit:{normal, _} ->
 	    {error, closed};
 	exit:{shutdown, _} -> 
@@ -2465,3 +2472,8 @@ default_hashsign(_Version, KeyExchange)
 default_hashsign(_Version, KeyExchange)
   when KeyExchange == dh_anon ->
     {null, anon}.
+
+start_or_recv_cancel_timer(infinity, _RecvFrom) ->
+    ok;
+start_or_recv_cancel_timer(Timeout, RecvFrom) ->
+    erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).    
