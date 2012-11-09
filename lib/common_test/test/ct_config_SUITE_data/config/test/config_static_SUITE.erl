@@ -64,7 +64,8 @@ all() -> [test_get_config_simple, test_get_config_nested,
 	  test_shadow_all,test_element,test_shadow_all_element,
 	  test_internal_deep, test_alias_tclocal_nested,
 	  test_alias_tclocal_nested_backward_compat,
-	  test_alias_tclocal_nested_backward_compat_subvals
+	  test_alias_tclocal_nested_backward_compat_subvals,
+	  test_config_same_name_already_in_use
 ].
 
 init_per_testcase(_,Config) ->
@@ -123,6 +124,13 @@ test_config_name_already_in_use2() ->
 test_config_name_already_in_use2(_) ->
     ct:fail("Test should've been skipped, you shouldn't see this!"),
     ok.
+
+
+test_config_same_name_already_in_use() ->
+    [].
+test_config_same_name_already_in_use(_) ->
+    ok = ct:require(x2,{gen_cfg,c}),
+    ok = ct:require(x2,{gen_cfg,c}).
 
 %% test aliases
 test_alias_tclocal() ->

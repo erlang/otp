@@ -532,7 +532,8 @@ do_require(Name,Key) ->
     case get_key_from_name(Name) of
 	{error,_} ->
 	    allocate(Name,Key);
-	{ok,Key} ->
+	{ok,NameKey} when NameKey == Key; 
+			  is_tuple(Key) andalso element(1,Key) == NameKey ->
 	    %% already allocated - check that it has all required subkeys
 	    R = make_ref(),
 	    case get_config(Key,R,[]) of
