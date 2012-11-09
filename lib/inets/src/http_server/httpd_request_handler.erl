@@ -278,9 +278,9 @@ handle_info(timeout, #state{mod = ModData} = State) ->
 	      "server side timeout", ModData),
     {stop, normal, State#state{response_sent = true}};
 handle_info(check_data, #state{data = Data, byte_limit = Byte_Limit} = State) ->
-    case Data >= (Byte_Limit * 10) of %% Ten seconds itnerval
+    case Data >= Byte_Limit of 
 	true ->
-	    erlang:send_after(10000, self(), check_data),
+	    erlang:send_after(1000, self(), check_data),
 	    {noreply, State#state{data = 0}};
 	_ ->
 	    {stop, normal, State#state{response_sent = true}}
@@ -631,7 +631,7 @@ data_receive_counter(State, Byte_limit) ->
 	false ->
 	    State#state{data = 0};
 	Nr ->
-	    erlang:send_after(10000, self(), check_data),
+	    erlang:send_after(1000, self(), check_data),
 	    State#state{data = 0, byte_limit = Nr}
     end.
 cancel_request_timeout(#state{timer = undefined} = State) ->
