@@ -118,7 +118,34 @@ static Uint max_mseg_carriers;
 		    ? ((CC).giga_no--, (CC).no = ONE_GIGA - 1)		\
 		    : (CC).no--)
 
-/* ... */
+/* Multi block carrier (MBC) memory layout in R16: 
+
+Empty MBC:
+[Carrier_t|pad|Block_t L0T|fhdr| free... ]
+
+MBC after allocating first block:
+[Carrier_t|pad|Block_t 000|        udata        |pad|Block_t L0T|fhdr| free... ]
+
+MBC after allocating second block:
+[Carrier_t|pad|Block_t 000|        udata        |pad|Block_t 000|   udata   |pad|Block_t L0T|fhdr| free... ]
+
+MBC after deallocating first block:
+[Carrier_t|pad|Block_t 00T|fhdr| free  |FreeBlkFtr_t|Block_t 0P0|   udata   |pad|Block_t L0T|fhdr| free... ]
+
+
+    udata = Allocated user data
+    pad   = Padding to ensure correct alignment for user data
+    fhdr  = Allocator specific header to keep track of free block
+    free  = Unused free memory
+    T     = This block is free (THIS_FREE_BLK_HDR_FLG)
+    P     = Previous block is free (PREV_FREE_BLK_HDR_FLG)
+    L     = Last block in carrier (LAST_BLK_HDR_FLG)
+*/
+
+/* Single block carrier (SBC):
+[Carrier_t|pad|Block_t 111| udata... ]
+*/
+
 
 /* Blocks ... */
 
@@ -137,8 +164,7 @@ static Uint max_mseg_carriers;
 #define UMEM2BLK(P) ((Block_t *) (((char *) (P)) - ABLK_HDR_SZ))
 #define BLK2UMEM(P) ((void *)    (((char *) (P)) + ABLK_HDR_SZ))
 
-#define PREV_BLK_SZ(B) \
-  ((UWord) (((FreeBlkFtr_t *)(B))[-1] & MBC_BLK_SZ_MASK))
+#define PREV_BLK_SZ(B) 		((UWord) (((FreeBlkFtr_t *)(B))[-1]))
 
 #define SET_BLK_SZ_FTR(B, SZ) \
   (((FreeBlkFtr_t *) (((char *) (B)) + (SZ)))[-1] = (SZ))
@@ -239,11 +265,6 @@ static Uint max_mseg_carriers;
 #define GET_BLK_HDR_FLGS(B) \
   ((B)->bhdr & FLG_MASK)
 
-#define SET_SBC_BLK_FTR(FTR) \
-  ((FTR) = 0)
-#define SET_MBC_BLK_FTR(FTR) \
-  ((FTR) = 0)
-
 #define IS_SBC_BLK(B) \
     (((B)->bhdr & FLG_MASK) == SBC_BLK_HDR_FLG)
 #define IS_MBC_BLK(B) \
@@ -258,9 +279,7 @@ static Uint max_mseg_carriers;
 
 /* Carriers ... */
 
-#define SIZEOF_SBC_HDR	(UNIT_CEILING(sizeof(Carrier_t)	\
-				      + FBLK_FTR_SZ	\
-				      + ABLK_HDR_SZ)	\
+#define SIZEOF_SBC_HDR	(UNIT_CEILING(sizeof(Carrier_t) + ABLK_HDR_SZ)	\
 			 - ABLK_HDR_SZ)
 
 #define MSEG_CARRIER_HDR_FLAG		(((UWord) 1) << 0)
@@ -1894,7 +1913,6 @@ create_sbmbc(Allctr_t *allctr, Uint umem_sz)
 
     blk_sz = UNIT_FLOOR(crr_sz - allctr->mbc_header_size);
 
-    SET_MBC_BLK_FTR(((FreeBlkFtr_t *) blk)[-1]);
     SET_MBC_BLK_HDR(blk, blk_sz, SBH_THIS_FREE|SBH_LAST_BLK, crr);
 
     link_carrier(&allctr->sbmbc_list, crr);
@@ -2077,7 +2095,6 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
 	blk = SBC2BLK(allctr, crr);
 
-	SET_SBC_BLK_FTR(((FreeBlkFtr_t *) blk)[-1]);
 	SET_SBC_BLK_HDR(blk, blk_sz);
 
 	link_carrier(&allctr->sbc_list, crr);
@@ -2097,7 +2114,6 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
 	blk_sz = UNIT_FLOOR(crr_sz - allctr->mbc_header_size);
 
-	SET_MBC_BLK_FTR(((FreeBlkFtr_t *) blk)[-1]);
 	SET_MBC_BLK_HDR(blk, blk_sz, SBH_THIS_FREE|SBH_LAST_BLK, crr);
 
 	if (flags & CFLG_MAIN_CARRIER) {
@@ -4178,7 +4194,6 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     }
 #endif
     allctr->mbc_header_size = (UNIT_CEILING(allctr->mbc_header_size
-					    + FBLK_FTR_SZ
 					    + ABLK_HDR_SZ)
 			       - ABLK_HDR_SZ);
     allctr->sbc_header_size = SIZEOF_SBC_HDR; 
