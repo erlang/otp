@@ -258,6 +258,11 @@ static Uint max_mseg_carriers;
 
 /* Carriers ... */
 
+#define SIZEOF_SBC_HDR	(UNIT_CEILING(sizeof(Carrier_t)	\
+				      + FBLK_FTR_SZ	\
+				      + ABLK_HDR_SZ)	\
+			 - ABLK_HDR_SZ)
+
 #define MSEG_CARRIER_HDR_FLAG		(((UWord) 1) << 0)
 #define SBC_CARRIER_HDR_FLAG		(((UWord) 1) << 1)
 
@@ -266,11 +271,11 @@ static Uint max_mseg_carriers;
 #define SCH_MBC				0
 #define SCH_SBC				SBC_CARRIER_HDR_FLAG
 
-#define SET_CARRIER_HDR(C, Sz, F) \
-  (ASSERT(((Sz) & FLG_MASK) == 0), (C)->chdr = ((Sz) | (F)))
+#define SET_CARRIER_HDR(C, Sz, F, AP) \
+  (ASSERT(((Sz) & FLG_MASK) == 0), (C)->chdr = ((Sz) | (F)), (C)->allctr = (AP))
 
-#define BLK2SBC(AP, B) \
-  ((Carrier_t *) (((char *) (B)) - (AP)->sbc_header_size))
+#define BLK2SBC(B) \
+  ((Carrier_t *) (((char *) (B)) - SIZEOF_SBC_HDR))
 #define FBLK2MBC(AP, B) \
   ((Carrier_t *) (((char *) (B)) - (AP)->mbc_header_size))
 
@@ -796,13 +801,9 @@ erts_alcu_fix_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 #define ERTS_ALCU_DD_FIX_TYPE_OFFS \
   ((sizeof(ErtsAllctrDDBlock_t)-1)/sizeof(UWord) + 1)
 
-#define ERTS_AU_PREF_ALLOC_IX_MASK \
-   ((((UWord) 1) << ERTS_AU_PREF_ALLOC_BITS) - 1)
-#define ERTS_AU_PREF_ALLOC_SIZE_MASK \
-   ((((UWord) 1) << (sizeof(UWord)*8 - ERTS_AU_PREF_ALLOC_BITS)) - 1)
 
-static ERTS_INLINE int
-get_pref_allctr(void *extra, Allctr_t **allctr)
+static ERTS_INLINE Allctr_t*
+get_pref_allctr(void *extra)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int pref_ix;
@@ -812,34 +813,26 @@ get_pref_allctr(void *extra, Allctr_t **allctr)
     ASSERT(sizeof(UWord) == sizeof(Allctr_t *));
     ASSERT(0 <= pref_ix && pref_ix < tspec->size);
 
-    *allctr = tspec->allctr[pref_ix];
-    return pref_ix;
+    return tspec->allctr[pref_ix];
 }
 
-static ERTS_INLINE void *
-get_used_allctr(void *extra, void *p, Allctr_t **allctr, UWord *sizep)
+/* SMP note:
+ * get_used_allctr() must be safe WITHOUT locking the allocator while
+ * concurrent threads may be updating adjacent blocks.
+ * We rely on getting a consistent result (without atomic op) when reading
+ * the block header word even if a concurrent thread is updating
+ * the "PREV_FREE" flag bit. 
+ */
+static ERTS_INLINE Allctr_t*
+get_used_allctr(void *extra, void *p, UWord *sizep)
 {
-    ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
-    void *ptr = (void *) (((char *) p) - sizeof(UWord));
-    UWord ainfo = *((UWord *) ptr);
-    int aix = (int) (ainfo & ERTS_AU_PREF_ALLOC_IX_MASK);
-    *allctr = tspec->allctr[aix];
-    if (sizep)
-	*sizep = ((ainfo >> ERTS_AU_PREF_ALLOC_BITS)
-		  & ERTS_AU_PREF_ALLOC_SIZE_MASK);
-    return ptr;
-}
+    Block_t* blk = UMEM2BLK(p);
+    Carrier_t* crr = IS_SBC_BLK(blk) ? BLK2SBC(blk) : BLK2MBC(blk);
 
-static ERTS_INLINE void *
-put_used_allctr(void *p, int ix, UWord size)
-{
-    UWord ainfo = (size >= ERTS_AU_PREF_ALLOC_SIZE_MASK
-		   ? ERTS_AU_PREF_ALLOC_SIZE_MASK
-		   : size);
-    ainfo <<= ERTS_AU_PREF_ALLOC_BITS;
-    ainfo |= (UWord) ix;
-    *((UWord *) p) = ainfo;
-    return (void *) (((char *) p) + sizeof(UWord));
+    if (sizep) {
+	*sizep = BLK_UMEM_SZ(blk);
+    }
+    return crr->allctr;
 }
 
 static void
@@ -1895,7 +1888,7 @@ create_sbmbc(Allctr_t *allctr, Uint umem_sz)
 	crr = erts_alloc(ERTS_ALC_T_SBMBC, crr_sz);
 
     INC_CC(allctr->calls.sbmbc_alloc);
-    SET_CARRIER_HDR(crr, crr_sz, SCH_SYS_ALLOC|SCH_MBC);
+    SET_CARRIER_HDR(crr, crr_sz, SCH_SYS_ALLOC|SCH_MBC, allctr);
 
     blk = MBC2FBLK(allctr, crr);
 
@@ -2030,12 +2023,12 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
     is_mseg = 1;
 #endif
     if (flags & CFLG_SBC) {
-	SET_CARRIER_HDR(crr, crr_sz, SCH_MSEG|SCH_SBC);
+	SET_CARRIER_HDR(crr, crr_sz, SCH_MSEG|SCH_SBC, allctr);
 	STAT_MSEG_SBC_ALLOC(allctr, crr_sz, blk_sz);
 	goto sbc_final_touch;
     }
     else {
-	SET_CARRIER_HDR(crr, crr_sz, SCH_MSEG|SCH_MBC);
+	SET_CARRIER_HDR(crr, crr_sz, SCH_MSEG|SCH_MBC, allctr);
 	STAT_MSEG_MBC_ALLOC(allctr, crr_sz);
 	goto mbc_final_touch;
     }
@@ -2075,7 +2068,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	}
     }
     if (flags & CFLG_SBC) {
-	SET_CARRIER_HDR(crr, crr_sz, SCH_SYS_ALLOC|SCH_SBC);
+	SET_CARRIER_HDR(crr, crr_sz, SCH_SYS_ALLOC|SCH_SBC, allctr);
 	STAT_SYS_ALLOC_SBC_ALLOC(allctr, crr_sz, blk_sz);
 
 #if HAVE_ERTS_MSEG
@@ -2093,7 +2086,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 
     }
     else {
-	SET_CARRIER_HDR(crr, crr_sz, SCH_SYS_ALLOC|SCH_MBC);
+	SET_CARRIER_HDR(crr, crr_sz, SCH_SYS_ALLOC|SCH_MBC, allctr);
 	STAT_SYS_ALLOC_MBC_ALLOC(allctr, crr_sz);
 
 #if HAVE_ERTS_MSEG
@@ -2144,7 +2137,7 @@ resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
     HARD_CHECK_BLK_CARRIER(allctr, old_blk);
 
     old_blk_sz = SBC_BLK_SZ(old_blk);
-    old_crr = BLK2SBC(allctr, old_blk);
+    old_crr = BLK2SBC(old_blk);
     old_crr_sz = CARRIER_SZ(old_crr);
     ASSERT(IS_SB_CARRIER(old_crr));
     ASSERT(IS_SBC_BLK(old_blk));
@@ -2270,7 +2263,7 @@ destroy_carrier(Allctr_t *allctr, Block_t *blk)
 
     if (IS_SBC_BLK(blk)) {
 	Uint blk_sz = SBC_BLK_SZ(blk);
-	crr = BLK2SBC(allctr, blk);
+	crr = BLK2SBC(blk);
 	crr_sz = CARRIER_SZ(crr);
 
 	ASSERT(IS_LAST_BLK(blk));
@@ -3506,23 +3499,19 @@ erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 void *
 erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, Uint size)
 {
-    int pref_ix;
     Allctr_t *pref_allctr;
     void *res;
 
-    pref_ix = get_pref_allctr(extra, &pref_allctr);
+    pref_allctr = get_pref_allctr(extra);
 
     if (pref_allctr->thread_safe)
 	erts_mtx_lock(&pref_allctr->mutex);
 
     ERTS_ALCU_DBG_CHK_THR_ACCESS(pref_allctr);
 
-    res = do_erts_alcu_alloc(type, pref_allctr, size + sizeof(UWord));
+    res = do_erts_alcu_alloc(type, pref_allctr, size);
     if (pref_allctr->thread_safe)
 	erts_mtx_unlock(&pref_allctr->mutex);
-
-    if (res)
-	res = put_used_allctr(res, pref_ix, size);
 
     DEBUG_CHECK_ALIGNMENT(res);
 
@@ -3644,21 +3633,20 @@ erts_alcu_free_thr_pref(ErtsAlcType_t type, void *extra, void *p)
 {
     if (p) {
 	Allctr_t *pref_allctr, *used_allctr;
-	void *ptr;
 
-	get_pref_allctr(extra, &pref_allctr);
-	ptr = get_used_allctr(extra, p, &used_allctr, NULL);
+	pref_allctr = get_pref_allctr(extra);
+	used_allctr = get_used_allctr(extra, p, NULL);
 	if (pref_allctr != used_allctr)
 	    enqueue_dealloc_other_instance(type,
 					   used_allctr,
-					   ptr,
+					   p,
 					   (used_allctr->dd.ix
 					    - pref_allctr->dd.ix));
 	else {
 	    if (used_allctr->thread_safe)
 		erts_mtx_lock(&used_allctr->mutex);
 	    ERTS_ALCU_DBG_CHK_THR_ACCESS(used_allctr);
-	    do_erts_alcu_free(type, used_allctr, ptr);
+	    do_erts_alcu_free(type, used_allctr, p);
 	    if (used_allctr->thread_safe)
 		erts_mtx_unlock(&used_allctr->mutex);
 	}
@@ -3745,7 +3733,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 	    Uint crr_sz_val;
 
 #if HAVE_ERTS_MSEG
-	    if (IS_SYS_ALLOC_CARRIER(BLK2SBC(allctr, blk)))
+	    if (IS_SYS_ALLOC_CARRIER(BLK2SBC(blk)))
 #endif
 		crr_sz = SYS_ALLOC_CARRIER_CEILING(used_sz);
 #if HAVE_ERTS_MSEG
@@ -3962,16 +3950,15 @@ static ERTS_INLINE void *
 realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size,
 		 int force_move)
 {
-    int pref_ix;
-    void *ptr, *res;
+    void *res;
     Allctr_t *pref_allctr, *used_allctr;
     UWord old_user_size;
 
     if (!p)
 	return erts_alcu_alloc_thr_pref(type, extra, size);
 
-    pref_ix = get_pref_allctr(extra, &pref_allctr);
-    ptr = get_used_allctr(extra, p, &used_allctr, &old_user_size);
+    pref_allctr = get_pref_allctr(extra);
+    used_allctr = get_used_allctr(extra, p, &old_user_size);
 
     ASSERT(used_allctr && pref_allctr);
 
@@ -3981,56 +3968,33 @@ realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size,
 	ERTS_ALCU_DBG_CHK_THR_ACCESS(used_allctr);
 	res = do_erts_alcu_realloc(type,
 				   used_allctr,
-				   ptr,
-				   size + sizeof(UWord),
+				   p,
+				   size,
 				   0);
 	if (used_allctr->thread_safe)
 	    erts_mtx_unlock(&used_allctr->mutex);
-	if (res)
-	    res = put_used_allctr(res, pref_ix, size);
     }
     else {
 	if (pref_allctr->thread_safe)
 	    erts_mtx_lock(&pref_allctr->mutex);
-	res = do_erts_alcu_alloc(type, pref_allctr, size + sizeof(UWord));
-	if (pref_allctr->thread_safe && (!force_move
-					 || used_allctr != pref_allctr))
+	res = do_erts_alcu_alloc(type, pref_allctr, size);
+	if (pref_allctr->thread_safe && used_allctr != pref_allctr) {
 	    erts_mtx_unlock(&pref_allctr->mutex);
+	}
 	if (res) {
-	    Block_t *blk;
-	    size_t cpy_size;
-
-	    res = put_used_allctr(res, pref_ix, size);
-
 	    DEBUG_CHECK_ALIGNMENT(res);
 
-	    blk = UMEM2BLK(ptr);
-	    if (old_user_size != ERTS_AU_PREF_ALLOC_SIZE_MASK)
-		cpy_size = old_user_size;
-	    else {
-		if (used_allctr->thread_safe && (!force_move
-						 || used_allctr != pref_allctr))
-		    erts_mtx_lock(&used_allctr->mutex);
-		ERTS_SMP_LC_ASSERT(!used_allctr->thread_safe ||
-				   erts_lc_mtx_is_locked(&used_allctr->mutex));
-		cpy_size = BLK_SZ(blk);
-		if (used_allctr->thread_safe && (!force_move
-						 || used_allctr != pref_allctr))
-		    erts_mtx_unlock(&used_allctr->mutex);
-		cpy_size -= ABLK_HDR_SZ + sizeof(UWord);
-	    }
-	    if (cpy_size > size)
-		cpy_size = size;
-	    sys_memcpy(res, p, cpy_size);
+	    sys_memcpy(res, p, MIN(size,old_user_size));
 
-	    if (!force_move || used_allctr != pref_allctr)
+	    if (used_allctr != pref_allctr) {
 		enqueue_dealloc_other_instance(type,
 					       used_allctr,
-					       ptr,
+					       p,
 					       (used_allctr->dd.ix
 						- pref_allctr->dd.ix));
+	    }
 	    else {
-		do_erts_alcu_free(type, used_allctr, ptr);
+		do_erts_alcu_free(type, used_allctr, p);
 		ASSERT(pref_allctr == used_allctr);
 		if (pref_allctr->thread_safe)
 		    erts_mtx_unlock(&pref_allctr->mutex);
@@ -4208,35 +4172,16 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 #ifdef ERTS_SMP
     allctr->dd.use = 0;
     if (init->tpref) {
-	allctr->mbc_header_size = (UNIT_CEILING(allctr->mbc_header_size
-						+ FBLK_FTR_SZ
-						+ ABLK_HDR_SZ
-						+ sizeof(UWord))
-				   - ABLK_HDR_SZ
-				   - sizeof(UWord));
-	allctr->sbc_header_size = (UNIT_CEILING(sizeof(Carrier_t)
-						+ FBLK_FTR_SZ
-						+ ABLK_HDR_SZ
-						+ sizeof(UWord))
-				   - ABLK_HDR_SZ
-				   - sizeof(UWord));
-
 	allctr->dd.use = 1;
 	init_dd_queue(&allctr->dd.q);
 	allctr->dd.ix = init->ix;
     }
-    else
 #endif
-    {
-	allctr->mbc_header_size = (UNIT_CEILING(allctr->mbc_header_size
-						+ FBLK_FTR_SZ
-						+ ABLK_HDR_SZ)
-				   - ABLK_HDR_SZ);
-	allctr->sbc_header_size = (UNIT_CEILING(sizeof(Carrier_t)
-						+ FBLK_FTR_SZ
-						+ ABLK_HDR_SZ)
-				   - ABLK_HDR_SZ);
-    }
+    allctr->mbc_header_size = (UNIT_CEILING(allctr->mbc_header_size
+					    + FBLK_FTR_SZ
+					    + ABLK_HDR_SZ)
+			       - ABLK_HDR_SZ);
+    allctr->sbc_header_size = SIZEOF_SBC_HDR; 
 
     if (allctr->main_carrier_size) {
 	Block_t *blk;
@@ -4362,8 +4307,7 @@ erts_alcu_test(unsigned long op, unsigned long a1, unsigned long a2)
     case 0x00b:	return (unsigned long) CARRIER_SZ((Carrier_t *) a1);
     case 0x00c:	return (unsigned long) SBC2BLK((Allctr_t *) a1,
 					       (Carrier_t *) a2);
-    case 0x00d:	return (unsigned long) BLK2SBC((Allctr_t *) a1,
-					       (Block_t *) a2);
+    case 0x00d:	return (unsigned long) BLK2SBC((Block_t *) a2);
     case 0x00e:	return (unsigned long) MBC2FBLK((Allctr_t *) a1,
 						(Carrier_t *) a2);
     case 0x00f:	return (unsigned long) FBLK2MBC((Allctr_t *) a1,
@@ -4438,7 +4382,7 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
     CarrierList_t *cl;
 
     if (IS_SBC_BLK(iblk)) {
-	Carrier_t *sbc = BLK2SBC(allctr, iblk);
+	Carrier_t *sbc = BLK2SBC(iblk);
 
 	ASSERT(SBC2BLK(allctr, sbc) == iblk);
 	ASSERT(CARRIER_SZ(sbc) - allctr->sbc_header_size >= SBC_BLK_SZ(iblk));

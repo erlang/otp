@@ -245,6 +245,7 @@ struct Carrier_t_ {
     UWord chdr;
     Carrier_t *next;
     Carrier_t *prev;
+    Allctr_t  *allctr;
 };
 
 typedef struct {
