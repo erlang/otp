@@ -1883,6 +1883,13 @@ munge_expr({'fun',Line,{clauses,Clauses}}, Vars) ->
     %% Only for Vsn=raw_abstract_v1
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
     {{'fun',Line,{clauses,MungedClauses}}, Vars2};
+munge_expr({named_fun,Line,Name,Clauses,_Extra}, Vars) ->
+    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
+    {{named_fun,Line,Name,MungedClauses}, Vars2};
+munge_expr({named_fun,Line,Name,Clauses}, Vars) ->
+    %% Only for Vsn=raw_abstract_v1
+    {MungedClauses,Vars2}=munge_clauses(Clauses, Vars),
+    {{named_fun,Line,Name,MungedClauses}, Vars2};
 munge_expr({bin,Line,BinElements}, Vars) ->
     {MungedBinElements,Vars2} = munge_exprs(BinElements, Vars, []),
     {{bin,Line,MungedBinElements}, Vars2};

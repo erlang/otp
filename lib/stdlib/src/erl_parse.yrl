@@ -406,6 +406,9 @@ fun_clause -> argument_list clause_guard clause_body :
 	{Args,Pos} = '$1',
 	{clause,Pos,'fun',Args,'$2','$3'}.
 
+fun_clause -> var argument_list clause_guard clause_body :
+	{clause,element(2, '$1'),element(3, '$1'),element(1, '$2'),'$3','$4'}.
+
 try_expr -> 'try' exprs 'of' cr_clauses try_catch :
 	build_try(?line('$1'),'$2','$4','$5').
 try_expr -> 'try' exprs try_catch :
@@ -799,8 +802,15 @@ build_rule(Cs) ->
 %% build_fun(Line, [Clause]) -> {'fun',Line,{clauses,[Clause]}}.
 
 build_fun(Line, Cs) ->
+    Name = element(3, hd(Cs)),
     Arity = length(element(4, hd(Cs))),
-    {'fun',Line,{clauses,check_clauses(Cs, 'fun', Arity)}}.
+    CheckedCs = check_clauses(Cs, Name, Arity),
+    case Name of
+        'fun' ->
+            {'fun',Line,{clauses,CheckedCs}};
+        Name ->
+            {named_fun,Line,Name,CheckedCs}
+    end.
 
 check_clauses(Cs, Name, Arity) ->
      mapl(fun ({clause,L,N,As,G,B}) when N =:= Name, length(As) =:= Arity ->

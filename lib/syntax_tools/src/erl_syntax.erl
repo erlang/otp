@@ -226,6 +226,10 @@
 	 module_qualifier/2,
 	 module_qualifier_argument/1,
 	 module_qualifier_body/1,
+	 named_fun_expr/2,
+	 named_fun_expr_arity/1,
+	 named_fun_expr_clauses/1,
+	 named_fun_expr_name/1,
 	 nil/0,
 	 operator/1,
 	 operator_literal/1,
@@ -442,28 +446,30 @@
 %%   <td>match_expr</td>
 %%   <td>module_qualifier</td>
 %%  </tr><tr>
+%%   <td>named_fun_expr</td>
 %%   <td>nil</td>
 %%   <td>operator</td>
 %%   <td>parentheses</td>
-%%   <td>prefix_expr</td>
 %%  </tr><tr>
+%%   <td>prefix_expr</td>
 %%   <td>receive_expr</td>
 %%   <td>record_access</td>
-%%  </tr><tr>
 %%   <td>record_expr</td>
+%%  </tr><tr>
 %%   <td>record_field</td>
 %%   <td>record_index_expr</td>
 %%   <td>rule</td>
-%%  </tr><tr>
 %%   <td>size_qualifier</td>
+%%  </tr><tr>
 %%   <td>string</td>
 %%   <td>text</td>
 %%   <td>try_expr</td>
-%%  </tr><tr>
 %%   <td>tuple</td>
+%%  </tr><tr>
 %%   <td>underscore</td>
 %%   <td>variable</td>
 %%   <td>warning_marker</td>
+%%   <td></td>
 %%  </tr>
 %% </table></center>
 %%
@@ -506,6 +512,7 @@
 %% @see macro/2
 %% @see match_expr/2
 %% @see module_qualifier/2
+%% @see named_fun_expr/1
 %% @see nil/0
 %% @see operator/1
 %% @see parentheses/1
@@ -554,6 +561,7 @@ type(Node) ->
 	{'catch', _, _} -> catch_expr;
 	{'cond', _, _} -> cond_expr;
 	{'fun', _, {clauses, _}} -> fun_expr;
+	{named_fun, _, _, _} -> named_fun_expr;
 	{'fun', _, {function, _, _}} -> implicit_fun;
 	{'fun', _, {function, _, _, _}} -> implicit_fun;
 	{'if', _, _} -> if_expr;
@@ -5616,6 +5624,110 @@ fun_expr_arity(Node) ->
 
 
 %% =====================================================================
+%% @doc Creates an abstract named fun-expression. If `Clauses' is
+%% `[C1, ..., Cn]', the result represents "<code>fun
+%% <em>Name</em> <em>C1</em>; ...; <em>Name</em> <em>Cn</em> end</code>".
+%% More exactly, if each `Ci' represents
+%% "<code>(<em>Pi1</em>, ..., <em>Pim</em>) <em>Gi</em> -> <em>Bi</em></code>",
+%% then the result represents
+%% "<code>fun <em>Name</em>(<em>P11</em>, ..., <em>P1m</em>) <em>G1</em> ->
+%% <em>B1</em>; ...; <em>Name</em>(<em>Pn1</em>, ..., <em>Pnm</em>)
+%% <em>Gn</em> -> <em>Bn</em> end</code>".
+%%
+%% @see named_fun_expr_name/1
+%% @see named_fun_expr_clauses/1
+%% @see named_fun_expr_arity/1
+
+-record(named_fun_expr, {name :: syntaxTree(), clauses :: [syntaxTree()]}).
+
+%% type(Node) = named_fun_expr
+%% data(Node) = #named_fun_expr{name :: Name, clauses :: Clauses}
+%%
+%%	Name = syntaxTree()
+%%	Clauses = [syntaxTree()]
+%%
+%%	(See `function' for notes; e.g. why the arity is not stored.)
+%%
+%% `erl_parse' representation:
+%%
+%% {named_fun, Pos, Name, Clauses}
+%%
+%%	Clauses = [Clause] \ []
+%%	Clause = {clause, ...}
+%%
+%%	See `clause' for documentation on `erl_parse' clauses.
+
+-spec named_fun_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
+named_fun_expr(Name, Clauses) ->
+    tree(fun_expr, #named_fun_expr{name = Name, clauses = Clauses}).
+
+revert_named_fun_expr(Node) ->
+    Pos = get_pos(Node),
+    Name = named_fun_expr_name(Node),
+    Clauses = [revert_clause(C) || C <- named_fun_expr_clauses(Node)],
+    case type(Name) of
+	var ->
+	    {named_fun, Pos, concrete(Name), Clauses};
+	_ ->
+	    Node
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the name subtree of a `named_fun_expr' node.
+%%
+%% @see named_fun_expr/2
+
+-spec named_fun_expr_name(syntaxTree()) -> syntaxTree().
+
+named_fun_expr_name(Node) ->
+    case unwrap(Node) of
+	{named_fun, Pos, Name, _} ->
+	    set_pos(atom(Name), Pos);
+	Node1 ->
+	    (data(Node1))#named_fun_expr.name
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the list of clause subtrees of a `named_fun_expr' node.
+%%
+%% @see named_fun_expr/1
+
+-spec named_fun_expr_clauses(syntaxTree()) -> [syntaxTree()].
+
+named_fun_expr_clauses(Node) ->
+    case unwrap(Node) of
+	{named_fun, _, _, Clauses} ->
+	    Clauses;
+	Node1 ->
+	    (data(Node1))#named_fun_expr.clauses
+    end.
+
+
+%% =====================================================================
+%% @doc Returns the arity of a `named_fun_expr' node. The result is
+%% the number of parameter patterns in the first clause of the
+%% named fun-expression; subsequent clauses are ignored.
+%%
+%% An exception is thrown if `named_fun_expr_clauses(Node)'
+%% returns an empty list, or if the first element of that list is not a
+%% syntax tree `C' of type `clause' such that
+%% `clause_patterns(C)' is a nonempty list.
+%%
+%% @see named_fun_expr/1
+%% @see named_fun_expr_clauses/1
+%% @see clause/3
+%% @see clause_patterns/1
+
+-spec named_fun_expr_arity(syntaxTree()) -> arity().
+
+named_fun_expr_arity(Node) ->
+    length(clause_patterns(hd(named_fun_expr_clauses(Node)))).
+
+
+%% =====================================================================
 %% @doc Creates an abstract parenthesised expression. The result
 %% represents "<code>(<em>Body</em>)</code>", independently of the
 %% context.
@@ -5978,6 +6090,8 @@ revert_root(Node) ->
 	    revert_match_expr(Node);
 	module_qualifier ->
 	    revert_module_qualifier(Node);
+	named_fun_expr ->
+	    revert_named_fun_expr(Node);
 	nil ->
 	    revert_nil(Node);
 	parentheses ->
@@ -6219,6 +6333,9 @@ subtrees(T) ->
 		module_qualifier ->
 		    [[module_qualifier_argument(T)],
 		     [module_qualifier_body(T)]];
+		named_fun_expr ->
+			[[named_fun_expr_name(T)],
+			 named_fun_expr_clauses(T)];
 		parentheses ->
 		    [[parentheses_body(T)]];
 		prefix_expr ->
@@ -6349,6 +6466,7 @@ make_tree(list_comp, [[T], B]) -> list_comp(T, B);
 make_tree(macro, [[N]]) -> macro(N);
 make_tree(macro, [[N], A]) -> macro(N, A);
 make_tree(match_expr, [[P], [E]]) -> match_expr(P, E);
+make_tree(named_fun_expr, [[N], C]) -> named_fun_expr(N, C);
 make_tree(module_qualifier, [[M], [N]]) -> module_qualifier(M, N);
 make_tree(parentheses, [[E]]) -> parentheses(E);
 make_tree(prefix_expr, [[F], [A]]) -> prefix_expr(F, A);

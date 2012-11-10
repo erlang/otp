@@ -419,6 +419,8 @@ expr({'fun',Line,Body}) ->
 	    A = expr(A0),
 	    {'fun',Line,{function,M,F,A}}
     end;
+expr({named_fun,Loc,Name,Cs}) ->
+    {named_fun,Loc,Name,fun_clauses(Cs)};
 expr({call,Line,F0,As0}) ->
     %% N.B. If F an atom then call to local function or BIF, if F a
     %% remote structure (see below) then call to other module,
