@@ -575,7 +575,7 @@ unused_vars_warn_rec(Config) when is_list(Config) ->
     ok.
 
 unused_vars_warn_fun(doc) ->
-    "Warnings for unused variables in records.";
+    "Warnings for unused variables in funs.";
 unused_vars_warn_fun(suite) -> [];
 unused_vars_warn_fun(Config) when is_list(Config) ->
     Ts = [{fun1,
@@ -643,7 +643,60 @@ unused_vars_warn_fun(Config) when is_list(Config) ->
                {22,erl_lint,{unused_var,'U'}},
                {24,erl_lint,{unused_var,'U'}},
                {26,erl_lint,{unused_var,'U'}},
-               {26,erl_lint,{shadowed_var,'U','fun'}}]}}
+               {26,erl_lint,{shadowed_var,'U','fun'}}]}},
+          {named_fun,
+           <<"u() ->
+                  fun U() -> foo end, % U unused.
+                  U; % U unbound.
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2;
+                      false ->
+                          true
+                  end,
+                  fun U() -> foo end, % U unused.
+                  U; % U unsafe.
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2;
+                      false ->
+                          U = 3
+                  end,
+                  fun U() -> foo end, % U shadowed. U unused.
+                  U;
+              u() ->
+                  case foo of
+                      true ->
+                          U = 2; % U unused.
+                      false ->
+                          U = 3 % U unused.
+                  end,
+                  fun U() -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun U(U) -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun U(1) -> U; U(U) -> foo end; % U shadowed. U unused.
+              u() ->
+                  fun _(N) -> N + 1 end.  % Cover handling of '_' name.
+           ">>,
+           [warn_unused_vars],
+           {error,[{3,erl_lint,{unbound_var,'U'}},
+                   {12,erl_lint,{unsafe_var,'U',{'case',5}}}],
+                  [{2,erl_lint,{unused_var,'U'}},
+                   {11,erl_lint,{unused_var,'U'}},
+                   {20,erl_lint,{unused_var,'U'}},
+                   {20,erl_lint,{shadowed_var,'U','named fun'}},
+                   {25,erl_lint,{unused_var,'U'}},
+                   {27,erl_lint,{unused_var,'U'}},
+                   {29,erl_lint,{unused_var,'U'}},
+                   {29,erl_lint,{shadowed_var,'U','named fun'}},
+                   {31,erl_lint,{unused_var,'U'}},
+                   {31,erl_lint,{unused_var,'U'}},
+                   {31,erl_lint,{shadowed_var,'U','fun'}},
+                   {33,erl_lint,{unused_var,'U'}},
+                   {33,erl_lint,{shadowed_var,'U','fun'}}]}}
           ],
     ?line [] = run(Config, Ts),
     ok.
@@ -2201,7 +2254,8 @@ otp_5878(Config) when is_list(Config) ->
            <<"-record(r1, {t = case foo of _ -> 3 end}).
               -record(r2, {a = case foo of A -> A; _ -> 3 end}).
               -record(r3, {a = case foo of A -> A end}).
-              t() -> {#r1{},#r2{},#r3{}}.
+              -record(r4, {a = fun _AllowedFunName() -> allowed end}).
+              t() -> {#r1{},#r2{},#r3{},#r4{}}.
              ">>,
            [warn_unused_record],
            {errors,[{2,erl_lint,{variable_in_record_def,'A'}},

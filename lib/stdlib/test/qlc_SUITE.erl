@@ -76,7 +76,9 @@
 
 	  manpage/1,
 
-	  backward/1, forward/1]).
+	  backward/1, forward/1,
+
+         eep37/1]).
 
 %% Internal exports.
 -export([bad_table_throw/1, bad_table_exit/1, default_table/1, bad_table/1,
@@ -132,7 +134,7 @@ groups() ->
        evaluator, string_to_handle, table, process_dies, sort,
        keysort, filesort, cache, cache_list, filter, info,
        nested_info, lookup1, lookup2, lookup_rec, indices,
-       pre_fun, skip_filters]},
+       pre_fun, skip_filters, eep37]},
      {table_impls, [], [ets, dets]},
      {join, [],
       [join_option, join_filter, join_lookup, join_merge,
@@ -7425,6 +7427,14 @@ forward(Config) when is_list(Config) ->
 
      ],
     ?line run(Config, Ts),
+    ok.
+
+eep37(Config) when is_list(Config) ->
+    Ts = [
+        <<"H = (fun _Handle() -> qlc:q([X || X <- []]) end)(),
+           [] = qlc:eval(H)">>
+    ],
+    run(Config, Ts),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

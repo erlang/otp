@@ -1047,7 +1047,7 @@ read_expected(Version) ->
     POS1 = 28, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6, POS5 = POS4+10,
     POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8,
     POS10 = POS9+10, POS11 = POS10+7, POS12 = POS11+8, POS13 = POS12+10,
-    POS14 = POS13+18, % POS15 = POS14+23,
+    POS14 = POS13+18, POS15 = POS14+23,
 
     FF = {read,funfuns,0},
     U = [{POS1+5,{FF,{dist,'$F_EXPR',0}}},
@@ -1196,11 +1196,6 @@ read_expected(Version) ->
                   {0,{FF,{modul,'$F_EXPR',179}}}]
                  ++ O1;
 	     _ ->
-%                 [{POS15+2,{{read,bi,0},{foo,t,0}}},
-%                  {POS15+3,{{read,bi,0},{bar,t,0}}},
-%                  {POS15+6,{{read,bi,0},{read,local,0}}},
-%                  {POS15+8,{{read,bi,0},{foo,t,0}}},
-%                  {POS15+10,{{read,bi,0},{bar,t,0}}}] ++
                  [{16,{FF,{read,'$F_EXPR',178}}},
                   {17,{FF,{modul,'$F_EXPR',179}}}]
                  ++
@@ -1227,7 +1222,11 @@ read_expected(Version) ->
               _ ->
                   [{POS13+16, {{read,bi,0},{erlang,'!',2}}},
                    {POS13+16, {{read,bi,0},{erlang,'-',1}}},
-                   {POS13+16, {{read,bi,0},{erlang,self,0}}}]
+                   {POS13+16, {{read,bi,0},{erlang,self,0}}},
+                   {POS15+1,  {{read,bi,0},{erlang,'>',2}}},
+                   {POS15+2,  {{read,bi,0},{erlang,'-',2}}},
+                   {POS15+2,  {{read,bi,0},{erlang,'*',2}}},
+                   {POS15+8,  {{read,bi,0},{erlang,'/',2}}}]
           end
         ++ [{POS14+19, {{read,bi,0},{erlang,'+',2}}},
             {POS14+21, {{read,bi,0},{erlang,'+',2}}},
