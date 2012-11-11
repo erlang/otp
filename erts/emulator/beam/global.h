@@ -913,8 +913,6 @@ int erts_add_driver_entry(ErlDrvEntry *drv, DE_Handle *handle, int driver_list_l
 void erts_destroy_driver(erts_driver_t *drv);
 int erts_save_suspend_process_on_port(Port*, Process*);
 Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int *);
-int erts_is_port_ioq_empty(Port *);
-void erts_terminate_port(Port *);
 void erts_init_io(int, int);
 void erts_raw_port_command(Port*, byte*, Uint);
 void driver_report_exit(ErlDrvPort, int);

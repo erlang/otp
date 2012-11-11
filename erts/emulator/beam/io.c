@@ -680,7 +680,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
 	}
 #ifdef ERTS_SMP
 	if (port->xports)
-	    erts_smp_xports_unlock(port);
+	    erts_port_handle_xports(port);
 	ASSERT(!port->xports);
 #endif
     }
@@ -826,9 +826,9 @@ driver_create_port(ErlDrvPort creator_port_ix, /* Creating port */
 }
 
 #ifdef ERTS_SMP
-void
-erts_smp_xports_unlock(Port *prt)
+int erts_port_handle_xports(Port *prt)
 {
+    int reds = 0;
     ErtsXPortsList *xplp;
 
     ASSERT(prt);
@@ -839,16 +839,20 @@ erts_smp_xports_unlock(Port *prt)
 	ErtsXPortsList *free_xplp;
 	erts_aint32_t state;
 	if (rprt->xports)
-	    erts_smp_xports_unlock(rprt);
+	    reds += erts_port_handle_xports(rprt);
 	state = erts_atomic32_read_nob(&rprt->state);
-	if ((state & ERTS_PORT_SFLG_CLOSING) && erts_is_port_ioq_empty(rprt))
+	if ((state & ERTS_PORT_SFLG_CLOSING) && erts_is_port_ioq_empty(rprt)) {
 	    terminate_port(rprt);
+	    reds += ERTS_PORT_REDS_TERMINATE;
+	}
 	erts_port_release(rprt);
 	free_xplp = xplp;
 	xplp = xplp->next;
 	xports_list_free(free_xplp);
+	reds++;
     }
     prt->xports = NULL;
+    return reds;
 }
 #endif
 
@@ -1234,13 +1238,9 @@ finalize_imm_drv_call(ErtsTryImmDrvCallState *sp)
     Port *prt = sp->port;
     Process *c_p = sp->c_p;
 
-    erts_unblock_fpe(sp->fpe_was_unmasked);
+    erts_port_driver_callback_epilogue(prt, NULL);
 
-#ifdef ERTS_SMP
-    if (prt->xports)
-	erts_smp_xports_unlock(prt);
-    ASSERT(!prt->xports);
-#endif
+    erts_unblock_fpe(sp->fpe_was_unmasked);
 
     if (IS_TRACED_FL(prt, F_TRACE_SCHED_PORTS))
 	trace_sched_ports_where(prt, am_out, sp->port_op);
@@ -3110,7 +3110,7 @@ static void flush_port(Port *p)
 	}
 #ifdef ERTS_SMP
 	if (p->xports)
-	    erts_smp_xports_unlock(p);
+	    erts_port_handle_xports(p);
 	ASSERT(!p->xports);
 #endif
     }
@@ -3165,7 +3165,7 @@ terminate_port(Port *prt)
 	erts_unblock_fpe(fpe_was_unmasked);
 #ifdef ERTS_SMP
 	if (prt->xports)
-	    erts_smp_xports_unlock(prt);
+	    erts_port_handle_xports(prt);
 	ASSERT(!prt->xports);
 #endif
     }
@@ -4757,9 +4757,7 @@ int async_ready(Port *p, void* data)
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     if (p) {
-	erts_aint32_t state = erts_atomic32_read_nob(&p->state);
 	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(p));
-	ASSERT(!(state & ERTS_PORT_SFLGS_DEAD));
 	if (p->drv_ptr->ready_async != NULL) {
 #ifdef USE_VM_PROBES
             if (DTRACE_ENABLED(driver_ready_async)) {
@@ -4769,15 +4767,9 @@ int async_ready(Port *p, void* data)
 #endif
 	    (*p->drv_ptr->ready_async)((ErlDrvData)p->drv_data, data);
 	    need_free = 0;
-#ifdef ERTS_SMP
-	    if (p->xports)
-		erts_smp_xports_unlock(p);
-	    ASSERT(!p->xports);
-#endif
+
 	}
-	if ((state & ERTS_PORT_SFLG_CLOSING) && is_port_ioq_empty(p)) {
-	    terminate_port(p);
-	}
+	erts_port_driver_callback_epilogue(p, NULL);
     }
     return need_free;
 }

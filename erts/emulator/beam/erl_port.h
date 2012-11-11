@@ -271,6 +271,30 @@ extern erts_smp_atomic_t erts_bytes_in;		/* no bytes sent into the system */
   (ERTS_PORT_SFLGS_INVALID_LOOKUP					\
    | ERTS_PORT_SFLG_DISTRIBUTION)
 
+
+/*
+ * Costs in reductions for some port operations.
+ */
+#define ERTS_PORT_REDS_EXECUTE		10
+#define ERTS_PORT_REDS_FREE		100
+#define ERTS_PORT_REDS_TIMEOUT		400
+#define ERTS_PORT_REDS_INPUT		400
+#define ERTS_PORT_REDS_OUTPUT		400
+#define ERTS_PORT_REDS_EVENT		400
+#define ERTS_PORT_REDS_CMD_OUTPUTV	400
+#define ERTS_PORT_REDS_CMD_OUTPUT	400
+#define ERTS_PORT_REDS_EXIT		300
+#define ERTS_PORT_REDS_CONNECT		40
+#define ERTS_PORT_REDS_UNLINK		40
+#define ERTS_PORT_REDS_LINK		40
+#define ERTS_PORT_REDS_BADSIG		40
+#define ERTS_PORT_REDS_CONTROL		400
+#define ERTS_PORT_REDS_CALL		400
+#define ERTS_PORT_REDS_INFO		100
+#define ERTS_PORT_REDS_SET_DATA		40
+#define ERTS_PORT_REDS_GET_DATA		40
+#define ERTS_PORT_REDS_TERMINATE	200
+
 void print_port_info(Port *, int, void *);
 void erts_port_free(Port *);
 #ifndef ERTS_SMP
@@ -278,7 +302,7 @@ void erts_port_cleanup(Port *);
 #endif
 void erts_fire_port_monitor(Port *prt, Eterm ref);
 #ifdef ERTS_SMP
-void erts_smp_xports_unlock(Port *);
+int erts_port_handle_xports(Port *);
 #endif
 
 #if defined(ERTS_SMP) && defined(ERTS_ENABLE_LOCK_CHECK)
@@ -387,6 +411,9 @@ erts_smp_port_unlock(Port *prt)
 extern const Port erts_invalid_port;
 #define ERTS_PORT_LOCK_BUSY ((Port *) &erts_invalid_port)
 
+int erts_is_port_ioq_empty(Port *);
+void erts_terminate_port(Port *);
+
 #ifdef ERTS_SMP
 Port *erts_de2port(DistEntry *, Process *, ErtsProcLocks);
 #endif
@@ -409,6 +436,7 @@ ERTS_GLB_INLINE Eterm erts_drvport2id(ErlDrvPort);
 ERTS_GLB_INLINE Uint32 erts_portid2status(Eterm);
 ERTS_GLB_INLINE int erts_is_port_alive(Eterm);
 ERTS_GLB_INLINE int erts_is_valid_tracer_port(Eterm);
+ERTS_GLB_INLINE int erts_port_driver_callback_epilogue(Port *, erts_aint32_t *);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -700,6 +728,37 @@ erts_is_valid_tracer_port(Eterm id)
 {
     return !(erts_portid2status(id) & ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP);
 }
+
+ERTS_GLB_INLINE int
+erts_port_driver_callback_epilogue(Port *prt, erts_aint32_t *statep)
+{
+    int reds = 0;
+    erts_aint32_t state;
+
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+
+    state = erts_atomic32_read_nob(&prt->state);
+    if ((state & ERTS_PORT_SFLG_CLOSING) && erts_is_port_ioq_empty(prt)) {
+	reds += ERTS_PORT_REDS_TERMINATE;
+	erts_terminate_port(prt);
+	state = erts_atomic32_read_nob(&prt->state);
+	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+    }
+
+#ifdef ERTS_SMP
+    if (prt->xports) {
+	reds += erts_port_handle_xports(prt);
+	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(prt));
+	ASSERT(!prt->xports);
+    }
+#endif
+
+    if (statep)
+	*statep = state;
+
+    return reds;
+}
+
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 struct binary;
@@ -773,19 +832,6 @@ typedef int (*ErtsProc2PortSigCallback)(Port *,
 					erts_aint32_t,
 					int,
 					ErtsProc2PortSigData *);
-
-#define ERTS_PORT_REDS_CMD_OUTPUTV	400
-#define ERTS_PORT_REDS_CMD_OUTPUT	400
-#define ERTS_PORT_REDS_EXIT		300
-#define ERTS_PORT_REDS_CONNECT		40
-#define ERTS_PORT_REDS_UNLINK		40
-#define ERTS_PORT_REDS_LINK		40
-#define ERTS_PORT_REDS_BADSIG		40
-#define ERTS_PORT_REDS_CONTROL		400
-#define ERTS_PORT_REDS_CALL		400
-#define ERTS_PORT_REDS_INFO		100
-#define ERTS_PORT_REDS_SET_DATA		40
-#define ERTS_PORT_REDS_GET_DATA		40
 
 typedef enum {
     ERTS_PORT_OP_BADARG,

@@ -49,18 +49,6 @@ static void chk_task_queues(Port *pp, ErtsPortTask *execq, int processing_busy_q
 #define ERTS_PT_DBG_CHK_TASK_QS(PP, EQ, PBQ)
 #endif
 
-
-/*
- * Costs in reductions for some port operations.
- */
-#define ERTS_PORT_REDS_EXECUTE		10
-#define ERTS_PORT_REDS_FREE		100
-#define ERTS_PORT_REDS_TIMEOUT		400
-#define ERTS_PORT_REDS_INPUT		400
-#define ERTS_PORT_REDS_OUTPUT		400
-#define ERTS_PORT_REDS_EVENT		400
-#define ERTS_PORT_REDS_TERMINATE	200
-
 #ifdef USE_VM_PROBES
 #define DTRACE_DRIVER(PROBE_NAME, PP)                              \
     if (DTRACE_ENABLED(PROBE_NAME)) {                              \
@@ -1473,22 +1461,7 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    break;
 	}
 
-	state = erts_atomic32_read_nob(&pp->state);
-	if ((state & ERTS_PORT_SFLG_CLOSING) && erts_is_port_ioq_empty(pp)) {
-	    reds += ERTS_PORT_REDS_TERMINATE;
-	    erts_terminate_port(pp);
-	    state = erts_atomic32_read_nob(&pp->state);
-	}
-
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
-
-#ifdef ERTS_SMP
-	if (pp->xports)
-	    erts_smp_xports_unlock(pp);
-	ASSERT(!pp->xports);
-#endif
-
-	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(pp));
+	reds += erts_port_driver_callback_epilogue(pp, &state);
 
     aborted_port_task:
 	schedule_port_task_free(ptp);
