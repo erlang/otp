@@ -507,7 +507,7 @@ fun2ms(ShellFun) when is_function(ShellFun) ->
                 Else ->
                     Else
             end;
-        false ->
+        _ ->
             exit({badarg,{?MODULE,fun2ms,
                           [function,called,with,real,'fun',
                            should,be,transformed,with,
