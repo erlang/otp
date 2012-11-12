@@ -439,6 +439,7 @@ typedef struct {
 #endif
 #ifdef ERTS_SMP
     struct {
+	Uint64 next;
 	int *sched2jix;
 	int jix;
 	ErtsDelayedAuxWorkWakeupJob *job;
@@ -481,6 +482,7 @@ struct ErtsSchedulerData_ {
 
     ErtsSchedAllocData alloc_data;
 
+    Uint64 reductions;
     ErtsSchedWallTime sched_wall_time;
 
 #ifdef ERTS_DO_VERIFY_UNUSED_TEMP_ALLOC
