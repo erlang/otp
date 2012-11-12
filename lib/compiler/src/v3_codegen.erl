@@ -379,6 +379,7 @@ bsm_rename_ctx(#l{ke={test,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={bif,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={gc_bif,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={set,_,_}}=L, _, _, _) -> L;
+bsm_rename_ctx(#l{ke={call,_,_,_}}=L, _, _, _) -> L;
 bsm_rename_ctx(#l{ke={block,_}}=L, Old, _, false) ->
     %% This block is not inside a protected. The match context variable cannot
     %% possibly be live inside the block.
