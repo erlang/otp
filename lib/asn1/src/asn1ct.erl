@@ -1115,7 +1115,6 @@ remove_asn_flags(Options) ->
 	  X /= optimize,
 	  X /= compact_bit_string,
 	  X /= debug,
-	  X /= keyed_list,
 	  X /= asn1config,
 	  X /= record_name_prefix].
 	  
@@ -1123,12 +1122,6 @@ debug_on(Options) ->
     case lists:member(debug,Options) of
 	true ->
 	    put(asndebug,true);
-	_ ->
-	    true
-    end,
-    case lists:member(keyed_list,Options) of
-	true ->
-	    put(asn_keyed_list,true);
 	_ ->
 	    true
     end.
@@ -1151,8 +1144,7 @@ generated_file(Name,Options) ->
     end.
 
 debug_off(_Options) ->
-    erase(asndebug),
-    erase(asn_keyed_list).
+    erase(asndebug).
 
 
 outfile(Base, Ext, Opts) ->

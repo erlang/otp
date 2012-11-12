@@ -116,22 +116,7 @@ gen_encode(Erules,Typename,Type) when is_record(Type,type) ->
 	    end,
 	    case lists:member(InnerType,['SET','SEQUENCE']) of
 		true -> 
-		    case get(asn_keyed_list) of
-			true ->
-			    CompList = 
-				case Type#type.def of
-				    #'SEQUENCE'{components=Cl} -> Cl;
-				    #'SET'{components=Cl} -> Cl
-				end,
-			    emit([nl,"'enc_",asn1ct_gen:list2name(Typename),
-				  "'(Val, TagIn",ObjFun,
-				  ") when is_list(Val) ->",nl]),
-			    emit(["    'enc_",asn1ct_gen:list2name(Typename),
-				  "'(?RT_BER:fixoptionals(",
-				  {asis,optionals(CompList)},
-				  ",Val), TagIn",ObjFun,");",nl,nl]);
-			_ -> true
-		    end;
+		    true;
 		_ ->
 		    emit([nl,"'enc_",asn1ct_gen:list2name(Typename),
 			  "'({'",asn1ct_gen:list2name(Typename),
@@ -175,22 +160,7 @@ gen_encode_user(Erules,D) when is_record(D,typedef) ->
 
     case lists:member(InnerType,['SET','SEQUENCE']) of
 	true -> 
-	    case get(asn_keyed_list) of
-		true ->
-		    CompList = 
-			case Type#type.def of
-			    #'SEQUENCE'{components=Cl} -> Cl;
-			    #'SET'{components=Cl} -> Cl
-			end,
-
-		    emit([nl,"'enc_",asn1ct_gen:list2name(Typename),
-			  "'(Val, TagIn) when is_list(Val) ->",nl]),
-		    emit(["    'enc_",asn1ct_gen:list2name(Typename),
-			  "'(?RT_BER:fixoptionals(",
-			  {asis,optionals(CompList)},
-			  ",Val), TagIn);",nl,nl]);
-		_ -> true
-	    end;
+	    true;
 	_ ->
 	    emit({nl,"'enc_",asn1ct_gen:list2name(Typename),
 		  "'({'",asn1ct_gen:list2name(Typename),"',Val}, TagIn) ->",nl}),
@@ -1771,19 +1741,6 @@ mkfuncname(WhatKind,DecOrEnc) ->
 	    lists:concat(["'",DecOrEnc,"_",WhatKind,"'"])
 	    
     end.
-
-optionals(L) -> optionals(L,[],1).
-
-optionals([{'EXTENSIONMARK',_,_}|Rest],Acc,Pos) ->
-    optionals(Rest,Acc,Pos); % optionals in extension are currently not handled
-optionals([#'ComponentType'{name=Name,prop='OPTIONAL'}|Rest],Acc,Pos) ->
-		 optionals(Rest,[{Name,Pos}|Acc],Pos+1);
-optionals([#'ComponentType'{name=Name,prop={'DEFAULT',_}}|Rest],Acc,Pos) ->
-		 optionals(Rest,[{Name,Pos}|Acc],Pos+1);
-optionals([#'ComponentType'{}|Rest],Acc,Pos) ->
-		 optionals(Rest,Acc,Pos+1);
-optionals([],Acc,_) ->
-    lists:reverse(Acc).
 
 get_constraint(C,Key) ->
     case lists:keysearch(Key,1,C) of

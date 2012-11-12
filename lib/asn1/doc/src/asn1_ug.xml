@@ -1287,14 +1287,6 @@ Pdu ::= SEQUENCE {
       <p>Values can be assigned in Erlang as shown below:</p>
       <pre>
 MyPdu = #'Pdu'{a=22,b=77.99,c={0,1,2,3,4},d='NULL'}.      </pre>
-<note>
-  <p>
-    In very early versions of the asn1 compiler it was also possible to 
-    specify the values of the components in 
-    a SEQUENCE or a SET as a list of tuples <c>{ComponentName,Value}</c>. 
-    This is no longer supported.
-  </p>
-</note>
       <p>The decode functions will return a record as result when decoding 
         a <c>SEQUENCE</c> or a <c>SET</c>.
                 <marker id="DEFAULT"></marker>

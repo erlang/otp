@@ -76,8 +76,7 @@ groups() ->
      {ber, parallel([]),
       [ber_choiceinseq,
        % Uses 'SOpttest'
-       {group, [], [ber_optional,
-                    ber_optional_keyed_list]}]},
+       ber_optional]},
 
      {app_test, [], [{asn1_app_test, all}]},
 
@@ -684,21 +683,6 @@ ber_optional(Config, Rule, Opts) ->
     Bytes = lists:flatten(B),
     V2 = asn1_wrapper:decode('SOpttest', 'S', Bytes),
     V = element(2, V2).
-
-ber_optional_keyed_list(Config) ->
-    test(Config, fun ber_optional_keyed_list/3, [ber, ber_bin]).
-ber_optional_keyed_list(Config, Rule, Opts) ->
-    asn1_test_lib:compile("SOpttest", Config, [Rule, keyed_list|Opts]),
-    Vrecord = {'S', {'A', 10,           asn1_NOVALUE, asn1_NOVALUE},
-        {'B', asn1_NOVALUE, asn1_NOVALUE, asn1_NOVALUE},
-        {'C', asn1_NOVALUE, 111,          asn1_NOVALUE}},
-    V = [{a, [{scriptKey, 10}]},
-        {b, []},
-        {c, [{callingPartysCategory, 111}]}],
-    {ok, B} = asn1_wrapper:encode('SOpttest', 'S', V),
-    Bytes = lists:flatten(B),
-    V2 = asn1_wrapper:decode('SOpttest', 'S', Bytes),
-    Vrecord = element(2, V2).
 
 %% records used by test-case default
 -record('Def1', {bool0,
