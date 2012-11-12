@@ -1599,7 +1599,7 @@ handle_delayed_dealloc_thr_prgr(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, i
 #define ERTS_MAX_THR_PRGR_LATER_OPS 50
 
 static ERTS_INLINE erts_aint32_t
-handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work)
+handle_thr_prgr_later_op(ErtsAuxWorkData *awdp, erts_aint32_t aux_work, int waiting)
 {
     int lops;
     ErtsThrPrgrVal current = haw_thr_prgr_current(awdp);
