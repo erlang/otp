@@ -282,7 +282,8 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
 slowdose(doc) ->
     ["Testing minimum bytes per second option"];
 slowdose(Config) when is_list(Config) ->
-    {ok, Pid} = inets:start(httpd, [{port, 0}, {server_name, "test"}, {server_root, "/tmp"}, {document_root, "/tmp"}, {minimum_bytes_per_second, 200}]),
+    HttpdConf =   ?config(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0}, {minimum_bytes_per_second, 200}|HttpdConf]),
     Info = httpd:info(Pid),
     Port = proplists:get_value(port, Info),
     {ok, Socket} = gen_tcp:connect("localhost", Port, []),
