@@ -20,15 +20,52 @@ informationFramework, authenticationFramework
     FROM InformationFramework informationFramework
 
   ALGORITHM, Certificate, CertificateSerialNumber,
-    CertificateList
-    FROM AuthenticationFramework authenticationFramework
+    CertificateList, Time
+    FROM AuthenticationFramework authenticationFramework;
 
-  contentType, messageDigest, signingTime, counterSignature
-    FROM PKCS-9 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
-                 pkcs-9(9) modules(0) pkcs-9(1)};
+--  contentType, messageDigest, signingTime
+-- , counterSignature
+--    FROM PKCS-9 {iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1)
+--                 pkcs-9(9) modules(0) pkcs-9(1)};
 --
 -- 6. Useful types
 --
+pkcs-9 OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840)
+                              rsadsi(113549) pkcs(1) 9}
+contentType ATTRIBUTE ::= {
+        WITH SYNTAX ContentType
+--        EQUALITY MATCHING RULE objectIdentifierMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-contentType
+}
+
+pkcs-9-at-contentType                   OBJECT IDENTIFIER ::= {pkcs-9 3}
+pkcs-9-at-messageDigest                 OBJECT IDENTIFIER ::= {pkcs-9 4}
+pkcs-9-at-signingTime                   OBJECT IDENTIFIER ::= {pkcs-9 5}
+pkcs-9-at-counterSignature              OBJECT IDENTIFIER ::= {pkcs-9 6}
+
+counterSignature ATTRIBUTE ::= {
+        WITH SYNTAX SignerInfo
+        ID pkcs-9-at-counterSignature
+}
+messageDigest ATTRIBUTE ::= {
+        WITH SYNTAX MessageDigest
+--        EQUALITY MATCHING RULE octetStringMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-messageDigest
+}
+
+MessageDigest ::= OCTET STRING
+
+signingTime ATTRIBUTE ::= {
+        WITH SYNTAX SigningTime
+--        EQUALITY MATCHING RULE signingTimeMatch
+        SINGLE VALUE TRUE
+        ID pkcs-9-at-signingTime
+}
+
+SigningTime ::= Time -- imported from ISO/IEC 9594-8
+
 
 -- Also defined in X.509
 -- Redeclared here as a parameterized type
@@ -101,7 +138,8 @@ KeyEncryptionAlgorithms ALGORITHM ::= {
 --
 
 ContentInfo ::= SEQUENCE {
-  contentType  ContentType,
+--  contentType  ContentType,
+  contentType  CONTENTS.&id({Contents}),
   content      [0] EXPLICIT CONTENTS.&Type({Contents}{@contentType})
 OPTIONAL
 }
@@ -131,7 +169,8 @@ Data ::= OCTET STRING
 --
 
 SignedData ::= SEQUENCE {
-  version         INTEGER {sdVer1(1), sdVer2(2)} (sdVer1 | sdVer2),
+--  version         INTEGER {sdVer1(1), sdVer2(2)} (sdVer1 | sdVer2),
+  version         INTEGER {sdVer1(1), sdVer2(2)},
   digestAlgorithms
                   DigestAlgorithmIdentifiers,
   contentInfo     ContentInfo,
@@ -168,7 +207,8 @@ DigestAlgorithmIdentifiers ::= CHOICE {
 }
 
 SignerInfo ::= SEQUENCE {
-  version         INTEGER {siVer1(1), siVer2(2)} (siVer1 | siVer2),
+--  version         INTEGER {siVer1(1), siVer2(2)} (siVer1 | siVer2),
+  version         INTEGER {siVer1(1), siVer2(2)},
   issuerAndSerialNumber
                   IssuerAndSerialNumber,
   digestAlgorithm DigestAlgorithmIdentifier,
@@ -201,8 +241,12 @@ Authenticated ATTRIBUTE ::= {
 }
 
 Unauthenticated ATTRIBUTE ::= {
+  contentType |
+  messageDigest,
   ...,  -- add application-specific attributes here
   counterSignature
+--  ...,  add application-specific attributes here
+--  counterSignature
 }
 
 EncryptedDigest ::= OCTET STRING
@@ -219,7 +263,8 @@ Digest ::= OCTET STRING
 --
 
 EnvelopedData ::= SEQUENCE {
-  version         INTEGER {edVer0(0), edVer1(1)} (edVer0 | edVer1),
+--  version         INTEGER {edVer0(0), edVer1(1)} (edVer0 | edVer1),
+  version         INTEGER {edVer0(0), edVer1(1)},
   recipientInfos  RecipientInfos,
   encryptedContentInfo
                   EncryptedContentInfo
@@ -245,7 +290,8 @@ EncryptedContentInfo ::= SEQUENCE {
 EncryptedContent ::= OCTET STRING
 
 RecipientInfo ::= SEQUENCE {
-  version         INTEGER {riVer0(0)} (riVer0),
+--  version         INTEGER {riVer0(0)} (riVer0),
+  version         INTEGER {riVer0(0)},
   issuerAndSerialNumber
                   IssuerAndSerialNumber,
   keyEncryptionAlgorithm
@@ -260,7 +306,8 @@ EncryptedKey ::= OCTET STRING
 --
 
 SignedAndEnvelopedData ::= SEQUENCE {
-  version         INTEGER {seVer1(1), seVer2(2)} (seVer1 | seVer2),
+--  version         INTEGER {seVer1(1), seVer2(2)} (seVer1 | seVer2),
+  version         INTEGER {seVer1(1), seVer2(2)},
   recipientInfos  RecipientInfos,
   digestAlgorithms
                   DigestAlgorithmIdentifiers,
@@ -292,10 +339,11 @@ SignedAndEnvelopedData ::= SEQUENCE {
 
 --
 -- 12. Digested-data content type
---
+--pbeWithSHAAnd3-KeyTripleDES-CBC
 
 DigestedData ::= SEQUENCE {
-  version         INTEGER {ddVer0(0)} (ddVer0),
+--  version         INTEGER {ddVer0(0)} (ddVer0),
+  version         INTEGER {ddVer0(0)},
   digestAlgorithm DigestAlgorithmIdentifier,
   contentInfo     ContentInfo,
   digest          Digest
@@ -306,7 +354,8 @@ DigestedData ::= SEQUENCE {
 --
 
 EncryptedData ::= SEQUENCE {
-  version		INTEGER {edVer0(0)} (edVer0),
+--  version		INTEGER {edVer0(0)} (edVer0),
+  version		INTEGER {edVer0(0)},
   encryptedContentInfo  EncryptedContentInfo
 }
 
