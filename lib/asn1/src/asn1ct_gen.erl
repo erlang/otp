@@ -1131,7 +1131,7 @@ gen_decode_partial_incomplete(Erule) when Erule == ber;Erule==ber_bin;
 				      "      {error,{asn1,Reason}};",nl,
 				      "    Result ->",nl,
 				      "      {ok,Result}",nl,
-				      "  end.",nl,nl])
+				      "  end"])
 			end,
 		    emit(["decode_partial_incomplete(Type,Data0,",
 			  "Pattern) ->",nl]),
@@ -1141,12 +1141,17 @@ gen_decode_partial_incomplete(Erule) when Erule == ber;Erule==ber_bin;
 			  "  case catch decode_partial_inc_disp(Type,",
 			  "Data) of",nl]),
 		    EmitCaseClauses(),
-		    emit(["decode_part(Type,Data0) ->",nl]),
+		    emit([".",nl,nl]),
+		    emit(["decode_part(Type, Data0) "
+			  "when is_binary(Data0) ->",nl]),
 		    emit(["  case catch decode_inc_disp(Type,element(1,"
 			  "?RT_BER:decode(Data0",nif_parameter(),"))) of",nl]),
-% 			  "  {Data,_RestBin} = ?RT_BER:decode(Data0),",nl,
-% 			  "  case catch decode_inc_disp(Type,Data) of",nl]),
-		    EmitCaseClauses();
+		    EmitCaseClauses(),
+		    emit([";",nl]),
+		    emit(["decode_part(Type, Data0) ->",nl]),
+		    emit(["  case catch decode_inc_disp(Type, Data0) of",nl]),
+		    EmitCaseClauses(),
+		    emit([".",nl,nl]);
 		_ -> ok % add later
 	    end
     end;
