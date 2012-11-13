@@ -968,7 +968,7 @@ close_session(Client) ->
 %% @end
 %%----------------------------------------------------------------------
 close_session(Client, Timeout) ->
-    call(Client,{send_rpc_op, close_session, [], Timeout}).
+    call(Client,{send_rpc_op, close_session, [], Timeout}, true).
 
 
 %%----------------------------------------------------------------------
@@ -1121,17 +1121,26 @@ close(Client) ->
 %% Internal functions
 %%----------------------------------------------------------------------
 call(Client, Msg) ->
-    call(Client, Msg, infinity).
-call(Client, Msg, Timeout) ->
+    call(Client, Msg, infinity, false).
+call(Client, Msg, Timeout) when is_integer(Timeout); Timeout==infinity ->
+    call(Client, Msg, Timeout, false);
+call(Client, Msg, WaitStop) when is_boolean(WaitStop) ->
+    call(Client, Msg, infinity, WaitStop).
+call(Client, Msg, Timeout, WaitStop) ->
     case get_handle(Client) of
 	{ok,Pid} ->
 	    case ct_gen_conn:call(Pid,Msg,Timeout) of
-		{error,{process_down,Client,noproc}} ->
+		{error,{process_down,Pid,noproc}} ->
 		    {error,no_such_client};
-		{error,{process_down,Client,normal}} ->
+		{error,{process_down,Pid,normal}} ->
 		    {error,closed};
-		{error,{process_down,Client,Reason}} ->
+		{error,{process_down,Pid,Reason}} ->
 		    {error,{closed,Reason}};
+		Other when WaitStop ->
+		    MRef = erlang:monitor(process,Pid),
+		    receive {'DOWN',MRef,process,_,_}  -> Other
+		    after Timeout -> {error,{timeout,Other}}
+		    end;
 		Other ->
 		    Other
 	    end;
