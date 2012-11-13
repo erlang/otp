@@ -204,7 +204,8 @@ meta(Int, Debugged, M, F, As) ->
 		%% If it's a fun we're evaluating, show a text
 		%% representation of the fun and its arguments,
 		%% not dbg_ieval:eval_fun(...)
-		{dbg_ieval, eval_fun} ->
+		{dbg_ieval, EvalFun} when EvalFun =:= eval_fun;
+					  EvalFun =:= eval_named_fun ->
 		    {Mx, Fx} = lists:last(As),
 		    {Mx, Fx, lists:nth(2, As)};
 		_ ->
@@ -432,7 +433,8 @@ eval_function(Mod, Name, As, Bs, Called, Ieval0, Lc) ->
 
 do_eval_function(Mod, Fun, As0, Bs0, _, Ieval0) when is_function(Fun);
 						    Mod =:= ?MODULE,
-						    Fun =:= eval_fun ->
+						    Fun =:= eval_fun orelse
+						    Fun =:= eval_named_fun ->
     #ieval{level=Le,line=Li,top=Top} = Ieval0,
     case lambda(Fun, As0) of
 	{[{clause,Fc,_,_,_}|_]=Cs,Module,Name,As,Bs} ->
@@ -487,13 +489,29 @@ lambda(eval_fun, [Cs,As,Bs,{Mod,Name}=F]) ->
 	true -> 
 	    {error,{badarity,{F,As}}}
     end;
+lambda(eval_named_fun, [Cs,As,Bs0,FName,RF,{Mod,Name}=F]) ->
+    %% Fun defined in interpreted code, called from outside
+    if
+	length(element(3,hd(Cs))) =:= length(As) ->
+	    db_ref(Mod),  %% Adds ref between module and process
+	    Bs1 = add_binding(FName, RF, Bs0),
+	    {Cs,Mod,Name,As,Bs1};
+	true ->
+	    {error,{badarity,{F,As}}}
+    end;
 lambda(Fun, As) when is_function(Fun) ->
     %% Fun called from within interpreted code...
     case erlang:fun_info(Fun, module) of
 
 	%% ... and the fun was defined in interpreted code
 	{module, ?MODULE} ->
-	    {env, [{Mod,Name},Bs,Cs]} = erlang:fun_info(Fun, env),
+	    {Mod,Name,Bs} =
+		case erlang:fun_info(Fun, env) of
+		    {env,[{{M,F},Bs0,Cs}]} ->
+			{M,F,Bs0};
+		    {env,[{{M,F},Bs0,Cs,FName}]} ->
+			{M,F,add_binding(FName, Fun, Bs0)}
+		end,
 	    {arity, Arity} = erlang:fun_info(Fun, arity),
 	    if 
 		length(As) =:= Arity ->
@@ -727,46 +745,117 @@ expr({match,Line,Lhs,Rhs0}, Bs0, Ieval0) ->
 %% Construct a fun
 expr({make_fun,Line,Name,Cs}, Bs, #ieval{module=Module}=Ieval) ->
     Arity = length(element(3,hd(Cs))),
-    Info = {Module,Name},
+    Info = {{Module,Name},Bs,Cs},
     Fun = 
 	case Arity of
-	    0 -> fun() -> eval_fun(Cs, [], Bs, Info) end;
-	    1 -> fun(A) -> eval_fun(Cs, [A], Bs,Info) end;
-	    2 -> fun(A,B) -> eval_fun(Cs, [A,B], Bs,Info) end;
-	    3 -> fun(A,B,C) -> eval_fun(Cs, [A,B,C], Bs,Info) end;
-	    4 -> fun(A,B,C,D) -> eval_fun(Cs, [A,B,C,D], Bs,Info) end;
-	    5 -> fun(A,B,C,D,E) -> eval_fun(Cs, [A,B,C,D,E], Bs,Info) end;
-	    6 -> fun(A,B,C,D,E,F) -> eval_fun(Cs, [A,B,C,D,E,F], Bs,Info) end;
+	    0 -> fun() -> eval_fun([], Info) end;
+	    1 -> fun(A) -> eval_fun([A], Info) end;
+	    2 -> fun(A,B) -> eval_fun([A,B], Info) end;
+	    3 -> fun(A,B,C) -> eval_fun([A,B,C], Info) end;
+	    4 -> fun(A,B,C,D) -> eval_fun([A,B,C,D], Info) end;
+	    5 -> fun(A,B,C,D,E) -> eval_fun([A,B,C,D,E], Info) end;
+	    6 -> fun(A,B,C,D,E,F) -> eval_fun([A,B,C,D,E,F], Info) end;
 	    7 -> fun(A,B,C,D,E,F,G) -> 
-			 eval_fun(Cs, [A,B,C,D,E,F,G], Bs,Info) end;
+			 eval_fun([A,B,C,D,E,F,G], Info) end;
 	    8 -> fun(A,B,C,D,E,F,G,H) -> 
-			 eval_fun(Cs, [A,B,C,D,E,F,G,H], Bs,Info) end;
+			 eval_fun([A,B,C,D,E,F,G,H], Info) end;
 	    9 -> fun(A,B,C,D,E,F,G,H,I) -> 
-			 eval_fun(Cs, [A,B,C,D,E,F,G,H,I], Bs,Info) end;
+			 eval_fun([A,B,C,D,E,F,G,H,I], Info) end;
 	    10 -> fun(A,B,C,D,E,F,G,H,I,J) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J], Info) end;
 	    11 -> fun(A,B,C,D,E,F,G,H,I,J,K) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K], Info) end;
 	    12 -> fun(A,B,C,D,E,F,G,H,I,J,K,L) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L], Info) end;
 	    13 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M], Info) end;
 	    14 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N], Info) end;
 	    15 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O], Info) end;
 	    16 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P], Info) end;
 	    17 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q], Info) end;
 	    18 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R], Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R], Info) end;
 	    19 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S) -> 
-		     	  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S],Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S],Info) end;
 	    20 -> fun(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) -> 
-			  eval_fun(Cs, [A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],Bs,Info) end;
+			  eval_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T],Info) end;
 	    _Other ->
 		exception(error, {'argument_limit',{'fun',Cs}}, Bs,
+			  Ieval#ieval{line=Line})
+	end,
+    {value,Fun,Bs};
+
+%% Construct a fun
+expr({make_named_fun,Line,Name,FName,Cs}, Bs, #ieval{module=Module}=Ieval) ->
+    Arity = length(element(3,hd(Cs))),
+    Info = {{Module,Name},Bs,Cs,FName},
+    Fun =
+	case Arity of
+	    0 -> fun RF() -> eval_named_fun([], RF, Info) end;
+	    1 -> fun RF(A) -> eval_named_fun([A], RF, Info) end;
+	    2 -> fun RF(A,B) ->
+			 eval_named_fun([A,B], RF, Info) end;
+	    3 -> fun RF(A,B,C) ->
+			 eval_named_fun([A,B,C], RF, Info) end;
+	    4 -> fun RF(A,B,C,D) ->
+			 eval_named_fun([A,B,C,D], RF, Info) end;
+	    5 -> fun RF(A,B,C,D,E) ->
+			 eval_named_fun([A,B,C,D,E],
+					RF, Info) end;
+	    6 -> fun RF(A,B,C,D,E,F) ->
+			 eval_named_fun([A,B,C,D,E,F],
+					RF, Info) end;
+	    7 -> fun RF(A,B,C,D,E,F,G) ->
+			 eval_named_fun([A,B,C,D,E,F,G],
+					RF, Info) end;
+	    8 -> fun RF(A,B,C,D,E,F,G,H) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H],
+					RF, Info) end;
+	    9 -> fun RF(A,B,C,D,E,F,G,H,I) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I],
+					RF, Info) end;
+	    10 -> fun RF(A,B,C,D,E,F,G,H,I,J) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J],
+					RF, Info) end;
+	    11 -> fun RF(A,B,C,D,E,F,G,H,I,J,K) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K],
+					RF, Info) end;
+	    12 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L],
+					RF, Info) end;
+	    13 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M],
+					RF, Info) end;
+	    14 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N],
+					RF, Info) end;
+	    15 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O],
+					RF, Info) end;
+	    16 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P],
+					RF, Info) end;
+	    17 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q],
+					RF, Info) end;
+	    18 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,
+					     R],
+					RF, Info) end;
+	    19 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,
+					     R,S],
+					RF, Info) end;
+	    20 -> fun RF(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T) ->
+			 eval_named_fun([A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,
+					     R,S,T],
+					RF, Info) end;
+	    _Other ->
+		exception(error, {'argument_limit',{named_fun,FName,Cs}}, Bs,
 			  Ieval#ieval{line=Line})
 	end,
     {value,Fun,Bs};
@@ -960,8 +1049,12 @@ expr(E, _Bs, _Ieval) ->
     erlang:error({'NYI',E}).
 
 %% Interpreted fun() called from uninterpreted module, recurse
-eval_fun(Cs, As, Bs, Info) ->
+eval_fun(As, {Info,Bs,Cs}) ->
     dbg_debugged:eval(?MODULE, eval_fun, [Cs,As,Bs,Info]).
+
+%% Interpreted named fun() called from uninterpreted module, recurse
+eval_named_fun(As, RF, {Info,Bs,Cs,FName}) ->
+    dbg_debugged:eval(?MODULE, eval_named_fun, [Cs,As,Bs,FName,RF,Info]).
 
 %% eval_lc(Expr,[Qualifier],Bindings,IevalState) ->
 %%	{value,Value,Bindings}.
