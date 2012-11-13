@@ -399,12 +399,6 @@ transition({shutdown, Pid, Reason}, #state{parent = Pid, dpr = false} = S) ->
 transition({shutdown, Pid, _}, #state{parent = Pid}) ->
     ok;
 
-%% Request to close the transport connection.
-transition({close = T, Pid}, #state{parent = Pid,
-                                    transport = TPid}) ->
-    diameter_peer:close(TPid),
-    {stop, T};
-
 %% DPA reception has timed out.
 transition(dpa_timeout, _) ->
     stop;
