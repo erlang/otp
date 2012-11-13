@@ -35,12 +35,12 @@ include(`hipe/hipe_x86_asm.m4')
 #  define CALL_BIF(F)	call	CSYM(F)
 #endif'
 
-define(TEST_GOT_MBUF,`movl P_MBUF(P), %edx	# `TEST_GOT_MBUF'
+define(TEST_GOT_MBUF,`movl P_MBUF(P), %edx	/* `TEST_GOT_MBUF' */
 	testl %edx, %edx
 	jnz 3f	
 2:')
 define(HANDLE_GOT_MBUF,`
-3:	call nbif_$1_gc_after_bif	# `HANDLE_GOT_MBUF'
+3:	call nbif_$1_gc_after_bif	/* `HANDLE_GOT_MBUF' */
 	jmp 2b')
 
 /*
@@ -70,7 +70,7 @@ ASYM($1):
 	NBIF_ARG_REG(0,P)
 	NBIF_ARG(2,1,0)
 	lea 8(%esp), %eax
-	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
+	NBIF_ARG_REG(1,%eax)	/* BIF__ARGS */
 	CALL_BIF($2)
 	TEST_GOT_MBUF
 
@@ -105,7 +105,7 @@ ASYM($1):
 	NBIF_ARG(2,2,0)
 	NBIF_ARG(3,2,1)
 	lea 8(%esp), %eax
-	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
+	NBIF_ARG_REG(1,%eax)	/* BIF__ARGS */
 	CALL_BIF($2)
 	TEST_GOT_MBUF
 
@@ -141,7 +141,7 @@ ASYM($1):
 	NBIF_ARG(3,3,1)
 	NBIF_ARG(4,3,2)
 	lea 8(%esp), %eax
-	NBIF_ARG_REG(1,%eax)	# BIF__ARGS
+	NBIF_ARG_REG(1,%eax)	/* BIF__ARGS */
 	CALL_BIF($2)
 	TEST_GOT_MBUF
 

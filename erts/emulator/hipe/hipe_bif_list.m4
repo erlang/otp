@@ -245,7 +245,7 @@ noproc_primop_interface_5(nbif_bs_put_big_integer, hipe_bs_put_big_integer)
 
 gc_bif_interface_0(nbif_check_get_msg, hipe_check_get_msg)
 
-#ifdef NO_FPE_SIGNALS
+#`ifdef' NO_FPE_SIGNALS
 nocons_nofail_primop_interface_0(nbif_emulate_fpe, hipe_emulate_fpe)
 #endif
 
