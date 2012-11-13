@@ -249,6 +249,21 @@ dh_pem(Config) when is_list(Config) ->
     DHParameter = public_key:pem_entry_decode(Entry),
 
     Entry = public_key:pem_entry_encode('DHParameter', DHParameter).
+
+%%--------------------------------------------------------------------
+
+pkcs10_pem(doc) ->
+    [""];
+pkcs10_pem(suite) ->
+    [];
+pkcs10_pem(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'CertificationRequest', DerPKCS10, not_encrypted} = Entry] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "req.pem")),
+
+    erl_make_certs:der_to_pem(filename:join(Datadir, "new_req.pem"), [Entry]),
+
+    public_key:der_decode('CertificationRequest', DerPKCS10).
    
 %%--------------------------------------------------------------------
 cert_pem(doc) ->

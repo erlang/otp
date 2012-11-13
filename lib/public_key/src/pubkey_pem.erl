@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2011. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2012. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -195,6 +195,8 @@ pem_start('DSAPrivateKey') ->
     <<"-----BEGIN DSA PRIVATE KEY-----">>;
 pem_start('DHParameter') ->
     <<"-----BEGIN DH PARAMETERS-----">>;
+pem_start('CertificationRequest') ->
+    <<"-----BEGIN CERTIFICATE REQUEST-----">>;
 pem_start('ContentInfo') ->
     <<"-----BEGIN PKCS7-----">>.
 
@@ -214,6 +216,8 @@ pem_end(<<"-----BEGIN PRIVATE KEY-----">>) ->
     <<"-----END PRIVATE KEY-----">>;
 pem_end(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
     <<"-----END ENCRYPTED PRIVATE KEY-----">>;
+pem_end(<<"-----BEGIN CERTIFICATE REQUEST-----">>) ->
+    <<"-----END CERTIFICATE REQUEST-----">>;
 pem_end(<<"-----BEGIN PKCS7-----">>) ->
     <<"-----END PKCS7-----">>.
 
@@ -233,6 +237,8 @@ asn1_type(<<"-----BEGIN PRIVATE KEY-----">>) ->
     'PrivateKeyInfo';
 asn1_type(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
     'EncryptedPrivateKeyInfo';
+asn1_type(<<"-----BEGIN CERTIFICATE REQUEST-----">>) ->
+    'CertificationRequest';
 asn1_type(<<"-----BEGIN PKCS7-----">>) ->
     'ContentInfo'.
 
