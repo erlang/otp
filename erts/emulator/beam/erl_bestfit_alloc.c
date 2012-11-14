@@ -73,7 +73,7 @@
 #define SET_RED(N)		(((RBTree_t *) (N))->flags |= RED_FLG)
 #define SET_BLACK(N)		(((RBTree_t *) (N))->flags &= ~RED_FLG)
 
-#define BF_BLK_SZ(B)            MBC_BLK_SZ(&(B)->hdr)
+#define BF_BLK_SZ(B)            MBC_FBLK_SZ(&(B)->hdr)
 
 #undef ASSERT
 #define ASSERT ASSERT_EXPR

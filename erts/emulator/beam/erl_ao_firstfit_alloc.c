@@ -91,7 +91,7 @@ struct AOFF_RBTree_t_ {
     AOFF_RBTree_t *right;
     Uint max_sz;  /* of all blocks in this sub-tree */
 };
-#define AOFF_BLK_SZ(B) MBC_BLK_SZ(&(B)->hdr)
+#define AOFF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->hdr)
 
 #ifdef HARD_DEBUG
 static AOFF_RBTree_t * check_tree(AOFF_RBTree_t* root, Uint);

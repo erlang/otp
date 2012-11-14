@@ -42,7 +42,7 @@ struct AFFreeBlock_t_ {
     AFFreeBlock_t *prev;
     AFFreeBlock_t *next;
 };
-#define AF_BLK_SZ(B) MBC_BLK_SZ(&(B)->block_head)
+#define AF_BLK_SZ(B) MBC_FBLK_SZ(&(B)->block_head)
 
 #define MIN_MBC_SZ		(16*1024)
 #define MIN_MBC_FIRST_FREE_SZ	(4*1024)

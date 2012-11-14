@@ -218,6 +218,7 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 
 #define FLG_MASK		INV_UNIT_MASK
 #define SBC_BLK_SZ_MASK         UNIT_MASK
+#define MBC_FBLK_SZ_MASK        UNIT_MASK
 #define CARRIER_SZ_MASK         UNIT_MASK
 
 
@@ -225,12 +226,13 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #  define CARRIER_OFFSET_BITS   13
 #  define CARRIER_OFFSET_SHIFT  (sizeof(UWord)*8 - CARRIER_OFFSET_BITS)
 #  define CARRIER_OFFSET_MASK   (~((UWord)0) << CARRIER_OFFSET_SHIFT)
-#  define MBC_BLK_SZ_MASK	(~CARRIER_OFFSET_MASK & ~FLG_MASK)
+#  define MBC_ABLK_SZ_MASK	(~CARRIER_OFFSET_MASK & ~FLG_MASK)
 #else
-#  define MBC_BLK_SZ_MASK	(~FLG_MASK)
+#  define MBC_ABLK_SZ_MASK	(~FLG_MASK)
 #endif
 
-#define MBC_BLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_BLK_SZ_MASK)
+#define MBC_ABLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_ABLK_SZ_MASK)
+#define MBC_FBLK_SZ(B) (ASSERT_EXPR(!is_sbc_blk(B)), (B)->bhdr & MBC_FBLK_SZ_MASK)
 #define SBC_BLK_SZ(B) (ASSERT_EXPR(is_sbc_blk(B)), (B)->bhdr & SBC_BLK_SZ_MASK)
 
 #define CARRIER_SZ(C) \
@@ -257,9 +259,14 @@ typedef struct {
     UWord bhdr;
 #if !HAVE_SUPER_ALIGNED_MB_CARRIERS
     Carrier_t *carrier;
-#endif 
+#endif
+    union {
+	Carrier_t *carrier;     /* if free */
+	char       udata__[1];  /* if allocated */
+    }u;
 } Block_t;
-typedef UWord FreeBlkFtr_t;
+
+typedef UWord FreeBlkFtr_t; /* Footer of a free block */
 
 typedef struct {
     UWord giga_no;
