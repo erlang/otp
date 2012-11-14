@@ -370,23 +370,22 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	     renegotiation = {Renegotiation, _},
 	     ssl_options = SslOptions} = State0) ->
     case ssl_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
-        #alert{} = Alert ->
-            handle_own_alert(Alert, ReqVersion, hello, State0),
-            {stop, normal, State0};
-
+	#alert{} = Alert ->
+	    handle_own_alert(Alert, ReqVersion, hello, State0), 
+            {stop, {shutdown, own_alert}, State0};
 	{Version, NewId, ConnectionStates, NextProtocol} ->
 	    {KeyAlgorithm, _, _, _} =
 		ssl_cipher:suite_definition(CipherSuite),
 
 	    PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
-
-		NewNextProtocol = case NextProtocol of
-			undefined ->
-				State0#state.next_protocol;
-			_ ->
-				NextProtocol
-		end,
-
+	    
+	    NewNextProtocol = case NextProtocol of
+				  undefined ->
+				      State0#state.next_protocol;
+				  _ ->
+				      NextProtocol
+			      end,
+	    
 	    State = State0#state{key_algorithm = KeyAlgorithm,
 				 hashsign_algorithm = default_hashsign(Version, KeyAlgorithm),
 				 negotiated_version = Version,
@@ -394,13 +393,13 @@ hello(#server_hello{cipher_suite = CipherSuite,
 				 premaster_secret = PremasterSecret,
 				 expecting_next_protocol_negotiation = NextProtocol =/= undefined,
 				 next_protocol = NewNextProtocol},
-
+	    
 	    case ssl_session:is_new(OldId, NewId) of
 		true ->
 		    handle_new_session(NewId, CipherSuite, Compression,
 				       State#state{connection_states = ConnectionStates});
 		false ->
-		    handle_resumed_session(NewId, State#state{connection_states = ConnectionStates})
+		    handle_resumed_session(NewId, State#state{connection_states = ConnectionStates}) 
 	    end
     end;
 
@@ -419,8 +418,7 @@ hello(Hello = #client_hello{client_version = ClientVersion},
 					      negotiated_version = Version,
 					      session = Session});
         #alert{} = Alert ->
-            handle_own_alert(Alert, ClientVersion, hello, State), 
-            {stop, normal, State}
+            handle_own_alert(Alert, ClientVersion, hello, State)
     end;
 
 hello(timeout, State) ->
@@ -451,8 +449,7 @@ abbreviated(#finished{verify_data = Data} = Finished,
 	    next_state_connection(abbreviated, 
 				  ack_connection(State#state{connection_states = ConnectionStates}));
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, abbreviated, State),
-            {stop, normal, State} 
+	    handle_own_alert(Alert, Version, abbreviated, State)
     end;
 
 abbreviated(#finished{verify_data = Data} = Finished,
@@ -472,8 +469,7 @@ abbreviated(#finished{verify_data = Data} = Finished,
 							     connection_states = 
 							     ConnectionStates}));
         #alert{} = Alert ->
-	    handle_own_alert(Alert, Version, abbreviated, State),
-            {stop, normal, State} 
+	    handle_own_alert(Alert, Version, abbreviated, State)
     end;
 
 abbreviated(timeout, State) ->
@@ -497,8 +493,7 @@ certify(#certificate{asn1_certificates = []},
 					  fail_if_no_peer_cert = true}} = 
 	State) ->
     Alert =  ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE),
-    handle_own_alert(Alert, Version, certify, State),
-    {stop, normal, State};
+    handle_own_alert(Alert, Version, certify, State);
 
 certify(#certificate{asn1_certificates = []}, 
 	#state{role = server,
@@ -521,8 +516,7 @@ certify(#certificate{} = Cert,
 	    handle_peer_cert(PeerCert, PublicKeyInfo, 
 			     State#state{client_certificate_requested = false});
 	#alert{} = Alert ->
-            handle_own_alert(Alert, Version, certify, State),
-            {stop, normal, State}
+            handle_own_alert(Alert, Version, certify, State)
     end;
 
 certify(#server_key_exchange{} = KeyExchangeMsg, 
@@ -534,8 +528,7 @@ certify(#server_key_exchange{} = KeyExchangeMsg,
 	    {Record, State} = next_record(State1),
 	    next_state(certify, certify, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0),
-	    {stop, normal, State0}
+	    handle_own_alert(Alert, Version, certify, State0)
     end;
 
 certify(#server_key_exchange{} = Msg, 
@@ -559,8 +552,7 @@ certify(#server_hello_done{},
 	    State = State0#state{connection_states = ConnectionStates},
 	    client_certify_and_key_exchange(State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0),
-	    {stop, normal, State0} 
+	    handle_own_alert(Alert, Version, certify, State0)
     end;
 
 %% Master secret is calculated from premaster_secret
@@ -578,8 +570,7 @@ certify(#server_hello_done{},
 				 session = Session},
 	    client_certify_and_key_exchange(State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0),
-	    {stop, normal, State0} 
+	    handle_own_alert(Alert, Version, certify, State0)
     end;
 
 certify(#client_key_exchange{} = Msg,
@@ -595,8 +586,7 @@ certify(#client_key_exchange{exchange_keys = Keys},
 	certify_client_key_exchange(ssl_handshake:decode_client_key(Keys, KeyAlg, Version), State)
     catch 
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State),
-	    {stop, normal, State}
+	    handle_own_alert(Alert, Version, certify, State)
     end;
 
 
@@ -621,8 +611,7 @@ certify_client_key_exchange(#encrypted_premaster_secret{premaster_secret= EncPMS
 	    {Record, State} = next_record(State1),
 	    next_state(certify, cipher, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0),
-	    {stop, normal, State0} 
+	    handle_own_alert(Alert, Version, certify, State0)
     end;
 
 certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPublicDhKey},
@@ -635,8 +624,7 @@ certify_client_key_exchange(#client_diffie_hellman_public{dh_public = ClientPubl
 	    {Record, State} = next_record(State1),
 	    next_state(certify, cipher, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, certify, State0),
-	    {stop, normal, State0} 
+	    handle_own_alert(Alert, Version, certify, State0)
     end.
 
 %%--------------------------------------------------------------------
@@ -665,8 +653,7 @@ cipher(#certificate_verify{signature = Signature, hashsign_algorithm = CertHashS
 	    {Record, State} = next_record(State0),
 	    next_state(cipher, cipher, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, cipher, State0), 
-	    {stop, normal, State0}
+	    handle_own_alert(Alert, Version, cipher, State0)
     end;
 
 % client must send a next protocol message if we are expecting it
@@ -692,8 +679,7 @@ cipher(#finished{verify_data = Data} = Finished,
 	    Session = register_session(Role, Host, Port, Session0),
 	    cipher_role(Role, Data, Session, State);
         #alert{} = Alert ->
-	    handle_own_alert(Alert, Version, cipher, State),
-            {stop, normal, State} 
+	    handle_own_alert(Alert, Version, cipher, State)
     end;
 
 % only allowed to send next_protocol message after change cipher spec
@@ -788,7 +774,7 @@ handle_sync_event({application_data, Data}, From, StateName,
      State#state{send_queue = queue:in({From, Data}, Queue)},
      get_timeout(State)};
 
-handle_sync_event({start, Timeout} = Start, StartFrom, hello, State) ->
+handle_sync_event({start, Timeout}, StartFrom, hello, State) ->
     start_or_recv_cancel_timer(Timeout, StartFrom),
     hello(start, State#state{start_or_recv_from = StartFrom});
 
@@ -968,7 +954,7 @@ handle_info({Protocol, _, Data}, StateName,
 	    next_state(StateName, StateName, Record, State);
 	#alert{} = Alert ->
 	    handle_normal_shutdown(Alert, StateName, State0), 
-	    {stop, normal, State0}
+	    {stop, {shutdown, own_alert}, State0}
     end;
 
 handle_info({CloseTag, Socket}, StateName,
@@ -989,7 +975,7 @@ handle_info({CloseTag, Socket}, StateName,
 	    ok
     end,
     handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
-    {stop, normal, State};
+    {stop, {shutdown, transport_closed}, State};
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
 	    #state{socket = Socket, start_or_recv_from = StartFrom, role = Role,
@@ -1034,6 +1020,20 @@ terminate(_, _, #state{terminated = true}) ->
     %% we want to guarantee that Transport:close has been called
     %% when ssl:close/1 returns.
     ok;
+
+terminate({shutdown, transport_closed}, StateName, #state{send_queue = SendQueue,
+							  renegotiation = Renegotiate} = State) ->
+    handle_unrecv_data(StateName, State),
+    handle_trusted_certs_db(State),
+    notify_senders(SendQueue),
+    notify_renegotiater(Renegotiate);
+
+terminate({shutdown, own_alert}, _StateName, #state{send_queue = SendQueue,
+				      renegotiation = Renegotiate} = State) ->
+    handle_trusted_certs_db(State),
+    notify_senders(SendQueue),
+    notify_renegotiater(Renegotiate);
+
 terminate(Reason, connection, #state{negotiated_version = Version,
 				      connection_states = ConnectionStates,
 				      transport_cb = Transport,
@@ -1044,16 +1044,14 @@ terminate(Reason, connection, #state{negotiated_version = Version,
     notify_renegotiater(Renegotiate),
     BinAlert = terminate_alert(Reason, Version, ConnectionStates),
     Transport:send(Socket, BinAlert),
-    workaround_transport_delivery_problems(Socket, Transport, Reason),
-    Transport:close(Socket);
+    workaround_transport_delivery_problems(Socket, Transport);
 
-terminate(Reason, _StateName, #state{transport_cb = Transport,
+terminate(_Reason, _StateName, #state{transport_cb = Transport,
 				      socket = Socket, send_queue = SendQueue,
 				      renegotiation = Renegotiate} = State) ->
     handle_trusted_certs_db(State),
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
-    workaround_transport_delivery_problems(Socket, Transport, Reason),
     Transport:close(Socket).
 
 %%--------------------------------------------------------------------
@@ -1234,7 +1232,7 @@ sync_send_all_state_event(FsmPid, Event) ->
  	    {error, closed};
 	exit:{normal, _} ->
 	    {error, closed};
-	exit:{shutdown, _} -> 
+	exit:{{shutdown, _},_} ->
 	    {error, closed}
     end.
 
@@ -1331,8 +1329,7 @@ new_server_hello(#server_hello{cipher_suite = CipherSuite,
 	    next_state(hello, certify, Record, State)
     catch        
         #alert{} = Alert ->  
-	    handle_own_alert(Alert, Version, hello, State0),
-	    {stop, normal, State0}
+	    handle_own_alert(Alert, Version, hello, State0)
     end.
 
 resumed_server_hello(#state{session = Session,
@@ -1352,8 +1349,7 @@ resumed_server_hello(#state{session = Session,
 	    {Record, State} = next_record(State2),
 	    next_state(hello, abbreviated, Record, State);
 	#alert{} = Alert ->
-		    handle_own_alert(Alert, Version, hello, State0),
-	    {stop, normal, State0}
+	    handle_own_alert(Alert, Version, hello, State0)
     end.
 
 handle_new_session(NewId, CipherSuite, Compression, #state{session = Session0} = State0) ->
@@ -1378,8 +1374,7 @@ handle_resumed_session(SessId, #state{connection_states = ConnectionStates0,
 			      session = Session}),
 	    next_state(hello, abbreviated, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, hello, State0), 
-	    {stop, normal, State0}
+	    handle_own_alert(Alert, Version, hello, State0)
     end.
 
 
@@ -1396,8 +1391,7 @@ client_certify_and_key_exchange(#state{negotiated_version = Version} =
 	    next_state(certify, cipher, Record, State)
     catch        
         throw:#alert{} = Alert ->  
-	    handle_own_alert(Alert, Version, certify, State0),
-            {stop, normal, State0}
+	    handle_own_alert(Alert, Version, certify, State0)
     end.
 
 do_client_certify_and_key_exchange(State0) ->
@@ -1969,8 +1963,7 @@ handle_tls_handshake(Handle, StateName, #state{tls_packets = [Packet | Packets]}
     end.
 
 next_state(Current,_, #alert{} = Alert, #state{negotiated_version = Version} = State) ->
-    handle_own_alert(Alert, Version, Current, State),
-    {stop, normal, State};
+    handle_own_alert(Alert, Version, Current, State);
 
 next_state(_,Next, no_record, State) ->
     {next_state, Next, State, get_timeout(State)};
@@ -2008,8 +2001,7 @@ next_state(Current, Next, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
 	State = State0#state{tls_packets = Packets, tls_handshake_buffer = Buf},
 	handle_tls_handshake(Handle, Next, State)
     catch throw:#alert{} = Alert ->
-   	    handle_own_alert(Alert, Version, Current, State0), 
-   	    {stop, normal, State0}
+	    handle_own_alert(Alert, Version, Current, State0)
     end;
 
 next_state(_, StateName, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, State0) ->
@@ -2265,13 +2257,13 @@ handle_alert(#alert{level = ?FATAL} = Alert, StateName,
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
 	     StateName, State) -> 
     handle_normal_shutdown(Alert, StateName, State),
-    {stop, normal, State};
+    {stop, {shutdown, peer_close}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{log_alert = Log, renegotiation = {true, internal}} = State) ->
     log_alert(Log, StateName, Alert),
     handle_normal_shutdown(Alert, StateName, State),
-    {stop, normal, State};
+    {stop, {shutdown, peer_close}, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
 	     #state{log_alert = Log, renegotiation = {true, From}} = State0) ->
@@ -2324,8 +2316,8 @@ handle_own_alert(Alert, Version, StateName,
     try %% Try to tell the other side
 	{BinMsg, _} =
 	encode_alert(Alert, Version, ConnectionStates),
-	linux_workaround_transport_delivery_problems(Alert, Socket),
-	Transport:send(Socket, BinMsg)
+	Transport:send(Socket, BinMsg),
+	workaround_transport_delivery_problems(Socket, Transport)
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
     end,
@@ -2334,7 +2326,8 @@ handle_own_alert(Alert, Version, StateName,
 	handle_normal_shutdown(Alert,StateName, State)
     catch _:_ ->
 	    ok
-    end.
+    end,
+    {stop, {shutdown, own_alert}, State}.
 
 handle_normal_shutdown(Alert, _, #state{socket = Socket,
 					start_or_recv_from = StartFrom,
@@ -2349,8 +2342,7 @@ handle_normal_shutdown(Alert, StateName, #state{socket = Socket,
 
 handle_unexpected_message(Msg, Info, #state{negotiated_version = Version} = State) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
-    handle_own_alert(Alert, Version, {Info, Msg}, State),
-    {stop, normal, State}.
+    handle_own_alert(Alert, Version, {Info, Msg}, State).
 
 make_premaster_secret({MajVer, MinVer}, rsa) ->
     Rand = ssl:random_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
@@ -2408,36 +2400,35 @@ notify_renegotiater({true, From}) when not is_atom(From)  ->
 notify_renegotiater(_) ->
     ok.
 
-terminate_alert(Reason, Version, ConnectionStates) when Reason == normal; Reason == shutdown;
+terminate_alert(Reason, Version, ConnectionStates) when Reason == normal;
 							Reason == user_close ->
     {BinAlert, _} = encode_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
 				 Version, ConnectionStates),
     BinAlert;
+terminate_alert({shutdown, _}, Version, ConnectionStates) ->
+    {BinAlert, _} = encode_alert(?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+				 Version, ConnectionStates),
+    BinAlert;
+
 terminate_alert(_, Version, ConnectionStates) ->
     {BinAlert, _} = encode_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR),
 				 Version, ConnectionStates),
     BinAlert.
 
-workaround_transport_delivery_problems(_,_, user_close) ->
-    ok;
-workaround_transport_delivery_problems(Socket, Transport, _) ->
+workaround_transport_delivery_problems(Socket, gen_tcp = Transport) ->
     %% Standard trick to try to make sure all
-    %% data sent to to tcp port is really sent
-    %% before tcp port is closed so that the peer will
-    %% get a correct error message.
+    %% data sent to the tcp port is really delivered to the
+    %% peer application before tcp port is closed so that the peer will
+    %% get the correct TLS alert message and not only a transport close.
     inet:setopts(Socket, [{active, false}]),
     Transport:shutdown(Socket, write),
-    Transport:recv(Socket, 0).
-
-linux_workaround_transport_delivery_problems(#alert{level = ?FATAL}, Socket) ->
-    case os:type() of
-	{unix, linux} ->
-	    inet:setopts(Socket, [{nodelay, true}]);
-	_ ->
-	    ok
-    end;
-linux_workaround_transport_delivery_problems(_, _) ->
-    ok.
+    %% Will return when other side has closed or after 30 s
+    %% e.g. we do not want to hang if something goes wrong
+    %% with the network but we want to maximise the odds that
+    %% peer application gets all data sent on the tcp connection.
+    Transport:recv(Socket, 0, 30000);
+workaround_transport_delivery_problems(Socket, Transport) ->
+    Transport:close(Socket).
 
 get_timeout(#state{ssl_options=#ssl_options{hibernate_after = undefined}}) ->
     infinity;
@@ -2515,3 +2506,21 @@ start_or_recv_cancel_timer(infinity, _RecvFrom) ->
     ok;
 start_or_recv_cancel_timer(Timeout, RecvFrom) ->
     erlang:send_after(Timeout, self(), {cancel_start_or_recv, RecvFrom}).    
+
+handle_unrecv_data(StateName, #state{socket = Socket, transport_cb = Transport} = State) ->
+    inet:setopts(Socket, [{active, false}]),
+    case Transport:recv(Socket, 0, 0) of
+	{error, closed} ->
+	    ok;
+	{ok, Data} ->
+	    handle_close_alert(Data, StateName, State)
+    end.
+
+handle_close_alert(Data, StateName, State) ->
+    case next_tls_record(Data, State) of
+	#ssl_tls{type = ?ALERT, fragment = EncAlerts} ->
+	    [Alert|_] = decode_alerts(EncAlerts),
+	    handle_normal_shutdown(Alert, StateName, State);
+	_ ->
+	    ok
+    end.

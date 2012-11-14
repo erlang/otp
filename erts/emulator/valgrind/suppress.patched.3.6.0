@@ -133,24 +133,16 @@ fun:pthread_create@@GLIBC_2.2.5
 {
 zlib; ok according to zlib developers
 Memcheck:Cond
-fun:longest_match
+...
 fun:deflate_slow
 fun:deflate
 }
 {
 zlib; ok according to zlib developers
 Memcheck:Cond
-fun:longest_match
+...
 fun:deflate_fast
 fun:deflate
-}
-{
-zlib; ok accordnig to zlib (this one popped up with valgrind-3.6.0)
-Memcheck:Cond
-fun:deflate_slow
-fun:deflate
-fun:zlib_deflate
-fun:zlib_ctl
 }
 {
 No leak; pointer into block
@@ -272,6 +264,14 @@ obj:*/ssleay.*
    fun:thr_wrapper
    fun:start_thread
    fun:clone
+}
+
+{
+   Harmless assembler bug in openssl
+   Memcheck:Addr8
+   ...
+   fun:AES_cbc_encrypt
+   ...
 }
 
 {

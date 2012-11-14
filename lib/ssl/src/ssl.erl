@@ -869,10 +869,10 @@ internal_inet_values() ->
 
 socket_options(InetValues) ->
     #socket_options{
-		mode   = proplists:get_value(mode, InetValues),
-		header = proplists:get_value(header, InetValues),
-		active = proplists:get_value(active, InetValues),
-		packet = proplists:get_value(packet, InetValues),
+		mode   = proplists:get_value(mode, InetValues, lists),
+		header = proplists:get_value(header, InetValues, 0),
+		active = proplists:get_value(active, InetValues, active),
+		packet = proplists:get_value(packet, InetValues, 0),
 		packet_size = proplists:get_value(packet_size, InetValues)	     
 	       }.
 
