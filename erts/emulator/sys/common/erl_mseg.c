@@ -68,7 +68,7 @@
 #define ALIGNED_CEILING(X)  ALIGNED_FLOOR((X) + INV_ALIGNED_MASK)
 #define MAP_IS_ALIGNED(X)   (((UWord)(X) & (MSEG_ALIGNED_SIZE - 1)) == 0)
 
-#define IS_2POW(X)          (((X) & ((X) - 1)) == 0)
+#define IS_2POW(X)          ((X) && !((X) & ((X) - 1)))
 static ERTS_INLINE Uint ceil_2pow(Uint x) {
     int i = 1 << (4 + (sizeof(Uint) != 4 ? 1 : 0));
     x--;
