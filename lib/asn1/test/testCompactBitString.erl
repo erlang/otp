@@ -233,7 +233,7 @@ compact_bit_string(Rules) ->
     
     ok.
 
-ticket_7734(per_bin) ->
+ticket_7734(per) ->
     ?line BS = {0,list_to_binary(lists:duplicate(128,0))},
     ?line {ok,BSEnc} = asn1_wrapper:encode('PrimStrings','BS1024',BS),
     ?line {ok,BS} = asn1_wrapper:decode('PrimStrings','BS1024',BSEnc).
@@ -251,7 +251,7 @@ bit_string_unnamed(Rules) ->
 				    lists:flatten(Bytes1))
     end.
 
-otp_4869(per_bin) ->
+otp_4869(per) ->
     ?line Val1={'IP',[0],{0,<<62,235,90,50,0,0,0,0,0,0,0,0,0,0,0,0>>},asn1_NOVALUE},
     ?line Val2 = {'IP',[0],[0,0,1,1,1,1,1,0,1,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0,0,0,1,1,0,0,1,0] ++ lists:duplicate(128 - 32,0),asn1_NOVALUE},
 

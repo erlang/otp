@@ -1493,10 +1493,6 @@ mkfuncname(TopType,Cname,WhatKind,Prefix,Suffix) ->
     end.
 
 empty_lb(ber) ->
-    "[]";
-empty_lb(ber_bin) ->
-    "<<>>";
-empty_lb(ber_bin_v2) ->
     "<<>>".
 
 value_match(Index,Value) when is_atom(Value) ->

@@ -92,7 +92,8 @@ noobj(Config) ->
     file:delete(filename:join([OutDir,'P-Record.beam'])),
     file:delete(filename:join([OutDir,'p_record.erl'])),
     file:delete(filename:join([OutDir,'p_record.beam'])),
-    ?line ok=asn1ct:compile(filename:join([DataDir,"p_record.set.asn"]),[asn1config,ber_bin,optimize,noobj,{outdir,OutDir}]),
+    ok = asn1ct:compile(filename:join([DataDir,"p_record.set.asn"]),
+			[asn1config,ber,noobj,{outdir,OutDir}]),
 %%     ?line false = code:is_loaded('P-Record'),
 %%     ?line false = code:is_loaded('p_record'),
     ?line {error,enoent} =

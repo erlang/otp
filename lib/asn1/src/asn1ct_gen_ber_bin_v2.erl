@@ -1474,7 +1474,7 @@ gen_objset_dec(Erules,ObjSetName,_UniqueName,['EXTENSIONMARK'],_ClName,
     emit([indent(2),"fun(_,Bytes, _RestPrimFieldName) ->",nl]),
     
     case Erules of
-	ber_bin_v2 ->
+	ber ->
 	    emit([indent(4),"case Bytes of",nl,
 		  indent(6),"Bin when is_binary(Bin) -> ",nl,
 		  indent(8),"Bin;",nl,

@@ -581,8 +581,7 @@ gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
     Currmod = get(currmod),
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
 	    gen_encode_prim_wrapper(Ctgenmod,Erule,Cont,false,"H");
@@ -620,8 +619,7 @@ gen_decode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     Constructed_Suffix = asn1ct_gen:constructed_suffix(SeqOrSetOf,
 						       Cont#type.def),
     Conttype = asn1ct_gen:get_inner(Cont#type.def),
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     CurrMod = get(currmod),
     case asn1ct_gen:type(Conttype) of
 	{primitive,bif} ->
@@ -943,8 +941,7 @@ gen_enc_line(Erule,TopType, Cname, Type, [], Pos,DynamicEnc,Ext) ->
     Element = make_element(Pos+1,asn1ct_gen:mk_var(asn1ct_name:curr(val))),
     gen_enc_line(Erule,TopType,Cname,Type,Element, Pos,DynamicEnc,Ext);
 gen_enc_line(Erule,TopType,Cname,Type,Element, _Pos,DynamicEnc,Ext) ->
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     Atype = 
 	case Type of
 	    #type{def=#'ObjectClassFieldType'{type=InnerType}} ->
@@ -1212,8 +1209,7 @@ gen_dec_component_no_val({ext,_,_},mandatory) ->
     
 
 gen_dec_line(Erule,TopType,Cname,Type,Pos,DecInfObj,Ext,Prop)  ->
-    Ctgenmod = list_to_atom(lists:concat(["asn1ct_gen_",per,
-					  asn1ct_gen:rt2ct_suffix()])),
+    Ctgenmod = asn1ct_gen:ct_gen_module(Erule),
     Atype = 
 	case Type of
 	    #type{def=#'ObjectClassFieldType'{type=InnerType}} ->
@@ -1672,7 +1668,5 @@ notice_value_match() ->
     Module = get(currmod),
     put(value_match,{true,Module}).
     
-is_optimized(per_bin) ->
-    lists:member(optimize,get(encoding_options));
-is_optimized(_Erule) ->
-    false.
+is_optimized(per) -> true;
+is_optimized(uper) -> false.

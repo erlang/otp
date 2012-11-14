@@ -61,13 +61,13 @@
 
 -define(TAG_PRIMITIVE(Num),
 	case S#state.erule of
-	    ber_bin_v2 ->
+	    ber ->
 		#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=0};
 	    _ -> []
 	end).
 -define(TAG_CONSTRUCTED(Num),
 	case S#state.erule of
-	    ber_bin_v2 ->
+	    ber ->
 		#tag{class='UNIVERSAL',number=Num,type='IMPLICIT',form=32};
 	    _ -> []
 	end).
@@ -3347,7 +3347,7 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 			TempNewDef#newt{
 			  type = check_externaltypereference(S,NewExt),
 			  tag = case S#state.erule of
-				    ber_bin_v2 ->
+				    ber ->
 					merge_tags(Ct,RefType#type.tag);
 				    _ ->
 					Ct
@@ -5289,7 +5289,7 @@ iof_associated_type(S,[]) ->
 	    AssociateSeq = iof_associated_type1(S,[]),
 	    Tag =
 		case S#state.erule of
-		    ber_bin_v2 ->
+		    ber ->
 			[?TAG_CONSTRUCTED(?N_INSTANCE_OF)];
 		    _ -> []
 		end,
@@ -5320,7 +5320,7 @@ iof_associated_type1(S,C) ->
 	end,
     {ObjIdTag,C1TypeTag}=
 	case S#state.erule of
-	    ber_bin_v2 -> 
+	    ber ->
 		{[{'UNIVERSAL',8}],
 		 [#tag{class='UNIVERSAL',
 		       number=6,
@@ -5551,8 +5551,9 @@ complist_as_tuple(_Per,[],Acc,Ext,_Acc2,ext) ->
 complist_as_tuple(_Per,[],Acc,Ext,Acc2,root2) ->
     {lists:reverse(Acc),lists:reverse(Ext),lists:reverse(Acc2)}.
 
-is_erule_per(Erule) ->
-    lists:member(Erule,[per,per_bin,uper_bin]).
+is_erule_per(per) -> true;
+is_erule_per(uper) -> true;
+is_erule_per(ber) -> false.
 
 expand_components(S, [{'COMPONENTS OF',Type}|T]) ->
     CompList = expand_components2(S,get_referenced_type(S,Type#type.def)),
@@ -5641,7 +5642,7 @@ check_set(S,Type,Components) ->
 	{true,_} ->
 	    {Sorted,SortedComponents} = sort_components(der,S,NewComponents),
 	    {Sorted,TableCInf,SortedComponents};
-	{_,PER} when PER =:= per; PER =:= per_bin; PER =:= uper_bin ->
+	{_,PER} when PER =:= per; PER =:= uper ->
 	    {Sorted,SortedComponents} = sort_components(per,S,NewComponents),
 	    {Sorted,TableCInf,SortedComponents};
 	_ ->
@@ -6884,16 +6885,16 @@ get_taglist(S,{ObjCl,FieldNameList}) when is_record(ObjCl,objectclass),
 	{TypeFieldName,_} when is_atom(TypeFieldName) -> []%should check if allowed
     end;
 get_taglist(S,Def) ->
-    case lists:member(S#state.erule,[ber_bin_v2]) of
-	false ->
+    case S#state.erule of
+	ber ->
+	    [];
+	_ ->
 	    case Def of
 		'ASN1_OPEN_TYPE' -> % open_type has no UNIVERSAL tag as such
 		    [];
 		_ ->
 		    [asn1ct_gen:def_to_tag(Def)]
-	    end;
-	_ -> 
-	    []
+	    end
     end.
 
 get_taglist1(S,[#'ComponentType'{name=_Cname,tags=TagL}|Rest]) when is_list(TagL) -> 

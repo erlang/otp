@@ -201,7 +201,7 @@ main(Rules) ->
 
     %% tests of OTP-4590
     case Rules of
-	PER when PER == per; PER == per_bin ->
+	per ->
 	    DayNames = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
 	    ?line {ok,Bytes60} = asn1_wrapper:encode('XSeqOf','DayNames2',DayNames),
 	    ?line {ok,Bytes60} = asn1_wrapper:encode('XSeqOf','DayNames4',DayNames),

@@ -85,14 +85,8 @@
 compile(File) ->
     compile(File,[]).
 
-compile(File,Options) when is_list(Options) ->
-    case lists:member(driver, Options) of %% remove me in R16A!
-	true ->
-	    io:format("Warning: driver option is obsolete and will be removed in R16A, use nif instead!");
-	false ->
-	    ok
-    end,
-    Options1 = optimize_ber_bin(Options),
+compile(File, Options0) when is_list(Options0) ->
+    Options1 = translate_options(Options0),
     Options2 = includes(File,Options1),
     Includes = strip_includes(Options2),
     in_process(fun() -> compile_proc(File, Includes, Options2) end).
@@ -852,8 +846,8 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
     debug_off(Options),
     put(compact_bit_string,false),
     erase(encoding_options),
-    erase(tlv_format), % used in ber_bin, optimize
-    erase(class_default_type),% used in ber_bin, optimize
+    erase(tlv_format), % used in ber
+    erase(class_default_type),% used in ber
     asn1ct_table:delete(check_functions),
     case Result of 
 	{error,_} ->
@@ -876,14 +870,13 @@ parse_and_save(Module,S) ->
     Options = S#state.options,
     SourceDir = S#state.sourcedir,
     Includes = [I || {i,I} <-Options],
-    Options1 = optimize_ber_bin(Options),
-    
+
     case get_input_file(Module,[SourceDir|Includes]) of 
 	%% search for asn1 source
 	{file,SuffixedASN1source} ->
-	    case dbfile_uptodate(SuffixedASN1source,Options1) of
+	    case dbfile_uptodate(SuffixedASN1source,Options) of
 		false ->
-		    parse_and_save1(S,SuffixedASN1source,Options1,Includes);
+		    parse_and_save1(S,SuffixedASN1source,Options,Includes);
 		_ -> ok
 	    end;
 	Err ->
@@ -1065,9 +1058,9 @@ get_file_list1(Stream,Dir,Includes,Acc) ->
     end.
 
 get_rule(Options) ->
-    case [Rule ||Rule <-[per,ber,ber_bin,ber_bin_v2,per_bin,uper_bin],
-		 Opt <- Options,
-		 Rule==Opt] of
+    case [Rule || Rule <- [ber,per,uper],
+		  Opt <- Options,
+		  Rule =:= Opt] of
 	[Rule] ->
 	    Rule;
 	[Rule|_] ->
@@ -1079,19 +1072,34 @@ get_rule(Options) ->
 get_runtime_mod(Options) ->
     RtMod1=
 	case get_rule(Options) of
-	    per -> ["asn1rt_per_bin.erl"];
-	    ber -> ["asn1rt_ber_bin.erl"];
-	    per_bin ->
-		case lists:member(optimize,Options) of
-		    true -> ["asn1rt_per_bin_rt2ct.erl"];
-		    _ -> ["asn1rt_per_bin.erl"]
-		end;
-	    ber_bin -> ["asn1rt_ber_bin.erl"];
-	    ber_bin_v2 -> ["asn1rt_ber_bin_v2.erl"];
-	    uper_bin -> ["asn1rt_uper_bin.erl"]
+	    per -> "asn1rt_per_bin_rt2ct.erl";
+	    ber -> ["asn1rt_ber_bin_v2.erl"];
+	    uper -> ["asn1rt_uper_bin.erl"]
 	end,
     RtMod1++["asn1rt_check.erl","asn1rt.erl"].
-    
+
+%% translate_options(NewOptions) -> OldOptions
+%%  Translate the new option names to the old option name.
+%%  FIXME. We should rewrite all code to handle the new option names.
+
+translate_options([ber_bin|T]) ->
+    io:format("Warning: The option 'ber_bin' is now called 'ber'.\n"),
+    [ber|translate_options(T)];
+translate_options([per_bin|T]) ->
+    io:format("Warning: The option 'per_bin' is now called 'per'.\n"),
+    [per|translate_options(T)];
+translate_options([uper_bin|T]) ->
+    io:format("Warning: The option 'uper_bin' is now called 'uper'.\n"),
+    translate_options([uper|T]);
+translate_options([nif|T]) ->
+    io:format("Warning: The option 'nif' is no longer needed.\n"),
+    translate_options(T);
+translate_options([optimize|T]) ->
+    io:format("Warning: The option 'optimize' is no longer needed.\n"),
+    translate_options(T);
+translate_options([H|T]) ->
+    [H|translate_options(T)];
+translate_options([]) -> [].
 
 erl_compile(OutFile,Options) ->
 %    io:format("Options:~n~p~n",[Options]),
@@ -1158,13 +1166,6 @@ outfile(Base, Ext, Opts) ->
 	    Obase;
 	_ ->
 	    lists:concat([Obase,".",Ext])
-    end.
-
-optimize_ber_bin(Options) ->
-    case {lists:member(optimize,Options),lists:member(ber_bin,Options)} of
-	{true,true} -> 
-	    [ber_bin_v2|Options--[ber_bin]];
-	_ -> Options
     end.
 
 includes(File,Options) -> 
@@ -1276,12 +1277,7 @@ make_erl_options(Opts) ->
 	  Defines) ++
 	case OutputType of
 	    undefined -> [ber]; % temporary default (ber when it's ready)
-	    ber -> [ber];
-	    ber_bin -> [ber_bin];
-	    ber_bin_v2 -> [ber_bin_v2];
-	    per -> [per];
-	    per_bin -> [per_bin];
-	    uper_bin -> [uper_bin]
+	    _ -> [OutputType]	% pass through
 	end,
 
     Options++[errors, {cwd, Cwd}, {outdir, Outdir}|
@@ -1392,8 +1388,7 @@ test_value(Module, Type, Value) ->
     in_process(fun() ->
                    case catch encode(Module, Type, Value) of
                        {ok, Bytes} ->
-                           M = to_atom(Module),
-                           NewBytes = prepare_bytes(M:encoding_rule(), Bytes),
+                           NewBytes = prepare_bytes(Bytes),
                            case decode(Module, Type, NewBytes) of
                                {ok, Value} ->
                                    {ok, {Module, Type, Value}};
@@ -1444,18 +1439,8 @@ check(Module, Includes) ->
             end
     end.
 
-to_atom(Term) when is_list(Term) -> list_to_atom(Term);
-to_atom(Term) when is_atom(Term) -> Term.
-
-prepare_bytes(ber,          Bytes) -> lists:flatten(Bytes);
-prepare_bytes(ber_bin,      Bytes) when is_binary(Bytes) -> Bytes;
-prepare_bytes(ber_bin,      Bytes) -> list_to_binary(Bytes);
-prepare_bytes(ber_bin_v2,   Bytes) when is_binary(Bytes) -> Bytes;
-prepare_bytes(ber_bin_v2,   Bytes) -> list_to_binary(Bytes);
-prepare_bytes(per,          Bytes) -> lists:flatten(Bytes);
-prepare_bytes(per_bin,      Bytes) when is_binary(Bytes) -> Bytes;
-prepare_bytes(per_bin,      Bytes) -> list_to_binary(Bytes);
-prepare_bytes(uper_bin,     Bytes) -> Bytes.
+prepare_bytes(Bytes) when is_binary(Bytes) -> Bytes;
+prepare_bytes(Bytes) -> list_to_binary(Bytes).
 
 vsn() ->
     ?vsn.
@@ -1496,7 +1481,7 @@ specialized_decode_prepare(Erule,M,TsAndVs,Options) ->
     end.
 %% Reads the configuration file if it exists and stores information
 %% about partial decode and incomplete decode
-partial_decode_prepare(ber_bin_v2,M,TsAndVs,Options) when is_tuple(TsAndVs) ->
+partial_decode_prepare(ber,M,TsAndVs,Options) when is_tuple(TsAndVs) ->
     %% read configure file
 
     ModName =

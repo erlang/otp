@@ -24,12 +24,7 @@
 -include_lib("test_server/include/test_server.hrl").
 
 
-main(per_bin) -> ok;
 main(per) -> ok;
-main(ber_bin_v2) ->
-    main(ber);
-main(ber_bin) ->
-    main(ber);
 main(ber) ->
     
     %% normal encoding

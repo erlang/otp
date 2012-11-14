@@ -17,6 +17,6 @@
 	 {decode_D_incomplete,['D',[{a,undecoded}]]},
 	 {decode_F_fb_exclusive2,['F',[{fb,[{b,parts},{d,[{da,parts}]}]}]]},	     {decode_F_fb_exclusive3,['F',[{fb,[{b,parts},{d,[{da,parts},{dc,[{dcc,undecoded}]}]}]}]]}]}}.
 {module_name,'Seq.asn1'}.
-{compile_options,[ber_bin,optimize,debug_info]}.
+{compile_options,[ber,debug_info]}.
 {multifile_compile,['M1.asn','M2.asn']}.
 
