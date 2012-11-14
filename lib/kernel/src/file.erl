@@ -88,7 +88,7 @@
                    | {'cur', Offset :: integer()}
 		   | {'eof', Offset :: integer()} | 'bof' | 'cur' | 'eof'.
 -type mode()      :: 'read' | 'write' | 'append'
-                   | 'exclusive' | 'raw' | 'binary'
+                   | 'exclusive' | 'raw' | 'binary' | 'ram'
 		   | {'delayed_write',
                       Size :: non_neg_integer(),
                       Delay :: non_neg_integer()}
@@ -397,7 +397,8 @@ raw_write_file_info(Name, #file_info{} = Info) ->
 
 %% Contemporary mode specification - list of options
 
--spec open(Filename, Modes) -> {ok, IoDevice} | {error, Reason} when
+-spec open(File, Modes) -> {ok, IoDevice} | {error, Reason} when
+      File :: Filename | iodata(),
       Filename :: name(),
       Modes :: [mode()],
       IoDevice :: io_device(),
