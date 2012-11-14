@@ -5766,7 +5766,7 @@ sort_universal_type(Components) ->
 decode_type(I) when is_integer(I) ->
     I;
 decode_type(T) ->
-    asn1ct_gen_ber:decode_type(T).
+    asn1ct_gen_ber_bin_v2:decode_type(T).
 
 untagged_choice(_S,[#'ComponentType'{typespec=#type{tag=[],def={'CHOICE',_}}}|_Rest]) ->
     true;
