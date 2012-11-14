@@ -31,8 +31,8 @@
 %% testcases
 -export([format/1,    format/2,
          replace/1,   replace/2,
-         generate/1,  generate/4,  generate/0,
-         examples/1, examples/0]).
+         generate/1,  generate/4,
+         examples/1]).
 
 -export([dict/0]).  %% fake dictionary module
 
@@ -339,7 +339,7 @@
 %% ===========================================================================
 
 suite() ->
-    [{timetrap, {minutes, 2}}].
+    [{timetrap, {minutes, 10}}].
 
 all() ->
     [format,
@@ -407,9 +407,6 @@ re({RE, Repl}, Bin) ->
 %%
 %% Ensure success when generating code and compiling.
 
-generate() ->
-    [{timetrap, {seconds, 2*length(?REPLACE)}}].
-
 generate(Config) ->
     Bin = proplists:get_value(base, Config),
     Rs  = lists:zip(?REPLACE, lists:seq(1, length(?REPLACE))),
@@ -435,9 +432,6 @@ generate(Mods, Bin, N, Mode) ->
 %% examples/1
 %%
 %% Compile dictionaries extracted from various standards.
-
-examples() ->
-    [{timetrap, {seconds, 3*length(?EXAMPLES)}}].
 
 examples(_Config) ->
     Dir = filename:join([code:lib_dir(diameter, examples), "dict"]),
