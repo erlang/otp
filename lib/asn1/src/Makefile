@@ -63,7 +63,6 @@ CT_MODULES= \
 
 RT_MODULES= \
 	asn1rt \
-	asn1rt_per_bin \
 	asn1rt_ber_bin \
 	asn1rt_ber_bin_v2 \
 	asn1rt_per_bin_rt2ct \

@@ -597,7 +597,7 @@ encode_constrained_number({Lb,Ub},Val) when Val >= Lb, Ub >= Val ->
             RangeOcts = binary:encode_unsigned(Range - 1),
             OctsLen = erlang:byte_size(Octs),
             RangeOctsLen = erlang:byte_size(RangeOcts),
-            LengthBitsNeeded = asn1rt_per_bin:minimum_bits(RangeOctsLen - 1),
+            LengthBitsNeeded = minimum_bits(RangeOctsLen - 1),
             [10,LengthBitsNeeded,OctsLen-1,20,OctsLen,Octs];
 	true  ->
 	    exit({not_supported,{integer_range,Range}})
@@ -652,6 +652,16 @@ decode_constrained_number(Buffer,{Lb,_Ub},Range) ->
 		exit({not_supported,{integer_range,Range}})
 	end,
     {Val+Lb,Remain}.
+
+%% For some reason the minimum bits needed in the length field in
+%% the encoding of constrained whole numbers must always be at least 2?
+minimum_bits(N) when N < 4 -> 2;
+minimum_bits(N) when N < 8 -> 3;
+minimum_bits(N) when N < 16 -> 4;
+minimum_bits(N) when N < 32 -> 5;
+minimum_bits(N) when N < 64 -> 6;
+minimum_bits(N) when N < 128 -> 7;
+minimum_bits(_N) -> 8.
 
 %% X.691:10.8 Encoding of an unconstrained whole number
 
