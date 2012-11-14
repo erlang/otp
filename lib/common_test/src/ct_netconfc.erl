@@ -1132,14 +1132,26 @@ call(Client, Msg, Timeout, WaitStop) ->
 	    case ct_gen_conn:call(Pid,Msg,Timeout) of
 		{error,{process_down,Pid,noproc}} ->
 		    {error,no_such_client};
+		{error,{process_down,Pid,normal}} when WaitStop ->
+		    %% This will happen when server closes connection
+		    %% before clien received rpc-reply on
+		    %% close-session.
+		    ok;
 		{error,{process_down,Pid,normal}} ->
 		    {error,closed};
 		{error,{process_down,Pid,Reason}} ->
 		    {error,{closed,Reason}};
 		Other when WaitStop ->
 		    MRef = erlang:monitor(process,Pid),
-		    receive {'DOWN',MRef,process,_,_}  -> Other
-		    after Timeout -> {error,{timeout,Other}}
+		    receive
+			{'DOWN',MRef,process,Pid,Normal} when Normal==normal;
+							      Normal==noproc ->
+			    Other;
+			{'DOWN',MRef,process,Pid,Reason} ->
+			    {error,{{closed,Reason},Other}}
+		    after Timeout ->
+			    erlang:demonitor(MRef, [flush]),
+			    {error,{timeout,Other}}
 		    end;
 		Other ->
 		    Other
