@@ -60,19 +60,15 @@
 #define ERTS_MSEG_FLG_2POW    ((Uint)(1 << 0))
 
 
-#define ERTS_MSEG_VSN_STR "0.9"
+#define ERTS_MSEG_VSN_STR "0.10"
 
 typedef struct {
-    Uint amcbf;
-    Uint rmcbf;
     Uint mcs;
     Uint nos;
 } ErtsMsegInit_t;
 
 #define ERTS_MSEG_INIT_DEFAULT_INITIALIZER				\
 {									\
-    4*1024*1024,	/* amcbf: Absolute max cache bad fit	*/	\
-    20,			/* rmcbf: Relative max cache bad fit	*/	\
     5,			/* mcs:   Max cache size		*/	\
     1000		/* cci:   Cache check interval		*/	\
 }

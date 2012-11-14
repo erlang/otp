@@ -1315,25 +1315,12 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 		    handle_au_arg(&init->ll_alloc, &argv[i][3], argv, &i);
 		    break;
 		case 'M':
-		    if (has_prefix("amcbf", argv[i]+3)) {
-#if HAVE_ERTS_MSEG
-			init->mseg.amcbf =
-#endif
-			    get_kb_value(argv[i]+8, argv, &i);
-		    }
-		    else if (has_prefix("rmcbf", argv[i]+3)) {
-#if HAVE_ERTS_MSEG
-			init->mseg.rmcbf =
-#endif
-			    get_amount_value(argv[i]+8, argv, &i);
-		    }
-		    else if (has_prefix("mcs", argv[i]+3)) {
+		    if (has_prefix("mcs", argv[i]+3)) {
 #if HAVE_ERTS_MSEG
 			init->mseg.mcs =
 #endif
 			    get_amount_value(argv[i]+6, argv, &i);
-		    }
-		    else {
+		    } else {
 			bad_param(param, param+2);
 		    }
 		    break;
