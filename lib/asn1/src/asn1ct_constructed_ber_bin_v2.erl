@@ -32,7 +32,6 @@
 -include("asn1_records.hrl").
 
 -import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/0]).
--import(asn1ct_constructed_ber,[match_tag/2]).
 
 -define(ASN1CT_GEN_BER,asn1ct_gen_ber_bin_v2).
 
@@ -913,7 +912,7 @@ gen_dec_choice_cases(Erules,TopType, [H|T]) ->
 					     [DecTag],Type}),
 	    asn1ct:update_gen_state(namelist,Names),
 	    emit([indent(4),{curr,res}," = ",
-		  match_tag(ber_bin,{FirstT#tag.class,FirstT#tag.number}),
+		  match_tag(FirstT#tag.class, FirstT#tag.number),
 		  " -> ",nl]),
 	    emit([indent(8),"{",{asis,Cname},", {'",
 		  asn1ct_gen:list2name([Cname|TopType]),"',",
@@ -928,7 +927,25 @@ gen_dec_choice_cases(Erules,TopType, [H|T]) ->
     end,
     gen_dec_choice_cases(Erules,TopType, T).
 
+match_tag(Class, TagNo) when is_integer(TagNo) ->
+    match_tag1(asn1ct_gen_ber_bin_v2:decode_class(Class), TagNo).
 
+match_tag1(Class, TagNo) when TagNo =< 30 ->
+    io_lib:format("<<~p:2,_:1,~p:5,_/binary>>", [Class bsr 6,TagNo]);
+match_tag1(Class, TagNo) ->
+    Octets = mk_object_val(TagNo),
+    io_lib:format("<<~p:2,_:1,31:5,~s,_/binary>>", [Class bsr 6,Octets]).
+
+mk_object_val(Val) when Val < 16#80 ->
+    integer_to_list(Val);
+mk_object_val(Val) ->
+    mk_object_val(Val bsr 7, [integer_to_list(Val band 16#7F)]).
+
+mk_object_val(0, Acc) ->
+    Acc;
+mk_object_val(Val, Acc) ->
+    I = integer_to_list((Val band 16#7F) bor 16#80),
+    mk_object_val(Val bsr 7, [I,","|Acc]).
 
 %%---------------------------------------
 %% Generate the encode/decode code 
