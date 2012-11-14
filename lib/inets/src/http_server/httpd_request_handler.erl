@@ -277,6 +277,14 @@ handle_info(timeout, #state{mod = ModData} = State) ->
     error_log("The client did not send the whole request before the "
 	      "server side timeout", ModData),
     {stop, normal, State#state{response_sent = true}};
+handle_info(check_data_first, #state{data = Data, byte_limit = Byte_Limit} = State) ->
+    case Data >= (Byte_Limit*3) of 
+	true ->
+	    erlang:send_after(1000, self(), check_data),
+	    {noreply, State#state{data = 0}};
+	_ ->
+	    {stop, normal, State#state{response_sent = true}}
+    end;
 handle_info(check_data, #state{data = Data, byte_limit = Byte_Limit} = State) ->
     case Data >= Byte_Limit of 
 	true ->
@@ -631,7 +639,7 @@ data_receive_counter(State, Byte_limit) ->
 	false ->
 	    State#state{data = 0};
 	Nr ->
-	    erlang:send_after(1000, self(), check_data),
+	    erlang:send_after(3000, self(), check_data_first),
 	    State#state{data = 0, byte_limit = Nr}
     end.
 cancel_request_timeout(#state{timer = undefined} = State) ->
