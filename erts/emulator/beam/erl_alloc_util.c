@@ -204,6 +204,8 @@ MBC after deallocating first block:
 
 #if HAVE_SUPER_ALIGNED_MB_CARRIERS
 
+#  define MBC_SZ_MAX_LIMIT ((((UWord)1 << CARRIER_OFFSET_BITS) - 1) << MSEG_ALIGN_BITS)
+
 #  define BLK_CARRIER_OFFSET(B, C) (((char*)(B) - (char*)(C)) >> MSEG_UNIT_SHIFT)
 
 #  define SET_MBC_ABLK_HDR(B, Sz, F, C) \
@@ -250,6 +252,8 @@ MBC after deallocating first block:
    (B)->bhdr |= (BLK_CARRIER_OFFSET(B,(B)->u.carrier) << CARRIER_OFFSET_SHIFT))
 
 #else /* !HAVE_SUPER_ALIGNED_MB_CARRIERS */
+
+#  define MBC_SZ_MAX_LIMIT ((UWord)~0)
 
 #  define SET_MBC_ABLK_HDR(B, Sz, F, C) \
     (ASSERT(((Sz) & FLG_MASK) == 0), \
@@ -2111,6 +2115,7 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 	goto sbc_final_touch;
     }
     else {
+	ASSERT(crr_sz <= MBC_SZ_MAX_LIMIT);
 	SET_CARRIER_HDR(crr, crr_sz, SCH_MSEG|SCH_MBC, allctr);
 	STAT_MSEG_MBC_ALLOC(allctr, crr_sz);
 	goto mbc_final_touch;
@@ -4153,6 +4158,12 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     allctr->ramv			= init->ramv;
     allctr->main_carrier_size		= init->mmbcs;
     allctr->sbc_threshold		= init->sbct;
+#if HAVE_SUPER_ALIGNED_MB_CARRIERS
+    if (allctr->sbc_threshold > MBC_ABLK_SZ_MASK - ABLK_HDR_SZ) {
+	allctr->sbc_threshold = MBC_ABLK_SZ_MASK - ABLK_HDR_SZ + 1;
+    }
+#endif
+
 #if HAVE_ERTS_MSEG
     allctr->mseg_opt.abs_shrink_th	= init->asbcst;
     allctr->mseg_opt.rel_shrink_th	= init->rsbcst;
@@ -4169,6 +4180,12 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 #endif
 
     allctr->largest_mbc_size		= MAX(init->lmbcs, init->smbcs);
+#if HAVE_SUPER_ALIGNED_MB_CARRIERS
+    if (allctr->largest_mbc_size > MBC_SZ_MAX_LIMIT) {
+	allctr->largest_mbc_size = MBC_SZ_MAX_LIMIT;
+    }
+#endif
+
     allctr->smallest_mbc_size		= init->smbcs;
     allctr->mbc_growth_stages		= MAX(1, init->mbcgs);
 
@@ -4340,11 +4357,6 @@ erts_alcu_init(AlcUInit_t *init)
     ASSERT(SBC_BLK_SZ_MASK == MBC_FBLK_SZ_MASK); /* see BLK_SZ */
 #if HAVE_ERTS_MSEG
     ASSERT(erts_mseg_unit_size() == MSEG_UNIT_SZ);
-# if HAVE_SUPER_ALIGNED_MB_CARRIERS
-    /*SVERK Add assert about CARRIER_OFFSET_BITS and max MBC size
-     *SVERK Add assert about CARRIER_OFFSET_SHIFT and max MBC block size
-     */
-# endif
     max_mseg_carriers = init->mmc;
     sys_alloc_carrier_size = MSEG_UNIT_CEILING(init->ycs);
 #else /* #if HAVE_ERTS_MSEG */
