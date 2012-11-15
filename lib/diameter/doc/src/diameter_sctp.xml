@@ -38,7 +38,8 @@ under the License.
 <description>
 
 <p>
-This module implements diameter transport over SCTP using gen_sctp.
+This module implements diameter transport over SCTP using <seealso
+marker="kernel:gen_sctp">gen_sctp</seealso>.
 It can be specified as the value of a transport_module option to
 <seealso
 marker="diameter#add_transport">diameter:add_transport/2</seealso>
