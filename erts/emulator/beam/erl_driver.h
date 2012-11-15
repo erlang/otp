@@ -85,7 +85,7 @@
 #include "erl_drv_nif.h"
 
 #include <stdlib.h>
-#include <string.h>		/* ssize_t on Mac OS X */
+#include <sys/types.h>	/* ssize_t */
 
 #if defined(VXWORKS)
 #  include <ioLib.h>
