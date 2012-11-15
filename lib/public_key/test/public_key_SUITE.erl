@@ -268,7 +268,23 @@ pkcs10_pem(Config) when is_list(Config) ->
 
     Entry = public_key:pem_entry_encode('CertificationRequest', PKCS10).
 
-   
+%%--------------------------------------------------------------------
+pkcs7_pem(doc) ->
+    [""];
+pkcs7_pem(suite) ->
+    [];
+pkcs7_pem(Config) when is_list(Config) ->
+    Datadir = ?config(data_dir, Config),
+    [{'ContentInfo', DerPKCS7, not_encrypted} = Entry] =
+	erl_make_certs:pem_to_der(filename:join(Datadir, "pkcs7_cert.pem")),
+
+    erl_make_certs:der_to_pem(filename:join(Datadir, "new_pkcs7_cert.pem"), [Entry]),
+
+    PKCS7 = public_key:der_decode('ContentInfo', DerPKCS7),
+    PKCS7 = public_key:pem_entry_decode(Entry),
+
+    Entry = public_key:pem_entry_encode('ContentInfo', PKCS7).
+
 %%--------------------------------------------------------------------
 cert_pem(doc) ->
     [""];
