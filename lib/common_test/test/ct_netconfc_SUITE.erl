@@ -113,7 +113,7 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-events_to_check(Test,Config) ->
+events_to_check(default,Config) ->
     {module,_} = code:load_abs(filename:join(?config(data_dir,Config),
 					     netconfc1_SUITE)),
     TCs = netconfc1_SUITE:all(),
