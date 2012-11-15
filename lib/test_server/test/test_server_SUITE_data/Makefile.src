@@ -5,3 +5,4 @@ all:
 	erlc test_server_shuffle01_SUITE.erl
 	erlc test_server_conf02_SUITE.erl
 	erlc test_server_skip_SUITE.erl
+	erlc test_server_break_SUITE.erl

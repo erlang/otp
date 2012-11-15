@@ -724,9 +724,11 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
     Data = {Mod,Func,TCPid,TCExitReason,Loc},
     EndConfProc =
 	fun() ->
+		process_flag(trap_exit,true), % to catch timetraps
 		Supervisor = self(),
 		EndConfApply =
 		    fun() ->
+			    timetrap(TVal),
 			    case catch apply(Mod,end_per_testcase,[Func,Conf]) of
 				{'EXIT',Why} ->
 				    timer:sleep(1),
@@ -745,14 +747,14 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
 		    {Pid,end_conf} ->
 			Starter ! {self(),{call_end_conf,Data,ok}};
 		    {'EXIT',Pid,Reason} ->
-			Starter ! {self(),{call_end_conf,Data,{error,Reason}}}
-		after TVal ->
-			exit(Pid, kill),
 			group_leader() ! {printout,12,
 					  "WARNING! ~p:end_per_testcase(~p, ~p)"
-					  " failed!\n\tReason: timetrap timeout"
-					  " after ~w ms!\n", [Mod,Func,Conf,TVal]},
-			Starter ! {self(),{call_end_conf,Data,{error,timeout}}}
+					  " failed!\n\tReason: ~p\n",
+					  [Mod,Func,Conf,Reason]},
+			Starter ! {self(),{call_end_conf,Data,{error,Reason}}};
+		    {'EXIT',_OtherPid,Reason} ->
+			%% Probably the parent - not much to do about that
+			exit(Reason)
 		end
 	end,
     spawn_link(EndConfProc).
