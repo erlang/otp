@@ -2175,15 +2175,13 @@ reply([Msg], Dict, TPid, Fs, Pkt)
     reply(Msg, Dict, TPid, Fs, Pkt#diameter_packet{errors = []});
 
 %% No errors or a diameter_header/avp list.
-reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = Es,
-                                            transport_data = TD}
-                           = ReqPkt)
+reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = Es} = ReqPkt)
   when [] == Es;
        is_record(hd(Msg), diameter_header) ->
     Pkt = diameter_codec:encode(Dict, make_answer_packet(Msg, ReqPkt)),
     eval_packet(Pkt, Fs),
     incr(send, Pkt, Dict, TPid),  %% count result codes in sent answers
-    send(TPid, Pkt#diameter_packet{transport_data = TD});
+    send(TPid, Pkt);
 
 %% Or not: set Result-Code and Failed-AVP AVP's.
 reply(Msg, Dict, TPid, Fs, #diameter_packet{errors = [H|_] = Es} = Pkt) ->
@@ -2198,23 +2196,36 @@ eval_packet(Pkt, Fs) ->
     
 %% make_answer_packet/2
 
-%% Binaries and header/avp lists are sent as-is.
-make_answer_packet(Bin, _)
-  when is_binary(Bin) ->
-    #diameter_packet{bin = Bin};
-make_answer_packet([#diameter_header{} | _] = Msg, _) ->
-    #diameter_packet{msg = Msg};
+%% A reply message clears the R and T flags and retains the P flag.
+%% The E flag will be set at encode. 6.2 of 3588 requires the same P
+%% flag on an answer as on the request. A #diameter_packet{} returned
+%% from a handle_request callback can circumvent this by setting its
+%% own header values.
+make_answer_packet(#diameter_packet{header = Hdr,
+                                    msg = Msg,
+                                    transport_data = TD},
+                   #diameter_packet{header = ReqHdr}) ->
+    Hdr0 = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
+                                  is_request = false,
+                                  is_error = undefined,
+                                  is_retransmitted = false},
+    #diameter_packet{header = fold_record(Hdr0, Hdr),
+                     msg = Msg,
+                     transport_data = TD};
 
-%% Otherwise a reply message clears the R and T flags and retains the
-%% P flag. The E flag will be set at encode. 6.2 of 3588 requires the
-%% same P flag on an answer as on the request.
-make_answer_packet(Msg, #diameter_packet{header = ReqHdr}) ->
-    Hdr = ReqHdr#diameter_header{version = ?DIAMETER_VERSION,
-                                 is_request = false,
-                                 is_error = undefined,
-                                 is_retransmitted = false},
-    #diameter_packet{header = Hdr,
-                     msg = Msg}.
+%% Binaries and header/avp lists are sent as-is.
+make_answer_packet(Bin, #diameter_packet{transport_data = TD})
+  when is_binary(Bin) ->
+    #diameter_packet{bin = Bin,
+                     transport_data = TD};
+make_answer_packet([#diameter_header{} | _] = Msg,
+                   #diameter_packet{transport_data = TD}) ->
+    #diameter_packet{msg = Msg,
+                     transport_data = TD};
+
+%% Otherwise, preserve transport_data.
+make_answer_packet(Msg, #diameter_packet{transport_data = TD} = Pkt) ->
+    make_answer_packet(#diameter_packet{msg = Msg, transport_data = TD}, Pkt).
 
 %% rc/1
 

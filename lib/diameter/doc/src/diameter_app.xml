@@ -382,7 +382,7 @@ communicate transport (or any other) data to the callback.</p>
 <p>
 A returned <seealso marker="#packet">packet()</seealso> can set
 the <c>header</c> field to a
-<c>#diameter_header{}</c> in order to specify values that should
+<c>#diameter_header{}</c> to specify values that should
 be preserved in the outgoing request, values otherwise being those in
 the header record contained in <c>Packet</c>.
 A returned <c>length</c>, <c>cmd_code</c> or <c>application_id</c> is
@@ -537,7 +537,8 @@ not selected.</p>
            | {relay, [Opt]}
            | discard
            | {eval|eval_packet, Action, PostF}</v>
-<v>Reply   = {reply, <seealso marker="#message">message()</seealso>}
+<v>Reply   = {reply, <seealso marker="#packet">packet()</seealso>
+                   | <seealso marker="#message">message()</seealso>}
            | {protocol_error, 3000..3999}</v>
 <v>Opt     = <seealso marker="diameter#call_opt">diameter:call_opt()</seealso></v>
 <v>PostF   = <seealso marker="diameter#evaluable">diameter:evaluable()</seealso></v>
@@ -568,7 +569,7 @@ The argument <seealso marker="#packet">packet()</seealso> has the following sign
 </code>
 
 <p>
-The <c>msg</c> field will be <c>undefined</c> only in case the request has
+The <c>msg</c> field will be <c>undefined</c> in case the request has
 been received in the relay application.
 Otherwise it contains the record representing the request as outlined
 in <seealso
@@ -590,19 +591,26 @@ the relay application.</p>
 The <c>transport_data</c> field contains an arbitrary term passed into
 diameter from the transport module in question, or the atom
 <c>undefined</c> if the transport specified no data.
-The term is preserved in the <seealso marker="#packet">packet()</seealso> containing any answer message
-sent back to the transport process unless another value is explicitly
-specified.</p>
+The term is preserved if a <seealso
+marker="#packet">message()</seealso> is returned but must be set
+explicitly in a returned <seealso marker="#packet">packet()</seealso>.</p>
 
 <p>
 The semantics of each of the possible return values are as follows.</p>
 
 <taglist>
 
-<tag><c>{reply, <seealso marker="#message">message()</seealso>}</c></tag>
+<tag><c>{reply, <seealso marker="#packet">packet()</seealso>
+              | <seealso marker="#message">message()</seealso>}</c></tag>
 <item>
 <p>
-Send the specified answer message to the peer.</p>
+Send the specified answer message to the peer.
+In the case of a <seealso marker="#packet">packet()</seealso>, the
+message to be sent must be set in the
+<c>msg</c> field and the <c>header</c> field can be set to a
+<c>#diameter_header{}</c> to specify values that should be
+preserved in the outgoing answer, appropriate values otherwise
+being set by diameter.</p>
 </item>
 
 <tag><c>{protocol_error, 3000..3999}</c></tag>
