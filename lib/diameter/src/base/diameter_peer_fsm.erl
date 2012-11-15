@@ -592,16 +592,16 @@ rcv(N, Pkt, S)
        N == 'DPR' ->
     handle_request(N, Pkt, S);
 
-%% DPA even though we haven't sent DPR: ignore.
-rcv('DPA', _Pkt, #state{dpr = false}) ->
-    ok;
-
-%% DPA in response to DPR. We could check the sequence numbers but
-%% don't bother, just close.
-rcv('DPA' = N, _Pkt, #state{transport = TPid}) ->
+%% DPA in response to DPR and with the expected identifiers.
+rcv('DPA' = N,
+    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                               hop_by_hop_id = Hid}},
+    #state{transport = TPid,
+           dpr = {Hid, Eid}}) ->
     diameter_peer:close(TPid),
     {stop, N};
 
+%% Ignore anything else, an unsolicited DPA in particular.
 rcv(_, _, _) ->
     ok.
 
