@@ -186,13 +186,21 @@ END      </pre>
         The following shows how the compiler
         can be called from the  Erlang shell:</p>
       <pre>
-1><input>asn1ct:compile("People",[ber_bin]).</input>
+1><input>asn1ct:compile("People", [ber]).</input>
+ok
+2>      </pre>
+
+      <p>The <c>verbose</c> option can be given to have information
+      about the generated files printed:</p>
+      <pre>
+2><input>asn1ct:compile("People", [ber,verbose]).</input>
 Erlang ASN.1 compiling "People.asn" 
 --{generated,"People.asn1db"}--
 --{generated,"People.hrl"}--
 --{generated,"People.erl"}--
 ok
-2>      </pre>
+3>      </pre>
+
       <p>The ASN.1 module People is now accepted and the abstract syntax tree
         is saved in the <c>People.asn1db</c> file, the
         generated Erlang code is compiled using the Erlang compiler and
@@ -229,7 +237,7 @@ receive
         constructed  and encoded using
         <c>'People':encode('Person',Answer)</c> which takes an
         instance of a defined ASN.1 type and transforms it to a
-        (possibly) nested list of bytes  according to the BER or PER
+        binary according to the BER or PER
         encoding-rules. 
                 <br></br>
 The encoder and the decoder can also be run from
@@ -239,24 +247,12 @@ The encoder and the decoder can also be run from
       <pre>
 2> <input>Rockstar = {'Person',"Some Name",roving,50}.</input>
 {'Person',"Some Name",roving,50}
-3> <input>{ok,Bytes} = asn1rt:encode('People','Person',Rockstar).</input>
-{ok,[&lt;&lt;243&gt;&gt;,
-     [17],
-     [19,9,"Some Name"],
-     [2,1,[2]],
-     [2,1,"2"]]}
-4> <input>Bin = list_to_binary(Bytes).</input>
-&lt;&lt;243,17,19,9,83,111,109,101,32,78,97,109,101,2,1,2,2,1,50&gt;&gt;
-5> <input>{ok,Person} = asn1rt:decode('People','Person',Bin).</input>
+3> <input>{ok,Bin} = asn1rt:encode('People','Person',Rockstar).</input>
+{ok,&lt;&lt;243,17,19,9,83,111,109,101,32,78,97,109,101,2,1,2,
+      2,1,50&gt;&gt;}
+4> <input>{ok,Person} = asn1rt:decode('People','Person',Bin).</input>
 {ok,{'Person',"Some Name",roving,50}}
-6>      </pre>
-      <p>Notice that the result from <c>encode</c> is a nested list which
-        must be turned into a binary before the call to <c>decode</c>. A
-        binary is necessary as input to decode since the module was compiled
-        with the <c>ber_bin</c> option
-        The reason for returning a nested list is that it is faster to produce 
-        and  the <c>list_to_binary</c> operation is
-        performed automatically when the list is sent via the Erlang port mechanism.</p>
+5>      </pre>
     </section>
 
     <section>
@@ -305,17 +301,15 @@ The encoder and the decoder can also be run from
         ASN.1 compiler:</p>
       <pre>
 erlc Person.asn
-erlc -bper_bin Person.asn
-erlc -bber_bin +optimize ../Example.asn
+erlc -bper Person.asn
+erlc -bber ../Example.asn
 erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      </pre>
       <p>The useful options for the ASN.1 compiler are:</p>
       <taglist>
-        <tag><c>-b[ber | per | ber_bin | per_bin | uper_bin]</c></tag>
+        <tag><c>-b[ber | per | uper]</c></tag>
         <item>
           <p>Choice of encoding rules, if omitted <c>ber</c> is the
-          default. The <c>ber_bin</c> and <c>per_bin</c> options
-          allows for optimizations and are therefore recommended
-          instead of the <c>ber</c> and <c>per</c> options.</p>
+          default.</p>
         </item>
         <tag><c>-o OutDirectory</c></tag>
         <item>
@@ -339,42 +333,12 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         </item>
         <tag><c>+der</c></tag>
         <item>
-          <p>DER encoding rule. Only when using <c>-ber</c> or 
-            <c>-ber_bin</c> option.</p>
-        </item>
-        <tag><c>+optimize</c></tag>
-        <item>
-          <p>This flag has effect only when used together with one of
-            <c>per_bin</c> or <c>ber_bin</c> flags. It gives time optimized
-            code in the generated modules and it uses another runtime module.
-            In the <c>per_bin</c> case a nif is used. The
-            result from an encode is a binary.</p>
-          <p><em>When this flag is used you cannot use the old format</em><c>{TypeName,Value}</c> when you encode values. Since it is
-            an unnecessary construct it has been removed in favor of
-            performance. It
-            is neither admitted to construct SEQUENCE or SET component values
-            with the format <c>{ComponentName,Value}</c> since it also is
-            unnecessary. The only case were it is necessary is in a CHOICE,
-            were you have to pass values to the right component by specifying
-            <c>{ComponentName,Value}</c>. See also about
-            <seealso marker="#TypeNameValue">{Typename,Value}</seealso> below 
-            and in the sections for each type.</p>
-        </item>
-        <tag><c>+driver</c></tag>
-        <item>
-           <p>As of R15B this means the same as the <c>nif</c> option. Kept for
-	    backwards compatability reasons.</p>
-        </item>
-	<tag><c>+nif</c></tag>
-        <item>
-          <p>Together with the flags <c>ber_bin</c>
-	  and <c>optimize</c> you choose to use a nif for considerable
-	  faster encode and decode. </p>
+          <p>DER encoding rule. Only when using <c>-ber</c> option.</p>
         </item>
         <tag><c>+asn1config</c></tag>
         <item>
           <p>This functionality works together with the flags
-            <c>ber_bin</c> and <c>optimize</c>. You enables the
+            <c>ber</c>. It enables the
             specialized decodes, see the <seealso marker="asn1_spec">Specialized Decode</seealso> chapter.
             </p>
         </item>
@@ -413,7 +377,6 @@ erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      
         </item>
       </taglist>
       <p>For a complete description of <c>erlc</c> see Erts Reference Manual.</p>
-      <p>For preferred option use see <seealso marker="#preferred option use">Preferred Option Use</seealso> section.</p>
       <p>The compiler and other compile-time functions can also be invoked from 
         the Erlang shell. Below follows a brief
         description of the primary functions, for a
@@ -429,9 +392,9 @@ asn1ct:compile("H323-MESSAGES.asn1").      </pre>
       <p>which equals:</p>
       <pre>
 asn1ct:compile("H323-MESSAGES.asn1",[ber]).      </pre>
-      <p>If one wants PER encoding with optimizations:</p>
+      <p>If one wants PER encoding:</p>
       <pre>
-asn1ct:compile("H323-MESSAGES.asn1",[per_bin,optimize]).      </pre>
+asn1ct:compile("H323-MESSAGES.asn1",[per]).      </pre>
       <p>The generic encode and decode functions can be invoked like this:</p>
       <pre>
 asn1ct:encode('H323-MESSAGES','SomeChoiceType',{call,"octetstring"}).
@@ -442,269 +405,6 @@ asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
 'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre>
     </section>
 
-    <section>
-      <marker id="preferred option use"></marker>
-      <title>Preferred Option Use</title>
-      <p>
-	It may not be obvious which compile options best fit a
-	situation. This section describes the format of the result of
-	encode and decode. It also gives some performance statistics
-	when using certain options. Finally there is a recommendation
-	which option combinations should be used.
-      </p>
-      <p>
-	The default option is <c>ber</c>. It is the same backend as
-	<c>ber_bin</c> except that the result of encode is transformed
-	to a flat list. Below is a table that gives the different
-	formats of input and output of encode and decode using the
-	<em>allowed combinations</em> of coding and optimization
-	options: (EAVF stands for how ASN1 values are represented in
-	Erlang which is described in the <seealso
-	marker="#ASN1Types">ASN1 Types chapter</seealso>)
-      </p>
-      <table>
-      <row>
-        <cell align="left" valign="middle"><em>Encoding Rule</em></cell>
-        <cell align="left" valign="middle"><em>Compile options, allowed combinations</em></cell>
-        <cell align="left" valign="middle"><em>encode input</em></cell>
-        <cell align="left" valign="middle"><em>encode output</em></cell>
-        <cell align="left" valign="middle"><em>decode input</em></cell>
-        <cell align="left" valign="middle"><em>decode output</em></cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">BER</cell>
-        <cell align="left" valign="middle">[ber] (default)</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">flat list</cell>
-        <cell align="left" valign="middle">flat list / binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">BER</cell>
-        <cell align="left" valign="middle">[ber_bin]</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">iolist</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">BER</cell>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize]</em></cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">iolist</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">BER</cell>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif]</em></cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">iolist</cell>
-        <cell align="left" valign="middle">iolist / binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">PER aligned variant</cell>
-        <cell align="left" valign="middle">[per]</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">flat list</cell>
-        <cell align="left" valign="middle">flat list</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">PER aligned variant</cell>
-        <cell align="left" valign="middle"><em>[per_bin]</em></cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">iolist / binary</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">PER aligned variant</cell>
-        <cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">PER unaligned variant</cell>
-        <cell align="left" valign="middle"><em>[uper_bin]</em></cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-
-      <row>
-        <cell align="left" valign="middle">DER</cell>
-        <cell align="left" valign="middle">[(ber), der]</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">flat list</cell>
-        <cell align="left" valign="middle">flat list / binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">DER</cell>
-        <cell align="left" valign="middle">[ber_bin, der]</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">iolist</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">DER</cell>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, der]</em></cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">iolist</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">DER</cell>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif, der]</em></cell>
-        <cell align="left" valign="middle">EAVF</cell>
-        <cell align="left" valign="middle">iolist</cell>
-        <cell align="left" valign="middle">binary</cell>
-        <cell align="left" valign="middle">EAVF</cell>
-      </row>
-
-
-      <tcaption>The output / input formats for different combinations of compile options.</tcaption>
-    </table>
-    <p>
-      Encode / decode speed comparison in one user case for the above
-      alternatives (except <c>DER</c>) is showed in the table below. The
-      <c>DER</c> alternatives are slower than their corresponding
-      <c>BER</c> alternative.
-    </p>
-
-    <table>
-      <row>
-	<cell align="left" valign="middle"><em>compile options</em></cell>
-	<cell align="left" valign="middle"><em>encode time</em></cell>
-	<cell align="left" valign="middle"><em>decode time</em></cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle">[ber]</cell>
-	<cell align="left" valign="middle">120</cell>
-	<cell align="left" valign="middle">162</cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle">[ber_bin]</cell>
-	<cell align="left" valign="middle">124</cell>
-	<cell align="left" valign="middle">154</cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle"><em>[ber_bin, optimize]</em></cell>
-	<cell align="left" valign="middle">50</cell>
-	<cell align="left" valign="middle">78</cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle"><em>[ber_bin, optimize, driver]</em></cell>
-	<cell align="left" valign="middle">50</cell>
-	<cell align="left" valign="middle">62</cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle">[per]</cell>
-	<cell align="left" valign="middle">141</cell>
-	<cell align="left" valign="middle">133</cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle"><em>[per_bin]</em></cell>
-	<cell align="left" valign="middle">125</cell>
-	<cell align="left" valign="middle">123</cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
-	<cell align="left" valign="middle">77</cell>
-	<cell align="left" valign="middle">72</cell>
-      </row>
-      <row>
-	<cell align="left" valign="middle"><em>[uper_bin]</em></cell>
-	<cell align="left" valign="middle">97</cell>
-	<cell align="left" valign="middle">104</cell>
-      </row>
-      <tcaption>
-	One example of difference in speed for the compile option alternatives.
-      </tcaption>
-    </table>
-
-    <p>
-      The compile options <c>ber</c>, <c>per</c> and
-      <c>driver</c> are kept for backwards compatibility and should not be 
-      used in new code. The nif implementation which replaces the linked-in
-      driver has been shown to be about 5-15% faster.
-    </p>
-    <p>
-      You are strongly recommended to use the appropriate alternative
-      of the bold typed options. The <c>optimize</c> and
-      <c>nif</c> options does not affect the encode or decode
-      result, just the time spent in run-time. When <c>ber_bin</c> and
-      <c>nif</c> or <c>per_bin</c> and <c>optimize</c> is
-      combined the C-code nif is used in chosen parts of encode /
-      decode procedure.
-    </p>
-    <table>
-      <row>
-        <cell align="left" valign="middle"><em>Compile options, allowed combinations</em></cell>
-        <cell align="left" valign="middle"><em>use of nif</em></cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">[ber]</cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">[ber_bin]</cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize]</em></cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif]</em></cell>
-        <cell align="left" valign="middle">yes</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">[per]</cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"><em>[per_bin]</em></cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
-        <cell align="left" valign="middle">yes</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"><em>[uper_bin]</em></cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-
-      <row>
-        <cell align="left" valign="middle">[(ber), der]</cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle">[ber_bin, der]</cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, der]</em></cell>
-        <cell align="left" valign="middle">no</cell>
-      </row>
-      <row>
-        <cell align="left" valign="middle"><em>[ber_bin, optimize, nif, der]</em></cell>
-        <cell align="left" valign="middle">yes</cell>
-      </row>
-
-
-      <tcaption>When the ASN1 nif is used.</tcaption>
-    </table>
-
-    </section>
     <section>
       <title>Run-time Functions</title>
       <p>A brief description of the major functions is given here. For a
@@ -719,9 +419,9 @@ asn1rt:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
 'H323-MESSAGES':encode('SomeChoiceType',{call,"octetstring"}).
 'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre>
       <p>The asn1 nif is enabled in two occasions: encoding of
-        asn1 values when the asn1 spec is compiled with <c>per_bin</c> and
-        <c>optimize</c> or decode of encoded asn1 values when the asn1 spec is
-        compiled with <c>ber_bin</c>, <c>optimize</c> and <c>nif</c>. In
+        asn1 values when the asn1 spec is compiled with <c>per</c> and
+        or decode of encoded asn1 values when the asn1 spec is
+        compiled with <c>ber</c>. In
         those cases the nif will be loaded automatically at the first call
         to <c>encode</c>/<c>decode</c>. If one doesn't want the performance
         overhead of the nif being loaded at the first call it is possible
@@ -868,26 +568,6 @@ Operational ::= BOOLEAN --ASN.1 definition    </pre>
     <pre>
 Val = true,
 {ok,Bytes}=asn1rt:encode(MyModule,'Operational',Val),    </pre>
-    <p>For historical reasons it is also possible to assign ASN.1 values 
-      in Erlang using a tuple notation
-      with type and value as this</p>
-    <pre>
-Val = {'Operational',true}    </pre>
-    <warning>
-      <marker id="warning"></marker>
-      <p>The tuple notation, <c>{Typename, Value}</c> is only kept
-        because of backward compatibility and may be withdrawn in a
-        future release. If the notation is used the <c>Typename</c>
-        element must be spelled correctly, otherwise a run-time error
-        will occur. 
-        </p>
-      <p>If the ASN.1 module is compiled with the flags
-        <c>per_bin</c> or <c>ber_bin</c> and <c>optimize</c> it is not
-        allowed to use the tuple notation. That possibility has been
-        removed due to performance reasons. Neither is it allowed to
-        use the <c>{ComponentName,Value}</c> notation in case of a
-        SEQUENCE or SET type.</p>
-    </warning>
     <p>Below follows a description of how
       values of each type can be represented in Erlang. 
       </p>
@@ -1149,7 +829,7 @@ TextFileVal2 = [88,76,55,44,99,121 .......... a lot of characters here ....]    
         The following example shows how it works:</p>
       <p>In a file <c>PrimStrings.asn1</c> the type <c>BMP</c> is defined as
                 <br></br>
-<c>BMP ::= BMPString</c> then using BER encoding (<c>ber_bin</c> 
+<c>BMP ::= BMPString</c> then using BER encoding (<c>ber</c>
         option)the input/output format will be:</p>
       <pre>
 1> <input>{ok,Bytes1} = asn1rt:encode('PrimStrings','BMP',[{0,0,53,53},{0,0,45,56}]).</input>
@@ -1174,9 +854,9 @@ TextFileVal2 = [88,76,55,44,99,121 .......... a lot of characters here ....]    
         <c>utf8_list_to_binary</c>, are in the <c>asn1rt</c> module. In
         the example below we assume an asn1 definition <c>UTF ::= UTF8String</c> in a module <c>UTF.asn</c>:</p>
       <pre>
-1> <input>asn1ct:compile('UTF',[ber_bin]).</input>
+1> <input>asn1ct:compile('UTF',[ber]).</input>
 Erlang ASN.1 version "1.4.3.3" compiling "UTF.asn" 
-Compiler Options: [ber_bin]
+Compiler Options: [ber]
 --{generated,"UTF.asn1db"}--
 --{generated,"UTF.erl"}--
 ok
@@ -1731,12 +1411,9 @@ SS ::= SET {
 1> <input>Val = 'Values':tt().</input>
 {'TT',77,["kalle","kula"]}
 2> <input>{ok,Bytes} = 'Values':encode('TT',Val).</input>
-{ok,["0",
-     [18],
-     [[[128],[1],"M"],["\\241","\\r",[[[4],[5],"kalle"],[[4],[4],"kula"]]]]]}
-3> <input>FlatBytes = lists:flatten(Bytes).</input>
-[48,18,128,1,77,161,13,4,5,107,97,108,108,101,4,4,107,117,108,97]
-4> <input>'Values':decode('TT',FlatBytes).</input>
+{ok,&lt;&lt;48,18,128,1,77,161,13,4,5,107,97,108,108,101,4,4,
+      107,117,108,97&gt;&gt;}
+4> <input>'Values':decode('TT',Bytes).</input>
 {ok,{'TT',77,["kalle","kula"]}}
 5>
     </pre>
