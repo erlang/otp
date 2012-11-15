@@ -606,6 +606,14 @@ indicated result code.
 <c>Pkt</c> contains the CER in question.</p>
 </item>
 
+<tag><c>{'CER', timeout}</c></tag>
+<item>
+<p>
+An expected CER was not received within <seealso
+marker="#capx_timeout">capx_timeout</seealso> of
+connection establishment.</p>
+</item>
+
 <tag><c>{'CEA', Result, Caps, Pkt}</c></tag>
 <item>
 <code>
@@ -637,6 +645,14 @@ Pkt  = #diameter_packet{}
 An incoming CEA contained errors and has been rejected.
 <c>Caps</c> contains only values for the the local node.
 <c>Pkt</c> contains the CEA in question.</p>
+</item>
+
+<tag><c>{'CEA', timeout}</c></tag>
+<item>
+<p>
+An expected CEA was not received within <seealso
+marker="#capx_timeout">capx_timeout</seealso>
+of connection establishment.</p>
 </item>
 
 </taglist>
@@ -850,13 +866,30 @@ case the corresponding callbacks are applied until either all return
 <c>ok</c> or one does not.</p>
 </item>
 
+<marker id="capx_timeout"/>
+<tag><c>{capx_timeout,
+  <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
+<item>
+<p>
+The number of milliseconds after which a transport process having an
+established transport connection will be terminated if the expected
+capabilities exchange message (CER or CEA) is not received from the peer.
+For a connecting transport, the timing reconnection attempts is
+governed by <seealso marker="#watchdog_timer">watchdog_timer</seealso> or
+<seealso marker="#reconnect_timer">reconnect_timer</seealso> expiry.
+For a listening transport, the peer determines the timing.</p>
+
+<p>
+Defaults to 10000.</p>
+</item>
+
 <marker id="disconnect_cb"/>
 <tag><c>{disconnect_cb, <seealso marker="#evaluable">evaluable()</seealso>}</c></tag>
 
 <item>
 <p>
-A callback invoked prior to requesting shutdown of a transport process
-for a transport connection having watchdog state <c>OKAY</c>.
+A callback invoked prior to terminating the transport process of a
+transport connection having watchdog state <c>OKAY</c>.
 Applied to <c>Reason=transport|service|application</c> and the
 <c><seealso marker="#transport_ref">transport_ref()</seealso></c> and
 <c><seealso marker="diameter_app#peer">diameter_app:peer()</seealso></c>
@@ -875,20 +908,12 @@ The return value can have one of the following types.</p>
 <tag><c>{dpr, [option()]}</c></tag>
 <item>
 <p>
-Causes Disconnect-Peer-Request to be sent to the peer, transport
-process shutdown being requested after reception of
+Causes Disconnect-Peer-Request to be sent to the peer, the transport
+process being terminated following reception of
 Disconnect-Peer-Answer or timeout.
 An <c>option()</c> can be one of the following.</p>
 
 <taglist>
-<tag><c>{timeout, integer()}</c></tag>
-<item>
-<p>
-Transport process shutdown will be requested after this number of
-milliseconds if DPA is not received.
-Defaults to 1000.</p>
-</item>
-
 <tag><c>{cause, 0|rebooting|1|busy|2|goaway}</c></tag>
 <item>
 <p>
@@ -896,6 +921,15 @@ The Disconnect-Cause to send, <c>REBOOTING</c>, <c>BUSY</c> and
 <c>DO_NOT_WANT_TO_TALK_TO_YOU</c> respectively.
 Defaults to <c>rebooting</c> for <c>Reason=service|application</c> and
 <c>goaway</c> for <c>Reason=transport</c>.</p>
+</item>
+
+<tag><c>{timeout,
+  <seealso marker="diameter_dict#DATA_TYPES">Unsigned32()</seealso>}</c></tag>
+<item>
+<p>
+The number of milliseconds after which the transport process is
+terminated if DPA has not been received.
+Defaults to 1000.</p>
 </item>
 </taglist>
 </item>
@@ -909,7 +943,7 @@ Equivalent to <c>{dpr, []}</c>.</p>
 <tag><c>close</c></tag>
 <item>
 <p>
-Causes transport process shutdown to be requested without
+Causes the transport process to be terminated without
 Disconnect-Peer-Request being sent to the peer.</p>
 </item>
 
@@ -1301,7 +1335,7 @@ Pred = {M,F,A}:  fun(Ref, Type, Opts) -> apply(M, F, [Ref, Type, Opts | A]) end
 
 <p>
 Removing a transport causes the corresponding transport processes to
-be asked to terminate.
+be terminated.
 Whether or not a DPR message is sent to a peer is
 controlled by
 value of <seealso marker="disconnect_cb">disconnect_cb</seealso>
