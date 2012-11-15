@@ -90,15 +90,20 @@
 %% timeout used to be hardcoded. (So it could be worse.)
 -define(DPA_TIMEOUT, 1000).
 
+-type uint32() :: diameter:'Unsigned32'().
+
 -record(state,
         {state = 'Wait-Conn-Ack'   %% state of RFC 3588 Peer State Machine
-              :: 'Wait-Conn-Ack' | recv_CER | 'Wait-CEA' | 'Open',
+              :: 'Wait-Conn-Ack'
+               | recv_CER
+               | 'Wait-CEA' %% old code
+               | {'Wait-CEA', uint32(), uint32()}
+               | 'Open',
          mode :: accept | connect | {connect, reference()},
          parent       :: pid(),  %% watchdog process
          transport    :: pid(),  %% transport process
          service      :: #diameter_service{},
-         dpr = false  :: false | {diameter:'Unsigned32'(),
-                                  diameter:'Unsigned32'()}}).
+         dpr = false  :: false | {uint32(), uint32()}}).
                             %% | hop by hop and end to end identifiers
 
 %% There are non-3588 states possible as a consequence of 5.6.1 of the
@@ -455,8 +460,12 @@ send_CER(#state{mode = {connect, Remote},
         close({already_connected, Remote, LCaps}, S),
     CER = build_CER(S),
     ?LOG(send, 'CER'),
-    send(TPid, encode(CER)),
-    start_timer(S#state{state = 'Wait-CEA'}).
+    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                               hop_by_hop_id = Hid}}
+        = Pkt
+        = encode(CER),
+    send(TPid, Pkt),
+    start_timer(S#state{state = {'Wait-CEA', Hid, Eid}}).
 
 %% Register ourselves as connecting to the remote endpoint in
 %% question. This isn't strictly necessary since a peer implementing
@@ -487,10 +496,8 @@ encode(Rec) ->
     Hdr = #diameter_header{version = ?DIAMETER_VERSION,
                            end_to_end_id = Seq,
                            hop_by_hop_id = Seq},
-    Pkt = #diameter_packet{header = Hdr,
-                           msg = Rec},
-    #diameter_packet{bin = Bin} = diameter_codec:encode(?BASE, Pkt),
-    Bin.
+    diameter_codec:encode(?BASE, #diameter_packet{header = Hdr,
+                                                  msg = Rec}).
 
 sequence() ->
     case getr(?SEQUENCE_KEY) of
@@ -558,7 +565,14 @@ discard(Reason, F, A) ->
 %% rcv/3
 
 %% Incoming CEA.
-rcv('CEA', Pkt, #state{state = 'Wait-CEA'} = S) ->
+rcv('CEA',
+    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                               hop_by_hop_id = Hid}}
+    = Pkt,
+    #state{state = {'Wait-CEA' = T, Hid, Eid}}
+    = S) ->
+    handle_CEA(Pkt, S#state{state = T});
+rcv('CEA', Pkt, #state{state = 'Wait-CEA'} = S) ->  %% old code
     handle_CEA(Pkt, S);
 
 %% Incoming CER
@@ -1055,13 +1069,16 @@ send_dpr(Reason, Opts, #state{transport = TPid,
                    origin_realm = {OR, _}}
         = Caps,
 
-    Bin = encode(['DPR', {'Origin-Host', OH},
+    #diameter_packet{header = #diameter_header{end_to_end_id = Eid,
+                                               hop_by_hop_id = Hid}}
+        = Pkt
+        = encode(['DPR', {'Origin-Host', OH},
                          {'Origin-Realm', OR},
                          {'Disconnect-Cause', Cause}]),
-    send(TPid, Bin),
+    send(TPid, Pkt),
     dpa_timer(Tmo),
     ?LOG(send, 'DPR'),
-    S#state{dpr = diameter_codec:sequence_numbers(Bin)}.
+    S#state{dpr = {Hid, Eid}}.
 
 opt({timeout, Tmo}, Rec)
   when ?IS_TIMEOUT(Tmo) ->
