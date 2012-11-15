@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE erlref SYSTEM "fileref.dtd">
+<!DOCTYPE erlref SYSTEM "fileref.dtd" [
+  <!ENTITY % ents SYSTEM "diameter.ent" >
+  %ents;
+]>
 
 <fileref>
 <header>
@@ -40,8 +43,7 @@ under the License.
 
 <description>
 <p>
-A diameter service as configured with <seealso
-marker="diameter#start_service">diameter:start_service/2</seealso>
+A diameter service as configured with &mod_start_service;
 specifies one or more supported Diameter applications.
 Each Diameter application specifies a dictionary module that knows how
 to encode and decode its messages and AVPs.
@@ -58,8 +60,7 @@ resulting dictionaries modules on a service.</p>
 The codec generation also results in a hrl file that defines records
 for the messages and grouped AVPs defined for the application, these
 records being what a user of the diameter application sends and receives.
-(Modulo other available formats as discussed in <seealso
-marker="diameter_app">diameter_app(3)</seealso>.)
+(Modulo other available formats as discussed in &man_app;.)
 These records and the underlying Erlang data types corresponding to
 Diameter data formats are discussed in <seealso
 marker="#MESSAGE_RECORDS">MESSAGE RECORDS</seealso> and <seealso
@@ -488,11 +489,9 @@ types being described below.</p>
 The data formats defined in sections 4.2 ("Basic AVP Data
 Formats") and 4.3 ("Derived AVP Data Formats") of RFC 3588 are encoded
 as values of the types defined here.
-Values are passed to <seealso
-marker="diameter#call">diameter:call/4</seealso>
+Values are passed to &mod_call;
 in a request record when sending a request, returned in a resulting
-answer record and passed to a <seealso
-marker="diameter_app#handle_request">handle_request</seealso>
+answer record and passed to a &app_handle_request;
 callback upon reception of an incoming request.</p>
 
 <p>
@@ -639,9 +638,7 @@ Values of these types are not currently parsed by diameter.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameterc">diameterc(1)</seealso>,
-<seealso marker="diameter">diameter(3)</seealso>,
-<seealso marker="diameter_app">diameter_app(3)</seealso></p>
+&man_compile;, &man_main;, &man_app;</p>
 
 </section>
 

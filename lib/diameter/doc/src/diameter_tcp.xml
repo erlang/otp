@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="latin1" ?>
-<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<!DOCTYPE erlref SYSTEM "erlref.dtd" [
+  <!ENTITY % ents SYSTEM "diameter.ent" >
+  %ents;
+]>
 
 <erlref>
 <header>
@@ -41,10 +44,9 @@ under the License.
 This module implements diameter transport over TCP using <seealso
 marker="kernel:gen_tcp">gen_tcp</seealso>.
 It can be specified as the value of a <c>transport_module</c> option to
-<seealso
-marker="diameter#add_transport">diameter:add_transport/2</seealso>
+&mod_add_transport;
 and implements the behaviour documented in
-<seealso marker="diameter_transport">diameter_transport(3)</seealso>.
+&man_transport;.
 TLS security is supported, both as an upgrade following
 capabilities exchange as specified by RFC 3588 and
 at connection establishment as in the current draft standard.</p>
@@ -66,7 +68,7 @@ before configuring TLS capability on diameter transports.</p>
 <fsummary>Start a transport process.</fsummary>
 <type>
 <v>Type = connect | accept</v>
-<v>Ref = <seealso marker="diameter#transport_ref">diameter:transport_ref()</seealso></v>
+<v>Ref = &mod_transport_ref;</v>
 <v>Svc = #diameter_service{}</v>
 <v>Opt = OwnOpt | SslOpt | TcpOpt</v>
 <v>Pid = pid()</v>
@@ -81,8 +83,7 @@ before configuring TLS capability on diameter transports.</p>
 <desc>
 
 <p>
-The start function required by <seealso
-marker="diameter_transport#start">diameter_transport(3)</seealso>.</p>
+The start function required by &man_transport;.</p>
 
 <p>
 The only diameter_tcp-specific argument is the options list.
@@ -115,10 +116,8 @@ Note that the option <c>ip</c> specifies the local address.</p>
 An <c>ssl_options</c> list must be specified if and only if
 the transport in question has set <c>Inband-Security-Id</c> to
 1 (<c>TLS</c>), as
-specified to either <seealso
-marker="diameter#start_service">start_service/2</seealso> or
-<seealso
-marker="diameter#add_transport">add_transport/2</seealso>,
+specified to either &mod_start_service; or
+&mod_add_transport;,
 so that the transport process will receive notification of
 whether or not to commence with a TLS handshake following capabilities
 exchange.
@@ -149,8 +148,8 @@ The returned local address list has length one.</p>
 <title>SEE ALSO</title>
 
 <p>
-<seealso marker="diameter">diameter(3)</seealso>,
-<seealso marker="diameter_transport">diameter_transport(3)</seealso>,
+&man_main;,
+&man_transport;,
 <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>,
 <seealso marker="kernel:inet">inet(3)</seealso>,
 <seealso marker="ssl:ssl">ssl(3)</seealso></p>
