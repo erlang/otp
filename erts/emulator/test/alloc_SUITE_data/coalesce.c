@@ -54,7 +54,7 @@ setup_sequence(TestCaseState_t *tcs, Allctr_t *a, Ulong bsz, int no,
 		    no, bsz);
     c = FIRST_MBC(a);
     ASSERT(tcs, !NEXT_C(c));
-    blk = MBC2FBLK(a, c);
+    blk = MBC_TO_FIRST_BLK(a, c);
     ASSERT(tcs, IS_LAST_BLK(blk));
 
     for (i = 0; i < no; i++)
