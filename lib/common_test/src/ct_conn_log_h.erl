@@ -64,10 +64,16 @@ do_open_files([],Acc) ->
 handle_event({_Type, GL, _Msg}, State) when node(GL) /= node() ->
     {ok, State};
 handle_event({_Type,_GL,{Pid,{ct_connection,Action,ConnName},Report}},State) ->
+    %% NOTE: if the format of this event is changed
+    %% ({ct_connection,Action,ConnName}) then remember to change
+    %% test_server_h:report_receiver as well!!!
     Info = conn_info(Pid,#conn_log{name=ConnName,action=Action}),
     write_report(now(),Info,Report,State),
     {ok, State};
 handle_event({_Type,_GL,{Pid,Info=#conn_log{},Report}},State) ->
+    %% NOTE: if the format of this event is changed
+    %% (Info=#conn_log{}) then remember to change
+    %% test_server_h:report_receiver as well!!!
     write_report(now(),conn_info(Pid,Info),Report,State),
     {ok, State};
 handle_event({error_report,_,{Pid,_,[{ct_connection,ConnName}|R]}},State) ->
