@@ -266,7 +266,7 @@ testcase_name(void)
 void
 testcase_run(TestCaseState_t *tcs)
 {
-    char *argv_org[] = {"-tmmbcs1024", "-tsbct2048", "-trmbcmt100", "-tas", NULL, NULL};
+    char *argv_org[] = {"-tsmbcs511","-tmmbcs511", "-tsbct512", "-trmbcmt100", "-tas", NULL, NULL};
     char *alg[] = {"af", "gf", "bf", "aobf", "aoff", NULL};
     int i;
 
@@ -276,7 +276,7 @@ testcase_run(TestCaseState_t *tcs)
 	char *argv[sizeof(argv_org)/sizeof(argv_org[0])];
 	memcpy((void *) argv, (void *) argv_org, sizeof(argv_org));
 
-	argv[4] = alg[i];
+	argv[5] = alg[i];
 	testcase_printf(tcs, " *** Starting \"%s\" allocator *** \n", alg[i]);
 	a = START_ALC("coalesce_", 0, argv);
 	ASSERT(tcs, a);
