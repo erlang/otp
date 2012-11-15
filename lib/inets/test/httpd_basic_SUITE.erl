@@ -288,7 +288,7 @@ slowdose(Config) when is_list(Config) ->
     Port = proplists:get_value(port, Info),
     {ok, Socket} = gen_tcp:connect("localhost", Port, []),
     receive
-    after 4000 ->
+    after 6000 ->
 	    {error, closed} = gen_tcp:send(Socket, "Hey")
     end.
 find_URL_path([]) ->
