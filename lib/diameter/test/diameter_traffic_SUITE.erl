@@ -38,6 +38,7 @@
          result_codes/1,
          send_ok/1,
          send_nok/1,
+         send_bad_answer/1,
          send_arbitrary/1,
          send_unknown/1,
          send_unknown_mandatory/1,
@@ -208,6 +209,7 @@ end_per_testcase(_, _) ->
 tc() ->
     [send_ok,
      send_nok,
+     send_bad_answer,
      send_arbitrary,
      send_unknown,
      send_unknown_mandatory,
@@ -307,6 +309,14 @@ send_nok(Config) ->
     
     #'diameter_base_answer-message'{'Result-Code' = ?INVALID_AVP_BITS}
         = call(Config, Req).
+
+%% Send an accounting ACR that the server tries to answer with an
+%% inappropriate header, resulting in no answer being sent and the
+%% request timing out.
+send_bad_answer(Config) ->
+    Req = ['ACR', {'Accounting-Record-Type', ?EVENT_RECORD},
+                  {'Accounting-Record-Number', 2}],
+    {error, timeout} = call(Config, Req).
 
 %% Send an ASR with an arbitrary AVP and expect success and the same
 %% AVP in the reply.
@@ -767,6 +777,21 @@ handle_request(#diameter_packet{header = H, msg = M}, ?SERVER, {_Ref, Caps}) ->
 request(#diameter_base_accounting_ACR{'Accounting-Record-Number' = 0},
         _) ->
     {eval_packet, {protocol_error, ?INVALID_AVP_BITS}, [fun log/2, invalid]};
+
+request(#diameter_base_accounting_ACR{'Session-Id' = SId,
+                                      'Accounting-Record-Type' = RT,
+                                      'Accounting-Record-Number' = 2 = RN},
+        #diameter_caps{origin_host = {OH, _},
+                       origin_realm = {OR, _}}) ->
+    Ans = ['ACA', {'Result-Code', ?SUCCESS},
+                  {'Session-Id', SId},
+                  {'Origin-Host', OH},
+                  {'Origin-Realm', OR},
+                  {'Accounting-Record-Type', RT},
+                  {'Accounting-Record-Number', RN}],
+
+    {reply, #diameter_packet{header = #diameter_header{is_error = true},%% not
+                             msg = Ans}};
 
 request(#diameter_base_accounting_ACR{'Session-Id' = SId,
                                       'Accounting-Record-Type' = RT,
