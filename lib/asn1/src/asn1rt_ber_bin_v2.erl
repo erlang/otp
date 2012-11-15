@@ -22,8 +22,7 @@
 %% encoding / decoding of BER  
 
 -export([decode/1, decode/2, match_tags/2, encode/1, encode/2]). 
--export([fixoptionals/2, cindex/3,
-	 list_to_record/2,
+-export([fixoptionals/2,
 	 encode_tag_val/1,
 	 encode_tags/3,
 	 skip_ExtensionAdditions/2]).
@@ -612,13 +611,6 @@ match_tags(Tlv, []) ->
     Tlv;
 match_tags(Tlv = {Tag,_V},[T|_Tt]) ->
     exit({error,{asn1,{wrong_tag,{{expected,T},{got,Tag,Tlv}}}}}).
-
- 
-cindex(Ix,Val,Cname) -> 
-    case element(Ix,Val) of 
-	{Cname,Val2} -> Val2; 
-	X -> X 
-    end. 
  
 %%%
 %% skips components that do not match a tag in Tags
@@ -641,13 +633,6 @@ skip_ExtensionAdditions(TLV=[{Tag,_}|Rest],Tags) ->
 %%=============================================================================== 
 %%=============================================================================== 
 %%=============================================================================== 
- 
-% converts a list to a record if necessary 
-list_to_record(Name,List) when is_list(List) -> 
-    list_to_tuple([Name|List]); 
-list_to_record(_Name,Tuple) when is_tuple(Tuple) -> 
-    Tuple. 
- 
  
 fixoptionals(OptList,Val) when is_list(Val) -> 
     fixoptionals(OptList,Val,1,[],[]). 

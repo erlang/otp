@@ -22,7 +22,7 @@
 
 -include("asn1_records.hrl").
 
--export([dec_fixup/3, cindex/3, list_to_record/2]).
+-export([dec_fixup/3]).
 -export([setchoiceext/1, setext/1, fixoptionals/3, fixextensions/2, 
 	 getext/1, getextension/2, skipextensions/3, getbit/1, getchoice/3 ]).
 -export([getoptionals/2, getoptionals2/2, 
@@ -86,18 +86,6 @@ dec_fixup([H|T],[Hc|Tc],RemBytes,Acc) ->
     dec_fixup(T,Tc,RemBytes,[{Hc,H}|Acc]);
 dec_fixup([],_Cnames,RemBytes,Acc) ->
     {lists:reverse(Acc),RemBytes}.
-
-cindex(Ix,Val,Cname) ->
-    case element(Ix,Val) of
-	{Cname,Val2} -> Val2;
-	X -> X
-    end.
-
-%% converts a list to a record if necessary
-list_to_record(_,Tuple) when is_tuple(Tuple) ->
-    Tuple;
-list_to_record(Name,List) when is_list(List) ->
-    list_to_tuple([Name|List]).
 
 %%--------------------------------------------------------
 %% setchoiceext(InRootSet) -> [{bit,X}]

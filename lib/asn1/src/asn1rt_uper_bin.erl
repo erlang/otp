@@ -25,7 +25,6 @@
 
 %%-compile(export_all).
 
- -export([cindex/3, list_to_record/2]).
  -export([setext/1, fixoptionals/3, 
  	 fixextensions/2, 
  	 getext/1, getextension/2, skipextensions/3, getbit/1, getchoice/3 ]).
@@ -63,19 +62,6 @@
 -define('16K',16384).
 -define('32K',32768).
 -define('64K',65536).
-
-
-cindex(Ix,Val,Cname) ->
-    case element(Ix,Val) of
-	{Cname,Val2} -> Val2;
-	X -> X
-    end.
-
-%% converts a list to a record if necessary
-list_to_record(_Name,Tuple) when is_tuple(Tuple) ->
-    Tuple;
-list_to_record(Name,List) when is_list(List) ->
-    list_to_tuple([Name|List]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
