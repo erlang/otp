@@ -128,8 +128,8 @@ groups() ->
 		      testcase_in_sub_groups13,
 		      bad_testcase_in_sub_groups1]},
 
-     {run_groups,[],[run_groups_with_options,
-		     run_groups_with_testspec]}
+     {run_groups,[sequence],[run_groups_with_options,
+			     run_groups_with_testspec]}
     ].
 
 all() ->
@@ -157,7 +157,7 @@ all_groups(_) ->
 
     All = Found,
 
-    {?M1,GPath,TCs}.
+    {?M1,GPath,TCs,Top1++Top2}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -166,35 +166,42 @@ testcases_in_all_groups(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [{conf,[{name,top1}],{?M2,init_per_group},
-      [{?M2,tc3},
-       {conf,[{name,sub11}],
-	{?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}},
-       {conf,[{name,sub12}],
-	{?M2,init_per_group},
-	[{?M2,sub_tc2},{?M2,tc3},
-	 {conf,[{name,sub121}],
-	  {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}}],
-	{?M2,end_per_group}}],
-      {?M2,end_per_group}},
-
-     {conf,[{name,top2}],{?M2,init_per_group},
-      [{conf,[{name,sub21}],
-	{?M2,init_per_group},
-	[{?M2,sub_tc2},{?M2,tc3},
-	 {conf,[{name,sub2xx}],
-	  {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}}],
-	{?M2,end_per_group}},
-       {?M2,tc3},				% in top2
-       {conf,[{name,sub22}],
-	{?M2,init_per_group},
-	[{conf,[{name,sub221}],
-	  {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}},
-	 {?M2,sub_tc2},{?M2,tc3},		% in sub22
-	 {conf,[{name,sub2xx}],
-	  {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],{?M2,end_per_group}}],
-	{?M2,end_per_group}}],
-      {?M2,end_per_group}},
+    [Top1 =
+	 {conf,[{name,top1}],{?M2,init_per_group},
+	  [{?M2,tc3},
+	   {conf,[{name,sub11}],
+	    {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	    {?M2,end_per_group}},
+	   {conf,[{name,sub12}],
+	    {?M2,init_per_group},
+	    [{?M2,sub_tc2},{?M2,tc3},
+	     {conf,[{name,sub121}],
+	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
+     
+     Top2 =
+	 {conf,[{name,top2}],{?M2,init_per_group},
+	  [{conf,[{name,sub21}],
+	    {?M2,init_per_group},
+	    [{?M2,sub_tc2},{?M2,tc3},
+	     {conf,[{name,sub2xx}],
+	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}},
+	   {?M2,tc3},				% in top2
+	   {conf,[{name,sub22}],
+	    {?M2,init_per_group},
+	    [{conf,[{name,sub221}],
+	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	      {?M2,end_per_group}},
+	     {?M2,sub_tc2},{?M2,tc3},		% in sub22
+	     {conf,[{name,sub2xx}],
+	      {?M2,init_per_group},[{?M2,sub_tc2},{?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
 
      {conf,[{name,sub21}],
       {?M2,init_per_group},
@@ -220,7 +227,7 @@ testcases_in_all_groups(_) ->
 
 	= Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,[Top1,Top2]}.
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -238,7 +245,7 @@ all_in_top_group1(_) ->
 	{?M1,end_per_group}}],
       {?M1,end_per_group}}] = Found,
 
-    {?M1,GPath,TCs}.
+    {?M1,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -256,7 +263,7 @@ all_in_top_group2(_) ->
        {?M1,top2_tc1},{?M1,top2_tc2}],
       {?M1,end_per_group}}] = Found,
 
-    {?M1,GPath,TCs}.
+    {?M1,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -273,7 +280,7 @@ all_in_sub_group1(_) ->
 	{?M1,end_per_group}}],
       {?M1,end_per_group}}] = Found,
 
-    {?M1,GPath,TCs}.
+    {?M1,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%% 
@@ -282,20 +289,21 @@ all_in_sub_group2(_) ->
 
     Found = ct_groups:find_groups(?M1, GPath, TCs, groups1()),
 
-    [{conf,[{name,top2}],
-      {?M1,init_per_group},
-      [{conf,[{name,sub2}],
-	{?M1,init_per_group},
-	[{?M1,sub2_tc1},{?M1,sub2_tc2}],
-	{?M1,end_per_group}}],
-      {?M1,end_per_group}},
-
+    [Top2 =
+	 {conf,[{name,top2}],
+	  {?M1,init_per_group},
+	  [{conf,[{name,sub2}],
+	    {?M1,init_per_group},
+	    [{?M1,sub2_tc1},{?M1,sub2_tc2}],
+	    {?M1,end_per_group}}],
+	  {?M1,end_per_group}},
+     
      {conf,[{name,sub2}],
       {?M1,init_per_group},
       [{?M1,sub2_tc1},{?M1,sub2_tc2}],
       {?M1,end_per_group}}] = Found,
-
-    {?M1,GPath,TCs}.
+    
+    {?M1,GPath,TCs,Top2}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -309,7 +317,7 @@ testcase_in_top_group1(_) ->
       [{?M1,top1_tc2}],
       {?M1,end_per_group}}] = Found,
 
-    {?M1,GPath,TCs}.
+    {?M1,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -323,7 +331,7 @@ testcase_in_top_group2(_) ->
       [{?M1,top2_tc2}],
       {?M1,end_per_group}}] = Found,
 
-    {?M1,GPath,TCs}.
+    {?M1,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -340,7 +348,7 @@ testcase_in_sub_group1(_) ->
 	{?M1,end_per_group}}],
       {?M1,end_per_group}}] = Found,
 
-    {?M1,GPath,TCs}.
+    {?M1,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -349,20 +357,21 @@ testcase_in_sub_group2(_) ->
 
     Found = ct_groups:find_groups(?M1, GPath, TCs, groups1()),
 
-    [{conf,[{name,top2}],
-      {?M1,init_per_group},
-      [{conf,[{name,sub2}],
-	{?M1,init_per_group},
-	[{?M1,sub2_tc2}],
-	{?M1,end_per_group}}],
-      {?M1,end_per_group}},
-
+    [Top2 =
+	 {conf,[{name,top2}],
+	  {?M1,init_per_group},
+	  [{conf,[{name,sub2}],
+	    {?M1,init_per_group},
+	    [{?M1,sub2_tc2}],
+	    {?M1,end_per_group}}],
+	  {?M1,end_per_group}},
+     
      {conf,[{name,sub2}],
       {?M1,init_per_group},
       [{?M1,sub2_tc2}],
       {?M1,end_per_group}}] = Found,
-
-    {?M1,GPath,TCs}.
+    
+    {?M1,GPath,TCs,Top2}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -371,52 +380,49 @@ testcase_in_top_groups1(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [
-     [{conf,[{name,top1}],
-       {?M2,init_per_group},
-       [{?M2,top1_tc1},{?M2,top_tc2},{?M2,tc3},
-	{conf,[{name,sub11}],
-	 {?M2,init_per_group},
-	 [{?M2,sub11_tc1},{?M2,sub_tc2},{?M2,tc3}],
-	 {?M2,end_per_group}},
-	{conf,[{name,sub12}],
-	 {?M2,init_per_group},
-	 [{?M2,sub12_tc1},{?M2,sub_tc2},{?M2,tc3},
-	  {conf,[{name,sub121}],
-	   {?M2,init_per_group},
-	   [{?M2,sub121_tc1},{?M2,sub_tc2},{?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}],
+    [{conf,[{name,top1}],
+      {?M2,init_per_group},
+      [{?M2,top1_tc1},{?M2,top_tc2},{?M2,tc3},
+       {conf,[{name,sub11}],
+	{?M2,init_per_group},
+	[{?M2,sub11_tc1},{?M2,sub_tc2},{?M2,tc3}],
+	{?M2,end_per_group}},
+       {conf,[{name,sub12}],
+	{?M2,init_per_group},
+	[{?M2,sub12_tc1},{?M2,sub_tc2},{?M2,tc3},
+	 {conf,[{name,sub121}],
+	  {?M2,init_per_group},
+	  [{?M2,sub121_tc1},{?M2,sub_tc2},{?M2,tc3}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}},
+     
+     {conf,[{name,top2}],
+      {?M2,init_per_group},
+      [{conf,[{name,sub21}],
+	{?M2,init_per_group},
+	[{?M2,sub21_tc1},{?M2,sub_tc2},{?M2,tc3},
+	 {conf,[{name,sub2xx}],
+	  {?M2,init_per_group},
+	  [{?M2,sub2xx_tc1},{?M2,sub_tc2},{?M2,tc3}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}},
+       {?M2,top2_tc1},{?M2,top_tc2},{?M2,tc3},
+       {conf,[{name,sub22}],
+	{?M2,init_per_group},
+	[{conf,[{name,sub221}],
+	  {?M2,init_per_group},
+	  [{?M2,sub221_tc1},{?M2,sub_tc2},{?M2,tc3}],
+	  {?M2,end_per_group}},
+	 {?M2,sub22_tc1},{?M2,sub_tc2},{?M2,tc3},
+	 {conf,[{name,sub2xx}],
+	  {?M2,init_per_group},
+	  [{?M2,sub2xx_tc1},{?M2,sub_tc2},{?M2,tc3}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}}] = Found,
 
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub21}],
-	 {?M2,init_per_group},
-	 [{?M2,sub21_tc1},{?M2,sub_tc2},{?M2,tc3},
-	  {conf,[{name,sub2xx}],
-	   {?M2,init_per_group},
-	   [{?M2,sub2xx_tc1},{?M2,sub_tc2},{?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}},
-	{?M2,top2_tc1},{?M2,top_tc2},{?M2,tc3},
-	{conf,[{name,sub22}],
-	 {?M2,init_per_group},
-	 [{conf,[{name,sub221}],
-	   {?M2,init_per_group},
-	   [{?M2,sub221_tc1},{?M2,sub_tc2},{?M2,tc3}],
-	   {?M2,end_per_group}},
-	  {?M2,sub22_tc1},{?M2,sub_tc2},{?M2,tc3},
-	  {conf,[{name,sub2xx}],
-	   {?M2,init_per_group},
-	   [{?M2,sub2xx_tc1},{?M2,sub_tc2},{?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}]
-
-    ] = Found,
-
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -425,51 +431,49 @@ testcase_in_top_groups2(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [
-     [{conf,[{name,top1}],
-       {?M2,init_per_group},
-       [{?M2,tc3},
-	{conf,[{name,sub11}],
-	 {?M2,init_per_group},
-	 [{?M2,tc3}],
-	 {?M2,end_per_group}},
-	{conf,[{name,sub12}],
-	 {?M2,init_per_group},
-	 [{?M2,tc3},
-	  {conf,[{name,sub121}],
-	   {?M2,init_per_group},
-	   [{?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}],
+    [{conf,[{name,top1}],
+      {?M2,init_per_group},
+      [{?M2,tc3},
+       {conf,[{name,sub11}],
+	{?M2,init_per_group},
+	[{?M2,tc3}],
+	{?M2,end_per_group}},
+       {conf,[{name,sub12}],
+	{?M2,init_per_group},
+	[{?M2,tc3},
+	 {conf,[{name,sub121}],
+	  {?M2,init_per_group},
+	  [{?M2,tc3}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}},
 
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub21}],
-	 {?M2,init_per_group},
-	 [{?M2,tc3},
-	  {conf,[{name,sub2xx}],
-	   {?M2,init_per_group},
-	   [{?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}},
-	{?M2,tc3},
-	{conf,[{name,sub22}],
-	 {?M2,init_per_group},
-	 [{conf,[{name,sub221}],
-	   {?M2,init_per_group},
-	   [{?M2,tc3}],
-	   {?M2,end_per_group}},
-	  {?M2,tc3},
-	  {conf,[{name,sub2xx}],
-	   {?M2,init_per_group},
-	   [{?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}]
-    ] = Found,
+     {conf,[{name,top2}],
+      {?M2,init_per_group},
+      [{conf,[{name,sub21}],
+	{?M2,init_per_group},
+	[{?M2,tc3},
+	 {conf,[{name,sub2xx}],
+	  {?M2,init_per_group},
+	  [{?M2,tc3}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}},
+       {?M2,tc3},
+       {conf,[{name,sub22}],
+	{?M2,init_per_group},
+	[{conf,[{name,sub221}],
+	  {?M2,init_per_group},
+	  [{?M2,tc3}],
+	  {?M2,end_per_group}},
+	 {?M2,tc3},
+	 {conf,[{name,sub2xx}],
+	  {?M2,init_per_group},
+	  [{?M2,tc3}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -478,12 +482,12 @@ testcase_in_top_groups3(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [[{conf,[{name,top1}],
-       {?M2,init_per_group},
-       [{?M2,top1_tc1}],
-       {?M2,end_per_group}}], []] = Found,
+    [{conf,[{name,top1}],
+      {?M2,init_per_group},
+      [{?M2,top1_tc1}],
+      {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -492,26 +496,25 @@ testcase_in_top_groups4(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [[],
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub21}],
-	 {?M2,init_per_group},
-	 [{conf,[{name,sub2xx}],
-	   {?M2,init_per_group},
-	   [{?M2,sub2xx_tc1}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}},
-	{conf,[{name,sub22}],
-	 {?M2,init_per_group},
-	 [{conf,[{name,sub2xx}],
-	   {?M2,init_per_group},
-	   [{?M2,sub2xx_tc1}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}]] = Found,
+    [{conf,[{name,top2}],
+      {?M2,init_per_group},
+      [{conf,[{name,sub21}],
+	{?M2,init_per_group},
+	[{conf,[{name,sub2xx}],
+	  {?M2,init_per_group},
+	  [{?M2,sub2xx_tc1}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}},
+       {conf,[{name,sub22}],
+	{?M2,init_per_group},
+	[{conf,[{name,sub2xx}],
+	  {?M2,init_per_group},
+	  [{?M2,sub2xx_tc1}],
+	  {?M2,end_per_group}}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -521,20 +524,19 @@ testcase_in_top_groups5(_) ->
     Found = ct_groups:find_groups(?M2, [top1,top2], [sub21_tc1,sub22_tc1],
 				  groups2()),
 
-    [[],
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub21}],
-	 {?M2,init_per_group},
-	 [{?M2,sub21_tc1}],
-	 {?M2,end_per_group}},
-	{conf,[{name,sub22}],
-	 {?M2,init_per_group},
-	 [{?M2,sub22_tc1}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}]] = Found,
+    [{conf,[{name,top2}],
+      {?M2,init_per_group},
+      [{conf,[{name,sub21}],
+	{?M2,init_per_group},
+	[{?M2,sub21_tc1}],
+	{?M2,end_per_group}},
+       {conf,[{name,sub22}],
+	{?M2,init_per_group},
+	[{?M2,sub22_tc1}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -542,17 +544,17 @@ testcase_in_top_groups6(_) ->
     GPath = [[top1],[top2]], TCs = tc3,
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
+    
+    [{conf,[{name,top1}],
+      {?M2,init_per_group},
+      [{?M2,tc3}],
+      {?M2,end_per_group}},
+     {conf,[{name,top2}],
+      {?M2,init_per_group},
+      [{?M2,tc3}],
+      {?M2,end_per_group}}] = Found,
 
-    [[{conf,[{name,top1}],
-       {?M2,init_per_group},
-       [{?M2,tc3}],
-       {?M2,end_per_group}}],
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{?M2,tc3}],
-       {?M2,end_per_group}}]] = Found,
-
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -561,20 +563,20 @@ testcase_in_top_groups7(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [[{conf,[{name,top1}],
-       {?M2,init_per_group},
-       [{?M2,top1_tc1},
-	{?M2,top_tc2},
-	{?M2,tc3}],
-       {?M2,end_per_group}}],
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{?M2,top2_tc1},
-	{?M2,top_tc2},
-	{?M2,tc3}],
-       {?M2,end_per_group}}]] = Found,
+    [{conf,[{name,top1}],
+      {?M2,init_per_group},
+      [{?M2,top1_tc1},
+       {?M2,top_tc2},
+       {?M2,tc3}],
+      {?M2,end_per_group}},
+     {conf,[{name,top2}],
+      {?M2,init_per_group},
+      [{?M2,top2_tc1},
+       {?M2,top_tc2},
+       {?M2,tc3}],
+      {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -595,7 +597,7 @@ testcase_in_sub_groups1(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -627,7 +629,7 @@ testcase_in_sub_groups2(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = FoundX,
     
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -635,54 +637,53 @@ testcase_in_sub_groups3(_) ->
     GPath = [sub121,sub221], TCs = all,
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
+    
+    [Top1 =
+	 {conf,[{name,top1}],
+	  {?M2,init_per_group},
+	  [{conf,[{name,sub12}],
+	    {?M2,init_per_group},
+	    [{conf,[{name,sub121}],
+	      {?M2,init_per_group},
+	      [{?M2,sub121_tc1},
+	       {?M2,sub_tc2},
+	       {?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
+     
+     Top2 =
+	 {conf,[{name,top2}],
+	  {?M2,init_per_group},
+	  [{conf,[{name,sub22}],
+	    {?M2,init_per_group},
+	    [{conf,[{name,sub221}],
+	      {?M2,init_per_group},
+	      [{?M2,sub221_tc1},
+	       {?M2,sub_tc2},
+	       {?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
+     
+     {conf,[{name,sub22}],
+      {?M2,init_per_group},
+      [{conf,[{name,sub221}],
+	{?M2,init_per_group},
+	[{?M2,sub221_tc1},
+	 {?M2,sub_tc2},
+	 {?M2,tc3}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}},
+     
+     {conf,[{name,sub221}],
+      {?M2,init_per_group},
+      [{?M2,sub221_tc1},
+       {?M2,sub_tc2},
+       {?M2,tc3}],
+      {?M2,end_per_group}}] = Found,
 
-    [
-     [{conf,[{name,top1}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub12}],
-	 {?M2,init_per_group},
-	 [{conf,[{name,sub121}],
-	   {?M2,init_per_group},
-	   [{?M2,sub121_tc1},
-	    {?M2,sub_tc2},
-	    {?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}],
-
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub22}],
-	 {?M2,init_per_group},
-	 [{conf,[{name,sub221}],
-	   {?M2,init_per_group},
-	   [{?M2,sub221_tc1},
-	    {?M2,sub_tc2},
-	    {?M2,tc3}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}},
-
-      {conf,[{name,sub22}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub221}],
-	 {?M2,init_per_group},
-	 [{?M2,sub221_tc1},
-	  {?M2,sub_tc2},
-	  {?M2,tc3}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}},
-
-      {conf,[{name,sub221}],
-       {?M2,init_per_group},
-       [{?M2,sub221_tc1},
-	{?M2,sub_tc2},
-	{?M2,tc3}],
-       {?M2,end_per_group}}]
-
-    ] = Found,
-
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,[Top1,Top2]}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -691,47 +692,46 @@ testcase_in_sub_groups4(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [
-     [{conf,[{name,top1}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub11}],
-	 {?M2,init_per_group},
-	 [{?M2,sub_tc2}],
-	 {?M2,end_per_group}},
-	{conf,[{name,sub12}],
-	 {?M2,init_per_group},
-	 [{?M2,sub_tc2},
-	  {conf,[{name,sub121}],
-	   {?M2,init_per_group},
-	   [{?M2,sub_tc2}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}],
+    [Top1 =
+	 {conf,[{name,top1}],
+	  {?M2,init_per_group},
+	  [{conf,[{name,sub11}],
+	    {?M2,init_per_group},
+	    [{?M2,sub_tc2}],
+	    {?M2,end_per_group}},
+	   {conf,[{name,sub12}],
+	    {?M2,init_per_group},
+	    [{?M2,sub_tc2},
+	     {conf,[{name,sub121}],
+	      {?M2,init_per_group},
+	      [{?M2,sub_tc2}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
 
-     [{conf,[{name,top2}],
-       {?M2,init_per_group},
-       [{conf,[{name,sub21}],
-	 {?M2,init_per_group},
-	 [{?M2,sub_tc2},
-	  {conf,[{name,sub2xx}],
-	   {?M2,init_per_group},
-	   [{?M2,sub_tc2}],
-	   {?M2,end_per_group}}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}},
-
-      {conf,[{name,sub21}],
-       {?M2,init_per_group},
-       [{?M2,sub_tc2},
-	{conf,[{name,sub2xx}],
-	 {?M2,init_per_group},
-	 [{?M2,sub_tc2}],
-	 {?M2,end_per_group}}],
-       {?M2,end_per_group}}]
-
-    ] = Found,
-
-    {?M2,GPath,TCs}.
+     Top2 =
+	 {conf,[{name,top2}],
+	  {?M2,init_per_group},
+	  [{conf,[{name,sub21}],
+	    {?M2,init_per_group},
+	    [{?M2,sub_tc2},
+	     {conf,[{name,sub2xx}],
+	      {?M2,init_per_group},
+	      [{?M2,sub_tc2}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
+     
+     {conf,[{name,sub21}],
+      {?M2,init_per_group},
+      [{?M2,sub_tc2},
+       {conf,[{name,sub2xx}],
+	{?M2,init_per_group},
+	[{?M2,sub_tc2}],
+	{?M2,end_per_group}}],
+      {?M2,end_per_group}}] = Found,
+    
+    {?M2,GPath,TCs,[Top1,Top2]}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -748,7 +748,7 @@ testcase_in_sub_groups5(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -765,7 +765,7 @@ testcase_in_sub_groups6(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -783,7 +783,7 @@ testcase_in_sub_groups7(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -801,7 +801,7 @@ testcase_in_sub_groups8(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -811,24 +811,25 @@ testcase_in_sub_groups9(_) ->
     Found = ct_groups:find_groups(?M2, sub2xx, tc3, groups2()),
     Found = ct_groups:find_groups(?M2, [[sub2xx]], tc3, groups2()),
 
-    [{conf,[{name,top2}],
-      {?M2,init_per_group},
-      [{conf,[{name,sub21}],
-	{?M2,init_per_group},
-	[{conf,[{name,sub2xx}],
+    [Top2 =
+	 {conf,[{name,top2}],
 	  {?M2,init_per_group},
-	  [{?M2,tc3}],
-	  {?M2,end_per_group}}],
-	{?M2,end_per_group}},
-       {conf,[{name,sub22}],
-	{?M2,init_per_group},
-	[{conf,[{name,sub2xx}],
-	  {?M2,init_per_group},
-	  [{?M2,tc3}],
-	  {?M2,end_per_group}}],
-	{?M2,end_per_group}}],
-      {?M2,end_per_group}},
-
+	  [{conf,[{name,sub21}],
+	    {?M2,init_per_group},
+	    [{conf,[{name,sub2xx}],
+	      {?M2,init_per_group},
+	      [{?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}},
+	   {conf,[{name,sub22}],
+	    {?M2,init_per_group},
+	    [{conf,[{name,sub2xx}],
+	      {?M2,init_per_group},
+	      [{?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
+     
      {conf,[{name,sub21}],
       {?M2,init_per_group},
       [{conf,[{name,sub2xx}],
@@ -850,7 +851,7 @@ testcase_in_sub_groups9(_) ->
       [{?M2,tc3}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Top2}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -859,16 +860,17 @@ testcase_in_sub_groups10(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [{conf,[{name,top2}],
-      {?M2,init_per_group},
-      [{conf,[{name,sub22}],
-	{?M2,init_per_group},
-	[{conf,[{name,sub2xx}],
+    [Top2 = 
+	 {conf,[{name,top2}],
 	  {?M2,init_per_group},
-	  [{?M2,tc3}],
-	  {?M2,end_per_group}}],
-	{?M2,end_per_group}}],
-      {?M2,end_per_group}},
+	  [{conf,[{name,sub22}],
+	    {?M2,init_per_group},
+	    [{conf,[{name,sub2xx}],
+	      {?M2,init_per_group},
+	      [{?M2,tc3}],
+	      {?M2,end_per_group}}],
+	    {?M2,end_per_group}}],
+	  {?M2,end_per_group}},
 
      {conf,[{name,sub22}],
       {?M2,init_per_group},
@@ -878,7 +880,7 @@ testcase_in_sub_groups10(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Top2}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -900,7 +902,7 @@ testcase_in_sub_groups11(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -929,7 +931,7 @@ testcase_in_sub_groups12(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -950,7 +952,7 @@ testcase_in_sub_groups13(_) ->
 	{?M2,end_per_group}}],
       {?M2,end_per_group}}] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -961,7 +963,7 @@ bad_testcase_in_sub_groups1(_) ->
 
     [] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%%
@@ -970,9 +972,9 @@ bad_testcase_in_sub_groups2(_) ->
 
     Found = ct_groups:find_groups(?M2, GPath, TCs, groups2()),
 
-    [[],[]] = Found,
+    [] = Found,
 
-    {?M2,GPath,TCs}.
+    {?M2,GPath,TCs,Found}.
 
 %%%-----------------------------------------------------------------
 %%% CASES EXECUTING THE TESTS
@@ -983,45 +985,55 @@ run_groups_with_options(Config) ->
 
     {M1All,M1Rest,M2All,M2Rest} = get_all_groups_and_cases(Config),
 
-    ct:pal("NOW RUNNING M1 TEST: ~p", [M1All]),
+    M1AllGrs = lists:flatmap(fun({Path,_,_}) when is_atom(hd(Path)) -> Path;
+				({Path,_,_}) when is_list(hd(Path)) -> Path;
+				({Path,_,_}) -> [Path]
+			     end, M1All),
 
-    M1AllGrSpec = {group, [Path || {Path,_} <- M1All]},
+    %% ct:pal("NOW RUNNING M1 TEST: ~p", [M1All]),
+
     {OptsM11,ERPidM11} = setup([{dir,DataDir},{suite,?M1},
-				M1AllGrSpec,{label,m1_all_cases}], Config),
-    ok = execute(m1_all_cases, M1AllGrSpec, OptsM11, ERPidM11, Config),
-
-    ct:pal("NOW RUNNING M1 TESTS: ~p", [M1Rest]),
+				{group,M1AllGrs},{label,m1_all_cases}], Config),
+    M1AllGrInfo = {M1AllGrs,lists:flatten([Found || {_,_,Found} <- M1All])},
+    ok = execute(m1_all_cases, M1AllGrInfo, OptsM11, ERPidM11, Config),
 
     lists:foldl(
-      fun({GrPath,TCs}, N) ->
-	      TestName = list_to_atom("m1_spec_cases_" ++ integer_to_list(N)),
-	      {OptsM12,ERPidM12} = setup([{dir,DataDir},{suite,?M1},
-					  {group,GrPath},{testcases,TCs},
-					  {label,TestName}], Config),
-	      ok = execute(TestName, {{group,GrPath},{testcases,TCs}},
-			   OptsM12, ERPidM12, Config),
-	      N+1
+      fun({GrPath,TCs,Found}, N) ->
+    	      TestName = list_to_atom("m1_spec_cases_" ++ integer_to_list(N)),
+	      %% ct:pal("NOW RUNNING M1 TEST ~p: ~p + ~p",
+		%%     [TestName,GrPath,TCs]),
+    	      {OptsM12,ERPidM12} = setup([{dir,DataDir},{suite,?M1},
+    					  {group,GrPath},{testcase,TCs},
+    					  {label,TestName}], Config),
+    	      ok = execute(TestName, {GrPath,TCs,Found},
+    			   OptsM12, ERPidM12, Config),
+    	      N+1
       end, 1, M1Rest),
     
-    ct:pal("NOW RUNNING M2 TEST: ~p", [M2All]),
+    %% ct:pal("NOW RUNNING M2 TEST: ~p", [M2All]),
 
-    M2AllGrSpec = {group, [Path || {Path,_} <- M2All]},
+    M2AllGrs = lists:flatmap(fun({Path,_,_}) when is_atom(hd(Path)) -> Path;
+				({Path,_,_}) when is_list(hd(Path)) -> Path;
+				({Path,_,_}) -> [Path]
+			     end, M2All),
+
+
     {OptsM21,ERPidM21} = setup([{dir,DataDir},{suite,?M2},
-				M2AllGrSpec,{testcases,all},
-				{label,m2_all_cases}], Config),
-    ok = execute(m2_all_cases, M2AllGrSpec, OptsM21, ERPidM21, Config),
-
-    ct:pal("NOW RUNNING M2 TESTS: ~p", [M2Rest]),
+    				{group,M2AllGrs},{testcase,all},
+    				{label,m2_all_cases}], Config),
+    M2AllGrInfo = {M2AllGrs,lists:flatten([Found || {_,_,Found} <- M2All])},
+    ok = execute(m2_all_cases, M2AllGrInfo, OptsM21, ERPidM21, Config),
 
     lists:foldl(
-      fun({GrPath,TCs}, N) ->
-	      TestName = list_to_atom("m2_spec_cases_" ++ integer_to_list(N)),
-	      {OptsM22,ERPidM22} = setup([{dir,DataDir},{suite,?M2},
-					  {group,GrPath},{testcases,TCs},
-					  {label,TestName}], Config),
-	      ok = execute(TestName, {{group,GrPath},{testcases,TCs}},
-			   OptsM22, ERPidM22, Config),
-	      N+1
+      fun({GrPath,TCs,Found}, N) ->
+    	      TestName = list_to_atom("m2_spec_cases_" ++ integer_to_list(N)),
+           %% ct:pal("NOW RUNNING M2 TEST ~p: ~p + ~p", [TestName,GrPath,TCs]),
+    	      {OptsM22,ERPidM22} = setup([{dir,DataDir},{suite,?M2},
+    					  {group,GrPath},{testcase,TCs},
+    					  {label,TestName}], Config),
+    	      ok = execute(TestName, {GrPath,TCs,Found},
+    			   OptsM22, ERPidM22, Config),
+    	      N+1
       end, 1, M2Rest),
     ok.
 
@@ -1029,20 +1041,31 @@ run_groups_with_options(Config) ->
 %%%-----------------------------------------------------------------
 %%% 
 run_groups_with_testspec(Config) ->
-    TC = run_groups_with_testspec,
+    Name = run_groups_with_testspec,
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
 
     {M1All,M1Rest,M2All,M2Rest} = get_all_groups_and_cases(Config),
 
-    M1AllTerm =	{groups,DataDir,?M1,[Path || {Path,_} <- M1All]},
+    M1AllGrs = lists:flatmap(fun({Path,_,_}) when is_atom(hd(Path)) -> Path;
+				({Path,_,_}) when is_list(hd(Path)) -> Path;
+				({Path,_,_}) -> [Path]
+			     end, M1All),
+    M1AllTerm =	{groups,DataDir,?M1,M1AllGrs},
+
     M1RestTerms = lists:map(
-		    fun({GrPath,TCs}) ->
+		    fun({GrPath,TCs,_}) ->
 			    {groups,DataDir,?M1,GrPath,{cases,TCs}}
 		    end, M1Rest),
-    M2AllTerm =	{groups,DataDir,?M2,[Path || {Path,_} <- M2All],{cases,all}},
+
+    M2AllGrs = lists:flatmap(fun({Path,_,_}) when is_atom(hd(Path)) -> Path;
+				({Path,_,_}) when is_list(hd(Path)) -> Path;
+				({Path,_,_}) -> [Path]
+			     end, M2All),
+    M2AllTerm =	{groups,DataDir,?M2,M2AllGrs,{cases,all}},
+
     M2RestTerms = lists:map(
-		    fun({GrPath,TCs}) ->
+		    fun({GrPath,TCs,_}) ->
 			    {groups,DataDir,?M2,GrPath,{cases,TCs}}
 		    end, M2Rest),
 
@@ -1052,7 +1075,7 @@ run_groups_with_testspec(Config) ->
 				M2RestTerms]),
 
     TestSpec = [{merge_tests,false},
-		{label,TC}] ++ GroupTerms,
+		{label,Name}] ++ GroupTerms,
 
     ct:pal("Here's the test spec:~n~p", [TestSpec]),
 
@@ -1060,7 +1083,12 @@ run_groups_with_testspec(Config) ->
 						  "groups_search_spec"),
 
     {Opts,ERPid} = setup([{spec,TestSpecName}], Config),
-    ok = execute(TC, GroupTerms, Opts, ERPid, Config).
+    GroupInfo = 
+	[{M1AllTerm,lists:flatten([Found || {_,_,Found} <- M1All])} |
+	 M1Rest] ++
+	[{M2AllTerm,lists:flatten([Found || {_,_,Found} <- M2All])} |
+	 M2Rest],
+    ok = execute(Name, GroupInfo, Opts, ERPid, Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -1085,19 +1113,21 @@ groups2() ->
 get_all_groups_and_cases(Config) ->
     {value,{_,_,FindGrTCs}} = lists:keysearch(find_groups, 1, groups()),
 
-    MGTs = [apply(?MODULE, TC, [Config]) || TC <- FindGrTCs],
+    MGTFs = [apply(?MODULE, TC, [Config]) || TC <- FindGrTCs],
 
-    ct:pal("Extracted data from ~p test cases", [length(MGTs)]),
+    ct:pal("Extracted data from ~p test cases", [length(MGTFs)]),
 
-    lists:foldr(fun({M,Gs,TCs},
+    lists:foldr(fun({M,Gs,TCs,F},
 		    {M11,M12,M21,M22}) ->
-			case {M,TCs} of
-			    {?M1,all} -> {[{Gs,all}|M11],M12,M21,M22};
-			    {?M1,_} -> {M11,[{Gs,TCs}|M12],M21,M22};
-			    {?M2,all} -> {M11,M12,[{Gs,all}|M21],M22};
-			    {?M2,_} -> {M11,M12,M21,[{Gs,TCs}|M22]}
+			case {M,Gs,TCs} of
+			    {?M1,all,_} -> {M11,[{Gs,TCs,F}|M12],M21,M22};
+			    {?M1,_,all} -> {[{Gs,all,F}|M11],M12,M21,M22};
+			    {?M1,_,_} -> {M11,[{Gs,TCs,F}|M12],M21,M22};
+			    {?M2,all,_} -> {M11,M12,M21,[{Gs,TCs,F}|M22]};
+			    {?M2,_,all} -> {M11,M12,[{Gs,all,F}|M21],M22};
+			    {?M2,_,_} -> {M11,M12,M21,[{Gs,TCs,F}|M22]}
 			end
-		end, {[],[],[],[]}, MGTs).
+		end, {[],[],[],[]}, MGTFs).
     
 %%%-----------------------------------------------------------------
 
@@ -1112,122 +1142,102 @@ setup(Test, Config) ->
 execute(Name, TestParams, Opts, ERPid, Config) ->
     ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
-
+    Events1 = reformat(Events, ?eh),
     ct_test_support:log_events(Name, 
-			       reformat(Events, ?eh),
+			       Events1,
 			       ?config(priv_dir, Config),
 			       Opts),
-
-    TestEvents = events_to_check(Name, TestParams),
-    ct_test_support:verify_events(TestEvents, Events, Config).
+    verify_events(Name, TestParams, Events1).
 
 reformat(Events, EH) ->
     ct_test_support:reformat(Events, EH).
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
-events_to_check(Test, Params) ->
+verify_events(Name, Params, Events) ->
     %% 2 tests (ct:run_test + script_start) is default
-    events_to_check(Test, Params, 2).
+    verify_events(Name, Params, Events, 2).
 
-events_to_check(_, _, 0) ->
-    [];
-events_to_check(Test, Params, N) ->
-    test_events(Test, Params) ++ events_to_check(Test, Params, N-1).
+verify_events(_, _, _, 0) ->
+    ok;
+verify_events(Name, Params, Events, N) ->
+    test_events(Name, Params, Events),
+    verify_events(Name, Params, Events, N-1).
 
 %%%-----------------------------------------------------------------
 %%% check run_groups_with_options
 
-test_events(m1_all_cases, {_,[all,top1,top2,sub1,sub2]}) ->
-    [];
+test_events(TestName, {GrPath,Found}, Events) ->
+    test_events(TestName, {GrPath,all,Found}, Events);
 
-test_events(m1_spec_cases_1, {{_,top1},{_,[top1_tc2]}}) ->
-    [];
-test_events(m1_spec_cases_2, {{_,top2},{_,[top2_tc2]}}) ->
-    [];
-test_events(m1_spec_cases_3, {{_,sub1},{_,[sub1_tc2]}}) ->
-    [];
-test_events(m1_spec_cases_4, {{_,sub2},{_,[sub2_tc2]}}) ->
-    [];
-test_events(m1_spec_cases_5, {{_,[top1,top2]},{_,[sub21_tc1,sub22_tc1]}}) ->
-    [];
-test_events(m1_spec_cases_6, {{_,[[top1],[top2]]},{_,tc3}}) ->
-    [];
-
-test_events(m2_all_cases, {_,[[top1,top2],
-				  [[top1],[top2]],
-				  [sub121,sub221],
-				  [[top1,sub12,sub121]]]}) ->
-    [];
-
-test_events(m2_spec_cases_1, {{_,all},{_,[sub_tc2,tc3]}}) ->
-    [];
-test_events(m2_spec_cases_2, {{_,[top1,top2]},{_,tc3}}) ->
-    [];
-test_events(m2_spec_cases_3, {{_,[top1,top2]},{_,top1_tc1}}) ->
-    [];
-test_events(m2_spec_cases_4, {{_,[top1,top2]},{_,sub2xx_tc1}}) ->
-    [];
-test_events(m2_spec_cases_5, {{_,[top1,top2]},{_,[sub21_tc1,sub22_tc1]}}) ->
-    [];
-test_events(m2_spec_cases_6, {{_,[[top1],[top2]]},{_,tc3}}) ->
-    [];
-test_events(m2_spec_cases_7, {{_,[sub121]},{_,tc3}}) ->
-    [];
-test_events(m2_spec_cases_8, {{_,sub12},{_,tc3}}) ->
-    [];
-test_events(m2_spec_cases_9, {{_,[top1,sub21]},{_,sub_tc2}}) ->
-    [];
-test_events(m2_spec_cases_10, {{_,[[top1,sub12]]},{_,sub12_tc1}}) ->
-    [];
-test_events(m2_spec_cases_11, {{_,[[top1,sub12]]},{_,[sub_tc2]}}) ->
-    [];
-test_events(m2_spec_cases_12, {{_,[[top1,sub12]]},{_,[sub12_tc1,sub_tc2]}}) ->
-    [];
-test_events(m2_spec_cases_13, {{_,[[top2,sub22]]},{_,[sub22_tc1,sub_tc2]}}) ->
-    [];
-test_events(m2_spec_cases_14, {{_,[[sub2xx]]},{_,tc3}}) ->
-    [];
-test_events(m2_spec_cases_15, {{_,[[sub22,sub2xx]]},{_,tc3}}) ->
-    [];
-test_events(m2_spec_cases_16, {{_,[[top2,sub2xx]]},{_,[sub2xx_tc1,tc3]}}) ->
-    [];
-test_events(m2_spec_cases_17, {{_,[[top2,sub22,sub2xx]]},
-			       {_,[top2_tc1,sub2xx_tc1,tc3]}}) ->
-    [];
-test_events(m2_spec_cases_18, {{_,[sub2xx]},{_,[top2_tc1]}}) ->
-    [];
+test_events(TestName, {GrPath,TCs,Found}, Events)
+  when TestName /= run_groups_with_testspec ->
+    try check_events(Events, flatten_tests(Found)) of
+	ok -> ok
+    catch
+	throw:Reason ->
+	    ct:pal("Test failed for ~p with group path ~p and cases ~p"
+		   "~nReason: ~p", [TestName,GrPath,TCs,Reason]),
+	    throw(failed)
+    end;
 
 %%%-----------------------------------------------------------------
 %%% check run_groups_with_testspec
 
-test_events(run_groups_with_testspec, 
-	    [{_,_,_,[all,top1,top2,sub1,sub2]},
-	     {_,_,_,top1,{cases,[top1_tc2]}},
-	     {_,_,_,top2,{cases,[top2_tc2]}},
-	     {_,_,_,sub1,{cases,[sub1_tc2]}},
-	     {_,_,_,sub2,{cases,[sub2_tc2]}},
-	     {_,_,_,[[top1,top2],[[top1],[top2]],
-		     [sub121,sub221],[[top1,sub12,sub121]]],{cases,all}},
-	     {_,_,_,all,{cases,[sub_tc2,tc3]}},
-	     {_,_,_,[top1,top2],{cases,tc3}},
-	     {_,_,_,[top1,top2],{cases,top1_tc1}},
-	     {_,_,_,[top1,top2],{cases,sub2xx_tc1}},
-	     {_,_,_,[top1,top2],{cases,[sub21_tc1,sub22_tc1]}},
-	     {_,_,_,[[top1],[top2]],{cases,tc3}},
-	     {_,_,_,[sub121],{cases,tc3}},
-	     {_,_,_,sub12,{cases,tc3}},
-	     {_,_,_,[top1,sub21],{cases,sub_tc2}},
-	     {_,_,_,[[top1,sub12]],{cases,sub12_tc1}},
-	     {_,_,_,[[top1,sub12]],{cases,[sub_tc2]}},
-	     {_,_,_,[[top1,sub12]],{cases,[sub12_tc1,sub_tc2]}},
-	     {_,_,_,[[top2,sub22]],{cases,[sub22_tc1,sub_tc2]}},
-	     {_,_,_,[[sub2xx]],{cases,tc3}},
-	     {_,_,_,[[sub22,sub2xx]],{cases,tc3}},
-	     {_,_,_,[[top2,sub2xx]],{cases,[sub2xx_tc1,tc3]}},
-	     {_,_,_,[[top2,sub22,sub2xx]],{cases,[top2_tc1,sub2xx_tc1,tc3]}},
-	     {_,_,_,[sub2xx],{cases,[top2_tc1]}}]) ->
+test_events(run_groups_with_testspec, Params, Events) ->
+    AllFound = lists:flatmap(fun({_All,Found}) when is_tuple(Found) ->
+				     [Found];
+				({_All,Found}) -> 
+				     Found;
+				({_Gr,_TCs,Found}) when is_tuple(Found) ->
+				     [Found];
+				({_Gr,_TCs,Found}) ->
+				     Found
+			     end, Params),
+    try check_events(Events, flatten_tests(AllFound)) of
+	ok -> ok
+    catch
+	throw:Reason ->
+	    ct:pal("Test failed for run_groups_with_testspec."
+		   "~nReason: ~p", [Reason]),
+	    throw(failed)
+    end.
+
+flatten_tests({conf,[{name,G}|_],{Mod,_I},Tests,_E}) ->
+    lists:flatten([{group,Mod,G} | flatten_tests(Tests)]);
+flatten_tests([{conf,[{name,G}|_],{Mod,_I},Tests,_E} | Confs]) ->
+    lists:flatten([{group,Mod,G} | flatten_tests(Tests)]) ++
+	lists:flatten(flatten_tests(Confs));
+flatten_tests([{_Mod,_TC} = Case | Tests]) ->
+    lists:flatten([Case | flatten_tests(Tests)]); 
+flatten_tests([]) ->
     [].
 
-
+check_events([{_,tc_start,{Mod,{init_per_group,G,_}}} | Evs],
+	     [{group,Mod,G} | Check]) ->
+    check_events(Evs, Check);
+check_events([{_,tc_start,{Mod,TC}} | Evs],
+	     [{Mod,TC} | Check]) when is_atom(TC) ->
+    check_events(Evs, Check);
+check_events([{_,tc_start,{Mod,{init_per_group,G,_}}} | _Evs], Check) ->
+    ct:pal("CHECK FAILED!~nGroup ~p in ~p not found in ~p.",
+	   [G,Mod,Check]),
+    throw({test_not_found,{Mod,G}});
+check_events([{_,tc_start,{Mod,TC}} | _Evs], Check)
+  when is_atom(TC), TC /= init_per_suite, TC /= end_per_suite ->
+    ct:pal("CHECK FAILED!~nCase ~p in ~p not found in ~p.",
+	   [TC,Mod,Check]),
+    throw({test_not_found,{Mod,TC}});
+check_events([Group | Evs], Check) when is_list(Group) ->
+    Check1 = check_events(Group, Check),
+    check_events(Evs, Check1);
+check_events(_, []) ->
+    ok;
+check_events([Elem | Evs], Check) when is_tuple(Elem) ->
+    check_events(Evs, Check);
+check_events([], Check = [_|_]) ->
+    ct:pal("CHECK FAILED!~nTests remain: ~p", [Check]),
+    throw({tests_remain,Check});
+check_events([Wut | _],_) ->
+    throw({unexpected,Wut}).
 

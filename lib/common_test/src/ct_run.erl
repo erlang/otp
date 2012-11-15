@@ -1708,11 +1708,15 @@ compile_and_run(Tests, Skip, Opts, Args) ->
 	    SavedErrors = save_make_errors(SuiteMakeErrors),
 	    ct_repeat:log_loop_info(Args),
 	    
-	    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
-	    
-	    ReleaseSh = proplists:get_value(release_shell, Args),
-	    ct_util:set_testdata({release_shell,ReleaseSh}),
-	    possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts);
+	    try final_tests(Tests,Skip,SavedErrors) of
+		{Tests1,Skip1} ->	    
+		    ReleaseSh = proplists:get_value(release_shell, Args),
+		    ct_util:set_testdata({release_shell,ReleaseSh}),
+		    possibly_spawn(ReleaseSh == true, Tests1, Skip1, Opts)
+	    catch
+		_:BadFormat ->
+		    {error,BadFormat}
+	    end;
 	false ->
 	    io:nl(),
 	    ct_util:stop(clean),
@@ -1982,8 +1986,7 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 		  %% for now, only flat group defs are allowed as
 		  %% start options and test spec terms
 		  fun({all,all}) ->
-			  ct_groups:make_all_conf(TestDir,
-						  Suite, []);
+			  [ct_groups:make_conf(TestDir, Suite, all, [], all)];
 		     ({skipped,Group,TCs}) ->
 			  [ct_groups:make_conf(TestDir, Suite,
 					       Group, [skipped], TCs)];
@@ -2277,9 +2280,11 @@ add_jobs([{TestDir,all,_}|Tests], Skip, Opts, CleanUp) ->
 	    wait_for_idle(),
 	    add_jobs(Tests, Skip, Opts, CleanUp)
     end;
-add_jobs([{TestDir,[Suite],all}|Tests], Skip, Opts, CleanUp) when is_atom(Suite) ->
+add_jobs([{TestDir,[Suite],all}|Tests], Skip,
+	 Opts, CleanUp) when is_atom(Suite) ->
     add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp);
-add_jobs([{TestDir,Suites,all}|Tests], Skip, Opts, CleanUp) when is_list(Suites) ->
+add_jobs([{TestDir,Suites,all}|Tests], Skip,
+	 Opts, CleanUp) when is_list(Suites) ->
     Name = get_name(TestDir) ++ ".suites",
     case catch test_server_ctrl:add_module_with_skip(Name, Suites,
 						     skiplist(TestDir,Skip)) of
@@ -2294,7 +2299,8 @@ add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp) ->
 	ok ->
 	    Name =  get_name(TestDir) ++ "." ++ atom_to_list(Suite),
 	    case catch test_server_ctrl:add_module_with_skip(Name, [Suite],
-							     skiplist(TestDir,Skip)) of
+							     skiplist(TestDir,
+								      Skip)) of
 		{'EXIT',_} ->
 		    CleanUp;
 		_ ->
@@ -2473,8 +2479,10 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 				FileTest = fun(F, suites) -> is_suite(F);
 					      (F, helpmods) -> not is_suite(F)
 					   end,
-				Files = lists:flatmap(fun({F,out_of_date}) ->
-							      case FileTest(F, Targets) of
+				Files =
+				    lists:flatmap(fun({F,out_of_date}) ->
+							  case FileTest(F,
+									Targets) of
 								  true -> [F];
 								  false -> []
 							      end;

@@ -26,7 +26,7 @@
 -module(ct_groups).
 
 -export([find_groups/4]).
--export([make_all_conf/3, make_conf/5]).
+-export([make_all_conf/3, make_all_conf/4, make_conf/5]).
 -export([delete_subs/2]).
 -export([expand_groups/3, search_and_override/3]).
 
@@ -39,14 +39,15 @@ find_groups(Mod, GrNames, TCs, GroupDefs) when is_atom(GrNames) ;
     find_groups1(Mod, GrNames, TCs, GroupDefs);
 
 find_groups(Mod, Groups, TCs, GroupDefs) when Groups /= [] ->
-    [find_groups1(Mod, [GrNames], TCs, GroupDefs) || GrNames <- Groups];
+    lists:append([find_groups1(Mod, [GrNames], TCs, GroupDefs) || 
+		     GrNames <- Groups]);
 
 find_groups(_Mod, [], _TCs, _GroupDefs) ->
     [].
 
-%% GrNames == atom: Single group name, perform full search
-%% GrNames == list: List of groups, find all matching paths
-%% GrNames == [list]: Search path terminated by last group in GrNames
+%% GrNames == atom(): Single group name, perform full search
+%% GrNames == list(): List of groups, find all matching paths
+%% GrNames == [list()]: Search path terminated by last group in GrNames
 find_groups1(Mod, GrNames, TCs, GroupDefs) ->
     {GrNames1,FindAll} =
 	case GrNames of
@@ -57,8 +58,11 @@ find_groups1(Mod, GrNames, TCs, GroupDefs) ->
 	    Path ->
 		{Path,true}
 	end,
-    TCs1 = if is_atom(TCs), TCs /= all -> [TCs];
-	      true -> TCs end,
+    TCs1 = if (is_atom(TCs) and (TCs /= all)) or is_tuple(TCs) ->
+		   [TCs];
+	      true -> 
+		   TCs 
+	   end,
     Found = find(Mod, GrNames1, TCs1, GroupDefs, [],
 		 GroupDefs, FindAll),
     [Conf || Conf <- Found, Conf /= 'NOMATCH'].
@@ -94,11 +98,30 @@ find(Mod, [Name|GrNames]=SPath, TCs, [{Name,Props,Tests} | Gs], Known,
 
 %% Group path terminated, stop the search
 find(Mod, [], TCs, Tests, _Known, _Defs, false) ->
-    case [{Mod,TC} || TC <- Tests,
-		      (((TCs == all) and is_atom(TC))
-		       or ((catch lists:member(TC, TCs)) == true))] of
-	[]    -> ['NOMATCH'];
-	Cases -> Cases
+    Cases = lists:flatmap(fun(TC) when is_atom(TC), TCs == all ->
+				  [{Mod,TC}];
+			     ({group,_}) ->
+				  [];
+			     ({_,_}=TC) when TCs == all ->
+				  [TC];
+			     (TC) ->
+				  if is_atom(TC) ->
+					  Tuple = {Mod,TC},
+					  case lists:member(Tuple, TCs) of
+					      true  ->
+						  [Tuple];
+					      false ->
+						  case lists:member(TC, TCs) of
+						      true  -> [{Mod,TC}];
+						      false -> []
+						  end
+					  end;
+				     true ->
+					  []
+				  end
+			  end, Tests),
+    if Cases == [] -> ['NOMATCH'];
+       true -> Cases
     end;
 
 %% No more groups
@@ -143,17 +166,39 @@ find(Mod, GrNames, TCs, [{ExternalTC, Case} = TC | Gs], Known,
 %% Save test case
 find(Mod, GrNames, all, [TC | Gs], Known,
      Defs, FindAll) when is_atom(TC) ->
-    [{Mod, TC} | find(Mod, GrNames, all, Gs, Known, Defs, FindAll)];
+    [{Mod,TC} | find(Mod, GrNames, all, Gs, Known, Defs, FindAll)];
+
+%% Save test case
+find(Mod, GrNames, all, [{M,TC} | Gs], Known,
+     Defs, FindAll) when is_atom(M), M /= group, is_atom(TC) ->
+    [{M,TC} | find(Mod, GrNames, all, Gs, Known, Defs, FindAll)];
 
 %% Check if test case should be saved
 find(Mod, GrNames, TCs, [TC | Gs], Known,
-     Defs, FindAll) when is_atom(TC) ->
-    case lists:member(TC, TCs) of
-	true ->
-	    [{Mod, TC} | find(Mod, GrNames, TCs, Gs, Known,
-			      Defs, FindAll)];
-	false ->
-	    find(Mod, GrNames, TCs, Gs, Known, Defs, FindAll)
+     Defs, FindAll) when is_atom(TC) orelse 
+			 ((size(TC) == 2) and (hd(TC) /= group)) ->
+    Case =
+	if is_atom(TC) ->
+		Tuple = {Mod,TC},
+		case lists:member(Tuple, TCs) of
+		    true  ->
+			Tuple;
+		    false ->
+			case lists:member(TC, TCs) of
+			    true  -> {Mod,TC};
+			    false -> []
+			end
+		end;
+	   true ->
+		case lists:member(TC, TCs) of
+		    true  -> {Mod,TC};
+		    false -> []
+		end
+	end,
+    if Case == [] ->
+	    find(Mod, GrNames, TCs, Gs, Known, Defs, FindAll);
+       true ->
+	    [Case | find(Mod, GrNames, TCs, Gs, Known, Defs, FindAll)]
     end;
 
 %% Unexpeted term in group list
@@ -242,10 +287,28 @@ rm_unwanted_tcs(Tests, all, []) ->
     Tests;
 
 rm_unwanted_tcs(Tests, TCs, []) ->
-    [Test || Test <- Tests,
-	     ((is_atom(Test) and (lists:member(Test, TCs) == true))
-	      or (not is_atom(Test)))];
-
+    lists:flatmap(fun(Test) when is_tuple(Test), (size(Test) > 2) ->
+			  [Test];
+		     (Test={group,_}) ->
+			  [Test];
+		     (Test={_M,TC}) ->
+			  case lists:member(TC, TCs) of
+			      true  -> [Test];
+			      false -> []
+			  end;
+		     (Test) when is_atom(Test) ->
+			  case lists:keysearch(Test, 2, TCs) of
+			      {value,_} ->
+				  [Test];
+			      _ ->
+				  case lists:member(Test, TCs) of
+				      true  -> [Test];
+				      false -> []
+				  end
+			  end;
+		     (Test) -> [Test]
+		  end, Tests);
+					  
 rm_unwanted_tcs(Tests, _TCs, _) ->
     [Test || Test <- Tests, not is_atom(Test)].
 
@@ -282,7 +345,7 @@ is_sub({conf,Props,_,_,_}=Conf, [{conf,_,_,Tests,_} | Confs]) ->
 	true ->
 	    true;
 	false ->
-	    is_sub(Conf, Tests) or is_sub(Conf, Confs)
+	    is_sub(Conf, Tests) orelse is_sub(Conf, Confs)
     end;
 
 is_sub(Conf, [_TC | Tests]) ->
@@ -312,31 +375,29 @@ expand(Mod, Name, Defs) ->
 	    throw({error,list_to_atom(E)})
     end.
 
-make_all_conf(Dir, Mod, _Props) ->
+make_all_conf(Dir, Mod, Props, TestSpec) ->
     case code:is_loaded(Mod) of
 	false ->
 	    code:load_abs(filename:join(Dir,atom_to_list(Mod)));
 	_ ->
 	    ok
     end,
-    make_all_conf(Mod).
+    make_all_conf(Mod, Props, TestSpec).
 
-make_all_conf(Mod) ->
+make_all_conf(Mod, Props, TestSpec) ->
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
-	    {error,{invalid_group_definition,Mod}};
+	    exit({invalid_group_definition,Mod});
 	GroupDefs when is_list(GroupDefs) ->
-	    case catch find_groups(Mod, all, all, GroupDefs) of
+	    case catch find_groups(Mod, all, TestSpec, GroupDefs) of
 		{error,_} = Error ->
 		    %% this makes test_server call error_in_suite as first
 		    %% (and only) test case so we can report Error properly
 		    [{ct_framework,error_in_suite,[[Error]]}];
 		[] ->
-		    {error,{invalid_group_spec,Mod}};
-		ConfTests ->
-		    [{conf,Props,Init,all,End} ||
-			{conf,Props,Init,_,End}
-			    <- delete_subs(ConfTests, ConfTests)]
+		    exit({invalid_group_spec,Mod});
+		_ConfTests ->
+		    make_conf(Mod, all, Props, TestSpec) 
 	    end
     end.
 
