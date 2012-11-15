@@ -222,11 +222,18 @@ erts_aint32_t erts_alcu_fix_alloc_shrink(Allctr_t *, erts_aint32_t);
 #define CARRIER_SZ_MASK         UNIT_MASK
 
 
-#if HAVE_SUPER_ALIGNED_MB_CARRIERS
-#  define CARRIER_OFFSET_BITS   13
-#  define CARRIER_OFFSET_SHIFT  (sizeof(UWord)*8 - CARRIER_OFFSET_BITS)
-#  define CARRIER_OFFSET_MASK   (~((UWord)0) << CARRIER_OFFSET_SHIFT)
-#  define MBC_ABLK_SZ_MASK	(~CARRIER_OFFSET_MASK & ~FLG_MASK)
+#ifdef ARCH_64
+#  define MBC_ABLK_OFFSET_BITS   24
+#elif HAVE_SUPER_ALIGNED_MB_CARRIERS
+#  define MBC_ABLK_OFFSET_BITS   13
+#else
+#  define MBC_ABLK_OFFSET_BITS   0 /* no carrier offset in block header */
+#endif
+
+#if MBC_ABLK_OFFSET_BITS
+#  define MBC_ABLK_OFFSET_SHIFT  (sizeof(UWord)*8 - MBC_ABLK_OFFSET_BITS)
+#  define MBC_ABLK_OFFSET_MASK   (~((UWord)0) << MBC_ABLK_OFFSET_SHIFT)
+#  define MBC_ABLK_SZ_MASK	(~MBC_ABLK_OFFSET_MASK & ~FLG_MASK)
 #else
 #  define MBC_ABLK_SZ_MASK	(~FLG_MASK)
 #endif
@@ -257,13 +264,14 @@ typedef struct {
 
 typedef struct {
     UWord bhdr;
-#if !HAVE_SUPER_ALIGNED_MB_CARRIERS
+#if !MBC_ABLK_OFFSET_BITS
     Carrier_t *carrier;
-#endif
+#else
     union {
 	Carrier_t *carrier;     /* if free */
 	char       udata__[1];  /* if allocated */
     }u;
+#endif
 } Block_t;
 
 typedef UWord FreeBlkFtr_t; /* Footer of a free block */

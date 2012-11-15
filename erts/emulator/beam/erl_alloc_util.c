@@ -153,7 +153,11 @@ MBC after deallocating first block:
 #define UNUSED1_BLK_FTR_FLG	(((UWord) 1) << 1)
 #define UNUSED2_BLK_FTR_FLG	(((UWord) 1) << 2)
 
-#define ABLK_HDR_SZ (offsetof(Block_t,u))
+#if MBC_ABLK_OFFSET_BITS
+#  define ABLK_HDR_SZ (offsetof(Block_t,u))
+#else
+#  define ABLK_HDR_SZ (sizeof(Block_t))
+#endif
 #define FBLK_FTR_SZ (sizeof(FreeBlkFtr_t))
 
 #define UMEMSZ2BLKSZ(AP, SZ)						\
@@ -202,16 +206,16 @@ MBC after deallocating first block:
 #define SBH_LAST_BLK		LAST_BLK_HDR_FLG
 
 
-#if HAVE_SUPER_ALIGNED_MB_CARRIERS
+#if MBC_ABLK_OFFSET_BITS
 
-#  define MBC_SZ_MAX_LIMIT ((((UWord)1 << CARRIER_OFFSET_BITS) - 1) << MSEG_ALIGN_BITS)
+#  define MBC_SZ_MAX_LIMIT ((((UWord)1 << MBC_ABLK_OFFSET_BITS) - 1) << MSEG_ALIGN_BITS)
 
 #  define BLK_CARRIER_OFFSET(B, C) (((char*)(B) - (char*)(C)) >> MSEG_UNIT_SHIFT)
 
 #  define SET_MBC_ABLK_HDR(B, Sz, F, C) \
     (ASSERT(((Sz) & ~MBC_ABLK_SZ_MASK) == 0), \
      ASSERT(!((UWord)(F) & (~FLG_MASK|THIS_FREE_BLK_HDR_FLG))), \
-     (B)->bhdr = ((Sz) | (F) | (BLK_CARRIER_OFFSET(B,C) << CARRIER_OFFSET_SHIFT)))
+     (B)->bhdr = ((Sz) | (F) | (BLK_CARRIER_OFFSET(B,C) << MBC_ABLK_OFFSET_SHIFT)))
 
 #  define SET_MBC_FBLK_HDR(B, Sz, F, C) \
     (ASSERT(((Sz) & ~MBC_FBLK_SZ_MASK) == 0), \
@@ -222,7 +226,7 @@ MBC after deallocating first block:
 #  define ABLK_TO_MBC(B) \
     (ASSERT(IS_MBC_BLK(B) && IS_ALLOCED_BLK(B)), \
      (Carrier_t*)((MSEG_UNIT_FLOOR((UWord)(B)) - \
-		  (((B)->bhdr >> CARRIER_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
+		  (((B)->bhdr >> MBC_ABLK_OFFSET_SHIFT) << MSEG_UNIT_SHIFT))))
 
 #  define FBLK_TO_MBC(B) \
     (ASSERT(IS_MBC_BLK(B) && IS_FREE_BLK(B)), \
@@ -232,7 +236,7 @@ MBC after deallocating first block:
 
 #  define IS_MBC_FIRST_ABLK(AP,B) \
   ((((UWord)(B) & ~MSEG_UNIT_MASK) == (AP)->mbc_header_size) \
-   && ((B)->bhdr & CARRIER_OFFSET_MASK) == 0)
+   && ((B)->bhdr & MBC_ABLK_OFFSET_MASK) == 0)
 
 #  define IS_MBC_FIRST_FBLK(AP,B) \
   ((char*)(B) == (char*)((B)->u.carrier) + (AP)->mbc_header_size)
@@ -247,11 +251,11 @@ MBC after deallocating first block:
    (B)->bhdr &= (MBC_ABLK_SZ_MASK|FLG_MASK))
 
 #  define SET_BLK_ALLOCED(B) \
-  (ASSERT(((B)->bhdr & (CARRIER_OFFSET_MASK|THIS_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
+  (ASSERT(((B)->bhdr & (MBC_ABLK_OFFSET_MASK|THIS_FREE_BLK_HDR_FLG)) == THIS_FREE_BLK_HDR_FLG), \
    (B)->bhdr &= ~THIS_FREE_BLK_HDR_FLG, \
-   (B)->bhdr |= (BLK_CARRIER_OFFSET(B,(B)->u.carrier) << CARRIER_OFFSET_SHIFT))
+   (B)->bhdr |= (BLK_CARRIER_OFFSET(B,(B)->u.carrier) << MBC_ABLK_OFFSET_SHIFT))
 
-#else /* !HAVE_SUPER_ALIGNED_MB_CARRIERS */
+#else /* !MBC_ABLK_OFFSET_BITS */
 
 #  define MBC_SZ_MAX_LIMIT ((UWord)~0)
 
@@ -284,7 +288,7 @@ MBC after deallocating first block:
 #  define SET_BLK_ALLOCED(B) \
   ((B)->bhdr &= ~THIS_FREE_BLK_HDR_FLG)
 
-#endif /* !HAVE_SUPER_ALIGNED_MB_CARRIERS */
+#endif /* !MBC_ABLK_OFFSET_BITS */
 
 #define SET_SBC_BLK_HDR(B, Sz) \
   (ASSERT(((Sz) & FLG_MASK) == 0), (B)->bhdr = ((Sz) | (SBC_BLK_HDR_FLG)))
@@ -4158,11 +4162,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     allctr->ramv			= init->ramv;
     allctr->main_carrier_size		= init->mmbcs;
     allctr->sbc_threshold		= init->sbct;
-#if HAVE_SUPER_ALIGNED_MB_CARRIERS
     if (allctr->sbc_threshold > MBC_ABLK_SZ_MASK - ABLK_HDR_SZ) {
 	allctr->sbc_threshold = MBC_ABLK_SZ_MASK - ABLK_HDR_SZ + 1;
     }
-#endif
 
 #if HAVE_ERTS_MSEG
     allctr->mseg_opt.abs_shrink_th	= init->asbcst;
@@ -4180,11 +4182,9 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 #endif
 
     allctr->largest_mbc_size		= MAX(init->lmbcs, init->smbcs);
-#if HAVE_SUPER_ALIGNED_MB_CARRIERS
     if (allctr->largest_mbc_size > MBC_SZ_MAX_LIMIT) {
 	allctr->largest_mbc_size = MBC_SZ_MAX_LIMIT;
     }
-#endif
 
     allctr->smallest_mbc_size		= init->smbcs;
     allctr->mbc_growth_stages		= MAX(1, init->mbcgs);
