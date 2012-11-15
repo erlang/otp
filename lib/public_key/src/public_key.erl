@@ -176,9 +176,7 @@ der_decode(Asn1Type, Der) when is_atom(Asn1Type), is_binary(Der) ->
 %% Description: Encodes a public key entity with asn1 DER encoding.
 %%--------------------------------------------------------------------
 der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') or 
-				  (Asn1Type == 'EncryptedPrivateKeyInfo') or
-				  (Asn1Type == 'CertificationRequest')
-				  ->
+				  (Asn1Type == 'EncryptedPrivateKeyInfo') ->
      try
 	{ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
 	iolist_to_binary(Encoded)

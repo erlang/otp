@@ -16,12 +16,12 @@ informationFramework, authenticationFramework
     FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
                             usefulDefinitions(0) 3}
 
-  Name, ATTRIBUTE
+  ATTRIBUTE
     FROM InformationFramework informationFramework
 
-  ALGORITHM, Certificate, CertificateSerialNumber,
+  Name, Certificate, CertificateSerialNumber,
     CertificateList, Time
-    FROM AuthenticationFramework authenticationFramework;
+    FROM PKIX1Explicit88; -- AuthenticationFramework authenticationFramework;
 
 --  contentType, messageDigest, signingTime
 -- , counterSignature
@@ -30,8 +30,20 @@ informationFramework, authenticationFramework
 --
 -- 6. Useful types
 --
+
+-- inlined from AuthenticationFramework
+
+ALGORITHM ::= CLASS {&Type  OPTIONAL,
+                     &id    OBJECT IDENTIFIER UNIQUE
+}WITH SYNTAX {[&Type]
+              IDENTIFIED BY &id
+}
+
+-- inlined from PKCS-9
+
 pkcs-9 OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840)
                               rsadsi(113549) pkcs(1) 9}
+
 contentType ATTRIBUTE ::= {
         WITH SYNTAX ContentType
 --        EQUALITY MATCHING RULE objectIdentifierMatch
@@ -69,16 +81,16 @@ SigningTime ::= Time -- imported from ISO/IEC 9594-8
 
 -- Also defined in X.509
 -- Redeclared here as a parameterized type
-AlgorithmIdentifier {ALGORITHM:IOSet} ::= SEQUENCE {
+AlgorithmIdentifierPKSC-7 {ALGORITHM:IOSet} ::= SEQUENCE {
    algorithm   ALGORITHM.&id({IOSet}),
    parameters  ALGORITHM.&Type({IOSet}{@algorithm}) OPTIONAL
 }
 
 -- Also defined in X.501
 -- Redeclared here as a parameterized type
-Attribute { ATTRIBUTE:IOSet } ::= SEQUENCE {
-  type    ATTRIBUTE.&id({IOSet}),
-  values  SET SIZE (1..MAX) OF ATTRIBUTE.&Type({IOSet}{@type})
+AttributePKCS-7 { ATTRIBUTE:IOSet } ::= SEQUENCE {
+   type    ATTRIBUTE.&id({IOSet}),
+   values  SET SIZE (1..MAX) OF ATTRIBUTE.&Type({IOSet}{@type})
 }
 
 CertificateRevocationLists ::=
@@ -91,21 +103,21 @@ CRLSequence ::=
   SEQUENCE OF CertificateList
 
 ContentEncryptionAlgorithmIdentifier ::=
-  AlgorithmIdentifier {{ContentEncryptionAlgorithms}}
+  AlgorithmIdentifierPKSC-7 {{ContentEncryptionAlgorithms}}
 
 ContentEncryptionAlgorithms ALGORITHM ::= {
   ...  -- add any application-specific algorithms here
 }
 
 DigestAlgorithmIdentifier ::=
-  AlgorithmIdentifier {{DigestAlgorithms}}
+  AlgorithmIdentifierPKSC-7 {{DigestAlgorithms}}
 
 DigestAlgorithms ALGORITHM ::= {
    ...  -- add any application-specific algorithms here
 }
 
 DigestEncryptionAlgorithmIdentifier ::=
-  AlgorithmIdentifier {{DigestEncryptionAlgorithms}}
+  AlgorithmIdentifierPKSC-7 {{DigestEncryptionAlgorithms}}
 
 DigestEncryptionAlgorithms ALGORITHM ::= {
   ...  -- add any application-specific algorithms here
@@ -127,7 +139,7 @@ IssuerAndSerialNumber ::= SEQUENCE {
 }
 
 KeyEncryptionAlgorithmIdentifier ::=
-  AlgorithmIdentifier {{KeyEncryptionAlgorithms}}
+  AlgorithmIdentifierPKSC-7 {{KeyEncryptionAlgorithms}}
 
 KeyEncryptionAlgorithms ALGORITHM ::= {
   ...  -- add any application-specific algorithms here
@@ -213,8 +225,8 @@ SignerInfo ::= SEQUENCE {
                   IssuerAndSerialNumber,
   digestAlgorithm DigestAlgorithmIdentifier,
   authenticatedAttributes CHOICE {
-    aaSet         [0] IMPLICIT SET OF Attribute {{Authenticated}},
-    aaSequence    [2] EXPLICIT SEQUENCE OF Attribute {{Authenticated}}
+    aaSet         [0] IMPLICIT SET OF AttributePKCS-7 {{Authenticated}},
+    aaSequence    [2] EXPLICIT SEQUENCE OF AttributePKCS-7 {{Authenticated}}
     -- Explicit because easier to compute digest on sequence of attributes and then reuse
     -- encoded sequence in aaSequence.
   } OPTIONAL,
@@ -222,8 +234,8 @@ SignerInfo ::= SEQUENCE {
                   DigestEncryptionAlgorithmIdentifier,
   encryptedDigest EncryptedDigest,
   unauthenticatedAttributes CHOICE {
-    uaSet         [1] IMPLICIT SET OF Attribute {{Unauthenticated}},
-    uaSequence    [3] IMPLICIT SEQUENCE OF Attribute {{Unauthenticated}}
+    uaSet         [1] IMPLICIT SET OF AttributePKCS-7 {{Unauthenticated}},
+    uaSequence    [3] IMPLICIT SEQUENCE OF AttributePKCS-7 {{Unauthenticated}}
   } OPTIONAL
 } (WITH COMPONENTS { ..., version (siVer1),
   authenticatedAttributes       (WITH COMPONENTS { ..., aaSequence ABSENT }),

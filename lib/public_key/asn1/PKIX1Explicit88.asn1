@@ -206,12 +206,11 @@ DomainComponent ::=     IA5String
 
 -- Legacy attributes
 
-pkcs-9 OBJECT IDENTIFIER ::=
-       { iso(1) member-body(2) us(840) rsadsi(113549) pkcs(1) 9 }
-
 id-emailAddress          AttributeType ::= { pkcs-9 1 }
 
 EmailAddress ::=         IA5String (SIZE (1..ub-emailaddress-length))
+
+-- Legacy attributes
 
 -- naming data types --
 

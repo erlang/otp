@@ -111,7 +111,7 @@ all() ->
 
 groups() -> 
     [{pem_decode_encode, [], [dsa_pem, rsa_pem, encrypted_pem,
-			      dh_pem, cert_pem]},
+			      dh_pem, cert_pem, pkcs10_pem]},
      {ssh_public_key_decode_encode, [],
       [ssh_rsa_public_key, ssh_dsa_public_key, ssh_rfc4716_rsa_comment,
        ssh_rfc4716_dsa_comment, ssh_rfc4716_rsa_subject, ssh_known_hosts,
@@ -263,7 +263,11 @@ pkcs10_pem(Config) when is_list(Config) ->
 
     erl_make_certs:der_to_pem(filename:join(Datadir, "new_req.pem"), [Entry]),
 
-    public_key:der_decode('CertificationRequest', DerPKCS10).
+    PKCS10 = public_key:der_decode('CertificationRequest', DerPKCS10),
+    PKCS10 = public_key:pem_entry_decode(Entry),
+
+    Entry = public_key:pem_entry_encode('CertificationRequest', PKCS10).
+
    
 %%--------------------------------------------------------------------
 cert_pem(doc) ->

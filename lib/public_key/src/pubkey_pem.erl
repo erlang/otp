@@ -219,7 +219,9 @@ pem_end(<<"-----BEGIN ENCRYPTED PRIVATE KEY-----">>) ->
 pem_end(<<"-----BEGIN CERTIFICATE REQUEST-----">>) ->
     <<"-----END CERTIFICATE REQUEST-----">>;
 pem_end(<<"-----BEGIN PKCS7-----">>) ->
-    <<"-----END PKCS7-----">>.
+    <<"-----END PKCS7-----">>;
+pem_end(_) ->
+    undefined.
 
 asn1_type(<<"-----BEGIN CERTIFICATE-----">>) ->
     'Certificate';
