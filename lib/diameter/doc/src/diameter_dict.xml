@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="latin1" ?>
 <!DOCTYPE erlref SYSTEM "fileref.dtd" [
-  <!ENTITY % ents SYSTEM "diameter.ent" >
-  %ents;
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
 ]>
 
 <fileref>

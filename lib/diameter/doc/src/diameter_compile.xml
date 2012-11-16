@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE comref SYSTEM "comref.dtd" [
-  <!ENTITY % ents SYSTEM "diameter.ent" >
-  %ents;
+  <!ENTITY % also SYSTEM "seealso.ent" >
+  <!ENTITY % here SYSTEM "seehere.ent" >
+  %also;
+  %here;
 ]>
 
 <comref>
