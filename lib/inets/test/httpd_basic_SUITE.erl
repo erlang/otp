@@ -34,7 +34,8 @@ all() ->
     [
      uri_too_long_414, 
      header_too_long_413, 
-     escaped_url_in_error_body
+     escaped_url_in_error_body,
+     slowdose
     ].
 
 groups() -> 
@@ -278,7 +279,18 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     inets:stop(httpd, Pid),
     tsp("escaped_url_in_error_body -> done"),    
     ok.
-
+slowdose(doc) ->
+    ["Testing minimum bytes per second option"];
+slowdose(Config) when is_list(Config) ->
+    HttpdConf =   ?config(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0}, {minimum_bytes_per_second, 200}|HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    {ok, Socket} = gen_tcp:connect("localhost", Port, []),
+    receive
+    after 6000 ->
+	    {error, closed} = gen_tcp:send(Socket, "Hey")
+    end.
 find_URL_path([]) ->
     "";
 find_URL_path(["URL", URL | _]) ->

@@ -18,8 +18,14 @@
 
 {"%VSN%",
  [
+  {"5.9.1", 
+   [
+    {load_module, httpd_request_handler, soft_purge, soft_purge, []}
+   ]
+  },
   {"5.9", 
    [
+    {load_module, httpd_request_handler, soft_purge, soft_purge, []},
     {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
     {load_module, inets_service, soft_purge, soft_purge, []}, 
     {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
@@ -29,6 +35,7 @@
   }, 
   {"5.8.1", 
    [
+    {load_module, httpd_request_handler, soft_purge, soft_purge, []},
     {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
     {load_module, inets_service, soft_purge, soft_purge, []}, 
 
@@ -64,8 +71,14 @@
   }
  ],
  [
+  {"5.9.1", 
+   [
+    {load_module, httpd_request_handler, soft_purge, soft_purge, []}
+   ]
+  },
   {"5.9", 
    [
+    {load_module, httpd_request_handler, soft_purge, soft_purge, []},
     {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
     {load_module, inets_service, soft_purge, soft_purge, []}, 
     {load_module, httpc,         soft_purge, soft_purge, [httpc_manager]}, 
@@ -75,6 +88,7 @@
   }, 
   {"5.8.1",
    [
+    {load_module, httpd_request_handler, soft_purge, soft_purge, []},
     {load_module, tftp,          soft_purge, soft_purge, [inets_service]}, 
     {load_module, inets_service, soft_purge, soft_purge, []}, 
 
