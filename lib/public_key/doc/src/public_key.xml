@@ -34,7 +34,7 @@
   <modulesummary> API module for public key infrastructure.</modulesummary>
   <description>
     <p>This module provides functions to handle public key infrastructure
-    from RFC 5280 - X.509 certificates and some parts of the PKCS-standard.
+    from <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280</url>- X.509 certificates and some parts of the PKCS-standard.
     </p>
   </description>
 
@@ -61,7 +61,7 @@
     <p><code>string = [bytes()]</code></p>
    
     <p><code>pki_asn1_type() = 'Certificate' | 'RSAPrivateKey'| 'RSAPublicKey'
-    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'| 'PrivateKeyInfo'</code></p>
+    'DSAPrivateKey' | 'DSAPublicKey' | 'DHParameter' | 'SubjectPublicKeyInfo'| 'PrivateKeyInfo' | 'CertificationRequest'</code></p>
     
     <p><code>pem_entry () = {pki_asn1_type(), binary(), %% DER or encrypted DER
           not_encrypted | cipher_info()} </code></p>

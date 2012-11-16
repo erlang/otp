@@ -1,11 +1,11 @@
-<?xml version="1.0" encoding="latin1" ?>
+<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE chapter SYSTEM "chapter.dtd">
 
 <chapter>
   <header>
     <copyright>
       <year>2008</year>
-      <year>2011</year>
+      <year>2012</year>
       <holder>Ericsson AB, All Rights Reserved</holder>
     </copyright>
     <legalnotice>
@@ -37,15 +37,15 @@
   <section>
     <title>Purpose</title>
     <p> This application provides an API to public key infrastructure
-    from  RFC 3280 (X.509 certificates) and public key formats defined
-    by the PKCS-standard.</p>
+    from <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC
+    5280</url> (X.509 certificates) and public key formats defined by
+    the <url href=http://www.rsa.com/rsalabs/node.asp?id=2124"> PKCS-standard</url></p>
   </section>
 
   <section>
     <title>Prerequisites</title>
-    <p>It is assumed that the reader is familiar with the Erlang
-    programming language, concepts of OTP and has a basic understanding
-    of the concepts of using public keys.</p>
+    <p>It is assumed that the reader has a basic understanding
+    of the concepts of using public keys and digital certificates.</p>
   </section>
 
   <section>
