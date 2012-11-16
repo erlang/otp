@@ -572,8 +572,8 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint size) {
 	    /* unlink from cache area */
 	    csize   = c->size;
 	    seg     = c->seg;
-	    c->next = NULL;
 	    mk->cache_area[i] = c->next;
+	    c->next = NULL;
 	    mk->cache_size--;
 	    mk->cache_hits++;
 
@@ -592,11 +592,11 @@ static ERTS_INLINE void *cache_get_segment(MemKind *mk, Uint size) {
 		}
 		i--;
 	    }
-
 	    ASSERT(csize == size);
 	    return seg;
 	}
     }
+
     return NULL;
 }
 
@@ -707,6 +707,8 @@ static void mseg_clear_memkind_cache(MemKind *mk) {
 
 	mseg_drop_memkind_cache_size(mk, i);
     }
+
+    ASSERT(mk->cache_size == 0);
 }
 
 static void mseg_clear_cache(ErtsMsegAllctr_t *ma) {
