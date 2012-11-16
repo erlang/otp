@@ -1266,7 +1266,7 @@ type(erlang, process_info, 2, Xs) ->
 			 ['last_calls'] ->
 			   t_tuple([InfoItem,
 				    t_sup(t_atom('false'), t_list())]);
-			 ['links'] -> t_tuple([InfoItem, t_list(t_pid())]);
+			 ['links'] -> t_tuple([InfoItem, t_list(t_sup(t_pid(),t_port()))]);
 			 ['memory'] ->
 			   t_tuple([InfoItem, t_non_neg_integer()]);
 			 ['message_queue_len'] ->
